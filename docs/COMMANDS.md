@@ -25,7 +25,7 @@ Gradle은 별도 설치본 대신 저장소의 Wrapper를 사용한다.
 | 코드 포맷 검사 | `.\gradlew.bat spotlessCheck` | `./gradlew spotlessCheck` |
 | 코드 포맷 자동 수정 | `.\gradlew.bat spotlessApply` | `./gradlew spotlessApply` |
 
-현재 저장소에는 데이터소스 연결값이 포함되어 있지 않다. 데이터베이스 설정이나 테스트용 데이터소스가 준비되지 않은 환경에서는 `bootRun`, `test`, `build`가 데이터소스 자동 설정 단계에서 실패할 수 있다.
+현재 저장소에는 운영용 데이터소스 연결값이 포함되어 있지 않다. `bootRun`은 PostgreSQL 연결 설정이 없으면 데이터소스 자동 설정 단계에서 실패한다. 테스트는 H2 인메모리 데이터베이스를 사용하므로 별도의 PostgreSQL 없이 `test`와 `build`를 실행할 수 있다.
 
 ## 코드 포맷 확인
 

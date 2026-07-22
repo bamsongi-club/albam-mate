@@ -1,0 +1,4 @@
+interface:
+  display_name: "PR Writer"
+  short_description: "diff 이해 퀴즈 기반 안전한 PR 작성·생성"
+  default_prompt: "Use $pr-writer to prepare and create a pull request from the current changes."
