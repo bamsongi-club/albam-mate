@@ -1,13 +1,11 @@
-package cloud.bamsongi.blackharbor;
+package cloud.bamsongi.albammate;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class BlackHarborApplicationTests {
+class AlbamMateApplicationTests {
 
     @Test
-    void contextLoads() {
-    }
-
+    void contextLoads() {}
 }
