@@ -1,4 +1,0 @@
-interface:
-  display_name: "Review Code"
-  short_description: "diff 기반 최대 3차원 코드·PR 리뷰"
-  default_prompt: "Use $review-code to review the current branch changes."
