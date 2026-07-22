@@ -1,13 +1,12 @@
-package cloud.bamsongi.blackharbor;
+package cloud.bamsongi.albammate;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class BlackHarborApplication {
+public class AlbamMateApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(BlackHarborApplication.class, args);
+        SpringApplication.run(AlbamMateApplication.class, args);
     }
-
 }

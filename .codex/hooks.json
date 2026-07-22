@@ -1,0 +1,17 @@
+{
+  "description": "Save team-entered prompts to the private bamsongi-brain repository.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.bamsongi/hooks/user-prompt.mjs\" --tool codex",
+            "commandWindows": "powershell -NoProfile -Command \"node (Join-Path (git rev-parse --show-toplevel) '.bamsongi/hooks/user-prompt.mjs') --tool codex\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
