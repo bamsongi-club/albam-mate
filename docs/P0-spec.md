@@ -381,7 +381,7 @@ MVP에서는 다음 상태를 사용한다.
 | 10 | 세션 수정 | `PATCH /api/sessions/{sessionId}` | Y | 개설자가 세션 정보 수정 |
 | 11 | 세션 취소 | `DELETE /api/sessions/{sessionId}` | Y | 세션을 `CANCELED` 상태로 변경 |
 | 12 | 세션 종료 | `PATCH /api/sessions/{sessionId}/status` | Y | 세션을 `FINISHED` 상태로 변경 |
-| 13 | 세션 참가 | `POST /api/sessions/{sessionId}/participants` | Y | 유저를 참가자로 등록 |
+| 13 | 세션 참가 | `POST /api/sessions/{sessionId}/participants` | Y | 신규 참가·재활성화 후 `201 Created`와 전이 완료 결과 반환 |
 | 14 | 참가 취소 | `DELETE /api/sessions/{sessionId}/participants/me` | Y | 본인의 참가 취소 |
 | 15 | 내 모임 조회 | `GET /api/users/me/sessions?role=all\|joined\|hosted` | Y | `role` 기준 본인의 참여·개설 세션 이력 조회 |
 
@@ -413,7 +413,7 @@ GET /api/sessions?type=PERSON_FOCUSED&page=...&size=...
 
 내 모임은 다음 기준으로 조회한다.
 
-- `role=joined`: 본인이 개설하지 않았지만 참가한 세션
+- `role=joined`: `Participation.status = ACTIVE`이고 `Session.status != CANCELED`인 본인 참가 세션만 반환한다. 참가 취소한 `CANCELED` 관계와 세션이 취소된 `CANCELED` 세션은 제외하고, `FINISHED` 세션은 실제 참여 이력으로 포함한다.
 - `role=hosted`: 본인이 개설한 세션
 - `role=all`: `joined`와 `hosted`의 중복 없는 합집합
 
@@ -454,6 +454,7 @@ GET /api/sessions?type=PERSON_FOCUSED&page=...&size=...
 - `CANCELED`, `FINISHED` 상태의 세션에는 참가할 수 없다.
 - 동일 유저는 같은 세션에 활성 참가 상태를 하나만 가진다.
 - 동일 유저는 시간대가 겹치는 다른 세션에도 추가 참가할 수 있다.
+- 신규 참가와 기존 `CANCELED` 관계 재활성화는 모두 `201 Created`를 반환한다. 응답은 공통 래퍼 없이 참가 관계 변경과 상태 전이 뒤의 `status`, `participantCount`, `remainingRecruitmentSeats`를 포함한다.
 
 ### 7.5 정원 및 모집 상태
 
@@ -498,7 +499,7 @@ GET /api/sessions?type=PERSON_FOCUSED&page=...&size=...
 - 참가와 세션 생성은 로그인 후 사용할 수 있다.
 - 공개 세션 응답에는 사용자 ID, 주최자·참가자 목록, 정확한 `place`를 포함하지 않는다. 주최자와 현재 `ACTIVE` 참가자만 정확한 장소와 닉네임 기준 참가자 목록을 조회할 수 있다.
 - `CANCELED`, `FINISHED` 세션의 직접 상세는 주최자와 현재 `ACTIVE` 참가자만 조회할 수 있고, 그 외 요청에는 404를 반환한다.
-- 내 모임 이력은 해당 유저 본인만 조회할 수 있으며, 본인이 참가하거나 개설한 `CANCELED`, `FINISHED` 세션도 포함한다.
+- 내 모임 이력은 해당 유저 본인만 조회할 수 있으며, 각 항목은 `myRole`, `participationStatus`, 현재 요청자 기준 `joinable`을 반환한다. `role=joined`에는 현재 `ACTIVE` 참가 관계의 세션만 남기고, 참가 취소한 관계와 `CANCELED` 세션은 제외한다. `FINISHED` 세션은 실제 참여 이력으로 포함한다. 정확한 장소와 참가자 목록은 반환하지 않는다.
 - 이메일, 인증 정보, 사용자 ID는 다른 유저에게 노출하지 않는다.
 
 ---
@@ -508,6 +509,6 @@ GET /api/sessions?type=PERSON_FOCUSED&page=...&size=...
 - 6절의 15개 API가 [API 명세서](API.md)의 요청·성공 응답·오류 코드대로 재현된다.
 - 비로그인 또는 세션 관계가 없는 유저는 공개 세션 응답만 받고, 주최자·현재 `ACTIVE` 참가자만 정확한 장소와 참가자 목록을 받는다. `CANCELED`, `FINISHED` 상세는 권한 없는 요청에 404를 반환한다.
 - `recruitmentCapacity` 1과 10은 생성할 수 있고 0과 11은 `VALIDATION_ERROR`로 거절한다. 마지막 자리에 참가하면 `CLOSED`가 되며, 시작 전 참가 취소로 자리가 생기면 `RECRUITING`으로 되돌아가고 재참가할 수 있다.
-- 참가 요청은 정원을 초과하지 않으며, 중복 활성 참가와 시작 시각 이후 참가·취소를 거절한다.
+- 참가 요청은 정원을 초과하지 않으며, 중복 활성 참가와 시작 시각 이후 참가·취소를 거절한다. 신규 참가·재활성화는 모두 `201 Created`를 반환하고, 마지막 좌석이면 응답의 `status = CLOSED`, `remainingRecruitmentSeats = 0`이 검증된다.
 - 수정은 개설자·시작 전·`RECRUITING`·외부 `ACTIVE` 참가자 없음 조건에서만 가능하고, `sessionType`은 변경할 수 없다.
 - 모집 정원 충족 또는 `startsAt` 도달 시 `CLOSED`, `CLOSED && now >= startsAt`일 때 주최자 수동 `FINISHED`, `startsAt + 24시간` 경과 시 시스템 자동 `FINISHED` 전이가 검증된다.

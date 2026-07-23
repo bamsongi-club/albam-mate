@@ -149,6 +149,32 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 - `GET /api/sessions/{sessionId}`는 `RECRUITING`, `CLOSED` 세션에 대해 비로그인·관계 없는 요청자에게 `PublicSessionResponse`를, 주최자·현재 `ACTIVE` 참가자에게 `ParticipantSessionResponse`를 반환한다. `CANCELED`, `FINISHED` 세션은 주최자·현재 `ACTIVE` 참가자만 `ParticipantSessionResponse`를 조회할 수 있고 그 외 요청에는 404를 반환한다.
 - `joinable`은 현재 요청자의 실제 참가 가능 여부다. 비로그인, 주최자, 이미 `ACTIVE`인 참가자, `RECRUITING`이 아닌 세션, `now >= startsAt`, 남은 모집 자리가 없는 경우에는 `false`다. 로그인한 비주최자이며 현재 `ACTIVE`가 아니고 `RECRUITING && now < startsAt && remainingRecruitmentSeats > 0`일 때만 `true`다. 기존 `CANCELED` 참가 관계를 가진 유저도 이 조건이면 재참가할 수 있다.
 
+#### SessionParticipationResponse
+
+`POST /api/sessions/{sessionId}/participants`는 신규 참가와 기존 `CANCELED` 관계의 재활성화 모두에 아래 직접 응답을 반환한다. P0에서는 공통 응답 래퍼를 사용하지 않는다.
+
+~~~json
+{
+  "sessionId": 1,
+  "participationStatus": "ACTIVE",
+  "status": "CLOSED",
+  "participantCount": 4,
+  "remainingRecruitmentSeats": 0
+}
+~~~
+
+- `status`, `participantCount`, `remainingRecruitmentSeats`는 참가 관계 변경과 모집 상태 전이가 끝난 뒤의 값이다. 마지막 좌석 참가라면 각각 `CLOSED`, 최종 참가자 수, `0`이 된다.
+
+#### MySessionListItem
+
+`GET /api/users/me/sessions`의 각 항목은 `PublicSessionResponse`에 아래 필드를 더한 형태다. 정확한 `place`와 참가자 목록은 내 모임 이력에도 포함하지 않는다.
+
+| 필드 | 규칙 |
+|---|---|
+| `myRole` | `HOST` 또는 `JOINED` |
+| `participationStatus` | `myRole = JOINED`이면 항상 `ACTIVE`, `HOST`이면 `null` |
+| `joinable` | `PublicSessionResponse`와 같은 현재 요청자 기준 값. `JOINED` 항목은 현재 `ACTIVE` 참가자이므로 항상 `false`다. |
+
 ## 4. API 계약
 
 ### 4.1 인증과 프로필
@@ -238,12 +264,12 @@ GET /api/sessions?type=PERSON_FOCUSED&keyword=퇴근&page=0&size=20
 
 ### 4.5 참가·내 모임
 
-- `POST /api/sessions/{sessionId}/participants`는 `RECRUITING` 상태·시작 전·중복 참가·남은 모집 자리를 확인하고 참가 관계를 `ACTIVE`로 만든다. 이 검증, 참가 관계 생성·재활성화, 모집 상태 변경은 하나의 트랜잭션으로 수행해 모집 정원을 초과하지 않는다.
+- `POST /api/sessions/{sessionId}/participants`는 `RECRUITING` 상태·시작 전·중복 참가·남은 모집 자리를 확인하고 참가 관계를 `ACTIVE`로 만든다. 이 검증, 참가 관계 생성·재활성화, 모집 상태 변경은 하나의 트랜잭션으로 수행해 모집 정원을 초과하지 않는다. 신규 참가와 재활성화 모두 `201 Created`와 `SessionParticipationResponse`를 반환한다.
 - 참가 후 주최자 외 `ACTIVE` 참가자 수가 `capacity`에 도달하면 `RECRUITING → CLOSED`로 자동 전환한다.
 - `DELETE /api/sessions/{sessionId}/participants/me`는 본인만 `now < startsAt`일 때 수행한다. 시작 시각 전 빈자리가 생기면 `CLOSED → RECRUITING`으로 자동 복귀하고, 시작 시각 이후 취소는 `INVALID_SESSION_STATUS_TRANSITION`으로 거절한다.
 - 주최자는 자신의 참가만 따로 취소할 수 없다.
 - 시간대가 겹치는 다른 세션 참가를 차단하지 않는다.
-- `GET /api/users/me/sessions?role=all|joined|hosted`는 참여·개설 이력을 반환하며 `CANCELED`, `FINISHED`도 포함한다.
+- `GET /api/users/me/sessions?role=all|joined|hosted`는 `MySessionListItem` 목록을 반환한다. `joined`는 `Participation.status = ACTIVE`이고 `Session.status != CANCELED`인 본인 참가 세션만, `hosted`는 본인이 개설한 세션을 반환하며, `all`은 둘의 중복 없는 합집합이다. 참가 취소한 `CANCELED` 관계와 세션이 취소된 `CANCELED` 세션은 `joined`에서 제외하고, `FINISHED` 세션은 실제 참여 이력으로 포함한다.
 
 ### 4.6 상태 전이
 
