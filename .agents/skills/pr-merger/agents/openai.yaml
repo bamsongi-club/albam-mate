@@ -1,0 +1,4 @@
+interface:
+  display_name: "PR Merger"
+  short_description: "리뷰·CI·diff 퀴즈를 통과한 PR 안전 머지"
+  default_prompt: "Use $pr-merger to verify and merge a reviewed pull request."
