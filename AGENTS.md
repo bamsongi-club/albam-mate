@@ -4,10 +4,16 @@
 
 ## 문서 라우팅
 
-- 빌드, 실행, 테스트, 반복 확인 명령: [docs/COMMANDS.md](docs/COMMANDS.md)
-- 코드 포맷과 Git hook 최초 설정: [docs/guides/CODE_FORMATTING.md](docs/guides/CODE_FORMATTING.md)
-- Codex·Claude Code 프롬프트 기록 최초 설정: [docs/guides/PROMPT_LOGGING.md](docs/guides/PROMPT_LOGGING.md)
-- 프롬프트 훅의 동작 범위와 환경변수 규격: [.bamsongi/README.md](.bamsongi/README.md)
+| 작업 | 기준 문서 |
+| --- | --- |
+| 빌드, 실행, 테스트, 반복 확인 명령 | [docs/COMMANDS.md](docs/COMMANDS.md) |
+| 코드 포맷과 Git hook 최초 설정 | [docs/guides/CODE_FORMATTING.md](docs/guides/CODE_FORMATTING.md) |
+| Codex·Claude Code 프롬프트 기록 최초 설정 | [docs/guides/PROMPT_LOGGING.md](docs/guides/PROMPT_LOGGING.md) |
+| 프롬프트 훅의 동작 범위와 환경변수 규격 | [.bamsongi/README.md](.bamsongi/README.md) |
+| 전체 제품 목표와 단계별 범위 | [docs/PRD.md](docs/PRD.md) |
+| P0 1차 MVP 구현 범위와 완료 기준 | [docs/P0-spec.md](docs/P0-spec.md) |
+| P0 API 요청·응답과 오류 계약 | [docs/API.md](docs/API.md) |
+| P0 데이터 모델, 제약, ERD | [docs/ERD.md](docs/ERD.md) |
 
 ## 작업 원칙
 

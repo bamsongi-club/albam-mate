@@ -1,0 +1,415 @@
+# 알밤메이트 P0 API 명세서
+
+- 최종 수정일: 2026-07-23
+- 문서 상태: **P0 1차 MVP API 계약**
+- 기준 문서: [PRD](PRD.md), [P0-spec](P0-spec.md), [ERD](ERD.md)
+
+> 이 문서는 P0 1차 MVP의 15개 API만 정의한다.
+
+## 1. 공통 규칙
+
+- 기본 경로는 `/api`다.
+- 요청·응답은 `application/json`이다.
+- 인증 API는 `Authorization: Bearer {accessToken}` 헤더를 사용한다.
+- JSON은 camelCase, DB 컬럼은 snake_case를 사용한다.
+
+| API JSON | DB 컬럼 |
+|---|---|
+| `englishName` | `english_name` |
+| `imageUrl` | `image_url` |
+| `recommendedPlayerCount` | `recommended_player_count` |
+| `estimatedPlayTime` | `estimated_play_time` |
+| `detailDescription` | `detail_description` |
+| `isRulemasterLed` | `is_rulemaster_led` |
+| `recruitmentCapacity` | `capacity` |
+| `startsAt` | `start_at` |
+| `place` | `place` |
+
+- 시각은 ISO 8601 오프셋 형식으로 반환한다.
+- 사용자·게임·방·참가 관계의 ID는 1부터 증가하는 양의 정수다. JSON에서는 숫자로, 경로에서는 10진 정수로 전달한다. UUID는 사용하지 않는다.
+- 검증 오류는 `400`, 미인증은 `401`, 권한 없음은 `403`, 대상 없음은 `404`, 상태·정합성 충돌은 `409`를 사용한다.
+
+### 1.1 공통 응답
+
+모든 API는 아래 공통 응답 객체를 반환한다. `status`는 실제 HTTP 상태 코드와 같으며, 생성 성공 API는 HTTP `201 Created`와 `"status": 201`을 사용한다.
+
+성공 응답 예시:
+
+~~~json
+{
+  "status": 200,
+  "data": {}
+}
+~~~
+
+실패 응답 예시:
+
+~~~json
+{
+  "status": 400,
+  "code": "VALIDATION_ERROR",
+  "message": "요청값 검증에 실패했습니다.",
+  "data": null
+}
+~~~
+
+- 성공 응답의 `data`에는 각 API의 응답 모델을 넣는다. 본문으로 반환할 값이 없으면 빈 객체 `{}`를 넣는다.
+- 실패 응답의 `data`는 항상 `null`이다. `code`는 [오류 코드와 검증](#5-오류-코드와-검증)의 코드, `message`는 해당 오류를 설명하는 한국어 메시지다.
+
+### 1.2 페이지네이션
+
+목록 API는 기본적으로 아래 쿼리 파라미터를 사용한다.
+
+| 이름 | 타입 | 기본값 | 설명 |
+|---|---|---:|---|
+| `page` | int | 0 | 0부터 시작하는 페이지 번호 |
+| `size` | int | 10 | 페이지 크기. 1 이상 100 이하 |
+
+`page`가 음수이거나 `size`가 1~100 범위를 벗어나면 `VALIDATION_ERROR`를 반환한다.
+
+페이지 응답 예시:
+
+~~~json
+{
+  "status": 200,
+  "data": {
+    "content": [],
+    "page": 0,
+    "size": 10,
+    "totalElements": 120,
+    "totalPages": 12,
+    "hasNext": true
+  }
+}
+~~~
+
+- `content`는 해당 목록 항목의 배열이며, 결과가 없으면 빈 배열이다.
+- `hasNext`는 다음 페이지가 있으면 `true`다. `first`, `last` 필드는 반환하지 않는다.
+
+## 2. P0 API 목록 (15개)
+
+| # | 도메인 | 메서드 | 경로 | 인증 | 기능 |
+|---:|---|---|---|:---:|---|
+| 1 | 인증 | POST | `/api/auth/signup` | N | 회원가입 |
+| 2 | 인증 | POST | `/api/auth/login` | N | 로그인 |
+| 3 | 프로필 | GET | `/api/users/me` | Y | 본인 프로필 조회 |
+| 4 | 프로필 | PATCH | `/api/users/me` | Y | 본인 프로필 수정 |
+| 5 | 게임 | GET | `/api/games` | N | 게임 목록·게임명 검색 |
+| 6 | 게임 | GET | `/api/games/{gameId}` | N | 게임 상세 |
+| 7 | 방 | POST | `/api/rooms` | Y | 게임·사람 중심 방 생성 |
+| 8 | 방 | GET | `/api/rooms` | N | 유형별 방 목록 |
+| 9 | 방 | GET | `/api/rooms/{roomId}` | N | 방 상세·참가자 목록 |
+| 10 | 방 | PATCH | `/api/rooms/{roomId}` | Y | 주최자 방 수정 |
+| 11 | 방 | DELETE | `/api/rooms/{roomId}` | Y | 주최자 방 취소 |
+| 12 | 방 | PATCH | `/api/rooms/{roomId}/status` | Y | 주최자 방 종료 |
+| 13 | 참가 | POST | `/api/rooms/{roomId}/participants` | Y | 선착순 참가 |
+| 14 | 참가 | DELETE | `/api/rooms/{roomId}/participants/me` | Y | 본인 참가 취소 |
+| 15 | 내 모임 | GET | `/api/users/me/rooms?role=all\|joined\|hosted&page=0&size=10` | Y | 참여·개설 방 이력 |
+
+## 3. 응답 모델
+
+이 절의 응답 모델은 공통 응답 객체의 `data` 값이다. 목록 API는 1.2절의 페이지 응답 `data.content`에 각 항목 모델을 넣는다.
+
+### 3.1 UserSummary
+
+~~~json
+{
+  "id": 1,
+  "nickname": "알밤"
+}
+~~~
+
+P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는 응답에 포함하지 않는다.
+
+### 3.2 GameListItem
+
+~~~json
+{
+  "id": 1,
+  "name": "스플렌더",
+  "englishName": "Splendor",
+  "imageUrl": "https://example.com/games/splendor.png",
+  "recommendedPlayerCount": "2~4명",
+  "tag": "전략",
+  "estimatedPlayTime": "30분",
+  "complexity": 1.78,
+  "upcomingRoomCount": 3
+}
+~~~
+
+`upcomingRoomCount`는 미래 시점의 `GAME_FOCUSED` 방 중 `CANCELED`, `FINISHED`가 아닌 건수를 조회 시 계산한다. `games` 테이블에는 저장하지 않는다.
+
+### 3.3 GameDetail
+
+~~~json
+{
+  "id": 1,
+  "name": "스플렌더",
+  "englishName": "Splendor",
+  "alias": "스플",
+  "imageUrl": "https://example.com/games/splendor.png",
+  "recommendedPlayerCount": "2~4명",
+  "tag": "전략",
+  "estimatedPlayTime": "30분",
+  "complexity": 1.78,
+  "description": "보석을 모아 개발 카드를 구매하는 전략 게임입니다.",
+  "detailDescription": "보석 토큰과 개발 카드를 조합해 점수를 얻는 게임입니다.",
+  "upcomingRoomCount": 3
+}
+~~~
+
+`tag`는 표시값이다. P0 목록 API는 태그·인원·시간·복잡도 조건 필터를 받지 않는다.
+
+### 3.4 방 응답
+
+#### PublicRoomResponse
+
+~~~json
+{
+  "id": 1,
+  "roomType": "GAME_FOCUSED",
+  "title": "토요일 저녁 스플렌더",
+  "description": "처음 오신 분도 환영합니다.",
+  "game": {"id": 1, "name": "스플렌더"},
+  "experienceLevel": "ALL_LEVELS",
+  "isRulemasterLed": true,
+  "startsAt": "2026-07-25T19:00:00+09:00",
+  "region": "홍대",
+  "recruitmentCapacity": 3,
+  "participantCount": 2,
+  "remainingRecruitmentSeats": 2,
+  "status": "RECRUITING",
+  "joinable": false
+}
+~~~
+
+공개 응답은 방을 탐색·참가 판단하는 데 필요한 비식별 정보만 반환한다. `place`, 주최자, 참가자 목록과 사용자 ID는 포함하지 않는다.
+
+#### ParticipantRoomResponse
+
+주최자 또는 현재 `ACTIVE` 참가자가 상세를 조회하면 `PublicRoomResponse`의 모든 필드에 아래 필드가 추가된다.
+
+~~~json
+{
+  "place": "홍대입구역 인근 보드게임 카페",
+  "host": {"nickname": "알밤"},
+  "participants": [
+    {"nickname": "알밤"},
+    {"nickname": "밤송이"}
+  ]
+}
+~~~
+
+- `GAME_FOCUSED`는 `game`이 필수다. `PERSON_FOCUSED`는 `game`이 null일 수 있다.
+- `recruitmentCapacity`는 주최자를 제외한 모집 인원이다.
+- `participantCount`는 주최자 1명과 현재 `ACTIVE` 참가 관계 수의 합이다.
+- `participants`는 참가자 전용 상세에서만 반환하며 주최자와 현재 `ACTIVE` 참가자를 포함한다.
+- `GET /api/rooms/{roomId}`는 `RECRUITING`, `CLOSED` 방에 대해 비로그인·관계 없는 요청자에게 `PublicRoomResponse`를, 주최자·현재 `ACTIVE` 참가자에게 `ParticipantRoomResponse`를 반환한다. `CANCELED`, `FINISHED` 방은 주최자·현재 `ACTIVE` 참가자만 `ParticipantRoomResponse`를 조회할 수 있고 그 외 요청에는 404를 반환한다.
+- `joinable`은 현재 요청자의 실제 참가 가능 여부다. 비로그인, 주최자, 이미 `ACTIVE`인 참가자, `RECRUITING`이 아닌 방, `now >= startsAt`, 남은 모집 자리가 없는 경우에는 `false`다. 로그인한 비주최자이며 현재 `ACTIVE`가 아니고 `RECRUITING && now < startsAt && remainingRecruitmentSeats > 0`일 때만 `true`다. 기존 `CANCELED` 참가 관계를 가진 유저도 이 조건이면 재참가할 수 있다.
+
+#### RoomParticipationResponse
+
+`POST /api/rooms/{roomId}/participants`와 `DELETE /api/rooms/{roomId}/participants/me`의 `data`는 아래 `RoomParticipationResponse`다.
+
+~~~json
+{
+  "roomId": 1,
+  "participationStatus": "ACTIVE",
+  "roomStatus": "CLOSED",
+  "participantCount": 4,
+  "remainingRecruitmentSeats": 0
+}
+~~~
+
+- 참가 성공 시 `participationStatus`는 `ACTIVE`, 참가 취소 성공 시 `CANCELED`다.
+- `roomStatus`, `participantCount`, `remainingRecruitmentSeats`는 참가 관계 변경 또는 취소와 모집 상태 전이가 끝난 뒤의 값이다. 마지막 좌석 참가라면 각각 `CLOSED`, 최종 참가자 수, `0`이 된다.
+
+#### MyRoomListItem
+
+`GET /api/users/me/rooms`의 각 항목은 `PublicRoomResponse`에 아래 필드를 더한 형태다. 정확한 `place`와 참가자 목록은 내 모임 이력에도 포함하지 않는다.
+
+| 필드 | 규칙 |
+|---|---|
+| `myRole` | `HOST` 또는 `JOINED` |
+| `participationStatus` | `myRole = JOINED`이면 항상 `ACTIVE`, `HOST`이면 `null` |
+| `joinable` | `PublicRoomResponse`와 같은 현재 요청자 기준 값. `JOINED` 항목은 현재 `ACTIVE` 참가자이므로 항상 `false`다. |
+
+## 4. API 계약
+
+### 4.1 인증과 프로필
+
+| API | 요청 핵심값 | 성공 응답 | 규칙 |
+|---|---|---|---|
+| `POST /api/auth/signup` | email, password, nickname | 201, `data: UserSummary` | 이메일 중복은 409 |
+| `POST /api/auth/login` | email, password | 200, `data: {accessToken}` | 잘못된 자격증명은 401 |
+| `GET /api/users/me` | 없음 | 200, `data: UserSummary` | 본인만 조회 |
+| `PATCH /api/users/me` | nickname | 200, `data: UserSummary` | P0에서는 닉네임만 수정 |
+
+### 4.2 게임 조회·검색
+
+- `GET /api/games?keyword=스플렌더&page=0&size=10`은 게임명 부분 일치와 페이지 조회만 지원한다. `data.content`의 항목은 `GameListItem`이다.
+- `GET /api/games/{gameId}`는 `GameDetail`을 반환한다.
+- 게임 데이터는 운영자가 준비한다. 사용자용 게임 생성·수정·삭제 API는 제공하지 않는다.
+
+### 4.3 방 목록
+
+~~~text
+GET /api/rooms?type=GAME_FOCUSED&gameId={gameId}&page=0&size=10
+GET /api/rooms?type=PERSON_FOCUSED&keyword=퇴근&page=0&size=10
+~~~
+
+- `type`은 필수다.
+- `GAME_FOCUSED` 목록은 `gameId`가 필수이며 선택 게임의 방만 반환한다. `keyword`는 받을 수 없고 포함하면 `VALIDATION_ERROR`다.
+- `PERSON_FOCUSED` 목록은 `gameId`를 받을 수 없고 포함하면 `VALIDATION_ERROR`다. `keyword`는 선택값이며 방 제목을 부분 일치로 검색한다.
+- `keyword`는 사람 중심 방의 기본 제목 검색이며, P0에서 제외한 조건 필터가 아니다.
+- 공개 목록은 `RECRUITING`, `CLOSED`만 반환한다.
+- 방 목록의 `data.content` 각 항목은 `PublicRoomResponse` 형태를 사용한다. `joinable`은 요청자에 따라 계산한다.
+- `playerCount`, `playTime`, `region`, `experienceLevel`, `tag`, `categoryIds`, `bggWeightMin`, `bggWeightMax`는 P0 쿼리 파라미터가 아니다.
+
+### 4.4 방 생성·수정
+
+게임 중심 생성 요청:
+
+~~~json
+{
+  "roomType": "GAME_FOCUSED",
+  "title": "토요일 저녁 스플렌더",
+  "description": "처음 오신 분도 환영합니다.",
+  "gameId": 1,
+  "experienceLevel": "ALL_LEVELS",
+  "isRulemasterLed": true,
+  "startsAt": "2026-07-25T19:00:00+09:00",
+  "place": "홍대입구역 인근 보드게임 카페",
+  "recruitmentCapacity": 3
+}
+~~~
+
+사람 중심 생성 요청:
+
+~~~json
+{
+  "roomType": "PERSON_FOCUSED",
+  "title": "퇴근 후 가볍게 보드게임 할 분",
+  "description": "초보자도 환영합니다.",
+  "gameId": null,
+  "experienceLevel": "BEGINNER_WELCOME",
+  "isRulemasterLed": false,
+  "startsAt": "2026-07-25T19:00:00+09:00",
+  "place": "홍대입구역 인근",
+  "recruitmentCapacity": 3
+}
+~~~
+
+- `GAME_FOCUSED`는 존재하는 양의 정수 `gameId`가 필수다.
+- `PERSON_FOCUSED`의 `gameId`는 생략, `null`, 존재하는 양의 정수를 모두 허용한다. 존재하는 ID가 오면 선택 게임으로 저장하며, 요청으로 받지 않는 항목은 태그·카테고리·BGG Weight다.
+- `description`은 선택 값이고 최대 50자다.
+- `experienceLevel`은 `ALL_LEVELS`, `BEGINNER_WELCOME`, `EXPERIENCED_PREFERRED` 중 하나다. 검색 필터나 참가 제한으로 사용하지 않는다.
+- 서버는 `region`을 `홍대`로 저장한다. 생성·수정 요청에서 지역을 받지 않는다.
+- `recruitmentCapacity`는 1 이상 10 이하의 정수다.
+- 모든 로그인 사용자가 `isRulemasterLed`를 설정할 수 있다.
+- `PATCH /api/rooms/{roomId}`는 부분 수정이다. 생략한 필드는 기존 값을 유지한다.
+
+#### RoomUpdateRequest
+
+| 필드 | 수정 규칙 |
+|---|---|
+| `title`, `experienceLevel`, `isRulemasterLed`, `startsAt`, `place`, `recruitmentCapacity` | 요청에 있으면 생성과 같은 검증을 거쳐 해당 값으로 바꾼다. `startsAt`은 수정 시점보다 미래여야 하고 `recruitmentCapacity`는 1~10이어야 한다. |
+| `description` | 생략하면 유지하고, `null`이면 값을 지우며, 문자열이면 최대 50자로 바꾼다. |
+| `gameId` | 생략하면 유지한다. `GAME_FOCUSED`는 수정 후에도 존재하는 양의 정수 ID가 필수다. `PERSON_FOCUSED`는 `null`로 게임 선택을 지우거나 존재하는 양의 정수 ID로 선택 게임을 바꿀 수 있다. |
+| `roomType`, `region`, `status` | 요청으로 받을 수 없으며 포함하면 `VALIDATION_ERROR`다. |
+
+- 수정은 주최자만 할 수 있고, 저장된 `startsAt`보다 현재 시각이 이르며 `status = RECRUITING`이고 주최자 외 `ACTIVE` 참가자가 없을 때만 허용한다. 외부 `ACTIVE` 참가자가 있으면 `ROOM_UPDATE_NOT_ALLOWED_WITH_ACTIVE_PARTICIPANTS`, 나머지 조건을 만족하지 않으면 `INVALID_ROOM_STATUS_TRANSITION`을 반환한다.
+- `DELETE /api/rooms/{roomId}`는 삭제가 아니라 `CANCELED` 상태 변경이다.
+- `PATCH /api/rooms/{roomId}/status`는 `{"status":"FINISHED"}`만 받고, 주최자가 `status = CLOSED && now >= startsAt`인 방에만 허용한다.
+
+#### 방 쓰기 API 성공 응답
+
+아래 `data`는 [공통 응답](#11-공통-응답)의 `data` 값이다.
+
+| API | HTTP / wrapper `status` | `data` |
+|---|---|---|
+| `POST /api/rooms` | `201 Created` / `201` | 생성된 `ParticipantRoomResponse` |
+| `PATCH /api/rooms/{roomId}` | `200 OK` / `200` | 수정된 `ParticipantRoomResponse` |
+| `DELETE /api/rooms/{roomId}` | `200 OK` / `200` | `{ "roomId": 1, "roomStatus": "CANCELED" }` |
+| `PATCH /api/rooms/{roomId}/status` | `200 OK` / `200` | `{ "roomId": 1, "roomStatus": "FINISHED" }` |
+
+### 4.5 참가·내 모임
+
+#### 참가 쓰기 API 성공 응답
+
+| API | HTTP / wrapper `status` | `data` |
+|---|---|---|
+| `POST /api/rooms/{roomId}/participants` | `201 Created` / `201` | `participationStatus = ACTIVE`인 `RoomParticipationResponse` |
+| `DELETE /api/rooms/{roomId}/participants/me` | `200 OK` / `200` | `participationStatus = CANCELED`인 `RoomParticipationResponse` |
+
+- `POST /api/rooms/{roomId}/participants`는 `RECRUITING` 상태·시작 전·중복 참가·남은 모집 자리를 확인하고 참가 관계를 `ACTIVE`로 만든다. 이 검증, 참가 관계 생성·재활성화, 모집 상태 변경은 하나의 트랜잭션으로 수행해 모집 정원을 초과하지 않는다. 신규 참가와 재활성화 모두 `201 Created`와 `RoomParticipationResponse`를 반환한다.
+- 인증과 방 존재 확인 뒤 참가 요청 실패는 아래 우선순위로 반환한다.
+  1. 방이 `CANCELED`, `FINISHED`인 경우: `ROOM_NOT_RECRUITING`
+  2. 요청자가 주최자이거나 현재 `ACTIVE` 참가 관계가 있는 경우: `ALREADY_PARTICIPATING`
+  3. `remainingRecruitmentSeats = 0`인 경우: `CAPACITY_EXCEEDED`
+  4. `now >= startsAt`이거나 `status != RECRUITING`인 경우: `ROOM_NOT_RECRUITING`
+- 따라서 마지막 좌석 참가로 `CLOSED`가 된 방의 다음 신규 참가 요청은 `CAPACITY_EXCEEDED`다.
+- 참가 후 주최자 외 `ACTIVE` 참가자 수가 `capacity`에 도달하면 `RECRUITING → CLOSED`로 자동 전환한다.
+- `DELETE /api/rooms/{roomId}/participants/me`는 본인만 `now < startsAt`일 때 수행한다. 시작 시각 전 빈자리가 생기면 `CLOSED → RECRUITING`으로 자동 복귀하고, 시작 시각 이후 취소는 `INVALID_ROOM_STATUS_TRANSITION`으로 거절한다. 성공 시 `200 OK`와 `participationStatus = CANCELED`인 `RoomParticipationResponse`를 반환한다.
+- 인증과 방 존재 확인 뒤 참가 취소 실패는 아래 우선순위로 반환한다.
+  1. 요청자가 주최자인 경우: `FORBIDDEN`
+  2. 현재 `ACTIVE` 참가 관계가 없는 경우: `PARTICIPATION_NOT_FOUND`
+  3. `now >= startsAt`인 경우: `INVALID_ROOM_STATUS_TRANSITION`
+- 주최자는 자신의 참가만 따로 취소할 수 없다.
+- 시간대가 겹치는 다른 방 참가를 차단하지 않는다.
+- `GET /api/users/me/rooms?role=all|joined|hosted&page=0&size=10`은 `data.content`에 `MyRoomListItem` 목록을 반환한다. `joined`는 `Participation.status = ACTIVE`이고 `Room.status != CANCELED`인 본인 참가 방만, `hosted`는 본인이 개설한 방을 반환하며, `all`은 둘의 중복 없는 합집합이다. 참가 취소한 `CANCELED` 관계와 방이 취소된 `CANCELED` 방은 `joined`에서 제외하고, `FINISHED` 방은 실제 참여 이력으로 포함한다.
+
+### 4.6 상태 전이
+
+~~~text
+방 생성 ───────────────→ RECRUITING
+RECRUITING --모집 인원 충족 또는 시작 시각 도달--> CLOSED
+CLOSED --시작 전 참가 취소로 빈자리--> RECRUITING
+RECRUITING 또는 CLOSED --주최자 취소--> CANCELED
+CLOSED --주최자 종료(now >= startsAt) 또는 시작 시각+24시간--> FINISHED
+~~~
+
+`CANCELED`, `FINISHED`는 최종 상태다. 수동 모집 마감·재오픈은 허용하지 않는다.
+
+## 5. 오류 코드와 검증
+
+| 코드 | HTTP | 의미 |
+|---|---:|---|
+| `VALIDATION_ERROR` | 400 | 입력값·형식·길이 검증 실패 |
+| `UNAUTHENTICATED` | 401 | Access Token이 없거나 유효하지 않음 |
+| `INVALID_CREDENTIALS` | 401 | 이메일 또는 비밀번호가 일치하지 않음 |
+| `FORBIDDEN` | 403 | 인증은 됐지만 주최자 전용 작업 또는 참가 취소를 수행할 권한이 없음 |
+| `ROOM_NOT_FOUND` | 404 | 방이 없거나, 권한 없는 사용자가 취소·종료 방 상세를 조회함 |
+| `GAME_NOT_FOUND` | 404 | 게임이 없음 |
+| `PARTICIPATION_NOT_FOUND` | 404 | 현재 `ACTIVE`인 본인 참가 관계가 없음 |
+| `EMAIL_ALREADY_EXISTS` | 409 | 이미 사용 중인 이메일 |
+| `CAPACITY_EXCEEDED` | 409 | 모집 인원 초과 |
+| `ROOM_NOT_RECRUITING` | 409 | 모집 중이 아닌 방 참가 시도 |
+| `ALREADY_PARTICIPATING` | 409 | 같은 방 중복 참가 |
+| `INVALID_ROOM_STATUS_TRANSITION` | 409 | 허용되지 않은 상태 전이 |
+| `ROOM_UPDATE_NOT_ALLOWED_WITH_ACTIVE_PARTICIPANTS` | 409 | 주최자 외 활성 참가자가 있는 방 수정 시도 |
+
+### 5.1 엔드포인트별 오류 매트릭스
+
+| API | 오류 코드 |
+|---|---|
+| `POST /api/auth/signup` | `VALIDATION_ERROR`, `EMAIL_ALREADY_EXISTS` |
+| `POST /api/auth/login` | `VALIDATION_ERROR`, `INVALID_CREDENTIALS` |
+| `GET /api/users/me` | `UNAUTHENTICATED` |
+| `PATCH /api/users/me` | `UNAUTHENTICATED`, `VALIDATION_ERROR` |
+| `GET /api/games` | `VALIDATION_ERROR` |
+| `GET /api/games/{gameId}` | `GAME_NOT_FOUND` |
+| `POST /api/rooms` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `GAME_NOT_FOUND` |
+| `GET /api/rooms` | `VALIDATION_ERROR` |
+| `GET /api/rooms/{roomId}` | `ROOM_NOT_FOUND` |
+| `PATCH /api/rooms/{roomId}` | `UNAUTHENTICATED`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `GAME_NOT_FOUND`, `VALIDATION_ERROR`, `ROOM_UPDATE_NOT_ALLOWED_WITH_ACTIVE_PARTICIPANTS`, `INVALID_ROOM_STATUS_TRANSITION` |
+| `DELETE /api/rooms/{roomId}` | `UNAUTHENTICATED`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `INVALID_ROOM_STATUS_TRANSITION` |
+| `PATCH /api/rooms/{roomId}/status` | `UNAUTHENTICATED`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `INVALID_ROOM_STATUS_TRANSITION` |
+| `POST /api/rooms/{roomId}/participants` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `ALREADY_PARTICIPATING`, `ROOM_NOT_RECRUITING`, `CAPACITY_EXCEEDED` |
+| `DELETE /api/rooms/{roomId}/participants/me` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `PARTICIPATION_NOT_FOUND`, `FORBIDDEN`, `INVALID_ROOM_STATUS_TRANSITION` |
+| `GET /api/users/me/rooms` | `UNAUTHENTICATED`, `VALIDATION_ERROR` |
+
+- `GET /api/rooms/{roomId}`에서만 취소·종료 방을 권한 없는 사용자가 조회할 때 존재 여부를 숨기기 위해 `ROOM_NOT_FOUND`를 반환한다. 그 외 주최자 전용 쓰기 API의 비주최자 요청은 `FORBIDDEN`을 반환한다.
+- `PATCH /api/rooms/{roomId}`의 `GAME_NOT_FOUND`는 요청에 `gameId`를 포함했을 때만 적용한다.
+
+P0 구현 완료 검증은 [P0-spec](P0-spec.md)의 8절을 따른다.
