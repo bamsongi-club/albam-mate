@@ -15,7 +15,9 @@ description: "작성자 본인이 명시적으로 요청한 GitHub PR을 승인 
 
 ## 1. PR 스냅샷과 준비 상태 확인
 
-다음을 조회하고 `repo + PR number + baseRefOid + headRefOid`를 스냅샷으로 기록한다.
+`docs/CONVENTIONS.md`의 `## 커밋` 절을 읽고 커밋 제목 계약을 확인한다. 파일이나 절을 읽을 수 없으면 중단한다.
+
+사용자가 명시한 PR 번호가 양의 정수인지 확인해 `pr`에 보관한다. 다음을 조회하고 `repo + PR number + title + baseRefOid + headRefOid`를 스냅샷으로 기록한다.
 
 ~~~shell
 gh api user
@@ -27,10 +29,20 @@ gh pr diff <N>
 gh pr checks <N> --json bucket,name,state,workflow
 ~~~
 
+리뷰 목록에서 작성자가 아닌 리뷰어를 추린 뒤 각 리뷰어의 저장소 권한을 조회한다.
+
+~~~shell
+gh api "repos/$owner/$repo/collaborators/$reviewer/permission"
+~~~
+
 diff가 크면 GitHub API로 파일별 patch를 나누어 읽되 변경 파일을 빠뜨리지 않는다. 다음 조건을 모두 만족해야 퀴즈로 진행한다.
 
-- reviewDecision이 APPROVED이고, 작성자가 아닌 리뷰어의 APPROVED 리뷰가 현재 headRefOid에 제출되어 있다.
-- 최신 리뷰에 유효한 CHANGES_REQUESTED가 없고 모든 review thread가 resolved 상태다.
+- reviewDecision이 APPROVED이다.
+- 봇·작성자·권한을 확인할 수 없는 사용자를 제외하고 API 응답의 permission이 write 또는 admin인 리뷰어만 신뢰한다. maintain 역할은 permission에서 write로 매핑된다.
+- 신뢰한 리뷰어별 최신 유효 상태를 판정한다. COMMENTED, DISMISSED와 PENDING을 제외한 최신 리뷰가 APPROVED이고 commit_id가 현재 headRefOid인 리뷰어가 한 명 이상이어야 한다.
+- 신뢰한 리뷰어의 최신 유효 상태에 CHANGES_REQUESTED가 없고 모든 review thread가 resolved 상태다.
+- PR 제목이 정확히 `[type] 한국어 제목` 형식이고 `type`과 제목이 커밋 컨벤션을 충족한다. `[type]`과 제목을 분리해 scope 없이 `type: 한국어 제목` 형식의 `merge_subject`를 만들며, PR 제목을 그대로 재사용하거나 scope를 추론하지 않는다.
+- `merge_subject`를 명령 문자열로 조립하거나 평가하지 않고 `--subject`의 인용된 단일 인자로 전달한다.
 - 체크가 있으면 모든 bucket이 pass 또는 skipping이다. 체크가 없으면 등록된 CI가 없다고 명시한다.
 - mergeable이 MERGEABLE이고 mergeStateStatus가 CLEAN이다. UNKNOWN이면 잠시 뒤 다시 조회하고, 그 외 상태면 원인을 보고하고 중단한다.
 - 저장소가 squash merge를 허용한다.
@@ -45,12 +57,20 @@ gh api graphql --paginate -f owner=<owner> -f repo=<repo> -F number=<N> -f query
 
 ## 2. 로컬 브랜치 사전 점검
 
+PR 메타데이터의 headRefName과 headRefOid를 각각 `head_ref`, `head_oid`에 보관한다. `head_ref`를 명령 문자열로 조립하거나 eval·Invoke-Expression으로 평가하지 않고, 검증 후 항상 인용된 단일 인자로 전달한다.
+
+먼저 브랜치명 형식을 검증하고 실패하면 중단한다.
+
+~~~shell
+git check-ref-format --branch "$head_ref"
+~~~
+
 로컬 head 브랜치가 없으면 계속한다. 있으면 다음을 확인한다.
 
 ~~~shell
 git branch --show-current
 git status --short
-git rev-parse --verify refs/heads/<headRefName>
+git rev-parse --verify --end-of-options "refs/heads/$head_ref^{commit}"
 git worktree list --porcelain
 ~~~
 
@@ -71,25 +91,34 @@ git worktree list --porcelain
 - 3개를 한 라운드에서 모두 맞혀야 해당 스냅샷을 통과시킨다. 사용자 대신 답하거나 단순 확인으로 통과시키지 않는다.
 - 하나라도 틀리면 놓친 개념을 설명하고 약한 부분을 중심으로 새로운 3문제를 낸다. 맞힌 문제만 이월하지 않는다.
 - 원래의 명시적 머지 요청은 답변을 기다리는 pending 요청으로 유지한다. 3/3이면 별도 재확인 없이 남은 머지·삭제를 계속한다.
-- PR 번호, baseRefOid, headRefOid, diff, 리뷰, CI 상태가 달라지면 기존 문제와 통과를 무효화한다.
+- PR 번호, 제목, baseRefOid, headRefOid, diff, 리뷰, CI 상태가 달라지면 기존 문제와 통과를 무효화한다.
 
 ## 4. 재검증과 머지
 
-퀴즈 3/3 직후 1절과 2절을 모두 다시 실행한다. 두 OID가 같고 모든 게이트가 유지될 때만 스냅샷 HEAD를 고정해 실행한다. 달라진 항목이 있으면 머지하지 말고 새 상태를 보고한다.
+퀴즈 3/3 직후 1절과 2절을 모두 다시 실행한다. PR 제목과 두 OID가 같고 모든 게이트가 유지될 때만 스냅샷 HEAD와 `merge_subject`를 고정해 실행한다. 달라진 항목이 있으면 머지하지 말고 새 상태를 보고한다.
 
 ~~~shell
-gh pr merge <N> --squash --delete-branch --match-head-commit <headRefOid>
+gh pr merge "$pr" --squash --match-head-commit "$head_oid" --subject "$merge_subject"
 ~~~
 
 명령이 실패하면 다른 전략이나 우회 옵션으로 재시도하지 않는다. 현재 GitHub 상태와 오류를 보고한다.
 
 ## 5. 결과와 브랜치 정리
 
-머지 후 `gh pr view <N> --json state,mergedAt,mergeCommit,headRefName,headRefOid,headRepository,url`로 MERGED 상태와 merge commit을 확인하고 원격·로컬 head ref가 삭제됐는지 검증한다.
+머지 후 `gh pr view "$pr" --json state,mergedAt,mergeCommit,headRefName,headRefOid,headRepository,url`로 MERGED 상태와 merge commit을 확인한다. MERGED가 아니면 브랜치를 삭제하지 않는다. 삭제 판단에는 머지 전 스냅샷의 `head_ref`, `head_oid`만 사용하고 머지 후 조회값으로 덮어쓰지 않는다.
 
-- 남은 원격·로컬 ref는 스냅샷 HEAD와 같을 때만 삭제한다. 달라졌거나 다른 worktree에서 사용 중이면 보존한다.
-- 현재 브랜치가 head라면 clean 상태를 다시 확인하고 base 브랜치로 전환한 뒤 삭제한다. 로컬 base가 없으면 origin/<baseRefName>을 tracking하도록 만든다.
-- squash merge는 ancestry로 로컬 삭제 안전성을 판별할 수 없으므로, PR MERGED 확인과 ref SHA 일치를 근거로 정확한 head 브랜치에만 git branch -D <headRefName>을 사용한다.
+- 원격·로컬 ref가 없으면 이미 삭제된 것으로 기록한다. 남아 있으면 스냅샷 `head_oid`와 같을 때만 아래 조건부 삭제를 실행하고, 다르면 새 커밋을 보존한다.
+- 현재 브랜치가 `head_ref`라면 clean 상태를 다시 확인하고 base 브랜치로 전환한다. 로컬 base가 없으면 `origin/<baseRefName>`을 tracking하도록 만든다. 다른 worktree에서 사용 중이면 로컬 ref를 보존한다.
+- 로컬 ref의 현재 OID를 다시 확인한 뒤 expected OID를 지정해 삭제한다. 확인과 삭제 사이에 ref가 바뀌면 `git update-ref`가 실패하므로 보존하고 보고한다.
+- 원격 ref의 현재 OID를 다시 확인한 뒤 expected OID를 lease로 지정해 삭제한다. 확인과 삭제 사이에 ref가 바뀌면 push가 실패하므로 보존하고 보고한다.
+
+~~~shell
+git rev-parse --verify --end-of-options "refs/heads/$head_ref^{commit}"
+git update-ref -d "refs/heads/$head_ref" "$head_oid"
+git ls-remote --heads origin "refs/heads/$head_ref"
+git push --force-with-lease="refs/heads/$head_ref:$head_oid" origin ":refs/heads/$head_ref"
+~~~
+
 - 삭제가 실패하면 머지 성공과 원격·로컬 ref 잔존 상태를 구분해 보고한다.
 
 최종 결과에는 PR 번호·URL, squash merge commit, 퀴즈 3/3 통과, 원격 브랜치 삭제 여부, 로컬 브랜치 삭제 여부를 포함한다.
