@@ -140,7 +140,7 @@ ERD의 `ROOM` 표기는 물리 테이블명 `room`을 뜻한다.
 | start_at | TIMESTAMPTZ | NN | 실제 모임 시작 시각 |
 | place | VARCHAR(255) | NN | 모임 장소 |
 | status | ENUM | NN | `RECRUITING`, `CLOSED`, `CANCELED`, `FINISHED` |
-| version | BIGINT | NN, DEFAULT 0 | 참가·정원 동시성 제어를 위한 낙관 락 버전 |
+| version | BIGINT | NN, DEFAULT 0 | `ROOM`의 동시 변경을 감지하는 낙관 락 버전 |
 | created_at | TIMESTAMPTZ | NN | 생성 시각 |
 | updated_at | TIMESTAMPTZ | NN | 수정 시각 |
 
@@ -201,4 +201,5 @@ ERD의 `ROOM` 표기는 물리 테이블명 `room`을 뜻한다.
 - 개설자는 `status = CLOSED && now >= start_at`일 때만 `FINISHED`로 수동 종료할 수 있다.
 - `now >= start_at + 24시간`일 때 `CLOSED` 방은 `FINISHED`로 전환한다.
 - 시간대가 겹치는 서로 다른 방의 참가를 차단하지 않는다.
-- 참가·재참가·참가 취소는 참가 관계와 `active_participant_count`, 필요한 상태 전이를 하나의 트랜잭션에서 함께 변경한다. 점유 인원 또는 `capacity` 변경은 `ROOM.version`을 증가시켜 동시 변경을 감지하며, 어떤 요청에서도 `active_participant_count`가 모집 정원을 초과하지 않게 한다.
+- `active_participant_count = ACTIVE 상태의 PARTICIPATIONS 수`는 서비스가 유지하는 불변식이며, `ROOM`의 CHECK 제약은 카운터의 범위만 보장한다.
+- 참가·재참가·참가 취소는 참가 관계와 `active_participant_count`, 필요한 상태 전이를 하나의 트랜잭션에서 함께 변경한다. 참가 가능성에 영향을 주는 참가·정원·상태 변경은 `ROOM`을 함께 갱신해 `version`을 증가시키며, 어떤 요청에서도 `active_participant_count`가 모집 정원을 초과하지 않게 한다.

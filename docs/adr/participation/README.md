@@ -6,4 +6,4 @@
 
 | 번호 | 제목 | 상태 | 결정일 |
 | --- | --- | --- | --- |
-| [0005](0005-room-participation-optimistic-locking.md) | 방 참가 동시성 제어에 낙관 락을 사용 | 제안됨 | 미정 |
+| [0005](0005-room-participation-optimistic-locking.md) | 방 참가 동시성 제어에 낙관 락을 사용 | 승인됨 | 2026-07-24 |

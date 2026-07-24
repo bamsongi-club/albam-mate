@@ -24,7 +24,7 @@
 | `startsAt` | `start_at` |
 | `place` | `place` |
 
-- 시각은 ISO 8601 오프셋 형식으로 반환한다.
+- 요청과 응답의 시각은 ISO 8601 오프셋 날짜·시간(RFC 3339 `date-time`) 형식을 사용한다. 요청은 `Z` 또는 `±HH:MM` 오프셋을 반드시 포함해야 하며, 오프셋이 없거나 형식을 해석할 수 없으면 `VALIDATION_ERROR`로 거절한다. 서버는 요청 시각을 `Instant`로 정규화하고, P0 응답은 `Asia/Seoul` 기준 `+09:00`으로 반환한다.
 - 사용자·게임·방·참가 관계의 ID는 1부터 증가하는 양의 정수다. JSON에서는 숫자로, 경로에서는 10진 정수로 전달한다. UUID는 사용하지 않는다.
 - 검증 오류는 `400`, 미인증은 `401`, 권한 없음은 `403`, 대상 없음은 `404`, 상태·정합성 충돌은 `409`를 사용한다.
 
@@ -33,7 +33,8 @@
 - P0 인증 상태는 서버 세션으로 관리하고 브라우저는 `JSESSIONID` 쿠키로 세션을 전달한다. Bearer access token과 refresh token은 사용하지 않는다.
 - `JSESSIONID`에는 `Path=/`, `HttpOnly`, `SameSite=Lax`를 적용하고 운영 HTTPS 환경에서는 `Secure`를 적용한다. P0는 웹과 API의 same-site 배포를 전제로 하며 cross-site 배포는 지원하지 않는다.
 - 로그인 성공 시 세션 ID를 교체하고 응답에 새 `JSESSIONID`를 설정한다. 세션이 없거나 만료·무효화된 상태로 보호 API를 호출하면 `UNAUTHENTICATED`를 반환한다.
-- `POST`, `PATCH`, `DELETE` 요청은 인증 여부와 관계없이 CSRF 토큰을 요구한다. 클라이언트는 먼저 공개 API인 `GET /api/auth/csrf`를 호출해 세션과 CSRF 토큰을 얻고, 응답의 `headerName`과 `token` 값을 이후 요청 헤더에 그대로 전달한다.
+- CSRF 토큰은 서버 세션이 아닌 Host-only `XSRF-TOKEN` 쿠키에 저장한다. 쿠키에는 `Path=/`, `HttpOnly`, `SameSite=Lax`를 적용하고 운영 HTTPS 환경에서는 `Secure`를 적용한다.
+- `POST`, `PATCH`, `DELETE` 요청은 인증 여부와 관계없이 CSRF 토큰을 요구한다. 클라이언트는 먼저 공개 API인 `GET /api/auth/csrf`를 호출하고, 응답의 `headerName`과 `token` 값을 이후 요청 헤더에 그대로 전달한다. 비로그인 CSRF 조회는 `JSESSIONID`와 서버 세션을 생성하지 않는다.
 - 로그인과 로그아웃 성공 시 기존 CSRF 토큰이 무효화되므로, 다음 상태 변경 요청 전에 `GET /api/auth/csrf`를 다시 호출한다.
 - CSRF 토큰이 없거나 유효하지 않으면 `CSRF_TOKEN_INVALID`를 반환한다. 보호 API에서는 유효한 세션이 없는 경우의 `UNAUTHENTICATED`를 CSRF 오류보다 우선한다.
 - 로그아웃은 서버 세션과 인증 상태를 무효화하고 `JSESSIONID`를 만료시킨다.
@@ -142,7 +143,7 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 ~~~
 
 - `headerName`은 다음 상태 변경 요청에 토큰을 전달할 HTTP 헤더 이름이다.
-- `token`은 현재 세션에 연결된 CSRF 토큰이다. 로그인과 로그아웃 뒤에는 기존 값을 재사용하지 않는다.
+- `token`은 현재 `XSRF-TOKEN` 쿠키에 대응하는 CSRF 토큰이다. 로그인과 로그아웃 뒤에는 기존 값을 재사용하지 않는다.
 
 ### 3.3 GameListItem
 
@@ -263,14 +264,14 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 
 | API | 요청 핵심값 | 성공 응답 | 규칙 |
 |---|---|---|---|
-| `GET /api/auth/csrf` | 없음 | 200, `data: CsrfTokenResponse` | 비로그인 호출을 허용하고 현재 세션의 CSRF 토큰을 반환 |
+| `GET /api/auth/csrf` | 없음 | 200, `data: CsrfTokenResponse` | 비로그인 호출을 허용하고 서버 세션 없이 쿠키 기반 CSRF 토큰을 반환 |
 | `POST /api/auth/signup` | email, password, nickname | 201, `data: UserSummary` | 계정만 생성하며 로그인 세션은 만들지 않음. 이메일 중복은 409 |
 | `POST /api/auth/login` | email, password | 200, `data: UserSummary` | 세션 ID 교체와 `JSESSIONID` 설정, 잘못된 자격증명은 401 |
 | `POST /api/auth/logout` | 없음 | 200, `data: {}` | 서버 세션·인증 상태 무효화와 `JSESSIONID` 만료 |
 | `GET /api/users/me` | 없음 | 200, `data: UserSummary` | 본인만 조회 |
 | `PATCH /api/users/me` | nickname | 200, `data: UserSummary` | P0에서는 닉네임만 수정 |
 
-클라이언트는 회원가입 또는 로그인 전에 `GET /api/auth/csrf`를 호출하고, 응답의 CSRF 헤더를 각 요청에 포함한다. 로그인 성공 뒤에는 `GET /api/auth/csrf`를 다시 호출한다. 이후 모든 상태 변경 요청은 세션 쿠키와 현재 CSRF 토큰을 함께 전달한다.
+클라이언트는 회원가입 또는 로그인 전에 `GET /api/auth/csrf`를 호출하고, 응답의 `token` 값을 `headerName`이 지정한 헤더에 담아 자동 전송되는 `XSRF-TOKEN` 쿠키와 함께 요청한다. 비로그인 상태에서는 이 과정에서 `JSESSIONID`가 생성되지 않는다. 로그인 성공 뒤에는 `GET /api/auth/csrf`를 다시 호출한다. 이후 모든 상태 변경 요청은 세션 쿠키와 현재 CSRF 토큰을 함께 전달한다.
 
 ### 4.2 게임 조회·검색
 
@@ -330,6 +331,7 @@ GET /api/rooms?type=PERSON_FOCUSED&keyword=퇴근&page=0&size=10
 - `GAME_FOCUSED`는 존재하는 양의 정수 `gameId`가 필수다.
 - `PERSON_FOCUSED`의 `gameId`는 생략, `null`, 존재하는 양의 정수를 모두 허용한다. 존재하는 ID가 오면 선택 게임으로 저장하며, 요청으로 받지 않는 항목은 태그·카테고리·BGG Weight다.
 - `description`은 선택 값이고 최대 50자다.
+- `RoomCreateRequest.startsAt`은 필수이며 `null`을 허용하지 않는다. 오프셋을 포함한 형식이어야 하고 `Instant`로 정규화한 값이 요청 처리 시점보다 미래여야 한다. 누락, `null`, 오프셋 없음, 형식 오류와 현재·과거 시각은 `VALIDATION_ERROR`다.
 - `experienceLevel`은 `ALL_LEVELS`, `BEGINNER_WELCOME`, `EXPERIENCED_PREFERRED` 중 하나다. 검색 필터나 참가 제한으로 사용하지 않는다.
 - 서버는 `region`을 `홍대`로 저장한다. 생성·수정 요청에서 지역을 받지 않는다.
 - `recruitmentCapacity`는 1 이상 10 이하의 정수다.
@@ -340,7 +342,8 @@ GET /api/rooms?type=PERSON_FOCUSED&keyword=퇴근&page=0&size=10
 
 | 필드 | 수정 규칙 |
 |---|---|
-| `title`, `experienceLevel`, `isRulemasterLed`, `startsAt`, `place`, `recruitmentCapacity` | 요청에 있으면 생성과 같은 검증을 거쳐 해당 값으로 바꾼다. `startsAt`은 수정 시점보다 미래여야 하고 `recruitmentCapacity`는 1~10이어야 한다. |
+| `title`, `experienceLevel`, `isRulemasterLed`, `place`, `recruitmentCapacity` | 요청에 있으면 생성과 같은 검증을 거쳐 해당 값으로 바꾼다. `recruitmentCapacity`는 1~10이어야 한다. |
+| `startsAt` | 생략하면 기존 값을 유지한다. 요청에 있으면 `null`을 허용하지 않고 생성과 같은 오프셋 형식으로 검증하며, `Instant`로 정규화한 값이 요청 처리 시점보다 미래여야 한다. 위반하면 `VALIDATION_ERROR`다. |
 | `description` | 생략하면 유지하고, `null`이면 값을 지우며, 문자열이면 최대 50자로 바꾼다. |
 | `gameId` | 생략하면 유지한다. `GAME_FOCUSED`는 수정 후에도 존재하는 양의 정수 ID가 필수다. `PERSON_FOCUSED`는 `null`로 게임 선택을 지우거나 존재하는 양의 정수 ID로 선택 게임을 바꿀 수 있다. |
 | `roomType`, `region`, `status` | 요청으로 받을 수 없으며 포함하면 `VALIDATION_ERROR`다. |
@@ -351,7 +354,7 @@ GET /api/rooms?type=PERSON_FOCUSED&keyword=퇴근&page=0&size=10
 
 #### 방 쓰기 API 성공 응답
 
-아래 `data`는 [공통 응답](#11-공통-응답)의 `data` 값이다.
+아래 `data`는 [공통 응답](#12-공통-응답)의 `data` 값이다.
 
 | API | HTTP / wrapper `status` | `data` |
 |---|---|---|
@@ -416,6 +419,9 @@ CLOSED --주최자 종료(now >= startsAt) 또는 시작 시각+24시간--> FINI
 | `ALREADY_PARTICIPATING` | 409 | 같은 방 중복 참가 |
 | `INVALID_ROOM_STATUS_TRANSITION` | 409 | 허용되지 않은 상태 전이 |
 | `ROOM_UPDATE_NOT_ALLOWED_WITH_ACTIVE_PARTICIPANTS` | 409 | 주최자 외 활성 참가자가 있는 방 수정 시도 |
+| `ROOM_CONCURRENT_MODIFICATION` | 409 | 같은 방의 동시 변경이 반복되어 요청을 완료하지 못함 |
+
+`ROOM` 상태를 보정하거나 변경하는 요청에서 낙관 락 충돌이 발생하면 최신 상태를 다시 읽는 독립 트랜잭션으로 재시도하며, 최초 시도 1회와 재시도 2회를 합쳐 최대 3회로 제한한다. 새 시도에서 업무 규칙 위반을 확인하면 해당 업무 오류를 우선 반환하고, 세 시도가 모두 `ROOM` 버전 충돌로 실패한 경우에만 `ROOM_CONCURRENT_MODIFICATION`을 반환한다. 조회 요청에서 이 오류를 받은 클라이언트는 조회 요청 전체를 다시 시도한다. 이 오류의 기본 메시지는 `방 정보가 동시에 변경되었습니다. 다시 시도해 주세요.`다.
 
 ### 5.1 엔드포인트별 오류 매트릭스
 
@@ -430,14 +436,14 @@ CLOSED --주최자 종료(now >= startsAt) 또는 시작 시각+24시간--> FINI
 | `GET /api/games` | `VALIDATION_ERROR` |
 | `GET /api/games/{gameId}` | `GAME_NOT_FOUND` |
 | `POST /api/rooms` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `CSRF_TOKEN_INVALID` |
-| `GET /api/rooms` | `VALIDATION_ERROR` |
-| `GET /api/rooms/{roomId}` | `ROOM_NOT_FOUND` |
-| `PATCH /api/rooms/{roomId}` | `UNAUTHENTICATED`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `GAME_NOT_FOUND`, `VALIDATION_ERROR`, `ROOM_UPDATE_NOT_ALLOWED_WITH_ACTIVE_PARTICIPANTS`, `INVALID_ROOM_STATUS_TRANSITION`, `CSRF_TOKEN_INVALID` |
-| `DELETE /api/rooms/{roomId}` | `UNAUTHENTICATED`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `INVALID_ROOM_STATUS_TRANSITION`, `CSRF_TOKEN_INVALID` |
-| `PATCH /api/rooms/{roomId}/status` | `UNAUTHENTICATED`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `INVALID_ROOM_STATUS_TRANSITION`, `CSRF_TOKEN_INVALID` |
-| `POST /api/rooms/{roomId}/participants` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `ALREADY_PARTICIPATING`, `ROOM_NOT_RECRUITING`, `CAPACITY_EXCEEDED`, `CSRF_TOKEN_INVALID` |
-| `DELETE /api/rooms/{roomId}/participants/me` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `PARTICIPATION_NOT_FOUND`, `FORBIDDEN`, `INVALID_ROOM_STATUS_TRANSITION`, `CSRF_TOKEN_INVALID` |
-| `GET /api/users/me/rooms` | `UNAUTHENTICATED`, `VALIDATION_ERROR` |
+| `GET /api/rooms` | `VALIDATION_ERROR`, `ROOM_CONCURRENT_MODIFICATION` |
+| `GET /api/rooms/{roomId}` | `ROOM_NOT_FOUND`, `ROOM_CONCURRENT_MODIFICATION` |
+| `PATCH /api/rooms/{roomId}` | `UNAUTHENTICATED`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `GAME_NOT_FOUND`, `VALIDATION_ERROR`, `ROOM_UPDATE_NOT_ALLOWED_WITH_ACTIVE_PARTICIPANTS`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
+| `DELETE /api/rooms/{roomId}` | `UNAUTHENTICATED`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
+| `PATCH /api/rooms/{roomId}/status` | `UNAUTHENTICATED`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
+| `POST /api/rooms/{roomId}/participants` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `ALREADY_PARTICIPATING`, `ROOM_NOT_RECRUITING`, `CAPACITY_EXCEEDED`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
+| `DELETE /api/rooms/{roomId}/participants/me` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `PARTICIPATION_NOT_FOUND`, `FORBIDDEN`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
+| `GET /api/users/me/rooms` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_CONCURRENT_MODIFICATION` |
 
 - `GET /api/rooms/{roomId}`에서만 취소·종료 방을 권한 없는 사용자가 조회할 때 존재 여부를 숨기기 위해 `ROOM_NOT_FOUND`를 반환한다. 그 외 주최자 전용 쓰기 API의 비주최자 요청은 `FORBIDDEN`을 반환한다.
 - `PATCH /api/rooms/{roomId}`의 `GAME_NOT_FOUND`는 요청에 `gameId`를 포함했을 때만 적용한다.

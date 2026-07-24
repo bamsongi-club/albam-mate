@@ -380,7 +380,7 @@ MVP에서는 다음 상태를 사용한다.
 
 | #  | API | 메서드/경로 | 인증 필요 | 정상 성공 기준 |
 |----|---|---|---|---|
-| 1  | CSRF 토큰 조회 | `GET /api/auth/csrf` | N | 현재 세션의 CSRF 토큰 반환 |
+| 1  | CSRF 토큰 조회 | `GET /api/auth/csrf` | N | 서버 세션 없이 쿠키 기반 CSRF 토큰 반환 |
 | 2  | 회원가입 | `POST /api/auth/signup` | N | 신규 유저 생성 |
 | 3  | 로그인 | `POST /api/auth/login` | N | 서버 세션 생성과 세션 쿠키 설정 |
 | 4  | 로그아웃 | `POST /api/auth/logout` | Y | 서버 세션과 인증 상태 무효화 |
@@ -441,7 +441,7 @@ GET /api/rooms?type=PERSON_FOCUSED&keyword=...&page=...&size=...
 - 인증 상태는 서버 세션으로 관리하며 브라우저는 `JSESSIONID` 쿠키를 전달한다. P0에서는 Bearer access token과 refresh token을 사용하지 않는다.
 - 회원가입은 계정만 생성하며 로그인 세션을 자동으로 만들지 않는다.
 - 로그인 성공 시 세션 ID를 교체하고, 로그아웃 시 서버 세션과 인증 상태를 무효화한다.
-- 클라이언트는 상태 변경 요청 전에 `GET /api/auth/csrf`로 CSRF 토큰을 얻고 응답이 지정한 헤더에 토큰을 전달한다. 로그인과 로그아웃 뒤에는 새 CSRF 토큰을 다시 얻는다.
+- CSRF 토큰은 Host-only `XSRF-TOKEN` 쿠키에 저장한다. 비로그인 `GET /api/auth/csrf`는 `JSESSIONID`와 서버 세션을 생성하지 않으며, 클라이언트는 응답이 지정한 헤더에 토큰을 전달한다. 로그인과 로그아웃 뒤에는 새 CSRF 토큰을 다시 얻는다.
 - 세션 쿠키가 없거나 만료·무효화된 보호 API 요청은 `UNAUTHENTICATED`, CSRF 토큰이 없거나 유효하지 않은 상태 변경 요청은 `CSRF_TOKEN_INVALID`로 거절한다.
 
 - 유저는 본인의 프로필을 조회하고 수정할 수 있다.
@@ -491,6 +491,7 @@ GET /api/rooms?type=PERSON_FOCUSED&keyword=...&page=...&size=...
   3. `remainingRecruitmentSeats = 0`인 경우: `CAPACITY_EXCEEDED`
   4. `now >= startsAt`이거나 `status != RECRUITING`인 경우: `ROOM_NOT_RECRUITING`
 - 마지막 좌석 참가로 정원이 가득 차 방이 `CLOSED`로 전환된 경우, 이후 참가 요청에는 `CAPACITY_EXCEEDED`를 반환한다.
+- `ROOM` 버전 충돌은 최초 시도 포함 최대 3개의 독립 트랜잭션으로 재시도한다. 새 시도에서 업무 규칙 위반을 확인하면 해당 업무 오류를 우선 반환하고, 세 시도가 모두 버전 충돌로 실패한 경우에만 `ROOM_CONCURRENT_MODIFICATION`을 반환한다.
 - P0는 선착순 처리 순서의 공정성이나 대규모 동시 요청의 성능 목표는 정하지 않지만, 어떤 요청에서도 모집 정원을 초과해 `ACTIVE` 참가 관계를 만들지 않는다.
 
 ### 7.6 수정
@@ -540,8 +541,9 @@ GET /api/rooms?type=PERSON_FOCUSED&keyword=...&page=...&size=...
 
 - 6절의 17개 API가 [API 명세서](API.md)의 요청·성공 응답·오류 코드대로 재현된다.
 - 모든 성공 응답은 HTTP 상태 코드와 같은 `status`와 `data`를, 실패 응답은 `status`, `code`, `message`, `data: null`을 반환한다. 목록 API의 `data`는 `content`, `page`, `size`, `totalElements`, `totalPages`, `hasNext`를 포함하며 기본 `page=0`, `size=10`, 최대 `size=100`을 따른다.
-- 로그인은 Bearer 토큰을 반환하지 않고 `JSESSIONID` 세션 쿠키를 설정한다. 보호 API는 유효한 서버 세션으로 인증하고, 로그아웃은 세션과 쿠키를 무효화한다. 모든 상태 변경 요청은 현재 세션의 CSRF 토큰을 검증하며 로그인·로그아웃 뒤에는 새 토큰을 발급받는다.
+- 로그인은 Bearer 토큰을 반환하지 않고 `JSESSIONID` 세션 쿠키를 설정한다. 보호 API는 유효한 서버 세션으로 인증하고, 로그아웃은 세션과 쿠키를 무효화한다. 모든 상태 변경 요청은 `XSRF-TOKEN` 쿠키에 대응하는 CSRF 토큰을 검증하며 로그인·로그아웃 뒤에는 새 토큰을 발급받는다. 비로그인 CSRF 조회는 `JSESSIONID`와 서버 세션을 생성하지 않는다.
 - 비로그인 또는 방 관계가 없는 유저는 공개 방 응답만 받고, 주최자·현재 `ACTIVE` 참가자만 정확한 장소와 참가자 목록을 받는다. `CANCELED`, `FINISHED` 상세는 권한 없는 요청에 404를 반환한다.
+- 방 생성·수정의 `startsAt`은 `Z` 또는 `±HH:MM` 오프셋이 포함된 값을 받아 같은 순간의 `Instant`로 정규화하고, 오프셋 없는 값과 현재·과거 시각은 `VALIDATION_ERROR`로 거절한다. 생성 요청의 누락·`null`과 수정 요청의 명시적 `null`은 거절하고, 수정 요청에서 필드를 생략하면 기존 값을 유지하며, 응답은 `Asia/Seoul` 기준 `+09:00`으로 반환되는 경계가 검증된다.
 - `recruitmentCapacity` 1과 10은 생성할 수 있고 0과 11은 `VALIDATION_ERROR`로 거절한다. 마지막 자리에 참가하면 `CLOSED`가 되며, 시작 전 참가 취소로 자리가 생기면 `RECRUITING`으로 되돌아가고 재참가할 수 있다.
 - 참가 요청은 정원을 초과하지 않으며, 주최자 또는 중복 활성 참가 요청은 `ALREADY_PARTICIPATING`으로, 시작 시각 이후 참가 요청은 `ROOM_NOT_RECRUITING`으로, 참가 취소 요청은 `INVALID_ROOM_STATUS_TRANSITION`으로 거절한다. 신규 참가·재활성화는 모두 `201 Created`를 반환하고, 마지막 좌석이면 응답 `data`의 `roomStatus = CLOSED`, `remainingRecruitmentSeats = 0`이 검증된다. 마지막 좌석 이후 추가 참가 요청은 `CAPACITY_EXCEEDED`를, `CANCELED`·`FINISHED` 또는 모집 정원에 도달하지 않은 `CLOSED` 방 참가 요청은 `ROOM_NOT_RECRUITING`을 반환한다.
 - 수정은 개설자·시작 전·`RECRUITING`·외부 `ACTIVE` 참가자 없음 조건에서만 가능하고, `roomType`은 변경할 수 없다.

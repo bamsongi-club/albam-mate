@@ -1,11 +1,11 @@
 # ADR-0004: 방의 시간 기반 상태 전이에 내장 스케줄러를 사용
 
-- 상태: 승인됨
+- 상태: 대체됨
 - 작성일: 2026-07-23
 - 결정일: 2026-07-24
 - 관련: [ADR-0001](../platform/0001-java-21-spring-boot-4-baseline.md), [ADR-0002](../platform/0002-postgresql-primary-database.md), [ADR-0009](../platform/0009-utc-time-standard.md), [P0 방 상태 전이 계약](../../P0-spec.md#방-상태roomstatus)
 - 대체 대상: 없음
-- 후속 ADR: 없음
+- 후속 ADR: [ADR-0012](0012-room-request-boundary-state-reconciliation.md)
 
 ## 맥락
 
