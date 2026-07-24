@@ -491,7 +491,6 @@ GET /api/rooms?type=PERSON_FOCUSED&keyword=...&page=...&size=...
   3. `remainingRecruitmentSeats = 0`인 경우: `CAPACITY_EXCEEDED`
   4. `now >= startsAt`이거나 `status != RECRUITING`인 경우: `ROOM_NOT_RECRUITING`
 - 마지막 좌석 참가로 정원이 가득 차 방이 `CLOSED`로 전환된 경우, 이후 참가 요청에는 `CAPACITY_EXCEEDED`를 반환한다.
-- `ROOM` 버전 충돌은 최초 시도 포함 최대 3개의 독립 트랜잭션으로 재시도한다. 새 시도에서 업무 규칙 위반을 확인하면 해당 업무 오류를 우선 반환하고, 세 시도가 모두 버전 충돌로 실패한 경우에만 `ROOM_CONCURRENT_MODIFICATION`을 반환한다.
 - P0는 선착순 처리 순서의 공정성이나 대규모 동시 요청의 성능 목표는 정하지 않지만, 어떤 요청에서도 모집 정원을 초과해 `ACTIVE` 참가 관계를 만들지 않는다.
 
 ### 7.6 수정
@@ -535,6 +534,14 @@ GET /api/rooms?type=PERSON_FOCUSED&keyword=...&page=...&size=...
 - 내 모임 이력은 해당 유저 본인만 조회할 수 있으며, 각 항목은 `myRole`, `participationStatus`, 현재 요청자 기준 `joinable`을 반환한다. `role=joined`에는 현재 `ACTIVE` 참가 관계의 방만 남기고, 참가 취소한 관계와 `CANCELED` 방은 제외한다. `FINISHED` 방은 실제 참여 이력으로 포함한다. 정확한 장소와 참가자 목록은 반환하지 않는다.
 - 이메일, 인증 정보, 사용자 ID는 다른 유저에게 노출하지 않는다.
 
+### 7.11 방 상태 보정·재시도
+
+- 방 목록·상세·내 모임 조회와 방 상태에 의존하는 수정·취소·종료·참가·참가 취소 명령은 요청 진입 시 `Clock`에서 하나의 기준 시각을 얻고, 원래 로직보다 먼저 저장 상태를 보정한다.
+- `status = RECRUITING && now >= startsAt`이면 `CLOSED`로, `status = CLOSED && now >= startsAt + 24시간`이면 `FINISHED`로 조건부 갱신한다. 두 경계를 모두 지난 이전 상태는 두 전이를 순서대로 적용한다.
+- 조회 상태 보정은 읽기 전용 트랜잭션의 예외다. 트랜잭션 없는 재시도 조정자가 각 시도마다 독립된 쓰기 트랜잭션에서 최신 방을 다시 읽고 조건부 갱신하며, 보정이 커밋된 뒤 읽기 전용 트랜잭션에서 최신 상태를 조회한다. 방 목록과 내 모임 목록은 보정 뒤의 상태로 필터와 페이지를 계산한다.
+- 상태 의존 명령은 상태 보정과 업무 규칙 평가·변경을 같은 시도의 독립된 쓰기 트랜잭션에서 처리한다.
+- `ROOM` 버전 충돌은 최초 시도 포함 최대 3개의 독립된 쓰기 트랜잭션으로 재시도한다. 새 시도에서 업무 규칙 위반을 확인하면 해당 업무 오류를 우선 반환하고, 세 시도가 모두 버전 충돌로 실패한 경우에만 `ROOM_CONCURRENT_MODIFICATION`을 반환한다.
+
 ---
 
 ## 8. 1차 MVP 구현 완료 기준
@@ -548,3 +555,5 @@ GET /api/rooms?type=PERSON_FOCUSED&keyword=...&page=...&size=...
 - 참가 요청은 정원을 초과하지 않으며, 주최자 또는 중복 활성 참가 요청은 `ALREADY_PARTICIPATING`으로, 시작 시각 이후 참가 요청은 `ROOM_NOT_RECRUITING`으로, 참가 취소 요청은 `INVALID_ROOM_STATUS_TRANSITION`으로 거절한다. 신규 참가·재활성화는 모두 `201 Created`를 반환하고, 마지막 좌석이면 응답 `data`의 `roomStatus = CLOSED`, `remainingRecruitmentSeats = 0`이 검증된다. 마지막 좌석 이후 추가 참가 요청은 `CAPACITY_EXCEEDED`를, `CANCELED`·`FINISHED` 또는 모집 정원에 도달하지 않은 `CLOSED` 방 참가 요청은 `ROOM_NOT_RECRUITING`을 반환한다.
 - 수정은 개설자·시작 전·`RECRUITING`·외부 `ACTIVE` 참가자 없음 조건에서만 가능하고, `roomType`은 변경할 수 없다.
 - 모집 정원 충족 또는 `startsAt` 도달 시 `CLOSED`, `CLOSED && now >= startsAt`일 때 주최자 수동 `FINISHED`, `startsAt + 24시간` 경과 시 시스템 자동 `FINISHED` 전이가 검증된다.
+- 방 목록·상세·내 모임 조회와 상태 의존 명령은 정확히 `startsAt`, `startsAt + 24시간`인 경계를 포함해 원래 로직보다 먼저 상태를 보정한다. 조회 보정은 별도 쓰기 트랜잭션에 영속화되고, 목록은 보정 뒤 상태로 필터·페이지·응답을 계산한다.
+- 조회와 상태 의존 명령에서 `ROOM` 버전 충돌이 발생하면 매 시도 최신 상태를 다시 읽는 최대 3개의 독립된 쓰기 트랜잭션으로 재시도한다. 새 시도의 업무 오류가 충돌 오류보다 우선하고, 세 번 모두 충돌하면 `ROOM_CONCURRENT_MODIFICATION`을 반환한다.

@@ -92,7 +92,7 @@ Controller에는 다음 책임을 두지 않는다.
 ## Service
 
 - public 메서드는 하나의 유스케이스를 표현한다.
-- 트랜잭션 경계는 Service 계층에 둔다. 조회는 `@Transactional(readOnly = true)`, 상태 변경은 `@Transactional`을 사용한다.
+- 트랜잭션 경계는 Service 계층에 둔다. 저장 상태를 변경하지 않는 조회는 `@Transactional(readOnly = true)`, 상태 변경은 `@Transactional`을 사용한다. 조회 전 상태 보정처럼 계약상 쓰기가 필요한 조회 유스케이스는 Transaction 절의 예외 규칙을 따른다.
 - Service는 자기 모듈의 Repository만 직접 참조한다.
 - 다른 모듈과 협력할 때는 그 모듈이 공개한 계약만 호출한다.
 - 외부 시스템 호출은 Client 또는 Adapter로 분리한다.
@@ -151,7 +151,8 @@ Controller에는 다음 책임을 두지 않는다.
 ## Transaction
 
 - 트랜잭션은 Service에서 시작한다.
-- 읽기 전용 유스케이스에는 `readOnly = true`를 사용한다.
+- 저장 상태를 변경하지 않는 읽기 전용 유스케이스에는 `readOnly = true`를 사용한다.
+- [ADR-0012](adr/room/0012-room-request-boundary-state-reconciliation.md)처럼 조회 전에 저장 상태를 보정해야 하는 유스케이스는 읽기 전용 트랜잭션의 더티 체킹에 의존하지 않는다. 트랜잭션 없는 재시도 조정자가 별도 상태 보정 실행 서비스를 호출하고, 실행 서비스는 시도마다 독립된 쓰기 트랜잭션에서 조건부 갱신한다. 보정이 커밋된 뒤 읽기 전용 조회 서비스가 최신 상태를 읽는다.
 - 상태 변경 트랜잭션 안에서는 JPA 더티 체킹을 기본으로 사용한다.
 - 즉시 반영이 필요한 이유가 없으면 `saveAndFlush()`를 반복 호출하지 않는다.
 - 외부 API 호출을 데이터베이스 트랜잭션 안에 오래 포함하지 않는다. 외부 성공 후 내부 실패 또는 내부 성공 후 외부 실패를 어떻게 처리할지 먼저 정한다.
