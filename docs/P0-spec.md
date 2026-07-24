@@ -79,8 +79,10 @@ P0 API의 권한, 허용 상태, 시간 경계, 정원 규칙은 7절과 [API �
 
 ### 3.1 포함 범위
 
+- CSRF 토큰 조회
 - 이메일·비밀번호 기반 회원가입
 - 로그인
+- 로그아웃
 - 본인 프로필 조회
 - 본인 프로필 수정
 - 게임 목록 조회(+기본 키워드 검색 조회)
@@ -374,25 +376,27 @@ MVP에서는 다음 상태를 사용한다.
 
 ## 6. 1차 MVP API
 
-1차 MVP에서는 총 15개의 API를 제공한다.
+1차 MVP에서는 총 17개의 API를 제공한다.
 
 | #  | API | 메서드/경로 | 인증 필요 | 정상 성공 기준 |
 |----|---|---|---|---|
-| 1  | 회원가입 | `POST /api/auth/signup` | N | 신규 유저 생성 |
-| 2  | 로그인 | `POST /api/auth/login` | N | 인증 토큰 발급 |
-| 3  | 내 프로필 조회 | `GET /api/users/me` | Y | 본인 프로필 조회 |
-| 4  | 내 프로필 수정 | `PATCH /api/users/me` | Y | 본인 프로필 수정 |
-| 5  | 게임 목록·검색 | `GET /api/games?keyword=...&page=...&size=...` | N | 게임 목록 조회 및 게임명 검색 |
-| 6  | 게임 상세 조회 | `GET /api/games/{gameId}` | N | 게임 상세 조회 |
-| 7  | 방 생성 | `POST /api/rooms` | Y | 게임 중심 또는 사람 중심 방 생성 |
-| 8  | 방 목록 조회 | `GET /api/rooms` | N | 유형별 방 목록 조회(`GAME_FOCUSED`: `gameId` 필수, `PERSON_FOCUSED`: `gameId` 생략) |
-| 9  | 방 상세 조회 | `GET /api/rooms/{roomId}` | N | 공개 또는 참가자 전용 방 상세 조회 |
-| 10 | 방 수정 | `PATCH /api/rooms/{roomId}` | Y | 개설자가 방 정보 수정 |
-| 11 | 방 취소 | `DELETE /api/rooms/{roomId}` | Y | 방을 `CANCELED` 상태로 변경 |
-| 12 | 방 종료 | `PATCH /api/rooms/{roomId}/status` | Y | 방을 `FINISHED` 상태로 변경 |
-| 13 | 방 참가 | `POST /api/rooms/{roomId}/participants` | Y | 신규 참가·재활성화 후 `201 Created`와 `participationStatus = ACTIVE`, `roomStatus`, 인원·잔여석 반환 |
-| 14 | 참가 취소 | `DELETE /api/rooms/{roomId}/participants/me` | Y | 본인 참가 취소 후 `200 OK`와 `participationStatus = CANCELED`, `roomStatus`, 인원·잔여석 반환 |
-| 15 | 내 모임 조회 | `GET /api/users/me/rooms?role=all\|joined\|hosted&page=...&size=...` | Y | `role` 기준 본인의 참여·개설 방 이력 조회 |
+| 1  | CSRF 토큰 조회 | `GET /api/auth/csrf` | N | 현재 세션의 CSRF 토큰 반환 |
+| 2  | 회원가입 | `POST /api/auth/signup` | N | 신규 유저 생성 |
+| 3  | 로그인 | `POST /api/auth/login` | N | 서버 세션 생성과 세션 쿠키 설정 |
+| 4  | 로그아웃 | `POST /api/auth/logout` | Y | 서버 세션과 인증 상태 무효화 |
+| 5  | 내 프로필 조회 | `GET /api/users/me` | Y | 본인 프로필 조회 |
+| 6  | 내 프로필 수정 | `PATCH /api/users/me` | Y | 본인 프로필 수정 |
+| 7  | 게임 목록·검색 | `GET /api/games?keyword=...&page=...&size=...` | N | 게임 목록 조회 및 게임명 검색 |
+| 8  | 게임 상세 조회 | `GET /api/games/{gameId}` | N | 게임 상세 조회 |
+| 9  | 방 생성 | `POST /api/rooms` | Y | 게임 중심 또는 사람 중심 방 생성 |
+| 10 | 방 목록 조회 | `GET /api/rooms` | N | 유형별 방 목록 조회(`GAME_FOCUSED`: `gameId` 필수, `PERSON_FOCUSED`: `gameId` 생략) |
+| 11 | 방 상세 조회 | `GET /api/rooms/{roomId}` | N | 공개 또는 참가자 전용 방 상세 조회 |
+| 12 | 방 수정 | `PATCH /api/rooms/{roomId}` | Y | 개설자가 방 정보 수정 |
+| 13 | 방 취소 | `DELETE /api/rooms/{roomId}` | Y | 방을 `CANCELED` 상태로 변경 |
+| 14 | 방 종료 | `PATCH /api/rooms/{roomId}/status` | Y | 방을 `FINISHED` 상태로 변경 |
+| 15 | 방 참가 | `POST /api/rooms/{roomId}/participants` | Y | 신규 참가·재활성화 후 `201 Created`와 `participationStatus = ACTIVE`, `roomStatus`, 인원·잔여석 반환 |
+| 16 | 참가 취소 | `DELETE /api/rooms/{roomId}/participants/me` | Y | 본인 참가 취소 후 `200 OK`와 `participationStatus = CANCELED`, `roomStatus`, 인원·잔여석 반환 |
+| 17 | 내 모임 조회 | `GET /api/users/me/rooms?role=all\|joined\|hosted&page=...&size=...` | Y | `role` 기준 본인의 참여·개설 방 이력 조회 |
 
 ### 6.1 목록 조회 경로와 파라미터
 
@@ -432,7 +436,13 @@ GET /api/rooms?type=PERSON_FOCUSED&keyword=...&page=...&size=...
 
 ## 7. 1차 MVP 운영 규칙
 
-### 7.1 프로필
+### 7.1 인증과 프로필
+
+- 인증 상태는 서버 세션으로 관리하며 브라우저는 `JSESSIONID` 쿠키를 전달한다. P0에서는 Bearer access token과 refresh token을 사용하지 않는다.
+- 회원가입은 계정만 생성하며 로그인 세션을 자동으로 만들지 않는다.
+- 로그인 성공 시 세션 ID를 교체하고, 로그아웃 시 서버 세션과 인증 상태를 무효화한다.
+- 클라이언트는 상태 변경 요청 전에 `GET /api/auth/csrf`로 CSRF 토큰을 얻고 응답이 지정한 헤더에 토큰을 전달한다. 로그인과 로그아웃 뒤에는 새 CSRF 토큰을 다시 얻는다.
+- 세션 쿠키가 없거나 만료·무효화된 보호 API 요청은 `UNAUTHENTICATED`, CSRF 토큰이 없거나 유효하지 않은 상태 변경 요청은 `CSRF_TOKEN_INVALID`로 거절한다.
 
 - 유저는 본인의 프로필을 조회하고 수정할 수 있다.
 - 방 개설자와 참가자 표시를 위해 닉네임을 사용한다.
@@ -528,8 +538,9 @@ GET /api/rooms?type=PERSON_FOCUSED&keyword=...&page=...&size=...
 
 ## 8. 1차 MVP 구현 완료 기준
 
-- 6절의 15개 API가 [API 명세서](API.md)의 요청·성공 응답·오류 코드대로 재현된다.
+- 6절의 17개 API가 [API 명세서](API.md)의 요청·성공 응답·오류 코드대로 재현된다.
 - 모든 성공 응답은 HTTP 상태 코드와 같은 `status`와 `data`를, 실패 응답은 `status`, `code`, `message`, `data: null`을 반환한다. 목록 API의 `data`는 `content`, `page`, `size`, `totalElements`, `totalPages`, `hasNext`를 포함하며 기본 `page=0`, `size=10`, 최대 `size=100`을 따른다.
+- 로그인은 Bearer 토큰을 반환하지 않고 `JSESSIONID` 세션 쿠키를 설정한다. 보호 API는 유효한 서버 세션으로 인증하고, 로그아웃은 세션과 쿠키를 무효화한다. 모든 상태 변경 요청은 현재 세션의 CSRF 토큰을 검증하며 로그인·로그아웃 뒤에는 새 토큰을 발급받는다.
 - 비로그인 또는 방 관계가 없는 유저는 공개 방 응답만 받고, 주최자·현재 `ACTIVE` 참가자만 정확한 장소와 참가자 목록을 받는다. `CANCELED`, `FINISHED` 상세는 권한 없는 요청에 404를 반환한다.
 - `recruitmentCapacity` 1과 10은 생성할 수 있고 0과 11은 `VALIDATION_ERROR`로 거절한다. 마지막 자리에 참가하면 `CLOSED`가 되며, 시작 전 참가 취소로 자리가 생기면 `RECRUITING`으로 되돌아가고 재참가할 수 있다.
 - 참가 요청은 정원을 초과하지 않으며, 주최자 또는 중복 활성 참가 요청은 `ALREADY_PARTICIPATING`으로, 시작 시각 이후 참가 요청은 `ROOM_NOT_RECRUITING`으로, 참가 취소 요청은 `INVALID_ROOM_STATUS_TRANSITION`으로 거절한다. 신규 참가·재활성화는 모두 `201 Created`를 반환하고, 마지막 좌석이면 응답 `data`의 `roomStatus = CLOSED`, `remainingRecruitmentSeats = 0`이 검증된다. 마지막 좌석 이후 추가 참가 요청은 `CAPACITY_EXCEEDED`를, `CANCELED`·`FINISHED` 또는 모집 정원에 도달하지 않은 `CLOSED` 방 참가 요청은 `ROOM_NOT_RECRUITING`을 반환한다.
