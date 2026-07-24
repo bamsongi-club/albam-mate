@@ -27,7 +27,9 @@ ADR 상태는 기술 결정의 상태이며 구현 완료 여부는 각 ADR의 �
 ### 완료 기준
 
 - 신규 참가와 재참가는 모두 `201 Created`와 `participationStatus = ACTIVE`를 반환한다.
-- 마지막 좌석 참가 시 방이 `CLOSED`가 되고, 주최자도 현재 `ACTIVE` 참가자도 아닌 사용자의 이후 신규 참가 요청은 `CAPACITY_EXCEEDED`를 반환한다.
+- 마지막 좌석 참가 시 방이 `CLOSED`가 된다.
+- 방이 정원 충족으로 `CLOSED`인 동안, 주최자도 현재 `ACTIVE` 참가자도 아닌 사용자의 신규 참가 요청은 `CAPACITY_EXCEEDED`를 반환한다.
+- 방이 `CANCELED` 또는 `FINISHED`로 전이된 뒤의 참가 요청은 `ROOM_NOT_RECRUITING`을 반환한다.
 - 동일 사용자의 활성 참가 관계가 중복 생성되지 않는다.
 - 실제 PostgreSQL 동시 요청에서도 모집 정원을 초과하지 않고 충돌 결과가 API·ADR 계약과 일치한다.
 
