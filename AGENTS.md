@@ -8,6 +8,8 @@
 | --- | --- |
 | 빌드, 실행, 테스트, 반복 확인 명령 | [docs/COMMANDS.md](docs/COMMANDS.md) |
 | 코드 포맷과 Git hook 최초 설정 | [docs/guides/CODE_FORMATTING.md](docs/guides/CODE_FORMATTING.md) |
+| 코드 구조, 네이밍, 데이터베이스 변경, 시간 처리와 커밋 규칙 | [docs/CONVENTIONS.md](docs/CONVENTIONS.md) |
+| 아키텍처 결정 기록과 작성 규칙 | [docs/adr/README.md](docs/adr/README.md) |
 | Codex·Claude Code 프롬프트 기록 최초 설정 | [docs/guides/PROMPT_LOGGING.md](docs/guides/PROMPT_LOGGING.md) |
 | 프롬프트 훅의 동작 범위와 환경변수 규격 | [.bamsongi/README.md](.bamsongi/README.md) |
 | 전체 제품 목표와 단계별 범위 | [docs/PRD.md](docs/PRD.md) |
