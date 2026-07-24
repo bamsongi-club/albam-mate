@@ -54,9 +54,11 @@ erDiagram
         BOOLEAN is_rulemaster_led
         VARCHAR region
         INT capacity
+        INT active_participant_count
         TIMESTAMPTZ start_at
         VARCHAR place
         ENUM status
+        BIGINT version
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
     }
@@ -134,9 +136,11 @@ ERD의 `ROOM` 표기는 물리 테이블명 `room`을 뜻한다.
 | is_rulemaster_led | BOOLEAN | NN | 개설자의 룰마스터 진행 자기신고 |
 | region | VARCHAR(50) | NN, DEFAULT `홍대` | 모임 지역 |
 | capacity | INT | NN | 방 생성 시 입력하는 개설자 제외 모집 정원 |
+| active_participant_count | INT | NN, DEFAULT 0 | 개설자를 제외한 현재 `ACTIVE` 참가 관계 수 |
 | start_at | TIMESTAMPTZ | NN | 실제 모임 시작 시각 |
 | place | VARCHAR(255) | NN | 모임 장소 |
 | status | ENUM | NN | `RECRUITING`, `CLOSED`, `CANCELED`, `FINISHED` |
+| version | BIGINT | NN, DEFAULT 0 | `ROOM`의 동시 변경을 감지하는 낙관 락 버전 |
 | created_at | TIMESTAMPTZ | NN | 생성 시각 |
 | updated_at | TIMESTAMPTZ | NN | 수정 시각 |
 
@@ -155,13 +159,13 @@ ERD의 `ROOM` 표기는 물리 테이블명 `room`을 뜻한다.
 
 ## 정원·참가자 표시 규칙
 
-`ROOM.capacity`는 데이터베이스에 저장하는 모집 정원이며, 개설자를 포함하지 않는다. 방 상세 화면의 총 정원과 참가자 수는 별도 컬럼으로 저장하지 않고 아래처럼 계산한다.
+`ROOM.capacity`는 데이터베이스에 저장하는 모집 정원이며, 개설자를 포함하지 않는다. `ROOM.active_participant_count`는 개설자를 제외한 현재 점유 인원 수이며 현재 `ACTIVE PARTICIPATIONS` 수와 일치해야 한다. 화면에 표시하는 값은 아래처럼 계산한다.
 
 | 표시 항목 | 계산식 |
 |---|---|
 | 방 생성 시 입력하는 모집 정원 | `capacity` |
 | 방 상세의 정원 | `capacity + 1` |
-| 방 상세의 참가자 수 | `ACTIVE PARTICIPATIONS` 수 + 1 |
+| 방 상세의 참가자 수 | `active_participant_count + 1` |
 | 방 상세의 참가자 목록 | 개설자 1명 + `ACTIVE PARTICIPATIONS` 사용자 목록 |
 
 예를 들어 생성 시 모집 정원을 4명으로 입력하고 네 명이 모두 참가했다면, 방 상세에는 정원 5명, 참가자 수 5명이 표시되며 참가자 목록에는 개설자와 참가자 네 명이 함께 보인다.
@@ -175,6 +179,7 @@ ERD의 `ROOM` 표기는 물리 테이블명 `room`을 뜻한다.
 | USERS | UNIQUE (email) | 로그인 이메일은 중복될 수 없다. |
 | ROOM | CHECK (room_type <> 'GAME_FOCUSED' OR game_id IS NOT NULL) | 게임 중심 방은 게임을 반드시 선택한다. |
 | ROOM | CHECK (capacity BETWEEN 1 AND 10) | 개설자를 제외한 모집 정원은 1명 이상 10명 이하다. |
+| ROOM | CHECK (active_participant_count BETWEEN 0 AND capacity) | 현재 점유 인원은 음수이거나 모집 정원을 초과할 수 없다. |
 | PARTICIPATIONS | UNIQUE (room_id, user_id) | 한 사용자와 한 방의 참가 관계는 한 행만 가진다. |
 | PARTICIPATIONS | CHECK ((status = 'ACTIVE' AND canceled_at IS NULL) OR (status = 'CANCELED' AND canceled_at IS NOT NULL)) | 참가 상태와 취소 시각이 일치해야 한다. |
 
@@ -189,11 +194,12 @@ ERD의 `ROOM` 표기는 물리 테이블명 `room`을 뜻한다.
 - 방 생성·수정·취소·종료 처리는 해당 방의 개설자만 할 수 있다.
 - 방 수정은 `status = RECRUITING`, `now < start_at`, 개설자 외 `ACTIVE` 참가자 없음 조건을 모두 만족할 때만 할 수 있다.
 - 참가 처리는 `start_at` 전 `RECRUITING` 상태이면서 남은 자리가 있을 때만 가능하다.
-- 전체 참여 가능 인원은 `capacity + 1`이다. 현재 총 인원과 참가자 목록은 개설자 1명과 `ACTIVE` 참가 행 수를 합쳐 계산한다.
-- `ACTIVE` 참가 행 수가 `capacity`에 도달하거나 `start_at`에 도달하면 `RECRUITING`에서 `CLOSED`로 전환한다.
+- 전체 참여 가능 인원은 `capacity + 1`이다. 현재 총 인원은 개설자 1명과 `active_participant_count`를 합쳐 계산하고, 참가자 목록은 개설자와 `ACTIVE` 참가 행으로 구성한다.
+- `active_participant_count`가 `capacity`에 도달하거나 `start_at`에 도달하면 `RECRUITING`에서 `CLOSED`로 전환한다.
 - 시작 시각 전 참가 취소로 자리가 생기면 `CLOSED`에서 `RECRUITING`으로 되돌린다.
 - `CANCELED`와 `FINISHED` 상태에는 참가하거나 수정할 수 없다.
 - 개설자는 `status = CLOSED && now >= start_at`일 때만 `FINISHED`로 수동 종료할 수 있다.
 - `now >= start_at + 24시간`일 때 `CLOSED` 방은 `FINISHED`로 전환한다.
 - 시간대가 겹치는 서로 다른 방의 참가를 차단하지 않는다.
-- 참가 요청은 상태·남은 자리·중복 참가를 확인하고 참가 관계 생성 또는 재활성화와 상태 전이를 하나의 트랜잭션으로 처리해 정원을 초과하지 않는다.
+- `active_participant_count = ACTIVE 상태의 PARTICIPATIONS 수`는 서비스가 유지하는 불변식이며, `ROOM`의 CHECK 제약은 카운터의 범위만 보장한다.
+- 참가·재참가·참가 취소는 참가 관계와 `active_participant_count`, 필요한 상태 전이를 하나의 트랜잭션에서 함께 변경한다. 참가 가능성에 영향을 주는 참가·정원·상태 변경은 `ROOM`을 함께 갱신해 `version`을 증가시키며, 어떤 요청에서도 `active_participant_count`가 모집 정원을 초과하지 않게 한다.

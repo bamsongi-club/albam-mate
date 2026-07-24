@@ -23,6 +23,7 @@ description: "실제 diff를 기준으로 PR 제목·본문을 작성하고, 명
 - PR 작성해줘: PR 제목·본문만 작성한다. stage, commit, push, PR 생성은 하지 않는다.
 - PR 올려줘, PR 만들어줘: worktree가 clean이면 미push 브랜치를 push한 뒤 PR을 생성한다. dirty worktree가 있으면 자동 커밋하지 말고 변경 파일과 추천 커밋 분할안을 제시한다.
 - 커밋하고 PR 올려줘, 현재 변경사항 전부 커밋해서 PR 올려줘: 명시된 변경을 의미 단위로 커밋하고 push와 PR 생성을 진행한다.
+- 커밋을 수행하는 경우에만 커밋 직전에 `docs/CONVENTIONS.md`의 `## 커밋` 절을 읽고, 해당 절의 커밋 분할과 메시지 형식을 따른다. 파일이나 절을 확인할 수 없으면 커밋하지 말고 누락을 보고한다.
 - 현재 변경사항 전부처럼 전체 범위가 명시된 경우에만 전체 stage를 허용한다. 그 외에는 사용자가 지정한 파일만 stage하고 unrelated 변경을 보존한다.
 - 이미 커밋된 브랜치만 push하는 것은 PR 올려줘 범위에 포함한다.
 
@@ -49,7 +50,9 @@ Get-Content -Encoding UTF8 .github/PULL_REQUEST_TEMPLATE.md
 
 ## PR 제목
 
-태그 하나만 사용한다: [feat] [fix] [refactor] [docs] [test] [chore]
+PR 제목은 `[type] 한국어 제목` 형식으로 작성하고 태그 하나만 사용한다: [feat] [fix] [docs] [style] [refactor] [test] [ci] [chore]
+
+PR 제목의 `[type]` 표기는 PR 표시 형식일 뿐이므로 일반 커밋이나 squash 커밋 제목으로 그대로 재사용하지 않는다.
 
 예: [feat] 1:1 채팅 메시지 전송 기능 구현
 
