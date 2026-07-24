@@ -6,4 +6,5 @@
 
 | 번호 | 제목 | 상태 | 결정일 |
 | --- | --- | --- | --- |
-| [0011](0011-bgg-manual-catalog-snapshot.md) | P0 게임 카탈로그를 검수된 BGG 수동 스냅샷으로 관리 | 제안됨 | 미정 |
+| [0011](0011-bgg-manual-catalog-snapshot.md) | P0 게임 카탈로그를 검수된 BGG 수동 스냅샷으로 관리 | 대체됨 | 2026-07-24 |
+| [0014](0014-bgg-curated-service-catalog.md) | BGG 수집 데이터를 팀 검수 서비스 카탈로그로 재가공 | 승인됨 | 2026-07-24 |
