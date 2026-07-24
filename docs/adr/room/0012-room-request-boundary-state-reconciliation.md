@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-24
 - 결정일: 2026-07-24
-- 관련: [ADR-0004](0004-room-state-transition-scheduler.md), [ADR-0005](../participation/0005-room-participation-optimistic-locking.md), [ADR-0009](../platform/0009-utc-time-standard.md), [트랜잭션 컨벤션](../../CONVENTIONS.md#transaction), [P0 방 상태 계약](../../P0-spec.md#방-상태roomstatus), [API 상태 전이 계약](../../API.md#46-상태-전이)
+- 관련: [ADR-0004](0004-room-state-transition-scheduler.md), [ADR-0005](../participation/0005-room-participation-optimistic-locking.md), [ADR-0009](../platform/0009-utc-time-standard.md), [트랜잭션 컨벤션](../../CONVENTIONS.md#transaction), [P0 방 상태 계약](../../P0-spec.md#방-상태roomstatus), [API 방 상태 계약](../../API.md#방-상태-계약)
 - 대체 대상: ADR-0004
 - 후속 ADR: 없음
 
@@ -31,7 +31,7 @@ ADR-0004는 Java·Spring 내장 스케줄러가 방의 시간 기반 상태를 �
 - `status = CLOSED && now >= startsAt + 24시간`이면 `FINISHED`로 변경한다.
 - 두 기준 시각이 모두 지난 이전 상태는 위 전이를 순서대로 적용해 최종 상태까지 보정한다.
 
-상태 보정은 기대한 이전 상태를 조건으로 수행하는 멱등 갱신으로 구현한다. `CANCELED`, `FINISHED` 또는 동시에 다른 요청이 변경한 상태를 덮어쓰지 않으며, 성공한 보정은 `ROOM.version`을 증가시킨다. 충돌과 재시도는 ADR-0005의 계약을 따른다. 조회 요청을 포함해 최초 시도와 재시도 2회가 모두 `ROOM` 버전 충돌로 실패하면 API는 `409 ROOM_CONCURRENT_MODIFICATION`을 반환하고, 클라이언트는 조회 요청 전체를 다시 시도한다.
+상태 보정은 기대한 이전 상태를 조건으로 수행하는 멱등 갱신으로 구현한다. `CANCELED`, `FINISHED` 또는 동시에 다른 요청이 변경한 상태를 덮어쓰지 않으며, 성공한 보정은 `ROOMS.version`을 증가시킨다. 충돌과 재시도는 ADR-0005의 계약을 따른다. 조회 요청을 포함해 최초 시도와 재시도 2회가 모두 방 버전 충돌로 실패하면 API는 `409 ROOM_CONCURRENT_MODIFICATION`을 반환하고, 클라이언트는 조회 요청 전체를 다시 시도한다.
 
 조회 요청의 상태 보정은 저장 상태를 변경하지 않는 조회에 `readOnly = true`를 사용하는 컨벤션의 명시적 예외다. 트랜잭션 없는 재시도 조정자가 별도 상태 보정 실행 서비스를 호출하고, 실행 서비스는 각 시도마다 독립된 쓰기 트랜잭션에서 최신 상태를 다시 읽어 조건부 갱신한다. 성공한 보정이 커밋된 뒤 읽기 전용 조회 서비스가 최신 상태를 읽어 응답하며, 읽기 전용 트랜잭션 안의 더티 체킹으로 보정을 시도하지 않는다. 방 목록과 내 모임 목록은 보정이 커밋된 뒤 상태 필터와 페이지를 계산한다.
 

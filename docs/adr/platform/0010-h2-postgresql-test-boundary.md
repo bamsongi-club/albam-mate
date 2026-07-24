@@ -46,7 +46,7 @@ H2 기반 빠른 테스트와 Testcontainers가 관리하는 PostgreSQL 검증 �
 
 PostgreSQL 컨테이너 이미지는 테스트 설정에 명시적으로 고정하고 운영에서 지원하는 메이저 버전과 맞춘다. 운영 버전이 바뀌면 같은 변경에서 테스트 이미지를 갱신하고 전체 PostgreSQL 검증을 실행한다.
 
-CI는 `test`와 `postgresTest`를 모두 실행하며, 둘 중 하나라도 실패하면 병합할 수 없게 한다. 로컬 `test`와 `build`는 빠른 반복을 위해 PostgreSQL을 요구하지 않되, 데이터베이스 변경 작업은 제출 전에 `postgresTest`로 확인한다.
+구현 후 CI는 `test`와 `postgresTest`를 모두 실행하며, 둘 중 하나라도 실패하면 병합할 수 없게 한다. 로컬 `test`와 `build`는 빠른 반복을 위해 PostgreSQL을 요구하지 않는다. `postgresTest`가 추가된 뒤에는 데이터베이스 변경 작업을 제출하기 전에 해당 태스크로 확인한다.
 
 ## 결과
 

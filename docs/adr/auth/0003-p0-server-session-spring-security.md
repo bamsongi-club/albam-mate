@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-23
 - 결정일: 2026-07-24
-- 관련: [ADR-0001](../platform/0001-java-21-spring-boot-4-baseline.md), [P0 명세](../../P0-spec.md), [API 인증 계약](../../API.md#41-인증과-프로필)
+- 관련: [ADR-0001](../platform/0001-java-21-spring-boot-4-baseline.md), [P0 인증·프로필 명세](../../p0/auth-profile.md), [API 인증 계약](../../API.md#41-인증과-프로필)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
