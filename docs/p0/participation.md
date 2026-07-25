@@ -10,7 +10,7 @@ ADR 상태는 기술 결정의 상태이며 구현 완료 여부는 각 ADR의 �
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [방 참가·재참가](../API.md#방-참가재참가) |
+| API 계약 | [방 참가·재참가](../API.md#part-01-방-참가재참가) |
 | 공통 규칙 | [정원](../P0-spec.md#정원capacity), [방 상태](../P0-spec.md#방-상태roomstatus), [권한](../P0-spec.md#권한과-공개-범위), [시간 경계](../P0-spec.md#시간-경계) |
 | 데이터 모델 | [ROOMS](../ERD.md#rooms), [PARTICIPATIONS](../ERD.md#participations), [필수 제약](../ERD.md#필수-제약과-계산-규칙) |
 | 필수 ADR | [ADR-0005](../adr/participation/0005-room-participation-optimistic-locking.md) — 승인됨, [ADR-0012](../adr/room/0012-room-request-boundary-state-reconciliation.md) — 승인됨 |
@@ -45,7 +45,7 @@ ADR 상태는 기술 결정의 상태이며 구현 완료 여부는 각 ADR의 �
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [참가 취소](../API.md#참가-취소) |
+| API 계약 | [참가 취소](../API.md#part-02-참가-취소) |
 | 공통 규칙 | [정원](../P0-spec.md#정원capacity), [방 상태](../P0-spec.md#방-상태roomstatus), [권한](../P0-spec.md#권한과-공개-범위), [시간 경계](../P0-spec.md#시간-경계) |
 | 데이터 모델 | [ROOMS](../ERD.md#rooms), [PARTICIPATIONS](../ERD.md#participations) |
 | 필수 ADR | [ADR-0005](../adr/participation/0005-room-participation-optimistic-locking.md) — 승인됨, [ADR-0012](../adr/room/0012-room-request-boundary-state-reconciliation.md) — 승인됨 |
@@ -77,7 +77,7 @@ ADR 상태는 기술 결정의 상태이며 구현 완료 여부는 각 ADR의 �
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [내 모임 조회](../API.md#내-모임-조회) |
+| API 계약 | [내 모임 조회](../API.md#part-03-내-모임-조회) |
 | 공통 규칙 | [방 상태](../P0-spec.md#방-상태roomstatus), [권한과 공개 범위](../P0-spec.md#권한과-공개-범위), [상태 정합성](../P0-spec.md#상태-정합성과-동시-변경) |
 | 데이터 모델 | [ROOMS](../ERD.md#rooms), [PARTICIPATIONS](../ERD.md#participations) |
 | 필수 ADR | [ADR-0012](../adr/room/0012-room-request-boundary-state-reconciliation.md) — 승인됨 |

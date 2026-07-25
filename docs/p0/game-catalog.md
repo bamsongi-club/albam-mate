@@ -10,7 +10,7 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [게임 목록·검색](../API.md#게임-목록검색) |
+| API 계약 | [게임 목록·검색](../API.md#game-01-게임-목록검색) |
 | 공통 규칙 | [권한과 공개 범위](../P0-spec.md#권한과-공개-범위) |
 | 데이터 모델 | [GAMES](../ERD.md#games), [ROOMS](../ERD.md#rooms) |
 | 필수 ADR | [ADR-0006: 내부 ID와 외부 식별자 분리](../adr/platform/0006-p0-bigint-identity-ids.md), [ADR-0008: 스키마와 대규모 데이터 적재 분리](../adr/platform/0008-flyway-database-migrations.md), [ADR-0014: BGG 재가공 카탈로그](../adr/game/0014-bgg-curated-service-catalog.md) |
@@ -42,7 +42,7 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [게임 상세 조회](../API.md#게임-상세-조회) |
+| API 계약 | [게임 상세 조회](../API.md#game-02-게임-상세-조회) |
 | 공통 규칙 | [권한과 공개 범위](../P0-spec.md#권한과-공개-범위) |
 | 데이터 모델 | [GAMES](../ERD.md#games), [ROOMS](../ERD.md#rooms) |
 | 필수 ADR | [ADR-0006: 내부 ID와 외부 식별자 분리](../adr/platform/0006-p0-bigint-identity-ids.md), [ADR-0008: 스키마와 대규모 데이터 적재 분리](../adr/platform/0008-flyway-database-migrations.md), [ADR-0014: BGG 재가공 카탈로그](../adr/game/0014-bgg-curated-service-catalog.md) |
@@ -57,7 +57,7 @@
 ### 완료 기준
 
 - 존재하는 게임 ID로 게임 상세와 예정 모임 수를 조회할 수 있다.
-- 존재하지 않는 게임 ID는 [게임 상세 오류 계약](../API.md#게임-상세-조회)에 따라 처리된다.
+- 존재하지 않는 게임 ID는 [게임 상세 오류 계약](../API.md#game-02-게임-상세-조회)에 따라 처리된다.
 - 목록과 상세에서 같은 게임의 `id`, `bggId`와 예정 모임 수가 일관된다.
 
 ### 제외 범위

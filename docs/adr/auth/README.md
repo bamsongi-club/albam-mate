@@ -7,4 +7,4 @@
 | 번호 | 제목 | 상태 | 결정일 |
 | --- | --- | --- | --- |
 | [0003](0003-p0-server-session-spring-security.md) | P0 인증에 서버 세션과 Spring Security를 사용 | 승인됨 | 2026-07-24 |
-| [0013](0013-p0-password-storage-auth-request-protection.md) | P0 비밀번호를 Argon2id로 저장하고 인증 요청을 제한 | 제안됨 | 미정 |
+| [0013](0013-p0-password-storage-auth-request-protection.md) | P0 비밀번호를 bcrypt로 저장하고 인증 요청을 제한 | 승인됨 | 2026-07-25 |
