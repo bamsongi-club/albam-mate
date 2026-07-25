@@ -10,7 +10,7 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [방 목록 조회](../API.md#방-목록-조회) |
+| API 계약 | [방 목록 조회](../API.md#room-01-방-목록-조회) |
 | 공통 규칙 | [방 상태](../P0-spec.md#방-상태roomstatus), [권한과 공개 범위](../P0-spec.md#권한과-공개-범위), [상태 정합성과 동시 변경](../P0-spec.md#상태-정합성과-동시-변경) |
 | 데이터 모델 | [ROOMS](../ERD.md#rooms), [GAMES](../ERD.md#games) |
 | 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md) |
@@ -40,7 +40,7 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [방 상세 조회](../API.md#방-상세-조회) |
+| API 계약 | [방 상세 조회](../API.md#room-02-방-상세-조회) |
 | 공통 규칙 | [권한과 공개 범위](../P0-spec.md#권한과-공개-범위), [방 상태](../P0-spec.md#방-상태roomstatus), [상태 정합성과 동시 변경](../P0-spec.md#상태-정합성과-동시-변경) |
 | 데이터 모델 | [ROOMS](../ERD.md#rooms), [GAMES](../ERD.md#games) |
 | 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md) |
@@ -56,6 +56,7 @@
 
 - 비로그인 사용자와 방 관계가 없는 사용자는 공개 범위의 상세만 조회한다.
 - 주최자와 현재 `ACTIVE` 참가자는 관계자 범위의 상세를 조회한다.
+- 관계자 응답만으로 요청자가 주최자인지 참가자인지 구분할 수 있어 방 관리와 참가 취소 중 어떤 동작을 제공할지 결정할 수 있다.
 - 최종 상태 방의 조회 권한과 존재 여부 은닉이 공통 권한 규칙과 일치한다.
 - 방 유형에 따라 게임 정보 또는 `게임 미정`이 일관되게 표시된다.
 - 관계자 응답은 API의 캐시 방지 헤더를 반환하며, 참가 취소·로그아웃 뒤 같은 URL에서 이전 정확한 장소와 참가자 정보가 재사용되지 않는다.
@@ -72,7 +73,7 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [방 생성](../API.md#방-생성) |
+| API 계약 | [방 생성](../API.md#room-03-방-생성) |
 | 공통 규칙 | [정원](../P0-spec.md#정원capacity), [방 상태](../P0-spec.md#방-상태roomstatus), [권한과 공개 범위](../P0-spec.md#권한과-공개-범위), [시간 경계](../P0-spec.md#시간-경계) |
 | 데이터 모델 | [ROOMS](../ERD.md#rooms), [GAMES](../ERD.md#games) |
 | 필수 ADR | [ADR-0009 UTC 저장과 서비스 시간대 변환](../adr/platform/0009-utc-time-standard.md) |
@@ -105,7 +106,7 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [방 수정](../API.md#방-수정) |
+| API 계약 | [방 수정](../API.md#room-04-방-수정) |
 | 공통 규칙 | [정원](../P0-spec.md#정원capacity), [방 상태](../P0-spec.md#방-상태roomstatus), [권한과 공개 범위](../P0-spec.md#권한과-공개-범위), [시간 경계](../P0-spec.md#시간-경계), [상태 정합성과 동시 변경](../P0-spec.md#상태-정합성과-동시-변경) |
 | 데이터 모델 | [ROOMS](../ERD.md#rooms), [GAMES](../ERD.md#games) |
 | 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0009 UTC 저장과 서비스 시간대 변환](../adr/platform/0009-utc-time-standard.md) |
@@ -138,7 +139,7 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [방 취소](../API.md#방-취소), [방 종료](../API.md#방-종료) |
+| API 계약 | [방 취소](../API.md#room-05-방-취소), [방 종료](../API.md#room-05-방-종료) |
 | 공통 규칙 | [방 상태](../P0-spec.md#방-상태roomstatus), [권한과 공개 범위](../P0-spec.md#권한과-공개-범위), [시간 경계](../P0-spec.md#시간-경계), [상태 정합성과 동시 변경](../P0-spec.md#상태-정합성과-동시-변경) |
 | 데이터 모델 | [ROOMS](../ERD.md#rooms) |
 | 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0009 UTC 저장과 서비스 시간대 변환](../adr/platform/0009-utc-time-standard.md) |
@@ -170,7 +171,7 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [방 상태 계약](../API.md#방-상태-계약) |
+| API 계약 | [방 상태 계약](../API.md#roomstatus) |
 | 공통 규칙 | [방 상태](../P0-spec.md#방-상태roomstatus), [시간 경계](../P0-spec.md#시간-경계), [상태 정합성과 동시 변경](../P0-spec.md#상태-정합성과-동시-변경) |
 | 데이터 모델 | [ROOMS](../ERD.md#rooms) |
 | 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0009 UTC 저장과 서비스 시간대 변환](../adr/platform/0009-utc-time-standard.md) |

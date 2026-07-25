@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-24
 - 결정일: 2026-07-24
-- 관련: [P0 게임 카탈로그 명세](../../p0/game-catalog.md), [API 게임 목록·검색](../../API.md#게임-목록검색), [ERD GAMES](../../ERD.md#games), [ADR-0006](../platform/0006-p0-bigint-identity-ids.md), [ADR-0008](../platform/0008-flyway-database-migrations.md)
+- 관련: [P0 게임 카탈로그 명세](../../p0/game-catalog.md), [API 게임 목록·검색](../../API.md#game-01-게임-목록검색), [ERD GAMES](../../ERD.md#games), [ADR-0006](../platform/0006-p0-bigint-identity-ids.md), [ADR-0008](../platform/0008-flyway-database-migrations.md)
 - 대체 대상: [ADR-0011](0011-bgg-manual-catalog-snapshot.md)
 - 후속 ADR: 없음
 

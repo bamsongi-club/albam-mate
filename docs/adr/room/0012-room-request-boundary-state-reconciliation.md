@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-24
 - 결정일: 2026-07-24
-- 관련: [ADR-0004](0004-room-state-transition-scheduler.md), [ADR-0005](../participation/0005-room-participation-optimistic-locking.md), [ADR-0009](../platform/0009-utc-time-standard.md), [트랜잭션 컨벤션](../../CONVENTIONS.md#transaction), [P0 방 상태 계약](../../P0-spec.md#방-상태roomstatus), [API 방 상태 계약](../../API.md#방-상태-계약)
+- 관련: [ADR-0004](0004-room-state-transition-scheduler.md), [ADR-0005](../participation/0005-room-participation-optimistic-locking.md), [ADR-0009](../platform/0009-utc-time-standard.md), [트랜잭션 컨벤션](../../CONVENTIONS.md#transaction), [P0 방 상태 계약](../../P0-spec.md#방-상태roomstatus), [API 방 상태 계약](../../API.md#roomstatus)
 - 대체 대상: ADR-0004
 - 후속 ADR: 없음
 
