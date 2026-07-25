@@ -53,7 +53,7 @@ P0는 `게임부터 찾기`, `사람부터 만나기`, `방 만들기` 세 흐�
 | API prefix | `/api` |
 | 요청·응답 본문 | `application/json` |
 | JSON 필드명 | camelCase |
-| 식별자 | JSON에서는 integer, 경로에서는 1 이상의 10진 정수. 생성 전략은 [ADR-0006](adr/platform/0006-p0-bigint-identity-ids.md)과 [ERD](ERD.md#테이블-명세)를 따른다 |
+| 식별자 | JSON에서는 integer, 경로에서는 1 이상의 10진 정수. 형식·범위를 벗어난 경로 값은 대상을 조회하기 전에 `400 VALIDATION_ERROR`로 거절한다. 생성 전략은 [ADR-0006](adr/platform/0006-p0-bigint-identity-ids.md)과 [ERD](ERD.md#테이블-명세)를 따른다 |
 | 요청 시각 | RFC 3339 `date-time`. `Z` 또는 `±HH:MM` 오프셋을 반드시 포함한다 |
 | 응답 시각 | RFC 3339 `date-time`, `Asia/Seoul` 기준 `+09:00` |
 
@@ -255,12 +255,12 @@ P0는 서버 세션 인증을 사용한다. Bearer access token과 refresh token
 | 값 | 의미 |
 |---|---|
 | `all` | `joined`와 `hosted`의 중복 없는 합집합 |
-| `joined` | 현재 참가 중인 방 |
+| `joined` | 취소하지 않은 `ACTIVE` 참가 관계의 방. `FINISHED` 방을 포함하고 `CANCELED` 방은 제외 |
 | `hosted` | 본인이 개설한 방 |
 
 ### MyRole
 
-`MyRoomListItem.myRole` 값이다.
+`MyRoomListItem.myRole`과 `ParticipantRoomResponse.myRole` 값이다.
 
 | 값 | 의미 |
 |---|---|
@@ -369,9 +369,12 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
+| `myRole` | MyRole | Y | N | 요청자와 방의 관계 |
 | `place` | string | Y | N | 정확한 장소 |
 | `host` | NicknameSummary | Y | N | 주최자 |
 | `participants` | NicknameSummary[] | Y | N | 주최자와 현재 `ACTIVE` 참가자 |
+
+`host`와 `participants`는 사용자 ID를 포함하지 않으므로, 클라이언트는 `myRole`로 요청자의 역할을 판정한다. ROOM-02 상세 조회는 주최자에게 `HOST`, 현재 `ACTIVE` 참가자에게 `JOINED`를 반환한다. 주최자 전용인 ROOM-03 생성과 ROOM-04 수정 응답은 항상 `HOST`다.
 
 ### 4.9 RoomParticipationResponse
 
@@ -418,9 +421,11 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 | 회원가입 | 원격 IP | 10분 이동 창당 5회. ADR-0013의 사전 검증을 통과한 요청은 성공·실패 모두 계산 |
 | 로그인 | 원격 IP | 10분 이동 창당 30회. ADR-0013의 사전 검증을 통과한 요청은 성공·실패 모두 계산 |
 | 로그인 실패 | 정규화 이메일 + 원격 IP | 10분 이동 창당 5회. 로그인 성공 시 실패 횟수 초기화 |
+| 로그인 실패 | 정규화 이메일 | 1시간 이동 창당 20회. 원격 IP와 무관하게 계산하며 로그인 성공 시 실패 횟수 초기화 |
 
-- 요청 횟수 제한을 초과하거나 동일한 정규화 이메일·원격 IP 조합의 로그인 검증이 진행 중이거나 동시 해시 실행 슬롯이 없으면 `429 RATE_LIMIT_EXCEEDED`를 반환한다. `Retry-After` 헤더에는 다시 요청할 수 있을 때까지의 초를 담으며, 동일 키 검증 진행 중 또는 슬롯 부족으로 거절할 때는 `1`이다. 클라이언트는 이 값에 따라 재시도한다.
-- 존재하지 않는 이메일과 잘못된 비밀번호는 계정 유무를 구분하지 않고 같은 `INVALID_CREDENTIALS`로 응답한다.
+- 두 로그인 실패 제한은 서로 독립이다. 조합 키는 단일 출처의 반복 추측을, 정규화 이메일 키는 원격 IP를 바꿔 가며 한 계정을 노리는 분산 추측을 막는다.
+- 요청 횟수 제한이나 두 로그인 실패 한도 중 하나를 초과하거나, 동일한 정규화 이메일·원격 IP 조합의 로그인 검증이 진행 중이거나 동시 해시 실행 슬롯이 없으면 `429 RATE_LIMIT_EXCEEDED`를 반환한다. `Retry-After` 헤더에는 다시 요청할 수 있을 때까지의 초를 담으며, 실패 한도 초과는 가장 오래된 실패가 해당 이동 창을 벗어날 때까지 남은 초, 동일 키 검증 진행 중 또는 슬롯 부족으로 거절할 때는 `1`이다. 클라이언트는 이 값에 따라 재시도한다.
+- 존재하지 않는 이메일과 잘못된 비밀번호는 계정 유무를 구분하지 않고 같은 `INVALID_CREDENTIALS`로 응답한다. 두 실패 버킷도 계정 존재 여부와 무관하게 같은 기준으로 기록한다.
 
 ### AUTH-01 CSRF 토큰 조회
 
@@ -613,6 +618,7 @@ P0에서는 닉네임만 수정한다.
 
 | 발생 조건 | HTTP | code |
 |---|---:|---|
+| path ID 형식·범위 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 게임이 없음 | 404 | `GAME_NOT_FOUND` |
 
 ## 7. 방 API
@@ -690,6 +696,7 @@ Vary: Cookie
 
 | 발생 조건 | HTTP | code |
 |---|---:|---|
+| path ID 형식·범위 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 방이 없거나, 최종 상태 방을 조회할 권한이 없음 | 404 | `ROOM_NOT_FOUND` |
 | 동시 변경으로 방 상태를 확인할 수 없음 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
 
@@ -809,6 +816,7 @@ Vary: Cookie
 
 | 발생 조건 | HTTP | code |
 |---|---:|---|
+| path ID 형식·범위 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
 | 요청자가 주최자가 아님 | 403 | `FORBIDDEN` |
 | CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
@@ -835,6 +843,7 @@ Vary: Cookie
 
 | 발생 조건 | HTTP | code |
 |---|---:|---|
+| path ID 형식·범위 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
 | 요청자가 주최자가 아님 | 403 | `FORBIDDEN` |
 | CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
@@ -862,6 +871,7 @@ Vary: Cookie
 
 | 발생 조건 | HTTP | code |
 |---|---:|---|
+| path ID 형식·범위 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
 | 요청자가 주최자가 아님 | 403 | `FORBIDDEN` |
 | CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
@@ -904,6 +914,7 @@ Request body는 없다.
 
 | 발생 조건 | HTTP | code |
 |---|---:|---|
+| path ID 형식·범위 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
 | CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
 | 방이 없음 | 404 | `ROOM_NOT_FOUND` |
@@ -941,6 +952,7 @@ Request body는 없다.
 
 | 발생 조건 | HTTP | code |
 |---|---:|---|
+| path ID 형식·범위 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
 | 요청자가 주최자 | 403 | `FORBIDDEN` |
 | CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
@@ -1053,15 +1065,15 @@ Request body는 없다.
 | `GET /api/users/me` | `UNAUTHENTICATED` |
 | `PATCH /api/users/me` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `CSRF_TOKEN_INVALID` |
 | `GET /api/games` | `VALIDATION_ERROR` |
-| `GET /api/games/{gameId}` | `GAME_NOT_FOUND` |
+| `GET /api/games/{gameId}` | `VALIDATION_ERROR`, `GAME_NOT_FOUND` |
 | `POST /api/rooms` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `CSRF_TOKEN_INVALID` |
 | `GET /api/rooms` | `VALIDATION_ERROR`, `ROOM_CONCURRENT_MODIFICATION` |
-| `GET /api/rooms/{roomId}` | `ROOM_NOT_FOUND`, `ROOM_CONCURRENT_MODIFICATION` |
+| `GET /api/rooms/{roomId}` | `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `ROOM_CONCURRENT_MODIFICATION` |
 | `PATCH /api/rooms/{roomId}` | `UNAUTHENTICATED`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `GAME_NOT_FOUND`, `VALIDATION_ERROR`, `ROOM_UPDATE_NOT_ALLOWED_WITH_ACTIVE_PARTICIPANTS`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
-| `DELETE /api/rooms/{roomId}` | `UNAUTHENTICATED`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
+| `DELETE /api/rooms/{roomId}` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
 | `PATCH /api/rooms/{roomId}/status` | `UNAUTHENTICATED`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `VALIDATION_ERROR`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
-| `POST /api/rooms/{roomId}/participants` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `ALREADY_PARTICIPATING`, `ROOM_NOT_RECRUITING`, `CAPACITY_EXCEEDED`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
-| `DELETE /api/rooms/{roomId}/participants/me` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `PARTICIPATION_NOT_FOUND`, `FORBIDDEN`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
+| `POST /api/rooms/{roomId}/participants` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `ALREADY_PARTICIPATING`, `ROOM_NOT_RECRUITING`, `CAPACITY_EXCEEDED`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
+| `DELETE /api/rooms/{roomId}/participants/me` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `PARTICIPATION_NOT_FOUND`, `FORBIDDEN`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
 | `GET /api/users/me/rooms` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_CONCURRENT_MODIFICATION` |
 
 - `GET /api/rooms/{roomId}`에서만 취소·종료 방을 권한 없는 사용자가 조회할 때 존재 여부를 숨기기 위해 `ROOM_NOT_FOUND`를 반환한다. 그 외 주최자 전용 쓰기 API의 비주최자 요청은 `FORBIDDEN`을 반환한다.
