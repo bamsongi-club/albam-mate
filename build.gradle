@@ -35,8 +35,13 @@ dependencies {
     testAnnotationProcessor 'org.projectlombok:lombok'
 }
 
-tasks.named('test') {
+tasks.withType(JavaExec).configureEach {
+    systemProperty 'user.timezone', 'UTC'
+}
+
+tasks.withType(Test).configureEach {
     useJUnitPlatform()
+    systemProperty 'user.timezone', 'UTC'
 }
 
 spotless {
