@@ -59,7 +59,7 @@ P0는 `게임부터 찾기`, `사람부터 만나기`, `방 만들기` 세 흐�
 
 - 요청 시각의 오프셋이 없거나 형식을 해석할 수 없으면 `400 VALIDATION_ERROR`다. 응답은 `+09:00`으로 반환한다. 내부 저장·비교 기준은 [ADR-0009](adr/platform/0009-utc-time-standard.md)를 따른다.
 - `gameId`는 BoardGameGeek의 `bggId`가 아니라 알밤메이트 내부 게임 ID다. 자세한 구분은 [4.4 GameSummary](#44-gamesummary)를 따른다.
-- HTTP 상태 코드는 검증 오류 `400`, 미인증 `401`, 권한 없음 `403`, 대상 없음 `404`, 상태·정합성 충돌 `409`, 요청 한도 초과 `429`를 사용한다.
+- HTTP 상태 코드는 검증 오류 `400`, 미인증 `401`, 권한 없음 `403`, 대상 없음 `404`, 허용되지 않은 메서드 `405`, 응답 미디어 타입 협상 실패 `406`, 상태·정합성 충돌 `409`, 지원하지 않는 요청 미디어 타입 `415`, 요청 한도 초과 `429`, 처리하지 않은 서버 오류 `500`을 사용한다.
 
 JSON 필드는 camelCase를 사용한다. 저장 컬럼(snake_case)과의 대응은 [ERD 테이블 명세](ERD.md#테이블-명세)를 정본으로 한다.
 
@@ -1024,6 +1024,13 @@ Request body는 없다.
 | `UNAUTHENTICATED` | 401 | 인증이 필요합니다. | 세션 쿠키가 없거나 세션이 만료·무효화됨 |
 | `FORBIDDEN` | 403 | 요청을 수행할 권한이 없습니다. | 인증은 됐지만 요청한 작업을 수행할 권한이 없음 |
 | `CSRF_TOKEN_INVALID` | 403 | CSRF 토큰이 없거나 유효하지 않습니다. | 상태 변경 요청의 CSRF 토큰이 없거나 유효하지 않음 |
+| `RESOURCE_NOT_FOUND` | 404 | 요청한 리소스를 찾을 수 없습니다. | 요청 경로에 대응하는 핸들러 또는 정적 리소스가 없음 |
+| `METHOD_NOT_ALLOWED` | 405 | 허용되지 않은 HTTP 메서드입니다. | 요청 경로는 존재하지만 HTTP 메서드를 지원하지 않음 |
+| `NOT_ACCEPTABLE` | 406 | 요청한 응답 미디어 타입을 제공할 수 없습니다. | `Accept` 헤더와 호환되는 응답 미디어 타입이 없음 |
+| `UNSUPPORTED_MEDIA_TYPE` | 415 | 지원하지 않는 요청 미디어 타입입니다. | `Content-Type`이 요청 본문에서 지원하는 미디어 타입과 호환되지 않음 |
+| `INTERNAL_SERVER_ERROR` | 500 | 서버 오류가 발생했습니다. | 처리하지 않은 예외로 요청을 완료하지 못함 |
+
+`METHOD_NOT_ALLOWED`, `NOT_ACCEPTABLE`, `UNSUPPORTED_MEDIA_TYPE` 응답은 Spring MVC 예외가 제공하는 `Allow`, `Accept`, `Accept-Patch` 등의 프로토콜 헤더가 있으면 그대로 포함한다.
 
 ### 9.2 인증·회원 오류
 
@@ -1069,6 +1076,8 @@ Request body는 없다.
 
 | API | 오류 코드 |
 |---|---|
+| 모든 엔드포인트 | `METHOD_NOT_ALLOWED`, `NOT_ACCEPTABLE`, `UNSUPPORTED_MEDIA_TYPE`, `INTERNAL_SERVER_ERROR` |
+| 요청 경로에 대응하는 엔드포인트 또는 정적 리소스 없음 | `RESOURCE_NOT_FOUND` |
 | `GET /api/auth/csrf` | 없음 |
 | `POST /api/auth/signup` | `VALIDATION_ERROR`, `EMAIL_ALREADY_EXISTS`, `RATE_LIMIT_EXCEEDED`, `CSRF_TOKEN_INVALID` |
 | `POST /api/auth/login` | `VALIDATION_ERROR`, `INVALID_CREDENTIALS`, `RATE_LIMIT_EXCEEDED`, `CSRF_TOKEN_INVALID` |
