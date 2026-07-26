@@ -573,7 +573,7 @@ P0에서는 닉네임만 수정한다.
 
 ## 6. 게임 API
 
-게임 데이터는 운영자가 준비한다. 사용자용 게임 생성·수정·삭제 API는 제공하지 않는다(→ [GAME-01 정본](p0/game-catalog.md#game-01-게임-목록검색), 카탈로그 출처 [ADR-0014](adr/game/0014-bgg-curated-service-catalog.md)).
+게임 데이터는 운영자가 준비한다. 사용자용 게임 생성·수정·삭제 API는 제공하지 않는다(→ [GAME-01 정본](p0/game-catalog.md#game-01-게임-목록검색), 게임 목록 출처 [ADR-0015](adr/game/0015-bgg-baseline-team-collected-game-list.md)).
 
 ### GAME-01 게임 목록·검색
 

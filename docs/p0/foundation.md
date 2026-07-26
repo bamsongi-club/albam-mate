@@ -112,7 +112,7 @@ FND-04와 FND-05를 기반 작업으로 분리한 것은 인증 담당이나 구
 ### 제외 범위
 
 - 빈 `controller`, `service`, `repository` 계층 패키지의 선행 생성
-- 게임 카탈로그 데이터 적재. [ADR-0014](../adr/game/0014-bgg-curated-service-catalog.md)에서 다룬다.
+- 게임 목록 데이터 적재. [ADR-0015](../adr/game/0015-bgg-baseline-team-collected-game-list.md)에서 다룬다.
 - 기능별 Repository 조회 메서드와 Entity 상태 변경 메서드. 각 기능 ID에서 다룬다.
 - PostgreSQL 기반 마이그레이션 검증. [FND-06](#fnd-06-postgresql-검증-환경)에서 다룬다.
 
