@@ -106,10 +106,10 @@ class TimeConfigTest {
     }
 
     @Test
-    void 윤초_요청_시각은_거절된다() {
-        assertThrows(
-                JacksonException.class,
-                () -> objectMapper.readValue("\"2026-07-26T03:00:60Z\"", Instant.class));
+    void 윤초_요청_시각은_직전_초로_정규화된다() throws Exception {
+        Instant leapSecond = objectMapper.readValue("\"2016-12-31T23:59:60Z\"", Instant.class);
+
+        assertEquals(Instant.parse("2016-12-31T23:59:59Z"), leapSecond);
     }
 
     @Test

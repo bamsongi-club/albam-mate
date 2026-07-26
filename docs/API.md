@@ -54,7 +54,7 @@ P0는 `게임부터 찾기`, `사람부터 만나기`, `방 만들기` 세 흐�
 | 요청·응답 본문 | `application/json` |
 | JSON 필드명 | camelCase |
 | 식별자 | JSON에서는 integer, 경로에서는 1 이상의 10진 정수. 형식·범위를 벗어난 경로 값은 대상을 조회하기 전에 `400 VALIDATION_ERROR`로 거절한다. 생성 전략은 [ADR-0006](adr/platform/0006-p0-bigint-identity-ids.md)과 [ERD](ERD.md#테이블-명세)를 따른다 |
-| 요청 시각 | RFC 3339 기반 서비스 프로필의 `date-time`. `T`/`t` 구분자와 `Z`/`z` UTC 표기를 허용하며, `±HH:MM` 오프셋도 허용한다. 초는 필수이고 `00`~`59`만 허용한다(윤초 `60` 미지원) |
+| 요청 시각 | RFC 3339 기반 서비스 프로필의 `date-time`. `T`/`t` 구분자와 `Z`/`z` UTC 표기를 허용하며, `±HH:MM` 오프셋도 허용한다. 초는 필수이고 `00`~`59` 또는 윤초 `60`을 허용한다. 윤초 `60`은 Java 21 `Instant`가 표현할 수 있는 직전 `:59` 시각의 `Instant`로 정규화한다 |
 | 응답 시각 | RFC 3339 `date-time`, `Asia/Seoul` 기준 `+09:00` |
 
 - 요청 시각의 오프셋이 없거나 형식을 해석할 수 없으면 `400 VALIDATION_ERROR`다. 응답은 `+09:00`으로 반환한다. 내부 저장·비교 기준은 [ADR-0009](adr/platform/0009-utc-time-standard.md)를 따른다.

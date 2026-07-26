@@ -1,7 +1,6 @@
 package cloud.bamsongi.albammate.global.config;
 
 import java.time.Instant;
-import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -24,7 +23,7 @@ public class TimeJacksonComponent {
             DateTimeFormatter.ISO_OFFSET_DATE_TIME;
     private static final Pattern RFC3339_FULL_TIME =
             Pattern.compile(
-                    "^\\d{4}-\\d{2}-\\d{2}[Tt]\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d+)?(?:[Zz]|[+-]\\d{2}:\\d{2})$");
+                    "^\\d{4}-\\d{2}-\\d{2}[Tt]\\d{2}:\\d{2}:(?:[0-5]\\d|60)(?:\\.\\d+)?(?:[Zz]|[+-]\\d{2}:\\d{2})$");
 
     public static class InstantSerializer extends ValueSerializer<Instant> {
 
@@ -54,8 +53,7 @@ public class TimeJacksonComponent {
 
             try {
                 String normalizedValue = value.replace('t', 'T').replace('z', 'Z');
-                return OffsetDateTime.parse(normalizedValue, OFFSET_DATE_TIME_FORMATTER)
-                        .toInstant();
+                return Instant.parse(normalizedValue);
             } catch (DateTimeParseException exception) {
                 throw invalidFormat(parser, value);
             }
