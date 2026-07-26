@@ -159,16 +159,25 @@ PR 전체 요약은 한 번만 쓰고 아래 형식을 그대로 쓴다.
 
 ~~~text
 ## 판정: Approve | Changes Requested | Blocked | Incomplete
+
 심각도: 🔴 <n>  🟠 <n>  🟡 <n>  ⚪ <n>
+
 변경 요약: 이번 변경의 동작을 2~3줄.
-잘된 점:
+
+### 잘된 점
+
 - ...
-주요 지적 (critical/major만):
+
+### 주요 지적 (critical/major만)
+
 - 🔴 file:line — 제목
 - 🟠 file:line — 제목
-다음 액션:
+
+### 다음 액션
+
 - ...
 ~~~
 
+- 절 제목은 `###` 헤딩으로 쓰고 헤딩과 목록 앞뒤에 빈 줄을 넣는다. 빈 줄을 빠뜨리면 GitHub이 다음 절 제목을 앞 목록의 마지막 항목에 이어 붙여 절 구분이 사라진다.
 - 미검토 범위가 있으면 Incomplete, critical이 하나라도 있으면 Blocked, major가 있으면 Changes Requested, 그 외 완료된 리뷰면 Approve로 판정한다.
 - minor·nit은 라인 코멘트에만 남긴다. 직설적으로 쓰되 비난하지 않는다.
