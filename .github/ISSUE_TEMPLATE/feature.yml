@@ -1,0 +1,70 @@
+name: 기능 구현
+description: 기능 명세 한 단위 또는 그 슬라이스 하나
+title: "[ID] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        정본 문서의 문장을 옮겨 적지 않는다. 경로와 완료 기준 ID(`AC1`)로만 참조한다.
+        이슈에는 문서에서 확인할 수 없는 것(범위 슬라이스·소유 경로·의존)만 남긴다.
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: 정본·범위
+      description: |
+        정본은 기능 명세의 해당 절 경로를 적는다. P0는 `docs/p0/<파일>.md#<기능-앵커>`다.
+        담당은 완료 기준 ID로 적고, 명세 절이 없는 기반·통합 작업은 산출물을 적는다.
+        제외한 완료 기준은 처리할 이슈 번호를 함께 적는다.
+      placeholder: |
+        - 정본:
+        - 담당:
+        - 제외: 없음
+    validations:
+      required: true
+
+  - type: textarea
+    id: ownership
+    attributes:
+      label: 소유
+      description: |
+        이 이슈가 변경할 경로만 적는다. 공유 파일은 접촉하는 항목을 직접 적고, 없으면 "수정 없음"으로 둔다.
+        한 모듈을 여러 기능 ID가 나눠 가지면 `<module>/**` 대신 담당 클래스 목록을 적는다(docs/CONVENTIONS.md#협업-개발).
+      placeholder: |
+        - <module>/** (main/test 포함) 또는 담당 클래스 목록
+        - 공유 파일: 수정 없음
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependency
+    attributes:
+      label: 의존성
+      description: 착수 필요는 컴파일·단위 테스트를 시작할 수 있는 조건, 완료 필요는 이슈를 닫기 위해 추가로 필요한 조건이다.
+      placeholder: |
+        - 착수 필요:
+        - 완료 필요: 없음
+        - Blocks:
+    validations:
+      required: true
+
+  - type: textarea
+    id: done
+    attributes:
+      label: 완료
+      description: |
+        담당 범위를 묶어서 적는다. 완료 기준 문장을 다시 쓰지 않는다.
+        기반·통합 작업은 마지막 줄의 검증 방법을 그 작업에 맞게 바꾼다.
+      placeholder: |
+        - [ ]
+        - [ ] 위 범위의 성공·실패 경로 테스트, CI 통과
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ### 중단 규칙
+
+        - 공개 계약 부재·정본 충돌·미신고 공유 파일 수정이 필요하면 중단하고 `DECISION_NEEDED` 라벨 + 코멘트
+        - 규칙: docs/CONVENTIONS.md#협업-개발
