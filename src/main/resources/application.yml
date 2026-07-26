@@ -1,3 +1,13 @@
 spring:
   application:
     name: albam-mate
+  jackson:
+    time-zone: UTC
+  datasource:
+    hikari:
+      connection-init-sql: SET TIME ZONE 'UTC'
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
