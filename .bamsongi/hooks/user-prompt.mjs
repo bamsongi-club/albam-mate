@@ -75,10 +75,7 @@ function getMember() {
 }
 
 function isGeneratedAgentPrompt(event) {
-  return (
-    (typeof event?.agent_id === "string" && event.agent_id.length > 0) ||
-    (typeof event?.agent_type === "string" && event.agent_type.length > 0)
-  );
+  return typeof event?.agent_id === "string" && event.agent_id.length > 0;
 }
 
 function isCodexInternalSuggestionPrompt(tool, prompt) {

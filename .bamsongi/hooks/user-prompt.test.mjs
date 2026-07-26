@@ -97,3 +97,18 @@ test("서브에이전트가 만든 프롬프트는 저장하지 않는다", asyn
   assert.equal(result.status, 0, result.stderr);
   await assertNothingSaved(brainRoot);
 });
+
+test("--agent로 띄운 메인 세션 프롬프트는 저장한다", async () => {
+  const brainRoot = await createBrainRoot();
+  const prompt = "정원 초과 검증 로직을 확인해줘";
+
+  const result = runLogger({
+    brainRoot,
+    prompt,
+    tool: "claude",
+    event: { agent_type: "backend-developer" },
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(await savedMarkdown(brainRoot), new RegExp(prompt));
+});
