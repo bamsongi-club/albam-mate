@@ -15,11 +15,16 @@
 | [게임 카탈로그](p0/game-catalog.md) | 게임 목록·검색·상세와 카탈로그 범위 |
 | [방](p0/room.md) | 방 탐색·상세·생성·수정·취소·종료 |
 | [참가·내 모임](p0/participation.md) | 참가·취소·재참가와 내 모임 |
+| [기반 작업](p0/foundation.md) | 기능 구현보다 먼저 필요한 공유 기반 항목과 의존 순서 |
 | [API 명세서](API.md) | 요청·응답, 페이지네이션, HTTP 상태와 오류 계약 |
 | [ERD](ERD.md) | 테이블, 데이터 제약과 계산식 |
 | [PRD](PRD.md) | 전체 제품 목표와 P0 이후 기능 후보 |
 
 문서 내용이 겹칠 때는 공통 제품 규칙은 본 문서, 기능별 제품 규칙은 해당 기능 문서, HTTP 계약은 API 명세서, 저장 계약은 ERD, 기술 결정은 ADR을 따른다.
+
+### 완료 기준 ID
+
+기능 문서와 [기반 작업 문서](p0/foundation.md)의 완료 기준은 각 ID 안에서 `AC1`부터 번호를 가진다. 이슈와 작업 단위는 완료 기준 문장을 옮겨 적지 않고 이 ID로 범위를 지정한다. 번호는 한 번 부여하면 바꾸지 않는다. 항목이 추가되면 뒤에 이어 붙이고, 삭제해도 남은 번호를 당기지 않는다.
 
 ---
 
@@ -218,33 +223,34 @@ P0에서는 다음 상태를 사용한다.
 
 ## 기능별 문서와 API 목록
 
-P0는 총 17개의 API를 제공한다. 아래 표는 인벤토리이며, 쿼리 파라미터, 요청·응답 모델, HTTP 상태와 오류 코드는 [API 명세서](API.md)를 따른다.
+P0는 총 17개의 API를 제공한다. 아래 표는 인벤토리이며, 인증 필요 여부, CSRF, 쿼리 파라미터, 요청·응답 모델, HTTP 상태와 오류 코드는 [API 명세서](API.md)를 따른다.
 
-| # | API | 메서드·경로 | 인증 | 기능 문서 |
-| ---: | --- | --- | :---: | --- |
-| 1 | CSRF 토큰 조회 | `GET /api/auth/csrf` | N | [AUTH-01](p0/auth-profile.md#auth-01-csrf-토큰-조회) |
-| 2 | 회원가입 | `POST /api/auth/signup` | N | [AUTH-02](p0/auth-profile.md#auth-02-회원가입) |
-| 3 | 로그인 | `POST /api/auth/login` | N | [AUTH-03](p0/auth-profile.md#auth-03-로그인로그아웃) |
-| 4 | 로그아웃 | `POST /api/auth/logout` | Y | [AUTH-03](p0/auth-profile.md#auth-03-로그인로그아웃) |
-| 5 | 내 프로필 조회 | `GET /api/users/me` | Y | [AUTH-04](p0/auth-profile.md#auth-04-내-프로필-조회수정) |
-| 6 | 내 프로필 수정 | `PATCH /api/users/me` | Y | [AUTH-04](p0/auth-profile.md#auth-04-내-프로필-조회수정) |
-| 7 | 게임 목록·검색 | `GET /api/games` | N | [GAME-01](p0/game-catalog.md#game-01-게임-목록검색) |
-| 8 | 게임 상세 조회 | `GET /api/games/{gameId}` | N | [GAME-02](p0/game-catalog.md#game-02-게임-상세-조회) |
-| 9 | 방 생성 | `POST /api/rooms` | Y | [ROOM-03](p0/room.md#room-03-방-생성) |
-| 10 | 방 목록 조회 | `GET /api/rooms` | N | [ROOM-01](p0/room.md#room-01-방-탐색) |
-| 11 | 방 상세 조회 | `GET /api/rooms/{roomId}` | N | [ROOM-02](p0/room.md#room-02-방-상세) |
-| 12 | 방 수정 | `PATCH /api/rooms/{roomId}` | Y | [ROOM-04](p0/room.md#room-04-방-수정) |
-| 13 | 방 취소 | `DELETE /api/rooms/{roomId}` | Y | [ROOM-05](p0/room.md#room-05-방-취소종료) |
-| 14 | 방 종료 | `PATCH /api/rooms/{roomId}/status` | Y | [ROOM-05](p0/room.md#room-05-방-취소종료) |
-| 15 | 방 참가 | `POST /api/rooms/{roomId}/participants` | Y | [PART-01](p0/participation.md#part-01-방-참가재참가) |
-| 16 | 참가 취소 | `DELETE /api/rooms/{roomId}/participants/me` | Y | [PART-02](p0/participation.md#part-02-참가-취소) |
-| 17 | 내 모임 조회 | `GET /api/users/me/rooms` | Y | [PART-03](p0/participation.md#part-03-내-모임-조회) |
+| # | API | 메서드·경로 | 기능 문서 |
+| ---: | --- | --- | --- |
+| 1 | CSRF 토큰 조회 | `GET /api/auth/csrf` | [AUTH-01](p0/auth-profile.md#auth-01-csrf-토큰-조회) |
+| 2 | 회원가입 | `POST /api/auth/signup` | [AUTH-02](p0/auth-profile.md#auth-02-회원가입) |
+| 3 | 로그인 | `POST /api/auth/login` | [AUTH-03](p0/auth-profile.md#auth-03-로그인로그아웃) |
+| 4 | 로그아웃 | `POST /api/auth/logout` | [AUTH-03](p0/auth-profile.md#auth-03-로그인로그아웃) |
+| 5 | 내 프로필 조회 | `GET /api/users/me` | [AUTH-04](p0/auth-profile.md#auth-04-내-프로필-조회수정) |
+| 6 | 내 프로필 수정 | `PATCH /api/users/me` | [AUTH-04](p0/auth-profile.md#auth-04-내-프로필-조회수정) |
+| 7 | 게임 목록·검색 | `GET /api/games` | [GAME-01](p0/game-catalog.md#game-01-게임-목록검색) |
+| 8 | 게임 상세 조회 | `GET /api/games/{gameId}` | [GAME-02](p0/game-catalog.md#game-02-게임-상세-조회) |
+| 9 | 방 생성 | `POST /api/rooms` | [ROOM-03](p0/room.md#room-03-방-생성) |
+| 10 | 방 목록 조회 | `GET /api/rooms` | [ROOM-01](p0/room.md#room-01-방-탐색) |
+| 11 | 방 상세 조회 | `GET /api/rooms/{roomId}` | [ROOM-02](p0/room.md#room-02-방-상세) |
+| 12 | 방 수정 | `PATCH /api/rooms/{roomId}` | [ROOM-04](p0/room.md#room-04-방-수정) |
+| 13 | 방 취소 | `DELETE /api/rooms/{roomId}` | [ROOM-05](p0/room.md#room-05-방-취소종료) |
+| 14 | 방 종료 | `PATCH /api/rooms/{roomId}/status` | [ROOM-05](p0/room.md#room-05-방-취소종료) |
+| 15 | 방 참가 | `POST /api/rooms/{roomId}/participants` | [PART-01](p0/participation.md#part-01-방-참가재참가) |
+| 16 | 참가 취소 | `DELETE /api/rooms/{roomId}/participants/me` | [PART-02](p0/participation.md#part-02-참가-취소) |
+| 17 | 내 모임 조회 | `GET /api/users/me/rooms` | [PART-03](p0/participation.md#part-03-내-모임-조회) |
 
 ---
 
 ## 구현 완료 기준
 
 - 세 가지 [핵심 사용자 흐름](#핵심-사용자-흐름)이 처음부터 끝까지 연결된다.
+- [기반 작업](p0/foundation.md)의 `FND-01`부터 `FND-07`까지 완료 기준을 만족한다.
 - [인증·프로필](p0/auth-profile.md), [게임 카탈로그](p0/game-catalog.md), [방](p0/room.md), [참가·내 모임](p0/participation.md)의 모든 기능 ID별 완료 기준을 만족한다.
 - 17개 API가 [API 명세서](API.md)의 요청·응답·HTTP 상태·오류 계약대로 재현된다.
 - 정원, 방 상태, 권한, 시간과 동시 변경이 이 문서의 [공통 규칙](#공통-규칙)을 일관되게 따른다.

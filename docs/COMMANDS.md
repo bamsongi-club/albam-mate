@@ -6,7 +6,7 @@
 
 ## 개발 환경 확인
 
-프로젝트 애플리케이션에는 Java 21이 필요하고, 프롬프트 기록 훅에는 Node.js 20 이상이 필요하다.
+프로젝트 애플리케이션에는 Java 21이 필요하고, 문서 링크 검사와 프롬프트 기록 훅에는 Node.js 20 이상이 필요하다.
 
 ```sh
 java --version
@@ -32,6 +32,24 @@ Gradle은 별도 설치본 대신 저장소의 Wrapper를 사용한다.
 Java 포맷은 Google Java Format의 AOSP 스타일을 사용한다. 기본 Google 스타일과 달리 블록 들여쓰기가 4칸이다.
 
 포맷 위반을 수정한 뒤에는 diff를 검토하고 `spotlessCheck`를 다시 실행한다. clone마다 한 번 필요한 pre-commit hook 활성화 절차는 [코드 포맷과 Git hook 설정](guides/CODE_FORMATTING.md)을 따른다.
+
+## 문서 링크 확인
+
+정본 문서는 서로를 상대 링크로 참조한다. 문서를 옮기거나 제목을 바꾼 뒤에는 링크와 앵커가 남아 있는지 확인한다.
+
+```sh
+node scripts/check-doc-links.mjs
+```
+
+추적 중인 Markdown과 아직 커밋하지 않은 Markdown을 함께 검사하고 외부 링크는 확인하지 않는다. 작업 트리에 없는 경로는 검사 원본에서 빼므로 이동·삭제를 스테이징하기 전에도 실행할 수 있다. destination을 뽑지 못한 링크는 건너뛰지 않고 `파싱 실패`로 보고한다.
+
+검사기 자체를 고치면 회귀 테스트를 함께 실행한다.
+
+```sh
+node --test scripts/check-doc-links.test.mjs
+```
+
+두 명령을 CI의 `Docs` job이 함께 실행하므로, 문서나 검사기를 변경한 PR은 둘 다 먼저 통과시킨다.
 
 ## 프롬프트 기록 확인
 
