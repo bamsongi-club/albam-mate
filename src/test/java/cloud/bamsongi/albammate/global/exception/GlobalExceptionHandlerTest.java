@@ -2,20 +2,36 @@ package cloud.bamsongi.albammate.global.exception;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.classic.spi.IThrowableProxy;
+import ch.qos.logback.classic.spi.StackTraceElementProxy;
+import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.global.response.ApiResponse;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -29,10 +45,15 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+@SpringJUnitConfig(GlobalExceptionHandlerTest.MockMvcTestConfiguration.class)
+@WebAppConfiguration
 class GlobalExceptionHandlerTest {
 
     private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
@@ -41,6 +62,15 @@ class GlobalExceptionHandlerTest {
             MockMvcBuilders.standaloneSetup(new MockMvcTestController())
                     .setControllerAdvice(handler)
                     .build();
+
+    @Autowired private org.springframework.web.context.WebApplicationContext webApplicationContext;
+
+    private MockMvc webAppMockMvc;
+
+    @BeforeEach
+    void setUpWebAppMockMvc() {
+        webAppMockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+    }
 
     @Test
     void BusinessException은_오류_코드의_HTTP_상태와_메시지로_변환한다() throws Exception {
@@ -109,6 +139,28 @@ class GlobalExceptionHandlerTest {
                         .andReturn();
 
         assertErrorJson(result, ErrorCode.NOT_ACCEPTABLE);
+    }
+
+    @Test
+    void 실제_MockMvc_요청의_미매핑_URL은_RESOURCE_NOT_FOUND_404_공통_봉투로_변환한다() throws Exception {
+        MvcResult result =
+                webAppMockMvc
+                        .perform(get("/missing-endpoint"))
+                        .andExpect(status().isNotFound())
+                        .andReturn();
+
+        assertErrorJson(result, ErrorCode.RESOURCE_NOT_FOUND);
+    }
+
+    @Test
+    void 실제_MockMvc_요청의_누락된_정적_리소스는_RESOURCE_NOT_FOUND_404_공통_봉투로_변환한다() throws Exception {
+        MvcResult result =
+                webAppMockMvc
+                        .perform(get("/static/missing-resource.txt"))
+                        .andExpect(status().isNotFound())
+                        .andReturn();
+
+        assertErrorJson(result, ErrorCode.RESOURCE_NOT_FOUND);
     }
 
     @Test
@@ -190,6 +242,49 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void 실제_MockMvc_요청의_예기치_않은_예외는_500_공통_봉투로_변환하고_민감정보를_로그하지_않는다() throws Exception {
+        Logger logger = (Logger) org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+
+        try {
+            MvcResult result =
+                    webAppMockMvc
+                            .perform(get("/unexpected"))
+                            .andExpect(status().isInternalServerError())
+                            .andReturn();
+
+            assertErrorJson(result, ErrorCode.INTERNAL_SERVER_ERROR);
+
+            ILoggingEvent event =
+                    appender.list.stream()
+                            .filter(loggingEvent -> loggingEvent.getLevel() == Level.ERROR)
+                            .findFirst()
+                            .orElseThrow();
+            assertTrue(
+                    event.getFormattedMessage()
+                            .contains("exceptionType=java.lang.IllegalStateException"));
+            assertFalse(event.getFormattedMessage().contains("password=secret"));
+            assertFalse(event.getFormattedMessage().contains("userId=42"));
+            assertFalse(event.getFormattedMessage().contains("database-token"));
+
+            IThrowableProxy throwableProxy = event.getThrowableProxy();
+            assertNotNull(throwableProxy);
+            assertNull(throwableProxy.getMessage());
+            assertNull(throwableProxy.getCause());
+            String stackTrace =
+                    Arrays.stream(throwableProxy.getStackTraceElementProxyArray())
+                            .map(StackTraceElementProxy::toString)
+                            .collect(Collectors.joining("\n"));
+            assertTrue(stackTrace.contains("MockMvcTestController.unexpected"));
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+    }
+
+    @Test
     void 로그용_예외는_원본_스택과_클래스명만_보존한다() {
         IllegalStateException source =
                 new IllegalStateException(
@@ -226,6 +321,10 @@ class GlobalExceptionHandlerTest {
     }
 
     private void assertErrorJson(MvcResult result, ErrorCode expected) throws Exception {
+        String contentType = result.getResponse().getContentType();
+        assertNotNull(contentType);
+        assertTrue(
+                MediaType.APPLICATION_JSON.isCompatibleWith(MediaType.parseMediaType(contentType)));
         JsonNode json = objectMapper.readTree(result.getResponse().getContentAsString());
         assertEquals(expected.getStatus(), json.get("status").intValue());
         assertEquals(expected.getCode(), json.get("code").textValue());
@@ -248,6 +347,31 @@ class GlobalExceptionHandlerTest {
         @GetMapping(path = "/responses", produces = MediaType.APPLICATION_JSON_VALUE)
         Map<String, String> response() {
             return Map.of("result", "ok");
+        }
+
+        @GetMapping(path = "/unexpected", produces = MediaType.APPLICATION_JSON_VALUE)
+        Map<String, String> unexpected() {
+            throw new IllegalStateException("password=secret, userId=42, database-token=hidden");
+        }
+    }
+
+    @Configuration
+    @EnableWebMvc
+    static class MockMvcTestConfiguration implements WebMvcConfigurer {
+
+        @Bean
+        MockMvcTestController mockMvcTestController() {
+            return new MockMvcTestController();
+        }
+
+        @Bean
+        GlobalExceptionHandler globalExceptionHandler() {
+            return new GlobalExceptionHandler();
+        }
+
+        @Override
+        public void addResourceHandlers(ResourceHandlerRegistry registry) {
+            registry.addResourceHandler("/static/**").addResourceLocations("classpath:/static/");
         }
     }
 }
