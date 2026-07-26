@@ -29,9 +29,18 @@ description: "현재 브랜치 diff, 지정 파일, 또는 현재 저장소의 G
 - 명시한 파일·PR·브랜치 변경이 모두 없으면 리뷰 대상이 없다고 보고한다.
 - PR을 찾을 수 없거나 쓰기 권한이 없으면 로컬 리뷰 결과는 완성하고 게시 실패 원인만 정확히 보고한다.
 
-## 실행 예산과 완료 조건
+## 실행 등급·예산과 완료 조건
 
-다음 제한은 리뷰 전체가 아니라 샤드 하나에 적용한다.
+오케스트레이터는 파일 수, 추가·삭제 줄 수와 변경 위험으로 실행 등급을 먼저 고정한다. 사용자가 명시한 차원은 등급보다 우선한다.
+
+| 등급 | 조건 | 실행 | 전체 반환 시점 |
+| --- | --- | --- | --- |
+| fast | 8개 이하 파일, 400줄 이하이고 공개 계약·고위험 신호가 없음 | 주 차원 reviewer 1개 | 60초 목표, 90초에 반환 |
+| standard | fast를 넘거나 공개 API·스키마·설정 계약을 변경하고 deep 신호가 없음 | reviewer 2개 | 90초 목표, 150초에 반환 |
+| deep | 보안·개인정보·인증·인가·마이그레이션·동시성·데이터 손상 위험, 또는 30개 이상 파일·2,000줄 이상 | reviewer 최대 3개 | 아래 샤드 예산 적용 |
+
+- 전체 반환 시점에는 새 탐색을 중단하고 확인한 coverage와 Finding을 반환한다. 미검토 위험이 남으면 `Incomplete`로 판정한다. 사용자 승인 대기 시간은 예산에서 제외한다.
+- 다음 제한은 샤드 하나에 적용한다. fast·standard에서는 남은 전체 예산이 더 짧으면 전체 반환 시점을 우선한다.
 
 | 조건 | 행동 |
 | --- | --- |
@@ -51,7 +60,7 @@ description: "현재 브랜치 diff, 지정 파일, 또는 현재 저장소의 G
 | 파일·명령 | 경로 경계와 실패 모드 |
 
 - 각 위험 ID와 대상 hunk 또는 파일 구간에 담당 샤드를 하나 배정하고 coverage 장부를 유지한다. 배정 항목을 모두 확인한 샤드만 complete=true를 반환한다.
-- Codex에서는 review-code-reviewer로 스캔하고, 보안·개인정보, critical·major, 차원 간 상충, medium confidence 후보만 review-code-judge로 재판정한다. 각 agent의 모델·reasoning effort·sandbox는 `.codex/agents/` 설정을 정본으로 삼는다.
+- Codex에서는 review-code-reviewer로 스캔하고, 보안·개인정보, critical·major, 차원 간 상충, medium confidence 후보만 review-code-judge로 재판정한다. high-confidence minor·nit만 있으면 판정기를 실행하지 않고, 판정 대상이 여러 개면 한 요청으로 묶는다. 각 agent의 모델·reasoning effort·sandbox는 `.codex/agents/` 설정을 정본으로 삼는다.
 - 상위 모델 프로필은 검증된 개선을 확인하는 통제 실험에만 쓰고, 자동 폴백으로 사용하지 않는다.
 - 지정 agent를 쓸 수 없으면 현재 런타임 기본값으로 폴백하고 실제 프로필을 최종 보고에 남긴다.
 
@@ -72,9 +81,9 @@ description: "현재 브랜치 diff, 지정 파일, 또는 현재 저장소의 G
 
 ### 대상 기반 차원 라우팅
 
-- 오케스트레이터가 대상 파일, stat, PR 설명, 핵심 hunk 또는 지정 파일 내용을 보고 자동 차원을 1~3개 고른다. 각 차원에는 파일 또는 hunk 근거를 한 줄로 남긴다.
+- 오케스트레이터가 대상 파일, stat, PR 설명, 핵심 hunk 또는 지정 파일 내용을 보고 fast는 주 차원 1개, standard는 2개, deep은 최대 3개를 자동 선택한다. 각 차원에는 파일 또는 hunk 근거를 한 줄로 남긴다.
 - 사용자가 하나의 차원만 요구하면 그것만 실행한다. 여러 차원을 명시하면 모두 포함하고 자동 선택은 총 3개가 될 때까지만 보충한다. 4개 이상을 명시하면 자동 차원을 더하지 않는다.
-- 분기·상태·예외·계약은 correctness, 인증·입력·SQL·파일·명령은 security, 개인정보·로그·자유 텍스트는 privacy, 쿼리·반복·캐시·동시성은 performance 또는 cpu-perf-patterns, 새 동작의 테스트 부족은 test-coverage를 우선한다.
+- 분기·상태·예외·계약은 correctness, 인증·입력·SQL·파일·명령은 security, 개인정보·로그·자유 텍스트는 privacy, 쿼리·반복·캐시·동시성은 performance 또는 cpu-perf-patterns를 우선한다. 새 분기·동작의 테스트는 해당 위험 담당 차원이 함께 보고, 사용자가 요구하거나 테스트가 변경의 중심일 때만 test-coverage를 독립 차원으로 고른다.
 - DTO·스키마·API·명세 계약은 cross-file-consistency, 레이어·의존성 방향은 architecture, 명세·사용자 흐름 대비 동작은 behavioral-correctness, 레포 규칙 충돌은 conventions를 고른다.
 - correctness와 behavioral-correctness, performance와 cpu-perf-patterns가 같은 근거를 보면 더 구체적인 하나만 선택한다. 후보가 3개를 넘으면 장애·보안·데이터 손상 위험, 사용자 영향, 결합도, 회귀 가능성 순으로 고른다.
 - 실행 전에 선택 결과와 근거를 알린다. 슬롯이 부족하면 선택한 차원만 배치 실행한다.
@@ -91,11 +100,11 @@ description: "현재 브랜치 diff, 지정 파일, 또는 현재 저장소의 G
 
 - branch 또는 worktree 모드에서 git status --short, git diff --stat, 필요한 hunk diff, git diff --check를 한 번 실행한다. --stat의 파일 수와 추가·삭제 줄 수로 대형 diff 여부를 판정한다. 미커밋 변경 포함 모드에서는 staged·unstaged diff를 각각 확인하고, untracked 파일 내용도 범위에 포함한다.
 - 저장소 정본이 요구하는 테스트·링크 검사는 오케스트레이터가 한 번만 실행한다. 가능하면 샤드와 병렬로 실행한다.
-- 외부 훅·SDK·API·파일 형식 계약 후보는 오케스트레이터가 필요한 공식 1차 출처를 한 번 확인해 사실 요약과 URL을 전달한다.
+- 외부 훅·SDK·API·파일 형식 계약은 후보가 나온 뒤 채택이나 심각도 판단에 필요한 경우에만 공식 1차 출처를 한 번 확인한다. 변경 자체를 이해하는 데 필수인 계약만 공통 준비에서 먼저 확인한다.
 
 ### 2. 차원별 패스
 
-- Codex에서는 가능한 multi-agent 또는 sub-agent를 병렬로 사용하고, 도구가 없으면 같은 규칙으로 순차 실행한다.
+- Codex에서는 실행 등급에서 정한 reviewer 수만 사용한다. standard·deep의 reviewer는 가능하면 병렬로 실행하고, 도구가 없으면 같은 규칙으로 순차 실행한다.
 - 각 패스에 고정 base/head SHA 또는 파일 범위, 대상 종류, shard ID, 위험 ID, 정확한 파일 구간 또는 hunk와 최소 문맥, 동반 파일, 외부 계약 요약을 준다.
 - 패스에는 자기 차원만 보게 하고, 파일 수정·쓰기 명령·전체 git diff·git log·빌드·테스트 재실행을 금지한다.
 - conventions 패스는 AGENTS.md 또는 CLAUDE.md가 가리키는 정본, docs/CONVENTIONS.md, CONTRIBUTING.md, .editorconfig, 린터·포매터 설정 순으로 기준을 찾는다. 정본이 없으면 언어 관용을 쓴다.
