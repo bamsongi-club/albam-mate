@@ -70,6 +70,14 @@ class TimeConfigTest {
     }
 
     @Test
+    void 소문자_t와_z인_요청_시각도_같은_Instant로_정규화된다() throws Exception {
+        Instant lowercaseTime = objectMapper.readValue("\"2026-07-26t03:00:00z\"", Instant.class);
+        Instant uppercaseTime = objectMapper.readValue("\"2026-07-26T03:00:00Z\"", Instant.class);
+
+        assertEquals(uppercaseTime, lowercaseTime);
+    }
+
+    @Test
     void 응답_시각은_Asia_Seoul의_오프셋으로_직렬화된다() throws Exception {
         String response = objectMapper.writeValueAsString(FIXED_INSTANT);
 
@@ -95,6 +103,13 @@ class TimeConfigTest {
         assertThrows(
                 JacksonException.class,
                 () -> objectMapper.readValue("\"2026-07-26T12:00+09:00\"", Instant.class));
+    }
+
+    @Test
+    void 윤초_요청_시각은_거절된다() {
+        assertThrows(
+                JacksonException.class,
+                () -> objectMapper.readValue("\"2026-07-26T03:00:60Z\"", Instant.class));
     }
 
     @Test

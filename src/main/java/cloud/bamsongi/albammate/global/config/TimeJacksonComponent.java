@@ -24,7 +24,7 @@ public class TimeJacksonComponent {
             DateTimeFormatter.ISO_OFFSET_DATE_TIME;
     private static final Pattern RFC3339_FULL_TIME =
             Pattern.compile(
-                    "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$");
+                    "^\\d{4}-\\d{2}-\\d{2}[Tt]\\d{2}:\\d{2}:[0-5]\\d(?:\\.\\d+)?(?:[Zz]|[+-]\\d{2}:\\d{2})$");
 
     public static class InstantSerializer extends ValueSerializer<Instant> {
 
@@ -53,7 +53,9 @@ public class TimeJacksonComponent {
             }
 
             try {
-                return OffsetDateTime.parse(value, OFFSET_DATE_TIME_FORMATTER).toInstant();
+                String normalizedValue = value.replace('t', 'T').replace('z', 'Z');
+                return OffsetDateTime.parse(normalizedValue, OFFSET_DATE_TIME_FORMATTER)
+                        .toInstant();
             } catch (DateTimeParseException exception) {
                 throw invalidFormat(parser, value);
             }
