@@ -43,3 +43,18 @@ jobs:
 
       - name: Build and verify
         run: ./gradlew build --no-daemon --stacktrace
+
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      # 검사 스크립트는 의존성이 없으므로 러너 이미지의 Node.js를 그대로 사용한다.
+      - name: Check document links
+        run: node scripts/check-doc-links.mjs
