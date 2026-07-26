@@ -94,6 +94,7 @@ Controller에는 다음 책임을 두지 않는다.
 
 ## Service
 
+- 의존성이 있는 Service는 Lombok의 `@RequiredArgsConstructor`와 `private final` 필드로 생성자 주입한다. 생성자에서 별도 검증이나 가공이 필요할 때만 생성자를 명시한다.
 - public 메서드는 하나의 유스케이스를 표현한다.
 - 트랜잭션 경계는 Service 계층에 둔다. 저장 상태를 변경하지 않는 조회는 `@Transactional(readOnly = true)`, 상태 변경은 `@Transactional`을 사용한다. 조회 전 상태 보정처럼 계약상 쓰기가 필요한 조회 유스케이스는 Transaction 절의 예외 규칙을 따른다.
 - Service는 자기 모듈의 Repository만 직접 참조한다.
