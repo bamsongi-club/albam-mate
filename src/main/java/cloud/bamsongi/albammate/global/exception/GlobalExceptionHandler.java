@@ -2,8 +2,7 @@ package cloud.bamsongi.albammate.global.exception;
 
 import cloud.bamsongi.albammate.global.response.ApiResponse;
 import jakarta.validation.ConstraintViolationException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.ResponseEntity;
@@ -24,9 +23,8 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 /** MVC 경계의 예상·예상하지 못한 실패를 공통 API 오류 봉투로 변환한다. */
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
+@Slf4j
 public class GlobalExceptionHandler {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException exception) {
@@ -58,7 +56,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleUnhandledException(Exception exception) {
-        LOGGER.error(
+        log.error(
                 "처리하지 않은 예외를 INTERNAL_SERVER_ERROR로 변환합니다. exceptionType={}",
                 exception.getClass().getName(),
                 sanitizeForLogging(exception));

@@ -4,22 +4,26 @@ import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.Map;
 import java.util.Objects;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatusCode;
 
 /** 모든 HTTP 응답이 공유하는 공통 응답 봉투다. */
+@Getter
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class ApiResponse<T> {
 
     private final int status;
-    private final String code;
-    private final String message;
-    private final T data;
 
-    private ApiResponse(int status, String code, String message, T data) {
-        this.status = status;
-        this.code = code;
-        this.message = message;
-        this.data = data;
-    }
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private final String code;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private final String message;
+
+    @JsonInclude(JsonInclude.Include.ALWAYS)
+    private final T data;
 
     public static <T> ApiResponse<T> success(HttpStatusCode status, T data) {
         return success(status.value(), data);
@@ -39,25 +43,6 @@ public final class ApiResponse<T> {
         Objects.requireNonNull(errorCode, "errorCode");
         return new ApiResponse<>(
                 errorCode.getStatus(), errorCode.getCode(), errorCode.getMessage(), null);
-    }
-
-    public int getStatus() {
-        return status;
-    }
-
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public String getCode() {
-        return code;
-    }
-
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public String getMessage() {
-        return message;
-    }
-
-    @JsonInclude(JsonInclude.Include.ALWAYS)
-    public T getData() {
-        return data;
     }
 
     public int status() {

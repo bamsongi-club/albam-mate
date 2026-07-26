@@ -1,8 +1,10 @@
 package cloud.bamsongi.albammate.global.exception;
 
+import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
 /** HTTP API가 외부에 노출하는 안정적인 오류 코드 카탈로그다. */
+@Getter
 public enum ErrorCode {
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "요청값 검증에 실패했습니다."),
     UNAUTHENTICATED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다."),
@@ -31,20 +33,12 @@ public enum ErrorCode {
         this.message = message;
     }
 
-    public HttpStatus getHttpStatus() {
-        return httpStatus;
-    }
-
     public int getStatus() {
         return httpStatus.value();
     }
 
     public String getCode() {
         return name();
-    }
-
-    public String getMessage() {
-        return message;
     }
 
     public HttpStatus httpStatus() {
