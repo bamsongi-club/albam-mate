@@ -4,12 +4,32 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import cloud.bamsongi.albammate.global.response.ApiResponse;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.BindException;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.HttpSessionRequiredException;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -17,6 +37,10 @@ class GlobalExceptionHandlerTest {
 
     private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final MockMvc mockMvc =
+            MockMvcBuilders.standaloneSetup(new MockMvcTestController())
+                    .setControllerAdvice(handler)
+                    .build();
 
     @Test
     void BusinessException은_오류_코드의_HTTP_상태와_메시지로_변환한다() throws Exception {
@@ -35,6 +59,109 @@ class GlobalExceptionHandlerTest {
 
         assertEquals(400, response.getStatusCode().value());
         assertErrorBody(response.getBody(), ErrorCode.VALIDATION_ERROR);
+    }
+
+    @Test
+    void Spring_MVC_resolver는_잘못된_JSON을_400_공통_봉투로_변환한다() throws Exception {
+        MvcResult result =
+                mockMvc.perform(
+                                post("/requests")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content("{\"value\":"))
+                        .andExpect(status().isBadRequest())
+                        .andReturn();
+
+        assertErrorJson(result, ErrorCode.VALIDATION_ERROR);
+    }
+
+    @Test
+    void Spring_MVC_resolver는_허용되지_않은_메서드와_Allow_헤더를_변환한다() throws Exception {
+        MvcResult result =
+                mockMvc.perform(get("/requests"))
+                        .andExpect(status().isMethodNotAllowed())
+                        .andReturn();
+
+        assertEquals("POST", result.getResponse().getHeader(HttpHeaders.ALLOW));
+        assertErrorJson(result, ErrorCode.METHOD_NOT_ALLOWED);
+    }
+
+    @Test
+    void Spring_MVC_resolver는_지원하지_않는_미디어_타입과_Accept_헤더를_변환한다() throws Exception {
+        MvcResult result =
+                mockMvc.perform(
+                                post("/requests")
+                                        .contentType(MediaType.TEXT_PLAIN)
+                                        .content("plain text"))
+                        .andExpect(status().isUnsupportedMediaType())
+                        .andReturn();
+
+        assertEquals(
+                MediaType.APPLICATION_JSON_VALUE,
+                result.getResponse().getHeader(HttpHeaders.ACCEPT));
+        assertErrorJson(result, ErrorCode.UNSUPPORTED_MEDIA_TYPE);
+    }
+
+    @Test
+    void Spring_MVC_resolver는_Accept_재협상_실패를_공통_406_봉투로_변환한다() throws Exception {
+        MvcResult result =
+                mockMvc.perform(get("/responses").accept(MediaType.TEXT_PLAIN))
+                        .andExpect(status().isNotAcceptable())
+                        .andReturn();
+
+        assertErrorJson(result, ErrorCode.NOT_ACCEPTABLE);
+    }
+
+    @Test
+    void 응답_협상_실패_예외는_미디어_타입과_Accept_헤더를_공통_봉투로_변환한다() {
+        HttpMediaTypeNotAcceptableException exception =
+                new HttpMediaTypeNotAcceptableException(List.of(MediaType.APPLICATION_JSON));
+
+        ResponseEntity<ApiResponse<Void>> response = handler.handleNotAcceptable(exception);
+
+        assertEquals(406, response.getStatusCode().value());
+        assertEquals(
+                exception.getHeaders().get(HttpHeaders.ACCEPT),
+                response.getHeaders().get(HttpHeaders.ACCEPT));
+        assertErrorBody(response.getBody(), ErrorCode.NOT_ACCEPTABLE);
+    }
+
+    @Test
+    void 메서드와_미디어_타입_예외의_프로토콜_헤더를_응답에_보존한다() {
+        HttpRequestMethodNotSupportedException methodException =
+                new HttpRequestMethodNotSupportedException("GET", List.of("POST"));
+        HttpMediaTypeNotSupportedException mediaTypeException =
+                new HttpMediaTypeNotSupportedException(
+                        MediaType.TEXT_PLAIN, List.of(MediaType.APPLICATION_JSON));
+
+        ResponseEntity<ApiResponse<Void>> methodResponse =
+                handler.handleMethodNotAllowed(methodException);
+        ResponseEntity<ApiResponse<Void>> mediaTypeResponse =
+                handler.handleUnsupportedMediaType(mediaTypeException);
+
+        assertEquals(
+                methodException.getHeaders().get(HttpHeaders.ALLOW),
+                methodResponse.getHeaders().get(HttpHeaders.ALLOW));
+        assertEquals(
+                mediaTypeException.getHeaders().get(HttpHeaders.ACCEPT),
+                mediaTypeResponse.getHeaders().get(HttpHeaders.ACCEPT));
+        assertErrorBody(methodResponse.getBody(), ErrorCode.METHOD_NOT_ALLOWED);
+        assertErrorBody(mediaTypeResponse.getBody(), ErrorCode.UNSUPPORTED_MEDIA_TYPE);
+    }
+
+    @Test
+    void 핸들러와_리소스_미존재_예외는_RESOURCE_NOT_FOUND로_변환한다() {
+        NoHandlerFoundException noHandlerException =
+                new NoHandlerFoundException("GET", "/missing", new HttpHeaders());
+        NoResourceFoundException noResourceException =
+                new NoResourceFoundException(HttpMethod.GET, "static resource", "missing");
+
+        ResponseEntity<ApiResponse<Void>> noHandlerResponse =
+                handler.handleNoHandlerFound(noHandlerException);
+        ResponseEntity<ApiResponse<Void>> noResourceResponse =
+                handler.handleNoResourceFound(noResourceException);
+
+        assertErrorBody(noHandlerResponse.getBody(), ErrorCode.RESOURCE_NOT_FOUND);
+        assertErrorBody(noResourceResponse.getBody(), ErrorCode.RESOURCE_NOT_FOUND);
     }
 
     @Test
@@ -96,5 +223,31 @@ class GlobalExceptionHandlerTest {
         assertEquals(expected.getCode(), body.code());
         assertEquals(expected.getMessage(), body.message());
         assertTrue(body.data() == null);
+    }
+
+    private void assertErrorJson(MvcResult result, ErrorCode expected) throws Exception {
+        JsonNode json = objectMapper.readTree(result.getResponse().getContentAsString());
+        assertEquals(expected.getStatus(), json.get("status").intValue());
+        assertEquals(expected.getCode(), json.get("code").textValue());
+        assertEquals(expected.getMessage(), json.get("message").textValue());
+        assertTrue(json.has("data"));
+        assertTrue(json.get("data").isNull());
+    }
+
+    @RestController
+    private static final class MockMvcTestController {
+
+        @PostMapping(
+                path = "/requests",
+                consumes = MediaType.APPLICATION_JSON_VALUE,
+                produces = MediaType.APPLICATION_JSON_VALUE)
+        Map<String, Object> request(@RequestBody Map<String, Object> body) {
+            return body;
+        }
+
+        @GetMapping(path = "/responses", produces = MediaType.APPLICATION_JSON_VALUE)
+        Map<String, String> response() {
+            return Map.of("result", "ok");
+        }
     }
 }

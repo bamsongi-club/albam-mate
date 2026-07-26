@@ -30,6 +30,17 @@ class ApiResponseTest {
     }
 
     @Test
+    void 생성_성공_응답은_status_201을_직렬화한다() throws Exception {
+        ApiResponse<Map<String, String>> response =
+                ApiResponse.success(HttpStatus.CREATED, Map.of("result", "created"));
+
+        JsonNode json = objectMapper.readTree(objectMapper.writeValueAsString(response));
+
+        assertEquals(201, json.get("status").intValue());
+        assertEquals("created", json.get("data").get("result").textValue());
+    }
+
+    @Test
     void 실패_응답은_계약된_필드와_null_data를_직렬화한다() throws Exception {
         ApiResponse<Void> response = ApiResponse.failure(ErrorCode.VALIDATION_ERROR);
 

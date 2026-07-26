@@ -5,6 +5,8 @@ import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
@@ -19,6 +21,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /** MVC 경계의 예상·예상하지 못한 실패를 공통 API 오류 봉투로 변환한다. */
 @RestControllerAdvice
@@ -39,13 +43,40 @@ public class GlobalExceptionHandler {
         MethodArgumentTypeMismatchException.class,
         MissingRequestValueException.class,
         MissingServletRequestPartException.class,
-        ServletRequestBindingException.class,
-        HttpRequestMethodNotSupportedException.class,
-        HttpMediaTypeNotSupportedException.class,
-        HttpMediaTypeNotAcceptableException.class
+        ServletRequestBindingException.class
     })
     public ResponseEntity<ApiResponse<Void>> handleRequestException(Exception exception) {
         return error(ErrorCode.VALIDATION_ERROR);
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodNotAllowed(
+            HttpRequestMethodNotSupportedException exception) {
+        return error(ErrorCode.METHOD_NOT_ALLOWED, exception.getHeaders());
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnsupportedMediaType(
+            HttpMediaTypeNotSupportedException exception) {
+        return error(ErrorCode.UNSUPPORTED_MEDIA_TYPE, exception.getHeaders());
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNotAcceptable(
+            HttpMediaTypeNotAcceptableException exception) {
+        return error(ErrorCode.NOT_ACCEPTABLE, exception.getHeaders());
+    }
+
+    @ExceptionHandler(NoHandlerFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoHandlerFound(
+            NoHandlerFoundException exception) {
+        return error(ErrorCode.RESOURCE_NOT_FOUND, exception.getHeaders());
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(
+            NoResourceFoundException exception) {
+        return error(ErrorCode.RESOURCE_NOT_FOUND, exception.getHeaders());
     }
 
     @ExceptionHandler(HttpSessionRequiredException.class)
@@ -70,7 +101,13 @@ public class GlobalExceptionHandler {
     }
 
     private ResponseEntity<ApiResponse<Void>> error(ErrorCode errorCode) {
+        return error(errorCode, HttpHeaders.EMPTY);
+    }
+
+    private ResponseEntity<ApiResponse<Void>> error(ErrorCode errorCode, HttpHeaders headers) {
         return ResponseEntity.status(errorCode.getHttpStatus())
+                .headers(headers)
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.failure(errorCode));
     }
 

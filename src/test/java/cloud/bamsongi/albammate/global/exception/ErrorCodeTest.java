@@ -14,6 +14,10 @@ class ErrorCodeTest {
         Map<ErrorCode, String> expectedMessages =
                 Map.ofEntries(
                         Map.entry(ErrorCode.VALIDATION_ERROR, "요청값 검증에 실패했습니다."),
+                        Map.entry(ErrorCode.METHOD_NOT_ALLOWED, "허용되지 않은 HTTP 메서드입니다."),
+                        Map.entry(ErrorCode.NOT_ACCEPTABLE, "요청한 응답 미디어 타입을 제공할 수 없습니다."),
+                        Map.entry(ErrorCode.UNSUPPORTED_MEDIA_TYPE, "지원하지 않는 요청 미디어 타입입니다."),
+                        Map.entry(ErrorCode.RESOURCE_NOT_FOUND, "요청한 리소스를 찾을 수 없습니다."),
                         Map.entry(ErrorCode.UNAUTHENTICATED, "인증이 필요합니다."),
                         Map.entry(ErrorCode.FORBIDDEN, "요청을 수행할 권한이 없습니다."),
                         Map.entry(ErrorCode.CSRF_TOKEN_INVALID, "CSRF 토큰이 없거나 유효하지 않습니다."),
@@ -36,12 +40,42 @@ class ErrorCodeTest {
                         Map.entry(ErrorCode.ROOM_NOT_RECRUITING, "현재 모집 중인 방이 아닙니다."),
                         Map.entry(ErrorCode.ALREADY_PARTICIPATING, "이미 참가 중인 방입니다."),
                         Map.entry(ErrorCode.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다."));
+        Map<ErrorCode, HttpStatus> expectedStatuses =
+                Map.ofEntries(
+                        Map.entry(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST),
+                        Map.entry(ErrorCode.METHOD_NOT_ALLOWED, HttpStatus.METHOD_NOT_ALLOWED),
+                        Map.entry(ErrorCode.NOT_ACCEPTABLE, HttpStatus.NOT_ACCEPTABLE),
+                        Map.entry(
+                                ErrorCode.UNSUPPORTED_MEDIA_TYPE,
+                                HttpStatus.UNSUPPORTED_MEDIA_TYPE),
+                        Map.entry(ErrorCode.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND),
+                        Map.entry(ErrorCode.UNAUTHENTICATED, HttpStatus.UNAUTHORIZED),
+                        Map.entry(ErrorCode.FORBIDDEN, HttpStatus.FORBIDDEN),
+                        Map.entry(ErrorCode.CSRF_TOKEN_INVALID, HttpStatus.FORBIDDEN),
+                        Map.entry(ErrorCode.INVALID_CREDENTIALS, HttpStatus.UNAUTHORIZED),
+                        Map.entry(ErrorCode.EMAIL_ALREADY_EXISTS, HttpStatus.CONFLICT),
+                        Map.entry(ErrorCode.RATE_LIMIT_EXCEEDED, HttpStatus.TOO_MANY_REQUESTS),
+                        Map.entry(ErrorCode.GAME_NOT_FOUND, HttpStatus.NOT_FOUND),
+                        Map.entry(ErrorCode.ROOM_NOT_FOUND, HttpStatus.NOT_FOUND),
+                        Map.entry(ErrorCode.INVALID_ROOM_STATUS_TRANSITION, HttpStatus.CONFLICT),
+                        Map.entry(
+                                ErrorCode.ROOM_UPDATE_NOT_ALLOWED_WITH_ACTIVE_PARTICIPANTS,
+                                HttpStatus.CONFLICT),
+                        Map.entry(ErrorCode.ROOM_CONCURRENT_MODIFICATION, HttpStatus.CONFLICT),
+                        Map.entry(ErrorCode.PARTICIPATION_NOT_FOUND, HttpStatus.NOT_FOUND),
+                        Map.entry(ErrorCode.CAPACITY_EXCEEDED, HttpStatus.CONFLICT),
+                        Map.entry(ErrorCode.ROOM_NOT_RECRUITING, HttpStatus.CONFLICT),
+                        Map.entry(ErrorCode.ALREADY_PARTICIPATING, HttpStatus.CONFLICT),
+                        Map.entry(
+                                ErrorCode.INTERNAL_SERVER_ERROR, HttpStatus.INTERNAL_SERVER_ERROR));
 
         assertEquals(expectedMessages.keySet().size(), ErrorCode.values().length);
+        assertEquals(expectedStatuses.keySet().size(), ErrorCode.values().length);
         expectedMessages.forEach(
                 (code, message) -> {
                     assertEquals(code.name(), code.getCode());
                     assertEquals(message, code.getMessage());
+                    assertEquals(expectedStatuses.get(code), code.getHttpStatus());
                     assertNotNull(code.getHttpStatus());
                     assertEquals(code.getHttpStatus().value(), code.getStatus());
                 });
