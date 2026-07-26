@@ -75,6 +75,19 @@ class Fnd03PersistenceTest {
     }
 
     @Test
+    void 네_IDENTITY_테이블은_ID를_생략하면_Long_ID를_생성한다() {
+        Long userId = insertUserWithoutId("identity-user@example.com");
+        Long gameId = insertGameWithoutId(9002L);
+        Long roomId = insertRoomWithoutId(gameId, userId);
+        Long participationId = insertParticipationWithoutId(roomId, userId);
+
+        assertNotNull(userId);
+        assertNotNull(gameId);
+        assertNotNull(roomId);
+        assertNotNull(participationId);
+    }
+
+    @Test
     void 시각_필드는_Instant이고_물리_컬럼은_명시된_snake_case다() {
         assertInstantColumn("user.entity.User", "createdAt", "created_at");
         assertInstantColumn("user.entity.User", "updatedAt", "updated_at");
@@ -255,6 +268,18 @@ class Fnd03PersistenceTest {
                 email);
     }
 
+    private Long insertUserWithoutId(String email) {
+        jdbcTemplate.update(
+                "insert into users "
+                        + "(email, password_hash, nickname, created_at, updated_at) "
+                        + "values (?, 'identity-test-hash', 'IDENTITY 테스트 사용자', "
+                        + "TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z', "
+                        + "TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z')",
+                email);
+        return jdbcTemplate.queryForObject(
+                "select id from users where email = ?", Long.class, email);
+    }
+
     private void insertGame(long id, long bggId) {
         jdbcTemplate.update(
                 "insert into games "
@@ -264,6 +289,18 @@ class Fnd03PersistenceTest {
                         + "'간단 설명', '상세 설명', TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z')",
                 id,
                 bggId);
+    }
+
+    private Long insertGameWithoutId(long bggId) {
+        jdbcTemplate.update(
+                "insert into games "
+                        + "(bgg_id, name, english_name, recommended_player_count, tag, "
+                        + "estimated_play_time, description, detail_description, created_at) "
+                        + "values (?, 'IDENTITY 테스트 게임', 'Identity Test Game', '2~4명', '전략', '60분', "
+                        + "'간단 설명', '상세 설명', TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z')",
+                bggId);
+        return jdbcTemplate.queryForObject(
+                "select id from games where bgg_id = ?", Long.class, bggId);
     }
 
     private void insertRoom(Long id, Long gameId, long hostUserId, int capacity, int activeCount) {
@@ -283,6 +320,28 @@ class Fnd03PersistenceTest {
                 activeCount);
     }
 
+    private Long insertRoomWithoutId(long gameId, long hostUserId) {
+        String title = "IDENTITY 자동 생성 테스트 방";
+        jdbcTemplate.update(
+                "insert into rooms "
+                        + "(game_id, host_user_id, room_type, title, experience_level, "
+                        + "is_rulemaster_led, capacity, active_participant_count, start_at, place, "
+                        + "status, created_at, updated_at) "
+                        + "values (?, ?, 'GAME_FOCUSED', ?, 'ALL_LEVELS', true, 2, 0, "
+                        + "TIMESTAMP WITH TIME ZONE '2026-07-27T03:00:00Z', '테스트 장소', 'RECRUITING', "
+                        + "TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z', "
+                        + "TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z')",
+                gameId,
+                hostUserId,
+                title);
+        return jdbcTemplate.queryForObject(
+                "select id from rooms where game_id = ? and host_user_id = ? and title = ?",
+                Long.class,
+                gameId,
+                hostUserId,
+                title);
+    }
+
     private void insertParticipation(
             long id, long roomId, long userId, String status, String canceledAt) {
         String canceledAtSql =
@@ -297,6 +356,20 @@ class Fnd03PersistenceTest {
                 roomId,
                 userId,
                 status);
+    }
+
+    private Long insertParticipationWithoutId(long roomId, long userId) {
+        jdbcTemplate.update(
+                "insert into participations "
+                        + "(room_id, user_id, status, joined_at, canceled_at) "
+                        + "values (?, ?, 'ACTIVE', TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z', NULL)",
+                roomId,
+                userId);
+        return jdbcTemplate.queryForObject(
+                "select id from participations where room_id = ? and user_id = ?",
+                Long.class,
+                roomId,
+                userId);
     }
 
     private Class<?> loadClass(String relativeClassName) {
