@@ -1,4 +1,4 @@
-# P0 게임 카탈로그 구현 명세
+# P0 게임 목록 구현 명세
 
 이 문서는 P0의 게임 목록·검색과 상세 조회를 독립적으로 구현·검증하기 위한 기준이다. 전체 범위와 공통 규칙은 [P0 명세](../P0-spec.md), 통신·저장 세부 계약은 각 기능의 구현 컨텍스트에서 연결한다.
 
@@ -13,7 +13,7 @@
 | API 계약 | [게임 목록·검색](../API.md#game-01-게임-목록검색) |
 | 공통 규칙 | [권한과 공개 범위](../P0-spec.md#권한과-공개-범위) |
 | 데이터 모델 | [GAMES](../ERD.md#games), [ROOMS](../ERD.md#rooms) |
-| 필수 ADR | [ADR-0006: 내부 ID와 외부 식별자 분리](../adr/platform/0006-p0-bigint-identity-ids.md), [ADR-0008: 스키마와 대규모 데이터 적재 분리](../adr/platform/0008-flyway-database-migrations.md), [ADR-0014: BGG 재가공 카탈로그](../adr/game/0014-bgg-curated-service-catalog.md) |
+| 필수 ADR | [ADR-0006: 내부 ID와 외부 식별자 분리](../adr/platform/0006-p0-bigint-identity-ids.md), [ADR-0008: 스키마와 대규모 데이터 적재 분리](../adr/platform/0008-flyway-database-migrations.md), [ADR-0015: BGG 기준 스냅샷·팀 수집 자료 결합](../adr/game/0015-bgg-baseline-team-collected-game-list.md) |
 
 ### 기능 규칙
 
@@ -45,7 +45,7 @@
 | API 계약 | [게임 상세 조회](../API.md#game-02-게임-상세-조회) |
 | 공통 규칙 | [권한과 공개 범위](../P0-spec.md#권한과-공개-범위) |
 | 데이터 모델 | [GAMES](../ERD.md#games), [ROOMS](../ERD.md#rooms) |
-| 필수 ADR | [ADR-0006: 내부 ID와 외부 식별자 분리](../adr/platform/0006-p0-bigint-identity-ids.md), [ADR-0008: 스키마와 대규모 데이터 적재 분리](../adr/platform/0008-flyway-database-migrations.md), [ADR-0014: BGG 재가공 카탈로그](../adr/game/0014-bgg-curated-service-catalog.md) |
+| 필수 ADR | [ADR-0006: 내부 ID와 외부 식별자 분리](../adr/platform/0006-p0-bigint-identity-ids.md), [ADR-0008: 스키마와 대규모 데이터 적재 분리](../adr/platform/0008-flyway-database-migrations.md), [ADR-0015: BGG 기준 스냅샷·팀 수집 자료 결합](../adr/game/0015-bgg-baseline-team-collected-game-list.md) |
 
 ### 기능 규칙
 

@@ -13,7 +13,7 @@
 ## 기준과 범위
 
 - 기준: 1차 MVP 기획서와 팀 합의
-- 범위: 오프라인 방, 게임 카탈로그, 사용자, 방 참가
+- 범위: 오프라인 방, 게임 목록, 사용자, 방 참가
 - 제외: 온라인 방, 채팅, 후기, 룰마스터 가능 게임, 카테고리 다대다·태그 필터, 결제·포인트
 - P0 검색: 게임 목록은 게임명 `keyword`, 사람 중심 방 목록은 방 제목 `keyword` 검색을 지원한다. 게임 태그는 표시값이며 필터가 아니다.
 - 시간대가 겹치는 서로 다른 방에는 같은 사용자가 동시에 참가할 수 있다. 따라서 종료 시각과 시간 중복 제약은 두지 않는다.
@@ -187,7 +187,7 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 | 테이블 | 제약 | 의미 |
 |---|---|---|
 | USERS | UNIQUE (email) | 로그인 이메일은 중복될 수 없다. |
-| GAMES | UNIQUE (bgg_id) | 하나의 BGG 게임은 카탈로그에 한 번만 저장한다. |
+| GAMES | UNIQUE (bgg_id) | 하나의 BGG 게임은 게임 목록에 한 번만 저장한다. |
 | ROOMS | CHECK (room_type <> 'GAME_FOCUSED' OR game_id IS NOT NULL) | 게임 중심 방은 게임을 반드시 선택한다. |
 | ROOMS | CHECK (capacity BETWEEN 1 AND 10) | 개설자를 제외한 모집 정원은 1명 이상 10명 이하다. |
 | ROOMS | CHECK (active_participant_count BETWEEN 0 AND capacity) | 현재 점유 인원은 음수이거나 모집 정원을 초과할 수 없다. |
