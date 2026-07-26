@@ -41,7 +41,15 @@ Java 포맷은 Google Java Format의 AOSP 스타일을 사용한다. 기본 Goog
 node scripts/check-doc-links.mjs
 ```
 
-추적 중인 Markdown과 아직 커밋하지 않은 Markdown을 함께 검사하고 외부 링크는 확인하지 않는다. 같은 검사를 CI의 `Docs` job이 실행하므로, 문서를 변경한 PR은 이 명령을 먼저 통과시킨다.
+추적 중인 Markdown과 아직 커밋하지 않은 Markdown을 함께 검사하고 외부 링크는 확인하지 않는다. 작업 트리에 없는 경로는 검사 원본에서 빼므로 이동·삭제를 스테이징하기 전에도 실행할 수 있다. destination을 뽑지 못한 링크는 건너뛰지 않고 `파싱 실패`로 보고한다.
+
+검사기 자체를 고치면 회귀 테스트를 함께 실행한다.
+
+```sh
+node --test scripts/check-doc-links.test.mjs
+```
+
+두 명령을 CI의 `Docs` job이 함께 실행하므로, 문서나 검사기를 변경한 PR은 둘 다 먼저 통과시킨다.
 
 ## 프롬프트 기록 확인
 
