@@ -200,6 +200,7 @@ Controller에는 다음 책임을 두지 않는다.
 ## Javadoc과 주석
 
 코드를 그대로 번역하지 말고 이름만으로 드러나지 않는 이유와 계약을 기록한다.
+Javadoc과 설명 주석은 한국어로 작성하며, 코드 식별자와 기술 용어는 코드와 공식 문서의 표기를 유지한다.
 
 다음에는 Javadoc이나 설명 주석을 남긴다.
 
@@ -234,6 +235,22 @@ getter, setter, 자명한 위임과 Controller 매핑에는 기계적인 Javadoc
 - 다른 이슈와 구현 책임이 겹친다.
 
 정본 변경이 필요하면 문서 변경을 먼저 반영하고 그 변경을 이슈에 연결한다.
+
+## 브랜치
+
+- 작업 브랜치 이름은 `<type>/issue-<이슈 번호>-<요약>` 형식을 사용한다.
+- `<type>`은 `feature`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci` 중에서 선택한다.
+- 요약은 작업 결과를 나타내는 영문 소문자 kebab-case로 작성한다.
+- PR을 생성할 브랜치에는 이슈 번호를 반드시 포함한다.
+- 하나의 브랜치는 하나의 이슈와 하나의 PR에만 사용하며, 머지된 브랜치는 재사용하지 않는다.
+- 작업자 이름이나 도구 이름을 브랜치명에 포함하지 않는다.
+
+예시는 다음과 같다.
+
+- `feature/issue-14-common-response`
+- `fix/issue-27-expired-room-status`
+- `docs/issue-31-auth-api-contract`
+- `chore/issue-35-update-gradle-wrapper`
 
 ## 커밋
 

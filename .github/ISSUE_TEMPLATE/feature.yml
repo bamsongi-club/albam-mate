@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        정본 문서의 문장을 옮겨 적지 않는다. 경로와 완료 기준 ID(`AC1`)로만 참조한다.
+        정본 문서의 문장을 옮겨 적지 않는다. Markdown 링크와 완료 기준 ID(`AC1`)로만 참조한다.
         이슈에는 문서에서 확인할 수 없는 것(범위 슬라이스·소유 경로·의존)만 남긴다.
 
   - type: textarea
@@ -13,11 +13,12 @@ body:
     attributes:
       label: 정본·범위
       description: |
-        정본은 기능 명세의 해당 절 경로를 적는다. P0는 `docs/p0/<파일>.md#<기능-앵커>`다.
+        정본은 `develop` 기능 명세의 해당 절로 바로 이동하는 Markdown 링크를 적는다.
+        P0는 `[기능 ID와 이름](https://github.com/bamsongi-club/albam-mate/blob/develop/docs/p0/FILE.md#feature-anchor)` 형식이다.
         담당은 완료 기준 ID로 적고, 명세 절이 없는 기반·통합 작업은 산출물을 적는다.
         제외한 완료 기준은 처리할 이슈 번호를 함께 적는다.
       placeholder: |
-        - 정본:
+        - 정본: [기능 ID와 이름](https://github.com/bamsongi-club/albam-mate/blob/develop/docs/p0/FILE.md#feature-anchor)
         - 담당:
         - 제외: 없음
     validations:
@@ -29,7 +30,7 @@ body:
       label: 소유
       description: |
         이 이슈가 변경할 경로만 적는다. 공유 파일은 접촉하는 항목을 직접 적고, 없으면 "수정 없음"으로 둔다.
-        한 모듈을 여러 기능 ID가 나눠 가지면 `<module>/**` 대신 담당 클래스 목록을 적는다(docs/CONVENTIONS.md#협업-개발).
+        한 모듈을 여러 기능 ID가 나눠 가지면 `<module>/**` 대신 담당 클래스 목록을 적는다([협업 개발 규칙](https://github.com/bamsongi-club/albam-mate/blob/develop/docs/CONVENTIONS.md#협업-개발)).
       placeholder: |
         - <module>/** (main/test 포함) 또는 담당 클래스 목록
         - 공유 파일: 수정 없음
@@ -67,4 +68,4 @@ body:
         ### 중단 규칙
 
         - 공개 계약 부재·정본 충돌·미신고 공유 파일 수정이 필요하면 중단하고 `DECISION_NEEDED` 라벨 + 코멘트
-        - 규칙: docs/CONVENTIONS.md#협업-개발
+        - 규칙: [협업 개발](https://github.com/bamsongi-club/albam-mate/blob/develop/docs/CONVENTIONS.md#협업-개발)
