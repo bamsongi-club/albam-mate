@@ -26,6 +26,7 @@ function check(t, documents, sources) {
 }
 
 const kinds = (result) => result.problems.map((problem) => problem.kind);
+const destinations = (text) => linksIn(text).targets.map((target) => target.destination);
 
 test('정상 경로와 앵커는 문제를 만들지 않는다', (t) => {
     const result = check(t, {
@@ -37,10 +38,11 @@ test('정상 경로와 앵커는 문제를 만들지 않는다', (t) => {
     assert.equal(result.checkedLinks, 1);
 });
 
-test('없는 파일을 가리키면 없는 파일로 보고한다', (t) => {
-    const result = check(t, { 'a.md': '[없음](missing.md)\n' });
+test('없는 파일을 가리키면 위치와 함께 없는 파일로 보고한다', (t) => {
+    const result = check(t, { 'a.md': '# 제목\n\n[없음](missing.md)\n' });
 
     assert.deepEqual(kinds(result), ['없는 파일']);
+    assert.equal(result.problems[0].location, 'a.md:3');
     assert.equal(result.checkedLinks, 1);
 });
 
@@ -71,6 +73,23 @@ test('코드 펜스 안의 링크는 검사하지 않는다', (t) => {
     assert.equal(result.checkedLinks, 0);
 });
 
+test('빈 줄 뒤 들여쓰기 코드 블록의 링크는 검사하지 않는다', (t) => {
+    const result = check(t, { 'a.md': '다음은 예시다.\n\n    [예시](없는.md)\n' });
+
+    assert.deepEqual(result.problems, []);
+    assert.equal(result.checkedLinks, 0);
+});
+
+test('리스트 안의 들여쓰기는 코드 블록이 아니므로 링크를 검사한다', (t) => {
+    const result = check(t, {
+        'a.md': '- 항목\n\n    - [문서](b.md)\n',
+        'b.md': '# 문서\n',
+    });
+
+    assert.deepEqual(result.problems, []);
+    assert.equal(result.checkedLinks, 1);
+});
+
 test('인라인 코드 안의 링크는 검사하지 않는다', (t) => {
     const result = check(t, { 'a.md': '예시는 `[없음](missing.md)` 형식이다.\n' });
 
@@ -79,8 +98,15 @@ test('인라인 코드 안의 링크는 검사하지 않는다', (t) => {
 });
 
 test('여는 백틱과 길이가 다른 런은 코드 스팬을 닫지 않는다', () => {
-    assert.deepEqual(linksIn('``[없음](missing.md)``').targets, []);
-    assert.deepEqual(linksIn('`코드` [정상](b.md) `코드`').targets, ['b.md']);
+    assert.deepEqual(destinations('``[없음](missing.md)``'), []);
+    assert.deepEqual(destinations('`코드` [정상](b.md) `코드`'), ['b.md']);
+});
+
+test('대응하는 여는 대괄호가 없으면 링크로 보지 않는다', (t) => {
+    const result = check(t, { 'a.md': '측정값 ](없는.md) 형태로 적는다.\n' });
+
+    assert.deepEqual(result.problems, []);
+    assert.equal(result.checkedLinks, 0);
 });
 
 test('선택 title이 붙은 링크의 깨진 대상도 탐지한다', (t) => {
@@ -90,6 +116,43 @@ test('선택 title이 붙은 링크의 깨진 대상도 탐지한다', (t) => {
 
     const withDoubleQuote = check(t, { 'a.md': '[없음](missing.md "설명")\n' });
     assert.deepEqual(kinds(withDoubleQuote), ['없는 파일']);
+});
+
+test('괄호형 title이 붙은 링크의 destination을 뽑는다', (t) => {
+    const result = check(t, {
+        'a.md': '[문서](target.md (설명))\n',
+        'target.md': '# 대상\n',
+    });
+
+    assert.deepEqual(result.problems, []);
+    assert.equal(result.checkedLinks, 1);
+});
+
+test('destination과 title 사이의 줄바꿈 하나를 허용한다', (t) => {
+    const result = check(t, {
+        'a.md': '# 제목\n\n[안내](guide.md\n    "설명")\n',
+        'guide.md': '# 안내\n',
+    });
+
+    assert.deepEqual(result.problems, []);
+    assert.equal(result.checkedLinks, 1);
+});
+
+test('빈 줄이 끼면 링크로 이어 붙이지 않는다', () => {
+    const { targets, failures } = linksIn('[문서](\n\nguide.md)\n');
+
+    assert.deepEqual(targets, []);
+    assert.equal(failures.length, 1);
+});
+
+test('백슬래시로 이스케이프한 괄호가 있는 경로를 처리한다', (t) => {
+    const result = check(t, {
+        'a(b).md': '# 괄호 문서\n',
+        'main.md': '[문서](a\\(b\\).md)\n',
+    });
+
+    assert.deepEqual(result.problems, []);
+    assert.equal(result.checkedLinks, 1);
 });
 
 test('균형 잡힌 괄호가 있는 경로를 자르지 않는다', (t) => {
@@ -127,9 +190,7 @@ test('스테이징 전 이동·삭제로 사라진 원본은 건너뛰고 남은
 });
 
 test('참조 정의의 대상도 검사한다', (t) => {
-    const result = check(t, {
-        'a.md': '[라벨]: missing.md\n',
-    });
+    const result = check(t, { 'a.md': '[라벨]: missing.md\n' });
 
     assert.deepEqual(kinds(result), ['없는 파일']);
     assert.equal(result.checkedLinks, 1);
