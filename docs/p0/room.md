@@ -109,7 +109,7 @@
 | API 계약 | [방 수정](../API.md#room-04-방-수정) |
 | 공통 규칙 | [정원](../P0-spec.md#정원capacity), [방 상태](../P0-spec.md#방-상태roomstatus), [권한과 공개 범위](../P0-spec.md#권한과-공개-범위), [시간 경계](../P0-spec.md#시간-경계), [상태 정합성과 동시 변경](../P0-spec.md#상태-정합성과-동시-변경) |
 | 데이터 모델 | [ROOMS](../ERD.md#rooms), [GAMES](../ERD.md#games) |
-| 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0009 UTC 저장과 서비스 시간대 변환](../adr/platform/0009-utc-time-standard.md) |
+| 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0009 UTC 저장과 서비스 시간대 변환](../adr/platform/0009-utc-time-standard.md), [ADR-0016 수정 API HTTP 메서드](../adr/platform/0016-p0-update-api-http-method.md) |
 
 ### 기능 규칙
 
@@ -142,7 +142,7 @@
 | API 계약 | [방 취소](../API.md#room-05-방-취소), [방 종료](../API.md#room-05-방-종료) |
 | 공통 규칙 | [방 상태](../P0-spec.md#방-상태roomstatus), [권한과 공개 범위](../P0-spec.md#권한과-공개-범위), [시간 경계](../P0-spec.md#시간-경계), [상태 정합성과 동시 변경](../P0-spec.md#상태-정합성과-동시-변경) |
 | 데이터 모델 | [ROOMS](../ERD.md#rooms) |
-| 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0009 UTC 저장과 서비스 시간대 변환](../adr/platform/0009-utc-time-standard.md) |
+| 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0009 UTC 저장과 서비스 시간대 변환](../adr/platform/0009-utc-time-standard.md), [ADR-0016 수정 API HTTP 메서드](../adr/platform/0016-p0-update-api-http-method.md) |
 
 ### 기능 규칙
 

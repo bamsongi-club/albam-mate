@@ -116,7 +116,7 @@
 | API 계약 | [내 프로필 조회·수정](../API.md#auth-04-내-프로필-조회) |
 | 공통 규칙 | [권한과 공개 범위](../P0-spec.md#권한과-공개-범위) |
 | 데이터 모델 | [USERS](../ERD.md#users) |
-| 필수 ADR | [ADR-0003: 서버 세션과 Spring Security 기반 인증](../adr/auth/0003-p0-server-session-spring-security.md) |
+| 필수 ADR | [ADR-0003: 서버 세션과 Spring Security 기반 인증](../adr/auth/0003-p0-server-session-spring-security.md), [ADR-0016: 수정 API의 HTTP 메서드](../adr/platform/0016-p0-update-api-http-method.md) |
 
 ### 기능 규칙
 
