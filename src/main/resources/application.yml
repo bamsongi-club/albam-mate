@@ -13,3 +13,15 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+app:
+  security:
+    password:
+      bcrypt-cost: 10
+    auth-request:
+      window: 10m
+      signup-limit: 5
+      login-limit: 30
+      login-failure-limit: 5
+      max-ip-keys: 10000
+      max-failure-keys: 10000
+      hash-slots: 4
