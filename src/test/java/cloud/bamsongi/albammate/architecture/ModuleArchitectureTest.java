@@ -1,0 +1,87 @@
+package cloud.bamsongi.albammate.architecture;
+
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAnyPackage;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideOutsideOfPackage;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
+
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
+
+class ModuleArchitectureTest {
+
+    private static final String ROOT_PACKAGE = "cloud.bamsongi.albammate";
+    private static final List<String> BUSINESS_MODULES = List.of("auth", "user", "game", "room");
+    private static final String[] BUSINESS_MODULE_PACKAGES =
+            BUSINESS_MODULES.stream()
+                    .map(ModuleArchitectureTest::modulePackage)
+                    .toArray(String[]::new);
+    private static final Map<String, List<String>> FORBIDDEN_DEPENDENCIES =
+            Map.of(
+                    "auth", List.of("game", "room"),
+                    "user", List.of("auth", "game", "room"),
+                    "game", List.of("auth", "user", "room"),
+                    "room", List.of("auth"));
+    private static final JavaClasses PRODUCTION_CLASSES =
+            new ClassFileImporter()
+                    .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                    .importPackages(ROOT_PACKAGE);
+
+    @Test
+    void 업무_모듈_간_순환_의존이_없다() {
+        JavaClasses businessClasses =
+                PRODUCTION_CLASSES.that(resideInAnyPackage(BUSINESS_MODULE_PACKAGES));
+
+        slices().matching(ROOT_PACKAGE + ".(*)..")
+                .should()
+                .beFreeOfCycles()
+                .because("업무 모듈 사이의 순환 의존은 허용하지 않는다")
+                .check(businessClasses);
+    }
+
+    @Test
+    void 다른_업무_모듈의_내부_구현을_참조하지_않는다() {
+        for (String targetModule : BUSINESS_MODULES) {
+            noClasses()
+                    .that(
+                            resideInAnyPackage(BUSINESS_MODULE_PACKAGES)
+                                    .and(resideOutsideOfPackage(modulePackage(targetModule))))
+                    .should()
+                    .dependOnClassesThat(
+                            resideInAPackage(modulePackage(targetModule))
+                                    .and(resideOutsideOfPackage(contractPackage(targetModule))))
+                    .because("다른 업무 모듈은 contract 패키지를 통해서만 참조한다")
+                    .check(PRODUCTION_CLASSES);
+        }
+    }
+
+    @Test
+    void 업무_모듈은_허용된_방향으로만_참조한다() {
+        FORBIDDEN_DEPENDENCIES.forEach(
+                (sourceModule, targetModules) ->
+                        noClasses()
+                                .that()
+                                .resideInAPackage(modulePackage(sourceModule))
+                                .should()
+                                .dependOnClassesThat()
+                                .resideInAnyPackage(
+                                        targetModules.stream()
+                                                .map(ModuleArchitectureTest::modulePackage)
+                                                .toArray(String[]::new))
+                                .because("허용된 참조 방향은 room에서 game과 user, auth에서 user뿐이다")
+                                .check(PRODUCTION_CLASSES));
+    }
+
+    private static String modulePackage(String module) {
+        return ROOT_PACKAGE + "." + module + "..";
+    }
+
+    private static String contractPackage(String module) {
+        return ROOT_PACKAGE + "." + module + ".contract..";
+    }
+}
