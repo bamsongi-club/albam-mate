@@ -78,12 +78,14 @@ tasks.named('jacocoTestReport', JacocoReport) {
     }
 }
 
-// 분기 커버리지 최소선은 도입 시점의 실측값을 0.05 단위로 내림한 래칫이다.
+// 분기 커버리지 최소선은 도입 시점의 실측값을 0.01 단위로 내림한 래칫이다.
 // 목표치가 아니므로 올릴 때만 값을 바꾸고, 낮추려면 이유를 PR에 남긴다.
-// 분기 수가 10개 미만인 패키지는 분기 하나에 비율이 크게 흔들려 규칙을 두지 않는다.
+// 분기 수가 coveragePackageRuleMinimumBranches 미만인 패키지는 분기 하나에 비율이 크게
+// 흔들려 개별 규칙을 두지 않고 전체 최소선으로만 관리한다.
+def coveragePackageRuleMinimumBranches = 10
 def gatedBranchCoverage = [
-    'cloud.bamsongi.albammate.auth.dto'       : 0.65,
-    'cloud.bamsongi.albammate.auth.security'  : 0.70,
+    'cloud.bamsongi.albammate.auth.dto'       : 0.67,
+    'cloud.bamsongi.albammate.auth.security'  : 0.72,
     'cloud.bamsongi.albammate.auth.service'   : 0.70,
     'cloud.bamsongi.albammate.global.config'  : 0.65,
     'cloud.bamsongi.albammate.global.security': 0.80,
@@ -100,7 +102,7 @@ tasks.named('jacocoTestCoverageVerification', JacocoCoverageVerification) {
             limit {
                 counter = 'BRANCH'
                 value = 'COVEREDRATIO'
-                minimum = 0.70
+                minimum = 0.72
             }
         }
         gatedBranchCoverage.each { packageName, packageMinimum ->
@@ -117,25 +119,59 @@ tasks.named('jacocoTestCoverageVerification', JacocoCoverageVerification) {
     }
 }
 
-// 패키지 규칙은 이름이 정확히 일치할 때만 적용된다. 클래스가 다른 패키지로 이동하면
-// 규칙이 어떤 대상에도 매칭되지 않아 검사 없이 통과한다. 도입 검토 중 실제로 두 패키지가
-// 사라져 이 실패를 확인했으므로, 규칙 대상이 리포트에 있는지 별도로 검사한다.
+// 패키지 규칙은 이름이 정확히 일치할 때만 적용되고, 규칙이 없는 패키지는 전체 최소선만
+// 적용된다. 전체 최소선은 새 분기가 분모를 함께 키우므로 새 모듈이 낮은 커버리지로
+// 들어와도 통과할 수 있다. 두 방향을 모두 실패로 만들어 대상 목록이 실제 패키지 구조와
+// 어긋난 채 검사가 약해지지 않게 한다.
 def coverageReportXmlFile = layout.buildDirectory.file('reports/jacoco/test/jacocoTestReport.xml')
 
 tasks.register('verifyCoverageRuleTargets') {
-    description = 'Fails when a package targeted by a coverage rule is absent from the report.'
+    description = 'Fails when coverage rule targets and the reported packages disagree.'
     group = 'verification'
     dependsOn tasks.named('jacocoTestReport')
     def ruleTargets = gatedBranchCoverage.keySet()
+    def minimumBranches = coveragePackageRuleMinimumBranches
     def reportXml = coverageReportXmlFile
     doLast {
-        def reportedPackages = (reportXml.get().asFile.text =~ /<package name="([^"]+)"/)
-                .collect { it[1].replace('/', '.') } as Set
-        def missingTargets = ruleTargets.findAll { !reportedPackages.contains(it) }.sort()
-        if (!missingTargets.isEmpty()) {
-            throw new GradleException(
-                    "커버리지 규칙 대상 패키지가 리포트에 없습니다: ${missingTargets.join(', ')}\n"
-                            + 'build.gradle 의 gatedBranchCoverage 를 현재 패키지 구조로 갱신하세요.')
+        def parser = new groovy.xml.XmlSlurper()
+        parser.setFeature('http://apache.org/xml/features/disallow-doctype-decl', false)
+        parser.setFeature('http://apache.org/xml/features/nonvalidating/load-external-dtd', false)
+
+        def branchesByPackage = [:]
+        parser.parse(reportXml.get().asFile).'package'.each { reportedPackage ->
+            def covered = 0
+            def missed = 0
+            reportedPackage.counter.each { counter ->
+                if (counter.@type.text() == 'BRANCH') {
+                    covered = counter.@covered.text() as int
+                    missed = counter.@missed.text() as int
+                }
+            }
+            branchesByPackage[reportedPackage.@name.text().replace('/', '.')] =
+                    [covered: covered, total: covered + missed]
+        }
+
+        def problems = []
+        ruleTargets.findAll { !branchesByPackage.containsKey(it) }.sort().each { target ->
+            problems << "규칙 대상 패키지가 리포트에 없습니다: ${target}"
+        }
+        branchesByPackage
+                .findAll { name, branches -> branches.total >= minimumBranches && !ruleTargets.contains(name) }
+                .keySet()
+                .sort()
+                .each { name ->
+                    def branches = branchesByPackage[name]
+                    problems << String.format(
+                            '최소선이 없는 패키지가 있습니다: %s (분기 %d개, 현재 %.1f%%)',
+                            name, branches.total, branches.covered * 100.0 / branches.total)
+                }
+
+        if (!problems.isEmpty()) {
+            throw new GradleException((['커버리지 규칙 대상이 현재 패키지 구조와 맞지 않습니다.']
+                    + problems
+                    + ["분기 ${minimumBranches}개 이상인 패키지는 build.gradle 의 gatedBranchCoverage 에"
+                             + ' 최소선을 두어야 합니다. 실측값을 0.01 단위로 내려 적으세요.'])
+                    .join('\n - '))
         }
     }
 }
