@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.time.Instant;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -71,4 +72,38 @@ public class Room extends BaseEntity {
     @Version
     @Column(name = "version", nullable = false)
     private Long version;
+
+    /**
+     * 모집 중인 새 방을 만든다.
+     *
+     * <p>개설자는 {@code PARTICIPATIONS}에 저장하지 않으므로 참가 카운터는 0으로 시작하고, 화면의 최초 참가자 정보는 방 응답 조립 단계에서 주최자를
+     * 포함해 계산한다.
+     */
+    public static Room create(
+            Long hostUserId,
+            RoomType roomType,
+            String title,
+            String description,
+            Long gameId,
+            ExperienceLevel experienceLevel,
+            boolean rulemasterLed,
+            Instant startAt,
+            String place,
+            int capacity) {
+        Room room = new Room();
+        room.hostUserId = Objects.requireNonNull(hostUserId, "hostUserId");
+        room.roomType = Objects.requireNonNull(roomType, "roomType");
+        room.title = Objects.requireNonNull(title, "title");
+        room.description = description;
+        room.gameId = gameId;
+        room.experienceLevel = Objects.requireNonNull(experienceLevel, "experienceLevel");
+        room.rulemasterLed = rulemasterLed;
+        room.region = "홍대";
+        room.capacity = capacity;
+        room.activeParticipantCount = 0;
+        room.startAt = Objects.requireNonNull(startAt, "startAt");
+        room.place = Objects.requireNonNull(place, "place");
+        room.status = RoomStatus.RECRUITING;
+        return room;
+    }
 }
