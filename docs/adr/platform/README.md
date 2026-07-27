@@ -9,7 +9,7 @@
 | [0001](0001-java-21-spring-boot-4-baseline.md) | Java 21과 Spring Boot 4를 백엔드 기준선으로 채택 | 승인됨 | 2026-07-23 | 검증됨 |
 | [0002](0002-postgresql-primary-database.md) | PostgreSQL을 주 데이터베이스로 채택 | 승인됨 | 2026-07-23 | 미검증 |
 | [0006](0006-p0-bigint-identity-ids.md) | P0 내부 식별자에 BIGINT 자동 증가 키를 사용 | 승인됨 | 2026-07-24 | 미검증 |
-| [0007](0007-domain-centered-modular-monolith.md) | 도메인 중심 모듈러 모놀리스를 채택 | 승인됨 | 2026-07-24 | 미검증 |
+| [0007](0007-domain-centered-modular-monolith.md) | 도메인 중심 모듈러 모놀리스를 채택 | 승인됨 | 2026-07-24 | 검증됨 |
 | [0008](0008-flyway-database-migrations.md) | Flyway SQL 마이그레이션으로 데이터베이스 스키마를 관리 | 승인됨 | 2026-07-24 | 미검증 |
 | [0009](0009-utc-time-standard.md) | 시스템 기준 시각을 UTC로 통일 | 승인됨 | 2026-07-24 | 미검증 |
 | [0010](0010-h2-postgresql-test-boundary.md) | H2와 PostgreSQL의 테스트 검증 경계를 분리 | 승인됨 | 2026-07-24 | 미검증 |
