@@ -1,0 +1,176 @@
+package cloud.bamsongi.albammate.room;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import cloud.bamsongi.albammate.room.entity.ExperienceLevel;
+import cloud.bamsongi.albammate.room.entity.Room;
+import cloud.bamsongi.albammate.room.entity.RoomStatus;
+import cloud.bamsongi.albammate.room.entity.RoomType;
+import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import java.lang.reflect.Field;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
+@SpringBootTest
+class RoomStateReconciliationExecutorTest {
+
+    private static final Instant REQUEST_TIME = Instant.parse("2026-07-27T00:00:00Z");
+
+    @Autowired private RoomRepository roomRepository;
+    @Autowired private RoomStateReconciliationCoordinator coordinator;
+    @Autowired private JdbcTemplate jdbcTemplate;
+    @Autowired private PlatformTransactionManager transactionManager;
+
+    private final List<Long> roomIds = new ArrayList<>();
+    private final List<Long> hostUserIds = new ArrayList<>();
+    private Long hostUserId;
+
+    @BeforeEach
+    void setUp() {
+        hostUserId = insertUser();
+    }
+
+    @AfterEach
+    void tearDown() {
+        roomIds.forEach(roomId -> roomRepository.deleteById(roomId));
+        hostUserIds.forEach(
+                userId -> jdbcTemplate.update("delete from users where id = ?", userId));
+    }
+
+    @Test
+    void 단건_보정은_버전을_증가시키고_두번째_호출에서는_상태와_버전을_그대로_둔다() {
+        Room room = saveRoom(REQUEST_TIME.minusSeconds(1));
+        Long versionBefore = roomRepository.findById(room.getId()).orElseThrow().getVersion();
+
+        coordinator.reconcileRoom(room.getId(), REQUEST_TIME);
+
+        Room reconciled = roomRepository.findById(room.getId()).orElseThrow();
+        assertEquals(RoomStatus.CLOSED, reconciled.getStatus());
+        assertTrue(reconciled.getVersion() > versionBefore);
+        Long versionAfter = reconciled.getVersion();
+
+        coordinator.reconcileRoom(room.getId(), REQUEST_TIME);
+
+        Room unchanged = roomRepository.findById(room.getId()).orElseThrow();
+        assertEquals(RoomStatus.CLOSED, unchanged.getStatus());
+        assertEquals(versionAfter, unchanged.getVersion());
+    }
+
+    @Test
+    void 전체_보정은_due_방만_선택하고_오래_지난_모집중은_종료까지_전이한다() throws ReflectiveOperationException {
+        Room oldRecruiting = saveRoom(REQUEST_TIME.minusSeconds(25 * 60 * 60));
+        Room dueClosed = saveRoom(REQUEST_TIME.minusSeconds(25 * 60 * 60));
+        setStatus(dueClosed, RoomStatus.CLOSED);
+        dueClosed = roomRepository.save(dueClosed);
+        Room future = saveRoom(REQUEST_TIME.plusSeconds(60 * 60));
+        Room canceled = saveRoom(REQUEST_TIME.minusSeconds(25 * 60 * 60));
+        setStatus(canceled, RoomStatus.CANCELED);
+        canceled = roomRepository.save(canceled);
+        Room finished = saveRoom(REQUEST_TIME.minusSeconds(25 * 60 * 60));
+        setStatus(finished, RoomStatus.FINISHED);
+        finished = roomRepository.save(finished);
+
+        Long futureVersion = future.getVersion();
+        Long canceledVersion = canceled.getVersion();
+        Long finishedVersion = finished.getVersion();
+
+        coordinator.reconcileDueRooms(REQUEST_TIME);
+
+        assertEquals(
+                RoomStatus.FINISHED,
+                roomRepository.findById(oldRecruiting.getId()).orElseThrow().getStatus());
+        assertEquals(
+                RoomStatus.FINISHED,
+                roomRepository.findById(dueClosed.getId()).orElseThrow().getStatus());
+        assertEquals(
+                RoomStatus.RECRUITING,
+                roomRepository.findById(future.getId()).orElseThrow().getStatus());
+        assertEquals(
+                RoomStatus.CANCELED,
+                roomRepository.findById(canceled.getId()).orElseThrow().getStatus());
+        assertEquals(
+                RoomStatus.FINISHED,
+                roomRepository.findById(finished.getId()).orElseThrow().getStatus());
+        assertEquals(
+                futureVersion, roomRepository.findById(future.getId()).orElseThrow().getVersion());
+        assertEquals(
+                canceledVersion,
+                roomRepository.findById(canceled.getId()).orElseThrow().getVersion());
+        assertEquals(
+                finishedVersion,
+                roomRepository.findById(finished.getId()).orElseThrow().getVersion());
+    }
+
+    @Test
+    void 단건_미존재는_오류없이_종료한다() {
+        coordinator.reconcileRoom(Long.MAX_VALUE, REQUEST_TIME);
+    }
+
+    @Test
+    void 외부_트랜잭션이_롤백되어도_REQUIRES_NEW_보정은_커밋된다() {
+        Room room = saveRoom(REQUEST_TIME.minusSeconds(1));
+        Long versionBefore = roomRepository.findById(room.getId()).orElseThrow().getVersion();
+
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.executeWithoutResult(
+                status -> {
+                    coordinator.reconcileRoom(room.getId(), REQUEST_TIME);
+                    status.setRollbackOnly();
+                });
+
+        Room reconciled = roomRepository.findById(room.getId()).orElseThrow();
+        assertEquals(RoomStatus.CLOSED, reconciled.getStatus());
+        assertTrue(reconciled.getVersion() > versionBefore);
+    }
+
+    private Room saveRoom(Instant startAt) {
+        Room room =
+                Room.create(
+                        hostUserId,
+                        RoomType.PERSON_FOCUSED,
+                        "상태 보정 방",
+                        null,
+                        null,
+                        ExperienceLevel.ALL_LEVELS,
+                        false,
+                        startAt,
+                        "홍대 카페",
+                        3);
+        Room saved = roomRepository.save(room);
+        roomIds.add(saved.getId());
+        return saved;
+    }
+
+    private Long insertUser() {
+        String email = "room-reconciliation-" + UUID.randomUUID() + "@example.com";
+        jdbcTemplate.update(
+                "insert into users "
+                        + "(email, password_hash, nickname, created_at, updated_at) "
+                        + "values (?, 'fixture-password-hash', '보정 테스트', ?, ?)",
+                email,
+                REQUEST_TIME,
+                REQUEST_TIME);
+        Long userId =
+                jdbcTemplate.queryForObject(
+                        "select id from users where email = ?", Long.class, email);
+        hostUserIds.add(userId);
+        return userId;
+    }
+
+    private void setStatus(Room room, RoomStatus status) throws ReflectiveOperationException {
+        Field field = Room.class.getDeclaredField("status");
+        field.setAccessible(true);
+        field.set(room, status);
+    }
+}
