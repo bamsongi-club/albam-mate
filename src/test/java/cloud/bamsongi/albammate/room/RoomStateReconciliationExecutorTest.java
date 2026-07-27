@@ -73,6 +73,16 @@ class RoomStateReconciliationExecutorTest {
         Room dueClosed = saveRoom(REQUEST_TIME.minusSeconds(25 * 60 * 60));
         setStatus(dueClosed, RoomStatus.CLOSED);
         dueClosed = roomRepository.save(dueClosed);
+        Room recruitingAtStart = saveRoom(REQUEST_TIME);
+        // H2와 PostgreSQL의 TIMESTAMP WITH TIME ZONE 기본 정밀도에 맞춰 경계 직후를 1µs로 표현한다.
+        Room recruitingAfterStart = saveRoom(REQUEST_TIME.plusNanos(1_000));
+        Room closedAtFinish = saveRoom(REQUEST_TIME.minus(Room.AUTOMATIC_FINISH_AFTER_START));
+        setStatus(closedAtFinish, RoomStatus.CLOSED);
+        closedAtFinish = roomRepository.save(closedAtFinish);
+        Room closedAfterFinish =
+                saveRoom(REQUEST_TIME.minus(Room.AUTOMATIC_FINISH_AFTER_START).plusNanos(1_000));
+        setStatus(closedAfterFinish, RoomStatus.CLOSED);
+        closedAfterFinish = roomRepository.save(closedAfterFinish);
         Room future = saveRoom(REQUEST_TIME.plusSeconds(60 * 60));
         Room canceled = saveRoom(REQUEST_TIME.minusSeconds(25 * 60 * 60));
         setStatus(canceled, RoomStatus.CANCELED);
@@ -84,6 +94,8 @@ class RoomStateReconciliationExecutorTest {
         Long futureVersion = future.getVersion();
         Long canceledVersion = canceled.getVersion();
         Long finishedVersion = finished.getVersion();
+        Long recruitingAfterStartVersion = recruitingAfterStart.getVersion();
+        Long closedAfterFinishVersion = closedAfterFinish.getVersion();
 
         coordinator.reconcileDueRooms(REQUEST_TIME);
 
@@ -93,6 +105,18 @@ class RoomStateReconciliationExecutorTest {
         assertEquals(
                 RoomStatus.FINISHED,
                 roomRepository.findById(dueClosed.getId()).orElseThrow().getStatus());
+        assertEquals(
+                RoomStatus.CLOSED,
+                roomRepository.findById(recruitingAtStart.getId()).orElseThrow().getStatus());
+        assertEquals(
+                RoomStatus.RECRUITING,
+                roomRepository.findById(recruitingAfterStart.getId()).orElseThrow().getStatus());
+        assertEquals(
+                RoomStatus.FINISHED,
+                roomRepository.findById(closedAtFinish.getId()).orElseThrow().getStatus());
+        assertEquals(
+                RoomStatus.CLOSED,
+                roomRepository.findById(closedAfterFinish.getId()).orElseThrow().getStatus());
         assertEquals(
                 RoomStatus.RECRUITING,
                 roomRepository.findById(future.getId()).orElseThrow().getStatus());
@@ -110,6 +134,12 @@ class RoomStateReconciliationExecutorTest {
         assertEquals(
                 finishedVersion,
                 roomRepository.findById(finished.getId()).orElseThrow().getVersion());
+        assertEquals(
+                recruitingAfterStartVersion,
+                roomRepository.findById(recruitingAfterStart.getId()).orElseThrow().getVersion());
+        assertEquals(
+                closedAfterFinishVersion,
+                roomRepository.findById(closedAfterFinish.getId()).orElseThrow().getVersion());
     }
 
     @Test
