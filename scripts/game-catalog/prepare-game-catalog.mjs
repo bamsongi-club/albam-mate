@@ -1,7 +1,14 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+    mkdirSync,
+    readFileSync,
+    realpathSync,
+    rmSync,
+    statSync,
+    writeFileSync,
+} from "node:fs";
 import { basename, resolve } from "node:path";
 
 const CATALOG_FIELDS = [
@@ -47,11 +54,14 @@ const FIELD_LENGTHS = {
     tag: 30,
     estimated_play_time: 50,
 };
+const OPTIONAL_TEXT_FIELDS = new Set(["alias", "image_url"]);
+const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
 
 class InputError extends Error {
-    constructor(code, message, cause) {
+    constructor(code, message, cause, details = {}) {
         super(message, { cause });
         this.code = code;
+        Object.assign(this, details);
     }
 }
 
@@ -71,16 +81,50 @@ try {
 
 function ensureSeparatePaths({ games, ranks, manifest, out }) {
     const outputDirectory = realpathSync(out);
-    const outputs = new Set(
-        ["quality-report.json", "service-catalog.json", "upsert-games.sql"].map((fileName) =>
-            resolve(outputDirectory, fileName),
-        ),
-    );
-    for (const input of [games, ranks, manifest].filter(Boolean)) {
-        if (outputs.has(realPathIfPresent(input))) {
+    const outputs = [
+        "quality-report.json",
+        "service-catalog.json",
+        "upsert-games.sql",
+    ].map((fileName) => resolve(outputDirectory, fileName));
+    const inputPaths = [games, ranks, manifest].filter(Boolean);
+    for (const input of inputPaths) {
+        const inputRealPath = realPathIfPresent(input);
+        const conflict = outputs.find(
+            (output) =>
+                inputRealPath === realPathIfPresent(output) || sameFileIdentity(input, output),
+        );
+        if (conflict) {
             process.stderr.write(`입력 파일과 출력 파일 경로가 같습니다: ${input}\n`);
             process.exit(2);
         }
+    }
+}
+
+function sameFileIdentity(leftPath, rightPath) {
+    const left = fileIdentity(leftPath);
+    const right = fileIdentity(rightPath);
+    return left !== null && right !== null && left.dev === right.dev && left.ino === right.ino;
+}
+
+function fileIdentity(path) {
+    try {
+        const { dev, ino } = statSync(path);
+        return { dev, ino };
+    } catch {
+        return null;
+    }
+}
+
+function decodeUtf8(contents, role) {
+    try {
+        return UTF8_DECODER.decode(contents).replace(/^\uFEFF/, "");
+    } catch (cause) {
+        throw new InputError(
+            "INVALID_UTF8",
+            `${role} 입력 파일이 올바른 UTF-8이 아닙니다.`,
+            cause,
+            { input: role },
+        );
     }
 }
 
@@ -107,23 +151,29 @@ function readInput(path, role) {
     }
 }
 
-function parseJson(contents, code, message) {
+function parseJson(contents, code, message, role) {
     try {
-        return JSON.parse(contents.toString("utf8").replace(/^\uFEFF/, ""));
+        return JSON.parse(decodeUtf8(contents, role));
     } catch (cause) {
+        if (cause instanceof InputError) {
+            throw cause;
+        }
         throw new InputError(code, message, cause);
     }
 }
 
 function parseRanks(contents) {
     try {
-        return rowsFromCsv(contents.toString("utf8").replace(/^\uFEFF/, ""));
+        return rowsFromCsv(decodeUtf8(contents, "ranks"));
     } catch (cause) {
+        if (cause instanceof InputError) {
+            throw cause;
+        }
         throw new InputError("INVALID_RANKS_CSV", "BGG 기준 CSV를 해석할 수 없습니다.", cause);
     }
 }
 
-function writeFailureReport({ games, ranks, out }, error) {
+function writeFailureReport({ games, ranks, manifest, out }, error) {
     writeJson(resolve(out, "quality-report.json"), {
         schemaVersion: 1,
         batchId: null,
@@ -132,8 +182,15 @@ function writeFailureReport({ games, ranks, out }, error) {
         inputs: {
             games: inputMetadata(games),
             ranks: inputMetadata(ranks),
+            ...(manifest ? { manifest: inputMetadata(manifest) } : {}),
         },
-        errors: [{ code: error.code, message: error.message }],
+        errors: [
+            {
+                code: error.code,
+                message: error.message,
+                ...(error.input ? { input: error.input } : {}),
+            },
+        ],
         warnings: [],
         checks: null,
         outputs: null,
@@ -152,13 +209,19 @@ function inputMetadata(path) {
 function prepareCatalog({ games: gamesPath, ranks: ranksPath, manifest: manifestPath, out }) {
     const gamesContents = readInput(gamesPath, "games");
     const ranksContents = readInput(ranksPath, "ranks");
-    const games = parseJson(gamesContents, "INVALID_GAMES_JSON", "games JSON을 해석할 수 없습니다.");
+    const games = parseJson(
+        gamesContents,
+        "INVALID_GAMES_JSON",
+        "games JSON을 해석할 수 없습니다.",
+        "games",
+    );
     const rankRows = parseRanks(ranksContents);
     const manifest = manifestPath
         ? parseJson(
               readInput(manifestPath, "manifest"),
               "INVALID_MANIFEST_JSON",
               "manifest JSON을 해석할 수 없습니다.",
+              "manifest",
           )
         : null;
     const gameRows = Array.isArray(games) ? games : [];
@@ -182,6 +245,7 @@ function prepareCatalog({ games: gamesPath, ranks: ranksPath, manifest: manifest
     const catalog = validGameRows
         .map((game) => normalizeGame(game))
         .sort((left, right) => left.bgg_id - right.bgg_id);
+    errors.push(...validateSelectionCounts(manifest, gameRows.length, catalog.length));
     const warnings = qualityWarnings(validGameRows, rankByBggId);
     const checks = checkSummary(validGameRows, rankByBggId);
     const acceptedWarnings = new Set(
@@ -406,12 +470,17 @@ function suspiciousComplexityRankCorrelation(games, rankByBggId) {
 }
 
 function isValidComplexity(value) {
-    if (blank(value)) {
-        return false;
-    }
-    const number = Number(value);
-    const decimals = String(value).split(".")[1]?.length ?? 0;
-    return Number.isFinite(number) && number >= 0 && number <= 5 && decimals <= 2;
+    return value !== null && value !== undefined && isValidComplexityValue(value);
+}
+
+function isValidComplexityValue(value) {
+    return (
+        typeof value === "number" &&
+        Number.isFinite(value) &&
+        value >= 0 &&
+        value <= 5 &&
+        /^\d+(?:\.\d{1,2})?$/.test(String(value))
+    );
 }
 
 function mean(values) {
@@ -524,6 +593,7 @@ function validateData(games, rankRows) {
     const invalidImageUrls = [];
     const invalidGameRows = [];
     const nulCharacterValues = [];
+    const invalidFieldTypes = [];
 
     for (const [index, game] of games.entries()) {
         const rowNumber = index + 1;
@@ -538,6 +608,18 @@ function validateData(games, rankRows) {
         for (const field of TEXT_FIELDS) {
             if (containsNul(game[field])) {
                 nulCharacterValues.push({ row: rowNumber, field });
+            }
+            if (
+                game[field] !== undefined &&
+                !(game[field] === null && OPTIONAL_TEXT_FIELDS.has(field)) &&
+                typeof game[field] !== "string"
+            ) {
+                invalidFieldTypes.push({
+                    row: rowNumber,
+                    field,
+                    expected: OPTIONAL_TEXT_FIELDS.has(field) ? "string|null" : "string",
+                    actual: valueType(game[field]),
+                });
             }
         }
 
@@ -579,12 +661,12 @@ function validateData(games, rankRows) {
             }
         }
 
-        if (!blank(game?.complexity)) {
-            const value = Number(game.complexity);
-            const decimals = String(game.complexity).split(".")[1]?.length ?? 0;
-            if (!Number.isFinite(value) || value < 0 || value > 5 || decimals > 2) {
-                invalidComplexities.push({ row: rowNumber, value: game.complexity });
-            }
+        if (
+            game.complexity !== undefined &&
+            game.complexity !== null &&
+            !isValidComplexityValue(game.complexity)
+        ) {
+            invalidComplexities.push({ row: rowNumber, value: game.complexity });
         }
         if (!blank(game?.image_url)) {
             try {
@@ -608,6 +690,12 @@ function validateData(games, rankRows) {
         "NUL_CHARACTER_IN_TEXT",
         "서비스 카탈로그 텍스트 필드에 허용되지 않는 U+0000이 있습니다.",
         nulCharacterValues,
+    );
+    addValidationError(
+        errors,
+        "INVALID_FIELD_TYPE",
+        "서비스 카탈로그 필드의 JSON 타입이 허용 범위가 아닙니다.",
+        invalidFieldTypes,
     );
     addValidationError(errors, "MISSING_REQUIRED_VALUE", "필수값이 비어 있습니다.", missingRequired);
     addValidationError(errors, "INVALID_BGG_ID", "bgg_id는 양의 정수여야 합니다.", invalidBggIds);
@@ -652,6 +740,12 @@ function addValidationError(errors, code, message, findings) {
 }
 
 function canonicalBggId(value) {
+    if (typeof value === "string" && !/^[1-9]\d*$/.test(value)) {
+        return null;
+    }
+    if (typeof value !== "number" && typeof value !== "string") {
+        return null;
+    }
     const number = Number(value);
     return Number.isSafeInteger(number) && number > 0 ? String(number) : null;
 }
@@ -741,7 +835,120 @@ function validateManifest(manifest, gamesPath, gamesContents, ranksPath, ranksCo
     ) {
         errors.push({ code: "INVALID_REVIEW", message: "검수자와 검수 시각이 필요합니다." });
     }
+    if (
+        !isRecord(manifest.selectionRules) ||
+        !completedText(manifest.selectionRules.include) ||
+        !completedText(manifest.selectionRules.exclude)
+    ) {
+        errors.push({
+            code: "INVALID_SELECTION_RULES",
+            message: "게임 선택·제외 규칙이 필요합니다.",
+        });
+    }
+    if (
+        !isRecord(manifest.versionRules) ||
+        ["baseGame", "expansion", "variant"].some(
+            (field) => !completedText(manifest.versionRules[field]),
+        )
+    ) {
+        errors.push({
+            code: "INVALID_VERSION_RULES",
+            message: "본판·확장·변형 구분 규칙이 필요합니다.",
+        });
+    }
+    const selection = manifest.selection;
+    if (
+        !isRecord(selection) ||
+        !isNonNegativeSafeInteger(selection.candidateRows) ||
+        !isNonNegativeSafeInteger(selection.includedRows) ||
+        !isNonNegativeSafeInteger(selection.excludedRows)
+    ) {
+        errors.push({
+            code: "INVALID_SELECTION_COUNTS",
+            message: "원본 후보·포함·제외 행 수가 필요합니다.",
+        });
+    }
+    if (!isRecord(selection) || !Array.isArray(selection.exclusions)) {
+        errors.push({
+            code: "INVALID_SELECTION_EXCLUSIONS",
+            message: "구조화된 제외 결과 목록이 필요합니다.",
+        });
+    } else {
+        const invalidExclusions = selection.exclusions
+            .map((exclusion, index) => ({ exclusion, index }))
+            .filter(
+                ({ exclusion }) =>
+                    !isRecord(exclusion) ||
+                    !isExclusionIdentifier(exclusionIdentifier(exclusion)) ||
+                    !completedText(exclusion.reason),
+            )
+            .map(({ exclusion, index }) => ({
+                index,
+                identifier: exclusionIdentifier(exclusion),
+                reason: exclusion?.reason ?? null,
+            }));
+        addValidationError(
+            errors,
+            "INVALID_SELECTION_EXCLUSION",
+            "제외 항목에는 식별자와 사유가 필요합니다.",
+            invalidExclusions,
+        );
+    }
     return errors;
+}
+
+function validateSelectionCounts(manifest, inputRows, catalogRows) {
+    const selection = manifest?.selection;
+    if (!isRecord(selection) || !Array.isArray(selection.exclusions)) {
+        return [];
+    }
+    const errors = [];
+    if (
+        !isNonNegativeSafeInteger(selection.candidateRows) ||
+        !isNonNegativeSafeInteger(selection.includedRows) ||
+        !isNonNegativeSafeInteger(selection.excludedRows)
+    ) {
+        return errors;
+    }
+    if (selection.candidateRows !== selection.includedRows + selection.excludedRows) {
+        errors.push({
+            code: "SELECTION_COUNT_MISMATCH",
+            message: "후보 행 수는 포함 행 수와 제외 건수의 합과 같아야 합니다.",
+            candidateRows: selection.candidateRows,
+            includedRows: selection.includedRows,
+            excludedRows: selection.excludedRows,
+        });
+    }
+    if (selection.excludedRows !== selection.exclusions.length) {
+        errors.push({
+            code: "SELECTION_EXCLUSION_COUNT_MISMATCH",
+            message: "제외 건수와 구조화된 제외 항목 수가 다릅니다.",
+            excludedRows: selection.excludedRows,
+            exclusionItems: selection.exclusions.length,
+        });
+    }
+    if (selection.includedRows !== catalogRows || inputRows < catalogRows) {
+        errors.push({
+            code: "SELECTION_INCLUDED_ROWS_MISMATCH",
+            message: "manifest 포함 행 수가 실제 서비스 카탈로그 행 수와 다릅니다.",
+            manifestIncludedRows: selection.includedRows,
+            catalogRows,
+            inputRows,
+        });
+    }
+    return errors;
+}
+
+function isNonNegativeSafeInteger(value) {
+    return Number.isSafeInteger(value) && value >= 0;
+}
+
+function isExclusionIdentifier(value) {
+    return completedText(value) || canonicalBggId(value) !== null;
+}
+
+function exclusionIdentifier(exclusion) {
+    return exclusion?.identifier ?? exclusion?.bgg_id ?? exclusion?.id;
 }
 
 function completedText(value) {
@@ -774,7 +981,7 @@ function reportFor({
     checks,
     outputs = null,
 }) {
-    return {
+    const report = {
         schemaVersion: 1,
         batchId: manifest.batchId ?? null,
         toolCommit: manifest.toolCommit ?? null,
@@ -796,6 +1003,16 @@ function reportFor({
         checks,
         outputs,
     };
+    if (
+        manifest.selectionRules !== undefined ||
+        manifest.versionRules !== undefined ||
+        manifest.selection !== undefined
+    ) {
+        report.selectionRules = manifest.selectionRules ?? null;
+        report.versionRules = manifest.versionRules ?? null;
+        report.selection = manifest.selection ?? null;
+    }
+    return report;
 }
 
 function upsertSql(catalog) {

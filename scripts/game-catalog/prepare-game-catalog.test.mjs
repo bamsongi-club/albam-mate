@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import {
+    linkSync,
     mkdirSync,
     mkdtempSync,
     readFileSync,
@@ -56,6 +57,14 @@ test("승인된 입력은 내부 id를 제외한 결정적 카탈로그와 UPSER
         assert.equal(report.checks.matchedRows, 2);
         assert.equal(report.checks.baselineNameMismatchRows, 0);
         assert.equal(report.checks.expansionRows, 0);
+        assert.deepEqual(report.selection, {
+            candidateRows: 2,
+            includedRows: 2,
+            excludedRows: 0,
+            exclusions: [],
+        });
+        assert.ok(report.selectionRules.include);
+        assert.ok(report.versionRules.baseGame);
         assert.equal(report.toolCommit, "0123456789abcdef0123456789abcdef01234567");
         assert.match(sqlText, /^BEGIN;/);
         assert.match(sqlText, /ON CONFLICT \(bgg_id\) DO UPDATE/);
@@ -145,7 +154,7 @@ test("UPSERT SQL은 표준 문자열 모드를 먼저 설정하고 역슬래시�
 test("같은 bgg_id가 둘 이상이면 데이터베이스 쓰기 전에 실패한다", () => {
     const rows = [
         game(1, "10", "첫 번째 게임", "First Game"),
-        game(2, "10.0", "중복 게임", "Duplicate Game"),
+        game(2, "10", "중복 게임", "Duplicate Game"),
     ];
 
     withCase(rows, ({ games, ranks, manifest, out }) => {
@@ -222,6 +231,69 @@ test("손상된 JSON·CSV·manifest도 차단 보고서를 남긴다", async (co
             );
         });
     });
+
+    await context.test("games JSON 문자열 내부의 잘못된 UTF-8", () => {
+        withCase([game(1, "10", "첫 번째 게임", "First Game")], ({
+            games,
+            ranks,
+            manifest,
+            out,
+        }) => {
+            writeManifest(manifest, games, ranks, []);
+            const contents = readFileSync(games);
+            const marker = Buffer.from("첫 번째 게임");
+            const markerOffset = contents.indexOf(marker);
+            assert.notEqual(markerOffset, -1);
+            contents[markerOffset] = 0xff;
+            writeFileSync(games, contents);
+
+            assertParseFailure(runCli(games, ranks, out, manifest), out, "INVALID_UTF8");
+            const report = readJson(join(out, "quality-report.json"));
+            assert.equal(report.errors[0].input, "games");
+        });
+    });
+
+    await context.test("ranks CSV 필드 내부의 잘못된 UTF-8", () => {
+        withCase([game(1, "10", "첫 번째 게임", "First Game")], ({
+            games,
+            ranks,
+            manifest,
+            out,
+        }) => {
+            writeManifest(manifest, games, ranks, []);
+            const contents = readFileSync(ranks);
+            const marker = Buffer.from("First Game");
+            const markerOffset = contents.indexOf(marker);
+            assert.notEqual(markerOffset, -1);
+            contents[markerOffset] = 0xff;
+            writeFileSync(ranks, contents);
+
+            assertParseFailure(runCli(games, ranks, out, manifest), out, "INVALID_UTF8");
+            const report = readJson(join(out, "quality-report.json"));
+            assert.equal(report.errors[0].input, "ranks");
+        });
+    });
+
+    await context.test("manifest JSON 문자열 내부의 잘못된 UTF-8", () => {
+        withCase([game(1, "10", "첫 번째 게임", "First Game")], ({
+            games,
+            ranks,
+            manifest,
+            out,
+        }) => {
+            writeManifest(manifest, games, ranks, []);
+            const contents = readFileSync(manifest);
+            const marker = Buffer.from("BGG 기준 스냅샷");
+            const markerOffset = contents.indexOf(marker);
+            assert.notEqual(markerOffset, -1);
+            contents[markerOffset] = 0xff;
+            writeFileSync(manifest, contents);
+
+            assertParseFailure(runCli(games, ranks, out, manifest), out, "INVALID_UTF8");
+            const report = readJson(join(out, "quality-report.json"));
+            assert.equal(report.errors[0].input, "manifest");
+        });
+    });
 });
 
 test("입력과 출력 파일 경로가 같으면 원본을 보존하고 실행 전에 거절한다", () => {
@@ -236,6 +308,26 @@ test("입력과 출력 파일 경로가 같으면 원본을 보존하고 실행 
         assert.equal(result.status, 2);
         assert.match(result.stderr, /입력 파일과 출력 파일 경로가 같습니다/);
         assert.equal(readFileSync(conflictingInput, "utf8"), original);
+    });
+});
+
+test("입력과 출력 파일이 하드 링크면 원본을 보존하고 실행 전에 거절한다", () => {
+    withCase([game(1, "10", "첫 번째 게임", "First Game")], ({
+        games,
+        ranks,
+        out,
+    }) => {
+        mkdirSync(out, { recursive: true });
+        const conflictingInput = join(out, "quality-report.json");
+        const original = readFileSync(games);
+        linkSync(games, conflictingInput);
+
+        const result = runCli(games, ranks, out);
+
+        assert.equal(result.status, 2);
+        assert.match(result.stderr, /입력 파일과 출력 파일 경로가 같습니다/);
+        assert.deepEqual(readFileSync(games), original);
+        assert.deepEqual(readFileSync(conflictingInput), original);
     });
 });
 
@@ -473,6 +565,114 @@ test("acceptedWarnings가 배열이 아니면 검수 오류 보고서만 남긴�
     });
 });
 
+test("manifest 선택·판본 규칙과 제외 결과의 구조·건수를 검증한다", async (context) => {
+    await context.test("선택 규칙이 없으면 차단한다", () => {
+        withCase([game(1, "10", "첫 번째 게임", "First Game")], ({
+            games,
+            ranks,
+            manifest,
+            out,
+        }) => {
+            writeManifest(manifest, games, ranks, []);
+            const value = readJson(manifest);
+            delete value.selectionRules;
+            writeFileSync(manifest, `${JSON.stringify(value, null, 2)}\n`);
+
+            const result = runCli(games, ranks, out, manifest);
+
+            assert.equal(result.status, 1);
+            assert.ok(
+                readJson(join(out, "quality-report.json")).errors.some(
+                    ({ code }) => code === "INVALID_SELECTION_RULES",
+                ),
+            );
+        });
+    });
+
+    await context.test("본판·확장·변형 규칙이 없으면 차단한다", () => {
+        withCase([game(1, "10", "첫 번째 게임", "First Game")], ({
+            games,
+            ranks,
+            manifest,
+            out,
+        }) => {
+            writeManifest(manifest, games, ranks, []);
+            const value = readJson(manifest);
+            delete value.versionRules;
+            writeFileSync(manifest, `${JSON.stringify(value, null, 2)}\n`);
+
+            const result = runCli(games, ranks, out, manifest);
+
+            assert.equal(result.status, 1);
+            assert.ok(
+                readJson(join(out, "quality-report.json")).errors.some(
+                    ({ code }) => code === "INVALID_VERSION_RULES",
+                ),
+            );
+        });
+    });
+
+    await context.test("선택 행 수 합과 실제 카탈로그 행 수가 다르면 차단한다", () => {
+        withCase([game(1, "10", "첫 번째 게임", "First Game")], ({
+            games,
+            ranks,
+            manifest,
+            out,
+        }) => {
+            writeManifest(manifest, games, ranks, []);
+            const value = readJson(manifest);
+            value.selection.candidateRows = 3;
+            value.selection.includedRows = 2;
+            value.selection.excludedRows = 0;
+            writeFileSync(manifest, `${JSON.stringify(value, null, 2)}\n`);
+
+            const result = runCli(games, ranks, out, manifest);
+
+            assert.equal(result.status, 1);
+            const report = readJson(join(out, "quality-report.json"));
+            assert.ok(
+                report.errors.some(({ code }) => code === "SELECTION_COUNT_MISMATCH"),
+            );
+            assert.ok(
+                report.errors.some(
+                    ({ code }) => code === "SELECTION_INCLUDED_ROWS_MISMATCH",
+                ),
+            );
+        });
+    });
+
+    await context.test("제외 건수와 식별자·사유를 함께 검증한다", () => {
+        withCase([game(1, "10", "첫 번째 게임", "First Game")], ({
+            games,
+            ranks,
+            manifest,
+            out,
+        }) => {
+            writeManifest(manifest, games, ranks, []);
+            const value = readJson(manifest);
+            value.selection.candidateRows = 3;
+            value.selection.excludedRows = 2;
+            value.selection.exclusions = [{ identifier: "bgg_id:20" }];
+            writeFileSync(manifest, `${JSON.stringify(value, null, 2)}\n`);
+
+            const result = runCli(games, ranks, out, manifest);
+
+            assert.equal(result.status, 1);
+            const report = readJson(join(out, "quality-report.json"));
+            assert.ok(
+                report.errors.some(
+                    ({ code }) => code === "INVALID_SELECTION_EXCLUSION",
+                ),
+            );
+            assert.ok(
+                report.errors.some(
+                    ({ code }) => code === "SELECTION_EXCLUSION_COUNT_MISMATCH",
+                ),
+            );
+        });
+    });
+});
+
 test("games 배열의 비객체 행은 구조화된 차단 오류로 보고한다", () => {
     withCase([game(1, "10", "첫 번째 게임", "First Game")], ({
         games,
@@ -491,6 +691,83 @@ test("games 배열의 비객체 행은 구조화된 차단 오류로 보고한�
         assert.equal(report.status, "blocked");
         assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
     });
+});
+
+test("games JSON 필드 타입은 정규화 전에 차단한다", async (context) => {
+    const cases = [
+        {
+            name: "bgg_id 불리언",
+            mutate: (row) => {
+                row.bgg_id = true;
+            },
+            code: "INVALID_BGG_ID",
+        },
+        {
+            name: "bgg_id 지수 표기 문자열",
+            mutate: (row) => {
+                row.bgg_id = "1e3";
+            },
+            code: "INVALID_BGG_ID",
+        },
+        {
+            name: "bgg_id 소수 표기 문자열",
+            mutate: (row) => {
+                row.bgg_id = "10.0";
+            },
+            code: "INVALID_BGG_ID",
+        },
+        {
+            name: "bgg_id 공백 문자열",
+            mutate: (row) => {
+                row.bgg_id = " 10";
+            },
+            code: "INVALID_BGG_ID",
+        },
+        {
+            name: "필수 텍스트 배열",
+            mutate: (row) => {
+                row.name = [];
+            },
+            code: "INVALID_FIELD_TYPE",
+        },
+        {
+            name: "필수 텍스트 객체",
+            mutate: (row) => {
+                row.description = {};
+            },
+            code: "INVALID_FIELD_TYPE",
+        },
+        {
+            name: "complexity 불리언",
+            mutate: (row) => {
+                row.complexity = false;
+            },
+            code: "INVALID_COMPLEXITY",
+        },
+    ];
+
+    for (const { name, mutate, code } of cases) {
+        await context.test(name, () => {
+            withCase([game(1, "10", "첫 번째 게임", "First Game")], ({
+                games,
+                ranks,
+                manifest,
+                out,
+            }) => {
+                const rows = readJson(games);
+                mutate(rows[0]);
+                writeFileSync(games, `${JSON.stringify(rows, null, 2)}\n`);
+                writeManifest(manifest, games, ranks, []);
+
+                const result = runCli(games, ranks, out, manifest);
+
+                assert.equal(result.status, 1);
+                const report = readJson(join(out, "quality-report.json"));
+                assert.ok(report.errors.some(({ code: errorCode }) => errorCode === code));
+                assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
+            });
+        });
+    }
 });
 
 test("CSV 행의 열 수가 헤더와 다르면 검수 보고서를 남긴다", () => {
@@ -557,6 +834,12 @@ function runCli(games, ranks, out, manifest) {
 }
 
 function writeManifest(path, gamesPath, ranksPath, acceptedWarnings) {
+    let candidateRows = 1;
+    try {
+        candidateRows = readJson(gamesPath).length;
+    } catch {
+        // 경로 충돌 테스트처럼 games 경로가 의도적으로 JSON이 아닐 수 있다.
+    }
     const manifest = {
         schemaVersion: 1,
         batchId: "2026-07-24-test-catalog",
@@ -577,6 +860,21 @@ function writeManifest(path, gamesPath, ranksPath, acceptedWarnings) {
             complexity: "games.complexity",
             description: "games.description",
             detail_description: "games.detail_description",
+        },
+        selectionRules: {
+            include: "BGG 기준 스냅샷과 bgg_id가 일치하고 필수 검수를 통과한 후보만 포함",
+            exclude: "매핑·필수값·판본 근거가 부족한 후보는 식별자와 사유를 남기고 제외",
+        },
+        versionRules: {
+            baseGame: "BGG 본판으로 확인된 항목만 본판으로 분류",
+            expansion: "BGG 확장은 본판과 구분하고 서비스 목록 반영 여부를 검수",
+            variant: "변형 여부를 확인할 수 없으면 임의로 병합하지 않고 제외",
+        },
+        selection: {
+            candidateRows,
+            includedRows: candidateRows,
+            excludedRows: 0,
+            exclusions: [],
         },
         review: {
             status: "approved",

@@ -90,7 +90,10 @@ class GameCatalogImportPostgresTest {
         Path outputPath = caseDirectory.resolve("output");
         Files.writeString(gamesPath, gamesJson(games), StandardCharsets.UTF_8);
         Files.writeString(ranksPath, ranksCsv(games), StandardCharsets.UTF_8);
-        Files.writeString(manifestPath, manifestJson(gamesPath, ranksPath), StandardCharsets.UTF_8);
+        Files.writeString(
+                manifestPath,
+                manifestJson(gamesPath, ranksPath, games.size()),
+                StandardCharsets.UTF_8);
 
         Path script =
                 Path.of(System.getProperty("user.dir"))
@@ -194,7 +197,7 @@ class GameCatalogImportPostgresTest {
         return header + body + "\n";
     }
 
-    private String manifestJson(Path gamesPath, Path ranksPath) throws IOException {
+    private String manifestJson(Path gamesPath, Path ranksPath, int rowCount) throws IOException {
         return """
                 {
                   "schemaVersion": 1,
@@ -229,6 +232,21 @@ class GameCatalogImportPostgresTest {
                     "description": "games.description",
                     "detail_description": "games.detail_description"
                   },
+                  "selectionRules": {
+                    "include": "BGG 기준 스냅샷과 bgg_id가 일치하고 필수 검수를 통과한 후보만 포함",
+                    "exclude": "매핑·필수값·판본 근거가 부족한 후보는 식별자와 사유를 남기고 제외"
+                  },
+                  "versionRules": {
+                    "baseGame": "BGG 본판으로 확인된 항목만 본판으로 분류",
+                    "expansion": "BGG 확장은 본판과 구분하고 서비스 목록 반영 여부를 검수",
+                    "variant": "변형 여부를 확인할 수 없으면 임의로 병합하지 않고 제외"
+                  },
+                  "selection": {
+                    "candidateRows": %d,
+                    "includedRows": %d,
+                    "excludedRows": 0,
+                    "exclusions": []
+                  },
                   "review": {
                     "status": "approved",
                     "reviewedAt": "2026-07-27T10:00:00Z",
@@ -237,7 +255,7 @@ class GameCatalogImportPostgresTest {
                   }
                 }
                 """
-                .formatted(sha256(gamesPath), sha256(ranksPath));
+                .formatted(sha256(gamesPath), sha256(ranksPath), rowCount, rowCount);
     }
 
     private String sha256(Path path) throws IOException {

@@ -31,6 +31,21 @@
     "description": "games.description",
     "detail_description": "games.detail_description"
   },
+  "selectionRules": {
+    "include": "games.json 후보 중 bgg_id가 단일 BGG 기준 스냅샷과 일치하고 필수 필드·출처·품질 검수를 통과한 행만 포함",
+    "exclude": "bgg_id 매핑, 필수 필드 또는 본판·확장·변형 근거가 부족한 후보는 임의로 보정하지 않고 식별자와 사유를 exclusions에 기록한 뒤 제외"
+  },
+  "versionRules": {
+    "baseGame": "BGG 기준 스냅샷에서 본판으로 확인되고 팀 검수가 일치하는 항목만 본판으로 분류",
+    "expansion": "BGG 기준 is_expansion 값이 확장을 가리키면 본판과 분리하고 서비스 포함 여부를 별도 검수",
+    "variant": "동일 표시명·판본 충돌 또는 변형 여부를 확정할 수 없는 항목은 임의로 합치지 않고 제외"
+  },
+  "selection": {
+    "candidateRows": 2000,
+    "includedRows": 2000,
+    "excludedRows": 0,
+    "exclusions": []
+  },
   "review": {
     "status": "pending",
     "reviewedAt": null,

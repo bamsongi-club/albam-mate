@@ -19,12 +19,21 @@ node scripts/game-catalog/prepare-game-catalog.mjs \
 
 - 각 파일의 실제 출처, 취득 방식·시각과 이용 조건
 - 필드별 입력 출처와 갱신 규칙
-- 판본·변형 구분과 제외 결과
+- `selectionRules`의 선택·제외 규칙과 `versionRules`의 본판·확장·변형 구분 규칙
+- `selection`의 원본 후보 행 수·포함 행 수·제외 건수와 각 제외 항목의 식별자·사유
 - 변환 도구가 포함된 전체 Git commit SHA
 - 검수일·검수자
 - 사람이 확인하고 수용한 품질 경고 코드
 
 `TODO`, 체크섬 불일치, 미승인 상태 또는 미수용 경고가 하나라도 있으면 적재 산출물을 만들지 않는다.
+
+`selection`은 다음 정합성을 만족해야 한다.
+
+- `candidateRows = includedRows + excludedRows`
+- `excludedRows`와 `exclusions.length`가 같고, 각 항목에 `identifier`와 `reason`이 있어야 한다.
+- `includedRows`가 실제 `service-catalog.json` 행 수와 같아야 한다.
+
+이 정보는 `quality-report.json`에도 그대로 기록되어 원본 후보에서 최종 적재 행까지의 차이를 추적한다.
 
 ## 3. 적재 산출물 생성
 
