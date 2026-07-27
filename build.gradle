@@ -112,13 +112,22 @@ def gatedBranchCoverage = [
     'cloud.bamsongi.albammate.user.service'   : 0.60,
 ]
 
-def applyBranchCoverageRules = { JacocoCoverageVerification verification ->
+def applyCoverageRules = { JacocoCoverageVerification verification ->
     verification.violationRules { rules ->
         rules.rule {
             limit {
                 counter = 'BRANCH'
                 value = 'COVEREDRATIO'
                 minimum = 0.72
+            }
+            // 분기 커버리지는 조건문이 없는 코드를 세지 않는다. 조건문 없는 서비스·매핑 코드가
+            // 테스트 없이 들어오면 분기 규칙은 아무 반응을 하지 않으므로 전체 라인 최소선을
+            // 함께 둔다. 패키지 단위로는 두지 않는다. 루트 패키지는 애플리케이션 진입점만
+            // 있어 라인 비율이 구조적으로 낮다.
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.92
             }
         }
         gatedBranchCoverage.each { packageName, packageMinimum ->
@@ -139,7 +148,7 @@ def applyBranchCoverageRules = { JacocoCoverageVerification verification ->
 tasks.named('jacocoTestCoverageVerification', JacocoCoverageVerification) {
     dependsOn tasks.named('test')
     executionData.setFrom(testExecutionData)
-    applyBranchCoverageRules(it)
+    applyCoverageRules(it)
 }
 
 // 정본 게이트다. PostgreSQL 통합 테스트가 담당하는 범위까지 합쳐 판정한다.
@@ -150,7 +159,7 @@ tasks.register('jacocoAllTestCoverageVerification', JacocoCoverageVerification) 
     dependsOn tasks.named('test'), tasks.named('postgresTest')
     sourceSets sourceSets.main
     executionData.setFrom(testExecutionData, postgresTestExecutionData)
-    applyBranchCoverageRules(it)
+    applyCoverageRules(it)
 }
 
 // 패키지 규칙은 이름이 정확히 일치할 때만 적용되고, 규칙이 없는 패키지는 전체 최소선만
