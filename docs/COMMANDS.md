@@ -29,6 +29,8 @@ Gradle은 별도 설치본 대신 저장소의 Wrapper를 사용한다.
 
 ## 로컬 PostgreSQL 개발 환경
 
+### macOS·Linux
+
 저장소 루트에서 예시 환경 파일을 복사한다. `.env`는 로컬 연결값을 담으므로 Git에 포함하지 않는다.
 
 ```sh
@@ -61,6 +63,46 @@ docker compose -f compose.local.yml down
 
 ```sh
 docker compose -f compose.local.yml down --volumes
+```
+
+### Windows PowerShell
+
+저장소 루트에서 `.env`가 없을 때만 예시 환경 파일을 복사한다. 이미 있는 `.env`는 덮어쓰지 않는다.
+
+```powershell
+if (-not (Test-Path -LiteralPath .env)) {
+  Copy-Item -LiteralPath .env.example -Destination .env
+}
+```
+
+PostgreSQL을 시작하고 health check 결과를 확인한다.
+
+```powershell
+docker compose --env-file .env -f compose.local.yml up -d
+docker compose --env-file .env -f compose.local.yml ps
+```
+
+`.env`를 PowerShell 코드로 실행하지 않고 `ALBAM_MATE_LOCAL_*` 형식의 키만 문자열로 읽어 현재 프로세스에 주입한다. 이후 같은 PowerShell 창에서 애플리케이션을 실행한다.
+
+```powershell
+foreach ($line in Get-Content -LiteralPath .env) {
+  if ($line -match '^\s*(ALBAM_MATE_LOCAL_[A-Za-z0-9_]+)\s*=\s*(.*)$') {
+    [Environment]::SetEnvironmentVariable($Matches[1], $Matches[2].Trim(), [EnvironmentVariableTarget]::Process)
+  }
+}
+.\gradlew.bat bootRun --args='--spring.profiles.active=local'
+```
+
+애플리케이션을 `Ctrl+C`로 종료한 뒤 PostgreSQL 컨테이너만 중지한다. named volume의 개발 데이터는 유지된다.
+
+```powershell
+docker compose --env-file .env -f compose.local.yml down
+```
+
+로컬 데이터를 명시적으로 초기화할 때만 volume까지 삭제한다.
+
+```powershell
+docker compose --env-file .env -f compose.local.yml down --volumes
 ```
 
 ## PostgreSQL 마이그레이션 검증
