@@ -14,7 +14,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,9 +40,7 @@ class GameListQueryServiceTest {
     void setUp() {
         gameListQueryService =
                 new GameListQueryService(
-                        gameRepository,
-                        Clock.fixed(NOW, ZoneOffset.UTC),
-                        Optional.of(upcomingRoomCountQuery));
+                        gameRepository, Clock.fixed(NOW, ZoneOffset.UTC), upcomingRoomCountQuery);
     }
 
     @Test

@@ -5,7 +5,6 @@ import cloud.bamsongi.albammate.game.repository.GameRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Map;
-import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -18,12 +17,12 @@ public class GameListQueryService {
 
     private final GameRepository gameRepository;
     private final Clock clock;
-    private final Optional<UpcomingRoomCountQuery> upcomingRoomCountQuery;
+    private final UpcomingRoomCountQuery upcomingRoomCountQuery;
 
     public GameListQueryService(
             GameRepository gameRepository,
             Clock clock,
-            Optional<UpcomingRoomCountQuery> upcomingRoomCountQuery) {
+            UpcomingRoomCountQuery upcomingRoomCountQuery) {
         this.gameRepository = gameRepository;
         this.clock = clock;
         this.upcomingRoomCountQuery = upcomingRoomCountQuery;
@@ -39,15 +38,8 @@ public class GameListQueryService {
         }
 
         Map<Long, Long> upcomingRoomCounts =
-                upcomingRoomCountQuery
-                        .map(
-                                query ->
-                                        query.findUpcomingRoomCounts(
-                                                games.getContent().stream()
-                                                        .map(Game::getId)
-                                                        .toList(),
-                                                Instant.now(clock)))
-                        .orElseGet(Map::of);
+                upcomingRoomCountQuery.findUpcomingRoomCounts(
+                        games.getContent().stream().map(Game::getId).toList(), Instant.now(clock));
 
         return games.map(
                 game -> toListItem(game, upcomingRoomCounts.getOrDefault(game.getId(), 0L)));
