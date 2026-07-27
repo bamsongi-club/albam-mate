@@ -24,6 +24,9 @@ Gradle은 별도 설치본 대신 저장소의 Wrapper를 사용한다.
 | 산출물 제거 후 빌드 | `.\gradlew.bat clean build` | `./gradlew clean build` |
 | 코드 포맷 검사 | `.\gradlew.bat spotlessCheck` | `./gradlew spotlessCheck` |
 | 코드 포맷 자동 수정 | `.\gradlew.bat spotlessApply` | `./gradlew spotlessApply` |
+| 커버리지 리포트 | `.\gradlew.bat jacocoTestReport` | `./gradlew jacocoTestReport` |
+| 분기 커버리지 최소선 검사 | `.\gradlew.bat jacocoTestCoverageVerification` | `./gradlew jacocoTestCoverageVerification` |
+| 커버리지 규칙 대상 확인 | `.\gradlew.bat verifyCoverageRuleTargets` | `./gradlew verifyCoverageRuleTargets` |
 
 현재 저장소에는 운영용 데이터소스 연결값이 포함되어 있지 않다. `bootRun`은 PostgreSQL 연결 설정이 없으면 데이터소스 자동 설정 단계에서 실패한다. 테스트는 H2 인메모리 데이터베이스를 사용하므로 별도의 PostgreSQL 없이 `test`와 `build`를 실행할 수 있다.
 
@@ -145,6 +148,39 @@ docker compose --env-file .env -f compose.local.yml down --volumes
 Docker 데몬이 없거나 Testcontainers가 컨테이너를 시작하지 못하면 테스트
 결과가 아니라 실행 환경 제약으로 기록한다. CI에서는 `build` 뒤에
 `postgresTest`를 명시적으로 실행한다.
+
+## 분기 커버리지 확인
+
+커버리지는 라인이 아니라 분기를 기준으로 본다. 라인 커버리지는 조건식의 한쪽만
+실행해도 올라가므로 경계 조건과 예외 경로가 검증되지 않은 채 높게 나온다.
+
+`jacocoTestReport`는 `test`와 `postgresTest`의 실행 데이터를 함께 집계하고,
+실행한 태스크의 결과만 사용한다. 두 결과를 모두 반영하려면 함께 실행한다.
+
+```sh
+./gradlew test postgresTest jacocoTestReport
+```
+
+`jacocoTestCoverageVerification`은 전체와 패키지별 분기 커버리지 최소선을 검사하며
+`check`와 `build`에 포함된다. 최소선은 도입 시점의 실측값을 바닥으로 고정한
+값이므로 목표치가 아니라 회귀 방지선이다. 올리는 변경은 그대로 반영하고,
+내리는 변경은 이유를 PR에 남긴다. 대상 패키지와 값은 `build.gradle`의
+`gatedBranchCoverage`가 정본이다.
+
+패키지 규칙은 이름이 정확히 일치할 때만 적용되므로, 클래스가 다른 패키지로
+이동하면 규칙이 어떤 대상에도 매칭되지 않은 채 통과한다. `verifyCoverageRuleTargets`가
+규칙 대상이 리포트에 있는지 확인해 이 경우를 실패로 만든다. 패키지를 옮기거나
+지웠다면 같은 변경에서 `gatedBranchCoverage`를 갱신한다.
+
+미커버 분기의 위치는 HTML 리포트에서 확인한다.
+
+```text
+build/reports/jacoco/test/html/index.html
+```
+
+Docker 없이 `check`를 실행하면 `postgresTest` 결과가 빠진 상태로 검사한다.
+PostgreSQL 통합 테스트가 담당하는 범위를 바꾼 뒤에는 두 태스크를 함께 실행해
+최소선을 다시 확인한다.
 
 ## 코드 포맷 확인
 
