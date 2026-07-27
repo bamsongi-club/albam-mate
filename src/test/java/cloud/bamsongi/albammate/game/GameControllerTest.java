@@ -2,6 +2,7 @@ package cloud.bamsongi.albammate.game;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
@@ -98,6 +99,21 @@ class GameControllerTest {
                 .andExpect(jsonPath("$.data.hasNext").value(true));
 
         verify(gameListQueryService).findPage(eq("Catan"), eq(pageable));
+    }
+
+    @Test
+    void size_상한_100은_성공한다() throws Exception {
+        PageRequest pageable =
+                PageRequest.of(0, 100, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
+        when(gameListQueryService.findPage(isNull(), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+        mockMvc.perform(get("/api/games?size=100"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.size").value(100))
+                .andExpect(jsonPath("$.data.content").isEmpty());
+
+        verify(gameListQueryService).findPage(isNull(), eq(pageable));
     }
 
     @Test

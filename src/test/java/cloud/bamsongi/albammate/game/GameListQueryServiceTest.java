@@ -44,7 +44,7 @@ class GameListQueryServiceTest {
     }
 
     @Test
-    void 검색어를_trim하고_이름_부분검색_결과에_예정_모임_수를_매핑한다() {
+    void 검색어를_strip하고_이름_부분검색_결과에_예정_모임_수를_매핑한다() {
         Pageable pageable = PageRequest.of(0, 10, Sort.by("name", "id"));
         Game game = mockGame(1L, "카탄");
         when(gameRepository.findByNameContainingIgnoreCase("카탄", pageable))
@@ -59,6 +59,20 @@ class GameListQueryServiceTest {
         assertEquals(2L, result.getContent().getFirst().upcomingRoomCount());
         verify(gameRepository).findByNameContainingIgnoreCase("카탄", pageable);
         verify(upcomingRoomCountQuery).findUpcomingRoomCounts(List.of(1L), NOW);
+    }
+
+    @Test
+    void 전각_공백이_포함된_검색어를_strip해_repository_검색_인자로_전달한다() {
+        Pageable pageable = PageRequest.of(0, 10, Sort.by("name", "id"));
+        Game game = mockGame(1L, "카탄");
+        when(gameRepository.findByNameContainingIgnoreCase("카탄", pageable))
+                .thenReturn(new PageImpl<>(List.of(game), pageable, 1));
+        when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW)).thenReturn(Map.of());
+
+        Page<GameListItem> result = gameListQueryService.findPage("\u3000카탄\u3000", pageable);
+
+        assertEquals("카탄", result.getContent().getFirst().name());
+        verify(gameRepository).findByNameContainingIgnoreCase("카탄", pageable);
     }
 
     @Test

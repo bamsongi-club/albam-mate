@@ -13,6 +13,7 @@ import cloud.bamsongi.albammate.room.entity.RoomType;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -106,6 +107,26 @@ class GameListQueryServiceIntegrationTest {
                         gameWithOneRoom.getId(), 1L,
                         gameWithoutUpcomingRoom.getId(), 0L),
                 upcomingRoomCounts);
+    }
+
+    @Test
+    void 게임_목록은_이름과_같은_이름에서는_ID_오름차순으로_실제_결과를_정렬한다() {
+        Game firstAlpha = gameRepository.saveAndFlush(GameFixture.valid(2001L, "Alpha"));
+        Game secondAlpha = gameRepository.saveAndFlush(GameFixture.valid(2002L, "Alpha"));
+        Game beta = gameRepository.saveAndFlush(GameFixture.valid(2003L, "Beta"));
+
+        Page<GameListItem> result =
+                gameListQueryService.findPage(null, PageRequest.of(0, 10, Sort.by("name", "id")));
+
+        assertEquals(
+                List.of("Alpha", "Alpha", "Beta"),
+                result.getContent().stream().map(GameListItem::name).toList());
+
+        List<Long> expectedAlphaIds =
+                List.of(firstAlpha.getId(), secondAlpha.getId()).stream().sorted().toList();
+        assertEquals(
+                List.of(expectedAlphaIds.getFirst(), expectedAlphaIds.get(1), beta.getId()),
+                result.getContent().stream().map(GameListItem::id).toList());
     }
 
     private void insertHostUser() {

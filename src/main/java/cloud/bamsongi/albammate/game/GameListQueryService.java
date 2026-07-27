@@ -29,9 +29,10 @@ public class GameListQueryService {
     }
 
     public Page<GameListItem> findPage(String keyword, Pageable pageable) {
+        String normalizedKeyword = keyword == null ? null : keyword.strip();
         Page<Game> games =
-                StringUtils.hasText(keyword)
-                        ? gameRepository.findByNameContainingIgnoreCase(keyword.trim(), pageable)
+                StringUtils.hasText(normalizedKeyword)
+                        ? gameRepository.findByNameContainingIgnoreCase(normalizedKeyword, pageable)
                         : gameRepository.findAll(pageable);
         if (games.isEmpty()) {
             return games.map(game -> toListItem(game, 0L));

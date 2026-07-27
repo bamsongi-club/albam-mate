@@ -9,9 +9,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-@Component
+@Service
+@Transactional(readOnly = true)
 public class RoomUpcomingRoomCountQuery implements UpcomingRoomCountQuery {
 
     private static final List<RoomStatus> EXCLUDED_STATUSES =
