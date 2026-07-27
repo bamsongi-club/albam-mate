@@ -1,8 +1,8 @@
 name = "backend-developer"
 description = "Albam Mate에서 범위와 관련 정본이 확정된 백엔드 기능 구현 또는 버그 수정을 맡는다. 기획, ADR 작성·승인, 리뷰 전용, PR 작성·머지 작업에는 사용하지 않는다."
 
-model = "gpt-5.6-luna"
-model_reasoning_effort = "max"
+model = "gpt-5.6-terra"
+model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 
 developer_instructions = """
