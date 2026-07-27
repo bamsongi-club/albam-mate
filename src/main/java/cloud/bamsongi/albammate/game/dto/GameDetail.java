@@ -1,8 +1,8 @@
-package cloud.bamsongi.albammate.game;
+package cloud.bamsongi.albammate.game.dto;
 
 import java.math.BigDecimal;
 
-public record GameListItem(
+public record GameDetail(
         Long id,
         Long bggId,
         String name,
@@ -12,4 +12,7 @@ public record GameListItem(
         String tag,
         String estimatedPlayTime,
         BigDecimal complexity,
-        long upcomingRoomCount) {}
+        long upcomingRoomCount,
+        String alias,
+        String description,
+        String detailDescription) {}

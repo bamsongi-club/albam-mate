@@ -1,10 +1,11 @@
-package cloud.bamsongi.albammate.game;
+package cloud.bamsongi.albammate.game.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import cloud.bamsongi.albammate.game.GameSummary;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;

@@ -1,5 +1,7 @@
-package cloud.bamsongi.albammate.game;
+package cloud.bamsongi.albammate.game.service;
 
+import cloud.bamsongi.albammate.game.GameQuery;
+import cloud.bamsongi.albammate.game.GameSummary;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 import java.util.Optional;
 import org.springframework.stereotype.Service;

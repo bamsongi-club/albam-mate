@@ -1,5 +1,9 @@
-package cloud.bamsongi.albammate.game;
+package cloud.bamsongi.albammate.game.controller;
 
+import cloud.bamsongi.albammate.game.dto.GameDetail;
+import cloud.bamsongi.albammate.game.dto.GamePageResponse;
+import cloud.bamsongi.albammate.game.service.GameDetailQueryService;
+import cloud.bamsongi.albammate.game.service.GameListQueryService;
 import cloud.bamsongi.albammate.global.response.ApiResponse;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
