@@ -1,4 +1,4 @@
-package cloud.bamsongi.albammate.user;
+package cloud.bamsongi.albammate.user.service;
 
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 import java.util.Optional;

@@ -9,7 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import cloud.bamsongi.albammate.user.UserAccountService;
+import cloud.bamsongi.albammate.user.service.UserAccountService;
 import jakarta.servlet.http.Cookie;
 import java.time.Instant;
 import java.util.TimeZone;

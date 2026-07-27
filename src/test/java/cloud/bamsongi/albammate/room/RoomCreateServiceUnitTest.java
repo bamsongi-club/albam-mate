@@ -17,7 +17,7 @@ import cloud.bamsongi.albammate.room.entity.ExperienceLevel;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.entity.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
-import cloud.bamsongi.albammate.user.UserQuery;
+import cloud.bamsongi.albammate.user.service.UserQuery;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;

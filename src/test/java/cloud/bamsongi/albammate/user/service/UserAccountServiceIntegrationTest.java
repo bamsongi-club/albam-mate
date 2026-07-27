@@ -1,4 +1,4 @@
-package cloud.bamsongi.albammate.user;
+package cloud.bamsongi.albammate.user.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
