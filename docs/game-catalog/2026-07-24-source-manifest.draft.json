@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "batchId": "2026-07-24-p0-game-catalog",
-  "toolCommit": "b6543ac8eb8f9ba18f34755ef6532d2a1b93cd1c",
+  "toolCommit": "1bd04bcbf33218ea2884f7f3eb18c4264d1bb760",
   "sources": {
     "games": {
       "fileName": "games.json",
@@ -24,7 +24,7 @@
     "english_name": "games.english_name; ranks.name과 일치 검증",
     "alias": "games.alias",
     "image_url": "games.image_url",
-    "recommended_player_count": "games.recommended_player_count; 플레이 가능 범위로 보여 권장 인원 의미 검수 필요",
+    "supported_player_count": "games.supported_player_count; 게임 규칙상 플레이 가능한 인원 범위이며 추천·최적 인원과 구분",
     "tag": "games.tag",
     "estimated_play_time": "games.estimated_play_time",
     "complexity": "games.complexity; BGG rank 상관 경고로 실제 averageweight 근거 확인 전 사용 금지",
