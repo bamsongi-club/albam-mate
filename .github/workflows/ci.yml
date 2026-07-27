@@ -44,6 +44,9 @@ jobs:
       - name: Build and verify
         run: ./gradlew build --no-daemon --stacktrace
 
+      - name: Verify PostgreSQL schema
+        run: ./gradlew postgresTest --no-daemon --stacktrace
+
   docs:
     name: Docs
     runs-on: ubuntu-latest

@@ -71,6 +71,6 @@ PostgreSQL 컨테이너 이미지는 테스트 설정에 명시적으로 고정�
 ## 검증
 
 - 상태: 미검증
-- 근거: 현재 `build.gradle`에는 H2 테스트 런타임만 있고 Testcontainers·Flyway 의존성과 `postgresTest` 태스크가 없다. 테스트 코드도 애플리케이션 컨텍스트 로드만 확인한다. 후속 구현 PR에서 두 테스트 태스크와 CI 결과를 연결한 뒤 검증 상태를 갱신한다.
+- 근거: `build.gradle`에 Testcontainers·Flyway PostgreSQL 의존성과 분리된 `postgresTest` 태스크를 두고, CI는 `build` 뒤 `postgresTest`를 실행한다. `PostgresSchemaValidationTest`는 PostgreSQL 18 메타데이터, Flyway·Hibernate 스키마 검증, 실제 CHECK·FK 제약 위반의 SQLSTATE와 제약명을 확인한다. 다만 이 ADR이 정한 트랜잭션 격리, 행 잠금, 낙관 락 충돌과 실제 동시 요청 불변식은 아직 PostgreSQL에서 검증하지 않았다. 기능별 동시성 시나리오는 후속 기능 작업에서 PostgreSQL 테스트로 연결한 뒤 이 상태를 갱신한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.
