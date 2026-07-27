@@ -1,7 +1,7 @@
-package cloud.bamsongi.albammate.room;
+package cloud.bamsongi.albammate.room.dto;
 
-import cloud.bamsongi.albammate.room.entity.ExperienceLevel;
-import cloud.bamsongi.albammate.room.entity.RoomType;
+import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
+import cloud.bamsongi.albammate.room.enums.RoomType;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;

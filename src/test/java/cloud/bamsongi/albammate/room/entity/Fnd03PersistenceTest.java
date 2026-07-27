@@ -6,6 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
+import cloud.bamsongi.albammate.room.enums.RoomStatus;
+import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

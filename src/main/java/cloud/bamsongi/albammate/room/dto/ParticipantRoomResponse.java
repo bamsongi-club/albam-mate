@@ -1,9 +1,10 @@
-package cloud.bamsongi.albammate.room;
+package cloud.bamsongi.albammate.room.dto;
 
 import cloud.bamsongi.albammate.game.GameSummary;
-import cloud.bamsongi.albammate.room.entity.ExperienceLevel;
-import cloud.bamsongi.albammate.room.entity.RoomStatus;
-import cloud.bamsongi.albammate.room.entity.RoomType;
+import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
+import cloud.bamsongi.albammate.room.enums.MyRole;
+import cloud.bamsongi.albammate.room.enums.RoomStatus;
+import cloud.bamsongi.albammate.room.enums.RoomType;
 import java.time.Instant;
 import java.util.List;
 

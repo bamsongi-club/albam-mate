@@ -1,8 +1,8 @@
 package cloud.bamsongi.albammate.room.repository;
 
 import cloud.bamsongi.albammate.room.entity.Room;
-import cloud.bamsongi.albammate.room.entity.RoomStatus;
-import cloud.bamsongi.albammate.room.entity.RoomType;
+import cloud.bamsongi.albammate.room.enums.RoomStatus;
+import cloud.bamsongi.albammate.room.enums.RoomType;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
