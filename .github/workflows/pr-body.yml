@@ -54,9 +54,9 @@ jobs:
             $hasError = $true
           }
 
-          $issuePattern = "(?m)^(Closes #[0-9]+|관련 이슈 없음: 확인된 이슈 번호 없음)\s*$"
+          $issuePattern = "(?m)^((?:Closes|Refs) #[0-9]+|관련 이슈 없음: 확인된 이슈 번호 없음)\s*$"
           if ($body -notmatch $issuePattern) {
-            Write-Host "::error title=PR body template::연결 이슈에는 'Closes #N' 또는 '관련 이슈 없음: 확인된 이슈 번호 없음'을 적어야 합니다."
+            Write-Host "::error title=PR body template::연결 이슈에는 'Closes #N', 'Refs #N' 또는 '관련 이슈 없음: 확인된 이슈 번호 없음'을 적어야 합니다."
             $hasError = $true
           }
 
