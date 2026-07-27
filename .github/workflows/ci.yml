@@ -47,6 +47,11 @@ jobs:
       - name: Verify PostgreSQL schema
         run: ./gradlew postgresTest --no-daemon --stacktrace
 
+      # build이 실행한 검사는 test 결과만 본다. postgresTest까지 끝난 뒤 두 실행
+      # 데이터를 합쳐 다시 검사해, 통합 테스트가 담당하는 범위를 빠뜨리지 않는다.
+      - name: Verify branch coverage
+        run: ./gradlew jacocoTestReport jacocoTestCoverageVerification --no-daemon --stacktrace
+
   docs:
     name: Docs
     runs-on: ubuntu-latest
