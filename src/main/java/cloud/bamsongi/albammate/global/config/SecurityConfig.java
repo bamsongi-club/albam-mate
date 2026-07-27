@@ -29,9 +29,9 @@ public class SecurityConfig {
     private static final String SIGNUP_PATH = "/api/auth/signup";
     private static final String LOGIN_PATH = "/api/auth/login";
     private static final String GAMES_PATH = "/api/games";
-    private static final String GAME_DETAIL_PATH = "/api/games/{gameId:[0-9]+}";
+    private static final String GAME_DETAIL_PATH = "/api/games/{gameId}";
     private static final String ROOMS_PATH = "/api/rooms";
-    private static final String ROOM_DETAIL_PATH = "/api/rooms/{roomId:[0-9]+}";
+    private static final String ROOM_DETAIL_PATH = "/api/rooms/{roomId}";
 
     @Bean
     SecurityFilterChain securityFilterChain(

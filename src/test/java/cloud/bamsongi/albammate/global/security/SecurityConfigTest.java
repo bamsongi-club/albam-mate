@@ -20,6 +20,7 @@ import cloud.bamsongi.albammate.global.exception.GlobalExceptionHandler;
 import jakarta.servlet.SessionCookieConfig;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.Positive;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -38,8 +39,10 @@ import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 import tools.jackson.databind.JsonNode;
@@ -84,9 +87,18 @@ class SecurityConfigTest {
         mockMvc.perform(get("/api/rooms/1/participants"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
-        mockMvc.perform(get("/api/games/admin"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
+    }
+
+    @Test
+    void 상세_경로의_잘못된_ID는_MVC에서_검증오류로_변환된다() throws Exception {
+        for (String invalidId : java.util.List.of("admin", "-1", "1.5")) {
+            mockMvc.perform(get("/api/games/" + invalidId))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+            mockMvc.perform(get("/api/rooms/" + invalidId))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+        }
     }
 
     @Test
@@ -253,6 +265,7 @@ class SecurityConfigTest {
     }
 
     @RestController
+    @Validated
     public static class SecurityFixtureController {
 
         private final CurrentUserAccessor currentUserAccessor;
@@ -261,18 +274,22 @@ class SecurityConfigTest {
             this.currentUserAccessor = currentUserAccessor;
         }
 
-        @GetMapping({
-            "/api/auth/csrf",
-            "/api/games",
-            "/api/games/{gameId}",
-            "/api/rooms",
-            "/api/rooms/{roomId}"
-        })
+        @GetMapping({"/api/auth/csrf", "/api/games", "/api/rooms"})
         MapResponse publicResponse(HttpServletRequest request) {
             if ("/api/auth/csrf".equals(request.getRequestURI())) {
                 CsrfToken token = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
                 return MapResponse.csrf(token);
             }
+            return MapResponse.ok();
+        }
+
+        @GetMapping("/api/games/{gameId}")
+        MapResponse gameDetail(@PathVariable @Positive Long gameId) {
+            return MapResponse.ok();
+        }
+
+        @GetMapping("/api/rooms/{roomId}")
+        MapResponse roomDetail(@PathVariable @Positive Long roomId) {
             return MapResponse.ok();
         }
 
