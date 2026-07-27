@@ -66,12 +66,30 @@ tasks.register('postgresTest', Test) {
     shouldRunAfter tasks.named('test')
 }
 
-// 커버리지는 test와 postgresTest의 실행 데이터를 함께 집계한다.
-// 한쪽만 실행한 경우에는 생성된 exec 파일만 사용한다.
+// 커버리지 태스크는 담당 Test 태스크의 execution data만 명시적으로 사용한다.
+// build/jacoco/*.exec 전체를 읽으면 이번 실행에서 돌리지 않은 suite의 이전 exec가 남아
+// 함께 집계되고, 테스트를 바꾸거나 지워도 과거 실행 데이터가 분기를 덮어 거짓 통과한다.
+def testExecutionData = layout.buildDirectory.file('jacoco/test.exec')
+def postgresTestExecutionData = layout.buildDirectory.file('jacoco/postgresTest.exec')
+
+// H2 test만 집계한다. Docker 없이 실행할 수 있는 빠른 리포트다.
 tasks.named('jacocoTestReport', JacocoReport) {
     dependsOn tasks.named('test')
-    mustRunAfter tasks.named('postgresTest')
-    executionData.setFrom(fileTree(layout.buildDirectory.dir('jacoco')).include('*.exec'))
+    executionData.setFrom(testExecutionData)
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+// test와 postgresTest를 함께 집계한다. 두 Test 태스크가 이번 실행에서 모두 갱신된 뒤
+// 검사되도록 둘에 의존한다.
+tasks.register('jacocoAllTestReport', JacocoReport) {
+    description = 'Generates a coverage report from both test and postgresTest.'
+    group = 'verification'
+    dependsOn tasks.named('test'), tasks.named('postgresTest')
+    sourceSets sourceSets.main
+    executionData.setFrom(testExecutionData, postgresTestExecutionData)
     reports {
         xml.required = true
         html.required = true
@@ -94,11 +112,9 @@ def gatedBranchCoverage = [
     'cloud.bamsongi.albammate.user.service'   : 0.60,
 ]
 
-tasks.named('jacocoTestCoverageVerification', JacocoCoverageVerification) {
-    dependsOn tasks.named('jacocoTestReport')
-    executionData.setFrom(fileTree(layout.buildDirectory.dir('jacoco')).include('*.exec'))
-    violationRules {
-        rule {
+def applyBranchCoverageRules = { JacocoCoverageVerification verification ->
+    verification.violationRules { rules ->
+        rules.rule {
             limit {
                 counter = 'BRANCH'
                 value = 'COVEREDRATIO'
@@ -106,7 +122,7 @@ tasks.named('jacocoTestCoverageVerification', JacocoCoverageVerification) {
             }
         }
         gatedBranchCoverage.each { packageName, packageMinimum ->
-            rule {
+            rules.rule {
                 element = 'PACKAGE'
                 includes = [packageName]
                 limit {
@@ -117,6 +133,24 @@ tasks.named('jacocoTestCoverageVerification', JacocoCoverageVerification) {
             }
         }
     }
+}
+
+// check에 포함되는 빠른 게이트다. H2 test 결과만 보므로 Docker를 요구하지 않는다.
+tasks.named('jacocoTestCoverageVerification', JacocoCoverageVerification) {
+    dependsOn tasks.named('test')
+    executionData.setFrom(testExecutionData)
+    applyBranchCoverageRules(it)
+}
+
+// 정본 게이트다. PostgreSQL 통합 테스트가 담당하는 범위까지 합쳐 판정한다.
+// CI는 이 태스크로 판정하고, 선행 test 전용 게이트가 판정을 가로막지 않도록 제외한다.
+tasks.register('jacocoAllTestCoverageVerification', JacocoCoverageVerification) {
+    description = 'Verifies branch coverage from both test and postgresTest.'
+    group = 'verification'
+    dependsOn tasks.named('test'), tasks.named('postgresTest')
+    sourceSets sourceSets.main
+    executionData.setFrom(testExecutionData, postgresTestExecutionData)
+    applyBranchCoverageRules(it)
 }
 
 // 패키지 규칙은 이름이 정확히 일치할 때만 적용되고, 규칙이 없는 패키지는 전체 최소선만
