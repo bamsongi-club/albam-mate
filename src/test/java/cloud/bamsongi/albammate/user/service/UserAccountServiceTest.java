@@ -1,4 +1,4 @@
-package cloud.bamsongi.albammate.user;
+package cloud.bamsongi.albammate.user.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -11,6 +11,7 @@ import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
 import cloud.bamsongi.albammate.global.security.PasswordHashConcurrencyLimiter;
 import cloud.bamsongi.albammate.global.security.PasswordHashExecutor;
 import cloud.bamsongi.albammate.global.security.PasswordHashPermit;
+import cloud.bamsongi.albammate.user.dto.UserAccount;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.exception.EmailAlreadyExistsException;
 import cloud.bamsongi.albammate.user.repository.UserRepository;

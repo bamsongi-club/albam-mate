@@ -1,6 +1,8 @@
-package cloud.bamsongi.albammate.user;
+package cloud.bamsongi.albammate.user.service;
 
 import cloud.bamsongi.albammate.global.security.PasswordHashExecutor;
+import cloud.bamsongi.albammate.user.dto.UserAccount;
+import cloud.bamsongi.albammate.user.dto.UserCredentials;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.exception.EmailAlreadyExistsException;
 import cloud.bamsongi.albammate.user.repository.UserRepository;

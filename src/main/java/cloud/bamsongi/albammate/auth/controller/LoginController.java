@@ -6,7 +6,7 @@ import cloud.bamsongi.albammate.auth.service.LoginService;
 import cloud.bamsongi.albammate.global.config.SecurityCookieProperties;
 import cloud.bamsongi.albammate.global.response.ApiResponse;
 import cloud.bamsongi.albammate.global.security.CurrentUserPrincipal;
-import cloud.bamsongi.albammate.user.UserAccount;
+import cloud.bamsongi.albammate.user.dto.UserAccount;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
