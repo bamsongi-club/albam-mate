@@ -8,6 +8,10 @@ import org.springframework.data.repository.query.Param;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
+    boolean existsByEmail(String email);
+
+    Optional<User> findByEmail(String email);
+
     @Query(
             """
             select u.nickname
