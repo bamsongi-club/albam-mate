@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "backend-implementation-packet.schema.json",
+  "title": "Backend implementation packet",
+  "description": "범위와 결정이 확정된 백엔드 구현 작업을 backend-developer에 위임하기 위한 입력 계약",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "workItem",
+    "canonicalSources",
+    "allowedPaths",
+    "forbiddenPaths",
+    "completionCriteria",
+    "validation",
+    "confirmedDecisions"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "workItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id",
+        "summary"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "feature",
+            "issue"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "featureId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "canonicalSources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "section"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "section": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "allowedPaths": {
+      "$ref": "#/$defs/nonEmptyStringArray"
+    },
+    "forbiddenPaths": {
+      "$ref": "#/$defs/nonEmptyStringArray"
+    },
+    "completionCriteria": {
+      "$ref": "#/$defs/nonEmptyStringArray"
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetedTests",
+        "finalCommands"
+      ],
+      "properties": {
+        "targetedTests": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "finalCommands": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        }
+      }
+    },
+    "confirmedDecisions": {
+      "$ref": "#/$defs/nonEmptyStringArray"
+    }
+  },
+  "$defs": {
+    "nonEmptyStringArray": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}
