@@ -82,14 +82,40 @@ docker compose --env-file .env -f compose.local.yml up -d
 docker compose --env-file .env -f compose.local.yml ps
 ```
 
-`.env`를 PowerShell 코드로 실행하지 않고 `ALBAM_MATE_LOCAL_*` 형식의 키만 문자열로 읽어 현재 프로세스에 주입한다. 이후 같은 PowerShell 창에서 애플리케이션을 실행한다.
+Docker Compose가 `.env`를 해석한 정규화된 설정 모델에서 PostgreSQL 연결값을 읽어 Compose와 애플리케이션이 동일한 값을 사용하도록 `ALBAM_MATE_LOCAL_*` 환경변수로 현재 프로세스에 주입한다. 구성 JSON은 변수에만 캡처하므로 비밀번호를 터미널에 출력하지 않는다. 이후 같은 PowerShell 창에서 애플리케이션을 실행한다.
 
 ```powershell
-foreach ($line in Get-Content -LiteralPath .env) {
-  if ($line -match '^\s*(ALBAM_MATE_LOCAL_[A-Za-z0-9_]+)\s*=\s*(.*)$') {
-    [Environment]::SetEnvironmentVariable($Matches[1], $Matches[2].Trim(), [EnvironmentVariableTarget]::Process)
-  }
+$composeConfigLines = @(
+  docker compose --env-file .env -f compose.local.yml config --format json
+)
+if ($LASTEXITCODE -ne 0) {
+  throw "docker compose config failed with exit code $LASTEXITCODE"
 }
+$composeConfig = ConvertFrom-Json -InputObject ($composeConfigLines -join [Environment]::NewLine)
+$postgres = $composeConfig.services.postgres
+$postgresPort = $postgres.ports[0]
+
+$environmentValues = [ordered]@{
+  ALBAM_MATE_LOCAL_DB_HOST = [string]$postgresPort.host_ip
+  ALBAM_MATE_LOCAL_DB_PORT = [string]$postgresPort.published
+  ALBAM_MATE_LOCAL_DB_NAME = [string]$postgres.environment.POSTGRES_DB
+  ALBAM_MATE_LOCAL_DB_USER = [string]$postgres.environment.POSTGRES_USER
+  ALBAM_MATE_LOCAL_DB_PASSWORD = [string]$postgres.environment.POSTGRES_PASSWORD
+}
+$missingEnvironmentKeys = @(
+  foreach ($entry in $environmentValues.GetEnumerator()) {
+    if ([string]::IsNullOrEmpty($entry.Value)) {
+      $entry.Key
+    }
+  }
+)
+if ($missingEnvironmentKeys.Count -gt 0) {
+  throw "Missing required ALBAM environment variables: $($missingEnvironmentKeys -join ', ')"
+}
+foreach ($entry in $environmentValues.GetEnumerator()) {
+  [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, [EnvironmentVariableTarget]::Process)
+}
+
 .\gradlew.bat bootRun --args='--spring.profiles.active=local'
 ```
 
