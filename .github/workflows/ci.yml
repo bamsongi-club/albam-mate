@@ -41,11 +41,15 @@ jobs:
           cache-read-only: ${{ github.ref != 'refs/heads/develop' && github.ref != 'refs/heads/main' }}
           validate-wrappers: true
 
+      # 커버리지는 아래 합산 게이트로 판정하므로 test 전용 게이트는 제외한다. 제외하지
+      # 않으면 build가 test 결과만으로 먼저 판정해, postgresTest가 담당하는 범위에
+      # 의존하는 변경이 합산 판정에 닿기 전에 막힌다.
       - name: Build and verify
-        run: ./gradlew build --no-daemon --stacktrace
+        run: ./gradlew build -x jacocoTestCoverageVerification --no-daemon --stacktrace
 
-      - name: Verify PostgreSQL schema
-        run: ./gradlew postgresTest --no-daemon --stacktrace
+      # 두 Test 태스크가 모두 포함된 하나의 태스크 그래프에서 합산 커버리지를 판정한다.
+      - name: Verify PostgreSQL schema and branch coverage
+        run: ./gradlew postgresTest jacocoAllTestReport jacocoAllTestCoverageVerification --no-daemon --stacktrace
 
   docs:
     name: Docs

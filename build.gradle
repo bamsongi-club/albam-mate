@@ -3,6 +3,7 @@ plugins {
     id 'org.springframework.boot' version '4.1.0'
     id 'io.spring.dependency-management' version '1.1.7'
     id 'com.diffplug.spotless' version '8.8.0'
+    id 'jacoco'
 }
 
 group = 'cloud.bamsongi'
@@ -63,6 +64,166 @@ tasks.register('postgresTest', Test) {
     classpath = sourceSets.postgresTest.runtimeClasspath
     dependsOn tasks.named('postgresTestClasses')
     shouldRunAfter tasks.named('test')
+}
+
+// 커버리지 태스크는 담당 Test 태스크의 execution data만 명시적으로 사용한다.
+// build/jacoco/*.exec 전체를 읽으면 이번 실행에서 돌리지 않은 suite의 이전 exec가 남아
+// 함께 집계되고, 테스트를 바꾸거나 지워도 과거 실행 데이터가 분기를 덮어 거짓 통과한다.
+def testExecutionData = layout.buildDirectory.file('jacoco/test.exec')
+def postgresTestExecutionData = layout.buildDirectory.file('jacoco/postgresTest.exec')
+
+// H2 test만 집계한다. Docker 없이 실행할 수 있는 빠른 리포트다.
+tasks.named('jacocoTestReport', JacocoReport) {
+    dependsOn tasks.named('test')
+    executionData.setFrom(testExecutionData)
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+// test와 postgresTest를 함께 집계한다. 두 Test 태스크가 이번 실행에서 모두 갱신된 뒤
+// 검사되도록 둘에 의존한다.
+tasks.register('jacocoAllTestReport', JacocoReport) {
+    description = 'Generates a coverage report from both test and postgresTest.'
+    group = 'verification'
+    dependsOn tasks.named('test'), tasks.named('postgresTest')
+    sourceSets sourceSets.main
+    executionData.setFrom(testExecutionData, postgresTestExecutionData)
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+// 분기 커버리지 최소선은 도입 시점의 실측값을 0.01 단위로 내림한 래칫이다.
+// 목표치가 아니므로 올릴 때만 값을 바꾸고, 낮추려면 이유를 PR에 남긴다.
+// 분기 수가 coveragePackageRuleMinimumBranches 미만인 패키지는 분기 하나에 비율이 크게
+// 흔들려 개별 규칙을 두지 않고 전체 최소선으로만 관리한다.
+def coveragePackageRuleMinimumBranches = 10
+def gatedBranchCoverage = [
+    'cloud.bamsongi.albammate.auth.dto'       : 0.67,
+    'cloud.bamsongi.albammate.auth.security'  : 0.72,
+    'cloud.bamsongi.albammate.auth.service'   : 0.70,
+    'cloud.bamsongi.albammate.global.config'  : 0.65,
+    'cloud.bamsongi.albammate.global.security': 0.80,
+    'cloud.bamsongi.albammate.room.service'   : 0.90,
+    'cloud.bamsongi.albammate.user.contract'  : 0.50,
+    'cloud.bamsongi.albammate.user.service'   : 0.60,
+]
+
+def applyCoverageRules = { JacocoCoverageVerification verification ->
+    verification.violationRules { rules ->
+        rules.rule {
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 0.72
+            }
+            // 분기 커버리지는 조건문이 없는 코드를 세지 않는다. 조건문 없는 서비스·매핑 코드가
+            // 테스트 없이 들어오면 분기 규칙은 아무 반응을 하지 않으므로 전체 라인 최소선을
+            // 함께 둔다. 패키지 단위로는 두지 않는다. 루트 패키지는 애플리케이션 진입점만
+            // 있어 라인 비율이 구조적으로 낮다.
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.92
+            }
+        }
+        gatedBranchCoverage.each { packageName, packageMinimum ->
+            rules.rule {
+                element = 'PACKAGE'
+                includes = [packageName]
+                limit {
+                    counter = 'BRANCH'
+                    value = 'COVEREDRATIO'
+                    minimum = packageMinimum
+                }
+            }
+        }
+    }
+}
+
+// check에 포함되는 빠른 게이트다. H2 test 결과만 보므로 Docker를 요구하지 않는다.
+// 규칙 대상 검사에 의존해, 게이트를 단독으로 실행해도 최소선 목록과 패키지 구조가
+// 어긋난 상태를 놓치지 않게 한다.
+tasks.named('jacocoTestCoverageVerification', JacocoCoverageVerification) {
+    dependsOn tasks.named('test'), tasks.named('verifyCoverageRuleTargets')
+    executionData.setFrom(testExecutionData)
+    applyCoverageRules(it)
+}
+
+// 정본 게이트다. PostgreSQL 통합 테스트가 담당하는 범위까지 합쳐 판정한다.
+// CI는 이 태스크로 판정하고, 선행 test 전용 게이트가 판정을 가로막지 않도록 제외한다.
+tasks.register('jacocoAllTestCoverageVerification', JacocoCoverageVerification) {
+    description = 'Verifies branch coverage from both test and postgresTest.'
+    group = 'verification'
+    dependsOn tasks.named('test'), tasks.named('postgresTest'),
+            tasks.named('verifyCoverageRuleTargets')
+    sourceSets sourceSets.main
+    executionData.setFrom(testExecutionData, postgresTestExecutionData)
+    applyCoverageRules(it)
+}
+
+// 패키지 규칙은 이름이 정확히 일치할 때만 적용되고, 규칙이 없는 패키지는 전체 최소선만
+// 적용된다. 전체 최소선은 새 분기가 분모를 함께 키우므로 새 모듈이 낮은 커버리지로
+// 들어와도 통과할 수 있다. 두 방향을 모두 실패로 만들어 대상 목록이 실제 패키지 구조와
+// 어긋난 채 검사가 약해지지 않게 한다.
+def coverageReportXmlFile = layout.buildDirectory.file('reports/jacoco/test/jacocoTestReport.xml')
+
+tasks.register('verifyCoverageRuleTargets') {
+    description = 'Fails when coverage rule targets and the reported packages disagree.'
+    group = 'verification'
+    dependsOn tasks.named('jacocoTestReport')
+    def ruleTargets = gatedBranchCoverage.keySet()
+    def minimumBranches = coveragePackageRuleMinimumBranches
+    def reportXml = coverageReportXmlFile
+    doLast {
+        def parser = new groovy.xml.XmlSlurper()
+        parser.setFeature('http://apache.org/xml/features/disallow-doctype-decl', false)
+        parser.setFeature('http://apache.org/xml/features/nonvalidating/load-external-dtd', false)
+
+        def branchesByPackage = [:]
+        parser.parse(reportXml.get().asFile).'package'.each { reportedPackage ->
+            def covered = 0
+            def missed = 0
+            reportedPackage.counter.each { counter ->
+                if (counter.@type.text() == 'BRANCH') {
+                    covered = counter.@covered.text() as int
+                    missed = counter.@missed.text() as int
+                }
+            }
+            branchesByPackage[reportedPackage.@name.text().replace('/', '.')] =
+                    [covered: covered, total: covered + missed]
+        }
+
+        def problems = []
+        ruleTargets.findAll { !branchesByPackage.containsKey(it) }.sort().each { target ->
+            problems << "규칙 대상 패키지가 리포트에 없습니다: ${target}"
+        }
+        branchesByPackage
+                .findAll { name, branches -> branches.total >= minimumBranches && !ruleTargets.contains(name) }
+                .keySet()
+                .sort()
+                .each { name ->
+                    def branches = branchesByPackage[name]
+                    problems << String.format(
+                            '최소선이 없는 패키지가 있습니다: %s (분기 %d개, 현재 %.1f%%)',
+                            name, branches.total, branches.covered * 100.0 / branches.total)
+                }
+
+        if (!problems.isEmpty()) {
+            throw new GradleException((['커버리지 규칙 대상이 현재 패키지 구조와 맞지 않습니다.']
+                    + problems
+                    + ["분기 ${minimumBranches}개 이상인 패키지는 build.gradle 의 gatedBranchCoverage 에"
+                             + ' 최소선을 두어야 합니다. 실측값을 0.01 단위로 내려 적으세요.'])
+                    .join('\n - '))
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('jacocoTestCoverageVerification'), tasks.named('verifyCoverageRuleTargets')
 }
 
 tasks.withType(JavaExec).configureEach {
