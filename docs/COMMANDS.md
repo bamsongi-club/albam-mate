@@ -27,6 +27,42 @@ Gradle은 별도 설치본 대신 저장소의 Wrapper를 사용한다.
 
 현재 저장소에는 운영용 데이터소스 연결값이 포함되어 있지 않다. `bootRun`은 PostgreSQL 연결 설정이 없으면 데이터소스 자동 설정 단계에서 실패한다. 테스트는 H2 인메모리 데이터베이스를 사용하므로 별도의 PostgreSQL 없이 `test`와 `build`를 실행할 수 있다.
 
+## 로컬 PostgreSQL 개발 환경
+
+저장소 루트에서 예시 환경 파일을 복사한다. `.env`는 로컬 연결값을 담으므로 Git에 포함하지 않는다.
+
+```sh
+cp -n .env.example .env
+```
+
+PostgreSQL을 시작하고 health check 결과를 확인한다.
+
+```sh
+docker compose -f compose.local.yml up -d
+docker compose -f compose.local.yml ps
+```
+
+애플리케이션은 `local` 프로필을 명시하고 `.env`의 로컬 DB 변수를 프로세스에 주입해 실행한다. `.env`에는 프로필 활성화 값을 넣지 않아 H2 `test`와 PostgreSQL `postgresTest` 실행에 영향을 주지 않는다.
+
+```sh
+set -a
+. ./.env
+set +a
+./gradlew bootRun --args='--spring.profiles.active=local'
+```
+
+애플리케이션을 종료한 뒤 PostgreSQL 컨테이너만 중지한다. named volume의 개발 데이터는 유지된다.
+
+```sh
+docker compose -f compose.local.yml down
+```
+
+로컬 데이터를 명시적으로 초기화할 때만 volume까지 삭제한다.
+
+```sh
+docker compose -f compose.local.yml down --volumes
+```
+
 ## PostgreSQL 마이그레이션 검증
 
 `postgresTest`는 Testcontainers가 PostgreSQL 18.4 컨테이너(`postgres:18.4`)를

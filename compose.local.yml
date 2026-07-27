@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:18.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${ALBAM_MATE_LOCAL_DB_NAME:?ALBAM_MATE_LOCAL_DB_NAME must be set}
+      POSTGRES_USER: ${ALBAM_MATE_LOCAL_DB_USER:?ALBAM_MATE_LOCAL_DB_USER must be set}
+      POSTGRES_PASSWORD: ${ALBAM_MATE_LOCAL_DB_PASSWORD:?ALBAM_MATE_LOCAL_DB_PASSWORD must be set}
+      TZ: UTC
+      PGTZ: UTC
+    command:
+      - postgres
+      - -c
+      - timezone=UTC
+    ports:
+      - "${ALBAM_MATE_LOCAL_DB_PORT:?ALBAM_MATE_LOCAL_DB_PORT must be set}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    volumes:
+      - albam_mate_postgres_data:/var/lib/postgresql
+
+volumes:
+  albam_mate_postgres_data:

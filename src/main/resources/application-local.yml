@@ -1,0 +1,22 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+  jackson:
+    time-zone: UTC
+  datasource:
+    url: jdbc:postgresql://${ALBAM_MATE_LOCAL_DB_HOST}:${ALBAM_MATE_LOCAL_DB_PORT}/${ALBAM_MATE_LOCAL_DB_NAME}
+    username: ${ALBAM_MATE_LOCAL_DB_USER}
+    password: ${ALBAM_MATE_LOCAL_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-init-sql: SET TIME ZONE 'UTC'
+  flyway:
+    enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
