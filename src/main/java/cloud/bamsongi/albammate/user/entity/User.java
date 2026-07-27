@@ -7,6 +7,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -30,4 +31,14 @@ public class User extends BaseEntity {
 
     @Column(name = "nickname", nullable = false, length = 50)
     private String nickname;
+
+    private User(String email, String passwordHash, String nickname) {
+        this.email = Objects.requireNonNull(email, "email");
+        this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash");
+        this.nickname = Objects.requireNonNull(nickname, "nickname");
+    }
+
+    public static User create(String email, String passwordHash, String nickname) {
+        return new User(email, passwordHash, nickname);
+    }
 }
