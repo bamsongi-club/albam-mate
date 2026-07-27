@@ -18,6 +18,15 @@
       "intent": "API·DB·업무 동작을 바꾸지 않는 패키지·구조·가독성·유지보수성 개선",
       "signals": ["리팩터링", "구조", "패키지", "이동", "정리", "refactor"],
       "labels": []
+    },
+    {
+      "id": "decision",
+      "enabled": true,
+      "template": ".github/ISSUE_TEMPLATE/decision.yml",
+      "titlePrefix": "[DECISION]",
+      "intent": "정본 충돌·공개 계약 변경처럼 구현 전에 팀 결정과 정본 반영이 필요한 사항",
+      "signals": ["결정", "정본 충돌", "컨벤션", "공개 계약", "decision"],
+      "labels": ["DECISION_NEEDED"]
     }
   ]
 }
