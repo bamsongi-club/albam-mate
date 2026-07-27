@@ -22,13 +22,12 @@ repositories {
 sourceSets {
     postgresTest {
         compileClasspath += sourceSets.main.output
-        runtimeClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
     }
 }
 
 configurations {
     postgresTestImplementation.extendsFrom testImplementation
-    postgresTestRuntimeOnly.extendsFrom testRuntimeOnly
 }
 
 dependencies {
@@ -54,6 +53,7 @@ dependencies {
     postgresTestImplementation 'org.springframework.boot:spring-boot-testcontainers'
     postgresTestImplementation 'org.testcontainers:testcontainers-junit-jupiter'
     postgresTestImplementation 'org.testcontainers:testcontainers-postgresql'
+    postgresTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.register('postgresTest', Test) {

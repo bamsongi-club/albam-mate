@@ -7,5 +7,6 @@ spring:
         jdbc:
           time_zone: UTC
   datasource:
+    embedded-database-connection: none
     hikari:
       connection-init-sql: SET TIME ZONE 'UTC'
