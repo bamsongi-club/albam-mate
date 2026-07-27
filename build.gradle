@@ -3,6 +3,7 @@ plugins {
     id 'org.springframework.boot' version '4.1.0'
     id 'io.spring.dependency-management' version '1.1.7'
     id 'com.diffplug.spotless' version '8.8.0'
+    id 'jacoco'
 }
 
 group = 'cloud.bamsongi'
@@ -63,6 +64,84 @@ tasks.register('postgresTest', Test) {
     classpath = sourceSets.postgresTest.runtimeClasspath
     dependsOn tasks.named('postgresTestClasses')
     shouldRunAfter tasks.named('test')
+}
+
+// 커버리지는 test와 postgresTest의 실행 데이터를 함께 집계한다.
+// 한쪽만 실행한 경우에는 생성된 exec 파일만 사용한다.
+tasks.named('jacocoTestReport', JacocoReport) {
+    dependsOn tasks.named('test')
+    mustRunAfter tasks.named('postgresTest')
+    executionData.setFrom(fileTree(layout.buildDirectory.dir('jacoco')).include('*.exec'))
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+// 분기 커버리지 최소선은 도입 시점의 실측값을 0.05 단위로 내림한 래칫이다.
+// 목표치가 아니므로 올릴 때만 값을 바꾸고, 낮추려면 이유를 PR에 남긴다.
+// 분기 수가 10개 미만인 패키지는 분기 하나에 비율이 크게 흔들려 규칙을 두지 않는다.
+def gatedBranchCoverage = [
+    'cloud.bamsongi.albammate.auth.dto'       : 0.65,
+    'cloud.bamsongi.albammate.auth.security'  : 0.70,
+    'cloud.bamsongi.albammate.auth.service'   : 0.70,
+    'cloud.bamsongi.albammate.global.config'  : 0.65,
+    'cloud.bamsongi.albammate.global.security': 0.80,
+    'cloud.bamsongi.albammate.room.service'   : 0.90,
+    'cloud.bamsongi.albammate.user.contract'  : 0.50,
+    'cloud.bamsongi.albammate.user.service'   : 0.60,
+]
+
+tasks.named('jacocoTestCoverageVerification', JacocoCoverageVerification) {
+    dependsOn tasks.named('jacocoTestReport')
+    executionData.setFrom(fileTree(layout.buildDirectory.dir('jacoco')).include('*.exec'))
+    violationRules {
+        rule {
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 0.70
+            }
+        }
+        gatedBranchCoverage.each { packageName, packageMinimum ->
+            rule {
+                element = 'PACKAGE'
+                includes = [packageName]
+                limit {
+                    counter = 'BRANCH'
+                    value = 'COVEREDRATIO'
+                    minimum = packageMinimum
+                }
+            }
+        }
+    }
+}
+
+// 패키지 규칙은 이름이 정확히 일치할 때만 적용된다. 클래스가 다른 패키지로 이동하면
+// 규칙이 어떤 대상에도 매칭되지 않아 검사 없이 통과한다. 도입 검토 중 실제로 두 패키지가
+// 사라져 이 실패를 확인했으므로, 규칙 대상이 리포트에 있는지 별도로 검사한다.
+def coverageReportXmlFile = layout.buildDirectory.file('reports/jacoco/test/jacocoTestReport.xml')
+
+tasks.register('verifyCoverageRuleTargets') {
+    description = 'Fails when a package targeted by a coverage rule is absent from the report.'
+    group = 'verification'
+    dependsOn tasks.named('jacocoTestReport')
+    def ruleTargets = gatedBranchCoverage.keySet()
+    def reportXml = coverageReportXmlFile
+    doLast {
+        def reportedPackages = (reportXml.get().asFile.text =~ /<package name="([^"]+)"/)
+                .collect { it[1].replace('/', '.') } as Set
+        def missingTargets = ruleTargets.findAll { !reportedPackages.contains(it) }.sort()
+        if (!missingTargets.isEmpty()) {
+            throw new GradleException(
+                    "커버리지 규칙 대상 패키지가 리포트에 없습니다: ${missingTargets.join(', ')}\n"
+                            + 'build.gradle 의 gatedBranchCoverage 를 현재 패키지 구조로 갱신하세요.')
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('jacocoTestCoverageVerification'), tasks.named('verifyCoverageRuleTargets')
 }
 
 tasks.withType(JavaExec).configureEach {
