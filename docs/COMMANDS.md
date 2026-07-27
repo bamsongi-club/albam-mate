@@ -25,20 +25,6 @@ Gradle은 별도 설치본 대신 저장소의 Wrapper를 사용한다.
 | 코드 포맷 검사 | `.\gradlew.bat spotlessCheck` | `./gradlew spotlessCheck` |
 | 코드 포맷 자동 수정 | `.\gradlew.bat spotlessApply` | `./gradlew spotlessApply` |
 
-## 비밀번호 해시 benchmark
-
-운영 코드와 별도 source set으로 bcrypt cost와 동시 해시 슬롯을 측정한다. 기본 cost 후보는 10~14이고 결과는 stdout과 `build/reports/password-hash-benchmark.json`에 기록된다. 결과의 `MEASUREMENT_ONLY` 상태는 운영 검증 완료나 cost 채택을 의미하지 않는다.
-
-```powershell
-.\gradlew.bat passwordHashBenchmark --project-prop benchmark.costs=10,11,12,13,14 --project-prop benchmark.warmup=1 --project-prop benchmark.samples=3 --project-prop benchmark.concurrencySamples=1
-```
-
-```sh
-./gradlew passwordHashBenchmark -Pbenchmark.costs=10,11,12,13,14 -Pbenchmark.warmup=1 -Pbenchmark.samples=3 -Pbenchmark.concurrencySamples=1
-```
-
-짧은 smoke 실행이나 단일 cost 재측정은 `.\gradlew.bat passwordHashBenchmark --args="--costs=10 --warmup=1 --samples=1 --concurrency-samples=1"`처럼 Java 인자를 전달할 수 있다. benchmark cost는 10~16, warmup은 최대 3회, 일반 샘플은 최대 10회, 동시성 샘플은 최대 3회로 제한한다. `--concurrency-cost=N`, `--output=PATH`와 `benchmark.*` Gradle 프로퍼티로 측정 cost·반복 수·출력 경로를 조절한다. 비밀번호 원문·해시와 사용자 지정 출력 경로는 결과에 기록하지 않는다.
-
 현재 저장소에는 운영용 데이터소스 연결값이 포함되어 있지 않다. `bootRun`은 PostgreSQL 연결 설정이 없으면 데이터소스 자동 설정 단계에서 실패한다. 테스트는 H2 인메모리 데이터베이스를 사용하므로 별도의 PostgreSQL 없이 `test`와 `build`를 실행할 수 있다.
 
 ## 코드 포맷 확인

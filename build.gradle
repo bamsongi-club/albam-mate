@@ -15,20 +15,6 @@ java {
     }
 }
 
-sourceSets {
-    benchmark {
-        java.srcDir 'src/benchmark/java'
-        resources.srcDir 'src/benchmark/resources'
-        compileClasspath = sourceSets.main.output + configurations.runtimeClasspath
-        runtimeClasspath = output + compileClasspath
-    }
-}
-
-configurations {
-    benchmarkImplementation.extendsFrom implementation
-    benchmarkRuntimeOnly.extendsFrom runtimeOnly
-}
-
 repositories {
     mavenCentral()
 }
@@ -52,7 +38,6 @@ dependencies {
     testRuntimeOnly 'com.h2database:h2'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testAnnotationProcessor 'org.projectlombok:lombok'
-    testImplementation files(sourceSets.benchmark.output)
 }
 
 tasks.withType(JavaExec).configureEach {
@@ -62,22 +47,6 @@ tasks.withType(JavaExec).configureEach {
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
     systemProperty 'user.timezone', 'UTC'
-}
-
-tasks.register('passwordHashBenchmark', JavaExec) {
-    group = 'verification'
-    description = 'Runs the reproducible bcrypt password-hash and concurrency benchmark.'
-    classpath = sourceSets.benchmark.runtimeClasspath
-    mainClass = 'cloud.bamsongi.albammate.global.config.PasswordHashBenchmark'
-
-    systemProperty 'user.timezone', 'UTC'
-    ['costs', 'warmup', 'samples', 'concurrencySamples', 'concurrencyCost', 'output']
-            .each { option ->
-                def propertyName = "benchmark.${option}"
-                if (project.hasProperty(propertyName)) {
-                    systemProperty propertyName, project.property(propertyName).toString()
-                }
-            }
 }
 
 spotless {
