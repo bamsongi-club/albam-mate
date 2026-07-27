@@ -117,10 +117,10 @@ jobs:
 
           case "$GITHUB_ISSUE_ACTION" in
             closed)
-              desired_status="완료"
+              desired_category="done"
               ;;
             opened|reopened)
-              desired_status="해야 할 일"
+              desired_category="new"
               ;;
             *)
               echo "No status synchronization is configured for action $GITHUB_ISSUE_ACTION."
@@ -131,9 +131,9 @@ jobs:
           issue_response="$(jira_request \
             --request GET \
             "$jira_api/issue/$jira_key?fields=status")"
-          current_status="$(jq -r '.fields.status.name // empty' <<<"$issue_response")"
-          if [[ "$current_status" == "$desired_status" ]]; then
-            echo "$jira_key is already in status $desired_status."
+          current_category="$(jq -r '.fields.status.statusCategory.key // empty' <<<"$issue_response")"
+          if [[ "$current_category" == "$desired_category" ]]; then
+            echo "$jira_key is already in status category $desired_category."
             exit 0
           fi
 
@@ -141,11 +141,11 @@ jobs:
             --request GET \
             "$jira_api/issue/$jira_key/transitions")"
           transition_id="$(jq -r \
-            --arg desired_status "$desired_status" \
-            '.transitions[] | select(.to.name == $desired_status) | .id' \
+            --arg desired_category "$desired_category" \
+            '.transitions[] | select(.to.statusCategory.key == $desired_category) | .id' \
             <<<"$transitions_response" | head -n 1)"
           if [[ -z "$transition_id" ]]; then
-            echo "No transition to status $desired_status is available for $jira_key."
+            echo "No transition to status category $desired_category is available for $jira_key."
             exit 1
           fi
 
@@ -154,4 +154,4 @@ jobs:
             --request POST \
             --data "$transition_payload" \
             "$jira_api/issue/$jira_key/transitions" >/dev/null
-          echo "Synchronized $jira_key to status $desired_status."
+          echo "Synchronized $jira_key to status category $desired_category."
