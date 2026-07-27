@@ -17,6 +17,17 @@ const CATALOG_FIELDS = [
     "description",
     "detail_description",
 ];
+const TEXT_FIELDS = [
+    "name",
+    "english_name",
+    "alias",
+    "image_url",
+    "recommended_player_count",
+    "tag",
+    "estimated_play_time",
+    "description",
+    "detail_description",
+];
 const REQUIRED_FIELDS = [
     "bgg_id",
     "name",
@@ -306,6 +317,10 @@ function qualityWarnings(games, rankByBggId) {
             sample: versionCollisions.slice(0, 10),
         });
     }
+    const correlationWarning = suspiciousComplexityRankCorrelation(games, rankByBggId);
+    if (correlationWarning) {
+        warnings.push(correlationWarning);
+    }
     if (games.length < 20) {
         return warnings;
     }
@@ -339,6 +354,68 @@ function qualityWarnings(games, rankByBggId) {
         0.5,
     );
     return warnings;
+}
+
+function suspiciousComplexityRankCorrelation(games, rankByBggId) {
+    const pairs = games
+        .map((game) => {
+            const rank = rankByBggId.get(canonicalBggId(game.bgg_id));
+            const complexity = Number(game.complexity);
+            const rankValue = Number(rank?.rank);
+            if (
+                !rank ||
+                !isValidComplexity(game.complexity) ||
+                !Number.isSafeInteger(rankValue) ||
+                rankValue <= 0
+            ) {
+                return null;
+            }
+            return { complexity, rank: rankValue };
+        })
+        .filter(Boolean);
+    if (pairs.length < 20) {
+        return null;
+    }
+
+    const complexityMean = mean(pairs.map(({ complexity }) => complexity));
+    const rankMean = mean(pairs.map(({ rank }) => rank));
+    let covariance = 0;
+    let complexityVariance = 0;
+    let rankVariance = 0;
+    for (const pair of pairs) {
+        const complexityDelta = pair.complexity - complexityMean;
+        const rankDelta = pair.rank - rankMean;
+        covariance += complexityDelta * rankDelta;
+        complexityVariance += complexityDelta ** 2;
+        rankVariance += rankDelta ** 2;
+    }
+    if (complexityVariance === 0 || rankVariance === 0) {
+        return null;
+    }
+
+    const correlation = covariance / Math.sqrt(complexityVariance * rankVariance);
+    if (Math.abs(correlation) < 0.9) {
+        return null;
+    }
+    return {
+        code: "SUSPICIOUS_COMPLEXITY_RANK_CORRELATION",
+        message: "complexity와 BGG rank가 비정상적으로 결합된 패턴입니다.",
+        sampleSize: pairs.length,
+        correlation: Number(correlation.toFixed(6)),
+    };
+}
+
+function isValidComplexity(value) {
+    if (blank(value)) {
+        return false;
+    }
+    const number = Number(value);
+    const decimals = String(value).split(".")[1]?.length ?? 0;
+    return Number.isFinite(number) && number >= 0 && number <= 5 && decimals <= 2;
+}
+
+function mean(values) {
+    return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
 function possibleVersionCollisions(games) {
@@ -446,6 +523,7 @@ function validateData(games, rankRows) {
     const invalidComplexities = [];
     const invalidImageUrls = [];
     const invalidGameRows = [];
+    const nulCharacterValues = [];
 
     for (const [index, game] of games.entries()) {
         const rowNumber = index + 1;
@@ -456,6 +534,11 @@ function validateData(games, rankRows) {
         const missingFields = REQUIRED_FIELDS.filter((field) => blank(game?.[field]));
         if (missingFields.length > 0) {
             missingRequired.push({ row: rowNumber, fields: missingFields });
+        }
+        for (const field of TEXT_FIELDS) {
+            if (containsNul(game[field])) {
+                nulCharacterValues.push({ row: rowNumber, field });
+            }
         }
 
         const bggId = canonicalBggId(game?.bgg_id);
@@ -520,6 +603,12 @@ function validateData(games, rankRows) {
         "games 입력의 각 행은 JSON 객체여야 합니다.",
         invalidGameRows,
     );
+    addValidationError(
+        errors,
+        "NUL_CHARACTER_IN_TEXT",
+        "서비스 카탈로그 텍스트 필드에 허용되지 않는 U+0000이 있습니다.",
+        nulCharacterValues,
+    );
     addValidationError(errors, "MISSING_REQUIRED_VALUE", "필수값이 비어 있습니다.", missingRequired);
     addValidationError(errors, "INVALID_BGG_ID", "bgg_id는 양의 정수여야 합니다.", invalidBggIds);
     addValidationError(
@@ -581,6 +670,10 @@ function valueType(value) {
     return typeof value;
 }
 
+function containsNul(value) {
+    return typeof value === "string" && value.includes("\u0000");
+}
+
 function blank(value) {
     return value == null || (typeof value === "string" && value.trim() === "");
 }
@@ -602,7 +695,7 @@ function validateManifest(manifest, gamesPath, gamesContents, ranksPath, ranksCo
         ];
     }
     const errors = [];
-    if (manifest.schemaVersion !== 1 || !manifest.batchId) {
+    if (manifest.schemaVersion !== 1 || !completedText(manifest.batchId)) {
         errors.push({ code: "INVALID_MANIFEST", message: "manifest 기본 정보가 없습니다." });
     }
     if (!/^[0-9a-f]{40}$/.test(manifest.toolCommit ?? "")) {

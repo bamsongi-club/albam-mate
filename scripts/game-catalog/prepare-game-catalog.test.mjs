@@ -80,6 +80,52 @@ test("승인된 입력은 내부 id를 제외한 결정적 카탈로그와 UPSER
     });
 });
 
+test("서비스 카탈로그 텍스트 필드의 U+0000은 적재 전에 차단한다", () => {
+    withCase([game(1, "10", "첫 번째 게임", "First Game")], ({
+        games,
+        ranks,
+        manifest,
+        out,
+    }) => {
+        const rows = readJson(games);
+        rows[0].description = `설명${String.fromCharCode(0)}오염`;
+        writeFileSync(games, `${JSON.stringify(rows, null, 2)}\n`);
+        writeManifest(manifest, games, ranks, []);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 1);
+        const report = readJson(join(out, "quality-report.json"));
+        assert.equal(report.status, "blocked");
+        assert.ok(report.errors.some(({ code }) => code === "NUL_CHARACTER_IN_TEXT"));
+        assert.throws(() => readFileSync(join(out, "service-catalog.json")));
+        assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
+    });
+});
+
+test("batchId가 TODO면 INVALID_MANIFEST로 적재를 차단한다", () => {
+    withCase([game(1, "10", "첫 번째 게임", "First Game")], ({
+        games,
+        ranks,
+        manifest,
+        out,
+    }) => {
+        writeManifest(manifest, games, ranks, []);
+        const value = readJson(manifest);
+        value.batchId = "TODO";
+        writeFileSync(manifest, `${JSON.stringify(value, null, 2)}\n`);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 1);
+        const report = readJson(join(out, "quality-report.json"));
+        assert.equal(report.status, "blocked");
+        assert.ok(report.errors.some(({ code }) => code === "INVALID_MANIFEST"));
+        assert.throws(() => readFileSync(join(out, "service-catalog.json")));
+        assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
+    });
+});
+
 test("UPSERT SQL은 표준 문자열 모드를 먼저 설정하고 역슬래시와 따옴표를 보존한다", () => {
     const row = game(1, "10", "경로 \\ ' 게임", "Path \\ ' Game");
 
@@ -254,6 +300,91 @@ test("반복 문구 경고는 검수자가 명시적으로 승인하기 전까�
         const approved = runCli(games, ranks, approvedOut, manifest);
         assert.equal(approved.status, 0, approved.stderr);
         assert.equal(readJson(join(approvedOut, "quality-report.json")).status, "ready");
+    });
+});
+
+test("complexity와 BGG rank가 합성적으로 결합되면 품질 경고로 차단한다", () => {
+    const rows = Array.from({ length: 20 }, (_, index) => {
+        const row = game(
+            index + 1,
+            String(index + 100),
+            `단조 게임 ${index + 1}`,
+            `Monotonic Game ${index + 1}`,
+        );
+        row.complexity = Number((4.2 - index * 0.05).toFixed(2));
+        return row;
+    });
+
+    withCase(rows, ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 1);
+        const report = readJson(join(out, "quality-report.json"));
+        const warning = report.warnings.find(
+            ({ code }) => code === "SUSPICIOUS_COMPLEXITY_RANK_CORRELATION",
+        );
+        assert.ok(warning);
+        assert.equal(warning.sampleSize, 20);
+        assert.ok(Math.abs(warning.correlation) >= 0.9);
+        assert.ok(
+            report.errors.some(({ code }) => code === "UNACKNOWLEDGED_WARNINGS"),
+        );
+        assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
+    });
+});
+
+test("complexity와 BGG rank가 섞인 표본에는 상관 경고를 추가하지 않는다", () => {
+    const complexityValues = [1, 4, 2, 3];
+    const words = [
+        "봄",
+        "여름",
+        "가을",
+        "겨울",
+        "새벽",
+        "아침",
+        "낮",
+        "저녁",
+        "밤",
+        "별",
+        "달",
+        "구름",
+        "바람",
+        "비",
+        "눈",
+        "안개",
+        "숲",
+        "바다",
+        "강",
+        "들",
+    ];
+    const rows = Array.from({ length: 20 }, (_, index) => {
+        const row = game(
+            index + 1,
+            String(index + 100),
+            `혼합 게임 ${index + 1}`,
+            `Mixed Game ${index + 1}`,
+        );
+        row.complexity = complexityValues[index % complexityValues.length];
+        row.recommended_player_count = `${2 + (index % 4)}~${4 + (index % 4)}명`;
+        row.estimated_play_time = `${30 + (index % 4) * 15}~${60 + (index % 4) * 15}분`;
+        row.description = `${row.name} 설명 ${words[index]}`;
+        row.detail_description = `${row.name} 상세 설명 ${words[index]}`;
+        return row;
+    });
+
+    withCase(rows, ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 0, result.stderr);
+        const report = readJson(join(out, "quality-report.json"));
+        assert.equal(report.status, "ready");
+        assert.deepEqual(report.warnings, []);
+        assert.ok(readFileSync(join(out, "service-catalog.json")));
+        assert.ok(readFileSync(join(out, "upsert-games.sql")));
     });
 });
 
