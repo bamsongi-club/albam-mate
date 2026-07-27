@@ -5,31 +5,31 @@
   "sources": {
     "games": {
       "fileName": "games.json",
-      "sha256": "5deb7f9922065bc55aaca9a7cad2356fadd241d554b1812b45cd60fb9c714a02",
-      "sourceReference": "TODO: 실제 자료 출처와 작성 또는 수집 방식을 기록",
-      "acquiredAt": "TODO: ISO 8601 취득 시각",
-      "usageTerms": "TODO: 이용 조건과 서비스 반영 가능 범위를 기록"
+      "sha256": "f9adbc203023d1aa20efbfa17b8d52d8db3044ae9525d9c10704255ffcf7e321",
+      "sourceReference": "Albam Mate 팀원이 작성해 Slack으로 전달한 서비스 표시 자료",
+      "acquiredAt": "2026-07-28T02:32:15+09:00",
+      "usageTerms": "Albam Mate P0 서비스 사용을 위해 팀 내부에서 작성·공유된 자료"
     },
     "ranks": {
       "fileName": "boardgames_ranks07-24.csv",
       "sha256": "b706d0ae3722e063f6b36b9faaf97f3533fce45605c0dfe01c347a68ea2aa56d",
-      "sourceReference": "TODO: 실제 BGG 다운로드 URL 또는 자료 위치를 기록",
-      "acquiredAt": "TODO: ISO 8601 취득 시각",
-      "usageTerms": "TODO: 확인한 BGG 이용 조건과 표시 요구를 기록"
+      "sourceReference": "BGG boardgames_ranks_2026-07-23.zip의 boardgames_ranks.csv 스냅샷",
+      "acquiredAt": "2026-07-24T17:43:00+09:00",
+      "usageTerms": "BGG 공개 CSV를 기준 목록과 외부 식별자 검증에 사용하며 서비스에 BGG 출처를 표시하고 원 출처 이용 조건을 준수"
     }
   },
   "fieldSources": {
-    "bgg_id": "ranks.id",
+    "bgg_id": "games.bgg_id; ranks.id와 일치 검증",
     "name": "games.name",
     "english_name": "games.english_name; ranks.name과 일치 검증",
     "alias": "games.alias",
-    "image_url": "games.image_url",
+    "image_url": "games.image_url; BGG Geekdo 이미지 URL",
     "supported_player_count": "games.supported_player_count; 게임 규칙상 플레이 가능한 인원 범위이며 추천·최적 인원과 구분",
     "tag": "games.tag",
     "estimated_play_time": "games.estimated_play_time",
-    "complexity": "games.complexity; BGG rank 상관 경고로 실제 averageweight 근거 확인 전 사용 금지",
-    "description": "games.description",
-    "detail_description": "games.detail_description"
+    "complexity": "games.complexity; 팀 제공값이며 현재 입력은 BGG 순위 상관 경고 없음",
+    "description": "games.description; BGG 상세 데이터 연동 전 사용하는 팀 제공 임시 표시 문구",
+    "detail_description": "games.detail_description; BGG 상세 데이터 연동 전 사용하는 팀 제공 임시 표시 문구"
   },
   "selectionRules": {
     "include": "games.json 후보 중 bgg_id가 단일 BGG 기준 스냅샷과 일치하고 필수 필드·출처·품질 검수를 통과한 행만 포함",
@@ -38,7 +38,7 @@
   "versionRules": {
     "baseGame": "BGG 기준 스냅샷에서 본판으로 확인되고 팀 검수가 일치하는 항목만 본판으로 분류",
     "expansion": "BGG 기준 is_expansion 값이 확장을 가리키면 본판과 분리하고 서비스 포함 여부를 별도 검수",
-    "variant": "동일 표시명·판본 충돌 또는 변형 여부를 확정할 수 없는 항목은 임의로 합치지 않고 제외"
+    "variant": "동일 표시명이어도 bgg_id가 다르면 별도 판본일 가능성이 있어 각각 유지하고 BGG 상세 데이터 연동 시 판본·출시연도를 기준으로 재검토"
   },
   "selection": {
     "candidateRows": 2000,
@@ -47,9 +47,15 @@
     "exclusions": []
   },
   "review": {
-    "status": "pending",
-    "reviewedAt": null,
-    "reviewers": [],
-    "acceptedWarnings": []
+    "status": "approved",
+    "reviewedAt": "2026-07-28T03:07:40+09:00",
+    "reviewers": [
+      "beyejin"
+    ],
+    "acceptedWarnings": [
+      "POSSIBLE_VERSION_COLLISION",
+      "LOW_DESCRIPTION_DIVERSITY",
+      "LOW_DETAIL_DESCRIPTION_DIVERSITY"
+    ]
   }
 }
