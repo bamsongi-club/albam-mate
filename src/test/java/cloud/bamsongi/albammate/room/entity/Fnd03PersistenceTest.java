@@ -6,8 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import cloud.bamsongi.albammate.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -17,8 +19,11 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Version;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
@@ -26,14 +31,23 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.env.Environment;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
+@Import(Fnd03PersistenceTest.FixedClockTestConfiguration.class)
 class Fnd03PersistenceTest {
 
     private static final String BASE_PACKAGE = "cloud.bamsongi.albammate.";
+    private static final Instant AUDIT_FIXTURE_TIME = Instant.parse("2026-07-27T00:00:00Z");
+
+    @Autowired private EntityManager entityManager;
 
     @Autowired private EntityManagerFactory entityManagerFactory;
 
@@ -84,6 +98,36 @@ class Fnd03PersistenceTest {
         assertNotNull(gameId);
         assertNotNull(roomId);
         assertNotNull(participationId);
+    }
+
+    @Test
+    @Transactional
+    void JPA로_유효한_Room을_persist하고_flush하면_BaseEntity_감사_시각이_자동_설정된다() {
+        User host = newEntity(User.class);
+        setField(host, "email", "auditing-host@example.com");
+        setField(host, "passwordHash", "fixture-hash");
+        setField(host, "nickname", "감사 테스트 사용자");
+        entityManager.persist(host);
+        entityManager.flush();
+
+        Room room = new Room();
+        setField(room, "hostUserId", host.getId());
+        setField(room, "roomType", RoomType.PERSON_FOCUSED);
+        setField(room, "title", "감사 시각 테스트 방");
+        setField(room, "experienceLevel", ExperienceLevel.ALL_LEVELS);
+        setField(room, "capacity", 2);
+        setField(room, "activeParticipantCount", 0);
+        setField(room, "startAt", AUDIT_FIXTURE_TIME.plusSeconds(3600));
+        setField(room, "place", "테스트 장소");
+        setField(room, "status", RoomStatus.RECRUITING);
+
+        entityManager.persist(room);
+        entityManager.flush();
+
+        assertNotNull(room.getCreatedAt());
+        assertNotNull(room.getUpdatedAt());
+        assertEquals(AUDIT_FIXTURE_TIME, room.getCreatedAt());
+        assertEquals(AUDIT_FIXTURE_TIME, room.getUpdatedAt());
     }
 
     @Test
@@ -257,6 +301,27 @@ class Fnd03PersistenceTest {
         assertThrows(DataAccessException.class, operation::run);
     }
 
+    private <T> T newEntity(Class<T> entityType) {
+        try {
+            Constructor<T> constructor = entityType.getDeclaredConstructor();
+            constructor.setAccessible(true);
+            return constructor.newInstance();
+        } catch (ReflectiveOperationException exception) {
+            fail("cannot create test fixture: " + entityType.getName());
+            return null;
+        }
+    }
+
+    private void setField(Object target, String fieldName, Object value) {
+        try {
+            Field field = field(target.getClass(), fieldName);
+            field.setAccessible(true);
+            field.set(target, value);
+        } catch (IllegalAccessException exception) {
+            fail("cannot set test fixture field: " + fieldName);
+        }
+    }
+
     private void insertUser(long id, String email) {
         jdbcTemplate.update(
                 "insert into users "
@@ -402,5 +467,15 @@ class Fnd03PersistenceTest {
         }
         fail(entityType.getName() + " must declare or inherit " + fieldName);
         return null;
+    }
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class FixedClockTestConfiguration {
+
+        @Bean
+        @Primary
+        Clock fixedClock() {
+            return Clock.fixed(AUDIT_FIXTURE_TIME, ZoneOffset.UTC);
+        }
     }
 }
