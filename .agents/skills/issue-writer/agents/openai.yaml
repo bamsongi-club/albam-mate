@@ -1,0 +1,4 @@
+interface:
+  display_name: "Issue Writer"
+  short_description: "요청 분류 기반 GitHub 이슈 작성·검증·게시 자동화"
+  default_prompt: "Use $issue-writer to classify this work, draft the matching issue, and publish it when explicitly requested."

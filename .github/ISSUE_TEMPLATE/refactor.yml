@@ -1,0 +1,61 @@
+name: 리팩터링
+description: 외부 동작을 바꾸지 않는 구조·가독성 개선
+title: "[REFACTOR] "
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        리팩터링은 API·DB·업무 동작을 변경하지 않는다.
+        동작 변경이 필요하면 기능 또는 버그 이슈로 분리한다.
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: 문제·목표
+      placeholder: |
+        - 현재:
+        - 목표:
+        - 관련 기준:
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: 범위·소유
+      placeholder: |
+        - 변경 경로:
+        - 참조 수정:
+        - 제외:
+        - 공유 파일: 수정 없음
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependency
+    attributes:
+      label: 영향·의존성
+      placeholder: |
+        - 선행 조건: 없음
+        - 영향받는 모듈·PR:
+        - Blocks: 없음
+    validations:
+      required: true
+
+  - type: textarea
+    id: done
+    attributes:
+      label: 완료 기준
+      value: |
+        - [ ] 목표 구조로 변경
+        - [ ] 관련 참조와 테스트 구조 정리
+        - [ ] 포맷 검사와 테스트 통과
+        - [ ] API·DB·업무 동작이 바뀌지 않았음을 확인
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        **중단:** 범위 밖 파일·공유 계약·외부 동작 변경이 필요하면 `DECISION_NEEDED`로 전환한다.
