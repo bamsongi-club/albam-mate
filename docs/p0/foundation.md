@@ -17,9 +17,9 @@
 | [FND-05](#fnd-05-비밀번호-저장과-인증-요청-제한) | 비밀번호 저장과 인증 요청 제한 | FND-04 | AUTH-02, AUTH-03 |
 | [FND-06](#fnd-06-postgresql-검증-환경) | PostgreSQL 검증 환경 | FND-03 | PostgreSQL 검증이 필수인 완료 기준 |
 | [FND-07](#fnd-07-모듈-구조-검증) | 모듈 구조 검증 | FND-03, 업무 모듈 2개 이상 | 없음. 경계 회귀를 막는다 |
-| [FND-08](#fnd-08-로컬-개발-postgresql-환경) | 로컬 개발 PostgreSQL 환경 | FND-03, FND-06-AC1이 공개한 운영 지원 PostgreSQL 메이저 버전 결정 | 로컬 애플리케이션 실행과 수동 API 검증 |
+| [FND-08](#fnd-08-로컬-개발-postgresql-환경) | 로컬 개발 PostgreSQL 환경 | FND-03, [FND-06-AC5 운영 지원 버전 계약](#운영-지원-버전-계약)의 승인·공개 | 로컬 애플리케이션 실행과 수동 API 검증 |
 
-FND-01부터 FND-03까지는 기능 이슈보다 먼저 머지한다. FND-04와 FND-05는 인증·프로필 기능과, FND-06은 PostgreSQL 검증이 필수인 완료 기준과 함께 착수할 수 있다. FND-07의 선행 조건인 업무 모듈 2개 이상은 P0에서 항상 충족되므로 FND-07도 P0 필수 항목이며, 착수 시점만 뒤로 미룰 수 있다. FND-06은 호환성 검토 또는 별도 결정으로 운영 지원 PostgreSQL 메이저 버전을 먼저 확정·공개한 뒤 Testcontainers 이미지 태그에 반영한다. FND-08은 FND-03과 공개된 운영 지원 메이저 버전 결정만 착수 조건으로 삼으며, FND-06 전체 완료를 기다리지 않는다. 다만 FND-08의 `AC7` 완료 검증에는 FND-06의 `postgresTest`와 CI 산출물이 필요하다.
+FND-01부터 FND-03까지는 기능 이슈보다 먼저 머지한다. FND-04와 FND-05는 인증·프로필 기능과, FND-06은 PostgreSQL 검증이 필수인 완료 기준과 함께 착수할 수 있다. FND-07의 선행 조건인 업무 모듈 2개 이상은 P0에서 항상 충족되므로 FND-07도 P0 필수 항목이며, 착수 시점만 뒤로 미룰 수 있다. FND-06은 `FND-06-AC5` 운영 지원 버전 계약에 호환성 근거와 PostgreSQL 메이저 버전을 기록하고 해당 문서 PR을 `develop`에 머지한 뒤 Testcontainers 이미지 태그에 반영한다. FND-08은 FND-03과 `FND-06-AC5`의 승인·공개만 착수 조건으로 삼으며, FND-06 전체 완료를 기다리지 않는다. 다만 FND-08의 `AC7` 완료 검증에는 FND-06의 `postgresTest`와 CI 산출물이 필요하다.
 
 FND-04와 FND-05를 기반 작업으로 분리한 것은 인증 담당이나 구현 책임을 이중화한다는 뜻이 아니다. 인증 담당자가 관련 AUTH 기능과 함께 맡을 수 있으며, `global/**`의 기술 기반은 한 번만 구현한다. FND 완료 기준은 기반 산출물과 독립 검증을, AUTH 완료 기준은 그 기반을 사용한 회원가입·로그인·로그아웃 등 엔드포인트의 업무 흐름과 통합 검증을 다룬다.
 
@@ -195,23 +195,29 @@ FND-04와 FND-05를 기반 작업으로 분리한 것은 인증 담당이나 구
 | 선행 | [FND-03](#fnd-03-스키마와-엔티티-골격) |
 | 소유 경로 | `build.gradle`, `.github/workflows/ci.yml`, `docs/COMMANDS.md`, `src/test/**` |
 
+### 운영 지원 버전 계약
+
+운영 지원 PostgreSQL 메이저 버전의 단일 정본은 이 절이다. FND-06 이슈 #19 담당자는 배포 환경 지원 여부, Spring Boot·PostgreSQL JDBC 드라이버·Testcontainers 호환성과 PostgreSQL 지원 종료 일정을 검토하고, 선택한 메이저 버전과 근거를 이 절에 기록한다.
+
+버전 결정은 이 절을 변경한 문서 PR이 저장소의 리뷰 절차를 거쳐 `develop`에 머지되면 승인된 것으로 본다. 이슈 #19에는 머지된 PR URL과 커밋 SHA를 근거로 연결한다. 버전과 근거가 기록되지 않았거나 PR이 `develop`에 머지되지 않은 상태는 미결정이며 FND-08 착수 근거로 사용할 수 없다.
+
 ### 산출물
 
-- 문서화·승인된 호환성 검토 또는 승인된 별도 ADR로 확정하고 이슈 #19에 연결한 운영 지원 PostgreSQL 메이저 버전 계약
+- 이 절에 기록하고 이슈 #19에 머지 근거를 연결한 운영 지원 PostgreSQL 메이저 버전과 호환성 검토 결과
 - Testcontainers 의존성과 PostgreSQL 테스트를 분리 실행하는 Gradle 태스크
 - 운영 지원 메이저 버전 계약과 같은 메이저 버전으로 고정한 Testcontainers 이미지 태그
 - 초기 마이그레이션 적용과 스키마 검증을 확인하는 PostgreSQL 통합 테스트
 - CI에서 이 검증을 실행하는 구성과 실행 명령 문서 갱신
 
-운영 지원 메이저 버전 결정이 정본이며 Testcontainers 이미지 태그와 FND-08의 Docker Compose 이미지 태그는 그 결정의 소비자다. 운영 지원 메이저 버전을 변경할 때에는 호환성 검토 또는 별도 결정, 두 이미지 태그를 같은 변경에서 갱신하고 `postgresTest`와 FND-08의 로컬 실행·마이그레이션 검증을 모두 통과시킨다.
+이 절의 운영 지원 메이저 버전이 정본이며 Testcontainers 이미지 태그와 FND-08의 Docker Compose 이미지 태그는 그 결정의 소비자다. 운영 지원 메이저 버전을 변경할 때에는 이 절의 버전과 호환성 근거, 두 이미지 태그를 같은 변경에서 갱신하고 `postgresTest`와 FND-08의 로컬 실행·마이그레이션 검증을 모두 통과시킨다.
 
 ### 완료 기준
 
-- `FND-06-AC1` 문서화·승인된 호환성 검토 또는 승인된 별도 ADR이 운영 지원 PostgreSQL 메이저 버전을 확정하고, 이슈 #19에서 그 근거와 결론을 공개한다.
-- `FND-06-AC2` Testcontainers 이미지 태그가 운영 지원 메이저 버전 결정과 일치하고, 그 컨테이너에서 초기 마이그레이션 적용과 스키마 검증이 통과한다.
-- `FND-06-AC3` PostgreSQL 검증을 H2 테스트와 분리해 실행할 수 있고 실행 명령이 문서에 있다.
-- `FND-06-AC4` CI가 이 검증을 실행하고 실패를 드러낸다.
-- `FND-06-AC5` PostgreSQL 전용 SQL·제약과 동시성 동작을 H2 테스트 결과로 대체하지 않는다.
+- `FND-06-AC1` PostgreSQL 컨테이너에서 초기 마이그레이션이 적용되고 스키마 검증이 통과한다.
+- `FND-06-AC2` PostgreSQL 검증을 H2 테스트와 분리해 실행할 수 있고 실행 명령이 문서에 있다.
+- `FND-06-AC3` CI가 이 검증을 실행하고 실패를 드러낸다.
+- `FND-06-AC4` PostgreSQL 전용 SQL·제약과 동시성 동작을 H2 테스트 결과로 대체하지 않는다.
+- `FND-06-AC5` 운영 지원 버전 계약에 PostgreSQL 메이저 버전과 호환성 근거가 기록되고 해당 문서 PR이 `develop`에 머지됐으며, 이슈 #19가 머지된 PR URL과 커밋 SHA를 연결하고 Testcontainers 이미지 태그가 그 메이저 버전과 일치한다.
 
 ### 제외 범위
 
@@ -256,14 +262,14 @@ FND-04와 FND-05를 기반 작업으로 분리한 것은 인증 담당이나 구
 | 필수 ADR | [ADR-0002 PostgreSQL 주 데이터베이스](../adr/platform/0002-postgresql-primary-database.md), [ADR-0008 Flyway SQL 마이그레이션](../adr/platform/0008-flyway-database-migrations.md), [ADR-0010 H2와 PostgreSQL 테스트 경계](../adr/platform/0010-h2-postgresql-test-boundary.md) |
 | 구현 규칙 | [데이터베이스 변경](../CONVENTIONS.md#데이터베이스-변경), [설정과 비밀정보](../CONVENTIONS.md#설정과-비밀정보), [테스트](../CONVENTIONS.md#테스트) |
 | 실행 명령 | [프로젝트 명령](../COMMANDS.md) |
-| 선행 | [FND-03](#fnd-03-스키마와-엔티티-골격), [FND-06-AC1](#fnd-06-postgresql-검증-환경)이 공개한 운영 지원 PostgreSQL 메이저 버전 결정 |
+| 선행 | [FND-03](#fnd-03-스키마와-엔티티-골격), [FND-06-AC5 운영 지원 버전 계약](#운영-지원-버전-계약)의 승인·공개 |
 | 소유 경로 | `compose.local.yml`, `.env.example`, `.gitignore`, `src/main/resources/application-local.yml`, `docs/COMMANDS.md` |
 
-운영 지원 메이저 버전 결정이 공개되지 않았거나 그 결정, FND-06의 Testcontainers 이미지 태그와 FND-08의 Docker Compose 이미지 태그가 서로 일치하지 않으면 추측하지 않고 관련 이슈에 `DECISION_NEEDED` 라벨과 중단 사유를 남긴다.
+운영 지원 버전 계약이 `develop`에 머지되지 않았거나 그 계약, FND-06의 Testcontainers 이미지 태그와 FND-08의 Docker Compose 이미지 태그가 서로 일치하지 않으면 추측하지 않고 관련 이슈에 `DECISION_NEEDED` 라벨과 중단 사유를 남긴다.
 
 ### 산출물
 
-- FND-06-AC1이 공개한 운영 지원 메이저 버전과 같은 PostgreSQL 메이저 버전을 사용하는 로컬 개발용 Docker Compose 서비스
+- 승인·공개된 `FND-06-AC5` 운영 지원 버전 계약과 같은 PostgreSQL 메이저 버전을 사용하는 로컬 개발용 Docker Compose 서비스
 - 준비 상태를 확인하는 health check와 일반적인 재시작에서 데이터를 유지하는 named volume
 - 환경변수로 데이터소스 연결값을 받는 `local` 프로필과 실제 `.env`를 제외하는 Git 설정
 - 로컬 데이터베이스 실행·상태 확인·애플리케이션 실행·종료·명시적 데이터 초기화 명령
