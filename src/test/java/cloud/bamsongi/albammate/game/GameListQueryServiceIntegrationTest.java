@@ -40,7 +40,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 class GameListQueryServiceIntegrationTest {
 
     private static final Instant NOW = Instant.parse("2026-07-27T00:00:00Z");
-    private static final long HOST_USER_ID = 1L;
 
     @Autowired private GameRepository gameRepository;
 
@@ -50,43 +49,55 @@ class GameListQueryServiceIntegrationTest {
 
     @Test
     void 예정_모임_수는_게임중심_미래_미종료방만_게임별로_집계한다() {
-        insertHostUser();
+        long hostUserId = insertHostUser();
         Game gameWithTwoRooms = gameRepository.saveAndFlush(GameFixture.valid(1001L, "카탄"));
         Game gameWithOneRoom = gameRepository.saveAndFlush(GameFixture.valid(1002L, "아줄"));
         Game gameWithoutUpcomingRoom = gameRepository.saveAndFlush(GameFixture.valid(1003L, "윙스팬"));
 
         insertRoom(
+                hostUserId,
                 gameWithTwoRooms.getId(),
                 RoomType.GAME_FOCUSED,
                 NOW.plusSeconds(1),
                 RoomStatus.RECRUITING);
         insertRoom(
+                hostUserId,
                 gameWithTwoRooms.getId(),
                 RoomType.GAME_FOCUSED,
                 NOW.plusSeconds(2),
                 RoomStatus.CLOSED);
         insertRoom(
+                hostUserId,
                 gameWithTwoRooms.getId(),
                 RoomType.GAME_FOCUSED,
                 NOW.plusSeconds(3),
                 RoomStatus.CANCELED);
         insertRoom(
+                hostUserId,
                 gameWithTwoRooms.getId(),
                 RoomType.GAME_FOCUSED,
                 NOW.plusSeconds(4),
                 RoomStatus.FINISHED);
         insertRoom(
+                hostUserId,
                 gameWithTwoRooms.getId(),
                 RoomType.GAME_FOCUSED,
                 NOW.minusSeconds(1),
                 RoomStatus.RECRUITING);
-        insertRoom(gameWithTwoRooms.getId(), RoomType.GAME_FOCUSED, NOW, RoomStatus.RECRUITING);
         insertRoom(
+                hostUserId,
+                gameWithTwoRooms.getId(),
+                RoomType.GAME_FOCUSED,
+                NOW,
+                RoomStatus.RECRUITING);
+        insertRoom(
+                hostUserId,
                 gameWithTwoRooms.getId(),
                 RoomType.PERSON_FOCUSED,
                 NOW.plusSeconds(5),
                 RoomStatus.RECRUITING);
         insertRoom(
+                hostUserId,
                 gameWithOneRoom.getId(),
                 RoomType.GAME_FOCUSED,
                 NOW.plusSeconds(6),
@@ -129,20 +140,25 @@ class GameListQueryServiceIntegrationTest {
                 result.getContent().stream().map(GameListItem::id).toList());
     }
 
-    private void insertHostUser() {
+    private long insertHostUser() {
+        String email = "game-list-host@example.com";
         jdbcTemplate.update(
                 """
                 insert into users
-                    (id, email, password_hash, nickname, created_at, updated_at)
+                    (email, password_hash, nickname, created_at, updated_at)
                 values
-                    (?, 'game-list-host@example.com', 'test-hash', '게임 목록 테스트 호스트',
+                    (?, 'test-hash', '게임 목록 테스트 호스트',
                      TIMESTAMP WITH TIME ZONE '2026-07-26T00:00:00Z',
                      TIMESTAMP WITH TIME ZONE '2026-07-26T00:00:00Z')
                 """,
-                HOST_USER_ID);
+                email);
+
+        return jdbcTemplate.queryForObject(
+                "select id from users where email = ?", Long.class, email);
     }
 
-    private void insertRoom(Long gameId, RoomType roomType, Instant startAt, RoomStatus status) {
+    private void insertRoom(
+            long hostUserId, Long gameId, RoomType roomType, Instant startAt, RoomStatus status) {
         jdbcTemplate.update(
                 """
                 insert into rooms
@@ -156,7 +172,7 @@ class GameListQueryServiceIntegrationTest {
                      TIMESTAMP WITH TIME ZONE '2026-07-26T00:00:00Z')
                 """,
                 gameId,
-                HOST_USER_ID,
+                hostUserId,
                 roomType.name(),
                 startAt.toString(),
                 status.name());
