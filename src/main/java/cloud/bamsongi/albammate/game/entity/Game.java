@@ -55,35 +55,4 @@ public class Game extends BaseEntity {
 
     @Column(name = "detail_description", nullable = false, columnDefinition = "TEXT")
     private String detailDescription;
-
-    public Game(
-            Long bggId,
-            String name,
-            String englishName,
-            String recommendedPlayerCount,
-            String tag,
-            String estimatedPlayTime,
-            String description,
-            String detailDescription) {
-        this.bggId = bggId;
-        this.name = name;
-        this.englishName = englishName;
-        this.recommendedPlayerCount = recommendedPlayerCount;
-        this.tag = tag;
-        this.estimatedPlayTime = estimatedPlayTime;
-        this.description = description;
-        this.detailDescription = detailDescription;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public Long getBggId() {
-        return bggId;
-    }
-
-    public String getName() {
-        return name;
-    }
 }
