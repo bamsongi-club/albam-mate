@@ -121,7 +121,11 @@ class GameCatalogImportPostgresTest {
             try {
                 statement.execute(sql);
             } catch (SQLException exception) {
-                connection.rollback();
+                try (Statement rollbackStatement = connection.createStatement()) {
+                    rollbackStatement.execute("ROLLBACK");
+                } catch (SQLException rollbackException) {
+                    exception.addSuppressed(rollbackException);
+                }
                 throw exception;
             }
         }
