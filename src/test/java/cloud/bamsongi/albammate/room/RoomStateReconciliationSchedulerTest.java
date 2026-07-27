@@ -23,6 +23,7 @@ import org.springframework.scheduling.support.SimpleTriggerContext;
 class RoomStateReconciliationSchedulerTest {
 
     private static final Instant NOW = Instant.parse("2026-07-27T00:00:00Z");
+    private static final Instant TRIGGER_NOW = Instant.parse("2026-07-27T01:00:00Z");
     private static final long MAX_SCHEDULE_JITTER_MILLIS =
             RoomStateReconciliationScheduler.MAX_SCHEDULE_JITTER.toMillis();
 
@@ -44,7 +45,7 @@ class RoomStateReconciliationSchedulerTest {
     }
 
     @Test
-    void 첫_실행은_Clock_현재_시각부터_15분에_스케줄_jitter를_더한다() {
+    void 첫_실행은_TriggerContext_Clock_현재_시각부터_15분에_스케줄_jitter를_더한다() {
         RoomStateReconciliationCoordinator coordinator =
                 mock(RoomStateReconciliationCoordinator.class);
         RoomStateReconciliationScheduler.JitterSource jitterSource =
@@ -55,8 +56,9 @@ class RoomStateReconciliationSchedulerTest {
         doReturn(0L).when(jitterSource).nextMillis(MAX_SCHEDULE_JITTER_MILLIS);
 
         assertEquals(
-                NOW.plus(RoomStateReconciliationScheduler.BASE_DELAY),
-                scheduler.nextExecution(new SimpleTriggerContext()));
+                TRIGGER_NOW.plus(RoomStateReconciliationScheduler.BASE_DELAY),
+                scheduler.nextExecution(
+                        new SimpleTriggerContext(Clock.fixed(TRIGGER_NOW, ZoneOffset.UTC))));
     }
 
     @Test
@@ -75,7 +77,8 @@ class RoomStateReconciliationSchedulerTest {
         assertEquals(
                 NOW.plus(RoomStateReconciliationScheduler.BASE_DELAY)
                         .plusMillis(MAX_SCHEDULE_JITTER_MILLIS),
-                scheduler.nextExecution(new SimpleTriggerContext()));
+                scheduler.nextExecution(
+                        new SimpleTriggerContext(Clock.fixed(NOW, ZoneOffset.UTC))));
     }
 
     @Test

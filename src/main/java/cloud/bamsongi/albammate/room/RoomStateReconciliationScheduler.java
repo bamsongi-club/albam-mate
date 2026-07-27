@@ -57,7 +57,7 @@ public class RoomStateReconciliationScheduler implements Trigger {
         Objects.requireNonNull(triggerContext, "triggerContext");
         Instant anchor = triggerContext.lastCompletion();
         if (anchor == null) {
-            anchor = clock.instant();
+            anchor = triggerContext.getClock().instant();
         }
         long jitterMillis = jitterSource.nextMillis(MAX_SCHEDULE_JITTER.toMillis());
         return anchor.plus(BASE_DELAY).plusMillis(jitterMillis);
