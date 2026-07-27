@@ -1,0 +1,60 @@
+name: 팀 결정
+description: 정본 충돌·공개 계약 변경처럼 구현 전에 팀 결정이 필요한 사항
+title: "[DECISION] "
+labels:
+  - DECISION_NEEDED
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        결정과 정본 반영이 끝나기 전에는 구현 이슈에서 관련 정본을 임의로 바꾸지 않는다.
+        코드 이동과 구현은 기능 또는 리팩터링 이슈로 분리한다.
+
+  - type: textarea
+    id: decision
+    attributes:
+      label: 결정할 내용
+      placeholder: |
+        - 우선안:
+        - 대안:
+        - 적용 범위:
+    validations:
+      required: true
+
+  - type: textarea
+    id: reason
+    attributes:
+      label: 배경·근거
+      placeholder: |
+        - 현재 상태:
+        - 근거 경로:
+        - 그대로 두면 생기는 문제:
+    validations:
+      required: true
+
+  - type: textarea
+    id: documents
+    attributes:
+      label: 반영할 정본
+      value: |
+        - [ ] 필수 변경:
+        - [ ] 정합성 확인:
+        - [ ] 변경 없음 확인:
+    validations:
+      required: true
+
+  - type: textarea
+    id: open
+    attributes:
+      label: 남은 결정 항목·영향
+      placeholder: |
+        - [ ] 팀이 정할 항목:
+        - 영향받는 이슈·PR: #
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        **완료:** 결정을 정본에 반영한 뒤 후속 구현 이슈를 연결하고 닫는다.

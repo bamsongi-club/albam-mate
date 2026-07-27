@@ -22,6 +22,7 @@ cloud.bamsongi.albammate
 
 ~~~text
 room
+├─ contract
 ├─ controller
 ├─ service
 ├─ repository
@@ -29,9 +30,10 @@ room
 └─ entity
 ~~~
 
-- 모듈의 하위 패키지는 내부 구현이 기본이다.
-- 다른 모듈의 `repository`, `entity`와 HTTP 요청·응답 DTO를 직접 참조하지 않는다.
-- 모듈 간 호출이 필요하면 도메인 루트에 의도적으로 공개한 애플리케이션 서비스·인터페이스 또는 이벤트를 사용한다.
+- 업무 모듈은 다른 모듈에 공개할 계약을 `<module>/contract`에 둔다. 모듈 간 호출 인터페이스와 그 입·출력으로 쓰는 값 타입·이벤트만 포함한다.
+- `contract` 외의 하위 패키지와 도메인 루트의 클래스는 모듈 내부 구현이다. 다른 모듈은 이를 직접 참조하지 않는다.
+- `<module>/dto`는 HTTP 요청·응답 전용이며 모듈 간 계약으로 사용하지 않는다.
+- 다른 모듈이 호출하는 유스케이스는 `contract`의 인터페이스로 공개하고 구체 서비스는 내부 패키지에 둔다.
 - 여러 도메인을 조합하는 유스케이스는 그 흐름을 소유한 도메인에 둔다. 모든 횡단 흐름을 공통 Facade 하나에 모으지 않는다.
 - 모듈 간 순환 의존을 허용하지 않는다. 업무 모듈의 참조 방향은 `room → game`과 `room·auth → user`로 고정한다.
 - 참조가 허용되지 않는 방향의 협력이 필요하면 참조할 수 없는 모듈이 인터페이스를 정의하고 참조할 수 있는 모듈이 구현한다.
@@ -51,12 +53,16 @@ room
 | --- | --- | --- |
 | Controller | `{Domain}Controller` | `RoomController` |
 | Service | `{Domain}Service` 또는 유스케이스를 드러내는 이름 | `RoomService`, `RoomParticipationService` |
+| 공개 조회 계약 | 조회 의도를 드러내는 `{Domain}Query` | `GameQuery`, `UserQuery` |
+| 공개 변경 계약 | 유스케이스를 드러내는 `{UseCase}Service` | `UserAccountService` |
 | Repository | `{Entity}Repository` | `RoomRepository` |
 | Entity | 단수 명사 | `Room`, `Participation` |
 | Enum | `{Domain}Status` 또는 `{Domain}Type` | `RoomStatus`, `RoomType` |
 | Request DTO | `{Action}{Domain}Request` | `CreateRoomRequest` |
 | Response DTO | 응답 의미가 드러나는 이름 | `RoomDetailResponse` |
 | Exception | `{Domain}Exception` 또는 구체적인 실패 이름 | `RoomException`, `CapacityExceededException` |
+
+공개 계약 인터페이스와 구현체의 이름이 충돌하면 구현체에 구체적인 역할을 더하고 `Impl`은 사용하지 않는다. 예를 들어 `contract.UserAccountService`의 기본 애플리케이션 구현은 `service.UserAccountApplicationService`로 이름 짓는다.
 
 ### 메서드
 
