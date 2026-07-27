@@ -1,6 +1,6 @@
 package cloud.bamsongi.albammate.game.repository;
 
-import cloud.bamsongi.albammate.game.GameSummary;
+import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.game.entity.Game;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -15,7 +15,7 @@ public interface GameRepository extends JpaRepository<Game, Long> {
 
     @Query(
             """
-            select new cloud.bamsongi.albammate.game.GameSummary(g.id, g.bggId, g.name)
+            select new cloud.bamsongi.albammate.game.contract.GameSummary(g.id, g.bggId, g.name)
             from Game g
             where g.id = :gameId
             """)
