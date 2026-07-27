@@ -145,8 +145,10 @@ def applyCoverageRules = { JacocoCoverageVerification verification ->
 }
 
 // check에 포함되는 빠른 게이트다. H2 test 결과만 보므로 Docker를 요구하지 않는다.
+// 규칙 대상 검사에 의존해, 게이트를 단독으로 실행해도 최소선 목록과 패키지 구조가
+// 어긋난 상태를 놓치지 않게 한다.
 tasks.named('jacocoTestCoverageVerification', JacocoCoverageVerification) {
-    dependsOn tasks.named('test')
+    dependsOn tasks.named('test'), tasks.named('verifyCoverageRuleTargets')
     executionData.setFrom(testExecutionData)
     applyCoverageRules(it)
 }
@@ -156,7 +158,8 @@ tasks.named('jacocoTestCoverageVerification', JacocoCoverageVerification) {
 tasks.register('jacocoAllTestCoverageVerification', JacocoCoverageVerification) {
     description = 'Verifies branch coverage from both test and postgresTest.'
     group = 'verification'
-    dependsOn tasks.named('test'), tasks.named('postgresTest')
+    dependsOn tasks.named('test'), tasks.named('postgresTest'),
+            tasks.named('verifyCoverageRuleTargets')
     sourceSets sourceSets.main
     executionData.setFrom(testExecutionData, postgresTestExecutionData)
     applyCoverageRules(it)
