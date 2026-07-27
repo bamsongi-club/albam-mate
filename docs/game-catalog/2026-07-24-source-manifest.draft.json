@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "batchId": "2026-07-24-p0-game-catalog",
-  "toolCommit": "TODO: 변환 도구가 포함된 전체 Git commit SHA",
+  "toolCommit": "b6543ac8eb8f9ba18f34755ef6532d2a1b93cd1c",
   "sources": {
     "games": {
       "fileName": "games.json",
-      "sha256": "b11a6248db132a86c72621e96203287e016f39cb64cbe3d332e0f5e6c2e2bf8c",
+      "sha256": "5deb7f9922065bc55aaca9a7cad2356fadd241d554b1812b45cd60fb9c714a02",
       "sourceReference": "TODO: 실제 자료 출처와 작성 또는 수집 방식을 기록",
       "acquiredAt": "TODO: ISO 8601 취득 시각",
       "usageTerms": "TODO: 이용 조건과 서비스 반영 가능 범위를 기록"
@@ -24,10 +24,10 @@
     "english_name": "games.english_name; ranks.name과 일치 검증",
     "alias": "games.alias",
     "image_url": "games.image_url",
-    "recommended_player_count": "games.recommended_player_count",
+    "recommended_player_count": "games.recommended_player_count; 플레이 가능 범위로 보여 권장 인원 의미 검수 필요",
     "tag": "games.tag",
     "estimated_play_time": "games.estimated_play_time",
-    "complexity": "games.complexity",
+    "complexity": "games.complexity; BGG rank 상관 경고로 실제 averageweight 근거 확인 전 사용 금지",
     "description": "games.description",
     "detail_description": "games.detail_description"
   },
