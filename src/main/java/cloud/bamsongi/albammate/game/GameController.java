@@ -8,6 +8,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,9 +19,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class GameController {
 
     private final GameListQueryService gameListQueryService;
+    private final GameDetailQueryService gameDetailQueryService;
 
-    public GameController(GameListQueryService gameListQueryService) {
+    public GameController(
+            GameListQueryService gameListQueryService,
+            GameDetailQueryService gameDetailQueryService) {
         this.gameListQueryService = gameListQueryService;
+        this.gameDetailQueryService = gameDetailQueryService;
     }
 
     @GetMapping
@@ -33,5 +38,10 @@ public class GameController {
         return ApiResponse.success(
                 HttpStatus.OK,
                 GamePageResponse.from(gameListQueryService.findPage(keyword, pageable)));
+    }
+
+    @GetMapping("/{gameId}")
+    public ApiResponse<GameDetail> getGameDetail(@PathVariable @Min(1) Long gameId) {
+        return ApiResponse.success(HttpStatus.OK, gameDetailQueryService.findById(gameId));
     }
 }

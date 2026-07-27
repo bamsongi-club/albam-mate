@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.exception.GlobalExceptionHandler;
 import java.math.BigDecimal;
@@ -38,11 +39,14 @@ class GameControllerTest {
 
     @Autowired private GameListQueryService gameListQueryService;
 
+    @Autowired private GameDetailQueryService gameDetailQueryService;
+
     @Autowired private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         reset(gameListQueryService);
+        reset(gameDetailQueryService);
     }
 
     @Test
@@ -134,12 +138,75 @@ class GameControllerTest {
         }
     }
 
+    @Test
+    void 공개_게임_상세는_게임_목록_필드와_상세_필드를_반환한다() throws Exception {
+        GameDetail detail =
+                new GameDetail(
+                        1L,
+                        1001L,
+                        "카탄",
+                        "Catan",
+                        null,
+                        "3~4명",
+                        "전략",
+                        "60~90분",
+                        new BigDecimal("2.00"),
+                        2L,
+                        "카탄 기본판",
+                        "간단한 게임 설명",
+                        "상세한 게임 설명");
+        when(gameDetailQueryService.findById(1L)).thenReturn(detail);
+
+        mockMvc.perform(get("/api/games/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.data.id").value(1))
+                .andExpect(jsonPath("$.data.bggId").value(1001))
+                .andExpect(jsonPath("$.data.name").value("카탄"))
+                .andExpect(jsonPath("$.data.englishName").value("Catan"))
+                .andExpect(jsonPath("$.data.alias").value("카탄 기본판"))
+                .andExpect(jsonPath("$.data.imageUrl").isEmpty())
+                .andExpect(jsonPath("$.data.recommendedPlayerCount").value("3~4명"))
+                .andExpect(jsonPath("$.data.tag").value("전략"))
+                .andExpect(jsonPath("$.data.estimatedPlayTime").value("60~90분"))
+                .andExpect(jsonPath("$.data.complexity").value(2.0))
+                .andExpect(jsonPath("$.data.upcomingRoomCount").value(2))
+                .andExpect(jsonPath("$.data.description").value("간단한 게임 설명"))
+                .andExpect(jsonPath("$.data.detailDescription").value("상세한 게임 설명"));
+
+        verify(gameDetailQueryService).findById(1L);
+    }
+
+    @Test
+    void 없는_게임_상세는_GAME_NOT_FOUND다() throws Exception {
+        when(gameDetailQueryService.findById(999L))
+                .thenThrow(new BusinessException(ErrorCode.GAME_NOT_FOUND));
+
+        mockMvc.perform(get("/api/games/999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(ErrorCode.GAME_NOT_FOUND.getCode()));
+    }
+
+    @Test
+    void 게임_ID가_1보다_작거나_형식이_아니면_VALIDATION_ERROR다() throws Exception {
+        for (String gameId : List.of("0", "-1", "not-a-number")) {
+            mockMvc.perform(get("/api/games/" + gameId))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+        }
+    }
+
     @TestConfiguration(proxyBeanMethods = false)
     static class GameControllerTestConfiguration {
 
         @Bean
         GameListQueryService gameListQueryService() {
             return mock(GameListQueryService.class);
+        }
+
+        @Bean
+        GameDetailQueryService gameDetailQueryService() {
+            return mock(GameDetailQueryService.class);
         }
     }
 }
