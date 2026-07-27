@@ -17,6 +17,8 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.AndRequestMatcher;
+import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
@@ -28,10 +30,16 @@ public class SecurityConfig {
     private static final String CSRF_PATH = "/api/auth/csrf";
     private static final String SIGNUP_PATH = "/api/auth/signup";
     private static final String LOGIN_PATH = "/api/auth/login";
+    private static final String LOGOUT_PATH = "/api/auth/logout";
+    private static final String CURRENT_USER_PATH = "/api/users/me";
+    private static final String CURRENT_USER_ROOMS_PATH = "/api/users/me/rooms";
     private static final String GAMES_PATH = "/api/games";
     private static final String GAME_DETAIL_PATH = "/api/games/{gameId}";
     private static final String ROOMS_PATH = "/api/rooms";
     private static final String ROOM_DETAIL_PATH = "/api/rooms/{roomId}";
+    private static final String ROOM_STATUS_PATH = "/api/rooms/{roomId}/status";
+    private static final String ROOM_PARTICIPANTS_PATH = "/api/rooms/{roomId}/participants";
+    private static final String ROOM_PARTICIPATION_ME_PATH = "/api/rooms/{roomId}/participants/me";
 
     @Bean
     SecurityFilterChain securityFilterChain(
@@ -44,6 +52,8 @@ public class SecurityConfig {
         http.csrf(
                         csrf ->
                                 csrf.csrfTokenRepository(csrfTokenRepository)
+                                        .requireCsrfProtectionMatcher(
+                                                csrfProtectionRequestMatcher())
                                         .csrfTokenRequestHandler(
                                                 new CsrfTokenRequestAttributeHandler()))
                 .sessionManagement(
@@ -73,12 +83,87 @@ public class SecurityConfig {
                                         .permitAll()
                                         .requestMatchers(publicAuthenticationRequestMatcher)
                                         .permitAll()
+                                        .requestMatchers(protectedP0RequestMatcher())
+                                        .authenticated()
+                                        .requestMatchers(p0EndpointPathMatcher())
+                                        .permitAll()
+                                        .requestMatchers(protectedFutureSubpathMatcher())
+                                        .authenticated()
                                         .anyRequest()
-                                        .authenticated())
+                                        .permitAll())
                 .formLogin(formLogin -> formLogin.disable())
                 .httpBasic(httpBasic -> httpBasic.disable())
                 .logout(logout -> logout.disable());
         return http.build();
+    }
+
+    private RequestMatcher protectedP0RequestMatcher() {
+        return new OrRequestMatcher(
+                PathPatternRequestMatcher.pathPattern(HttpMethod.POST, LOGOUT_PATH),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.GET, CURRENT_USER_PATH),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.HEAD, CURRENT_USER_PATH),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.PATCH, CURRENT_USER_PATH),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.POST, ROOMS_PATH),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.PATCH, ROOM_DETAIL_PATH),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.DELETE, ROOM_DETAIL_PATH),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.PATCH, ROOM_STATUS_PATH),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.POST, ROOM_PARTICIPANTS_PATH),
+                PathPatternRequestMatcher.pathPattern(
+                        HttpMethod.DELETE, ROOM_PARTICIPATION_ME_PATH),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.GET, CURRENT_USER_ROOMS_PATH),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.HEAD, CURRENT_USER_ROOMS_PATH));
+    }
+
+    private RequestMatcher p0EndpointPathMatcher() {
+        return new OrRequestMatcher(
+                PathPatternRequestMatcher.pathPattern(CSRF_PATH),
+                PathPatternRequestMatcher.pathPattern(SIGNUP_PATH),
+                PathPatternRequestMatcher.pathPattern(LOGIN_PATH),
+                PathPatternRequestMatcher.pathPattern(LOGOUT_PATH),
+                PathPatternRequestMatcher.pathPattern(CURRENT_USER_PATH),
+                PathPatternRequestMatcher.pathPattern(CURRENT_USER_ROOMS_PATH),
+                PathPatternRequestMatcher.pathPattern(GAMES_PATH),
+                PathPatternRequestMatcher.pathPattern(GAME_DETAIL_PATH),
+                PathPatternRequestMatcher.pathPattern(ROOMS_PATH),
+                PathPatternRequestMatcher.pathPattern(ROOM_DETAIL_PATH),
+                PathPatternRequestMatcher.pathPattern(ROOM_STATUS_PATH),
+                PathPatternRequestMatcher.pathPattern(ROOM_PARTICIPANTS_PATH),
+                PathPatternRequestMatcher.pathPattern(ROOM_PARTICIPATION_ME_PATH));
+    }
+
+    private RequestMatcher protectedFutureSubpathMatcher() {
+        return new OrRequestMatcher(
+                PathPatternRequestMatcher.pathPattern("/api/auth/*/**"),
+                PathPatternRequestMatcher.pathPattern("/api/games/*/**"),
+                PathPatternRequestMatcher.pathPattern("/api/rooms/*/**"),
+                PathPatternRequestMatcher.pathPattern("/api/users/me/*/**"));
+    }
+
+    private RequestMatcher csrfProtectionRequestMatcher() {
+        return new OrRequestMatcher(
+                PathPatternRequestMatcher.pathPattern(HttpMethod.POST, SIGNUP_PATH),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.POST, LOGIN_PATH),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.POST, LOGOUT_PATH),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.PATCH, CURRENT_USER_PATH),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.POST, ROOMS_PATH),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.PATCH, ROOM_DETAIL_PATH),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.DELETE, ROOM_DETAIL_PATH),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.PATCH, ROOM_STATUS_PATH),
+                PathPatternRequestMatcher.pathPattern(HttpMethod.POST, ROOM_PARTICIPANTS_PATH),
+                PathPatternRequestMatcher.pathPattern(
+                        HttpMethod.DELETE, ROOM_PARTICIPATION_ME_PATH),
+                stateChangingFutureSubpathMatcher());
+    }
+
+    private RequestMatcher stateChangingFutureSubpathMatcher() {
+        return new AndRequestMatcher(
+                protectedFutureSubpathMatcher(),
+                new NegatedRequestMatcher(p0EndpointPathMatcher()),
+                new OrRequestMatcher(
+                        PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/**"),
+                        PathPatternRequestMatcher.pathPattern(HttpMethod.PATCH, "/**"),
+                        PathPatternRequestMatcher.pathPattern(HttpMethod.DELETE, "/**"),
+                        PathPatternRequestMatcher.pathPattern(HttpMethod.PUT, "/**")));
     }
 
     @Bean

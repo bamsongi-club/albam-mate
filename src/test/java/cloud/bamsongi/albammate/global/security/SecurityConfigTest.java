@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -39,6 +41,7 @@ import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.RequestBuilder;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -80,11 +83,31 @@ class SecurityConfigTest {
     }
 
     @Test
+    void 미매핑_API_경로는_인증보다_MVC_리소스_없음_오류를_우선한다() throws Exception {
+        mockMvc.perform(get("/api/unknown"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(ErrorCode.RESOURCE_NOT_FOUND.getCode()));
+    }
+
+    @Test
+    void P0_엔드포인트의_지원하지_않는_메서드는_인증보다_MVC_메서드_오류를_우선한다() throws Exception {
+        mockMvc.perform(post("/api/games"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.code").value(ErrorCode.METHOD_NOT_ALLOWED.getCode()));
+        mockMvc.perform(post("/api/games/1"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.code").value(ErrorCode.METHOD_NOT_ALLOWED.getCode()));
+        mockMvc.perform(post("/api/users/me"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.code").value(ErrorCode.METHOD_NOT_ALLOWED.getCode()));
+    }
+
+    @Test
     void 공개_경로는_미래_하위_경로까지_와일드카드로_노출하지_않는다() throws Exception {
         mockMvc.perform(get("/api/games/1/reviews"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
-        mockMvc.perform(get("/api/rooms/1/participants"))
+        mockMvc.perform(get("/api/rooms/1/participants/audit"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
     }
@@ -150,18 +173,34 @@ class SecurityConfigTest {
 
     @Test
     void 보호_GET과_상태변경_경로는_인증을_요구한다() throws Exception {
-        mockMvc.perform(get("/api/test/current-user"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
+        for (RequestBuilder request :
+                java.util.List.of(
+                        post("/api/auth/logout"),
+                        get("/api/users/me"),
+                        patch("/api/users/me"),
+                        post("/api/rooms"),
+                        patch("/api/rooms/1"),
+                        delete("/api/rooms/1"),
+                        patch("/api/rooms/1/status"),
+                        post("/api/rooms/1/participants"),
+                        delete("/api/rooms/1/participants/me"),
+                        get("/api/users/me/rooms"))) {
+            mockMvc.perform(request)
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
+        }
+    }
 
-        mockMvc.perform(post("/api/test/protected"))
+    @Test
+    void 보호_GET의_HEAD_요청도_인증을_요구한다() throws Exception {
+        mockMvc.perform(head("/api/users/me"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
     }
 
     @Test
     void 보호_상태변경_요청은_세션_없음이_CSFR_누락보다_우선한다() throws Exception {
-        mockMvc.perform(delete("/api/test/protected"))
+        mockMvc.perform(delete("/api/rooms/1"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()))
                 .andExpect(jsonPath("$.message").value(ErrorCode.UNAUTHENTICATED.getMessage()));
@@ -175,7 +214,7 @@ class SecurityConfigTest {
         assertNotNull(csrfCookie);
 
         mockMvc.perform(
-                        post("/api/test/protected")
+                        post("/api/rooms")
                                 .cookie(csrfCookie)
                                 .header("X-XSRF-TOKEN", csrfCookie.getValue())
                                 .with(authentication(authenticationFor(42L))))
@@ -204,7 +243,7 @@ class SecurityConfigTest {
 
     @Test
     void 인증된_요청은_최소_주체에서_현재_사용자_ID만_얻는다() throws Exception {
-        mockMvc.perform(get("/api/test/current-user").with(authentication(authenticationFor(42L))))
+        mockMvc.perform(get("/api/users/me").with(authentication(authenticationFor(42L))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.userId").value(42));
     }
@@ -212,7 +251,7 @@ class SecurityConfigTest {
     @Test
     void 보안_실패_응답에_세션_인증정보와_사용자_ID를_담지_않는다() throws Exception {
         MvcResult result =
-                mockMvc.perform(get("/api/test/current-user"))
+                mockMvc.perform(get("/api/users/me"))
                         .andExpect(status().isUnauthorized())
                         .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                         .andReturn();
@@ -298,17 +337,17 @@ class SecurityConfigTest {
             return MapResponse.ok();
         }
 
-        @GetMapping("/api/test/current-user")
+        @GetMapping("/api/users/me")
         MapResponse currentUser() {
             return MapResponse.user(currentUserAccessor.requireCurrentUserId());
         }
 
-        @PostMapping("/api/test/protected")
+        @PostMapping("/api/rooms")
         MapResponse protectedPost() {
             return MapResponse.ok();
         }
 
-        @DeleteMapping("/api/test/protected")
+        @DeleteMapping("/api/rooms/{roomId}")
         MapResponse protectedDelete() {
             return MapResponse.ok();
         }
