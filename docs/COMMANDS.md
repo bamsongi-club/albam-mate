@@ -66,6 +66,21 @@ node --test scripts/check-doc-links.test.mjs
 
 두 명령을 CI의 `Docs` job이 함께 실행하므로, 문서나 검사기를 변경한 PR은 둘 다 먼저 통과시킨다.
 
+## 게임 카탈로그 검수
+
+BGG 기준 CSV와 팀 검수 JSON의 매핑·중복·필수값·품질 경고를 확인한다.
+출처 manifest가 없거나 검수 상태가 승인되지 않으면 보고서만 만들고 적재 SQL은
+생성하지 않는다.
+
+```sh
+node scripts/game-catalog/prepare-game-catalog.mjs \
+  --games /path/to/games.json \
+  --ranks /path/to/boardgames_ranks07-24.csv \
+  --out build/game-catalog/draft
+```
+
+테스트와 승인 후 적재 절차는 [게임 카탈로그 검수·적재](guides/GAME_CATALOG_IMPORT.md)를 따른다.
+
 ## 프롬프트 기록 확인
 
 팀원별 최초 환경 설정은 [How to 팀 프롬프트 기록 환경 설정](guides/PROMPT_LOGGING.md)을 따른다.
