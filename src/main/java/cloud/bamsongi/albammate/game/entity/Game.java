@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.game.entity;
 
+import cloud.bamsongi.albammate.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -7,11 +8,15 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
-import java.time.Instant;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @Table(name = "games")
-public class Game {
+public class Game extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -51,8 +56,34 @@ public class Game {
     @Column(name = "detail_description", nullable = false, columnDefinition = "TEXT")
     private String detailDescription;
 
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt;
+    public Game(
+            Long bggId,
+            String name,
+            String englishName,
+            String recommendedPlayerCount,
+            String tag,
+            String estimatedPlayTime,
+            String description,
+            String detailDescription) {
+        this.bggId = bggId;
+        this.name = name;
+        this.englishName = englishName;
+        this.recommendedPlayerCount = recommendedPlayerCount;
+        this.tag = tag;
+        this.estimatedPlayTime = estimatedPlayTime;
+        this.description = description;
+        this.detailDescription = detailDescription;
+    }
 
-    protected Game() {}
+    public Long getId() {
+        return id;
+    }
+
+    public Long getBggId() {
+        return bggId;
+    }
+
+    public String getName() {
+        return name;
+    }
 }

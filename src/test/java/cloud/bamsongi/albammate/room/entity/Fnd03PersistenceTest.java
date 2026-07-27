@@ -16,7 +16,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.Version;
 import java.lang.reflect.Field;
 import java.time.Instant;
@@ -92,11 +91,14 @@ class Fnd03PersistenceTest {
         assertInstantColumn("user.entity.User", "createdAt", "created_at");
         assertInstantColumn("user.entity.User", "updatedAt", "updated_at");
         assertInstantColumn("game.entity.Game", "createdAt", "created_at");
+        assertInstantColumn("game.entity.Game", "updatedAt", "updated_at");
         assertInstantColumn("room.entity.Room", "startAt", "start_at");
         assertInstantColumn("room.entity.Room", "createdAt", "created_at");
         assertInstantColumn("room.entity.Room", "updatedAt", "updated_at");
         assertInstantColumn("room.entity.Participation", "joinedAt", "joined_at");
         assertInstantColumn("room.entity.Participation", "canceledAt", "canceled_at");
+        assertInstantColumn("room.entity.Participation", "createdAt", "created_at");
+        assertInstantColumn("room.entity.Participation", "updatedAt", "updated_at");
 
         Field version = field(loadClass("room.entity.Room"), "version");
         assertEquals(Long.class, version.getType());
@@ -121,11 +123,6 @@ class Fnd03PersistenceTest {
         assertStringEnum(participation, "status", "status");
 
         assertAssociation(participation, "room", "room_id", false);
-
-        Field participations = field(room, "participations");
-        OneToMany oneToMany = participations.getAnnotation(OneToMany.class);
-        assertNotNull(oneToMany);
-        assertEquals("room", oneToMany.mappedBy());
     }
 
     @Test
@@ -138,17 +135,20 @@ class Fnd03PersistenceTest {
     }
 
     @Test
-    void Hibernate는_validate이고_Flyway_V1과_네_테이블이_적용된다() {
+    void Hibernate는_validate이고_Flyway_V1_V2와_네_테이블이_적용된다() {
         assertEquals("validate", environment.getProperty("spring.jpa.hibernate.ddl-auto"));
 
         flyway.migrate();
         flyway.validate();
 
-        Integer applied =
-                jdbcTemplate.queryForObject(
-                        "select count(*) from flyway_schema_history where version = '1'",
-                        Integer.class);
-        assertEquals(1, applied);
+        for (String version : Set.of("1", "2")) {
+            Integer applied =
+                    jdbcTemplate.queryForObject(
+                            "select count(*) from flyway_schema_history where version = ?",
+                            Integer.class,
+                            version);
+            assertEquals(1, applied, "V" + version + " must be applied");
+        }
 
         for (String tableName : Set.of("users", "games", "rooms", "participations")) {
             Integer tableCount =
@@ -284,9 +284,10 @@ class Fnd03PersistenceTest {
         jdbcTemplate.update(
                 "insert into games "
                         + "(id, bgg_id, name, english_name, recommended_player_count, tag, "
-                        + "estimated_play_time, description, detail_description, created_at) "
+                        + "estimated_play_time, description, detail_description, created_at, updated_at) "
                         + "values (?, ?, '테스트 게임', 'Test Game', '2~4명', '전략', '60분', "
-                        + "'간단 설명', '상세 설명', TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z')",
+                        + "'간단 설명', '상세 설명', TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z', "
+                        + "TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z')",
                 id,
                 bggId);
     }
@@ -295,9 +296,10 @@ class Fnd03PersistenceTest {
         jdbcTemplate.update(
                 "insert into games "
                         + "(bgg_id, name, english_name, recommended_player_count, tag, "
-                        + "estimated_play_time, description, detail_description, created_at) "
+                        + "estimated_play_time, description, detail_description, created_at, updated_at) "
                         + "values (?, 'IDENTITY 테스트 게임', 'Identity Test Game', '2~4명', '전략', '60분', "
-                        + "'간단 설명', '상세 설명', TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z')",
+                        + "'간단 설명', '상세 설명', TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z', "
+                        + "TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z')",
                 bggId);
         return jdbcTemplate.queryForObject(
                 "select id from games where bgg_id = ?", Long.class, bggId);
@@ -346,11 +348,17 @@ class Fnd03PersistenceTest {
             long id, long roomId, long userId, String status, String canceledAt) {
         String canceledAtSql =
                 canceledAt == null ? "NULL" : "TIMESTAMP WITH TIME ZONE '" + canceledAt + "'";
+        String updatedAtSql =
+                canceledAt == null
+                        ? "TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z'"
+                        : canceledAtSql;
         jdbcTemplate.update(
                 "insert into participations "
-                        + "(id, room_id, user_id, status, joined_at, canceled_at) "
+                        + "(id, room_id, user_id, status, joined_at, canceled_at, created_at, updated_at) "
                         + "values (?, ?, ?, ?, TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z', "
                         + canceledAtSql
+                        + ", TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z', "
+                        + updatedAtSql
                         + ")",
                 id,
                 roomId,
@@ -361,8 +369,10 @@ class Fnd03PersistenceTest {
     private Long insertParticipationWithoutId(long roomId, long userId) {
         jdbcTemplate.update(
                 "insert into participations "
-                        + "(room_id, user_id, status, joined_at, canceled_at) "
-                        + "values (?, ?, 'ACTIVE', TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z', NULL)",
+                        + "(room_id, user_id, status, joined_at, canceled_at, created_at, updated_at) "
+                        + "values (?, ?, 'ACTIVE', TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z', NULL, "
+                        + "TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z', "
+                        + "TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z')",
                 roomId,
                 userId);
         return jdbcTemplate.queryForObject(
@@ -382,11 +392,15 @@ class Fnd03PersistenceTest {
     }
 
     private Field field(Class<?> entityType, String fieldName) {
-        try {
-            return entityType.getDeclaredField(fieldName);
-        } catch (NoSuchFieldException exception) {
-            fail(entityType.getName() + " must declare " + fieldName);
-            return null;
+        Class<?> currentType = entityType;
+        while (currentType != null) {
+            try {
+                return currentType.getDeclaredField(fieldName);
+            } catch (NoSuchFieldException exception) {
+                currentType = currentType.getSuperclass();
+            }
         }
+        fail(entityType.getName() + " must declare or inherit " + fieldName);
+        return null;
     }
 }
