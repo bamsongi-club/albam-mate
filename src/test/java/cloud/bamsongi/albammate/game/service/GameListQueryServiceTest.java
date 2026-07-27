@@ -1,4 +1,4 @@
-package cloud.bamsongi.albammate.game;
+package cloud.bamsongi.albammate.game.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
@@ -6,6 +6,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import cloud.bamsongi.albammate.game.UpcomingRoomCountQuery;
+import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 import java.math.BigDecimal;

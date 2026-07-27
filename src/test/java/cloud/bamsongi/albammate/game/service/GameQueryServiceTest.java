@@ -1,4 +1,4 @@
-package cloud.bamsongi.albammate.game;
+package cloud.bamsongi.albammate.game.service;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import cloud.bamsongi.albammate.game.GameQuery;
+import cloud.bamsongi.albammate.game.GameSummary;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.fixture.GameFixture;
 import cloud.bamsongi.albammate.game.repository.GameRepository;

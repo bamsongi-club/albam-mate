@@ -1,7 +1,9 @@
-package cloud.bamsongi.albammate.game;
+package cloud.bamsongi.albammate.game.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import cloud.bamsongi.albammate.game.dto.GameDetail;
+import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.fixture.GameFixture;
 import cloud.bamsongi.albammate.game.repository.GameRepository;

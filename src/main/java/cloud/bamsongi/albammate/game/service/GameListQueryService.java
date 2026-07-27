@@ -1,5 +1,7 @@
-package cloud.bamsongi.albammate.game;
+package cloud.bamsongi.albammate.game.service;
 
+import cloud.bamsongi.albammate.game.UpcomingRoomCountQuery;
+import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 import java.time.Clock;

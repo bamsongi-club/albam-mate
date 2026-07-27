@@ -1,4 +1,4 @@
-package cloud.bamsongi.albammate.game;
+package cloud.bamsongi.albammate.game.dto;
 
 import java.util.List;
 import org.springframework.data.domain.Page;
@@ -11,7 +11,7 @@ public record GamePageResponse(
         int totalPages,
         boolean hasNext) {
 
-    static GamePageResponse from(Page<GameListItem> result) {
+    public static GamePageResponse from(Page<GameListItem> result) {
         return new GamePageResponse(
                 result.getContent(),
                 result.getNumber(),
