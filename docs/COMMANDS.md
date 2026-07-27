@@ -27,6 +27,110 @@ Gradle은 별도 설치본 대신 저장소의 Wrapper를 사용한다.
 
 현재 저장소에는 운영용 데이터소스 연결값이 포함되어 있지 않다. `bootRun`은 PostgreSQL 연결 설정이 없으면 데이터소스 자동 설정 단계에서 실패한다. 테스트는 H2 인메모리 데이터베이스를 사용하므로 별도의 PostgreSQL 없이 `test`와 `build`를 실행할 수 있다.
 
+## 로컬 PostgreSQL 개발 환경
+
+### macOS·Linux
+
+저장소 루트에서 예시 환경 파일을 복사한다. `.env`는 로컬 연결값을 담으므로 Git에 포함하지 않는다.
+
+```sh
+cp -n .env.example .env
+```
+
+PostgreSQL을 시작하고 health check 결과를 확인한다.
+
+```sh
+docker compose -f compose.local.yml up -d
+docker compose -f compose.local.yml ps
+```
+
+애플리케이션은 `local` 프로필을 명시하고 `.env`의 로컬 DB 변수를 프로세스에 주입해 실행한다. `.env`에는 프로필 활성화 값을 넣지 않아 H2 `test`와 PostgreSQL `postgresTest` 실행에 영향을 주지 않는다.
+
+```sh
+set -a
+. ./.env
+set +a
+./gradlew bootRun --args='--spring.profiles.active=local'
+```
+
+애플리케이션을 종료한 뒤 PostgreSQL 컨테이너만 중지한다. named volume의 개발 데이터는 유지된다.
+
+```sh
+docker compose -f compose.local.yml down
+```
+
+로컬 데이터를 명시적으로 초기화할 때만 volume까지 삭제한다.
+
+```sh
+docker compose -f compose.local.yml down --volumes
+```
+
+### Windows PowerShell
+
+저장소 루트에서 `.env`가 없을 때만 예시 환경 파일을 복사한다. 이미 있는 `.env`는 덮어쓰지 않는다.
+
+```powershell
+if (-not (Test-Path -LiteralPath .env)) {
+  Copy-Item -LiteralPath .env.example -Destination .env
+}
+```
+
+PostgreSQL을 시작하고 health check 결과를 확인한다.
+
+```powershell
+docker compose --env-file .env -f compose.local.yml up -d
+docker compose --env-file .env -f compose.local.yml ps
+```
+
+Docker Compose가 `.env`를 해석한 정규화된 설정 모델에서 PostgreSQL 연결값을 읽어 Compose와 애플리케이션이 동일한 값을 사용하도록 `ALBAM_MATE_LOCAL_*` 환경변수로 현재 프로세스에 주입한다. 구성 JSON은 변수에만 캡처하므로 비밀번호를 터미널에 출력하지 않는다. 이후 같은 PowerShell 창에서 애플리케이션을 실행한다.
+
+```powershell
+$composeConfigLines = @(
+  docker compose --env-file .env -f compose.local.yml config --format json
+)
+if ($LASTEXITCODE -ne 0) {
+  throw "docker compose config failed with exit code $LASTEXITCODE"
+}
+$composeConfig = ConvertFrom-Json -InputObject ($composeConfigLines -join [Environment]::NewLine)
+$postgres = $composeConfig.services.postgres
+$postgresPort = $postgres.ports[0]
+
+$environmentValues = [ordered]@{
+  ALBAM_MATE_LOCAL_DB_HOST = [string]$postgresPort.host_ip
+  ALBAM_MATE_LOCAL_DB_PORT = [string]$postgresPort.published
+  ALBAM_MATE_LOCAL_DB_NAME = [string]$postgres.environment.POSTGRES_DB
+  ALBAM_MATE_LOCAL_DB_USER = [string]$postgres.environment.POSTGRES_USER
+  ALBAM_MATE_LOCAL_DB_PASSWORD = [string]$postgres.environment.POSTGRES_PASSWORD
+}
+$missingEnvironmentKeys = @(
+  foreach ($entry in $environmentValues.GetEnumerator()) {
+    if ([string]::IsNullOrEmpty($entry.Value)) {
+      $entry.Key
+    }
+  }
+)
+if ($missingEnvironmentKeys.Count -gt 0) {
+  throw "Missing required ALBAM environment variables: $($missingEnvironmentKeys -join ', ')"
+}
+foreach ($entry in $environmentValues.GetEnumerator()) {
+  [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, [EnvironmentVariableTarget]::Process)
+}
+
+.\gradlew.bat bootRun --args='--spring.profiles.active=local'
+```
+
+애플리케이션을 `Ctrl+C`로 종료한 뒤 PostgreSQL 컨테이너만 중지한다. named volume의 개발 데이터는 유지된다.
+
+```powershell
+docker compose --env-file .env -f compose.local.yml down
+```
+
+로컬 데이터를 명시적으로 초기화할 때만 volume까지 삭제한다.
+
+```powershell
+docker compose --env-file .env -f compose.local.yml down --volumes
+```
+
 ## PostgreSQL 마이그레이션 검증
 
 `postgresTest`는 Testcontainers가 PostgreSQL 18.4 컨테이너(`postgres:18.4`)를
