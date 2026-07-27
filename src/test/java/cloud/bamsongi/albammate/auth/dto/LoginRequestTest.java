@@ -44,4 +44,17 @@ class LoginRequestTest {
                 LoginValidationException.class,
                 () -> new LoginRequest("not-an-email", "password").normalizeAndValidate());
     }
+
+    @Test
+    void 회원가입_후_로그인은_보충_평면_문자를_포함한_정확히_255_code_point_이메일을_같이_허용한다() {
+        String email = "😀😀" + "a".repeat(251) + "@b";
+        String password = "123456789012345";
+        SignupRequest.Normalized signup =
+                new SignupRequest(email, password, "닉네임").normalizeAndValidate();
+        LoginRequest.Normalized login =
+                new LoginRequest(signup.email(), password).normalizeAndValidate();
+
+        assertEquals(255, signup.email().codePointCount(0, signup.email().length()));
+        assertEquals(signup.email(), login.email());
+    }
 }
