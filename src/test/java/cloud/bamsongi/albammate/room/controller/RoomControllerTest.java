@@ -1,4 +1,4 @@
-package cloud.bamsongi.albammate.room;
+package cloud.bamsongi.albammate.room.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -19,9 +19,14 @@ import cloud.bamsongi.albammate.global.security.ApiAuthenticationEntryPoint;
 import cloud.bamsongi.albammate.global.security.CurrentUserPrincipal;
 import cloud.bamsongi.albammate.global.security.SecurityContextCurrentUserAccessor;
 import cloud.bamsongi.albammate.global.security.SecurityErrorResponseWriter;
-import cloud.bamsongi.albammate.room.entity.ExperienceLevel;
-import cloud.bamsongi.albammate.room.entity.RoomStatus;
-import cloud.bamsongi.albammate.room.entity.RoomType;
+import cloud.bamsongi.albammate.room.dto.CreateRoomRequest;
+import cloud.bamsongi.albammate.room.dto.NicknameSummary;
+import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
+import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
+import cloud.bamsongi.albammate.room.enums.MyRole;
+import cloud.bamsongi.albammate.room.enums.RoomStatus;
+import cloud.bamsongi.albammate.room.enums.RoomType;
+import cloud.bamsongi.albammate.room.service.RoomCreateService;
 import java.time.Instant;
 import java.util.List;
 import org.hamcrest.Matchers;

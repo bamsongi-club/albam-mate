@@ -1,6 +1,9 @@
 package cloud.bamsongi.albammate.room.entity;
 
 import cloud.bamsongi.albammate.global.entity.BaseEntity;
+import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
+import cloud.bamsongi.albammate.room.enums.RoomStatus;
+import cloud.bamsongi.albammate.room.enums.RoomType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

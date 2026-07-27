@@ -1,4 +1,4 @@
-package cloud.bamsongi.albammate.room;
+package cloud.bamsongi.albammate.room.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -13,9 +13,13 @@ import cloud.bamsongi.albammate.game.GameSummary;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.exception.UnauthenticatedException;
-import cloud.bamsongi.albammate.room.entity.ExperienceLevel;
+import cloud.bamsongi.albammate.room.dto.CreateRoomRequest;
+import cloud.bamsongi.albammate.room.dto.NicknameSummary;
+import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
 import cloud.bamsongi.albammate.room.entity.Room;
-import cloud.bamsongi.albammate.room.entity.RoomType;
+import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
+import cloud.bamsongi.albammate.room.enums.MyRole;
+import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.user.service.UserQuery;
 import java.time.Clock;

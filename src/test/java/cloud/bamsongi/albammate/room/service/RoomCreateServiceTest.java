@@ -1,12 +1,14 @@
-package cloud.bamsongi.albammate.room;
+package cloud.bamsongi.albammate.room.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import cloud.bamsongi.albammate.room.entity.ExperienceLevel;
-import cloud.bamsongi.albammate.room.entity.RoomStatus;
-import cloud.bamsongi.albammate.room.entity.RoomType;
+import cloud.bamsongi.albammate.room.dto.CreateRoomRequest;
+import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
+import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
+import cloud.bamsongi.albammate.room.enums.RoomStatus;
+import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import java.time.Clock;
 import java.time.Instant;

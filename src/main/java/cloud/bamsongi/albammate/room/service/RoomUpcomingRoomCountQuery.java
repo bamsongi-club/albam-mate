@@ -1,8 +1,8 @@
-package cloud.bamsongi.albammate.room;
+package cloud.bamsongi.albammate.room.service;
 
 import cloud.bamsongi.albammate.game.UpcomingRoomCountQuery;
-import cloud.bamsongi.albammate.room.entity.RoomStatus;
-import cloud.bamsongi.albammate.room.entity.RoomType;
+import cloud.bamsongi.albammate.room.enums.RoomStatus;
+import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import java.time.Instant;
 import java.util.Collection;

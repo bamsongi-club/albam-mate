@@ -1,7 +1,10 @@
-package cloud.bamsongi.albammate.room;
+package cloud.bamsongi.albammate.room.controller;
 
 import cloud.bamsongi.albammate.global.response.ApiResponse;
 import cloud.bamsongi.albammate.global.security.CurrentUserAccessor;
+import cloud.bamsongi.albammate.room.dto.CreateRoomRequest;
+import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
+import cloud.bamsongi.albammate.room.service.RoomCreateService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
