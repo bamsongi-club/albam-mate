@@ -671,6 +671,61 @@ test("manifest 선택·판본 규칙과 제외 결과의 구조·건수를 검�
             );
         });
     });
+
+    await context.test("실제 카탈로그에 포함된 bgg_id를 제외 목록에 다시 기록하면 차단한다", () => {
+        withCase([game(1, "10", "첫 번째 게임", "First Game")], ({
+            games,
+            ranks,
+            manifest,
+            out,
+        }) => {
+            writeManifest(manifest, games, ranks, []);
+            const value = readJson(manifest);
+            value.selection.candidateRows = 2;
+            value.selection.includedRows = 1;
+            value.selection.excludedRows = 1;
+            value.selection.exclusions = [{ bgg_id: 10, reason: "확장 제외" }];
+            writeFileSync(manifest, `${JSON.stringify(value, null, 2)}\n`);
+
+            const result = runCli(games, ranks, out, manifest);
+
+            assert.equal(result.status, 1);
+            assert.ok(
+                readJson(join(out, "quality-report.json")).errors.some(
+                    ({ code }) => code === "SELECTION_EXCLUSION_OVERLAPS_CATALOG",
+                ),
+            );
+        });
+    });
+
+    await context.test("동일한 제외 식별자는 표현이 달라도 중복으로 차단한다", () => {
+        withCase([game(1, "10", "첫 번째 게임", "First Game")], ({
+            games,
+            ranks,
+            manifest,
+            out,
+        }) => {
+            writeManifest(manifest, games, ranks, []);
+            const value = readJson(manifest);
+            value.selection.candidateRows = 3;
+            value.selection.includedRows = 1;
+            value.selection.excludedRows = 2;
+            value.selection.exclusions = [
+                { identifier: "20", reason: "확장 제외" },
+                { id: 20, reason: "변형 제외" },
+            ];
+            writeFileSync(manifest, `${JSON.stringify(value, null, 2)}\n`);
+
+            const result = runCli(games, ranks, out, manifest);
+
+            assert.equal(result.status, 1);
+            assert.ok(
+                readJson(join(out, "quality-report.json")).errors.some(
+                    ({ code }) => code === "SELECTION_EXCLUSION_DUPLICATE",
+                ),
+            );
+        });
+    });
 });
 
 test("games 배열의 비객체 행은 구조화된 차단 오류로 보고한다", () => {

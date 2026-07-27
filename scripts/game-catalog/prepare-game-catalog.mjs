@@ -245,7 +245,7 @@ function prepareCatalog({ games: gamesPath, ranks: ranksPath, manifest: manifest
     const catalog = validGameRows
         .map((game) => normalizeGame(game))
         .sort((left, right) => left.bgg_id - right.bgg_id);
-    errors.push(...validateSelectionCounts(manifest, gameRows.length, catalog.length));
+    errors.push(...validateSelectionCounts(manifest, gameRows.length, catalog.length, catalog));
     const warnings = qualityWarnings(validGameRows, rankByBggId);
     const checks = checkSummary(validGameRows, rankByBggId);
     const acceptedWarnings = new Set(
@@ -897,7 +897,7 @@ function validateManifest(manifest, gamesPath, gamesContents, ranksPath, ranksCo
     return errors;
 }
 
-function validateSelectionCounts(manifest, inputRows, catalogRows) {
+function validateSelectionCounts(manifest, inputRows, catalogRows, catalog) {
     const selection = manifest?.selection;
     if (!isRecord(selection) || !Array.isArray(selection.exclusions)) {
         return [];
@@ -936,6 +936,35 @@ function validateSelectionCounts(manifest, inputRows, catalogRows) {
             inputRows,
         });
     }
+    const catalogBggIds = new Set(
+        catalog.map(({ bgg_id }) => canonicalBggId(bgg_id)).filter(Boolean),
+    );
+    const overlappingExclusions = [
+        ...new Set(
+            selection.exclusions
+                .map(exclusionBggId)
+                .filter((bggId) => bggId !== null && catalogBggIds.has(bggId)),
+        ),
+    ];
+    if (overlappingExclusions.length > 0) {
+        errors.push({
+            code: "SELECTION_EXCLUSION_OVERLAPS_CATALOG",
+            message: "실제 카탈로그에 포함된 bgg_id를 제외할 수 없습니다.",
+            count: overlappingExclusions.length,
+            sample: overlappingExclusions.slice(0, 10),
+        });
+    }
+    const duplicateExclusions = duplicateValues(
+        selection.exclusions.map(normalizedExclusionIdentifier).filter(Boolean),
+    );
+    if (duplicateExclusions.length > 0) {
+        errors.push({
+            code: "SELECTION_EXCLUSION_DUPLICATE",
+            message: "제외 목록에 같은 식별자가 중복됩니다.",
+            count: duplicateExclusions.length,
+            sample: duplicateExclusions.slice(0, 10),
+        });
+    }
     return errors;
 }
 
@@ -949,6 +978,30 @@ function isExclusionIdentifier(value) {
 
 function exclusionIdentifier(exclusion) {
     return exclusion?.identifier ?? exclusion?.bgg_id ?? exclusion?.id;
+}
+
+function exclusionBggId(exclusion) {
+    return canonicalExclusionBggId(exclusionIdentifier(exclusion));
+}
+
+function normalizedExclusionIdentifier(exclusion) {
+    const identifier = exclusionIdentifier(exclusion);
+    if (!isExclusionIdentifier(identifier)) {
+        return null;
+    }
+    return canonicalExclusionBggId(identifier) ?? String(identifier).trim();
+}
+
+function canonicalExclusionBggId(value) {
+    const canonical = canonicalBggId(value);
+    if (canonical !== null) {
+        return canonical;
+    }
+    if (typeof value !== "string") {
+        return null;
+    }
+    const prefixed = /^bgg_id:([1-9]\d*)$/.exec(value);
+    return canonicalBggId(prefixed?.[1]);
 }
 
 function completedText(value) {
