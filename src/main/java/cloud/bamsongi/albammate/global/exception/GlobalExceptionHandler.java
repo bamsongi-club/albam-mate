@@ -32,7 +32,18 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException exception) {
+        if (exception instanceof RateLimitExceededException rateLimitExceededException) {
+            return handleRateLimitExceeded(rateLimitExceededException);
+        }
         return error(exception.getErrorCode());
+    }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleRateLimitExceeded(
+            RateLimitExceededException exception) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.RETRY_AFTER, Integer.toString(exception.getRetryAfterSeconds()));
+        return error(exception.getErrorCode(), headers);
     }
 
     @ExceptionHandler({
