@@ -3,7 +3,6 @@ package cloud.bamsongi.albammate.auth.dto;
 import cloud.bamsongi.albammate.auth.exception.SignupValidationException;
 import cloud.bamsongi.albammate.auth.validation.ValidSignupRequest;
 import java.nio.charset.StandardCharsets;
-import java.util.Locale;
 
 /** 회원가입 요청 원문과 정규화된 내부 입력을 분리한다. */
 @ValidSignupRequest
@@ -14,13 +13,11 @@ public record SignupRequest(String email, String password, String nickname) {
             throw new SignupValidationException();
         }
 
-        String normalizedEmail = email.strip().toLowerCase(Locale.ROOT);
+        String normalizedEmail =
+                EmailNormalizer.normalize(email).orElseThrow(SignupValidationException::new);
         String normalizedNickname = nickname.strip();
 
-        if (!isValidEmail(normalizedEmail)
-                || normalizedEmail.codePointCount(0, normalizedEmail.length()) > 255
-                || !isValidPassword(password)
-                || !isValidNickname(normalizedNickname)) {
+        if (!isValidPassword(password) || !isValidNickname(normalizedNickname)) {
             throw new SignupValidationException();
         }
 
@@ -40,21 +37,6 @@ public record SignupRequest(String email, String password, String nickname) {
             return false;
         }
         return normalizedNickname.codePoints().noneMatch(Character::isISOControl);
-    }
-
-    private boolean isValidEmail(String normalizedEmail) {
-        if (normalizedEmail.isEmpty()
-                || normalizedEmail.codePoints().anyMatch(Character::isISOControl)
-                || normalizedEmail.chars().anyMatch(Character::isWhitespace)) {
-            return false;
-        }
-        int atIndex = normalizedEmail.indexOf('@');
-        return atIndex > 0
-                && atIndex == normalizedEmail.lastIndexOf('@')
-                && atIndex < normalizedEmail.length() - 1
-                && normalizedEmail.charAt(atIndex - 1) != '.'
-                && normalizedEmail.charAt(atIndex + 1) != '.'
-                && !normalizedEmail.substring(atIndex + 1).contains("..");
     }
 
     public record Normalized(String email, String password, String nickname) {}

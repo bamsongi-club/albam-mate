@@ -41,4 +41,9 @@ public class User extends BaseEntity {
     public static User create(String email, String passwordHash, String nickname) {
         return new User(email, passwordHash, nickname);
     }
+
+    /** 로그인 성공 뒤 비용 상향이 필요한 경우에만 저장 해시를 교체한다. */
+    public void changePasswordHash(String passwordHash) {
+        this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash");
+    }
 }
