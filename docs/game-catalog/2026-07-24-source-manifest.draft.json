@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "batchId": "2026-07-24-p0-game-catalog",
+  "toolCommit": "TODO: 변환 도구가 포함된 전체 Git commit SHA",
+  "sources": {
+    "games": {
+      "fileName": "games.json",
+      "sha256": "b11a6248db132a86c72621e96203287e016f39cb64cbe3d332e0f5e6c2e2bf8c",
+      "sourceReference": "TODO: 실제 자료 출처와 작성 또는 수집 방식을 기록",
+      "acquiredAt": "TODO: ISO 8601 취득 시각",
+      "usageTerms": "TODO: 이용 조건과 서비스 반영 가능 범위를 기록"
+    },
+    "ranks": {
+      "fileName": "boardgames_ranks07-24.csv",
+      "sha256": "b706d0ae3722e063f6b36b9faaf97f3533fce45605c0dfe01c347a68ea2aa56d",
+      "sourceReference": "TODO: 실제 BGG 다운로드 URL 또는 자료 위치를 기록",
+      "acquiredAt": "TODO: ISO 8601 취득 시각",
+      "usageTerms": "TODO: 확인한 BGG 이용 조건과 표시 요구를 기록"
+    }
+  },
+  "fieldSources": {
+    "bgg_id": "ranks.id",
+    "name": "games.name",
+    "english_name": "games.english_name; ranks.name과 일치 검증",
+    "alias": "games.alias",
+    "image_url": "games.image_url",
+    "recommended_player_count": "games.recommended_player_count",
+    "tag": "games.tag",
+    "estimated_play_time": "games.estimated_play_time",
+    "complexity": "games.complexity",
+    "description": "games.description",
+    "detail_description": "games.detail_description"
+  },
+  "review": {
+    "status": "pending",
+    "reviewedAt": null,
+    "reviewers": [],
+    "acceptedWarnings": []
+  }
+}
