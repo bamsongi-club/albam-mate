@@ -11,7 +11,7 @@ import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
 import cloud.bamsongi.albammate.global.security.PasswordHashConcurrencyLimiter;
 import cloud.bamsongi.albammate.global.security.PasswordHashExecutor;
 import cloud.bamsongi.albammate.global.security.PasswordHashPermit;
-import cloud.bamsongi.albammate.user.dto.UserAccount;
+import cloud.bamsongi.albammate.user.contract.UserAccount;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.exception.EmailAlreadyExistsException;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
@@ -34,8 +34,8 @@ class UserAccountServiceTest {
     @Test
     void 이메일을_먼저_중복확인하고_슬롯_안에서_해시해_계정을_저장한다() {
         PasswordHashConcurrencyLimiter limiter = new AlwaysAvailableLimiter();
-        UserAccountService service =
-                new UserAccountService(
+        UserAccountApplicationService service =
+                new UserAccountApplicationService(
                         userRepository, passwordEncoder, new PasswordHashExecutor(limiter));
         when(userRepository.existsByEmail("user@example.com")).thenReturn(false);
         when(passwordEncoder.encode("123456789012345")).thenReturn("{bcrypt}encoded");
@@ -58,8 +58,8 @@ class UserAccountServiceTest {
     @Test
     void 사전_중복이면_해시와_저장을_수행하지_않는다() {
         PasswordHashConcurrencyLimiter limiter = new AlwaysAvailableLimiter();
-        UserAccountService service =
-                new UserAccountService(
+        UserAccountApplicationService service =
+                new UserAccountApplicationService(
                         userRepository, passwordEncoder, new PasswordHashExecutor(limiter));
         when(userRepository.existsByEmail("user@example.com")).thenReturn(true);
 
@@ -75,8 +75,8 @@ class UserAccountServiceTest {
     @Test
     void DB_unique_경쟁도_EMAIL_ALREADY_EXISTS로_변환한다() {
         PasswordHashConcurrencyLimiter limiter = new AlwaysAvailableLimiter();
-        UserAccountService service =
-                new UserAccountService(
+        UserAccountApplicationService service =
+                new UserAccountApplicationService(
                         userRepository, passwordEncoder, new PasswordHashExecutor(limiter));
         when(userRepository.existsByEmail("user@example.com")).thenReturn(false);
         when(passwordEncoder.encode("123456789012345")).thenReturn("{bcrypt}encoded");
@@ -93,8 +93,8 @@ class UserAccountServiceTest {
     @Test
     void 해시_슬롯이_없으면_사용자_생성을_시작하지_않는다() {
         PasswordHashConcurrencyLimiter limiter = new NoSlotLimiter();
-        UserAccountService service =
-                new UserAccountService(
+        UserAccountApplicationService service =
+                new UserAccountApplicationService(
                         userRepository, passwordEncoder, new PasswordHashExecutor(limiter));
 
         assertThrows(

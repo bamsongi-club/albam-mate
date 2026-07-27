@@ -1,4 +1,4 @@
-package cloud.bamsongi.albammate.user.service;
+package cloud.bamsongi.albammate.user.contract;
 
 import java.util.Optional;
 

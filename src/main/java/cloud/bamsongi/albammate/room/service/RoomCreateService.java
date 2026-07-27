@@ -12,7 +12,7 @@ import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.MyRole;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
-import cloud.bamsongi.albammate.user.service.UserQuery;
+import cloud.bamsongi.albammate.user.contract.UserQuery;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;

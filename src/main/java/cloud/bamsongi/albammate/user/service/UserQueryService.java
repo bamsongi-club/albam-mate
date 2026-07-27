@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.user.service;
 
+import cloud.bamsongi.albammate.user.contract.UserQuery;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
