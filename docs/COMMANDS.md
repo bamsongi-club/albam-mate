@@ -27,6 +27,21 @@ Gradle은 별도 설치본 대신 저장소의 Wrapper를 사용한다.
 
 현재 저장소에는 운영용 데이터소스 연결값이 포함되어 있지 않다. `bootRun`은 PostgreSQL 연결 설정이 없으면 데이터소스 자동 설정 단계에서 실패한다. 테스트는 H2 인메모리 데이터베이스를 사용하므로 별도의 PostgreSQL 없이 `test`와 `build`를 실행할 수 있다.
 
+## PostgreSQL 마이그레이션 검증
+
+`postgresTest`는 Testcontainers가 PostgreSQL 18.4 컨테이너(`postgres:18.4`)를
+일회성으로 시작해 빈 데이터베이스에 Flyway 마이그레이션과 Hibernate
+`ddl-auto=validate`를 적용한다. H2 기반 `test`와 별도 태스크이므로 일반적인
+`test`·`build` 실행에는 Docker가 필요하지 않다.
+
+```sh
+./gradlew postgresTest --no-daemon --stacktrace
+```
+
+Docker 데몬이 없거나 Testcontainers가 컨테이너를 시작하지 못하면 테스트
+결과가 아니라 실행 환경 제약으로 기록한다. CI에서는 `build` 뒤에
+`postgresTest`를 명시적으로 실행한다.
+
 ## 코드 포맷 확인
 
 Java 포맷은 Google Java Format의 AOSP 스타일을 사용한다. 기본 Google 스타일과 달리 블록 들여쓰기가 4칸이다.

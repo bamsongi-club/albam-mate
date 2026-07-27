@@ -193,11 +193,27 @@ FND-04와 FND-05를 기반 작업으로 분리한 것은 인증 담당이나 구
 | 구현 규칙 | [테스트](../CONVENTIONS.md#테스트), [데이터베이스 변경](../CONVENTIONS.md#데이터베이스-변경) |
 | 실행 명령 | [프로젝트 명령](../COMMANDS.md) |
 | 선행 | [FND-03](#fnd-03-스키마와-엔티티-골격) |
-| 소유 경로 | `build.gradle`, `.github/workflows/ci.yml`, `docs/COMMANDS.md`, `src/test/**` |
+| 소유 경로 | `build.gradle`, `.github/workflows/ci.yml`, `docs/COMMANDS.md`, `src/postgresTest/**` |
 
 ### 운영 지원 버전 계약
 
 운영 지원 PostgreSQL 메이저 버전의 단일 정본은 이 절이다. FND-06 이슈 #19 담당자는 배포 환경 지원 여부, Spring Boot·PostgreSQL JDBC 드라이버·Testcontainers 호환성과 PostgreSQL 지원 종료 일정을 검토하고, 선택한 메이저 버전과 근거를 이 절에 기록한다.
+
+#### 선택 버전: PostgreSQL 18
+
+- 운영 지원 메이저 버전은 **PostgreSQL 18**로 고정한다. PostgreSQL 공식
+  버전 정책에 따라 메이저 버전은 5년 동안 지원되며, 18의 지원 종료일은
+  **2030-11-14**다. ([PostgreSQL versioning policy](https://www.postgresql.org/support/versioning/))
+- 검증 컨테이너 이미지는 운영 메이저 버전과 같은 `postgres:18.4`로
+  고정한다. ([PostgreSQL 18.4 release notes](https://www.postgresql.org/docs/release/18.4/))
+- Spring Boot 4.1의 공식 Testcontainers 지원에서
+  `PostgreSQLContainer`를 `@ServiceConnection`으로 등록하는 방식을 사용한다.
+  ([Spring Boot Testcontainers support](https://docs.spring.io/spring-boot/reference/testing/testcontainers.html))
+- PostgreSQL JDBC 드라이버는 공식 다운로드 페이지의 PostgreSQL 8.4 이상 지원
+  범위에 PostgreSQL 18을 포함한다. ([pgJDBC downloads](https://jdbc.postgresql.org/download/))
+- PostgreSQL 컨테이너와 JUnit 5 연동은 Testcontainers 공식 PostgreSQL 모듈과
+  JUnit 5 통합 모듈을 사용한다. ([Testcontainers PostgreSQL module](https://java.testcontainers.org/modules/databases/postgres/),
+  [Testcontainers JUnit 5 integration](https://java.testcontainers.org/test_framework_integration/junit_5/))
 
 버전 결정은 이 절을 변경한 문서 PR이 저장소의 리뷰 절차를 거쳐 `develop`에 머지되면 승인된 것으로 본다. 이슈 #19에는 머지된 PR URL과 커밋 SHA를 근거로 연결한다. 버전과 근거가 기록되지 않았거나 PR이 `develop`에 머지되지 않은 상태는 미결정이며 FND-08 착수 근거로 사용할 수 없다.
 
