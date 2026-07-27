@@ -96,7 +96,7 @@ class RoomCreateServiceTest {
     private Long insertGame(long bggId) {
         jdbcTemplate.update(
                 "insert into games "
-                        + "(bgg_id, name, english_name, recommended_player_count, tag, "
+                        + "(bgg_id, name, english_name, supported_player_count, tag, "
                         + "estimated_play_time, description, detail_description, created_at, updated_at) "
                         + "values (?, '테스트 게임', 'Test Game', '2~4명', '전략', '60~90분', "
                         + "'게임 설명', '게임 상세 설명', "

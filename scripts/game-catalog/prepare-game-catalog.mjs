@@ -17,7 +17,7 @@ const CATALOG_FIELDS = [
     "english_name",
     "alias",
     "image_url",
-    "recommended_player_count",
+    "supported_player_count",
     "tag",
     "estimated_play_time",
     "complexity",
@@ -29,7 +29,7 @@ const TEXT_FIELDS = [
     "english_name",
     "alias",
     "image_url",
-    "recommended_player_count",
+    "supported_player_count",
     "tag",
     "estimated_play_time",
     "description",
@@ -39,7 +39,7 @@ const REQUIRED_FIELDS = [
     "bgg_id",
     "name",
     "english_name",
-    "recommended_player_count",
+    "supported_player_count",
     "tag",
     "estimated_play_time",
     "description",
@@ -50,7 +50,7 @@ const FIELD_LENGTHS = {
     english_name: 255,
     alias: 255,
     image_url: 500,
-    recommended_player_count: 50,
+    supported_player_count: 50,
     tag: 30,
     estimated_play_time: 50,
 };
@@ -391,9 +391,9 @@ function qualityWarnings(games, rankByBggId) {
 
     addLowDiversityWarning(
         warnings,
-        "LOW_RECOMMENDED_PLAYER_COUNT_DIVERSITY",
-        "권장 인원",
-        games.map((game) => game.recommended_player_count),
+        "LOW_SUPPORTED_PLAYER_COUNT_DIVERSITY",
+        "가능 인원",
+        games.map((game) => game.supported_player_count),
         0.95,
     );
     addLowDiversityWarning(

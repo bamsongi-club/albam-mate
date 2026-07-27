@@ -54,6 +54,8 @@ test("승인된 입력은 내부 id를 제외한 결정적 카탈로그와 UPSER
 
         assert.deepEqual(catalog.map(({ bgg_id }) => bgg_id), [10, 20]);
         assert.ok(catalog.every((row) => !("id" in row)));
+        assert.ok(catalog.every((row) => row.supported_player_count === "2~4명"));
+        assert.ok(catalog.every((row) => !("recommended_player_count" in row)));
         assert.equal(report.checks.matchedRows, 2);
         assert.equal(report.checks.baselineNameMismatchRows, 0);
         assert.equal(report.checks.expansionRows, 0);
@@ -67,6 +69,8 @@ test("승인된 입력은 내부 id를 제외한 결정적 카탈로그와 UPSER
         assert.ok(report.versionRules.baseGame);
         assert.equal(report.toolCommit, "0123456789abcdef0123456789abcdef01234567");
         assert.match(sqlText, /^BEGIN;/);
+        assert.match(sqlText, /supported_player_count/);
+        assert.doesNotMatch(sqlText, /recommended_player_count/);
         assert.match(sqlText, /ON CONFLICT \(bgg_id\) DO UPDATE/);
         assert.match(sqlText, /COMMIT;\n$/);
         assert.doesNotMatch(sqlText, /DELETE FROM games/i);
@@ -86,6 +90,35 @@ test("승인된 입력은 내부 id를 제외한 결정적 카탈로그와 UPSER
             readFileSync(join(secondOut, "quality-report.json"), "utf8"),
             reportText,
         );
+    });
+});
+
+test("구 recommended_player_count만 있는 입력은 supported_player_count 필수 오류로 차단한다", () => {
+    withCase([game(1, "10", "첫 번째 게임", "First Game")], ({
+        games,
+        ranks,
+        manifest,
+        out,
+    }) => {
+        const rows = readJson(games);
+        rows[0].recommended_player_count = rows[0].supported_player_count;
+        delete rows[0].supported_player_count;
+        writeFileSync(games, `${JSON.stringify(rows, null, 2)}\n`);
+        writeManifest(manifest, games, ranks, []);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 1);
+        const report = readJson(join(out, "quality-report.json"));
+        const missingRequired = report.errors.find(
+            ({ code }) => code === "MISSING_REQUIRED_VALUE",
+        );
+        assert.ok(missingRequired);
+        assert.ok(
+            missingRequired.sample.some(({ fields }) => fields.includes("supported_player_count")),
+        );
+        assert.throws(() => readFileSync(join(out, "service-catalog.json")));
+        assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
     });
 });
 
@@ -459,7 +492,7 @@ test("complexity와 BGG rank가 섞인 표본에는 상관 경고를 추가하�
             `Mixed Game ${index + 1}`,
         );
         row.complexity = complexityValues[index % complexityValues.length];
-        row.recommended_player_count = `${2 + (index % 4)}~${4 + (index % 4)}명`;
+        row.supported_player_count = `${2 + (index % 4)}~${4 + (index % 4)}명`;
         row.estimated_play_time = `${30 + (index % 4) * 15}~${60 + (index % 4) * 15}분`;
         row.description = `${row.name} 설명 ${words[index]}`;
         row.detail_description = `${row.name} 상세 설명 ${words[index]}`;
@@ -909,7 +942,7 @@ function writeManifest(path, gamesPath, ranksPath, acceptedWarnings) {
             english_name: "games.english_name",
             alias: "games.alias",
             image_url: "games.image_url",
-            recommended_player_count: "games.recommended_player_count",
+            supported_player_count: "games.supported_player_count",
             tag: "games.tag",
             estimated_play_time: "games.estimated_play_time",
             complexity: "games.complexity",
@@ -960,7 +993,7 @@ function game(id, bggId, name, englishName) {
         english_name: englishName,
         alias: `${name}, ${englishName}`,
         image_url: `https://example.com/${bggId}.jpg`,
-        recommended_player_count: "2~4명",
+        supported_player_count: "2~4명",
         tag: "전략",
         estimated_play_time: "60~120분",
         complexity: 3.25,

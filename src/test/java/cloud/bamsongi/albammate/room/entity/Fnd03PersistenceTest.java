@@ -182,13 +182,13 @@ class Fnd03PersistenceTest {
     }
 
     @Test
-    void Hibernate는_validate이고_Flyway_V1_V2와_네_테이블이_적용된다() {
+    void Hibernate는_validate이고_Flyway_V1_V2_V3와_네_테이블이_적용된다() {
         assertEquals("validate", environment.getProperty("spring.jpa.hibernate.ddl-auto"));
 
         flyway.migrate();
         flyway.validate();
 
-        for (String version : Set.of("1", "2")) {
+        for (String version : Set.of("1", "2", "3")) {
             Integer applied =
                     jdbcTemplate.queryForObject(
                             "select count(*) from flyway_schema_history where version = ?",
@@ -351,7 +351,7 @@ class Fnd03PersistenceTest {
     private void insertGame(long id, long bggId) {
         jdbcTemplate.update(
                 "insert into games "
-                        + "(id, bgg_id, name, english_name, recommended_player_count, tag, "
+                        + "(id, bgg_id, name, english_name, supported_player_count, tag, "
                         + "estimated_play_time, description, detail_description, created_at, updated_at) "
                         + "values (?, ?, '테스트 게임', 'Test Game', '2~4명', '전략', '60분', "
                         + "'간단 설명', '상세 설명', TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z', "
@@ -363,7 +363,7 @@ class Fnd03PersistenceTest {
     private Long insertGameWithoutId(long bggId) {
         jdbcTemplate.update(
                 "insert into games "
-                        + "(bgg_id, name, english_name, recommended_player_count, tag, "
+                        + "(bgg_id, name, english_name, supported_player_count, tag, "
                         + "estimated_play_time, description, detail_description, created_at, updated_at) "
                         + "values (?, 'IDENTITY 테스트 게임', 'Identity Test Game', '2~4명', '전략', '60분', "
                         + "'간단 설명', '상세 설명', TIMESTAMP WITH TIME ZONE '2026-07-26T03:00:00Z', "
