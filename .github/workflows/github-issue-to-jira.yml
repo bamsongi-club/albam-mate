@@ -1,0 +1,157 @@
+name: Sync GitHub issue to Jira
+
+on:
+  issues:
+    types:
+      - opened
+      - reopened
+      - closed
+
+permissions: {}
+
+concurrency:
+  group: github-issue-to-jira-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync issue
+    if: ${{ github.event.issue.pull_request == null }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      JIRA_BASE_URL: https://jeg9017.atlassian.net
+      JIRA_PROJECT_KEY: EZIZ
+      JIRA_ISSUE_TYPE: Task
+      JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+      JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+      GITHUB_ISSUE_NUMBER: ${{ github.event.issue.number }}
+      GITHUB_ISSUE_ACTION: ${{ github.event.action }}
+      GITHUB_ISSUE_TITLE: ${{ github.event.issue.title }}
+      GITHUB_ISSUE_BODY: ${{ github.event.issue.body }}
+      GITHUB_ISSUE_STATE: ${{ github.event.issue.state }}
+      GITHUB_ISSUE_URL: ${{ github.event.issue.html_url }}
+      GITHUB_REPOSITORY_NAME: ${{ github.repository }}
+
+    steps:
+      - name: Create or synchronize Jira issue
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$JIRA_EMAIL" || -z "$JIRA_API_TOKEN" ]]; then
+            echo "JIRA_EMAIL and JIRA_API_TOKEN repository secrets are required."
+            exit 1
+          fi
+
+          jira_auth="$(printf '%s:%s' "$JIRA_EMAIL" "$JIRA_API_TOKEN" | base64 | tr -d '\n')"
+          jira_api="$JIRA_BASE_URL/rest/api/3"
+          github_label="github-issue-$GITHUB_ISSUE_NUMBER"
+
+          jira_request() {
+            curl --fail-with-body --silent --show-error \
+              -H "Authorization: Basic $jira_auth" \
+              -H "Accept: application/json" \
+              -H "Content-Type: application/json" \
+              "$@"
+          }
+
+          search_payload="$(jq -n \
+            --arg jql "project = $JIRA_PROJECT_KEY AND labels = $github_label" \
+            '{jql: $jql, maxResults: 1, fields: ["key", "status"]}')"
+          search_response="$(jira_request \
+            --request POST \
+            --data "$search_payload" \
+            "$jira_api/search/jql")"
+          jira_key="$(jq -r '.issues[0].key // empty' <<<"$search_response")"
+
+          if [[ -z "$jira_key" ]]; then
+            create_payload="$(jq -n \
+              --arg project "$JIRA_PROJECT_KEY" \
+              --arg issue_type "$JIRA_ISSUE_TYPE" \
+              --arg title "$GITHUB_ISSUE_TITLE" \
+              --arg body "${GITHUB_ISSUE_BODY:-본문 없음}" \
+              --arg number "$GITHUB_ISSUE_NUMBER" \
+              --arg state "$GITHUB_ISSUE_STATE" \
+              --arg url "$GITHUB_ISSUE_URL" \
+              --arg repository "$GITHUB_REPOSITORY_NAME" \
+              --arg github_label "$github_label" \
+              '
+              def paragraph($value):
+                {type: "paragraph", content: [{type: "text", text: $value}]};
+
+              {
+                fields: {
+                  project: {key: $project},
+                  issuetype: {name: $issue_type},
+                  summary: $title,
+                  labels: ["github-imported", $github_label],
+                  description: {
+                    type: "doc",
+                    version: 1,
+                    content: [
+                      paragraph("GitHub 원본"),
+                      paragraph("저장소: " + $repository),
+                      paragraph("GitHub 이슈: #" + $number),
+                      paragraph("원본 링크: " + $url),
+                      paragraph("GitHub 상태: " + $state),
+                      paragraph("본문"),
+                      paragraph($body)
+                    ]
+                  }
+                }
+              }')"
+            create_response="$(jira_request \
+              --request POST \
+              --data "$create_payload" \
+              "$jira_api/issue")"
+            jira_key="$(jq -r '.key // empty' <<<"$create_response")"
+            if [[ -z "$jira_key" ]]; then
+              echo "Jira issue creation returned no issue key."
+              exit 1
+            fi
+            echo "Created Jira issue $jira_key for GitHub issue #$GITHUB_ISSUE_NUMBER."
+          else
+            echo "Found existing Jira issue $jira_key for GitHub issue #$GITHUB_ISSUE_NUMBER."
+          fi
+
+          case "$GITHUB_ISSUE_ACTION" in
+            closed)
+              desired_status="완료"
+              ;;
+            opened|reopened)
+              desired_status="해야 할 일"
+              ;;
+            *)
+              echo "No status synchronization is configured for action $GITHUB_ISSUE_ACTION."
+              exit 0
+              ;;
+          esac
+
+          issue_response="$(jira_request \
+            --request GET \
+            "$jira_api/issue/$jira_key?fields=status")"
+          current_status="$(jq -r '.fields.status.name // empty' <<<"$issue_response")"
+          if [[ "$current_status" == "$desired_status" ]]; then
+            echo "$jira_key is already in status $desired_status."
+            exit 0
+          fi
+
+          transitions_response="$(jira_request \
+            --request GET \
+            "$jira_api/issue/$jira_key/transitions")"
+          transition_id="$(jq -r \
+            --arg desired_status "$desired_status" \
+            '.transitions[] | select(.to.name == $desired_status) | .id' \
+            <<<"$transitions_response" | head -n 1)"
+          if [[ -z "$transition_id" ]]; then
+            echo "No transition to status $desired_status is available for $jira_key."
+            exit 1
+          fi
+
+          transition_payload="$(jq -n --arg transition_id "$transition_id" '{transition: {id: $transition_id}}')"
+          jira_request \
+            --request POST \
+            --data "$transition_payload" \
+            "$jira_api/issue/$jira_key/transitions" >/dev/null
+          echo "Synchronized $jira_key to status $desired_status."
