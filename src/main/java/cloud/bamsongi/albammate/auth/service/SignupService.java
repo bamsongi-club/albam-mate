@@ -4,8 +4,8 @@ import cloud.bamsongi.albammate.auth.dto.SignupRequest;
 import cloud.bamsongi.albammate.auth.dto.UserSummary;
 import cloud.bamsongi.albammate.auth.exception.SignupValidationException;
 import cloud.bamsongi.albammate.global.security.AuthenticationRequestLimiter;
-import cloud.bamsongi.albammate.user.dto.UserAccount;
-import cloud.bamsongi.albammate.user.service.UserAccountService;
+import cloud.bamsongi.albammate.user.contract.UserAccount;
+import cloud.bamsongi.albammate.user.contract.UserAccountService;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
 
