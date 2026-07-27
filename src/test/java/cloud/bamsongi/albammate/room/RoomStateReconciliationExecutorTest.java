@@ -3,10 +3,10 @@ package cloud.bamsongi.albammate.room;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import cloud.bamsongi.albammate.room.entity.ExperienceLevel;
 import cloud.bamsongi.albammate.room.entity.Room;
-import cloud.bamsongi.albammate.room.entity.RoomStatus;
-import cloud.bamsongi.albammate.room.entity.RoomType;
+import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
+import cloud.bamsongi.albammate.room.enums.RoomStatus;
+import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import java.lang.reflect.Field;
 import java.time.Instant;

@@ -33,9 +33,9 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
             """
             select room
             from Room room
-            where (room.status = cloud.bamsongi.albammate.room.entity.RoomStatus.RECRUITING
+            where (room.status = cloud.bamsongi.albammate.room.enums.RoomStatus.RECRUITING
                     and room.startAt <= :requestTime)
-                or (room.status = cloud.bamsongi.albammate.room.entity.RoomStatus.CLOSED
+                or (room.status = cloud.bamsongi.albammate.room.enums.RoomStatus.CLOSED
                     and room.startAt <= :finishedThreshold)
             """)
     List<Room> findDueRooms(
