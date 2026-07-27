@@ -1,7 +1,7 @@
 package cloud.bamsongi.albammate.room;
 
+import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
@@ -11,8 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 /** 한 번의 상태 보정을 독립된 쓰기 트랜잭션에서 실행한다. */
 @Service
 class RoomStateReconciliationExecutor {
-
-    private static final Duration AUTOMATIC_FINISH_AFTER_START = Duration.ofHours(24);
 
     private final RoomRepository roomRepository;
 
@@ -40,7 +38,7 @@ class RoomStateReconciliationExecutor {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void reconcileDueRooms(Instant requestTime) {
         Objects.requireNonNull(requestTime, "requestTime");
-        Instant finishedThreshold = requestTime.minus(AUTOMATIC_FINISH_AFTER_START);
+        Instant finishedThreshold = requestTime.minus(Room.AUTOMATIC_FINISH_AFTER_START);
         roomRepository
                 .findDueRooms(requestTime, finishedThreshold)
                 .forEach(

@@ -26,7 +26,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "rooms")
 public class Room extends BaseEntity {
 
-    private static final Duration AUTOMATIC_FINISH_AFTER_START = Duration.ofHours(24);
+    public static final Duration AUTOMATIC_FINISH_AFTER_START = Duration.ofHours(24);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
