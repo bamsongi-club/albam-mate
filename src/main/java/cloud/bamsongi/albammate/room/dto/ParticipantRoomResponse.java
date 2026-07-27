@@ -1,6 +1,6 @@
 package cloud.bamsongi.albammate.room.dto;
 
-import cloud.bamsongi.albammate.game.GameSummary;
+import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.MyRole;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;

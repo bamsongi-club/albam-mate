@@ -7,7 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import cloud.bamsongi.albammate.game.UpcomingRoomCountQuery;
+import cloud.bamsongi.albammate.game.contract.UpcomingRoomCountQuery;
 import cloud.bamsongi.albammate.game.dto.GameDetail;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.repository.GameRepository;

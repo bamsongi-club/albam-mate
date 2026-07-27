@@ -1,4 +1,4 @@
-package cloud.bamsongi.albammate.game;
+package cloud.bamsongi.albammate.game.contract;
 
 import java.util.Optional;
 

@@ -1,6 +1,6 @@
 package cloud.bamsongi.albammate.game.service;
 
-import cloud.bamsongi.albammate.game.UpcomingRoomCountQuery;
+import cloud.bamsongi.albammate.game.contract.UpcomingRoomCountQuery;
 import cloud.bamsongi.albammate.game.dto.GameDetail;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.repository.GameRepository;

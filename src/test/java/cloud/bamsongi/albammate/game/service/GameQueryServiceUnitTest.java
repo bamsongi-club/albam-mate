@@ -5,7 +5,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import cloud.bamsongi.albammate.game.GameSummary;
+import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;

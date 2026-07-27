@@ -1,7 +1,7 @@
 package cloud.bamsongi.albammate.room.service;
 
-import cloud.bamsongi.albammate.game.GameQuery;
-import cloud.bamsongi.albammate.game.GameSummary;
+import cloud.bamsongi.albammate.game.contract.GameQuery;
+import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.exception.UnauthenticatedException;
