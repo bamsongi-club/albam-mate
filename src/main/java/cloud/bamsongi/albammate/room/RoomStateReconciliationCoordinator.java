@@ -5,6 +5,7 @@ import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import jakarta.persistence.OptimisticLockException;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.function.IntConsumer;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
@@ -24,16 +25,22 @@ public class RoomStateReconciliationCoordinator {
     public void reconcileRoom(Long roomId, Instant requestTime) {
         Objects.requireNonNull(roomId, "roomId");
         Objects.requireNonNull(requestTime, "requestTime");
-        executeWithRetry(() -> executor.reconcileRoom(roomId, requestTime));
+        executeWithRetry(() -> executor.reconcileRoom(roomId, requestTime), ignoredAttempt -> {});
     }
 
     /** 목록·내 모임 필터와 페이지 계산 전에 due 방 전체를 보정한다. */
     public void reconcileDueRooms(Instant requestTime) {
-        Objects.requireNonNull(requestTime, "requestTime");
-        executeWithRetry(() -> executor.reconcileDueRooms(requestTime));
+        reconcileDueRooms(requestTime, ignoredAttempt -> {});
     }
 
-    private void executeWithRetry(Runnable reconciliationAttempt) {
+    /** 스케줄러처럼 재시도 전 지연이 필요한 호출자만 시도별 지연을 주입한다. */
+    void reconcileDueRooms(Instant requestTime, IntConsumer beforeRetry) {
+        Objects.requireNonNull(requestTime, "requestTime");
+        Objects.requireNonNull(beforeRetry, "beforeRetry");
+        executeWithRetry(() -> executor.reconcileDueRooms(requestTime), beforeRetry);
+    }
+
+    private void executeWithRetry(Runnable reconciliationAttempt, IntConsumer beforeRetry) {
         RuntimeException lastConflict = null;
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             try {
@@ -43,6 +50,9 @@ public class RoomStateReconciliationCoordinator {
                 lastConflict = exception;
             } catch (ObjectOptimisticLockingFailureException exception) {
                 lastConflict = exception;
+            }
+            if (attempt < MAX_ATTEMPTS) {
+                beforeRetry.accept(attempt + 1);
             }
         }
 

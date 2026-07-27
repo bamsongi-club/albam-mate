@@ -14,6 +14,7 @@ import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.entity.Room;
 import jakarta.persistence.OptimisticLockException;
 import java.time.Instant;
+import java.util.function.IntConsumer;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -136,5 +137,42 @@ class RoomStateReconciliationCoordinatorTest {
         verify(executor, times(2)).reconcileDueRooms(requestTimes.capture());
         requestTimes.getAllValues().forEach(requestTime -> assertSame(REQUEST_TIME, requestTime));
         verify(executor, times(2)).reconcileDueRooms(eq(REQUEST_TIME));
+    }
+
+    @Test
+    void 스케줄러_재시도_hook은_충돌_뒤_두번째와_세번째_시도_전에만_호출된다() {
+        RoomStateReconciliationExecutor executor = mock(RoomStateReconciliationExecutor.class);
+        RoomStateReconciliationCoordinator coordinator =
+                new RoomStateReconciliationCoordinator(executor);
+        IntConsumer beforeRetry = mock(IntConsumer.class);
+        doThrow(new OptimisticLockException())
+                .doThrow(new OptimisticLockException())
+                .doThrow(new OptimisticLockException())
+                .when(executor)
+                .reconcileDueRooms(REQUEST_TIME);
+
+        assertThrows(
+                BusinessException.class,
+                () -> coordinator.reconcileDueRooms(REQUEST_TIME, beforeRetry));
+
+        verify(beforeRetry).accept(2);
+        verify(beforeRetry).accept(3);
+        verify(executor, times(3)).reconcileDueRooms(REQUEST_TIME);
+    }
+
+    @Test
+    void 공개_due_보정은_지연_hook_없이_기존처럼_세_번_즉시_재시도한다() {
+        RoomStateReconciliationExecutor executor = mock(RoomStateReconciliationExecutor.class);
+        RoomStateReconciliationCoordinator coordinator =
+                new RoomStateReconciliationCoordinator(executor);
+        doThrow(new OptimisticLockException())
+                .doThrow(new OptimisticLockException())
+                .doThrow(new OptimisticLockException())
+                .when(executor)
+                .reconcileDueRooms(REQUEST_TIME);
+
+        assertThrows(BusinessException.class, () -> coordinator.reconcileDueRooms(REQUEST_TIME));
+
+        verify(executor, times(3)).reconcileDueRooms(REQUEST_TIME);
     }
 }
