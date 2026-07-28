@@ -8,6 +8,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.util.Set;
+import java.util.UUID;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
@@ -42,7 +43,7 @@ class PostgresSchemaValidationTest {
     @Autowired private DataSource dataSource;
 
     @Test
-    void 빈_PostgreSQL에_Flyway_V1_V2와_Hibernate_스키마_검증이_적용된다() {
+    void 빈_PostgreSQL에_Flyway_V1_V2_V3와_Hibernate_스키마_검증이_적용된다() {
         assertEquals("validate", environment.getProperty("spring.jpa.hibernate.ddl-auto"));
 
         flyway.validate();
@@ -55,7 +56,7 @@ class PostgresSchemaValidationTest {
                                 (resultSet, rowNumber) -> resultSet.getString("version"))
                         .stream()
                         .collect(java.util.stream.Collectors.toSet());
-        assertTrue(appliedVersions.containsAll(Set.of("1", "2")));
+        assertTrue(appliedVersions.containsAll(Set.of("1", "2", "3")));
 
         Set<String> actualTables =
                 jdbcTemplate
@@ -67,6 +68,44 @@ class PostgresSchemaValidationTest {
                         .map(String::toLowerCase)
                         .collect(java.util.stream.Collectors.toSet());
         assertTrue(actualTables.containsAll(EXPECTED_TABLES));
+    }
+
+    @Test
+    void V3_컬럼_rename은_V2에서_저장한_기존_행의_값을_보존한다() {
+        String schemaName = "game_column_rename_" + UUID.randomUUID().toString().replace("-", "");
+        try {
+            migrate(schemaName, "2");
+            jdbcTemplate.update(
+                    "insert into "
+                            + schemaName
+                            + ".games "
+                            + "(bgg_id, name, english_name, recommended_player_count, tag, "
+                            + "estimated_play_time, description, detail_description, created_at, updated_at) "
+                            + "values (9001, '마이그레이션 테스트 게임', 'Migration Test Game', '2~4명', '전략', "
+                            + "'60~90분', '설명', '상세 설명', "
+                            + "TIMESTAMP WITH TIME ZONE '2026-07-27T00:00:00Z', "
+                            + "TIMESTAMP WITH TIME ZONE '2026-07-27T00:00:00Z')");
+
+            migrate(schemaName, null);
+
+            assertEquals(
+                    "2~4명",
+                    jdbcTemplate.queryForObject(
+                            "select supported_player_count from "
+                                    + schemaName
+                                    + ".games where bgg_id = 9001",
+                            String.class));
+            assertEquals(
+                    0,
+                    jdbcTemplate.queryForObject(
+                            "select count(*) from information_schema.columns "
+                                    + "where table_schema = ? and table_name = 'games' "
+                                    + "and column_name = 'recommended_player_count'",
+                            Integer.class,
+                            schemaName));
+        } finally {
+            jdbcTemplate.execute("drop schema if exists " + schemaName + " cascade");
+        }
     }
 
     @Test
@@ -132,6 +171,19 @@ class PostgresSchemaValidationTest {
             }
         }
         throw new AssertionError("Expected a PostgreSQL SQLException cause", throwable);
+    }
+
+    private void migrate(String schemaName, String target) {
+        var configuration =
+                Flyway.configure()
+                        .dataSource(dataSource)
+                        .locations("classpath:db/migration")
+                        .schemas(schemaName)
+                        .defaultSchema(schemaName);
+        if (target != null) {
+            configuration.target(target);
+        }
+        configuration.load().migrate();
     }
 
     private void insertUser(long id, String email) {

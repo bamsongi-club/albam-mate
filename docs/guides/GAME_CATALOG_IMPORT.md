@@ -2,6 +2,8 @@
 
 이 절차는 [ADR-0015](../adr/game/0015-bgg-baseline-team-collected-game-list.md)의 단일 BGG 기준 스냅샷, 출처 기록, 선검증과 트랜잭션 단위 `UPSERT` 규칙을 실행한다. 원본과 생성 산출물은 저장소에 커밋하지 않고, 출처 manifest와 검수 기록만 보관한다.
 
+입력 JSON의 `supported_player_count`는 게임 규칙상 플레이 가능한 인원 범위다. 이용자 평가 기반 추천 인원·최적 인원과는 구분한다.
+
 ## 1. 초안 검수
 
 manifest 없이 실행해 파일 체크섬, BGG 매핑과 품질 경고를 먼저 확인한다. 검수가 끝나기 전에는 `quality-report.json`만 생성되고 종료 코드는 실패다.

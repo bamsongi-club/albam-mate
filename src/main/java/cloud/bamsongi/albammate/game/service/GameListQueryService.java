@@ -55,7 +55,7 @@ public class GameListQueryService {
                 game.getName(),
                 game.getEnglishName(),
                 game.getImageUrl(),
-                game.getRecommendedPlayerCount(),
+                game.getSupportedPlayerCount(),
                 game.getTag(),
                 game.getEstimatedPlayTime(),
                 game.getComplexity(),

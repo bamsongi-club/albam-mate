@@ -109,7 +109,7 @@ class GameListQueryServiceTest {
         when(game.getName()).thenReturn(name);
         when(game.getEnglishName()).thenReturn("Catan");
         when(game.getImageUrl()).thenReturn(null);
-        when(game.getRecommendedPlayerCount()).thenReturn("3~4명");
+        when(game.getSupportedPlayerCount()).thenReturn("3~4명");
         when(game.getTag()).thenReturn("전략");
         when(game.getEstimatedPlayTime()).thenReturn("60~90분");
         when(game.getComplexity()).thenReturn(new BigDecimal("2.00"));

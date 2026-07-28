@@ -8,7 +8,7 @@ public record GameDetail(
         String name,
         String englishName,
         String imageUrl,
-        String recommendedPlayerCount,
+        String supportedPlayerCount,
         String tag,
         String estimatedPlayTime,
         BigDecimal complexity,

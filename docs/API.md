@@ -317,7 +317,7 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 | `name` | string | Y | N | 게임명 |
 | `englishName` | string | Y | N | 영문명 |
 | `imageUrl` | string | Y | Y | 대표 이미지 URL |
-| `recommendedPlayerCount` | string | Y | N | 표시용 권장 인원 (예: `2~4명`) |
+| `supportedPlayerCount` | string | Y | N | 표시용 가능 인원. 게임 규칙상 플레이 가능한 범위 (예: `2~4명`) |
 | `tag` | string | Y | N | 표시용 게임 스타일 태그. 목록 필터로 사용하지 않는다 |
 | `estimatedPlayTime` | string | Y | N | 표시용 예상 시간 (예: `30분`) |
 | `complexity` | number | Y | Y | 난이도 표시값 |

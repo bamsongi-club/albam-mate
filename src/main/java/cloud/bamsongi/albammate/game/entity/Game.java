@@ -38,8 +38,8 @@ public class Game extends BaseEntity {
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
-    @Column(name = "recommended_player_count", nullable = false, length = 50)
-    private String recommendedPlayerCount;
+    @Column(name = "supported_player_count", nullable = false, length = 50)
+    private String supportedPlayerCount;
 
     @Column(name = "tag", nullable = false, length = 30)
     private String tag;
@@ -60,7 +60,7 @@ public class Game extends BaseEntity {
             Long bggId,
             String name,
             String englishName,
-            String recommendedPlayerCount,
+            String supportedPlayerCount,
             String tag,
             String estimatedPlayTime,
             String description,
@@ -68,7 +68,7 @@ public class Game extends BaseEntity {
         this.bggId = bggId;
         this.name = name;
         this.englishName = englishName;
-        this.recommendedPlayerCount = recommendedPlayerCount;
+        this.supportedPlayerCount = supportedPlayerCount;
         this.tag = tag;
         this.estimatedPlayTime = estimatedPlayTime;
         this.description = description;

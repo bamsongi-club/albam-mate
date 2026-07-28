@@ -53,7 +53,7 @@ class GameDetailQueryServiceUnitTest {
         when(game.getEnglishName()).thenReturn("Catan");
         when(game.getAlias()).thenReturn("카탄 기본판");
         when(game.getImageUrl()).thenReturn("https://example.com/catan.jpg");
-        when(game.getRecommendedPlayerCount()).thenReturn("3~4명");
+        when(game.getSupportedPlayerCount()).thenReturn("3~4명");
         when(game.getTag()).thenReturn("전략");
         when(game.getEstimatedPlayTime()).thenReturn("60~90분");
         when(game.getComplexity()).thenReturn(new BigDecimal("2.00"));

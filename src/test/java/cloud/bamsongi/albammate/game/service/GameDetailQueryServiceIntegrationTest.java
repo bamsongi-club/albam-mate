@@ -91,7 +91,7 @@ class GameDetailQueryServiceIntegrationTest {
         assertEquals(listItem.name(), detail.name());
         assertEquals(listItem.englishName(), detail.englishName());
         assertEquals(listItem.imageUrl(), detail.imageUrl());
-        assertEquals(listItem.recommendedPlayerCount(), detail.recommendedPlayerCount());
+        assertEquals(listItem.supportedPlayerCount(), detail.supportedPlayerCount());
         assertEquals(listItem.tag(), detail.tag());
         assertEquals(listItem.estimatedPlayTime(), detail.estimatedPlayTime());
         assertEquals(listItem.complexity(), detail.complexity());
