@@ -5,6 +5,7 @@ import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -13,16 +14,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** 요청 경계 상태 보정 후 최신 공개 목록을 읽는 독립 읽기 트랜잭션이다. */
 @Service
+@RequiredArgsConstructor
 public class RoomListReadService {
 
     private static final Set<RoomStatus> PUBLIC_STATUSES =
             Set.of(RoomStatus.RECRUITING, RoomStatus.CLOSED);
 
     private final RoomRepository roomRepository;
-
-    public RoomListReadService(RoomRepository roomRepository) {
-        this.roomRepository = roomRepository;
-    }
 
     @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
     public RoomListReadResult findPublicRooms(

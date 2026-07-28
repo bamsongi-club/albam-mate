@@ -7,19 +7,18 @@ import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import java.time.Instant;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /** 방 취소·종료 한 번을 상태 보정과 함께 독립된 쓰기 트랜잭션에서 실행한다. */
 @Service
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 class RoomStatusChangeExecutor {
 
     private final RoomRepository roomRepository;
-
-    RoomStatusChangeExecutor(RoomRepository roomRepository) {
-        this.roomRepository = roomRepository;
-    }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public RoomStatusResponse cancelRoom(long currentUserId, long roomId, Instant requestTime) {
