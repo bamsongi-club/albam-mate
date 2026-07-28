@@ -59,7 +59,7 @@ Albam Mate 백엔드는 하나의 Gradle 프로젝트와 하나의 Spring Boot �
 
 ## 검증
 
-- 상태: 미검증
-- 근거: 현재 소스에는 `AlbamMateApplication` 진입점만 있고 업무 도메인 패키지와 모듈 경계 테스트가 없다. 첫 도메인 구현과 구조 검증 테스트가 추가된 PR을 연결한 뒤 검증 상태를 갱신한다.
+- 상태: 검증됨
+- 근거: [PR #83](https://github.com/bamsongi-club/albam-mate/pull/83)에서 ArchUnit 기반 구조 테스트를 추가해 업무 모듈의 순환 의존, 다른 모듈 내부 구현 참조와 허용되지 않은 의존 방향을 검증했으며 CI가 통과했다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.
