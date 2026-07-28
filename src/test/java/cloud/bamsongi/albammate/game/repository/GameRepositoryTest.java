@@ -41,14 +41,15 @@ class GameRepositoryTest {
                         GameFixture.valid(1002L, "Catan Junior"),
                         GameFixture.valid(1003L, "Azul")));
 
-        Page<Game> result =
-                gameRepository.findByNameContainingIgnoreCase(
+        Page<GameListRow> result =
+                gameRepository.findListRowsByNameContainingIgnoreCase(
                         "CATAN", PageRequest.of(0, 1, Sort.by(Sort.Direction.ASC, "bggId")));
 
         assertEquals(2, result.getTotalElements());
         assertEquals(2, result.getTotalPages());
         assertEquals(1, result.getNumberOfElements());
-        assertEquals(List.of("Catan"), result.getContent().stream().map(Game::getName).toList());
+        assertEquals(
+                List.of("Catan"), result.getContent().stream().map(GameListRow::name).toList());
     }
 
     @Test
@@ -72,7 +73,7 @@ class GameRepositoryTest {
                         List.of(GameFixture.valid(1001L, "카탄"), GameFixture.valid(1002L, "아줄")));
 
         List<GameSummary> summaries =
-                gameRepository.findSummariesById(
+                gameRepository.findSummariesByIds(
                         List.of(
                                 savedGames.getFirst().getId(),
                                 savedGames.getLast().getId(),

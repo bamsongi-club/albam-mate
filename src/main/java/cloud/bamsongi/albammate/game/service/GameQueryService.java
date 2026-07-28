@@ -8,23 +8,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true)
+@RequiredArgsConstructor
 public class GameQueryService implements GameQuery {
 
     private final GameRepository gameRepository;
-
-    public GameQueryService(GameRepository gameRepository) {
-        this.gameRepository = gameRepository;
-    }
-
-    @Override
-    public boolean existsById(Long gameId) {
-        return gameRepository.existsById(gameId);
-    }
 
     @Override
     public Optional<GameSummary> findSummaryById(Long gameId) {
@@ -32,11 +25,11 @@ public class GameQueryService implements GameQuery {
     }
 
     @Override
-    public Map<Long, GameSummary> findSummariesById(Collection<Long> gameIds) {
+    public Map<Long, GameSummary> findSummariesByIds(Collection<Long> gameIds) {
         if (gameIds.isEmpty()) {
             return Map.of();
         }
-        return gameRepository.findSummariesById(gameIds).stream()
+        return gameRepository.findSummariesByIds(gameIds).stream()
                 .collect(Collectors.toMap(GameSummary::id, Function.identity()));
     }
 }

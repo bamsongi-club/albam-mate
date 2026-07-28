@@ -2,7 +2,6 @@ package cloud.bamsongi.albammate.game.service;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -30,14 +29,6 @@ class GameQueryServiceTest {
     @Autowired private GameQuery gameQuery;
 
     @Test
-    void 존재하는_ID는_true이고_없는_ID는_false다() {
-        Game savedGame = gameRepository.saveAndFlush(GameFixture.valid());
-
-        assertTrue(gameQuery.existsById(savedGame.getId()));
-        assertFalse(gameQuery.existsById(999_999L));
-    }
-
-    @Test
     void 존재하는_ID는_id_bggId_name만_요약하고_없는_ID는_empty다() {
         Game savedGame = gameRepository.saveAndFlush(GameFixture.valid());
 
@@ -61,7 +52,7 @@ class GameQueryServiceTest {
                         List.of(GameFixture.valid(1001L, "카탄"), GameFixture.valid(1002L, "아줄")));
 
         Map<Long, GameSummary> summaries =
-                gameQuery.findSummariesById(
+                gameQuery.findSummariesByIds(
                         List.of(
                                 savedGames.getFirst().getId(),
                                 savedGames.getLast().getId(),

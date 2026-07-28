@@ -20,6 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import cloud.bamsongi.albammate.global.config.SecurityConfig;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.exception.GlobalExceptionHandler;
+import cloud.bamsongi.albammate.global.response.PageResponse;
 import cloud.bamsongi.albammate.global.security.ApiAccessDeniedHandler;
 import cloud.bamsongi.albammate.global.security.ApiAuthenticationEntryPoint;
 import cloud.bamsongi.albammate.global.security.CurrentUserPrincipal;
@@ -29,7 +30,6 @@ import cloud.bamsongi.albammate.room.dto.CreateRoomRequest;
 import cloud.bamsongi.albammate.room.dto.NicknameSummary;
 import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
 import cloud.bamsongi.albammate.room.dto.PublicRoomResponse;
-import cloud.bamsongi.albammate.room.dto.RoomPageResponse;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import cloud.bamsongi.albammate.room.dto.RoomStatusResponse;
 import cloud.bamsongi.albammate.room.dto.RoomUpdateRequest;
@@ -527,8 +527,8 @@ class RoomControllerTest {
                 List.of(host));
     }
 
-    private RoomPageResponse pageResponse(boolean joinable) {
-        return new RoomPageResponse(
+    private PageResponse<PublicRoomResponse> pageResponse(boolean joinable) {
+        return new PageResponse<>(
                 List.of(
                         new PublicRoomResponse(
                                 1L,

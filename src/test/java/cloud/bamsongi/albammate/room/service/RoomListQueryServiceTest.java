@@ -66,7 +66,7 @@ class RoomListQueryServiceTest {
         when(roomListReadService.findPublicRooms(RoomType.GAME_FOCUSED, 7L, null, pageable, 99L))
                 .thenReturn(readResult(List.of(room), pageable, Set.of()));
         GameSummary game = new GameSummary(7L, 1007L, "카탄");
-        when(gameQuery.findSummariesById(Set.of(7L))).thenReturn(Map.of(7L, game));
+        when(gameQuery.findSummariesByIds(Set.of(7L))).thenReturn(Map.of(7L, game));
 
         var response =
                 roomListQueryService.findPage(
@@ -78,7 +78,7 @@ class RoomListQueryServiceTest {
         assertEquals(2, response.content().getFirst().remainingRecruitmentSeats());
         assertTrue(response.content().getFirst().joinable());
         assertEquals(1, response.totalElements());
-        verify(gameQuery).findSummariesById(Set.of(7L));
+        verify(gameQuery).findSummariesByIds(Set.of(7L));
         InOrder inOrder = inOrder(reconciliationCoordinator, roomListReadService);
         inOrder.verify(reconciliationCoordinator).reconcileDueRooms(NOW);
         inOrder.verify(roomListReadService)
@@ -128,7 +128,7 @@ class RoomListQueryServiceTest {
         Room third = room(3L, 8L, 44L, RoomStatus.RECRUITING, 0, 3, NOW.plusSeconds(180));
         when(roomListReadService.findPublicRooms(RoomType.GAME_FOCUSED, 7L, null, pageable, 99L))
                 .thenReturn(readResult(List.of(first, second, third), pageable, Set.of()));
-        when(gameQuery.findSummariesById(Set.of(7L, 8L)))
+        when(gameQuery.findSummariesByIds(Set.of(7L, 8L)))
                 .thenReturn(
                         Map.of(
                                 7L, new GameSummary(7L, 1007L, "카탄"),
@@ -136,7 +136,7 @@ class RoomListQueryServiceTest {
 
         roomListQueryService.findPage(RoomType.GAME_FOCUSED, 7L, null, 0, 10, Optional.of(99L));
 
-        verify(gameQuery, times(1)).findSummariesById(Set.of(7L, 8L));
+        verify(gameQuery, times(1)).findSummariesByIds(Set.of(7L, 8L));
     }
 
     @Test
@@ -146,7 +146,7 @@ class RoomListQueryServiceTest {
         when(room.getGameId()).thenReturn(999L);
         when(roomListReadService.findPublicRooms(RoomType.GAME_FOCUSED, 999L, null, pageable, null))
                 .thenReturn(readResult(List.of(room), pageable, Set.of()));
-        when(gameQuery.findSummariesById(Set.of(999L))).thenReturn(Map.of());
+        when(gameQuery.findSummariesByIds(Set.of(999L))).thenReturn(Map.of());
 
         BusinessException exception =
                 assertThrows(
@@ -204,7 +204,7 @@ class RoomListQueryServiceTest {
                         .content()
                         .getFirst()
                         .joinable());
-        verify(gameQuery, never()).findSummariesById(org.mockito.ArgumentMatchers.any());
+        verify(gameQuery, never()).findSummariesByIds(org.mockito.ArgumentMatchers.any());
     }
 
     @Test

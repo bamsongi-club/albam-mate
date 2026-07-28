@@ -7,10 +7,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
-import cloud.bamsongi.albammate.room.dto.MyRoomPageResponse;
+import cloud.bamsongi.albammate.global.response.PageResponse;
+import cloud.bamsongi.albammate.room.dto.MyRoomListItem;
 import cloud.bamsongi.albammate.room.dto.PublicRoomResponse;
 import cloud.bamsongi.albammate.room.dto.RoomDetailResponse;
-import cloud.bamsongi.albammate.room.dto.RoomPageResponse;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.MyRoomRole;
@@ -71,7 +71,7 @@ class Room06RequestBoundaryQueryIntegrationTest {
         Room closedAtStart = saveRoom(host, NOW, "시작 경계 방");
         Room futureRoom = saveRoom(host, NOW.plusSeconds(1), "미래 방");
 
-        RoomPageResponse response =
+        PageResponse<PublicRoomResponse> response =
                 roomListQueryService.findPage(
                         RoomType.PERSON_FOCUSED, null, null, 0, 1, Optional.empty());
 
@@ -119,7 +119,7 @@ class Room06RequestBoundaryQueryIntegrationTest {
         User host = saveUser("내 모임 호스트");
         Room room = saveRoom(host, NOW.minus(Room.AUTOMATIC_FINISH_AFTER_START), "내 모임 종료 방");
 
-        MyRoomPageResponse response =
+        PageResponse<MyRoomListItem> response =
                 myRoomQueryService.findPage(host.getId(), MyRoomRole.hosted, 0, 10);
 
         assertEquals(1, response.totalElements());

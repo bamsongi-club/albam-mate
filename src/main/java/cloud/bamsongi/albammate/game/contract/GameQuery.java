@@ -12,14 +12,6 @@ import java.util.Optional;
 public interface GameQuery {
 
     /**
-     * 게임이 존재하는지 확인합니다.
-     *
-     * @param gameId 알밤메이트 내부 게임 ID
-     * @return 미존재 게임이면 {@code false}
-     */
-    boolean existsById(Long gameId);
-
-    /**
      * 게임 요약을 조회합니다.
      *
      * @param gameId 알밤메이트 내부 게임 ID
@@ -33,5 +25,5 @@ public interface GameQuery {
      * @param gameIds 알밤메이트 내부 게임 ID
      * @return 존재하는 게임 ID를 키로 하는 게임 요약
      */
-    Map<Long, GameSummary> findSummariesById(Collection<Long> gameIds);
+    Map<Long, GameSummary> findSummariesByIds(Collection<Long> gameIds);
 }

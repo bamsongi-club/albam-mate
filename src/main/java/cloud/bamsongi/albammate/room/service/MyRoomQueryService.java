@@ -4,9 +4,9 @@ import cloud.bamsongi.albammate.game.contract.GameQuery;
 import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.global.response.PageResponse;
 import cloud.bamsongi.albammate.room.RoomStateReconciliationCoordinator;
 import cloud.bamsongi.albammate.room.dto.MyRoomListItem;
-import cloud.bamsongi.albammate.room.dto.MyRoomPageResponse;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.MyRole;
 import cloud.bamsongi.albammate.room.enums.MyRoomRole;
@@ -45,7 +45,8 @@ public class MyRoomQueryService {
     }
 
     /** 보정 커밋 뒤 역할 필터·중복 제거·고정 정렬이 적용된 내 모임 페이지를 반환한다. */
-    public MyRoomPageResponse findPage(Long currentUserId, MyRoomRole role, int page, int size) {
+    public PageResponse<MyRoomListItem> findPage(
+            Long currentUserId, MyRoomRole role, int page, int size) {
         Instant requestTime = Instant.now(clock);
         reconciliationCoordinator.reconcileDueRooms(requestTime);
 
@@ -54,8 +55,7 @@ public class MyRoomQueryService {
                         page, size, Sort.by(Sort.Order.desc("startAt"), Sort.Order.desc("id")));
         Page<Room> rooms = myRoomReadService.findMyRooms(currentUserId, role, pageable);
         Map<Long, GameSummary> gameSummaries = findGameSummaries(rooms);
-        return MyRoomPageResponse.from(
-                rooms.map(room -> toResponse(room, currentUserId, gameSummaries)));
+        return PageResponse.from(rooms.map(room -> toResponse(room, currentUserId, gameSummaries)));
     }
 
     private Map<Long, GameSummary> findGameSummaries(Page<Room> rooms) {
@@ -64,7 +64,7 @@ public class MyRoomQueryService {
                         .map(Room::getGameId)
                         .filter(Objects::nonNull)
                         .collect(Collectors.toSet());
-        return gameIds.isEmpty() ? Map.of() : gameQuery.findSummariesById(gameIds);
+        return gameIds.isEmpty() ? Map.of() : gameQuery.findSummariesByIds(gameIds);
     }
 
     private MyRoomListItem toResponse(

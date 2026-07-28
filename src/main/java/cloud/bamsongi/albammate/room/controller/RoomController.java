@@ -3,10 +3,11 @@ package cloud.bamsongi.albammate.room.controller;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.response.ApiResponse;
+import cloud.bamsongi.albammate.global.response.PageResponse;
 import cloud.bamsongi.albammate.global.security.CurrentUserAccessor;
 import cloud.bamsongi.albammate.room.dto.CreateRoomRequest;
 import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
-import cloud.bamsongi.albammate.room.dto.RoomPageResponse;
+import cloud.bamsongi.albammate.room.dto.PublicRoomResponse;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import cloud.bamsongi.albammate.room.dto.RoomStatusResponse;
 import cloud.bamsongi.albammate.room.dto.RoomStatusUpdateRequest;
@@ -68,7 +69,7 @@ public class RoomController {
     }
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    public ApiResponse<RoomPageResponse> listRooms(
+    public ApiResponse<PageResponse<PublicRoomResponse>> listRooms(
             @RequestParam RoomType type,
             @RequestParam(required = false) @Min(1) Long gameId,
             @RequestParam(required = false) String keyword,

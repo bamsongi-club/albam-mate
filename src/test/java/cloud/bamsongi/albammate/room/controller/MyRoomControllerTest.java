@@ -14,13 +14,13 @@ import cloud.bamsongi.albammate.global.config.SecurityConfig;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.exception.GlobalExceptionHandler;
+import cloud.bamsongi.albammate.global.response.PageResponse;
 import cloud.bamsongi.albammate.global.security.ApiAccessDeniedHandler;
 import cloud.bamsongi.albammate.global.security.ApiAuthenticationEntryPoint;
 import cloud.bamsongi.albammate.global.security.CurrentUserPrincipal;
 import cloud.bamsongi.albammate.global.security.SecurityContextCurrentUserAccessor;
 import cloud.bamsongi.albammate.global.security.SecurityErrorResponseWriter;
 import cloud.bamsongi.albammate.room.dto.MyRoomListItem;
-import cloud.bamsongi.albammate.room.dto.MyRoomPageResponse;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.MyRole;
 import cloud.bamsongi.albammate.room.enums.MyRoomRole;
@@ -125,8 +125,8 @@ class MyRoomControllerTest {
                         new CurrentUserPrincipal(userId), null, AuthorityUtils.NO_AUTHORITIES));
     }
 
-    private MyRoomPageResponse response() {
-        return new MyRoomPageResponse(
+    private PageResponse<MyRoomListItem> response() {
+        return new PageResponse<>(
                 List.of(
                         new MyRoomListItem(
                                 1L,
