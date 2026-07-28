@@ -13,6 +13,8 @@ import cloud.bamsongi.albammate.game.fixture.GameFixture;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 import cloud.bamsongi.albammate.global.config.JpaConfig;
 import cloud.bamsongi.albammate.global.config.TimeConfig;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -50,6 +52,27 @@ class GameQueryServiceTest {
                         .map(java.lang.reflect.RecordComponent::getName)
                         .toArray(String[]::new));
         assertTrue(gameQuery.findSummaryById(999_999L).isEmpty());
+    }
+
+    @Test
+    void 여러_ID는_존재하는_게임의_요약만_ID를_키로_반환한다() {
+        List<Game> savedGames =
+                gameRepository.saveAllAndFlush(
+                        List.of(GameFixture.valid(1001L, "카탄"), GameFixture.valid(1002L, "아줄")));
+
+        Map<Long, GameSummary> summaries =
+                gameQuery.findSummariesById(
+                        List.of(
+                                savedGames.getFirst().getId(),
+                                savedGames.getLast().getId(),
+                                999_999L));
+
+        assertEquals(2, summaries.size());
+        assertEquals(
+                savedGames.getFirst().getBggId(),
+                summaries.get(savedGames.getFirst().getId()).bggId());
+        assertEquals(
+                savedGames.getLast().getName(), summaries.get(savedGames.getLast().getId()).name());
     }
 
     @Test

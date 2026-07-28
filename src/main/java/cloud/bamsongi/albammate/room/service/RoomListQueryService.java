@@ -12,9 +12,12 @@ import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -57,7 +60,7 @@ public class RoomListQueryService {
         RoomListReadService.RoomListReadResult readResult =
                 roomListReadService.findPublicRooms(
                         roomType, gameId, normalizedKeyword, pageable, currentUserId.orElse(null));
-        Map<Long, GameSummary> gameSummaries = new HashMap<>();
+        Map<Long, GameSummary> gameSummaries = findGameSummaries(readResult.rooms().getContent());
         Page<PublicRoomResponse> response =
                 readResult
                         .rooms()
@@ -65,7 +68,7 @@ public class RoomListQueryService {
                                 room ->
                                         toResponse(
                                                 room,
-                                                resolveGame(room, gameSummaries),
+                                                getGameSummary(room, gameSummaries),
                                                 requestTime,
                                                 currentUserId,
                                                 readResult.activeParticipationRoomIds()));
@@ -82,17 +85,21 @@ public class RoomListQueryService {
                 : normalizedKeyword.replace("!", "!!").replace("%", "!%").replace("_", "!_");
     }
 
-    private GameSummary resolveGame(Room room, Map<Long, GameSummary> gameSummaries) {
+    private Map<Long, GameSummary> findGameSummaries(List<Room> rooms) {
+        Set<Long> gameIds =
+                rooms.stream()
+                        .map(Room::getGameId)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet());
+        return gameIds.isEmpty() ? Map.of() : gameQuery.findSummariesById(gameIds);
+    }
+
+    private GameSummary getGameSummary(Room room, Map<Long, GameSummary> gameSummaries) {
         if (room.getGameId() == null) {
             return null;
         }
-        return gameSummaries.computeIfAbsent(
-                room.getGameId(),
-                gameId ->
-                        gameQuery
-                                .findSummaryById(gameId)
-                                .orElseThrow(
-                                        () -> new BusinessException(ErrorCode.GAME_NOT_FOUND)));
+        return Optional.ofNullable(gameSummaries.get(room.getGameId()))
+                .orElseThrow(() -> new BusinessException(ErrorCode.GAME_NOT_FOUND));
     }
 
     private PublicRoomResponse toResponse(

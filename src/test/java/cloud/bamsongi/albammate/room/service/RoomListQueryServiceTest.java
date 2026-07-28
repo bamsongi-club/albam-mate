@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -24,6 +25,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
@@ -64,7 +66,7 @@ class RoomListQueryServiceTest {
         when(roomListReadService.findPublicRooms(RoomType.GAME_FOCUSED, 7L, null, pageable, 99L))
                 .thenReturn(readResult(List.of(room), pageable, Set.of()));
         GameSummary game = new GameSummary(7L, 1007L, "카탄");
-        when(gameQuery.findSummaryById(7L)).thenReturn(Optional.of(game));
+        when(gameQuery.findSummariesById(Set.of(7L))).thenReturn(Map.of(7L, game));
 
         var response =
                 roomListQueryService.findPage(
@@ -76,6 +78,7 @@ class RoomListQueryServiceTest {
         assertEquals(2, response.content().getFirst().remainingRecruitmentSeats());
         assertTrue(response.content().getFirst().joinable());
         assertEquals(1, response.totalElements());
+        verify(gameQuery).findSummariesById(Set.of(7L));
         InOrder inOrder = inOrder(reconciliationCoordinator, roomListReadService);
         inOrder.verify(reconciliationCoordinator).reconcileDueRooms(NOW);
         inOrder.verify(roomListReadService)
@@ -118,22 +121,22 @@ class RoomListQueryServiceTest {
     }
 
     @Test
-    void 같은_게임은_한번만_조회하고_서로_다른_게임은_각각_조회한다() {
+    void 페이지의_서로_다른_게임은_한번의_bulk_조회로_요약한다() {
         PageRequest pageable = pageable();
         Room first = room(1L, 7L, 42L, RoomStatus.RECRUITING, 0, 3, NOW.plusSeconds(60));
         Room second = room(2L, 7L, 43L, RoomStatus.RECRUITING, 0, 3, NOW.plusSeconds(120));
         Room third = room(3L, 8L, 44L, RoomStatus.RECRUITING, 0, 3, NOW.plusSeconds(180));
         when(roomListReadService.findPublicRooms(RoomType.GAME_FOCUSED, 7L, null, pageable, 99L))
                 .thenReturn(readResult(List.of(first, second, third), pageable, Set.of()));
-        when(gameQuery.findSummaryById(7L))
-                .thenReturn(Optional.of(new GameSummary(7L, 1007L, "카탄")));
-        when(gameQuery.findSummaryById(8L))
-                .thenReturn(Optional.of(new GameSummary(8L, 1008L, "아줄")));
+        when(gameQuery.findSummariesById(Set.of(7L, 8L)))
+                .thenReturn(
+                        Map.of(
+                                7L, new GameSummary(7L, 1007L, "카탄"),
+                                8L, new GameSummary(8L, 1008L, "아줄")));
 
         roomListQueryService.findPage(RoomType.GAME_FOCUSED, 7L, null, 0, 10, Optional.of(99L));
 
-        verify(gameQuery, times(1)).findSummaryById(7L);
-        verify(gameQuery, times(1)).findSummaryById(8L);
+        verify(gameQuery, times(1)).findSummariesById(Set.of(7L, 8L));
     }
 
     @Test
@@ -143,7 +146,7 @@ class RoomListQueryServiceTest {
         when(room.getGameId()).thenReturn(999L);
         when(roomListReadService.findPublicRooms(RoomType.GAME_FOCUSED, 999L, null, pageable, null))
                 .thenReturn(readResult(List.of(room), pageable, Set.of()));
-        when(gameQuery.findSummaryById(999L)).thenReturn(Optional.empty());
+        when(gameQuery.findSummariesById(Set.of(999L))).thenReturn(Map.of());
 
         BusinessException exception =
                 assertThrows(
@@ -201,6 +204,7 @@ class RoomListQueryServiceTest {
                         .content()
                         .getFirst()
                         .joinable());
+        verify(gameQuery, never()).findSummariesById(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
