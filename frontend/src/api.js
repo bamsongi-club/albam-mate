@@ -12,6 +12,7 @@ export class ApiError extends Error {
 
 let csrfToken;
 let csrfTokenRequest;
+let unauthenticatedHandler;
 
 function endpoint(path) {
   return API_BASE_PATH + path;
@@ -38,12 +39,17 @@ async function request(path, { method = 'GET', body, headers, signal } = {}) {
   const payload = await parsePayload(response);
 
   if (!response.ok) {
-    throw new ApiError({
+    const error = new ApiError({
       status: response.status,
       code: payload?.code || 'REQUEST_FAILED',
       message: payload?.message || '요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.',
       retryAfter: response.headers.get('retry-after')
     });
+    if (response.status === 401 && error.code === 'UNAUTHENTICATED') {
+      clearCsrfToken();
+      unauthenticatedHandler?.();
+    }
+    throw error;
   }
 
   if (!payload || payload.status !== response.status || !Object.hasOwn(payload, 'data')) {
@@ -85,6 +91,10 @@ async function mutate(path, options = {}) {
 
 export function clearCsrfToken() {
   csrfToken = undefined;
+}
+
+export function setUnauthenticatedHandler(handler) {
+  unauthenticatedHandler = handler;
 }
 
 function query(parameters) {

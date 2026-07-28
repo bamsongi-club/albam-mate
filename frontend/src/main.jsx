@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import brandSymbol from '../assets/albam-mate-symbol.png';
-import { ApiError, api, clearCsrfToken, messageForError } from './api';
+import { ApiError, api, clearCsrfToken, messageForError, setUnauthenticatedHandler } from './api';
 import './styles.css';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -176,6 +176,77 @@ function useRequest(load, dependencies) {
   }, dependencies);
 
   return state;
+}
+
+function usePagedRequest(loadPage, dependencies) {
+  const [state, setState] = useState({ data: null, loading: true, loadingMore: false, error: '', loadMoreError: '' });
+  const loadPageRef = useRef(loadPage);
+  const requestVersionRef = useRef(0);
+  const moreControllerRef = useRef(null);
+  loadPageRef.current = loadPage;
+
+  useEffect(() => {
+    const requestVersion = requestVersionRef.current + 1;
+    requestVersionRef.current = requestVersion;
+    moreControllerRef.current?.abort();
+    const controller = new AbortController();
+    let active = true;
+    setState({ data: null, loading: true, loadingMore: false, error: '', loadMoreError: '' });
+
+    loadPageRef.current(0, controller.signal)
+      .then((data) => {
+        if (active && requestVersion === requestVersionRef.current) {
+          setState({ data, loading: false, loadingMore: false, error: '', loadMoreError: '' });
+        }
+      })
+      .catch((error) => {
+        if (!active || error?.name === 'AbortError') return;
+        setState({ data: null, loading: false, loadingMore: false, error: messageForError(error), loadMoreError: '' });
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, dependencies);
+
+  useEffect(() => () => moreControllerRef.current?.abort(), []);
+
+  const loadMore = async () => {
+    const currentPage = state.data;
+    if (!currentPage?.hasNext || state.loading || state.loadingMore) return;
+
+    const requestVersion = requestVersionRef.current;
+    const controller = new AbortController();
+    moreControllerRef.current?.abort();
+    moreControllerRef.current = controller;
+    setState((current) => ({ ...current, loadingMore: true, loadMoreError: '' }));
+
+    try {
+      const nextPage = await loadPageRef.current(currentPage.page + 1, controller.signal);
+      if (controller.signal.aborted || requestVersion !== requestVersionRef.current) return;
+      setState((current) => {
+        if (!current.data || current.data.page !== currentPage.page) return current;
+        return {
+          data: {
+            ...nextPage,
+            content: [...(current.data.content || []), ...(nextPage.content || [])]
+          },
+          loading: false,
+          loadingMore: false,
+          error: '',
+          loadMoreError: ''
+        };
+      });
+    } catch (error) {
+      if (controller.signal.aborted || requestVersion !== requestVersionRef.current || error?.name === 'AbortError') return;
+      setState((current) => ({ ...current, loadingMore: false, loadMoreError: messageForError(error) }));
+    } finally {
+      if (moreControllerRef.current === controller) moreControllerRef.current = null;
+    }
+  };
+
+  return { ...state, loadMore };
 }
 
 function parseRoute() {
@@ -380,6 +451,11 @@ function ErrorBox({ message }) {
   return <div className="infobox red">{message}</div>;
 }
 
+function LoadMoreButton({ page, loading, onLoadMore, label }) {
+  if (!page?.hasNext) return null;
+  return <div className="page-actions" style={{ marginTop: 16 }}><button className="btn ghost" type="button" disabled={loading} onClick={onLoadMore}>{loading ? '불러오는 중…' : label}</button></div>;
+}
+
 function LoginRequiredView({ message = '이 기능은 로그인 후 이용할 수 있어요.' }) {
   return <div className="card"><h2>로그인이 필요해요</h2><p className="hint" style={{ marginBottom: 16 }}>{message}</p><a className="btn" href="#/auth">로그인 또는 회원가입</a></div>;
 }
@@ -405,8 +481,8 @@ function HomeView({ dataVersion }) {
 
 function GamesView({ gameQuery, dataVersion }) {
   const keyword = gameQuery.trim();
-  const { data, loading, error } = useRequest(
-    (signal) => api.getGames({ keyword, page: 0, size: 100 }, signal),
+  const { data, loading, loadingMore, error, loadMoreError, loadMore } = usePagedRequest(
+    (page, signal) => api.getGames({ keyword, page, size: 100 }, signal),
     [keyword, dataVersion]
   );
   const games = (data?.content || []).map(normalizeGameSummary);
@@ -418,6 +494,8 @@ function GamesView({ gameQuery, dataVersion }) {
       {!error && loading && !data && <LoadingBox />}
       {!error && !!games.length && <div className="grid cols3">{games.map((game) => <GameCard key={game.id} game={game} />)}</div>}
       {!error && !loading && !games.length && <div className="infobox" style={{ marginTop: 14 }}>검색 결과가 없어요. 다른 게임 이름으로 다시 찾아보세요.</div>}
+      {!error && <LoadMoreButton page={data} loading={loadingMore} onLoadMore={loadMore} label="게임 더 보기" />}
+      {loadMoreError && <ErrorBox message={loadMoreError} />}
     </>
   );
 }
@@ -425,8 +503,8 @@ function GamesView({ gameQuery, dataVersion }) {
 function PeopleView({ peopleQuery, onPeopleQueryChange, dataVersion }) {
   const [input, setInput] = useState(peopleQuery);
   const keyword = peopleQuery.trim();
-  const { data, loading, error } = useRequest(
-    (signal) => api.getRooms({ type: 'PERSON_FOCUSED', keyword, page: 0, size: 100 }, signal),
+  const { data, loading, loadingMore, error, loadMoreError, loadMore } = usePagedRequest(
+    (page, signal) => api.getRooms({ type: 'PERSON_FOCUSED', keyword, page, size: 100 }, signal),
     [keyword, dataVersion]
   );
   const rooms = (data?.content || []).map(normalizeRoom);
@@ -444,24 +522,27 @@ function PeopleView({ peopleQuery, onPeopleQueryChange, dataVersion }) {
       {!error && loading && !data && <LoadingBox />}
       {!error && !!rooms.length && <div className="grid cols2">{rooms.map((room) => <SessionCard key={room.id} room={room} />)}</div>}
       {!error && !loading && !rooms.length && <div className="infobox">일치하는 공개 모임이 없어요. 직접 모임을 열어보세요.</div>}
+      {!error && <LoadMoreButton page={data} loading={loadingMore} onLoadMore={loadMore} label="모임 더 보기" />}
+      {loadMoreError && <ErrorBox message={loadMoreError} />}
     </>
   );
 }
 
 function GameDetailView({ gameId, onCreateGame, dataVersion }) {
-  const { data, loading, error } = useRequest(
-    async (signal) => {
-      const game = await api.getGame(gameId, signal);
-      const rooms = await api.getRooms({ type: 'GAME_FOCUSED', gameId, page: 0, size: 100 }, signal);
-      return { game: normalizeGameSummary(game), rooms: (rooms.content || []).map(normalizeRoom) };
-    },
+  const { data: gameData, loading: gameLoading, error: gameError } = useRequest(
+    (signal) => api.getGame(gameId, signal),
     [gameId, dataVersion]
   );
-  if (error) return <ErrorBox message={error} />;
-  if (loading && !data) return <LoadingBox />;
-  const game = data?.game;
+  const { data: roomPage, loading: roomsLoading, loadingMore, error: roomsError, loadMoreError, loadMore } = usePagedRequest(
+    (page, signal) => api.getRooms({ type: 'GAME_FOCUSED', gameId, page, size: 100 }, signal),
+    [gameId, dataVersion]
+  );
+  if (gameError || roomsError) return <ErrorBox message={gameError || roomsError} />;
+  if ((gameLoading || roomsLoading) && (!gameData || !roomPage)) return <LoadingBox />;
+  const game = gameData ? normalizeGameSummary(gameData) : null;
   if (!game) return <div className="card">게임을 찾을 수 없어요.</div>;
-  const rooms = data.rooms;
+  const rooms = (roomPage?.content || []).map(normalizeRoom);
+  const upcomingRooms = rooms.filter((room) => !hasStarted(room));
   return (
     <>
       <div className="card">
@@ -478,8 +559,11 @@ function GameDetailView({ gameId, onCreateGame, dataVersion }) {
         </div>
       </div>
       <section>
-        <h2>📅 예정 모임 <span className="cnt">{rooms.length}개</span></h2>
-        {rooms.length ? <div className="grid cols2">{rooms.map((room) => <SessionCard key={room.id} room={room} />)}</div> : <div className="infobox">아직 공개 예정 모임이 없어요. 첫 모임을 만들어보세요.</div>}
+        <h2>📅 예정 모임 <span className="cnt">{upcomingRooms.length}개</span></h2>
+        {upcomingRooms.length ? <div className="grid cols2">{upcomingRooms.map((room) => <SessionCard key={room.id} room={room} />)}</div> : !roomPage?.hasNext && <div className="infobox">아직 공개 예정 모임이 없어요. 첫 모임을 만들어보세요.</div>}
+        {!upcomingRooms.length && roomPage?.hasNext && <p className="hint">이전 모임 다음에 예정 모임이 있을 수 있어요. 목록을 더 불러와 확인해주세요.</p>}
+        <LoadMoreButton page={roomPage} loading={loadingMore} onLoadMore={loadMore} label="예정 모임 더 보기" />
+        {loadMoreError && <ErrorBox message={loadMoreError} />}
       </section>
     </>
   );
@@ -564,7 +648,7 @@ function SessionDetailView({ sessionId, me, onApply, onCancelApply, onHostCancel
             </div>
           </div>
           {privateView
-            ? <section><h2>👥 참가자 <span className="cnt">총 {participantCount(room)}/{room.recruitmentCapacity + 1}명</span></h2><div className="card"><div className="srow" style={{ marginTop: 0 }}><SeatIcons room={room} /></div><div>{room.participants.map((participant, index) => <span className="pchip" key={participant.nickname + '-' + index}>🙂 {participant.nickname}{participant.nickname === room.host?.nickname ? ' · 주최자' : ' · 참가'}</span>)}{!room.participants.length && <span className="hint">아직 참가자가 없어요.</span>}</div></div></section>
+            ? <section><h2>👥 참가자 <span className="cnt">총 {participantCount(room)}/{room.recruitmentCapacity + 1}명</span></h2><div className="card"><div className="srow" style={{ marginTop: 0 }}><SeatIcons room={room} /></div>{room.host?.nickname && <p className="hint" style={{ marginBottom: 10 }}>주최자: {room.host.nickname}</p>}<div>{room.participants.map((participant, index) => <span className="pchip" key={participant.nickname + '-' + index}>🙂 {participant.nickname}</span>)}{!room.participants.length && <span className="hint">아직 참가자가 없어요.</span>}</div></div></section>
             : <section><h2>👥 참가자</h2><div className="infobox">정확한 장소와 참가자 목록은 주최자 또는 현재 참가자만 확인할 수 있어요.</div></section>}
         </div>
         <aside><div className="card"><SessionActions room={room} me={me} onApply={onApply} onCancelApply={onCancelApply} onHostCancel={onHostCancel} onFinish={onFinish} /></div></aside>
@@ -856,26 +940,27 @@ function EditView({ sessionId, onSave, dataVersion, today }) {
 }
 
 function MyView({ myTab, onMyTabChange, dataVersion }) {
-  const { data, loading, error } = useRequest(
-    async (signal) => {
-      const [joined, hosted] = await Promise.all([
-        api.getMyRooms({ role: 'joined', page: 0, size: 100 }, signal),
-        api.getMyRooms({ role: 'hosted', page: 0, size: 100 }, signal)
-      ]);
-      return { joined: (joined.content || []).map(normalizeRoom), hosted: (hosted.content || []).map(normalizeRoom) };
-    },
+  const joined = usePagedRequest(
+    (page, signal) => api.getMyRooms({ role: 'joined', page, size: 100 }, signal),
+    [dataVersion]
+  );
+  const hosted = usePagedRequest(
+    (page, signal) => api.getMyRooms({ role: 'hosted', page, size: 100 }, signal),
     [dataVersion]
   );
   const tab = myTab === 'hosted' ? 'hosted' : 'joined';
-  const list = data?.[tab] || [];
+  const page = tab === 'hosted' ? hosted : joined;
+  const list = (page.data?.content || []).map(normalizeRoom);
   return (
     <>
       <h2>🗂️ 내 모임</h2>
-      <div className="tabs"><button type="button" className={tab === 'joined' ? 'on' : ''} onClick={() => onMyTabChange('joined')}>참가한 모임 ({data?.joined?.length ?? '—'})</button><button type="button" className={tab === 'hosted' ? 'on' : ''} onClick={() => onMyTabChange('hosted')}>개설한 모임 ({data?.hosted?.length ?? '—'})</button></div>
-      {error && <ErrorBox message={error} />}
-      {!error && loading && !data && <LoadingBox />}
-      {!error && !!list.length && <div className="grid cols2">{list.map((room) => <SessionCard key={room.id} room={room} />)}</div>}
-      {!error && !loading && !list.length && <div className="infobox">{tab === 'joined' ? '아직 참가한 모임이 없어요.' : '아직 개설한 모임이 없어요.'}</div>}
+      <div className="tabs"><button type="button" className={tab === 'joined' ? 'on' : ''} onClick={() => onMyTabChange('joined')}>참가한 모임 ({joined.data?.totalElements ?? '—'})</button><button type="button" className={tab === 'hosted' ? 'on' : ''} onClick={() => onMyTabChange('hosted')}>개설한 모임 ({hosted.data?.totalElements ?? '—'})</button></div>
+      {page.error && <ErrorBox message={page.error} />}
+      {!page.error && page.loading && !page.data && <LoadingBox />}
+      {!page.error && !!list.length && <div className="grid cols2">{list.map((room) => <SessionCard key={room.id} room={room} />)}</div>}
+      {!page.error && !page.loading && !list.length && <div className="infobox">{tab === 'joined' ? '아직 참가한 모임이 없어요.' : '아직 개설한 모임이 없어요.'}</div>}
+      {!page.error && <LoadMoreButton page={page.data} loading={page.loadingMore} onLoadMore={page.loadMore} label="내 모임 더 보기" />}
+      {page.loadMoreError && <ErrorBox message={page.loadMoreError} />}
       <p className="hint" style={{ marginTop: 14 }}>카드는 공개 모임 정보만 표시하고, 정확한 장소와 참가자 목록은 모임 상세에서 권한에 따라 확인할 수 있어요.</p>
     </>
   );
@@ -963,6 +1048,20 @@ function App() {
   const [dataVersion, setDataVersion] = useState(0);
   const [toast, setToast] = useState({ message: '', type: '' });
   const toastTimer = useRef(null);
+  const meRef = useRef(null);
+
+  useEffect(() => {
+    meRef.current = me;
+  }, [me]);
+
+  const expireAuthentication = useCallback(() => {
+    clearCsrfToken();
+    if (!meRef.current) return;
+    meRef.current = null;
+    setMe(null);
+    setDataVersion((version) => version + 1);
+    window.location.hash = '#/auth';
+  }, []);
 
   const showToast = (message, type = '') => {
     setToast({ message, type });
@@ -973,6 +1072,10 @@ function App() {
   const refreshData = () => setDataVersion((version) => version + 1);
 
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
+  useEffect(() => {
+    setUnauthenticatedHandler(expireAuthentication);
+    return () => setUnauthenticatedHandler(undefined);
+  }, [expireAuthentication]);
   useEffect(() => {
     let active = true;
     api.getMyProfile()
@@ -992,11 +1095,7 @@ function App() {
 
   const handleProtectedError = (error, fallback) => {
     if (isUnauthenticated(error)) {
-      clearCsrfToken();
-      setMe(null);
-      refreshData();
-      showToast('로그인이 필요합니다.', 'err');
-      navigate('/auth');
+      expireAuthentication();
       return;
     }
     showToast(messageForError(error, fallback), 'err');
@@ -1016,6 +1115,7 @@ function App() {
   const handleLogin = async (credentials) => {
     try {
       const profile = await api.login(credentials);
+      meRef.current = profile;
       setMe(profile);
       refreshData();
       showToast('로그인했어요.');
@@ -1041,16 +1141,14 @@ function App() {
   const handleLogout = async () => {
     try {
       await api.logout();
+      meRef.current = null;
       setMe(null);
       refreshData();
       showToast('로그아웃했어요.');
       navigate('/home');
     } catch (error) {
       if (isUnauthenticated(error)) {
-        clearCsrfToken();
-        setMe(null);
-        refreshData();
-        navigate('/home');
+        expireAuthentication();
         return;
       }
       showToast(messageForError(error, '로그아웃하지 못했어요.'), 'err');
