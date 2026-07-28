@@ -2,98 +2,42 @@ package cloud.bamsongi.albammate.room.service;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
-import cloud.bamsongi.albammate.room.RoomStateReconciliationCoordinator;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
-import cloud.bamsongi.albammate.room.entity.Participation;
-import cloud.bamsongi.albammate.room.entity.Room;
-import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
-import cloud.bamsongi.albammate.room.enums.RoomStatus;
-import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
-import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import jakarta.persistence.OptimisticLockException;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Optional;
+import java.util.Objects;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class RoomParticipationService {
 
-    private final RoomRepository roomRepository;
-    private final ParticipationRepository participationRepository;
-    private final RoomStateReconciliationCoordinator roomStateReconciliationCoordinator;
+    private static final int MAX_ATTEMPTS = 3;
+
+    private final RoomParticipationExecutor executor;
     private final Clock clock;
 
-    public RoomParticipationService(
-            RoomRepository roomRepository,
-            ParticipationRepository participationRepository,
-            RoomStateReconciliationCoordinator roomStateReconciliationCoordinator,
-            Clock clock) {
-        this.roomRepository = roomRepository;
-        this.participationRepository = participationRepository;
-        this.roomStateReconciliationCoordinator = roomStateReconciliationCoordinator;
-        this.clock = clock;
+    public RoomParticipationService(RoomParticipationExecutor executor, Clock clock) {
+        this.executor = Objects.requireNonNull(executor, "executor");
+        this.clock = Objects.requireNonNull(clock, "clock");
     }
 
-    /** 방 상태를 요청 시각으로 보정한 뒤 신규 또는 취소된 참가 관계를 활성화한다. */
-    @Transactional
+    /** 낙관 락 충돌만 최대 세 번의 독립 트랜잭션으로 재시도해 참가를 확정한다. */
     public RoomParticipationResponse participate(long currentUserId, long roomId) {
-        Instant now = Instant.now(clock);
-        roomStateReconciliationCoordinator.reconcileRoom(roomId, now);
+        Instant requestTime = Instant.now(clock);
+        RuntimeException lastConflict = null;
 
-        Room room =
-                roomRepository
-                        .findById(roomId)
-                        .orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
-        Optional<Participation> existingParticipation =
-                participationRepository.findByRoomIdAndUserId(roomId, currentUserId);
-
-        validateParticipation(room, currentUserId, existingParticipation, now);
-
-        Participation participation =
-                existingParticipation
-                        .map(
-                                existing -> {
-                                    existing.reactivate(now);
-                                    return existing;
-                                })
-                        .orElseGet(() -> Participation.createActive(room, currentUserId, now));
-        room.addActiveParticipant();
-
-        participationRepository.save(participation);
-        roomRepository.save(room);
-        return toResponse(room);
-    }
-
-    private void validateParticipation(
-            Room room,
-            long currentUserId,
-            Optional<Participation> existingParticipation,
-            Instant now) {
-        if (room.getStatus() == RoomStatus.CANCELED || room.getStatus() == RoomStatus.FINISHED) {
-            throw new BusinessException(ErrorCode.ROOM_NOT_RECRUITING);
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                return executor.participate(currentUserId, roomId, requestTime);
+            } catch (OptimisticLockException exception) {
+                lastConflict = exception;
+            } catch (ObjectOptimisticLockingFailureException exception) {
+                lastConflict = exception;
+            }
         }
-        if (room.getHostUserId() == currentUserId
-                || existingParticipation
-                        .map(Participation::getStatus)
-                        .filter(ParticipationStatus.ACTIVE::equals)
-                        .isPresent()) {
-            throw new BusinessException(ErrorCode.ALREADY_PARTICIPATING);
-        }
-        if (room.getActiveParticipantCount() >= room.getCapacity()) {
-            throw new BusinessException(ErrorCode.CAPACITY_EXCEEDED);
-        }
-        if (!now.isBefore(room.getStartAt()) || room.getStatus() != RoomStatus.RECRUITING) {
-            throw new BusinessException(ErrorCode.ROOM_NOT_RECRUITING);
-        }
-    }
 
-    private RoomParticipationResponse toResponse(Room room) {
-        return new RoomParticipationResponse(
-                room.getId(),
-                ParticipationStatus.ACTIVE,
-                room.getStatus(),
-                room.getActiveParticipantCount() + 1,
-                room.getCapacity() - room.getActiveParticipantCount());
+        throw new BusinessException(ErrorCode.ROOM_CONCURRENT_MODIFICATION, lastConflict);
     }
 }

@@ -25,11 +25,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
 @Import(RoomParticipationServiceTest.FixedClockConfiguration.class)
-@Transactional
 class RoomParticipationServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-07-28T00:00:00Z");
@@ -261,7 +259,6 @@ class RoomParticipationServiceTest {
     }
 
     private void clearPersistenceContext() {
-        entityManager.flush();
         entityManager.clear();
     }
 
