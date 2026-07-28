@@ -197,6 +197,11 @@ public final class ApiEndpointPolicyRegistry {
                         ApiEndpointAuthenticationMode.OPTIONAL_AUTHENTICATION,
                         false),
                 policy(
+                        HttpMethod.GET,
+                        "/api/rooms/{roomId}",
+                        ApiEndpointAuthenticationMode.OPTIONAL_AUTHENTICATION,
+                        false),
+                policy(
                         HttpMethod.POST,
                         "/api/rooms",
                         ApiEndpointAuthenticationMode.AUTHENTICATED,

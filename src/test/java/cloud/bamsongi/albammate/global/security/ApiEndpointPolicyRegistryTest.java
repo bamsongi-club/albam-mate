@@ -53,6 +53,25 @@ class ApiEndpointPolicyRegistryTest {
     }
 
     @Test
+    void 방_상세_GET은_선택_인증이며_CSRF_보호_대상이_아니다() {
+        String path = "/api/rooms/1";
+        MockHttpServletRequest request = new MockHttpServletRequest(HttpMethod.GET.name(), path);
+        request.setServletPath(path);
+
+        assertTrue(
+                endpointPolicyRegistry
+                        .policies()
+                        .contains(
+                                new ApiEndpointPolicy(
+                                        HttpMethod.GET,
+                                        "/api/rooms/{roomId}",
+                                        ApiEndpointAuthenticationMode.OPTIONAL_AUTHENTICATION,
+                                        false)));
+        assertTrue(endpointPolicyRegistry.knownEndpointPathMatcher().matches(request));
+        assertFalse(endpointPolicyRegistry.csrfProtectionRequestMatcher().matches(request));
+    }
+
+    @Test
     void 보호_리소스_경로의_미지원_상태변경_메서드는_MVC_405을_위해_통과시킨다() {
         MockHttpServletRequest request =
                 new MockHttpServletRequest(HttpMethod.DELETE.name(), "/api/rooms/1");
