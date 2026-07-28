@@ -29,6 +29,15 @@
       "labels": ["refactor"]
     },
     {
+      "id": "docs",
+      "enabled": true,
+      "template": ".github/ISSUE_TEMPLATE/docs.yml",
+      "titlePrefix": "[DOCS]",
+      "intent": "정본·가이드·운영 문서의 신규 작성 또는 갱신. 문서의 책임·해석·공개 계약 자체를 새로 결정하지 않는 작업",
+      "signals": ["문서", "문서화", "README", "가이드", "docs"],
+      "labels": ["docs"]
+    },
+    {
       "id": "decision",
       "enabled": true,
       "template": ".github/ISSUE_TEMPLATE/decision.yml",
