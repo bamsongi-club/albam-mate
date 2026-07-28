@@ -28,10 +28,10 @@ public interface GameRepository extends JpaRepository<Game, Long> {
                 g.id, g.bggId, g.name, g.englishName, g.imageUrl, g.supportedPlayerCount,
                 g.tag, g.estimatedPlayTime, g.complexity)
             from Game g
-            where lower(g.name) like lower(concat('%', :keyword, '%'))
+            where lower(g.name) like lower(concat('%', ?#{escape([0])}, '%'))
+                escape ?#{escapeCharacter()}
             """)
-    Page<GameListRow> findListRowsByNameContainingIgnoreCase(
-            @Param("keyword") String keyword, Pageable pageable);
+    Page<GameListRow> findListRowsByNameContainingIgnoreCase(String keyword, Pageable pageable);
 
     @Query(
             """

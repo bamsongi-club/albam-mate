@@ -48,6 +48,34 @@ class GameHttpIntegrationTest {
     }
 
     @Test
+    void 게임명_검색의_PERCENT는_와일드카드가_아닌_리터럴로_처리된다() throws Exception {
+        Game percentGame =
+                saveGame(10003L, SEARCH_PREFIX + "Percent-100%", "퍼센트 게임", "퍼센트 게임 상세 설명");
+        saveGame(10004L, SEARCH_PREFIX + "Percent-100X", "대조 게임", "대조 게임 상세 설명");
+
+        mockMvc.perform(get("/api/games").param("keyword", SEARCH_PREFIX + "Percent-100%"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].id").value(percentGame.getId()))
+                .andExpect(
+                        jsonPath("$.data.content[0].name").value(SEARCH_PREFIX + "Percent-100%"));
+    }
+
+    @Test
+    void 게임명_검색의_UNDERSCORE는_와일드카드가_아닌_리터럴로_처리된다() throws Exception {
+        Game underscoreGame =
+                saveGame(10005L, SEARCH_PREFIX + "Underscore-A_B", "언더스코어 게임", "언더스코어 게임 상세 설명");
+        saveGame(10006L, SEARCH_PREFIX + "Underscore-AXB", "대조 게임", "대조 게임 상세 설명");
+
+        mockMvc.perform(get("/api/games").param("keyword", SEARCH_PREFIX + "Underscore-A_B"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].id").value(underscoreGame.getId()))
+                .andExpect(
+                        jsonPath("$.data.content[0].name").value(SEARCH_PREFIX + "Underscore-A_B"));
+    }
+
+    @Test
     void 실제_프로젝션_결과는_이름과_ID_오름차순_및_페이지_메타데이터를_반환한다() throws Exception {
         Game firstAlpha = saveGame(10011L, SORT_PREFIX + "Alpha", "알파", "알파 상세 설명");
         Game secondAlpha = saveGame(10012L, SORT_PREFIX + "Alpha", "알파", "알파 상세 설명");
