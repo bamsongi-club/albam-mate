@@ -27,4 +27,5 @@ public record ParticipantRoomResponse(
         MyRole myRole,
         String place,
         NicknameSummary host,
-        List<NicknameSummary> participants) {}
+        List<NicknameSummary> participants)
+        implements RoomDetailResponse {}
