@@ -77,6 +77,9 @@ header {
 #gnb a { border-bottom: 2px solid transparent; color: var(--brown2); font-size: 13px; font-weight: 800; padding: 10px 11px 8px; }
 #gnb a:hover, #gnb a.on { border-bottom-color: var(--accent); color: var(--ink); }
 #gnb .profile-chip { border-left: 1px solid var(--line); margin-left: 8px; padding-left: 16px; }
+.nav-logout { background: transparent; border: 0; color: var(--sub); cursor: pointer; font-size: 12px; font-weight: 800; padding: 10px 0 8px 8px; }
+.nav-logout:hover { color: var(--ink); }
+.nav-logout:disabled { cursor: wait; opacity: 0.65; }
 
 main { margin: 0 auto; max-width: 1240px; padding: 36px 24px 84px; }
 .layout { align-items: start; display: grid; gap: 22px; grid-template-columns: 225px 1fr; }
@@ -122,6 +125,7 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .infobox { background: var(--soft); border-radius: 12px; font-size: 13.5px; padding: 14px 16px; }
 .infobox.green { background: var(--green-soft); }
 .infobox.amber { background: var(--amber-soft); }
+.infobox.red { background: var(--red-soft); color: var(--red); }
 .infobox.gray { background: var(--gray-soft); color: var(--gray); }
 .banner { border-radius: 12px; font-size: 14px; font-weight: 800; margin-bottom: 16px; padding: 11px 16px; }
 .banner.green { background: var(--green-soft); color: var(--green); }
@@ -152,6 +156,7 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .pchip { align-items: center; background: #fff; border: 1.5px solid var(--line); border-radius: 999px; display: inline-flex; font-size: 13px; font-weight: 800; gap: 6px; margin: 0 6px 6px 0; padding: 5px 12px; }
 .page-actions { display: flex; flex-wrap: wrap; gap: 9px; }
 .page-actions input { flex: 1; }
+.game-selected-value { background: var(--soft); border: 1px solid var(--line); border-radius: 5px; color: var(--brown2); font-size: 14px; min-height: 42px; padding: 11px 12px; }
 .formrow { display: grid; gap: 18px; grid-template-columns: 1fr 1fr; margin-bottom: 16px; }
 .formrow.single { grid-template-columns: 1fr; }
 .field-label-row { align-items: center; display: flex; justify-content: space-between; }
