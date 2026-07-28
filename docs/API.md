@@ -60,7 +60,7 @@ P0는 `게임부터 찾기`, `사람부터 만나기`, `방 만들기` 세 흐�
 - 요청 시각의 오프셋이 없거나 형식을 해석할 수 없으면 `400 VALIDATION_ERROR`다. 응답은 `+09:00`으로 반환한다. 내부 저장·비교 기준은 [ADR-0009](adr/platform/0009-utc-time-standard.md)를 따른다.
 - `gameId`는 BoardGameGeek의 `bggId`가 아니라 알밤메이트 내부 게임 ID다. 자세한 구분은 [4.4 GameSummary](#44-gamesummary)를 따른다.
 - HTTP 상태 코드는 검증 오류 `400`, 미인증 `401`, 권한 없음 `403`, 대상 없음 `404`, 허용되지 않은 메서드 `405`, 응답 미디어 타입 협상 실패 `406`, 상태·정합성 충돌 `409`, 지원하지 않는 요청 미디어 타입 `415`, 요청 한도 초과 `429`, 처리하지 않은 서버 오류 `500`을 사용한다.
-- P0에서 요청 본문으로 기존 리소스의 일부를 수정하는 API는 `PATCH`를 사용한다. 이후 수정 API의 `PUT`·`PATCH` 선택 기준은 [ADR-0016](adr/platform/0016-p0-update-api-http-method.md)을 따른다.
+- P0에서 요청 본문으로 기존 리소스의 일부를 수정하는 API는 `PATCH`를 사용한다. 이후 수정 API의 `PUT`·`PATCH` 선택과 종료 명령의 재시도 기준은 [ADR-0022](adr/platform/0022-p0-update-api-http-method-and-finish-idempotency.md)를 따른다.
 
 JSON 필드는 camelCase를 사용한다. 저장 컬럼(snake_case)과의 대응은 [ERD 테이블 명세](ERD.md#테이블-명세)를 정본으로 한다.
 
@@ -865,7 +865,7 @@ Vary: Cookie
 | 인증 / CSRF | 필요, 주최자 전용 / 필요 |
 | 성공 | `200 OK`, `data`: `RoomStatusResponse` (`roomStatus = FINISHED`) |
 
-주최자가 `status = CLOSED && now >= startsAt`인 방만 종료할 수 있다.
+주최자의 종료 요청은 상태 정합화 후 방이 이미 `FINISHED`이면 상태와 버전을 다시 변경하지 않고 멱등 성공한다. 정합화 후 `status = CLOSED && now >= startsAt`이면 `FINISHED`로 변경한다. 같은 요청의 시간 기반 정합화가 먼저 `FINISHED`로 변경한 경우에도 성공하며, 그 정합화 결과를 커밋한다.
 
 #### Path Variables
 
@@ -889,7 +889,7 @@ Vary: Cookie
 | CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
 | 방이 없음 | 404 | `ROOM_NOT_FOUND` |
 | 요청 `status`가 누락·`null`이거나 `FINISHED`가 아님 | 400 | `VALIDATION_ERROR` |
-| 현재 상태 또는 시간 조건에서 종료할 수 없음 | 409 | `INVALID_ROOM_STATUS_TRANSITION` |
+| 상태 정합화 후 방이 `CANCELED`이거나 `now < startsAt`이라 종료할 수 없음 | 409 | `INVALID_ROOM_STATUS_TRANSITION` |
 | 동시 변경 충돌 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
 
 ## 8. 참가·내 모임 API

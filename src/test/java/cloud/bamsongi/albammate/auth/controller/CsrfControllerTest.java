@@ -1,7 +1,6 @@
 package cloud.bamsongi.albammate.auth.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -40,7 +39,7 @@ class CsrfControllerTest {
     @Autowired private ObjectMapper objectMapper;
 
     @Test
-    void 비로그인_조회는_세션을_만들지_않고_XSRF_쿠키와_응답_토큰을_일치시킨다() throws Exception {
+    void 비로그인_조회는_세션을_만들지_않고_운영_기본_Secure_XSRF_쿠키와_응답_토큰을_일치시킨다() throws Exception {
         MvcResult result =
                 mockMvc.perform(get("/api/auth/csrf"))
                         .andExpect(status().isOk())
@@ -54,7 +53,7 @@ class CsrfControllerTest {
         assertNull(result.getRequest().getSession(false));
         assertEquals("/", xsrfCookie.getPath());
         assertTrue(xsrfCookie.isHttpOnly());
-        assertFalse(xsrfCookie.getSecure());
+        assertTrue(xsrfCookie.getSecure());
         assertEquals("Lax", xsrfCookie.getAttribute("SameSite"));
 
         JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());

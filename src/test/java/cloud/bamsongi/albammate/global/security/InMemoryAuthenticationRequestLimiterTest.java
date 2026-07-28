@@ -44,6 +44,24 @@ class InMemoryAuthenticationRequestLimiterTest {
     }
 
     @Test
+    void 로그인_IP_한도와_RetryAfter는_회원가입_IP_버킷과_독립적이다() {
+        String remoteIp = "203.0.113.19";
+        for (int i = 0; i < 30; i++) {
+            assertTrue(limiter.checkAndRecordLogin(remoteIp).allowed());
+        }
+
+        RateLimitDecision rejectedLogin = limiter.checkAndRecordLogin(remoteIp);
+
+        assertFalse(rejectedLogin.allowed());
+        assertEquals(10, rejectedLogin.retryAfterSeconds());
+        for (int i = 0; i < 5; i++) {
+            assertTrue(limiter.checkAndRecordSignup(remoteIp).allowed());
+        }
+        assertFalse(limiter.checkAndRecordSignup(remoteIp).allowed());
+        assertEquals(2, limiter.ipBucketCount());
+    }
+
+    @Test
     void 이동_창이_만료되면_같은_IP를_다시_허용한다() {
         for (int i = 0; i < 5; i++) {
             limiter.checkAndRecordSignup("203.0.113.11");

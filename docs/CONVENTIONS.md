@@ -98,7 +98,7 @@ Controller에는 다음 책임을 두지 않는다.
 
 의존성은 Lombok의 `@RequiredArgsConstructor`와 `private final` 필드 또는 명시적인 생성자로 주입한다. `@Autowired` 필드 주입은 사용하지 않는다.
 
-기존 리소스 표현의 일부를 수정하는 엔드포인트는 `@PatchMapping`을 사용한다. 클라이언트가 리소스 표현 전체를 결정해 교체하는 경우에만 `@PutMapping`을 사용하며, 세부 기준은 [ADR-0016](adr/platform/0016-p0-update-api-http-method.md)을 따른다.
+기존 리소스 표현의 일부를 수정하는 엔드포인트는 `@PatchMapping`을 사용한다. 클라이언트가 리소스 표현 전체를 결정해 교체하는 경우에만 `@PutMapping`을 사용하며, 세부 기준은 [ADR-0022](adr/platform/0022-p0-update-api-http-method-and-finish-idempotency.md)를 따른다.
 
 ## Service
 

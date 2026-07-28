@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
@@ -73,6 +74,68 @@ class UserAccountServiceTest {
     }
 
     @Test
+    void 직접_호출도_사용자_값_타입으로_이메일과_닉네임을_정규화한다() {
+        PasswordHashConcurrencyLimiter limiter = new AlwaysAvailableLimiter();
+        UserAccountApplicationService service =
+                new UserAccountApplicationService(
+                        userRepository, passwordEncoder, new PasswordHashExecutor(limiter));
+        when(userRepository.existsByEmail("user@example.com")).thenReturn(false);
+        when(passwordEncoder.encode("123456789012345")).thenReturn("{bcrypt}encoded");
+        when(userRepository.saveAndFlush(any(User.class)))
+                .thenAnswer(
+                        invocation -> {
+                            User user = invocation.getArgument(0);
+                            setId(user, 10L);
+                            return user;
+                        });
+
+        UserAccount account =
+                service.createAccount(" User@Example.COM ", "123456789012345", " 닉네임 ");
+
+        assertEquals(new UserAccount(10L, "닉네임"), account);
+        verify(userRepository).existsByEmail("user@example.com");
+        verify(userRepository)
+                .saveAndFlush(
+                        org.mockito.ArgumentMatchers.argThat(
+                                user ->
+                                        user.getEmail().equals("user@example.com")
+                                                && user.getNickname().equals("닉네임")));
+    }
+
+    @Test
+    void 직접_호출의_잘못된_이메일이나_제어문자_닉네임은_저장_전에_거절한다() {
+        PasswordHashConcurrencyLimiter limiter = new AlwaysAvailableLimiter();
+        UserAccountApplicationService service =
+                new UserAccountApplicationService(
+                        userRepository, passwordEncoder, new PasswordHashExecutor(limiter));
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.createAccount("not-an-email", "123456789012345", "닉네임"));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.createAccount("user@example.com", "123456789012345", "닉\n네임"));
+
+        verify(userRepository, never()).existsByEmail(any());
+        verify(passwordEncoder, never()).encode(any());
+    }
+
+    @Test
+    void 직접_호출은_짧은_비밀번호를_해시_슬롯_획득_전에_거절한다() {
+        assertInvalidPasswordIsRejectedBeforeHashing("12345678901234");
+    }
+
+    @Test
+    void 직접_호출은_긴_비밀번호를_해시_슬롯_획득_전에_거절한다() {
+        assertInvalidPasswordIsRejectedBeforeHashing("a".repeat(65));
+    }
+
+    @Test
+    void 직접_호출은_UTF8_73바이트_비밀번호를_해시_슬롯_획득_전에_거절한다() {
+        assertInvalidPasswordIsRejectedBeforeHashing("가".repeat(23) + "é".repeat(2));
+    }
+
+    @Test
     void DB_unique_경쟁도_EMAIL_ALREADY_EXISTS로_변환한다() {
         PasswordHashConcurrencyLimiter limiter = new AlwaysAvailableLimiter();
         UserAccountApplicationService service =
@@ -103,6 +166,20 @@ class UserAccountServiceTest {
 
         verify(userRepository, never()).existsByEmail(any());
         verify(passwordEncoder, never()).encode(any());
+    }
+
+    private void assertInvalidPasswordIsRejectedBeforeHashing(String password) {
+        RecordingLimiter limiter = new RecordingLimiter();
+        UserAccountApplicationService service =
+                new UserAccountApplicationService(
+                        userRepository, passwordEncoder, new PasswordHashExecutor(limiter));
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.createAccount("user@example.com", password, "닉네임"));
+
+        assertEquals(0, limiter.acquireCount());
+        verifyNoInteractions(userRepository, passwordEncoder);
     }
 
     private static void setId(User user, long id) {
@@ -154,6 +231,31 @@ class UserAccountServiceTest {
         @Override
         public int currentConcurrent() {
             return 1;
+        }
+    }
+
+    private static final class RecordingLimiter implements PasswordHashConcurrencyLimiter {
+
+        private int acquireCount;
+
+        @Override
+        public Optional<PasswordHashPermit> tryAcquire() {
+            acquireCount++;
+            return Optional.of(() -> {});
+        }
+
+        @Override
+        public int maxConcurrent() {
+            return 1;
+        }
+
+        @Override
+        public int currentConcurrent() {
+            return 0;
+        }
+
+        int acquireCount() {
+            return acquireCount;
         }
     }
 }

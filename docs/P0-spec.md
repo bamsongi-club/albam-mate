@@ -184,9 +184,9 @@ P0에서는 다음 상태를 사용한다.
 - 모집 정원이 모두 차거나 `now >= startsAt`이면 `RECRUITING → CLOSED`로 전환한다.
 - 시작 시각 전 참가 취소로 빈자리가 생기면 `CLOSED → RECRUITING`으로 되돌아간다.
 - 주최자는 `RECRUITING`, `CLOSED` 방을 `CANCELED`로 변경할 수 있다.
-- 주최자는 `status = CLOSED && now >= startsAt`일 때 `FINISHED`로 변경할 수 있다.
+- 주최자의 종료 요청은 상태 정합화 후 이미 `FINISHED`이면 상태를 다시 변경하지 않고 성공하며, `status = CLOSED && now >= startsAt`이면 `FINISHED`로 변경한다.
 - `now >= startsAt + 24시간`이고 방이 여전히 `CLOSED`이면 시스템이 `FINISHED`로 변경한다.
-- `CANCELED`, `FINISHED`는 최종 상태이며 수정하거나 참가할 수 없다.
+- `CANCELED`, `FINISHED`는 최종 상태이며 수정하거나 참가할 수 없다. 이미 `FINISHED`인 방에 대한 동일 종료 요청의 멱등 성공은 최종 상태를 수정하지 않는다.
 
 시간 기반 상태를 저장값에 반영하는 방식은 [ADR-0012](adr/room/0012-room-request-boundary-state-reconciliation.md)를 따른다. 대체된 이전 결정은 [ADR-0004](adr/room/0004-room-state-transition-scheduler.md)에서 확인한다.
 
@@ -209,7 +209,7 @@ P0에서는 다음 상태를 사용한다.
 
 - 방 생성·수정의 `startsAt`은 요청 처리 시점보다 미래여야 한다.
 - 방 참가와 참가 취소는 `now < startsAt`일 때만 가능하다.
-- 주최자의 수동 종료는 `status = CLOSED && now >= startsAt`일 때만 가능하다.
+- 주최자의 수동 종료는 상태 정합화 후 이미 `FINISHED`이면 멱등 성공하고, 그렇지 않으면 `status = CLOSED && now >= startsAt`일 때만 가능하다.
 - 시각 요청 형식과 응답 변환은 [API 명세서](API.md#1-공통-계약), 내부 저장·비교 기준은 [ADR-0009](adr/platform/0009-utc-time-standard.md)를 따른다.
 
 ### 상태 정합성과 동시 변경

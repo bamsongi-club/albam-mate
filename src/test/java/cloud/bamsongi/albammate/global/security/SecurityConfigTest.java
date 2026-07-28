@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -43,8 +44,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.RequestBuilder;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -79,7 +80,6 @@ class SecurityConfigTest {
         mockMvc.perform(get("/api/games")).andExpect(status().isOk());
         mockMvc.perform(get("/api/games/1")).andExpect(status().isOk());
         mockMvc.perform(get("/api/rooms")).andExpect(status().isOk());
-        mockMvc.perform(get("/api/rooms/1")).andExpect(status().isOk());
     }
 
     @Test
@@ -100,6 +100,9 @@ class SecurityConfigTest {
         mockMvc.perform(post("/api/users/me"))
                 .andExpect(status().isMethodNotAllowed())
                 .andExpect(jsonPath("$.code").value(ErrorCode.METHOD_NOT_ALLOWED.getCode()));
+        mockMvc.perform(put("/api/rooms/1"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.code").value(ErrorCode.METHOD_NOT_ALLOWED.getCode()));
     }
 
     @Test
@@ -116,9 +119,6 @@ class SecurityConfigTest {
     void 상세_경로의_잘못된_ID는_MVC에서_검증오류로_변환된다() throws Exception {
         for (String invalidId : java.util.List.of("admin", "-1", "1.5")) {
             mockMvc.perform(get("/api/games/" + invalidId))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
-            mockMvc.perform(get("/api/rooms/" + invalidId))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
         }
@@ -180,8 +180,6 @@ class SecurityConfigTest {
                         patch("/api/users/me"),
                         post("/api/rooms"),
                         patch("/api/rooms/1"),
-                        delete("/api/rooms/1"),
-                        patch("/api/rooms/1/status"),
                         post("/api/rooms/1/participants"),
                         delete("/api/rooms/1/participants/me"),
                         get("/api/users/me/rooms"))) {
@@ -193,14 +191,17 @@ class SecurityConfigTest {
 
     @Test
     void 보호_GET의_HEAD_요청도_인증을_요구한다() throws Exception {
-        mockMvc.perform(head("/api/users/me"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
+        for (RequestBuilder request :
+                java.util.List.of(head("/api/users/me"), head("/api/users/me/rooms"))) {
+            mockMvc.perform(request)
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
+        }
     }
 
     @Test
     void 보호_상태변경_요청은_세션_없음이_CSFR_누락보다_우선한다() throws Exception {
-        mockMvc.perform(delete("/api/rooms/1"))
+        mockMvc.perform(patch("/api/rooms/1"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()))
                 .andExpect(jsonPath("$.message").value(ErrorCode.UNAUTHENTICATED.getMessage()));
@@ -223,7 +224,7 @@ class SecurityConfigTest {
     }
 
     @Test
-    void 비로그인_CSFR_조회는_JSESSIONID를_발급하지_않고_XSRF_쿠키_속성을_맞춘다() throws Exception {
+    void 비로그인_CSFR_조회는_JSESSIONID를_발급하지_않고_운영_기본_Secure_XSRF_쿠키_속성을_맞춘다() throws Exception {
         MvcResult result =
                 mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
 
@@ -233,7 +234,7 @@ class SecurityConfigTest {
         assertNull(result.getRequest().getSession(false));
         assertEquals("/", xsrfCookie.getPath());
         assertTrue(xsrfCookie.isHttpOnly());
-        assertFalse(xsrfCookie.getSecure());
+        assertTrue(xsrfCookie.getSecure());
         assertEquals("Lax", xsrfCookie.getAttribute("SameSite"));
 
         JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
@@ -265,6 +266,7 @@ class SecurityConfigTest {
 
     @Test
     void 운영_보안_쿠키_설정은_XSRF_쿠키를_Secure로_만든다() {
+        boolean previousSecure = cookieProperties.isSecure();
         cookieProperties.setSecure(true);
         try {
             CsrfToken token = csrfTokenRepository.generateToken(new MockHttpServletRequest());
@@ -280,7 +282,7 @@ class SecurityConfigTest {
             assertEquals("/", cookie.getPath());
             assertEquals("Lax", cookie.getAttribute("SameSite"));
         } finally {
-            cookieProperties.setSecure(false);
+            cookieProperties.setSecure(previousSecure);
         }
     }
 
@@ -294,7 +296,7 @@ class SecurityConfigTest {
         assertEquals("JSESSIONID", cookieConfig.getName());
         assertEquals("/", cookieConfig.getPath());
         assertTrue(cookieConfig.isHttpOnly());
-        assertFalse(cookieConfig.isSecure());
+        assertTrue(cookieConfig.isSecure());
         assertEquals("Lax", cookieConfig.getAttribute("SameSite"));
     }
 
@@ -327,11 +329,6 @@ class SecurityConfigTest {
             return MapResponse.ok();
         }
 
-        @GetMapping("/api/rooms/{roomId}")
-        MapResponse roomDetail(@PathVariable @Positive Long roomId) {
-            return MapResponse.ok();
-        }
-
         @PostMapping({"/api/auth/signup", "/api/auth/login"})
         MapResponse publicPost() {
             return MapResponse.ok();
@@ -347,8 +344,8 @@ class SecurityConfigTest {
             return MapResponse.ok();
         }
 
-        @DeleteMapping("/api/rooms/{roomId}")
-        MapResponse protectedDelete() {
+        @PatchMapping("/api/rooms/{roomId}")
+        MapResponse protectedPatch(@PathVariable @Positive Long roomId) {
             return MapResponse.ok();
         }
     }

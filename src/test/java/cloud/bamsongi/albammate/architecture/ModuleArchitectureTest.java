@@ -77,6 +77,18 @@ class ModuleArchitectureTest {
                                 .check(PRODUCTION_CLASSES));
     }
 
+    @Test
+    void global_패키지는_업무_모듈에_의존하지_않는다() {
+        noClasses()
+                .that()
+                .resideInAPackage(ROOT_PACKAGE + ".global..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(BUSINESS_MODULE_PACKAGES)
+                .because("global은 업무 모듈의 Entity, DTO 또는 업무 규칙을 우회 공유하지 않는다")
+                .check(PRODUCTION_CLASSES);
+    }
+
     private static String modulePackage(String module) {
         return ROOT_PACKAGE + "." + module + "..";
     }

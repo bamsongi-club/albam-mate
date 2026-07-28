@@ -6,5 +6,6 @@
 
 | 번호 | 제목 | 상태 | 결정일 | 검증 |
 | --- | --- | --- | --- | --- |
-| [0003](0003-p0-server-session-spring-security.md) | P0 인증에 서버 세션과 Spring Security를 사용 | 승인됨 | 2026-07-24 | 미검증 |
+| [0003](0003-p0-server-session-spring-security.md) | P0 인증에 서버 세션과 Spring Security를 사용 | 승인됨 | 2026-07-24 | 검증됨 |
 | [0013](0013-p0-password-storage-auth-request-protection.md) | P0 비밀번호를 bcrypt로 저장하고 인증 요청을 제한 | 승인됨 | 2026-07-25 | 미검증 |
+| [0020](0020-api-endpoint-authorization-policy-registry.md) | API 엔드포인트 인가 정책을 등록하고 미분류 경로를 CI에서 거절 | 승인됨 | 2026-07-28 | 검증됨 |

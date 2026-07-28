@@ -1,11 +1,11 @@
 # ADR-0016: P0 수정 API의 HTTP 메서드를 PATCH로 통일
 
-- 상태: 승인됨
+- 상태: 대체됨
 - 작성일: 2026-07-27
 - 결정일: 2026-07-27
 - 관련: [API 명세](../../API.md), [P0 명세](../../P0-spec.md), [AUTH-04 정본](../../p0/auth-profile.md#auth-04-내-프로필-조회수정), [ROOM-04·05 정본](../../p0/room.md), [ADR-0005](../participation/0005-room-participation-optimistic-locking.md)
 - 대체 대상: 없음
-- 후속 ADR: 없음
+- 후속 ADR: ADR-0022
 
 ## 맥락
 
@@ -63,6 +63,6 @@ P0의 수정 API 세 개는 모두 `PATCH`를 사용한다. 엔드포인트별 �
 ## 검증
 
 - 상태: 미검증
-- 근거: 현재 `API.md`, `P0-spec.md`와 `SecurityConfig`의 메서드 정의는 이 결정과 일치하지만, 세 엔드포인트의 컨트롤러는 아직 구현되지 않았다.
+- 근거: 세 엔드포인트 중 둘은 이 결정대로 구현했다. `ProfileController`의 `PATCH /api/users/me`와 `RoomController`의 `PATCH /api/rooms/{roomId}`가 `@PatchMapping`을 사용하고, `ApiEndpointPolicyRegistry`가 두 경로를 `PATCH`로 등록해 `ApiEndpointPolicyRegistryTest`가 MVC 매핑과 대조한다. 남은 `PATCH /api/rooms/{roomId}/status`(방 종료)는 아직 구현하지 않았으므로 ROOM-05 구현 PR에서 컨트롤러와 CSRF·인가 대상 메서드 테스트를 연결한 뒤 상태를 갱신한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

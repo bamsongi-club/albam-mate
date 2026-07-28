@@ -109,7 +109,7 @@
 | API 계약 | [방 수정](../API.md#room-04-방-수정) |
 | 공통 규칙 | [정원](../P0-spec.md#정원capacity), [방 상태](../P0-spec.md#방-상태roomstatus), [권한과 공개 범위](../P0-spec.md#권한과-공개-범위), [시간 경계](../P0-spec.md#시간-경계), [상태 정합성과 동시 변경](../P0-spec.md#상태-정합성과-동시-변경) |
 | 데이터 모델 | [ROOMS](../ERD.md#rooms), [GAMES](../ERD.md#games) |
-| 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0009 UTC 저장과 서비스 시간대 변환](../adr/platform/0009-utc-time-standard.md), [ADR-0016 수정 API HTTP 메서드](../adr/platform/0016-p0-update-api-http-method.md) |
+| 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0009 UTC 저장과 서비스 시간대 변환](../adr/platform/0009-utc-time-standard.md), [ADR-0022 수정 API HTTP 메서드와 종료 멱등성](../adr/platform/0022-p0-update-api-http-method-and-finish-idempotency.md) |
 
 ### 기능 규칙
 
@@ -142,20 +142,20 @@
 | API 계약 | [방 취소](../API.md#room-05-방-취소), [방 종료](../API.md#room-05-방-종료) |
 | 공통 규칙 | [방 상태](../P0-spec.md#방-상태roomstatus), [권한과 공개 범위](../P0-spec.md#권한과-공개-범위), [시간 경계](../P0-spec.md#시간-경계), [상태 정합성과 동시 변경](../P0-spec.md#상태-정합성과-동시-변경) |
 | 데이터 모델 | [ROOMS](../ERD.md#rooms) |
-| 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0009 UTC 저장과 서비스 시간대 변환](../adr/platform/0009-utc-time-standard.md), [ADR-0016 수정 API HTTP 메서드](../adr/platform/0016-p0-update-api-http-method.md) |
+| 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0009 UTC 저장과 서비스 시간대 변환](../adr/platform/0009-utc-time-standard.md), [ADR-0022 수정 API HTTP 메서드와 종료 멱등성](../adr/platform/0022-p0-update-api-http-method-and-finish-idempotency.md) |
 
 ### 기능 규칙
 
 - 주최자만 공통 상태 규칙이 허용하는 방을 취소하거나 종료할 수 있다.
 - 취소는 방 행을 삭제하지 않고 최종 상태로 변경한다.
-- 종료 요청은 API 계약이 허용하는 상태 값만 받으며 시간 경계 판정은 공통 규칙을 따른다.
+- 종료 요청은 API 계약이 허용하는 상태 값만 받으며, 상태 정합화 후 종료 목표가 이미 달성됐으면 무변경 성공하고 그렇지 않으면 공통 시간 경계에 따라 전이한다.
 - 자동 종료는 `ROOM-06 방 상태 정합화`에서 검증한다.
 
 ### 완료 기준
 
 - `ROOM-05-AC1` 허용된 취소 요청은 방을 취소 상태로 변경하고 API 계약의 결과를 반환한다.
-- `ROOM-05-AC2` 허용된 수동 종료 요청은 방을 종료 상태로 변경하고 API 계약의 결과를 반환한다.
-- `ROOM-05-AC3` 권한·상태·시간 조건을 충족하지 않는 요청은 계약된 오류를 반환한다.
+- `ROOM-05-AC2` 허용된 수동 종료 요청은 방을 종료 상태로 변경하고, 상태 정합화 또는 이전 요청으로 이미 종료 상태이면 다시 변경하지 않고 성공 결과를 반환한다.
+- `ROOM-05-AC3` 권한·상태·시간 조건을 충족하지 않는 요청은 계약된 오류를 반환하되, 이미 `FINISHED`인 상태는 종료 오류로 보지 않는다.
 - `ROOM-05-AC4` 최종 상태로 변경된 방은 공통 상태·공개 범위 규칙을 일관되게 따른다.
 
 ### 제외 범위

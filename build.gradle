@@ -106,6 +106,7 @@ def gatedBranchCoverage = [
     'cloud.bamsongi.albammate.auth.dto'       : 0.67,
     'cloud.bamsongi.albammate.auth.security'  : 0.72,
     'cloud.bamsongi.albammate.auth.service'   : 0.70,
+    'cloud.bamsongi.albammate.auth.validation': 0.85,
     'cloud.bamsongi.albammate.global.config'  : 0.65,
     'cloud.bamsongi.albammate.global.security': 0.80,
     'cloud.bamsongi.albammate.room'           : 0.84,
@@ -237,6 +238,33 @@ tasks.withType(JavaExec).configureEach {
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
     systemProperty 'user.timezone', 'UTC'
+}
+
+// 개발 셸의 SPRING_DATASOURCE_* 값이 테스트 경계를 흐리지 않도록 두 Test 태스크에
+// 의도적으로 도달시킨다. H2 test는 시스템 속성으로 이를 이겨야 하고, postgresTest는
+// @ServiceConnection이 Testcontainers 연결을 우선해야 한다.
+def ambientDataSource = [
+    url     : 'jdbc:postgresql://127.0.0.1:65432/ambient',
+    username: 'ambient',
+    password: 'ambient',
+]
+
+tasks.named('test', Test) {
+    environment 'SPRING_DATASOURCE_URL', ambientDataSource.url
+    environment 'SPRING_DATASOURCE_USERNAME', ambientDataSource.username
+    environment 'SPRING_DATASOURCE_PASSWORD', ambientDataSource.password
+
+    systemProperty 'spring.datasource.url',
+            'jdbc:h2:mem:albam-mate-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1'
+    systemProperty 'spring.datasource.username', 'sa'
+    systemProperty 'spring.datasource.password', ''
+    systemProperty 'spring.datasource.driver-class-name', 'org.h2.Driver'
+}
+
+tasks.named('postgresTest', Test) {
+    environment 'SPRING_DATASOURCE_URL', ambientDataSource.url
+    environment 'SPRING_DATASOURCE_USERNAME', ambientDataSource.username
+    environment 'SPRING_DATASOURCE_PASSWORD', ambientDataSource.password
 }
 
 spotless {

@@ -1,31 +1,25 @@
 package cloud.bamsongi.albammate.auth.dto;
 
 import cloud.bamsongi.albammate.auth.exception.LoginValidationException;
-import cloud.bamsongi.albammate.auth.validation.ValidLoginRequest;
-import java.nio.charset.StandardCharsets;
+import cloud.bamsongi.albammate.auth.validation.PasswordValidator;
+import cloud.bamsongi.albammate.auth.validation.ValidEmail;
+import cloud.bamsongi.albammate.auth.validation.ValidPassword;
+import cloud.bamsongi.albammate.user.contract.UserEmail;
+import jakarta.validation.constraints.NotNull;
 
 /** 로그인 요청 원문과 정규화된 내부 입력을 분리한다. */
-@ValidLoginRequest
-public record LoginRequest(String email, String password) {
+public record LoginRequest(
+        @NotNull @ValidEmail String email, @NotNull @ValidPassword String password) {
 
     public Normalized normalizeAndValidate() {
-        if (email == null || password == null) {
-            throw new LoginValidationException();
-        }
-
         String normalizedEmail =
-                EmailNormalizer.normalize(email).orElseThrow(LoginValidationException::new);
-        if (!isValidPassword(password)) {
+                UserEmail.from(email)
+                        .map(UserEmail::value)
+                        .orElseThrow(LoginValidationException::new);
+        if (!PasswordValidator.isValid(password, 1)) {
             throw new LoginValidationException();
         }
         return new Normalized(normalizedEmail, password);
-    }
-
-    private boolean isValidPassword(String rawPassword) {
-        int codePointCount = rawPassword.codePointCount(0, rawPassword.length());
-        return codePointCount >= 1
-                && codePointCount <= 64
-                && rawPassword.getBytes(StandardCharsets.UTF_8).length <= 72;
     }
 
     public record Normalized(String email, String password) {
