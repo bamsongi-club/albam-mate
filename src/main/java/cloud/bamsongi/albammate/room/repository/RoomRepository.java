@@ -72,6 +72,28 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
     List<Long> findActiveParticipationRoomIds(
             @Param("userId") Long userId, @Param("roomIds") Collection<Long> roomIds);
 
+    /** 본인이 주최했거나 현재 활성 참가 중인 방을 역할 범위와 고정 정렬로 조회한다. */
+    @Query(
+            """
+            select room
+            from Room room
+            where (:includeHosted = true and room.hostUserId = :userId)
+               or (:includeJoined = true
+                   and room.status <> cloud.bamsongi.albammate.room.enums.RoomStatus.CANCELED
+                   and exists (
+                       select participation.id
+                       from Participation participation
+                       where participation.room = room
+                         and participation.userId = :userId
+                         and participation.status = cloud.bamsongi.albammate.room.enums.ParticipationStatus.ACTIVE
+                   ))
+            """)
+    Page<Room> findMyRooms(
+            @Param("userId") Long userId,
+            @Param("includeHosted") boolean includeHosted,
+            @Param("includeJoined") boolean includeJoined,
+            Pageable pageable);
+
     interface UpcomingRoomCount {
 
         Long getGameId();
