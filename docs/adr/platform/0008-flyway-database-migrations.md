@@ -62,7 +62,7 @@ P0에서는 애플리케이션 시작 마이그레이션을 사용한다. 이후
 
 ## 검증
 
-- 상태: 미검증
-- 근거: 현재 `build.gradle`에는 Flyway 의존성이 없고 `src/main/resources/db/migration`도 존재하지 않는다. 최초 마이그레이션과 실제 PostgreSQL 검증 결과를 구현 PR에 연결한 뒤 상태를 갱신한다.
+- 상태: 검증됨
+- 근거: `build.gradle`에 `spring-boot-starter-flyway`와 `flyway-database-postgresql`을 두고, `src/main/resources/db/migration`에 `V1__create_p0_schema.sql`, `V2__add_audit_columns.sql`, `V3__rename_recommended_player_count_to_supported_player_count.sql`이 있다. 모든 프로필의 Hibernate 설정은 `ddl-auto=validate`이며 자동 DDL 생성·갱신을 사용하지 않는다. `PostgresSchemaValidationTest`는 빈 PostgreSQL 18 컨테이너에서 `flyway.validate()`와 `flyway_schema_history`의 `1`·`2`·`3` 성공 이력, ERD 테이블 생성을 확인한다. 같은 테스트가 `V2`까지만 적용한 스키마에 행을 넣은 뒤 나머지를 적용해 `V3`의 컬럼 rename이 기존 값을 보존하고 이전 컬럼이 남지 않는지 확인한다. CI는 `build` 뒤 `postgresTest`를 실행한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

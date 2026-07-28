@@ -61,7 +61,7 @@ API는 시간 값에 오프셋이 포함된 ISO 8601 형식을 사용한다. 요
 
 ## 검증
 
-- 상태: 미검증
-- 근거: 현재 API의 ISO 8601 오프셋 예시와 ERD의 `TIMESTAMPTZ` 정의는 이 결정과 일치하지만, Entity, UTC `Clock`, 직렬화 설정과 AWS·PostgreSQL 실행 환경은 아직 구현·검증되지 않았다.
+- 상태: 검증됨
+- 근거: `AlbamMateApplication.main`이 `UtcTimeZone.configure()`로 JVM 기본 시간대를 고정하고, 모든 프로필의 `application.yml`이 Jackson, Hibernate `jdbc.time_zone`과 Hikari `SET TIME ZONE 'UTC'`를 UTC로 설정한다. Gradle의 `Test`·`JavaExec`는 `user.timezone=UTC`로 실행하고 CI는 `TZ=UTC`를 사용한다. 엔티티의 시각 필드는 `Instant`이고 마이그레이션은 `TIMESTAMP WITH TIME ZONE`을 사용해 PostgreSQL 18에서 `ddl-auto=validate`가 통과한다. `TimeConfig`가 `Clock.systemUTC()`를 제공하며, `TimeConfigTest`는 실행·연결 시간대 설정, 서로 다른 오프셋의 같은 순간 정규화, 오프셋 없는 값과 초 단위 오프셋의 거절, `Asia/Seoul` `+09:00` 응답 직렬화를 확인하고 `UtcTimeZoneTest`는 기본 시간대 변경을 확인한다. `RoomStateReconciliationTest`는 고정 `Clock`으로 `now == startsAt`과 `startsAt + 24시간` 경계를 재현한다. AWS 운영 런타임의 시간대 적용은 아직 배포하지 않았으므로 [ADR-0021](0021-p0-aws-ec2-rds-deployment-baseline.md)의 배포 검증에서 확인한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

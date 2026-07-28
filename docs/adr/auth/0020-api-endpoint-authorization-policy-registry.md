@@ -67,7 +67,7 @@ Spring Security의 인증 필터는 Spring MVC(요청을 실제 컨트롤러 코
 
 ## 검증
 
-- 상태: 미검증
-- 근거: 현재 `SecurityConfigTest`가 미매핑 요청의 `404`, 미지원 메서드의 `405`, 미래 하위 경로의 인증 요구를 검증하고 있으나, 정책 등록부와 MVC 매핑의 자동 대조는 아직 구현되지 않았다. 구현 이슈와 PR에서 미분류·중복·충돌 정책의 실패 테스트 및 전체 P0 HTTP 회귀 테스트를 연결한 뒤 검증 상태를 갱신한다.
+- 상태: 검증됨
+- 근거: `ApiEndpointPolicyRegistry`가 현재 구현된 `/api/**` 엔드포인트의 메서드·경로·인증 모드·CSRF 요구를 한 목록에 두고, `SecurityConfig`의 공개·보호·CSRF matcher가 이 등록부를 공통 입력으로 사용한다. `ApiEndpointPolicyRegistryTest`는 Spring MVC의 `RequestMappingHandlerMapping`에서 애플리케이션 `/api/**` 핸들러를 수집해 등록부와 정확히 일치하는지 대조하고, 미등록 MVC 엔드포인트·고아 정책·중복 정책·CSRF 누락 정책과 HTTP 메서드가 없는 매핑의 대조 우회를 각각 실패로 만드는 통제 테스트를 포함한다. `GET`이 제공하는 `HEAD`에도 원래 정책을 적용한다. `SecurityConfigTest`는 미매핑 `404`와 미지원 메서드 `405` 계약이 유지되는지 확인하며, CI의 `build`가 이 테스트를 실행한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

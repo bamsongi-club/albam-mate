@@ -4,9 +4,7 @@
 
 [제품 목표](docs/PRD.md) · [P0 명세](docs/P0-spec.md) · [API 계약](docs/API.md)
 
-> **현재 단계**
->
-> P0의 제품·API·데이터·기술 계약을 정리 중입니다. 저장소에는 Spring Boot 애플리케이션의 기본 실행 구조가 있으며, 인증·게임·방·참가 기능과 배포·성능 검증은 아직 구현 전입니다.
+P0 백엔드를 구현하는 중이며 프론트엔드 연동과 배포는 시작하지 않았습니다. 항목별 구현·검증 상태는 [현재 개발 상태](#현재-개발-상태)를 따릅니다.
 
 ## 해결하려는 문제
 
@@ -34,31 +32,51 @@
 로그인 → 게임 중심·사람 중심 선택 → 모임 정보 입력 → 방 생성 → 참가자 확인 → 모임 종료
 ~~~
 
-범위와 공통 규칙은 [P0 명세](docs/P0-spec.md), 기능별 완료 조건은 [P0 기능 문서](docs/P0-spec.md#관련-문서)를 따릅니다.
+P0는 홍대에서 열리는 오프라인 모임만 다룹니다. 운영 제재, 결제, 알림과 대규모 동시 요청의 성능 목표는 범위에서 제외했습니다. 범위와 공통 규칙은 [P0 명세](docs/P0-spec.md), 기능별 완료 조건은 [P0 기능 문서](docs/P0-spec.md#관련-문서)를 따릅니다.
 
 ## 현재 개발 상태
 
 문서가 존재하거나 기술 결정이 승인됐다는 사실을 구현·검증 완료와 같은 의미로 사용하지 않습니다.
 
+기능 ID와 API 개수는 [P0 API 인벤토리](docs/P0-spec.md#기능별-문서와-api-목록)의 17개 API를 기준으로 셉니다.
+
 | 영역 | 문서화 | 구현 | 검증 |
 | --- | --- | --- | --- |
-| 백엔드 기반 | 빌드 설정과 기술 기준 있음 | Spring Boot 진입점 구성 | 기본 컨텍스트 테스트 있음 |
-| 인증·프로필 | [기능 명세](docs/p0/auth-profile.md) 있음 | 구현 전 | 검증 전 |
-| 게임 카탈로그 | [기능 명세](docs/p0/game-catalog.md) 있음 | 구현 전 | 검증 전 |
-| 방 | [기능 명세](docs/p0/room.md) 있음 | 구현 전 | 검증 전 |
-| 참가·내 모임 | [기능 명세](docs/p0/participation.md) 있음 | 구현 전 | 검증 전 |
+| 백엔드 기반 | [기반 작업](docs/p0/foundation.md) 있음 | `FND-01`~`FND-08` 범위의 도메인별 패키지, Flyway `V1`~`V3`, 세션 보안, UTC 시각 기준 | H2 `test`와 PostgreSQL 18 `postgresTest`, 분기 커버리지 게이트를 CI에서 실행 |
+| 인증·프로필 | [기능 명세](docs/p0/auth-profile.md) 있음 | `AUTH-01`~`AUTH-04`의 6개 API | 단위·HTTP 통합 테스트와 PostgreSQL 가입 경합 테스트 |
+| 게임 카탈로그 | [기능 명세](docs/p0/game-catalog.md) 있음 | `GAME-01`·`GAME-02`의 2개 API와 검수·적재 도구 | 목록·검색·상세 테스트와 PostgreSQL 재적재·롤백 테스트 |
+| 방 | [기능 명세](docs/p0/room.md) 있음 | `ROOM-01`~`ROOM-04`의 4개 API와 상태 보정·스케줄러. 취소·종료(`ROOM-05`) 2개 API 구현 전 | 상태 경계·보정·권한 테스트. `ROOM-05`는 검증 전 |
+| 참가·내 모임 | [기능 명세](docs/p0/participation.md) 있음 | `PART-01`~`PART-03`의 3개 API | PostgreSQL 낙관 락 동시성 테스트 |
+| 프론트엔드 | [프론트엔드 README](frontend/README.md) 있음 | React 화면과 목업 데이터 | 자동 테스트 없음, API 연동 전 |
+| 운영 배포 | [ADR-0021 운영 인프라 기준](docs/adr/platform/0021-p0-aws-ec2-rds-deployment-baseline.md) 있음 | 구현 전 | 검증 전 |
 
-기능 구현 PR에서는 해당 행의 구현 상태와 테스트·측정 근거를 함께 갱신합니다.
+위 표는 2026-07-28 18:31 KST `develop@6620452` 기준입니다.
+
+## 팀 — 밤송이클럽
+
+| 팀원 | 담당 영역 |
+| --- | --- |
+| [@vanilalatte03](https://github.com/vanilalatte03) | 인증·사용자, AI 협업 기반 |
+| [@beyejin](https://github.com/beyejin) | 스키마, 게임 카탈로그, 방 탐색, 프론트엔드 |
+| [@gone09-sketch](https://github.com/gone09-sketch) | 방 생명주기·상세 |
+| [@silverThunder09](https://github.com/silverThunder09) | 참가·정원과 동시성 검증 |
+
+통합 테스트는 네 명이 함께 진행합니다.
 
 ## 기술 기준과 선택 근거
+
+P0의 사용자 흐름과 저장·보안 계약에 직접 영향을 주는 결정만 싣습니다. 나머지 결정과 전체 목록, 각 결정의 검증 상태는 [ADR 인덱스](docs/adr/README.md)에서 확인합니다.
 
 | 문제 | 선택 | 이유와 현재 근거 |
 | --- | --- | --- |
 | 백엔드 기준선 | Java 21, Spring Boot 4.1 | 현재 빌드와 지원 범위를 맞추고 가까운 시기의 기준선 재변경을 줄입니다. 빌드 설정과 기본 테스트에 반영됐습니다. [ADR-0001](docs/adr/platform/0001-java-21-spring-boot-4-baseline.md) |
-| 업무 데이터 정합성 | PostgreSQL, Spring Data JPA | 관계와 트랜잭션, 데이터베이스 제약을 함께 사용합니다. 의존성만 구성됐으며 실제 PostgreSQL 통합 검증은 남아 있습니다. [ADR-0002](docs/adr/platform/0002-postgresql-primary-database.md) |
-| 코드 구조 | 도메인 중심 모듈러 모놀리스 | 하나의 배포·트랜잭션 단위를 유지하면서 도메인별 책임과 의존 경계를 드러냅니다. 도메인 코드와 구조 검증 테스트는 아직 구현 전입니다. [ADR-0007](docs/adr/platform/0007-domain-centered-modular-monolith.md) |
-| P0 인증 | 서버 세션, Spring Security | 현재 범위에 필요하지 않은 JWT 만료·갱신·폐기 정책을 먼저 만들지 않고 서버가 보호 경로를 통제합니다. 구현과 인증 테스트는 남아 있습니다. [ADR-0003](docs/adr/auth/0003-p0-server-session-spring-security.md) |
-| 방 참가 동시성 | 낙관 락과 제한된 재시도 | 충돌이 드물다는 현재 가정 아래 평상시 잠금 대기를 피하고, 충돌 비용은 PostgreSQL 기반 테스트로 확인합니다. 구현과 측정은 남아 있습니다. [ADR-0005](docs/adr/participation/0005-room-participation-optimistic-locking.md) |
+| 업무 데이터 정합성 | PostgreSQL, Spring Data JPA | 관계와 트랜잭션, 데이터베이스 제약을 함께 사용합니다. Flyway 마이그레이션과 PostgreSQL 18 통합 테스트로 확인했습니다. [ADR-0002](docs/adr/platform/0002-postgresql-primary-database.md) |
+| 코드 구조 | 도메인 중심 모듈러 모놀리스 | 하나의 배포·트랜잭션 단위를 유지하면서 도메인별 책임과 의존 경계를 드러냅니다. ArchUnit 구조 테스트가 순환 의존과 내부 구현 참조를 막습니다. [ADR-0007](docs/adr/platform/0007-domain-centered-modular-monolith.md) |
+| P0 인증 | 서버 세션, Spring Security | 현재 범위에 필요하지 않은 JWT 만료·갱신·폐기 정책을 먼저 만들지 않고 서버가 보호 경로를 통제합니다. 세션 쿠키·CSRF·로그아웃 계약을 HTTP 통합 테스트로 고정했습니다. [ADR-0003](docs/adr/auth/0003-p0-server-session-spring-security.md) |
+| API 인가 경계 | 엔드포인트 정책 등록부 | 인증·CSRF 정책을 한 목록에 모으고 Spring MVC 매핑과 자동 대조해 등록 누락을 CI에서 막습니다. [ADR-0020](docs/adr/auth/0020-api-endpoint-authorization-policy-registry.md) |
+| 방 참가 동시성 | 낙관 락과 제한된 재시도 | 충돌이 드물다는 현재 가정 아래 평상시 잠금 대기를 피합니다. 정원 초과·중복 참가 방지와 재시도 상한을 PostgreSQL 동시성 테스트로 확인했습니다. [ADR-0005](docs/adr/participation/0005-room-participation-optimistic-locking.md) |
+| 게임 목록 데이터 | BGG 기준 스냅샷과 팀 수집 자료 | 외부 식별자를 보존하면서 서비스 표시 필드의 출처를 추적하고, 검증을 통과한 데이터셋만 하나의 트랜잭션으로 반영합니다. [ADR-0015](docs/adr/game/0015-bgg-baseline-team-collected-game-list.md) |
+| P0 운영 배포 | EC2 `t4g.small`과 private RDS PostgreSQL | 애플리케이션과 운영 데이터를 분리하고, RDS는 EC2 애플리케이션만 접근하게 합니다. 운영 Compose·네트워크·백업 검증은 아직 남아 있습니다. [ADR-0021](docs/adr/platform/0021-p0-aws-ec2-rds-deployment-baseline.md) |
 
 ## 로컬에서 확인하기
 
@@ -78,7 +96,25 @@ macOS·Linux:
 ./gradlew spotlessCheck
 ```
 
-현재 저장소에는 PostgreSQL 연결값이 포함되어 있지 않습니다. `bootRun` 전에 데이터소스 설정이 필요하며, 반복 명령과 환경 조건은 [프로젝트 명령](docs/COMMANDS.md)에서 확인할 수 있습니다.
+`test`는 H2 인메모리 데이터베이스를 사용하므로 Docker 없이 실행됩니다. 실제 PostgreSQL을 사용하는 `postgresTest`와 `bootRun`에는 Docker가 필요합니다.
+
+```sh
+./gradlew postgresTest
+```
+
+P0 흐름을 화면으로 확인할 때는 로컬 PostgreSQL을 띄운 뒤 백엔드와 프론트엔드를 각각 실행합니다.
+
+```sh
+./gradlew bootRun --args='--spring.profiles.active=local'
+```
+
+```sh
+cd frontend && npm run dev
+```
+
+백엔드는 `http://localhost:8080`, 프론트엔드 개발 서버는 `http://localhost:5173`에서 열립니다. 프론트엔드는 아직 목업 데이터로 동작하므로 두 화면의 데이터는 이어지지 않습니다.
+
+저장소에는 데이터소스 연결값을 두지 않습니다. `.env` 준비, Compose 기동과 운영체제별 실행 절차는 [프로젝트 명령](docs/COMMANDS.md)에서 확인할 수 있습니다.
 
 ## 문서 찾기
 
@@ -87,8 +123,10 @@ macOS·Linux:
 - 개발 작업의 시작점: [AGENTS.md](AGENTS.md)
 - 요청·응답과 오류 계약: [API 명세](docs/API.md)
 - 테이블과 데이터 제약: [ERD](docs/ERD.md)
-- 기술 선택과 트레이드오프: [ADR](docs/adr/README.md)
+- 기술 선택과 트레이드오프, 결정별 검증 상태: [ADR](docs/adr/README.md)
+- 게임 목록 입력 검수와 적재 절차: [게임 카탈로그 검수·적재](docs/guides/GAME_CATALOG_IMPORT.md)
 - 코드 구조와 구현 규칙: [컨벤션](docs/CONVENTIONS.md)
 - 실행·테스트·포맷 명령: [프로젝트 명령](docs/COMMANDS.md)
+- 프론트엔드 화면과 실행: [프론트엔드 README](frontend/README.md)
 
 구현 작업은 [AGENTS.md](AGENTS.md)의 라우팅에 따라 `docs/p0/`의 기능 ID에서 시작합니다. 상세 계약을 README에 복제하지 않고 각 정본 문서를 연결합니다.

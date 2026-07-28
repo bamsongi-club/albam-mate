@@ -8,4 +8,4 @@
 | --- | --- | --- | --- | --- |
 | [0011](0011-bgg-manual-catalog-snapshot.md) | P0 게임 카탈로그를 검수된 BGG 수동 스냅샷으로 관리 | 대체됨 | 2026-07-24 | 미검증 |
 | [0014](0014-bgg-curated-service-catalog.md) | BGG 수집 데이터를 팀 검수 서비스 카탈로그로 재가공 | 대체됨 | 2026-07-24 | 미검증 |
-| [0015](0015-bgg-baseline-team-collected-game-list.md) | BGG 기준 스냅샷과 팀 수집 자료로 서비스 게임 목록 구성 | 승인됨 | 2026-07-26 | 미검증 |
+| [0015](0015-bgg-baseline-team-collected-game-list.md) | BGG 기준 스냅샷과 팀 수집 자료로 서비스 게임 목록 구성 | 승인됨 | 2026-07-26 | 검증됨 |
