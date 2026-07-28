@@ -146,6 +146,21 @@ public class Room extends BaseEntity {
         }
     }
 
+    /**
+     * 활성 참가 관계가 취소됐을 때 점유 인원을 반영하고, 시작 전 빈자리가 생긴 닫힌 방만 다시 모집한다.
+     *
+     * <p>최종 상태인 {@code CANCELED}, {@code FINISHED}는 참가 관계의 이력 변경으로 덮어쓰지 않는다.
+     */
+    public void removeActiveParticipant() {
+        if (activeParticipantCount <= 0) {
+            throw new IllegalStateException("active participant count cannot be negative");
+        }
+        activeParticipantCount--;
+        if (status == RoomStatus.CLOSED) {
+            status = RoomStatus.RECRUITING;
+        }
+    }
+
     /** 수정 가능 조건을 통과한 방의 허용 필드만 새 값으로 반영한다. */
     public void update(
             String title,

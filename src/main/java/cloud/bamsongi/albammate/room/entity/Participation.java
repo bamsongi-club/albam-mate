@@ -64,4 +64,10 @@ public class Participation extends BaseEntity {
         this.joinedAt = Objects.requireNonNull(joinedAt, "joinedAt");
         canceledAt = null;
     }
+
+    /** 현재 활성 참가 관계를 이력 보존 상태로 취소한다. */
+    public void cancel(Instant canceledAt) {
+        status = ParticipationStatus.CANCELED;
+        this.canceledAt = Objects.requireNonNull(canceledAt, "canceledAt");
+    }
 }
