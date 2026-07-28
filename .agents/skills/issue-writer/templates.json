@@ -11,6 +11,15 @@
       "labels": []
     },
     {
+      "id": "bug",
+      "enabled": true,
+      "template": ".github/ISSUE_TEMPLATE/bug.yml",
+      "titlePrefix": "[BUG]",
+      "intent": "기존 동작이 기대와 다르거나 회귀한 문제의 재현·수정·검증",
+      "signals": ["버그", "오류", "재현", "회귀", "bug"],
+      "labels": []
+    },
+    {
       "id": "refactor",
       "enabled": true,
       "template": ".github/ISSUE_TEMPLATE/refactor.yml",

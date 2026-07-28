@@ -19,5 +19,4 @@ P0 구현 작업은 `docs/p0/`의 해당 기능 ID 절부터 읽고, 맥락이 �
 ## 작업 원칙
 
 - 프로젝트 구현과 운영 규칙의 기준은 `albam-mate` 저장소다.
-- 메인 Codex 에이전트는 범위와 관련 정본이 확정된 백엔드 기능 구현·버그 수정을 `.codex/contracts/backend-implementation-packet.schema.json`을 만족하는 JSON 패킷으로만 `backend-developer`에 위임한다.
-- `backend-developer`는 위임받은 작업을 직접 수행하며 다른 에이전트에 재위임하지 않는다.
+- 범위와 관련 정본이 확정된 백엔드 기능 구현·버그 수정은 [backend-delivery](.agents/skills/backend-delivery/SKILL.md) 절차에 따라 `backend-developer`에 위임한다.
