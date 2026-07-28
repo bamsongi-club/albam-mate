@@ -94,38 +94,44 @@ class PostgresSchemaValidationTest {
     }
 
     @Test
-    void V3_컬럼_rename은_V2에서_저장한_기존_행의_값을_보존한다() {
-        String schemaName = "game_column_rename_" + UUID.randomUUID().toString().replace("-", "");
+    void V1_V2_V3는_가능_추천_최적인원을_단계적으로_추가하고_기존_값을_보존한다() {
+        String schemaName = "game_player_counts_" + UUID.randomUUID().toString().replace("-", "");
         try {
-            migrate(schemaName, "2");
+            migrate(schemaName, "1");
+            assertColumn(schemaName, "supported_player_count", false);
+            assertColumnMissing(schemaName, "recommended_player_count");
+            assertColumnMissing(schemaName, "best_player_count");
+            assertColumn(schemaName, "updated_at", false);
+            assertColumn(schemaName, "participations", "created_at", false);
+            assertColumn(schemaName, "participations", "updated_at", false);
+
             jdbcTemplate.update(
                     "insert into "
                             + schemaName
                             + ".games "
-                            + "(bgg_id, name, english_name, recommended_player_count, tag, "
+                            + "(bgg_id, name, english_name, supported_player_count, tag, "
                             + "estimated_play_time, description, detail_description, created_at, updated_at) "
                             + "values (9001, '마이그레이션 테스트 게임', 'Migration Test Game', '2~4명', '전략', "
                             + "'60~90분', '설명', '상세 설명', "
                             + "TIMESTAMP WITH TIME ZONE '2026-07-27T00:00:00Z', "
                             + "TIMESTAMP WITH TIME ZONE '2026-07-27T00:00:00Z')");
 
-            migrate(schemaName, null);
+            migrate(schemaName, "2");
+            assertColumn(schemaName, "supported_player_count", false);
+            assertColumn(schemaName, "recommended_player_count", true);
+            assertColumnMissing(schemaName, "best_player_count");
+            assertEquals("2~4명", gamePlayerCount(schemaName, "supported_player_count"));
+            jdbcTemplate.update(
+                    "update "
+                            + schemaName
+                            + ".games set recommended_player_count = '3~5명' where bgg_id = 9001");
 
-            assertEquals(
-                    "2~4명",
-                    jdbcTemplate.queryForObject(
-                            "select supported_player_count from "
-                                    + schemaName
-                                    + ".games where bgg_id = 9001",
-                            String.class));
-            assertEquals(
-                    0,
-                    jdbcTemplate.queryForObject(
-                            "select count(*) from information_schema.columns "
-                                    + "where table_schema = ? and table_name = 'games' "
-                                    + "and column_name = 'recommended_player_count'",
-                            Integer.class,
-                            schemaName));
+            migrate(schemaName, null);
+            assertColumn(schemaName, "supported_player_count", false);
+            assertColumn(schemaName, "recommended_player_count", true);
+            assertColumn(schemaName, "best_player_count", true);
+            assertEquals("2~4명", gamePlayerCount(schemaName, "supported_player_count"));
+            assertEquals("3~5명", gamePlayerCount(schemaName, "recommended_player_count"));
         } finally {
             jdbcTemplate.execute("drop schema if exists " + schemaName + " cascade");
         }
@@ -373,6 +379,40 @@ class PostgresSchemaValidationTest {
             configuration.target(target);
         }
         configuration.load().migrate();
+    }
+
+    private void assertColumn(String schemaName, String columnName, boolean nullable) {
+        assertColumn(schemaName, "games", columnName, nullable);
+    }
+
+    private void assertColumn(
+            String schemaName, String tableName, String columnName, boolean nullable) {
+        assertEquals(
+                nullable ? "YES" : "NO",
+                jdbcTemplate.queryForObject(
+                        "select is_nullable from information_schema.columns "
+                                + "where table_schema = ? and table_name = ? and column_name = ?",
+                        String.class,
+                        schemaName,
+                        tableName,
+                        columnName));
+    }
+
+    private void assertColumnMissing(String schemaName, String columnName) {
+        assertEquals(
+                0,
+                jdbcTemplate.queryForObject(
+                        "select count(*) from information_schema.columns "
+                                + "where table_schema = ? and table_name = 'games' and column_name = ?",
+                        Integer.class,
+                        schemaName,
+                        columnName));
+    }
+
+    private String gamePlayerCount(String schemaName, String columnName) {
+        return jdbcTemplate.queryForObject(
+                "select " + columnName + " from " + schemaName + ".games where bgg_id = 9001",
+                String.class);
     }
 
     private void insertUser(long id, String email) {
