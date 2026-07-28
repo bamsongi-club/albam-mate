@@ -19,8 +19,6 @@ P0에는 팀이 검수한 게임 2,000건이 있다. 이름·이미지·가능 �
 
 비상업적 애플리케이션으로 제출한 BGG XML API 사용 신청은 2026-07-28 승인됐다. 공개 앱에는 `Powered by BGG` 로고를 표시해야 한다. 다만 승인 메시지에는 BGG 데이터를 기계 번역하거나 AI·LLM에 입력해 임베딩을 만드는 예외가 명시되어 있지 않다. BGG 표준 이용 조건에는 데이터 수정과 AI·LLM 사용을 제한하는 문구가 있으므로, 이 작업은 별도 서면 확인이 필요하다.
 
-국내 보드게임 서비스인 보드라이프의 공개 페이지에서는 자체 게임 ID와 화면·백엔드 경로를 사용하고, 사용자 데이터 등록과 운영팀 검수를 거치며, 별도의 BGG 게임 링크를 연결하는 구조가 확인됐다. 이는 Albam Mate가 자체 DB·내부 API·검수 절차를 두는 구조를 검토할 비교 사례다. 다만 보드라이프의 최초 데이터 취득 경로와 BGG 계약·허가 범위는 공개 자료로 확인되지 않았으므로, 보드라이프의 운영을 Albam Mate의 BGG 이용 권리 근거로 사용하지 않는다.
-
 이번 제안의 판단 기준은 다음과 같다.
 
 - 전체 유효 게임은 이름으로 검색할 수 있을 것
@@ -185,9 +183,6 @@ BGG에서 위 범위를 명시적으로 허용한 서면 근거를 확인하기 
 
 - [ADR-0015: BGG 기준 스냅샷과 팀 수집 자료로 서비스 게임 목록 구성](0015-bgg-baseline-team-collected-game-list.md)
 - [ADR-0018: P0 이후 단독 플레이 가능 여부와 확장 관계를 분리해 관리](0018-expansion-type-and-relations.md)
-- [BGG 데이터 번역·요약·재가공 허가와 독자 조사 자료의 권리 경계](../../research/2026-07-28-bgg-data-reprocessing-permission.md)
-- [BGG 한국어화·의미 검색 제안 검증](../../research/2026-07-28-bgg-localization-semantic-search-options.md)
-- [보드라이프 게임 카탈로그 운영 방식 공개 근거 점검](../../research/2026-07-28-boardlife-catalog-source-check.md)
 - [P0 게임 카탈로그 입력 검수](../../game-catalog/2026-07-24-input-review.md)
 - [P0 게임 카탈로그 검수·적재 절차](../../guides/GAME_CATALOG_IMPORT.md)
 - [BGG XML API2와 CSV 안내](https://boardgamegeek.com/wiki/page/bgg_xml_api2)
