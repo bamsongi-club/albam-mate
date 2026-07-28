@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -30,6 +31,7 @@ import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
 import cloud.bamsongi.albammate.room.dto.PublicRoomResponse;
 import cloud.bamsongi.albammate.room.dto.RoomPageResponse;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
+import cloud.bamsongi.albammate.room.dto.RoomStatusResponse;
 import cloud.bamsongi.albammate.room.dto.RoomUpdateRequest;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.MyRole;
@@ -39,6 +41,7 @@ import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.service.RoomCreateService;
 import cloud.bamsongi.albammate.room.service.RoomListQueryService;
 import cloud.bamsongi.albammate.room.service.RoomParticipationService;
+import cloud.bamsongi.albammate.room.service.RoomStatusChangeService;
 import cloud.bamsongi.albammate.room.service.RoomUpdateService;
 import java.time.Instant;
 import java.util.List;
@@ -185,6 +188,7 @@ class RoomControllerTest {
     }
 
     @Autowired private RoomUpdateService roomUpdateService;
+    @Autowired private RoomStatusChangeService roomStatusChangeService;
 
     @Test
     void 인증없는_방_생성은_UNAUTHENTICATED다() throws Exception {
@@ -383,6 +387,117 @@ class RoomControllerTest {
         verifyNoInteractions(roomUpdateService);
     }
 
+    @Test
+    void 인증없는_취소와_종료는_UNAUTHENTICATED이고_Service를_호출하지_않는다() throws Exception {
+        clearInvocations(roomStatusChangeService);
+
+        mockMvc.perform(delete("/api/rooms/1"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
+        mockMvc.perform(
+                        patch("/api/rooms/1/status")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"status\":\"FINISHED\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
+
+        verifyNoInteractions(roomStatusChangeService);
+    }
+
+    @Test
+    void 인증만_있는_취소와_종료는_CSRF_TOKEN_INVALID이고_Service를_호출하지_않는다() throws Exception {
+        clearInvocations(roomStatusChangeService);
+
+        mockMvc.perform(delete("/api/rooms/1").with(authenticationFor(42L)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(ErrorCode.CSRF_TOKEN_INVALID.getCode()));
+        mockMvc.perform(
+                        patch("/api/rooms/1/status")
+                                .with(authenticationFor(42L))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"status\":\"FINISHED\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(ErrorCode.CSRF_TOKEN_INVALID.getCode()));
+
+        verifyNoInteractions(roomStatusChangeService);
+    }
+
+    @Test
+    void 종료_하위_경로는_PATCH만_허용하고_Service를_호출하지_않는다() throws Exception {
+        clearInvocations(roomStatusChangeService);
+
+        mockMvc.perform(
+                        post("/api/rooms/1/status")
+                                .with(csrf())
+                                .with(authenticationFor(42L))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"status\":\"FINISHED\"}"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.code").value(ErrorCode.METHOD_NOT_ALLOWED.getCode()));
+
+        verifyNoInteractions(roomStatusChangeService);
+    }
+
+    @Test
+    void 인증과_CSRF가_있는_취소는_CANCELED_상태_응답을_반환한다() throws Exception {
+        clearInvocations(roomStatusChangeService);
+        when(roomStatusChangeService.cancelRoom(42L, 1L))
+                .thenReturn(new RoomStatusResponse(1L, RoomStatus.CANCELED));
+
+        mockMvc.perform(delete("/api/rooms/1").with(csrf()).with(authenticationFor(42L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.data.roomId").value(1))
+                .andExpect(jsonPath("$.data.roomStatus").value("CANCELED"));
+
+        verify(roomStatusChangeService).cancelRoom(42L, 1L);
+    }
+
+    @Test
+    void 인증과_CSRF가_있는_FINISHED_종료_요청은_상태_응답을_반환한다() throws Exception {
+        clearInvocations(roomStatusChangeService);
+        when(roomStatusChangeService.finishRoom(42L, 1L))
+                .thenReturn(new RoomStatusResponse(1L, RoomStatus.FINISHED));
+
+        mockMvc.perform(
+                        patch("/api/rooms/1/status")
+                                .with(csrf())
+                                .with(authenticationFor(42L))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"status\":\"FINISHED\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.data.roomStatus").value("FINISHED"));
+
+        verify(roomStatusChangeService).finishRoom(42L, 1L);
+    }
+
+    @Test
+    void 종료_요청의_누락_null_FINISHED_외_상태와_잘못된_ID는_VALIDATION_ERROR다() throws Exception {
+        clearInvocations(roomStatusChangeService);
+
+        for (String body : List.of("{}", "{\"status\":null}", "{\"status\":\"CLOSED\"}")) {
+            mockMvc.perform(
+                            patch("/api/rooms/1/status")
+                                    .with(csrf())
+                                    .with(authenticationFor(42L))
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(body))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+        }
+        mockMvc.perform(
+                        patch("/api/rooms/0/status")
+                                .with(csrf())
+                                .with(authenticationFor(42L))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"status\":\"FINISHED\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
+        verifyNoInteractions(roomStatusChangeService);
+    }
+
     private RequestPostProcessor authenticationFor(long userId) {
         return authentication(
                 new UsernamePasswordAuthenticationToken(
@@ -475,6 +590,11 @@ class RoomControllerTest {
         @Bean
         RoomUpdateService roomUpdateService() {
             return Mockito.mock(RoomUpdateService.class);
+        }
+
+        @Bean
+        RoomStatusChangeService roomStatusChangeService() {
+            return Mockito.mock(RoomStatusChangeService.class);
         }
     }
 }
