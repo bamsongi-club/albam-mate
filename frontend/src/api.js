@@ -13,6 +13,7 @@ export class ApiError extends Error {
 let csrfToken;
 let csrfTokenRequest;
 let unauthenticatedHandler;
+let authenticationGeneration = 0;
 
 function endpoint(path) {
   return API_BASE_PATH + path;
@@ -25,6 +26,7 @@ async function parsePayload(response) {
 }
 
 async function request(path, { method = 'GET', body, headers, signal } = {}) {
+  const requestAuthenticationGeneration = authenticationGeneration;
   const response = await fetch(endpoint(path), {
     method,
     credentials: 'include',
@@ -45,7 +47,11 @@ async function request(path, { method = 'GET', body, headers, signal } = {}) {
       message: payload?.message || '요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.',
       retryAfter: response.headers.get('retry-after')
     });
-    if (response.status === 401 && error.code === 'UNAUTHENTICATED') {
+    if (
+      response.status === 401
+      && error.code === 'UNAUTHENTICATED'
+      && requestAuthenticationGeneration === authenticationGeneration
+    ) {
       clearCsrfToken();
       unauthenticatedHandler?.();
     }
@@ -93,6 +99,11 @@ export function clearCsrfToken() {
   csrfToken = undefined;
 }
 
+function advanceAuthenticationGeneration() {
+  authenticationGeneration += 1;
+  clearCsrfToken();
+}
+
 export function setUnauthenticatedHandler(handler) {
   unauthenticatedHandler = handler;
 }
@@ -119,12 +130,14 @@ export const api = {
   signup: async (credentials) => mutate('/api/auth/signup', { method: 'POST', body: credentials }),
   login: async (credentials) => {
     const user = await mutate('/api/auth/login', { method: 'POST', body: credentials });
-    clearCsrfToken();
+    advanceAuthenticationGeneration();
     return user;
   },
   logout: async () => {
     try {
-      return await mutate('/api/auth/logout', { method: 'POST' });
+      const result = await mutate('/api/auth/logout', { method: 'POST' });
+      advanceAuthenticationGeneration();
+      return result;
     } finally {
       clearCsrfToken();
     }
