@@ -20,3 +20,8 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+
+app:
+  security:
+    cookie:
+      secure: false

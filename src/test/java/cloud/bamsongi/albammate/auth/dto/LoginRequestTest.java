@@ -1,12 +1,17 @@
 package cloud.bamsongi.albammate.auth.dto;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import cloud.bamsongi.albammate.auth.exception.LoginValidationException;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
 import org.junit.jupiter.api.Test;
 
 class LoginRequestTest {
+
+    private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
     @Test
     void 이메일은_정규화하고_비밀번호_공백은_보존한다() {
@@ -36,6 +41,21 @@ class LoginRequestTest {
     }
 
     @Test
+    void UTF8_정확히_72바이트_비밀번호는_허용하고_76바이트는_거절한다() {
+        String exactly72Bytes = "a".repeat(56) + "é".repeat(8);
+        String exactly76Bytes = "a".repeat(52) + "é".repeat(12);
+
+        assertEquals(
+                exactly72Bytes,
+                new LoginRequest("user@example.com", exactly72Bytes)
+                        .normalizeAndValidate()
+                        .password());
+        assertThrows(
+                LoginValidationException.class,
+                () -> new LoginRequest("user@example.com", exactly76Bytes).normalizeAndValidate());
+    }
+
+    @Test
     void 이메일_누락과_형식_오류를_거절한다() {
         assertThrows(
                 LoginValidationException.class,
@@ -56,5 +76,15 @@ class LoginRequestTest {
 
         assertEquals(255, signup.email().codePointCount(0, signup.email().length()));
         assertEquals(signup.email(), login.email());
+    }
+
+    @Test
+    void record_컴포넌트_제약이_필수값과_로그인_비밀번호_정책을_검증한다() {
+        assertFalse(validator.validate(new LoginRequest(null, "password")).isEmpty());
+        assertFalse(validator.validate(new LoginRequest(" ", "password")).isEmpty());
+        assertFalse(
+                validator
+                        .validate(new LoginRequest("user@example.com", "😀".repeat(19)))
+                        .isEmpty());
     }
 }

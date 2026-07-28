@@ -1,7 +1,9 @@
 package cloud.bamsongi.albammate.auth.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -12,8 +14,10 @@ import static org.mockito.Mockito.when;
 import cloud.bamsongi.albammate.auth.dto.LoginRequest;
 import cloud.bamsongi.albammate.auth.exception.InvalidCredentialsException;
 import cloud.bamsongi.albammate.auth.exception.LoginValidationException;
+import cloud.bamsongi.albammate.global.config.AuthenticationRequestProtectionProperties;
 import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
 import cloud.bamsongi.albammate.global.security.AuthenticationRequestLimiter;
+import cloud.bamsongi.albammate.global.security.InMemoryAuthenticationRequestLimiter;
 import cloud.bamsongi.albammate.global.security.LoginVerificationPermit;
 import cloud.bamsongi.albammate.global.security.PasswordHashConcurrencyLimiter;
 import cloud.bamsongi.albammate.global.security.PasswordHashExecutor;
@@ -23,6 +27,12 @@ import cloud.bamsongi.albammate.user.contract.UserAccount;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
 import cloud.bamsongi.albammate.user.contract.UserCredentials;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Answers;
@@ -142,6 +152,92 @@ class LoginServiceTest {
 
         verify(userAccountService, never()).findCredentialsByEmail(any());
         verify(requestLimiter, never()).recordLoginFailure(any(), any());
+    }
+
+    @Test
+    void 동일_정규화_이메일과_IP의_동시_로그인은_하나만_검증하고_실패를_5회까지만_기록한다() throws Exception {
+        InMemoryAuthenticationRequestLimiter limiter =
+                new InMemoryAuthenticationRequestLimiter(
+                        new AuthenticationRequestProtectionProperties(),
+                        java.time.Clock.systemUTC());
+        PasswordHashConcurrencyLimiter hashLimiter =
+                new PasswordHashConcurrencyLimiter() {
+                    @Override
+                    public Optional<PasswordHashPermit> tryAcquire() {
+                        return Optional.of(() -> {});
+                    }
+
+                    @Override
+                    public int maxConcurrent() {
+                        return 1;
+                    }
+
+                    @Override
+                    public int currentConcurrent() {
+                        return 0;
+                    }
+                };
+        CountDownLatch verificationStarted = new CountDownLatch(1);
+        CountDownLatch releaseVerification = new CountDownLatch(1);
+        AtomicInteger passwordMatches = new AtomicInteger();
+        PasswordEncoder blockingPasswordEncoder = org.mockito.Mockito.mock(PasswordEncoder.class);
+        when(blockingPasswordEncoder.matches(any(String.class), any(String.class)))
+                .thenAnswer(
+                        invocation -> {
+                            passwordMatches.incrementAndGet();
+                            verificationStarted.countDown();
+                            if (!releaseVerification.await(5, TimeUnit.SECONDS)) {
+                                throw new AssertionError("로그인 검증이 제때 해제되지 않았습니다.");
+                            }
+                            return false;
+                        });
+        when(userAccountService.findCredentialsByEmail("user@example.com"))
+                .thenReturn(Optional.of(new UserCredentials(12L, "닉네임", "{bcrypt}stored")));
+        LoginService service =
+                new LoginService(
+                        limiter,
+                        userAccountService,
+                        blockingPasswordEncoder,
+                        new PasswordHashExecutor(hashLimiter));
+        String remoteIp = "203.0.113.45";
+
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<?> firstLogin =
+                    executor.submit(
+                            () ->
+                                    assertThrows(
+                                            InvalidCredentialsException.class,
+                                            () ->
+                                                    service.login(
+                                                            new LoginRequest(
+                                                                    " User@Example.COM ", "wrong"),
+                                                            remoteIp)));
+            assertTrue(verificationStarted.await(5, TimeUnit.SECONDS));
+
+            assertThrows(
+                    RateLimitExceededException.class,
+                    () -> service.login(new LoginRequest("user@example.com", "wrong"), remoteIp));
+            releaseVerification.countDown();
+            firstLogin.get(5, TimeUnit.SECONDS);
+
+            for (int attempt = 0; attempt < 4; attempt++) {
+                assertThrows(
+                        InvalidCredentialsException.class,
+                        () ->
+                                service.login(
+                                        new LoginRequest("user@example.com", "wrong"), remoteIp));
+            }
+            assertThrows(
+                    RateLimitExceededException.class,
+                    () -> service.login(new LoginRequest("user@example.com", "wrong"), remoteIp));
+
+            assertEquals(5, passwordMatches.get());
+            assertFalse(limiter.checkLoginFailureAllowed("user@example.com", remoteIp).allowed());
+        } finally {
+            releaseVerification.countDown();
+            executor.shutdownNow();
+        }
     }
 
     private LoginService serviceWithAvailableHashSlot() {

@@ -8,14 +8,23 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** 정규화 이후 프로필 수정 입력 규칙을 Bean Validation 경계에서 확인한다. */
+/** 비밀번호의 Unicode code point와 UTF-8 바이트 길이를 검증한다. */
 @Documented
-@Constraint(validatedBy = ProfileUpdateRequestValidator.class)
-@Target(ElementType.TYPE)
+@Constraint(validatedBy = PasswordValidator.class)
+@Target({
+    ElementType.FIELD,
+    ElementType.METHOD,
+    ElementType.PARAMETER,
+    ElementType.ANNOTATION_TYPE,
+    ElementType.TYPE_USE,
+    ElementType.RECORD_COMPONENT
+})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface ValidProfileUpdateRequest {
+public @interface ValidPassword {
 
-    String message() default "요청값 검증에 실패했습니다.";
+    int minCodePoints() default 1;
+
+    String message() default "유효한 비밀번호 길이가 아닙니다.";
 
     Class<?>[] groups() default {};
 

@@ -3,11 +3,10 @@ package cloud.bamsongi.albammate.auth.controller;
 import cloud.bamsongi.albammate.auth.dto.LoginRequest;
 import cloud.bamsongi.albammate.auth.dto.UserSummary;
 import cloud.bamsongi.albammate.auth.service.LoginService;
-import cloud.bamsongi.albammate.global.config.SecurityCookieProperties;
 import cloud.bamsongi.albammate.global.response.ApiResponse;
 import cloud.bamsongi.albammate.global.security.CurrentUserPrincipal;
+import cloud.bamsongi.albammate.global.security.SessionCookieConfigurer;
 import cloud.bamsongi.albammate.user.contract.UserAccount;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -33,18 +32,19 @@ public final class LoginController {
 
     private final LoginService loginService;
     private final CsrfTokenRepository csrfTokenRepository;
-    private final SecurityCookieProperties cookieProperties;
+    private final SessionCookieConfigurer sessionCookieConfigurer;
     private final SecurityContextRepository securityContextRepository =
             new HttpSessionSecurityContextRepository();
 
     public LoginController(
             LoginService loginService,
             CsrfTokenRepository csrfTokenRepository,
-            SecurityCookieProperties cookieProperties) {
+            SessionCookieConfigurer sessionCookieConfigurer) {
         this.loginService = Objects.requireNonNull(loginService, "loginService");
         this.csrfTokenRepository =
                 Objects.requireNonNull(csrfTokenRepository, "csrfTokenRepository");
-        this.cookieProperties = Objects.requireNonNull(cookieProperties, "cookieProperties");
+        this.sessionCookieConfigurer =
+                Objects.requireNonNull(sessionCookieConfigurer, "sessionCookieConfigurer");
     }
 
     @PostMapping("/login")
@@ -76,12 +76,7 @@ public final class LoginController {
         SecurityContextHolder.setContext(context);
         securityContextRepository.saveContext(context, servletRequest, servletResponse);
         if (!hasSessionCookie(servletResponse)) {
-            Cookie sessionCookie = new Cookie("JSESSIONID", session.getId());
-            sessionCookie.setPath("/");
-            sessionCookie.setHttpOnly(true);
-            sessionCookie.setSecure(cookieProperties.isSecure());
-            sessionCookie.setAttribute("SameSite", "Lax");
-            servletResponse.addCookie(sessionCookie);
+            servletResponse.addCookie(sessionCookieConfigurer.sessionCookie(session.getId()));
         }
     }
 
