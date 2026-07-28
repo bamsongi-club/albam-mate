@@ -21,4 +21,5 @@ public record PublicRoomResponse(
         int participantCount,
         int remainingRecruitmentSeats,
         RoomStatus status,
-        boolean joinable) {}
+        boolean joinable)
+        implements RoomDetailResponse {}
