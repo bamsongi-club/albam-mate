@@ -4,17 +4,35 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import cloud.bamsongi.albammate.user.contract.UserAccountService;
+import cloud.bamsongi.albammate.user.exception.EmailAlreadyExistsException;
+import cloud.bamsongi.albammate.user.repository.UserRepository;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.env.Environment;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -24,6 +42,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 
 @Testcontainers
 @SpringBootTest
+@Import(PostgresSchemaValidationTest.ConcurrentSignupBarrierConfiguration.class)
 class PostgresSchemaValidationTest {
 
     private static final String POSTGRES_IMAGE = "postgres:18.4";
@@ -41,6 +60,10 @@ class PostgresSchemaValidationTest {
     @Autowired private JdbcTemplate jdbcTemplate;
 
     @Autowired private DataSource dataSource;
+
+    @Autowired private UserAccountService userAccountService;
+
+    @Autowired private ConcurrentSignupExistsBarrier concurrentSignupExistsBarrier;
 
     @Test
     void 빈_PostgreSQL에_Flyway_V1_V2_V3와_Hibernate_스키마_검증이_적용된다() {
@@ -141,6 +164,163 @@ class PostgresSchemaValidationTest {
                 () -> insertParticipation(3003L, 9999L, 1002L, "ACTIVE", false));
     }
 
+    @Test
+    void 독립_트랜잭션의_같은_정규화_이메일_가입_경합은_한_건만_생성한다() throws Exception {
+        String token = UUID.randomUUID().toString().replace("-", "");
+        String normalizedEmail = "signup-race-" + token + "@example.com";
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        concurrentSignupExistsBarrier.activate(normalizedEmail);
+        try {
+            List<Future<Throwable>> results =
+                    List.of(
+                            executor.submit(
+                                    () ->
+                                            createCompetingAccount(
+                                                    ready,
+                                                    start,
+                                                    " Signup-Race-" + token + "@Example.COM ",
+                                                    "첫 경합 사용자")),
+                            executor.submit(
+                                    () ->
+                                            createCompetingAccount(
+                                                    ready,
+                                                    start,
+                                                    "signup-race-" + token + "@example.com",
+                                                    "둘 경합 사용자")));
+            assertTrue(ready.await(5, TimeUnit.SECONDS));
+            start.countDown();
+
+            List<Throwable> outcomes = results.stream().map(this::getOutcome).toList();
+
+            assertEquals(1, outcomes.stream().filter(outcome -> outcome == null).count());
+            assertEquals(2, concurrentSignupExistsBarrier.falseReadCount());
+            EmailAlreadyExistsException duplicate =
+                    outcomes.stream()
+                            .filter(EmailAlreadyExistsException.class::isInstance)
+                            .map(EmailAlreadyExistsException.class::cast)
+                            .findFirst()
+                            .orElseThrow();
+            assertTrue(containsCause(duplicate, DataIntegrityViolationException.class));
+            assertEquals(
+                    1,
+                    jdbcTemplate.queryForObject(
+                            "select count(*) from users where email = ?",
+                            Integer.class,
+                            normalizedEmail));
+        } finally {
+            concurrentSignupExistsBarrier.deactivate();
+            start.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class ConcurrentSignupBarrierConfiguration {
+
+        @Bean
+        ConcurrentSignupExistsBarrier concurrentSignupExistsBarrier() {
+            return new ConcurrentSignupExistsBarrier();
+        }
+
+        @Bean
+        @Primary
+        UserRepository synchronizedUserRepository(
+                @Qualifier("userRepository") UserRepository delegate,
+                ConcurrentSignupExistsBarrier concurrentSignupExistsBarrier) {
+            return (UserRepository)
+                    Proxy.newProxyInstance(
+                            UserRepository.class.getClassLoader(),
+                            new Class<?>[] {UserRepository.class},
+                            (proxy, method, arguments) -> {
+                                try {
+                                    Object result = method.invoke(delegate, arguments);
+                                    if (method.getName().equals("existsByEmail")) {
+                                        concurrentSignupExistsBarrier.awaitAfterFalseRead(
+                                                (String) arguments[0], (boolean) result);
+                                    }
+                                    return result;
+                                } catch (InvocationTargetException exception) {
+                                    throw exception.getCause();
+                                }
+                            });
+        }
+    }
+
+    static final class ConcurrentSignupExistsBarrier {
+
+        private final AtomicReference<BarrierState> active = new AtomicReference<>();
+
+        void activate(String normalizedEmail) {
+            active.set(new BarrierState(normalizedEmail));
+        }
+
+        void deactivate() {
+            active.set(null);
+        }
+
+        int falseReadCount() {
+            BarrierState state = active.get();
+            return state == null ? 0 : state.falseReadCount.get();
+        }
+
+        void awaitAfterFalseRead(String email, boolean exists) {
+            BarrierState state = active.get();
+            if (state == null || exists || !state.normalizedEmail.equals(email)) {
+                return;
+            }
+            state.falseReadCount.incrementAndGet();
+            try {
+                state.bothFalseReads.countDown();
+                if (!state.bothFalseReads.await(5, TimeUnit.SECONDS)) {
+                    throw new AssertionError("두 가입 요청의 사전 중복 확인을 기다리다 시간 초과했습니다.");
+                }
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError("가입 경합 동기화가 중단되었습니다.", exception);
+            }
+        }
+
+        private static final class BarrierState {
+
+            private final String normalizedEmail;
+            private final CountDownLatch bothFalseReads = new CountDownLatch(2);
+            private final AtomicInteger falseReadCount = new AtomicInteger();
+
+            private BarrierState(String normalizedEmail) {
+                this.normalizedEmail = normalizedEmail;
+            }
+        }
+    }
+
+    private Throwable createCompetingAccount(
+            CountDownLatch ready, CountDownLatch start, String email, String nickname) {
+        try {
+            ready.countDown();
+            if (!start.await(5, TimeUnit.SECONDS)) {
+                return new AssertionError("가입 경합 시작 신호를 기다리다 시간 초과했습니다.");
+            }
+            userAccountService.createAccount(email, "123456789012345", nickname);
+            return null;
+        } catch (EmailAlreadyExistsException exception) {
+            return exception;
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return exception;
+        } catch (RuntimeException exception) {
+            return exception;
+        }
+    }
+
+    private Throwable getOutcome(Future<Throwable> future) {
+        try {
+            return future.get(15, TimeUnit.SECONDS);
+        } catch (Exception exception) {
+            throw new AssertionError(exception);
+        }
+    }
+
     private void assertConstraintViolation(
             String expectedSqlState,
             String expectedConstraint,
@@ -158,6 +338,15 @@ class PostgresSchemaValidationTest {
     private boolean containsMessage(Throwable throwable, String expectedText) {
         for (Throwable current = throwable; current != null; current = current.getCause()) {
             if (current.getMessage() != null && current.getMessage().contains(expectedText)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean containsCause(Throwable throwable, Class<? extends Throwable> expectedType) {
+        for (Throwable current = throwable; current != null; current = current.getCause()) {
+            if (expectedType.isInstance(current)) {
                 return true;
             }
         }

@@ -4,6 +4,9 @@ import cloud.bamsongi.albammate.global.security.PasswordHashExecutor;
 import cloud.bamsongi.albammate.user.contract.UserAccount;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
 import cloud.bamsongi.albammate.user.contract.UserCredentials;
+import cloud.bamsongi.albammate.user.contract.UserEmail;
+import cloud.bamsongi.albammate.user.contract.UserNickname;
+import cloud.bamsongi.albammate.user.contract.UserPasswordPolicy;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.exception.EmailAlreadyExistsException;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
@@ -36,18 +39,18 @@ public class UserAccountApplicationService implements UserAccountService {
     @Override
     @Transactional
     public UserAccount createAccount(String email, String rawPassword, String nickname) {
-        requireValue(email, "email");
-        requireValue(rawPassword, "rawPassword");
-        requireValue(nickname, "nickname");
+        String normalizedEmail = requiredEmail(email);
+        String normalizedNickname = requiredNickname(nickname);
+        requireSignupPassword(rawPassword);
 
         return passwordHashExecutor.execute(
                 () -> {
-                    if (userRepository.existsByEmail(email)) {
+                    if (userRepository.existsByEmail(normalizedEmail)) {
                         throw new EmailAlreadyExistsException();
                     }
 
                     String passwordHash = passwordEncoder.encode(rawPassword);
-                    User user = User.create(email, passwordHash, nickname);
+                    User user = User.create(normalizedEmail, passwordHash, normalizedNickname);
                     try {
                         User saved = userRepository.saveAndFlush(user);
                         return new UserAccount(saved.getId(), saved.getNickname());
@@ -61,9 +64,9 @@ public class UserAccountApplicationService implements UserAccountService {
     @Override
     @Transactional(readOnly = true)
     public Optional<UserCredentials> findCredentialsByEmail(String email) {
-        requireValue(email, "email");
+        String normalizedEmail = requiredEmail(email);
         return userRepository
-                .findByEmail(email)
+                .findByEmail(normalizedEmail)
                 .map(
                         user ->
                                 new UserCredentials(
@@ -92,5 +95,23 @@ public class UserAccountApplicationService implements UserAccountService {
         if (value == null || value.isEmpty()) {
             throw new IllegalArgumentException(name + " must not be empty");
         }
+    }
+
+    private void requireSignupPassword(String rawPassword) {
+        if (!UserPasswordPolicy.isValidSignupPassword(rawPassword)) {
+            throw new IllegalArgumentException("password must satisfy signup policy");
+        }
+    }
+
+    private String requiredEmail(String rawEmail) {
+        return UserEmail.from(rawEmail)
+                .map(UserEmail::value)
+                .orElseThrow(() -> new IllegalArgumentException("email must be valid"));
+    }
+
+    private String requiredNickname(String rawNickname) {
+        return UserNickname.from(rawNickname)
+                .map(UserNickname::value)
+                .orElseThrow(() -> new IllegalArgumentException("nickname must be valid"));
     }
 }

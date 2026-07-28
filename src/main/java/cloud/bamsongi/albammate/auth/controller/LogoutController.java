@@ -1,7 +1,7 @@
 package cloud.bamsongi.albammate.auth.controller;
 
-import cloud.bamsongi.albammate.global.config.SecurityCookieProperties;
 import cloud.bamsongi.albammate.global.response.ApiResponse;
+import cloud.bamsongi.albammate.global.security.SessionCookieConfigurer;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -23,13 +23,15 @@ import org.springframework.web.bind.annotation.RestController;
 public final class LogoutController {
 
     private final CsrfTokenRepository csrfTokenRepository;
-    private final SecurityCookieProperties cookieProperties;
+    private final SessionCookieConfigurer sessionCookieConfigurer;
 
     public LogoutController(
-            CsrfTokenRepository csrfTokenRepository, SecurityCookieProperties cookieProperties) {
+            CsrfTokenRepository csrfTokenRepository,
+            SessionCookieConfigurer sessionCookieConfigurer) {
         this.csrfTokenRepository =
                 Objects.requireNonNull(csrfTokenRepository, "csrfTokenRepository");
-        this.cookieProperties = Objects.requireNonNull(cookieProperties, "cookieProperties");
+        this.sessionCookieConfigurer =
+                Objects.requireNonNull(sessionCookieConfigurer, "sessionCookieConfigurer");
     }
 
     @PostMapping("/logout")
@@ -46,12 +48,6 @@ public final class LogoutController {
     }
 
     private Cookie sessionCookieToClear() {
-        Cookie cookie = new Cookie("JSESSIONID", "");
-        cookie.setMaxAge(0);
-        cookie.setPath("/");
-        cookie.setHttpOnly(true);
-        cookie.setSecure(cookieProperties.isSecure());
-        cookie.setAttribute("SameSite", "Lax");
-        return cookie;
+        return sessionCookieConfigurer.expiredSessionCookie();
     }
 }

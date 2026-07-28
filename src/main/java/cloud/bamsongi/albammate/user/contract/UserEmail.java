@@ -1,14 +1,18 @@
-package cloud.bamsongi.albammate.auth.dto;
+package cloud.bamsongi.albammate.user.contract;
 
 import java.util.Locale;
 import java.util.Optional;
 
-/** 회원가입과 로그인에서 함께 사용하는 이메일 정규화·형식 검증이다. */
-final class EmailNormalizer {
+/** 사용자 모듈이 소유하는 이메일 정규화와 저장 불변식이다. */
+public final class UserEmail {
 
-    private EmailNormalizer() {}
+    private final String value;
 
-    static Optional<String> normalize(String rawEmail) {
+    private UserEmail(String value) {
+        this.value = value;
+    }
+
+    public static Optional<UserEmail> from(String rawEmail) {
         if (rawEmail == null) {
             return Optional.empty();
         }
@@ -32,6 +36,10 @@ final class EmailNormalizer {
             return Optional.empty();
         }
 
-        return Optional.of(normalizedEmail);
+        return Optional.of(new UserEmail(normalizedEmail));
+    }
+
+    public String value() {
+        return value;
     }
 }

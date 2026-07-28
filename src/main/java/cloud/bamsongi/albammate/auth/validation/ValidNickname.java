@@ -8,14 +8,21 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** 정규화 이후의 로그인 입력 규칙을 Bean Validation 경계에서 확인한다. */
+/** 공백 제거 뒤의 닉네임 길이와 제어문자를 검증한다. */
 @Documented
-@Constraint(validatedBy = LoginRequestValidator.class)
-@Target(ElementType.TYPE)
+@Constraint(validatedBy = NicknameValidator.class)
+@Target({
+    ElementType.FIELD,
+    ElementType.METHOD,
+    ElementType.PARAMETER,
+    ElementType.ANNOTATION_TYPE,
+    ElementType.TYPE_USE,
+    ElementType.RECORD_COMPONENT
+})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface ValidLoginRequest {
+public @interface ValidNickname {
 
-    String message() default "요청값 검증에 실패했습니다.";
+    String message() default "유효한 닉네임 형식이 아닙니다.";
 
     Class<?>[] groups() default {};
 
