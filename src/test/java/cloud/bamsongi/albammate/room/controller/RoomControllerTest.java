@@ -22,11 +22,14 @@ import cloud.bamsongi.albammate.global.security.SecurityErrorResponseWriter;
 import cloud.bamsongi.albammate.room.dto.CreateRoomRequest;
 import cloud.bamsongi.albammate.room.dto.NicknameSummary;
 import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
+import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.MyRole;
+import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.service.RoomCreateService;
+import cloud.bamsongi.albammate.room.service.RoomParticipationService;
 import java.time.Instant;
 import java.util.List;
 import org.hamcrest.Matchers;
@@ -57,6 +60,46 @@ class RoomControllerTest {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private RoomCreateService roomCreateService;
+    @Autowired private RoomParticipationService roomParticipationService;
+
+    @Test
+    void 인증없는_방_참가는_UNAUTHENTICATED다() throws Exception {
+        clearInvocations(roomParticipationService);
+
+        mockMvc.perform(post("/api/rooms/1/participants"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
+
+        verifyNoInteractions(roomParticipationService);
+    }
+
+    @Test
+    void 인증만_있는_방_참가는_CSRF_TOKEN_INVALID이다() throws Exception {
+        clearInvocations(roomParticipationService);
+
+        mockMvc.perform(post("/api/rooms/1/participants").with(authenticationFor(42L)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(ErrorCode.CSRF_TOKEN_INVALID.getCode()));
+
+        verifyNoInteractions(roomParticipationService);
+    }
+
+    @Test
+    void 인증과_CSRF가_있는_본문없는_방_참가는_201_응답_봉투를_반환한다() throws Exception {
+        when(roomParticipationService.participate(42L, 1L))
+                .thenReturn(
+                        new RoomParticipationResponse(
+                                1L, ParticipationStatus.ACTIVE, RoomStatus.CLOSED, 4, 0));
+
+        mockMvc.perform(post("/api/rooms/1/participants").with(csrf()).with(authenticationFor(42L)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value(201))
+                .andExpect(jsonPath("$.data.roomId").value(1))
+                .andExpect(jsonPath("$.data.participationStatus").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.roomStatus").value("CLOSED"))
+                .andExpect(jsonPath("$.data.participantCount").value(4))
+                .andExpect(jsonPath("$.data.remainingRecruitmentSeats").value(0));
+    }
 
     @Test
     void 인증없는_방_생성은_UNAUTHENTICATED다() throws Exception {
@@ -182,6 +225,11 @@ class RoomControllerTest {
         @Bean
         RoomCreateService roomCreateService() {
             return Mockito.mock(RoomCreateService.class);
+        }
+
+        @Bean
+        RoomParticipationService roomParticipationService() {
+            return Mockito.mock(RoomParticipationService.class);
         }
     }
 }

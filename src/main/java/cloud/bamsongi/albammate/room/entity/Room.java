@@ -134,4 +134,15 @@ public class Room extends BaseEntity {
         }
         return changed;
     }
+
+    /** 참가 관계가 활성화됐을 때 점유 인원을 반영하고, 마지막 좌석이면 모집을 닫는다. */
+    public void addActiveParticipant() {
+        if (activeParticipantCount >= capacity) {
+            throw new IllegalStateException("active participant count exceeds room capacity");
+        }
+        activeParticipantCount++;
+        if (activeParticipantCount == capacity) {
+            status = RoomStatus.CLOSED;
+        }
+    }
 }

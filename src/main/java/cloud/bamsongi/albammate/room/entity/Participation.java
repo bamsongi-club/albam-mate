@@ -14,6 +14,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -45,4 +46,22 @@ public class Participation extends BaseEntity {
 
     @Column(name = "canceled_at")
     private Instant canceledAt;
+
+    /** 신규 참가 관계를 활성 상태로 만든다. */
+    public static Participation createActive(Room room, Long userId, Instant joinedAt) {
+        Participation participation = new Participation();
+        participation.room = Objects.requireNonNull(room, "room");
+        participation.userId = Objects.requireNonNull(userId, "userId");
+        participation.status = ParticipationStatus.ACTIVE;
+        participation.joinedAt = Objects.requireNonNull(joinedAt, "joinedAt");
+        participation.canceledAt = null;
+        return participation;
+    }
+
+    /** 취소했던 참가 관계를 새 행 없이 다시 활성화한다. */
+    public void reactivate(Instant joinedAt) {
+        status = ParticipationStatus.ACTIVE;
+        this.joinedAt = Objects.requireNonNull(joinedAt, "joinedAt");
+        canceledAt = null;
+    }
 }
