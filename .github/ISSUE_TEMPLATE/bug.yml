@@ -1,6 +1,8 @@
 name: 버그
 description: 기존 동작이 기대와 다르거나 회귀한 문제
 title: "[BUG] "
+labels:
+  - bug
 
 body:
   - type: markdown

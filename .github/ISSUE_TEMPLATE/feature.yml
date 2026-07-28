@@ -1,6 +1,9 @@
 name: 기능 구현
 description: 기능 명세 한 단위 또는 그 슬라이스 하나
 title: "[ID] "
+labels:
+  - feature
+
 body:
   - type: markdown
     attributes:

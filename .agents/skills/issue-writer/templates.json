@@ -8,7 +8,7 @@
       "titlePrefix": "[ID]",
       "intent": "정본 기능 명세의 한 단위 또는 독립적으로 구현·검증 가능한 기능 슬라이스",
       "signals": ["기능", "구현", "API", "feat", "완료 기준"],
-      "labels": []
+      "labels": ["feature"]
     },
     {
       "id": "bug",
@@ -17,7 +17,7 @@
       "titlePrefix": "[BUG]",
       "intent": "기존 동작이 기대와 다르거나 회귀한 문제의 재현·수정·검증",
       "signals": ["버그", "오류", "재현", "회귀", "bug"],
-      "labels": []
+      "labels": ["bug"]
     },
     {
       "id": "refactor",
@@ -26,7 +26,7 @@
       "titlePrefix": "[REFACTOR]",
       "intent": "API·DB·업무 동작을 바꾸지 않는 패키지·구조·가독성·유지보수성 개선",
       "signals": ["리팩터링", "구조", "패키지", "이동", "정리", "refactor"],
-      "labels": []
+      "labels": ["refactor"]
     },
     {
       "id": "decision",
