@@ -28,8 +28,11 @@ public class RoomListReadService {
     public RoomListReadResult findPublicRooms(
             RoomType roomType, Long gameId, String keyword, Pageable pageable, Long currentUserId) {
         Page<Room> rooms =
-                roomRepository.findPublicRooms(
-                        roomType, gameId, keyword, PUBLIC_STATUSES, pageable);
+                keyword == null
+                        ? roomRepository.findPublicRoomsWithoutKeyword(
+                                roomType, gameId, PUBLIC_STATUSES, pageable)
+                        : roomRepository.findPublicRoomsByTitleContainingIgnoreCase(
+                                roomType, gameId, keyword, PUBLIC_STATUSES, pageable);
         Set<Long> activeParticipationRoomIds =
                 currentUserId == null || rooms.isEmpty()
                         ? Set.of()

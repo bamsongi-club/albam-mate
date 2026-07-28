@@ -43,8 +43,8 @@ class RoomListReadServiceTest {
     void 비로그인_요청은_방이_있어도_ACTIVE_참가를_조회하지_않는다() {
         PageRequest pageable = pageable();
         Page<Room> rooms = new PageImpl<>(List.of(mock(Room.class)), pageable, 1);
-        when(roomRepository.findPublicRooms(
-                        RoomType.PERSON_FOCUSED, null, null, PUBLIC_STATUSES, pageable))
+        when(roomRepository.findPublicRoomsWithoutKeyword(
+                        RoomType.PERSON_FOCUSED, null, PUBLIC_STATUSES, pageable))
                 .thenReturn(rooms);
 
         RoomListReadService.RoomListReadResult result =
@@ -52,6 +52,9 @@ class RoomListReadServiceTest {
                         RoomType.PERSON_FOCUSED, null, null, pageable, null);
 
         assertEquals(Set.of(), result.activeParticipationRoomIds());
+        verify(roomRepository)
+                .findPublicRoomsWithoutKeyword(
+                        RoomType.PERSON_FOCUSED, null, PUBLIC_STATUSES, pageable);
         verify(roomRepository, never()).findActiveParticipationRoomIds(anyLong(), any());
     }
 
@@ -59,8 +62,8 @@ class RoomListReadServiceTest {
     void 빈_페이지는_로그인_사용자가_있어도_ACTIVE_참가를_조회하지_않는다() {
         PageRequest pageable = pageable();
         Page<Room> rooms = Page.empty(pageable);
-        when(roomRepository.findPublicRooms(
-                        RoomType.PERSON_FOCUSED, null, null, PUBLIC_STATUSES, pageable))
+        when(roomRepository.findPublicRoomsWithoutKeyword(
+                        RoomType.PERSON_FOCUSED, null, PUBLIC_STATUSES, pageable))
                 .thenReturn(rooms);
 
         RoomListReadService.RoomListReadResult result =
@@ -68,6 +71,9 @@ class RoomListReadServiceTest {
                         RoomType.PERSON_FOCUSED, null, null, pageable, 42L);
 
         assertEquals(Set.of(), result.activeParticipationRoomIds());
+        verify(roomRepository)
+                .findPublicRoomsWithoutKeyword(
+                        RoomType.PERSON_FOCUSED, null, PUBLIC_STATUSES, pageable);
         verify(roomRepository, never()).findActiveParticipationRoomIds(anyLong(), any());
     }
 
@@ -75,8 +81,8 @@ class RoomListReadServiceTest {
     void 로그인_사용자의_현재_페이지_방_ID로_ACTIVE_참가를_한번_조회한다() {
         PageRequest pageable = pageable();
         Page<Room> rooms = new PageImpl<>(List.of(room(10L), room(20L)), pageable, 2);
-        when(roomRepository.findPublicRooms(
-                        RoomType.PERSON_FOCUSED, null, null, PUBLIC_STATUSES, pageable))
+        when(roomRepository.findPublicRoomsWithoutKeyword(
+                        RoomType.PERSON_FOCUSED, null, PUBLIC_STATUSES, pageable))
                 .thenReturn(rooms);
         when(roomRepository.findActiveParticipationRoomIds(42L, List.of(10L, 20L)))
                 .thenReturn(List.of(10L));
@@ -86,7 +92,25 @@ class RoomListReadServiceTest {
                         RoomType.PERSON_FOCUSED, null, null, pageable, 42L);
 
         assertEquals(Set.of(10L), result.activeParticipationRoomIds());
+        verify(roomRepository)
+                .findPublicRoomsWithoutKeyword(
+                        RoomType.PERSON_FOCUSED, null, PUBLIC_STATUSES, pageable);
         verify(roomRepository).findActiveParticipationRoomIds(42L, List.of(10L, 20L));
+    }
+
+    @Test
+    void 검색어가_있으면_제목_검색_Repository_경로를_사용한다() {
+        PageRequest pageable = pageable();
+        Page<Room> rooms = Page.empty(pageable);
+        when(roomRepository.findPublicRoomsByTitleContainingIgnoreCase(
+                        RoomType.PERSON_FOCUSED, null, "모임", PUBLIC_STATUSES, pageable))
+                .thenReturn(rooms);
+
+        roomListReadService.findPublicRooms(RoomType.PERSON_FOCUSED, null, "모임", pageable, null);
+
+        verify(roomRepository)
+                .findPublicRoomsByTitleContainingIgnoreCase(
+                        RoomType.PERSON_FOCUSED, null, "모임", PUBLIC_STATUSES, pageable);
     }
 
     private PageRequest pageable() {
