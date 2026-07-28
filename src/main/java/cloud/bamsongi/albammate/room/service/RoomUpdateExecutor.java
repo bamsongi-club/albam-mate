@@ -10,10 +10,8 @@ import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
 import cloud.bamsongi.albammate.room.dto.RoomUpdateRequest;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.MyRole;
-import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
-import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.user.contract.UserQuery;
 import java.time.Instant;
@@ -27,17 +25,11 @@ import org.springframework.transaction.annotation.Transactional;
 class RoomUpdateExecutor {
 
     private final RoomRepository roomRepository;
-    private final ParticipationRepository participationRepository;
     private final GameQuery gameQuery;
     private final UserQuery userQuery;
 
-    RoomUpdateExecutor(
-            RoomRepository roomRepository,
-            ParticipationRepository participationRepository,
-            GameQuery gameQuery,
-            UserQuery userQuery) {
+    RoomUpdateExecutor(RoomRepository roomRepository, GameQuery gameQuery, UserQuery userQuery) {
         this.roomRepository = roomRepository;
-        this.participationRepository = participationRepository;
         this.gameQuery = gameQuery;
         this.userQuery = userQuery;
     }
@@ -54,8 +46,7 @@ class RoomUpdateExecutor {
         }
 
         room.reconcileStateAt(requestTime);
-        if (participationRepository.existsByRoom_IdAndStatusAndUserIdNot(
-                roomId, ParticipationStatus.ACTIVE, currentUserId)) {
+        if (room.getActiveParticipantCount() > 0) {
             throw new BusinessException(ErrorCode.ROOM_UPDATE_NOT_ALLOWED_WITH_ACTIVE_PARTICIPANTS);
         }
         if (room.getStatus() != RoomStatus.RECRUITING || !requestTime.isBefore(room.getStartAt())) {

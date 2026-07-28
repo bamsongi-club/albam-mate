@@ -163,6 +163,29 @@ class RoomControllerTest {
     }
 
     @Test
+    void gameId를_명시적_null로_보내면_선택_해제_요청으로_전달한다() throws Exception {
+        clearInvocations(roomUpdateService);
+        when(roomUpdateService.updateRoom(anyLong(), anyLong(), any(RoomUpdateRequest.class)))
+                .thenReturn(response());
+
+        mockMvc.perform(
+                        patch("/api/rooms/1")
+                                .with(csrf())
+                                .with(authenticationFor(42L))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"gameId\":null}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(200));
+
+        ArgumentCaptor<RoomUpdateRequest> requestCaptor =
+                ArgumentCaptor.forClass(RoomUpdateRequest.class);
+        verify(roomUpdateService).updateRoom(anyLong(), anyLong(), requestCaptor.capture());
+        RoomUpdateRequest request = requestCaptor.getValue();
+        org.junit.jupiter.api.Assertions.assertTrue(request.hasGameId());
+        org.junit.jupiter.api.Assertions.assertEquals(null, request.gameId());
+    }
+
+    @Test
     void 모든_허용_필드를_제공하면_수정_요청에_그대로_전달한다() throws Exception {
         clearInvocations(roomUpdateService);
         when(roomUpdateService.updateRoom(anyLong(), anyLong(), any(RoomUpdateRequest.class)))

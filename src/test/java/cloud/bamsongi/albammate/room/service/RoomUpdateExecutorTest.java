@@ -17,9 +17,7 @@ import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
 import cloud.bamsongi.albammate.room.dto.RoomUpdateRequest;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
-import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
-import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.user.contract.UserQuery;
 import java.lang.reflect.Field;
@@ -39,7 +37,6 @@ class RoomUpdateExecutorTest {
     private static final Instant NOW = Instant.parse("2026-07-28T00:00:00Z");
 
     @Mock private RoomRepository roomRepository;
-    @Mock private ParticipationRepository participationRepository;
     @Mock private GameQuery gameQuery;
     @Mock private UserQuery userQuery;
 
@@ -47,15 +44,8 @@ class RoomUpdateExecutorTest {
 
     @BeforeEach
     void setUp() {
-        executor =
-                new RoomUpdateExecutor(
-                        roomRepository, participationRepository, gameQuery, userQuery);
+        executor = new RoomUpdateExecutor(roomRepository, gameQuery, userQuery);
         lenient().when(userQuery.findNicknameById(HOST_ID)).thenReturn(Optional.of("방장"));
-        lenient()
-                .when(
-                        participationRepository.existsByRoom_IdAndStatusAndUserIdNot(
-                                ROOM_ID, ParticipationStatus.ACTIVE, HOST_ID))
-                .thenReturn(false);
     }
 
     @Test
@@ -117,7 +107,7 @@ class RoomUpdateExecutorTest {
     }
 
     @Test
-    void 주최자가_아니면_FORBIDDEN이고_참가자_조건을_조회하지_않는다() {
+    void 주최자가_아니면_FORBIDDEN이다() {
         when(roomRepository.findById(ROOM_ID))
                 .thenReturn(
                         Optional.of(room(RoomType.PERSON_FOCUSED, null, NOW.plusSeconds(3600))));
@@ -128,16 +118,13 @@ class RoomUpdateExecutorTest {
                         () -> executor.updateRoom(99L, ROOM_ID, new RoomUpdateRequest(), NOW));
 
         assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
-        verifyNoInteractions(participationRepository);
     }
 
     @Test
     void 활성_참가자가_있으면_상태_조건보다_먼저_수정_불가_오류를_반환한다() {
-        when(roomRepository.findById(ROOM_ID))
-                .thenReturn(Optional.of(room(RoomType.PERSON_FOCUSED, null, NOW.minusSeconds(1))));
-        when(participationRepository.existsByRoom_IdAndStatusAndUserIdNot(
-                        ROOM_ID, ParticipationStatus.ACTIVE, HOST_ID))
-                .thenReturn(true);
+        Room room = room(RoomType.PERSON_FOCUSED, null, NOW.minusSeconds(1));
+        setActiveParticipantCount(room, 1);
+        when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(room));
 
         BusinessException exception =
                 assertThrows(
@@ -176,6 +163,20 @@ class RoomUpdateExecutorTest {
 
         assertEquals(ErrorCode.VALIDATION_ERROR, exception.getErrorCode());
         verifyNoInteractions(gameQuery);
+    }
+
+    @Test
+    void 사람_중심_방에서_gameId를_null로_수정하면_기존_게임_선택을_해제한다() {
+        Room room = room(RoomType.PERSON_FOCUSED, 3L, NOW.plusSeconds(3600));
+        when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(room));
+        RoomUpdateRequest request = new RoomUpdateRequest();
+        request.setGameId(null);
+
+        ParticipantRoomResponse response = executor.updateRoom(HOST_ID, ROOM_ID, request, NOW);
+
+        assertEquals(null, response.game());
+        assertEquals(null, room.getGameId());
+        verify(gameQuery, never()).findSummaryById(anyLong());
     }
 
     @Test
@@ -248,6 +249,16 @@ class RoomUpdateExecutorTest {
             Field field = Room.class.getDeclaredField("id");
             field.setAccessible(true);
             field.set(room, roomId);
+        } catch (ReflectiveOperationException exception) {
+            throw new AssertionError(exception);
+        }
+    }
+
+    private void setActiveParticipantCount(Room room, int activeParticipantCount) {
+        try {
+            Field field = Room.class.getDeclaredField("activeParticipantCount");
+            field.setAccessible(true);
+            field.set(room, activeParticipantCount);
         } catch (ReflectiveOperationException exception) {
             throw new AssertionError(exception);
         }
