@@ -12,10 +12,11 @@ description: "범위와 정본이 확정된 Albam Mate 백엔드 기능·버그 
 3. 검증한 GitHub 이슈는 `workItem.kind=issue`, 이슈가 없는 확정 작업은 `feature`와 합의된 식별자를 사용한다. 리뷰 코멘트는 새 kind가 아니라 원래 이슈 또는 기능에 매핑한다.
 4. `.codex/contracts/backend-implementation-packet.schema.json`과 [패킷 템플릿](references/packet-template.json)을 읽고 placeholder 없는 JSON 객체를 만든다. PR 피드백의 요구사항은 `summary`와 `completionCriteria`에 넣고, `canonicalSources`에는 저장소 정본만 넣는다.
 5. 모든 배열을 채우고 `allowedPaths`와 `forbiddenPaths`를 명시한다. 미선언 공유 파일이 필요하면 위임하지 말고 결정을 요청한다.
-6. HTTP API의 경로·메서드·인증·인가·CSRF·입력·응답·상태 변경 계약을 추가하거나 바꾸면 [HTTP 기능 테스트 매트릭스](references/http-feature-test-matrix.md)를 읽고 적용 항목을 `completionCriteria`와 `validation.targetedTests`에 넣는다. 제외 항목은 `confirmedDecisions`에 이유를 남긴다.
+6. HTTP API를 새로 구현하거나 계약을 바꾸거나 기존 HTTP 경계(경로·메서드·인증·인가·CSRF·입력·응답·상태 변경)의 버그를 수정하면, 계약 문서 변경 여부와 무관하게 [HTTP 기능 테스트 매트릭스](references/http-feature-test-matrix.md)를 읽고 적용 항목을 `completionCriteria`와 `validation.targetedTests`에 넣는다. 제외 항목은 `confirmedDecisions`에 이유를 남긴다.
 
 ## 2. 구현 위임
 
+- `backend-developer` 위임은 메인 에이전트만 수행한다. 서브에이전트는 패킷을 메인 에이전트에 반환한다.
 - JSON 패킷만 `backend-developer`에 전달하고, 소유·테스트·금지 경계를 패킷으로 고정한다.
 - 구현 에이전트에게는 커밋과 푸시를 맡기지 않는다.
 - 구현 중 정본 충돌·선행 공개 계약 부재·미선언 공유 파일이 드러나면 구현을 멈추고 결정으로 되돌린다.
