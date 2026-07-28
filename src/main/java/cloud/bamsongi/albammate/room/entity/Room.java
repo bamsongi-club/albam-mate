@@ -161,6 +161,25 @@ public class Room extends BaseEntity {
         }
     }
 
+    /** 모집 중이거나 마감된 방만 취소 최종 상태로 전이한다. */
+    public boolean cancel() {
+        if (status != RoomStatus.RECRUITING && status != RoomStatus.CLOSED) {
+            return false;
+        }
+        status = RoomStatus.CANCELED;
+        return true;
+    }
+
+    /** 시작 시각 이후 마감된 방만 종료 최종 상태로 전이한다. */
+    public boolean finishAt(Instant requestTime) {
+        Objects.requireNonNull(requestTime, "requestTime");
+        if (status != RoomStatus.CLOSED || requestTime.isBefore(startAt)) {
+            return false;
+        }
+        status = RoomStatus.FINISHED;
+        return true;
+    }
+
     /** 수정 가능 조건을 통과한 방의 허용 필드만 새 값으로 반영한다. */
     public void update(
             String title,
