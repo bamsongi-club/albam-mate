@@ -1,9 +1,11 @@
 package cloud.bamsongi.albammate.user.service;
 
 import cloud.bamsongi.albammate.global.exception.UnauthenticatedException;
+import cloud.bamsongi.albammate.user.contract.UserNickname;
 import cloud.bamsongi.albammate.user.contract.UserProfile;
 import cloud.bamsongi.albammate.user.contract.UserProfileService;
 import cloud.bamsongi.albammate.user.entity.User;
+import cloud.bamsongi.albammate.user.exception.InvalidNicknameException;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
@@ -29,7 +31,11 @@ public class UserProfileApplicationService implements UserProfileService {
     @Transactional
     public UserProfile changeNickname(long userId, String nickname) {
         User user = findAuthenticatedUser(userId);
-        user.changeNickname(Objects.requireNonNull(nickname, "nickname"));
+        String normalizedNickname =
+                UserNickname.from(nickname)
+                        .map(UserNickname::value)
+                        .orElseThrow(InvalidNicknameException::new);
+        user.changeNickname(normalizedNickname);
         return toProfile(user);
     }
 
