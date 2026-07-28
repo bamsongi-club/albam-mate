@@ -37,3 +37,4 @@ out/
 .vscode/
 
 .env
+/src/test/http/http-client.private.env.json

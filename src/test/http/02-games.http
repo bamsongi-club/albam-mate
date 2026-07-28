@@ -1,0 +1,14 @@
+# IntelliJ HTTP Client에서 local 환경을 선택합니다.
+# 상세 조회 전 목록 응답의 내부 id를 gameId에 넣습니다.
+
+### [GAME-01] 게임 목록 조회
+GET {{baseUrl}}/api/games?page={{page}}&size={{size}}
+Accept: application/json
+
+### [GAME-01] 게임명 검색
+GET {{baseUrl}}/api/games?keyword={{gameKeyword}}&page={{page}}&size={{size}}
+Accept: application/json
+
+### [GAME-02] 게임 상세 조회
+GET {{baseUrl}}/api/games/{{gameId}}
+Accept: application/json
