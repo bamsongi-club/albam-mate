@@ -134,4 +134,24 @@ public class Room extends BaseEntity {
         }
         return changed;
     }
+
+    /** 수정 가능 조건을 통과한 방의 허용 필드만 새 값으로 반영한다. */
+    public void update(
+            String title,
+            String description,
+            Long gameId,
+            ExperienceLevel experienceLevel,
+            boolean rulemasterLed,
+            Instant startAt,
+            String place,
+            int capacity) {
+        this.title = Objects.requireNonNull(title, "title");
+        this.description = description;
+        this.gameId = gameId;
+        this.experienceLevel = Objects.requireNonNull(experienceLevel, "experienceLevel");
+        this.rulemasterLed = rulemasterLed;
+        this.startAt = Objects.requireNonNull(startAt, "startAt");
+        this.place = Objects.requireNonNull(place, "place");
+        this.capacity = capacity;
+    }
 }
