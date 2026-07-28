@@ -1,5 +1,7 @@
 package cloud.bamsongi.albammate.game.contract;
 
+import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -24,4 +26,12 @@ public interface GameQuery {
      * @return 미존재 게임이면 {@link Optional#empty()}
      */
     Optional<GameSummary> findSummaryById(Long gameId);
+
+    /**
+     * 여러 게임 요약을 조회합니다.
+     *
+     * @param gameIds 알밤메이트 내부 게임 ID
+     * @return 존재하는 게임 ID를 키로 하는 게임 요약
+     */
+    Map<Long, GameSummary> findSummariesById(Collection<Long> gameIds);
 }

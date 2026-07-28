@@ -46,4 +46,9 @@ public class User extends BaseEntity {
     public void changePasswordHash(String passwordHash) {
         this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash");
     }
+
+    /** 프로필 수정에서 검증·정규화된 닉네임으로 현재 사용자의 표시 이름을 바꾼다. */
+    public void changeNickname(String nickname) {
+        this.nickname = Objects.requireNonNull(nickname, "nickname");
+    }
 }

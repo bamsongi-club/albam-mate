@@ -110,6 +110,7 @@ def gatedBranchCoverage = [
     'cloud.bamsongi.albammate.global.security': 0.80,
     'cloud.bamsongi.albammate.room'           : 0.84,
     'cloud.bamsongi.albammate.room.entity'    : 0.91,
+    'cloud.bamsongi.albammate.room.controller': 0.92,
     'cloud.bamsongi.albammate.room.service'   : 0.90,
     'cloud.bamsongi.albammate.user.contract'  : 0.50,
     'cloud.bamsongi.albammate.user.service'   : 0.60,

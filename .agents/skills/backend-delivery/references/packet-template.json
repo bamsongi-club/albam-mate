@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "workItem": {
+    "kind": "issue",
+    "id": "<이슈-번호-또는-기능-ID>",
+    "featureId": "<해당-시-기능-ID>",
+    "summary": "<확정된-백엔드-작업-요약>"
+  },
+  "canonicalSources": [
+    {
+      "path": "<정본-문서-경로>",
+      "section": "<정본-절>"
+    }
+  ],
+  "allowedPaths": [
+    "<소유하는-main-또는-test-경로>"
+  ],
+  "forbiddenPaths": [
+    "<공유-또는-무관한-경로>"
+  ],
+  "completionCriteria": [
+    "<관찰-가능한-완료-기준>",
+    "<적용되는-실패-또는-경계-기준>"
+  ],
+  "validation": {
+    "targetedTests": [
+      "<대상-테스트-명령>"
+    ],
+    "finalCommands": [
+      "<구현-에이전트-포맷-또는-diff-명령>"
+    ]
+  },
+  "confirmedDecisions": [
+    "<확정된-아키텍처-또는-범위-결정>"
+  ]
+}

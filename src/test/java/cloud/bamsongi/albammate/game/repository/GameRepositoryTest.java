@@ -64,4 +64,30 @@ class GameRepositoryTest {
                 result);
         assertTrue(gameRepository.findSummaryById(999_999L).isEmpty());
     }
+
+    @Test
+    void 여러_게임_요약은_존재하는_게임만_반환한다() {
+        List<Game> savedGames =
+                gameRepository.saveAllAndFlush(
+                        List.of(GameFixture.valid(1001L, "카탄"), GameFixture.valid(1002L, "아줄")));
+
+        List<GameSummary> summaries =
+                gameRepository.findSummariesById(
+                        List.of(
+                                savedGames.getFirst().getId(),
+                                savedGames.getLast().getId(),
+                                999_999L));
+
+        assertEquals(
+                java.util.Set.of(
+                        new GameSummary(
+                                savedGames.getFirst().getId(),
+                                savedGames.getFirst().getBggId(),
+                                savedGames.getFirst().getName()),
+                        new GameSummary(
+                                savedGames.getLast().getId(),
+                                savedGames.getLast().getBggId(),
+                                savedGames.getLast().getName())),
+                java.util.Set.copyOf(summaries));
+    }
 }

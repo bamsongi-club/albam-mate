@@ -2,6 +2,8 @@ package cloud.bamsongi.albammate.game.repository;
 
 import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.game.entity.Game;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,4 +22,12 @@ public interface GameRepository extends JpaRepository<Game, Long> {
             where g.id = :gameId
             """)
     Optional<GameSummary> findSummaryById(@Param("gameId") Long gameId);
+
+    @Query(
+            """
+            select new cloud.bamsongi.albammate.game.contract.GameSummary(g.id, g.bggId, g.name)
+            from Game g
+            where g.id in :gameIds
+            """)
+    List<GameSummary> findSummariesById(@Param("gameIds") Collection<Long> gameIds);
 }

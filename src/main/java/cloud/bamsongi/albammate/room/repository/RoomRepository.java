@@ -6,6 +6,8 @@ import cloud.bamsongi.albammate.room.enums.RoomType;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -41,6 +43,34 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
     List<Room> findDueRooms(
             @Param("requestTime") Instant requestTime,
             @Param("finishedThreshold") Instant finishedThreshold);
+
+    @Query(
+            """
+            select room
+            from Room room
+            where room.roomType = :roomType
+              and room.status in :publicStatuses
+              and (:gameId is null or room.gameId = :gameId)
+              and (:keyword is null
+                   or lower(room.title) like concat('%', lower(:keyword), '%') escape '!')
+            """)
+    Page<Room> findPublicRooms(
+            @Param("roomType") RoomType roomType,
+            @Param("gameId") Long gameId,
+            @Param("keyword") String keyword,
+            @Param("publicStatuses") Collection<RoomStatus> publicStatuses,
+            Pageable pageable);
+
+    @Query(
+            """
+            select participation.room.id
+            from Participation participation
+            where participation.userId = :userId
+              and participation.status = cloud.bamsongi.albammate.room.enums.ParticipationStatus.ACTIVE
+              and participation.room.id in :roomIds
+            """)
+    List<Long> findActiveParticipationRoomIds(
+            @Param("userId") Long userId, @Param("roomIds") Collection<Long> roomIds);
 
     interface UpcomingRoomCount {
 
