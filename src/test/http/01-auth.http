@@ -44,6 +44,10 @@ Accept: application/json
 ### [AUTH-03] 주최자 로그인 - JSESSIONID 자동 저장
 # @no-log
 # @no-cookie-jar
+< {%
+    client.global.clear("runtimeHostSessionId");
+    client.global.clear("runtimeHostCsrfToken");
+%}
 POST {{baseUrl}}/api/auth/login
 Content-Type: application/json
 Accept: application/json
@@ -132,6 +136,10 @@ Accept: application/json
 ### [AUTH-03] 참가자 로그인 - JSESSIONID 자동 저장
 # @no-log
 # @no-cookie-jar
+< {%
+    client.global.clear("runtimeParticipantSessionId");
+    client.global.clear("runtimeParticipantCsrfToken");
+%}
 POST {{baseUrl}}/api/auth/login
 Content-Type: application/json
 Accept: application/json
