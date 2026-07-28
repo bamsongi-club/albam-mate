@@ -4,6 +4,7 @@
 
 ### [ROOM-03] 사람 중심 방 생성 - 주최자 세션
 # 게임 데이터가 없어도 실행할 수 있는 기본 예시입니다.
+# @no-log
 # @no-cookie-jar
 POST {{baseUrl}}/api/rooms
 Content-Type: application/json
@@ -24,6 +25,7 @@ X-XSRF-TOKEN: {{hostCsrfToken}}
 }
 
 ### [ROOM-04] 방 수정 - 참가자가 들어오기 전에 실행
+# @no-log
 # @no-cookie-jar
 PATCH {{baseUrl}}/api/rooms/{{roomId}}
 Content-Type: application/json
@@ -50,12 +52,14 @@ GET {{baseUrl}}/api/rooms/{{roomId}}
 Accept: application/json
 
 ### [ROOM-02] 방 상세 조회 - 주최자 상세 응답
+# @no-log
 # @no-cookie-jar
 GET {{baseUrl}}/api/rooms/{{roomId}}
 Accept: application/json
 Cookie: JSESSIONID={{hostSessionId}}
 
 ### [PART-01] 방 참가 - 참가자 세션
+# @no-log
 # @no-cookie-jar
 POST {{baseUrl}}/api/rooms/{{roomId}}/participants
 Accept: application/json
@@ -63,6 +67,7 @@ Cookie: JSESSIONID={{participantSessionId}}; XSRF-TOKEN={{participantCsrfToken}}
 X-XSRF-TOKEN: {{participantCsrfToken}}
 
 ### [ROOM-02] 방 상세 조회 - 참가자 상세 응답
+# @no-log
 # @no-cookie-jar
 GET {{baseUrl}}/api/rooms/{{roomId}}
 Accept: application/json
@@ -70,12 +75,14 @@ Cookie: JSESSIONID={{participantSessionId}}
 
 ### [PART-03] 내 모임 조회 - 참가자 세션
 # myRoomRole: all, joined, hosted
+# @no-log
 # @no-cookie-jar
 GET {{baseUrl}}/api/users/me/rooms?role={{myRoomRole}}&page={{page}}&size={{size}}
 Accept: application/json
 Cookie: JSESSIONID={{participantSessionId}}
 
 ### [PART-02] 참가 취소 - 참가자 세션
+# @no-log
 # @no-cookie-jar
 DELETE {{baseUrl}}/api/rooms/{{roomId}}/participants/me
 Accept: application/json
@@ -83,6 +90,7 @@ Cookie: JSESSIONID={{participantSessionId}}; XSRF-TOKEN={{participantCsrfToken}}
 X-XSRF-TOKEN: {{participantCsrfToken}}
 
 ### [PART-03] 내가 주최한 모임 조회 - 주최자 세션
+# @no-log
 # @no-cookie-jar
 GET {{baseUrl}}/api/users/me/rooms?role=hosted&page={{page}}&size={{size}}
 Accept: application/json
@@ -90,6 +98,7 @@ Cookie: JSESSIONID={{hostSessionId}}
 
 ### [ROOM-05] 방 취소 - 주최자 세션
 # 이 요청 뒤 roomId 방은 CANCELED 상태가 됩니다.
+# @no-log
 # @no-cookie-jar
 DELETE {{baseUrl}}/api/rooms/{{roomId}}
 Accept: application/json
@@ -98,6 +107,7 @@ X-XSRF-TOKEN: {{hostCsrfToken}}
 
 ### [ROOM-05] 방 종료 - 이미 시작 시각이 지난 CLOSED 방 전용
 # 조건에 맞는 별도 방 ID를 finishRoomId에 넣습니다.
+# @no-log
 # @no-cookie-jar
 PATCH {{baseUrl}}/api/rooms/{{finishRoomId}}/status
 Content-Type: application/json
