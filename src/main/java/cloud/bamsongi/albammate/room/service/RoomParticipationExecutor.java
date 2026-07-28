@@ -57,8 +57,9 @@ public class RoomParticipationExecutor {
                                 () -> Participation.createActive(room, currentUserId, requestTime));
         room.addActiveParticipant();
 
-        participationRepository.save(participation);
         roomRepository.save(room);
+        roomRepository.flush();
+        participationRepository.save(participation);
         return toResponse(room);
     }
 

@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.room.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -19,6 +20,7 @@ import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -53,8 +55,10 @@ class RoomParticipationExecutorTest {
         assertEquals(1, response.remainingRecruitmentSeats());
         verify(room).reconcileStateAt(REQUEST_TIME);
         verify(room).addActiveParticipant();
-        verify(participationRepository).save(any(Participation.class));
-        verify(roomRepository).save(room);
+        InOrder writes = inOrder(roomRepository, participationRepository);
+        writes.verify(roomRepository).save(room);
+        writes.verify(roomRepository).flush();
+        writes.verify(participationRepository).save(any(Participation.class));
     }
 
     @Test
