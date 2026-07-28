@@ -11,7 +11,8 @@
 | [0006](0006-p0-bigint-identity-ids.md) | P0 내부 식별자에 BIGINT 자동 증가 키를 사용 | 승인됨 | 2026-07-24 | 검증됨 |
 | [0007](0007-domain-centered-modular-monolith.md) | 도메인 중심 모듈러 모놀리스를 채택 | 승인됨 | 2026-07-24 | 검증됨 |
 | [0008](0008-flyway-database-migrations.md) | Flyway SQL 마이그레이션으로 데이터베이스 스키마를 관리 | 승인됨 | 2026-07-24 | 검증됨 |
-| [0009](0009-utc-time-standard.md) | 시스템 기준 시각을 UTC로 통일 | 승인됨 | 2026-07-24 | 미검증 |
+| [0009](0009-utc-time-standard.md) | 시스템 기준 시각을 UTC로 통일 | 승인됨 | 2026-07-24 | 검증됨 |
 | [0010](0010-h2-postgresql-test-boundary.md) | H2와 PostgreSQL의 테스트 검증 경계를 분리 | 승인됨 | 2026-07-24 | 검증됨 |
 | [0016](0016-p0-update-api-http-method.md) | P0 수정 API의 HTTP 메서드를 PATCH로 통일 | 승인됨 | 2026-07-27 | 미검증 |
 | [0017](0017-test-coverage-branch-ratchet.md) | 테스트 커버리지를 분기 기준으로 측정하고 회귀 방지선으로 운영 | 승인됨 | 2026-07-28 | 검증됨 |
+| [0021](0021-p0-aws-ec2-rds-deployment-baseline.md) | P0 AWS EC2와 RDS 배포 기준선 | 승인됨 | 2026-07-28 | 미검증 |
