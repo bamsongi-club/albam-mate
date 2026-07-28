@@ -138,6 +138,8 @@ docker compose --env-file .env -f compose.local.yml down --volumes
 
 ## PostgreSQL 마이그레이션 검증
 
+[ADR-0023](adr/platform/0023-p0-flyway-baseline-reset-player-count-stages.md)의 일회성 기준선 재생성 뒤에는 이전 V1~V3를 적용한 데이터베이스를 그대로 재사용하지 않는다. 로컬 데이터는 명시적으로 승인한 경우에만 위의 `down --volumes` 명령으로 초기화하고, 공유·RDS 환경은 정확한 대상을 확인한 뒤 별도로 재생성한다. 기존 테이블을 남긴 채 `flyway_schema_history`만 삭제하면 안 된다.
+
 `postgresTest`는 Testcontainers가 PostgreSQL 18.4 컨테이너(`postgres:18.4`)를
 일회성으로 시작해 빈 데이터베이스에 Flyway 마이그레이션과 Hibernate
 `ddl-auto=validate`를 적용한다. H2 기반 `test`와 별도 태스크이므로 일반적인

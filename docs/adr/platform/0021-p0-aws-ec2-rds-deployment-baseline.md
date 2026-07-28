@@ -160,7 +160,7 @@ ADR이 승인됐다는 사실만으로 배포가 완료된 것은 아니다. 아
 ## 검증
 
 - 상태: 미검증
-- 근거: 2026-07-28 서울 리전의 일회성 환경에서 EC2 `t4g.small` ARM64와 RDS PostgreSQL `18.4` `db.t4g.micro`를 연결했다. RDS CA 검증 TLS, Flyway V1~V3, Hibernate `validate`, 공개 조회, 회원가입·로그인·보호 프로필 조회와 애플리케이션 컨테이너 재시작 뒤 데이터 지속을 확인했다. RDS는 비공개·암호화·Single-AZ·gp3 20 GiB·백업 7일이었고, DB 보안 그룹은 애플리케이션 보안 그룹에서 오는 5432만 허용했다.
+- 근거: 2026-07-28 서울 리전의 일회성 환경에서 EC2 `t4g.small` ARM64와 RDS PostgreSQL `18.4` `db.t4g.micro`를 연결했다. RDS CA 검증 TLS, 당시 Flyway V1~V3, Hibernate `validate`, 공개 조회, 회원가입·로그인·보호 프로필 조회와 애플리케이션 컨테이너 재시작 뒤 데이터 지속을 확인했다. RDS는 비공개·암호화·Single-AZ·gp3 20 GiB·백업 7일이었고, DB 보안 그룹은 애플리케이션 보안 그룹에서 오는 5432만 허용했다. [ADR-0023](0023-p0-flyway-baseline-reset-player-count-stages.md)이 V1~V3 기준선을 재생성하므로 이 마이그레이션 근거는 새 기준선에서 다시 검증해야 한다.
 - 미검증으로 남기는 이유: 임시 테스트는 외부 인바운드를 모두 닫은 채, 인스턴스에 포트를 열지 않고 접속하는 AWS Systems Manager Session Manager(SSM)로 수행했다. 따라서 인터넷 HTTPS 443과 인증서 갱신, 비루트 배포 역할, 전용 애플리케이션 DB 사용자, EC2 재시작, RDS 백업 복구, 메모리 경보와 비용 알림 수신은 아직 검증되지 않았다. 이 항목까지 확인해야 결정 전체를 `검증됨`으로 바꾼다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.
