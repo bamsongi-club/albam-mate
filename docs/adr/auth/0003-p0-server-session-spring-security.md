@@ -58,7 +58,7 @@ Albam Mate의 P0 인증은 서버 세션을 사용하고, 인증·인가 경계�
 
 ## 검증
 
-- 상태: 미검증
-- 근거: 2026-07-24에 P0·API 명세를 서버 세션, `JSESSIONID`, CSRF 토큰 조회와 로그아웃 계약으로 정렬했다. 현재 `build.gradle`과 애플리케이션 코드에는 Spring Security 의존성·설정·인증 테스트가 없으므로, 구현 PR과 테스트 결과를 연결한 뒤 검증 상태를 갱신한다.
+- 상태: 검증됨
+- 근거: `spring-boot-starter-security`와 `SecurityConfig`로 인증·인가 경계를 적용하고, JWT나 refresh token은 두지 않았다. `SessionCookieConfigurer`가 `JSESSIONID`에 `HttpOnly`, `SameSite=Lax`와 프로필별 `Secure`를 적용하고, `SecurityCookiePropertiesTest`와 `SecurityConfigTest`가 운영 기본값의 `Secure` 속성과 쿠키 계약을 확인한다. `SecurityConfigTest`는 공개·선택 인증·보호 경로, 보호 `GET`과 `HEAD`의 인증 요구, 상태 변경 요청의 CSRF 필수와 세션 없음 우선순위, 보안 실패 응답에 세션·사용자 ID를 담지 않음을 확인한다. `LoginLogoutHttpIntegrationTest`는 로그인 성공 시 세션 교체, 로그아웃의 세션·CSRF 무효화, 무효화된 세션의 보호 API `401`, 세션 만료 시각을 지역시간이 아닌 epoch millis로 다루는지를 확인한다. CSRF 보호는 비활성화하지 않는다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

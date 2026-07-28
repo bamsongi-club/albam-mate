@@ -59,7 +59,7 @@ PostgreSQL의 메이저 버전, 스키마 마이그레이션 도구, 세션 참�
 
 ## 검증
 
-- 상태: 미검증
-- 근거: `build.gradle`에 Spring Data JPA와 PostgreSQL 런타임 드라이버가 선언돼 있고 `docs/COMMANDS.md`에 PostgreSQL 연결 설정이 아직 없다고 명시돼 있다. 실제 PostgreSQL 데이터소스, 스키마 마이그레이션, 통합 테스트와 CI 근거는 구현 후 연결한다.
+- 상태: 검증됨
+- 근거: 애플리케이션이 Spring Data JPA와 PostgreSQL JDBC 드라이버로 접속하고, 연결값은 저장소에 두지 않고 환경변수로 주입한다(`application-local.yml`, `compose.local.yml`). `PostgresSchemaValidationTest`는 Testcontainers `postgres:18.4`에서 Flyway `V1`~`V3` 적용과 `ddl-auto=validate` 통과, `DatabaseMetaData`의 PostgreSQL 18 연결을 확인한다. 같은 테스트가 실제 `INSERT`로 `ck_rooms_capacity`, `ck_participations_status_canceled_at`, `fk_participations_user`, `fk_participations_room` 위반을 SQLSTATE와 제약명까지 확인하고, 독립 트랜잭션의 같은 정규화 이메일 동시 가입에서 한 건만 생성되는지 확인한다. `RoomParticipationConcurrencyPostgresTest`는 참가·취소 동시 요청 뒤 `active_participant_count`와 실제 `ACTIVE` 참가 관계 수의 일치를 확인한다. CI는 `build` 뒤 `postgresTest`를 실행한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.
