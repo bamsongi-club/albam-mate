@@ -51,10 +51,23 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
             where room.roomType = :roomType
               and room.status in :publicStatuses
               and (:gameId is null or room.gameId = :gameId)
-              and (:keyword is null
-                   or lower(room.title) like concat('%', lower(:keyword), '%') escape '!')
             """)
-    Page<Room> findPublicRooms(
+    Page<Room> findPublicRoomsWithoutKeyword(
+            @Param("roomType") RoomType roomType,
+            @Param("gameId") Long gameId,
+            @Param("publicStatuses") Collection<RoomStatus> publicStatuses,
+            Pageable pageable);
+
+    @Query(
+            """
+            select room
+            from Room room
+            where room.roomType = :roomType
+              and room.status in :publicStatuses
+              and (:gameId is null or room.gameId = :gameId)
+              and lower(room.title) like concat('%', lower(:keyword), '%') escape '!'
+            """)
+    Page<Room> findPublicRoomsByTitleContainingIgnoreCase(
             @Param("roomType") RoomType roomType,
             @Param("gameId") Long gameId,
             @Param("keyword") String keyword,

@@ -68,18 +68,16 @@ class RoomRepositoryTest {
         jdbcTemplate.update("update rooms set status = 'CANCELED' where id = ?", canceled.getId());
 
         Page<Room> firstPage =
-                roomRepository.findPublicRooms(
+                roomRepository.findPublicRoomsWithoutKeyword(
                         RoomType.GAME_FOCUSED,
                         gameId,
-                        null,
                         PUBLIC_STATUSES,
                         PageRequest.of(
                                 0, 1, Sort.by(Sort.Order.asc("startAt"), Sort.Order.asc("id"))));
         Page<Room> secondPage =
-                roomRepository.findPublicRooms(
+                roomRepository.findPublicRoomsWithoutKeyword(
                         RoomType.GAME_FOCUSED,
                         gameId,
-                        null,
                         PUBLIC_STATUSES,
                         PageRequest.of(
                                 1, 1, Sort.by(Sort.Order.asc("startAt"), Sort.Order.asc("id"))));
@@ -100,7 +98,7 @@ class RoomRepositoryTest {
                         gameRoom("Party가 아닌 게임 중심 방", BASE_TIME.plusSeconds(300))));
 
         Page<Room> result =
-                roomRepository.findPublicRooms(
+                roomRepository.findPublicRoomsByTitleContainingIgnoreCase(
                         RoomType.PERSON_FOCUSED,
                         null,
                         "party",
@@ -130,7 +128,7 @@ class RoomRepositoryTest {
 
     private List<String> findPersonRoomTitles(String keyword) {
         return roomRepository
-                .findPublicRooms(
+                .findPublicRoomsByTitleContainingIgnoreCase(
                         RoomType.PERSON_FOCUSED,
                         null,
                         keyword,
