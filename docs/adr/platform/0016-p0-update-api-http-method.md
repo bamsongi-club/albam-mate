@@ -1,11 +1,11 @@
 # ADR-0016: P0 수정 API의 HTTP 메서드를 PATCH로 통일
 
-- 상태: 승인됨
+- 상태: 대체됨
 - 작성일: 2026-07-27
 - 결정일: 2026-07-27
 - 관련: [API 명세](../../API.md), [P0 명세](../../P0-spec.md), [AUTH-04 정본](../../p0/auth-profile.md#auth-04-내-프로필-조회수정), [ROOM-04·05 정본](../../p0/room.md), [ADR-0005](../participation/0005-room-participation-optimistic-locking.md)
 - 대체 대상: 없음
-- 후속 ADR: 없음
+- 후속 ADR: ADR-0022
 
 ## 맥락
 
