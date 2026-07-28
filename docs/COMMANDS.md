@@ -24,6 +24,11 @@ Gradle은 별도 설치본 대신 저장소의 Wrapper를 사용한다.
 | 산출물 제거 후 빌드 | `.\gradlew.bat clean build` | `./gradlew clean build` |
 | 코드 포맷 검사 | `.\gradlew.bat spotlessCheck` | `./gradlew spotlessCheck` |
 | 코드 포맷 자동 수정 | `.\gradlew.bat spotlessApply` | `./gradlew spotlessApply` |
+| 커버리지 리포트 | `.\gradlew.bat jacocoTestReport` | `./gradlew jacocoTestReport` |
+| 커버리지 리포트 (통합 포함) | `.\gradlew.bat jacocoAllTestReport` | `./gradlew jacocoAllTestReport` |
+| 분기 커버리지 검사 | `.\gradlew.bat jacocoTestCoverageVerification` | `./gradlew jacocoTestCoverageVerification` |
+| 분기 커버리지 검사 (통합 포함) | `.\gradlew.bat jacocoAllTestCoverageVerification` | `./gradlew jacocoAllTestCoverageVerification` |
+| 커버리지 규칙 대상 확인 | `.\gradlew.bat verifyCoverageRuleTargets` | `./gradlew verifyCoverageRuleTargets` |
 
 현재 저장소에는 운영용 데이터소스 연결값이 포함되어 있지 않다. `bootRun`은 PostgreSQL 연결 설정이 없으면 데이터소스 자동 설정 단계에서 실패한다. 테스트는 H2 인메모리 데이터베이스를 사용하므로 별도의 PostgreSQL 없이 `test`와 `build`를 실행할 수 있다.
 
@@ -145,6 +150,56 @@ docker compose --env-file .env -f compose.local.yml down --volumes
 Docker 데몬이 없거나 Testcontainers가 컨테이너를 시작하지 못하면 테스트
 결과가 아니라 실행 환경 제약으로 기록한다. CI에서는 `build` 뒤에
 `postgresTest`를 명시적으로 실행한다.
+
+## 분기 커버리지 확인
+
+커버리지는 라인이 아니라 분기를 기준으로 본다. 라인 커버리지는 조건식의 한쪽만
+실행해도 올라가므로 경계 조건과 예외 경로가 검증되지 않은 채 높게 나온다.
+
+게이트는 두 단계다. `jacocoTestCoverageVerification`은 H2 `test` 결과만 보므로
+Docker 없이 실행되며 `check`와 `build`에 포함된다. `jacocoAllTestCoverageVerification`은
+`test`와 `postgresTest`를 합산하는 정본 게이트이며 두 테스트에 모두 의존한다.
+
+```sh
+./gradlew jacocoAllTestReport jacocoAllTestCoverageVerification
+```
+
+각 태스크는 담당 Test 태스크의 exec 파일만 사용한다. `build/jacoco` 디렉터리의 exec를
+모두 읽으면 이번 실행에서 돌리지 않은 suite의 이전 결과가 남아 함께 집계되고, 테스트를
+바꾸거나 지워도 과거 데이터가 분기를 덮어 거짓 통과한다.
+
+CI는 정본 게이트로 판정하고 `-x jacocoTestCoverageVerification`으로 test 전용 게이트를
+제외한다. 제외하지 않으면 `build`가 `test` 결과만으로 먼저 판정해, PostgreSQL 통합
+테스트가 담당하는 범위에 의존하는 변경이 정본 판정에 닿기 전에 막힌다.
+
+최소선은 도입 시점의 실측값을 바닥으로 고정한 값이므로 목표치가 아니라 회귀
+방지선이다. 올리는 변경은 그대로 반영하고, 내리는 변경은 이유를 PR에 남긴다.
+대상 패키지와 값은 `build.gradle`의 `gatedBranchCoverage`가 정본이며 두 게이트가
+같은 규칙을 공유한다.
+
+분기 최소선과 함께 전체 라인 최소선을 보조로 둔다. 분기 커버리지는 조건문이 없는
+코드를 세지 않으므로, 조건문 없는 서비스·매핑 코드가 테스트 없이 들어오면 분기
+규칙만으로는 잡히지 않는다. 라인 최소선은 전체에만 두며 패키지 단위로는 두지 않는다.
+
+이 게이트는 미검증 코드가 없다는 보장이 아니라 검증 수준이 내려가지 않는다는 보장이다.
+비율이 최소선 이상으로 유지되는 범위의 미검증 추가는 통과한다.
+
+`verifyCoverageRuleTargets`는 최소선 목록이 실제 패키지 구조와 어긋나는 두 경우를
+실패로 만든다. 규칙 대상이 리포트에 없으면 규칙이 아무 패키지에도 적용되지 않은 채
+통과하고, 분기 10개 이상인 패키지에 최소선이 없으면 전체 최소선만 적용되어 새 모듈이
+낮은 커버리지로 들어와도 통과한다. 두 게이트가 이 태스크에 의존하므로 게이트를 단독으로
+실행해도 함께 검사된다. 패키지를 옮기거나 새로 만들었다면 같은 변경에서
+`gatedBranchCoverage`를 갱신하고, 새 항목은 실측값을 0.01 단위로 내려 적는다.
+
+미커버 분기의 위치는 HTML 리포트에서 확인한다.
+
+```text
+build/reports/jacoco/test/html/index.html
+build/reports/jacoco/jacocoAllTestReport/html/index.html
+```
+
+Docker가 없으면 정본 게이트를 실행할 수 없다. 이때는 `check`의 test 전용 게이트로
+확인하고, 실행하지 못한 범위를 보고에 명시한다.
 
 ## 코드 포맷 확인
 

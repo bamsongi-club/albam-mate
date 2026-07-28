@@ -28,6 +28,20 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
             @Param("now") Instant now,
             @Param("excludedStatuses") Collection<RoomStatus> excludedStatuses);
 
+    /** 상태와 시간 경계를 만족하는 방만 읽어 일괄 보정 대상 범위를 제한한다. */
+    @Query(
+            """
+            select room
+            from Room room
+            where (room.status = cloud.bamsongi.albammate.room.enums.RoomStatus.RECRUITING
+                    and room.startAt <= :requestTime)
+                or (room.status = cloud.bamsongi.albammate.room.enums.RoomStatus.CLOSED
+                    and room.startAt <= :finishedThreshold)
+            """)
+    List<Room> findDueRooms(
+            @Param("requestTime") Instant requestTime,
+            @Param("finishedThreshold") Instant finishedThreshold);
+
     interface UpcomingRoomCount {
 
         Long getGameId();

@@ -13,6 +13,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 import lombok.AccessLevel;
@@ -24,6 +25,8 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "rooms")
 public class Room extends BaseEntity {
+
+    public static final Duration AUTOMATIC_FINISH_AFTER_START = Duration.ofHours(24);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -108,5 +111,27 @@ public class Room extends BaseEntity {
         room.place = Objects.requireNonNull(place, "place");
         room.status = RoomStatus.RECRUITING;
         return room;
+    }
+
+    /**
+     * 요청 기준 시각에 맞춰 시간 기반 상태를 순서대로 보정한다.
+     *
+     * <p>두 경계를 모두 지난 {@code RECRUITING} 방은 한 번의 보정에서 {@code CLOSED}를 거쳐 {@code FINISHED}까지 전이한다. 최종
+     * 상태는 덮어쓰지 않으며, 실제 전이가 있었는지만 반환한다.
+     */
+    public boolean reconcileStateAt(Instant requestTime) {
+        Objects.requireNonNull(requestTime, "requestTime");
+        boolean changed = false;
+
+        if (status == RoomStatus.RECRUITING && !requestTime.isBefore(startAt)) {
+            status = RoomStatus.CLOSED;
+            changed = true;
+        }
+        if (status == RoomStatus.CLOSED
+                && !requestTime.isBefore(startAt.plus(AUTOMATIC_FINISH_AFTER_START))) {
+            status = RoomStatus.FINISHED;
+            changed = true;
+        }
+        return changed;
     }
 }
