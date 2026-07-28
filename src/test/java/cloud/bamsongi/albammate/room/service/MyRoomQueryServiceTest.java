@@ -61,7 +61,7 @@ class MyRoomQueryServiceTest {
         Room joined = room(2L, 8L, 99L, 2, 3);
         when(myRoomReadService.findMyRooms(42L, MyRoomRole.all, pageable))
                 .thenReturn(new PageImpl<>(List.of(hosted, joined), pageable, 2));
-        when(gameQuery.findSummariesById(Set.of(7L, 8L)))
+        when(gameQuery.findSummariesByIds(Set.of(7L, 8L)))
                 .thenReturn(
                         Map.of(
                                 7L, new GameSummary(7L, 1007L, "카탄"),
@@ -77,7 +77,7 @@ class MyRoomQueryServiceTest {
         assertFalse(response.content().get(1).joinable());
         assertEquals(3, response.content().get(1).participantCount());
         assertEquals(1, response.content().get(1).remainingRecruitmentSeats());
-        verify(gameQuery).findSummariesById(Set.of(7L, 8L));
+        verify(gameQuery).findSummariesByIds(Set.of(7L, 8L));
         InOrder inOrder = inOrder(reconciliationCoordinator, myRoomReadService);
         inOrder.verify(reconciliationCoordinator).reconcileDueRooms(NOW);
         inOrder.verify(myRoomReadService).findMyRooms(42L, MyRoomRole.all, pageable);

@@ -4,9 +4,9 @@ import cloud.bamsongi.albammate.game.contract.GameQuery;
 import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.global.response.PageResponse;
 import cloud.bamsongi.albammate.room.RoomStateReconciliationCoordinator;
 import cloud.bamsongi.albammate.room.dto.PublicRoomResponse;
-import cloud.bamsongi.albammate.room.dto.RoomPageResponse;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
@@ -43,7 +43,7 @@ public class RoomListQueryService {
     }
 
     /** 상태 보정이 끝난 시점의 공개 방을 고정 정렬과 요청자 기준 참가 가능 여부로 반환한다. */
-    public RoomPageResponse findPage(
+    public PageResponse<PublicRoomResponse> findPage(
             RoomType roomType,
             Long gameId,
             String keyword,
@@ -72,7 +72,7 @@ public class RoomListQueryService {
                                                 requestTime,
                                                 currentUserId,
                                                 readResult.activeParticipationRoomIds()));
-        return RoomPageResponse.from(response);
+        return PageResponse.from(response);
     }
 
     private String normalizeKeyword(String keyword) {
@@ -91,7 +91,7 @@ public class RoomListQueryService {
                         .map(Room::getGameId)
                         .filter(Objects::nonNull)
                         .collect(Collectors.toSet());
-        return gameIds.isEmpty() ? Map.of() : gameQuery.findSummariesById(gameIds);
+        return gameIds.isEmpty() ? Map.of() : gameQuery.findSummariesByIds(gameIds);
     }
 
     private GameSummary getGameSummary(Room room, Map<Long, GameSummary> gameSummaries) {

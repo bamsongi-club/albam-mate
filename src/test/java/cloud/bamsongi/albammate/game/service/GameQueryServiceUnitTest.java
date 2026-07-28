@@ -40,20 +40,20 @@ class GameQueryServiceUnitTest {
         List<Long> gameIds = List.of(1L, 2L);
         List<GameSummary> summaries =
                 List.of(new GameSummary(1L, 1001L, "카탄"), new GameSummary(2L, 1002L, "아줄"));
-        when(gameRepository.findSummariesById(gameIds)).thenReturn(summaries);
+        when(gameRepository.findSummariesByIds(gameIds)).thenReturn(summaries);
 
         assertEquals(
                 Map.of(1L, summaries.getFirst(), 2L, summaries.getLast()),
-                gameQueryService.findSummariesById(gameIds));
+                gameQueryService.findSummariesByIds(gameIds));
 
-        verify(gameRepository).findSummariesById(gameIds);
+        verify(gameRepository).findSummariesByIds(gameIds);
         verify(gameRepository, never()).findAllById(gameIds);
     }
 
     @Test
     void 빈_ID_컬렉션은_저장소를_조회하지_않는다() {
-        assertEquals(Map.of(), gameQueryService.findSummariesById(List.of()));
+        assertEquals(Map.of(), gameQueryService.findSummariesByIds(List.of()));
 
-        verify(gameRepository, never()).findSummariesById(List.of());
+        verify(gameRepository, never()).findSummariesByIds(List.of());
     }
 }

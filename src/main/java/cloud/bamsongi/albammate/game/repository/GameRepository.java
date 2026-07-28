@@ -13,7 +13,25 @@ import org.springframework.data.repository.query.Param;
 
 public interface GameRepository extends JpaRepository<Game, Long> {
 
-    Page<Game> findByNameContainingIgnoreCase(String keyword, Pageable pageable);
+    @Query(
+            """
+            select new cloud.bamsongi.albammate.game.repository.GameListRow(
+                g.id, g.bggId, g.name, g.englishName, g.imageUrl, g.supportedPlayerCount,
+                g.tag, g.estimatedPlayTime, g.complexity)
+            from Game g
+            """)
+    Page<GameListRow> findAllListRows(Pageable pageable);
+
+    @Query(
+            """
+            select new cloud.bamsongi.albammate.game.repository.GameListRow(
+                g.id, g.bggId, g.name, g.englishName, g.imageUrl, g.supportedPlayerCount,
+                g.tag, g.estimatedPlayTime, g.complexity)
+            from Game g
+            where lower(g.name) like lower(concat('%', :keyword, '%'))
+            """)
+    Page<GameListRow> findListRowsByNameContainingIgnoreCase(
+            @Param("keyword") String keyword, Pageable pageable);
 
     @Query(
             """
@@ -29,5 +47,5 @@ public interface GameRepository extends JpaRepository<Game, Long> {
             from Game g
             where g.id in :gameIds
             """)
-    List<GameSummary> findSummariesById(@Param("gameIds") Collection<Long> gameIds);
+    List<GameSummary> findSummariesByIds(@Param("gameIds") Collection<Long> gameIds);
 }

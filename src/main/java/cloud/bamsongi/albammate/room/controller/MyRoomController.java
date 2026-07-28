@@ -3,8 +3,9 @@ package cloud.bamsongi.albammate.room.controller;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.response.ApiResponse;
+import cloud.bamsongi.albammate.global.response.PageResponse;
 import cloud.bamsongi.albammate.global.security.CurrentUserAccessor;
-import cloud.bamsongi.albammate.room.dto.MyRoomPageResponse;
+import cloud.bamsongi.albammate.room.dto.MyRoomListItem;
 import cloud.bamsongi.albammate.room.enums.MyRoomRole;
 import cloud.bamsongi.albammate.room.service.MyRoomQueryService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -39,7 +40,7 @@ public class MyRoomController {
     }
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    public ApiResponse<MyRoomPageResponse> listMyRooms(
+    public ApiResponse<PageResponse<MyRoomListItem>> listMyRooms(
             @RequestParam MyRoomRole role,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size,

@@ -1,16 +1,14 @@
 package cloud.bamsongi.albammate.game.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import cloud.bamsongi.albammate.game.contract.UpcomingRoomCountQuery;
 import cloud.bamsongi.albammate.game.dto.GameListItem;
-import cloud.bamsongi.albammate.game.entity.Game;
+import cloud.bamsongi.albammate.game.repository.GameListRow;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
-import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -48,8 +46,8 @@ class GameListQueryServiceTest {
     @Test
     void 검색어를_strip하고_이름_부분검색_결과에_예정_모임_수를_매핑한다() {
         Pageable pageable = PageRequest.of(0, 10, Sort.by("name", "id"));
-        Game game = mockGame(1L, "카탄");
-        when(gameRepository.findByNameContainingIgnoreCase("카탄", pageable))
+        GameListRow game = gameListRow(1L, "카탄");
+        when(gameRepository.findListRowsByNameContainingIgnoreCase("카탄", pageable))
                 .thenReturn(new PageImpl<>(List.of(game), pageable, 1));
         when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW))
                 .thenReturn(Map.of(1L, 2L));
@@ -59,41 +57,41 @@ class GameListQueryServiceTest {
         assertEquals(1, result.getTotalElements());
         assertEquals("카탄", result.getContent().getFirst().name());
         assertEquals(2L, result.getContent().getFirst().upcomingRoomCount());
-        verify(gameRepository).findByNameContainingIgnoreCase("카탄", pageable);
+        verify(gameRepository).findListRowsByNameContainingIgnoreCase("카탄", pageable);
         verify(upcomingRoomCountQuery).findUpcomingRoomCounts(List.of(1L), NOW);
     }
 
     @Test
     void 전각_공백이_포함된_검색어를_strip해_repository_검색_인자로_전달한다() {
         Pageable pageable = PageRequest.of(0, 10, Sort.by("name", "id"));
-        Game game = mockGame(1L, "카탄");
-        when(gameRepository.findByNameContainingIgnoreCase("카탄", pageable))
+        GameListRow game = gameListRow(1L, "카탄");
+        when(gameRepository.findListRowsByNameContainingIgnoreCase("카탄", pageable))
                 .thenReturn(new PageImpl<>(List.of(game), pageable, 1));
         when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW)).thenReturn(Map.of());
 
         Page<GameListItem> result = gameListQueryService.findPage("\u3000카탄\u3000", pageable);
 
         assertEquals("카탄", result.getContent().getFirst().name());
-        verify(gameRepository).findByNameContainingIgnoreCase("카탄", pageable);
+        verify(gameRepository).findListRowsByNameContainingIgnoreCase("카탄", pageable);
     }
 
     @Test
     void 검색어가_없으면_전체_페이지를_조회한다() {
         Pageable pageable = PageRequest.of(0, 10, Sort.by("name", "id"));
-        when(gameRepository.findAll(pageable)).thenReturn(Page.empty(pageable));
+        when(gameRepository.findAllListRows(pageable)).thenReturn(Page.empty(pageable));
 
         Page<GameListItem> result = gameListQueryService.findPage("  ", pageable);
 
         assertEquals(0, result.getTotalElements());
-        verify(gameRepository).findAll(pageable);
+        verify(gameRepository).findAllListRows(pageable);
         verifyNoInteractions(upcomingRoomCountQuery);
     }
 
     @Test
     void count가_없는_게임은_예정_모임_수를_0으로_채운다() {
         Pageable pageable = PageRequest.of(0, 10, Sort.by("name", "id"));
-        Game game = mockGame(1L, "카탄");
-        when(gameRepository.findAll(pageable))
+        GameListRow game = gameListRow(1L, "카탄");
+        when(gameRepository.findAllListRows(pageable))
                 .thenReturn(new PageImpl<>(List.of(game), pageable, 1));
         when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW)).thenReturn(Map.of());
 
@@ -102,17 +100,7 @@ class GameListQueryServiceTest {
         assertEquals(0L, result.getContent().getFirst().upcomingRoomCount());
     }
 
-    private Game mockGame(Long id, String name) {
-        Game game = mock(Game.class);
-        when(game.getId()).thenReturn(id);
-        when(game.getBggId()).thenReturn(1001L);
-        when(game.getName()).thenReturn(name);
-        when(game.getEnglishName()).thenReturn("Catan");
-        when(game.getImageUrl()).thenReturn(null);
-        when(game.getSupportedPlayerCount()).thenReturn("3~4명");
-        when(game.getTag()).thenReturn("전략");
-        when(game.getEstimatedPlayTime()).thenReturn("60~90분");
-        when(game.getComplexity()).thenReturn(new BigDecimal("2.00"));
-        return game;
+    private GameListRow gameListRow(Long id, String name) {
+        return new GameListRow(id, 1001L, name, "Catan", null, "3~4명", "전략", "60~90분", null);
     }
 }
