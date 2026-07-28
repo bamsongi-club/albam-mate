@@ -9,8 +9,9 @@
 POST {{baseUrl}}/api/rooms
 Content-Type: application/json
 Accept: application/json
-Cookie: JSESSIONID={{hostSessionId}}; XSRF-TOKEN={{hostCsrfToken}}
-X-XSRF-TOKEN: {{hostCsrfToken}}
+Cookie: JSESSIONID={{runtimeHostSessionId}}; XSRF-TOKEN={{runtimeHostCsrfToken}}
+X-XSRF-TOKEN: {{runtimeHostCsrfToken}}
+
 
 {
   "roomType": "PERSON_FOCUSED",
@@ -30,8 +31,8 @@ X-XSRF-TOKEN: {{hostCsrfToken}}
 PATCH {{baseUrl}}/api/rooms/{{roomId}}
 Content-Type: application/json
 Accept: application/json
-Cookie: JSESSIONID={{hostSessionId}}; XSRF-TOKEN={{hostCsrfToken}}
-X-XSRF-TOKEN: {{hostCsrfToken}}
+Cookie: JSESSIONID={{runtimeHostSessionId}}; XSRF-TOKEN={{runtimeHostCsrfToken}}
+X-XSRF-TOKEN: {{runtimeHostCsrfToken}}
 
 {
   "title": "수동 API 테스트 모임 수정",
@@ -56,22 +57,22 @@ Accept: application/json
 # @no-cookie-jar
 GET {{baseUrl}}/api/rooms/{{roomId}}
 Accept: application/json
-Cookie: JSESSIONID={{hostSessionId}}
+Cookie: JSESSIONID={{runtimeHostSessionId}}
 
 ### [PART-01] 방 참가 - 참가자 세션
 # @no-log
 # @no-cookie-jar
 POST {{baseUrl}}/api/rooms/{{roomId}}/participants
 Accept: application/json
-Cookie: JSESSIONID={{participantSessionId}}; XSRF-TOKEN={{participantCsrfToken}}
-X-XSRF-TOKEN: {{participantCsrfToken}}
+Cookie: JSESSIONID={{runtimeParticipantSessionId}}; XSRF-TOKEN={{runtimeParticipantCsrfToken}}
+X-XSRF-TOKEN: {{runtimeParticipantCsrfToken}}
 
 ### [ROOM-02] 방 상세 조회 - 참가자 상세 응답
 # @no-log
 # @no-cookie-jar
 GET {{baseUrl}}/api/rooms/{{roomId}}
 Accept: application/json
-Cookie: JSESSIONID={{participantSessionId}}
+Cookie: JSESSIONID={{runtimeParticipantSessionId}}
 
 ### [PART-03] 내 모임 조회 - 참가자 세션
 # myRoomRole: all, joined, hosted
@@ -79,22 +80,22 @@ Cookie: JSESSIONID={{participantSessionId}}
 # @no-cookie-jar
 GET {{baseUrl}}/api/users/me/rooms?role={{myRoomRole}}&page={{page}}&size={{size}}
 Accept: application/json
-Cookie: JSESSIONID={{participantSessionId}}
+Cookie: JSESSIONID={{runtimeParticipantSessionId}}
 
 ### [PART-02] 참가 취소 - 참가자 세션
 # @no-log
 # @no-cookie-jar
 DELETE {{baseUrl}}/api/rooms/{{roomId}}/participants/me
 Accept: application/json
-Cookie: JSESSIONID={{participantSessionId}}; XSRF-TOKEN={{participantCsrfToken}}
-X-XSRF-TOKEN: {{participantCsrfToken}}
+Cookie: JSESSIONID={{runtimeParticipantSessionId}}; XSRF-TOKEN={{runtimeParticipantCsrfToken}}
+X-XSRF-TOKEN: {{runtimeParticipantCsrfToken}}
 
 ### [PART-03] 내가 주최한 모임 조회 - 주최자 세션
 # @no-log
 # @no-cookie-jar
 GET {{baseUrl}}/api/users/me/rooms?role=hosted&page={{page}}&size={{size}}
 Accept: application/json
-Cookie: JSESSIONID={{hostSessionId}}
+Cookie: JSESSIONID={{runtimeHostSessionId}}
 
 ### [ROOM-05] 방 취소 - 주최자 세션
 # 이 요청 뒤 roomId 방은 CANCELED 상태가 됩니다.
@@ -102,8 +103,8 @@ Cookie: JSESSIONID={{hostSessionId}}
 # @no-cookie-jar
 DELETE {{baseUrl}}/api/rooms/{{roomId}}
 Accept: application/json
-Cookie: JSESSIONID={{hostSessionId}}; XSRF-TOKEN={{hostCsrfToken}}
-X-XSRF-TOKEN: {{hostCsrfToken}}
+Cookie: JSESSIONID={{runtimeHostSessionId}}; XSRF-TOKEN={{runtimeHostCsrfToken}}
+X-XSRF-TOKEN: {{runtimeHostCsrfToken}}
 
 ### [ROOM-05] 방 종료 - 이미 시작 시각이 지난 CLOSED 방 전용
 # 조건에 맞는 별도 방 ID를 finishRoomId에 넣습니다.
@@ -112,8 +113,8 @@ X-XSRF-TOKEN: {{hostCsrfToken}}
 PATCH {{baseUrl}}/api/rooms/{{finishRoomId}}/status
 Content-Type: application/json
 Accept: application/json
-Cookie: JSESSIONID={{hostSessionId}}; XSRF-TOKEN={{hostCsrfToken}}
-X-XSRF-TOKEN: {{hostCsrfToken}}
+Cookie: JSESSIONID={{runtimeHostSessionId}}; XSRF-TOKEN={{runtimeHostCsrfToken}}
+X-XSRF-TOKEN: {{runtimeHostCsrfToken}}
 
 {
   "status": "FINISHED"

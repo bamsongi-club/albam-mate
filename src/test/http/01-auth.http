@@ -1,17 +1,21 @@
 # IntelliJ HTTP Client에서 local 환경을 선택합니다.
 # http-client.private.env.json.example을 http-client.private.env.json으로 복사한 뒤, PASTE_* 값을 채웁니다.
 # Cookie jar에 의존하지 않도록 쿠키를 모두 변수로 명시합니다.
+# 로그인 세션과 CSRF 조회 응답은 runtime* 전역 변수에 자동 저장됩니다.
 #
 # 실행 순서
-# 1. CSRF 조회 후 data.token을 anonymousCsrfToken에 복사
+# 1. 비로그인 CSRF 조회
 # 2. 회원가입(계정별 최초 1회) 또는 로그인
-# 3. 로그인 응답 Set-Cookie의 JSESSIONID를 해당 sessionId에 복사
-# 4. 로그인 세션으로 CSRF를 다시 조회해 해당 csrfToken에 복사
+# 3. 로그인 세션으로 CSRF 조회
 
 ### [AUTH-01] 주최자용 비로그인 CSRF 토큰 조회
 # @no-cookie-jar
 GET {{baseUrl}}/api/auth/csrf
 Accept: application/json
+
+> {%
+    client.global.set("runtimeAnonymousCsrfToken", response.body.data.token);
+%}
 
 ### [AUTH-02] 주최자 회원가입 - 계정 생성 후에는 생략
 # @no-log
@@ -19,8 +23,8 @@ Accept: application/json
 POST {{baseUrl}}/api/auth/signup
 Content-Type: application/json
 Accept: application/json
-Cookie: XSRF-TOKEN={{anonymousCsrfToken}}
-X-XSRF-TOKEN: {{anonymousCsrfToken}}
+Cookie: XSRF-TOKEN={{runtimeAnonymousCsrfToken}}
+X-XSRF-TOKEN: {{runtimeAnonymousCsrfToken}}
 
 {
   "email": "{{hostEmail}}",
@@ -33,34 +37,51 @@ X-XSRF-TOKEN: {{anonymousCsrfToken}}
 GET {{baseUrl}}/api/auth/csrf
 Accept: application/json
 
-### [AUTH-03] 주최자 로그인 - 응답의 JSESSIONID를 hostSessionId에 복사
+> {%
+    client.global.set("runtimeAnonymousCsrfToken", response.body.data.token);
+%}
+
+### [AUTH-03] 주최자 로그인 - JSESSIONID 자동 저장
 # @no-log
 # @no-cookie-jar
 POST {{baseUrl}}/api/auth/login
 Content-Type: application/json
 Accept: application/json
-Cookie: XSRF-TOKEN={{anonymousCsrfToken}}
-X-XSRF-TOKEN: {{anonymousCsrfToken}}
+Cookie: XSRF-TOKEN={{runtimeAnonymousCsrfToken}}
+X-XSRF-TOKEN: {{runtimeAnonymousCsrfToken}}
 
 {
   "email": "{{hostEmail}}",
   "password": "{{hostPassword}}"
 }
 
+> {%
+    const sessionCookie = response.headers.valuesOf("Set-Cookie")
+        .find(cookie => cookie.startsWith("JSESSIONID="));
+    client.assert(sessionCookie, "로그인 응답에 JSESSIONID가 없습니다.");
+    client.global.set(
+        "runtimeHostSessionId",
+        sessionCookie.match(/^JSESSIONID=([^;]+)/)[1]
+    );
+%}
+
 ### [AUTH-01] 주최자 로그인 세션용 CSRF 토큰 조회
-# 응답 data.token을 hostCsrfToken에 복사합니다.
 # @no-log
 # @no-cookie-jar
 GET {{baseUrl}}/api/auth/csrf
 Accept: application/json
-Cookie: JSESSIONID={{hostSessionId}}
+Cookie: JSESSIONID={{runtimeHostSessionId}}
+
+> {%
+    client.global.set("runtimeHostCsrfToken", response.body.data.token);
+%}
 
 ### [AUTH-04] 내 프로필 조회
 # @no-log
 # @no-cookie-jar
 GET {{baseUrl}}/api/users/me
 Accept: application/json
-Cookie: JSESSIONID={{hostSessionId}}
+Cookie: JSESSIONID={{runtimeHostSessionId}}
 
 ### [AUTH-04] 내 프로필 닉네임 수정
 # @no-log
@@ -68,18 +89,21 @@ Cookie: JSESSIONID={{hostSessionId}}
 PATCH {{baseUrl}}/api/users/me
 Content-Type: application/json
 Accept: application/json
-Cookie: JSESSIONID={{hostSessionId}}; XSRF-TOKEN={{hostCsrfToken}}
-X-XSRF-TOKEN: {{hostCsrfToken}}
+Cookie: JSESSIONID={{runtimeHostSessionId}}; XSRF-TOKEN={{runtimeHostCsrfToken}}
+X-XSRF-TOKEN: {{runtimeHostCsrfToken}}
 
 {
   "nickname": "{{hostUpdatedNickname}}"
 }
 
 ### [AUTH-01] 참가자용 비로그인 CSRF 토큰 조회
-# 응답 data.token을 anonymousCsrfToken에 다시 복사합니다.
 # @no-cookie-jar
 GET {{baseUrl}}/api/auth/csrf
 Accept: application/json
+
+> {%
+    client.global.set("runtimeAnonymousCsrfToken", response.body.data.token);
+%}
 
 ### [AUTH-02] 참가자 회원가입 - 계정 생성 후에는 생략
 # @no-log
@@ -87,8 +111,8 @@ Accept: application/json
 POST {{baseUrl}}/api/auth/signup
 Content-Type: application/json
 Accept: application/json
-Cookie: XSRF-TOKEN={{anonymousCsrfToken}}
-X-XSRF-TOKEN: {{anonymousCsrfToken}}
+Cookie: XSRF-TOKEN={{runtimeAnonymousCsrfToken}}
+X-XSRF-TOKEN: {{runtimeAnonymousCsrfToken}}
 
 {
   "email": "{{participantEmail}}",
@@ -101,33 +125,50 @@ X-XSRF-TOKEN: {{anonymousCsrfToken}}
 GET {{baseUrl}}/api/auth/csrf
 Accept: application/json
 
-### [AUTH-03] 참가자 로그인 - 응답의 JSESSIONID를 participantSessionId에 복사
+> {%
+    client.global.set("runtimeAnonymousCsrfToken", response.body.data.token);
+%}
+
+### [AUTH-03] 참가자 로그인 - JSESSIONID 자동 저장
 # @no-log
 # @no-cookie-jar
 POST {{baseUrl}}/api/auth/login
 Content-Type: application/json
 Accept: application/json
-Cookie: XSRF-TOKEN={{anonymousCsrfToken}}
-X-XSRF-TOKEN: {{anonymousCsrfToken}}
+Cookie: XSRF-TOKEN={{runtimeAnonymousCsrfToken}}
+X-XSRF-TOKEN: {{runtimeAnonymousCsrfToken}}
 
 {
   "email": "{{participantEmail}}",
   "password": "{{participantPassword}}"
 }
 
+> {%
+    const sessionCookie = response.headers.valuesOf("Set-Cookie")
+        .find(cookie => cookie.startsWith("JSESSIONID="));
+    client.assert(sessionCookie, "로그인 응답에 JSESSIONID가 없습니다.");
+    client.global.set(
+        "runtimeParticipantSessionId",
+        sessionCookie.match(/^JSESSIONID=([^;]+)/)[1]
+    );
+%}
+
 ### [AUTH-01] 참가자 로그인 세션용 CSRF 토큰 조회
-# 응답 data.token을 participantCsrfToken에 복사합니다.
 # @no-log
 # @no-cookie-jar
 GET {{baseUrl}}/api/auth/csrf
 Accept: application/json
-Cookie: JSESSIONID={{participantSessionId}}
+Cookie: JSESSIONID={{runtimeParticipantSessionId}}
+
+> {%
+    client.global.set("runtimeParticipantCsrfToken", response.body.data.token);
+%}
 
 ### [AUTH-03] 주최자 로그아웃 - 03-rooms.http 테스트를 마친 뒤 실행
-# 성공하면 hostSessionId와 hostCsrfToken은 더 이상 사용할 수 없습니다.
+# 성공하면 runtimeHostSessionId와 runtimeHostCsrfToken은 더 이상 사용할 수 없습니다.
 # @no-log
 # @no-cookie-jar
 POST {{baseUrl}}/api/auth/logout
 Accept: application/json
-Cookie: JSESSIONID={{hostSessionId}}; XSRF-TOKEN={{hostCsrfToken}}
-X-XSRF-TOKEN: {{hostCsrfToken}}
+Cookie: JSESSIONID={{runtimeHostSessionId}}; XSRF-TOKEN={{runtimeHostCsrfToken}}
+X-XSRF-TOKEN: {{runtimeHostCsrfToken}}
