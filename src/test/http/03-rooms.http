@@ -1,0 +1,110 @@
+# IntelliJ HTTP Client에서 local 환경을 선택합니다.
+# 01-auth.http에서 주최자·참가자 세션과 세션별 CSRF 토큰을 먼저 준비합니다.
+# 방 생성 응답의 data.id를 roomId에 복사한 뒤 나머지 요청을 실행합니다.
+
+### [ROOM-03] 사람 중심 방 생성 - 주최자 세션
+# 게임 데이터가 없어도 실행할 수 있는 기본 예시입니다.
+# @no-cookie-jar
+POST {{baseUrl}}/api/rooms
+Content-Type: application/json
+Accept: application/json
+Cookie: JSESSIONID={{hostSessionId}}; XSRF-TOKEN={{hostCsrfToken}}
+X-XSRF-TOKEN: {{hostCsrfToken}}
+
+{
+  "roomType": "PERSON_FOCUSED",
+  "title": "수동 API 테스트 모임",
+  "description": "현재 구현된 API를 확인하는 방입니다.",
+  "gameId": null,
+  "experienceLevel": "BEGINNER_WELCOME",
+  "isRulemasterLed": false,
+  "startsAt": "{{startsAt}}",
+  "place": "홍대입구역 인근",
+  "recruitmentCapacity": 3
+}
+
+### [ROOM-04] 방 수정 - 참가자가 들어오기 전에 실행
+# @no-cookie-jar
+PATCH {{baseUrl}}/api/rooms/{{roomId}}
+Content-Type: application/json
+Accept: application/json
+Cookie: JSESSIONID={{hostSessionId}}; XSRF-TOKEN={{hostCsrfToken}}
+X-XSRF-TOKEN: {{hostCsrfToken}}
+
+{
+  "title": "수동 API 테스트 모임 수정",
+  "description": null,
+  "recruitmentCapacity": 4
+}
+
+### [ROOM-01] 사람 중심 방 목록 조회 - 비로그인
+GET {{baseUrl}}/api/rooms?type=PERSON_FOCUSED&keyword={{roomKeyword}}&page={{page}}&size={{size}}
+Accept: application/json
+
+### [ROOM-01] 게임 중심 방 목록 조회 - 비로그인
+GET {{baseUrl}}/api/rooms?type=GAME_FOCUSED&gameId={{gameId}}&page={{page}}&size={{size}}
+Accept: application/json
+
+### [ROOM-02] 방 상세 조회 - 비로그인 공개 응답
+GET {{baseUrl}}/api/rooms/{{roomId}}
+Accept: application/json
+
+### [ROOM-02] 방 상세 조회 - 주최자 상세 응답
+# @no-cookie-jar
+GET {{baseUrl}}/api/rooms/{{roomId}}
+Accept: application/json
+Cookie: JSESSIONID={{hostSessionId}}
+
+### [PART-01] 방 참가 - 참가자 세션
+# @no-cookie-jar
+POST {{baseUrl}}/api/rooms/{{roomId}}/participants
+Accept: application/json
+Cookie: JSESSIONID={{participantSessionId}}; XSRF-TOKEN={{participantCsrfToken}}
+X-XSRF-TOKEN: {{participantCsrfToken}}
+
+### [ROOM-02] 방 상세 조회 - 참가자 상세 응답
+# @no-cookie-jar
+GET {{baseUrl}}/api/rooms/{{roomId}}
+Accept: application/json
+Cookie: JSESSIONID={{participantSessionId}}
+
+### [PART-03] 내 모임 조회 - 참가자 세션
+# myRoomRole: all, joined, hosted
+# @no-cookie-jar
+GET {{baseUrl}}/api/users/me/rooms?role={{myRoomRole}}&page={{page}}&size={{size}}
+Accept: application/json
+Cookie: JSESSIONID={{participantSessionId}}
+
+### [PART-02] 참가 취소 - 참가자 세션
+# @no-cookie-jar
+DELETE {{baseUrl}}/api/rooms/{{roomId}}/participants/me
+Accept: application/json
+Cookie: JSESSIONID={{participantSessionId}}; XSRF-TOKEN={{participantCsrfToken}}
+X-XSRF-TOKEN: {{participantCsrfToken}}
+
+### [PART-03] 내가 주최한 모임 조회 - 주최자 세션
+# @no-cookie-jar
+GET {{baseUrl}}/api/users/me/rooms?role=hosted&page={{page}}&size={{size}}
+Accept: application/json
+Cookie: JSESSIONID={{hostSessionId}}
+
+### [ROOM-05] 방 취소 - 주최자 세션
+# 이 요청 뒤 roomId 방은 CANCELED 상태가 됩니다.
+# @no-cookie-jar
+DELETE {{baseUrl}}/api/rooms/{{roomId}}
+Accept: application/json
+Cookie: JSESSIONID={{hostSessionId}}; XSRF-TOKEN={{hostCsrfToken}}
+X-XSRF-TOKEN: {{hostCsrfToken}}
+
+### [ROOM-05] 방 종료 - 이미 시작 시각이 지난 CLOSED 방 전용
+# 조건에 맞는 별도 방 ID를 finishRoomId에 넣습니다.
+# @no-cookie-jar
+PATCH {{baseUrl}}/api/rooms/{{finishRoomId}}/status
+Content-Type: application/json
+Accept: application/json
+Cookie: JSESSIONID={{hostSessionId}}; XSRF-TOKEN={{hostCsrfToken}}
+X-XSRF-TOKEN: {{hostCsrfToken}}
+
+{
+  "status": "FINISHED"
+}
