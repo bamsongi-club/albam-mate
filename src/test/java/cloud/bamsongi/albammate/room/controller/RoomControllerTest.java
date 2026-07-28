@@ -2,11 +2,15 @@ package cloud.bamsongi.albammate.room.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -22,13 +26,17 @@ import cloud.bamsongi.albammate.global.security.SecurityErrorResponseWriter;
 import cloud.bamsongi.albammate.room.dto.CreateRoomRequest;
 import cloud.bamsongi.albammate.room.dto.NicknameSummary;
 import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
+import cloud.bamsongi.albammate.room.dto.PublicRoomResponse;
+import cloud.bamsongi.albammate.room.dto.RoomPageResponse;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.MyRole;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.service.RoomCreateService;
+import cloud.bamsongi.albammate.room.service.RoomListQueryService;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -57,6 +65,77 @@ class RoomControllerTest {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private RoomCreateService roomCreateService;
+    @Autowired private RoomListQueryService roomListQueryService;
+
+    @Test
+    void 비로그인_방_목록은_200이고_joinable은_false다() throws Exception {
+        when(roomListQueryService.findPage(
+                        eq(RoomType.GAME_FOCUSED),
+                        eq(7L),
+                        isNull(),
+                        eq(0),
+                        eq(10),
+                        eq(Optional.empty())))
+                .thenReturn(pageResponse(false));
+
+        mockMvc.perform(get("/api/rooms?type=GAME_FOCUSED&gameId=7"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.data.content[0].id").value(1))
+                .andExpect(jsonPath("$.data.content[0].joinable").value(false))
+                .andExpect(jsonPath("$.data.content[0].place").doesNotExist())
+                .andExpect(jsonPath("$.data.content[0].host").doesNotExist())
+                .andExpect(jsonPath("$.data.content[0].participants").doesNotExist())
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(10))
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.totalPages").value(1))
+                .andExpect(jsonPath("$.data.hasNext").value(false));
+    }
+
+    @Test
+    void 로그인_방_목록은_현재_사용자를_서비스에_전달한다() throws Exception {
+        when(roomListQueryService.findPage(
+                        eq(RoomType.PERSON_FOCUSED),
+                        isNull(),
+                        eq("모임"),
+                        eq(1),
+                        eq(20),
+                        eq(Optional.of(42L))))
+                .thenReturn(pageResponse(true));
+
+        mockMvc.perform(
+                        get("/api/rooms?type=PERSON_FOCUSED&keyword=모임&page=1&size=20")
+                                .with(authenticationFor(42L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].joinable").value(true));
+
+        verify(roomListQueryService)
+                .findPage(RoomType.PERSON_FOCUSED, null, "모임", 1, 20, Optional.of(42L));
+    }
+
+    @Test
+    void 방_목록의_잘못된_파라미터_조합과_범위는_VALIDATION_ERROR다() throws Exception {
+        clearInvocations(roomListQueryService);
+
+        for (String query :
+                List.of(
+                        "",
+                        "type=GAME_FOCUSED",
+                        "type=GAME_FOCUSED&gameId=0",
+                        "type=GAME_FOCUSED&gameId=7&keyword=모임",
+                        "type=PERSON_FOCUSED&gameId=7",
+                        "type=PERSON_FOCUSED&sort=startsAt",
+                        "type=PERSON_FOCUSED&page=-1",
+                        "type=PERSON_FOCUSED&size=0",
+                        "type=PERSON_FOCUSED&size=101")) {
+            mockMvc.perform(get("/api/rooms" + (query.isEmpty() ? "" : "?" + query)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+        }
+
+        verifyNoInteractions(roomListQueryService);
+    }
 
     @Test
     void 인증없는_방_생성은_UNAUTHENTICATED다() throws Exception {
@@ -160,6 +239,32 @@ class RoomControllerTest {
                 List.of(host));
     }
 
+    private RoomPageResponse pageResponse(boolean joinable) {
+        return new RoomPageResponse(
+                List.of(
+                        new PublicRoomResponse(
+                                1L,
+                                RoomType.GAME_FOCUSED,
+                                "게임 모임",
+                                null,
+                                new cloud.bamsongi.albammate.game.contract.GameSummary(
+                                        7L, 1007L, "카탄"),
+                                ExperienceLevel.ALL_LEVELS,
+                                false,
+                                Instant.parse("2099-01-01T10:00:00Z"),
+                                "홍대",
+                                3,
+                                2,
+                                2,
+                                RoomStatus.RECRUITING,
+                                joinable)),
+                0,
+                10,
+                1,
+                1,
+                false);
+    }
+
     private String validJson() {
         return """
                 {
@@ -182,6 +287,11 @@ class RoomControllerTest {
         @Bean
         RoomCreateService roomCreateService() {
             return Mockito.mock(RoomCreateService.class);
+        }
+
+        @Bean
+        RoomListQueryService roomListQueryService() {
+            return Mockito.mock(RoomListQueryService.class);
         }
     }
 }
