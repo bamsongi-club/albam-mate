@@ -7,18 +7,23 @@ import cloud.bamsongi.albammate.global.security.CurrentUserAccessor;
 import cloud.bamsongi.albammate.room.dto.CreateRoomRequest;
 import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
 import cloud.bamsongi.albammate.room.dto.RoomPageResponse;
+import cloud.bamsongi.albammate.room.dto.RoomUpdateRequest;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.service.RoomCreateService;
 import cloud.bamsongi.albammate.room.service.RoomListQueryService;
+import cloud.bamsongi.albammate.room.service.RoomUpdateService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Positive;
 import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,14 +41,17 @@ public class RoomController {
 
     private final RoomCreateService roomCreateService;
     private final RoomListQueryService roomListQueryService;
+    private final RoomUpdateService roomUpdateService;
     private final CurrentUserAccessor currentUserAccessor;
 
     public RoomController(
             RoomCreateService roomCreateService,
             RoomListQueryService roomListQueryService,
+            RoomUpdateService roomUpdateService,
             CurrentUserAccessor currentUserAccessor) {
         this.roomCreateService = roomCreateService;
         this.roomListQueryService = roomListQueryService;
+        this.roomUpdateService = roomUpdateService;
         this.currentUserAccessor = currentUserAccessor;
     }
 
@@ -83,5 +91,17 @@ public class RoomController {
                 || (type == RoomType.PERSON_FOCUSED && parameterNames.contains("gameId"))) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
+    }
+
+    @PatchMapping(
+            path = "/{roomId}",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ApiResponse<ParticipantRoomResponse> updateRoom(
+            @PathVariable @Positive long roomId, @Valid @RequestBody RoomUpdateRequest request) {
+        ParticipantRoomResponse response =
+                roomUpdateService.updateRoom(
+                        currentUserAccessor.requireCurrentUserId(), roomId, request);
+        return ApiResponse.success(HttpStatus.OK, response);
     }
 }
