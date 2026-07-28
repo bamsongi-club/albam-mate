@@ -218,6 +218,16 @@ public final class ApiEndpointPolicyRegistry {
                         true),
                 policy(
                         HttpMethod.DELETE,
+                        "/api/rooms/{roomId}",
+                        ApiEndpointAuthenticationMode.AUTHENTICATED,
+                        true),
+                policy(
+                        HttpMethod.PATCH,
+                        "/api/rooms/{roomId}/status",
+                        ApiEndpointAuthenticationMode.AUTHENTICATED,
+                        true),
+                policy(
+                        HttpMethod.DELETE,
                         "/api/rooms/{roomId}/participants/me",
                         ApiEndpointAuthenticationMode.AUTHENTICATED,
                         true),
