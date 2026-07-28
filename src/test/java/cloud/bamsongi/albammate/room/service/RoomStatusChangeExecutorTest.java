@@ -95,8 +95,33 @@ class RoomStatusChangeExecutorTest {
     }
 
     @Test
-    void 자동_종료_경계_이후_수동_종료는_상태_전이_오류다() {
+    void 자동_종료_경계_이후_종료는_정합화된_FINISHED_상태로_성공한다() {
         Room room = room(NOW.minus(Room.AUTOMATIC_FINISH_AFTER_START));
+        when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(room));
+
+        RoomStatusResponse response = executor.finishRoom(HOST_ID, ROOM_ID, NOW);
+
+        assertEquals(RoomStatus.FINISHED, response.roomStatus());
+        assertEquals(RoomStatus.FINISHED, room.getStatus());
+    }
+
+    @Test
+    void 이미_FINISHED인_방의_종료는_성공한다() {
+        Room room = room(NOW);
+        setStatus(room, RoomStatus.FINISHED);
+        when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(room));
+
+        RoomStatusResponse response = executor.finishRoom(HOST_ID, ROOM_ID, NOW);
+
+        assertEquals(ROOM_ID, response.roomId());
+        assertEquals(RoomStatus.FINISHED, response.roomStatus());
+        assertEquals(RoomStatus.FINISHED, room.getStatus());
+    }
+
+    @Test
+    void 취소된_방의_종료는_상태_전이_오류다() {
+        Room room = room(NOW);
+        setStatus(room, RoomStatus.CANCELED);
         when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(room));
 
         BusinessException exception =
@@ -104,7 +129,6 @@ class RoomStatusChangeExecutorTest {
                         BusinessException.class, () -> executor.finishRoom(HOST_ID, ROOM_ID, NOW));
 
         assertEquals(ErrorCode.INVALID_ROOM_STATUS_TRANSITION, exception.getErrorCode());
-        assertEquals(RoomStatus.FINISHED, room.getStatus());
     }
 
     @Test
