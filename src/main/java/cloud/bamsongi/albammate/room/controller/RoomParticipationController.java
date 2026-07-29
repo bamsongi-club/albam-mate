@@ -2,8 +2,6 @@ package cloud.bamsongi.albammate.room.controller;
 
 import java.util.Objects;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -17,12 +15,12 @@ import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserAccessor;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import cloud.bamsongi.albammate.room.service.RoomParticipationCancelService;
 import jakarta.validation.constraints.Positive;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/rooms")
+@Slf4j
 public class RoomParticipationController {
-
-	private static final Logger log = LoggerFactory.getLogger(RoomParticipationController.class);
 
 	private final RoomParticipationCancelService roomParticipationCancelService;
 	private final CurrentUserAccessor currentUserAccessor;

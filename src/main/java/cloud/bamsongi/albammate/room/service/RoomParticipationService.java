@@ -4,8 +4,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
@@ -13,12 +11,13 @@ import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import jakarta.persistence.OptimisticLockException;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 public class RoomParticipationService {
 
 	private static final int MAX_ATTEMPTS = 3;
-	private static final Logger log = LoggerFactory.getLogger(RoomParticipationService.class);
 
 	private final RoomParticipationExecutor executor;
 	private final Clock clock;

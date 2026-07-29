@@ -4,8 +4,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
@@ -13,13 +11,14 @@ import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import jakarta.persistence.OptimisticLockException;
+import lombok.extern.slf4j.Slf4j;
 
 /** 현재 사용자의 활성 참가 관계를 낙관 락 충돌 시에만 재시도해 취소한다. */
 @Service
+@Slf4j
 public class RoomParticipationCancelService {
 
 	private static final int MAX_ATTEMPTS = 3;
-	private static final Logger log = LoggerFactory.getLogger(RoomParticipationCancelService.class);
 
 	private final RoomParticipationCancelExecutor executor;
 	private final Clock clock;

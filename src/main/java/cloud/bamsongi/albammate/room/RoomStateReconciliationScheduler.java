@@ -6,24 +6,23 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.Trigger;
 import org.springframework.scheduling.TriggerContext;
 import org.springframework.stereotype.Component;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import lombok.extern.slf4j.Slf4j;
 
 /** 요청이 없는 방도 같은 상태 보정 규칙으로 주기적으로 정리한다. */
 @Component
+@Slf4j
 public class RoomStateReconciliationScheduler implements Trigger {
 
 	static final Duration BASE_DELAY = Duration.ofMinutes(15);
 	static final Duration MAX_SCHEDULE_JITTER = Duration.ofMinutes(3);
 	static final long SECOND_ATTEMPT_MAX_DELAY_MILLIS = 250;
 	static final long THIRD_ATTEMPT_MAX_DELAY_MILLIS = 500;
-	private static final Logger log = LoggerFactory.getLogger(RoomStateReconciliationScheduler.class);
 
 	private final RoomStateReconciliationCoordinator coordinator;
 	private final Clock clock;

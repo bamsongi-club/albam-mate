@@ -3,8 +3,6 @@ package cloud.bamsongi.albammate.room.service;
 import java.time.Clock;
 import java.time.Instant;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
@@ -13,14 +11,15 @@ import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.dto.RoomStatusResponse;
 import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /** 방 취소·종료 시 낙관 락 충돌만 최대 세 번의 독립 트랜잭션으로 재시도한다. */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class RoomStatusChangeService {
 
 	private static final int MAX_ATTEMPTS = 3;
-	private static final Logger log = LoggerFactory.getLogger(RoomStatusChangeService.class);
 
 	private final RoomStatusChangeExecutor executor;
 	private final Clock clock;

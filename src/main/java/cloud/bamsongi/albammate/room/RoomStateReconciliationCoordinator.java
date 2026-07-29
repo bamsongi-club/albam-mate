@@ -5,21 +5,20 @@ import java.util.Objects;
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import jakarta.persistence.OptimisticLockException;
+import lombok.extern.slf4j.Slf4j;
 
 /** 트랜잭션 경계 밖에서 낙관 락 충돌만 제한적으로 재시도한다. */
 @Service
+@Slf4j
 public class RoomStateReconciliationCoordinator {
 
 	private static final int MAX_ATTEMPTS = 3;
-	private static final Logger log = LoggerFactory.getLogger(RoomStateReconciliationCoordinator.class);
 
 	private final RoomStateReconciliationExecutor executor;
 
