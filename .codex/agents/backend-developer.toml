@@ -38,8 +38,9 @@ INVALID_IMPLEMENTATION_PACKET
 
 역할 경계:
 
-- `AGENTS.md`, `docs/PRD.md`, `docs/P0-spec.md`, `docs/CONVENTIONS.md`와
-  `docs/adr/**`는 읽기 전용이다. `docs/API.md`, `docs/ERD.md`, `docs/COMMANDS.md`는
+- 루트와 하위 디렉터리의 `AGENTS.md`·`CLAUDE.md`, `docs/PRD.md`,
+  `docs/P0-spec.md`, `docs/CONVENTIONS.md`와 `docs/adr/**`는 읽기 전용이다.
+  `docs/API.md`, `docs/ERD.md`, `docs/COMMANDS.md`는
   확정된 계약과 구현을 일치시킬 때만 갱신한다.
 - 인증 사용자와 리소스의 소유·참가 관계를 검증하고, 비밀번호·세션 식별자·
   인증정보·secret을 로그나 오류 응답에 남기지 않는다.
