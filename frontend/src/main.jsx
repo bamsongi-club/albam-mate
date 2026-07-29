@@ -11,7 +11,6 @@ const EXP_LABEL = {
   EXPERIENCED_PREFERRED: '경험자 위주'
 };
 const CAPACITY_OPTIONS = Array.from({ length: 10 }, (_, index) => index + 1);
-const TIME_OPTIONS = ['11:00', '14:00', '15:00', '19:00', '19:30'];
 const GAME_SEARCH_PAGE_SIZE = 10;
 const GAME_LIST_PAGE_SIZE = 24;
 const ROOM_LIST_PAGE_SIZE = 12;
@@ -454,7 +453,7 @@ function HomeView({ dataVersion }) {
 function GamesView({ gameQuery, dataVersion }) {
   const keyword = gameQuery.trim();
   const { data, loading, error, setPage } = usePaginatedRequest(
-    (page, signal) => api.getGames({ keyword, page, size: GAME_LIST_PAGE_SIZE }, signal),
+    (page, signal) => api.getGames({ keyword, upcomingOnly: true, page, size: GAME_LIST_PAGE_SIZE }, signal),
     [keyword, dataVersion]
   );
   const games = (data?.content || []).map(normalizeGameSummary);
@@ -799,27 +798,17 @@ function RoomFormFields({ form, onChange, roomType, onOpenGamePicker, today }) {
   const gameFocused = roomType === 'GAME_FOCUSED';
   const update = (field, value) => onChange({ ...form, [field]: value });
   const selectedGame = form.selectedGame;
-  const timeOptions = [...new Set([...TIME_OPTIONS, form.time])].filter(Boolean).sort();
   return (
     <>
-      <section className="form-section" aria-labelledby="room-detail-title">
-        <div className="form-section-heading"><h3 id="room-detail-title">모임 내용</h3><p>게임과 모임을 소개할 내용을 적어주세요.</p></div>
-        <div className="formrow">
-          <div><div className="field-label-row"><label>게임 {gameFocused ? '(필수)' : '(선택)'}</label><button type="button" className="game-search-open" onClick={onOpenGamePicker}>게임 검색</button></div><div className="game-selected-value">{selectedGame ? selectedGame.title : '선택한 게임이 없어요'}</div><p className="hint">{gameFocused ? '게임 검색으로 선택해주세요.' : '게임 없이 모임을 만들 수도 있어요.'}</p></div>
-          <div><label htmlFor="room-title">모임 제목</label><input id="room-title" maxLength="100" value={form.title} onChange={(event) => update('title', event.target.value)} placeholder="예: 토요일 오후 같이 게임 고를 분" /></div>
-        </div>
-        <div className="formrow single"><div><label htmlFor="room-description">설명 (선택, 255자 이내)</label><textarea id="room-description" maxLength="255" value={form.description} onChange={(event) => update('description', event.target.value)} placeholder="예: 처음 오신 분도 환영합니다." /></div></div>
-      </section>
-      <section className="form-section" aria-labelledby="room-schedule-title">
-        <div className="form-section-heading"><h3 id="room-schedule-title">일정과 장소</h3><p>현재는 홍대 지역 모임만 열 수 있어요.</p></div>
-        <div className="formrow"><div><label htmlFor="room-date">날짜</label><DatePicker id="room-date" value={form.date} onChange={(date) => update('date', date)} today={today} /></div><div><label htmlFor="room-time">시간</label><select id="room-time" value={form.time} onChange={(event) => update('time', event.target.value)}>{timeOptions.map((time) => <option key={time}>{time}</option>)}</select></div></div>
-        <div className="formrow"><div><label>지역</label><div className="game-selected-value">홍대</div></div><div><label htmlFor="room-place">장소</label><input id="room-place" maxLength="100" value={form.place} onChange={(event) => update('place', event.target.value)} placeholder="예: 홍대입구역 인근 OO보드게임카페" /></div></div>
-      </section>
-      <section className="form-section" aria-labelledby="room-member-title">
-        <div className="form-section-heading"><h3 id="room-member-title">함께할 사람</h3><p>주최자는 모집 인원에 포함되지 않아요.</p></div>
-        <div className="formrow"><div><label htmlFor="room-capacity">모집 정원 (본인 제외, 1~10명)</label><select id="room-capacity" value={form.recruitmentCapacity} onChange={(event) => update('recruitmentCapacity', Number(event.target.value))}>{CAPACITY_OPTIONS.map((capacity) => <option value={capacity} key={capacity}>{capacity}명</option>)}</select></div><div><label htmlFor="room-experience">경험 수준</label><select id="room-experience" value={form.experienceLevel} onChange={(event) => update('experienceLevel', event.target.value)}>{Object.entries(EXP_LABEL).map(([code, label]) => <option value={code} key={code}>{label}</option>)}</select></div></div>
-        <label className="checkline"><input type="checkbox" checked={form.isRulemasterLed} onChange={(event) => update('isRulemasterLed', event.target.checked)} /> 룰마스터 진행 (개설자 자기신고)</label>
-      </section>
+      <div className="formrow">
+        <div><div className="field-label-row"><label>게임 {gameFocused ? '(필수)' : '(선택)'}</label><button type="button" className="game-search-open" onClick={onOpenGamePicker}>게임 검색</button></div><div className="game-selected-value">{selectedGame ? selectedGame.title : '선택한 게임이 없어요'}</div><p className="hint">{gameFocused ? '게임 검색으로 선택해주세요.' : '게임 없이 모임을 만들 수도 있어요.'}</p></div>
+        <div><label htmlFor="room-title">모임 제목</label><input id="room-title" maxLength="100" value={form.title} onChange={(event) => update('title', event.target.value)} placeholder="예: 토요일 오후 같이 게임 고를 분" /></div>
+      </div>
+      <div className="formrow single"><div><label htmlFor="room-description">설명 (선택, 255자 이내)</label><textarea id="room-description" maxLength="255" value={form.description} onChange={(event) => update('description', event.target.value)} placeholder="예: 처음 오신 분도 환영합니다." /></div></div>
+      <div className="formrow"><div><label htmlFor="room-date">날짜</label><DatePicker id="room-date" value={form.date} onChange={(date) => update('date', date)} today={today} /></div><div><label htmlFor="room-time">시간</label><input id="room-time" type="time" required value={form.time} onChange={(event) => update('time', event.target.value)} /></div></div>
+      <div className="formrow"><div><label>지역</label><div className="game-selected-value">홍대</div></div><div><label htmlFor="room-place">장소</label><input id="room-place" maxLength="100" value={form.place} onChange={(event) => update('place', event.target.value)} placeholder="예: 홍대입구역 인근 OO보드게임카페" /></div></div>
+      <div className="formrow"><div><label htmlFor="room-capacity">모집 정원 (본인 제외, 1~10명)</label><select id="room-capacity" value={form.recruitmentCapacity} onChange={(event) => update('recruitmentCapacity', Number(event.target.value))}>{CAPACITY_OPTIONS.map((capacity) => <option value={capacity} key={capacity}>{capacity}명</option>)}</select></div><div><label htmlFor="room-experience">경험 수준</label><select id="room-experience" value={form.experienceLevel} onChange={(event) => update('experienceLevel', event.target.value)}>{Object.entries(EXP_LABEL).map(([code, label]) => <option value={code} key={code}>{label}</option>)}</select></div></div>
+      <label className="checkline"><input type="checkbox" checked={form.isRulemasterLed} onChange={(event) => update('isRulemasterLed', event.target.checked)} /> 룰마스터 진행 (개설자 자기신고)</label>
     </>
   );
 }
@@ -852,17 +841,28 @@ function CreateView({ createMode, onCreateModeChange, initialGame, onCreate, tod
   };
   return (
     <>
-      <div className="create-page-heading"><p>모임 개설</p><h2>새 모임 만들기</h2></div>
-      <div className="create-layout">
-        <form className="create-form" onSubmit={submit}>
-          <section className="form-section create-mode-section" aria-labelledby="create-type-title">
-            <div className="form-section-heading"><h3 id="create-type-title">어떤 모임인가요?</h3><p>모임을 여는 순서만 선택하면 됩니다.</p></div>
-            <div className="mode-choice"><button type="button" className={'modecard ' + (gameFocused ? 'on' : '')} onClick={() => onCreateModeChange('GAME_FOCUSED')}><span>게임을 먼저 정해요</span><b>게임 중심 모임</b><small>게임 선택이 꼭 필요해요.</small></button><button type="button" className={'modecard ' + (!gameFocused ? 'on' : '')} onClick={() => onCreateModeChange('PERSON_FOCUSED')}><span>사람부터 모아요</span><b>사람 중심 모임</b><small>게임은 나중에 정해도 돼요.</small></button></div>
-          </section>
+      <h2><span className="h2-ico">✏️</span>모임 만들기</h2>
+      <div className="layout wide">
+        <form className="card" onSubmit={submit}>
+          <label>모임 유형</label>
+          <div className="formrow">
+            <button type="button" className={'modecard ' + (gameFocused ? 'on' : '')} onClick={() => onCreateModeChange('GAME_FOCUSED')}><b>🎲 게임 중심</b><span>게임을 먼저 정하고 사람을 모아요. 게임 선택은 필수예요.</span></button>
+            <button type="button" className={'modecard ' + (!gameFocused ? 'on' : '')} onClick={() => onCreateModeChange('PERSON_FOCUSED')}><b>🙌 사람 중심</b><span>함께할 사람부터 모아요. 게임 선택은 선택이에요.</span></button>
+          </div>
           <RoomFormFields form={form} onChange={setForm} roomType={createMode} onOpenGamePicker={() => setGamePickerOpen(true)} today={today} />
-          <button className="btn big create-submit" disabled={submitting} type="submit">{submitting ? '모임을 여는 중…' : '모임 열기'}</button>
+          <button className="btn big create-submit" style={{ marginTop: 14 }} disabled={submitting} type="submit">{submitting ? '모임을 여는 중…' : '모임 열기'}</button>
         </form>
-        <aside className="create-note" aria-label="개설 전 확인할 내용"><h3>개설 전 확인</h3><ul><li>게임 중심은 게임 선택이 필요해요.</li><li>사람 중심은 게임 없이도 열 수 있어요.</li><li>장소는 홍대 지역 안에서 입력해주세요.</li><li>모집 정원은 주최자 제외 1-10명이에요.</li></ul></aside>
+        <aside>
+          <div className="card infobox create-note">
+            <b>📌 개설 안내</b>
+            <ul>
+              <li>게임 중심은 게임 선택이 필수예요.</li>
+              <li>사람 중심은 게임 없이 열 수 있어요.</li>
+              <li>지역은 홍대로 고정되고, 장소만 입력해요.</li>
+              <li>모집 정원은 주최자 제외 1명 이상 10명 이하예요.</li>
+            </ul>
+          </div>
+        </aside>
       </div>
       <GamePickerDialog isOpen={gamePickerOpen} selectedGameId={form.gameId} allowClear={!gameFocused} onSelect={(game) => setForm((current) => ({ ...current, gameId: game.id, selectedGame: game }))} onClear={() => setForm((current) => ({ ...current, gameId: '', selectedGame: null }))} onClose={() => setGamePickerOpen(false)} />
     </>
