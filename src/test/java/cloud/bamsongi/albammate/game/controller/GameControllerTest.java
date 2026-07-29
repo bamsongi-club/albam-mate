@@ -156,11 +156,26 @@ class GameControllerTest {
 
 	@Test
 	void 페이지_파라미터가_계약_범위를_벗어나면_VALIDATION_ERROR다() throws Exception {
-		for (String query : List.of("page=-1", "size=0", "size=101", "upcomingOnly=not-a-boolean")) {
+		for (String query : List.of(
+			"page=-1", "size=0", "size=101", "page=not-a-number", "size=not-a-number", "upcomingOnly=not-a-boolean")) {
 			mockMvc.perform(get("/api/games?" + query))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
 		}
+	}
+
+	@Test
+	void 빈_목록_parameter는_기본값으로_서비스에_전달한다() throws Exception {
+		PageRequest pageable = PageRequest.of(0, 10, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
+		when(gameListQueryService.findPage(isNull(), eq(false), eq(pageable)))
+			.thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+		mockMvc.perform(get("/api/games?page=&size=&upcomingOnly="))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.page").value(0))
+			.andExpect(jsonPath("$.data.size").value(10));
+
+		verify(gameListQueryService).findPage(isNull(), eq(false), eq(pageable));
 	}
 
 	@Test

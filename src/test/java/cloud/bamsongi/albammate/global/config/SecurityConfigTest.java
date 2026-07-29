@@ -35,7 +35,6 @@ import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.RequestBuilder;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -343,7 +342,6 @@ class SecurityConfigTest {
 	}
 
 	@RestController
-	@Validated
 	public static class SecurityFixtureController {
 
 		private final CurrentUserAccessor currentUserAccessor;
