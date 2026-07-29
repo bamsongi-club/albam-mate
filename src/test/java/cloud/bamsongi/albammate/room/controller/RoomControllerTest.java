@@ -1,5 +1,7 @@
 package cloud.bamsongi.albammate.room.controller;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -36,6 +38,10 @@ import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.global.config.SecurityConfig;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.exception.GlobalExceptionHandler;
@@ -121,6 +127,55 @@ class RoomControllerTest {
 			.andExpect(jsonPath("$.data.roomStatus").value("CLOSED"))
 			.andExpect(jsonPath("$.data.participantCount").value(4))
 			.andExpect(jsonPath("$.data.remainingRecruitmentSeats").value(0));
+	}
+
+	@Test
+	void 성공_변경은_허용된_식별자만_포함한_INFO_운영_로그를_한번씩_남긴다() throws Exception {
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			when(roomCreateService.createRoom(anyLong(), any(CreateRoomRequest.class))).thenReturn(response());
+			when(roomParticipationService.participate(42L, 1L)).thenReturn(
+				new RoomParticipationResponse(1L, ParticipationStatus.ACTIVE, RoomStatus.CLOSED, 4, 0));
+			when(roomUpdateService.updateRoom(anyLong(), anyLong(), any(RoomUpdateRequest.class)))
+				.thenReturn(response());
+			when(roomStatusChangeService.cancelRoom(42L, 1L))
+				.thenReturn(new RoomStatusResponse(1L, RoomStatus.CANCELED));
+			when(roomStatusChangeService.finishRoom(42L, 1L))
+				.thenReturn(new RoomStatusResponse(1L, RoomStatus.FINISHED));
+
+			mockMvc.perform(post("/api/rooms").with(csrf()).with(authenticationFor(42L))
+				.contentType(MediaType.APPLICATION_JSON).content(validJson())).andExpect(status().isCreated());
+			mockMvc.perform(post("/api/rooms/1/participants").with(csrf()).with(authenticationFor(42L)))
+				.andExpect(status().isCreated());
+			mockMvc.perform(patch("/api/rooms/1").with(csrf()).with(authenticationFor(42L))
+				.contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"수정 제목\"}"))
+				.andExpect(status().isOk());
+			mockMvc.perform(delete("/api/rooms/1").with(csrf()).with(authenticationFor(42L)))
+				.andExpect(status().isOk());
+			mockMvc.perform(patch("/api/rooms/1/status").with(csrf()).with(authenticationFor(42L))
+				.contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"FINISHED\"}"))
+				.andExpect(status().isOk());
+
+			List<ILoggingEvent> events = appender.list;
+			assertEquals(5, events.size());
+			assertTrue(events.stream().allMatch(event -> event.getLevel() == Level.INFO));
+			assertTrue(events.stream().allMatch(event -> event.getFormattedMessage().contains("roomId=1")));
+			assertTrue(events.stream().allMatch(event -> event.getFormattedMessage().contains("actorUserId=42")));
+			assertTrue(events.stream().allMatch(event -> event.getFormattedMessage().contains("roomStatus=")));
+			assertTrue(events.stream().anyMatch(event -> event.getFormattedMessage().contains("event=room_created")));
+			assertTrue(events.stream().anyMatch(event -> event.getFormattedMessage().contains("event=room_updated")));
+			assertTrue(events.stream().anyMatch(
+				event -> event.getFormattedMessage().contains("event=room_canceled")));
+			assertTrue(events.stream().anyMatch(
+				event -> event.getFormattedMessage().contains("event=room_finished")));
+			assertTrue(events.stream().anyMatch(
+				event -> event.getFormattedMessage().contains("event=room_participation_created")));
+			assertTrue(events.stream().noneMatch(event -> event.getFormattedMessage().contains("사람 중심")));
+			assertTrue(events.stream().noneMatch(event -> event.getFormattedMessage().contains("홍대 장소")));
+			assertTrue(events.stream().noneMatch(event -> event.getFormattedMessage().contains("방장")));
+		} finally {
+			detachLogAppender(appender);
+		}
 	}
 
 	@Test
@@ -588,6 +643,20 @@ class RoomControllerTest {
 			  "recruitmentCapacity": 3
 			}
 			""";
+	}
+
+	private ListAppender<ILoggingEvent> attachLogAppender() {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomController.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		return appender;
+	}
+
+	private void detachLogAppender(ListAppender<ILoggingEvent> appender) {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomController.class);
+		logger.detachAppender(appender);
+		appender.stop();
 	}
 
 	@TestConfiguration(proxyBeanMethods = false)

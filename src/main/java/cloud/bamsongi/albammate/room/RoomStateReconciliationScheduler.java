@@ -6,9 +6,14 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.Trigger;
 import org.springframework.scheduling.TriggerContext;
 import org.springframework.stereotype.Component;
+
+import cloud.bamsongi.albammate.global.exception.BusinessException;
+import cloud.bamsongi.albammate.global.exception.ErrorCode;
 
 /** 요청이 없는 방도 같은 상태 보정 규칙으로 주기적으로 정리한다. */
 @Component
@@ -18,6 +23,7 @@ public class RoomStateReconciliationScheduler implements Trigger {
 	static final Duration MAX_SCHEDULE_JITTER = Duration.ofMinutes(3);
 	static final long SECOND_ATTEMPT_MAX_DELAY_MILLIS = 250;
 	static final long THIRD_ATTEMPT_MAX_DELAY_MILLIS = 500;
+	private static final Logger log = LoggerFactory.getLogger(RoomStateReconciliationScheduler.class);
 
 	private final RoomStateReconciliationCoordinator coordinator;
 	private final Clock clock;
@@ -39,7 +45,22 @@ public class RoomStateReconciliationScheduler implements Trigger {
 	/** 현재 시각을 한 번 얻어 due 방의 상태를 보정하고, 스케줄러 경로만 충돌 재시도에 지연을 둔다. */
 	public void reconcileDueRooms() {
 		Instant requestTime = Instant.now(clock);
-		coordinator.reconcileDueRooms(requestTime, this::waitBeforeRetry);
+		try {
+			int changedCount = coordinator.reconcileDueRooms(requestTime, this::waitBeforeRetry);
+			if (changedCount > 0) {
+				log.info("event=room_state_reconciliation_completed changedCount={}", changedCount);
+			} else {
+				log.debug("event=room_state_reconciliation_completed changedCount={}", changedCount);
+			}
+		} catch (BusinessException exception) {
+			if (exception.getErrorCode() != ErrorCode.ROOM_CONCURRENT_MODIFICATION) {
+				log.warn("event=room_state_reconciliation_failed");
+			}
+			throw exception;
+		} catch (RuntimeException exception) {
+			log.warn("event=room_state_reconciliation_failed");
+			throw exception;
+		}
 	}
 
 	/** 이전 실행 완료 시각을 기준으로 15분 뒤에 0~3분의 full jitter를 더해 다음 실행을 예약한다. */

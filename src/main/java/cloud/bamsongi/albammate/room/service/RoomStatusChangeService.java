@@ -3,6 +3,8 @@ package cloud.bamsongi.albammate.room.service;
 import java.time.Clock;
 import java.time.Instant;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 public class RoomStatusChangeService {
 
 	private static final int MAX_ATTEMPTS = 3;
+	private static final Logger log = LoggerFactory.getLogger(RoomStatusChangeService.class);
 
 	private final RoomStatusChangeExecutor executor;
 	private final Clock clock;
@@ -31,8 +34,12 @@ public class RoomStatusChangeService {
 				return executor.cancelRoom(currentUserId, roomId, requestTime);
 			} catch (OptimisticLockException | ObjectOptimisticLockingFailureException exception) {
 				lastConflict = exception;
+				if (attempt < MAX_ATTEMPTS) {
+					log.debug("event=room_cancel_retry roomId={} attempt={}", roomId, attempt + 1);
+				}
 			}
 		}
+		log.warn("event=room_cancel_retry roomId={} attempt={}", roomId, MAX_ATTEMPTS);
 		throw new BusinessException(ErrorCode.ROOM_CONCURRENT_MODIFICATION, lastConflict);
 	}
 
@@ -48,8 +55,12 @@ public class RoomStatusChangeService {
 				return executor.finishRoom(currentUserId, roomId, requestTime);
 			} catch (OptimisticLockException | ObjectOptimisticLockingFailureException exception) {
 				lastConflict = exception;
+				if (attempt < MAX_ATTEMPTS) {
+					log.debug("event=room_finish_retry roomId={} attempt={}", roomId, attempt + 1);
+				}
 			}
 		}
+		log.warn("event=room_finish_retry roomId={} attempt={}", roomId, MAX_ATTEMPTS);
 		throw new BusinessException(ErrorCode.ROOM_CONCURRENT_MODIFICATION, lastConflict);
 	}
 }

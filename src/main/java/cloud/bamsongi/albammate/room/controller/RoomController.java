@@ -1,5 +1,7 @@
 package cloud.bamsongi.albammate.room.controller;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -36,6 +38,8 @@ import jakarta.validation.constraints.Positive;
 @RestController
 @RequestMapping("/api/rooms")
 public class RoomController {
+
+	private static final Logger log = LoggerFactory.getLogger(RoomController.class);
 
 	private final RoomCreateService roomCreateService;
 	private final RoomListQueryService roomListQueryService;
@@ -80,15 +84,20 @@ public class RoomController {
 	public ResponseEntity<ApiResponse<ParticipantRoomResponse>> createRoom(
 		@Valid @RequestBody
 		CreateRoomRequest request) {
-		ParticipantRoomResponse response = roomCreateService.createRoom(currentUserAccessor.requireCurrentUserId(),
-			request);
+		long currentUserId = currentUserAccessor.requireCurrentUserId();
+		ParticipantRoomResponse response = roomCreateService.createRoom(currentUserId, request);
+		log.info("event=room_created roomId={} actorUserId={} roomStatus={}",
+			response.id(), currentUserId, response.status());
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(HttpStatus.CREATED, response));
 	}
 
 	@PostMapping(value = "/{roomId}/participants", produces = MediaType.APPLICATION_JSON_VALUE)
 	public ResponseEntity<ApiResponse<RoomParticipationResponse>> participate(@PathVariable @Positive long roomId) {
+		long currentUserId = currentUserAccessor.requireCurrentUserId();
 		RoomParticipationResponse response = roomParticipationService.participate(
-			currentUserAccessor.requireCurrentUserId(), roomId);
+			currentUserId, roomId);
+		log.info("event=room_participation_created roomId={} actorUserId={} roomStatus={}",
+			response.roomId(), currentUserId, response.roomStatus());
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(HttpStatus.CREATED, response));
 	}
 
@@ -96,15 +105,21 @@ public class RoomController {
 	public ResponseEntity<ApiResponse<ParticipantRoomResponse>> updateRoom(
 		@PathVariable @Positive long roomId, @Valid @RequestBody
 		RoomUpdateRequest request) {
+		long currentUserId = currentUserAccessor.requireCurrentUserId();
 		ParticipantRoomResponse response = roomUpdateService.updateRoom(
-			currentUserAccessor.requireCurrentUserId(), roomId, request);
+			currentUserId, roomId, request);
+		log.info("event=room_updated roomId={} actorUserId={} roomStatus={}",
+			response.id(), currentUserId, response.status());
 		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
 	}
 
 	@DeleteMapping(path = "/{roomId}", produces = MediaType.APPLICATION_JSON_VALUE)
 	public ResponseEntity<ApiResponse<RoomStatusResponse>> cancelRoom(@PathVariable @Positive long roomId) {
+		long currentUserId = currentUserAccessor.requireCurrentUserId();
 		RoomStatusResponse response = roomStatusChangeService.cancelRoom(
-			currentUserAccessor.requireCurrentUserId(), roomId);
+			currentUserId, roomId);
+		log.info("event=room_canceled roomId={} actorUserId={} roomStatus={}",
+			response.roomId(), currentUserId, response.roomStatus());
 		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
 	}
 
@@ -113,8 +128,11 @@ public class RoomController {
 		@PathVariable @Positive long roomId,
 		@Valid @RequestBody
 		RoomStatusUpdateRequest request) {
+		long currentUserId = currentUserAccessor.requireCurrentUserId();
 		RoomStatusResponse response = roomStatusChangeService.finishRoom(
-			currentUserAccessor.requireCurrentUserId(), roomId);
+			currentUserId, roomId);
+		log.info("event=room_finished roomId={} actorUserId={} roomStatus={}",
+			response.roomId(), currentUserId, response.roomStatus());
 		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
 	}
 }

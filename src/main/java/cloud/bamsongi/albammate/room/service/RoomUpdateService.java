@@ -3,6 +3,8 @@ package cloud.bamsongi.albammate.room.service;
 import java.time.Clock;
 import java.time.Instant;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
@@ -19,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 public class RoomUpdateService {
 
 	private static final int MAX_ATTEMPTS = 3;
+	private static final Logger log = LoggerFactory.getLogger(RoomUpdateService.class);
 
 	private final RoomUpdateExecutor executor;
 	private final Clock clock;
@@ -37,9 +40,13 @@ public class RoomUpdateService {
 				return executor.updateRoom(currentUserId, roomId, request, requestTime);
 			} catch (OptimisticLockException | ObjectOptimisticLockingFailureException exception) {
 				lastConflict = exception;
+				if (attempt < MAX_ATTEMPTS) {
+					log.debug("event=room_update_retry roomId={} attempt={}", roomId, attempt + 1);
+				}
 			}
 		}
 
+		log.warn("event=room_update_retry roomId={} attempt={}", roomId, MAX_ATTEMPTS);
 		throw new BusinessException(ErrorCode.ROOM_CONCURRENT_MODIFICATION, lastConflict);
 	}
 }

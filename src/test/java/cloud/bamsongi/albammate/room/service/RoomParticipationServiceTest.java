@@ -1,7 +1,9 @@
 package cloud.bamsongi.albammate.room.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -16,6 +18,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
@@ -27,6 +33,7 @@ import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.OptimisticLockException;
 
 @SpringBootTest
 @Import(RoomParticipationServiceTest.FixedClockConfiguration.class)
@@ -44,6 +51,29 @@ class RoomParticipationServiceTest {
 	private JdbcTemplate jdbcTemplate;
 	@Autowired
 	private EntityManager entityManager;
+
+	@Test
+	void 세_번_낙관_락_충돌은_재시도_로그와_최종_경고를_한번씩_남긴다() {
+		RoomParticipationExecutor executor = org.mockito.Mockito.mock(RoomParticipationExecutor.class);
+		RoomParticipationService service = new RoomParticipationService(
+			executor, Clock.fixed(NOW, ZoneOffset.UTC));
+		OptimisticLockException third = new OptimisticLockException("third");
+		org.mockito.Mockito.when(executor.participate(42L, 7L, NOW))
+			.thenThrow(new OptimisticLockException("first"))
+			.thenThrow(new OptimisticLockException("second"))
+			.thenThrow(third);
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			BusinessException exception = assertThrows(
+				BusinessException.class, () -> service.participate(42L, 7L));
+
+			assertEquals(ErrorCode.ROOM_CONCURRENT_MODIFICATION, exception.getErrorCode());
+			assertSame(third, exception.getCause());
+			assertRetryLogs(appender);
+		} finally {
+			detachLogAppender(appender);
+		}
+	}
 
 	@Test
 	void 신규_참가는_ACTIVE_관계와_카운터를_저장한다() {
@@ -270,6 +300,35 @@ class RoomParticipationServiceTest {
 	private void assertError(ErrorCode expected, Runnable action) {
 		BusinessException exception = assertThrows(BusinessException.class, action::run);
 		assertEquals(expected, exception.getErrorCode());
+	}
+
+	private ListAppender<ILoggingEvent> attachLogAppender() {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomParticipationService.class);
+		logger.setLevel(Level.DEBUG);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		return appender;
+	}
+
+	private void detachLogAppender(ListAppender<ILoggingEvent> appender) {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomParticipationService.class);
+		logger.detachAppender(appender);
+		logger.setLevel(null);
+		appender.stop();
+	}
+
+	private void assertRetryLogs(ListAppender<ILoggingEvent> appender) {
+		assertEquals(3, appender.list.size());
+		assertEquals(Level.DEBUG, appender.list.get(0).getLevel());
+		assertEquals(Level.DEBUG, appender.list.get(1).getLevel());
+		assertEquals(Level.WARN, appender.list.get(2).getLevel());
+		assertTrue(appender.list.stream().allMatch(
+			event -> event.getFormattedMessage().contains("event=room_participation_retry roomId=7")));
+		assertTrue(appender.list.get(0).getFormattedMessage().contains("attempt=2"));
+		assertTrue(appender.list.get(1).getFormattedMessage().contains("attempt=3"));
+		assertTrue(appender.list.get(2).getFormattedMessage().contains("attempt=3"));
+		assertTrue(appender.list.stream().allMatch(event -> event.getThrowableProxy() == null));
 	}
 
 	@TestConfiguration(proxyBeanMethods = false)

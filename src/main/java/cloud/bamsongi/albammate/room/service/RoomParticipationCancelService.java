@@ -4,6 +4,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +19,7 @@ import jakarta.persistence.OptimisticLockException;
 public class RoomParticipationCancelService {
 
 	private static final int MAX_ATTEMPTS = 3;
+	private static final Logger log = LoggerFactory.getLogger(RoomParticipationCancelService.class);
 
 	private final RoomParticipationCancelExecutor executor;
 	private final Clock clock;
@@ -36,11 +39,18 @@ public class RoomParticipationCancelService {
 				return executor.cancelParticipation(currentUserId, roomId, requestTime);
 			} catch (OptimisticLockException exception) {
 				lastConflict = exception;
+				if (attempt < MAX_ATTEMPTS) {
+					log.debug("event=room_participation_cancel_retry roomId={} attempt={}", roomId, attempt + 1);
+				}
 			} catch (ObjectOptimisticLockingFailureException exception) {
 				lastConflict = exception;
+				if (attempt < MAX_ATTEMPTS) {
+					log.debug("event=room_participation_cancel_retry roomId={} attempt={}", roomId, attempt + 1);
+				}
 			}
 		}
 
+		log.warn("event=room_participation_cancel_retry roomId={} attempt={}", roomId, MAX_ATTEMPTS);
 		throw new BusinessException(ErrorCode.ROOM_CONCURRENT_MODIFICATION, lastConflict);
 	}
 }

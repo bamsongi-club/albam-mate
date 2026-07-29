@@ -34,13 +34,16 @@ class RoomStateReconciliationExecutor {
 
 	/** due 조건에 맞는 방만 읽어 목록·내 모임 조회 전 상태를 일괄 보정한다. */
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
-	public void reconcileDueRooms(Instant requestTime) {
+	public int reconcileDueRooms(Instant requestTime) {
 		Objects.requireNonNull(requestTime, "requestTime");
 		Instant finishedThreshold = requestTime.minus(Room.AUTOMATIC_FINISH_AFTER_START);
+		int changedCount = 0;
 		for (Room room : roomRepository.findDueRooms(requestTime, finishedThreshold)) {
 			if (room.reconcileStateAt(requestTime)) {
 				roomRepository.save(room);
+				changedCount++;
 			}
 		}
+		return changedCount;
 	}
 }

@@ -2,6 +2,8 @@ package cloud.bamsongi.albammate.room.controller;
 
 import java.util.Objects;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +22,8 @@ import jakarta.validation.constraints.Positive;
 @RequestMapping("/api/rooms")
 public class RoomParticipationController {
 
+	private static final Logger log = LoggerFactory.getLogger(RoomParticipationController.class);
+
 	private final RoomParticipationCancelService roomParticipationCancelService;
 	private final CurrentUserAccessor currentUserAccessor;
 
@@ -34,8 +38,11 @@ public class RoomParticipationController {
 	@DeleteMapping(value = "/{roomId}/participants/me", produces = MediaType.APPLICATION_JSON_VALUE)
 	public ResponseEntity<ApiResponse<RoomParticipationResponse>> cancelParticipation(
 		@PathVariable @Positive long roomId) {
+		long currentUserId = currentUserAccessor.requireCurrentUserId();
 		RoomParticipationResponse response = roomParticipationCancelService.cancelParticipation(
-			currentUserAccessor.requireCurrentUserId(), roomId);
+			currentUserId, roomId);
+		log.info("event=room_participation_canceled roomId={} actorUserId={} roomStatus={}",
+			response.roomId(), currentUserId, response.roomStatus());
 		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
 	}
 }
