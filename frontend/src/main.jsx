@@ -382,7 +382,7 @@ function Header({ route, me, gameQuery, onGameQueryChange, onSearch, onLogout })
         </a>
         <form className="searchbox" role="search" onSubmit={(event) => { event.preventDefault(); onSearch(); }}>
           <input aria-label="게임 이름 검색" placeholder="게임 이름으로 검색" value={gameQuery} onChange={(event) => onGameQueryChange(event.target.value)} />
-          <button type="submit">검색</button>
+          <button type="submit" aria-label="게임 검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.65" y2="16.65" /></svg></button>
         </form>
         <nav id="gnb" aria-label="주요 메뉴">
           <a href="#/games" className={rootRoute[route] === 'games' ? 'on' : ''}>게임 찾기</a>
