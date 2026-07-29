@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.user.contract;
 
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 
 /** 사용자 모듈이 소유하는 이메일 정규화와 저장 불변식이다. */
@@ -17,7 +18,7 @@ public final class UserEmail {
             return Optional.empty();
         }
 
-        String normalizedEmail = rawEmail.strip().toLowerCase(Locale.ROOT);
+        String normalizedEmail = normalize(rawEmail);
         if (normalizedEmail.isEmpty()
                 || normalizedEmail.codePoints().anyMatch(Character::isISOControl)
                 || normalizedEmail.chars().anyMatch(Character::isWhitespace)) {
@@ -37,6 +38,10 @@ public final class UserEmail {
         }
 
         return Optional.of(new UserEmail(normalizedEmail));
+    }
+
+    public static String normalize(String rawEmail) {
+        return Objects.requireNonNull(rawEmail, "rawEmail").strip().toLowerCase(Locale.ROOT);
     }
 
     public String value() {

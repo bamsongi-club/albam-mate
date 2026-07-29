@@ -52,7 +52,8 @@ public final class LoginController {
             @Valid @RequestBody LoginRequest request,
             HttpServletRequest servletRequest,
             HttpServletResponse servletResponse) {
-        UserAccount account = loginService.login(request, servletRequest.getRemoteAddr());
+        UserAccount account =
+                loginService.login(request.normalize(), servletRequest.getRemoteAddr());
         establishSession(account, servletRequest, servletResponse);
         csrfTokenRepository.saveToken(null, servletRequest, servletResponse);
 

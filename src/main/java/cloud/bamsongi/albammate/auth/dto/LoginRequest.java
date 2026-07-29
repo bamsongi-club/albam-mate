@@ -1,7 +1,5 @@
 package cloud.bamsongi.albammate.auth.dto;
 
-import cloud.bamsongi.albammate.auth.exception.LoginValidationException;
-import cloud.bamsongi.albammate.auth.validation.PasswordValidator;
 import cloud.bamsongi.albammate.auth.validation.ValidEmail;
 import cloud.bamsongi.albammate.auth.validation.ValidPassword;
 import cloud.bamsongi.albammate.user.contract.UserEmail;
@@ -11,15 +9,8 @@ import jakarta.validation.constraints.NotNull;
 public record LoginRequest(
         @NotNull @ValidEmail String email, @NotNull @ValidPassword String password) {
 
-    public Normalized normalizeAndValidate() {
-        String normalizedEmail =
-                UserEmail.from(email)
-                        .map(UserEmail::value)
-                        .orElseThrow(LoginValidationException::new);
-        if (!PasswordValidator.isValid(password, 1)) {
-            throw new LoginValidationException();
-        }
-        return new Normalized(normalizedEmail, password);
+    public Normalized normalize() {
+        return new Normalized(UserEmail.normalize(email), password);
     }
 
     public record Normalized(String email, String password) {

@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.user.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import cloud.bamsongi.albammate.global.exception.UnauthenticatedException;
@@ -44,10 +45,7 @@ class UserProfileApplicationServiceTest {
     }
 
     @Test
-    void 직접_호출에도_null_공백_범위초과와_제어문자를_거절한다() {
-        User user = User.create("user@example.com", "{bcrypt}hash", "이전 닉네임");
-        when(userRepository.findById(7L)).thenReturn(Optional.of(user));
-
+    void 직접_호출에서_유효하지_않은_닉네임은_사용자_조회_전에_거절한다() {
         assertThrows(
                 InvalidNicknameException.class,
                 () -> userProfileApplicationService.changeNickname(7L, null));
@@ -61,7 +59,19 @@ class UserProfileApplicationServiceTest {
                 InvalidNicknameException.class,
                 () -> userProfileApplicationService.changeNickname(7L, "닉\n네임"));
 
-        assertEquals("이전 닉네임", user.getNickname());
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void 직접_호출에서_50_유니코드_코드포인트_닉네임은_허용한다() {
+        String nickname = "😀".repeat(50);
+        User user = User.create("user@example.com", "{bcrypt}hash", "이전 닉네임");
+        when(userRepository.findById(7L)).thenReturn(Optional.of(user));
+
+        UserProfile profile = userProfileApplicationService.changeNickname(7L, nickname);
+
+        assertEquals(nickname, user.getNickname());
+        assertEquals(new UserProfile(null, nickname), profile);
     }
 
     @Test

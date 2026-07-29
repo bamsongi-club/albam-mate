@@ -1,9 +1,7 @@
 package cloud.bamsongi.albammate.auth.service;
 
-import cloud.bamsongi.albammate.auth.dto.LoginRequest;
 import cloud.bamsongi.albammate.auth.dto.LoginRequest.Normalized;
 import cloud.bamsongi.albammate.auth.exception.InvalidCredentialsException;
-import cloud.bamsongi.albammate.auth.exception.LoginValidationException;
 import cloud.bamsongi.albammate.global.config.PasswordSecurityProperties;
 import cloud.bamsongi.albammate.global.security.AuthenticationRequestLimiter;
 import cloud.bamsongi.albammate.global.security.PasswordHashExecutor;
@@ -76,12 +74,7 @@ public class LoginService {
     }
 
     /** 사전 검증을 통과한 요청만 제한·검증하고, 성공한 자격증명의 공개 요약을 반환한다. */
-    public UserAccount login(LoginRequest request, String remoteIp) {
-        if (request == null) {
-            throw new LoginValidationException();
-        }
-        Normalized normalized = request.normalizeAndValidate();
-
+    public UserAccount login(Normalized normalized, String remoteIp) {
         requestLimiter.requireLoginAllowed(remoteIp);
         return requestLimiter.executeLoginVerification(
                 normalized.email(),

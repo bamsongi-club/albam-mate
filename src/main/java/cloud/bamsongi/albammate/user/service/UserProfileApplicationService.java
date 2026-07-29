@@ -30,11 +30,11 @@ public class UserProfileApplicationService implements UserProfileService {
     @Override
     @Transactional
     public UserProfile changeNickname(long userId, String nickname) {
-        User user = findAuthenticatedUser(userId);
         String normalizedNickname =
                 UserNickname.from(nickname)
                         .map(UserNickname::value)
                         .orElseThrow(InvalidNicknameException::new);
+        User user = findAuthenticatedUser(userId);
         user.changeNickname(normalizedNickname);
         return toProfile(user);
     }

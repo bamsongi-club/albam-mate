@@ -2,7 +2,6 @@ package cloud.bamsongi.albammate.auth.controller;
 
 import cloud.bamsongi.albammate.auth.dto.ProfileUpdateRequest;
 import cloud.bamsongi.albammate.auth.dto.UserSummary;
-import cloud.bamsongi.albammate.auth.exception.ProfileValidationException;
 import cloud.bamsongi.albammate.global.response.ApiResponse;
 import cloud.bamsongi.albammate.global.security.CurrentUserAccessor;
 import cloud.bamsongi.albammate.user.contract.UserProfile;
@@ -42,10 +41,7 @@ public final class ProfileController {
     @PatchMapping
     public ResponseEntity<ApiResponse<UserSummary>> updateMyProfile(
             @Valid @RequestBody ProfileUpdateRequest request) {
-        if (request == null) {
-            throw new ProfileValidationException();
-        }
-        String nickname = request.normalizeAndValidate().nickname();
+        String nickname = request.normalize().nickname();
         UserProfile profile =
                 userProfileService.changeNickname(
                         currentUserAccessor.requireCurrentUserId(), nickname);

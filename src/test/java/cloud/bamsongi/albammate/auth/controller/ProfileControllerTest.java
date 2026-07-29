@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.auth.controller;
 
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
@@ -90,6 +91,8 @@ class ProfileControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(7))
                 .andExpect(jsonPath("$.data.nickname").value("새 닉네임"));
+
+        verify(userProfileService).changeNickname(7L, "새 닉네임");
     }
 
     @Test
