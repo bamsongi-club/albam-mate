@@ -37,9 +37,14 @@ public class InMemoryAuthenticationRequestLimiter implements AuthenticationReque
 		private Instant lastTouched;
 
 		private void purge(Instant now, Duration window) {
-			while (!events.isEmpty() && !events.peekFirst().plus(window).isAfter(now)) {
+			while (hasExpiredEvent(now, window)) {
 				events.removeFirst();
 			}
+		}
+
+		private boolean hasExpiredEvent(Instant now, Duration window) {
+			Instant oldest = events.peekFirst();
+			return oldest != null && now.compareTo(oldest.plus(window)) >= 0;
 		}
 
 		private int size() {
@@ -53,6 +58,10 @@ public class InMemoryAuthenticationRequestLimiter implements AuthenticationReque
 		private void record(Instant now) {
 			events.addLast(now);
 			lastTouched = now;
+		}
+
+		private Instant lastTouched() {
+			return lastTouched;
 		}
 	}
 
@@ -95,7 +104,7 @@ public class InMemoryAuthenticationRequestLimiter implements AuthenticationReque
 		LoginKey key = loginKey(normalizedEmail, remoteIp);
 		Instant now = now();
 		synchronized (monitor) {
-			purgeFailureBuckets(now);
+			purgeBuckets(loginFailureBuckets, now);
 			Bucket bucket = loginFailureBuckets.get(key);
 			if (bucket == null || bucket.size() < loginFailureLimit) {
 				return RateLimitDecision.permitted();
@@ -109,16 +118,8 @@ public class InMemoryAuthenticationRequestLimiter implements AuthenticationReque
 		LoginKey key = loginKey(normalizedEmail, remoteIp);
 		Instant now = now();
 		synchronized (monitor) {
-			purgeFailureBuckets(now);
-			Bucket bucket = loginFailureBuckets.get(key);
-			if (bucket != null && bucket.size() >= loginFailureLimit) {
-				return RateLimitDecision.rejected(retryAfterSeconds(bucket.oldest(), now));
-			}
-			if (bucket == null) {
-				bucket = getOrCreateFailureBucket(key);
-			}
-			bucket.record(now);
-			return RateLimitDecision.permitted();
+			return checkAndRecord(
+				loginFailureBuckets, key, loginFailureLimit, maxFailureKeys, now);
 		}
 	}
 
@@ -147,7 +148,7 @@ public class InMemoryAuthenticationRequestLimiter implements AuthenticationReque
 	/** 현재 제한 상태의 크기를 검증하기 위한 관측값이다. 민감한 키는 반환하지 않는다. */
 	public int ipBucketCount() {
 		synchronized (monitor) {
-			purgeIpBuckets(now());
+			purgeBuckets(ipBuckets, now());
 			return ipBuckets.size();
 		}
 	}
@@ -155,7 +156,7 @@ public class InMemoryAuthenticationRequestLimiter implements AuthenticationReque
 	/** 현재 제한 상태의 크기를 검증하기 위한 관측값이다. 민감한 키는 반환하지 않는다. */
 	public int loginFailureBucketCount() {
 		synchronized (monitor) {
-			purgeFailureBuckets(now());
+			purgeBuckets(loginFailureBuckets, now());
 			return loginFailureBuckets.size();
 		}
 	}
@@ -171,39 +172,24 @@ public class InMemoryAuthenticationRequestLimiter implements AuthenticationReque
 		IpKey key = new IpKey(type, requireKeyPart(remoteIp, "remoteIp"));
 		Instant now = now();
 		synchronized (monitor) {
-			purgeIpBuckets(now);
-			Bucket bucket = ipBuckets.get(key);
-			if (bucket != null && bucket.size() >= limit) {
-				return RateLimitDecision.rejected(retryAfterSeconds(bucket.oldest(), now));
-			}
-			if (bucket == null) {
-				bucket = getOrCreateIpBucket(key);
-			}
-			bucket.record(now);
-			return RateLimitDecision.permitted();
+			return checkAndRecord(ipBuckets, key, limit, maxIpKeys, now);
 		}
 	}
 
-	private Bucket getOrCreateIpBucket(IpKey key) {
-		evictIfNeeded(ipBuckets, maxIpKeys);
-		Bucket bucket = new Bucket();
-		ipBuckets.put(key, bucket);
-		return bucket;
-	}
-
-	private Bucket getOrCreateFailureBucket(LoginKey key) {
-		evictIfNeeded(loginFailureBuckets, maxFailureKeys);
-		Bucket bucket = new Bucket();
-		loginFailureBuckets.put(key, bucket);
-		return bucket;
-	}
-
-	private void purgeIpBuckets(Instant now) {
-		purgeBuckets(ipBuckets, now);
-	}
-
-	private void purgeFailureBuckets(Instant now) {
-		purgeBuckets(loginFailureBuckets, now);
+	private <K> RateLimitDecision checkAndRecord(
+		Map<K, Bucket> buckets, K key, int limit, int maxKeys, Instant now) {
+		purgeBuckets(buckets, now);
+		Bucket bucket = buckets.get(key);
+		if (bucket != null && bucket.size() >= limit) {
+			return RateLimitDecision.rejected(retryAfterSeconds(bucket.oldest(), now));
+		}
+		if (bucket == null) {
+			evictIfNeeded(buckets, maxKeys);
+			bucket = new Bucket();
+			buckets.put(key, bucket);
+		}
+		bucket.record(now);
+		return RateLimitDecision.permitted();
 	}
 
 	private void purgeBuckets(Map<?, Bucket> buckets, Instant now) {
@@ -217,6 +203,12 @@ public class InMemoryAuthenticationRequestLimiter implements AuthenticationReque
 		}
 	}
 
+	/**
+	 * 키 상한에 도달하면 이벤트가 가장 적은 버킷을, 동수면 가장 오래 쓰이지 않은 버킷을 버린다.
+	 *
+	 * <p>LRU를 쓰지 않는다. 많이 쌓인 버킷이 곧 제한해야 할 대상이므로, 최근 사용을 기준으로 버리면 공격자가 새 키를 흘려
+	 * 자기 버킷을 밀어내고 제한을 우회할 수 있다.
+	 */
 	private void evictIfNeeded(Map<?, Bucket> buckets, int maxKeys) {
 		if (buckets.size() < maxKeys) {
 			return;
@@ -227,7 +219,7 @@ public class InMemoryAuthenticationRequestLimiter implements AuthenticationReque
 					(Map.Entry<?, Bucket> entry) -> entry.getValue().size())
 					.thenComparing(
 						entry -> Optional.ofNullable(
-							entry.getValue().lastTouched)
+							entry.getValue().lastTouched())
 							.orElse(Instant.MIN)))
 			.orElse(null);
 		if (candidate != null) {
@@ -279,12 +271,11 @@ public class InMemoryAuthenticationRequestLimiter implements AuthenticationReque
 
 		@Override
 		public void close() {
-			if (!released.compareAndSet(false, true)) {
-				return;
-			}
-			synchronized (monitor) {
-				if (activeLoginVerifications.get(key) == this) {
-					activeLoginVerifications.remove(key);
+			if (released.compareAndSet(false, true)) {
+				synchronized (monitor) {
+					if (activeLoginVerifications.get(key) == this) {
+						activeLoginVerifications.remove(key);
+					}
 				}
 			}
 		}

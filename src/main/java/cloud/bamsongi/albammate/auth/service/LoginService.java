@@ -41,7 +41,21 @@ public class LoginService {
 		this.dummyPasswordHash = createDummyPasswordHash(properties);
 	}
 
-	/** 사전 검증을 통과한 요청만 제한·검증하고, 성공한 자격증명의 공개 요약을 반환한다. */
+	/**
+	 * 사전 검증을 통과한 요청만 제한·검증하고, 성공한 자격증명의 공개 요약을 반환한다.
+	 *
+	 * <p>네 겹의 제한은 각각 다른 것을 막으므로 하나로 줄일 수 없다.
+	 *
+	 * <ol>
+	 * <li>IP 요청 총량: 한 IP가 여러 이메일을 훑는 시도를 막는다.
+	 * <li>같은 이메일·IP의 동시 검증 1건: 병렬 요청이 실패 기록을 우회하는 것을 막는다.
+	 * <li>실패 버킷 여유: 한 계정에 대한 반복 추측을 막는다.
+	 * <li>전역 bcrypt 슬롯: 해시 비용으로 CPU가 고갈되는 것을 막는다.
+	 * </ol>
+	 *
+	 * <p>동시 검증 게이트가 실패 버킷 확인을 감싸는 순서는 바꿀 수 없다. 실패는 검증이 끝난 뒤에 기록하므로, 같은 키의 병렬
+	 * 요청을 먼저 막지 않으면 여러 요청이 모두 여유 확인을 통과한 뒤 각자 한 번씩 추측한다.
+	 */
 	public UserAccount login(LoginCommand command, String remoteIp) {
 		requestLimiter.requireLoginAllowed(remoteIp);
 		return requestLimiter.executeLoginVerification(
@@ -57,8 +71,11 @@ public class LoginService {
 		Optional<UserCredentials> credentials = userAccountService.findCredentialsByEmail(command.email());
 		String storedHash = credentials.map(UserCredentials::passwordHash).orElse(dummyPasswordHash);
 
+		// 계정이 없어도 더미 해시로 bcrypt를 돌린 뒤 계정 유무를 AND한다. 순서를 바꿔 계정 유무를 먼저 보면
+		// 해시를 건너뛰어 응답 시간 차이로 계정 존재 여부가 드러난다.
 		boolean matches = passwordEncoder.matches(command.password(), storedHash);
-		if (!matches || credentials.isEmpty()) {
+		boolean credentialsVerified = matches && credentials.isPresent();
+		if (!credentialsVerified) {
 			requestLimiter.recordLoginFailure(command.email(), remoteIp).throwIfRejected();
 			throw new InvalidCredentialsException();
 		}
@@ -69,7 +86,7 @@ public class LoginService {
 			userAccountService.updatePasswordHash(authenticated.id(), upgradedHash);
 		}
 		requestLimiter.resetLoginFailures(command.email(), remoteIp);
-		return new UserAccount(authenticated.id(), authenticated.nickname());
+		return UserAccount.from(authenticated);
 	}
 
 	private static String createDummyPasswordHash(PasswordSecurityProperties properties) {

@@ -55,16 +55,4 @@ public interface AuthenticationRequestLimiter {
 			return verificationWork.get();
 		}
 	}
-
-	default void executeLoginVerification(
-		String normalizedEmail, String remoteIp, Runnable verificationWork) {
-		Objects.requireNonNull(verificationWork, "verificationWork");
-		executeLoginVerification(
-			normalizedEmail,
-			remoteIp,
-			() -> {
-				verificationWork.run();
-				return null;
-			});
-	}
 }

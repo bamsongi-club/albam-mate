@@ -149,16 +149,6 @@ class LoginServiceTest {
 			public Optional<PasswordHashPermit> tryAcquire() {
 				return Optional.empty();
 			}
-
-			@Override
-			public int maxConcurrent() {
-				return 1;
-			}
-
-			@Override
-			public int currentConcurrent() {
-				return 1;
-			}
 		};
 		LoginService service = new LoginService(
 			requestLimiter,
@@ -186,16 +176,6 @@ class LoginServiceTest {
 			@Override
 			public Optional<PasswordHashPermit> tryAcquire() {
 				return Optional.of(() -> {});
-			}
-
-			@Override
-			public int maxConcurrent() {
-				return 1;
-			}
-
-			@Override
-			public int currentConcurrent() {
-				return 0;
 			}
 		};
 		CountDownLatch verificationStarted = new CountDownLatch(1);
@@ -261,16 +241,6 @@ class LoginServiceTest {
 			@Override
 			public Optional<PasswordHashPermit> tryAcquire() {
 				return Optional.of(() -> {});
-			}
-
-			@Override
-			public int maxConcurrent() {
-				return 1;
-			}
-
-			@Override
-			public int currentConcurrent() {
-				return 0;
 			}
 		};
 		configureLimiter();

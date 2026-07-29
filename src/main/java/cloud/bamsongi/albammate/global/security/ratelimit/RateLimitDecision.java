@@ -6,11 +6,14 @@ import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
 public record RateLimitDecision(boolean allowed, int retryAfterSeconds) {
 
 	public RateLimitDecision {
-		if (retryAfterSeconds < 0 || (!allowed && retryAfterSeconds < 1)) {
+		if (retryAfterSeconds < 0) {
 			throw new IllegalArgumentException("retry-after must be non-negative");
 		}
 		if (allowed && retryAfterSeconds != 0) {
 			throw new IllegalArgumentException("an allowed decision has no retry-after");
+		}
+		if (!allowed && retryAfterSeconds < 1) {
+			throw new IllegalArgumentException("a rejected decision requires retry-after");
 		}
 	}
 
@@ -20,10 +23,6 @@ public record RateLimitDecision(boolean allowed, int retryAfterSeconds) {
 
 	public static RateLimitDecision rejected(int retryAfterSeconds) {
 		return new RateLimitDecision(false, Math.max(1, retryAfterSeconds));
-	}
-
-	public boolean isAllowed() {
-		return allowed;
 	}
 
 	public void throwIfRejected() {
