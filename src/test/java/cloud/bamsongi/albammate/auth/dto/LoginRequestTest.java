@@ -23,7 +23,7 @@ class LoginRequestTest {
 
 		LoginCommand normalized = new LoginRequest(" User@Example.COM ", password).normalize();
 
-		assertEquals("user@example.com", normalized.email());
+		assertEquals("user@example.com", normalized.email().value());
 		assertEquals(password, normalized.password());
 	}
 
@@ -36,7 +36,7 @@ class LoginRequestTest {
 
 		assertEquals(
 			255, signup.email().value().codePointCount(0, signup.email().value().length()));
-		assertEquals(signup.email().value(), login.email());
+		assertEquals(signup.email().value(), login.email().value());
 	}
 
 	@Test

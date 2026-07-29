@@ -1,10 +1,14 @@
 package cloud.bamsongi.albammate.user.contract;
 
 import java.util.Locale;
-import java.util.Objects;
 import java.util.Optional;
 
-/** 사용자 모듈이 소유하는 이메일 정규화와 저장 불변식이다. */
+/**
+ * 사용자 모듈이 소유하는 이메일 정규화와 저장 불변식이다.
+ *
+ * <p>{@link #from(String)}이 유일한 입구다. 정규화만 하고 형식 검증을 건너뛰는 경로를 공개하지 않으므로, 이 타입의 인스턴스를 받은
+ * 쪽은 값이 이미 정규화·검증됐다고 믿고 다시 검증하지 않는다.
+ */
 public final class UserEmail {
 
 	private final String value;
@@ -39,8 +43,8 @@ public final class UserEmail {
 		return Optional.empty();
 	}
 
-	public static String normalize(String rawEmail) {
-		return Objects.requireNonNull(rawEmail, "rawEmail").strip().toLowerCase(Locale.ROOT);
+	private static String normalize(String rawEmail) {
+		return rawEmail.strip().toLowerCase(Locale.ROOT);
 	}
 
 	public String value() {

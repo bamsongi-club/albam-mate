@@ -57,7 +57,7 @@ class LoginServiceTest {
 	void 존재하는_계정의_자격증명이_틀리면_동일한_오류와_실패_기록을_반환한다() {
 		LoginService service = serviceWithAvailableHashSlot();
 		UserCredentials credentials = new UserCredentials(7L, "닉네임", "{bcrypt}stored");
-		when(userAccountService.findCredentialsByEmail("user@example.com"))
+		when(userAccountService.findCredentialsByEmail(userEmail("user@example.com")))
 			.thenReturn(Optional.of(credentials));
 		when(passwordEncoder.matches("wrong", "{bcrypt}stored")).thenReturn(false);
 
@@ -72,7 +72,7 @@ class LoginServiceTest {
 	@Test
 	void 계정이_없어도_더미_해시로_검증하고_같은_자격증명_오류를_반환한다() {
 		LoginService service = serviceWithAvailableHashSlot();
-		when(userAccountService.findCredentialsByEmail("missing@example.com"))
+		when(userAccountService.findCredentialsByEmail(userEmail("missing@example.com")))
 			.thenReturn(Optional.empty());
 		when(passwordEncoder.matches(
 			org.mockito.ArgumentMatchers.eq("password"), any(String.class)))
@@ -90,7 +90,7 @@ class LoginServiceTest {
 	@Test
 	void 없는_계정에서_더미_해시가_일치해도_실패를_기록하고_자격증명_오류를_반환한다() {
 		LoginService service = serviceWithAvailableHashSlot();
-		when(userAccountService.findCredentialsByEmail("missing@example.com"))
+		when(userAccountService.findCredentialsByEmail(userEmail("missing@example.com")))
 			.thenReturn(Optional.empty());
 		when(passwordEncoder.matches(
 			org.mockito.ArgumentMatchers.eq("password"), any(String.class)))
@@ -112,7 +112,7 @@ class LoginServiceTest {
 	void 이전_cost의_해시는_성공한_로그인에서만_재저장하고_실패_버킷을_초기화한다() {
 		LoginService service = serviceWithAvailableHashSlot();
 		UserCredentials credentials = new UserCredentials(8L, "닉네임", "{bcrypt}old");
-		when(userAccountService.findCredentialsByEmail("user@example.com"))
+		when(userAccountService.findCredentialsByEmail(userEmail("user@example.com")))
 			.thenReturn(Optional.of(credentials));
 		when(passwordEncoder.matches("correct", "{bcrypt}old")).thenReturn(true);
 		when(passwordEncoder.upgradeEncoding("{bcrypt}old")).thenReturn(true);
@@ -129,7 +129,7 @@ class LoginServiceTest {
 	void 현재_cost_해시의_성공_로그인은_실패를_초기화하고_해시를_다시_저장하지_않는다() {
 		LoginService service = serviceWithAvailableHashSlot();
 		UserCredentials credentials = new UserCredentials(9L, "닉네임", "{bcrypt}current");
-		when(userAccountService.findCredentialsByEmail("user@example.com"))
+		when(userAccountService.findCredentialsByEmail(userEmail("user@example.com")))
 			.thenReturn(Optional.of(credentials));
 		when(passwordEncoder.matches("correct", "{bcrypt}current")).thenReturn(true);
 		when(passwordEncoder.upgradeEncoding("{bcrypt}current")).thenReturn(false);
@@ -192,7 +192,7 @@ class LoginServiceTest {
 					}
 					return false;
 				});
-		when(userAccountService.findCredentialsByEmail("user@example.com"))
+		when(userAccountService.findCredentialsByEmail(userEmail("user@example.com")))
 			.thenReturn(Optional.of(new UserCredentials(12L, "닉네임", "{bcrypt}stored")));
 		LoginService service = new LoginService(
 			limiter,
@@ -253,7 +253,11 @@ class LoginServiceTest {
 	}
 
 	private LoginCommand normalized(String email, String password) {
-		return new LoginCommand(UserEmail.normalize(email), password);
+		return new LoginCommand(userEmail(email), password);
+	}
+
+	private static UserEmail userEmail(String value) {
+		return UserEmail.from(value).orElseThrow();
 	}
 
 	private PasswordSecurityProperties passwordSecurityProperties() {

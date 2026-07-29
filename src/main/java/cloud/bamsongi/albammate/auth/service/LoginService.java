@@ -19,7 +19,7 @@ import cloud.bamsongi.albammate.user.contract.UserCredentials;
 @Service
 public class LoginService {
 
-	/* 계정 유무에 따른 빠른 실패를 막기 위해 동일한 bcrypt 형식의 더미 해시를 사용한다. */
+	// 계정 유무에 따른 빠른 실패를 막기 위해 동일한 bcrypt 형식의 더미 해시를 사용한다.
 	private static final String DUMMY_PASSWORD = "albam-mate-dummy-password";
 
 	private final AuthenticationRequestLimiter requestLimiter;
@@ -57,17 +57,19 @@ public class LoginService {
 	 * 요청을 먼저 막지 않으면 여러 요청이 모두 여유 확인을 통과한 뒤 각자 한 번씩 추측한다.
 	 */
 	public UserAccount login(LoginCommand command, String remoteIp) {
+		String normalizedEmail = command.email().value();
 		requestLimiter.requireLoginAllowed(remoteIp);
 		return requestLimiter.executeLoginVerification(
-			command.email(),
+			normalizedEmail,
 			remoteIp,
 			() -> {
-				requestLimiter.requireLoginFailureAllowed(command.email(), remoteIp);
+				requestLimiter.requireLoginFailureAllowed(normalizedEmail, remoteIp);
 				return passwordHashExecutor.execute(() -> verifyCredentials(command, remoteIp));
 			});
 	}
 
 	private UserAccount verifyCredentials(LoginCommand command, String remoteIp) {
+		String normalizedEmail = command.email().value();
 		Optional<UserCredentials> credentials = userAccountService.findCredentialsByEmail(command.email());
 		String storedHash = credentials.map(UserCredentials::passwordHash).orElse(dummyPasswordHash);
 
@@ -76,7 +78,7 @@ public class LoginService {
 		boolean matches = passwordEncoder.matches(command.password(), storedHash);
 		boolean credentialsVerified = matches && credentials.isPresent();
 		if (!credentialsVerified) {
-			requestLimiter.recordLoginFailure(command.email(), remoteIp).throwIfRejected();
+			requestLimiter.recordLoginFailure(normalizedEmail, remoteIp).throwIfRejected();
 			throw new InvalidCredentialsException();
 		}
 
@@ -85,14 +87,13 @@ public class LoginService {
 			String upgradedHash = passwordEncoder.encode(command.password());
 			userAccountService.updatePasswordHash(authenticated.id(), upgradedHash);
 		}
-		requestLimiter.resetLoginFailures(command.email(), remoteIp);
+		requestLimiter.resetLoginFailures(normalizedEmail, remoteIp);
 		return UserAccount.from(authenticated);
 	}
 
 	private static String createDummyPasswordHash(PasswordSecurityProperties properties) {
-		PasswordSecurityProperties validated = Objects.requireNonNull(properties, "properties");
-		validated.validate();
-		BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder(validated.getBcryptCost());
+		Objects.requireNonNull(properties, "properties");
+		BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder(properties.getBcryptCost());
 		return "{bcrypt}" + bcrypt.encode(DUMMY_PASSWORD);
 	}
 }

@@ -5,5 +5,5 @@ public interface UserProfileService {
 
 	UserProfile findProfile(long userId);
 
-	UserProfile changeNickname(long userId, String nickname);
+	UserProfile changeNickname(long userId, UserNickname nickname);
 }

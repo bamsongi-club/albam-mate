@@ -8,7 +8,10 @@ import jakarta.validation.constraints.NotNull;
 public record ProfileUpdateRequest(@NotNull @ValidNickname
 String nickname) {
 
-	public String normalize() {
-		return UserNickname.normalize(nickname);
+	/**
+	 * {@code @ValidNickname}이 {@link UserNickname#from(String)}과 같은 규칙을 쓰므로 검증 통과 뒤에는 항상 값이 있다.
+	 */
+	public UserNickname normalize() {
+		return UserNickname.from(nickname).orElseThrow();
 	}
 }

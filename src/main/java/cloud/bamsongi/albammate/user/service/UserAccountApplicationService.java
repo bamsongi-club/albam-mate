@@ -28,7 +28,15 @@ public class UserAccountApplicationService implements UserAccountService {
 	@NonNull private final PasswordEncoder passwordEncoder;
 	@NonNull private final PasswordHashExecutor passwordHashExecutor;
 
-	/** 중복을 먼저 확인한 뒤 슬롯 안에서 해시하고, DB unique 경쟁도 같은 오류로 변환한다. */
+	/**
+	 * 해시 실행 슬롯을 먼저 얻고, 그 안에서 이메일 중복 판정·해시·사용자 생성을 수행한다.
+	 *
+	 * <p>슬롯 획득이 중복 조회보다 앞서는 것은 ADR-0013의 계약이다. 슬롯이 없으면 해시도 사용자 생성도 시작하지 않으므로,
+	 * 과부하 상황에서 반복 가입 시도가 DB까지 도달하지 않는다. 주목적은 CPU·메모리 보호이고 DB 보호는 이 순서가 함께
+	 * 보장하는 효과다. 슬롯 안에 DB 왕복이 들어가는 것은 그래서 의도된 비용이다.
+	 *
+	 * <p>중복을 먼저 확인해도 동시 요청은 통과할 수 있으므로, DB unique 제약 위반도 같은 오류로 변환한다.
+	 */
 	@Override
 	@Transactional
 	public UserAccount createAccount(CreateUserAccountCommand command) {
@@ -55,10 +63,9 @@ public class UserAccountApplicationService implements UserAccountService {
 	/** 이메일로 로그인 검증에 필요한 ID·닉네임·저장 해시만 조회한다. */
 	@Override
 	@Transactional(readOnly = true)
-	public Optional<UserCredentials> findCredentialsByEmail(String email) {
-		String normalizedEmail = requiredEmail(email);
+	public Optional<UserCredentials> findCredentialsByEmail(UserEmail email) {
 		return userRepository
-			.findByEmail(normalizedEmail)
+			.findByEmail(email.value())
 			.map(UserContractMapper::toUserCredentials);
 	}
 
@@ -82,11 +89,5 @@ public class UserAccountApplicationService implements UserAccountService {
 		if (value == null || value.isEmpty()) {
 			throw new IllegalArgumentException(name + " must not be empty");
 		}
-	}
-
-	private String requiredEmail(String rawEmail) {
-		return UserEmail.from(rawEmail)
-			.map(UserEmail::value)
-			.orElseThrow(() -> new IllegalArgumentException("email must be valid"));
 	}
 }

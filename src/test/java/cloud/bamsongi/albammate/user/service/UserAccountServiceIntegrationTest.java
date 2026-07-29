@@ -65,7 +65,7 @@ class UserAccountServiceIntegrationTest {
 		userRepository.saveAndFlush(legacyUser);
 
 		loginService.login(
-			new LoginCommand(UserEmail.normalize(legacyEmail), legacyPassword),
+			new LoginCommand(UserEmail.from(legacyEmail).orElseThrow(), legacyPassword),
 			"198.51.100.121");
 
 		User upgraded = userRepository.findByEmail(legacyEmail).orElseThrow();
@@ -81,7 +81,7 @@ class UserAccountServiceIntegrationTest {
 		String currentHash = beforeCorrectLogin.getPasswordHash();
 
 		loginService.login(
-			new LoginCommand(UserEmail.normalize(currentEmail), currentPassword),
+			new LoginCommand(UserEmail.from(currentEmail).orElseThrow(), currentPassword),
 			"198.51.100.122");
 
 		User afterCorrectLogin = userRepository.findByEmail(currentEmail).orElseThrow();
@@ -92,7 +92,7 @@ class UserAccountServiceIntegrationTest {
 			InvalidCredentialsException.class,
 			() -> loginService.login(
 				new LoginCommand(
-					UserEmail.normalize(currentEmail), "incorrect-password"),
+					UserEmail.from(currentEmail).orElseThrow(), "incorrect-password"),
 				"198.51.100.123"));
 
 		User afterWrongLogin = userRepository.findByEmail(currentEmail).orElseThrow();

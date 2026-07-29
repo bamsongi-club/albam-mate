@@ -72,8 +72,8 @@ class LoginLogoutHttpIntegrationTest {
 			.andExpect(jsonPath("$.data.email").doesNotExist())
 			.andReturn();
 
-		Cookie sessionCookie = login.getResponse().getCookie("JSESSIONID");
-		assertNotNull(sessionCookie);
+		// 응답의 JSESSIONID 발급은 컨테이너 동작이라 LoginLogoutRealHttpIntegrationTest가 검증한다.
+		// 여기서는 MockMvc로도 확인할 수 있는 세션 ID 교체만 본다.
 		MockHttpSession session = (MockHttpSession)login.getRequest().getSession(false);
 		assertNotNull(session);
 		String newSessionId = session.getId();
@@ -139,7 +139,7 @@ class LoginLogoutHttpIntegrationTest {
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value("CSRF_TOKEN_INVALID"));
 
-		mockMvc.perform(get("/api/users/me").cookie(sessionCookie))
+		mockMvc.perform(get("/api/users/me").cookie(new Cookie("JSESSIONID", newSessionId)))
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
 		assertNotEquals(oldSessionId, newSessionId);

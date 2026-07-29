@@ -165,7 +165,8 @@ class UserAccountServiceTest {
 		setId(user, 13L);
 		when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
 
-		Optional<UserCredentials> credentials = service.findCredentialsByEmail(" User@Example.COM ");
+		Optional<UserCredentials> credentials = service.findCredentialsByEmail(
+			UserEmail.from(" User@Example.COM ").orElseThrow());
 
 		assertEquals(Optional.of(new UserCredentials(13L, "닉네임", "{bcrypt}encoded")), credentials);
 		verify(userRepository).findByEmail("user@example.com");
@@ -176,18 +177,9 @@ class UserAccountServiceTest {
 		UserAccountApplicationService service = service();
 		when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.empty());
 
-		assertTrue(service.findCredentialsByEmail("user@example.com").isEmpty());
-	}
-
-	@Test
-	void 잘못된_이메일로_자격증명을_조회하면_저장소_조회_전에_거절한다() {
-		UserAccountApplicationService service = service();
-
-		assertThrows(
-			IllegalArgumentException.class,
-			() -> service.findCredentialsByEmail("not-an-email"));
-
-		verify(userRepository, never()).findByEmail(any());
+		assertTrue(
+			service.findCredentialsByEmail(UserEmail.from("user@example.com").orElseThrow())
+				.isEmpty());
 	}
 
 	@Test

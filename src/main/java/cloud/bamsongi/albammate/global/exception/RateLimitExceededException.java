@@ -13,8 +13,4 @@ public class RateLimitExceededException extends BusinessException {
 	public int getRetryAfterSeconds() {
 		return retryAfterSeconds;
 	}
-
-	public int retryAfterSeconds() {
-		return retryAfterSeconds;
-	}
 }

@@ -46,6 +46,7 @@ public final class ApiEndpointPolicyRegistry {
 		validatePolicies(this.policies);
 	}
 
+	/** 등록된 정책 전체를 노출한다. 운영 경로는 쓰지 않으며 정책 대조 테스트만 호출한다. */
 	public List<ApiEndpointPolicy> policies() {
 		return policies;
 	}
@@ -83,7 +84,13 @@ public final class ApiEndpointPolicyRegistry {
 		};
 	}
 
-	/** MVC가 수집한 API 핸들러와 등록 정책이 일치하는지 검증한다. */
+	/**
+	 * MVC가 수집한 API 핸들러와 등록 정책이 정확히 일치하는지 검증하고, 어긋나면 예외를 던진다.
+	 *
+	 * <p>애플리케이션 부팅은 이 대조를 실행하지 않는다. {@code ApiEndpointPolicyRegistryTest}가 호출해 정책을 등록하지
+	 * 않은 새 핸들러와 핸들러가 사라진 정책을 빌드 시점에 잡는다. 그래서 API를 추가·삭제하면
+	 * {@code defaultPolicies()}도 같은 변경에서 갱신해야 테스트가 통과한다.
+	 */
 	public void assertMatchesMvcEndpoints(Collection<ApiEndpointMapping> mvcEndpoints) {
 		Set<ApiEndpointMapping> actual = Set.copyOf(mvcEndpoints);
 		Set<ApiEndpointMapping> registered = policies.stream()

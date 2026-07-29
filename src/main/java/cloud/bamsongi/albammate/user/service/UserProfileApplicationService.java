@@ -1,5 +1,7 @@
 package cloud.bamsongi.albammate.user.service;
 
+import java.util.Objects;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -8,7 +10,6 @@ import cloud.bamsongi.albammate.user.contract.UserNickname;
 import cloud.bamsongi.albammate.user.contract.UserProfile;
 import cloud.bamsongi.albammate.user.contract.UserProfileService;
 import cloud.bamsongi.albammate.user.entity.User;
-import cloud.bamsongi.albammate.user.exception.InvalidNicknameException;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -23,25 +24,29 @@ public class UserProfileApplicationService implements UserProfileService {
 	@Override
 	@Transactional(readOnly = true)
 	public UserProfile findProfile(long userId) {
-		return UserContractMapper.toUserProfile(findAuthenticatedUser(userId));
+		return UserContractMapper.toUserProfile(requireCurrentUser(userId));
 	}
 
 	@Override
 	@Transactional
-	public UserProfile changeNickname(long userId, String nickname) {
-		String normalizedNickname = UserNickname.from(nickname)
-			.map(UserNickname::value)
-			.orElseThrow(InvalidNicknameException::new);
-		User user = findAuthenticatedUser(userId);
-		user.changeNickname(normalizedNickname);
+	public UserProfile changeNickname(long userId, UserNickname nickname) {
+		Objects.requireNonNull(nickname, "nickname");
+		User user = requireCurrentUser(userId);
+		user.changeNickname(nickname.value());
 		return UserContractMapper.toUserProfile(user);
 	}
 
-	private User findAuthenticatedUser(long userId) {
+	/**
+	 * 세션이 가리키는 사용자를 불러오고, ID가 비정상이거나 그 사용자가 더 이상 없으면 미인증으로 변환한다.
+	 *
+	 * <p>사용자를 찾지 못한 경우를 404가 아니라 401로 다룬다. 여기의 {@code userId}는 요청 경로 변수가 아니라 서버 세션에서
+	 * 나오므로, 행이 없다는 것은 "없는 리소스를 조회했다"가 아니라 "세션이 가리키는 계정이 사라졌다"는 뜻이다. 클라이언트가 할
+	 * 일은 다시 로그인하는 것이다.
+	 */
+	private User requireCurrentUser(long userId) {
 		if (userId <= 0) {
 			throw new UnauthenticatedException();
 		}
 		return userRepository.findById(userId).orElseThrow(UnauthenticatedException::new);
 	}
-
 }
