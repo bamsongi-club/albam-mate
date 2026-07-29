@@ -38,10 +38,9 @@ public class RoomParticipationCancelExecutor {
 		Room room = roomRepository
 			.findById(roomId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
-		Participation participation = participationRepository.findByRoomIdAndUserId(roomId, currentUserId).orElse(null);
 
 		room.reconcileStateAt(requestTime);
-		validateCancellation(room, currentUserId, participation, requestTime);
+		Participation participation = requireCancelableParticipation(room, currentUserId, requestTime);
 
 		participation.cancel(requestTime);
 		room.removeActiveParticipant();
@@ -52,17 +51,19 @@ public class RoomParticipationCancelExecutor {
 		return RoomParticipationResponse.from(room, ParticipationStatus.CANCELED);
 	}
 
-	private void validateCancellation(
-		Room room, long currentUserId, Participation participation, Instant requestTime) {
+	private Participation requireCancelableParticipation(Room room, long currentUserId, Instant requestTime) {
 		if (room.getHostUserId() == currentUserId) {
 			throw new BusinessException(ErrorCode.FORBIDDEN);
 		}
-		if (participation == null || participation.getStatus() != ParticipationStatus.ACTIVE) {
-			throw new BusinessException(ErrorCode.PARTICIPATION_NOT_FOUND);
-		}
+
+		Participation participation = participationRepository
+			.findByRoomIdAndUserId(room.getId(), currentUserId)
+			.filter(candidate -> candidate.getStatus() == ParticipationStatus.ACTIVE)
+			.orElseThrow(() -> new BusinessException(ErrorCode.PARTICIPATION_NOT_FOUND));
 		if (!requestTime.isBefore(room.getStartAt())) {
 			throw new BusinessException(ErrorCode.INVALID_ROOM_STATUS_TRANSITION);
 		}
+		return participation;
 	}
 
 }
