@@ -11,6 +11,8 @@ const EXP_LABEL = {
   EXPERIENCED_PREFERRED: '경험자 위주'
 };
 const CAPACITY_OPTIONS = Array.from({ length: 10 }, (_, index) => index + 1);
+const HOUR_OPTIONS = Array.from({ length: 12 }, (_, index) => index + 1);
+const MINUTE_OPTIONS = Array.from({ length: 6 }, (_, index) => index * 10);
 const GAME_SEARCH_PAGE_SIZE = 10;
 const GAME_LIST_PAGE_SIZE = 24;
 const ROOM_LIST_PAGE_SIZE = 12;
@@ -116,6 +118,20 @@ function formatStartsAt(startsAt) {
   const dateLabel = date === todayInSeoul() ? '오늘' : formatRoomDate(date);
   const time = timeInSeoul(startsAt);
   return [dateLabel, time].filter(Boolean).join(' ');
+}
+
+function timeParts(time) {
+  const [hour24, minute] = time.split(':').map(Number);
+  return { isAfternoon: hour24 >= 12, hour: hour24 % 12 === 0 ? 12 : hour24 % 12, minute };
+}
+
+function timeFromParts({ isAfternoon, hour, minute }) {
+  return zeroPad((hour === 12 ? 0 : hour) + (isAfternoon ? 12 : 0)) + ':' + zeroPad(minute);
+}
+
+function formatRoomTime(time) {
+  const parts = timeParts(time);
+  return (parts.isAfternoon ? '오후' : '오전') + ' ' + parts.hour + ':' + zeroPad(parts.minute);
 }
 
 function monthFromIsoDate(isoDate) {
@@ -726,24 +742,15 @@ function GamePickerDialog({ isOpen, selectedGameId, allowClear, onSelect, onClea
   );
 }
 
-function DatePicker({ id, value, onChange, today }) {
-  const selectedDate = dateParts(value) ? value : defaultRoomDate(today);
-  const [isOpen, setIsOpen] = useState(false);
-  const [draftDate, setDraftDate] = useState(selectedDate);
-  const [visibleMonth, setVisibleMonth] = useState(() => monthFromIsoDate(selectedDate));
-  const pickerRef = useRef(null);
-  const triggerRef = useRef(null);
-
+// 팝오버 바깥을 누르거나 Escape를 누르면 닫는다. Escape는 트리거로 초점을 되돌린다.
+function usePopoverDismiss(isOpen, containerRef, onDismiss) {
   useEffect(() => {
     if (!isOpen) return undefined;
     const closeWhenOutside = (event) => {
-      if (!pickerRef.current?.contains(event.target)) setIsOpen(false);
+      if (!containerRef.current?.contains(event.target)) onDismiss(false);
     };
     const closeOnEscape = (event) => {
-      if (event.key === 'Escape') {
-        setIsOpen(false);
-        triggerRef.current?.focus();
-      }
+      if (event.key === 'Escape') onDismiss(true);
     };
     document.addEventListener('pointerdown', closeWhenOutside);
     window.addEventListener('keydown', closeOnEscape);
@@ -752,6 +759,15 @@ function DatePicker({ id, value, onChange, today }) {
       window.removeEventListener('keydown', closeOnEscape);
     };
   }, [isOpen]);
+}
+
+function DatePicker({ id, value, onChange, today }) {
+  const selectedDate = dateParts(value) ? value : defaultRoomDate(today);
+  const [isOpen, setIsOpen] = useState(false);
+  const [draftDate, setDraftDate] = useState(selectedDate);
+  const [visibleMonth, setVisibleMonth] = useState(() => monthFromIsoDate(selectedDate));
+  const pickerRef = useRef(null);
+  const triggerRef = useRef(null);
 
   const openPicker = () => {
     setDraftDate(selectedDate);
@@ -762,6 +778,7 @@ function DatePicker({ id, value, onChange, today }) {
     setIsOpen(false);
     if (restoreFocus) window.setTimeout(() => triggerRef.current?.focus(), 0);
   };
+  usePopoverDismiss(isOpen, pickerRef, closePicker);
   const moveMonth = (offset) => setVisibleMonth((month) => new Date(month.getFullYear(), month.getMonth() + offset, 1));
   const monthYear = visibleMonth.getFullYear();
   const monthIndex = visibleMonth.getMonth();
@@ -794,6 +811,70 @@ function DatePicker({ id, value, onChange, today }) {
   );
 }
 
+function TimePicker({ id, value, onChange }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [draft, setDraft] = useState(() => timeParts(value));
+  const pickerRef = useRef(null);
+  const triggerRef = useRef(null);
+  const selectedHourRef = useRef(null);
+
+  const openPicker = () => {
+    setDraft(timeParts(value));
+    setIsOpen(true);
+  };
+  const closePicker = (restoreFocus = false) => {
+    setIsOpen(false);
+    if (restoreFocus) window.setTimeout(() => triggerRef.current?.focus(), 0);
+  };
+  usePopoverDismiss(isOpen, pickerRef, closePicker);
+
+  // 시 목록은 12개라 스크롤되므로 열 때 선택한 시를 컬럼 가운데로 옮긴다.
+  // scrollIntoView는 팝오버 바깥의 페이지까지 함께 스크롤하므로 컬럼만 직접 움직인다.
+  useEffect(() => {
+    const option = selectedHourRef.current;
+    if (!isOpen || !option) return;
+    const column = option.parentElement;
+    column.scrollTop = option.offsetTop - (column.clientHeight - option.clientHeight) / 2;
+  }, [isOpen]);
+
+  // 네이티브 입력으로 저장한 10분 단위 밖의 시간도 선택 상태로 보이게 한다.
+  const minutes = MINUTE_OPTIONS.includes(draft.minute) ? MINUTE_OPTIONS : [...MINUTE_OPTIONS, draft.minute].sort((left, right) => left - right);
+
+  return (
+    <div className="date-picker time-picker" ref={pickerRef}>
+      <button id={id} ref={triggerRef} type="button" className="date-picker-trigger" aria-label={'시간 ' + formatRoomTime(value)} aria-expanded={isOpen} aria-haspopup="dialog" aria-controls={isOpen ? id + '-options' : undefined} onClick={() => isOpen ? closePicker() : openPicker()}>
+        <span className="date-picker-value">{formatRoomTime(value)}</span>
+      </button>
+      {isOpen && (
+        <section id={id + '-options'} className="date-picker-popover" role="dialog" aria-label="시간 선택">
+          <div className="date-picker-header">
+            <div className="date-picker-month"><strong>{formatRoomTime(timeFromParts(draft))}</strong></div>
+            <div className="date-picker-navigation"><button type="button" className="date-picker-close" aria-label="시간 선택 닫기" onClick={() => closePicker(true)}>×</button></div>
+          </div>
+          <div className="time-picker-columns">
+            <div className="time-picker-column" role="group" aria-label="오전 오후">
+              {[false, true].map((isAfternoon) => (
+                <button type="button" key={String(isAfternoon)} className={'time-picker-option' + (draft.isAfternoon === isAfternoon ? ' selected' : '')} aria-pressed={draft.isAfternoon === isAfternoon} onClick={() => setDraft({ ...draft, isAfternoon })}>{isAfternoon ? '오후' : '오전'}</button>
+              ))}
+            </div>
+            <div className="time-picker-column" role="group" aria-label="시">
+              {HOUR_OPTIONS.map((hour) => (
+                <button type="button" key={hour} ref={draft.hour === hour ? selectedHourRef : null} className={'time-picker-option' + (draft.hour === hour ? ' selected' : '')} aria-pressed={draft.hour === hour} onClick={() => setDraft({ ...draft, hour })}>{hour}</button>
+              ))}
+            </div>
+            <div className="time-picker-column" role="group" aria-label="분">
+              {minutes.map((minute) => (
+                <button type="button" key={minute} className={'time-picker-option' + (draft.minute === minute ? ' selected' : '')} aria-pressed={draft.minute === minute} onClick={() => setDraft({ ...draft, minute })}>{zeroPad(minute)}</button>
+              ))}
+            </div>
+          </div>
+          <div className="date-picker-footer"><button type="button" className="date-picker-confirm" onClick={() => { onChange(timeFromParts(draft)); closePicker(true); }}>선택 완료</button></div>
+        </section>
+      )}
+    </div>
+  );
+}
+
 function RoomFormFields({ form, onChange, roomType, onOpenGamePicker, today }) {
   const gameFocused = roomType === 'GAME_FOCUSED';
   const update = (field, value) => onChange({ ...form, [field]: value });
@@ -805,7 +886,7 @@ function RoomFormFields({ form, onChange, roomType, onOpenGamePicker, today }) {
         <div><label htmlFor="room-title">모임 제목</label><input id="room-title" maxLength="100" value={form.title} onChange={(event) => update('title', event.target.value)} placeholder="예: 토요일 오후 같이 게임 고를 분" /></div>
       </div>
       <div className="formrow single"><div><label htmlFor="room-description">설명 (선택, 255자 이내)</label><textarea id="room-description" maxLength="255" value={form.description} onChange={(event) => update('description', event.target.value)} placeholder="예: 처음 오신 분도 환영합니다." /></div></div>
-      <div className="formrow"><div><label htmlFor="room-date">날짜</label><DatePicker id="room-date" value={form.date} onChange={(date) => update('date', date)} today={today} /></div><div><label htmlFor="room-time">시간</label><input id="room-time" type="time" required value={form.time} onChange={(event) => update('time', event.target.value)} /></div></div>
+      <div className="formrow"><div><label htmlFor="room-date">날짜</label><DatePicker id="room-date" value={form.date} onChange={(date) => update('date', date)} today={today} /></div><div><label htmlFor="room-time">시간</label><TimePicker id="room-time" value={form.time} onChange={(time) => update('time', time)} /></div></div>
       <div className="formrow"><div><label>지역</label><div className="game-selected-value">홍대</div></div><div><label htmlFor="room-place">장소</label><input id="room-place" maxLength="100" value={form.place} onChange={(event) => update('place', event.target.value)} placeholder="예: 홍대입구역 인근 OO보드게임카페" /></div></div>
       <div className="formrow"><div><label htmlFor="room-capacity">모집 정원 (본인 제외, 1~10명)</label><select id="room-capacity" value={form.recruitmentCapacity} onChange={(event) => update('recruitmentCapacity', Number(event.target.value))}>{CAPACITY_OPTIONS.map((capacity) => <option value={capacity} key={capacity}>{capacity}명</option>)}</select></div><div><label htmlFor="room-experience">경험 수준</label><select id="room-experience" value={form.experienceLevel} onChange={(event) => update('experienceLevel', event.target.value)}>{Object.entries(EXP_LABEL).map(([code, label]) => <option value={code} key={code}>{label}</option>)}</select></div></div>
       <label className="checkline"><input type="checkbox" checked={form.isRulemasterLed} onChange={(event) => update('isRulemasterLed', event.target.checked)} /> 룰마스터 진행 (개설자 자기신고)</label>
