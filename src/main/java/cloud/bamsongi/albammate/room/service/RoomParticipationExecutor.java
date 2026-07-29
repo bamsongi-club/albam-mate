@@ -59,7 +59,7 @@ public class RoomParticipationExecutor {
 		roomRepository.save(room);
 		roomRepository.flush();
 		participationRepository.save(participation);
-		return toResponse(room);
+		return RoomParticipationResponse.from(room, ParticipationStatus.ACTIVE);
 	}
 
 	private void validateParticipation(
@@ -85,12 +85,4 @@ public class RoomParticipationExecutor {
 		}
 	}
 
-	private RoomParticipationResponse toResponse(Room room) {
-		return new RoomParticipationResponse(
-			room.getId(),
-			ParticipationStatus.ACTIVE,
-			room.getStatus(),
-			room.getActiveParticipantCount() + 1,
-			room.getCapacity() - room.getActiveParticipantCount());
-	}
 }

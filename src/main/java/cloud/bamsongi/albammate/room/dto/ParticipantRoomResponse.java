@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.List;
 
 import cloud.bamsongi.albammate.game.contract.GameSummary;
+import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.MyRole;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
@@ -31,4 +32,33 @@ public record ParticipantRoomResponse(
 	List<NicknameSummary> participants)
 	implements
 		RoomDetailResponse {
+
+	public static ParticipantRoomResponse from(
+		Room room,
+		GameSummary game,
+		int activeParticipantCount,
+		boolean joinable,
+		MyRole myRole,
+		NicknameSummary host,
+		List<NicknameSummary> participants) {
+		return new ParticipantRoomResponse(
+			room.getId(),
+			room.getRoomType(),
+			room.getTitle(),
+			room.getDescription(),
+			game,
+			room.getExperienceLevel(),
+			room.isRulemasterLed(),
+			room.getStartAt(),
+			room.getRegion(),
+			room.getCapacity(),
+			activeParticipantCount + 1,
+			room.getCapacity() - activeParticipantCount,
+			room.getStatus(),
+			joinable,
+			myRole,
+			room.getPlace(),
+			host,
+			participants);
+	}
 }

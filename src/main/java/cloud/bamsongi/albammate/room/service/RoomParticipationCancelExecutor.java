@@ -49,7 +49,7 @@ public class RoomParticipationCancelExecutor {
 		roomRepository.save(room);
 		roomRepository.flush();
 		participationRepository.save(participation);
-		return toResponse(room);
+		return RoomParticipationResponse.from(room, ParticipationStatus.CANCELED);
 	}
 
 	private void validateCancellation(
@@ -65,12 +65,4 @@ public class RoomParticipationCancelExecutor {
 		}
 	}
 
-	private RoomParticipationResponse toResponse(Room room) {
-		return new RoomParticipationResponse(
-			room.getId(),
-			ParticipationStatus.CANCELED,
-			room.getStatus(),
-			room.getActiveParticipantCount() + 1,
-			room.getCapacity() - room.getActiveParticipantCount());
-	}
 }

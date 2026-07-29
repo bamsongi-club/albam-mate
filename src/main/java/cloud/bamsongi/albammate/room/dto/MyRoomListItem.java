@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.room.dto;
 import java.time.Instant;
 
 import cloud.bamsongi.albammate.game.contract.GameSummary;
+import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.MyRole;
 import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
@@ -27,4 +28,30 @@ public record MyRoomListItem(
 	boolean joinable,
 	MyRole myRole,
 	ParticipationStatus participationStatus) {
+
+	public static MyRoomListItem from(
+		Room room,
+		GameSummary game,
+		boolean joinable,
+		MyRole myRole,
+		ParticipationStatus participationStatus) {
+		int activeParticipantCount = room.getActiveParticipantCount();
+		return new MyRoomListItem(
+			room.getId(),
+			room.getRoomType(),
+			room.getTitle(),
+			room.getDescription(),
+			game,
+			room.getExperienceLevel(),
+			room.isRulemasterLed(),
+			room.getStartAt(),
+			room.getRegion(),
+			room.getCapacity(),
+			activeParticipantCount + 1,
+			room.getCapacity() - activeParticipantCount,
+			room.getStatus(),
+			joinable,
+			myRole,
+			participationStatus);
+	}
 }

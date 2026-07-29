@@ -55,12 +55,12 @@ public class RoomListQueryService {
 		Page<PublicRoomResponse> response = readResult
 			.rooms()
 			.map(
-				room -> toResponse(
+				room -> PublicRoomResponse.from(
 					room,
 					getGameSummary(room, gameSummaries),
-					requestTime,
-					currentUserId,
-					readResult.activeParticipationRoomIds()));
+					room.getActiveParticipantCount(),
+					isJoinable(
+						room, requestTime, currentUserId, readResult.activeParticipationRoomIds())));
 		return PageResponse.from(response);
 	}
 
@@ -90,9 +90,8 @@ public class RoomListQueryService {
 			.orElseThrow(() -> new BusinessException(ErrorCode.GAME_NOT_FOUND));
 	}
 
-	private PublicRoomResponse toResponse(
+	private boolean isJoinable(
 		Room room,
-		GameSummary game,
 		Instant requestTime,
 		Optional<Long> currentUserId,
 		java.util.Set<Long> activeParticipationRoomIds) {
@@ -105,20 +104,6 @@ public class RoomListQueryService {
 			&& room.getStatus() == RoomStatus.RECRUITING
 			&& requestTime.isBefore(room.getStartAt())
 			&& remainingRecruitmentSeats >= 1;
-		return new PublicRoomResponse(
-			room.getId(),
-			room.getRoomType(),
-			room.getTitle(),
-			room.getDescription(),
-			game,
-			room.getExperienceLevel(),
-			room.isRulemasterLed(),
-			room.getStartAt(),
-			room.getRegion(),
-			room.getCapacity(),
-			room.getActiveParticipantCount() + 1,
-			remainingRecruitmentSeats,
-			room.getStatus(),
-			joinable);
+		return joinable;
 	}
 }
