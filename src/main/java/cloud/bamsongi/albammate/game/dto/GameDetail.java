@@ -19,13 +19,6 @@ public record GameDetail(
 	String description,
 	String detailDescription) {
 
-	/**
-	 * 게임 엔티티와 예정 모임 수로 상세 응답을 생성한다.
-	 *
-	 * @param game 상세 정보를 담은 게임 엔티티
-	 * @param upcomingRoomCount 조회 시각 기준 예정 모임 수
-	 * @return 예정 모임 수가 포함된 게임 상세 응답
-	 */
 	public static GameDetail from(Game game, long upcomingRoomCount) {
 		return new GameDetail(
 			game.getId(),

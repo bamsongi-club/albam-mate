@@ -23,6 +23,10 @@ public interface GameRepository extends JpaRepository<Game, Long> {
 		""")
 	Page<GameListRow> findAllListRows(Pageable pageable);
 
+	/**
+	 * {@code escape([0])}는 첫 번째 인자인 {@code keyword}의 LIKE 특수문자
+	 * {@code %}, {@code _}를 일반 문자로 검색한다.
+	 */
 	@Query("""
 		select new cloud.bamsongi.albammate.game.repository.GameListRow(
 		    g.id, g.bggId, g.name, g.englishName, g.imageUrl, g.supportedPlayerCount,
@@ -43,6 +47,10 @@ public interface GameRepository extends JpaRepository<Game, Long> {
 	Page<GameListRow> findListRowsByIdIn(@Param("gameIds")
 	Collection<Long> gameIds, Pageable pageable);
 
+	/**
+	 * {@code escape([1])}는 두 번째 인자인 {@code keyword}의 LIKE 특수문자
+	 * {@code %}, {@code _}를 일반 문자로 검색한다.
+	 */
 	@Query("""
 		select new cloud.bamsongi.albammate.game.repository.GameListRow(
 		    g.id, g.bggId, g.name, g.englishName, g.imageUrl, g.supportedPlayerCount,
