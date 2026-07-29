@@ -51,6 +51,42 @@ jobs:
       - name: Verify PostgreSQL schema and branch coverage
         run: ./gradlew postgresTest jacocoAllTestReport jacocoAllTestCoverageVerification --no-daemon --stacktrace
 
+      - name: Publish coverage summary
+        if: ${{ always() && hashFiles('build/reports/jacoco/jacocoAllTestReport/jacocoAllTestReport.xml') != '' }}
+        shell: pwsh
+        run: |
+          [xml]$report = Get-Content `
+            -LiteralPath "build/reports/jacoco/jacocoAllTestReport/jacocoAllTestReport.xml" `
+            -Encoding UTF8 `
+            -Raw
+          $rows = @(
+            foreach ($counterName in @("BRANCH", "LINE")) {
+              $counter = $report.report.counter | Where-Object { $_.type -eq $counterName }
+              $covered = [int]$counter.covered
+              $total = $covered + [int]$counter.missed
+              $ratio = if ($total -eq 0) { 100 } else { 100.0 * $covered / $total }
+              "| $counterName | $covered | $total | $($ratio.ToString('F1'))% |"
+            }
+          )
+          @(
+            "## JaCoCo coverage"
+            ""
+            "| Counter | Covered | Total | Ratio |"
+            "| --- | ---: | ---: | ---: |"
+            $rows
+          ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload coverage report
+        if: ${{ always() && hashFiles('build/reports/jacoco/jacocoAllTestReport/jacocoAllTestReport.xml') != '' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: jacoco-coverage-${{ github.run_attempt }}
+          path: |
+            build/reports/jacoco/jacocoAllTestReport/html
+            build/reports/jacoco/jacocoAllTestReport/jacocoAllTestReport.xml
+          if-no-files-found: warn
+          retention-days: 14
+
   docs:
     name: Docs
     runs-on: ubuntu-latest

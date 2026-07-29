@@ -104,17 +104,20 @@ tasks.register('jacocoAllTestReport', JacocoReport) {
 def coveragePackageRuleMinimumBranches = 10
 def gatedBranchCoverage = [
     'cloud.bamsongi.albammate.auth.dto'       : 0.67,
-    'cloud.bamsongi.albammate.auth.security'  : 0.72,
-    'cloud.bamsongi.albammate.auth.service'   : 0.70,
+    'cloud.bamsongi.albammate.auth.security'  : 0.94,
+    'cloud.bamsongi.albammate.auth.service'   : 0.80,
     'cloud.bamsongi.albammate.auth.validation': 0.85,
-    'cloud.bamsongi.albammate.global.config'  : 0.65,
-    'cloud.bamsongi.albammate.global.security': 0.80,
+    'cloud.bamsongi.albammate.global.config'               : 1.00,
+    'cloud.bamsongi.albammate.global.security.currentuser' : 0.83,
+    'cloud.bamsongi.albammate.global.security.endpoint'    : 0.90,
+    'cloud.bamsongi.albammate.global.security.error'       : 0.71,
+    'cloud.bamsongi.albammate.global.security.ratelimit'   : 0.84,
     'cloud.bamsongi.albammate.room'           : 0.84,
     'cloud.bamsongi.albammate.room.entity'    : 0.91,
     'cloud.bamsongi.albammate.room.controller': 0.92,
     'cloud.bamsongi.albammate.room.service'   : 0.90,
-    'cloud.bamsongi.albammate.user.contract'  : 0.50,
-    'cloud.bamsongi.albammate.user.service'   : 0.60,
+    'cloud.bamsongi.albammate.user.contract'  : 0.92,
+    'cloud.bamsongi.albammate.user.service'   : 0.71,
 ]
 
 def applyCoverageRules = { JacocoCoverageVerification verification ->
@@ -164,7 +167,7 @@ tasks.register('jacocoAllTestCoverageVerification', JacocoCoverageVerification) 
     description = 'Verifies branch coverage from both test and postgresTest.'
     group = 'verification'
     dependsOn tasks.named('test'), tasks.named('postgresTest'),
-            tasks.named('verifyCoverageRuleTargets')
+            tasks.named('verifyCoverageRuleTargets'), tasks.named('jacocoAllTestReport')
     sourceSets sourceSets.main
     executionData.setFrom(testExecutionData, postgresTestExecutionData)
     applyCoverageRules(it)
