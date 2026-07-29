@@ -53,7 +53,14 @@ public class RoomCreateService {
 			request.recruitmentCapacity());
 		Room savedRoom = roomRepository.save(room);
 		NicknameSummary host = new NicknameSummary(hostNickname);
-		return toResponse(savedRoom, game, host);
+		return ParticipantRoomResponse.from(
+			savedRoom,
+			game,
+			savedRoom.getActiveParticipantCount(),
+			false,
+			MyRole.HOST,
+			host,
+			java.util.List.of(host));
 	}
 
 	private GameSummary resolveGame(CreateRoomRequest request) {
@@ -73,27 +80,4 @@ public class RoomCreateService {
 		}
 	}
 
-	private ParticipantRoomResponse toResponse(Room room, GameSummary game, NicknameSummary host) {
-		int participantCount = room.getActiveParticipantCount() + 1;
-		int remainingRecruitmentSeats = room.getCapacity() - room.getActiveParticipantCount();
-		return new ParticipantRoomResponse(
-			room.getId(),
-			room.getRoomType(),
-			room.getTitle(),
-			room.getDescription(),
-			game,
-			room.getExperienceLevel(),
-			room.isRulemasterLed(),
-			room.getStartAt(),
-			room.getRegion(),
-			room.getCapacity(),
-			participantCount,
-			remainingRecruitmentSeats,
-			room.getStatus(),
-			false,
-			MyRole.HOST,
-			room.getPlace(),
-			host,
-			java.util.List.of(host));
-	}
 }

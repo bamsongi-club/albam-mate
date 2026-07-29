@@ -55,7 +55,17 @@ public class MyRoomQueryService {
 			page, size, Sort.by(Sort.Order.desc("startAt"), Sort.Order.desc("id")));
 		Page<Room> rooms = myRoomReadService.findMyRooms(currentUserId, role, pageable);
 		Map<Long, GameSummary> gameSummaries = findGameSummaries(rooms);
-		return PageResponse.from(rooms.map(room -> toResponse(room, currentUserId, gameSummaries)));
+		return PageResponse.from(
+			rooms.map(
+				room -> {
+					MyRole myRole = room.getHostUserId().equals(currentUserId) ? MyRole.HOST : MyRole.JOINED;
+					return MyRoomListItem.from(
+						room,
+						getGameSummary(room, gameSummaries),
+						false,
+						myRole,
+						myRole == MyRole.JOINED ? ParticipationStatus.ACTIVE : null);
+				}));
 	}
 
 	private Map<Long, GameSummary> findGameSummaries(Page<Room> rooms) {
@@ -64,30 +74,6 @@ public class MyRoomQueryService {
 			.filter(Objects::nonNull)
 			.collect(Collectors.toSet());
 		return gameIds.isEmpty() ? Map.of() : gameQuery.findSummariesByIds(gameIds);
-	}
-
-	private MyRoomListItem toResponse(
-		Room room, Long currentUserId, Map<Long, GameSummary> gameSummaries) {
-		GameSummary game = getGameSummary(room, gameSummaries);
-		int remainingRecruitmentSeats = room.getCapacity() - room.getActiveParticipantCount();
-		MyRole myRole = room.getHostUserId().equals(currentUserId) ? MyRole.HOST : MyRole.JOINED;
-		return new MyRoomListItem(
-			room.getId(),
-			room.getRoomType(),
-			room.getTitle(),
-			room.getDescription(),
-			game,
-			room.getExperienceLevel(),
-			room.isRulemasterLed(),
-			room.getStartAt(),
-			room.getRegion(),
-			room.getCapacity(),
-			room.getActiveParticipantCount() + 1,
-			remainingRecruitmentSeats,
-			room.getStatus(),
-			false,
-			myRole,
-			myRole == MyRole.JOINED ? ParticipationStatus.ACTIVE : null);
 	}
 
 	private GameSummary getGameSummary(Room room, Map<Long, GameSummary> gameSummaries) {

@@ -67,21 +67,7 @@ public class RoomDetailService {
 			&& remainingRecruitmentSeats >= 1;
 
 		if (!isHost && !isActiveParticipant) {
-			return new PublicRoomResponse(
-				room.getId(),
-				room.getRoomType(),
-				room.getTitle(),
-				room.getDescription(),
-				game,
-				room.getExperienceLevel(),
-				room.isRulemasterLed(),
-				room.getStartAt(),
-				room.getRegion(),
-				room.getCapacity(),
-				activeParticipantCount + 1,
-				remainingRecruitmentSeats,
-				room.getStatus(),
-				joinable);
+			return PublicRoomResponse.from(room, game, activeParticipantCount, joinable);
 		}
 
 		NicknameSummary host = nicknameSummary(room.getHostUserId());
@@ -89,23 +75,12 @@ public class RoomDetailService {
 		participants.add(host);
 		activeParticipations.forEach(
 			participation -> participants.add(nicknameSummary(participation.getUserId())));
-		return new ParticipantRoomResponse(
-			room.getId(),
-			room.getRoomType(),
-			room.getTitle(),
-			room.getDescription(),
+		return ParticipantRoomResponse.from(
+			room,
 			game,
-			room.getExperienceLevel(),
-			room.isRulemasterLed(),
-			room.getStartAt(),
-			room.getRegion(),
-			room.getCapacity(),
-			activeParticipantCount + 1,
-			remainingRecruitmentSeats,
-			room.getStatus(),
+			activeParticipantCount,
 			joinable,
 			isHost ? MyRole.HOST : MyRole.JOINED,
-			room.getPlace(),
 			host,
 			List.copyOf(participants));
 	}

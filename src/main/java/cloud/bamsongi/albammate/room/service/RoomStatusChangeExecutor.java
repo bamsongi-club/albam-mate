@@ -29,7 +29,7 @@ class RoomStatusChangeExecutor {
 		if (!room.cancel()) {
 			throw new BusinessException(ErrorCode.INVALID_ROOM_STATUS_TRANSITION);
 		}
-		return response(room);
+		return RoomStatusResponse.from(room);
 	}
 
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -37,12 +37,12 @@ class RoomStatusChangeExecutor {
 		Room room = findHostedRoom(currentUserId, roomId);
 		room.reconcileStateAt(requestTime);
 		if (room.getStatus() == RoomStatus.FINISHED) {
-			return response(room);
+			return RoomStatusResponse.from(room);
 		}
 		if (!room.finishAt(requestTime)) {
 			throw new BusinessException(ErrorCode.INVALID_ROOM_STATUS_TRANSITION);
 		}
-		return response(room);
+		return RoomStatusResponse.from(room);
 	}
 
 	private Room findHostedRoom(long currentUserId, long roomId) {
@@ -55,7 +55,4 @@ class RoomStatusChangeExecutor {
 		return room;
 	}
 
-	private RoomStatusResponse response(Room room) {
-		return new RoomStatusResponse(room.getId(), room.getStatus());
-	}
 }

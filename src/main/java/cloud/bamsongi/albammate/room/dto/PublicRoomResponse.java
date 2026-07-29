@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.room.dto;
 import java.time.Instant;
 
 import cloud.bamsongi.albammate.game.contract.GameSummary;
+import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
@@ -25,4 +26,23 @@ public record PublicRoomResponse(
 	boolean joinable)
 	implements
 		RoomDetailResponse {
+
+	public static PublicRoomResponse from(
+		Room room, GameSummary game, int activeParticipantCount, boolean joinable) {
+		return new PublicRoomResponse(
+			room.getId(),
+			room.getRoomType(),
+			room.getTitle(),
+			room.getDescription(),
+			game,
+			room.getExperienceLevel(),
+			room.isRulemasterLed(),
+			room.getStartAt(),
+			room.getRegion(),
+			room.getCapacity(),
+			activeParticipantCount + 1,
+			room.getCapacity() - activeParticipantCount,
+			room.getStatus(),
+			joinable);
+	}
 }
