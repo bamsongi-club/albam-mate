@@ -14,7 +14,9 @@ public final class SecurityContextCurrentUserAccessor implements CurrentUserAcce
 	@Override
 	public Optional<Long> currentUserId() {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-		if (!isAuthenticated(authentication)) {
+		if (authentication == null
+			|| !authentication.isAuthenticated()
+			|| authentication instanceof AnonymousAuthenticationToken) {
 			return Optional.empty();
 		}
 
@@ -23,11 +25,5 @@ public final class SecurityContextCurrentUserAccessor implements CurrentUserAcce
 			return Optional.of(currentUserPrincipal.userId());
 		}
 		return Optional.empty();
-	}
-
-	private boolean isAuthenticated(Authentication authentication) {
-		return authentication != null
-			&& authentication.isAuthenticated()
-			&& !(authentication instanceof AnonymousAuthenticationToken);
 	}
 }

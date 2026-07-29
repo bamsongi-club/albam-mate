@@ -1,5 +1,9 @@
 package cloud.bamsongi.albammate.global.security.endpoint;
 
+import static cloud.bamsongi.albammate.global.security.endpoint.ApiEndpointAuthenticationMode.AUTHENTICATED;
+import static cloud.bamsongi.albammate.global.security.endpoint.ApiEndpointAuthenticationMode.OPTIONAL_AUTHENTICATION;
+import static cloud.bamsongi.albammate.global.security.endpoint.ApiEndpointAuthenticationMode.PUBLIC;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -22,6 +26,12 @@ import org.springframework.stereotype.Component;
 @Component
 public final class ApiEndpointPolicyRegistry {
 
+	/**
+	 * 보호 리소스의 하위 경로 접두사다. 이 아래에서 정책을 등록하지 않은 경로는 공개가 아니라 인증 대상이 된다.
+	 *
+	 * <p>{@code SecurityConfig}의 마지막 규칙이 {@code anyRequest().permitAll()}이므로, 이 안전망이 없으면 새 하위 경로를
+	 * 만들고 정책 등록을 빠뜨렸을 때 그 경로가 공개로 열린다.
+	 */
 	private static final List<String> PROTECTED_FUTURE_SUBPATH_PREFIXES = List.of("/api/auth/", "/api/games/",
 		"/api/rooms/", "/api/users/me/");
 
@@ -65,6 +75,7 @@ public final class ApiEndpointPolicyRegistry {
 				.toList());
 	}
 
+	/** 정책에 없는 보호 하위 경로를 인증 대상으로 만드는 안전망이다. */
 	public RequestMatcher protectedFutureSubpathMatcher() {
 		return request -> {
 			String requestPath = request.getRequestURI().substring(request.getContextPath().length());
@@ -85,13 +96,14 @@ public final class ApiEndpointPolicyRegistry {
 		unregistered.removeAll(registered);
 		Set<ApiEndpointMapping> orphaned = new LinkedHashSet<>(registered);
 		orphaned.removeAll(actual);
-		if (!unregistered.isEmpty() || !orphaned.isEmpty()) {
-			throw new IllegalStateException(
-				"API endpoint policy mismatch: unregistered="
-					+ unregistered
-					+ ", orphaned="
-					+ orphaned);
+		if (unregistered.isEmpty() && orphaned.isEmpty()) {
+			return;
 		}
+		throw new IllegalStateException(
+			"API endpoint policy mismatch: unregistered="
+				+ unregistered
+				+ ", orphaned="
+				+ orphaned);
 	}
 
 	static ApiEndpointPolicyRegistry forPolicies(List<ApiEndpointPolicy> policies) {
@@ -130,12 +142,16 @@ public final class ApiEndpointPolicyRegistry {
 			if (!seen.add(mapping)) {
 				throw new IllegalStateException("Duplicate API endpoint policy: " + mapping);
 			}
-			if (isStateChanging(policy.method())
-				&& policy.authenticationMode() == ApiEndpointAuthenticationMode.AUTHENTICATED
-				&& !policy.csrfRequired()) {
-				throw new IllegalStateException(
-					"Authenticated state-changing endpoint requires CSRF: " + mapping);
-			}
+			validateCsrfRequirement(policy, mapping);
+		}
+	}
+
+	private void validateCsrfRequirement(ApiEndpointPolicy policy, ApiEndpointMapping mapping) {
+		boolean csrfMandatory = isStateChanging(policy.method())
+			&& policy.authenticationMode() == ApiEndpointAuthenticationMode.AUTHENTICATED;
+		if (csrfMandatory && !policy.csrfRequired()) {
+			throw new IllegalStateException(
+				"Authenticated state-changing endpoint requires CSRF: " + mapping);
 		}
 	}
 
@@ -148,91 +164,23 @@ public final class ApiEndpointPolicyRegistry {
 
 	private static List<ApiEndpointPolicy> defaultPolicies() {
 		return List.of(
-			policy(
-				HttpMethod.GET,
-				"/api/auth/csrf",
-				ApiEndpointAuthenticationMode.PUBLIC,
-				false),
-			policy(
-				HttpMethod.POST,
-				"/api/auth/signup",
-				ApiEndpointAuthenticationMode.PUBLIC,
-				true),
-			policy(
-				HttpMethod.POST,
-				"/api/auth/login",
-				ApiEndpointAuthenticationMode.PUBLIC,
-				true),
-			policy(
-				HttpMethod.POST,
-				"/api/auth/logout",
-				ApiEndpointAuthenticationMode.AUTHENTICATED,
-				true),
-			policy(
-				HttpMethod.GET,
-				"/api/users/me",
-				ApiEndpointAuthenticationMode.AUTHENTICATED,
-				false),
-			policy(
-				HttpMethod.PATCH,
-				"/api/users/me",
-				ApiEndpointAuthenticationMode.AUTHENTICATED,
-				true),
-			policy(
-				HttpMethod.GET,
-				"/api/games",
-				ApiEndpointAuthenticationMode.OPTIONAL_AUTHENTICATION,
-				false),
-			policy(
-				HttpMethod.GET,
-				"/api/games/{gameId}",
-				ApiEndpointAuthenticationMode.OPTIONAL_AUTHENTICATION,
-				false),
-			policy(
-				HttpMethod.GET,
-				"/api/rooms",
-				ApiEndpointAuthenticationMode.OPTIONAL_AUTHENTICATION,
-				false),
-			policy(
-				HttpMethod.GET,
-				"/api/rooms/{roomId}",
-				ApiEndpointAuthenticationMode.OPTIONAL_AUTHENTICATION,
-				false),
-			policy(
-				HttpMethod.POST,
-				"/api/rooms",
-				ApiEndpointAuthenticationMode.AUTHENTICATED,
-				true),
-			policy(
-				HttpMethod.POST,
-				"/api/rooms/{roomId}/participants",
-				ApiEndpointAuthenticationMode.AUTHENTICATED,
-				true),
-			policy(
-				HttpMethod.PATCH,
-				"/api/rooms/{roomId}",
-				ApiEndpointAuthenticationMode.AUTHENTICATED,
-				true),
-			policy(
-				HttpMethod.DELETE,
-				"/api/rooms/{roomId}",
-				ApiEndpointAuthenticationMode.AUTHENTICATED,
-				true),
-			policy(
-				HttpMethod.PATCH,
-				"/api/rooms/{roomId}/status",
-				ApiEndpointAuthenticationMode.AUTHENTICATED,
-				true),
-			policy(
-				HttpMethod.DELETE,
-				"/api/rooms/{roomId}/participants/me",
-				ApiEndpointAuthenticationMode.AUTHENTICATED,
-				true),
-			policy(
-				HttpMethod.GET,
-				"/api/users/me/rooms",
-				ApiEndpointAuthenticationMode.AUTHENTICATED,
-				false));
+			policy(HttpMethod.GET, "/api/auth/csrf", PUBLIC, false),
+			policy(HttpMethod.POST, "/api/auth/signup", PUBLIC, true),
+			policy(HttpMethod.POST, "/api/auth/login", PUBLIC, true),
+			policy(HttpMethod.POST, "/api/auth/logout", AUTHENTICATED, true),
+			policy(HttpMethod.GET, "/api/users/me", AUTHENTICATED, false),
+			policy(HttpMethod.PATCH, "/api/users/me", AUTHENTICATED, true),
+			policy(HttpMethod.GET, "/api/games", OPTIONAL_AUTHENTICATION, false),
+			policy(HttpMethod.GET, "/api/games/{gameId}", OPTIONAL_AUTHENTICATION, false),
+			policy(HttpMethod.GET, "/api/rooms", OPTIONAL_AUTHENTICATION, false),
+			policy(HttpMethod.GET, "/api/rooms/{roomId}", OPTIONAL_AUTHENTICATION, false),
+			policy(HttpMethod.POST, "/api/rooms", AUTHENTICATED, true),
+			policy(HttpMethod.POST, "/api/rooms/{roomId}/participants", AUTHENTICATED, true),
+			policy(HttpMethod.PATCH, "/api/rooms/{roomId}", AUTHENTICATED, true),
+			policy(HttpMethod.DELETE, "/api/rooms/{roomId}", AUTHENTICATED, true),
+			policy(HttpMethod.PATCH, "/api/rooms/{roomId}/status", AUTHENTICATED, true),
+			policy(HttpMethod.DELETE, "/api/rooms/{roomId}/participants/me", AUTHENTICATED, true),
+			policy(HttpMethod.GET, "/api/users/me/rooms", AUTHENTICATED, false));
 	}
 
 	private static ApiEndpointPolicy policy(
