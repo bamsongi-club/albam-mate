@@ -46,14 +46,13 @@ public class RoomParticipationExecutor {
 		room.reconcileStateAt(requestTime);
 		validateParticipation(room, currentUserId, existingParticipation, requestTime);
 
-		Participation participation = existingParticipation
-			.map(
-				existing -> {
-					existing.reactivate(requestTime);
-					return existing;
-				})
-			.orElseGet(
-				() -> Participation.createActive(room, currentUserId, requestTime));
+		Participation participation;
+		if (existingParticipation.isPresent()) {
+			participation = existingParticipation.get();
+			participation.reactivate(requestTime);
+		} else {
+			participation = Participation.createActive(room, currentUserId, requestTime);
+		}
 		room.addActiveParticipant();
 
 		roomRepository.save(room);
