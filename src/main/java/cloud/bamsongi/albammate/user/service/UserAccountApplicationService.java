@@ -63,10 +63,9 @@ public class UserAccountApplicationService implements UserAccountService {
 	/** 이메일로 로그인 검증에 필요한 ID·닉네임·저장 해시만 조회한다. */
 	@Override
 	@Transactional(readOnly = true)
-	public Optional<UserCredentials> findCredentialsByEmail(String email) {
-		String normalizedEmail = requiredEmail(email);
+	public Optional<UserCredentials> findCredentialsByEmail(UserEmail email) {
 		return userRepository
-			.findByEmail(normalizedEmail)
+			.findByEmail(email.value())
 			.map(UserContractMapper::toUserCredentials);
 	}
 
@@ -90,11 +89,5 @@ public class UserAccountApplicationService implements UserAccountService {
 		if (value == null || value.isEmpty()) {
 			throw new IllegalArgumentException(name + " must not be empty");
 		}
-	}
-
-	private String requiredEmail(String rawEmail) {
-		return UserEmail.from(rawEmail)
-			.map(UserEmail::value)
-			.orElseThrow(() -> new IllegalArgumentException("email must be valid"));
 	}
 }

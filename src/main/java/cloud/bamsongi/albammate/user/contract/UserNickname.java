@@ -1,9 +1,13 @@
 package cloud.bamsongi.albammate.user.contract;
 
-import java.util.Objects;
 import java.util.Optional;
 
-/** 사용자 모듈이 소유하는 닉네임 정규화와 불변식이다. */
+/**
+ * 사용자 모듈이 소유하는 닉네임 정규화와 불변식이다.
+ *
+ * <p>{@link #from(String)}이 유일한 입구다. 정규화만 하고 길이·제어문자 검증을 건너뛰는 경로를 공개하지 않으므로, 이 타입의
+ * 인스턴스를 받은 쪽은 값이 이미 정규화·검증됐다고 믿고 다시 검증하지 않는다.
+ */
 public final class UserNickname {
 
 	private final String value;
@@ -27,8 +31,8 @@ public final class UserNickname {
 		return Optional.of(new UserNickname(normalizedNickname));
 	}
 
-	public static String normalize(String rawNickname) {
-		return Objects.requireNonNull(rawNickname, "rawNickname").strip();
+	private static String normalize(String rawNickname) {
+		return rawNickname.strip();
 	}
 
 	public String value() {

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import cloud.bamsongi.albammate.user.contract.UserNickname;
 import cloud.bamsongi.albammate.user.contract.UserProfile;
 import cloud.bamsongi.albammate.user.contract.UserProfileService;
 import cloud.bamsongi.albammate.user.entity.User;
@@ -24,7 +25,8 @@ class UserProfileApplicationServiceIntegrationTest {
 		User user = userRepository.saveAndFlush(
 			User.create("profile-service@example.com", "{bcrypt}hash", "이전"));
 
-		UserProfile updated = userProfileService.changeNickname(user.getId(), "변경됨");
+		UserProfile updated = userProfileService.changeNickname(
+			user.getId(), UserNickname.from("변경됨").orElseThrow());
 
 		assertEquals(new UserProfile(user.getId(), "변경됨"), updated);
 		assertEquals(
