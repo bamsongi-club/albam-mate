@@ -2,7 +2,7 @@
 
 이 문서는 Albam Mate 백엔드 코드를 작성하고 리뷰할 때 적용하는 기본 규칙이다. 제품 동작은 [P0 공통 명세](P0-spec.md)와 여기에서 연결한 [기능별 명세](P0-spec.md#관련-문서), 요청·응답은 [API 명세](API.md), 데이터 구조는 [ERD](ERD.md), 되돌리기 어렵거나 논쟁적인 기술 선택은 [ADR](adr/README.md)이 우선한다. 이 문서는 해당 정본을 반복하지 않고 구현 방식을 통일한다.
 
-AI 에이전트는 코드 구현·리뷰·커밋 작업을 시작할 때 이 문서를 확인하며, 같은 작업 안에서는 변경 영역과 관련된 절을 우선 적용한다.
+AI 에이전트는 [루트 작업 안내](../AGENTS.md)의 라우팅에 따라 이 문서와 변경 위치의 `AGENTS.md`에서 필요한 규약만 확인한다.
 
 ## 패키지와 모듈
 
@@ -100,7 +100,7 @@ Controller에는 다음 책임을 두지 않는다.
 - 트랜잭션 시작
 - 외부 API 직접 호출
 
-생산 코드는 Lombok의 `@RequiredArgsConstructor`와 `private final` 필드 또는 명시적인 생성자로 의존성을 주입하며, 필드·생성자·메서드 어디에도 `@Autowired`를 사용하지 않는다. 테스트 코드의 `@Autowired`는 Spring TestContext fixture 주입에만 예외로 허용한다.
+생산 코드는 Lombok의 `@RequiredArgsConstructor`와 `private final` 필드 또는 명시적인 생성자로 의존성을 주입하며, 필드·생성자·메서드 어디에도 `@Autowired`를 사용하지 않는다.
 
 주입 형식은 다음 두 가지만 사용하고 한 클래스에서 섞지 않는다.
 
@@ -130,16 +130,7 @@ Controller에는 다음 책임을 두지 않는다.
 
 ## 데이터베이스 변경
 
-- 테이블, 컬럼, 인덱스, 제약조건 또는 기준 데이터를 변경하는 PR은 Flyway 마이그레이션을 포함한다.
-- 마이그레이션은 `src/main/resources/db/migration`에 `V<version>__<description>.sql` 형식으로 둔다.
-- 초기 스키마 이후 추가하는 마이그레이션의 버전은 최신 기본 브랜치를 반영한 뒤 저장소의 기존 버전보다 크게 부여한다. 동시에 열린 PR 사이에 중복이나 순서 역전이 생기면 나중에 병합하는 PR이 병합 전에 버전을 다시 부여한다.
-- 공유 환경에 한 번이라도 적용된 버전 마이그레이션은 수정하지 않는다. 보정이 필요하면 새 버전 파일을 추가한다.
-- P0의 기존 V1~V3를 폐기하고 재생성하는 일회성 예외는 [ADR-0023](adr/platform/0023-p0-flyway-baseline-reset-player-count-stages.md)을 따른다. 새 기준선부터는 위의 불변 원칙을 다시 적용한다.
-- JPA Entity 변경은 마이그레이션을 대신하지 않는다. 스키마가 바뀌면 JPA Entity와 [ERD](ERD.md)를 같은 변경에서 마이그레이션과 일치시킨다.
-- 공유 개발·검증·운영 환경에서 Hibernate `ddl-auto=create` 또는 `update`로 스키마를 변경하지 않는다.
-- PostgreSQL 전용 SQL, 제약과 Flyway 실행 결과는 H2 테스트만으로 검증됐다고 보지 않는다.
-
-세부 기준은 [ADR-0008](adr/platform/0008-flyway-database-migrations.md)을 따른다.
+Flyway 마이그레이션 작업 규약의 정본은 [마이그레이션 작업 안내](../src/main/resources/db/migration/AGENTS.md)다.
 
 ## Entity와 DTO
 
@@ -197,33 +188,7 @@ Controller에는 다음 책임을 두지 않는다.
 
 ## 테스트
 
-- 단위 테스트는 JUnit 5와 Mockito를 사용하고 given-when-then 흐름이 드러나게 작성한다.
-- Service 단위 테스트는 자기 모듈의 Repository와 외부 의존성을 목킹한다.
-- Controller 테스트는 HTTP 상태, 요청 검증, 인증 경계와 응답 계약을 확인한다.
-- `@SpringBootTest`는 전체 Spring 구성이 필요한 통합 경로에 사용한다.
-- 새 Service와 Controller에는 성공 경로와 핵심 실패 경로 테스트를 함께 작성한다.
-- 테스트 source set 배치는 [일반 테스트 작업 안내](../src/test/AGENTS.md#source-set-배치)를 따른다.
-- 테스트 메서드명은 `방을_생성하면_모집중_상태가_된다()`처럼 행동과 결과를 한국어로 드러내고, 같은 의미를 반복하는 `@DisplayName`은 사용하지 않는다.
-- 여러 테스트에서 재사용하는 fixture는 해당 source set의 `java/.../<domain>/fixture` 패키지에 두고, 한 테스트에서만 쓰는 fixture는 그 테스트 가까이에 둔다. 테스트 편의를 위한 fixture를 `src/main`에 두지 않는다.
-- 테스트에서 Spring TestContext fixture를 주입할 때만 [Controller 절의 `@Autowired` 예외](#controller)를 적용한다.
-- 생산 코드의 패키지를 옮기거나 새로 만들면 `build.gradle`의 `gatedBranchCoverage` 대상과 실측 최소선이 함께 유효한지 확인하고 필요한 변경을 같은 작업에 포함한다.
-- PostgreSQL 전용 SQL·제약·동시성 동작과 Flyway 마이그레이션은 실제 PostgreSQL을 사용하는 통합 환경에서 확인한다.
-- 모듈이 둘 이상 구현되면 순환 의존과 다른 모듈 내부 패키지 접근을 구조 테스트로 검사한다.
-
-### 테스트 클래스 접미사
-
-테스트 클래스명은 검증 역할이 드러나는 가장 구체적인 접미사를 사용한다. 별도 역할을 구분할 필요가 없는 한 `Test`를 기본으로 한다.
-
-| 형태 | 사용 기준 |
-| --- | --- |
-| `{Target}Test` | 한 대상의 동작을 검증하는 기본 테스트. 단위 테스트, MVC slice와 Repository 테스트를 포함한다. |
-| `{Target}UnitTest` | 같은 대상의 다른 범위 테스트와 구분해야 하는 Mockito 기반 격리 테스트 |
-| `{Scenario}IntegrationTest` | H2와 Spring context에서 여러 실제 구성요소의 협력을 검증하는 테스트 |
-| `{Scenario}HttpIntegrationTest` | 전체 Spring context와 MockMvc로 HTTP 경계를 검증하는 테스트 |
-| `{Scenario}RealHttpIntegrationTest` | 임의 포트의 실제 서버와 HTTP client를 연결해 검증하는 테스트 |
-| `{Scope}PersistenceTest` | 여러 Entity의 매핑, 관계와 영속성 계약을 함께 검증하는 테스트 |
-| `{Scope}PostgresTest` | `postgresTest` source set에서 실제 PostgreSQL 고유 계약을 검증하는 테스트 |
-| `{ApplicationName}ApplicationTests` | Spring Boot 애플리케이션 context 기동 smoke test |
+공통 테스트 작성·배치 규약의 정본은 [일반 테스트 작업 안내](../src/test/AGENTS.md), PostgreSQL 전용 규약의 정본은 [PostgreSQL 테스트 작업 안내](../src/postgresTest/AGENTS.md)다.
 
 ## 시간 처리
 
@@ -231,8 +196,7 @@ Controller에는 다음 책임을 두지 않는다.
 - 타임라인 위의 한 순간은 Entity에서 `Instant`, PostgreSQL에서 `TIMESTAMPTZ`로 표현한다.
 - `startsAt`, `createdAt`, `updatedAt`, `joinedAt`, `canceledAt`과 세션 만료 시각에 `LocalDateTime`을 사용하지 않는다.
 - API는 오프셋이 포함된 ISO 8601 값을 받고, P0 응답은 `Asia/Seoul` 기준 `+09:00`으로 반환한다.
-- 현재 시각은 주입받은 `Clock`으로 얻는다. 운영은 `Clock.systemUTC()`, 테스트는 `Clock.fixed(...)`를 사용한다.
-- 테스트 fixture의 시각은 고정값을 사용한다.
+- 현재 시각은 주입받은 `Clock`으로 얻고 운영은 `Clock.systemUTC()`를 사용한다.
 - JVM, 컨테이너와 PostgreSQL 연결의 시간대를 UTC로 명시하고 시스템 기본 시간대에 의존하지 않는다.
 
 세부 기준은 [ADR-0009](adr/platform/0009-utc-time-standard.md)을 따른다.

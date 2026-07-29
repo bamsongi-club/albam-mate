@@ -11,14 +11,6 @@
 ## 실행과 산출물
 
 - Vite 7이 요구하는 Node.js 20.19 이상 또는 22.12 이상을 사용한다. Node.js 21과 22.0~22.11은 사용하지 않는다.
-- macOS·Linux에서는 `npm`, Windows PowerShell에서는 `npm.cmd`를 사용한다.
-
-| 작업 | macOS·Linux | Windows PowerShell |
-| --- | --- | --- |
-| 의존성 설치 | `npm install` | `npm.cmd install` |
-| 개발 서버 | `npm run dev` | `npm.cmd run dev` |
-| 프로덕션 빌드 | `npm run build` | `npm.cmd run build` |
-| 빌드 미리보기 | `npm run preview` | `npm.cmd run preview` |
-
+- `install`, `run dev`, `run build`, `run preview`는 macOS·Linux에서 `npm`, Windows PowerShell에서 `npm.cmd`로 실행한다.
 - 개발 서버는 `/api`를 기본적으로 `http://localhost:8080`에 프록시한다. 다른 로컬 백엔드 포트는 추적하지 않는 `.env.local`의 `VITE_API_PROXY_TARGET`으로 지정한다.
 - `dist/`는 생성 산출물이며 추적하지 않는다.
