@@ -227,7 +227,8 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .game-search-results { display: grid; gap: 8px; }
 .game-search-result { align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 4px; display: flex; gap: 11px; padding: 10px 12px; text-align: left; width: 100%; }
 .game-search-result:hover, .game-search-result.selected { background: var(--soft); border-color: var(--accent); }
-.game-result-mark { align-items: center; background: var(--ink); border-radius: 2px; color: #fff; display: flex; flex: 0 0 34px; font-size: 13px; font-weight: 900; height: 34px; justify-content: center; width: 34px; }
+.game-result-mark { align-items: center; background: var(--ink); border-radius: 2px; color: #fff; display: flex; flex: 0 0 44px; font-size: 13px; font-weight: 900; height: 44px; justify-content: center; overflow: hidden; width: 44px; }
+.game-result-mark img { height: 100%; object-fit: cover; width: 100%; }
 .game-result-copy { display: grid; flex: 1; gap: 1px; min-width: 0; }
 .game-result-copy strong { font-size: 14px; }
 .game-result-copy span { color: var(--sub); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
