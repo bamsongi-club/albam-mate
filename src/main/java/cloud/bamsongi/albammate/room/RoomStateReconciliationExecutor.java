@@ -26,14 +26,10 @@ class RoomStateReconciliationExecutor {
 		Objects.requireNonNull(roomId, "roomId");
 		Objects.requireNonNull(requestTime, "requestTime");
 
-		roomRepository
-			.findById(roomId)
-			.ifPresent(
-				room -> {
-					if (room.reconcileStateAt(requestTime)) {
-						roomRepository.save(room);
-					}
-				});
+		Room room = roomRepository.findById(roomId).orElse(null);
+		if (room != null && room.reconcileStateAt(requestTime)) {
+			roomRepository.save(room);
+		}
 	}
 
 	/** due 조건에 맞는 방만 읽어 목록·내 모임 조회 전 상태를 일괄 보정한다. */
@@ -41,13 +37,10 @@ class RoomStateReconciliationExecutor {
 	public void reconcileDueRooms(Instant requestTime) {
 		Objects.requireNonNull(requestTime, "requestTime");
 		Instant finishedThreshold = requestTime.minus(Room.AUTOMATIC_FINISH_AFTER_START);
-		roomRepository
-			.findDueRooms(requestTime, finishedThreshold)
-			.forEach(
-				room -> {
-					if (room.reconcileStateAt(requestTime)) {
-						roomRepository.save(room);
-					}
-				});
+		for (Room room : roomRepository.findDueRooms(requestTime, finishedThreshold)) {
+			if (room.reconcileStateAt(requestTime)) {
+				roomRepository.save(room);
+			}
+		}
 	}
 }

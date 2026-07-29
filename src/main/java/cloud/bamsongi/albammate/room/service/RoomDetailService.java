@@ -73,8 +73,9 @@ public class RoomDetailService {
 		NicknameSummary host = nicknameSummary(room.getHostUserId());
 		List<NicknameSummary> participants = new ArrayList<>();
 		participants.add(host);
-		activeParticipations.forEach(
-			participation -> participants.add(nicknameSummary(participation.getUserId())));
+		for (Participation participation : activeParticipations) {
+			participants.add(nicknameSummary(participation.getUserId()));
+		}
 		return ParticipantRoomResponse.from(
 			room,
 			game,
