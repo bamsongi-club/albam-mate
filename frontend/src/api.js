@@ -120,8 +120,8 @@ function query(parameters) {
 export const api = {
   getMyProfile: () => request('/api/users/me'),
   getGame: (gameId, signal) => request('/api/games/' + gameId, { signal }),
-  getGames: ({ keyword, page = 0, size = 10 }, signal) =>
-    request('/api/games' + query({ keyword, page, size }), { signal }),
+  getGames: ({ keyword, upcomingOnly, page = 0, size = 10 }, signal) =>
+    request('/api/games' + query({ keyword, upcomingOnly, page, size }), { signal }),
   getRoom: (roomId, signal) => request('/api/rooms/' + roomId, { signal }),
   getRooms: ({ type, gameId, keyword, page = 0, size = 10 }, signal) =>
     request('/api/rooms' + query({ type, gameId, keyword, page, size }), { signal }),

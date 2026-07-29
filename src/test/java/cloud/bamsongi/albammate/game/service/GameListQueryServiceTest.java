@@ -98,9 +98,57 @@ class GameListQueryServiceTest {
 			.thenReturn(new PageImpl<>(List.of(game), pageable, 1));
 		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW)).thenReturn(Map.of());
 
-		Page<GameListItem> result = gameListQueryService.findPage(null, pageable);
+		Page<GameListItem> result = gameListQueryService.findPage(null, false, pageable);
 
 		assertEquals(0L, result.getContent().getFirst().upcomingRoomCount());
+	}
+
+	@Test
+	void 예정_모임_필터는_전체_집계의_게임_ID로_페이지를_조회하고_count를_재사용한다() {
+		Pageable pageable = PageRequest.of(0, 1, Sort.by("name", "id"));
+		Map<Long, Long> upcomingRoomCounts = Map.of(1L, 2L, 2L, 1L);
+		GameListRow game = gameListRow(1L, "카탄");
+		when(upcomingRoomCountQuery.findUpcomingRoomCounts(NOW)).thenReturn(upcomingRoomCounts);
+		when(gameRepository.findListRowsByIdIn(upcomingRoomCounts.keySet(), pageable))
+			.thenReturn(new PageImpl<>(List.of(game), pageable, 2));
+
+		Page<GameListItem> result = gameListQueryService.findPage(null, true, pageable);
+
+		assertEquals(2, result.getTotalElements());
+		assertEquals(2L, result.getContent().getFirst().upcomingRoomCount());
+		verify(upcomingRoomCountQuery).findUpcomingRoomCounts(NOW);
+		verify(gameRepository).findListRowsByIdIn(upcomingRoomCounts.keySet(), pageable);
+	}
+
+	@Test
+	void 예정_모임_필터와_검색어를_함께_사용하면_strip한_검색어를_같이_적용한다() {
+		Pageable pageable = PageRequest.of(0, 10, Sort.by("name", "id"));
+		Map<Long, Long> upcomingRoomCounts = Map.of(1L, 2L);
+		GameListRow game = gameListRow(1L, "카탄");
+		when(upcomingRoomCountQuery.findUpcomingRoomCounts(NOW)).thenReturn(upcomingRoomCounts);
+		when(
+			gameRepository.findListRowsByIdInAndNameContainingIgnoreCase(
+				upcomingRoomCounts.keySet(), "카탄", pageable))
+			.thenReturn(new PageImpl<>(List.of(game), pageable, 1));
+
+		Page<GameListItem> result = gameListQueryService.findPage("  카탄  ", true, pageable);
+
+		assertEquals("카탄", result.getContent().getFirst().name());
+		verify(gameRepository)
+			.findListRowsByIdInAndNameContainingIgnoreCase(upcomingRoomCounts.keySet(), "카탄", pageable);
+	}
+
+	@Test
+	void 예정_모임_게임이_없으면_IN_조회없이_요청_페이지_기준_빈_결과를_반환한다() {
+		Pageable pageable = PageRequest.of(2, 10, Sort.by("name", "id"));
+		when(upcomingRoomCountQuery.findUpcomingRoomCounts(NOW)).thenReturn(Map.of());
+
+		Page<GameListItem> result = gameListQueryService.findPage(null, true, pageable);
+
+		assertEquals(0, result.getTotalElements());
+		assertEquals(2, result.getNumber());
+		verify(upcomingRoomCountQuery).findUpcomingRoomCounts(NOW);
+		verifyNoInteractions(gameRepository);
 	}
 
 	private GameListRow gameListRow(Long id, String name) {

@@ -55,6 +55,23 @@ class GameRepositoryTest {
 	}
 
 	@Test
+	void 예정_모임이_있는_게임_ID와_검색어를_AND로_적용해_페이지로_조회한다() {
+		List<Game> games = gameRepository.saveAllAndFlush(
+			List.of(
+				GameFixture.valid(1001L, "Catan"),
+				GameFixture.valid(1002L, "Catan Junior"),
+				GameFixture.valid(1003L, "Azul")));
+		PageRequest pageable = PageRequest.of(0, 1, Sort.by(Sort.Direction.ASC, "name", "id"));
+
+		Page<GameListRow> result = gameRepository.findListRowsByIdInAndNameContainingIgnoreCase(
+			List.of(games.get(0).getId(), games.get(2).getId()), "cat", pageable);
+
+		assertEquals(1, result.getTotalElements());
+		assertEquals(1, result.getTotalPages());
+		assertEquals(List.of("Catan"), result.getContent().stream().map(GameListRow::name).toList());
+	}
+
+	@Test
 	void 요약은_필요한_필드만_조회하고_없는_ID는_empty다() {
 		Game savedGame = gameRepository.saveAndFlush(GameFixture.valid());
 

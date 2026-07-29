@@ -34,6 +34,29 @@ public interface GameRepository extends JpaRepository<Game, Long> {
 	Page<GameListRow> findListRowsByNameContainingIgnoreCase(String keyword, Pageable pageable);
 
 	@Query("""
+		select new cloud.bamsongi.albammate.game.repository.GameListRow(
+		    g.id, g.bggId, g.name, g.englishName, g.imageUrl, g.supportedPlayerCount,
+		    g.tag, g.estimatedPlayTime, g.complexity)
+		from Game g
+		where g.id in :gameIds
+		""")
+	Page<GameListRow> findListRowsByIdIn(@Param("gameIds")
+	Collection<Long> gameIds, Pageable pageable);
+
+	@Query("""
+		select new cloud.bamsongi.albammate.game.repository.GameListRow(
+		    g.id, g.bggId, g.name, g.englishName, g.imageUrl, g.supportedPlayerCount,
+		    g.tag, g.estimatedPlayTime, g.complexity)
+		from Game g
+		where g.id in :gameIds
+		  and lower(g.name) like lower(concat('%', ?#{escape([1])}, '%'))
+		    escape ?#{escapeCharacter()}
+		""")
+	Page<GameListRow> findListRowsByIdInAndNameContainingIgnoreCase(
+		@Param("gameIds")
+		Collection<Long> gameIds, String keyword, Pageable pageable);
+
+	@Query("""
 		select new cloud.bamsongi.albammate.game.contract.GameSummary(g.id, g.bggId, g.name)
 		from Game g
 		where g.id = :gameId
