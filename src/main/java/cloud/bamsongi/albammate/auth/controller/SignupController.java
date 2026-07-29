@@ -30,7 +30,7 @@ public final class SignupController {
 		@Valid @RequestBody
 		SignupRequest request, HttpServletRequest servletRequest) {
 		UserAccount account = signupService.signup(request.normalize(), servletRequest.getRemoteAddr());
-		UserSummary userSummary = new UserSummary(account.id(), account.nickname());
+		UserSummary userSummary = UserSummary.from(account);
 		return ResponseEntity.status(HttpStatus.CREATED)
 			.body(ApiResponse.success(HttpStatus.CREATED, userSummary));
 	}

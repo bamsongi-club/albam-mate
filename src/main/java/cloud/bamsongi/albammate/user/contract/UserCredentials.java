@@ -5,7 +5,7 @@ public record UserCredentials(Long id, String nickname, String passwordHash) {
 
 	public UserCredentials {
 		if (id == null || id <= 0) {
-			throw new IllegalArgumentException("id는 양수여야 합니다.");
+			throw new IllegalArgumentException("id must be positive");
 		}
 		if (nickname == null || nickname.isEmpty()) {
 			throw new IllegalArgumentException("nickname must not be empty");

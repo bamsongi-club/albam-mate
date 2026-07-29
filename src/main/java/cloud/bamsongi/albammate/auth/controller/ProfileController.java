@@ -30,7 +30,7 @@ public final class ProfileController {
 	@GetMapping
 	public ResponseEntity<ApiResponse<UserSummary>> findMyProfile() {
 		UserProfile profile = userProfileService.findProfile(currentUserAccessor.requireCurrentUserId());
-		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, toUserSummary(profile)));
+		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, UserSummary.from(profile)));
 	}
 
 	@PatchMapping
@@ -40,10 +40,6 @@ public final class ProfileController {
 		String nickname = request.normalize();
 		UserProfile profile = userProfileService.changeNickname(
 			currentUserAccessor.requireCurrentUserId(), nickname);
-		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, toUserSummary(profile)));
-	}
-
-	private UserSummary toUserSummary(UserProfile profile) {
-		return new UserSummary(profile.id(), profile.nickname());
+		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, UserSummary.from(profile)));
 	}
 }

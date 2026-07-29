@@ -48,10 +48,13 @@ public final class LoginController {
 		establishSession(account, servletRequest, servletResponse);
 		csrfTokenRepository.saveToken(null, servletRequest, servletResponse);
 
-		UserSummary userSummary = new UserSummary(account.id(), account.nickname());
+		UserSummary userSummary = UserSummary.from(account);
 		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, userSummary));
 	}
 
+	/**
+	 * 로그인 성공 사용자를 세션 인증으로 등록하고 세션 ID를 교체해 세션 고정 공격을 방어한다.
+	 */
 	private void establishSession(
 		UserAccount account,
 		HttpServletRequest servletRequest,
@@ -67,9 +70,10 @@ public final class LoginController {
 				AuthorityUtils.NO_AUTHORITIES));
 		SecurityContextHolder.setContext(context);
 		securityContextRepository.saveContext(context, servletRequest, servletResponse);
-		if (!hasSessionCookie(servletResponse)) {
-			servletResponse.addCookie(sessionCookieConfigurer.sessionCookie(session.getId()));
+		if (hasSessionCookie(servletResponse)) {
+			return;
 		}
+		servletResponse.addCookie(sessionCookieConfigurer.sessionCookie(session.getId()));
 	}
 
 	private boolean hasSessionCookie(HttpServletResponse servletResponse) {
