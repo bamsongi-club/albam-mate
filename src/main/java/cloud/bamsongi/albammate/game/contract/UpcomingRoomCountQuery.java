@@ -11,5 +11,14 @@ import java.util.Map;
  */
 public interface UpcomingRoomCountQuery {
 
+    /**
+     * 기준 시각에 예정된 모임 수를 게임별로 조회한다.
+     *
+     * <p>반환 맵에 없는 게임 ID는 예정 모임이 0건인 것으로 해석한다.
+     *
+     * @param gameIds 알밤메이트 내부 게임 ID
+     * @param now 예정 여부를 판단할 기준 시각
+     * @return 예정 모임이 있는 게임 ID와 모임 수
+     */
     Map<Long, Long> findUpcomingRoomCounts(Collection<Long> gameIds, Instant now);
 }

@@ -74,16 +74,4 @@ public class Game extends BaseEntity {
         this.description = description;
         this.detailDescription = detailDescription;
     }
-
-    public Long getId() {
-        return id;
-    }
-
-    public Long getBggId() {
-        return bggId;
-    }
-
-    public String getName() {
-        return name;
-    }
 }

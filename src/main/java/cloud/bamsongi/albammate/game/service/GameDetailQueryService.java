@@ -22,6 +22,13 @@ public class GameDetailQueryService {
     private final Clock clock;
     private final UpcomingRoomCountQuery upcomingRoomCountQuery;
 
+    /**
+     * 게임 상세와 조회 시각 기준 예정 모임 수를 조회한다.
+     *
+     * @param gameId 알밤메이트 내부 게임 ID
+     * @return 예정 모임 수가 포함된 게임 상세
+     * @throws BusinessException 게임이 없으면 {@link ErrorCode#GAME_NOT_FOUND}
+     */
     public GameDetail findById(Long gameId) {
         Game game =
                 gameRepository
@@ -32,19 +39,6 @@ public class GameDetailQueryService {
                         .findUpcomingRoomCounts(List.of(game.getId()), Instant.now(clock))
                         .getOrDefault(game.getId(), 0L);
 
-        return new GameDetail(
-                game.getId(),
-                game.getBggId(),
-                game.getName(),
-                game.getEnglishName(),
-                game.getImageUrl(),
-                game.getSupportedPlayerCount(),
-                game.getTag(),
-                game.getEstimatedPlayTime(),
-                game.getComplexity(),
-                upcomingRoomCount,
-                game.getAlias(),
-                game.getDescription(),
-                game.getDetailDescription());
+        return GameDetail.from(game, upcomingRoomCount);
     }
 }
