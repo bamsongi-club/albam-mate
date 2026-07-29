@@ -38,7 +38,7 @@
 | `{Scenario}RealHttpIntegrationTest` | 임의 포트의 실제 서버와 HTTP client를 연결해 검증하는 테스트 |
 | `{Scope}PersistenceTest` | 여러 Entity의 매핑, 관계와 영속성 계약을 함께 검증하는 테스트 |
 | `{Scope}PostgresTest` | `postgresTest` source set에서 실제 PostgreSQL 고유 계약을 검증하는 테스트 |
-| `{ApplicationName}ApplicationTests` | Spring Boot 애플리케이션 context 기동 smoke test |
+| `{ApplicationName}ApplicationTest` | Spring Boot 애플리케이션 context 기동 smoke test |
 
 ## 근거와 명령
 
