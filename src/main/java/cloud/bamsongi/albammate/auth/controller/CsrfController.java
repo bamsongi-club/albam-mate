@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 import cloud.bamsongi.albammate.auth.dto.CsrfTokenResponse;
 import cloud.bamsongi.albammate.global.response.ApiResponse;
 
-/** 인증 관련 HTTP 요청을 처리한다. */
+/** CSRF 토큰 발급 HTTP 경계를 담당한다. */
 @RestController
 @RequestMapping("/api/auth")
 public final class CsrfController {

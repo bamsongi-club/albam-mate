@@ -1,5 +1,7 @@
 package cloud.bamsongi.albammate.auth.controller;
 
+import java.util.Map;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -13,7 +15,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import cloud.bamsongi.albammate.global.response.ApiResponse;
 import cloud.bamsongi.albammate.global.security.session.SessionCookieConfigurer;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.NonNull;
@@ -29,19 +30,15 @@ public final class LogoutController {
 	@NonNull private final SessionCookieConfigurer sessionCookieConfigurer;
 
 	@PostMapping("/logout")
-	public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> logout(
+	public ResponseEntity<ApiResponse<Map<String, Object>>> logout(
 		HttpServletRequest servletRequest, HttpServletResponse servletResponse) {
 		csrfTokenRepository.saveToken(null, servletRequest, servletResponse);
 
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 		new SecurityContextLogoutHandler().logout(servletRequest, servletResponse, authentication);
-		new CookieClearingLogoutHandler(sessionCookieToClear())
+		new CookieClearingLogoutHandler(sessionCookieConfigurer.expiredSessionCookie())
 			.logout(servletRequest, servletResponse, authentication);
 
 		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK));
-	}
-
-	private Cookie sessionCookieToClear() {
-		return sessionCookieConfigurer.expiredSessionCookie();
 	}
 }

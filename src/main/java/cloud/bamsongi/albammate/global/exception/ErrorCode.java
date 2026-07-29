@@ -45,20 +45,4 @@ public enum ErrorCode {
 	public String getCode() {
 		return name();
 	}
-
-	public HttpStatus httpStatus() {
-		return httpStatus;
-	}
-
-	public int status() {
-		return getStatus();
-	}
-
-	public String code() {
-		return getCode();
-	}
-
-	public String message() {
-		return message;
-	}
 }

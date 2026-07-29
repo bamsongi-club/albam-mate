@@ -45,6 +45,14 @@ public final class InvalidatingCsrfTokenRepository implements CsrfTokenRepositor
 			scope + SCOPE_SEPARATOR + delegateToken.getToken());
 	}
 
+	/**
+	 * 위임 저장소에 토큰을 저장하고, {@code token}이 {@code null}이면 세션 nonce까지 지운다.
+	 *
+	 * <p>nonce를 지우는 것이 이 클래스의 무효화 수단이다. nonce가 사라지면 그 세션 범위로 발급했던 토큰은
+	 * {@link #loadToken(HttpServletRequest)}에서 전부 거절된다. 로그인·로그아웃이 {@code saveToken(null, ...)}을
+	 * 호출하는 이유가 이 무효화이며, 그래서 클라이언트는 인증 상태가 바뀔 때마다 {@code GET /api/auth/csrf}로 토큰을 다시
+	 * 받아야 한다.
+	 */
 	@Override
 	public void saveToken(
 		CsrfToken token, HttpServletRequest request, HttpServletResponse response) {

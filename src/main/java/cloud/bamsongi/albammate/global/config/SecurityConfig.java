@@ -10,6 +10,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
@@ -80,6 +82,17 @@ public class SecurityConfig {
 		repository.setCookiePath("/");
 		repository.setCookieCustomizer(cookieCustomizer(properties));
 		return repository;
+	}
+
+	/**
+	 * 로그인 컨트롤러가 인증을 세션에 저장할 때 사용하는 저장소다.
+	 *
+	 * <p>필터 체인의 기본 저장소와 같은 세션 속성을 쓰므로, 다음 요청의 {@code SecurityContextHolderFilter}가 여기서
+	 * 저장한 인증을 그대로 읽는다.
+	 */
+	@Bean
+	SecurityContextRepository securityContextRepository() {
+		return new HttpSessionSecurityContextRepository();
 	}
 
 	@Bean

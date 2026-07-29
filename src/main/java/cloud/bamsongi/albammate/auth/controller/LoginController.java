@@ -6,7 +6,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,7 +18,6 @@ import cloud.bamsongi.albammate.auth.dto.UserSummary;
 import cloud.bamsongi.albammate.auth.service.LoginService;
 import cloud.bamsongi.albammate.global.response.ApiResponse;
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal;
-import cloud.bamsongi.albammate.global.security.session.SessionCookieConfigurer;
 import cloud.bamsongi.albammate.user.contract.UserAccount;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -35,8 +33,7 @@ public final class LoginController {
 
 	@NonNull private final LoginService loginService;
 	@NonNull private final CsrfTokenRepository csrfTokenRepository;
-	@NonNull private final SessionCookieConfigurer sessionCookieConfigurer;
-	private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
+	@NonNull private final SecurityContextRepository securityContextRepository;
 
 	@PostMapping("/login")
 	public ResponseEntity<ApiResponse<UserSummary>> login(
@@ -59,7 +56,8 @@ public final class LoginController {
 		UserAccount account,
 		HttpServletRequest servletRequest,
 		HttpServletResponse servletResponse) {
-		var session = servletRequest.getSession(true);
+		// changeSessionId()는 세션이 있어야 하므로 먼저 만든다. JSESSIONID 발급은 컨테이너가 담당한다.
+		servletRequest.getSession(true);
 		servletRequest.changeSessionId();
 
 		SecurityContext context = SecurityContextHolder.createEmptyContext();
@@ -70,14 +68,5 @@ public final class LoginController {
 				AuthorityUtils.NO_AUTHORITIES));
 		SecurityContextHolder.setContext(context);
 		securityContextRepository.saveContext(context, servletRequest, servletResponse);
-		if (hasSessionCookie(servletResponse)) {
-			return;
-		}
-		servletResponse.addCookie(sessionCookieConfigurer.sessionCookie(session.getId()));
-	}
-
-	private boolean hasSessionCookie(HttpServletResponse servletResponse) {
-		return servletResponse.getHeaders("Set-Cookie").stream()
-			.anyMatch(header -> header.startsWith("JSESSIONID="));
 	}
 }

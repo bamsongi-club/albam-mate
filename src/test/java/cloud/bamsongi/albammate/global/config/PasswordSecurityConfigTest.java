@@ -2,10 +2,12 @@ package cloud.bamsongi.albammate.global.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 class PasswordSecurityConfigTest {
@@ -36,12 +38,23 @@ class PasswordSecurityConfigTest {
 	}
 
 	@Test
-	void bcrypt_cost는_10_미만이나_31_초과로_설정할_수_없다() {
-		PasswordSecurityProperties low = properties(9);
-		PasswordSecurityProperties high = properties(32);
+	void 범위를_벗어난_bcrypt_cost는_애플리케이션_부팅을_실패시킨다() {
+		new ApplicationContextRunner()
+			.withUserConfiguration(PasswordSecurityConfig.class)
+			.withPropertyValues("app.security.password.bcrypt-cost=9")
+			.run(context -> assertNotNull(context.getStartupFailure()));
+	}
 
-		assertThrows(IllegalArgumentException.class, () -> config.passwordEncoder(low));
-		assertThrows(IllegalArgumentException.class, () -> config.passwordEncoder(high));
+	@Test
+	void 범위_안의_bcrypt_cost는_정상적으로_바인딩된다() {
+		new ApplicationContextRunner()
+			.withUserConfiguration(PasswordSecurityConfig.class)
+			.withPropertyValues("app.security.password.bcrypt-cost=11")
+			.run(context -> {
+				assertNull(context.getStartupFailure());
+				assertEquals(
+					11, context.getBean(PasswordSecurityProperties.class).getBcryptCost());
+			});
 	}
 
 	private PasswordSecurityProperties properties(int cost) {

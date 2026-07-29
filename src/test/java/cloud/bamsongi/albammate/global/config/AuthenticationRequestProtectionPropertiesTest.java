@@ -1,26 +1,29 @@
 package cloud.bamsongi.albammate.global.config;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
+import java.util.function.Consumer;
 
 import org.junit.jupiter.api.Test;
 
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+
 class AuthenticationRequestProtectionPropertiesTest {
+
+	private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
 	@Test
 	void 기본값은_유효한_인증_요청_보호_설정이다() {
-		assertDoesNotThrow(() -> new AuthenticationRequestProtectionProperties().validate());
+		assertTrue(validator.validate(new AuthenticationRequestProtectionProperties()).isEmpty());
 	}
 
 	@Test
 	void window은_null_zero_음수를_거절한다() {
 		for (Duration window : new Duration[] {null, Duration.ZERO, Duration.ofSeconds(-1)}) {
-			AuthenticationRequestProtectionProperties properties = new AuthenticationRequestProtectionProperties();
-			properties.setWindow(window);
-
-			assertThrows(IllegalArgumentException.class, properties::validate);
+			assertInvalid(properties -> properties.setWindow(window));
 		}
 	}
 
@@ -34,11 +37,10 @@ class AuthenticationRequestProtectionPropertiesTest {
 		assertInvalid(properties -> properties.setHashSlots(-1));
 	}
 
-	private void assertInvalid(
-		java.util.function.Consumer<AuthenticationRequestProtectionProperties> change) {
+	private void assertInvalid(Consumer<AuthenticationRequestProtectionProperties> change) {
 		AuthenticationRequestProtectionProperties properties = new AuthenticationRequestProtectionProperties();
 		change.accept(properties);
 
-		assertThrows(IllegalArgumentException.class, properties::validate);
+		assertFalse(validator.validate(properties).isEmpty());
 	}
 }

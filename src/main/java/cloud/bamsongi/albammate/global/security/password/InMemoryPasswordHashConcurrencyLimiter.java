@@ -17,7 +17,6 @@ public class InMemoryPasswordHashConcurrencyLimiter implements PasswordHashConcu
 
 	public InMemoryPasswordHashConcurrencyLimiter(
 		AuthenticationRequestProtectionProperties properties) {
-		properties.validate();
 		this.maxConcurrent = properties.getHashSlots();
 		this.slots = new Semaphore(maxConcurrent, true);
 	}

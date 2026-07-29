@@ -19,7 +19,7 @@ import cloud.bamsongi.albammate.user.contract.UserCredentials;
 @Service
 public class LoginService {
 
-	/* 계정 유무에 따른 빠른 실패를 막기 위해 동일한 bcrypt 형식의 더미 해시를 사용한다. */
+	// 계정 유무에 따른 빠른 실패를 막기 위해 동일한 bcrypt 형식의 더미 해시를 사용한다.
 	private static final String DUMMY_PASSWORD = "albam-mate-dummy-password";
 
 	private final AuthenticationRequestLimiter requestLimiter;
@@ -90,9 +90,8 @@ public class LoginService {
 	}
 
 	private static String createDummyPasswordHash(PasswordSecurityProperties properties) {
-		PasswordSecurityProperties validated = Objects.requireNonNull(properties, "properties");
-		validated.validate();
-		BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder(validated.getBcryptCost());
+		Objects.requireNonNull(properties, "properties");
+		BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder(properties.getBcryptCost());
 		return "{bcrypt}" + bcrypt.encode(DUMMY_PASSWORD);
 	}
 }

@@ -79,7 +79,7 @@ public class InMemoryAuthenticationRequestLimiter implements AuthenticationReque
 
 	public InMemoryAuthenticationRequestLimiter(
 		AuthenticationRequestProtectionProperties properties, Clock clock) {
-		Objects.requireNonNull(properties, "properties").validate();
+		Objects.requireNonNull(properties, "properties");
 		this.clock = Objects.requireNonNull(clock, "clock");
 		this.window = properties.getWindow();
 		this.signupLimit = properties.getSignupLimit();

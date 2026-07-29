@@ -19,7 +19,6 @@ public class PasswordSecurityConfig {
 
 	@Bean
 	PasswordEncoder passwordEncoder(PasswordSecurityProperties properties) {
-		properties.validate();
 		BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder(properties.getBcryptCost());
 		return new DelegatingPasswordEncoder("bcrypt", Map.of("bcrypt", bcrypt));
 	}
