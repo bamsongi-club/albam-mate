@@ -1,12 +1,11 @@
 package cloud.bamsongi.albammate.user.service;
 
 import cloud.bamsongi.albammate.global.security.password.PasswordHashExecutor;
+import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
 import cloud.bamsongi.albammate.user.contract.UserAccount;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
 import cloud.bamsongi.albammate.user.contract.UserCredentials;
 import cloud.bamsongi.albammate.user.contract.UserEmail;
-import cloud.bamsongi.albammate.user.contract.UserNickname;
-import cloud.bamsongi.albammate.user.contract.UserPasswordPolicy;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.exception.EmailAlreadyExistsException;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
@@ -30,10 +29,9 @@ public class UserAccountApplicationService implements UserAccountService {
     /** 중복을 먼저 확인한 뒤 슬롯 안에서 해시하고, DB unique 경쟁도 같은 오류로 변환한다. */
     @Override
     @Transactional
-    public UserAccount createAccount(String email, String rawPassword, String nickname) {
-        String normalizedEmail = requiredEmail(email);
-        String normalizedNickname = requiredNickname(nickname);
-        requireSignupPassword(rawPassword);
+    public UserAccount createAccount(CreateUserAccountCommand command) {
+        String normalizedEmail = command.email().value();
+        String normalizedNickname = command.nickname().value();
 
         return passwordHashExecutor.execute(
                 () -> {
@@ -41,7 +39,7 @@ public class UserAccountApplicationService implements UserAccountService {
                         throw new EmailAlreadyExistsException();
                     }
 
-                    String passwordHash = passwordEncoder.encode(rawPassword);
+                    String passwordHash = passwordEncoder.encode(command.rawPassword().value());
                     User user = User.create(normalizedEmail, passwordHash, normalizedNickname);
                     try {
                         User saved = userRepository.saveAndFlush(user);
@@ -89,21 +87,9 @@ public class UserAccountApplicationService implements UserAccountService {
         }
     }
 
-    private void requireSignupPassword(String rawPassword) {
-        if (!UserPasswordPolicy.isValidSignupPassword(rawPassword)) {
-            throw new IllegalArgumentException("password must satisfy signup policy");
-        }
-    }
-
     private String requiredEmail(String rawEmail) {
         return UserEmail.from(rawEmail)
                 .map(UserEmail::value)
                 .orElseThrow(() -> new IllegalArgumentException("email must be valid"));
-    }
-
-    private String requiredNickname(String rawNickname) {
-        return UserNickname.from(rawNickname)
-                .map(UserNickname::value)
-                .orElseThrow(() -> new IllegalArgumentException("nickname must be valid"));
     }
 }

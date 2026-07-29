@@ -4,7 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
+import cloud.bamsongi.albammate.user.contract.RawPassword;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
+import cloud.bamsongi.albammate.user.contract.UserEmail;
+import cloud.bamsongi.albammate.user.contract.UserNickname;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
 import java.net.HttpCookie;
@@ -42,7 +46,7 @@ class LoginLogoutRealHttpIntegrationTest {
         String suffix = UUID.randomUUID().toString();
         String email = "real-http-" + suffix + "@example.com";
         String password = "123456789012345";
-        userAccountService.createAccount(email, password, "실제 HTTP 사용자");
+        userAccountService.createAccount(command(email, password, "실제 HTTP 사용자"));
 
         URI baseUri = URI.create("http://localhost:" + port);
         CookieManager cookieManager = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
@@ -137,6 +141,13 @@ class LoginLogoutRealHttpIntegrationTest {
                                     .startsWith("Thu, 01 Jan 1970"),
                     header);
         }
+    }
+
+    private CreateUserAccountCommand command(String email, String password, String nickname) {
+        return new CreateUserAccountCommand(
+                UserEmail.from(email).orElseThrow(),
+                RawPassword.from(password).orElseThrow(),
+                UserNickname.from(nickname).orElseThrow());
     }
 
     private Map<String, String> cookieAttributes(String header) {

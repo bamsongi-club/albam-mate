@@ -47,4 +47,20 @@ public final class UserEmail {
     public String value() {
         return value;
     }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (!(other instanceof UserEmail userEmail)) {
+            return false;
+        }
+        return value.equals(userEmail.value);
+    }
+
+    @Override
+    public int hashCode() {
+        return value.hashCode();
+    }
 }

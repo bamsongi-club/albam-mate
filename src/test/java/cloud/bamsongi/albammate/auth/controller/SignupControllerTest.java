@@ -18,8 +18,12 @@ import cloud.bamsongi.albammate.global.security.error.ApiAccessDeniedHandler;
 import cloud.bamsongi.albammate.global.security.error.ApiAuthenticationEntryPoint;
 import cloud.bamsongi.albammate.global.security.error.SecurityErrorResponseWriter;
 import cloud.bamsongi.albammate.global.security.ratelimit.AuthenticationRequestLimiter;
+import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
+import cloud.bamsongi.albammate.user.contract.RawPassword;
 import cloud.bamsongi.albammate.user.contract.UserAccount;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
+import cloud.bamsongi.albammate.user.contract.UserEmail;
+import cloud.bamsongi.albammate.user.contract.UserNickname;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -56,7 +60,8 @@ class SignupControllerTest {
 
     @Test
     void CSRF가_있는_회원가입은_201과_UserSummary를_반환하고_세션을_만들지_않는다() throws Exception {
-        when(userAccountService.createAccount("user@example.com", "123456789012345", "닉네임"))
+        when(userAccountService.createAccount(
+                        command("user@example.com", "123456789012345", "닉네임")))
                 .thenReturn(new UserAccount(7L, "닉네임"));
         MvcResult csrfResult =
                 mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
@@ -150,6 +155,13 @@ class SignupControllerTest {
             request.setRemoteAddr(remoteAddress);
             return request;
         };
+    }
+
+    private CreateUserAccountCommand command(String email, String password, String nickname) {
+        return new CreateUserAccountCommand(
+                UserEmail.from(email).orElseThrow(),
+                RawPassword.from(password).orElseThrow(),
+                UserNickname.from(nickname).orElseThrow());
     }
 
     @TestConfiguration(proxyBeanMethods = false)

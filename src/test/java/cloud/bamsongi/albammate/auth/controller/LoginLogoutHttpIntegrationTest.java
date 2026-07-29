@@ -9,7 +9,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
+import cloud.bamsongi.albammate.user.contract.RawPassword;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
+import cloud.bamsongi.albammate.user.contract.UserEmail;
+import cloud.bamsongi.albammate.user.contract.UserNickname;
 import jakarta.servlet.http.Cookie;
 import java.time.Instant;
 import java.util.TimeZone;
@@ -36,7 +40,7 @@ class LoginLogoutHttpIntegrationTest {
     void 로그인_성공은_세션을_교체하고_로그아웃은_세션과_CSRF를_무효화한다() throws Exception {
         String email = "login-logout-http@example.com";
         String password = "123456789012345";
-        var account = userAccountService.createAccount(email, password, "로그인 사용자");
+        var account = userAccountService.createAccount(command(email, password, "로그인 사용자"));
         MvcResult anonymousCsrf =
                 mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
         Cookie anonymousToken = anonymousCsrf.getResponse().getCookie("XSRF-TOKEN");
@@ -227,5 +231,12 @@ class LoginLogoutHttpIntegrationTest {
                         })
                 .contentType("application/json")
                 .content("{\"email\":\"" + email + "\",\"password\":\"wrong-password\"}");
+    }
+
+    private CreateUserAccountCommand command(String email, String password, String nickname) {
+        return new CreateUserAccountCommand(
+                UserEmail.from(email).orElseThrow(),
+                RawPassword.from(password).orElseThrow(),
+                UserNickname.from(nickname).orElseThrow());
     }
 }

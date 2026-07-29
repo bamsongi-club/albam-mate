@@ -10,7 +10,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import cloud.bamsongi.albammate.auth.dto.LoginRequest;
 import cloud.bamsongi.albammate.auth.exception.InvalidCredentialsException;
 import cloud.bamsongi.albammate.global.config.AuthenticationRequestProtectionProperties;
 import cloud.bamsongi.albammate.global.config.PasswordSecurityProperties;
@@ -25,6 +24,7 @@ import cloud.bamsongi.albammate.global.security.ratelimit.RateLimitDecision;
 import cloud.bamsongi.albammate.user.contract.UserAccount;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
 import cloud.bamsongi.albammate.user.contract.UserCredentials;
+import cloud.bamsongi.albammate.user.contract.UserEmail;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -290,8 +290,8 @@ class LoginServiceTest {
                 passwordSecurityProperties());
     }
 
-    private LoginRequest.Normalized normalized(String email, String password) {
-        return new LoginRequest(email, password).normalize();
+    private LoginCommand normalized(String email, String password) {
+        return new LoginCommand(UserEmail.normalize(email), password);
     }
 
     private PasswordSecurityProperties passwordSecurityProperties() {

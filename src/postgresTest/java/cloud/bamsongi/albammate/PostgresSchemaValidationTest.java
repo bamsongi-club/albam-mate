@@ -4,7 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
+import cloud.bamsongi.albammate.user.contract.RawPassword;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
+import cloud.bamsongi.albammate.user.contract.UserEmail;
+import cloud.bamsongi.albammate.user.contract.UserNickname;
 import cloud.bamsongi.albammate.user.exception.EmailAlreadyExistsException;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 import java.lang.reflect.InvocationTargetException;
@@ -307,7 +311,11 @@ class PostgresSchemaValidationTest {
             if (!start.await(5, TimeUnit.SECONDS)) {
                 return new AssertionError("가입 경합 시작 신호를 기다리다 시간 초과했습니다.");
             }
-            userAccountService.createAccount(email, "123456789012345", nickname);
+            userAccountService.createAccount(
+                    new CreateUserAccountCommand(
+                            UserEmail.from(email).orElseThrow(),
+                            RawPassword.from("123456789012345").orElseThrow(),
+                            UserNickname.from(nickname).orElseThrow()));
             return null;
         } catch (EmailAlreadyExistsException exception) {
             return exception;

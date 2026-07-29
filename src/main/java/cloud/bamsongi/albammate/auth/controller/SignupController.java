@@ -4,6 +4,7 @@ import cloud.bamsongi.albammate.auth.dto.SignupRequest;
 import cloud.bamsongi.albammate.auth.dto.UserSummary;
 import cloud.bamsongi.albammate.auth.service.SignupService;
 import cloud.bamsongi.albammate.global.response.ApiResponse;
+import cloud.bamsongi.albammate.user.contract.UserAccount;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.NonNull;
@@ -26,7 +27,9 @@ public final class SignupController {
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<UserSummary>> signup(
             @Valid @RequestBody SignupRequest request, HttpServletRequest servletRequest) {
-        UserSummary userSummary = signupService.signup(request, servletRequest.getRemoteAddr());
+        UserAccount account =
+                signupService.signup(request.normalize(), servletRequest.getRemoteAddr());
+        UserSummary userSummary = new UserSummary(account.id(), account.nickname());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED, userSummary));
     }

@@ -34,4 +34,20 @@ public final class UserNickname {
     public String value() {
         return value;
     }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (!(other instanceof UserNickname userNickname)) {
+            return false;
+        }
+        return value.equals(userNickname.value);
+    }
+
+    @Override
+    public int hashCode() {
+        return value.hashCode();
+    }
 }

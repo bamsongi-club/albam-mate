@@ -1,6 +1,5 @@
 package cloud.bamsongi.albammate.auth.service;
 
-import cloud.bamsongi.albammate.auth.dto.LoginRequest.Normalized;
 import cloud.bamsongi.albammate.auth.exception.InvalidCredentialsException;
 import cloud.bamsongi.albammate.global.config.PasswordSecurityProperties;
 import cloud.bamsongi.albammate.global.security.password.PasswordHashExecutor;
@@ -42,36 +41,35 @@ public class LoginService {
     }
 
     /** 사전 검증을 통과한 요청만 제한·검증하고, 성공한 자격증명의 공개 요약을 반환한다. */
-    public UserAccount login(Normalized normalized, String remoteIp) {
+    public UserAccount login(LoginCommand command, String remoteIp) {
         requestLimiter.requireLoginAllowed(remoteIp);
         return requestLimiter.executeLoginVerification(
-                normalized.email(),
+                command.email(),
                 remoteIp,
                 () -> {
-                    requestLimiter.requireLoginFailureAllowed(normalized.email(), remoteIp);
-                    return passwordHashExecutor.execute(
-                            () -> verifyCredentials(normalized, remoteIp));
+                    requestLimiter.requireLoginFailureAllowed(command.email(), remoteIp);
+                    return passwordHashExecutor.execute(() -> verifyCredentials(command, remoteIp));
                 });
     }
 
-    private UserAccount verifyCredentials(Normalized normalized, String remoteIp) {
+    private UserAccount verifyCredentials(LoginCommand command, String remoteIp) {
         Optional<UserCredentials> credentials =
-                userAccountService.findCredentialsByEmail(normalized.email());
+                userAccountService.findCredentialsByEmail(command.email());
         String storedHash =
                 credentials.map(UserCredentials::passwordHash).orElse(dummyPasswordHash);
 
-        boolean matches = passwordEncoder.matches(normalized.password(), storedHash);
+        boolean matches = passwordEncoder.matches(command.password(), storedHash);
         if (!matches || credentials.isEmpty()) {
-            requestLimiter.recordLoginFailure(normalized.email(), remoteIp).throwIfRejected();
+            requestLimiter.recordLoginFailure(command.email(), remoteIp).throwIfRejected();
             throw new InvalidCredentialsException();
         }
 
         UserCredentials authenticated = credentials.orElseThrow();
         if (passwordEncoder.upgradeEncoding(storedHash)) {
-            String upgradedHash = passwordEncoder.encode(normalized.password());
+            String upgradedHash = passwordEncoder.encode(command.password());
             userAccountService.updatePasswordHash(authenticated.id(), upgradedHash);
         }
-        requestLimiter.resetLoginFailures(normalized.email(), remoteIp);
+        requestLimiter.resetLoginFailures(command.email(), remoteIp);
         return new UserAccount(authenticated.id(), authenticated.nickname());
     }
 

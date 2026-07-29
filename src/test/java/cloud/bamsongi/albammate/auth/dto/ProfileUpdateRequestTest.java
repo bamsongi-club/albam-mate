@@ -14,13 +14,9 @@ class ProfileUpdateRequestTest {
 
     @Test
     void 닉네임의_앞뒤_공백을_제거하고_유니코드_code_point_기준_경계를_허용한다() {
-        assertEquals("닉네임", new ProfileUpdateRequest(" 닉네임 ").normalize().nickname());
+        assertEquals("닉네임", new ProfileUpdateRequest(" 닉네임 ").normalize());
         assertEquals(
-                50,
-                new ProfileUpdateRequest("😀".repeat(50))
-                        .normalize()
-                        .nickname()
-                        .codePointCount(0, 100));
+                50, new ProfileUpdateRequest("😀".repeat(50)).normalize().codePointCount(0, 100));
     }
 
     @Test
