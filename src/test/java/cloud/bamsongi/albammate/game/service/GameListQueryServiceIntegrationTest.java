@@ -17,8 +17,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import cloud.bamsongi.albammate.game.dto.GameListItem;
@@ -109,7 +107,7 @@ class GameListQueryServiceIntegrationTest {
 			NOW.plusSeconds(6),
 			RoomStatus.RECRUITING);
 
-		Page<GameListItem> result = gameListQueryService.findPage(null, PageRequest.of(0, 10, Sort.by("name", "id")));
+		Page<GameListItem> result = gameListQueryService.findPage(null, false, 0, 10);
 
 		Map<Long, Long> upcomingRoomCounts = result.getContent().stream()
 			.collect(
@@ -123,8 +121,7 @@ class GameListQueryServiceIntegrationTest {
 				gameWithoutUpcomingRoom.getId(), 0L),
 			upcomingRoomCounts);
 
-		Page<GameListItem> upcomingOnlyResult = gameListQueryService.findPage(
-			null, true, PageRequest.of(0, 1, Sort.by("name", "id")));
+		Page<GameListItem> upcomingOnlyResult = gameListQueryService.findPage(null, true, 0, 1);
 
 		assertEquals(2, upcomingOnlyResult.getTotalElements());
 		assertEquals(2, upcomingOnlyResult.getTotalPages());

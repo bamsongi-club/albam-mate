@@ -1,7 +1,5 @@
 package cloud.bamsongi.albammate.game.controller;
 
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -18,6 +16,7 @@ import cloud.bamsongi.albammate.global.response.ApiResponse;
 import cloud.bamsongi.albammate.global.response.PageResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -25,18 +24,17 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class GameController {
 
-	private final GameListQueryService gameListQueryService;
-	private final GameDetailQueryService gameDetailQueryService;
+	@NonNull private final GameListQueryService gameListQueryService;
+	@NonNull private final GameDetailQueryService gameDetailQueryService;
 
 	@GetMapping
 	public ApiResponse<PageResponse<GameListItem>> listGames(
 		@Valid @ModelAttribute
 		GameListRequest request) {
-		PageRequest pageable = PageRequest.of(
-			request.getPage(), request.getSize(), Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
 		return ApiResponse.success(
 			HttpStatus.OK,
-			PageResponse.from(gameListQueryService.findPage(request.getKeyword(), request.isUpcomingOnly(), pageable)));
+			PageResponse.from(gameListQueryService.findPage(
+				request.getKeyword(), request.isUpcomingOnly(), request.getPage(), request.getSize())));
 	}
 
 	@GetMapping("/{gameId}")

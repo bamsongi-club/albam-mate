@@ -5,7 +5,9 @@ import java.time.Instant;
 import java.util.Map;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -14,6 +16,7 @@ import cloud.bamsongi.albammate.game.contract.UpcomingRoomCountQuery;
 import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.repository.GameListRow;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -21,9 +24,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class GameListQueryService {
 
-	private final GameRepository gameRepository;
-	private final Clock clock;
-	private final UpcomingRoomCountQuery upcomingRoomCountQuery;
+	@NonNull private final GameRepository gameRepository;
+	@NonNull private final Clock clock;
+	@NonNull private final UpcomingRoomCountQuery upcomingRoomCountQuery;
 
 	/**
 	 * 게임 이름 검색 결과를 페이지로 조회하고 조회 시각 기준 예정 모임 수를 결합한다.
@@ -31,24 +34,27 @@ public class GameListQueryService {
 	 * <p>{@code keyword}가 {@code null}이거나 공백이면 전체 게임을 조회한다.
 	 *
 	 * @param keyword 게임 이름 검색어
-	 * @param pageable 페이지와 정렬 조건
+	 * @param pageable 페이지 번호와 크기(정렬은 서비스의 이름, ID 오름차순으로 고정)
 	 * @return 예정 모임 수가 포함된 게임 목록 페이지
 	 */
 	public Page<GameListItem> findPage(String keyword, Pageable pageable) {
-		return findPage(keyword, false, pageable);
+		return findPage(keyword, false, pageable.getPageNumber(), pageable.getPageSize());
 	}
 
 	/**
-	 * 게임 이름 검색과 예정 모임 존재 여부를 적용해 게임 목록을 페이지로 조회한다.
+	 * 게임 이름 검색과 예정 모임 존재 여부를 적용해 이름, ID 오름차순으로 게임 목록을 페이지로 조회한다.
 	 *
 	 * <p>{@code upcomingOnly}가 참이면 전체 예정 모임 집계를 먼저 조회해 해당 게임만 페이징한다.
 	 *
 	 * @param keyword 게임 이름 검색어
 	 * @param upcomingOnly 예정 모임이 있는 게임만 조회할지 여부
-	 * @param pageable 페이지와 정렬 조건
+	 * @param page 페이지 번호
+	 * @param size 페이지 크기
 	 * @return 예정 모임 수가 포함된 게임 목록 페이지
 	 */
-	public Page<GameListItem> findPage(String keyword, boolean upcomingOnly, Pageable pageable) {
+	public Page<GameListItem> findPage(String keyword, boolean upcomingOnly, int page, int size) {
+		Pageable pageable = PageRequest.of(
+			page, size, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
 		String normalizedKeyword = keyword == null ? null : keyword.strip();
 		if (upcomingOnly) {
 			return findUpcomingOnlyPage(normalizedKeyword, pageable);

@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import cloud.bamsongi.albammate.game.contract.GameQuery;
 import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -19,7 +20,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class GameQueryService implements GameQuery {
 
-	private final GameRepository gameRepository;
+	@NonNull private final GameRepository gameRepository;
 
 	@Override
 	public Optional<GameSummary> findSummaryById(Long gameId) {
