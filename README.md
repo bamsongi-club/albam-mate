@@ -86,14 +86,14 @@ Windows PowerShell:
 
 ```powershell
 .\gradlew.bat test
-.\gradlew.bat spotlessCheck
+.\gradlew.bat conventionCheck
 ```
 
 macOS·Linux:
 
 ```sh
 ./gradlew test
-./gradlew spotlessCheck
+./gradlew conventionCheck
 ```
 
 `test`는 H2 인메모리 데이터베이스를 사용하므로 Docker 없이 실행됩니다. 실제 PostgreSQL을 사용하는 `postgresTest`와 `bootRun`에는 Docker가 필요합니다.

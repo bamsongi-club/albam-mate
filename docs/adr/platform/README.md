@@ -18,3 +18,4 @@
 | [0021](0021-p0-aws-ec2-rds-deployment-baseline.md) | P0 AWS EC2와 RDS 배포 기준선 | 승인됨 | 2026-07-28 | 미검증 |
 | [0022](0022-p0-update-api-http-method-and-finish-idempotency.md) | P0 수정 API에 PATCH를 유지하고 방 종료 명령을 멱등 처리 | 승인됨 | 2026-07-28 | 검증됨 |
 | [0023](0023-p0-flyway-baseline-reset-player-count-stages.md) | P0 Flyway 기준선을 재생성하고 인원 의미를 단계별 컬럼으로 분리 | 승인됨 | 2026-07-28 | 검증됨 |
+| [0024](0024-naver-java-format-and-project-checkstyle.md) | 네이버 Java 포맷과 프로젝트 Checkstyle로 컨벤션을 자동화 | 제안됨 | 미정 | 미검증 |

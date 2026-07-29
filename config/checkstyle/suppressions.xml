@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+        "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+        "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+
+<suppressions>
+    <!-- 테스트 메서드는 CONVENTIONS.md에 따라 한글 행동 이름을 허용한다. -->
+    <suppress checks="MethodName"
+              files=".*Tests?\.java$"/>
+</suppressions>

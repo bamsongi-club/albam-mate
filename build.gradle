@@ -3,6 +3,7 @@ plugins {
     id 'org.springframework.boot' version '4.1.0'
     id 'io.spring.dependency-management' version '1.1.7'
     id 'com.diffplug.spotless' version '8.8.0'
+    id 'checkstyle'
     id 'jacoco'
 }
 
@@ -14,6 +15,12 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
     }
+}
+
+checkstyle {
+    toolVersion = '13.8.0'
+    configDirectory = file('config/checkstyle')
+    maxWarnings = 0
 }
 
 repositories {
@@ -272,10 +279,18 @@ tasks.named('postgresTest', Test) {
 
 spotless {
     java {
-        googleJavaFormat('1.35.0').aosp()
+        eclipse().configFile('config/formatter/naver-eclipse-formatter.xml')
+        importOrderFile('config/formatter/naver.importorder')
         removeUnusedImports()
         formatAnnotations()
         trimTrailingWhitespace()
         endWithNewline()
     }
+}
+
+tasks.register('conventionCheck') {
+    group = 'verification'
+    description = 'Spotless와 모든 Java source set의 Checkstyle 규칙을 검사한다.'
+    dependsOn tasks.named('spotlessCheck')
+    dependsOn tasks.withType(Checkstyle)
 }
