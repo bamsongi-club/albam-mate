@@ -5,7 +5,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.Trigger;
 import org.springframework.scheduling.TriggerContext;
 import org.springframework.stereotype.Component;
@@ -21,28 +20,19 @@ public class RoomStateReconciliationScheduler implements Trigger {
 
     private final RoomStateReconciliationCoordinator coordinator;
     private final Clock clock;
-    private final JitterSource jitterSource;
-    private final Sleeper sleeper;
 
-    @Autowired
     public RoomStateReconciliationScheduler(
             RoomStateReconciliationCoordinator coordinator, Clock clock) {
-        this(
-                coordinator,
-                clock,
-                maxInclusive -> ThreadLocalRandom.current().nextLong(maxInclusive + 1),
-                RoomStateReconciliationScheduler::sleep);
-    }
-
-    RoomStateReconciliationScheduler(
-            RoomStateReconciliationCoordinator coordinator,
-            Clock clock,
-            JitterSource jitterSource,
-            Sleeper sleeper) {
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
         this.clock = Objects.requireNonNull(clock, "clock");
-        this.jitterSource = Objects.requireNonNull(jitterSource, "jitterSource");
-        this.sleeper = Objects.requireNonNull(sleeper, "sleeper");
+    }
+
+    long nextJitterMillis(long maxInclusive) {
+        return ThreadLocalRandom.current().nextLong(maxInclusive + 1);
+    }
+
+    void sleepBeforeRetry(long delayMillis) {
+        sleep(delayMillis);
     }
 
     /** 현재 시각을 한 번 얻어 due 방의 상태를 보정하고, 스케줄러 경로만 충돌 재시도에 지연을 둔다. */
@@ -59,7 +49,7 @@ public class RoomStateReconciliationScheduler implements Trigger {
         if (anchor == null) {
             anchor = triggerContext.getClock().instant();
         }
-        long jitterMillis = jitterSource.nextMillis(MAX_SCHEDULE_JITTER.toMillis());
+        long jitterMillis = nextJitterMillis(MAX_SCHEDULE_JITTER.toMillis());
         return anchor.plus(BASE_DELAY).plusMillis(jitterMillis);
     }
 
@@ -70,7 +60,7 @@ public class RoomStateReconciliationScheduler implements Trigger {
                     case 3 -> THIRD_ATTEMPT_MAX_DELAY_MILLIS;
                     default -> throw new IllegalArgumentException("지원하지 않는 재시도 횟수");
                 };
-        sleeper.sleep(jitterSource.nextMillis(maxDelayMillis));
+        sleepBeforeRetry(nextJitterMillis(maxDelayMillis));
     }
 
     private static void sleep(long delayMillis) {

@@ -19,9 +19,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class RoomDetailService {
 
     private final RoomStateReconciliationCoordinator reconciliationCoordinator;
@@ -29,19 +31,6 @@ public class RoomDetailService {
     private final GameQuery gameQuery;
     private final UserQuery userQuery;
     private final Clock clock;
-
-    public RoomDetailService(
-            RoomStateReconciliationCoordinator reconciliationCoordinator,
-            RoomDetailReadService roomDetailReadService,
-            GameQuery gameQuery,
-            UserQuery userQuery,
-            Clock clock) {
-        this.reconciliationCoordinator = reconciliationCoordinator;
-        this.roomDetailReadService = roomDetailReadService;
-        this.gameQuery = gameQuery;
-        this.userQuery = userQuery;
-        this.clock = clock;
-    }
 
     /** 요청 시각으로 상태를 먼저 보정한 뒤, 요청자와 방 관계에 맞는 상세 응답을 조립한다. */
     public RoomDetailResponse findRoomDetail(long roomId, Optional<Long> currentUserId) {

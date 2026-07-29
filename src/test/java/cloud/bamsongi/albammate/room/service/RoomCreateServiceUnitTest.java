@@ -29,6 +29,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -82,6 +83,20 @@ class RoomCreateServiceUnitTest {
 
         assertEquals(null, response.game());
         verify(gameQuery, never()).findSummaryById(any());
+    }
+
+    @Test
+    void 사람_중심_방에_존재하는_게임을_선택하면_응답과_저장_방에_게임_ID를_반영한다() {
+        GameSummary game = new GameSummary(7L, 1007L, "카탄");
+        when(gameQuery.findSummaryById(7L)).thenReturn(Optional.of(game));
+
+        ParticipantRoomResponse response =
+                roomCreateService.createRoom(42L, request(RoomType.PERSON_FOCUSED, 7L));
+
+        ArgumentCaptor<Room> roomCaptor = ArgumentCaptor.forClass(Room.class);
+        verify(roomRepository).save(roomCaptor.capture());
+        assertEquals(game, response.game());
+        assertEquals(7L, roomCaptor.getValue().getGameId());
     }
 
     @Test

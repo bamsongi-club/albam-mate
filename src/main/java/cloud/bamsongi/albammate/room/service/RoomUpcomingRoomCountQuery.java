@@ -9,11 +9,13 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true)
+@RequiredArgsConstructor
 public class RoomUpcomingRoomCountQuery implements UpcomingRoomCountQuery {
 
     private static final List<RoomStatus> EXCLUDED_STATUSES =
@@ -21,10 +23,10 @@ public class RoomUpcomingRoomCountQuery implements UpcomingRoomCountQuery {
 
     private final RoomRepository roomRepository;
 
-    public RoomUpcomingRoomCountQuery(RoomRepository roomRepository) {
-        this.roomRepository = roomRepository;
-    }
-
+    /**
+     * 미래의 {@code GAME_FOCUSED} 방만 세되 {@code CANCELED}, {@code FINISHED} 상태는 제외한다. 빈 {@code
+     * gameIds}는 저장소를 조회하지 않고 빈 {@link Map}을 반환한다.
+     */
     @Override
     public Map<Long, Long> findUpcomingRoomCounts(Collection<Long> gameIds, Instant now) {
         if (gameIds.isEmpty()) {

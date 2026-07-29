@@ -40,6 +40,16 @@ class RoomParticipationCancelExecutorTest {
     @Autowired private EntityManager entityManager;
 
     @Test
+    void 없는_방의_서비스_통합_경로는_ROOM_NOT_FOUND로_종료한다() {
+        BusinessException exception =
+                assertThrows(
+                        BusinessException.class,
+                        () -> roomParticipationCancelService.cancelParticipation(42L, 999_999L));
+
+        assertEquals(ErrorCode.ROOM_NOT_FOUND, exception.getErrorCode());
+    }
+
+    @Test
     void 마지막_활성_참가를_취소하면_기존_행과_카운터를_갱신하고_모집을_재개한다() {
         long hostUserId = insertUser("cancel-host@example.com", "방장");
         long participantUserId = insertUser("cancel-member@example.com", "참가자");

@@ -16,24 +16,18 @@ import cloud.bamsongi.albammate.user.contract.UserQuery;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class RoomCreateService {
 
     private final RoomRepository roomRepository;
     private final GameQuery gameQuery;
     private final UserQuery userQuery;
     private final Clock clock;
-
-    public RoomCreateService(
-            RoomRepository roomRepository, GameQuery gameQuery, UserQuery userQuery, Clock clock) {
-        this.roomRepository = roomRepository;
-        this.gameQuery = gameQuery;
-        this.userQuery = userQuery;
-        this.clock = clock;
-    }
 
     /** 로그인한 사용자를 주최자로 기록하고 모집 중인 방을 생성한다. */
     @Transactional

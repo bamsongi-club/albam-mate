@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
@@ -77,6 +78,20 @@ class RoomParticipationExecutorTest {
         assertEquals(ErrorCode.ROOM_NOT_RECRUITING, exception.getErrorCode());
         verify(room).reconcileStateAt(REQUEST_TIME);
         verify(participationRepository, never()).save(any(Participation.class));
+    }
+
+    @Test
+    void 없는_방은_참가_관계_조회와_저장_전에_ROOM_NOT_FOUND로_종료한다() {
+        RoomParticipationExecutor executor = executor();
+        when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.empty());
+
+        BusinessException exception =
+                assertThrows(
+                        BusinessException.class,
+                        () -> executor.participate(USER_ID, ROOM_ID, REQUEST_TIME));
+
+        assertEquals(ErrorCode.ROOM_NOT_FOUND, exception.getErrorCode());
+        verifyNoInteractions(participationRepository);
     }
 
     private RoomParticipationExecutor executor() {

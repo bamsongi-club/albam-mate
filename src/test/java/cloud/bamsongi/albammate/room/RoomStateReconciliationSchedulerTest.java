@@ -35,9 +35,7 @@ class RoomStateReconciliationSchedulerTest {
                 mock(RoomStateReconciliationScheduler.JitterSource.class);
         RoomStateReconciliationScheduler.Sleeper sleeper =
                 mock(RoomStateReconciliationScheduler.Sleeper.class);
-        RoomStateReconciliationScheduler scheduler =
-                new RoomStateReconciliationScheduler(
-                        coordinator, Clock.fixed(NOW, ZoneOffset.UTC), jitterSource, sleeper);
+        RoomStateReconciliationScheduler scheduler = scheduler(coordinator, jitterSource, sleeper);
 
         scheduler.reconcileDueRooms();
 
@@ -51,8 +49,7 @@ class RoomStateReconciliationSchedulerTest {
         RoomStateReconciliationScheduler.JitterSource jitterSource =
                 mock(RoomStateReconciliationScheduler.JitterSource.class);
         RoomStateReconciliationScheduler scheduler =
-                new RoomStateReconciliationScheduler(
-                        coordinator, Clock.fixed(NOW, ZoneOffset.UTC), jitterSource, delay -> {});
+                scheduler(coordinator, jitterSource, delay -> {});
         doReturn(0L).when(jitterSource).nextMillis(MAX_SCHEDULE_JITTER_MILLIS);
 
         assertEquals(
@@ -68,8 +65,7 @@ class RoomStateReconciliationSchedulerTest {
         RoomStateReconciliationScheduler.JitterSource jitterSource =
                 mock(RoomStateReconciliationScheduler.JitterSource.class);
         RoomStateReconciliationScheduler scheduler =
-                new RoomStateReconciliationScheduler(
-                        coordinator, Clock.fixed(NOW, ZoneOffset.UTC), jitterSource, delay -> {});
+                scheduler(coordinator, jitterSource, delay -> {});
         doReturn(MAX_SCHEDULE_JITTER_MILLIS)
                 .when(jitterSource)
                 .nextMillis(MAX_SCHEDULE_JITTER_MILLIS);
@@ -91,8 +87,7 @@ class RoomStateReconciliationSchedulerTest {
         RoomStateReconciliationScheduler.JitterSource jitterSource =
                 mock(RoomStateReconciliationScheduler.JitterSource.class);
         RoomStateReconciliationScheduler scheduler =
-                new RoomStateReconciliationScheduler(
-                        coordinator, Clock.fixed(NOW, ZoneOffset.UTC), jitterSource, delay -> {});
+                scheduler(coordinator, jitterSource, delay -> {});
         doReturn(0L).when(jitterSource).nextMillis(MAX_SCHEDULE_JITTER_MILLIS);
 
         SimpleTriggerContext context = new SimpleTriggerContext(scheduled, actual, completion);
@@ -110,9 +105,7 @@ class RoomStateReconciliationSchedulerTest {
                 mock(RoomStateReconciliationScheduler.JitterSource.class);
         RoomStateReconciliationScheduler.Sleeper sleeper =
                 mock(RoomStateReconciliationScheduler.Sleeper.class);
-        RoomStateReconciliationScheduler scheduler =
-                new RoomStateReconciliationScheduler(
-                        coordinator, Clock.fixed(NOW, ZoneOffset.UTC), jitterSource, sleeper);
+        RoomStateReconciliationScheduler scheduler = scheduler(coordinator, jitterSource, sleeper);
         doReturn(0L).when(jitterSource).nextMillis(250L);
         doReturn(500L).when(jitterSource).nextMillis(500L);
 
@@ -127,6 +120,14 @@ class RoomStateReconciliationSchedulerTest {
         verify(jitterSource).nextMillis(500L);
         verify(sleeper).sleep(0L);
         verify(sleeper).sleep(500L);
+    }
+
+    private TestRoomStateReconciliationScheduler scheduler(
+            RoomStateReconciliationCoordinator coordinator,
+            RoomStateReconciliationScheduler.JitterSource jitterSource,
+            RoomStateReconciliationScheduler.Sleeper sleeper) {
+        return new TestRoomStateReconciliationScheduler(
+                coordinator, Clock.fixed(NOW, ZoneOffset.UTC), jitterSource, sleeper);
     }
 
     @Test
@@ -145,5 +146,32 @@ class RoomStateReconciliationSchedulerTest {
         assertEquals(scheduler, triggerTask.getTrigger());
         triggerTask.getRunnable().run();
         verify(scheduler).reconcileDueRooms();
+    }
+
+    private static final class TestRoomStateReconciliationScheduler
+            extends RoomStateReconciliationScheduler {
+
+        private final JitterSource jitterSource;
+        private final Sleeper sleeper;
+
+        private TestRoomStateReconciliationScheduler(
+                RoomStateReconciliationCoordinator coordinator,
+                Clock clock,
+                JitterSource jitterSource,
+                Sleeper sleeper) {
+            super(coordinator, clock);
+            this.jitterSource = jitterSource;
+            this.sleeper = sleeper;
+        }
+
+        @Override
+        long nextJitterMillis(long maxInclusive) {
+            return jitterSource.nextMillis(maxInclusive);
+        }
+
+        @Override
+        void sleepBeforeRetry(long delayMillis) {
+            sleeper.sleep(delayMillis);
+        }
     }
 }

@@ -18,29 +18,20 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class RoomListQueryService {
 
     private final RoomStateReconciliationCoordinator reconciliationCoordinator;
     private final RoomListReadService roomListReadService;
     private final GameQuery gameQuery;
     private final Clock clock;
-
-    public RoomListQueryService(
-            RoomStateReconciliationCoordinator reconciliationCoordinator,
-            RoomListReadService roomListReadService,
-            GameQuery gameQuery,
-            Clock clock) {
-        this.reconciliationCoordinator = reconciliationCoordinator;
-        this.roomListReadService = roomListReadService;
-        this.gameQuery = gameQuery;
-        this.clock = clock;
-    }
 
     /** 상태 보정이 끝난 시점의 공개 방을 고정 정렬과 요청자 기준 참가 가능 여부로 반환한다. */
     public PageResponse<PublicRoomResponse> findPage(
