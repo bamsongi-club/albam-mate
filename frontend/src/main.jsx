@@ -13,6 +13,7 @@ const EXP_LABEL = {
 const CAPACITY_OPTIONS = Array.from({ length: 10 }, (_, index) => index + 1);
 const TIME_OPTIONS = ['11:00', '14:00', '15:00', '19:00', '19:30'];
 const GAME_SEARCH_PAGE_SIZE = 10;
+const GAME_LIST_PAGE_SIZE = 24;
 const GAME_SEARCH_DEBOUNCE_MS = 250;
 
 function zeroPad(value) {
@@ -456,6 +457,27 @@ function LoadMoreButton({ page, loading, onLoadMore, label }) {
   return <div className="page-actions" style={{ marginTop: 16 }}><button className="btn ghost" type="button" disabled={loading} onClick={onLoadMore}>{loading ? '불러오는 중…' : label}</button></div>;
 }
 
+function Pagination({ page, totalPages, loading, onChange }) {
+  if (!totalPages || totalPages <= 1) return null;
+  const windowSize = 5;
+  const start = Math.max(0, Math.min(page - Math.floor(windowSize / 2), totalPages - windowSize));
+  const end = Math.min(totalPages, start + windowSize);
+  const numbers = [];
+  for (let index = start; index < end; index += 1) numbers.push(index);
+  const go = (next) => { if (next >= 0 && next < totalPages && next !== page) onChange(next); };
+  return (
+    <nav className="pagination" aria-label="게임 목록 페이지 이동">
+      <button className="page-btn" type="button" disabled={loading || page <= 0} onClick={() => go(page - 1)} aria-label="이전 페이지">‹</button>
+      {start > 0 && <><button className="page-btn" type="button" disabled={loading} onClick={() => go(0)}>1</button>{start > 1 && <span className="page-ellipsis">…</span>}</>}
+      {numbers.map((index) => (
+        <button key={index} className={'page-btn' + (index === page ? ' on' : '')} type="button" disabled={loading} aria-current={index === page ? 'page' : undefined} onClick={() => go(index)}>{index + 1}</button>
+      ))}
+      {end < totalPages && <>{end < totalPages - 1 && <span className="page-ellipsis">…</span>}<button className="page-btn" type="button" disabled={loading} onClick={() => go(totalPages - 1)}>{totalPages}</button></>}
+      <button className="page-btn" type="button" disabled={loading || page >= totalPages - 1} onClick={() => go(page + 1)} aria-label="다음 페이지">›</button>
+    </nav>
+  );
+}
+
 function LoginRequiredView({ message = '이 기능은 로그인 후 이용할 수 있어요.' }) {
   return <div className="card"><h2>로그인이 필요해요</h2><p className="hint" style={{ marginBottom: 16 }}>{message}</p><a className="btn" href="#/auth">로그인 또는 회원가입</a></div>;
 }
@@ -481,10 +503,26 @@ function HomeView({ dataVersion }) {
 
 function GamesView({ gameQuery, dataVersion }) {
   const keyword = gameQuery.trim();
-  const { data, loading, loadingMore, error, loadMoreError, loadMore } = usePagedRequest(
-    (page, signal) => api.getGames({ keyword, page, size: 100 }, signal),
-    [keyword, dataVersion]
-  );
+  const [page, setPage] = useState(0);
+  const [state, setState] = useState({ data: null, loading: true, error: '' });
+
+  // 검색어나 데이터 버전이 바뀌면 첫 페이지로 되돌린다.
+  useEffect(() => { setPage(0); }, [keyword, dataVersion]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+    setState((current) => ({ ...current, loading: true, error: '' }));
+    api.getGames({ keyword, page, size: GAME_LIST_PAGE_SIZE }, controller.signal)
+      .then((data) => { if (active) setState({ data, loading: false, error: '' }); })
+      .catch((error) => {
+        if (!active || error?.name === 'AbortError') return;
+        setState({ data: null, loading: false, error: messageForError(error) });
+      });
+    return () => { active = false; controller.abort(); };
+  }, [keyword, page, dataVersion]);
+
+  const { data, loading, error } = state;
   const games = (data?.content || []).map(normalizeGameSummary);
   return (
     <>
@@ -494,8 +532,7 @@ function GamesView({ gameQuery, dataVersion }) {
       {!error && loading && !data && <LoadingBox />}
       {!error && !!games.length && <div className="grid cols3">{games.map((game) => <GameCard key={game.id} game={game} />)}</div>}
       {!error && !loading && !games.length && <div className="infobox" style={{ marginTop: 14 }}>검색 결과가 없어요. 다른 게임 이름으로 다시 찾아보세요.</div>}
-      {!error && <LoadMoreButton page={data} loading={loadingMore} onLoadMore={loadMore} label="게임 더 보기" />}
-      {loadMoreError && <ErrorBox message={loadMoreError} />}
+      {!error && !!games.length && <Pagination page={data?.page ?? 0} totalPages={data?.totalPages ?? 0} loading={loading} onChange={setPage} />}
     </>
   );
 }
