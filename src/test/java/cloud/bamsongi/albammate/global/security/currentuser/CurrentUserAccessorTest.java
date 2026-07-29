@@ -59,4 +59,15 @@ class CurrentUserAccessorTest {
 					"user-name", null, AuthorityUtils.NO_AUTHORITIES));
 		assertTrue(accessor.currentUserId().isEmpty());
 	}
+
+	@Test
+	void 미인증_비익명_주체는_현재_사용자로_노출하지_않는다() {
+		SecurityContextHolder.getContext()
+			.setAuthentication(
+				UsernamePasswordAuthenticationToken.unauthenticated(
+					new CurrentUserPrincipal(42L), null));
+
+		assertTrue(accessor.currentUserId().isEmpty());
+		assertThrows(UnauthenticatedException.class, accessor::requireCurrentUserId);
+	}
 }

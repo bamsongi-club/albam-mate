@@ -12,7 +12,7 @@ public record CurrentUserPrincipal(long userId) implements Principal, Serializab
 
 	public CurrentUserPrincipal {
 		if (userId <= 0) {
-			throw new IllegalArgumentException("userId는 양수여야 합니다.");
+			throw new IllegalArgumentException("userId must be positive");
 		}
 	}
 

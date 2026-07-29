@@ -37,21 +37,25 @@ public final class ApiAccessDeniedHandler implements AccessDeniedHandler {
 
 	private ErrorCode resolveErrorCode(
 		HttpServletRequest request, AccessDeniedException accessDeniedException) {
-		if (!(accessDeniedException instanceof CsrfException)) {
-			return ErrorCode.FORBIDDEN;
+		if (accessDeniedException instanceof CsrfException) {
+			return csrfErrorCode(request);
 		}
-
-		if (isAnonymous() && !isPublicAuthenticationRequest(request)) {
-			return ErrorCode.UNAUTHENTICATED;
-		}
-		return ErrorCode.CSRF_TOKEN_INVALID;
+		return ErrorCode.FORBIDDEN;
 	}
 
-	private boolean isAnonymous() {
+	private ErrorCode csrfErrorCode(HttpServletRequest request) {
+		if (isAuthenticatedRequest() || isPublicAuthenticationRequest(request)) {
+			return ErrorCode.CSRF_TOKEN_INVALID;
+		}
+		return ErrorCode.UNAUTHENTICATED;
+	}
+
+	private boolean isAuthenticatedRequest() {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-		return authentication == null
-			|| !authentication.isAuthenticated()
-			|| authentication instanceof AnonymousAuthenticationToken;
+		if (authentication == null || authentication instanceof AnonymousAuthenticationToken) {
+			return false;
+		}
+		return authentication.isAuthenticated();
 	}
 
 	private boolean isPublicAuthenticationRequest(HttpServletRequest request) {
