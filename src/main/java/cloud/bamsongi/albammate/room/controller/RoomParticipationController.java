@@ -4,6 +4,7 @@ import java.util.Objects;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,10 +32,10 @@ public class RoomParticipationController {
 	}
 
 	@DeleteMapping(value = "/{roomId}/participants/me", produces = MediaType.APPLICATION_JSON_VALUE)
-	public ApiResponse<RoomParticipationResponse> cancelParticipation(
+	public ResponseEntity<ApiResponse<RoomParticipationResponse>> cancelParticipation(
 		@PathVariable @Positive long roomId) {
 		RoomParticipationResponse response = roomParticipationCancelService.cancelParticipation(
 			currentUserAccessor.requireCurrentUserId(), roomId);
-		return ApiResponse.success(HttpStatus.OK, response);
+		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
 	}
 }
