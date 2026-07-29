@@ -59,6 +59,10 @@ set +a
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
+기동이 완료되면 local 프로필에서만 식별 가능한 게임 중심 모임 30개와 사람 중심 모임
+30개를 준비한다. 재기동해도 같은 시드 모임만 미래 시각과 공개 가능한 상태로 갱신하며,
+수동으로 만든 사용자·모임·참여 데이터는 보존한다.
+
 애플리케이션을 종료한 뒤 PostgreSQL 컨테이너만 중지한다. named volume의 개발 데이터는 유지된다.
 
 ```sh
