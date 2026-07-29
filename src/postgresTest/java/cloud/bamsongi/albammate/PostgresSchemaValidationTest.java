@@ -124,14 +124,14 @@ class PostgresSchemaValidationTest {
             jdbcTemplate.update(
                     "update "
                             + schemaName
-                            + ".games set recommended_player_count = '3~5명' where bgg_id = 9001");
+                            + ".games set recommended_player_count = '3~4명' where bgg_id = 9001");
 
             migrate(schemaName, null);
             assertColumn(schemaName, "supported_player_count", false);
             assertColumn(schemaName, "recommended_player_count", true);
             assertColumn(schemaName, "best_player_count", true);
             assertEquals("2~4명", gamePlayerCount(schemaName, "supported_player_count"));
-            assertEquals("3~5명", gamePlayerCount(schemaName, "recommended_player_count"));
+            assertEquals("3~4명", gamePlayerCount(schemaName, "recommended_player_count"));
         } finally {
             jdbcTemplate.execute("drop schema if exists " + schemaName + " cascade");
         }
