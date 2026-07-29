@@ -92,6 +92,7 @@ section + section { margin-top: 32px; }
 h1 { font-size: 30px; line-height: 1.25; }
 h2 { align-items: center; display: flex; font-size: 20px; gap: 8px; margin-bottom: 14px; }
 h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
+.h2-ico { flex: 0 0 auto; line-height: 1; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; }
 .hero { padding: 38px 34px; text-align: center; }
 .hero > p { color: var(--sub); margin-top: 8px; }

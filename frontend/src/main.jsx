@@ -488,7 +488,7 @@ function GamesView({ gameQuery, dataVersion }) {
   const games = (data?.content || []).map(normalizeGameSummary);
   return (
     <>
-      <h2>🎲 게임 찾기 <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
+      <h2><span className="h2-ico">🎲</span>게임 찾기 <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
       <p className="hint" style={{ margin: '-8px 0 15px' }}>게임 이름의 부분 일치 검색만 제공해요.</p>
       {error && <ErrorBox message={error} />}
       {!error && loading && !data && <LoadingBox />}
@@ -511,7 +511,7 @@ function PeopleView({ peopleQuery, onPeopleQueryChange, dataVersion }) {
   useEffect(() => setInput(peopleQuery), [peopleQuery]);
   return (
     <>
-      <h2>🙌 사람 중심 모임 찾기 <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}</span></h2>
+      <h2><span className="h2-ico">🙌</span>사람 중심 모임 찾기 <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}</span></h2>
       <form className="inline-search" onSubmit={(event) => { event.preventDefault(); onPeopleQueryChange(input.trim()); }}>
         <label className="hint" htmlFor="people-q" style={{ position: 'absolute', left: -9999 }}>사람 중심 모임 제목 검색</label>
         <input id="people-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="모임 제목으로 검색" />
@@ -558,8 +558,8 @@ function GameDetailView({ gameId, onCreateGame, dataVersion }) {
           </div>
         </div>
       </div>
-      <section>
-        <h2>📅 예정 모임 <span className="cnt">{upcomingRooms.length}개</span></h2>
+      <section style={{ marginTop: 32 }}>
+        <h2><span className="h2-ico">📅</span>예정 모임 <span className="cnt">{upcomingRooms.length}개</span></h2>
         {upcomingRooms.length ? <div className="grid cols2">{upcomingRooms.map((room) => <SessionCard key={room.id} room={room} />)}</div> : !roomPage?.hasNext && <div className="infobox">아직 공개 예정 모임이 없어요. 첫 모임을 만들어보세요.</div>}
         {!upcomingRooms.length && roomPage?.hasNext && <p className="hint">이전 모임 다음에 예정 모임이 있을 수 있어요. 목록을 더 불러와 확인해주세요.</p>}
         <LoadMoreButton page={roomPage} loading={loadingMore} onLoadMore={loadMore} label="예정 모임 더 보기" />
@@ -648,8 +648,8 @@ function SessionDetailView({ sessionId, me, onApply, onCancelApply, onHostCancel
             </div>
           </div>
           {privateView
-            ? <section><h2>👥 참가자 <span className="cnt">총 {participantCount(room)}/{room.recruitmentCapacity + 1}명</span></h2><div className="card"><div className="srow" style={{ marginTop: 0 }}><SeatIcons room={room} /></div><div>{room.participants.map((participant, index) => <span className="pchip" key={participant.nickname + '-' + index}>🙂 {participant.nickname}</span>)}{!room.participants.length && <span className="hint">아직 참가자가 없어요.</span>}</div></div></section>
-            : <section><h2>👥 참가자</h2><div className="infobox">정확한 장소와 참가자 목록은 주최자 또는 현재 참가자만 확인할 수 있어요.</div></section>}
+            ? <section><h2><span className="h2-ico">👥</span>참가자 <span className="cnt">총 {participantCount(room)}/{room.recruitmentCapacity + 1}명</span></h2><div className="card"><div className="srow" style={{ marginTop: 0 }}><SeatIcons room={room} /></div><div>{room.participants.map((participant, index) => <span className="pchip" key={participant.nickname + '-' + index}>🙂 {participant.nickname}</span>)}{!room.participants.length && <span className="hint">아직 참가자가 없어요.</span>}</div></div></section>
+            : <section><h2><span className="h2-ico">👥</span>참가자</h2><div className="infobox">정확한 장소와 참가자 목록은 주최자 또는 현재 참가자만 확인할 수 있어요.</div></section>}
         </div>
         <aside><div className="card"><SessionActions room={room} me={me} onApply={onApply} onCancelApply={onCancelApply} onHostCancel={onHostCancel} onFinish={onFinish} /></div></aside>
       </div>
@@ -917,7 +917,7 @@ function EditSessionForm({ room, onSave, today }) {
   };
   return (
     <>
-      <h2>✏️ 모임 수정</h2>
+      <h2><span className="h2-ico">✏️</span>모임 수정</h2>
       <form className="card" style={{ maxWidth: 780 }} onSubmit={submit}>
         <div className="infobox" style={{ marginBottom: 16 }}>{room.roomType === 'GAME_FOCUSED' ? '게임 중심' : '사람 중심'} 모임 · 유형과 지역은 수정할 수 없어요.</div>
         <RoomFormFields form={form} onChange={setForm} roomType={room.roomType} onOpenGamePicker={() => setGamePickerOpen(true)} today={today} />
@@ -953,7 +953,7 @@ function MyView({ myTab, onMyTabChange, dataVersion }) {
   const list = (page.data?.content || []).map(normalizeRoom);
   return (
     <>
-      <h2>🗂️ 내 모임</h2>
+      <h2><span className="h2-ico">🗂️</span>내 모임</h2>
       <div className="tabs"><button type="button" className={tab === 'joined' ? 'on' : ''} onClick={() => onMyTabChange('joined')}>참가한 모임 ({joined.data?.totalElements ?? '—'})</button><button type="button" className={tab === 'hosted' ? 'on' : ''} onClick={() => onMyTabChange('hosted')}>개설한 모임 ({hosted.data?.totalElements ?? '—'})</button></div>
       {page.error && <ErrorBox message={page.error} />}
       {!page.error && page.loading && !page.data && <LoadingBox />}
@@ -981,7 +981,7 @@ function ProfileView({ me, onSave }) {
   };
   return (
     <>
-      <h2>🙂 내 프로필</h2>
+      <h2><span className="h2-ico">🙂</span>내 프로필</h2>
       <form className="card" style={{ maxWidth: 560 }} onSubmit={submit}>
         <p className="hint" style={{ margin: '0 0 12px' }}>알밤메이트에서 표시되는 내 닉네임입니다.</p>
         <label htmlFor="profile-nickname">닉네임</label>
