@@ -14,6 +14,7 @@ const CAPACITY_OPTIONS = Array.from({ length: 10 }, (_, index) => index + 1);
 const TIME_OPTIONS = ['11:00', '14:00', '15:00', '19:00', '19:30'];
 const GAME_SEARCH_PAGE_SIZE = 10;
 const GAME_LIST_PAGE_SIZE = 24;
+const ROOM_LIST_PAGE_SIZE = 12;
 const GAME_SEARCH_DEBOUNCE_MS = 250;
 
 function zeroPad(value) {
@@ -179,77 +180,6 @@ function useRequest(load, dependencies) {
   return state;
 }
 
-function usePagedRequest(loadPage, dependencies) {
-  const [state, setState] = useState({ data: null, loading: true, loadingMore: false, error: '', loadMoreError: '' });
-  const loadPageRef = useRef(loadPage);
-  const requestVersionRef = useRef(0);
-  const moreControllerRef = useRef(null);
-  loadPageRef.current = loadPage;
-
-  useEffect(() => {
-    const requestVersion = requestVersionRef.current + 1;
-    requestVersionRef.current = requestVersion;
-    moreControllerRef.current?.abort();
-    const controller = new AbortController();
-    let active = true;
-    setState({ data: null, loading: true, loadingMore: false, error: '', loadMoreError: '' });
-
-    loadPageRef.current(0, controller.signal)
-      .then((data) => {
-        if (active && requestVersion === requestVersionRef.current) {
-          setState({ data, loading: false, loadingMore: false, error: '', loadMoreError: '' });
-        }
-      })
-      .catch((error) => {
-        if (!active || error?.name === 'AbortError') return;
-        setState({ data: null, loading: false, loadingMore: false, error: messageForError(error), loadMoreError: '' });
-      });
-
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, dependencies);
-
-  useEffect(() => () => moreControllerRef.current?.abort(), []);
-
-  const loadMore = async () => {
-    const currentPage = state.data;
-    if (!currentPage?.hasNext || state.loading || state.loadingMore) return;
-
-    const requestVersion = requestVersionRef.current;
-    const controller = new AbortController();
-    moreControllerRef.current?.abort();
-    moreControllerRef.current = controller;
-    setState((current) => ({ ...current, loadingMore: true, loadMoreError: '' }));
-
-    try {
-      const nextPage = await loadPageRef.current(currentPage.page + 1, controller.signal);
-      if (controller.signal.aborted || requestVersion !== requestVersionRef.current) return;
-      setState((current) => {
-        if (!current.data || current.data.page !== currentPage.page) return current;
-        return {
-          data: {
-            ...nextPage,
-            content: [...(current.data.content || []), ...(nextPage.content || [])]
-          },
-          loading: false,
-          loadingMore: false,
-          error: '',
-          loadMoreError: ''
-        };
-      });
-    } catch (error) {
-      if (controller.signal.aborted || requestVersion !== requestVersionRef.current || error?.name === 'AbortError') return;
-      setState((current) => ({ ...current, loadingMore: false, loadMoreError: messageForError(error) }));
-    } finally {
-      if (moreControllerRef.current === controller) moreControllerRef.current = null;
-    }
-  };
-
-  return { ...state, loadMore };
-}
-
 function parseRoute() {
   const path = (window.location.hash || '#/home').slice(2);
   const parts = path.split('/');
@@ -386,7 +316,7 @@ function Header({ route, me, gameQuery, onGameQueryChange, onSearch, onLogout })
           <button type="submit" aria-label="게임 검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.65" y2="16.65" /></svg></button>
         </form>
         <nav id="gnb" aria-label="주요 메뉴">
-          <a href="#/games" className={rootRoute[route] === 'games' ? 'on' : ''}>게임 찾기</a>
+          <a href="#/games" className={rootRoute[route] === 'games' ? 'on' : ''}>게임 중심 모임</a>
           <a href="#/people" className={rootRoute[route] === 'people' ? 'on' : ''}>사람 중심 모임</a>
           <a href="#/create" className={rootRoute[route] === 'create' ? 'on' : ''}>모임 만들기</a>
           <a href="#/my" className={rootRoute[route] === 'my' ? 'on' : ''}>내 모임</a>
@@ -452,9 +382,29 @@ function ErrorBox({ message }) {
   return <div className="infobox red">{message}</div>;
 }
 
-function LoadMoreButton({ page, loading, onLoadMore, label }) {
-  if (!page?.hasNext) return null;
-  return <div className="page-actions" style={{ marginTop: 16 }}><button className="btn ghost" type="button" disabled={loading} onClick={onLoadMore}>{loading ? '불러오는 중…' : label}</button></div>;
+function usePaginatedRequest(loadPage, dependencies) {
+  const [page, setPage] = useState(0);
+  const [state, setState] = useState({ data: null, loading: true, error: '' });
+  const loadPageRef = useRef(loadPage);
+  loadPageRef.current = loadPage;
+
+  // 의존성(검색어 등)이 바뀌면 첫 페이지로 되돌린다.
+  useEffect(() => { setPage(0); }, dependencies);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+    setState((current) => ({ ...current, loading: true, error: '' }));
+    loadPageRef.current(page, controller.signal)
+      .then((data) => { if (active) setState({ data, loading: false, error: '' }); })
+      .catch((error) => {
+        if (!active || error?.name === 'AbortError') return;
+        setState({ data: null, loading: false, error: messageForError(error) });
+      });
+    return () => { active = false; controller.abort(); };
+  }, [page, ...dependencies]);
+
+  return { ...state, page, setPage };
 }
 
 function Pagination({ page, totalPages, loading, onChange }) {
@@ -466,7 +416,7 @@ function Pagination({ page, totalPages, loading, onChange }) {
   for (let index = start; index < end; index += 1) numbers.push(index);
   const go = (next) => { if (next >= 0 && next < totalPages && next !== page) onChange(next); };
   return (
-    <nav className="pagination" aria-label="게임 목록 페이지 이동">
+    <nav className="pagination" aria-label="페이지 이동">
       <button className="page-btn" type="button" disabled={loading || page <= 0} onClick={() => go(page - 1)} aria-label="이전 페이지">‹</button>
       {start > 0 && <><button className="page-btn" type="button" disabled={loading} onClick={() => go(0)}>1</button>{start > 1 && <span className="page-ellipsis">…</span>}</>}
       {numbers.map((index) => (
@@ -503,30 +453,14 @@ function HomeView({ dataVersion }) {
 
 function GamesView({ gameQuery, dataVersion }) {
   const keyword = gameQuery.trim();
-  const [page, setPage] = useState(0);
-  const [state, setState] = useState({ data: null, loading: true, error: '' });
-
-  // 검색어나 데이터 버전이 바뀌면 첫 페이지로 되돌린다.
-  useEffect(() => { setPage(0); }, [keyword, dataVersion]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    let active = true;
-    setState((current) => ({ ...current, loading: true, error: '' }));
-    api.getGames({ keyword, page, size: GAME_LIST_PAGE_SIZE }, controller.signal)
-      .then((data) => { if (active) setState({ data, loading: false, error: '' }); })
-      .catch((error) => {
-        if (!active || error?.name === 'AbortError') return;
-        setState({ data: null, loading: false, error: messageForError(error) });
-      });
-    return () => { active = false; controller.abort(); };
-  }, [keyword, page, dataVersion]);
-
-  const { data, loading, error } = state;
+  const { data, loading, error, setPage } = usePaginatedRequest(
+    (page, signal) => api.getGames({ keyword, page, size: GAME_LIST_PAGE_SIZE }, signal),
+    [keyword, dataVersion]
+  );
   const games = (data?.content || []).map(normalizeGameSummary);
   return (
     <>
-      <h2><span className="h2-ico">🎲</span>게임 찾기 <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
+      <h2><span className="h2-ico">🎲</span>게임 중심 모임 <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
       <p className="hint" style={{ margin: '-8px 0 15px' }}>게임 이름의 부분 일치 검색만 제공해요.</p>
       {error && <ErrorBox message={error} />}
       {!error && loading && !data && <LoadingBox />}
@@ -540,8 +474,8 @@ function GamesView({ gameQuery, dataVersion }) {
 function PeopleView({ peopleQuery, onPeopleQueryChange, dataVersion }) {
   const [input, setInput] = useState(peopleQuery);
   const keyword = peopleQuery.trim();
-  const { data, loading, loadingMore, error, loadMoreError, loadMore } = usePagedRequest(
-    (page, signal) => api.getRooms({ type: 'PERSON_FOCUSED', keyword, page, size: 100 }, signal),
+  const { data, loading, error, setPage } = usePaginatedRequest(
+    (page, signal) => api.getRooms({ type: 'PERSON_FOCUSED', keyword, page, size: ROOM_LIST_PAGE_SIZE }, signal),
     [keyword, dataVersion]
   );
   const rooms = (data?.content || []).map(normalizeRoom);
@@ -559,8 +493,7 @@ function PeopleView({ peopleQuery, onPeopleQueryChange, dataVersion }) {
       {!error && loading && !data && <LoadingBox />}
       {!error && !!rooms.length && <div className="grid cols2">{rooms.map((room) => <SessionCard key={room.id} room={room} />)}</div>}
       {!error && !loading && !rooms.length && <div className="infobox">일치하는 공개 모임이 없어요. 직접 모임을 열어보세요.</div>}
-      {!error && <LoadMoreButton page={data} loading={loadingMore} onLoadMore={loadMore} label="모임 더 보기" />}
-      {loadMoreError && <ErrorBox message={loadMoreError} />}
+      {!error && !!rooms.length && <Pagination page={data?.page ?? 0} totalPages={data?.totalPages ?? 0} loading={loading} onChange={setPage} />}
     </>
   );
 }
@@ -570,8 +503,8 @@ function GameDetailView({ gameId, onCreateGame, dataVersion }) {
     (signal) => api.getGame(gameId, signal),
     [gameId, dataVersion]
   );
-  const { data: roomPage, loading: roomsLoading, loadingMore, error: roomsError, loadMoreError, loadMore } = usePagedRequest(
-    (page, signal) => api.getRooms({ type: 'GAME_FOCUSED', gameId, page, size: 100 }, signal),
+  const { data: roomPage, loading: roomsLoading, error: roomsError, setPage: setRoomPage } = usePaginatedRequest(
+    (page, signal) => api.getRooms({ type: 'GAME_FOCUSED', gameId, page, size: ROOM_LIST_PAGE_SIZE }, signal),
     [gameId, dataVersion]
   );
   if (gameError || roomsError) return <ErrorBox message={gameError || roomsError} />;
@@ -596,11 +529,9 @@ function GameDetailView({ gameId, onCreateGame, dataVersion }) {
         </div>
       </div>
       <section style={{ marginTop: 32 }}>
-        <h2><span className="h2-ico">📅</span>예정 모임 <span className="cnt">{upcomingRooms.length}개</span></h2>
-        {upcomingRooms.length ? <div className="grid cols2">{upcomingRooms.map((room) => <SessionCard key={room.id} room={room} />)}</div> : !roomPage?.hasNext && <div className="infobox">아직 공개 예정 모임이 없어요. 첫 모임을 만들어보세요.</div>}
-        {!upcomingRooms.length && roomPage?.hasNext && <p className="hint">이전 모임 다음에 예정 모임이 있을 수 있어요. 목록을 더 불러와 확인해주세요.</p>}
-        <LoadMoreButton page={roomPage} loading={loadingMore} onLoadMore={loadMore} label="예정 모임 더 보기" />
-        {loadMoreError && <ErrorBox message={loadMoreError} />}
+        <h2><span className="h2-ico">📅</span>예정 모임 <span className="cnt">{roomPage?.totalElements ?? upcomingRooms.length}개</span></h2>
+        {upcomingRooms.length ? <div className="grid cols2">{upcomingRooms.map((room) => <SessionCard key={room.id} room={room} />)}</div> : <div className="infobox">아직 공개 예정 모임이 없어요. 첫 모임을 만들어보세요.</div>}
+        <Pagination page={roomPage?.page ?? 0} totalPages={roomPage?.totalPages ?? 0} loading={roomsLoading} onChange={setRoomPage} />
       </section>
     </>
   );
@@ -977,12 +908,12 @@ function EditView({ sessionId, onSave, dataVersion, today }) {
 }
 
 function MyView({ myTab, onMyTabChange, dataVersion }) {
-  const joined = usePagedRequest(
-    (page, signal) => api.getMyRooms({ role: 'joined', page, size: 100 }, signal),
+  const joined = usePaginatedRequest(
+    (page, signal) => api.getMyRooms({ role: 'joined', page, size: ROOM_LIST_PAGE_SIZE }, signal),
     [dataVersion]
   );
-  const hosted = usePagedRequest(
-    (page, signal) => api.getMyRooms({ role: 'hosted', page, size: 100 }, signal),
+  const hosted = usePaginatedRequest(
+    (page, signal) => api.getMyRooms({ role: 'hosted', page, size: ROOM_LIST_PAGE_SIZE }, signal),
     [dataVersion]
   );
   const tab = myTab === 'hosted' ? 'hosted' : 'joined';
@@ -996,8 +927,7 @@ function MyView({ myTab, onMyTabChange, dataVersion }) {
       {!page.error && page.loading && !page.data && <LoadingBox />}
       {!page.error && !!list.length && <div className="grid cols2">{list.map((room) => <SessionCard key={room.id} room={room} />)}</div>}
       {!page.error && !page.loading && !list.length && <div className="infobox">{tab === 'joined' ? '아직 참가한 모임이 없어요.' : '아직 개설한 모임이 없어요.'}</div>}
-      {!page.error && <LoadMoreButton page={page.data} loading={page.loadingMore} onLoadMore={page.loadMore} label="내 모임 더 보기" />}
-      {page.loadMoreError && <ErrorBox message={page.loadMoreError} />}
+      {!page.error && !!list.length && <Pagination page={page.data?.page ?? 0} totalPages={page.data?.totalPages ?? 0} loading={page.loading} onChange={page.setPage} />}
       <p className="hint" style={{ marginTop: 14 }}>카드는 공개 모임 정보만 표시하고, 정확한 장소와 참가자 목록은 모임 상세에서 권한에 따라 확인할 수 있어요.</p>
     </>
   );
