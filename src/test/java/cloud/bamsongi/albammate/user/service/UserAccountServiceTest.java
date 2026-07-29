@@ -9,9 +9,9 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
-import cloud.bamsongi.albammate.global.security.PasswordHashConcurrencyLimiter;
-import cloud.bamsongi.albammate.global.security.PasswordHashExecutor;
-import cloud.bamsongi.albammate.global.security.PasswordHashPermit;
+import cloud.bamsongi.albammate.global.security.password.PasswordHashConcurrencyLimiter;
+import cloud.bamsongi.albammate.global.security.password.PasswordHashExecutor;
+import cloud.bamsongi.albammate.global.security.password.PasswordHashPermit;
 import cloud.bamsongi.albammate.user.contract.UserAccount;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.exception.EmailAlreadyExistsException;

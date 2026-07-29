@@ -81,8 +81,38 @@ class UserProfileApplicationServiceTest {
         assertThrows(
                 UnauthenticatedException.class,
                 () -> userProfileApplicationService.findProfile(7L));
+    }
+
+    @Test
+    void 프로필_조회에서_0과_음수_ID는_조회_없이_미인증으로_변환한다() {
         assertThrows(
                 UnauthenticatedException.class,
                 () -> userProfileApplicationService.findProfile(0L));
+        assertThrows(
+                UnauthenticatedException.class,
+                () -> userProfileApplicationService.findProfile(-1L));
+
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void 닉네임_변경에서_삭제된_사용자는_미인증으로_변환하고_엔티티를_바꾸지_않는다() {
+        when(userRepository.findById(7L)).thenReturn(Optional.empty());
+
+        assertThrows(
+                UnauthenticatedException.class,
+                () -> userProfileApplicationService.changeNickname(7L, "새 닉네임"));
+    }
+
+    @Test
+    void 닉네임_변경에서_0과_음수_ID는_조회나_상태변경_없이_미인증이다() {
+        assertThrows(
+                UnauthenticatedException.class,
+                () -> userProfileApplicationService.changeNickname(0L, "새 닉네임"));
+        assertThrows(
+                UnauthenticatedException.class,
+                () -> userProfileApplicationService.changeNickname(-1L, "새 닉네임"));
+
+        verifyNoInteractions(userRepository);
     }
 }

@@ -26,8 +26,8 @@ description: "범위와 정본이 확정된 Albam Mate 백엔드 기능·버그 
 - 구현 에이전트는 패킷의 `validation.targetedTests`와 `validation.finalCommands`를 실행하고 전체 test·build를 반복하지 않는다.
 - 메인 에이전트는 변경 범위와 `git diff --check`를 고정한 뒤, 위험에 맞는 독립 리뷰를 수행한다. HTTP 인증·인가·개인정보·동시성 변경은 리뷰 차원을 명시한다.
 - 유효한 리뷰 지적만 좁은 패킷으로 반영하고, 해당 대상 테스트를 다시 실행한다.
-- 모든 수정이 끝난 뒤 메인 에이전트가 현재 OS의 Gradle Wrapper로 `build`를 한 번 실행한다.
-- Flyway, PostgreSQL 전용 SQL·제약 또는 데이터베이스 동시성 변경은 현재 OS의 Gradle Wrapper로 `postgresTest --no-daemon --stacktrace`를 추가로 한 번 실행한다.
+- 모든 수정이 끝난 뒤 PostgreSQL 전용 검증이 필요하지 않은 작업은 메인 에이전트가 현재 OS의 Gradle Wrapper로 `build`를 한 번 실행한다.
+- Flyway, PostgreSQL 전용 SQL·제약 또는 데이터베이스 동시성 변경은 test 전용 커버리지 게이트가 합산 판정을 가로막지 않도록 `build -x jacocoTestCoverageVerification --no-daemon --stacktrace`를 실행한 뒤, `postgresTest jacocoAllTestReport jacocoAllTestCoverageVerification --no-daemon --stacktrace`로 PostgreSQL 검증과 정본 커버리지 게이트를 한 번에 실행한다.
 - Markdown을 함께 바꾸면 `node scripts/check-doc-links.mjs`를 추가로 실행한다.
 - 실행 환경 제약으로 필요한 조건부 검증을 실행하지 못하면 완료로 표시하지 않고 잔여 위험으로 보고한다.
 

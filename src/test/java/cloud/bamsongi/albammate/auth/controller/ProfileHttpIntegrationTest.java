@@ -7,7 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import cloud.bamsongi.albammate.global.security.CurrentUserPrincipal;
+import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 import jakarta.servlet.http.Cookie;

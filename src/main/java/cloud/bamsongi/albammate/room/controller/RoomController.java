@@ -4,7 +4,7 @@ import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.response.ApiResponse;
 import cloud.bamsongi.albammate.global.response.PageResponse;
-import cloud.bamsongi.albammate.global.security.CurrentUserAccessor;
+import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserAccessor;
 import cloud.bamsongi.albammate.room.dto.CreateRoomRequest;
 import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
 import cloud.bamsongi.albammate.room.dto.PublicRoomResponse;

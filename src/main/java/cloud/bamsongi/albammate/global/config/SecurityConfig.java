@@ -1,9 +1,9 @@
 package cloud.bamsongi.albammate.global.config;
 
-import cloud.bamsongi.albammate.global.security.ApiAccessDeniedHandler;
-import cloud.bamsongi.albammate.global.security.ApiAuthenticationEntryPoint;
-import cloud.bamsongi.albammate.global.security.ApiEndpointPolicyRegistry;
-import cloud.bamsongi.albammate.global.security.SessionCookieConfigurer;
+import cloud.bamsongi.albammate.global.security.endpoint.ApiEndpointPolicyRegistry;
+import cloud.bamsongi.albammate.global.security.error.ApiAccessDeniedHandler;
+import cloud.bamsongi.albammate.global.security.error.ApiAuthenticationEntryPoint;
+import cloud.bamsongi.albammate.global.security.session.SessionCookieConfigurer;
 import java.util.function.Consumer;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.ServletContextInitializer;

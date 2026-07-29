@@ -10,9 +10,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import cloud.bamsongi.albammate.auth.service.LoginService;
 import cloud.bamsongi.albammate.global.config.SecurityConfig;
 import cloud.bamsongi.albammate.global.exception.GlobalExceptionHandler;
-import cloud.bamsongi.albammate.global.security.ApiAccessDeniedHandler;
-import cloud.bamsongi.albammate.global.security.ApiAuthenticationEntryPoint;
-import cloud.bamsongi.albammate.global.security.SecurityErrorResponseWriter;
+import cloud.bamsongi.albammate.global.security.error.ApiAccessDeniedHandler;
+import cloud.bamsongi.albammate.global.security.error.ApiAuthenticationEntryPoint;
+import cloud.bamsongi.albammate.global.security.error.SecurityErrorResponseWriter;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

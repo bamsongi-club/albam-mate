@@ -3,23 +3,21 @@ package cloud.bamsongi.albammate.auth.security;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-import java.util.Objects;
 import java.util.UUID;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.security.web.csrf.DefaultCsrfToken;
 
 /** 인증 상태가 바뀐 뒤 이전 쿠키 토큰을 다시 검증하지 않도록 세션 범위를 확인한다. */
+@RequiredArgsConstructor
 public final class InvalidatingCsrfTokenRepository implements CsrfTokenRepository {
 
     static final String SESSION_NONCE_ATTRIBUTE =
             InvalidatingCsrfTokenRepository.class.getName() + ".SESSION_NONCE";
 
-    private final CsrfTokenRepository delegate;
-
-    public InvalidatingCsrfTokenRepository(CsrfTokenRepository delegate) {
-        this.delegate = Objects.requireNonNull(delegate, "delegate");
-    }
+    @NonNull private final CsrfTokenRepository delegate;
 
     @Override
     public CsrfToken generateToken(HttpServletRequest request) {
