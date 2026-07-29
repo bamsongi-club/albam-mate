@@ -8,11 +8,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 class GameQueryServiceTest {
 
-    @Test
-    void 조회_서비스는_읽기_전용_트랜잭션을_사용한다() {
-        Transactional transactional = GameQueryService.class.getAnnotation(Transactional.class);
+	@Test
+	void 조회_서비스는_읽기_전용_트랜잭션을_사용한다() {
+		Transactional transactional = GameQueryService.class.getAnnotation(Transactional.class);
 
-        assertNotNull(transactional);
-        assertTrue(transactional.readOnly());
-    }
+		assertNotNull(transactional);
+		assertTrue(transactional.readOnly());
+	}
 }

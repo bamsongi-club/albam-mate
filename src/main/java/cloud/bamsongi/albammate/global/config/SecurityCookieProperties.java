@@ -11,13 +11,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.security.cookie")
 public class SecurityCookieProperties {
 
-    private boolean secure = true;
+	private boolean secure = true;
 
-    public boolean isSecure() {
-        return secure;
-    }
+	public boolean isSecure() {
+		return secure;
+	}
 
-    public void setSecure(boolean secure) {
-        this.secure = secure;
-    }
+	public void setSecure(boolean secure) {
+		this.secure = secure;
+	}
 }

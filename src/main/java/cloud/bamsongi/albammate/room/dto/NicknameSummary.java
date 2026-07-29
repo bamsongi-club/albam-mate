@@ -1,3 +1,4 @@
 package cloud.bamsongi.albammate.room.dto;
 
-public record NicknameSummary(String nickname) {}
+public record NicknameSummary(String nickname) {
+}
