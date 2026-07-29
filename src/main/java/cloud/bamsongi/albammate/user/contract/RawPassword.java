@@ -12,10 +12,10 @@ public final class RawPassword {
 	}
 
 	public static Optional<RawPassword> from(String rawPassword) {
-		if (!UserPasswordPolicy.isValidSignupPassword(rawPassword)) {
-			return Optional.empty();
+		if (UserPasswordPolicy.isValidSignupPassword(rawPassword)) {
+			return Optional.of(new RawPassword(rawPassword));
 		}
-		return Optional.of(new RawPassword(rawPassword));
+		return Optional.empty();
 	}
 
 	public String value() {
@@ -29,13 +29,7 @@ public final class RawPassword {
 
 	@Override
 	public boolean equals(Object other) {
-		if (this == other) {
-			return true;
-		}
-		if (!(other instanceof RawPassword rawPassword)) {
-			return false;
-		}
-		return value.equals(rawPassword.value);
+		return other instanceof RawPassword rawPassword && value.equals(rawPassword.value);
 	}
 
 	@Override

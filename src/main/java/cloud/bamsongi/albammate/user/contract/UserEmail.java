@@ -32,11 +32,11 @@ public final class UserEmail {
 			&& normalizedEmail.charAt(atIndex - 1) != '.'
 			&& normalizedEmail.charAt(atIndex + 1) != '.'
 			&& !normalizedEmail.substring(atIndex + 1).contains("..");
-		if (!validStructure || normalizedEmail.codePointCount(0, normalizedEmail.length()) > 255) {
-			return Optional.empty();
+		boolean validLength = normalizedEmail.codePointCount(0, normalizedEmail.length()) <= 255;
+		if (validStructure && validLength) {
+			return Optional.of(new UserEmail(normalizedEmail));
 		}
-
-		return Optional.of(new UserEmail(normalizedEmail));
+		return Optional.empty();
 	}
 
 	public static String normalize(String rawEmail) {
@@ -49,13 +49,7 @@ public final class UserEmail {
 
 	@Override
 	public boolean equals(Object other) {
-		if (this == other) {
-			return true;
-		}
-		if (!(other instanceof UserEmail userEmail)) {
-			return false;
-		}
-		return value.equals(userEmail.value);
+		return other instanceof UserEmail userEmail && value.equals(userEmail.value);
 	}
 
 	@Override

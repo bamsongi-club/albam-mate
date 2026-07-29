@@ -45,7 +45,7 @@ public class UserAccountApplicationService implements UserAccountService {
 				User user = User.create(normalizedEmail, passwordHash, normalizedNickname);
 				try {
 					User saved = userRepository.saveAndFlush(user);
-					return new UserAccount(saved.getId(), saved.getNickname());
+					return UserContractMapper.toUserAccount(saved);
 				} catch (DataIntegrityViolationException exception) {
 					throw new EmailAlreadyExistsException(exception);
 				}
@@ -59,9 +59,7 @@ public class UserAccountApplicationService implements UserAccountService {
 		String normalizedEmail = requiredEmail(email);
 		return userRepository
 			.findByEmail(normalizedEmail)
-			.map(
-				user -> new UserCredentials(
-					user.getId(), user.getNickname(), user.getPasswordHash()));
+			.map(UserContractMapper::toUserCredentials);
 	}
 
 	/** 로그인 성공 뒤 현재 비밀번호 비용으로 저장 해시를 갱신한다. */
@@ -69,7 +67,7 @@ public class UserAccountApplicationService implements UserAccountService {
 	@Transactional
 	public void updatePasswordHash(Long userId, String passwordHash) {
 		if (userId == null || userId <= 0) {
-			throw new IllegalArgumentException("userId는 양수여야 합니다.");
+			throw new IllegalArgumentException("userId must be positive");
 		}
 		requireValue(passwordHash, "passwordHash");
 		User user = userRepository

@@ -23,7 +23,7 @@ public class UserProfileApplicationService implements UserProfileService {
 	@Override
 	@Transactional(readOnly = true)
 	public UserProfile findProfile(long userId) {
-		return toProfile(findAuthenticatedUser(userId));
+		return UserContractMapper.toUserProfile(findAuthenticatedUser(userId));
 	}
 
 	@Override
@@ -34,7 +34,7 @@ public class UserProfileApplicationService implements UserProfileService {
 			.orElseThrow(InvalidNicknameException::new);
 		User user = findAuthenticatedUser(userId);
 		user.changeNickname(normalizedNickname);
-		return toProfile(user);
+		return UserContractMapper.toUserProfile(user);
 	}
 
 	private User findAuthenticatedUser(long userId) {
@@ -44,7 +44,4 @@ public class UserProfileApplicationService implements UserProfileService {
 		return userRepository.findById(userId).orElseThrow(UnauthenticatedException::new);
 	}
 
-	private UserProfile toProfile(User user) {
-		return new UserProfile(user.getId(), user.getNickname());
-	}
 }

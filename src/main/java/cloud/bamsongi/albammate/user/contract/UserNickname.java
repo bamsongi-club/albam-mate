@@ -37,13 +37,7 @@ public final class UserNickname {
 
 	@Override
 	public boolean equals(Object other) {
-		if (this == other) {
-			return true;
-		}
-		if (!(other instanceof UserNickname userNickname)) {
-			return false;
-		}
-		return value.equals(userNickname.value);
+		return other instanceof UserNickname userNickname && value.equals(userNickname.value);
 	}
 
 	@Override
