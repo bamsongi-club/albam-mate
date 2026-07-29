@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.user.service;
 
 import cloud.bamsongi.albammate.global.security.password.PasswordHashExecutor;
+import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
 import cloud.bamsongi.albammate.user.contract.UserAccount;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
 import cloud.bamsongi.albammate.user.contract.UserCredentials;
@@ -30,10 +31,10 @@ public class UserAccountApplicationService implements UserAccountService {
     /** 중복을 먼저 확인한 뒤 슬롯 안에서 해시하고, DB unique 경쟁도 같은 오류로 변환한다. */
     @Override
     @Transactional
-    public UserAccount createAccount(String email, String rawPassword, String nickname) {
-        String normalizedEmail = requiredEmail(email);
-        String normalizedNickname = requiredNickname(nickname);
-        requireSignupPassword(rawPassword);
+    public UserAccount createAccount(CreateUserAccountCommand command) {
+        String normalizedEmail = requiredEmail(command.email());
+        String normalizedNickname = requiredNickname(command.nickname());
+        requireSignupPassword(command.rawPassword());
 
         return passwordHashExecutor.execute(
                 () -> {
@@ -41,7 +42,7 @@ public class UserAccountApplicationService implements UserAccountService {
                         throw new EmailAlreadyExistsException();
                     }
 
-                    String passwordHash = passwordEncoder.encode(rawPassword);
+                    String passwordHash = passwordEncoder.encode(command.rawPassword());
                     User user = User.create(normalizedEmail, passwordHash, normalizedNickname);
                     try {
                         User saved = userRepository.saveAndFlush(user);

@@ -18,6 +18,7 @@ import cloud.bamsongi.albammate.global.security.error.ApiAccessDeniedHandler;
 import cloud.bamsongi.albammate.global.security.error.ApiAuthenticationEntryPoint;
 import cloud.bamsongi.albammate.global.security.error.SecurityErrorResponseWriter;
 import cloud.bamsongi.albammate.global.security.ratelimit.AuthenticationRequestLimiter;
+import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
 import cloud.bamsongi.albammate.user.contract.UserAccount;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
 import jakarta.servlet.http.Cookie;
@@ -56,7 +57,8 @@ class SignupControllerTest {
 
     @Test
     void CSRF가_있는_회원가입은_201과_UserSummary를_반환하고_세션을_만들지_않는다() throws Exception {
-        when(userAccountService.createAccount("user@example.com", "123456789012345", "닉네임"))
+        when(userAccountService.createAccount(
+                        new CreateUserAccountCommand("user@example.com", "123456789012345", "닉네임")))
                 .thenReturn(new UserAccount(7L, "닉네임"));
         MvcResult csrfResult =
                 mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();

@@ -5,10 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import cloud.bamsongi.albammate.auth.dto.LoginRequest;
 import cloud.bamsongi.albammate.auth.exception.InvalidCredentialsException;
+import cloud.bamsongi.albammate.auth.service.LoginCommand;
 import cloud.bamsongi.albammate.auth.service.LoginService;
+import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
+import cloud.bamsongi.albammate.user.contract.UserEmail;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 import org.junit.jupiter.api.Test;
@@ -34,8 +36,10 @@ class UserAccountServiceIntegrationTest {
         String firstEmail = "hash-first@example.com";
         String secondEmail = "hash-second@example.com";
 
-        userAccountService.createAccount(firstEmail, rawPassword, "첫 사용자");
-        userAccountService.createAccount(secondEmail, rawPassword, "둘 사용자");
+        userAccountService.createAccount(
+                new CreateUserAccountCommand(firstEmail, rawPassword, "첫 사용자"));
+        userAccountService.createAccount(
+                new CreateUserAccountCommand(secondEmail, rawPassword, "둘 사용자"));
 
         User first = userRepository.findByEmail(firstEmail).orElseThrow();
         User second = userRepository.findByEmail(secondEmail).orElseThrow();
@@ -56,7 +60,8 @@ class UserAccountServiceIntegrationTest {
         userRepository.saveAndFlush(legacyUser);
 
         loginService.login(
-                new LoginRequest(legacyEmail, legacyPassword).normalize(), "198.51.100.121");
+                new LoginCommand(UserEmail.normalize(legacyEmail), legacyPassword),
+                "198.51.100.121");
 
         User upgraded = userRepository.findByEmail(legacyEmail).orElseThrow();
         assertNotEquals(legacyHash, upgraded.getPasswordHash());
@@ -66,12 +71,14 @@ class UserAccountServiceIntegrationTest {
 
         String currentEmail = "current-cost-password@example.com";
         String currentPassword = "current-cost-password";
-        userAccountService.createAccount(currentEmail, currentPassword, "현재 cost 사용자");
+        userAccountService.createAccount(
+                new CreateUserAccountCommand(currentEmail, currentPassword, "현재 cost 사용자"));
         User beforeCorrectLogin = userRepository.findByEmail(currentEmail).orElseThrow();
         String currentHash = beforeCorrectLogin.getPasswordHash();
 
         loginService.login(
-                new LoginRequest(currentEmail, currentPassword).normalize(), "198.51.100.122");
+                new LoginCommand(UserEmail.normalize(currentEmail), currentPassword),
+                "198.51.100.122");
 
         User afterCorrectLogin = userRepository.findByEmail(currentEmail).orElseThrow();
         assertEquals(currentHash, afterCorrectLogin.getPasswordHash());
@@ -81,7 +88,8 @@ class UserAccountServiceIntegrationTest {
                 InvalidCredentialsException.class,
                 () ->
                         loginService.login(
-                                new LoginRequest(currentEmail, "incorrect-password").normalize(),
+                                new LoginCommand(
+                                        UserEmail.normalize(currentEmail), "incorrect-password"),
                                 "198.51.100.123"));
 
         User afterWrongLogin = userRepository.findByEmail(currentEmail).orElseThrow();

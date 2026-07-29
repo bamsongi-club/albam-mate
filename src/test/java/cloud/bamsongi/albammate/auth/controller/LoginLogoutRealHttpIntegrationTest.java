@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
@@ -42,7 +43,8 @@ class LoginLogoutRealHttpIntegrationTest {
         String suffix = UUID.randomUUID().toString();
         String email = "real-http-" + suffix + "@example.com";
         String password = "123456789012345";
-        userAccountService.createAccount(email, password, "실제 HTTP 사용자");
+        userAccountService.createAccount(
+                new CreateUserAccountCommand(email, password, "실제 HTTP 사용자"));
 
         URI baseUri = URI.create("http://localhost:" + port);
         CookieManager cookieManager = new CookieManager(null, CookiePolicy.ACCEPT_ALL);

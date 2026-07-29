@@ -36,7 +36,7 @@ public final class ProfileController {
     @PatchMapping
     public ResponseEntity<ApiResponse<UserSummary>> updateMyProfile(
             @Valid @RequestBody ProfileUpdateRequest request) {
-        String nickname = request.normalize().nickname();
+        String nickname = request.normalize();
         UserProfile profile =
                 userProfileService.changeNickname(
                         currentUserAccessor.requireCurrentUserId(), nickname);

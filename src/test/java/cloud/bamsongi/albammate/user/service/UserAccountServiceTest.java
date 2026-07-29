@@ -12,6 +12,7 @@ import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
 import cloud.bamsongi.albammate.global.security.password.PasswordHashConcurrencyLimiter;
 import cloud.bamsongi.albammate.global.security.password.PasswordHashExecutor;
 import cloud.bamsongi.albammate.global.security.password.PasswordHashPermit;
+import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
 import cloud.bamsongi.albammate.user.contract.UserAccount;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.exception.EmailAlreadyExistsException;
@@ -48,7 +49,8 @@ class UserAccountServiceTest {
                             return user;
                         });
 
-        UserAccount account = service.createAccount("user@example.com", "123456789012345", "닉네임");
+        UserAccount account =
+                service.createAccount(command("user@example.com", "123456789012345", "닉네임"));
 
         assertEquals(new UserAccount(9L, "닉네임"), account);
         verify(passwordEncoder).encode("123456789012345");
@@ -66,7 +68,7 @@ class UserAccountServiceTest {
 
         assertThrows(
                 EmailAlreadyExistsException.class,
-                () -> service.createAccount("user@example.com", "123456789012345", "닉네임"));
+                () -> service.createAccount(command("user@example.com", "123456789012345", "닉네임")));
 
         verify(passwordEncoder, never()).encode(any());
         verify(userRepository, never()).saveAndFlush(any());
@@ -90,7 +92,7 @@ class UserAccountServiceTest {
                         });
 
         UserAccount account =
-                service.createAccount(" User@Example.COM ", "123456789012345", " 닉네임 ");
+                service.createAccount(command(" User@Example.COM ", "123456789012345", " 닉네임 "));
 
         assertEquals(new UserAccount(10L, "닉네임"), account);
         verify(userRepository).existsByEmail("user@example.com");
@@ -111,10 +113,12 @@ class UserAccountServiceTest {
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> service.createAccount("not-an-email", "123456789012345", "닉네임"));
+                () -> service.createAccount(command("not-an-email", "123456789012345", "닉네임")));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> service.createAccount("user@example.com", "123456789012345", "닉\n네임"));
+                () ->
+                        service.createAccount(
+                                command("user@example.com", "123456789012345", "닉\n네임")));
 
         verify(userRepository, never()).existsByEmail(any());
         verify(passwordEncoder, never()).encode(any());
@@ -148,7 +152,7 @@ class UserAccountServiceTest {
 
         assertThrows(
                 EmailAlreadyExistsException.class,
-                () -> service.createAccount("user@example.com", "123456789012345", "닉네임"));
+                () -> service.createAccount(command("user@example.com", "123456789012345", "닉네임")));
 
         assertEquals(0, limiter.currentConcurrent());
     }
@@ -162,7 +166,7 @@ class UserAccountServiceTest {
 
         assertThrows(
                 RateLimitExceededException.class,
-                () -> service.createAccount("user@example.com", "123456789012345", "닉네임"));
+                () -> service.createAccount(command("user@example.com", "123456789012345", "닉네임")));
 
         verify(userRepository, never()).existsByEmail(any());
         verify(passwordEncoder, never()).encode(any());
@@ -176,7 +180,7 @@ class UserAccountServiceTest {
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> service.createAccount("user@example.com", password, "닉네임"));
+                () -> service.createAccount(command("user@example.com", password, "닉네임")));
 
         assertEquals(0, limiter.acquireCount());
         verifyNoInteractions(userRepository, passwordEncoder);
@@ -190,6 +194,11 @@ class UserAccountServiceTest {
         } catch (ReflectiveOperationException exception) {
             throw new AssertionError(exception);
         }
+    }
+
+    private static CreateUserAccountCommand command(
+            String email, String password, String nickname) {
+        return new CreateUserAccountCommand(email, password, nickname);
     }
 
     private static final class AlwaysAvailableLimiter implements PasswordHashConcurrencyLimiter {
