@@ -10,9 +10,15 @@
 | --- | --- |
 | 빌드, 실행, 테스트, 반복 확인 명령 | [docs/COMMANDS.md](docs/COMMANDS.md) |
 | 코드 구조, 네이밍, 데이터베이스 변경, 시간 처리와 커밋 규칙 | [docs/CONVENTIONS.md](docs/CONVENTIONS.md) |
+| 프론트엔드 구현, API 호출과 빌드 산출물 | [frontend/AGENTS.md](frontend/AGENTS.md) |
+| H2 기반 일반 테스트의 배치와 작업 맥락 | [src/test/AGENTS.md](src/test/AGENTS.md) |
+| PostgreSQL 전용 통합 테스트의 배치와 작업 맥락 | [src/postgresTest/AGENTS.md](src/postgresTest/AGENTS.md) |
+| Flyway 마이그레이션 파일 작업 | [src/main/resources/db/migration/AGENTS.md](src/main/resources/db/migration/AGENTS.md) |
 | 아키텍처 결정 기록과 작성 규칙 | [docs/adr/README.md](docs/adr/README.md) |
 | 전체 제품 목표와 단계별 범위 | [docs/PRD.md](docs/PRD.md) |
 | P0 기능·API·데이터 명세 진입점 | [docs/P0-spec.md#관련-문서](docs/P0-spec.md#관련-문서) |
+
+둘 이상의 코드 영역에 적용되는 공통 구현 규약은 `docs/CONVENTIONS.md`에 두고, 특정 코드 디렉터리에만 필요한 작업 맥락은 해당 디렉터리의 `AGENTS.md`에 둔다. 같은 규칙을 두 위치에 반복하지 않는다.
 
 P0 구현 작업은 `docs/p0/`의 해당 기능 ID 절부터 읽고, 맥락이 부족할 때만 연결된 상위 문서로 올라간다. 기능 구현에 필요한 공유 기반이 아직 없으면 [기반 작업 명세](docs/p0/foundation.md)의 선행 항목을 먼저 확인한다.
 
