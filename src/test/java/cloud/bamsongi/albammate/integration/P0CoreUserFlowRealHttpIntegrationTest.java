@@ -15,8 +15,12 @@ import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
+import cloud.bamsongi.albammate.user.contract.RawPassword;
 import cloud.bamsongi.albammate.user.contract.UserAccount;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
+import cloud.bamsongi.albammate.user.contract.UserEmail;
+import cloud.bamsongi.albammate.user.contract.UserNickname;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
@@ -46,6 +50,7 @@ import tools.jackson.databind.ObjectMapper;
 class P0CoreUserFlowRealHttpIntegrationTest {
 
     private static final Instant FUTURE_STARTS_AT = Instant.parse("2099-01-01T10:00:00Z");
+    private static final Instant FIXTURE_JOINED_AT = Instant.parse("2026-07-28T00:00:00Z");
     private static final String PASSWORD = "123456789012345";
     private static final AtomicLong BGG_ID_SEQUENCE = new AtomicLong(9_000_000_000L);
 
@@ -60,6 +65,7 @@ class P0CoreUserFlowRealHttpIntegrationTest {
 
     private final List<ParticipationCleanupKey> participationCleanupKeys = new ArrayList<>();
     private final List<Long> roomIds = new ArrayList<>();
+    private final List<RoomCleanupKey> roomCleanupKeys = new ArrayList<>();
     private final List<Long> gameIds = new ArrayList<>();
     private final List<Long> userIds = new ArrayList<>();
 
@@ -67,6 +73,7 @@ class P0CoreUserFlowRealHttpIntegrationTest {
     void tearDown() {
         participationCleanupKeys.forEach(this::deleteParticipationIfPresent);
         roomIds.forEach(roomRepository::deleteById);
+        roomCleanupKeys.forEach(this::deleteRoomIfPresent);
         gameIds.forEach(gameRepository::deleteById);
         userIds.forEach(userRepository::deleteById);
     }
@@ -75,7 +82,7 @@ class P0CoreUserFlowRealHttpIntegrationTest {
     void 게임부터_찾기는_실제_HTTP_세션과_CSRF로_참가한_방을_내_모임에서_확인한다() throws Exception {
         String suffix = UUID.randomUUID().toString();
         Game game = saveGame("game-flow-" + suffix);
-        Game otherGame = saveGame("other-game-flow-" + suffix);
+        Game otherGame = saveGame("other-game-" + suffix);
         UserAccount host = saveUser("game-host-" + suffix);
         Room room = saveRoom(host.id(), RoomType.GAME_FOCUSED, "game-room-" + suffix, game.getId());
         Room otherGameRoom =
@@ -84,6 +91,8 @@ class P0CoreUserFlowRealHttpIntegrationTest {
                         RoomType.GAME_FOCUSED,
                         "other-game-room-" + suffix,
                         otherGame.getId());
+        UserAccount otherParticipant = saveUser("other-game-participant-" + suffix);
+        saveActiveParticipation(otherGameRoom, otherParticipant.id());
         FlowUser participant = saveFlowUser("game-participant-" + suffix);
         ClientSession session = newClientSession();
 
@@ -91,6 +100,7 @@ class P0CoreUserFlowRealHttpIntegrationTest {
         JsonNode listedGame = findById(gameList.path("content"), game.getId());
         assertEquals(game.getId().longValue(), listedGame.path("id").asLong());
         assertEquals(game.getName(), listedGame.path("name").asText());
+        assertFalse(containsId(gameList.path("content"), otherGame.getId()));
 
         JsonNode gameDetail = getData(session.client(), "/api/games/" + game.getId());
         assertEquals(game.getId().longValue(), gameDetail.path("id").asLong());
@@ -113,16 +123,20 @@ class P0CoreUserFlowRealHttpIntegrationTest {
         HttpResponse<String> participationResponse =
                 postCreated(session, "/api/rooms/" + room.getId() + "/participants", "");
         assertActiveParticipation(room.getId(), participant.id());
+        assertEquals(1, findRoom(room.getId()).getActiveParticipantCount());
         JsonNode participation = assertSuccess(participationResponse, 201);
         assertEquals(room.getId().longValue(), participation.path("roomId").asLong());
         assertEquals("ACTIVE", participation.path("participationStatus").asText());
         assertEquals("RECRUITING", participation.path("roomStatus").asText());
+        assertEquals(2, participation.path("participantCount").asInt());
+        assertEquals(2, participation.path("remainingRecruitmentSeats").asInt());
 
         JsonNode joinedRooms = getData(session.client(), "/api/users/me/rooms?role=joined");
         JsonNode joinedRoom = findById(joinedRooms.path("content"), room.getId());
         assertEquals("JOINED", joinedRoom.path("myRole").asText());
         assertEquals("ACTIVE", joinedRoom.path("participationStatus").asText());
         assertEquals("RECRUITING", joinedRoom.path("status").asText());
+        assertFalse(containsId(joinedRooms.path("content"), otherGameRoom.getId()));
     }
 
     @Test
@@ -132,6 +146,8 @@ class P0CoreUserFlowRealHttpIntegrationTest {
         Room room = saveRoom(host.id(), RoomType.PERSON_FOCUSED, "person-room-" + suffix, null);
         Room unmatchedRoom =
                 saveRoom(host.id(), RoomType.PERSON_FOCUSED, "unmatched-room-" + suffix, null);
+        UserAccount otherParticipant = saveUser("other-person-participant-" + suffix);
+        saveActiveParticipation(unmatchedRoom, otherParticipant.id());
         FlowUser participant = saveFlowUser("person-participant-" + suffix);
         ClientSession session = newClientSession();
 
@@ -154,40 +170,53 @@ class P0CoreUserFlowRealHttpIntegrationTest {
         HttpResponse<String> participationResponse =
                 postCreated(session, "/api/rooms/" + room.getId() + "/participants", "");
         assertActiveParticipation(room.getId(), participant.id());
+        assertEquals(1, findRoom(room.getId()).getActiveParticipantCount());
         JsonNode participation = assertSuccess(participationResponse, 201);
         assertEquals(room.getId().longValue(), participation.path("roomId").asLong());
         assertEquals("ACTIVE", participation.path("participationStatus").asText());
+        assertEquals(2, participation.path("participantCount").asInt());
+        assertEquals(2, participation.path("remainingRecruitmentSeats").asInt());
 
         JsonNode joinedRooms = getData(session.client(), "/api/users/me/rooms?role=joined");
         JsonNode joinedRoom = findById(joinedRooms.path("content"), room.getId());
         assertEquals("JOINED", joinedRoom.path("myRole").asText());
         assertEquals("ACTIVE", joinedRoom.path("participationStatus").asText());
         assertEquals("RECRUITING", joinedRoom.path("status").asText());
+        assertFalse(containsId(joinedRooms.path("content"), unmatchedRoom.getId()));
     }
 
     @Test
     void 방_만들기는_실제_HTTP_세션과_CSRF로_생성한_방을_개설_목록에서_확인한다() throws Exception {
         String suffix = UUID.randomUUID().toString();
         FlowUser host = saveFlowUser("create-host-" + suffix);
+        UserAccount otherHost = saveUser("other-create-host-" + suffix);
+        Room otherHostedRoom =
+                saveRoom(
+                        otherHost.id(),
+                        RoomType.PERSON_FOCUSED,
+                        "other-hosted-room-" + suffix,
+                        null);
         ClientSession session = newClientSession();
+        String createdTitle = "created-room-" + suffix;
 
         loginAndRefreshCsrf(session, host);
-        JsonNode createdRoom =
-                postData(
+        registerRoomCleanup(host.id(), createdTitle);
+        HttpResponse<String> createdResponse =
+                postCreated(
                         session,
                         "/api/rooms",
                         objectMapper.writeValueAsString(
                                 Map.of(
                                         "roomType", "PERSON_FOCUSED",
-                                        "title", "created-room-" + suffix,
+                                        "title", createdTitle,
                                         "description", "P0 HTTP integration fixture",
                                         "experienceLevel", "ALL_LEVELS",
                                         "isRulemasterLed", true,
                                         "startsAt", "2099-01-01T19:00:00+09:00",
                                         "place", "홍대 테스트 보드게임 카페",
                                         "recruitmentCapacity", 3)));
+        JsonNode createdRoom = assertSuccess(createdResponse, 201);
         long roomId = createdRoom.path("id").asLong();
-        roomIds.add(roomId);
         assertTrue(roomId > 0);
         assertEquals("PERSON_FOCUSED", createdRoom.path("roomType").asText());
         assertEquals("HOST", createdRoom.path("myRole").asText());
@@ -204,6 +233,7 @@ class P0CoreUserFlowRealHttpIntegrationTest {
         JsonNode hostedRoom = findById(hostedRooms.path("content"), roomId);
         assertEquals("HOST", hostedRoom.path("myRole").asText());
         assertEquals("RECRUITING", hostedRoom.path("status").asText());
+        assertFalse(containsId(hostedRooms.path("content"), otherHostedRoom.getId()));
     }
 
     private ClientSession newClientSession() {
@@ -215,7 +245,12 @@ class P0CoreUserFlowRealHttpIntegrationTest {
     private UserAccount saveUser(String emailLocalPart) {
         String email = emailLocalPart + "@example.com";
         String nickname = "user-" + UUID.randomUUID();
-        UserAccount account = userAccountService.createAccount(email, PASSWORD, nickname);
+        UserAccount account =
+                userAccountService.createAccount(
+                        new CreateUserAccountCommand(
+                                UserEmail.from(email).orElseThrow(),
+                                RawPassword.from(PASSWORD).orElseThrow(),
+                                UserNickname.from(nickname).orElseThrow()));
         userIds.add(account.id());
         return account;
     }
@@ -293,10 +328,6 @@ class P0CoreUserFlowRealHttpIntegrationTest {
         return assertSuccess(get(client, path), 200);
     }
 
-    private JsonNode postData(ClientSession session, String path, String body) throws Exception {
-        return assertSuccess(postCreated(session, path, body), 201);
-    }
-
     private HttpResponse<String> postCreated(ClientSession session, String path, String body)
             throws Exception {
         assertNotNull(session.csrfToken());
@@ -364,10 +395,37 @@ class P0CoreUserFlowRealHttpIntegrationTest {
         assertEquals(ParticipationStatus.ACTIVE, participation.getStatus());
     }
 
+    private void saveActiveParticipation(Room room, Long userId) {
+        registerParticipationCleanup(room.getId(), userId);
+        room.addActiveParticipant();
+        roomRepository.saveAndFlush(room);
+        Participation participation =
+                participationRepository.saveAndFlush(
+                        Participation.createActive(room, userId, FIXTURE_JOINED_AT));
+        assertEquals(ParticipationStatus.ACTIVE, participation.getStatus());
+    }
+
     private void deleteParticipationIfPresent(ParticipationCleanupKey cleanupKey) {
         participationRepository
                 .findByRoomIdAndUserId(cleanupKey.roomId(), cleanupKey.userId())
                 .ifPresent(participationRepository::delete);
+    }
+
+    private Room findRoom(Long roomId) {
+        return roomRepository.findById(roomId).orElseThrow();
+    }
+
+    private void registerRoomCleanup(Long hostUserId, String title) {
+        roomCleanupKeys.add(new RoomCleanupKey(hostUserId, title));
+    }
+
+    private void deleteRoomIfPresent(RoomCleanupKey cleanupKey) {
+        roomRepository.findAll().stream()
+                .filter(
+                        room ->
+                                cleanupKey.hostUserId().equals(room.getHostUserId())
+                                        && cleanupKey.title().equals(room.getTitle()))
+                .forEach(roomRepository::delete);
     }
 
     private java.util.Optional<HttpCookie> cookieNamed(CookieManager cookieManager, String name) {
@@ -381,6 +439,8 @@ class P0CoreUserFlowRealHttpIntegrationTest {
     private record CsrfToken(String headerName, String token) {}
 
     private record ParticipationCleanupKey(Long roomId, Long userId) {}
+
+    private record RoomCleanupKey(Long hostUserId, String title) {}
 
     private static final class ClientSession {
 
