@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.game.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -121,6 +122,15 @@ class GameListQueryServiceIntegrationTest {
 				gameWithOneRoom.getId(), 1L,
 				gameWithoutUpcomingRoom.getId(), 0L),
 			upcomingRoomCounts);
+
+		Page<GameListItem> upcomingOnlyResult = gameListQueryService.findPage(
+			null, true, PageRequest.of(0, 1, Sort.by("name", "id")));
+
+		assertEquals(2, upcomingOnlyResult.getTotalElements());
+		assertEquals(2, upcomingOnlyResult.getTotalPages());
+		assertTrue(upcomingOnlyResult.hasNext());
+		assertEquals(1L, upcomingOnlyResult.getContent().getFirst().upcomingRoomCount());
+		assertEquals(gameWithOneRoom.getId(), upcomingOnlyResult.getContent().getFirst().id());
 	}
 
 	private long insertHostUser() {

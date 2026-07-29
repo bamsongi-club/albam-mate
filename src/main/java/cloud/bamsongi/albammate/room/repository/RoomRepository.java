@@ -19,6 +19,22 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 	@Query("""
 		select r.gameId as gameId, count(r.id) as roomCount
 		from Room r
+		where r.roomType = :roomType
+		  and r.startAt > :now
+		  and r.status not in :excludedStatuses
+		group by r.gameId
+		""")
+	List<UpcomingRoomCount> findAllUpcomingRoomCounts(
+		@Param("roomType")
+		RoomType roomType,
+		@Param("now")
+		Instant now,
+		@Param("excludedStatuses")
+		Collection<RoomStatus> excludedStatuses);
+
+	@Query("""
+		select r.gameId as gameId, count(r.id) as roomCount
+		from Room r
 		where r.gameId in :gameIds
 		  and r.roomType = :roomType
 		  and r.startAt > :now
