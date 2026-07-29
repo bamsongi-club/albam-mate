@@ -1,6 +1,6 @@
 package cloud.bamsongi.albammate.user.service;
 
-import cloud.bamsongi.albammate.global.security.PasswordHashExecutor;
+import cloud.bamsongi.albammate.global.security.password.PasswordHashExecutor;
 import cloud.bamsongi.albammate.user.contract.UserAccount;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
 import cloud.bamsongi.albammate.user.contract.UserCredentials;
@@ -10,8 +10,9 @@ import cloud.bamsongi.albammate.user.contract.UserPasswordPolicy;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.exception.EmailAlreadyExistsException;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
-import java.util.Objects;
 import java.util.Optional;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,21 +20,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** 사용자 계정 생성과 자격증명 저장을 담당하는 사용자 모듈의 애플리케이션 구현이다. */
 @Service
+@RequiredArgsConstructor
 public class UserAccountApplicationService implements UserAccountService {
 
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final PasswordHashExecutor passwordHashExecutor;
-
-    public UserAccountApplicationService(
-            UserRepository userRepository,
-            PasswordEncoder passwordEncoder,
-            PasswordHashExecutor passwordHashExecutor) {
-        this.userRepository = Objects.requireNonNull(userRepository, "userRepository");
-        this.passwordEncoder = Objects.requireNonNull(passwordEncoder, "passwordEncoder");
-        this.passwordHashExecutor =
-                Objects.requireNonNull(passwordHashExecutor, "passwordHashExecutor");
-    }
+    @NonNull private final UserRepository userRepository;
+    @NonNull private final PasswordEncoder passwordEncoder;
+    @NonNull private final PasswordHashExecutor passwordHashExecutor;
 
     /** 중복을 먼저 확인한 뒤 슬롯 안에서 해시하고, DB unique 경쟁도 같은 오류로 변환한다. */
     @Override

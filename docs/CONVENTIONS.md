@@ -96,7 +96,14 @@ Controller에는 다음 책임을 두지 않는다.
 - 트랜잭션 시작
 - 외부 API 직접 호출
 
-의존성은 Lombok의 `@RequiredArgsConstructor`와 `private final` 필드 또는 명시적인 생성자로 주입한다. `@Autowired` 필드 주입은 사용하지 않는다.
+생산 코드는 Lombok의 `@RequiredArgsConstructor`와 `private final` 필드 또는 명시적인 생성자로 의존성을 주입하며, 필드·생성자·메서드 어디에도 `@Autowired`를 사용하지 않는다. 테스트 코드의 `@Autowired`는 Spring TestContext fixture 주입에만 예외로 허용한다.
+
+주입 형식은 다음 두 가지만 사용하고 한 클래스에서 섞지 않는다.
+
+- 생성자가 대입만 한다면 `@RequiredArgsConstructor`를 쓰고 주입 필드마다 `lombok.NonNull`의 `@NonNull`을 붙인다. Lombok이 생성한 생성자에 null 검사가 삽입되므로 별도 방어 코드를 쓰지 않는다.
+- 생성자에서 검증이나 파생값 계산이 필요하면 생성자를 명시하고 null 검사도 생성자 안에서 직접 수행한다. `Objects.requireNonNull` 또는 인자의 검증 메서드 호출을 사용한다. 이때 필드에는 `@NonNull`을 붙이지 않는다. Lombok이 생성하지 않는 생성자에는 검사가 삽입되지 않아 의미 없는 표시가 되기 때문이다.
+
+`@NonNull`은 런타임 검사이며 정적 분석용 nullness 어노테이션이나 Bean Validation의 `@NotNull`과 목적이 다르다. 임포트는 항상 `lombok.NonNull`을 사용한다.
 
 기존 리소스 표현의 일부를 수정하는 엔드포인트는 `@PatchMapping`을 사용한다. 클라이언트가 리소스 표현 전체를 결정해 교체하는 경우에만 `@PutMapping`을 사용하며, 세부 기준은 [ADR-0022](adr/platform/0022-p0-update-api-http-method-and-finish-idempotency.md)를 따른다.
 

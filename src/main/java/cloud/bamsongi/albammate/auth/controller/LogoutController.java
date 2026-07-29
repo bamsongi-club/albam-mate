@@ -1,11 +1,12 @@
 package cloud.bamsongi.albammate.auth.controller;
 
 import cloud.bamsongi.albammate.global.response.ApiResponse;
-import cloud.bamsongi.albammate.global.security.SessionCookieConfigurer;
+import cloud.bamsongi.albammate.global.security.session.SessionCookieConfigurer;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.util.Objects;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -20,19 +21,11 @@ import org.springframework.web.bind.annotation.RestController;
 /** 로그아웃 HTTP 경계에서 세션·인증·CSRF 상태를 함께 무효화한다. */
 @RestController
 @RequestMapping("/api/auth")
+@RequiredArgsConstructor
 public final class LogoutController {
 
-    private final CsrfTokenRepository csrfTokenRepository;
-    private final SessionCookieConfigurer sessionCookieConfigurer;
-
-    public LogoutController(
-            CsrfTokenRepository csrfTokenRepository,
-            SessionCookieConfigurer sessionCookieConfigurer) {
-        this.csrfTokenRepository =
-                Objects.requireNonNull(csrfTokenRepository, "csrfTokenRepository");
-        this.sessionCookieConfigurer =
-                Objects.requireNonNull(sessionCookieConfigurer, "sessionCookieConfigurer");
-    }
+    @NonNull private final CsrfTokenRepository csrfTokenRepository;
+    @NonNull private final SessionCookieConfigurer sessionCookieConfigurer;
 
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> logout(
