@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
@@ -70,11 +71,18 @@ public class RoomDetailService {
 			return PublicRoomResponse.from(room, game, activeParticipantCount, joinable);
 		}
 
-		NicknameSummary host = nicknameSummary(room.getHostUserId());
+		List<Long> userIds = new ArrayList<>(activeParticipations.size() + 1);
+		userIds.add(room.getHostUserId());
+		for (Participation participation : activeParticipations) {
+			userIds.add(participation.getUserId());
+		}
+		Map<Long, String> nicknamesById = userQuery.findNicknamesByIds(userIds);
+
+		NicknameSummary host = nicknameSummary(nicknamesById, room.getHostUserId());
 		List<NicknameSummary> participants = new ArrayList<>();
 		participants.add(host);
 		for (Participation participation : activeParticipations) {
-			participants.add(nicknameSummary(participation.getUserId()));
+			participants.add(nicknameSummary(nicknamesById, participation.getUserId()));
 		}
 		return ParticipantRoomResponse.from(
 			room,
@@ -95,11 +103,12 @@ public class RoomDetailService {
 			.orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR));
 	}
 
-	private NicknameSummary nicknameSummary(Long userId) {
-		return new NicknameSummary(
-			userQuery
-				.findNicknameById(userId)
-				.orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR)));
+	private NicknameSummary nicknameSummary(Map<Long, String> nicknamesById, Long userId) {
+		String nickname = nicknamesById.get(userId);
+		if (nickname == null) {
+			throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+		}
+		return new NicknameSummary(nickname);
 	}
 
 	private boolean isFinal(RoomStatus status) {

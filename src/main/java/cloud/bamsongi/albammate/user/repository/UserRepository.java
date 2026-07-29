@@ -1,5 +1,7 @@
 package cloud.bamsongi.albammate.user.repository;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -21,4 +23,19 @@ public interface UserRepository extends JpaRepository<User, Long> {
 		""")
 	Optional<String> findNicknameById(@Param("userId")
 	Long userId);
+
+	@Query("""
+		select u.id as id, u.nickname as nickname
+		from User u
+		where u.id in :userIds
+		""")
+	List<UserNicknameProjection> findNicknameProjectionsByIds(@Param("userIds")
+	Collection<Long> userIds);
+
+	interface UserNicknameProjection {
+
+		Long getId();
+
+		String getNickname();
+	}
 }
