@@ -97,6 +97,7 @@ class MyRoomControllerTest {
 		for (String query : List.of(
 			"",
 			"role=ALL",
+			"role=all&page=not-a-number",
 			"role=all&page=-1",
 			"role=all&size=0",
 			"role=all&size=101",
@@ -109,6 +110,18 @@ class MyRoomControllerTest {
 		}
 
 		verifyNoInteractions(myRoomQueryService);
+	}
+
+	@Test
+	void 빈_내_모임_페이지_parameter는_기본값을_유지한다() throws Exception {
+		when(myRoomQueryService.findPage(42L, MyRoomRole.all, 0, 10)).thenReturn(response());
+
+		mockMvc.perform(get("/api/users/me/rooms?role=all&page=&size=").with(authenticationFor(42L)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.page").value(0))
+			.andExpect(jsonPath("$.data.size").value(10));
+
+		verify(myRoomQueryService).findPage(42L, MyRoomRole.all, 0, 10);
 	}
 
 	@Test

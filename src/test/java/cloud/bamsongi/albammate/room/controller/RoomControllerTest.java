@@ -178,9 +178,11 @@ class RoomControllerTest {
 			"",
 			"type=GAME_FOCUSED",
 			"type=GAME_FOCUSED&gameId=0",
+			"type=GAME_FOCUSED&gameId=not-a-number",
 			"type=GAME_FOCUSED&gameId=7&keyword=모임",
 			"type=PERSON_FOCUSED&gameId=7",
 			"type=PERSON_FOCUSED&sort=startsAt",
+			"type=PERSON_FOCUSED&page=not-a-number",
 			"type=PERSON_FOCUSED&page=-1",
 			"type=PERSON_FOCUSED&size=0",
 			"type=PERSON_FOCUSED&size=101")) {
@@ -190,6 +192,21 @@ class RoomControllerTest {
 		}
 
 		verifyNoInteractions(roomListQueryService);
+	}
+
+	@Test
+	void 빈_방_목록_페이지_parameter는_기본값을_유지한다() throws Exception {
+		when(roomListQueryService.findPage(
+			eq(RoomType.PERSON_FOCUSED), isNull(), isNull(), eq(0), eq(10), eq(Optional.empty())))
+			.thenReturn(pageResponse(false));
+
+		mockMvc.perform(get("/api/rooms?type=PERSON_FOCUSED&page=&size="))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.page").value(0))
+			.andExpect(jsonPath("$.data.size").value(10));
+
+		verify(roomListQueryService).findPage(
+			RoomType.PERSON_FOCUSED, null, null, 0, 10, Optional.empty());
 	}
 
 	@Autowired
