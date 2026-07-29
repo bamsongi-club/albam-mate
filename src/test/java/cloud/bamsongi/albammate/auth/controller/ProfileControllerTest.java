@@ -32,6 +32,7 @@ import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal
 import cloud.bamsongi.albammate.global.security.error.ApiAccessDeniedHandler;
 import cloud.bamsongi.albammate.global.security.error.ApiAuthenticationEntryPoint;
 import cloud.bamsongi.albammate.global.security.error.SecurityErrorResponseWriter;
+import cloud.bamsongi.albammate.user.contract.UserNickname;
 import cloud.bamsongi.albammate.user.contract.UserProfile;
 import cloud.bamsongi.albammate.user.contract.UserProfileService;
 import jakarta.servlet.http.Cookie;
@@ -80,7 +81,7 @@ class ProfileControllerTest {
 
 	@Test
 	void 유효한_CSRF와_닉네임으로_수정하면_UserSummary를_반환한다() throws Exception {
-		when(userProfileService.changeNickname(7L, "새 닉네임"))
+		when(userProfileService.changeNickname(7L, UserNickname.from("새 닉네임").orElseThrow()))
 			.thenReturn(new UserProfile(7L, "새 닉네임"));
 		CsrfContext csrfContext = csrfContext();
 
@@ -96,7 +97,7 @@ class ProfileControllerTest {
 			.andExpect(jsonPath("$.data.id").value(7))
 			.andExpect(jsonPath("$.data.nickname").value("새 닉네임"));
 
-		verify(userProfileService).changeNickname(7L, "새 닉네임");
+		verify(userProfileService).changeNickname(7L, UserNickname.from("새 닉네임").orElseThrow());
 	}
 
 	@Test

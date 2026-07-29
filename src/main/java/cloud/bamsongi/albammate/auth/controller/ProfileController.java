@@ -37,9 +37,8 @@ public final class ProfileController {
 	public ResponseEntity<ApiResponse<UserSummary>> updateMyProfile(
 		@Valid @RequestBody
 		ProfileUpdateRequest request) {
-		String nickname = request.normalize();
 		UserProfile profile = userProfileService.changeNickname(
-			currentUserAccessor.requireCurrentUserId(), nickname);
+			currentUserAccessor.requireCurrentUserId(), request.normalize());
 		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, UserSummary.from(profile)));
 	}
 }

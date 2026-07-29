@@ -7,7 +7,7 @@ public interface UserAccountService {
 
 	UserAccount createAccount(CreateUserAccountCommand command);
 
-	Optional<UserCredentials> findCredentialsByEmail(String email);
+	Optional<UserCredentials> findCredentialsByEmail(UserEmail email);
 
 	void updatePasswordHash(Long userId, String passwordHash);
 }
