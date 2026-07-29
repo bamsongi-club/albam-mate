@@ -15,13 +15,14 @@ CREATE TABLE games (
     english_name VARCHAR(255) NOT NULL,
     alias VARCHAR(255),
     image_url VARCHAR(500),
-    recommended_player_count VARCHAR(50) NOT NULL,
+    supported_player_count VARCHAR(50) NOT NULL,
     tag VARCHAR(30) NOT NULL,
     estimated_play_time VARCHAR(50) NOT NULL,
     complexity DECIMAL(3, 2),
     description TEXT NOT NULL,
     detail_description TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
     CONSTRAINT uq_games_bgg_id UNIQUE (bgg_id)
 );
 
@@ -65,6 +66,8 @@ CREATE TABLE participations (
     status VARCHAR(20) NOT NULL,
     joined_at TIMESTAMP WITH TIME ZONE NOT NULL,
     canceled_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
     CONSTRAINT fk_participations_room FOREIGN KEY (room_id) REFERENCES rooms (id),
     CONSTRAINT fk_participations_user FOREIGN KEY (user_id) REFERENCES users (id),
     CONSTRAINT uq_participations_room_user UNIQUE (room_id, user_id),

@@ -123,6 +123,7 @@ Controller에는 다음 책임을 두지 않는다.
 - 마이그레이션은 `src/main/resources/db/migration`에 `V<version>__<description>.sql` 형식으로 둔다.
 - 초기 스키마 이후 추가하는 마이그레이션의 버전은 최신 기본 브랜치를 반영한 뒤 저장소의 기존 버전보다 크게 부여한다. 동시에 열린 PR 사이에 중복이나 순서 역전이 생기면 나중에 병합하는 PR이 병합 전에 버전을 다시 부여한다.
 - 공유 환경에 한 번이라도 적용된 버전 마이그레이션은 수정하지 않는다. 보정이 필요하면 새 버전 파일을 추가한다.
+- P0의 기존 V1~V3를 폐기하고 재생성하는 일회성 예외는 [ADR-0023](adr/platform/0023-p0-flyway-baseline-reset-player-count-stages.md)을 따른다. 새 기준선부터는 위의 불변 원칙을 다시 적용한다.
 - JPA Entity 변경은 마이그레이션을 대신하지 않는다. 두 표현이 함께 바뀌면 같은 변경에서 일치시킨다.
 - 공유 개발·검증·운영 환경에서 Hibernate `ddl-auto=create` 또는 `update`로 스키마를 변경하지 않는다.
 - PostgreSQL 전용 SQL, 제약과 Flyway 실행 결과는 H2 테스트만으로 검증됐다고 보지 않는다.
