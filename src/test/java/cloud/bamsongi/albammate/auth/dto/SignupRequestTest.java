@@ -19,9 +19,9 @@ class SignupRequestTest {
         CreateUserAccountCommand normalized =
                 new SignupRequest(" User@Example.COM ", password, " 닉네임 ").normalize();
 
-        assertEquals("user@example.com", normalized.email());
-        assertEquals(password, normalized.rawPassword());
-        assertEquals("닉네임", normalized.nickname());
+        assertEquals("user@example.com", normalized.email().value());
+        assertEquals(password, normalized.rawPassword().value());
+        assertEquals("닉네임", normalized.nickname().value());
     }
 
     @Test
@@ -39,6 +39,7 @@ class SignupRequestTest {
                 new SignupRequest("user@example.com", "😀".repeat(15), "닉네임")
                         .normalize()
                         .rawPassword()
+                        .value()
                         .codePointCount(0, 15 * 2));
     }
 
@@ -51,7 +52,8 @@ class SignupRequestTest {
                 exactly72Bytes,
                 new SignupRequest("user@example.com", exactly72Bytes, "닉네임")
                         .normalize()
-                        .rawPassword());
+                        .rawPassword()
+                        .value());
         assertFalse(
                 validator
                         .validate(new SignupRequest("user@example.com", exactly76Bytes, "닉네임"))

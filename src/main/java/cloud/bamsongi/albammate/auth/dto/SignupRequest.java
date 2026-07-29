@@ -4,6 +4,7 @@ import cloud.bamsongi.albammate.auth.validation.ValidEmail;
 import cloud.bamsongi.albammate.auth.validation.ValidNickname;
 import cloud.bamsongi.albammate.auth.validation.ValidPassword;
 import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
+import cloud.bamsongi.albammate.user.contract.RawPassword;
 import cloud.bamsongi.albammate.user.contract.UserEmail;
 import cloud.bamsongi.albammate.user.contract.UserNickname;
 import cloud.bamsongi.albammate.user.contract.UserPasswordPolicy;
@@ -18,7 +19,9 @@ public record SignupRequest(
 
     public CreateUserAccountCommand normalize() {
         return new CreateUserAccountCommand(
-                UserEmail.normalize(email), password, UserNickname.normalize(nickname));
+                UserEmail.from(email).orElseThrow(),
+                RawPassword.from(password).orElseThrow(),
+                UserNickname.from(nickname).orElseThrow());
     }
 
     @Override

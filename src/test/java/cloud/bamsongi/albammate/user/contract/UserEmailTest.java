@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.user.contract;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,18 @@ class UserEmailTest {
     void 앞뒤_공백을_제거하고_소문자로_정규화한다() {
         assertEquals(
                 "user@example.com", UserEmail.from(" User@Example.COM ").orElseThrow().value());
+    }
+
+    @Test
+    void 같은_정규화된_이메일은_값_동등성을_가진다() {
+        UserEmail email = UserEmail.from("User@Example.COM").orElseThrow();
+        UserEmail sameEmail = UserEmail.from(" user@example.com ").orElseThrow();
+
+        assertEquals(email, email);
+        assertEquals(email, sameEmail);
+        assertEquals(email.hashCode(), sameEmail.hashCode());
+        assertNotEquals(email, UserEmail.from("other@example.com").orElseThrow());
+        assertNotEquals(email, "user@example.com");
     }
 
     @Test

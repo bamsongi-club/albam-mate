@@ -10,8 +10,11 @@ import static org.mockito.Mockito.when;
 import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
 import cloud.bamsongi.albammate.global.security.ratelimit.AuthenticationRequestLimiter;
 import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
+import cloud.bamsongi.albammate.user.contract.RawPassword;
 import cloud.bamsongi.albammate.user.contract.UserAccount;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
+import cloud.bamsongi.albammate.user.contract.UserEmail;
+import cloud.bamsongi.albammate.user.contract.UserNickname;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
@@ -29,8 +32,7 @@ class SignupServiceTest {
     void IP_제한을_먼저_확인하고_사용자_모듈을_호출한다() {
         SignupService service = new SignupService(requestLimiter, userAccountService);
         UserAccount account = new UserAccount(7L, "닉네임");
-        CreateUserAccountCommand command =
-                new CreateUserAccountCommand("user@example.com", "123456789012345", "닉네임");
+        CreateUserAccountCommand command = command("user@example.com", "123456789012345", "닉네임");
         when(userAccountService.createAccount(command)).thenReturn(account);
 
         UserAccount result = service.signup(command, "203.0.113.21");
@@ -52,10 +54,16 @@ class SignupServiceTest {
                 RateLimitExceededException.class,
                 () ->
                         service.signup(
-                                new CreateUserAccountCommand(
-                                        "user@example.com", "123456789012345", "닉네임"),
+                                command("user@example.com", "123456789012345", "닉네임"),
                                 "203.0.113.22"));
 
         verify(userAccountService, never()).createAccount(org.mockito.ArgumentMatchers.any());
+    }
+
+    private CreateUserAccountCommand command(String email, String password, String nickname) {
+        return new CreateUserAccountCommand(
+                UserEmail.from(email).orElseThrow(),
+                RawPassword.from(password).orElseThrow(),
+                UserNickname.from(nickname).orElseThrow());
     }
 }

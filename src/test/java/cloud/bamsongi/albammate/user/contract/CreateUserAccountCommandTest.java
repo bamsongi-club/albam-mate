@@ -11,7 +11,10 @@ class CreateUserAccountCommandTest {
         String password = "sensitive-password";
 
         assertFalse(
-                new CreateUserAccountCommand("user@example.com", password, "닉네임")
+                new CreateUserAccountCommand(
+                                UserEmail.from("user@example.com").orElseThrow(),
+                                RawPassword.from(password).orElseThrow(),
+                                UserNickname.from("닉네임").orElseThrow())
                         .toString()
                         .contains(password));
     }

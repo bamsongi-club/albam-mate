@@ -9,8 +9,10 @@ import cloud.bamsongi.albammate.auth.exception.InvalidCredentialsException;
 import cloud.bamsongi.albammate.auth.service.LoginCommand;
 import cloud.bamsongi.albammate.auth.service.LoginService;
 import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
+import cloud.bamsongi.albammate.user.contract.RawPassword;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
 import cloud.bamsongi.albammate.user.contract.UserEmail;
+import cloud.bamsongi.albammate.user.contract.UserNickname;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 import org.junit.jupiter.api.Test;
@@ -36,10 +38,8 @@ class UserAccountServiceIntegrationTest {
         String firstEmail = "hash-first@example.com";
         String secondEmail = "hash-second@example.com";
 
-        userAccountService.createAccount(
-                new CreateUserAccountCommand(firstEmail, rawPassword, "첫 사용자"));
-        userAccountService.createAccount(
-                new CreateUserAccountCommand(secondEmail, rawPassword, "둘 사용자"));
+        userAccountService.createAccount(command(firstEmail, rawPassword, "첫 사용자"));
+        userAccountService.createAccount(command(secondEmail, rawPassword, "둘 사용자"));
 
         User first = userRepository.findByEmail(firstEmail).orElseThrow();
         User second = userRepository.findByEmail(secondEmail).orElseThrow();
@@ -71,8 +71,7 @@ class UserAccountServiceIntegrationTest {
 
         String currentEmail = "current-cost-password@example.com";
         String currentPassword = "current-cost-password";
-        userAccountService.createAccount(
-                new CreateUserAccountCommand(currentEmail, currentPassword, "현재 cost 사용자"));
+        userAccountService.createAccount(command(currentEmail, currentPassword, "현재 cost 사용자"));
         User beforeCorrectLogin = userRepository.findByEmail(currentEmail).orElseThrow();
         String currentHash = beforeCorrectLogin.getPasswordHash();
 
@@ -94,5 +93,12 @@ class UserAccountServiceIntegrationTest {
 
         User afterWrongLogin = userRepository.findByEmail(currentEmail).orElseThrow();
         assertEquals(currentHash, afterWrongLogin.getPasswordHash());
+    }
+
+    private CreateUserAccountCommand command(String email, String password, String nickname) {
+        return new CreateUserAccountCommand(
+                UserEmail.from(email).orElseThrow(),
+                RawPassword.from(password).orElseThrow(),
+                UserNickname.from(nickname).orElseThrow());
     }
 }

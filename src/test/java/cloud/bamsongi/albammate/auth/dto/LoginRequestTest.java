@@ -30,10 +30,11 @@ class LoginRequestTest {
         String email = "😀😀" + "a".repeat(251) + "@b";
         String password = "123456789012345";
         CreateUserAccountCommand signup = new SignupRequest(email, password, "닉네임").normalize();
-        LoginCommand login = new LoginRequest(signup.email(), password).normalize();
+        LoginCommand login = new LoginRequest(signup.email().value(), password).normalize();
 
-        assertEquals(255, signup.email().codePointCount(0, signup.email().length()));
-        assertEquals(signup.email(), login.email());
+        assertEquals(
+                255, signup.email().value().codePointCount(0, signup.email().value().length()));
+        assertEquals(signup.email().value(), login.email());
     }
 
     @Test
