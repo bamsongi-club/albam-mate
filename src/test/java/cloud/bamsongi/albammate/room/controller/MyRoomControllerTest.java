@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.room.controller;
 
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -74,7 +75,7 @@ class MyRoomControllerTest {
 
 	@Test
 	void 인증된_조회는_응답_봉투와_비식별_필드만_반환한다() throws Exception {
-		when(myRoomQueryService.findPage(42L, MyRoomRole.all, 0, 10)).thenReturn(response());
+		when(myRoomQueryService.findPage(42L, MyRoomRole.ALL, 0, 10)).thenReturn(response());
 
 		mockMvc.perform(get("/api/users/me/rooms?role=all").with(authenticationFor(42L)))
 			.andExpect(status().isOk())
@@ -87,16 +88,35 @@ class MyRoomControllerTest {
 			.andExpect(jsonPath("$.data.content[0].participants").doesNotExist())
 			.andExpect(jsonPath("$.data.content[0].userId").doesNotExist());
 
-		verify(myRoomQueryService).findPage(42L, MyRoomRole.all, 0, 10);
+		verify(myRoomQueryService).findPage(42L, MyRoomRole.ALL, 0, 10);
 	}
 
 	@Test
-	void 누락_대문자_역할과_잘못된_페이지는_VALIDATION_ERROR다() throws Exception {
+	void 소문자_역할은_각각_대문자_enum으로_변환해_조회한다() throws Exception {
+		reset(myRoomQueryService);
+		when(myRoomQueryService.findPage(42L, MyRoomRole.JOINED, 0, 10)).thenReturn(response());
+		when(myRoomQueryService.findPage(42L, MyRoomRole.HOSTED, 0, 10)).thenReturn(response());
+
+		mockMvc.perform(get("/api/users/me/rooms?role=joined").with(authenticationFor(42L)))
+			.andExpect(status().isOk());
+		mockMvc.perform(get("/api/users/me/rooms?role=hosted").with(authenticationFor(42L)))
+			.andExpect(status().isOk());
+
+		verify(myRoomQueryService).findPage(42L, MyRoomRole.JOINED, 0, 10);
+		verify(myRoomQueryService).findPage(42L, MyRoomRole.HOSTED, 0, 10);
+	}
+
+	@Test
+	void 누락_허용하지_않는_역할과_잘못된_페이지는_VALIDATION_ERROR다() throws Exception {
 		clearInvocations(myRoomQueryService);
 
 		for (String query : List.of(
 			"",
 			"role=ALL",
+			"role=Joined",
+			"role=unknown",
+			"role=%20all",
+			"role=all%20",
 			"role=all&page=not-a-number",
 			"role=all&page=-1",
 			"role=all&size=0",
@@ -114,19 +134,19 @@ class MyRoomControllerTest {
 
 	@Test
 	void 빈_내_모임_페이지_parameter는_기본값을_유지한다() throws Exception {
-		when(myRoomQueryService.findPage(42L, MyRoomRole.all, 0, 10)).thenReturn(response());
+		when(myRoomQueryService.findPage(42L, MyRoomRole.ALL, 0, 10)).thenReturn(response());
 
 		mockMvc.perform(get("/api/users/me/rooms?role=all&page=&size=").with(authenticationFor(42L)))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.page").value(0))
 			.andExpect(jsonPath("$.data.size").value(10));
 
-		verify(myRoomQueryService).findPage(42L, MyRoomRole.all, 0, 10);
+		verify(myRoomQueryService).findPage(42L, MyRoomRole.ALL, 0, 10);
 	}
 
 	@Test
 	void 상태_보정_충돌은_ROOM_CONCURRENT_MODIFICATION으로_반환한다() throws Exception {
-		when(myRoomQueryService.findPage(42L, MyRoomRole.joined, 0, 10))
+		when(myRoomQueryService.findPage(42L, MyRoomRole.JOINED, 0, 10))
 			.thenThrow(new BusinessException(ErrorCode.ROOM_CONCURRENT_MODIFICATION));
 
 		mockMvc.perform(get("/api/users/me/rooms?role=joined").with(authenticationFor(42L)))

@@ -122,7 +122,7 @@ class Room06RequestBoundaryQueryIntegrationTest {
 		User host = saveUser("내 모임 호스트");
 		Room room = saveRoom(host, NOW.minus(Room.AUTOMATIC_FINISH_AFTER_START), "내 모임 종료 방");
 
-		PageResponse<MyRoomListItem> response = myRoomQueryService.findPage(host.getId(), MyRoomRole.hosted, 0, 10);
+		PageResponse<MyRoomListItem> response = myRoomQueryService.findPage(host.getId(), MyRoomRole.HOSTED, 0, 10);
 
 		assertEquals(1, response.totalElements());
 		assertEquals(room.getId(), response.content().getFirst().id());

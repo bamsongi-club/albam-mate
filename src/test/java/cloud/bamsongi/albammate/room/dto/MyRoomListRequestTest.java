@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-import cloud.bamsongi.albammate.room.enums.MyRoomRole;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 
@@ -17,7 +16,7 @@ class MyRoomListRequestTest {
 	@Test
 	void 누락하거나_빈_페이지_파라미터는_기본값을_유지한다() {
 		MyRoomListRequest request = new MyRoomListRequest();
-		request.setRole(MyRoomRole.all);
+		request.setRole("all");
 		request.setPage(null);
 		request.setSize(null);
 
@@ -29,7 +28,7 @@ class MyRoomListRequestTest {
 	@Test
 	void 역할과_페이지_크기의_유효한_경계를_허용한다() {
 		MyRoomListRequest request = new MyRoomListRequest();
-		request.setRole(MyRoomRole.joined);
+		request.setRole("joined");
 		request.setPage(0);
 		request.setSize(100);
 
@@ -39,17 +38,20 @@ class MyRoomListRequestTest {
 	@Test
 	void 역할_누락과_페이지_크기_범위를_거절한다() {
 		MyRoomListRequest missingRole = new MyRoomListRequest();
+		MyRoomListRequest invalidRole = new MyRoomListRequest();
+		invalidRole.setRole("ALL");
 		MyRoomListRequest negativePage = new MyRoomListRequest();
-		negativePage.setRole(MyRoomRole.all);
+		negativePage.setRole("all");
 		negativePage.setPage(-1);
 		MyRoomListRequest zeroSize = new MyRoomListRequest();
-		zeroSize.setRole(MyRoomRole.all);
+		zeroSize.setRole("all");
 		zeroSize.setSize(0);
 		MyRoomListRequest oversize = new MyRoomListRequest();
-		oversize.setRole(MyRoomRole.all);
+		oversize.setRole("all");
 		oversize.setSize(101);
 
 		assertFalse(validator.validate(missingRole).isEmpty());
+		assertFalse(validator.validate(invalidRole).isEmpty());
 		assertFalse(validator.validate(negativePage).isEmpty());
 		assertFalse(validator.validate(zeroSize).isEmpty());
 		assertFalse(validator.validate(oversize).isEmpty());

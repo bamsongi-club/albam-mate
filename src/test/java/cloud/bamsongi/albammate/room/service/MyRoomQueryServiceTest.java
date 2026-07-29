@@ -63,7 +63,7 @@ class MyRoomQueryServiceTest {
 		PageRequest pageable = pageable();
 		Room hosted = room(1L, 7L, 42L, 1, 3);
 		Room joined = room(2L, 8L, 99L, 2, 3);
-		when(myRoomReadService.findMyRooms(42L, MyRoomRole.all, pageable))
+		when(myRoomReadService.findMyRooms(42L, MyRoomRole.ALL, pageable))
 			.thenReturn(new PageImpl<>(List.of(hosted, joined), pageable, 2));
 		when(gameQuery.findSummariesByIds(Set.of(7L, 8L)))
 			.thenReturn(
@@ -71,7 +71,7 @@ class MyRoomQueryServiceTest {
 					7L, new GameSummary(7L, 1007L, "카탄"),
 					8L, new GameSummary(8L, 1008L, "아줄")));
 
-		var response = myRoomQueryService.findPage(42L, MyRoomRole.all, 0, 10);
+		var response = myRoomQueryService.findPage(42L, MyRoomRole.ALL, 0, 10);
 
 		assertEquals(MyRole.HOST, response.content().get(0).myRole());
 		assertNull(response.content().get(0).participationStatus());
@@ -84,7 +84,7 @@ class MyRoomQueryServiceTest {
 		verify(gameQuery).findSummariesByIds(Set.of(7L, 8L));
 		InOrder inOrder = inOrder(reconciliationCoordinator, myRoomReadService);
 		inOrder.verify(reconciliationCoordinator).reconcileDueRooms(NOW);
-		inOrder.verify(myRoomReadService).findMyRooms(42L, MyRoomRole.all, pageable);
+		inOrder.verify(myRoomReadService).findMyRooms(42L, MyRoomRole.ALL, pageable);
 	}
 
 	private PageRequest pageable() {
