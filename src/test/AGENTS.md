@@ -9,7 +9,6 @@
 - Controller 테스트는 HTTP 상태, 요청 검증, 인증 경계와 응답 계약을 확인한다.
 - `@SpringBootTest`는 전체 Spring 구성이 필요한 통합 경로에만 사용한다.
 - 새 Service와 Controller에는 성공 경로와 핵심 실패 경로 테스트를 함께 작성한다.
-- 테스트에서 Spring TestContext fixture를 주입할 때만 `@Autowired`를 허용한다.
 - 여러 테스트에서 재사용하는 fixture는 해당 source set의 `java/.../<domain>/fixture` 패키지에 두고, 한 테스트에서만 쓰는 fixture는 그 테스트 가까이에 둔다. 테스트 편의를 위한 fixture를 `src/main`에 두지 않는다.
 - 현재 시각에 의존하는 테스트는 `Clock.fixed(...)`를 사용하고 fixture의 시각도 고정값으로 둔다.
 - 생산 코드의 패키지를 옮기거나 새로 만들면 `build.gradle`의 `gatedBranchCoverage` 대상과 실측 최소선이 함께 유효한지 확인하고 필요한 변경을 같은 작업에 포함한다.

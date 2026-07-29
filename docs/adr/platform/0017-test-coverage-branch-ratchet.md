@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-28
 - 결정일: 2026-07-28
-- 관련: [ADR-0010](0010-h2-postgresql-test-boundary.md), [프로젝트 컨벤션](../../CONVENTIONS.md#테스트), [프로젝트 명령](../../COMMANDS.md#분기-커버리지-확인), [build.gradle](../../../build.gradle), [TOOL-02 이슈](https://github.com/bamsongi-club/albam-mate/issues/81)
+- 관련: [ADR-0010](0010-h2-postgresql-test-boundary.md), [테스트 작업 안내](../../../src/test/AGENTS.md), [프로젝트 명령](../../COMMANDS.md#분기-커버리지-확인), [build.gradle](../../../build.gradle), [TOOL-02 이슈](https://github.com/bamsongi-club/albam-mate/issues/81)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 

@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-24
 - 결정일: 2026-07-24
-- 관련: [ADR-0002](0002-postgresql-primary-database.md), [ADR-0005](../participation/0005-room-participation-optimistic-locking.md), [ADR-0008](0008-flyway-database-migrations.md), [프로젝트 컨벤션](../../CONVENTIONS.md#테스트), [프로젝트 명령](../../COMMANDS.md), [build.gradle](../../../build.gradle)
+- 관련: [ADR-0002](0002-postgresql-primary-database.md), [ADR-0005](../participation/0005-room-participation-optimistic-locking.md), [ADR-0008](0008-flyway-database-migrations.md), [테스트 작업 안내](../../../src/test/AGENTS.md), [프로젝트 명령](../../COMMANDS.md), [build.gradle](../../../build.gradle)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 

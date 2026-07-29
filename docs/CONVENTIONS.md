@@ -100,7 +100,7 @@ Controller에는 다음 책임을 두지 않는다.
 - 트랜잭션 시작
 - 외부 API 직접 호출
 
-생산 코드는 Lombok의 `@RequiredArgsConstructor`와 `private final` 필드 또는 명시적인 생성자로 의존성을 주입하며, 필드·생성자·메서드 어디에도 `@Autowired`를 사용하지 않는다.
+생산 코드는 Lombok의 `@RequiredArgsConstructor`와 `private final` 필드 또는 명시적인 생성자로 의존성을 주입하며, 필드·생성자·메서드 어디에도 `@Autowired`를 사용하지 않는다. 테스트 코드의 `@Autowired`는 Spring TestContext fixture 주입에만 예외로 허용한다.
 
 주입 형식은 다음 두 가지만 사용하고 한 클래스에서 섞지 않는다.
 

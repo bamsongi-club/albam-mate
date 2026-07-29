@@ -91,7 +91,7 @@ FND-04와 FND-05를 기반 작업으로 분리한 것은 인증 담당이나 구
 | --- | --- |
 | 필수 ADR | [ADR-0008 Flyway SQL 마이그레이션](../adr/platform/0008-flyway-database-migrations.md), [ADR-0007 도메인 중심 모듈러 모놀리스](../adr/platform/0007-domain-centered-modular-monolith.md), [ADR-0006 BIGINT 자동 증가 키](../adr/platform/0006-p0-bigint-identity-ids.md) |
 | 데이터 모델 | [테이블 명세](../ERD.md#테이블-명세), [DB 제약](../ERD.md#db-제약), [필수 제약과 계산 규칙](../ERD.md#필수-제약과-계산-규칙) |
-| 구현 규칙 | [패키지와 모듈](../CONVENTIONS.md#패키지와-모듈), [데이터베이스 변경](../CONVENTIONS.md#데이터베이스-변경), [Entity와 DTO](../CONVENTIONS.md#entity와-dto) |
+| 구현 규칙 | [패키지와 모듈](../CONVENTIONS.md#패키지와-모듈), [마이그레이션 작업 안내](../../src/main/resources/db/migration/AGENTS.md), [Entity와 DTO](../CONVENTIONS.md#entity와-dto) |
 | 선행 | [FND-02](#fnd-02-시간-기준-구성) |
 | 소유 경로 | `build.gradle`, `src/main/resources/db/migration/**`, `src/main/resources/application.yml`, `user/**`, `game/**`, `room/**` |
 
@@ -190,7 +190,7 @@ FND-04와 FND-05를 기반 작업으로 분리한 것은 인증 담당이나 구
 | 구분 | 정본 |
 | --- | --- |
 | 필수 ADR | [ADR-0002 PostgreSQL 주 데이터베이스](../adr/platform/0002-postgresql-primary-database.md), [ADR-0010 H2와 PostgreSQL 테스트 경계](../adr/platform/0010-h2-postgresql-test-boundary.md) |
-| 구현 규칙 | [테스트](../CONVENTIONS.md#테스트), [데이터베이스 변경](../CONVENTIONS.md#데이터베이스-변경) |
+| 구현 규칙 | [테스트 작업 안내](../../src/test/AGENTS.md), [마이그레이션 작업 안내](../../src/main/resources/db/migration/AGENTS.md) |
 | 실행 명령 | [프로젝트 명령](../COMMANDS.md) |
 | 선행 | [FND-03](#fnd-03-스키마와-엔티티-골격) |
 | 소유 경로 | `build.gradle`, `.github/workflows/ci.yml`, `docs/COMMANDS.md`, `src/postgresTest/**` |
@@ -248,7 +248,7 @@ FND-04와 FND-05를 기반 작업으로 분리한 것은 인증 담당이나 구
 | 구분 | 정본 |
 | --- | --- |
 | 필수 ADR | [ADR-0007 도메인 중심 모듈러 모놀리스](../adr/platform/0007-domain-centered-modular-monolith.md) |
-| 구현 규칙 | [패키지와 모듈](../CONVENTIONS.md#패키지와-모듈), [테스트](../CONVENTIONS.md#테스트) |
+| 구현 규칙 | [패키지와 모듈](../CONVENTIONS.md#패키지와-모듈), [테스트 작업 안내](../../src/test/AGENTS.md) |
 | 선행 | [FND-03](#fnd-03-스키마와-엔티티-골격), 업무 모듈 2개 이상 구현, 기존 공개 계약의 `contract` 재배치 |
 | 소유 경로 | `build.gradle`, `src/test/**` |
 | 정본 변경 | 구조 검사 기준과 현재 정본이 어긋나면 이 작업에서 문서를 함께 바꾸지 않고 결정·문서 변경을 먼저 머지한다. |
@@ -277,7 +277,7 @@ FND-04와 FND-05를 기반 작업으로 분리한 것은 인증 담당이나 구
 | 구분 | 정본 |
 | --- | --- |
 | 필수 ADR | [ADR-0002 PostgreSQL 주 데이터베이스](../adr/platform/0002-postgresql-primary-database.md), [ADR-0008 Flyway SQL 마이그레이션](../adr/platform/0008-flyway-database-migrations.md), [ADR-0010 H2와 PostgreSQL 테스트 경계](../adr/platform/0010-h2-postgresql-test-boundary.md) |
-| 구현 규칙 | [데이터베이스 변경](../CONVENTIONS.md#데이터베이스-변경), [설정과 비밀정보](../CONVENTIONS.md#설정과-비밀정보), [테스트](../CONVENTIONS.md#테스트) |
+| 구현 규칙 | [마이그레이션 작업 안내](../../src/main/resources/db/migration/AGENTS.md), [설정과 비밀정보](../CONVENTIONS.md#설정과-비밀정보), [테스트 작업 안내](../../src/test/AGENTS.md) |
 | 실행 명령 | [프로젝트 명령](../COMMANDS.md) |
 | 선행 | [FND-03](#fnd-03-스키마와-엔티티-골격), [FND-06-AC5 운영 지원 버전 계약](#운영-지원-버전-계약)의 승인·공개 |
 | 소유 경로 | `compose.local.yml`, `.env.example`, `.gitignore`, `src/main/resources/application-local.yml`, `docs/COMMANDS.md` |
