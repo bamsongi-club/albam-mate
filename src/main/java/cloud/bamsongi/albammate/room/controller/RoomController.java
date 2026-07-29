@@ -2,6 +2,7 @@ package cloud.bamsongi.albammate.room.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -10,7 +11,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import cloud.bamsongi.albammate.global.response.ApiResponse;
@@ -60,12 +60,12 @@ public class RoomController {
 	}
 
 	@GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-	public ApiResponse<PageResponse<PublicRoomResponse>> listRooms(
+	public ResponseEntity<ApiResponse<PageResponse<PublicRoomResponse>>> listRooms(
 		@Valid @ModelAttribute
 		RoomListRequest listRequest,
 		HttpServletRequest servletRequest) {
 		RoomQueryParameterValidator.validateRoomList(servletRequest);
-		return ApiResponse.success(
+		return ResponseEntity.ok(ApiResponse.success(
 			HttpStatus.OK,
 			roomListQueryService.findPage(
 				listRequest.getType(),
@@ -73,50 +73,48 @@ public class RoomController {
 				listRequest.getKeyword(),
 				listRequest.getPage(),
 				listRequest.getSize(),
-				currentUserAccessor.currentUserId()));
+				currentUserAccessor.currentUserId())));
 	}
 
 	@PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-	@ResponseStatus(HttpStatus.CREATED)
-	public ApiResponse<ParticipantRoomResponse> createRoom(
+	public ResponseEntity<ApiResponse<ParticipantRoomResponse>> createRoom(
 		@Valid @RequestBody
 		CreateRoomRequest request) {
 		ParticipantRoomResponse response = roomCreateService.createRoom(currentUserAccessor.requireCurrentUserId(),
 			request);
-		return ApiResponse.success(HttpStatus.CREATED, response);
+		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(HttpStatus.CREATED, response));
 	}
 
 	@PostMapping(value = "/{roomId}/participants", produces = MediaType.APPLICATION_JSON_VALUE)
-	@ResponseStatus(HttpStatus.CREATED)
-	public ApiResponse<RoomParticipationResponse> participate(@PathVariable @Positive long roomId) {
+	public ResponseEntity<ApiResponse<RoomParticipationResponse>> participate(@PathVariable @Positive long roomId) {
 		RoomParticipationResponse response = roomParticipationService.participate(
 			currentUserAccessor.requireCurrentUserId(), roomId);
-		return ApiResponse.success(HttpStatus.CREATED, response);
+		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(HttpStatus.CREATED, response));
 	}
 
 	@PatchMapping(path = "/{roomId}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-	public ApiResponse<ParticipantRoomResponse> updateRoom(
+	public ResponseEntity<ApiResponse<ParticipantRoomResponse>> updateRoom(
 		@PathVariable @Positive long roomId, @Valid @RequestBody
 		RoomUpdateRequest request) {
 		ParticipantRoomResponse response = roomUpdateService.updateRoom(
 			currentUserAccessor.requireCurrentUserId(), roomId, request);
-		return ApiResponse.success(HttpStatus.OK, response);
+		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
 	}
 
 	@DeleteMapping(path = "/{roomId}", produces = MediaType.APPLICATION_JSON_VALUE)
-	public ApiResponse<RoomStatusResponse> cancelRoom(@PathVariable @Positive long roomId) {
+	public ResponseEntity<ApiResponse<RoomStatusResponse>> cancelRoom(@PathVariable @Positive long roomId) {
 		RoomStatusResponse response = roomStatusChangeService.cancelRoom(
 			currentUserAccessor.requireCurrentUserId(), roomId);
-		return ApiResponse.success(HttpStatus.OK, response);
+		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
 	}
 
 	@PatchMapping(path = "/{roomId}/status", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-	public ApiResponse<RoomStatusResponse> finishRoom(
+	public ResponseEntity<ApiResponse<RoomStatusResponse>> finishRoom(
 		@PathVariable @Positive long roomId,
 		@Valid @RequestBody
 		RoomStatusUpdateRequest request) {
 		RoomStatusResponse response = roomStatusChangeService.finishRoom(
 			currentUserAccessor.requireCurrentUserId(), roomId);
-		return ApiResponse.success(HttpStatus.OK, response);
+		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
 	}
 }

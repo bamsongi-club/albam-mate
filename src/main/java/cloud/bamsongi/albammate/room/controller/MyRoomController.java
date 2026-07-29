@@ -4,6 +4,7 @@ import java.util.Objects;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,17 +34,17 @@ public class MyRoomController {
 	}
 
 	@GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-	public ApiResponse<PageResponse<MyRoomListItem>> listMyRooms(
+	public ResponseEntity<ApiResponse<PageResponse<MyRoomListItem>>> listMyRooms(
 		@Valid @ModelAttribute
 		MyRoomListRequest listRequest,
 		HttpServletRequest servletRequest) {
 		RoomQueryParameterValidator.validateMyRoomList(servletRequest);
-		return ApiResponse.success(
+		return ResponseEntity.ok(ApiResponse.success(
 			HttpStatus.OK,
 			myRoomQueryService.findPage(
 				currentUserAccessor.requireCurrentUserId(),
 				listRequest.getRole(),
 				listRequest.getPage(),
-				listRequest.getSize()));
+				listRequest.getSize())));
 	}
 }
