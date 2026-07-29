@@ -1,11 +1,7 @@
 package cloud.bamsongi.albammate.global.security.error;
 
-import cloud.bamsongi.albammate.global.exception.ErrorCode;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
+
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -15,44 +11,50 @@ import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.stereotype.Component;
 
+import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
+
 /** 권한·CSRF 실패를 API 명세의 공통 JSON 오류 봉투로 변환한다. */
 @RequiredArgsConstructor
 @Component
 public final class ApiAccessDeniedHandler implements AccessDeniedHandler {
 
-    @NonNull private final SecurityErrorResponseWriter responseWriter;
-    @NonNull private final RequestMatcher publicAuthenticationRequestMatcher;
+	@NonNull private final SecurityErrorResponseWriter responseWriter;
+	@NonNull private final RequestMatcher publicAuthenticationRequestMatcher;
 
-    @Override
-    public void handle(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            AccessDeniedException accessDeniedException)
-            throws IOException {
-        ErrorCode errorCode = resolveErrorCode(request, accessDeniedException);
-        responseWriter.write(response, errorCode);
-    }
+	@Override
+	public void handle(
+		HttpServletRequest request,
+		HttpServletResponse response,
+		AccessDeniedException accessDeniedException)
+		throws IOException {
+		ErrorCode errorCode = resolveErrorCode(request, accessDeniedException);
+		responseWriter.write(response, errorCode);
+	}
 
-    private ErrorCode resolveErrorCode(
-            HttpServletRequest request, AccessDeniedException accessDeniedException) {
-        if (!(accessDeniedException instanceof CsrfException)) {
-            return ErrorCode.FORBIDDEN;
-        }
+	private ErrorCode resolveErrorCode(
+		HttpServletRequest request, AccessDeniedException accessDeniedException) {
+		if (!(accessDeniedException instanceof CsrfException)) {
+			return ErrorCode.FORBIDDEN;
+		}
 
-        if (isAnonymous() && !isPublicAuthenticationRequest(request)) {
-            return ErrorCode.UNAUTHENTICATED;
-        }
-        return ErrorCode.CSRF_TOKEN_INVALID;
-    }
+		if (isAnonymous() && !isPublicAuthenticationRequest(request)) {
+			return ErrorCode.UNAUTHENTICATED;
+		}
+		return ErrorCode.CSRF_TOKEN_INVALID;
+	}
 
-    private boolean isAnonymous() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return authentication == null
-                || !authentication.isAuthenticated()
-                || authentication instanceof AnonymousAuthenticationToken;
-    }
+	private boolean isAnonymous() {
+		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+		return authentication == null
+			|| !authentication.isAuthenticated()
+			|| authentication instanceof AnonymousAuthenticationToken;
+	}
 
-    private boolean isPublicAuthenticationRequest(HttpServletRequest request) {
-        return publicAuthenticationRequestMatcher.matches(request);
-    }
+	private boolean isPublicAuthenticationRequest(HttpServletRequest request) {
+		return publicAuthenticationRequestMatcher.matches(request);
+	}
 }

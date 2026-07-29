@@ -13,6 +13,19 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Optional;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 import cloud.bamsongi.albammate.game.contract.GameQuery;
 import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
@@ -28,224 +41,209 @@ import cloud.bamsongi.albammate.room.enums.MyRole;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.user.contract.UserQuery;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.util.List;
-import java.util.Optional;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InOrder;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class RoomDetailServiceTest {
 
-    private static final Instant NOW = Instant.parse("2026-07-28T00:00:00Z");
+	private static final Instant NOW = Instant.parse("2026-07-28T00:00:00Z");
 
-    @Mock private RoomStateReconciliationCoordinator reconciliationCoordinator;
-    @Mock private RoomDetailReadService roomDetailReadService;
-    @Mock private GameQuery gameQuery;
-    @Mock private UserQuery userQuery;
+	@Mock
+	private RoomStateReconciliationCoordinator reconciliationCoordinator;
+	@Mock
+	private RoomDetailReadService roomDetailReadService;
+	@Mock
+	private GameQuery gameQuery;
+	@Mock
+	private UserQuery userQuery;
 
-    private RoomDetailService roomDetailService;
+	private RoomDetailService roomDetailService;
 
-    @BeforeEach
-    void setUp() {
-        roomDetailService =
-                new RoomDetailService(
-                        reconciliationCoordinator,
-                        roomDetailReadService,
-                        gameQuery,
-                        userQuery,
-                        Clock.fixed(NOW, ZoneOffset.UTC));
-    }
+	@BeforeEach
+	void setUp() {
+		roomDetailService = new RoomDetailService(
+			reconciliationCoordinator,
+			roomDetailReadService,
+			gameQuery,
+			userQuery,
+			Clock.fixed(NOW, ZoneOffset.UTC));
+	}
 
-    @Test
-    void 상태_보정_후_동일한_요청시각의_공개_상세를_반환한다() {
-        Room room = room(7L, 42L, null, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
-        when(roomDetailReadService.findRoomDetail(7L)).thenReturn(readResult(room, List.of()));
+	@Test
+	void 상태_보정_후_동일한_요청시각의_공개_상세를_반환한다() {
+		Room room = room(7L, 42L, null, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
+		when(roomDetailReadService.findRoomDetail(7L)).thenReturn(readResult(room, List.of()));
 
-        RoomDetailResponse result = roomDetailService.findRoomDetail(7L, Optional.empty());
+		RoomDetailResponse result = roomDetailService.findRoomDetail(7L, Optional.empty());
 
-        PublicRoomResponse response = assertInstanceOf(PublicRoomResponse.class, result);
-        assertEquals(1, response.participantCount());
-        assertEquals(3, response.remainingRecruitmentSeats());
-        assertFalse(response.joinable());
-        InOrder inOrder = inOrder(reconciliationCoordinator, roomDetailReadService);
-        inOrder.verify(reconciliationCoordinator).reconcileRoom(7L, NOW);
-        inOrder.verify(roomDetailReadService).findRoomDetail(7L);
-        verify(gameQuery, never()).findSummaryById(org.mockito.ArgumentMatchers.anyLong());
-    }
+		PublicRoomResponse response = assertInstanceOf(PublicRoomResponse.class, result);
+		assertEquals(1, response.participantCount());
+		assertEquals(3, response.remainingRecruitmentSeats());
+		assertFalse(response.joinable());
+		InOrder inOrder = inOrder(reconciliationCoordinator, roomDetailReadService);
+		inOrder.verify(reconciliationCoordinator).reconcileRoom(7L, NOW);
+		inOrder.verify(roomDetailReadService).findRoomDetail(7L);
+		verify(gameQuery, never()).findSummaryById(org.mockito.ArgumentMatchers.anyLong());
+	}
 
-    @Test
-    void 관계없는_로그인_사용자는_모집중_빈자리에_참가할_수_있다() {
-        Room room = room(7L, 42L, null, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
-        when(roomDetailReadService.findRoomDetail(7L)).thenReturn(readResult(room, List.of()));
+	@Test
+	void 관계없는_로그인_사용자는_모집중_빈자리에_참가할_수_있다() {
+		Room room = room(7L, 42L, null, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
+		when(roomDetailReadService.findRoomDetail(7L)).thenReturn(readResult(room, List.of()));
 
-        PublicRoomResponse response =
-                assertInstanceOf(
-                        PublicRoomResponse.class,
-                        roomDetailService.findRoomDetail(7L, Optional.of(99L)));
+		PublicRoomResponse response = assertInstanceOf(
+			PublicRoomResponse.class,
+			roomDetailService.findRoomDetail(7L, Optional.of(99L)));
 
-        assertTrue(response.joinable());
-    }
+		assertTrue(response.joinable());
+	}
 
-    @Test
-    void CANCELED_참가관계는_ACTIVE_목록에_없으므로_재참가할_수_있다() {
-        Room room = room(7L, 42L, null, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
-        when(roomDetailReadService.findRoomDetail(7L)).thenReturn(readResult(room, List.of()));
+	@Test
+	void CANCELED_참가관계는_ACTIVE_목록에_없으므로_재참가할_수_있다() {
+		Room room = room(7L, 42L, null, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
+		when(roomDetailReadService.findRoomDetail(7L)).thenReturn(readResult(room, List.of()));
 
-        PublicRoomResponse response =
-                assertInstanceOf(
-                        PublicRoomResponse.class,
-                        roomDetailService.findRoomDetail(7L, Optional.of(77L)));
+		PublicRoomResponse response = assertInstanceOf(
+			PublicRoomResponse.class,
+			roomDetailService.findRoomDetail(7L, Optional.of(77L)));
 
-        assertTrue(response.joinable());
-    }
+		assertTrue(response.joinable());
+	}
 
-    @Test
-    void 주최자는_정확한_장소와_HOST_역할_및_ACTIVE_참가자_목록을_받는다() {
-        Room room = room(7L, 42L, 100L, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
-        Participation participation = participation(77L);
-        when(roomDetailReadService.findRoomDetail(7L))
-                .thenReturn(readResult(room, List.of(participation)));
-        when(gameQuery.findSummaryById(100L))
-                .thenReturn(Optional.of(new GameSummary(100L, 1100L, "카탄")));
-        when(userQuery.findNicknameById(42L)).thenReturn(Optional.of("방장"));
-        when(userQuery.findNicknameById(77L)).thenReturn(Optional.of("참가자"));
+	@Test
+	void 주최자는_정확한_장소와_HOST_역할_및_ACTIVE_참가자_목록을_받는다() {
+		Room room = room(7L, 42L, 100L, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
+		Participation participation = participation(77L);
+		when(roomDetailReadService.findRoomDetail(7L))
+			.thenReturn(readResult(room, List.of(participation)));
+		when(gameQuery.findSummaryById(100L))
+			.thenReturn(Optional.of(new GameSummary(100L, 1100L, "카탄")));
+		when(userQuery.findNicknameById(42L)).thenReturn(Optional.of("방장"));
+		when(userQuery.findNicknameById(77L)).thenReturn(Optional.of("참가자"));
 
-        ParticipantRoomResponse response =
-                assertInstanceOf(
-                        ParticipantRoomResponse.class,
-                        roomDetailService.findRoomDetail(7L, Optional.of(42L)));
+		ParticipantRoomResponse response = assertInstanceOf(
+			ParticipantRoomResponse.class,
+			roomDetailService.findRoomDetail(7L, Optional.of(42L)));
 
-        assertEquals(MyRole.HOST, response.myRole());
-        assertEquals("정확한 장소", response.place());
-        assertEquals("방장", response.host().nickname());
-        assertEquals(
-                List.of("방장", "참가자"),
-                response.participants().stream().map(p -> p.nickname()).toList());
-        assertEquals(2, response.participantCount());
-        assertEquals(2, response.remainingRecruitmentSeats());
-    }
+		assertEquals(MyRole.HOST, response.myRole());
+		assertEquals("정확한 장소", response.place());
+		assertEquals("방장", response.host().nickname());
+		assertEquals(
+			List.of("방장", "참가자"),
+			response.participants().stream().map(p -> p.nickname()).toList());
+		assertEquals(2, response.participantCount());
+		assertEquals(2, response.remainingRecruitmentSeats());
+	}
 
-    @Test
-    void CANCELED_방의_주최자는_관계자_상세를_받는다() {
-        Room room = room(7L, 42L, null, RoomStatus.CANCELED, 3, NOW.plusSeconds(60));
-        Participation participation = participation(77L);
-        when(roomDetailReadService.findRoomDetail(7L))
-                .thenReturn(readResult(room, List.of(participation)));
-        when(userQuery.findNicknameById(42L)).thenReturn(Optional.of("방장"));
-        when(userQuery.findNicknameById(77L)).thenReturn(Optional.of("참가자"));
+	@Test
+	void CANCELED_방의_주최자는_관계자_상세를_받는다() {
+		Room room = room(7L, 42L, null, RoomStatus.CANCELED, 3, NOW.plusSeconds(60));
+		Participation participation = participation(77L);
+		when(roomDetailReadService.findRoomDetail(7L))
+			.thenReturn(readResult(room, List.of(participation)));
+		when(userQuery.findNicknameById(42L)).thenReturn(Optional.of("방장"));
+		when(userQuery.findNicknameById(77L)).thenReturn(Optional.of("참가자"));
 
-        ParticipantRoomResponse response =
-                assertInstanceOf(
-                        ParticipantRoomResponse.class,
-                        roomDetailService.findRoomDetail(7L, Optional.of(42L)));
+		ParticipantRoomResponse response = assertInstanceOf(
+			ParticipantRoomResponse.class,
+			roomDetailService.findRoomDetail(7L, Optional.of(42L)));
 
-        assertEquals(MyRole.HOST, response.myRole());
-        assertEquals("정확한 장소", response.place());
-        assertEquals("방장", response.host().nickname());
-        assertEquals(
-                List.of("방장", "참가자"),
-                response.participants().stream().map(p -> p.nickname()).toList());
-        assertFalse(response.joinable());
-    }
+		assertEquals(MyRole.HOST, response.myRole());
+		assertEquals("정확한 장소", response.place());
+		assertEquals("방장", response.host().nickname());
+		assertEquals(
+			List.of("방장", "참가자"),
+			response.participants().stream().map(p -> p.nickname()).toList());
+		assertFalse(response.joinable());
+	}
 
-    @Test
-    void ACTIVE_참가자는_JOINED_역할을_받고_사람중심_방은_게임이_null이다() {
-        Room room = room(7L, 42L, null, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
-        Participation participation = participation(77L);
-        when(roomDetailReadService.findRoomDetail(7L))
-                .thenReturn(readResult(room, List.of(participation)));
-        when(userQuery.findNicknameById(42L)).thenReturn(Optional.of("방장"));
-        when(userQuery.findNicknameById(77L)).thenReturn(Optional.of("참가자"));
+	@Test
+	void ACTIVE_참가자는_JOINED_역할을_받고_사람중심_방은_게임이_null이다() {
+		Room room = room(7L, 42L, null, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
+		Participation participation = participation(77L);
+		when(roomDetailReadService.findRoomDetail(7L))
+			.thenReturn(readResult(room, List.of(participation)));
+		when(userQuery.findNicknameById(42L)).thenReturn(Optional.of("방장"));
+		when(userQuery.findNicknameById(77L)).thenReturn(Optional.of("참가자"));
 
-        ParticipantRoomResponse response =
-                assertInstanceOf(
-                        ParticipantRoomResponse.class,
-                        roomDetailService.findRoomDetail(7L, Optional.of(77L)));
+		ParticipantRoomResponse response = assertInstanceOf(
+			ParticipantRoomResponse.class,
+			roomDetailService.findRoomDetail(7L, Optional.of(77L)));
 
-        assertEquals(MyRole.JOINED, response.myRole());
-        assertNull(response.game());
-        assertFalse(response.joinable());
-        verify(gameQuery, never()).findSummaryById(org.mockito.ArgumentMatchers.anyLong());
-    }
+		assertEquals(MyRole.JOINED, response.myRole());
+		assertNull(response.game());
+		assertFalse(response.joinable());
+		verify(gameQuery, never()).findSummaryById(org.mockito.ArgumentMatchers.anyLong());
+	}
 
-    @Test
-    void FINISHED_방의_ACTIVE_참가자는_관계자_상세를_받는다() {
-        Room room = room(7L, 42L, null, RoomStatus.FINISHED, 3, NOW.plusSeconds(60));
-        Participation participation = participation(77L);
-        when(roomDetailReadService.findRoomDetail(7L))
-                .thenReturn(readResult(room, List.of(participation)));
-        when(userQuery.findNicknameById(42L)).thenReturn(Optional.of("방장"));
-        when(userQuery.findNicknameById(77L)).thenReturn(Optional.of("참가자"));
+	@Test
+	void FINISHED_방의_ACTIVE_참가자는_관계자_상세를_받는다() {
+		Room room = room(7L, 42L, null, RoomStatus.FINISHED, 3, NOW.plusSeconds(60));
+		Participation participation = participation(77L);
+		when(roomDetailReadService.findRoomDetail(7L))
+			.thenReturn(readResult(room, List.of(participation)));
+		when(userQuery.findNicknameById(42L)).thenReturn(Optional.of("방장"));
+		when(userQuery.findNicknameById(77L)).thenReturn(Optional.of("참가자"));
 
-        ParticipantRoomResponse response =
-                assertInstanceOf(
-                        ParticipantRoomResponse.class,
-                        roomDetailService.findRoomDetail(7L, Optional.of(77L)));
+		ParticipantRoomResponse response = assertInstanceOf(
+			ParticipantRoomResponse.class,
+			roomDetailService.findRoomDetail(7L, Optional.of(77L)));
 
-        assertEquals(MyRole.JOINED, response.myRole());
-        assertEquals("정확한 장소", response.place());
-        assertEquals("방장", response.host().nickname());
-        assertEquals(
-                List.of("방장", "참가자"),
-                response.participants().stream().map(p -> p.nickname()).toList());
-        assertFalse(response.joinable());
-    }
+		assertEquals(MyRole.JOINED, response.myRole());
+		assertEquals("정확한 장소", response.place());
+		assertEquals("방장", response.host().nickname());
+		assertEquals(
+			List.of("방장", "참가자"),
+			response.participants().stream().map(p -> p.nickname()).toList());
+		assertFalse(response.joinable());
+	}
 
-    @Test
-    void 최종_상태_방은_관계없는_사용자에게_존재를_숨긴다() {
-        Room room = mock(Room.class);
-        when(room.getHostUserId()).thenReturn(42L);
-        when(room.getStatus()).thenReturn(RoomStatus.CANCELED);
-        when(roomDetailReadService.findRoomDetail(7L)).thenReturn(readResult(room, List.of()));
+	@Test
+	void 최종_상태_방은_관계없는_사용자에게_존재를_숨긴다() {
+		Room room = mock(Room.class);
+		when(room.getHostUserId()).thenReturn(42L);
+		when(room.getStatus()).thenReturn(RoomStatus.CANCELED);
+		when(roomDetailReadService.findRoomDetail(7L)).thenReturn(readResult(room, List.of()));
 
-        BusinessException exception =
-                assertThrows(
-                        BusinessException.class,
-                        () -> roomDetailService.findRoomDetail(7L, Optional.of(99L)));
+		BusinessException exception = assertThrows(
+			BusinessException.class,
+			() -> roomDetailService.findRoomDetail(7L, Optional.of(99L)));
 
-        assertEquals(ErrorCode.ROOM_NOT_FOUND, exception.getErrorCode());
-    }
+		assertEquals(ErrorCode.ROOM_NOT_FOUND, exception.getErrorCode());
+	}
 
-    private RoomDetailReadService.RoomDetailReadResult readResult(
-            Room room, List<Participation> activeParticipations) {
-        return new RoomDetailReadService.RoomDetailReadResult(room, activeParticipations);
-    }
+	private RoomDetailReadService.RoomDetailReadResult readResult(
+		Room room, List<Participation> activeParticipations) {
+		return new RoomDetailReadService.RoomDetailReadResult(room, activeParticipations);
+	}
 
-    private Participation participation(long userId) {
-        Participation participation = org.mockito.Mockito.mock(Participation.class);
-        when(participation.getUserId()).thenReturn(userId);
-        return participation;
-    }
+	private Participation participation(long userId) {
+		Participation participation = org.mockito.Mockito.mock(Participation.class);
+		when(participation.getUserId()).thenReturn(userId);
+		return participation;
+	}
 
-    private Room room(
-            long roomId,
-            long hostUserId,
-            Long gameId,
-            RoomStatus status,
-            int capacity,
-            Instant startsAt) {
-        Room room = org.mockito.Mockito.mock(Room.class);
-        when(room.getId()).thenReturn(roomId);
-        when(room.getHostUserId()).thenReturn(hostUserId);
-        when(room.getGameId()).thenReturn(gameId);
-        when(room.getRoomType())
-                .thenReturn(gameId == null ? RoomType.PERSON_FOCUSED : RoomType.GAME_FOCUSED);
-        when(room.getTitle()).thenReturn("방 상세");
-        when(room.getDescription()).thenReturn("소개");
-        when(room.getExperienceLevel()).thenReturn(ExperienceLevel.ALL_LEVELS);
-        when(room.isRulemasterLed()).thenReturn(false);
-        when(room.getStartAt()).thenReturn(startsAt);
-        when(room.getRegion()).thenReturn("홍대");
-        when(room.getCapacity()).thenReturn(capacity);
-        when(room.getStatus()).thenReturn(status);
-        lenient().when(room.getPlace()).thenReturn("정확한 장소");
-        return room;
-    }
+	private Room room(
+		long roomId,
+		long hostUserId,
+		Long gameId,
+		RoomStatus status,
+		int capacity,
+		Instant startsAt) {
+		Room room = org.mockito.Mockito.mock(Room.class);
+		when(room.getId()).thenReturn(roomId);
+		when(room.getHostUserId()).thenReturn(hostUserId);
+		when(room.getGameId()).thenReturn(gameId);
+		when(room.getRoomType())
+			.thenReturn(gameId == null ? RoomType.PERSON_FOCUSED : RoomType.GAME_FOCUSED);
+		when(room.getTitle()).thenReturn("방 상세");
+		when(room.getDescription()).thenReturn("소개");
+		when(room.getExperienceLevel()).thenReturn(ExperienceLevel.ALL_LEVELS);
+		when(room.isRulemasterLed()).thenReturn(false);
+		when(room.getStartAt()).thenReturn(startsAt);
+		when(room.getRegion()).thenReturn("홍대");
+		when(room.getCapacity()).thenReturn(capacity);
+		when(room.getStatus()).thenReturn(status);
+		lenient().when(room.getPlace()).thenReturn("정확한 장소");
+		return room;
+	}
 }

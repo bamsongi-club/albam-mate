@@ -3,10 +3,8 @@ package cloud.bamsongi.albammate.room.service;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import cloud.bamsongi.albammate.room.entity.Room;
-import cloud.bamsongi.albammate.room.enums.MyRoomRole;
-import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import java.util.List;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,36 +15,41 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 
+import cloud.bamsongi.albammate.room.entity.Room;
+import cloud.bamsongi.albammate.room.enums.MyRoomRole;
+import cloud.bamsongi.albammate.room.repository.RoomRepository;
+
 @ExtendWith(MockitoExtension.class)
 class MyRoomReadServiceTest {
 
-    @Mock private RoomRepository roomRepository;
+	@Mock
+	private RoomRepository roomRepository;
 
-    private MyRoomReadService myRoomReadService;
+	private MyRoomReadService myRoomReadService;
 
-    @BeforeEach
-    void setUp() {
-        myRoomReadService = new MyRoomReadService(roomRepository);
-    }
+	@BeforeEach
+	void setUp() {
+		myRoomReadService = new MyRoomReadService(roomRepository);
+	}
 
-    @Test
-    void 역할별로_주최와_ACTIVE_참가_범위를_저장소에_전달한다() {
-        PageRequest pageable = pageable();
-        Page<Room> result = new PageImpl<>(List.of(), pageable, 0);
-        when(roomRepository.findMyRooms(42L, true, true, pageable)).thenReturn(result);
-        when(roomRepository.findMyRooms(42L, false, true, pageable)).thenReturn(result);
-        when(roomRepository.findMyRooms(42L, true, false, pageable)).thenReturn(result);
+	@Test
+	void 역할별로_주최와_ACTIVE_참가_범위를_저장소에_전달한다() {
+		PageRequest pageable = pageable();
+		Page<Room> result = new PageImpl<>(List.of(), pageable, 0);
+		when(roomRepository.findMyRooms(42L, true, true, pageable)).thenReturn(result);
+		when(roomRepository.findMyRooms(42L, false, true, pageable)).thenReturn(result);
+		when(roomRepository.findMyRooms(42L, true, false, pageable)).thenReturn(result);
 
-        myRoomReadService.findMyRooms(42L, MyRoomRole.all, pageable);
-        myRoomReadService.findMyRooms(42L, MyRoomRole.joined, pageable);
-        myRoomReadService.findMyRooms(42L, MyRoomRole.hosted, pageable);
+		myRoomReadService.findMyRooms(42L, MyRoomRole.all, pageable);
+		myRoomReadService.findMyRooms(42L, MyRoomRole.joined, pageable);
+		myRoomReadService.findMyRooms(42L, MyRoomRole.hosted, pageable);
 
-        verify(roomRepository).findMyRooms(42L, true, true, pageable);
-        verify(roomRepository).findMyRooms(42L, false, true, pageable);
-        verify(roomRepository).findMyRooms(42L, true, false, pageable);
-    }
+		verify(roomRepository).findMyRooms(42L, true, true, pageable);
+		verify(roomRepository).findMyRooms(42L, false, true, pageable);
+		verify(roomRepository).findMyRooms(42L, true, false, pageable);
+	}
 
-    private PageRequest pageable() {
-        return PageRequest.of(0, 10, Sort.by(Sort.Order.desc("startAt"), Sort.Order.desc("id")));
-    }
+	private PageRequest pageable() {
+		return PageRequest.of(0, 10, Sort.by(Sort.Order.desc("startAt"), Sort.Order.desc("id")));
+	}
 }

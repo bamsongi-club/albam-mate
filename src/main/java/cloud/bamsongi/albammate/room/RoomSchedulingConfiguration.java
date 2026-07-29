@@ -10,14 +10,14 @@ import org.springframework.scheduling.config.ScheduledTaskRegistrar;
 @EnableScheduling
 class RoomSchedulingConfiguration implements SchedulingConfigurer {
 
-    private final RoomStateReconciliationScheduler scheduler;
+	private final RoomStateReconciliationScheduler scheduler;
 
-    RoomSchedulingConfiguration(RoomStateReconciliationScheduler scheduler) {
-        this.scheduler = scheduler;
-    }
+	RoomSchedulingConfiguration(RoomStateReconciliationScheduler scheduler) {
+		this.scheduler = scheduler;
+	}
 
-    @Override
-    public void configureTasks(ScheduledTaskRegistrar registrar) {
-        registrar.addTriggerTask(scheduler::reconcileDueRooms, scheduler);
-    }
+	@Override
+	public void configureTasks(ScheduledTaskRegistrar registrar) {
+		registrar.addTriggerTask(scheduler::reconcileDueRooms, scheduler);
+	}
 }

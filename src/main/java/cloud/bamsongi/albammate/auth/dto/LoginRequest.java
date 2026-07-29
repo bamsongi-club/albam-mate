@@ -8,14 +8,16 @@ import jakarta.validation.constraints.NotNull;
 
 /** 로그인 HTTP 요청 원문을 표현한다. */
 public record LoginRequest(
-        @NotNull @ValidEmail String email, @NotNull @ValidPassword String password) {
+	@NotNull @ValidEmail
+	String email, @NotNull @ValidPassword
+	String password) {
 
-    public LoginCommand normalize() {
-        return new LoginCommand(UserEmail.normalize(email), password);
-    }
+	public LoginCommand normalize() {
+		return new LoginCommand(UserEmail.normalize(email), password);
+	}
 
-    @Override
-    public String toString() {
-        return "LoginRequest[email=" + email + ", password=<redacted>]";
-    }
+	@Override
+	public String toString() {
+		return "LoginRequest[email=" + email + ", password=<redacted>]";
+	}
 }

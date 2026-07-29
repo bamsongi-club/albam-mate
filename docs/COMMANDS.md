@@ -22,6 +22,7 @@ Gradle은 별도 설치본 대신 저장소의 Wrapper를 사용한다.
 | 테스트 | `.\gradlew.bat test` | `./gradlew test` |
 | 빌드 | `.\gradlew.bat build` | `./gradlew build` |
 | 산출물 제거 후 빌드 | `.\gradlew.bat clean build` | `./gradlew clean build` |
+| Java 컨벤션 검사 | `.\gradlew.bat conventionCheck` | `./gradlew conventionCheck` |
 | 코드 포맷 검사 | `.\gradlew.bat spotlessCheck` | `./gradlew spotlessCheck` |
 | 코드 포맷 자동 수정 | `.\gradlew.bat spotlessApply` | `./gradlew spotlessApply` |
 | 커버리지 리포트 | `.\gradlew.bat jacocoTestReport` | `./gradlew jacocoTestReport` |
@@ -207,11 +208,19 @@ CI는 합산 리포트의 전체 분기·라인 비율을 job summary에 남기�
 Docker가 없으면 정본 게이트를 실행할 수 없다. 이때는 `check`의 test 전용 게이트로
 확인하고, 실행하지 못한 범위를 보고에 명시한다.
 
-## 코드 포맷 확인
+## Java 컨벤션 확인
 
-Java 포맷은 Google Java Format의 AOSP 스타일을 사용한다. 기본 Google 스타일과 달리 블록 들여쓰기가 4칸이다.
+Java 포맷은 Spotless가 실행하는 네이버 Java 코딩 컨벤션의 Eclipse Formatter
+프로필을 사용한다. 블록 들여쓰기는 너비 4의 탭, 한 줄 최대 길이는 120자다.
 
-포맷 위반을 수정한 뒤에는 diff를 검토하고 `spotlessCheck`를 다시 실행한다. clone마다 한 번 필요한 pre-commit hook 활성화 절차는 [코드 포맷과 Git hook 설정](guides/CODE_FORMATTING.md)을 따른다.
+`conventionCheck`는 Spotless와 main, test, postgresTest source set의 Checkstyle을
+함께 실행한다. Checkstyle은 프로젝트에서 선택한 네이밍·선언·중괄호 규칙만
+검사하며 세부 목록과 예외는 [`config/checkstyle`](../config/checkstyle/README.md)을
+따른다.
+
+포맷 위반을 수정한 뒤에는 diff를 검토하고 `conventionCheck`를 다시 실행한다.
+clone마다 한 번 필요한 pre-commit hook 활성화 절차는
+[Java 컨벤션과 Git hook 설정](guides/CODE_FORMATTING.md)을 따른다.
 
 ## 문서 링크 확인
 

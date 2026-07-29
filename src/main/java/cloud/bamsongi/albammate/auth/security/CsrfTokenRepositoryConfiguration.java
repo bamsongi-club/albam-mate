@@ -10,10 +10,10 @@ import org.springframework.security.web.csrf.CsrfTokenRepository;
 @Configuration(proxyBeanMethods = false)
 public class CsrfTokenRepositoryConfiguration {
 
-    @Bean
-    @Primary
-    CsrfTokenRepository invalidatingCsrfTokenRepository(
-            @Qualifier("csrfTokenRepository") CsrfTokenRepository delegate) {
-        return new InvalidatingCsrfTokenRepository(delegate);
-    }
+	@Bean
+	@Primary
+	CsrfTokenRepository invalidatingCsrfTokenRepository(
+		@Qualifier("csrfTokenRepository") CsrfTokenRepository delegate) {
+		return new InvalidatingCsrfTokenRepository(delegate);
+	}
 }

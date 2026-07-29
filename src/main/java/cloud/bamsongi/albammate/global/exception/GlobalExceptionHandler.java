@@ -1,8 +1,5 @@
 package cloud.bamsongi.albammate.global.exception;
 
-import cloud.bamsongi.albammate.global.response.ApiResponse;
-import jakarta.validation.ConstraintViolationException;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
@@ -24,118 +21,122 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import cloud.bamsongi.albammate.global.response.ApiResponse;
+import jakarta.validation.ConstraintViolationException;
+import lombok.extern.slf4j.Slf4j;
+
 /** MVC 경계의 예상·예상하지 못한 실패를 공통 API 오류 봉투로 변환한다. */
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @Slf4j
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException exception) {
-        if (exception instanceof RateLimitExceededException rateLimitExceededException) {
-            return handleRateLimitExceeded(rateLimitExceededException);
-        }
-        return error(exception.getErrorCode());
-    }
+	@ExceptionHandler(BusinessException.class)
+	public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException exception) {
+		if (exception instanceof RateLimitExceededException rateLimitExceededException) {
+			return handleRateLimitExceeded(rateLimitExceededException);
+		}
+		return error(exception.getErrorCode());
+	}
 
-    @ExceptionHandler(RateLimitExceededException.class)
-    public ResponseEntity<ApiResponse<Void>> handleRateLimitExceeded(
-            RateLimitExceededException exception) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set(HttpHeaders.RETRY_AFTER, Integer.toString(exception.getRetryAfterSeconds()));
-        return error(exception.getErrorCode(), headers);
-    }
+	@ExceptionHandler(RateLimitExceededException.class)
+	public ResponseEntity<ApiResponse<Void>> handleRateLimitExceeded(
+		RateLimitExceededException exception) {
+		HttpHeaders headers = new HttpHeaders();
+		headers.set(HttpHeaders.RETRY_AFTER, Integer.toString(exception.getRetryAfterSeconds()));
+		return error(exception.getErrorCode(), headers);
+	}
 
-    @ExceptionHandler({
-        BindException.class,
-        ConstraintViolationException.class,
-        HandlerMethodValidationException.class,
-        HttpMessageNotReadableException.class,
-        MethodArgumentTypeMismatchException.class,
-        MissingRequestValueException.class,
-        MissingServletRequestPartException.class,
-        ServletRequestBindingException.class
-    })
-    public ResponseEntity<ApiResponse<Void>> handleRequestException(Exception exception) {
-        return error(ErrorCode.VALIDATION_ERROR);
-    }
+	@ExceptionHandler({
+		BindException.class,
+		ConstraintViolationException.class,
+		HandlerMethodValidationException.class,
+		HttpMessageNotReadableException.class,
+		MethodArgumentTypeMismatchException.class,
+		MissingRequestValueException.class,
+		MissingServletRequestPartException.class,
+		ServletRequestBindingException.class
+	})
+	public ResponseEntity<ApiResponse<Void>> handleRequestException(Exception exception) {
+		return error(ErrorCode.VALIDATION_ERROR);
+	}
 
-    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    public ResponseEntity<ApiResponse<Void>> handleMethodNotAllowed(
-            HttpRequestMethodNotSupportedException exception) {
-        return error(ErrorCode.METHOD_NOT_ALLOWED, exception.getHeaders());
-    }
+	@ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+	public ResponseEntity<ApiResponse<Void>> handleMethodNotAllowed(
+		HttpRequestMethodNotSupportedException exception) {
+		return error(ErrorCode.METHOD_NOT_ALLOWED, exception.getHeaders());
+	}
 
-    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
-    public ResponseEntity<ApiResponse<Void>> handleUnsupportedMediaType(
-            HttpMediaTypeNotSupportedException exception) {
-        return error(ErrorCode.UNSUPPORTED_MEDIA_TYPE, exception.getHeaders());
-    }
+	@ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+	public ResponseEntity<ApiResponse<Void>> handleUnsupportedMediaType(
+		HttpMediaTypeNotSupportedException exception) {
+		return error(ErrorCode.UNSUPPORTED_MEDIA_TYPE, exception.getHeaders());
+	}
 
-    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
-    public ResponseEntity<ApiResponse<Void>> handleNotAcceptable(
-            HttpMediaTypeNotAcceptableException exception) {
-        return error(ErrorCode.NOT_ACCEPTABLE, exception.getHeaders());
-    }
+	@ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+	public ResponseEntity<ApiResponse<Void>> handleNotAcceptable(
+		HttpMediaTypeNotAcceptableException exception) {
+		return error(ErrorCode.NOT_ACCEPTABLE, exception.getHeaders());
+	}
 
-    @ExceptionHandler(NoHandlerFoundException.class)
-    public ResponseEntity<ApiResponse<Void>> handleNoHandlerFound(
-            NoHandlerFoundException exception) {
-        return error(ErrorCode.RESOURCE_NOT_FOUND, exception.getHeaders());
-    }
+	@ExceptionHandler(NoHandlerFoundException.class)
+	public ResponseEntity<ApiResponse<Void>> handleNoHandlerFound(
+		NoHandlerFoundException exception) {
+		return error(ErrorCode.RESOURCE_NOT_FOUND, exception.getHeaders());
+	}
 
-    @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(
-            NoResourceFoundException exception) {
-        return error(ErrorCode.RESOURCE_NOT_FOUND, exception.getHeaders());
-    }
+	@ExceptionHandler(NoResourceFoundException.class)
+	public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(
+		NoResourceFoundException exception) {
+		return error(ErrorCode.RESOURCE_NOT_FOUND, exception.getHeaders());
+	}
 
-    @ExceptionHandler(HttpSessionRequiredException.class)
-    public ResponseEntity<ApiResponse<Void>> handleMissingSession(
-            HttpSessionRequiredException exception) {
-        return error(ErrorCode.UNAUTHENTICATED);
-    }
+	@ExceptionHandler(HttpSessionRequiredException.class)
+	public ResponseEntity<ApiResponse<Void>> handleMissingSession(
+		HttpSessionRequiredException exception) {
+		return error(ErrorCode.UNAUTHENTICATED);
+	}
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> handleUnhandledException(Exception exception) {
-        log.error(
-                "처리하지 않은 예외를 INTERNAL_SERVER_ERROR로 변환합니다. exceptionType={}",
-                exception.getClass().getName(),
-                sanitizeForLogging(exception));
-        return error(ErrorCode.INTERNAL_SERVER_ERROR);
-    }
+	@ExceptionHandler(Exception.class)
+	public ResponseEntity<ApiResponse<Void>> handleUnhandledException(Exception exception) {
+		log.error(
+			"처리하지 않은 예외를 INTERNAL_SERVER_ERROR로 변환합니다. exceptionType={}",
+			exception.getClass().getName(),
+			sanitizeForLogging(exception));
+		return error(ErrorCode.INTERNAL_SERVER_ERROR);
+	}
 
-    static Throwable sanitizeForLogging(Throwable exception) {
-        SanitizedThrowable sanitized = new SanitizedThrowable(exception.getClass().getName());
-        sanitized.setStackTrace(exception.getStackTrace());
-        return sanitized;
-    }
+	static Throwable sanitizeForLogging(Throwable exception) {
+		SanitizedThrowable sanitized = new SanitizedThrowable(exception.getClass().getName());
+		sanitized.setStackTrace(exception.getStackTrace());
+		return sanitized;
+	}
 
-    private ResponseEntity<ApiResponse<Void>> error(ErrorCode errorCode) {
-        return error(errorCode, HttpHeaders.EMPTY);
-    }
+	private ResponseEntity<ApiResponse<Void>> error(ErrorCode errorCode) {
+		return error(errorCode, HttpHeaders.EMPTY);
+	}
 
-    private ResponseEntity<ApiResponse<Void>> error(ErrorCode errorCode, HttpHeaders headers) {
-        return ResponseEntity.status(errorCode.getHttpStatus())
-                .headers(headers)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(ApiResponse.failure(errorCode));
-    }
+	private ResponseEntity<ApiResponse<Void>> error(ErrorCode errorCode, HttpHeaders headers) {
+		return ResponseEntity.status(errorCode.getHttpStatus())
+			.headers(headers)
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(ApiResponse.failure(errorCode));
+	}
 
-    private static final class SanitizedThrowable extends Throwable {
+	private static final class SanitizedThrowable extends Throwable {
 
-        private static final long serialVersionUID = 1L;
+		private static final long serialVersionUID = 1L;
 
-        private final String typeName;
+		private final String typeName;
 
-        private SanitizedThrowable(String typeName) {
-            super(null, null, false, true);
-            this.typeName = typeName;
-        }
+		private SanitizedThrowable(String typeName) {
+			super(null, null, false, true);
+			this.typeName = typeName;
+		}
 
-        @Override
-        public String toString() {
-            return typeName;
-        }
-    }
+		@Override
+		public String toString() {
+			return typeName;
+		}
+	}
 }

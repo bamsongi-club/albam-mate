@@ -7,4 +7,5 @@ package cloud.bamsongi.albammate.game.contract;
  * @param bggId BoardGameGeek가 부여한 외부 게임 ID
  * @param name 서비스 표시용 게임 이름
  */
-public record GameSummary(Long id, Long bggId, String name) {}
+public record GameSummary(Long id, Long bggId, String name) {
+}
