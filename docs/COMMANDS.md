@@ -200,6 +200,10 @@ build/reports/jacoco/test/html/index.html
 build/reports/jacoco/jacocoAllTestReport/html/index.html
 ```
 
+CI는 합산 리포트의 전체 분기·라인 비율을 job summary에 남기고, HTML과 XML을
+`jacoco-coverage-<run attempt>` artifact로 14일간 보관한다. 게이트가 실패했을 때도
+리포트가 생성된 단계까지 진행됐다면 같은 artifact에서 미커버 위치를 확인한다.
+
 Docker가 없으면 정본 게이트를 실행할 수 없다. 이때는 `check`의 test 전용 게이트로
 확인하고, 실행하지 못한 범위를 보고에 명시한다.
 

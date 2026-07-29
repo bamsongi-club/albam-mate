@@ -55,7 +55,8 @@ class UserAccountServiceIntegrationTest {
         User legacyUser = User.create(legacyEmail, legacyHash, "이전 cost 사용자");
         userRepository.saveAndFlush(legacyUser);
 
-        loginService.login(new LoginRequest(legacyEmail, legacyPassword), "198.51.100.121");
+        loginService.login(
+                new LoginRequest(legacyEmail, legacyPassword).normalize(), "198.51.100.121");
 
         User upgraded = userRepository.findByEmail(legacyEmail).orElseThrow();
         assertNotEquals(legacyHash, upgraded.getPasswordHash());
@@ -69,7 +70,8 @@ class UserAccountServiceIntegrationTest {
         User beforeCorrectLogin = userRepository.findByEmail(currentEmail).orElseThrow();
         String currentHash = beforeCorrectLogin.getPasswordHash();
 
-        loginService.login(new LoginRequest(currentEmail, currentPassword), "198.51.100.122");
+        loginService.login(
+                new LoginRequest(currentEmail, currentPassword).normalize(), "198.51.100.122");
 
         User afterCorrectLogin = userRepository.findByEmail(currentEmail).orElseThrow();
         assertEquals(currentHash, afterCorrectLogin.getPasswordHash());
@@ -79,7 +81,7 @@ class UserAccountServiceIntegrationTest {
                 InvalidCredentialsException.class,
                 () ->
                         loginService.login(
-                                new LoginRequest(currentEmail, "incorrect-password"),
+                                new LoginRequest(currentEmail, "incorrect-password").normalize(),
                                 "198.51.100.123"));
 
         User afterWrongLogin = userRepository.findByEmail(currentEmail).orElseThrow();

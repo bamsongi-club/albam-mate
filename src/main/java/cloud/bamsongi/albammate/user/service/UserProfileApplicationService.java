@@ -7,19 +7,17 @@ import cloud.bamsongi.albammate.user.contract.UserProfileService;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.exception.InvalidNicknameException;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
-import java.util.Objects;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /** 현재 인증 사용자의 프로필 조회와 닉네임 변경을 사용자 모듈 트랜잭션으로 처리한다. */
 @Service
+@RequiredArgsConstructor
 public class UserProfileApplicationService implements UserProfileService {
 
-    private final UserRepository userRepository;
-
-    public UserProfileApplicationService(UserRepository userRepository) {
-        this.userRepository = Objects.requireNonNull(userRepository, "userRepository");
-    }
+    @NonNull private final UserRepository userRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -30,11 +28,11 @@ public class UserProfileApplicationService implements UserProfileService {
     @Override
     @Transactional
     public UserProfile changeNickname(long userId, String nickname) {
-        User user = findAuthenticatedUser(userId);
         String normalizedNickname =
                 UserNickname.from(nickname)
                         .map(UserNickname::value)
                         .orElseThrow(InvalidNicknameException::new);
+        User user = findAuthenticatedUser(userId);
         user.changeNickname(normalizedNickname);
         return toProfile(user);
     }

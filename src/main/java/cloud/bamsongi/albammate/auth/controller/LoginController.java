@@ -4,13 +4,14 @@ import cloud.bamsongi.albammate.auth.dto.LoginRequest;
 import cloud.bamsongi.albammate.auth.dto.UserSummary;
 import cloud.bamsongi.albammate.auth.service.LoginService;
 import cloud.bamsongi.albammate.global.response.ApiResponse;
-import cloud.bamsongi.albammate.global.security.CurrentUserPrincipal;
-import cloud.bamsongi.albammate.global.security.SessionCookieConfigurer;
+import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal;
+import cloud.bamsongi.albammate.global.security.session.SessionCookieConfigurer;
 import cloud.bamsongi.albammate.user.contract.UserAccount;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
-import java.util.Objects;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -28,31 +29,22 @@ import org.springframework.web.bind.annotation.RestController;
 /** 로그인 HTTP 경계를 담당하고 성공한 인증을 서버 세션에 저장한다. */
 @RestController
 @RequestMapping("/api/auth")
+@RequiredArgsConstructor
 public final class LoginController {
 
-    private final LoginService loginService;
-    private final CsrfTokenRepository csrfTokenRepository;
-    private final SessionCookieConfigurer sessionCookieConfigurer;
+    @NonNull private final LoginService loginService;
+    @NonNull private final CsrfTokenRepository csrfTokenRepository;
+    @NonNull private final SessionCookieConfigurer sessionCookieConfigurer;
     private final SecurityContextRepository securityContextRepository =
             new HttpSessionSecurityContextRepository();
-
-    public LoginController(
-            LoginService loginService,
-            CsrfTokenRepository csrfTokenRepository,
-            SessionCookieConfigurer sessionCookieConfigurer) {
-        this.loginService = Objects.requireNonNull(loginService, "loginService");
-        this.csrfTokenRepository =
-                Objects.requireNonNull(csrfTokenRepository, "csrfTokenRepository");
-        this.sessionCookieConfigurer =
-                Objects.requireNonNull(sessionCookieConfigurer, "sessionCookieConfigurer");
-    }
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<UserSummary>> login(
             @Valid @RequestBody LoginRequest request,
             HttpServletRequest servletRequest,
             HttpServletResponse servletResponse) {
-        UserAccount account = loginService.login(request, servletRequest.getRemoteAddr());
+        UserAccount account =
+                loginService.login(request.normalize(), servletRequest.getRemoteAddr());
         establishSession(account, servletRequest, servletResponse);
         csrfTokenRepository.saveToken(null, servletRequest, servletResponse);
 

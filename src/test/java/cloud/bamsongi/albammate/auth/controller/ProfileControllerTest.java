@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.auth.controller;
 
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
@@ -11,11 +12,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import cloud.bamsongi.albammate.global.config.SecurityConfig;
 import cloud.bamsongi.albammate.global.exception.GlobalExceptionHandler;
-import cloud.bamsongi.albammate.global.security.ApiAccessDeniedHandler;
-import cloud.bamsongi.albammate.global.security.ApiAuthenticationEntryPoint;
-import cloud.bamsongi.albammate.global.security.CurrentUserAccessor;
-import cloud.bamsongi.albammate.global.security.CurrentUserPrincipal;
-import cloud.bamsongi.albammate.global.security.SecurityErrorResponseWriter;
+import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserAccessor;
+import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal;
+import cloud.bamsongi.albammate.global.security.error.ApiAccessDeniedHandler;
+import cloud.bamsongi.albammate.global.security.error.ApiAuthenticationEntryPoint;
+import cloud.bamsongi.albammate.global.security.error.SecurityErrorResponseWriter;
 import cloud.bamsongi.albammate.user.contract.UserProfile;
 import cloud.bamsongi.albammate.user.contract.UserProfileService;
 import jakarta.servlet.http.Cookie;
@@ -90,6 +91,8 @@ class ProfileControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(7))
                 .andExpect(jsonPath("$.data.nickname").value("새 닉네임"));
+
+        verify(userProfileService).changeNickname(7L, "새 닉네임");
     }
 
     @Test

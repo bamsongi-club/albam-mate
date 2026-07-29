@@ -6,7 +6,8 @@ import cloud.bamsongi.albammate.auth.service.SignupService;
 import cloud.bamsongi.albammate.global.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import java.util.Objects;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,13 +18,10 @@ import org.springframework.web.bind.annotation.RestController;
 /** 회원가입 HTTP 경계를 담당한다. */
 @RestController
 @RequestMapping("/api/auth")
+@RequiredArgsConstructor
 public final class SignupController {
 
-    private final SignupService signupService;
-
-    public SignupController(SignupService signupService) {
-        this.signupService = Objects.requireNonNull(signupService, "signupService");
-    }
+    @NonNull private final SignupService signupService;
 
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<UserSummary>> signup(

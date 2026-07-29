@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.user.contract;
 
+import java.util.Objects;
 import java.util.Optional;
 
 /** 사용자 모듈이 소유하는 닉네임 정규화와 불변식이다. */
@@ -16,7 +17,7 @@ public final class UserNickname {
             return Optional.empty();
         }
 
-        String normalizedNickname = rawNickname.strip();
+        String normalizedNickname = normalize(rawNickname);
         int codePointCount = normalizedNickname.codePointCount(0, normalizedNickname.length());
         if (codePointCount < 1
                 || codePointCount > 50
@@ -24,6 +25,10 @@ public final class UserNickname {
             return Optional.empty();
         }
         return Optional.of(new UserNickname(normalizedNickname));
+    }
+
+    public static String normalize(String rawNickname) {
+        return Objects.requireNonNull(rawNickname, "rawNickname").strip();
     }
 
     public String value() {

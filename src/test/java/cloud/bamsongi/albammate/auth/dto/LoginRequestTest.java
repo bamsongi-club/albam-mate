@@ -2,11 +2,11 @@ package cloud.bamsongi.albammate.auth.dto;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import cloud.bamsongi.albammate.auth.exception.LoginValidationException;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 
 class LoginRequestTest {
@@ -18,51 +18,10 @@ class LoginRequestTest {
         String password = " pass word ";
 
         LoginRequest.Normalized normalized =
-                new LoginRequest(" User@Example.COM ", password).normalizeAndValidate();
+                new LoginRequest(" User@Example.COM ", password).normalize();
 
         assertEquals("user@example.com", normalized.email());
         assertEquals(password, normalized.password());
-    }
-
-    @Test
-    void 로그인_비밀번호는_빈값과_code_point_UTF8_경계를_거절한다() {
-        assertThrows(
-                LoginValidationException.class,
-                () -> new LoginRequest("user@example.com", "").normalizeAndValidate());
-        assertThrows(
-                LoginValidationException.class,
-                () -> new LoginRequest("user@example.com", "😀".repeat(19)).normalizeAndValidate());
-        assertEquals(
-                64,
-                new LoginRequest("user@example.com", "a".repeat(64))
-                        .normalizeAndValidate()
-                        .password()
-                        .codePointCount(0, 64));
-    }
-
-    @Test
-    void UTF8_정확히_72바이트_비밀번호는_허용하고_76바이트는_거절한다() {
-        String exactly72Bytes = "a".repeat(56) + "é".repeat(8);
-        String exactly76Bytes = "a".repeat(52) + "é".repeat(12);
-
-        assertEquals(
-                exactly72Bytes,
-                new LoginRequest("user@example.com", exactly72Bytes)
-                        .normalizeAndValidate()
-                        .password());
-        assertThrows(
-                LoginValidationException.class,
-                () -> new LoginRequest("user@example.com", exactly76Bytes).normalizeAndValidate());
-    }
-
-    @Test
-    void 이메일_누락과_형식_오류를_거절한다() {
-        assertThrows(
-                LoginValidationException.class,
-                () -> new LoginRequest(null, "password").normalizeAndValidate());
-        assertThrows(
-                LoginValidationException.class,
-                () -> new LoginRequest("not-an-email", "password").normalizeAndValidate());
     }
 
     @Test
@@ -71,8 +30,7 @@ class LoginRequestTest {
         String password = "123456789012345";
         SignupRequest.Normalized signup =
                 new SignupRequest(email, password, "닉네임").normalizeAndValidate();
-        LoginRequest.Normalized login =
-                new LoginRequest(signup.email(), password).normalizeAndValidate();
+        LoginRequest.Normalized login = new LoginRequest(signup.email(), password).normalize();
 
         assertEquals(255, signup.email().codePointCount(0, signup.email().length()));
         assertEquals(signup.email(), login.email());
@@ -80,11 +38,34 @@ class LoginRequestTest {
 
     @Test
     void record_컴포넌트_제약이_필수값과_로그인_비밀번호_정책을_검증한다() {
+        String exactly64CodePointsAnd72Utf8Bytes = "a".repeat(56) + "é".repeat(8);
+
+        assertEquals(
+                64,
+                exactly64CodePointsAnd72Utf8Bytes.codePointCount(
+                        0, exactly64CodePointsAnd72Utf8Bytes.length()));
+        assertEquals(72, exactly64CodePointsAnd72Utf8Bytes.getBytes(StandardCharsets.UTF_8).length);
+        assertTrue(
+                validator
+                        .validate(
+                                new LoginRequest(
+                                        "user@example.com", exactly64CodePointsAnd72Utf8Bytes))
+                        .isEmpty());
         assertFalse(validator.validate(new LoginRequest(null, "password")).isEmpty());
         assertFalse(validator.validate(new LoginRequest(" ", "password")).isEmpty());
+        assertFalse(validator.validate(new LoginRequest("not-an-email", "password")).isEmpty());
+        assertFalse(validator.validate(new LoginRequest("user@example.com", "")).isEmpty());
         assertFalse(
                 validator
                         .validate(new LoginRequest("user@example.com", "😀".repeat(19)))
+                        .isEmpty());
+        assertFalse(
+                validator.validate(new LoginRequest("user@example.com", "a".repeat(65))).isEmpty());
+        assertFalse(
+                validator
+                        .validate(
+                                new LoginRequest(
+                                        "user@example.com", "a".repeat(52) + "é".repeat(12)))
                         .isEmpty());
     }
 }

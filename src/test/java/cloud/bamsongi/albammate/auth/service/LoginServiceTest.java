@@ -8,21 +8,20 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import cloud.bamsongi.albammate.auth.dto.LoginRequest;
 import cloud.bamsongi.albammate.auth.exception.InvalidCredentialsException;
-import cloud.bamsongi.albammate.auth.exception.LoginValidationException;
 import cloud.bamsongi.albammate.global.config.AuthenticationRequestProtectionProperties;
+import cloud.bamsongi.albammate.global.config.PasswordSecurityProperties;
 import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
-import cloud.bamsongi.albammate.global.security.AuthenticationRequestLimiter;
-import cloud.bamsongi.albammate.global.security.InMemoryAuthenticationRequestLimiter;
-import cloud.bamsongi.albammate.global.security.LoginVerificationPermit;
-import cloud.bamsongi.albammate.global.security.PasswordHashConcurrencyLimiter;
-import cloud.bamsongi.albammate.global.security.PasswordHashExecutor;
-import cloud.bamsongi.albammate.global.security.PasswordHashPermit;
-import cloud.bamsongi.albammate.global.security.RateLimitDecision;
+import cloud.bamsongi.albammate.global.security.password.PasswordHashConcurrencyLimiter;
+import cloud.bamsongi.albammate.global.security.password.PasswordHashExecutor;
+import cloud.bamsongi.albammate.global.security.password.PasswordHashPermit;
+import cloud.bamsongi.albammate.global.security.ratelimit.AuthenticationRequestLimiter;
+import cloud.bamsongi.albammate.global.security.ratelimit.InMemoryAuthenticationRequestLimiter;
+import cloud.bamsongi.albammate.global.security.ratelimit.LoginVerificationPermit;
+import cloud.bamsongi.albammate.global.security.ratelimit.RateLimitDecision;
 import cloud.bamsongi.albammate.user.contract.UserAccount;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
 import cloud.bamsongi.albammate.user.contract.UserCredentials;
@@ -51,17 +50,6 @@ class LoginServiceTest {
     @Mock private PasswordEncoder passwordEncoder;
 
     @Test
-    void 입력_검증이_실패하면_제한과_자격증명_조회가_실행되지_않는다() {
-        LoginService service = serviceWithAvailableHashSlot();
-
-        assertThrows(
-                LoginValidationException.class,
-                () -> service.login(new LoginRequest("not-an-email", "password"), "203.0.113.40"));
-
-        verifyNoInteractions(requestLimiter, userAccountService, passwordEncoder);
-    }
-
-    @Test
     void 존재하는_계정의_자격증명이_틀리면_동일한_오류와_실패_기록을_반환한다() {
         LoginService service = serviceWithAvailableHashSlot();
         UserCredentials credentials = new UserCredentials(7L, "닉네임", "{bcrypt}stored");
@@ -71,7 +59,7 @@ class LoginServiceTest {
 
         assertThrows(
                 InvalidCredentialsException.class,
-                () -> service.login(new LoginRequest("user@example.com", "wrong"), "203.0.113.41"));
+                () -> service.login(normalized("user@example.com", "wrong"), "203.0.113.41"));
 
         verify(requestLimiter).recordLoginFailure("user@example.com", "203.0.113.41");
         verify(requestLimiter, never()).resetLoginFailures(any(), any());
@@ -88,14 +76,33 @@ class LoginServiceTest {
 
         assertThrows(
                 InvalidCredentialsException.class,
-                () ->
-                        service.login(
-                                new LoginRequest("missing@example.com", "password"),
-                                "203.0.113.42"));
+                () -> service.login(normalized("missing@example.com", "password"), "203.0.113.42"));
 
         verify(passwordEncoder)
                 .matches(org.mockito.ArgumentMatchers.eq("password"), any(String.class));
         verify(requestLimiter).recordLoginFailure("missing@example.com", "203.0.113.42");
+    }
+
+    @Test
+    void 없는_계정에서_더미_해시가_일치해도_실패를_기록하고_자격증명_오류를_반환한다() {
+        LoginService service = serviceWithAvailableHashSlot();
+        when(userAccountService.findCredentialsByEmail("missing@example.com"))
+                .thenReturn(Optional.empty());
+        when(passwordEncoder.matches(
+                        org.mockito.ArgumentMatchers.eq("password"), any(String.class)))
+                .thenReturn(true);
+
+        assertThrows(
+                InvalidCredentialsException.class,
+                () ->
+                        service.login(
+                                normalized("missing@example.com", "password"), "203.0.113.421"));
+
+        verify(requestLimiter).recordLoginFailure("missing@example.com", "203.0.113.421");
+        verify(requestLimiter, never()).resetLoginFailures(any(), any());
+        verify(passwordEncoder, never()).upgradeEncoding(any());
+        verify(passwordEncoder, never()).encode(any());
+        verify(userAccountService, never()).updatePasswordHash(any(), any());
     }
 
     @Test
@@ -109,11 +116,29 @@ class LoginServiceTest {
         when(passwordEncoder.encode("correct")).thenReturn("{bcrypt}new");
 
         UserAccount account =
-                service.login(new LoginRequest("user@example.com", "correct"), "203.0.113.43");
+                service.login(normalized("user@example.com", "correct"), "203.0.113.43");
 
         assertEquals(new UserAccount(8L, "닉네임"), account);
         verify(userAccountService).updatePasswordHash(8L, "{bcrypt}new");
         verify(requestLimiter).resetLoginFailures("user@example.com", "203.0.113.43");
+    }
+
+    @Test
+    void 현재_cost_해시의_성공_로그인은_실패를_초기화하고_해시를_다시_저장하지_않는다() {
+        LoginService service = serviceWithAvailableHashSlot();
+        UserCredentials credentials = new UserCredentials(9L, "닉네임", "{bcrypt}current");
+        when(userAccountService.findCredentialsByEmail("user@example.com"))
+                .thenReturn(Optional.of(credentials));
+        when(passwordEncoder.matches("correct", "{bcrypt}current")).thenReturn(true);
+        when(passwordEncoder.upgradeEncoding("{bcrypt}current")).thenReturn(false);
+
+        UserAccount account =
+                service.login(normalized("user@example.com", "correct"), "203.0.113.431");
+
+        assertEquals(new UserAccount(9L, "닉네임"), account);
+        verify(requestLimiter).resetLoginFailures("user@example.com", "203.0.113.431");
+        verify(passwordEncoder, never()).encode(any());
+        verify(userAccountService, never()).updatePasswordHash(any(), any());
     }
 
     @Test
@@ -140,15 +165,14 @@ class LoginServiceTest {
                         requestLimiter,
                         userAccountService,
                         passwordEncoder,
-                        new PasswordHashExecutor(noSlotLimiter));
+                        new PasswordHashExecutor(noSlotLimiter),
+                        passwordSecurityProperties());
 
         configureLimiter();
 
         assertThrows(
                 RateLimitExceededException.class,
-                () ->
-                        service.login(
-                                new LoginRequest("user@example.com", "password"), "203.0.113.44"));
+                () -> service.login(normalized("user@example.com", "password"), "203.0.113.44"));
 
         verify(userAccountService, never()).findCredentialsByEmail(any());
         verify(requestLimiter, never()).recordLoginFailure(any(), any());
@@ -198,7 +222,8 @@ class LoginServiceTest {
                         limiter,
                         userAccountService,
                         blockingPasswordEncoder,
-                        new PasswordHashExecutor(hashLimiter));
+                        new PasswordHashExecutor(hashLimiter),
+                        passwordSecurityProperties());
         String remoteIp = "203.0.113.45";
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -210,27 +235,25 @@ class LoginServiceTest {
                                             InvalidCredentialsException.class,
                                             () ->
                                                     service.login(
-                                                            new LoginRequest(
+                                                            normalized(
                                                                     " User@Example.COM ", "wrong"),
                                                             remoteIp)));
             assertTrue(verificationStarted.await(5, TimeUnit.SECONDS));
 
             assertThrows(
                     RateLimitExceededException.class,
-                    () -> service.login(new LoginRequest("user@example.com", "wrong"), remoteIp));
+                    () -> service.login(normalized("user@example.com", "wrong"), remoteIp));
             releaseVerification.countDown();
             firstLogin.get(5, TimeUnit.SECONDS);
 
             for (int attempt = 0; attempt < 4; attempt++) {
                 assertThrows(
                         InvalidCredentialsException.class,
-                        () ->
-                                service.login(
-                                        new LoginRequest("user@example.com", "wrong"), remoteIp));
+                        () -> service.login(normalized("user@example.com", "wrong"), remoteIp));
             }
             assertThrows(
                     RateLimitExceededException.class,
-                    () -> service.login(new LoginRequest("user@example.com", "wrong"), remoteIp));
+                    () -> service.login(normalized("user@example.com", "wrong"), remoteIp));
 
             assertEquals(5, passwordMatches.get());
             assertFalse(limiter.checkLoginFailureAllowed("user@example.com", remoteIp).allowed());
@@ -263,7 +286,16 @@ class LoginServiceTest {
                 requestLimiter,
                 userAccountService,
                 passwordEncoder,
-                new PasswordHashExecutor(limiter));
+                new PasswordHashExecutor(limiter),
+                passwordSecurityProperties());
+    }
+
+    private LoginRequest.Normalized normalized(String email, String password) {
+        return new LoginRequest(email, password).normalize();
+    }
+
+    private PasswordSecurityProperties passwordSecurityProperties() {
+        return new PasswordSecurityProperties();
     }
 
     private void configureLimiter() {

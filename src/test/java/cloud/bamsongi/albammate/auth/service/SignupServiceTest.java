@@ -12,7 +12,7 @@ import cloud.bamsongi.albammate.auth.dto.SignupRequest;
 import cloud.bamsongi.albammate.auth.dto.UserSummary;
 import cloud.bamsongi.albammate.auth.exception.SignupValidationException;
 import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
-import cloud.bamsongi.albammate.global.security.AuthenticationRequestLimiter;
+import cloud.bamsongi.albammate.global.security.ratelimit.AuthenticationRequestLimiter;
 import cloud.bamsongi.albammate.user.contract.UserAccount;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
 import org.junit.jupiter.api.Test;

@@ -1,7 +1,7 @@
 package cloud.bamsongi.albammate.room.controller;
 
 import cloud.bamsongi.albammate.global.response.ApiResponse;
-import cloud.bamsongi.albammate.global.security.CurrentUserAccessor;
+import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserAccessor;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import cloud.bamsongi.albammate.room.service.RoomParticipationCancelService;
 import jakarta.validation.constraints.Positive;
