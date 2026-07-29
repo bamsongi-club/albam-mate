@@ -24,18 +24,13 @@ public class InMemoryPasswordHashConcurrencyLimiter implements PasswordHashConcu
 
 	@Override
 	public Optional<PasswordHashPermit> tryAcquire() {
-		if (!slots.tryAcquire()) {
-			return Optional.empty();
+		if (slots.tryAcquire()) {
+			return Optional.of(new Permit(slots));
 		}
-		return Optional.of(new Permit(slots));
+		return Optional.empty();
 	}
 
-	@Override
-	public int maxConcurrent() {
-		return maxConcurrent;
-	}
-
-	@Override
+	/** 현재 사용 중인 슬롯 수를 검증하기 위한 관측값이다. */
 	public int currentConcurrent() {
 		return maxConcurrent - slots.availablePermits();
 	}

@@ -25,12 +25,4 @@ public class PasswordHashExecutor {
 			permit.close();
 		}
 	}
-
-	public void execute(Runnable hashWork) {
-		execute(
-			() -> {
-				hashWork.run();
-				return null;
-			});
-	}
 }

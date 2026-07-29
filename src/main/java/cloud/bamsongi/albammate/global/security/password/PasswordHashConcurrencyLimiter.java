@@ -6,8 +6,4 @@ import java.util.Optional;
 public interface PasswordHashConcurrencyLimiter {
 
 	Optional<PasswordHashPermit> tryAcquire();
-
-	int maxConcurrent();
-
-	int currentConcurrent();
 }

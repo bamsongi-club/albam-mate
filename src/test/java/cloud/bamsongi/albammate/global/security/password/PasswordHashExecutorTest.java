@@ -35,16 +35,6 @@ class PasswordHashExecutorTest {
 				public Optional<PasswordHashPermit> tryAcquire() {
 					return Optional.empty();
 				}
-
-				@Override
-				public int maxConcurrent() {
-					return 4;
-				}
-
-				@Override
-				public int currentConcurrent() {
-					return 4;
-				}
 			});
 
 		RateLimitExceededException exception = assertThrows(
@@ -62,16 +52,6 @@ class PasswordHashExecutorTest {
 		@Override
 		public Optional<PasswordHashPermit> tryAcquire() {
 			return Optional.of(closedPermits::incrementAndGet);
-		}
-
-		@Override
-		public int maxConcurrent() {
-			return 1;
-		}
-
-		@Override
-		public int currentConcurrent() {
-			return 0;
 		}
 	}
 }
