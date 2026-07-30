@@ -92,7 +92,8 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .h2-ico { flex: 0 0 auto; line-height: 1; }
 .tabs-row { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
 .tabs-row .tabs { margin-bottom: 0; }
-.tabs-row .inline-search { flex: 1 1 240px; margin-bottom: 0; }
+/* 필터를 왼쪽에 두고 검색창은 줄 오른쪽 끝에 붙인다. */
+.tabs-row .inline-search { flex: 0 0 320px; margin-bottom: 0; margin-left: auto; }
 .tab-short { display: none; }
 .pagination { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 26px; }
 .pagination .page-btn { align-items: center; background: #fff; border: 1.5px solid var(--line); border-radius: 10px; color: var(--brown2); display: inline-flex; font-size: 13px; font-weight: 800; justify-content: center; min-width: 38px; padding: 8px 11px; }
@@ -103,6 +104,7 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; }
 .hero { padding: 38px 34px; text-align: center; }
 .hero > p { color: var(--sub); margin-top: 8px; }
+.hero-search { margin: 22px auto 0; }
 .dual { display: flex; gap: 18px; margin-top: 26px; }
 .entry { border: 2px solid transparent; border-radius: 18px; display: block; flex: 1; padding: 25px; text-align: left; transition: transform 0.15s, border-color 0.15s; }
 .entry:hover { transform: translateY(-3px); }
@@ -302,6 +304,7 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
   #gnb .profile-icon { min-width: 44px; }
   .brand-wordmark { display: none; }
   .inline-search { max-width: none; }
+  .tabs-row .inline-search { flex: 1 1 100%; }
   .inline-search input, .inline-search button { min-height: 44px; }
   /* 탭 라벨을 줄여 탭과 모임 만들기 버튼을 한 줄에 넣는다. 화면 제목이 맥락을 준다. */
   .tab-full { display: none; }
