@@ -586,7 +586,7 @@ function GameDetailView({ gameId, onCreateGame, dataVersion }) {
     <>
       <div className="card">
         <div className="detail-head">
-          <div className="dart">🎲</div>
+          <div className="dart">{game.imageUrl ? <img src={game.imageUrl} alt="" /> : '🎲'}</div>
           <div>
             <h2>{game.title}</h2>
             <div className="gen">{game.englishName}</div>

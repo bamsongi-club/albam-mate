@@ -178,7 +178,8 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .sfoot { align-items: center; color: var(--sub); display: flex; flex-wrap: wrap; font-size: 12px; gap: 7px; }
 
 .detail-head { align-items: flex-start; display: flex; gap: 20px; }
-.dart { align-items: center; background: var(--soft); border-radius: 18px; display: flex; flex: 0 0 112px; font-size: 54px; height: 112px; justify-content: center; width: 112px; }
+.dart { align-items: center; background: var(--soft); border-radius: 18px; display: flex; flex: 0 0 112px; font-size: 54px; height: 112px; justify-content: center; overflow: hidden; width: 112px; }
+.dart img { display: block; height: 100%; object-fit: contain; width: 100%; }
 .metatable { font-size: 14px; margin-top: 12px; width: 100%; }
 .metatable td { padding: 5px 0; vertical-align: top; }
 .metatable td:first-child { color: var(--sub); font-size: 13px; font-weight: 800; width: 96px; }
