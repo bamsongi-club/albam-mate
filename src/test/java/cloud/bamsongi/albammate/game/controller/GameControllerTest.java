@@ -2,6 +2,7 @@ package cloud.bamsongi.albammate.game.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
@@ -28,7 +29,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.test.web.servlet.MockMvc;
 
 import cloud.bamsongi.albammate.game.dto.GameDetail;
@@ -72,7 +72,7 @@ class GameControllerTest {
 			"60~90분",
 			new BigDecimal("2.00"),
 			0L);
-		when(gameListQueryService.findPage(any(), anyBoolean(), any()))
+		when(gameListQueryService.findPage(any(), anyBoolean(), anyInt(), anyInt()))
 			.thenReturn(new PageImpl<>(List.of(item), PageRequest.of(0, 10), 1));
 
 		mockMvc.perform(get("/api/games"))
@@ -97,9 +97,9 @@ class GameControllerTest {
 	}
 
 	@Test
-	void 검색어와_페이지_파라미터를_전달하고_이름과_ID로_고정_정렬한다() throws Exception {
-		PageRequest pageable = PageRequest.of(1, 1, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
-		when(gameListQueryService.findPage(eq("Catan"), eq(false), eq(pageable)))
+	void 검색어와_페이지_파라미터를_서비스에_전달한다() throws Exception {
+		PageRequest pageable = PageRequest.of(1, 1);
+		when(gameListQueryService.findPage(eq("Catan"), eq(false), eq(1), eq(1)))
 			.thenReturn(new PageImpl<>(List.of(), pageable, 3));
 
 		mockMvc.perform(get("/api/games?keyword=Catan&page=1&size=1"))
@@ -111,39 +111,39 @@ class GameControllerTest {
 			.andExpect(jsonPath("$.data.totalPages").value(3))
 			.andExpect(jsonPath("$.data.hasNext").value(true));
 
-		verify(gameListQueryService).findPage(eq("Catan"), eq(false), eq(pageable));
+		verify(gameListQueryService).findPage(eq("Catan"), eq(false), eq(1), eq(1));
 	}
 
 	@Test
 	void 예정_모임_필터_true를_서비스에_전달한다() throws Exception {
-		PageRequest pageable = PageRequest.of(0, 10, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
-		when(gameListQueryService.findPage(isNull(), eq(true), eq(pageable)))
+		PageRequest pageable = PageRequest.of(0, 10);
+		when(gameListQueryService.findPage(isNull(), eq(true), eq(0), eq(10)))
 			.thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
 		mockMvc.perform(get("/api/games?upcomingOnly=true"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.content").isEmpty());
 
-		verify(gameListQueryService).findPage(isNull(), eq(true), eq(pageable));
+		verify(gameListQueryService).findPage(isNull(), eq(true), eq(0), eq(10));
 	}
 
 	@Test
 	void 예정_모임_필터_false를_서비스에_전달한다() throws Exception {
-		PageRequest pageable = PageRequest.of(0, 10, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
-		when(gameListQueryService.findPage(isNull(), eq(false), eq(pageable)))
+		PageRequest pageable = PageRequest.of(0, 10);
+		when(gameListQueryService.findPage(isNull(), eq(false), eq(0), eq(10)))
 			.thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
 		mockMvc.perform(get("/api/games?upcomingOnly=false"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.content").isEmpty());
 
-		verify(gameListQueryService).findPage(isNull(), eq(false), eq(pageable));
+		verify(gameListQueryService).findPage(isNull(), eq(false), eq(0), eq(10));
 	}
 
 	@Test
 	void size_상한_100은_성공한다() throws Exception {
-		PageRequest pageable = PageRequest.of(0, 100, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
-		when(gameListQueryService.findPage(isNull(), eq(false), eq(pageable)))
+		PageRequest pageable = PageRequest.of(0, 100);
+		when(gameListQueryService.findPage(isNull(), eq(false), eq(0), eq(100)))
 			.thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
 		mockMvc.perform(get("/api/games?size=100"))
@@ -151,7 +151,7 @@ class GameControllerTest {
 			.andExpect(jsonPath("$.data.size").value(100))
 			.andExpect(jsonPath("$.data.content").isEmpty());
 
-		verify(gameListQueryService).findPage(isNull(), eq(false), eq(pageable));
+		verify(gameListQueryService).findPage(isNull(), eq(false), eq(0), eq(100));
 	}
 
 	@Test
@@ -166,8 +166,8 @@ class GameControllerTest {
 
 	@Test
 	void 빈_목록_parameter는_기본값으로_서비스에_전달한다() throws Exception {
-		PageRequest pageable = PageRequest.of(0, 10, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
-		when(gameListQueryService.findPage(isNull(), eq(false), eq(pageable)))
+		PageRequest pageable = PageRequest.of(0, 10);
+		when(gameListQueryService.findPage(isNull(), eq(false), eq(0), eq(10)))
 			.thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
 		mockMvc.perform(get("/api/games?page=&size=&upcomingOnly="))
@@ -175,7 +175,7 @@ class GameControllerTest {
 			.andExpect(jsonPath("$.data.page").value(0))
 			.andExpect(jsonPath("$.data.size").value(10));
 
-		verify(gameListQueryService).findPage(isNull(), eq(false), eq(pageable));
+		verify(gameListQueryService).findPage(isNull(), eq(false), eq(0), eq(10));
 	}
 
 	@Test

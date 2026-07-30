@@ -13,6 +13,7 @@ import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -20,9 +21,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class GameDetailQueryService {
 
-	private final GameRepository gameRepository;
-	private final Clock clock;
-	private final UpcomingRoomCountQuery upcomingRoomCountQuery;
+	@NonNull private final GameRepository gameRepository;
+	@NonNull private final Clock clock;
+	@NonNull private final UpcomingRoomCountQuery upcomingRoomCountQuery;
 
 	/**
 	 * 게임 상세와 조회 시각 기준 예정 모임 수를 조회한다.

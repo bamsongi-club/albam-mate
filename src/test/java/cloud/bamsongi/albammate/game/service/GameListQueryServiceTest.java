@@ -48,14 +48,14 @@ class GameListQueryServiceTest {
 
 	@Test
 	void 검색어를_strip하고_이름_부분검색_결과에_예정_모임_수를_매핑한다() {
-		Pageable pageable = PageRequest.of(0, 10, Sort.by("name", "id"));
+		Pageable pageable = fixedPageRequest(0, 10);
 		GameListRow game = gameListRow(1L, "카탄");
 		when(gameRepository.findListRowsByNameContainingIgnoreCase("카탄", pageable))
 			.thenReturn(new PageImpl<>(List.of(game), pageable, 1));
 		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW))
 			.thenReturn(Map.of(1L, 2L));
 
-		Page<GameListItem> result = gameListQueryService.findPage("  카탄  ", pageable);
+		Page<GameListItem> result = gameListQueryService.findPage("  카탄  ", false, 0, 10);
 
 		assertEquals(1, result.getTotalElements());
 		assertEquals("카탄", result.getContent().getFirst().name());
@@ -66,13 +66,13 @@ class GameListQueryServiceTest {
 
 	@Test
 	void 전각_공백이_포함된_검색어를_strip해_repository_검색_인자로_전달한다() {
-		Pageable pageable = PageRequest.of(0, 10, Sort.by("name", "id"));
+		Pageable pageable = fixedPageRequest(0, 10);
 		GameListRow game = gameListRow(1L, "카탄");
 		when(gameRepository.findListRowsByNameContainingIgnoreCase("카탄", pageable))
 			.thenReturn(new PageImpl<>(List.of(game), pageable, 1));
 		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW)).thenReturn(Map.of());
 
-		Page<GameListItem> result = gameListQueryService.findPage("\u3000카탄\u3000", pageable);
+		Page<GameListItem> result = gameListQueryService.findPage("\u3000카탄\u3000", false, 0, 10);
 
 		assertEquals("카탄", result.getContent().getFirst().name());
 		verify(gameRepository).findListRowsByNameContainingIgnoreCase("카탄", pageable);
@@ -80,10 +80,10 @@ class GameListQueryServiceTest {
 
 	@Test
 	void 검색어가_없으면_전체_페이지를_조회한다() {
-		Pageable pageable = PageRequest.of(0, 10, Sort.by("name", "id"));
+		Pageable pageable = fixedPageRequest(0, 10);
 		when(gameRepository.findAllListRows(pageable)).thenReturn(Page.empty(pageable));
 
-		Page<GameListItem> result = gameListQueryService.findPage("  ", pageable);
+		Page<GameListItem> result = gameListQueryService.findPage("  ", false, 0, 10);
 
 		assertEquals(0, result.getTotalElements());
 		verify(gameRepository).findAllListRows(pageable);
@@ -92,27 +92,27 @@ class GameListQueryServiceTest {
 
 	@Test
 	void count가_없는_게임은_예정_모임_수를_0으로_채운다() {
-		Pageable pageable = PageRequest.of(0, 10, Sort.by("name", "id"));
+		Pageable pageable = fixedPageRequest(0, 10);
 		GameListRow game = gameListRow(1L, "카탄");
 		when(gameRepository.findAllListRows(pageable))
 			.thenReturn(new PageImpl<>(List.of(game), pageable, 1));
 		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW)).thenReturn(Map.of());
 
-		Page<GameListItem> result = gameListQueryService.findPage(null, false, pageable);
+		Page<GameListItem> result = gameListQueryService.findPage(null, false, 0, 10);
 
 		assertEquals(0L, result.getContent().getFirst().upcomingRoomCount());
 	}
 
 	@Test
 	void 예정_모임_필터는_전체_집계의_게임_ID로_페이지를_조회하고_count를_재사용한다() {
-		Pageable pageable = PageRequest.of(0, 1, Sort.by("name", "id"));
+		Pageable pageable = fixedPageRequest(0, 1);
 		Map<Long, Long> upcomingRoomCounts = Map.of(1L, 2L, 2L, 1L);
 		GameListRow game = gameListRow(1L, "카탄");
 		when(upcomingRoomCountQuery.findUpcomingRoomCounts(NOW)).thenReturn(upcomingRoomCounts);
 		when(gameRepository.findListRowsByIdIn(upcomingRoomCounts.keySet(), pageable))
 			.thenReturn(new PageImpl<>(List.of(game), pageable, 2));
 
-		Page<GameListItem> result = gameListQueryService.findPage(null, true, pageable);
+		Page<GameListItem> result = gameListQueryService.findPage(null, true, 0, 1);
 
 		assertEquals(2, result.getTotalElements());
 		assertEquals(2L, result.getContent().getFirst().upcomingRoomCount());
@@ -122,7 +122,7 @@ class GameListQueryServiceTest {
 
 	@Test
 	void 예정_모임_필터와_검색어를_함께_사용하면_strip한_검색어를_같이_적용한다() {
-		Pageable pageable = PageRequest.of(0, 10, Sort.by("name", "id"));
+		Pageable pageable = fixedPageRequest(0, 10);
 		Map<Long, Long> upcomingRoomCounts = Map.of(1L, 2L);
 		GameListRow game = gameListRow(1L, "카탄");
 		when(upcomingRoomCountQuery.findUpcomingRoomCounts(NOW)).thenReturn(upcomingRoomCounts);
@@ -131,7 +131,7 @@ class GameListQueryServiceTest {
 				upcomingRoomCounts.keySet(), "카탄", pageable))
 			.thenReturn(new PageImpl<>(List.of(game), pageable, 1));
 
-		Page<GameListItem> result = gameListQueryService.findPage("  카탄  ", true, pageable);
+		Page<GameListItem> result = gameListQueryService.findPage("  카탄  ", true, 0, 10);
 
 		assertEquals("카탄", result.getContent().getFirst().name());
 		verify(gameRepository)
@@ -140,10 +140,10 @@ class GameListQueryServiceTest {
 
 	@Test
 	void 예정_모임_게임이_없으면_IN_조회없이_요청_페이지_기준_빈_결과를_반환한다() {
-		Pageable pageable = PageRequest.of(2, 10, Sort.by("name", "id"));
+		Pageable pageable = fixedPageRequest(2, 10);
 		when(upcomingRoomCountQuery.findUpcomingRoomCounts(NOW)).thenReturn(Map.of());
 
-		Page<GameListItem> result = gameListQueryService.findPage(null, true, pageable);
+		Page<GameListItem> result = gameListQueryService.findPage(null, true, 2, 10);
 
 		assertEquals(0, result.getTotalElements());
 		assertEquals(2, result.getNumber());
@@ -153,5 +153,9 @@ class GameListQueryServiceTest {
 
 	private GameListRow gameListRow(Long id, String name) {
 		return new GameListRow(id, 1001L, name, "Catan", null, "3~4명", "전략", "60~90분", null);
+	}
+
+	private Pageable fixedPageRequest(int page, int size) {
+		return PageRequest.of(page, size, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
 	}
 }
