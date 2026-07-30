@@ -26,7 +26,8 @@ class LocalRoomSeedPostgresTest {
 
 	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final String SEED_HOST_EMAIL = "local.seed.host@albammate.local";
-	private static final String SEED_TITLE_PREFIX = "[LOCAL] %";
+	private static final String HOST_MANUAL_ROOM_TITLE = "로컬 사용자의 수동 모임";
+	private static final String LAST_PERSON_SEED_TITLE = "뭐 할지 정하기 어려우면";
 	private static final long LOCAL_GAME_BGG_ID_BASE = -9_000_000_000L;
 
 	@Container
@@ -70,7 +71,7 @@ class LocalRoomSeedPostgresTest {
 			insertGame(10_000L + index, "양수 게임 " + index);
 		}
 
-		long firstGameRoomId = roomId("[LOCAL] 게임 중심 모임 01");
+		long firstGameRoomId = firstGameFocusedSeedRoomId();
 		for (int index = 1; index <= 6; index++) {
 			long participantId = insertUser("participant" + index + "@example.com", "참가자" + index);
 			insertParticipation(firstGameRoomId, participantId);
@@ -78,14 +79,14 @@ class LocalRoomSeedPostgresTest {
 		jdbcTemplate.update(
 			"""
 				update rooms
-				set description = '이전 시드 문구', experience_level = 'ALL_LEVELS', is_rulemaster_led = false,
+				set description = '이전 시드 문구', experience_level = 'EXPERIENCED_PREFERRED', is_rulemaster_led = true,
 				    region = '강남', capacity = 10, active_participant_count = 6,
 				    start_at = ?, place = '이전 장소', status = 'CANCELED'
 				where id = ?
 				""",
 			Timestamp.from(Instant.now().minusSeconds(86_400)),
 			firstGameRoomId);
-		jdbcTemplate.update("delete from rooms where id = ?", roomId("[LOCAL] 사람 중심 모임 30"));
+		jdbcTemplate.update("delete from rooms where id = ?", roomId(LAST_PERSON_SEED_TITLE));
 
 		flyway.migrate();
 
@@ -108,12 +109,13 @@ class LocalRoomSeedPostgresTest {
 					select count(*)
 					from rooms
 					where id = %d and room_type = 'GAME_FOCUSED'
-					  and description = '로컬 개발용 게임 중심 모임입니다. 편하게 참여해 보세요.'
-					  and experience_level = 'BEGINNER_WELCOME' and is_rulemaster_led
+					  and title = '오늘 저녁 같이 한 판 하실 분'
+					  and description = '가볍게 한두 판 돌리고 이야기 나누는 자리예요.'
+					  and experience_level = 'ALL_LEVELS' and not is_rulemaster_led
 					  and region = '홍대' and capacity = 6 and active_participant_count = 6
-					  and place = '홍대입구역 보드게임 카페' and status = 'CLOSED'
+					  and place = '합정역 근처 보드게임 카페' and status = 'CLOSED'
 					""".formatted(firstGameRoomId)));
-		assertEquals(1, count("select count(*) from rooms where title = '[LOCAL] 사람 중심 모임 30'"));
+		assertEquals(1, count("select count(*) from rooms where title = '" + LAST_PERSON_SEED_TITLE + "'"));
 		assertTrue(minimumSeedStartAt().isAfter(Instant.now()));
 	}
 
@@ -199,6 +201,21 @@ class LocalRoomSeedPostgresTest {
 		return jdbcTemplate.queryForObject("select id from users where email = ?", Long.class, email);
 	}
 
+	private long firstGameFocusedSeedRoomId() {
+		return jdbcTemplate.queryForObject(
+			"""
+				select room.id
+				from rooms room
+				join users host on host.id = room.host_user_id
+				where host.email = ? and room.title <> ? and room.room_type = 'GAME_FOCUSED'
+				order by room.start_at
+				limit 1
+				""",
+			Long.class,
+			SEED_HOST_EMAIL,
+			HOST_MANUAL_ROOM_TITLE);
+	}
+
 	private int countSeedRooms() {
 		return countSeedRooms(null);
 	}
@@ -208,16 +225,16 @@ class LocalRoomSeedPostgresTest {
 			select count(*)
 			from rooms room
 			join users host on host.id = room.host_user_id
-			where host.email = ? and room.title like ?
+			where host.email = ? and room.title <> ?
 			""";
 		if (roomType == null) {
-			return jdbcTemplate.queryForObject(query, Integer.class, SEED_HOST_EMAIL, SEED_TITLE_PREFIX);
+			return jdbcTemplate.queryForObject(query, Integer.class, SEED_HOST_EMAIL, HOST_MANUAL_ROOM_TITLE);
 		}
 		return jdbcTemplate.queryForObject(
 			query + " and room.room_type = ?",
 			Integer.class,
 			SEED_HOST_EMAIL,
-			SEED_TITLE_PREFIX,
+			HOST_MANUAL_ROOM_TITLE,
 			roomType);
 	}
 
@@ -228,11 +245,11 @@ class LocalRoomSeedPostgresTest {
 				from rooms room
 				join users host on host.id = room.host_user_id
 				join games game on game.id = room.game_id
-				where host.email = ? and room.title like ? and game.bgg_id = ?
+				where host.email = ? and room.title <> ? and game.bgg_id = ?
 				""",
 			Integer.class,
 			SEED_HOST_EMAIL,
-			SEED_TITLE_PREFIX,
+			HOST_MANUAL_ROOM_TITLE,
 			bggId);
 	}
 
@@ -243,11 +260,11 @@ class LocalRoomSeedPostgresTest {
 				from rooms room
 				join users host on host.id = room.host_user_id
 				join games game on game.id = room.game_id
-				where host.email = ? and room.title like ? and game.bgg_id between ? and ?
+				where host.email = ? and room.title <> ? and game.bgg_id between ? and ?
 				""",
 			Integer.class,
 			SEED_HOST_EMAIL,
-			SEED_TITLE_PREFIX,
+			HOST_MANUAL_ROOM_TITLE,
 			fromBggId,
 			toBggId);
 	}
@@ -266,11 +283,11 @@ class LocalRoomSeedPostgresTest {
 				select min(room.start_at)
 				from rooms room
 				join users host on host.id = room.host_user_id
-				where host.email = ? and room.title like ?
+				where host.email = ? and room.title <> ?
 				""",
 			Instant.class,
 			SEED_HOST_EMAIL,
-			SEED_TITLE_PREFIX);
+			HOST_MANUAL_ROOM_TITLE);
 	}
 
 	private int count(String query) {
