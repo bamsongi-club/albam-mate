@@ -35,7 +35,7 @@ class RoomStateReconciliationCoordinatorTest {
 	@Test
 	void 낙관락_충돌_후_성공하면_한_번만_재시도한다() {
 		RoomStateReconciliationExecutor executor = mock(RoomStateReconciliationExecutor.class);
-		RoomStateReconciliationCoordinator coordinator = new RoomStateReconciliationCoordinator(executor);
+		RoomStateReconciliationCoordinator coordinator = coordinator(executor);
 		OptimisticLockException conflict = new OptimisticLockException();
 		doThrow(conflict).doNothing().when(executor).reconcileRoom(ROOM_ID, REQUEST_TIME);
 
@@ -47,7 +47,7 @@ class RoomStateReconciliationCoordinatorTest {
 	@Test
 	void 세_번_충돌하면_오류코드와_마지막_cause를_보존한다() {
 		RoomStateReconciliationExecutor executor = mock(RoomStateReconciliationExecutor.class);
-		RoomStateReconciliationCoordinator coordinator = new RoomStateReconciliationCoordinator(executor);
+		RoomStateReconciliationCoordinator coordinator = coordinator(executor);
 		OptimisticLockException first = new OptimisticLockException("first");
 		OptimisticLockException second = new OptimisticLockException("second");
 		OptimisticLockException third = new OptimisticLockException("third");
@@ -83,7 +83,7 @@ class RoomStateReconciliationCoordinatorTest {
 	@Test
 	void Spring_낙관락_충돌_후_성공하면_동일한_요청시각으로_재시도한다() {
 		RoomStateReconciliationExecutor executor = mock(RoomStateReconciliationExecutor.class);
-		RoomStateReconciliationCoordinator coordinator = new RoomStateReconciliationCoordinator(executor);
+		RoomStateReconciliationCoordinator coordinator = coordinator(executor);
 		ObjectOptimisticLockingFailureException conflict = new ObjectOptimisticLockingFailureException(Room.class,
 			ROOM_ID);
 		doThrow(conflict).doNothing().when(executor).reconcileRoom(ROOM_ID, REQUEST_TIME);
@@ -98,7 +98,7 @@ class RoomStateReconciliationCoordinatorTest {
 	@Test
 	void Spring_낙관락이_세_번_충돌하면_오류와_마지막_cause를_보존한다() {
 		RoomStateReconciliationExecutor executor = mock(RoomStateReconciliationExecutor.class);
-		RoomStateReconciliationCoordinator coordinator = new RoomStateReconciliationCoordinator(executor);
+		RoomStateReconciliationCoordinator coordinator = coordinator(executor);
 		ObjectOptimisticLockingFailureException first = new ObjectOptimisticLockingFailureException(Room.class,
 			ROOM_ID);
 		ObjectOptimisticLockingFailureException second = new ObjectOptimisticLockingFailureException(Room.class,
@@ -123,7 +123,7 @@ class RoomStateReconciliationCoordinatorTest {
 	@Test
 	void 낙관락이_아닌_업무_예외는_재시도하지_않고_그대로_전달한다() {
 		RoomStateReconciliationExecutor executor = mock(RoomStateReconciliationExecutor.class);
-		RoomStateReconciliationCoordinator coordinator = new RoomStateReconciliationCoordinator(executor);
+		RoomStateReconciliationCoordinator coordinator = coordinator(executor);
 		BusinessException businessException = new BusinessException(ErrorCode.ROOM_NOT_FOUND);
 		doThrow(businessException).when(executor).reconcileRoom(ROOM_ID, REQUEST_TIME);
 
@@ -138,7 +138,7 @@ class RoomStateReconciliationCoordinatorTest {
 	@Test
 	void 재시도마다_동일한_요청_시각을_전달한다() {
 		RoomStateReconciliationExecutor executor = mock(RoomStateReconciliationExecutor.class);
-		RoomStateReconciliationCoordinator coordinator = new RoomStateReconciliationCoordinator(executor);
+		RoomStateReconciliationCoordinator coordinator = coordinator(executor);
 		when(executor.reconcileDueRooms(REQUEST_TIME))
 			.thenThrow(new OptimisticLockException())
 			.thenReturn(0);
@@ -154,7 +154,7 @@ class RoomStateReconciliationCoordinatorTest {
 	@Test
 	void 스케줄러_재시도_hook은_충돌_뒤_두번째와_세번째_시도_전에만_호출된다() {
 		RoomStateReconciliationExecutor executor = mock(RoomStateReconciliationExecutor.class);
-		RoomStateReconciliationCoordinator coordinator = new RoomStateReconciliationCoordinator(executor);
+		RoomStateReconciliationCoordinator coordinator = coordinator(executor);
 		IntConsumer beforeRetry = mock(IntConsumer.class);
 		doThrow(new OptimisticLockException())
 			.doThrow(new OptimisticLockException())
@@ -174,7 +174,7 @@ class RoomStateReconciliationCoordinatorTest {
 	@Test
 	void 공개_due_보정은_지연_hook_없이_기존처럼_세_번_즉시_재시도한다() {
 		RoomStateReconciliationExecutor executor = mock(RoomStateReconciliationExecutor.class);
-		RoomStateReconciliationCoordinator coordinator = new RoomStateReconciliationCoordinator(executor);
+		RoomStateReconciliationCoordinator coordinator = coordinator(executor);
 		doThrow(new OptimisticLockException())
 			.doThrow(new OptimisticLockException())
 			.doThrow(new OptimisticLockException())
@@ -203,7 +203,7 @@ class RoomStateReconciliationCoordinatorTest {
 	}
 
 	private ListAppender<ILoggingEvent> attachLogAppender() {
-		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomStateReconciliationCoordinator.class);
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomOptimisticLockRetrier.class);
 		logger.setLevel(Level.DEBUG);
 		ListAppender<ILoggingEvent> appender = new ListAppender<>();
 		appender.start();
@@ -212,9 +212,13 @@ class RoomStateReconciliationCoordinatorTest {
 	}
 
 	private void detachLogAppender(ListAppender<ILoggingEvent> appender) {
-		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomStateReconciliationCoordinator.class);
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomOptimisticLockRetrier.class);
 		logger.detachAppender(appender);
 		logger.setLevel(null);
 		appender.stop();
+	}
+
+	private RoomStateReconciliationCoordinator coordinator(RoomStateReconciliationExecutor executor) {
+		return new RoomStateReconciliationCoordinator(executor, new RoomOptimisticLockRetrier());
 	}
 }

@@ -4,52 +4,31 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
 
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
-import cloud.bamsongi.albammate.global.exception.BusinessException;
-import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.room.RoomOptimisticLockRetrier;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
-import jakarta.persistence.OptimisticLockException;
-import lombok.extern.slf4j.Slf4j;
 
 /** 현재 사용자의 활성 참가 관계를 낙관 락 충돌 시에만 재시도해 취소한다. */
 @Service
-@Slf4j
 public class RoomParticipationCancelService {
-
-	private static final int MAX_ATTEMPTS = 3;
 
 	private final RoomParticipationCancelExecutor executor;
 	private final Clock clock;
+	private final RoomOptimisticLockRetrier retrier;
 
-	public RoomParticipationCancelService(RoomParticipationCancelExecutor executor, Clock clock) {
+	public RoomParticipationCancelService(
+		RoomParticipationCancelExecutor executor, Clock clock, RoomOptimisticLockRetrier retrier) {
 		this.executor = Objects.requireNonNull(executor, "executor");
 		this.clock = Objects.requireNonNull(clock, "clock");
+		this.retrier = Objects.requireNonNull(retrier, "retrier");
 	}
 
 	/** 낙관 락 충돌만 최대 세 번의 독립 트랜잭션으로 재시도해 참가 취소를 확정한다. */
 	public RoomParticipationResponse cancelParticipation(long currentUserId, long roomId) {
 		Instant requestTime = Instant.now(clock);
-		RuntimeException lastConflict = null;
-
-		for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-			try {
-				return executor.cancelParticipation(currentUserId, roomId, requestTime);
-			} catch (OptimisticLockException exception) {
-				lastConflict = exception;
-				if (attempt < MAX_ATTEMPTS) {
-					log.debug("event=room_participation_cancel_retry roomId={} attempt={}", roomId, attempt + 1);
-				}
-			} catch (ObjectOptimisticLockingFailureException exception) {
-				lastConflict = exception;
-				if (attempt < MAX_ATTEMPTS) {
-					log.debug("event=room_participation_cancel_retry roomId={} attempt={}", roomId, attempt + 1);
-				}
-			}
-		}
-
-		log.warn("event=room_participation_cancel_retry roomId={} attempt={}", roomId, MAX_ATTEMPTS);
-		throw new BusinessException(ErrorCode.ROOM_CONCURRENT_MODIFICATION, lastConflict);
+		return retrier.execute(
+			() -> executor.cancelParticipation(currentUserId, roomId, requestTime),
+			"room_participation_cancel_retry", roomId);
 	}
 }

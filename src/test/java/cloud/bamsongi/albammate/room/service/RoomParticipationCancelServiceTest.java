@@ -24,6 +24,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.room.RoomOptimisticLockRetrier;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
@@ -94,7 +95,7 @@ class RoomParticipationCancelServiceTest {
 
 	private RoomParticipationCancelService service() {
 		return new RoomParticipationCancelService(
-			executor, Clock.fixed(REQUEST_TIME, ZoneOffset.UTC));
+			executor, Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), new RoomOptimisticLockRetrier());
 	}
 
 	private RoomParticipationResponse response() {
@@ -103,7 +104,7 @@ class RoomParticipationCancelServiceTest {
 	}
 
 	private ListAppender<ILoggingEvent> attachLogAppender() {
-		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomParticipationCancelService.class);
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomOptimisticLockRetrier.class);
 		logger.setLevel(Level.DEBUG);
 		ListAppender<ILoggingEvent> appender = new ListAppender<>();
 		appender.start();
@@ -112,7 +113,7 @@ class RoomParticipationCancelServiceTest {
 	}
 
 	private void detachLogAppender(ListAppender<ILoggingEvent> appender) {
-		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomParticipationCancelService.class);
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomOptimisticLockRetrier.class);
 		logger.detachAppender(appender);
 		logger.setLevel(null);
 		appender.stop();
