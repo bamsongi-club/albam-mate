@@ -17,6 +17,11 @@ const GAME_SEARCH_PAGE_SIZE = 10;
 const GAME_LIST_PAGE_SIZE = 24;
 const ROOM_LIST_PAGE_SIZE = 12;
 const GAME_SEARCH_DEBOUNCE_MS = 250;
+const ROOM_TYPE_FILTERS = [
+  { value: '', label: '전체' },
+  { value: 'GAME_FOCUSED', label: '게임 중심' },
+  { value: 'PERSON_FOCUSED', label: '사람 중심' }
+];
 
 function zeroPad(value) {
   return String(value).padStart(2, '0');
@@ -309,7 +314,7 @@ function gameMeta(game) {
 }
 
 function Header({ route, me, gameQuery, onGameQueryChange, onSearch }) {
-  const rootRoute = { find: 'find', games: 'find', game: 'find', people: 'find', 'game-list': 'game-list', create: 'profile', edit: 'profile', my: 'profile', profile: 'profile', auth: 'auth' };
+  const rootRoute = { find: 'find', game: 'game-list', 'game-list': 'game-list', create: 'profile', edit: 'profile', my: 'profile', profile: 'profile', auth: 'auth' };
   return (
     <header>
       <div className="hwrap">
@@ -436,9 +441,9 @@ function LoginRequiredView({ message = '이 기능은 로그인 후 이용할 �
   return <div className="card"><h2>로그인이 필요해요</h2><p className="hint" style={{ marginBottom: 16 }}>{message}</p><a className="btn" href="#/auth">로그인 또는 회원가입</a></div>;
 }
 
-function FindRoomsView({ dataVersion }) {
+function HomeView({ onBrowsePeople, dataVersion }) {
   const { data, loading, error } = useRequest(
-    (signal) => api.getRooms({ type: 'PERSON_FOCUSED', page: 0, size: 100 }, signal),
+    (signal) => api.getRooms({ type: 'PERSON_FOCUSED', page: 0, size: 1 }, signal),
     [dataVersion]
   );
   const personCount = data?.totalElements ?? 0;
@@ -447,20 +452,53 @@ function FindRoomsView({ dataVersion }) {
       <h1>오늘, 보드게임 한 판 어때요? 🎲</h1>
       <p>게임을 먼저 고르거나, 함께할 사람부터 찾아 모임을 만들 수 있어요.</p>
       <div className="dual">
-        <a className="entry gamefirst" href="#/games"><span className="big">🎲</span><h3>게임부터 찾기</h3><p>하고 싶은 게임을 검색하고, 그 게임의 공개 모임을 찾아보세요.</p><span className="sub">게임 이름으로 검색 →</span></a>
-        <a className="entry peoplefirst" href="#/people"><span className="big">🙌</span><h3>사람부터 만나기</h3><p>게임이 아직 정해지지 않아도 괜찮아요. 제목으로 원하는 모임을 찾아보세요.</p><span className="sub">{loading ? '공개 모임 불러오는 중…' : '공개 모임 ' + personCount + '개 →'}</span></a>
+        <a className="entry gamefirst" href="#/game-list"><span className="big">🎲</span><h3>게임부터 찾기</h3><p>하고 싶은 게임을 검색하고, 그 게임의 공개 모임을 찾아보세요.</p><span className="sub">게임 이름으로 검색 →</span></a>
+        <a className="entry peoplefirst" href="#/find" onClick={onBrowsePeople}><span className="big">🙌</span><h3>사람부터 만나기</h3><p>게임이 아직 정해지지 않아도 괜찮아요. 제목으로 원하는 모임을 찾아보세요.</p><span className="sub">{loading ? '공개 모임 불러오는 중…' : '공개 모임 ' + personCount + '개 →'}</span></a>
       </div>
       {error && <p className="hint" style={{ marginTop: 16 }}>공개 모임 수를 불러오지 못했어요: {error}</p>}
     </section>
   );
 }
 
-function GamesView({ title, gameQuery, onGameQueryChange, upcomingOnly = false, dataVersion }) {
+function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChange, dataVersion }) {
+  const [input, setInput] = useState(roomQuery);
+  const keyword = roomQuery.trim();
+  const { data, loading, error, setPage } = usePaginatedRequest(
+    // 유형을 비우면 두 유형의 공개 방을 함께 받는다.
+    (page, signal) => api.getRooms({ type: roomType, keyword, page, size: ROOM_LIST_PAGE_SIZE }, signal),
+    [roomType, keyword, dataVersion]
+  );
+  const rooms = (data?.content || []).map(normalizeRoom);
+  useEffect(() => setInput(roomQuery), [roomQuery]);
+  return (
+    <>
+      <h2><span className="h2-ico">🙌</span>모임 찾기 <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
+      <form className="inline-search" onSubmit={(event) => { event.preventDefault(); onRoomQueryChange(input.trim()); }}>
+        <label className="hint" htmlFor="room-q" style={{ position: 'absolute', left: -9999 }}>모임 제목 검색</label>
+        <input id="room-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="모임 제목으로 검색" />
+        <button className="btn" type="submit">검색</button>
+      </form>
+      <div className="tabs" role="group" aria-label="모임 유형">
+        {ROOM_TYPE_FILTERS.map((filter) => (
+          <button type="button" key={filter.label} className={roomType === filter.value ? 'on' : ''} aria-pressed={roomType === filter.value} onClick={() => onRoomTypeChange(filter.value)}>{filter.label}</button>
+        ))}
+      </div>
+      <p className="hint" style={{ marginTop: -10, marginBottom: 15 }}>모임 제목의 부분 일치 검색만 제공해요.</p>
+      {error && <ErrorBox message={error} />}
+      {!error && loading && !data && <LoadingBox />}
+      {!error && !!rooms.length && <div className="grid cols2">{rooms.map((room) => <SessionCard key={room.id} room={room} />)}</div>}
+      {!error && !loading && !rooms.length && <div className="infobox">조건에 맞는 공개 모임이 없어요. 직접 모임을 열어보세요.</div>}
+      {!error && !!rooms.length && <Pagination page={data?.page ?? 0} totalPages={data?.totalPages ?? 0} loading={loading} onChange={setPage} />}
+    </>
+  );
+}
+
+function GamesView({ title, gameQuery, onGameQueryChange, dataVersion }) {
   const [input, setInput] = useState(gameQuery);
   const keyword = gameQuery.trim();
   const { data, loading, error, setPage } = usePaginatedRequest(
-    (page, signal) => api.getGames({ keyword, upcomingOnly, page, size: GAME_LIST_PAGE_SIZE }, signal),
-    [keyword, upcomingOnly, dataVersion]
+    (page, signal) => api.getGames({ keyword, page, size: GAME_LIST_PAGE_SIZE }, signal),
+    [keyword, dataVersion]
   );
   const games = (data?.content || []).map(normalizeGameSummary);
   useEffect(() => setInput(gameQuery), [gameQuery]);
@@ -479,33 +517,6 @@ function GamesView({ title, gameQuery, onGameQueryChange, upcomingOnly = false, 
       {!error && !!games.length && <div className="grid cols3">{games.map((game) => <GameCard key={game.id} game={game} />)}</div>}
       {!error && !loading && !games.length && <div className="infobox" style={{ marginTop: 14 }}>검색 결과가 없어요. 다른 게임 이름으로 다시 찾아보세요.</div>}
       {!error && !!games.length && <Pagination page={data?.page ?? 0} totalPages={data?.totalPages ?? 0} loading={loading} onChange={setPage} />}
-    </>
-  );
-}
-
-function PeopleView({ peopleQuery, onPeopleQueryChange, dataVersion }) {
-  const [input, setInput] = useState(peopleQuery);
-  const keyword = peopleQuery.trim();
-  const { data, loading, error, setPage } = usePaginatedRequest(
-    (page, signal) => api.getRooms({ type: 'PERSON_FOCUSED', keyword, page, size: ROOM_LIST_PAGE_SIZE }, signal),
-    [keyword, dataVersion]
-  );
-  const rooms = (data?.content || []).map(normalizeRoom);
-  useEffect(() => setInput(peopleQuery), [peopleQuery]);
-  return (
-    <>
-      <h2><span className="h2-ico">🙌</span>사람 중심 모임 찾기 <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}</span></h2>
-      <form className="inline-search" onSubmit={(event) => { event.preventDefault(); onPeopleQueryChange(input.trim()); }}>
-        <label className="hint" htmlFor="people-q" style={{ position: 'absolute', left: -9999 }}>사람 중심 모임 제목 검색</label>
-        <input id="people-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="모임 제목으로 검색" />
-        <button className="btn" type="submit">검색</button>
-      </form>
-      <p className="hint" style={{ marginTop: -10, marginBottom: 15 }}>사람 중심 모임은 제목의 부분 일치 검색만 제공해요.</p>
-      {error && <ErrorBox message={error} />}
-      {!error && loading && !data && <LoadingBox />}
-      {!error && !!rooms.length && <div className="grid cols2">{rooms.map((room) => <SessionCard key={room.id} room={room} />)}</div>}
-      {!error && !loading && !rooms.length && <div className="infobox">일치하는 공개 모임이 없어요. 직접 모임을 열어보세요.</div>}
-      {!error && !!rooms.length && <Pagination page={data?.page ?? 0} totalPages={data?.totalPages ?? 0} loading={loading} onChange={setPage} />}
     </>
   );
 }
@@ -1137,7 +1148,8 @@ function App() {
   const today = useSeoulToday();
   const [me, setMe] = useState(null);
   const [gameQuery, setGameQuery] = useState('');
-  const [peopleQuery, setPeopleQuery] = useState('');
+  const [roomQuery, setRoomQuery] = useState('');
+  const [roomType, setRoomType] = useState('');
   const [myTab, setMyTab] = useState('joined');
   const [createMode, setCreateMode] = useState('GAME_FOCUSED');
   const [createGame, setCreateGame] = useState(null);
@@ -1197,9 +1209,11 @@ function App() {
     showToast(messageForError(error, fallback), 'err');
   };
 
+  const handleBrowsePeople = () => setRoomType('PERSON_FOCUSED');
+
   const handleGameSearch = () => {
     setGameQuery((query) => query.trim());
-    if (route !== 'games' && route !== 'game-list') navigate('/games');
+    if (route !== 'game-list') navigate('/game-list');
   };
 
   const handleCreateGame = (game) => {
@@ -1359,10 +1373,8 @@ function App() {
   };
 
   let content;
-  if (route === 'find') content = <FindRoomsView dataVersion={dataVersion} />;
-  else if (route === 'games') content = <GamesView title="게임 중심 모임" gameQuery={gameQuery} onGameQueryChange={setGameQuery} upcomingOnly dataVersion={dataVersion} />;
+  if (route === 'find') content = <FindRoomsView roomType={roomType} onRoomTypeChange={setRoomType} roomQuery={roomQuery} onRoomQueryChange={setRoomQuery} dataVersion={dataVersion} />;
   else if (route === 'game-list') content = <GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} />;
-  else if (route === 'people') content = <PeopleView peopleQuery={peopleQuery} onPeopleQueryChange={setPeopleQuery} dataVersion={dataVersion} />;
   else if (route === 'game') content = <GameDetailView gameId={arg} onCreateGame={handleCreateGame} dataVersion={dataVersion} />;
   else if (route === 'session') content = <SessionDetailView sessionId={arg} me={me} onApply={handleApply} onCancelApply={handleCancelApply} onHostCancel={handleHostCancel} onFinish={handleFinish} dataVersion={dataVersion} />;
   else if (route === 'create') content = me ? <CreateView createMode={createMode} onCreateModeChange={setCreateMode} initialGame={createGame} onCreate={handleCreate} today={today} /> : <LoginRequiredView message="모임을 만들려면 로그인해주세요." />;
@@ -1370,7 +1382,7 @@ function App() {
   else if (route === 'my') content = me ? <MyRoomsSection myTab={myTab} onMyTabChange={setMyTab} dataVersion={dataVersion} /> : <LoginRequiredView message="내 모임을 보려면 로그인해주세요." />;
   else if (route === 'profile') content = me ? <ProfileView me={me} onSave={handleSaveProfile} onLogout={handleLogout} /> : <LoginRequiredView message="마이페이지를 보려면 로그인해주세요." />;
   else if (route === 'auth') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <AuthView onLogin={handleLogin} onSignup={handleSignup} />;
-  else content = <FindRoomsView dataVersion={dataVersion} />;
+  else content = <HomeView onBrowsePeople={handleBrowsePeople} dataVersion={dataVersion} />;
 
   return (
     <>

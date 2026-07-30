@@ -316,7 +316,7 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
   input, select, textarea { font-size: 16px; }
   /* 손가락 탭 기준 44px에 맞춘다. 데스크톱 밀도를 바꾸지 않도록 좁은 화면에만 적용한다. */
   #gnb a, .game-search-open, .tabs button { align-items: center; display: inline-flex; justify-content: center; min-height: 44px; }
-  .page-btn, select, .searchbox input, .searchbox button, .date-picker-trigger { min-height: 44px; }
+  .page-btn, .btn, select, .searchbox input, .searchbox button, .date-picker-trigger { min-height: 44px; }
   .pagination { gap: 8px; }
   .checkline { min-height: 44px; }
   .checkline input { height: 20px; width: 20px; }
