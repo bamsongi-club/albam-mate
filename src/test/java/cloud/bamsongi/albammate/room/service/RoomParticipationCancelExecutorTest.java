@@ -93,6 +93,29 @@ class RoomParticipationCancelExecutorTest {
 	}
 
 	@Test
+	void 취소된_참가_관계는_활성_참가가_아니므로_참가_관계를_찾지_못한_오류를_반환한다() {
+		long hostUserId = insertUser("canceled-host@example.com", "방장");
+		long participantUserId = insertUser("canceled-member@example.com", "참가자");
+		Room room = createRoom(hostUserId, 1, NOW.plusSeconds(3600));
+		Instant canceledAt = NOW.minusSeconds(30);
+		Participation participation = Participation.createActive(room, participantUserId, NOW.minusSeconds(60));
+		participation.cancel(canceledAt);
+		participationRepository.saveAndFlush(participation);
+
+		assertError(
+			ErrorCode.PARTICIPATION_NOT_FOUND,
+			() -> roomParticipationCancelService.cancelParticipation(participantUserId, room.getId()));
+
+		clearPersistenceContext();
+		Participation canceledParticipation = participationRepository
+			.findByRoomIdAndUserId(room.getId(), participantUserId)
+			.orElseThrow();
+		assertEquals(ParticipationStatus.CANCELED, canceledParticipation.getStatus());
+		assertEquals(canceledAt, canceledParticipation.getCanceledAt());
+		assertEquals(0, roomRepository.findById(room.getId()).orElseThrow().getActiveParticipantCount());
+	}
+
+	@Test
 	void 오류_우선순위에_따라_주최자와_없는_관계와_시작_이후를_거절한다() {
 		long hostUserId = insertUser("error-host@example.com", "방장");
 		long participantUserId = insertUser("error-member@example.com", "참가자");
@@ -108,6 +131,13 @@ class RoomParticipationCancelExecutorTest {
 				participantUserId, futureRoom.getId()));
 
 		Room startedRoom = createRoom(hostUserId, 1, NOW);
+		assertError(
+			ErrorCode.FORBIDDEN,
+			() -> roomParticipationCancelService.cancelParticipation(hostUserId, startedRoom.getId()));
+		assertError(
+			ErrorCode.PARTICIPATION_NOT_FOUND,
+			() -> roomParticipationCancelService.cancelParticipation(participantUserId, startedRoom.getId()));
+
 		participationRepository.saveAndFlush(
 			Participation.createActive(startedRoom, participantUserId, NOW.minusSeconds(60)));
 		jdbcTemplate.update(
