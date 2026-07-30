@@ -95,8 +95,8 @@ Controller에는 다음 책임을 두지 않는다.
 
 - 의존성이 있는 Service는 Lombok의 `@RequiredArgsConstructor`와 `private final` 필드로 생성자 주입한다. 생성자에서 별도 검증이나 가공이 필요할 때만 생성자를 명시한다.
 - public 메서드는 하나의 유스케이스를 표현한다.
-- 같은 도메인의 관련 조회 또는 변경 유스케이스는 소수의 애플리케이션 진입 Service로 묶고 세부 실행 구현은 내부에 숨긴다.
-- Controller용 진입 Service와 독립 트랜잭션용 Executor는 같은 클래스에 합치지 않는다.
+- 권한, 오류 우선순위와 업무 규칙이 다른 유스케이스는 각각의 Service로 유지한다. 시간 고정, 재시도와 상태 보정처럼 실패 의미와 실행 방식이 동일한 정책만 Coordinator로 공통화한다.
+- 재시도하는 Controller용 Service와 시도마다 독립 트랜잭션을 여는 Executor는 같은 클래스에 합치지 않는다.
 - 트랜잭션 경계는 Service 계층에 둔다. 저장 상태를 변경하지 않는 조회는 `@Transactional(readOnly = true)`, 상태 변경은 `@Transactional`을 사용한다. 조회 전 상태 보정처럼 계약상 쓰기가 필요한 조회 유스케이스는 Transaction 절의 예외 규칙을 따른다.
 - Service는 자기 모듈의 Repository만 직접 참조한다.
 - 다른 모듈과 협력할 때는 그 모듈이 공개한 계약만 호출한다.
