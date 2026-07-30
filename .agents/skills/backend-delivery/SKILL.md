@@ -26,8 +26,10 @@ description: "범위와 정본이 확정된 Albam Mate 백엔드 기능·버그 
 ## 3. 검증과 리뷰
 
 - 구현 에이전트는 패킷의 `validation.targetedTests`와 `validation.finalCommands`를 실행하고 전체 test·build를 반복하지 않는다.
-- 메인 에이전트는 변경 범위와 `git diff --check`를 고정한 뒤, 위험에 맞는 독립 리뷰를 수행한다. HTTP 인증·인가·개인정보·동시성 변경은 리뷰 차원을 명시한다.
-- 유효한 리뷰 지적만 좁은 패킷으로 반영하고, 해당 대상 테스트를 다시 실행한다.
+- 메인 에이전트는 변경 범위를 확인하고 구현 diff를 고정해 `git diff --check`를 실행한 뒤, 패킷 작성자·구현자와 다른 fresh `review-code-reviewer`가 `review-code`의 `T-ID 계약 검증` 모드를 수행하게 한다. verifier에는 `mode=test-contract`, `requiredTests`에서 추출한 `id`·`intent`와 고정 diff만 전달하고, 이슈 본문, `completionCriteria`를 포함한 나머지 패킷 필드, 구현 세션 설명은 전달하지 않는다.
+- T-ID 계약 검증 결과와 일반 위험 리뷰 결과를 분리해 보존한다. 위험 기반 리뷰가 필요하면 일반 `review-code` 모드를 별도로 실행하고, HTTP 인증·인가·개인정보·동시성 변경은 해당 리뷰 차원을 명시한다.
+- `review-code`가 T-ID 결과 형식·개수·순서를 검증해 집계한 종합 판정이 `Approve`일 때만 4절로 진행한다. 형식 오류이면 결과를 폐기하고 fresh verifier로 재검증한다. `Incomplete`이면 미검증 T-ID를 직접 판정할 구현·테스트 변경을 고정 diff에 보강하고, `Changes Requested`이면 `fail` T-ID를 수정한 뒤 대상 테스트를 다시 실행해 각각 fresh verifier로 재검증한다. `Approve` 전에는 `pr-writer`를 호출하거나 커밋·푸시·PR을 생성하지 않는다.
+- 유효한 일반 리뷰 지적만 1절의 승인 규칙을 지킨 좁은 패킷으로 반영하고, 해당 대상 테스트를 다시 실행한다.
 - 모든 수정이 끝난 뒤 PostgreSQL 전용 검증이 필요하지 않은 작업은 메인 에이전트가 현재 OS의 Gradle Wrapper로 `build`를 한 번 실행한다.
 - Flyway, PostgreSQL 전용 SQL·제약 또는 데이터베이스 동시성 변경은 test 전용 커버리지 게이트가 합산 판정을 가로막지 않도록 `build -x jacocoTestCoverageVerification --no-daemon --stacktrace`를 실행한 뒤, `postgresTest jacocoAllTestReport jacocoAllTestCoverageVerification --no-daemon --stacktrace`로 PostgreSQL 검증과 정본 커버리지 게이트를 한 번에 실행한다.
 - Markdown을 함께 바꾸면 `node scripts/check-doc-links.mjs`를 추가로 실행한다.

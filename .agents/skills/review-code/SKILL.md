@@ -1,6 +1,6 @@
 ---
 name: review-code
-description: "현재 브랜치 diff, 지정 파일, 또는 현재 저장소의 GitHub PR을 read-only로 코드 리뷰할 때 사용한다. 관련 관점을 최대 3개 선택해 병렬 또는 순차 검토하며, PR 번호나 URL과 함께 리뷰를 요청하면 검증된 결과를 해당 PR에 게시한다. 트리거: 코드 리뷰, PR 리뷰, 병렬 리뷰, 특정 관점 리뷰, /review-code."
+description: "현재 브랜치 diff, 지정 파일, 현재 저장소의 GitHub PR을 read-only로 코드 리뷰하거나 승인된 T-ID와 고정 diff만으로 테스트 계약을 검증할 때 사용한다. 일반 리뷰는 관련 관점을 최대 3개 선택하며, PR 번호나 URL과 함께 리뷰를 요청하면 검증된 결과를 해당 PR에 게시한다. 트리거: 코드 리뷰, PR 리뷰, T-ID 계약 검증, 병렬 리뷰, 특정 관점 리뷰, /review-code."
 ---
 
 ## 역할과 불변 규칙
@@ -21,17 +21,19 @@ description: "현재 브랜치 diff, 지정 파일, 또는 현재 저장소의 G
 | 명시한 파일 | 지정 파일을 리뷰한다. diff를 함께 지정했으면 해당 hunk 중심, 아니면 파일 전체와 검증에 필요한 최소 심볼·호출자·테스트를 본다. |
 | 현재 브랜치 변경 | 사용자가 지정한 base를 우선한다. 없으면 origin/HEAD, 존재하는 develop·main·master·trunk 순으로 base 후보를 찾고 merge-base를 사용한다. 모두 실패하면 base를 물어본다. |
 | 미커밋 변경 포함 요청 | branch 범위와 별도로 staged diff, unstaged diff, untracked 파일을 모두 포함한다. |
+| 사람이 승인한 T-ID 계약 + 고정 구현 diff | `T-ID 계약 검증` 모드로 승인된 T-ID의 `id`·`intent`와 고정 diff만 본다. 이슈 본문, 패킷 `completionCriteria`, 구현 세션 설명에서 요구사항을 역추정하지 않는다. |
 
 - PR 모드는 현재 저장소만 지원한다. 먼저 `gh repo view --json nameWithOwner,url`로 `repo`와 `repoUrl`을 고정한다. URL을 받으면 정규화한 URL이 `repoUrl/pull/<양의 정수>` 접두로 시작하는지 확인해 PR 번호를 추출하고, 아니면 지원하지 않는 저장소라고 보고 중단한다. 이후 모든 gh pr 호출에는 추출한 `$pr`와 `--repo "$repo"`를 쓰고, 게시 API도 `repos/$repo/pulls/$pr/reviews`만 쓴다.
 - PR 모드에서는 gh auth status, gh repo view, gh pr view의 number, title, body, state, url, base/head ref와 SHA, files를 확인한다. gh pr diff의 name-only와 patch를 범위 정본으로 쓴다.
 - 미커밋 변경 포함 모드에서는 git diff --cached, git diff, git ls-files --others --exclude-standard로 staged·unstaged·untracked 목록을 각각 고정한다. untracked 파일은 내용을 읽어 위험 매니페스트와 파일 목록에 넣고, 제외했다면 최종 보고에 범위를 명시한다.
 - PR 식별자와 리뷰 요청이 함께 있으면 게시 모드다(`17번 PR 리뷰해줘`). 사용자가 PR을 지정한 것이 게시 승인이므로 확인을 다시 묻지 않는다. 둘 중 하나가 없으면(`17번 PR 설명해줘`, `이 브랜치 리뷰해줘`) 텍스트 보고만 하고, 사용자가 게시 금지·dry-run을 요청하면 게시하지 않는다.
-- 명시한 파일·PR·브랜치 변경이 모두 없으면 리뷰 대상이 없다고 보고한다.
+- 명시한 파일·PR·브랜치 변경이 없고 T-ID 계약과 고정 diff도 없으면 리뷰 대상이 없다고 보고한다.
 - PR을 찾을 수 없거나 쓰기 권한이 없으면 로컬 리뷰 결과는 완성하고 게시 실패 원인만 정확히 보고한다.
+- `T-ID 계약 검증`은 실행 등급·차원·위험 매니페스트·샤딩을 적용하지 않는다. 패킷 작성자·구현자와 다른 fresh `review-code-reviewer` 하나에 `mode=test-contract`, 입력 순서의 T-ID `id`·`intent`, 고정 diff만 전달한다. verifier는 추가 파일·Git·GitHub를 조회하지 않으며, 일반 위험 리뷰가 필요하면 별도 일반 모드로 실행한다.
 
 ## 실행 등급·예산과 완료 조건
 
-오케스트레이터는 파일 수, 추가·삭제 줄 수와 변경 위험으로 실행 등급을 먼저 고정한다. 사용자가 명시한 차원은 등급보다 우선한다.
+일반 리뷰 모드의 오케스트레이터는 파일 수, 추가·삭제 줄 수와 변경 위험으로 실행 등급을 먼저 고정한다. 사용자가 명시한 차원은 등급보다 우선한다.
 
 | 등급 | 조건 | 실행 | 전체 반환 시점 |
 | --- | --- | --- | --- |
@@ -137,16 +139,20 @@ description: "현재 브랜치 diff, 지정 파일, 또는 현재 저장소의 G
 
 ## 출력
 
-샤드는 기계 처리용 JSONL만 반환한다. 오케스트레이터는 이를 원문 그대로 사용자에게 노출하지 않고, 일반 모드의 텍스트 보고와 게시 모드의 review body·inline comment로 읽기 쉽게 확장한다.
+일반 리뷰 샤드와 T-ID 계약 verifier는 기계 처리용 JSONL만 반환한다. 오케스트레이터는 이를 원문 그대로 사용자에게 노출하지 않고 읽기 쉽게 확장한다.
 
 ~~~json
 {"type":"status","shard":"security-1","complete":true,"checkedRiskIds":["R1","R2"],"uncoveredRiskIds":[]}
 {"type":"finding","candidateId":"security-1-F1","dimension":"security","severity":"major","file":"path/to/file","line":80,"side":"RIGHT","title":"짧은 제목","evidence":"실패 조건과 근거","fix":"짧은 수정 방향","confidence":"high"}
+{"type":"test-verdict","testId":"T1","verdict":"pass","evidence":"고정 diff가 계약 동작을 직접 보여준다."}
 ~~~
 
-- complete는 배정된 위험 ID와 대상 범위를 모두 확인했을 때만 true다. soft limit에서는 checkedRiskIds와 uncoveredRiskIds를 즉시 반환한다.
-- line은 대상 파일의 단일 앵커다. PR 모드에서는 diff 앵커만 inline으로 보내고, 삭제 hunk는 side=LEFT를 쓴다. 파일 리뷰에서는 side를 생략할 수 있다.
-- 대형 diff가 아닐 때만 minor·nit을 보고한다. 샤드는 Good, 장문 설명, 전체 코드, PR 요약을 반환하지 않는다.
+- T-ID 계약 verifier는 입력 순서대로 T-ID마다 `type`·`testId`·`verdict`·`evidence`만 담은 `test-verdict` 하나를 반환하고 `status`·`finding`과 JSONL 밖 설명은 반환하지 않는다. `verdict`는 고정 diff가 계약을 직접 뒷받침하면 `pass`, 직접 위반하면 `fail`, 증거가 부족하면 `unverified`다. 사용자 보고에서는 `unverified`를 `미검증`으로 표시한다.
+- 오케스트레이터는 각 줄을 JSON으로 파싱하고 레코드 개수, 키 네 개, `type`, 입력 T-ID와 같은 순서의 `testId`, 허용 verdict와 비어 있지 않은 evidence를 검증한다. 하나라도 어긋나면 결과를 보정하거나 누락 판정을 추론하지 않고 종합 판정을 `Incomplete`로 고정해 fresh verifier 재검증을 요구한다.
+- 유효한 T-ID JSONL은 하나라도 `fail`이면 `Changes Requested`, `fail` 없이 `unverified`가 있으면 `Incomplete`, 모두 `pass`이면 `Approve`로 집계한다. T-ID 종합 판정·레코드와 별도 일반 위험 리뷰의 판정·Finding은 서로 덮어쓰지 않고 각각 보존한다.
+- 일반 리뷰의 complete는 배정된 위험 ID와 대상 범위를 모두 확인했을 때만 true다. soft limit에서는 checkedRiskIds와 uncoveredRiskIds를 즉시 반환한다.
+- 일반 리뷰의 line은 대상 파일의 단일 앵커다. PR 모드에서는 diff 앵커만 inline으로 보내고, 삭제 hunk는 side=LEFT를 쓴다. 파일 리뷰에서는 side를 생략할 수 있다.
+- 일반 리뷰는 대형 diff가 아닐 때만 minor·nit을 보고한다. 샤드는 Good, 장문 설명, 전체 코드, PR 요약을 반환하지 않는다.
 
 라인별 코멘트와 일반 모드의 Finding은 문제마다 아래 형식을 그대로 쓴다. 제목 구분자, 섹션 제목, 이모지를 임의로 바꾸거나 생략하지 않고, 위치·문제점·수정 방향을 섞어 한 문장으로 압축하지 않는다.
 
