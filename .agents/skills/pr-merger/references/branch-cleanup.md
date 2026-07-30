@@ -6,15 +6,10 @@
 gh pr view "$pr" --json state,mergedAt,mergeCommit,headRefName,headRefOid,headRepository,url
 ~~~
 
-- `MERGED`가 아니면 브랜치를 삭제하지 않는다.
-- 삭제 판단에는 머지 전 스냅샷의 `head_ref`, `head_oid`만 사용하고 머지 후 조회값으로 덮어쓰지 않는다.
-- 원격·로컬 ref가 없으면 이미 삭제된 것으로 기록한다.
-- 남아 있는 ref는 스냅샷 `head_oid`와 같을 때만 조건부 삭제하고, 다르면 새 커밋을 보존한다.
-- 현재 브랜치가 `head_ref`라면 clean 상태를 다시 확인하고 base 브랜치로 전환한다.
-- 로컬 base가 없으면 `origin/<baseRefName>`을 tracking하도록 만든다.
-- 다른 worktree에서 사용 중이면 로컬 ref를 보존한다.
-- 로컬 ref의 현재 OID를 다시 확인한 뒤 expected OID를 지정해 삭제한다. 확인과 삭제 사이에 ref가 바뀌면 `git update-ref`가 실패하므로 보존하고 보고한다.
-- 원격 ref의 현재 OID를 다시 확인한 뒤 expected OID를 lease로 지정해 삭제한다. 확인과 삭제 사이에 ref가 바뀌면 push가 실패하므로 보존하고 보고한다.
+- `MERGED`가 아니면 삭제하지 않는다. 이후 판단에는 머지 전 `head_ref`, `head_oid`만 사용한다.
+- 원격·로컬 ref가 없으면 이미 삭제된 것으로 기록하고, OID가 `head_oid`와 다르면 새 커밋을 보존한다.
+- 현재 브랜치가 `head_ref`라면 clean 상태에서 base로 전환한다. 로컬 base가 없으면 `origin/<baseRefName>`을 tracking하고, 다른 worktree가 `head_ref`를 사용 중이면 보존한다.
+- 삭제 직전 OID를 다시 확인하고 expected OID를 지정한다. 확인 후 ref가 바뀌어 조건부 삭제가 실패하면 보존한다.
 
 ~~~shell
 git rev-parse --verify --end-of-options "refs/heads/$head_ref^{commit}"

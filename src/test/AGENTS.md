@@ -4,11 +4,6 @@
 
 ## 작성과 검증
 
-- 단위 테스트는 JUnit 5와 Mockito를 사용하고 given-when-then 흐름이 드러나게 작성한다.
-- Service 단위 테스트는 자기 모듈의 Repository와 외부 의존성을 목킹한다.
-- Controller 테스트는 HTTP 상태, 요청 검증, 인증 경계와 응답 계약을 확인한다.
-- `@SpringBootTest`는 전체 Spring 구성이 필요한 통합 경로에만 사용한다.
-- 새 Service와 Controller에는 성공 경로와 핵심 실패 경로 테스트를 함께 작성한다.
 - 재사용 fixture는 해당 source set의 `java/.../<domain>/fixture`, 전용 fixture는 해당 테스트 가까이에 두며 `src/main`에는 두지 않는다.
 - 현재 시각에 의존하는 테스트는 `Clock.fixed(...)`를 사용하고 fixture의 시각도 고정값으로 둔다.
 - 생산 코드 패키지를 이동·추가하거나 커버리지 최소선을 조정하면 [분기 커버리지 확인](../../docs/COMMANDS.md#분기-커버리지-확인)의 실측 절차를 따른다.
@@ -27,18 +22,7 @@ H2 테스트가 있어도 PostgreSQL 고유 동작에 의존하면 `src/postgres
 
 테스트 메서드명은 `방을_생성하면_모집중_상태가_된다()`처럼 행동과 결과를 한국어로 드러내고, 같은 의미를 반복하는 `@DisplayName`은 사용하지 않는다.
 
-테스트 클래스명은 검증 역할이 드러나는 가장 구체적인 접미사를 사용한다. 별도 역할을 구분할 필요가 없는 한 `Test`를 기본으로 한다.
-
-| 형태 | 사용 기준 |
-| --- | --- |
-| `{Target}Test` | 한 대상의 동작을 검증하는 기본 테스트. 단위 테스트, MVC slice와 Repository 테스트를 포함한다. |
-| `{Target}UnitTest` | 같은 대상의 다른 범위 테스트와 구분해야 하는 Mockito 기반 격리 테스트 |
-| `{Scenario}IntegrationTest` | H2와 Spring context에서 여러 실제 구성요소의 협력을 검증하는 테스트 |
-| `{Scenario}HttpIntegrationTest` | 전체 Spring context와 MockMvc로 HTTP 경계를 검증하는 테스트 |
-| `{Scenario}RealHttpIntegrationTest` | 임의 포트의 실제 서버와 HTTP client를 연결해 검증하는 테스트 |
-| `{Scope}PersistenceTest` | 여러 Entity의 매핑, 관계와 영속성 계약을 함께 검증하는 테스트 |
-| `{Scope}PostgresTest` | `postgresTest` source set에서 실제 PostgreSQL 고유 계약을 검증하는 테스트 |
-| `{ApplicationName}ApplicationTest` | Spring Boot 애플리케이션 context 기동 smoke test |
+테스트 클래스명은 검증 역할이 드러나는 접미사(`Test`, `IntegrationTest`, `HttpIntegrationTest`, `PostgresTest` 등)를 사용하고, 별도 구분이 필요 없으면 `Test`를 기본으로 한다.
 
 ## 근거와 명령
 

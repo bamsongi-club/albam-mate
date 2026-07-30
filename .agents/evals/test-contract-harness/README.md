@@ -41,8 +41,8 @@ runner는 모델을 호출하지 않는다. 보관된 실행의 candidate 입력
 
 RV-01을 포함한 fresh-agent run은 다음을 지킨다.
 
-- candidate arm 입력에 `review-code/SKILL.md`, `review-code-reviewer.toml`, `scope-and-routing.md`, `output-contract.md` 네 파일의 내용을 모두 포함한다.
-- `instructionArms.candidate`에 대응하는 `reviewCodeBlob`, `reviewCodeReviewerBlob`, `reviewCodeScopeAndRoutingBlob`, `reviewCodeOutputContractBlob` OID를 기록한다.
+- candidate arm 입력에 `review-code/SKILL.md`, `review-code-reviewer.toml`, `scope-and-routing.md`, `test-contract-verifier-output-contract.md` 네 파일의 내용을 모두 포함한다. 일반 리뷰용 기계 계약과 사람용 `presentation-contract.md`는 T-ID verifier 입력에 포함하지 않는다.
+- `instructionArms.candidate`에 대응하는 `reviewCodeBlob`, `reviewCodeReviewerBlob`, `reviewCodeScopeAndRoutingBlob`, `reviewCodeTestContractVerifierOutputBlob` OID를 기록한다.
 - 입력이나 blob OID가 하나라도 없거나 대상 commit과 다르면 `candidateInputMatch=false`다.
 
 ## Private Brain receipt

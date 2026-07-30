@@ -19,7 +19,7 @@ const TARGET_INPUTS = [
     '.agents/skills/backend-delivery/SKILL.md',
     '.agents/skills/review-code/SKILL.md',
     '.agents/skills/review-code/references/scope-and-routing.md',
-    '.agents/skills/review-code/references/output-contract.md',
+    '.agents/skills/review-code/references/test-contract-verifier-output-contract.md',
     '.codex/agents/review-code-reviewer.toml',
     '.codex/contracts/backend-implementation-packet.schema.json',
     'scripts/validate-packet.mjs',
@@ -27,7 +27,7 @@ const TARGET_INPUTS = [
 ];
 const OPTIONAL_TARGET_INPUTS = new Set([
     '.agents/skills/review-code/references/scope-and-routing.md',
-    '.agents/skills/review-code/references/output-contract.md',
+    '.agents/skills/review-code/references/test-contract-verifier-output-contract.md',
 ]);
 export const CANDIDATE_BLOB_PATHS = {
     issueWriterBlob: '.agents/skills/issue-writer/SKILL.md',
@@ -35,7 +35,7 @@ export const CANDIDATE_BLOB_PATHS = {
     reviewCodeBlob: '.agents/skills/review-code/SKILL.md',
     reviewCodeReviewerBlob: '.codex/agents/review-code-reviewer.toml',
     reviewCodeScopeAndRoutingBlob: '.agents/skills/review-code/references/scope-and-routing.md',
-    reviewCodeOutputContractBlob: '.agents/skills/review-code/references/output-contract.md',
+    reviewCodeTestContractVerifierOutputBlob: '.agents/skills/review-code/references/test-contract-verifier-output-contract.md',
     validatorBlob: 'scripts/validate-packet.mjs',
     testFileBlob: 'scripts/validate-packet.test.mjs',
     schemaBlob: '.codex/contracts/backend-implementation-packet.schema.json',
@@ -44,7 +44,7 @@ export const RV01_REQUIRED_CANDIDATE_BLOB_FIELDS = [
     'reviewCodeBlob',
     'reviewCodeReviewerBlob',
     'reviewCodeScopeAndRoutingBlob',
-    'reviewCodeOutputContractBlob',
+    'reviewCodeTestContractVerifierOutputBlob',
 ];
 const FORBIDDEN_KEYS = new Set([
     'privateBrainPath',
