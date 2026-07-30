@@ -16,7 +16,7 @@ import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserAccessor;
 import cloud.bamsongi.albammate.room.dto.MyRoomListItem;
 import cloud.bamsongi.albammate.room.dto.MyRoomListRequest;
 import cloud.bamsongi.albammate.room.enums.MyRoomRole;
-import cloud.bamsongi.albammate.room.service.MyRoomQueryService;
+import cloud.bamsongi.albammate.room.service.query.MyRoomQueryService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
@@ -39,7 +39,7 @@ public class MyRoomController {
 		@Valid @ModelAttribute
 		MyRoomListRequest listRequest,
 		HttpServletRequest servletRequest) {
-		RoomQueryParameterValidator.validateMyRoomList(servletRequest);
+		RoomQueryParameterAllowlistValidator.validateMyRoomList(servletRequest);
 		return ResponseEntity.ok(ApiResponse.success(
 			HttpStatus.OK,
 			myRoomQueryService.findPage(

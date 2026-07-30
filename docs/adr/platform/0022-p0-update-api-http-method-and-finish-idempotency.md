@@ -73,7 +73,7 @@ P0의 내 프로필 수정, 방 수정, 방 종료 API는 계속 `PATCH`를 사�
 - 상태: 검증됨
 - 근거:
     - 테스트:
-        - PR #98의 `RoomStatusChangeExecutorIntegrationTest`는 자동 정합화 상태의 커밋·버전 증가와 기존 `FINISHED` 상태·버전·갱신 시각의 불변을 확인한다.
+        - PR #98의 `room.service.command.RoomStatusChangeExecutorIntegrationTest`는 자동 정합화 상태의 커밋·버전 증가와 기존 `FINISHED` 상태·버전·갱신 시각의 불변을 확인한다.
         - Windows에서 `.\gradlew.bat build`를 통과했다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

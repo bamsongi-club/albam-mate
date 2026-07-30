@@ -27,7 +27,7 @@ import cloud.bamsongi.albammate.global.config.JpaConfig;
 import cloud.bamsongi.albammate.global.config.TimeConfig;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
-import cloud.bamsongi.albammate.room.service.RoomUpcomingRoomCountQuery;
+import cloud.bamsongi.albammate.room.service.query.RoomUpcomingRoomCountQuery;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)

@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.room.controller;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -19,16 +20,16 @@ import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserAccessor;
 import cloud.bamsongi.albammate.room.dto.CreateRoomRequest;
 import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
 import cloud.bamsongi.albammate.room.dto.PublicRoomResponse;
+import cloud.bamsongi.albammate.room.dto.RoomDetailResponse;
 import cloud.bamsongi.albammate.room.dto.RoomListRequest;
-import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import cloud.bamsongi.albammate.room.dto.RoomStatusResponse;
 import cloud.bamsongi.albammate.room.dto.RoomStatusUpdateRequest;
 import cloud.bamsongi.albammate.room.dto.RoomUpdateRequest;
-import cloud.bamsongi.albammate.room.service.RoomCreateService;
-import cloud.bamsongi.albammate.room.service.RoomListQueryService;
-import cloud.bamsongi.albammate.room.service.RoomParticipationService;
-import cloud.bamsongi.albammate.room.service.RoomStatusChangeService;
-import cloud.bamsongi.albammate.room.service.RoomUpdateService;
+import cloud.bamsongi.albammate.room.service.command.RoomCreateService;
+import cloud.bamsongi.albammate.room.service.command.RoomStatusChangeService;
+import cloud.bamsongi.albammate.room.service.command.RoomUpdateService;
+import cloud.bamsongi.albammate.room.service.query.RoomDetailService;
+import cloud.bamsongi.albammate.room.service.query.RoomListQueryService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
@@ -41,7 +42,7 @@ public class RoomController {
 
 	private final RoomCreateService roomCreateService;
 	private final RoomListQueryService roomListQueryService;
-	private final RoomParticipationService roomParticipationService;
+	private final RoomDetailService roomDetailService;
 	private final RoomUpdateService roomUpdateService;
 	private final RoomStatusChangeService roomStatusChangeService;
 	private final CurrentUserAccessor currentUserAccessor;
@@ -49,13 +50,13 @@ public class RoomController {
 	public RoomController(
 		RoomCreateService roomCreateService,
 		RoomListQueryService roomListQueryService,
-		RoomParticipationService roomParticipationService,
+		RoomDetailService roomDetailService,
 		RoomUpdateService roomUpdateService,
 		RoomStatusChangeService roomStatusChangeService,
 		CurrentUserAccessor currentUserAccessor) {
 		this.roomCreateService = roomCreateService;
 		this.roomListQueryService = roomListQueryService;
-		this.roomParticipationService = roomParticipationService;
+		this.roomDetailService = roomDetailService;
 		this.roomUpdateService = roomUpdateService;
 		this.roomStatusChangeService = roomStatusChangeService;
 		this.currentUserAccessor = currentUserAccessor;
@@ -66,7 +67,7 @@ public class RoomController {
 		@Valid @ModelAttribute
 		RoomListRequest listRequest,
 		HttpServletRequest servletRequest) {
-		RoomQueryParameterValidator.validateRoomList(servletRequest);
+		RoomQueryParameterAllowlistValidator.validateRoomList(servletRequest);
 		return ResponseEntity.ok(ApiResponse.success(
 			HttpStatus.OK,
 			roomListQueryService.findPage(
@@ -78,6 +79,16 @@ public class RoomController {
 				currentUserAccessor.currentUserId())));
 	}
 
+	@GetMapping(path = "/{roomId}", produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<ApiResponse<RoomDetailResponse>> getRoomDetail(
+		@PathVariable @Positive long roomId) {
+		RoomDetailResponse response = roomDetailService.findRoomDetail(roomId, currentUserAccessor.currentUserId());
+		return ResponseEntity.ok()
+			.header(HttpHeaders.CACHE_CONTROL, "private, no-store")
+			.header(HttpHeaders.VARY, "Cookie")
+			.body(ApiResponse.success(HttpStatus.OK, response));
+	}
+
 	@PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	public ResponseEntity<ApiResponse<ParticipantRoomResponse>> createRoom(
 		@Valid @RequestBody
@@ -86,16 +97,6 @@ public class RoomController {
 		ParticipantRoomResponse response = roomCreateService.createRoom(currentUserId, request);
 		log.info("event=room_created roomId={} actorUserId={} roomStatus={}",
 			response.id(), currentUserId, response.status());
-		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(HttpStatus.CREATED, response));
-	}
-
-	@PostMapping(value = "/{roomId}/participants", produces = MediaType.APPLICATION_JSON_VALUE)
-	public ResponseEntity<ApiResponse<RoomParticipationResponse>> participate(@PathVariable @Positive long roomId) {
-		long currentUserId = currentUserAccessor.requireCurrentUserId();
-		RoomParticipationResponse response = roomParticipationService.participate(
-			currentUserId, roomId);
-		log.info("event=room_participation_created roomId={} actorUserId={} roomStatus={}",
-			response.roomId(), currentUserId, response.roomStatus());
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(HttpStatus.CREATED, response));
 	}
 

@@ -58,11 +58,11 @@ ADR-0004는 Java·Spring 내장 스케줄러가 방의 시간 기반 상태를 �
 - 상태: 검증됨
 - 근거:
     - 구현:
-        - `RoomStateReconciliationCoordinator`와 `RoomStateReconciliationExecutor`는 낙관 락 충돌만 최대 세 개의 독립 쓰기 트랜잭션으로 재시도하고, 소진 시 `ROOM_CONCURRENT_MODIFICATION`을 반환한다.
-        - 목록·내 모임 조회는 필터와 페이지 계산 전에 due 방을 보정하며 `RoomStateReconciliationScheduler`도 같은 규칙을 재사용한다.
+        - `room.statuscorrection`의 `RoomStatusCorrectionCoordinator`와 `RoomStatusCorrectionExecutor`는 `room.service.RoomOptimisticLockRetrier`로 낙관 락 충돌만 최대 세 개의 독립 쓰기 트랜잭션에서 재시도하고, 소진 시 `ROOM_CONCURRENT_MODIFICATION`을 반환한다.
+        - 목록·내 모임 조회는 필터와 페이지 계산 전에 due 방을 보정하며 `RoomStatusCorrectionScheduler`도 같은 규칙을 재사용한다.
     - 테스트:
-        - `RoomStateReconciliationTest`는 두 시간 경계와 연속 전이, `CANCELED`·`FINISHED` 상태 보존을 확인한다.
-        - `RoomStateReconciliationExecutorTest`는 버전 증가·멱등성과 외부 트랜잭션 롤백에도 `REQUIRES_NEW` 보정이 커밋됨을 확인한다.
-        - `RoomStateReconciliationCoordinatorTest`는 재시도 상한과 충돌 오류 변환을 확인한다.
+        - `room.entity.RoomStatusCorrectionTest`는 두 시간 경계와 연속 전이, `CANCELED`·`FINISHED` 상태 보존을 확인한다.
+        - `room.statuscorrection.RoomStatusCorrectionExecutorTest`는 버전 증가·멱등성과 외부 트랜잭션 롤백에도 `REQUIRES_NEW` 보정이 커밋됨을 확인한다.
+        - `room.statuscorrection.RoomStatusCorrectionCoordinatorTest`는 재시도 상한과 충돌 오류 변환을 확인한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

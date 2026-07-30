@@ -74,7 +74,7 @@ Albam Mate의 현재 MVP에서 방 참가·취소 동시성 제어의 기본 전
 - 근거:
     - 구현:
         - `Room`은 `@Version`으로 `rooms.version`을 매핑하고 `Participation`에는 별도 버전을 두지 않는다.
-        - `RoomParticipationService`와 `RoomParticipationCancelService`는 낙관 락 충돌만 최대 세 개의 독립 트랜잭션으로 재시도하며, 소진 시 `ROOM_CONCURRENT_MODIFICATION`을 반환하고 업무 규칙 위반은 재시도하지 않는다.
+        - `room.service.command`의 `RoomParticipationService`와 `RoomParticipationCancelService`는 `RoomCommandExecutionCoordinator`에 재시도 실행을 위임한다. Coordinator는 `room.service.RoomOptimisticLockRetrier`로 낙관 락 충돌만 최대 세 개의 독립 트랜잭션에서 재시도하며, 소진 시 `ROOM_CONCURRENT_MODIFICATION`을 반환하고 업무 규칙 위반은 재시도하지 않는다.
         - `V1__create_p0_schema.sql`의 `uq_participations_room_user`와 `ck_rooms_active_participant_count`가 데이터베이스 불변식을 방어한다.
     - 테스트:
         - `RoomParticipationConcurrencyPostgresTest`는 PostgreSQL 18에서 마지막 좌석 경합, 참가 취소·정원 축소와 새 참가, 취소된 기존 참가의 재참가 및 저장 실패 롤백을 실행하고 매 시나리오 뒤 참가 수 불변식을 확인한다.

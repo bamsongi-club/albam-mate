@@ -55,19 +55,17 @@ import cloud.bamsongi.albammate.room.dto.CreateRoomRequest;
 import cloud.bamsongi.albammate.room.dto.NicknameSummary;
 import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
 import cloud.bamsongi.albammate.room.dto.PublicRoomResponse;
-import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import cloud.bamsongi.albammate.room.dto.RoomStatusResponse;
 import cloud.bamsongi.albammate.room.dto.RoomUpdateRequest;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.MyRole;
-import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
-import cloud.bamsongi.albammate.room.service.RoomCreateService;
-import cloud.bamsongi.albammate.room.service.RoomListQueryService;
-import cloud.bamsongi.albammate.room.service.RoomParticipationService;
-import cloud.bamsongi.albammate.room.service.RoomStatusChangeService;
-import cloud.bamsongi.albammate.room.service.RoomUpdateService;
+import cloud.bamsongi.albammate.room.service.command.RoomCreateService;
+import cloud.bamsongi.albammate.room.service.command.RoomStatusChangeService;
+import cloud.bamsongi.albammate.room.service.command.RoomUpdateService;
+import cloud.bamsongi.albammate.room.service.query.RoomDetailService;
+import cloud.bamsongi.albammate.room.service.query.RoomListQueryService;
 
 @WebMvcTest(controllers = RoomController.class)
 @Import({
@@ -87,55 +85,12 @@ class RoomControllerTest {
 	private RoomCreateService roomCreateService;
 	@Autowired
 	private RoomListQueryService roomListQueryService;
-	@Autowired
-	private RoomParticipationService roomParticipationService;
-
-	@Test
-	void 인증없는_방_참가는_UNAUTHENTICATED다() throws Exception {
-		clearInvocations(roomParticipationService);
-
-		mockMvc.perform(post("/api/rooms/1/participants"))
-			.andExpect(status().isUnauthorized())
-			.andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
-
-		verifyNoInteractions(roomParticipationService);
-	}
-
-	@Test
-	void 인증만_있는_방_참가는_CSRF_TOKEN_INVALID이다() throws Exception {
-		clearInvocations(roomParticipationService);
-
-		mockMvc.perform(post("/api/rooms/1/participants").with(authenticationFor(42L)))
-			.andExpect(status().isForbidden())
-			.andExpect(jsonPath("$.code").value(ErrorCode.CSRF_TOKEN_INVALID.getCode()));
-
-		verifyNoInteractions(roomParticipationService);
-	}
-
-	@Test
-	void 인증과_CSRF가_있는_본문없는_방_참가는_201_응답_봉투를_반환한다() throws Exception {
-		when(roomParticipationService.participate(42L, 1L))
-			.thenReturn(
-				new RoomParticipationResponse(
-					1L, ParticipationStatus.ACTIVE, RoomStatus.CLOSED, 4, 0));
-
-		mockMvc.perform(post("/api/rooms/1/participants").with(csrf()).with(authenticationFor(42L)))
-			.andExpect(status().isCreated())
-			.andExpect(jsonPath("$.status").value(201))
-			.andExpect(jsonPath("$.data.roomId").value(1))
-			.andExpect(jsonPath("$.data.participationStatus").value("ACTIVE"))
-			.andExpect(jsonPath("$.data.roomStatus").value("CLOSED"))
-			.andExpect(jsonPath("$.data.participantCount").value(4))
-			.andExpect(jsonPath("$.data.remainingRecruitmentSeats").value(0));
-	}
 
 	@Test
 	void 성공_변경은_허용된_식별자만_포함한_INFO_운영_로그를_한번씩_남긴다() throws Exception {
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 		try {
 			when(roomCreateService.createRoom(anyLong(), any(CreateRoomRequest.class))).thenReturn(response());
-			when(roomParticipationService.participate(42L, 1L)).thenReturn(
-				new RoomParticipationResponse(1L, ParticipationStatus.ACTIVE, RoomStatus.CLOSED, 4, 0));
 			when(roomUpdateService.updateRoom(anyLong(), anyLong(), any(RoomUpdateRequest.class)))
 				.thenReturn(response());
 			when(roomStatusChangeService.cancelRoom(42L, 1L))
@@ -145,8 +100,6 @@ class RoomControllerTest {
 
 			mockMvc.perform(post("/api/rooms").with(csrf()).with(authenticationFor(42L))
 				.contentType(MediaType.APPLICATION_JSON).content(validJson())).andExpect(status().isCreated());
-			mockMvc.perform(post("/api/rooms/1/participants").with(csrf()).with(authenticationFor(42L)))
-				.andExpect(status().isCreated());
 			mockMvc.perform(patch("/api/rooms/1").with(csrf()).with(authenticationFor(42L))
 				.contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"수정 제목\"}"))
 				.andExpect(status().isOk());
@@ -157,7 +110,7 @@ class RoomControllerTest {
 				.andExpect(status().isOk());
 
 			List<ILoggingEvent> events = appender.list;
-			assertEquals(5, events.size());
+			assertEquals(4, events.size());
 			assertTrue(events.stream().allMatch(event -> event.getLevel() == Level.INFO));
 			assertTrue(events.stream().allMatch(event -> event.getFormattedMessage().contains("roomId=1")));
 			assertTrue(events.stream().allMatch(event -> event.getFormattedMessage().contains("actorUserId=42")));
@@ -168,8 +121,6 @@ class RoomControllerTest {
 				event -> event.getFormattedMessage().contains("event=room_canceled")));
 			assertTrue(events.stream().anyMatch(
 				event -> event.getFormattedMessage().contains("event=room_finished")));
-			assertTrue(events.stream().anyMatch(
-				event -> event.getFormattedMessage().contains("event=room_participation_created")));
 			assertTrue(events.stream().noneMatch(event -> event.getFormattedMessage().contains("사람 중심")));
 			assertTrue(events.stream().noneMatch(event -> event.getFormattedMessage().contains("홍대 장소")));
 			assertTrue(events.stream().noneMatch(event -> event.getFormattedMessage().contains("방장")));
@@ -670,8 +621,8 @@ class RoomControllerTest {
 		}
 
 		@Bean
-		RoomParticipationService roomParticipationService() {
-			return Mockito.mock(RoomParticipationService.class);
+		RoomDetailService roomDetailService() {
+			return Mockito.mock(RoomDetailService.class);
 		}
 
 		@Bean

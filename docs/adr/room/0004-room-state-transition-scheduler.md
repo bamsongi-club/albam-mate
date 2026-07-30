@@ -64,11 +64,11 @@ Albam Mate의 P0에서 방의 시간 기반 상태 전이는 Java·Spring 내장
 - 상태: 검증됨
 - 근거:
     - 구현:
-        - `RoomSchedulingConfiguration`이 `@EnableScheduling`과 `ScheduledTaskRegistrar`로 `RoomStateReconciliationScheduler.reconcileDueRooms()`를 등록한다.
+        - `room.statuscorrection.RoomStatusCorrectionSchedulingConfiguration`이 `@EnableScheduling`과 `ScheduledTaskRegistrar`로 `RoomStatusCorrectionScheduler.correctDueRooms()`를 등록한다.
     - 계약:
         - 후속 ADR-0012는 요청 경계 보정을 추가하면서 같은 내장 스케줄러를 유지한다.
     - 테스트:
-        - `RoomStateReconciliationSchedulerTest`는 UTC `Clock` 전달, 실행 주기·jitter와 충돌 재시도 지연을 확인한다.
-        - `RoomStateReconciliationPostgresTest`는 PostgreSQL에서 두 시간 경계의 상태 전이와 낙관 락 재시도를 확인한다.
+        - `room.statuscorrection.RoomStatusCorrectionSchedulerTest`는 UTC `Clock` 전달, 실행 주기·jitter와 충돌 재시도 지연을 확인한다.
+        - `room.statuscorrection.RoomStatusCorrectionPostgresTest`는 PostgreSQL에서 두 시간 경계의 상태 전이와 낙관 락 재시도를 확인한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

@@ -9,6 +9,7 @@ import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.sli
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +25,20 @@ import com.tngtech.archunit.lang.SimpleConditionEvent;
 class ModuleArchitectureTest {
 
 	private static final String ROOT_PACKAGE = "cloud.bamsongi.albammate";
+	private static final Set<String> ALLOWED_ROOM_PACKAGES = Set.of(
+		ROOT_PACKAGE + ".room.controller",
+		ROOT_PACKAGE + ".room.dto",
+		ROOT_PACKAGE + ".room.entity",
+		ROOT_PACKAGE + ".room.enums",
+		ROOT_PACKAGE + ".room.repository",
+		ROOT_PACKAGE + ".room.service",
+		ROOT_PACKAGE + ".room.service.query",
+		ROOT_PACKAGE + ".room.service.command",
+		ROOT_PACKAGE + ".room.statuscorrection");
+	private static final String ROOM_RETRIER = ROOT_PACKAGE + ".room.service.RoomOptimisticLockRetrier";
+	private static final Set<String> ALLOWED_ROOM_RETRIER_USERS = Set.of(
+		ROOT_PACKAGE + ".room.service.command.RoomCommandExecutionCoordinator",
+		ROOT_PACKAGE + ".room.statuscorrection.RoomStatusCorrectionCoordinator");
 	private static final List<String> BUSINESS_MODULES = List.of("auth", "user", "game", "room");
 	private static final String[] BUSINESS_MODULE_PACKAGES = BUSINESS_MODULES.stream()
 		.map(ModuleArchitectureTest::modulePackage)
@@ -100,6 +115,26 @@ class ModuleArchitectureTest {
 			.check(PRODUCTION_CLASSES);
 	}
 
+	@Test
+	void ROOM_코드는_정본에_선언한_패키지에만_배치한다() {
+		classes()
+			.that()
+			.resideInAPackage(ROOT_PACKAGE + ".room..")
+			.should(resideInAllowedRoomPackage())
+			.because("ROOM은 controller, service/query, service/command와 statuscorrection 경계를 사용한다")
+			.check(PRODUCTION_CLASSES);
+	}
+
+	@Test
+	void ROOM_Retrier는_두_Coordinator만_직접_사용한다() {
+		classes()
+			.that()
+			.resideInAPackage(ROOT_PACKAGE + ".room..")
+			.should(useRoomRetrierOnlyFromCoordinators())
+			.because("재시도 정책의 직접 사용자는 Command와 상태 보정 Coordinator뿐이다")
+			.check(PRODUCTION_CLASSES);
+	}
+
 	private static ArchCondition<JavaClass> notUseAutowired() {
 		return new ArchCondition<>("not use @Autowired on fields, constructors, or methods") {
 			@Override
@@ -119,6 +154,34 @@ class ModuleArchitectureTest {
 							javaClass,
 							javaClass.getFullName()
 								+ " uses @Autowired on a field, constructor, or method"));
+				}
+			}
+		};
+	}
+
+	private static ArchCondition<JavaClass> resideInAllowedRoomPackage() {
+		return new ArchCondition<>("reside in an allowed ROOM package") {
+			@Override
+			public void check(JavaClass javaClass, ConditionEvents events) {
+				if (!ALLOWED_ROOM_PACKAGES.contains(javaClass.getPackageName())) {
+					events.add(SimpleConditionEvent.violated(
+						javaClass,
+						javaClass.getFullName() + " resides in an undeclared ROOM package"));
+				}
+			}
+		};
+	}
+
+	private static ArchCondition<JavaClass> useRoomRetrierOnlyFromCoordinators() {
+		return new ArchCondition<>("use RoomOptimisticLockRetrier only from the two coordinators") {
+			@Override
+			public void check(JavaClass javaClass, ConditionEvents events) {
+				boolean directlyUsesRetrier = javaClass.getDirectDependenciesFromSelf().stream()
+					.anyMatch(dependency -> dependency.getTargetClass().getFullName().equals(ROOM_RETRIER));
+				if (directlyUsesRetrier && !ALLOWED_ROOM_RETRIER_USERS.contains(javaClass.getFullName())) {
+					events.add(SimpleConditionEvent.violated(
+						javaClass,
+						javaClass.getFullName() + " directly uses RoomOptimisticLockRetrier"));
 				}
 			}
 		};

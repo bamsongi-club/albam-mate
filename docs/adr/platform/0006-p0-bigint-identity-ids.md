@@ -74,6 +74,6 @@ Albam Mate P0의 사용자, 게임, 방, 참가 관계 내부 기본 키는 Post
         - 관련 엔티티는 `Long`·`GenerationType.IDENTITY`를 사용하고, 외부 BGG ID는 유일한 `games.bgg_id`로 분리하며 API 경로 ID는 `@Positive`로 검증한다.
     - 테스트:
         - `SchemaValidationPostgresTest`는 PostgreSQL 18에서 `ddl-auto=validate`와 참가자·방 외래 키 위반 거절을 확인한다.
-        - 순차 ID를 알고 있어도 권한이 없으면 접근할 수 없음은 `RoomUpdateServiceTest`, `RoomUpdateExecutorTest`, `RoomParticipationCancelExecutorTest`의 주최자·참가자 권한 실패 경로에서 확인한다.
+        - 순차 ID를 알고 있어도 권한이 없으면 접근할 수 없음은 `room.service.command`의 `RoomUpdateServiceTest`, `RoomUpdateExecutorTest`, `RoomParticipationCancelExecutorTest`에 있는 주최자·참가자 권한 실패 경로에서 확인한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.
