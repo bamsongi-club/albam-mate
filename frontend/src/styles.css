@@ -96,6 +96,7 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .h2-ico { flex: 0 0 auto; line-height: 1; }
 .tabs-row { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
 .tabs-row .tabs { margin-bottom: 0; }
+.tab-short { display: none; }
 .pagination { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 26px; }
 .pagination .page-btn { align-items: center; background: #fff; border: 1.5px solid var(--line); border-radius: 10px; color: var(--brown2); display: inline-flex; font-size: 13px; font-weight: 800; justify-content: center; min-width: 38px; padding: 8px 11px; }
 .pagination .page-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-dark); }
@@ -267,6 +268,7 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .create-note li { padding-left: 12px; position: relative; }
 .create-note li::before { background: var(--accent); border-radius: 50%; content: ''; height: 4px; left: 0; position: absolute; top: 0.62em; width: 4px; }
 .inline-search { display: flex; gap: 8px; margin-bottom: 18px; }
+.inline-search.narrow { display: none; }
 .inline-search input { flex: 1; }
 .inline-search .btn { flex: 0 0 auto; }
 .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
@@ -295,14 +297,20 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
   .cols2, .cols3, .formrow { grid-template-columns: 1fr; }
   main { padding: 28px 16px 56px; }
   .hwrap { gap: 12px; padding: 10px 16px; }
-  .searchbox { max-width: none; order: 3; width: 100%; }
-  #gnb { margin-left: 0; order: 2; }
+  /* 헤더 검색창을 감추고 게임 목록 화면 안의 검색으로 대신한다. */
+  .searchbox { display: none; }
+  .inline-search.narrow { display: flex; }
+  /* 검색창이 빠져 가운데를 채울 것이 없으므로 메뉴를 오른쪽 끝으로 되돌린다. */
+  #gnb { margin-left: auto; }
   #gnb a { padding-left: 7px; padding-right: 7px; }
-  #gnb .profile-icon { margin-left: 4px; min-width: 44px; }
+  #gnb .profile-icon { min-width: 44px; }
   .brand-wordmark { display: none; }
   .inline-search { flex-direction: column; }
   .inline-search .btn { width: 100%; }
-  /* 이 폭에서는 탭과 버튼이 한 줄에 못 들어가므로, 내려간 버튼을 탭 줄 오른쪽 끝에 붙인다. */
+  /* 탭 라벨을 줄여 탭과 모임 만들기 버튼을 한 줄에 넣는다. 화면 제목이 맥락을 준다. */
+  .tab-full { display: none; }
+  .tab-short { display: inline; }
+  /* 그래도 줄바꿈이 일어나면 내려간 버튼을 탭 줄 오른쪽 끝에 붙인다. */
   .tabs-row .btn { margin-left: auto; }
   /* iOS Safari는 16px 미만 입력에 포커스하면 페이지를 강제로 확대한다. */
   input, select, textarea { font-size: 16px; }

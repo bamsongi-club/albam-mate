@@ -455,16 +455,24 @@ function FindRoomsView({ dataVersion }) {
   );
 }
 
-function GamesView({ title, gameQuery, upcomingOnly = false, dataVersion }) {
+function GamesView({ title, gameQuery, onGameQueryChange, upcomingOnly = false, dataVersion }) {
+  const [input, setInput] = useState(gameQuery);
   const keyword = gameQuery.trim();
   const { data, loading, error, setPage } = usePaginatedRequest(
     (page, signal) => api.getGames({ keyword, upcomingOnly, page, size: GAME_LIST_PAGE_SIZE }, signal),
     [keyword, upcomingOnly, dataVersion]
   );
   const games = (data?.content || []).map(normalizeGameSummary);
+  useEffect(() => setInput(gameQuery), [gameQuery]);
   return (
     <>
       <h2><span className="h2-ico">🎲</span>{title} <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
+      {/* 좁은 화면에서는 헤더 검색창을 감추므로 목록 안에서 검색한다. */}
+      <form className="inline-search narrow" onSubmit={(event) => { event.preventDefault(); onGameQueryChange(input.trim()); }}>
+        <label className="hint" htmlFor="game-q" style={{ position: 'absolute', left: -9999 }}>게임 이름 검색</label>
+        <input id="game-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임 이름으로 검색" />
+        <button className="btn" type="submit">검색</button>
+      </form>
       <p className="hint" style={{ margin: '-8px 0 15px' }}>게임 이름의 부분 일치 검색만 제공해요.</p>
       {error && <ErrorBox message={error} />}
       {!error && loading && !data && <LoadingBox />}
@@ -989,11 +997,16 @@ function MyRoomsSection({ myTab, onMyTabChange, dataVersion }) {
   const tab = myTab === 'hosted' ? 'hosted' : 'joined';
   const page = tab === 'hosted' ? hosted : joined;
   const list = (page.data?.content || []).map(normalizeRoom);
+  const joinedCount = joined.data?.totalElements ?? '—';
+  const hostedCount = hosted.data?.totalElements ?? '—';
   return (
     <>
       <h2><span className="h2-ico">🗂️</span>내 모임</h2>
       <div className="tabs-row">
-        <div className="tabs"><button type="button" className={tab === 'joined' ? 'on' : ''} onClick={() => onMyTabChange('joined')}>참가한 모임 ({joined.data?.totalElements ?? '—'})</button><button type="button" className={tab === 'hosted' ? 'on' : ''} onClick={() => onMyTabChange('hosted')}>개설한 모임 ({hosted.data?.totalElements ?? '—'})</button></div>
+        <div className="tabs">
+          <button type="button" className={tab === 'joined' ? 'on' : ''} onClick={() => onMyTabChange('joined')}><span className="tab-full">참가한 모임 ({joinedCount})</span><span className="tab-short">참가 {joinedCount}</span></button>
+          <button type="button" className={tab === 'hosted' ? 'on' : ''} onClick={() => onMyTabChange('hosted')}><span className="tab-full">개설한 모임 ({hostedCount})</span><span className="tab-short">개설 {hostedCount}</span></button>
+        </div>
         <a className="btn ghost" href="#/create">✏️ 모임 만들기</a>
       </div>
       {page.error && <ErrorBox message={page.error} />}
@@ -1347,8 +1360,8 @@ function App() {
 
   let content;
   if (route === 'find') content = <FindRoomsView dataVersion={dataVersion} />;
-  else if (route === 'games') content = <GamesView title="게임 중심 모임" gameQuery={gameQuery} upcomingOnly dataVersion={dataVersion} />;
-  else if (route === 'game-list') content = <GamesView title="게임 찾기" gameQuery={gameQuery} dataVersion={dataVersion} />;
+  else if (route === 'games') content = <GamesView title="게임 중심 모임" gameQuery={gameQuery} onGameQueryChange={setGameQuery} upcomingOnly dataVersion={dataVersion} />;
+  else if (route === 'game-list') content = <GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} />;
   else if (route === 'people') content = <PeopleView peopleQuery={peopleQuery} onPeopleQueryChange={setPeopleQuery} dataVersion={dataVersion} />;
   else if (route === 'game') content = <GameDetailView gameId={arg} onCreateGame={handleCreateGame} dataVersion={dataVersion} />;
   else if (route === 'session') content = <SessionDetailView sessionId={arg} me={me} onApply={handleApply} onCancelApply={handleCancelApply} onHostCancel={handleHostCancel} onFinish={handleFinish} dataVersion={dataVersion} />;
