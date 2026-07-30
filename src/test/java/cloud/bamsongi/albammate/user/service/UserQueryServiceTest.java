@@ -2,9 +2,13 @@ package cloud.bamsongi.albammate.user.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -36,5 +40,34 @@ class UserQueryServiceTest {
 		when(userRepository.findNicknameById(404L)).thenReturn(Optional.empty());
 
 		assertTrue(userQueryService.findNicknameById(404L).isEmpty());
+	}
+
+	@Test
+	void 빈_ID_컬렉션은_저장소를_조회하지_않는다() {
+		assertEquals(Map.of(), userQueryService.findNicknamesByIds(List.of()));
+
+		verifyNoInteractions(userRepository);
+	}
+
+	@Test
+	void 중복_ID는_하나의_키로_합치고_없는_ID는_제외한다() {
+		List<Long> userIds = List.of(42L, 77L, 42L, 404L);
+		UserRepository.UserNicknameProjection host = nicknameProjection(42L, "방장");
+		UserRepository.UserNicknameProjection participant = nicknameProjection(77L, "참가자");
+		when(userRepository.findNicknameProjectionsByIds(userIds)).thenReturn(List.of(host, participant));
+
+		assertEquals(
+			Map.of(42L, "방장", 77L, "참가자"),
+			userQueryService.findNicknamesByIds(userIds));
+		verify(userRepository).findNicknameProjectionsByIds(userIds);
+		verify(userRepository, never()).findAllById(userIds);
+	}
+
+	private UserRepository.UserNicknameProjection nicknameProjection(long userId, String nickname) {
+		UserRepository.UserNicknameProjection projection = org.mockito.Mockito.mock(
+			UserRepository.UserNicknameProjection.class);
+		when(projection.getId()).thenReturn(userId);
+		when(projection.getNickname()).thenReturn(nickname);
+		return projection;
 	}
 }

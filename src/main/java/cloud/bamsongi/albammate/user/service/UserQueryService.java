@@ -1,6 +1,9 @@
 package cloud.bamsongi.albammate.user.service;
 
+import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,5 +23,17 @@ public class UserQueryService implements UserQuery {
 	@Override
 	public Optional<String> findNicknameById(Long userId) {
 		return userRepository.findNicknameById(userId);
+	}
+
+	@Override
+	public Map<Long, String> findNicknamesByIds(Collection<Long> userIds) {
+		if (userIds.isEmpty()) {
+			return Map.of();
+		}
+		return userRepository.findNicknameProjectionsByIds(userIds).stream()
+			.collect(
+				Collectors.toMap(
+					UserRepository.UserNicknameProjection::getId,
+					UserRepository.UserNicknameProjection::getNickname));
 	}
 }
