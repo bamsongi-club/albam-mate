@@ -43,7 +43,7 @@ import cloud.bamsongi.albammate.room.enums.MyRoomRole;
 import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
-import cloud.bamsongi.albammate.room.service.MyRoomQueryService;
+import cloud.bamsongi.albammate.room.service.query.MyRoomQueryService;
 
 @WebMvcTest(controllers = MyRoomController.class)
 @Import({

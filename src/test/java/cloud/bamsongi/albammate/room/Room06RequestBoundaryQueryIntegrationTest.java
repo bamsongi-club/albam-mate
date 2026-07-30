@@ -35,9 +35,9 @@ import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
-import cloud.bamsongi.albammate.room.service.MyRoomQueryService;
-import cloud.bamsongi.albammate.room.service.RoomDetailService;
-import cloud.bamsongi.albammate.room.service.RoomListQueryService;
+import cloud.bamsongi.albammate.room.service.query.MyRoomQueryService;
+import cloud.bamsongi.albammate.room.service.query.RoomDetailService;
+import cloud.bamsongi.albammate.room.service.query.RoomListQueryService;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 

@@ -68,7 +68,7 @@ API는 시간 값에 오프셋이 포함된 ISO 8601 형식을 사용한다. 요
         - 엔티티와 마이그레이션은 `Instant`·`TIMESTAMP WITH TIME ZONE`을 사용하고 `TimeConfig`는 `Clock.systemUTC()`를 제공한다.
     - 테스트:
         - `TimeConfigTest`와 `UtcTimeZoneTest`는 실행·연결 시간대, 동일 순간 정규화, 잘못된 오프셋 거절, `Asia/Seoul` 응답 직렬화와 JVM 기본 시간대 변경을 확인한다.
-        - PostgreSQL 18의 `ddl-auto=validate`가 통과했고, `RoomStateReconciliationTest`는 고정 `Clock`으로 두 상태 전이 경계를 확인한다.
+        - PostgreSQL 18의 `ddl-auto=validate`가 통과했고, `room.entity.RoomStatusCorrectionTest`는 고정 `Clock`으로 두 상태 전이 경계를 확인한다.
     - CI:
         - `TZ=UTC`를 사용한다.
 - 미검증:

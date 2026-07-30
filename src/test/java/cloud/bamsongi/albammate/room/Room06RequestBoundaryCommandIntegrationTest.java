@@ -32,10 +32,10 @@ import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
-import cloud.bamsongi.albammate.room.service.RoomParticipationCancelService;
-import cloud.bamsongi.albammate.room.service.RoomParticipationService;
-import cloud.bamsongi.albammate.room.service.RoomStatusChangeService;
-import cloud.bamsongi.albammate.room.service.RoomUpdateService;
+import cloud.bamsongi.albammate.room.service.command.RoomParticipationCancelService;
+import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
+import cloud.bamsongi.albammate.room.service.command.RoomStatusChangeService;
+import cloud.bamsongi.albammate.room.service.command.RoomUpdateService;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 
