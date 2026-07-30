@@ -313,7 +313,7 @@ function gameMeta(game) {
   return [game.players, game.time, game.complexity ? '난이도 ' + game.complexity : ''].filter(Boolean).join(' · ');
 }
 
-function Header({ route, me, gameQuery, onGameQueryChange, onSearch }) {
+function Header({ route, me }) {
   const rootRoute = { find: 'find', game: 'game-list', 'game-list': 'game-list', create: 'profile', edit: 'profile', my: 'profile', profile: 'profile', auth: 'auth' };
   return (
     <header>
@@ -322,10 +322,6 @@ function Header({ route, me, gameQuery, onGameQueryChange, onSearch }) {
           <span className="brand-mark" aria-hidden="true"><img src={brandSymbol} alt="" /></span>
           <span className="brand-wordmark"><span className="brand-name">알밤</span><span className="brand-mate">메이트</span></span>
         </a>
-        <form className="searchbox" role="search" onSubmit={(event) => { event.preventDefault(); onSearch(); }}>
-          <input aria-label="게임 이름 검색" placeholder="게임 이름으로 검색" value={gameQuery} onChange={(event) => onGameQueryChange(event.target.value)} />
-          <button type="submit" aria-label="게임 검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.65" y2="16.65" /></svg></button>
-        </form>
         <nav id="gnb" aria-label="주요 메뉴">
           <a href="#/game-list" className={rootRoute[route] === 'game-list' ? 'on' : ''}>게임 찾기</a>
           <a href="#/find" className={rootRoute[route] === 'find' ? 'on' : ''}>모임 찾기</a>
@@ -505,8 +501,7 @@ function GamesView({ title, gameQuery, onGameQueryChange, dataVersion }) {
   return (
     <>
       <h2><span className="h2-ico">🎲</span>{title} <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
-      {/* 좁은 화면에서는 헤더 검색창을 감추므로 목록 안에서 검색한다. */}
-      <form className="inline-search narrow" onSubmit={(event) => { event.preventDefault(); onGameQueryChange(input.trim()); }}>
+      <form className="inline-search" onSubmit={(event) => { event.preventDefault(); onGameQueryChange(input.trim()); }}>
         <label className="hint" htmlFor="game-q" style={{ position: 'absolute', left: -9999 }}>게임 이름 검색</label>
         <input id="game-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임 이름으로 검색" />
         <button className="btn" type="submit">검색</button>
@@ -1211,11 +1206,6 @@ function App() {
 
   const handleBrowsePeople = () => setRoomType('PERSON_FOCUSED');
 
-  const handleGameSearch = () => {
-    setGameQuery((query) => query.trim());
-    if (route !== 'game-list') navigate('/game-list');
-  };
-
   const handleCreateGame = (game) => {
     setCreateGame(game);
     setCreateMode('GAME_FOCUSED');
@@ -1386,7 +1376,7 @@ function App() {
 
   return (
     <>
-      <Header route={route} me={me} gameQuery={gameQuery} onGameQueryChange={setGameQuery} onSearch={handleGameSearch} />
+      <Header route={route} me={me} />
       <main>{content}</main>
       <div id="toast" role="status" aria-live="polite" className={(toast.message ? 'show ' : '') + (toast.type === 'err' ? 'err' : '')}>{toast.message}</div>
     </>

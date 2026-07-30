@@ -73,10 +73,6 @@ header {
 .brand-wordmark { align-items: center; display: flex; font-family: 'Cafe24Ssurround', 'Apple SD Gothic Neo', sans-serif; font-size: 23px; gap: 1px; letter-spacing: -0.08em; line-height: 1; }
 .brand-name { color: var(--brown); }
 .brand-mate { color: var(--accent-dark); }
-.searchbox { background: #fff; border: 1px solid var(--line); border-radius: 999px; display: flex; flex: 1; max-width: 420px; min-width: 220px; overflow: hidden; }
-.searchbox input { background: transparent; border: 0; padding: 9px 16px; }
-.searchbox button { align-items: center; color: var(--sub); display: flex; flex: 0 0 auto; justify-content: center; padding: 0 14px; }
-.searchbox button:hover { color: var(--accent); }
 #gnb { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 #gnb a { border-radius: 10px; color: var(--brown2); font-size: 14px; font-weight: 800; padding: 8px 12px; }
 #gnb a:hover, #gnb a.on { background: var(--soft); color: var(--brown); }
@@ -268,7 +264,6 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .create-note li { padding-left: 12px; position: relative; }
 .create-note li::before { background: var(--accent); border-radius: 50%; content: ''; height: 4px; left: 0; position: absolute; top: 0.62em; width: 4px; }
 .inline-search { display: flex; gap: 8px; margin-bottom: 18px; }
-.inline-search.narrow { display: none; }
 .inline-search input { flex: 1; }
 .inline-search .btn { flex: 0 0 auto; }
 .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
@@ -297,10 +292,7 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
   .cols2, .cols3, .formrow { grid-template-columns: 1fr; }
   main { padding: 28px 16px 56px; }
   .hwrap { gap: 12px; padding: 10px 16px; }
-  /* 헤더 검색창을 감추고 게임 목록 화면 안의 검색으로 대신한다. */
-  .searchbox { display: none; }
-  .inline-search.narrow { display: flex; }
-  /* 검색창이 빠져 가운데를 채울 것이 없으므로 메뉴를 오른쪽 끝으로 되돌린다. */
+  /* 로고만 남은 헤더에서도 메뉴는 오른쪽 끝에 둔다. */
   #gnb { margin-left: auto; }
   #gnb a { padding-left: 7px; padding-right: 7px; }
   #gnb .profile-icon { min-width: 44px; }
@@ -316,7 +308,7 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
   input, select, textarea { font-size: 16px; }
   /* 손가락 탭 기준 44px에 맞춘다. 데스크톱 밀도를 바꾸지 않도록 좁은 화면에만 적용한다. */
   #gnb a, .game-search-open, .tabs button { align-items: center; display: inline-flex; justify-content: center; min-height: 44px; }
-  .page-btn, .btn, select, .searchbox input, .searchbox button, .date-picker-trigger { min-height: 44px; }
+  .page-btn, .btn, select, .date-picker-trigger { min-height: 44px; }
   .pagination { gap: 8px; }
   .checkline { min-height: 44px; }
   .checkline input { height: 20px; width: 20px; }
