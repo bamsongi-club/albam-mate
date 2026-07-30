@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], {
     encoding: 'utf8',
@@ -17,20 +18,34 @@ const TARGET_INPUTS = [
     '.agents/skills/issue-writer/SKILL.md',
     '.agents/skills/backend-delivery/SKILL.md',
     '.agents/skills/review-code/SKILL.md',
+    '.agents/skills/review-code/references/scope-and-routing.md',
+    '.agents/skills/review-code/references/output-contract.md',
     '.codex/agents/review-code-reviewer.toml',
     '.codex/contracts/backend-implementation-packet.schema.json',
     'scripts/validate-packet.mjs',
     'scripts/validate-packet.test.mjs',
 ];
-const CANDIDATE_BLOB_PATHS = {
+const OPTIONAL_TARGET_INPUTS = new Set([
+    '.agents/skills/review-code/references/scope-and-routing.md',
+    '.agents/skills/review-code/references/output-contract.md',
+]);
+export const CANDIDATE_BLOB_PATHS = {
     issueWriterBlob: '.agents/skills/issue-writer/SKILL.md',
     backendDeliveryBlob: '.agents/skills/backend-delivery/SKILL.md',
     reviewCodeBlob: '.agents/skills/review-code/SKILL.md',
     reviewCodeReviewerBlob: '.codex/agents/review-code-reviewer.toml',
+    reviewCodeScopeAndRoutingBlob: '.agents/skills/review-code/references/scope-and-routing.md',
+    reviewCodeOutputContractBlob: '.agents/skills/review-code/references/output-contract.md',
     validatorBlob: 'scripts/validate-packet.mjs',
     testFileBlob: 'scripts/validate-packet.test.mjs',
     schemaBlob: '.codex/contracts/backend-implementation-packet.schema.json',
 };
+export const RV01_REQUIRED_CANDIDATE_BLOB_FIELDS = [
+    'reviewCodeBlob',
+    'reviewCodeReviewerBlob',
+    'reviewCodeScopeAndRoutingBlob',
+    'reviewCodeOutputContractBlob',
+];
 const FORBIDDEN_KEYS = new Set([
     'privateBrainPath',
     'rawOutput',
@@ -125,10 +140,15 @@ function resolveCommit(value) {
 }
 
 function gitBlob(commit, relativePath) {
-    return execFileSync('git', ['rev-parse', `${commit}:${relativePath}`], {
+    const result = spawnSync('git', ['rev-parse', '--verify', `${commit}:${relativePath}`], {
         cwd: ROOT,
         encoding: 'utf8',
-    }).trim();
+    });
+    if (result.error) fail(`target blob을 확인할 수 없습니다: ${relativePath}: ${result.error.message}`);
+    if (result.status !== 0) return null;
+    const blob = result.stdout.trim();
+    if (!/^[0-9a-f]{40}$/.test(blob)) fail(`target blob 형식이 올바르지 않습니다: ${relativePath}`);
+    return blob;
 }
 
 function targetFile(commit, relativePath) {
@@ -240,6 +260,17 @@ function runMechanicalChecks(cases, fixture) {
 }
 
 function buildInputs(targetCommit, cases, fixture) {
+    const targetFiles = TARGET_INPUTS.flatMap((relativePath) => {
+        if (gitBlob(targetCommit, relativePath) === null) {
+            if (OPTIONAL_TARGET_INPUTS.has(relativePath)) return [];
+            fail(`target commit에 필수 입력이 없습니다: ${relativePath}`);
+        }
+        return [{
+            path: relativePath,
+            source: `commit:${targetCommit}`,
+            sha256: sha256(targetFile(targetCommit, relativePath)),
+        }];
+    });
     const files = [
         {
             path: CASES_PATH,
@@ -251,11 +282,7 @@ function buildInputs(targetCommit, cases, fixture) {
             source: 'worktree',
             sha256: sha256(canonical(fixture)),
         },
-        ...TARGET_INPUTS.map((relativePath) => ({
-            path: relativePath,
-            source: `commit:${targetCommit}`,
-            sha256: sha256(targetFile(targetCommit, relativePath)),
-        })),
+        ...targetFiles,
     ].sort((left, right) => left.path.localeCompare(right.path));
     const inputHash = sha256(files.map((file) => `${file.path}\0${file.sha256}`).join('\n'));
     return { algorithm: 'sha256', files, inputHash };
@@ -263,6 +290,30 @@ function buildInputs(targetCommit, cases, fixture) {
 
 function asArray(value) {
     return Array.isArray(value) ? value : [value];
+}
+
+export function candidateBlobsMatch(candidate, caseIds, targetBlobForPath) {
+    const comparedBlobs = [];
+    for (const [field, relativePath] of Object.entries(CANDIDATE_BLOB_PATHS)) {
+        if (typeof candidate[field] !== 'string') continue;
+        const targetBlob = targetBlobForPath(relativePath);
+        comparedBlobs.push({
+            field,
+            matches: targetBlob !== null && candidate[field] === targetBlob,
+        });
+    }
+    const comparedByField = new Map(comparedBlobs.map((blob) => [blob.field, blob]));
+    const includesRv01 = new Set(caseIds).has('RV-01');
+    const requiredReviewCodeInputsMatch = !includesRv01 ||
+        RV01_REQUIRED_CANDIDATE_BLOB_FIELDS.every(
+            (field) => comparedByField.get(field)?.matches === true,
+        );
+    return {
+        candidateInputMatch: comparedBlobs.length > 0 &&
+            comparedBlobs.every(({ matches }) => matches) &&
+            requiredReviewCodeInputsMatch,
+        comparedBlobCount: comparedBlobs.length,
+    };
 }
 
 function summarizePrivateRun(runPath, targetCommit) {
@@ -304,13 +355,11 @@ function summarizePrivateRun(runPath, targetCommit) {
     }
 
     const candidate = run.instructionArms?.candidate ?? {};
-    const comparedBlobs = [];
-    for (const [field, relativePath] of Object.entries(CANDIDATE_BLOB_PATHS)) {
-        if (typeof candidate[field] !== 'string') continue;
-        const targetBlob = gitBlob(targetCommit, relativePath);
-        comparedBlobs.push({ field, matches: candidate[field] === targetBlob });
-    }
-    const candidateInputMatch = comparedBlobs.length > 0 && comparedBlobs.every(({ matches }) => matches);
+    const { candidateInputMatch, comparedBlobCount } = candidateBlobsMatch(
+        candidate,
+        caseIds,
+        (relativePath) => gitBlob(targetCommit, relativePath),
+    );
 
     return {
         runId: run.runId,
@@ -319,7 +368,7 @@ function summarizePrivateRun(runPath, targetCommit) {
         caseIds: [...caseIds].sort(),
         sha256: sha256(bytes),
         candidateInputMatch,
-        comparedBlobCount: comparedBlobs.length,
+        comparedBlobCount,
         scores: arms,
     };
 }
@@ -537,9 +586,12 @@ function main() {
     );
 }
 
-try {
-    main();
-} catch (error) {
-    process.stderr.write(`테스트 계약 eval 검증 실패: ${error.message}\n`);
-    process.exitCode = 1;
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+    try {
+        main();
+    } catch (error) {
+        process.stderr.write(`테스트 계약 eval 검증 실패: ${error.message}\n`);
+        process.exitCode = 1;
+    }
 }
