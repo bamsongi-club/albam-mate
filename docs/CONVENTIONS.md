@@ -6,44 +6,22 @@ AI 에이전트는 [루트 작업 안내](../AGENTS.md)의 라우팅에 따라 �
 
 ## 패키지와 모듈
 
-코드는 전역 계층이 아니라 업무 도메인별로 묶는다.
+백엔드의 모듈, 패키지, 공개 계약과 의존 흐름은 [아키텍처 문서](ARCHITECTURE.md)를 따른다. 코드는 전역 계층이 아니라 업무 도메인별로 묶고, 각 업무 패키지를 논리적 모듈로 취급한다.
 
-~~~text
-cloud.bamsongi.albammate
-├─ auth
-├─ user
-├─ game
-├─ room
-├─ global
-└─ infra
-~~~
-
-각 업무 패키지는 논리적 모듈이다. 필요한 구현만 만들며 빈 계층 패키지를 미리 생성하지 않는다.
-
-~~~text
-room
-├─ contract
-├─ controller
-├─ service
-├─ repository
-├─ dto
-└─ entity
-~~~
-
+- 필요한 구현만 만들며 빈 계층 패키지를 미리 생성하지 않는다.
 - 업무 모듈은 다른 모듈에 공개할 계약을 `<module>/contract`에 둔다. 모듈 간 호출 인터페이스와 그 입·출력으로 쓰는 값 타입·이벤트만 포함한다.
 - `contract` 외의 하위 패키지와 도메인 루트의 클래스는 모듈 내부 구현이다. 다른 모듈은 이를 직접 참조하지 않는다.
 - `<module>/dto`는 HTTP 요청·응답 전용이며 모듈 간 계약으로 사용하지 않는다.
 - 다른 모듈이 호출하는 유스케이스는 `contract`의 인터페이스로 공개하고 구체 서비스는 내부 패키지에 둔다.
 - 여러 도메인을 조합하는 유스케이스는 그 흐름을 소유한 도메인에 둔다. 모든 횡단 흐름을 공통 Facade 하나에 모으지 않는다.
-- 모듈 간 순환 의존을 허용하지 않는다. 업무 모듈의 참조 방향은 `room → game`과 `room·auth → user`로 고정한다.
+- 모듈 간 순환 의존을 허용하지 않으며, 허용된 참조 방향은 아키텍처 문서에 명시한다.
 - 참조가 허용되지 않는 방향의 협력이 필요하면 참조할 수 없는 모듈이 인터페이스를 정의하고 참조할 수 있는 모듈이 구현한다.
-- 참가 관계는 방의 정원·상태 불변식과 한 트랜잭션에서 함께 바뀌므로 `room`이 소유한다([ERD 서비스 규칙](ERD.md#서비스-규칙)). 별도 `participation` 모듈을 만들지 않는다.
 - 업무 모듈은 `global`이 공개한 기술 계약을 참조할 수 있으며 이 참조는 방향 규칙에서 제외한다. 인증 사용자 식별처럼 여러 모듈이 쓰는 기술 계약은 업무 모듈이 아니라 `global`에 둔다.
 - `global`에는 공통 설정, 예외 응답, 보안 기반 설정처럼 업무 의미가 없는 기술 요소만 둔다. 인증 업무 로직은 `auth`가 소유한다.
 - 외부 시스템 연동과 기술 어댑터는 `infra`에 둔다. 한 도메인에서만 사용하는 어댑터는 해당 도메인 안에 둔다.
 - `global`과 `infra`를 여러 도메인의 Entity, DTO 또는 업무 규칙을 공유하는 우회 경로로 사용하지 않는다.
 
-세부 기준은 [ADR-0007](adr/platform/0007-domain-centered-modular-monolith.md)을 따른다.
+구조 선택의 근거와 대안은 [ADR-0007](adr/platform/0007-domain-centered-modular-monolith.md)을 따른다.
 
 ## 네이밍
 
@@ -87,6 +65,8 @@ room
 
 Controller는 HTTP 요청과 응답의 경계만 담당한다.
 
+- Controller를 엔드포인트마다 만들지 않고 같은 HTTP 리소스와 변경 이유를 가진 요청을 묶는다.
+- Controller는 도메인의 애플리케이션 진입 Service만 호출하고 내부 ReadService·Executor를 직접 참조하지 않는다.
 - Request DTO 검증
 - 인증된 사용자 식별
 - Service 호출
@@ -115,6 +95,8 @@ Controller에는 다음 책임을 두지 않는다.
 
 - 의존성이 있는 Service는 Lombok의 `@RequiredArgsConstructor`와 `private final` 필드로 생성자 주입한다. 생성자에서 별도 검증이나 가공이 필요할 때만 생성자를 명시한다.
 - public 메서드는 하나의 유스케이스를 표현한다.
+- 같은 도메인의 관련 조회 또는 변경 유스케이스는 소수의 애플리케이션 진입 Service로 묶고 세부 실행 구현은 내부에 숨긴다.
+- Controller용 진입 Service와 독립 트랜잭션용 Executor는 같은 클래스에 합치지 않는다.
 - 트랜잭션 경계는 Service 계층에 둔다. 저장 상태를 변경하지 않는 조회는 `@Transactional(readOnly = true)`, 상태 변경은 `@Transactional`을 사용한다. 조회 전 상태 보정처럼 계약상 쓰기가 필요한 조회 유스케이스는 Transaction 절의 예외 규칙을 따른다.
 - Service는 자기 모듈의 Repository만 직접 참조한다.
 - 다른 모듈과 협력할 때는 그 모듈이 공개한 계약만 호출한다.
