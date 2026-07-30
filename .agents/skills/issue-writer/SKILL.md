@@ -29,10 +29,11 @@ description: "저장소의 등록된 GitHub Issue Form을 요청 성격에 따�
 1. `git remote -v`, 저장소 상태와 관련 코드·문서·기존 이슈를 읽어 현재 사실을 확인한다.
 2. `templates.json`에서 후보를 고르고 선택한 `template` 파일을 끝까지 읽는다.
 3. 정본 내용을 복사하지 말고 링크로 연결한다. 저장소에서 알 수 없는 범위, 소유 경로, 의존성과 완료 조건을 중심으로 작성한다.
-4. Issue Form의 non-markdown 항목을 선언 순서대로 채운다. `validations.required: true` 필드는 비워 두지 않는다.
-5. 제목은 선택한 Form의 `title` 접두사를 그대로 사용하고, 뒤에는 결과가 드러나는 짧은 한국어 제목을 붙인다.
-6. 확인하지 않은 테스트·의존성·완료 상태를 완료로 표시하지 않는다. 계획 체크박스는 미체크 상태로 둔다.
-7. 초안에 선택 템플릿 ID, 제목과 본문을 함께 제시한다.
+4. feature·bug 이슈는 정본과 범위에서 `T1`부터 시작하는 관찰 가능한 자연어 한 줄 후보를 만들고, HTTP 경계를 포함하면 [HTTP 기능 테스트 매트릭스](../../references/http-feature-test-matrix.md)로 누락을 확인한다. 후보는 본문과 분리해 제안할 뿐 확정·승인하지 않으며, 사람이 이슈 코멘트로 확정한 최신 전체 `T1`…`Tn` 목록만 필수 테스트 계약의 정본이다.
+5. Issue Form의 non-markdown 항목을 선언 순서대로 채운다. `validations.required: true` 필드는 비워 두지 않는다.
+6. 제목은 선택한 Form의 `title` 접두사를 그대로 사용하고, 뒤에는 결과가 드러나는 짧은 한국어 제목을 붙인다.
+7. 확인하지 않은 테스트·의존성·완료 상태를 완료로 표시하지 않는다. 계획 체크박스는 미체크 상태로 둔다.
+8. 초안에 선택 템플릿 ID, 제목과 본문을 제시하고, feature·bug 이슈이면 필수 테스트 후보를 함께 제시한다.
 
 ## 게시 절차
 
@@ -41,7 +42,7 @@ description: "저장소의 등록된 GitHub Issue Form을 요청 성격에 따�
 3. 최종 제목·본문을 다시 대조한다. 레지스트리의 `labels`가 비어 있지 않으면 저장소에 실제 존재하는 라벨만 사용한다.
 4. 셸 escaping으로 본문이 변형되지 않도록 고유한 임시 body 파일과 `gh issue create --repo <owner/repo> --title <title> --body-file <file>`을 사용한다. 저장소 안에 임시 파일을 남기지 않는다.
 5. 생성된 번호를 `gh issue view <number> --json number,title,body,state,url`로 다시 읽어 제목·본문을 검증한다.
-6. 최종 응답에는 선택한 템플릿, 이슈 번호와 URL을 반환한다.
+6. 최종 응답에는 선택한 템플릿, 이슈 번호와 URL을 반환하고, feature·bug 이슈이면 사람이 확정할 필수 테스트 후보도 함께 제시한다.
 
 ## 중단 조건
 

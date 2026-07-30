@@ -1,8 +1,8 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "workItem": {
     "kind": "issue",
-    "id": "<이슈-번호-또는-기능-ID>",
+    "id": "<이슈-번호>",
     "featureId": "<해당-시-기능-ID>",
     "summary": "<확정된-백엔드-작업-요약>"
   },
@@ -22,6 +22,17 @@
     "<관찰-가능한-완료-기준>",
     "<적용되는-실패-또는-경계-기준>"
   ],
+  "requiredTests": [
+    {
+      "id": "T1",
+      "intent": "<사람이-승인한-자연어-테스트-의도>",
+      "sourceRef": "https://github.com/<owner>/<repo>/issues/<issue-number>#issuecomment-<comment-id>"
+    }
+  ],
+  "testContractApproval": {
+    "issueNumber": "<이슈-번호>",
+    "commentUrl": "https://github.com/<owner>/<repo>/issues/<issue-number>#issuecomment-<comment-id>"
+  },
   "validation": {
     "targetedTests": [
       "<대상-테스트-명령>"

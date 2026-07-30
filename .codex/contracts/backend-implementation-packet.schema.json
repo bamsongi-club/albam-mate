@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "backend-implementation-packet.schema.json",
   "title": "Backend implementation packet",
-  "description": "범위와 결정이 확정된 백엔드 구현 작업을 backend-developer에 위임하기 위한 입력 계약",
+  "description": "범위, 필수 테스트와 사람의 승인이 확정된 백엔드 구현 작업을 backend-developer에 위임하기 위한 입력 계약",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,12 +12,14 @@
     "allowedPaths",
     "forbiddenPaths",
     "completionCriteria",
+    "requiredTests",
+    "testContractApproval",
     "validation",
     "confirmedDecisions"
   ],
   "properties": {
     "schemaVersion": {
-      "const": 1
+      "const": 2
     },
     "workItem": {
       "type": "object",
@@ -30,10 +32,7 @@
       "properties": {
         "kind": {
           "type": "string",
-          "enum": [
-            "feature",
-            "issue"
-          ]
+          "const": "issue"
         },
         "id": {
           "type": "string",
@@ -80,6 +79,52 @@
     "completionCriteria": {
       "$ref": "#/$defs/nonEmptyStringArray"
     },
+    "requiredTests": {
+      "description": "사람이 이슈 코멘트에서 승인한 최신 전체 자연어 테스트 계약. 각 sourceRef는 전체 T-ID를 담은 정본 코멘트이며 testContractApproval.commentUrl과 같아야 한다.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "intent",
+          "sourceRef"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^T[1-9][0-9]*$"
+          },
+          "intent": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "sourceRef": {
+            "$ref": "#/$defs/githubIssueCommentUrl"
+          }
+        }
+      }
+    },
+    "testContractApproval": {
+      "description": "최신 전체 테스트 계약을 사람이 확정한 작업 이슈 번호와 정본 GitHub issue comment URL. 제안, 모델 판단 또는 PR 리뷰 코멘트는 승인으로 인정하지 않는다.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "issueNumber",
+        "commentUrl"
+      ],
+      "properties": {
+        "issueNumber": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "commentUrl": {
+          "$ref": "#/$defs/githubIssueCommentUrl"
+        }
+      }
+    },
     "validation": {
       "type": "object",
       "additionalProperties": false,
@@ -101,6 +146,10 @@
     }
   },
   "$defs": {
+    "githubIssueCommentUrl": {
+      "type": "string",
+      "pattern": "^https://github\\.com/[^/?#]+/[^/?#]+/issues/[1-9][0-9]*#issuecomment-[1-9][0-9]*$"
+    },
     "nonEmptyStringArray": {
       "type": "array",
       "minItems": 1,

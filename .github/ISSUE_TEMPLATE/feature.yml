@@ -58,10 +58,11 @@ body:
       label: 완료
       description: |
         담당 범위를 묶어서 적는다. 완료 기준 문장을 다시 쓰지 않는다.
+        필수 테스트 계약은 이슈 게시 후 사람이 최신 전체 `T1`…`Tn`을 확정해 남긴 GitHub Issue 코멘트를 따른다.
         기반·통합 작업은 마지막 줄의 검증 방법을 그 작업에 맞게 바꾼다.
       placeholder: |
         - [ ]
-        - [ ] 위 범위의 성공·실패 경로 테스트, CI 통과
+        - [ ] 사람이 확정한 최신 GitHub Issue 코멘트의 전체 `T1`…`Tn` 성공·실패 경로 테스트, CI 통과
     validations:
       required: true
 
