@@ -640,19 +640,16 @@ P0에서는 닉네임만 수정한다.
 
 | 이름 | 타입 | 필수 | 적용 조건 | 의미 |
 |---|---|:---:|---|---|
-| `type` | RoomType | Y | 항상 | 방 유형 |
-| `gameId` | integer | 조건부 | `GAME_FOCUSED` | 알밤메이트 내부 게임 ID |
-| `keyword` | string | N | `PERSON_FOCUSED` | 방 제목 부분 일치 |
+| `type` | RoomType | N | 전달 시 | 방 유형 |
+| `gameId` | integer | N | 전달 시 | 1 이상의 알밤메이트 내부 게임 ID |
+| `keyword` | string | N | 전달 시 | 방 제목 부분 일치 |
 | `page` | integer | N | 항상 | 기본값 `0` |
 | `size` | integer | N | 항상 | 기본값 `10`, 1~100 |
 
-| `type` | `gameId` | `keyword` |
-|---|---|---|
-| `GAME_FOCUSED` | 필수. 선택 게임의 방만 반환 | 허용하지 않음 |
-| `PERSON_FOCUSED` | 허용하지 않음 | 선택. 방 제목 부분 일치 검색 |
+`type`, `gameId`, `keyword`는 서로 독립적인 선택 필터이며, 전달된 조건만 모두 만족하는 방을 반환한다. 세 값을 모두 생략하면 두 유형의 공개 방 전체를 반환한다. `keyword`의 빈 문자열과 공백은 검색 조건 없음으로 처리하며, 제목 부분 일치는 대소문자를 구분하지 않는다.
 
-- 허용하지 않는 parameter를 포함하거나 필수 조합을 지키지 않으면 `VALIDATION_ERROR`다.
-- `keyword`는 사람 중심 방의 기본 제목 검색이며, P0에서 제외한 조건 필터가 아니다.
+- 잘못된 enum, `gameId` 0 이하, `page`·`size` 범위 위반, 숫자 바인딩 실패 또는 허용하지 않는 parameter는 `VALIDATION_ERROR`다.
+- `keyword`는 방 제목 검색이며, P0에서 제외한 조건 필터가 아니다.
 - 공개 목록은 `RECRUITING`, `CLOSED` 방만 반환한다.
 - `playerCount`, `playTime`, `region`, `experienceLevel`, `tag`, `categoryIds`, `bggWeightMin`, `bggWeightMax`, `sort`는 P0 쿼리 파라미터가 아니다.
 

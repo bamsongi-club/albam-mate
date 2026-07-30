@@ -69,7 +69,7 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 	@Query("""
 		select room
 		from Room room
-		where room.roomType = :roomType
+		where (:roomType is null or room.roomType = :roomType)
 		  and room.status in :publicStatuses
 		  and (:gameId is null or room.gameId = :gameId)
 		""")
@@ -85,7 +85,7 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 	@Query("""
 		select room
 		from Room room
-		where room.roomType = :roomType
+		where (:roomType is null or room.roomType = :roomType)
 		  and room.status in :publicStatuses
 		  and (:gameId is null or room.gameId = :gameId)
 		  and lower(room.title) like concat('%', lower(:keyword), '%') escape '!'

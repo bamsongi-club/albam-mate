@@ -42,6 +42,18 @@ class RoomListReadServiceTest {
 	}
 
 	@Test
+	void 필터를_생략하면_두_유형의_공개_방을_조회한다() {
+		PageRequest pageable = pageable();
+		Page<Room> rooms = Page.empty(pageable);
+		when(roomRepository.findPublicRoomsWithoutKeyword(null, null, PUBLIC_STATUSES, pageable))
+			.thenReturn(rooms);
+
+		roomListReadService.findPublicRooms(null, null, null, pageable, null);
+
+		verify(roomRepository).findPublicRoomsWithoutKeyword(null, null, PUBLIC_STATUSES, pageable);
+	}
+
+	@Test
 	void 비로그인_요청은_방이_있어도_ACTIVE_참가를_조회하지_않는다() {
 		PageRequest pageable = pageable();
 		Page<Room> rooms = new PageImpl<>(List.of(mock(Room.class)), pageable, 1);

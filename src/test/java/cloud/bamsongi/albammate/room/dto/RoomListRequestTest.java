@@ -15,9 +15,8 @@ class RoomListRequestTest {
 	private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
 	@Test
-	void 사람_중심_목록은_누락하거나_빈_페이지의_기본값을_유지한다() {
+	void 필터를_생략한_목록은_빈_페이지_parameter의_기본값을_유지한다() {
 		RoomListRequest request = new RoomListRequest();
-		request.setType(RoomType.PERSON_FOCUSED);
 		request.setPage(null);
 		request.setSize(null);
 
@@ -27,46 +26,24 @@ class RoomListRequestTest {
 	}
 
 	@Test
-	void 게임_중심은_gameId를_명시해야_하고_keyword를_명시하면_안된다() {
-		RoomListRequest validRequest = new RoomListRequest();
-		validRequest.setType(RoomType.GAME_FOCUSED);
-		validRequest.setGameId(1L);
-
-		RoomListRequest missingGameId = new RoomListRequest();
-		missingGameId.setType(RoomType.GAME_FOCUSED);
-		RoomListRequest keywordProvided = new RoomListRequest();
-		keywordProvided.setType(RoomType.GAME_FOCUSED);
-		keywordProvided.setGameId(1L);
-		keywordProvided.setKeyword("");
-
-		assertTrue(validator.validate(validRequest).isEmpty());
-		assertFalse(validator.validate(missingGameId).isEmpty());
-		assertFalse(validator.validate(keywordProvided).isEmpty());
-	}
-
-	@Test
-	void 사람_중심은_gameId의_명시적_빈_값도_허용하지_않는다() {
+	void 유형과_gameId와_keyword는_독립적인_선택_필터다() {
 		RoomListRequest request = new RoomListRequest();
 		request.setType(RoomType.PERSON_FOCUSED);
-		request.setGameId(null);
+		request.setGameId(1L);
+		request.setKeyword("모임");
 
-		assertFalse(validator.validate(request).isEmpty());
+		assertTrue(validator.validate(request).isEmpty());
 	}
 
 	@Test
-	void 필수_유형과_gameId와_페이지_크기_범위를_검증한다() {
-		RoomListRequest missingType = new RoomListRequest();
+	void gameId와_페이지_크기_범위를_검증한다() {
 		RoomListRequest invalidGameId = new RoomListRequest();
-		invalidGameId.setType(RoomType.GAME_FOCUSED);
 		invalidGameId.setGameId(0L);
 		RoomListRequest invalidPage = new RoomListRequest();
-		invalidPage.setType(RoomType.PERSON_FOCUSED);
 		invalidPage.setPage(-1);
 		RoomListRequest invalidSize = new RoomListRequest();
-		invalidSize.setType(RoomType.PERSON_FOCUSED);
 		invalidSize.setSize(101);
 
-		assertFalse(validator.validate(missingType).isEmpty());
 		assertFalse(validator.validate(invalidGameId).isEmpty());
 		assertFalse(validator.validate(invalidPage).isEmpty());
 		assertFalse(validator.validate(invalidSize).isEmpty());

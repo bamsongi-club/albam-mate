@@ -179,17 +179,17 @@ class RoomControllerTest {
 	}
 
 	@Test
-	void 비로그인_방_목록은_200이고_joinable은_false다() throws Exception {
+	void 필터없는_비로그인_방_목록은_200이고_joinable은_false다() throws Exception {
 		when(roomListQueryService.findPage(
-			eq(RoomType.GAME_FOCUSED),
-			eq(7L),
+			isNull(),
+			isNull(),
 			isNull(),
 			eq(0),
 			eq(10),
 			eq(Optional.empty())))
 			.thenReturn(pageResponse(false));
 
-		mockMvc.perform(get("/api/rooms?type=GAME_FOCUSED&gameId=7"))
+		mockMvc.perform(get("/api/rooms"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.status").value(200))
 			.andExpect(jsonPath("$.data.content[0].id").value(1))
@@ -226,21 +226,18 @@ class RoomControllerTest {
 	}
 
 	@Test
-	void 방_목록의_잘못된_파라미터_조합과_범위는_VALIDATION_ERROR다() throws Exception {
+	void 방_목록의_잘못된_파라미터와_범위는_VALIDATION_ERROR다() throws Exception {
 		clearInvocations(roomListQueryService);
 
 		for (String query : List.of(
-			"",
-			"type=GAME_FOCUSED",
-			"type=GAME_FOCUSED&gameId=0",
-			"type=GAME_FOCUSED&gameId=not-a-number",
-			"type=GAME_FOCUSED&gameId=7&keyword=모임",
-			"type=PERSON_FOCUSED&gameId=7",
-			"type=PERSON_FOCUSED&sort=startsAt",
-			"type=PERSON_FOCUSED&page=not-a-number",
-			"type=PERSON_FOCUSED&page=-1",
-			"type=PERSON_FOCUSED&size=0",
-			"type=PERSON_FOCUSED&size=101")) {
+			"type=INVALID",
+			"gameId=0",
+			"gameId=not-a-number",
+			"sort=startsAt",
+			"page=not-a-number",
+			"page=-1",
+			"size=0",
+			"size=101")) {
 			mockMvc.perform(get("/api/rooms" + (query.isEmpty() ? "" : "?" + query)))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
@@ -252,16 +249,16 @@ class RoomControllerTest {
 	@Test
 	void 빈_방_목록_페이지_parameter는_기본값을_유지한다() throws Exception {
 		when(roomListQueryService.findPage(
-			eq(RoomType.PERSON_FOCUSED), isNull(), isNull(), eq(0), eq(10), eq(Optional.empty())))
+			isNull(), isNull(), isNull(), eq(0), eq(10), eq(Optional.empty())))
 			.thenReturn(pageResponse(false));
 
-		mockMvc.perform(get("/api/rooms?type=PERSON_FOCUSED&page=&size="))
+		mockMvc.perform(get("/api/rooms?page=&size="))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.page").value(0))
 			.andExpect(jsonPath("$.data.size").value(10));
 
 		verify(roomListQueryService).findPage(
-			RoomType.PERSON_FOCUSED, null, null, 0, 10, Optional.empty());
+			null, null, null, 0, 10, Optional.empty());
 	}
 
 	@Autowired
