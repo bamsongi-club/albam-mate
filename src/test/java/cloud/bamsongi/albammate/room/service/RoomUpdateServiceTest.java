@@ -27,6 +27,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.room.RoomOptimisticLockRetrier;
 import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
 import cloud.bamsongi.albammate.room.dto.RoomUpdateRequest;
 import jakarta.persistence.OptimisticLockException;
@@ -43,7 +44,8 @@ class RoomUpdateServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		roomUpdateService = new RoomUpdateService(executor, Clock.fixed(NOW, ZoneOffset.UTC));
+		roomUpdateService = new RoomUpdateService(
+			executor, Clock.fixed(NOW, ZoneOffset.UTC), new RoomOptimisticLockRetrier());
 	}
 
 	@Test
@@ -156,7 +158,7 @@ class RoomUpdateServiceTest {
 	}
 
 	private ListAppender<ILoggingEvent> attachLogAppender() {
-		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomUpdateService.class);
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomOptimisticLockRetrier.class);
 		logger.setLevel(Level.DEBUG);
 		ListAppender<ILoggingEvent> appender = new ListAppender<>();
 		appender.start();
@@ -165,7 +167,7 @@ class RoomUpdateServiceTest {
 	}
 
 	private void detachLogAppender(ListAppender<ILoggingEvent> appender) {
-		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomUpdateService.class);
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomOptimisticLockRetrier.class);
 		logger.detachAppender(appender);
 		logger.setLevel(null);
 		appender.stop();

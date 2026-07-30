@@ -24,6 +24,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.room.RoomOptimisticLockRetrier;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
@@ -56,7 +57,7 @@ class RoomParticipationServiceTest {
 	void 세_번_낙관_락_충돌은_재시도_로그와_최종_경고를_한번씩_남긴다() {
 		RoomParticipationExecutor executor = org.mockito.Mockito.mock(RoomParticipationExecutor.class);
 		RoomParticipationService service = new RoomParticipationService(
-			executor, Clock.fixed(NOW, ZoneOffset.UTC));
+			executor, Clock.fixed(NOW, ZoneOffset.UTC), new RoomOptimisticLockRetrier());
 		OptimisticLockException third = new OptimisticLockException("third");
 		org.mockito.Mockito.when(executor.participate(42L, 7L, NOW))
 			.thenThrow(new OptimisticLockException("first"))
@@ -303,7 +304,7 @@ class RoomParticipationServiceTest {
 	}
 
 	private ListAppender<ILoggingEvent> attachLogAppender() {
-		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomParticipationService.class);
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomOptimisticLockRetrier.class);
 		logger.setLevel(Level.DEBUG);
 		ListAppender<ILoggingEvent> appender = new ListAppender<>();
 		appender.start();
@@ -312,7 +313,7 @@ class RoomParticipationServiceTest {
 	}
 
 	private void detachLogAppender(ListAppender<ILoggingEvent> appender) {
-		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomParticipationService.class);
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomOptimisticLockRetrier.class);
 		logger.detachAppender(appender);
 		logger.setLevel(null);
 		appender.stop();

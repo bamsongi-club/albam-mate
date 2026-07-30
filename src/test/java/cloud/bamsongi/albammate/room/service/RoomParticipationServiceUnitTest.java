@@ -19,6 +19,7 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.room.RoomOptimisticLockRetrier;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
@@ -95,7 +96,8 @@ class RoomParticipationServiceUnitTest {
 	}
 
 	private RoomParticipationService service() {
-		return new RoomParticipationService(executor, Clock.fixed(REQUEST_TIME, ZoneOffset.UTC));
+		return new RoomParticipationService(
+			executor, Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), new RoomOptimisticLockRetrier());
 	}
 
 	private RoomParticipationResponse response() {

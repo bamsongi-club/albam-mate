@@ -3,39 +3,32 @@ package cloud.bamsongi.albammate.room;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.function.IntConsumer;
-import java.util.function.IntSupplier;
 
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
-
-import cloud.bamsongi.albammate.global.exception.BusinessException;
-import cloud.bamsongi.albammate.global.exception.ErrorCode;
-import jakarta.persistence.OptimisticLockException;
-import lombok.extern.slf4j.Slf4j;
 
 /** 트랜잭션 경계 밖에서 낙관 락 충돌만 제한적으로 재시도한다. */
 @Service
-@Slf4j
 public class RoomStateReconciliationCoordinator {
 
-	private static final int MAX_ATTEMPTS = 3;
-
 	private final RoomStateReconciliationExecutor executor;
+	private final RoomOptimisticLockRetrier retrier;
 
-	public RoomStateReconciliationCoordinator(RoomStateReconciliationExecutor executor) {
+	public RoomStateReconciliationCoordinator(
+		RoomStateReconciliationExecutor executor, RoomOptimisticLockRetrier retrier) {
 		this.executor = Objects.requireNonNull(executor, "executor");
+		this.retrier = Objects.requireNonNull(retrier, "retrier");
 	}
 
 	/** 단건 상태 보정을 최대 세 개의 독립 트랜잭션으로 시도한다. */
 	public void reconcileRoom(Long roomId, Instant requestTime) {
 		Objects.requireNonNull(roomId, "roomId");
 		Objects.requireNonNull(requestTime, "requestTime");
-		executeWithRetry(
+		retrier.execute(
 			() -> {
 				executor.reconcileRoom(roomId, requestTime);
-				return 0;
+				return null;
 			},
-			ignoredAttempt -> {}, roomId);
+			"room_state_reconciliation_retry", roomId);
 	}
 
 	/** 목록·내 모임 필터와 페이지 계산 전에 due 방 전체를 보정한다. */
@@ -47,44 +40,8 @@ public class RoomStateReconciliationCoordinator {
 	int reconcileDueRooms(Instant requestTime, IntConsumer beforeRetry) {
 		Objects.requireNonNull(requestTime, "requestTime");
 		Objects.requireNonNull(beforeRetry, "beforeRetry");
-		return executeWithRetry(() -> executor.reconcileDueRooms(requestTime), beforeRetry, null);
-	}
-
-	private int executeWithRetry(
-		IntSupplier reconciliationAttempt, IntConsumer beforeRetry, Long roomId) {
-		RuntimeException lastConflict = null;
-		for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-			try {
-				return reconciliationAttempt.getAsInt();
-			} catch (OptimisticLockException exception) {
-				lastConflict = exception;
-			} catch (ObjectOptimisticLockingFailureException exception) {
-				lastConflict = exception;
-			}
-			if (attempt < MAX_ATTEMPTS) {
-				int nextAttempt = attempt + 1;
-				beforeRetry.accept(nextAttempt);
-				logRetry(roomId, nextAttempt, false);
-			}
-		}
-
-		logRetry(roomId, MAX_ATTEMPTS, true);
-		throw new BusinessException(ErrorCode.ROOM_CONCURRENT_MODIFICATION, lastConflict);
-	}
-
-	private void logRetry(Long roomId, int attempt, boolean exhausted) {
-		if (roomId == null) {
-			if (exhausted) {
-				log.warn("event=room_state_reconciliation_retry attempt={}", attempt);
-			} else {
-				log.debug("event=room_state_reconciliation_retry attempt={}", attempt);
-			}
-			return;
-		}
-		if (exhausted) {
-			log.warn("event=room_state_reconciliation_retry roomId={} attempt={}", roomId, attempt);
-		} else {
-			log.debug("event=room_state_reconciliation_retry roomId={} attempt={}", roomId, attempt);
-		}
+		return retrier.execute(
+			() -> executor.reconcileDueRooms(requestTime),
+			"room_state_reconciliation_retry", null, beforeRetry);
 	}
 }

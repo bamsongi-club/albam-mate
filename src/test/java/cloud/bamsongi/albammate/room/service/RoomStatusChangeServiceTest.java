@@ -26,6 +26,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.room.RoomOptimisticLockRetrier;
 import cloud.bamsongi.albammate.room.dto.RoomStatusResponse;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import jakarta.persistence.OptimisticLockException;
@@ -44,7 +45,8 @@ class RoomStatusChangeServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		service = new RoomStatusChangeService(executor, Clock.fixed(NOW, ZoneOffset.UTC));
+		service = new RoomStatusChangeService(
+			executor, Clock.fixed(NOW, ZoneOffset.UTC), new RoomOptimisticLockRetrier());
 	}
 
 	@Test
@@ -136,7 +138,7 @@ class RoomStatusChangeServiceTest {
 	}
 
 	private ListAppender<ILoggingEvent> attachLogAppender() {
-		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomStatusChangeService.class);
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomOptimisticLockRetrier.class);
 		logger.setLevel(Level.DEBUG);
 		ListAppender<ILoggingEvent> appender = new ListAppender<>();
 		appender.start();
@@ -145,7 +147,7 @@ class RoomStatusChangeServiceTest {
 	}
 
 	private void detachLogAppender(ListAppender<ILoggingEvent> appender) {
-		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomStatusChangeService.class);
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomOptimisticLockRetrier.class);
 		logger.detachAppender(appender);
 		logger.setLevel(null);
 		appender.stop();
