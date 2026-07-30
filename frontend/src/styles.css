@@ -34,6 +34,9 @@ body {
   color: var(--ink);
   font-family: 'Pretendard', -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
   line-height: 1.55;
+  /* 한국어는 글자 단위로 끊지 않고 어절 단위로 끊는다. 띄어쓰기 없이 긴 문자열만 강제로 넘긴다. */
+  overflow-wrap: break-word;
+  word-break: keep-all;
 }
 
 a { color: inherit; text-decoration: none; }
@@ -70,29 +73,29 @@ header {
 .brand-wordmark { align-items: center; display: flex; font-family: 'Cafe24Ssurround', 'Apple SD Gothic Neo', sans-serif; font-size: 23px; gap: 1px; letter-spacing: -0.08em; line-height: 1; }
 .brand-name { color: var(--brown); }
 .brand-mate { color: var(--accent-dark); }
-.searchbox { background: #fff; border: 1px solid var(--line); border-radius: 999px; display: flex; flex: 1; max-width: 420px; min-width: 220px; overflow: hidden; }
-.searchbox input { background: transparent; border: 0; padding: 9px 16px; }
-.searchbox button { align-items: center; color: var(--sub); display: flex; flex: 0 0 auto; justify-content: center; padding: 0 14px; }
-.searchbox button:hover { color: var(--accent); }
-#gnb { align-items: center; display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
+#gnb { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 #gnb a { border-radius: 10px; color: var(--brown2); font-size: 14px; font-weight: 800; padding: 8px 12px; }
 #gnb a:hover, #gnb a.on { background: var(--soft); color: var(--brown); }
-#gnb .profile-chip { background: #fff; border: 1px solid var(--line); border-radius: 999px; }
-.nav-logout { background: transparent; border: 0; color: var(--sub); cursor: pointer; font-size: 12px; font-weight: 800; padding: 10px 0 8px 8px; }
-.nav-logout:hover { color: var(--ink); }
-.nav-logout:disabled { cursor: wait; opacity: 0.65; }
+/* 메뉴와 성격이 다른 계정 진입점이라 앞쪽을 한 칸 더 띄운다. */
+#gnb .profile-icon { align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 999px; display: inline-flex; justify-content: center; margin-left: 8px; padding: 8px; }
 
 main { margin: 0 auto; max-width: 1180px; padding: 28px 20px 84px; }
 .layout { align-items: start; display: grid; gap: 22px; grid-template-columns: 225px 1fr; }
 .layout.wide { grid-template-columns: 1fr 320px; }
 .grid { display: grid; gap: 14px; }
 .cols2 { grid-template-columns: repeat(2, 1fr); }
-.cols3 { grid-template-columns: repeat(3, 1fr); }
+/* 게임 카드 열 수. 한 페이지가 24개이므로 24를 나누는 값만 쓴다. auto-fill을 쓰면 5열이 생겨 마지막 줄이 빈다. */
+.cols3 { grid-template-columns: repeat(6, 1fr); }
 section + section { margin-top: 32px; }
-h1 { font-size: 30px; line-height: 1.25; }
+h1 { font-size: 34px; letter-spacing: -0.02em; line-height: 1.22; text-wrap: balance; }
 h2 { align-items: center; display: flex; font-size: 20px; gap: 8px; margin-bottom: 14px; }
 h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
-.h2-ico { flex: 0 0 auto; line-height: 1; }
+.h2-ico { color: var(--brown2); flex: 0 0 auto; line-height: 1; }
+.tabs-row { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.tabs-row .tabs { margin-bottom: 0; }
+/* 필터를 왼쪽에 두고 검색창은 줄 오른쪽 끝에 붙인다. */
+.tabs-row .inline-search { flex: 0 0 320px; margin-bottom: 0; margin-left: auto; }
+.tab-short { display: none; }
 .pagination { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 26px; }
 .pagination .page-btn { align-items: center; background: #fff; border: 1.5px solid var(--line); border-radius: 10px; color: var(--brown2); display: inline-flex; font-size: 13px; font-weight: 800; justify-content: center; min-width: 38px; padding: 8px 11px; }
 .pagination .page-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-dark); }
@@ -101,18 +104,19 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .pagination .page-ellipsis { color: var(--sub); font-weight: 800; padding: 0 2px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; }
 .hero { padding: 38px 34px; text-align: center; }
-.hero > p { color: var(--sub); margin-top: 8px; }
+.hero > p { color: var(--sub); margin-top: 10px; text-wrap: balance; }
+.hero-search { margin: 22px auto 0; }
 .dual { display: flex; gap: 18px; margin-top: 26px; }
-.entry { border: 2px solid transparent; border-radius: 18px; display: block; flex: 1; padding: 25px; text-align: left; transition: transform 0.15s, border-color 0.15s; }
-.entry:hover { transform: translateY(-3px); }
+.entry { border: 2px solid transparent; border-radius: 18px; display: flex; flex: 1; flex-direction: column; padding: 25px; text-align: left; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; }
+.entry:hover { box-shadow: 0 10px 24px rgba(80, 60, 30, 0.13); transform: translateY(-3px); }
 .entry.gamefirst { background: linear-gradient(160deg, #fdf3e4, #f7e3c8); }
 .entry.peoplefirst { background: linear-gradient(160deg, #eef4ea, #dcead6); }
 .entry.gamefirst:hover { border-color: var(--accent); }
 .entry.peoplefirst:hover { border-color: var(--green); }
 .entry .big { font-size: 34px; }
 .entry h3 { font-size: 19px; margin: 8px 0 4px; }
-.entry p { color: var(--sub); font-size: 13.5px; }
-.entry .sub { background: rgba(255, 255, 255, 0.72); border-radius: 999px; display: inline-block; font-size: 12.5px; font-weight: 800; margin-top: 12px; padding: 4px 12px; }
+.entry p { color: var(--sub); font-size: 13.5px; margin-bottom: 16px; }
+.entry .sub { align-self: start; background: #fff; border-radius: 999px; box-shadow: 0 1px 4px rgba(80, 60, 30, 0.12); display: inline-block; font-size: 12.5px; font-weight: 800; margin-top: auto; padding: 7px 14px; }
 
 .badge { border-radius: 999px; display: inline-block; font-size: 11px; font-weight: 800; padding: 2.5px 9px; vertical-align: 2px; }
 .badge.green { background: var(--green-soft); color: var(--green); }
@@ -135,6 +139,21 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .infobox.amber { background: var(--amber-soft); }
 .infobox.red { background: var(--red-soft); color: var(--red); }
 .infobox.gray { background: var(--gray-soft); color: var(--gray); }
+.profile-head { align-items: center; display: flex; gap: 14px; margin-bottom: 30px; }
+.profile-head h2 { margin-bottom: 0; }
+.profile-avatar { align-items: center; background: var(--soft); border-radius: 999px; color: var(--brown); display: inline-flex; flex: 0 0 auto; font-size: 24px; font-weight: 900; height: 56px; justify-content: center; width: 56px; }
+.menu-list { overflow: hidden; padding: 0; }
+.menu-list > * + * { border-top: 1px solid var(--line); }
+.menu-row { align-items: center; display: flex; gap: 14px; min-height: 56px; padding: 14px 18px; text-align: left; width: 100%; }
+.menu-row:hover { background: var(--soft); }
+.menu-row:disabled { cursor: wait; opacity: 0.65; }
+.menu-icon { color: var(--sub); display: inline-flex; flex: 0 0 auto; }
+.menu-label { flex: 1; font-size: 15px; font-weight: 700; }
+.menu-arrow { color: var(--gray); flex: 0 0 auto; font-size: 17px; line-height: 1; }
+.menu-panel { border-top: 1px solid var(--line); padding: 16px 18px; }
+.menu-panel input { flex: 1; min-width: 140px; }
+.infobox-action { color: var(--accent-dark); font-weight: 800; }
+.infobox-action:hover { text-decoration: underline; }
 .banner { border-radius: 12px; font-size: 14px; font-weight: 800; margin-bottom: 16px; padding: 11px 16px; }
 .banner.green { background: var(--green-soft); color: var(--green); }
 .banner.amber { background: var(--amber-soft); color: var(--amber); }
@@ -143,7 +162,9 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 
 .gcard, .scard { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); display: block; padding: 16px; transition: transform 0.15s, border-color 0.15s; }
 .gcard:hover, .scard:hover { border-color: var(--accent); transform: translateY(-2px); }
-.gart { align-items: center; background: var(--soft); border-radius: 12px; display: flex; font-size: 42px; height: 86px; justify-content: center; margin-bottom: 11px; }
+.gart { align-items: center; aspect-ratio: 1 / 1; background: var(--soft); border-radius: 12px; display: flex; font-size: 42px; justify-content: center; margin-bottom: 11px; overflow: hidden; }
+/* BGG 이미지는 가로세로 비율이 제각각이라 자르지 않고 안에 맞춰 넣는다. */
+.gart img { display: block; height: 100%; object-fit: contain; width: 100%; }
 .gtitle, .stitle { font-size: 15.5px; font-weight: 900; }
 .gen, .smeta { color: var(--sub); font-size: 12.5px; }
 .gmeta { color: var(--brown2); font-size: 12.5px; font-weight: 700; margin: 6px 0 7px; }
@@ -157,7 +178,8 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .sfoot { align-items: center; color: var(--sub); display: flex; flex-wrap: wrap; font-size: 12px; gap: 7px; }
 
 .detail-head { align-items: flex-start; display: flex; gap: 20px; }
-.dart { align-items: center; background: var(--soft); border-radius: 18px; display: flex; flex: 0 0 112px; font-size: 54px; height: 112px; justify-content: center; width: 112px; }
+.dart { align-items: center; background: var(--soft); border-radius: 18px; display: flex; flex: 0 0 112px; font-size: 54px; height: 112px; justify-content: center; overflow: hidden; width: 112px; }
+.dart img { display: block; height: 100%; object-fit: contain; width: 100%; }
 .metatable { font-size: 14px; margin-top: 12px; width: 100%; }
 .metatable td { padding: 5px 0; vertical-align: top; }
 .metatable td:first-child { color: var(--sub); font-size: 13px; font-weight: 800; width: 96px; }
@@ -243,14 +265,19 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .modecard span { color: var(--sub); display: block; font-size: 12.5px; margin-top: 4px; }
 .checkline { align-items: center; display: flex; font-size: 13px; gap: 8px; padding: 8px 0; }
 .checkline input { accent-color: var(--accent); width: auto; }
+.games-filter { align-items: center; column-gap: 16px; display: flex; flex-wrap: wrap; justify-content: space-between; margin: -6px 0 15px; row-gap: 4px; }
+.games-filter .checkline { font-weight: 800; padding: 0; }
+.games-filter .hint { margin: 0; }
+.list-swappable { transition: opacity 0.15s ease; }
 .create-submit { width: 100%; }
 .create-note b { display: block; margin-bottom: 7px; }
 .create-note ul { display: grid; font-size: 13px; gap: 7px; line-height: 1.6; list-style: none; padding-left: 2px; }
 .create-note li { padding-left: 12px; position: relative; }
 .create-note li::before { background: var(--accent); border-radius: 50%; content: ''; height: 4px; left: 0; position: absolute; top: 0.62em; width: 4px; }
-.inline-search { display: flex; gap: 8px; margin-bottom: 18px; }
-.inline-search input { flex: 1; }
-.inline-search .btn { flex: 0 0 auto; }
+.inline-search { background: #fff; border: 1px solid var(--line); border-radius: 999px; display: flex; margin-bottom: 18px; max-width: 420px; overflow: hidden; }
+.inline-search input { background: transparent; border: 0; flex: 1; padding: 9px 16px; }
+.inline-search button { align-items: center; color: var(--sub); display: flex; flex: 0 0 auto; justify-content: center; padding: 0 14px; }
+.inline-search button:hover { color: var(--accent); }
 .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
 .tabs button { background: #fff; border: 1.5px solid var(--line); border-radius: 999px; color: var(--sub); font-size: 14px; font-weight: 800; padding: 9px 18px; }
 .tabs button.on { background: var(--brown); border-color: var(--brown); color: #fff; }
@@ -258,24 +285,56 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 #toast.err { background: var(--red); }
 
-@media (max-width: 940px) {
-  .layout, .layout.wide { grid-template-columns: 1fr; }
-  .cols3 { grid-template-columns: repeat(2, 1fr); }
-  .dual, .detail-head { flex-direction: column; }
-  .hwrap { gap: 10px; }
-  #gnb { margin-left: 0; }
+/* 동작 감소를 켠 사용자에게는 위치가 움직이는 효과를 주지 않는다. 색 변화는 남긴다. */
+@media (prefers-reduced-motion: reduce) {
+  .entry, .btn, .gcard, .scard, .modecard, .list-swappable, #toast { transition-duration: 0.01ms; }
+  .entry:hover, .gcard:hover, .scard:hover, .btn:active, .modecard:active { transform: none; }
+  #toast, #toast.show { transform: translateX(-50%); }
+}
+
+@media (max-width: 1099px) {
+  .cols3 { grid-template-columns: repeat(4, 1fr); }
+}
+
+@media (max-width: 700px) {
+  .cols3 { grid-template-columns: repeat(3, 1fr); }
 }
 
 @media (max-width: 560px) {
-  .cols2, .cols3, .formrow { grid-template-columns: 1fr; }
+  .cols3 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 940px) {
+  .layout, .layout.wide { grid-template-columns: 1fr; }
+  .dual, .detail-head { flex-direction: column; }
+  .hwrap { gap: 10px; }
+}
+
+@media (max-width: 560px) {
+  .cols2, .formrow { grid-template-columns: 1fr; }
   main { padding: 28px 16px 56px; }
   .hwrap { gap: 12px; padding: 10px 16px; }
-  .searchbox { max-width: none; order: 3; width: 100%; }
-  #gnb { margin-left: 0; order: 2; }
+  /* 로고만 남은 헤더에서도 메뉴는 오른쪽 끝에 둔다. */
+  #gnb { margin-left: auto; }
   #gnb a { padding-left: 7px; padding-right: 7px; }
-  #gnb .profile-chip { margin-left: 4px; padding-left: 10px; }
-  .inline-search { flex-direction: column; }
-  .inline-search .btn { width: 100%; }
+  #gnb .profile-icon { min-width: 44px; }
+  .brand-wordmark { display: none; }
+  .inline-search { max-width: none; }
+  .tabs-row .inline-search { flex: 1 1 100%; }
+  .inline-search input, .inline-search button { min-height: 44px; }
+  /* 탭 라벨을 줄여 탭과 모임 만들기 버튼을 한 줄에 넣는다. 화면 제목이 맥락을 준다. */
+  .tab-full { display: none; }
+  .tab-short { display: inline; }
+  /* 그래도 줄바꿈이 일어나면 내려간 버튼을 탭 줄 오른쪽 끝에 붙인다. */
+  .tabs-row .btn { margin-left: auto; }
+  /* iOS Safari는 16px 미만 입력에 포커스하면 페이지를 강제로 확대한다. */
+  input, select, textarea { font-size: 16px; }
+  /* 손가락 탭 기준 44px에 맞춘다. 데스크톱 밀도를 바꾸지 않도록 좁은 화면에만 적용한다. */
+  #gnb a, .game-search-open, .tabs button { align-items: center; display: inline-flex; justify-content: center; min-height: 44px; }
+  .page-btn, .btn, select, .date-picker-trigger { min-height: 44px; }
+  .pagination { gap: 8px; }
+  .checkline { min-height: 44px; }
+  .checkline input { height: 20px; width: 20px; }
   .date-picker-popover { width: min(340px, calc(100vw - 40px)); }
   .game-picker-backdrop { align-items: end; padding: 0; }
   .game-picker { border-bottom-left-radius: 0; border-bottom-right-radius: 0; max-height: 88vh; }

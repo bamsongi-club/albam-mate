@@ -17,6 +17,11 @@ const GAME_SEARCH_PAGE_SIZE = 10;
 const GAME_LIST_PAGE_SIZE = 24;
 const ROOM_LIST_PAGE_SIZE = 12;
 const GAME_SEARCH_DEBOUNCE_MS = 250;
+const ROOM_TYPE_FILTERS = [
+  { value: '', label: '전체', short: '전체' },
+  { value: 'GAME_FOCUSED', label: '게임 중심', short: '게임' },
+  { value: 'PERSON_FOCUSED', label: '사람 중심', short: '사람' }
+];
 
 function zeroPad(value) {
   return String(value).padStart(2, '0');
@@ -308,17 +313,22 @@ function gameMeta(game) {
   return [game.players, game.time, game.complexity ? '난이도 ' + game.complexity : ''].filter(Boolean).join(' · ');
 }
 
-function Header({ route, me, gameQuery, onGameQueryChange, onSearch, onLogout }) {
-  const [loggingOut, setLoggingOut] = useState(false);
-  const rootRoute = { games: 'games', game: 'games', people: 'people', create: 'create', edit: 'my', my: 'my', profile: 'profile', auth: 'auth' };
-  const logout = async () => {
-    setLoggingOut(true);
-    try {
-      await onLogout();
-    } finally {
-      setLoggingOut(false);
-    }
-  };
+const SECTION_ICONS = {
+  rooms: <><circle cx="9" cy="8" r="3.2" /><path d="M2.5 20c0-3.6 2.9-5.8 6.5-5.8s6.5 2.2 6.5 5.8" /><path d="M16.5 5.6a3.2 3.2 0 0 1 0 6.2" /><path d="M18.5 14.6c2 .8 3 2.6 3 5.4" /></>,
+  games: <><rect x="3" y="3" width="18" height="18" rx="4" /><circle cx="8.5" cy="8.5" r="1.1" /><circle cx="15.5" cy="8.5" r="1.1" /><circle cx="8.5" cy="15.5" r="1.1" /><circle cx="15.5" cy="15.5" r="1.1" /></>,
+  list: <><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3.5 6h.01" /><path d="M3.5 12h.01" /><path d="M3.5 18h.01" /></>,
+  calendar: <><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M8 3v4" /><path d="M16 3v4" /><path d="M3 10h18" /></>,
+  pencil: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></>
+};
+
+function SectionIcon({ name }) {
+  return (
+    <svg className="h2-ico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{SECTION_ICONS[name]}</svg>
+  );
+}
+
+function Header({ route, me }) {
+  const rootRoute = { find: 'find', game: 'game-list', 'game-list': 'game-list', create: 'profile', edit: 'profile', my: 'profile', profile: 'profile', auth: 'auth' };
   return (
     <header>
       <div className="hwrap">
@@ -326,17 +336,11 @@ function Header({ route, me, gameQuery, onGameQueryChange, onSearch, onLogout })
           <span className="brand-mark" aria-hidden="true"><img src={brandSymbol} alt="" /></span>
           <span className="brand-wordmark"><span className="brand-name">알밤</span><span className="brand-mate">메이트</span></span>
         </a>
-        <form className="searchbox" role="search" onSubmit={(event) => { event.preventDefault(); onSearch(); }}>
-          <input aria-label="게임 이름 검색" placeholder="게임 이름으로 검색" value={gameQuery} onChange={(event) => onGameQueryChange(event.target.value)} />
-          <button type="submit" aria-label="게임 검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.65" y2="16.65" /></svg></button>
-        </form>
         <nav id="gnb" aria-label="주요 메뉴">
-          <a href="#/games" className={rootRoute[route] === 'games' ? 'on' : ''}>게임 중심 모임</a>
-          <a href="#/people" className={rootRoute[route] === 'people' ? 'on' : ''}>사람 중심 모임</a>
-          <a href="#/create" className={rootRoute[route] === 'create' ? 'on' : ''}>모임 만들기</a>
-          <a href="#/my" className={rootRoute[route] === 'my' ? 'on' : ''}>내 모임</a>
+          <a href="#/game-list" className={rootRoute[route] === 'game-list' ? 'on' : ''}>게임 찾기</a>
+          <a href="#/find" className={rootRoute[route] === 'find' ? 'on' : ''}>모임 찾기</a>
           {me
-            ? <><a href="#/profile" className={'profile-chip ' + (rootRoute[route] === 'profile' ? 'on' : '')}>{me.nickname}</a><button className="nav-logout" type="button" disabled={loggingOut} onClick={logout}>{loggingOut ? '로그아웃 중…' : '로그아웃'}</button></>
+            ? <a href="#/profile" className={'profile-icon ' + (rootRoute[route] === 'profile' ? 'on' : '')} aria-label={me.nickname + ' 프로필'}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></svg></a>
             : <a href="#/auth" className={rootRoute[route] === 'auth' ? 'on' : ''}>로그인</a>}
         </nav>
       </div>
@@ -379,7 +383,7 @@ function SessionCard({ room }) {
 function GameCard({ game }) {
   return (
     <a className="gcard" href={'#/game/' + game.id}>
-      <div className="gart">🎲</div>
+      <div className="gart">{game.imageUrl ? <img src={game.imageUrl} alt="" loading="lazy" /> : '🎲'}</div>
       <div className="gtitle">{game.title}</div>
       <div className="gen">{game.englishName}</div>
       <div className="gmeta">{gameMeta(game)}</div>
@@ -447,9 +451,11 @@ function LoginRequiredView({ message = '이 기능은 로그인 후 이용할 �
   return <div className="card"><h2>로그인이 필요해요</h2><p className="hint" style={{ marginBottom: 16 }}>{message}</p><a className="btn" href="#/auth">로그인 또는 회원가입</a></div>;
 }
 
-function HomeView({ dataVersion }) {
+function HomeView({ onBrowsePeople, onSearchGame, dataVersion }) {
+  // 지금은 게임 이름 검색으로 동작한다. 통합 검색으로 확장할 자리다.
+  const [input, setInput] = useState('');
   const { data, loading, error } = useRequest(
-    (signal) => api.getRooms({ type: 'PERSON_FOCUSED', page: 0, size: 100 }, signal),
+    (signal) => api.getRooms({ type: 'PERSON_FOCUSED', page: 0, size: 1 }, signal),
     [dataVersion]
   );
   const personCount = data?.totalElements ?? 0;
@@ -457,58 +463,106 @@ function HomeView({ dataVersion }) {
     <section className="card hero">
       <h1>오늘, 보드게임 한 판 어때요? 🎲</h1>
       <p>게임을 먼저 고르거나, 함께할 사람부터 찾아 모임을 만들 수 있어요.</p>
+      <form className="inline-search hero-search" onSubmit={(event) => { event.preventDefault(); onSearchGame(input.trim()); }}>
+        <label className="hint" htmlFor="home-q" style={{ position: 'absolute', left: -9999 }}>게임 이름 검색</label>
+        <input id="home-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임 이름으로 검색" />
+        <button type="submit" aria-label="검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.65" y2="16.65" /></svg></button>
+      </form>
       <div className="dual">
-        <a className="entry gamefirst" href="#/games"><span className="big">🎲</span><h3>게임부터 찾기</h3><p>하고 싶은 게임을 검색하고, 그 게임의 공개 모임을 찾아보세요.</p><span className="sub">게임 이름으로 검색 →</span></a>
-        <a className="entry peoplefirst" href="#/people"><span className="big">🙌</span><h3>사람부터 만나기</h3><p>게임이 아직 정해지지 않아도 괜찮아요. 제목으로 원하는 모임을 찾아보세요.</p><span className="sub">{loading ? '공개 모임 불러오는 중…' : '공개 모임 ' + personCount + '개 →'}</span></a>
+        <a className="entry gamefirst" href="#/game-list"><span className="big">🎲</span><h3>게임부터 찾기</h3><p>하고 싶은 게임을 검색하고, 그 게임의 공개 모임을 찾아보세요.</p><span className="sub">게임 2000개 둘러보기 →</span></a>
+        <a className="entry peoplefirst" href="#/find" onClick={onBrowsePeople}><span className="big">🙌</span><h3>사람부터 만나기</h3><p>게임이 아직 정해지지 않아도 괜찮아요. 제목으로 원하는 모임을 찾아보세요.</p><span className="sub">{loading ? '공개 모임 불러오는 중…' : '공개 모임 ' + personCount + '개 →'}</span></a>
       </div>
       {error && <p className="hint" style={{ marginTop: 16 }}>공개 모임 수를 불러오지 못했어요: {error}</p>}
     </section>
   );
 }
 
-function GamesView({ gameQuery, dataVersion }) {
-  const keyword = gameQuery.trim();
+// 유형 필터에 붙일 개수. 방 유형은 두 가지뿐이라 전체는 둘의 합으로 구한다.
+function useRoomTypeCounts(keyword, dataVersion) {
+  const [counts, setCounts] = useState(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+    Promise.all([
+      api.getRooms({ type: 'GAME_FOCUSED', keyword, page: 0, size: 1 }, controller.signal),
+      api.getRooms({ type: 'PERSON_FOCUSED', keyword, page: 0, size: 1 }, controller.signal)
+    ])
+      .then(([game, person]) => {
+        if (!active) return;
+        const gameCount = game?.totalElements ?? 0;
+        const personCount = person?.totalElements ?? 0;
+        setCounts({ '': gameCount + personCount, GAME_FOCUSED: gameCount, PERSON_FOCUSED: personCount });
+      })
+      .catch(() => { if (active) setCounts(null); });
+    return () => { active = false; controller.abort(); };
+  }, [keyword, dataVersion]);
+  return counts;
+}
+
+function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChange, dataVersion }) {
+  const [input, setInput] = useState(roomQuery);
+  const keyword = roomQuery.trim();
+  const counts = useRoomTypeCounts(keyword, dataVersion);
   const { data, loading, error, setPage } = usePaginatedRequest(
-    (page, signal) => api.getGames({ keyword, upcomingOnly: true, page, size: GAME_LIST_PAGE_SIZE }, signal),
-    [keyword, dataVersion]
+    // 유형을 비우면 두 유형의 공개 방을 함께 받는다.
+    (page, signal) => api.getRooms({ type: roomType, keyword, page, size: ROOM_LIST_PAGE_SIZE }, signal),
+    [roomType, keyword, dataVersion]
   );
-  const games = (data?.content || []).map(normalizeGameSummary);
+  const rooms = (data?.content || []).map(normalizeRoom);
+  useEffect(() => setInput(roomQuery), [roomQuery]);
   return (
     <>
-      <h2><span className="h2-ico">🎲</span>게임 중심 모임 <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
-      <p className="hint" style={{ margin: '-8px 0 15px' }}>게임 이름의 부분 일치 검색만 제공해요.</p>
+      <h2><SectionIcon name="rooms" />모임 찾기 <span className="cnt">{loading && !data ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
+      <div className="tabs-row">
+        <div className="tabs" role="group" aria-label="모임 유형">
+          {ROOM_TYPE_FILTERS.map((filter) => (
+            <button type="button" key={filter.label} className={roomType === filter.value ? 'on' : ''} aria-pressed={roomType === filter.value} onClick={() => onRoomTypeChange(filter.value)}><span className="tab-full">{filter.label}{counts ? ' (' + counts[filter.value] + ')' : ''}</span><span className="tab-short">{filter.short}{counts ? ' ' + counts[filter.value] : ''}</span></button>
+          ))}
+        </div>
+        <form className="inline-search" onSubmit={(event) => { event.preventDefault(); onRoomQueryChange(input.trim()); }}>
+          <label className="hint" htmlFor="room-q" style={{ position: 'absolute', left: -9999 }}>모임 제목 검색</label>
+          <input id="room-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="모임 제목으로 검색" />
+          <button type="submit" aria-label="검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.65" y2="16.65" /></svg></button>
+        </form>
+        <a className="btn ghost" href="#/create">✏️ 모임 만들기</a>
+      </div>
+      <p className="hint" style={{ marginTop: -10, marginBottom: 15 }}>모임 제목의 부분 일치 검색만 제공해요.</p>
+      {error && <ErrorBox message={error} />}
+      {!error && loading && !data && <LoadingBox />}
+      {!error && !!rooms.length && <div className="grid cols2 list-swappable" style={{ opacity: loading ? 0.6 : 1 }}>{rooms.map((room) => <SessionCard key={room.id} room={room} />)}</div>}
+      {!error && !loading && !rooms.length && <div className="infobox">조건에 맞는 공개 모임이 없어요. 직접 모임을 열어보세요.</div>}
+      {!error && !!rooms.length && <Pagination page={data?.page ?? 0} totalPages={data?.totalPages ?? 0} loading={loading} onChange={setPage} />}
+    </>
+  );
+}
+
+function GamesView({ title, gameQuery, onGameQueryChange, dataVersion }) {
+  const [input, setInput] = useState(gameQuery);
+  const [upcomingOnly, setUpcomingOnly] = useState(false);
+  const keyword = gameQuery.trim();
+  const { data, loading, error, setPage } = usePaginatedRequest(
+    (page, signal) => api.getGames({ keyword, upcomingOnly, page, size: GAME_LIST_PAGE_SIZE }, signal),
+    [keyword, upcomingOnly, dataVersion]
+  );
+  const games = (data?.content || []).map(normalizeGameSummary);
+  useEffect(() => setInput(gameQuery), [gameQuery]);
+  return (
+    <>
+      <h2><SectionIcon name="games" />{title} <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
+      <form className="inline-search" onSubmit={(event) => { event.preventDefault(); onGameQueryChange(input.trim()); }}>
+        <label className="hint" htmlFor="game-q" style={{ position: 'absolute', left: -9999 }}>게임 이름 검색</label>
+        <input id="game-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임 이름으로 검색" />
+        <button type="submit" aria-label="검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.65" y2="16.65" /></svg></button>
+      </form>
+      <div className="games-filter">
+        <label className="checkline"><input type="checkbox" checked={upcomingOnly} onChange={(event) => setUpcomingOnly(event.target.checked)} /> 예정 모임 있는 게임만</label>
+        <p className="hint">게임 이름의 부분 일치 검색만 제공해요.</p>
+      </div>
       {error && <ErrorBox message={error} />}
       {!error && loading && !data && <LoadingBox />}
       {!error && !!games.length && <div className="grid cols3">{games.map((game) => <GameCard key={game.id} game={game} />)}</div>}
       {!error && !loading && !games.length && <div className="infobox" style={{ marginTop: 14 }}>검색 결과가 없어요. 다른 게임 이름으로 다시 찾아보세요.</div>}
       {!error && !!games.length && <Pagination page={data?.page ?? 0} totalPages={data?.totalPages ?? 0} loading={loading} onChange={setPage} />}
-    </>
-  );
-}
-
-function PeopleView({ peopleQuery, onPeopleQueryChange, dataVersion }) {
-  const [input, setInput] = useState(peopleQuery);
-  const keyword = peopleQuery.trim();
-  const { data, loading, error, setPage } = usePaginatedRequest(
-    (page, signal) => api.getRooms({ type: 'PERSON_FOCUSED', keyword, page, size: ROOM_LIST_PAGE_SIZE }, signal),
-    [keyword, dataVersion]
-  );
-  const rooms = (data?.content || []).map(normalizeRoom);
-  useEffect(() => setInput(peopleQuery), [peopleQuery]);
-  return (
-    <>
-      <h2><span className="h2-ico">🙌</span>사람 중심 모임 찾기 <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}</span></h2>
-      <form className="inline-search" onSubmit={(event) => { event.preventDefault(); onPeopleQueryChange(input.trim()); }}>
-        <label className="hint" htmlFor="people-q" style={{ position: 'absolute', left: -9999 }}>사람 중심 모임 제목 검색</label>
-        <input id="people-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="모임 제목으로 검색" />
-        <button className="btn" type="submit">검색</button>
-      </form>
-      <p className="hint" style={{ marginTop: -10, marginBottom: 15 }}>사람 중심 모임은 제목의 부분 일치 검색만 제공해요.</p>
-      {error && <ErrorBox message={error} />}
-      {!error && loading && !data && <LoadingBox />}
-      {!error && !!rooms.length && <div className="grid cols2">{rooms.map((room) => <SessionCard key={room.id} room={room} />)}</div>}
-      {!error && !loading && !rooms.length && <div className="infobox">일치하는 공개 모임이 없어요. 직접 모임을 열어보세요.</div>}
-      {!error && !!rooms.length && <Pagination page={data?.page ?? 0} totalPages={data?.totalPages ?? 0} loading={loading} onChange={setPage} />}
     </>
   );
 }
@@ -532,7 +586,7 @@ function GameDetailView({ gameId, onCreateGame, dataVersion }) {
     <>
       <div className="card">
         <div className="detail-head">
-          <div className="dart">🎲</div>
+          <div className="dart">{game.imageUrl ? <img src={game.imageUrl} alt="" /> : '🎲'}</div>
           <div>
             <h2>{game.title}</h2>
             <div className="gen">{game.englishName}</div>
@@ -544,7 +598,7 @@ function GameDetailView({ gameId, onCreateGame, dataVersion }) {
         </div>
       </div>
       <section style={{ marginTop: 32 }}>
-        <h2><span className="h2-ico">📅</span>예정 모임 <span className="cnt">{roomPage?.totalElements ?? upcomingRooms.length}개</span></h2>
+        <h2><SectionIcon name="calendar" />예정 모임 <span className="cnt">{roomPage?.totalElements ?? upcomingRooms.length}개</span></h2>
         {upcomingRooms.length ? <div className="grid cols2">{upcomingRooms.map((room) => <SessionCard key={room.id} room={room} />)}</div> : <div className="infobox">아직 공개 예정 모임이 없어요. 첫 모임을 만들어보세요.</div>}
         <Pagination page={roomPage?.page ?? 0} totalPages={roomPage?.totalPages ?? 0} loading={roomsLoading} onChange={setRoomPage} />
       </section>
@@ -631,8 +685,8 @@ function SessionDetailView({ sessionId, me, onApply, onCancelApply, onHostCancel
             </div>
           </div>
           {privateView
-            ? <section><h2><span className="h2-ico">👥</span>참가자 <span className="cnt">총 {participantCount(room)}/{room.recruitmentCapacity + 1}명</span></h2><div className="card"><div className="srow" style={{ marginTop: 0 }}><SeatIcons room={room} /></div><div>{room.participants.map((participant, index) => <span className="pchip" key={participant.nickname + '-' + index}>🙂 {participant.nickname}</span>)}{!room.participants.length && <span className="hint">아직 참가자가 없어요.</span>}</div></div></section>
-            : <section><h2><span className="h2-ico">👥</span>참가자</h2><div className="infobox">정확한 장소와 참가자 목록은 주최자 또는 현재 참가자만 확인할 수 있어요.</div></section>}
+            ? <section><h2><SectionIcon name="rooms" />참가자 <span className="cnt">총 {participantCount(room)}/{room.recruitmentCapacity + 1}명</span></h2><div className="card"><div className="srow" style={{ marginTop: 0 }}><SeatIcons room={room} /></div><div>{room.participants.map((participant, index) => <span className="pchip" key={participant.nickname + '-' + index}>🙂 {participant.nickname}</span>)}{!room.participants.length && <span className="hint">아직 참가자가 없어요.</span>}</div></div></section>
+            : <section><h2><SectionIcon name="rooms" />참가자</h2><div className="infobox">정확한 장소와 참가자 목록은 주최자 또는 현재 참가자만 확인할 수 있어요.</div></section>}
         </div>
         <aside><div className="card"><SessionActions room={room} me={me} onApply={onApply} onCancelApply={onCancelApply} onHostCancel={onHostCancel} onFinish={onFinish} /></div></aside>
       </div>
@@ -922,7 +976,7 @@ function CreateView({ createMode, onCreateModeChange, initialGame, onCreate, tod
   };
   return (
     <>
-      <h2><span className="h2-ico">✏️</span>모임 만들기</h2>
+      <h2><SectionIcon name="pencil" />모임 만들기</h2>
       <div className="layout wide">
         <form className="card" onSubmit={submit}>
           <label>모임 유형</label>
@@ -966,7 +1020,7 @@ function EditSessionForm({ room, onSave, today }) {
   };
   return (
     <>
-      <h2><span className="h2-ico">✏️</span>모임 수정</h2>
+      <h2><SectionIcon name="pencil" />모임 수정</h2>
       <form className="card" style={{ maxWidth: 780 }} onSubmit={submit}>
         <div className="infobox" style={{ marginBottom: 16 }}>{room.roomType === 'GAME_FOCUSED' ? '게임 중심' : '사람 중심'} 모임 · 유형과 지역은 수정할 수 없어요.</div>
         <RoomFormFields form={form} onChange={setForm} roomType={room.roomType} onOpenGamePicker={() => setGamePickerOpen(true)} today={today} />
@@ -988,7 +1042,7 @@ function EditView({ sessionId, onSave, dataVersion, today }) {
   return <EditSessionForm key={data.id} room={data} onSave={onSave} today={today} />;
 }
 
-function MyView({ myTab, onMyTabChange, dataVersion }) {
+function MyRoomsSection({ myTab, onMyTabChange, dataVersion }) {
   const joined = usePaginatedRequest(
     (page, signal) => api.getMyRooms({ role: 'joined', page, size: ROOM_LIST_PAGE_SIZE }, signal),
     [dataVersion]
@@ -1000,41 +1054,92 @@ function MyView({ myTab, onMyTabChange, dataVersion }) {
   const tab = myTab === 'hosted' ? 'hosted' : 'joined';
   const page = tab === 'hosted' ? hosted : joined;
   const list = (page.data?.content || []).map(normalizeRoom);
+  const joinedCount = joined.data?.totalElements ?? '—';
+  const hostedCount = hosted.data?.totalElements ?? '—';
   return (
     <>
-      <h2><span className="h2-ico">🗂️</span>내 모임</h2>
-      <div className="tabs"><button type="button" className={tab === 'joined' ? 'on' : ''} onClick={() => onMyTabChange('joined')}>참가한 모임 ({joined.data?.totalElements ?? '—'})</button><button type="button" className={tab === 'hosted' ? 'on' : ''} onClick={() => onMyTabChange('hosted')}>개설한 모임 ({hosted.data?.totalElements ?? '—'})</button></div>
+      <h2><SectionIcon name="list" />내 모임</h2>
+      <div className="tabs-row">
+        <div className="tabs">
+          <button type="button" className={tab === 'joined' ? 'on' : ''} onClick={() => onMyTabChange('joined')}><span className="tab-full">참가한 모임 ({joinedCount})</span><span className="tab-short">참가 {joinedCount}</span></button>
+          <button type="button" className={tab === 'hosted' ? 'on' : ''} onClick={() => onMyTabChange('hosted')}><span className="tab-full">개설한 모임 ({hostedCount})</span><span className="tab-short">개설 {hostedCount}</span></button>
+        </div>
+        <a className="btn ghost" href="#/create">✏️ 모임 만들기</a>
+      </div>
       {page.error && <ErrorBox message={page.error} />}
       {!page.error && page.loading && !page.data && <LoadingBox />}
       {!page.error && !!list.length && <div className="grid cols2">{list.map((room) => <SessionCard key={room.id} room={room} />)}</div>}
-      {!page.error && !page.loading && !list.length && <div className="infobox">{tab === 'joined' ? '아직 참가한 모임이 없어요.' : '아직 개설한 모임이 없어요.'}</div>}
+      {!page.error && !page.loading && !list.length && (
+        <div className="infobox">
+          {tab === 'joined'
+            ? <>아직 참가한 모임이 없어요. <a className="infobox-action" href="#/find">모임 찾아보기 →</a></>
+            : '아직 개설한 모임이 없어요. 위 버튼으로 첫 모임을 열어보세요.'}
+        </div>
+      )}
       {!page.error && !!list.length && <Pagination page={page.data?.page ?? 0} totalPages={page.data?.totalPages ?? 0} loading={page.loading} onChange={page.setPage} />}
-      <p className="hint" style={{ marginTop: 14 }}>카드는 공개 모임 정보만 표시하고, 정확한 장소와 참가자 목록은 모임 상세에서 권한에 따라 확인할 수 있어요.</p>
+      {!page.error && !!list.length && <p className="hint" style={{ marginTop: 14 }}>카드는 공개 모임 정보만 표시하고, 정확한 장소와 참가자 목록은 모임 상세에서 권한에 따라 확인할 수 있어요.</p>}
     </>
   );
 }
 
-function ProfileView({ me, onSave }) {
+function ProfileView({ me, onSave, onLogout }) {
   const [nickname, setNickname] = useState(me.nickname);
+  const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   useEffect(() => setNickname(me.nickname), [me.nickname]);
+  const logout = async () => {
+    setLoggingOut(true);
+    try {
+      await onLogout();
+    } finally {
+      setLoggingOut(false);
+    }
+  };
   const submit = async (event) => {
     event.preventDefault();
     setSaving(true);
     try {
-      await onSave(nickname);
+      if (await onSave(nickname)) setEditing(false);
     } finally {
       setSaving(false);
     }
   };
   return (
     <>
-      <h2><span className="h2-ico">🙂</span>내 프로필</h2>
-      <form className="card" style={{ maxWidth: 560 }} onSubmit={submit}>
-        <p className="hint" style={{ margin: '0 0 12px' }}>알밤메이트에서 표시되는 내 닉네임입니다.</p>
-        <label htmlFor="profile-nickname">닉네임</label>
-        <div className="page-actions"><input id="profile-nickname" maxLength="50" value={nickname} onChange={(event) => setNickname(event.target.value)} /><button className="btn" disabled={saving} type="submit">{saving ? '저장 중…' : '저장'}</button></div>
-      </form>
+      <div className="profile-head">
+        <span className="profile-avatar" aria-hidden="true">{me.nickname.slice(0, 1)}</span>
+        <h2>{me.nickname}</h2>
+      </div>
+      <div className="card menu-list" style={{ maxWidth: 560 }}>
+          <a className="menu-row" href="#/my">
+            <span className="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3.5 6h.01" /><path d="M3.5 12h.01" /><path d="M3.5 18h.01" /></svg></span>
+            <span className="menu-label">내 모임</span>
+            <span className="menu-arrow" aria-hidden="true">›</span>
+          </a>
+          <div>
+            <button className="menu-row" type="button" aria-expanded={editing} onClick={() => { setNickname(me.nickname); setEditing(!editing); }}>
+              <span className="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></svg></span>
+              <span className="menu-label">내 정보</span>
+              <span className="menu-arrow" aria-hidden="true">{editing ? '▾' : '›'}</span>
+            </button>
+            {editing && (
+              <form className="menu-panel" onSubmit={submit}>
+                <label htmlFor="profile-nickname">닉네임</label>
+                <div className="page-actions">
+                  <input id="profile-nickname" maxLength="50" autoFocus value={nickname} onChange={(event) => setNickname(event.target.value)} />
+                  <button className="btn" disabled={saving} type="submit">{saving ? '저장 중…' : '저장'}</button>
+                  <button className="btn ghost" disabled={saving} type="button" onClick={() => setEditing(false)}>취소</button>
+                </div>
+                <p className="hint">알밤메이트에서 표시되는 내 닉네임입니다.</p>
+              </form>
+            )}
+          </div>
+          <button className="menu-row" type="button" disabled={loggingOut} onClick={logout}>
+            <span className="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></svg></span>
+            <span className="menu-label">{loggingOut ? '로그아웃 중…' : '로그아웃'}</span>
+          </button>
+      </div>
     </>
   );
 }
@@ -1089,7 +1194,8 @@ function App() {
   const today = useSeoulToday();
   const [me, setMe] = useState(null);
   const [gameQuery, setGameQuery] = useState('');
-  const [peopleQuery, setPeopleQuery] = useState('');
+  const [roomQuery, setRoomQuery] = useState('');
+  const [roomType, setRoomType] = useState('');
   const [myTab, setMyTab] = useState('joined');
   const [createMode, setCreateMode] = useState('GAME_FOCUSED');
   const [createGame, setCreateGame] = useState(null);
@@ -1149,9 +1255,11 @@ function App() {
     showToast(messageForError(error, fallback), 'err');
   };
 
-  const handleGameSearch = () => {
-    setGameQuery((query) => query.trim());
-    if (route !== 'games') navigate('/games');
+  const handleBrowsePeople = () => setRoomType('PERSON_FOCUSED');
+
+  const handleSearchGame = (keyword) => {
+    setGameQuery(keyword);
+    navigate('/game-list');
   };
 
   const handleCreateGame = (game) => {
@@ -1311,20 +1419,20 @@ function App() {
   };
 
   let content;
-  if (route === 'games') content = <GamesView gameQuery={gameQuery} dataVersion={dataVersion} />;
-  else if (route === 'people') content = <PeopleView peopleQuery={peopleQuery} onPeopleQueryChange={setPeopleQuery} dataVersion={dataVersion} />;
+  if (route === 'find') content = <FindRoomsView roomType={roomType} onRoomTypeChange={setRoomType} roomQuery={roomQuery} onRoomQueryChange={setRoomQuery} dataVersion={dataVersion} />;
+  else if (route === 'game-list') content = <GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} />;
   else if (route === 'game') content = <GameDetailView gameId={arg} onCreateGame={handleCreateGame} dataVersion={dataVersion} />;
   else if (route === 'session') content = <SessionDetailView sessionId={arg} me={me} onApply={handleApply} onCancelApply={handleCancelApply} onHostCancel={handleHostCancel} onFinish={handleFinish} dataVersion={dataVersion} />;
   else if (route === 'create') content = me ? <CreateView createMode={createMode} onCreateModeChange={setCreateMode} initialGame={createGame} onCreate={handleCreate} today={today} /> : <LoginRequiredView message="모임을 만들려면 로그인해주세요." />;
   else if (route === 'edit') content = me ? <EditView sessionId={arg} onSave={handleSave} dataVersion={dataVersion} today={today} /> : <LoginRequiredView message="모임을 수정하려면 로그인해주세요." />;
-  else if (route === 'my') content = me ? <MyView myTab={myTab} onMyTabChange={setMyTab} dataVersion={dataVersion} /> : <LoginRequiredView message="내 모임을 보려면 로그인해주세요." />;
-  else if (route === 'profile') content = me ? <ProfileView me={me} onSave={handleSaveProfile} /> : <LoginRequiredView message="프로필을 보려면 로그인해주세요." />;
+  else if (route === 'my') content = me ? <MyRoomsSection myTab={myTab} onMyTabChange={setMyTab} dataVersion={dataVersion} /> : <LoginRequiredView message="내 모임을 보려면 로그인해주세요." />;
+  else if (route === 'profile') content = me ? <ProfileView me={me} onSave={handleSaveProfile} onLogout={handleLogout} /> : <LoginRequiredView message="마이페이지를 보려면 로그인해주세요." />;
   else if (route === 'auth') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <AuthView onLogin={handleLogin} onSignup={handleSignup} />;
-  else content = <HomeView dataVersion={dataVersion} />;
+  else content = <HomeView onBrowsePeople={handleBrowsePeople} onSearchGame={handleSearchGame} dataVersion={dataVersion} />;
 
   return (
     <>
-      <Header route={route} me={me} gameQuery={gameQuery} onGameQueryChange={setGameQuery} onSearch={handleGameSearch} onLogout={handleLogout} />
+      <Header route={route} me={me} />
       <main>{content}</main>
       <div id="toast" role="status" aria-live="polite" className={(toast.message ? 'show ' : '') + (toast.type === 'err' ? 'err' : '')}>{toast.message}</div>
     </>
