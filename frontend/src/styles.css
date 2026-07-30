@@ -84,7 +84,8 @@ main { margin: 0 auto; max-width: 1180px; padding: 28px 20px 84px; }
 .layout.wide { grid-template-columns: 1fr 320px; }
 .grid { display: grid; gap: 14px; }
 .cols2 { grid-template-columns: repeat(2, 1fr); }
-.cols3 { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+/* 게임 카드 열 수. 한 페이지가 24개이므로 24를 나누는 값만 쓴다. auto-fill을 쓰면 5열이 생겨 마지막 줄이 빈다. */
+.cols3 { grid-template-columns: repeat(6, 1fr); }
 section + section { margin-top: 32px; }
 h1 { font-size: 34px; letter-spacing: -0.02em; line-height: 1.22; text-wrap: balance; }
 h2 { align-items: center; display: flex; font-size: 20px; gap: 8px; margin-bottom: 14px; }
@@ -286,6 +287,18 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
   #toast, #toast.show { transform: translateX(-50%); }
 }
 
+@media (max-width: 1099px) {
+  .cols3 { grid-template-columns: repeat(4, 1fr); }
+}
+
+@media (max-width: 700px) {
+  .cols3 { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 560px) {
+  .cols3 { grid-template-columns: repeat(2, 1fr); }
+}
+
 @media (max-width: 940px) {
   .layout, .layout.wide { grid-template-columns: 1fr; }
   .dual, .detail-head { flex-direction: column; }
@@ -295,8 +308,6 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 
 @media (max-width: 560px) {
   .cols2, .formrow { grid-template-columns: 1fr; }
-  /* 게임 카드는 좁은 화면에서도 두 열을 유지해 카드가 과하게 길어지지 않게 한다. */
-  .cols3 { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
   main { padding: 28px 16px 56px; }
   .hwrap { gap: 12px; padding: 10px 16px; }
   /* 로고만 남은 헤더에서도 메뉴는 오른쪽 끝에 둔다. */
