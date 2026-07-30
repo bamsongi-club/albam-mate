@@ -86,7 +86,7 @@ test('정상 실행 결과는 세 snapshot과 승인 명령을 대조해 통과�
     assert.deepEqual(validateBackendTestResult(result(), schema, expected()), []);
 });
 
-test('공통 snapshot CLI는 staged, unstaged, 정렬된 untracked bytes hash의 canonical seed를 출력한다', (t) => {
+test('공통 snapshot CLI는 staged, unstaged, 정렬된 untracked mode와 bytes hash의 canonical seed를 출력한다', (t) => {
     const worktree = fs.mkdtempSync(path.join(os.tmpdir(), 'backend-snapshot-'));
     t.after(() => fs.rmSync(worktree, { recursive: true, force: true }));
     git(worktree, ['init', '-q']);
@@ -107,6 +107,7 @@ test('공통 snapshot CLI는 staged, unstaged, 정렬된 untracked bytes hash의
     const unstagedBinaryDiffHash = sha256(git(worktree, ['diff', '--binary'], 'buffer'));
     const untrackedFiles = ['a-untracked.txt', 'z-untracked.txt'].map((relativePath) => ({
         path: relativePath,
+        mode: '100644',
         sha256: createHash('sha256').update(fs.readFileSync(path.join(worktree, relativePath))).digest('hex'),
     }));
     const canonicalSeed = { stagedBinaryDiffHash, unstagedBinaryDiffHash, untrackedFiles };
@@ -121,6 +122,79 @@ test('공통 snapshot CLI는 staged, unstaged, 정렬된 untracked bytes hash의
     const cli = spawnSync(process.execPath, [scriptPath, '--snapshot', worktree], { encoding: 'utf8' });
     assert.equal(cli.status, 0, cli.stderr);
     assert.deepEqual(JSON.parse(cli.stdout), expectedSnapshot);
+});
+
+test('untracked mode와 symlink target은 같은 파일 bytes와 구분되어 snapshot에 반영된다', (t) => {
+    const worktree = fs.mkdtempSync(path.join(os.tmpdir(), 'backend-snapshot-mode-'));
+    t.after(() => fs.rmSync(worktree, { recursive: true, force: true }));
+    git(worktree, ['init', '-q']);
+    git(worktree, ['config', 'core.autocrlf', 'false']);
+    git(worktree, ['config', 'user.email', 'tester@example.com']);
+    git(worktree, ['config', 'user.name', 'Backend Tester']);
+    fs.writeFileSync(path.join(worktree, 'baseline.txt'), 'baseline\n', 'utf8');
+    git(worktree, ['add', 'baseline.txt']);
+    git(worktree, ['commit', '-qm', 'baseline']);
+
+    const regularPath = path.join(worktree, 'regular.txt');
+    const symlinkPath = path.join(worktree, 'link.txt');
+    fs.writeFileSync(regularPath, 'same bytes\n', 'utf8');
+    fs.writeFileSync(symlinkPath, 'same bytes\n', 'utf8');
+
+    const originalLstatSync = fs.lstatSync;
+    const originalReadlinkSync = fs.readlinkSync;
+    t.after(() => {
+        fs.lstatSync = originalLstatSync;
+        fs.readlinkSync = originalReadlinkSync;
+    });
+    let linkIsSymbolic = true;
+    let regularExecutable = false;
+    fs.lstatSync = (filePath, options) => {
+        const stats = originalLstatSync(filePath, options);
+        if (path.resolve(filePath) === symlinkPath && linkIsSymbolic) {
+            return {
+                mode: stats.mode,
+                isFile: () => false,
+                isSymbolicLink: () => true,
+            };
+        }
+        if (path.resolve(filePath) !== regularPath) return stats;
+        return {
+            mode: stats.mode | (regularExecutable ? 0o111 : 0),
+            isFile: () => true,
+            isSymbolicLink: () => false,
+        };
+    };
+    fs.readlinkSync = (filePath, options) => {
+        if (path.resolve(filePath) === symlinkPath) return 'same bytes\n';
+        return originalReadlinkSync(filePath, options);
+    };
+
+    const initial = computeWorktreeSnapshot(worktree);
+    assert.deepEqual(initial.canonicalSeed.untrackedFiles, [
+        {
+            path: 'link.txt',
+            mode: '120000',
+            sha256: sha256(Buffer.from('same bytes\n', 'utf8')),
+        },
+        {
+            path: 'regular.txt',
+            mode: '100644',
+            sha256: sha256(Buffer.from('same bytes\n', 'utf8')),
+        },
+    ]);
+
+    linkIsSymbolic = false;
+    const regularLink = computeWorktreeSnapshot(worktree);
+    assert.equal(regularLink.canonicalSeed.untrackedFiles[0].mode, '100644');
+    assert.equal(regularLink.canonicalSeed.untrackedFiles[0].sha256, initial.canonicalSeed.untrackedFiles[0].sha256);
+    assert.notEqual(regularLink.implementationDiffHash, initial.implementationDiffHash);
+
+    linkIsSymbolic = true;
+    regularExecutable = true;
+    const executable = computeWorktreeSnapshot(worktree);
+    assert.equal(executable.canonicalSeed.untrackedFiles[1].mode, '100755');
+    assert.equal(executable.canonicalSeed.untrackedFiles[1].sha256, initial.canonicalSeed.untrackedFiles[1].sha256);
+    assert.notEqual(executable.implementationDiffHash, initial.implementationDiffHash);
 });
 
 test('non-zero 명령은 관련 T-ID와 종합 fail이어야 한다', () => {

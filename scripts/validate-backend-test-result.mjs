@@ -31,6 +31,27 @@ function gitBytes(worktree, args) {
     });
 }
 
+function snapshotUntrackedFile(root, relativePath) {
+    const filePath = path.join(root, relativePath);
+    const stats = fs.lstatSync(filePath);
+    if (stats.isSymbolicLink()) {
+        const target = fs.readlinkSync(filePath, 'utf8');
+        return {
+            path: relativePath,
+            mode: '120000',
+            sha256: sha256(Buffer.from(target, 'utf8')),
+        };
+    }
+    if (!stats.isFile()) {
+        throw new Error(`지원하지 않는 untracked 항목입니다: ${relativePath}`);
+    }
+    return {
+        path: relativePath,
+        mode: (stats.mode & 0o111) === 0 ? '100644' : '100755',
+        sha256: sha256(fs.readFileSync(filePath)),
+    };
+}
+
 export function computeWorktreeSnapshot(worktree = process.cwd()) {
     const root = path.resolve(worktree);
     const baseCommit = gitBytes(root, ['rev-parse', 'HEAD']).toString('utf8').trim();
@@ -41,10 +62,7 @@ export function computeWorktreeSnapshot(worktree = process.cwd()) {
         .split('\0')
         .filter(Boolean)
         .sort()
-        .map((relativePath) => ({
-            path: relativePath,
-            sha256: sha256(fs.readFileSync(path.join(root, relativePath))),
-        }));
+        .map((relativePath) => snapshotUntrackedFile(root, relativePath));
     const trackedSeed = { stagedBinaryDiffHash, unstagedBinaryDiffHash };
     const implementationSeed = { ...trackedSeed, untrackedFiles };
     return {
