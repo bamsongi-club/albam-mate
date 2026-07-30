@@ -18,9 +18,9 @@ const GAME_LIST_PAGE_SIZE = 24;
 const ROOM_LIST_PAGE_SIZE = 12;
 const GAME_SEARCH_DEBOUNCE_MS = 250;
 const ROOM_TYPE_FILTERS = [
-  { value: '', label: '전체' },
-  { value: 'GAME_FOCUSED', label: '게임 중심' },
-  { value: 'PERSON_FOCUSED', label: '사람 중심' }
+  { value: '', label: '전체', short: '전체' },
+  { value: 'GAME_FOCUSED', label: '게임 중심', short: '게임' },
+  { value: 'PERSON_FOCUSED', label: '사람 중심', short: '사람' }
 ];
 
 function zeroPad(value) {
@@ -477,9 +477,32 @@ function HomeView({ onBrowsePeople, onSearchGame, dataVersion }) {
   );
 }
 
+// 유형 필터에 붙일 개수. 방 유형은 두 가지뿐이라 전체는 둘의 합으로 구한다.
+function useRoomTypeCounts(keyword, dataVersion) {
+  const [counts, setCounts] = useState(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+    Promise.all([
+      api.getRooms({ type: 'GAME_FOCUSED', keyword, page: 0, size: 1 }, controller.signal),
+      api.getRooms({ type: 'PERSON_FOCUSED', keyword, page: 0, size: 1 }, controller.signal)
+    ])
+      .then(([game, person]) => {
+        if (!active) return;
+        const gameCount = game?.totalElements ?? 0;
+        const personCount = person?.totalElements ?? 0;
+        setCounts({ '': gameCount + personCount, GAME_FOCUSED: gameCount, PERSON_FOCUSED: personCount });
+      })
+      .catch(() => { if (active) setCounts(null); });
+    return () => { active = false; controller.abort(); };
+  }, [keyword, dataVersion]);
+  return counts;
+}
+
 function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChange, dataVersion }) {
   const [input, setInput] = useState(roomQuery);
   const keyword = roomQuery.trim();
+  const counts = useRoomTypeCounts(keyword, dataVersion);
   const { data, loading, error, setPage } = usePaginatedRequest(
     // 유형을 비우면 두 유형의 공개 방을 함께 받는다.
     (page, signal) => api.getRooms({ type: roomType, keyword, page, size: ROOM_LIST_PAGE_SIZE }, signal),
@@ -493,7 +516,7 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
       <div className="tabs-row">
         <div className="tabs" role="group" aria-label="모임 유형">
           {ROOM_TYPE_FILTERS.map((filter) => (
-            <button type="button" key={filter.label} className={roomType === filter.value ? 'on' : ''} aria-pressed={roomType === filter.value} onClick={() => onRoomTypeChange(filter.value)}>{filter.label}</button>
+            <button type="button" key={filter.label} className={roomType === filter.value ? 'on' : ''} aria-pressed={roomType === filter.value} onClick={() => onRoomTypeChange(filter.value)}><span className="tab-full">{filter.label}{counts ? ' (' + counts[filter.value] + ')' : ''}</span><span className="tab-short">{filter.short}{counts ? ' ' + counts[filter.value] : ''}</span></button>
           ))}
         </div>
         <form className="inline-search" onSubmit={(event) => { event.preventDefault(); onRoomQueryChange(input.trim()); }}>
@@ -501,6 +524,7 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
           <input id="room-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="모임 제목으로 검색" />
           <button type="submit" aria-label="검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.65" y2="16.65" /></svg></button>
         </form>
+        <a className="btn ghost" href="#/create">✏️ 모임 만들기</a>
       </div>
       <p className="hint" style={{ marginTop: -10, marginBottom: 15 }}>모임 제목의 부분 일치 검색만 제공해요.</p>
       {error && <ErrorBox message={error} />}
