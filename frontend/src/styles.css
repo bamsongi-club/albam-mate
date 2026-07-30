@@ -34,6 +34,9 @@ body {
   color: var(--ink);
   font-family: 'Pretendard', -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
   line-height: 1.55;
+  /* 한국어는 글자 단위로 끊지 않고 어절 단위로 끊는다. 띄어쓰기 없이 긴 문자열만 강제로 넘긴다. */
+  overflow-wrap: break-word;
+  word-break: keep-all;
 }
 
 a { color: inherit; text-decoration: none; }
@@ -74,13 +77,11 @@ header {
 .searchbox input { background: transparent; border: 0; padding: 9px 16px; }
 .searchbox button { align-items: center; color: var(--sub); display: flex; flex: 0 0 auto; justify-content: center; padding: 0 14px; }
 .searchbox button:hover { color: var(--accent); }
-#gnb { align-items: center; display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
+#gnb { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 #gnb a { border-radius: 10px; color: var(--brown2); font-size: 14px; font-weight: 800; padding: 8px 12px; }
 #gnb a:hover, #gnb a.on { background: var(--soft); color: var(--brown); }
-#gnb .profile-chip { background: #fff; border: 1px solid var(--line); border-radius: 999px; }
-.nav-logout { background: transparent; border: 0; color: var(--sub); cursor: pointer; font-size: 12px; font-weight: 800; padding: 10px 0 8px 8px; }
-.nav-logout:hover { color: var(--ink); }
-.nav-logout:disabled { cursor: wait; opacity: 0.65; }
+/* 메뉴와 성격이 다른 계정 진입점이라 앞쪽을 한 칸 더 띄운다. */
+#gnb .profile-icon { align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 999px; display: inline-flex; justify-content: center; margin-left: 8px; padding: 8px; }
 
 main { margin: 0 auto; max-width: 1180px; padding: 28px 20px 84px; }
 .layout { align-items: start; display: grid; gap: 22px; grid-template-columns: 225px 1fr; }
@@ -93,6 +94,8 @@ h1 { font-size: 30px; line-height: 1.25; }
 h2 { align-items: center; display: flex; font-size: 20px; gap: 8px; margin-bottom: 14px; }
 h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .h2-ico { flex: 0 0 auto; line-height: 1; }
+.tabs-row { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.tabs-row .tabs { margin-bottom: 0; }
 .pagination { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 26px; }
 .pagination .page-btn { align-items: center; background: #fff; border: 1.5px solid var(--line); border-radius: 10px; color: var(--brown2); display: inline-flex; font-size: 13px; font-weight: 800; justify-content: center; min-width: 38px; padding: 8px 11px; }
 .pagination .page-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-dark); }
@@ -135,6 +138,21 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .infobox.amber { background: var(--amber-soft); }
 .infobox.red { background: var(--red-soft); color: var(--red); }
 .infobox.gray { background: var(--gray-soft); color: var(--gray); }
+.profile-head { align-items: center; display: flex; gap: 14px; margin-bottom: 30px; }
+.profile-head h2 { margin-bottom: 0; }
+.profile-avatar { align-items: center; background: var(--soft); border-radius: 999px; color: var(--brown); display: inline-flex; flex: 0 0 auto; font-size: 24px; font-weight: 900; height: 56px; justify-content: center; width: 56px; }
+.menu-list { overflow: hidden; padding: 0; }
+.menu-list > * + * { border-top: 1px solid var(--line); }
+.menu-row { align-items: center; display: flex; gap: 14px; min-height: 56px; padding: 14px 18px; text-align: left; width: 100%; }
+.menu-row:hover { background: var(--soft); }
+.menu-row:disabled { cursor: wait; opacity: 0.65; }
+.menu-icon { color: var(--sub); display: inline-flex; flex: 0 0 auto; }
+.menu-label { flex: 1; font-size: 15px; font-weight: 700; }
+.menu-arrow { color: var(--gray); flex: 0 0 auto; font-size: 17px; line-height: 1; }
+.menu-panel { border-top: 1px solid var(--line); padding: 16px 18px; }
+.menu-panel input { flex: 1; min-width: 140px; }
+.infobox-action { color: var(--accent-dark); font-weight: 800; }
+.infobox-action:hover { text-decoration: underline; }
 .banner { border-radius: 12px; font-size: 14px; font-weight: 800; margin-bottom: 16px; padding: 11px 16px; }
 .banner.green { background: var(--green-soft); color: var(--green); }
 .banner.amber { background: var(--amber-soft); color: var(--amber); }
@@ -258,6 +276,13 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 #toast.err { background: var(--red); }
 
+/* 동작 감소를 켠 사용자에게는 위치가 움직이는 효과를 주지 않는다. 색 변화는 남긴다. */
+@media (prefers-reduced-motion: reduce) {
+  .entry, .btn, .gcard, .scard, .modecard, #toast { transition-duration: 0.01ms; }
+  .entry:hover, .gcard:hover, .scard:hover, .btn:active, .modecard:active { transform: none; }
+  #toast, #toast.show { transform: translateX(-50%); }
+}
+
 @media (max-width: 940px) {
   .layout, .layout.wide { grid-template-columns: 1fr; }
   .cols3 { grid-template-columns: repeat(2, 1fr); }
@@ -273,9 +298,20 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
   .searchbox { max-width: none; order: 3; width: 100%; }
   #gnb { margin-left: 0; order: 2; }
   #gnb a { padding-left: 7px; padding-right: 7px; }
-  #gnb .profile-chip { margin-left: 4px; padding-left: 10px; }
+  #gnb .profile-icon { margin-left: 4px; min-width: 44px; }
+  .brand-wordmark { display: none; }
   .inline-search { flex-direction: column; }
   .inline-search .btn { width: 100%; }
+  /* 이 폭에서는 탭과 버튼이 한 줄에 못 들어가므로, 내려간 버튼을 탭 줄 오른쪽 끝에 붙인다. */
+  .tabs-row .btn { margin-left: auto; }
+  /* iOS Safari는 16px 미만 입력에 포커스하면 페이지를 강제로 확대한다. */
+  input, select, textarea { font-size: 16px; }
+  /* 손가락 탭 기준 44px에 맞춘다. 데스크톱 밀도를 바꾸지 않도록 좁은 화면에만 적용한다. */
+  #gnb a, .game-search-open, .tabs button { align-items: center; display: inline-flex; justify-content: center; min-height: 44px; }
+  .page-btn, select, .searchbox input, .searchbox button, .date-picker-trigger { min-height: 44px; }
+  .pagination { gap: 8px; }
+  .checkline { min-height: 44px; }
+  .checkline input { height: 20px; width: 20px; }
   .date-picker-popover { width: min(340px, calc(100vw - 40px)); }
   .game-picker-backdrop { align-items: end; padding: 0; }
   .game-picker { border-bottom-left-radius: 0; border-bottom-right-radius: 0; max-height: 88vh; }

@@ -308,17 +308,8 @@ function gameMeta(game) {
   return [game.players, game.time, game.complexity ? '난이도 ' + game.complexity : ''].filter(Boolean).join(' · ');
 }
 
-function Header({ route, me, gameQuery, onGameQueryChange, onSearch, onLogout }) {
-  const [loggingOut, setLoggingOut] = useState(false);
-  const rootRoute = { find: 'find', games: 'find', game: 'find', people: 'find', 'game-list': 'game-list', create: 'create', edit: 'my', my: 'my', profile: 'profile', auth: 'auth' };
-  const logout = async () => {
-    setLoggingOut(true);
-    try {
-      await onLogout();
-    } finally {
-      setLoggingOut(false);
-    }
-  };
+function Header({ route, me, gameQuery, onGameQueryChange, onSearch }) {
+  const rootRoute = { find: 'find', games: 'find', game: 'find', people: 'find', 'game-list': 'game-list', create: 'profile', edit: 'profile', my: 'profile', profile: 'profile', auth: 'auth' };
   return (
     <header>
       <div className="hwrap">
@@ -331,12 +322,10 @@ function Header({ route, me, gameQuery, onGameQueryChange, onSearch, onLogout })
           <button type="submit" aria-label="게임 검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.65" y2="16.65" /></svg></button>
         </form>
         <nav id="gnb" aria-label="주요 메뉴">
-          <a href="#/find" className={rootRoute[route] === 'find' ? 'on' : ''}>모임 찾기</a>
           <a href="#/game-list" className={rootRoute[route] === 'game-list' ? 'on' : ''}>게임 찾기</a>
-          <a href="#/create" className={rootRoute[route] === 'create' ? 'on' : ''}>모임 만들기</a>
-          <a href="#/my" className={rootRoute[route] === 'my' ? 'on' : ''}>내 모임</a>
+          <a href="#/find" className={rootRoute[route] === 'find' ? 'on' : ''}>모임 찾기</a>
           {me
-            ? <><a href="#/profile" className={'profile-chip ' + (rootRoute[route] === 'profile' ? 'on' : '')}>{me.nickname}</a><button className="nav-logout" type="button" disabled={loggingOut} onClick={logout}>{loggingOut ? '로그아웃 중…' : '로그아웃'}</button></>
+            ? <a href="#/profile" className={'profile-icon ' + (rootRoute[route] === 'profile' ? 'on' : '')} aria-label={me.nickname + ' 프로필'}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></svg></a>
             : <a href="#/auth" className={rootRoute[route] === 'auth' ? 'on' : ''}>로그인</a>}
         </nav>
       </div>
@@ -988,7 +977,7 @@ function EditView({ sessionId, onSave, dataVersion, today }) {
   return <EditSessionForm key={data.id} room={data} onSave={onSave} today={today} />;
 }
 
-function MyView({ myTab, onMyTabChange, dataVersion }) {
+function MyRoomsSection({ myTab, onMyTabChange, dataVersion }) {
   const joined = usePaginatedRequest(
     (page, signal) => api.getMyRooms({ role: 'joined', page, size: ROOM_LIST_PAGE_SIZE }, signal),
     [dataVersion]
@@ -1003,38 +992,84 @@ function MyView({ myTab, onMyTabChange, dataVersion }) {
   return (
     <>
       <h2><span className="h2-ico">🗂️</span>내 모임</h2>
-      <div className="tabs"><button type="button" className={tab === 'joined' ? 'on' : ''} onClick={() => onMyTabChange('joined')}>참가한 모임 ({joined.data?.totalElements ?? '—'})</button><button type="button" className={tab === 'hosted' ? 'on' : ''} onClick={() => onMyTabChange('hosted')}>개설한 모임 ({hosted.data?.totalElements ?? '—'})</button></div>
+      <div className="tabs-row">
+        <div className="tabs"><button type="button" className={tab === 'joined' ? 'on' : ''} onClick={() => onMyTabChange('joined')}>참가한 모임 ({joined.data?.totalElements ?? '—'})</button><button type="button" className={tab === 'hosted' ? 'on' : ''} onClick={() => onMyTabChange('hosted')}>개설한 모임 ({hosted.data?.totalElements ?? '—'})</button></div>
+        <a className="btn ghost" href="#/create">✏️ 모임 만들기</a>
+      </div>
       {page.error && <ErrorBox message={page.error} />}
       {!page.error && page.loading && !page.data && <LoadingBox />}
       {!page.error && !!list.length && <div className="grid cols2">{list.map((room) => <SessionCard key={room.id} room={room} />)}</div>}
-      {!page.error && !page.loading && !list.length && <div className="infobox">{tab === 'joined' ? '아직 참가한 모임이 없어요.' : '아직 개설한 모임이 없어요.'}</div>}
+      {!page.error && !page.loading && !list.length && (
+        <div className="infobox">
+          {tab === 'joined'
+            ? <>아직 참가한 모임이 없어요. <a className="infobox-action" href="#/find">모임 찾아보기 →</a></>
+            : '아직 개설한 모임이 없어요. 위 버튼으로 첫 모임을 열어보세요.'}
+        </div>
+      )}
       {!page.error && !!list.length && <Pagination page={page.data?.page ?? 0} totalPages={page.data?.totalPages ?? 0} loading={page.loading} onChange={page.setPage} />}
-      <p className="hint" style={{ marginTop: 14 }}>카드는 공개 모임 정보만 표시하고, 정확한 장소와 참가자 목록은 모임 상세에서 권한에 따라 확인할 수 있어요.</p>
+      {!page.error && !!list.length && <p className="hint" style={{ marginTop: 14 }}>카드는 공개 모임 정보만 표시하고, 정확한 장소와 참가자 목록은 모임 상세에서 권한에 따라 확인할 수 있어요.</p>}
     </>
   );
 }
 
-function ProfileView({ me, onSave }) {
+function ProfileView({ me, onSave, onLogout }) {
   const [nickname, setNickname] = useState(me.nickname);
+  const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   useEffect(() => setNickname(me.nickname), [me.nickname]);
+  const logout = async () => {
+    setLoggingOut(true);
+    try {
+      await onLogout();
+    } finally {
+      setLoggingOut(false);
+    }
+  };
   const submit = async (event) => {
     event.preventDefault();
     setSaving(true);
     try {
-      await onSave(nickname);
+      if (await onSave(nickname)) setEditing(false);
     } finally {
       setSaving(false);
     }
   };
   return (
     <>
-      <h2><span className="h2-ico">🙂</span>내 프로필</h2>
-      <form className="card" style={{ maxWidth: 560 }} onSubmit={submit}>
-        <p className="hint" style={{ margin: '0 0 12px' }}>알밤메이트에서 표시되는 내 닉네임입니다.</p>
-        <label htmlFor="profile-nickname">닉네임</label>
-        <div className="page-actions"><input id="profile-nickname" maxLength="50" value={nickname} onChange={(event) => setNickname(event.target.value)} /><button className="btn" disabled={saving} type="submit">{saving ? '저장 중…' : '저장'}</button></div>
-      </form>
+      <div className="profile-head">
+        <span className="profile-avatar" aria-hidden="true">{me.nickname.slice(0, 1)}</span>
+        <h2>{me.nickname}</h2>
+      </div>
+      <div className="card menu-list" style={{ maxWidth: 560 }}>
+          <a className="menu-row" href="#/my">
+            <span className="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3.5 6h.01" /><path d="M3.5 12h.01" /><path d="M3.5 18h.01" /></svg></span>
+            <span className="menu-label">내 모임</span>
+            <span className="menu-arrow" aria-hidden="true">›</span>
+          </a>
+          <div>
+            <button className="menu-row" type="button" aria-expanded={editing} onClick={() => { setNickname(me.nickname); setEditing(!editing); }}>
+              <span className="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></svg></span>
+              <span className="menu-label">내 정보</span>
+              <span className="menu-arrow" aria-hidden="true">{editing ? '▾' : '›'}</span>
+            </button>
+            {editing && (
+              <form className="menu-panel" onSubmit={submit}>
+                <label htmlFor="profile-nickname">닉네임</label>
+                <div className="page-actions">
+                  <input id="profile-nickname" maxLength="50" autoFocus value={nickname} onChange={(event) => setNickname(event.target.value)} />
+                  <button className="btn" disabled={saving} type="submit">{saving ? '저장 중…' : '저장'}</button>
+                  <button className="btn ghost" disabled={saving} type="button" onClick={() => setEditing(false)}>취소</button>
+                </div>
+                <p className="hint">알밤메이트에서 표시되는 내 닉네임입니다.</p>
+              </form>
+            )}
+          </div>
+          <button className="menu-row" type="button" disabled={loggingOut} onClick={logout}>
+            <span className="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></svg></span>
+            <span className="menu-label">{loggingOut ? '로그아웃 중…' : '로그아웃'}</span>
+          </button>
+      </div>
     </>
   );
 }
@@ -1319,14 +1354,14 @@ function App() {
   else if (route === 'session') content = <SessionDetailView sessionId={arg} me={me} onApply={handleApply} onCancelApply={handleCancelApply} onHostCancel={handleHostCancel} onFinish={handleFinish} dataVersion={dataVersion} />;
   else if (route === 'create') content = me ? <CreateView createMode={createMode} onCreateModeChange={setCreateMode} initialGame={createGame} onCreate={handleCreate} today={today} /> : <LoginRequiredView message="모임을 만들려면 로그인해주세요." />;
   else if (route === 'edit') content = me ? <EditView sessionId={arg} onSave={handleSave} dataVersion={dataVersion} today={today} /> : <LoginRequiredView message="모임을 수정하려면 로그인해주세요." />;
-  else if (route === 'my') content = me ? <MyView myTab={myTab} onMyTabChange={setMyTab} dataVersion={dataVersion} /> : <LoginRequiredView message="내 모임을 보려면 로그인해주세요." />;
-  else if (route === 'profile') content = me ? <ProfileView me={me} onSave={handleSaveProfile} /> : <LoginRequiredView message="프로필을 보려면 로그인해주세요." />;
+  else if (route === 'my') content = me ? <MyRoomsSection myTab={myTab} onMyTabChange={setMyTab} dataVersion={dataVersion} /> : <LoginRequiredView message="내 모임을 보려면 로그인해주세요." />;
+  else if (route === 'profile') content = me ? <ProfileView me={me} onSave={handleSaveProfile} onLogout={handleLogout} /> : <LoginRequiredView message="마이페이지를 보려면 로그인해주세요." />;
   else if (route === 'auth') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <AuthView onLogin={handleLogin} onSignup={handleSignup} />;
   else content = <FindRoomsView dataVersion={dataVersion} />;
 
   return (
     <>
-      <Header route={route} me={me} gameQuery={gameQuery} onGameQueryChange={setGameQuery} onSearch={handleGameSearch} onLogout={handleLogout} />
+      <Header route={route} me={me} gameQuery={gameQuery} onGameQueryChange={setGameQuery} onSearch={handleGameSearch} />
       <main>{content}</main>
       <div id="toast" role="status" aria-live="polite" className={(toast.message ? 'show ' : '') + (toast.type === 'err' ? 'err' : '')}>{toast.message}</div>
     </>
