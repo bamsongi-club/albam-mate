@@ -60,6 +60,14 @@ Albam Mate 백엔드는 하나의 Gradle 프로젝트와 하나의 Spring Boot �
 ## 검증
 
 - 상태: 검증됨
-- 근거: [PR #83](https://github.com/bamsongi-club/albam-mate/pull/83)에서 ArchUnit 기반 구조 테스트를 추가해 업무 모듈의 순환 의존, 다른 모듈 내부 구현 참조와 허용되지 않은 의존 방향을 검증했으며 CI가 통과했다.
+- 근거:
+    - 테스트:
+        - [PR #83](https://github.com/bamsongi-club/albam-mate/pull/83)에서 추가한 ArchUnit 기반 구조 테스트가 업무 모듈의 순환 의존을 검증했다.
+        - [PR #83](https://github.com/bamsongi-club/albam-mate/pull/83)에서 추가한 ArchUnit 기반 구조 테스트가 다른 모듈 내부 구현 참조를 검증했다.
+        - [PR #83](https://github.com/bamsongi-club/albam-mate/pull/83)에서 추가한 ArchUnit 기반 구조 테스트가 허용되지 않은 의존 방향을 검증했다.
+    - CI:
+        - [PR #83](https://github.com/bamsongi-club/albam-mate/pull/83)의 CI가 통과했다.
+- 미검증:
+    - 없음
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

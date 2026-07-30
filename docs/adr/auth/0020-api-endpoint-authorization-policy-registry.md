@@ -56,9 +56,14 @@ Spring Security의 인증 필터는 Spring MVC(요청을 실제 컨트롤러 코
 
 ## 보류 및 재검토
 
-- 지금 하지 않는 것: 미매핑 `/api/**` 요청을 런타임에서 일괄 인증 또는 거부하는 정책, Spring MVC 인터셉터를 이용한 별도 인증·인가 계층
+- 지금 하지 않는 것:
+  - 미매핑 `/api/**` 요청을 런타임에서 일괄 인증 또는 거부하는 정책
+  - Spring MVC 인터셉터를 이용한 별도 인증·인가 계층
 - 보류 이유: 전자는 현재 `404`·`405` 오류 계약을 바꾸고, 후자는 ADR-0003이 Spring Security에 모은 인증·인가 경계를 두 계층으로 나눈다.
-- 다시 검토할 조건: CI를 거치지 않는 배포 경로가 생길 때, 동적 런타임 핸들러처럼 빌드 시점에 수집할 수 없는 API를 도입할 때, 미매핑 요청의 오류 계약보다 런타임 기본 거부를 우선하기로 API 계약을 변경할 때
+- 다시 검토할 조건:
+  - CI를 거치지 않는 배포 경로가 생길 때
+  - 동적 런타임 핸들러처럼 빌드 시점에 수집할 수 없는 API를 도입할 때
+  - 미매핑 요청의 오류 계약보다 런타임 기본 거부를 우선하기로 API 계약을 변경할 때
 
 ## 참고 자료
 
@@ -68,6 +73,23 @@ Spring Security의 인증 필터는 Spring MVC(요청을 실제 컨트롤러 코
 ## 검증
 
 - 상태: 검증됨
-- 근거: `ApiEndpointPolicyRegistry`가 현재 구현된 `/api/**` 엔드포인트의 메서드·경로·인증 모드·CSRF 요구를 한 목록에 두고, `SecurityConfig`의 공개·보호·CSRF matcher가 이 등록부를 공통 입력으로 사용한다. `ApiEndpointPolicyRegistryTest`는 Spring MVC의 `RequestMappingHandlerMapping`에서 애플리케이션 `/api/**` 핸들러를 수집해 등록부와 정확히 일치하는지 대조하고, 미등록 MVC 엔드포인트·고아 정책·중복 정책·CSRF 누락 정책과 HTTP 메서드가 없는 매핑의 대조 우회를 각각 실패로 만드는 통제 테스트를 포함한다. `GET`이 제공하는 `HEAD`에도 원래 정책을 적용한다. `SecurityConfigTest`는 미매핑 `404`와 미지원 메서드 `405` 계약이 유지되는지 확인하며, CI의 `build`가 이 테스트를 실행한다.
+- 근거:
+    - 구현:
+        - `ApiEndpointPolicyRegistry`가 현재 구현된 `/api/**` 엔드포인트의 메서드·경로·인증 모드·CSRF 요구를 한 목록에 둔다.
+        - `SecurityConfig`의 공개·보호·CSRF matcher가 이 등록부를 공통 입력으로 사용한다.
+        - `GET`이 제공하는 `HEAD`에도 원래 정책을 적용한다.
+    - 테스트:
+        - `ApiEndpointPolicyRegistryTest`는 Spring MVC의 `RequestMappingHandlerMapping`에서 애플리케이션 `/api/**` 핸들러를 수집해 등록부와 정확히 일치하는지 대조한다.
+        - `ApiEndpointPolicyRegistryTest`는 미등록 MVC 엔드포인트를 실패로 만드는 통제 테스트를 포함한다.
+        - `ApiEndpointPolicyRegistryTest`는 고아 정책을 실패로 만드는 통제 테스트를 포함한다.
+        - `ApiEndpointPolicyRegistryTest`는 중복 정책을 실패로 만드는 통제 테스트를 포함한다.
+        - `ApiEndpointPolicyRegistryTest`는 CSRF 누락 정책을 실패로 만드는 통제 테스트를 포함한다.
+        - `ApiEndpointPolicyRegistryTest`는 HTTP 메서드가 없는 매핑의 대조 우회를 실패로 만드는 통제 테스트를 포함한다.
+        - `SecurityConfigTest`는 미매핑 `404` 계약이 유지되는지 확인한다.
+        - `SecurityConfigTest`는 미지원 메서드 `405` 계약이 유지되는지 확인한다.
+    - CI:
+        - `build`가 이 테스트를 실행한다.
+- 미검증:
+    - 없음
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

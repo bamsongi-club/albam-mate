@@ -53,7 +53,10 @@ P0의 수정 API 세 개는 모두 `PATCH`를 사용한다. 엔드포인트별 �
 
 - 지금 하지 않는 것: JSON Patch(RFC 6902)나 JSON Merge Patch 같은 표준 패치 형식 도입, `ETag`·`If-Match` 기반 조건부 요청
 - 보류 이유: P0의 수정 필드 수가 적어 일반 JSON 본문의 부분 수정으로 충분하고, 동시 수정 충돌은 낙관적 잠금으로 이미 다루고 있다.
-- 다시 검토할 조건: 클라이언트가 리소스 표현 전체를 소유하고 통째로 올리는 API가 생길 때, 네트워크가 불안정한 클라이언트에서 안전한 재시도가 요구될 때, 수정 필드가 많아져 부분 수정 본문만으로 의도를 표현하기 어려워질 때
+- 다시 검토할 조건:
+  - 클라이언트가 리소스 표현 전체를 소유하고 통째로 올리는 API가 생길 때
+  - 네트워크가 불안정한 클라이언트에서 안전한 재시도가 요구될 때
+  - 수정 필드가 많아져 부분 수정 본문만으로 의도를 표현하기 어려워질 때
 
 ## 참고 자료
 
@@ -63,6 +66,17 @@ P0의 수정 API 세 개는 모두 `PATCH`를 사용한다. 엔드포인트별 �
 ## 검증
 
 - 상태: 미검증
-- 근거: 세 엔드포인트 중 둘은 이 결정대로 구현했다. `ProfileController`의 `PATCH /api/users/me`와 `RoomController`의 `PATCH /api/rooms/{roomId}`가 `@PatchMapping`을 사용하고, `ApiEndpointPolicyRegistry`가 두 경로를 `PATCH`로 등록해 `ApiEndpointPolicyRegistryTest`가 MVC 매핑과 대조한다. 남은 `PATCH /api/rooms/{roomId}/status`(방 종료)는 아직 구현하지 않았으므로 ROOM-05 구현 PR에서 컨트롤러와 CSRF·인가 대상 메서드 테스트를 연결한 뒤 상태를 갱신한다.
+- 근거:
+    - 구현:
+        - ADR-0022가 이 결정을 대체하기 전 검증 기록 작성 당시에는 `PATCH /api/users/me`와 `PATCH /api/rooms/{roomId}`만 구현돼 이 결정을 검증하지 못했다.
+        - 현재는 `PATCH /api/rooms/{roomId}/status`도 있다.
+    - 계약:
+        - 이미 `FINISHED`인 방의 무변경 성공은 반복 요청을 실패로 본 계약을 대체한 ADR-0022의 결정이다.
+    - 테스트:
+        - 현재는 `ApiEndpointPolicyRegistryTest`의 보안 정책 검증도 있다.
+        - 현재는 `ApiEndpointPolicyRegistryTest`의 MVC 매핑 검증도 있다.
+        - `RoomStatusChangeExecutorIntegrationTest`가 이미 `FINISHED`인 방의 무변경 성공을 확인한다.
+- 미검증:
+    - 따라서 현재 종료 API 구현은 이 ADR을 소급해 검증하지 않는다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

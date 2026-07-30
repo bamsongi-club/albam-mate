@@ -14,6 +14,6 @@ developer_instructions = """
 - 보안·개인정보 후보는 공격 경로와 신뢰 경계를, correctness 후보는 구체적인 실패 입력과 실행 경로를 확인한다.
 - ADR이나 명세에 명시적으로 수용된 위험을 다시 결함으로 채택하지 않는다.
 - 파일을 수정하거나 GitHub에 게시하지 않는다.
-- 후보마다 `type=judgment`, `candidateId`, `accepted`, `finalSeverity`, `rationale`, `confidence`를 포함한 한 줄 JSON으로 반환한다.
-- 근거가 부족하면 accepted=false로 두고 필요한 최소 추가 근거를 rationale에 적는다.
+- 부모가 전달한 judge 기계 출력 계약을 그대로 따르고 계약 밖 내용을 반환하지 않는다.
+- 근거가 부족한 후보는 채택하지 않고 필요한 최소 추가 근거를 판정 이유에 적는다.
 """

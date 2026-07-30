@@ -45,7 +45,7 @@ $env:BAMSONGI_MEMBER
 
 두 명령 모두 설정한 이름을 출력해야 한다.
 
-이후 실행 중인 Codex, Claude Code, IDE와 터미널을 완전히 종료했다가 다시 실행한다. 새 프로세스가 사용자 환경변수를 상속하지 못한다면 Windows에서 로그아웃한 뒤 다시 로그인한다.
+실행 중인 Codex·Claude Code·IDE·터미널을 완전히 종료한 뒤 다시 실행한다. 새 프로세스가 사용자 환경변수를 상속하지 못하면 Windows에서 로그아웃 후 다시 로그인한다.
 
 ## macOS 터미널에서 설정
 
@@ -171,7 +171,7 @@ launchctl setenv BAMSONGI_BRAIN_ROOT "$HOME/Workspace/bamsongi-brain"
 
 - `BAMSONGI_MEMBER`는 프로젝트의 `.env`나 `application.properties`가 아니라 팀원 개인의 환경변수로 설정한다.
 - 한 번 설정한 `BAMSONGI_MEMBER`는 같은 환경에서 실행되는 Codex와 Claude Code가 함께 사용한다.
-- 프롬프트 본문은 비밀정보 필터 없이 Private 브레인의 **prompts/** 일별 Markdown에 저장된다. commit 전에 키, 토큰, 개인정보 포함 여부를 사람이 확인한다.
+- 프롬프트는 비밀정보 필터 없이 Private 브레인의 **prompts/** 일별 Markdown에 저장되므로, commit 전에 키·토큰·개인정보를 사람이 확인한다.
 - 훅은 프롬프트 파일만 저장한다. `git add`, commit, push는 자동으로 실행하지 않는다.
 
 훅의 저장 방식과 환경변수 규격은 [팀 프롬프트 자동 기록](../../.bamsongi/README.md)에서 확인할 수 있다.

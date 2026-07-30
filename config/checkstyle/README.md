@@ -20,7 +20,6 @@
 9. `OneTopLevelClass`
 10. `NeedBraces`
 
-들여쓰기, 공백, 줄바꿈과 import 순서는 Spotless에 맡기므로 Checkstyle에서
-중복 검사하지 않는다. `*Test.java`와 `*Tests.java`는 행동을 설명하는 한글 테스트
-메서드명을 허용하기 위해 `MethodName` 검사에서 제외한다. 나머지 규칙의 예외는
-근거를 이 문서에 추가한 뒤 `suppressions.xml`에 최소 범위로 선언한다.
+들여쓰기·공백·줄바꿈·import 순서는 Spotless만 검사한다. `*Test.java`·`*Tests.java`는
+한글 테스트 메서드명을 허용하도록 `MethodName`에서 제외한다. 다른 예외는 근거를
+이 문서에 추가한 뒤 `suppressions.xml`에 최소 범위로 선언한다.

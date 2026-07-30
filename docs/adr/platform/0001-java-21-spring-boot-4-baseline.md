@@ -45,9 +45,16 @@ Spring Security 7이나 향후 Spring AI 도입 가능성은 이 결정을 보�
 
 ## 보류 및 재검토
 
-- 지금 하지 않는 것: 현재 P0에서 가상 스레드를 기본 활성화하거나, Spring AI를 미리 추가하거나, Java 25로 기준선을 올리는 일
+- 지금 하지 않는 것:
+  - 현재 P0에서 가상 스레드를 기본 활성화하거나
+  - Spring AI를 미리 추가하거나
+  - Java 25로 기준선을 올리는 일
 - 보류 이유: 확인된 사용 지점과 부하 요구가 없고, Java 25는 이번 팀 논의에서 호환성·운영 환경을 비교하지 않았다.
-- 다시 검토할 조건: Java 21 지원 정책이 프로젝트 운영 기간과 맞지 않게 되거나, 필수 라이브러리가 다른 Java·Spring 기준을 요구하거나, Java 21 이상의 기능이 측정 가능한 병목을 해결하거나, 배포·CI 환경의 기준 JDK를 변경할 때
+- 다시 검토할 조건:
+  - Java 21 지원 정책이 프로젝트 운영 기간과 맞지 않게 되거나
+  - 필수 라이브러리가 다른 Java·Spring 기준을 요구하거나
+  - Java 21 이상의 기능이 측정 가능한 병목을 해결하거나
+  - 배포·CI 환경의 기준 JDK를 변경할 때
 
 ## 참고 자료
 
@@ -58,7 +65,13 @@ Spring Security 7이나 향후 Spring AI 도입 가능성은 이 결정을 보�
 
 ## 검증
 
-- 상태: 검증됨
-- 근거: 2026-07-23에 `build.gradle`의 Java 21·Spring Boot 4.1.0 선언과 Gradle 9.5.1 wrapper가 공식 지원 범위에 있음을 확인하고, `gradlew.bat test --rerun-tasks --console plain`을 실행해 전체 테스트가 통과했다. CI 근거는 승인 후 연결한다.
+- 상태: 미검증
+- 근거:
+    - 구현:
+        - 2026-07-23에 `build.gradle`의 Java 21·Spring Boot 4.1.0 선언과 Gradle 9.5.1 wrapper가 공식 지원 범위에 있음을 확인했다.
+    - 테스트:
+        - `gradlew.bat test --rerun-tasks --console plain`을 실행해 전체 테스트가 통과했다.
+- 미검증:
+    - CI 근거는 승인 후 연결한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

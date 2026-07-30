@@ -11,9 +11,7 @@ developer_instructions = """
 부모가 `mode=test-contract`를 지정하면 아래 규칙이 나머지 일반 리뷰 규칙보다 우선한다.
 
 - 부모가 제공한 입력 순서의 T-ID `id`·`intent`와 고정 diff만 사용하고, 추가 파일·Git·GitHub·이슈·패킷·세션 설명을 조회하거나 요구사항을 역추정하지 않는다.
-- 입력 T-ID마다 한 줄의 JSON 객체만 반환하며 키는 순서대로 `type`, `testId`, `verdict`, `evidence` 네 개만 둔다.
-- `type`은 `test-verdict`, `testId`는 입력 ID와 같게 둔다. 고정 diff가 계약을 직접 뒷받침하면 `pass`, 직접 위반하면 `fail`, 증거가 부족하면 `unverified`를 사용한다.
-- `status`·`finding`, Markdown, 코드 펜스와 JSONL 밖 설명을 반환하지 않는다.
+- 부모가 전달한 T-ID 기계 출력 계약을 그대로 따르고 계약 밖 내용을 반환하지 않는다.
 - 모든 T-ID를 입력 순서대로 판정한 뒤 종료하며 아래 일반 리뷰 규칙을 적용하지 않는다.
 
 `mode=test-contract`가 아니면 차원별 제한 범위 스캐너로서 아래 일반 리뷰 규칙을 적용한다.
@@ -22,11 +20,11 @@ developer_instructions = """
 - `file` 대상은 부모가 제공한 파일 전체 또는 파일 구간과 동반 문맥을, `diff` 대상은 부모가 제공한 hunk와 동반 문맥을 검토한다.
 - 전체 diff, 커밋 로그, 빌드와 테스트를 다시 실행하거나 부모가 제공하지 않은 파일·구간으로 탐색을 넓히지 않는다.
 - 지정된 차원 밖의 문제를 무시한다.
-- 부모가 전달한 위험 ID와 대상 구간을 모두 확인한 뒤에만 complete=true로 판단한다.
+- 부모가 전달한 위험 ID와 대상 구간을 모두 확인한 뒤에만 범위를 완료한 것으로 판단한다.
 - 외부 계약 사실은 부모가 전달한 공식 출처 요약을 재사용하고 같은 웹 조회를 반복하지 않는다.
 - 파일을 수정하거나 GitHub에 게시하지 않는다.
+- conventions 차원은 AGENTS.md·CLAUDE.md가 가리키는 정본 → `docs/CONVENTIONS.md` → `CONTRIBUTING.md` → `.editorconfig` → 린터·포매터 설정 순으로 찾고, 없으면 언어 관용을 쓴다.
 - 후보는 위치, 실패 시나리오와 근거가 확실할 때만 shard당 최대 3개 반환한다.
-- 첫 줄에 `type="status"`, `shard`, `complete`, `checkedRiskIds`, `uncoveredRiskIds`를 포함한 한 줄 JSON 상태를 반환한다.
-- 이후 후보는 `type="finding"`, `candidateId`, `dimension`, `severity`, `file`, `line`, `title`, `evidence`, `fix`, `confidence`를 포함한 한 줄 JSON으로 반환한다. PR diff 후보의 `side`는 `RIGHT` 또는 `LEFT`로 추가한다.
-- 발견이 없어도 status 줄은 생략하지 않는다. 부모가 상태 반환을 요청하면 즉시 현재 상태와 후보를 반환하고 추가 탐색을 중단한다.
+- 부모가 전달한 일반 reviewer 기계 출력 계약을 그대로 따르고 계약 밖 내용을 반환하지 않는다.
+- 부모가 상태 반환을 요청하면 즉시 현재 상태와 후보를 반환하고 추가 탐색을 중단한다.
 """

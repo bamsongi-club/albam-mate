@@ -1,6 +1,6 @@
 # 일반 테스트 작업 안내
 
-이 파일은 공통 테스트 규약의 정본이다. `src/test/**`에 직접 적용하며, [PostgreSQL 테스트](../postgresTest/AGENTS.md)도 여기의 공통 규약을 따른다.
+이 파일은 `src/test/**` 공통 테스트 규약의 정본이며 [PostgreSQL 테스트](../postgresTest/AGENTS.md)에도 적용된다.
 
 ## 작성과 검증
 
@@ -9,10 +9,10 @@
 - Controller 테스트는 HTTP 상태, 요청 검증, 인증 경계와 응답 계약을 확인한다.
 - `@SpringBootTest`는 전체 Spring 구성이 필요한 통합 경로에만 사용한다.
 - 새 Service와 Controller에는 성공 경로와 핵심 실패 경로 테스트를 함께 작성한다.
-- 여러 테스트에서 재사용하는 fixture는 해당 source set의 `java/.../<domain>/fixture` 패키지에 두고, 한 테스트에서만 쓰는 fixture는 그 테스트 가까이에 둔다. 테스트 편의를 위한 fixture를 `src/main`에 두지 않는다.
+- 재사용 fixture는 해당 source set의 `java/.../<domain>/fixture`, 전용 fixture는 해당 테스트 가까이에 두며 `src/main`에는 두지 않는다.
 - 현재 시각에 의존하는 테스트는 `Clock.fixed(...)`를 사용하고 fixture의 시각도 고정값으로 둔다.
-- 생산 코드의 패키지를 옮기거나 새로 만들면 `build.gradle`의 `gatedBranchCoverage` 대상과 실측 최소선이 함께 유효한지 확인하고 필요한 변경을 같은 작업에 포함한다.
-- 모듈이 둘 이상 구현되면 순환 의존과 다른 모듈 내부 패키지 접근을 구조 테스트로 검사한다.
+- 생산 코드 패키지를 이동·추가하거나 커버리지 최소선을 조정하면 [분기 커버리지 확인](../../docs/COMMANDS.md#분기-커버리지-확인)의 실측 절차를 따른다.
+- 새 업무 모듈을 추가하면 `ModuleArchitectureTest`의 모듈 목록과 허용 의존 방향을 함께 갱신한다.
 
 ## source set 배치
 
@@ -21,7 +21,7 @@
 | `src/test` | 단위 테스트, Spring context smoke test, MVC slice, 표준 JPA 매핑·조회와 H2로 검증 가능한 서비스 흐름 |
 | `src/postgresTest` | Flyway, PostgreSQL 전용 SQL·타입·함수·인덱스·제약, 잠금·격리·동시성과 H2 차이의 회귀 경로 |
 
-하나의 기능에 H2 테스트가 있어도 결과가 PostgreSQL 고유 동작에 의존하면 `src/postgresTest` 검증을 함께 둔다. H2를 통과시키기 위해 운영 SQL이나 마이그레이션을 별도로 단순화하지 않는다.
+H2 테스트가 있어도 PostgreSQL 고유 동작에 의존하면 `src/postgresTest` 검증을 함께 둔다. H2 통과를 위해 운영 SQL이나 마이그레이션을 단순화하지 않는다.
 
 ## 이름
 

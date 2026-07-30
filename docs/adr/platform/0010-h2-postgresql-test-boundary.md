@@ -56,9 +56,15 @@ PostgreSQL 컨테이너 이미지는 테스트 설정에 명시적으로 고정�
 
 ## 보류 및 재검토
 
-- 지금 하지 않는 것: 모든 단위·서비스 테스트의 PostgreSQL 전환, 팀 공유 PostgreSQL 테스트 서버 운영, H2 호환 모드를 PostgreSQL 검증 근거로 사용
+- 지금 하지 않는 것:
+  - 모든 단위·서비스 테스트의 PostgreSQL 전환
+  - 팀 공유 PostgreSQL 테스트 서버 운영
+  - H2 호환 모드를 PostgreSQL 검증 근거로 사용
 - 보류 이유: 현재 P0는 빠른 로컬 반복의 이점이 크고, 실제 PostgreSQL이 필요한 경로를 별도 테스트로 명시할 수 있다. Testcontainers로 격리 환경을 만들 수 있으므로 공유 서버를 운영할 이유도 없다.
-- 다시 검토할 조건: H2 전용 설정·fixture 유지 비용이 반복해서 발생하거나 H2 통과 후 PostgreSQL에서만 실패하는 결함이 계속 발견될 때, PostgreSQL 검증 시간이 개발·CI 피드백을 수용하기 어렵게 만들 때, 주 데이터베이스가 바뀔 때
+- 다시 검토할 조건:
+  - H2 전용 설정·fixture 유지 비용이 반복해서 발생하거나 H2 통과 후 PostgreSQL에서만 실패하는 결함이 계속 발견될 때
+  - PostgreSQL 검증 시간이 개발·CI 피드백을 수용하기 어렵게 만들 때
+  - 주 데이터베이스가 바뀔 때
 
 ## 참고 자료
 
@@ -71,6 +77,30 @@ PostgreSQL 컨테이너 이미지는 테스트 설정에 명시적으로 고정�
 ## 검증
 
 - 상태: 검증됨
-- 근거: `build.gradle`에 Testcontainers·Flyway PostgreSQL 의존성과 분리된 `postgresTest` 태스크를 두고, CI는 `build` 뒤 `postgresTest`를 실행한다. `SchemaValidationPostgresTest`는 PostgreSQL 18 메타데이터, Flyway·Hibernate 스키마 검증, 실제 CHECK·FK 제약 위반의 SQLSTATE와 제약명을 확인한다. 이전에 남아 있던 동시성 범위도 PostgreSQL로 옮겼다. `RoomParticipationConcurrencyPostgresTest`는 같은 방 버전을 읽은 두 요청의 마지막 좌석 경합, 참가 취소와 새 참가의 재시도, 정원 축소와 새 참가, 취소된 기존 참가와 신규 참가, 참가 저장 실패의 같은 트랜잭션 롤백을 확인하고 매 시나리오 뒤 저장 불변식을 검사한다. `SchemaValidationPostgresTest`는 독립 트랜잭션의 같은 정규화 이메일 동시 가입이 한 건만 생성되는지 확인한다. H2 `test`는 이 ADR의 경계대로 업무 규칙과 매핑 회귀만 담당한다.
+- 근거:
+    - 구현:
+        - `build.gradle`에 Testcontainers·Flyway PostgreSQL 의존성을 둔다.
+        - `build.gradle`에 분리된 `postgresTest` 태스크를 둔다.
+        - 이전에 남아 있던 동시성 범위도 PostgreSQL로 옮겼다.
+    - 계약:
+        - H2 `test`는 이 ADR의 경계대로 업무 규칙만 담당한다.
+        - H2 `test`는 이 ADR의 경계대로 매핑 회귀만 담당한다.
+    - 테스트:
+        - `SchemaValidationPostgresTest`는 PostgreSQL 18 메타데이터를 확인한다.
+        - `SchemaValidationPostgresTest`는 Flyway 스키마 검증을 확인한다.
+        - `SchemaValidationPostgresTest`는 Hibernate 스키마 검증을 확인한다.
+        - `SchemaValidationPostgresTest`는 실제 CHECK 제약 위반의 SQLSTATE와 제약명을 확인한다.
+        - `SchemaValidationPostgresTest`는 실제 FK 제약 위반의 SQLSTATE와 제약명을 확인한다.
+        - `RoomParticipationConcurrencyPostgresTest`는 같은 방 버전을 읽은 두 요청의 마지막 좌석 경합을 확인한다.
+        - `RoomParticipationConcurrencyPostgresTest`는 참가 취소와 새 참가의 재시도를 확인한다.
+        - `RoomParticipationConcurrencyPostgresTest`는 정원 축소와 새 참가를 확인한다.
+        - `RoomParticipationConcurrencyPostgresTest`는 취소된 기존 참가와 신규 참가를 확인한다.
+        - `RoomParticipationConcurrencyPostgresTest`는 참가 저장 실패의 같은 트랜잭션 롤백을 확인한다.
+        - `RoomParticipationConcurrencyPostgresTest`는 매 시나리오 뒤 저장 불변식을 검사한다.
+        - `SchemaValidationPostgresTest`는 독립 트랜잭션의 같은 정규화 이메일 동시 가입이 한 건만 생성되는지 확인한다.
+    - CI:
+        - `build` 뒤 `postgresTest`를 실행한다.
+- 미검증:
+    - 없음
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.
