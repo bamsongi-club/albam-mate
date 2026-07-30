@@ -310,7 +310,7 @@ function gameMeta(game) {
 
 function Header({ route, me, gameQuery, onGameQueryChange, onSearch, onLogout }) {
   const [loggingOut, setLoggingOut] = useState(false);
-  const rootRoute = { games: 'games', game: 'games', people: 'people', create: 'create', edit: 'my', my: 'my', profile: 'profile', auth: 'auth' };
+  const rootRoute = { find: 'find', games: 'find', game: 'find', people: 'find', 'game-list': 'game-list', create: 'create', edit: 'my', my: 'my', profile: 'profile', auth: 'auth' };
   const logout = async () => {
     setLoggingOut(true);
     try {
@@ -331,8 +331,8 @@ function Header({ route, me, gameQuery, onGameQueryChange, onSearch, onLogout })
           <button type="submit" aria-label="게임 검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.65" y2="16.65" /></svg></button>
         </form>
         <nav id="gnb" aria-label="주요 메뉴">
-          <a href="#/games" className={rootRoute[route] === 'games' ? 'on' : ''}>게임 중심 모임</a>
-          <a href="#/people" className={rootRoute[route] === 'people' ? 'on' : ''}>사람 중심 모임</a>
+          <a href="#/find" className={rootRoute[route] === 'find' ? 'on' : ''}>모임 찾기</a>
+          <a href="#/game-list" className={rootRoute[route] === 'game-list' ? 'on' : ''}>게임 찾기</a>
           <a href="#/create" className={rootRoute[route] === 'create' ? 'on' : ''}>모임 만들기</a>
           <a href="#/my" className={rootRoute[route] === 'my' ? 'on' : ''}>내 모임</a>
           {me
@@ -447,7 +447,7 @@ function LoginRequiredView({ message = '이 기능은 로그인 후 이용할 �
   return <div className="card"><h2>로그인이 필요해요</h2><p className="hint" style={{ marginBottom: 16 }}>{message}</p><a className="btn" href="#/auth">로그인 또는 회원가입</a></div>;
 }
 
-function HomeView({ dataVersion }) {
+function FindRoomsView({ dataVersion }) {
   const { data, loading, error } = useRequest(
     (signal) => api.getRooms({ type: 'PERSON_FOCUSED', page: 0, size: 100 }, signal),
     [dataVersion]
@@ -466,16 +466,16 @@ function HomeView({ dataVersion }) {
   );
 }
 
-function GamesView({ gameQuery, dataVersion }) {
+function GamesView({ title, gameQuery, upcomingOnly = false, dataVersion }) {
   const keyword = gameQuery.trim();
   const { data, loading, error, setPage } = usePaginatedRequest(
-    (page, signal) => api.getGames({ keyword, upcomingOnly: true, page, size: GAME_LIST_PAGE_SIZE }, signal),
-    [keyword, dataVersion]
+    (page, signal) => api.getGames({ keyword, upcomingOnly, page, size: GAME_LIST_PAGE_SIZE }, signal),
+    [keyword, upcomingOnly, dataVersion]
   );
   const games = (data?.content || []).map(normalizeGameSummary);
   return (
     <>
-      <h2><span className="h2-ico">🎲</span>게임 중심 모임 <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
+      <h2><span className="h2-ico">🎲</span>{title} <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
       <p className="hint" style={{ margin: '-8px 0 15px' }}>게임 이름의 부분 일치 검색만 제공해요.</p>
       {error && <ErrorBox message={error} />}
       {!error && loading && !data && <LoadingBox />}
@@ -1151,7 +1151,7 @@ function App() {
 
   const handleGameSearch = () => {
     setGameQuery((query) => query.trim());
-    if (route !== 'games') navigate('/games');
+    if (route !== 'games' && route !== 'game-list') navigate('/games');
   };
 
   const handleCreateGame = (game) => {
@@ -1311,7 +1311,9 @@ function App() {
   };
 
   let content;
-  if (route === 'games') content = <GamesView gameQuery={gameQuery} dataVersion={dataVersion} />;
+  if (route === 'find') content = <FindRoomsView dataVersion={dataVersion} />;
+  else if (route === 'games') content = <GamesView title="게임 중심 모임" gameQuery={gameQuery} upcomingOnly dataVersion={dataVersion} />;
+  else if (route === 'game-list') content = <GamesView title="게임 찾기" gameQuery={gameQuery} dataVersion={dataVersion} />;
   else if (route === 'people') content = <PeopleView peopleQuery={peopleQuery} onPeopleQueryChange={setPeopleQuery} dataVersion={dataVersion} />;
   else if (route === 'game') content = <GameDetailView gameId={arg} onCreateGame={handleCreateGame} dataVersion={dataVersion} />;
   else if (route === 'session') content = <SessionDetailView sessionId={arg} me={me} onApply={handleApply} onCancelApply={handleCancelApply} onHostCancel={handleHostCancel} onFinish={handleFinish} dataVersion={dataVersion} />;
@@ -1320,7 +1322,7 @@ function App() {
   else if (route === 'my') content = me ? <MyView myTab={myTab} onMyTabChange={setMyTab} dataVersion={dataVersion} /> : <LoginRequiredView message="내 모임을 보려면 로그인해주세요." />;
   else if (route === 'profile') content = me ? <ProfileView me={me} onSave={handleSaveProfile} /> : <LoginRequiredView message="프로필을 보려면 로그인해주세요." />;
   else if (route === 'auth') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <AuthView onLogin={handleLogin} onSignup={handleSignup} />;
-  else content = <HomeView dataVersion={dataVersion} />;
+  else content = <FindRoomsView dataVersion={dataVersion} />;
 
   return (
     <>
