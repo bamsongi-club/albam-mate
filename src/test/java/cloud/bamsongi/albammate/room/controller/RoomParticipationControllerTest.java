@@ -1,5 +1,7 @@
 package cloud.bamsongi.albammate.room.controller;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -22,6 +24,10 @@ import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.global.config.SecurityConfig;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -112,6 +118,32 @@ class RoomParticipationControllerTest {
 	}
 
 	@Test
+	void 성공_참가_취소는_민감한_응답_정보없이_INFO_로그를_한번_남긴다() throws Exception {
+		when(roomParticipationCancelService.cancelParticipation(42L, 1L))
+			.thenReturn(new RoomParticipationResponse(
+				1L, ParticipationStatus.CANCELED, RoomStatus.RECRUITING, 1, 2));
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			mockMvc.perform(
+				delete("/api/rooms/1/participants/me")
+					.with(authenticationFor(42L))
+					.with(csrf()))
+				.andExpect(status().isOk());
+
+			assertEquals(1, appender.list.size());
+			ILoggingEvent event = appender.list.getFirst();
+			assertEquals(Level.INFO, event.getLevel());
+			assertTrue(event.getFormattedMessage().contains("event=room_participation_canceled"));
+			assertTrue(event.getFormattedMessage().contains("roomId=1"));
+			assertTrue(event.getFormattedMessage().contains("actorUserId=42"));
+			assertTrue(event.getFormattedMessage().contains("roomStatus=RECRUITING"));
+			assertTrue(!event.getFormattedMessage().contains("participationStatus"));
+		} finally {
+			detachLogAppender(appender);
+		}
+	}
+
+	@Test
 	void 주최자_참가_취소는_FORBIDDEN_응답_봉투를_반환한다() throws Exception {
 		when(roomParticipationCancelService.cancelParticipation(42L, 1L))
 			.thenThrow(new BusinessException(ErrorCode.FORBIDDEN));
@@ -143,6 +175,20 @@ class RoomParticipationControllerTest {
 		return authentication(
 			new UsernamePasswordAuthenticationToken(
 				new CurrentUserPrincipal(userId), null, AuthorityUtils.NO_AUTHORITIES));
+	}
+
+	private ListAppender<ILoggingEvent> attachLogAppender() {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomParticipationController.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		return appender;
+	}
+
+	private void detachLogAppender(ListAppender<ILoggingEvent> appender) {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomParticipationController.class);
+		logger.detachAppender(appender);
+		appender.stop();
 	}
 
 	@TestConfiguration(proxyBeanMethods = false)

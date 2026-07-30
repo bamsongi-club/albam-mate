@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.room.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
@@ -20,6 +21,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
@@ -85,17 +90,31 @@ class RoomUpdateServiceTest {
 			.when(executor)
 			.updateRoom(anyLong(), anyLong(), any(RoomUpdateRequest.class), any(Instant.class));
 
-		BusinessException exception = assertThrows(
-			BusinessException.class,
-			() -> roomUpdateService.updateRoom(42L, 7L, new RoomUpdateRequest()));
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			BusinessException exception = assertThrows(
+				BusinessException.class,
+				() -> roomUpdateService.updateRoom(42L, 7L, new RoomUpdateRequest()));
 
-		assertEquals(ErrorCode.ROOM_CONCURRENT_MODIFICATION, exception.getErrorCode());
-		verify(executor, org.mockito.Mockito.times(3))
-			.updateRoom(
-				org.mockito.ArgumentMatchers.eq(42L),
-				org.mockito.ArgumentMatchers.eq(7L),
-				any(RoomUpdateRequest.class),
-				any(Instant.class));
+			assertEquals(ErrorCode.ROOM_CONCURRENT_MODIFICATION, exception.getErrorCode());
+			verify(executor, org.mockito.Mockito.times(3))
+				.updateRoom(
+					org.mockito.ArgumentMatchers.eq(42L),
+					org.mockito.ArgumentMatchers.eq(7L),
+					any(RoomUpdateRequest.class),
+					any(Instant.class));
+			assertEquals(3, appender.list.size());
+			assertEquals(Level.DEBUG, appender.list.get(0).getLevel());
+			assertEquals(Level.DEBUG, appender.list.get(1).getLevel());
+			assertEquals(Level.WARN, appender.list.get(2).getLevel());
+			assertTrue(appender.list.stream().allMatch(
+				event -> event.getFormattedMessage().contains("event=room_update_retry roomId=7")));
+			assertTrue(appender.list.get(0).getFormattedMessage().contains("attempt=2"));
+			assertTrue(appender.list.get(1).getFormattedMessage().contains("attempt=3"));
+			assertTrue(appender.list.get(2).getFormattedMessage().contains("attempt=3"));
+		} finally {
+			detachLogAppender(appender);
+		}
 	}
 
 	@Test
@@ -134,5 +153,21 @@ class RoomUpdateServiceTest {
 				org.mockito.ArgumentMatchers.eq(7L),
 				any(RoomUpdateRequest.class),
 				org.mockito.ArgumentMatchers.eq(NOW));
+	}
+
+	private ListAppender<ILoggingEvent> attachLogAppender() {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomUpdateService.class);
+		logger.setLevel(Level.DEBUG);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		return appender;
+	}
+
+	private void detachLogAppender(ListAppender<ILoggingEvent> appender) {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomUpdateService.class);
+		logger.detachAppender(appender);
+		logger.setLevel(null);
+		appender.stop();
 	}
 }

@@ -15,9 +15,11 @@ import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserAccessor;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import cloud.bamsongi.albammate.room.service.RoomParticipationCancelService;
 import jakarta.validation.constraints.Positive;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/rooms")
+@Slf4j
 public class RoomParticipationController {
 
 	private final RoomParticipationCancelService roomParticipationCancelService;
@@ -34,8 +36,11 @@ public class RoomParticipationController {
 	@DeleteMapping(value = "/{roomId}/participants/me", produces = MediaType.APPLICATION_JSON_VALUE)
 	public ResponseEntity<ApiResponse<RoomParticipationResponse>> cancelParticipation(
 		@PathVariable @Positive long roomId) {
+		long currentUserId = currentUserAccessor.requireCurrentUserId();
 		RoomParticipationResponse response = roomParticipationCancelService.cancelParticipation(
-			currentUserAccessor.requireCurrentUserId(), roomId);
+			currentUserId, roomId);
+		log.info("event=room_participation_canceled roomId={} actorUserId={} roomStatus={}",
+			response.roomId(), currentUserId, response.roomStatus());
 		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, response));
 	}
 }

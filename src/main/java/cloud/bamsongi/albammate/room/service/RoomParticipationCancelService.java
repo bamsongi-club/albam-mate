@@ -11,9 +11,11 @@ import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import jakarta.persistence.OptimisticLockException;
+import lombok.extern.slf4j.Slf4j;
 
 /** 현재 사용자의 활성 참가 관계를 낙관 락 충돌 시에만 재시도해 취소한다. */
 @Service
+@Slf4j
 public class RoomParticipationCancelService {
 
 	private static final int MAX_ATTEMPTS = 3;
@@ -36,11 +38,18 @@ public class RoomParticipationCancelService {
 				return executor.cancelParticipation(currentUserId, roomId, requestTime);
 			} catch (OptimisticLockException exception) {
 				lastConflict = exception;
+				if (attempt < MAX_ATTEMPTS) {
+					log.debug("event=room_participation_cancel_retry roomId={} attempt={}", roomId, attempt + 1);
+				}
 			} catch (ObjectOptimisticLockingFailureException exception) {
 				lastConflict = exception;
+				if (attempt < MAX_ATTEMPTS) {
+					log.debug("event=room_participation_cancel_retry roomId={} attempt={}", roomId, attempt + 1);
+				}
 			}
 		}
 
+		log.warn("event=room_participation_cancel_retry roomId={} attempt={}", roomId, MAX_ATTEMPTS);
 		throw new BusinessException(ErrorCode.ROOM_CONCURRENT_MODIFICATION, lastConflict);
 	}
 }

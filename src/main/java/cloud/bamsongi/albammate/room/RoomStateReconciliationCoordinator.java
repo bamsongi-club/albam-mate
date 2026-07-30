@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.room;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.function.IntConsumer;
+import java.util.function.IntSupplier;
 
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
@@ -10,9 +11,11 @@ import org.springframework.stereotype.Service;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import jakarta.persistence.OptimisticLockException;
+import lombok.extern.slf4j.Slf4j;
 
 /** 트랜잭션 경계 밖에서 낙관 락 충돌만 제한적으로 재시도한다. */
 @Service
+@Slf4j
 public class RoomStateReconciliationCoordinator {
 
 	private static final int MAX_ATTEMPTS = 3;
@@ -27,38 +30,61 @@ public class RoomStateReconciliationCoordinator {
 	public void reconcileRoom(Long roomId, Instant requestTime) {
 		Objects.requireNonNull(roomId, "roomId");
 		Objects.requireNonNull(requestTime, "requestTime");
-		executeWithRetry(() -> executor.reconcileRoom(roomId, requestTime), ignoredAttempt -> {});
+		executeWithRetry(
+			() -> {
+				executor.reconcileRoom(roomId, requestTime);
+				return 0;
+			},
+			ignoredAttempt -> {}, roomId);
 	}
 
 	/** 목록·내 모임 필터와 페이지 계산 전에 due 방 전체를 보정한다. */
-	public void reconcileDueRooms(Instant requestTime) {
-		reconcileDueRooms(requestTime, ignoredAttempt -> {});
+	public int reconcileDueRooms(Instant requestTime) {
+		return reconcileDueRooms(requestTime, ignoredAttempt -> {});
 	}
 
 	/** 스케줄러처럼 재시도 전 지연이 필요한 호출자만 시도별 지연을 주입한다. */
-	void reconcileDueRooms(Instant requestTime, IntConsumer beforeRetry) {
+	int reconcileDueRooms(Instant requestTime, IntConsumer beforeRetry) {
 		Objects.requireNonNull(requestTime, "requestTime");
 		Objects.requireNonNull(beforeRetry, "beforeRetry");
-		executeWithRetry(() -> executor.reconcileDueRooms(requestTime), beforeRetry);
+		return executeWithRetry(() -> executor.reconcileDueRooms(requestTime), beforeRetry, null);
 	}
 
-	private void executeWithRetry(Runnable reconciliationAttempt, IntConsumer beforeRetry) {
+	private int executeWithRetry(
+		IntSupplier reconciliationAttempt, IntConsumer beforeRetry, Long roomId) {
 		RuntimeException lastConflict = null;
 		for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
 			try {
-				reconciliationAttempt.run();
-				return;
+				return reconciliationAttempt.getAsInt();
 			} catch (OptimisticLockException exception) {
 				lastConflict = exception;
 			} catch (ObjectOptimisticLockingFailureException exception) {
 				lastConflict = exception;
 			}
 			if (attempt < MAX_ATTEMPTS) {
-				beforeRetry.accept(attempt + 1);
+				int nextAttempt = attempt + 1;
+				beforeRetry.accept(nextAttempt);
+				logRetry(roomId, nextAttempt, false);
 			}
 		}
 
-		// 세 번 모두 같은 낙관 락 충돌이면 마지막 원인을 API 오류에 보존한다.
+		logRetry(roomId, MAX_ATTEMPTS, true);
 		throw new BusinessException(ErrorCode.ROOM_CONCURRENT_MODIFICATION, lastConflict);
+	}
+
+	private void logRetry(Long roomId, int attempt, boolean exhausted) {
+		if (roomId == null) {
+			if (exhausted) {
+				log.warn("event=room_state_reconciliation_retry attempt={}", attempt);
+			} else {
+				log.debug("event=room_state_reconciliation_retry attempt={}", attempt);
+			}
+			return;
+		}
+		if (exhausted) {
+			log.warn("event=room_state_reconciliation_retry roomId={} attempt={}", roomId, attempt);
+		} else {
+			log.debug("event=room_state_reconciliation_retry roomId={} attempt={}", roomId, attempt);
+		}
 	}
 }

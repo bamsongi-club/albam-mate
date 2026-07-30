@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.room.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -17,6 +18,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
@@ -57,13 +62,19 @@ class RoomParticipationCancelServiceTest {
 			.thenThrow(new ObjectOptimisticLockingFailureException(Room.class, ROOM_ID))
 			.thenThrow(third);
 
-		BusinessException exception = assertThrows(
-			BusinessException.class,
-			() -> service.cancelParticipation(USER_ID, ROOM_ID));
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			BusinessException exception = assertThrows(
+				BusinessException.class,
+				() -> service.cancelParticipation(USER_ID, ROOM_ID));
 
-		assertEquals(ErrorCode.ROOM_CONCURRENT_MODIFICATION, exception.getErrorCode());
-		assertSame(third, exception.getCause());
-		verify(executor, times(3)).cancelParticipation(USER_ID, ROOM_ID, REQUEST_TIME);
+			assertEquals(ErrorCode.ROOM_CONCURRENT_MODIFICATION, exception.getErrorCode());
+			assertSame(third, exception.getCause());
+			verify(executor, times(3)).cancelParticipation(USER_ID, ROOM_ID, REQUEST_TIME);
+			assertRetryLogs(appender, "event=room_participation_cancel_retry roomId=7");
+		} finally {
+			detachLogAppender(appender);
+		}
 	}
 
 	@Test
@@ -89,5 +100,34 @@ class RoomParticipationCancelServiceTest {
 	private RoomParticipationResponse response() {
 		return new RoomParticipationResponse(
 			ROOM_ID, ParticipationStatus.CANCELED, RoomStatus.RECRUITING, 1, 2);
+	}
+
+	private ListAppender<ILoggingEvent> attachLogAppender() {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomParticipationCancelService.class);
+		logger.setLevel(Level.DEBUG);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		return appender;
+	}
+
+	private void detachLogAppender(ListAppender<ILoggingEvent> appender) {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomParticipationCancelService.class);
+		logger.detachAppender(appender);
+		logger.setLevel(null);
+		appender.stop();
+	}
+
+	private void assertRetryLogs(ListAppender<ILoggingEvent> appender, String eventWithRoomId) {
+		assertEquals(3, appender.list.size());
+		assertEquals(Level.DEBUG, appender.list.get(0).getLevel());
+		assertEquals(Level.DEBUG, appender.list.get(1).getLevel());
+		assertEquals(Level.WARN, appender.list.get(2).getLevel());
+		assertTrue(appender.list.stream().allMatch(
+			event -> event.getFormattedMessage().contains(eventWithRoomId)));
+		assertTrue(appender.list.get(0).getFormattedMessage().contains("attempt=2"));
+		assertTrue(appender.list.get(1).getFormattedMessage().contains("attempt=3"));
+		assertTrue(appender.list.get(2).getFormattedMessage().contains("attempt=3"));
+		assertTrue(appender.list.stream().allMatch(event -> event.getThrowableProxy() == null));
 	}
 }

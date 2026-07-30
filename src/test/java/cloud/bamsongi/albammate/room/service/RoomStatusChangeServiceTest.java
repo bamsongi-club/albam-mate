@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.room.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
@@ -19,6 +20,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.dto.RoomStatusResponse;
@@ -72,10 +77,17 @@ class RoomStatusChangeServiceTest {
 			.when(executor)
 			.cancelRoom(anyLong(), anyLong(), org.mockito.ArgumentMatchers.any());
 
-		BusinessException exception = assertThrows(BusinessException.class, () -> service.cancelRoom(USER_ID, ROOM_ID));
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			BusinessException exception = assertThrows(
+				BusinessException.class, () -> service.cancelRoom(USER_ID, ROOM_ID));
 
-		assertEquals(ErrorCode.ROOM_CONCURRENT_MODIFICATION, exception.getErrorCode());
-		verify(executor, org.mockito.Mockito.times(3)).cancelRoom(USER_ID, ROOM_ID, NOW);
+			assertEquals(ErrorCode.ROOM_CONCURRENT_MODIFICATION, exception.getErrorCode());
+			verify(executor, org.mockito.Mockito.times(3)).cancelRoom(USER_ID, ROOM_ID, NOW);
+			assertRetryLogs(appender, "event=room_cancel_retry roomId=7");
+		} finally {
+			detachLogAppender(appender);
+		}
 	}
 
 	@Test
@@ -110,9 +122,45 @@ class RoomStatusChangeServiceTest {
 			.when(executor)
 			.finishRoom(anyLong(), anyLong(), org.mockito.ArgumentMatchers.any());
 
-		BusinessException exception = assertThrows(BusinessException.class, () -> service.finishRoom(USER_ID, ROOM_ID));
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			BusinessException exception = assertThrows(
+				BusinessException.class, () -> service.finishRoom(USER_ID, ROOM_ID));
 
-		assertEquals(ErrorCode.ROOM_CONCURRENT_MODIFICATION, exception.getErrorCode());
-		verify(executor, org.mockito.Mockito.times(3)).finishRoom(USER_ID, ROOM_ID, NOW);
+			assertEquals(ErrorCode.ROOM_CONCURRENT_MODIFICATION, exception.getErrorCode());
+			verify(executor, org.mockito.Mockito.times(3)).finishRoom(USER_ID, ROOM_ID, NOW);
+			assertRetryLogs(appender, "event=room_finish_retry roomId=7");
+		} finally {
+			detachLogAppender(appender);
+		}
+	}
+
+	private ListAppender<ILoggingEvent> attachLogAppender() {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomStatusChangeService.class);
+		logger.setLevel(Level.DEBUG);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		return appender;
+	}
+
+	private void detachLogAppender(ListAppender<ILoggingEvent> appender) {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomStatusChangeService.class);
+		logger.detachAppender(appender);
+		logger.setLevel(null);
+		appender.stop();
+	}
+
+	private void assertRetryLogs(ListAppender<ILoggingEvent> appender, String eventWithRoomId) {
+		assertEquals(3, appender.list.size());
+		assertEquals(Level.DEBUG, appender.list.get(0).getLevel());
+		assertEquals(Level.DEBUG, appender.list.get(1).getLevel());
+		assertEquals(Level.WARN, appender.list.get(2).getLevel());
+		assertTrue(appender.list.stream().allMatch(
+			event -> event.getFormattedMessage().contains(eventWithRoomId)));
+		assertTrue(appender.list.get(0).getFormattedMessage().contains("attempt=2"));
+		assertTrue(appender.list.get(1).getFormattedMessage().contains("attempt=3"));
+		assertTrue(appender.list.get(2).getFormattedMessage().contains("attempt=3"));
+		assertTrue(appender.list.stream().allMatch(event -> event.getThrowableProxy() == null));
 	}
 }

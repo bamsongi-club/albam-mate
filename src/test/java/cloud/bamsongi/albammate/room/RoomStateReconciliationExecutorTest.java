@@ -102,7 +102,9 @@ class RoomStateReconciliationExecutorTest {
 		Long recruitingAfterStartVersion = recruitingAfterStart.getVersion();
 		Long closedAfterFinishVersion = closedAfterFinish.getVersion();
 
-		coordinator.reconcileDueRooms(REQUEST_TIME);
+		int changedCount = coordinator.reconcileDueRooms(REQUEST_TIME);
+
+		assertEquals(4, changedCount);
 
 		assertEquals(
 			RoomStatus.FINISHED,

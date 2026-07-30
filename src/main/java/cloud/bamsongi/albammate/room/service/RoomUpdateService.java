@@ -12,10 +12,12 @@ import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
 import cloud.bamsongi.albammate.room.dto.RoomUpdateRequest;
 import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /** 방 수정 시 낙관 락 충돌만 최대 세 번의 독립 트랜잭션으로 재시도한다. */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class RoomUpdateService {
 
 	private static final int MAX_ATTEMPTS = 3;
@@ -37,9 +39,13 @@ public class RoomUpdateService {
 				return executor.updateRoom(currentUserId, roomId, request, requestTime);
 			} catch (OptimisticLockException | ObjectOptimisticLockingFailureException exception) {
 				lastConflict = exception;
+				if (attempt < MAX_ATTEMPTS) {
+					log.debug("event=room_update_retry roomId={} attempt={}", roomId, attempt + 1);
+				}
 			}
 		}
 
+		log.warn("event=room_update_retry roomId={} attempt={}", roomId, MAX_ATTEMPTS);
 		throw new BusinessException(ErrorCode.ROOM_CONCURRENT_MODIFICATION, lastConflict);
 	}
 }

@@ -11,10 +11,12 @@ import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.dto.RoomStatusResponse;
 import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /** 방 취소·종료 시 낙관 락 충돌만 최대 세 번의 독립 트랜잭션으로 재시도한다. */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class RoomStatusChangeService {
 
 	private static final int MAX_ATTEMPTS = 3;
@@ -31,8 +33,12 @@ public class RoomStatusChangeService {
 				return executor.cancelRoom(currentUserId, roomId, requestTime);
 			} catch (OptimisticLockException | ObjectOptimisticLockingFailureException exception) {
 				lastConflict = exception;
+				if (attempt < MAX_ATTEMPTS) {
+					log.debug("event=room_cancel_retry roomId={} attempt={}", roomId, attempt + 1);
+				}
 			}
 		}
+		log.warn("event=room_cancel_retry roomId={} attempt={}", roomId, MAX_ATTEMPTS);
 		throw new BusinessException(ErrorCode.ROOM_CONCURRENT_MODIFICATION, lastConflict);
 	}
 
@@ -48,8 +54,12 @@ public class RoomStatusChangeService {
 				return executor.finishRoom(currentUserId, roomId, requestTime);
 			} catch (OptimisticLockException | ObjectOptimisticLockingFailureException exception) {
 				lastConflict = exception;
+				if (attempt < MAX_ATTEMPTS) {
+					log.debug("event=room_finish_retry roomId={} attempt={}", roomId, attempt + 1);
+				}
 			}
 		}
+		log.warn("event=room_finish_retry roomId={} attempt={}", roomId, MAX_ATTEMPTS);
 		throw new BusinessException(ErrorCode.ROOM_CONCURRENT_MODIFICATION, lastConflict);
 	}
 }

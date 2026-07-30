@@ -11,8 +11,10 @@ import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import jakarta.persistence.OptimisticLockException;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 public class RoomParticipationService {
 
 	private static final int MAX_ATTEMPTS = 3;
@@ -35,11 +37,18 @@ public class RoomParticipationService {
 				return executor.participate(currentUserId, roomId, requestTime);
 			} catch (OptimisticLockException exception) {
 				lastConflict = exception;
+				if (attempt < MAX_ATTEMPTS) {
+					log.debug("event=room_participation_retry roomId={} attempt={}", roomId, attempt + 1);
+				}
 			} catch (ObjectOptimisticLockingFailureException exception) {
 				lastConflict = exception;
+				if (attempt < MAX_ATTEMPTS) {
+					log.debug("event=room_participation_retry roomId={} attempt={}", roomId, attempt + 1);
+				}
 			}
 		}
 
+		log.warn("event=room_participation_retry roomId={} attempt={}", roomId, MAX_ATTEMPTS);
 		throw new BusinessException(ErrorCode.ROOM_CONCURRENT_MODIFICATION, lastConflict);
 	}
 }

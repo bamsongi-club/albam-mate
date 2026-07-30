@@ -3,11 +3,13 @@ package cloud.bamsongi.albammate.room;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.function.IntConsumer;
@@ -16,6 +18,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.entity.Room;
@@ -51,13 +57,27 @@ class RoomStateReconciliationCoordinatorTest {
 			.when(executor)
 			.reconcileRoom(ROOM_ID, REQUEST_TIME);
 
-		BusinessException exception = assertThrows(
-			BusinessException.class,
-			() -> coordinator.reconcileRoom(ROOM_ID, REQUEST_TIME));
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			BusinessException exception = assertThrows(
+				BusinessException.class,
+				() -> coordinator.reconcileRoom(ROOM_ID, REQUEST_TIME));
 
-		assertEquals(ErrorCode.ROOM_CONCURRENT_MODIFICATION, exception.getErrorCode());
-		assertSame(third, exception.getCause());
-		verify(executor, times(3)).reconcileRoom(ROOM_ID, REQUEST_TIME);
+			assertEquals(ErrorCode.ROOM_CONCURRENT_MODIFICATION, exception.getErrorCode());
+			assertSame(third, exception.getCause());
+			verify(executor, times(3)).reconcileRoom(ROOM_ID, REQUEST_TIME);
+			assertEquals(3, appender.list.size());
+			assertEquals(Level.DEBUG, appender.list.get(0).getLevel());
+			assertEquals(Level.DEBUG, appender.list.get(1).getLevel());
+			assertEquals(Level.WARN, appender.list.get(2).getLevel());
+			assertTrue(appender.list.stream().allMatch(event -> event.getFormattedMessage()
+				.contains("event=room_state_reconciliation_retry roomId=10")));
+			assertTrue(appender.list.get(0).getFormattedMessage().contains("attempt=2"));
+			assertTrue(appender.list.get(1).getFormattedMessage().contains("attempt=3"));
+			assertTrue(appender.list.get(2).getFormattedMessage().contains("attempt=3"));
+		} finally {
+			detachLogAppender(appender);
+		}
 	}
 
 	@Test
@@ -119,10 +139,9 @@ class RoomStateReconciliationCoordinatorTest {
 	void 재시도마다_동일한_요청_시각을_전달한다() {
 		RoomStateReconciliationExecutor executor = mock(RoomStateReconciliationExecutor.class);
 		RoomStateReconciliationCoordinator coordinator = new RoomStateReconciliationCoordinator(executor);
-		doThrow(new OptimisticLockException())
-			.doNothing()
-			.when(executor)
-			.reconcileDueRooms(REQUEST_TIME);
+		when(executor.reconcileDueRooms(REQUEST_TIME))
+			.thenThrow(new OptimisticLockException())
+			.thenReturn(0);
 
 		coordinator.reconcileDueRooms(REQUEST_TIME);
 
@@ -162,8 +181,40 @@ class RoomStateReconciliationCoordinatorTest {
 			.when(executor)
 			.reconcileDueRooms(REQUEST_TIME);
 
-		assertThrows(BusinessException.class, () -> coordinator.reconcileDueRooms(REQUEST_TIME));
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			assertThrows(BusinessException.class, () -> coordinator.reconcileDueRooms(REQUEST_TIME));
 
-		verify(executor, times(3)).reconcileDueRooms(REQUEST_TIME);
+			verify(executor, times(3)).reconcileDueRooms(REQUEST_TIME);
+			assertEquals(3, appender.list.size());
+			assertEquals(Level.DEBUG, appender.list.get(0).getLevel());
+			assertEquals(Level.DEBUG, appender.list.get(1).getLevel());
+			assertEquals(Level.WARN, appender.list.get(2).getLevel());
+			assertEquals("event=room_state_reconciliation_retry attempt=2",
+				appender.list.get(0).getFormattedMessage());
+			assertEquals("event=room_state_reconciliation_retry attempt=3",
+				appender.list.get(1).getFormattedMessage());
+			assertEquals("event=room_state_reconciliation_retry attempt=3",
+				appender.list.get(2).getFormattedMessage());
+			assertTrue(appender.list.stream().noneMatch(event -> event.getFormattedMessage().contains("roomId=")));
+		} finally {
+			detachLogAppender(appender);
+		}
+	}
+
+	private ListAppender<ILoggingEvent> attachLogAppender() {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomStateReconciliationCoordinator.class);
+		logger.setLevel(Level.DEBUG);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		return appender;
+	}
+
+	private void detachLogAppender(ListAppender<ILoggingEvent> appender) {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(RoomStateReconciliationCoordinator.class);
+		logger.detachAppender(appender);
+		logger.setLevel(null);
+		appender.stop();
 	}
 }
