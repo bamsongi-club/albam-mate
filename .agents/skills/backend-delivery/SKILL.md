@@ -21,12 +21,18 @@ description: "확정된 범위·정본에 따른 Albam Mate 백엔드 기능·�
 ## 3. 검증과 리뷰
 
 - 구현 에이전트는 패킷의 대상·최종 검증만 `docs/COMMANDS.md`에 따라 실행하고 결과를 보고한다.
-- 메인 에이전트는 승인 경로의 staged·unstaged·untracked 변경 내용을 빠짐없이 고정 diff로 만들고 `git diff --check`를 실행한다.
-- 작성자·구현자와 다른 fresh `review-code-reviewer`에게 `review-code`의 T-ID 계약 검증을 맡긴다. `requiredTests`의 `id`·`intent`와 고정 diff만 전달하고, 그 계약의 종합 판정이 `Approve`일 때만 4절로 진행한다.
+- 메인 에이전트는 승인 경로의 staged·unstaged·untracked 변경 내용을 빠짐없이 확인하고 `git diff --check`를 실행한다. 이후 `node scripts/validate-backend-test-result.mjs --snapshot`의 JSON 출력을 snapshot 정본으로 고정한다.
+  - 공통 CLI는 현재 전용 worktree 전체의 staged binary diff bytes, unstaged binary diff bytes, 정렬된 untracked 경로와 파일 bytes SHA-256을 key-sorted canonical JSON seed로 묶어 `baseCommit`, `implementationDiffHash`, `trackedDiffHash`, `canonicalSeed`를 출력한다. 메인과 tester는 이 산식을 자연어로 재구현하지 않는다.
+  - 별도 expected JSON에는 CLI의 `baseCommit`, `implementationDiffHash`, `trackedDiffHash`, 키 정렬 canonical JSON UTF-8 바이트 SHA-256인 `packetHash`, 입력 순서의 `{ id, command }` T-ID별 승인 명령만 넣는다. 모든 T-ID에 명령을 하나씩 명시하고, 이 expected JSON 외의 이슈 본문·completionCriteria·세션 설명은 tester에게 전달하지 않는다.
+- 패킷 작성자·구현자와 다른 fresh `backend-tester`에게 고정 expected JSON만 전달해 승인 명령을 실제 실행시킨다. tester는 `.codex/contracts/backend-test-result.schema.json` 형식의 결과를 반환해야 하며, 메인 에이전트는 `node scripts/validate-backend-test-result.mjs --result <result.json> --expected <expected.json>`으로 형식, hash, T-ID 순서, 명령과 verdict 관계, production/test source 수정·stage·commit·push·PR 생성 audit가 모두 false인지 검증한다.
+  - validator가 거부하거나 tester의 종합 verdict가 `fail`이면 구현자에게 돌려보내 수정한다. 구현 diff hash가 달라지면 새 snapshot과 fresh tester 결과가 필요하다.
+  - 종합 verdict가 `unverified`이면 PR 전달을 막는다. 같은 snapshot에서 다시 실행하거나, 실행할 수 없는 조건과 잔여 위험을 보고하고 중단한다.
+  - schema 유효 tester 종합 `pass` 전에는 T-ID 고정 diff verifier나 `pr-writer` 단계로 진행하지 않는다.
+- 작성자·구현자·tester와 다른 fresh `review-code-reviewer`에게 `review-code`의 T-ID 계약 검증을 맡긴다. `requiredTests`의 `id`·`intent`와 고정 diff만 전달하고, 그 계약의 종합 판정이 `Approve`이고 schema 유효 tester 종합 verdict도 `pass`일 때만 4절로 진행한다.
 - `Changes Requested`는 fail T-ID를 수정하고 대상 테스트를 재실행하며, `Incomplete`는 unverified T-ID를 직접 판정할 구현·테스트를 고정 diff에 보강한다. 둘 다 fresh verifier로 재검증하고, `Approve` 전에는 `pr-writer`, 커밋·푸시·PR 생성을 금지한다.
 - T-ID 검증과 일반 위험 리뷰는 분리한다. 필요하면 일반 `review-code`를 별도로 실행하고 HTTP 인증·인가·개인정보·동시성 변경의 해당 차원을 명시한다.
 - 유효한 일반 리뷰 지적만 1절의 승인 규칙을 지킨 좁은 패킷으로 반영하고, 해당 대상 테스트를 다시 실행한다.
-- 최종 검증은 작업 조건과 `docs/COMMANDS.md`를 따르며, 실행하지 못한 조건부 검증은 완료로 표시하지 않는다.
+- 최종 검증은 작업 조건과 `docs/COMMANDS.md`를 따르며, Markdown을 바꾸면 `node scripts/check-doc-links.mjs`를 실행하고 실행하지 못한 조건부 검증은 완료로 표시하지 않는다.
 
 ## 4. 전달
 
