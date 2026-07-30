@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "snapshot": {
+    "baseCommit": "<40자리-소문자-commit-sha>",
+    "implementationDiffHash": "<64자리-소문자-sha256>",
+    "packetHash": "<64자리-소문자-sha256>"
+  },
+  "startedSnapshot": {
+    "baseCommit": "<40자리-소문자-commit-sha>",
+    "implementationDiffHash": "<64자리-소문자-sha256>",
+    "packetHash": "<64자리-소문자-sha256>",
+    "trackedDiffHash": "<64자리-소문자-sha256>"
+  },
+  "finishedSnapshot": {
+    "baseCommit": "<40자리-소문자-commit-sha>",
+    "implementationDiffHash": "<64자리-소문자-sha256>",
+    "packetHash": "<64자리-소문자-sha256>",
+    "trackedDiffHash": "<64자리-소문자-sha256>"
+  },
+  "audit": {
+    "productionSourceModified": false,
+    "testSourceModified": false,
+    "stagePerformed": false,
+    "commitPerformed": false,
+    "pushPerformed": false,
+    "pullRequestCreated": false
+  },
+  "testResults": [
+    {
+      "testId": "T1",
+      "command": "<승인된-명령-원문>",
+      "durationMs": 0,
+      "exitCode": 0,
+      "verdict": "pass",
+      "evidenceHash": "<stdout와-stderr-원문-utf8-바이트의-sha256>",
+      "notRunReason": null
+    }
+  ],
+  "overallVerdict": "pass",
+  "overallReason": null
+}
