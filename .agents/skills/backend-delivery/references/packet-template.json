@@ -3,7 +3,6 @@
   "workItem": {
     "kind": "issue",
     "id": "<이슈-번호>",
-    "featureId": "<해당-시-기능-ID>",
     "summary": "<확정된-백엔드-작업-요약>"
   },
   "canonicalSources": [
@@ -38,7 +37,7 @@
       "<대상-테스트-명령>"
     ],
     "finalCommands": [
-      "<구현-에이전트-포맷-또는-diff-명령>"
+      "<구현-에이전트-최종-검증-명령>"
     ]
   },
   "confirmedDecisions": [

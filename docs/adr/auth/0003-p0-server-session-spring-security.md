@@ -46,9 +46,14 @@ Albam Mate의 P0 인증은 서버 세션을 사용하고, 인증·인가 경계�
 
 ## 보류 및 재검토
 
-- 지금 하지 않는 것: JWT·refresh token 도입, 서버 세션과 JWT의 혼합 인증
+- 지금 하지 않는 것:
+  - JWT·refresh token 도입
+  - 서버 세션과 JWT의 혼합 인증
 - 보류 이유: 현재 P0에는 외부 API, 다중 서비스 인증 연동, 별도 모바일 클라이언트 요구가 없고 토큰 수명 주기를 추가할 이유가 확인되지 않았다.
-- 다시 검토할 조건: 별도 모바일 클라이언트나 제3자 공개 API를 지원할 때, 독립된 Resource Server 또는 명확한 stateless 운영 요구가 생길 때, 다중 인스턴스의 서버 세션 운영 비용이 수용하기 어려울 때
+- 다시 검토할 조건:
+  - 별도 모바일 클라이언트나 제3자 공개 API를 지원할 때
+  - 독립된 Resource Server 또는 명확한 stateless 운영 요구가 생길 때
+  - 다중 인스턴스의 서버 세션 운영 비용이 수용하기 어려울 때
 
 ## 참고 자료
 
@@ -59,6 +64,13 @@ Albam Mate의 P0 인증은 서버 세션을 사용하고, 인증·인가 경계�
 ## 검증
 
 - 상태: 검증됨
-- 근거: `spring-boot-starter-security`와 `SecurityConfig`로 인증·인가 경계를 적용하고, JWT나 refresh token은 두지 않았다. `SessionCookieConfigurer`가 `JSESSIONID`에 `HttpOnly`, `SameSite=Lax`와 프로필별 `Secure`를 적용하고, `SecurityCookiePropertiesTest`와 `SecurityConfigTest`가 운영 기본값의 `Secure` 속성과 쿠키 계약을 확인한다. `SecurityConfigTest`는 공개·선택 인증·보호 경로, 보호 `GET`과 `HEAD`의 인증 요구, 상태 변경 요청의 CSRF 필수와 세션 없음 우선순위, 보안 실패 응답에 세션·사용자 ID를 담지 않음을 확인한다. `LoginLogoutHttpIntegrationTest`는 로그인 성공 시 세션 교체, 로그아웃의 세션·CSRF 무효화, 무효화된 세션의 보호 API `401`, 세션 만료 시각을 지역시간이 아닌 epoch millis로 다루는지를 확인한다. CSRF 보호는 비활성화하지 않는다.
+- 근거:
+    - 구현:
+        - `spring-boot-starter-security`와 `SecurityConfig`로 인증·인가 및 CSRF 경계를 적용하고 JWT·refresh token은 두지 않았다.
+        - `SessionCookieConfigurer`가 `JSESSIONID`에 `HttpOnly`, `SameSite=Lax`와 프로필별 `Secure`를 적용한다.
+    - 테스트:
+        - `SecurityCookiePropertiesTest`와 `SecurityConfigTest`는 운영 쿠키 기본값을 확인한다.
+        - `SecurityConfigTest`는 공개·선택 인증·보호 경로와 `GET`·`HEAD` 인증, 상태 변경 CSRF, 세션 없음 우선순위 및 보안 실패 응답의 정보 비노출을 확인한다.
+        - `LoginLogoutHttpIntegrationTest`는 로그인 세션 교체, 로그아웃의 세션·CSRF 무효화, 무효 세션의 보호 API `401`과 세션 만료 시각의 epoch millis 처리를 확인한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

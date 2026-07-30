@@ -106,7 +106,14 @@ DB를 시작하고 연결하는 방법은 다르지만, 애플리케이션이 �
 
 ## 보류 및 재검토
 
-- 지금 하지 않는 것: NAT Gateway, Application Load Balancer, RDS Multi-AZ, 읽기 복제본, RDS Proxy, Redis 기반 세션 공유, 자동 수평 확장
+- 지금 하지 않는 것:
+  - NAT Gateway
+  - Application Load Balancer
+  - RDS Multi-AZ
+  - 읽기 복제본
+  - RDS Proxy
+  - Redis 기반 세션 공유
+  - 자동 수평 확장
 - 보류 이유: P0는 애플리케이션 한 대와 DB 한 대의 실측 결과가 없고, 위 구성은 비용과 운영 대상만 늘린다. 특히 여러 애플리케이션 인스턴스는 서버 세션 공유 방식을 별도로 결정해야 한다.
 - 다시 검토할 조건:
   - `CPUSurplusCreditsCharged > 0`, 즉 위에서 설명한 잉여 크레딧 요금이 실제로 청구되기 시작하거나, EC2 CPU 평균이 15분 동안 70% 이상인 상황이 일주일 안에 두 번 발생할 때
@@ -160,7 +167,13 @@ ADR이 승인됐다는 사실만으로 배포가 완료된 것은 아니다. 아
 ## 검증
 
 - 상태: 미검증
-- 근거: 2026-07-28 서울 리전의 일회성 환경에서 EC2 `t4g.small` ARM64와 RDS PostgreSQL `18.4` `db.t4g.micro`를 연결했다. RDS CA 검증 TLS, 당시 Flyway V1~V3, Hibernate `validate`, 공개 조회, 회원가입·로그인·보호 프로필 조회와 애플리케이션 컨테이너 재시작 뒤 데이터 지속을 확인했다. RDS는 비공개·암호화·Single-AZ·gp3 20 GiB·백업 7일이었고, DB 보안 그룹은 애플리케이션 보안 그룹에서 오는 5432만 허용했다. [ADR-0023](0023-p0-flyway-baseline-reset-player-count-stages.md)이 V1~V3 기준선을 재생성하므로 이 마이그레이션 근거는 새 기준선에서 다시 검증해야 한다.
-- 미검증으로 남기는 이유: 임시 테스트는 외부 인바운드를 모두 닫은 채, 인스턴스에 포트를 열지 않고 접속하는 AWS Systems Manager Session Manager(SSM)로 수행했다. 따라서 인터넷 HTTPS 443과 인증서 갱신, 비루트 배포 역할, 전용 애플리케이션 DB 사용자, EC2 재시작, RDS 백업 복구, 메모리 경보와 비용 알림 수신은 아직 검증되지 않았다. 이 항목까지 확인해야 결정 전체를 `검증됨`으로 바꾼다.
+- 근거:
+    - 구현:
+        - 2026-07-28 서울 리전의 일회성 환경에서 EC2 `t4g.small` ARM64와 비공개·암호화·Single-AZ·gp3 20 GiB·백업 7일의 RDS PostgreSQL `18.4` `db.t4g.micro`를 연결하고, DB 보안 그룹은 애플리케이션 보안 그룹의 5432만 허용했다.
+    - 테스트:
+        - 외부 인바운드와 인스턴스 포트를 열지 않은 SSM 환경에서 RDS CA 검증 TLS, 당시 Flyway V1~V3, Hibernate `validate`, 공개 조회·회원가입·로그인·보호 프로필 조회와 컨테이너 재시작 뒤 데이터 지속을 확인했다.
+- 미검증:
+    - [ADR-0023](0023-p0-flyway-baseline-reset-player-count-stages.md)이 V1~V3 기준선을 재생성하므로 이 마이그레이션 근거는 새 기준선에서 다시 검증해야 한다.
+    - 인터넷 HTTPS 443·인증서 갱신, 비루트 배포 역할, 전용 애플리케이션 DB 사용자, EC2 재시작, RDS 백업 복구, 메모리 경보와 비용 알림 수신을 확인해야 한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

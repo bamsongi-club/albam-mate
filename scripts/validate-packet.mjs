@@ -7,8 +7,9 @@ export const DEFAULT_SCHEMA_PATH = fileURLToPath(
     new URL('../.codex/contracts/backend-implementation-packet.schema.json', import.meta.url),
 );
 
+const EXPECTED_GITHUB_REPOSITORY = 'bamsongi-club/albam-mate';
 const ISSUE_COMMENT_URL =
-    /^https:\/\/github\.com\/[^/?#]+\/[^/?#]+\/issues\/([1-9][0-9]*)#issuecomment-[1-9][0-9]*$/;
+    /^https:\/\/github\.com\/([^/?#]+)\/([^/?#]+)\/issues\/([1-9][0-9]*)#issuecomment-[1-9][0-9]*$/;
 
 function instanceChild(parent, property) {
     if (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(property)) {
@@ -212,16 +213,29 @@ function validatePacketRelations(packet) {
 
     const approval = packet?.testContractApproval;
     const commentMatch = typeof approval?.commentUrl === 'string' ? approval.commentUrl.match(ISSUE_COMMENT_URL) : null;
-    if (commentMatch && Number.isInteger(approval.issueNumber)) {
-        const urlIssueNumber = Number(commentMatch[1]);
-        if (urlIssueNumber !== approval.issueNumber) {
+    if (commentMatch) {
+        const urlRepository = `${commentMatch[1]}/${commentMatch[2]}`;
+        if (urlRepository.toLowerCase() !== EXPECTED_GITHUB_REPOSITORY.toLowerCase()) {
             addError(
                 errors,
                 '$.testContractApproval.commentUrl',
                 '#/relations',
-                'approvalIssueNumber',
-                `코멘트 URL의 이슈 #${urlIssueNumber}가 승인 이슈 #${approval.issueNumber}와 다릅니다.`,
+                'approvalRepository',
+                `승인 코멘트 URL은 ${EXPECTED_GITHUB_REPOSITORY} 저장소에 속해야 합니다.`,
             );
+        }
+
+        if (Number.isInteger(approval.issueNumber)) {
+            const urlIssueNumber = Number(commentMatch[3]);
+            if (urlIssueNumber !== approval.issueNumber) {
+                addError(
+                    errors,
+                    '$.testContractApproval.commentUrl',
+                    '#/relations',
+                    'approvalIssueNumber',
+                    `코멘트 URL의 이슈 #${urlIssueNumber}가 승인 이슈 #${approval.issueNumber}와 다릅니다.`,
+                );
+            }
         }
     }
 

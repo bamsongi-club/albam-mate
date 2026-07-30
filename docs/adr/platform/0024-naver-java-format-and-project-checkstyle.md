@@ -58,6 +58,10 @@ Spotless의 Java 포맷 정본을 네이버 Java 코딩 컨벤션의 Eclipse For
 ## 검증
 
 - 상태: 미검증
-- 근거: 로컬 스파이크에서 `conventionCheck`, pre-commit hook, 전체 Gradle build를 통과했다. Issue #145 승인과 최종 반영 후 구현 PR과 CI 결과로 갱신한다.
+- 근거:
+    - 테스트:
+        - 로컬 스파이크에서 `conventionCheck`, pre-commit hook과 전체 Gradle build가 통과했다.
+- 미검증:
+    - Issue #145 승인과 최종 반영 후 구현 PR과 CI 결과로 갱신한다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.
