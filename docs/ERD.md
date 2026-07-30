@@ -12,7 +12,7 @@
 
 ## 기준과 범위
 
-- 기준: 1차 MVP 기획서와 팀 합의
+- 기준: 제품 범위·규칙은 [P0 공통 명세](P0-spec.md), 저장 방식의 기술 결정은 [관련 승인 ADR](adr/README.md)을 따른다.
 - 범위: 오프라인 방, 게임 목록, 사용자, 방 참가
 - 제외: 온라인 방, 채팅, 후기, 룰마스터 가능 게임, 카테고리 다대다·태그 필터, 결제·포인트
 - P0 검색: 게임 목록은 게임명 `keyword`, 사람 중심 방 목록은 방 제목 `keyword` 검색을 지원한다. 게임 태그는 표시값이며 필터가 아니다.
@@ -214,5 +214,6 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 
 - 개설자는 `PARTICIPATIONS`에 참가 행을 만들지 않는다. 현재 총 인원과 참가자 목록 계산은 [정원·참가자 표시 규칙](#정원참가자-표시-규칙)을 따른다.
 - `active_participant_count = ACTIVE 상태의 PARTICIPATIONS 수`는 서비스가 유지하는 불변식이며, `ROOMS`의 CHECK 제약은 카운터의 범위(`0`~`capacity`)만 보장한다.
-- 참가·재참가·참가 취소는 참가 관계, `active_participant_count`와 [P0 방 상태](P0-spec.md#방-상태roomstatus)가 정한 상태 전이를 하나의 트랜잭션에서 함께 변경한다. 참가 가능성에 영향을 주는 변경은 `ROOMS` 행을 함께 갱신해 `version`을 올리며, 어떤 요청에서도 `active_participant_count`가 `capacity`를 초과하지 않게 한다. 동시성 제어는 [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md)를 따른다.
+- 참가·재참가·참가 취소는 참가 관계, `active_participant_count`, [P0 방 상태](P0-spec.md#방-상태roomstatus)의 전이를 한 트랜잭션에서 변경한다.
+- 참가 가능성에 영향을 주는 변경은 `ROOMS` 행도 갱신해 `version`을 올린다. 모든 요청에서 `active_participant_count <= capacity`를 지켜야 하며, 동시성 제어는 [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md)를 따른다.
 - `start_at`과 상태 전이 시각 비교는 [ADR-0009](adr/platform/0009-utc-time-standard.md)의 UTC 기준을 따른다.

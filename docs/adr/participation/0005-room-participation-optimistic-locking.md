@@ -50,9 +50,15 @@ Albam Mate의 현재 MVP에서 방 참가·취소 동시성 제어의 기본 전
 
 ## 보류 및 재검토
 
-- 지금 하지 않는 것: 비관 락을 기본 전략으로 사용, 조건부 갱신을 직접 구현, 정량 근거 없이 잠금 전략을 추가 확장
+- 지금 하지 않는 것:
+  - 비관 락을 기본 전략으로 사용
+  - 조건부 갱신을 직접 구현
+  - 정량 근거 없이 잠금 전략을 추가 확장
 - 보류 이유: 현재 MVP는 같은 방의 동시 요청이 드물다는 가정을 두고 있으며 먼저 낙관 락의 충돌과 재시도 비용을 측정하기로 했다.
-- 다시 검토할 조건: 부하 테스트나 운영에서 충돌과 재시도가 자주 발생하거나, 재시도에 따른 지연·데이터베이스 부하가 수용하기 어렵거나, 낙관 락으로 정원·중복 정합성을 안정적으로 보호하기 어렵다고 확인될 때
+- 다시 검토할 조건:
+  - 부하 테스트나 운영에서 충돌과 재시도가 자주 발생하거나
+  - 재시도에 따른 지연·데이터베이스 부하가 수용하기 어렵거나
+  - 낙관 락으로 정원·중복 정합성을 안정적으로 보호하기 어렵다고 확인될 때
 
 ## 참고 자료
 
@@ -64,7 +70,16 @@ Albam Mate의 현재 MVP에서 방 참가·취소 동시성 제어의 기본 전
 
 ## 검증
 
-- 상태: 검증됨
-- 근거: `Room` 엔티티가 `@Version`으로 `rooms.version`을 매핑하고 `Participation`에는 별도 버전을 두지 않았다. `RoomParticipationService`와 `RoomParticipationCancelService`는 트랜잭션 밖에서 낙관 락 충돌만 최초 1회와 재시도 2회를 합쳐 최대 세 개의 독립 트랜잭션으로 처리하고, 세 시도가 모두 충돌하면 `ROOM_CONCURRENT_MODIFICATION`을 반환한다. 업무 규칙 위반은 재시도하지 않는다. `RoomParticipationConcurrencyPostgresTest`는 PostgreSQL 18에서 같은 버전을 읽은 두 요청의 마지막 좌석 경합, 참가 취소와 새 참가, 정원 축소와 새 참가, 취소된 기존 참가와 신규 참가, 참가 저장 실패의 같은 트랜잭션 롤백을 확인하고, 매 시나리오 뒤 `active_participant_count`와 실제 `ACTIVE` 참가 관계 수의 일치를 검사한다. 데이터베이스 방어인 `uq_participations_room_user`와 `ck_rooms_active_participant_count`는 `V1__create_p0_schema.sql`에 있고 PostgreSQL 18에서 `ddl-auto=validate`가 통과한다(`SchemaValidationPostgresTest`). 충돌·재시도 빈도의 부하 측정은 이 ADR의 재검토 조건으로 남는다.
+- 상태: 미검증
+- 근거:
+    - 구현:
+        - `Room`은 `@Version`으로 `rooms.version`을 매핑하고 `Participation`에는 별도 버전을 두지 않는다.
+        - `RoomParticipationService`와 `RoomParticipationCancelService`는 낙관 락 충돌만 최대 세 개의 독립 트랜잭션으로 재시도하며, 소진 시 `ROOM_CONCURRENT_MODIFICATION`을 반환하고 업무 규칙 위반은 재시도하지 않는다.
+        - `V1__create_p0_schema.sql`의 `uq_participations_room_user`와 `ck_rooms_active_participant_count`가 데이터베이스 불변식을 방어한다.
+    - 테스트:
+        - `RoomParticipationConcurrencyPostgresTest`는 PostgreSQL 18에서 마지막 좌석 경합, 참가 취소·정원 축소와 새 참가, 취소된 기존 참가의 재참가 및 저장 실패 롤백을 실행하고 매 시나리오 뒤 참가 수 불변식을 확인한다.
+        - PostgreSQL 18에서 `ddl-auto=validate`가 통과한다(`SchemaValidationPostgresTest`).
+- 미검증:
+    - 충돌·재시도 빈도의 부하 측정은 이 ADR의 재검토 조건으로 남는다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

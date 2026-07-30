@@ -14,7 +14,7 @@ pre-commit hook은 다음 순서로 커밋을 검사한다.
 2. `conventionCheck`로 저장소 전체의 Java 포맷과 모든 source set의 Checkstyle을 검사한다.
 3. 위반이 있으면 커밋을 중단하고 포맷 적용과 재검사 방법을 안내한다.
 
-hook은 파일을 자동 수정하거나 stage하지 않는다. 자동 수정이 기존의 unstaged 변경을 커밋에 섞지 않도록 수정과 검토를 명시적인 단계로 남겨 둔다.
+hook은 파일을 자동 수정·stage하지 않는다. 기존 unstaged 변경이 커밋에 섞이지 않도록 수정과 검토를 명시적 단계로 둔다.
 
 ## clone별 최초 설정
 

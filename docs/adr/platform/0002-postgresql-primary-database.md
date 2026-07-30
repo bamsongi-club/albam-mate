@@ -46,9 +46,17 @@ PostgreSQL의 메이저 버전, 스키마 마이그레이션 도구, 세션 참�
 
 ## 보류 및 재검토
 
-- 지금 하지 않는 것: `pgvector`·RAG·별도 벡터 데이터베이스, 읽기 복제본, 캐시, PostgreSQL 메이저 버전과 관리형 서비스의 확정
+- 지금 하지 않는 것:
+  - `pgvector`·RAG·별도 벡터 데이터베이스
+  - 읽기 복제본
+  - 캐시
+  - PostgreSQL 메이저 버전과 관리형 서비스의 확정
 - 보류 이유: 현재 구현과 측정된 부하가 없으며, 검색 품질·데이터 규모·배포 환경 요구도 확정되지 않았다.
-- 다시 검토할 조건: 선택한 배포 환경이 PostgreSQL을 지원하지 않거나 운영 비용이 수용 범위를 넘을 때, 필수 기능이 다른 저장 모델을 요구할 때, 실제 부하 시험에서 PostgreSQL이 목표를 충족하지 못할 때, 벡터 검색 요구가 구체화돼 확장과 별도 시스템의 비용·성능을 비교할 수 있을 때
+- 다시 검토할 조건:
+  - 선택한 배포 환경이 PostgreSQL을 지원하지 않거나 운영 비용이 수용 범위를 넘을 때
+  - 필수 기능이 다른 저장 모델을 요구할 때
+  - 실제 부하 시험에서 PostgreSQL이 목표를 충족하지 못할 때
+  - 벡터 검색 요구가 구체화돼 확장과 별도 시스템의 비용·성능을 비교할 수 있을 때
 
 ## 참고 자료
 
@@ -60,6 +68,13 @@ PostgreSQL의 메이저 버전, 스키마 마이그레이션 도구, 세션 참�
 ## 검증
 
 - 상태: 검증됨
-- 근거: 애플리케이션이 Spring Data JPA와 PostgreSQL JDBC 드라이버로 접속하고, 연결값은 저장소에 두지 않고 환경변수로 주입한다(`application-local.yml`, `compose.local.yml`). `SchemaValidationPostgresTest`는 Testcontainers `postgres:18.4`에서 Flyway `V1`~`V3` 적용과 `ddl-auto=validate` 통과, `DatabaseMetaData`의 PostgreSQL 18 연결을 확인한다. 같은 테스트가 실제 `INSERT`로 `ck_rooms_capacity`, `ck_participations_status_canceled_at`, `fk_participations_user`, `fk_participations_room` 위반을 SQLSTATE와 제약명까지 확인하고, 독립 트랜잭션의 같은 정규화 이메일 동시 가입에서 한 건만 생성되는지 확인한다. `RoomParticipationConcurrencyPostgresTest`는 참가·취소 동시 요청 뒤 `active_participant_count`와 실제 `ACTIVE` 참가 관계 수의 일치를 확인한다. CI는 `build` 뒤 `postgresTest`를 실행한다.
+- 근거:
+    - 구현:
+        - 애플리케이션은 Spring Data JPA와 PostgreSQL JDBC 드라이버로 접속하고, `application-local.yml`과 `compose.local.yml`은 연결값을 환경변수로 주입한다.
+    - 테스트:
+        - `SchemaValidationPostgresTest`는 Testcontainers `postgres:18.4`에서 Flyway V1~V3·Hibernate 검증과 PostgreSQL 18 연결, CHECK·FK 제약 위반의 SQLSTATE·제약명 및 동시 가입의 이메일 유일성을 확인한다.
+        - `RoomParticipationConcurrencyPostgresTest`는 참가·취소 동시 요청 뒤 `active_participant_count`와 실제 `ACTIVE` 참가 관계 수의 일치를 확인한다.
+    - CI:
+        - `build` 뒤 `postgresTest`를 실행한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

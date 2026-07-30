@@ -46,6 +46,17 @@ test('없는 파일을 가리키면 위치와 함께 없는 파일로 보고한�
     assert.equal(result.checkedLinks, 1);
 });
 
+test('ADR 템플릿 링크는 도메인 폴더에 복사된 위치를 기준으로 검사한다', (t) => {
+    const result = check(t, {
+        'docs/adr/0000-template.md': '[정상](../README.md)\n[없음](../missing.md)\n',
+        'docs/adr/README.md': '# ADR\n',
+    });
+
+    assert.deepEqual(kinds(result), ['없는 파일']);
+    assert.equal(result.problems[0].detail, '../missing.md');
+    assert.equal(result.checkedLinks, 2);
+});
+
 test('없는 앵커를 가리키면 없는 앵커로 보고한다', (t) => {
     const result = check(t, {
         'a.md': '[앵커](b.md#없는-제목)\n',

@@ -278,6 +278,15 @@ function isExistingFile(absolutePath) {
     return fs.statSync(absolutePath, { throwIfNoEntry: false })?.isFile() ?? false;
 }
 
+// ADR 템플릿의 상대 링크는 파일 원위치가 아니라 도메인 폴더에 복사된 위치를 기준으로 한다.
+function linkBaseDirectory(repoRoot, file, absoluteFile) {
+    const normalizedFile = file.split(path.sep).join('/');
+    if (normalizedFile === 'docs/adr/0000-template.md') {
+        return path.join(repoRoot, 'docs', 'adr', '__template-domain__');
+    }
+    return path.dirname(absoluteFile);
+}
+
 // 인덱스에는 남아 있지만 작업 트리에서 사라진 경로를 검사 원본에서 제외한다.
 // 일반 `mv`·`rm` 뒤 스테이징 전에도 남은 문서의 깨진 참조를 정상 보고하기 위한 것이다.
 export function runCheck({ repoRoot, files }) {
@@ -321,7 +330,7 @@ export function runCheck({ repoRoot, files }) {
             let absoluteTarget = absoluteFile;
             if (rawPath !== '') {
                 absoluteTarget = path.resolve(
-                    path.dirname(absoluteFile),
+                    linkBaseDirectory(repoRoot, file, absoluteFile),
                     decodeURIComponent(rawPath),
                 );
                 if (!fs.existsSync(absoluteTarget)) {

@@ -31,7 +31,7 @@ Gradle은 별도 설치본 대신 저장소의 Wrapper를 사용한다.
 | 분기 커버리지 검사 (통합 포함) | `.\gradlew.bat jacocoAllTestCoverageVerification` | `./gradlew jacocoAllTestCoverageVerification` |
 | 커버리지 규칙 대상 확인 | `.\gradlew.bat verifyCoverageRuleTargets` | `./gradlew verifyCoverageRuleTargets` |
 
-현재 저장소에는 운영용 데이터소스 연결값이 포함되어 있지 않다. `bootRun`은 PostgreSQL 연결 설정이 없으면 데이터소스 자동 설정 단계에서 실패한다. 테스트는 H2 인메모리 데이터베이스를 사용하므로 별도의 PostgreSQL 없이 `test`와 `build`를 실행할 수 있다.
+저장소에는 운영 데이터소스 연결값이 없어 PostgreSQL 설정 없는 `bootRun`은 데이터소스 자동 설정에서 실패한다. H2를 쓰는 `test`와 `build`에는 PostgreSQL이 필요 없다.
 
 ## 로컬 PostgreSQL 개발 환경
 
@@ -59,9 +59,8 @@ set +a
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
-기동이 완료되면 local 프로필에서만 식별 가능한 게임 중심 모임 30개와 사람 중심 모임
-30개를 준비한다. 재기동해도 같은 시드 모임만 미래 시각과 공개 가능한 상태로 갱신하며,
-수동으로 만든 사용자·모임·참여 데이터는 보존한다.
+local 프로필은 식별 가능한 게임 중심·사람 중심 시드 모임을 각각 30개 준비한다.
+재기동하면 같은 시드 모임만 미래 시각·공개 가능 상태로 갱신하고 수동 사용자·모임·참여 데이터는 보존한다.
 
 애플리케이션을 종료한 뒤 PostgreSQL 컨테이너만 중지한다. named volume의 개발 데이터는 유지된다.
 
@@ -92,7 +91,7 @@ docker compose --env-file .env -f compose.local.yml up -d
 docker compose --env-file .env -f compose.local.yml ps
 ```
 
-Docker Compose가 `.env`를 해석한 정규화된 설정 모델에서 PostgreSQL 연결값을 읽어 Compose와 애플리케이션이 동일한 값을 사용하도록 `ALBAM_MATE_LOCAL_*` 환경변수로 현재 프로세스에 주입한다. 구성 JSON은 변수에만 캡처하므로 비밀번호를 터미널에 출력하지 않는다. 이후 같은 PowerShell 창에서 애플리케이션을 실행한다.
+Docker Compose의 정규화 설정에서 PostgreSQL 연결값을 읽어 현재 프로세스의 `ALBAM_MATE_LOCAL_*` 환경변수로 주입한다. 구성 JSON은 변수에만 캡처해 비밀번호를 출력하지 않고, 같은 PowerShell 창에서 애플리케이션을 실행한다.
 
 ```powershell
 $composeConfigLines = @(
@@ -143,7 +142,12 @@ docker compose --env-file .env -f compose.local.yml down --volumes
 
 ## PostgreSQL 마이그레이션 검증
 
-[ADR-0023](adr/platform/0023-p0-flyway-baseline-reset-player-count-stages.md)의 일회성 기준선 재생성 뒤에는 이전 V1~V3를 적용한 데이터베이스를 그대로 재사용하지 않는다. 로컬 데이터는 명시적으로 승인한 경우에만 위의 `down --volumes` 명령으로 초기화하고, 공유·RDS 환경은 정확한 대상을 확인한 뒤 별도로 재생성한다. 기존 테이블을 남긴 채 `flyway_schema_history`만 삭제하면 안 된다.
+[ADR-0023](adr/platform/0023-p0-flyway-baseline-reset-player-count-stages.md)의 일회성 기준선 재생성 뒤에는 다음 규칙을 지킨다.
+
+- 이전 V1~V3를 적용한 데이터베이스를 재사용하지 않는다.
+- 로컬 데이터는 명시적으로 승인한 경우에만 위의 `down --volumes` 명령으로 초기화한다.
+- 공유·RDS 환경은 정확한 대상을 확인한 뒤 별도로 재생성한다.
+- 기존 테이블을 남기고 `flyway_schema_history`만 삭제하면 안 된다.
 
 `postgresTest`는 Testcontainers가 PostgreSQL 18.4 컨테이너(`postgres:18.4`)를
 일회성으로 시작해 빈 데이터베이스에 Flyway 마이그레이션과 Hibernate
@@ -163,21 +167,16 @@ Docker 데몬이 없거나 Testcontainers가 컨테이너를 시작하지 못하
 커버리지는 라인이 아니라 분기를 기준으로 본다. 라인 커버리지는 조건식의 한쪽만
 실행해도 올라가므로 경계 조건과 예외 경로가 검증되지 않은 채 높게 나온다.
 
-게이트는 두 단계다. `jacocoTestCoverageVerification`은 H2 `test` 결과만 보므로
-Docker 없이 실행되며 `check`와 `build`에 포함된다. `jacocoAllTestCoverageVerification`은
-`test`와 `postgresTest`를 합산하는 정본 게이트이며 두 테스트에 모두 의존한다.
+`jacocoTestCoverageVerification`은 H2 `test`만 보는 Docker 없는 `check`·`build` 게이트다.
+`jacocoAllTestCoverageVerification`은 `test`·`postgresTest`를 합산하고 둘에 의존하는 정본 게이트다.
 
 ```sh
 ./gradlew jacocoAllTestReport jacocoAllTestCoverageVerification
 ```
 
-각 태스크는 담당 Test 태스크의 exec 파일만 사용한다. `build/jacoco` 디렉터리의 exec를
-모두 읽으면 이번 실행에서 돌리지 않은 suite의 이전 결과가 남아 함께 집계되고, 테스트를
-바꾸거나 지워도 과거 데이터가 분기를 덮어 거짓 통과한다.
+각 게이트는 담당 Test 태스크의 exec만 사용한다. `build/jacoco`의 exec를 모두 읽으면 실행하지 않은 suite의 이전 결과가 테스트 변경·삭제 뒤에도 분기를 덮어 거짓 통과한다.
 
-CI는 정본 게이트로 판정하고 `-x jacocoTestCoverageVerification`으로 test 전용 게이트를
-제외한다. 제외하지 않으면 `build`가 `test` 결과만으로 먼저 판정해, PostgreSQL 통합
-테스트가 담당하는 범위에 의존하는 변경이 정본 판정에 닿기 전에 막힌다.
+CI는 정본 게이트로 판정하며 `-x jacocoTestCoverageVerification`으로 test 전용 게이트를 제외한다. 그렇지 않으면 `build`가 H2 결과로 먼저 판정해 PostgreSQL 검증 범위의 변경을 정본 판정 전에 막는다.
 
 최소선은 도입 시점의 실측값을 바닥으로 고정한 값이므로 목표치가 아니라 회귀
 방지선이다. 올리는 변경은 그대로 반영하고, 내리는 변경은 이유를 PR에 남긴다.
@@ -191,12 +190,7 @@ CI는 정본 게이트로 판정하고 `-x jacocoTestCoverageVerification`으로
 이 게이트는 미검증 코드가 없다는 보장이 아니라 검증 수준이 내려가지 않는다는 보장이다.
 비율이 최소선 이상으로 유지되는 범위의 미검증 추가는 통과한다.
 
-`verifyCoverageRuleTargets`는 최소선 목록이 실제 패키지 구조와 어긋나는 두 경우를
-실패로 만든다. 규칙 대상이 리포트에 없으면 규칙이 아무 패키지에도 적용되지 않은 채
-통과하고, 분기 10개 이상인 패키지에 최소선이 없으면 전체 최소선만 적용되어 새 모듈이
-낮은 커버리지로 들어와도 통과한다. 두 게이트가 이 태스크에 의존하므로 게이트를 단독으로
-실행해도 함께 검사된다. 패키지를 옮기거나 새로 만들었다면 같은 변경에서
-`gatedBranchCoverage`를 갱신하고, 새 항목은 실측값을 0.01 단위로 내려 적는다.
+`verifyCoverageRuleTargets`는 규칙 대상이 리포트에 없거나 분기 10개 이상인 패키지에 최소선이 없으면 실패한다. 두 게이트가 의존하므로 단독 실행 때도 검사된다. 패키지를 옮기거나 만들면 같은 변경에서 `gatedBranchCoverage`를 갱신하고 새 항목은 실측값을 0.01 단위로 내려 적는다.
 
 미커버 분기의 위치는 HTML 리포트에서 확인한다.
 
@@ -234,7 +228,7 @@ clone마다 한 번 필요한 pre-commit hook 활성화 절차는
 node scripts/check-doc-links.mjs
 ```
 
-추적 중인 Markdown과 아직 커밋하지 않은 Markdown을 함께 검사하고 외부 링크는 확인하지 않는다. 작업 트리에 없는 경로는 검사 원본에서 빼므로 이동·삭제를 스테이징하기 전에도 실행할 수 있다. destination을 뽑지 못한 링크는 건너뛰지 않고 `파싱 실패`로 보고한다.
+추적·미커밋 Markdown을 함께 검사하되 외부 링크는 제외한다. 작업 트리에 없는 경로도 검사 원본에서 빼므로 이동·삭제를 스테이징하기 전에 실행할 수 있다. destination을 못 찾은 링크는 건너뛰지 않고 `파싱 실패`로 보고한다.
 
 검사기 자체를 고치면 회귀 테스트를 함께 실행한다.
 

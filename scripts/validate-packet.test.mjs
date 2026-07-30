@@ -130,6 +130,25 @@ test('승인 이슈 번호와 코멘트 URL의 이슈 번호가 다르면 거부
     assert.ok(keywords(errors).includes('approvalIssueNumber'));
 });
 
+test('다른 owner 또는 repository의 승인 코멘트 URL을 거부한다', () => {
+    const otherRepositoryComments = [
+        'https://github.com/other-owner/albam-mate/issues/14#issuecomment-123456789',
+        'https://github.com/bamsongi-club/other-repo/issues/14#issuecomment-123456789',
+    ];
+
+    for (const commentUrl of otherRepositoryComments) {
+        const packet = validPacket();
+        packet.testContractApproval.commentUrl = commentUrl;
+        packet.requiredTests.forEach((requiredTest) => {
+            requiredTest.sourceRef = commentUrl;
+        });
+
+        const errors = validatePacket(packet, schema);
+
+        assert.ok(keywords(errors).includes('approvalRepository'), commentUrl);
+    }
+});
+
 test('각 T-ID의 sourceRef가 승인된 정본 코멘트와 다르면 거부한다', () => {
     const packet = validPacket();
     packet.requiredTests[1].sourceRef =
