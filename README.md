@@ -2,7 +2,7 @@
 
 > 원하는 게임과 모임 조건을 확인하고 함께할 사람을 찾아, 실제 보드게임 플레이까지 이어지도록 돕는 모임 매칭 서비스입니다.
 
-[제품 목표](docs/PRD.md) · [P0 명세](docs/P0-spec.md) · [API 계약](docs/API.md)
+[제품 목표](docs/PRD.md) · [P0 명세](docs/P0-spec.md) · [API 계약](docs/API.md) · [아키텍처](docs/ARCHITECTURE.md)
 
 P0 백엔드 17개 API와 프론트엔드 연동을 구현했지만 운영 배포는 시작하지 않았습니다. 상세 구현·검증 상태는 [현재 개발 상태](#현재-개발-상태)를 따릅니다.
 
@@ -71,7 +71,7 @@ P0의 사용자 흐름과 저장·보안 계약에 직접 영향을 주는 결�
 | --- | --- | --- |
 | 백엔드 기준선 | Java 21, Spring Boot 4.1 | 현재 빌드와 지원 범위를 맞추고 가까운 시기의 기준선 재변경을 줄입니다. 빌드 설정과 기본 테스트에 반영됐습니다. [ADR-0001](docs/adr/platform/0001-java-21-spring-boot-4-baseline.md) |
 | 업무 데이터 정합성 | PostgreSQL, Spring Data JPA | 관계와 트랜잭션, 데이터베이스 제약을 함께 사용합니다. Flyway 마이그레이션과 PostgreSQL 18 통합 테스트로 확인했습니다. [ADR-0002](docs/adr/platform/0002-postgresql-primary-database.md) |
-| 코드 구조 | 도메인 중심 모듈러 모놀리스 | 하나의 배포·트랜잭션 단위를 유지하면서 도메인별 책임과 의존 경계를 드러냅니다. ArchUnit 구조 테스트가 순환 의존과 내부 구현 참조를 막습니다. [ADR-0007](docs/adr/platform/0007-domain-centered-modular-monolith.md) |
+| 코드 구조 | 도메인 중심 모듈러 모놀리스 | 하나의 배포·트랜잭션 단위를 유지하면서 도메인별 책임과 의존 경계를 드러냅니다. [아키텍처](docs/ARCHITECTURE.md)를 따르며, 선택 근거는 [ADR-0007](docs/adr/platform/0007-domain-centered-modular-monolith.md)에 기록합니다. |
 | P0 인증 | 서버 세션, Spring Security | 현재 범위에 필요하지 않은 JWT 만료·갱신·폐기 정책을 먼저 만들지 않고 서버가 보호 경로를 통제합니다. 세션 쿠키·CSRF·로그아웃 계약을 HTTP 통합 테스트로 고정했습니다. [ADR-0003](docs/adr/auth/0003-p0-server-session-spring-security.md) |
 | API 인가 경계 | 엔드포인트 정책 등록부 | 인증·CSRF 정책을 한 목록에 모으고 Spring MVC 매핑과 자동 대조해 등록 누락을 CI에서 막습니다. [ADR-0020](docs/adr/auth/0020-api-endpoint-authorization-policy-registry.md) |
 | 방 참가 동시성 | 낙관 락과 제한된 재시도 | 충돌이 드물다는 현재 가정 아래 평상시 잠금 대기를 피합니다. 정원 초과·중복 참가 방지와 재시도 상한을 PostgreSQL 동시성 테스트로 확인했습니다. [ADR-0005](docs/adr/participation/0005-room-participation-optimistic-locking.md) |
@@ -121,11 +121,12 @@ cd frontend && npm run dev
 - 제품의 전체 목표와 후속 후보: [PRD](docs/PRD.md)
 - P0 범위와 핵심 흐름: [P0 명세](docs/P0-spec.md)
 - 개발 작업의 시작점: [AGENTS.md](AGENTS.md)
+- 백엔드 구조·모듈 책임과 의존 흐름: [아키텍처](docs/ARCHITECTURE.md)
 - 요청·응답과 오류 계약: [API 명세](docs/API.md)
 - 테이블과 데이터 제약: [ERD](docs/ERD.md)
 - 기술 선택과 트레이드오프, 결정별 검증 상태: [ADR](docs/adr/README.md)
 - 게임 목록 입력 검수와 적재 절차: [게임 카탈로그 검수·적재](docs/guides/GAME_CATALOG_IMPORT.md)
-- 코드 구조와 구현 규칙: [컨벤션](docs/CONVENTIONS.md)
+- 코드 작성·구현 규칙: [컨벤션](docs/CONVENTIONS.md)
 - 실행·테스트·포맷 명령: [프로젝트 명령](docs/COMMANDS.md)
 - 프론트엔드 화면과 실행: [프론트엔드 README](frontend/README.md)
 
