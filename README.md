@@ -121,11 +121,12 @@ cd frontend && npm run dev
 - 제품의 전체 목표와 후속 후보: [PRD](docs/PRD.md)
 - P0 범위와 핵심 흐름: [P0 명세](docs/P0-spec.md)
 - 개발 작업의 시작점: [AGENTS.md](AGENTS.md)
+- 백엔드 구조·모듈 책임과 의존 흐름: [아키텍처](docs/ARCHITECTURE.md)
 - 요청·응답과 오류 계약: [API 명세](docs/API.md)
 - 테이블과 데이터 제약: [ERD](docs/ERD.md)
 - 기술 선택과 트레이드오프, 결정별 검증 상태: [ADR](docs/adr/README.md)
 - 게임 목록 입력 검수와 적재 절차: [게임 카탈로그 검수·적재](docs/guides/GAME_CATALOG_IMPORT.md)
-- 코드 구조와 구현 규칙: [컨벤션](docs/CONVENTIONS.md)
+- 코드 작성·구현 규칙: [컨벤션](docs/CONVENTIONS.md)
 - 실행·테스트·포맷 명령: [프로젝트 명령](docs/COMMANDS.md)
 - 프론트엔드 화면과 실행: [프론트엔드 README](frontend/README.md)
 

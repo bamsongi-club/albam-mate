@@ -65,7 +65,8 @@ AI 에이전트는 [루트 작업 안내](../AGENTS.md)의 라우팅에 따라 �
 
 Controller는 HTTP 요청과 응답의 경계만 담당한다.
 
-- Controller를 엔드포인트마다 만들지 않고 같은 HTTP 리소스와 변경 이유를 가진 요청을 묶는다.
+Controller의 분류와 담당 API는 [아키텍처의 Controller Interface](ARCHITECTURE.md#controller-interface)를 따른다.
+
 - Controller는 도메인의 애플리케이션 진입 Service만 호출하고 내부 ReadService·Executor를 직접 참조하지 않는다.
 - Request DTO 검증
 - 인증된 사용자 식별
@@ -93,13 +94,12 @@ Controller에는 다음 책임을 두지 않는다.
 
 ## Service
 
-ROOM의 Service·Executor·Coordinator 책임과 가시성은 [아키텍처 문서](ARCHITECTURE.md#service와-내부-협력자)를 따른다.
+`room`의 Service·Executor·Coordinator 책임과 가시성은 [아키텍처 문서](ARCHITECTURE.md#service와-내부-협력자)를 따른다.
 
 - 의존성이 있는 Service는 Lombok의 `@RequiredArgsConstructor`와 `private final` 필드로 생성자 주입한다. 생성자에서 별도 검증이나 가공이 필요할 때만 생성자를 명시한다.
 - public 메서드는 하나의 유스케이스를 표현한다.
 - 트랜잭션 경계는 Service 계층에 둔다. 저장 상태를 변경하지 않는 조회는 `@Transactional(readOnly = true)`, 상태 변경은 `@Transactional`을 사용한다. 조회 전 상태 보정처럼 계약상 쓰기가 필요한 조회 유스케이스는 Transaction 절의 예외 규칙을 따른다.
 - Service는 자기 모듈의 Repository만 직접 참조한다.
-- 다른 모듈과 협력할 때는 그 모듈이 공개한 계약만 호출한다.
 - 외부 시스템 호출은 Client 또는 Adapter로 분리한다.
 - 상태 변경의 핵심 불변식은 Service와 Entity가 표현하고, 데이터베이스 제약으로도 방어할 수 있는 규칙은 함께 적용한다.
 
