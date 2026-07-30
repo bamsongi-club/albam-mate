@@ -64,6 +64,17 @@ class RoomListQueryServiceTest {
 	}
 
 	@Test
+	void 필터를_생략하면_두_유형의_공개_방을_조회한다() {
+		PageRequest pageable = pageable();
+		when(roomListReadService.findPublicRooms(null, null, null, pageable, null))
+			.thenReturn(readResult(List.of(), pageable, Set.of()));
+
+		roomListQueryService.findPage(null, null, null, 0, 10, Optional.empty());
+
+		verify(roomListReadService).findPublicRooms(null, null, null, pageable, null);
+	}
+
+	@Test
 	void 상태_보정_후_같은_요청시각으로_공개_게임방을_페이지_응답으로_조립한다() {
 		Room room = room(1L, 7L, 42L, RoomStatus.RECRUITING, 1, 3, NOW.plusSeconds(60));
 		PageRequest pageable = pageable();
