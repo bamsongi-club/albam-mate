@@ -92,6 +92,7 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .h2-ico { flex: 0 0 auto; line-height: 1; }
 .tabs-row { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
 .tabs-row .tabs { margin-bottom: 0; }
+.tabs-row .inline-search { flex: 1 1 240px; margin-bottom: 0; }
 .tab-short { display: none; }
 .pagination { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 26px; }
 .pagination .page-btn { align-items: center; background: #fff; border: 1.5px solid var(--line); border-radius: 10px; color: var(--brown2); display: inline-flex; font-size: 13px; font-weight: 800; justify-content: center; min-width: 38px; padding: 8px 11px; }
@@ -158,7 +159,9 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 
 .gcard, .scard { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); display: block; padding: 16px; transition: transform 0.15s, border-color 0.15s; }
 .gcard:hover, .scard:hover { border-color: var(--accent); transform: translateY(-2px); }
-.gart { align-items: center; background: var(--soft); border-radius: 12px; display: flex; font-size: 42px; height: 86px; justify-content: center; margin-bottom: 11px; }
+.gart { align-items: center; aspect-ratio: 1 / 1; background: var(--soft); border-radius: 12px; display: flex; font-size: 42px; justify-content: center; margin-bottom: 11px; overflow: hidden; }
+/* BGG 이미지는 가로세로 비율이 제각각이라 자르지 않고 안에 맞춰 넣는다. */
+.gart img { display: block; height: 100%; object-fit: contain; width: 100%; }
 .gtitle, .stitle { font-size: 15.5px; font-weight: 900; }
 .gen, .smeta { color: var(--sub); font-size: 12.5px; }
 .gmeta { color: var(--brown2); font-size: 12.5px; font-weight: 700; margin: 6px 0 7px; }
@@ -263,9 +266,10 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .create-note ul { display: grid; font-size: 13px; gap: 7px; line-height: 1.6; list-style: none; padding-left: 2px; }
 .create-note li { padding-left: 12px; position: relative; }
 .create-note li::before { background: var(--accent); border-radius: 50%; content: ''; height: 4px; left: 0; position: absolute; top: 0.62em; width: 4px; }
-.inline-search { display: flex; gap: 8px; margin-bottom: 18px; }
-.inline-search input { flex: 1; }
-.inline-search .btn { flex: 0 0 auto; }
+.inline-search { background: #fff; border: 1px solid var(--line); border-radius: 999px; display: flex; margin-bottom: 18px; max-width: 420px; overflow: hidden; }
+.inline-search input { background: transparent; border: 0; flex: 1; padding: 9px 16px; }
+.inline-search button { align-items: center; color: var(--sub); display: flex; flex: 0 0 auto; justify-content: center; padding: 0 14px; }
+.inline-search button:hover { color: var(--accent); }
 .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
 .tabs button { background: #fff; border: 1.5px solid var(--line); border-radius: 999px; color: var(--sub); font-size: 14px; font-weight: 800; padding: 9px 18px; }
 .tabs button.on { background: var(--brown); border-color: var(--brown); color: #fff; }
@@ -297,8 +301,8 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
   #gnb a { padding-left: 7px; padding-right: 7px; }
   #gnb .profile-icon { min-width: 44px; }
   .brand-wordmark { display: none; }
-  .inline-search { flex-direction: column; }
-  .inline-search .btn { width: 100%; }
+  .inline-search { max-width: none; }
+  .inline-search input, .inline-search button { min-height: 44px; }
   /* 탭 라벨을 줄여 탭과 모임 만들기 버튼을 한 줄에 넣는다. 화면 제목이 맥락을 준다. */
   .tab-full { display: none; }
   .tab-short { display: inline; }

@@ -369,7 +369,7 @@ function SessionCard({ room }) {
 function GameCard({ game }) {
   return (
     <a className="gcard" href={'#/game/' + game.id}>
-      <div className="gart">🎲</div>
+      <div className="gart">{game.imageUrl ? <img src={game.imageUrl} alt="" loading="lazy" /> : '🎲'}</div>
       <div className="gtitle">{game.title}</div>
       <div className="gen">{game.englishName}</div>
       <div className="gmeta">{gameMeta(game)}</div>
@@ -469,15 +469,17 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
   return (
     <>
       <h2><span className="h2-ico">🙌</span>모임 찾기 <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
-      <form className="inline-search" onSubmit={(event) => { event.preventDefault(); onRoomQueryChange(input.trim()); }}>
-        <label className="hint" htmlFor="room-q" style={{ position: 'absolute', left: -9999 }}>모임 제목 검색</label>
-        <input id="room-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="모임 제목으로 검색" />
-        <button className="btn" type="submit">검색</button>
-      </form>
-      <div className="tabs" role="group" aria-label="모임 유형">
-        {ROOM_TYPE_FILTERS.map((filter) => (
-          <button type="button" key={filter.label} className={roomType === filter.value ? 'on' : ''} aria-pressed={roomType === filter.value} onClick={() => onRoomTypeChange(filter.value)}>{filter.label}</button>
-        ))}
+      <div className="tabs-row">
+        <form className="inline-search" onSubmit={(event) => { event.preventDefault(); onRoomQueryChange(input.trim()); }}>
+          <label className="hint" htmlFor="room-q" style={{ position: 'absolute', left: -9999 }}>모임 제목 검색</label>
+          <input id="room-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="모임 제목으로 검색" />
+          <button type="submit" aria-label="검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.65" y2="16.65" /></svg></button>
+        </form>
+        <div className="tabs" role="group" aria-label="모임 유형">
+          {ROOM_TYPE_FILTERS.map((filter) => (
+            <button type="button" key={filter.label} className={roomType === filter.value ? 'on' : ''} aria-pressed={roomType === filter.value} onClick={() => onRoomTypeChange(filter.value)}>{filter.label}</button>
+          ))}
+        </div>
       </div>
       <p className="hint" style={{ marginTop: -10, marginBottom: 15 }}>모임 제목의 부분 일치 검색만 제공해요.</p>
       {error && <ErrorBox message={error} />}
@@ -504,7 +506,7 @@ function GamesView({ title, gameQuery, onGameQueryChange, dataVersion }) {
       <form className="inline-search" onSubmit={(event) => { event.preventDefault(); onGameQueryChange(input.trim()); }}>
         <label className="hint" htmlFor="game-q" style={{ position: 'absolute', left: -9999 }}>게임 이름 검색</label>
         <input id="game-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임 이름으로 검색" />
-        <button className="btn" type="submit">검색</button>
+        <button type="submit" aria-label="검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.65" y2="16.65" /></svg></button>
       </form>
       <p className="hint" style={{ margin: '-8px 0 15px' }}>게임 이름의 부분 일치 검색만 제공해요.</p>
       {error && <ErrorBox message={error} />}
