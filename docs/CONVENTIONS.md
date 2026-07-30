@@ -1,6 +1,6 @@
 # Albam Mate Conventions
 
-이 문서는 Albam Mate 백엔드 코드를 작성하고 리뷰할 때 적용하는 기본 규칙이다. 제품 동작은 [P0 공통 명세](P0-spec.md)와 여기에서 연결한 [기능별 명세](P0-spec.md#관련-문서), 요청·응답은 [API 명세](API.md), 데이터 구조는 [ERD](ERD.md), 되돌리기 어렵거나 논쟁적인 기술 선택은 [ADR](adr/README.md)이 우선한다. 이 문서는 해당 정본을 반복하지 않고 구현 방식을 통일한다.
+이 문서는 백엔드 구현·리뷰 규칙을 다룬다. 제품 동작은 [P0 명세](P0-spec.md), HTTP 계약은 [API 명세](API.md), 저장 구조는 [ERD](ERD.md), 중요한 기술 결정은 [ADR](adr/README.md)을 우선한다.
 
 AI 에이전트는 [루트 작업 안내](../AGENTS.md)의 라우팅에 따라 이 문서와 변경 위치의 `AGENTS.md`에서 필요한 규약만 확인한다.
 
@@ -93,10 +93,10 @@ Controller에는 다음 책임을 두지 않는다.
 
 ## Service
 
+ROOM의 Service·Executor·Coordinator 책임과 가시성은 [아키텍처 문서](ARCHITECTURE.md#service와-내부-협력자)를 따른다.
+
 - 의존성이 있는 Service는 Lombok의 `@RequiredArgsConstructor`와 `private final` 필드로 생성자 주입한다. 생성자에서 별도 검증이나 가공이 필요할 때만 생성자를 명시한다.
 - public 메서드는 하나의 유스케이스를 표현한다.
-- 권한, 오류 우선순위와 업무 규칙이 다른 유스케이스는 각각의 Service로 유지한다. 시간 고정, 재시도와 상태 보정처럼 실패 의미와 실행 방식이 동일한 정책만 Coordinator로 공통화한다.
-- 재시도하는 Controller용 Service와 시도마다 독립 트랜잭션을 여는 Executor는 같은 클래스에 합치지 않는다.
 - 트랜잭션 경계는 Service 계층에 둔다. 저장 상태를 변경하지 않는 조회는 `@Transactional(readOnly = true)`, 상태 변경은 `@Transactional`을 사용한다. 조회 전 상태 보정처럼 계약상 쓰기가 필요한 조회 유스케이스는 Transaction 절의 예외 규칙을 따른다.
 - Service는 자기 모듈의 Repository만 직접 참조한다.
 - 다른 모듈과 협력할 때는 그 모듈이 공개한 계약만 호출한다.
@@ -150,7 +150,7 @@ Flyway 마이그레이션 작업 규약의 정본은 [마이그레이션 작업 
 
 - 트랜잭션은 Service에서 시작한다.
 - 저장 상태를 변경하지 않는 읽기 전용 유스케이스에는 `readOnly = true`를 사용한다.
-- [ADR-0012](adr/room/0012-room-request-boundary-state-reconciliation.md)처럼 조회 전에 저장 상태를 보정해야 하는 유스케이스는 읽기 전용 트랜잭션의 더티 체킹에 의존하지 않는다. 트랜잭션 없는 재시도 조정자가 별도 상태 보정 실행 서비스를 호출하고, 실행 서비스는 시도마다 독립된 쓰기 트랜잭션에서 조건부 갱신한다. 보정이 커밋된 뒤 읽기 전용 조회 서비스가 최신 상태를 읽는다.
+- 조회 전 상태 보정은 읽기 전용 트랜잭션의 더티 체킹에 의존하지 않고 [아키텍처의 방 조회 흐름](ARCHITECTURE.md#방-조회)과 [ADR-0012](adr/room/0012-room-request-boundary-state-reconciliation.md)를 따른다.
 - 상태 변경 트랜잭션 안에서는 JPA 더티 체킹을 기본으로 사용한다.
 - 즉시 반영이 필요한 이유가 없으면 `saveAndFlush()`를 반복 호출하지 않는다.
 - 외부 API 호출을 데이터베이스 트랜잭션 안에 오래 포함하지 않는다. 외부 성공 후 내부 실패 또는 내부 성공 후 외부 실패를 어떻게 처리할지 먼저 정한다.
