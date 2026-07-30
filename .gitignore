@@ -38,3 +38,7 @@ out/
 
 .env
 /src/test/http/http-client.private.env.json
+
+# Test-contract eval 원문과 상세 실행 기록은 팀 Private Brain에만 보관한다.
+/.agents/evals/test-contract-harness/runs/
+/.agents/evals/test-contract-harness/private/
