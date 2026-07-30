@@ -84,9 +84,9 @@ main { margin: 0 auto; max-width: 1180px; padding: 28px 20px 84px; }
 .layout.wide { grid-template-columns: 1fr 320px; }
 .grid { display: grid; gap: 14px; }
 .cols2 { grid-template-columns: repeat(2, 1fr); }
-.cols3 { grid-template-columns: repeat(3, 1fr); }
+.cols3 { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
 section + section { margin-top: 32px; }
-h1 { font-size: 30px; line-height: 1.25; }
+h1 { font-size: 34px; letter-spacing: -0.02em; line-height: 1.22; text-wrap: balance; }
 h2 { align-items: center; display: flex; font-size: 20px; gap: 8px; margin-bottom: 14px; }
 h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .h2-ico { flex: 0 0 auto; line-height: 1; }
@@ -103,19 +103,19 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .pagination .page-ellipsis { color: var(--sub); font-weight: 800; padding: 0 2px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; }
 .hero { padding: 38px 34px; text-align: center; }
-.hero > p { color: var(--sub); margin-top: 8px; }
+.hero > p { color: var(--sub); margin-top: 10px; text-wrap: balance; }
 .hero-search { margin: 22px auto 0; }
 .dual { display: flex; gap: 18px; margin-top: 26px; }
-.entry { border: 2px solid transparent; border-radius: 18px; display: block; flex: 1; padding: 25px; text-align: left; transition: transform 0.15s, border-color 0.15s; }
-.entry:hover { transform: translateY(-3px); }
+.entry { border: 2px solid transparent; border-radius: 18px; display: flex; flex: 1; flex-direction: column; padding: 25px; text-align: left; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; }
+.entry:hover { box-shadow: 0 10px 24px rgba(80, 60, 30, 0.13); transform: translateY(-3px); }
 .entry.gamefirst { background: linear-gradient(160deg, #fdf3e4, #f7e3c8); }
 .entry.peoplefirst { background: linear-gradient(160deg, #eef4ea, #dcead6); }
 .entry.gamefirst:hover { border-color: var(--accent); }
 .entry.peoplefirst:hover { border-color: var(--green); }
 .entry .big { font-size: 34px; }
 .entry h3 { font-size: 19px; margin: 8px 0 4px; }
-.entry p { color: var(--sub); font-size: 13.5px; }
-.entry .sub { background: rgba(255, 255, 255, 0.72); border-radius: 999px; display: inline-block; font-size: 12.5px; font-weight: 800; margin-top: 12px; padding: 4px 12px; }
+.entry p { color: var(--sub); font-size: 13.5px; margin-bottom: 16px; }
+.entry .sub { align-self: start; background: #fff; border-radius: 999px; box-shadow: 0 1px 4px rgba(80, 60, 30, 0.12); display: inline-block; font-size: 12.5px; font-weight: 800; margin-top: auto; padding: 7px 14px; }
 
 .badge { border-radius: 999px; display: inline-block; font-size: 11px; font-weight: 800; padding: 2.5px 9px; vertical-align: 2px; }
 .badge.green { background: var(--green-soft); color: var(--green); }
@@ -288,14 +288,15 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 
 @media (max-width: 940px) {
   .layout, .layout.wide { grid-template-columns: 1fr; }
-  .cols3 { grid-template-columns: repeat(2, 1fr); }
   .dual, .detail-head { flex-direction: column; }
   .hwrap { gap: 10px; }
   #gnb { margin-left: 0; }
 }
 
 @media (max-width: 560px) {
-  .cols2, .cols3, .formrow { grid-template-columns: 1fr; }
+  .cols2, .formrow { grid-template-columns: 1fr; }
+  /* 게임 카드는 좁은 화면에서도 두 열을 유지해 카드가 과하게 길어지지 않게 한다. */
+  .cols3 { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
   main { padding: 28px 16px 56px; }
   .hwrap { gap: 12px; padding: 10px 16px; }
   /* 로고만 남은 헤더에서도 메뉴는 오른쪽 끝에 둔다. */
