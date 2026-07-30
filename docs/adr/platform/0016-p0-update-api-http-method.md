@@ -68,14 +68,11 @@ P0의 수정 API 세 개는 모두 `PATCH`를 사용한다. 엔드포인트별 �
 - 상태: 미검증
 - 근거:
     - 구현:
-        - ADR-0022가 이 결정을 대체하기 전 검증 기록 작성 당시에는 `PATCH /api/users/me`와 `PATCH /api/rooms/{roomId}`만 구현돼 이 결정을 검증하지 못했다.
-        - 현재는 `PATCH /api/rooms/{roomId}/status`도 있다.
+        - ADR-0022가 대체하기 전에는 두 수정 API만 구현돼 이 결정을 검증하지 못했으며, 현재는 `PATCH /api/rooms/{roomId}/status`도 구현돼 있다.
     - 계약:
         - 이미 `FINISHED`인 방의 무변경 성공은 반복 요청을 실패로 본 계약을 대체한 ADR-0022의 결정이다.
     - 테스트:
-        - 현재는 `ApiEndpointPolicyRegistryTest`의 보안 정책 검증도 있다.
-        - 현재는 `ApiEndpointPolicyRegistryTest`의 MVC 매핑 검증도 있다.
-        - `RoomStatusChangeExecutorIntegrationTest`가 이미 `FINISHED`인 방의 무변경 성공을 확인한다.
+        - `ApiEndpointPolicyRegistryTest`는 보안 정책과 MVC 매핑을, `RoomStatusChangeExecutorIntegrationTest`는 이미 `FINISHED`인 방의 무변경 성공을 확인한다.
 - 미검증:
     - 따라서 현재 종료 API 구현은 이 ADR을 소급해 검증하지 않는다.
 

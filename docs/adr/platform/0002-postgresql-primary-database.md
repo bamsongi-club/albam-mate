@@ -70,21 +70,11 @@ PostgreSQL의 메이저 버전, 스키마 마이그레이션 도구, 세션 참�
 - 상태: 검증됨
 - 근거:
     - 구현:
-        - 애플리케이션이 Spring Data JPA와 PostgreSQL JDBC 드라이버로 접속한다.
-        - 연결값은 저장소에 두지 않고 환경변수로 주입한다(`application-local.yml`, `compose.local.yml`).
+        - 애플리케이션은 Spring Data JPA와 PostgreSQL JDBC 드라이버로 접속하고, `application-local.yml`과 `compose.local.yml`은 연결값을 환경변수로 주입한다.
     - 테스트:
-        - `SchemaValidationPostgresTest`는 Testcontainers `postgres:18.4`에서 Flyway `V1`~`V3` 적용을 확인한다.
-        - `SchemaValidationPostgresTest`는 `ddl-auto=validate` 통과를 확인한다.
-        - `SchemaValidationPostgresTest`는 `DatabaseMetaData`의 PostgreSQL 18 연결을 확인한다.
-        - `SchemaValidationPostgresTest`는 실제 `INSERT`로 `ck_rooms_capacity` 위반을 SQLSTATE와 제약명까지 확인한다.
-        - `SchemaValidationPostgresTest`는 실제 `INSERT`로 `ck_participations_status_canceled_at` 위반을 SQLSTATE와 제약명까지 확인한다.
-        - `SchemaValidationPostgresTest`는 실제 `INSERT`로 `fk_participations_user` 위반을 SQLSTATE와 제약명까지 확인한다.
-        - `SchemaValidationPostgresTest`는 실제 `INSERT`로 `fk_participations_room` 위반을 SQLSTATE와 제약명까지 확인한다.
-        - `SchemaValidationPostgresTest`는 독립 트랜잭션의 같은 정규화 이메일 동시 가입에서 한 건만 생성되는지 확인한다.
+        - `SchemaValidationPostgresTest`는 Testcontainers `postgres:18.4`에서 Flyway V1~V3·Hibernate 검증과 PostgreSQL 18 연결, CHECK·FK 제약 위반의 SQLSTATE·제약명 및 동시 가입의 이메일 유일성을 확인한다.
         - `RoomParticipationConcurrencyPostgresTest`는 참가·취소 동시 요청 뒤 `active_participant_count`와 실제 `ACTIVE` 참가 관계 수의 일치를 확인한다.
     - CI:
         - `build` 뒤 `postgresTest`를 실행한다.
-- 미검증:
-    - 없음
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

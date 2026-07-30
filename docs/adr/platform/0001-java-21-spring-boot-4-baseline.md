@@ -70,7 +70,7 @@ Spring Security 7이나 향후 Spring AI 도입 가능성은 이 결정을 보�
     - 구현:
         - 2026-07-23에 `build.gradle`의 Java 21·Spring Boot 4.1.0 선언과 Gradle 9.5.1 wrapper가 공식 지원 범위에 있음을 확인했다.
     - 테스트:
-        - `gradlew.bat test --rerun-tasks --console plain`을 실행해 전체 테스트가 통과했다.
+        - `gradlew.bat test --rerun-tasks --console plain`이 전체 테스트를 통과했다.
 - 미검증:
     - CI 근거는 승인 후 연결한다.
 

@@ -75,21 +75,11 @@ Spring Security의 인증 필터는 Spring MVC(요청을 실제 컨트롤러 코
 - 상태: 검증됨
 - 근거:
     - 구현:
-        - `ApiEndpointPolicyRegistry`가 현재 구현된 `/api/**` 엔드포인트의 메서드·경로·인증 모드·CSRF 요구를 한 목록에 둔다.
-        - `SecurityConfig`의 공개·보호·CSRF matcher가 이 등록부를 공통 입력으로 사용한다.
-        - `GET`이 제공하는 `HEAD`에도 원래 정책을 적용한다.
+        - `ApiEndpointPolicyRegistry`가 `/api/**`의 메서드·경로·인증 모드·CSRF 요구를 관리하고, `SecurityConfig`의 matcher와 `GET`이 제공하는 `HEAD` 정책이 이를 공통 입력으로 사용한다.
     - 테스트:
-        - `ApiEndpointPolicyRegistryTest`는 Spring MVC의 `RequestMappingHandlerMapping`에서 애플리케이션 `/api/**` 핸들러를 수집해 등록부와 정확히 일치하는지 대조한다.
-        - `ApiEndpointPolicyRegistryTest`는 미등록 MVC 엔드포인트를 실패로 만드는 통제 테스트를 포함한다.
-        - `ApiEndpointPolicyRegistryTest`는 고아 정책을 실패로 만드는 통제 테스트를 포함한다.
-        - `ApiEndpointPolicyRegistryTest`는 중복 정책을 실패로 만드는 통제 테스트를 포함한다.
-        - `ApiEndpointPolicyRegistryTest`는 CSRF 누락 정책을 실패로 만드는 통제 테스트를 포함한다.
-        - `ApiEndpointPolicyRegistryTest`는 HTTP 메서드가 없는 매핑의 대조 우회를 실패로 만드는 통제 테스트를 포함한다.
-        - `SecurityConfigTest`는 미매핑 `404` 계약이 유지되는지 확인한다.
-        - `SecurityConfigTest`는 미지원 메서드 `405` 계약이 유지되는지 확인한다.
+        - `ApiEndpointPolicyRegistryTest`는 Spring MVC 매핑과 등록부의 일치를 대조하고 미등록·고아·중복·CSRF 누락 정책 및 HTTP 메서드 없는 매핑을 통제 실패로 확인한다.
+        - `SecurityConfigTest`는 미매핑 `404`와 미지원 메서드 `405` 계약을 확인한다.
     - CI:
         - `build`가 이 테스트를 실행한다.
-- 미검증:
-    - 없음
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

@@ -97,33 +97,11 @@ BGG 값과 수집 자료의 값을 모두 출처가 없는 팀 작성값으로 �
         - `scripts/game-catalog/prepare-game-catalog.mjs`는 검증을 통과한 입력만 트랜잭션 단위 `UPSERT` SQL로 변환한다.
         - `games.bgg_id`의 유일성은 `V1__create_p0_schema.sql`의 `uq_games_bgg_id`가 보장한다.
     - 계약:
-        - [출처 manifest](../../game-catalog/2026-07-24-source-manifest.draft.json)가 단일 BGG 기준 스냅샷과 팀 수집 자료의 출처를 기록한다.
-        - [출처 manifest](../../game-catalog/2026-07-24-source-manifest.draft.json)가 단일 BGG 기준 스냅샷과 팀 수집 자료의 취득 시각을 기록한다.
-        - [출처 manifest](../../game-catalog/2026-07-24-source-manifest.draft.json)가 단일 BGG 기준 스냅샷과 팀 수집 자료의 SHA-256을 기록한다.
-        - [출처 manifest](../../game-catalog/2026-07-24-source-manifest.draft.json)가 단일 BGG 기준 스냅샷과 팀 수집 자료의 이용 조건을 기록한다.
-        - [출처 manifest](../../game-catalog/2026-07-24-source-manifest.draft.json)가 필드별 출처 매핑을 기록한다.
-        - [출처 manifest](../../game-catalog/2026-07-24-source-manifest.draft.json)가 선택·제외 규칙을 기록한다.
-        - [출처 manifest](../../game-catalog/2026-07-24-source-manifest.draft.json)가 본판·확장·변형 규칙을 기록한다.
+        - [출처 manifest](../../game-catalog/2026-07-24-source-manifest.draft.json)는 BGG 기준 스냅샷과 팀 수집 자료의 출처·취득 시각·SHA-256·이용 조건, 필드별 출처 매핑과 선택·제외·본판·확장·변형 규칙을 기록한다.
     - 테스트:
-        - [입력 검수 기록](../../game-catalog/2026-07-24-input-review.md)은 2026-07-28 승인을 남긴다.
-        - [입력 검수 기록](../../game-catalog/2026-07-24-input-review.md)은 검수자를 남긴다.
-        - [입력 검수 기록](../../game-catalog/2026-07-24-input-review.md)은 입력 2,000행의 SHA-256을 남긴다.
-        - [입력 검수 기록](../../game-catalog/2026-07-24-input-review.md)은 BGG 기준 179,329행의 SHA-256을 남긴다.
-        - [입력 검수 기록](../../game-catalog/2026-07-24-input-review.md)은 `bgg_id`·영문명 일치 2,000/2,000을 남긴다.
-        - [입력 검수 기록](../../game-catalog/2026-07-24-input-review.md)은 배치 내부 중복 0건을 남긴다.
-        - [입력 검수 기록](../../game-catalog/2026-07-24-input-review.md)은 필수값 누락 0건을 남긴다.
-        - [입력 검수 기록](../../game-catalog/2026-07-24-input-review.md)은 확장 포함 0건을 남긴다.
-        - [입력 검수 기록](../../game-catalog/2026-07-24-input-review.md)은 수용한 품질 경고 3건을 남긴다.
-        - [입력 검수 기록](../../game-catalog/2026-07-24-input-review.md)은 결과 산출물 3개의 SHA-256을 남긴다.
-        - `prepare-game-catalog.test.mjs`가 manifest 미승인에서 적재 산출물을 만들지 않는지 확인한다.
-        - `prepare-game-catalog.test.mjs`가 `TODO` 출처에서 적재 산출물을 만들지 않는지 확인한다.
-        - `prepare-game-catalog.test.mjs`가 배치 내부 `bgg_id` 중복에서 적재 산출물을 만들지 않는지 확인한다.
-        - `prepare-game-catalog.test.mjs`가 필수값 누락에서 적재 산출물을 만들지 않는지 확인한다.
-        - `prepare-game-catalog.test.mjs`가 선택 규칙 누락에서 적재 산출물을 만들지 않는지 확인한다.
-        - `prepare-game-catalog.test.mjs`가 미승인 품질 경고에서 적재 산출물을 만들지 않는지 확인한다.
-        - `GameCatalogImportPostgresTest`는 PostgreSQL에서 재적재가 내부 `id`를 유지하는지 확인한다.
-        - `GameCatalogImportPostgresTest`는 PostgreSQL에서 새 입력에 없는 게임을 삭제하지 않는지 확인한다.
-        - `GameCatalogImportPostgresTest`는 PostgreSQL에서 한 행이 실패하면 배치 전체가 롤백되는지 확인한다.
+        - [입력 검수 기록](../../game-catalog/2026-07-24-input-review.md)은 2026-07-28 승인·검수자, 입력 2,000행·BGG 기준 179,329행·산출물 3개의 SHA-256, `bgg_id`·영문명 2,000/2,000 일치, 중복·필수값 누락·확장 포함 0건과 수용한 품질 경고 3건을 남긴다.
+        - `prepare-game-catalog.test.mjs`는 manifest 미승인, `TODO` 출처, 배치 내부 `bgg_id` 중복, 필수값·선택 규칙 누락과 미승인 품질 경고에서 적재 산출물을 만들지 않음을 확인한다.
+        - `GameCatalogImportPostgresTest`는 PostgreSQL에서 재적재 시 내부 `id` 유지, 입력에서 빠진 게임 보존과 한 행 실패 시 배치 전체 롤백을 확인한다.
 - 미검증:
     - 반복 설명과 판본 후보 22그룹은 승인된 품질 한계이며 BGG 상세 데이터 연동 시 재검수한다.
 

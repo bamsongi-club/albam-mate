@@ -64,25 +64,11 @@ API는 시간 값에 오프셋이 포함된 ISO 8601 형식을 사용한다. 요
 - 상태: 미검증
 - 근거:
     - 구현:
-        - `AlbamMateApplication.main`이 `UtcTimeZone.configure()`로 JVM 기본 시간대를 고정한다.
-        - 모든 프로필의 `application.yml`이 Jackson을 UTC로 설정한다.
-        - 모든 프로필의 `application.yml`이 Hibernate `jdbc.time_zone`을 UTC로 설정한다.
-        - 모든 프로필의 `application.yml`이 Hikari `SET TIME ZONE 'UTC'`를 설정한다.
-        - Gradle의 `Test`는 `user.timezone=UTC`로 실행한다.
-        - Gradle의 `JavaExec`는 `user.timezone=UTC`로 실행한다.
-        - 엔티티의 시각 필드는 `Instant`다.
-        - 마이그레이션은 `TIMESTAMP WITH TIME ZONE`을 사용한다.
-        - `TimeConfig`가 `Clock.systemUTC()`를 제공한다.
+        - `UtcTimeZone`, 모든 프로필과 Gradle `Test`·`JavaExec` 설정이 JVM·Jackson·Hibernate·Hikari 실행 시간대를 UTC로 고정한다.
+        - 엔티티와 마이그레이션은 `Instant`·`TIMESTAMP WITH TIME ZONE`을 사용하고 `TimeConfig`는 `Clock.systemUTC()`를 제공한다.
     - 테스트:
-        - PostgreSQL 18에서 `ddl-auto=validate`가 통과한다.
-        - `TimeConfigTest`는 실행·연결 시간대 설정을 확인한다.
-        - `TimeConfigTest`는 서로 다른 오프셋의 같은 순간 정규화를 확인한다.
-        - `TimeConfigTest`는 오프셋 없는 값의 거절을 확인한다.
-        - `TimeConfigTest`는 초 단위 오프셋의 거절을 확인한다.
-        - `TimeConfigTest`는 `Asia/Seoul` `+09:00` 응답 직렬화를 확인한다.
-        - `UtcTimeZoneTest`는 기본 시간대 변경을 확인한다.
-        - `RoomStateReconciliationTest`는 고정 `Clock`으로 `now == startsAt` 경계를 재현한다.
-        - `RoomStateReconciliationTest`는 고정 `Clock`으로 `startsAt + 24시간` 경계를 재현한다.
+        - `TimeConfigTest`와 `UtcTimeZoneTest`는 실행·연결 시간대, 동일 순간 정규화, 잘못된 오프셋 거절, `Asia/Seoul` 응답 직렬화와 JVM 기본 시간대 변경을 확인한다.
+        - PostgreSQL 18의 `ddl-auto=validate`가 통과했고, `RoomStateReconciliationTest`는 고정 `Clock`으로 두 상태 전이 경계를 확인한다.
     - CI:
         - `TZ=UTC`를 사용한다.
 - 미검증:

@@ -106,8 +106,7 @@ Argon2id를 채택하면 후속 ADR로 이 결정을 대체한다. 그 구현은
 - 상태: 미검증
 - 근거:
     - 테스트:
-        - 2026-07-27 AWS EC2 `t4g.small`에서 Amazon Linux 2023 ARM64, Java `21.0.11`, `availableProcessors=2`, `maxHeapBytes=484442112` 조건으로 bcrypt 측정을 수행했다.
-        - bcrypt cost 10~14, warmup 1회, cost별 측정 3회, 동시성 측정 3회와 해시 슬롯 4개를 사용했다.
+        - 2026-07-27 AWS EC2 `t4g.small`의 Amazon Linux 2023 ARM64, Java `21.0.11`, `availableProcessors=2`, `maxHeapBytes=484442112`에서 bcrypt cost 10~14를 warmup 1회, cost·동시성별 3회와 해시 슬롯 4개 조건으로 측정했다.
         - 아래 값은 encode와 matches의 p95 지연(ms)이다.
 
           | bcrypt cost | encode p95 (ms) | matches p95 (ms) |
@@ -118,11 +117,8 @@ Argon2id를 채택하면 후속 ADR로 이 결정을 대체한다. 그 구현은
           | 13 | 789.80 | 789.74 |
           | 14 | 1579.24 | 1579.43 |
 
-        - cost 10과 해시 슬롯 4개로 동시성 5개 요청을 3회 반복했을 때 12개가 허용되고 3개가 즉시 거절되었으며 모든 슬롯이 반환되었다.
-        - 이 측정 범위에서는 ADR의 약 1초 기준에 cost 10~13이 들어오고 cost 14는 초과하므로, 현재 cost 10과 슬롯 4개 설정을 지지하는 운영 유사 근거로 남긴다.
-        - 이번 `t4g.small` benchmark는 FND-05-AC5가 요구하는 work factor와 동시 작업 한도의 측정 근거를 충족한다.
+        - cost 10·슬롯 4개로 동시성 5개 요청을 세 번 실행해 12개 허용·3개 즉시 거절과 슬롯 전량 반환을 확인했다. cost 10~13은 약 1초 기준 이내이고 cost 14는 초과해, 현재 설정과 FND-05-AC5의 work factor·동시 작업 한도를 뒷받침한다.
 - 미검증:
-    - 다만 benchmark 경로만 측정했으므로 ADR 전체 상태는 미검증으로 유지한다.
-    - 현재 cost 10과 슬롯 4개를 P0 기본값으로 유지하고, AUTH-02·AUTH-03 이후 전체 HTTP·PostgreSQL 로그인 경로에서 재측정해 실제 운영 cost를 확정하고 Argon2id를 재검토한다.
+    - benchmark 경로만 측정했으므로 AUTH-02·AUTH-03 이후 전체 HTTP·PostgreSQL 로그인 경로에서 재측정해 운영 cost를 확정하고 Argon2id를 재검토한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

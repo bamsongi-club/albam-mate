@@ -58,23 +58,11 @@ ADR-0004는 Java·Spring 내장 스케줄러가 방의 시간 기반 상태를 �
 - 상태: 검증됨
 - 근거:
     - 구현:
-        - `RoomStateReconciliationCoordinator`가 트랜잭션 밖에서 낙관 락 충돌만 최대 세 개의 독립 트랜잭션으로 재시도한다.
-        - 세 시도가 모두 충돌하면 `ROOM_CONCURRENT_MODIFICATION`을 반환한다.
-        - `RoomStateReconciliationExecutor`는 각 시도를 별도 쓰기 트랜잭션에서 처리한다.
-        - 목록 조회는 필터와 페이지 계산 전에 due 방 전체를 보정한다.
-        - 내 모임 조회는 필터와 페이지 계산 전에 due 방 전체를 보정한다.
-        - `RoomStateReconciliationScheduler`는 같은 보정 규칙을 재사용한다.
+        - `RoomStateReconciliationCoordinator`와 `RoomStateReconciliationExecutor`는 낙관 락 충돌만 최대 세 개의 독립 쓰기 트랜잭션으로 재시도하고, 소진 시 `ROOM_CONCURRENT_MODIFICATION`을 반환한다.
+        - 목록·내 모임 조회는 필터와 페이지 계산 전에 due 방을 보정하며 `RoomStateReconciliationScheduler`도 같은 규칙을 재사용한다.
     - 테스트:
-        - `RoomStateReconciliationTest`는 `now == startsAt` 경계를 확인한다.
-        - `RoomStateReconciliationTest`는 `startsAt + 24시간` 경계를 확인한다.
-        - `RoomStateReconciliationTest`는 두 경계를 모두 지난 방의 연속 전이를 확인한다.
-        - `RoomStateReconciliationTest`는 `CANCELED`·`FINISHED`를 덮어쓰지 않음을 확인한다.
-        - `RoomStateReconciliationExecutorTest`는 보정이 `rooms.version`을 증가시키는지 확인한다.
-        - `RoomStateReconciliationExecutorTest`는 두 번째 호출에서 멱등하는지 확인한다.
-        - `RoomStateReconciliationExecutorTest`는 외부 트랜잭션이 롤백되어도 `REQUIRES_NEW` 보정은 커밋되는지 확인한다.
-        - `RoomStateReconciliationCoordinatorTest`는 재시도 상한을 확인한다.
-        - `RoomStateReconciliationCoordinatorTest`는 충돌 오류 변환을 확인한다.
-- 미검증:
-    - 없음
+        - `RoomStateReconciliationTest`는 두 시간 경계와 연속 전이, `CANCELED`·`FINISHED` 상태 보존을 확인한다.
+        - `RoomStateReconciliationExecutorTest`는 버전 증가·멱등성과 외부 트랜잭션 롤백에도 `REQUIRES_NEW` 보정이 커밋됨을 확인한다.
+        - `RoomStateReconciliationCoordinatorTest`는 재시도 상한과 충돌 오류 변환을 확인한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

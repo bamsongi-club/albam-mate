@@ -64,10 +64,6 @@
 - 근거:
     - 테스트:
         - 새 V1~V3를 적용한 `SchemaValidationPostgresTest`가 PostgreSQL 18 Testcontainers에서 가능·추천·최적 인원 컬럼의 단계별 존재와 NULL 정책, 기존 값 보존을 확인한다.
-        - `./gradlew build --no-daemon`이 통과했다.
-        - `./gradlew postgresTest --no-daemon --stacktrace`가 통과했다.
-        - `node scripts/check-doc-links.mjs`가 통과했다.
-- 미검증:
-    - 없음
+        - `./gradlew build --no-daemon`, `./gradlew postgresTest --no-daemon --stacktrace`와 `node scripts/check-doc-links.mjs`가 통과했다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

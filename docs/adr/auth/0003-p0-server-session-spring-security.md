@@ -66,23 +66,11 @@ Albam Mate의 P0 인증은 서버 세션을 사용하고, 인증·인가 경계�
 - 상태: 검증됨
 - 근거:
     - 구현:
-        - `spring-boot-starter-security`와 `SecurityConfig`로 인증·인가 경계를 적용한다.
-        - JWT나 refresh token은 두지 않았다.
+        - `spring-boot-starter-security`와 `SecurityConfig`로 인증·인가 및 CSRF 경계를 적용하고 JWT·refresh token은 두지 않았다.
         - `SessionCookieConfigurer`가 `JSESSIONID`에 `HttpOnly`, `SameSite=Lax`와 프로필별 `Secure`를 적용한다.
-        - CSRF 보호는 비활성화하지 않는다.
     - 테스트:
-        - `SecurityCookiePropertiesTest`와 `SecurityConfigTest`가 운영 기본값의 `Secure` 속성을 확인한다.
-        - `SecurityCookiePropertiesTest`와 `SecurityConfigTest`가 쿠키 계약을 확인한다.
-        - `SecurityConfigTest`는 공개·선택 인증·보호 경로를 확인한다.
-        - `SecurityConfigTest`는 보호 `GET`과 `HEAD`의 인증 요구를 확인한다.
-        - `SecurityConfigTest`는 상태 변경 요청의 CSRF 필수를 확인한다.
-        - `SecurityConfigTest`는 세션 없음 우선순위를 확인한다.
-        - `SecurityConfigTest`는 보안 실패 응답에 세션·사용자 ID를 담지 않음을 확인한다.
-        - `LoginLogoutHttpIntegrationTest`는 로그인 성공 시 세션 교체를 확인한다.
-        - `LoginLogoutHttpIntegrationTest`는 로그아웃의 세션·CSRF 무효화를 확인한다.
-        - `LoginLogoutHttpIntegrationTest`는 무효화된 세션의 보호 API `401`을 확인한다.
-        - `LoginLogoutHttpIntegrationTest`는 세션 만료 시각을 지역시간이 아닌 epoch millis로 다루는지를 확인한다.
-- 미검증:
-    - 없음
+        - `SecurityCookiePropertiesTest`와 `SecurityConfigTest`는 운영 쿠키 기본값을 확인한다.
+        - `SecurityConfigTest`는 공개·선택 인증·보호 경로와 `GET`·`HEAD` 인증, 상태 변경 CSRF, 세션 없음 우선순위 및 보안 실패 응답의 정보 비노출을 확인한다.
+        - `LoginLogoutHttpIntegrationTest`는 로그인 세션 교체, 로그아웃의 세션·CSRF 무효화, 무효 세션의 보호 API `401`과 세션 만료 시각의 epoch millis 처리를 확인한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.
