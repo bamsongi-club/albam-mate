@@ -11,7 +11,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -21,7 +23,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 
 import cloud.bamsongi.albammate.room.entity.Participation;
 import cloud.bamsongi.albammate.room.entity.Room;
@@ -42,10 +48,13 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "app.security.cookie.secure=false")
+@Import(RoomLifecycleRealHttpIntegrationTest.FixedClockConfiguration.class)
 class RoomLifecycleRealHttpIntegrationTest {
 
 	private static final Instant FUTURE_STARTS_AT = Instant.parse("2099-01-01T10:00:00Z");
-	private static final Instant FIXTURE_JOINED_AT = Instant.parse("2026-07-31T00:00:00Z");
+	private static final Instant NOW = Instant.parse("2026-07-31T00:00:00Z");
+	private static final Instant STARTED_AT = NOW.minusSeconds(60);
+	private static final Instant FIXTURE_JOINED_AT = STARTED_AT.minusSeconds(1);
 	private static final String PASSWORD = "123456789012345";
 
 	@LocalServerPort
@@ -130,9 +139,15 @@ class RoomLifecycleRealHttpIntegrationTest {
 		assertEquals("updated-" + suffix,
 			findById(getData(hostSession.client(), "/api/rooms?type=PERSON_FOCUSED").path("content"), roomId)
 				.path("title").asText());
+		assertEquals(2,
+			findById(getData(hostSession.client(), "/api/rooms?type=PERSON_FOCUSED").path("content"), roomId)
+				.path("recruitmentCapacity").asInt());
 		assertEquals("updated-" + suffix,
 			findById(getData(hostSession.client(), "/api/users/me/rooms?role=hosted").path("content"), roomId)
 				.path("title").asText());
+		assertEquals(2,
+			findById(getData(hostSession.client(), "/api/users/me/rooms?role=hosted").path("content"), roomId)
+				.path("recruitmentCapacity").asInt());
 
 		assertFailure(patch(
 			hostSession.client(),
@@ -174,7 +189,7 @@ class RoomLifecycleRealHttpIntegrationTest {
 		assertEquals("closed-update-" + suffix, findRoom(closedRoom.getId()).getTitle());
 		assertEquals(RoomStatus.CLOSED, findRoom(closedRoom.getId()).getStatus());
 
-		Room startedRoom = saveRoom(host.id(), "started-update-" + suffix, 3, Instant.now().minusSeconds(60));
+		Room startedRoom = saveRoom(host.id(), "started-update-" + suffix, 3, STARTED_AT);
 		String startedRoomTitle = startedRoom.getTitle();
 		Instant startedRoomStartAt = findRoom(startedRoom.getId()).getStartAt();
 		assertFailure(
@@ -273,7 +288,7 @@ class RoomLifecycleRealHttpIntegrationTest {
 		assertEquals(RoomStatus.RECRUITING, findRoom(room.getId()).getStatus());
 		assertEquals(0, findRoom(room.getId()).getActiveParticipantCount());
 
-		Room startedRoom = saveRoom(host.id(), "started-cancel-room-" + suffix, 3, Instant.now().minusSeconds(60));
+		Room startedRoom = saveRoom(host.id(), "started-cancel-room-" + suffix, 3, STARTED_AT);
 		saveActiveParticipation(startedRoom, lateParticipant.id());
 		ClientSession lateSession = loggedInSession(lateParticipant);
 		assertFailure(delete(lateSession, "/api/rooms/" + startedRoom.getId() + "/participants/me"), 409,
@@ -329,7 +344,7 @@ class RoomLifecycleRealHttpIntegrationTest {
 			403, "FORBIDDEN");
 		assertEquals(RoomStatus.RECRUITING, findRoom(futureRoom.getId()).getStatus());
 
-		Room startedRoom = saveRoom(host.id(), "started-finish-" + suffix, 1, Instant.now().minusSeconds(60));
+		Room startedRoom = saveRoom(host.id(), "started-finish-" + suffix, 1, STARTED_AT);
 		saveActiveParticipation(startedRoom, participant.id());
 		ClientSession participantSession = loggedInSession(participant);
 		ClientSession newcomerSession = loggedInSession(newcomer);
@@ -412,10 +427,10 @@ class RoomLifecycleRealHttpIntegrationTest {
 			null,
 			ExperienceLevel.ALL_LEVELS,
 			false,
-			Instant.now().minusSeconds(60),
+			STARTED_AT,
 			"홍대 테스트 보드게임 카페",
 			3);
-		room.reconcileStateAt(Instant.now());
+		room.reconcileStateAt(NOW);
 		Room stored = roomRepository.saveAndFlush(room);
 		roomIds.add(stored.getId());
 		return stored;
@@ -517,6 +532,8 @@ class RoomLifecycleRealHttpIntegrationTest {
 		JsonNode body = objectMapper.readTree(response.body());
 		assertEquals(expectedStatus, body.path("status").asInt());
 		assertEquals(expectedCode, body.path("code").asText());
+		assertFalse(body.path("message").asText().isBlank());
+		assertTrue(body.path("data").isNull());
 	}
 
 	private JsonNode findById(JsonNode content, long expectedId) {
@@ -613,6 +630,16 @@ class RoomLifecycleRealHttpIntegrationTest {
 	}
 
 	private record RoomCleanupKey(Long hostUserId, String title) {
+	}
+
+	@TestConfiguration(proxyBeanMethods = false)
+	static class FixedClockConfiguration {
+
+		@Bean
+		@Primary
+		Clock fixedClock() {
+			return Clock.fixed(NOW, ZoneOffset.UTC);
+		}
 	}
 
 	private static final class ClientSession {
