@@ -90,7 +90,7 @@ section + section { margin-top: 32px; }
 h1 { font-size: 34px; letter-spacing: -0.02em; line-height: 1.22; text-wrap: balance; }
 h2 { align-items: center; display: flex; font-size: 20px; gap: 8px; margin-bottom: 14px; }
 h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
-.h2-ico { flex: 0 0 auto; line-height: 1; }
+.h2-ico { color: var(--brown2); flex: 0 0 auto; line-height: 1; }
 .tabs-row { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
 .tabs-row .tabs { margin-bottom: 0; }
 /* 필터를 왼쪽에 두고 검색창은 줄 오른쪽 끝에 붙인다. */

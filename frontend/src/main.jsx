@@ -313,6 +313,20 @@ function gameMeta(game) {
   return [game.players, game.time, game.complexity ? '난이도 ' + game.complexity : ''].filter(Boolean).join(' · ');
 }
 
+const SECTION_ICONS = {
+  rooms: <><circle cx="9" cy="8" r="3.2" /><path d="M2.5 20c0-3.6 2.9-5.8 6.5-5.8s6.5 2.2 6.5 5.8" /><path d="M16.5 5.6a3.2 3.2 0 0 1 0 6.2" /><path d="M18.5 14.6c2 .8 3 2.6 3 5.4" /></>,
+  games: <><rect x="3" y="3" width="18" height="18" rx="4" /><circle cx="8.5" cy="8.5" r="1.1" /><circle cx="15.5" cy="8.5" r="1.1" /><circle cx="8.5" cy="15.5" r="1.1" /><circle cx="15.5" cy="15.5" r="1.1" /></>,
+  list: <><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3.5 6h.01" /><path d="M3.5 12h.01" /><path d="M3.5 18h.01" /></>,
+  calendar: <><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M8 3v4" /><path d="M16 3v4" /><path d="M3 10h18" /></>,
+  pencil: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></>
+};
+
+function SectionIcon({ name }) {
+  return (
+    <svg className="h2-ico" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{SECTION_ICONS[name]}</svg>
+  );
+}
+
 function Header({ route, me }) {
   const rootRoute = { find: 'find', game: 'game-list', 'game-list': 'game-list', create: 'profile', edit: 'profile', my: 'profile', profile: 'profile', auth: 'auth' };
   return (
@@ -475,7 +489,7 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
   useEffect(() => setInput(roomQuery), [roomQuery]);
   return (
     <>
-      <h2><span className="h2-ico">🙌</span>모임 찾기 <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
+      <h2><SectionIcon name="rooms" />모임 찾기 <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
       <div className="tabs-row">
         <div className="tabs" role="group" aria-label="모임 유형">
           {ROOM_TYPE_FILTERS.map((filter) => (
@@ -509,7 +523,7 @@ function GamesView({ title, gameQuery, onGameQueryChange, dataVersion }) {
   useEffect(() => setInput(gameQuery), [gameQuery]);
   return (
     <>
-      <h2><span className="h2-ico">🎲</span>{title} <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
+      <h2><SectionIcon name="games" />{title} <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
       <form className="inline-search" onSubmit={(event) => { event.preventDefault(); onGameQueryChange(input.trim()); }}>
         <label className="hint" htmlFor="game-q" style={{ position: 'absolute', left: -9999 }}>게임 이름 검색</label>
         <input id="game-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임 이름으로 검색" />
@@ -556,7 +570,7 @@ function GameDetailView({ gameId, onCreateGame, dataVersion }) {
         </div>
       </div>
       <section style={{ marginTop: 32 }}>
-        <h2><span className="h2-ico">📅</span>예정 모임 <span className="cnt">{roomPage?.totalElements ?? upcomingRooms.length}개</span></h2>
+        <h2><SectionIcon name="calendar" />예정 모임 <span className="cnt">{roomPage?.totalElements ?? upcomingRooms.length}개</span></h2>
         {upcomingRooms.length ? <div className="grid cols2">{upcomingRooms.map((room) => <SessionCard key={room.id} room={room} />)}</div> : <div className="infobox">아직 공개 예정 모임이 없어요. 첫 모임을 만들어보세요.</div>}
         <Pagination page={roomPage?.page ?? 0} totalPages={roomPage?.totalPages ?? 0} loading={roomsLoading} onChange={setRoomPage} />
       </section>
@@ -643,8 +657,8 @@ function SessionDetailView({ sessionId, me, onApply, onCancelApply, onHostCancel
             </div>
           </div>
           {privateView
-            ? <section><h2><span className="h2-ico">👥</span>참가자 <span className="cnt">총 {participantCount(room)}/{room.recruitmentCapacity + 1}명</span></h2><div className="card"><div className="srow" style={{ marginTop: 0 }}><SeatIcons room={room} /></div><div>{room.participants.map((participant, index) => <span className="pchip" key={participant.nickname + '-' + index}>🙂 {participant.nickname}</span>)}{!room.participants.length && <span className="hint">아직 참가자가 없어요.</span>}</div></div></section>
-            : <section><h2><span className="h2-ico">👥</span>참가자</h2><div className="infobox">정확한 장소와 참가자 목록은 주최자 또는 현재 참가자만 확인할 수 있어요.</div></section>}
+            ? <section><h2><SectionIcon name="rooms" />참가자 <span className="cnt">총 {participantCount(room)}/{room.recruitmentCapacity + 1}명</span></h2><div className="card"><div className="srow" style={{ marginTop: 0 }}><SeatIcons room={room} /></div><div>{room.participants.map((participant, index) => <span className="pchip" key={participant.nickname + '-' + index}>🙂 {participant.nickname}</span>)}{!room.participants.length && <span className="hint">아직 참가자가 없어요.</span>}</div></div></section>
+            : <section><h2><SectionIcon name="rooms" />참가자</h2><div className="infobox">정확한 장소와 참가자 목록은 주최자 또는 현재 참가자만 확인할 수 있어요.</div></section>}
         </div>
         <aside><div className="card"><SessionActions room={room} me={me} onApply={onApply} onCancelApply={onCancelApply} onHostCancel={onHostCancel} onFinish={onFinish} /></div></aside>
       </div>
@@ -934,7 +948,7 @@ function CreateView({ createMode, onCreateModeChange, initialGame, onCreate, tod
   };
   return (
     <>
-      <h2><span className="h2-ico">✏️</span>모임 만들기</h2>
+      <h2><SectionIcon name="pencil" />모임 만들기</h2>
       <div className="layout wide">
         <form className="card" onSubmit={submit}>
           <label>모임 유형</label>
@@ -978,7 +992,7 @@ function EditSessionForm({ room, onSave, today }) {
   };
   return (
     <>
-      <h2><span className="h2-ico">✏️</span>모임 수정</h2>
+      <h2><SectionIcon name="pencil" />모임 수정</h2>
       <form className="card" style={{ maxWidth: 780 }} onSubmit={submit}>
         <div className="infobox" style={{ marginBottom: 16 }}>{room.roomType === 'GAME_FOCUSED' ? '게임 중심' : '사람 중심'} 모임 · 유형과 지역은 수정할 수 없어요.</div>
         <RoomFormFields form={form} onChange={setForm} roomType={room.roomType} onOpenGamePicker={() => setGamePickerOpen(true)} today={today} />
@@ -1016,7 +1030,7 @@ function MyRoomsSection({ myTab, onMyTabChange, dataVersion }) {
   const hostedCount = hosted.data?.totalElements ?? '—';
   return (
     <>
-      <h2><span className="h2-ico">🗂️</span>내 모임</h2>
+      <h2><SectionIcon name="list" />내 모임</h2>
       <div className="tabs-row">
         <div className="tabs">
           <button type="button" className={tab === 'joined' ? 'on' : ''} onClick={() => onMyTabChange('joined')}><span className="tab-full">참가한 모임 ({joinedCount})</span><span className="tab-short">참가 {joinedCount}</span></button>
