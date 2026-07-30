@@ -18,7 +18,6 @@ AI 에이전트는 [루트 작업 안내](../AGENTS.md)의 라우팅에 따라 �
 - 참조가 허용되지 않는 방향의 협력이 필요하면 참조할 수 없는 모듈이 인터페이스를 정의하고 참조할 수 있는 모듈이 구현한다.
 - 업무 모듈은 `global`이 공개한 기술 계약을 참조할 수 있으며 이 참조는 방향 규칙에서 제외한다. 인증 사용자 식별처럼 여러 모듈이 쓰는 기술 계약은 업무 모듈이 아니라 `global`에 둔다.
 - `global`에는 공통 설정, 예외 응답, 보안 기반 설정처럼 업무 의미가 없는 기술 요소만 둔다. 인증 업무 로직은 `auth`가 소유한다.
-- 외부 시스템 연동과 기술 어댑터는 `infra`에 둔다. 한 도메인에서만 사용하는 어댑터는 해당 도메인 안에 둔다.
 - `global`과 `infra`를 여러 도메인의 Entity, DTO 또는 업무 규칙을 공유하는 우회 경로로 사용하지 않는다.
 
 구조 선택의 근거와 대안은 [ADR-0007](adr/platform/0007-domain-centered-modular-monolith.md)을 따른다.
@@ -67,7 +66,10 @@ Controller는 HTTP 요청과 응답의 경계만 담당한다.
 
 Controller의 분류와 담당 API는 [아키텍처의 Controller Interface](ARCHITECTURE.md#controller-interface)를 따른다.
 
-- Controller는 도메인의 애플리케이션 진입 Service만 호출하고 내부 ReadService·Executor를 직접 참조하지 않는다.
+Controller는 도메인의 애플리케이션 진입 Service만 호출하고 내부 ReadService·Executor를 직접 참조하지 않는다.
+
+Controller는 다음 책임만 담당한다.
+
 - Request DTO 검증
 - 인증된 사용자 식별
 - Service 호출

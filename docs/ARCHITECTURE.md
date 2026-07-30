@@ -37,7 +37,7 @@ flowchart LR
 
 `game`이 예정 모임 수를 필요로 할 때는 `game.contract.UpcomingRoomCountQuery`를 `room.service.query.RoomUpcomingRoomCountQuery`가 구현한다. 따라서 런타임 호출은 game에서 room으로 향해도 컴파일 시점 의존은 `room → game.contract`로 유지된다.
 
-`infra`는 필요한 업무 모듈의 `contract`와 `global` 기술 기반만 참조한다. 업무 모듈은 `infra`의 구체 구현을 직접 참조하지 않는다.
+업무 모듈이 외부 시스템에 요청하는 포트 인터페이스는 이를 소유한 `<module>/contract`에 둔다. `infra`는 이 포트를 구현하고 Albam Mate 내부에서는 필요한 업무 모듈의 `contract`와 `global`만 참조한다. 한 업무 모듈에서만 사용하는 경우에도 외부 시스템 어댑터 구현은 `infra`에 두며, 업무 모듈은 `infra`의 구체 구현을 직접 참조하지 않는다.
 
 ## 모듈 책임
 
@@ -101,7 +101,7 @@ cloud.bamsongi.albammate/
 └─ infra/
 ```
 
-`contract`, `assembler` 같은 폴더는 실제 공유 책임이 생길 때 추가한다. `statuscorrection`은 기존 `reconciliation`과 같은 자동 상태 보정 책임을 뜻한다.
+`contract`는 다른 모듈에 공개할 계약이나 `infra`가 구현할 포트가 생길 때 추가한다. `assembler` 같은 내부 폴더는 실제 책임이 생길 때 추가한다. `statuscorrection`은 기존 `reconciliation`과 같은 자동 상태 보정 책임을 뜻한다.
 
 ## Controller Interface
 
@@ -180,6 +180,8 @@ flowchart LR
 
 시간 기반 상태 전이 규칙은 `Room` Entity의 단일 보정 메서드가 소유한다. statuscorrection Executor와 상태 의존 Command Executor는 이 메서드를 호출만 하며 전이 조건을 복제하지 않는다.
 
+일괄 보정 대상 선별 쿼리는 전이 경계에서 파생된 후보 축소 조건이며, 최종 전이 여부는 `Room` Entity가 판단한다. Entity의 전이 경계를 바꿀 때는 선별 쿼리와 경계 테스트를 함께 갱신한다.
+
 재시도하지 않는 `RoomCreateService`에는 Coordinator와 Executor를 추가하지 않는다. 재시도하는 CommandService와 Executor는 Spring Proxy가 `REQUIRES_NEW`를 적용할 수 있도록 분리한다.
 
 ### 기준 시각과 재시도
@@ -237,13 +239,20 @@ flowchart LR
 - `global`의 업무 모듈 의존 금지
 - 생산 코드의 `@Autowired` 필드·생성자·메서드 주입 금지
 
-room 리팩터링에서는 Retrier 직접 사용자를 `RoomCommandExecutionCoordinator`, `RoomStatusCorrectionCoordinator`로 제한하는 ArchUnit 규칙을 추가한다. 파일 개수가 아니라 변경한 폴더의 책임과 의존 관계를 이 문서와 대조한다.
+후속 구조 리팩터링에서는 다음 ArchUnit 규칙을 추가한다.
+
+- `infra`가 Albam Mate 내부에서 `global`과 업무 모듈의 `contract` 밖을 참조하지 않는다.
+- 업무 모듈이 `infra`의 구체 구현을 참조하지 않는다.
+- Retrier 직접 사용자를 `RoomCommandExecutionCoordinator`, `RoomStatusCorrectionCoordinator`로 제한한다.
+
+파일 개수가 아니라 변경한 폴더의 책임과 의존 관계를 이 문서와 대조한다.
 
 관련 테스트는 다음 동작을 검증한다.
 
 - 재시도마다 새 트랜잭션에서 최신 Entity를 조회한다.
 - 모든 시도에 최초의 `Instant`를 전달한다.
 - 상태 보정 커밋 후 최신 상태를 조회한다.
+- 일괄 보정 선별 쿼리와 Entity의 전이 경계가 일치한다.
 
 ## 트레이드오프
 
