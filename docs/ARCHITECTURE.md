@@ -33,6 +33,8 @@ flowchart LR
     infra["infra"] -.->|"기술 기반"| global
 ```
 
+위 다이어그램은 고정된 업무 모듈 간 의존과 공통 기술 기반만 표시한다. 포트마다 달라지는 `infra → <module>.contract` 의존은 고정 엣지로 그리지 않고 아래 규칙으로 관리한다.
+
 허용된 업무 모듈 의존 방향은 `auth → user`, `room → user`, `room → game`이다. 반대 방향의 직접 참조와 순환 의존은 허용하지 않는다.
 
 `game`이 예정 모임 수를 필요로 할 때는 `game.contract.UpcomingRoomCountQuery`를 `room.service.query.RoomUpcomingRoomCountQuery`가 구현한다. 따라서 런타임 호출은 game에서 room으로 향해도 컴파일 시점 의존은 `room → game.contract`로 유지된다.
@@ -180,7 +182,7 @@ flowchart LR
 
 시간 기반 상태 전이 규칙은 `Room` Entity의 단일 보정 메서드가 소유한다. statuscorrection Executor와 상태 의존 Command Executor는 이 메서드를 호출만 하며 전이 조건을 복제하지 않는다.
 
-일괄 보정 대상 선별 쿼리는 전이 경계에서 파생된 후보 축소 조건이며, 최종 전이 여부는 `Room` Entity가 판단한다. Entity의 전이 경계를 바꿀 때는 선별 쿼리와 경계 테스트를 함께 갱신한다.
+일괄 보정 대상 선별 쿼리는 전이 경계에서 파생된 후보 축소 조건이며 Entity의 전이 대상을 빠뜨리지 않아야 한다. 쿼리가 더 넓은 후보를 반환할 수 있지만 최종 전이 여부는 `Room` Entity가 판단한다. Entity의 전이 경계를 바꿀 때는 선별 쿼리와 경계 테스트를 함께 갱신한다.
 
 재시도하지 않는 `RoomCreateService`에는 Coordinator와 Executor를 추가하지 않는다. 재시도하는 CommandService와 Executor는 Spring Proxy가 `REQUIRES_NEW`를 적용할 수 있도록 분리한다.
 
@@ -241,7 +243,7 @@ flowchart LR
 
 후속 구조 리팩터링에서는 다음 ArchUnit 규칙을 추가한다.
 
-- `infra`가 Albam Mate 내부에서 `global`과 업무 모듈의 `contract` 밖을 참조하지 않는다.
+- `infra`가 업무 모듈의 `contract` 밖 내부 구현에 의존하지 않는다.
 - 업무 모듈이 `infra`의 구체 구현을 참조하지 않는다.
 - Retrier 직접 사용자를 `RoomCommandExecutionCoordinator`, `RoomStatusCorrectionCoordinator`로 제한한다.
 
@@ -252,7 +254,7 @@ flowchart LR
 - 재시도마다 새 트랜잭션에서 최신 Entity를 조회한다.
 - 모든 시도에 최초의 `Instant`를 전달한다.
 - 상태 보정 커밋 후 최신 상태를 조회한다.
-- 일괄 보정 선별 쿼리와 Entity의 전이 경계가 일치한다.
+- 일괄 보정 선별 쿼리가 Entity의 전이 대상을 빠뜨리지 않는다.
 
 ## 트레이드오프
 
