@@ -489,7 +489,7 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
   useEffect(() => setInput(roomQuery), [roomQuery]);
   return (
     <>
-      <h2><SectionIcon name="rooms" />모임 찾기 <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
+      <h2><SectionIcon name="rooms" />모임 찾기 <span className="cnt">{loading && !data ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
       <div className="tabs-row">
         <div className="tabs" role="group" aria-label="모임 유형">
           {ROOM_TYPE_FILTERS.map((filter) => (
@@ -505,7 +505,7 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
       <p className="hint" style={{ marginTop: -10, marginBottom: 15 }}>모임 제목의 부분 일치 검색만 제공해요.</p>
       {error && <ErrorBox message={error} />}
       {!error && loading && !data && <LoadingBox />}
-      {!error && !!rooms.length && <div className="grid cols2">{rooms.map((room) => <SessionCard key={room.id} room={room} />)}</div>}
+      {!error && !!rooms.length && <div className="grid cols2 list-swappable" style={{ opacity: loading ? 0.6 : 1 }}>{rooms.map((room) => <SessionCard key={room.id} room={room} />)}</div>}
       {!error && !loading && !rooms.length && <div className="infobox">조건에 맞는 공개 모임이 없어요. 직접 모임을 열어보세요.</div>}
       {!error && !!rooms.length && <Pagination page={data?.page ?? 0} totalPages={data?.totalPages ?? 0} loading={loading} onChange={setPage} />}
     </>
@@ -514,10 +514,11 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
 
 function GamesView({ title, gameQuery, onGameQueryChange, dataVersion }) {
   const [input, setInput] = useState(gameQuery);
+  const [upcomingOnly, setUpcomingOnly] = useState(false);
   const keyword = gameQuery.trim();
   const { data, loading, error, setPage } = usePaginatedRequest(
-    (page, signal) => api.getGames({ keyword, page, size: GAME_LIST_PAGE_SIZE }, signal),
-    [keyword, dataVersion]
+    (page, signal) => api.getGames({ keyword, upcomingOnly, page, size: GAME_LIST_PAGE_SIZE }, signal),
+    [keyword, upcomingOnly, dataVersion]
   );
   const games = (data?.content || []).map(normalizeGameSummary);
   useEffect(() => setInput(gameQuery), [gameQuery]);
@@ -529,7 +530,10 @@ function GamesView({ title, gameQuery, onGameQueryChange, dataVersion }) {
         <input id="game-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임 이름으로 검색" />
         <button type="submit" aria-label="검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.65" y2="16.65" /></svg></button>
       </form>
-      <p className="hint" style={{ margin: '-8px 0 15px' }}>게임 이름의 부분 일치 검색만 제공해요.</p>
+      <div className="games-filter">
+        <label className="checkline"><input type="checkbox" checked={upcomingOnly} onChange={(event) => setUpcomingOnly(event.target.checked)} /> 예정 모임 있는 게임만</label>
+        <p className="hint">게임 이름의 부분 일치 검색만 제공해요.</p>
+      </div>
       {error && <ErrorBox message={error} />}
       {!error && loading && !data && <LoadingBox />}
       {!error && !!games.length && <div className="grid cols3">{games.map((game) => <GameCard key={game.id} game={game} />)}</div>}

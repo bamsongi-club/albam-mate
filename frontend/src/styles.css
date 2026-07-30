@@ -264,6 +264,10 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .modecard span { color: var(--sub); display: block; font-size: 12.5px; margin-top: 4px; }
 .checkline { align-items: center; display: flex; font-size: 13px; gap: 8px; padding: 8px 0; }
 .checkline input { accent-color: var(--accent); width: auto; }
+.games-filter { align-items: center; column-gap: 16px; display: flex; flex-wrap: wrap; justify-content: space-between; margin: -6px 0 15px; row-gap: 4px; }
+.games-filter .checkline { font-weight: 800; padding: 0; }
+.games-filter .hint { margin: 0; }
+.list-swappable { transition: opacity 0.15s ease; }
 .create-submit { width: 100%; }
 .create-note b { display: block; margin-bottom: 7px; }
 .create-note ul { display: grid; font-size: 13px; gap: 7px; line-height: 1.6; list-style: none; padding-left: 2px; }
@@ -282,7 +286,7 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 
 /* 동작 감소를 켠 사용자에게는 위치가 움직이는 효과를 주지 않는다. 색 변화는 남긴다. */
 @media (prefers-reduced-motion: reduce) {
-  .entry, .btn, .gcard, .scard, .modecard, #toast { transition-duration: 0.01ms; }
+  .entry, .btn, .gcard, .scard, .modecard, .list-swappable, #toast { transition-duration: 0.01ms; }
   .entry:hover, .gcard:hover, .scard:hover, .btn:active, .modecard:active { transform: none; }
   #toast, #toast.show { transform: translateX(-50%); }
 }
@@ -303,7 +307,6 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
   .layout, .layout.wide { grid-template-columns: 1fr; }
   .dual, .detail-head { flex-direction: column; }
   .hwrap { gap: 10px; }
-  #gnb { margin-left: 0; }
 }
 
 @media (max-width: 560px) {
