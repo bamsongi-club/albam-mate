@@ -32,14 +32,13 @@ import cloud.bamsongi.albammate.room.service.query.RoomUpcomingRoomCountQuery;
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({
-	GameListQueryService.class,
-	GameDetailQueryService.class,
+	GameQueryService.class,
 	RoomUpcomingRoomCountQuery.class,
 	JpaConfig.class,
 	TimeConfig.class,
-	GameDetailQueryServiceIntegrationTest.FixedClockTestConfiguration.class
+	GameQueryServiceDetailIntegrationTest.FixedClockTestConfiguration.class
 })
-class GameDetailQueryServiceIntegrationTest {
+class GameQueryServiceDetailIntegrationTest {
 
 	private static final Instant NOW = Instant.parse("2026-07-27T00:00:00Z");
 
@@ -47,10 +46,7 @@ class GameDetailQueryServiceIntegrationTest {
 	private GameRepository gameRepository;
 
 	@Autowired
-	private GameListQueryService gameListQueryService;
-
-	@Autowired
-	private GameDetailQueryService gameDetailQueryService;
+	private GameQueryService gameQueryService;
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
@@ -85,11 +81,11 @@ class GameDetailQueryServiceIntegrationTest {
 			NOW.plusSeconds(4),
 			RoomStatus.RECRUITING);
 
-		GameListItem listItem = gameListQueryService
+		GameListItem listItem = gameQueryService
 			.findPage(null, PageRequest.of(0, 10, Sort.by("name", "id")))
 			.getContent()
 			.getFirst();
-		GameDetail detail = gameDetailQueryService.findById(game.getId());
+		GameDetail detail = gameQueryService.findById(game.getId());
 
 		assertEquals(listItem.id(), detail.id());
 		assertEquals(listItem.bggId(), detail.bggId());

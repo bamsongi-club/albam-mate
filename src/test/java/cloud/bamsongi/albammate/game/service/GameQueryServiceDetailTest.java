@@ -29,7 +29,7 @@ import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 
 @ExtendWith(MockitoExtension.class)
-class GameDetailQueryServiceUnitTest {
+class GameQueryServiceDetailTest {
 
 	private static final Instant NOW = Instant.parse("2026-07-27T00:00:00Z");
 
@@ -39,11 +39,11 @@ class GameDetailQueryServiceUnitTest {
 	@Mock
 	private UpcomingRoomCountQuery upcomingRoomCountQuery;
 
-	private GameDetailQueryService gameDetailQueryService;
+	private GameQueryService gameQueryService;
 
 	@BeforeEach
 	void setUp() {
-		gameDetailQueryService = new GameDetailQueryService(
+		gameQueryService = new GameQueryService(
 			gameRepository, Clock.fixed(NOW, ZoneOffset.UTC), upcomingRoomCountQuery);
 	}
 
@@ -66,7 +66,7 @@ class GameDetailQueryServiceUnitTest {
 		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW))
 			.thenReturn(Map.of(1L, 2L));
 
-		GameDetail result = gameDetailQueryService.findById(1L);
+		GameDetail result = gameQueryService.findById(1L);
 
 		assertEquals(
 			new GameDetail(
@@ -93,7 +93,7 @@ class GameDetailQueryServiceUnitTest {
 		when(gameRepository.findById(999L)).thenReturn(Optional.empty());
 
 		BusinessException exception = assertThrows(BusinessException.class,
-			() -> gameDetailQueryService.findById(999L));
+			() -> gameQueryService.findById(999L));
 
 		assertEquals(ErrorCode.GAME_NOT_FOUND, exception.getErrorCode());
 		verifyNoInteractions(upcomingRoomCountQuery);
