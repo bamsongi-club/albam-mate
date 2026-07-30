@@ -15,6 +15,7 @@ import cloud.bamsongi.albammate.global.response.PageResponse;
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserAccessor;
 import cloud.bamsongi.albammate.room.dto.MyRoomListItem;
 import cloud.bamsongi.albammate.room.dto.MyRoomListRequest;
+import cloud.bamsongi.albammate.room.enums.MyRoomRole;
 import cloud.bamsongi.albammate.room.service.MyRoomQueryService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -43,7 +44,7 @@ public class MyRoomController {
 			HttpStatus.OK,
 			myRoomQueryService.findPage(
 				currentUserAccessor.requireCurrentUserId(),
-				listRequest.getRole(),
+				MyRoomRole.fromQueryValue(listRequest.getRole()),
 				listRequest.getPage(),
 				listRequest.getSize())));
 	}

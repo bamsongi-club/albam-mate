@@ -40,9 +40,9 @@ class MyRoomReadServiceTest {
 		when(roomRepository.findMyRooms(42L, false, true, pageable)).thenReturn(result);
 		when(roomRepository.findMyRooms(42L, true, false, pageable)).thenReturn(result);
 
-		myRoomReadService.findMyRooms(42L, MyRoomRole.all, pageable);
-		myRoomReadService.findMyRooms(42L, MyRoomRole.joined, pageable);
-		myRoomReadService.findMyRooms(42L, MyRoomRole.hosted, pageable);
+		myRoomReadService.findMyRooms(42L, MyRoomRole.ALL, pageable);
+		myRoomReadService.findMyRooms(42L, MyRoomRole.JOINED, pageable);
+		myRoomReadService.findMyRooms(42L, MyRoomRole.HOSTED, pageable);
 
 		verify(roomRepository).findMyRooms(42L, true, true, pageable);
 		verify(roomRepository).findMyRooms(42L, false, true, pageable);

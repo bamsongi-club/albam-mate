@@ -29,6 +29,6 @@ public class MyRoomReadService {
 		Objects.requireNonNull(pageable, "pageable");
 
 		return roomRepository.findMyRooms(
-			currentUserId, role != MyRoomRole.joined, role != MyRoomRole.hosted, pageable);
+			currentUserId, role != MyRoomRole.JOINED, role != MyRoomRole.HOSTED, pageable);
 	}
 }
