@@ -7,12 +7,12 @@
 | 구분 | 내용 |
 |---|---|
 | 이 문서가 정본인 것 | 테이블·컬럼·타입·DB 제약, 저장 계산식과 저장 불변식 |
-| 이 문서가 담지 않는 것 | 제품 규칙(상태 전이·권한·시간·정원)은 [P0-spec](P0-spec.md#공통-규칙), 요청·응답 계약은 [API](API.md), 기술 결정 이유는 [ADR](adr/README.md) |
+| 이 문서가 담지 않는 것 | 제품 규칙(상태 전이·권한·시간·정원)은 [P0-spec](archive/p0/P0-spec.md#공통-규칙), 요청·응답 계약은 [API](API.md), 기술 결정 이유는 [ADR](adr/README.md) |
 | 변경 시 함께 갱신 | 스키마를 바꾸면 Flyway 마이그레이션과 JPA 엔티티를 같은 변경에서 일치시킨다(→ [마이그레이션 작업 안내](../src/main/resources/db/migration/AGENTS.md), [ADR-0008](adr/platform/0008-flyway-database-migrations.md)) |
 
 ## 기준과 범위
 
-- 기준: 제품 범위·규칙은 [P0 공통 명세](P0-spec.md), 저장 방식의 기술 결정은 [관련 승인 ADR](adr/README.md)을 따른다.
+- 기준: 제품 범위·규칙은 [P0 공통 명세](archive/p0/P0-spec.md), 저장 방식의 기술 결정은 [관련 승인 ADR](adr/README.md)을 따른다.
 - 범위: 오프라인 방, 게임 목록, 사용자, 방 참가
 - 제외: 온라인 방, 채팅, 후기, 룰마스터 가능 게임, 카테고리 다대다·태그 필터, 결제·포인트
 - P0 검색: 게임 목록은 게임명 `keyword`, 사람 중심 방 목록은 방 제목 `keyword` 검색을 지원한다. 게임 태그는 표시값이며 필터가 아니다.
@@ -210,10 +210,10 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 
 ### 서비스 규칙
 
-제품 규칙(상태 전이·권한·시간·정원)의 정본은 [P0 공통 명세](P0-spec.md#공통-규칙)다. 아래는 저장 계층이 지켜야 하는 불변식과, 그 제품 규칙을 저장에 반영하는 방식만 정의한다.
+제품 규칙(상태 전이·권한·시간·정원)의 정본은 [P0 공통 명세](archive/p0/P0-spec.md#공통-규칙)다. 아래는 저장 계층이 지켜야 하는 불변식과, 그 제품 규칙을 저장에 반영하는 방식만 정의한다.
 
 - 개설자는 `PARTICIPATIONS`에 참가 행을 만들지 않는다. 현재 총 인원과 참가자 목록 계산은 [정원·참가자 표시 규칙](#정원참가자-표시-규칙)을 따른다.
 - `active_participant_count = ACTIVE 상태의 PARTICIPATIONS 수`는 서비스가 유지하는 불변식이며, `ROOMS`의 CHECK 제약은 카운터의 범위(`0`~`capacity`)만 보장한다.
-- 참가·재참가·참가 취소는 참가 관계, `active_participant_count`, [P0 방 상태](P0-spec.md#방-상태roomstatus)의 전이를 한 트랜잭션에서 변경한다.
+- 참가·재참가·참가 취소는 참가 관계, `active_participant_count`, [P0 방 상태](archive/p0/P0-spec.md#방-상태roomstatus)의 전이를 한 트랜잭션에서 변경한다.
 - 참가 가능성에 영향을 주는 변경은 `ROOMS` 행도 갱신해 `version`을 올린다. 모든 요청에서 `active_participant_count <= capacity`를 지켜야 하며, 동시성 제어는 [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md)를 따른다.
 - `start_at`과 상태 전이 시각 비교는 [ADR-0009](adr/platform/0009-utc-time-standard.md)의 UTC 기준을 따른다.

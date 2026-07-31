@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-30
 - 결정일: 2026-07-31
-- 관련: [GitHub Issue #221](https://github.com/bamsongi-club/albam-mate/issues/221), [GAME-03 게임 카탈로그 출처 표시](../../p0/game-catalog.md#game-03-게임-카탈로그-출처-표시), [ADR-0015](0015-bgg-baseline-team-collected-game-list.md), [ADR-0019](0019-bgg-full-catalog-staged-enrichment.md), [출처 manifest](../../game-catalog/2026-07-24-source-manifest.draft.json)
+- 관련: [GitHub Issue #221](https://github.com/bamsongi-club/albam-mate/issues/221), [GAME-03 게임 카탈로그 출처 표시](../../archive/p0/game-catalog.md#game-03-게임-카탈로그-출처-표시), [ADR-0015](0015-bgg-baseline-team-collected-game-list.md), [ADR-0019](0019-bgg-full-catalog-staged-enrichment.md), [출처 manifest](../../game-catalog/2026-07-24-source-manifest.draft.json)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 

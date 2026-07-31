@@ -1,6 +1,6 @@
 # P0 참가·내 모임 구현 명세
 
-이 문서는 참가·재참가·취소·내 모임 기능의 구현 규칙과 완료 기준만 정의한다. 공통 정원·상태·권한·시간 규칙은 [P0 공통 명세](../P0-spec.md#공통-규칙), 요청·응답·오류는 [API 명세](../API.md), 저장 계약은 [ERD](../ERD.md)를 따른다.
+이 문서는 참가·재참가·취소·내 모임 기능의 구현 규칙과 완료 기준만 정의한다. 공통 정원·상태·권한·시간 규칙은 [P0 공통 명세](P0-spec.md#공통-규칙), 요청·응답·오류는 [API 명세](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md), 저장 계약은 [ERD](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md)를 따른다.
 
 ADR 상태는 기술 결정의 상태이며 구현 완료 여부는 각 ADR의 구현 검증 항목에서 별도로 확인한다.
 
@@ -10,12 +10,12 @@ ADR 상태는 기술 결정의 상태이며 구현 완료 여부는 각 ADR의 �
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [방 참가·재참가](../API.md#part-01-방-참가재참가) |
-| 공통 규칙 | [정원](../P0-spec.md#정원capacity), [방 상태](../P0-spec.md#방-상태roomstatus), [권한](../P0-spec.md#권한과-공개-범위), [시간 경계](../P0-spec.md#시간-경계) |
-| 데이터 모델 | [ROOMS](../ERD.md#rooms), [PARTICIPATIONS](../ERD.md#participations), [필수 제약](../ERD.md#필수-제약과-계산-규칙) |
-| 필수 ADR | [ADR-0005](../adr/participation/0005-room-participation-optimistic-locking.md) — 승인됨, [ADR-0012](../adr/room/0012-room-request-boundary-state-reconciliation.md) — 승인됨 |
-| 시간 기준 | [ADR-0009](../adr/platform/0009-utc-time-standard.md) — 승인됨 |
-| 검증 환경 | [ADR-0010](../adr/platform/0010-h2-postgresql-test-boundary.md) — 승인됨 |
+| API 계약 | [방 참가·재참가](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#part-01-방-참가재참가) |
+| 공통 규칙 | [정원](P0-spec.md#정원capacity), [방 상태](P0-spec.md#방-상태roomstatus), [권한](P0-spec.md#권한과-공개-범위), [시간 경계](P0-spec.md#시간-경계) |
+| 데이터 모델 | [ROOMS](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#rooms), [PARTICIPATIONS](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#participations), [필수 제약](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#필수-제약과-계산-규칙) |
+| 필수 ADR | [ADR-0005](../../adr/participation/0005-room-participation-optimistic-locking.md) — 승인됨, [ADR-0012](../../adr/room/0012-room-request-boundary-state-reconciliation.md) — 승인됨 |
+| 시간 기준 | [ADR-0009](../../adr/platform/0009-utc-time-standard.md) — 승인됨 |
+| 검증 환경 | [ADR-0010](../../adr/platform/0010-h2-postgresql-test-boundary.md) — 승인됨 |
 
 ### 기능 규칙
 
@@ -45,12 +45,12 @@ ADR 상태는 기술 결정의 상태이며 구현 완료 여부는 각 ADR의 �
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [참가 취소](../API.md#part-02-참가-취소) |
-| 공통 규칙 | [정원](../P0-spec.md#정원capacity), [방 상태](../P0-spec.md#방-상태roomstatus), [권한](../P0-spec.md#권한과-공개-범위), [시간 경계](../P0-spec.md#시간-경계) |
-| 데이터 모델 | [ROOMS](../ERD.md#rooms), [PARTICIPATIONS](../ERD.md#participations) |
-| 필수 ADR | [ADR-0005](../adr/participation/0005-room-participation-optimistic-locking.md) — 승인됨, [ADR-0012](../adr/room/0012-room-request-boundary-state-reconciliation.md) — 승인됨 |
-| 시간 기준 | [ADR-0009](../adr/platform/0009-utc-time-standard.md) — 승인됨 |
-| 검증 환경 | [ADR-0010](../adr/platform/0010-h2-postgresql-test-boundary.md) — 승인됨 |
+| API 계약 | [참가 취소](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#part-02-참가-취소) |
+| 공통 규칙 | [정원](P0-spec.md#정원capacity), [방 상태](P0-spec.md#방-상태roomstatus), [권한](P0-spec.md#권한과-공개-범위), [시간 경계](P0-spec.md#시간-경계) |
+| 데이터 모델 | [ROOMS](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#rooms), [PARTICIPATIONS](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#participations) |
+| 필수 ADR | [ADR-0005](../../adr/participation/0005-room-participation-optimistic-locking.md) — 승인됨, [ADR-0012](../../adr/room/0012-room-request-boundary-state-reconciliation.md) — 승인됨 |
+| 시간 기준 | [ADR-0009](../../adr/platform/0009-utc-time-standard.md) — 승인됨 |
+| 검증 환경 | [ADR-0010](../../adr/platform/0010-h2-postgresql-test-boundary.md) — 승인됨 |
 
 ### 기능 규칙
 
@@ -77,12 +77,12 @@ ADR 상태는 기술 결정의 상태이며 구현 완료 여부는 각 ADR의 �
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [내 모임 조회](../API.md#part-03-내-모임-조회) |
-| 공통 규칙 | [방 상태](../P0-spec.md#방-상태roomstatus), [권한과 공개 범위](../P0-spec.md#권한과-공개-범위), [상태 정합성](../P0-spec.md#상태-정합성과-동시-변경) |
-| 데이터 모델 | [ROOMS](../ERD.md#rooms), [PARTICIPATIONS](../ERD.md#participations) |
-| 필수 ADR | [ADR-0012](../adr/room/0012-room-request-boundary-state-reconciliation.md) — 승인됨 |
-| 시간 기준 | [ADR-0009](../adr/platform/0009-utc-time-standard.md) — 승인됨 |
-| 검증 환경 | [ADR-0010](../adr/platform/0010-h2-postgresql-test-boundary.md) — 승인됨 |
+| API 계약 | [내 모임 조회](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#part-03-내-모임-조회) |
+| 공통 규칙 | [방 상태](P0-spec.md#방-상태roomstatus), [권한과 공개 범위](P0-spec.md#권한과-공개-범위), [상태 정합성](P0-spec.md#상태-정합성과-동시-변경) |
+| 데이터 모델 | [ROOMS](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#rooms), [PARTICIPATIONS](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#participations) |
+| 필수 ADR | [ADR-0012](../../adr/room/0012-room-request-boundary-state-reconciliation.md) — 승인됨 |
+| 시간 기준 | [ADR-0009](../../adr/platform/0009-utc-time-standard.md) — 승인됨 |
+| 검증 환경 | [ADR-0010](../../adr/platform/0010-h2-postgresql-test-boundary.md) — 승인됨 |
 
 ### 기능 규칙
 

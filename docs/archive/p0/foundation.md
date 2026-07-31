@@ -5,13 +5,13 @@
 정본은 다음과 같다.
 
 - 결정 근거: 각 항목이 연결한 ADR
-- HTTP 계약: [API 명세](../API.md)
-- 저장 계약: [ERD](../ERD.md)
-- 구현 방식: [컨벤션](../CONVENTIONS.md)
+- HTTP 계약: [API 명세](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md)
+- 저장 계약: [ERD](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md)
+- 구현 방식: [컨벤션](../../CONVENTIONS.md)
 
-기반 작업은 대부분 [공유 파일](../CONVENTIONS.md#협업-개발)을 변경한다. 공유 파일만 변경하는 PR을 먼저 머지하고 기능 PR은 그 뒤에 rebase한다.
+기반 작업은 대부분 [공유 파일](../../CONVENTIONS.md#협업-개발)을 변경한다. 공유 파일만 변경하는 PR을 먼저 머지하고 기능 PR은 그 뒤에 rebase한다.
 
-완료 기준 ID 규칙은 [P0 명세](../P0-spec.md#완료-기준-id)를 따른다. 기능 ID와 달리 기반 작업은 제품 동작을 추가하지 않으므로 완료 기준은 산출물과 검증 근거로 적는다.
+완료 기준 ID 규칙은 [P0 명세](P0-spec.md#완료-기준-id)를 따른다. 기능 ID와 달리 기반 작업은 제품 동작을 추가하지 않으므로 완료 기준은 산출물과 검증 근거로 적는다.
 
 ## 의존 순서와 영향 범위
 
@@ -42,8 +42,8 @@ FND-04·FND-05 분리는 인증 책임을 이중화하지 않는다. 인증 담�
 
 | 구분 | 정본 |
 | --- | --- |
-| HTTP 계약 | [공통 응답](../API.md#13-공통-응답), [오류 코드](../API.md#9-오류-코드), [엔드포인트별 오류 매트릭스](../API.md#10-부록-엔드포인트별-오류-매트릭스) |
-| 구현 규칙 | [예외 처리](../CONVENTIONS.md#예외-처리), [API 응답](../CONVENTIONS.md#api-응답) |
+| HTTP 계약 | [공통 응답](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#13-공통-응답), [오류 코드](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#9-오류-코드), [엔드포인트별 오류 매트릭스](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#10-부록-엔드포인트별-오류-매트릭스) |
+| 구현 규칙 | [예외 처리](../../CONVENTIONS.md#예외-처리), [API 응답](../../CONVENTIONS.md#api-응답) |
 | 소유 경로 | `global/**` (main/test 포함) |
 
 ### 산출물
@@ -72,10 +72,10 @@ FND-04·FND-05 분리는 인증 책임을 이중화하지 않는다. 인증 담�
 
 | 구분 | 정본 |
 | --- | --- |
-| 필수 ADR | [ADR-0009 시스템 기준 시각을 UTC로 통일](../adr/platform/0009-utc-time-standard.md) |
-| HTTP 계약 | [HTTP와 데이터 형식](../API.md#11-http와-데이터-형식) |
-| 공통 규칙 | [시간 경계](../P0-spec.md#시간-경계) |
-| 구현 규칙 | [시간 처리](../CONVENTIONS.md#시간-처리) |
+| 필수 ADR | [ADR-0009 시스템 기준 시각을 UTC로 통일](../../adr/platform/0009-utc-time-standard.md) |
+| HTTP 계약 | [HTTP와 데이터 형식](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#11-http와-데이터-형식) |
+| 공통 규칙 | [시간 경계](P0-spec.md#시간-경계) |
+| 구현 규칙 | [시간 처리](../../CONVENTIONS.md#시간-처리) |
 | 소유 경로 | `global/**`, `src/main/resources/application.yml` |
 
 ### 산출물
@@ -102,9 +102,9 @@ FND-04·FND-05 분리는 인증 책임을 이중화하지 않는다. 인증 담�
 
 | 구분 | 정본 |
 | --- | --- |
-| 필수 ADR | [ADR-0008 Flyway SQL 마이그레이션](../adr/platform/0008-flyway-database-migrations.md), [ADR-0007 도메인 중심 모듈러 모놀리스](../adr/platform/0007-domain-centered-modular-monolith.md), [ADR-0006 BIGINT 자동 증가 키](../adr/platform/0006-p0-bigint-identity-ids.md) |
-| 데이터 모델 | [테이블 명세](../ERD.md#테이블-명세), [DB 제약](../ERD.md#db-제약), [필수 제약과 계산 규칙](../ERD.md#필수-제약과-계산-규칙) |
-| 구조·구현 규칙 | [모듈 책임](../ARCHITECTURE.md#모듈-책임), [모듈 관계](../ARCHITECTURE.md#모듈-관계), [패키지와 모듈 규칙](../CONVENTIONS.md#패키지와-모듈), [마이그레이션 작업 안내](../../src/main/resources/db/migration/AGENTS.md), [Entity와 DTO](../CONVENTIONS.md#entity와-dto) |
+| 필수 ADR | [ADR-0008 Flyway SQL 마이그레이션](../../adr/platform/0008-flyway-database-migrations.md), [ADR-0007 도메인 중심 모듈러 모놀리스](../../adr/platform/0007-domain-centered-modular-monolith.md), [ADR-0006 BIGINT 자동 증가 키](../../adr/platform/0006-p0-bigint-identity-ids.md) |
+| 데이터 모델 | [테이블 명세](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#테이블-명세), [DB 제약](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#db-제약), [필수 제약과 계산 규칙](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#필수-제약과-계산-규칙) |
+| 구조·구현 규칙 | [모듈 책임](../../ARCHITECTURE.md#모듈-책임), [모듈 관계](../../ARCHITECTURE.md#모듈-관계), [패키지와 모듈 규칙](../../CONVENTIONS.md#패키지와-모듈), [마이그레이션 작업 안내](../../../src/main/resources/db/migration/AGENTS.md), [Entity와 DTO](../../CONVENTIONS.md#entity와-dto) |
 | 선행 | [FND-02](#fnd-02-시간-기준-구성) |
 | 소유 경로 | `build.gradle`, `src/main/resources/db/migration/**`, `src/main/resources/application.yml`, `user/**`, `game/**`, `room/**` |
 
@@ -112,21 +112,21 @@ FND-04·FND-05 분리는 인증 책임을 이중화하지 않는다. 인증 담�
 
 - Flyway starter와 PostgreSQL용 Flyway 모듈 의존성
 - ERD의 네 테이블과 제약을 만드는 `V1__` 초기 마이그레이션
-- `User`, `Game`, `Room`, `Participation` 엔티티와 이를 담는 도메인 패키지. 참가 관계는 [아키텍처의 모듈 책임](../ARCHITECTURE.md#모듈-책임)에 따라 `room`이 소유한다.
+- `User`, `Game`, `Room`, `Participation` 엔티티와 이를 담는 도메인 패키지. 참가 관계는 [아키텍처의 모듈 책임](../../ARCHITECTURE.md#모듈-책임)에 따라 `room`이 소유한다.
 - Hibernate를 스키마 검증 용도로 구성하는 설정
 
 ### 완료 기준
 
 - `FND-03-AC1` 빈 데이터베이스에 초기 마이그레이션이 적용되고 재실행에서 이력·체크섬이 유지된다.
 - `FND-03-AC2` 엔티티의 식별자 타입·생성 전략과 시각 필드 타입이 연결한 ADR과 ERD 제약에 일치한다.
-- `FND-03-AC3` 도메인 패키지가 [아키텍처의 참조 방향](../ARCHITECTURE.md#모듈-관계)을 위반하는 import 없이 컴파일된다.
+- `FND-03-AC3` 도메인 패키지가 [아키텍처의 참조 방향](../../ARCHITECTURE.md#모듈-관계)을 위반하는 import 없이 컴파일된다.
 - `FND-03-AC4` `User`는 `user/entity`, `Game`은 `game/entity`, `Room`과 `Participation`은 `room/entity`에 배치되며 참가 관계를 위한 별도 업무 모듈을 만들지 않는다.
 - `FND-03-AC5` 공유 개발·검증·운영 환경에서 Hibernate가 스키마를 생성·변경하지 않는다.
 
 ### 제외 범위
 
 - 빈 `controller`, `service`, `repository` 계층 패키지의 선행 생성
-- 게임 목록 데이터 적재. [ADR-0015](../adr/game/0015-bgg-baseline-team-collected-game-list.md)에서 다룬다.
+- 게임 목록 데이터 적재. [ADR-0015](../../adr/game/0015-bgg-baseline-team-collected-game-list.md)에서 다룬다.
 - 기능별 Repository 조회 메서드와 Entity 상태 변경 메서드. 각 기능 ID에서 다룬다.
 - PostgreSQL 기반 마이그레이션 검증. [FND-06](#fnd-06-postgresql-검증-환경)에서 다룬다.
 
@@ -136,10 +136,10 @@ FND-04·FND-05 분리는 인증 책임을 이중화하지 않는다. 인증 담�
 
 | 구분 | 정본 |
 | --- | --- |
-| 필수 ADR | [ADR-0003 서버 세션과 Spring Security](../adr/auth/0003-p0-server-session-spring-security.md) |
-| HTTP 계약 | [인증·세션·CSRF](../API.md#12-인증세션csrf) |
-| 공통 규칙 | [권한과 공개 범위](../P0-spec.md#권한과-공개-범위) |
-| 구현 규칙 | [패키지와 모듈](../CONVENTIONS.md#패키지와-모듈), [설정과 비밀정보](../CONVENTIONS.md#설정과-비밀정보) |
+| 필수 ADR | [ADR-0003 서버 세션과 Spring Security](../../adr/auth/0003-p0-server-session-spring-security.md) |
+| HTTP 계약 | [인증·세션·CSRF](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#12-인증세션csrf) |
+| 공통 규칙 | [권한과 공개 범위](P0-spec.md#권한과-공개-범위) |
+| 구현 규칙 | [패키지와 모듈](../../CONVENTIONS.md#패키지와-모듈), [설정과 비밀정보](../../CONVENTIONS.md#설정과-비밀정보) |
 | 선행 | [FND-01](#fnd-01-공통-응답과-오류-계약) |
 | 소유 경로 | `build.gradle`, `global/**` |
 
@@ -170,9 +170,9 @@ FND-04·FND-05 분리는 인증 책임을 이중화하지 않는다. 인증 담�
 
 | 구분 | 정본 |
 | --- | --- |
-| 필수 ADR | [ADR-0013 비밀번호 저장과 인증 요청 제한](../adr/auth/0013-p0-password-storage-auth-request-protection.md) |
-| HTTP 계약 | [인증 요청 남용 제한](../API.md#인증-요청-남용-제한) |
-| 구현 규칙 | [설정과 비밀정보](../CONVENTIONS.md#설정과-비밀정보), [Logging](../CONVENTIONS.md#logging) |
+| 필수 ADR | [ADR-0013 비밀번호 저장과 인증 요청 제한](../../adr/auth/0013-p0-password-storage-auth-request-protection.md) |
+| HTTP 계약 | [인증 요청 남용 제한](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#인증-요청-남용-제한) |
+| 구현 규칙 | [설정과 비밀정보](../../CONVENTIONS.md#설정과-비밀정보), [Logging](../../CONVENTIONS.md#logging) |
 | 선행 | [FND-04](#fnd-04-인증-기반-구성) |
 | 소유 경로 | `build.gradle`, `global/**` |
 
@@ -202,9 +202,9 @@ FND-04·FND-05 분리는 인증 책임을 이중화하지 않는다. 인증 담�
 
 | 구분 | 정본 |
 | --- | --- |
-| 필수 ADR | [ADR-0002 PostgreSQL 주 데이터베이스](../adr/platform/0002-postgresql-primary-database.md), [ADR-0010 H2와 PostgreSQL 테스트 경계](../adr/platform/0010-h2-postgresql-test-boundary.md) |
-| 구현 규칙 | [테스트 작업 안내](../../src/test/AGENTS.md), [마이그레이션 작업 안내](../../src/main/resources/db/migration/AGENTS.md) |
-| 실행 명령 | [프로젝트 명령](../COMMANDS.md) |
+| 필수 ADR | [ADR-0002 PostgreSQL 주 데이터베이스](../../adr/platform/0002-postgresql-primary-database.md), [ADR-0010 H2와 PostgreSQL 테스트 경계](../../adr/platform/0010-h2-postgresql-test-boundary.md) |
+| 구현 규칙 | [테스트 작업 안내](../../../src/test/AGENTS.md), [마이그레이션 작업 안내](../../../src/main/resources/db/migration/AGENTS.md) |
+| 실행 명령 | [프로젝트 명령](../../COMMANDS.md) |
 | 선행 | [FND-03](#fnd-03-스키마와-엔티티-골격) |
 | 소유 경로 | `build.gradle`, `.github/workflows/ci.yml`, `docs/COMMANDS.md`, `src/postgresTest/**` |
 
@@ -258,8 +258,8 @@ FND-04·FND-05 분리는 인증 책임을 이중화하지 않는다. 인증 담�
 
 | 구분 | 정본 |
 | --- | --- |
-| 필수 ADR | [ADR-0007 도메인 중심 모듈러 모놀리스](../adr/platform/0007-domain-centered-modular-monolith.md) |
-| 구조·구현 규칙 | [모듈 구조](../ARCHITECTURE.md), [패키지와 모듈 규칙](../CONVENTIONS.md#패키지와-모듈), [테스트 작업 안내](../../src/test/AGENTS.md) |
+| 필수 ADR | [ADR-0007 도메인 중심 모듈러 모놀리스](../../adr/platform/0007-domain-centered-modular-monolith.md) |
+| 구조·구현 규칙 | [모듈 구조](../../ARCHITECTURE.md), [패키지와 모듈 규칙](../../CONVENTIONS.md#패키지와-모듈), [테스트 작업 안내](../../../src/test/AGENTS.md) |
 | 선행 | [FND-03](#fnd-03-스키마와-엔티티-골격), 업무 모듈 2개 이상 구현, 기존 공개 계약의 `contract` 재배치 |
 | 소유 경로 | `build.gradle`, `src/test/**` |
 | 정본 변경 | 구조 검사 기준과 현재 정본이 어긋나면 이 작업에서 문서를 함께 바꾸지 않고 결정·문서 변경을 먼저 머지한다. |
@@ -267,19 +267,19 @@ FND-04·FND-05 분리는 인증 책임을 이중화하지 않는다. 인증 담�
 ### 산출물
 
 - 순환 의존과 다른 업무 모듈의 `contract` 외 패키지 접근을 운영 코드에서 검사하는 구조 테스트
-- [아키텍처 문서](../ARCHITECTURE.md#모듈-관계)가 고정한 업무 모듈 사이의 참조 방향을 그대로 옮긴 허용 의존 관계 정의
+- [아키텍처 문서](../../ARCHITECTURE.md#모듈-관계)가 고정한 업무 모듈 사이의 참조 방향을 그대로 옮긴 허용 의존 관계 정의
 
 ### 완료 기준
 
 - `FND-07-AC1` 모듈 간 순환 의존이 있으면 구조 테스트가 실패한다.
 - `FND-07-AC2` 업무 모듈의 운영 코드가 다른 업무 모듈의 `contract` 외 패키지를 참조하면 구조 테스트가 실패한다.
-- `FND-07-AC3` 업무 모듈 사이의 허용 의존 관계가 [아키텍처의 참조 방향](../ARCHITECTURE.md#모듈-관계)과 일치한다. 어긋나면 구조 테스트 구현을 중단하고 결정·문서 변경을 먼저 반영한다.
+- `FND-07-AC3` 업무 모듈 사이의 허용 의존 관계가 [아키텍처의 참조 방향](../../ARCHITECTURE.md#모듈-관계)과 일치한다. 어긋나면 구조 테스트 구현을 중단하고 결정·문서 변경을 먼저 반영한다.
 - `FND-07-AC4` 구조 테스트가 CI에서 실행된다.
 
 ### 제외 범위
 
 - Gradle 멀티모듈 전환과 Spring Modulith 런타임 의존성 도입
-- [아키텍처의 `infra` 의존 규칙](../ARCHITECTURE.md#구조-검증)을 강제하는 ArchUnit 규칙 추가. 후속 구조 리팩터링에서 다룬다.
+- [아키텍처의 `infra` 의존 규칙](../../ARCHITECTURE.md#구조-검증)을 강제하는 ArchUnit 규칙 추가. 후속 구조 리팩터링에서 다룬다.
 
 ## FND-08 로컬 개발 PostgreSQL 환경
 
@@ -287,9 +287,9 @@ FND-04·FND-05 분리는 인증 책임을 이중화하지 않는다. 인증 담�
 
 | 구분 | 정본 |
 | --- | --- |
-| 필수 ADR | [ADR-0002 PostgreSQL 주 데이터베이스](../adr/platform/0002-postgresql-primary-database.md), [ADR-0008 Flyway SQL 마이그레이션](../adr/platform/0008-flyway-database-migrations.md), [ADR-0010 H2와 PostgreSQL 테스트 경계](../adr/platform/0010-h2-postgresql-test-boundary.md) |
-| 구현 규칙 | [마이그레이션 작업 안내](../../src/main/resources/db/migration/AGENTS.md), [설정과 비밀정보](../CONVENTIONS.md#설정과-비밀정보), [테스트 작업 안내](../../src/test/AGENTS.md) |
-| 실행 명령 | [프로젝트 명령](../COMMANDS.md) |
+| 필수 ADR | [ADR-0002 PostgreSQL 주 데이터베이스](../../adr/platform/0002-postgresql-primary-database.md), [ADR-0008 Flyway SQL 마이그레이션](../../adr/platform/0008-flyway-database-migrations.md), [ADR-0010 H2와 PostgreSQL 테스트 경계](../../adr/platform/0010-h2-postgresql-test-boundary.md) |
+| 구현 규칙 | [마이그레이션 작업 안내](../../../src/main/resources/db/migration/AGENTS.md), [설정과 비밀정보](../../CONVENTIONS.md#설정과-비밀정보), [테스트 작업 안내](../../../src/test/AGENTS.md) |
+| 실행 명령 | [프로젝트 명령](../../COMMANDS.md) |
 | 선행 | [FND-03](#fnd-03-스키마와-엔티티-골격), [FND-06-AC5 운영 지원 버전 계약](#운영-지원-버전-계약) |
 | 소유 경로 | `compose.local.yml`, `.env.example`, `.gitignore`, `src/main/resources/application-local.yml`, `docs/COMMANDS.md` |
 

@@ -3,7 +3,7 @@
 - 상태: 대체됨
 - 작성일: 2026-07-23
 - 결정일: 2026-07-24
-- 관련: [ADR-0001](../platform/0001-java-21-spring-boot-4-baseline.md), [ADR-0002](../platform/0002-postgresql-primary-database.md), [ADR-0009](../platform/0009-utc-time-standard.md), [P0 방 상태 전이 계약](../../P0-spec.md#방-상태roomstatus)
+- 관련: [ADR-0001](../platform/0001-java-21-spring-boot-4-baseline.md), [ADR-0002](../platform/0002-postgresql-primary-database.md), [ADR-0009](../platform/0009-utc-time-standard.md), [P0 방 상태 전이 계약](../../archive/p0/P0-spec.md#방-상태roomstatus)
 - 대체 대상: 없음
 - 후속 ADR: [ADR-0012](0012-room-request-boundary-state-reconciliation.md)
 
@@ -13,7 +13,7 @@
 
 현재 P0에서 필요한 작업은 특정 초에 한 번만 실행해야 하는 예약 작업이 아니라, 기준 시각이 지난 방을 주기적으로 찾아 조건에 맞는 상태로 갱신하는 작업이다. 현재 범위에서 다중 인스턴스 실행 조정 요구는 확인되지 않았다.
 
-[P0 방 상태 전이 계약](../../P0-spec.md#방-상태roomstatus)은 방을 `RECRUITING`으로 생성하고, 시작 시각에 도달하면 `CLOSED`로, `CLOSED`인 방이 `startsAt + 24시간`에 도달하면 시스템이 `FINISHED`로 전환하도록 정한다. 정원 도달·참가 취소·개설자 명령으로 발생하는 전이는 해당 사용자 명령의 트랜잭션에서 처리한다.
+[P0 방 상태 전이 계약](../../archive/p0/P0-spec.md#방-상태roomstatus)은 방을 `RECRUITING`으로 생성하고, 시작 시각에 도달하면 `CLOSED`로, `CLOSED`인 방이 `startsAt + 24시간`에 도달하면 시스템이 `FINISHED`로 전환하도록 정한다. 정원 도달·참가 취소·개설자 명령으로 발생하는 전이는 해당 사용자 명령의 트랜잭션에서 처리한다.
 
 이번 결정의 기준은 다음과 같다.
 

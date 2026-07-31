@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-28
 - 결정일: 2026-07-28
-- 관련: [API 명세](../../API.md), [P0 명세](../../P0-spec.md), [ROOM-05 정본](../../p0/room.md#room-05-방-취소종료), [ADR-0012](../room/0012-room-request-boundary-state-reconciliation.md), [결정 이슈 #101](https://github.com/bamsongi-club/albam-mate/issues/101), [구현 이슈 #32](https://github.com/bamsongi-club/albam-mate/issues/32), [PR #98](https://github.com/bamsongi-club/albam-mate/pull/98)
+- 관련: [API 명세](../../API.md), [P0 명세](../../archive/p0/P0-spec.md), [ROOM-05 정본](../../archive/p0/room.md#room-05-방-취소종료), [ADR-0012](../room/0012-room-request-boundary-state-reconciliation.md), [결정 이슈 #101](https://github.com/bamsongi-club/albam-mate/issues/101), [구현 이슈 #32](https://github.com/bamsongi-club/albam-mate/issues/32), [PR #98](https://github.com/bamsongi-club/albam-mate/pull/98)
 - 대체 대상: ADR-0016
 - 후속 ADR: 없음
 

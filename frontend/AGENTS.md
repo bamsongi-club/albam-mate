@@ -1,6 +1,6 @@
 # 프론트엔드 작업 안내
 
-이 파일은 `frontend/**`에만 적용된다. 제품 범위는 [P0 명세](../docs/P0-spec.md), 요청·응답·인증·CSRF는 [API 명세](../docs/API.md)가 정본이다.
+이 파일은 `frontend/**`에만 적용된다. 제품 범위는 [P0 명세](../docs/archive/p0/P0-spec.md), 요청·응답·인증·CSRF는 [API 명세](../docs/API.md)가 정본이다.
 
 ## API 호출
 
