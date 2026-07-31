@@ -44,13 +44,62 @@ private DB subnet group / 외부 공개 없음
 
 운영용 Compose는 애플리케이션 서비스만 정의한다. 애플리케이션 이미지나 JAR와 AWS RDS CA 번들을 읽기 전용으로 제공하고, 데이터소스 값은 저장소 밖의 배포 비밀값에서 받는다.
 
+## P0 수동 배포 계약
+
+P0의 첫 운영 배포는 CI/CD보다 수동 배포를 먼저 검증한다. ECR 없이 SSM으로 EC2에 접속해 배포할 전체 커밋 SHA를 checkout하고, 그 소스에서 Spring·Vite 이미지를 빌드한다. 두 이미지에는 같은 커밋의 앞 12자리 SHA를 태그로 사용한다.
+
+- 배포자는 EC2에서 임의 브랜치 최신 상태를 빌드하지 않고 검증한 전체 커밋 SHA를 checkout한다.
+- 현재 배포 SHA와 직전 배포 SHA를 운영 기록에 남긴다.
+- 애플리케이션 롤백은 직전 SHA를 다시 checkout·빌드하는 방식으로 시작한다.
+- Flyway는 전진 마이그레이션을 사용한다. 새 마이그레이션이 이전 애플리케이션과 호환되지 않으면 애플리케이션만 이전 SHA로 되돌리지 않고 별도 복구 결정을 한다.
+- GitHub Actions 자동 배포와 ECR은 수동 배포 검증 뒤의 후속 범위다.
+
+### 운영 설정과 비밀 전달
+
+운영 설정의 원본은 AWS Systems Manager Parameter Store의 `/albam-mate/prod/` 경로다. EC2 인스턴스 역할은 이 경로의 조회와 비밀번호 복호화에 필요한 최소 권한만 가진다.
+
+| 값 | Parameter Store 또는 파일 | 보안 경계 |
+| --- | --- | --- |
+| RDS endpoint | `/albam-mate/prod/db/host` `String` | 저장소 밖 운영 설정 |
+| RDS port | `/albam-mate/prod/db/port` `String` | 기본값은 `5432`지만 배포값을 명시 |
+| DB 이름 | `/albam-mate/prod/db/name` `String` | 애플리케이션 전용 DB |
+| DB 사용자 | `/albam-mate/prod/db/username` `String` | RDS 마스터 사용 금지 |
+| DB 비밀번호 | `/albam-mate/prod/db/password` `SecureString` | 전용 KMS 키 또는 승인된 계정 기본 키로 암호화 |
+| 공개 호스트명 | `/albam-mate/prod/web/host` `String` | 인증서의 SAN과 일치 |
+| RDS CA 번들 | `/etc/albam-mate/rds/global-bundle.pem` | AWS 공개 인증서다. 출처·버전을 확인하고 읽기 전용 마운트 |
+| HTTPS 공개 인증서 | `/etc/albam-mate/tls/fullchain.pem` | 비밀값이 아니며 발급·갱신 주체를 운영 기록에 남김 |
+| HTTPS 개인키 | `/etc/albam-mate/tls/privkey.pem` | 비밀 파일이며 저장소·이미지·Parameter Store 평문에 저장 금지 |
+
+EC2의 배포 절차는 Parameter Store 값을 표준 출력이나 명령 인자로 노출하지 않고 `/etc/albam-mate/prod.env`에 기록한다. 파일 소유자는 `root`, 권한은 `0600`으로 두고 운영 Compose에만 `--env-file`로 전달한다. 컨테이너 환경 계약은 다음 이름을 사용한다.
+
+- `SPRING_PROFILES_ACTIVE=prod`
+- `ALBAM_MATE_PROD_DB_HOST`
+- `ALBAM_MATE_PROD_DB_PORT`
+- `ALBAM_MATE_PROD_DB_NAME`
+- `ALBAM_MATE_PROD_DB_USER`
+- `ALBAM_MATE_PROD_DB_PASSWORD`
+- `ALBAM_MATE_PROD_RDS_CA_PATH`
+- `ALBAM_MATE_PUBLIC_HOST`
+- `ALBAM_MATE_TLS_CERT_PATH`
+- `ALBAM_MATE_TLS_PRIVATE_KEY_PATH`
+
+Parameter Store 값이 바뀌면 운영 환경 파일을 다시 생성하고 영향받는 컨테이너를 재생성한 뒤 실제 HTTP 흐름을 확인한다. GitHub Actions를 후속 도입하더라도 장기 AWS access key와 운영 DB 비밀번호를 Actions secret에 복제하지 않는다. GitHub OIDC로 짧은 AWS 자격을 받고 SSM 배포 명령만 요청하며, 런타임 비밀의 원본은 Parameter Store로 유지한다.
+
+`GetParametersByPath` 권한은 허용한 상위 경로의 하위 값을 함께 조회할 수 있으므로 EC2 역할에 `/albam-mate/prod/`보다 넓은 경로를 허용하지 않는다. 비밀번호 자동 교체·교체 이력 감사·다중 리전 복제가 필요해지면 Parameter Store에 자체 절차를 덧붙이지 않고 Secrets Manager 전환을 재검토한다.
+
+### 운영 DB 사용자
+
+RDS 마스터 계정은 초기 DB와 권한 준비에만 사용하고 애플리케이션에 주입하지 않는다. P0는 지정한 애플리케이션 DB·스키마 안에서 Flyway와 런타임 SQL에 필요한 권한만 가진 전용 사용자 하나로 시작한다. 이 사용자에게 `rds_superuser`, 다른 데이터베이스 접근 또는 운영에 불필요한 역할 생성 권한을 부여하지 않는다.
+
+Flyway 실행 사용자와 런타임 사용자를 분리할 필요가 생기면 권한·비밀번호·기동 순서가 함께 바뀌므로 운영 가이드와 production datasource 계약을 먼저 갱신한다.
+
 ## 배포 전에 준비할 것
 
 1. ARM64에서 실행되는 Java 21 애플리케이션 이미지 또는 JAR
 2. PostgreSQL 서비스를 포함하지 않는 운영용 Docker Compose 설정
-3. HTTPS 인증서 발급·갱신과 TLS 종료 방식
-4. RDS CA로 서버 인증서를 검증하는 production datasource 설정
-5. 최소 권한 애플리케이션 DB 사용자와 저장소 밖 비밀 전달 방식
+3. 운영 호스트명과 `/etc/albam-mate/tls/`에 제공할 HTTPS 인증서·개인키 및 갱신 담당자
+4. RDS CA로 서버 인증서를 검증하는 production datasource와 위 환경 변수 계약
+5. 최소 권한 애플리케이션 DB 사용자와 `/albam-mate/prod/` Parameter Store 값
 6. 공개 SSH 없이 EC2를 관리하고 배포하는 SSM 기반 접근
 7. EC2·RDS 경보와 비용 알림의 실제 수신자 및 대응 담당자
 
@@ -60,12 +109,14 @@ private DB subnet group / 외부 공개 없음
 
 1. 현재 브랜치와 커밋, dirty worktree를 기록하고 전체 테스트와 실행 산출물 빌드를 통과시킨다.
 2. 계정의 프리 티어·크레딧·예산 알림과 서울 리전의 인스턴스·PostgreSQL 버전 가용성을 확인한다.
-3. 애플리케이션 산출물의 해시를 계산하고 private 저장소에 올린다.
-4. 인프라 변경 세트에서 리소스 종류, 수량, 태그, 삭제 정책과 네트워크 공개 범위를 검토한다.
-5. RDS를 만든 뒤 EC2에서만 TLS 연결이 되는지 확인한다.
-6. Flyway와 Hibernate `validate`가 통과한 다음 애플리케이션을 공개 HTTPS에 연결한다.
-7. P0 핵심 HTTP 흐름과 재시작·복구, 경보 수신을 검증한다.
-8. 일회성 환경의 삭제·정리는 배포와 별도로 명시적 승인을 받은 뒤 수행한다. 실행 직전에 정확한 대상을 다시 확인하고, 삭제 후 잔여 비용 리소스와 배포 아티팩트를 조회한 결과까지 확인해야 완료다.
+3. 인프라 변경 세트에서 리소스 종류, 수량, 태그, 삭제 정책과 네트워크 공개 범위를 검토한다.
+4. RDS와 전용 애플리케이션 사용자를 만든 뒤 Parameter Store 값과 RDS CA·HTTPS 인증서 파일을 준비한다.
+5. SSM으로 EC2에 접속해 검증한 전체 커밋 SHA를 checkout하고 Parameter Store에서 `/etc/albam-mate/prod.env`를 생성한다.
+6. 운영 Compose의 정규화 설정을 값 출력 없이 검사하고 같은 SHA 태그로 Spring·Vite 이미지를 빌드·시작한다.
+7. EC2에서만 RDS TLS 연결이 되고 Flyway와 Hibernate `validate`가 통과한 다음 공개 HTTPS를 연결한다.
+8. P0 핵심 HTTP 흐름과 컨테이너 재생성 뒤 데이터 지속을 검증하고 현재·직전 배포 SHA를 기록한다.
+9. 백업 복구·EC2 재부팅·경보 수신처럼 이번 배포에서 수행하지 않은 항목은 완료로 표시하지 않는다.
+10. 일회성 환경의 삭제·정리는 배포와 별도로 명시적 승인을 받은 뒤 수행한다. 실행 직전에 정확한 대상을 다시 확인하고, 삭제 후 잔여 비용 리소스와 배포 아티팩트를 조회한 결과까지 확인해야 완료다.
 
 ## 배포 후 확인할 것
 
@@ -98,7 +149,9 @@ private DB subnet group / 외부 공개 없음
 
 ### 비밀값과 TLS
 
-- DB 비밀번호, 세션 식별자와 인증서는 Git에 넣지 않는다.
+- DB 비밀번호, 세션 식별자와 TLS 개인키는 Git·이미지·로그·명령 이력에 넣지 않는다.
+- RDS CA와 HTTPS 공개 인증서는 비밀이 아니다. 출처·버전·갱신 책임을 확인하고 저장소 밖에서 읽기 전용으로 제공한다.
+- 운영 `.env` 파일을 개발용 `.env.example`에서 만들지 않는다. Parameter Store에서 생성한 `/etc/albam-mate/prod.env`만 사용한다.
 - JDBC는 RDS CA로 서버 인증서를 검증하고 `sslmode=verify-full`을 사용한다.
 - 운영에서는 RDS 마스터 계정 대신 필요한 스키마 권한만 가진 애플리케이션 사용자를 만든다.
 
@@ -124,3 +177,6 @@ Free Tier 85%, 100% 예측 초과와 월 1 USD 실제·예측 비용 알림을 �
 - [ADR-0002: PostgreSQL을 주 데이터베이스로 채택](../adr/platform/0002-postgresql-primary-database.md)
 - [ADR-0009: 시스템 기준 시각을 UTC로 통일](../adr/platform/0009-utc-time-standard.md)
 - [프로젝트 명령](../COMMANDS.md)
+- [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html)
+- [Parameter Store IAM 접근 제한](https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-access.html)
+- [GitHub Actions에서 AWS OIDC 구성](https://docs.github.com/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws)

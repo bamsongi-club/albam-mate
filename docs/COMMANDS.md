@@ -49,7 +49,23 @@ $env:ALBAM_MATE_IMAGE_TAG = (git rev-parse --short=12 HEAD)
 docker compose -f compose.prod.yml build spring vite
 ```
 
-이 파일은 운영 이미지 빌드 범위만 정의한다. RDS TLS 연결값과 비밀 주입, HTTPS 인증서·TLS 종료 방식은 저장소 밖 운영 설정으로 제공하고 실제 배포에서 별도로 검증한다.
+운영 Compose 문법과 필수 이미지 태그는 값을 출력하지 않는 다음 명령으로 먼저 확인한다.
+
+```sh
+# macOS·Linux
+ALBAM_MATE_IMAGE_TAG="$(git rev-parse --short=12 HEAD)" \
+  docker compose -f compose.prod.yml config --quiet
+```
+
+```powershell
+# Windows PowerShell
+$env:ALBAM_MATE_IMAGE_TAG = (git rev-parse --short=12 HEAD)
+docker compose -f compose.prod.yml config --quiet
+```
+
+현재 이 절은 운영 이미지 빌드 범위만 정의한다. RDS TLS 연결, Parameter Store 비밀 주입과 HTTPS 443이 운영 Compose·production profile에 구현되고 실제 AWS에서 검증되기 전에는 이 파일에 `up`·롤백 완료 명령을 추가하지 않는다.
+
+운영 비밀의 원본과 수동 배포 경계는 [P0 AWS 운영 인프라 기준](guides/AWS_P0_INFRASTRUCTURE.md#p0-수동-배포-계약)을 따른다. 개발용 `.env.example`이나 저장소 루트 `.env`에 운영값을 넣지 않는다. 운영에서는 EC2 인스턴스 역할로 Parameter Store의 `/albam-mate/prod/`만 조회해 저장소 밖 `/etc/albam-mate/prod.env`를 만들고, GitHub Actions 자동 배포는 수동 배포 검증 뒤 별도 범위에서 추가한다.
 
 ## 로컬 PostgreSQL 개발 환경
 
