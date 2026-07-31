@@ -1,0 +1,9 @@
+.git
+.github
+.gradle
+.idea
+.env
+build
+frontend
+src/postgresTest
+src/test

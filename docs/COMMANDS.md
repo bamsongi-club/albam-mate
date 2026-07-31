@@ -33,9 +33,59 @@ Gradle은 별도 설치본 대신 저장소의 Wrapper를 사용한다.
 
 저장소에는 운영 데이터소스 연결값이 없어 PostgreSQL 설정 없는 `bootRun`은 데이터소스 자동 설정에서 실패한다. H2를 쓰는 `test`와 `build`에는 PostgreSQL이 필요 없다.
 
+## 운영 ARM64 이미지 빌드
+
+운영 이미지는 [ADR-0021](adr/platform/0021-p0-aws-ec2-rds-deployment-baseline.md)에 따라 PostgreSQL 서비스가 없는 `compose.prod.yml`로 빌드한다. Spring Boot와 Vite 정적 파일 이미지는 같은 소스 커밋을 추적하도록 동일한 커밋 SHA 태그를 사용한다.
+
+```sh
+# macOS·Linux
+ALBAM_MATE_IMAGE_TAG="$(git rev-parse --short=12 HEAD)" \
+  docker compose -f compose.prod.yml build spring vite
+```
+
+```powershell
+# Windows PowerShell
+$env:ALBAM_MATE_IMAGE_TAG = (git rev-parse --short=12 HEAD)
+docker compose -f compose.prod.yml build spring vite
+```
+
+이 파일은 운영 이미지 빌드 범위만 정의한다. RDS TLS 연결값과 비밀 주입, HTTPS 인증서·TLS 종료 방식은 저장소 밖 운영 설정으로 제공하고 실제 배포에서 별도로 검증한다.
+
 ## 로컬 PostgreSQL 개발 환경
 
-### macOS·Linux
+### Docker Compose 전체 스택
+
+`.env`가 없으면 운영체제에 맞는 명령으로 예시 파일을 복사한다. 기존 `.env`는 덮어쓰지 않는다.
+
+```sh
+# macOS·Linux
+cp -n .env.example .env
+```
+
+```powershell
+# Windows PowerShell
+if (-not (Test-Path -LiteralPath .env)) {
+  Copy-Item -LiteralPath .env.example -Destination .env
+}
+```
+
+PostgreSQL, Spring Boot와 Vite 정적 빌드 이미지를 만들고 전체 스택을 시작한다.
+
+```sh
+docker compose --env-file .env -f compose.local.yml up --build -d
+docker compose --env-file .env -f compose.local.yml ps
+```
+
+프론트엔드는 `http://localhost:5173`, Spring Boot API는 `http://localhost:8080`에서 확인한다.
+브라우저의 `/api` 요청은 프론트엔드 컨테이너의 Nginx가 Spring Boot 컨테이너로 전달한다.
+
+전체 스택을 종료해도 named volume의 PostgreSQL 개발 데이터는 유지된다.
+
+```sh
+docker compose --env-file .env -f compose.local.yml down
+```
+
+### macOS·Linux에서 Spring 직접 실행
 
 저장소 루트에서 예시 환경 파일을 복사한다. `.env`는 로컬 연결값을 담으므로 Git에 포함하지 않는다.
 
@@ -46,8 +96,8 @@ cp -n .env.example .env
 PostgreSQL을 시작하고 health check 결과를 확인한다.
 
 ```sh
-docker compose -f compose.local.yml up -d
-docker compose -f compose.local.yml ps
+docker compose --env-file .env -f compose.local.yml up -d postgres
+docker compose --env-file .env -f compose.local.yml ps postgres
 ```
 
 애플리케이션은 `local` 프로필을 명시하고 `.env`의 로컬 DB 변수를 프로세스에 주입해 실행한다. `.env`에는 프로필 활성화 값을 넣지 않아 H2 `test`와 PostgreSQL `postgresTest` 실행에 영향을 주지 않는다.
@@ -65,16 +115,16 @@ local 프로필은 식별 가능한 게임 중심·사람 중심 시드 모임�
 애플리케이션을 종료한 뒤 PostgreSQL 컨테이너만 중지한다. named volume의 개발 데이터는 유지된다.
 
 ```sh
-docker compose -f compose.local.yml down
+docker compose --env-file .env -f compose.local.yml down
 ```
 
 로컬 데이터를 명시적으로 초기화할 때만 volume까지 삭제한다.
 
 ```sh
-docker compose -f compose.local.yml down --volumes
+docker compose --env-file .env -f compose.local.yml down --volumes
 ```
 
-### Windows PowerShell
+### Windows PowerShell에서 Spring 직접 실행
 
 저장소 루트에서 `.env`가 없을 때만 예시 환경 파일을 복사한다. 이미 있는 `.env`는 덮어쓰지 않는다.
 
@@ -87,8 +137,8 @@ if (-not (Test-Path -LiteralPath .env)) {
 PostgreSQL을 시작하고 health check 결과를 확인한다.
 
 ```powershell
-docker compose --env-file .env -f compose.local.yml up -d
-docker compose --env-file .env -f compose.local.yml ps
+docker compose --env-file .env -f compose.local.yml up -d postgres
+docker compose --env-file .env -f compose.local.yml ps postgres
 ```
 
 Docker Compose의 정규화 설정에서 PostgreSQL 연결값을 읽어 현재 프로세스의 `ALBAM_MATE_LOCAL_*` 환경변수로 주입한다. 구성 JSON은 변수에만 캡처해 비밀번호를 출력하지 않고, 같은 PowerShell 창에서 애플리케이션을 실행한다.

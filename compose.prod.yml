@@ -1,0 +1,14 @@
+services:
+  spring:
+    platform: linux/arm64
+    image: albam-mate-spring:${ALBAM_MATE_IMAGE_TAG:?ALBAM_MATE_IMAGE_TAG must be set}
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+  vite:
+    platform: linux/arm64
+    image: albam-mate-vite:${ALBAM_MATE_IMAGE_TAG:?ALBAM_MATE_IMAGE_TAG must be set}
+    build:
+      context: frontend
+      dockerfile: Dockerfile
