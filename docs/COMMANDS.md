@@ -140,6 +140,69 @@ docker compose --env-file .env -f compose.local.yml down
 docker compose --env-file .env -f compose.local.yml down --volumes
 ```
 
+## 운영 Compose
+
+운영 호스트의 최초 준비와 보안 기준은 [P0 AWS 운영 인프라 기준](guides/AWS_P0_INFRASTRUCTURE.md#운영-compose-준비와-실행)을 따른다. 실제 비밀값은 저장소 밖 `/etc/albam-mate/production.env`, TLS 인증서는 `/etc/albam-mate/tls`, RDS CA 번들은 `/etc/albam-mate/rds-ca-bundle.pem`에 둔다.
+
+배포 파이프라인은 백엔드와 웹 이미지를 같은 40자리 Git SHA 태그로 private registry에 게시한다. 웹 운영 이미지는 TLS 설정을 포함하는 `frontend/Dockerfile.production`으로 빌드한다. 운영 호스트의 Compose에는 source build fallback이 없다.
+
+`ALBAM_MATE_RELEASE`에는 40자리 소문자 Git SHA만 허용된다. `latest`, 축약 SHA 또는 길이가 다른 값을 넣으면 두 운영 이미지의 진입점이 시작을 거부하고 `up --wait`가 실패한다.
+
+```sh
+export ALBAM_MATE_RELEASE="$(git rev-parse HEAD)"
+docker buildx build --platform linux/arm64 --tag "${ALBAM_MATE_IMAGE_NAMESPACE}/backend:${ALBAM_MATE_RELEASE}" --push .
+docker buildx build --platform linux/arm64 --file frontend/Dockerfile.production --tag "${ALBAM_MATE_IMAGE_NAMESPACE}/web:${ALBAM_MATE_RELEASE}" --push frontend
+```
+
+초기 준비가 끝난 운영 호스트에서는 다음 한 명령으로 두 이미지를 받고, 백엔드와 HTTPS 웹 프록시를 시작하고, 두 health check가 통과할 때까지 기다린다.
+
+```sh
+docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml up -d --wait
+```
+
+환경 파일 내용을 출력하지 않고 Compose 설정을 검증하고, 실행 상태와 최근 로그를 확인한다.
+
+```sh
+docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml config --quiet
+docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml ps
+docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml logs --tail 200
+```
+
+롤백은 `production.env`의 `ALBAM_MATE_RELEASE`를 이전에 검증된 Git SHA로 바꾸고 같은 `up -d --wait` 명령을 다시 실행한다. 같은 릴리스 값은 두 서비스의 목표 이미지 태그를 하나의 Compose 설정으로 묶을 뿐이며, `up -d --wait`는 변경된 서비스 컨테이너를 각각 중지·재생성한 뒤 실행·health 상태만 기다리는 명령이라 원자적 전환이나 실패 시 자동 복구를 보장하지 않는다. 예를 들어 spring 재생성 뒤 web 재생성이 실패하면 새 spring과 이전 web이 함께 남을 수 있다. 명령 실행 뒤에는 서비스별 실제 이미지를 확인한다.
+
+```sh
+docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml images
+```
+
+목표 릴리스와 다른 서비스가 있으면 원인을 해소하거나 `ALBAM_MATE_RELEASE`를 다시 이전 검증된 Git SHA로 맞춘 뒤 같은 `up -d --wait` 명령을 재실행해 두 서비스를 같은 릴리스로 맞춘다.
+
+운영 Compose에는 PostgreSQL과 더미 데이터 적재 작업이 없다. RDS의 게임 카탈로그는 재기동해도 유지되며, 최초 2,000개 카탈로그 적재·교체는 [게임 카탈로그 검수·적재](guides/GAME_CATALOG_IMPORT.md)의 승인된 `UPSERT` 절차로 한 번 수행한다. 전달받은 `games.json`이나 `games.sql`을 컨테이너 시작 때마다 자동 실행하지 않는다.
+
+컨테이너만 내릴 때는 다음 명령을 사용한다. 외부 RDS의 데이터는 이 명령의 대상이 아니다.
+
+```sh
+docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml down
+```
+
+Docker가 실행 가능한 검증 환경에서는 승인된 T1~T8을 각각 같은 검증기로 재현한다. 각 실행은 고유한 테스트 컨테이너·네트워크·임시 디렉터리만 만들고 종료 시 정리하며, 기존 로컬 Compose 프로젝트와 볼륨은 변경하지 않는다.
+
+```sh
+for test_id in T1 T2 T3 T4 T5 T6 T7 T8; do
+  node scripts/verify-docker-deployment.mjs "$test_id" || exit 1
+done
+```
+
+Windows PowerShell:
+
+```powershell
+foreach ($testId in 1..8) {
+  node scripts/verify-docker-deployment.mjs "T$testId"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Docker deployment contract failed: T$testId"
+  }
+}
+```
+
 ## PostgreSQL 마이그레이션 검증
 
 [ADR-0023](adr/platform/0023-p0-flyway-baseline-reset-player-count-stages.md)의 일회성 기준선 재생성 뒤에는 다음 규칙을 지킨다.

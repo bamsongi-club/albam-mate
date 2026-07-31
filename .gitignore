@@ -37,6 +37,10 @@ out/
 .vscode/
 
 .env
+.env.*
+*.env
+!.env.example
+!.env.production.example
 /src/test/http/http-client.private.env.json
 
 # Test-contract eval 원문과 상세 실행 기록은 팀 Private Brain에만 보관한다.

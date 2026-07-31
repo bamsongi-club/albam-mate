@@ -1,0 +1,99 @@
+services:
+  spring:
+    image: ${ALBAM_MATE_IMAGE_NAMESPACE:?ALBAM_MATE_IMAGE_NAMESPACE must be set}/backend:${ALBAM_MATE_RELEASE:?ALBAM_MATE_RELEASE must be set}
+    platform: linux/arm64
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: production
+      ALBAM_MATE_RELEASE: ${ALBAM_MATE_RELEASE:?ALBAM_MATE_RELEASE must be set}
+      ALBAM_MATE_DB_HOST: ${ALBAM_MATE_DB_HOST:?ALBAM_MATE_DB_HOST must be set}
+      ALBAM_MATE_DB_PORT: ${ALBAM_MATE_DB_PORT:-5432}
+      ALBAM_MATE_DB_NAME: ${ALBAM_MATE_DB_NAME:?ALBAM_MATE_DB_NAME must be set}
+      ALBAM_MATE_DB_USER: ${ALBAM_MATE_DB_USER:?ALBAM_MATE_DB_USER must be set}
+      ALBAM_MATE_DB_PASSWORD: ${ALBAM_MATE_DB_PASSWORD:?ALBAM_MATE_DB_PASSWORD must be set}
+      ALBAM_MATE_DB_MAXIMUM_POOL_SIZE: ${ALBAM_MATE_DB_MAXIMUM_POOL_SIZE:-8}
+      ALBAM_MATE_DB_MINIMUM_IDLE: ${ALBAM_MATE_DB_MINIMUM_IDLE:-2}
+      TZ: UTC
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "/app/backend-entrypoint.sh --validate-release-only && wget --quiet --output-document=/dev/null 'http://127.0.0.1:8080/api/games?size=1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+    volumes:
+      - type: bind
+        source: ${ALBAM_MATE_RDS_CA_PATH:?ALBAM_MATE_RDS_CA_PATH must be set}
+        target: /etc/albam-mate/rds-ca-bundle.pem
+        read_only: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    mem_limit: ${ALBAM_MATE_SPRING_MEMORY_LIMIT:-1024m}
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: ${ALBAM_MATE_LOG_MAX_SIZE:-10m}
+        max-file: ${ALBAM_MATE_LOG_MAX_FILES:-5}
+    networks:
+      - application
+
+  web:
+    image: ${ALBAM_MATE_IMAGE_NAMESPACE:?ALBAM_MATE_IMAGE_NAMESPACE must be set}/web:${ALBAM_MATE_RELEASE:?ALBAM_MATE_RELEASE must be set}
+    platform: linux/arm64
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    environment:
+      ALBAM_MATE_RELEASE: ${ALBAM_MATE_RELEASE:?ALBAM_MATE_RELEASE must be set}
+    depends_on:
+      spring:
+        condition: service_healthy
+        restart: true
+    ports:
+      - "${ALBAM_MATE_HTTPS_BIND_ADDRESS:-0.0.0.0}:443:8443"
+    healthcheck:
+      test: ["CMD-SHELL", "/usr/local/bin/albam-mate-entrypoint --validate-release-only && wget --quiet --output-document=/dev/null http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    volumes:
+      - type: bind
+        source: ${ALBAM_MATE_TLS_PATH:?ALBAM_MATE_TLS_PATH must be set}
+        target: /etc/albam-mate/tls
+        read_only: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    pids_limit: 128
+    mem_limit: ${ALBAM_MATE_WEB_MEMORY_LIMIT:-128m}
+    stop_grace_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: ${ALBAM_MATE_LOG_MAX_SIZE:-10m}
+        max-file: ${ALBAM_MATE_LOG_MAX_FILES:-5}
+    networks:
+      - application
+
+networks:
+  application:
+    driver: bridge

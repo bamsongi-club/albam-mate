@@ -9,7 +9,9 @@
   │ HTTPS 443
   ▼
 EC2 t4g.small / Amazon Linux 2023 ARM64
-  │ Docker Compose 애플리케이션
+  │ Docker Compose
+  ├─ web: Nginx 정적 프론트엔드 + /api 역방향 프록시
+  └─ spring: Spring Boot, 외부 포트 미공개
   │ PostgreSQL 5432 / TLS / VPC 내부 통신
   ▼
 RDS PostgreSQL 18.4 / db.t4g.micro
@@ -42,7 +44,17 @@ private DB subnet group / 외부 공개 없음
 | 시간대 | PostgreSQL·JDBC UTC | PostgreSQL·JDBC UTC |
 | 비밀값 | 로컬 `.env` | 저장소 밖의 배포 비밀값 |
 
-운영용 Compose는 애플리케이션 서비스만 정의한다. 애플리케이션 이미지나 JAR와 AWS RDS CA 번들을 읽기 전용으로 제공하고, 데이터소스 값은 저장소 밖의 배포 비밀값에서 받는다.
+운영용 [Compose](../../compose.production.yml)는 `web`과 `spring`만 정의하고 PostgreSQL은 포함하지 않는다. `web`만 호스트의 HTTPS 443을 공개하며 `spring`은 Compose 내부 네트워크의 8080으로만 접근할 수 있다. RDS CA와 TLS 인증서는 읽기 전용으로 마운트하고, 데이터소스 값은 저장소 밖의 배포 비밀값에서 받는다.
+
+| 구현 | 책임 |
+| --- | --- |
+| [백엔드 Dockerfile](../../Dockerfile) | Java 21에서 `bootJar`를 만들고 비루트 UID 10001의 JRE 이미지로 실행한다. |
+| [로컬 프론트엔드 Dockerfile](../../frontend/Dockerfile) | Node.js 22에서 Vite 산출물을 만들고 HTTP Nginx로 로컬 화면을 제공한다. |
+| [운영 프론트엔드 Dockerfile](../../frontend/Dockerfile.production) | 같은 Vite 산출물을 TLS·동적 Spring DNS 설정이 있는 Nginx로 제공한다. |
+| [production 프로필](../../src/main/resources/application-production.yml) | RDS `verify-full`, Flyway, Hibernate `validate`, UTC와 graceful shutdown을 적용한다. |
+| [운영 환경 예시](../../.env.production.example) | 하나의 이미지 namespace와 Git SHA 릴리스, 호스트 경로, RDS 연결값과 자원 제한의 필수 키를 보여 주며 실제 비밀값은 포함하지 않는다. |
+
+운영 Compose는 하나의 image namespace 아래 `backend`, `web` 저장소를 구성하고 같은 40자리 Git SHA 태그로 묶는다. `pull_policy: always`를 고정하고 `build`를 정의하지 않으므로, 운영 환경변수가 빠져도 EC2 checkout에서 다른 이미지를 만드는 경로가 없다. 이미지는 검증된 빌드 환경에서 `linux/arm64`로 만든 뒤 private registry에 게시한다.
 
 ## 배포 전에 준비할 것
 
@@ -55,6 +67,47 @@ private DB subnet group / 외부 공개 없음
 7. EC2·RDS 경보와 비용 알림의 실제 수신자 및 대응 담당자
 
 운영 IaC 변경은 VPC·subnet·route·보안 그룹·IAM·EC2·RDS·경보의 소유 관계를 함께 검토할 수 있어야 한다. 실행 전 변경 세트에서 예상하지 않은 public 접근·NAT Gateway·로드 밸런서·고가용성 리소스가 없는지 확인한다.
+
+## 운영 Compose 준비와 실행
+
+아래 준비는 EC2마다 한 번 수행한다. 실제 경로와 계정은 배포 자동화가 소유하되, 인증서와 비밀값을 저장소 checkout 안에 복사하지 않는다.
+
+1. `/etc/albam-mate/tls`를 만들고 서비스 도메인의 실제 파일을 `fullchain.pem`, `privkey.pem` 이름으로 둔다. 개인 키는 소유자만 읽는 `0600`, 공개 인증서 체인은 `0644`로 둔다.
+2. AWS가 제공하는 현재 RDS CA 번들을 `/etc/albam-mate/rds-ca-bundle.pem`에 `0644`로 둔다. 공개 CA이므로 비밀값은 아니며 비루트 Spring UID 10001이 읽을 수 있어야 한다.
+3. [운영 환경 예시](../../.env.production.example)를 `/etc/albam-mate/production.env`로 복사하고 파일 권한을 `0600`으로 제한한다.
+4. `backend`·`web` 저장소를 포함할 image namespace와 둘이 공유할 검증된 40자리 Git SHA를 채우고, EC2의 Docker가 해당 private registry를 읽을 수 있게 인증한다.
+5. RDS endpoint·DB 이름·최소 권한 사용자·비밀번호를 채운다.
+
+저장소 루트에서 비밀값을 출력하지 않는 정규화 검사를 먼저 실행한다.
+
+```sh
+docker compose \
+  --env-file /etc/albam-mate/production.env \
+  -f compose.production.yml \
+  config --quiet
+```
+
+검사가 성공하면 다음 한 명령이 검증된 두 이미지를 받고, 두 컨테이너를 시작하고, Flyway·Hibernate 검증과 HTTP health check가 완료될 때까지 기다린다.
+
+```sh
+docker compose \
+  --env-file /etc/albam-mate/production.env \
+  -f compose.production.yml \
+  up -d --wait
+```
+
+`up --wait` 실패를 성공으로 간주하지 않는다. `ps`와 `logs --tail 200`으로 실패한 서비스를 확인하고, RDS endpoint·보안 그룹·CA·인증서·registry 인증 중 어느 경계에서 실패했는지 분리한다. 인증서를 갱신한 뒤에는 `web` 컨테이너를 재생성해 새 파일을 읽게 한다.
+
+```sh
+docker compose \
+  --env-file /etc/albam-mate/production.env \
+  -f compose.production.yml \
+  up -d --no-deps --force-recreate web
+```
+
+### 게임 카탈로그
+
+운영 Compose는 더미 데이터나 전달받은 SQL을 자동 실행하지 않는다. RDS는 컨테이너 재기동과 독립적으로 데이터를 보존하므로 2,000개 게임 카탈로그는 최초 배포 때 [게임 카탈로그 검수·적재](GAME_CATALOG_IMPORT.md)의 출처·검수·트랜잭션 `UPSERT` 게이트를 통과한 산출물로 한 번 적재한다. 이후 카탈로그 변경도 같은 절차로 수행하고, `games.json`이나 `games.sql` 원본을 애플리케이션 이미지 또는 Git에 포함하지 않는다.
 
 ## 권장 배포 순서
 
