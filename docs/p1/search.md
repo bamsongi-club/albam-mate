@@ -6,6 +6,24 @@
 
 P1 필수 게임 데이터 적재·검증 대상은 현재 확보한 약 2,000건이다. 전체 카탈로그 확장과 새 외부 데이터 취득은 별도 승인 범위다. ADR-0026~ADR-0028은 현재 제안 상태이며, 필수 범위는 [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md)을 승인한 뒤 구현한다. 메커니즘과 `SEARCH-03`은 상위 범위 채택과 각각의 ADR 승인까지 필요하다.
 
+## 필터별 데이터 출처와 구현 가능 여부
+
+| 필터 | 현재 저장 필드·구조 | 구현 가능 여부와 선행 조건 |
+| --- | --- | --- |
+| 플레이어 수 | `Game.supportedPlayerCount` 표시 문자열 | 가능. 적재 단계에서 최소·최대 수치로 변환하고 전수 검증해야 한다 |
+| 플레이 시간 | `Game.estimatedPlayTime` 표시 문자열 | 가능. 현재 입력을 분 단위로 수치화한다. BGG 상세 `minplaytime`·`maxplaytime` 신규 취득은 이용 범위를 확인한 뒤 별도로 보강한다 |
+| 복잡도 | nullable `Game.complexity` | 가능. 입력 `0.00`을 `NULL`로 정규화하고 `1.00`~`5.00`만 필터에 사용한다 |
+| 메커니즘(후보) | 관계 없음 | 채택 시 가능. 출처·이용 조건 확인과 내부 통제 목록·게임별 연결 검수가 선행이다 |
+| 해 본 게임 포함·제외(후보) | 관계 없음 | 채택 시 가능. 사용자·게임 유일 관계와 본인 등록·취소 계약이 선행이다 |
+| 방 날짜 | `Room.startAt` | 가능. 기존 필드에 범위 조건만 추가한다 |
+| 방 남은 자리 | `Room.capacity`, `Room.activeParticipantCount` | 가능. 상태 정합화 뒤 두 값의 파생식으로 판정하고 별도 저장값을 추가하지 않는다 |
+| 방 경험 수준 | `Room.experienceLevel` | 가능. 기존 enum 목록 조건만 추가한다 |
+| 룰마스터 진행 | `Room.rulemasterLed` | 가능. 기존 boolean 조건만 추가한다 |
+
+표시 문자열의 표현 종류 수, 복잡도의 실제 값 범위와 BGG 기준 스냅샷 행 수는 [입력 검수 기록](../game-catalog/2026-07-24-input-review.md)과 [출처 manifest](../game-catalog/2026-07-24-source-manifest.draft.json)를 정본으로 참조한다. 이 문서는 해당 수치를 복제하지 않는다.
+
+BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건을 넘는 범위의 인원·시간 값을 보강하려면 승인된 취득 경로와 배치 계획이 따로 필요하다. P0 적재 승인이 새 데이터 취득·재가공·공개 운영 권리를 자동으로 포함한다고 보지 않는다.
+
 ## SEARCH-01 게임 조건 검색
 
 ### 구현 컨텍스트
@@ -19,6 +37,9 @@ P1 필수 게임 데이터 적재·검증 대상은 현재 확보한 약 2,000�
 | 필수 ADR | [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md) — 제안됨 |
 | 출처·적재 | [ADR-0015](../adr/game/0015-bgg-baseline-team-collected-game-list.md), [입력 검수 기록](../game-catalog/2026-07-24-input-review.md), [적재 절차](../guides/GAME_CATALOG_IMPORT.md) |
 | 성능 검증 | [FND-09 검색 성능과 인덱스 검증](foundation.md#fnd-09-검색-성능과-인덱스-검증) |
+| 현재 HTTP 경계 | `GameController#listGames`, `GameListRequest`; 현재 조건은 `keyword`, `upcomingOnly`, `page`, `size` |
+| 현재 조회 경계 | `GameQueryService#findPage`, `GameRepository`, `GameListRow`, `UpcomingRoomCountQuery`; 정렬은 엔티티 필드 `name`, `id` 오름차순 고정 |
+| 현재 저장 필드 | `Game.supportedPlayerCount`, `Game.estimatedPlayTime`, `Game.complexity`, `Game.tag`; 인원·시간 검색 수치 필드와 메커니즘 관계는 없음 |
 
 ### 기능 규칙
 
@@ -49,6 +70,28 @@ P1 필수 게임 데이터 적재·검증 대상은 현재 확보한 약 2,000�
 - 구체적인 물리 인덱스는 기능 정확성을 먼저 검증한 뒤 `FND-09`의 실행 계획과 측정 결과로 결정한다.
 
 메커니즘 검색은 P1 후속 후보이며 필수 규칙이 아니다. 채택하면 [ADR-0027](../adr/game/0027-controlled-game-mechanism-taxonomy-and-provenance.md)의 검수된 약 10~20개 내부 목록과 게임 다대다 관계를 사용하고, 선택한 목록 안은 OR, 다른 필터와는 AND로 결합한다. 안정적인 내부 식별자와 표시명을 분리하며 `tag`, 쉼표 문자열이나 JSON 배열에 관계를 저장하지 않는다. 출처·이용 조건과 게임별 연결 검수가 끝나기 전에는 서비스 검색 데이터로 적재하지 않는다.
+
+[ADR-0027](../adr/game/0027-controlled-game-mechanism-taxonomy-and-provenance.md)이 이 문서에 위임한 출처 후보와 기록 규칙은 다음과 같다. 후보를 채택할 때 실제 취득 경로와 이용 범위를 승인받은 출처만 사용한다.
+
+| 출처 후보 | 역할 |
+| --- | --- |
+| BoardGameGeek | 구조화된 메커니즘 목록의 우선 후보. 실제 취득 경로와 이용 범위를 확인한 값만 사용한다 |
+| Board Game Arena·보드라이프 | 게임별 메커니즘을 비교·보완하는 후보. 각 서비스의 실제 페이지와 이용 조건을 별도로 기록한다 |
+| 나무위키·기타 웹 페이지 | 분류 단서를 찾는 참고 자료. 실제 확인한 페이지 URL과 확인 날짜를 남긴다 |
+| 팀 직접 작성 | 외부 자료만으로 확정할 수 없을 때 게임 규칙을 근거로 내부 목록에 매핑하고 작성자·검수자를 기록한다 |
+
+- 외부 페이지의 설명 문장을 복사하지 않고, 검수한 사실을 내부 메커니즘 식별자에 연결한다.
+- 출처마다 명칭이 달라도 같은 개념이면 내부 목록 하나에 매핑하고 원문 명칭은 출처 기록에 남긴다.
+- 출처끼리 분류가 충돌하면 자동으로 다수결하지 않고 검수 대상으로 남긴다.
+- `웹 서핑`, `검색 결과`처럼 다시 찾을 수 없는 표현만 출처로 기록하지 않는다.
+- 누락된 게임을 채우기 위해 `기타`, 빈 값이나 추정 메커니즘을 만들지 않는다.
+
+### 권장 조회 구조
+
+- 현재 `GameQueryService#findPage`는 `keyword`, `upcomingOnly` 조합마다 `GameRepository`의 파생 조회 메서드를 골라 쓴다. P1 조건을 같은 방식으로 늘리면 조합 수만큼 메서드가 증가하므로, 새 조건은 불변 검색 조건 하나로 묶어 단일 동적 조회 경계에 전달한다.
+- 약 2,000건 범위에서는 `upcomingOnly`가 사용하는 기존 `UpcomingRoomCountQuery`의 예정 모임 게임 ID 집합을 다른 조건과 함께 전달해 현재 모듈 경계를 유지할 수 있다. 전체 카탈로그로 확장할 때는 `FND-09` 측정 결과에 따라 DB `EXISTS` 조회 경계를 재검토한다.
+- 내용 조회와 전체 건수 조회는 같은 조건을 사용하고, 모든 조건을 적용한 뒤 `name`, `id` 정렬과 페이지네이션을 수행한다.
+- 후보를 채택하면 메커니즘과 `PLAYED_ONLY`는 `EXISTS`, `EXCLUDE_PLAYED`는 `NOT EXISTS`로 판정해 관계 조인으로 게임 행이 중복되지 않게 한다.
 
 ### 완료 기준
 
@@ -128,6 +171,9 @@ P1 필수 게임 데이터 적재·검증 대상은 현재 확보한 약 2,000�
 | 데이터 모델 | [ROOMS](../ERD.md#rooms) |
 | 상태 정합화 | [ROOM-06 방 상태 정합화](../archive/p0/room.md#room-06-방-상태-정합화) |
 | 성능 검증 | [FND-09 검색 성능과 인덱스 검증](foundation.md#fnd-09-검색-성능과-인덱스-검증) |
+| 현재 HTTP 경계 | `RoomController#listRooms`, `RoomListRequest`, `RoomQueryParameterAllowlistValidator`; 현재 조건은 `type`, `gameId`, `keyword`, `page`, `size` |
+| 현재 조회 경계 | `RoomListQueryService#findPage` → `RoomStatusCorrectionCoordinator#correctDueRooms` → `RoomListReadService#findPublicRooms` → `RoomRepository`; 정렬은 엔티티 필드 `startAt`, `id` 오름차순 고정 |
+| 현재 저장 필드 | `Room.startAt`, `Room.capacity`, `Room.activeParticipantCount`, `Room.experienceLevel`, `Room.rulemasterLed` |
 
 ### 기능 규칙
 
@@ -140,6 +186,13 @@ P1 필수 게임 데이터 적재·검증 대상은 현재 확보한 약 2,000�
 - 기존 방 유형, 게임 ID, 제목 검색과 P1 필터는 서로 독립적인 선택 조건이며 종류 사이에는 AND를 적용한다.
 - 목록 필터와 페이지 계산 전에 현재 기준 시각으로 상태를 정합화한다. 모든 조건을 페이지네이션 전에 적용하고 내용 조회와 전체 건수 조회에 같은 조건을 사용한다.
 - 유효한 세션이 있으면 필터 적용 여부와 관계없이 현재 사용자 기준 `joinable`을 계산한다. 검색 결과가 정확한 장소, 참가자 목록이나 사용자 식별자를 새로 노출하지 않는다.
+
+### 권장 조회 구조
+
+- 현재 `상태 정합화 → 공개 방·필터 조회 → 응답 조립` 순서를 유지하고, 새 조건은 `RoomListReadService`와 `RoomRepository`까지 전달한다. 정합화보다 앞에서 필터를 판정하지 않는다.
+- 현재 `RoomListReadService#findPublicRooms`는 `keyword` 유무로 저장소 메서드를 나눈다. P1 조건을 조합마다 메서드로 늘리지 않고 하나의 동적 조회 경계로 모은다.
+- 날짜, 경험 수준, 룰마스터와 `capacity - activeParticipantCount` 조건은 페이지네이션 전 SQL 조건으로 적용한다. 서비스에서 페이지 결과를 다시 걸러내지 않는다.
+- 내용 조회와 전체 건수 조회는 같은 조건을 사용하고, 모든 조건을 적용한 뒤 `startAt`, `id` 정렬과 페이지네이션을 수행한다.
 
 ### 완료 기준
 
@@ -158,3 +211,56 @@ P1 필수 게임 데이터 적재·검증 대상은 현재 확보한 약 2,000�
 - 플레이어 수·시간·복잡도·메커니즘을 방 자체 조건으로 중복 저장
 - 참가 가능 여부만 보는 별도 필터
 - 사용자 지정 정렬과 개인화 방 추천
+
+## 부록: 구현 준비 메모
+
+이 부록은 구현 범위와 변경 지점을 확인하기 위한 작업 메모다. 최종 계약은 [P1 명세](../P1-spec.md), [API 명세](../API.md), [ERD](../ERD.md)와 승인된 ADR을 따른다.
+
+### 정본별 반영 시점
+
+필수 범위와 후속 후보는 서로 다른 승인 시점에 정본에 반영한다.
+
+| 정본 | 필수 범위 반영 | 후보 채택 시 반영 |
+| --- | --- | --- |
+| [P1 명세](../P1-spec.md) | `SEARCH-01`, `SEARCH-02` 범위 유지 | 메커니즘 범위와 `SEARCH-03` 기능 목록·완료 기준 추가 |
+| [API 명세](../API.md) | 확정된 게임·방 검색 파라미터와 오류 계약 | 메커니즘·해 본 게임 파라미터, 등록·취소 인터페이스와 본인 기준 표시 필드 |
+| [ERD](../ERD.md) | 인원·시간 수치 열과 제약 | 메커니즘 관계, 사용자별 해 본 게임 관계와 제약 |
+| ADR | [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md) 승인 | [ADR-0027](../adr/game/0027-controlled-game-mechanism-taxonomy-and-provenance.md), [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md) 승인 |
+| 카탈로그 manifest·가이드 | 인원·시간 필드의 출처, 정규화와 검증 결과 | 메커니즘 필드별 출처, 검수 결과와 반복 적재 계약 |
+| [기반 작업](foundation.md) | `FND-09` 대표 데이터·쿼리·측정 기준 | 채택된 후보를 포함한 대표 쿼리 추가 측정 |
+
+### 예상 변경 지점
+
+아래는 현재 존재하는 파일 기준의 변경 지점이다. 신규 타입·테이블 이름은 이 문서에서 확정하지 않고 구현 설계와 ERD에서 정한다.
+
+| 영역 | 현재 파일 |
+| --- | --- |
+| 게임 저장 모델 | `game/entity/Game.java` |
+| 게임 요청·응답 | `game/dto/GameListRequest.java`, `game/dto/GameListItem.java`, `game/dto/GameDetail.java` |
+| 게임 HTTP·조회 | `game/controller/GameController.java`, `game/service/GameQueryService.java`, `game/repository/GameRepository.java`, `game/repository/GameListRow.java` |
+| 카탈로그 변환 | `scripts/game-catalog/`의 변환·분석 스크립트와 테스트 |
+| 방 요청·HTTP | `room/dto/RoomListRequest.java`, `room/controller/RoomController.java`, `room/controller/RoomQueryParameterAllowlistValidator.java` |
+| 방 조회 | `room/service/query/RoomListQueryService.java`, `room/service/query/RoomListReadService.java`, `room/repository/RoomRepository.java` |
+| DB 마이그레이션 | `src/main/resources/db/migration/`의 신규 전진 Flyway 파일 |
+| 단위·통합 테스트 | `src/test/java/cloud/bamsongi/albammate/game/`, 같은 경로의 `room/` |
+| PostgreSQL 테스트 | `src/postgresTest/`의 게임 카탈로그·방 목록 검증과 필요한 신규 테스트 |
+
+### 구현·테스트 경계
+
+- 게임 데이터 정규화는 전진 Flyway 마이그레이션, JPA 매핑과 PostgreSQL 검증을 함께 포함한다.
+- 카탈로그 변환 테스트는 인원·시간 경계, `0분` 거절, 복잡도 `0.00`의 `NULL` 정규화와 누락값 처리를 검증한다.
+- 게임·방 조회 테스트는 단독 필터, 종류 사이 AND, 모든 필수 조건 조합과 필터 후 페이지 계산을 검증한다.
+- 필터가 없는 게임·방 요청은 기존 P0 동작의 회귀 테스트를 유지한다.
+- PostgreSQL 전용 제약·마이그레이션·실행 계획은 H2 테스트만으로 검증했다고 보지 않는다.
+- 인덱스의 필요성과 효과는 기능 테스트 통과 뒤 `FND-09`에서 별도로 측정한다.
+
+### 구현 전 확인 필요
+
+메커니즘과 `SEARCH-03` 관련 항목은 후속 후보의 채택 조건이며 필수 검색 범위의 구현을 막지 않는다.
+
+- 메커니즘 출처별 실제 취득 경로와 이용 조건
+- 초기 약 10~20개 메커니즘의 목록, 표시명과 항목별 최소 연결 게임 수
+- 메커니즘 출처 우선순위, 충돌 검수 규칙과 초기 적재 범위
+- BGG 상세 플레이 시간을 전체 백필해 시간 구간 필터로 사용하는 행위가 현재 승인 범위에 포함되는지 여부
+- 약 2,000건 이후 전체 카탈로그로 확장할 때 인원·시간·복잡도가 없는 게임의 공개·필터 정책
+- 메커니즘과 `SEARCH-03`을 필수 범위로 올리는 P1 명세 변경 승인
