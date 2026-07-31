@@ -15,6 +15,7 @@ const opensslImage =
 const releaseSha = '0123456789abcdef0123456789abcdef01234567';
 const contractRunId = `${process.pid}-${randomUUID().replaceAll('-', '').slice(0, 8)}`;
 const dockerConfigDirectory = createTempDirectory('albam-mate-contract-docker-config');
+configureDockerCliPlugins(dockerConfigDirectory);
 
 function contractImage(repository, testId) {
     return `${repository}:contract-${testId.toLowerCase()}-${contractRunId}`;
@@ -139,6 +140,12 @@ function dockerInspectJson(name) {
 
 function createTempDirectory(prefix) {
     return fs.mkdtempSync(path.join(os.tmpdir(), `${prefix}-`));
+}
+
+function configureDockerCliPlugins(directory) {
+    const configuredDockerDirectory = process.env.DOCKER_CONFIG ?? path.join(os.homedir(), '.docker');
+    const cliPluginsDirectory = path.join(configuredDockerDirectory, 'cli-plugins');
+    fs.writeFileSync(path.join(directory, 'config.json'), JSON.stringify({ cliPluginsExtraDirs: [cliPluginsDirectory] }));
 }
 
 function removeOwnedTempDirectory(directory, prefix) {
@@ -292,8 +299,14 @@ function assertReleaseGate(image, additionalEnvironment = {}) {
 
 function verifyT1() {
     const image = contractImage('albam-mate-spring', 'T1');
+    const network = contractResource('albam-mate-contract-t1');
+    const postgres = contractResource('albam-mate-contract-t1-postgres');
+    const spring = contractResource('albam-mate-contract-t1-spring');
     const ownedImages = new Set();
+    const ownedContainers = new Set();
+    let networkCreated = false;
     try {
+        assertUnusedResources([postgres, spring], network);
         buildOwnedImage(ownedImages, image, ['.']);
         const inspect = JSON.parse(docker(['image', 'inspect', image]).stdout)[0];
         assert(inspect.Config.User === '10001:10001', `unexpected configured user: ${inspect.Config.User}`);
@@ -302,8 +315,94 @@ function verifyT1() {
         docker(['run', '--rm', '--entrypoint', 'sh', image, '-c', 'command -v wget >/dev/null']);
         const java = docker(['run', '--rm', '--entrypoint', 'java', image, '-version']);
         assert(`${java.stdout}${java.stderr}`.includes('21.'), 'runtime Java is not 21');
-        console.log('T1 PASS: Java 21 executable JAR runs as UID 10001 and includes the healthcheck client.');
+        docker(['network', 'create', network]);
+        networkCreated = true;
+        docker([
+            'run',
+            '-d',
+            '--name',
+            postgres,
+            '--network',
+            network,
+            '--network-alias',
+            'postgres',
+            '--env',
+            'POSTGRES_DB=albam_mate_verify',
+            '--env',
+            'POSTGRES_USER=verify_user',
+            '--env',
+            'POSTGRES_PASSWORD=verify_password',
+            '--env',
+            'TZ=UTC',
+            '--env',
+            'PGTZ=UTC',
+            '--health-cmd',
+            'pg_isready -U verify_user -d albam_mate_verify',
+            '--health-interval',
+            '2s',
+            '--health-timeout',
+            '5s',
+            '--health-retries',
+            '20',
+            'postgres:18.4',
+            'postgres',
+            '-c',
+            'timezone=UTC',
+        ]);
+        ownedContainers.add(postgres);
+        waitFor('PostgreSQL health', () => {
+            const health = docker(['inspect', '--format', '{{.State.Health.Status}}', postgres], {
+                allowFailure: true,
+            });
+            return health.status === 0 && health.stdout.trim() === 'healthy';
+        });
+        docker([
+            'run',
+            '-d',
+            '--name',
+            spring,
+            '--network',
+            network,
+            '--env',
+            'SPRING_PROFILES_ACTIVE=local',
+            '--env',
+            'ALBAM_MATE_LOCAL_DB_HOST=postgres',
+            '--env',
+            'ALBAM_MATE_LOCAL_DB_PORT=5432',
+            '--env',
+            'ALBAM_MATE_LOCAL_DB_NAME=albam_mate_verify',
+            '--env',
+            'ALBAM_MATE_LOCAL_DB_USER=verify_user',
+            '--env',
+            'ALBAM_MATE_LOCAL_DB_PASSWORD=verify_password',
+            '--env',
+            'TZ=UTC',
+            image,
+        ]);
+        ownedContainers.add(spring);
+        const api = waitFor(
+            'Spring default ENTRYPOINT/CMD application startup',
+            () => {
+                const response = docker(['exec', spring, 'wget', '-qO-', 'http://127.0.0.1:8080/api/games?size=1'], {
+                    allowFailure: true,
+                });
+                return response.status === 0 && response.stdout.includes('"status"') ? response.stdout : false;
+            },
+            150,
+        );
+        assert(api.includes('"status"'), 'Spring application did not serve GET /api/games?size=1');
+        const pidOneUid = docker([
+            'exec',
+            spring,
+            'sh',
+            '-c',
+            "awk '/^Uid:/ { print $2; exit }' /proc/1/status",
+        ]).stdout.trim();
+        assert(pidOneUid === '10001', `Spring PID 1 UID is ${pidOneUid}`);
+        console.log('T1 PASS: Java 21 executable JAR starts through the default ENTRYPOINT/CMD as PID 1 UID 10001 and serves GET /api/games?size=1.');
     } finally {
+        for (const name of [...ownedContainers].reverse()) removeContainer(name);
+        if (networkCreated) removeNetwork(network);
         removeOwnedImages(ownedImages);
     }
 }
