@@ -16,24 +16,24 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import cloud.bamsongi.albammate.global.exception.UnauthenticatedException;
 import cloud.bamsongi.albammate.user.contract.UserNickname;
-import cloud.bamsongi.albammate.user.contract.UserProfile;
+import cloud.bamsongi.albammate.user.dto.UserProfileResponse;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 
 @ExtendWith(MockitoExtension.class)
-class UserProfileApplicationServiceTest {
+class UserProfileServiceTest {
 
 	@Mock
 	private UserRepository userRepository;
 	@InjectMocks
-	private UserProfileApplicationService userProfileApplicationService;
+	private UserProfileService userProfileService;
 
 	@Test
 	void 현재_사용자의_프로필은_사용자_요약으로_조회한다() {
 		User user = User.create("user@example.com", "{bcrypt}hash", "닉네임");
 		when(userRepository.findById(7L)).thenReturn(Optional.of(user));
 
-		assertEquals(new UserProfile(null, "닉네임"), userProfileApplicationService.findProfile(7L));
+		assertEquals(new UserProfileResponse(null, "닉네임"), userProfileService.findProfile(7L));
 		verify(userRepository).findById(7L);
 	}
 
@@ -42,18 +42,18 @@ class UserProfileApplicationServiceTest {
 		User user = User.create("user@example.com", "{bcrypt}hash", "이전 닉네임");
 		when(userRepository.findById(7L)).thenReturn(Optional.of(user));
 
-		UserProfile profile = userProfileApplicationService.changeNickname(
+		UserProfileResponse profile = userProfileService.changeNickname(
 			7L, userNickname(" 새 닉네임 "));
 
 		assertEquals("새 닉네임", user.getNickname());
-		assertEquals(new UserProfile(null, "새 닉네임"), profile);
+		assertEquals(new UserProfileResponse(null, "새 닉네임"), profile);
 	}
 
 	@Test
 	void 닉네임이_없으면_사용자_조회_전에_거절한다() {
 		assertThrows(
 			NullPointerException.class,
-			() -> userProfileApplicationService.changeNickname(7L, null));
+			() -> userProfileService.changeNickname(7L, null));
 
 		verifyNoInteractions(userRepository);
 	}
@@ -64,11 +64,11 @@ class UserProfileApplicationServiceTest {
 		User user = User.create("user@example.com", "{bcrypt}hash", "이전 닉네임");
 		when(userRepository.findById(7L)).thenReturn(Optional.of(user));
 
-		UserProfile profile = userProfileApplicationService.changeNickname(
+		UserProfileResponse profile = userProfileService.changeNickname(
 			7L, userNickname(nickname));
 
 		assertEquals(nickname, user.getNickname());
-		assertEquals(new UserProfile(null, nickname), profile);
+		assertEquals(new UserProfileResponse(null, nickname), profile);
 	}
 
 	@Test
@@ -77,17 +77,17 @@ class UserProfileApplicationServiceTest {
 
 		assertThrows(
 			UnauthenticatedException.class,
-			() -> userProfileApplicationService.findProfile(7L));
+			() -> userProfileService.findProfile(7L));
 	}
 
 	@Test
 	void 프로필_조회에서_0과_음수_ID는_조회_없이_미인증으로_변환한다() {
 		assertThrows(
 			UnauthenticatedException.class,
-			() -> userProfileApplicationService.findProfile(0L));
+			() -> userProfileService.findProfile(0L));
 		assertThrows(
 			UnauthenticatedException.class,
-			() -> userProfileApplicationService.findProfile(-1L));
+			() -> userProfileService.findProfile(-1L));
 
 		verifyNoInteractions(userRepository);
 	}
@@ -98,17 +98,17 @@ class UserProfileApplicationServiceTest {
 
 		assertThrows(
 			UnauthenticatedException.class,
-			() -> userProfileApplicationService.changeNickname(7L, userNickname("새 닉네임")));
+			() -> userProfileService.changeNickname(7L, userNickname("새 닉네임")));
 	}
 
 	@Test
 	void 닉네임_변경에서_0과_음수_ID는_조회나_상태변경_없이_미인증이다() {
 		assertThrows(
 			UnauthenticatedException.class,
-			() -> userProfileApplicationService.changeNickname(0L, userNickname("새 닉네임")));
+			() -> userProfileService.changeNickname(0L, userNickname("새 닉네임")));
 		assertThrows(
 			UnauthenticatedException.class,
-			() -> userProfileApplicationService.changeNickname(-1L, userNickname("새 닉네임")));
+			() -> userProfileService.changeNickname(-1L, userNickname("새 닉네임")));
 
 		verifyNoInteractions(userRepository);
 	}

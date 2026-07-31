@@ -1,4 +1,4 @@
-package cloud.bamsongi.albammate.auth.controller;
+package cloud.bamsongi.albammate.user.controller;
 
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
@@ -25,6 +25,7 @@ import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import cloud.bamsongi.albammate.auth.controller.CsrfController;
 import cloud.bamsongi.albammate.global.config.SecurityConfig;
 import cloud.bamsongi.albammate.global.exception.GlobalExceptionHandler;
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserAccessor;
@@ -33,20 +34,20 @@ import cloud.bamsongi.albammate.global.security.error.ApiAccessDeniedHandler;
 import cloud.bamsongi.albammate.global.security.error.ApiAuthenticationEntryPoint;
 import cloud.bamsongi.albammate.global.security.error.SecurityErrorResponseWriter;
 import cloud.bamsongi.albammate.user.contract.UserNickname;
-import cloud.bamsongi.albammate.user.contract.UserProfile;
-import cloud.bamsongi.albammate.user.contract.UserProfileService;
+import cloud.bamsongi.albammate.user.dto.UserProfileResponse;
+import cloud.bamsongi.albammate.user.service.UserProfileService;
 import jakarta.servlet.http.Cookie;
 
-@WebMvcTest(controllers = {ProfileController.class, CsrfController.class})
+@WebMvcTest(controllers = {UserProfileController.class, CsrfController.class})
 @Import({
 	SecurityConfig.class,
 	ApiAccessDeniedHandler.class,
 	ApiAuthenticationEntryPoint.class,
 	SecurityErrorResponseWriter.class,
 	GlobalExceptionHandler.class,
-	ProfileControllerTest.TestBeans.class
+	UserProfileControllerTest.TestBeans.class
 })
-class ProfileControllerTest {
+class UserProfileControllerTest {
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -59,8 +60,8 @@ class ProfileControllerTest {
 	}
 
 	@Test
-	void 인증_사용자는_자신의_UserSummary만_조회한다() throws Exception {
-		when(userProfileService.findProfile(7L)).thenReturn(new UserProfile(7L, "닉네임"));
+	void 인증_사용자는_자신의_UserProfileResponse만_조회한다() throws Exception {
+		when(userProfileService.findProfile(7L)).thenReturn(new UserProfileResponse(7L, "닉네임"));
 
 		mockMvc.perform(get("/api/users/me").with(currentUserAuthentication()))
 			.andExpect(status().isOk())
@@ -80,9 +81,9 @@ class ProfileControllerTest {
 	}
 
 	@Test
-	void 유효한_CSRF와_닉네임으로_수정하면_UserSummary를_반환한다() throws Exception {
+	void 유효한_CSRF와_닉네임으로_수정하면_UserProfileResponse를_반환한다() throws Exception {
 		when(userProfileService.changeNickname(7L, UserNickname.from("새 닉네임").orElseThrow()))
-			.thenReturn(new UserProfile(7L, "새 닉네임"));
+			.thenReturn(new UserProfileResponse(7L, "새 닉네임"));
 		CsrfContext csrfContext = csrfContext();
 
 		mockMvc.perform(

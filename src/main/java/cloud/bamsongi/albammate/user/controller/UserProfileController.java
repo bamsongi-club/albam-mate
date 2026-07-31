@@ -1,4 +1,4 @@
-package cloud.bamsongi.albammate.auth.controller;
+package cloud.bamsongi.albammate.user.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -8,12 +8,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import cloud.bamsongi.albammate.auth.dto.ProfileUpdateRequest;
-import cloud.bamsongi.albammate.auth.dto.UserSummary;
 import cloud.bamsongi.albammate.global.response.ApiResponse;
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserAccessor;
-import cloud.bamsongi.albammate.user.contract.UserProfile;
-import cloud.bamsongi.albammate.user.contract.UserProfileService;
+import cloud.bamsongi.albammate.user.dto.ProfileUpdateRequest;
+import cloud.bamsongi.albammate.user.dto.UserProfileResponse;
+import cloud.bamsongi.albammate.user.service.UserProfileService;
 import jakarta.validation.Valid;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -22,23 +21,23 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/users/me")
 @RequiredArgsConstructor
-public final class ProfileController {
+public final class UserProfileController {
 
 	@NonNull private final CurrentUserAccessor currentUserAccessor;
 	@NonNull private final UserProfileService userProfileService;
 
 	@GetMapping
-	public ResponseEntity<ApiResponse<UserSummary>> findMyProfile() {
-		UserProfile profile = userProfileService.findProfile(currentUserAccessor.requireCurrentUserId());
-		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, UserSummary.from(profile)));
+	public ResponseEntity<ApiResponse<UserProfileResponse>> findMyProfile() {
+		UserProfileResponse profile = userProfileService.findProfile(currentUserAccessor.requireCurrentUserId());
+		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, profile));
 	}
 
 	@PatchMapping
-	public ResponseEntity<ApiResponse<UserSummary>> updateMyProfile(
+	public ResponseEntity<ApiResponse<UserProfileResponse>> updateMyProfile(
 		@Valid @RequestBody
 		ProfileUpdateRequest request) {
-		UserProfile profile = userProfileService.changeNickname(
+		UserProfileResponse profile = userProfileService.changeNickname(
 			currentUserAccessor.requireCurrentUserId(), request.normalize());
-		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, UserSummary.from(profile)));
+		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, profile));
 	}
 }

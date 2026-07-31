@@ -1,6 +1,7 @@
-package cloud.bamsongi.albammate.auth.validation;
+package cloud.bamsongi.albammate.user.validation;
 
 import cloud.bamsongi.albammate.user.contract.UserNickname;
+import cloud.bamsongi.albammate.user.contract.ValidNickname;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 

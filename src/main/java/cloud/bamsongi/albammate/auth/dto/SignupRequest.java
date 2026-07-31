@@ -1,13 +1,13 @@
 package cloud.bamsongi.albammate.auth.dto;
 
 import cloud.bamsongi.albammate.auth.validation.ValidEmail;
-import cloud.bamsongi.albammate.auth.validation.ValidNickname;
 import cloud.bamsongi.albammate.auth.validation.ValidPassword;
 import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
 import cloud.bamsongi.albammate.user.contract.RawPassword;
 import cloud.bamsongi.albammate.user.contract.UserEmail;
 import cloud.bamsongi.albammate.user.contract.UserNickname;
 import cloud.bamsongi.albammate.user.contract.UserPasswordPolicy;
+import cloud.bamsongi.albammate.user.contract.ValidNickname;
 import jakarta.validation.constraints.NotNull;
 
 /** 회원가입 HTTP 요청 원문을 표현한다. */
