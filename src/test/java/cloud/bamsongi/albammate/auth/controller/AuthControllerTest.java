@@ -1,5 +1,9 @@
 package cloud.bamsongi.albammate.auth.controller;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -21,6 +25,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
+import cloud.bamsongi.albammate.auth.service.LoginService;
 import cloud.bamsongi.albammate.auth.service.SignupService;
 import cloud.bamsongi.albammate.global.config.SecurityConfig;
 import cloud.bamsongi.albammate.global.exception.GlobalExceptionHandler;
@@ -36,20 +41,25 @@ import cloud.bamsongi.albammate.user.contract.UserAccountService;
 import cloud.bamsongi.albammate.user.contract.UserEmail;
 import cloud.bamsongi.albammate.user.contract.UserNickname;
 import jakarta.servlet.http.Cookie;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
-@WebMvcTest(controllers = {SignupController.class, CsrfController.class})
+@WebMvcTest(controllers = AuthController.class)
 @Import({
 	SecurityConfig.class,
 	ApiAccessDeniedHandler.class,
 	ApiAuthenticationEntryPoint.class,
 	SecurityErrorResponseWriter.class,
 	GlobalExceptionHandler.class,
-	SignupControllerTest.TestBeans.class
+	AuthControllerTest.TestBeans.class
 })
-class SignupControllerTest {
+class AuthControllerTest {
 
 	@Autowired
 	private MockMvc mockMvc;
+
+	@Autowired
+	private ObjectMapper objectMapper;
 
 	@Autowired
 	private AuthenticationRequestLimiter requestLimiter;
@@ -57,9 +67,48 @@ class SignupControllerTest {
 	@Autowired
 	private UserAccountService userAccountService;
 
+	@Autowired
+	private LoginService loginService;
+
 	@BeforeEach
 	void resetMocks() {
-		reset(requestLimiter, userAccountService);
+		reset(requestLimiter, userAccountService, loginService);
+	}
+
+	@Test
+	void 비로그인_조회는_세션을_만들지_않고_운영_기본_Secure_XSRF_쿠키와_응답_토큰을_일치시킨다() throws Exception {
+		MvcResult result = mockMvc.perform(get("/api/auth/csrf"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value(200))
+			.andExpect(jsonPath("$.data.headerName").value("X-XSRF-TOKEN"))
+			.andReturn();
+
+		Cookie xsrfCookie = result.getResponse().getCookie("XSRF-TOKEN");
+		assertNotNull(xsrfCookie);
+		assertNull(result.getResponse().getCookie("JSESSIONID"));
+		assertNull(result.getRequest().getSession(false));
+		assertEquals("/", xsrfCookie.getPath());
+		assertTrue(xsrfCookie.isHttpOnly());
+		assertTrue(xsrfCookie.getSecure());
+		assertEquals("Lax", xsrfCookie.getAttribute("SameSite"));
+
+		JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+		assertEquals(xsrfCookie.getValue(), body.get("data").get("token").asString());
+	}
+
+	@Test
+	void 유효하지_않은_CSRF_토큰으로_공개_상태변경을_시도하면_거절한다() throws Exception {
+		MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
+		Cookie xsrfCookie = csrfResult.getResponse().getCookie("XSRF-TOKEN");
+		assertNotNull(xsrfCookie);
+
+		mockMvc.perform(
+			post("/api/auth/login")
+				.cookie(xsrfCookie)
+				.header("X-XSRF-TOKEN", "invalid-token"))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("CSRF_TOKEN_INVALID"))
+			.andExpect(jsonPath("$.data").value((Object)null));
 	}
 
 	@Test
@@ -92,7 +141,7 @@ class SignupControllerTest {
 	}
 
 	@Test
-	void DTO_검증에_실패하면_요청제한과_계정생성을_소모하지_않는다() throws Exception {
+	void 회원가입_DTO_검증에_실패하면_요청제한과_계정생성을_소모하지_않는다() throws Exception {
 		MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
 		Cookie csrfCookie = csrfResult.getResponse().getCookie("XSRF-TOKEN");
 
@@ -112,7 +161,7 @@ class SignupControllerTest {
 	}
 
 	@Test
-	void 요청제한을_초과하면_사용자_생성_없이_429와_Retry_After를_반환한다() throws Exception {
+	void 회원가입_요청제한을_초과하면_사용자_생성_없이_429와_Retry_After를_반환한다() throws Exception {
 		doThrow(new RateLimitExceededException(12))
 			.when(requestLimiter)
 			.requireSignupAllowed("198.51.100.32");
@@ -137,7 +186,7 @@ class SignupControllerTest {
 	}
 
 	@Test
-	void CSRF가_없으면_컨트롤러까지_도달하지_않는다() throws Exception {
+	void 회원가입_CSRF가_없으면_컨트롤러까지_도달하지_않는다() throws Exception {
 		mockMvc.perform(
 			post("/api/auth/signup")
 				.contentType("application/json")
@@ -149,6 +198,23 @@ class SignupControllerTest {
 			.andExpect(jsonPath("$.code").value("CSRF_TOKEN_INVALID"));
 
 		verifyNoInteractions(requestLimiter, userAccountService);
+	}
+
+	@Test
+	void 로그인_DTO_검증에_실패하면_로그인_서비스를_호출하지_않고_VALIDATION_ERROR를_반환한다() throws Exception {
+		MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
+		Cookie csrfCookie = csrfResult.getResponse().getCookie("XSRF-TOKEN");
+
+		mockMvc.perform(
+			post("/api/auth/login")
+				.cookie(csrfCookie)
+				.header("X-XSRF-TOKEN", csrfCookie.getValue())
+				.contentType("application/json")
+				.content("{\"email\":\"not-an-email\",\"password\":\"password\"}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+		verifyNoInteractions(loginService);
 	}
 
 	private RequestPostProcessor remoteAddress(String remoteAddress) {
@@ -183,6 +249,11 @@ class SignupControllerTest {
 			AuthenticationRequestLimiter requestLimiter,
 			UserAccountService userAccountService) {
 			return new SignupService(requestLimiter, userAccountService);
+		}
+
+		@Bean
+		LoginService loginService() {
+			return org.mockito.Mockito.mock(LoginService.class);
 		}
 	}
 }
