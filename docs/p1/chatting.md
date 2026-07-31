@@ -2,9 +2,19 @@
 
 이 문서는 P1에서 기존 방의 주최자와 현재 `ACTIVE` 참가자가 모임을 조율하는 `CHAT-01`~`CHAT-05`의 구현 규칙과 완료 기준을 정의한다. 다섯 기능은 현재 미구현이다. 이 문서에서 **채팅 관계자**는 방의 주최자 또는 현재 `ACTIVE` 참가자를 뜻한다.
 
-채팅 접근·생명주기와 메시지 공통 규칙은 [P1 명세](../P1-spec.md#채팅-접근과-생명주기), 요청·응답·오류와 실시간 연결은 [API 명세](../API.md#채팅-공통-계약), 저장 계약은 [ERD](../ERD.md)를 따른다. 신규 API와 저장 개념은 구현 예정 계약이며, 현재 제안 상태인 [채팅 ADR](../adr/chat/README.md)을 승인하고 ERD·아키텍처에 반영하기 전에는 구현을 시작하지 않는다. 실시간 공통 기반은 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반)이 소유한다.
+채팅 접근·생명주기와 메시지 공통 규칙은 [P1 명세](../P1-spec.md#채팅-접근과-생명주기), 요청·응답·오류와 실시간 연결은 [API 명세](../API.md#채팅-공통-계약), 저장 계약은 [ERD](../ERD.md)를 따른다. 신규 API와 저장 개념은 구현 예정 계약이며, 실시간·보관 방식은 승인된 [채팅 ADR](../adr/chat/README.md), 공용 세션·스케줄 실행은 [ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), 모듈·인프라 경계는 [아키텍처](../ARCHITECTURE.md)를 따른다. 실시간 공통 기반은 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반)이 소유한다.
 
 본 명세는 기존 오프라인 방 흐름에 방별 그룹 채팅을 추가하며 새로운 온라인 방 유형이나 실시간 자동 매칭을 도입하지 않는다. 메시지의 정본은 실시간 연결이 아니라 PostgreSQL 이력이다.
+
+## 실행 환경과 실패 경계
+
+- `local-single`은 인메모리 세션·fan-out을 허용하는 빠른 단일 서버 개발 프로필이며 다중 인스턴스 검증 근거가 아니다.
+- P1 필수 검증 환경인 `local-multi`는 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL과 Redis로 구성한다.
+- 운영 정본은 ALB·ASG 애플리케이션 인스턴스와 공용 RDS PostgreSQL·Redis다. 실제 AWS scale-out·WebSocket Upgrade·연결 draining 검증은 후속 OPS이며 채팅 구현 완료를 막지 않는다.
+- `local-multi`와 `prod`는 Spring Session, Pub/Sub과 사용자·방 단위 전송 제한에 하나의 Redis를 사용하되 key prefix, TTL과 channel namespace를 분리한다. Redis가 없을 때 인메모리 구현으로 자동 fallback하지 않는다.
+- 세션 또는 전송 제한을 확인할 수 없으면 `503 Service Unavailable`로 실패한다. PostgreSQL 커밋 뒤 Redis Pub/Sub 발행·구독이 실패하면 저장 성공은 유지하고 이력 조회·다음 신호·재연결로 복구한다.
+- 운영 Redis 제품, HA, TLS, 접근 제어, 비밀 주입과 비용은 후속 OPS에서 확정한다.
+- 세션 TTL·직렬화 방식과 정확한 key·channel namespace는 후속 구현 이슈에서 확정한다.
 
 ## CHAT-01 채팅방 생성·접근
 
@@ -17,7 +27,7 @@
 | 기존 데이터 모델 | [ROOMS](../ERD.md#rooms), [PARTICIPATIONS](../ERD.md#participations) |
 | 인증·인가 | [ADR-0003 서버 세션](../adr/auth/0003-p0-server-session-spring-security.md), [ADR-0020 엔드포인트 인가 정책](../adr/auth/0020-api-endpoint-authorization-policy-registry.md) |
 | 동시성 | [ADR-0005 방 참가 낙관 락](../adr/participation/0005-room-participation-optimistic-locking.md) |
-| 관련 정본 | [채팅 API](../API.md#채팅-공통-계약), [ERD](../ERD.md) — 구현 전 채팅 저장 계약 추가 필요, [아키텍처](../ARCHITECTURE.md#모듈-관계), [채팅 ADR](../adr/chat/README.md) |
+| 관련 정본 | [채팅 API](../API.md#채팅-공통-계약), [ERD](../ERD.md#chatrooms), [아키텍처](../ARCHITECTURE.md#모듈-관계), [채팅 ADR](../adr/chat/README.md) |
 
 ### 기능 규칙
 
@@ -55,7 +65,7 @@
 | 구분 | 정본 |
 | --- | --- |
 | HTTP 계약 | [CHAT-02 메시지 전송](../API.md#chat-02-메시지-전송), [CHAT-02 메시지 이력 조회](../API.md#chat-02-메시지-이력-조회) |
-| 저장 계약 | [ERD](../ERD.md) — 구현 전에 채팅방·메시지, 유일성·조회 인덱스·보관 규칙 추가 필요 |
+| 저장 계약 | [CHAT_ROOMS](../ERD.md#chatrooms), [CHAT_MESSAGES](../ERD.md#chatmessages)의 유일성·조회 인덱스·보관 규칙 |
 | 공통 응답·오류 | [API 공통 계약](../API.md#1-공통-계약), [오류 코드](../API.md#10-오류-코드) |
 | 시간 기준 | [ADR-0009 UTC 저장과 서비스 시간대 변환](../adr/platform/0009-utc-time-standard.md) |
 | 검증 환경 | [ADR-0010 H2와 PostgreSQL 테스트 경계](../adr/platform/0010-h2-postgresql-test-boundary.md) |
@@ -108,7 +118,7 @@
 | --- | --- |
 | 전달 계약 | [CHAT-03 실시간 메시지 구독](../API.md#chat-03-실시간-메시지-구독)의 인증, 이벤트 식별자와 재연결 계약 |
 | 공유 기반 | [FND-10 실시간 전달과 재연결 기반](foundation.md#fnd-10-실시간-전달과-재연결-기반) |
-| 기술 결정 | [ADR-0032 HTTP 저장·WebSocket 수신](../adr/chat/0032-http-send-websocket-receive.md), [ADR-0033 PostgreSQL 정본·커밋 후 전달](../adr/chat/0033-postgresql-source-after-commit-delivery.md) |
+| 기술 결정 | [ADR-0038 공용 세션](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), [ADR-0032 HTTP 저장·WebSocket 수신](../adr/chat/0032-http-send-websocket-receive.md), [ADR-0033 PostgreSQL 정본·커밋 후 전달](../adr/chat/0033-postgresql-source-after-commit-delivery.md) |
 | 인증·인가 | [ADR-0003 서버 세션](../adr/auth/0003-p0-server-session-spring-security.md), [ADR-0020 엔드포인트 인가 정책](../adr/auth/0020-api-endpoint-authorization-policy-registry.md) |
 | 운영 기준 | 연결 수, 저장 후 전달 지연, 전달 실패와 재연결 복구 결과를 계측 |
 
@@ -117,13 +127,22 @@
 - P1은 인증된 HTTP로 메시지를 전송·조회하고, 방별 WebSocket으로 커밋된 메시지를
   실시간 수신한다. WebSocket으로 메시지 저장 명령을 받지 않는다.
 - WebSocket handshake는 기존 `JSESSIONID` 세션과 허용된 `Origin`을 검증하며,
-  별도 JWT·WebSocket 전용 토큰을 사용하지 않는다.
+  별도 JWT·WebSocket 전용 토큰을 사용하지 않는다. `local-multi`와 `prod`의 세션은
+  Spring Session Redis에 공유하고 ALB stickiness에 정합성을 의존하지 않는다.
 - 실시간 연결을 열거나 유지하는 동안에도 현재 채팅 관계를 검증한다.
 - 저장 성공 응답과 실시간 이벤트는 같은 메시지 식별자를 사용한다.
+- PostgreSQL 커밋 뒤 Redis Pub/Sub에는 `eventType`, `roomId`, `messageId`만
+  발행한다. 메시지 본문·사용자·세션 식별자는 신호에 포함하지 않는다.
+- 각 인스턴스는 자신이 보유한 WebSocket 연결만 메모리에서 관리한다. Redis 신호를
+  받으면 연결별 마지막 전달 ID 이후의 PostgreSQL 메시지를 `messageId ASC`로
+  조회해 중복을 제거하고 전달한다.
 - 실시간 전달 실패가 메시지 저장 트랜잭션을 롤백하거나 저장된 메시지를 삭제하게
   해서는 안 된다.
-- 서버 재시작, 네트워크 단절과 이벤트 중복은 마지막 `afterMessageId` 이후의
-  PostgreSQL 이력을 오래된 순서로 전송해 복구한다.
+- 서버 재시작, 네트워크 단절과 Redis 신호 누락·중복·순서 역전은 다음 신호 또는
+  마지막 `afterMessageId` 이후의 PostgreSQL 이력을 오래된 순서로 전송해 복구한다.
+- 참가 취소와 방 최종 상태 신호는 방의 로컬 연결이 권한을 다시 확인하도록 하고,
+  세션 만료 이벤트는 해당 연결을 종료한다. 전달 직전에는 PostgreSQL의 현재
+  관계와 상태를 다시 확인해 신호 누락이 권한 우회로 이어지지 않게 한다.
 - 알림 기능과 실시간 연결을 공유할지는 알림 interface가 확정된 뒤 결정하며, 채팅
   명세가 알림 구현을 선행 조건으로 요구하지 않는다.
 
@@ -138,15 +157,23 @@
   새 메시지를 전달받지 않는다.
 - `CHAT-03-AC6` 저장부터 전달까지의 지연, 연결 수와 전달 실패를 사용자·방
   식별자 없는 메트릭으로 관찰할 수 있다.
+- `CHAT-03-AC7` `local-multi`에서 HTTP 저장과 WebSocket 연결이 서로 다른
+  애플리케이션 인스턴스에 배정되어도 공용 세션과 Redis 신호로 메시지를 수신한다.
+- `CHAT-03-AC8` Redis 신호가 누락·중복·역전되거나 커밋 뒤 발행이 실패해도
+  PostgreSQL 저장 결과가 유지되고 다음 신호·이력 조회·재연결에서 누락분이
+  `messageId ASC`로 복구된다.
+- `CHAT-03-AC9` `local-multi`에서 Redis 세션 저장소 실패와 커밋 뒤 Pub/Sub 발행
+  실패를 각각 재현했을 때 인메모리로 자동 fallback하지 않고 계약된 서로 다른
+  결과로 검증된다.
 
 ### 제외 범위
 
 - 입력 중 표시, 접속 상태와 실시간 읽음 표시
 - WebSocket을 통한 메시지 저장과 양방향 애플리케이션 프로토콜
-- Redis Pub/Sub과 다중 애플리케이션 인스턴스 fan-out
-- RabbitMQ·Kafka 기반 메시지 전달
+- Redis Streams·RabbitMQ·Kafka 기반 영속 메시지 전달
 - 커밋 후 발행 누락을 자동 재처리하는 채팅 Outbox
 - 메시지 전달 순서의 전역 보장
+- 실제 AWS ALB·ASG scale-out·draining과 운영 Redis 제품·HA·TLS·비용 검증
 
 ## CHAT-04 채팅 안전·운영
 
@@ -156,17 +183,21 @@
 | --- | --- |
 | 입력·오류 | [API 공통 계약](../API.md#1-공통-계약), [채팅 API 오류 계약](../API.md#채팅-공통-계약) |
 | 로그 | [Logging 규칙](../CONVENTIONS.md#logging) |
-| 보안 | 세션 인증, CSRF, 출력 인코딩과 사용자·방 단위 전송 제한 |
-| 관련 정본 | [ADR-0034 메시지 보관·삭제](../adr/chat/0034-chat-message-retention-and-deletion.md), [ERD](../ERD.md) — 구현 전 채팅 저장 계약 추가 필요 |
+| 보안 | 세션 인증, CSRF, 출력 인코딩과 Redis 사용자·방 단위 전송 제한 |
+| 관련 정본 | [ADR-0034 메시지 보관·삭제](../adr/chat/0034-chat-message-retention-and-deletion.md), [ADR-0038 스케줄 실행 조정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), [CHAT_ROOMS](../ERD.md#chatrooms), [SHEDLOCK](../ERD.md#shedlock) |
 
 ### 기능 규칙
 
 - 메시지는 일반 텍스트로 렌더링하고 사용자 입력을 HTML로 실행하지 않는다.
-- 사용자·방 단위 전송 제한을 적용하되 정상 대화를 방해하지 않도록 초기 운영
-  측정값을 기준으로 임계값을 조정한다.
+- 사용자·방 단위 전송 제한은 `local-multi`와 `prod`의 공용 Redis에서 서로 다른
+  key prefix와 TTL로 관리한다. Redis에서 제한 상태를 확인할 수 없으면 메시지를
+  저장하지 않고 `503 Service Unavailable`로 실패시킨다.
 - 메시지 본문, 세션 식별자와 내부 사용자 식별자는 로그·메트릭에 포함하지 않는다.
 - 만료 삭제 작업은 성공·삭제 건수·지연·실패를 기록하고, 실패한 묶음만 다음
   스케줄에서 다시 처리한다.
+- 모든 인스턴스가 만료 삭제 스케줄을 등록하되 PostgreSQL ShedLock을 얻은 하나만
+  실행한다. 잠금과 별개로 삭제 작업은 재실행해도 같은 결과로 수렴하며 각 묶음은
+  독립 트랜잭션을 유지한다.
 
 ### 완료 기준
 
@@ -177,7 +208,13 @@
 - `CHAT-04-AC3` 애플리케이션 로그와 운영 메트릭에 메시지 본문·세션 식별자·내부
   사용자 식별자가 기록되지 않는다.
 - `CHAT-04-AC4` 최종 상태 전환 뒤 30일이 지난 메시지는 다음 일일 스케줄에서
-  소량 묶음으로 삭제되고, 실패는 메트릭·알림으로 확인할 수 있다.
+  ShedLock을 얻은 한 인스턴스가 소량 묶음으로 삭제하고, 실패는 메트릭·알림으로
+  확인할 수 있다.
+- `CHAT-04-AC5` 두 애플리케이션 인스턴스에 같은 만료 스케줄이 등록되어도 한
+  실행만 작업을 소유하고, 각 삭제 묶음의 성공은 다른 묶음 실패로 롤백되지 않는다.
+- `CHAT-04-AC6` `local-multi`에서 Redis 전송 제한 상태를 확인할 수 없으면
+  인메모리로 fallback하지 않고 메시지도 저장하지 않은 채 `503 Service Unavailable`을
+  반환한다.
 
 ### 제외 범위
 
@@ -186,6 +223,7 @@
 - 사용자 차단·음소거
 - 법적 보존 요청과 이의제기 절차
 - 운영자 화면의 구체적인 UI
+- Quartz 클러스터와 전용 스케줄러 서비스
 
 ## CHAT-05 내 모임 채팅 진입
 

@@ -2,7 +2,7 @@
 
 이 문서는 Albam Mate 백엔드 코드의 안정적인 구조 규칙을 설명하는 정본이다. 개별 파일·클래스·엔드포인트 목록은 관리하지 않으며, 같은 경계 안에서 기능을 추가하는 것만으로는 이 문서를 갱신하지 않는다.
 
-본문에서 `후속` 또는 `필요 시 생성`으로 표시한 항목은 승인된 경계이지만 아직 생성되거나 자동 검증되지 않은 상태다. 그 밖의 내용은 현재 구현이 따라야 하는 구조다. 기능별 구현·검증 상태는 [README의 현재 개발 상태](../README.md#현재-개발-상태)에서 확인한다.
+본문에서 `후속`, `P1 구현 시 생성` 또는 `필요 시 생성`으로 표시한 항목은 승인된 경계이지만 아직 생성되거나 자동 검증되지 않은 상태다. 그 밖의 내용은 현재 구현이 따라야 하는 구조다. 기능별 구현·검증 상태는 [README의 현재 개발 상태](../README.md#현재-개발-상태)에서 확인한다.
 
 - 모듈러 모놀리스 선택 근거: [ADR-0007](adr/platform/0007-domain-centered-modular-monolith.md)
 - 낙관 락·상태 보정 트랜잭션 근거: [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0012](adr/room/0012-room-request-boundary-state-reconciliation.md)
@@ -25,7 +25,7 @@
 현재 클래스와 파일을 찾을 때는 문서에 목록을 추가하지 않고 다음 소스 진입점을 사용한다.
 
 - 전체 업무 코드: [운영 코드 루트](../src/main/java/cloud/bamsongi/albammate/)
-- HTTP 진입점: [auth](../src/main/java/cloud/bamsongi/albammate/auth/controller/), [user](../src/main/java/cloud/bamsongi/albammate/user/controller/), [game](../src/main/java/cloud/bamsongi/albammate/game/controller/), [room](../src/main/java/cloud/bamsongi/albammate/room/controller/)
+- HTTP 진입점: [auth](../src/main/java/cloud/bamsongi/albammate/auth/controller/), [user](../src/main/java/cloud/bamsongi/albammate/user/controller/), [game](../src/main/java/cloud/bamsongi/albammate/game/controller/), [room](../src/main/java/cloud/bamsongi/albammate/room/controller/), `chat` (P1 구현 시 생성)
 - 복잡한 ROOM 흐름: [query](../src/main/java/cloud/bamsongi/albammate/room/service/query/), [command](../src/main/java/cloud/bamsongi/albammate/room/service/command/), [statuscorrection](../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/)
 - 정확한 HTTP 경로와 응답: [API 인덱스](API.md#2-api-인덱스)
 
@@ -36,7 +36,8 @@
 백엔드는 도메인 중심 모듈러 모놀리스로 구성한다.
 
 - 하나의 Gradle 프로젝트와 Spring Boot 애플리케이션, 데이터베이스를 유지한다.
-- `auth`, `user`, `game`, `room`을 논리적 업무 모듈로 유지한다.
+- 같은 Spring Boot 애플리케이션을 여러 인스턴스로 실행하되 모든 인스턴스가 공용 PostgreSQL과 Redis를 사용한다. 채팅을 별도 서비스로 분리하지 않는다.
+- `auth`, `user`, `game`, `room`과 P1의 `chat`을 논리적 업무 모듈로 유지한다.
 - 조회와 상태 변경 유스케이스는 각각 `query`, `command`로 구분하지만 Entity, Repository와 데이터베이스까지 나누는 CQRS는 도입하지 않는다.
 - 모듈 간 협력은 상대 모듈의 `contract`만 사용한다.
 - 독립 트랜잭션과 재시도가 필요한 Coordinator·Executor 분리는 유지하며, 재시도마다 최신 Entity와 version을 다시 조회한다.
@@ -51,19 +52,23 @@ flowchart LR
     auth["auth"] -->|"user.contract"| user["user"]
     room["room"] -->|"user.contract"| user
     room -->|"game.contract"| game["game"]
+    chat["chat<br/>(P1 구현 시 생성)"] -->|"room.contract"| room
+    chat -->|"user.contract"| user
 
     auth -.->|"기술 기반"| global["global"]
     user -.->|"기술 기반"| global
     game -.->|"기술 기반"| global
     room -.->|"기술 기반"| global
-    infra["infra<br/>(필요 시 생성)"] -.->|"기술 기반"| global
+    chat -.->|"기술 기반"| global
+    infra["infra<br/>(P1 구현 시 생성)"] -.->|"기술 기반"| global
+    infra -->|"실시간 전달 port 구현"| chat
 ```
 
-허용된 업무 모듈 의존 방향은 `auth → user`, `room → user`, `room → game`이다. 반대 방향의 직접 참조와 순환 의존은 허용하지 않는다.
+허용된 업무 모듈 의존 방향은 `auth → user`, `room → user·game`, `chat → room.contract·user.contract`이다. `chat`은 `room`·`user`의 Entity와 Repository를 직접 참조하지 않고 공개 계약만 사용한다. 반대 방향의 직접 참조와 순환 의존은 허용하지 않는다.
 
 런타임 호출 방향과 컴파일 의존 방향이 다를 수 있다. 예를 들어 `game`이 예정 모임 수를 조회할 때는 [`game.contract.UpcomingRoomCountQuery`](../src/main/java/cloud/bamsongi/albammate/game/contract/UpcomingRoomCountQuery.java)를 [`room.service.query.RoomUpcomingRoomCountQuery`](../src/main/java/cloud/bamsongi/albammate/room/service/query/RoomUpcomingRoomCountQuery.java)가 구현한다. 런타임 호출은 game에서 room으로 이어지지만, 컴파일 의존은 `room → game.contract`로 유지된다.
 
-업무 모듈이 외부 시스템에 요청하는 포트는 이를 소유한 `<module>/contract`에 둔다. `infra`는 이 포트를 구현하고 필요한 업무 모듈의 `contract`와 `global`만 참조한다. 현재 운영 코드에는 `infra` 패키지가 없으며, 첫 외부 어댑터가 필요할 때 생성한다. 업무 모듈은 `infra`의 구체 구현을 직접 참조하지 않는다.
+업무 모듈이 외부 시스템에 요청하는 포트는 이를 소유한 `<module>/contract`에 둔다. `infra`는 이 포트를 구현하고 필요한 업무 모듈의 `contract`와 `global`만 참조한다. P1은 Redis 실시간 전달 adapter와 PostgreSQL 스케줄 잠금 adapter를 위해 `infra`를 생성한다. 업무 모듈은 Redis·ShedLock의 구체 구현을 직접 참조하지 않는다.
 
 ### 모듈 책임
 
@@ -73,8 +78,9 @@ flowchart LR
 | `user` | 사용자 계정·자격증명·프로필·공개 사용자 조회 | 세션 생성·폐기 |
 | `game` | 게임 목록·검색·상세와 게임 요약 계약 | 방 데이터 직접 조회 |
 | `room` | 방·참가 관계·정원·상태 전이·재시도·상태 보정 | 사용자·게임 내부 구현 |
+| `chat` (P1) | 방별 채팅방·메시지 저장, 이력 커서 조회, 현재 관계자 접근 검증, 실시간 전달 경계 | 방·참가 Entity/Repository, 인증 세션 내부 구현, 온라인 자동 매칭 |
 | `global` | 공통 응답·예외·보안·설정·UTC 시간 기반 | 업무 Entity·DTO·규칙 |
-| `infra` | 필요 시 생성하는 외부 시스템 연동·기술 어댑터 경계 | 업무 규칙·Entity·HTTP DTO |
+| `infra` (P1) | Redis 세션·채팅 fan-out과 PostgreSQL 스케줄 잠금 같은 기술 adapter | 업무 규칙·Entity·HTTP DTO |
 
 참가 관계는 방의 정원과 상태 불변식을 같은 트랜잭션에서 변경하므로 별도 모듈이 아니라 `room`이 소유한다. URL 경로보다 데이터와 불변식을 소유한 모듈을 우선한다.
 ### P1 알림 모듈 계약
@@ -103,8 +109,14 @@ flowchart LR
 | `room/service/command` | ROOM 변경 유스케이스, Coordinator와 Executor |
 | `room/enums` | ROOM Entity·DTO가 공유하는 방·참가 도메인 타입 |
 | `room/statuscorrection` | Query·Scheduler가 공유하는 자동 상태 보정 |
+| `chat/service` (P1) | 채팅방 접근, 메시지 저장·이력 조회 유스케이스 |
+| `chat/websocket` (P1) | 방별 WebSocket handshake, 인스턴스 로컬 연결과 PostgreSQL 이력 복구 상태 |
+| `chat/retention` (P1) | 최종 상태 메시지의 일일 만료 선별, 소량 묶음 삭제와 실패 계측 |
+| `global/security/session` (P1) | 공용 서버 세션 설정과 세션 쿠키 공통 규칙 |
+| `global/scheduling` (P1) | 업무 규칙을 모르는 클러스터 스케줄 잠금 port |
 | `global` | 업무 의미가 없는 공통 기술 기반 |
-| `infra` | 필요 시 생성하는 외부 시스템 어댑터 구현 |
+| `infra/redis` (P1) | `chat.contract`의 실시간 발행·구독 port와 Spring Session Redis adapter |
+| `infra/scheduling` (P1) | PostgreSQL 시각과 `SHEDLOCK` 테이블을 사용하는 스케줄 잠금 adapter |
 
 필요한 구현만 만들며 빈 폴더를 미리 생성하지 않는다. `contract`도 다른 모듈에 공개할 계약이나 `infra`가 구현할 포트가 생길 때만 추가한다. 표는 모든 모듈에 모든 패키지를 허용한다는 뜻이 아니다. 기존 패키지에 파일을 추가할 때는 갱신하지 않지만, 모듈에 새로운 최상위 책임 패키지를 만들 때는 이 절과 구조 검사를 함께 확인한다.
 
@@ -112,7 +124,7 @@ flowchart LR
 
 ### Controller Interface
 
-여기서 Interface는 Java `interface` 선언이 아니라 외부 요청에 노출하는 HTTP 진입 경계를 뜻한다. 전체 Controller와 엔드포인트 목록은 코드와 [API 인덱스](API.md#2-api-인덱스)가 소유한다.
+여기서 Interface는 Java `interface` 선언이 아니라 외부 요청에 노출하는 HTTP·WebSocket 진입 경계를 뜻한다. 전체 Controller와 엔드포인트 목록은 코드와 [API 인덱스](API.md#2-api-인덱스)가 소유한다.
 
 - Controller는 엔드포인트 수가 아니라 HTTP 리소스와 책임으로 나눈다.
 - 각 엔드포인트는 하나의 유스케이스 Service에 업무 처리를 위임한다. 한 Controller가 여러 Service를 주입받는다는 이유만으로 Facade를 추가하지 않는다.
@@ -128,6 +140,7 @@ flowchart LR
 | 내 프로필 조회·수정 | 인증 기능이 아니라 사용자 리소스이므로 `user`가 소유 | `UserProfileController` |
 | 방 조회·생성·상태 변경·참가 | 방과 참가 불변식을 다루므로 `room`이 소유 | `RoomController`, `RoomParticipationController` |
 | `/api/users/me/rooms` 조회 | URL에 `users`가 있어도 방과 참가 관계를 조회하므로 `room`이 소유 | `MyRoomController` |
+| 방별 채팅 전송·이력·실시간 구독 | 메시지와 채팅 접근 경계를 다루므로 `chat`이 소유 | P1 구현 시 생성 |
 
 기존 책임 안에서 Controller나 엔드포인트를 추가하는 것은 아키텍처 변경이 아니다. Controller의 분리 기준이나 모듈 소유권이 바뀔 때만 이 절을 갱신한다.
 
@@ -206,6 +219,61 @@ Coordinator는 기준 시각을 고정하고 낙관 락 충돌만 재시도한�
 일괄 보정 대상 선별 쿼리는 전이 경계에서 파생된 후보 축소 조건이며 Entity의 전이 대상을 빠뜨리지 않아야 한다. 쿼리가 더 넓은 후보를 반환할 수 있지만 최종 전이 여부는 `Room` Entity가 판단한다. Entity의 전이 경계를 바꿀 때는 선별 쿼리와 경계 테스트를 함께 갱신한다.
 
 재시도하지 않는 단일 트랜잭션 유스케이스에는 Coordinator와 Executor를 추가하지 않는다. 재시도가 필요할 때만 Spring Proxy가 독립 트랜잭션을 적용할 수 있도록 Service와 Executor를 분리한다.
+
+#### 채팅 흐름
+
+P1 채팅은 방 생성과 채팅방 생성을 한 트랜잭션으로 묶고, 메시지 전송·이력 조회는 `chat` 모듈이 소유한다. `RoomCreateService`는 `chat`을 직접 참조하지 않고 `room.contract.RoomCreated` 이벤트를 발행한다. `chat`의 동기 listener가 같은 트랜잭션에서 `CHAT_ROOMS`를 만들며, 실패하면 방 생성도 함께 롤백된다. `CANCELED`·`FINISHED` 전환도 `room.contract.RoomTerminalStateReached`를 발행하고 `chat`의 동기 listener가 같은 트랜잭션에서 `purge_after`를 설정한다.
+
+채팅은 `room.contract`로 현재 주최자·`ACTIVE` 참가자와 방 상태를 확인하며 `room` Entity·Repository를 직접 참조하지 않는다.
+
+```mermaid
+flowchart LR
+    roomCreate["RoomCreateService<br/>단일 트랜잭션"] --> roomEntity["ROOMS 저장"]
+    roomCreate --> roomCreated["room.contract.RoomCreated"]
+    roomCreated --> chatRoomListener["chat 동기 listener"]
+    chatRoomListener --> chatRoom["CHAT_ROOMS 저장<br/>같은 트랜잭션"]
+    chatController["ChatController<br/>HTTP 전송·조회"] --> chatService["ChatMessageCommandService<br/>단일 트랜잭션"]
+    chatService --> access["room.contract ChatAccessGuard<br/>ROOMS 공유 잠금·권한 확인"]
+    access --> appendLock["CHAT_ROOMS 쓰기 잠금<br/>방별 append 순서"]
+    appendLock --> messageWrite["멱등성 키 확인<br/>메시지 저장"]
+    messageWrite --> messages["CHAT_MESSAGES"]
+    messageWrite --> committed["메시지 커밋"]
+    committed --> afterCommit["AFTER_COMMIT listener"]
+    afterCommit --> publishPort["chat.contract<br/>ChatRealtimePublisher"]
+    publishPort --> redis["Redis Pub/Sub<br/>eventType·roomId·messageId"]
+    redis --> subscriber["각 인스턴스 Redis subscriber"]
+    subscriber --> catchup["PostgreSQL catch-up<br/>messageId ASC"]
+    catchup --> websocket["인스턴스 로컬<br/>WebSocket 연결"]
+    wsHandler["ChatWebSocketHandler<br/>방별 수신 연결"] --> access
+    chatController --> history["ChatHistoryQueryService<br/>커서 조회"]
+    history --> messages
+    retention["ChatMessageRetentionScheduler<br/>하루 한 번"] --> schedulerLock["PostgreSQL ShedLock"]
+    schedulerLock --> deleteBatch["소량 묶음 삭제<br/>독립 트랜잭션"]
+    deleteBatch --> messages
+```
+
+메시지 전송은 일반 `@Transactional` 하나에서 권한·상태, 멱등성 키와 저장을 처리한다. `REQUIRES_NEW`와 낙관 락 재시도를 사용하지 않는다. 잠금 순서는 `ROOMS` 다음 `CHAT_ROOMS`로 고정하고 메시지마다 `Room.version`을 올리지 않는다.
+
+실시간 전달은 [ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)에 따라 저장 커밋 뒤에만 수행하며 전달 실패가 저장을 롤백하지 않는다. Redis 신호는 `eventType`, `roomId`, `messageId`만 포함하고 메시지 본문 정본이 아니다. 구독 인스턴스는 로컬 연결별 마지막 전달 ID 이후의 PostgreSQL 이력을 조회한다. 이력·재연결은 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)의 `messageId` cursor를 사용한다.
+
+방이 최종 상태가 되면 일반 사용자 접근은 즉시 차단하고, 메시지는 [ADR-0034](adr/chat/0034-chat-message-retention-and-deletion.md)에 따라 30일 뒤 일일 스케줄러가 소량 묶음으로 삭제한다. 모든 인스턴스가 스케줄을 등록하지만 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)의 PostgreSQL ShedLock을 얻은 하나만 작업을 실행한다. 잠금 트랜잭션과 각 삭제 묶음의 독립 트랜잭션은 결합하지 않는다.
+
+#### 다중 인스턴스 실행
+
+공용 세션과 스케줄 실행 조정의 기술 결정은 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)이 소유한다.
+
+`local-single`은 인메모리 세션·fan-out을 허용하는 빠른 단일 서버 개발 프로필이다. P1 필수 검증 환경인 `local-multi`는 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL과 Redis로 구성한다. 운영 정본은 ALB가 ASG 애플리케이션 인스턴스로 요청을 분산하고 모든 인스턴스가 공용 RDS PostgreSQL과 Redis를 사용하는 구조다.
+
+- `JSESSIONID`의 인증 상태는 Spring Session Redis에 저장한다. HTTP 요청과 WebSocket handshake가 다른 인스턴스에 도달해도 동일 세션을 사용하며 ALB stickiness에 정합성을 의존하지 않는다.
+- 하나의 Redis를 Spring Session, 채팅 Pub/Sub과 사용자·방 단위 rate limit에 사용하되 key prefix, TTL과 channel namespace를 분리한다.
+- `local-multi`와 `prod`는 Redis 장애 시 인메모리 구현으로 자동 fallback하지 않는다. 세션·rate limit을 확인할 수 없으면 `503 Service Unavailable`로 실패한다.
+- 각 인스턴스는 자신에게 연결된 WebSocket만 메모리에 보관한다. Redis subscriber는 `chat.contract`의 수신 port를 호출하고 구체 Redis 타입을 `chat`에 노출하지 않는다.
+- 참가 취소·방 최종 상태 신호는 해당 방의 로컬 연결이 현재 권한을 다시 확인하게 하고, 세션 만료 이벤트는 해당 연결을 종료한다. 메시지 전달 직전에는 PostgreSQL의 현재 관계·상태를 다시 확인한다.
+- Redis Pub/Sub 누락·중복·순서 역전은 다음 신호 또는 PostgreSQL `messageId` catch-up으로 복구한다. 커밋 뒤 Redis 발행·구독 실패는 메시지 저장 결과를 롤백하거나 삭제하지 않는다.
+- 방·참가 동시성은 공용 PostgreSQL의 기존 `Room.version` 낙관 락과 제한 재시도를 유지한다. 다중 인스턴스라는 이유로 Redis 분산 락으로 교체하지 않는다.
+- 방 상태 보정과 채팅 만료 삭제는 모든 인스턴스에 등록하되 Spring Scheduler와 PostgreSQL ShedLock으로 한 실행만 조정한다. 잠금은 업무 트랜잭션과 분리하고 작업 본문은 재실행되어도 같은 결과로 수렴시킨다.
+- Quartz 클러스터, Outbox, Redis Streams, RabbitMQ와 Kafka는 P1에 도입하지 않는다.
+- 실제 AWS의 WebSocket Upgrade, scale-out, 인스턴스 교체·draining과 운영 Redis 제품·HA·TLS·접근 제어·비밀·비용 검증은 후속 OPS다. 이 미검증은 `local-multi` 기반 P1 채팅 구현을 막지 않는다.
 
 #### 기준 시각과 재시도
 
@@ -301,10 +369,12 @@ Repository Projection은 쿼리가 선택한 열을 담는 저장소 계층 타�
 - P1 Notification 코드를 조회·변경·relay·recovery·cleanup 책임에 맞는 허용 패키지에만 배치
 - Retrier 직접 사용자를 `RoomCommandExecutionCoordinator`, `RoomStatusCorrectionCoordinator`로 제한
 
-현재 `infra` 패키지가 없으므로 다음 규칙은 [FND-07의 후속 범위](archive/p0/foundation.md#fnd-07-모듈-구조-검증)다. 첫 외부 어댑터를 추가할 때 같은 변경에서 ArchUnit 규칙을 구현하고 위의 현재 목록으로 옮긴다.
+현재 `chat`·`infra` 패키지가 없으므로 다음 규칙은 P1 구현 시 같은 변경에서 ArchUnit으로 추가하고 위의 현재 목록으로 옮긴다.
 
 - `infra`가 업무 모듈의 `contract` 밖 내부 구현에 의존하지 않는다.
 - 업무 모듈이 `infra`의 구체 구현을 참조하지 않는다.
+- `chat`이 `room`·`user`의 공개 `contract` 밖 내부 구현을 참조하지 않는다.
+- `chat`의 저장·권한 규칙이 Redis·Spring Session·ShedLock 구현 타입을 직접 참조하지 않는다.
 
 `notification` 모듈의 현재 구현·검증 여부는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)으로 판정한다. 구조 테스트에 모듈·허용 의존·패키지 규칙을 먼저 등록하거나 빈 패키지를 추가한 사실만으로 생산 코드·자동 검증 상태를 완료로 바꾸지 않는다. ADR-0029·ADR-0039·ADR-0040의 트랜잭션·잠금·복구·정리·표시·읽음 결정은 요구된 생산 코드와 PostgreSQL 검증 증거를 모두 갖춰야 한다.
 
