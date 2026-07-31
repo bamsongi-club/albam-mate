@@ -39,6 +39,9 @@ body {
   word-break: keep-all;
 }
 
+/* 헤더·본문·푸터는 body가 아니라 #root 안에 있다. 본문이 짧은 화면에서도 푸터를 화면 바닥에 붙인다. */
+#root { display: flex; flex-direction: column; min-height: 100dvh; }
+
 a { color: inherit; text-decoration: none; }
 button { background: none; border: 0; color: inherit; cursor: pointer; font: inherit; }
 input, select, textarea {
@@ -79,7 +82,8 @@ header {
 /* 메뉴와 성격이 다른 계정 진입점이라 앞쪽을 한 칸 더 띄운다. */
 #gnb .profile-icon { align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 999px; display: inline-flex; justify-content: center; margin-left: 8px; padding: 8px; }
 
-main { margin: 0 auto; max-width: 1180px; padding: 28px 20px 84px; }
+/* margin auto로 가운데 정렬한다. flex 아이템이라 auto 마진이 stretch를 끄므로 width를 함께 명시한다. */
+main { flex: 1 0 auto; margin: 0 auto; max-width: 1180px; padding: 28px 20px 84px; width: 100%; }
 .layout { align-items: start; display: grid; gap: 22px; grid-template-columns: 225px 1fr; }
 .layout.wide { grid-template-columns: 1fr 320px; }
 .grid { display: grid; gap: 14px; }
@@ -285,6 +289,17 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 #toast.err { background: var(--red); }
 
+/* 게임 정보 출처 표기는 모든 화면 하단에 둔다. 헤더와 같은 폭에 맞추고 경계선을 위아래 대칭으로 쓴다. */
+.site-footer { background: var(--bg); border-top: 1px solid var(--line); margin-top: auto; }
+.fwrap { color: var(--brown2); font-size: 12.5px; margin: 0 auto; max-width: 1180px; padding: 18px 20px 22px; }
+/* 출처 링크는 색만으로 구분하지 않는다. */
+.fwrap a { color: var(--brown); text-decoration: underline; text-underline-offset: 2px; }
+.fwrap a:hover { color: var(--accent-dark); }
+.fbrand { display: inline-flex; }
+/* BGG는 로고 안 텍스트를 읽을 수 있는 크기로 표시하도록 요구한다. 로고 색은 바꾸지 않는다. */
+.fbrand img { display: block; height: 28px; width: auto; }
+.fnote { margin: 12px 0 0; max-width: 62ch; }
+
 /* 동작 감소를 켠 사용자에게는 위치가 움직이는 효과를 주지 않는다. 색 변화는 남긴다. */
 @media (prefers-reduced-motion: reduce) {
   .entry, .btn, .gcard, .scard, .modecard, .list-swappable, #toast { transition-duration: 0.01ms; }
@@ -314,6 +329,8 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
   .cols2, .formrow { grid-template-columns: 1fr; }
   main { padding: 28px 16px 56px; }
   .hwrap { gap: 12px; padding: 10px 16px; }
+  .fwrap { padding: 16px 16px 20px; }
+  .fbrand img { height: 24px; }
   /* 로고만 남은 헤더에서도 메뉴는 오른쪽 끝에 둔다. */
   #gnb { margin-left: auto; }
   #gnb a { padding-left: 7px; padding-right: 7px; }

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import brandSymbol from '../assets/albam-mate-symbol.png';
+import poweredByBgg from '../assets/powered-by-bgg.svg';
 import { ApiError, api, clearCsrfToken, messageForError, setUnauthenticatedHandler } from './api';
 import './styles.css';
 
@@ -345,6 +346,19 @@ function Header({ route, me }) {
         </nav>
       </div>
     </header>
+  );
+}
+
+function SiteFooter() {
+  return (
+    <footer className="site-footer">
+      <div className="fwrap">
+        <a className="fbrand" href="https://boardgamegeek.com" target="_blank" rel="noreferrer noopener">
+          <img src={poweredByBgg} alt="Powered by BGG" />
+        </a>
+        <p className="fnote">게임 정보는 <a href="https://boardgamegeek.com" target="_blank" rel="noreferrer noopener">BoardGameGeek</a>, 국내 보드게임 자료, 알밤 메이트 팀의 직접 작성·검수와 플레이 경험을 바탕으로 구성했습니다.</p>
+      </div>
+    </footer>
   );
 }
 
@@ -1434,6 +1448,7 @@ function App() {
     <>
       <Header route={route} me={me} />
       <main>{content}</main>
+      <SiteFooter />
       <div id="toast" role="status" aria-live="polite" className={(toast.message ? 'show ' : '') + (toast.type === 'err' ? 'err' : '')}>{toast.message}</div>
     </>
   );
