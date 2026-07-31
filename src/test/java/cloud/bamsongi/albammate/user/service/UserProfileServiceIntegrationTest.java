@@ -7,13 +7,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import cloud.bamsongi.albammate.user.contract.UserNickname;
-import cloud.bamsongi.albammate.user.contract.UserProfile;
-import cloud.bamsongi.albammate.user.contract.UserProfileService;
+import cloud.bamsongi.albammate.user.dto.UserProfileResponse;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 
 @SpringBootTest
-class UserProfileApplicationServiceIntegrationTest {
+class UserProfileServiceIntegrationTest {
 
 	@Autowired
 	private UserProfileService userProfileService;
@@ -25,11 +24,11 @@ class UserProfileApplicationServiceIntegrationTest {
 		User user = userRepository.saveAndFlush(
 			User.create("profile-service@example.com", "{bcrypt}hash", "이전"));
 
-		UserProfile updated = userProfileService.changeNickname(
+		UserProfileResponse updated = userProfileService.changeNickname(
 			user.getId(), UserNickname.from("변경됨").orElseThrow());
 
-		assertEquals(new UserProfile(user.getId(), "변경됨"), updated);
+		assertEquals(new UserProfileResponse(user.getId(), "변경됨"), updated);
 		assertEquals(
-			new UserProfile(user.getId(), "변경됨"), userProfileService.findProfile(user.getId()));
+			new UserProfileResponse(user.getId(), "변경됨"), userProfileService.findProfile(user.getId()));
 	}
 }

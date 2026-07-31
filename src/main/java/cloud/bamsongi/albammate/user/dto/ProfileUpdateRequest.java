@@ -1,7 +1,7 @@
-package cloud.bamsongi.albammate.auth.dto;
+package cloud.bamsongi.albammate.user.dto;
 
-import cloud.bamsongi.albammate.auth.validation.ValidNickname;
 import cloud.bamsongi.albammate.user.contract.UserNickname;
+import cloud.bamsongi.albammate.user.contract.ValidNickname;
 import jakarta.validation.constraints.NotNull;
 
 /** 프로필 수정 HTTP 요청 원문을 표현한다. */

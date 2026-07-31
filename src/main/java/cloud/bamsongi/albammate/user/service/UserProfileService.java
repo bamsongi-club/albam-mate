@@ -7,8 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import cloud.bamsongi.albammate.global.exception.UnauthenticatedException;
 import cloud.bamsongi.albammate.user.contract.UserNickname;
-import cloud.bamsongi.albammate.user.contract.UserProfile;
-import cloud.bamsongi.albammate.user.contract.UserProfileService;
+import cloud.bamsongi.albammate.user.dto.UserProfileResponse;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 import lombok.NonNull;
@@ -17,23 +16,21 @@ import lombok.RequiredArgsConstructor;
 /** 현재 인증 사용자의 프로필 조회와 닉네임 변경을 사용자 모듈 트랜잭션으로 처리한다. */
 @Service
 @RequiredArgsConstructor
-public class UserProfileApplicationService implements UserProfileService {
+public class UserProfileService {
 
 	@NonNull private final UserRepository userRepository;
 
-	@Override
 	@Transactional(readOnly = true)
-	public UserProfile findProfile(long userId) {
-		return UserContractMapper.toUserProfile(requireCurrentUser(userId));
+	public UserProfileResponse findProfile(long userId) {
+		return UserProfileResponse.from(requireCurrentUser(userId));
 	}
 
-	@Override
 	@Transactional
-	public UserProfile changeNickname(long userId, UserNickname nickname) {
+	public UserProfileResponse changeNickname(long userId, UserNickname nickname) {
 		Objects.requireNonNull(nickname, "nickname");
 		User user = requireCurrentUser(userId);
 		user.changeNickname(nickname.value());
-		return UserContractMapper.toUserProfile(user);
+		return UserProfileResponse.from(user);
 	}
 
 	/**

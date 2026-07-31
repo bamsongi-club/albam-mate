@@ -1,4 +1,4 @@
-package cloud.bamsongi.albammate.auth.controller;
+package cloud.bamsongi.albammate.user.controller;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
@@ -24,7 +24,7 @@ import jakarta.servlet.http.Cookie;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class ProfileHttpIntegrationTest {
+class UserProfileHttpIntegrationTest {
 
 	@Autowired
 	private MockMvc mockMvc;
