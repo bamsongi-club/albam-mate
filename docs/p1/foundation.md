@@ -86,7 +86,7 @@ ERD에는 승인된 P1 채팅·ShedLock 저장 계약이 구현 예정 계약으
 - `afterMessageId` 이후 누락 이력을 ID 오름차순으로 전달하고 복구 중 새 이벤트를 버퍼링·중복 제거하는 재연결 흐름
 - PostgreSQL 메시지 커밋 뒤 `eventType`·`roomId`·`messageId`만 Redis로 발행하고 각 인스턴스가 DB catch-up하는 fan-out 경로
 - Redis 신호 누락·중복·순서 역전과 AFTER_COMMIT 발행 실패를 다음 신호·이력 조회·재연결로 복구하는 경로
-- 세션·rate limit 실패의 `503`과 커밋 뒤 Pub/Sub 실패의 저장 성공을 구분하는 실패 경계
+- 세션·rate limit 실패의 `503 SERVICE_UNAVAILABLE`과 커밋 뒤 Pub/Sub 실패의 저장 성공을 구분하는 실패 경계
 - 관계·방 상태·세션 변경 뒤 기존 연결의 권한을 회수하는 경로
 - 메시지 본문·세션·내부 사용자 식별자를 포함하지 않는 연결 수, 저장 후 전달 지연, 실패와 복구 관측값
 

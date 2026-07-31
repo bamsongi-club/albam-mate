@@ -12,7 +12,7 @@
 - P1 필수 검증 환경인 `local-multi`는 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL과 Redis로 구성한다.
 - 운영 정본은 ALB·ASG 애플리케이션 인스턴스와 공용 RDS PostgreSQL·Redis다. 실제 AWS scale-out·WebSocket Upgrade·연결 draining 검증은 후속 OPS이며 채팅 구현 완료를 막지 않는다.
 - `local-multi`와 `prod`는 Spring Session, Pub/Sub과 사용자·방 단위 전송 제한에 하나의 Redis를 사용하되 key prefix, TTL과 channel namespace를 분리한다. Redis가 없을 때 인메모리 구현으로 자동 fallback하지 않는다.
-- 세션 또는 전송 제한을 확인할 수 없으면 `503 Service Unavailable`로 실패한다. PostgreSQL 커밋 뒤 Redis Pub/Sub 발행·구독이 실패하면 저장 성공은 유지하고 이력 조회·다음 신호·재연결로 복구한다.
+- 세션 또는 전송 제한을 확인할 수 없으면 API 정본의 `503 SERVICE_UNAVAILABLE`로 실패한다. PostgreSQL 커밋 뒤 Redis Pub/Sub 발행·구독이 실패하면 저장 성공은 유지하고 이력 조회·다음 신호·재연결로 복구한다.
 - 운영 Redis 제품, HA, TLS, 접근 제어, 비밀 주입과 비용은 후속 OPS에서 확정한다.
 - 세션 TTL·직렬화 방식과 정확한 key·channel namespace는 후속 구현 이슈에서 확정한다.
 
@@ -191,7 +191,7 @@
 - 메시지는 일반 텍스트로 렌더링하고 사용자 입력을 HTML로 실행하지 않는다.
 - 사용자·방 단위 전송 제한은 `local-multi`와 `prod`의 공용 Redis에서 서로 다른
   key prefix와 TTL로 관리한다. Redis에서 제한 상태를 확인할 수 없으면 메시지를
-  저장하지 않고 `503 Service Unavailable`로 실패시킨다.
+  저장하지 않고 API 정본의 `503 SERVICE_UNAVAILABLE`로 실패시킨다.
 - 메시지 본문, 세션 식별자와 내부 사용자 식별자는 로그·메트릭에 포함하지 않는다.
 - 만료 삭제 작업은 성공·삭제 건수·지연·실패를 기록하고, 실패한 묶음만 다음
   스케줄에서 다시 처리한다.
@@ -213,7 +213,7 @@
 - `CHAT-04-AC5` 두 애플리케이션 인스턴스에 같은 만료 스케줄이 등록되어도 한
   실행만 작업을 소유하고, 각 삭제 묶음의 성공은 다른 묶음 실패로 롤백되지 않는다.
 - `CHAT-04-AC6` `local-multi`에서 Redis 전송 제한 상태를 확인할 수 없으면
-  인메모리로 fallback하지 않고 메시지도 저장하지 않은 채 `503 Service Unavailable`을
+  인메모리로 fallback하지 않고 메시지도 저장하지 않은 채 `503 SERVICE_UNAVAILABLE`을
   반환한다.
 
 ### 제외 범위

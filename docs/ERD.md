@@ -240,7 +240,7 @@ P1 구현 예정 테이블이며 메시지 저장의 최종 정본이다([ADR-00
 
 ### SHEDLOCK
 
-P1 구현 예정 기술 테이블이다. [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)에 따라 모든 애플리케이션 인스턴스에 등록된 Spring Scheduler 중 한 실행만 작업을 소유하도록 PostgreSQL 기반 ShedLock이 사용한다. ROOM·참가 업무 락이나 영속 Job 큐로 사용하지 않는다.
+P1 구현 예정 기술 테이블이다. [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)에 따라 모든 애플리케이션 인스턴스에 등록된 ROOM 상태 보정과 채팅 만료 삭제 Spring Scheduler 중 한 실행만 작업을 소유하도록 PostgreSQL 기반 ShedLock이 사용한다. 알림 relay, ROOM·참가 업무 락이나 영속 Job 큐로 사용하지 않는다.
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|

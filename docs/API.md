@@ -1447,7 +1447,7 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 
 ### 채팅 공통 계약
 
-채팅의 제품 규칙은 [P1 방 채팅 기능 명세](p1/chatting.md)를 따른다. 아래 인터페이스는 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)~[ADR-0034](adr/chat/0034-chat-message-retention-and-deletion.md)가 모두 제안 상태이므로 구현 예정 계약이며, ADR 승인과 저장·아키텍처 계약 반영 전에는 제공 기능을 뜻하지 않는다.
+채팅의 제품 규칙은 [P1 방 채팅 기능 명세](p1/chatting.md)를 따른다. 아래 인터페이스는 구현 예정 계약이다. [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)은 제안 상태이고 [ADR-0032](adr/chat/0032-http-send-websocket-receive.md)~[ADR-0034](adr/chat/0034-chat-message-retention-and-deletion.md)는 승인됐지만, 구현과 검증이 끝나기 전에는 제공 기능을 뜻하지 않는다.
 
 모든 채팅 요청은 요청 시점의 방 상태와 주최자·현재 `ACTIVE` 참가자 관계를 서버에서 다시 확인한다. `RECRUITING`·`CLOSED` 방만 일반 사용자 접근을 허용하며, 참가 취소·`CANCELED`·`FINISHED` 상태는 `FORBIDDEN`으로 거절한다. 메시지 본문은 로그와 메트릭에 기록하지 않는다.
 
@@ -1490,6 +1490,7 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 | 주최자·현재 `ACTIVE` 참가자가 아니거나 방이 `CANCELED`·`FINISHED`임 | 403 | `FORBIDDEN` |
 | 본문·경로·멱등성 키 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 사용자·방 단위 전송 제한 초과 | 429 | `RATE_LIMIT_EXCEEDED` |
+| 세션 또는 전송 제한 상태 저장소를 확인할 수 없음 | 503 | `SERVICE_UNAVAILABLE` |
 | CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
 
 ### CHAT-02 메시지 이력 조회
@@ -1517,6 +1518,7 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 | 방이 없음 | 404 | `ROOM_NOT_FOUND` |
 | 주최자·현재 `ACTIVE` 참가자가 아니거나 방이 `CANCELED`·`FINISHED`임 | 403 | `FORBIDDEN` |
 | 경로·커서·크기 검증 실패 | 400 | `VALIDATION_ERROR` |
+| 세션 상태 저장소를 확인할 수 없음 | 503 | `SERVICE_UNAVAILABLE` |
 
 ### CHAT-03 실시간 메시지 구독
 
@@ -1546,6 +1548,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 | 주최자·현재 `ACTIVE` 참가자가 아니거나 방이 `CANCELED`·`FINISHED`임 | 403 | `FORBIDDEN` |
 | 경로·커서 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 허용되지 않은 `Origin` | 403 | `FORBIDDEN` |
+| Upgrade 전에 세션 상태 저장소를 확인할 수 없음 | 503 | `SERVICE_UNAVAILABLE` |
 
 ## 10. 오류 코드
 
@@ -1572,8 +1575,11 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 | `NOT_ACCEPTABLE` | 406 | 요청한 응답 미디어 타입을 제공할 수 없습니다. | `Accept` 헤더와 호환되는 응답 미디어 타입이 없음 |
 | `UNSUPPORTED_MEDIA_TYPE` | 415 | 지원하지 않는 요청 미디어 타입입니다. | `Content-Type`이 요청 본문에서 지원하는 미디어 타입과 호환되지 않음 |
 | `INTERNAL_SERVER_ERROR` | 500 | 서버 오류가 발생했습니다. | 처리하지 않은 예외로 요청을 완료하지 못함 |
+| `SERVICE_UNAVAILABLE` | 503 | 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요. | 요청 처리에 필수인 세션 또는 전송 제한 상태 저장소를 확인할 수 없음 |
 
 `METHOD_NOT_ALLOWED`, `NOT_ACCEPTABLE`, `UNSUPPORTED_MEDIA_TYPE` 응답은 Spring MVC 예외가 제공하는 `Allow`, `Accept`, `Accept-Patch` 등의 프로토콜 헤더가 있으면 그대로 포함한다.
+
+`local-multi`와 `prod`에서 세션을 생성·조회·갱신·무효화하는 엔드포인트는 Spring Session Redis를 확인할 수 없으면 `SERVICE_UNAVAILABLE`을 반환한다. 이 공통 규칙은 로그인·로그아웃, 인증된 API와 채팅 등 세션 사용 엔드포인트의 개별 오류 목록에 추가로 적용한다. 비로그인 CSRF 조회는 서버 세션을 만들지 않으므로 적용하지 않는다. 채팅 메시지 전송은 세션 저장소가 정상이더라도 전송 제한 상태 저장소를 확인할 수 없으면 같은 코드를 반환한다.
 
 ### 10.2 인증·회원 오류
 
@@ -1637,6 +1643,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 |---|---|
 | 모든 엔드포인트 | `METHOD_NOT_ALLOWED`, `NOT_ACCEPTABLE`, `UNSUPPORTED_MEDIA_TYPE`, `INTERNAL_SERVER_ERROR` |
 | 요청 경로에 대응하는 엔드포인트 또는 정적 리소스 없음 | `RESOURCE_NOT_FOUND` |
+| 세션을 생성·조회·갱신·무효화하는 모든 엔드포인트 | `SERVICE_UNAVAILABLE` |
 | `GET /api/auth/csrf` | 없음 |
 | `POST /api/auth/signup` | `VALIDATION_ERROR`, `EMAIL_ALREADY_EXISTS`, `RATE_LIMIT_EXCEEDED`, `CSRF_TOKEN_INVALID` |
 | `POST /api/auth/login` | `VALIDATION_ERROR`, `INVALID_CREDENTIALS`, `RATE_LIMIT_EXCEEDED`, `CSRF_TOKEN_INVALID` |
@@ -1661,9 +1668,9 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 | `GET /api/users/me/notifications/unread-count` | `UNAUTHENTICATED` |
 | `PATCH /api/users/me/notifications/{notificationId}` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `NOTIFICATION_NOT_FOUND`, `CSRF_TOKEN_INVALID` |
 | `PATCH /api/users/me/notifications` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `CSRF_TOKEN_INVALID` |
-| `POST /api/rooms/{roomId}/chat/messages` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `VALIDATION_ERROR`, `RATE_LIMIT_EXCEEDED`, `CSRF_TOKEN_INVALID` |
-| `GET /api/rooms/{roomId}/chat/messages` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `VALIDATION_ERROR` |
-| `GET /api/rooms/{roomId}/chat/ws` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `VALIDATION_ERROR` |
+| `POST /api/rooms/{roomId}/chat/messages` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `VALIDATION_ERROR`, `RATE_LIMIT_EXCEEDED`, `SERVICE_UNAVAILABLE`, `CSRF_TOKEN_INVALID` |
+| `GET /api/rooms/{roomId}/chat/messages` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `VALIDATION_ERROR`, `SERVICE_UNAVAILABLE` |
+| `GET /api/rooms/{roomId}/chat/ws` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `VALIDATION_ERROR`, `SERVICE_UNAVAILABLE` |
 
 - `GET /api/rooms/{roomId}`에서만 취소·종료 방을 권한 없는 사용자가 조회할 때 존재 여부를 숨기기 위해 `ROOM_NOT_FOUND`를 반환한다. 그 외 주최자 전용 쓰기 API의 비주최자 요청은 `FORBIDDEN`을 반환한다.
 - `PATCH /api/rooms/{roomId}`의 `GAME_NOT_FOUND`는 요청에 `gameId`를 포함했을 때만 적용한다.
