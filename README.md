@@ -2,7 +2,7 @@
 
 > 원하는 게임과 모임 조건을 확인하고 함께할 사람을 찾아, 실제 보드게임 플레이까지 이어지도록 돕는 모임 매칭 서비스입니다.
 
-[제품 목표](docs/PRD.md) · [P0 명세](docs/archive/p0/P0-spec.md) · [API 계약](docs/API.md) · [아키텍처](docs/ARCHITECTURE.md)
+[제품 목표](docs/PRD.md) · [P0 완료 명세](docs/archive/p0/P0-spec.md) · [P1 계획 명세](docs/P1-spec.md) · [API 계약](docs/API.md) · [아키텍처](docs/ARCHITECTURE.md)
 
 P0 백엔드 17개 API와 프론트엔드 연동을 구현했지만 운영 배포는 시작하지 않았습니다. 상세 구현·검증 상태는 [현재 개발 상태](#현재-개발-상태)를 따릅니다.
 
@@ -49,8 +49,9 @@ P0는 홍대 오프라인 모임만 다루며 운영 제재·결제·알림·대
 | 참가·내 모임 | [기능 명세](docs/archive/p0/participation.md) 있음 | `PART-01`~`PART-03`의 3개 API | PostgreSQL 낙관 락 동시성 테스트 |
 | 프론트엔드 | [프론트엔드 README](frontend/README.md) 있음 | React 화면과 세션 쿠키·CSRF를 포함한 P0 API 연동 | `npm ci`와 Vite 운영 빌드를 CI에서 검증, 자동 동작 테스트는 아직 없음 |
 | 운영 배포 | [ADR-0021 운영 인프라 기준](docs/adr/platform/0021-p0-aws-ec2-rds-deployment-baseline.md) 있음 | 구현 전 | 검증 전 |
+| P1 2차 MVP | [P1 공통 명세](docs/P1-spec.md)와 [기능·기반 문서](docs/p1/README.md) 있음 | 미구현. API의 P1 행은 구현 예정 계약이며 저장 구조는 ERD 반영 전 | 미검증. 제안 ADR 승인, ERD·아키텍처 반영과 기능별 검증 필요 |
 
-위 표는 2026-07-31 기준입니다.
+P0 구현 상태는 2026-07-31 기준이며, P1 행은 현재 계획 문서의 상태를 별도로 표시합니다.
 
 ## 팀 — 밤송이클럽
 
@@ -133,6 +134,7 @@ cd frontend && npm run dev
 
 - 제품의 전체 목표와 후속 후보: [PRD](docs/PRD.md)
 - P0 범위와 핵심 흐름: [P0 명세](docs/archive/p0/P0-spec.md)
+- P1 2차 MVP 범위와 기능별 기준: [P1 명세](docs/P1-spec.md), [P1 기능 문서](docs/p1/README.md)
 - 개발 작업의 시작점: [AGENTS.md](AGENTS.md)
 - 백엔드 구조·모듈 책임과 의존 흐름: [아키텍처](docs/ARCHITECTURE.md)
 - 요청·응답과 오류 계약: [API 명세](docs/API.md)
@@ -143,4 +145,4 @@ cd frontend && npm run dev
 - 실행·테스트·포맷 명령: [프로젝트 명령](docs/COMMANDS.md)
 - 프론트엔드 화면과 실행: [프론트엔드 README](frontend/README.md)
 
-P0 구현 기록은 [문서 아카이브](docs/archive/README.md)에 동결했습니다. P1 명세가 작성되기 전에는 P0 기능 ID를 새 구현 작업의 진입점으로 사용하지 않습니다.
+P0 구현 기록은 [문서 아카이브](docs/archive/README.md)에 동결했습니다. P1 문서는 계획·구현 기준이며, 실제 제공 상태는 현재 코드·API·ERD와 [현재 개발 상태](#현재-개발-상태)를 기준으로 판단합니다.

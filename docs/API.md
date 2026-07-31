@@ -1,17 +1,17 @@
-# 알밤메이트 P0 API 명세서
+# 알밤메이트 API 명세서
 
-- 문서 상태: **P0 1차 MVP HTTP API 계약 (정본)**
-- 기준 문서: [PRD](PRD.md), [P0 공통 명세](archive/p0/P0-spec.md), [기능별 P0 명세](archive/p0/P0-spec.md#관련-문서), [ERD](ERD.md)
+- 문서 상태: **P0 제공·P1 구현 예정 HTTP·WebSocket 인터페이스 계약 (정본)**
+- 기준 문서: [PRD](PRD.md), [P1 공통 명세](P1-spec.md), [P1 기능별 명세](p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md), [ERD](ERD.md)
 
 ### 이 문서의 범위
 
 | 구분 | 내용 |
 |---|---|
-| 이 문서가 정본인 것 | 클라이언트와 서버 사이 HTTP 계약 — 경로, 인증·CSRF, 요청·응답 스키마, 쿼리 파라미터, HTTP 상태, 오류 코드와 판정 순서 |
-| 이 문서가 담지 않는 것 | 제품 규칙의 배경(→ [P0-spec](archive/p0/P0-spec.md), [p0/](archive/p0/P0-spec.md#관련-문서)), 저장 구조·계산식(→ [ERD](ERD.md)), 되돌리기 어려운 기술 결정과 근거(→ [ADR](adr/README.md)) |
-| 변경 시 함께 갱신 | API 계약을 바꾸면 같은 변경에서 이 문서와 [엔드포인트별 오류 매트릭스](#10-부록-엔드포인트별-오류-매트릭스)를 함께 갱신하고, 관련 정본([P0-spec](archive/p0/P0-spec.md)·[ERD](ERD.md)·[ADR](adr/README.md))과의 정합을 확인한다. 상세 규칙은 [CONVENTIONS](CONVENTIONS.md#api-응답)를 따른다. |
+| 이 문서가 정본인 것 | 클라이언트와 서버 사이 HTTP·WebSocket 계약 — 경로, 인증·CSRF, handshake, 요청·응답·이벤트 스키마, 쿼리 파라미터, 상태, 오류 코드와 판정 순서 |
+| 이 문서가 담지 않는 것 | 제품 규칙의 배경(→ [P1-spec](P1-spec.md), [p1/](p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md)), 저장 구조·계산식(→ [ERD](ERD.md)), 되돌리기 어려운 기술 결정과 근거(→ [ADR](adr/README.md)) |
+| 변경 시 함께 갱신 | API 계약을 바꾸면 같은 변경에서 이 문서와 [엔드포인트별 오류 매트릭스](#11-부록-엔드포인트별-오류-매트릭스)를 함께 갱신하고, 관련 정본([P1-spec](P1-spec.md)·[P1 기능 문서](p1/README.md)·[ERD](ERD.md)·[ADR](adr/README.md))과의 정합을 확인한다. 상세 규칙은 [CONVENTIONS](CONVENTIONS.md#api-응답)를 따른다. |
 
-> 이 문서는 P0 1차 MVP의 17개 API만 정의한다. 같은 사실을 다른 정본과 중복해서 서술하지 않고, 배경과 근거가 필요한 곳에서는 해당 정본으로 링크한다.
+> P0 행은 현재 제공 계약, P1 행은 구현 예정 계약이다. P1 API는 코드·ERD·아키텍처와 필요한 ADR에 반영되고 검증되기 전까지 제공 기능이나 구현 완료를 뜻하지 않는다. 같은 사실을 다른 정본과 중복해서 서술하지 않고, 배경과 근거가 필요한 곳에서는 해당 정본으로 링크한다.
 
 ### 대표 흐름으로 읽기
 
@@ -39,18 +39,19 @@ P0는 `게임부터 찾기`, `사람부터 만나기`, `방 만들기` 세 흐�
 - [5. 인증·프로필 API](#5-인증프로필-api)
 - [6. 게임 API](#6-게임-api)
 - [7. 방 API](#7-방-api)
-- [8. 참가·내 모임 API](#8-참가내-모임-api)
-- [9. 오류 코드](#9-오류-코드)
-- [10. 부록: 엔드포인트별 오류 매트릭스](#10-부록-엔드포인트별-오류-매트릭스)
+- [8. 참가·대기·내 모임 API](#8-참가대기내-모임-api)
+- [9. 알림·채팅 API](#9-알림채팅-api)
+- [10. 오류 코드](#10-오류-코드)
+- [11. 부록: 엔드포인트별 오류 매트릭스](#11-부록-엔드포인트별-오류-매트릭스)
 
 ## 1. 공통 계약
 
-### 1.1 HTTP와 데이터 형식
+### 1.1 HTTP·WebSocket과 데이터 형식
 
 | 항목 | 계약 |
 |---|---|
 | API prefix | `/api` |
-| 요청·응답 본문 | `application/json` |
+| 요청·응답 본문 | HTTP API는 `application/json`; WebSocket은 Upgrade 뒤 서버 발신 JSON 텍스트 프레임 |
 | JSON 필드명 | camelCase |
 | 식별자 | JSON에서는 integer, 경로에서는 1 이상의 10진 정수. 형식·범위를 벗어난 경로 값은 대상을 조회하기 전에 `400 VALIDATION_ERROR`로 거절한다. 생성 전략은 [ADR-0006](adr/platform/0006-p0-bigint-identity-ids.md)과 [ERD](ERD.md#테이블-명세)를 따른다 |
 | 요청 시각 | RFC 3339 기반 서비스 프로필의 `date-time`. `T`/`t` 구분자와 `Z`/`z` UTC 표기를 허용하며, `±HH:MM` 오프셋도 허용한다. 초는 필수이고 `00`~`59` 또는 윤초 `60`을 허용한다. 윤초 `60`은 Java 21 `Instant`가 표현할 수 있는 직전 `:59` 시각의 `Instant`로 정규화한다 |
@@ -58,10 +59,11 @@ P0는 `게임부터 찾기`, `사람부터 만나기`, `방 만들기` 세 흐�
 
 - 요청 시각의 오프셋이 없거나 형식을 해석할 수 없으면 `400 VALIDATION_ERROR`다. 응답은 `+09:00`으로 반환한다. 내부 저장·비교 기준은 [ADR-0009](adr/platform/0009-utc-time-standard.md)를 따른다.
 - `gameId`는 BoardGameGeek의 `bggId`가 아니라 알밤메이트 내부 게임 ID다. 자세한 구분은 [4.4 GameSummary](#44-gamesummary)를 따른다.
-P0는 다음 HTTP 상태 코드를 사용한다.
+이 문서의 API는 다음 HTTP 상태 코드를 사용한다.
 
 | HTTP | 용도 |
 |---:|---|
+| `101` | WebSocket 프로토콜 전환 |
 | `400` | 검증 오류 |
 | `401` | 미인증 |
 | `403` | 권한 없음 |
@@ -73,13 +75,13 @@ P0는 다음 HTTP 상태 코드를 사용한다.
 | `429` | 요청 한도 초과 |
 | `500` | 처리하지 않은 서버 오류 |
 
-- P0에서 요청 본문으로 기존 리소스의 일부를 수정하는 API는 `PATCH`를 사용한다. 이후 수정 API의 `PUT`·`PATCH` 선택과 종료 명령의 재시도 기준은 [ADR-0022](adr/platform/0022-p0-update-api-http-method-and-finish-idempotency.md)를 따른다.
+- 요청 본문으로 기존 리소스의 일부를 수정하는 API는 `PATCH`를 사용한다. 클라이언트가 리소스 전체 표현을 결정해 교체할 때만 `PUT`을 사용하며, 세부 기준과 종료 명령의 재시도 기준은 [ADR-0022](adr/platform/0022-p0-update-api-http-method-and-finish-idempotency.md)를 따른다.
 
 JSON 필드는 camelCase를 사용한다. 저장 컬럼(snake_case)과의 대응은 [ERD 테이블 명세](ERD.md#테이블-명세)를 정본으로 한다.
 
 ### 1.2 인증·세션·CSRF
 
-P0는 서버 세션 인증을 사용한다. Bearer access token과 refresh token은 사용하지 않는다. 세부 기준은 [ADR-0003](adr/auth/0003-p0-server-session-spring-security.md)을 따른다.
+P0와 P1은 서버 세션 인증을 사용한다. Bearer access token과 refresh token은 사용하지 않는다. 세부 기준은 [ADR-0003](adr/auth/0003-p0-server-session-spring-security.md)을 따른다.
 
 | 항목 | 계약 |
 |---|---|
@@ -95,8 +97,9 @@ P0는 서버 세션 인증을 사용한다. Bearer access token과 refresh token
 |---|:---:|:---:|
 | 공개 `GET` | 불필요 | 불필요 |
 | 보호 `GET` | 필요 | 불필요 |
-| 공개 `POST`·`PATCH`·`DELETE` | 불필요 | 필요 |
-| 보호 `POST`·`PATCH`·`DELETE` | 필요 | 필요 |
+| 보호 WebSocket handshake `GET` | 필요 | 불필요. 허용된 `Origin`을 별도로 검증 |
+| 공개 `POST`·`PUT`·`PATCH`·`DELETE` | 불필요 | 필요 |
+| 보호 `POST`·`PUT`·`PATCH`·`DELETE` | 필요 | 필요 |
 
 - 상태 변경 요청은 자동 전송되는 `XSRF-TOKEN` 쿠키와, `headerName`이 지정한 헤더에 담은 `token` 값을 함께 전달한다. 클라이언트는 회원가입·로그인 전에 공개 API인 `GET /api/auth/csrf`를 먼저 호출한다. 비로그인 CSRF 조회는 `JSESSIONID`와 서버 세션을 생성하지 않는다.
 - 로그인 성공 시 세션 ID를 교체하고 새 `JSESSIONID`를 설정한다. 로그아웃은 서버 세션과 인증 상태를 무효화하고 `JSESSIONID`를 만료시킨다.
@@ -106,7 +109,7 @@ P0는 서버 세션 인증을 사용한다. Bearer access token과 refresh token
 
 ### 1.3 공통 응답
 
-모든 API는 공통 응답 객체를 반환한다. `status`는 실제 HTTP 상태 코드와 같으며, 생성 성공 API는 HTTP `201 Created`와 `"status": 201`을 사용한다.
+일반 HTTP API는 공통 응답 객체를 반환한다. `status`는 실제 HTTP 상태 코드와 같으며, 생성 성공 API는 HTTP `201 Created`와 `"status": 201`을 사용한다. WebSocket의 `101 Switching Protocols`와 Upgrade 이후 텍스트 프레임에는 이 envelope를 적용하지 않는다. handshake가 Upgrade 전에 실패하면 공통 오류 응답을 사용한다.
 
 성공 응답:
 
@@ -136,7 +139,7 @@ P0는 서버 세션 인증을 사용한다. Bearer access token과 refresh token
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
 | `status` | integer | Y | N | 실제 HTTP 상태 코드와 같은 값 |
-| `code` | string | Y | N | [오류 코드](#9-오류-코드)의 코드 |
+| `code` | string | Y | N | [오류 코드](#10-오류-코드)의 코드 |
 | `message` | string | Y | N | 오류 코드의 한국어 기본 메시지 |
 | `data` | null | Y | Y | 실패 응답에서는 항상 `null` |
 
@@ -177,19 +180,22 @@ P0는 서버 세션 인증을 사용한다. Bearer access token과 refresh token
 | `hasNext` | boolean | Y | N | 다음 페이지 존재 여부 |
 
 - 클라이언트 지정 `sort`와 응답 필드 `first`, `last`는 지원하지 않는다.
-- P0 목록 API는 아래 고정 정렬을 적용한다. 모든 정렬은 마지막에 내부 `id`를 고유 tie-breaker로 사용해 페이지 이동 중 순서가 임의로 바뀌지 않게 한다.
+- 목록 API는 아래 고정 정렬을 적용한다. 모든 정렬은 마지막에 내부 `id`를 고유 tie-breaker로 사용해 같은 DB 상태에서 페이지 이동 중 순서가 임의로 바뀌지 않게 한다.
 
 | API | 고정 정렬 |
 |---|---|
 | `GET /api/games` | `name ASC, id ASC` |
 | `GET /api/rooms` | 상태 보정과 필터를 적용한 뒤 `startsAt ASC, id ASC` |
 | `GET /api/users/me/rooms` | 상태 보정, `role` 필터와 중복 제거를 적용한 뒤 `startsAt DESC, id DESC` |
+| `GET /api/users/me/notifications` | `createdAt DESC, id DESC` |
+
+P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용한다. `beforeMessageId`가 없으면 최신 메시지부터 반환하고, 값이 있으면 해당 ID보다 이전에 저장된 메시지를 반환한다. 한 번에 반환하는 `size`는 1 이상 100 이하이며, 다음 구간이 있으면 `nextBeforeMessageId`와 `hasNext`를 함께 반환한다.
 
 ## 2. API 인덱스
 
-기능 ID는 엔드포인트가 아니라 기능 단위다. 로그인·로그아웃은 함께 `AUTH-03`, 프로필 조회·수정은 함께 `AUTH-04`, 방 취소·종료는 함께 `ROOM-05`에 속한다. 각 기능의 제품 규칙 정본은 링크한 `docs/archive/p0/` 문서다.
+기능 ID는 엔드포인트가 아니라 기능 단위다. 로그인·로그아웃은 함께 `AUTH-03`, 프로필 조회·수정은 함께 `AUTH-04`, 방 취소·종료는 함께 `ROOM-05`, 알림 목록·미확인 개수는 함께 `NOTI-02`, 단건·일괄 읽음은 함께 `NOTI-03`, 채팅 전송·이력 조회는 함께 `CHAT-02`에 속한다. 각 기능의 제품 규칙 정본은 인덱스에서 링크한다.
 
-`단계`는 API 도입 제품 단계이며 현재는 모두 `P0`다. 이후 API는 도입 단계를 표기하고(→ [PRD 로드맵](PRD.md#6-단계별-로드맵)), 단계가 늘어도 현재 유효한 전체 HTTP 계약인 이 파일을 나누지 않고 표에 행·단계 값을 더한다.
+`단계`는 API 도입 제품 단계다(→ [PRD 로드맵](PRD.md#6-단계별-로드맵)). `P0·P1`은 P0에 도입한 경로를 P1에서 확장한다는 뜻이다. 단계가 늘어도 HTTP 계약인 이 파일을 나누지 않고 표에 행·단계 값을 더한다. P1 신규 행과 `P0·P1` 행의 P1 확장은 구현 예정이며 [P1 구현 완료 기준](P1-spec.md#구현-완료-기준)을 만족한 뒤 제공 계약으로 전환한다.
 
 | # | 단계 | 기능 ID | Method | Path | 인증 | CSRF | 성공 |
 |---:|:---:|---|---|---|:---:|:---:|:---:|
@@ -199,19 +205,29 @@ P0는 서버 세션 인증을 사용한다. Bearer access token과 refresh token
 | 4 | P0 | [AUTH-03](#auth-03-로그아웃) · [정본](archive/p0/auth-profile.md#auth-03-로그인로그아웃) | POST | `/api/auth/logout` | Y | Y | 200 |
 | 5 | P0 | [AUTH-04](#auth-04-내-프로필-조회) · [정본](archive/p0/auth-profile.md#auth-04-내-프로필-조회수정) | GET | `/api/users/me` | Y | N | 200 |
 | 6 | P0 | [AUTH-04](#auth-04-내-프로필-수정) · [정본](archive/p0/auth-profile.md#auth-04-내-프로필-조회수정) | PATCH | `/api/users/me` | Y | Y | 200 |
-| 7 | P0 | [GAME-01](#game-01-게임-목록검색) · [정본](archive/p0/game-catalog.md#game-01-게임-목록검색) | GET | `/api/games` | N | N | 200 |
+| 7 | P0·P1 | [GAME-01](#game-01-게임-목록검색) · [P0 정본](archive/p0/game-catalog.md#game-01-게임-목록검색) · [GAME-04 정본](p1/search.md#game-04-게임-조건-검색) | GET | `/api/games` | N | N | 200 |
 | 8 | P0 | [GAME-02](#game-02-게임-상세-조회) · [정본](archive/p0/game-catalog.md#game-02-게임-상세-조회) | GET | `/api/games/{gameId}` | N | N | 200 |
 | 9 | P0 | [ROOM-03](#room-03-방-생성) · [정본](archive/p0/room.md#room-03-방-생성) | POST | `/api/rooms` | Y | Y | 201 |
-| 10 | P0 | [ROOM-01](#room-01-방-목록-조회) · [정본](archive/p0/room.md#room-01-방-탐색) | GET | `/api/rooms` | 선택 | N | 200 |
-| 11 | P0 | [ROOM-02](#room-02-방-상세-조회) · [정본](archive/p0/room.md#room-02-방-상세) | GET | `/api/rooms/{roomId}` | 선택 | N | 200 |
+| 10 | P0·P1 | [ROOM-01](#room-01-방-목록-조회) · [P0 정본](archive/p0/room.md#room-01-방-탐색) · [ROOM-07 정본](p1/search.md#room-07-방-조건-검색) · [ROOM-08 정본](p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | GET | `/api/rooms` | 선택 | N | 200 |
+| 11 | P0·P1 | [ROOM-02](#room-02-방-상세-조회) · [P0 정본](archive/p0/room.md#room-02-방-상세) · [ROOM-08 정본](p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | GET | `/api/rooms/{roomId}` | 선택 | N | 200 |
 | 12 | P0 | [ROOM-04](#room-04-방-수정) · [정본](archive/p0/room.md#room-04-방-수정) | PATCH | `/api/rooms/{roomId}` | Y | Y | 200 |
 | 13 | P0 | [ROOM-05](#room-05-방-취소) · [정본](archive/p0/room.md#room-05-방-취소종료) | DELETE | `/api/rooms/{roomId}` | Y | Y | 200 |
 | 14 | P0 | [ROOM-05](#room-05-방-종료) · [정본](archive/p0/room.md#room-05-방-취소종료) | PATCH | `/api/rooms/{roomId}/status` | Y | Y | 200 |
 | 15 | P0 | [PART-01](#part-01-방-참가재참가) · [정본](archive/p0/participation.md#part-01-방-참가재참가) | POST | `/api/rooms/{roomId}/participants` | Y | Y | 201 |
-| 16 | P0 | [PART-02](#part-02-참가-취소) · [정본](archive/p0/participation.md#part-02-참가-취소) | DELETE | `/api/rooms/{roomId}/participants/me` | Y | Y | 200 |
-| 17 | P0 | [PART-03](#part-03-내-모임-조회) · [정본](archive/p0/participation.md#part-03-내-모임-조회) | GET | `/api/users/me/rooms` | Y | N | 200 |
+| 16 | P0·P1 | [PART-02](#part-02-참가-취소) · [P0 정본](archive/p0/participation.md#part-02-참가-취소) · [PART-04 정본](p1/room.md#part-04-선착순-대기열과-자동-승격) | DELETE | `/api/rooms/{roomId}/participants/me` | Y | Y | 200 |
+| 17 | P0·P1 | [PART-03](#part-03-내-모임-조회) · [P0 정본](archive/p0/participation.md#part-03-내-모임-조회) · [ROOM-08 정본](p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) · [CHAT-05 정본](p1/chatting.md#chat-05-내-모임-채팅-진입) | GET | `/api/users/me/rooms` | Y | N | 200 |
+| 18 | P1 | [PART-04](#part-04-대기-등록재신청) · [정본](p1/room.md#part-04-선착순-대기열과-자동-승격) | POST | `/api/rooms/{roomId}/waitlist` | Y | Y | 201·200 |
+| 19 | P1 | [PART-04](#part-04-본인-대기-상태-조회) · [정본](p1/room.md#part-04-선착순-대기열과-자동-승격) | GET | `/api/rooms/{roomId}/waitlist/me` | Y | N | 200 |
+| 20 | P1 | [PART-04](#part-04-대기-취소) · [정본](p1/room.md#part-04-선착순-대기열과-자동-승격) | DELETE | `/api/rooms/{roomId}/waitlist/me` | Y | Y | 200 |
+| 21 | P1 | [NOTI-02](#noti-02-내-알림-목록) · [정본](p1/notification.md#noti-02-내-알림-목록미확인-개수) | GET | `/api/users/me/notifications` | Y | N | 200 |
+| 22 | P1 | [NOTI-02](#noti-02-내-미확인-알림-수) · [정본](p1/notification.md#noti-02-내-알림-목록미확인-개수) | GET | `/api/users/me/notifications/unread-count` | Y | N | 200 |
+| 23 | P1 | [NOTI-03](#noti-03-내-알림-단건-읽음) · [정본](p1/notification.md#noti-03-알림-읽음-처리) | PATCH | `/api/users/me/notifications/{notificationId}` | Y | Y | 200 |
+| 24 | P1 | [NOTI-03](#noti-03-내-알림-일괄-읽음) · [정본](p1/notification.md#noti-03-알림-읽음-처리) | PATCH | `/api/users/me/notifications` | Y | Y | 200 |
+| 25 | P1 | [CHAT-02](#chat-02-메시지-전송) · [정본](p1/chatting.md#chat-02-메시지-전송이력-조회) | POST | `/api/rooms/{roomId}/chat/messages` | Y | Y | 201·200 |
+| 26 | P1 | [CHAT-02](#chat-02-메시지-이력-조회) · [정본](p1/chatting.md#chat-02-메시지-전송이력-조회) | GET | `/api/rooms/{roomId}/chat/messages` | Y | N | 200 |
+| 27 | P1 | [CHAT-03](#chat-03-실시간-메시지-구독) · [정본](p1/chatting.md#chat-03-실시간-전달재연결-복구) | GET (Upgrade) | `/api/rooms/{roomId}/chat/ws` | Y | N | 101 |
 
-`GET /api/rooms`와 `GET /api/rooms/{roomId}`의 인증은 "선택"이다. 비로그인도 호출할 수 있고, 유효한 세션이 있으면 요청자 기준으로 `joinable`과 응답 범위를 계산한다.
+`GET /api/rooms`와 `GET /api/rooms/{roomId}`의 인증은 "선택"이다. 비로그인도 호출할 수 있고, 유효한 세션이 있으면 요청자 기준으로 `joinable`, `waitlistable`과 응답 범위를 계산한다.
 
 ## 3. Enum
 
@@ -230,7 +246,7 @@ P0는 서버 세션 인증을 사용한다. Bearer access token과 refresh token
 | `BEGINNER_WELCOME` | 초보자 환영 |
 | `EXPERIENCED_PREFERRED` | 경험자 선호 |
 
-권장 표시값이며 검색 필터나 참가 제한으로 사용하지 않는다.
+권장 표시값이며 P1 방 목록에서 검색 조건으로 사용할 수 있지만 참가 자격 제한으로 사용하지 않는다.
 
 ### RoomStatus
 
@@ -248,7 +264,8 @@ P0는 서버 세션 인증을 사용한다. Bearer access token과 refresh token
 | 방 생성 성공 | 생성 전 | `RECRUITING` |
 | 모집 인원 충족 | `RECRUITING` | `CLOSED` |
 | 현재 시각이 `startsAt`에 도달 | `RECRUITING` | `CLOSED` |
-| 시작 전 참가 취소로 빈자리 발생 | `CLOSED` | `RECRUITING` |
+| 시작 전 참가 취소로 빈자리 발생, 활성 대기자 있음 | `CLOSED` | 첫 대기자 승격 후 `CLOSED` 유지 |
+| 시작 전 참가 취소로 빈자리 발생, 활성 대기자 없음 | `CLOSED` | `RECRUITING` |
 | 주최자가 방 취소 | `RECRUITING` 또는 `CLOSED` | `CANCELED` |
 | 주최자가 시작 시각 이후 방 종료 | `CLOSED` | `FINISHED` |
 | 현재 시각이 `startsAt + 24시간`에 도달 | `CLOSED` | `FINISHED` |
@@ -280,6 +297,40 @@ P0는 서버 세션 인증을 사용한다. Bearer access token과 refresh token
 |---|---|
 | `HOST` | 방 주최자 |
 | `JOINED` | 현재 참가자 |
+
+### WaitlistStatus
+
+본인의 ROOM별 최신 대기 결과다.
+
+| 값 | 의미 | `position` |
+|---|---|---|
+| `WAITING` | 현재 대기 중 | 조회 시점의 1 이상 순번 |
+| `PROMOTED` | 빈자리가 생겨 참가자로 자동 승격됨 | `null` |
+| `CANCELED` | 사용자가 직접 대기를 취소함 | `null` |
+| `EXPIRED` | 모임 시작 시각까지 승격되지 못해 대기가 종료됨 | `null` |
+| `ROOM_CANCELED` | 주최자가 방을 취소해 대기가 종료됨 | `null` |
+
+`PROMOTED`는 오류가 아니다. 클라이언트는 표시 문구가 아니라 이 상태값으로 참가 목록에 추가된 결과를 안내한다.
+
+### GamePlayTimeFilter
+
+`GET /api/games`의 플레이 시간 구간 값이다. 검증된 최대 플레이 시간을 기준으로 판정한다.
+
+| 값 | 의미 |
+|---|---|
+| `SHORT` | 20분 이하 |
+| `MEDIUM` | 20분 초과 60분 이하 |
+| `LONG` | 60분 초과 |
+
+### NotificationType
+
+| 값 | 수신자에게 표시하는 의미 |
+|---|---|
+| `PARTICIPANT_JOINED` | 모임에 새 참가자가 있음 |
+| `PARTICIPANT_CANCELED` | 모임에 빈자리가 생김 |
+| `ROOM_CANCELED` | 참가 중인 모임이 취소됨 |
+
+`PARTICIPANT_JOINED`는 최초 참가와 취소 뒤 재참가를 구분하지 않는다. 알림 응답은 참가자의 닉네임·사용자 ID·이메일을 포함하지 않으며, 클라이언트는 `message`가 아니라 `type`으로 표시 방식과 동작을 구분한다.
 
 ## 4. 공통 스키마
 
@@ -366,6 +417,9 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 | `remainingRecruitmentSeats` | integer | Y | N | `recruitmentCapacity − 현재 ACTIVE 참가 관계 수` |
 | `status` | RoomStatus | Y | N | 현재 방 상태 |
 | `joinable` | boolean | Y | N | 현재 요청자의 참가 가능 여부. 판정 규칙은 아래 참고 |
+| `waitlistable` | boolean | Y | N | 현재 요청자의 대기 신청 가능 여부. 판정 규칙은 아래 참고 |
+
+`joinable`과 `waitlistable`은 서버의 같은 행동 가능성 판정에서 계산하며 동시에 `true`일 수 없다.
 
 `joinable`은 다음을 **모두** 만족할 때만 `true`이고, 그 외에는 `false`다.
 
@@ -376,6 +430,16 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 5. `remainingRecruitmentSeats`가 1 이상이다.
 
 기존 `CANCELED` 참가 관계를 가진 사용자도 위 조건을 만족하면 재참가할 수 있어 `true`다.
+
+`waitlistable`은 다음을 **모두** 만족할 때만 `true`이고, 그 외에는 `false`다.
+
+1. 요청자가 로그인했다.
+2. 요청자가 주최자도, 현재 `ACTIVE` 참가자도, 현재 `WAITING` 대기자도 아니다.
+3. 방 상태가 정원 충족으로 `CLOSED`다.
+4. 현재 시각이 `startsAt`보다 이르다(`now < startsAt`).
+5. `remainingRecruitmentSeats`가 `0`이다.
+
+직접 참가 또는 대기를 취소한 사용자는 현재 조건을 다시 충족하면 각각 참가하거나 대기할 수 있다. 직접 참가 요청이 좌석 경합으로 실패해도 서버는 해당 요청으로 대기 관계를 만들지 않는다.
 
 ### 4.8 ParticipantRoomResponse
 
@@ -402,7 +466,7 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 | `participantCount` | integer | Y | N | 변경 후 전체 참가자 수 |
 | `remainingRecruitmentSeats` | integer | Y | N | 변경 후 남은 모집 자리 |
 
-마지막 좌석을 채우는 참가라면 `roomStatus`·`participantCount`·`remainingRecruitmentSeats`는 각각 `CLOSED`, 최종 참가자 수, `0`이 된다.
+마지막 좌석을 채우는 참가라면 `roomStatus`·`participantCount`·`remainingRecruitmentSeats`는 각각 `CLOSED`, 최종 참가자 수, `0`이 된다. 시작 전 참가 취소 시 활성 대기자가 있으면 첫 대기자 한 명의 승격까지 완료한 뒤의 최종 값을 반환하며, 승격 여부와 승격된 사용자 신원은 응답에 추가하지 않는다.
 
 ### 4.10 MyRoomListItem
 
@@ -412,8 +476,9 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 |---|---|:---:|:---:|---|
 | `myRole` | MyRole | Y | N | `HOST` 또는 `JOINED` |
 | `participationStatus` | ParticipationStatus | Y | Y | `myRole = JOINED`이면 항상 `ACTIVE`, `HOST`이면 `null` |
+| `chatAvailable` | boolean | Y | N | 현재 요청자가 채팅방에 진입할 수 있는지. `HOST` 또는 `ACTIVE` 참가자이고 방 상태가 `RECRUITING`·`CLOSED`일 때만 `true` |
 
-`joinable`은 `PublicRoomResponse`와 같은 요청자 기준 값이다. `JOINED` 항목은 현재 `ACTIVE` 참가자이므로 항상 `false`다.
+`joinable`과 `waitlistable`은 `PublicRoomResponse`와 같은 요청자 기준 값이다. 내 모임은 주최·참가 ROOM만 반환하므로 두 값은 항상 `false`이고, 대기 중인 ROOM을 조회 대상에 추가하지 않는다. `chatAvailable = false`인 항목은 채팅 진입을 표시하지 않으며, 직접 채팅 API를 호출해도 서버가 같은 관계·상태 규칙으로 거절한다. 참가 취소 관계와 `CANCELED`·`FINISHED` 방은 채팅 진입 대상에서 제외한다.
 
 ### 4.11 RoomStatusResponse
 
@@ -423,6 +488,76 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 |---|---|:---:|:---:|---|
 | `roomId` | integer | Y | N | 방 ID |
 | `roomStatus` | RoomStatus | Y | N | 변경 후 상태 |
+
+### 4.12 NotificationListItem
+
+본인 알림 목록과 단건 읽음 응답에 사용한다. 저장된 알림은 관련 방에 대한 접근 권한이 아니며, 클라이언트가 `roomId`로 이동할 때 `GET /api/rooms/{roomId}`의 현재 권한과 존재 여부 은닉 계약을 다시 적용한다.
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `id` | integer | Y | N | 알림 ID |
+| `type` | NotificationType | Y | N | 알림 유형 |
+| `message` | string | Y | N | 개인정보를 포함하지 않는 일반 표시 문구 |
+| `roomId` | integer | Y | N | 관련 방 ID. 방 조회 권한을 부여하지 않음 |
+| `readAt` | string(date-time) | Y | Y | 처음 읽은 서버 시각. 미확인이면 `null` |
+| `createdAt` | string(date-time) | Y | N | 원인 이벤트 시각. relay 처리 시각이 아님 |
+
+### 4.13 UnreadNotificationCountResponse
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `unreadCount` | integer | Y | N | 본인 알림 중 `readAt = null`인 건수, 0 이상 |
+
+### 4.14 NotificationBulkReadResponse
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `updatedCount` | integer | Y | N | 이번 요청에서 처음 읽음 처리한 알림 수, 0 이상 |
+| `readAt` | string(date-time) | Y | N | 이번 일괄 요청의 서버 기준 시각. 변경 대상이 없어도 반환 |
+| `boundaryNotificationId` | integer | Y | Y | 요청이 고정한 본인 알림 집합의 가장 큰 알림 ID. 알림이 하나도 없으면 `null` |
+
+### 4.15 ChatMessage
+
+채팅 이력과 메시지 전송 성공 응답에 사용한다. 메시지 본문은 일반 텍스트로만 반환하며 HTML·스크립트로 해석하지 않는다.
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `messageId` | integer | Y | N | 서버가 저장 순서에 사용하는 메시지 ID |
+| `roomId` | integer | Y | N | 채팅 대상 방 ID |
+| `clientMessageId` | string | Y | N | 클라이언트가 재시도 멱등성에 사용하는 1~100자 식별자 |
+| `sender` | NicknameSummary | Y | N | 작성자 표시명 |
+| `content` | string | Y | N | 앞뒤 공백 제거 후 1~500자의 일반 텍스트 |
+| `createdAt` | string(date-time) | Y | N | 서버가 저장한 시각 |
+
+### 4.16 ChatMessagePage
+
+`GET /api/rooms/{roomId}/chat/messages`의 응답이다.
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `messages` | ChatMessage[] | Y | N | 최신 메시지부터 `messageId` 내림차순으로 반환한 구간 |
+| `nextBeforeMessageId` | integer | Y | Y | 다음 과거 구간을 조회할 커서. 더 없으면 `null` |
+| `hasNext` | boolean | Y | N | 더 과거 메시지 존재 여부 |
+
+### 4.17 ChatMessageEvent
+
+`GET /api/rooms/{roomId}/chat/ws`로 Upgrade한 WebSocket이 보내는 서버 발신 텍스트 이벤트다.
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `eventId` | integer | Y | N | 중복 제거와 재연결 기준으로 사용하는 `messageId` |
+| `type` | string | Y | N | P1에서는 `MESSAGE_CREATED`만 사용 |
+| `message` | ChatMessage | Y | N | 커밋된 메시지 |
+
+### 4.18 MyRoomWaitlistResponse
+
+`PART-04` 대기 등록·조회 응답이다. 서버는 상태 조회에 필요한 ROOM·사용자별 최신 대기 결과를 보존한다.
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `roomId` | integer | Y | N | 방 ID |
+| `waitlistStatus` | WaitlistStatus | Y | N | 본인의 최신 대기 상태 |
+| `position` | integer | Y | Y | `WAITING`일 때만 조회 시점의 1 이상 순번, 그 외에는 `null` |
 
 ## 5. 인증·프로필 API
 
@@ -610,12 +745,21 @@ P0에서는 닉네임만 수정한다.
 |---|---|:---:|---|---|
 | `keyword` | string | N | 검색 없음 | 게임명 부분 일치 |
 | `upcomingOnly` | boolean | N | `false` | `true`이면 예정 모임이 한 개 이상인 게임만 반환 |
+| `playerCount` | integer | N | 검색 없음 | `1`~`9`는 해당 인원을 포함하는 게임, `10`은 최대 가능 인원이 10 이상인 게임 |
+| `playTime` | GamePlayTimeFilter | N | 검색 없음 | 검증된 최대 플레이 시간 구간 |
+| `complexityMin` | number | N | 검색 없음 | `1.00`~`5.00`, 난이도 닫힌 구간의 하한 |
+| `complexityMax` | number | N | 검색 없음 | `1.00`~`5.00`, 난이도 닫힌 구간의 상한 |
 | `page` | integer | N | `0` | 페이지 번호 |
 | `size` | integer | N | `10` | 페이지 크기, 1~100 |
 
-`keyword`와 `upcomingOnly=true`를 함께 사용하면 두 조건을 모두 적용하며, 페이지 메타데이터는 필터 결과를 기준으로 계산한다.
+- 서로 다른 필터 종류는 AND로 결합한다.
+- `playerCount=10`은 정확히 10명만 뜻하지 않고 최대 가능 인원이 10 이상인 게임을 뜻한다.
+- `playTime`은 최대 플레이 시간이 `SHORT` 20분 이하, `MEDIUM` 20분 초과 60분 이하, `LONG` 60분 초과인 게임을 반환한다.
+- 복잡도는 전달한 하한 이상·상한 이하의 닫힌 구간으로 판정한다. 두 값을 함께 전달할 때 하한이 상한보다 크면 검증 오류다.
+- 인원·시간·복잡도 필터를 적용하면 해당 조건을 판정할 검증값이 없는 게임은 제외한다. 필터를 생략하면 누락값만으로 제외하지 않는다.
+- 모든 필터를 적용한 뒤 전체 건수, `name ASC, id ASC` 정렬과 페이지를 계산한다.
 
-인원·시간·난이도·태그 필터와 `sort`는 지원하지 않는다.
+`tag`·메커니즘·테마 필터, 사용자별 해 본 게임 필터와 클라이언트 지정 `sort`는 지원하지 않는다. 메커니즘과 해 본 게임 기능은 [P1 게임 탐색 명세](p1/search.md)의 확장 후보이며, 범위에 채택되기 전에는 API 계약으로 확정하지 않는다.
 
 #### 오류
 
@@ -663,15 +807,26 @@ P0에서는 닉네임만 수정한다.
 | `type` | RoomType | N | 전달 시 | 방 유형 |
 | `gameId` | integer | N | 전달 시 | 1 이상의 알밤메이트 내부 게임 ID |
 | `keyword` | string | N | 전달 시 | 방 제목 부분 일치 |
+| `startsAtFrom` | string(date-time) | N | 전달 시 | `startsAt >= startsAtFrom` |
+| `startsAtTo` | string(date-time) | N | 전달 시 | `startsAt < startsAtTo` |
+| `minRemainingSeats` | integer | N | 전달 시 | 최소 남은 모집 자리, 1~10 |
+| `experienceLevels` | ExperienceLevel | N | 전달 시 | 반복 전달 가능한 권장 경험 수준. 목록 안 OR |
+| `rulemasterOnly` | boolean | N | `true`일 때 | 룰마스터 진행 방만 반환 |
 | `page` | integer | N | 항상 | 기본값 `0` |
 | `size` | integer | N | 항상 | 기본값 `10`, 1~100 |
 
-`type`, `gameId`, `keyword`는 서로 독립적인 선택 필터이며, 전달된 조건만 모두 만족하는 방을 반환한다. 세 값을 모두 생략하면 두 유형의 공개 방 전체를 반환한다. `keyword`의 빈 문자열과 공백은 검색 조건 없음으로 처리하며, 제목 부분 일치는 대소문자를 구분하지 않는다.
+`type`, `gameId`, `keyword`와 P1 조건은 서로 독립적인 선택 필터이며, 전달된 서로 다른 조건을 모두 만족하는 방을 반환한다. 반복한 `experienceLevels` 안에서만 OR로 결합하고 같은 값의 중복은 한 번 전달한 것과 같다. 모든 필터를 생략하면 두 유형의 공개 방 전체를 반환한다. `keyword`의 빈 문자열과 공백은 검색 조건 없음으로 처리하며, 제목 부분 일치는 대소문자를 구분하지 않는다.
 
-- 잘못된 enum, `gameId` 0 이하, `page`·`size` 범위 위반, 숫자 바인딩 실패 또는 허용하지 않는 parameter는 `VALIDATION_ERROR`다.
+- 날짜 범위는 시작 경계를 포함하고 종료 경계를 제외하는 `[startsAtFrom, startsAtTo)`다. 한쪽 경계만 전달할 수 있으며 두 값을 함께 전달하면 시작 경계가 종료 경계보다 빨라야 한다.
+- 남은 모집 자리는 상태 정합화 뒤 `recruitmentCapacity - activeParticipantCount`로 계산하고 `minRemainingSeats` 이상인 방만 반환한다.
+- 경험 수준은 방의 권장 조건을 검색할 뿐 참가 자격 제한으로 바꾸지 않는다.
+- `rulemasterOnly=true`일 때만 룰마스터 진행 여부를 조건으로 적용한다. 생략하거나 `false`이면 해당 조건을 적용하지 않는다.
+- 공개 목록의 상태를 정합화한 뒤 모든 필터를 적용하고 전체 건수, `startsAt ASC, id ASC` 정렬과 페이지를 계산한다.
+
+- 잘못된 enum·날짜·boolean, 역전된 날짜 범위, `gameId` 0 이하, 숫자 범위·바인딩 실패, `page`·`size` 범위 위반 또는 허용하지 않는 parameter는 `VALIDATION_ERROR`다.
 - `keyword`는 방 제목 검색이며, P0에서 제외한 조건 필터가 아니다.
 - 공개 목록은 `RECRUITING`, `CLOSED` 방만 반환한다.
-- `playerCount`, `playTime`, `region`, `experienceLevel`, `tag`, `categoryIds`, `bggWeightMin`, `bggWeightMax`, `sort`는 P0 쿼리 파라미터가 아니다.
+- `playerCount`, `playTime`, `region`, `experienceLevel`, `tag`, `categoryIds`, `bggWeightMin`, `bggWeightMax`, `sort`는 방 목록 쿼리 파라미터가 아니다. 경험 수준 다중 선택은 `experienceLevels`만 사용한다.
 
 #### 오류
 
@@ -912,7 +1067,7 @@ Vary: Cookie
 | 상태 정합화 후 방이 `CANCELED`이거나 `now < startsAt`이라 종료할 수 없음 | 409 | `INVALID_ROOM_STATUS_TRANSITION` |
 | 동시 변경 충돌 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
 
-## 8. 참가·내 모임 API
+## 8. 참가·대기·내 모임 API
 
 ### PART-01 방 참가·재참가
 
@@ -933,6 +1088,7 @@ Request body는 없다.
 - 신규 참가와 취소 후 재참가 모두 `201 Created`와 `RoomParticipationResponse`를 반환한다.
 - 어떤 동시 요청에서도 모집 정원을 초과한 참가는 성공하지 않는다. 동시성 제어는 [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md)를 따른다.
 - 참가 후 주최자 외 `ACTIVE` 참가자 수가 `recruitmentCapacity`에 도달하면 `RECRUITING → CLOSED`로 자동 전환한다.
+- 직접 참가가 `CAPACITY_EXCEEDED` 또는 동시성 충돌로 실패해도 대기 성공 응답으로 바꾸거나 대기 관계를 생성하지 않는다.
 - 시간대가 겹치는 다른 방 참가는 검사하지 않는다.
 
 #### 오류 판정 순서
@@ -971,7 +1127,8 @@ Request body는 없다.
 
 Request body는 없다.
 
-- 본인만 `now < startsAt`일 때 취소할 수 있다. 시작 전 빈자리가 생기면 `CLOSED → RECRUITING`으로 자동 복귀한다.
+- 본인만 `now < startsAt`일 때 취소할 수 있다. 활성 대기자가 있으면 참가 취소와 첫 대기자 한 명의 자동 승격을 같은 ROOM 처리에서 완료하고 `CLOSED`를 유지한다. 활성 대기자가 없을 때만 `CLOSED → RECRUITING`으로 자동 복귀한다.
+- 성공 응답은 자동 승격까지 끝난 최종 `roomStatus`, `participantCount`, `remainingRecruitmentSeats`를 반환한다. 승격 여부 필드와 승격된 사용자 신원은 포함하지 않는다.
 - 주최자는 이 API로 본인의 참가를 따로 취소할 수 없다.
 
 #### 오류 판정 순서
@@ -1015,7 +1172,7 @@ Request body는 없다.
 | `hosted` | 본인이 개설한 모든 방 |
 | `all` | `joined`와 `hosted`의 중복 없는 합집합 |
 
-참가 취소한 `CANCELED` 관계와 방이 취소된 `CANCELED` 방은 `joined`에서 제외한다.
+참가 취소한 `CANCELED` 관계와 방이 취소된 `CANCELED` 방은 `joined`에서 제외한다. 대기 중인 ROOM은 현재 조회 범위에 포함하지 않으며, 여러 대기 ROOM을 한 번에 조회·관리하는 API는 P1 범위 밖이다.
 
 #### 오류
 
@@ -1025,7 +1182,336 @@ Request body는 없다.
 | query parameter 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 동시 변경으로 방 상태를 확인할 수 없음 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
 
-## 9. 오류 코드
+### PART-04 대기 등록·재신청
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `POST /api/rooms/{roomId}/waitlist` |
+| 인증 / CSRF | 필요 / 필요 |
+| 성공 | 신규·재신청은 `201 Created`, 활성 대기 중 재요청은 `200 OK`; `data`: `MyRoomWaitlistResponse` |
+
+#### Path Variables
+
+| 이름 | 타입 | 필수 | 검증 |
+|---|---|:---:|---|
+| `roomId` | integer | Y | 1 이상의 방 ID |
+
+Request body는 없다.
+
+- 신규 신청은 하나의 최신 대기 레코드를 `WAITING`으로 만들고 현재 마지막 순번을 반환한다.
+- 이미 `WAITING`인 사용자의 중복 신청은 새 관계를 만들거나 순번을 바꾸지 않고 조회 시점의 최신 순번을 반환한다.
+- `CANCELED` 뒤 재신청은 같은 레코드의 신청 순서 기준을 갱신해 기존 순번을 복구하지 않고 대기열 맨 뒤로 이동한다.
+- 직접 참가 가능한 빈자리가 있거나 시작 시각에 도달했거나 방이 `CANCELED`·`FINISHED`이면 대기를 등록하지 않는다.
+
+#### 오류 판정 순서
+
+인증·CSRF·path와 방 존재 확인 뒤 현재 시각 기준 상태를 반영하고 아래 순서로 판정한다.
+
+1. `now >= startsAt`이거나 방이 `CANCELED`·`FINISHED`: `WAITLIST_NOT_AVAILABLE`
+2. 요청자가 주최자 또는 현재 `ACTIVE` 참가자: `ALREADY_PARTICIPATING`
+3. 요청자가 이미 `WAITING`: 기존 순서를 유지하고 `200 OK`
+4. 남은 모집 자리가 있어 직접 참가할 수 있음: `WAITLIST_NOT_AVAILABLE`
+5. 그 외: 대기열 마지막에 등록하고 `201 Created`
+
+저장 충돌이 발생하면 최신 상태로 같은 순서를 다시 판정하며, 제한 재시도를 소진했을 때만 `ROOM_CONCURRENT_MODIFICATION`을 반환한다.
+
+| 발생 조건 | HTTP | code |
+|---|---:|---|
+| path ID 형식·범위 검증 실패 | 400 | `VALIDATION_ERROR` |
+| 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
+| CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
+| 방이 없음 | 404 | `ROOM_NOT_FOUND` |
+| 요청자가 주최자 또는 현재 참가자 | 409 | `ALREADY_PARTICIPATING` |
+| 현재 방·시각·좌석 조건에서 대기할 수 없음 | 409 | `WAITLIST_NOT_AVAILABLE` |
+| 동시 변경 충돌 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
+
+### PART-04 본인 대기 상태 조회
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `GET /api/rooms/{roomId}/waitlist/me` |
+| 인증 / CSRF | 필요 / 불필요 |
+| 성공 | `200 OK`, `data`: `MyRoomWaitlistResponse` |
+
+#### Path Variables
+
+| 이름 | 타입 | 필수 | 검증 |
+|---|---|:---:|---|
+| `roomId` | integer | Y | 1 이상의 방 ID |
+
+Request body는 없다.
+
+- `WAITING`, `PROMOTED`, `CANCELED`, `EXPIRED`, `ROOM_CANCELED`를 모두 정상 결과로 반환한다.
+- `position`은 `WAITING`일 때만 조회 시점의 1 이상 순번이고, 그 외 상태는 `null`이다.
+- 대기 신청 이력 자체가 없을 때만 `WAITLIST_ENTRY_NOT_FOUND`를 반환한다.
+- 자동 승격 뒤에는 이 응답의 `PROMOTED`와 ROOM 상세의 `myRole = JOINED`가 같은 결과를 나타내야 한다.
+
+#### 오류
+
+| 발생 조건 | HTTP | code |
+|---|---:|---|
+| path ID 형식·범위 검증 실패 | 400 | `VALIDATION_ERROR` |
+| 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
+| 방이 없음 | 404 | `ROOM_NOT_FOUND` |
+| 본인 대기 이력이 없음 | 404 | `WAITLIST_ENTRY_NOT_FOUND` |
+| 동시 변경으로 최신 상태를 확인할 수 없음 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
+
+### PART-04 대기 취소
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `DELETE /api/rooms/{roomId}/waitlist/me` |
+| 인증 / CSRF | 필요 / 필요 |
+| 성공 | `200 OK`, `data`: `{}` |
+
+#### Path Variables
+
+| 이름 | 타입 | 필수 | 검증 |
+|---|---|:---:|---|
+| `roomId` | integer | Y | 1 이상의 방 ID |
+
+Request body는 없다.
+
+현재 상태가 `WAITING`일 때만 `CANCELED`로 변경한다. `WAITING`이 아니거나 대기 신청 이력이 없으면 같은 `WAITLIST_ENTRY_NOT_FOUND`를 반환한다.
+
+#### 오류
+
+| 발생 조건 | HTTP | code |
+|---|---:|---|
+| path ID 형식·범위 검증 실패 | 400 | `VALIDATION_ERROR` |
+| 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
+| CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
+| 방이 없음 | 404 | `ROOM_NOT_FOUND` |
+| 취소할 본인 `WAITING` 관계가 없음 | 404 | `WAITLIST_ENTRY_NOT_FOUND` |
+| 동시 변경 충돌 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
+
+## 9. 알림·채팅 API
+
+P1 알림은 로그인한 사용자의 앱 내 알림만 제공한다. 알림 생성은 방·참가 업무와 내부 Outbox relay가 담당하므로 공개 생성 API는 없다. 제품 범위·수신자·중복 방지 규칙은 [P1 알림 구현 명세](p1/notification.md)를 따른다.
+
+### NOTI-02 내 알림 목록
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `GET /api/users/me/notifications` |
+| 인증 / CSRF | 필요 / 불필요 |
+| 성공 | `200 OK`, `data`: `PageResponse<NotificationListItem>` |
+
+#### Query Parameters
+
+| 이름 | 타입 | 필수 | 기본값 | 의미 |
+|---|---|:---:|---|---|
+| `page` | integer | N | `0` | 페이지 번호 |
+| `size` | integer | N | `10` | 페이지 크기, 1~100 |
+
+본인 알림만 `createdAt DESC, id DESC` 순서로 반환한다. `createdAt`은 원인 이벤트 시각이므로 relay 처리 순서와 다를 수 있다. 같은 DB 상태에서는 원인 이벤트 시각이 같은 알림도 페이지 경계에서 순서가 바뀌지 않는다. 결과가 없으면 빈 `content`와 `totalElements = 0`을 반환한다. 유형 필터, 검색, 클라이언트 지정 정렬은 지원하지 않는다.
+
+`message`와 로그에는 참가자 닉네임·사용자 ID·이메일·정확한 장소·전체 참가자 목록·인증 정보를 포함하지 않는다. `roomId`는 화면 이동 대상일 뿐 방 조회 권한이 아니며, 이동 시 현재 세션으로 방 상세를 다시 조회한다.
+
+#### 오류
+
+| 발생 조건 | HTTP | code |
+|---|---:|---|
+| 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
+| query parameter 검증 실패 | 400 | `VALIDATION_ERROR` |
+
+### NOTI-02 내 미확인 알림 수
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `GET /api/users/me/notifications/unread-count` |
+| 인증 / CSRF | 필요 / 불필요 |
+| 성공 | `200 OK`, `data`: `UnreadNotificationCountResponse` |
+
+Path variable·query parameter·body는 없다. `unreadCount`는 응답을 계산한 같은 DB 상태에서 본인 알림 중 `readAt = null`인 건수다. 알림이 없거나 모두 읽었으면 `0`을 반환한다.
+
+#### 오류
+
+| 발생 조건 | HTTP | code |
+|---|---:|---|
+| 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
+
+### NOTI-03 내 알림 단건 읽음
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `PATCH /api/users/me/notifications/{notificationId}` |
+| 인증 / CSRF | 필요 / 필요 |
+| 성공 | `200 OK`, `data`: `NotificationListItem` |
+
+#### Path Variables
+
+| 이름 | 타입 | 필수 | 검증 |
+|---|---|:---:|---|
+| `notificationId` | integer | Y | 1 이상의 알림 ID |
+
+#### Request Body — NotificationReadRequest
+
+~~~json
+{
+  "read": true
+}
+~~~
+
+| 필드 | 타입 | 필수 | nullable | 검증 |
+|---|---|:---:|:---:|---|
+| `read` | boolean | Y | N | `true`만 허용 |
+
+빈 객체, `null`, `read = false`와 클라이언트의 `readAt` 직접 지정은 `VALIDATION_ERROR`다. 서버는 처음 읽을 때의 기준 시각을 `readAt`에 기록한다. 이미 읽은 본인 알림에 같은 요청을 반복하면 저장값을 변경하지 않고 최초 `readAt`이 담긴 현재 알림을 반환한다. 읽지 않음으로 되돌리는 요청은 지원하지 않는다.
+
+존재하지 않는 알림과 다른 사용자의 알림에는 모두 `NOTIFICATION_NOT_FOUND`를 반환해 타인의 알림 존재 여부를 노출하지 않는다.
+
+#### 오류
+
+| 발생 조건 | HTTP | code |
+|---|---:|---|
+| 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
+| path ID 또는 요청 본문 검증 실패 | 400 | `VALIDATION_ERROR` |
+| 알림이 없거나 본인 알림이 아님 | 404 | `NOTIFICATION_NOT_FOUND` |
+| CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
+
+### NOTI-03 내 알림 일괄 읽음
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `PATCH /api/users/me/notifications` |
+| 인증 / CSRF | 필요 / 필요 |
+| 성공 | `200 OK`, `data`: `NotificationBulkReadResponse` |
+
+#### Request Body — NotificationReadRequest
+
+~~~json
+{
+  "read": true
+}
+~~~
+
+| 필드 | 타입 | 필수 | nullable | 검증 |
+|---|---|:---:|:---:|---|
+| `read` | boolean | Y | N | `true`만 허용 |
+
+빈 객체, `null`, `read = false`와 클라이언트의 `readAt` 직접 지정은 `VALIDATION_ERROR`다.
+
+서버는 하나의 쓰기 트랜잭션과 일관된 DB 스냅샷에서 다음 순서로 처리한다.
+
+1. 요청에 포함할 본인 알림 집합과 그 집합의 가장 큰 알림 ID인 `boundaryNotificationId`를 고정한다.
+2. 집합 안의 `readAt = null`인 알림에 같은 서버 기준 시각을 기록한다.
+3. 이미 읽은 알림의 최초 `readAt`은 변경하지 않는다.
+4. 스냅샷 경계 뒤에 생성·커밋된 알림은 생성 시각이 같아도 미확인 상태로 남긴다.
+
+알림이 하나도 없으면 `updatedCount = 0`, `boundaryNotificationId = null`을 반환한다. 현재 집합이 모두 읽음이면 `updatedCount = 0`이고 현재 경계는 반환한다. 같은 DB 상태에서 요청을 반복하면 추가 저장 변경 없이 `updatedCount = 0`으로 수렴한다. 요청 사이에 새 알림이 커밋되면 뒤 요청은 새 경계를 가진 별도 일괄 읽음으로 처리한다.
+
+#### 오류
+
+| 발생 조건 | HTTP | code |
+|---|---:|---|
+| 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
+| 요청 본문 검증 실패 | 400 | `VALIDATION_ERROR` |
+| CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
+
+### 채팅 공통 계약
+
+채팅의 제품 규칙은 [P1 방 채팅 기능 명세](p1/chatting.md)를 따른다. 아래 인터페이스는 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)~[ADR-0034](adr/chat/0034-chat-message-retention-and-deletion.md)가 모두 제안 상태이므로 구현 예정 계약이며, ADR 승인과 저장·아키텍처 계약 반영 전에는 제공 기능을 뜻하지 않는다.
+
+모든 채팅 요청은 요청 시점의 방 상태와 주최자·현재 `ACTIVE` 참가자 관계를 서버에서 다시 확인한다. `RECRUITING`·`CLOSED` 방만 일반 사용자 접근을 허용하며, 참가 취소·`CANCELED`·`FINISHED` 상태는 `FORBIDDEN`으로 거절한다. 메시지 본문은 로그와 메트릭에 기록하지 않는다.
+
+### CHAT-02 메시지 전송
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `POST /api/rooms/{roomId}/chat/messages` |
+| 인증 / CSRF | 필요 / 필요 |
+| 성공 | 최초 저장은 `201 Created`, `data`: `ChatMessage`; 같은 `clientMessageId` 재시도는 `200 OK`와 최초 결과 |
+
+#### Path Variables
+
+| 이름 | 타입 | 필수 | 검증 |
+|---|---|:---:|---|
+| `roomId` | integer | Y | 1 이상의 방 ID |
+
+#### Request Body — ChatMessageSendRequest
+
+~~~json
+{
+  "clientMessageId": "01JCHAT-0001",
+  "content": "오늘 7시에 홍대입구에서 만나요."
+}
+~~~
+
+| 필드 | 타입 | 필수 | 검증 |
+|---|---|:---:|---|
+| `clientMessageId` | string | Y | 1~100자. 같은 방·같은 사용자에서 재시도 멱등성의 기준 |
+| `content` | string | Y | 앞뒤 공백 제거 후 1~500자의 일반 텍스트 |
+
+검증·권한 판정은 세션, 방 존재, 방 상태·현재 관계, 본문, 전송 제한 순서로 수행한다. 같은 사용자가 같은 방에서 같은 `clientMessageId`로 다른 본문을 보내면 `400 VALIDATION_ERROR`다.
+
+#### 오류
+
+| 발생 조건 | HTTP | code |
+|---|---:|---|
+| 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
+| 방이 없음 | 404 | `ROOM_NOT_FOUND` |
+| 주최자·현재 `ACTIVE` 참가자가 아니거나 방이 `CANCELED`·`FINISHED`임 | 403 | `FORBIDDEN` |
+| 본문·경로·멱등성 키 검증 실패 | 400 | `VALIDATION_ERROR` |
+| 사용자·방 단위 전송 제한 초과 | 429 | `RATE_LIMIT_EXCEEDED` |
+| CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
+
+### CHAT-02 메시지 이력 조회
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `GET /api/rooms/{roomId}/chat/messages` |
+| 인증 / CSRF | 필요 / 불필요 |
+| 성공 | `200 OK`, `data`: `ChatMessagePage` |
+
+#### Query Parameters
+
+| 이름 | 타입 | 필수 | 기본값 | 검증·의미 |
+|---|---|:---:|---:|---|
+| `beforeMessageId` | integer | N | 없음 | 1 이상의 메시지 ID. 해당 ID보다 이전 메시지를 조회 |
+| `size` | integer | N | `50` | 1~100. 최신 메시지부터 반환 |
+
+`beforeMessageId`가 없으면 최신 구간을 반환한다. 클라이언트는 응답의 `nextBeforeMessageId`로 과거 구간을 반복 조회하며, 메시지 ID로 중복을 제거한다.
+
+#### 오류
+
+| 발생 조건 | HTTP | code |
+|---|---:|---|
+| 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
+| 방이 없음 | 404 | `ROOM_NOT_FOUND` |
+| 주최자·현재 `ACTIVE` 참가자가 아니거나 방이 `CANCELED`·`FINISHED`임 | 403 | `FORBIDDEN` |
+| 경로·커서·크기 검증 실패 | 400 | `VALIDATION_ERROR` |
+
+### CHAT-03 실시간 메시지 구독
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `GET /api/rooms/{roomId}/chat/ws` WebSocket Upgrade |
+| 인증 / CSRF | 필요 / 불필요 |
+| handshake | 기존 `JSESSIONID` 세션과 허용된 `Origin` 검증 |
+| 성공 | `101 Switching Protocols`, 서버 발신 텍스트 프레임의 JSON `ChatMessageEvent` |
+
+#### Query Parameters
+
+| 이름 | 타입 | 필수 | 기본값 | 의미 |
+|---|---|:---:|---:|---|
+| `afterMessageId` | integer | N | 없음 | 연결 시 이 ID보다 큰 커밋 메시지부터 누락분을 전달한 뒤 실시간 대기 |
+
+`ChatMessageEvent.eventId`는 `messageId`와 같다. 연결이 끊기면 클라이언트는 마지막 이벤트 ID를 `afterMessageId`로 사용해 재연결한다. 서버는 누락 메시지를 `messageId ASC`로 먼저 전달하고, 복구 중 도착한 새 이벤트를 버퍼링·중복 제거한 뒤 실시간 전달로 전환한다.
+
+WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션 메시지 프레임을 보내면 서버는 처리하지 않고 정책 위반으로 연결을 종료한다. 메시지 저장은 HTTP POST와 PostgreSQL이 담당하며, WebSocket 전달 실패는 저장된 이력을 삭제하거나 롤백하지 않는다. 방 상태·관계 또는 세션이 바뀌어 접근 권한을 잃으면 서버는 정책 위반 close frame으로 연결을 종료하고 새 이벤트를 전달하지 않는다.
+
+#### 오류
+
+| 발생 조건 | HTTP | code |
+|---|---:|---|
+| 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
+| 방이 없음 | 404 | `ROOM_NOT_FOUND` |
+| 주최자·현재 `ACTIVE` 참가자가 아니거나 방이 `CANCELED`·`FINISHED`임 | 403 | `FORBIDDEN` |
+| 경로·커서 검증 실패 | 400 | `VALIDATION_ERROR` |
+| 허용되지 않은 `Origin` | 403 | `FORBIDDEN` |
+
+## 10. 오류 코드
 
 오류 코드는 클라이언트가 실패 원인을 식별하는 안정적인 외부 계약이다.
 
@@ -1033,9 +1519,9 @@ Request body는 없다.
 - `status`는 실제 HTTP 상태 및 실패 응답 본문의 `status`와 일치한다.
 - `message`는 아래 카탈로그의 한국어 기본 메시지를 사용한다. 클라이언트는 메시지가 아니라 `code`로 분기한다.
 - 코드의 소유 도메인은 호출한 엔드포인트가 아니라 실패 규칙의 소유자를 기준으로 정한다. 예를 들어 방 생성 중 선택한 게임이 없으면 게임 도메인의 `GAME_NOT_FOUND`를 반환한다.
-- 오류 코드를 추가하거나 의미·HTTP 상태·기본 메시지를 변경하면 이 카탈로그와 [엔드포인트별 오류 매트릭스](#10-부록-엔드포인트별-오류-매트릭스)를 함께 갱신한다.
+- 오류 코드를 추가하거나 의미·HTTP 상태·기본 메시지를 변경하면 이 카탈로그와 [엔드포인트별 오류 매트릭스](#11-부록-엔드포인트별-오류-매트릭스)를 함께 갱신한다.
 
-### 9.1 공통 오류
+### 10.1 공통 오류
 
 여러 도메인의 HTTP 경계에서 같은 의미로 사용하는 실패다.
 
@@ -1053,23 +1539,23 @@ Request body는 없다.
 
 `METHOD_NOT_ALLOWED`, `NOT_ACCEPTABLE`, `UNSUPPORTED_MEDIA_TYPE` 응답은 Spring MVC 예외가 제공하는 `Allow`, `Accept`, `Accept-Patch` 등의 프로토콜 헤더가 있으면 그대로 포함한다.
 
-### 9.2 인증·회원 오류
+### 10.2 인증·회원 오류
 
 | code | HTTP | 기본 message | 발생 조건 |
 |---|---:|---|---|
 | `INVALID_CREDENTIALS` | 401 | 이메일 또는 비밀번호가 일치하지 않습니다. | 로그인 이메일 또는 비밀번호가 일치하지 않음 |
 | `EMAIL_ALREADY_EXISTS` | 409 | 이미 사용 중인 이메일입니다. | 회원가입 이메일이 이미 사용 중임(정규화된 값 기준) |
-| `RATE_LIMIT_EXCEEDED` | 429 | 인증 요청 처리 한도를 초과했습니다. 잠시 후 다시 시도해 주세요. | 인증 요청 횟수 또는 비밀번호 해시 동시 실행 한도 초과 |
+| `RATE_LIMIT_EXCEEDED` | 429 | 요청 처리 한도를 초과했습니다. 잠시 후 다시 시도해 주세요. | 인증·채팅 등 요청 횟수 또는 비밀번호 해시 동시 실행 한도 초과 |
 
-`Retry-After` 계산은 [인증 요청 남용 제한](#인증-요청-남용-제한)을 따른다.
+인증 요청의 `Retry-After` 계산은 [인증 요청 남용 제한](#인증-요청-남용-제한)을 따른다. 채팅 전송 제한 응답도 재시도까지 남은 초를 `Retry-After`로 반환하며, 정확한 임계값과 계산은 구현 전에 운영·보안 계약으로 확정한다.
 
-### 9.3 게임 오류
+### 10.3 게임 오류
 
 | code | HTTP | 기본 message | 발생 조건 |
 |---|---:|---|---|
 | `GAME_NOT_FOUND` | 404 | 게임을 찾을 수 없습니다. | 요청한 게임이 없음 |
 
-### 9.4 방 오류
+### 10.4 방 오류
 
 | code | HTTP | 기본 message | 발생 조건 |
 |---|---:|---|---|
@@ -1086,9 +1572,9 @@ Request body는 없다.
 
 `GET /api/rooms`, `GET /api/rooms/{roomId}`, `GET /api/users/me/rooms`에서 이 오류를 받으면 클라이언트는 조회 요청 전체를 다시 시도한다. 알고리즘은 [ADR-0012](adr/room/0012-room-request-boundary-state-reconciliation.md)와 [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md)를 따른다.
 
-### 9.5 참가 오류
+### 10.5 참가 오류
 
-정확한 판정 순서는 [PART-01](#part-01-방-참가재참가)과 [PART-02](#part-02-참가-취소)의 오류 판정 순서를 따른다. 아래 발생 조건은 각 코드의 의미 요약이며 독립적인 충분조건이 아니다.
+정확한 판정 순서는 [PART-01](#part-01-방-참가재참가), [PART-02](#part-02-참가-취소)와 [PART-04](#part-04-대기-등록재신청)의 오류 판정 순서를 따른다. 아래 발생 조건은 각 코드의 의미 요약이며 독립적인 충분조건이 아니다.
 
 | code | HTTP | 기본 message | 대표 발생 조건 |
 |---|---:|---|---|
@@ -1096,10 +1582,20 @@ Request body는 없다.
 | `CAPACITY_EXCEEDED` | 409 | 모집 가능한 인원을 초과했습니다. | 방의 모집 인원을 초과하는 참가 시도 |
 | `ROOM_NOT_RECRUITING` | 409 | 현재 모집 중인 방이 아닙니다. | 모집 중이 아니거나 참가 가능 시간이 지난 방 참가 시도 |
 | `ALREADY_PARTICIPATING` | 409 | 이미 참가 중인 방입니다. | 요청자가 주최자이거나, 같은 방에 `ACTIVE` 참가 관계가 있는데 다시 참가 시도 |
+| `WAITLIST_ENTRY_NOT_FOUND` | 404 | 현재 대기 정보를 찾을 수 없습니다. | 상태 조회에 반환할 본인 대기 이력이 없거나 취소할 본인 `WAITING` 관계가 없음 |
+| `WAITLIST_NOT_AVAILABLE` | 409 | 현재 대기 신청할 수 없는 방입니다. | 직접 참가할 자리가 있거나 시작 시각에 도달했거나 방이 `CANCELED`·`FINISHED`여서 새 대기를 받을 수 없음 |
 
-## 10. 부록: 엔드포인트별 오류 매트릭스
+### 10.6 알림 오류
 
-각 엔드포인트가 반환할 수 있는 오류 코드의 전체 인덱스다. 개별 판정 순서는 각 API 절을, 코드 정의는 [9. 오류 코드](#9-오류-코드)를 따른다.
+| code | HTTP | 기본 message | 발생 조건 |
+|---|---:|---|---|
+| `NOTIFICATION_NOT_FOUND` | 404 | 알림을 찾을 수 없습니다. | 요청한 알림이 없거나 본인 알림이 아님 |
+
+다른 사용자의 알림에도 같은 코드를 반환하며 `FORBIDDEN`으로 구분하지 않는다.
+
+## 11. 부록: 엔드포인트별 오류 매트릭스
+
+각 엔드포인트가 반환할 수 있는 오류 코드의 전체 인덱스다. 개별 판정 순서는 각 API 절을, 코드 정의는 [10. 오류 코드](#10-오류-코드)를 따른다.
 
 | API | 오류 코드 |
 |---|---|
@@ -1122,6 +1618,16 @@ Request body는 없다.
 | `POST /api/rooms/{roomId}/participants` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `ALREADY_PARTICIPATING`, `ROOM_NOT_RECRUITING`, `CAPACITY_EXCEEDED`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
 | `DELETE /api/rooms/{roomId}/participants/me` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `PARTICIPATION_NOT_FOUND`, `FORBIDDEN`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
 | `GET /api/users/me/rooms` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_CONCURRENT_MODIFICATION` |
+| `POST /api/rooms/{roomId}/waitlist` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `ALREADY_PARTICIPATING`, `WAITLIST_NOT_AVAILABLE`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
+| `GET /api/rooms/{roomId}/waitlist/me` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `WAITLIST_ENTRY_NOT_FOUND`, `ROOM_CONCURRENT_MODIFICATION` |
+| `DELETE /api/rooms/{roomId}/waitlist/me` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `WAITLIST_ENTRY_NOT_FOUND`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
+| `GET /api/users/me/notifications` | `UNAUTHENTICATED`, `VALIDATION_ERROR` |
+| `GET /api/users/me/notifications/unread-count` | `UNAUTHENTICATED` |
+| `PATCH /api/users/me/notifications/{notificationId}` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `NOTIFICATION_NOT_FOUND`, `CSRF_TOKEN_INVALID` |
+| `PATCH /api/users/me/notifications` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `CSRF_TOKEN_INVALID` |
+| `POST /api/rooms/{roomId}/chat/messages` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `VALIDATION_ERROR`, `RATE_LIMIT_EXCEEDED`, `CSRF_TOKEN_INVALID` |
+| `GET /api/rooms/{roomId}/chat/messages` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `VALIDATION_ERROR` |
+| `GET /api/rooms/{roomId}/chat/ws` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `VALIDATION_ERROR` |
 
 - `GET /api/rooms/{roomId}`에서만 취소·종료 방을 권한 없는 사용자가 조회할 때 존재 여부를 숨기기 위해 `ROOM_NOT_FOUND`를 반환한다. 그 외 주최자 전용 쓰기 API의 비주최자 요청은 `FORBIDDEN`을 반환한다.
 - `PATCH /api/rooms/{roomId}`의 `GAME_NOT_FOUND`는 요청에 `gameId`를 포함했을 때만 적용한다.
