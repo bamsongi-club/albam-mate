@@ -41,9 +41,9 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:${ALBAM_MATE_LOCAL_SPRING_PORT:-8080}:8080"
     healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "--output", "/dev/null", "http://localhost:8080/api/games?size=1"]
+      test: ["CMD", "wget", "--quiet", "--output-document=/dev/null", "http://127.0.0.1:8080/api/games?size=1"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -59,7 +59,7 @@ services:
       spring:
         condition: service_healthy
     ports:
-      - "127.0.0.1:5173:80"
+      - "127.0.0.1:${ALBAM_MATE_LOCAL_WEB_PORT:-5173}:80"
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--output-document=/dev/null", "http://127.0.0.1/"]
       interval: 10s

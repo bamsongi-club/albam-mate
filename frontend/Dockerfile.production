@@ -15,7 +15,13 @@ RUN npm run build
 
 FROM nginx:stable-alpine@sha256:97d490c12ba55b4946b01546d1c3ed324e8d41ab1c9fcb2a616aa470620e5b46
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+RUN rm -f /etc/nginx/conf.d/default.conf
+
+COPY nginx.production.conf /etc/nginx/nginx.conf
+COPY --chmod=0555 docker-entrypoint.production.sh /usr/local/bin/albam-mate-entrypoint
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-EXPOSE 80
+EXPOSE 8080 8443
+
+ENTRYPOINT ["/usr/local/bin/albam-mate-entrypoint"]
+CMD ["nginx", "-g", "daemon off;"]
