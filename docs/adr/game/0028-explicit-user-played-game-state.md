@@ -3,7 +3,7 @@
 - 상태: 제안됨
 - 작성일: 2026-07-31
 - 결정일: 미정
-- 관련: [GAME-05 사용자별 해 본 게임](../../p1/search.md#game-05-사용자별-해-본-게임), [P0 권한과 공개 범위](../../archive/p0/P0-spec.md#권한과-공개-범위), [게임 API](../../API.md#6-게임-api), [ERD GAMES](../../ERD.md#games), [ADR-0003](../auth/0003-p0-server-session-spring-security.md), [ADR-0006](../platform/0006-p0-bigint-identity-ids.md), [ADR-0008](../platform/0008-flyway-database-migrations.md), [ADR-0020](../auth/0020-api-endpoint-authorization-policy-registry.md)
+- 관련: [SEARCH-03 사용자별 해 본 게임](../../p1/search.md#search-03-사용자별-해-본-게임), [P0 권한과 공개 범위](../../archive/p0/P0-spec.md#권한과-공개-범위), [게임 API](../../API.md#6-게임-api), [ERD GAMES](../../ERD.md#games), [ADR-0003](../auth/0003-p0-server-session-spring-security.md), [ADR-0006](../platform/0006-p0-bigint-identity-ids.md), [ADR-0008](../platform/0008-flyway-database-migrations.md), [ADR-0020](../auth/0020-api-endpoint-authorization-policy-registry.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
@@ -50,7 +50,7 @@
 
 - 얻는 것: 전체 게임 수가 아니라 실제 등록 수만큼만 데이터가 증가하고, 등록·취소와 검색 의미가 단순하다.
 - 감수할 비용·위험: 사용자가 표시하지 않으면 누락되며, 취소한 이전 표시나 실제 플레이 날짜·횟수는 알 수 없다.
-- 후속 작업: GAME-05가 상위 P1 범위에 채택되고 ADR이 승인되면 ERD·API·마이그레이션과 사용자 격리·멱등성·복합 검색 테스트에 반영한다.
+- 후속 작업: SEARCH-03이 상위 P1 범위에 채택되고 ADR이 승인되면 ERD·API·마이그레이션과 사용자 격리·멱등성·복합 검색 테스트에 반영한다.
 
 ## 보류 및 재검토
 

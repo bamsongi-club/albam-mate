@@ -3,7 +3,7 @@
 - 상태: 제안됨
 - 작성일: 2026-07-31
 - 결정일: 미정
-- 관련: [GAME-04 메커니즘 필터 후보](../../p1/search.md#game-04-게임-조건-검색), [ERD GAMES](../../ERD.md#games), [ADR-0015](0015-bgg-baseline-team-collected-game-list.md), [ADR-0019](0019-bgg-full-catalog-staged-enrichment.md), [출처 manifest](../../game-catalog/2026-07-24-source-manifest.draft.json)
+- 관련: [SEARCH-01 메커니즘 필터 후보](../../p1/search.md#search-01-게임-조건-검색), [ERD GAMES](../../ERD.md#games), [ADR-0015](0015-bgg-baseline-team-collected-game-list.md), [ADR-0019](0019-bgg-full-catalog-staged-enrichment.md), [출처 manifest](../../game-catalog/2026-07-24-source-manifest.draft.json)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 

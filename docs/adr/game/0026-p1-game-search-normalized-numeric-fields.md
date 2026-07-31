@@ -3,7 +3,7 @@
 - 상태: 제안됨
 - 작성일: 2026-07-31
 - 결정일: 미정
-- 관련: [GAME-04 게임 조건 검색](../../p1/search.md#game-04-게임-조건-검색), [P1 게임 데이터 정규화](../../P1-spec.md#게임-데이터-정규화), [게임 목록·검색 API](../../API.md#game-01-게임-목록검색), [ERD GAMES](../../ERD.md#games), [ADR-0015](0015-bgg-baseline-team-collected-game-list.md), [ADR-0008](../platform/0008-flyway-database-migrations.md), [ADR-0023](../platform/0023-p0-flyway-baseline-reset-player-count-stages.md)
+- 관련: [SEARCH-01 게임 조건 검색](../../p1/search.md#search-01-게임-조건-검색), [P1 게임 데이터 정규화](../../P1-spec.md#게임-데이터-정규화), [게임 목록·검색 API](../../API.md#game-01-게임-목록검색), [ERD GAMES](../../ERD.md#games), [ADR-0015](0015-bgg-baseline-team-collected-game-list.md), [ADR-0008](../platform/0008-flyway-database-migrations.md), [ADR-0023](../platform/0023-p0-flyway-baseline-reset-player-count-stages.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
