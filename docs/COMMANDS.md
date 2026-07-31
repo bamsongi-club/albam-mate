@@ -168,7 +168,13 @@ docker compose --env-file /etc/albam-mate/production.env -f compose.production.y
 docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml logs --tail 200
 ```
 
-롤백은 `production.env`의 `ALBAM_MATE_RELEASE`를 이전에 검증된 Git SHA로 바꾸고 같은 `up -d --wait` 명령을 다시 실행한다. 백엔드와 웹은 하나의 릴리스 값만 공유하므로 서로 다른 버전이 함께 실행되지 않는다.
+롤백은 `production.env`의 `ALBAM_MATE_RELEASE`를 이전에 검증된 Git SHA로 바꾸고 같은 `up -d --wait` 명령을 다시 실행한다. 같은 릴리스 값은 두 서비스의 목표 이미지 태그를 하나의 Compose 설정으로 묶을 뿐이며, `up -d --wait`는 변경된 서비스 컨테이너를 각각 중지·재생성한 뒤 실행·health 상태만 기다리는 명령이라 원자적 전환이나 실패 시 자동 복구를 보장하지 않는다. 예를 들어 spring 재생성 뒤 web 재생성이 실패하면 새 spring과 이전 web이 함께 남을 수 있다. 명령 실행 뒤에는 서비스별 실제 이미지를 확인한다.
+
+```sh
+docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml images
+```
+
+목표 릴리스와 다른 서비스가 있으면 원인을 해소하거나 `ALBAM_MATE_RELEASE`를 다시 이전 검증된 Git SHA로 맞춘 뒤 같은 `up -d --wait` 명령을 재실행해 두 서비스를 같은 릴리스로 맞춘다.
 
 운영 Compose에는 PostgreSQL과 더미 데이터 적재 작업이 없다. RDS의 게임 카탈로그는 재기동해도 유지되며, 최초 2,000개 카탈로그 적재·교체는 [게임 카탈로그 검수·적재](guides/GAME_CATALOG_IMPORT.md)의 승인된 `UPSERT` 절차로 한 번 수행한다. 전달받은 `games.json`이나 `games.sql`을 컨테이너 시작 때마다 자동 실행하지 않는다.
 
