@@ -28,7 +28,7 @@ import cloud.bamsongi.albammate.game.repository.GameListRow;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 
 @ExtendWith(MockitoExtension.class)
-class GameListQueryServiceTest {
+class GameQueryServiceListTest {
 
 	private static final Instant NOW = Instant.parse("2026-07-27T00:00:00Z");
 
@@ -38,11 +38,11 @@ class GameListQueryServiceTest {
 	@Mock
 	private UpcomingRoomCountQuery upcomingRoomCountQuery;
 
-	private GameListQueryService gameListQueryService;
+	private GameQueryService gameQueryService;
 
 	@BeforeEach
 	void setUp() {
-		gameListQueryService = new GameListQueryService(
+		gameQueryService = new GameQueryService(
 			gameRepository, Clock.fixed(NOW, ZoneOffset.UTC), upcomingRoomCountQuery);
 	}
 
@@ -55,7 +55,7 @@ class GameListQueryServiceTest {
 		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW))
 			.thenReturn(Map.of(1L, 2L));
 
-		Page<GameListItem> result = gameListQueryService.findPage("  카탄  ", false, 0, 10);
+		Page<GameListItem> result = gameQueryService.findPage("  카탄  ", false, 0, 10);
 
 		assertEquals(1, result.getTotalElements());
 		assertEquals("카탄", result.getContent().getFirst().name());
@@ -72,7 +72,7 @@ class GameListQueryServiceTest {
 			.thenReturn(new PageImpl<>(List.of(game), pageable, 1));
 		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW)).thenReturn(Map.of());
 
-		Page<GameListItem> result = gameListQueryService.findPage("\u3000카탄\u3000", false, 0, 10);
+		Page<GameListItem> result = gameQueryService.findPage("\u3000카탄\u3000", false, 0, 10);
 
 		assertEquals("카탄", result.getContent().getFirst().name());
 		verify(gameRepository).findListRowsByNameContainingIgnoreCase("카탄", pageable);
@@ -83,7 +83,7 @@ class GameListQueryServiceTest {
 		Pageable pageable = fixedPageRequest(0, 10);
 		when(gameRepository.findAllListRows(pageable)).thenReturn(Page.empty(pageable));
 
-		Page<GameListItem> result = gameListQueryService.findPage("  ", false, 0, 10);
+		Page<GameListItem> result = gameQueryService.findPage("  ", false, 0, 10);
 
 		assertEquals(0, result.getTotalElements());
 		verify(gameRepository).findAllListRows(pageable);
@@ -98,7 +98,7 @@ class GameListQueryServiceTest {
 			.thenReturn(new PageImpl<>(List.of(game), pageable, 1));
 		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW)).thenReturn(Map.of());
 
-		Page<GameListItem> result = gameListQueryService.findPage(null, false, 0, 10);
+		Page<GameListItem> result = gameQueryService.findPage(null, false, 0, 10);
 
 		assertEquals(0L, result.getContent().getFirst().upcomingRoomCount());
 	}
@@ -112,7 +112,7 @@ class GameListQueryServiceTest {
 		when(gameRepository.findListRowsByIdIn(upcomingRoomCounts.keySet(), pageable))
 			.thenReturn(new PageImpl<>(List.of(game), pageable, 2));
 
-		Page<GameListItem> result = gameListQueryService.findPage(null, true, 0, 1);
+		Page<GameListItem> result = gameQueryService.findPage(null, true, 0, 1);
 
 		assertEquals(2, result.getTotalElements());
 		assertEquals(2L, result.getContent().getFirst().upcomingRoomCount());
@@ -131,7 +131,7 @@ class GameListQueryServiceTest {
 				upcomingRoomCounts.keySet(), "카탄", pageable))
 			.thenReturn(new PageImpl<>(List.of(game), pageable, 1));
 
-		Page<GameListItem> result = gameListQueryService.findPage("  카탄  ", true, 0, 10);
+		Page<GameListItem> result = gameQueryService.findPage("  카탄  ", true, 0, 10);
 
 		assertEquals("카탄", result.getContent().getFirst().name());
 		verify(gameRepository)
@@ -143,7 +143,7 @@ class GameListQueryServiceTest {
 		Pageable pageable = fixedPageRequest(2, 10);
 		when(upcomingRoomCountQuery.findUpcomingRoomCounts(NOW)).thenReturn(Map.of());
 
-		Page<GameListItem> result = gameListQueryService.findPage(null, true, 2, 10);
+		Page<GameListItem> result = gameQueryService.findPage(null, true, 2, 10);
 
 		assertEquals(0, result.getTotalElements());
 		assertEquals(2, result.getNumber());

@@ -32,13 +32,13 @@ import cloud.bamsongi.albammate.room.service.query.RoomUpcomingRoomCountQuery;
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({
-	GameListQueryService.class,
+	GameQueryService.class,
 	RoomUpcomingRoomCountQuery.class,
 	JpaConfig.class,
 	TimeConfig.class,
-	GameListQueryServiceIntegrationTest.FixedClockTestConfiguration.class
+	GameQueryServiceListIntegrationTest.FixedClockTestConfiguration.class
 })
-class GameListQueryServiceIntegrationTest {
+class GameQueryServiceListIntegrationTest {
 
 	private static final Instant NOW = Instant.parse("2026-07-27T00:00:00Z");
 
@@ -46,7 +46,7 @@ class GameListQueryServiceIntegrationTest {
 	private GameRepository gameRepository;
 
 	@Autowired
-	private GameListQueryService gameListQueryService;
+	private GameQueryService gameQueryService;
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
@@ -107,7 +107,7 @@ class GameListQueryServiceIntegrationTest {
 			NOW.plusSeconds(6),
 			RoomStatus.RECRUITING);
 
-		Page<GameListItem> result = gameListQueryService.findPage(null, false, 0, 10);
+		Page<GameListItem> result = gameQueryService.findPage(null, false, 0, 10);
 
 		Map<Long, Long> upcomingRoomCounts = result.getContent().stream()
 			.collect(
@@ -121,7 +121,7 @@ class GameListQueryServiceIntegrationTest {
 				gameWithoutUpcomingRoom.getId(), 0L),
 			upcomingRoomCounts);
 
-		Page<GameListItem> upcomingOnlyResult = gameListQueryService.findPage(null, true, 0, 1);
+		Page<GameListItem> upcomingOnlyResult = gameQueryService.findPage(null, true, 0, 1);
 
 		assertEquals(2, upcomingOnlyResult.getTotalElements());
 		assertEquals(2, upcomingOnlyResult.getTotalPages());

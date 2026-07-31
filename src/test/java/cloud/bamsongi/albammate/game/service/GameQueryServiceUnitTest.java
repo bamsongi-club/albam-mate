@@ -5,6 +5,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -16,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import cloud.bamsongi.albammate.game.contract.GameSummary;
+import cloud.bamsongi.albammate.game.contract.UpcomingRoomCountQuery;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -23,6 +25,12 @@ class GameQueryServiceUnitTest {
 
 	@Mock
 	private GameRepository gameRepository;
+
+	@Mock
+	private Clock clock;
+
+	@Mock
+	private UpcomingRoomCountQuery upcomingRoomCountQuery;
 
 	@InjectMocks
 	private GameQueryService gameQueryService;

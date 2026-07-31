@@ -10,8 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import cloud.bamsongi.albammate.game.dto.GameDetail;
 import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
-import cloud.bamsongi.albammate.game.service.GameDetailQueryService;
-import cloud.bamsongi.albammate.game.service.GameListQueryService;
+import cloud.bamsongi.albammate.game.service.GameQueryService;
 import cloud.bamsongi.albammate.global.response.ApiResponse;
 import cloud.bamsongi.albammate.global.response.PageResponse;
 import jakarta.validation.Valid;
@@ -24,8 +23,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class GameController {
 
-	@NonNull private final GameListQueryService gameListQueryService;
-	@NonNull private final GameDetailQueryService gameDetailQueryService;
+	@NonNull private final GameQueryService gameQueryService;
 
 	@GetMapping
 	public ApiResponse<PageResponse<GameListItem>> listGames(
@@ -33,12 +31,12 @@ public class GameController {
 		GameListRequest request) {
 		return ApiResponse.success(
 			HttpStatus.OK,
-			PageResponse.from(gameListQueryService.findPage(
+			PageResponse.from(gameQueryService.findPage(
 				request.getKeyword(), request.isUpcomingOnly(), request.getPage(), request.getSize())));
 	}
 
 	@GetMapping("/{gameId}")
 	public ApiResponse<GameDetail> getGameDetail(@PathVariable @Min(1) Long gameId) {
-		return ApiResponse.success(HttpStatus.OK, gameDetailQueryService.findById(gameId));
+		return ApiResponse.success(HttpStatus.OK, gameQueryService.findById(gameId));
 	}
 }
