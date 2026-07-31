@@ -47,10 +47,10 @@ P0는 홍대 오프라인 모임만 다루며 운영 제재·결제·알림·대
 | 게임 카탈로그 | [기능 명세](docs/archive/p0/game-catalog.md) 있음 | `GAME-01`·`GAME-02`의 2개 API, 예정 모임 필터와 2,000건 검수·적재 도구 | 목록·검색·예정 모임 필터·상세 테스트와 PostgreSQL 재적재·롤백 테스트 |
 | 방 | [기능 명세](docs/archive/p0/room.md) 있음 | `ROOM-01`~`ROOM-05`의 6개 API와 전체 공개 방 필터, 상태 보정·스케줄러 | 목록·필터, 상태 경계·보정, 취소·종료와 권한 테스트 |
 | 참가·내 모임 | [기능 명세](docs/archive/p0/participation.md) 있음 | `PART-01`~`PART-03`의 3개 API | PostgreSQL 낙관 락 동시성 테스트 |
-| 프론트엔드 | [프론트엔드 README](frontend/README.md) 있음 | React 화면과 세션 쿠키·CSRF를 포함한 P0 API 연동 | 자동 테스트와 CI 빌드 게이트 없음 |
+| 프론트엔드 | [프론트엔드 README](frontend/README.md) 있음 | React 화면과 세션 쿠키·CSRF를 포함한 P0 API 연동 | `npm ci`와 Vite 운영 빌드를 CI에서 검증, 자동 동작 테스트는 아직 없음 |
 | 운영 배포 | [ADR-0021 운영 인프라 기준](docs/adr/platform/0021-p0-aws-ec2-rds-deployment-baseline.md) 있음 | 구현 전 | 검증 전 |
 
-위 표는 2026-07-30 15:44 KST `develop@babc735` 기준입니다.
+위 표는 2026-07-31 기준입니다.
 
 ## 팀 — 밤송이클럽
 
