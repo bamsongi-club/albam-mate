@@ -25,7 +25,9 @@ import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
-import cloud.bamsongi.albammate.auth.controller.CsrfController;
+import cloud.bamsongi.albammate.auth.controller.AuthController;
+import cloud.bamsongi.albammate.auth.service.LoginService;
+import cloud.bamsongi.albammate.auth.service.SignupService;
 import cloud.bamsongi.albammate.global.config.SecurityConfig;
 import cloud.bamsongi.albammate.global.exception.GlobalExceptionHandler;
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserAccessor;
@@ -38,7 +40,7 @@ import cloud.bamsongi.albammate.user.dto.UserProfileResponse;
 import cloud.bamsongi.albammate.user.service.UserProfileService;
 import jakarta.servlet.http.Cookie;
 
-@WebMvcTest(controllers = {UserProfileController.class, CsrfController.class})
+@WebMvcTest(controllers = {UserProfileController.class, AuthController.class})
 @Import({
 	SecurityConfig.class,
 	ApiAccessDeniedHandler.class,
@@ -191,6 +193,16 @@ class UserProfileControllerTest {
 		@Bean
 		UserProfileService userProfileService() {
 			return org.mockito.Mockito.mock(UserProfileService.class);
+		}
+
+		@Bean
+		SignupService signupService() {
+			return org.mockito.Mockito.mock(SignupService.class);
+		}
+
+		@Bean
+		LoginService loginService() {
+			return org.mockito.Mockito.mock(LoginService.class);
 		}
 	}
 }
