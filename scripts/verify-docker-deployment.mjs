@@ -271,6 +271,7 @@ function assertProductionConfig(config) {
         'web healthcheck does not enforce the release gate',
     );
     assert(config.services.spring.ports === undefined, 'Spring publishes a host port');
+    assert(config.services.web.ports.length === 1, `web publishes ${config.services.web.ports.length} host ports`);
     const webPort = config.services.web.ports[0];
     assert(String(webPort.published) === '443' && String(webPort.target) === '8443', 'web is not 443 -> 8443');
     const springCa = config.services.spring.volumes.find(
@@ -490,6 +491,15 @@ function verifyT3() {
         ownedImages.add(springImage);
         compose(files, project, ['build', 'vite'], { env });
         ownedImages.add(viteImage);
+        const config = JSON.parse(compose(files, project, ['config', '--format', 'json'], { env }).stdout);
+        assert(
+            config.services.spring.depends_on.postgres.condition === 'service_healthy',
+            'Spring does not wait for PostgreSQL health',
+        );
+        assert(
+            config.services.vite.depends_on.spring.condition === 'service_healthy',
+            'Vite does not wait for Spring health',
+        );
         composeAttempted = true;
         compose(files, project, ['up', '-d', '--no-build', '--wait'], { env });
         for (const service of ['postgres', 'spring', 'vite']) {
@@ -770,6 +780,7 @@ function verifyT8() {
         buildOwnedImage(ownedImages, springImage, ['.']);
         buildOwnedImage(ownedImages, webImage, ['--file', 'frontend/Dockerfile.production', 'frontend']);
         const env = productionEnvironment(certificateDirectory);
+        assertProductionConfig(loadProductionConfig(env));
         composeAttempted = true;
         compose(files, project, ['up', '-d', '--wait'], { env });
         for (const service of ['postgres', 'spring', 'web']) {
