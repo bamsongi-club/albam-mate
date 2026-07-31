@@ -3,7 +3,7 @@
 이 문서는 Albam Mate 백엔드 코드의 작성·리뷰 규칙이다. 다음 정본이 이 문서보다 우선한다.
 
 - 백엔드 구조·모듈 책임·의존 흐름: [아키텍처 문서](ARCHITECTURE.md)
-- 제품 동작: [P0 공통 명세](P0-spec.md)와 [기능별 명세](P0-spec.md#관련-문서)
+- 제품 동작: [P0 공통 명세](archive/p0/P0-spec.md)와 [기능별 명세](archive/p0/P0-spec.md#관련-문서)
 - 요청·응답: [API 명세](API.md)
 - 데이터 구조: [ERD](ERD.md)
 - 되돌리기 어렵거나 논쟁적인 기술 선택: [ADR](adr/README.md)

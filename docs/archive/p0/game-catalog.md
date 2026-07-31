@@ -1,8 +1,8 @@
 # P0 게임 목록 구현 명세
 
-이 문서는 P0의 게임 목록·검색, 상세 조회와 카탈로그 출처 표시를 독립적으로 구현·검증하기 위한 기준이다. 전체 범위·공통 규칙은 [P0 명세](../P0-spec.md), HTTP 계약은 [API 명세](../API.md), 저장 계약은 [ERD](../ERD.md)를 따른다.
+이 문서는 P0의 게임 목록·검색, 상세 조회와 카탈로그 출처 표시를 독립적으로 구현·검증하기 위한 기준이다. 전체 범위·공통 규칙은 [P0 명세](P0-spec.md), HTTP 계약은 [API 명세](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md), 저장 계약은 [ERD](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md)를 따른다.
 
-필수 ADR의 현재 승인·검증 상태는 [Game ADR](../adr/game/README.md)과 [Platform ADR](../adr/platform/README.md) 인덱스에서 확인하고, 구현 근거는 각 개별 ADR의 `검증` 절에서 확인한다.
+필수 ADR의 현재 승인·검증 상태는 [Game ADR](../../adr/game/README.md)과 [Platform ADR](../../adr/platform/README.md) 인덱스에서 확인하고, 구현 근거는 각 개별 ADR의 `검증` 절에서 확인한다.
 
 ## GAME-01 게임 목록·검색
 
@@ -10,10 +10,10 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [게임 목록·검색](../API.md#game-01-게임-목록검색) |
-| 공통 규칙 | [권한과 공개 범위](../P0-spec.md#권한과-공개-범위) |
-| 데이터 모델 | [GAMES](../ERD.md#games), [ROOMS](../ERD.md#rooms) |
-| 필수 ADR | [ADR-0006: 내부 ID와 외부 식별자 분리](../adr/platform/0006-p0-bigint-identity-ids.md), [ADR-0008: 스키마와 대규모 데이터 적재 분리](../adr/platform/0008-flyway-database-migrations.md), [ADR-0015: BGG 기준 스냅샷·팀 수집 자료 결합](../adr/game/0015-bgg-baseline-team-collected-game-list.md) |
+| API 계약 | [게임 목록·검색](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#game-01-게임-목록검색) |
+| 공통 규칙 | [권한과 공개 범위](P0-spec.md#권한과-공개-범위) |
+| 데이터 모델 | [GAMES](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#games), [ROOMS](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#rooms) |
+| 필수 ADR | [ADR-0006: 내부 ID와 외부 식별자 분리](../../adr/platform/0006-p0-bigint-identity-ids.md), [ADR-0008: 스키마와 대규모 데이터 적재 분리](../../adr/platform/0008-flyway-database-migrations.md), [ADR-0015: BGG 기준 스냅샷·팀 수집 자료 결합](../../adr/game/0015-bgg-baseline-team-collected-game-list.md) |
 
 ### 기능 규칙
 
@@ -23,7 +23,7 @@
 - `keyword`와 `upcomingOnly=true`를 함께 사용하면 두 조건을 모두 만족하는 게임만 반환한다.
 - 게임 응답은 알밤메이트 내부 `id`와 BGG 외부 식별자 `bggId`를 함께 반환한다.
 - 게임 카드의 정확한 응답 필드는 API 명세를 따른다.
-- 예정 모임 수는 저장하지 않고 [GAMES 계산 규칙](../ERD.md#games)에 따라 조회 시 계산한다.
+- 예정 모임 수는 저장하지 않고 [GAMES 계산 규칙](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#games)에 따라 조회 시 계산한다.
 
 ### 완료 기준
 
@@ -45,10 +45,10 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [게임 상세 조회](../API.md#game-02-게임-상세-조회) |
-| 공통 규칙 | [권한과 공개 범위](../P0-spec.md#권한과-공개-범위) |
-| 데이터 모델 | [GAMES](../ERD.md#games), [ROOMS](../ERD.md#rooms) |
-| 필수 ADR | [ADR-0006: 내부 ID와 외부 식별자 분리](../adr/platform/0006-p0-bigint-identity-ids.md), [ADR-0008: 스키마와 대규모 데이터 적재 분리](../adr/platform/0008-flyway-database-migrations.md), [ADR-0015: BGG 기준 스냅샷·팀 수집 자료 결합](../adr/game/0015-bgg-baseline-team-collected-game-list.md) |
+| API 계약 | [게임 상세 조회](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#game-02-게임-상세-조회) |
+| 공통 규칙 | [권한과 공개 범위](P0-spec.md#권한과-공개-범위) |
+| 데이터 모델 | [GAMES](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#games), [ROOMS](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#rooms) |
+| 필수 ADR | [ADR-0006: 내부 ID와 외부 식별자 분리](../../adr/platform/0006-p0-bigint-identity-ids.md), [ADR-0008: 스키마와 대규모 데이터 적재 분리](../../adr/platform/0008-flyway-database-migrations.md), [ADR-0015: BGG 기준 스냅샷·팀 수집 자료 결합](../../adr/game/0015-bgg-baseline-team-collected-game-list.md) |
 
 ### 기능 규칙
 
@@ -60,7 +60,7 @@
 ### 완료 기준
 
 - `GAME-02-AC1` 존재하는 게임 ID로 게임 상세와 예정 모임 수를 조회할 수 있다.
-- `GAME-02-AC2` 존재하지 않는 게임 ID는 [게임 상세 오류 계약](../API.md#game-02-게임-상세-조회)에 따라 처리된다.
+- `GAME-02-AC2` 존재하지 않는 게임 ID는 [게임 상세 오류 계약](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#game-02-게임-상세-조회)에 따라 처리된다.
 - `GAME-02-AC3` 목록과 상세에서 같은 게임의 `id`, `bggId`와 예정 모임 수가 일관된다.
 
 ### 제외 범위
@@ -76,9 +76,9 @@
 | 구분 | 정본 |
 | --- | --- |
 | API 계약 | 해당 없음. 서버 API 없이 프런트엔드 화면에서 표시한다. |
-| 공통 규칙 | [권한과 공개 범위](../P0-spec.md#권한과-공개-범위) |
+| 공통 규칙 | [권한과 공개 범위](P0-spec.md#권한과-공개-범위) |
 | 데이터 모델 | 해당 없음 |
-| 필수 ADR | [ADR-0015: BGG 기준 스냅샷·팀 수집 자료 결합](../adr/game/0015-bgg-baseline-team-collected-game-list.md), [ADR-0025: 게임 카탈로그 출처를 전역 푸터와 공개 출처 페이지에 표시](../adr/game/0025-game-catalog-public-source-attribution.md) |
+| 필수 ADR | [ADR-0015: BGG 기준 스냅샷·팀 수집 자료 결합](../../adr/game/0015-bgg-baseline-team-collected-game-list.md), [ADR-0025: 게임 카탈로그 출처를 전역 푸터와 공개 출처 페이지에 표시](../../adr/game/0025-game-catalog-public-source-attribution.md) |
 
 ### 기능 규칙
 

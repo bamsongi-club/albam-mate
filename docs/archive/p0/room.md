@@ -1,8 +1,8 @@
 # P0 방 기능 명세
 
-이 문서는 P0 방 기능을 독립적으로 구현·검증할 수 있는 단위로 정의한다. 공통 정원·상태·권한·시간 규칙은 [P0 공통 명세](../P0-spec.md#공통-규칙), 요청·응답·오류는 [API 명세](../API.md), 저장 계약은 [ERD](../ERD.md)를 정본으로 삼는다.
+이 문서는 P0 방 기능을 독립적으로 구현·검증할 수 있는 단위로 정의한다. 공통 정원·상태·권한·시간 규칙은 [P0 공통 명세](P0-spec.md#공통-규칙), 요청·응답·오류는 [API 명세](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md), 저장 계약은 [ERD](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md)를 정본으로 삼는다.
 
-필수 ADR의 현재 승인·검증 상태는 [Room ADR](../adr/room/README.md), [Participation ADR](../adr/participation/README.md)과 [Platform ADR](../adr/platform/README.md) 인덱스에서 확인하고, 구현 근거는 각 개별 ADR의 `검증` 절에서 확인한다.
+필수 ADR의 현재 승인·검증 상태는 [Room ADR](../../adr/room/README.md), [Participation ADR](../../adr/participation/README.md)과 [Platform ADR](../../adr/platform/README.md) 인덱스에서 확인하고, 구현 근거는 각 개별 ADR의 `검증` 절에서 확인한다.
 
 ## ROOM-01 방 탐색
 
@@ -10,10 +10,10 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [방 목록 조회](../API.md#room-01-방-목록-조회) |
-| 공통 규칙 | [방 상태](../P0-spec.md#방-상태roomstatus), [권한과 공개 범위](../P0-spec.md#권한과-공개-범위), [상태 정합성과 동시 변경](../P0-spec.md#상태-정합성과-동시-변경) |
-| 데이터 모델 | [ROOMS](../ERD.md#rooms), [GAMES](../ERD.md#games) |
-| 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md) |
+| API 계약 | [방 목록 조회](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#room-01-방-목록-조회) |
+| 공통 규칙 | [방 상태](P0-spec.md#방-상태roomstatus), [권한과 공개 범위](P0-spec.md#권한과-공개-범위), [상태 정합성과 동시 변경](P0-spec.md#상태-정합성과-동시-변경) |
+| 데이터 모델 | [ROOMS](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#rooms), [GAMES](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#games) |
+| 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../../adr/room/0012-room-request-boundary-state-reconciliation.md) |
 
 ### 기능 규칙
 
@@ -44,10 +44,10 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [방 상세 조회](../API.md#room-02-방-상세-조회) |
-| 공통 규칙 | [권한과 공개 범위](../P0-spec.md#권한과-공개-범위), [방 상태](../P0-spec.md#방-상태roomstatus), [상태 정합성과 동시 변경](../P0-spec.md#상태-정합성과-동시-변경) |
-| 데이터 모델 | [ROOMS](../ERD.md#rooms), [GAMES](../ERD.md#games) |
-| 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md) |
+| API 계약 | [방 상세 조회](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#room-02-방-상세-조회) |
+| 공통 규칙 | [권한과 공개 범위](P0-spec.md#권한과-공개-범위), [방 상태](P0-spec.md#방-상태roomstatus), [상태 정합성과 동시 변경](P0-spec.md#상태-정합성과-동시-변경) |
+| 데이터 모델 | [ROOMS](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#rooms), [GAMES](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#games) |
+| 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../../adr/room/0012-room-request-boundary-state-reconciliation.md) |
 
 ### 기능 규칙
 
@@ -77,10 +77,10 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [방 생성](../API.md#room-03-방-생성) |
-| 공통 규칙 | [정원](../P0-spec.md#정원capacity), [방 상태](../P0-spec.md#방-상태roomstatus), [권한과 공개 범위](../P0-spec.md#권한과-공개-범위), [시간 경계](../P0-spec.md#시간-경계) |
-| 데이터 모델 | [ROOMS](../ERD.md#rooms), [GAMES](../ERD.md#games) |
-| 필수 ADR | [ADR-0009 UTC 저장과 서비스 시간대 변환](../adr/platform/0009-utc-time-standard.md) |
+| API 계약 | [방 생성](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#room-03-방-생성) |
+| 공통 규칙 | [정원](P0-spec.md#정원capacity), [방 상태](P0-spec.md#방-상태roomstatus), [권한과 공개 범위](P0-spec.md#권한과-공개-범위), [시간 경계](P0-spec.md#시간-경계) |
+| 데이터 모델 | [ROOMS](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#rooms), [GAMES](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#games) |
+| 필수 ADR | [ADR-0009 UTC 저장과 서비스 시간대 변환](../../adr/platform/0009-utc-time-standard.md) |
 
 ### 기능 규칙
 
@@ -110,10 +110,10 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [방 수정](../API.md#room-04-방-수정) |
-| 공통 규칙 | [정원](../P0-spec.md#정원capacity), [방 상태](../P0-spec.md#방-상태roomstatus), [권한과 공개 범위](../P0-spec.md#권한과-공개-범위), [시간 경계](../P0-spec.md#시간-경계), [상태 정합성과 동시 변경](../P0-spec.md#상태-정합성과-동시-변경) |
-| 데이터 모델 | [ROOMS](../ERD.md#rooms), [GAMES](../ERD.md#games) |
-| 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0009 UTC 저장과 서비스 시간대 변환](../adr/platform/0009-utc-time-standard.md), [ADR-0022 수정 API HTTP 메서드와 종료 멱등성](../adr/platform/0022-p0-update-api-http-method-and-finish-idempotency.md) |
+| API 계약 | [방 수정](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#room-04-방-수정) |
+| 공통 규칙 | [정원](P0-spec.md#정원capacity), [방 상태](P0-spec.md#방-상태roomstatus), [권한과 공개 범위](P0-spec.md#권한과-공개-범위), [시간 경계](P0-spec.md#시간-경계), [상태 정합성과 동시 변경](P0-spec.md#상태-정합성과-동시-변경) |
+| 데이터 모델 | [ROOMS](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#rooms), [GAMES](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#games) |
+| 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0005 방 참가 동시성 제어](../../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0009 UTC 저장과 서비스 시간대 변환](../../adr/platform/0009-utc-time-standard.md), [ADR-0022 수정 API HTTP 메서드와 종료 멱등성](../../adr/platform/0022-p0-update-api-http-method-and-finish-idempotency.md) |
 
 ### 기능 규칙
 
@@ -143,10 +143,10 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [방 취소](../API.md#room-05-방-취소), [방 종료](../API.md#room-05-방-종료) |
-| 공통 규칙 | [방 상태](../P0-spec.md#방-상태roomstatus), [권한과 공개 범위](../P0-spec.md#권한과-공개-범위), [시간 경계](../P0-spec.md#시간-경계), [상태 정합성과 동시 변경](../P0-spec.md#상태-정합성과-동시-변경) |
-| 데이터 모델 | [ROOMS](../ERD.md#rooms) |
-| 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0009 UTC 저장과 서비스 시간대 변환](../adr/platform/0009-utc-time-standard.md), [ADR-0022 수정 API HTTP 메서드와 종료 멱등성](../adr/platform/0022-p0-update-api-http-method-and-finish-idempotency.md) |
+| API 계약 | [방 취소](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#room-05-방-취소), [방 종료](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#room-05-방-종료) |
+| 공통 규칙 | [방 상태](P0-spec.md#방-상태roomstatus), [권한과 공개 범위](P0-spec.md#권한과-공개-범위), [시간 경계](P0-spec.md#시간-경계), [상태 정합성과 동시 변경](P0-spec.md#상태-정합성과-동시-변경) |
+| 데이터 모델 | [ROOMS](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#rooms) |
+| 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0009 UTC 저장과 서비스 시간대 변환](../../adr/platform/0009-utc-time-standard.md), [ADR-0022 수정 API HTTP 메서드와 종료 멱등성](../../adr/platform/0022-p0-update-api-http-method-and-finish-idempotency.md) |
 
 ### 기능 규칙
 
@@ -175,11 +175,11 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| API 계약 | [방 상태 계약](../API.md#roomstatus) |
-| 공통 규칙 | [방 상태](../P0-spec.md#방-상태roomstatus), [시간 경계](../P0-spec.md#시간-경계), [상태 정합성과 동시 변경](../P0-spec.md#상태-정합성과-동시-변경) |
-| 데이터 모델 | [ROOMS](../ERD.md#rooms) |
-| 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0009 UTC 저장과 서비스 시간대 변환](../adr/platform/0009-utc-time-standard.md) |
-| 검증 환경 | [ADR-0010 H2와 PostgreSQL 테스트 경계](../adr/platform/0010-h2-postgresql-test-boundary.md) |
+| API 계약 | [방 상태 계약](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/API.md#roomstatus) |
+| 공통 규칙 | [방 상태](P0-spec.md#방-상태roomstatus), [시간 경계](P0-spec.md#시간-경계), [상태 정합성과 동시 변경](P0-spec.md#상태-정합성과-동시-변경) |
+| 데이터 모델 | [ROOMS](https://github.com/bamsongi-club/albam-mate/blob/v0.1.0/docs/ERD.md#rooms) |
+| 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0005 방 참가 동시성 제어](../../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0009 UTC 저장과 서비스 시간대 변환](../../adr/platform/0009-utc-time-standard.md) |
+| 검증 환경 | [ADR-0010 H2와 PostgreSQL 테스트 경계](../../adr/platform/0010-h2-postgresql-test-boundary.md) |
 
 ### 기능 규칙
 

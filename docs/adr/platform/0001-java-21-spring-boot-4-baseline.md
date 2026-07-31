@@ -65,13 +65,13 @@ Spring Security 7이나 향후 Spring AI 도입 가능성은 이 결정을 보�
 
 ## 검증
 
-- 상태: 미검증
+- 상태: 검증됨
 - 근거:
     - 구현:
-        - 2026-07-23에 `build.gradle`의 Java 21·Spring Boot 4.1.0 선언과 Gradle 9.5.1 wrapper가 공식 지원 범위에 있음을 확인했다.
+        - `build.gradle`은 Java 21과 Spring Boot 4.1.0을 선언하고 Gradle 9.5.1 wrapper를 사용하며, 이 조합은 Spring Boot 4.1.0의 공식 지원 범위에 있다.
     - 테스트:
-        - `gradlew.bat test --rerun-tasks --console plain`이 전체 테스트를 통과했다.
-- 미검증:
-    - CI 근거는 승인 후 연결한다.
+        - 2026-07-31 `develop`의 `6df7b3d`에서 `.\gradlew.bat conventionCheck build --no-daemon --console plain`이 전체 H2 테스트와 분기 커버리지 게이트를 포함해 통과했다.
+    - CI:
+        - 같은 커밋의 [CI 실행 #30597642216](https://github.com/bamsongi-club/albam-mate/actions/runs/30597642216)에서 Java 설정, `Build and verify`, `Verify PostgreSQL schema and branch coverage` 단계가 통과했다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

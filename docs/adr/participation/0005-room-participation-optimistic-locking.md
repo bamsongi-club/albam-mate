@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-23
 - 결정일: 2026-07-24
-- 관련: [ADR-0002](../platform/0002-postgresql-primary-database.md), [P0 참가·내 모임 명세](../../p0/participation.md), [API 방 참가·재참가 계약](../../API.md#part-01-방-참가재참가), [API 오류 계약](../../API.md#9-오류-코드), [ERD](../../ERD.md#rooms)
+- 관련: [ADR-0002](../platform/0002-postgresql-primary-database.md), [P0 참가·내 모임 명세](../../archive/p0/participation.md), [API 방 참가·재참가 계약](../../API.md#part-01-방-참가재참가), [API 오류 계약](../../API.md#9-오류-코드), [ERD](../../ERD.md#rooms)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
@@ -63,7 +63,7 @@ Albam Mate의 현재 MVP에서 방 참가·취소 동시성 제어의 기본 전
 ## 참고 자료
 
 - [ADR-0002: PostgreSQL을 주 데이터베이스로 채택](../platform/0002-postgresql-primary-database.md)
-- [P0 참가·내 모임 명세](../../p0/participation.md)
+- [P0 참가·내 모임 명세](../../archive/p0/participation.md)
 - [API 방 참가·재참가 계약](../../API.md#part-01-방-참가재참가)
 - [API 오류 계약](../../API.md#9-오류-코드)
 - [ERD의 방 모델과 무결성 규칙](../../ERD.md#rooms)

@@ -1,8 +1,8 @@
 # ADR-0024: 네이버 Java 포맷과 프로젝트 Checkstyle로 컨벤션을 자동화
 
-- 상태: 제안됨
+- 상태: 승인됨
 - 작성일: 2026-07-29
-- 결정일: 미정
+- 결정일: 2026-07-31
 - 관련: [GitHub Issue #145](https://github.com/bamsongi-club/albam-mate/issues/145), [코드 컨벤션](../../CONVENTIONS.md), [Java 컨벤션과 Git hook 설정](../../guides/CODE_FORMATTING.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
@@ -57,11 +57,13 @@ Spotless의 Java 포맷 정본을 네이버 Java 코딩 컨벤션의 Eclipse For
 
 ## 검증
 
-- 상태: 미검증
+- 상태: 검증됨
 - 근거:
+    - 구현:
+        - [PR #152](https://github.com/bamsongi-club/albam-mate/pull/152)가 네이버 Eclipse Formatter·import 순서, 프로젝트 Checkstyle 10개 규칙, `conventionCheck`, pre-commit hook과 blame 제외 설정을 `develop`에 반영했다.
     - 테스트:
-        - 로컬 스파이크에서 `conventionCheck`, pre-commit hook과 전체 Gradle build가 통과했다.
-- 미검증:
-    - Issue #145 승인과 최종 반영 후 구현 PR과 CI 결과로 갱신한다.
+        - 2026-07-31 `develop`의 `6df7b3d`에서 `.\gradlew.bat conventionCheck build --no-daemon --console plain`이 Spotless와 main·test·postgresTest Checkstyle을 포함해 통과했다.
+    - CI:
+        - 같은 커밋의 [CI 실행 #30597642216](https://github.com/bamsongi-club/albam-mate/actions/runs/30597642216)에서 `Build and verify` 단계가 통과했다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

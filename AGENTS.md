@@ -16,11 +16,11 @@
 | Flyway 마이그레이션 파일 작업 | [src/main/resources/db/migration/AGENTS.md](src/main/resources/db/migration/AGENTS.md) |
 | 아키텍처 결정 기록과 작성 규칙 | [docs/adr/README.md](docs/adr/README.md) |
 | 전체 제품 목표와 단계별 범위 | [docs/PRD.md](docs/PRD.md) |
-| P0 기능·API·데이터 명세 진입점 | [docs/P0-spec.md#관련-문서](docs/P0-spec.md#관련-문서) |
+| 완료된 P0 문서 아카이브 | [docs/archive/README.md](docs/archive/README.md) |
 
 백엔드 구조·모듈 관계는 `docs/ARCHITECTURE.md`, 경로별 규약은 해당 위치의 `AGENTS.md`, 생산 코드·협업 공통 규약은 `docs/CONVENTIONS.md`에 두고 중복하지 않는다.
 
-P0 구현은 `docs/p0/`의 해당 기능 ID 절부터 읽고 맥락이 부족할 때만 상위 문서를 확인한다. 필요한 공유 기반이 없으면 [기반 작업 명세](docs/p0/foundation.md)의 선행 항목부터 확인한다.
+P0 문서는 완료 시점의 기록으로 [archive](docs/archive/README.md)에 동결했다. P1 명세가 작성되기 전에는 P0 기능 ID를 새 구현 작업의 진입점으로 사용하지 않는다.
 
 ## 작업 원칙
 

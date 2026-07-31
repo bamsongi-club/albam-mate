@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-24
 - 결정일: 2026-07-24
-- 관련: [ADR-0001](0001-java-21-spring-boot-4-baseline.md), [P0 명세](../../P0-spec.md), [프로젝트 컨벤션](../../CONVENTIONS.md)
+- 관련: [ADR-0001](0001-java-21-spring-boot-4-baseline.md), [P0 명세](../../archive/p0/P0-spec.md), [프로젝트 컨벤션](../../CONVENTIONS.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 

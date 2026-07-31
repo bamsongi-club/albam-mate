@@ -6,7 +6,7 @@
 
 | 번호 | 제목 | 상태 | 결정일 | 검증 |
 | --- | --- | --- | --- | --- |
-| [0001](0001-java-21-spring-boot-4-baseline.md) | Java 21과 Spring Boot 4를 백엔드 기준선으로 채택 | 승인됨 | 2026-07-23 | 미검증 |
+| [0001](0001-java-21-spring-boot-4-baseline.md) | Java 21과 Spring Boot 4를 백엔드 기준선으로 채택 | 승인됨 | 2026-07-23 | 검증됨 |
 | [0002](0002-postgresql-primary-database.md) | PostgreSQL을 주 데이터베이스로 채택 | 승인됨 | 2026-07-23 | 검증됨 |
 | [0006](0006-p0-bigint-identity-ids.md) | P0 내부 식별자에 BIGINT 자동 증가 키를 사용 | 승인됨 | 2026-07-24 | 검증됨 |
 | [0007](0007-domain-centered-modular-monolith.md) | 도메인 중심 모듈러 모놀리스를 채택 | 승인됨 | 2026-07-24 | 검증됨 |
@@ -18,4 +18,4 @@
 | [0021](0021-p0-aws-ec2-rds-deployment-baseline.md) | P0 AWS EC2와 RDS 배포 기준선 | 승인됨 | 2026-07-28 | 미검증 |
 | [0022](0022-p0-update-api-http-method-and-finish-idempotency.md) | P0 수정 API에 PATCH를 유지하고 방 종료 명령을 멱등 처리 | 승인됨 | 2026-07-28 | 검증됨 |
 | [0023](0023-p0-flyway-baseline-reset-player-count-stages.md) | P0 Flyway 기준선을 재생성하고 인원 의미를 단계별 컬럼으로 분리 | 승인됨 | 2026-07-28 | 검증됨 |
-| [0024](0024-naver-java-format-and-project-checkstyle.md) | 네이버 Java 포맷과 프로젝트 Checkstyle로 컨벤션을 자동화 | 제안됨 | 미정 | 미검증 |
+| [0024](0024-naver-java-format-and-project-checkstyle.md) | 네이버 Java 포맷과 프로젝트 Checkstyle로 컨벤션을 자동화 | 승인됨 | 2026-07-31 | 검증됨 |

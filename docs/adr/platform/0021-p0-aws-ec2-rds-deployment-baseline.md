@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-28
 - 결정일: 2026-07-28
-- 관련: [ADR-0002 PostgreSQL 주 데이터베이스](0002-postgresql-primary-database.md), [ADR-0009 UTC 시간 기준](0009-utc-time-standard.md), [ADR-0013 비밀번호 저장과 인증 요청 보호](../auth/0013-p0-password-storage-auth-request-protection.md), [FND-06 PostgreSQL 검증 환경](../../p0/foundation.md#fnd-06-postgresql-검증-환경)
+- 관련: [ADR-0002 PostgreSQL 주 데이터베이스](0002-postgresql-primary-database.md), [ADR-0009 UTC 시간 기준](0009-utc-time-standard.md), [ADR-0013 비밀번호 저장과 인증 요청 보호](../auth/0013-p0-password-storage-auth-request-protection.md), [FND-06 PostgreSQL 검증 환경](../../archive/p0/foundation.md#fnd-06-postgresql-검증-환경)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 

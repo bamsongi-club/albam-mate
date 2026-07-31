@@ -2,7 +2,7 @@
 
 > 원하는 게임과 모임 조건을 확인하고 함께할 사람을 찾아, 실제 보드게임 플레이까지 이어지도록 돕는 모임 매칭 서비스입니다.
 
-[제품 목표](docs/PRD.md) · [P0 명세](docs/P0-spec.md) · [API 계약](docs/API.md) · [아키텍처](docs/ARCHITECTURE.md)
+[제품 목표](docs/PRD.md) · [P0 명세](docs/archive/p0/P0-spec.md) · [API 계약](docs/API.md) · [아키텍처](docs/ARCHITECTURE.md)
 
 P0 백엔드 17개 API와 프론트엔드 연동을 구현했지만 운영 배포는 시작하지 않았습니다. 상세 구현·검증 상태는 [현재 개발 상태](#현재-개발-상태)를 따릅니다.
 
@@ -32,21 +32,21 @@ P0 백엔드 17개 API와 프론트엔드 연동을 구현했지만 운영 배�
 로그인 → 게임 중심·사람 중심 선택 → 모임 정보 입력 → 방 생성 → 참가자 확인 → 모임 종료
 ~~~
 
-P0는 홍대 오프라인 모임만 다루며 운영 제재·결제·알림·대규모 동시 요청 성능 목표는 제외합니다. 범위·공통 규칙은 [P0 명세](docs/P0-spec.md), 기능별 완료 조건은 [P0 기능 문서](docs/P0-spec.md#관련-문서)를 따릅니다.
+P0는 홍대 오프라인 모임만 다루며 운영 제재·결제·알림·대규모 동시 요청 성능 목표는 제외합니다. 범위·공통 규칙은 [P0 명세](docs/archive/p0/P0-spec.md), 기능별 완료 조건은 [P0 기능 문서](docs/archive/p0/P0-spec.md#관련-문서)를 따릅니다.
 
 ## 현재 개발 상태
 
 문서가 존재하거나 기술 결정이 승인됐다는 사실을 구현·검증 완료와 같은 의미로 사용하지 않습니다.
 
-기능 ID와 API 개수는 [P0 API 인벤토리](docs/P0-spec.md#기능별-문서와-api-목록)의 17개 API를 기준으로 셉니다.
+기능 ID와 API 개수는 [P0 API 인벤토리](docs/archive/p0/P0-spec.md#기능별-문서와-api-목록)의 17개 API를 기준으로 셉니다.
 
 | 영역 | 문서화 | 구현 | 검증 |
 | --- | --- | --- | --- |
-| 백엔드 기반 | [기반 작업](docs/p0/foundation.md) 있음 | `FND-01`~`FND-08` 범위의 도메인별 패키지, Flyway `V1`~`V3`, 세션 보안, UTC 시각 기준, 로컬 모임 60개 초기 데이터 | H2 `test`와 PostgreSQL 18 `postgresTest`, 분기 커버리지 게이트를 CI에서 실행 |
-| 인증·프로필 | [기능 명세](docs/p0/auth-profile.md) 있음 | `AUTH-01`~`AUTH-04`의 6개 API | 단위·HTTP 통합 테스트와 PostgreSQL 가입 경합 테스트 |
-| 게임 카탈로그 | [기능 명세](docs/p0/game-catalog.md) 있음 | `GAME-01`·`GAME-02`의 2개 API, 예정 모임 필터와 2,000건 검수·적재 도구 | 목록·검색·예정 모임 필터·상세 테스트와 PostgreSQL 재적재·롤백 테스트 |
-| 방 | [기능 명세](docs/p0/room.md) 있음 | `ROOM-01`~`ROOM-05`의 6개 API와 전체 공개 방 필터, 상태 보정·스케줄러 | 목록·필터, 상태 경계·보정, 취소·종료와 권한 테스트 |
-| 참가·내 모임 | [기능 명세](docs/p0/participation.md) 있음 | `PART-01`~`PART-03`의 3개 API | PostgreSQL 낙관 락 동시성 테스트 |
+| 백엔드 기반 | [기반 작업](docs/archive/p0/foundation.md) 있음 | `FND-01`~`FND-08` 범위의 도메인별 패키지, Flyway `V1`~`V3`, 세션 보안, UTC 시각 기준, 로컬 모임 60개 초기 데이터 | H2 `test`와 PostgreSQL 18 `postgresTest`, 분기 커버리지 게이트를 CI에서 실행 |
+| 인증·프로필 | [기능 명세](docs/archive/p0/auth-profile.md) 있음 | `AUTH-01`~`AUTH-04`의 6개 API | 단위·HTTP 통합 테스트와 PostgreSQL 가입 경합 테스트 |
+| 게임 카탈로그 | [기능 명세](docs/archive/p0/game-catalog.md) 있음 | `GAME-01`·`GAME-02`의 2개 API, 예정 모임 필터와 2,000건 검수·적재 도구 | 목록·검색·예정 모임 필터·상세 테스트와 PostgreSQL 재적재·롤백 테스트 |
+| 방 | [기능 명세](docs/archive/p0/room.md) 있음 | `ROOM-01`~`ROOM-05`의 6개 API와 전체 공개 방 필터, 상태 보정·스케줄러 | 목록·필터, 상태 경계·보정, 취소·종료와 권한 테스트 |
+| 참가·내 모임 | [기능 명세](docs/archive/p0/participation.md) 있음 | `PART-01`~`PART-03`의 3개 API | PostgreSQL 낙관 락 동시성 테스트 |
 | 프론트엔드 | [프론트엔드 README](frontend/README.md) 있음 | React 화면과 세션 쿠키·CSRF를 포함한 P0 API 연동 | 자동 테스트와 CI 빌드 게이트 없음 |
 | 운영 배포 | [ADR-0021 운영 인프라 기준](docs/adr/platform/0021-p0-aws-ec2-rds-deployment-baseline.md) 있음 | 구현 전 | 검증 전 |
 
@@ -104,6 +104,19 @@ macOS·Linux:
 
 P0 흐름을 화면으로 확인할 때는 로컬 PostgreSQL을 띄운 뒤 백엔드와 프론트엔드를 각각 실행합니다.
 
+Windows PowerShell:
+
+```powershell
+.\gradlew.bat bootRun --args='--spring.profiles.active=local'
+```
+
+```powershell
+Set-Location frontend
+npm.cmd run dev
+```
+
+macOS·Linux:
+
 ```sh
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
@@ -119,7 +132,7 @@ cd frontend && npm run dev
 ## 문서 찾기
 
 - 제품의 전체 목표와 후속 후보: [PRD](docs/PRD.md)
-- P0 범위와 핵심 흐름: [P0 명세](docs/P0-spec.md)
+- P0 범위와 핵심 흐름: [P0 명세](docs/archive/p0/P0-spec.md)
 - 개발 작업의 시작점: [AGENTS.md](AGENTS.md)
 - 백엔드 구조·모듈 책임과 의존 흐름: [아키텍처](docs/ARCHITECTURE.md)
 - 요청·응답과 오류 계약: [API 명세](docs/API.md)
@@ -130,4 +143,4 @@ cd frontend && npm run dev
 - 실행·테스트·포맷 명령: [프로젝트 명령](docs/COMMANDS.md)
 - 프론트엔드 화면과 실행: [프론트엔드 README](frontend/README.md)
 
-구현 작업은 [AGENTS.md](AGENTS.md)의 라우팅에 따라 `docs/p0/`의 기능 ID에서 시작합니다. 상세 계약을 README에 복제하지 않고 각 정본 문서를 연결합니다.
+P0 구현 기록은 [문서 아카이브](docs/archive/README.md)에 동결했습니다. P1 명세가 작성되기 전에는 P0 기능 ID를 새 구현 작업의 진입점으로 사용하지 않습니다.

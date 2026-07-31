@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-24
 - 결정일: 2026-07-25
-- 관련: [ADR-0003](0003-p0-server-session-spring-security.md), [P0 인증·프로필 명세](../../p0/auth-profile.md), [API 인증 요청 남용 제한](../../API.md#인증-요청-남용-제한), [ERD USERS](../../ERD.md#users)
+- 관련: [ADR-0003](0003-p0-server-session-spring-security.md), [P0 인증·프로필 명세](../../archive/p0/auth-profile.md), [API 인증 요청 남용 제한](../../API.md#인증-요청-남용-제한), [ERD USERS](../../ERD.md#users)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 

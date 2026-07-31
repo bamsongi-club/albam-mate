@@ -1,21 +1,21 @@
 # 알밤메이트 P0 API 명세서
 
 - 문서 상태: **P0 1차 MVP HTTP API 계약 (정본)**
-- 기준 문서: [PRD](PRD.md), [P0 공통 명세](P0-spec.md), [기능별 P0 명세](P0-spec.md#관련-문서), [ERD](ERD.md)
+- 기준 문서: [PRD](PRD.md), [P0 공통 명세](archive/p0/P0-spec.md), [기능별 P0 명세](archive/p0/P0-spec.md#관련-문서), [ERD](ERD.md)
 
 ### 이 문서의 범위
 
 | 구분 | 내용 |
 |---|---|
 | 이 문서가 정본인 것 | 클라이언트와 서버 사이 HTTP 계약 — 경로, 인증·CSRF, 요청·응답 스키마, 쿼리 파라미터, HTTP 상태, 오류 코드와 판정 순서 |
-| 이 문서가 담지 않는 것 | 제품 규칙의 배경(→ [P0-spec](P0-spec.md), [p0/](P0-spec.md#관련-문서)), 저장 구조·계산식(→ [ERD](ERD.md)), 되돌리기 어려운 기술 결정과 근거(→ [ADR](adr/README.md)) |
-| 변경 시 함께 갱신 | API 계약을 바꾸면 같은 변경에서 이 문서와 [엔드포인트별 오류 매트릭스](#10-부록-엔드포인트별-오류-매트릭스)를 함께 갱신하고, 관련 정본([P0-spec](P0-spec.md)·[ERD](ERD.md)·[ADR](adr/README.md))과의 정합을 확인한다. 상세 규칙은 [CONVENTIONS](CONVENTIONS.md#api-응답)를 따른다. |
+| 이 문서가 담지 않는 것 | 제품 규칙의 배경(→ [P0-spec](archive/p0/P0-spec.md), [p0/](archive/p0/P0-spec.md#관련-문서)), 저장 구조·계산식(→ [ERD](ERD.md)), 되돌리기 어려운 기술 결정과 근거(→ [ADR](adr/README.md)) |
+| 변경 시 함께 갱신 | API 계약을 바꾸면 같은 변경에서 이 문서와 [엔드포인트별 오류 매트릭스](#10-부록-엔드포인트별-오류-매트릭스)를 함께 갱신하고, 관련 정본([P0-spec](archive/p0/P0-spec.md)·[ERD](ERD.md)·[ADR](adr/README.md))과의 정합을 확인한다. 상세 규칙은 [CONVENTIONS](CONVENTIONS.md#api-응답)를 따른다. |
 
 > 이 문서는 P0 1차 MVP의 17개 API만 정의한다. 같은 사실을 다른 정본과 중복해서 서술하지 않고, 배경과 근거가 필요한 곳에서는 해당 정본으로 링크한다.
 
 ### 대표 흐름으로 읽기
 
-P0는 `게임부터 찾기`, `사람부터 만나기`, `방 만들기` 세 흐름을 지원한다(→ [P0-spec 핵심 사용자 흐름](P0-spec.md#핵심-사용자-흐름)). 아래는 `게임부터 찾기 → 참가`를 API 호출 순서로 옮긴 예시다. CSRF 토큰을 언제 다시 받아야 하는지까지 포함한다.
+P0는 `게임부터 찾기`, `사람부터 만나기`, `방 만들기` 세 흐름을 지원한다(→ [P0-spec 핵심 사용자 흐름](archive/p0/P0-spec.md#핵심-사용자-흐름)). 아래는 `게임부터 찾기 → 참가`를 API 호출 순서로 옮긴 예시다. CSRF 토큰을 언제 다시 받아야 하는지까지 포함한다.
 
 ~~~text
 1.  GET  /api/games?keyword=스플렌더        게임 탐색 (비로그인)
@@ -187,29 +187,29 @@ P0는 서버 세션 인증을 사용한다. Bearer access token과 refresh token
 
 ## 2. API 인덱스
 
-기능 ID는 엔드포인트가 아니라 기능 단위다. 로그인·로그아웃은 함께 `AUTH-03`, 프로필 조회·수정은 함께 `AUTH-04`, 방 취소·종료는 함께 `ROOM-05`에 속한다. 각 기능의 제품 규칙 정본은 링크한 `docs/p0/` 문서다.
+기능 ID는 엔드포인트가 아니라 기능 단위다. 로그인·로그아웃은 함께 `AUTH-03`, 프로필 조회·수정은 함께 `AUTH-04`, 방 취소·종료는 함께 `ROOM-05`에 속한다. 각 기능의 제품 규칙 정본은 링크한 `docs/archive/p0/` 문서다.
 
 `단계`는 API 도입 제품 단계이며 현재는 모두 `P0`다. 이후 API는 도입 단계를 표기하고(→ [PRD 로드맵](PRD.md#6-단계별-로드맵)), 단계가 늘어도 현재 유효한 전체 HTTP 계약인 이 파일을 나누지 않고 표에 행·단계 값을 더한다.
 
 | # | 단계 | 기능 ID | Method | Path | 인증 | CSRF | 성공 |
 |---:|:---:|---|---|---|:---:|:---:|:---:|
-| 1 | P0 | [AUTH-01](#auth-01-csrf-토큰-조회) · [정본](p0/auth-profile.md#auth-01-csrf-토큰-조회) | GET | `/api/auth/csrf` | N | N | 200 |
-| 2 | P0 | [AUTH-02](#auth-02-회원가입) · [정본](p0/auth-profile.md#auth-02-회원가입) | POST | `/api/auth/signup` | N | Y | 201 |
-| 3 | P0 | [AUTH-03](#auth-03-로그인) · [정본](p0/auth-profile.md#auth-03-로그인로그아웃) | POST | `/api/auth/login` | N | Y | 200 |
-| 4 | P0 | [AUTH-03](#auth-03-로그아웃) · [정본](p0/auth-profile.md#auth-03-로그인로그아웃) | POST | `/api/auth/logout` | Y | Y | 200 |
-| 5 | P0 | [AUTH-04](#auth-04-내-프로필-조회) · [정본](p0/auth-profile.md#auth-04-내-프로필-조회수정) | GET | `/api/users/me` | Y | N | 200 |
-| 6 | P0 | [AUTH-04](#auth-04-내-프로필-수정) · [정본](p0/auth-profile.md#auth-04-내-프로필-조회수정) | PATCH | `/api/users/me` | Y | Y | 200 |
-| 7 | P0 | [GAME-01](#game-01-게임-목록검색) · [정본](p0/game-catalog.md#game-01-게임-목록검색) | GET | `/api/games` | N | N | 200 |
-| 8 | P0 | [GAME-02](#game-02-게임-상세-조회) · [정본](p0/game-catalog.md#game-02-게임-상세-조회) | GET | `/api/games/{gameId}` | N | N | 200 |
-| 9 | P0 | [ROOM-03](#room-03-방-생성) · [정본](p0/room.md#room-03-방-생성) | POST | `/api/rooms` | Y | Y | 201 |
-| 10 | P0 | [ROOM-01](#room-01-방-목록-조회) · [정본](p0/room.md#room-01-방-탐색) | GET | `/api/rooms` | 선택 | N | 200 |
-| 11 | P0 | [ROOM-02](#room-02-방-상세-조회) · [정본](p0/room.md#room-02-방-상세) | GET | `/api/rooms/{roomId}` | 선택 | N | 200 |
-| 12 | P0 | [ROOM-04](#room-04-방-수정) · [정본](p0/room.md#room-04-방-수정) | PATCH | `/api/rooms/{roomId}` | Y | Y | 200 |
-| 13 | P0 | [ROOM-05](#room-05-방-취소) · [정본](p0/room.md#room-05-방-취소종료) | DELETE | `/api/rooms/{roomId}` | Y | Y | 200 |
-| 14 | P0 | [ROOM-05](#room-05-방-종료) · [정본](p0/room.md#room-05-방-취소종료) | PATCH | `/api/rooms/{roomId}/status` | Y | Y | 200 |
-| 15 | P0 | [PART-01](#part-01-방-참가재참가) · [정본](p0/participation.md#part-01-방-참가재참가) | POST | `/api/rooms/{roomId}/participants` | Y | Y | 201 |
-| 16 | P0 | [PART-02](#part-02-참가-취소) · [정본](p0/participation.md#part-02-참가-취소) | DELETE | `/api/rooms/{roomId}/participants/me` | Y | Y | 200 |
-| 17 | P0 | [PART-03](#part-03-내-모임-조회) · [정본](p0/participation.md#part-03-내-모임-조회) | GET | `/api/users/me/rooms` | Y | N | 200 |
+| 1 | P0 | [AUTH-01](#auth-01-csrf-토큰-조회) · [정본](archive/p0/auth-profile.md#auth-01-csrf-토큰-조회) | GET | `/api/auth/csrf` | N | N | 200 |
+| 2 | P0 | [AUTH-02](#auth-02-회원가입) · [정본](archive/p0/auth-profile.md#auth-02-회원가입) | POST | `/api/auth/signup` | N | Y | 201 |
+| 3 | P0 | [AUTH-03](#auth-03-로그인) · [정본](archive/p0/auth-profile.md#auth-03-로그인로그아웃) | POST | `/api/auth/login` | N | Y | 200 |
+| 4 | P0 | [AUTH-03](#auth-03-로그아웃) · [정본](archive/p0/auth-profile.md#auth-03-로그인로그아웃) | POST | `/api/auth/logout` | Y | Y | 200 |
+| 5 | P0 | [AUTH-04](#auth-04-내-프로필-조회) · [정본](archive/p0/auth-profile.md#auth-04-내-프로필-조회수정) | GET | `/api/users/me` | Y | N | 200 |
+| 6 | P0 | [AUTH-04](#auth-04-내-프로필-수정) · [정본](archive/p0/auth-profile.md#auth-04-내-프로필-조회수정) | PATCH | `/api/users/me` | Y | Y | 200 |
+| 7 | P0 | [GAME-01](#game-01-게임-목록검색) · [정본](archive/p0/game-catalog.md#game-01-게임-목록검색) | GET | `/api/games` | N | N | 200 |
+| 8 | P0 | [GAME-02](#game-02-게임-상세-조회) · [정본](archive/p0/game-catalog.md#game-02-게임-상세-조회) | GET | `/api/games/{gameId}` | N | N | 200 |
+| 9 | P0 | [ROOM-03](#room-03-방-생성) · [정본](archive/p0/room.md#room-03-방-생성) | POST | `/api/rooms` | Y | Y | 201 |
+| 10 | P0 | [ROOM-01](#room-01-방-목록-조회) · [정본](archive/p0/room.md#room-01-방-탐색) | GET | `/api/rooms` | 선택 | N | 200 |
+| 11 | P0 | [ROOM-02](#room-02-방-상세-조회) · [정본](archive/p0/room.md#room-02-방-상세) | GET | `/api/rooms/{roomId}` | 선택 | N | 200 |
+| 12 | P0 | [ROOM-04](#room-04-방-수정) · [정본](archive/p0/room.md#room-04-방-수정) | PATCH | `/api/rooms/{roomId}` | Y | Y | 200 |
+| 13 | P0 | [ROOM-05](#room-05-방-취소) · [정본](archive/p0/room.md#room-05-방-취소종료) | DELETE | `/api/rooms/{roomId}` | Y | Y | 200 |
+| 14 | P0 | [ROOM-05](#room-05-방-종료) · [정본](archive/p0/room.md#room-05-방-취소종료) | PATCH | `/api/rooms/{roomId}/status` | Y | Y | 200 |
+| 15 | P0 | [PART-01](#part-01-방-참가재참가) · [정본](archive/p0/participation.md#part-01-방-참가재참가) | POST | `/api/rooms/{roomId}/participants` | Y | Y | 201 |
+| 16 | P0 | [PART-02](#part-02-참가-취소) · [정본](archive/p0/participation.md#part-02-참가-취소) | DELETE | `/api/rooms/{roomId}/participants/me` | Y | Y | 200 |
+| 17 | P0 | [PART-03](#part-03-내-모임-조회) · [정본](archive/p0/participation.md#part-03-내-모임-조회) | GET | `/api/users/me/rooms` | Y | N | 200 |
 
 `GET /api/rooms`와 `GET /api/rooms/{roomId}`의 인증은 "선택"이다. 비로그인도 호출할 수 있고, 유효한 세션이 있으면 요청자 기준으로 `joinable`과 응답 범위를 계산한다.
 
@@ -241,7 +241,7 @@ P0는 서버 세션 인증을 사용한다. Bearer access token과 refresh token
 | `CANCELED` | 주최자가 취소한 최종 상태 |
 | `FINISHED` | 종료된 최종 상태 |
 
-클라이언트가 관찰하는 상태 변화는 다음과 같다. 제품 규칙 정본은 [P0-spec 방 상태](P0-spec.md#방-상태roomstatus), 저장 반영 방식은 [ADR-0012](adr/room/0012-room-request-boundary-state-reconciliation.md)를 따른다.
+클라이언트가 관찰하는 상태 변화는 다음과 같다. 제품 규칙 정본은 [P0-spec 방 상태](archive/p0/P0-spec.md#방-상태roomstatus), 저장 반영 방식은 [ADR-0012](adr/room/0012-room-request-boundary-state-reconciliation.md)를 따른다.
 
 | 조건 또는 요청 | 이전 상태 | 이후 상태 |
 |---|---|---|
@@ -594,7 +594,7 @@ P0에서는 닉네임만 수정한다.
 
 ## 6. 게임 API
 
-게임 데이터는 운영자가 준비한다. 사용자용 게임 생성·수정·삭제 API는 제공하지 않는다(→ [GAME-01 정본](p0/game-catalog.md#game-01-게임-목록검색), 게임 목록 출처 [ADR-0015](adr/game/0015-bgg-baseline-team-collected-game-list.md)).
+게임 데이터는 운영자가 준비한다. 사용자용 게임 생성·수정·삭제 API는 제공하지 않는다(→ [GAME-01 정본](archive/p0/game-catalog.md#game-01-게임-목록검색), 게임 목록 출처 [ADR-0015](adr/game/0015-bgg-baseline-team-collected-game-list.md)).
 
 ### GAME-01 게임 목록·검색
 
