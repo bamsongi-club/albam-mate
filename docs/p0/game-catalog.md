@@ -80,8 +80,6 @@
 | 데이터 모델 | 해당 없음 |
 | 필수 ADR | [ADR-0015: BGG 기준 스냅샷·팀 수집 자료 결합](../adr/game/0015-bgg-baseline-team-collected-game-list.md), [ADR-0025: 게임 카탈로그 출처를 전역 푸터와 공개 출처 페이지에 표시](../adr/game/0025-game-catalog-public-source-attribution.md) |
 
-ADR-0025가 승인되기 전에는 이 기능의 구현에 착수하지 않는다.
-
 ### 기능 규칙
 
 - 서비스의 모든 공개 화면 하단에 공통 푸터를 둔다. 게임 카탈로그가 노출되지 않는 화면도 포함한다.

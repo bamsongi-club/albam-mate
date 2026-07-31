@@ -1,8 +1,8 @@
 # ADR-0025: 게임 카탈로그 출처를 전역 푸터와 공개 출처 페이지에 표시
 
-- 상태: 제안됨
+- 상태: 승인됨
 - 작성일: 2026-07-30
-- 결정일: 미정
+- 결정일: 2026-07-31
 - 관련: [GitHub Issue #221](https://github.com/bamsongi-club/albam-mate/issues/221), [GAME-03 게임 카탈로그 출처 표시](../../p0/game-catalog.md#game-03-게임-카탈로그-출처-표시), [ADR-0015](0015-bgg-baseline-team-collected-game-list.md), [ADR-0019](0019-bgg-full-catalog-staged-enrichment.md), [출처 manifest](../../game-catalog/2026-07-24-source-manifest.draft.json)
 - 대체 대상: 없음
 - 후속 ADR: 없음
@@ -79,6 +79,6 @@ BGG는 순위 CSV를 XML API 라이선스 범위에 포함하며, 공개 앱에�
 ## 검증
 
 - 상태: 미검증
-- 근거: 팀 결정, 전역 푸터·공개 출처 페이지 구현과 현재 2,000개 출처 공개 범위 검수가 아직 완료되지 않았다.
+- 근거: 전역 푸터·공개 출처 페이지 구현과 현재 2,000개 출처 공개 범위 검수가 아직 완료되지 않았다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.
