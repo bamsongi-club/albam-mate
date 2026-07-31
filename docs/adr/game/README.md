@@ -12,3 +12,6 @@
 | [0018](0018-expansion-type-and-relations.md) | P0 이후 단독 플레이 가능 여부와 확장 관계를 분리해 관리 | 제안됨 | 미정 | 미검증 |
 | [0019](0019-bgg-full-catalog-staged-enrichment.md) | 전체 보드게임 카탈로그는 BASIC으로 확장하고 상세 정보는 단계적으로 보강 | 제안됨 | 미정 | 미검증 |
 | [0025](0025-game-catalog-public-source-attribution.md) | 게임 카탈로그 출처를 전역 푸터와 공개 출처 페이지에 표시 | 승인됨 | 2026-07-31 | 미검증 |
+| [0026](0026-p1-game-search-normalized-numeric-fields.md) | 게임 인원·시간 표시값과 검색 수치를 분리 | 제안됨 | 미정 | 미검증 |
+| [0027](0027-controlled-game-mechanism-taxonomy-and-provenance.md) | 게임 메커니즘을 검수된 내부 목록과 관계로 관리 | 제안됨 | 미정 | 미검증 |
+| [0028](0028-explicit-user-played-game-state.md) | 사용자가 표시한 해 본 게임만 관계로 저장 | 제안됨 | 미정 | 미검증 |

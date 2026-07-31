@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-28
 - 결정일: 2026-07-28
-- 관련: [ADR-0003](0003-p0-server-session-spring-security.md), [FND-04 인증 기반 구성](../../archive/p0/foundation.md#fnd-04-인증-기반-구성), [API 인증·세션·CSRF 계약](../../API.md#12-인증세션csrf), [API 오류 계약](../../API.md#9-오류-코드)
+- 관련: [ADR-0003](0003-p0-server-session-spring-security.md), [FND-04 인증 기반 구성](../../archive/p0/foundation.md#fnd-04-인증-기반-구성), [API 인증·세션·CSRF 계약](../../API.md#12-인증세션csrf), [API 오류 계약](../../API.md#10-오류-코드)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
