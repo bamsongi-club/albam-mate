@@ -26,6 +26,7 @@ class ModuleArchitectureTest {
 
 	private static final String ROOT_PACKAGE = "cloud.bamsongi.albammate";
 	private static final Set<String> ALLOWED_ROOM_PACKAGES = Set.of(
+		ROOT_PACKAGE + ".room.contract",
 		ROOT_PACKAGE + ".room.controller",
 		ROOT_PACKAGE + ".room.dto",
 		ROOT_PACKAGE + ".room.entity",
@@ -35,19 +36,33 @@ class ModuleArchitectureTest {
 		ROOT_PACKAGE + ".room.service.query",
 		ROOT_PACKAGE + ".room.service.command",
 		ROOT_PACKAGE + ".room.statuscorrection");
+	private static final Set<String> ALLOWED_NOTIFICATION_PACKAGES = Set.of(
+		ROOT_PACKAGE + ".notification.controller",
+		ROOT_PACKAGE + ".notification.dto",
+		ROOT_PACKAGE + ".notification.entity",
+		ROOT_PACKAGE + ".notification.enums",
+		ROOT_PACKAGE + ".notification.exception",
+		ROOT_PACKAGE + ".notification.repository",
+		ROOT_PACKAGE + ".notification.service",
+		ROOT_PACKAGE + ".notification.service.query",
+		ROOT_PACKAGE + ".notification.service.command",
+		ROOT_PACKAGE + ".notification.relay",
+		ROOT_PACKAGE + ".notification.recovery",
+		ROOT_PACKAGE + ".notification.cleanup");
 	private static final String ROOM_RETRIER = ROOT_PACKAGE + ".room.service.RoomOptimisticLockRetrier";
 	private static final Set<String> ALLOWED_ROOM_RETRIER_USERS = Set.of(
 		ROOT_PACKAGE + ".room.service.command.RoomCommandExecutionCoordinator",
 		ROOT_PACKAGE + ".room.statuscorrection.RoomStatusCorrectionCoordinator");
-	private static final List<String> BUSINESS_MODULES = List.of("auth", "user", "game", "room");
+	private static final List<String> BUSINESS_MODULES = List.of("auth", "user", "game", "room", "notification");
 	private static final String[] BUSINESS_MODULE_PACKAGES = BUSINESS_MODULES.stream()
 		.map(ModuleArchitectureTest::modulePackage)
 		.toArray(String[]::new);
 	private static final Map<String, List<String>> FORBIDDEN_DEPENDENCIES = Map.of(
-		"auth", List.of("game", "room"),
-		"user", List.of("auth", "game", "room"),
-		"game", List.of("auth", "user", "room"),
-		"room", List.of("auth"));
+		"auth", List.of("game", "room", "notification"),
+		"user", List.of("auth", "game", "room", "notification"),
+		"game", List.of("auth", "user", "room", "notification"),
+		"room", List.of("auth", "notification"),
+		"notification", List.of("auth", "user", "game"));
 	private static final JavaClasses PRODUCTION_CLASSES = new ClassFileImporter()
 		.withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
 		.importPackages(ROOT_PACKAGE);
@@ -91,7 +106,8 @@ class ModuleArchitectureTest {
 					targetModules.stream()
 						.map(ModuleArchitectureTest::modulePackage)
 						.toArray(String[]::new))
-				.because("허용된 참조 방향은 room에서 game과 user, auth에서 user뿐이다")
+				.because("허용된 참조 방향은 auth에서 user, room에서 user와 game, notification에서 room뿐이다")
+				.allowEmptyShould(true)
 				.check(PRODUCTION_CLASSES));
 	}
 
@@ -120,8 +136,19 @@ class ModuleArchitectureTest {
 		classes()
 			.that()
 			.resideInAPackage(ROOT_PACKAGE + ".room..")
-			.should(resideInAllowedRoomPackage())
-			.because("ROOM은 controller, service/query, service/command와 statuscorrection 경계를 사용한다")
+			.should(resideInAllowedPackage(ALLOWED_ROOM_PACKAGES, "ROOM"))
+			.because("ROOM은 contract, controller, service/query, service/command와 statuscorrection 경계를 사용한다")
+			.check(PRODUCTION_CLASSES);
+	}
+
+	@Test
+	void Notification_코드는_정본에_선언한_패키지에만_배치한다() {
+		classes()
+			.that()
+			.resideInAPackage(ROOT_PACKAGE + ".notification..")
+			.should(resideInAllowedPackage(ALLOWED_NOTIFICATION_PACKAGES, "Notification"))
+			.because("Notification은 query, command, relay, recovery와 cleanup 경계를 사용한다")
+			.allowEmptyShould(true)
 			.check(PRODUCTION_CLASSES);
 	}
 
@@ -159,14 +186,15 @@ class ModuleArchitectureTest {
 		};
 	}
 
-	private static ArchCondition<JavaClass> resideInAllowedRoomPackage() {
-		return new ArchCondition<>("reside in an allowed ROOM package") {
+	private static ArchCondition<JavaClass> resideInAllowedPackage(
+		Set<String> allowedPackages, String moduleName) {
+		return new ArchCondition<>("reside in an allowed " + moduleName + " package") {
 			@Override
 			public void check(JavaClass javaClass, ConditionEvents events) {
-				if (!ALLOWED_ROOM_PACKAGES.contains(javaClass.getPackageName())) {
+				if (!allowedPackages.contains(javaClass.getPackageName())) {
 					events.add(SimpleConditionEvent.violated(
 						javaClass,
-						javaClass.getFullName() + " resides in an undeclared ROOM package"));
+						javaClass.getFullName() + " resides in an undeclared " + moduleName + " package"));
 				}
 			}
 		};
