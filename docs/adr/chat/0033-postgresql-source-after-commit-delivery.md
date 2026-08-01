@@ -38,11 +38,14 @@ PostgreSQL의 `CHAT_MESSAGES`를 메시지 최종 정본으로 사용하고, 성
 5. DB 커밋이 성공하면 `@TransactionalEventListener`의 `AFTER_COMMIT`, `fallbackExecution=false` 경계에서 `chat.contract.ChatRealtimePublisher`를 호출한다.
 6. `local-multi`와 운영의 Redis adapter는 환경별 채널에 전달 신호를 발행하고, 각 인스턴스 subscriber는 자신이 WebSocket 연결을 보유한 방만 처리한다.
 7. subscriber는 신호 payload를 그대로 사용자에게 보내지 않는다. 연결별 마지막 전달 `messageId`보다 큰 PostgreSQL 메시지를 조회해 ID 오름차순으로 전달하고 이미 전달한 ID는 제거한다.
-8. 참가 취소와 방 최종 상태 변경이 커밋된 뒤 관계 변경 신호를 발행해 해당 방의 로컬 연결이 현재 관계·상태를 다시 확인하도록 촉진한다. 세션 만료는 Spring Session 이벤트로 해당 연결을 종료한다. 어떤 신호가 누락되어도 메시지 전달 직전에 PostgreSQL의 현재 관계와 상태를 다시 확인한다.
+8. 참가 취소와 방 최종 상태 변경이 커밋된 뒤 관계 변경 신호를 발행해 해당 방의 로컬 연결이 현재 관계·상태를 다시 확인하도록 촉진한다. Spring Session의 세션 만료·삭제 이벤트도 해당 연결을 닫는 빠른 정리 경로로 사용한다.
+9. 위 신호와 이벤트는 모두 촉진 수단이며 권한 회수의 근거로 사용하지 않는다. 전달 직전에 PostgreSQL의 현재 관계·상태와 공용 세션의 현재 유효성을 함께 확인하고, 셋 중 하나라도 만족하지 않으면 전달하지 않고 연결을 종료한다.
 
 잠금 순서는 `ROOMS` 다음 `CHAT_ROOMS`로 고정한다. 메시지마다 `Room.version`을 증가시키지 않는다. 참가 취소·방 상태 변경은 `ROOMS`를 갱신하므로 메시지 전송의 공유 잠금과 충돌해 둘 중 먼저 얻은 트랜잭션이 커밋된 뒤 다른 요청이 최신 권한·상태를 다시 확인한다.
 
 Redis Pub/Sub의 신호 누락·중복·순서 역전을 정상 실패 모델로 받아들인다. 같은 방의 다음 신호 또는 클라이언트의 이력 조회와 `afterMessageId` 재연결이 PostgreSQL catch-up을 수행한다. 따라서 실시간 전달은 best effort이며 exactly-once나 지속 큐를 보장하지 않는다.
+
+세션 만료 뒤 권한 회수는 이 실패 모델에 의존할 수 없다. Spring Session의 만료·삭제 이벤트는 Redis keyspace notification 기반이라 구독이 끊긴 동안 유실될 수 있고 TTL 도달 즉시 발생하는 것도 보장되지 않는다. 따라서 전달 직전 세션 유효성 확인은 이벤트 수신 여부와 무관하게 항상 수행하고, 세션이 만료됐거나 세션 상태를 확인할 수 없으면 메시지를 전달하지 않고 연결을 종료한다. 확인 실패를 유효로 간주하는 fallback은 [ADR-0038](../platform/0038-multi-instance-session-and-scheduler-coordination.md)의 fallback 금지 결정에 따라 허용하지 않는다. 확인 주체·주기와 만료시각 gate·heartbeat 중 어떤 방식으로 매 전달 확인 비용을 줄일지는 `FND-10` 구현에서 확정하되, 어떤 방식도 만료된 세션 연결에 새 메시지가 전달되는 구간을 만들지 않아야 한다.
 
 Redis 발행·구독 또는 WebSocket 전달 실패는 저장 결과를 바꾸지 않는다. `AFTER_COMMIT` 실패를 기록하고 단계별 실패 메트릭을 증가시키되 이미 커밋된 메시지는 성공 응답과 이력에 남긴다.
 
@@ -51,8 +54,8 @@ Redis 발행·구독 또는 WebSocket 전달 실패는 저장 결과를 바꾸�
 ## 결과
 
 - 얻는 것: 롤백된 메시지는 전달되지 않고, 저장 인스턴스와 WebSocket 인스턴스가 달라도 실시간 신호가 전달된다. Redis 장애가 저장된 이력을 지우지 않으며, 순서와 누락 복구는 PostgreSQL `messageId` 계약 하나로 유지한다.
-- 감수할 비용·위험: Redis Pub/Sub은 at-most-once라 다음 신호나 재연결 전까지 실시간 표시가 늦을 수 있다. 공용 Redis의 비용·보안·장애 대응과 구독 연결 운영이 추가되고, 방별 메시지 쓰기는 짧게 직렬화된다.
-- 후속 작업: 채팅 channel 이름을 ADR-0038의 namespace 계약 안에서 확정한다. 잠금 순서와 권한 경쟁 PostgreSQL 테스트, AFTER_COMMIT 발행·롤백·Redis 실패 테스트, 두 인스턴스 교차 전달·순서 역전·신호 누락 catch-up 테스트와 단계별 지연·실패 메트릭을 구현한다.
+- 감수할 비용·위험: Redis Pub/Sub은 at-most-once라 다음 신호나 재연결 전까지 실시간 표시가 늦을 수 있다. 공용 Redis의 비용·보안·장애 대응과 구독 연결 운영이 추가되고, 방별 메시지 쓰기는 짧게 직렬화된다. 전달 직전 세션 유효성 확인이 전달 경로의 고정 비용으로 추가된다.
+- 후속 작업: 채팅 channel 이름을 ADR-0038의 namespace 계약 안에서 확정한다. 잠금 순서와 권한 경쟁 PostgreSQL 테스트, AFTER_COMMIT 발행·롤백·Redis 실패 테스트, 두 인스턴스 교차 전달·순서 역전·신호 누락 catch-up 테스트와 단계별 지연·실패 메트릭을 구현한다. 세션 만료 이벤트가 유실된 상태에서도 전달 직전 확인이 전달을 막고 연결을 종료하는지 검증한다.
 
 ## 보류 및 재검토
 
@@ -67,6 +70,8 @@ Redis 발행·구독 또는 WebSocket 전달 실패는 저장 결과를 바꾸�
 
 - [Spring 트랜잭션 바운드 이벤트](https://docs.spring.io/spring-framework/reference/data-access/transaction/event.html)
 - [Redis Pub/Sub 전달 의미](https://redis.io/docs/latest/develop/pubsub/)
+- [Redis keyspace notification 전달 보장](https://redis.io/docs/latest/develop/pubsub/keyspace-notifications/)
+- [Spring Session API와 만료 이벤트](https://docs.spring.io/spring-session/reference/api.html)
 - [ADR-0021 P0 AWS 배포 기준선](../platform/0021-p0-aws-ec2-rds-deployment-baseline.md)
 
 ## 검증
@@ -76,6 +81,7 @@ Redis 발행·구독 또는 WebSocket 전달 실패는 저장 결과를 바꾸�
 - 미검증:
     - 채팅 저장·잠금·AFTER_COMMIT Redis publisher와 subscriber 구현 및 PostgreSQL 경쟁 테스트가 없다.
     - 로컬 두 인스턴스 교차 전달과 Redis 신호 누락·순서 역전 복구를 확인하지 않았다.
+    - 세션 만료·삭제 이벤트가 유실된 상태의 전달 직전 세션 유효성 확인과 연결 종료를 확인하지 않았다.
     - 실제 AWS의 Redis·ASG 운영 부하는 후속 OPS 검증이 필요하다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

@@ -44,7 +44,7 @@ P1은 하나의 Spring Boot 모듈러 모놀리스를 다음 세 실행 프로�
 
 `local-multi`와 `prod`의 `JSESSIONID` 인증 상태는 Spring Session Redis로 공유한다. ALB stickiness는 연결 분산 최적화에 사용할 수 있지만 인증 정합성과 재연결 성공의 전제는 아니다. 하나의 공용 Redis를 Spring Session, 채팅 Pub/Sub과 사용자·방 단위 전송 제한에 사용하되 key prefix, TTL과 channel namespace를 논리적으로 분리한다.
 
-`local-multi`와 `prod`는 Redis가 필요한 세션·전송 제한 경로를 인메모리 구현으로 자동 대체하지 않는다. 세션 또는 전송 제한 상태를 확인할 수 없으면 API 정본의 `503 SERVICE_UNAVAILABLE`로 실패시킨다. PostgreSQL 커밋 뒤 채팅 Pub/Sub만 실패한 경우의 저장 결과와 복구 방식은 [ADR-0033](../chat/0033-postgresql-source-after-commit-delivery.md)이 소유한다.
+`local-multi`와 `prod`는 Redis가 필요한 세션·전송 제한 경로를 인메모리 구현으로 자동 대체하지 않는다. 세션 또는 전송 제한 상태를 확인할 수 없으면 API 정본의 `503 SERVICE_UNAVAILABLE`로 실패시킨다. 이 ADR은 fallback 금지와 실패 방향만 소유하고, 어떤 엔드포인트가 이 코드를 반환하는지는 [API 정본](../../API.md#101-공통-오류)이 소유한다. 현재 API 정본에 반영된 적용 범위는 채팅 API이며, 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트로의 확장은 적용 엔드포인트를 명시한 별도 계약 변경으로 승인한다. PostgreSQL 커밋 뒤 채팅 Pub/Sub만 실패한 경우의 저장 결과와 복구 방식은 [ADR-0033](../chat/0033-postgresql-source-after-commit-delivery.md)이 소유한다.
 
 ROOM 상태 보정과 채팅 만료 삭제는 모든 인스턴스에 Spring Scheduler를 등록하고 PostgreSQL 기반 ShedLock으로 한 실행 주기의 소유자를 하나로 제한한다.
 

@@ -1579,7 +1579,9 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 
 `METHOD_NOT_ALLOWED`, `NOT_ACCEPTABLE`, `UNSUPPORTED_MEDIA_TYPE` 응답은 Spring MVC 예외가 제공하는 `Allow`, `Accept`, `Accept-Patch` 등의 프로토콜 헤더가 있으면 그대로 포함한다.
 
-`local-multi`와 `prod`에서 세션을 생성·조회·갱신·무효화하는 엔드포인트는 Spring Session Redis를 확인할 수 없으면 `SERVICE_UNAVAILABLE`을 반환한다. 이 공통 규칙은 로그인·로그아웃, 인증된 API와 채팅 등 세션 사용 엔드포인트의 개별 오류 목록에 추가로 적용한다. 비로그인 CSRF 조회는 서버 세션을 만들지 않으므로 적용하지 않는다. 채팅 메시지 전송은 세션 저장소가 정상이더라도 전송 제한 상태 저장소를 확인할 수 없으면 같은 코드를 반환한다.
+`SERVICE_UNAVAILABLE`의 현재 적용 범위는 [채팅 API](#채팅-공통-계약)의 세 엔드포인트다. `local-multi`와 `prod`에서 채팅 요청이 Spring Session Redis의 세션 상태를 확인할 수 없으면 이 코드를 반환하며, 메시지 전송은 세션 저장소가 정상이더라도 전송 제한 상태 저장소를 확인할 수 없으면 같은 코드를 반환한다. Redis 장애 시 인메모리 구현으로 자동 대체하지 않는 근거는 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)을 따른다.
+
+로그인·로그아웃과 그 밖의 세션 사용 엔드포인트로 이 코드를 확장할지는 이 문서에서 아직 결정하지 않는다. 확장이 필요하면 적용 엔드포인트를 명시한 별도 계약 변경으로 승인받은 뒤 이 절과 [엔드포인트별 오류 매트릭스](#11-부록-엔드포인트별-오류-매트릭스)를 함께 갱신한다.
 
 ### 10.2 인증·회원 오류
 
@@ -1643,7 +1645,6 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 |---|---|
 | 모든 엔드포인트 | `METHOD_NOT_ALLOWED`, `NOT_ACCEPTABLE`, `UNSUPPORTED_MEDIA_TYPE`, `INTERNAL_SERVER_ERROR` |
 | 요청 경로에 대응하는 엔드포인트 또는 정적 리소스 없음 | `RESOURCE_NOT_FOUND` |
-| 세션을 생성·조회·갱신·무효화하는 모든 엔드포인트 | `SERVICE_UNAVAILABLE` |
 | `GET /api/auth/csrf` | 없음 |
 | `POST /api/auth/signup` | `VALIDATION_ERROR`, `EMAIL_ALREADY_EXISTS`, `RATE_LIMIT_EXCEEDED`, `CSRF_TOKEN_INVALID` |
 | `POST /api/auth/login` | `VALIDATION_ERROR`, `INVALID_CREDENTIALS`, `RATE_LIMIT_EXCEEDED`, `CSRF_TOKEN_INVALID` |
