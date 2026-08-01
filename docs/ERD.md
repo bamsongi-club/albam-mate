@@ -236,10 +236,10 @@ relay·재시도·보존·복구·cleanup 수치는 [알림 운영 파라미터 
 | last_failure_message | VARCHAR(500) | NULL | 길이를 제한하고 민감정보를 제거한 마지막 오류 설명 |
 | reprocess_count | INT | NN, DEFAULT 0 | 운영자가 시작한 새 자동 처리 주기 수 |
 | last_reprocessed_at | TIMESTAMPTZ | NULL | 마지막 수동 재처리 트랜잭션의 PostgreSQL `operationTime` |
-| last_reprocess_reason | VARCHAR(500) | NULL | 비어 있지 않은 마지막 수동 재처리 사유 |
+| last_reprocess_reason | VARCHAR(500) | NULL | 비어 있지 않은 마지막 수동 재처리 자유 서술 원문. 구조화 로그에 기록하지 않음 |
 | processed_at | TIMESTAMPTZ | NULL | 모든 수신자의 Notification 저장과 `PROCESSED` 전환에 사용한 relay `operationTime` |
 | discarded_at | TIMESTAMPTZ | NULL | 운영자가 재처리하지 않고 폐기한 PostgreSQL `operationTime` |
-| discard_reason | VARCHAR(500) | NULL | 비어 있지 않은 운영 폐기 사유 |
+| discard_reason | VARCHAR(500) | NULL | 비어 있지 않은 운영 폐기 자유 서술 원문. 구조화 로그에 기록하지 않음 |
 | cleanup_at | TIMESTAMPTZ | NULL | `PROCESSED` 또는 `DISCARDED` 최소 이벤트 기록을 물리 삭제할 시각 |
 
 ### Notification Outbox Recipients

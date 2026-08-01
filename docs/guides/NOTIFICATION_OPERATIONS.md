@@ -117,8 +117,8 @@ P1에서는 Actuator/Micrometer, dashboard와 외부 경고 전송을 먼저 추
 | `notification_outbox_relay_retry_scheduled` | WARN | `sourceEventId`, `eventType`, `failureCode`, `failureCount`, `totalFailureCount`, `nextAvailableAt` |
 | `notification_outbox_relay_event_failed` | WARN | `sourceEventId`, `eventType`, `failureCode`, `failureCount`, `totalFailureCount`, `deterministicFailure` |
 | `notification_outbox_relay_scheduler_failed` | ERROR | `failureCode`, `exceptionClass`, `occurredAt` |
-| `notification_outbox_operation_previewed` | INFO | `action`, `requestedBy`, `requestedCount`, `eligibleCount`, `dryRun`, 정제된 `reason` |
-| `notification_outbox_operation_completed` | WARN | `action`, `requestedBy`, `requestedCount`, `changedCount`, `dryRun`, 정제된 `reason` |
+| `notification_outbox_operation_previewed` | INFO | `action`, `reasonReference`, `requestedBy`, `requestedCount`, `eligibleCount`, `dryRun` |
+| `notification_outbox_operation_completed` | WARN | `action`, `reasonReference`, `requestedBy`, `requestedCount`, `changedCount`, `dryRun` |
 | `notification_cleanup_completed` | INFO 또는 DEBUG | `targetType`, `batchNumber`, `deletedCount`, `durationMs`, `measurementTime` |
 | `notification_cleanup_failed` | WARN | `targetType`, `batchNumber`, `failureCode`, `exceptionClass`, `measurementTime` |
 
@@ -129,7 +129,7 @@ cleanup 완료·실패 로그는 batch마다 한 건이며, `measurementTime`은
 - 이벤트 payload, 인증·세션 정보
 - 원본 SQL, 바인딩 파라미터와 정제되지 않은 예외 메시지
 
-`sourceEventId`를 로그와 운영 명령의 상관 키로 사용한다. 사유에는 Incident·Issue 식별자와 짧은 판단만 적고 개인정보나 비밀값을 넣지 않는다.
+`sourceEventId`를 로그와 운영 명령의 이벤트 상관 키로 사용한다. 실제 변경 명령은 앞뒤 공백을 제거한 자유 서술 `reason`을 `lastReprocessReason` 또는 `discardReason`에만 저장하고, preview는 저장하지 않는다. `reason`은 구조화 로그, 표준 출력·오류와 예외 메시지에 포함하지 않는다. 로그에는 검증을 통과한 `reasonReference`를 그대로 남기고 `action`을 비민감 분류로 사용한다. `reasonReference`는 전체 값이 `(?:INC-[0-9]{4}-[0-9]{1,10}|ISSUE-[1-9][0-9]{0,9})` 정규식과 일치해야 한다. 다른 형식은 마스킹하지 않고 인자 검증 실패로 거절한다. `reason`에는 개인정보나 비밀값을 넣지 않는다.
 
 ## 지연·적체 트러블슈팅
 
@@ -179,7 +179,8 @@ relay가 PostgreSQL에서 고정한 `operationTime`이 `occurredAt + NOTIFICATIO
 | `app.notification.ops.action` | Y | `INSPECT`, `REPROCESS`, `DISCARD` 중 하나 |
 | `app.notification.ops.event-ids` | Y | 서로 다른 양의 ID를 `OPS_MAX_EVENT_IDS` 이하로 지정, 쉼표 구분 |
 | `app.notification.ops.dry-run` | 변경 작업 | 기본값은 `OPS_DEFAULT_DRY_RUN`; 실제 변경은 명시적으로 `false` |
-| `app.notification.ops.reason` | 재처리·폐기 | 앞뒤 공백 제거 후 `OPS_REASON_LENGTH` 범위 |
+| `app.notification.ops.reason-reference` | 재처리·폐기 | `(?:INC-[0-9]{4}-[0-9]{1,10}|ISSUE-[1-9][0-9]{0,9})` 형식의 Incident·Issue 식별자; 로그에는 이 값만 기록 |
+| `app.notification.ops.reason` | 재처리·폐기 | 앞뒤 공백 제거 후 `OPS_REASON_LENGTH` 범위의 저장 전용 자유 서술; 로그 출력 금지 |
 | `app.notification.ops.requested-by` | 재처리·폐기 | `OPS_REQUESTED_BY_LENGTH` 범위의 팀 계정 또는 배포 주체; 로그 전용 |
 | `app.notification.ops.confirm` | 폐기 | 실제 폐기 때 정확히 `DISCARD` |
 
@@ -209,7 +210,8 @@ java -jar $notificationArtifact `
   --spring.profiles.active=notification-ops `
   --app.notification.ops.action=REPROCESS `
   --app.notification.ops.event-ids=123,124 `
-  --app.notification.ops.reason='INC-2026-001 원인 수정 후 재처리' `
+  --app.notification.ops.reason-reference='INC-2026-001' `
+  --app.notification.ops.reason='원인 수정 후 재처리' `
   --app.notification.ops.requested-by='team-account' `
   --app.notification.ops.dry-run=true
 ```
@@ -218,7 +220,7 @@ preview에서 모든 대상이 `FAILED`, [`FAILED_REPROCESS_WINDOW`](#현재-운
 
 #### 재처리 실행
 
-같은 commit·환경·ID·사유로 `dry-run=false`만 바꿔 실행한다.
+같은 commit·환경·ID·사유 근거·사유로 `dry-run=false`만 바꿔 실행한다.
 
 ```powershell
 $notificationArtifact = '<배포 JAR 절대 경로>'
@@ -226,7 +228,8 @@ java -jar $notificationArtifact `
   --spring.profiles.active=notification-ops `
   --app.notification.ops.action=REPROCESS `
   --app.notification.ops.event-ids=123,124 `
-  --app.notification.ops.reason='INC-2026-001 원인 수정 후 재처리' `
+  --app.notification.ops.reason-reference='INC-2026-001' `
+  --app.notification.ops.reason='원인 수정 후 재처리' `
   --app.notification.ops.requested-by='team-account' `
   --app.notification.ops.dry-run=false
 ```
@@ -243,7 +246,8 @@ java -jar $notificationArtifact `
   --spring.profiles.active=notification-ops `
   --app.notification.ops.action=DISCARD `
   --app.notification.ops.event-ids=123 `
-  --app.notification.ops.reason='INC-2026-001 원인 데이터 복구 불가' `
+  --app.notification.ops.reason-reference='INC-2026-001' `
+  --app.notification.ops.reason='원인 데이터 복구 불가' `
   --app.notification.ops.requested-by='team-account' `
   --app.notification.ops.dry-run=false `
   --app.notification.ops.confirm=DISCARD
@@ -256,7 +260,7 @@ java -jar $notificationArtifact `
 | 종료 코드 | 의미 | 상태 변경 |
 | ---: | --- | --- |
 | `0` | inspect·preview 완료 또는 요청한 전체 변경 성공 | 명령에 따라 전체 변경 또는 미변경 |
-| `2` | 인자 검증 실패, 대상 없음·중복, 상태·`FAILED_REPROCESS_WINDOW`·확인 조건 불일치 | 없음 |
+| `2` | `reasonReference` 형식을 포함한 인자 검증 실패, 대상 없음·중복, 상태·`FAILED_REPROCESS_WINDOW`·확인 조건 불일치 | 없음 |
 | `1` | 애플리케이션 기동, DB 연결 또는 예상하지 못한 실행 실패 | 명령 트랜잭션 롤백 |
 
 부분 성공 종료 코드는 두지 않는다. 한 대상이라도 바꿀 수 없으면 같은 명령의 다른 대상도 변경하지 않는다. 명령 실패 뒤 대상 목록을 넓히지 말고 같은 ID를 다시 `INSPECT`한다.
@@ -286,10 +290,10 @@ java -jar $notificationArtifact `
 운영 가능 판정에는 다음 근거가 모두 필요하다.
 
 1. [P1 알림 명세의 검증 증거 매핑](../p1/notification.md#검증-증거-매핑)에 연결된 단위·MVC·PostgreSQL 테스트가 통과한다.
-2. `notification-ops`의 inspect·dry-run·재처리·폐기 확인·일괄 원자성·종료 코드와 `NOTIFICATION_EXPIRED` 재처리 거절 테스트가 통과한다.
+2. `notification-ops`의 inspect·dry-run·재처리·폐기 확인·일괄 원자성·종료 코드, `reasonReference` 형식 거절과 `NOTIFICATION_EXPIRED` 재처리 거절 테스트가 통과한다.
 3. PostgreSQL에서 다중 worker `SKIP LOCKED`, poison event 격리, cleanup 다중 인스턴스 선점과 서로 겹치는 역순 복구 ID 변경 명령이 교착 없이 한 명령의 성공 또는 계약된 전체 부적격 결과로 끝나는지 검증한다.
 4. 고정된 commit·환경에서 `DELIVERY_MIN_SAMPLE_COUNT` 이상 전달 지연 표본을 만들고 산식과 환경을 기록한다.
-5. 로그에 수신자·payload·SQL·인증 정보가 없음을 자동 또는 캡처 기반으로 확인한다.
+5. 로그와 표준 출력·오류에 자유 서술 `reason`, 수신자·payload·SQL·인증 정보가 없음을 자동 또는 캡처 기반으로 확인한다.
 6. 운영 배포에서 dry-run을 실행하고 실제 변경 없이 대상 판정과 종료 코드가 맞는지 확인한다.
 
 코드와 테스트가 있어도 4~6번이 없으면 운영 검증은 완료가 아니다.
@@ -308,7 +312,7 @@ oldestProcessableAgeMs:
 성공 / 재시도 / FAILED:
 대상 sourceEventId:
 실행 action / dry-run:
-사유 / 실행자 / Incident·Issue:
+reasonReference / 실행자:
 종료 코드 / 변경 건수:
 후속 확인:
 ```
