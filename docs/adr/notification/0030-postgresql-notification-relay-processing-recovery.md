@@ -1,12 +1,11 @@
 # ADR-0030: PostgreSQL polling relay의 처리와 복구 정책을 확정
 
-- 상태: 승인됨
+- 상태: 대체됨
 - 작성일: 2026-07-31
 - 결정일: 2026-07-31
-- 관련: [현재 알림 운영 파라미터 정본](../../guides/NOTIFICATION_OPERATIONS.md#현재-운영-파라미터-정본), [P1 알림 구현 명세](../../p1/notification.md#noti-01-모임-변경-알림-생성), [P1 알림 생성과 조회](../../P1-spec.md#알림-생성과-조회), [P1 알림 저장 계약](../../ERD.md#p1-알림-저장-계약), [ADR-0002](../platform/0002-postgresql-primary-database.md), [ADR-0009](../platform/0009-utc-time-standard.md), [ADR-0029](0029-room-integration-event-transactional-outbox.md), [ADR-0039 — Notification 시각 계약 구체화](0039-notification-presentation-and-bulk-read-snapshot.md#결정)
+- 관련: [P1 알림 구현 명세](../../p1/notification.md#noti-01-모임-변경-알림-생성), [P1 알림 생성과 조회](../../P1-spec.md#알림-생성과-조회), [ERD](../../ERD.md), [ADR-0002](../platform/0002-postgresql-primary-database.md), [ADR-0009](../platform/0009-utc-time-standard.md), [ADR-0029](0029-room-integration-event-transactional-outbox.md)
 - 대체 대상: 없음
-- 후속 ADR: 없음
-- 사후 보완: 2026-08-01 — [PR #242](https://github.com/bamsongi-club/albam-mate/pull/242)가 설계 검토 완료 전에 머지되어, 구현 착수 전 연속 검토에서 확정한 보존·복구·cleanup 운영 계약을 이번 한 차례 반영했다.
+- 후속 ADR: [ADR-0040](0040-postgresql-notification-relay-recovery-retention.md)
 
 ## 맥락
 
@@ -58,7 +57,7 @@
 
 처리 상태는 `PENDING`, `RETRY_WAIT`, `PROCESSED`, `FAILED`, `DISCARDED`를 사용한다. 비관적 행 잠금 자체가 처리 중 소유권이므로 `PROCESSING`과 lease 만료 시각은 저장하지 않는다.
 
-최초 Outbox의 `availableAt`은 같은 원인 트랜잭션이 PostgreSQL에서 고정한 `recordedAt`과 같은 `operationTime`이다. relay 선점은 SQL의 `MATERIALIZED operation` CTE에서 PostgreSQL `clock_timestamp()`를 한 번 평가한 `operationTime`에 `availableAt <= operationTime`인 이벤트만 대상으로 한다. 최초 처리까지 포함한 한 자동 처리 주기는 최대 5회다. 실패 기록 트랜잭션도 같은 함수를 한 번 평가하고 기록된 실패 횟수에 따라 `availableAt = operationTime + 재시도 간격`으로 계산한다.
+최초 처리까지 포함한 한 자동 처리 주기는 최대 5회다. 기록된 실패 횟수에 따라 다음 처리 가능 시각을 UTC로 계산한다.
 
 | 실패 횟수 | 다음 상태와 처리 가능 시각 |
 | ---: | --- |
@@ -68,7 +67,7 @@
 | 4 | `RETRY_WAIT`, 10분 뒤 |
 | 5 | `FAILED` |
 
-deadlock·lock timeout 같은 일시적 DB 오류와 분류되지 않은 런타임 오류는 위 상한까지 재시도한다. 지원하지 않는 이벤트 타입, 필수 수신자 스냅샷 누락, 복구 불가능한 데이터 제약 위반처럼 같은 입력으로 다시 실행해도 성공할 수 없는 결정적 오류는 즉시 `FAILED`로 전환한다. relay `operationTime >= occurredAt + NOTIFICATION_RETENTION`인 이벤트도 `NOTIFICATION_EXPIRED` 결정적 실패로 전환하며 Notification을 만들거나 `PROCESSED`로 바꾸지 않는다. 이벤트를 선점하기 전의 DB 연결 실패나 scheduler 실행 실패는 개별 이벤트의 실패 횟수에 포함하지 않는다.
+deadlock·lock timeout 같은 일시적 DB 오류와 분류되지 않은 런타임 오류는 위 상한까지 재시도한다. 지원하지 않는 이벤트 타입, 필수 수신자 스냅샷 누락, 복구 불가능한 데이터 제약 위반처럼 같은 입력으로 다시 실행해도 성공할 수 없는 결정적 오류는 즉시 `FAILED`로 전환한다. 이벤트를 선점하기 전의 DB 연결 실패나 scheduler 실행 실패는 개별 이벤트의 실패 횟수에 포함하지 않는다.
 
 DB에는 구조화된 실패 코드, 실패 시각, 예외 분류와 길이가 제한된 정제 설명만 저장한다. 원본 SQL·파라미터·수신자 목록·이벤트 payload·인증 정보와 stack trace는 저장하지 않는다. 상세 예외는 같은 민감 정보를 제외한 운영 로그에 남긴다.
 
@@ -76,27 +75,17 @@ DB에는 구조화된 실패 코드, 실패 시각, 예외 분류와 길이가 �
 
 정상 상태의 처리 지연은 원인 업무 커밋부터 Notification 행 생성 커밋까지 측정한다. 5초 polling을 기준으로 p95 30초 이내를 목표로 하며, 가장 오래된 처리 가능 이벤트가 1분을 넘는 상태는 운영 관측이 필요한 기준으로 삼는다. 이는 브라우저 화면 갱신 시간이나 Web Push 도착 시간을 뜻하지 않는다.
 
-relay는 전역 순서와 방별 처리 순서를 보장하지 않는다. 앞선 실패 이벤트가 뒤의 중요한 알림을 막지 않게 각 이벤트를 독립 처리한다. Notification의 `createdAt`에는 Command Coordinator가 최초 시도 전에 고정한 Outbox `occurredAt`을 복사하고, relay가 Notification 행을 저장한 시각은 `recordedAt`으로 분리한다. 같은 원인 시각은 Notification ID를 보조 정렬키로 사용한다. 앞선 이벤트가 나중에 복구되면 사용자가 이미 본 목록의 과거 위치에 새 알림이 나타날 수 있음을 감수한다.
+relay는 전역 순서와 방별 처리 순서를 보장하지 않는다. 앞선 실패 이벤트가 뒤의 중요한 알림을 막지 않게 각 이벤트를 독립 처리한다. Notification의 `createdAt`에는 relay 처리 시각이 아니라 원인 이벤트 시각을 저장하고, 같은 시각은 Notification ID를 보조 정렬키로 사용한다. 앞선 이벤트가 나중에 복구되면 사용자가 이미 본 목록의 과거 위치에 새 알림이 나타날 수 있음을 감수한다.
 
 ### 보존과 운영 복구
 
 `PENDING`과 `RETRY_WAIT` 이벤트는 자동 삭제하지 않는다. `PROCESSED` 이벤트와 수신자 행은 처리 완료 후 30일 동안 보존한 뒤 정리한다. `FAILED` 이벤트는 명시적으로 재처리하거나 폐기하기 전까지 자동 삭제하지 않는다.
 
-Notification은 원인 이벤트 시각인 `createdAt`부터 90일 동안 읽음 여부와 관계없이 보존한다. `expiresAt = createdAt + 90일`을 저장하고 목록·미확인 개수·단건·일괄 읽음은 요청 기준 시각에 `expiresAt`이 지난 행을 물리 삭제 전에도 제외한다. 정리 작업은 만료 행을 인덱스 순서의 소량 묶음으로 삭제한다.
-
-cleanup scheduler는 이전 실행 완료 뒤 1시간에 0~5분의 jitter를 더해 다시 실행한다. 모든 인스턴스가 실행할 수 있으며, Notification과 Outbox를 각각 한 트랜잭션에서 최대 500건씩, 한 실행에서 종류별 최대 5개 batch까지 삭제한다. 각 batch는 정리 인덱스 순서로 due ID를 `FOR UPDATE SKIP LOCKED`로 선점하고 삭제한다. 500건 미만을 삭제하면 해당 종류의 이번 실행을 끝낸다.
-
-Notification cleanup과 Outbox cleanup은 서로 독립된 batch 트랜잭션을 사용한다. 한 batch가 실패하면 해당 트랜잭션을 롤백하고 같은 실행에서 무제한 재시도하지 않으며 실패 로그를 남긴 뒤 다음 주기에서 다시 시작한다. `PENDING`, `RETRY_WAIT`, `FAILED`는 cleanup 대상이 아니고, `DISCARDED`의 수신자 행은 폐기 트랜잭션에서 즉시 삭제한다. Outbox 이벤트의 정기 삭제는 남은 수신자 행을 FK cascade로 함께 제거한다.
-
-수동 재처리는 `FAILED`이면서 복구 트랜잭션이 PostgreSQL에서 한 번 고정한 `operationTime`이 `occurredAt + 89일`보다 앞선 이벤트만 대상으로 하며 새로운 최대 5회 주기를 부여한다. 현재 주기의 실패 횟수는 0으로 초기화하되 전체 기록 실패 횟수, 재처리 횟수, 마지막 재처리 사유와 시각은 보존한다. 한 번의 대량 재처리는 최대 50건이다. 이벤트와 수신자 스냅샷의 존재·형식을 다시 검증한 뒤 `lastReprocessedAt = availableAt = operationTime`인 `RETRY_WAIT`로 전환한다. 89일이 지난 `FAILED` 이벤트와 `NOTIFICATION_EXPIRED` 이벤트는 재처리할 수 없고 자동 삭제하지 않으며 운영자가 `DISCARDED`로만 종결한다.
+수동 재처리는 `FAILED` 이벤트만 대상으로 하며 새로운 최대 5회 주기를 부여한다. 현재 주기의 실패 횟수는 0으로 초기화하되 전체 기록 실패 횟수, 재처리 횟수, 재처리 사유와 시각은 보존한다. 한 번의 대량 재처리는 최대 50건이다. 이벤트와 수신자 스냅샷의 존재·형식을 다시 검증한 뒤 `RETRY_WAIT`로 전환한다.
 
 운영자가 재처리하지 않기로 결정하면 이벤트를 `DISCARDED`로 전환하고 폐기 사유와 시각을 남긴 뒤 사용자 ID가 포함된 수신자 행을 제거한다. 해결된 최소 이벤트 기록은 폐기 시점부터 30일 뒤 정리한다.
 
-현재 복구 interface는 공개 HTTP API나 직접 SQL이 아니라 `notification-ops` 전용 one-shot profile의 운영 명령으로 제공한다. 이 profile은 웹 서버와 일반 scheduler를 시작하지 않고 `NotificationOutboxRecoveryService`를 호출한 뒤 명시적인 종료 코드로 프로세스를 끝낸다. 정확한 인자·실행 순서와 결과 해석은 [알림 Outbox 운영 런북](../../guides/NOTIFICATION_OPERATIONS.md)이 소유한다.
-
-운영 명령은 고유한 양의 이벤트 ID를 1~50개까지 명시적으로 받으며 전체 `FAILED` 같은 무제한 selector는 제공하지 않는다. 기본은 dry-run이다. 재처리와 폐기는 1~500자의 비어 있지 않은 사유와 실행자 표기를 요구하고, 폐기는 별도 확인 문자열까지 일치해야 한다. 모든 명령은 입력 ID를 오름차순으로 정규화한다. 실제 변경 명령은 복구 트랜잭션의 PostgreSQL `operationTime`을 한 번 고정한 뒤 하나의 `SELECT ... WHERE id IN (...) ORDER BY id FOR UPDATE`로 모든 대상을 같은 순서에 잠금·검증한다. 하나라도 없거나 중복되거나 상태·89일 조건을 만족하지 않으면 전체를 변경하지 않는다.
-
-명령 adapter는 트랜잭션·Repository·직접 SQL을 소유하지 않는다. 재처리·폐기 규칙과 한 명령의 원자성은 `NotificationOutboxRecoveryService`가 소유한다. 재처리는 89일 안의 `FAILED`, 폐기는 `FAILED`만 허용한다. 실행자는 구조화 로그와 배포·SSM 실행 기록에 남기며 Outbox에는 사유와 마지막 조치 시각을 보존한다. 향후 비개발 운영자, 원격 운영, 검색·승인·강한 감사 요구가 생기면 관리자 API나 백오피스 adapter가 같은 서비스를 재사용할 수 있으나, 관리자 인증·인가·CSRF·감사 경계는 별도 후속 결정으로 다룬다.
+현재 복구 interface는 공개 HTTP API나 직접 SQL이 아니라 application service가 소유하는 일회성 운영 명령으로 제공한다. 재처리·폐기 규칙은 `NotificationOutboxRecoveryService`가 소유하고 명령 adapter는 이를 호출한다. 향후 비개발 운영자, 원격 운영, 검색·담당자·강한 감사 요구가 생기면 관리자 API나 백오피스 adapter가 같은 서비스를 재사용할 수 있으나, 관리자 인증·인가·CSRF·감사 경계는 별도 후속 결정으로 다룬다.
 
 ### 관측과 확장 경계
 
@@ -126,10 +115,9 @@ Notification cleanup과 Outbox cleanup은 서로 독립된 batch 트랜잭션을
     - 처리 롤백과 실패 기록 사이의 프로세스 종료는 실패 횟수 하나를 누락시킬 수 있다.
     - 인스턴스마다 유휴 polling이 발생하고 전체 주기 처리 상한은 인스턴스 수에 비례한다.
 - 후속 작업:
-    - ERD에 확정된 상태·실패·재시도·재처리·폐기·정리 필드와 relay·알림 조회·90일 정리 인덱스를 전진 Flyway 마이그레이션과 Entity로 구현한다.
+    - ERD에 상태·실패·재시도·재처리·폐기·정리 필드와 relay 조회 인덱스를 반영한다.
     - PostgreSQL 동시성 테스트로 `SKIP LOCKED`, 다중 worker, 중복 처리, 프로세스 실패에 해당하는 롤백과 실패 격리를 검증한다.
-    - 구현·부하 검증에서 이 ADR의 산식·표본·실행 환경 기록으로 처리 지연, 적체, DB 연결 사용과 재시도 수를 측정한다.
-    - one-shot 복구 명령과 bounded cleanup을 운영 런북의 dry-run·오류·재실행 절차까지 검증한다.
+    - 구현·부하 검증에서 처리 지연, 적체, DB 연결 사용과 재시도 수를 측정한다.
 
 ## 보류 및 재검토
 
@@ -145,7 +133,7 @@ Notification cleanup과 Outbox cleanup은 서로 독립된 batch 트랜잭션을
     - 결정 절의 관측·확장 조건이 충족될 때
     - 외부 호출이나 장시간 작업이 relay 안에 필요해질 때
     - 운영자가 CLI 대신 원격·상시 복구 interface를 필요로 할 때
-    - 보존·감사 규제가 현재 Outbox 30일·Notification 90일 정리와 실패 이벤트 보존 정책을 바꿀 때
+    - 보존·감사 규제가 현재 30일 정리와 실패 이벤트 보존 정책을 바꿀 때
 
 ## 참고 자료
 
@@ -153,7 +141,6 @@ Notification cleanup과 Outbox cleanup은 서로 독립된 batch 트랜잭션을
 - [P1 공통 명세](../../P1-spec.md)
 - [ADR-0002](../platform/0002-postgresql-primary-database.md)
 - [ADR-0029](0029-room-integration-event-transactional-outbox.md)
-- [알림 Outbox 운영 런북](../../guides/NOTIFICATION_OPERATIONS.md)
 
 ## 검증
 
@@ -161,15 +148,9 @@ Notification cleanup과 Outbox cleanup은 서로 독립된 batch 트랜잭션을
 - 근거:
     - 계약:
         - P1 알림 구현 명세는 PostgreSQL polling relay의 at-least-once 처리, 수신자별 멱등성, 재시도·최종 실패와 broker 재검토 근거를 요구한다.
-        - ERD는 relay 상태별 nullable·CHECK, 실패·재처리·폐기·정리 필드와 선점·조회 인덱스를 정의하고 수치는 운영 파라미터 키로 참조한다.
-        - 운영 런북의 `현재 운영 파라미터 정본` 표가 이 ADR에서 채택한 relay·재시도·측정·보존·복구·cleanup 수치의 현재 값을 유일하게 소유한다. 이 결정 본문의 숫자는 결정일 당시 기준을 보존하며 후속 ADR 없이 현재 값만 바꾸는 근거가 아니다.
-        - 운영 런북은 전달 지연 산식·구조화 로그, one-shot 복구 명령과 cleanup 실행·증거 기록도 정의한다.
-        - ADR-0039는 이 ADR의 Notification `recordedAt` 애플리케이션 `Clock` 하위 가정을 PostgreSQL `clock_timestamp()` 기반 `operationTime`으로 구체화하고 단건·일괄 `readAt`과 같은 DB 시계로 비교하게 한다.
 - 미검증:
     - `FOR UPDATE SKIP LOCKED` 선점과 이벤트별 독립 트랜잭션 구현
-    - 다중 인스턴스·중복 처리·실패 격리·재시도·수동 복구와 운영 정본의 보존·정리 파라미터 PostgreSQL 테스트
-    - `notification-ops` profile의 dry-run·일괄 원자성·폐기 확인·종료 코드, 겹치는 역순 ID 명령의 오름차순 잠금과 무교착 완료 검증
-    - relay가 PostgreSQL `clock_timestamp()` 기반 `operationTime`을 한 번 고정해 같은 이벤트의 Notification `recordedAt`에 사용하는 검증
-    - 운영 정본의 polling·최소 표본·p95·oldest age 파라미터와 DB 부하 측정
+    - 다중 인스턴스·중복 처리·실패 격리·재시도·수동 복구·30일 정리 PostgreSQL 테스트
+    - 5초 polling에서 p95 30초 처리 지연과 DB 부하 측정
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

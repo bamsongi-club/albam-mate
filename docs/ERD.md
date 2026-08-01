@@ -211,7 +211,7 @@ erDiagram
 ~~~
 
 `NOTIFICATIONS.source_event_id`는 Outbox의 식별자를 복사한 논리적 멱등성 키이며 FK가 아니다. 따라서 관계도에는 Outbox와 Notification 사이의 물리 관계선을 그리지 않는다. `(source_event_id, recipient_user_id)` 유일 제약은 아래 알림 관계 제약에서 정의한다.
-이 절은 알림 저장 필드·타입·제약·인덱스의 정본이다. 원인 업무와 Outbox 기록 경계는 [ADR-0029](adr/notification/0029-room-integration-event-transactional-outbox.md), relay·복구·정리는 [ADR-0030](adr/notification/0030-postgresql-notification-relay-processing-recovery.md), 표시 투영과 조회·읽음 시각은 [ADR-0039](adr/notification/0039-notification-presentation-and-bulk-read-snapshot.md)을 따른다.
+이 절은 알림 저장 필드·타입·제약·인덱스의 정본이다. 원인 업무와 Outbox 기록 경계는 [ADR-0029](adr/notification/0029-room-integration-event-transactional-outbox.md), relay·복구·정리는 [ADR-0040](adr/notification/0040-postgresql-notification-relay-recovery-retention.md), 표시 투영과 조회·읽음 시각은 [ADR-0039](adr/notification/0039-notification-presentation-and-bulk-read-snapshot.md)을 따른다.
 
 relay·재시도·보존·복구·cleanup 수치는 [알림 운영 파라미터 정본](guides/NOTIFICATION_OPERATIONS.md#현재-운영-파라미터-정본)이 소유한다. 아래의 대문자 파라미터 키는 현재 값을 마이그레이션에 대입하라는 뜻이며 SQL 식별자가 아니다. 값을 바꿀 때는 승인된 후속 ADR, 운영 정본, 전진 마이그레이션과 검증을 같은 변경에서 맞춘다.
 

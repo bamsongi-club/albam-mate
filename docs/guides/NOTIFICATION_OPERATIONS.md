@@ -1,14 +1,14 @@
 # 알림 Outbox 운영 런북
 
-이 문서는 P1 서비스 내 웹 알림의 PostgreSQL Outbox relay를 관측하고, `FAILED` 이벤트를 안전하게 재처리·폐기하며, 보존 기간이 지난 데이터를 정리하는 절차를 정의한다. 현재 적용할 운영 수치는 이 문서의 [현재 운영 파라미터 정본](#현재-운영-파라미터-정본), 기술 선택과 결정 이유는 [ADR-0030](../adr/notification/0030-postgresql-notification-relay-processing-recovery.md), 저장 필드와 제약은 [ERD의 P1 알림 저장 계약](../ERD.md#p1-알림-저장-계약)이 각각 소유한다.
+이 문서는 P1 서비스 내 웹 알림의 PostgreSQL Outbox relay를 관측하고, `FAILED` 이벤트를 안전하게 재처리·폐기하며, 보존 기간이 지난 데이터를 정리하는 절차를 정의한다. 현재 적용할 운영 수치는 이 문서의 [현재 운영 파라미터 정본](#현재-운영-파라미터-정본), 기술 선택과 결정 이유는 [ADR-0040](../adr/notification/0040-postgresql-notification-relay-recovery-retention.md), 저장 필드와 제약은 [ERD의 P1 알림 저장 계약](../ERD.md#p1-알림-저장-계약)이 각각 소유한다.
 
 > **단계: P1 운영 계약** · 현재 생산 코드·자동 검증·운영 상태는 [P1 기능 상태 정본의 `NOTI-01`](../p1/README.md#기능별-현재-상태)을 따른다. 생산 코드와 운영 배포가 완료되기 전에는 아래 one-shot 명령을 실행하거나 직접 SQL로 우회하지 않는다.
 
 ## 문서 소유권과 변경 규칙
 
 - 아래 표가 relay·재시도·측정·보존·복구·cleanup의 **현재 수치를 소유하는 유일한 문서 정본**이다. 다른 문서는 값 대신 파라미터 키와 이 절 링크를 사용한다.
-- ADR-0030 결정 본문의 숫자는 채택 당시 결정과 이유를 보존하는 역사 기록이다. 현재 구현·테스트·운영 판정에는 아래 표를 사용한다.
-- 아래 값을 바꾸는 것은 ADR-0030의 승인 결정을 바꾸는 일이므로 후속 ADR 승인 없이 이 표만 수정하지 않는다. 승인된 후속 ADR, 이 표, 구현 설정·테스트와 운영 증거 양식을 같은 변경에서 맞춘다.
+- ADR-0030과 ADR-0040 결정 본문의 숫자는 각 결정 당시 기준을 보존하는 역사 기록이다. 현행 정책은 ADR-0040, 현재 구현·테스트·운영 판정에 적용할 수치는 아래 표를 사용한다.
+- 아래 값을 바꾸는 것은 ADR-0040의 승인 결정을 바꾸는 일이므로 후속 ADR 승인 없이 이 표만 수정하지 않는다. 승인된 후속 ADR, 이 표, 구현 설정·테스트와 운영 증거 양식을 같은 변경에서 맞춘다.
 - 다른 문서나 구현값이 이 표와 다르면 임의로 절충하지 않고 문서·구현 drift로 판정한다. 운영 배포의 effective value도 표와 일치해야 한다.
 - 브라우저 알림 조회 주기는 relay 운영 수치가 아니라 [P1 알림 프론트엔드 UX 계약](../p1/notification.md#조회와-polling)이 소유한다. API 페이지 크기처럼 다른 경계의 수치도 이 표에 섞지 않는다.
 
@@ -119,10 +119,10 @@ P1에서는 Actuator/Micrometer, dashboard와 외부 경고 전송을 먼저 추
 | `notification_outbox_relay_scheduler_failed` | ERROR | `failureCode`, `exceptionClass`, `occurredAt` |
 | `notification_outbox_operation_previewed` | INFO | `action`, `requestedBy`, `requestedCount`, `eligibleCount`, `dryRun`, 정제된 `reason` |
 | `notification_outbox_operation_completed` | WARN | `action`, `requestedBy`, `requestedCount`, `changedCount`, `dryRun`, 정제된 `reason` |
-| `notification_cleanup_completed` | INFO 또는 DEBUG | `targetType`, `batchCount`, `deletedCount`, `durationMs`, `measurementTime` |
-| `notification_cleanup_failed` | WARN | `targetType`, `failureCode`, `exceptionClass`, `measurementTime` |
+| `notification_cleanup_completed` | INFO 또는 DEBUG | `targetType`, `batchNumber`, `deletedCount`, `durationMs`, `measurementTime` |
+| `notification_cleanup_failed` | WARN | `targetType`, `batchNumber`, `failureCode`, `exceptionClass`, `measurementTime` |
 
-정상 batch에서 처리·적체가 모두 0이면 batch 완료 로그는 DEBUG로 낮출 수 있다. 다음 값은 로그에 넣지 않는다.
+cleanup 완료·실패 로그는 batch마다 한 건이며, `measurementTime`은 해당 batch 트랜잭션이 PostgreSQL에서 고정해 due 선점·삭제에 사용한 값이다. DB 시각을 얻기 전에 실패하면 due 판정과 삭제를 실행하지 않고 `measurementTime`을 생략한다. 정상 batch에서 처리·적체가 모두 0이면 batch 완료 로그는 DEBUG로 낮출 수 있다. 다음 값은 로그에 넣지 않는다.
 
 - 수신자 사용자 ID, 닉네임과 이메일
 - 방 제목, 정확한 장소와 참가자 목록
@@ -267,7 +267,7 @@ java -jar $notificationArtifact `
 
 1. Scheduler가 [`CLEANUP_INTERVAL`](#현재-운영-파라미터-정본)에 [`CLEANUP_JITTER`](#현재-운영-파라미터-정본)를 더해 실행한다.
 2. Notification cleanup과 Outbox cleanup을 독립적으로 호출한다.
-3. 각 Executor는 정리 인덱스의 가장 이른 due ID를 `FOR UPDATE SKIP LOCKED`로 `CLEANUP_BATCH_SIZE` 이하 선점하고 같은 트랜잭션에서 삭제한다.
+3. 각 Executor는 batch 트랜잭션 안에서 `SELECT clock_timestamp()`를 한 번 실행해 PostgreSQL `measurementTime`을 고정한다. 같은 값을 바인딩해 정리 인덱스의 가장 이른 due ID를 `FOR UPDATE SKIP LOCKED`로 `CLEANUP_BATCH_SIZE` 이하 선점하고 삭제하며, 완료·실패 로그에도 같은 `measurementTime`을 사용한다. Scheduler와 Coordinator는 만료 판정 시각을 만들지 않는다.
 4. 한 종류에서 `CLEANUP_MAX_BATCHES_PER_TARGET` 이하 batch를 처리한다. 삭제 건수가 `CLEANUP_BATCH_SIZE`보다 작으면 더 이상 즉시 반복하지 않는다.
 5. 한 batch가 실패하면 그 batch만 롤백하고 같은 실행에서 재시도하지 않는다. 다음 주기에서 다시 시작한다.
 
@@ -319,7 +319,8 @@ oldestProcessableAgeMs:
 
 - [P1 알림 구현 명세](../p1/notification.md)
 - [ADR-0029: 방 변경 통합 이벤트와 Transactional Outbox](../adr/notification/0029-room-integration-event-transactional-outbox.md)
-- [ADR-0030: PostgreSQL polling relay 처리와 복구](../adr/notification/0030-postgresql-notification-relay-processing-recovery.md)
+- [ADR-0030: PostgreSQL polling relay 처리와 복구 — 대체됨](../adr/notification/0030-postgresql-notification-relay-processing-recovery.md)
+- [ADR-0040: PostgreSQL 알림 relay·복구·보존 정책](../adr/notification/0040-postgresql-notification-relay-recovery-retention.md)
 - [ADR-0039: 알림 표시 투영과 PostgreSQL 조회·읽음 시각](../adr/notification/0039-notification-presentation-and-bulk-read-snapshot.md)
 - [ERD의 P1 알림 저장 계약](../ERD.md#p1-알림-저장-계약)
 - [알림 아키텍처](../ARCHITECTURE.md#알림-relay복구정리)
