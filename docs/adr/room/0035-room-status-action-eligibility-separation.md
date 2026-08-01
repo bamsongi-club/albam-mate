@@ -37,7 +37,7 @@ P0는 `RoomStatus`로 ROOM의 생명주기를 표현하고, 공개 ROOM 응답�
 
 직접 참가 요청이 좌석 경합으로 실패하더라도 서버는 해당 요청을 대기 신청으로 바꾸지 않는다. 대기 관계는 별도의 명시적 대기 신청이 성공했을 때만 생성한다.
 
-`waitlistable`을 노출할 응답 범위와 대기 신청 API·오류 계약은 [API 명세](../../API.md#part-04-대기-등록재신청)를 따른다. 대기 관계의 저장과 자동 승격 일관성은 [ADR-0037](../participation/0037-room-waitlist-latest-state-atomic-promotion.md)에서 별도로 다룬다.
+`waitlistable`을 노출할 응답 범위는 [P1 ROOM-08](../../p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리)과 API 명세의 [PublicRoomResponse](../../API.md#47-publicroomresponse), [ParticipantRoomResponse](../../API.md#48-participantroomresponse), [MyRoomListItem](../../API.md#410-myroomlistitem)을 따른다. 대기 신청 API·오류 계약은 [PART-04 대기 등록·재신청](../../API.md#part-04-대기-등록재신청)을 따른다. 대기 관계의 저장과 자동 승격 일관성은 [ADR-0037](../participation/0037-room-waitlist-latest-state-atomic-promotion.md)에서 별도로 다룬다.
 
 ## 결과
 
