@@ -49,9 +49,9 @@ P0는 홍대 오프라인 모임만 다루며 운영 제재·결제·알림·대
 | 참가·내 모임 | [기능 명세](docs/archive/p0/participation.md) 있음 | `PART-01`~`PART-03`의 3개 API | PostgreSQL 낙관 락 동시성 테스트 |
 | 프론트엔드 | [프론트엔드 README](frontend/README.md) 있음 | React 화면과 세션 쿠키·CSRF를 포함한 P0 API 연동 | `npm ci`와 Vite 운영 빌드를 CI에서 검증, 자동 동작 테스트는 아직 없음 |
 | 운영 배포 | [ADR-0021 운영 인프라 기준](docs/adr/platform/0021-p0-aws-ec2-rds-deployment-baseline.md) 있음 | 구현 전 | 검증 전 |
-| P1 2차 MVP | [P1 공통 명세](docs/P1-spec.md)와 [기능·기반 문서](docs/p1/README.md) 있음 | 미구현. API의 P1 행은 구현 예정 계약이며 저장 구조는 ERD 반영 전 | 미검증. 제안 ADR 승인, ERD·아키텍처 반영과 기능별 검증 필요 |
+| P1 2차 MVP | [P1 공통 명세](docs/P1-spec.md)와 [기능별 상태 정본](docs/p1/README.md#기능별-현재-상태) | [기능별 상태 정본](docs/p1/README.md#기능별-현재-상태)의 `생산 코드` 열 | 같은 표의 `자동 검증`·`운영 배포·실측` 열 |
 
-P0 구현 상태는 2026-07-31 기준이며, P1 행은 현재 계획 문서의 상태를 별도로 표시합니다.
+P0 구현 상태는 2026-07-31 기준이며, P1 행은 요약입니다. P1 기능별 계약·구현·자동 검증·운영 상태는 [P1 기능별 상태 정본](docs/p1/README.md#기능별-현재-상태)을 따릅니다.
 
 ## 팀 — 밤송이클럽
 
@@ -140,7 +140,7 @@ cd frontend && npm run dev
 - 요청·응답과 오류 계약: [API 명세](docs/API.md)
 - 테이블과 데이터 제약: [ERD](docs/ERD.md)
 - 기술 선택과 트레이드오프, 결정별 검증 상태: [ADR](docs/adr/README.md)
-- 게임 목록 입력 검수와 적재 절차: [게임 카탈로그 검수·적재](docs/guides/GAME_CATALOG_IMPORT.md)
+- 운영·설정·데이터 적재와 문제 해결 절차: [프로젝트 가이드](docs/guides/README.md)
 - 코드 작성·구현 규칙: [컨벤션](docs/CONVENTIONS.md)
 - 실행·테스트·포맷 명령: [프로젝트 명령](docs/COMMANDS.md)
 - 프론트엔드 화면과 실행: [프론트엔드 README](frontend/README.md)

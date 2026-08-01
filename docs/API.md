@@ -1,6 +1,6 @@
 # 알밤메이트 API 명세서
 
-- 문서 상태: **P0 제공·P1 구현 예정 HTTP·WebSocket 인터페이스 계약 (정본)**
+- 문서 상태: **P0 현행 + 승인되어 반영된 P1 목표 HTTP·WebSocket 인터페이스 계약 (정본)**
 - 기준 문서: [PRD](PRD.md), [P1 공통 명세](P1-spec.md), [P1 기능별 명세](p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md), [ERD](ERD.md)
 
 ### 이 문서의 범위
@@ -11,7 +11,7 @@
 | 이 문서가 담지 않는 것 | 제품 규칙의 배경(→ [P1-spec](P1-spec.md), [p1/](p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md)), 저장 구조·계산식(→ [ERD](ERD.md)), 되돌리기 어려운 기술 결정과 근거(→ [ADR](adr/README.md)) |
 | 변경 시 함께 갱신 | API 계약을 바꾸면 같은 변경에서 이 문서와 [엔드포인트별 오류 매트릭스](#11-부록-엔드포인트별-오류-매트릭스)를 함께 갱신하고, 관련 정본([P1-spec](P1-spec.md)·[P1 기능 문서](p1/README.md)·[ERD](ERD.md)·[ADR](adr/README.md))과의 정합을 확인한다. 상세 규칙은 [CONVENTIONS](CONVENTIONS.md#api-응답)를 따른다. |
 
-> P0 행은 현재 제공 계약, P1 행은 구현 예정 계약이다. P1 API는 코드·ERD·아키텍처와 필요한 ADR에 반영되고 검증되기 전까지 제공 기능이나 구현 완료를 뜻하지 않는다. 같은 사실을 다른 정본과 중복해서 서술하지 않고, 배경과 근거가 필요한 곳에서는 해당 정본으로 링크한다.
+> `P0`, `P1`은 API가 도입되는 제품 단계이며 현재 구현 상태값이 아니다. P0 현행과 승인되어 이 문서에 반영된 P1 목표 계약을 함께 관리하고, P1 기능의 현재 계약 준비·생산 코드·자동 검증·운영 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)만 따른다.
 
 ### 대표 흐름으로 읽기
 
@@ -195,7 +195,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 기능 ID는 엔드포인트가 아니라 기능 단위다. 로그인·로그아웃은 함께 `AUTH-03`, 프로필 조회·수정은 함께 `AUTH-04`, 방 취소·종료는 함께 `ROOM-05`, 알림 목록·미확인 개수는 함께 `NOTI-02`, 단건·일괄 읽음은 함께 `NOTI-03`, 채팅 전송·이력 조회는 함께 `CHAT-02`에 속한다. 각 기능의 제품 규칙 정본은 인덱스에서 링크한다.
 
-`단계`는 API 도입 제품 단계다(→ [PRD 로드맵](PRD.md#6-단계별-로드맵)). `P0·P1`은 P0에 도입한 경로를 P1에서 확장한다는 뜻이다. 단계가 늘어도 HTTP 계약인 이 파일을 나누지 않고 표에 행·단계 값을 더한다. P1 신규 행과 `P0·P1` 행의 P1 확장은 구현 예정이며 [P1 구현 완료 기준](P1-spec.md#구현-완료-기준)을 만족한 뒤 제공 계약으로 전환한다.
+`단계`는 API 도입 제품 단계다(→ [PRD 로드맵](PRD.md#6-단계별-로드맵)). `P0·P1`은 P0에 도입한 경로를 P1에서 확장한다는 뜻이다. 단계가 늘어도 HTTP 계약인 이 파일을 나누지 않고 표에 행·단계 값을 더한다. 단계 표시는 구현 여부에 따라 바꾸지 않으며, P1 기능의 현재 제공 여부는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)으로 판정한다.
 
 | # | 단계 | 기능 ID | Method | Path | 인증 | CSRF | 성공 |
 |---:|:---:|---|---|---|:---:|:---:|:---:|
@@ -259,16 +259,16 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 클라이언트가 관찰하는 상태 변화는 다음과 같다. 제품 규칙 정본은 [P0-spec 방 상태](archive/p0/P0-spec.md#방-상태roomstatus), 저장 반영 방식은 [ADR-0012](adr/room/0012-room-request-boundary-state-reconciliation.md)를 따른다.
 
-| 조건 또는 요청 | 이전 상태 | 이후 상태 |
-|---|---|---|
-| 방 생성 성공 | 생성 전 | `RECRUITING` |
-| 모집 인원 충족 | `RECRUITING` | `CLOSED` |
-| 현재 시각이 `startsAt`에 도달 | `RECRUITING` | `CLOSED` |
-| 시작 전 참가 취소로 빈자리 발생, 활성 대기자 있음 | `CLOSED` | 첫 대기자 승격 후 `CLOSED` 유지 |
-| 시작 전 참가 취소로 빈자리 발생, 활성 대기자 없음 | `CLOSED` | `RECRUITING` |
-| 주최자가 방 취소 | `RECRUITING` 또는 `CLOSED` | `CANCELED` |
-| 주최자가 시작 시각 이후 방 종료 | `CLOSED` | `FINISHED` |
-| 현재 시각이 `startsAt + 24시간`에 도달 | `CLOSED` | `FINISHED` |
+| 조건 또는 요청 | 이전 상태 | 이후 상태 | 단계 |
+|---|---|---|:---:|
+| 방 생성 성공 | 생성 전 | `RECRUITING` | P0 |
+| 모집 인원 충족 | `RECRUITING` | `CLOSED` | P0 |
+| 현재 시각이 `startsAt`에 도달 | `RECRUITING` | `CLOSED` | P0 |
+| 시작 전 참가 취소로 빈자리 발생, 활성 대기자 있음 | `CLOSED` | 첫 대기자 승격 후 `CLOSED` 유지 | P1 |
+| 시작 전 참가 취소로 빈자리 발생, 활성 대기자 없음 | `CLOSED` | `RECRUITING` | P0·P1 |
+| 주최자가 방 취소 | `RECRUITING` 또는 `CLOSED` | `CANCELED` | P0 |
+| 주최자가 시작 시각 이후 방 종료 | `CLOSED` | `FINISHED` | P0 |
+| 현재 시각이 `startsAt + 24시간`에 도달 | `CLOSED` | `FINISHED` | P0 |
 
 `CANCELED`와 `FINISHED`는 최종 상태다. 수동 모집 마감·재오픈과 최종 상태 철회는 지원하지 않는다.
 
@@ -300,6 +300,8 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 ### WaitlistStatus
 
+> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `PART-04`](p1/README.md#기능별-현재-상태)
+
 본인의 ROOM별 최신 대기 결과다.
 
 | 값 | 의미 | `position` |
@@ -314,6 +316,8 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 ### GamePlayTimeFilter
 
+> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `SEARCH-01`](p1/README.md#기능별-현재-상태)
+
 `GET /api/games`의 플레이 시간 구간 값이다. 검증된 최대 플레이 시간을 기준으로 판정한다.
 
 | 값 | 의미 |
@@ -324,17 +328,21 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 ### NotificationType
 
+> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `NOTI-01`~`NOTI-03`](p1/README.md#기능별-현재-상태)
+
 | 값 | 수신자에게 표시하는 의미 |
 |---|---|
 | `PARTICIPANT_JOINED` | 모임에 새 참가자가 있음 |
 | `PARTICIPANT_CANCELED` | 모임에 빈자리가 생김 |
 | `ROOM_CANCELED` | 참가 중인 모임이 취소됨 |
 
-`PARTICIPANT_JOINED`는 최초 참가와 취소 뒤 재참가를 구분하지 않는다. 알림 응답은 참가자의 닉네임·사용자 ID·이메일을 포함하지 않으며, 클라이언트는 `message`가 아니라 `type`으로 표시 방식과 동작을 구분한다.
+`PARTICIPANT_JOINED`는 최초 참가와 취소 뒤 재참가를 구분하지 않는다. 알림 응답은 참가자의 닉네임·사용자 ID·이메일을 포함하지 않으며, 클라이언트는 `type`으로 표시 문구·방식과 동작을 렌더링한다.
+
+`NotificationListItem`에는 `message` 필드가 없고 서버도 표시 문구를 생성하거나 저장하지 않는다. P1 웹 클라이언트는 `type`과 `roomTitle`로 문구를 만들며, 정확한 기본 문구와 텍스트 렌더링 규칙은 [알림 프론트엔드 UX 계약](p1/notification.md#프론트엔드-ux-계약)을 따른다. 이 규칙은 참가자 식별자를 문구에 복원하거나 추론하는 근거가 아니다.
 
 ## 4. 공통 스키마
 
-응답 스키마 표에서 `필수 Y`는 필드가 응답에 항상 포함됨을, `nullable Y`는 값으로 JSON `null`을 허용함을 뜻한다. 이 절의 필드는 모두 응답 값이며, 계산으로 도출하는 필드의 계산식 정본은 [ERD 정원·참가자 표시 규칙](ERD.md#정원참가자-표시-규칙)과 [서비스 규칙](ERD.md#서비스-규칙)이다.
+응답 스키마 표에서 `필수 Y`는 필드가 응답에 항상 포함됨을, `nullable Y`는 값으로 JSON `null`을 허용함을 뜻한다. 이 절의 필드는 모두 응답 값이며, 계산으로 도출하는 필드의 계산식 정본은 [ERD 정원·참가자 표시 규칙](ERD.md#정원참가자-표시-규칙)과 [서비스 규칙](ERD.md#서비스-규칙)이다. 혼합 스키마의 `단계` 열은 필드가 도입되는 제품 단계를 나타내며 구현 상태에 따라 바꾸지 않는다.
 
 ### 4.1 UserSummary
 
@@ -401,23 +409,23 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 
 방을 탐색·참가 판단하는 데 필요한 비식별 정보만 반환한다. `place`, 주최자·참가자 목록과 사용자 ID는 포함하지 않는다.
 
-| 필드 | 타입 | 필수 | nullable | 설명 |
-|---|---|:---:|:---:|---|
-| `id` | integer | Y | N | 방 ID |
-| `roomType` | RoomType | Y | N | 방 유형 |
-| `title` | string | Y | N | 방 제목 |
-| `description` | string | Y | Y | 모임 소개 |
-| `game` | GameSummary | Y | Y | `GAME_FOCUSED`는 필수, `PERSON_FOCUSED`는 `null` 가능 |
-| `experienceLevel` | ExperienceLevel | Y | N | 권장 경험 수준 |
-| `isRulemasterLed` | boolean | Y | N | 룰마스터 진행 여부 |
-| `startsAt` | string(date-time) | Y | N | 시작 시각 |
-| `region` | string | Y | N | P0 고정값 `홍대` |
-| `recruitmentCapacity` | integer | Y | N | 주최자를 제외한 모집 인원, 1~10 |
-| `participantCount` | integer | Y | N | 주최자 1명 + 현재 `ACTIVE` 참가 관계 수 |
-| `remainingRecruitmentSeats` | integer | Y | N | `recruitmentCapacity − 현재 ACTIVE 참가 관계 수` |
-| `status` | RoomStatus | Y | N | 현재 방 상태 |
-| `joinable` | boolean | Y | N | 현재 요청자의 참가 가능 여부. 판정 규칙은 아래 참고 |
-| `waitlistable` | boolean | Y | N | 현재 요청자의 대기 신청 가능 여부. 판정 규칙은 아래 참고 |
+| 필드 | 타입 | 필수 | nullable | 단계 | 설명 |
+|---|---|:---:|:---:|:---:|---|
+| `id` | integer | Y | N | P0 | 방 ID |
+| `roomType` | RoomType | Y | N | P0 | 방 유형 |
+| `title` | string | Y | N | P0 | 방 제목 |
+| `description` | string | Y | Y | P0 | 모임 소개 |
+| `game` | GameSummary | Y | Y | P0 | `GAME_FOCUSED`는 필수, `PERSON_FOCUSED`는 `null` 가능 |
+| `experienceLevel` | ExperienceLevel | Y | N | P0 | 권장 경험 수준 |
+| `isRulemasterLed` | boolean | Y | N | P0 | 룰마스터 진행 여부 |
+| `startsAt` | string(date-time) | Y | N | P0 | 시작 시각 |
+| `region` | string | Y | N | P0 | 고정값 `홍대` |
+| `recruitmentCapacity` | integer | Y | N | P0 | 주최자를 제외한 모집 인원, 1~10 |
+| `participantCount` | integer | Y | N | P0 | 주최자 1명 + 현재 `ACTIVE` 참가 관계 수 |
+| `remainingRecruitmentSeats` | integer | Y | N | P0 | `recruitmentCapacity − 현재 ACTIVE 참가 관계 수` |
+| `status` | RoomStatus | Y | N | P0 | 현재 방 상태 |
+| `joinable` | boolean | Y | N | P0 | 현재 요청자의 참가 가능 여부. 판정 규칙은 아래 참고 |
+| `waitlistable` | boolean | Y | N | P1 | 현재 요청자의 대기 신청 가능 여부. 판정 규칙은 아래 참고 |
 
 `joinable`과 `waitlistable`은 서버의 같은 행동 가능성 판정에서 계산하며 동시에 `true`일 수 없다.
 
@@ -458,6 +466,8 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 
 참가·참가 취소 요청의 응답이다. 모든 값은 참가 관계 변경과 모집 상태 전이가 끝난 뒤의 값이다.
 
+> 필드 구조는 P0 계약이고, 활성 대기자 자동 승격 뒤 최종 값을 반환하는 동작은 [P1 `PART-04` 계약](p1/room.md#part-04-선착순-대기열과-자동-승격)이다. 현재 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)을 따른다.
+
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
 | `roomId` | integer | Y | N | 방 ID |
@@ -472,11 +482,11 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 
 `GET /api/users/me/rooms`의 각 항목이며, `PublicRoomResponse`의 모든 필드에 다음을 추가한다. 정확한 `place`와 참가자 목록은 내 모임 이력에도 포함하지 않는다.
 
-| 필드 | 타입 | 필수 | nullable | 설명 |
-|---|---|:---:|:---:|---|
-| `myRole` | MyRole | Y | N | `HOST` 또는 `JOINED` |
-| `participationStatus` | ParticipationStatus | Y | Y | `myRole = JOINED`이면 항상 `ACTIVE`, `HOST`이면 `null` |
-| `chatAvailable` | boolean | Y | N | 현재 요청자가 채팅방에 진입할 수 있는지. `HOST` 또는 `ACTIVE` 참가자이고 방 상태가 `RECRUITING`·`CLOSED`일 때만 `true` |
+| 필드 | 타입 | 필수 | nullable | 단계 | 설명 |
+|---|---|:---:|:---:|:---:|---|
+| `myRole` | MyRole | Y | N | P0 | `HOST` 또는 `JOINED` |
+| `participationStatus` | ParticipationStatus | Y | Y | P0 | `myRole = JOINED`이면 항상 `ACTIVE`, `HOST`이면 `null` |
+| `chatAvailable` | boolean | Y | N | P1 | 현재 요청자가 채팅방에 진입할 수 있는지. `HOST` 또는 `ACTIVE` 참가자이고 방 상태가 `RECRUITING`·`CLOSED`일 때만 `true` |
 
 `joinable`과 `waitlistable`은 `PublicRoomResponse`와 같은 요청자 기준 값이다. 내 모임은 주최·참가 ROOM만 반환하므로 두 값은 항상 `false`이고, 대기 중인 ROOM을 조회 대상에 추가하지 않는다. `chatAvailable = false`인 항목은 채팅 진입을 표시하지 않으며, 직접 채팅 API를 호출해도 서버가 같은 관계·상태 규칙으로 거절한다. 참가 취소 관계와 `CANCELED`·`FINISHED` 방은 채팅 진입 대상에서 제외한다.
 
@@ -491,32 +501,40 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 
 ### 4.12 NotificationListItem
 
-본인 알림 목록과 단건 읽음 응답에 사용한다. 저장된 알림은 관련 방에 대한 접근 권한이 아니며, 클라이언트가 `roomId`로 이동할 때 `GET /api/rooms/{roomId}`의 현재 권한과 존재 여부 은닉 계약을 다시 적용한다.
+> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `NOTI-02`·`NOTI-03`](p1/README.md#기능별-현재-상태)
+
+본인 알림 목록과 단건 읽음 응답에 사용한다. 물리 필드와 조회·읽음 제약은 [ERD의 NOTIFICATIONS](ERD.md#notifications)를 따른다. 저장된 알림은 관련 방에 대한 접근 권한이 아니며, 클라이언트가 `roomId`로 이동할 때 `GET /api/rooms/{roomId}`의 현재 권한과 존재 여부 은닉 계약을 다시 적용한다. 원인 이벤트 시각에 [운영 정본의 `NOTIFICATION_RETENTION`](guides/NOTIFICATION_OPERATIONS.md#현재-운영-파라미터-정본)을 더한 시각이 지난 알림은 물리 삭제 전에도 이 응답 대상이 아니다.
 
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
 | `id` | integer | Y | N | 알림 ID |
 | `type` | NotificationType | Y | N | 알림 유형 |
-| `message` | string | Y | N | 개인정보를 포함하지 않는 일반 표시 문구 |
 | `roomId` | integer | Y | N | 관련 방 ID. 방 조회 권한을 부여하지 않음 |
-| `readAt` | string(date-time) | Y | Y | 처음 읽은 서버 시각. 미확인이면 `null` |
-| `createdAt` | string(date-time) | Y | N | 원인 이벤트 시각. relay 처리 시각이 아님 |
+| `roomTitle` | string | Y | N | 조회 시점의 현재 방 제목, 최대 100자. 원인 이벤트 시점 스냅샷이 아님 |
+| `readAt` | string(date-time) | Y | Y | 단건·일괄 읽음 PostgreSQL 문장이 고정한 최초 `operationTime`. 미확인이면 `null` |
+| `createdAt` | string(date-time) | Y | N | 원인 Command Coordinator가 최초 시도 전에 고정한 `requestTime`. relay 처리·Notification 기록 시각이 아님 |
 
 ### 4.13 UnreadNotificationCountResponse
 
+> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `NOTI-02`](p1/README.md#기능별-현재-상태)
+
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
-| `unreadCount` | integer | Y | N | 본인 알림 중 `readAt = null`인 건수, 0 이상 |
+| `unreadCount` | integer | Y | N | 보존 기간 안의 본인 알림 중 `readAt = null`인 건수, 0 이상 |
 
 ### 4.14 NotificationBulkReadResponse
 
+> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `NOTI-03`](p1/README.md#기능별-현재-상태)
+
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
-| `updatedCount` | integer | Y | N | 이번 요청에서 처음 읽음 처리한 알림 수, 0 이상 |
-| `readAt` | string(date-time) | Y | N | 이번 일괄 요청의 서버 기준 시각. 변경 대상이 없어도 반환 |
-| `boundaryNotificationId` | integer | Y | Y | 요청이 고정한 본인 알림 집합의 가장 큰 알림 ID. 알림이 하나도 없으면 `null` |
+| `updatedCount` | integer | Y | N | 이번 요청에서 처음 읽음 처리한 보존 기간 안의 알림 수, 0 이상 |
+| `readAt` | string(date-time) | Y | N | 이번 일괄 읽음 SQL 내부에서 `clock_timestamp()`를 한 번 평가해 고정한 `operationTime`. 변경 대상이 없어도 반환 |
+| `boundaryNotificationId` | integer | Y | Y | 요청이 고정한 보존 기간 안의 본인 알림 집합에서 가장 큰 알림 ID. 대상 알림이 없으면 `null` |
 
 ### 4.15 ChatMessage
+
+> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `CHAT-02`](p1/README.md#기능별-현재-상태)
 
 채팅 이력과 메시지 전송 성공 응답에 사용한다. 메시지 본문은 일반 텍스트로만 반환하며 HTML·스크립트로 해석하지 않는다.
 
@@ -531,6 +549,8 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 
 ### 4.16 ChatMessagePage
 
+> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `CHAT-02`](p1/README.md#기능별-현재-상태)
+
 `GET /api/rooms/{roomId}/chat/messages`의 응답이다.
 
 | 필드 | 타입 | 필수 | nullable | 설명 |
@@ -541,6 +561,8 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 
 ### 4.17 ChatMessageEvent
 
+> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `CHAT-03`](p1/README.md#기능별-현재-상태)
+
 `GET /api/rooms/{roomId}/chat/ws`로 Upgrade한 WebSocket이 보내는 서버 발신 텍스트 이벤트다.
 
 | 필드 | 타입 | 필수 | nullable | 설명 |
@@ -550,6 +572,8 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 | `message` | ChatMessage | Y | N | 커밋된 메시지 |
 
 ### 4.18 MyRoomWaitlistResponse
+
+> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `PART-04`](p1/README.md#기능별-현재-상태)
 
 `PART-04` 대기 등록·조회 응답이다. 서버는 상태 조회에 필요한 ROOM·사용자별 최신 대기 결과를 보존한다.
 
@@ -741,16 +765,16 @@ P0에서는 닉네임만 수정한다.
 
 #### Query Parameters
 
-| 이름 | 타입 | 필수 | 기본값 | 의미 |
-|---|---|:---:|---|---|
-| `keyword` | string | N | 검색 없음 | 게임명 부분 일치 |
-| `upcomingOnly` | boolean | N | `false` | `true`이면 예정 모임이 한 개 이상인 게임만 반환 |
-| `playerCount` | integer | N | 검색 없음 | `1`~`9`는 해당 인원을 포함하는 게임, `10`은 최대 가능 인원이 10 이상인 게임 |
-| `playTime` | GamePlayTimeFilter | N | 검색 없음 | 검증된 최대 플레이 시간 구간 |
-| `complexityMin` | number | N | 검색 없음 | `1.00`~`5.00`, 난이도 닫힌 구간의 하한 |
-| `complexityMax` | number | N | 검색 없음 | `1.00`~`5.00`, 난이도 닫힌 구간의 상한 |
-| `page` | integer | N | `0` | 페이지 번호 |
-| `size` | integer | N | `10` | 페이지 크기, 1~100 |
+| 이름 | 타입 | 필수 | 기본값 | 단계 | 의미 |
+|---|---|:---:|---|:---:|---|
+| `keyword` | string | N | 검색 없음 | P0 | 게임명 부분 일치 |
+| `upcomingOnly` | boolean | N | `false` | P0 | `true`이면 예정 모임이 한 개 이상인 게임만 반환 |
+| `playerCount` | integer | N | 검색 없음 | P1 | `1`~`9`는 해당 인원을 포함하는 게임, `10`은 최대 가능 인원이 10 이상인 게임 |
+| `playTime` | GamePlayTimeFilter | N | 검색 없음 | P1 | 검증된 최대 플레이 시간 구간 |
+| `complexityMin` | number | N | 검색 없음 | P1 | `1.00`~`5.00`, 난이도 닫힌 구간의 하한 |
+| `complexityMax` | number | N | 검색 없음 | P1 | `1.00`~`5.00`, 난이도 닫힌 구간의 상한 |
+| `page` | integer | N | `0` | P0 | 페이지 번호 |
+| `size` | integer | N | `10` | P0 | 페이지 크기, 1~100 |
 
 - 서로 다른 필터 종류는 AND로 결합한다.
 - `playerCount=10`은 정확히 10명만 뜻하지 않고 최대 가능 인원이 10 이상인 게임을 뜻한다.
@@ -802,18 +826,18 @@ P0에서는 닉네임만 수정한다.
 
 #### Query Parameters
 
-| 이름 | 타입 | 필수 | 적용 조건 | 의미 |
-|---|---|:---:|---|---|
-| `type` | RoomType | N | 전달 시 | 방 유형 |
-| `gameId` | integer | N | 전달 시 | 1 이상의 알밤메이트 내부 게임 ID |
-| `keyword` | string | N | 전달 시 | 방 제목 부분 일치 |
-| `startsAtFrom` | string(date-time) | N | 전달 시 | `startsAt >= startsAtFrom` |
-| `startsAtTo` | string(date-time) | N | 전달 시 | `startsAt < startsAtTo` |
-| `minRemainingSeats` | integer | N | 전달 시 | 최소 남은 모집 자리, 1~10 |
-| `experienceLevels` | ExperienceLevel | N | 전달 시 | 반복 전달 가능한 권장 경험 수준. 목록 안 OR |
-| `rulemasterOnly` | boolean | N | `true`일 때 | 룰마스터 진행 방만 반환 |
-| `page` | integer | N | 항상 | 기본값 `0` |
-| `size` | integer | N | 항상 | 기본값 `10`, 1~100 |
+| 이름 | 타입 | 필수 | 적용 조건 | 단계 | 의미 |
+|---|---|:---:|---|:---:|---|
+| `type` | RoomType | N | 전달 시 | P0 | 방 유형 |
+| `gameId` | integer | N | 전달 시 | P0 | 1 이상의 알밤메이트 내부 게임 ID |
+| `keyword` | string | N | 전달 시 | P0 | 방 제목 부분 일치 |
+| `startsAtFrom` | string(date-time) | N | 전달 시 | P1 | `startsAt >= startsAtFrom` |
+| `startsAtTo` | string(date-time) | N | 전달 시 | P1 | `startsAt < startsAtTo` |
+| `minRemainingSeats` | integer | N | 전달 시 | P1 | 최소 남은 모집 자리, 1~10 |
+| `experienceLevels` | ExperienceLevel | N | 전달 시 | P1 | 반복 전달 가능한 권장 경험 수준. 목록 안 OR |
+| `rulemasterOnly` | boolean | N | `true`일 때 | P1 | 룰마스터 진행 방만 반환 |
+| `page` | integer | N | 항상 | P0 | 기본값 `0` |
+| `size` | integer | N | 항상 | P0 | 기본값 `10`, 1~100 |
 
 `type`, `gameId`, `keyword`와 P1 조건은 서로 독립적인 선택 필터이며, 전달된 서로 다른 조건을 모두 만족하는 방을 반환한다. 반복한 `experienceLevels` 안에서만 OR로 결합하고 같은 값의 중복은 한 번 전달한 것과 같다. 모든 필터를 생략하면 두 유형의 공개 방 전체를 반환한다. `keyword`의 빈 문자열과 공백은 검색 조건 없음으로 처리하며, 제목 부분 일치는 대소문자를 구분하지 않는다.
 
@@ -1113,6 +1137,8 @@ Request body는 없다.
 
 ### PART-02 참가 취소
 
+> **단계: P0 현행 + P1 `PART-04` 확장 계약** · 현재 P1 상태: [기능 상태 정본](p1/README.md#기능별-현재-상태)
+
 | 항목 | 값 |
 |---|---|
 | Method / Path | `DELETE /api/rooms/{roomId}/participants/me` |
@@ -1152,6 +1178,8 @@ Request body는 없다.
 
 ### PART-03 내 모임 조회
 
+> **단계: P0 현행 + P1 `ROOM-08`·`CHAT-05` 확장 계약** · 현재 P1 상태: [기능 상태 정본](p1/README.md#기능별-현재-상태)
+
 | 항목 | 값 |
 |---|---|
 | Method / Path | `GET /api/users/me/rooms` |
@@ -1183,6 +1211,8 @@ Request body는 없다.
 | 동시 변경으로 방 상태를 확인할 수 없음 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
 
 ### PART-04 대기 등록·재신청
+
+> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `PART-04`](p1/README.md#기능별-현재-상태)
 
 | 항목 | 값 |
 |---|---|
@@ -1227,6 +1257,8 @@ Request body는 없다.
 
 ### PART-04 본인 대기 상태 조회
 
+> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `PART-04`](p1/README.md#기능별-현재-상태)
+
 | 항목 | 값 |
 |---|---|
 | Method / Path | `GET /api/rooms/{roomId}/waitlist/me` |
@@ -1258,6 +1290,8 @@ Request body는 없다.
 
 ### PART-04 대기 취소
 
+> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `PART-04`](p1/README.md#기능별-현재-상태)
+
 | 항목 | 값 |
 |---|---|
 | Method / Path | `DELETE /api/rooms/{roomId}/waitlist/me` |
@@ -1287,7 +1321,11 @@ Request body는 없다.
 
 ## 9. 알림·채팅 API
 
-P1 알림은 로그인한 사용자의 앱 내 알림만 제공한다. 알림 생성은 방·참가 업무와 내부 Outbox relay가 담당하므로 공개 생성 API는 없다. 제품 범위·수신자·중복 방지 규칙은 [P1 알림 구현 명세](p1/notification.md)를 따른다.
+> **단계: P1 계약**
+>
+> `NOTI-02`·`NOTI-03`의 현재 제공·검증·운영 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)을 따른다. 이 절은 상태가 바뀌어도 P1 HTTP 계약으로 유지한다.
+
+P1 알림 API는 로그인한 사용자의 앱 내 알림만 제공하도록 계약한다. 알림 생성은 방·참가 업무와 내부 Outbox relay가 담당하므로 공개 생성 API는 없다. 제품 범위·수신자·중복 방지 규칙은 [P1 알림 구현 명세](p1/notification.md), 물리 저장 구조는 [ERD의 P1 알림 저장 계약](ERD.md#p1-알림-저장-계약)을 따른다.
 
 ### NOTI-02 내 알림 목록
 
@@ -1304,9 +1342,9 @@ P1 알림은 로그인한 사용자의 앱 내 알림만 제공한다. 알림 �
 | `page` | integer | N | `0` | 페이지 번호 |
 | `size` | integer | N | `10` | 페이지 크기, 1~100 |
 
-본인 알림만 `createdAt DESC, id DESC` 순서로 반환한다. `createdAt`은 원인 이벤트 시각이므로 relay 처리 순서와 다를 수 있다. 같은 DB 상태에서는 원인 이벤트 시각이 같은 알림도 페이지 경계에서 순서가 바뀌지 않는다. 결과가 없으면 빈 `content`와 `totalElements = 0`을 반환한다. 유형 필터, 검색, 클라이언트 지정 정렬은 지원하지 않는다.
+목록 QueryService의 짧은 읽기 트랜잭션이 고정한 PostgreSQL `transaction_timestamp()`보다 저장 만료 시각(`NOTIFICATIONS.expires_at`)이 뒤인 본인 알림만 `createdAt DESC, id DESC` 순서로 반환한다. 목록 본문과 `totalElements` count는 같은 트랜잭션의 DB `queryTime`을 사용한다. `createdAt`은 원인 Command Coordinator의 고정 `requestTime`이므로 relay 처리 순서와 다를 수 있다. 같은 DB 상태에서는 원인 이벤트 시각이 같은 알림도 페이지 경계에서 순서가 바뀌지 않는다. `createdAt + NOTIFICATION_RETENTION`이 지난 만료 알림은 물리 삭제 전에도 결과와 `totalElements`에서 제외한다. 결과가 없으면 빈 `content`와 `totalElements = 0`을 반환한다. `expires_at`은 응답 필드로 노출하지 않으며 유형 필터, 검색, 클라이언트 지정 정렬은 지원하지 않는다. Offset pagination의 안정성은 같은 DB 상태에만 한정하며, 요청 사이에 지연 복구된 과거 알림이 중간 페이지에 추가되면 항목이 이동·중복·누락될 수 있음을 P1에서 수용한다.
 
-`message`와 로그에는 참가자 닉네임·사용자 ID·이메일·정확한 장소·전체 참가자 목록·인증 정보를 포함하지 않는다. `roomId`는 화면 이동 대상일 뿐 방 조회 권한이 아니며, 이동 시 현재 세션으로 방 상세를 다시 조회한다.
+클라이언트는 `type`으로 표시 문구를 렌더링한다. `roomTitle`은 알림과 함께 저장한 문자열이 아니라 목록 조회 시 결합한 현재 `ROOMS.title`이므로, 방 제목이 바뀌면 과거 알림에도 바뀐 제목을 반환한다. `roomTitle`과 `roomId`는 사람이 알림을 구분하고 화면으로 이동하기 위한 최소 표시값일 뿐 방 조회 권한이 아니며, 이동 시 현재 세션으로 방 상세를 다시 조회한다. 응답과 로그에는 참가자 닉네임·사용자 ID·이메일·정확한 장소·전체 참가자 목록·인증 정보를 포함하지 않는다.
 
 #### 오류
 
@@ -1323,7 +1361,7 @@ P1 알림은 로그인한 사용자의 앱 내 알림만 제공한다. 알림 �
 | 인증 / CSRF | 필요 / 불필요 |
 | 성공 | `200 OK`, `data`: `UnreadNotificationCountResponse` |
 
-Path variable·query parameter·body는 없다. `unreadCount`는 응답을 계산한 같은 DB 상태에서 본인 알림 중 `readAt = null`인 건수다. 알림이 없거나 모두 읽었으면 `0`을 반환한다.
+Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개수 QueryService 읽기 트랜잭션의 PostgreSQL `transaction_timestamp()`보다 `expires_at`이 뒤이고 `readAt = null`인 본인 알림 건수다. 목록 GET과는 별도 요청이므로 같은 시각이나 DB 스냅샷을 공유하지 않는다. 만료 알림은 물리 삭제 전에도 세지 않으며 알림이 없거나 모두 읽었으면 `0`을 반환한다.
 
 #### 오류
 
@@ -1357,9 +1395,9 @@ Path variable·query parameter·body는 없다. `unreadCount`는 응답을 계�
 |---|---|:---:|:---:|---|
 | `read` | boolean | Y | N | `true`만 허용 |
 
-빈 객체, `null`, `read = false`와 클라이언트의 `readAt` 직접 지정은 `VALIDATION_ERROR`다. 서버는 처음 읽을 때의 기준 시각을 `readAt`에 기록한다. 이미 읽은 본인 알림에 같은 요청을 반복하면 저장값을 변경하지 않고 최초 `readAt`이 담긴 현재 알림을 반환한다. 읽지 않음으로 되돌리는 요청은 지원하지 않는다.
+빈 객체, `null`, `read = false`와 클라이언트의 `readAt` 직접 지정은 `VALIDATION_ERROR`다. 단건 읽음 `UPDATE` SQL은 내부 `operation` CTE에서 PostgreSQL `clock_timestamp()`를 한 번 평가해 `operationTime`으로 고정하고, 만료 판정과 처음 읽는 행의 `readAt`에 같은 값을 사용한다. 이미 읽은 보존 기간 안의 본인 알림에 같은 요청을 반복하면 저장값을 변경하지 않고 최초 `readAt`이 담긴 현재 알림을 반환한다. 읽지 않음으로 되돌리는 요청은 지원하지 않는다.
 
-존재하지 않는 알림과 다른 사용자의 알림에는 모두 `NOTIFICATION_NOT_FOUND`를 반환해 타인의 알림 존재 여부를 노출하지 않는다.
+존재하지 않는 알림, 다른 사용자의 알림과 저장 `expires_at <= operationTime`인 만료 알림에는 모두 `NOTIFICATION_NOT_FOUND`를 반환해 타인의 알림 존재 여부와 물리 정리 지연을 노출하지 않는다.
 
 #### 오류
 
@@ -1367,7 +1405,7 @@ Path variable·query parameter·body는 없다. `unreadCount`는 응답을 계�
 |---|---:|---|
 | 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
 | path ID 또는 요청 본문 검증 실패 | 400 | `VALIDATION_ERROR` |
-| 알림이 없거나 본인 알림이 아님 | 404 | `NOTIFICATION_NOT_FOUND` |
+| 알림이 없거나 본인 알림이 아니거나 보존 기간이 만료됨 | 404 | `NOTIFICATION_NOT_FOUND` |
 | CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
 
 ### NOTI-03 내 알림 일괄 읽음
@@ -1378,28 +1416,19 @@ Path variable·query parameter·body는 없다. `unreadCount`는 응답을 계�
 | 인증 / CSRF | 필요 / 필요 |
 | 성공 | `200 OK`, `data`: `NotificationBulkReadResponse` |
 
-#### Request Body — NotificationReadRequest
+#### Request Body
 
-~~~json
-{
-  "read": true
-}
-~~~
+요청 본문과 검증은 [단건 읽음의 NotificationReadRequest](#request-body-notificationreadrequest)와 같다.
 
-| 필드 | 타입 | 필수 | nullable | 검증 |
-|---|---|:---:|:---:|---|
-| `read` | boolean | Y | N | `true`만 허용 |
+서버는 PostgreSQL 기본 격리 수준인 `READ COMMITTED`를 유지하고, 하나의 쓰기 트랜잭션 안에서 단일 data-modifying CTE/`UPDATE` SQL 문장으로 처리한다. CTE와 `UPDATE`는 하나의 DB 문장 스냅샷을 공유하며 세부 순서는 다음과 같다.
 
-빈 객체, `null`, `read = false`와 클라이언트의 `readAt` 직접 지정은 `VALIDATION_ERROR`다.
+1. `operation` CTE가 SQL 실행 중 PostgreSQL 실제 시각을 한 번 평가해 `operationTime`으로 고정한다.
+2. `boundary` CTE가 `recipient_user_id = 현재 사용자`이고 `expires_at > operationTime`인 스냅샷 내 알림의 `MAX(id)`를 `boundaryNotificationId`로 고정한다.
+3. `updated` CTE가 같은 사용자·만료 조건에서 `id <= boundaryNotificationId`이고 `read_at IS NULL`인 행만 `read_at = operationTime`으로 갱신하고 변경한 ID를 `RETURNING`한다.
+4. 마지막 `SELECT`가 `updated`의 행 수, `boundaryNotificationId`와 같은 `operationTime`의 `readAt`을 한 결과로 반환한다. 이미 읽은 알림의 최초 `readAt`은 변경하지 않는다.
+5. SQL 문장 스냅샷에 보이지 않았던 알림은 ID나 원인 이벤트 시각과 관계없이 갱신하지 않는다. 따라서 문장 스냅샷 획득 뒤 커밋된 알림은 미확인 상태로 남고, 만료 알림도 갱신하지 않는다.
 
-서버는 하나의 쓰기 트랜잭션과 일관된 DB 스냅샷에서 다음 순서로 처리한다.
-
-1. 요청에 포함할 본인 알림 집합과 그 집합의 가장 큰 알림 ID인 `boundaryNotificationId`를 고정한다.
-2. 집합 안의 `readAt = null`인 알림에 같은 서버 기준 시각을 기록한다.
-3. 이미 읽은 알림의 최초 `readAt`은 변경하지 않는다.
-4. 스냅샷 경계 뒤에 생성·커밋된 알림은 생성 시각이 같아도 미확인 상태로 남긴다.
-
-알림이 하나도 없으면 `updatedCount = 0`, `boundaryNotificationId = null`을 반환한다. 현재 집합이 모두 읽음이면 `updatedCount = 0`이고 현재 경계는 반환한다. 같은 DB 상태에서 요청을 반복하면 추가 저장 변경 없이 `updatedCount = 0`으로 수렴한다. 요청 사이에 새 알림이 커밋되면 뒤 요청은 새 경계를 가진 별도 일괄 읽음으로 처리한다.
+보존 기간 안의 알림이 하나도 없으면 `updatedCount = 0`, `boundaryNotificationId = null`을 반환한다. 현재 집합이 모두 읽음이면 `updatedCount = 0`이고 현재 경계는 반환한다. 같은 DB 상태에서 요청을 반복하면 추가 저장 변경 없이 `updatedCount = 0`으로 수렴한다. 요청 사이에 새 알림이 커밋되면 뒤 요청은 새 경계를 가진 별도 일괄 읽음으로 처리한다.
 
 #### 오류
 
@@ -1408,6 +1437,13 @@ Path variable·query parameter·body는 없다. `unreadCount`는 응답을 계�
 | 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
 | 요청 본문 검증 실패 | 400 | `VALIDATION_ERROR` |
 | CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
+
+#### 클라이언트 읽음 상태 동기화
+
+- 미확인 배지의 정본은 `GET /api/users/me/notifications/unread-count` 응답이다. 현재 불러온 목록 한 페이지의 `readAt`만 세어 전체 미확인 개수를 만들지 않는다.
+- 단건 읽음 성공 시 같은 `id`의 목록 항목을 응답 `NotificationListItem`으로 갱신하고 미확인 개수를 즉시 다시 조회한다. 이미 읽은 알림의 반복 요청도 응답에 담긴 최초 `readAt`을 그대로 적용한다.
+- 일괄 읽음 성공 시 `boundaryNotificationId`를 실제 갱신 ID 집합이나 클라이언트 읽음 경계로 해석해 현재 목록을 직접 변경하지 않는다. 목록 첫 페이지와 미확인 개수를 즉시 다시 조회해 서버 응답으로 교체하며, polling 중단·이전 응답 폐기와 요청 세대 규칙은 [알림 프론트엔드 UX 계약](p1/notification.md#읽음-상태-동기화)을 따른다. `updatedCount`만으로 배지를 영구히 `0`으로 고정하지 않는다.
+- 낙관적으로 화면을 먼저 바꾼 읽음 요청이 실패하면 그 상태를 확정하지 않는다. 목록과 미확인 개수를 다시 조회해 서버 상태로 복구하며, 상세 사용자 동작은 [알림 프론트엔드 UX 계약](p1/notification.md#프론트엔드-ux-계약)을 따른다.
 
 ### 채팅 공통 계약
 
@@ -1589,7 +1625,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 
 | code | HTTP | 기본 message | 발생 조건 |
 |---|---:|---|---|
-| `NOTIFICATION_NOT_FOUND` | 404 | 알림을 찾을 수 없습니다. | 요청한 알림이 없거나 본인 알림이 아님 |
+| `NOTIFICATION_NOT_FOUND` | 404 | 알림을 찾을 수 없습니다. | 요청한 알림이 없거나 본인 알림이 아니거나 보존 기간이 만료됨 |
 
 다른 사용자의 알림에도 같은 코드를 반환하며 `FORBIDDEN`으로 구분하지 않는다.
 

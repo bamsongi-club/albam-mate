@@ -17,6 +17,7 @@
 | 아키텍처 결정 기록과 작성 규칙 | [docs/adr/README.md](docs/adr/README.md) |
 | 전체 제품 목표와 단계별 범위 | [docs/PRD.md](docs/PRD.md) |
 | P1 2차 MVP 범위와 기능별 구현 기준 | [docs/P1-spec.md](docs/P1-spec.md), [docs/p1/README.md](docs/p1/README.md) |
+| 운영·설정·데이터 적재·복구 가이드 찾기 | [docs/guides/README.md](docs/guides/README.md) |
 | 완료된 P0 문서 아카이브 | [docs/archive/README.md](docs/archive/README.md) |
 
 백엔드 구조·모듈 관계는 `docs/ARCHITECTURE.md`, 경로별 규약은 해당 위치의 `AGENTS.md`, 생산 코드·협업 공통 규약은 `docs/CONVENTIONS.md`에 두고 중복하지 않는다.
