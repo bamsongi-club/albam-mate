@@ -131,20 +131,21 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | P0 기준 | [ROOM-06 방 상태 정합화](../archive/p0/room.md#room-06-방-상태-정합화) |
 | 고도화 이유 | 시간 경계를 지난 ROOM Entity 전체를 한 트랜잭션에서 처리해 대상 증가 시 메모리·트랜잭션 범위가 커지고, 한 ROOM의 실패가 전체 작업에 영향을 주며 실패 대상을 식별하기 어렵다. |
 | 상태·시간 규칙 | [방 상태](../archive/p0/P0-spec.md#방-상태roomstatus), [시간 경계](../archive/p0/P0-spec.md#시간-경계) |
-| 필수 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md) |
-| 제안 ADR | [ADR-0036 시간 기반 ROOM 자동 전환을 제한된 ID와 ROOM별 독립 처리로 수행](../adr/room/0036-bounded-room-state-transition-processing.md) — `제안됨`. 팀 승인 전에는 확정된 구현 근거로 사용하지 않는다. |
+| 승인 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0036 제한 ID·ROOM별 독립 처리](../adr/room/0036-bounded-room-state-transition-processing.md), [ADR-0038 다중 인스턴스 스케줄 실행 조정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md) |
 | 현재 구현 기준선 | [`RoomRepository.findDueRooms`](../../src/main/java/cloud/bamsongi/albammate/room/repository/RoomRepository.java), [`RoomStatusCorrectionExecutor`](../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionExecutor.java) |
 | 연결 기능 | [PART-04 선착순 대기열과 자동 승격](#part-04-선착순-대기열과-자동-승격) |
-| 구현 전 결정 | 제한 처리 측정의 데이터 규모·ID 수 후보·반복 조건·측정 도구와 로그·메트릭, 순회 시작 때 고정한 기준 시각 이하의 due ROOM에 대해 논리적 처리 예정 시각과 `roomId`를 사용하는 결정적 순서, 인스턴스 재시작·후속 다중 인스턴스 실행 조정의 ShedLock 실행 주체 변경 뒤에도 같은 순회를 이어가는 영속 cursor와 순회 기준 시각의 저장 위치·갱신 시점·wrap-around·처리 중 장애 재선별과 복구 방식, ROOM 전환과 대기열 종료의 트랜잭션·잠금 설계. 한 번당 ID 수와 반복·재시도·실행 주기의 운영 고정값은 측정 결과 뒤 확정하며, 실패 backoff·격리와 조건부 DB 직접 갱신 비교 여부도 기준선 결과 확인 뒤 별도로 결정 |
+| 구현 전 결정 | 제한 처리 측정의 데이터 규모·ID 수 후보·반복 조건·측정 도구와 로그·메트릭, 순회 시작 때 고정한 기준 시각 이하의 due ROOM에 대해 논리적 처리 예정 시각과 `roomId`를 사용하는 결정적 순서, 인스턴스 재시작·ShedLock 실행 주체 변경 뒤에도 같은 순회를 이어가는 영속 cursor와 순회 기준 시각의 저장 위치·갱신 시점·wrap-around·처리 중 장애 재선별과 복구 방식, ROOM 전환과 대기열 종료의 트랜잭션·잠금 설계, ROOM 상태 보정용 잠금 이름·`lockAtMostFor`·실행시간 경고 기준. 한 번당 ID 수와 반복·재시도·실행 주기의 운영 고정값은 측정 결과 뒤 확정하며, 실패 backoff·격리와 조건부 DB 직접 갱신 비교 여부도 기준선 결과 확인 뒤 별도로 결정 |
 
 ### 기능 규칙
 
 - `RECRUITING → CLOSED → FINISHED`의 시간 조건과 순서는 P0 규칙을 그대로 유지한다. `CANCELED`, `FINISHED`와 동시에 확정된 다른 최종 상태를 덮어쓰지 않는다.
 - API 요청 경계에서 현재 상태를 사용하는 역할과 요청이 없는 ROOM을 내부 스케줄러가 정리하는 역할을 유지하며 두 경로는 같은 전이 규칙을 사용한다.
+- 모든 애플리케이션 인스턴스가 ROOM 상태 자동 전환 Spring Scheduler를 등록하되 PostgreSQL ShedLock을 얻은 하나만 한 실행 주기를 소유한다. 잠금을 얻지 못한 인스턴스는 기다리지 않고 해당 실행을 건너뛴다.
+- 스케줄 잠금 획득·해제 트랜잭션은 cursor 진행 상태와 각 ROOM의 독립 처리 트랜잭션에 결합하지 않는다. 잠금은 ROOM 상태·버전 검사나 참가·대기 불변식을 대체하지 않는다.
 - 자동 전환 대상은 한 번에 모든 ROOM Entity를 읽지 않고, 제한된 수의 ROOM ID 단위로 선별한다.
 - 제한 ID는 순회 시작 때 고정한 순회 기준 시각(`turn cutoff`) 이하의 due ROOM만 대상으로, 논리적 처리 예정 시각과 `roomId`를 오름차순으로 비교하는 결정적 순서와 cursor 회전으로 선별한다. 이 키는 불변값으로 저장하지 않고 각 선별 시점의 남은 작업에서 재계산하며, `roomId`로 동률을 해소한다. 논리적 처리 예정 시각은 `RECRUITING` 상태 전환과 시작 경계 대기열 종료의 `startsAt`, `CLOSED → FINISHED` 전환의 `startsAt + 24시간`을 모두 포괄하며, 이미 `CLOSED`여도 시작 경계 대기열 종료가 남아 있으면 `startsAt`을 사용한다. 한 ROOM의 시간 기반 작업을 완료한 뒤 남은 다음 논리적 처리 예정 시각은 직전 선별에 사용한 시각과 같거나 뒤로만 이동하거나 더 이상 존재하지 않아야 한다.
 - 한 순회에서는 `(논리적 처리 예정 시각, roomId)`가 cursor 뒤이면서 논리적 처리 예정 시각이 순회 기준 시각 이하인 ROOM만 선별한다. cursor는 ROOM 처리 뒤 재계산한 키가 아니라 처리 성공 여부와 무관하게 마지막으로 시도한 선별 위치 다음으로 전진한다. 이 범위에서 선별 결과가 비면 현재 순회를 마치고 cursor를 처음으로 회전하며, 다음 선별을 시작할 때 새로운 순회 기준 시각을 고정한다.
-- 순회 시작 뒤 새로 due가 된 ROOM은 현재 순회를 연장하지 않고 다음 순회부터 선별한다. 스케줄러 실행이 계속되고 한 순회 기준 시각의 due ROOM 집합이 유한하면, 신규 due ROOM이 계속 유입되거나 반복 실패 ROOM이 선별 한도를 점유해도 현재 순회는 유한하게 끝나고 cursor 앞의 due ROOM도 다음 순회에서 다시 처리 기회를 얻는다. cursor와 진행 중인 순회의 기준 시각은 애플리케이션 메모리에만 두지 않고 재시작과 후속 ShedLock 실행 주체 변경 뒤에도 같은 순회를 이어가는 영속 저장 경계에 보관한다.
+- 순회 시작 뒤 새로 due가 된 ROOM은 현재 순회를 연장하지 않고 다음 순회부터 선별한다. 스케줄러 실행이 계속되고 한 순회 기준 시각의 due ROOM 집합이 유한하면, 신규 due ROOM이 계속 유입되거나 반복 실패 ROOM이 선별 한도를 점유해도 현재 순회는 유한하게 끝나고 cursor 앞의 due ROOM도 다음 순회에서 다시 처리 기회를 얻는다. cursor와 진행 중인 순회의 기준 시각은 애플리케이션 메모리에만 두지 않고 재시작과 ShedLock 실행 주체 변경 뒤에도 같은 순회를 이어가는 영속 저장 경계에 보관한다.
 - 선별된 각 ROOM은 독립된 처리 단위에서 최신 상태와 버전을 다시 읽고 전이 여부를 판단한다.
 - 한 ROOM의 실패가 이미 성공한 다른 ROOM의 전환을 롤백하거나 같은 실행에서 아직 처리하지 않은 다른 선별 ROOM의 처리를 중단하지 않는다. 실패한 ROOM ID와 원인을 식별할 수 있고 해당 ROOM만 다시 처리할 수 있어야 한다.
 - `startsAt`에 도달한 ROOM은 상태 전환과 함께 대기열을 종료한다. 정원 충족으로 이미 `CLOSED`였던 ROOM도 시작 경계에서 대기열 종료 대상이 된다.
@@ -154,6 +155,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 - 제한된 ROOM별 처리가 측정된 병목으로 확인된 뒤에만 제한 범위의 조건부 DB 직접 갱신 비교 여부를 사용자에게 묻는다. 에이전트가 비교·채택을 자동으로 결정하지 않는다.
 - 직접 갱신 비교 또는 채택이 승인되면 상태 조건, 버전, 대기열 일관성, 변경 ROOM 식별과 실패 관측을 같은 수준으로 증명하고 ADR에 기록한다.
 - 실패 backoff·격리는 cursor 회전 기준선에서 영구 실패 ROOM의 반복 시도 비용이나 재시도 폭주가 측정된 경우에만 사용자에게 비교 여부를 묻는다. 승인 전에는 실패 상태·다음 시도 시각·격리 해제 정책을 구현하지 않는다.
+- 동적 Trigger·Misfire·영속 Job 복구 요구가 생기기 전에는 Quartz 클러스터나 외부 작업 큐를 도입하지 않고, 다중 인스턴스라는 이유로 ROOM 업무 락을 Redis 분산 락으로 교체하지 않는다.
 
 ### 완료 기준
 
@@ -165,13 +167,15 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 - `ROOM-09-AC6` 자동 전환과 참가·대기 변경이 동시에 실행돼도 최종 상태를 덮어쓰거나 정원·참가·대기열 불변식을 깨지 않는다.
 - `ROOM-09-AC7` 현재 구현과 제한 처리 후보별 후보 수, 성공·실패, 처리량, 실행시간과 데이터베이스 비용을 같은 조건에서 재현 가능하게 측정하고, 결과를 근거로 초기 운영값을 확정한다. 직접 DB 갱신 비교가 필요해 보이면 결과와 질문을 `DECISION_NEEDED`로 제시하고 승인 전에는 비교 구현에 착수하지 않는다.
 - `ROOM-09-AC8` 순회 시작 때 고정한 기준 시각과 각 선별 시점에 재계산한 `(논리적 처리 예정 시각, roomId)` 순서에서 cursor가 성공 여부와 무관하게 전진한다. cursor보다 큰 키의 신규 due ROOM이 계속 유입돼도 현재 순회가 유한하게 끝나고 cursor가 처음으로 회전하여, cursor 앞의 실패 ROOM을 포함한 다음 due ROOM에 다음 순회의 처리 기회가 돌아간다.
-- `ROOM-09-AC9` 영속 cursor와 순회 기준 시각의 저장·갱신·wrap-around와 장애 재선별·복구를 PostgreSQL 기반 통합 테스트로 검증한다. 연속 신규 due ROOM 유입, 인스턴스 재시작, 후속 ShedLock 실행 주체 변경, cursor·순회 경계 갱신과 ROOM 처리 사이의 장애 뒤에도 특정 due ROOM을 영구히 건너뛰거나 현재 순회를 무한히 연장하거나 같은 앞순번 반복으로 다른 ROOM을 무기한 지연시키지 않는다.
+- `ROOM-09-AC9` 영속 cursor와 순회 기준 시각의 저장·갱신·wrap-around와 장애 재선별·복구를 PostgreSQL 기반 통합 테스트로 검증한다. 연속 신규 due ROOM 유입, 인스턴스 재시작, ShedLock 실행 주체 변경, cursor·순회 경계 갱신과 ROOM 처리 사이의 장애 뒤에도 특정 due ROOM을 영구히 건너뛰거나 현재 순회를 무한히 연장하거나 같은 앞순번 반복으로 다른 ROOM을 무기한 지연시키지 않는다.
+- `ROOM-09-AC10` `local-multi`의 애플리케이션 두 대가 같은 스케줄을 등록해도 한 실행 주기에는 ShedLock을 얻은 하나만 ROOM 후보를 선별한다. 잠금 미획득 인스턴스는 해당 실행을 건너뛰고, 잠금 보유 인스턴스 종료·임대 만료 뒤 다른 인스턴스가 영속 cursor와 순회 기준 시각을 이어서 처리한다.
 
 ### 제외 범위
 
 - `RoomStatus` 전이 규칙과 자동 종료 24시간 기준 변경
 - 정확한 시각의 물리적 DB 갱신 SLA
-- 외부 스케줄링 시스템과 다중 인스턴스 작업 분배
+- 외부 스케줄링 시스템·작업 큐와 Quartz 클러스터
+- Redis 분산 락과 기존 `Room.version` 낙관 락 교체
 - 측정 근거 없는 전체 조건부 DB 직접 갱신 전환
 - 방 상태 자동 전환과 무관한 데이터 정리 작업
 
