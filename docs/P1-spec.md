@@ -274,7 +274,7 @@ P1 필수 구현은 다음 여섯 가지 흐름을 처음부터 끝까지 연결
 - `local-single`은 빠른 단일 서버 개발용 프로필이다. 인메모리 세션·채팅 fan-out을 사용할 수 있지만 P1 다중 인스턴스 검증 근거로 인정하지 않는다.
 - `local-multi`는 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL과 Redis로 구성한다. HTTP 저장 요청과 WebSocket 연결이 다른 인스턴스에 도달하는 세션·전달·재연결 경로를 검증하며 P1 채팅 완료의 필수 환경이다.
 - `prod`의 배포 정본은 ALB, ASG 애플리케이션 인스턴스, 공용 RDS PostgreSQL과 Redis다. 실제 AWS scale-out, WebSocket Upgrade, 인스턴스 교체와 연결 draining 검증은 후속 OPS로 분리하며 P1 채팅 구현 완료를 막지 않는다.
-- `local-multi`와 `prod`에서는 Redis를 필수 의존성으로 사용하고 인메모리 구현으로 자동 fallback하지 않는다. 세션 또는 전송 제한을 확인할 수 없으면 API 정본의 `503 SERVICE_UNAVAILABLE`로 실패한다.
+- `local-multi`와 `prod`에서는 Redis를 필수 의존성으로 사용하고 인메모리 구현으로 자동 fallback하지 않는다. 세션 또는 전송 제한을 확인할 수 없을 때 `503 SERVICE_UNAVAILABLE`을 반환하는 현재 범위는 [API 정본](API.md#101-공통-오류)의 채팅 API 세 엔드포인트로 한정한다. 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트의 오류 계약은 적용 엔드포인트를 명시한 별도 계약 변경 전까지 확정하지 않는다.
 - 하나의 공용 Redis를 Spring Session, 채팅 Pub/Sub, 사용자·방 단위 전송 제한에 사용하되 key prefix, TTL과 channel namespace를 분리한다.
 - Redis Pub/Sub은 `eventType`, `roomId`, `messageId`만 담은 best-effort 신호다. 메시지 본문·사용자·세션 정보와 영속 제품 상태는 저장하지 않는다.
 - Redis Pub/Sub 또는 WebSocket 실패는 이미 커밋된 PostgreSQL 메시지를 롤백하거나 삭제하지 않는다. 신호 누락·중복·순서 역전은 다음 신호나 `afterMessageId` 재연결에서 `messageId ASC` PostgreSQL 조회로 복구한다.
@@ -369,7 +369,7 @@ P1 필수 구현은 다음 여섯 가지 흐름을 처음부터 끝까지 연결
 - 공용 세션은 승인된 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), HTTP 전송·방별 WebSocket 수신은 [ADR-0032](adr/chat/0032-http-send-websocket-receive.md), PostgreSQL 정본·커밋 후 Redis 신호와 실패 경계는 [ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)을 따른다.
 - 실시간 연결은 Spring Session Redis의 현재 HTTP 세션 인증을 이어받되 연결, 복구와 전달 경계마다 권한을 확인한다. ALB stickiness는 정합성 전제가 아니다.
 - 각 인스턴스는 자신이 보유한 WebSocket 연결만 메모리에서 관리한다. Redis 신호를 받으면 연결별 마지막 ID 이후의 PostgreSQL 메시지를 `messageId ASC`로 조회해 전달한다.
-- 참가 취소·방 최종 상태 신호와 세션 만료 이벤트는 기존 연결의 권한 회수를 촉진하며, 실제 전달 직전에는 PostgreSQL의 현재 관계와 상태를 다시 확인한다.
+- 참가 취소·방 최종 상태 신호와 세션 만료 이벤트는 기존 연결의 권한 회수를 촉진하는 수단이며 근거가 아니다. 실제 전달 직전에는 PostgreSQL의 현재 관계·상태와 공용 세션의 현재 유효성을 함께 확인하고, 관계·상태가 유효하지 않거나 세션이 만료됐거나 확인에 실패하면 전달하지 않고 연결을 종료한다.
 - 연결이 끊겼거나 Redis 신호가 누락·중복·역전되어도 실시간 전달 자체를 메시지 정본으로 사용하지 않고 PostgreSQL 이력을 기준으로 누락분을 복구한다.
 - 알림은 polling만으로 완전하게 동작한다. 이후 실시간 도착 신호를 추가하면 인증·연결·재접속 기반은 채팅과 공유할 수 있지만, 알림 저장·수신자 규칙과 채팅 메시지 저장·접근 규칙은 분리한다.
 
@@ -474,7 +474,7 @@ P1은 P0의 17개 API를 유지하고, 게임·방·내 모임 조회와 참가 
 - 동일한 사용자·클라이언트 메시지 식별자의 저장 결과는 한 건으로 수렴한다. 실시간 이벤트가 중복되거나 연결이 끊겨도 메시지 ID 중복 제거와 cursor 이력 조회로 일관된 결과와 누락분을 복구할 수 있다.
 - `local-multi`의 프록시 뒤 애플리케이션 두 대가 공용 PostgreSQL·Redis를 사용할 때 HTTP 저장 인스턴스와 WebSocket 연결 인스턴스가 달라도 세션, 메시지 전달과 `afterMessageId` 복구가 동작한다.
 - Redis Pub/Sub 신호가 누락·중복·역전되거나 AFTER_COMMIT 발행이 실패해도 PostgreSQL에 커밋된 메시지는 유지되고 다음 신호·이력 조회·재연결에서 복구된다.
-- `local-multi`와 `prod`는 Redis 장애 시 인메모리로 자동 fallback하지 않는다. 세션·전송 제한 실패는 `503 SERVICE_UNAVAILABLE`, 커밋 뒤 Pub/Sub 실패는 저장 성공으로 구분한다.
+- `local-multi`와 `prod`는 Redis 장애 시 인메모리로 자동 fallback하지 않는다. 채팅 API 세 엔드포인트의 세션·전송 제한 실패는 `503 SERVICE_UNAVAILABLE`, 커밋 뒤 Pub/Sub 실패는 저장 성공으로 구분한다.
 - 권한 없는 채팅 조회·구독·전송, 제한을 넘은 메시지와 실행 가능한 사용자 입력이 차단된다.
 - 실시간 전송 방식, 공용 세션, 스케줄 단일 실행과 보안 경계가 승인된 ADR·ERD·아키텍처에 반영된다.
 - 실제 AWS ALB·ASG scale-out·draining과 운영 Redis 제품·HA·TLS·비밀·비용 검증은 후속 OPS이며, 그 미검증은 P1 채팅 구현 완료를 막지 않는다.
