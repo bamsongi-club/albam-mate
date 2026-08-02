@@ -212,7 +212,11 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 
 ### CHAT_ROOMS
 
-P1 구현 예정 테이블이다. 방 생성 트랜잭션에서 `ROOMS`와 함께 생성한다. 채팅 회원을 별도로 저장하지 않고, 접근 권한은 `ROOMS.host_user_id`와 현재 `ACTIVE PARTICIPATIONS`를 매 요청에서 계산한다.
+P1 구현 예정 테이블이다. 최초 채팅 활성화는 채팅 이전 버전과 신규 버전이 함께 ROOM을 쓰는 rolling 배포로 진행하지 않는다. 외부 트래픽을 차단하고 채팅 이전 버전의 모든 ROOM 생성·상태 전환 실행 주체가 중지됐음을 확인한 뒤, 채팅 신규 버전의 첫 인스턴스를 트래픽에서 격리해 시작한다. 이 인스턴스의 Flyway 마이그레이션은 하나의 PostgreSQL 트랜잭션에서 `ROOMS`에 `SHARE ROW EXCLUSIVE` 잠금을 얻고, `ON CONFLICT DO NOTHING`인 멱등 INSERT로 기존 `ROOMS`마다 `CHAT_ROOMS` 한 행을 생성한 뒤 누락된 `ROOMS`가 없다는 1:1 사후조건을 확인한다. 잠금 획득이나 사후조건이 실패하면 전체 트랜잭션을 롤백하고 트래픽을 계속 차단한다. 성공한 마이그레이션 뒤에는 채팅 신규 버전 인스턴스만 시작·검증하고 트래픽을 연결하며 채팅 이전 버전을 다시 시작하지 않는다.
+
+활성화 뒤 새 방은 방 생성 트랜잭션에서 `ROOMS`와 `CHAT_ROOMS`를 함께 생성한다. 채팅 회원을 별도로 저장하지 않고, 접근 권한은 `ROOMS.host_user_id`와 현재 `ACTIVE PARTICIPATIONS`를 매 요청에서 계산한다.
+
+기존 `RECRUITING`·`CLOSED` 방의 backfill 행은 `purge_after`와 `messages_purged_at`을 `NULL`로 둔다. 기존 `CANCELED`·`FINISHED` 방에는 P1 채팅 메시지가 존재할 수 없으므로 같은 PostgreSQL 마이그레이션 기준 시각을 두 컬럼에 함께 기록해 빈 보관이 이미 끝난 행으로 만든다. `ROOMS.updated_at`을 과거 최종 상태 전환 시각으로 추정하지 않는다. 이 초기화는 채팅 활성화 전 기존 최종 상태 방에만 적용하며, 활성화 뒤 최종 상태로 전환되는 방은 30일 보관 계약을 그대로 따른다.
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
@@ -426,6 +430,7 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 
 ### 채팅·스케줄 제약과 인덱스
 
+- `CHAT_ROOMS` 생성 마이그레이션은 채팅 API 활성화 전에 모든 기존 `ROOMS`를 한 번 backfill한다. 채팅 이전 버전의 ROOM 쓰기를 중지하고 `ROOMS` 쓰기 잠금을 얻은 같은 트랜잭션에서 멱등 INSERT와 1:1 사후조건 확인을 끝낸다. 기존 최종 상태 방은 빈 보관 완료 시각을 기록하고 메시지 이력을 만들지 않는다.
 - 방 생성과 `CHAT_ROOMS` 생성은 하나의 트랜잭션에서 성공하거나 함께 롤백한다.
 - `CHAT_MESSAGES(chat_room_id, id DESC)` 인덱스로 최신 이력과 `beforeMessageId` 커서 조회를 지원한다.
 - `CHAT_ROOMS(purge_after)` 조건부 인덱스로 삭제 기준 시각이 지났고 아직 `messages_purged_at`이 없는 채팅방을 선별한다.

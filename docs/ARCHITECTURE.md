@@ -222,7 +222,11 @@ Coordinator는 기준 시각을 고정하고 낙관 락 충돌만 재시도한�
 
 #### 채팅 흐름
 
-P1 채팅은 방 생성과 채팅방 생성을 한 트랜잭션으로 묶고, 메시지 전송·이력 조회는 `chat` 모듈이 소유한다. `RoomCreateService`는 `chat`을 직접 참조하지 않고 `room.contract.RoomCreated` 이벤트를 발행한다. `chat`의 동기 listener가 같은 트랜잭션에서 `CHAT_ROOMS`를 만들며, 실패하면 방 생성도 함께 롤백된다. `CANCELED`·`FINISHED` 전환도 `room.contract.RoomTerminalStateReached`를 발행하고 `chat`의 동기 listener가 같은 트랜잭션에서 `purge_after`를 설정한다.
+최초 채팅 활성화는 채팅 이전 버전과 신규 버전의 ROOM 쓰기 주체가 공존하는 rolling 배포로 진행하지 않는다. 먼저 외부 트래픽을 차단하고 채팅 이전 버전의 모든 ROOM 생성·상태 전환 실행 주체를 중지한다. 그 뒤 채팅 신규 버전의 첫 인스턴스를 트래픽에서 격리해 시작하고, 이 인스턴스의 전진 Flyway 마이그레이션이 하나의 PostgreSQL 트랜잭션에서 `ROOMS` 쓰기 잠금을 얻어 모든 기존 `ROOMS`에 `CHAT_ROOMS`를 하나씩 멱등 backfill한 다음 누락 행이 없다는 1:1 사후조건을 확인한다. 실패하면 전체 마이그레이션을 롤백하고 트래픽을 계속 차단하며, 성공 뒤에는 채팅 신규 버전 인스턴스만 시작·검증한 다음 트래픽을 연결한다.
+
+기존 `RECRUITING`·`CLOSED` 방은 보관 시각을 비워 두고, P1 메시지가 존재할 수 없는 기존 `CANCELED`·`FINISHED` 방은 마이그레이션 기준 시각에 빈 보관을 완료한 것으로 초기화한다. 메시지 이력은 만들지 않으며 과거 최종 상태 전환 시각을 `ROOMS.updated_at`에서 추정하지 않는다.
+
+활성화 뒤 P1 채팅은 방 생성과 채팅방 생성을 한 트랜잭션으로 묶고, 메시지 전송·이력 조회는 `chat` 모듈이 소유한다. `RoomCreateService`는 `chat`을 직접 참조하지 않고 `room.contract.RoomCreated` 이벤트를 발행한다. `chat`의 동기 listener가 같은 트랜잭션에서 `CHAT_ROOMS`를 만들며, 실패하면 방 생성도 함께 롤백된다. `CANCELED`·`FINISHED` 전환도 `room.contract.RoomTerminalStateReached`를 발행하고 `chat`의 동기 listener가 같은 트랜잭션에서 `purge_after`를 설정한다.
 
 채팅은 `room.contract`로 현재 주최자·`ACTIVE` 참가자와 방 상태를 확인하며 `room` Entity·Repository를 직접 참조하지 않는다.
 
