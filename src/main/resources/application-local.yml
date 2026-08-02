@@ -13,7 +13,7 @@ spring:
       connection-init-sql: SET TIME ZONE 'UTC'
   flyway:
     enabled: true
-    locations: classpath:db/migration,classpath:db/local
+    locations: classpath:db/migration,classpath:db/vendor-migration/postgresql,classpath:db/local
   jpa:
     hibernate:
       ddl-auto: validate

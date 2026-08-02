@@ -10,3 +10,5 @@ spring:
     embedded-database-connection: none
     hikari:
       connection-init-sql: SET TIME ZONE 'UTC'
+  flyway:
+    locations: classpath:db/migration,classpath:db/vendor-migration/postgresql
