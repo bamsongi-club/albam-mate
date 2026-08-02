@@ -37,7 +37,7 @@
 
 - 하나의 Gradle 프로젝트와 Spring Boot 애플리케이션, 데이터베이스를 유지한다.
 - 같은 Spring Boot 애플리케이션을 여러 인스턴스로 실행하되 모든 인스턴스가 공용 PostgreSQL과 Redis를 사용한다. 채팅을 별도 서비스로 분리하지 않는다.
-- `auth`, `user`, `game`, `room`과 P1의 `chat`을 논리적 업무 모듈로 유지한다.
+- `auth`, `user`, `game`, `room`과 P1의 `chat`·`notification`을 논리적 업무 모듈로 유지한다.
 - 조회와 상태 변경 유스케이스는 각각 `query`, `command`로 구분하지만 Entity, Repository와 데이터베이스까지 나누는 CQRS는 도입하지 않는다.
 - 모듈 간 협력은 상대 모듈의 `contract`만 사용한다.
 - 독립 트랜잭션과 재시도가 필요한 Coordinator·Executor 분리는 유지하며, 재시도마다 최신 Entity와 version을 다시 조회한다.
@@ -54,17 +54,19 @@ flowchart LR
     room -->|"game.contract"| game["game"]
     chat["chat<br/>(P1 구현 시 생성)"] -->|"room.contract"| room
     chat -->|"user.contract"| user
+    notification["notification<br/>(P1 구현 시 생성)"] -->|"room.contract"| room
 
     auth -.->|"기술 기반"| global["global"]
     user -.->|"기술 기반"| global
     game -.->|"기술 기반"| global
     room -.->|"기술 기반"| global
     chat -.->|"기술 기반"| global
+    notification -.->|"기술 기반"| global
     infra["infra<br/>(P1 구현 시 생성)"] -.->|"기술 기반"| global
     infra -->|"실시간 전달 port 구현"| chat
 ```
 
-허용된 업무 모듈 의존 방향은 `auth → user`, `room → user·game`, `chat → room.contract·user.contract`이다. `chat`은 `room`·`user`의 Entity와 Repository를 직접 참조하지 않고 공개 계약만 사용한다. 반대 방향의 직접 참조와 순환 의존은 허용하지 않는다.
+허용된 업무 모듈 의존 방향은 `auth → user`, `room → user·game`, `chat → room.contract·user.contract`, `notification → room.contract`이다. `chat`은 `room`·`user`의 Entity와 Repository를, `notification`은 `room`의 Entity와 Repository를 직접 참조하지 않고 공개 계약만 사용한다. 반대 방향의 직접 참조와 순환 의존은 허용하지 않는다.
 
 런타임 호출 방향과 컴파일 의존 방향이 다를 수 있다. 예를 들어 `game`이 예정 모임 수를 조회할 때는 [`game.contract.UpcomingRoomCountQuery`](../src/main/java/cloud/bamsongi/albammate/game/contract/UpcomingRoomCountQuery.java)를 [`room.service.query.RoomUpcomingRoomCountQuery`](../src/main/java/cloud/bamsongi/albammate/room/service/query/RoomUpcomingRoomCountQuery.java)가 구현한다. 런타임 호출은 game에서 room으로 이어지지만, 컴파일 의존은 `room → game.contract`로 유지된다.
 
@@ -79,6 +81,7 @@ flowchart LR
 | `game` | 게임 목록·검색·상세와 게임 요약 계약 | 방 데이터 직접 조회 |
 | `room` | 방·참가 관계·정원·상태 전이·재시도·상태 보정 | 사용자·게임 내부 구현 |
 | `chat` (P1) | 방별 채팅방·메시지 저장, 이력 커서 조회, 현재 관계자 접근 검증, 실시간 전달 경계 | 방·참가 Entity/Repository, 인증 세션 내부 구현, 온라인 자동 매칭 |
+| `notification` (P1) | 웹 알림 조회·읽음, Outbox·수신자 스냅샷·알림 저장, relay·재시도·복구·보존 정리 | 방 상태 전이·수신자 재계산, 이메일·모바일 푸시·Web Push·SMS 전달 |
 | `global` | 공통 응답·예외·보안·설정·UTC 시간 기반 | 업무 Entity·DTO·규칙 |
 | `infra` (P1) | Redis 세션·채팅 fan-out과 PostgreSQL 스케줄 잠금 같은 기술 adapter | 업무 규칙·Entity·HTTP DTO |
 
@@ -258,7 +261,7 @@ flowchart LR
 
 메시지 전송은 일반 `@Transactional` 하나에서 권한·상태, 멱등성 키와 저장을 처리한다. `REQUIRES_NEW`와 낙관 락 재시도를 사용하지 않는다. 잠금 순서는 `ROOMS` 다음 `CHAT_ROOMS`로 고정하고 메시지마다 `Room.version`을 올리지 않는다.
 
-실시간 전달은 [ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)에 따라 저장 커밋 뒤에만 수행하며 전달 실패가 저장을 롤백하지 않는다. Redis 신호는 `eventType`, `roomId`, `messageId`만 포함하고 메시지 본문 정본이 아니다. 구독 인스턴스는 로컬 연결별 마지막 전달 ID 이후의 PostgreSQL 이력을 조회한다. 이력·재연결의 `messageId` cursor는 제안 상태인 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)의 승인 뒤 구현한다.
+실시간 전달은 [ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)에 따라 저장 커밋 뒤에만 수행하며 전달 실패가 저장을 롤백하지 않는다. Redis 신호는 `eventType`, `roomId`, `messageId`만 포함하고 메시지 본문 정본이 아니다. 구독 인스턴스는 로컬 연결별 마지막 전달 ID 이후의 PostgreSQL 이력을 조회한다. 이력·재연결의 `messageId` cursor는 승인된 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)을 따른다.
 
 방이 최종 상태가 되면 일반 사용자 접근은 즉시 차단하고, 메시지는 [ADR-0034](adr/chat/0034-chat-message-retention-and-deletion.md)에 따라 30일 뒤 일일 스케줄러가 소량 묶음으로 삭제한다. 모든 인스턴스가 스케줄을 등록하지만 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)의 PostgreSQL ShedLock을 얻은 하나만 작업을 실행한다. 잠금 트랜잭션과 각 삭제 묶음의 독립 트랜잭션은 결합하지 않는다.
 
@@ -266,7 +269,7 @@ flowchart LR
 
 공용 세션과 스케줄 실행 조정의 기술 결정은 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)이 소유한다.
 
-`local-single`은 인메모리 세션·fan-out을 허용하는 빠른 단일 서버 개발 프로필이다. P1 필수 검증 환경인 `local-multi`는 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL과 Redis로 구성한다. 운영 정본은 ALB가 ASG 애플리케이션 인스턴스로 요청을 분산하고 모든 인스턴스가 공용 RDS PostgreSQL과 Redis를 사용하는 구조다.
+`local-single`은 인메모리 세션·fan-out을 허용하는 빠른 단일 서버 개발 프로필이다. P1 필수 검증 환경인 `local-multi`는 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL과 Redis로 구성한다. 목표 운영 토폴로지에서는 ALB가 ASG 애플리케이션 인스턴스로 요청을 분산하고 모든 인스턴스가 공용 RDS PostgreSQL과 Redis를 사용한다. 이 목표는 현재 운영 배포 완료를 뜻하지 않으며, 배포·실측 상태는 [P1 기능별 상태 정본](p1/README.md#기능별-현재-상태)의 `운영 배포·실측` 열을 따른다.
 
 - `JSESSIONID`의 인증 상태는 Spring Session Redis에 저장한다. HTTP 요청과 WebSocket handshake가 다른 인스턴스에 도달해도 동일 세션을 사용하며 ALB stickiness에 정합성을 의존하지 않는다.
 - 하나의 Redis를 Spring Session, 채팅 Pub/Sub과 사용자·방 단위 rate limit에 사용하되 key prefix, TTL과 channel namespace를 분리한다.
@@ -366,7 +369,7 @@ Repository Projection은 쿼리가 선택한 열을 담는 저장소 계층 타�
 
 - 업무 모듈 사이의 순환 의존 금지
 - 다른 업무 모듈의 `contract` 외 내부 구현 참조 금지
-- `auth → user`, `room → user·game`, `notification → room` 외 업무 모듈 의존 금지
+- `auth → user`, `room → user·game`, `notification → room.contract` 외 현재 업무 모듈 의존 금지
 - `global`의 업무 모듈 의존 금지
 - 생산 코드의 `@Autowired` 필드·생성자·메서드 주입 금지
 - ROOM 코드를 `contract`를 포함해 이 문서가 허용한 패키지에만 배치

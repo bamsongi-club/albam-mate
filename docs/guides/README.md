@@ -6,6 +6,8 @@
 
 | 가이드 | 용도 | 상태 | 소유 경계 |
 | --- | --- | --- | --- |
+| [How to 로컬 개발 환경 실행](LOCAL_DEVELOPMENT.md) | `.env` 준비, 전체 스택과 PostgreSQL 전용 Compose 실행, 운영체제별 호스트 개발 | 사용 가능 | 로컬 실행·종료·문제 해결 절차를 설명한다. 서비스·포트의 실제 설정은 [`compose.local.yml`](../../compose.local.yml), 반복 명령은 [COMMANDS](../COMMANDS.md#로컬-개발)가 소유한다. |
+| [How to 백엔드 테스트와 커버리지 검증](TESTING.md) | H2·PostgreSQL 테스트, JaCoCo 게이트 실행과 실패 해석 | 사용 가능 | 실행·결과 해석 절차를 설명한다. 테스트 배치 규칙은 [테스트 작업 안내](../../src/test/AGENTS.md), 결정 근거는 [ADR-0010](../adr/platform/0010-h2-postgresql-test-boundary.md)과 [ADR-0017](../adr/platform/0017-test-coverage-branch-ratchet.md), 실제 태스크·최소선은 [`build.gradle`](../../build.gradle)이 소유한다. |
 | [P0 AWS 운영 인프라 기준](AWS_P0_INFRASTRUCTURE.md) | P0 AWS 배포 구성, 준비·배포·검증 순서와 보안 확인 | 구현·배포 전 기준 | 실행 절차와 확인 항목을 설명한다. 구성 선택과 변경 근거는 [ADR-0021](../adr/platform/0021-p0-aws-ec2-rds-deployment-baseline.md)이 소유한다. |
 | [Java 컨벤션과 Git hook 설정](CODE_FORMATTING.md) | clone별 Git hook 설치와 Java 포맷·Checkstyle 수동 실행 | 사용 가능 | 설정 절차를 설명한다. 코드 작성 규칙은 [CONVENTIONS](../CONVENTIONS.md), 실제 설정은 [formatter](../../config/formatter/README.md)와 [checkstyle](../../config/checkstyle/README.md)이 소유한다. |
 | [게임 카탈로그 검수·적재](GAME_CATALOG_IMPORT.md) | 게임 데이터 검수, 출처 기록, 적재 산출물 생성과 PostgreSQL 반영 | 사용 가능 | 검수·적재 절차를 설명한다. 데이터 선택과 트랜잭션 원칙은 [ADR-0015](../adr/game/0015-bgg-baseline-team-collected-game-list.md)가 소유한다. |

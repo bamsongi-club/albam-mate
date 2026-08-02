@@ -16,12 +16,12 @@ body:
     attributes:
       label: 정본·범위
       description: |
-        정본은 `develop` 기능 명세의 해당 절로 바로 이동하는 Markdown 링크를 적는다.
-        P0는 `[기능 ID와 이름](https://github.com/bamsongi-club/albam-mate/blob/develop/docs/p0/FILE.md#feature-anchor)` 형식이다.
+        정본은 `develop`의 현재 기능 명세 해당 절로 바로 이동하는 Markdown 링크를 적는다.
+        단계 폴더를 고정하지 않고 `[기능 ID와 이름](https://github.com/bamsongi-club/albam-mate/blob/develop/{정본-문서-경로}#{기능-anchor})` 형식으로 적는다.
         담당은 완료 기준 ID로 적고, 명세 절이 없는 기반·통합 작업은 산출물을 적는다.
         제외한 완료 기준은 처리할 이슈 번호를 함께 적는다.
       placeholder: |
-        - 정본: [기능 ID와 이름](https://github.com/bamsongi-club/albam-mate/blob/develop/docs/p0/FILE.md#feature-anchor)
+        - 정본: [기능 ID와 이름](https://github.com/bamsongi-club/albam-mate/blob/develop/{정본-문서-경로}#{기능-anchor})
         - 담당:
         - 제외: 없음
     validations:
@@ -58,10 +58,12 @@ body:
       label: 완료
       description: |
         담당 범위를 묶어서 적는다. 완료 기준 문장을 다시 쓰지 않는다.
+        기능 상태 정본이 있는 작업은 구현 PR에서 완료 증거를 갖춘 열을 갱신하거나, 유지 사유와 후속 이슈를 남긴다.
         필수 테스트 계약은 이슈 게시 후 사람이 최신 전체 `T1`…`Tn`을 확정해 남긴 GitHub Issue 코멘트를 따른다.
         기반·통합 작업은 마지막 줄의 검증 방법을 그 작업에 맞게 바꾼다.
       placeholder: |
         - [ ]
+        - [ ] 기능 상태 정본: 갱신([링크], 변경 열: ...) / 유지([링크], 사유: ..., 후속 #N)
         - [ ] 사람이 확정한 최신 GitHub Issue 코멘트의 전체 `T1`…`Tn` 성공·실패 경로 테스트, CI 통과
     validations:
       required: true

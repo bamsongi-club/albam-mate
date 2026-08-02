@@ -7,7 +7,7 @@
 
 Node.js 버전, 운영체제별 npm 명령, 개발 프록시와 산출물 규칙은
 [작업 안내의 실행과 산출물](AGENTS.md#실행과-산출물)에서 확인합니다. 백엔드 실행과 데이터베이스 준비는
-[로컬 PostgreSQL 개발 환경](../docs/COMMANDS.md#로컬-postgresql-개발-환경)을 따릅니다.
+[로컬 개발 환경 실행](../docs/guides/LOCAL_DEVELOPMENT.md)을 따릅니다.
 
 ## 구조
 

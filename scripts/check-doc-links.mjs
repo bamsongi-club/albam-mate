@@ -255,8 +255,8 @@ export function headingAnchor(heading) {
     return heading
         .trim()
         .toLowerCase()
-        .replace(/[`*_~]/g, '')
-        .replace(/[^\p{L}\p{N}\s-]/gu, '')
+        .replace(/[`*~]/g, '')
+        .replace(/[^\p{L}\p{N}\s_-]/gu, '')
         .replace(/\s+/g, '-');
 }
 

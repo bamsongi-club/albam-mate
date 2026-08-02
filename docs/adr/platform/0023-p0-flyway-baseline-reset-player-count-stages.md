@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-28
 - 결정일: 2026-07-28
-- 관련: [ADR-0008](0008-flyway-database-migrations.md), [ADR-0019](../game/0019-bgg-full-catalog-staged-enrichment.md), [ERD GAMES](../../ERD.md#games), [용어집](../../../CONTEXT.md)
+- 관련: [ADR-0008](0008-flyway-database-migrations.md), [ADR-0019](../game/0019-bgg-full-catalog-staged-enrichment.md), [ERD GAMES](../../ERD.md#games)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 

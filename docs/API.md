@@ -13,6 +13,23 @@
 
 > `P0`, `P1`은 API가 도입되는 제품 단계이며 현재 구현 상태값이 아니다. P0 현행과 승인되어 이 문서에 반영된 P1 목표 계약을 함께 관리하고, P1 기능의 현재 계약 준비·생산 코드·자동 검증·운영 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)만 따른다.
 
+### 도입 단계와 제공 상태
+
+현재 제공 항목과 목표 항목이 같은 상세 표에 섞이면 `도입 단계`와 `제공 상태`를 행마다 구분한다.
+
+| 구분·값 | 의미 |
+|---|---|
+| `도입 단계` | 해당 필드·파라미터가 최초로 속한 제품 단계. `P0`, `P1`처럼 기록하며 제공 상태가 바뀌어도 유지한다. |
+| `제공` | `develop`에 구현이 반영되고 해당 API 계약 검증을 통과해 현재 요청에 사용하거나 현재 응답에서 기대할 수 있다. |
+| `구현 예정` | 승인된 목표 계약이지만 아직 현재 요청에 사용하거나 현재 응답에서 기대하면 안 된다. |
+| `검토 예정` | 후속 후보로 검토 중이며 목표 계약도 확정되지 않았다. 현재 요청·응답 계약으로 사용하지 않는다. |
+| `Deprecated` | 현재 제공하지만 대체 계약으로의 전환 대상이다. 신규 사용자는 사용하지 않는다. |
+| `제거` | 현재 요청에서 허용하거나 현재 응답으로 반환하지 않는다. 변경 이력·전환 문맥이 필요할 때만 남긴다. |
+
+`구현 예정`·`검토 예정` 행의 `필수`·`nullable`·기본값은 `제공`으로 전환된 뒤의 목표 스키마를 뜻한다. 구현과 계약 검증을 완료하면 `도입 단계`는 유지하고 `제공 상태`만 `구현 예정`에서 `제공`으로 바꾼다. 하나의 도입 단계와 제공 상태만 담는 절은 필요한 경우 절 설명에서 기본값을 선언하고 두 열을 생략할 수 있다.
+
+이 표의 `제공 상태`는 HTTP·WebSocket 요청·응답에 해당 항목을 현재 적용할 수 있는지만 나타낸다. 기능 전체의 계약 준비·생산 코드·자동 검증·운영 배포·측정 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)에서 별도로 관리한다.
+
 ### 대표 흐름으로 읽기
 
 P0는 `게임부터 찾기`, `사람부터 만나기`, `방 만들기` 세 흐름을 지원한다(→ [P0-spec 핵심 사용자 흐름](archive/p0/P0-spec.md#핵심-사용자-흐름)). 아래는 `게임부터 찾기 → 참가`를 API 호출 순서로 옮긴 예시다. CSRF 토큰을 언제 다시 받아야 하는지까지 포함한다.
@@ -74,6 +91,7 @@ P0는 `게임부터 찾기`, `사람부터 만나기`, `방 만들기` 세 흐�
 | `415` | 지원하지 않는 요청 미디어 타입 |
 | `429` | 요청 한도 초과 |
 | `500` | 처리하지 않은 서버 오류 |
+| `503` | 서비스 일시 사용 불가 |
 
 - 요청 본문으로 기존 리소스의 일부를 수정하는 API는 `PATCH`를 사용한다. 클라이언트가 리소스 전체 표현을 결정해 교체할 때만 `PUT`을 사용하며, 세부 기준과 종료 명령의 재시도 기준은 [ADR-0022](adr/platform/0022-p0-update-api-http-method-and-finish-idempotency.md)를 따른다.
 
@@ -409,23 +427,25 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 
 방을 탐색·참가 판단하는 데 필요한 비식별 정보만 반환한다. `place`, 주최자·참가자 목록과 사용자 ID는 포함하지 않는다.
 
-| 필드 | 타입 | 필수 | nullable | 단계 | 설명 |
-|---|---|:---:|:---:|:---:|---|
-| `id` | integer | Y | N | P0 | 방 ID |
-| `roomType` | RoomType | Y | N | P0 | 방 유형 |
-| `title` | string | Y | N | P0 | 방 제목 |
-| `description` | string | Y | Y | P0 | 모임 소개 |
-| `game` | GameSummary | Y | Y | P0 | `GAME_FOCUSED`는 필수, `PERSON_FOCUSED`는 `null` 가능 |
-| `experienceLevel` | ExperienceLevel | Y | N | P0 | 권장 경험 수준 |
-| `isRulemasterLed` | boolean | Y | N | P0 | 룰마스터 진행 여부 |
-| `startsAt` | string(date-time) | Y | N | P0 | 시작 시각 |
-| `region` | string | Y | N | P0 | 고정값 `홍대` |
-| `recruitmentCapacity` | integer | Y | N | P0 | 주최자를 제외한 모집 인원, 1~10 |
-| `participantCount` | integer | Y | N | P0 | 주최자 1명 + 현재 `ACTIVE` 참가 관계 수 |
-| `remainingRecruitmentSeats` | integer | Y | N | P0 | `recruitmentCapacity − 현재 ACTIVE 참가 관계 수` |
-| `status` | RoomStatus | Y | N | P0 | 현재 방 상태 |
-| `joinable` | boolean | Y | N | P0 | 현재 요청자의 참가 가능 여부. 판정 규칙은 아래 참고 |
-| `waitlistable` | boolean | Y | N | P1 | 현재 요청자의 대기 신청 가능 여부. 판정 규칙은 아래 참고 |
+> `구현 예정` 필드는 현재 응답에 포함되지 않는다. `필수`·`nullable`은 제공 전환 뒤의 목표 스키마다.
+
+| 필드 | 타입 | 필수 | nullable | 도입 단계 | 제공 상태 | 설명 |
+|---|---|:---:|:---:|:---:|:---:|---|
+| `id` | integer | Y | N | P0 | 제공 | 방 ID |
+| `roomType` | RoomType | Y | N | P0 | 제공 | 방 유형 |
+| `title` | string | Y | N | P0 | 제공 | 방 제목 |
+| `description` | string | Y | Y | P0 | 제공 | 모임 소개 |
+| `game` | GameSummary | Y | Y | P0 | 제공 | `GAME_FOCUSED`는 필수, `PERSON_FOCUSED`는 `null` 가능 |
+| `experienceLevel` | ExperienceLevel | Y | N | P0 | 제공 | 권장 경험 수준 |
+| `isRulemasterLed` | boolean | Y | N | P0 | 제공 | 룰마스터 진행 여부 |
+| `startsAt` | string(date-time) | Y | N | P0 | 제공 | 시작 시각 |
+| `region` | string | Y | N | P0 | 제공 | 고정값 `홍대` |
+| `recruitmentCapacity` | integer | Y | N | P0 | 제공 | 주최자를 제외한 모집 인원, 1~10 |
+| `participantCount` | integer | Y | N | P0 | 제공 | 주최자 1명 + 현재 `ACTIVE` 참가 관계 수 |
+| `remainingRecruitmentSeats` | integer | Y | N | P0 | 제공 | `recruitmentCapacity − 현재 ACTIVE 참가 관계 수` |
+| `status` | RoomStatus | Y | N | P0 | 제공 | 현재 방 상태 |
+| `joinable` | boolean | Y | N | P0 | 제공 | 현재 요청자의 참가 가능 여부. 판정 규칙은 아래 참고 |
+| `waitlistable` | boolean | Y | N | P1 | 구현 예정 | 현재 요청자의 대기 신청 가능 여부. 판정 규칙은 아래 참고 |
 
 `joinable`과 `waitlistable`은 서버의 같은 행동 가능성 판정에서 계산하며 동시에 `true`일 수 없다.
 
@@ -452,6 +472,8 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 ### 4.8 ParticipantRoomResponse
 
 주최자 또는 현재 `ACTIVE` 참가자에게 반환하며, `PublicRoomResponse`의 모든 필드에 다음을 추가한다.
+
+상속 필드의 `도입 단계`와 `제공 상태`는 `PublicRoomResponse` 표를 따른다. 따라서 `waitlistable`은 현재 `ParticipantRoomResponse`에도 포함되지 않는다. 아래 추가 필드는 모두 `P0`에 도입되어 현재 `제공` 중이므로 두 열을 생략한다.
 
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
@@ -482,11 +504,13 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 
 `GET /api/users/me/rooms`의 각 항목이며, `PublicRoomResponse`의 모든 필드에 다음을 추가한다. 정확한 `place`와 참가자 목록은 내 모임 이력에도 포함하지 않는다.
 
-| 필드 | 타입 | 필수 | nullable | 단계 | 설명 |
-|---|---|:---:|:---:|:---:|---|
-| `myRole` | MyRole | Y | N | P0 | `HOST` 또는 `JOINED` |
-| `participationStatus` | ParticipationStatus | Y | Y | P0 | `myRole = JOINED`이면 항상 `ACTIVE`, `HOST`이면 `null` |
-| `chatAvailable` | boolean | Y | N | P1 | 현재 요청자가 채팅방에 진입할 수 있는지. `HOST` 또는 `ACTIVE` 참가자이고 방 상태가 `RECRUITING`·`CLOSED`일 때만 `true` |
+> `구현 예정` 필드는 현재 응답에 포함되지 않는다. `필수`·`nullable`은 제공 전환 뒤의 목표 스키마다. 상속 필드의 상태는 `PublicRoomResponse` 표를 따르므로 `waitlistable`도 현재 응답에 포함되지 않는다.
+
+| 필드 | 타입 | 필수 | nullable | 도입 단계 | 제공 상태 | 설명 |
+|---|---|:---:|:---:|:---:|:---:|---|
+| `myRole` | MyRole | Y | N | P0 | 제공 | `HOST` 또는 `JOINED` |
+| `participationStatus` | ParticipationStatus | Y | Y | P0 | 제공 | `myRole = JOINED`이면 항상 `ACTIVE`, `HOST`이면 `null` |
+| `chatAvailable` | boolean | Y | N | P1 | 구현 예정 | 현재 요청자가 채팅방에 진입할 수 있는지. `HOST` 또는 `ACTIVE` 참가자이고 방 상태가 `RECRUITING`·`CLOSED`일 때만 `true` |
 
 `joinable`과 `waitlistable`은 `PublicRoomResponse`와 같은 요청자 기준 값이다. 내 모임은 주최·참가 ROOM만 반환하므로 두 값은 항상 `false`이고, 대기 중인 ROOM을 조회 대상에 추가하지 않는다. `chatAvailable = false`인 항목은 채팅 진입을 표시하지 않으며, 직접 채팅 API를 호출해도 서버가 같은 관계·상태 규칙으로 거절한다. 참가 취소 관계와 `CANCELED`·`FINISHED` 방은 채팅 진입 대상에서 제외한다.
 
@@ -765,16 +789,18 @@ P0에서는 닉네임만 수정한다.
 
 #### Query Parameters
 
-| 이름 | 타입 | 필수 | 기본값 | 단계 | 의미 |
-|---|---|:---:|---|:---:|---|
-| `keyword` | string | N | 검색 없음 | P0 | 게임명 부분 일치 |
-| `upcomingOnly` | boolean | N | `false` | P0 | `true`이면 예정 모임이 한 개 이상인 게임만 반환 |
-| `playerCount` | integer | N | 검색 없음 | P1 | `1`~`9`는 해당 인원을 포함하는 게임, `10`은 최대 가능 인원이 10 이상인 게임 |
-| `playTime` | GamePlayTimeFilter | N | 검색 없음 | P1 | 검증된 최대 플레이 시간 구간 |
-| `complexityMin` | number | N | 검색 없음 | P1 | `1.00`~`5.00`, 난이도 닫힌 구간의 하한 |
-| `complexityMax` | number | N | 검색 없음 | P1 | `1.00`~`5.00`, 난이도 닫힌 구간의 상한 |
-| `page` | integer | N | `0` | P0 | 페이지 번호 |
-| `size` | integer | N | `10` | P0 | 페이지 크기, 1~100 |
+> `구현 예정` 파라미터는 현재 요청에 전송하면 안 된다. `필수`·기본값은 제공 전환 뒤의 목표 계약이다.
+
+| 이름 | 타입 | 필수 | 기본값 | 도입 단계 | 제공 상태 | 의미 |
+|---|---|:---:|---|:---:|:---:|---|
+| `keyword` | string | N | 검색 없음 | P0 | 제공 | 게임명 부분 일치 |
+| `upcomingOnly` | boolean | N | `false` | P0 | 제공 | `true`이면 예정 모임이 한 개 이상인 게임만 반환 |
+| `playerCount` | integer | N | 검색 없음 | P1 | 구현 예정 | `1`~`9`는 해당 인원을 포함하는 게임, `10`은 최대 가능 인원이 10 이상인 게임 |
+| `playTime` | GamePlayTimeFilter | N | 검색 없음 | P1 | 구현 예정 | 검증된 최대 플레이 시간 구간 |
+| `complexityMin` | number | N | 검색 없음 | P1 | 구현 예정 | `1.00`~`5.00`, 난이도 닫힌 구간의 하한 |
+| `complexityMax` | number | N | 검색 없음 | P1 | 구현 예정 | `1.00`~`5.00`, 난이도 닫힌 구간의 상한 |
+| `page` | integer | N | `0` | P0 | 제공 | 페이지 번호 |
+| `size` | integer | N | `10` | P0 | 제공 | 페이지 크기, 1~100 |
 
 - 서로 다른 필터 종류는 AND로 결합한다.
 - `playerCount=10`은 정확히 10명만 뜻하지 않고 최대 가능 인원이 10 이상인 게임을 뜻한다.
@@ -826,18 +852,20 @@ P0에서는 닉네임만 수정한다.
 
 #### Query Parameters
 
-| 이름 | 타입 | 필수 | 적용 조건 | 단계 | 의미 |
-|---|---|:---:|---|:---:|---|
-| `type` | RoomType | N | 전달 시 | P0 | 방 유형 |
-| `gameId` | integer | N | 전달 시 | P0 | 1 이상의 알밤메이트 내부 게임 ID |
-| `keyword` | string | N | 전달 시 | P0 | 방 제목 부분 일치 |
-| `startsAtFrom` | string(date-time) | N | 전달 시 | P1 | `startsAt >= startsAtFrom` |
-| `startsAtTo` | string(date-time) | N | 전달 시 | P1 | `startsAt < startsAtTo` |
-| `minRemainingSeats` | integer | N | 전달 시 | P1 | 최소 남은 모집 자리, 1~10 |
-| `experienceLevels` | ExperienceLevel | N | 전달 시 | P1 | 반복 전달 가능한 권장 경험 수준. 목록 안 OR |
-| `rulemasterOnly` | boolean | N | `true`일 때 | P1 | 룰마스터 진행 방만 반환 |
-| `page` | integer | N | 항상 | P0 | 기본값 `0` |
-| `size` | integer | N | 항상 | P0 | 기본값 `10`, 1~100 |
+> `구현 예정` 파라미터는 현재 요청에 전송하면 `VALIDATION_ERROR`가 발생한다. `필수`·적용 조건은 제공 전환 뒤의 목표 계약이다.
+
+| 이름 | 타입 | 필수 | 적용 조건 | 도입 단계 | 제공 상태 | 의미 |
+|---|---|:---:|---|:---:|:---:|---|
+| `type` | RoomType | N | 전달 시 | P0 | 제공 | 방 유형 |
+| `gameId` | integer | N | 전달 시 | P0 | 제공 | 1 이상의 알밤메이트 내부 게임 ID |
+| `keyword` | string | N | 전달 시 | P0 | 제공 | 방 제목 부분 일치 |
+| `startsAtFrom` | string(date-time) | N | 전달 시 | P1 | 구현 예정 | `startsAt >= startsAtFrom` |
+| `startsAtTo` | string(date-time) | N | 전달 시 | P1 | 구현 예정 | `startsAt < startsAtTo` |
+| `minRemainingSeats` | integer | N | 전달 시 | P1 | 구현 예정 | 최소 남은 모집 자리, 1~10 |
+| `experienceLevels` | ExperienceLevel | N | 전달 시 | P1 | 구현 예정 | 반복 전달 가능한 권장 경험 수준. 목록 안 OR |
+| `rulemasterOnly` | boolean | N | `true`일 때 | P1 | 구현 예정 | 룰마스터 진행 방만 반환 |
+| `page` | integer | N | 항상 | P0 | 제공 | 기본값 `0` |
+| `size` | integer | N | 항상 | P0 | 제공 | 기본값 `10`, 1~100 |
 
 `type`, `gameId`, `keyword`와 P1 조건은 서로 독립적인 선택 필터이며, 전달된 서로 다른 조건을 모두 만족하는 방을 반환한다. 반복한 `experienceLevels` 안에서만 OR로 결합하고 같은 값의 중복은 한 번 전달한 것과 같다. 모든 필터를 생략하면 두 유형의 공개 방 전체를 반환한다. `keyword`의 빈 문자열과 공백은 검색 조건 없음으로 처리하며, 제목 부분 일치는 대소문자를 구분하지 않는다.
 
@@ -1447,7 +1475,7 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 
 ### 채팅 공통 계약
 
-채팅의 제품 규칙은 [P1 방 채팅 기능 명세](p1/chatting.md)를 따른다. 아래 인터페이스는 구현 예정 계약이다. [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)은 제안 상태이고 [ADR-0032](adr/chat/0032-http-send-websocket-receive.md)~[ADR-0034](adr/chat/0034-chat-message-retention-and-deletion.md)는 승인됐지만, 구현과 검증이 끝나기 전에는 제공 기능을 뜻하지 않는다.
+채팅의 제품 규칙은 [P1 방 채팅 기능 명세](p1/chatting.md)를 따른다. 아래 인터페이스는 구현 예정 계약이다. [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)부터 [ADR-0034](adr/chat/0034-chat-message-retention-and-deletion.md)까지 승인됐지만, 구현과 검증이 끝나기 전에는 제공 기능을 뜻하지 않는다.
 
 모든 채팅 요청은 요청 시점의 방 상태와 주최자·현재 `ACTIVE` 참가자 관계를 서버에서 다시 확인한다. `RECRUITING`·`CLOSED` 방만 일반 사용자 접근을 허용하며, 참가 취소·`CANCELED`·`FINISHED` 상태는 `FORBIDDEN`으로 거절한다. 메시지 본문은 로그와 메트릭에 기록하지 않는다.
 

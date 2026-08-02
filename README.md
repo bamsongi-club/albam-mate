@@ -128,7 +128,7 @@ cd frontend && npm run dev
 
 백엔드는 `http://localhost:8080`, 프론트엔드는 `http://localhost:5173`에서 열리며 `/api`는 기본적으로 로컬 백엔드에 프록시되어 같은 PostgreSQL 데이터를 사용합니다.
 
-저장소에는 데이터소스 연결값을 두지 않습니다. `.env` 준비, Compose 기동과 운영체제별 실행 절차는 [프로젝트 명령](docs/COMMANDS.md)에서 확인할 수 있습니다.
+저장소에는 데이터소스 연결값을 두지 않습니다. `.env` 준비, Compose 기동과 운영체제별 실행 절차는 [로컬 개발 환경 실행](docs/guides/LOCAL_DEVELOPMENT.md), 짧은 반복 명령은 [프로젝트 명령](docs/COMMANDS.md)에서 확인할 수 있습니다.
 
 ## 문서 찾기
 
