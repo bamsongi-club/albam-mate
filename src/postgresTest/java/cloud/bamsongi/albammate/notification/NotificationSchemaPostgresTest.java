@@ -264,9 +264,13 @@ class NotificationSchemaPostgresTest {
 	void Notification은_Outbox_FK없이_식별자만_저장하고_Entity_매핑을_검증한다() {
 		assertFalse(
 			jdbcTemplate.queryForObject(
-				"select exists (select 1 from information_schema.table_constraints "
-					+ "where table_schema = current_schema() and table_name = 'notifications' "
-					+ "and constraint_type = 'FOREIGN KEY' and constraint_name like '%source_event%')",
+				"select exists (select 1 from information_schema.key_column_usage kcu "
+					+ "join information_schema.referential_constraints rc "
+					+ "on rc.constraint_catalog = kcu.constraint_catalog "
+					+ "and rc.constraint_schema = kcu.constraint_schema "
+					+ "and rc.constraint_name = kcu.constraint_name "
+					+ "where kcu.table_schema = current_schema() and kcu.table_name = 'notifications' "
+					+ "and kcu.column_name = 'source_event_id')",
 				Boolean.class));
 
 		assertEntityAttributes(NotificationOutboxEvent.class, Set.of(
