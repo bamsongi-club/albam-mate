@@ -222,3 +222,14 @@ test('앵커 규칙은 인라인 코드와 기호를 제거하고 공백을 하�
     assert.ok(anchors.has('1-공통-계약'));
     assert.ok(anchors.has('roomstatus-값'));
 });
+
+test('앵커 규칙은 제목의 밑줄을 보존한다', (t) => {
+    const result = check(t, {
+        'a.md': '[정상](b.md#chat_messages)\n[밑줄 누락](b.md#chatmessages)\n',
+        'b.md': '### CHAT_MESSAGES\n',
+    });
+
+    assert.deepEqual(kinds(result), ['없는 앵커']);
+    assert.equal(result.problems[0].detail, 'b.md#chatmessages');
+    assert.equal(result.checkedLinks, 2);
+});

@@ -27,7 +27,7 @@
 | 기존 데이터 모델 | [ROOMS](../ERD.md#rooms), [PARTICIPATIONS](../ERD.md#participations) |
 | 인증·인가 | [ADR-0003 서버 세션](../adr/auth/0003-p0-server-session-spring-security.md), [ADR-0020 엔드포인트 인가 정책](../adr/auth/0020-api-endpoint-authorization-policy-registry.md) |
 | 동시성 | [ADR-0005 방 참가 낙관 락](../adr/participation/0005-room-participation-optimistic-locking.md) |
-| 관련 정본 | [채팅 API](../API.md#채팅-공통-계약), [ERD](../ERD.md#chatrooms), [아키텍처](../ARCHITECTURE.md#모듈-관계), [채팅 ADR](../adr/chat/README.md) |
+| 관련 정본 | [채팅 API](../API.md#채팅-공통-계약), [ERD](../ERD.md#chat_rooms), [아키텍처](../ARCHITECTURE.md#모듈-관계), [채팅 ADR](../adr/chat/README.md) |
 
 ### 기능 규칙
 
@@ -82,7 +82,7 @@
 | 구분 | 정본 |
 | --- | --- |
 | HTTP 계약 | [CHAT-02 메시지 전송](../API.md#chat-02-메시지-전송), [CHAT-02 메시지 이력 조회](../API.md#chat-02-메시지-이력-조회) |
-| 저장 계약 | [CHAT_ROOMS](../ERD.md#chatrooms), [CHAT_MESSAGES](../ERD.md#chatmessages)의 유일성·조회 인덱스·보관 규칙 |
+| 저장 계약 | [CHAT_ROOMS](../ERD.md#chat_rooms), [CHAT_MESSAGES](../ERD.md#chat_messages)의 유일성·조회 인덱스·보관 규칙 |
 | 공통 응답·오류 | [API 공통 계약](../API.md#1-공통-계약), [오류 코드](../API.md#10-오류-코드) |
 | 시간 기준 | [ADR-0009 UTC 저장과 서비스 시간대 변환](../adr/platform/0009-utc-time-standard.md) |
 | 검증 환경 | [ADR-0010 H2와 PostgreSQL 테스트 경계](../adr/platform/0010-h2-postgresql-test-boundary.md) |
@@ -204,7 +204,7 @@
 | 입력·오류 | [API 공통 계약](../API.md#1-공통-계약), [채팅 API 오류 계약](../API.md#채팅-공통-계약) |
 | 로그 | [Logging 규칙](../CONVENTIONS.md#logging) |
 | 보안 | 세션 인증, CSRF, 출력 인코딩과 Redis 사용자·방 단위 전송 제한 |
-| 관련 정본 | [ADR-0034 메시지 보관·삭제](../adr/chat/0034-chat-message-retention-and-deletion.md), [ADR-0038 스케줄 실행 조정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), [CHAT_ROOMS](../ERD.md#chatrooms), [SHEDLOCK](../ERD.md#shedlock) |
+| 관련 정본 | [ADR-0034 메시지 보관·삭제](../adr/chat/0034-chat-message-retention-and-deletion.md), [ADR-0038 스케줄 실행 조정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), [CHAT_ROOMS](../ERD.md#chat_rooms), [SHEDLOCK](../ERD.md#shedlock) |
 
 ### 기능 규칙
 
