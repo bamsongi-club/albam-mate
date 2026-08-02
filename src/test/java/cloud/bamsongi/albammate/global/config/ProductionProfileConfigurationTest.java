@@ -38,13 +38,24 @@ class ProductionProfileConfigurationTest {
 			properties.getProperty("spring.datasource.hikari.minimum-idle"));
 		assertEquals("SET TIME ZONE 'UTC'", properties.getProperty("spring.datasource.hikari.connection-init-sql"));
 		assertEquals("true", properties.getProperty("spring.flyway.enabled"));
-		assertEquals("classpath:db/migration", properties.getProperty("spring.flyway.locations"));
+		assertEquals(
+			"classpath:db/migration,classpath:db/vendor-migration/postgresql",
+			properties.getProperty("spring.flyway.locations"));
 		assertEquals("validate", properties.getProperty("spring.jpa.hibernate.ddl-auto"));
 		assertEquals("UTC", properties.getProperty("spring.jpa.properties.hibernate.jdbc.time_zone"));
 		assertEquals("30s", properties.getProperty("spring.lifecycle.timeout-per-shutdown-phase"));
 		assertEquals("framework", properties.getProperty("server.forward-headers-strategy"));
 		assertEquals("graceful", properties.getProperty("server.shutdown"));
 		assertEquals("true", properties.getProperty("app.security.cookie.secure"));
+	}
+
+	@Test
+	void local_프로필은_PostgreSQL_vendor와_기존_로컬_seed_경로를_함께_사용한다() {
+		Properties properties = localProperties();
+
+		assertEquals(
+			"classpath:db/migration,classpath:db/vendor-migration/postgresql,classpath:db/local",
+			properties.getProperty("spring.flyway.locations"));
 	}
 
 	@Test
@@ -62,8 +73,16 @@ class ProductionProfileConfigurationTest {
 	}
 
 	private Properties productionProperties() {
+		return properties("application-production.yml");
+	}
+
+	private Properties localProperties() {
+		return properties("application-local.yml");
+	}
+
+	private Properties properties(String path) {
 		YamlPropertiesFactoryBean factory = new YamlPropertiesFactoryBean();
-		factory.setResources(new ClassPathResource("application-production.yml"));
+		factory.setResources(new ClassPathResource(path));
 		return factory.getObject();
 	}
 

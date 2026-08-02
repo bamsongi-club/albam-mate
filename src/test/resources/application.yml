@@ -10,6 +10,8 @@ spring:
     driver-class-name: org.h2.Driver
     hikari:
       connection-init-sql: SET TIME ZONE 'UTC'
+  flyway:
+    locations: classpath:db/migration
   jpa:
     hibernate:
       ddl-auto: validate

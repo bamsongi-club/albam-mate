@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-24
 - 결정일: 2026-07-24
-- 관련: [ADR-0002](0002-postgresql-primary-database.md), [ERD](../../ERD.md), [build.gradle](../../../build.gradle), [프로젝트 컨벤션](../../CONVENTIONS.md)
+- 관련: [ADR-0002](0002-postgresql-primary-database.md), [ADR-0010](0010-h2-postgresql-test-boundary.md), [ERD](../../ERD.md), [build.gradle](../../../build.gradle), [프로젝트 컨벤션](../../CONVENTIONS.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
@@ -34,7 +34,9 @@ JPA Entity만 변경하거나 개발자가 데이터베이스에 SQL을 수동 �
 
 Albam Mate의 PostgreSQL 스키마 변경은 Flyway의 버전 SQL 마이그레이션으로 관리한다. Spring Boot가 애플리케이션 시작 시 Flyway를 실행하며, 공유 개발·검증·운영 환경의 스키마를 변경하는 정식 경로는 저장소의 마이그레이션 파일로 통일한다.
 
-마이그레이션은 기본 경로인 `src/main/resources/db/migration`에 두고 `V<version>__<description>.sql` 형식을 사용한다. 버전은 저장소 안에서 유일하고 증가해야 한다. 테이블, 컬럼, 인덱스, 제약조건 또는 기준 데이터를 변경하는 PR은 관련 JPA·문서 변경과 함께 마이그레이션을 포함한다.
+공통 마이그레이션은 기본 경로인 `src/main/resources/db/migration`에 두고 `V<version>__<description>.sql` 형식을 사용한다. PostgreSQL 전용 문법을 공통 마이그레이션과 분리해야 할 때는 `src/main/resources/db/vendor-migration/postgresql`에 같은 형식으로 두며, Spring Boot의 Flyway 위치를 공통 경로와 `classpath:db/vendor-migration/{vendor}`로 구성한다. Flyway가 위치의 하위 디렉터리를 재귀 탐색하므로 데이터베이스 전용 경로를 공통 경로 아래에 두지 않는다.
+
+공통 경로와 데이터베이스 전용 경로의 버전은 저장소 안에서 전역으로 유일하고 증가해야 한다. 특정 데이터베이스에 적용되지 않는 버전의 공백은 허용하되, H2용 대체 SQL로 PostgreSQL 운영 마이그레이션을 단순화하지 않고 PostgreSQL 전용 결과는 [ADR-0010](0010-h2-postgresql-test-boundary.md)의 `postgresTest`에서 검증한다. 테이블, 컬럼, 인덱스, 제약조건 또는 기준 데이터를 변경하는 PR은 관련 JPA·문서 변경과 함께 마이그레이션을 포함한다.
 
 여기서 기준 데이터는 애플리케이션 버전과 함께 관리하는 소규모 고정값을 뜻한다. 출처·스냅샷·갱신 주기를 별도로 관리하는 대규모 외부 게임 카탈로그 데이터는 기준 데이터에 포함하지 않으며, 적재·갱신 방식은 별도 카탈로그 적재 ADR에서 결정한다.
 

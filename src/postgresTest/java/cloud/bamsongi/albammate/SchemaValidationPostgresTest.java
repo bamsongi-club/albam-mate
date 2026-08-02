@@ -53,7 +53,14 @@ import cloud.bamsongi.albammate.user.repository.UserRepository;
 class SchemaValidationPostgresTest {
 
 	private static final String POSTGRES_IMAGE = "postgres:18.4";
-	private static final Set<String> EXPECTED_TABLES = Set.of("users", "games", "rooms", "participations");
+	private static final Set<String> EXPECTED_TABLES = Set.of(
+		"users",
+		"games",
+		"rooms",
+		"participations",
+		"notification_outbox_events",
+		"notification_outbox_recipients",
+		"notifications");
 
 	@Container
 	@ServiceConnection
@@ -79,7 +86,7 @@ class SchemaValidationPostgresTest {
 	private ConcurrentSignupExistsBarrier concurrentSignupExistsBarrier;
 
 	@Test
-	void 빈_PostgreSQL에_Flyway_V1_V2_V3와_Hibernate_스키마_검증이_적용된다() {
+	void 빈_PostgreSQL에_전체_Flyway와_Hibernate_스키마_검증이_적용된다() {
 		assertEquals("validate", environment.getProperty("spring.jpa.hibernate.ddl-auto"));
 
 		flyway.validate();
@@ -91,7 +98,7 @@ class SchemaValidationPostgresTest {
 				(resultSet, rowNumber) -> resultSet.getString("version"))
 			.stream()
 			.collect(java.util.stream.Collectors.toSet());
-		assertTrue(appliedVersions.containsAll(Set.of("1", "2", "3")));
+		assertTrue(appliedVersions.containsAll(Set.of("1", "2", "3", "4", "5")));
 
 		Set<String> actualTables = jdbcTemplate
 			.query(

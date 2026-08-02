@@ -13,7 +13,7 @@ spring:
       minimum-idle: ${ALBAM_MATE_DB_MINIMUM_IDLE:2}
   flyway:
     enabled: true
-    locations: classpath:db/migration
+    locations: classpath:db/migration,classpath:db/vendor-migration/postgresql
   jpa:
     hibernate:
       ddl-auto: validate
