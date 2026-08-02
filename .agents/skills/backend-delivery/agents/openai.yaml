@@ -1,4 +1,4 @@
 interface:
   display_name: "백엔드 전달 절차"
-  short_description: "확정된 백엔드 구현과 리뷰 수정을 위임·검증합니다"
-  default_prompt: "$backend-delivery를 사용해 확정된 백엔드 기능·버그 또는 선택된 PR 리뷰 수정을 구현·검증·전달해줘."
+  short_description: "저위험 리뷰는 빠르게 처리하고 고위험 변경은 독립 검증합니다"
+  default_prompt: "$backend-delivery를 사용해 백엔드 작업의 위험도를 분류하고 알맞은 검증 경로로 구현·전달해줘."
