@@ -117,8 +117,8 @@ P1에서는 Actuator/Micrometer, dashboard와 외부 경고 전송을 먼저 추
 | `notification_outbox_relay_retry_scheduled` | WARN | `sourceEventId`, `eventType`, `failureCode`, `failureCount`, `totalFailureCount`, `nextAvailableAt` |
 | `notification_outbox_relay_event_failed` | WARN | `sourceEventId`, `eventType`, `failureCode`, `failureCount`, `totalFailureCount`, `deterministicFailure` |
 | `notification_outbox_relay_scheduler_failed` | ERROR | `failureCode`, `exceptionClass`, `occurredAt` |
-| `notification_outbox_operation_previewed` | INFO | `action`, `reasonReference`, `requestedBy`, `requestedCount`, `eligibleCount`, `dryRun` |
-| `notification_outbox_operation_completed` | WARN | `action`, `reasonReference`, `requestedBy`, `requestedCount`, `changedCount`, `dryRun` |
+| `notification_outbox_operation_previewed` | INFO | `sourceEventIds`, `action`, `reasonReference`, `requestedBy`, `requestedCount`, `eligibleCount`, `dryRun` |
+| `notification_outbox_operation_completed` | WARN | `sourceEventIds`, `action`, `reasonReference`, `requestedBy`, `requestedCount`, `changedCount`, `dryRun` |
 | `notification_cleanup_completed` | INFO 또는 DEBUG | `targetType`, `batchNumber`, `deletedCount`, `durationMs`, `measurementTime` |
 | `notification_cleanup_failed` | WARN | `targetType`, `batchNumber`, `failureCode`, `exceptionClass`, `measurementTime` |
 
@@ -129,7 +129,7 @@ cleanup 완료·실패 로그는 batch마다 한 건이며, `measurementTime`은
 - 이벤트 payload, 인증·세션 정보
 - 원본 SQL, 바인딩 파라미터와 정제되지 않은 예외 메시지
 
-`sourceEventId`를 로그와 운영 명령의 이벤트 상관 키로 사용한다. 실제 변경 명령은 앞뒤 공백을 제거한 자유 서술 `reason`을 `lastReprocessReason` 또는 `discardReason`에만 저장하고, preview는 저장하지 않는다. `reason`은 구조화 로그, 표준 출력·오류와 예외 메시지에 포함하지 않는다. 로그에는 검증을 통과한 `reasonReference`를 그대로 남기고 `action`을 비민감 분류로 사용한다. `reasonReference`는 전체 값이 `(?:INC-[0-9]{4}-[0-9]{1,10}|ISSUE-[1-9][0-9]{0,9})` 정규식과 일치해야 한다. 다른 형식은 마스킹하지 않고 인자 검증 실패로 거절한다. `reason`에는 개인정보나 비밀값을 넣지 않는다.
+개별 relay 로그의 `sourceEventId`와 운영 명령 로그의 `sourceEventIds`를 이벤트 상관 키로 사용한다. `sourceEventIds`는 중복 검증을 통과한 전체 입력 ID를 오름차순으로 정규화한 목록이다. preview와 뒤이은 completed 로그에는 각 명령의 전체 목록을 남기며, 실제 변경 전에는 두 목록이 일치하는지 확인한다. 실제 변경 명령은 앞뒤 공백을 제거한 자유 서술 `reason`을 `lastReprocessReason` 또는 `discardReason`에만 저장하고, preview는 저장하지 않는다. `reason`은 구조화 로그, 표준 출력·오류와 예외 메시지에 포함하지 않는다. 로그에는 검증을 통과한 `reasonReference`를 그대로 남기고 `action`을 비민감 분류로 사용한다. `reasonReference`는 전체 값이 `(?:INC-[0-9]{4}-[0-9]{1,10}|ISSUE-[1-9][0-9]{0,9})` 정규식과 일치해야 한다. 다른 형식은 마스킹하지 않고 인자 검증 실패로 거절한다. `reason`에는 개인정보나 비밀값을 넣지 않는다.
 
 ## 지연·적체 트러블슈팅
 
@@ -290,10 +290,10 @@ java -jar $notificationArtifact `
 운영 가능 판정에는 다음 근거가 모두 필요하다.
 
 1. [P1 알림 명세의 검증 증거 매핑](../p1/notification.md#검증-증거-매핑)에 연결된 단위·MVC·PostgreSQL 테스트가 통과한다.
-2. `notification-ops`의 inspect·dry-run·재처리·폐기 확인·일괄 원자성·종료 코드, `reasonReference` 형식 거절과 `NOTIFICATION_EXPIRED` 재처리 거절 테스트가 통과한다.
+2. `notification-ops`의 inspect·dry-run·재처리·폐기 확인·일괄 원자성·종료 코드, `sourceEventIds` 오름차순 정규화와 preview·completed 대상 목록 일치, `reasonReference` 형식 거절과 `NOTIFICATION_EXPIRED` 재처리 거절 테스트가 통과한다.
 3. PostgreSQL에서 다중 worker `SKIP LOCKED`, poison event 격리, cleanup 다중 인스턴스 선점과 서로 겹치는 역순 복구 ID 변경 명령이 교착 없이 한 명령의 성공 또는 계약된 전체 부적격 결과로 끝나는지 검증한다.
 4. 고정된 commit·환경에서 `DELIVERY_MIN_SAMPLE_COUNT` 이상 전달 지연 표본을 만들고 산식과 환경을 기록한다.
-5. 로그와 표준 출력·오류에 자유 서술 `reason`, 수신자·payload·SQL·인증 정보가 없음을 자동 또는 캡처 기반으로 확인한다.
+5. 구조화 로그의 `sourceEventIds`가 실제 정규화 대상 목록과 일치하고, 로그와 표준 출력·오류에 자유 서술 `reason`, 수신자·payload·SQL·인증 정보가 없음을 자동 또는 캡처 기반으로 확인한다.
 6. 운영 배포에서 dry-run을 실행하고 실제 변경 없이 대상 판정과 종료 코드가 맞는지 확인한다.
 
 코드와 테스트가 있어도 4~6번이 없으면 운영 검증은 완료가 아니다.
@@ -310,7 +310,7 @@ polling / batch:
 p50 / p95 / 최대 지연:
 oldestProcessableAgeMs:
 성공 / 재시도 / FAILED:
-대상 sourceEventId:
+대상 sourceEventIds (오름차순):
 실행 action / dry-run:
 reasonReference / 실행자:
 종료 코드 / 변경 건수:
