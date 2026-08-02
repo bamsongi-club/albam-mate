@@ -60,7 +60,8 @@ class SchemaValidationPostgresTest {
 		"participations",
 		"notification_outbox_events",
 		"notification_outbox_recipients",
-		"notifications");
+		"notifications",
+		"chat_rooms");
 
 	@Container
 	@ServiceConnection
@@ -98,7 +99,7 @@ class SchemaValidationPostgresTest {
 				(resultSet, rowNumber) -> resultSet.getString("version"))
 			.stream()
 			.collect(java.util.stream.Collectors.toSet());
-		assertTrue(appliedVersions.containsAll(Set.of("1", "2", "3", "4", "5")));
+		assertTrue(appliedVersions.containsAll(Set.of("1", "2", "3", "4", "5", "6", "7")));
 
 		Set<String> actualTables = jdbcTemplate
 			.query(

@@ -49,20 +49,25 @@ class ModuleArchitectureTest {
 		ROOT_PACKAGE + ".notification.relay",
 		ROOT_PACKAGE + ".notification.recovery",
 		ROOT_PACKAGE + ".notification.cleanup");
+	private static final Set<String> ALLOWED_CHAT_PACKAGES = Set.of(
+		ROOT_PACKAGE + ".chat.entity",
+		ROOT_PACKAGE + ".chat.repository");
 	private static final String ROOM_RETRIER = ROOT_PACKAGE + ".room.service.RoomOptimisticLockRetrier";
 	private static final Set<String> ALLOWED_ROOM_RETRIER_USERS = Set.of(
 		ROOT_PACKAGE + ".room.service.command.RoomCommandExecutionCoordinator",
 		ROOT_PACKAGE + ".room.statuscorrection.RoomStatusCorrectionCoordinator");
-	private static final List<String> BUSINESS_MODULES = List.of("auth", "user", "game", "room", "notification");
+	private static final List<String> BUSINESS_MODULES = List.of("auth", "user", "game", "room", "notification",
+		"chat");
 	private static final String[] BUSINESS_MODULE_PACKAGES = BUSINESS_MODULES.stream()
 		.map(ModuleArchitectureTest::modulePackage)
 		.toArray(String[]::new);
 	private static final Map<String, List<String>> FORBIDDEN_DEPENDENCIES = Map.of(
-		"auth", List.of("game", "room", "notification"),
-		"user", List.of("auth", "game", "room", "notification"),
-		"game", List.of("auth", "user", "room", "notification"),
-		"room", List.of("auth", "notification"),
-		"notification", List.of("auth", "user", "game"));
+		"auth", List.of("game", "room", "notification", "chat"),
+		"user", List.of("auth", "game", "room", "notification", "chat"),
+		"game", List.of("auth", "user", "room", "notification", "chat"),
+		"room", List.of("auth", "notification", "chat"),
+		"notification", List.of("auth", "user", "game", "chat"),
+		"chat", List.of("auth", "user", "game", "notification"));
 	private static final JavaClasses PRODUCTION_CLASSES = new ClassFileImporter()
 		.withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
 		.importPackages(ROOT_PACKAGE);
@@ -106,7 +111,7 @@ class ModuleArchitectureTest {
 					targetModules.stream()
 						.map(ModuleArchitectureTest::modulePackage)
 						.toArray(String[]::new))
-				.because("허용된 참조 방향은 auth에서 user, room에서 user와 game, notification에서 room뿐이다")
+				.because("허용된 참조 방향은 auth→user, room→user·game, notification→room, chat→room이다")
 				.allowEmptyShould(sourceModule.equals("notification"))
 				.check(PRODUCTION_CLASSES));
 	}
@@ -149,6 +154,16 @@ class ModuleArchitectureTest {
 			.should(resideInAllowedPackage(ALLOWED_NOTIFICATION_PACKAGES, "Notification"))
 			.because("Notification은 query, command, relay, recovery와 cleanup 경계를 사용한다")
 			.allowEmptyShould(true)
+			.check(PRODUCTION_CLASSES);
+	}
+
+	@Test
+	void Chat_코드는_정본에_선언한_패키지에만_배치한다() {
+		classes()
+			.that()
+			.resideInAPackage(ROOT_PACKAGE + ".chat..")
+			.should(resideInAllowedPackage(ALLOWED_CHAT_PACKAGES, "Chat"))
+			.because("CHAT-01은 entity와 repository만 소유하고 ROOM 내부 구현을 직접 참조하지 않는다")
 			.check(PRODUCTION_CLASSES);
 	}
 
