@@ -15,4 +15,11 @@ public class NotificationOutboxRecipient {
 
 	@EmbeddedId
 	private NotificationOutboxRecipientId id;
+
+	/** 원인 업무가 확정한 수신자 스냅샷 행을 만든다. */
+	public static NotificationOutboxRecipient create(Long outboxEventId, Long recipientUserId) {
+		NotificationOutboxRecipient recipient = new NotificationOutboxRecipient();
+		recipient.id = NotificationOutboxRecipientId.of(outboxEventId, recipientUserId);
+		return recipient;
+	}
 }

@@ -156,6 +156,37 @@ class NotificationSchemaPostgresTest {
 	}
 
 	@Test
+	void Outbox와_Notification의_필수_FK가_잘못된_식별자를_거절한다() {
+		Fixture fixture = createFixture();
+
+		assertSqlConstraintViolation(
+			"23503",
+			"fk_notification_outbox_events_room",
+			() -> insertOutbox(new Fixture(Long.MAX_VALUE, fixture.recipientUserId()), validOutboxValues(
+				new Fixture(Long.MAX_VALUE, fixture.recipientUserId()))));
+
+		long sourceEventId = insertOutbox(fixture, validOutboxValues(fixture));
+		assertSqlConstraintViolation(
+			"23503",
+			"fk_notifications_recipient_user",
+			() -> insertNotification(
+				new Fixture(fixture.roomId(), Long.MAX_VALUE),
+				sourceEventId,
+				"PARTICIPANT_JOINED",
+				"NULL",
+				OCCURRED_AT + " + INTERVAL '90 days'"));
+		assertSqlConstraintViolation(
+			"23503",
+			"fk_notifications_room",
+			() -> insertNotification(
+				new Fixture(Long.MAX_VALUE, fixture.recipientUserId()),
+				sourceEventId,
+				"PARTICIPANT_JOINED",
+				"NULL",
+				OCCURRED_AT + " + INTERVAL '90 days'"));
+	}
+
+	@Test
 	void Notification_유형_읽음_보존과_멱등성_CHECK가_위반을_거절한다() {
 		Fixture fixture = createFixture();
 		long sourceEventId = insertOutbox(fixture, validOutboxValues(fixture));

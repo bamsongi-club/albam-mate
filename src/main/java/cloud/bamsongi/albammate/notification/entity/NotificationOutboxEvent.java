@@ -1,6 +1,8 @@
 package cloud.bamsongi.albammate.notification.entity;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.util.Objects;
 
 import cloud.bamsongi.albammate.notification.enums.NotificationOutboxEventType;
 import cloud.bamsongi.albammate.notification.enums.NotificationOutboxStatus;
@@ -21,6 +23,8 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "notification_outbox_events")
 public class NotificationOutboxEvent {
+
+	private static final Duration PROCESSED_OUTBOX_RETENTION = Duration.ofDays(30);
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -85,4 +89,31 @@ public class NotificationOutboxEvent {
 
 	@Column(name = "cleanup_at")
 	private Instant cleanupAt;
+
+	/** 원인 업무와 같은 트랜잭션에서 최초 relay 대기 이벤트를 만든다. */
+	public static NotificationOutboxEvent createPending(
+		NotificationOutboxEventType eventType, Long roomId, Instant occurredAt, Instant recordedAt) {
+		NotificationOutboxEvent event = new NotificationOutboxEvent();
+		event.eventType = Objects.requireNonNull(eventType, "eventType");
+		event.roomId = Objects.requireNonNull(roomId, "roomId");
+		event.occurredAt = Objects.requireNonNull(occurredAt, "occurredAt");
+		event.recordedAt = Objects.requireNonNull(recordedAt, "recordedAt");
+		event.status = NotificationOutboxStatus.PENDING;
+		event.availableAt = recordedAt;
+		event.failureCount = 0;
+		event.totalFailureCount = 0;
+		event.reprocessCount = 0;
+		return event;
+	}
+
+	/** 수신자별 Notification 저장과 같은 relay 트랜잭션에서 처리 완료로 전이한다. */
+	public void markProcessed(Instant processedAt) {
+		if (status != NotificationOutboxStatus.PENDING && status != NotificationOutboxStatus.RETRY_WAIT) {
+			throw new IllegalStateException("only pending or retry-wait events can be processed");
+		}
+		this.processedAt = Objects.requireNonNull(processedAt, "processedAt");
+		status = NotificationOutboxStatus.PROCESSED;
+		availableAt = null;
+		cleanupAt = processedAt.plus(PROCESSED_OUTBOX_RETENTION);
+	}
 }

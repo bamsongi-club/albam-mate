@@ -1,6 +1,8 @@
 package cloud.bamsongi.albammate.notification.entity;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.util.Objects;
 
 import cloud.bamsongi.albammate.notification.enums.NotificationType;
 import jakarta.persistence.Column;
@@ -20,6 +22,8 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "notifications")
 public class Notification {
+
+	private static final Duration NOTIFICATION_RETENTION = Duration.ofDays(90);
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -50,4 +54,24 @@ public class Notification {
 
 	@Column(name = "expires_at", nullable = false)
 	private Instant expiresAt;
+
+	/** relay가 수신자에게 아직 읽지 않은 Notification을 저장할 때 사용한다. */
+	public static Notification createUnread(
+		Long sourceEventId,
+		Long recipientUserId,
+		Long roomId,
+		NotificationType type,
+		Instant createdAt,
+		Instant recordedAt) {
+		Notification notification = new Notification();
+		notification.sourceEventId = Objects.requireNonNull(sourceEventId, "sourceEventId");
+		notification.recipientUserId = Objects.requireNonNull(recipientUserId, "recipientUserId");
+		notification.roomId = Objects.requireNonNull(roomId, "roomId");
+		notification.type = Objects.requireNonNull(type, "type");
+		notification.readAt = null;
+		notification.createdAt = Objects.requireNonNull(createdAt, "createdAt");
+		notification.recordedAt = Objects.requireNonNull(recordedAt, "recordedAt");
+		notification.expiresAt = createdAt.plus(NOTIFICATION_RETENTION);
+		return notification;
+	}
 }
