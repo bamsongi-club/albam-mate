@@ -212,7 +212,7 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 
 ### CHAT_ROOMS
 
-P1 구현 예정 테이블이다. 채팅 API를 활성화하기 전에 전진 Flyway 마이그레이션이 모든 기존 `ROOMS`에 `CHAT_ROOMS`를 하나씩 backfill한다. 초기화와 ROOM 생성·상태 전환이 경쟁하더라도 완료 시점에는 모든 `ROOMS`에 채팅방이 정확히 하나 있고, 각 backfill 행의 보관 값은 일관된 초기화 경계에서 판정한 ROOM 상태와 맞아야 한다. 구체적인 직렬화·최종 보정 방식과 배포 절체 순서는 후속 구현에서 확정하며, 이 ERD는 서비스 중단이나 특정 PostgreSQL 잠금 모드를 요구하지 않는다.
+P1 채팅방을 저장하는 구현된 테이블이다. 최초 채팅 활성화는 ROOM 관련 진행 중인 쓰기를 drain하고 새 쓰기와 자동 상태 보정을 중지한 뒤, mixed-version rolling 없이 전진 Flyway 마이그레이션을 실행한다. backfill은 Flyway 트랜잭션의 PostgreSQL `CURRENT_TIMESTAMP`를 하나의 초기화 경계로 사용해 아직 채팅방이 없는 모든 기존 `ROOMS`에 `CHAT_ROOMS`를 하나씩 삽입한다. 같은 INSERT를 재실행해도 이미 생성된 행과 보관 값은 변경하지 않는다. 마이그레이션 뒤 1:1·중복 부재·상태별 보관 값 검증과 전 인스턴스 신버전 배치를 마친 뒤에만 ROOM 쓰기와 채팅 API를 활성화한다. 검증 실패나 구버전 롤백 중에는 ROOM 쓰기를 재개하지 않고, 신버전으로 다시 절체해 같은 검증을 통과한 뒤에만 재개한다. 실제 운영 쓰기 중지와 절체에는 사용자·OPS 승인이 필요하다.
 
 활성화 뒤 새 방은 방 생성 트랜잭션에서 `ROOMS`와 `CHAT_ROOMS`를 함께 생성한다. 채팅 회원을 별도로 저장하지 않고, 접근 권한은 `ROOMS.host_user_id`와 현재 `ACTIVE PARTICIPATIONS`를 매 요청에서 계산한다.
 
@@ -430,7 +430,7 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 
 ### 채팅·스케줄 제약과 인덱스
 
-- `CHAT_ROOMS` 생성 마이그레이션은 채팅 API 활성화 전에 모든 기존 `ROOMS`를 한 번 backfill한다. ROOM 생성·상태 전환과 경쟁해도 완료 시점의 1:1과 상태별 초기화가 깨지지 않아야 하며, 구체적인 동시성 제어·최종 보정과 배포 절체 방식은 후속 구현·OPS 결정으로 남긴다. 기존 최종 상태 방은 빈 보관 완료 시각을 기록하고 메시지 이력을 만들지 않는다.
+- `CHAT_ROOMS` 생성 마이그레이션은 최초 채팅 활성화의 ROOM 쓰기 중지 구간에 아직 채팅방이 없는 모든 기존 `ROOMS`를 backfill한다. PostgreSQL `CURRENT_TIMESTAMP` 하나를 초기화 경계로 사용하며, 재실행은 기존 행을 변경하지 않는다. 1:1·중복 부재·상태별 보관 값 검증과 전 인스턴스 신버전 배치가 끝나기 전이나 검증 실패·구버전 롤백 중에는 ROOM 쓰기와 채팅 API를 활성화하지 않는다. 신버전 재절체 뒤 같은 검증을 통과해야 ROOM 쓰기를 재개한다. 기존 최종 상태 방은 빈 보관 완료 시각을 기록하고 메시지 이력을 만들지 않는다.
 - 방 생성과 `CHAT_ROOMS` 생성은 하나의 트랜잭션에서 성공하거나 함께 롤백한다.
 - `CHAT_MESSAGES(chat_room_id, id DESC)` 인덱스로 최신 이력과 `beforeMessageId` 커서 조회를 지원한다.
 - `CHAT_ROOMS(purge_after)` 조건부 인덱스로 삭제 기준 시각이 지났고 아직 `messages_purged_at`이 없는 채팅방을 선별한다.
