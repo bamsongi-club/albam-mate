@@ -6,7 +6,7 @@
 
 - 재사용 fixture는 해당 source set의 `java/.../<domain>/fixture`, 전용 fixture는 해당 테스트 가까이에 두며 `src/main`에는 두지 않는다.
 - 현재 시각에 의존하는 테스트는 `Clock.fixed(...)`를 사용하고 fixture의 시각도 고정값으로 둔다.
-- 생산 코드 패키지를 이동·추가하거나 커버리지 최소선을 조정하면 [분기 커버리지 확인](../../docs/COMMANDS.md#분기-커버리지-확인)의 실측 절차를 따른다.
+- 생산 코드 패키지를 이동·추가하거나 커버리지 최소선을 조정하면 [결과 해석과 최소선 갱신](../../docs/guides/TESTING.md#결과-해석과-최소선-갱신) 절차를 따른다.
 - 새 업무 모듈을 추가하면 `ModuleArchitectureTest`의 모듈 목록과 허용 의존 방향을 함께 갱신한다.
 
 ## source set 배치
