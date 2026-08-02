@@ -1,4 +1,4 @@
-# 알밤메이트 P0 ERD
+# 알밤메이트 ERD
 
 이 문서는 P0 1차 MVP의 데이터 모델과 데이터 제약을 정의한다.
 
@@ -95,6 +95,11 @@ erDiagram
 | room_status | `RECRUITING`, `CLOSED`, `CANCELED`, `FINISHED` | 모집 중, 모집 종료, 취소, 종료 |
 | participation_status | `ACTIVE`, `CANCELED` | 활성 참가, 참가 취소 |
 | experience_level | `ALL_LEVELS`, `BEGINNER_WELCOME`, `EXPERIENCED_PREFERRED` | 방이 권장하는 경험 수준 |
+| notification_outbox_event_type | `PARTICIPATION_JOINED`, `PARTICIPATION_CANCELED`, `ROOM_CANCELED` | 참가·재참가 성공, 참가 취소 성공, 방 취소 성공이라는 모듈 간 원인 사실 |
+| notification_outbox_status | `PENDING`, `RETRY_WAIT`, `PROCESSED`, `FAILED`, `DISCARDED` | 최초 대기, 자동·수동 재처리 대기, 처리 완료, 운영 조치 대기 실패, 운영 폐기 |
+| notification_type | `PARTICIPANT_JOINED`, `PARTICIPANT_CANCELED`, `ROOM_CANCELED` | 사용자에게 표시하는 새 참가자, 빈자리, 방 취소 알림 유형 |
+
+P1 알림의 제한 값은 PostgreSQL 네이티브 enum이 아니라 `VARCHAR`와 이름 있는 `CHECK` 제약으로 저장한다. 이는 기존 P0 Flyway 상태 컬럼의 물리 저장 방식과 같다.
 
 ## 테이블 명세
 
@@ -189,6 +194,146 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 | 방 상세의 참가자 목록 | 개설자 1명 + `ACTIVE PARTICIPATIONS` 사용자 목록 |
 
 예를 들어 생성 시 모집 정원을 4명으로 입력하고 네 명이 모두 참가했다면, 방 상세에는 정원 5명, 참가자 수 5명이 표시되며 참가자 목록에는 개설자와 참가자 네 명이 함께 보인다.
+
+## P1 알림 저장 계약
+
+> 이 절은 승인된 P1 목표 저장 계약이다. 현재 생산 스키마·코드·자동 검증·운영 상태는 [P1 기능 상태 정본의 `NOTI-01`~`NOTI-03`](p1/README.md#기능별-현재-상태)을 따른다.
+
+### 알림 관계도
+
+~~~mermaid
+erDiagram
+    ROOMS ||--o{ NOTIFICATION_OUTBOX_EVENTS : "알림 원인"
+    NOTIFICATION_OUTBOX_EVENTS ||--o{ NOTIFICATION_OUTBOX_RECIPIENTS : "수신자 스냅샷"
+    USERS ||--o{ NOTIFICATION_OUTBOX_RECIPIENTS : "수신 대상"
+    USERS ||--o{ NOTIFICATIONS : "수신"
+    ROOMS ||--o{ NOTIFICATIONS : "관련 모임"
+~~~
+
+`NOTIFICATIONS.source_event_id`는 Outbox의 식별자를 복사한 논리적 멱등성 키이며 FK가 아니다. 따라서 관계도에는 Outbox와 Notification 사이의 물리 관계선을 그리지 않는다. `(source_event_id, recipient_user_id)` 유일 제약은 아래 알림 관계 제약에서 정의한다.
+이 절은 알림 저장 필드·타입·제약·인덱스의 정본이다. 원인 업무와 Outbox 기록 경계는 [ADR-0029](adr/notification/0029-room-integration-event-transactional-outbox.md), relay·복구·정리는 [ADR-0040](adr/notification/0040-postgresql-notification-relay-recovery-retention.md), 표시 투영과 조회·읽음 시각은 [ADR-0039](adr/notification/0039-notification-presentation-and-bulk-read-snapshot.md)을 따른다.
+
+relay·재시도·보존·복구·cleanup 수치는 [알림 운영 파라미터 정본](guides/NOTIFICATION_OPERATIONS.md#현재-운영-파라미터-정본)이 소유한다. 아래의 대문자 파라미터 키는 현재 값을 마이그레이션에 대입하라는 뜻이며 SQL 식별자가 아니다. 값을 바꿀 때는 승인된 후속 ADR, 운영 정본, 전진 마이그레이션과 검증을 같은 변경에서 맞춘다.
+
+### Notification Outbox Events
+
+물리 테이블명은 `notification_outbox_events`다. 알림 원인 업무와 같은 트랜잭션에 저장하는 relay 작업이며, `id`가 Notification의 `sourceEventId`가 된다. 이벤트 payload를 범용 JSON으로 저장하지 않고 현재 승인된 방 변경 사실을 타입 컬럼으로 고정한다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | BIGINT | PK, NN, AI | 원인 이벤트 식별자이자 Notification의 논리적 `source_event_id` |
+| event_type | VARCHAR(30) | NN | `PARTICIPATION_JOINED`, `PARTICIPATION_CANCELED`, `ROOM_CANCELED` 중 하나 |
+| room_id | BIGINT | FK → ROOMS.id, NN, ON DELETE NO ACTION | 원인 방. 방 조회 권한을 뜻하지 않음 |
+| occurred_at | TIMESTAMPTZ | NN | Command Coordinator가 최초 시도 전에 고정하고 모든 낙관 락 재시도에 재사용한 업무 `requestTime` |
+| recorded_at | TIMESTAMPTZ | NN | 최종 성공 트랜잭션이 PostgreSQL `clock_timestamp()`를 한 번 평가해 고정한 Outbox 기록 `operationTime` |
+| status | VARCHAR(20) | NN, DEFAULT `PENDING` | relay 처리 상태 |
+| available_at | TIMESTAMPTZ | NULL | `PENDING`, `RETRY_WAIT` 상태의 다음 처리 가능 시각. 최초 저장은 `recorded_at`과 같음 |
+| failure_count | INT | NN, DEFAULT 0 | 현재 자동 처리 주기에 기록된 실패 횟수, `0..AUTO_PROCESS_MAX_ATTEMPTS` |
+| total_failure_count | INT | NN, DEFAULT 0 | 수동 재처리 전후를 합친 누적 기록 실패 횟수 |
+| last_failure_code | VARCHAR(50) | NULL | 마지막 구조화 실패 코드 |
+| last_failed_at | TIMESTAMPTZ | NULL | 마지막 실패 기록 트랜잭션의 PostgreSQL `operationTime` |
+| last_failure_class | VARCHAR(255) | NULL | 마지막 예외 분류. stack trace나 원본 SQL은 저장하지 않음 |
+| last_failure_message | VARCHAR(500) | NULL | 길이를 제한하고 민감정보를 제거한 마지막 오류 설명 |
+| reprocess_count | INT | NN, DEFAULT 0 | 운영자가 시작한 새 자동 처리 주기 수 |
+| last_reprocessed_at | TIMESTAMPTZ | NULL | 마지막 수동 재처리 트랜잭션의 PostgreSQL `operationTime` |
+| last_reprocess_reason | VARCHAR(500) | NULL | 비어 있지 않은 마지막 수동 재처리 자유 서술 원문. 구조화 로그에 기록하지 않음 |
+| processed_at | TIMESTAMPTZ | NULL | 모든 수신자의 Notification 저장과 `PROCESSED` 전환에 사용한 relay `operationTime` |
+| discarded_at | TIMESTAMPTZ | NULL | 운영자가 재처리하지 않고 폐기한 PostgreSQL `operationTime` |
+| discard_reason | VARCHAR(500) | NULL | 비어 있지 않은 운영 폐기 자유 서술 원문. 구조화 로그에 기록하지 않음 |
+| cleanup_at | TIMESTAMPTZ | NULL | `PROCESSED` 또는 `DISCARDED` 최소 이벤트 기록을 물리 삭제할 시각 |
+
+### Notification Outbox Recipients
+
+물리 테이블명은 `notification_outbox_recipients`다. 원인 업무의 최종 성공 트랜잭션이 확정한 수신자 스냅샷이며, relay 시점의 방·참가 관계를 다시 조회해 대상을 바꾸지 않는다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| outbox_event_id | BIGINT | PK, FK → NOTIFICATION_OUTBOX_EVENTS.id, NN, ON DELETE CASCADE | 원인 이벤트 |
+| recipient_user_id | BIGINT | PK, FK → USERS.id, NN, ON DELETE NO ACTION | 확정 수신자. 사용자 삭제 시 자동 삭제하지 않음 |
+
+`(outbox_event_id, recipient_user_id)`가 복합 기본 키이므로 같은 이벤트에 같은 사용자를 두 번 넣을 수 없다. 방 취소는 커밋 시점의 `ACTIVE` 참가자, 참가·재참가와 참가 취소는 주최자 한 명을 저장한다. 수신자 수와 역할은 원인 업무가 같은 트랜잭션에서 검증하며 행 개수를 이용한 교차 행 CHECK는 두지 않는다. 수신자가 없는 방 취소는 Outbox 이벤트 자체를 만들지 않는다.
+
+### NOTIFICATIONS
+
+물리 테이블명은 `notifications`다. relay가 사용자별로 생성하는 앱 내 알림이며, `source_event_id`는 추적·멱등성용 논리 키다. 완료 Outbox 정리를 허용하기 위해 Outbox FK를 두지 않는다.
+
+표시 문구와 방 제목 스냅샷은 저장하지 않는다. 클라이언트는 API의 `type`으로 표시 문구를 렌더링하고, 목록 응답의 `roomTitle`은 조회 시점의 현재 `ROOMS.title`을 결합해 반환한다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | BIGINT | PK, NN, AI | 알림 식별자 |
+| source_event_id | BIGINT | NN | 원인 Outbox 식별자를 복사한 논리 키. FK 아님 |
+| recipient_user_id | BIGINT | FK → USERS.id, NN, ON DELETE NO ACTION | 알림 수신자. 사용자 삭제 시 자동 삭제하지 않음 |
+| room_id | BIGINT | FK → ROOMS.id, NN, ON DELETE NO ACTION | 관련 방. 알림만으로 방 조회 권한을 부여하지 않음 |
+| type | VARCHAR(30) | NN | `PARTICIPANT_JOINED`, `PARTICIPANT_CANCELED`, `ROOM_CANCELED` 중 하나 |
+| read_at | TIMESTAMPTZ | NULL | 단건·일괄 읽음 SQL 내부에서 PostgreSQL `clock_timestamp()`를 한 번 평가해 고정한 최초 `operationTime`. 미확인이면 NULL이며 다시 NULL로 되돌리지 않음 |
+| created_at | TIMESTAMPTZ | NN | Outbox의 `occurred_at`을 복사한 원인 업무 기준 시각. relay 저장 시각이 아님 |
+| recorded_at | TIMESTAMPTZ | NN | relay 처리 트랜잭션이 PostgreSQL `clock_timestamp()`를 한 번 평가해 고정한 `operationTime`. 같은 원인 이벤트의 새 Notification이 같은 값을 사용함 |
+| expires_at | TIMESTAMPTZ | NN | 읽음 여부와 관계없이 사용자 조회에서 제외하고 물리 정리할 시각. `created_at + NOTIFICATION_RETENTION` |
+
+### 알림 관계 제약
+
+| 테이블 | 제약 | 의미 |
+|---|---|---|
+| NOTIFICATION_OUTBOX_EVENTS | FK (room_id) → ROOMS(id) ON DELETE NO ACTION | 원인 방이 있는 동안 이벤트를 보존하며 방 삭제로 전달 근거를 자동 제거하지 않는다. |
+| NOTIFICATION_OUTBOX_RECIPIENTS | PRIMARY KEY (outbox_event_id, recipient_user_id) | 같은 이벤트의 수신자는 한 번만 저장한다. |
+| NOTIFICATION_OUTBOX_RECIPIENTS | FK (outbox_event_id) → NOTIFICATION_OUTBOX_EVENTS(id) ON DELETE CASCADE | 완료·폐기 Outbox를 정리할 때 남은 수신자 스냅샷도 함께 정리한다. |
+| NOTIFICATION_OUTBOX_RECIPIENTS | FK (recipient_user_id) → USERS(id) ON DELETE NO ACTION | 사용자 삭제로 아직 처리하지 않은 수신자 스냅샷을 자동 제거하지 않는다. |
+| NOTIFICATIONS | UNIQUE (source_event_id, recipient_user_id) | at-least-once relay의 같은 이벤트·수신자 알림을 한 건으로 수렴시킨다. |
+| NOTIFICATIONS | FK (recipient_user_id) → USERS(id), FK (room_id) → ROOMS(id), 모두 ON DELETE NO ACTION | 사용자·방 삭제가 알림을 암묵적으로 연쇄 삭제하지 않게 한다. `source_event_id`에는 FK를 두지 않는다. |
+
+### P1 알림 CHECK 제약
+
+물리 마이그레이션은 아래 식과 동등한 이름 있는 PostgreSQL CHECK 제약을 둔다. `<PARAMETER_KEY>` 표기는 [운영 파라미터 정본](guides/NOTIFICATION_OPERATIONS.md#현재-운영-파라미터-정본)의 현재 값을 Flyway SQL 식에 펼치는 자리표시자다.
+
+| 테이블 | CHECK | 의미 |
+|---|---|---|
+| NOTIFICATION_OUTBOX_EVENTS | `event_type IN ('PARTICIPATION_JOINED', 'PARTICIPATION_CANCELED', 'ROOM_CANCELED')` | 승인되지 않은 범용 이벤트를 저장하지 않는다. |
+| NOTIFICATION_OUTBOX_EVENTS | `status IN ('PENDING', 'RETRY_WAIT', 'PROCESSED', 'FAILED', 'DISCARDED')` | 영속 `PROCESSING` 상태나 lease 상태를 추가하지 않는다. |
+| NOTIFICATION_OUTBOX_EVENTS | `failure_count BETWEEN 0 AND <AUTO_PROCESS_MAX_ATTEMPTS> AND total_failure_count >= failure_count AND reprocess_count >= 0` | 현재 주기 상한과 누적 횟수의 역전을 막는다. |
+| NOTIFICATION_OUTBOX_EVENTS | `status IN ('PENDING', 'RETRY_WAIT')`와 `available_at IS NOT NULL`이 서로 동치 | 두 처리 가능 상태만 relay 선점 대상이다. |
+| NOTIFICATION_OUTBOX_EVENTS | `total_failure_count = 0`이면 마지막 실패 4개 컬럼이 모두 NULL이고, 양수면 모두 NN·문자열 비공백 | 실패 코드·시각·분류·정제 설명을 한 묶음으로 보존한다. |
+| NOTIFICATION_OUTBOX_EVENTS | `reprocess_count = 0`이면 마지막 재처리 시각·사유가 모두 NULL이고, 양수면 모두 NN·사유 비공백 | 재처리 요약 컬럼의 부분 기록을 막는다. |
+| NOTIFICATION_OUTBOX_EVENTS | `PENDING`이면 `available_at = recorded_at`이고 실패·재처리 횟수가 모두 0이며, `FAILED` 또는 `DISCARDED`이면 `total_failure_count > 0` | 최초 상태와 운영 종결 상태의 최소 근거를 고정한다. |
+| NOTIFICATION_OUTBOX_EVENTS | `RETRY_WAIT`이면 `failure_count > 0 OR reprocess_count > 0` | 자동 실패나 수동 재처리 근거가 없는 재시도 대기를 금지한다. |
+| NOTIFICATION_OUTBOX_EVENTS | `PROCESSED`이면 `processed_at`·`cleanup_at` NN, 폐기 컬럼 NULL, `cleanup_at = processed_at + <PROCESSED_OUTBOX_RETENTION>` | 처리 완료와 정리 시점을 함께 고정한다. |
+| NOTIFICATION_OUTBOX_EVENTS | `DISCARDED`이면 `discarded_at`·비공백 사유·`cleanup_at` NN, `processed_at` NULL, `cleanup_at = discarded_at + <DISCARDED_OUTBOX_RETENTION>` | 운영 폐기와 최소 기록 보존을 함께 고정한다. |
+| NOTIFICATION_OUTBOX_EVENTS | `PENDING`, `RETRY_WAIT`, `FAILED`이면 `processed_at`, 폐기 컬럼, `cleanup_at`이 모두 NULL | 완료·폐기 전 정리 시각 생성을 금지한다. |
+| NOTIFICATIONS | `type IN ('PARTICIPANT_JOINED', 'PARTICIPANT_CANCELED', 'ROOM_CANCELED')` | API의 NotificationType과 저장값을 일치시킨다. |
+| NOTIFICATIONS | `read_at IS NULL OR read_at >= recorded_at` | 같은 PostgreSQL 시계에서 Notification 기록보다 앞선 읽음 시각을 금지한다. |
+| NOTIFICATIONS | `expires_at = created_at + <NOTIFICATION_RETENTION>` | 읽음 여부와 무관한 보존 기간을 적용한다. |
+
+Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `Clock`이 만든 업무 시각이고, Outbox·Notification의 `recorded_at`과 Notification의 `read_at`은 PostgreSQL 작업 시각이다. 두 시계 도메인 사이에는 상대 순서를 보장하지 않으므로 `recorded_at >= occurred_at`이나 `recorded_at >= created_at` CHECK를 두지 않는다. 문자열 CHECK는 값이 있을 때 `btrim(value) <> ''`도 검사한다.
+
+### P1 알림 인덱스
+
+| 인덱스 | 정의 | 대표 쿼리 |
+|---|---|---|
+| `idx_notification_outbox_events_relay` | `(available_at, id) WHERE status IN ('PENDING', 'RETRY_WAIT')` | 처리 가능한 두 상태를 합쳐 가장 이른 이벤트부터 `FOR UPDATE SKIP LOCKED`로 선점 |
+| `idx_notification_outbox_events_failed` | `(id) WHERE status = 'FAILED'` | `OPS_MAX_EVENT_IDS` 이하 실패 이벤트의 운영 명령 조회 |
+| `idx_notification_outbox_events_cleanup` | `(cleanup_at, id) WHERE cleanup_at IS NOT NULL` | `PROCESSED`, `DISCARDED` 최소 기록의 기한 기반 정리 |
+| `idx_notifications_recipient_created` | `(recipient_user_id, created_at DESC, id DESC)` | 사용자별 목록의 고정 정렬과 페이지 조회 |
+| `idx_notifications_recipient_unread` | `(recipient_user_id, id) WHERE read_at IS NULL` | 사용자별 미확인 개수와 경계 이내 일괄 읽음 |
+| `idx_notifications_expiry` | `(expires_at, id)` | `NOTIFICATION_RETENTION`이 지난 Notification의 제한된 묶음 정리 |
+
+`UNIQUE (source_event_id, recipient_user_id)`와 수신자 복합 기본 키가 만드는 인덱스는 별도로 중복 생성하지 않는다. relay 인덱스는 `status`를 선두 키로 두지 않고 partial predicate로 고정해 두 처리 가능 상태 전체에서 `(available_at, id)` 순서를 바로 사용한다.
+
+### P1 알림 처리·보존 규칙
+
+이 절은 상태 전이와 저장 효과만 설명한다. 파라미터 키의 현재 값은 [알림 운영 파라미터 정본](guides/NOTIFICATION_OPERATIONS.md#현재-운영-파라미터-정본)에서만 확인한다.
+
+- 최종 성공한 원인 업무는 이벤트와 한 명 이상의 수신자 스냅샷을 같은 트랜잭션으로 저장한다. 업무 변경이나 Outbox 기록이 롤백되면 둘 다 남지 않는다.
+- 원인 Command Coordinator가 최초 시도 전에 고정한 `requestTime`을 이벤트의 `occurred_at`으로 전달한다. 낙관 락 재시도마다 새 시각을 만들지 않으며, relay는 이 값을 Notification의 `created_at`으로 복사한다.
+- 원인 업무의 최종 성공 트랜잭션은 PostgreSQL `clock_timestamp()`를 한 번 평가한 `operationTime`을 Outbox의 `recorded_at`과 최초 `available_at`에 함께 사용한다.
+- relay는 `available_at <= operationTime`인 가장 이른 이벤트를 `FOR UPDATE SKIP LOCKED`로 선점한다. 수신자별 Notification을 멱등 저장하고 이벤트를 `PROCESSED`로 바꾸는 작업은 한 트랜잭션에서 함께 커밋하거나 함께 롤백한다.
+- 자동 처리 상한 전 실패는 `AUTO_RETRY_DELAYS`에 따라 `RETRY_WAIT`과 새 `available_at`을 기록한다. `AUTO_PROCESS_MAX_ATTEMPTS`에 도달하거나 결정적 오류이면 `FAILED`와 `available_at = NULL`로 격리한다.
+- 수동 재처리는 `FAILED`이면서 PostgreSQL `operationTime`이 `occurred_at + FAILED_REPROCESS_WINDOW`보다 앞선 이벤트만 허용한다. `failure_count`를 0으로 초기화하고 `reprocess_count`와 마지막 재처리 시각·사유를 갱신해 `RETRY_WAIT`로 전환하되, `total_failure_count`와 마지막 실패 정보는 보존한다.
+- 재처리 가능 기간이 지난 `FAILED` 이벤트는 자동 삭제하거나 뒤늦은 Notification을 만들지 않고 `DISCARDED`로만 종결한다. 폐기 트랜잭션은 수신자 스냅샷을 즉시 삭제하고 폐기 사유·시각과 `cleanup_at`을 기록한다.
+- `PROCESSED` 이벤트와 남은 수신자 행은 `PROCESSED_OUTBOX_RETENTION`, `DISCARDED` 최소 이벤트 행은 `DISCARDED_OUTBOX_RETENTION` 동안 보존한 뒤 삭제한다. `PENDING`, `RETRY_WAIT`, `FAILED`는 자동 삭제하지 않는다.
+- Notification은 `created_at + NOTIFICATION_RETENTION` 전까지만 사용자에게 보인다. 목록·페이지 count와 미확인 개수는 각 읽기 트랜잭션의 PostgreSQL `transaction_timestamp()`, 단건·일괄 읽음은 SQL이 고정한 PostgreSQL `operationTime`에 `expires_at`이 뒤인 행만 대상으로 한다.
+- 만료 Notification은 물리 정리 전에도 목록·미확인 개수·읽음 처리에서 존재하지 않는 알림처럼 취급한다. 정리 작업은 `expires_at` 인덱스 순서의 제한된 묶음으로 삭제하며 읽음 여부는 보존 기간을 바꾸지 않는다.
+- 사용자·방 삭제 기능은 P1 알림 범위에 없으므로 관련 FK는 `ON DELETE NO ACTION`으로 둔다. 향후 계정 삭제나 방 물리 삭제를 도입할 때 알림 익명화·삭제 순서를 별도로 결정한다.
+- 별도 복구 이력 테이블은 두지 않는다. 현재·누적 실패 횟수, 재처리 횟수와 마지막 실패·재처리·폐기 근거만 Outbox에 보존하며 강한 감사 이력이 필요해지면 후속 저장 계약으로 확장한다.
 
 ## 필수 제약과 계산 규칙
 

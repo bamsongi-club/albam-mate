@@ -1,11 +1,11 @@
 # ADR-0030: PostgreSQL polling relay의 처리와 복구 정책을 확정
 
-- 상태: 승인됨
+- 상태: 대체됨
 - 작성일: 2026-07-31
 - 결정일: 2026-07-31
 - 관련: [P1 알림 구현 명세](../../p1/notification.md#noti-01-모임-변경-알림-생성), [P1 알림 생성과 조회](../../P1-spec.md#알림-생성과-조회), [ERD](../../ERD.md), [ADR-0002](../platform/0002-postgresql-primary-database.md), [ADR-0009](../platform/0009-utc-time-standard.md), [ADR-0029](0029-room-integration-event-transactional-outbox.md)
 - 대체 대상: 없음
-- 후속 ADR: 없음
+- 후속 ADR: [ADR-0040](0040-postgresql-notification-relay-recovery-retention.md)
 
 ## 맥락
 
