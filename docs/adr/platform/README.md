@@ -19,3 +19,4 @@
 | [0022](0022-p0-update-api-http-method-and-finish-idempotency.md) | P0 수정 API에 PATCH를 유지하고 방 종료 명령을 멱등 처리 | 승인됨 | 2026-07-28 | 검증됨 |
 | [0023](0023-p0-flyway-baseline-reset-player-count-stages.md) | P0 Flyway 기준선을 재생성하고 인원 의미를 단계별 컬럼으로 분리 | 승인됨 | 2026-07-28 | 검증됨 |
 | [0024](0024-naver-java-format-and-project-checkstyle.md) | 네이버 Java 포맷과 프로젝트 Checkstyle로 컨벤션을 자동화 | 승인됨 | 2026-07-31 | 검증됨 |
+| [0038](0038-multi-instance-session-and-scheduler-coordination.md) | 다중 인스턴스의 공용 세션과 스케줄 실행을 공유 인프라로 조정 | 승인됨 | 2026-08-01 | 미검증 |

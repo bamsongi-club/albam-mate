@@ -11,7 +11,7 @@
 - 구조와 구현 규칙: [아키텍처](../ARCHITECTURE.md), [컨벤션](../CONVENTIONS.md)
 - 기술 결정: 각 항목이 연결한 ADR
 
-P1 저장 구조는 아직 ERD에 반영되지 않았다. ERD 변경은 기능별 구현 작업에서 확정하되, 반영 전에는 이 문서의 저장 개념을 현재 제공 계약이나 구현 완료로 보지 않는다.
+ERD에는 승인된 P1 채팅·ShedLock 저장 계약이 구현 예정 계약으로 반영되어 있다. 그 밖의 P1 저장 변경은 기능별 구현 작업에서 ERD와 전진 마이그레이션을 함께 갱신하며, 문서 반영만으로 구현 완료로 보지 않는다.
 
 완료 기준 ID 규칙은 [P1 명세](../P1-spec.md#완료-기준-id)를 따른다. 기반 작업은 제품 기능을 직접 추가하지 않으므로 완료 기준은 산출물과 재현 가능한 검증 근거로 적는다.
 
@@ -23,7 +23,7 @@ P1 저장 구조는 아직 ERD에 반영되지 않았다. ERD 변경은 기능�
 | [FND-10](#fnd-10-실시간-전달과-재연결-기반) | 실시간 전달과 재연결 기반 | 채팅 ADR 승인, API·ERD·아키텍처 계약 반영 | `CHAT-03`, 채팅 연결 보안·누락 복구 검증 |
 
 - `FND-09`는 검색 결과의 정확성을 바꾸지 않고 대표 조회의 실행 계획과 비용을 측정한다. 검색 기능 구현과 함께 착수할 수 있지만 인덱스 결론은 측정 뒤 확정한다.
-- `FND-10`은 [ADR-0031](../adr/chat/0031-chat-history-cursor-pagination.md)부터 [ADR-0033](../adr/chat/0033-postgresql-source-after-commit-delivery.md)까지 승인되고 저장·모듈 경계가 정본에 반영된 뒤 구현한다.
+- `FND-10`은 [ADR-0031](../adr/chat/0031-chat-history-cursor-pagination.md)부터 [ADR-0033](../adr/chat/0033-postgresql-source-after-commit-delivery.md)까지와 공통 실행 기반 [ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)이 승인되고 저장·모듈 경계가 정본에 반영된 뒤 구현한다.
 - 두 항목의 PostgreSQL 전용 검증은 H2 테스트만으로 완료했다고 보지 않는다.
 
 ## FND-09 검색 성능과 인덱스 검증
@@ -74,16 +74,20 @@ P1 저장 구조는 아직 ERD에 반영되지 않았다. ERD 변경은 기능�
 | 기능 규칙 | [CHAT-03 실시간 전달·재연결 복구](chatting.md#chat-03-실시간-전달재연결-복구) |
 | API 계약 | [채팅 공통 계약](../API.md#채팅-공통-계약), [실시간 메시지 구독](../API.md#chat-03-실시간-메시지-구독) |
 | 인증·인가 | [ADR-0003](../adr/auth/0003-p0-server-session-spring-security.md), [ADR-0020](../adr/auth/0020-api-endpoint-authorization-policy-registry.md) |
-| 제안 ADR | [ADR-0031](../adr/chat/0031-chat-history-cursor-pagination.md), [ADR-0032](../adr/chat/0032-http-send-websocket-receive.md), [ADR-0033](../adr/chat/0033-postgresql-source-after-commit-delivery.md) |
-| 저장·구조 계약 | [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md) — 구현 전에 채팅 저장과 모듈 의존 경계 반영 필요 |
+| ADR | [ADR-0031](../adr/chat/0031-chat-history-cursor-pagination.md) — 제안됨, [ADR-0032](../adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](../adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md) — 승인됨 |
+| 저장·구조 계약 | [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md) |
+| 필수 검증 환경 | 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL·Redis로 구성한 `local-multi` |
 
 ### 산출물
 
 - 기존 `JSESSIONID`와 허용 `Origin`을 검증하는 방별 WebSocket handshake 경계
+- [ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)에 따라 Spring Session Redis로 공유해 HTTP와 WebSocket이 서로 다른 인스턴스에 도달해도 유지되는 인증 경계
 - 현재 방 상태와 주최자·`ACTIVE` 참가 관계를 확인하는 `room` 공개 계약과 채팅 접근 검사
 - `afterMessageId` 이후 누락 이력을 ID 오름차순으로 전달하고 복구 중 새 이벤트를 버퍼링·중복 제거하는 재연결 흐름
-- PostgreSQL 메시지 커밋 뒤에만 실행되는 서버 발신 이벤트와 저장 실패·전달 실패의 분리
-- 관계·방 상태·세션 변경 뒤 기존 연결의 권한을 회수하는 경로
+- PostgreSQL 메시지 커밋 뒤 `eventType`·`roomId`·`messageId`만 Redis로 발행하고 각 인스턴스가 DB catch-up하는 fan-out 경로
+- Redis 신호 누락·중복·순서 역전과 AFTER_COMMIT 발행 실패를 다음 신호·이력 조회·재연결로 복구하는 경로
+- 세션·rate limit 실패의 `503 SERVICE_UNAVAILABLE`과 커밋 뒤 Pub/Sub 실패의 저장 성공을 구분하는 실패 경계
+- 관계·방 상태·세션 변경 뒤 기존 연결의 권한을 회수하는 경로. 신호·이벤트 유실과 무관하게 전달 직전 PostgreSQL 관계·상태와 공용 세션 유효성을 확인하고, 만료 또는 확인 실패 시 전달을 막고 연결을 종료한다
 - 메시지 본문·세션·내부 사용자 식별자를 포함하지 않는 연결 수, 저장 후 전달 지연, 실패와 복구 관측값
 
 ### 완료 기준
@@ -92,14 +96,17 @@ P1 저장 구조는 아직 ERD에 반영되지 않았다. ERD 변경은 기능�
 - `FND-10-AC2` 연결·복구·실시간 전환 시점마다 현재 방 상태와 주최자·`ACTIVE` 참가 관계를 서버에서 확인한다.
 - `FND-10-AC3` `afterMessageId` 이후의 커밋 메시지를 `messageId ASC`로 먼저 전달하고 복구 중 도착한 이벤트를 중복·누락 없이 실시간 흐름에 합친다.
 - `FND-10-AC4` 커밋된 메시지만 전달하며 실시간 전달 실패가 저장 성공을 롤백하거나 저장된 메시지를 삭제하지 않는다.
-- `FND-10-AC5` 참가 취소, 방 최종 상태 전환과 세션 만료 뒤 기존 연결이 새 메시지를 받지 않는다.
+- `FND-10-AC5` 참가 취소, 방 최종 상태 전환과 세션 만료 뒤 기존 연결이 새 메시지를 받지 않는다. 관계 변경 신호나 Spring Session 만료·삭제 이벤트가 유실된 상태를 재현해도 전달 직전 확인이 전달을 막고 연결을 종료한다.
 - `FND-10-AC6` 연결 수, 저장 후 전달 지연, 전달 실패와 재연결 복구 결과를 민감 정보 없이 관찰할 수 있다.
 - `FND-10-AC7` 승인된 채팅 ADR과 API·ERD·아키텍처 계약에 구현이 일치하고 단위·HTTP·PostgreSQL·실시간 통합 검증이 재현된다.
+- `FND-10-AC8` `local-multi`에서 HTTP 저장과 WebSocket 연결이 서로 다른 애플리케이션 인스턴스에 배정되어도 공용 세션, Redis 신호와 PostgreSQL catch-up으로 메시지를 수신·복구한다.
+- `FND-10-AC9` `local-multi`는 Redis 장애 시 인메모리로 자동 fallback하지 않으며 세션·rate limit 실패와 커밋 뒤 Pub/Sub 실패가 계약된 서로 다른 결과로 검증된다.
 
 ### 제외 범위
 
 - WebSocket을 통한 메시지 저장 명령과 양방향 애플리케이션 프로토콜
 - 알림의 실시간 도착 표시를 `FND-10` 완료의 선행 또는 필수 범위로 만드는 작업
-- 다중 애플리케이션 인스턴스 fan-out, Redis Pub/Sub과 외부 메시지 브로커
+- Redis Streams, Transactional Outbox, RabbitMQ·Kafka와 exactly-once 실시간 전달
 - 실시간 연결을 메시지 정본이나 영속 제품 상태로 저장하는 설계
 - 전역 메시지 순서와 exactly-once 전달 보장
+- 실제 AWS ALB·ASG scale-out·draining과 운영 Redis 제품·HA·TLS·접근 제어·비용 검증
