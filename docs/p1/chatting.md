@@ -2,7 +2,7 @@
 
 이 문서는 P1에서 기존 방의 주최자와 현재 `ACTIVE` 참가자가 모임을 조율하는 `CHAT-01`~`CHAT-05`의 구현 규칙과 완료 기준을 정의한다. 다섯 기능은 현재 미구현이다. 이 문서에서 **채팅 관계자**는 방의 주최자 또는 현재 `ACTIVE` 참가자를 뜻한다.
 
-채팅 접근·생명주기와 메시지 공통 규칙은 [P1 명세](../P1-spec.md#채팅-접근과-생명주기), 요청·응답·오류와 실시간 연결은 [API 명세](../API.md#채팅-공통-계약), 저장 계약은 [ERD](../ERD.md)를 따른다. 신규 API와 저장 개념은 구현 예정 계약이며, 실시간·보관 방식은 승인된 [채팅 ADR](../adr/chat/README.md), 공용 세션·스케줄 실행은 [ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), 모듈·인프라 경계는 [아키텍처](../ARCHITECTURE.md)를 따른다. 실시간 공통 기반은 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반)이 소유한다.
+채팅 접근·생명주기와 메시지 공통 규칙은 [P1 명세](../P1-spec.md#채팅-접근과-생명주기), 요청·응답·오류와 실시간 연결은 [API 명세](../API.md#채팅-공통-계약), 저장 계약은 [ERD](../ERD.md)를 따른다. 신규 API와 저장 개념은 구현 예정 계약이며, 실시간·보관 방식은 승인된 [ADR-0032](../adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](../adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0034](../adr/chat/0034-chat-message-retention-and-deletion.md), 공용 세션·스케줄 실행은 [ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), 모듈·인프라 경계는 [아키텍처](../ARCHITECTURE.md)를 따른다. 메시지 ID cursor의 [ADR-0031](../adr/chat/0031-chat-history-cursor-pagination.md)은 제안 상태이며 승인 전에는 관련 구현을 시작하지 않는다. 실시간 공통 기반은 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반)이 소유한다.
 
 본 명세는 기존 오프라인 방 흐름에 방별 그룹 채팅을 추가하며 새로운 온라인 방 유형이나 실시간 자동 매칭을 도입하지 않는다. 메시지의 정본은 실시간 연결이 아니라 PostgreSQL 이력이다.
 
@@ -35,12 +35,10 @@
   한 번 생성한다. 기존 `RECRUITING`·`CLOSED` 방은 보관 시각을 비워 두고, P1
   메시지가 존재할 수 없는 기존 `CANCELED`·`FINISHED` 방은 마이그레이션 기준
   시각에 빈 보관을 완료한 것으로 기록한다.
-- 최초 활성화는 혼합 버전 rolling 배포를 금지한다. 외부 트래픽을 차단하고 채팅
-  이전 버전의 ROOM 생성·상태 전환 실행 주체를 모두 중지한 뒤, 채팅 신규 버전의
-  첫 인스턴스를 트래픽에서 격리해 시작한다. 이 인스턴스의 Flyway 마이그레이션은
-  하나의 PostgreSQL 트랜잭션에서 `ROOMS` 쓰기 잠금·멱등 backfill·1:1 사후조건
-  확인을 마친다. 실패 시 전체를 롤백하고, 성공 시 채팅 신규 버전 인스턴스만 검증한
-  뒤 트래픽을 연결한다.
+- 초기화와 ROOM 생성·상태 전환이 경쟁해도 완료 시점에는 모든 방에 채팅방이 정확히
+  하나 있고 상태별 보관 값이 일관된 초기화 경계와 맞아야 한다. 구체적인 동시성 제어·
+  최종 보정과 배포 절체 방식은 후속 구현에서 확정한다. 서비스 중단이나 트래픽 차단이
+  필요하면 별도 OPS 승인을 받는다.
 - 방 생성이 성공한 트랜잭션에서 해당 방의 채팅방을 함께 생성한다.
 - 채팅방 생성 여부는 모집 인원과 참가자 수에 의존하지 않는다.
 - 채팅 접근 여부는 저장된 채팅 회원 목록이 아니라 현재 방 주최자·참가 관계를
@@ -65,10 +63,10 @@
   `NULL`이고 즉시 채팅 접근 계약을 따른다. 기존 `CANCELED`·`FINISHED` 방은
   메시지 이력 없이 같은 마이그레이션 기준 시각의 `purge_after`와
   `messages_purged_at`을 가지며 계속 접근이 거절된다.
-- `CHAT-01-AC8` PostgreSQL 통합 테스트에서 `ROOMS` 쓰기 잠금과 경쟁하는 방 생성·
-  상태 전환이 backfill 도중 커밋되지 않고, 멱등 마이그레이션을 반복해도 누락·중복
-  채팅방이 없다. 배포 리허설은 채팅 이전 버전의 모든 ROOM 쓰기 주체 중지, 실패 시
-  트래픽 차단 유지, 성공한 1:1 사후조건 뒤 신규 버전만 트래픽을 받는 절체를 검증한다.
+- `CHAT-01-AC8` PostgreSQL 통합 테스트에서 기존 방 backfill과 방 생성·상태 전환을
+  경쟁시켜도 완료 뒤 모든 방에 채팅방이 정확히 하나 있고, backfill 행의 보관 값이
+  선택한 초기화 경계의 ROOM 상태와 일치한다. 테스트는 후속 구현에서 선택한 동시성
+  제어·최종 보정 방식의 경합을 재현한다.
 
 ### 제외 범위
 
@@ -88,7 +86,7 @@
 | 공통 응답·오류 | [API 공통 계약](../API.md#1-공통-계약), [오류 코드](../API.md#10-오류-코드) |
 | 시간 기준 | [ADR-0009 UTC 저장과 서비스 시간대 변환](../adr/platform/0009-utc-time-standard.md) |
 | 검증 환경 | [ADR-0010 H2와 PostgreSQL 테스트 경계](../adr/platform/0010-h2-postgresql-test-boundary.md) |
-| 기술 결정 | [ADR-0031 메시지 ID 커서](../adr/chat/0031-chat-history-cursor-pagination.md), [ADR-0033 PostgreSQL 정본·커밋 후 전달](../adr/chat/0033-postgresql-source-after-commit-delivery.md) |
+| 기술 결정 | [ADR-0031 메시지 ID 커서](../adr/chat/0031-chat-history-cursor-pagination.md) — 제안됨·승인 전 구현 금지, [ADR-0033 PostgreSQL 정본·커밋 후 전달](../adr/chat/0033-postgresql-source-after-commit-delivery.md) — 승인됨 |
 
 ### 기능 규칙
 

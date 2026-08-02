@@ -222,7 +222,7 @@ Coordinator는 기준 시각을 고정하고 낙관 락 충돌만 재시도한�
 
 #### 채팅 흐름
 
-최초 채팅 활성화는 채팅 이전 버전과 신규 버전의 ROOM 쓰기 주체가 공존하는 rolling 배포로 진행하지 않는다. 먼저 외부 트래픽을 차단하고 채팅 이전 버전의 모든 ROOM 생성·상태 전환 실행 주체를 중지한다. 그 뒤 채팅 신규 버전의 첫 인스턴스를 트래픽에서 격리해 시작하고, 이 인스턴스의 전진 Flyway 마이그레이션이 하나의 PostgreSQL 트랜잭션에서 `ROOMS` 쓰기 잠금을 얻어 모든 기존 `ROOMS`에 `CHAT_ROOMS`를 하나씩 멱등 backfill한 다음 누락 행이 없다는 1:1 사후조건을 확인한다. 실패하면 전체 마이그레이션을 롤백하고 트래픽을 계속 차단하며, 성공 뒤에는 채팅 신규 버전 인스턴스만 시작·검증한 다음 트래픽을 연결한다.
+채팅 API를 활성화하기 전에 전진 Flyway 마이그레이션이 모든 기존 `ROOMS`에 `CHAT_ROOMS`를 하나씩 backfill한다. 초기화와 ROOM 생성·상태 전환이 경쟁하더라도 누락·중복 채팅방이나 일관된 초기화 경계와 다른 보관 상태가 남아서는 안 된다. 이를 보장할 동시성 제어·최종 보정과 배포 절체 순서는 `CHAT-01` 후속 구현에서 확정한다. 서비스 중단, 트래픽 차단이나 특정 rolling 배포 제약이 필요하면 구현 결정으로 간주하지 않고 별도 OPS 승인을 받는다.
 
 기존 `RECRUITING`·`CLOSED` 방은 보관 시각을 비워 두고, P1 메시지가 존재할 수 없는 기존 `CANCELED`·`FINISHED` 방은 마이그레이션 기준 시각에 빈 보관을 완료한 것으로 초기화한다. 메시지 이력은 만들지 않으며 과거 최종 상태 전환 시각을 `ROOMS.updated_at`에서 추정하지 않는다.
 
@@ -258,7 +258,7 @@ flowchart LR
 
 메시지 전송은 일반 `@Transactional` 하나에서 권한·상태, 멱등성 키와 저장을 처리한다. `REQUIRES_NEW`와 낙관 락 재시도를 사용하지 않는다. 잠금 순서는 `ROOMS` 다음 `CHAT_ROOMS`로 고정하고 메시지마다 `Room.version`을 올리지 않는다.
 
-실시간 전달은 [ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)에 따라 저장 커밋 뒤에만 수행하며 전달 실패가 저장을 롤백하지 않는다. Redis 신호는 `eventType`, `roomId`, `messageId`만 포함하고 메시지 본문 정본이 아니다. 구독 인스턴스는 로컬 연결별 마지막 전달 ID 이후의 PostgreSQL 이력을 조회한다. 이력·재연결은 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)의 `messageId` cursor를 사용한다.
+실시간 전달은 [ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)에 따라 저장 커밋 뒤에만 수행하며 전달 실패가 저장을 롤백하지 않는다. Redis 신호는 `eventType`, `roomId`, `messageId`만 포함하고 메시지 본문 정본이 아니다. 구독 인스턴스는 로컬 연결별 마지막 전달 ID 이후의 PostgreSQL 이력을 조회한다. 이력·재연결의 `messageId` cursor는 제안 상태인 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)의 승인 뒤 구현한다.
 
 방이 최종 상태가 되면 일반 사용자 접근은 즉시 차단하고, 메시지는 [ADR-0034](adr/chat/0034-chat-message-retention-and-deletion.md)에 따라 30일 뒤 일일 스케줄러가 소량 묶음으로 삭제한다. 모든 인스턴스가 스케줄을 등록하지만 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)의 PostgreSQL ShedLock을 얻은 하나만 작업을 실행한다. 잠금 트랜잭션과 각 삭제 묶음의 독립 트랜잭션은 결합하지 않는다.
 

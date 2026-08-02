@@ -212,7 +212,7 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 
 ### CHAT_ROOMS
 
-P1 구현 예정 테이블이다. 최초 채팅 활성화는 채팅 이전 버전과 신규 버전이 함께 ROOM을 쓰는 rolling 배포로 진행하지 않는다. 외부 트래픽을 차단하고 채팅 이전 버전의 모든 ROOM 생성·상태 전환 실행 주체가 중지됐음을 확인한 뒤, 채팅 신규 버전의 첫 인스턴스를 트래픽에서 격리해 시작한다. 이 인스턴스의 Flyway 마이그레이션은 하나의 PostgreSQL 트랜잭션에서 `ROOMS`에 `SHARE ROW EXCLUSIVE` 잠금을 얻고, `ON CONFLICT DO NOTHING`인 멱등 INSERT로 기존 `ROOMS`마다 `CHAT_ROOMS` 한 행을 생성한 뒤 누락된 `ROOMS`가 없다는 1:1 사후조건을 확인한다. 잠금 획득이나 사후조건이 실패하면 전체 트랜잭션을 롤백하고 트래픽을 계속 차단한다. 성공한 마이그레이션 뒤에는 채팅 신규 버전 인스턴스만 시작·검증하고 트래픽을 연결하며 채팅 이전 버전을 다시 시작하지 않는다.
+P1 구현 예정 테이블이다. 채팅 API를 활성화하기 전에 전진 Flyway 마이그레이션이 모든 기존 `ROOMS`에 `CHAT_ROOMS`를 하나씩 backfill한다. 초기화와 ROOM 생성·상태 전환이 경쟁하더라도 완료 시점에는 모든 `ROOMS`에 채팅방이 정확히 하나 있고, 각 backfill 행의 보관 값은 일관된 초기화 경계에서 판정한 ROOM 상태와 맞아야 한다. 구체적인 직렬화·최종 보정 방식과 배포 절체 순서는 후속 구현에서 확정하며, 이 ERD는 서비스 중단이나 특정 PostgreSQL 잠금 모드를 요구하지 않는다.
 
 활성화 뒤 새 방은 방 생성 트랜잭션에서 `ROOMS`와 `CHAT_ROOMS`를 함께 생성한다. 채팅 회원을 별도로 저장하지 않고, 접근 권한은 `ROOMS.host_user_id`와 현재 `ACTIVE PARTICIPATIONS`를 매 요청에서 계산한다.
 
@@ -231,7 +231,7 @@ P1 구현 예정 테이블이다. 최초 채팅 활성화는 채팅 이전 버�
 
 ### CHAT_MESSAGES
 
-P1 구현 예정 테이블이며 메시지 저장의 최종 정본이다([ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)). `id`는 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)의 커서와 실시간 catch-up 기준에 함께 사용하고 클라이언트 시각으로 순서를 정하지 않는다.
+P1 구현 예정 테이블이며 메시지 저장의 최종 정본이다([ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)). `id`는 제안 상태인 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)의 커서와 실시간 catch-up 기준으로 설계하며, 해당 ADR 승인 전에는 구현하지 않는다. 클라이언트 시각으로 순서를 정하지 않는다.
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
@@ -430,7 +430,7 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 
 ### 채팅·스케줄 제약과 인덱스
 
-- `CHAT_ROOMS` 생성 마이그레이션은 채팅 API 활성화 전에 모든 기존 `ROOMS`를 한 번 backfill한다. 채팅 이전 버전의 ROOM 쓰기를 중지하고 `ROOMS` 쓰기 잠금을 얻은 같은 트랜잭션에서 멱등 INSERT와 1:1 사후조건 확인을 끝낸다. 기존 최종 상태 방은 빈 보관 완료 시각을 기록하고 메시지 이력을 만들지 않는다.
+- `CHAT_ROOMS` 생성 마이그레이션은 채팅 API 활성화 전에 모든 기존 `ROOMS`를 한 번 backfill한다. ROOM 생성·상태 전환과 경쟁해도 완료 시점의 1:1과 상태별 초기화가 깨지지 않아야 하며, 구체적인 동시성 제어·최종 보정과 배포 절체 방식은 후속 구현·OPS 결정으로 남긴다. 기존 최종 상태 방은 빈 보관 완료 시각을 기록하고 메시지 이력을 만들지 않는다.
 - 방 생성과 `CHAT_ROOMS` 생성은 하나의 트랜잭션에서 성공하거나 함께 롤백한다.
 - `CHAT_MESSAGES(chat_room_id, id DESC)` 인덱스로 최신 이력과 `beforeMessageId` 커서 조회를 지원한다.
 - `CHAT_ROOMS(purge_after)` 조건부 인덱스로 삭제 기준 시각이 지났고 아직 `messages_purged_at`이 없는 채팅방을 선별한다.
