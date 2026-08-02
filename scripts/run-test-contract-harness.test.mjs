@@ -7,6 +7,10 @@ import {
     RV01_REQUIRED_CANDIDATE_BLOB_FIELDS,
     candidateBlobsMatch,
 } from './run-test-contract-harness.mjs';
+import {
+    INLINE_SECTION_HEADERS,
+    SUMMARY_HEADERS,
+} from '../.agents/skills/review-code/scripts/validate-review-payload.mjs';
 
 const targetBlobForPath = (relativePath) => `blob:${relativePath}`;
 
@@ -56,14 +60,21 @@ test('T-ID 전용 계약은 정확한 키 순서와 verdict 집계만 포함한�
     assert.match(testContractVerifierOutput, /`fail`이면 `Changes Requested`.*`unverified`가 있으면 `Incomplete`.*모두 `pass`이면 `Approve`/s);
 });
 
-test('최소 사용자 표시 계약의 의미를 보존한다', () => {
+test('사용자 표시 계약의 고정 Markdown 형식을 보존한다', () => {
     assert.deepEqual([...presentationContract.matchAll(/^\| (🔴|🟠|🟡|⚪) \| `(critical|major|minor|nit)` \|/gm)].map((match) => match.slice(1, 3)), [['🔴', 'critical'], ['🟠', 'major'], ['🟡', 'minor'], ['⚪', 'nit']]);
-    assert.match(presentationContract, /각 Finding에는.*`file:line`.*실패 조건·영향·계약 근거.*수정 방향/s);
+    assert.match(presentationContract, /각 Finding은 아래 형식을 그대로 쓴다/);
+    for (const header of Object.values(INLINE_SECTION_HEADERS)) {
+        assert.match(presentationContract, new RegExp(header.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    }
+    for (const header of [SUMMARY_HEADERS.strengths, SUMMARY_HEADERS.findings, SUMMARY_HEADERS.actions]) {
+        assert.match(presentationContract, new RegExp(header.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    }
+    assert.match(presentationContract, /## 판정: <Approve \| Changes Requested \| Blocked \| Incomplete>/);
+    assert.match(presentationContract, /심각도: 🔴 <n>  🟠 <n>  🟡 <n>  ⚪ <n>/);
     assert.match(presentationContract, /미검토 범위가 있으면 `Incomplete`.*critical이 있으면 `Blocked`.*major가 있으면 `Changes Requested`.*critical·major가 없으면 `Approve`/s);
-    assert.match(presentationContract, /심각도별 개수.*변경 요약.*critical·major 핵심 지적.*다음 액션/s);
     const examples = [...presentationContract.matchAll(/~~~text\n([\s\S]*?)\n~~~/g)];
-    assert.equal(examples.length, 1);
-    assert.notEqual(examples[0][1].trim(), '');
+    assert.equal(examples.length, 2);
+    assert.ok(examples.every((example) => example[1].trim() !== ''));
 });
 
 test('RV-01 target commit에 새 reference가 없으면 안전하게 불일치 처리한다', () => {
