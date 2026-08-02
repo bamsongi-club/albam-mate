@@ -1,10 +1,17 @@
 # P1 ROOM·참가 고도화 명세
 
-이 문서는 P1의 `ROOM-08`~`ROOM-10`, `PART-04`를 독립적으로 구현·검증하기 위한 규칙과 완료 기준을 정의한다. 현재 계약·생산 코드·자동 검증·운영 상태는 [P1 기능 상태 정본](README.md#기능별-현재-상태)을 따른다. P1 공통 규칙은 [P1 명세](../P1-spec.md), P0에서 유지하는 정원·상태·권한·시간 규칙은 [P0 완료 명세](../archive/p0/P0-spec.md#공통-규칙), 기존 ROOM·참가 규칙은 [P0 방 기능 명세](../archive/p0/room.md)와 [P0 참가·내 모임 명세](../archive/p0/participation.md)를 따른다.
+이 문서는 P1의 `ROOM-08`~`ROOM-10`, `PART-04`를 독립적으로 구현·검증하기 위한 규칙과 완료 기준을 정의한다. 현재 계약·생산 코드·자동 검증·운영 상태는 [P1 기능 상태 정본](README.md#기능별-현재-상태)을 따른다. P1 공통 규칙은 [P1 명세](../P1-spec.md)를 따르며, P1에서 별도로 변경하지 않은 정원·상태·권한·공개 범위·시간 규칙은 현재 [API](../API.md)·[ERD](../ERD.md)·관련 승인 ADR을 따른다. [P0 완료 문서](../archive/p0/README.md)는 완료 시점의 제품 배경으로만 참조하고 현재 구현 정본으로 사용하지 않는다.
 
 요청·응답·오류는 [API 명세](../API.md), 저장 구조와 제약은 [ERD](../ERD.md), 되돌리기 어렵거나 논쟁적인 기술 선택과 측정 근거는 [ADR](../adr/README.md)에서 관리한다. 기능 규칙은 구현해야 하는 필수 동작이고, 완료 기준은 이슈 완료를 판정하는 필수 검증 계약이며, 제외 범위는 이 문서에서 생성하는 이슈와 PR에 포함하지 않는다.
 
-각 기능의 `구현 전 결정`은 아직 확정되지 않은 항목이다. 관련 API·ERD·ADR과 제품 규칙이 충돌하거나 값이 미정이면 구현에서 추측하지 않고 해당 정본에서 먼저 확정한다. 제안 ADR의 승인과 필요한 저장 계약 반영이 끝나기 전에는 구현 준비 완료로 취급하지 않는다.
+구현 컨텍스트의 결정 행은 시점을 다음과 같이 구분한다.
+
+- `선행 승인`: 승인 전에는 해당 기능 구현을 시작하지 않는다.
+- `착수 전 확정`: [계약·구현 단일 이슈·PR 규칙](README.md#계약과-구현을-같은-이슈pr에서-처리할-때)에 따라 같은 이슈·PR에서 결정할 수 있지만 관련 생산 코드나 스키마보다 먼저 정본에 반영한다.
+- `구현·측정 후 확정`: 기준선 구현과 측정을 막지 않으며, 측정 근거로 운영값을 확정해 기능 완료 전에 정본에 반영한다.
+- `측정 후 사용자 결정`: 기준선 구현과 측정을 막지 않는다. 결과를 `DECISION_NEEDED`로 제시하고 승인받기 전에는 선택 비교나 후속 구현에 착수하지 않는다.
+
+관련 API·ERD·ADR과 제품 규칙이 충돌하거나 값이 미정이면 구현에서 추측하지 않는다. 선행 승인과 `착수 전 확정`이 끝나기 전에는 계약 준비 완료로 취급하지 않는다.
 
 P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각에 맞추는 처리를 뜻한다. 이 문서에서는 같은 의미를 더 직접적으로 드러내기 위해 `시간 기반 상태 자동 전환`이라고 부른다.
 
@@ -15,14 +22,14 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 구분 | 정본 |
 | --- | --- |
 | 기능 ID | `ROOM-08` |
-| P0 기준 | [RoomStatus](../API.md#roomstatus), [`joinable` 판정](../API.md#47-publicroomresponse) |
+| 현행 기준 | [RoomStatus](../API.md#roomstatus), [`joinable` 판정](../API.md#47-publicroomresponse) |
 | API 계약 | [PublicRoomResponse](../API.md#47-publicroomresponse), [ROOM 목록 조회](../API.md#room-01-방-목록-조회), [ROOM 상세 조회](../API.md#room-02-방-상세-조회), [내 모임 조회](../API.md#part-03-내-모임-조회) |
 | 고도화 이유 | 정원 충족 전 `CLOSED`와 시작 시각 도달 후 `CLOSED`는 같은 상태지만, 전자는 대기를 신청할 수 있고 후자는 신청할 수 없다. |
-| 공통 규칙 | [방 상태](../archive/p0/P0-spec.md#방-상태roomstatus), [권한과 공개 범위](../archive/p0/P0-spec.md#권한과-공개-범위), [시간 경계](../archive/p0/P0-spec.md#시간-경계) |
+| 공통 규칙 | [P0 계약 상속](../P1-spec.md#p0-계약-상속), [RoomStatus](../API.md#roomstatus), [ROOMS](../ERD.md#rooms) |
 | 데이터 모델 | [ROOMS](../ERD.md#rooms), [PARTICIPATIONS](../ERD.md#participations) |
-| 제안 ADR | [ADR-0035 방 생명주기 상태와 요청자별 행동 가능성을 분리](../adr/room/0035-room-status-action-eligibility-separation.md) — `제안됨`. 팀 승인 전에는 확정된 구현 근거로 사용하지 않는다. |
+| 선행 승인 | [ADR-0035 방 생명주기 상태와 요청자별 행동 가능성을 분리](../adr/room/0035-room-status-action-eligibility-separation.md) — `제안됨`. 팀 승인 전에는 확정된 구현 근거로 사용하지 않는다. |
 | 연결 기능 | [PART-04 선착순 대기열과 자동 승격](#part-04-선착순-대기열과-자동-승격) |
-| 구현 전 결정 | 없음 |
+| 착수 전 확정 | 위 선행 승인 외 추가 항목 없음 |
 
 ### 기능 규칙
 
@@ -64,13 +71,13 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 구분 | 정본 |
 | --- | --- |
 | 기능 ID | `PART-04` |
-| P0 기준 | [PART-01 방 참가·재참가](../archive/p0/participation.md#part-01-방-참가재참가), [PART-02 참가 취소](../archive/p0/participation.md#part-02-참가-취소) |
+| 현행 참가 계약 | [PART-01 방 참가·재참가](../API.md#part-01-방-참가재참가), [PART-02 참가 취소](../API.md#part-02-참가-취소) |
 | API 계약 | [대기 등록·재신청](../API.md#part-04-대기-등록재신청), [본인 대기 상태 조회](../API.md#part-04-본인-대기-상태-조회), [대기 취소](../API.md#part-04-대기-취소), [참가 취소](../API.md#part-02-참가-취소) |
 | 고도화 이유 | 정원이 찬 인기 모임을 기다릴 방법과 참가 취소로 생긴 빈자리의 배정 순서가 없다. |
 | 가능 여부 | [ROOM-08 방 상태와 직접 참가·대기 가능 여부 분리](#room-08-방-상태와-직접-참가대기-가능-여부-분리) |
-| 공통 규칙 | [정원](../archive/p0/P0-spec.md#정원capacity), [방 상태](../archive/p0/P0-spec.md#방-상태roomstatus), [시간 경계](../archive/p0/P0-spec.md#시간-경계) |
+| 공통 규칙 | [P0 계약 상속](../P1-spec.md#p0-계약-상속), [RoomStatus](../API.md#roomstatus), [ROOMS](../ERD.md#rooms), [PARTICIPATIONS](../ERD.md#participations) |
 | 필수 ADR | [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0037 ROOM 대기열을 단일 최신 상태로 저장하고 자동 승격을 원자적으로 처리](../adr/participation/0037-room-waitlist-latest-state-atomic-promotion.md) |
-| 구현 전 결정 | 별도 버전 열 없는 단일 최신 상태 레코드의 물리 테이블 구조·제약·FIFO 동률 해소 키·인덱스, 조건부 상태 전이 쿼리와 갱신 결과 분기, 관련 경로의 일관된 데이터베이스 변경 순서 |
+| 착수 전 확정 | 별도 버전 열 없는 단일 최신 상태 레코드의 물리 테이블 구조·제약·FIFO 동률 해소 키·인덱스, 조건부 상태 전이 쿼리와 갱신 결과 분기, 관련 경로의 일관된 데이터베이스 변경 순서 |
 
 ### 기능 규칙
 
@@ -128,13 +135,15 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 구분 | 정본 |
 | --- | --- |
 | 기능 ID | `ROOM-09` |
-| P0 기준 | [ROOM-06 방 상태 정합화](../archive/p0/room.md#room-06-방-상태-정합화) |
+| 현행 상태 보정 계약 | [방 변경 구조](../ARCHITECTURE.md#방-변경), [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md) |
 | 고도화 이유 | 시간 경계를 지난 ROOM Entity 전체를 한 트랜잭션에서 처리해 대상 증가 시 메모리·트랜잭션 범위가 커지고, 한 ROOM의 실패가 전체 작업에 영향을 주며 실패 대상을 식별하기 어렵다. |
-| 상태·시간 규칙 | [방 상태](../archive/p0/P0-spec.md#방-상태roomstatus), [시간 경계](../archive/p0/P0-spec.md#시간-경계) |
+| 상태·시간 규칙 | [P0 계약 상속](../P1-spec.md#p0-계약-상속), [RoomStatus](../API.md#roomstatus), [ROOMS](../ERD.md#rooms) |
 | 승인 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0036 제한 ID·ROOM별 독립 처리](../adr/room/0036-bounded-room-state-transition-processing.md), [ADR-0038 다중 인스턴스 스케줄 실행 조정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md) |
 | 현재 구현 기준선 | [`RoomRepository.findDueRooms`](../../src/main/java/cloud/bamsongi/albammate/room/repository/RoomRepository.java), [`RoomStatusCorrectionExecutor`](../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionExecutor.java) |
 | 연결 기능 | [PART-04 선착순 대기열과 자동 승격](#part-04-선착순-대기열과-자동-승격) |
-| 구현 전 결정 | 제한 처리 측정의 데이터 규모·ID 수 후보·반복 조건·측정 도구와 로그·메트릭, 순회 시작 때 고정한 기준 시각 이하의 due ROOM에 대해 논리적 처리 예정 시각과 `roomId`를 사용하는 결정적 순서, 인스턴스 재시작·ShedLock 실행 주체 변경 뒤에도 같은 순회를 이어가는 영속 cursor와 순회 기준 시각의 저장 위치·갱신 시점·wrap-around·처리 중 장애 재선별과 복구 방식, 임대 만료로 실행 주체가 겹칠 때 기대 progress version·실행 generation을 비교하고 stale 갱신을 거절하는 행 잠금과 조건부 갱신·compare-and-set·fencing 중 선택할 진행 상태 갱신 제어, ROOM 전환과 대기열 종료의 트랜잭션·잠금 설계, ROOM 상태 보정용 잠금 이름·`lockAtMostFor`·실행시간 경고 기준. 한 번당 ID 수와 반복·재시도·실행 주기의 운영 고정값은 측정 결과 뒤 확정하며, 실패 backoff·격리와 조건부 DB 직접 갱신 비교 여부도 기준선 결과 확인 뒤 별도로 결정 |
+| 착수 전 확정 | 제한 처리 측정의 데이터 규모·ID 수 후보·반복 조건·측정 도구와 로그·메트릭, due ROOM의 결정적 순서, 영속 cursor·순회 기준 시각의 저장 위치·갱신·wrap-around·장애 복구 계약, 중첩 실행의 stale 갱신을 거절할 progress version·generation과 조건부 갱신 방식, ROOM 전환·대기열 종료의 트랜잭션·잠금 설계, ROOM 상태 보정용 잠금 이름과 `lockAtMostFor`·실행시간 경고의 측정 후보 |
+| 구현·측정 후 확정 | 한 번당 ID 수와 반복·재시도·실행 주기, 측정된 최대 실행시간을 반영한 `lockAtMostFor`와 실행시간 경고의 초기 운영값 |
+| 측정 후 사용자 결정 | 실패 backoff·격리 비교와 제한 범위의 조건부 DB 직접 갱신 비교 여부. 기준선 결과를 `DECISION_NEEDED`로 제시하고 승인 전에는 비교 구현에 착수하지 않음 |
 
 ### 기능 규칙
 
@@ -190,13 +199,14 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 구분 | 정본 |
 | --- | --- |
 | 기능 ID | `ROOM-10` |
-| P0 기준 | [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md) |
+| 현행 기준 | [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md) |
 | 고도화 이유 | 낮은 충돌 빈도는 P0의 가정이며, 대기 신청·취소·승격까지 명령이 늘어난 뒤의 충돌률·재시도·응답시간은 측정되지 않았다. |
 | 저장 불변식 | [ERD 필수 제약과 계산 규칙](../ERD.md#필수-제약과-계산-규칙) |
 | 오류 계약 | [`ROOM_CONCURRENT_MODIFICATION`](../API.md#104-방-오류) |
 | 검증 환경 | [ADR-0010 H2와 PostgreSQL 테스트 경계](../adr/platform/0010-h2-postgresql-test-boundary.md) |
 | 연결 기능 | [PART-04 선착순 대기열과 자동 승격](#part-04-선착순-대기열과-자동-승격), [ROOM-09 시간 기반 상태 자동 전환](#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화) |
-| 구현 전 결정 | 기준선 측정의 데이터 규모, 동시 사용자 수, 반복 횟수, 측정 도구와 로그·메트릭 정의. 측정 전 임의의 성능 합격 수치를 만들지 않으며, 비관적 락 비교 여부는 기준선 결과 확인 뒤 별도로 결정 |
+| 착수 전 확정 | 기준선 측정의 데이터 규모, 동시 사용자 수, 반복 횟수, 측정 도구와 로그·메트릭 정의. 측정 전 임의의 성능 합격 수치를 만들지 않음 |
+| 측정 후 사용자 결정 | 비관적 락 비교 착수 여부. 낙관적 락 기준선 결과를 `DECISION_NEEDED`로 제시하고 승인 전에는 비교 구현에 착수하지 않음 |
 
 ### 기능 규칙
 

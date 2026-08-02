@@ -43,11 +43,11 @@ Gradle은 별도 설치본 대신 저장소의 Wrapper를 사용한다.
 cp -n .env.example .env
 ```
 
-PostgreSQL을 시작하고 health check 결과를 확인한다.
+호스트에서 애플리케이션을 실행하므로 PostgreSQL 서비스만 시작하고 health check 결과를 확인한다.
 
 ```sh
-docker compose -f compose.local.yml up -d
-docker compose -f compose.local.yml ps
+docker compose -f compose.local.yml up -d --wait postgres
+docker compose -f compose.local.yml ps postgres
 ```
 
 애플리케이션은 `local` 프로필을 명시하고 `.env`의 로컬 DB 변수를 프로세스에 주입해 실행한다. `.env`에는 프로필 활성화 값을 넣지 않아 H2 `test`와 PostgreSQL `postgresTest` 실행에 영향을 주지 않는다.
@@ -65,10 +65,10 @@ local 프로필은 식별 가능한 게임 중심·사람 중심 시드 모임�
 애플리케이션을 종료한 뒤 PostgreSQL 컨테이너만 중지한다. named volume의 개발 데이터는 유지된다.
 
 ```sh
-docker compose -f compose.local.yml down
+docker compose -f compose.local.yml stop postgres
 ```
 
-로컬 데이터를 명시적으로 초기화할 때만 volume까지 삭제한다.
+로컬 데이터를 명시적으로 초기화할 때만 로컬 Compose 프로젝트의 서비스를 모두 내리고 named volume까지 삭제한다.
 
 ```sh
 docker compose -f compose.local.yml down --volumes
@@ -84,11 +84,11 @@ if (-not (Test-Path -LiteralPath .env)) {
 }
 ```
 
-PostgreSQL을 시작하고 health check 결과를 확인한다.
+호스트에서 애플리케이션을 실행하므로 PostgreSQL 서비스만 시작하고 health check 결과를 확인한다.
 
 ```powershell
-docker compose --env-file .env -f compose.local.yml up -d
-docker compose --env-file .env -f compose.local.yml ps
+docker compose --env-file .env -f compose.local.yml up -d --wait postgres
+docker compose --env-file .env -f compose.local.yml ps postgres
 ```
 
 Docker Compose의 정규화 설정에서 PostgreSQL 연결값을 읽어 현재 프로세스의 `ALBAM_MATE_LOCAL_*` 환경변수로 주입한다. 구성 JSON은 변수에만 캡처해 비밀번호를 출력하지 않고, 같은 PowerShell 창에서 애플리케이션을 실행한다.
@@ -131,10 +131,10 @@ foreach ($entry in $environmentValues.GetEnumerator()) {
 애플리케이션을 `Ctrl+C`로 종료한 뒤 PostgreSQL 컨테이너만 중지한다. named volume의 개발 데이터는 유지된다.
 
 ```powershell
-docker compose --env-file .env -f compose.local.yml down
+docker compose --env-file .env -f compose.local.yml stop postgres
 ```
 
-로컬 데이터를 명시적으로 초기화할 때만 volume까지 삭제한다.
+로컬 데이터를 명시적으로 초기화할 때만 로컬 Compose 프로젝트의 서비스를 모두 내리고 named volume까지 삭제한다.
 
 ```powershell
 docker compose --env-file .env -f compose.local.yml down --volumes

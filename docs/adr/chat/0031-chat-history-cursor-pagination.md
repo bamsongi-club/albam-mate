@@ -1,9 +1,9 @@
 # ADR-0031: 메시지 ID 커서로 채팅 이력과 재연결 구간을 조회
 
-- 상태: 제안됨
+- 상태: 승인됨
 - 작성일: 2026-07-31
-- 결정일: 미정
-- 관련: [P1 방 채팅 명세](../../p1/chatting.md), [채팅 API](../../API.md#채팅-공통-계약), [ERD](../../ERD.md) — 구현 전 채팅 저장 계약 추가 필요, [ADR-0032 실시간 전달](0032-http-send-websocket-receive.md), [ADR-0033 메시지 정본과 전달](0033-postgresql-source-after-commit-delivery.md)
+- 결정일: 2026-08-02
+- 관련: [P1 방 채팅 명세](../../p1/chatting.md), [채팅 API](../../API.md#채팅-공통-계약), [채팅 저장 계약](../../ERD.md#chatmessages), [ADR-0032 실시간 전달](0032-http-send-websocket-receive.md), [ADR-0033 메시지 정본과 전달](0033-postgresql-source-after-commit-delivery.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 

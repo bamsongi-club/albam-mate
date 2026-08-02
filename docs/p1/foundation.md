@@ -1,6 +1,6 @@
 # P1 기반 작업 명세
 
-이 문서는 P1 기능 구현에 앞서 필요한 검색 성능 검증과 실시간 전달 기반을 독립적으로 착수·검증할 단위로 정의한다. 두 기반 작업은 현재 미구현이며, 승인된 제품·HTTP·저장·아키텍처 계약의 후속 작업만 다룬다. 새 제품 정책이나 기술 결정을 이 문서에서 만들지 않는다.
+이 문서는 P1 기능 구현에 앞서 필요한 검색 성능 검증과 실시간 전달 기반을 독립적으로 착수·검증할 단위로 정의한다. 현재 계약 준비·생산 코드·자동 검증·운영 배포와 실측 상태는 [P1 기능별 상태 정본](README.md#기능별-현재-상태)을 따른다. 두 기반 작업은 승인된 제품·HTTP·저장·아키텍처 계약의 후속 작업만 다루며, 새 제품 정책이나 ADR 수준의 기술 결정을 이 문서에서 만들지 않는다. 승인 ADR이 구현 이슈에 위임한 구성값은 [계약·구현 단일 이슈·PR 규칙](README.md#계약과-구현을-같은-이슈pr에서-처리할-때)에 따라 해당 기반 작업에서 확정할 수 있다.
 
 정본은 다음과 같다.
 
@@ -11,7 +11,7 @@
 - 구조와 구현 규칙: [아키텍처](../ARCHITECTURE.md), [컨벤션](../CONVENTIONS.md)
 - 기술 결정: 각 항목이 연결한 ADR
 
-ERD에는 승인된 P1 채팅·ShedLock 저장 계약이 구현 예정 계약으로 반영되어 있다. 그 밖의 P1 저장 변경은 기능별 구현 작업에서 ERD와 전진 마이그레이션을 함께 갱신하며, 문서 반영만으로 구현 완료로 보지 않는다.
+ERD에는 승인된 P1 알림·채팅·ShedLock 저장 계약이 구현 예정 계약으로 반영되어 있다. 그 밖의 P1 저장 변경은 [계약·구현 단일 이슈·PR 규칙](README.md#계약과-구현을-같은-이슈pr에서-처리할-때)을 따른다. 같은 기능 이슈·PR 안에서 관련 생산 코드나 스키마를 작성하기 전에 선택한 물리 저장 계약을 ERD에 반영하고, 전진 Flyway 마이그레이션과 JPA Entity를 같은 변경에서 일치시킨다. 별도 계약 PR은 요구하지 않으며 문서 반영만으로 구현 완료로 보지 않는다.
 
 완료 기준 ID 규칙은 [P1 명세](../P1-spec.md#완료-기준-id)를 따른다. 기반 작업은 제품 기능을 직접 추가하지 않으므로 완료 기준은 산출물과 재현 가능한 검증 근거로 적는다.
 
@@ -74,9 +74,10 @@ ERD에는 승인된 P1 채팅·ShedLock 저장 계약이 구현 예정 계약으
 | 기능 규칙 | [CHAT-03 실시간 전달·재연결 복구](chatting.md#chat-03-실시간-전달재연결-복구) |
 | API 계약 | [채팅 공통 계약](../API.md#채팅-공통-계약), [실시간 메시지 구독](../API.md#chat-03-실시간-메시지-구독) |
 | 인증·인가 | [ADR-0003](../adr/auth/0003-p0-server-session-spring-security.md), [ADR-0020](../adr/auth/0020-api-endpoint-authorization-policy-registry.md) |
-| ADR | [ADR-0031](../adr/chat/0031-chat-history-cursor-pagination.md) — 제안됨, [ADR-0032](../adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](../adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md) — 승인됨 |
+| ADR | [ADR-0031](../adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](../adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](../adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md) — 승인됨 |
 | 저장·구조 계약 | [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md) |
 | 필수 검증 환경 | 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL·Redis로 구성한 `local-multi` |
+| 착수 전 확정 | 세션 TTL·직렬화 방식과 정확한 Redis key·channel namespace. 같은 `FND-10` 이슈·PR에서 관련 구성·생산 코드보다 먼저 선택값과 근거를 정본에 반영 |
 
 ### 산출물
 
