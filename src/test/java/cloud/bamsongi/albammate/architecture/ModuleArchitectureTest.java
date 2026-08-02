@@ -107,7 +107,7 @@ class ModuleArchitectureTest {
 						.map(ModuleArchitectureTest::modulePackage)
 						.toArray(String[]::new))
 				.because("허용된 참조 방향은 auth에서 user, room에서 user와 game, notification에서 room뿐이다")
-				.allowEmptyShould(true)
+				.allowEmptyShould(sourceModule.equals("notification"))
 				.check(PRODUCTION_CLASSES));
 	}
 
