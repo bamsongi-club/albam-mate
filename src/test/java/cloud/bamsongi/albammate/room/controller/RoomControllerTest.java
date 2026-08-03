@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -24,6 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
@@ -86,6 +88,11 @@ class RoomControllerTest {
 	private RoomCreateService roomCreateService;
 	@Autowired
 	private RoomListQueryService roomListQueryService;
+
+	@BeforeEach
+	void resetRoomListQueryService() {
+		reset(roomListQueryService);
+	}
 
 	@Test
 	void 성공_변경은_허용된_식별자만_포함한_INFO_운영_로그를_한번씩_남긴다() throws Exception {
