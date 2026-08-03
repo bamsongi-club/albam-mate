@@ -93,7 +93,7 @@ test("승인된 입력은 내부 id를 제외한 결정적 카탈로그와 UPSER
     });
 });
 
-test("표시 인원·시간을 검색 수치로 정규화하고 제외 사유를 집계한다", () => {
+test("비어 있지 않은 0분과 음수 시간은 품질 오류로 전체 적재를 차단한다", () => {
     const rows = [
         game(1, "10", "범위 게임", "Range Game"),
         game(2, "20", "단일 게임", "Single Game"),
@@ -113,25 +113,8 @@ test("표시 인원·시간을 검색 수치로 정규화하고 제외 사유를
 
         const result = runCli(games, ranks, out, manifest);
 
-        assert.equal(result.status, 0, result.stderr);
-        const catalog = readJson(join(out, "service-catalog.json"));
-        assert.deepEqual(
-            catalog.map((row) => [
-                row.min_players,
-                row.max_players,
-                row.min_play_time_minutes,
-                row.max_play_time_minutes,
-                row.complexity,
-            ]),
-            [
-                [2, 4, 10, 20, 3.25],
-                [1, 1, 60, 60, null],
-                [2, 4, null, null, 3.25],
-                [2, 4, null, null, 3.25],
-            ],
-        );
+        assert.equal(result.status, 1);
         const report = readJson(join(out, "quality-report.json"));
-        assert.equal(catalog[2].estimated_play_time, "0분");
         assert.deepEqual(report.searchNumericFields.players, {
             label: "가능 인원",
             total: 4,
@@ -145,12 +128,79 @@ test("표시 인원·시간을 검색 수치로 정규화하고 제외 사유를
             { code: "NON_POSITIVE_VALUE", count: 2 },
         ]);
         assert.equal(report.searchNumericFields.playTimeMinutes.excluded, 2);
-        assert.equal(report.searchNumericFields.complexity.missing, 1);
-        assert.equal(report.searchNumericFields.complexity.normalizedToNull, 1);
-        assert.deepEqual(report.searchNumericFields.complexity.exclusionReasons, [
-            { code: "ZERO_NORMALIZED_TO_NULL", count: 1 },
-        ]);
+        const invalidValues = report.errors.find(
+            ({ code }) => code === "INVALID_SEARCH_NUMERIC_DISPLAY_VALUE",
+        );
+        assert.equal(invalidValues.count, 2);
+        assert.deepEqual(
+            invalidValues.sample.map(({ value, reason }) => ({ value, reason })),
+            [
+                { value: "0분", reason: "NON_POSITIVE_VALUE" },
+                { value: "-5분", reason: "NON_POSITIVE_VALUE" },
+            ],
+        );
+        assert.throws(() => readFileSync(join(out, "service-catalog.json")));
+        assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
     });
+});
+
+test("해석 불가 또는 PostgreSQL INTEGER 범위 밖 표시값은 적재 전에 차단한다", async (context) => {
+    const cases = [
+        {
+            name: "해석 불가 인원",
+            field: "supported_player_count",
+            value: "두 명",
+            reason: "UNPARSABLE_DISPLAY_VALUE",
+        },
+        {
+            name: "PostgreSQL INTEGER 최대값 초과 시간",
+            field: "estimated_play_time",
+            value: "2147483648분",
+            reason: "OUT_OF_POSTGRES_INTEGER_RANGE",
+        },
+        {
+            name: "JavaScript safe integer 초과 인원",
+            field: "supported_player_count",
+            value: "9007199254740992명",
+            reason: "OUT_OF_POSTGRES_INTEGER_RANGE",
+        },
+    ];
+
+    for (const { name, field, value, reason } of cases) {
+        await context.test(name, () => {
+            withCase([game(1, "10", "첫 번째 게임", "First Game")], ({
+                games,
+                ranks,
+                manifest,
+                out,
+            }) => {
+                const rows = readJson(games);
+                rows[0][field] = value;
+                writeFileSync(games, `${JSON.stringify(rows, null, 2)}\n`);
+                writeManifest(manifest, games, ranks, []);
+
+                const result = runCli(games, ranks, out, manifest);
+
+                assert.equal(result.status, 1);
+                const report = readJson(join(out, "quality-report.json"));
+                const invalidValues = report.errors.find(
+                    ({ code }) => code === "INVALID_SEARCH_NUMERIC_DISPLAY_VALUE",
+                );
+                assert.equal(invalidValues.count, 1);
+                assert.deepEqual(invalidValues.sample, [
+                    {
+                        row: 1,
+                        bgg_id: "10",
+                        field,
+                        value,
+                        reason,
+                    },
+                ]);
+                assert.throws(() => readFileSync(join(out, "service-catalog.json")));
+                assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
+            });
+        });
+    }
 });
 
 test("complexity는 0을 NULL로 정규화하고 1.00~5.00 경계만 유지한다", () => {
@@ -188,6 +238,44 @@ test("complexity는 0을 NULL로 정규화하고 1.00~5.00 경계만 유지한�
                 { code: "ZERO_NORMALIZED_TO_NULL", count: 1 },
             ],
         });
+    });
+});
+
+test("문자열과 boolean complexity는 INVALID_COMPLEXITY와 같은 행으로 제외한다", () => {
+    const rows = [
+        game(1, "10", "문자열 복잡도", "String Complexity"),
+        game(2, "20", "boolean 복잡도", "Boolean Complexity"),
+        game(3, "30", "유효 복잡도", "Valid Complexity"),
+    ];
+    rows[0].complexity = "3.25";
+    rows[1].complexity = true;
+    rows[2].complexity = 3.25;
+
+    withCase(rows, ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 1);
+        const report = readJson(join(out, "quality-report.json"));
+        assert.deepEqual(report.searchNumericFields.complexity, {
+            label: "복잡도",
+            total: 3,
+            valid: 1,
+            missing: 0,
+            excluded: 2,
+            normalizedToNull: 0,
+            exclusionReasons: [{ code: "INVALID_COMPLEXITY", count: 2 }],
+        });
+        assert.deepEqual(
+            report.errors.find(({ code }) => code === "INVALID_COMPLEXITY").sample,
+            [
+                { row: 1, value: "3.25" },
+                { row: 2, value: true },
+            ],
+        );
+        assert.throws(() => readFileSync(join(out, "service-catalog.json")));
+        assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
     });
 });
 

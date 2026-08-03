@@ -54,6 +54,7 @@ const FIELD_LENGTHS = {
     estimated_play_time: 50,
 };
 const OPTIONAL_TEXT_FIELDS = new Set(["alias", "image_url"]);
+const POSTGRES_INTEGER_MAX = 2_147_483_647;
 
 export function analyzeCatalog({
     games,
@@ -68,6 +69,7 @@ export function analyzeCatalog({
     const validGameRows = gameRows.filter(isRecord);
     const errors = validateManifest(manifest, gamesPath, gamesContents, ranksPath, ranksContents);
     errors.push(...validateData(games, rankRows));
+    errors.push(...validateSearchNumericDisplayValues(gameRows));
     const duplicatedBggIds = duplicateValues(
         validGameRows.map((game) => canonicalBggId(game.bgg_id)).filter(Boolean),
     );
@@ -282,7 +284,7 @@ function suspiciousComplexityRankCorrelation(games, rankByBggId) {
 }
 
 function isValidComplexity(value) {
-    return value !== null && value !== undefined && value >= 1 && value <= 5;
+    return isValidComplexityValue(value) && value >= 1 && value <= 5;
 }
 
 function isValidComplexityValue(value) {
@@ -422,7 +424,9 @@ function normalizePositiveRange(value, suffix) {
     if (blank(value)) {
         return { min: null, max: null, status: "missing" };
     }
-    const matched = new RegExp(`^(-?\\d+)(?:~(-?\\d+))?${suffix}$`).exec(value);
+    const matched =
+        typeof value === "string" &&
+        new RegExp(`^(-?\\d+)(?:~(-?\\d+))?${suffix}$`).exec(value);
     if (!matched) {
         return {
             min: null,
@@ -433,6 +437,19 @@ function normalizePositiveRange(value, suffix) {
     }
     const min = Number(matched[1]);
     const max = Number(matched[2] ?? matched[1]);
+    if (
+        !Number.isSafeInteger(min) ||
+        !Number.isSafeInteger(max) ||
+        min > POSTGRES_INTEGER_MAX ||
+        max > POSTGRES_INTEGER_MAX
+    ) {
+        return {
+            min: null,
+            max: null,
+            status: "excluded",
+            reason: "OUT_OF_POSTGRES_INTEGER_RANGE",
+        };
+    }
     if (min <= 0 || max <= 0) {
         return { min: null, max: null, status: "excluded", reason: "NON_POSITIVE_VALUE" };
     }
@@ -442,9 +459,44 @@ function normalizePositiveRange(value, suffix) {
     return { min, max, status: "valid" };
 }
 
+function validateSearchNumericDisplayValues(games) {
+    const invalidValues = [];
+    for (const [index, game] of games.entries()) {
+        if (!isRecord(game)) {
+            continue;
+        }
+        for (const [field, suffix] of [
+            ["supported_player_count", "명"],
+            ["estimated_play_time", "분"],
+        ]) {
+            const normalized = normalizePositiveRange(game[field], suffix);
+            if (normalized.status === "excluded") {
+                invalidValues.push({
+                    row: index + 1,
+                    bgg_id: canonicalBggId(game.bgg_id),
+                    field,
+                    value: game[field],
+                    reason: normalized.reason,
+                });
+            }
+        }
+    }
+    const errors = [];
+    addValidationError(
+        errors,
+        "INVALID_SEARCH_NUMERIC_DISPLAY_VALUE",
+        "비어 있지 않은 인원·시간 표시값은 PostgreSQL INTEGER 범위의 양의 오름차순 정수 또는 범위여야 합니다.",
+        invalidValues,
+    );
+    return errors;
+}
+
 function normalizeComplexity(value) {
     if (value === null || value === undefined) {
         return { value: null, status: "missing" };
+    }
+    if (!isValidComplexityValue(value)) {
+        return { value: null, status: "excluded", reason: "INVALID_COMPLEXITY" };
     }
     if (value === 0) {
         return {

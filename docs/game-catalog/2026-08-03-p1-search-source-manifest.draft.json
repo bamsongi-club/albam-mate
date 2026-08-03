@@ -6,9 +6,9 @@
     "games": {
       "fileName": "games.json",
       "sha256": "efc22093ada6a32d5570d517686a12fcb18b4973d7397f10de65bf818eec81f3",
-      "sourceReference": "2026-08-01 한국어 라벨까지 반영한 최종 로컬본",
+      "sourceReference": "2026-08-01 한국어 라벨까지 반영한 최종 로컬 기술 검증 배치(서비스 적재 미승인)",
       "acquiredAt": "2026-08-01T02:49:00Z",
-      "usageTerms": "Albam Mate 팀이 검수·적재 근거로 사용하는 로컬 입력"
+      "usageTerms": "BGG 출처·서비스 이용 범위와 서비스 적재 승인이 확인되기 전까지 로컬 기술 검증에만 사용"
     },
     "ranks": {
       "fileName": "boardgames_ranks07-24.csv",
@@ -37,7 +37,7 @@
   },
   "selectionRules": {
     "include": "BGG 기준 스냅샷과 bgg_id가 일치하고 기존 카탈로그 검수를 통과한 2,000건만 포함",
-    "exclude": "표시 인원·시간·복잡도 수치가 없거나 해석할 수 없어도 기존 표시 게임은 제외하지 않고 해당 검색 수치만 NULL로 둔다"
+    "exclude": "인원·시간 표시값이 비어 있으면 기존 표시 게임을 유지하고 검색 수치 쌍만 NULL로 둔다. 비어 있지 않은 해석 불가·0 이하·역전·JavaScript safe integer 또는 PostgreSQL INTEGER 범위 밖 인원·시간 값은 해당 배치 전체를 차단한다."
   },
   "versionRules": {
     "baseGame": "기존 2,000건 검수에서 BGG 본판으로 확인된 항목만 유지",
@@ -51,9 +51,10 @@
     "exclusions": []
   },
   "review": {
-    "status": "approved",
-    "reviewedAt": "2026-08-03T00:00:00Z",
-    "reviewers": ["issue-293 approved implementation packet"],
-    "acceptedWarnings": []
+    "status": "pending",
+    "reviewedAt": null,
+    "reviewers": [],
+    "acceptedWarnings": [],
+    "pendingReason": "서비스 적재 승인과 데이터 검수자 승인이 완료되지 않았다. Issue #293의 구현 테스트 계약 승인은 데이터 검수 승인이 아니다."
   }
 }
