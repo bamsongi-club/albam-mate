@@ -25,16 +25,10 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
-@Table(
-	name = "social_accounts",
-	uniqueConstraints = {
-		@UniqueConstraint(
-			name = "uq_social_accounts_provider_subject",
-			columnNames = {"provider", "provider_subject"}),
-		@UniqueConstraint(
-			name = "uq_social_accounts_user_provider",
-			columnNames = {"user_id", "provider"})
-	})
+@Table(name = "social_accounts", uniqueConstraints = {
+	@UniqueConstraint(name = "uq_social_accounts_provider_subject", columnNames = {"provider", "provider_subject"}),
+	@UniqueConstraint(name = "uq_social_accounts_user_provider", columnNames = {"user_id", "provider"})
+})
 public class SocialAccount extends BaseEntity {
 
 	@Id
@@ -43,10 +37,7 @@ public class SocialAccount extends BaseEntity {
 	private Long id;
 
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(
-		name = "user_id",
-		nullable = false,
-		foreignKey = @ForeignKey(name = "fk_social_accounts_user"))
+	@JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_social_accounts_user"))
 	private User user;
 
 	@Enumerated(EnumType.STRING)

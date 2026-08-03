@@ -20,5 +20,6 @@ public sealed interface SocialLoginResult permits SocialLoginResult.LoggedIn, So
 		}
 	}
 
-	record LinkRequired() implements SocialLoginResult {}
+	record LinkRequired() implements SocialLoginResult {
+	}
 }
