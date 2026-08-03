@@ -10,7 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
-import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
 
@@ -25,19 +24,36 @@ class RoomListReadService {
 
 	@Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
 	public RoomListReadResult findPublicRooms(
-		RoomType roomType, Long gameId, String keyword, Pageable pageable, Long currentUserId) {
-		Page<Room> rooms = keyword == null
-			? roomRepository.findPublicRoomsWithoutKeyword(
-				roomType, gameId, PUBLIC_STATUSES, pageable)
-			: roomRepository.findPublicRoomsByTitleContainingIgnoreCase(
-				roomType, gameId, keyword, PUBLIC_STATUSES, pageable);
-		Set<Long> activeParticipationRoomIds = currentUserId == null || rooms.isEmpty()
-			? Set.of()
-			: Set.copyOf(
-				roomRepository.findActiveParticipationRoomIds(
-					currentUserId,
-					rooms.getContent().stream().map(Room::getId).toList()));
+		RoomListSearchCriteria criteria, Pageable pageable, Long currentUserId) {
+		Page<Room> rooms = findFilteredPublicRooms(criteria, pageable);
+		Set<Long> activeParticipationRoomIds = findActiveParticipationRoomIds(currentUserId, rooms);
 		return new RoomListReadResult(rooms, activeParticipationRoomIds);
+	}
+
+	private Page<Room> findFilteredPublicRooms(RoomListSearchCriteria criteria, Pageable pageable) {
+		return roomRepository.findPublicRooms(
+			criteria.roomType(),
+			criteria.gameId(),
+			criteria.hasKeyword(),
+			criteria.keywordOrEmpty(),
+			criteria.hasStartsAtFrom(),
+			criteria.startsAtFromOrEpoch(),
+			criteria.hasStartsAtTo(),
+			criteria.startsAtToOrEpoch(),
+			criteria.hasMinRemainingSeats(),
+			criteria.minRemainingSeatsOrZero(),
+			criteria.appliedExperienceLevels(),
+			criteria.rulemasterOnly(),
+			PUBLIC_STATUSES,
+			pageable);
+	}
+
+	private Set<Long> findActiveParticipationRoomIds(Long currentUserId, Page<Room> rooms) {
+		if (currentUserId == null || rooms.isEmpty()) {
+			return Set.of();
+		}
+		return Set.copyOf(roomRepository.findActiveParticipationRoomIds(
+			currentUserId, rooms.getContent().stream().map(Room::getId).toList()));
 	}
 
 	public record RoomListReadResult(Page<Room> rooms, Set<Long> activeParticipationRoomIds) {

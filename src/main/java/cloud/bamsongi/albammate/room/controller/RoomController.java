@@ -70,13 +70,7 @@ public class RoomController {
 		RoomQueryParameterAllowlistValidator.validateRoomList(servletRequest);
 		return ResponseEntity.ok(ApiResponse.success(
 			HttpStatus.OK,
-			roomListQueryService.findPage(
-				listRequest.getType(),
-				listRequest.getGameId(),
-				listRequest.getKeyword(),
-				listRequest.getPage(),
-				listRequest.getSize(),
-				currentUserAccessor.currentUserId())));
+			roomListQueryService.findPage(listRequest, currentUserAccessor.currentUserId())));
 	}
 
 	@GetMapping(path = "/{roomId}", produces = MediaType.APPLICATION_JSON_VALUE)

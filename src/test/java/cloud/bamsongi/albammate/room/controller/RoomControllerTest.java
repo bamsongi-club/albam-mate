@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -22,8 +22,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
@@ -55,6 +57,7 @@ import cloud.bamsongi.albammate.room.dto.CreateRoomRequest;
 import cloud.bamsongi.albammate.room.dto.NicknameSummary;
 import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
 import cloud.bamsongi.albammate.room.dto.PublicRoomResponse;
+import cloud.bamsongi.albammate.room.dto.RoomListRequest;
 import cloud.bamsongi.albammate.room.dto.RoomStatusResponse;
 import cloud.bamsongi.albammate.room.dto.RoomUpdateRequest;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
@@ -85,6 +88,11 @@ class RoomControllerTest {
 	private RoomCreateService roomCreateService;
 	@Autowired
 	private RoomListQueryService roomListQueryService;
+
+	@BeforeEach
+	void resetRoomListQueryService() {
+		reset(roomListQueryService);
+	}
 
 	@Test
 	void 성공_변경은_허용된_식별자만_포함한_INFO_운영_로그를_한번씩_남긴다() throws Exception {
@@ -131,13 +139,7 @@ class RoomControllerTest {
 
 	@Test
 	void 필터없는_비로그인_방_목록은_200이고_joinable은_false다() throws Exception {
-		when(roomListQueryService.findPage(
-			isNull(),
-			isNull(),
-			isNull(),
-			eq(0),
-			eq(10),
-			eq(Optional.empty())))
+		when(roomListQueryService.findPage(any(RoomListRequest.class), eq(Optional.empty())))
 			.thenReturn(pageResponse(false));
 
 		mockMvc.perform(get("/api/rooms"))
@@ -157,13 +159,7 @@ class RoomControllerTest {
 
 	@Test
 	void 로그인_방_목록은_현재_사용자를_서비스에_전달한다() throws Exception {
-		when(roomListQueryService.findPage(
-			eq(RoomType.PERSON_FOCUSED),
-			isNull(),
-			eq("모임"),
-			eq(1),
-			eq(20),
-			eq(Optional.of(42L))))
+		when(roomListQueryService.findPage(any(RoomListRequest.class), eq(Optional.of(42L))))
 			.thenReturn(pageResponse(true));
 
 		mockMvc.perform(
@@ -172,8 +168,12 @@ class RoomControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.content[0].joinable").value(true));
 
-		verify(roomListQueryService)
-			.findPage(RoomType.PERSON_FOCUSED, null, "모임", 1, 20, Optional.of(42L));
+		ArgumentCaptor<RoomListRequest> requestCaptor = ArgumentCaptor.forClass(RoomListRequest.class);
+		verify(roomListQueryService).findPage(requestCaptor.capture(), eq(Optional.of(42L)));
+		assertEquals(RoomType.PERSON_FOCUSED, requestCaptor.getValue().getType());
+		assertEquals("모임", requestCaptor.getValue().getKeyword());
+		assertEquals(1, requestCaptor.getValue().getPage());
+		assertEquals(20, requestCaptor.getValue().getSize());
 	}
 
 	@Test
@@ -184,6 +184,16 @@ class RoomControllerTest {
 			"type=INVALID",
 			"gameId=0",
 			"gameId=not-a-number",
+			"startsAtFrom=not-a-date",
+			"startsAtFrom=2099-01-01T00:00:00Z&startsAtTo=2099-01-01T00:00:00Z",
+			"minRemainingSeats=0",
+			"minRemainingSeats=11",
+			"minRemainingSeats=not-a-number",
+			"experienceLevels=INVALID",
+			"rulemasterOnly=not-a-boolean",
+			"rulemasterOnly=yes",
+			"rulemasterOnly=on",
+			"rulemasterOnly=1",
 			"sort=startsAt",
 			"page=not-a-number",
 			"page=-1",
@@ -198,9 +208,20 @@ class RoomControllerTest {
 	}
 
 	@Test
+	void 방_목록의_뒤집힌_날짜_범위는_VALIDATION_ERROR다() throws Exception {
+		clearInvocations(roomListQueryService);
+
+		mockMvc.perform(
+			get("/api/rooms?startsAtFrom=2099-01-02T00:00:00Z&startsAtTo=2099-01-01T00:00:00Z"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
+		verifyNoInteractions(roomListQueryService);
+	}
+
+	@Test
 	void 빈_방_목록_페이지_parameter는_기본값을_유지한다() throws Exception {
-		when(roomListQueryService.findPage(
-			isNull(), isNull(), isNull(), eq(0), eq(10), eq(Optional.empty())))
+		when(roomListQueryService.findPage(any(RoomListRequest.class), eq(Optional.empty())))
 			.thenReturn(pageResponse(false));
 
 		mockMvc.perform(get("/api/rooms?page=&size="))
@@ -208,8 +229,40 @@ class RoomControllerTest {
 			.andExpect(jsonPath("$.data.page").value(0))
 			.andExpect(jsonPath("$.data.size").value(10));
 
-		verify(roomListQueryService).findPage(
-			null, null, null, 0, 10, Optional.empty());
+		ArgumentCaptor<RoomListRequest> requestCaptor = ArgumentCaptor.forClass(RoomListRequest.class);
+		verify(roomListQueryService).findPage(requestCaptor.capture(), eq(Optional.empty()));
+		assertEquals(0, requestCaptor.getValue().getPage());
+		assertEquals(10, requestCaptor.getValue().getSize());
+	}
+
+	@Test
+	void P1_방_조건을_중복없이_서비스에_전달한다() throws Exception {
+		Instant startsAtFrom = Instant.parse("2099-01-01T00:00:00Z");
+		Instant startsAtTo = Instant.parse("2099-01-02T00:00:00Z");
+		Set<ExperienceLevel> experienceLevels = Set.of(
+			ExperienceLevel.ALL_LEVELS, ExperienceLevel.BEGINNER_WELCOME);
+		when(roomListQueryService.findPage(any(RoomListRequest.class), eq(Optional.of(42L))))
+			.thenReturn(pageResponse(true));
+
+		mockMvc.perform(
+			get("/api/rooms?type=GAME_FOCUSED&gameId=7&keyword=모임"
+				+ "&startsAtFrom=2099-01-01T00:00:00Z&startsAtTo=2099-01-02T00:00:00Z"
+				+ "&minRemainingSeats=2&experienceLevels=ALL_LEVELS"
+				+ "&experienceLevels=ALL_LEVELS&experienceLevels=BEGINNER_WELCOME&rulemasterOnly=true")
+				.with(authenticationFor(42L)))
+			.andExpect(status().isOk());
+
+		ArgumentCaptor<RoomListRequest> requestCaptor = ArgumentCaptor.forClass(RoomListRequest.class);
+		verify(roomListQueryService).findPage(requestCaptor.capture(), eq(Optional.of(42L)));
+		RoomListRequest request = requestCaptor.getValue();
+		assertEquals(RoomType.GAME_FOCUSED, request.getType());
+		assertEquals(7L, request.getGameId());
+		assertEquals("모임", request.getKeyword());
+		assertEquals(startsAtFrom, request.getStartsAtFrom());
+		assertEquals(startsAtTo, request.getStartsAtTo());
+		assertEquals(2, request.getMinRemainingSeats());
+		assertEquals(experienceLevels, request.getExperienceLevels());
+		assertTrue(request.isRulemasterOnly());
 	}
 
 	@Autowired

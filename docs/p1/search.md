@@ -131,8 +131,8 @@ BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건�
 | 데이터 모델 | [ROOMS](../ERD.md#rooms) |
 | 상태 정합화 | [ROOM-06 방 상태 정합화](../archive/p0/room.md#room-06-방-상태-정합화) |
 | 성능 검증 | [FND-09 검색 성능과 인덱스 검증](foundation.md#fnd-09-검색-성능과-인덱스-검증) |
-| 현재 HTTP 경계 | `RoomController#listRooms`, `RoomListRequest`, `RoomQueryParameterAllowlistValidator`; 현재 조건은 `type`, `gameId`, `keyword`, `page`, `size` |
-| 현재 조회 경계 | `RoomListQueryService#findPage` → `RoomStatusCorrectionCoordinator#correctDueRooms` → `RoomListReadService#findPublicRooms` → `RoomRepository`; 정렬은 엔티티 필드 `startAt`, `id` 오름차순 고정 |
+| 현재 HTTP 경계 | `RoomController#listRooms`, `RoomListRequest`, `RoomQueryParameterAllowlistValidator`; 제공 조건은 `type`, `gameId`, `keyword`, `startsAtFrom`, `startsAtTo`, `minRemainingSeats`, `experienceLevels`, `rulemasterOnly`, `page`, `size` |
+| 현재 조회 경계 | `RoomListQueryService#findPage` → `RoomStatusCorrectionCoordinator#correctDueRooms` → `RoomListReadService#findPublicRooms` → `RoomRepository`; 모든 조건은 하나의 동적 조회에서 적용하고 정렬은 엔티티 필드 `startAt`, `id` 오름차순 고정 |
 | 현재 저장 필드 | `Room.startAt`, `Room.capacity`, `Room.activeParticipantCount`, `Room.experienceLevel`, `Room.rulemasterLed` |
 
 ### 기능 규칙

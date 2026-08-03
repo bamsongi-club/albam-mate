@@ -20,6 +20,7 @@ import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.response.PageResponse;
 import cloud.bamsongi.albammate.room.dto.PublicRoomResponse;
+import cloud.bamsongi.albammate.room.dto.RoomListRequest;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
@@ -37,20 +38,33 @@ public class RoomListQueryService {
 
 	/** 상태 보정이 끝난 시점의 공개 방을 고정 정렬과 요청자 기준 참가 가능 여부로 반환한다. */
 	public PageResponse<PublicRoomResponse> findPage(
-		RoomType roomType,
-		Long gameId,
-		String keyword,
-		int page,
-		int size,
-		Optional<Long> currentUserId) {
+		RoomListRequest request, Optional<Long> currentUserId) {
+		return findPage(RoomListSearchCriteria.from(request, normalizeKeyword(request.getKeyword())),
+			request.getPage(), request.getSize(), currentUserId);
+	}
+
+	public PageResponse<PublicRoomResponse> findPage(
+		RoomType roomType, Long gameId, String keyword, int page, int size, Optional<Long> currentUserId) {
+		return findPage(new RoomListSearchCriteria(roomType, gameId, normalizeKeyword(keyword), null, null,
+			null, Set.of(), false), page, size, currentUserId);
+	}
+
+	private PageResponse<PublicRoomResponse> findPage(
+		RoomListSearchCriteria criteria, int page, int size, Optional<Long> currentUserId) {
 		Instant requestTime = Instant.now(clock);
 		statusCorrectionCoordinator.correctDueRooms(requestTime);
 
 		PageRequest pageable = PageRequest.of(
 			page, size, Sort.by(Sort.Order.asc("startAt"), Sort.Order.asc("id")));
-		String normalizedKeyword = normalizeKeyword(keyword);
 		RoomListReadService.RoomListReadResult readResult = roomListReadService.findPublicRooms(
-			roomType, gameId, normalizedKeyword, pageable, currentUserId.orElse(null));
+			criteria, pageable, currentUserId.orElse(null));
+		return toPageResponse(readResult, requestTime, currentUserId);
+	}
+
+	private PageResponse<PublicRoomResponse> toPageResponse(
+		RoomListReadService.RoomListReadResult readResult,
+		Instant requestTime,
+		Optional<Long> currentUserId) {
 		Map<Long, GameSummary> gameSummaries = findGameSummaries(readResult.rooms().getContent());
 		Page<PublicRoomResponse> response = readResult
 			.rooms()
