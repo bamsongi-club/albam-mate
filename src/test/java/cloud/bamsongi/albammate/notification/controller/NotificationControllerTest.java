@@ -199,6 +199,28 @@ class NotificationControllerTest {
 		verifyNoInteractions(notificationReadCommandService);
 	}
 
+	@Test
+	void 잘못된_CSRF_토큰_두_PATCH는_CSRF_TOKEN_INVALID이고_Service를_호출하지_않는다() throws Exception {
+		clearInvocations(notificationReadCommandService);
+
+		mockMvc.perform(patch("/api/users/me/notifications/1")
+			.with(authenticationFor(42L))
+			.with(csrf().useInvalidToken())
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"read\":true}"))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value(ErrorCode.CSRF_TOKEN_INVALID.getCode()));
+		mockMvc.perform(patch("/api/users/me/notifications")
+			.with(authenticationFor(42L))
+			.with(csrf().useInvalidToken())
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"read\":true}"))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value(ErrorCode.CSRF_TOKEN_INVALID.getCode()));
+
+		verifyNoInteractions(notificationReadCommandService);
+	}
+
 	private PageResponse<NotificationListItem> page() {
 		return new PageResponse<>(List.of(new NotificationListItem(1L, NotificationType.PARTICIPANT_JOINED, 3L,
 			"현재 방 제목", null, Instant.parse("2026-08-01T00:00:00Z"))), 0, 10, 1, 1, false);
