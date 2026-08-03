@@ -292,16 +292,15 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .modecard span { color: var(--sub); display: block; font-size: 12.5px; margin-top: 4px; }
 .checkline { align-items: center; display: flex; font-size: 13px; gap: 8px; padding: 8px 0; }
 .checkline input { accent-color: var(--accent); width: auto; }
-/* 게임 목록과 모임 목록이 함께 쓰는 조건 필터. 좁은 화면에서는 각 조건이 한 줄씩 내려간다. */
-.search-filters { align-items: end; background: var(--soft); border-radius: 12px; display: flex; flex-wrap: wrap; gap: 12px 16px; margin-bottom: 16px; padding: 14px 16px; }
+/* 게임 목록과 모임 목록이 함께 쓰는 조건 필터. 같은 너비의 칸에 담아 줄이 바뀌어도 라벨과 컨트롤이 세로로 맞는다. */
+.search-filters { background: var(--soft); border-radius: 12px; display: grid; gap: 12px 16px; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); margin-bottom: 16px; padding: 14px 16px; }
 .search-filter { display: grid; gap: 6px; }
-.search-filter label, .search-filter-label { color: var(--brown2); display: block; font-size: 12.5px; font-weight: 800; margin-bottom: 0; }
-.search-filter select, .search-filter .date-picker-trigger { min-width: 150px; }
-.search-filter.actions { align-items: center; display: flex; flex: 1; gap: 14px; justify-content: flex-end; }
-.search-filters .checkline { font-weight: 800; padding: 0; white-space: nowrap; }
-.search-filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.search-filter-chips button { background: #fff; border: 1.5px solid var(--line); border-radius: 999px; color: var(--sub); font-size: 13px; font-weight: 800; min-height: 42px; padding: 0 15px; }
-.search-filter-chips button.on { background: var(--brown); border-color: var(--brown); color: #fff; }
+.search-filter label { color: var(--brown2); font-size: 12.5px; font-weight: 800; margin-bottom: 0; }
+/* 날짜 지정은 달력을 여는 버튼이라 높이를 select와 같은 값으로 맞춘다. */
+.search-filter select, .search-filter .date-picker-trigger { min-height: 42px; width: 100%; }
+/* 체크 조건과 초기화는 마지막 줄을 통째로 쓰고 양 끝에 붙는다. */
+.search-filter.actions { align-items: center; display: flex; gap: 14px; grid-column: 1 / -1; justify-content: flex-end; }
+.search-filters .checkline { font-weight: 800; margin-right: auto; padding: 0; white-space: nowrap; }
 .search-filter-reset { color: var(--accent-dark); font-size: 12.5px; font-weight: 900; white-space: nowrap; }
 .search-filter-reset:hover { text-decoration: underline; }
 .games-filter { align-items: center; column-gap: 16px; display: flex; flex-wrap: wrap; justify-content: space-between; margin: -6px 0 15px; row-gap: 4px; }
@@ -385,10 +384,10 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
   input, select, textarea { font-size: 16px; }
   /* 손가락 탭 기준 44px에 맞춘다. 데스크톱 밀도를 바꾸지 않도록 좁은 화면에만 적용한다. */
   #gnb a, .game-search-open, .tabs button { align-items: center; display: inline-flex; justify-content: center; min-height: 44px; }
-  .page-btn, .btn, select, .date-picker-trigger, .search-filter-chips button { min-height: 44px; }
-  /* 필터 조건을 한 줄에 하나씩 두고, 마지막 줄의 체크 조건과 초기화는 양 끝에 붙인다. */
-  .search-filter { width: 100%; }
-  .search-filter select, .search-filter .date-picker-trigger { min-width: 0; }
+  .page-btn, .btn, select, .date-picker-trigger { min-height: 44px; }
+  /* 좁은 화면에서는 조건을 한 줄에 하나씩 둔다. */
+  .search-filters { grid-template-columns: 1fr; }
+  .search-filter select, .search-filter .date-picker-trigger { min-height: 44px; }
   .search-filter.actions { justify-content: space-between; }
   .pagination { gap: 8px; }
   .checkline { min-height: 44px; }
