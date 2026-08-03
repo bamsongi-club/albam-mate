@@ -245,10 +245,10 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 25 | P1 | [CHAT-02](#chat-02-메시지-전송) · [정본](p1/chatting.md#chat-02-메시지-전송이력-조회) | POST | `/api/rooms/{roomId}/chat/messages` | Y | Y | 201·200 |
 | 26 | P1 | [CHAT-02](#chat-02-메시지-이력-조회) · [정본](p1/chatting.md#chat-02-메시지-전송이력-조회) | GET | `/api/rooms/{roomId}/chat/messages` | Y | N | 200 |
 | 27 | P1 | [CHAT-03](#chat-03-실시간-메시지-구독) · [정본](p1/chatting.md#chat-03-실시간-전달재연결-복구) | GET (Upgrade) | `/api/rooms/{roomId}/chat/ws` | Y | N | 101 |
-| 28 | P1 | [AUTH-05](#auth-05-소셜-로그인계정-연결) · [정본](p1/auth.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/providers` | 선택 | N | 200 |
-| 29 | P1 | [AUTH-05](#소셜-로그인-authorization-시작) · [정본](p1/auth.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/authorization/{provider}` | N | N | 302 |
-| 30 | P1 | [AUTH-05](#소셜-callback과-고정-결과) · [정본](p1/auth.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/callback/{provider}` | N | N | 302 |
-| 31 | P1 | [AUTH-05](#소셜-계정-연결-시작) · [정본](p1/auth.md#auth-05-소셜-로그인계정-연결) | POST | `/api/users/me/social-accounts/{provider}/link` | Y | Y | 200 |
+| 28 | P1 | [AUTH-05](#auth-05-소셜-로그인계정-연결) · [정본](p1/social-login.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/providers` | 선택 | N | 200 |
+| 29 | P1 | [AUTH-05](#소셜-로그인-authorization-시작) · [정본](p1/social-login.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/authorization/{provider}` | N | N | 302 |
+| 30 | P1 | [AUTH-05](#소셜-callback과-고정-결과) · [정본](p1/social-login.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/callback/{provider}` | N | N | 302 |
+| 31 | P1 | [AUTH-05](#소셜-계정-연결-시작) · [정본](p1/social-login.md#auth-05-소셜-로그인계정-연결) | POST | `/api/users/me/social-accounts/{provider}/link` | Y | Y | 200 |
 
 `GET /api/rooms`, `GET /api/rooms/{roomId}`와 `GET /api/auth/social/providers`의 인증은 "선택"이다. 비로그인도 호출할 수 있고, 유효한 세션이 있으면 요청자 기준 값을 계산한다.
 
@@ -809,7 +809,7 @@ P0에서는 닉네임만 수정한다.
 
 > **단계: P1 계약 제안·팀 승인 대기** · 현재 상태: [P1 기능 상태 정본의 `AUTH-05`](p1/README.md#기능별-현재-상태)
 
-이 절은 #328 팀 승인을 위한 목표 계약이다. 제품 규칙은 [P1 소셜 로그인 명세](p1/auth.md), 외부 식별자·세션 결정 제안은 [ADR-0042](adr/auth/0042-p1-oauth-social-identity-and-session-integration.md)를 따른다. 경로의 `{provider}`는 [SocialProvider](#socialprovider)의 소문자 경로값만 허용한다.
+이 절은 #328 팀 승인을 위한 목표 계약이다. 제품 규칙은 [P1 소셜 로그인 명세](p1/social-login.md), 외부 식별자·세션 결정 제안은 [ADR-0042](adr/auth/0042-p1-oauth-social-identity-and-session-integration.md)를 따른다. 경로의 `{provider}`는 [SocialProvider](#socialprovider)의 소문자 경로값만 허용한다.
 
 #### 설정된 소셜 제공자 조회
 

@@ -3,7 +3,7 @@
 - 상태: 제안됨
 - 작성일: 2026-08-03
 - 결정일: 미정
-- 관련: [AUTH-05](../../p1/auth.md#auth-05-소셜-로그인계정-연결), [API](../../API.md#auth-05-소셜-로그인계정-연결), [ERD](../../ERD.md#social_accounts), [GitHub Issue #328](https://github.com/bamsongi-club/albam-mate/issues/328)
+- 관련: [AUTH-05](../../p1/social-login.md#auth-05-소셜-로그인계정-연결), [API](../../API.md#auth-05-소셜-로그인계정-연결), [ERD](../../ERD.md#social_accounts), [GitHub Issue #328](https://github.com/bamsongi-club/albam-mate/issues/328)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
