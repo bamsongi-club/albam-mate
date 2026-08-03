@@ -163,19 +163,21 @@ class UserAccountServiceTest {
 		UserAccountApplicationService service = service();
 		User user = User.create("user@example.com", "{bcrypt}encoded", "닉네임");
 		setId(user, 13L);
-		when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+		when(userRepository.findByEmailAndPasswordHashIsNotNull("user@example.com"))
+			.thenReturn(Optional.of(user));
 
 		Optional<UserCredentials> credentials = service.findCredentialsByEmail(
 			UserEmail.from(" User@Example.COM ").orElseThrow());
 
 		assertEquals(Optional.of(new UserCredentials(13L, "닉네임", "{bcrypt}encoded")), credentials);
-		verify(userRepository).findByEmail("user@example.com");
+		verify(userRepository).findByEmailAndPasswordHashIsNotNull("user@example.com");
 	}
 
 	@Test
 	void 자격증명이_없으면_빈_결과를_반환한다() {
 		UserAccountApplicationService service = service();
-		when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.empty());
+		when(userRepository.findByEmailAndPasswordHashIsNotNull("user@example.com"))
+			.thenReturn(Optional.empty());
 
 		assertTrue(
 			service.findCredentialsByEmail(UserEmail.from("user@example.com").orElseThrow())

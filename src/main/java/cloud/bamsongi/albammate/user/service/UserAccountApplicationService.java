@@ -65,7 +65,7 @@ public class UserAccountApplicationService implements UserAccountService {
 	@Transactional(readOnly = true)
 	public Optional<UserCredentials> findCredentialsByEmail(UserEmail email) {
 		return userRepository
-			.findByEmail(email.value())
+			.findByEmailAndPasswordHashIsNotNull(email.value())
 			.map(UserContractMapper::toUserCredentials);
 	}
 
