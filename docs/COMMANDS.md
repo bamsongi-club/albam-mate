@@ -149,6 +149,23 @@ node --test scripts/check-doc-links.test.mjs
 
 두 명령을 CI의 `Docs` job이 함께 실행하므로, 문서나 검사기를 변경한 PR은 둘 다 먼저 통과시킨다.
 
+## 백엔드 전달 테스트 계약
+
+full-delivery의 최종 packet과 execution plan은 작업 트리 밖의 임시 JSON으로 유지한다. builder가 현재 snapshot을 계산하고 plan의 중복 명령, T-ID 매핑, 실제 test source와 packet의 대상·최종 명령 포함 여부를 검증해 expected를 만든다.
+
+```sh
+node scripts/build-backend-test-plan.mjs --packet <packet.json> --plan <plan.json> --output <expected.json> --worktree <worktree>
+```
+
+fresh backend-tester는 생성된 고유 execution을 runner로 한 번씩 실행한다. 실패나 미검증 결과는 원인을 해결한 뒤 새 result 경로로 runner 전체를 다시 실행한다.
+
+```sh
+node scripts/run-backend-test-contract.mjs --expected <expected.json> --result <result.json> --worktree <worktree>
+node scripts/validate-backend-test-result.mjs --result <result.json> --expected <expected.json>
+```
+
+JUnit execution은 새로 생성되거나 갱신된 XML과 1개 이상의 테스트를 증명해야 하며, exit code 0만으로 통과하지 않는다. 상세 입력·결과 계약은 [backend-delivery 테스트 하네스](../.agents/skills/backend-delivery/references/test-contract-harness.md)를 따른다.
+
 ## 게임 카탈로그 검수
 
 BGG 기준 CSV와 팀 검수 JSON의 매핑·중복·필수값·품질 경고를 확인한다. 출처 manifest가 없거나 검수 상태가 승인되지 않으면 보고서만 만들고 적재 SQL은 생성하지 않는다.
