@@ -1,6 +1,6 @@
 ---
 name: pr-writer
-description: "실제 diff로 PR 제목·본문을 작성하고, 'PR 올려줘', '커밋하고 PR 올려줘'처럼 명시된 요청 범위에서만 commit·push·PR 생성을 처리한다."
+description: "실제 diff로 PR 제목·본문을 작성하고, 'PR 올려줘', 'Draft PR 올려줘', '커밋하고 PR 올려줘'처럼 명시된 요청 범위에서만 commit·push·PR 생성을 처리한다."
 ---
 
 ## 역할과 불변식
@@ -15,6 +15,7 @@ description: "실제 diff로 PR 제목·본문을 작성하고, 'PR 올려줘', 
 
 - PR 작성해줘: PR 제목·본문만 작성한다. stage, commit, push, PR 생성은 하지 않는다.
 - PR 올려줘, PR 만들어줘: worktree가 clean이면 미push 브랜치를 push한 뒤 PR을 생성한다. dirty worktree가 있으면 자동 커밋하지 말고 변경 파일과 추천 커밋 분할안을 제시한다.
+- Draft PR 올려줘, Draft PR 만들어줘: 위 PR 생성 경계를 따르되 `--draft`로 생성한다. 호출한 승인된 전달 절차가 Draft 생성을 명시한 경우에도 같다.
 - 커밋하고 PR 올려줘, 현재 변경사항 전부 커밋해서 PR 올려줘: 명시된 변경을 의미 단위로 커밋하고 push와 PR 생성을 진행한다.
 - 커밋을 수행하는 경우에만 커밋 직전에 `docs/CONVENTIONS.md`의 `## 커밋` 절을 읽고, 해당 절의 커밋 분할과 메시지 형식을 따른다. 파일이나 절을 확인할 수 없으면 커밋하지 말고 누락을 보고한다.
 - 현재 변경사항 전부처럼 전체 범위가 명시된 경우에만 전체 stage를 허용한다. 그 외에는 사용자가 지정한 파일만 stage하고 unrelated 변경을 보존한다.
@@ -49,6 +50,7 @@ diff 이해 퀴즈나 퀴즈 통과 문구를 PR 본문에 넣지 않는다.
 ## PR 생성
 
 - 실행 직전에 최종 committed diff와 제목·본문의 일치를 확인한다.
+- 사용자가 Draft를 요청했거나 호출한 승인된 전달 절차가 Draft를 명시하면 `gh pr create --draft`를 사용하고, 그 외에는 일반 PR로 생성한다. Draft 생성 사실과 검증·리뷰 준비 완료를 구분한다.
 - PR 본문은 저장소 밖의 고유한 임시 파일에 쓰고 `--body-file`로 전달한다. 셸 인라인 `--body "<body>"`는 사용하지 않는다.
 - PR 생성의 성공·실패와 관계없이 명령이 끝나면 임시 본문 파일을 삭제한다.
 

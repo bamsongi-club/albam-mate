@@ -481,10 +481,18 @@ export function runBackendTestContract({
                     ...execution,
                 }
                 : item);
+            if (execution.verdict === 'fail') {
+                result.executionResults = result.executionResults.map((item) => item.notRunReason === '아직 실행되지 않았다.'
+                    ? {
+                        ...item,
+                        notRunReason: `${approvedExecution.id} 실행이 fail이어서 fail-fast로 중단했다.`,
+                    }
+                    : item);
+            }
             const current = computeWorktreeSnapshot(resolvedWorktree);
             aggregateResult(result, expected, started, current);
             atomicWriteJson(resultPath, result);
-            if (snapshotChanged(started, current)) break;
+            if (execution.verdict === 'fail' || snapshotChanged(started, current)) break;
         }
     } else {
         const reason = preflight.checks
