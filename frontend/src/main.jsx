@@ -34,8 +34,7 @@ const ROOM_TYPE_FILTERS = [
 // Asia/Seoul은 일광절약시간을 쓰지 않아 오프셋이 항상 같다.
 const SEOUL_OFFSET = '+09:00';
 const EMPTY_ROOM_FILTERS = {
-  startDate: '',
-  endDate: '',
+  date: '',
   minRemainingSeats: '',
   experienceLevels: [],
   rulemasterOnly: false
@@ -571,8 +570,8 @@ function HomeView({ onBrowsePeople, onSearchGame, dataVersion }) {
 
 function roomFilterParameters(filters) {
   return {
-    startsAtFrom: seoulDayStart(filters.startDate),
-    startsAtTo: seoulDayEnd(filters.endDate),
+    startsAtFrom: seoulDayStart(filters.date),
+    startsAtTo: seoulDayEnd(filters.date),
     minRemainingSeats: filters.minRemainingSeats,
     experienceLevels: filters.experienceLevels,
     rulemasterOnly: filters.rulemasterOnly
@@ -596,12 +595,8 @@ function RoomFilters({ filters, onChange, today }) {
   return (
     <div className="search-filters">
       <div className="search-filter">
-        <label htmlFor="room-filter-from">시작 날짜</label>
-        <DatePicker id="room-filter-from" value={filters.startDate} onChange={(date) => update({ startDate: date })} today={today} placeholder="전체" />
-      </div>
-      <div className="search-filter">
-        <label htmlFor="room-filter-to">종료 날짜</label>
-        <DatePicker id="room-filter-to" value={filters.endDate} onChange={(date) => update({ endDate: date })} today={today} placeholder="전체" />
+        <label htmlFor="room-filter-date">날짜</label>
+        <DatePicker id="room-filter-date" value={filters.date} onChange={(date) => update({ date })} today={today} placeholder="전체" />
       </div>
       <div className="search-filter">
         <label htmlFor="room-filter-seats">최소 남은 자리</label>
