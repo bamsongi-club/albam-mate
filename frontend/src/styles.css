@@ -79,6 +79,27 @@ header {
 #gnb { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 #gnb a { border-radius: 10px; color: var(--brown2); font-size: 14px; font-weight: 800; padding: 8px 12px; }
 #gnb a:hover, #gnb a.on { background: var(--soft); color: var(--brown); }
+.notification-menu { align-items: center; display: flex; position: relative; }
+.notification-trigger { align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 999px; color: var(--brown2); display: inline-flex; height: 36px; justify-content: center; position: relative; width: 36px; }
+.notification-trigger:hover, .notification-trigger.on { background: var(--soft); color: var(--brown); }
+.notification-badge { align-items: center; background: var(--red); border: 2px solid var(--bg); border-radius: 999px; color: #fff; display: inline-flex; font-size: 9px; font-weight: 900; justify-content: center; line-height: 1; min-height: 18px; min-width: 18px; padding: 2px 4px; position: absolute; right: -7px; top: -7px; }
+.notification-panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 12px 32px rgba(65, 45, 25, 0.2); overflow: hidden; position: absolute; right: 0; top: calc(100% + 12px); width: min(380px, calc(100vw - 32px)); z-index: 30; }
+.notification-panel-header { align-items: center; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; padding: 14px 16px; }
+.notification-panel-header h2 { font-size: 18px; margin: 0; }
+.notification-close { align-items: center; border-radius: 8px; color: var(--sub); display: inline-flex; font-size: 24px; height: 32px; justify-content: center; line-height: 1; width: 32px; }
+.notification-close:hover { background: var(--soft); color: var(--brown); }
+.notification-panel-body { max-height: min(480px, calc(100vh - 120px)); overflow-y: auto; }
+.notification-state { color: var(--sub); font-size: 14px; padding: 30px 20px; text-align: center; }
+.notification-state .btn { margin-top: 14px; }
+.notification-list { list-style: none; }
+.notification-list li + li { border-top: 1px solid var(--line); }
+.notification-item { display: flex; flex-direction: column; gap: 7px; padding: 15px 18px; position: relative; text-align: left; width: 100%; }
+.notification-item:hover { background: var(--soft); }
+.notification-item.unread { padding-left: 30px; }
+.notification-item.unread::before { background: var(--accent); border-radius: 50%; content: ''; height: 8px; left: 14px; position: absolute; top: 21px; width: 8px; }
+.notification-item.read { color: var(--sub); }
+.notification-item-message { font-size: 14px; font-weight: 700; }
+.notification-item time { color: var(--sub); font-size: 11.5px; }
 /* 메뉴와 성격이 다른 계정 진입점이라 앞쪽을 한 칸 더 띄운다. */
 #gnb .profile-icon { align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 999px; display: inline-flex; justify-content: center; margin-left: 8px; padding: 8px; }
 
@@ -335,6 +356,8 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
   #gnb { margin-left: auto; }
   #gnb a { padding-left: 7px; padding-right: 7px; }
   #gnb .profile-icon { min-width: 44px; }
+  .notification-trigger { height: 44px; width: 44px; }
+  .notification-panel { position: fixed; right: 12px; top: 72px; width: calc(100vw - 24px); }
   .brand-wordmark { display: none; }
   .inline-search { max-width: none; }
   .tabs-row .inline-search { flex: 1 1 100%; }
