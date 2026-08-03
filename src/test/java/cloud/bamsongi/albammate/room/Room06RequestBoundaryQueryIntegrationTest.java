@@ -22,6 +22,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 
+import cloud.bamsongi.albammate.chat.repository.ChatRoomRepository;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.response.PageResponse;
@@ -58,6 +59,8 @@ class Room06RequestBoundaryQueryIntegrationTest {
 	@Autowired
 	private RoomRepository roomRepository;
 	@Autowired
+	private ChatRoomRepository chatRoomRepository;
+	@Autowired
 	private UserRepository userRepository;
 
 	private final List<Long> participationIds = new ArrayList<>();
@@ -67,6 +70,10 @@ class Room06RequestBoundaryQueryIntegrationTest {
 	@AfterEach
 	void tearDown() {
 		participationIds.forEach(participationRepository::deleteById);
+		roomIds.stream()
+			.map(chatRoomRepository::findByRoomId)
+			.flatMap(Optional::stream)
+			.forEach(chatRoomRepository::delete);
 		roomIds.forEach(roomRepository::deleteById);
 		userIds.forEach(userRepository::deleteById);
 	}

@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.chat.entity;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 
@@ -20,6 +21,8 @@ import lombok.NoArgsConstructor;
 @Table(name = "chat_rooms")
 public class ChatRoom extends BaseEntity {
 
+	private static final Duration RETENTION_PERIOD = Duration.ofDays(30);
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name = "id")
@@ -39,5 +42,13 @@ public class ChatRoom extends BaseEntity {
 		ChatRoom chatRoom = new ChatRoom();
 		chatRoom.roomId = Objects.requireNonNull(roomId, "roomId");
 		return chatRoom;
+	}
+
+	/** 최종 상태 전환 시점부터 메시지 보관 기한을 한 번만 정한다. */
+	public void schedulePurgeAfter(Instant terminalStateReachedAt) {
+		if (purgeAfter == null) {
+			purgeAfter = Objects.requireNonNull(terminalStateReachedAt, "terminalStateReachedAt")
+				.plus(RETENTION_PERIOD);
+		}
 	}
 }

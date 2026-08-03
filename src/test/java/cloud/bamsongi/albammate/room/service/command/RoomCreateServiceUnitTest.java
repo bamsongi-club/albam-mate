@@ -19,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import cloud.bamsongi.albammate.game.contract.GameQuery;
 import cloud.bamsongi.albammate.game.contract.GameSummary;
@@ -46,17 +47,19 @@ class RoomCreateServiceUnitTest {
 	private GameQuery gameQuery;
 	@Mock
 	private UserQuery userQuery;
+	@Mock
+	private ApplicationEventPublisher eventPublisher;
 
 	private RoomCreateService roomCreateService;
 
 	@BeforeEach
 	void setUp() {
 		roomCreateService = new RoomCreateService(
-			roomRepository, gameQuery, userQuery, Clock.fixed(NOW, ZoneOffset.UTC));
+			roomRepository, gameQuery, userQuery, Clock.fixed(NOW, ZoneOffset.UTC), eventPublisher);
 		lenient().when(userQuery.findNicknameById(42L)).thenReturn(Optional.of("방장"));
 		lenient()
 			.when(roomRepository.save(any(Room.class)))
-			.thenAnswer(invocation -> invocation.getArgument(0));
+			.thenAnswer(invocation -> withId(invocation.getArgument(0), 1L));
 	}
 
 	@Test
@@ -165,5 +168,16 @@ class RoomCreateServiceUnitTest {
 			NOW.plusSeconds(3600),
 			"  장소  ",
 			3);
+	}
+
+	private Room withId(Room room, long roomId) {
+		try {
+			java.lang.reflect.Field id = Room.class.getDeclaredField("id");
+			id.setAccessible(true);
+			id.set(room, roomId);
+			return room;
+		} catch (ReflectiveOperationException exception) {
+			throw new AssertionError(exception);
+		}
 	}
 }

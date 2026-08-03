@@ -2,12 +2,14 @@ package cloud.bamsongi.albammate.room.service.command;
 
 import java.time.Instant;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.room.contract.RoomTerminalStateReached;
 import cloud.bamsongi.albammate.room.dto.RoomStatusResponse;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
@@ -21,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 class RoomStatusChangeExecutor {
 
 	private final RoomRepository roomRepository;
+	private final ApplicationEventPublisher eventPublisher;
 
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public RoomStatusResponse cancelRoom(long currentUserId, long roomId, Instant requestTime) {
@@ -29,19 +32,28 @@ class RoomStatusChangeExecutor {
 		if (!room.cancel()) {
 			throw new BusinessException(ErrorCode.INVALID_ROOM_STATUS_TRANSITION);
 		}
+		roomRepository.flush();
+		eventPublisher.publishEvent(new RoomTerminalStateReached(room.getId(), requestTime));
 		return RoomStatusResponse.from(room);
 	}
 
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public RoomStatusResponse finishRoom(long currentUserId, long roomId, Instant requestTime) {
 		Room room = findHostedRoom(currentUserId, roomId);
+		RoomStatus statusBeforeReconciliation = room.getStatus();
 		room.reconcileStateAt(requestTime);
 		if (room.getStatus() == RoomStatus.FINISHED) {
+			if (statusBeforeReconciliation != RoomStatus.FINISHED) {
+				roomRepository.flush();
+				eventPublisher.publishEvent(new RoomTerminalStateReached(room.getId(), requestTime));
+			}
 			return RoomStatusResponse.from(room);
 		}
 		if (!room.finishAt(requestTime)) {
 			throw new BusinessException(ErrorCode.INVALID_ROOM_STATUS_TRANSITION);
 		}
+		roomRepository.flush();
+		eventPublisher.publishEvent(new RoomTerminalStateReached(room.getId(), requestTime));
 		return RoomStatusResponse.from(room);
 	}
 

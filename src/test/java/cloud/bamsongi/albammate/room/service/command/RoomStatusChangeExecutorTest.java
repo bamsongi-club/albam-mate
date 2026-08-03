@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -32,12 +33,14 @@ class RoomStatusChangeExecutorTest {
 
 	@Mock
 	private RoomRepository roomRepository;
+	@Mock
+	private ApplicationEventPublisher eventPublisher;
 
 	private RoomStatusChangeExecutor executor;
 
 	@BeforeEach
 	void setUp() {
-		executor = new RoomStatusChangeExecutor(roomRepository);
+		executor = new RoomStatusChangeExecutor(roomRepository, eventPublisher);
 	}
 
 	@Test

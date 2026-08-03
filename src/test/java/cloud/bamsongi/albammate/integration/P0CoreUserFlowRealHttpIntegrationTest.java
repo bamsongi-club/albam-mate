@@ -26,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
+import cloud.bamsongi.albammate.chat.repository.ChatRoomRepository;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 import cloud.bamsongi.albammate.room.entity.Participation;
@@ -68,6 +69,8 @@ class P0CoreUserFlowRealHttpIntegrationTest {
 	@Autowired
 	private ParticipationRepository participationRepository;
 	@Autowired
+	private ChatRoomRepository chatRoomRepository;
+	@Autowired
 	private UserRepository userRepository;
 
 	private final List<ParticipationCleanupKey> participationCleanupKeys = new ArrayList<>();
@@ -79,6 +82,7 @@ class P0CoreUserFlowRealHttpIntegrationTest {
 	@AfterEach
 	void tearDown() {
 		participationCleanupKeys.forEach(this::deleteParticipationIfPresent);
+		roomCleanupKeys.forEach(this::deleteChatRoomIfPresent);
 		roomIds.forEach(roomRepository::deleteById);
 		roomCleanupKeys.forEach(this::deleteRoomIfPresent);
 		gameIds.forEach(gameRepository::deleteById);
@@ -440,6 +444,17 @@ class P0CoreUserFlowRealHttpIntegrationTest {
 				room -> cleanupKey.hostUserId().equals(room.getHostUserId())
 					&& cleanupKey.title().equals(room.getTitle()))
 			.forEach(roomRepository::delete);
+	}
+
+	private void deleteChatRoomIfPresent(RoomCleanupKey cleanupKey) {
+		roomRepository.findAll().stream()
+			.filter(
+				room -> cleanupKey.hostUserId().equals(room.getHostUserId())
+					&& cleanupKey.title().equals(room.getTitle()))
+			.map(Room::getId)
+			.map(chatRoomRepository::findByRoomId)
+			.flatMap(java.util.Optional::stream)
+			.forEach(chatRoomRepository::delete);
 	}
 
 	private java.util.Optional<HttpCookie> cookieNamed(CookieManager cookieManager, String name) {

@@ -51,7 +51,8 @@ class ModuleArchitectureTest {
 		ROOT_PACKAGE + ".notification.cleanup");
 	private static final Set<String> ALLOWED_CHAT_PACKAGES = Set.of(
 		ROOT_PACKAGE + ".chat.entity",
-		ROOT_PACKAGE + ".chat.repository");
+		ROOT_PACKAGE + ".chat.repository",
+		ROOT_PACKAGE + ".chat.service");
 	private static final String ROOM_RETRIER = ROOT_PACKAGE + ".room.service.RoomOptimisticLockRetrier";
 	private static final Set<String> ALLOWED_ROOM_RETRIER_USERS = Set.of(
 		ROOT_PACKAGE + ".room.service.command.RoomCommandExecutionCoordinator",
@@ -164,7 +165,7 @@ class ModuleArchitectureTest {
 			.that()
 			.resideInAPackage(ROOT_PACKAGE + ".chat..")
 			.should(resideInAllowedPackage(ALLOWED_CHAT_PACKAGES, "Chat"))
-			.because("CHAT-01은 entity와 repository만 소유하고 ROOM 내부 구현을 직접 참조하지 않는다")
+			.because("CHAT-01은 entity, repository와 room.contract만 사용하는 lifecycle service를 소유한다")
 			.check(PRODUCTION_CLASSES);
 	}
 
