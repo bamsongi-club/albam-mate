@@ -7,6 +7,8 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import cloud.bamsongi.albammate.notification.relay.NotificationRelayFailureClassifier.FailureClassification;
 import cloud.bamsongi.albammate.notification.repository.NotificationOutboxEventRepository;
@@ -44,10 +46,11 @@ public class NotificationRelayFailureRecorder {
 				SECOND_RETRY_DELAY.toSeconds(),
 				THIRD_RETRY_DELAY.toSeconds(),
 				FOURTH_RETRY_DELAY.toSeconds());
-		return storedFailure.map(this::logAndCreate);
+		return storedFailure.map(this::createAndRegisterAfterCommitLog);
 	}
 
-	private RecordedFailure logAndCreate(NotificationOutboxEventRepository.RelayFailureRecord record) {
+	private RecordedFailure createAndRegisterAfterCommitLog(
+		NotificationOutboxEventRepository.RelayFailureRecord record) {
 		RecordedFailure recordedFailure = new RecordedFailure(
 			record.getSourceEventId(),
 			record.getEventType(),
@@ -58,6 +61,16 @@ public class NotificationRelayFailureRecorder {
 			record.getNextAvailableAt(),
 			record.isDeterministicFailure(),
 			record.isRetryScheduled());
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void afterCommit() {
+				logRecordedFailure(recordedFailure);
+			}
+		});
+		return recordedFailure;
+	}
+
+	private void logRecordedFailure(RecordedFailure recordedFailure) {
 		if (recordedFailure.retryScheduled()) {
 			log.warn(
 				"event=notification_outbox_relay_retry_scheduled sourceEventId={} eventType={} failureCode={} "
@@ -73,7 +86,6 @@ public class NotificationRelayFailureRecorder {
 				recordedFailure.failureClass(), recordedFailure.failureCount(), recordedFailure.totalFailureCount(),
 				recordedFailure.deterministicFailure());
 		}
-		return recordedFailure;
 	}
 
 	public record RecordedFailure(
