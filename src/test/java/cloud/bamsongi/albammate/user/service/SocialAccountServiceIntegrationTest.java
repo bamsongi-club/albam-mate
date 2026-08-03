@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -16,7 +19,12 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 
 import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
 import cloud.bamsongi.albammate.user.contract.RawPassword;
@@ -34,6 +42,7 @@ import cloud.bamsongi.albammate.user.repository.SocialAccountRepository;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 
 @SpringBootTest
+@Import(SocialAccountServiceIntegrationTest.SocialAccountConcurrencyConfiguration.class)
 class SocialAccountServiceIntegrationTest {
 
 	@Autowired
@@ -47,6 +56,9 @@ class SocialAccountServiceIntegrationTest {
 
 	@Autowired
 	private SocialAccountRepository socialAccountRepository;
+
+	@Autowired
+	private SocialIdentityReadGate socialIdentityReadGate;
 
 	@Test
 	void 같은_외부_신원은_선택_이메일과_닉네임_유무와_관계없이_한_사용자로_수렴한다() {
@@ -125,23 +137,22 @@ class SocialAccountServiceIntegrationTest {
 		String subject = unique("concurrent");
 		SocialIdentity identity = identity(SocialProvider.GOOGLE, subject, Optional.empty(), Optional.empty());
 		long userCountBefore = userRepository.count();
-		CountDownLatch ready = new CountDownLatch(2);
-		CountDownLatch start = new CountDownLatch(1);
 		ExecutorService executor = Executors.newFixedThreadPool(2);
+		socialIdentityReadGate.arm(SocialProvider.GOOGLE, subject);
 		try {
-			Future<SocialLoginResult> first = executor.submit(() -> loginAfterStart(ready, start, identity));
-			Future<SocialLoginResult> second = executor.submit(() -> loginAfterStart(ready, start, identity));
-			assertTrue(ready.await(5, TimeUnit.SECONDS));
-			start.countDown();
+			Future<SocialLoginResult> first = executor.submit(() -> socialAccountService.login(identity));
+			Future<SocialLoginResult> second = executor.submit(() -> socialAccountService.login(identity));
 
 			assertEquals(loggedIn(first.get(10, TimeUnit.SECONDS)).account(),
 				loggedIn(second.get(10, TimeUnit.SECONDS)).account());
+			assertEquals(2, socialIdentityReadGate.absentReadCount());
 			assertEquals(userCountBefore + 1, userRepository.count());
 			assertEquals(
 				1,
-				socialAccountRepository.findByProviderAndProviderSubject(SocialProvider.GOOGLE, subject).stream().count());
+				socialAccountRepository.findByProviderAndProviderSubject(SocialProvider.GOOGLE, subject).stream()
+					.count());
 		} finally {
-			start.countDown();
+			socialIdentityReadGate.disarm();
 			executor.shutdownNow();
 		}
 	}
@@ -158,15 +169,6 @@ class SocialAccountServiceIntegrationTest {
 		assertTrue(java.util.Arrays.stream(SocialIdentity.class.getRecordComponents())
 			.map(component -> component.getName())
 			.noneMatch(forbiddenNames::contains));
-	}
-
-	private SocialLoginResult loginAfterStart(
-		CountDownLatch ready, CountDownLatch start, SocialIdentity identity) throws InterruptedException {
-		ready.countDown();
-		if (!start.await(5, TimeUnit.SECONDS)) {
-			throw new AssertionError("동시 소셜 로그인 시작 신호를 기다리다 시간 초과했습니다.");
-		}
-		return socialAccountService.login(identity);
 	}
 
 	private SocialLoginResult.LoggedIn loggedIn(SocialLoginResult result) {
@@ -196,5 +198,89 @@ class SocialAccountServiceIntegrationTest {
 
 	private String unique(String prefix) {
 		return prefix + "-" + UUID.randomUUID().toString().replace("-", "");
+	}
+
+	@TestConfiguration(proxyBeanMethods = false)
+	static class SocialAccountConcurrencyConfiguration {
+
+		@Bean
+		SocialIdentityReadGate socialIdentityReadGate() {
+			return new SocialIdentityReadGate();
+		}
+
+		@Bean
+		@Primary
+		SocialAccountRepository gatedSocialAccountRepository(
+			@Qualifier("socialAccountRepository") SocialAccountRepository delegate,
+			SocialIdentityReadGate gate) {
+			return (SocialAccountRepository)Proxy.newProxyInstance(
+				SocialAccountRepository.class.getClassLoader(),
+				new Class<?>[] {SocialAccountRepository.class},
+				(proxy, method, arguments) -> invokeAfterAbsentIdentityRead(delegate, gate, method, arguments));
+		}
+
+		private Object invokeAfterAbsentIdentityRead(
+			SocialAccountRepository delegate,
+			SocialIdentityReadGate gate,
+			Method method,
+			Object[] arguments) throws Throwable {
+			try {
+				Object result = method.invoke(delegate, arguments);
+				if ("findByProviderAndProviderSubject".equals(method.getName())
+					&& result instanceof Optional<?> optional
+					&& optional.isEmpty()) {
+					gate.awaitSecondAbsentRead((SocialProvider)arguments[0], (String)arguments[1]);
+				}
+				return result;
+			} catch (InvocationTargetException exception) {
+				throw exception.getCause();
+			}
+		}
+	}
+
+	static final class SocialIdentityReadGate {
+
+		private SocialProvider provider;
+		private String subject;
+		private CountDownLatch bothAbsentReads;
+		private int absentReadCount;
+
+		synchronized void arm(SocialProvider provider, String subject) {
+			this.provider = provider;
+			this.subject = subject;
+			bothAbsentReads = new CountDownLatch(2);
+			absentReadCount = 0;
+		}
+
+		void awaitSecondAbsentRead(SocialProvider provider, String subject) {
+			CountDownLatch latch;
+			synchronized (this) {
+				if (bothAbsentReads == null || this.provider != provider || !this.subject.equals(subject)
+					|| absentReadCount >= 2) {
+					return;
+				}
+				absentReadCount++;
+				latch = bothAbsentReads;
+			}
+			latch.countDown();
+			try {
+				if (!latch.await(5, TimeUnit.SECONDS)) {
+					throw new AssertionError("두 소셜 로그인 요청이 모두 외부 신원 미존재 조회에 도달하지 못했습니다.");
+				}
+			} catch (InterruptedException exception) {
+				Thread.currentThread().interrupt();
+				throw new AssertionError("소셜 로그인 동시성 게이트를 기다리다 인터럽트되었습니다.", exception);
+			}
+		}
+
+		synchronized int absentReadCount() {
+			return absentReadCount;
+		}
+
+		synchronized void disarm() {
+			provider = null;
+			subject = null;
+			bothAbsentReads = null;
+		}
 	}
 }
