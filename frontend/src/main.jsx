@@ -51,7 +51,8 @@ const EMPTY_GAME_FILTERS = {
   playerCount: '',
   playTime: '',
   complexityMin: '',
-  complexityMax: ''
+  complexityMax: '',
+  upcomingOnly: false
 };
 const EMPTY_GAME_FILTER_KEY = JSON.stringify(EMPTY_GAME_FILTERS);
 // 10은 정확히 10명이 아니라 최대 가능 인원이 10 이상이라는 뜻이다.
@@ -616,48 +617,95 @@ function roomFilterKey(filters, today) {
 
 const EMPTY_ROOM_FILTER_KEY = roomFilterKey(EMPTY_ROOM_FILTERS, '');
 
+// 조건은 모두 한 값만 고르므로 라디오로 그린다. 값이 빈 문자열인 선택지가 조건 없음이다.
+function FilterRadioGroup({ name, label, value, options, onChange, children }) {
+  return (
+    <fieldset className="filter-group">
+      <legend>{label}</legend>
+      {options.map((option) => (
+        <label className="filter-option" key={String(option.value)}>
+          <input type="radio" name={name} checked={value === option.value} onChange={() => onChange(option.value)} />
+          {option.label}
+        </label>
+      ))}
+      {children}
+    </fieldset>
+  );
+}
+
+function FilterCheckGroup({ label, checked, onChange, text }) {
+  return (
+    <fieldset className="filter-group">
+      <legend>{label}</legend>
+      <label className="filter-option">
+        <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+        {text}
+      </label>
+    </fieldset>
+  );
+}
+
+// 고른 조건은 칩으로 보여 주고 칩마다 그 조건만 해제한다. 패널을 접어도 무엇이 걸려 있는지 남는다.
+function FilterPanel({ chips, onReset, children }) {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <div className="filter-shell">
+      <div className="filter-bar">
+        <button type="button" className={'filter-toggle' + (isOpen ? ' on' : '')} aria-expanded={isOpen} aria-controls="search-filter-panel" aria-label="조건 필터" onClick={() => setIsOpen(!isOpen)}>
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><line x1="4" y1="8" x2="20" y2="8" /><line x1="4" y1="16" x2="20" y2="16" /><circle cx="10" cy="8" r="2.4" fill="currentColor" stroke="none" /><circle cx="15" cy="16" r="2.4" fill="currentColor" stroke="none" /></svg>
+        </button>
+        {chips.map((chip) => (
+          <button type="button" className="filter-chip" key={chip.key} aria-label={chip.label + ' 조건 해제'} onClick={chip.onClear}>{chip.label}<span aria-hidden="true">×</span></button>
+        ))}
+      </div>
+      {isOpen && (
+        <div className="filter-panel" id="search-filter-panel">
+          <div className="filter-groups">{children}</div>
+          <div className="filter-panel-foot">
+            {!!chips.length && <button type="button" className="filter-reset" onClick={onReset}>초기화</button>}
+            <button type="button" className="filter-close" onClick={() => setIsOpen(false)}>닫기</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function roomFilterChips(filters, onChange, roomType, onRoomTypeChange) {
+  const update = (patch) => onChange({ ...filters, ...patch });
+  const chips = [];
+  const type = ROOM_TYPE_FILTERS.find((filter) => filter.value === roomType);
+  if (roomType) chips.push({ key: 'type', label: type.label, onClear: () => onRoomTypeChange('') });
+  if (filters.datePreset) chips.push({ key: 'datePreset', label: DATE_PRESET_LABEL[filters.datePreset], onClear: () => update({ datePreset: '' }) });
+  if (filters.date) chips.push({ key: 'date', label: formatRoomDate(filters.date), onClear: () => update({ date: '' }) });
+  if (filters.minRemainingSeats) chips.push({ key: 'seats', label: filters.minRemainingSeats + '자리 이상', onClear: () => update({ minRemainingSeats: '' }) });
+  if (filters.experienceLevel) chips.push({ key: 'experience', label: EXP_LABEL[filters.experienceLevel], onClear: () => update({ experienceLevel: '' }) });
+  if (filters.rulemasterOnly) chips.push({ key: 'rulemaster', label: '룰마스터 진행', onClear: () => update({ rulemasterOnly: false }) });
+  return chips;
+}
+
 function RoomFilters({ filters, onChange, today, roomType, onRoomTypeChange, counts }) {
   const update = (patch) => onChange({ ...filters, ...patch });
+  const withCount = (filter) => filter.label + (counts ? ' (' + counts[filter.value] + ')' : '');
   return (
-    <div className="search-filters">
-      <div className="search-filter">
-        <label htmlFor="room-filter-type">유형</label>
-        <select id="room-filter-type" value={roomType} onChange={(event) => onRoomTypeChange(event.target.value)}>
-          {ROOM_TYPE_FILTERS.map((filter) => (
-            <option value={filter.value} key={filter.label}>{filter.label}{counts ? ' (' + counts[filter.value] + ')' : ''}</option>
-          ))}
-        </select>
-      </div>
-      <div className="search-filter">
-        <label htmlFor="room-filter-date-preset">날짜</label>
-        <select id="room-filter-date-preset" value={filters.datePreset} onChange={(event) => update({ datePreset: event.target.value, date: '' })}>
-          <option value="">전체</option>
-          {Object.entries(DATE_PRESET_LABEL).map(([code, label]) => <option value={code} key={code}>{label}</option>)}
-        </select>
-      </div>
-      <div className="search-filter">
-        <label htmlFor="room-filter-date">날짜 지정</label>
-        <DatePicker id="room-filter-date" value={filters.date} onChange={(date) => update({ date, datePreset: '' })} today={today} placeholder="전체" />
-      </div>
-      <div className="search-filter">
-        <label htmlFor="room-filter-seats">최소 남은 자리</label>
-        <select id="room-filter-seats" value={filters.minRemainingSeats} onChange={(event) => update({ minRemainingSeats: event.target.value })}>
-          <option value="">전체</option>
-          {CAPACITY_OPTIONS.map((seats) => <option value={seats} key={seats}>{seats}자리 이상</option>)}
-        </select>
-      </div>
-      <div className="search-filter">
-        <label htmlFor="room-filter-experience">경험 수준</label>
-        <select id="room-filter-experience" value={filters.experienceLevel} onChange={(event) => update({ experienceLevel: event.target.value })}>
-          <option value="">전체</option>
-          {Object.entries(EXP_LABEL).map(([code, label]) => <option value={code} key={code}>{label}</option>)}
-        </select>
-      </div>
-      <div className="search-filter actions">
-        <label className="checkline"><input type="checkbox" checked={filters.rulemasterOnly} onChange={(event) => update({ rulemasterOnly: event.target.checked })} /> 룰마스터 진행만</label>
-        {roomFilterKey(filters, today) !== EMPTY_ROOM_FILTER_KEY && <button type="button" className="search-filter-reset" onClick={() => onChange(EMPTY_ROOM_FILTERS)}>필터 초기화</button>}
-      </div>
-    </div>
+    <FilterPanel
+      chips={roomFilterChips(filters, onChange, roomType, onRoomTypeChange)}
+      onReset={() => { onRoomTypeChange(''); onChange(EMPTY_ROOM_FILTERS); }}
+    >
+      <FilterRadioGroup name="room-filter-type" label="유형" value={roomType} onChange={onRoomTypeChange}
+        options={ROOM_TYPE_FILTERS.map((filter) => ({ value: filter.value, label: withCount(filter) }))} />
+      <FilterRadioGroup name="room-filter-date" label="날짜" value={filters.datePreset} onChange={(datePreset) => update({ datePreset, date: '' })}
+        options={[{ value: '', label: '전체' }, ...Object.entries(DATE_PRESET_LABEL).map(([code, label]) => ({ value: code, label }))]}>
+        <div className="filter-option-picker">
+          <DatePicker id="room-filter-date-exact" value={filters.date} onChange={(date) => update({ date, datePreset: '' })} today={today} placeholder="날짜 지정" />
+        </div>
+      </FilterRadioGroup>
+      <FilterRadioGroup name="room-filter-seats" label="최소 남은 자리" value={filters.minRemainingSeats} onChange={(minRemainingSeats) => update({ minRemainingSeats })}
+        options={[{ value: '', label: '전체' }, ...CAPACITY_OPTIONS.map((seats) => ({ value: String(seats), label: seats + '자리 이상' }))]} />
+      <FilterRadioGroup name="room-filter-experience" label="경험 수준" value={filters.experienceLevel} onChange={(experienceLevel) => update({ experienceLevel })}
+        options={[{ value: '', label: '전체' }, ...Object.entries(EXP_LABEL).map(([code, label]) => ({ value: code, label }))]} />
+      <FilterCheckGroup label="진행" checked={filters.rulemasterOnly} onChange={(rulemasterOnly) => update({ rulemasterOnly })} text="룰마스터 진행만" />
+    </FilterPanel>
   );
 }
 
@@ -720,54 +768,42 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
   );
 }
 
+function gameFilterChips(filters, onChange) {
+  const update = (patch) => onChange({ ...filters, ...patch });
+  const chips = [];
+  const players = PLAYER_COUNT_OPTIONS.find((option) => String(option.value) === filters.playerCount);
+  if (players) chips.push({ key: 'players', label: players.label, onClear: () => update({ playerCount: '' }) });
+  if (filters.playTime) chips.push({ key: 'playTime', label: PLAY_TIME_LABEL[filters.playTime], onClear: () => update({ playTime: '' }) });
+  if (filters.complexityMin) chips.push({ key: 'complexityMin', label: '난이도 ' + Number(filters.complexityMin).toFixed(1) + ' 이상', onClear: () => update({ complexityMin: '' }) });
+  if (filters.complexityMax) chips.push({ key: 'complexityMax', label: '난이도 ' + Number(filters.complexityMax).toFixed(1) + ' 이하', onClear: () => update({ complexityMax: '' }) });
+  if (filters.upcomingOnly) chips.push({ key: 'upcomingOnly', label: '예정 모임 있음', onClear: () => update({ upcomingOnly: false }) });
+  return chips;
+}
+
 function GameFilters({ filters, onChange }) {
   const update = (patch) => onChange({ ...filters, ...patch });
+  const complexityOptions = [{ value: '', label: '전체' }, ...COMPLEXITY_OPTIONS.map((complexity) => ({ value: String(complexity), label: complexity.toFixed(1) }))];
   return (
-    <div className="search-filters">
-      <div className="search-filter">
-        <label htmlFor="game-filter-players">인원</label>
-        <select id="game-filter-players" value={filters.playerCount} onChange={(event) => update({ playerCount: event.target.value })}>
-          <option value="">전체</option>
-          {PLAYER_COUNT_OPTIONS.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
-        </select>
-      </div>
-      <div className="search-filter">
-        <label htmlFor="game-filter-time">플레이 시간</label>
-        <select id="game-filter-time" value={filters.playTime} onChange={(event) => update({ playTime: event.target.value })}>
-          <option value="">전체</option>
-          {Object.entries(PLAY_TIME_LABEL).map(([code, label]) => <option value={code} key={code}>{label}</option>)}
-        </select>
-      </div>
-      <div className="search-filter">
-        <label htmlFor="game-filter-complexity-min">최소 난이도</label>
-        <select id="game-filter-complexity-min" value={filters.complexityMin} onChange={(event) => update({ complexityMin: event.target.value })}>
-          <option value="">전체</option>
-          {COMPLEXITY_OPTIONS.map((complexity) => <option value={complexity} key={complexity}>{complexity.toFixed(1)}</option>)}
-        </select>
-      </div>
-      <div className="search-filter">
-        <label htmlFor="game-filter-complexity-max">최대 난이도</label>
-        <select id="game-filter-complexity-max" value={filters.complexityMax} onChange={(event) => update({ complexityMax: event.target.value })}>
-          <option value="">전체</option>
-          {COMPLEXITY_OPTIONS.map((complexity) => <option value={complexity} key={complexity}>{complexity.toFixed(1)}</option>)}
-        </select>
-      </div>
-      <div className="search-filter actions">
-        {JSON.stringify(filters) !== EMPTY_GAME_FILTER_KEY && <button type="button" className="search-filter-reset" onClick={() => onChange(EMPTY_GAME_FILTERS)}>필터 초기화</button>}
-      </div>
-    </div>
+    <FilterPanel chips={gameFilterChips(filters, onChange)} onReset={() => onChange(EMPTY_GAME_FILTERS)}>
+      <FilterRadioGroup name="game-filter-players" label="인원" value={filters.playerCount} onChange={(playerCount) => update({ playerCount })}
+        options={[{ value: '', label: '전체' }, ...PLAYER_COUNT_OPTIONS.map((option) => ({ value: String(option.value), label: option.label }))]} />
+      <FilterRadioGroup name="game-filter-time" label="플레이 시간" value={filters.playTime} onChange={(playTime) => update({ playTime })}
+        options={[{ value: '', label: '전체' }, ...Object.entries(PLAY_TIME_LABEL).map(([code, label]) => ({ value: code, label }))]} />
+      <FilterRadioGroup name="game-filter-complexity-min" label="최소 난이도" value={filters.complexityMin} onChange={(complexityMin) => update({ complexityMin })} options={complexityOptions} />
+      <FilterRadioGroup name="game-filter-complexity-max" label="최대 난이도" value={filters.complexityMax} onChange={(complexityMax) => update({ complexityMax })} options={complexityOptions} />
+      <FilterCheckGroup label="모임" checked={filters.upcomingOnly} onChange={(upcomingOnly) => update({ upcomingOnly })} text="예정 모임 있는 게임만" />
+    </FilterPanel>
   );
 }
 
 function GamesView({ title, gameQuery, onGameQueryChange, dataVersion }) {
   const [input, setInput] = useState(gameQuery);
-  const [upcomingOnly, setUpcomingOnly] = useState(false);
   const [filters, setFilters] = useState(EMPTY_GAME_FILTERS);
   const keyword = gameQuery.trim();
   const filterKey = JSON.stringify(filters);
   const { data, loading, error, setPage } = usePaginatedRequest(
-    (page, signal) => api.getGames({ keyword, upcomingOnly, ...filters, page, size: GAME_LIST_PAGE_SIZE }, signal),
-    [keyword, upcomingOnly, filterKey, dataVersion]
+    (page, signal) => api.getGames({ keyword, ...filters, page, size: GAME_LIST_PAGE_SIZE }, signal),
+    [keyword, filterKey, dataVersion]
   );
   const games = (data?.content || []).map(normalizeGameSummary);
   useEffect(() => setInput(gameQuery), [gameQuery]);
@@ -779,10 +815,7 @@ function GamesView({ title, gameQuery, onGameQueryChange, dataVersion }) {
         <input id="game-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임 이름으로 검색" />
         <button type="submit" aria-label="검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.65" y2="16.65" /></svg></button>
       </form>
-      <div className="games-filter">
-        <label className="checkline"><input type="checkbox" checked={upcomingOnly} onChange={(event) => setUpcomingOnly(event.target.checked)} /> 예정 모임 있는 게임만</label>
-        <p className="hint">게임 이름의 부분 일치 검색만 제공해요.</p>
-      </div>
+      <p className="hint" style={{ marginTop: -10, marginBottom: 15 }}>게임 이름의 부분 일치 검색만 제공해요.</p>
       <GameFilters filters={filters} onChange={setFilters} />
       {error && <ErrorBox message={error} />}
       {!error && loading && !data && <LoadingBox />}
