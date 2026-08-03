@@ -795,10 +795,10 @@ P0에서는 닉네임만 수정한다.
 |---|---|:---:|---|:---:|:---:|---|
 | `keyword` | string | N | 검색 없음 | P0 | 제공 | 게임명 부분 일치 |
 | `upcomingOnly` | boolean | N | `false` | P0 | 제공 | `true`이면 예정 모임이 한 개 이상인 게임만 반환 |
-| `playerCount` | integer | N | 검색 없음 | P1 | 구현 예정 | `1`~`9`는 해당 인원을 포함하는 게임, `10`은 최대 가능 인원이 10 이상인 게임 |
-| `playTime` | GamePlayTimeFilter | N | 검색 없음 | P1 | 구현 예정 | 검증된 최대 플레이 시간 구간 |
-| `complexityMin` | number | N | 검색 없음 | P1 | 구현 예정 | `1.00`~`5.00`, 난이도 닫힌 구간의 하한 |
-| `complexityMax` | number | N | 검색 없음 | P1 | 구현 예정 | `1.00`~`5.00`, 난이도 닫힌 구간의 상한 |
+| `playerCount` | integer | N | 검색 없음 | P1 | 제공 | `1`~`9`는 해당 인원을 포함하는 게임, `10`은 최대 가능 인원이 10 이상인 게임 |
+| `playTime` | GamePlayTimeFilter | N | 검색 없음 | P1 | 제공 | 검증된 최대 플레이 시간 구간 |
+| `complexityMin` | number | N | 검색 없음 | P1 | 제공 | `1.00`~`5.00`, 난이도 닫힌 구간의 하한 |
+| `complexityMax` | number | N | 검색 없음 | P1 | 제공 | `1.00`~`5.00`, 난이도 닫힌 구간의 상한 |
 | `page` | integer | N | `0` | P0 | 제공 | 페이지 번호 |
 | `size` | integer | N | `10` | P0 | 제공 | 페이지 크기, 1~100 |
 

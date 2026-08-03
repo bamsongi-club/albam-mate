@@ -31,8 +31,7 @@ public class GameController {
 		GameListRequest request) {
 		return ApiResponse.success(
 			HttpStatus.OK,
-			PageResponse.from(gameQueryService.findPage(
-				request.getKeyword(), request.isUpcomingOnly(), request.getPage(), request.getSize())));
+			PageResponse.from(gameQueryService.findPage(request)));
 	}
 
 	@GetMapping("/{gameId}")
