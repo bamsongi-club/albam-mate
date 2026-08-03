@@ -37,7 +37,7 @@
 
 - 하나의 Gradle 프로젝트와 Spring Boot 애플리케이션, 데이터베이스를 유지한다.
 - 같은 Spring Boot 애플리케이션을 여러 인스턴스로 실행하되 모든 인스턴스가 공용 PostgreSQL과 Redis를 사용한다. 채팅을 별도 서비스로 분리하지 않는다.
-- `auth`, `user`, `game`, `room`과 P1의 `chat`·`notification`을 논리적 업무 모듈로 유지한다.
+- `auth`, `user`, `game`, `room`과 P1의 `chat`·`notification`을 논리적 업무 모듈로 유지한다. OAuth 제공자 통신과 앱 세션 전환은 `auth`, 외부 신원 저장은 `user`가 소유한다.
 - 조회와 상태 변경 유스케이스는 각각 `query`, `command`로 구분하지만 Entity, Repository와 데이터베이스까지 나누는 CQRS는 도입하지 않는다.
 - 모듈 간 협력은 상대 모듈의 `contract`만 사용한다.
 - 독립 트랜잭션과 재시도가 필요한 Coordinator·Executor 분리는 유지하며, 재시도마다 최신 Entity와 version을 다시 조회한다.
@@ -76,8 +76,8 @@ flowchart LR
 
 | 모듈 또는 경계 | 책임 | 소유하지 않는 책임 |
 | --- | --- | --- |
-| `auth` | 회원가입·로그인·로그아웃·CSRF와 인증 요청 보호 | 사용자 프로필 HTTP 흐름 |
-| `user` | 사용자 계정·자격증명·프로필·공개 사용자 조회 | 세션 생성·폐기 |
+| `auth` | 회원가입·이메일·소셜 로그인·로그아웃·CSRF, OAuth 흐름과 인증 요청 보호 | 사용자·외부 신원 영속 구조, 사용자 프로필 HTTP 흐름 |
+| `user` | 사용자 계정·비밀번호 자격증명·외부 신원 연결·프로필·공개 사용자 조회 | OAuth 제공자 통신, 세션 생성·폐기 |
 | `game` | 게임 목록·검색·상세와 게임 요약 계약 | 방 데이터 직접 조회 |
 | `room` | 방·참가 관계·정원·상태 전이·재시도·상태 보정 | 사용자·게임 내부 구현 |
 | `chat` (P1) | 방별 채팅방·메시지 저장, 이력 커서 조회, 현재 관계자 접근 검증, 실시간 전달 경계 | 방·참가 Entity/Repository, 인증 세션 내부 구현, 온라인 자동 매칭 |
@@ -86,6 +86,16 @@ flowchart LR
 | `infra` (P1) | Redis 세션·채팅 fan-out과 PostgreSQL 스케줄 잠금 같은 기술 adapter | 업무 규칙·Entity·HTTP DTO |
 
 참가 관계는 방의 정원과 상태 불변식을 같은 트랜잭션에서 변경하므로 별도 모듈이 아니라 `room`이 소유한다. URL 경로보다 데이터와 불변식을 소유한 모듈을 우선한다.
+
+### P1 소셜 로그인 모듈 계약
+
+> 아래 경계는 #328 팀 승인을 위한 제안이며 ADR-0042 승인 전에는 구현 정본이 아니다.
+
+`auth`는 설정된 OAuth client 등록, authorization·callback filter 경계, 제공자 응답의 공통 외부 신원·신뢰 가능한 선택 이메일 변환과 `CurrentUserPrincipal` 세션 전환을 소유한다. `user.contract`에 provider·subject·신뢰 조건을 통과한 선택 이메일·닉네임을 전달해 첫 로그인 또는 명시적 연결 결과를 받고 `user`의 Entity·Repository를 직접 참조하지 않는다.
+
+`user`는 `USERS`와 `SOCIAL_ACCOUNTS`를 한 트랜잭션 경계에서 생성·조회·연결하고 두 유일 제약의 동시 요청 결과를 기존 연결로 수렴시킨다. 비로그인 첫 로그인에서는 신뢰 가능한 이메일만 기존 사용자 충돌 판정에 사용하고 자동 연결하지 않는다. 인증된 명시적 연결은 이메일 중복과 무관하게 현재 세션 사용자를 대상으로 처리한다. 기존 이메일 로그인용 자격증명 조회 계약은 `password_hash IS NULL`인 사용자를 반환하지 않아 `auth`가 미존재 계정과 같은 검증 경로를 유지하게 한다. OAuth code·token·secret은 두 모듈의 영속 계약에 포함하지 않는다.
+
+`/api/auth/social/authorization/**`와 `/api/auth/social/callback/**`는 Spring Security filter가 소유하는 브라우저 리다이렉트 경로다. MVC 정책 대조 대상이 아니며 `SecurityConfig`의 정확한 matcher와 OAuth 흐름 테스트로 고정한다. 제공자 목록과 `/api/users/me/social-accounts/{provider}/link`는 Controller가 소유하므로 `ApiEndpointPolicyRegistry`에 등록한다.
 ### P1 알림 모듈 계약
 
 > 현재 생산 코드·자동 검증·운영 상태는 [P1 기능 상태 정본의 `NOTI-01`~`NOTI-03`](p1/README.md#기능별-현재-상태)을 따른다.
@@ -108,6 +118,7 @@ flowchart LR
 | `<module>/entity`, `<module>/repository` | 영속 Aggregate와 저장·조회 계약 |
 | `<module>/service` | 유스케이스와 트랜잭션 조정 |
 | 기존 `<module>/exception`, `validation`, `security`, `enums` | 예외·입력 검증·보안·도메인 타입처럼 모듈 내부에서만 쓰는 보조 책임 |
+| `auth/oauth2` | provider 등록·속성 변환, authorization·callback 성공·실패와 앱 세션 전환 |
 | `room/service/query` | ROOM 조회 유스케이스와 조회 전용 내부 협력자 |
 | `room/service/command` | ROOM 변경 유스케이스, Coordinator와 Executor |
 | `room/enums` | ROOM Entity·DTO가 공유하는 방·참가 도메인 타입 |
@@ -139,7 +150,8 @@ flowchart LR
 
 | 요청 성격 | 배치 원칙 | 현재 예시 |
 | --- | --- | --- |
-| CSRF·가입·로그인·로그아웃 | 인증 HTTP 경계이므로 `auth`가 소유 | `AuthController` |
+| CSRF·가입·이메일 로그인·로그아웃·소셜 제공자 조회 | 인증 HTTP 경계이므로 `auth`가 소유 | `AuthController`, `SocialAuthController` |
+| 소셜 계정 연결 시작 | 외부 인증 진입은 `auth`, 연결 저장은 `user.contract`로 위임 | `SocialAuthController` |
 | 내 프로필 조회·수정 | 인증 기능이 아니라 사용자 리소스이므로 `user`가 소유 | `UserProfileController` |
 | 방 조회·생성·상태 변경·참가 | 방과 참가 불변식을 다루므로 `room`이 소유 | `RoomController`, `RoomParticipationController` |
 | `/api/users/me/rooms` 조회 | URL에 `users`가 있어도 방과 참가 관계를 조회하므로 `room`이 소유 | `MyRoomController` |
