@@ -183,12 +183,21 @@ flowchart LR
     retrier --> correctionExecutor["RoomStatusCorrectionExecutor<br/>REQUIRES_NEW"]
     correctionExecutor --> repositories["Room·Participation Repository"]
     correctionExecutor --> committed["상태 보정 커밋"]
-    committed --> read["대응 ReadService<br/>REQUIRES_NEW readOnly"]
+    committed --> read["대응 ReadService<br/>REQUIRES_NEW readOnly<br/>목록·상세 REPEATABLE_READ"]
     read --> repositories
+    read --> facts["ROOM·현재 ACTIVE·WAITING 사실"]
+    facts --> evaluator["RoomActionAvailabilityEvaluator"]
+    query --> evaluator
     query --> contracts["game·user contract"]
+    evaluator --> response["최종 DTO 조립"]
+    contracts --> response
 ```
 
 QueryService는 기준 시각을 고정하고 상태 보정 커밋을 기다린 뒤 ReadService로 최신 상태를 읽는다. ReadService는 별도의 `REQUIRES_NEW`, `readOnly = true` 트랜잭션을 사용한다.
+
+ROOM-08의 목록·상세 ReadService는 [ADR-0041](adr/room/0041-postgresql-room-query-consistent-snapshot.md)에 따라 `REPEATABLE_READ`를 추가하고, ROOM과 행동 가능성 판정에 필요한 현재 `ACTIVE`·`WAITING` 사실만 같은 PostgreSQL 스냅샷에서 읽는다. 이 트랜잭션은 짧게 유지하며 `FOR UPDATE`·`FOR SHARE` 조회 락을 사용하지 않는다. 내 모임 조회는 이미 조회한 주최자·현재 `ACTIVE` 관계를 사용하고 ROOM-08만을 위한 WAITING 조회를 추가하지 않는다.
+
+ROOM QueryService는 인증·주최자 관계와 ReadService가 반환한 사실을 하나의 `RoomActionAvailabilityEvaluator`에 전달한다. Game·User 조회와 최종 DTO 조립은 ROOM 스냅샷 트랜잭션 밖에서 수행하며, ROOM·참가·대기·Game·User를 하나의 거대한 projection으로 합치지 않는다.
 
 #### 방 변경
 
