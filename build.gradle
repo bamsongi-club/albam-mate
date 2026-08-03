@@ -123,6 +123,7 @@ def gatedBranchCoverage = [
     'cloud.bamsongi.albammate.global.security.ratelimit'   : 0.84,
     'cloud.bamsongi.albammate.notification.dto'            : 0.77,
     'cloud.bamsongi.albammate.notification.repository'     : 0.50,
+    'cloud.bamsongi.albammate.notification.recovery'       : 0.70,
     'cloud.bamsongi.albammate.notification.relay'          : 0.84,
     'cloud.bamsongi.albammate.room.entity'    : 0.91,
     'cloud.bamsongi.albammate.room.controller': 0.92,
