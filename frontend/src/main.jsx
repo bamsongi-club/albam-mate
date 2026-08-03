@@ -33,6 +33,8 @@ const ROOM_TYPE_FILTERS = [
 ];
 // Asia/Seoul은 일광절약시간을 쓰지 않아 오프셋이 항상 같다.
 const SEOUL_OFFSET = '+09:00';
+// 라디오 그룹이 실제 조건을 그대로 나타내도록, 특정 날짜를 고른 상태도 선택지 하나로 둔다.
+const DATE_EXACT = 'EXACT';
 const DATE_PRESET_LABEL = {
   TODAY: '오늘',
   WEEKEND: '이번 주말',
@@ -705,11 +707,18 @@ function RoomFilters({ filters, onChange, today, roomType, onRoomTypeChange, cou
     >
       <FilterRadioGroup name="room-filter-type" label="유형" value={roomType} onChange={onRoomTypeChange}
         options={ROOM_TYPE_FILTERS.map((filter) => ({ value: filter.value, label: withCount(filter) }))} />
-      <FilterRadioGroup name="room-filter-date" label="날짜" value={filters.datePreset} onChange={(datePreset) => update({ datePreset, date: '' })}
-        options={[{ value: '', label: '전체' }, ...Object.entries(DATE_PRESET_LABEL).map(([code, label]) => ({ value: code, label }))]}>
-        <div className="filter-option-picker">
-          <DatePicker id="room-filter-date-exact" value={filters.date} onChange={(date) => update({ date, datePreset: '' })} today={today} placeholder="날짜 지정" />
-        </div>
+      <FilterRadioGroup name="room-filter-date" label="날짜" value={filters.date ? DATE_EXACT : filters.datePreset}
+        onChange={(value) => update(value === DATE_EXACT ? { datePreset: '', date: defaultRoomDate(today) } : { datePreset: value, date: '' })}
+        options={[
+          { value: '', label: '전체' },
+          ...Object.entries(DATE_PRESET_LABEL).map(([code, label]) => ({ value: code, label })),
+          { value: DATE_EXACT, label: '날짜 지정' }
+        ]}>
+        {!!filters.date && (
+          <div className="filter-option-picker">
+            <DatePicker id="room-filter-date-exact" value={filters.date} onChange={(date) => update({ date, datePreset: '' })} today={today} placeholder="날짜 지정" />
+          </div>
+        )}
       </FilterRadioGroup>
       <FilterRadioGroup name="room-filter-seats" label="최소 남은 자리" value={filters.minRemainingSeats} onChange={(minRemainingSeats) => update({ minRemainingSeats })}
         options={[{ value: '', label: '전체' }, ...CAPACITY_OPTIONS.map((seats) => ({ value: String(seats), label: seats + '자리 이상' }))]} />
