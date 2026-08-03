@@ -163,7 +163,11 @@ P1 알림의 제한 값은 PostgreSQL 네이티브 enum이 아니라 `VARCHAR`�
 | best_player_count | VARCHAR(50) | NULL | 표시용 최적 인원. 승인된 이용자 평가 집계가 생기기 전까지 `NULL` |
 | tag | VARCHAR(30) | NN | 게임 스타일 태그 |
 | estimated_play_time | VARCHAR(50) | NN | 표시용 예상 플레이 시간 |
-| complexity | DECIMAL(3,2) | NULL | 난이도 표시값 |
+| min_players | INTEGER | NULL | 검색용 가능 인원 최소값. `max_players`와 함께 `NULL`이거나 양의 정수이며 최소값 이하 |
+| max_players | INTEGER | NULL | 검색용 가능 인원 최대값. `min_players`와 함께 `NULL`이거나 양의 정수이며 최소값 이상 |
+| min_play_time_minutes | INTEGER | NULL | 검색용 플레이 시간 최소값(분). 최대값과 함께 `NULL`이거나 양의 정수이며 최소값 이하 |
+| max_play_time_minutes | INTEGER | NULL | 검색용 플레이 시간 최대값(분). 최소값과 함께 `NULL`이거나 양의 정수이며 최소값 이상 |
+| complexity | DECIMAL(3,2) | NULL, 1.00~5.00 | BGG 복잡도. 입력 `0.00`은 평가 없음으로 `NULL` 정규화 |
 | description | TEXT | NN | 게임 상세 화면에 표시하는 간단 설명 |
 | detail_description | TEXT | NN | 게임 상세 설명 |
 | created_at | TIMESTAMPTZ | NN | 등록 시각 |

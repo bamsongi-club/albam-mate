@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "batchId": "2026-08-01-p1-search-numeric-fields",
+  "toolCommit": "df7b324a9edf3f002a16fb3ad7d71288c1f92bd2",
+  "sources": {
+    "games": {
+      "fileName": "games.json",
+      "sha256": "efc22093ada6a32d5570d517686a12fcb18b4973d7397f10de65bf818eec81f3",
+      "sourceReference": "2026-08-01 한국어 라벨까지 반영한 최종 로컬본",
+      "acquiredAt": "2026-08-01T02:49:00Z",
+      "usageTerms": "Albam Mate 팀이 검수·적재 근거로 사용하는 로컬 입력"
+    },
+    "ranks": {
+      "fileName": "boardgames_ranks07-24.csv",
+      "sha256": "b706d0ae3722e063f6b36b9faaf97f3533fce45605c0dfe01c347a68ea2aa56d",
+      "sourceReference": "BGG boardgames_ranks_2026-07-23.zip 기준 스냅샷",
+      "acquiredAt": "2026-07-24T08:43:00Z",
+      "usageTerms": "Albam Mate 팀이 BGG 식별자·기준 순위 검증에 사용하는 로컬 입력"
+    }
+  },
+  "fieldSources": {
+    "bgg_id": "ranks.id",
+    "name": "games.name",
+    "english_name": "games.english_name",
+    "alias": "games.alias",
+    "image_url": "games.image_url",
+    "supported_player_count": "games.supported_player_count",
+    "tag": "games.tag",
+    "estimated_play_time": "games.estimated_play_time",
+    "min_players": "games.supported_player_count를 양의 정수 범위로 검증해 정규화",
+    "max_players": "games.supported_player_count를 양의 정수 범위로 검증해 정규화",
+    "min_play_time_minutes": "games.estimated_play_time를 양의 정수 분 범위로 검증해 정규화",
+    "max_play_time_minutes": "games.estimated_play_time를 양의 정수 분 범위로 검증해 정규화",
+    "complexity": "games.complexity의 0.00을 NULL로 정규화하고 1.00~5.00만 유지",
+    "description": "games.description",
+    "detail_description": "games.detail_description"
+  },
+  "selectionRules": {
+    "include": "BGG 기준 스냅샷과 bgg_id가 일치하고 기존 카탈로그 검수를 통과한 2,000건만 포함",
+    "exclude": "표시 인원·시간·복잡도 수치가 없거나 해석할 수 없어도 기존 표시 게임은 제외하지 않고 해당 검색 수치만 NULL로 둔다"
+  },
+  "versionRules": {
+    "baseGame": "기존 2,000건 검수에서 BGG 본판으로 확인된 항목만 유지",
+    "expansion": "BGG 확장은 기존 카탈로그 선택에서 제외",
+    "variant": "변형 여부를 확인할 수 없으면 기존 검수 결과 밖으로 추가하지 않는다"
+  },
+  "selection": {
+    "candidateRows": 2000,
+    "includedRows": 2000,
+    "excludedRows": 0,
+    "exclusions": []
+  },
+  "review": {
+    "status": "approved",
+    "reviewedAt": "2026-08-03T00:00:00Z",
+    "reviewers": ["issue-293 approved implementation packet"],
+    "acceptedWarnings": []
+  }
+}

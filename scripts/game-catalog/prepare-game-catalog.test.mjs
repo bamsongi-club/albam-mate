@@ -93,6 +93,139 @@ test("승인된 입력은 내부 id를 제외한 결정적 카탈로그와 UPSER
     });
 });
 
+test("표시 인원·시간을 검색 수치로 정규화하고 제외 사유를 집계한다", () => {
+    const rows = [
+        game(1, "10", "범위 게임", "Range Game"),
+        game(2, "20", "단일 게임", "Single Game"),
+        game(3, "30", "0분 게임", "Zero Time Game"),
+        game(4, "40", "음수 게임", "Negative Time Game"),
+    ];
+    rows[0].supported_player_count = "2~4명";
+    rows[0].estimated_play_time = "10~20분";
+    rows[1].supported_player_count = "1명";
+    rows[1].estimated_play_time = "60분";
+    rows[1].complexity = 0;
+    rows[2].estimated_play_time = "0분";
+    rows[3].estimated_play_time = "-5분";
+
+    withCase(rows, ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 0, result.stderr);
+        const catalog = readJson(join(out, "service-catalog.json"));
+        assert.deepEqual(
+            catalog.map((row) => [
+                row.min_players,
+                row.max_players,
+                row.min_play_time_minutes,
+                row.max_play_time_minutes,
+                row.complexity,
+            ]),
+            [
+                [2, 4, 10, 20, 3.25],
+                [1, 1, 60, 60, null],
+                [2, 4, null, null, 3.25],
+                [2, 4, null, null, 3.25],
+            ],
+        );
+        const report = readJson(join(out, "quality-report.json"));
+        assert.equal(catalog[2].estimated_play_time, "0분");
+        assert.deepEqual(report.searchNumericFields.players, {
+            label: "가능 인원",
+            total: 4,
+            valid: 4,
+            missing: 0,
+            excluded: 0,
+            normalizedToNull: 0,
+            exclusionReasons: [],
+        });
+        assert.deepEqual(report.searchNumericFields.playTimeMinutes.exclusionReasons, [
+            { code: "NON_POSITIVE_VALUE", count: 2 },
+        ]);
+        assert.equal(report.searchNumericFields.playTimeMinutes.excluded, 2);
+        assert.equal(report.searchNumericFields.complexity.missing, 1);
+        assert.equal(report.searchNumericFields.complexity.normalizedToNull, 1);
+        assert.deepEqual(report.searchNumericFields.complexity.exclusionReasons, [
+            { code: "ZERO_NORMALIZED_TO_NULL", count: 1 },
+        ]);
+    });
+});
+
+test("complexity는 0을 NULL로 정규화하고 1.00~5.00 경계만 유지한다", () => {
+    const rows = [
+        game(1, "10", "복잡도 없음", "No Complexity"),
+        game(2, "20", "최소 복잡도", "Minimum Complexity"),
+        game(3, "30", "최대 복잡도", "Maximum Complexity"),
+        game(4, "40", "낮은 범위 밖", "Below Range"),
+        game(5, "50", "높은 범위 밖", "Above Range"),
+    ];
+    rows[0].complexity = 0;
+    rows[1].complexity = 1;
+    rows[2].complexity = 5;
+    rows[3].complexity = 0.99;
+    rows[4].complexity = 5.01;
+
+    withCase(rows, ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 0, result.stderr);
+        const catalog = readJson(join(out, "service-catalog.json"));
+        assert.deepEqual(catalog.map(({ complexity }) => complexity), [null, 1, 5, null, null]);
+        const report = readJson(join(out, "quality-report.json"));
+        assert.deepEqual(report.searchNumericFields.complexity, {
+            label: "복잡도",
+            total: 5,
+            valid: 2,
+            missing: 1,
+            excluded: 2,
+            normalizedToNull: 1,
+            exclusionReasons: [
+                { code: "OUT_OF_RANGE", count: 2 },
+                { code: "ZERO_NORMALIZED_TO_NULL", count: 1 },
+            ],
+        });
+    });
+});
+
+test("같은 입력을 두 번 실행하면 검색 수치를 포함한 카탈로그와 품질 보고서가 같다", () => {
+    const rows = [
+        game(2, "20", "두 번째 검색 게임", "Second Search Game"),
+        game(1, "10", "첫 번째 검색 게임", "First Search Game"),
+    ];
+    rows[0].supported_player_count = "1명";
+    rows[0].estimated_play_time = "30분";
+    rows[1].supported_player_count = "2~4명";
+    rows[1].estimated_play_time = "10~20분";
+
+    withCase(rows, ({ root, games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+        assert.equal(runCli(games, ranks, out, manifest).status, 0);
+        const catalog = readFileSync(join(out, "service-catalog.json"), "utf8");
+        const report = readFileSync(join(out, "quality-report.json"), "utf8");
+
+        const secondOut = join(root, "second-search-output");
+        assert.equal(runCli(games, ranks, secondOut, manifest).status, 0);
+        assert.equal(readFileSync(join(secondOut, "service-catalog.json"), "utf8"), catalog);
+        assert.equal(readFileSync(join(secondOut, "quality-report.json"), "utf8"), report);
+        assert.deepEqual(
+            readJson(join(secondOut, "service-catalog.json")).map((row) => [
+                row.min_players,
+                row.max_players,
+                row.min_play_time_minutes,
+                row.max_play_time_minutes,
+            ]),
+            [
+                [2, 4, 10, 20],
+                [1, 1, 30, 30],
+            ],
+        );
+    });
+});
+
 test("구 recommended_player_count만 있는 입력은 supported_player_count 필수 오류로 차단한다", () => {
     withCase([game(1, "10", "첫 번째 게임", "First Game")], ({
         games,
@@ -945,6 +1078,10 @@ function writeManifest(path, gamesPath, ranksPath, acceptedWarnings) {
             supported_player_count: "games.supported_player_count",
             tag: "games.tag",
             estimated_play_time: "games.estimated_play_time",
+            min_players: "games.supported_player_count를 검증해 정규화",
+            max_players: "games.supported_player_count를 검증해 정규화",
+            min_play_time_minutes: "games.estimated_play_time를 검증해 정규화",
+            max_play_time_minutes: "games.estimated_play_time를 검증해 정규화",
             complexity: "games.complexity",
             description: "games.description",
             detail_description: "games.detail_description",

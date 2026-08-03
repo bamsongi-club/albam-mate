@@ -10,10 +10,19 @@ export const CATALOG_FIELDS = [
     "supported_player_count",
     "tag",
     "estimated_play_time",
+    "min_players",
+    "max_players",
+    "min_play_time_minutes",
+    "max_play_time_minutes",
     "complexity",
     "description",
     "detail_description",
 ];
+const SEARCH_NUMERIC_FIELD_LABELS = {
+    players: "가능 인원",
+    playTimeMinutes: "예상 플레이 시간",
+    complexity: "복잡도",
+};
 const TEXT_FIELDS = [
     "name",
     "english_name",
@@ -73,8 +82,8 @@ export function analyzeCatalog({
     const rankByBggId = new Map(
         rankRows.map((row) => [canonicalBggId(row.id), row]).filter(([bggId]) => bggId),
     );
-    const catalog = validGameRows
-        .map((game) => normalizeGame(game))
+    const normalizedGames = validGameRows.map((game) => normalizeGame(game));
+    const catalog = normalizedGames
         .sort((left, right) => left.bgg_id - right.bgg_id);
     errors.push(...validateSelectionCounts(manifest, gameRows.length, catalog.length, catalog));
     const warnings = qualityWarnings(validGameRows, rankByBggId);
@@ -101,6 +110,7 @@ export function analyzeCatalog({
         errors,
         warnings,
         checks,
+        searchNumericFields: searchNumericFieldSummary(validGameRows),
     };
 }
 
@@ -272,15 +282,13 @@ function suspiciousComplexityRankCorrelation(games, rankByBggId) {
 }
 
 function isValidComplexity(value) {
-    return value !== null && value !== undefined && isValidComplexityValue(value);
+    return value !== null && value !== undefined && value >= 1 && value <= 5;
 }
 
 function isValidComplexityValue(value) {
     return (
         typeof value === "number" &&
         Number.isFinite(value) &&
-        value >= 0 &&
-        value <= 5 &&
         /^\d+(?:\.\d{1,2})?$/.test(String(value))
     );
 }
@@ -344,12 +352,112 @@ function descriptionTemplate(game, rankByBggId, field) {
 
 function normalizeGame(game) {
     const bggId = Number(game.bgg_id);
+    const players = normalizePositiveRange(game.supported_player_count, "명");
+    const playTime = normalizePositiveRange(game.estimated_play_time, "분");
+    const complexity = normalizeComplexity(game.complexity);
+    return {
+        ...Object.fromEntries(
+            CATALOG_FIELDS.map((field) => [
+                field,
+                field === "bgg_id" ? bggId : (game[field] ?? null),
+            ]),
+        ),
+        min_players: players.min,
+        max_players: players.max,
+        min_play_time_minutes: playTime.min,
+        max_play_time_minutes: playTime.max,
+        complexity: complexity.value,
+    };
+}
+
+function searchNumericFieldSummary(games) {
+    const fields = {
+        players: games.map((game) => normalizePositiveRange(game.supported_player_count, "명")),
+        playTimeMinutes: games.map((game) => normalizePositiveRange(game.estimated_play_time, "분")),
+        complexity: games.map((game) => normalizeComplexity(game.complexity)),
+    };
     return Object.fromEntries(
-        CATALOG_FIELDS.map((field) => [
+        Object.entries(fields).map(([field, results]) => [
             field,
-            field === "bgg_id" ? bggId : (game[field] ?? null),
+            summarizeNormalization(SEARCH_NUMERIC_FIELD_LABELS[field], results),
         ]),
     );
+}
+
+function summarizeNormalization(label, results) {
+    const reasonCounts = new Map();
+    let valid = 0;
+    let missing = 0;
+    let excluded = 0;
+    let normalizedToNull = 0;
+    for (const result of results) {
+        if (result.status === "valid") {
+            valid += 1;
+        } else if (result.status === "missing") {
+            missing += 1;
+        } else {
+            excluded += 1;
+        }
+        if (result.normalizedToNull) {
+            normalizedToNull += 1;
+        }
+        if (result.reason) {
+            reasonCounts.set(result.reason, (reasonCounts.get(result.reason) ?? 0) + 1);
+        }
+    }
+    return {
+        label,
+        total: results.length,
+        valid,
+        missing,
+        excluded,
+        normalizedToNull,
+        exclusionReasons: [...reasonCounts.entries()]
+            .map(([code, count]) => ({ code, count }))
+            .sort((left, right) => left.code.localeCompare(right.code)),
+    };
+}
+
+function normalizePositiveRange(value, suffix) {
+    if (blank(value)) {
+        return { min: null, max: null, status: "missing" };
+    }
+    const matched = new RegExp(`^(-?\\d+)(?:~(-?\\d+))?${suffix}$`).exec(value);
+    if (!matched) {
+        return {
+            min: null,
+            max: null,
+            status: "excluded",
+            reason: "UNPARSABLE_DISPLAY_VALUE",
+        };
+    }
+    const min = Number(matched[1]);
+    const max = Number(matched[2] ?? matched[1]);
+    if (min <= 0 || max <= 0) {
+        return { min: null, max: null, status: "excluded", reason: "NON_POSITIVE_VALUE" };
+    }
+    if (min > max) {
+        return { min: null, max: null, status: "excluded", reason: "MINIMUM_EXCEEDS_MAXIMUM" };
+    }
+    return { min, max, status: "valid" };
+}
+
+function normalizeComplexity(value) {
+    if (value === null || value === undefined) {
+        return { value: null, status: "missing" };
+    }
+    if (value === 0) {
+        return {
+            value: null,
+            status: "missing",
+            normalizedToNull: true,
+            reason: "ZERO_NORMALIZED_TO_NULL",
+        };
+    }
+    if (value >= 1 && value <= 5) {
+        return { value, status: "valid" };
+    }
+    return { value: null, status: "excluded", reason: "OUT_OF_RANGE" };
 }
 
 function validateData(games, rankRows) {
@@ -463,11 +571,8 @@ function validateData(games, rankRows) {
             }
         }
 
-        if (
-            game.complexity !== undefined &&
-            game.complexity !== null &&
-            !isValidComplexityValue(game.complexity)
-        ) {
+        if (game.complexity !== undefined && game.complexity !== null &&
+            !isValidComplexityValue(game.complexity)) {
             invalidComplexities.push({ row: rowNumber, value: game.complexity });
         }
         if (!blank(game?.image_url)) {

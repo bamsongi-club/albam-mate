@@ -1,0 +1,29 @@
+# 2026-08-03 P1 검색 수치 품질 보고서
+
+## 실행 입력과 재현 명령
+
+`$ALBAM_CATALOG_INPUT_DIR/games.json`(2,000건, SHA-256 `efc22093ada6a32d5570d517686a12fcb18b4973d7397f10de65bf818eec81f3`)과 `$ALBAM_CATALOG_INPUT_DIR/boardgames_ranks07-24.csv`(SHA-256 `b706d0ae3722e063f6b36b9faaf97f3533fce45605c0dfe01c347a68ea2aa56d`)를 사용했다. 원본과 생성된 `service-catalog.json`, `upsert-games.sql`은 저장소에 넣지 않는다.
+
+```sh
+node scripts/game-catalog/prepare-game-catalog.mjs \
+  --games "$ALBAM_CATALOG_INPUT_DIR/games.json" \
+  --ranks "$ALBAM_CATALOG_INPUT_DIR/boardgames_ranks07-24.csv" \
+  --manifest docs/game-catalog/2026-08-03-p1-search-source-manifest.draft.json \
+  --out /tmp/albam-mate-issue-293-quality
+```
+
+위 명령은 같은 입력과 도구 버전에서 결정적 JSON·SQL·집계를 생성한다. manifest의 `toolCommit`은 이 구현의 병합 커밋 SHA로 갱신해야 하는 초안 값이다.
+
+## 검색 수치 정규화 결과
+
+| 필드 | 전체 | 유효 | 누락 | 제외 | NULL 정규화 | 제외 사유 |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| 가능 인원 (`min_players`, `max_players`) | 2,000 | 2,000 | 0 | 0 | 0 | 없음 |
+| 플레이 시간 (`min_play_time_minutes`, `max_play_time_minutes`) | 2,000 | 1,996 | 0 | 4 | 0 | `NON_POSITIVE_VALUE` 4건 (`0분` 3건, `90~0분` 1건) |
+| 복잡도 (`complexity`) | 2,000 | 2,000 | 0 | 0 | 0 | 없음 |
+
+인원·시간은 `N명`·`N~M명`, `N분`·`N~M분`만 양의 정수 범위로 적재한다. 해석 불가·0·음수·역전 범위는 해당 검색 수치 쌍을 `NULL`로 두고 사유를 집계한다. 복잡도 `0.00`은 평가 없음으로 `NULL`이며, `1.00`~`5.00`만 유지한다.
+
+## 기존 카탈로그 검수 결과
+
+BGG ID·영문명·순위 일치, 필수값, 길이, 이미지 URL, 복잡도 형식 검사는 각각 2,000건에서 위반이 없었다. 기존 판본 충돌 35그룹과 설명 다양성 경고 2건은 이번 검색 수치 구현이 새로 만들거나 승인할 수 없는 기존 품질 경고다. 따라서 이 실행의 품질 보고서는 `blocked`이며, 검수자가 해당 경고를 승인하기 전에는 실제 적재 산출물을 사용하지 않는다.
