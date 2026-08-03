@@ -40,9 +40,9 @@ BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건�
 | 출처·적재 | [ADR-0015](../adr/game/0015-bgg-baseline-team-collected-game-list.md), [입력 검수 기록](../game-catalog/2026-07-24-input-review.md), [적재 절차](../guides/GAME_CATALOG_IMPORT.md) |
 | 입력 데이터 | 입력 CSV와 변환 산출물은 저장소에 커밋하지 않는다. 적재 작업은 [입력 검수 기록](../game-catalog/2026-07-24-input-review.md)의 SHA-256과 일치하는 팀 공유 입력을 먼저 확보해야 하며, 입력을 새로 수집하거나 생성하지 않는다 |
 | 성능 검증 | [FND-09 검색 성능과 인덱스 검증](foundation.md#fnd-09-검색-성능과-인덱스-검증) |
-| 현재 HTTP 경계 | `GameController#listGames`, `GameListRequest`; 현재 조건은 `keyword`, `upcomingOnly`, `page`, `size` |
-| 현재 조회 경계 | `GameQueryService#findPage`, `GameRepository`, `GameListRow`, `UpcomingRoomCountQuery`; 정렬은 엔티티 필드 `name`, `id` 오름차순 고정 |
-| 현재 저장 필드 | `Game.supportedPlayerCount`, `Game.estimatedPlayTime`, `Game.complexity`, `Game.tag`; 인원·시간 검색 수치 필드와 메커니즘 관계는 없음 |
+| 현재 HTTP 경계 | `GameController#listGames`, `GameListRequest`; 조건은 `keyword`, `upcomingOnly`, `playerCount`, `playTime`, `complexityMin`, `complexityMax`, `page`, `size` |
+| 현재 조회 경계 | `GameQueryService#findPage`, 불변 `GameListSearchCriteria`, `GameRepository#findAll(Specification, Pageable)`, `GameListRow`, `UpcomingRoomCountQuery`; 모든 조건은 단일 동적 조회에 전달하고 정렬은 엔티티 필드 `name`, `id` 오름차순 고정 |
+| 현재 저장 필드 | `Game.supportedPlayerCount`, `Game.estimatedPlayTime`, 검색 수치 `minPlayers`, `maxPlayers`, `minPlayTimeMinutes`, `maxPlayTimeMinutes`, `complexity`, `Game.tag`; 메커니즘 관계는 없음 |
 
 ### 기능 규칙
 

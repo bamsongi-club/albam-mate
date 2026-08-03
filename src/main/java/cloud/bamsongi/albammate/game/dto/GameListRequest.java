@@ -1,5 +1,10 @@
 package cloud.bamsongi.albammate.game.dto;
 
+import java.math.BigDecimal;
+
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 
@@ -11,6 +16,14 @@ public class GameListRequest {
 
 	private String keyword;
 	private boolean upcomingOnly;
+
+	@Min(1) @Max(10) private Integer playerCount;
+
+	private GamePlayTimeFilter playTime;
+
+	@DecimalMin("1.00") @DecimalMax("5.00") private BigDecimal complexityMin;
+
+	@DecimalMin("1.00") @DecimalMax("5.00") private BigDecimal complexityMax;
 
 	@Min(0) private int page = 0;
 
@@ -30,6 +43,42 @@ public class GameListRequest {
 
 	public void setUpcomingOnly(Boolean upcomingOnly) {
 		this.upcomingOnly = Boolean.TRUE.equals(upcomingOnly);
+	}
+
+	public Integer getPlayerCount() {
+		return playerCount;
+	}
+
+	public void setPlayerCount(Integer playerCount) {
+		this.playerCount = playerCount;
+	}
+
+	public GamePlayTimeFilter getPlayTime() {
+		return playTime;
+	}
+
+	public void setPlayTime(GamePlayTimeFilter playTime) {
+		this.playTime = playTime;
+	}
+
+	public BigDecimal getComplexityMin() {
+		return complexityMin;
+	}
+
+	public void setComplexityMin(BigDecimal complexityMin) {
+		this.complexityMin = complexityMin;
+	}
+
+	public BigDecimal getComplexityMax() {
+		return complexityMax;
+	}
+
+	public void setComplexityMax(BigDecimal complexityMax) {
+		this.complexityMax = complexityMax;
+	}
+
+	@AssertTrue(message = "complexityMin은 complexityMax보다 클 수 없습니다.") public boolean isComplexityRangeValid() {
+		return complexityMin == null || complexityMax == null || complexityMin.compareTo(complexityMax) <= 0;
 	}
 
 	public int getPage() {

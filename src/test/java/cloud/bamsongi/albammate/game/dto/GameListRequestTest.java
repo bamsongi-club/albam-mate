@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
+
 import org.junit.jupiter.api.Test;
 
 import jakarta.validation.Validation;
@@ -51,5 +53,27 @@ class GameListRequestTest {
 		assertFalse(validator.validate(negativePage).isEmpty());
 		assertFalse(validator.validate(zeroSize).isEmpty());
 		assertFalse(validator.validate(oversize).isEmpty());
+	}
+
+	@Test
+	void 검색_수치_조건의_유효_범위와_닫힌_복잡도_구간을_검증한다() {
+		GameListRequest valid = new GameListRequest();
+		valid.setPlayerCount(10);
+		valid.setPlayTime(GamePlayTimeFilter.MEDIUM);
+		valid.setComplexityMin(new BigDecimal("1.00"));
+		valid.setComplexityMax(new BigDecimal("5.00"));
+
+		GameListRequest invalidPlayerCount = new GameListRequest();
+		invalidPlayerCount.setPlayerCount(0);
+		GameListRequest invalidComplexity = new GameListRequest();
+		invalidComplexity.setComplexityMin(new BigDecimal("0.99"));
+		GameListRequest reversedComplexity = new GameListRequest();
+		reversedComplexity.setComplexityMin(new BigDecimal("3.00"));
+		reversedComplexity.setComplexityMax(new BigDecimal("2.00"));
+
+		assertTrue(validator.validate(valid).isEmpty());
+		assertFalse(validator.validate(invalidPlayerCount).isEmpty());
+		assertFalse(validator.validate(invalidComplexity).isEmpty());
+		assertFalse(validator.validate(reversedComplexity).isEmpty());
 	}
 }

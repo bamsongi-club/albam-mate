@@ -3,6 +3,9 @@ import { defineConfig, loadEnv } from 'vite';
 export default defineConfig(({ mode }) => {
   const environment = loadEnv(mode, process.cwd(), '');
   return {
+    test: {
+      environment: 'jsdom'
+    },
     server: {
       proxy: {
         '/api': {

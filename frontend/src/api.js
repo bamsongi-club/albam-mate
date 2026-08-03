@@ -25,20 +25,39 @@ async function parsePayload(response) {
   return response.json();
 }
 
+function staleAuthenticationError() {
+  const error = new Error('인증 상태가 변경되어 이전 응답을 무시합니다.');
+  error.name = 'AbortError';
+  return error;
+}
+
 async function request(path, { method = 'GET', body, headers, signal } = {}) {
   const requestAuthenticationGeneration = authenticationGeneration;
-  const response = await fetch(endpoint(path), {
-    method,
-    credentials: 'include',
-    signal,
-    headers: {
-      Accept: 'application/json',
-      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-      ...headers
-    },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) })
-  });
-  const payload = await parsePayload(response);
+  let response;
+  let payload;
+  try {
+    response = await fetch(endpoint(path), {
+      method,
+      credentials: 'include',
+      signal,
+      headers: {
+        Accept: 'application/json',
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...headers
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) })
+    });
+    payload = await parsePayload(response);
+  } catch (error) {
+    if (requestAuthenticationGeneration !== authenticationGeneration) {
+      throw staleAuthenticationError();
+    }
+    throw error;
+  }
+
+  if (requestAuthenticationGeneration !== authenticationGeneration) {
+    throw staleAuthenticationError();
+  }
 
   if (!response.ok) {
     const error = new ApiError({
@@ -47,11 +66,7 @@ async function request(path, { method = 'GET', body, headers, signal } = {}) {
       message: payload?.message || '요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.',
       retryAfter: response.headers.get('retry-after')
     });
-    if (
-      response.status === 401
-      && error.code === 'UNAUTHENTICATED'
-      && requestAuthenticationGeneration === authenticationGeneration
-    ) {
+    if (response.status === 401) {
       clearCsrfToken();
       unauthenticatedHandler?.();
     }
@@ -127,6 +142,10 @@ export const api = {
     request('/api/rooms' + query({ type, gameId, keyword, page, size }), { signal }),
   getMyRooms: ({ role, page = 0, size = 10 }, signal) =>
     request('/api/users/me/rooms' + query({ role, page, size }), { signal }),
+  getNotifications: ({ page = 0, size = 10 } = {}, signal) =>
+    request('/api/users/me/notifications' + query({ page, size }), { signal }),
+  getUnreadNotificationCount: (signal) =>
+    request('/api/users/me/notifications/unread-count', { signal }),
   signup: async (credentials) => mutate('/api/auth/signup', { method: 'POST', body: credentials }),
   login: async (credentials) => {
     const user = await mutate('/api/auth/login', { method: 'POST', body: credentials });

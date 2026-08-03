@@ -2,7 +2,9 @@ package cloud.bamsongi.albammate.game.repository;
 
 import java.math.BigDecimal;
 
-/** 게임 목록 조립에 필요한 열만 조회하는 내부 projection이다. */
+import cloud.bamsongi.albammate.game.entity.Game;
+
+/** 게임 목록 응답 조립에 필요한 필드만 담는 내부 값 객체다. */
 public record GameListRow(
 	Long id,
 	Long bggId,
@@ -13,4 +15,17 @@ public record GameListRow(
 	String tag,
 	String estimatedPlayTime,
 	BigDecimal complexity) {
+
+	public static GameListRow from(Game game) {
+		return new GameListRow(
+			game.getId(),
+			game.getBggId(),
+			game.getName(),
+			game.getEnglishName(),
+			game.getImageUrl(),
+			game.getSupportedPlayerCount(),
+			game.getTag(),
+			game.getEstimatedPlayTime(),
+			game.getComplexity());
+	}
 }

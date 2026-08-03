@@ -31,6 +31,9 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.notification.repository.NotificationOutboxEventRepository;
 
@@ -48,6 +51,12 @@ class NotificationRelayPostgresTest {
 
 	@Autowired
 	private NotificationRelayExecutor executor;
+
+	@Autowired
+	private NotificationRelayFailureRecorder failureRecorder;
+
+	@Autowired
+	private NotificationRelayCoordinator coordinator;
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
@@ -305,6 +314,133 @@ class NotificationRelayPostgresTest {
 	}
 
 	@Test
+	void 일시_실패는_PostgreSQL_기록_시각에서_재시도하고_다섯번째_실패에_격리한다() {
+		Fixture fixture = createFixture();
+		long eventId = insertPendingEvent(fixture.roomId());
+		NotificationRelayProcessingException failure = NotificationRelayProcessingException.failed(
+			eventId, new IllegalStateException("temporary database failure"));
+
+		for (int attempt = 1; attempt <= 5; attempt++) {
+			NotificationRelayFailureRecorder.RecordedFailure recordedFailure = failureRecorder.record(failure)
+				.orElseThrow();
+			assertEquals(attempt, recordedFailure.failureCount());
+			assertEquals(attempt, recordedFailure.totalFailureCount());
+			if (attempt < 5) {
+				assertTrue(recordedFailure.retryScheduled());
+				Instant failedAt = jdbcTemplate.queryForObject(
+					"select last_failed_at from notification_outbox_events where id = ?", Instant.class, eventId);
+				Instant availableAt = jdbcTemplate.queryForObject(
+					"select available_at from notification_outbox_events where id = ?", Instant.class, eventId);
+				assertEquals(retryDelay(attempt), java.time.Duration.between(failedAt, availableAt));
+				jdbcTemplate.update(
+					"update notification_outbox_events set available_at = clock_timestamp() where id = ?", eventId);
+			} else {
+				assertFalse(recordedFailure.retryScheduled());
+				assertFalse(recordedFailure.deterministicFailure());
+			}
+		}
+
+		assertEquals("FAILED", jdbcTemplate.queryForObject(
+			"select status from notification_outbox_events where id = ?", String.class, eventId));
+		assertNull(jdbcTemplate.queryForObject(
+			"select available_at from notification_outbox_events where id = ?", Instant.class, eventId));
+	}
+
+	@Test
+	void 결정적_데이터_오류는_첫_실패에_FAILED로_격리한다() {
+		Fixture fixture = createFixture();
+		long eventId = insertPendingEvent(fixture.roomId());
+
+		NotificationRelayFailureRecorder.RecordedFailure recordedFailure = failureRecorder.record(
+			NotificationRelayProcessingException.failed(eventId,
+				new org.springframework.dao.DataIntegrityViolationException("sensitive constraint detail")))
+			.orElseThrow();
+
+		assertEquals("DATA_CONSTRAINT_VIOLATION", recordedFailure.failureCode());
+		assertTrue(recordedFailure.deterministicFailure());
+		assertFalse(recordedFailure.retryScheduled());
+		assertEquals("FAILED", jdbcTemplate.queryForObject(
+			"select status from notification_outbox_events where id = ?", String.class, eventId));
+	}
+
+	@Test
+	void 만료_이벤트는_알림이나_PROCESSED를_만들지_않고_NOTIFICATION_EXPIRED로_격리한다() {
+		Fixture fixture = createFixture();
+		long eventId = insertExpiredPendingEvent(fixture.roomId());
+		insertRecipient(eventId, fixture.firstRecipientUserId());
+
+		NotificationRelayProcessingException exception = assertThrows(
+			NotificationRelayProcessingException.class, executor::processOne);
+		NotificationRelayFailureRecorder.RecordedFailure recordedFailure = failureRecorder.record(exception)
+			.orElseThrow();
+
+		assertTrue(exception.isExpired());
+		assertEquals("NOTIFICATION_EXPIRED", recordedFailure.failureCode());
+		assertEquals("FAILED", jdbcTemplate.queryForObject(
+			"select status from notification_outbox_events where id = ?", String.class, eventId));
+		assertEquals(0, jdbcTemplate.queryForObject(
+			"select count(*) from notifications where source_event_id = ?", Integer.class, eventId));
+		assertNull(jdbcTemplate.queryForObject(
+			"select processed_at from notification_outbox_events where id = ?", Instant.class, eventId));
+	}
+
+	@Test
+	void 늦은_실패_기록은_이미_완료된_PROCESSED_이벤트를_덮어쓰지_않는다() {
+		Fixture fixture = createFixture();
+		long eventId = insertPendingEvent(fixture.roomId());
+		insertRecipient(eventId, fixture.firstRecipientUserId());
+		executor.processOne().orElseThrow();
+
+		assertTrue(failureRecorder.record(NotificationRelayProcessingException.failed(
+			eventId, new IllegalStateException("late failure"))).isEmpty());
+		assertEquals("PROCESSED", jdbcTemplate.queryForObject(
+			"select status from notification_outbox_events where id = ?", String.class, eventId));
+		assertEquals(0, jdbcTemplate.queryForObject(
+			"select failure_count from notification_outbox_events where id = ?", Integer.class, eventId));
+	}
+
+	@Test
+	void poison_이벤트는_같은_batch의_뒤_정상_이벤트를_막지_않는다() {
+		Fixture fixture = createFixture();
+		long poisonEventId = insertPendingEvent(fixture.roomId());
+		long successfulEventId = insertPendingEvent(fixture.roomId());
+		insertRecipient(successfulEventId, fixture.firstRecipientUserId());
+
+		NotificationRelayCoordinator.RelayBatchSummary summary = coordinator.processBatch();
+
+		assertTrue(summary.failedCount() >= 1);
+		assertTrue(summary.processedCount() >= 1);
+		assertEquals("FAILED", jdbcTemplate.queryForObject(
+			"select status from notification_outbox_events where id = ?", String.class, poisonEventId));
+		assertEquals("PROCESSED", jdbcTemplate.queryForObject(
+			"select status from notification_outbox_events where id = ?", String.class, successfulEventId));
+	}
+
+	@Test
+	void 실패_저장과_로그는_원본_SQL과_민감_예외_메시지를_남기지_않는다() {
+		Fixture fixture = createFixture();
+		long eventId = insertPendingEvent(fixture.roomId());
+		String sensitiveMessage = "select * from notifications where recipient=987654321 payload=relay-payload-sensitive";
+		ListAppender<ILoggingEvent> appender = attachFailureLogAppender();
+		try {
+			failureRecorder.record(NotificationRelayProcessingException.failed(
+				eventId, new org.springframework.dao.DataIntegrityViolationException(sensitiveMessage))).orElseThrow();
+
+			String storedMessage = jdbcTemplate.queryForObject(
+				"select last_failure_message from notification_outbox_events where id = ?", String.class, eventId);
+			assertFalse(storedMessage.contains("select *"));
+			assertFalse(storedMessage.contains("987654321"));
+			assertEquals(1, appender.list.size());
+			String loggedMessage = appender.list.getFirst().getFormattedMessage();
+			assertFalse(loggedMessage.contains("select *"));
+			assertFalse(loggedMessage.contains("987654321"));
+			assertFalse(loggedMessage.contains("relay-payload-sensitive"));
+		} finally {
+			detachFailureLogAppender(appender);
+		}
+	}
+
+	@Test
 	void 완료_전환_실패는_이미_저장한_Notification도_함께_롤백한다() {
 		Fixture fixture = createFixture();
 		long eventId = insertPendingEvent(fixture.roomId());
@@ -421,6 +557,41 @@ class NotificationRelayPostgresTest {
 				+ "0 from operation returning id",
 			Long.class,
 			roomId);
+	}
+
+	private long insertExpiredPendingEvent(long roomId) {
+		return jdbcTemplate.queryForObject(
+			"with operation as materialized (select clock_timestamp() as operation_time) "
+				+ "insert into notification_outbox_events (event_type, room_id, occurred_at, recorded_at, status, available_at, "
+				+ "failure_count, total_failure_count, reprocess_count) "
+				+ "select 'PARTICIPATION_JOINED', ?, operation_time - interval '90 days', operation_time, 'PENDING', "
+				+ "operation_time, 0, 0, 0 from operation returning id",
+			Long.class,
+			roomId);
+	}
+
+	private java.time.Duration retryDelay(int failureCount) {
+		return switch (failureCount) {
+			case 1 -> java.time.Duration.ofSeconds(10);
+			case 2 -> java.time.Duration.ofSeconds(30);
+			case 3 -> java.time.Duration.ofMinutes(2);
+			case 4 -> java.time.Duration.ofMinutes(10);
+			default -> throw new IllegalArgumentException("retry delay exists only for first through fourth failure");
+		};
+	}
+
+	private ListAppender<ILoggingEvent> attachFailureLogAppender() {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(NotificationRelayFailureRecorder.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		return appender;
+	}
+
+	private void detachFailureLogAppender(ListAppender<ILoggingEvent> appender) {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(NotificationRelayFailureRecorder.class);
+		logger.detachAppender(appender);
+		appender.stop();
 	}
 
 	private void insertRecipient(long eventId, long recipientUserId) {

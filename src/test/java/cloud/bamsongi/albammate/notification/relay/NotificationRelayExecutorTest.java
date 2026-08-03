@@ -65,7 +65,7 @@ class NotificationRelayExecutorTest {
 	}
 
 	@Test
-	void Notification_저장이_실패하면_처리_완료로_전환하지_않고_원래_예외를_전달한다() {
+	void Notification_저장이_실패하면_처리_완료로_전환하지_않고_선점한_이벤트_ID와_함께_전달한다() {
 		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
 		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);
 		NotificationRepository notificationRepository = mock(NotificationRepository.class);
@@ -79,8 +79,11 @@ class NotificationRelayExecutorTest {
 		NotificationRelayExecutor executor = new NotificationRelayExecutor(
 			eventRepository, recipientRepository, notificationRepository, new NotificationEventTypeMapper());
 
-		assertThrows(DataIntegrityViolationException.class, executor::processOne);
+		NotificationRelayProcessingException exception = assertThrows(
+			NotificationRelayProcessingException.class, executor::processOne);
 
+		assertEquals(10L, exception.getSourceEventId());
+		assertTrue(exception.getCause() instanceof DataIntegrityViolationException);
 		assertEquals(NotificationOutboxStatus.PENDING, event.getStatus());
 	}
 
@@ -97,8 +100,11 @@ class NotificationRelayExecutorTest {
 		NotificationRelayExecutor executor = new NotificationRelayExecutor(
 			eventRepository, recipientRepository, notificationRepository, new NotificationEventTypeMapper());
 
-		assertThrows(IllegalStateException.class, executor::processOne);
+		NotificationRelayProcessingException exception = assertThrows(
+			NotificationRelayProcessingException.class, executor::processOne);
 
+		assertEquals(10L, exception.getSourceEventId());
+		assertTrue(exception.getCause() instanceof IllegalStateException);
 		verifyNoInteractions(notificationRepository);
 		assertEquals(NotificationOutboxStatus.PENDING, event.getStatus());
 	}
@@ -132,6 +138,43 @@ class NotificationRelayExecutorTest {
 		} finally {
 			detachLogAppender(appender);
 		}
+	}
+
+	@Test
+	void 처리_가능한_이벤트가_없으면_다른_저장소를_호출하지_않는다() {
+		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
+		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);
+		NotificationRepository notificationRepository = mock(NotificationRepository.class);
+		when(eventRepository.claimEarliestProcessableEvent()).thenReturn(Optional.empty());
+		NotificationRelayExecutor executor = new NotificationRelayExecutor(
+			eventRepository, recipientRepository, notificationRepository, new NotificationEventTypeMapper());
+
+		Optional<NotificationRelayExecutor.ProcessedEvent> processedEvent = executor.processOne();
+
+		assertTrue(processedEvent.isEmpty());
+		verifyNoInteractions(recipientRepository, notificationRepository);
+	}
+
+	@Test
+	void 선점_시각에_이미_만료된_이벤트는_알림을_만들지_않고_전용_실패로_전달한다() {
+		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
+		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);
+		NotificationRepository notificationRepository = mock(NotificationRepository.class);
+		NotificationOutboxEvent event = NotificationOutboxEvent.createPending(
+			NotificationOutboxEventType.PARTICIPATION_JOINED, 5L, OPERATION_TIME.minusSeconds(90L * 24 * 60 * 60),
+			RECORDED_AT);
+		ReflectionTestUtils.setField(event, "id", 10L);
+		NotificationOutboxEventRepository.RelayClaim relayClaim = claim(10L);
+		when(eventRepository.claimEarliestProcessableEvent()).thenReturn(Optional.of(relayClaim));
+		when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
+		NotificationRelayExecutor executor = new NotificationRelayExecutor(
+			eventRepository, recipientRepository, notificationRepository, new NotificationEventTypeMapper());
+
+		NotificationRelayProcessingException exception = assertThrows(
+			NotificationRelayProcessingException.class, executor::processOne);
+
+		assertTrue(exception.isExpired());
+		verifyNoInteractions(recipientRepository, notificationRepository);
 	}
 
 	private static NotificationOutboxEvent pendingEvent(Long eventId) {

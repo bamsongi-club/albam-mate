@@ -16,23 +16,43 @@ import lombok.extern.slf4j.Slf4j;
 public class NotificationRelayCoordinator {
 
 	@NonNull private final NotificationRelayExecutor executor;
+	@NonNull private final NotificationRelayFailureRecorder failureRecorder;
 	@NonNull private final NotificationOutboxEventRepository eventRepository;
 	@NonNull private final NotificationRelayProperties properties;
 
 	/** 최대 설정 건수까지만 각 이벤트를 독립 트랜잭션으로 처리한다. */
 	public RelayBatchSummary processBatch() {
 		long startedAtNanos = System.nanoTime();
+		int claimedCount = 0;
 		int processedCount = 0;
+		int retryScheduledCount = 0;
+		int failedCount = 0;
 		for (int index = 0; index < properties.getMaxEventsPerRun(); index++) {
-			if (executor.processOne().isEmpty()) {
-				break;
+			try {
+				if (executor.processOne().isEmpty()) {
+					break;
+				}
+				claimedCount++;
+				processedCount++;
+			} catch (NotificationRelayProcessingException exception) {
+				claimedCount++;
+				NotificationRelayFailureRecorder.RecordedFailure recordedFailure = failureRecorder.record(exception)
+					.orElse(null);
+				if (recordedFailure != null && recordedFailure.retryScheduled()) {
+					retryScheduledCount++;
+				}
+				if (recordedFailure != null && !recordedFailure.retryScheduled()) {
+					failedCount++;
+				}
 			}
-			processedCount++;
 		}
 
 		Long oldestProcessableAgeMillis = eventRepository.findOldestProcessableAgeMillis();
 		RelayBatchSummary summary = RelayBatchSummary.completed(
+			claimedCount,
 			processedCount,
+			retryScheduledCount,
+			failedCount,
 			Duration.ofNanos(System.nanoTime() - startedAtNanos).toMillis(),
 			oldestProcessableAgeMillis);
 		logBatch(summary);
@@ -64,10 +84,13 @@ public class NotificationRelayCoordinator {
 		Long oldestProcessableAgeMillis) {
 
 		public static RelayBatchSummary completed(
+			int claimedCount,
 			int processedCount,
+			int retryScheduledCount,
+			int failedCount,
 			long durationMillis,
 			Long oldestProcessableAgeMillis) {
-			return new RelayBatchSummary(processedCount, processedCount, 0, 0, durationMillis,
+			return new RelayBatchSummary(claimedCount, processedCount, retryScheduledCount, failedCount, durationMillis,
 				oldestProcessableAgeMillis);
 		}
 	}

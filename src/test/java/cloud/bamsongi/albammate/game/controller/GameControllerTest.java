@@ -1,10 +1,6 @@
 package cloud.bamsongi.albammate.game.controller;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
@@ -21,6 +17,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -33,6 +30,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import cloud.bamsongi.albammate.game.dto.GameDetail;
 import cloud.bamsongi.albammate.game.dto.GameListItem;
+import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.service.GameQueryService;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -67,7 +65,7 @@ class GameControllerTest {
 			"60~90분",
 			new BigDecimal("2.00"),
 			0L);
-		when(gameQueryService.findPage(any(), anyBoolean(), anyInt(), anyInt()))
+		when(gameQueryService.findPage(any(GameListRequest.class)))
 			.thenReturn(new PageImpl<>(List.of(item), PageRequest.of(0, 10), 1));
 
 		mockMvc.perform(get("/api/games"))
@@ -94,7 +92,7 @@ class GameControllerTest {
 	@Test
 	void 검색어와_페이지_파라미터를_서비스에_전달한다() throws Exception {
 		PageRequest pageable = PageRequest.of(1, 1);
-		when(gameQueryService.findPage(eq("Catan"), eq(false), eq(1), eq(1)))
+		when(gameQueryService.findPage(any(GameListRequest.class)))
 			.thenReturn(new PageImpl<>(List.of(), pageable, 3));
 
 		mockMvc.perform(get("/api/games?keyword=Catan&page=1&size=1"))
@@ -106,39 +104,43 @@ class GameControllerTest {
 			.andExpect(jsonPath("$.data.totalPages").value(3))
 			.andExpect(jsonPath("$.data.hasNext").value(true));
 
-		verify(gameQueryService).findPage(eq("Catan"), eq(false), eq(1), eq(1));
+		GameListRequest request = capturedListRequest();
+		org.junit.jupiter.api.Assertions.assertEquals("Catan", request.getKeyword());
+		org.junit.jupiter.api.Assertions.assertFalse(request.isUpcomingOnly());
+		org.junit.jupiter.api.Assertions.assertEquals(1, request.getPage());
+		org.junit.jupiter.api.Assertions.assertEquals(1, request.getSize());
 	}
 
 	@Test
 	void 예정_모임_필터_true를_서비스에_전달한다() throws Exception {
 		PageRequest pageable = PageRequest.of(0, 10);
-		when(gameQueryService.findPage(isNull(), eq(true), eq(0), eq(10)))
+		when(gameQueryService.findPage(any(GameListRequest.class)))
 			.thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
 		mockMvc.perform(get("/api/games?upcomingOnly=true"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.content").isEmpty());
 
-		verify(gameQueryService).findPage(isNull(), eq(true), eq(0), eq(10));
+		org.junit.jupiter.api.Assertions.assertTrue(capturedListRequest().isUpcomingOnly());
 	}
 
 	@Test
 	void 예정_모임_필터_false를_서비스에_전달한다() throws Exception {
 		PageRequest pageable = PageRequest.of(0, 10);
-		when(gameQueryService.findPage(isNull(), eq(false), eq(0), eq(10)))
+		when(gameQueryService.findPage(any(GameListRequest.class)))
 			.thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
 		mockMvc.perform(get("/api/games?upcomingOnly=false"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.content").isEmpty());
 
-		verify(gameQueryService).findPage(isNull(), eq(false), eq(0), eq(10));
+		org.junit.jupiter.api.Assertions.assertFalse(capturedListRequest().isUpcomingOnly());
 	}
 
 	@Test
 	void size_상한_100은_성공한다() throws Exception {
 		PageRequest pageable = PageRequest.of(0, 100);
-		when(gameQueryService.findPage(isNull(), eq(false), eq(0), eq(100)))
+		when(gameQueryService.findPage(any(GameListRequest.class)))
 			.thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
 		mockMvc.perform(get("/api/games?size=100"))
@@ -146,13 +148,15 @@ class GameControllerTest {
 			.andExpect(jsonPath("$.data.size").value(100))
 			.andExpect(jsonPath("$.data.content").isEmpty());
 
-		verify(gameQueryService).findPage(isNull(), eq(false), eq(0), eq(100));
+		org.junit.jupiter.api.Assertions.assertEquals(100, capturedListRequest().getSize());
 	}
 
 	@Test
 	void 페이지_파라미터가_계약_범위를_벗어나면_VALIDATION_ERROR다() throws Exception {
 		for (String query : List.of(
-			"page=-1", "size=0", "size=101", "page=not-a-number", "size=not-a-number", "upcomingOnly=not-a-boolean")) {
+			"page=-1", "size=0", "size=101", "page=not-a-number", "size=not-a-number", "upcomingOnly=not-a-boolean",
+			"playerCount=0", "playerCount=11", "playTime=INVALID", "complexityMin=0.99", "complexityMax=5.01",
+			"complexityMin=3.00&complexityMax=2.00")) {
 			mockMvc.perform(get("/api/games?" + query))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
@@ -162,7 +166,7 @@ class GameControllerTest {
 	@Test
 	void 빈_목록_parameter는_기본값으로_서비스에_전달한다() throws Exception {
 		PageRequest pageable = PageRequest.of(0, 10);
-		when(gameQueryService.findPage(isNull(), eq(false), eq(0), eq(10)))
+		when(gameQueryService.findPage(any(GameListRequest.class)))
 			.thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
 		mockMvc.perform(get("/api/games?page=&size=&upcomingOnly="))
@@ -170,7 +174,27 @@ class GameControllerTest {
 			.andExpect(jsonPath("$.data.page").value(0))
 			.andExpect(jsonPath("$.data.size").value(10));
 
-		verify(gameQueryService).findPage(isNull(), eq(false), eq(0), eq(10));
+		GameListRequest request = capturedListRequest();
+		org.junit.jupiter.api.Assertions.assertEquals(0, request.getPage());
+		org.junit.jupiter.api.Assertions.assertEquals(10, request.getSize());
+		org.junit.jupiter.api.Assertions.assertFalse(request.isUpcomingOnly());
+	}
+
+	@Test
+	void 게임_조건_파라미터를_서비스에_전달한다() throws Exception {
+		when(gameQueryService.findPage(any(GameListRequest.class)))
+			.thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+
+		mockMvc.perform(get("/api/games?playerCount=10&playTime=MEDIUM&complexityMin=2.00&complexityMax=3.00"))
+			.andExpect(status().isOk());
+
+		GameListRequest request = capturedListRequest();
+		org.junit.jupiter.api.Assertions.assertEquals(10, request.getPlayerCount());
+		org.junit.jupiter.api.Assertions.assertEquals(
+			cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter.MEDIUM,
+			request.getPlayTime());
+		org.junit.jupiter.api.Assertions.assertEquals(new BigDecimal("2.00"), request.getComplexityMin());
+		org.junit.jupiter.api.Assertions.assertEquals(new BigDecimal("3.00"), request.getComplexityMax());
 	}
 
 	@Test
@@ -238,6 +262,12 @@ class GameControllerTest {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
 		}
+	}
+
+	private GameListRequest capturedListRequest() {
+		ArgumentCaptor<GameListRequest> requestCaptor = ArgumentCaptor.forClass(GameListRequest.class);
+		verify(gameQueryService).findPage(requestCaptor.capture());
+		return requestCaptor.getValue();
 	}
 
 	@TestConfiguration(proxyBeanMethods = false)
