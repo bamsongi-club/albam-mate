@@ -32,6 +32,7 @@ class RoomStatusChangeExecutor {
 		if (!room.cancel()) {
 			throw new BusinessException(ErrorCode.INVALID_ROOM_STATUS_TRANSITION);
 		}
+		roomRepository.flush();
 		eventPublisher.publishEvent(new RoomTerminalStateReached(room.getId(), requestTime));
 		return RoomStatusResponse.from(room);
 	}
@@ -43,6 +44,7 @@ class RoomStatusChangeExecutor {
 		room.reconcileStateAt(requestTime);
 		if (room.getStatus() == RoomStatus.FINISHED) {
 			if (statusBeforeReconciliation != RoomStatus.FINISHED) {
+				roomRepository.flush();
 				eventPublisher.publishEvent(new RoomTerminalStateReached(room.getId(), requestTime));
 			}
 			return RoomStatusResponse.from(room);
@@ -50,6 +52,7 @@ class RoomStatusChangeExecutor {
 		if (!room.finishAt(requestTime)) {
 			throw new BusinessException(ErrorCode.INVALID_ROOM_STATUS_TRANSITION);
 		}
+		roomRepository.flush();
 		eventPublisher.publishEvent(new RoomTerminalStateReached(room.getId(), requestTime));
 		return RoomStatusResponse.from(room);
 	}

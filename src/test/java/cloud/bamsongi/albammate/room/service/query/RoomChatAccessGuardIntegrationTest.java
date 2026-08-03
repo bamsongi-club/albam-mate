@@ -1,7 +1,7 @@
 package cloud.bamsongi.albammate.room.service.query;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Clock;
@@ -10,6 +10,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -66,15 +67,14 @@ class RoomChatAccessGuardIntegrationTest {
 			.save(Participation.createActive(room, participantUserId, NOW));
 		participationIds.add(participation.getId());
 
-		assertDoesNotThrow(() -> chatAccessGuard.checkAccess(hostUserId, room.getId()));
-		assertDoesNotThrow(() -> chatAccessGuard.checkAccess(participantUserId, room.getId()));
+		assertEquals("host", chatAccessGuard.executeWithAccess(hostUserId, room.getId(), () -> "host"));
+		assertEquals("participant",
+			chatAccessGuard.executeWithAccess(participantUserId, room.getId(), () -> "participant"));
 
 		participation.cancel(NOW.plusSeconds(1));
 		participationRepository.save(participation);
 
-		BusinessException exception = assertThrows(
-			BusinessException.class, () -> chatAccessGuard.checkAccess(participantUserId, room.getId()));
-		assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
+		assertForbidden(participantUserId, room.getId());
 	}
 
 	@Test
@@ -101,8 +101,17 @@ class RoomChatAccessGuardIntegrationTest {
 	}
 
 	private void assertForbidden(long userId, long roomId) {
+		AtomicBoolean operationExecuted = new AtomicBoolean(false);
 		BusinessException exception = assertThrows(
-			BusinessException.class, () -> chatAccessGuard.checkAccess(userId, roomId));
+			BusinessException.class,
+			() -> chatAccessGuard.executeWithAccess(
+				userId,
+				roomId,
+				() -> {
+					operationExecuted.set(true);
+					return null;
+				}));
+		assertFalse(operationExecuted.get(), "접근이 거절되면 채팅 동작이 실행되면 안 됩니다.");
 		assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
 	}
 

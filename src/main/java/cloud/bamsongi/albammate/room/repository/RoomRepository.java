@@ -3,18 +3,28 @@ package cloud.bamsongi.albammate.room.repository;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
+import jakarta.persistence.LockModeType;
 
 public interface RoomRepository extends JpaRepository<Room, Long> {
+
+	/** 채팅 접근과 후속 동작을 한 트랜잭션으로 묶기 위해 ROOM 행의 공유 잠금을 얻는다. */
+	@Lock(LockModeType.PESSIMISTIC_READ)
+	@Query("select room from Room room where room.id = :roomId")
+	Optional<Room> findByIdForChatAccess(
+		@Param("roomId")
+		Long roomId);
 
 	@Query("""
 		select r.gameId as gameId, count(r.id) as roomCount

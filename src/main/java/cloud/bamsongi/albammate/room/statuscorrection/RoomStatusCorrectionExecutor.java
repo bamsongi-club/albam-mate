@@ -34,6 +34,7 @@ class RoomStatusCorrectionExecutor {
 		Room room = roomRepository.findById(roomId).orElse(null);
 		if (room != null && room.reconcileStateAt(requestTime)) {
 			roomRepository.save(room);
+			roomRepository.flush();
 			publishTerminalStateReachedIfFinished(room, requestTime);
 		}
 	}
@@ -47,6 +48,7 @@ class RoomStatusCorrectionExecutor {
 		for (Room room : roomRepository.findDueRooms(requestTime, finishedThreshold)) {
 			if (room.reconcileStateAt(requestTime)) {
 				roomRepository.save(room);
+				roomRepository.flush();
 				publishTerminalStateReachedIfFinished(room, requestTime);
 				changedCount++;
 			}

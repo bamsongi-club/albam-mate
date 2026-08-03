@@ -2,8 +2,11 @@ package cloud.bamsongi.albammate.room.service.query;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Objects;
+import java.util.function.Supplier;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -27,25 +30,28 @@ public class RoomChatAccessGuard implements ChatAccessGuard {
 	private final Clock clock;
 
 	@Override
-	public void checkAccess(long currentUserId, long roomId) {
+	@Transactional
+	public <T> T executeWithAccess(long currentUserId, long roomId, Supplier<T> chatOperation) {
+		Objects.requireNonNull(chatOperation, "chatOperation");
 		Instant requestTime = Instant.now(clock);
 		statusCorrectionCoordinator.correctRoom(roomId, requestTime);
 		Room room = roomRepository
-			.findById(roomId)
+			.findByIdForChatAccess(roomId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
 		if (!isChatAvailable(room)) {
 			throw new BusinessException(ErrorCode.FORBIDDEN);
 		}
-		if (room.getHostUserId() == currentUserId) {
-			return;
+		if (room.getHostUserId() != currentUserId && !isActiveParticipant(roomId, currentUserId)) {
+			throw new BusinessException(ErrorCode.FORBIDDEN);
 		}
-		boolean isActiveParticipant = participationRepository
+		return chatOperation.get();
+	}
+
+	private boolean isActiveParticipant(long roomId, long currentUserId) {
+		return participationRepository
 			.findByRoomIdAndUserId(roomId, currentUserId)
 			.map(participation -> participation.getStatus() == ParticipationStatus.ACTIVE)
 			.orElse(false);
-		if (!isActiveParticipant) {
-			throw new BusinessException(ErrorCode.FORBIDDEN);
-		}
 	}
 
 	private boolean isChatAvailable(Room room) {
