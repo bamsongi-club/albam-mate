@@ -371,6 +371,8 @@ Repository Projection은 쿼리가 선택한 열을 담는 저장소 계층 타�
 - `global`의 업무 모듈 의존 금지
 - 생산 코드의 `@Autowired` 필드·생성자·메서드 주입 금지
 - ROOM 코드를 `contract`를 포함해 이 문서가 허용한 패키지에만 배치
+- `chat → room.contract·user.contract` 외 현재 업무 모듈 의존 금지
+- Chat 코드를 `entity`·`repository` 허용 패키지에만 배치
 - P1 Notification 코드를 조회·변경·relay·recovery·cleanup 책임에 맞는 허용 패키지에만 배치
 - Retrier 직접 사용자를 `RoomCommandExecutionCoordinator`, `RoomStatusCorrectionCoordinator`로 제한
 
@@ -378,8 +380,6 @@ Repository Projection은 쿼리가 선택한 열을 담는 저장소 계층 타�
 
 - `infra`가 업무 모듈의 `contract` 밖 내부 구현에 의존하지 않는다.
 - 업무 모듈이 `infra`의 구체 구현을 참조하지 않는다.
-- `chat`이 `room`·`user`의 공개 `contract` 밖 내부 구현을 참조하지 않는다.
-- `chat`의 저장·권한 규칙이 Redis·Spring Session·ShedLock 구현 타입을 직접 참조하지 않는다.
 
 `notification` 모듈의 현재 구현·검증 여부는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)으로 판정한다. 구조 테스트에 모듈·허용 의존·패키지 규칙을 먼저 등록하거나 빈 패키지를 추가한 사실만으로 생산 코드·자동 검증 상태를 완료로 바꾸지 않는다. ADR-0029·ADR-0039·ADR-0040의 트랜잭션·잠금·복구·정리·표시·읽음 결정은 요구된 생산 코드와 PostgreSQL 검증 증거를 모두 갖춰야 한다.
 

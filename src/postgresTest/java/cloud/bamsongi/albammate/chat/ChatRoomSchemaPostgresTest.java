@@ -110,6 +110,24 @@ class ChatRoomSchemaPostgresTest {
 				schemaName);
 			assertEquals("((purge_after IS NOT NULL) AND (messages_purged_at IS NULL))", pendingPurgeIndexPredicate);
 
+			long pendingPurgeRoomId = insertRoom(schemaName, "RECRUITING");
+			assertEquals(
+				1,
+				jdbcTemplate.update(
+					"insert into " + table(schemaName, "chat_rooms")
+						+ " (room_id, purge_after, created_at, updated_at) "
+						+ "values (?, current_timestamp, current_timestamp, current_timestamp)",
+					pendingPurgeRoomId));
+
+			long completedPurgeRoomId = insertRoom(schemaName, "RECRUITING");
+			assertEquals(
+				1,
+				jdbcTemplate.update(
+					"insert into " + table(schemaName, "chat_rooms")
+						+ " (room_id, purge_after, messages_purged_at, created_at, updated_at) "
+						+ "values (?, current_timestamp, current_timestamp, current_timestamp, current_timestamp)",
+					completedPurgeRoomId));
+
 			long roomId = insertRoom(schemaName, "RECRUITING");
 			assertCheckViolation(
 				() -> jdbcTemplate.update(
