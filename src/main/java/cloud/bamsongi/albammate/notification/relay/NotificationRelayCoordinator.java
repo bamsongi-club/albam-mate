@@ -1,30 +1,23 @@
 package cloud.bamsongi.albammate.notification.relay;
 
 import java.time.Duration;
-import java.util.Objects;
 
 import org.springframework.stereotype.Service;
 
 import cloud.bamsongi.albammate.notification.repository.NotificationOutboxEventRepository;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /** batch 트랜잭션 없이 실행당 처리 상한과 건별 Executor 호출만 조정한다. */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class NotificationRelayCoordinator {
 
-	private final NotificationRelayExecutor executor;
-	private final NotificationOutboxEventRepository eventRepository;
-	private final NotificationRelayProperties properties;
-
-	public NotificationRelayCoordinator(
-		NotificationRelayExecutor executor,
-		NotificationOutboxEventRepository eventRepository,
-		NotificationRelayProperties properties) {
-		this.executor = Objects.requireNonNull(executor, "executor");
-		this.eventRepository = Objects.requireNonNull(eventRepository, "eventRepository");
-		this.properties = Objects.requireNonNull(properties, "properties");
-	}
+	@NonNull private final NotificationRelayExecutor executor;
+	@NonNull private final NotificationOutboxEventRepository eventRepository;
+	@NonNull private final NotificationRelayProperties properties;
 
 	/** 최대 설정 건수까지만 각 이벤트를 독립 트랜잭션으로 처리한다. */
 	public RelayBatchSummary processBatch() {

@@ -3,7 +3,6 @@ package cloud.bamsongi.albammate.notification.relay;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
@@ -18,28 +17,20 @@ import cloud.bamsongi.albammate.notification.enums.NotificationType;
 import cloud.bamsongi.albammate.notification.repository.NotificationOutboxEventRepository;
 import cloud.bamsongi.albammate.notification.repository.NotificationOutboxRecipientRepository;
 import cloud.bamsongi.albammate.notification.repository.NotificationRepository;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /** 한 Outbox 이벤트의 PostgreSQL 선점, 멱등 Notification 저장과 완료 전환을 함께 처리한다. */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class NotificationRelayExecutor {
 
-	private final NotificationOutboxEventRepository eventRepository;
-	private final NotificationOutboxRecipientRepository recipientRepository;
-	private final NotificationRepository notificationRepository;
-	private final NotificationEventTypeMapper eventTypeMapper;
-
-	public NotificationRelayExecutor(
-		NotificationOutboxEventRepository eventRepository,
-		NotificationOutboxRecipientRepository recipientRepository,
-		NotificationRepository notificationRepository,
-		NotificationEventTypeMapper eventTypeMapper) {
-		this.eventRepository = Objects.requireNonNull(eventRepository, "eventRepository");
-		this.recipientRepository = Objects.requireNonNull(recipientRepository, "recipientRepository");
-		this.notificationRepository = Objects.requireNonNull(notificationRepository, "notificationRepository");
-		this.eventTypeMapper = Objects.requireNonNull(eventTypeMapper, "eventTypeMapper");
-	}
+	@NonNull private final NotificationOutboxEventRepository eventRepository;
+	@NonNull private final NotificationOutboxRecipientRepository recipientRepository;
+	@NonNull private final NotificationRepository notificationRepository;
+	@NonNull private final NotificationEventTypeMapper eventTypeMapper;
 
 	/** 처리 가능한 가장 이른 이벤트 하나만 독립 트랜잭션에서 처리한다. */
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
