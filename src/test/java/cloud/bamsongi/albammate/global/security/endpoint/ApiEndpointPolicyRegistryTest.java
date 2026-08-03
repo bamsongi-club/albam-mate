@@ -59,6 +59,17 @@ class ApiEndpointPolicyRegistryTest {
 	}
 
 	@Test
+	void 알림_읽음_두_PATCH는_인증과_CSRF_정책에_등록된다() {
+		for (String path : List.of("/api/users/me/notifications", "/api/users/me/notifications/1")) {
+			MockHttpServletRequest request = new MockHttpServletRequest(HttpMethod.PATCH.name(), path);
+			request.setServletPath(path);
+
+			assertTrue(endpointPolicyRegistry.authenticatedRequestMatcher().matches(request));
+			assertTrue(endpointPolicyRegistry.csrfProtectionRequestMatcher().matches(request));
+		}
+	}
+
+	@Test
 	void 방_상세_GET은_선택_인증이며_CSRF_보호_대상이_아니다() {
 		String path = "/api/rooms/1";
 		MockHttpServletRequest request = new MockHttpServletRequest(HttpMethod.GET.name(), path);

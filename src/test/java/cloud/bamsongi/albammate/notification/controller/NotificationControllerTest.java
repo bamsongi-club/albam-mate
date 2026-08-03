@@ -8,7 +8,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -21,6 +23,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.test.web.servlet.MockMvc;
@@ -37,6 +40,7 @@ import cloud.bamsongi.albammate.global.security.error.SecurityErrorResponseWrite
 import cloud.bamsongi.albammate.notification.dto.NotificationListItem;
 import cloud.bamsongi.albammate.notification.dto.UnreadNotificationCountResponse;
 import cloud.bamsongi.albammate.notification.enums.NotificationType;
+import cloud.bamsongi.albammate.notification.service.command.NotificationReadCommandService;
 import cloud.bamsongi.albammate.notification.service.query.NotificationListQueryService;
 import cloud.bamsongi.albammate.notification.service.query.UnreadNotificationCountQueryService;
 
@@ -58,6 +62,8 @@ class NotificationControllerTest {
 	private NotificationListQueryService notificationListQueryService;
 	@Autowired
 	private UnreadNotificationCountQueryService unreadNotificationCountQueryService;
+	@Autowired
+	private NotificationReadCommandService notificationReadCommandService;
 
 	@Test
 	void 비로그인_두_GET은_UNAUTHENTICATED다() throws Exception {
@@ -69,6 +75,17 @@ class NotificationControllerTest {
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
 		verifyNoInteractions(notificationListQueryService, unreadNotificationCountQueryService);
+	}
+
+	@Test
+	void 비로그인_두_PATCH는_UNAUTHENTICATED이고_Service를_호출하지_않는다() throws Exception {
+		clearInvocations(notificationReadCommandService);
+		for (String path : List.of("/api/users/me/notifications/1", "/api/users/me/notifications")) {
+			mockMvc.perform(patch(path).contentType(MediaType.APPLICATION_JSON).content("{\"read\":true}"))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
+		}
+		verifyNoInteractions(notificationReadCommandService);
 	}
 
 	@Test
@@ -116,6 +133,65 @@ class NotificationControllerTest {
 		verify(unreadNotificationCountQueryService).countUnread(42L);
 	}
 
+	@Test
+	void 단건과_일괄_PATCH는_인증과_CSRF_뒤에_각각의_Service_응답을_반환한다() throws Exception {
+		NotificationListItem readItem = new NotificationListItem(1L, NotificationType.PARTICIPANT_JOINED, 3L,
+			"현재 방 제목", Instant.parse("2026-08-03T00:00:00Z"), Instant.parse("2026-08-01T00:00:00Z"));
+		when(notificationReadCommandService.readOne(42L, 1L)).thenReturn(readItem);
+		when(notificationReadCommandService.readAll(42L)).thenReturn(
+			new cloud.bamsongi.albammate.notification.dto.NotificationBulkReadResponse(
+				2, 4L, Instant.parse("2026-08-03T00:00:00Z")));
+
+		mockMvc.perform(patch("/api/users/me/notifications/1")
+			.with(authenticationFor(42L))
+			.with(csrf())
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"read\":true}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.id").value(1))
+			.andExpect(jsonPath("$.data.readAt").exists());
+		mockMvc.perform(patch("/api/users/me/notifications")
+			.with(authenticationFor(42L))
+			.with(csrf())
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"read\":true}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.updatedCount").value(2))
+			.andExpect(jsonPath("$.data.boundaryNotificationId").value(4))
+			.andExpect(jsonPath("$.data.readAt").exists());
+		verify(notificationReadCommandService).readOne(42L, 1L);
+		verify(notificationReadCommandService).readAll(42L);
+	}
+
+	@Test
+	void 단건과_일괄_PATCH는_잘못된_입력이나_CSRF에서_상태를_변경하지_않는다() throws Exception {
+		clearInvocations(notificationReadCommandService);
+		for (String body : List.of("null", "{}", "{\"read\":false}",
+			"{\"read\":true,\"readAt\":\"2026-08-03T00:00:00Z\"}", "{\"read\":true,\"other\":1}")) {
+			mockMvc.perform(patch("/api/users/me/notifications/1")
+				.with(authenticationFor(42L))
+				.with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(body))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+		}
+		mockMvc.perform(patch("/api/users/me/notifications/0")
+			.with(authenticationFor(42L))
+			.with(csrf())
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"read\":true}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+		mockMvc.perform(patch("/api/users/me/notifications/1")
+			.with(authenticationFor(42L))
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"read\":true}"))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value(ErrorCode.CSRF_TOKEN_INVALID.getCode()));
+		verifyNoInteractions(notificationReadCommandService);
+	}
+
 	private PageResponse<NotificationListItem> page() {
 		return new PageResponse<>(List.of(new NotificationListItem(1L, NotificationType.PARTICIPANT_JOINED, 3L,
 			"현재 방 제목", null, Instant.parse("2026-08-01T00:00:00Z"))), 0, 10, 1, 1, false);
@@ -136,6 +212,11 @@ class NotificationControllerTest {
 		@Bean
 		UnreadNotificationCountQueryService unreadNotificationCountQueryService() {
 			return mock(UnreadNotificationCountQueryService.class);
+		}
+
+		@Bean
+		NotificationReadCommandService notificationReadCommandService() {
+			return mock(NotificationReadCommandService.class);
 		}
 	}
 }

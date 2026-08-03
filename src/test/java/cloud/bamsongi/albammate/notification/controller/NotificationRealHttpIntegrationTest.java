@@ -31,4 +31,19 @@ class NotificationRealHttpIntegrationTest {
 			assertTrue(response.body().contains("UNAUTHENTICATED"));
 		}
 	}
+
+	@Test
+	void 세션없는_실제_HTTP_두_PATCH는_UNAUTHENTICATED다() throws Exception {
+		HttpClient client = HttpClient.newHttpClient();
+		for (String path : new String[] {"/api/users/me/notifications/1", "/api/users/me/notifications"}) {
+			HttpResponse<String> response = client.send(
+				HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
+					.header("Content-Type", "application/json")
+					.method("PATCH", HttpRequest.BodyPublishers.ofString("{\"read\":true}"))
+					.build(),
+				HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+			assertEquals(401, response.statusCode());
+			assertTrue(response.body().contains("UNAUTHENTICATED"));
+		}
+	}
 }
