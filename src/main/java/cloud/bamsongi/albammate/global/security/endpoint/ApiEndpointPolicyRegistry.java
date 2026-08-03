@@ -177,6 +177,8 @@ public final class ApiEndpointPolicyRegistry {
 			policy(HttpMethod.POST, "/api/auth/logout", AUTHENTICATED, true),
 			policy(HttpMethod.GET, "/api/users/me", AUTHENTICATED, false),
 			policy(HttpMethod.PATCH, "/api/users/me", AUTHENTICATED, true),
+			policy(HttpMethod.GET, "/api/users/me/notifications", AUTHENTICATED, false),
+			policy(HttpMethod.GET, "/api/users/me/notifications/unread-count", AUTHENTICATED, false),
 			policy(HttpMethod.GET, "/api/games", OPTIONAL_AUTHENTICATION, false),
 			policy(HttpMethod.GET, "/api/games/{gameId}", OPTIONAL_AUTHENTICATION, false),
 			policy(HttpMethod.GET, "/api/rooms", OPTIONAL_AUTHENTICATION, false),
