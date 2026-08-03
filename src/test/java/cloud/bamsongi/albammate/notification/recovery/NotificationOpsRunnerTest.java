@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayOutputStream;
@@ -14,24 +15,9 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.DefaultApplicationArguments;
-import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.FilterType;
 import org.springframework.mock.env.MockEnvironment;
 
 class NotificationOpsRunnerTest {
-
-	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-		.withUserConfiguration(NotificationOpsRunnerConfiguration.class);
-
-	@Test
-	void notification_ops_profile에서만_Runner_bean을_등록한다() {
-		contextRunner.run(context -> assertFalse(context.containsBean("notificationOpsRunner")));
-		contextRunner.withInitializer(context -> context.getEnvironment().setActiveProfiles("notification-ops"))
-			.run(context -> assertTrue(context.containsBean("notificationOpsRunner")));
-	}
 
 	@Test
 	void 성공_입력오류_실행실패를_각각_0_2_1로_종료하고_사유를_출력하지_않는다() {
@@ -66,14 +52,21 @@ class NotificationOpsRunnerTest {
 		NotificationOutboxRecoveryService recoveryService = mock(NotificationOutboxRecoveryService.class);
 		when(recoveryService.preview(org.mockito.ArgumentMatchers.any())).thenReturn(
 			new NotificationOutboxRecoveryResult(List.of(3L), 1, 0, List.of(item())));
-		NotificationOpsRunner runner = new NotificationOpsRunner(recoveryService,
-			environment("INSPECT", "private reason"));
+		NotificationOpsRunner runner = new NotificationOpsRunner(recoveryService, inspectEnvironment());
 
 		String output = captureOutput(runner);
 
 		assertTrue(output.contains("eventType=PARTICIPATION_JOINED"));
 		assertTrue(output.contains("reprocessable=true"));
-		assertFalse(output.contains("private reason"));
+		assertFalse(output.contains("reasonReference"));
+	}
+
+	@Test
+	void INSPECT_감사_메타데이터는_각각_종료코드_2로_거절하고_출력하지_않는다() {
+		assertInspectMetadataRejected("app.notification.ops.reason", "private reason");
+		assertInspectMetadataRejected("app.notification.ops.reason-reference", "INVALID-REFERENCE");
+		assertInspectMetadataRejected("app.notification.ops.requested-by", "ops-user");
+		assertInspectMetadataRejected("app.notification.ops.confirm", "DISCARD");
 	}
 
 	private static NotificationOutboxRecoveryItem item() {
@@ -108,13 +101,21 @@ class NotificationOpsRunnerTest {
 		return captured.toString(StandardCharsets.UTF_8);
 	}
 
-	@Configuration(proxyBeanMethods = false)
-	@ComponentScan(basePackageClasses = NotificationOpsRunner.class, useDefaultFilters = false, includeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = NotificationOpsRunner.class))
-	static class NotificationOpsRunnerConfiguration {
+	private static MockEnvironment inspectEnvironment() {
+		return new MockEnvironment()
+			.withProperty("app.notification.ops.action", "INSPECT")
+			.withProperty("app.notification.ops.event-ids", "3");
+	}
 
-		@Bean
-		NotificationOutboxRecoveryService recoveryService() {
-			return mock(NotificationOutboxRecoveryService.class);
-		}
+	private static void assertInspectMetadataRejected(String metadataKey, String metadataValue) {
+		NotificationOutboxRecoveryService recoveryService = mock(NotificationOutboxRecoveryService.class);
+		MockEnvironment environment = inspectEnvironment().withProperty(metadataKey, metadataValue);
+		NotificationOpsRunner runner = new NotificationOpsRunner(recoveryService, environment);
+
+		String output = captureOutput(runner);
+
+		assertEquals(2, runner.getExitCode());
+		verifyNoInteractions(recoveryService);
+		assertFalse(output.contains(metadataValue));
 	}
 }

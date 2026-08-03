@@ -43,6 +43,14 @@ class NotificationOpsArgumentsTest {
 		assertEquals(100, request.requestedBy().length());
 	}
 
+	@Test
+	void INSPECT는_각_감사_메타데이터를_입력오류로_거절한다() {
+		assertRejected(inspectEnvironment("app.notification.ops.reason", "private reason"));
+		assertRejected(inspectEnvironment("app.notification.ops.reason-reference", "ISSUE-267"));
+		assertRejected(inspectEnvironment("app.notification.ops.requested-by", "ops-user"));
+		assertRejected(inspectEnvironment("app.notification.ops.confirm", "DISCARD"));
+	}
+
 	private static void assertRejected(MockEnvironment environment) {
 		assertThrows(NotificationOutboxRecoveryInputException.class, () -> NotificationOpsArguments.from(environment));
 	}
@@ -72,5 +80,12 @@ class NotificationOpsArgumentsTest {
 			ids.append(id);
 		}
 		return ids.toString();
+	}
+
+	private static MockEnvironment inspectEnvironment(String metadataKey, String metadataValue) {
+		return new MockEnvironment()
+			.withProperty("app.notification.ops.action", "INSPECT")
+			.withProperty("app.notification.ops.event-ids", "3")
+			.withProperty(metadataKey, metadataValue);
 	}
 }

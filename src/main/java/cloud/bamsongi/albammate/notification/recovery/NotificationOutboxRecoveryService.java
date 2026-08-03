@@ -98,6 +98,7 @@ public class NotificationOutboxRecoveryService {
 			throw new NotificationOutboxRecoveryInputException();
 		}
 		if (request.action() == NotificationRecoveryAction.INSPECT) {
+			validateInspectMetadataIsAbsent(request);
 			return;
 		}
 		if (isBlankOrTooLong(request.reason(), 500) || isBlankOrTooLong(request.requestedBy(), 100)
@@ -110,6 +111,13 @@ public class NotificationOutboxRecoveryService {
 		}
 		if (actualChange && request.action() == NotificationRecoveryAction.DISCARD
 			&& !"DISCARD".equals(request.confirm())) {
+			throw new NotificationOutboxRecoveryInputException();
+		}
+	}
+
+	private static void validateInspectMetadataIsAbsent(NotificationOutboxRecoveryRequest request) {
+		if (request.reasonReference() != null || request.reason() != null || request.requestedBy() != null
+			|| request.confirm() != null) {
 			throw new NotificationOutboxRecoveryInputException();
 		}
 	}
@@ -207,6 +215,12 @@ public class NotificationOutboxRecoveryService {
 	}
 
 	private static void logPreview(NotificationOutboxRecoveryRequest request, List<Long> eventIds, int eligibleCount) {
+		if (request.action() == NotificationRecoveryAction.INSPECT) {
+			log.info(
+				"event=notification_outbox_operation_previewed sourceEventIds={} action={} requestedCount={} eligibleCount={} dryRun={}",
+				eventIds, request.action(), eventIds.size(), eligibleCount, request.dryRun());
+			return;
+		}
 		log.info(
 			"event=notification_outbox_operation_previewed sourceEventIds={} action={} reasonReference={} requestedBy={} requestedCount={} eligibleCount={} dryRun={}",
 			eventIds, request.action(), request.reasonReference(), request.requestedBy(), eventIds.size(),

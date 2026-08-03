@@ -10,6 +10,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
@@ -59,6 +60,30 @@ class NotificationOutboxRecoveryServiceTest {
 
 		assertThrows(NotificationOutboxRecoveryInputException.class, () -> service.preview(inspect(List.of(3L, 3L))));
 		verify(eventRepository, never()).findAllByIdInOrderById(anyCollection());
+	}
+
+	@Test
+	void INSPECT에_감사_메타데이터가_있으면_조회_전_입력오류로_거절한다() {
+		assertInspectMetadataRejected("private reason", null, null, null);
+		assertInspectMetadataRejected(null, "ISSUE-267", null, null);
+		assertInspectMetadataRejected(null, null, "ops-user", null);
+		assertInspectMetadataRejected(null, null, null, "DISCARD");
+	}
+
+	private static void assertInspectMetadataRejected(
+		String reason,
+		String reasonReference,
+		String requestedBy,
+		String confirm) {
+		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
+		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);
+		NotificationOutboxRecoveryService service = new NotificationOutboxRecoveryService(eventRepository,
+			recipientRepository);
+
+		assertThrows(NotificationOutboxRecoveryInputException.class, () -> service.preview(
+			new NotificationOutboxRecoveryRequest(NotificationRecoveryAction.INSPECT, List.of(3L), true,
+				reasonReference, reason, requestedBy, confirm)));
+		verifyNoInteractions(eventRepository, recipientRepository);
 	}
 
 	@Test

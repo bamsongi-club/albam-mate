@@ -1,14 +1,23 @@
 package cloud.bamsongi.albammate;
 
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.AutoConfigurationExcludeFilter;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.TypeExcludeFilter;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 
 import cloud.bamsongi.albammate.global.time.UtcTimeZone;
 import cloud.bamsongi.albammate.notification.recovery.NotificationOpsApplication;
 import cloud.bamsongi.albammate.notification.recovery.NotificationOpsLaunchPolicy;
 
 @SpringBootApplication
+@ComponentScan(excludeFilters = {
+	@ComponentScan.Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class),
+	@ComponentScan.Filter(type = FilterType.CUSTOM, classes = AutoConfigurationExcludeFilter.class),
+	@ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = NotificationOpsApplication.class)
+})
 public class AlbamMateApplication {
 
 	public static void main(String[] args) {

@@ -3,17 +3,13 @@ package cloud.bamsongi.albammate.notification.recovery;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.ExitCodeGenerator;
-import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
-import org.springframework.stereotype.Component;
 
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /** notification-ops profile의 유일한 one-shot adapter다. */
-@Component
-@Profile("notification-ops")
 @Slf4j
 @RequiredArgsConstructor
 public class NotificationOpsRunner implements ApplicationRunner, ExitCodeGenerator {

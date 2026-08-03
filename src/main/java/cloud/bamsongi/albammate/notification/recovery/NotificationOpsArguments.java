@@ -53,6 +53,7 @@ final class NotificationOpsArguments {
 
 	private static void validateChangeArguments(NotificationOutboxRecoveryRequest request) {
 		if (request.action() == NotificationRecoveryAction.INSPECT) {
+			validateInspectMetadataIsAbsent(request);
 			return;
 		}
 		if (isBlankOrTooLong(request.reason(), 500) || isBlankOrTooLong(request.requestedBy(), 100)
@@ -62,6 +63,13 @@ final class NotificationOpsArguments {
 		}
 		if (!request.dryRun() && request.action() == NotificationRecoveryAction.DISCARD
 			&& !"DISCARD".equals(request.confirm())) {
+			throw new NotificationOutboxRecoveryInputException();
+		}
+	}
+
+	private static void validateInspectMetadataIsAbsent(NotificationOutboxRecoveryRequest request) {
+		if (request.reasonReference() != null || request.reason() != null || request.requestedBy() != null
+			|| request.confirm() != null) {
 			throw new NotificationOutboxRecoveryInputException();
 		}
 	}
