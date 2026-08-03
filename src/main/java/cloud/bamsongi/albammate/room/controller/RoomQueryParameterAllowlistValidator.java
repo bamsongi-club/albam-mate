@@ -21,15 +21,13 @@ final class RoomQueryParameterAllowlistValidator {
 		"page",
 		"size");
 	private static final Set<String> MY_ROOM_LIST_PARAMETERS = Set.of("role", "page", "size");
+	private static final Set<String> RULEMASTER_ONLY_VALUES = Set.of("true", "false");
 
 	private RoomQueryParameterAllowlistValidator() {}
 
 	static void validateRoomList(HttpServletRequest request) {
 		validate(request, ROOM_LIST_PARAMETERS);
-		String[] rulemasterOnlyValues = request.getParameterValues("rulemasterOnly");
-		if (rulemasterOnlyValues != null
-			&& (rulemasterOnlyValues.length != 1
-				|| (!"true".equals(rulemasterOnlyValues[0]) && !"false".equals(rulemasterOnlyValues[0])))) {
+		if (!hasSingleAllowedRulemasterOnlyValue(request.getParameterValues("rulemasterOnly"))) {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
 		}
 	}
@@ -42,5 +40,9 @@ final class RoomQueryParameterAllowlistValidator {
 		if (!allowedParameterNames.containsAll(request.getParameterMap().keySet())) {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
 		}
+	}
+
+	private static boolean hasSingleAllowedRulemasterOnlyValue(String[] values) {
+		return values == null || (values.length == 1 && RULEMASTER_ONLY_VALUES.contains(values[0]));
 	}
 }
