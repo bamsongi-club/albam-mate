@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "batchId": "2026-08-03-p1-search-numeric-fields",
+  "toolCommit": "896b37396b5bc6d11a866519b8fccb3971c3fb94",
+  "sources": {
+    "games": {
+      "fileName": "games.p1-search-time-corrected-2026-08-03.json",
+      "sha256": "c8800eaf0f4e276722162f1371d72cab08ae6ac440e730c2567321300c4a9cf6",
+      "sourceReference": "Issue #293 승인 코멘트 5163626054에 따라 2026-08-01 검증 배치의 플레이 시간 4건을 보정한 서비스 적재 승인본",
+      "acquiredAt": "2026-08-03T06:50:56Z",
+      "usageTerms": "Albam Mate 팀의 BGG 출처·이용 승인 범위 안에서 서비스 적재에 사용하며 원본과 보정 JSON은 저장소에 공개하지 않음"
+    },
+    "ranks": {
+      "fileName": "boardgames_ranks07-24.csv",
+      "sha256": "b706d0ae3722e063f6b36b9faaf97f3533fce45605c0dfe01c347a68ea2aa56d",
+      "sourceReference": "BGG boardgames_ranks_2026-07-23.zip 기준 스냅샷",
+      "acquiredAt": "2026-07-24T08:43:00Z",
+      "usageTerms": "Albam Mate 팀이 BGG 식별자·기준 순위 검증에 사용하는 로컬 입력"
+    }
+  },
+  "fieldSources": {
+    "bgg_id": "ranks.id",
+    "name": "games.name",
+    "english_name": "games.english_name",
+    "alias": "games.alias",
+    "image_url": "games.image_url",
+    "supported_player_count": "games.supported_player_count",
+    "tag": "games.tag",
+    "estimated_play_time": "games.estimated_play_time; Issue #293 승인에 따라 BGG 242705는 90분, BGG 171·369646·1540은 정보 없음으로 보정",
+    "min_players": "games.supported_player_count를 양의 정수 범위로 검증해 정규화",
+    "max_players": "games.supported_player_count를 양의 정수 범위로 검증해 정규화",
+    "min_play_time_minutes": "games.estimated_play_time를 양의 정수 분 범위로 검증하며 정보 없음은 NULL로 정규화",
+    "max_play_time_minutes": "games.estimated_play_time를 양의 정수 분 범위로 검증하며 정보 없음은 NULL로 정규화",
+    "complexity": "games.complexity의 0.00을 NULL로 정규화하고 1.00~5.00만 유지",
+    "description": "games.description",
+    "detail_description": "games.detail_description"
+  },
+  "selectionRules": {
+    "include": "BGG 기준 스냅샷과 bgg_id가 일치하고 기존 카탈로그 검수를 통과한 2,000건만 포함",
+    "exclude": "인원·시간 표시값이 비어 있거나 플레이 시간이 정보 없음이면 기존 표시 게임을 유지하고 검색 수치 쌍만 NULL로 둔다. 그 밖의 비어 있지 않은 해석 불가·0 이하·역전·JavaScript safe integer 또는 PostgreSQL INTEGER 범위 밖 인원·시간 값은 해당 배치 전체를 차단한다."
+  },
+  "versionRules": {
+    "baseGame": "기존 2,000건 검수에서 BGG 본판으로 확인된 항목만 유지",
+    "expansion": "BGG 확장은 기존 카탈로그 선택에서 제외",
+    "variant": "변형 여부를 확인할 수 없으면 기존 검수 결과 밖으로 추가하지 않는다"
+  },
+  "selection": {
+    "candidateRows": 2000,
+    "includedRows": 2000,
+    "excludedRows": 0,
+    "exclusions": []
+  },
+  "review": {
+    "status": "approved",
+    "reviewedAt": "2026-08-03T07:41:08Z",
+    "reviewers": [
+      "beyejin"
+    ],
+    "acceptedWarnings": [
+      "POSSIBLE_VERSION_COLLISION",
+      "LOW_DESCRIPTION_DIVERSITY",
+      "LOW_DETAIL_DESCRIPTION_DIVERSITY"
+    ]
+  }
+}
