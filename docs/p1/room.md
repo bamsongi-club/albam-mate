@@ -27,35 +27,58 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 고도화 이유 | 정원 충족 전 `CLOSED`와 시작 시각 도달 후 `CLOSED`는 같은 상태지만, 전자는 대기를 신청할 수 있고 후자는 신청할 수 없다. |
 | 공통 규칙 | [P0 계약 상속](../P1-spec.md#p0-계약-상속), [RoomStatus](../API.md#roomstatus), [ROOMS](../ERD.md#rooms) |
 | 데이터 모델 | [ROOMS](../ERD.md#rooms), [PARTICIPATIONS](../ERD.md#participations) |
-| 선행 승인 | [ADR-0035 방 생명주기 상태와 요청자별 행동 가능성을 분리](../adr/room/0035-room-status-action-eligibility-separation.md) — `제안됨`. 팀 승인 전에는 확정된 구현 근거로 사용하지 않는다. |
+| 선행 승인 | [ADR-0035 방 생명주기 상태와 요청자별 행동 가능성을 분리](../adr/room/0035-room-status-action-eligibility-separation.md), [ADR-0041 상태 보정 뒤 ROOM 조회를 PostgreSQL 일관 스냅샷으로 구성](../adr/room/0041-postgresql-room-query-consistent-snapshot.md) — `승인됨` |
 | 연결 기능 | [PART-04 선착순 대기열과 자동 승격](#part-04-선착순-대기열과-자동-승격) |
-| 착수 전 확정 | 위 선행 승인 외 추가 항목 없음 |
+| 선행 구현 | PART-04가 소유하는 현재 WAITING 저장·조회 기반([#302](https://github.com/bamsongi-club/albam-mate/issues/302))이 기준 브랜치에 병합된 뒤 ROOM-08 구현을 시작한다. |
+| 필수 테스트 계약 | [#303의 최신 전체 ROOM-08-T1~T8](https://github.com/bamsongi-club/albam-mate/issues/303#issuecomment-5160768128) |
+| 착수 전 확정 | 없음 |
 
 ### 기능 규칙
 
 - `RoomStatus`는 ROOM의 생명주기를, `joinable`과 `waitlistable`은 현재 요청자가 수행할 수 있는 동작을 표현한다.
-- 기존 `joinable`의 이름과 의미는 유지한다. 로그인한 요청자가 주최자나 현재 `ACTIVE` 참가자가 아니고, 방이 시작 전 `RECRUITING`이며 남은 모집 좌석이 있을 때만 직접 참가할 수 있다.
-- `waitlistable`을 추가한다. 로그인한 요청자가 주최자나 현재 `ACTIVE` 참가자가 아니고, 이미 활성 대기 중이지 않으며, 시작 전 정원 충족으로 `CLOSED`된 방에만 별도 대기 신청을 할 수 있다.
-- 두 값은 서버의 하나의 공통 판정 결과에서 계산하며 동시에 `true`가 될 수 없다. 직접 참가와 대기 신청이 모두 불가능하면 두 값 모두 `false`일 수 있다.
-- 이전 참가 또는 대기를 취소한 사용자는 현재 조건을 다시 충족하면 참가하거나 대기할 수 있다.
-- 조회 뒤 마지막 좌석이 먼저 차서 직접 참가 요청이 실패해도 서버가 사용자를 자동으로 대기열에 넣지 않는다. 사용자가 별도의 대기 신청을 해야 한다.
-- `now >= startsAt`이면 ROOM의 저장 상태와 관계없이 `joinable`과 `waitlistable`은 모두 `false`다.
-- `PublicRoomResponse`, `ParticipantRoomResponse`, `MyRoomListItem`은 모두 `waitlistable`을 포함한다. 주최·참가 ROOM만 반환하는 `MyRoomListItem`과 주최자·현재 참가자의 `ParticipantRoomResponse`에서는 `false`다.
+- `Room.getTotalParticipantCount()`는 저장된 `activeParticipantCount + 1`, `Room.getRemainingRecruitmentSeats()`는 저장된 `capacity - activeParticipantCount`를 반환한다. 두 메서드는 Room 필드만 사용하는 순수 파생 메서드이며 음수 잔여석을 `0`으로 보정하거나 조회·검증·상태 변경·복구를 수행하지 않는다.
+- 같은 요청 기준 시각과 일관된 ROOM·현재 `ACTIVE`·현재 `WAITING` 사실을 `RoomActionAvailabilityFacts`로 모으고, 하나의 `RoomActionAvailabilityEvaluator`가 `joinable`과 `waitlistable`을 담은 `RoomActionAvailability`를 반환한다. 이 세 타입에는 Repository·GameQuery·UserQuery·Clock·`Instant.now()`·상태 변경을 넣지 않는다.
+- 비인증 요청자, 주최자, 현재 `ACTIVE` 참가자, `now >= startsAt`, `CANCELED`, `FINISHED`에서는 두 값이 모두 `false`다. 과거 `CANCELED` 참가·대기 관계는 현재 `ACTIVE`·`WAITING`으로 취급하지 않으며 다른 조건을 충족하면 다시 판정 대상이 된다.
+- 시작 전 `RECRUITING`이고 남은 모집 좌석이 1 이상인 자격 있는 요청자는 `joinable=true`, `waitlistable=false`다. 시작 전 `CLOSED`이고 남은 모집 좌석이 0이며 현재 `WAITING`이 아닌 자격 있는 요청자는 `joinable=false`, `waitlistable=true`다.
+- 이미 현재 `WAITING`인 요청자는 같은 대기 조건에서 두 값이 모두 `false`이며, 현재 `WAITING`은 독립적인 `joinable=true` 조건이 아니다. 지원하지 않는 조합도 두 값이 모두 `false`이고 어떤 조합에서도 동시에 `true`일 수 없다.
+- WAITING 물리 저장·조회 기반은 PART-04가 소유한다. ROOM-08은 PART-04가 제공하는 ROOM·사용자 단건 및 여러 ROOM 일괄 현재 `WAITING` 조회 결과를 사용하며 저장 구조나 상태 전이를 소유하지 않는다.
+- 목록·상세 QueryService는 요청 기준 시각을 고정하고 필요한 요청자 사실을 수집해 같은 evaluator를 사용한다. 내 모임은 주최자 또는 현재 `ACTIVE`인 기존 조회 결과를 사용하고 불필요한 WAITING 조회를 추가하지 않으며, 주최자·현재 참가자 결과를 별도 상수 규칙으로 복제하지 않는다.
+- 상태 보정이 커밋된 뒤 목록·상세 ReadService는 `REQUIRES_NEW`, `readOnly = true`, `REPEATABLE_READ`인 짧고 락 없는 PostgreSQL 트랜잭션에서 ROOM과 필요한 현재 `ACTIVE`·`WAITING` 사실을 같은 스냅샷으로 읽는다. 스냅샷 뒤 커밋된 변경은 다음 조회에서 반영한다.
+- ROOM 스냅샷에는 ROOM과 현재 관계를 읽는 데이터베이스 작업만 둔다. Game·User 조회와 최종 DTO 조립은 스냅샷 밖에서 수행하며, 거대한 단일 projection이나 `FOR UPDATE`·`FOR SHARE` 조회 락을 사용하지 않는다.
+- `PublicRoomResponse`, `ParticipantRoomResponse`, `MyRoomListItem`의 기존 `static from(...)`은 Room 파생값과 하나의 공통 availability로 `participantCount`, `remainingRecruitmentSeats`, `joinable`, `waitlistable`을 조립한다. 의미 입력은 각각 `Room·GameSummary·availability`, `Room·GameSummary·availability·myRole·host·participants`, `Room·GameSummary·availability·role·participationStatus`다.
+- `ParticipantRoomResponse`의 기존 역할·주최자·참가자 표시 정보와 `MyRoomListItem`의 역할·참가 상태를 유지한다. 주최·참가 ROOM만 반환하는 내 모임의 두 행동 가능성 값과 주최자·현재 참가자의 상세 응답 값은 모두 `false`다.
+- `RoomParticipationResponse.from(Room, ParticipationStatus)`는 Room 파생값만 사용하고 `joinable`·`waitlistable`을 추가하지 않는다. 방 생성·수정 응답도 별도 상수 규칙이 아니라 같은 공통 availability 결과를 사용한다.
+- 조회의 행동 가능성은 안내값이며 좌석 예약이나 참가 허가가 아니다. 실제 참가 명령은 최신 Room·참가·대기 관계·상태·시간·카운터·정원·중복을 다시 검증하고, 직접 참가 실패나 `CAPACITY_EXCEEDED`를 WAITING 생성·대기 신청 성공으로 바꾸지 않는다.
+- 요청자 관계를 받는 `Room.isJoinableBy(...)`, 행동 가능성을 위한 새 `RoomStatus`나 행동 enum, Factory·Assembler·범용 mapper·추가 policy 계층을 도입하지 않는다. 인원·잔여석 계산식은 Room에만 둔다.
 
 ### 완료 기준
 
-- `ROOM-08-AC1` 기존 `RoomStatus` 값과 P0 상태 전이 규칙을 변경하지 않고 직접 참가 가능 여부와 대기 신청 가능 여부를 구분한다.
-- `ROOM-08-AC2` 시작 전 빈자리가 있는 방, 시작 전 정원이 찬 방, 시작 시각에 도달한 방에서 `joinable`과 `waitlistable`이 각각 정의된 값으로 계산된다.
-- `ROOM-08-AC3` 주최자, 현재 `ACTIVE` 참가자와 현재 활성 대기자는 허용되지 않은 동작의 가능 여부가 `false`로 계산된다.
-- `ROOM-08-AC4` 어떤 상태·관계 조합에서도 `joinable`과 `waitlistable`이 동시에 `true`가 되지 않는다.
-- `ROOM-08-AC5` 직접 참가 요청의 동시성 실패가 대기 신청을 생성하지 않으며, 별도 대기 신청을 통해서만 활성 대기 관계가 생긴다.
-- `ROOM-08-AC6` 세 ROOM 응답이 모두 `waitlistable`을 필수·non-null 값으로 반환한다.
-- `ROOM-08-AC7` 판정 조합과 시작 경계는 백엔드 단위·통합 테스트로 검증된다.
+- `ROOM-08-AC1` 기존 `RoomStatus` 값과 P0 상태 전이 규칙을 변경하지 않으며, Room의 두 순수 파생 메서드가 저장 필드만으로 전체 표시 인원과 남은 모집 좌석을 정의된 계산식 그대로 반환한다.
+- `ROOM-08-AC2` 비인증·주최자·현재 `ACTIVE`·현재 `WAITING`·과거 취소 관계·RoomStatus·남은 좌석·시작 경계를 포함한 모든 판정 조합에서 하나의 evaluator가 정의된 `joinable/waitlistable`을 반환하고 `true/true`를 생성하지 않는다.
+- `ROOM-08-AC3` 목록·상세·내 모임 QueryService가 필요한 사실만 수집해 같은 evaluator를 사용하며, 내 모임에 불필요한 WAITING 조회를 추가하거나 주최자·현재 참가자 결과를 별도 규칙으로 복제하지 않는다.
+- `ROOM-08-AC4` `PublicRoomResponse`, `ParticipantRoomResponse`, `MyRoomListItem`은 기존 표시 정보를 유지하면서 Room 파생값과 공통 availability로 필수·non-null `waitlistable`을 포함한 응답을 조립하고, `RoomParticipationResponse`에는 행동 가능성 필드를 추가하지 않는다.
+- `ROOM-08-AC5` 상태 보정 커밋 뒤 목록·상세 조회가 독립 `REPEATABLE_READ` 읽기 트랜잭션에서 ROOM과 필요한 현재 `ACTIVE`·`WAITING` 사실을 같은 PostgreSQL 스냅샷으로 읽으며 조회 락·거대 projection 없이 Game·User 조회와 DTO 조립을 그 밖에 둔다.
+- `ROOM-08-AC6` 조회 행동 가능성을 참가 허가로 사용하지 않고 실제 참가 명령이 최신 상태를 다시 검증하며, 직접 참가 실패를 WAITING 생성으로 바꾸지 않고 생성·수정 응답에도 같은 공통 availability를 사용한다.
+- `ROOM-08-AC7` [최신 전체 ROOM-08-T1~T8](https://github.com/bamsongi-club/albam-mate/issues/303#issuecomment-5160768128)로 AC1~AC6의 성공·실패 경로, 무 I/O·금지 구조와 기존 생성·수정·참가·취소·Controller 회귀를 단위·HTTP·PostgreSQL 테스트와 전체 CI에서 검증한다.
+
+| 완료 기준 | 필수 테스트 계약 |
+| --- | --- |
+| `ROOM-08-AC1` | `ROOM-08-T1`, `ROOM-08-T8` |
+| `ROOM-08-AC2` | `ROOM-08-T2` |
+| `ROOM-08-AC3` | `ROOM-08-T4`, `ROOM-08-T8` |
+| `ROOM-08-AC4` | `ROOM-08-T3`, `ROOM-08-T5`, `ROOM-08-T8` |
+| `ROOM-08-AC5` | `ROOM-08-T6` |
+| `ROOM-08-AC6` | `ROOM-08-T7`, 추가 회귀 계약 |
+| `ROOM-08-AC7` | `ROOM-08-T1`~`ROOM-08-T8`, 추가 회귀 계약 |
 
 ### 제외 범위
 
 - 모집 가능 상태를 나타내는 신규 enum
 - `RoomStatus`에 대기·진행·연장 상태 추가
+- 요청자 관계를 받는 `Room.isJoinableBy(...)`
+- Factory·Assembler·범용 mapper·추가 policy 계층
+- WAITING 물리 저장 구조와 상태 전이 구현
+- 거대한 단일 조회 projection과 조회 락
 - 참가 실패 후 자동 대기 전환
 - 예상 소요 시간과 변동 가능성 표시
 - 룰마스터 프로필, 진행 게임과 주최 이력
