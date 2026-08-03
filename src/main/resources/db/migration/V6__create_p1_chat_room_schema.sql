@@ -10,24 +10,3 @@ CREATE TABLE chat_rooms (
     CONSTRAINT ck_chat_rooms_purge_completion
         CHECK (messages_purged_at IS NULL OR purge_after IS NOT NULL)
 );
-
-INSERT INTO chat_rooms (room_id, purge_after, messages_purged_at, created_at, updated_at)
-SELECT
-    rooms.id,
-    CASE
-        WHEN rooms.status IN ('CANCELED', 'FINISHED') THEN backfill_boundary.initialized_at
-        ELSE NULL
-    END,
-    CASE
-        WHEN rooms.status IN ('CANCELED', 'FINISHED') THEN backfill_boundary.initialized_at
-        ELSE NULL
-    END,
-    backfill_boundary.initialized_at,
-    backfill_boundary.initialized_at
-FROM rooms
-CROSS JOIN (SELECT CURRENT_TIMESTAMP AS initialized_at) AS backfill_boundary
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM chat_rooms
-    WHERE chat_rooms.room_id = rooms.id
-);

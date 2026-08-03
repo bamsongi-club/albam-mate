@@ -225,9 +225,7 @@ Coordinator는 기준 시각을 고정하고 낙관 락 충돌만 재시도한�
 
 #### 채팅 흐름
 
-채팅 API를 활성화하기 전에 전진 Flyway 마이그레이션이 모든 기존 `ROOMS`에 `CHAT_ROOMS`를 하나씩 backfill한다. 초기화와 ROOM 생성·상태 전환이 경쟁하더라도 누락·중복 채팅방이나 일관된 초기화 경계와 다른 보관 상태가 남아서는 안 된다. 이를 보장할 동시성 제어·최종 보정과 배포 절체 순서는 `CHAT-01` 후속 구현에서 확정한다. 서비스 중단, 트래픽 차단이나 특정 rolling 배포 제약이 필요하면 구현 결정으로 간주하지 않고 별도 OPS 승인을 받는다.
-
-기존 `RECRUITING`·`CLOSED` 방은 보관 시각을 비워 두고, P1 메시지가 존재할 수 없는 기존 `CANCELED`·`FINISHED` 방은 마이그레이션 기준 시각에 빈 보관을 완료한 것으로 초기화한다. 메시지 이력은 만들지 않으며 과거 최종 상태 전환 시각을 `ROOMS.updated_at`에서 추정하지 않는다.
+`V6__create_p1_chat_room_schema.sql`은 `CHAT_ROOMS` 테이블·제약만 생성하며 기존 `ROOMS`를 조회하거나 `CHAT_ROOMS` 행을 삽입·갱신하지 않는다. 기존 ROOM backfill·상태별 초기화·ROOM 생성·상태 전환 경합·최종 보정·배포 절체는 [ADR-0041](adr/chat/0041-chat-room-schema-and-backfill-boundary.md)에 따라 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 명시적 one-shot/maintenance 작업이 소유한다. 일반 애플리케이션 기동과 Flyway 자동 실행은 이 작업을 호출하지 않는다.
 
 활성화 뒤 P1 채팅은 방 생성과 채팅방 생성을 한 트랜잭션으로 묶고, 메시지 전송·이력 조회는 `chat` 모듈이 소유한다. `RoomCreateService`는 `chat`을 직접 참조하지 않고 `room.contract.RoomCreated` 이벤트를 발행한다. `chat`의 동기 listener가 같은 트랜잭션에서 `CHAT_ROOMS`를 만들며, 실패하면 방 생성도 함께 롤백된다. `CANCELED`·`FINISHED` 전환도 `room.contract.RoomTerminalStateReached`를 발행하고 `chat`의 동기 listener가 같은 트랜잭션에서 `purge_after`를 설정한다.
 

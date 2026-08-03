@@ -67,7 +67,7 @@ class ModuleArchitectureTest {
 		"game", List.of("auth", "user", "room", "notification", "chat"),
 		"room", List.of("auth", "notification", "chat"),
 		"notification", List.of("auth", "user", "game", "chat"),
-		"chat", List.of("auth", "user", "game", "notification"));
+		"chat", List.of("auth", "game", "notification"));
 	private static final JavaClasses PRODUCTION_CLASSES = new ClassFileImporter()
 		.withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
 		.importPackages(ROOT_PACKAGE);
@@ -111,7 +111,8 @@ class ModuleArchitectureTest {
 					targetModules.stream()
 						.map(ModuleArchitectureTest::modulePackage)
 						.toArray(String[]::new))
-				.because("허용된 참조 방향은 auth→user, room→user·game, notification→room, chat→room이다")
+				.because(
+					"허용된 참조 방향은 auth→user, room→user·game, notification→room.contract, chat→room.contract·user.contract이다")
 				.allowEmptyShould(sourceModule.equals("notification"))
 				.check(PRODUCTION_CLASSES));
 	}
