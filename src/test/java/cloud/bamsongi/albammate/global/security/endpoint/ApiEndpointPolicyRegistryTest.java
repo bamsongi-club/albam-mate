@@ -35,7 +35,11 @@ class ApiEndpointPolicyRegistryTest {
 
 	@Test
 	void GET가_제공하는_HEAD도_원래_GET의_인증_정책을_적용한다() {
-		for (String path : List.of("/api/users/me", "/api/users/me/rooms")) {
+		for (String path : List.of(
+			"/api/users/me",
+			"/api/users/me/rooms",
+			"/api/users/me/notifications",
+			"/api/users/me/notifications/unread-count")) {
 			MockHttpServletRequest request = new MockHttpServletRequest(HttpMethod.HEAD.name(), path);
 			request.setServletPath(path);
 
