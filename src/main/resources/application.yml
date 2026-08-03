@@ -14,6 +14,11 @@ spring:
         jdbc:
           time_zone: UTC
 app:
+  notification:
+    relay:
+      enabled: true
+      poll-interval: 5s
+      max-events-per-run: 50
   security:
     password:
       bcrypt-cost: 10
