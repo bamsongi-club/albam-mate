@@ -212,11 +212,11 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 
 ### CHAT_ROOMS
 
-P1 구현 예정 테이블이다. 채팅 API를 활성화하기 전에 전진 Flyway 마이그레이션이 모든 기존 `ROOMS`에 `CHAT_ROOMS`를 하나씩 backfill한다. 초기화와 ROOM 생성·상태 전환이 경쟁하더라도 완료 시점에는 모든 `ROOMS`에 채팅방이 정확히 하나 있고, 각 backfill 행의 보관 값은 일관된 초기화 경계에서 판정한 ROOM 상태와 맞아야 한다. 구체적인 직렬화·최종 보정 방식과 배포 절체 순서는 후속 구현에서 확정하며, 이 ERD는 서비스 중단이나 특정 PostgreSQL 잠금 모드를 요구하지 않는다.
+P1 채팅방을 저장하는 구현된 테이블이다. `V6__create_p1_chat_room_schema.sql`은 테이블·제약만 생성하고 기존 `ROOMS`를 조회하거나 `CHAT_ROOMS` 행을 backfill하지 않는다. [#279의 최신 승인 테스트 계약](https://github.com/bamsongi-club/albam-mate/issues/279#issuecomment-5161788285)은 기존 ROOM 초기화와 ROOM 생성·상태 전환의 경합·최종 보정·배포 절체를 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 후속 범위로 분리한다. [ADR-0041](adr/chat/0041-chat-room-schema-and-backfill-boundary.md)은 명시적 one-shot/maintenance 작업 경계를 제안하며 팀 채택 전에는 승인된 실행 계약이 아니다. 현재 일반 애플리케이션 기동과 Flyway 자동 실행에는 기존 ROOM 데이터 작업이 없다.
 
 활성화 뒤 새 방은 방 생성 트랜잭션에서 `ROOMS`와 `CHAT_ROOMS`를 함께 생성한다. 채팅 회원을 별도로 저장하지 않고, 접근 권한은 `ROOMS.host_user_id`와 현재 `ACTIVE PARTICIPATIONS`를 매 요청에서 계산한다.
 
-기존 `RECRUITING`·`CLOSED` 방의 backfill 행은 `purge_after`와 `messages_purged_at`을 `NULL`로 둔다. 기존 `CANCELED`·`FINISHED` 방에는 P1 채팅 메시지가 존재할 수 없으므로 같은 PostgreSQL 마이그레이션 기준 시각을 두 컬럼에 함께 기록해 빈 보관이 이미 끝난 행으로 만든다. `ROOMS.updated_at`을 과거 최종 상태 전환 시각으로 추정하지 않는다. 이 초기화는 채팅 활성화 전 기존 최종 상태 방에만 적용하며, 활성화 뒤 최종 상태로 전환되는 방은 30일 보관 계약을 그대로 따른다.
+명시적 #281 backfill 작업은 하나의 초기화 기준 시각과 승인된 쓰기 통제 경계 안에서 기존 `RECRUITING`·`CLOSED` 방의 보관 시각을 `NULL`로 두고, 기존 `CANCELED`·`FINISHED` 방은 같은 기준 시각의 빈 보관 완료 값으로 초기화한다. `ROOMS.updated_at`을 과거 최종 상태 전환 시각으로 추정하지 않는다. 활성화 뒤 최종 상태로 전환되는 방은 30일 보관 계약을 그대로 따른다.
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
@@ -430,7 +430,7 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 
 ### 채팅·스케줄 제약과 인덱스
 
-- `CHAT_ROOMS` 생성 마이그레이션은 채팅 API 활성화 전에 모든 기존 `ROOMS`를 한 번 backfill한다. ROOM 생성·상태 전환과 경쟁해도 완료 시점의 1:1과 상태별 초기화가 깨지지 않아야 하며, 구체적인 동시성 제어·최종 보정과 배포 절체 방식은 후속 구현·OPS 결정으로 남긴다. 기존 최종 상태 방은 빈 보관 완료 시각을 기록하고 메시지 이력을 만들지 않는다.
+- `CHAT_ROOMS` 생성 마이그레이션은 스키마·제약만 만들고 기존 `ROOMS`를 backfill하지 않는다. 기존 ROOM backfill·ROOM 생성·상태 전환 경합·최종 보정과 배포 절체는 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 후속 범위다. [ADR-0041](adr/chat/0041-chat-room-schema-and-backfill-boundary.md)은 명시적 one-shot/maintenance 작업 경계를 제안하며 팀 채택 전에는 승인된 실행 계약이 아니다. 기존 최종 상태 방은 빈 보관 완료 시각을 기록하고 메시지 이력을 만들지 않는다.
 - 방 생성과 `CHAT_ROOMS` 생성은 하나의 트랜잭션에서 성공하거나 함께 롤백한다.
 - `CHAT_MESSAGES(chat_room_id, id DESC)` 인덱스로 최신 이력과 `beforeMessageId` 커서 조회를 지원한다.
 - `CHAT_ROOMS(purge_after)` 조건부 인덱스로 삭제 기준 시각이 지났고 아직 `messages_purged_at`이 없는 채팅방을 선별한다.
