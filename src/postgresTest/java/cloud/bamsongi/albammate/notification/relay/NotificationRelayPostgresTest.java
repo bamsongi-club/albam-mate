@@ -1,38 +1,45 @@
 package cloud.bamsongi.albammate.notification.relay;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import javax.sql.DataSource;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
+import cloud.bamsongi.albammate.notification.repository.NotificationOutboxEventRepository;
 
 @Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class, properties = "app.notification.relay.enabled=false")
 class NotificationRelayPostgresTest {
 
 	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final int RELAY_TEST_ADVISORY_LOCK_CLASS = 314;
 
 	@Container
 	@ServiceConnection
@@ -46,7 +53,10 @@ class NotificationRelayPostgresTest {
 	private JdbcTemplate jdbcTemplate;
 
 	@Autowired
-	private PlatformTransactionManager transactionManager;
+	private DataSource dataSource;
+
+	@Autowired
+	private NotificationOutboxEventRepository eventRepository;
 
 	@Test
 	void PostgreSQL_선점_시각으로_수신자별_알림과_PROCESSED_전환을_함께_저장한다() {
@@ -102,59 +112,146 @@ class NotificationRelayPostgresTest {
 	}
 
 	@Test
-	void 새_트랜잭션은_저장된_PENDING_이벤트를_재기동_후_처리한다() {
+	void 처리_가능한_적체의_가장_오래된_나이를_반환하고_적체가_없으면_null을_반환한다() {
 		Fixture fixture = createFixture();
 		long eventId = insertPendingEvent(fixture.roomId());
 		insertRecipient(eventId, fixture.firstRecipientUserId());
-		NotificationRelayExecutor.ProcessedEvent processedEvent = new TransactionTemplate(transactionManager)
-			.execute(status -> executor.processOne().orElseThrow());
 
-		assertEquals(eventId, processedEvent.sourceEventId());
-		assertEquals("PROCESSED", jdbcTemplate.queryForObject(
-			"select status from notification_outbox_events where id = ?", String.class, eventId));
-		assertEquals(1, jdbcTemplate.queryForObject(
-			"select count(*) from notifications where source_event_id = ?", Integer.class, eventId));
+		Long oldestProcessableAgeMillis = eventRepository.findOldestProcessableAgeMillis();
+
+		assertTrue(oldestProcessableAgeMillis >= 5_000L);
+		executor.processOne().orElseThrow();
+		assertNull(eventRepository.findOldestProcessableAgeMillis());
 	}
 
 	@Test
-	void 두_worker는_잠긴_이벤트를_건너뛰고_서로_다른_due_이벤트를_분배한다() throws Exception {
+	void relay_컨텍스트_재기동_후_저장된_PENDING_이벤트를_처리한다() {
+		Fixture fixture = createFixture();
+		long eventId;
+		try (ConfigurableApplicationContext existingContext = createRelayContext()) {
+			assertFalse(existingContext.getBean(NotificationRelayProperties.class).isEnabled());
+			eventId = insertPendingEvent(fixture.roomId());
+			insertRecipient(eventId, fixture.firstRecipientUserId());
+		}
+
+		try (ConfigurableApplicationContext restartedContext = createRelayContext()) {
+			assertFalse(restartedContext.getBean(NotificationRelayProperties.class).isEnabled());
+			NotificationRelayExecutor restartedExecutor = restartedContext.getBean(NotificationRelayExecutor.class);
+			NotificationRelayExecutor.ProcessedEvent processedEvent = restartedExecutor.processOne().orElseThrow();
+
+			assertEquals(eventId, processedEvent.sourceEventId());
+			assertEquals("PROCESSED", jdbcTemplate.queryForObject(
+				"select status from notification_outbox_events where id = ?", String.class, eventId));
+			assertEquals(1, jdbcTemplate.queryForObject(
+				"select count(*) from notifications where source_event_id = ?", Integer.class, eventId));
+		}
+	}
+
+	@Test
+	void 두_relay_worker는_선점_중인_due_이벤트를_건너뛰고_서로_다른_이벤트를_처리한다() throws Exception {
 		Fixture fixture = createFixture();
 		long firstEventId = insertPendingEvent(fixture.roomId());
 		long secondEventId = insertPendingEvent(fixture.roomId());
 		insertRecipient(firstEventId, fixture.firstRecipientUserId());
 		insertRecipient(secondEventId, fixture.secondRecipientUserId());
-		CountDownLatch lockAcquired = new CountDownLatch(1);
-		CountDownLatch releaseLock = new CountDownLatch(1);
+		int advisoryLockKey = Math.toIntExact(firstEventId);
 		ExecutorService workers = Executors.newFixedThreadPool(2);
-		try {
-			Future<Void> lockHolder = workers.submit(() -> {
-				new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
-					jdbcTemplate.queryForObject(
-						"select id from notification_outbox_events where id = ? for update", Long.class, firstEventId);
-					lockAcquired.countDown();
-					try {
-						releaseLock.await(5, TimeUnit.SECONDS);
-					} catch (InterruptedException exception) {
-						Thread.currentThread().interrupt();
-						status.setRollbackOnly();
-					}
-				});
-				return null;
-			});
-			assertTrue(lockAcquired.await(5, TimeUnit.SECONDS));
+		try (Connection advisoryLockConnection = dataSource.getConnection()) {
+			acquireAdvisoryLock(advisoryLockConnection, advisoryLockKey);
+			installFirstWorkerNotificationInsertGate(firstEventId, advisoryLockKey);
+			Future<Optional<NotificationRelayExecutor.ProcessedEvent>> firstWorker = workers
+				.submit(executor::processOne);
+			awaitWorkerWaitingForAdvisoryLock(advisoryLockKey);
 
-			Future<Optional<NotificationRelayExecutor.ProcessedEvent>> worker = workers.submit(executor::processOne);
-			NotificationRelayExecutor.ProcessedEvent processedEvent = worker.get(5, TimeUnit.SECONDS).orElseThrow();
-			assertEquals(secondEventId, processedEvent.sourceEventId());
+			Future<Optional<NotificationRelayExecutor.ProcessedEvent>> secondWorker = workers
+				.submit(executor::processOne);
+			NotificationRelayExecutor.ProcessedEvent secondProcessedEvent = secondWorker.get(5, TimeUnit.SECONDS)
+				.orElseThrow();
+			assertEquals(secondEventId, secondProcessedEvent.sourceEventId());
+
+			releaseAdvisoryLock(advisoryLockConnection, advisoryLockKey);
+			NotificationRelayExecutor.ProcessedEvent firstProcessedEvent = firstWorker.get(5, TimeUnit.SECONDS)
+				.orElseThrow();
+			assertEquals(firstEventId, firstProcessedEvent.sourceEventId());
+
+			assertEquals("PROCESSED", jdbcTemplate.queryForObject(
+				"select status from notification_outbox_events where id = ?", String.class, firstEventId));
+			assertEquals("PROCESSED", jdbcTemplate.queryForObject(
+				"select status from notification_outbox_events where id = ?", String.class, secondEventId));
+			assertEquals(1, jdbcTemplate.queryForObject(
+				"select count(*) from notifications where source_event_id = ?", Integer.class, firstEventId));
 			assertEquals(1, jdbcTemplate.queryForObject(
 				"select count(*) from notifications where source_event_id = ?", Integer.class, secondEventId));
-			assertEquals("PENDING", jdbcTemplate.queryForObject(
-				"select status from notification_outbox_events where id = ?", String.class, firstEventId));
-			releaseLock.countDown();
-			lockHolder.get(5, TimeUnit.SECONDS);
 		} finally {
-			releaseLock.countDown();
 			workers.shutdownNow();
+			workers.awaitTermination(5, TimeUnit.SECONDS);
+			jdbcTemplate.execute("drop trigger if exists notification_relay_hold_first_worker on notifications");
+			jdbcTemplate.execute("drop function if exists notification_relay_hold_first_worker()");
+		}
+	}
+
+	private ConfigurableApplicationContext createRelayContext() {
+		return new SpringApplicationBuilder(AlbamMateApplication.class)
+			.run(
+				"--server.port=0",
+				"--app.notification.relay.enabled=false",
+				"--spring.datasource.url=" + postgres.getJdbcUrl(),
+				"--spring.datasource.username=" + postgres.getUsername(),
+				"--spring.datasource.password=" + postgres.getPassword());
+	}
+
+	private void installFirstWorkerNotificationInsertGate(long firstEventId, int advisoryLockKey) {
+		jdbcTemplate.execute("""
+			create function notification_relay_hold_first_worker() returns trigger as $$
+			begin
+			    if new.source_event_id = %d then
+			        perform pg_advisory_xact_lock(%d, %d);
+			    end if;
+			    return new;
+			end;
+			$$ language plpgsql
+			""".formatted(firstEventId, RELAY_TEST_ADVISORY_LOCK_CLASS, advisoryLockKey));
+		jdbcTemplate.execute("""
+			create trigger notification_relay_hold_first_worker
+			before insert on notifications
+			for each row execute function notification_relay_hold_first_worker()
+			""");
+	}
+
+	private void acquireAdvisoryLock(Connection connection, int advisoryLockKey) throws SQLException {
+		try (PreparedStatement statement = connection.prepareStatement("select pg_advisory_lock(?, ?)")) {
+			statement.setInt(1, RELAY_TEST_ADVISORY_LOCK_CLASS);
+			statement.setInt(2, advisoryLockKey);
+			statement.execute();
+		}
+	}
+
+	private void awaitWorkerWaitingForAdvisoryLock(int advisoryLockKey) {
+		long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+		while (System.nanoTime() < deadlineNanos) {
+			Boolean waiting = jdbcTemplate.queryForObject("""
+				select exists (
+				    select 1
+				    from pg_locks
+				    where locktype = 'advisory'
+				      and classid = ?
+				      and objid = ?
+				      and granted = false
+				)
+				""", Boolean.class, RELAY_TEST_ADVISORY_LOCK_CLASS, advisoryLockKey);
+			if (Boolean.TRUE.equals(waiting)) {
+				return;
+			}
+			Thread.onSpinWait();
+		}
+		throw new AssertionError("first relay worker did not reach the PostgreSQL advisory lock gate");
+	}
+
+	private void releaseAdvisoryLock(Connection connection, int advisoryLockKey) throws SQLException {
+		try (PreparedStatement statement = connection.prepareStatement("select pg_advisory_unlock(?, ?)")) {
+			statement.setInt(1, RELAY_TEST_ADVISORY_LOCK_CLASS);
+			statement.setInt(2, advisoryLockKey);
+			statement.execute();
 		}
 	}
 
