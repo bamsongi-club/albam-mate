@@ -225,7 +225,7 @@ Coordinator는 기준 시각을 고정하고 낙관 락 충돌만 재시도한�
 
 #### 채팅 흐름
 
-`V6__create_p1_chat_room_schema.sql`은 `CHAT_ROOMS` 테이블·제약만 생성하며 기존 `ROOMS`를 조회하거나 `CHAT_ROOMS` 행을 삽입·갱신하지 않는다. 기존 ROOM backfill·상태별 초기화·ROOM 생성·상태 전환 경합·최종 보정·배포 절체는 [ADR-0041](adr/chat/0041-chat-room-schema-and-backfill-boundary.md)에 따라 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 명시적 one-shot/maintenance 작업이 소유한다. 일반 애플리케이션 기동과 Flyway 자동 실행은 이 작업을 호출하지 않는다.
+`V6__create_p1_chat_room_schema.sql`은 `CHAT_ROOMS` 테이블·제약만 생성하며 기존 `ROOMS`를 조회하거나 `CHAT_ROOMS` 행을 삽입·갱신하지 않는다. [#279의 최신 승인 테스트 계약](https://github.com/bamsongi-club/albam-mate/issues/279#issuecomment-5161788285)은 기존 ROOM backfill·상태별 초기화·ROOM 생성·상태 전환 경합·최종 보정·배포 절체를 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 후속 범위로 분리한다. [ADR-0041](adr/chat/0041-chat-room-schema-and-backfill-boundary.md)은 이를 명시적 one-shot/maintenance 작업으로 수행하는 경계를 제안하며 팀 채택 전에는 승인된 실행 계약이 아니다. 현재 일반 애플리케이션 기동과 Flyway 자동 실행에는 기존 ROOM 데이터 작업이 없다.
 
 활성화 뒤 P1 채팅은 방 생성과 채팅방 생성을 한 트랜잭션으로 묶고, 메시지 전송·이력 조회는 `chat` 모듈이 소유한다. `RoomCreateService`는 `chat`을 직접 참조하지 않고 `room.contract.RoomCreated` 이벤트를 발행한다. `chat`의 동기 listener가 같은 트랜잭션에서 `CHAT_ROOMS`를 만들며, 실패하면 방 생성도 함께 롤백된다. `CANCELED`·`FINISHED` 전환도 `room.contract.RoomTerminalStateReached`를 발행하고 `chat`의 동기 listener가 같은 트랜잭션에서 `purge_after`를 설정한다.
 
@@ -367,16 +367,15 @@ Repository Projection은 쿼리가 선택한 열을 담는 저장소 계층 타�
 
 - 업무 모듈 사이의 순환 의존 금지
 - 다른 업무 모듈의 `contract` 외 내부 구현 참조 금지
-- `auth → user`, `room → user·game`, `notification → room.contract` 외 현재 업무 모듈 의존 금지
+- `auth → user`, `room → user·game`, `notification → room.contract`, `chat → room.contract·user.contract` 외 현재 업무 모듈 의존 금지
 - `global`의 업무 모듈 의존 금지
 - 생산 코드의 `@Autowired` 필드·생성자·메서드 주입 금지
 - ROOM 코드를 `contract`를 포함해 이 문서가 허용한 패키지에만 배치
-- `chat → room.contract·user.contract` 외 현재 업무 모듈 의존 금지
 - Chat 코드를 `entity`·`repository` 허용 패키지에만 배치
 - P1 Notification 코드를 조회·변경·relay·recovery·cleanup 책임에 맞는 허용 패키지에만 배치
 - Retrier 직접 사용자를 `RoomCommandExecutionCoordinator`, `RoomStatusCorrectionCoordinator`로 제한
 
-현재 `chat`·`infra` 패키지가 없으므로 다음 규칙은 P1 구현 시 같은 변경에서 ArchUnit으로 추가하고 위의 현재 목록으로 옮긴다.
+현재 `infra` 패키지가 없으므로 다음 규칙은 P1 구현 시 같은 변경에서 ArchUnit으로 추가하고 위의 현재 목록으로 옮긴다.
 
 - `infra`가 업무 모듈의 `contract` 밖 내부 구현에 의존하지 않는다.
 - 업무 모듈이 `infra`의 구체 구현을 참조하지 않는다.

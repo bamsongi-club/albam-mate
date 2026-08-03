@@ -346,7 +346,7 @@ P1 필수 구현은 다음 여섯 가지 흐름을 처음부터 끝까지 연결
 ### 채팅 접근과 생명주기
 
 - 기존 오프라인 방 하나를 채팅 채널 하나로 사용하며, 온라인 방이나 별도 플레이룸 도메인을 추가하지 않는다.
-- `V6__create_p1_chat_room_schema.sql`은 `CHAT_ROOMS` 스키마와 제약만 생성하며 기존 `ROOMS`를 조회하거나 `CHAT_ROOMS` 행을 삽입·갱신하지 않는다. 기존 ROOM backfill·상태별 초기화·ROOM 쓰기 경합·최종 보정·배포 절체는 [ADR-0041](adr/chat/0041-chat-room-schema-and-backfill-boundary.md)의 [#281](https://github.com/bamsongi-club/albam-mate/issues/281) 명시적 one-shot/maintenance 작업이 소유한다. 일반 애플리케이션 기동과 Flyway 자동 실행은 이 작업을 호출하지 않는다.
+- `V6__create_p1_chat_room_schema.sql`은 `CHAT_ROOMS` 스키마와 제약만 생성하며 기존 `ROOMS`를 조회하거나 `CHAT_ROOMS` 행을 삽입·갱신하지 않는다. [#279의 최신 승인 테스트 계약](https://github.com/bamsongi-club/albam-mate/issues/279#issuecomment-5161788285)은 기존 ROOM backfill·상태별 초기화·ROOM 쓰기 경합·최종 보정·배포 절체를 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 후속 범위로 분리한다. [ADR-0041](adr/chat/0041-chat-room-schema-and-backfill-boundary.md)은 이를 명시적 one-shot/maintenance 작업으로 수행하는 경계를 제안하며 팀 채택 전에는 승인된 실행 계약이 아니다. 현재 일반 애플리케이션 기동과 Flyway 자동 실행에는 기존 ROOM 데이터 작업이 없다.
 - 주최자는 방 생성 직후, 참가자는 참가 또는 재참가 트랜잭션이 최종 성공한 직후부터 채팅을 이용할 수 있다.
 - `RECRUITING`, `CLOSED` 방의 주최자와 현재 `ACTIVE` 참가자는 이력 조회, 구독과 메시지 전송을 할 수 있다.
 - 참가 취소가 성공하면 해당 사용자는 즉시 채팅 이력 조회, 구독과 전송 권한을 잃는다.

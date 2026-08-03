@@ -1,11 +1,13 @@
 # ADR-0041: 채팅방 스키마 생성과 기존 ROOM backfill 실행 경계 분리
 
-- 상태: 승인됨
+- 상태: 제안됨
 - 작성일: 2026-08-03
-- 결정일: 2026-08-03
+- 결정일: 미정
 - 관련: [CHAT-01 P1 방 채팅 명세](../../p1/chatting.md), [CHAT_ROOMS 저장 계약](../../ERD.md#chat_rooms), [#279 스키마 생성](https://github.com/bamsongi-club/albam-mate/issues/279), [#281 backfill·경합 검증](https://github.com/bamsongi-club/albam-mate/issues/281), [ADR-0034](0034-chat-message-retention-and-deletion.md)
-- 대체 대상: ADR-0034의 기존 ROOM 초기화 실행 경계
+- 대체 대상: 없음
 - 후속 ADR: 없음
+
+> 이 문서는 팀 논의를 위한 제안이다. 채택되면 ADR-0034의 기존 ROOM 초기화 실행 경계를 대체하며, 승인 전에는 구현 정본으로 사용하지 않는다.
 
 ## 맥락
 
@@ -65,8 +67,9 @@
 
 - 상태: 미검증
 - 근거:
-    - 계약: #279 승인 코멘트가 V6 스키마 전용 T1~T4를 확정하고, #281 이슈가 기존 ROOM backfill·경합·절체의 별도 소유 경계를 확정한다.
+    - 계약: #279 승인 코멘트가 V6 스키마 전용 T1~T4를 확정하고, #281 이슈가 기존 ROOM backfill·경합·절체의 후속 범위를 기록한다. 이는 구현·테스트 범위의 근거이며 ADR-0041의 채택 근거는 아니다.
 - 미검증:
+    - ADR-0041 자체에 대한 사용자·팀 채택 기록이 아직 없다.
     - #281의 one-shot 구현·ROOM 쓰기 경계·최종 보정·배포 절체는 구현·PostgreSQL 테스트·운영 증거가 아직 없다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

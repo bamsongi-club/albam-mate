@@ -2,7 +2,7 @@
 
 이 문서는 P1에서 기존 방의 주최자와 현재 `ACTIVE` 참가자가 모임을 조율하는 `CHAT-01`~`CHAT-05`의 구현 규칙과 완료 기준을 정의한다. 현재 계약 준비·생산 코드·자동 검증·운영 배포와 실측 상태는 [P1 기능별 상태 정본](README.md#기능별-현재-상태)을 따른다. 이 문서에서 **채팅 관계자**는 방의 주최자 또는 현재 `ACTIVE` 참가자를 뜻한다.
 
-채팅 접근·생명주기와 메시지 공통 규칙은 [P1 명세](../P1-spec.md#채팅-접근과-생명주기), 요청·응답·오류와 실시간 연결은 [API 명세](../API.md#채팅-공통-계약), 저장 계약은 [ERD](../ERD.md)를 따른다. 신규 API와 저장 개념은 구현 예정 계약이며, 메시지 ID cursor·실시간·저장·보관 방식은 승인된 [ADR-0031](../adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](../adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](../adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0034](../adr/chat/0034-chat-message-retention-and-deletion.md)·[ADR-0041](../adr/chat/0041-chat-room-schema-and-backfill-boundary.md), 공용 세션·스케줄 실행은 [ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), 모듈·인프라 경계는 [아키텍처](../ARCHITECTURE.md)를 따른다. 실시간 공통 기반은 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반)이 소유한다.
+채팅 접근·생명주기와 메시지 공통 규칙은 [P1 명세](../P1-spec.md#채팅-접근과-생명주기), 요청·응답·오류와 실시간 연결은 [API 명세](../API.md#채팅-공통-계약), 저장 계약은 [ERD](../ERD.md)를 따른다. 신규 API와 저장 개념은 구현 예정 계약이며, 메시지 ID cursor·실시간·저장·보관 방식은 승인된 [ADR-0031](../adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](../adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](../adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0034](../adr/chat/0034-chat-message-retention-and-deletion.md), 공용 세션·스케줄 실행은 [ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), 모듈·인프라 경계는 [아키텍처](../ARCHITECTURE.md)를 따른다. 채팅방 스키마와 기존 ROOM backfill의 실행 경계는 [ADR-0041](../adr/chat/0041-chat-room-schema-and-backfill-boundary.md)에서 제안 중이며 팀 채택 전에는 승인된 구현 근거로 사용하지 않는다. 실시간 공통 기반은 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반)이 소유한다.
 
 본 명세는 기존 오프라인 방 흐름에 방별 그룹 채팅을 추가하며 새로운 온라인 방 유형이나 실시간 자동 매칭을 도입하지 않는다. 메시지의 정본은 실시간 연결이 아니라 PostgreSQL 이력이다.
 
@@ -33,10 +33,12 @@
 
 - `V6__create_p1_chat_room_schema.sql`은 `CHAT_ROOMS` 테이블·제약만 생성하며 기존
   `ROOMS`를 조회하거나 `CHAT_ROOMS` 행을 삽입·갱신하지 않는다.
-- 기존 ROOM backfill·상태별 초기화·ROOM 생성·상태 전환과의 경합·최종 보정·배포 절체는
-  [ADR-0041](../adr/chat/0041-chat-room-schema-and-backfill-boundary.md)에 따라
-  [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 명시적 one-shot/maintenance
-  작업이 소유한다. 일반 애플리케이션 기동과 Flyway 자동 실행은 이 작업을 호출하지 않는다.
+- [#279의 최신 승인 테스트 계약](https://github.com/bamsongi-club/albam-mate/issues/279#issuecomment-5161788285)은
+  기존 ROOM backfill·상태별 초기화·ROOM 생성·상태 전환과의 경합·최종 보정·배포 절체를
+  [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 후속 범위로 분리한다.
+  [ADR-0041](../adr/chat/0041-chat-room-schema-and-backfill-boundary.md)은 이를 명시적
+  one-shot/maintenance 작업으로 수행하는 경계를 제안하며, 팀 채택 전에는 승인된 실행 계약이
+  아니다. 현재 일반 애플리케이션 기동과 Flyway 자동 실행에는 기존 ROOM 데이터 작업이 없다.
 - 방 생성이 성공한 트랜잭션에서 해당 방의 채팅방을 함께 생성한다.
 - 채팅방 생성 여부는 모집 인원과 참가자 수에 의존하지 않는다.
 - 채팅 접근 여부는 저장된 채팅 회원 목록이 아니라 현재 방 주최자·참가 관계를

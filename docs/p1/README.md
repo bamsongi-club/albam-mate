@@ -48,11 +48,11 @@ P1 저장 계약의 준비 상태는 기능별로 다르다. 알림 저장 계�
 
 ### 채팅의 선행 계약 사유
 
-다음 표는 채팅 ADR 승인 뒤에도 `CHAT-01`~`CHAT-04`가 `선행 계약 필요`인 이유와 해소 위치를 한곳에 모은다. 실제 상태는 위 상태표만 갱신하며, 세부 선택을 마치면 선택값과 근거를 기능·API·ERD·아키텍처·실행 구성 중 표에 적은 위치에 반영한다. 승인 ADR 링크는 구현 이슈에 결정을 위임한 근거이며 승인된 결정 본문을 수정하라는 뜻이 아니다. 승인 경계를 바꿔야 하면 기존 ADR을 고치지 않고 새 ADR로 대체한다.
+다음 표는 `CHAT-01`~`CHAT-04`가 `선행 계약 필요`인 이유와 해소 위치를 한곳에 모은다. 실제 상태는 위 상태표만 갱신하며, 세부 선택을 마치면 선택값과 근거를 기능·API·ERD·아키텍처·실행 구성 중 표에 적은 위치에 반영한다. 승인 ADR 링크는 구현 이슈에 결정을 위임한 근거이며 승인된 결정 본문을 수정하라는 뜻이 아니다. 제안 ADR은 팀 채택 전까지 확정된 구현 근거로 사용하지 않으며, 승인 경계를 바꿔야 하면 기존 ADR을 고치지 않고 새 ADR로 대체한다.
 
 | 기능 ID | 착수 전에 확정할 계약 | 결정 주체 | 위임 근거·반영 위치 |
 | --- | --- | --- | --- |
-| `CHAT-01` | 기존 ROOM의 채팅방 backfill과 ROOM 생성·상태 전환 경합을 막을 동시성 제어·최종 보정, 배포 절체 방식 | [#281](https://github.com/bamsongi-club/albam-mate/issues/281) 구현 담당자. 서비스 중단·트래픽 차단이 필요하면 사용자·OPS 승인 | [ADR-0041 결정](../adr/chat/0041-chat-room-schema-and-backfill-boundary.md#결정)에 따라 #279는 V6 스키마·제약만 소유한다. #281의 선택 결과는 [CHAT-01](chatting.md#chat-01-채팅방-생성접근), [ERD](../ERD.md#chat_rooms), [채팅 흐름](../ARCHITECTURE.md#채팅-흐름)과 명시적 one-shot/maintenance 작업에 반영 |
+| `CHAT-01` | 기존 ROOM의 채팅방 backfill과 ROOM 생성·상태 전환 경합을 막을 동시성 제어·최종 보정, 배포 절체 방식 | [#281](https://github.com/bamsongi-club/albam-mate/issues/281) 구현 담당자. 서비스 중단·트래픽 차단이 필요하면 사용자·OPS 승인 | [#279의 최신 승인 테스트 계약](https://github.com/bamsongi-club/albam-mate/issues/279#issuecomment-5161788285)에 따라 #279는 V6 스키마·제약만 소유한다. [ADR-0041 제안](../adr/chat/0041-chat-room-schema-and-backfill-boundary.md)은 명시적 one-shot/maintenance 경계의 후보이며 팀 채택 전에는 확정 근거가 아니다. #281의 승인된 선택 결과는 [CHAT-01](chatting.md#chat-01-채팅방-생성접근), [ERD](../ERD.md#chat_rooms), [채팅 흐름](../ARCHITECTURE.md#채팅-흐름)과 실행 작업에 반영 |
 | `CHAT-02`, `CHAT-04` | Redis 사용자·방 단위 전송 제한의 정확한 임계값과 `Retry-After` 계산 | `CHAT-04` 구현 담당자. 공개 오류나 제품·보안 정책을 바꾸면 사용자 확인 | [채팅 전송 오류](../API.md#chat-02-메시지-전송), [공통 `RATE_LIMIT_EXCEEDED`](../API.md#102-인증회원-오류), [CHAT-04](chatting.md#chat-04-채팅-안전운영) |
 | `CHAT-03` | 세션 TTL·직렬화 방식과 정확한 Redis key·channel namespace | `FND-10`·`CHAT-03` 구현 담당자 | 위임 근거는 [ADR-0038 결정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md#결정). 선택 결과는 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반), [다중 인스턴스 실행](../ARCHITECTURE.md#다중-인스턴스-실행)과 실행 구성에 반영 |
 | `CHAT-04` | 채팅 만료 삭제 잠금 이름·`lockAtMostFor`·실행시간 경고 기준 | `CHAT-04` 구현 담당자가 측정 근거로 확정 | 위임 근거는 [ADR-0034 결정](../adr/chat/0034-chat-message-retention-and-deletion.md#결정)과 [ADR-0038 결정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md#결정). 선택 결과는 [CHAT-04](chatting.md#chat-04-채팅-안전운영), 실행 구성과 관련 운영 가이드에 반영 |
