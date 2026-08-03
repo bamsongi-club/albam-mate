@@ -101,7 +101,10 @@ header {
 .notification-item-message { font-size: 14px; font-weight: 700; }
 .notification-item time { color: var(--sub); font-size: 11.5px; }
 /* 메뉴와 성격이 다른 계정 진입점이라 앞쪽을 한 칸 더 띄운다. */
-#gnb .profile-icon { align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 999px; display: inline-flex; justify-content: center; margin-left: 8px; padding: 8px; }
+#gnb .profile-icon { align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 999px; display: inline-flex; justify-content: center; padding: 8px; }
+/* 텍스트 메뉴는 좌우 여백이 배경 안에 있고 원형 버튼은 없어서, 같은 gap이어도 아이콘 쪽만 붙어 보인다.
+   아이콘 앞에 같은 값을 더해 메뉴와 아이콘 사이, 아이콘끼리의 간격을 같게 맞춘다. */
+#gnb .notification-menu, #gnb .profile-icon { margin-left: 4px; }
 
 /* margin auto로 가운데 정렬한다. flex 아이템이라 auto 마진이 stretch를 끄므로 width를 함께 명시한다. */
 main { flex: 1 0 auto; margin: 0 auto; max-width: 1180px; padding: 28px 20px 84px; width: 100%; }
