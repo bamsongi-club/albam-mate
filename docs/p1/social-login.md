@@ -1,8 +1,8 @@
 # P1 소셜 로그인 명세
 
-이 문서는 Google·Naver·Kakao 로그인과 기존 알밤메이트 계정의 명시적 연결을 독립적으로 구현·검증하기 위한 제안 기준이다. 공통 P1 범위는 [P1 명세](../P1-spec.md), HTTP·브라우저 리다이렉트 계약은 [API](../API.md), 저장 구조는 [ERD](../ERD.md)를 따른다.
+이 문서는 Google·Naver·Kakao 로그인과 기존 알밤메이트 계정의 명시적 연결을 독립적으로 구현·검증하기 위한 승인된 기준이다. 공통 P1 범위는 [P1 명세](../P1-spec.md), HTTP·브라우저 리다이렉트 계약은 [API](../API.md), 저장 구조는 [ERD](../ERD.md)를 따른다.
 
-`AUTH-05`는 사용자 관점의 상위 기능이며 `AUTH-05a`~`AUTH-05d`는 하나의 이슈·브랜치·PR로 구현·검증할 하위 완료 단위다. 상위 기능은 네 하위 단위와 상위 통합 완료 기준을 모두 충족해야 완료된다. 문서·ADR 승인 전에는 어떤 하위 구현에도 착수하지 않는다.
+`AUTH-05`는 사용자 관점의 상위 기능이며 `AUTH-05a`~`AUTH-05d`는 하나의 이슈·브랜치·PR로 구현·검증할 하위 완료 단위다. 상위 기능은 네 하위 단위와 상위 통합 완료 기준을 모두 충족해야 완료된다. 각 하위 구현은 해당 이슈에서 사람이 승인한 최신 전체 `T1`…`Tn` 목록을 착수 테스트 계약으로 사용한다.
 
 ## AUTH-05 소셜 로그인·계정 연결
 
@@ -13,7 +13,7 @@
 | 제품 범위 | [P1 포함 범위](../P1-spec.md#포함-범위) |
 | HTTP·리다이렉트 | [AUTH-05 API 계약](../API.md#auth-05-소셜-로그인계정-연결) |
 | 데이터 모델 | [USERS](../ERD.md#users), [SOCIAL_ACCOUNTS](../ERD.md#social_accounts) |
-| 기술 결정 제안 | [ADR-0042](../adr/auth/0042-p1-oauth-social-identity-and-session-integration.md) |
+| 기술 결정 | [ADR-0042](../adr/auth/0042-p1-oauth-social-identity-and-session-integration.md) |
 | 결정·승인 이슈 | [GitHub Issue #328](https://github.com/bamsongi-club/albam-mate/issues/328) |
 
 ### 기능 규칙

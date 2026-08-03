@@ -1,13 +1,13 @@
 # ADR-0042: P1 소셜 로그인에 OAuth2/OIDC와 별도 외부 식별자를 사용
 
-- 상태: 제안됨
+- 상태: 승인됨
 - 작성일: 2026-08-03
-- 결정일: 미정
+- 결정일: 2026-08-03
 - 관련: [AUTH-05](../../p1/social-login.md#auth-05-소셜-로그인계정-연결), [API](../../API.md#auth-05-소셜-로그인계정-연결), [ERD](../../ERD.md#social_accounts), [GitHub Issue #328](https://github.com/bamsongi-club/albam-mate/issues/328)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
-> 이 문서는 팀 검토를 위한 제안이다. 승인 전에는 AUTH-05a~AUTH-05d 구현의 정본으로 사용하지 않는다.
+> 이 결정은 #328과 PR #337의 팀 검토를 거쳐 채택됐다. 구현·검증 상태는 아래 검증 절과 [P1 기능 상태 정본](../../p1/README.md#기능별-현재-상태)을 따른다.
 
 ## 맥락
 

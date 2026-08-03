@@ -99,7 +99,7 @@ JSON 필드는 camelCase를 사용한다. 저장 컬럼(snake_case)과의 대응
 
 ### 1.2 인증·세션·CSRF
 
-P0와 P1은 서버 세션 인증을 사용한다. Bearer access token과 refresh token은 애플리케이션 인증에 사용하지 않는다. AUTH-05 제안은 외부 token을 callback 처리 중에만 사용하고 저장·노출하지 않는다. 현재 세션 기준은 [ADR-0003](adr/auth/0003-p0-server-session-spring-security.md), AUTH-05 제안은 승인 대기 중인 [ADR-0042](adr/auth/0042-p1-oauth-social-identity-and-session-integration.md)를 따른다.
+P0와 P1은 서버 세션 인증을 사용한다. Bearer access token과 refresh token은 애플리케이션 인증에 사용하지 않는다. AUTH-05는 외부 token을 callback 처리 중에만 사용하고 저장·노출하지 않는다. 현재 세션 기준은 [ADR-0003](adr/auth/0003-p0-server-session-spring-security.md), 소셜 로그인 통합 기준은 승인된 [ADR-0042](adr/auth/0042-p1-oauth-social-identity-and-session-integration.md)를 따른다.
 
 | 항목 | 계약 |
 |---|---|
@@ -351,7 +351,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 ### SocialProvider
 
-> **단계: P1 계약 제안·팀 승인 대기** · 현재 상태: [P1 기능 상태 정본의 `AUTH-05`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약 승인·구현 대기** · 현재 상태: [P1 기능 상태 정본의 `AUTH-05`](p1/README.md#기능별-현재-상태)
 
 | 값 | 경로값 | 의미 |
 |---|---|---|
@@ -807,9 +807,9 @@ P0에서는 닉네임만 수정한다.
 
 ### AUTH-05 소셜 로그인·계정 연결
 
-> **단계: P1 계약 제안·팀 승인 대기** · 현재 상태: [P1 기능 상태 정본의 `AUTH-05`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약 승인·구현 대기** · 현재 상태: [P1 기능 상태 정본의 `AUTH-05`](p1/README.md#기능별-현재-상태)
 
-이 절은 #328 팀 승인을 위한 목표 계약이다. 제품 규칙은 [P1 소셜 로그인 명세](p1/social-login.md), 외부 식별자·세션 결정 제안은 [ADR-0042](adr/auth/0042-p1-oauth-social-identity-and-session-integration.md)를 따른다. 경로의 `{provider}`는 [SocialProvider](#socialprovider)의 소문자 경로값만 허용한다.
+이 절은 #328에서 승인된 계약이다. 제품 규칙은 [P1 소셜 로그인 명세](p1/social-login.md), 외부 식별자·세션 결정은 [ADR-0042](adr/auth/0042-p1-oauth-social-identity-and-session-integration.md)를 따른다. 경로의 `{provider}`는 [SocialProvider](#socialprovider)의 소문자 경로값만 허용한다.
 
 #### 설정된 소셜 제공자 조회
 
