@@ -250,6 +250,16 @@ class RoomListPostgresTest {
 			0);
 		saveRoom(
 			RoomType.PERSON_FOCUSED,
+			"경험자 권장 대상 모임",
+			null,
+			START_AT.plusSeconds(50),
+			RoomStatus.RECRUITING,
+			ExperienceLevel.EXPERIENCED_PREFERRED,
+			true,
+			3,
+			0);
+		saveRoom(
+			RoomType.PERSON_FOCUSED,
 			"종료 경계 모임",
 			null,
 			START_AT.plusSeconds(120),
@@ -310,6 +320,11 @@ class RoomListPostgresTest {
 			"?startsAtFrom=" + START_AT
 				+ "&startsAtTo=" + START_AT.plusSeconds(120)
 				+ "&minRemainingSeats=2&experienceLevels=BEGINNER_WELCOME&rulemasterOnly=false");
+		HttpResponse<String> withoutExperienceLevelFilter = getRooms(
+			"?type=PERSON_FOCUSED&keyword=모임"
+				+ "&startsAtFrom=" + START_AT
+				+ "&startsAtTo=" + START_AT.plusSeconds(120)
+				+ "&minRemainingSeats=2&rulemasterOnly=true");
 
 		assertEquals(200, firstPage.statusCode());
 		assertTrue(firstPage.body().contains("\"totalElements\":2"));
@@ -319,11 +334,14 @@ class RoomListPostgresTest {
 		assertTitlePresent(secondPage.body(), "두 번째 대상 모임");
 		assertTitleAbsent(secondPage.body(), "첫 번째 대상 모임");
 		assertTitleAbsent(firstPage.body(), "종료 경계 모임");
+		assertTitleAbsent(firstPage.body(), "경험자 권장 대상 모임");
 		assertTitleAbsent(firstPage.body(), "남은 자리 부족 모임");
 		assertTitleAbsent(firstPage.body(), "룰마스터 없음 모임");
 		assertTitleAbsent(firstPage.body(), "취소 조건 충족 모임");
 		assertTitleAbsent(firstPage.body(), "종료 조건 충족 모임");
 		assertTitlePresent(withoutRulemasterFilter.body(), "룰마스터 없음 모임");
+		assertEquals(200, withoutExperienceLevelFilter.statusCode());
+		assertTitlePresent(withoutExperienceLevelFilter.body(), "경험자 권장 대상 모임");
 	}
 
 	@Test
