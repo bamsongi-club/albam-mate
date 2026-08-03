@@ -172,6 +172,7 @@ flowchart LR
 | Command Executor | 독립 트랜잭션에서 최신 Entity 조회, 규칙 검증과 상태 변경을 수행한다. |
 | Coordinator | 트랜잭션 밖에서 기준 시각, 실행 순서와 재시도를 조정한다. |
 | Retrier | 낙관 락 충돌의 재시도·로그·오류 변환만 담당한다. |
+| PART-04 대기 등록 Coordinator | 트랜잭션 밖에서 고정 request time과 ROOM 충돌·정확한 대기 순번 UNIQUE 충돌의 단일 3회 예산을 관리한다. |
 | StatusCorrection Coordinator·Executor | Query·Scheduler가 공유하는 자동 상태 보정을 트랜잭션 밖 조정과 독립 트랜잭션 실행으로 나눈다. |
 | Integration Event Recorder | `room.contract`의 기록 포트를 구현하고 호출한 Room Command Executor의 트랜잭션에 참여해 Outbox 이벤트와 수신자 스냅샷만 저장한다. |
 | Notification Relay Coordinator·Executor | polling과 최대 처리 수는 트랜잭션 밖에서 조정하고, 선점·Notification 생성·완료 전환은 이벤트별 독립 트랜잭션에서 수행한다. |
@@ -231,6 +232,18 @@ flowchart LR
 ```
 
 Coordinator는 기준 시각을 고정하고 낙관 락 충돌만 재시도한다. 각 Executor 시도는 Spring Proxy를 거친 `REQUIRES_NEW` 트랜잭션에서 최신 Entity와 version을 다시 조회한다.
+
+PART-04 대기 등록·재신청은 [ADR-0043](adr/participation/0043-room-waitlist-persistence-conditional-transition-retry.md)의 별도 조정 경계를 따른다.
+
+```mermaid
+flowchart LR
+    waitlistController["대기 Controller"] --> waitlistCommand["대기 등록 CommandService<br/>트랜잭션 없음"]
+    waitlistCommand --> waitlistCoordinator["PART-04 전용 Coordinator<br/>request time 고정·총 3회"]
+    waitlistCoordinator --> waitlistExecutor["대기 등록 Executor<br/>REQUIRES_NEW"]
+    waitlistExecutor --> waitlistRepositories["Room·Participation·Waitlist Repository"]
+```
+
+PART-04 전용 Coordinator는 ROOM 낙관적 락·조건부 version claim 충돌과 정확한 `uq_room_waitlists_waiting_room_queue_order` 충돌만 최초 시도 포함 총 3회의 같은 예산으로 재시도한다. 기존 `RoomOptimisticLockRetrier`를 안에 중첩하거나 그 의미를 확장하지 않는다. 각 실패 시도는 전체 롤백하고 다음 시도에서 최신 업무 상태를 다시 읽으며, 최초에 고정한 같은 request time을 사용한다. PK·FK·CHECK·그 밖의 UNIQUE, 교착·직렬화·분류할 수 없는 DB 오류는 재시도하지 않고 내부 제약·SQL 정보를 숨긴 공통 500으로 변환한다. 최종 내부 오류의 정제된 `ERROR` 로그는 요청당 한 번만 남긴다.
 
 상태 의존 Command는 같은 트랜잭션에서 시간 기반 상태를 먼저 보정한 뒤 유스케이스 규칙을 적용한다. Query·Scheduler용 상태 보정 Coordinator는 호출하지 않는다.
 
@@ -321,6 +334,7 @@ flowchart LR
 - Executor와 Entity는 `Instant.now()`를 직접 호출하지 않는다.
 - Notification 조회 `queryTime`, Outbox·Notification의 `recordedAt`과 Notification의 `readAt`은 [ADR-0039](adr/notification/0039-notification-presentation-and-bulk-read-snapshot.md)에 따라 PostgreSQL 시각을 사용한다. `queryTime`은 읽기 트랜잭션의 `transaction_timestamp()`, 기록·읽음 작업 시각은 SQL에서 고정한 `clock_timestamp()`다. 애플리케이션 `Clock`의 업무 시각인 `occurredAt`·`createdAt`과는 상대 순서를 보장하지 않는다.
 - Retrier는 [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md)가 정한 대상 예외·상한·로그·재시도 전 hook과 소진 오류 변환을 관리한다.
+- PART-04 대기 등록은 [ADR-0043](adr/participation/0043-room-waitlist-persistence-conditional-transition-retry.md)에 따라 전용 Coordinator가 ROOM 충돌과 정확한 대기 순번 UNIQUE 충돌의 단일 3회 예산을 직접 관리하며, 기존 Retrier와 재시도기를 중첩하지 않는다.
 - 각 시도에는 필요한 Aggregate만 조회하고 Request DTO와 최초 기준 시각은 재사용한다.
 - 재시도 안에서 비멱등 외부 부수효과를 실행하지 않는다.
 - 재시도 로그로 충돌과 소진을 추적하며, 충돌이 빈번하면 특정 방에 쓰기가 집중되는 hot spot으로 보고 별도 동시성 전략을 검토한다.
@@ -361,8 +375,8 @@ flowchart LR
 
 여러 유스케이스에서 실패 의미와 실행 방식이 동일한 정책만 공통화한다.
 
-- 낙관 락 재시도 정책
-- Command의 기준 시각 고정과 재시도 실행 순서
+- 기존 ROOM 명령의 낙관 락 재시도 정책
+- Command의 기준 시각 고정과 재시도 실행 순서. 서로 다른 실패 원인이 같은 예산을 공유해야 하는 PART-04 대기 등록은 승인 ADR의 전용 Coordinator 경계를 따른다.
 - 조회와 Scheduler가 공유하는 자동 상태 보정
 - 여러 유스케이스에 동일하게 적용되는 Entity 불변식
 
