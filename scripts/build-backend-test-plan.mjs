@@ -39,19 +39,30 @@ function gradleJUnitTasks(command) {
 function validatePlanInputs({ packet, plan, worktree }) {
     const errors = [];
     if (plan?.schemaVersion !== 1) errors.push('plan schemaVersion은 1이어야 합니다.');
+    (plan?.executions ?? []).forEach((execution, index) => {
+        if (execution?.id !== `E${index + 1}`) {
+            errors.push(`plan executions[${index}].id는 E${index + 1}이어야 합니다.`);
+        }
+    });
     const requiredIds = (packet?.requiredTests ?? []).map(({ id }) => id);
     const planIds = (plan?.tests ?? []).map(({ id }) => id);
     if (requiredIds.join('\0') !== planIds.join('\0')) {
         errors.push('plan tests가 packet requiredTests의 T-ID와 순서대로 일치하지 않습니다.');
     }
     const commands = new Set((plan?.executions ?? []).map(({ command }) => command));
+    const targetedCommands = new Set(packet?.validation?.targetedTests ?? []);
+    const finalCommands = new Set(packet?.validation?.finalCommands ?? []);
+    for (const command of targetedCommands) {
+        if (finalCommands.has(command)) {
+            errors.push(`targetedTests와 finalCommands에 같은 명령을 둘 수 없습니다: ${command}`);
+        }
+    }
     for (const field of ['targetedTests', 'finalCommands']) {
         for (const command of packet?.validation?.[field] ?? []) {
             if (!commands.has(command)) errors.push(`${field}가 최종 실행 plan에서 빠졌습니다: ${command}`);
         }
     }
     const mappedExecutions = new Set((plan?.tests ?? []).flatMap(({ executionIds }) => executionIds ?? []));
-    const finalCommands = new Set(packet?.validation?.finalCommands ?? []);
     for (const execution of plan?.executions ?? []) {
         if (!mappedExecutions.has(execution.id) && !finalCommands.has(execution.command)) {
             errors.push(`${execution.id}은 T-ID 증거나 finalCommands gate로 사용되지 않습니다.`);
@@ -82,17 +93,56 @@ function validatePlanInputs({ packet, plan, worktree }) {
     if (errors.length > 0) fail(`backend test plan 입력이 올바르지 않습니다: ${errors.join(' ')}`);
 }
 
+function orderExecutionGraph(packet, plan) {
+    const targetedOrder = new Map(
+        (packet.validation?.targetedTests ?? []).map((command, index) => [command, index]),
+    );
+    const finalOrder = new Map(
+        (packet.validation?.finalCommands ?? []).map((command, index) => [command, index]),
+    );
+    const ranked = plan.executions
+        .map((execution, index) => ({ execution, index }))
+        .sort((left, right) => {
+            const leftRank = targetedOrder.has(left.execution.command)
+                ? [0, targetedOrder.get(left.execution.command)]
+                : finalOrder.has(left.execution.command)
+                    ? [2, finalOrder.get(left.execution.command)]
+                    : [1, left.index];
+            const rightRank = targetedOrder.has(right.execution.command)
+                ? [0, targetedOrder.get(right.execution.command)]
+                : finalOrder.has(right.execution.command)
+                    ? [2, finalOrder.get(right.execution.command)]
+                    : [1, right.index];
+            return leftRank[0] - rightRank[0] || leftRank[1] - rightRank[1];
+        });
+    const remappedIds = new Map();
+    const executions = ranked.map(({ execution }, index) => {
+        const id = `E${index + 1}`;
+        remappedIds.set(execution.id, id);
+        return { ...execution, id };
+    });
+    const executionOrder = new Map(executions.map(({ id }, index) => [id, index]));
+    const tests = plan.tests.map((test) => ({
+        ...test,
+        executionIds: test.executionIds
+            .map((executionId) => remappedIds.get(executionId))
+            .sort((left, right) => executionOrder.get(left) - executionOrder.get(right)),
+    }));
+    return { executions, tests };
+}
+
 export function buildBackendTestPlan({ packet, plan, worktree }) {
     validatePlanInputs({ packet, plan, worktree });
     const snapshot = computeWorktreeSnapshot(worktree);
+    const executionGraph = orderExecutionGraph(packet, plan);
     const expected = {
         schemaVersion: 2,
         baseCommit: snapshot.baseCommit,
         implementationDiffHash: snapshot.implementationDiffHash,
         trackedDiffHash: snapshot.trackedDiffHash,
         packetHash: sha256(Buffer.from(canonicalJson(packet), 'utf8')),
-        executions: plan.executions,
-        tests: plan.tests,
+        executions: executionGraph.executions,
+        tests: executionGraph.tests,
     };
     validateExpected(expected);
     return expected;

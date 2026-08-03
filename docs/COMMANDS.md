@@ -151,13 +151,13 @@ node --test scripts/check-doc-links.test.mjs
 
 ## 백엔드 전달 테스트 계약
 
-full-delivery의 최종 packet과 execution plan은 작업 트리 밖의 임시 JSON으로 유지한다. builder가 현재 snapshot을 계산하고 plan의 중복 명령, T-ID 매핑, 실제 test source와 packet의 대상·최종 명령 포함 여부를 검증해 expected를 만든다.
+full-delivery의 최종 packet과 execution plan은 작업 트리 밖의 임시 JSON으로 유지한다. builder가 현재 snapshot을 계산하고 plan의 중복 명령, T-ID 매핑, 실제 test source와 packet의 대상·최종 명령 포함 여부를 검증한 뒤 대상 테스트, 그 밖의 T-ID 실행, 최종 명령 순서로 expected를 만든다.
 
 ```sh
 node scripts/build-backend-test-plan.mjs --packet <packet.json> --plan <plan.json> --output <expected.json> --worktree <worktree>
 ```
 
-fresh backend-tester는 생성된 고유 execution을 runner로 한 번씩 실행한다. 실패나 미검증 결과는 원인을 해결한 뒤 새 result 경로로 runner 전체를 다시 실행한다.
+fresh backend-tester는 생성된 고유 execution을 runner로 한 번씩 실행한다. 첫 실행 실패는 남은 명령을 중단하고 구현자가 실패 명령만 반복해 수정하게 하며, 수정 완료 뒤 새 snapshot에서 runner 전체를 최종 한 번 실행한다. 미검증 결과는 원인을 해결한 뒤 새 result 경로로 runner 전체를 다시 실행한다.
 
 ```sh
 node scripts/run-backend-test-contract.mjs --expected <expected.json> --result <result.json> --worktree <worktree>

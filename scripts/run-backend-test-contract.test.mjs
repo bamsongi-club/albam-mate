@@ -153,6 +153,35 @@ test('T-ID 하나는 H2와 PostgreSQL 같은 여러 execution 결과를 함께 �
     assert.deepEqual(result.testResults[0].executionIds, ['E1', 'E2']);
 });
 
+test('execution 하나가 fail이면 남은 승인 명령을 실행하지 않는다', (t) => {
+    const { root, worktree, testSource } = fixture(t);
+    const skippedMarker = path.join(root, 'skipped.txt');
+    const expected = expectedFor(
+        worktree,
+        [
+            execution('E1', 'node -e "console.log(\'pass\')"'),
+            execution('E2', 'node -e "process.exit(7)"'),
+            execution('E3', `node -e "require('fs').writeFileSync(${JSON.stringify(skippedMarker)}, 'ran')"`),
+        ],
+        [
+            mapping('T1', ['E1'], testSource),
+            mapping('T2', ['E2'], testSource),
+            mapping('T3', ['E3'], testSource),
+        ],
+    );
+    const result = runBackendTestContract({
+        expectedPath: writeExpected(root, expected),
+        resultPath: path.join(root, 'result.json'),
+        worktree,
+    });
+
+    assert.equal(result.overallVerdict, 'fail');
+    assert.deepEqual(result.executionResults.map(({ verdict }) => verdict), ['pass', 'fail', 'unverified']);
+    assert.match(result.executionResults[2].notRunReason, /E2.*fail-fast/);
+    assert.deepEqual(result.testResults.map(({ verdict }) => verdict), ['pass', 'fail', 'unverified']);
+    assert.equal(fs.existsSync(skippedMarker), false);
+});
+
 test('exit 0이어도 JUnit XML이 갱신되지 않으면 unverified다', (t) => {
     const { root, worktree, testSource } = fixture(t);
     const expected = expectedFor(

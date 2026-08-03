@@ -60,6 +60,26 @@ test('packet, 최종 snapshot과 concrete mapping에서 expected 실행 그래�
     assert.deepEqual(expected.tests[1].executionIds, ['E1']);
 });
 
+test('targetedTests를 먼저, finalCommands를 마지막으로 재번호화한다', (t) => {
+    const input = fixture(t);
+    const targeted = input.plan.executions[0];
+    const finalCommand = input.plan.executions[1];
+    input.plan.executions = [
+        { ...finalCommand, id: 'E1' },
+        { ...targeted, id: 'E2' },
+    ];
+    input.plan.tests = input.plan.tests.map((mapping) => ({ ...mapping, executionIds: ['E2'] }));
+
+    const expected = buildBackendTestPlan(input);
+
+    assert.deepEqual(expected.executions.map(({ command }) => command), [
+        input.packet.validation.targetedTests[0],
+        input.packet.validation.finalCommands[0],
+    ]);
+    assert.deepEqual(expected.executions.map(({ id }) => id), ['E1', 'E2']);
+    assert.deepEqual(expected.tests.map(({ executionIds }) => executionIds), [['E1'], ['E1']]);
+});
+
 test('존재하지 않는 testSources와 빠진 targetedTests·finalCommands를 거부한다', (t) => {
     const missingSource = fixture(t);
     missingSource.plan.tests[0].testSources = ['src/test/java/example/MissingTest.java'];
@@ -72,6 +92,16 @@ test('존재하지 않는 testSources와 빠진 targetedTests·finalCommands를 
     const missingTargeted = fixture(t);
     missingTargeted.plan.executions.shift();
     assert.throws(() => buildBackendTestPlan(missingTargeted), /targetedTests/);
+});
+
+test('targetedTests와 finalCommands의 같은 명령 및 잘못된 plan execution ID를 거부한다', (t) => {
+    const overlap = fixture(t);
+    overlap.packet.validation.finalCommands = [overlap.packet.validation.targetedTests[0]];
+    assert.throws(() => buildBackendTestPlan(overlap), /같은 명령/);
+
+    const wrongId = fixture(t);
+    wrongId.plan.executions[0].id = 'E2';
+    assert.throws(() => buildBackendTestPlan(wrongId), /executions\[0\]\.id/);
 });
 
 test('하나의 Gradle task graph에 든 모든 JUnit task를 선언해야 한다', (t) => {
