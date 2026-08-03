@@ -220,7 +220,7 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 
 ### CHAT_ROOMS
 
-P1 채팅방을 저장하는 구현된 테이블이다. `V6__create_p1_chat_room_schema.sql`은 테이블·제약만 생성하고 기존 `ROOMS`를 조회하거나 `CHAT_ROOMS` 행을 backfill하지 않는다. [#279의 최신 승인 테스트 계약](https://github.com/bamsongi-club/albam-mate/issues/279#issuecomment-5161788285)은 기존 ROOM 초기화와 ROOM 생성·상태 전환의 경합·최종 보정·배포 절체를 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 후속 범위로 분리한다. [ADR-0041](adr/chat/0041-chat-room-schema-and-backfill-boundary.md)은 명시적 one-shot/maintenance 작업 경계를 제안하며 팀 채택 전에는 승인된 실행 계약이 아니다. 현재 일반 애플리케이션 기동과 Flyway 자동 실행에는 기존 ROOM 데이터 작업이 없다.
+P1 채팅방을 저장하는 구현된 테이블이다. `V6__create_p1_chat_room_schema.sql`은 테이블·제약만 생성하고 기존 `ROOMS`를 조회하거나 `CHAT_ROOMS` 행을 backfill하지 않는다. [#279의 최신 승인 테스트 계약](https://github.com/bamsongi-club/albam-mate/issues/279#issuecomment-5161788285)은 기존 ROOM 초기화와 ROOM 생성·상태 전환의 경합·최종 보정·배포 절체를 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 후속 범위로 분리한다. [ADR-0045](adr/chat/0045-chat-room-schema-and-backfill-boundary.md)은 명시적 one-shot/maintenance 작업 경계를 제안하며 팀 채택 전에는 승인된 실행 계약이 아니다. 현재 일반 애플리케이션 기동과 Flyway 자동 실행에는 기존 ROOM 데이터 작업이 없다.
 
 활성화 뒤 새 방은 방 생성 트랜잭션에서 `ROOMS`와 `CHAT_ROOMS`를 함께 생성한다. 채팅 회원을 별도로 저장하지 않고, 접근 권한은 `ROOMS.host_user_id`와 현재 `ACTIVE PARTICIPATIONS`를 매 요청에서 계산한다.
 
@@ -438,7 +438,7 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 
 ### 채팅·스케줄 제약과 인덱스
 
-- `CHAT_ROOMS` 생성 마이그레이션은 스키마·제약만 만들고 기존 `ROOMS`를 backfill하지 않는다. 기존 ROOM backfill·ROOM 생성·상태 전환 경합·최종 보정과 배포 절체는 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 후속 범위다. [ADR-0041](adr/chat/0041-chat-room-schema-and-backfill-boundary.md)은 명시적 one-shot/maintenance 작업 경계를 제안하며 팀 채택 전에는 승인된 실행 계약이 아니다. 기존 최종 상태 방은 빈 보관 완료 시각을 기록하고 메시지 이력을 만들지 않는다.
+- `CHAT_ROOMS` 생성 마이그레이션은 스키마·제약만 만들고 기존 `ROOMS`를 backfill하지 않는다. 기존 ROOM backfill·ROOM 생성·상태 전환 경합·최종 보정과 배포 절체는 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 후속 범위다. [ADR-0045](adr/chat/0045-chat-room-schema-and-backfill-boundary.md)은 명시적 one-shot/maintenance 작업 경계를 제안하며 팀 채택 전에는 승인된 실행 계약이 아니다. 기존 최종 상태 방은 빈 보관 완료 시각을 기록하고 메시지 이력을 만들지 않는다.
 - 방 생성과 `CHAT_ROOMS` 생성은 하나의 트랜잭션에서 성공하거나 함께 롤백한다.
 - `CHAT_MESSAGES(chat_room_id, id DESC)` 인덱스로 최신 이력과 `beforeMessageId` 커서 조회를 지원한다.
 - `CHAT_ROOMS(purge_after)` 조건부 인덱스로 삭제 기준 시각이 지났고 아직 `messages_purged_at`이 없는 채팅방을 선별한다.
