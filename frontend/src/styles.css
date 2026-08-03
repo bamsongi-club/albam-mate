@@ -312,12 +312,8 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 /* 고르지 않은 상태의 `전체`는 select의 `전체`와 같은 색으로 보여 준다. */
 .search-filter .date-picker-value.empty { color: var(--ink); }
 /* 브라우저가 select를 마우스로 눌러도 focus-visible로 판정해 전역 외곽선이 고른 뒤까지 남는다.
-   조건을 바꿀 때마다 굵은 테두리가 붙어 보이므로 달력을 열었을 때와 같은 옅은 표시로 낮춘다. */
-.search-filter select:focus-visible, .search-filter .date-picker-trigger:focus-visible {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(201, 78, 64, 0.13);
-  outline: none;
-}
+   조건을 바꿀 때마다 테두리가 붙어 보여 필터 안에서는 포커스 표시를 쓰지 않는다. */
+.search-filter select:focus-visible, .search-filter .date-picker-trigger:focus-visible { outline: none; }
 /* 체크 조건과 초기화는 마지막 줄을 통째로 쓰고 양 끝에 붙는다. */
 .search-filter.actions { align-items: center; display: flex; gap: 14px; grid-column: 1 / -1; justify-content: flex-end; }
 .search-filters .checkline { font-weight: 800; margin-right: auto; padding: 0; white-space: nowrap; }
