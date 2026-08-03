@@ -267,8 +267,13 @@ test("문자열과 boolean complexity는 INVALID_COMPLEXITY와 같은 행으로 
             normalizedToNull: 0,
             exclusionReasons: [{ code: "INVALID_COMPLEXITY", count: 2 }],
         });
+        assert.equal(report.checks.invalidComplexityRows, 2);
+        const invalidComplexityError = report.errors.find(
+            ({ code }) => code === "INVALID_COMPLEXITY",
+        );
+        assert.equal(invalidComplexityError.count, 2);
         assert.deepEqual(
-            report.errors.find(({ code }) => code === "INVALID_COMPLEXITY").sample,
+            invalidComplexityError.sample,
             [
                 { row: 1, value: "3.25" },
                 { row: 2, value: true },

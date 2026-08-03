@@ -147,14 +147,11 @@ function checkSummary(games, rankByBggId) {
                 ([field, limit]) => !blank(game[field]) && String(game[field]).length > limit,
             ),
         );
-        const complexity = Number(game.complexity);
-        const complexityDecimals = String(game.complexity).split(".")[1]?.length ?? 0;
         invalidComplexityRows += Number(
             !blank(game.complexity) &&
-                (!Number.isFinite(complexity) ||
-                    complexity < 0 ||
-                    complexity > 5 ||
-                    complexityDecimals > 2),
+                (!isValidComplexityValue(game.complexity) ||
+                    game.complexity < 0 ||
+                    game.complexity > 5),
         );
         if (!blank(game.image_url)) {
             try {
