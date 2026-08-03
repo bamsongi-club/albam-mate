@@ -23,7 +23,7 @@ P1 저장 계약의 준비 상태는 기능별로 다르다. 알림 저장 계�
 
 | 기능 ID | 계약 준비 | 생산 코드 | 자동 검증 | 운영 배포·실측 |
 | --- | --- | --- | --- | --- |
-| [`SEARCH-01`](search.md#search-01-게임-조건-검색) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |
+| [`SEARCH-01`](search.md#search-01-게임-조건-검색) | 계약 준비 완료 | 구현 완료 ([#293](https://github.com/bamsongi-club/albam-mate/issues/293), [#295](https://github.com/bamsongi-club/albam-mate/issues/295)) | 검증 완료 ([#293](https://github.com/bamsongi-club/albam-mate/issues/293), [#295](https://github.com/bamsongi-club/albam-mate/issues/295)) | 미배포·미측정 |
 | [`SEARCH-02`](search.md#search-02-방-조건-검색) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |
 | [`ROOM-08`](room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
 | [`PART-04`](room.md#part-04-선착순-대기열과-자동-승격) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |

@@ -15,13 +15,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 import cloud.bamsongi.albammate.game.contract.GameQuery;
 import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.game.contract.UpcomingRoomCountQuery;
 import cloud.bamsongi.albammate.game.dto.GameDetail;
 import cloud.bamsongi.albammate.game.dto.GameListItem;
+import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.repository.GameListRow;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
@@ -49,7 +49,7 @@ public class GameQueryService implements GameQuery {
 	 * @return 예정 모임 수가 포함된 게임 목록 페이지
 	 */
 	public Page<GameListItem> findPage(String keyword, Pageable pageable) {
-		return findPage(keyword, false, pageable.getPageNumber(), pageable.getPageSize());
+		return findPage(GameListSearchCriteria.keywordOnly(keyword), pageable.getPageNumber(), pageable.getPageSize());
 	}
 
 	/**
@@ -64,41 +64,52 @@ public class GameQueryService implements GameQuery {
 	 * @return 예정 모임 수가 포함된 게임 목록 페이지
 	 */
 	public Page<GameListItem> findPage(String keyword, boolean upcomingOnly, int page, int size) {
-		Pageable pageable = PageRequest.of(
-			page, size, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
-		String normalizedKeyword = keyword == null ? null : keyword.strip();
-		if (upcomingOnly) {
-			return findUpcomingOnlyPage(normalizedKeyword, pageable);
-		}
-
-		Page<GameListRow> games = StringUtils.hasText(normalizedKeyword)
-			? gameRepository.findListRowsByNameContainingIgnoreCase(normalizedKeyword, pageable)
-			: gameRepository.findAllListRows(pageable);
-		if (games.isEmpty()) {
-			return games.map(game -> GameListItem.from(game, 0L));
-		}
-
-		Map<Long, Long> upcomingRoomCounts = upcomingRoomCountQuery.findUpcomingRoomCounts(
-			games.getContent().stream().map(GameListRow::id).toList(),
-			Instant.now(clock));
-
-		return games.map(
-			game -> GameListItem.from(game, upcomingRoomCounts.getOrDefault(game.id(), 0L)));
+		GameListRequest request = new GameListRequest();
+		request.setKeyword(keyword);
+		request.setUpcomingOnly(upcomingOnly);
+		return findPage(request, page, size);
 	}
 
-	private Page<GameListItem> findUpcomingOnlyPage(String normalizedKeyword, Pageable pageable) {
-		Instant now = Instant.now(clock);
-		Map<Long, Long> upcomingRoomCounts = upcomingRoomCountQuery.findUpcomingRoomCounts(now);
-		if (upcomingRoomCounts.isEmpty()) {
-			return Page.empty(pageable);
+	/**
+	 * 게임 목록 조건을 하나의 저장소 동적 조회에 적용하고 예정 모임 수를 조립한다.
+	 *
+	 * @param request HTTP 목록 요청
+	 * @return 예정 모임 수가 포함된 게임 목록 페이지
+	 */
+	public Page<GameListItem> findPage(GameListRequest request) {
+		return findPage(request, request.getPage(), request.getSize());
+	}
+
+	private Page<GameListItem> findPage(GameListRequest request, int page, int size) {
+		return findPage(GameListSearchCriteria.from(request), page, size);
+	}
+
+	private Page<GameListItem> findPage(GameListSearchCriteria criteria, int page, int size) {
+		Pageable pageable = PageRequest.of(
+			page, size, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
+		Map<Long, Long> upcomingRoomCounts = Map.of();
+		if (criteria.isUpcomingOnly()) {
+			upcomingRoomCounts = upcomingRoomCountQuery.findUpcomingRoomCounts(Instant.now(clock));
+			if (upcomingRoomCounts.isEmpty()) {
+				return Page.empty(pageable);
+			}
+			criteria = criteria.withUpcomingGameIds(upcomingRoomCounts.keySet());
 		}
 
-		Page<GameListRow> games = StringUtils.hasText(normalizedKeyword)
-			? gameRepository.findListRowsByIdInAndNameContainingIgnoreCase(
-				upcomingRoomCounts.keySet(), normalizedKeyword, pageable)
-			: gameRepository.findListRowsByIdIn(upcomingRoomCounts.keySet(), pageable);
+		Page<Game> games = gameRepository.findAll(criteria.toSpecification(), pageable);
+		if (games.isEmpty()) {
+			return games.map(game -> GameListItem.from(GameListRow.from(game), 0L));
+		}
+
+		if (!criteria.isUpcomingOnly()) {
+			upcomingRoomCounts = upcomingRoomCountQuery.findUpcomingRoomCounts(
+				games.getContent().stream().map(Game::getId).toList(),
+				Instant.now(clock));
+		}
+
+		Map<Long, Long> counts = upcomingRoomCounts;
 		return games.map(
-			game -> GameListItem.from(game, upcomingRoomCounts.getOrDefault(game.id(), 0L)));
+			game -> GameListItem.from(GameListRow.from(game), counts.getOrDefault(game.getId(), 0L)));
 	}
 
 	/**
