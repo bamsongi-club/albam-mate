@@ -224,6 +224,7 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .date-picker-trigger::after { color: var(--ink); content: '▾'; font-size: 14px; line-height: 1; }
 .date-picker-trigger[aria-expanded="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(201, 78, 64, 0.13); }
 .date-picker-value { align-items: center; display: flex; font-weight: inherit; }
+.date-picker-value.empty { color: var(--sub); }
 .date-picker-popover { background: var(--card); border: 1px solid var(--line); border-radius: 4px; box-shadow: 0 12px 26px rgba(40, 38, 35, 0.15); left: 0; padding: 14px; position: absolute; top: calc(100% + 8px); width: 340px; z-index: 15; }
 .date-picker-header { align-items: center; display: flex; justify-content: space-between; margin-bottom: 13px; }
 .date-picker-month { align-items: center; display: flex; font-size: 15px; }
@@ -291,6 +292,18 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .modecard span { color: var(--sub); display: block; font-size: 12.5px; margin-top: 4px; }
 .checkline { align-items: center; display: flex; font-size: 13px; gap: 8px; padding: 8px 0; }
 .checkline input { accent-color: var(--accent); width: auto; }
+/* 모임 목록 조건 필터. 좁은 화면에서는 각 조건이 한 줄씩 내려간다. */
+.room-filters { align-items: end; background: var(--soft); border-radius: 12px; display: flex; flex-wrap: wrap; gap: 12px 16px; margin-bottom: 16px; padding: 14px 16px; }
+.room-filter { display: grid; gap: 6px; }
+.room-filter label, .room-filter-label { color: var(--brown2); display: block; font-size: 12.5px; font-weight: 800; margin-bottom: 0; }
+.room-filter select, .room-filter .date-picker-trigger { min-width: 150px; }
+.room-filter.actions { align-items: center; display: flex; flex: 1; gap: 14px; justify-content: flex-end; }
+.room-filters .checkline { font-weight: 800; padding: 0; white-space: nowrap; }
+.room-filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.room-filter-chips button { background: #fff; border: 1.5px solid var(--line); border-radius: 999px; color: var(--sub); font-size: 13px; font-weight: 800; min-height: 42px; padding: 0 15px; }
+.room-filter-chips button.on { background: var(--brown); border-color: var(--brown); color: #fff; }
+.room-filter-reset { color: var(--accent-dark); font-size: 12.5px; font-weight: 900; white-space: nowrap; }
+.room-filter-reset:hover { text-decoration: underline; }
 .games-filter { align-items: center; column-gap: 16px; display: flex; flex-wrap: wrap; justify-content: space-between; margin: -6px 0 15px; row-gap: 4px; }
 .games-filter .checkline { font-weight: 800; padding: 0; }
 .games-filter .hint { margin: 0; }
@@ -372,7 +385,11 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
   input, select, textarea { font-size: 16px; }
   /* 손가락 탭 기준 44px에 맞춘다. 데스크톱 밀도를 바꾸지 않도록 좁은 화면에만 적용한다. */
   #gnb a, .game-search-open, .tabs button { align-items: center; display: inline-flex; justify-content: center; min-height: 44px; }
-  .page-btn, .btn, select, .date-picker-trigger { min-height: 44px; }
+  .page-btn, .btn, select, .date-picker-trigger, .room-filter-chips button { min-height: 44px; }
+  /* 필터 조건을 한 줄에 하나씩 두고, 룰마스터 조건과 초기화는 마지막 줄 양 끝에 붙인다. */
+  .room-filter { width: 100%; }
+  .room-filter select, .room-filter .date-picker-trigger { min-width: 0; }
+  .room-filter.actions { justify-content: space-between; }
   .pagination { gap: 8px; }
   .checkline { min-height: 44px; }
   .checkline input { height: 20px; width: 20px; }

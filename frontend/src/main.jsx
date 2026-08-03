@@ -31,6 +31,15 @@ const ROOM_TYPE_FILTERS = [
   { value: 'GAME_FOCUSED', label: '게임 중심', short: '게임' },
   { value: 'PERSON_FOCUSED', label: '사람 중심', short: '사람' }
 ];
+// Asia/Seoul은 일광절약시간을 쓰지 않아 오프셋이 항상 같다.
+const SEOUL_OFFSET = '+09:00';
+const EMPTY_ROOM_FILTERS = {
+  startDate: '',
+  endDate: '',
+  minRemainingSeats: '',
+  experienceLevels: [],
+  rulemasterOnly: false
+};
 
 function zeroPad(value) {
   return String(value).padStart(2, '0');
@@ -90,10 +99,24 @@ function todayInSeoul() {
   return isoDateInSeoul(new Date());
 }
 
+function nextIsoDate(isoDate) {
+  const parts = dateParts(isoDate);
+  if (!parts) return '';
+  const next = new Date(Date.UTC(parts.year, parts.monthIndex, parts.day + 1));
+  return isoDateFromParts(next.getUTCFullYear(), next.getUTCMonth(), next.getUTCDate());
+}
+
 function defaultRoomDate(today = todayInSeoul()) {
-  const parts = dateParts(today);
-  const tomorrow = new Date(Date.UTC(parts.year, parts.monthIndex, parts.day + 1));
-  return isoDateFromParts(tomorrow.getUTCFullYear(), tomorrow.getUTCMonth(), tomorrow.getUTCDate());
+  return nextIsoDate(today);
+}
+
+// 날짜 필터는 일 단위로 고르고, 요청에는 Asia/Seoul 기준 반열린 구간 [해당 날짜 00:00, 다음 날짜 00:00)의 경계를 보낸다.
+function seoulDayStart(isoDate) {
+  return dateParts(isoDate) ? isoDate + 'T00:00:00' + SEOUL_OFFSET : undefined;
+}
+
+function seoulDayEnd(isoDate) {
+  return seoulDayStart(nextIsoDate(isoDate));
 }
 
 function millisecondsUntilNextSeoulMidnight() {
@@ -527,15 +550,74 @@ function HomeView({ onBrowsePeople, onSearchGame, dataVersion }) {
   );
 }
 
+function roomFilterParameters(filters) {
+  return {
+    startsAtFrom: seoulDayStart(filters.startDate),
+    startsAtTo: seoulDayEnd(filters.endDate),
+    minRemainingSeats: filters.minRemainingSeats,
+    experienceLevels: filters.experienceLevels,
+    rulemasterOnly: filters.rulemasterOnly
+  };
+}
+
+// 요청에 실제로 담기는 값만 비교해 조회 의존성과 초기화 버튼 노출을 판정한다.
+function roomFilterKey(filters) {
+  return JSON.stringify(roomFilterParameters(filters));
+}
+
+const EMPTY_ROOM_FILTER_KEY = roomFilterKey(EMPTY_ROOM_FILTERS);
+
+function RoomFilters({ filters, onChange, today }) {
+  const update = (patch) => onChange({ ...filters, ...patch });
+  const toggleExperienceLevel = (level) => update({
+    experienceLevels: filters.experienceLevels.includes(level)
+      ? filters.experienceLevels.filter((selected) => selected !== level)
+      : [...filters.experienceLevels, level]
+  });
+  return (
+    <div className="room-filters">
+      <div className="room-filter">
+        <label htmlFor="room-filter-from">시작 날짜</label>
+        <DatePicker id="room-filter-from" value={filters.startDate} onChange={(date) => update({ startDate: date })} today={today} placeholder="전체" />
+      </div>
+      <div className="room-filter">
+        <label htmlFor="room-filter-to">종료 날짜</label>
+        <DatePicker id="room-filter-to" value={filters.endDate} onChange={(date) => update({ endDate: date })} today={today} placeholder="전체" />
+      </div>
+      <div className="room-filter">
+        <label htmlFor="room-filter-seats">최소 남은 자리</label>
+        <select id="room-filter-seats" value={filters.minRemainingSeats} onChange={(event) => update({ minRemainingSeats: event.target.value })}>
+          <option value="">전체</option>
+          {CAPACITY_OPTIONS.map((seats) => <option value={seats} key={seats}>{seats}자리 이상</option>)}
+        </select>
+      </div>
+      <div className="room-filter">
+        <span className="room-filter-label">경험 수준</span>
+        <div className="room-filter-chips" role="group" aria-label="경험 수준">
+          {Object.entries(EXP_LABEL).map(([code, label]) => (
+            <button type="button" key={code} className={filters.experienceLevels.includes(code) ? 'on' : ''} aria-pressed={filters.experienceLevels.includes(code)} onClick={() => toggleExperienceLevel(code)}>{label}</button>
+          ))}
+        </div>
+      </div>
+      <div className="room-filter actions">
+        <label className="checkline"><input type="checkbox" checked={filters.rulemasterOnly} onChange={(event) => update({ rulemasterOnly: event.target.checked })} /> 룰마스터 진행만</label>
+        {roomFilterKey(filters) !== EMPTY_ROOM_FILTER_KEY && <button type="button" className="room-filter-reset" onClick={() => onChange(EMPTY_ROOM_FILTERS)}>필터 초기화</button>}
+      </div>
+    </div>
+  );
+}
+
 // 유형 필터에 붙일 개수. 방 유형은 두 가지뿐이라 전체는 둘의 합으로 구한다.
-function useRoomTypeCounts(keyword, dataVersion) {
+function useRoomTypeCounts(keyword, filters, dataVersion) {
   const [counts, setCounts] = useState(null);
+  const filterKey = roomFilterKey(filters);
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
+    const parameters = roomFilterParameters(filters);
     Promise.all([
-      api.getRooms({ type: 'GAME_FOCUSED', keyword, page: 0, size: 1 }, controller.signal),
-      api.getRooms({ type: 'PERSON_FOCUSED', keyword, page: 0, size: 1 }, controller.signal)
+      api.getRooms({ type: 'GAME_FOCUSED', keyword, ...parameters, page: 0, size: 1 }, controller.signal),
+      api.getRooms({ type: 'PERSON_FOCUSED', keyword, ...parameters, page: 0, size: 1 }, controller.signal)
     ])
       .then(([game, person]) => {
         if (!active) return;
@@ -545,18 +627,20 @@ function useRoomTypeCounts(keyword, dataVersion) {
       })
       .catch(() => { if (active) setCounts(null); });
     return () => { active = false; controller.abort(); };
-  }, [keyword, dataVersion]);
+  }, [keyword, filterKey, dataVersion]);
   return counts;
 }
 
-function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChange, dataVersion }) {
+function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChange, roomFilters, onRoomFiltersChange, dataVersion }) {
   const [input, setInput] = useState(roomQuery);
   const keyword = roomQuery.trim();
-  const counts = useRoomTypeCounts(keyword, dataVersion);
+  const today = useSeoulToday();
+  const filterKey = roomFilterKey(roomFilters);
+  const counts = useRoomTypeCounts(keyword, roomFilters, dataVersion);
   const { data, loading, error, setPage } = usePaginatedRequest(
     // 유형을 비우면 두 유형의 공개 방을 함께 받는다.
-    (page, signal) => api.getRooms({ type: roomType, keyword, page, size: ROOM_LIST_PAGE_SIZE }, signal),
-    [roomType, keyword, dataVersion]
+    (page, signal) => api.getRooms({ type: roomType, keyword, ...roomFilterParameters(roomFilters), page, size: ROOM_LIST_PAGE_SIZE }, signal),
+    [roomType, keyword, filterKey, dataVersion]
   );
   const rooms = (data?.content || []).map(normalizeRoom);
   useEffect(() => setInput(roomQuery), [roomQuery]);
@@ -577,6 +661,7 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
         <a className="btn ghost" href="#/create">✏️ 모임 만들기</a>
       </div>
       <p className="hint" style={{ marginTop: -10, marginBottom: 15 }}>모임 제목의 부분 일치 검색만 제공해요.</p>
+      <RoomFilters filters={roomFilters} onChange={onRoomFiltersChange} today={today} />
       {error && <ErrorBox message={error} />}
       {!error && loading && !data && <LoadingBox />}
       {!error && !!rooms.length && <div className="grid cols2 list-swappable" style={{ opacity: loading ? 0.6 : 1 }}>{rooms.map((room) => <SessionCard key={room.id} room={room} />)}</div>}
@@ -865,17 +950,19 @@ function usePopoverDismiss(isOpen, containerRef, onDismiss) {
   }, [isOpen]);
 }
 
-function DatePicker({ id, value, onChange, today }) {
-  const selectedDate = dateParts(value) ? value : defaultRoomDate(today);
+// placeholder를 주면 값을 비운 상태를 허용한다. 필터처럼 날짜를 고르지 않는 선택지가 있을 때 쓴다.
+function DatePicker({ id, value, onChange, today, placeholder }) {
+  const selectedDate = dateParts(value) ? value : (placeholder ? '' : defaultRoomDate(today));
+  const openDate = selectedDate || today;
   const [isOpen, setIsOpen] = useState(false);
-  const [draftDate, setDraftDate] = useState(selectedDate);
-  const [visibleMonth, setVisibleMonth] = useState(() => monthFromIsoDate(selectedDate));
+  const [draftDate, setDraftDate] = useState(openDate);
+  const [visibleMonth, setVisibleMonth] = useState(() => monthFromIsoDate(openDate));
   const pickerRef = useRef(null);
   const triggerRef = useRef(null);
 
   const openPicker = () => {
-    setDraftDate(selectedDate);
-    setVisibleMonth(monthFromIsoDate(selectedDate));
+    setDraftDate(openDate);
+    setVisibleMonth(monthFromIsoDate(openDate));
     setIsOpen(true);
   };
   const closePicker = (restoreFocus = false) => {
@@ -897,8 +984,8 @@ function DatePicker({ id, value, onChange, today }) {
 
   return (
     <div className="date-picker" ref={pickerRef}>
-      <button id={id} ref={triggerRef} type="button" className="date-picker-trigger" aria-label={'날짜 ' + formatCalendarDate(selectedDate)} aria-expanded={isOpen} aria-haspopup="dialog" aria-controls={isOpen ? id + '-calendar' : undefined} onClick={() => isOpen ? closePicker() : openPicker()}>
-        <span className="date-picker-value">{formatRoomDate(selectedDate)}</span>
+      <button id={id} ref={triggerRef} type="button" className="date-picker-trigger" aria-label={selectedDate ? '날짜 ' + formatCalendarDate(selectedDate) : placeholder} aria-expanded={isOpen} aria-haspopup="dialog" aria-controls={isOpen ? id + '-calendar' : undefined} onClick={() => isOpen ? closePicker() : openPicker()}>
+        <span className={'date-picker-value' + (selectedDate ? '' : ' empty')}>{selectedDate ? formatRoomDate(selectedDate) : placeholder}</span>
       </button>
       {isOpen && (
         <section id={id + '-calendar'} className="date-picker-popover" role="dialog" aria-label="날짜 선택">
@@ -908,7 +995,7 @@ function DatePicker({ id, value, onChange, today }) {
           </div>
           <div className="date-picker-weekdays" aria-hidden="true">{WEEKDAY_LABELS.map((weekday, index) => <span className={index === 0 ? 'sun' : index === 6 ? 'sat' : ''} key={weekday}>{weekday}</span>)}</div>
           <div className="date-picker-days">{days.map((day) => <button type="button" key={day.isoDate} className={['date-picker-day', !day.isCurrentMonth && 'outside', day.isoDate === today && 'today', day.isoDate === draftDate && 'selected', day.weekday === 0 && 'sun', day.weekday === 6 && 'sat'].filter(Boolean).join(' ')} aria-label={formatCalendarDate(day.isoDate)} aria-pressed={day.isoDate === draftDate} disabled={day.isPast} onClick={() => { setDraftDate(day.isoDate); if (!day.isCurrentMonth) setVisibleMonth(monthFromIsoDate(day.isoDate)); }}>{day.day}</button>)}</div>
-          <div className="date-picker-footer"><button type="button" className="date-picker-today" onClick={() => { setDraftDate(today); setVisibleMonth(monthFromIsoDate(today)); }}>오늘</button><button type="button" className="date-picker-confirm" onClick={() => { onChange(draftDate); closePicker(true); }}>선택 완료</button></div>
+          <div className="date-picker-footer"><button type="button" className="date-picker-today" onClick={() => { setDraftDate(today); setVisibleMonth(monthFromIsoDate(today)); }}>오늘</button>{placeholder && <button type="button" className="date-picker-today" onClick={() => { onChange(''); closePicker(true); }}>선택 해제</button>}<button type="button" className="date-picker-confirm" onClick={() => { onChange(draftDate); closePicker(true); }}>선택 완료</button></div>
         </section>
       )}
     </div>
@@ -1266,6 +1353,7 @@ function App() {
   const [gameQuery, setGameQuery] = useState('');
   const [roomQuery, setRoomQuery] = useState('');
   const [roomType, setRoomType] = useState('');
+  const [roomFilters, setRoomFilters] = useState(EMPTY_ROOM_FILTERS);
   const [myTab, setMyTab] = useState('joined');
   const [createMode, setCreateMode] = useState('GAME_FOCUSED');
   const [createGame, setCreateGame] = useState(null);
@@ -1516,7 +1604,7 @@ function App() {
   };
 
   let content;
-  if (route === 'find') content = <FindRoomsView roomType={roomType} onRoomTypeChange={setRoomType} roomQuery={roomQuery} onRoomQueryChange={setRoomQuery} dataVersion={dataVersion} />;
+  if (route === 'find') content = <FindRoomsView roomType={roomType} onRoomTypeChange={setRoomType} roomQuery={roomQuery} onRoomQueryChange={setRoomQuery} roomFilters={roomFilters} onRoomFiltersChange={setRoomFilters} dataVersion={dataVersion} />;
   else if (route === 'game-list') content = <GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} />;
   else if (route === 'game') content = <GameDetailView gameId={arg} onCreateGame={handleCreateGame} dataVersion={dataVersion} />;
   else if (route === 'session') content = <SessionDetailView sessionId={arg} me={me} onApply={handleApply} onCancelApply={handleCancelApply} onHostCancel={handleHostCancel} onFinish={handleFinish} dataVersion={dataVersion} />;
