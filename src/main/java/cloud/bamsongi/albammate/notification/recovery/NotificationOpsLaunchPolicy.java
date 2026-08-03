@@ -24,7 +24,9 @@ public final class NotificationOpsLaunchPolicy {
 				"spring.profiles.default", "SPRING_PROFILES_DEFAULT"))) {
 			return LaunchDecision.NOTIFICATION_OPS;
 		}
-		return hasNotificationOpsArguments(args) ? LaunchDecision.REJECT_OPERATION_ARGUMENTS : LaunchDecision.NORMAL;
+		return hasNotificationOpsConfiguration(args, systemProperties, environmentVariables)
+			? LaunchDecision.REJECT_OPERATION_ARGUMENTS
+			: LaunchDecision.NORMAL;
 	}
 
 	private static String resolveProfileValue(
@@ -80,9 +82,36 @@ public final class NotificationOpsLaunchPolicy {
 		return argument.substring(argument.indexOf('=') + 1);
 	}
 
-	private static boolean hasNotificationOpsArguments(String[] args) {
+	private static boolean hasNotificationOpsConfiguration(
+		String[] args,
+		Properties systemProperties,
+		Map<String, String> environmentVariables) {
+		return hasNotificationOpsCommandLineArgument(args)
+			|| hasNotificationOpsSystemProperty(systemProperties)
+			|| hasNotificationOpsEnvironmentVariable(environmentVariables);
+	}
+
+	private static boolean hasNotificationOpsCommandLineArgument(String[] args) {
 		for (String argument : args) {
 			if (argument.startsWith("--app.notification.ops.")) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean hasNotificationOpsSystemProperty(Properties systemProperties) {
+		for (String key : systemProperties.stringPropertyNames()) {
+			if (key.startsWith("app.notification.ops.")) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean hasNotificationOpsEnvironmentVariable(Map<String, String> environmentVariables) {
+		for (String key : environmentVariables.keySet()) {
+			if (key.startsWith("APP_NOTIFICATION_OPS_")) {
 				return true;
 			}
 		}

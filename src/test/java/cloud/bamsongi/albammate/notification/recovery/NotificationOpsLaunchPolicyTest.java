@@ -20,6 +20,38 @@ class NotificationOpsLaunchPolicyTest {
 	}
 
 	@Test
+	void 일반_profile의_시스템속성_운영_키는_기동_전에_거절한다() {
+		assertEquals(NotificationOpsLaunchPolicy.LaunchDecision.REJECT_OPERATION_ARGUMENTS,
+			decisionForSystemProperty("app.notification.ops.action", "INSPECT"));
+	}
+
+	@Test
+	void 일반_profile의_환경변수_운영_키는_기동_전에_거절한다() {
+		assertEquals(NotificationOpsLaunchPolicy.LaunchDecision.REJECT_OPERATION_ARGUMENTS,
+			decisionForEnvironmentVariable("APP_NOTIFICATION_OPS_ACTION", "INSPECT"));
+	}
+
+	@Test
+	void 유사한_시스템속성_환경변수_운영_key는_거절하지_않는다() {
+		assertEquals(NotificationOpsLaunchPolicy.LaunchDecision.NORMAL,
+			decisionForSystemProperty("app.notification.opsx.action", "INSPECT"));
+		assertEquals(NotificationOpsLaunchPolicy.LaunchDecision.NORMAL,
+			decisionForEnvironmentVariable("APP_NOTIFICATION_OPSX_ACTION", "INSPECT"));
+	}
+
+	@Test
+	void notification_ops_profile은_시스템속성_환경변수_운영_키보다_먼저_선택된다() {
+		assertEquals(NotificationOpsLaunchPolicy.LaunchDecision.NOTIFICATION_OPS,
+			decision(new String[0], systemProperties(Map.of(
+				"spring.profiles.active", "notification-ops",
+				"app.notification.ops.action", "INSPECT")), Map.of()));
+		assertEquals(NotificationOpsLaunchPolicy.LaunchDecision.NOTIFICATION_OPS,
+			decision(new String[0], new Properties(), Map.of(
+				"SPRING_PROFILES_ACTIVE", "notification-ops",
+				"APP_NOTIFICATION_OPS_ACTION", "INSPECT")));
+	}
+
+	@Test
 	void 명령행_active_include_default_profile은_ops_애플리케이션을_선택한다() {
 		assertEquals(NotificationOpsLaunchPolicy.LaunchDecision.NOTIFICATION_OPS,
 			decisionForArguments("--spring.profiles.active=local,notification-ops"));
@@ -127,8 +159,12 @@ class NotificationOpsLaunchPolicyTest {
 	}
 
 	private static Properties systemProperty(String key, String value) {
+		return systemProperties(Map.of(key, value));
+	}
+
+	private static Properties systemProperties(Map<String, String> entries) {
 		Properties properties = new Properties();
-		properties.setProperty(key, value);
+		entries.forEach(properties::setProperty);
 		return properties;
 	}
 }
