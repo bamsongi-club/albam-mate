@@ -47,29 +47,34 @@ class RoomListReadServiceTest {
 	void 필터를_생략하면_두_유형의_공개_방을_조회한다() {
 		PageRequest pageable = pageable();
 		Page<Room> rooms = Page.empty(pageable);
-		when(roomRepository.findPublicRoomsWithoutKeyword(null, null, PUBLIC_STATUSES, pageable))
+		when(roomRepository.findPublicRooms(
+			null, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable))
 			.thenReturn(rooms);
 
-		roomListReadService.findPublicRooms(null, null, null, pageable, null);
+		roomListReadService.findPublicRooms(criteria(null, null, null), pageable, null);
 
-		verify(roomRepository).findPublicRoomsWithoutKeyword(null, null, PUBLIC_STATUSES, pageable);
+		verify(roomRepository).findPublicRooms(
+			null, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable);
 	}
 
 	@Test
 	void 비로그인_요청은_방이_있어도_ACTIVE_참가를_조회하지_않는다() {
 		PageRequest pageable = pageable();
 		Page<Room> rooms = new PageImpl<>(List.of(mock(Room.class)), pageable, 1);
-		when(roomRepository.findPublicRoomsWithoutKeyword(
-			RoomType.PERSON_FOCUSED, null, PUBLIC_STATUSES, pageable))
+		when(roomRepository.findPublicRooms(
+			RoomType.PERSON_FOCUSED, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable))
 			.thenReturn(rooms);
 
 		RoomListReadService.RoomListReadResult result = roomListReadService.findPublicRooms(
-			RoomType.PERSON_FOCUSED, null, null, pageable, null);
+			criteria(RoomType.PERSON_FOCUSED, null, null), pageable, null);
 
 		assertEquals(Set.of(), result.activeParticipationRoomIds());
-		verify(roomRepository)
-			.findPublicRoomsWithoutKeyword(
-				RoomType.PERSON_FOCUSED, null, PUBLIC_STATUSES, pageable);
+		verify(roomRepository).findPublicRooms(
+			RoomType.PERSON_FOCUSED, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable);
 		verify(roomRepository, never()).findActiveParticipationRoomIds(anyLong(), any());
 	}
 
@@ -77,17 +82,18 @@ class RoomListReadServiceTest {
 	void 빈_페이지는_로그인_사용자가_있어도_ACTIVE_참가를_조회하지_않는다() {
 		PageRequest pageable = pageable();
 		Page<Room> rooms = Page.empty(pageable);
-		when(roomRepository.findPublicRoomsWithoutKeyword(
-			RoomType.PERSON_FOCUSED, null, PUBLIC_STATUSES, pageable))
+		when(roomRepository.findPublicRooms(
+			RoomType.PERSON_FOCUSED, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable))
 			.thenReturn(rooms);
 
 		RoomListReadService.RoomListReadResult result = roomListReadService.findPublicRooms(
-			RoomType.PERSON_FOCUSED, null, null, pageable, 42L);
+			criteria(RoomType.PERSON_FOCUSED, null, null), pageable, 42L);
 
 		assertEquals(Set.of(), result.activeParticipationRoomIds());
-		verify(roomRepository)
-			.findPublicRoomsWithoutKeyword(
-				RoomType.PERSON_FOCUSED, null, PUBLIC_STATUSES, pageable);
+		verify(roomRepository).findPublicRooms(
+			RoomType.PERSON_FOCUSED, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable);
 		verify(roomRepository, never()).findActiveParticipationRoomIds(anyLong(), any());
 	}
 
@@ -95,19 +101,20 @@ class RoomListReadServiceTest {
 	void 로그인_사용자의_현재_페이지_방_ID로_ACTIVE_참가를_한번_조회한다() {
 		PageRequest pageable = pageable();
 		Page<Room> rooms = new PageImpl<>(List.of(room(10L), room(20L)), pageable, 2);
-		when(roomRepository.findPublicRoomsWithoutKeyword(
-			RoomType.PERSON_FOCUSED, null, PUBLIC_STATUSES, pageable))
+		when(roomRepository.findPublicRooms(
+			RoomType.PERSON_FOCUSED, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable))
 			.thenReturn(rooms);
 		when(roomRepository.findActiveParticipationRoomIds(42L, List.of(10L, 20L)))
 			.thenReturn(List.of(10L));
 
 		RoomListReadService.RoomListReadResult result = roomListReadService.findPublicRooms(
-			RoomType.PERSON_FOCUSED, null, null, pageable, 42L);
+			criteria(RoomType.PERSON_FOCUSED, null, null), pageable, 42L);
 
 		assertEquals(Set.of(10L), result.activeParticipationRoomIds());
-		verify(roomRepository)
-			.findPublicRoomsWithoutKeyword(
-				RoomType.PERSON_FOCUSED, null, PUBLIC_STATUSES, pageable);
+		verify(roomRepository).findPublicRooms(
+			RoomType.PERSON_FOCUSED, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable);
 		verify(roomRepository).findActiveParticipationRoomIds(42L, List.of(10L, 20L));
 	}
 
@@ -115,15 +122,16 @@ class RoomListReadServiceTest {
 	void 검색어가_있으면_제목_검색_Repository_경로를_사용한다() {
 		PageRequest pageable = pageable();
 		Page<Room> rooms = Page.empty(pageable);
-		when(roomRepository.findPublicRoomsByTitleContainingIgnoreCase(
-			RoomType.PERSON_FOCUSED, null, "모임", PUBLIC_STATUSES, pageable))
+		when(roomRepository.findPublicRooms(
+			RoomType.PERSON_FOCUSED, null, true, "모임", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable))
 			.thenReturn(rooms);
 
-		roomListReadService.findPublicRooms(RoomType.PERSON_FOCUSED, null, "모임", pageable, null);
+		roomListReadService.findPublicRooms(criteria(RoomType.PERSON_FOCUSED, null, "모임"), pageable, null);
 
-		verify(roomRepository)
-			.findPublicRoomsByTitleContainingIgnoreCase(
-				RoomType.PERSON_FOCUSED, null, "모임", PUBLIC_STATUSES, pageable);
+		verify(roomRepository).findPublicRooms(
+			RoomType.PERSON_FOCUSED, null, true, "모임", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable);
 	}
 
 	@Test
@@ -148,14 +156,15 @@ class RoomListReadServiceTest {
 			.thenReturn(Page.empty(pageable));
 
 		roomListReadService.findPublicRooms(
-			RoomType.PERSON_FOCUSED,
-			null,
-			"모임",
-			Instant.parse("2099-01-01T00:00:00Z"),
-			Instant.parse("2099-01-02T00:00:00Z"),
-			2,
-			experienceLevels,
-			true,
+			criteria(
+				RoomType.PERSON_FOCUSED,
+				null,
+				"모임",
+				Instant.parse("2099-01-01T00:00:00Z"),
+				Instant.parse("2099-01-02T00:00:00Z"),
+				2,
+				experienceLevels,
+				true),
 			pageable,
 			null);
 
@@ -198,7 +207,7 @@ class RoomListReadServiceTest {
 			.thenReturn(Page.empty(pageable));
 
 		RoomListReadService.RoomListReadResult result = roomListReadService.findPublicRooms(
-			null, null, null, null, null, null, Set.of(), false, pageable, 42L);
+			criteria(null, null, null), pageable, 42L);
 
 		assertEquals(Set.of(), result.activeParticipationRoomIds());
 		verify(roomRepository, never()).findActiveParticipationRoomIds(anyLong(), any());
@@ -229,14 +238,7 @@ class RoomListReadServiceTest {
 			.thenReturn(List.of(10L));
 
 		RoomListReadService.RoomListReadResult result = roomListReadService.findPublicRooms(
-			RoomType.PERSON_FOCUSED,
-			null,
-			null,
-			null,
-			null,
-			null,
-			experienceLevels,
-			false,
+			criteria(RoomType.PERSON_FOCUSED, null, null, null, null, null, experienceLevels, false),
 			pageable,
 			42L);
 
@@ -246,6 +248,23 @@ class RoomListReadServiceTest {
 
 	private PageRequest pageable() {
 		return PageRequest.of(0, 10, Sort.by(Sort.Order.asc("startAt"), Sort.Order.asc("id")));
+	}
+
+	private RoomListSearchCriteria criteria(RoomType roomType, Long gameId, String keyword) {
+		return criteria(roomType, gameId, keyword, null, null, null, Set.of(), false);
+	}
+
+	private RoomListSearchCriteria criteria(
+		RoomType roomType,
+		Long gameId,
+		String keyword,
+		Instant startsAtFrom,
+		Instant startsAtTo,
+		Integer minRemainingSeats,
+		Set<ExperienceLevel> experienceLevels,
+		boolean rulemasterOnly) {
+		return new RoomListSearchCriteria(
+			roomType, gameId, keyword, startsAtFrom, startsAtTo, minRemainingSeats, experienceLevels, rulemasterOnly);
 	}
 
 	private Room room(Long id) {

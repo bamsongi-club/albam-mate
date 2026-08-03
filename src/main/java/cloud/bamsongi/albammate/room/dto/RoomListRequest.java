@@ -11,8 +11,10 @@ import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
+import lombok.Getter;
 
 /** 방 목록 HTTP query parameter를 바인딩·검증한다. */
+@Getter
 public class RoomListRequest {
 
 	private RoomType type;
@@ -37,56 +39,28 @@ public class RoomListRequest {
 
 	@Min(1) @Max(100) private int size = 10;
 
-	public RoomType getType() {
-		return type;
-	}
-
 	public void setType(RoomType type) {
 		this.type = type;
-	}
-
-	public Long getGameId() {
-		return gameId;
 	}
 
 	public void setGameId(Long gameId) {
 		this.gameId = gameId;
 	}
 
-	public String getKeyword() {
-		return keyword;
-	}
-
 	public void setKeyword(String keyword) {
 		this.keyword = keyword;
-	}
-
-	public Instant getStartsAtFrom() {
-		return startsAtFrom;
 	}
 
 	public void setStartsAtFrom(Instant startsAtFrom) {
 		this.startsAtFrom = startsAtFrom;
 	}
 
-	public Instant getStartsAtTo() {
-		return startsAtTo;
-	}
-
 	public void setStartsAtTo(Instant startsAtTo) {
 		this.startsAtTo = startsAtTo;
 	}
 
-	public Integer getMinRemainingSeats() {
-		return minRemainingSeats;
-	}
-
 	public void setMinRemainingSeats(Integer minRemainingSeats) {
 		this.minRemainingSeats = minRemainingSeats;
-	}
-
-	public Set<ExperienceLevel> getExperienceLevels() {
-		return experienceLevels;
 	}
 
 	public void setExperienceLevels(Set<ExperienceLevel> experienceLevels) {
@@ -107,18 +81,10 @@ public class RoomListRequest {
 		return startsAtFrom == null || startsAtTo == null || startsAtFrom.isBefore(startsAtTo);
 	}
 
-	public int getPage() {
-		return page;
-	}
-
 	public void setPage(Integer page) {
 		if (page != null) {
 			this.page = page;
 		}
-	}
-
-	public int getSize() {
-		return size;
 	}
 
 	public void setSize(Integer size) {
