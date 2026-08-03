@@ -75,4 +75,43 @@ describe('알림 조회 API', () => {
 
     await expect(previousProfileRequest).rejects.toMatchObject({ name: 'AbortError' });
   });
+
+  it('인증 세대가 바뀐 뒤 이전 요청의 네트워크 실패를 AbortError로 정규화한다', async () => {
+    let rejectPreviousProfile;
+    const previousProfileResponse = new Promise((resolve, reject) => {
+      rejectPreviousProfile = reject;
+    });
+    const fetchMock = vi.fn()
+      .mockImplementationOnce(() => previousProfileResponse)
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'csrf-token' }))
+      .mockResolvedValueOnce(successfulResponse({ id: 2, nickname: '새 사용자' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const previousProfileRequest = api.getMyProfile();
+    await api.login({ email: 'new@example.com', password: 'password' });
+    rejectPreviousProfile(new TypeError('network failure'));
+
+    await expect(previousProfileRequest).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('인증 세대가 바뀐 뒤 이전 요청의 JSON 파싱 실패를 AbortError로 정규화한다', async () => {
+    let resolvePreviousProfile;
+    const previousProfileResponse = new Promise((resolve) => {
+      resolvePreviousProfile = resolve;
+    });
+    const fetchMock = vi.fn()
+      .mockImplementationOnce(() => previousProfileResponse)
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'csrf-token' }))
+      .mockResolvedValueOnce(successfulResponse({ id: 2, nickname: '새 사용자' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const previousProfileRequest = api.getMyProfile();
+    await api.login({ email: 'new@example.com', password: 'password' });
+    resolvePreviousProfile(new Response('{invalid-json', {
+      status: 200,
+      headers: { 'content-type': 'application/json' }
+    }));
+
+    await expect(previousProfileRequest).rejects.toMatchObject({ name: 'AbortError' });
+  });
 });

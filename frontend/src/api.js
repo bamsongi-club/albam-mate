@@ -33,18 +33,27 @@ function staleAuthenticationError() {
 
 async function request(path, { method = 'GET', body, headers, signal } = {}) {
   const requestAuthenticationGeneration = authenticationGeneration;
-  const response = await fetch(endpoint(path), {
-    method,
-    credentials: 'include',
-    signal,
-    headers: {
-      Accept: 'application/json',
-      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-      ...headers
-    },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) })
-  });
-  const payload = await parsePayload(response);
+  let response;
+  let payload;
+  try {
+    response = await fetch(endpoint(path), {
+      method,
+      credentials: 'include',
+      signal,
+      headers: {
+        Accept: 'application/json',
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...headers
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) })
+    });
+    payload = await parsePayload(response);
+  } catch (error) {
+    if (requestAuthenticationGeneration !== authenticationGeneration) {
+      throw staleAuthenticationError();
+    }
+    throw error;
+  }
 
   if (requestAuthenticationGeneration !== authenticationGeneration) {
     throw staleAuthenticationError();
