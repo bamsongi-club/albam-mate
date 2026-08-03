@@ -42,9 +42,24 @@ public class NotificationRelayExecutor {
 		}
 
 		NotificationOutboxEventRepository.RelayClaim relayClaim = claim.get();
+		try {
+			return Optional.of(processClaimedEvent(relayClaim, startedAtNanos));
+		} catch (NotificationRelayProcessingException exception) {
+			throw exception;
+		} catch (RuntimeException exception) {
+			throw NotificationRelayProcessingException.failed(relayClaim.getId(), exception);
+		}
+	}
+
+	private ProcessedEvent processClaimedEvent(
+		NotificationOutboxEventRepository.RelayClaim relayClaim,
+		long startedAtNanos) {
 		NotificationOutboxEvent event = eventRepository.findById(relayClaim.getId())
 			.orElseThrow(() -> new IllegalStateException("claimed notification outbox event is missing"));
 		Instant operationTime = relayClaim.getOperationTime();
+		if (!operationTime.isBefore(event.getOccurredAt().plus(Duration.ofDays(90)))) {
+			throw NotificationRelayProcessingException.expired(event.getId());
+		}
 		NotificationType notificationType = eventTypeMapper.map(event.getEventType());
 		List<Long> recipientUserIds = recipientRepository.findRecipientUserIdsByOutboxEventId(event.getId());
 		if (recipientUserIds.isEmpty()) {
@@ -59,10 +74,11 @@ public class NotificationRelayExecutor {
 		}
 
 		event.markProcessed(operationTime);
+		eventRepository.flush();
 		ProcessedEvent processedEvent = ProcessedEvent.completed(
 			event, recipientUserIds.size(), operationTime, elapsedMillis(startedAtNanos));
 		logAfterCommit(processedEvent);
-		return Optional.of(processedEvent);
+		return processedEvent;
 	}
 
 	private void logAfterCommit(ProcessedEvent processedEvent) {

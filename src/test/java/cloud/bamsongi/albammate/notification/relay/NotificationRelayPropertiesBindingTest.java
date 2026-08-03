@@ -1,6 +1,8 @@
 package cloud.bamsongi.albammate.notification.relay;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
@@ -52,6 +54,8 @@ class NotificationRelayPropertiesBindingTest {
 		assertEquals(true, propertySource.getProperty("app.notification.relay.enabled"));
 		assertEquals("5s", propertySource.getProperty("app.notification.relay.poll-interval"));
 		assertEquals(50, propertySource.getProperty("app.notification.relay.max-events-per-run"));
+		assertNull(propertySource.getProperty("app.notification.relay.max-automatic-attempts"));
+		assertNull(propertySource.getProperty("app.notification.relay.first-retry-delay"));
 	}
 
 	@Test
@@ -65,6 +69,8 @@ class NotificationRelayPropertiesBindingTest {
 		assertTrue(properties.isEnabled());
 		assertEquals(Duration.ofMillis(10), properties.getPollInterval());
 		assertEquals(3, properties.getMaxEventsPerRun());
+		assertFalse(environment.containsProperty("app.notification.relay.max-automatic-attempts"));
+		assertFalse(environment.containsProperty("app.notification.relay.first-retry-delay"));
 	}
 
 	@Test
