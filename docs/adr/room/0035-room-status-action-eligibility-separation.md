@@ -1,9 +1,9 @@
 # ADR-0035: 방 생명주기 상태와 요청자별 행동 가능성을 분리
 
-- 상태: 제안됨
+- 상태: 승인됨
 - 작성일: 2026-07-31
-- 결정일: 미정
-- 관련: [P1 ROOM-08](../../p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리), [P0 방 상태 계약](../../archive/p0/P0-spec.md#방-상태roomstatus), [API RoomStatus](../../API.md#roomstatus), [API PublicRoomResponse](../../API.md#47-publicroomresponse), [ADR-0012](0012-room-request-boundary-state-reconciliation.md), [ADR-0037](../participation/0037-room-waitlist-latest-state-atomic-promotion.md)
+- 결정일: 2026-08-03
+- 관련: [결정 이슈 #301](https://github.com/bamsongi-club/albam-mate/issues/301), [정본화 이슈 #304](https://github.com/bamsongi-club/albam-mate/issues/304), [후속 정본 동기화 #305](https://github.com/bamsongi-club/albam-mate/issues/305), [P1 ROOM-08](../../p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리), [P0 방 상태 계약](../../archive/p0/P0-spec.md#방-상태roomstatus), [API RoomStatus](../../API.md#roomstatus), [API PublicRoomResponse](../../API.md#47-publicroomresponse), [ADR-0012](0012-room-request-boundary-state-reconciliation.md), [ADR-0037](../participation/0037-room-waitlist-latest-state-atomic-promotion.md), [ADR-0041](0041-postgresql-room-query-consistent-snapshot.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
@@ -33,11 +33,17 @@ P0는 `RoomStatus`로 ROOM의 생명주기를 표현하고, 공개 ROOM 응답�
 
 `RoomStatus`는 ROOM 생명주기만 나타내며 P0의 값과 전이를 유지한다. 기존 `joinable`의 이름과 직접 참가 가능 여부라는 의미도 유지한다.
 
-공개 ROOM 응답에 요청자별 대기 신청 가능 여부를 나타내는 `waitlistable`을 추가한다. 서버는 같은 기준 시각과 최신 ROOM·참가·대기 관계를 입력으로 하는 하나의 공통 행동 가능성 판정에서 `joinable`과 `waitlistable`을 함께 계산한다. 두 값은 동시에 `true`일 수 없으며, 허용되는 행동이 없으면 모두 `false`일 수 있다.
+`Room.getTotalParticipantCount()`와 `Room.getRemainingRecruitmentSeats()`는 Room 필드만 사용하는 순수 파생 메서드로 둔다. 이 메서드에 요청자 관계 조회나 행동 가능성 판정을 넣지 않는다.
 
-직접 참가 요청이 좌석 경합으로 실패하더라도 서버는 해당 요청을 대기 신청으로 바꾸지 않는다. 대기 관계는 별도의 명시적 대기 신청이 성공했을 때만 생성한다.
+공개 ROOM 응답에 요청자별 대기 신청 가능 여부를 나타내는 `waitlistable`을 추가한다. 서버는 같은 기준 시각과 일관된 ROOM·현재 `ACTIVE` 참가·현재 `WAITING` 대기 사실을 `RoomActionAvailabilityFacts`로 모으고, 하나의 `RoomActionAvailabilityEvaluator`가 `joinable`과 `waitlistable`을 담은 `RoomActionAvailability`를 함께 반환하게 한다. 두 값은 동시에 `true`일 수 없으며, 허용되는 행동이 없으면 모두 `false`일 수 있다.
 
-`waitlistable`을 노출할 응답 범위는 [P1 ROOM-08](../../p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리)과 API 명세의 [PublicRoomResponse](../../API.md#47-publicroomresponse), [ParticipantRoomResponse](../../API.md#48-participantroomresponse), [MyRoomListItem](../../API.md#410-myroomlistitem)을 따른다. 대기 신청 API·오류 계약은 [PART-04 대기 등록·재신청](../../API.md#part-04-대기-등록재신청)을 따른다. 대기 관계의 저장과 자동 승격 일관성은 [ADR-0037](../participation/0037-room-waitlist-latest-state-atomic-promotion.md)에서 별도로 다룬다.
+요청자 관계를 `Room` Entity에 넣는 `Room.isJoinableBy(...)`, 행동 가능성을 위한 신규 enum, Factory·Assembler·범용 mapper·추가 policy 계층은 도입하지 않는다. 요청자별 판정은 위 사실 값과 evaluator의 책임으로 한정한다.
+
+`RoomActionAvailability`는 [PublicRoomResponse](../../API.md#47-publicroomresponse), [ParticipantRoomResponse](../../API.md#48-participantroomresponse), [MyRoomListItem](../../API.md#410-myroomlistitem)에 공통 적용한다. 참가 명령 결과인 `RoomParticipationResponse`에는 행동 가능성 필드를 추가하지 않는다.
+
+조회 응답의 행동 가능성은 안내값이다. 실제 참가 명령은 최신 ROOM·참가·대기 상태를 다시 검증하며, 직접 참가 요청이 좌석 경합으로 실패하더라도 해당 요청을 대기 신청으로 바꾸지 않는다. 대기 관계는 별도의 명시적 대기 신청이 성공했을 때만 생성한다.
+
+상태 보정 커밋 뒤 ROOM과 현재 `ACTIVE`·`WAITING` 사실을 같은 PostgreSQL 스냅샷에서 읽는 트랜잭션 계약은 [ADR-0041](0041-postgresql-room-query-consistent-snapshot.md)이 소유한다. `WAITING` 물리 저장·조회 기반 구현은 PART-04가 소유하고 저장 모델과 자동 승격 일관성 결정은 [ADR-0037](../participation/0037-room-waitlist-latest-state-atomic-promotion.md)을 따른다. 이 ADR은 ADR-0037의 결정·상태·대체 관계를 바꾸지 않는다.
 
 ## 결과
 
@@ -49,8 +55,9 @@ P0는 `RoomStatus`로 ROOM의 생명주기를 표현하고, 공개 ROOM 응답�
     - 공개 응답 조립에 활성 대기 관계가 추가로 필요할 수 있다.
     - 상태·시각·정원·요청자 관계 조합이 늘어나 판정 테스트가 증가한다.
 - 후속 작업:
-    - ADR-0037에 따라 대기 관계의 ERD와 저장 제약을 확정한다.
-    - 두 가능 여부의 상호 배타성과 시작 경계를 단위·통합 테스트로 검증한다.
+    - 후속 정본 동기화 이슈 #305에서 ROOM-08 관련 일반 정본을 이 결정과 ADR-0041에 맞춘다.
+    - PART-04의 현재 `WAITING` 조회 기반과 ROOM-08 공통 판정·응답 조립을 구현한다.
+    - 두 가능 여부의 상호 배타성, 시작 경계와 세 응답의 동일 판정을 단위·통합 테스트로 검증한다.
 
 ## 보류 및 재검토
 
@@ -67,8 +74,8 @@ P0는 `RoomStatus`로 ROOM의 생명주기를 표현하고, 공개 ROOM 응답�
 - 상태: 미검증
 - 근거: 없음
 - 미검증:
-    - 대기 관계 ERD 확정
-    - 서버 공통 판정 구현과 상호 배타성 테스트
-    - 기존 `joinable` 호환성 확인
+    - Room 순수 파생 메서드와 서버 공통 판정 구현
+    - 현재 `ACTIVE`·`WAITING` 사실을 사용한 세 ROOM 응답 조립
+    - 행동 가능성 상호 배타성·시작 경계·기존 `joinable` 호환성 테스트
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.
