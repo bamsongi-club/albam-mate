@@ -138,6 +138,7 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .btn.green { background: var(--green); }
 .btn.redline { background: #fff; border: 1.5px solid var(--red-soft); color: var(--red); }
 .hint { color: var(--sub); font-size: 12px; margin-top: 4px; }
+.hint.warn { color: var(--red); font-weight: 800; }
 .infobox { background: var(--soft); border-radius: 12px; font-size: 13.5px; padding: 14px 16px; }
 .infobox.green { background: var(--green-soft); }
 .infobox.amber { background: var(--amber-soft); }

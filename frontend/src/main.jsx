@@ -18,6 +18,10 @@ const GAME_SEARCH_PAGE_SIZE = 10;
 const GAME_LIST_PAGE_SIZE = 24;
 const ROOM_LIST_PAGE_SIZE = 12;
 const GAME_SEARCH_DEBOUNCE_MS = 250;
+// 회원가입 비밀번호 한도는 서버 검증 규칙과 같은 값을 쓴다. 한쪽만 바뀌면 안내와 결과가 어긋난다.
+const PASSWORD_MIN_CODE_POINTS = 15;
+const PASSWORD_MAX_CODE_POINTS = 64;
+const PASSWORD_MAX_UTF8_BYTES = 72;
 const ROOM_TYPE_FILTERS = [
   { value: '', label: '전체', short: '전체' },
   { value: 'GAME_FOCUSED', label: '게임 중심', short: '게임' },
@@ -1158,6 +1162,19 @@ function ProfileView({ me, onSave, onLogout }) {
   );
 }
 
+// 하한은 브라우저 minLength가 알려준다. 사용자가 스스로 셀 수 없는 상한만 여기서 판정한다.
+// 안내 문구의 한글 24자는 72바이트를 한글 한 글자 3바이트로 나눈 값이다.
+// 이 문장이 가입이 막힌 사유를 알리는 유일한 자리다. 같은 말을 오류 상자에 겹쳐 띄우지 않는다.
+function signupPasswordError(password) {
+  if ([...password].length > PASSWORD_MAX_CODE_POINTS) {
+    return PASSWORD_MAX_CODE_POINTS + '자를 넘어 회원가입을 진행할 수 없어요. 조금 줄여주세요.';
+  }
+  if (new TextEncoder().encode(password).length > PASSWORD_MAX_UTF8_BYTES) {
+    return '비밀번호가 너무 길어 회원가입을 진행할 수 없어요. 한글이나 이모지는 영문보다 길이를 많이 차지해요.';
+  }
+  return '';
+}
+
 function AuthView({ onLogin, onSignup }) {
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
@@ -1166,8 +1183,15 @@ function AuthView({ onLogin, onSignup }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const signup = mode === 'signup';
+  const passwordRef = useRef(null);
+  const passwordError = signup ? signupPasswordError(password) : '';
   const submit = async (event) => {
     event.preventDefault();
+    // 사유는 입력란 아래 안내 한 곳에서만 말한다. 여기서는 고칠 자리로 보내기만 한다.
+    if (passwordError) {
+      passwordRef.current?.focus();
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
@@ -1191,7 +1215,7 @@ function AuthView({ onLogin, onSignup }) {
       <h2>{signup ? '회원가입' : '로그인'}</h2>
       <div className="tabs"><button type="button" className={!signup ? 'on' : ''} onClick={() => { setMode('login'); setError(''); }}>로그인</button><button type="button" className={signup ? 'on' : ''} onClick={() => { setMode('signup'); setError(''); }}>회원가입</button></div>
       <form onSubmit={submit}>
-        <div className="formrow single"><div><label htmlFor="auth-email">이메일</label><input id="auth-email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></div>{signup && <div><label htmlFor="auth-nickname">닉네임</label><input id="auth-nickname" maxLength="50" required value={nickname} onChange={(event) => setNickname(event.target.value)} /></div>}<div><label htmlFor="auth-password">비밀번호</label><input id="auth-password" type="password" autoComplete={signup ? 'new-password' : 'current-password'} minLength={signup ? 15 : 1} maxLength="64" required value={password} onChange={(event) => setPassword(event.target.value)} />{signup && <p className="hint">15~64개의 Unicode 문자, UTF-8 72바이트 이하로 입력해주세요.</p>}</div></div>
+        <div className="formrow single"><div><label htmlFor="auth-email">이메일</label><input id="auth-email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></div>{signup && <div><label htmlFor="auth-nickname">닉네임</label><input id="auth-nickname" maxLength="50" required value={nickname} onChange={(event) => setNickname(event.target.value)} /></div>}<div><label htmlFor="auth-password">비밀번호</label><input id="auth-password" ref={passwordRef} type="password" autoComplete={signup ? 'new-password' : 'current-password'} minLength={signup ? PASSWORD_MIN_CODE_POINTS : 1} required value={password} onChange={(event) => setPassword(event.target.value)} aria-describedby={signup ? 'auth-password-hint' : undefined} aria-invalid={passwordError ? true : undefined} />{signup && <p id="auth-password-hint" className={passwordError ? 'hint warn' : 'hint'} role={passwordError ? 'alert' : undefined}>{passwordError || '15자 이상, 영문·숫자는 64자까지 한글은 24자까지 입력할 수 있어요.'}</p>}</div></div>
         {error && <ErrorBox message={error} />}
         <button className="btn big" disabled={submitting} type="submit">{submitting ? '처리 중…' : signup ? '회원가입' : '로그인'}</button>
       </form>
