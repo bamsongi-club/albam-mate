@@ -1,13 +1,11 @@
 # ADR-0027: 게임 메커니즘을 검수된 내부 목록과 관계로 관리
 
-- 상태: 제안됨
+- 상태: 승인됨
 - 작성일: 2026-07-31
-- 결정일: 미정
+- 결정일: 2026-08-03
 - 관련: [SEARCH-01 메커니즘 필터 후보](../../p1/search.md#search-01-게임-조건-검색), [ERD GAMES](../../ERD.md#games), [ADR-0015](0015-bgg-baseline-team-collected-game-list.md), [ADR-0019](0019-bgg-full-catalog-staged-enrichment.md), [출처 manifest](../../game-catalog/2026-07-24-source-manifest.draft.json)
 - 대체 대상: 없음
 - 후속 ADR: 없음
-
-> 이 문서는 팀 논의를 위한 제안이다. 승인 전에는 구현 정본이나 외부 자료의 이용 허가로 사용하지 않는다.
 
 > 이 결정은 P1 필수 범위가 아니라 확장 후보다. 상위 P1 범위에 채택되기 전에는 API·ERD·구현 계약에 반영하지 않는다.
 

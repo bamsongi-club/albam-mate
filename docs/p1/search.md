@@ -4,9 +4,9 @@
 
 전체 범위·공통 검색 규칙은 [P1 명세](../P1-spec.md), 기존 동작은 [P0 완료 문서](../archive/p0/README.md), 요청·응답·오류는 [API 명세](../API.md), 저장 구조와 제약은 [ERD](../ERD.md)를 따른다. P1 검색용 저장 계약은 아직 ERD에 반영되지 않았으므로 구현 작업에서 전진 Flyway 마이그레이션과 PostgreSQL 검증을 함께 추가해야 한다.
 
-P1 필수 게임 데이터 적재·검증 대상은 현재 확보한 약 2,000건이다. 전체 카탈로그 확장과 새 외부 데이터 취득은 별도 승인 범위다. ADR-0026~ADR-0028은 현재 제안 상태이며, 필수 범위는 [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md)을 승인한 뒤 구현한다. 메커니즘과 `SEARCH-03`은 상위 범위 채택과 각각의 ADR 승인까지 필요하다.
+P1 필수 게임 데이터 적재·검증 대상은 현재 확보한 약 2,000건이다. 전체 카탈로그 확장과 새 외부 데이터 취득은 별도 승인 범위다. ADR-0026~ADR-0028의 결정은 승인됐으며, 필수 범위는 [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md)을 따른다. 메커니즘과 `SEARCH-03`은 ADR 승인과 별개로 상위 범위에 채택돼야 한다.
 
-ADR-0026 승인과 검색 저장 계약의 ERD 반영은 필수 범위 구현·테스트의 착수 조건이자 병합 조건이다. 승인 전에는 요구사항·대안 검토와 계약 보완만 진행하고, 제안 상태의 ADR을 근거로 생산 코드·마이그레이션·테스트를 작성하지 않는다. 결정이 바뀌면 승인 전에 ADR과 이 문서를 함께 갱신한다.
+ADR-0026 승인 조건은 충족됐으며, 검색 저장 계약의 ERD 반영은 필수 범위 구현·테스트의 병합 조건이다. 승인된 결정이 바뀌면 후속 ADR로 기존 결정을 대체하고 이 문서를 함께 갱신한다.
 
 ## 필터별 데이터 출처와 구현 가능 여부
 
@@ -36,7 +36,7 @@ BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건�
 | API 계약 | [게임 목록·검색](../API.md#game-01-게임-목록검색) |
 | 공통 규칙 | [게임 데이터 정규화](../P1-spec.md#게임-데이터-정규화), [검색 조건과 결과](../P1-spec.md#검색-조건과-결과) |
 | 데이터 모델 | [GAMES](../ERD.md#games) — 구현 전에 검색 수치와 제약 반영 필요 |
-| 필수 ADR | [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md) — 제안됨 |
+| 필수 ADR | [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md) — 승인됨 |
 | 출처·적재 | [ADR-0015](../adr/game/0015-bgg-baseline-team-collected-game-list.md), [입력 검수 기록](../game-catalog/2026-07-24-input-review.md), [적재 절차](../guides/GAME_CATALOG_IMPORT.md) |
 | 입력 데이터 | 입력 CSV와 변환 산출물은 저장소에 커밋하지 않는다. 적재 작업은 [입력 검수 기록](../game-catalog/2026-07-24-input-review.md)의 SHA-256과 일치하는 팀 공유 입력을 먼저 확보해야 하며, 입력을 새로 수집하거나 생성하지 않는다 |
 | 성능 검증 | [FND-09 검색 성능과 인덱스 검증](foundation.md#fnd-09-검색-성능과-인덱스-검증) |
@@ -184,7 +184,7 @@ BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건�
 | 검색 진입점 | [게임 목록·검색](../API.md#game-01-게임-목록검색) |
 | 인증·공개 범위 | [P1 P0 계약 상속](../P1-spec.md#p0-계약-상속) |
 | 게임 식별자 | [GAMES](../ERD.md#games), [ADR-0006](../adr/platform/0006-p0-bigint-identity-ids.md) |
-| 후보 ADR | [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md) — 제안됨 |
+| 후보 ADR | [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md) — 승인됨. 기능 범위는 P1 후속 후보 |
 
 ### 기능 규칙
 

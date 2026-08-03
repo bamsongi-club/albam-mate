@@ -1,13 +1,11 @@
 # ADR-0018: P0 이후 단독 플레이 가능 여부와 확장 관계를 분리해 관리
 
-- 상태: 제안됨
+- 상태: 승인됨
 - 작성일: 2026-07-28
-- 결정일: 미정
+- 결정일: 2026-08-03
 - 관련: [제품 후속 기능 후보](../../PRD.md#후속-기능-후보-도입-차수-미정), [ERD GAMES](../../ERD.md#games), [ERD ROOMS](../../ERD.md#rooms), [ADR-0015](0015-bgg-baseline-team-collected-game-list.md), [ADR-0019](0019-bgg-full-catalog-staged-enrichment.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
-
-> 이 문서는 팀 논의를 위한 제안이다. 승인 전에는 구현 정본으로 사용하지 않는다.
 
 ## 맥락
 
