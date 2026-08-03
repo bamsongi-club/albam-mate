@@ -1,6 +1,6 @@
 # 알밤메이트 ERD
 
-이 문서는 현재 제공 중인 P0와 승인된 P1 알림·채팅·다중 인스턴스 스케줄 잠금, 구현 예정인 P1 게임 검색 수치의 데이터 모델·데이터 제약을 정의한다. P1 항목은 구현 예정 계약이며 Flyway 마이그레이션과 코드가 반영되기 전에는 현재 운영 스키마로 보지 않는다.
+이 문서는 현재 제공 중인 P0, 승인된 P1 알림·채팅·다중 인스턴스 스케줄 잠금, 승인 대기 중인 P1 소셜 계정과 구현 예정인 P1 게임 검색 수치의 데이터 모델·데이터 제약을 정의한다. P1 항목은 Flyway 마이그레이션과 코드가 반영되기 전에는 현재 운영 스키마로 보지 않는다.
 
 ### 이 문서의 범위
 
@@ -12,8 +12,8 @@
 
 ## 기준과 범위
 
-- 기준: P0 제품 규칙은 [P0 공통 명세](archive/p0/P0-spec.md), P1 알림·채팅·스케줄 규칙은 [P1 명세](P1-spec.md)와 [관련 승인 ADR](adr/README.md)을 따른다.
-- 범위: 현재 P0의 오프라인 방·게임 목록·사용자·방 참가, P1 구현 예정인 게임 검색 수치·서비스 내 알림·방별 채팅·공용 스케줄 잠금
+- 기준: P0 제품 규칙은 [P0 공통 명세](archive/p0/P0-spec.md), P1 규칙은 [P1 명세](P1-spec.md)와 [관련 ADR](adr/README.md)을 따른다. 소셜 로그인 저장 계약과 ADR-0042는 #328 팀 승인 전까지 제안 상태다.
+- 범위: 현재 P0의 오프라인 방·게임 목록·사용자·방 참가, P1의 소셜 계정과 구현 예정인 게임 검색 수치·서비스 내 알림·방별 채팅·공용 스케줄 잠금
 - 제외: 아직 저장 계약을 확정하지 않은 P1 대기 구조, 온라인 방, 온라인 자동 매칭, 후기, 룰마스터 가능 게임, 결제·포인트
 - P0 검색: 게임 목록은 게임명 `keyword`, 사람 중심 방 목록은 방 제목 `keyword` 검색을 지원한다. 게임 태그는 표시값이며 필터가 아니다.
 - 시간대가 겹치는 서로 다른 방에는 같은 사용자가 동시에 참가할 수 있다. 따라서 종료 시각과 시간 중복 제약은 두지 않는다.
@@ -23,6 +23,7 @@
 ~~~mermaid
 erDiagram
     USERS ||--o{ ROOMS : "개설"
+    USERS ||--o{ SOCIAL_ACCOUNTS : "외부 신원 연결"
     GAMES o|--o{ ROOMS : "선택됨"
     USERS ||--o{ PARTICIPATIONS : "참가"
     ROOMS ||--o{ PARTICIPATIONS : "참가 관계 보유"
@@ -35,6 +36,15 @@ erDiagram
         VARCHAR email UK
         VARCHAR password_hash
         VARCHAR nickname
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    SOCIAL_ACCOUNTS {
+        BIGINT id PK
+        BIGINT user_id FK
+        VARCHAR provider
+        VARCHAR provider_subject
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
     }
@@ -126,12 +136,13 @@ erDiagram
 | room_type | `GAME_FOCUSED`, `PERSON_FOCUSED` | 게임 중심 또는 사람 중심 방 |
 | room_status | `RECRUITING`, `CLOSED`, `CANCELED`, `FINISHED` | 모집 중, 모집 종료, 취소, 종료 |
 | participation_status | `ACTIVE`, `CANCELED` | 활성 참가, 참가 취소 |
+| social_provider | `GOOGLE`, `NAVER`, `KAKAO` | 외부 로그인 제공자 |
 | experience_level | `ALL_LEVELS`, `BEGINNER_WELCOME`, `EXPERIENCED_PREFERRED` | 방이 권장하는 경험 수준 |
 | notification_outbox_event_type | `PARTICIPATION_JOINED`, `PARTICIPATION_CANCELED`, `ROOM_CANCELED` | 참가·재참가 성공, 참가 취소 성공, 방 취소 성공이라는 모듈 간 원인 사실 |
 | notification_outbox_status | `PENDING`, `RETRY_WAIT`, `PROCESSED`, `FAILED`, `DISCARDED` | 최초 대기, 자동·수동 재처리 대기, 처리 완료, 운영 조치 대기 실패, 운영 폐기 |
 | notification_type | `PARTICIPANT_JOINED`, `PARTICIPANT_CANCELED`, `ROOM_CANCELED` | 사용자에게 표시하는 새 참가자, 빈자리, 방 취소 알림 유형 |
 
-P1 알림의 제한 값은 PostgreSQL 네이티브 enum이 아니라 `VARCHAR`와 이름 있는 `CHECK` 제약으로 저장한다. 이는 기존 P0 Flyway 상태 컬럼의 물리 저장 방식과 같다.
+P1 소셜 제공자와 알림의 제한 값은 PostgreSQL 네이티브 enum이 아니라 `VARCHAR`와 이름 있는 `CHECK` 제약으로 저장한다. 이는 기존 P0 Flyway 상태 컬럼의 물리 저장 방식과 같다.
 
 ## 테이블 명세
 
@@ -144,11 +155,26 @@ P1 알림의 제한 값은 PostgreSQL 네이티브 enum이 아니라 `VARCHAR`�
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | id | BIGINT | PK, NN, AI | 사용자 식별자 |
-| email | VARCHAR(255) | UQ, NN | 로그인 이메일 |
-| password_hash | VARCHAR(255) | NN | [ADR-0013](adr/auth/0013-p0-password-storage-auth-request-protection.md)의 `{bcrypt}` 식별자와 cost를 포함한 bcrypt 해시. 원문 저장 금지 |
+| email | VARCHAR(255) | UQ, NULL | 이메일 회원의 로그인 이메일 또는 소셜 첫 로그인에서 받은 선택 이메일. 소셜 신원 키로 사용하지 않음 |
+| password_hash | VARCHAR(255) | NULL | 이메일 회원은 [ADR-0013](adr/auth/0013-p0-password-storage-auth-request-protection.md)의 `{bcrypt}` 식별자와 cost를 포함한 bcrypt 해시. 소셜 전용 사용자는 `NULL`, 원문 저장 금지 |
 | nickname | VARCHAR(50) | NN | 방 개설자·참가자 표시명 |
 | created_at | TIMESTAMPTZ | NN | 가입 시각 |
 | updated_at | TIMESTAMPTZ | NN | 프로필 수정 시각 |
+
+이메일 회원가입은 `email`과 `password_hash`를 모두 저장한다. 소셜 전용 사용자는 둘 다 `NULL`이거나 겹치지 않는 제공자 이메일과 `NULL` 비밀번호를 가질 수 있다. `password_hash`가 있으면 `email`도 반드시 있어야 한다. 반대로 `password_hash`가 `NULL`이면 값이 있는 이메일도 로그인 자격증명이 아니며, 이메일 자격증명 조회는 해당 행을 미존재와 동일하게 처리한다.
+
+### SOCIAL_ACCOUNTS
+
+[AUTH-05](p1/auth.md#auth-05-소셜-로그인계정-연결)의 외부 신원 연결 정본이다. 이메일·닉네임·token은 저장하지 않고 제공자와 그 제공자가 보장하는 subject만 저장한다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | BIGINT | PK, NN, AI | 소셜 계정 연결 식별자 |
+| user_id | BIGINT | FK → USERS.id, NN | 연결된 알밤메이트 사용자 |
+| provider | VARCHAR(20) | NN | `GOOGLE`, `NAVER`, `KAKAO` 중 하나 |
+| provider_subject | VARCHAR(255) | NN | 제공자 내부의 변경하지 않는 사용자 식별자 |
+| created_at | TIMESTAMPTZ | NN | 연결 시각 |
+| updated_at | TIMESTAMPTZ | NN | 연결 레코드 갱신 시각 |
 
 ### GAMES
 
@@ -420,7 +446,11 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 
 | 테이블 | 제약 | 의미 |
 |---|---|---|
-| USERS | UNIQUE (email) | 로그인 이메일은 중복될 수 없다. |
+| USERS | UNIQUE (email) | 값이 있는 정규화 이메일은 중복될 수 없다. PostgreSQL은 여러 `NULL`을 허용한다. |
+| USERS | CHECK (password_hash IS NULL OR email IS NOT NULL) | 비밀번호 자격증명은 로그인 이메일 없이 존재할 수 없다. |
+| SOCIAL_ACCOUNTS | CHECK (provider IN ('GOOGLE', 'NAVER', 'KAKAO')) | 승인된 세 제공자만 저장한다. |
+| SOCIAL_ACCOUNTS | UNIQUE (provider, provider_subject) | 한 외부 계정은 한 알밤메이트 사용자에게만 연결된다. |
+| SOCIAL_ACCOUNTS | UNIQUE (user_id, provider) | 한 사용자는 제공자마다 외부 계정 하나만 연결한다. |
 | GAMES | UNIQUE (bgg_id) | 하나의 BGG 게임은 게임 목록에 한 번만 저장한다. |
 | ROOMS | CHECK (room_type <> 'GAME_FOCUSED' OR game_id IS NOT NULL) | 게임 중심 방은 게임을 반드시 선택한다. |
 | ROOMS | CHECK (capacity BETWEEN 1 AND 10) | 개설자를 제외한 모집 정원은 1명 이상 10명 이하다. |
@@ -433,6 +463,7 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 | SHEDLOCK | PRIMARY KEY (name) | 같은 이름의 스케줄 잠금은 하나의 임대 상태만 가진다. |
 
 - 사람 중심 방의 `game_id`는 NULL일 수 있으며, 게임을 선택한 사람 중심 방도 허용한다.
+- `SOCIAL_ACCOUNTS.user_id`는 `ON DELETE NO ACTION`이다. 계정 삭제는 AUTH-05 범위에 없으며 도입 시 외부 연결 처리 순서를 별도로 결정한다.
 - 재참가 시 기존 `PARTICIPATIONS` 행을 재활성화한다. `CANCELED`를 `ACTIVE`로 바꾸고 `joined_at`을 갱신하며 `canceled_at`은 NULL로 되돌린다.
 - `capacity`는 개설자를 제외한 1명 이상 10명 이하의 모집 인원이다. 전체 참여 가능 인원은 2명 이상 11명 이하다.
 

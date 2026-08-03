@@ -99,7 +99,7 @@ JSON 필드는 camelCase를 사용한다. 저장 컬럼(snake_case)과의 대응
 
 ### 1.2 인증·세션·CSRF
 
-P0와 P1은 서버 세션 인증을 사용한다. Bearer access token과 refresh token은 사용하지 않는다. 세부 기준은 [ADR-0003](adr/auth/0003-p0-server-session-spring-security.md)을 따른다.
+P0와 P1은 서버 세션 인증을 사용한다. Bearer access token과 refresh token은 애플리케이션 인증에 사용하지 않는다. AUTH-05 제안은 외부 token을 callback 처리 중에만 사용하고 저장·노출하지 않는다. 현재 세션 기준은 [ADR-0003](adr/auth/0003-p0-server-session-spring-security.md), AUTH-05 제안은 승인 대기 중인 [ADR-0042](adr/auth/0042-p1-oauth-social-identity-and-session-integration.md)를 따른다.
 
 | 항목 | 계약 |
 |---|---|
@@ -121,7 +121,8 @@ P0와 P1은 서버 세션 인증을 사용한다. Bearer access token과 refresh
 
 - 상태 변경 요청은 자동 전송되는 `XSRF-TOKEN` 쿠키와, `headerName`이 지정한 헤더에 담은 `token` 값을 함께 전달한다. 클라이언트는 회원가입·로그인 전에 공개 API인 `GET /api/auth/csrf`를 먼저 호출한다. 비로그인 CSRF 조회는 `JSESSIONID`와 서버 세션을 생성하지 않는다.
 - 로그인 성공 시 세션 ID를 교체하고 새 `JSESSIONID`를 설정한다. 로그아웃은 서버 세션과 인증 상태를 무효화하고 `JSESSIONID`를 만료시킨다.
-- 로그인과 로그아웃 성공 시 기존 CSRF 토큰이 무효화되므로, 다음 상태 변경 요청 전에 `GET /api/auth/csrf`를 다시 호출한다.
+- 이메일·소셜 로그인, 소셜 계정 연결과 로그아웃 성공 시 기존 CSRF 토큰이 무효화되므로, 다음 상태 변경 요청 전에 `GET /api/auth/csrf`를 다시 호출한다.
+- 소셜 authorization 시작은 `state` 검증을 위해 인증 전에도 임시 서버 세션을 만들 수 있다. 로그인 성공 시 해당 세션 ID를 교체하며 실패·취소 시 임시 인증 상태를 폐기한다.
 - 세션이 없거나 만료·무효화된 상태로 보호 API를 호출하면 `UNAUTHENTICATED`, CSRF 토큰이 없거나 유효하지 않으면 `CSRF_TOKEN_INVALID`를 반환한다.
 - **오류 우선순위:** 보호 API에서 유효한 세션이 없으면 CSRF 토큰의 유효 여부와 무관하게 `UNAUTHENTICATED`를 `CSRF_TOKEN_INVALID`보다 우선한다.
 
@@ -244,8 +245,12 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 25 | P1 | [CHAT-02](#chat-02-메시지-전송) · [정본](p1/chatting.md#chat-02-메시지-전송이력-조회) | POST | `/api/rooms/{roomId}/chat/messages` | Y | Y | 201·200 |
 | 26 | P1 | [CHAT-02](#chat-02-메시지-이력-조회) · [정본](p1/chatting.md#chat-02-메시지-전송이력-조회) | GET | `/api/rooms/{roomId}/chat/messages` | Y | N | 200 |
 | 27 | P1 | [CHAT-03](#chat-03-실시간-메시지-구독) · [정본](p1/chatting.md#chat-03-실시간-전달재연결-복구) | GET (Upgrade) | `/api/rooms/{roomId}/chat/ws` | Y | N | 101 |
+| 28 | P1 | [AUTH-05](#auth-05-소셜-로그인계정-연결) · [정본](p1/auth.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/providers` | 선택 | N | 200 |
+| 29 | P1 | [AUTH-05](#소셜-로그인-authorization-시작) · [정본](p1/auth.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/authorization/{provider}` | N | N | 302 |
+| 30 | P1 | [AUTH-05](#소셜-callback과-고정-결과) · [정본](p1/auth.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/callback/{provider}` | N | N | 302 |
+| 31 | P1 | [AUTH-05](#소셜-계정-연결-시작) · [정본](p1/auth.md#auth-05-소셜-로그인계정-연결) | POST | `/api/users/me/social-accounts/{provider}/link` | Y | Y | 200 |
 
-`GET /api/rooms`와 `GET /api/rooms/{roomId}`의 인증은 "선택"이다. 비로그인도 호출할 수 있고, 유효한 세션이 있으면 요청자 기준으로 `joinable`, `waitlistable`과 응답 범위를 계산한다.
+`GET /api/rooms`, `GET /api/rooms/{roomId}`와 `GET /api/auth/social/providers`의 인증은 "선택"이다. 비로그인도 호출할 수 있고, 유효한 세션이 있으면 요청자 기준 값을 계산한다.
 
 ## 3. Enum
 
@@ -343,6 +348,16 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | `SHORT` | 20분 이하 |
 | `MEDIUM` | 20분 초과 60분 이하 |
 | `LONG` | 60분 초과 |
+
+### SocialProvider
+
+> **단계: P1 계약 제안·팀 승인 대기** · 현재 상태: [P1 기능 상태 정본의 `AUTH-05`](p1/README.md#기능별-현재-상태)
+
+| 값 | 경로값 | 의미 |
+|---|---|---|
+| `GOOGLE` | `google` | Google OpenID Connect |
+| `NAVER` | `naver` | Naver Login OAuth2 |
+| `KAKAO` | `kakao` | Kakao Login OpenID Connect |
 
 ### NotificationType
 
@@ -607,6 +622,20 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 | `waitlistStatus` | WaitlistStatus | Y | N | 본인의 최신 대기 상태 |
 | `position` | integer | Y | Y | `WAITING`일 때만 조회 시점의 1 이상 순번, 그 외에는 `null` |
 
+### 4.19 SocialProviderItem
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `provider` | SocialProvider | Y | N | 설정된 제공자 |
+| `authorizationUri` | string | Y | N | same-site `/api/auth/social/authorization/{provider}` 경로 |
+| `linked` | boolean | Y | N | 로그인 사용자는 현재 연결 여부, 비로그인 사용자는 `false` |
+
+### 4.20 SocialAuthorizationResponse
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `authorizationUri` | string | Y | N | 연결 인증을 계속할 same-site authorization 경로 |
+
 ## 5. 인증·프로필 API
 
 ### 인증 요청 남용 제한
@@ -700,6 +729,7 @@ Set-Cookie: XSRF-TOKEN={token}; Path=/; HttpOnly; SameSite=Lax
 
 - 필드 누락·`null`·빈 문자열·길이·바이트 한도 초과는 `VALIDATION_ERROR`다.
 - 필드 형식은 유효하지만 자격증명이 일치하지 않으면 `INVALID_CREDENTIALS`다. 존재하지 않는 이메일과 잘못된 비밀번호는 계정 유무를 구분하지 않고 동일하게 `INVALID_CREDENTIALS`로 응답한다(→ [ADR-0013](adr/auth/0013-p0-password-storage-auth-request-protection.md)).
+- `password_hash`가 없는 소셜 전용 사용자의 제공자 이메일도 자격증명 미존재로 처리한다. 존재하지 않는 이메일과 같은 더미 bcrypt·요청 제한 경로를 거쳐 `401 INVALID_CREDENTIALS`를 반환하며 `500`이나 소셜 계정 존재 여부를 노출하지 않는다.
 
 응답 헤더:
 
@@ -773,6 +803,76 @@ P0에서는 닉네임만 수정한다.
 |---|---:|---|
 | 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
 | 요청값 검증 실패 | 400 | `VALIDATION_ERROR` |
+| CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
+
+### AUTH-05 소셜 로그인·계정 연결
+
+> **단계: P1 계약 제안·팀 승인 대기** · 현재 상태: [P1 기능 상태 정본의 `AUTH-05`](p1/README.md#기능별-현재-상태)
+
+이 절은 #328 팀 승인을 위한 목표 계약이다. 제품 규칙은 [P1 소셜 로그인 명세](p1/auth.md), 외부 식별자·세션 결정 제안은 [ADR-0042](adr/auth/0042-p1-oauth-social-identity-and-session-integration.md)를 따른다. 경로의 `{provider}`는 [SocialProvider](#socialprovider)의 소문자 경로값만 허용한다.
+
+#### 설정된 소셜 제공자 조회
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `GET /api/auth/social/providers` |
+| 인증 / CSRF | 선택 / 불필요 |
+| 성공 | `200 OK`, `data`: `SocialProviderItem[]` |
+
+Client ID와 Client Secret이 모두 설정된 제공자만 `GOOGLE`, `NAVER`, `KAKAO` 순서로 반환한다. 설정된 제공자가 없으면 빈 배열이다. 유효한 로그인 세션이 있으면 각 제공자의 현재 연결 여부를 `linked`로 반환하고, 비로그인은 모두 `false`다. query parameter와 body는 없다.
+
+**오류:** 계약된 오류가 없다.
+
+#### 소셜 로그인 authorization 시작
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `GET /api/auth/social/authorization/{provider}` |
+| 인증 / CSRF | 불필요 / 불필요 |
+| 성공 | `302 Found`, 제공자의 authorization endpoint로 리다이렉트 |
+
+Spring Security filter가 OAuth2 Authorization Code 요청과 추측하기 어려운 일회성 `state`를 만들고 서버 세션에 authorization request만 임시 저장한다. 공통 JSON envelope를 사용하지 않는다. 지원하지 않거나 설정되지 않은 제공자는 외부로 보내지 않고 `/?socialAuth=provider-unavailable#/auth`로 리다이렉트한다.
+
+#### 소셜 callback과 고정 결과
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `GET /api/auth/social/callback/{provider}` |
+| 인증 / CSRF | 불필요 / 불필요 |
+| 결과 | `302 Found`, same-site 프론트엔드의 고정 결과로 리다이렉트 |
+
+제공자가 보내는 `code`, `state`, `error` 외의 사용자 입력을 응답 URL에 복사하지 않는다. `code`, token, provider 오류 설명과 사용자 속성은 리다이렉트·본문·로그에 넣지 않는다. 허용 결과는 다음뿐이다.
+
+| `socialAuth` | 의미 | 기본 화면 |
+|---|---|---|
+| `login-success` | 신규·기존 소셜 로그인 성공 | `#/home` |
+| `link-success` | 로그인 사용자의 명시적 연결 성공 | `#/profile` |
+| `link-required` | 같은 이메일의 기존 사용자가 있어 자동 병합하지 않음 | `#/auth` |
+| `link-conflict` | 외부 계정 또는 같은 제공자의 다른 계정이 이미 연결됨 | 로그인 연결 시도는 `#/profile`, 그 외 `#/auth` |
+| `canceled` | 사용자가 제공자 동의를 취소함 | 시도 모드에 따라 `#/auth` 또는 `#/profile` |
+| `invalid-state` | `state` 누락·불일치·재사용 | 시도 모드에 따라 `#/auth` 또는 `#/profile` |
+| `provider-unavailable` | 지원하지 않거나 현재 설정되지 않은 제공자 | `#/auth` |
+| `failed` | 필수 subject 누락 또는 처리 실패 | 시도 모드에 따라 `#/auth` 또는 `#/profile` |
+
+로그인 성공은 `/?socialAuth=login-success#/home`, 연결 성공은 `/?socialAuth=link-success#/profile`처럼 query 뒤에 hash route를 붙인다. 로그인 성공은 새 `CurrentUserPrincipal`을 저장하고, 연결 성공은 기존 사용자를 유지한다. 두 성공 모두 세션 ID를 교체하고 기존 CSRF 토큰을 무효화한다. 로그인 실패·취소는 사용자를 만들거나 인증하지 않고, 연결 실패·취소는 기존 로그인 상태를 복구·유지하며 일회성 연결 의도를 폐기한다.
+
+#### 소셜 계정 연결 시작
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `POST /api/users/me/social-accounts/{provider}/link` |
+| 인증 / CSRF | 필요 / 필요 |
+| 성공 | `200 OK`, `data`: `SocialAuthorizationResponse` |
+
+request body와 query parameter는 없다. 현재 사용자와 제공자를 일회성 연결 의도로 서버 세션에 저장하고 same-site `authorizationUri`를 반환한다. 클라이언트는 성공 응답 뒤 해당 URI로 전체 페이지 이동한다. 이미 같은 제공자 연결이 있으면 기존 연결을 교체하지 않는다.
+
+#### 연결 시작 오류
+
+| 발생 조건 | HTTP | code |
+|---|---:|---|
+| 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
+| 지원하지 않거나 설정되지 않은 제공자 | 404 | `SOCIAL_PROVIDER_NOT_AVAILABLE` |
+| 사용자가 같은 제공자 계정을 이미 연결함 | 409 | `SOCIAL_ACCOUNT_ALREADY_LINKED` |
 | CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
 
 ## 6. 게임 API
@@ -1617,6 +1717,8 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 |---|---:|---|---|
 | `INVALID_CREDENTIALS` | 401 | 이메일 또는 비밀번호가 일치하지 않습니다. | 로그인 이메일 또는 비밀번호가 일치하지 않음 |
 | `EMAIL_ALREADY_EXISTS` | 409 | 이미 사용 중인 이메일입니다. | 회원가입 이메일이 이미 사용 중임(정규화된 값 기준) |
+| `SOCIAL_PROVIDER_NOT_AVAILABLE` | 404 | 사용할 수 없는 소셜 로그인 제공자입니다. | 지원하지 않거나 현재 Client ID·Secret이 설정되지 않은 제공자로 연결 시작 |
+| `SOCIAL_ACCOUNT_ALREADY_LINKED` | 409 | 해당 소셜 계정 제공자가 이미 연결되어 있습니다. | 로그인 사용자가 같은 제공자의 다른 연결을 시작함 |
 | `RATE_LIMIT_EXCEEDED` | 429 | 요청 처리 한도를 초과했습니다. 잠시 후 다시 시도해 주세요. | 인증·채팅 등 요청 횟수 또는 비밀번호 해시 동시 실행 한도 초과 |
 
 인증 요청의 `Retry-After` 계산은 [인증 요청 남용 제한](#인증-요청-남용-제한)을 따른다. 채팅 전송 제한 응답도 재시도까지 남은 초를 `Retry-After`로 반환하며, 정확한 임계값과 계산은 구현 전에 운영·보안 계약으로 확정한다.
@@ -1677,6 +1779,10 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 | `POST /api/auth/signup` | `VALIDATION_ERROR`, `EMAIL_ALREADY_EXISTS`, `RATE_LIMIT_EXCEEDED`, `CSRF_TOKEN_INVALID` |
 | `POST /api/auth/login` | `VALIDATION_ERROR`, `INVALID_CREDENTIALS`, `RATE_LIMIT_EXCEEDED`, `CSRF_TOKEN_INVALID` |
 | `POST /api/auth/logout` | `UNAUTHENTICATED`, `CSRF_TOKEN_INVALID` |
+| `GET /api/auth/social/providers` | 없음 |
+| `GET /api/auth/social/authorization/{provider}` | JSON 오류 대신 AUTH-05의 고정 `socialAuth` 리다이렉트 결과 |
+| `GET /api/auth/social/callback/{provider}` | JSON 오류 대신 AUTH-05의 고정 `socialAuth` 리다이렉트 결과 |
+| `POST /api/users/me/social-accounts/{provider}/link` | `UNAUTHENTICATED`, `SOCIAL_PROVIDER_NOT_AVAILABLE`, `SOCIAL_ACCOUNT_ALREADY_LINKED`, `CSRF_TOKEN_INVALID` |
 | `GET /api/users/me` | `UNAUTHENTICATED` |
 | `PATCH /api/users/me` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `CSRF_TOKEN_INVALID` |
 | `GET /api/games` | `VALIDATION_ERROR` |
