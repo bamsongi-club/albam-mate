@@ -1,7 +1,5 @@
 package cloud.bamsongi.albammate.notification.repository;
 
-import java.time.Instant;
-
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -17,23 +15,12 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 		insert into notifications (
 		    source_event_id, recipient_user_id, room_id, type, read_at, created_at, recorded_at, expires_at
 		) values (
-		    :sourceEventId, :recipientUserId, :roomId, :type, null, :createdAt, :recordedAt, :expiresAt
+		    :#{#notification.sourceEventId}, :#{#notification.recipientUserId}, :#{#notification.roomId},
+		    :#{#notification.type.name()}, null, :#{#notification.createdAt}, :#{#notification.recordedAt},
+		    :#{#notification.expiresAt}
 		)
 		on conflict (source_event_id, recipient_user_id) do nothing
 		""", nativeQuery = true)
-	int insertIfAbsent(
-		@Param("sourceEventId")
-		Long sourceEventId,
-		@Param("recipientUserId")
-		Long recipientUserId,
-		@Param("roomId")
-		Long roomId,
-		@Param("type")
-		String type,
-		@Param("createdAt")
-		Instant createdAt,
-		@Param("recordedAt")
-		Instant recordedAt,
-		@Param("expiresAt")
-		Instant expiresAt);
+	int insertIfAbsent(@Param("notification")
+	Notification notification);
 }

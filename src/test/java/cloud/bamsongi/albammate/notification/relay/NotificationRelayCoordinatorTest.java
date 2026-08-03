@@ -8,7 +8,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.time.Instant;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -111,8 +110,7 @@ class NotificationRelayCoordinatorTest {
 	}
 
 	private static NotificationRelayExecutor.ProcessedEvent processedEvent() {
-		Instant time = Instant.parse("2026-08-03T00:00:00Z");
-		return new NotificationRelayExecutor.ProcessedEvent(1L, "PARTICIPATION_JOINED", 1, time, time, 0, 0, 0, 0, 0);
+		return mock(NotificationRelayExecutor.ProcessedEvent.class);
 	}
 
 	private ListAppender<ILoggingEvent> attachLogAppender() {

@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -23,6 +24,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import cloud.bamsongi.albammate.notification.entity.Notification;
 import cloud.bamsongi.albammate.notification.entity.NotificationOutboxEvent;
 import cloud.bamsongi.albammate.notification.enums.NotificationOutboxEventType;
 import cloud.bamsongi.albammate.notification.enums.NotificationOutboxStatus;
@@ -51,10 +53,10 @@ class NotificationRelayExecutorTest {
 
 		NotificationRelayExecutor.ProcessedEvent processedEvent = executor.processOne().orElseThrow();
 
-		verify(notificationRepository).insertIfAbsent(10L, 2L, 5L, "PARTICIPANT_JOINED", OCCURRED_AT, OPERATION_TIME,
-			OCCURRED_AT.plusSeconds(90L * 24 * 60 * 60));
-		verify(notificationRepository).insertIfAbsent(10L, 3L, 5L, "PARTICIPANT_JOINED", OCCURRED_AT, OPERATION_TIME,
-			OCCURRED_AT.plusSeconds(90L * 24 * 60 * 60));
+		ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
+		verify(notificationRepository, times(2)).insertIfAbsent(notificationCaptor.capture());
+		assertStoredNotification(notificationCaptor.getAllValues().get(0), 2L);
+		assertStoredNotification(notificationCaptor.getAllValues().get(1), 3L);
 		assertEquals(NotificationOutboxStatus.PROCESSED, event.getStatus());
 		assertEquals(OPERATION_TIME, event.getProcessedAt());
 		assertEquals(OPERATION_TIME.plusSeconds(30L * 24 * 60 * 60), event.getCleanupAt());
@@ -72,7 +74,7 @@ class NotificationRelayExecutorTest {
 		when(eventRepository.claimEarliestProcessableEvent()).thenReturn(Optional.of(claim));
 		when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
 		when(recipientRepository.findRecipientUserIdsByOutboxEventId(10L)).thenReturn(List.of(2L));
-		when(notificationRepository.insertIfAbsent(anyLong(), anyLong(), anyLong(), any(), any(), any(), any()))
+		when(notificationRepository.insertIfAbsent(any(Notification.class)))
 			.thenThrow(new DataIntegrityViolationException("insert failed"));
 		NotificationRelayExecutor executor = new NotificationRelayExecutor(
 			eventRepository, recipientRepository, notificationRepository, new NotificationEventTypeMapper());
@@ -145,6 +147,16 @@ class NotificationRelayExecutorTest {
 		when(claim.getAvailableAt()).thenReturn(RECORDED_AT);
 		when(claim.getOperationTime()).thenReturn(OPERATION_TIME);
 		return claim;
+	}
+
+	private static void assertStoredNotification(Notification notification, Long recipientUserId) {
+		assertEquals(10L, notification.getSourceEventId());
+		assertEquals(recipientUserId, notification.getRecipientUserId());
+		assertEquals(5L, notification.getRoomId());
+		assertEquals("PARTICIPANT_JOINED", notification.getType().name());
+		assertEquals(OCCURRED_AT, notification.getCreatedAt());
+		assertEquals(OPERATION_TIME, notification.getRecordedAt());
+		assertEquals(OCCURRED_AT.plusSeconds(90L * 24 * 60 * 60), notification.getExpiresAt());
 	}
 
 	private ListAppender<ILoggingEvent> attachLogAppender() {

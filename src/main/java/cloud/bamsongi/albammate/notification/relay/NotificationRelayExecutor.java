@@ -55,28 +55,12 @@ public class NotificationRelayExecutor {
 			Notification notification = Notification.createUnread(
 				event.getId(), recipientUserId, event.getRoomId(), notificationType, event.getOccurredAt(),
 				operationTime);
-			notificationRepository.insertIfAbsent(
-				notification.getSourceEventId(),
-				notification.getRecipientUserId(),
-				notification.getRoomId(),
-				notification.getType().name(),
-				notification.getCreatedAt(),
-				notification.getRecordedAt(),
-				notification.getExpiresAt());
+			notificationRepository.insertIfAbsent(notification);
 		}
 
 		event.markProcessed(operationTime);
-		ProcessedEvent processedEvent = new ProcessedEvent(
-			event.getId(),
-			event.getEventType().name(),
-			recipientUserIds.size(),
-			event.getRecordedAt(),
-			operationTime,
-			event.getFailureCount(),
-			event.getTotalFailureCount(),
-			event.getReprocessCount(),
-			Duration.between(event.getRecordedAt(), operationTime).toMillis(),
-			elapsedMillis(startedAtNanos));
+		ProcessedEvent processedEvent = ProcessedEvent.completed(
+			event, recipientUserIds.size(), operationTime, elapsedMillis(startedAtNanos));
 		logAfterCommit(processedEvent);
 		return Optional.of(processedEvent);
 	}
@@ -126,5 +110,23 @@ public class NotificationRelayExecutor {
 		int reprocessCount,
 		long deliveryDelayMs,
 		long processingDurationMs) {
+
+		public static ProcessedEvent completed(
+			NotificationOutboxEvent event,
+			int recipientCount,
+			Instant operationTime,
+			long processingDurationMillis) {
+			return new ProcessedEvent(
+				event.getId(),
+				event.getEventType().name(),
+				recipientCount,
+				event.getRecordedAt(),
+				operationTime,
+				event.getFailureCount(),
+				event.getTotalFailureCount(),
+				event.getReprocessCount(),
+				Duration.between(event.getRecordedAt(), operationTime).toMillis(),
+				processingDurationMillis);
+		}
 	}
 }

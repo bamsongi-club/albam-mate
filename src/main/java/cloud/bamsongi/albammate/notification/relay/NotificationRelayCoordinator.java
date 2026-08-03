@@ -31,11 +31,8 @@ public class NotificationRelayCoordinator {
 		}
 
 		long oldestProcessableAgeMillis = eventRepository.findOldestProcessableAgeMillis();
-		RelayBatchSummary summary = new RelayBatchSummary(
+		RelayBatchSummary summary = RelayBatchSummary.completed(
 			processedCount,
-			processedCount,
-			0,
-			0,
 			Duration.ofNanos(System.nanoTime() - startedAtNanos).toMillis(),
 			oldestProcessableAgeMillis);
 		logBatch(summary);
@@ -65,5 +62,13 @@ public class NotificationRelayCoordinator {
 		int failedCount,
 		long durationMillis,
 		long oldestProcessableAgeMillis) {
+
+		public static RelayBatchSummary completed(
+			int processedCount,
+			long durationMillis,
+			long oldestProcessableAgeMillis) {
+			return new RelayBatchSummary(processedCount, processedCount, 0, 0, durationMillis,
+				oldestProcessableAgeMillis);
+		}
 	}
 }
