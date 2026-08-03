@@ -20,6 +20,7 @@ public enum ErrorCode {
 	RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "인증 요청 처리 한도를 초과했습니다. 잠시 후 다시 시도해 주세요."),
 	GAME_NOT_FOUND(HttpStatus.NOT_FOUND, "게임을 찾을 수 없습니다."),
 	ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "방을 찾을 수 없습니다."),
+	NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "알림을 찾을 수 없습니다."),
 	INVALID_ROOM_STATUS_TRANSITION(HttpStatus.CONFLICT, "허용되지 않은 방 상태 변경입니다."),
 	ROOM_UPDATE_NOT_ALLOWED_WITH_ACTIVE_PARTICIPANTS(
 		HttpStatus.CONFLICT, "주최자 외 활성 참가자가 있는 방은 수정할 수 없습니다."),
