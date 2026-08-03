@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client';
 import brandSymbol from '../assets/albam-mate-symbol.png';
 import poweredByBgg from '../assets/powered-by-bgg.svg';
 import { ApiError, api, clearCsrfToken, messageForError, setUnauthenticatedHandler } from './api';
+import { NotificationPanel } from './notification/NotificationPanel';
+import { navigateToNotificationRoom } from './notification/notificationNavigation';
+import { useNotificationPolling } from './notification/useNotificationPolling';
 import './styles.css';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -17,6 +20,7 @@ const MINUTE_OPTIONS = Array.from({ length: 6 }, (_, index) => index * 10);
 const GAME_SEARCH_PAGE_SIZE = 10;
 const GAME_LIST_PAGE_SIZE = 24;
 const ROOM_LIST_PAGE_SIZE = 12;
+const loadFirstNotificationPage = (signal) => api.getNotifications({ page: 0, size: 10 }, signal);
 const GAME_SEARCH_DEBOUNCE_MS = 250;
 // 회원가입 비밀번호 한도는 서버 검증 규칙과 같은 값을 쓴다. 한쪽만 바뀌면 안내와 결과가 어긋난다.
 const PASSWORD_MIN_CODE_POINTS = 15;
@@ -332,8 +336,12 @@ function SectionIcon({ name }) {
   );
 }
 
-function Header({ route, me }) {
+function Header({ route, me, notificationMenu }) {
   const rootRoute = { find: 'find', game: 'game-list', 'game-list': 'game-list', create: 'profile', edit: 'profile', my: 'profile', profile: 'profile', auth: 'auth' };
+  const visibleUnreadCount = notificationMenu.unreadCount > 99 ? '99+' : notificationMenu.unreadCount;
+  const notificationLabel = notificationMenu.unreadCount > 0
+    ? '알림함, 읽지 않은 알림 ' + notificationMenu.unreadCount + '개'
+    : '알림함';
   return (
     <header>
       <div className="hwrap">
@@ -344,6 +352,30 @@ function Header({ route, me }) {
         <nav id="gnb" aria-label="주요 메뉴">
           <a href="#/game-list" className={rootRoute[route] === 'game-list' ? 'on' : ''}>게임 찾기</a>
           <a href="#/find" className={rootRoute[route] === 'find' ? 'on' : ''}>모임 찾기</a>
+          {me && (
+            <div className="notification-menu">
+              <button
+                type="button"
+                className={'notification-trigger ' + (notificationMenu.open ? 'on' : '')}
+                aria-label={notificationLabel}
+                aria-expanded={notificationMenu.open}
+                onClick={notificationMenu.onToggle}
+              >
+                <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M10 21h4" /></svg>
+                {notificationMenu.unreadCount > 0 && (
+                  <span className="notification-badge" aria-hidden="true">{visibleUnreadCount}</span>
+                )}
+              </button>
+              <NotificationPanel
+                open={notificationMenu.open}
+                notifications={notificationMenu.notifications}
+                listStatus={notificationMenu.listStatus}
+                onClose={notificationMenu.onClose}
+                onRetry={notificationMenu.onRetry}
+                onSelectNotification={notificationMenu.onSelectNotification}
+              />
+            </div>
+          )}
           {me
             ? <a href="#/profile" className={'profile-icon ' + (rootRoute[route] === 'profile' ? 'on' : '')} aria-label={me.nickname + ' 프로필'}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></svg></a>
             : <a href="#/auth" className={rootRoute[route] === 'auth' ? 'on' : ''}>로그인</a>}
@@ -1238,6 +1270,7 @@ function App() {
   const [createMode, setCreateMode] = useState('GAME_FOCUSED');
   const [createGame, setCreateGame] = useState(null);
   const [dataVersion, setDataVersion] = useState(0);
+  const [notificationOpen, setNotificationOpen] = useState(false);
   const [toast, setToast] = useState({ message: '', type: '' });
   const toastTimer = useRef(null);
   const meRef = useRef(null);
@@ -1251,15 +1284,28 @@ function App() {
     if (!meRef.current) return;
     meRef.current = null;
     setMe(null);
+    setNotificationOpen(false);
     setDataVersion((version) => version + 1);
     window.location.hash = '#/auth';
   }, []);
 
-  const showToast = (message, type = '') => {
+  const showToast = useCallback((message, type = '') => {
     setToast({ message, type });
     window.clearTimeout(toastTimer.current);
     toastTimer.current = window.setTimeout(() => setToast({ message: '', type: '' }), 2800);
-  };
+  }, []);
+
+  const handleNotificationBackgroundError = useCallback((error) => {
+    if (!isUnauthenticated(error)) showToast('알림을 새로 확인하지 못했어요.', 'err');
+  }, [showToast]);
+
+  const notificationState = useNotificationPolling({
+    enabled: Boolean(me),
+    panelOpen: notificationOpen,
+    loadNotifications: loadFirstNotificationPage,
+    loadUnreadCount: api.getUnreadNotificationCount,
+    onBackgroundError: handleNotificationBackgroundError
+  });
 
   const refreshData = () => setDataVersion((version) => version + 1);
 
@@ -1275,7 +1321,9 @@ function App() {
         if (active) setMe(profile);
       })
       .catch((error) => {
-        if (!isUnauthenticated(error) && active) showToast(messageForError(error, '로그인 상태를 확인하지 못했어요.'), 'err');
+        if (error?.name !== 'AbortError' && !isUnauthenticated(error) && active) {
+          showToast(messageForError(error, '로그인 상태를 확인하지 못했어요.'), 'err');
+        }
       });
     return () => {
       active = false;
@@ -1283,6 +1331,7 @@ function App() {
   }, []);
   useEffect(() => {
     window.scrollTo(0, 0);
+    setNotificationOpen(false);
   }, [route, arg]);
 
   const handleProtectedError = (error, fallback) => {
@@ -1292,6 +1341,15 @@ function App() {
     }
     showToast(messageForError(error, fallback), 'err');
   };
+
+  const handleNotificationSelect = (notification) => navigateToNotificationRoom({
+    notification,
+    getRoom: api.getRoom,
+    navigate,
+    isUnauthenticated,
+    onUnauthenticated: expireAuthentication,
+    onUnavailable: (message) => showToast(message, 'err')
+  });
 
   const handleBrowsePeople = () => setRoomType('PERSON_FOCUSED');
 
@@ -1337,6 +1395,7 @@ function App() {
       await api.logout();
       meRef.current = null;
       setMe(null);
+      setNotificationOpen(false);
       refreshData();
       showToast('로그아웃했어요.');
       navigate('/home');
@@ -1470,7 +1529,20 @@ function App() {
 
   return (
     <>
-      <Header route={route} me={me} />
+      <Header
+        route={route}
+        me={me}
+        notificationMenu={{
+          open: notificationOpen,
+          unreadCount: notificationState.unreadCount,
+          notifications: notificationState.notifications,
+          listStatus: notificationState.listStatus,
+          onToggle: () => setNotificationOpen((open) => !open),
+          onClose: () => setNotificationOpen(false),
+          onRetry: notificationState.retry,
+          onSelectNotification: handleNotificationSelect
+        }}
+      />
       <main>{content}</main>
       <SiteFooter />
       <div id="toast" role="status" aria-live="polite" className={(toast.message ? 'show ' : '') + (toast.type === 'err' ? 'err' : '')}>{toast.message}</div>
