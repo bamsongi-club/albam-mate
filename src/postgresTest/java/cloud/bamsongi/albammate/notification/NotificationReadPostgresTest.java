@@ -8,11 +8,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import javax.sql.DataSource;
 
@@ -36,6 +38,8 @@ import cloud.bamsongi.albammate.notification.service.command.NotificationReadCom
 @Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class)
 class NotificationReadPostgresTest {
+
+	private static final int NOTIFICATION_READ_TEST_ADVISORY_LOCK_CLASS = 315;
 
 	@Container
 	@ServiceConnection
@@ -128,27 +132,39 @@ class NotificationReadPostgresTest {
 	void 문장_스냅샷_뒤_커밋된_더_낮은_ID는_일괄_읽음_대상이_아니다() throws Exception {
 		long ownerId = user("snapshot-owner@example.com");
 		long roomId = room(ownerId, "스냅샷 방");
-		installOneSecondUpdateDelay();
+		int advisoryLockKey = Math.toIntExact(ownerId);
+		installBulkReadStatementSnapshotGate(advisoryLockKey);
 		try {
-			try (Connection lateInsertConnection = dataSource.getConnection()) {
+			try (Connection advisoryLockConnection = dataSource.getConnection();
+				Connection lateInsertConnection = dataSource.getConnection();
+				ExecutorService executor = Executors.newSingleThreadExecutor()) {
+				acquireAdvisoryLock(advisoryLockConnection, advisoryLockKey);
 				lateInsertConnection.setAutoCommit(false);
-				long lateNotificationId = insertNotification(lateInsertConnection, ownerId, roomId);
-				long visibleNotificationId = notification(
-					ownerId, roomId, null, "transaction_timestamp() + interval '1 day'");
-				try (ExecutorService executor = Executors.newSingleThreadExecutor()) {
+				try {
+					long lateNotificationId = insertNotification(lateInsertConnection, ownerId, roomId);
+					long visibleNotificationId = notification(
+						ownerId, roomId, null, "transaction_timestamp() + interval '1 day'");
 					Future<NotificationBulkReadResponse> bulkRead = executor.submit(
 						() -> notificationReadCommandService.readAll(ownerId));
-					Thread.sleep(200);
+					awaitBulkReadWaitingForStatementSnapshotGate(advisoryLockKey);
 					lateInsertConnection.commit();
+					releaseAdvisoryLock(advisoryLockConnection, advisoryLockKey);
 
-					NotificationBulkReadResponse response = bulkRead.get();
+					NotificationBulkReadResponse response = bulkRead.get(5, TimeUnit.SECONDS);
 					assertEquals(visibleNotificationId, response.boundaryNotificationId());
 					assertEquals(response.readAt(), notificationReadAt(visibleNotificationId));
 					assertNull(notificationReadAt(lateNotificationId));
+				} finally {
+					if (!lateInsertConnection.getAutoCommit()) {
+						lateInsertConnection.rollback();
+					}
+					releaseAdvisoryLock(advisoryLockConnection, advisoryLockKey);
+					executor.shutdownNow();
+					assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
 				}
 			}
 		} finally {
-			removeUpdateDelay();
+			removeBulkReadStatementSnapshotGate();
 		}
 	}
 
@@ -199,22 +215,60 @@ class NotificationReadPostgresTest {
 		}
 	}
 
-	private void installOneSecondUpdateDelay() {
+	private void installBulkReadStatementSnapshotGate(int advisoryLockKey) {
 		jdbcTemplate.execute("""
-			create function notification_read_update_delay() returns trigger language plpgsql as $$
+			create function notification_read_statement_snapshot_gate() returns trigger language plpgsql as $$
 			begin
-				perform pg_sleep(1);
+				perform pg_advisory_xact_lock(%d, %d);
 				return new;
 			end;
 			$$
-			""");
-		jdbcTemplate.execute("create trigger notification_read_update_delay before update of read_at on notifications "
-			+ "for each row when (old.read_at is null and new.read_at is not null) "
-			+ "execute function notification_read_update_delay()");
+			""".formatted(NOTIFICATION_READ_TEST_ADVISORY_LOCK_CLASS, advisoryLockKey));
+		jdbcTemplate.execute(
+			"create trigger notification_read_statement_snapshot_gate before update of read_at on notifications "
+				+ "for each row when (old.read_at is null and new.read_at is not null) "
+				+ "execute function notification_read_statement_snapshot_gate()");
 	}
 
-	private void removeUpdateDelay() {
-		jdbcTemplate.execute("drop trigger if exists notification_read_update_delay on notifications");
-		jdbcTemplate.execute("drop function if exists notification_read_update_delay()");
+	private void awaitBulkReadWaitingForStatementSnapshotGate(int advisoryLockKey) {
+		long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+		while (System.nanoTime() < deadlineNanos) {
+			Boolean waiting = jdbcTemplate.queryForObject("""
+				select exists (
+				    select 1
+				    from pg_locks
+				    where locktype = 'advisory'
+				      and classid = ?
+				      and objid = ?
+				      and granted = false
+				)
+				""", Boolean.class, NOTIFICATION_READ_TEST_ADVISORY_LOCK_CLASS, advisoryLockKey);
+			if (Boolean.TRUE.equals(waiting)) {
+				return;
+			}
+			Thread.onSpinWait();
+		}
+		throw new AssertionError("bulk read did not reach the PostgreSQL statement snapshot gate");
+	}
+
+	private void acquireAdvisoryLock(Connection connection, int advisoryLockKey) throws SQLException {
+		try (PreparedStatement statement = connection.prepareStatement("select pg_advisory_lock(?, ?)")) {
+			statement.setInt(1, NOTIFICATION_READ_TEST_ADVISORY_LOCK_CLASS);
+			statement.setInt(2, advisoryLockKey);
+			statement.execute();
+		}
+	}
+
+	private void releaseAdvisoryLock(Connection connection, int advisoryLockKey) throws SQLException {
+		try (PreparedStatement statement = connection.prepareStatement("select pg_advisory_unlock(?, ?)")) {
+			statement.setInt(1, NOTIFICATION_READ_TEST_ADVISORY_LOCK_CLASS);
+			statement.setInt(2, advisoryLockKey);
+			statement.execute();
+		}
+	}
+
+	private void removeBulkReadStatementSnapshotGate() {
+		jdbcTemplate.execute("drop trigger if exists notification_read_statement_snapshot_gate on notifications");
+		jdbcTemplate.execute("drop function if exists notification_read_statement_snapshot_gate()");
 	}
 }

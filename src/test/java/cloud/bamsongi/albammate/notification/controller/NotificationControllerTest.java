@@ -166,7 +166,7 @@ class NotificationControllerTest {
 	@Test
 	void 단건과_일괄_PATCH는_잘못된_입력이나_CSRF에서_상태를_변경하지_않는다() throws Exception {
 		clearInvocations(notificationReadCommandService);
-		for (String body : List.of("null", "{}", "{\"read\":false}",
+		for (String body : List.of("null", "{}", "{\"read\":false}", "{\"read\":false,\"read\":true}",
 			"{\"read\":true,\"readAt\":\"2026-08-03T00:00:00Z\"}", "{\"read\":true,\"other\":1}")) {
 			mockMvc.perform(patch("/api/users/me/notifications/1")
 				.with(authenticationFor(42L))
@@ -177,6 +177,13 @@ class NotificationControllerTest {
 				.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
 		}
 		mockMvc.perform(patch("/api/users/me/notifications/0")
+			.with(authenticationFor(42L))
+			.with(csrf())
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"read\":true}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+		mockMvc.perform(patch("/api/users/me/notifications/not-a-number")
 			.with(authenticationFor(42L))
 			.with(csrf())
 			.contentType(MediaType.APPLICATION_JSON)
