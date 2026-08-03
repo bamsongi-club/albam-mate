@@ -34,13 +34,13 @@ public interface NotificationOutboxEventRepository extends JpaRepository<Notific
 		with operation as materialized (
 		    select clock_timestamp() as operation_time
 		)
-		select coalesce(extract(epoch from (operation.operation_time - min(event.available_at))) * 1000, 0)
+		select extract(epoch from (operation.operation_time - min(event.available_at))) * 1000
 		from notification_outbox_events event
 		cross join operation
 		where event.status in ('PENDING', 'RETRY_WAIT')
 		  and event.available_at <= operation.operation_time
 		""", nativeQuery = true)
-	long findOldestProcessableAgeMillis();
+	Long findOldestProcessableAgeMillis();
 
 	interface RelayClaim {
 

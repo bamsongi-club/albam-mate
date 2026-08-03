@@ -30,7 +30,7 @@ public class NotificationRelayCoordinator {
 			processedCount++;
 		}
 
-		long oldestProcessableAgeMillis = eventRepository.findOldestProcessableAgeMillis();
+		Long oldestProcessableAgeMillis = eventRepository.findOldestProcessableAgeMillis();
 		RelayBatchSummary summary = RelayBatchSummary.completed(
 			processedCount,
 			Duration.ofNanos(System.nanoTime() - startedAtNanos).toMillis(),
@@ -40,7 +40,7 @@ public class NotificationRelayCoordinator {
 	}
 
 	private void logBatch(RelayBatchSummary summary) {
-		if (summary.claimedCount() == 0 && summary.oldestProcessableAgeMillis() == 0) {
+		if (summary.claimedCount() == 0 && summary.oldestProcessableAgeMillis() == null) {
 			log.debug(
 				"event=notification_outbox_relay_batch_completed claimedCount={} processedCount={} retryScheduledCount={} "
 					+ "failedCount={} durationMs={} oldestProcessableAgeMs={}",
@@ -61,12 +61,12 @@ public class NotificationRelayCoordinator {
 		int retryScheduledCount,
 		int failedCount,
 		long durationMillis,
-		long oldestProcessableAgeMillis) {
+		Long oldestProcessableAgeMillis) {
 
 		public static RelayBatchSummary completed(
 			int processedCount,
 			long durationMillis,
-			long oldestProcessableAgeMillis) {
+			Long oldestProcessableAgeMillis) {
 			return new RelayBatchSummary(processedCount, processedCount, 0, 0, durationMillis,
 				oldestProcessableAgeMillis);
 		}

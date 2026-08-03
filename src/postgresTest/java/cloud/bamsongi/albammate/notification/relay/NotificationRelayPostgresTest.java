@@ -20,6 +20,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -42,6 +44,9 @@ class NotificationRelayPostgresTest {
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+
+	@Autowired
+	private PlatformTransactionManager transactionManager;
 
 	@Test
 	void PostgreSQL_선점_시각으로_수신자별_알림과_PROCESSED_전환을_함께_저장한다() {
@@ -97,33 +102,79 @@ class NotificationRelayPostgresTest {
 	}
 
 	@Test
-	void 두_worker는_같은_이벤트를_동시에_선점하지_않고_알림은_한_건으로_수렴한다() throws Exception {
+	void 새_트랜잭션은_저장된_PENDING_이벤트를_재기동_후_처리한다() {
 		Fixture fixture = createFixture();
 		long eventId = insertPendingEvent(fixture.roomId());
 		insertRecipient(eventId, fixture.firstRecipientUserId());
-		CountDownLatch start = new CountDownLatch(1);
+		NotificationRelayExecutor.ProcessedEvent processedEvent = new TransactionTemplate(transactionManager)
+			.execute(status -> executor.processOne().orElseThrow());
+
+		assertEquals(eventId, processedEvent.sourceEventId());
+		assertEquals("PROCESSED", jdbcTemplate.queryForObject(
+			"select status from notification_outbox_events where id = ?", String.class, eventId));
+		assertEquals(1, jdbcTemplate.queryForObject(
+			"select count(*) from notifications where source_event_id = ?", Integer.class, eventId));
+	}
+
+	@Test
+	void 두_worker는_잠긴_이벤트를_건너뛰고_서로_다른_due_이벤트를_분배한다() throws Exception {
+		Fixture fixture = createFixture();
+		long firstEventId = insertPendingEvent(fixture.roomId());
+		long secondEventId = insertPendingEvent(fixture.roomId());
+		insertRecipient(firstEventId, fixture.firstRecipientUserId());
+		insertRecipient(secondEventId, fixture.secondRecipientUserId());
+		CountDownLatch lockAcquired = new CountDownLatch(1);
+		CountDownLatch releaseLock = new CountDownLatch(1);
 		ExecutorService workers = Executors.newFixedThreadPool(2);
 		try {
-			List<Future<Optional<NotificationRelayExecutor.ProcessedEvent>>> results = List.of(
-				workers.submit(() -> processAfterStart(start)),
-				workers.submit(() -> processAfterStart(start)));
-			start.countDown();
+			Future<Void> lockHolder = workers.submit(() -> {
+				new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+					jdbcTemplate.queryForObject(
+						"select id from notification_outbox_events where id = ? for update", Long.class, firstEventId);
+					lockAcquired.countDown();
+					try {
+						releaseLock.await(5, TimeUnit.SECONDS);
+					} catch (InterruptedException exception) {
+						Thread.currentThread().interrupt();
+						status.setRollbackOnly();
+					}
+				});
+				return null;
+			});
+			assertTrue(lockAcquired.await(5, TimeUnit.SECONDS));
 
-			long claimedCount = 0;
-			for (Future<Optional<NotificationRelayExecutor.ProcessedEvent>> result : results) {
-				if (result.get(15, TimeUnit.SECONDS).isPresent()) {
-					claimedCount++;
-				}
-			}
-			assertEquals(1, claimedCount);
-			assertEquals(
-				1,
-				jdbcTemplate.queryForObject(
-					"select count(*) from notifications where source_event_id = ?", Integer.class, eventId));
+			Future<Optional<NotificationRelayExecutor.ProcessedEvent>> worker = workers.submit(executor::processOne);
+			NotificationRelayExecutor.ProcessedEvent processedEvent = worker.get(5, TimeUnit.SECONDS).orElseThrow();
+			assertEquals(secondEventId, processedEvent.sourceEventId());
+			assertEquals(1, jdbcTemplate.queryForObject(
+				"select count(*) from notifications where source_event_id = ?", Integer.class, secondEventId));
+			assertEquals("PENDING", jdbcTemplate.queryForObject(
+				"select status from notification_outbox_events where id = ?", String.class, firstEventId));
+			releaseLock.countDown();
+			lockHolder.get(5, TimeUnit.SECONDS);
 		} finally {
-			start.countDown();
+			releaseLock.countDown();
 			workers.shutdownNow();
 		}
+	}
+
+	@Test
+	void 기존_Notification이_있는_PENDING_재처리는_누락_수신자만_보충한다() {
+		Fixture fixture = createFixture();
+		long eventId = insertPendingEvent(fixture.roomId());
+		insertRecipient(eventId, fixture.firstRecipientUserId());
+		insertRecipient(eventId, fixture.secondRecipientUserId());
+		insertExistingNotification(eventId, fixture.firstRecipientUserId(), fixture.roomId());
+
+		executor.processOne().orElseThrow();
+
+		assertEquals(2, jdbcTemplate.queryForObject(
+			"select count(*) from notifications where source_event_id = ?", Integer.class, eventId));
+		assertEquals(1, jdbcTemplate.queryForObject(
+			"select count(*) from notifications where source_event_id = ? and recipient_user_id = ?",
+			Integer.class, eventId, fixture.firstRecipientUserId()));
+		assertEquals("PROCESSED", jdbcTemplate.queryForObject(
+			"select status from notification_outbox_events where id = ?", String.class, eventId));
 	}
 
 	@Test
@@ -156,12 +207,28 @@ class NotificationRelayPostgresTest {
 		}
 	}
 
-	private Optional<NotificationRelayExecutor.ProcessedEvent> processAfterStart(CountDownLatch start)
-		throws InterruptedException {
-		if (!start.await(5, TimeUnit.SECONDS)) {
-			throw new AssertionError("relay worker 시작 신호를 기다리다 시간 초과했습니다.");
+	@Test
+	void 완료_전환_실패는_이미_저장한_Notification도_함께_롤백한다() {
+		Fixture fixture = createFixture();
+		long eventId = insertPendingEvent(fixture.roomId());
+		insertRecipient(eventId, fixture.firstRecipientUserId());
+		installProcessedTransitionFailureTrigger();
+		try {
+			Exception failure = assertThrows(Exception.class, executor::processOne);
+			assertTrue(hasCauseMessage(failure, "notification relay test processed transition failure"));
+			assertEquals(0, jdbcTemplate.queryForObject(
+				"select count(*) from notifications where source_event_id = ?", Integer.class, eventId));
+			assertEquals("PENDING", jdbcTemplate.queryForObject(
+				"select status from notification_outbox_events where id = ?", String.class, eventId));
+			assertNull(jdbcTemplate.queryForObject(
+				"select processed_at from notification_outbox_events where id = ?", Instant.class, eventId));
+			assertNull(jdbcTemplate.queryForObject(
+				"select cleanup_at from notification_outbox_events where id = ?", Instant.class, eventId));
+		} finally {
+			jdbcTemplate.execute("drop trigger if exists notification_relay_fail_processed_transition on notification_outbox_events");
+			jdbcTemplate.execute("drop function if exists notification_relay_fail_processed_transition()");
+			jdbcTemplate.update("delete from notification_outbox_events where id = ?", eventId);
 		}
-		return executor.processOne();
 	}
 
 	private void installSecondNotificationInsertFailureTrigger() {
@@ -180,6 +247,35 @@ class NotificationRelayPostgresTest {
 			before insert on notifications
 			for each row execute function notification_relay_fail_second_insert()
 			""");
+	}
+
+	private void installProcessedTransitionFailureTrigger() {
+		jdbcTemplate.execute("""
+			create function notification_relay_fail_processed_transition() returns trigger as $$
+			begin
+			    if new.status = 'PROCESSED' then
+			        raise exception 'notification relay test processed transition failure';
+			    end if;
+			    return new;
+			end;
+			$$ language plpgsql
+			""");
+		jdbcTemplate.execute("""
+			create trigger notification_relay_fail_processed_transition
+			before update on notification_outbox_events
+			for each row execute function notification_relay_fail_processed_transition()
+			""");
+	}
+
+	private void insertExistingNotification(long eventId, long recipientUserId, long roomId) {
+		jdbcTemplate.update("""
+			with operation as materialized (select clock_timestamp() as operation_time)
+			insert into notifications (
+				source_event_id, recipient_user_id, room_id, type, created_at, recorded_at, expires_at)
+			select ?, ?, ?, 'PARTICIPANT_JOINED', operation_time - interval '1 minute', operation_time,
+				operation_time - interval '1 minute' + interval '90 days'
+			from operation
+			""", eventId, recipientUserId, roomId);
 	}
 
 	private Fixture createFixture() {

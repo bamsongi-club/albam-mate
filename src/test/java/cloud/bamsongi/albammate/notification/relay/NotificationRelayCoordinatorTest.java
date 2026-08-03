@@ -27,7 +27,7 @@ class NotificationRelayCoordinatorTest {
 		NotificationRelayProperties properties = new NotificationRelayProperties();
 		properties.setMaxEventsPerRun(2);
 		when(executor.processOne()).thenReturn(Optional.of(processedEvent()), Optional.of(processedEvent()));
-		when(eventRepository.findOldestProcessableAgeMillis()).thenReturn(0L);
+		when(eventRepository.findOldestProcessableAgeMillis()).thenReturn(null);
 		NotificationRelayCoordinator coordinator = new NotificationRelayCoordinator(executor, eventRepository,
 			properties);
 
@@ -46,7 +46,7 @@ class NotificationRelayCoordinatorTest {
 		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
 		NotificationRelayProperties properties = new NotificationRelayProperties();
 		when(executor.processOne()).thenReturn(Optional.empty());
-		when(eventRepository.findOldestProcessableAgeMillis()).thenReturn(0L);
+		when(eventRepository.findOldestProcessableAgeMillis()).thenReturn(null);
 		NotificationRelayCoordinator coordinator = new NotificationRelayCoordinator(executor, eventRepository,
 			properties);
 
@@ -90,7 +90,7 @@ class NotificationRelayCoordinatorTest {
 		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
 		NotificationRelayProperties properties = new NotificationRelayProperties();
 		when(executor.processOne()).thenReturn(Optional.empty());
-		when(eventRepository.findOldestProcessableAgeMillis()).thenReturn(0L);
+		when(eventRepository.findOldestProcessableAgeMillis()).thenReturn(null);
 		NotificationRelayCoordinator coordinator = new NotificationRelayCoordinator(executor, eventRepository,
 			properties);
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
@@ -102,7 +102,7 @@ class NotificationRelayCoordinatorTest {
 			String message = appender.list.getFirst().getFormattedMessage();
 			assertTrue(message.contains("claimedCount=0 processedCount=0 retryScheduledCount=0 failedCount=0"));
 			assertTrue(message.contains("durationMs="));
-			assertTrue(message.contains("oldestProcessableAgeMs=0"));
+			assertTrue(message.contains("oldestProcessableAgeMs=null"));
 			assertNoSensitiveValue(message);
 		} finally {
 			detachLogAppender(appender);
