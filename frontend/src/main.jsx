@@ -40,6 +40,25 @@ const EMPTY_ROOM_FILTERS = {
   experienceLevels: [],
   rulemasterOnly: false
 };
+// 게임 필터 상태는 쿼리 파라미터 이름과 값을 그대로 쓴다. 빈 문자열은 조건 없음이라 요청에서 빠진다.
+const EMPTY_GAME_FILTERS = {
+  playerCount: '',
+  playTime: '',
+  complexityMin: '',
+  complexityMax: ''
+};
+const EMPTY_GAME_FILTER_KEY = JSON.stringify(EMPTY_GAME_FILTERS);
+// 10은 정확히 10명이 아니라 최대 가능 인원이 10 이상이라는 뜻이다.
+const PLAYER_COUNT_OPTIONS = [
+  ...Array.from({ length: 9 }, (_, index) => ({ value: index + 1, label: index + 1 + '명' })),
+  { value: 10, label: '10명 이상' }
+];
+const PLAY_TIME_LABEL = {
+  SHORT: '20분 이하',
+  MEDIUM: '20분 초과 60분 이하',
+  LONG: '60분 초과'
+};
+const COMPLEXITY_OPTIONS = [1, 2, 3, 4, 5];
 
 function zeroPad(value) {
   return String(value).padStart(2, '0');
@@ -575,33 +594,33 @@ function RoomFilters({ filters, onChange, today }) {
       : [...filters.experienceLevels, level]
   });
   return (
-    <div className="room-filters">
-      <div className="room-filter">
+    <div className="search-filters">
+      <div className="search-filter">
         <label htmlFor="room-filter-from">시작 날짜</label>
         <DatePicker id="room-filter-from" value={filters.startDate} onChange={(date) => update({ startDate: date })} today={today} placeholder="전체" />
       </div>
-      <div className="room-filter">
+      <div className="search-filter">
         <label htmlFor="room-filter-to">종료 날짜</label>
         <DatePicker id="room-filter-to" value={filters.endDate} onChange={(date) => update({ endDate: date })} today={today} placeholder="전체" />
       </div>
-      <div className="room-filter">
+      <div className="search-filter">
         <label htmlFor="room-filter-seats">최소 남은 자리</label>
         <select id="room-filter-seats" value={filters.minRemainingSeats} onChange={(event) => update({ minRemainingSeats: event.target.value })}>
           <option value="">전체</option>
           {CAPACITY_OPTIONS.map((seats) => <option value={seats} key={seats}>{seats}자리 이상</option>)}
         </select>
       </div>
-      <div className="room-filter">
-        <span className="room-filter-label">경험 수준</span>
-        <div className="room-filter-chips" role="group" aria-label="경험 수준">
+      <div className="search-filter">
+        <span className="search-filter-label">경험 수준</span>
+        <div className="search-filter-chips" role="group" aria-label="경험 수준">
           {Object.entries(EXP_LABEL).map(([code, label]) => (
             <button type="button" key={code} className={filters.experienceLevels.includes(code) ? 'on' : ''} aria-pressed={filters.experienceLevels.includes(code)} onClick={() => toggleExperienceLevel(code)}>{label}</button>
           ))}
         </div>
       </div>
-      <div className="room-filter actions">
+      <div className="search-filter actions">
         <label className="checkline"><input type="checkbox" checked={filters.rulemasterOnly} onChange={(event) => update({ rulemasterOnly: event.target.checked })} /> 룰마스터 진행만</label>
-        {roomFilterKey(filters) !== EMPTY_ROOM_FILTER_KEY && <button type="button" className="room-filter-reset" onClick={() => onChange(EMPTY_ROOM_FILTERS)}>필터 초기화</button>}
+        {roomFilterKey(filters) !== EMPTY_ROOM_FILTER_KEY && <button type="button" className="search-filter-reset" onClick={() => onChange(EMPTY_ROOM_FILTERS)}>필터 초기화</button>}
       </div>
     </div>
   );
@@ -671,13 +690,54 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
   );
 }
 
+function GameFilters({ filters, onChange }) {
+  const update = (patch) => onChange({ ...filters, ...patch });
+  return (
+    <div className="search-filters">
+      <div className="search-filter">
+        <label htmlFor="game-filter-players">인원</label>
+        <select id="game-filter-players" value={filters.playerCount} onChange={(event) => update({ playerCount: event.target.value })}>
+          <option value="">전체</option>
+          {PLAYER_COUNT_OPTIONS.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
+        </select>
+      </div>
+      <div className="search-filter">
+        <label htmlFor="game-filter-time">플레이 시간</label>
+        <select id="game-filter-time" value={filters.playTime} onChange={(event) => update({ playTime: event.target.value })}>
+          <option value="">전체</option>
+          {Object.entries(PLAY_TIME_LABEL).map(([code, label]) => <option value={code} key={code}>{label}</option>)}
+        </select>
+      </div>
+      <div className="search-filter">
+        <label htmlFor="game-filter-complexity-min">최소 난이도</label>
+        <select id="game-filter-complexity-min" value={filters.complexityMin} onChange={(event) => update({ complexityMin: event.target.value })}>
+          <option value="">전체</option>
+          {COMPLEXITY_OPTIONS.map((complexity) => <option value={complexity} key={complexity}>{complexity.toFixed(1)}</option>)}
+        </select>
+      </div>
+      <div className="search-filter">
+        <label htmlFor="game-filter-complexity-max">최대 난이도</label>
+        <select id="game-filter-complexity-max" value={filters.complexityMax} onChange={(event) => update({ complexityMax: event.target.value })}>
+          <option value="">전체</option>
+          {COMPLEXITY_OPTIONS.map((complexity) => <option value={complexity} key={complexity}>{complexity.toFixed(1)}</option>)}
+        </select>
+      </div>
+      <div className="search-filter actions">
+        {JSON.stringify(filters) !== EMPTY_GAME_FILTER_KEY && <button type="button" className="search-filter-reset" onClick={() => onChange(EMPTY_GAME_FILTERS)}>필터 초기화</button>}
+      </div>
+    </div>
+  );
+}
+
 function GamesView({ title, gameQuery, onGameQueryChange, dataVersion }) {
   const [input, setInput] = useState(gameQuery);
   const [upcomingOnly, setUpcomingOnly] = useState(false);
+  const [filters, setFilters] = useState(EMPTY_GAME_FILTERS);
   const keyword = gameQuery.trim();
+  const filterKey = JSON.stringify(filters);
   const { data, loading, error, setPage } = usePaginatedRequest(
-    (page, signal) => api.getGames({ keyword, upcomingOnly, page, size: GAME_LIST_PAGE_SIZE }, signal),
-    [keyword, upcomingOnly, dataVersion]
+    (page, signal) => api.getGames({ keyword, upcomingOnly, ...filters, page, size: GAME_LIST_PAGE_SIZE }, signal),
+    [keyword, upcomingOnly, filterKey, dataVersion]
   );
   const games = (data?.content || []).map(normalizeGameSummary);
   useEffect(() => setInput(gameQuery), [gameQuery]);
@@ -693,6 +753,7 @@ function GamesView({ title, gameQuery, onGameQueryChange, dataVersion }) {
         <label className="checkline"><input type="checkbox" checked={upcomingOnly} onChange={(event) => setUpcomingOnly(event.target.checked)} /> 예정 모임 있는 게임만</label>
         <p className="hint">게임 이름의 부분 일치 검색만 제공해요.</p>
       </div>
+      <GameFilters filters={filters} onChange={setFilters} />
       {error && <ErrorBox message={error} />}
       {!error && loading && !data && <LoadingBox />}
       {!error && !!games.length && <div className="grid cols3">{games.map((game) => <GameCard key={game.id} game={game} />)}</div>}
