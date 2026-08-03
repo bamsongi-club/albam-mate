@@ -6,34 +6,86 @@
     "games": {
       "fileName": "games.p1-search-time-corrected-2026-08-03.json",
       "sha256": "c8800eaf0f4e276722162f1371d72cab08ae6ac440e730c2567321300c4a9cf6",
-      "sourceReference": "Issue #293 승인 코멘트 5163626054에 따라 2026-08-01 검증 배치의 플레이 시간 4건을 보정한 서비스 적재 승인본",
+      "sourceReference": "2026-07-24 P0 출처 manifest의 팀 가공 표시 자료를 2026-08-01 BGG XML API2 취득·검증 기록에 따라 보강한 efc22093... 입력에서 Issue #293 승인 코멘트 5163626054의 플레이 시간 4건만 보정하고 승인 보완 코멘트 5164323878로 계보·이용 범위를 확정한 서비스 적재본",
       "acquiredAt": "2026-08-03T06:50:56Z",
-      "usageTerms": "Albam Mate 팀의 BGG 출처·이용 승인 범위 안에서 서비스 적재에 사용하며 원본과 보정 JSON은 저장소에 공개하지 않음"
+      "usageTerms": "정확히 이 체크섬인 입력을 BGG 출처 표시와 Powered by BGG 링크를 유지하는 비상업 서비스 적재·검증에만 사용한다. 공개 상업 운영, BGG 원천의 추가 번역·요약·AI/LLM 입력·투표 재가공·결합과 이미지 다운로드·변환·재호스팅 승인을 포함하지 않으며 원본과 보정 JSON은 저장소에 공개하지 않는다."
     },
     "ranks": {
       "fileName": "boardgames_ranks07-24.csv",
       "sha256": "b706d0ae3722e063f6b36b9faaf97f3533fce45605c0dfe01c347a68ea2aa56d",
-      "sourceReference": "BGG boardgames_ranks_2026-07-23.zip 기준 스냅샷",
+      "sourceReference": "BGG boardgames_ranks_2026-07-23.zip의 boardgames_ranks.csv 단일 기준 스냅샷",
       "acquiredAt": "2026-07-24T08:43:00Z",
-      "usageTerms": "Albam Mate 팀이 BGG 식별자·기준 순위 검증에 사용하는 로컬 입력"
+      "usageTerms": "BGG XML API 이용 조건이 적용되는 공개 CSV를 게임 식별자·영문명·기준 순위 검증에만 사용하며, 비상업 이용과 서비스의 BGG 출처 표시·Powered by BGG 링크를 유지한다."
     }
   },
+  "provenance": {
+    "upstreamRecords": [
+      {
+        "path": "docs/game-catalog/2026-07-24-source-manifest.draft.json",
+        "role": "P0 팀 가공 표시 자료의 출처·필드·이용 제한 계약",
+        "gamesSha256": "f9adbc203023d1aa20efbfa17b8d52d8db3044ae9525d9c10704255ffcf7e321"
+      },
+      {
+        "path": "docs/game-catalog/2026-07-24-input-review.md",
+        "role": "P0 2,000건의 비상업 적재·로컬 검증과 품질 경고 승인 기록"
+      },
+      {
+        "path": "docs/game-catalog/2026-08-01-bgg-detail-acquisition.md",
+        "role": "Application Token을 사용한 BGG XML API2 취득 방식, 필드 경로와 중간 체크섬 기록"
+      }
+    ],
+    "lineage": [
+      {
+        "fromSha256": "f9adbc203023d1aa20efbfa17b8d52d8db3044ae9525d9c10704255ffcf7e321",
+        "toSha256": "940cb04b78b1a8aeb6c4d04b6601595da0a8728c6cf62d4db0be843b44b5ce27",
+        "transformation": "name·alias·description·detail_description 1,166행의 로컬 편집. 행별 원문 위치가 없어 공식 한국어판 명칭이나 BGG 원문 번역·게임별 고유 설명으로 보증하지 않고 정확한 체크섬 범위로만 검수"
+      },
+      {
+        "fromSha256": "940cb04b78b1a8aeb6c4d04b6601595da0a8728c6cf62d4db0be843b44b5ce27",
+        "toSha256": "b4a815ff189f2a3106a656a8ed31f91ab27badd242a4b980a49e8890b62fc937",
+        "transformation": "승인된 Application Token으로 2026-08-01 BGG XML API2 thing 응답 2,000건을 취득해 minplayers·maxplayers를 대조하고 averageweight 불일치 81건을 소수 둘째 자리 ROUND_HALF_UP으로 갱신"
+      },
+      {
+        "fromSha256": "b4a815ff189f2a3106a656a8ed31f91ab27badd242a4b980a49e8890b62fc937",
+        "toSha256": "c466ef66276613434fa6b1955b4648af684b19d767743360f79f1f00b0b39bdb",
+        "transformation": "BGG XML API2 boardgamemechanic ID·영문명 관계를 2,000행에 보존"
+      },
+      {
+        "fromSha256": "c466ef66276613434fa6b1955b4648af684b19d767743360f79f1f00b0b39bdb",
+        "toSha256": "efc22093ada6a32d5570d517686a12fcb18b4973d7397f10de65bf818eec81f3",
+        "transformation": "메커니즘이 존재하는 1,998행에 팀의 한국어 편집 라벨을 별도 값으로 추가"
+      },
+      {
+        "fromSha256": "efc22093ada6a32d5570d517686a12fcb18b4973d7397f10de65bf818eec81f3",
+        "toSha256": "c8800eaf0f4e276722162f1371d72cab08ae6ac440e730c2567321300c4a9cf6",
+        "transformation": "Issue #293 승인에 따라 estimated_play_time 4건만 보정: BGG 242705는 90분, BGG 171·369646·1540은 정보 없음"
+      }
+    ],
+    "serviceFieldBoundary": "이번 적재기는 manifest.fieldSources의 카탈로그 필드만 출력한다. 입력에 포함된 BGG minplayers·maxplayers는 supported_player_count 파싱 결과의 2,000건 대조 근거이며 검색 수치는 표시값에서 다시 결정적으로 생성한다. mechanisms와 한국어 편집 라벨은 이번 서비스 카탈로그·SQL에 포함하지 않는다.",
+    "usagePolicyReferences": [
+      "docs/adr/game/0015-bgg-baseline-team-collected-game-list.md",
+      "docs/adr/game/0025-game-catalog-public-source-attribution.md",
+      "https://boardgamegeek.com/wiki/page/XML_API_Terms_of_Use",
+      "https://boardgamegeek.com/using_the_xml_api",
+      "https://github.com/bamsongi-club/albam-mate/issues/293#issuecomment-5164323878"
+    ]
+  },
   "fieldSources": {
-    "bgg_id": "ranks.id",
-    "name": "games.name",
-    "english_name": "games.english_name",
-    "alias": "games.alias",
-    "image_url": "games.image_url",
-    "supported_player_count": "games.supported_player_count",
-    "tag": "games.tag",
-    "estimated_play_time": "games.estimated_play_time; Issue #293 승인에 따라 BGG 242705는 90분, BGG 171·369646·1540은 정보 없음으로 보정",
-    "min_players": "games.supported_player_count를 양의 정수 범위로 검증해 정규화",
-    "max_players": "games.supported_player_count를 양의 정수 범위로 검증해 정규화",
-    "min_play_time_minutes": "games.estimated_play_time를 양의 정수 분 범위로 검증하며 정보 없음은 NULL로 정규화",
-    "max_play_time_minutes": "games.estimated_play_time를 양의 정수 분 범위로 검증하며 정보 없음은 NULL로 정규화",
-    "complexity": "games.complexity의 0.00을 NULL로 정규화하고 1.00~5.00만 유지",
-    "description": "games.description",
-    "detail_description": "games.detail_description"
+    "bgg_id": "games.bgg_id를 유지하고 BGG boardgames_ranks_2026-07-23.zip의 ranks.id와 2,000건 모두 일치 검증",
+    "name": "2026-07-24 P0 팀 가공 표시명과 2026-08-01 이전 로컬 편집값. 한글 표시명을 공식 한국어판 명칭으로 보증하지 않으며 정확한 입력 체크섬 범위로만 승인",
+    "english_name": "games.english_name을 BGG 기준 스냅샷 ranks.name과 2,000건 모두 일치 검증",
+    "alias": "P0 팀 가공 검색 보조값과 2026-08-01 이전 로컬 편집값. 공식 별칭으로 보증하지 않음",
+    "image_url": "P0 팀 가공 입력에 포함된 BGG Geekdo 이미지 URL을 출처와 함께 직접 참조하며 다운로드·변환·재호스팅하지 않음",
+    "supported_player_count": "P0 팀이 BGG 기반 자료를 가공한 게임 규칙상 가능 인원 표시값. 2026-08-01 BGG XML API2 item/minplayers@value·item/maxplayers@value와 2,000건 모두 일치 검증하며 추천·최적 인원과 구분",
+    "tag": "P0 팀 가공 대표 표시 태그이며 BGG 공식 분류값으로 주장하지 않음",
+    "estimated_play_time": "P0 팀 가공 예상 시간 표시값. Issue #293 승인과 BGG 게임 페이지 확인에 따라 BGG 242705는 90분, BGG 171·369646·1540은 제공 정보 없음으로 보정",
+    "min_players": "games.supported_player_count를 양의 PostgreSQL INTEGER 범위로 파싱하고 2026-08-01 BGG XML API2 minplayers와 대조해 정규화",
+    "max_players": "games.supported_player_count를 양의 PostgreSQL INTEGER 범위로 파싱하고 2026-08-01 BGG XML API2 maxplayers와 대조해 정규화",
+    "min_play_time_minutes": "games.estimated_play_time를 양의 PostgreSQL INTEGER 분 범위로 정규화하며 제공 정보 없음은 NULL로 유지",
+    "max_play_time_minutes": "games.estimated_play_time를 양의 PostgreSQL INTEGER 분 범위로 정규화하며 제공 정보 없음은 NULL로 유지",
+    "complexity": "2026-08-01 BGG XML API2 item/statistics/ratings/averageweight@value를 소수 둘째 자리 ROUND_HALF_UP으로 검증·반영한 games.complexity. 기존 불일치 81건 갱신 후 2,000건 일치하며 0.00은 평가 없음으로 NULL, 1.00~5.00만 유지",
+    "description": "P0 팀 임시 표시 문구와 2026-08-01 이전 로컬 편집값. BGG 원문 번역이나 게임별 고유 사실 설명으로 보증하지 않음",
+    "detail_description": "P0 팀 임시 상세 문구와 2026-08-01 이전 로컬 편집값. BGG 원문 번역이나 게임별 고유 규칙 설명으로 보증하지 않음"
   },
   "selectionRules": {
     "include": "BGG 기준 스냅샷과 bgg_id가 일치하고 기존 카탈로그 검수를 통과한 2,000건만 포함",
@@ -52,7 +104,8 @@
   },
   "review": {
     "status": "approved",
-    "reviewedAt": "2026-08-03T07:41:08Z",
+    "reviewedAt": "2026-08-03T08:59:55Z",
+    "dataQualityReviewedAt": "2026-08-03T07:41:08Z",
     "reviewers": [
       "beyejin"
     ],
@@ -60,6 +113,21 @@
       "POSSIBLE_VERSION_COLLISION",
       "LOW_DESCRIPTION_DIVERSITY",
       "LOW_DETAIL_DESCRIPTION_DIVERSITY"
+    ],
+    "approvalScope": "P1_NONCOMMERCIAL_SERVICE_LOAD_AND_LOCAL_VERIFICATION_FOR_EXACT_CHECKSUM",
+    "approvalReferences": [
+      "https://github.com/bamsongi-club/albam-mate/issues/293#issuecomment-5163626054",
+      "https://github.com/bamsongi-club/albam-mate/issues/293#issuecomment-5164323878",
+      "docs/game-catalog/2026-07-24-source-manifest.draft.json",
+      "docs/game-catalog/2026-08-01-bgg-detail-acquisition.md"
+    ],
+    "limitations": [
+      "승인은 games SHA-256 c8800eaf...와 ranks SHA-256 b706d0ae...의 정확한 조합, 현재 카탈로그 필드와 자동 검증 결과에 한정하며 새 입력·출처·이용 범위로 자동 승계하지 않음",
+      "BGG 데이터는 팀의 독립 원천으로 주장하지 않고 공개 서비스에 BoardGameGeek 출처와 연결된 Powered by BGG 표기를 유지함",
+      "공개 상업 운영, BGG 원천의 추가 번역·요약·AI/LLM 입력·투표 재가공·결합과 이미지 다운로드·변환·재호스팅은 별도 이용 근거 확인 전 승인하지 않음",
+      "f9adbc20...에서 940cb04b...로 이어진 1,166행 로컬 편집은 행별 원문 위치가 없어 공식 한국어판 명칭·BGG 원문 번역·게임별 고유 설명으로 보증하지 않음",
+      "입력의 mechanisms와 한국어 편집 라벨은 이번 서비스 카탈로그·SQL 산출물에서 제외함",
+      "원본·보정 JSON, BGG XML·CSV·Application Token과 생성된 서비스 카탈로그·SQL은 저장소에 커밋하지 않음"
     ]
   }
 }
