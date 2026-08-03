@@ -729,7 +729,7 @@ Set-Cookie: XSRF-TOKEN={token}; Path=/; HttpOnly; SameSite=Lax
 
 - 필드 누락·`null`·빈 문자열·길이·바이트 한도 초과는 `VALIDATION_ERROR`다.
 - 필드 형식은 유효하지만 자격증명이 일치하지 않으면 `INVALID_CREDENTIALS`다. 존재하지 않는 이메일과 잘못된 비밀번호는 계정 유무를 구분하지 않고 동일하게 `INVALID_CREDENTIALS`로 응답한다(→ [ADR-0013](adr/auth/0013-p0-password-storage-auth-request-protection.md)).
-- `password_hash`가 없는 소셜 전용 사용자의 제공자 이메일도 자격증명 미존재로 처리한다. 존재하지 않는 이메일과 같은 더미 bcrypt·요청 제한 경로를 거쳐 `401 INVALID_CREDENTIALS`를 반환하며 `500`이나 소셜 계정 존재 여부를 노출하지 않는다.
+- `password_hash`가 없는 소셜 전용 사용자의 저장된 제공자 이메일도 자격증명 미존재로 처리한다. 존재하지 않는 이메일과 같은 더미 bcrypt·요청 제한 경로를 거쳐 `401 INVALID_CREDENTIALS`를 반환하며 `500`이나 소셜 계정 존재 여부를 노출하지 않는다.
 
 응답 헤더:
 
@@ -847,7 +847,7 @@ Spring Security filter가 OAuth2 Authorization Code 요청과 추측하기 어�
 |---|---|---|
 | `login-success` | 신규·기존 소셜 로그인 성공 | `#/home` |
 | `link-success` | 로그인 사용자의 명시적 연결 성공 | `#/profile` |
-| `link-required` | 같은 이메일의 기존 사용자가 있어 자동 병합하지 않음 | `#/auth` |
+| `link-required` | 비로그인 첫 로그인에서 처음 보는 외부 신원의 신뢰 가능한 이메일과 같은 기존 사용자가 있어 자동 병합하지 않음 | `#/auth` |
 | `link-conflict` | 외부 계정 또는 같은 제공자의 다른 계정이 이미 연결됨 | 로그인 연결 시도는 `#/profile`, 그 외 `#/auth` |
 | `canceled` | 사용자가 제공자 동의를 취소함 | 시도 모드에 따라 `#/auth` 또는 `#/profile` |
 | `invalid-state` | `state` 누락·불일치·재사용 | 시도 모드에 따라 `#/auth` 또는 `#/profile` |
@@ -855,6 +855,8 @@ Spring Security filter가 OAuth2 Authorization Code 요청과 추측하기 어�
 | `failed` | 필수 subject 누락 또는 처리 실패 | 시도 모드에 따라 `#/auth` 또는 `#/profile` |
 
 로그인 성공은 `/?socialAuth=login-success#/home`, 연결 성공은 `/?socialAuth=link-success#/profile`처럼 query 뒤에 hash route를 붙인다. 로그인 성공은 새 `CurrentUserPrincipal`을 저장하고, 연결 성공은 기존 사용자를 유지한다. 두 성공 모두 세션 ID를 교체하고 기존 CSRF 토큰을 무효화한다. 로그인 실패·취소는 사용자를 만들거나 인증하지 않고, 연결 실패·취소는 기존 로그인 상태를 복구·유지하며 일회성 연결 의도를 폐기한다.
+
+`link-required`는 비로그인 첫 로그인에서만 반환한다. 인증된 명시적 연결 callback은 제공자 이메일의 일치·중복과 무관하게 현재 세션 사용자를 연결 대상으로 유지하며, 외부 식별자 또는 사용자·제공자 유일 제약이 충돌할 때만 `link-conflict`로 돌아간다. 제공자별 이메일 신뢰 조건과 `null` 매핑은 [P1 소셜 로그인 명세](p1/social-login.md#제공자-이메일-매핑)를 따른다.
 
 #### 소셜 계정 연결 시작
 

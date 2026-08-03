@@ -30,7 +30,7 @@ P0는 이메일·비밀번호와 서버 세션만 제공하고 외부 신원 연
 
 Spring Security OAuth2 Client의 Authorization Code 흐름을 사용한다. Google과 Kakao는 OpenID Connect의 `sub`, Naver는 회원 프로필의 안정적인 `id`를 provider subject로 매핑한다. 모든 외부 식별자는 `SOCIAL_ACCOUNTS`에 저장하고 `(provider, provider_subject)`와 `(user_id, provider)`를 각각 유일하게 유지한다.
 
-이메일은 선택 정보로만 저장한다. 처음 보는 외부 식별자의 이메일이 기존 사용자와 같으면 자동 병합하지 않고 기존 계정 로그인 뒤 명시적 연결을 요구한다. `password_hash`가 없는 소셜 전용 사용자는 제공자 이메일이 저장돼 있어도 이메일 자격증명 조회에서 미존재로 취급해 기존 더미 bcrypt와 `INVALID_CREDENTIALS` 계약을 유지한다. 연결 시작은 인증·CSRF가 필요한 API로 제한하고, callback은 세션의 일회성 연결 의도와 OAuth `state`를 모두 검증한다.
+이메일은 [AUTH-05의 제공자별 신뢰 조건](../../p1/social-login.md#제공자-이메일-매핑)을 통과한 선택 정보만 저장한다. Google은 `email_verified`, Kakao는 `is_email_valid`와 `is_email_verified`가 모두 참이어야 하며, 현재 사용하는 Naver 회원 프로필 응답은 별도 검증 상태가 없으므로 이메일 없음으로 매핑한다. 비로그인 첫 로그인에서 처음 보는 외부 식별자의 신뢰 가능한 이메일이 기존 사용자와 같을 때만 자동 병합하지 않고 기존 계정 로그인 뒤 명시적 연결을 요구한다. 인증된 명시적 연결은 이메일 중복을 판정하지 않고 현재 세션 사용자를 대상으로 처리한다. `password_hash`가 없는 소셜 전용 사용자는 제공자 이메일이 저장돼 있어도 이메일 자격증명 조회에서 미존재로 취급해 기존 더미 bcrypt와 `INVALID_CREDENTIALS` 계약을 유지한다. 연결 시작은 인증·CSRF가 필요한 API로 제한하고, callback은 세션의 일회성 연결 의도와 OAuth `state`를 모두 검증한다.
 
 OAuth 성공 뒤 외부 principal을 애플리케이션 권한 주체로 유지하지 않고 기존 `CurrentUserPrincipal`로 바꾼다. `JSESSIONID`를 교체하고 CSRF 토큰을 무효화하며 이후 요청은 기존 서버 세션 계약을 따른다. 외부 authorized client, access·refresh·ID token과 authorization code는 DB나 서버 세션에 저장하지 않는다.
 
@@ -61,7 +61,7 @@ OAuth 성공 뒤 외부 principal을 애플리케이션 권한 주체로 유지�
 - 근거:
     - 계약: AUTH-05 명세, API와 ERD가 provider subject, 명시적 연결, 서버 세션과 token 비저장 경계를 정의한다.
 - 미검증:
-    - Flyway·JPA·OAuth provider 매핑과 실제 HTTP·PostgreSQL 검증
+    - Flyway·JPA·OAuth provider·이메일 신뢰 상태 매핑과 실제 HTTP·PostgreSQL 검증
     - Google·Naver·Kakao 개발자 콘솔을 사용한 운영 redirect·동의 항목 수동 QA
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

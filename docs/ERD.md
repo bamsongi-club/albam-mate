@@ -155,13 +155,13 @@ P1 소셜 제공자와 알림의 제한 값은 PostgreSQL 네이티브 enum이 �
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | id | BIGINT | PK, NN, AI | 사용자 식별자 |
-| email | VARCHAR(255) | UQ, NULL | 이메일 회원의 로그인 이메일 또는 소셜 첫 로그인에서 받은 선택 이메일. 소셜 신원 키로 사용하지 않음 |
+| email | VARCHAR(255) | UQ, NULL | 이메일 회원의 로그인 이메일 또는 소셜 첫 로그인에서 신뢰 조건을 통과한 선택 이메일. 소셜 신원 키로 사용하지 않음 |
 | password_hash | VARCHAR(255) | NULL | 이메일 회원은 [ADR-0013](adr/auth/0013-p0-password-storage-auth-request-protection.md)의 `{bcrypt}` 식별자와 cost를 포함한 bcrypt 해시. 소셜 전용 사용자는 `NULL`, 원문 저장 금지 |
 | nickname | VARCHAR(50) | NN | 방 개설자·참가자 표시명 |
 | created_at | TIMESTAMPTZ | NN | 가입 시각 |
 | updated_at | TIMESTAMPTZ | NN | 프로필 수정 시각 |
 
-이메일 회원가입은 `email`과 `password_hash`를 모두 저장한다. 소셜 전용 사용자는 둘 다 `NULL`이거나 겹치지 않는 제공자 이메일과 `NULL` 비밀번호를 가질 수 있다. `password_hash`가 있으면 `email`도 반드시 있어야 한다. 반대로 `password_hash`가 `NULL`이면 값이 있는 이메일도 로그인 자격증명이 아니며, 이메일 자격증명 조회는 해당 행을 미존재와 동일하게 처리한다.
+이메일 회원가입은 `email`과 `password_hash`를 모두 저장한다. 소셜 전용 사용자는 둘 다 `NULL`이거나 [AUTH-05의 제공자별 신뢰 조건](p1/social-login.md#제공자-이메일-매핑)을 통과하고 기존 사용자와 겹치지 않는 이메일과 `NULL` 비밀번호를 가질 수 있다. 신뢰 상태가 없거나 조건을 통과하지 못한 제공자 이메일은 `NULL`로 저장한다. `password_hash`가 있으면 `email`도 반드시 있어야 한다. 반대로 `password_hash`가 `NULL`이면 값이 있는 이메일도 로그인 자격증명이 아니며, 이메일 자격증명 조회는 해당 행을 미존재와 동일하게 처리한다.
 
 ### SOCIAL_ACCOUNTS
 
