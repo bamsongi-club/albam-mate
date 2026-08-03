@@ -1348,7 +1348,7 @@ Request body는 없다.
 |---|---|
 | Method / Path | `POST /api/rooms/{roomId}/waitlist` |
 | 인증 / CSRF | 필요 / 필요 |
-| 성공 | 신규·재신청은 `201 Created`, 활성 대기 중 재요청은 `200 OK`; `data`: `MyRoomWaitlistResponse` |
+| 성공 | 신규 및 허용된 `CANCELED`·`PROMOTED` 재신청은 `201 Created`, 활성 대기 중 재요청은 `200 OK`; `data`: `MyRoomWaitlistResponse` |
 
 #### Path Variables
 
@@ -1360,7 +1360,7 @@ Request body는 없다.
 
 - 신규 신청은 하나의 최신 대기 레코드를 `WAITING`으로 만들고 현재 마지막 순번을 반환한다.
 - 이미 `WAITING`인 사용자의 중복 신청은 새 관계를 만들거나 순번을 바꾸지 않고 조회 시점의 최신 순번을 반환한다.
-- `CANCELED` 뒤 재신청은 같은 레코드의 신청 순서 기준을 갱신해 기존 순번을 복구하지 않고 대기열 맨 뒤로 이동한다.
+- 최신 참가·방·시각·좌석 조건을 충족한 `CANCELED`·`PROMOTED` 재신청은 같은 레코드에 새 순번·신청 시각을 기록하되 최초 생성 시각을 보존해 대기열 맨 뒤로 이동한다. `EXPIRED`·`ROOM_CANCELED`에서는 재신청할 수 없다.
 - 직접 참가 가능한 빈자리가 있거나 시작 시각에 도달했거나 방이 `CANCELED`·`FINISHED`이면 대기를 등록하지 않는다.
 
 #### 오류 판정 순서
@@ -1370,10 +1370,13 @@ Request body는 없다.
 1. `now >= startsAt`이거나 방이 `CANCELED`·`FINISHED`: `WAITLIST_NOT_AVAILABLE`
 2. 요청자가 주최자 또는 현재 `ACTIVE` 참가자: `ALREADY_PARTICIPATING`
 3. 요청자가 이미 `WAITING`: 기존 순서를 유지하고 `200 OK`
-4. 남은 모집 자리가 있어 직접 참가할 수 있음: `WAITLIST_NOT_AVAILABLE`
-5. 그 외: 대기열 마지막에 등록하고 `201 Created`
+4. 기존 대기 상태가 `EXPIRED` 또는 `ROOM_CANCELED`: `WAITLIST_NOT_AVAILABLE`
+5. 남은 모집 자리가 있어 직접 참가할 수 있음: `WAITLIST_NOT_AVAILABLE`
+6. 대기 이력이 없거나 기존 대기 상태가 `CANCELED` 또는 `PROMOTED`: 대기열 마지막에 등록하고 `201 Created`
 
-저장 충돌이 발생하면 최신 상태로 같은 순서를 다시 판정하며, 제한 재시도를 소진했을 때만 `ROOM_CONCURRENT_MODIFICATION`을 반환한다.
+대기 등록·재신청은 최초 시도 전에 request time을 한 번 고정한다. ROOM 낙관적 락 또는 조건부 version claim 충돌과 정확히 `uq_room_waitlists_waiting_room_queue_order` 제약에서 발생한 현재 `WAITING` 순번 UNIQUE 충돌만 최초 시도 포함 총 3회의 단일 예산으로 전체 요청을 재시도하며, 매 시도마다 같은 request time과 최신 상태로 위 순서를 다시 판정한다. 그 밖의 DB 오류는 재시도하지 않는다.
+
+총 3회를 소진한 최종 원인이 ROOM 충돌이면 `ROOM_CONCURRENT_MODIFICATION`을 반환한다. 정확한 순번 UNIQUE 충돌의 예산 소진이나 비대상 DB 오류는 내부 제약명·SQL 정보를 노출하지 않는 기존 공통 `500 INTERNAL_SERVER_ERROR`로 반환한다.
 
 | 발생 조건 | HTTP | code |
 |---|---:|---|
@@ -1383,7 +1386,7 @@ Request body는 없다.
 | 방이 없음 | 404 | `ROOM_NOT_FOUND` |
 | 요청자가 주최자 또는 현재 참가자 | 409 | `ALREADY_PARTICIPATING` |
 | 현재 방·시각·좌석 조건에서 대기할 수 없음 | 409 | `WAITLIST_NOT_AVAILABLE` |
-| 동시 변경 충돌 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
+| ROOM 낙관적 락 또는 조건부 version claim 충돌의 재시도 예산 소진 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
 
 ### PART-04 본인 대기 상태 조회
 

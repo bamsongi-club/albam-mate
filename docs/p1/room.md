@@ -99,19 +99,19 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 고도화 이유 | 정원이 찬 인기 모임을 기다릴 방법과 참가 취소로 생긴 빈자리의 배정 순서가 없다. |
 | 가능 여부 | [ROOM-08 방 상태와 직접 참가·대기 가능 여부 분리](#room-08-방-상태와-직접-참가대기-가능-여부-분리) |
 | 공통 규칙 | [P0 계약 상속](../P1-spec.md#p0-계약-상속), [RoomStatus](../API.md#roomstatus), [ROOMS](../ERD.md#rooms), [PARTICIPATIONS](../ERD.md#participations) |
-| 필수 ADR | [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0037 ROOM 대기열을 단일 최신 상태로 저장하고 자동 승격을 원자적으로 처리](../adr/participation/0037-room-waitlist-latest-state-atomic-promotion.md) |
-| 착수 전 확정 | 별도 버전 열 없는 단일 최신 상태 레코드의 물리 테이블 구조·제약·FIFO 동률 해소 키·인덱스, 조건부 상태 전이 쿼리와 갱신 결과 분기, 관련 경로의 일관된 데이터베이스 변경 순서 |
+| 필수 ADR | [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0043 ROOM 대기열 단일 최신 상태·조건부 전이·등록 재시도](../adr/participation/0043-room-waitlist-persistence-conditional-transition-retry.md) |
 
 ### 기능 규칙
 
 - 대기 신청은 직접 참가와 분리된 명시적 요청이다. 직접 참가 실패를 대기 신청 성공으로 바꾸지 않는다.
 - 대기 순서는 서버가 대기 신청을 성공으로 확정한 순서를 기준으로 하는 FIFO다.
+- 전역 sequence 순번, 유스케이스 최초 고정 request time과 PART-04 전용 총 3회 재시도 경계는 [ADR-0043](../adr/participation/0043-room-waitlist-persistence-conditional-transition-retry.md)을 따른다.
 - 대기열에는 제품 정책상 최대 인원 상한을 두지 않는다. 이는 무제한 규모의 성능을 보장한다는 뜻이 아니다.
 - 같은 ROOM과 사용자 조합의 대기는 하나의 레코드로 관리한다. 신청·취소·승격·만료·ROOM 취소는 같은 레코드의 최신 상태를 변경하며, ROOM 데이터가 유지되는 동안 최신 결과를 보존한다. 신청과 취소가 반복될 때마다 별도 이력 레코드를 추가하지 않는다.
 - 같은 사용자는 같은 방에 하나의 `WAITING` 관계만 가질 수 있다. 중복 신청은 새 관계를 만들지 않고 기존 순서를 유지한 채 최신 순번을 정상 응답으로 반환한다.
 - 본인은 ROOM별 대기 상태를 조회해 `WAITING`, `PROMOTED`, `CANCELED`, `EXPIRED`, `ROOM_CANCELED`를 구분할 수 있다. 현재 순번은 `WAITING`일 때만 1 이상의 값이다.
 - 앞 순번 사용자가 취소되거나 승격되면 뒤 사용자의 현재 순번이 일관되게 당겨진다.
-- 대기를 취소하면 상태는 `CANCELED`가 된다. 다시 신청하면 같은 레코드가 `WAITING`으로 바뀌고 신청 순서 기준 시각을 새로 기록해 기존 순번을 복구하지 않은 채 대기열 맨 뒤에 들어간다.
+- 대기를 취소하면 상태는 `CANCELED`가 된다. 최신 대기 자격을 충족한 사용자는 `CANCELED` 또는 `PROMOTED`에서 다시 신청할 수 있으며, 같은 레코드를 `WAITING`으로 바꾸고 새 순번·신청 시각을 기록해 대기열 맨 뒤에 들어간다. 최초 생성 시각은 보존하며 `EXPIRED`와 `ROOM_CANCELED`는 재활성화하지 않는다.
 - 신규 대기와 재신청으로 대기 관계를 `WAITING`으로 활성화할 때는 같은 트랜잭션에서 ROOM 버전을 증가시킨다. 버전 충돌 시 대기 관계 변경을 포함한 전체 요청을 제한 재시도하고, 최신 ROOM이 더 이상 대기 가능하지 않으면 `WAITING`을 남기지 않는다.
 - 이미 `WAITING`인 중복 신청과 `WAITING → CANCELED` 대기 취소는 ROOM 버전을 강제로 증가시키지 않는다. 대기 취소와 자동 승격이 경합하면 현재 상태를 조건으로 한 갱신 중 하나만 성공한다.
 - 시작 전 현재 `ACTIVE` 참가자가 참가를 취소했을 때 활성 대기자가 있으면 첫 번째 대기자를 자동으로 참가자로 승격하고 대기 상태를 `PROMOTED`로 바꾼다. 승격 후 방은 정원이 찬 `CLOSED` 상태를 유지한다.
@@ -127,7 +127,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 
 - `PART-04-AC1` 대기 가능한 사용자의 별도 신청만 하나의 최신 상태 레코드를 `WAITING`으로 만들고, 중복 신청은 순서를 바꾸지 않은 정상 응답을 반환하며 같은 ROOM·사용자 조합의 레코드를 중복 생성하지 않는다.
 - `PART-04-AC2` 본인은 최신 대기 상태를 조회하고, `WAITING`이면 앞선 대기자의 취소·승격 뒤 변경된 1 이상의 현재 순번을 확인한다.
-- `PART-04-AC3` 대기 취소 상태는 `CANCELED`이며, 재신청은 같은 레코드의 상태와 신청 순서 기준 시각을 갱신해 기존 순번이 아니라 현재 대기열의 마지막 순번을 받는다.
+- `PART-04-AC3` 대기 취소 상태는 `CANCELED`이며, 허용된 `CANCELED` 또는 `PROMOTED` 재신청은 같은 레코드에 새 순번·신청 시각을 기록하되 최초 생성 시각을 보존해 현재 대기열의 마지막 순번을 받는다. `EXPIRED`와 `ROOM_CANCELED`에서는 재신청하지 않는다.
 - `PART-04-AC4` 시작 전 참가 취소로 한 자리가 생기고 활성 대기자가 있으면 처리 시점의 첫 `WAITING` 대기자 한 명만 `ACTIVE` 참가자이자 `PROMOTED` 대기 결과가 되고 ROOM은 `CLOSED`를 유지한다. 앞선 대기자가 동시 취소됐다면 그 상태를 덮어쓰지 않고 다음 현재 `WAITING` 대기자를 승격한다.
 - `PART-04-AC5` 시작 전 참가 취소 시 활성 대기자가 없을 때만 ROOM이 `RECRUITING`으로 돌아간다.
 - `PART-04-AC6` 참가 취소·대기 취소·자동 승격이 동시에 실행돼도 정원을 초과하지 않고, 사용자별 활성 참가·활성 대기 관계와 FIFO 순서가 일관된다.
