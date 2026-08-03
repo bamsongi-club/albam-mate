@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "batchId": "2026-08-01-p1-search-numeric-fields",
-  "toolCommit": "df7b324a9edf3f002a16fb3ad7d71288c1f92bd2",
+  "toolCommit": "36957e01008613d468f22d6bf010744e10347f98",
   "sources": {
     "games": {
       "fileName": "games.json",

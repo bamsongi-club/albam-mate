@@ -12,7 +12,7 @@ node scripts/game-catalog/prepare-game-catalog.mjs \
   --out /tmp/albam-mate-issue-293-quality
 ```
 
-현재 manifest는 서비스 적재·데이터 검수가 `pending`인 초안이고, 입력에는 `NON_POSITIVE_VALUE` 4건이 있다. 따라서 위 재현 명령은 종료 코드 `1`과 `blocked` `quality-report.json`만 만들며 `service-catalog.json`과 `upsert-games.sql`은 만들지 않는다. manifest의 `toolCommit`은 이 구현의 병합 커밋 SHA로 갱신해야 하는 초안 값이다.
+현재 manifest는 서비스 적재·데이터 검수가 `pending`인 초안이고, 입력에는 `NON_POSITIVE_VALUE` 4건이 있다. 따라서 위 재현 명령은 종료 코드 `1`과 `blocked` `quality-report.json`만 만들며 `service-catalog.json`과 `upsert-games.sql`은 만들지 않는다. manifest의 `toolCommit`은 검색 수치 변환 코드를 포함한 고정 commit `36957e01008613d468f22d6bf010744e10347f98`이며, 해당 commit의 도구와 이 manifest로 아래 집계를 재현했다.
 
 ## 검색 수치 정규화 결과
 
