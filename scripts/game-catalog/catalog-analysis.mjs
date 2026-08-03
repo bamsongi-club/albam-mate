@@ -300,7 +300,7 @@ function possibleVersionCollisions(games) {
     const groups = new Map();
     for (const field of ["name", "english_name"]) {
         for (const game of games) {
-            const normalized = normalizeName(game[field]);
+            const normalized = normalizeVersionCollisionName(game[field]);
             if (!normalized) {
                 continue;
             }
@@ -743,6 +743,13 @@ function normalizeName(value) {
         .normalize("NFKC")
         .toLocaleLowerCase("en-US")
         .replaceAll(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function normalizeVersionCollisionName(value) {
+    return String(value ?? "")
+        .normalize("NFKC")
+        .toLocaleLowerCase("en-US")
+        .replaceAll(/[\p{White_Space}\p{P}\uFE0E\uFE0F]+/gu, "");
 }
 
 function validateManifest(manifest, gamesPath, gamesContents, ranksPath, ranksContents) {

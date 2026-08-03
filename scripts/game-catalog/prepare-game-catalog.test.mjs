@@ -823,6 +823,50 @@ test("같은 표시 이름의 서로 다른 BGG 게임은 버전 충돌 경고�
     });
 });
 
+test("판본 충돌 비교는 제목 의미 기호를 보존한다", () => {
+    const symbolRows = [
+        game(1, "10", "Bullet♥︎", "Bullet Heart"),
+        game(2, "20", "Bullet★", "Bullet Star"),
+    ];
+    withCase(symbolRows, ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 0, result.stderr);
+        const report = readJson(join(out, "quality-report.json"));
+        assert.ok(!report.warnings.some(({ code }) => code === "POSSIBLE_VERSION_COLLISION"));
+    });
+
+    const equivalentRows = [
+        game(1, "10", "Bullet♥︎", "Bullet Heart"),
+        game(2, "20", "bullet ♥", "Bullet Heart Two"),
+    ];
+    withCase(equivalentRows, ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 1);
+        const report = readJson(join(out, "quality-report.json"));
+        assert.ok(report.warnings.some(({ code }) => code === "POSSIBLE_VERSION_COLLISION"));
+    });
+
+    const punctuationRows = [
+        game(1, "10", "Bullet! Game", "Bullet Game One"),
+        game(2, "20", "bullet game", "Bullet Game Two"),
+    ];
+    withCase(punctuationRows, ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 1);
+        const report = readJson(join(out, "quality-report.json"));
+        assert.ok(report.warnings.some(({ code }) => code === "POSSIBLE_VERSION_COLLISION"));
+    });
+});
+
 test("TODO 출처 정보는 검수 승인으로 바꿔도 적재를 허용하지 않는다", () => {
     withCase([game(1, "10", "첫 번째 게임", "First Game")], ({
         games,
