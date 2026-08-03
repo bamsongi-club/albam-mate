@@ -225,7 +225,8 @@ class NotificationRelayPostgresTest {
 			assertNull(jdbcTemplate.queryForObject(
 				"select cleanup_at from notification_outbox_events where id = ?", Instant.class, eventId));
 		} finally {
-			jdbcTemplate.execute("drop trigger if exists notification_relay_fail_processed_transition on notification_outbox_events");
+			jdbcTemplate.execute(
+				"drop trigger if exists notification_relay_fail_processed_transition on notification_outbox_events");
 			jdbcTemplate.execute("drop function if exists notification_relay_fail_processed_transition()");
 			jdbcTemplate.update("delete from notification_outbox_events where id = ?", eventId);
 		}
