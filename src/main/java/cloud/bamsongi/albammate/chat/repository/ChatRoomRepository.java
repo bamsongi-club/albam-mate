@@ -4,4 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import cloud.bamsongi.albammate.chat.entity.ChatRoom;
 
-public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {}
+public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
+
+	java.util.Optional<ChatRoom> findByRoomId(Long roomId);
+}

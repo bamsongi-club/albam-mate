@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,6 +13,7 @@ import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.exception.UnauthenticatedException;
+import cloud.bamsongi.albammate.room.contract.RoomCreated;
 import cloud.bamsongi.albammate.room.dto.CreateRoomRequest;
 import cloud.bamsongi.albammate.room.dto.NicknameSummary;
 import cloud.bamsongi.albammate.room.dto.ParticipantRoomResponse;
@@ -30,6 +32,7 @@ public class RoomCreateService {
 	private final GameQuery gameQuery;
 	private final UserQuery userQuery;
 	private final Clock clock;
+	private final ApplicationEventPublisher eventPublisher;
 
 	/** 로그인한 사용자를 주최자로 기록하고 모집 중인 방을 생성한다. */
 	@Transactional
@@ -52,6 +55,7 @@ public class RoomCreateService {
 			request.place(),
 			request.recruitmentCapacity());
 		Room savedRoom = roomRepository.save(room);
+		eventPublisher.publishEvent(new RoomCreated(savedRoom.getId()));
 		NicknameSummary host = new NicknameSummary(hostNickname);
 		return ParticipantRoomResponse.from(
 			savedRoom,

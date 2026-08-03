@@ -3,11 +3,14 @@ package cloud.bamsongi.albammate.room.statuscorrection;
 import java.time.Instant;
 import java.util.Objects;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import cloud.bamsongi.albammate.room.contract.RoomTerminalStateReached;
 import cloud.bamsongi.albammate.room.entity.Room;
+import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 
 /** 한 번의 상태 보정을 독립된 쓰기 트랜잭션에서 실행한다. */
@@ -15,9 +18,11 @@ import cloud.bamsongi.albammate.room.repository.RoomRepository;
 class RoomStatusCorrectionExecutor {
 
 	private final RoomRepository roomRepository;
+	private final ApplicationEventPublisher eventPublisher;
 
-	RoomStatusCorrectionExecutor(RoomRepository roomRepository) {
+	RoomStatusCorrectionExecutor(RoomRepository roomRepository, ApplicationEventPublisher eventPublisher) {
 		this.roomRepository = Objects.requireNonNull(roomRepository, "roomRepository");
+		this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher");
 	}
 
 	/** 단건 보정 시도마다 최신 방을 다시 읽고, 없는 방은 후속 유스케이스가 판단하도록 건너뛴다. */
@@ -29,6 +34,7 @@ class RoomStatusCorrectionExecutor {
 		Room room = roomRepository.findById(roomId).orElse(null);
 		if (room != null && room.reconcileStateAt(requestTime)) {
 			roomRepository.save(room);
+			publishTerminalStateReachedIfFinished(room, requestTime);
 		}
 	}
 
@@ -41,9 +47,16 @@ class RoomStatusCorrectionExecutor {
 		for (Room room : roomRepository.findDueRooms(requestTime, finishedThreshold)) {
 			if (room.reconcileStateAt(requestTime)) {
 				roomRepository.save(room);
+				publishTerminalStateReachedIfFinished(room, requestTime);
 				changedCount++;
 			}
 		}
 		return changedCount;
+	}
+
+	private void publishTerminalStateReachedIfFinished(Room room, Instant requestTime) {
+		if (room.getStatus() == RoomStatus.FINISHED) {
+			eventPublisher.publishEvent(new RoomTerminalStateReached(room.getId(), requestTime));
+		}
 	}
 }
