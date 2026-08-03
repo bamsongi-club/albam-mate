@@ -6,12 +6,17 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+
+import javax.sql.DataSource;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +47,9 @@ class NotificationOutboxRecoveryPostgresTest {
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+
+	@Autowired
+	private DataSource dataSource;
 
 	@Test
 	void PostgreSQL_시각_창_안의_FAILED만_RETRY_WAIT로_원자적으로_복구한다() {
@@ -119,6 +127,28 @@ class NotificationOutboxRecoveryPostgresTest {
 	}
 
 	@Test
+	void 잠금_대기_뒤_89일_경계에_도달한_이벤트는_재처리하지_않는다() throws Exception {
+		Fixture fixture = createFixture();
+		long eventId = insertFailedEvent(fixture.roomId(), "1 day", "RELAY_PROCESSING_FAILURE");
+		insertRecipient(eventId, fixture.recipientUserId());
+		ExecutorService worker = Executors.newSingleThreadExecutor();
+		try (Connection lockHolder = dataSource.getConnection()) {
+			lockHolder.setAutoCommit(false);
+			lockEvent(lockHolder, eventId);
+			Future<Boolean> reprocessResult = worker.submit(() -> executeReprocess(List.of(eventId)));
+			awaitRecoveryWorkerWaitingForEventLock();
+			moveOccurredAtToReprocessBoundary(lockHolder, eventId);
+			lockHolder.commit();
+
+			assertFalse(reprocessResult.get(5, TimeUnit.SECONDS));
+		} finally {
+			worker.shutdownNow();
+		}
+		assertEquals("FAILED", jdbcTemplate.queryForObject(
+			"select status from notification_outbox_events where id = ?", String.class, eventId));
+	}
+
+	@Test
 	void 겹치는_역순_ID_명령은_교착없이_한_명령_전체_성공과_다른_명령_전체_부적격으로_수렴한다() throws Exception {
 		Fixture fixture = createFixture();
 		long firstEventId = insertFailedEvent(fixture.roomId(), "1 day", "RELAY_PROCESSING_FAILURE");
@@ -170,6 +200,42 @@ class NotificationOutboxRecoveryPostgresTest {
 		} catch (NotificationOutboxRecoveryInputException exception) {
 			return false;
 		}
+	}
+
+	private void lockEvent(Connection connection, long eventId) throws SQLException {
+		try (PreparedStatement statement = connection.prepareStatement(
+			"select id from notification_outbox_events where id = ? for update")) {
+			statement.setLong(1, eventId);
+			statement.executeQuery();
+		}
+	}
+
+	private void moveOccurredAtToReprocessBoundary(Connection connection, long eventId) throws SQLException {
+		try (PreparedStatement statement = connection.prepareStatement(
+			"update notification_outbox_events set occurred_at = clock_timestamp() - interval '89 days' where id = ?")) {
+			statement.setLong(1, eventId);
+			statement.executeUpdate();
+		}
+	}
+
+	private void awaitRecoveryWorkerWaitingForEventLock() {
+		long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+		while (System.nanoTime() < deadlineNanos) {
+			Boolean waiting = jdbcTemplate.queryForObject("""
+				select exists (
+				    select 1
+				    from pg_stat_activity
+				    where wait_event_type = 'Lock'
+				      and query like '%notification_outbox_events%'
+				      and query like '%for update%'
+				)
+				""", Boolean.class);
+			if (Boolean.TRUE.equals(waiting)) {
+				return;
+			}
+			Thread.onSpinWait();
+		}
+		throw new AssertionError("recovery worker did not wait for the notification outbox event lock");
 	}
 
 	private NotificationOutboxRecoveryRequest reprocess(List<Long> eventIds) {

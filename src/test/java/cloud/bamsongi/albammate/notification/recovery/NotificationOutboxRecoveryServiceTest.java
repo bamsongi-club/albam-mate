@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -15,6 +16,7 @@ import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import cloud.bamsongi.albammate.notification.entity.NotificationOutboxEvent;
@@ -76,6 +78,9 @@ class NotificationOutboxRecoveryServiceTest {
 		assertEquals(1, result.changedCount());
 		assertTrue(result.items().isEmpty());
 		verify(eventRepository).reprocessAll(List.of(3L), OPERATION_TIME, "fixed incident");
+		InOrder repositoryCalls = inOrder(eventRepository);
+		repositoryCalls.verify(eventRepository).findAllByIdInOrderByIdForUpdate(List.of(3L));
+		repositoryCalls.verify(eventRepository).findRecoveryOperationTime();
 	}
 
 	@Test

@@ -55,8 +55,8 @@ public class NotificationOutboxRecoveryService {
 	public NotificationOutboxRecoveryResult execute(NotificationOutboxRecoveryRequest request) {
 		List<Long> eventIds = normalizeEventIds(request.eventIds());
 		validateCommand(request, true);
-		Instant operationTime = eventRepository.findRecoveryOperationTime();
 		List<NotificationOutboxEvent> events = eventRepository.findAllByIdInOrderByIdForUpdate(eventIds);
+		Instant operationTime = eventRepository.findRecoveryOperationTime();
 		ensureAllEligible(events, eventIds, request.action(), operationTime);
 
 		int changedCount = switch (request.action()) {

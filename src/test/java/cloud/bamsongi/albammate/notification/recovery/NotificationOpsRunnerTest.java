@@ -14,9 +14,24 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.DefaultApplicationArguments;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.mock.env.MockEnvironment;
 
 class NotificationOpsRunnerTest {
+
+	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
+		.withUserConfiguration(NotificationOpsRunnerConfiguration.class);
+
+	@Test
+	void notification_ops_profile에서만_Runner_bean을_등록한다() {
+		contextRunner.run(context -> assertFalse(context.containsBean("notificationOpsRunner")));
+		contextRunner.withInitializer(context -> context.getEnvironment().setActiveProfiles("notification-ops"))
+			.run(context -> assertTrue(context.containsBean("notificationOpsRunner")));
+	}
 
 	@Test
 	void 성공_입력오류_실행실패를_각각_0_2_1로_종료하고_사유를_출력하지_않는다() {
@@ -91,5 +106,15 @@ class NotificationOpsRunnerTest {
 			System.setErr(originalErr);
 		}
 		return captured.toString(StandardCharsets.UTF_8);
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	@ComponentScan(basePackageClasses = NotificationOpsRunner.class, useDefaultFilters = false, includeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = NotificationOpsRunner.class))
+	static class NotificationOpsRunnerConfiguration {
+
+		@Bean
+		NotificationOutboxRecoveryService recoveryService() {
+			return mock(NotificationOutboxRecoveryService.class);
+		}
 	}
 }
