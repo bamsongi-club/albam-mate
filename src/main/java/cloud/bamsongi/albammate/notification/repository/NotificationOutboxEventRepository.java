@@ -1,15 +1,66 @@
 package cloud.bamsongi.albammate.notification.repository;
 
 import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import cloud.bamsongi.albammate.notification.entity.NotificationOutboxEvent;
 
 public interface NotificationOutboxEventRepository extends JpaRepository<NotificationOutboxEvent, Long> {
+
+	/** 운영 복구 트랜잭션에서 사용할 PostgreSQL 기준 시각을 한 번 고정한다. */
+	@Query(value = "select clock_timestamp()", nativeQuery = true)
+	Instant findRecoveryOperationTime();
+
+	/** 실제 변경 전 전체 대상을 ID 오름차순으로 잠근다. */
+	@Query(value = "select * from notification_outbox_events where id in (:eventIds) order by id for update", nativeQuery = true)
+	List<NotificationOutboxEvent> findAllByIdInOrderByIdForUpdate(@Param("eventIds")
+	Collection<Long> eventIds);
+
+	/** preview와 inspect는 잠금 없이 같은 ID 순서로 현재 상태만 읽는다. */
+	@Query(value = "select * from notification_outbox_events where id in (:eventIds) order by id", nativeQuery = true)
+	List<NotificationOutboxEvent> findAllByIdInOrderById(@Param("eventIds")
+	Collection<Long> eventIds);
+
+	@Modifying
+	@Query("""
+		update NotificationOutboxEvent event
+		set event.status = cloud.bamsongi.albammate.notification.enums.NotificationOutboxStatus.RETRY_WAIT,
+			event.availableAt = :operationTime,
+			event.failureCount = 0,
+			event.reprocessCount = event.reprocessCount + 1,
+			event.lastReprocessedAt = :operationTime,
+			event.lastReprocessReason = :reason
+		where event.id in :eventIds
+		""")
+	int reprocessAll(@Param("eventIds")
+	Collection<Long> eventIds, @Param("operationTime")
+	Instant operationTime,
+		@Param("reason")
+		String reason);
+
+	@Modifying
+	@Query("""
+		update NotificationOutboxEvent event
+		set event.status = cloud.bamsongi.albammate.notification.enums.NotificationOutboxStatus.DISCARDED,
+			event.availableAt = null,
+			event.discardedAt = :operationTime,
+			event.discardReason = :reason,
+			event.cleanupAt = :cleanupAt
+		where event.id in :eventIds
+		""")
+	int discardAll(@Param("eventIds")
+	Collection<Long> eventIds, @Param("operationTime")
+	Instant operationTime,
+		@Param("cleanupAt")
+		Instant cleanupAt, @Param("reason")
+		String reason);
 
 	/** PostgreSQL 기준 시각으로 가장 이른 처리 가능 이벤트 하나를 잠근다. */
 	@Query(value = """
