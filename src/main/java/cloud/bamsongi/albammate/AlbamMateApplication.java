@@ -23,7 +23,7 @@ public class AlbamMateApplication {
 	public static void main(String[] args) {
 		UtcTimeZone.configure();
 		NotificationOpsLaunchPolicy.LaunchDecision launchDecision = NotificationOpsLaunchPolicy.decide(
-			args, System.getProperty("spring.profiles.active"), System.getenv("SPRING_PROFILES_ACTIVE"));
+			args, System.getProperties(), System.getenv());
 		if (launchDecision == NotificationOpsLaunchPolicy.LaunchDecision.NOTIFICATION_OPS) {
 			SpringApplication application = NotificationOpsApplication.create();
 			ConfigurableApplicationContext context = application.run(args);
