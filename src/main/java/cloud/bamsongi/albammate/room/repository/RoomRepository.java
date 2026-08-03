@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import cloud.bamsongi.albammate.room.entity.Room;
+import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 
@@ -65,6 +66,50 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		Instant requestTime,
 		@Param("finishedThreshold")
 		Instant finishedThreshold);
+
+	@Query("""
+		select room
+		from Room room
+		where (:roomType is null or room.roomType = :roomType)
+		  and room.status in :publicStatuses
+		  and (:gameId is null or room.gameId = :gameId)
+		  and (:keywordFilterEnabled = false
+		       or lower(room.title) like concat('%', lower(:keyword), '%') escape '!')
+		  and (:startsAtFromFilterEnabled = false or room.startAt >= :startsAtFrom)
+		  and (:startsAtToFilterEnabled = false or room.startAt < :startsAtTo)
+		  and (:minRemainingSeatsFilterEnabled = false
+		       or room.capacity - room.activeParticipantCount >= :minRemainingSeats)
+		  and room.experienceLevel in :experienceLevels
+		  and (:rulemasterOnly = false or room.rulemasterLed = true)
+		""")
+	Page<Room> findPublicRooms(
+		@Param("roomType")
+		RoomType roomType,
+		@Param("gameId")
+		Long gameId,
+		@Param("keywordFilterEnabled")
+		boolean keywordFilterEnabled,
+		@Param("keyword")
+		String keyword,
+		@Param("startsAtFromFilterEnabled")
+		boolean startsAtFromFilterEnabled,
+		@Param("startsAtFrom")
+		Instant startsAtFrom,
+		@Param("startsAtToFilterEnabled")
+		boolean startsAtToFilterEnabled,
+		@Param("startsAtTo")
+		Instant startsAtTo,
+		@Param("minRemainingSeatsFilterEnabled")
+		boolean minRemainingSeatsFilterEnabled,
+		@Param("minRemainingSeats")
+		int minRemainingSeats,
+		@Param("experienceLevels")
+		Collection<ExperienceLevel> experienceLevels,
+		@Param("rulemasterOnly")
+		boolean rulemasterOnly,
+		@Param("publicStatuses")
+		Collection<RoomStatus> publicStatuses,
+		Pageable pageable);
 
 	@Query("""
 		select room

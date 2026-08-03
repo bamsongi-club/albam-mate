@@ -4,10 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.net.CookieManager;
+import java.net.CookiePolicy;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -30,12 +33,21 @@ import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
+import cloud.bamsongi.albammate.user.contract.RawPassword;
+import cloud.bamsongi.albammate.user.contract.UserAccount;
+import cloud.bamsongi.albammate.user.contract.UserAccountService;
+import cloud.bamsongi.albammate.user.contract.UserEmail;
+import cloud.bamsongi.albammate.user.contract.UserNickname;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 @Testcontainers
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "app.security.cookie.secure=false")
 class RoomListPostgresTest {
 
 	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final String PASSWORD = "123456789012345";
 	private static final Instant START_AT = Instant.parse("2099-01-01T10:00:00Z");
 	private static final OffsetDateTime START_AT_UTC = START_AT.atOffset(ZoneOffset.UTC);
 
@@ -48,6 +60,10 @@ class RoomListPostgresTest {
 	private RoomRepository roomRepository;
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+	@Autowired
+	private UserAccountService userAccountService;
+	@Autowired
+	private ObjectMapper objectMapper;
 	@LocalServerPort
 	private int port;
 
@@ -209,6 +225,149 @@ class RoomListPostgresTest {
 		assertTitleAbsent(searchedBody, "스터디 모임");
 	}
 
+	@Test
+	void P1_조건은_SQL에서_AND로_적용하고_경험수준만_OR로_정렬과_페이지를_계산한다() throws Exception {
+		Long firstTargetId = saveRoom(
+			RoomType.PERSON_FOCUSED,
+			"첫 번째 대상 모임",
+			null,
+			START_AT,
+			RoomStatus.RECRUITING,
+			ExperienceLevel.BEGINNER_WELCOME,
+			true,
+			3,
+			1);
+		insertActiveParticipation(firstTargetId, "first-target-participant@example.com");
+		Long secondTargetId = saveRoom(
+			RoomType.PERSON_FOCUSED,
+			"두 번째 대상 모임",
+			null,
+			START_AT.plusSeconds(60),
+			RoomStatus.RECRUITING,
+			ExperienceLevel.ALL_LEVELS,
+			true,
+			3,
+			0);
+		saveRoom(
+			RoomType.PERSON_FOCUSED,
+			"종료 경계 모임",
+			null,
+			START_AT.plusSeconds(120),
+			RoomStatus.RECRUITING,
+			ExperienceLevel.BEGINNER_WELCOME,
+			true,
+			3,
+			0);
+		saveRoom(
+			RoomType.PERSON_FOCUSED,
+			"남은 자리 부족 모임",
+			null,
+			START_AT.plusSeconds(30),
+			RoomStatus.RECRUITING,
+			ExperienceLevel.BEGINNER_WELCOME,
+			true,
+			3,
+			2);
+		saveRoom(
+			RoomType.PERSON_FOCUSED,
+			"룰마스터 없음 모임",
+			null,
+			START_AT.plusSeconds(40),
+			RoomStatus.RECRUITING,
+			ExperienceLevel.BEGINNER_WELCOME,
+			false,
+			3,
+			0);
+		saveRoom(
+			RoomType.PERSON_FOCUSED,
+			"취소 조건 충족 모임",
+			null,
+			START_AT.plusSeconds(90),
+			RoomStatus.CANCELED,
+			ExperienceLevel.BEGINNER_WELCOME,
+			true,
+			3,
+			0);
+		saveRoom(
+			RoomType.PERSON_FOCUSED,
+			"종료 조건 충족 모임",
+			null,
+			START_AT.plusSeconds(100),
+			RoomStatus.FINISHED,
+			ExperienceLevel.BEGINNER_WELCOME,
+			true,
+			3,
+			0);
+
+		String filter = "?type=PERSON_FOCUSED&keyword=모임"
+			+ "&startsAtFrom=" + START_AT
+			+ "&startsAtTo=" + START_AT.plusSeconds(120)
+			+ "&minRemainingSeats=2&experienceLevels=BEGINNER_WELCOME"
+			+ "&experienceLevels=ALL_LEVELS&experienceLevels=BEGINNER_WELCOME&rulemasterOnly=true";
+		HttpResponse<String> firstPage = getRooms(filter + "&size=1");
+		HttpResponse<String> secondPage = getRooms(filter + "&page=1&size=1");
+		HttpResponse<String> withoutRulemasterFilter = getRooms(
+			"?startsAtFrom=" + START_AT
+				+ "&startsAtTo=" + START_AT.plusSeconds(120)
+				+ "&minRemainingSeats=2&experienceLevels=BEGINNER_WELCOME&rulemasterOnly=false");
+
+		assertEquals(200, firstPage.statusCode());
+		assertTrue(firstPage.body().contains("\"totalElements\":2"));
+		assertTitlePresent(firstPage.body(), "첫 번째 대상 모임");
+		assertTitleAbsent(firstPage.body(), "두 번째 대상 모임");
+		assertEquals(200, secondPage.statusCode());
+		assertTitlePresent(secondPage.body(), "두 번째 대상 모임");
+		assertTitleAbsent(secondPage.body(), "첫 번째 대상 모임");
+		assertTitleAbsent(firstPage.body(), "종료 경계 모임");
+		assertTitleAbsent(firstPage.body(), "남은 자리 부족 모임");
+		assertTitleAbsent(firstPage.body(), "룰마스터 없음 모임");
+		assertTitleAbsent(firstPage.body(), "취소 조건 충족 모임");
+		assertTitleAbsent(firstPage.body(), "종료 조건 충족 모임");
+		assertTitlePresent(withoutRulemasterFilter.body(), "룰마스터 없음 모임");
+	}
+
+	@Test
+	void 유효_세션의_ACTIVE_참가자는_필터없는_실제_목록에서_참가할_수_없다() throws Exception {
+		String participantEmail = "room-list-session-participant@example.com";
+		UserAccount participant = createLoginUser(participantEmail);
+		Long joinedRoomId = saveRoom(
+			RoomType.PERSON_FOCUSED,
+			"세션 참가 방",
+			null,
+			START_AT,
+			RoomStatus.RECRUITING);
+		insertActiveParticipation(joinedRoomId, participant.id());
+		jdbcTemplate.update("update rooms set active_participant_count = 1 where id = ?", joinedRoomId);
+		saveRoom(
+			RoomType.PERSON_FOCUSED,
+			"세션 다음 공개 방",
+			null,
+			START_AT.plusSeconds(60),
+			RoomStatus.RECRUITING);
+		saveRoom(
+			RoomType.PERSON_FOCUSED,
+			"세션 제외 취소 방",
+			null,
+			START_AT.plusSeconds(120),
+			RoomStatus.CANCELED);
+
+		HttpClient client = login(participantEmail);
+		HttpResponse<String> firstPage = getRooms(client, "?size=1");
+		HttpResponse<String> secondPage = getRooms(client, "?page=1&size=1");
+
+		assertEquals(200, firstPage.statusCode());
+		assertTrue(firstPage.body().contains("\"page\":0"));
+		assertTrue(firstPage.body().contains("\"size\":1"));
+		assertTrue(firstPage.body().contains("\"totalElements\":2"));
+		assertTitlePresent(firstPage.body(), "세션 참가 방");
+		assertTrue(firstPage.body().contains("\"joinable\":false"));
+		assertTitleAbsent(firstPage.body(), "세션 제외 취소 방");
+		assertEquals(200, secondPage.statusCode());
+		assertTitlePresent(secondPage.body(), "세션 다음 공개 방");
+		assertTitleAbsent(secondPage.body(), "세션 참가 방");
+		assertTrue(secondPage.body().contains("\"joinable\":true"));
+	}
+
 	private Long saveGame(String name, long bggId) {
 		jdbcTemplate.update(
 			"""
@@ -227,6 +386,28 @@ class RoomListPostgresTest {
 
 	private Long saveRoom(
 		RoomType roomType, String title, Long gameId, Instant startsAt, RoomStatus status) {
+		return saveRoom(
+			roomType,
+			title,
+			gameId,
+			startsAt,
+			status,
+			ExperienceLevel.ALL_LEVELS,
+			false,
+			3,
+			0);
+	}
+
+	private Long saveRoom(
+		RoomType roomType,
+		String title,
+		Long gameId,
+		Instant startsAt,
+		RoomStatus status,
+		ExperienceLevel experienceLevel,
+		boolean rulemasterLed,
+		int capacity,
+		int activeParticipantCount) {
 		Room room = roomRepository.saveAndFlush(
 			Room.create(
 				hostUserId,
@@ -234,13 +415,72 @@ class RoomListPostgresTest {
 				title,
 				null,
 				gameId,
-				ExperienceLevel.ALL_LEVELS,
-				false,
+				experienceLevel,
+				rulemasterLed,
 				startsAt,
 				"테스트 장소",
-				3));
-		jdbcTemplate.update("update rooms set status = ? where id = ?", status.name(), room.getId());
+				capacity));
+		jdbcTemplate.update(
+			"update rooms set status = ?, active_participant_count = ? where id = ?",
+			status.name(),
+			activeParticipantCount,
+			room.getId());
 		return room.getId();
+	}
+
+	private void insertActiveParticipation(long roomId, String email) {
+		jdbcTemplate.update(
+			"insert into users (email, password_hash, nickname, created_at, updated_at) values (?, 'hash', '참가자', ?, ?)",
+			email,
+			START_AT_UTC,
+			START_AT_UTC);
+		Long userId = jdbcTemplate.queryForObject("select id from users where email = ?", Long.class, email);
+		jdbcTemplate.update(
+			"insert into participations (room_id, user_id, status, joined_at, created_at, updated_at) "
+				+ "values (?, ?, 'ACTIVE', ?, ?, ?)",
+			roomId,
+			userId,
+			START_AT_UTC,
+			START_AT_UTC,
+			START_AT_UTC);
+	}
+
+	private void insertActiveParticipation(long roomId, long userId) {
+		jdbcTemplate.update(
+			"insert into participations (room_id, user_id, status, joined_at, created_at, updated_at) "
+				+ "values (?, ?, 'ACTIVE', ?, ?, ?)",
+			roomId,
+			userId,
+			START_AT_UTC,
+			START_AT_UTC,
+			START_AT_UTC);
+	}
+
+	private UserAccount createLoginUser(String email) {
+		return userAccountService.createAccount(
+			new CreateUserAccountCommand(
+				UserEmail.from(email).orElseThrow(),
+				RawPassword.from(PASSWORD).orElseThrow(),
+				UserNickname.from("세션 참가자").orElseThrow()));
+	}
+
+	private HttpClient login(String email) throws Exception {
+		CookieManager cookieManager = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+		HttpClient client = HttpClient.newBuilder().cookieHandler(cookieManager).build();
+		JsonNode csrf = objectMapper.readTree(get(client, "/api/auth/csrf").body()).path("data");
+		HttpResponse<String> loginResponse = client.send(
+			HttpRequest.newBuilder(uri("/api/auth/login"))
+				.header("Content-Type", "application/json")
+				.header(csrf.path("headerName").asText(), csrf.path("token").asText())
+				.POST(HttpRequest.BodyPublishers.ofString(
+					"{\"email\":\"" + email + "\",\"password\":\"" + PASSWORD + "\"}",
+					StandardCharsets.UTF_8))
+				.build(),
+			HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+		assertEquals(200, loginResponse.statusCode(), loginResponse.body());
+		assertTrue(cookieManager.getCookieStore().getCookies().stream()
+			.anyMatch(cookie -> cookie.getName().equals("JSESSIONID")));
+		return client;
 	}
 
 	private void assertTitles(String body, List<String> expectedTitles, List<String> excludedTitles) {
@@ -257,10 +497,20 @@ class RoomListPostgresTest {
 	}
 
 	private HttpResponse<String> getRooms(String query) throws Exception {
-		HttpRequest request = HttpRequest.newBuilder(
-			URI.create("http://localhost:" + port + "/api/rooms" + query))
-			.GET()
-			.build();
-		return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+		return getRooms(HttpClient.newHttpClient(), query);
+	}
+
+	private HttpResponse<String> getRooms(HttpClient client, String query) throws Exception {
+		return get(client, "/api/rooms" + query);
+	}
+
+	private HttpResponse<String> get(HttpClient client, String path) throws Exception {
+		return client.send(
+			HttpRequest.newBuilder(uri(path)).GET().build(),
+			HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+	}
+
+	private URI uri(String path) {
+		return URI.create("http://localhost:" + port + path);
 	}
 }

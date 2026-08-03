@@ -75,6 +75,89 @@ class RoomListQueryServiceTest {
 	}
 
 	@Test
+	void P1_조건은_상태_정합화_뒤_동적_조회에_함께_전달한다() {
+		PageRequest pageable = pageable();
+		Instant startsAtFrom = NOW.plusSeconds(60);
+		Instant startsAtTo = NOW.plusSeconds(120);
+		Set<ExperienceLevel> experienceLevels = Set.of(ExperienceLevel.BEGINNER_WELCOME);
+		when(roomListReadService.findPublicRooms(
+			RoomType.PERSON_FOCUSED,
+			7L,
+			"모임",
+			startsAtFrom,
+			startsAtTo,
+			2,
+			experienceLevels,
+			true,
+			pageable,
+			42L))
+			.thenReturn(readResult(List.of(), pageable, Set.of()));
+
+		roomListQueryService.findPage(
+			RoomType.PERSON_FOCUSED,
+			7L,
+			"모임",
+			startsAtFrom,
+			startsAtTo,
+			2,
+			experienceLevels,
+			true,
+			0,
+			10,
+			Optional.of(42L));
+
+		InOrder inOrder = inOrder(statusCorrectionCoordinator, roomListReadService);
+		inOrder.verify(statusCorrectionCoordinator).correctDueRooms(NOW);
+		inOrder.verify(roomListReadService).findPublicRooms(
+			RoomType.PERSON_FOCUSED,
+			7L,
+			"모임",
+			startsAtFrom,
+			startsAtTo,
+			2,
+			experienceLevels,
+			true,
+			pageable,
+			42L);
+	}
+
+	@Test
+	void P1_조건으로_조회한_CLOSED_방은_참가할_수_없다() {
+		PageRequest pageable = pageable();
+		Instant startsAtFrom = NOW.plusSeconds(60);
+		Instant startsAtTo = NOW.plusSeconds(120);
+		Set<ExperienceLevel> experienceLevels = Set.of(ExperienceLevel.ALL_LEVELS);
+		Room closedRoom = room(1L, null, 42L, RoomStatus.CLOSED, 0, 3, NOW.plusSeconds(90));
+		when(roomListReadService.findPublicRooms(
+			RoomType.PERSON_FOCUSED,
+			null,
+			null,
+			startsAtFrom,
+			startsAtTo,
+			1,
+			experienceLevels,
+			false,
+			pageable,
+			99L))
+			.thenReturn(readResult(List.of(closedRoom), pageable, Set.of()));
+
+		var response = roomListQueryService.findPage(
+			RoomType.PERSON_FOCUSED,
+			null,
+			null,
+			startsAtFrom,
+			startsAtTo,
+			1,
+			experienceLevels,
+			false,
+			0,
+			10,
+			Optional.of(99L));
+
+		assertFalse(response.content().getFirst().joinable());
+	}
+
+	@Test
 	void 상태_보정_후_같은_요청시각으로_공개_게임방을_페이지_응답으로_조립한다() {
 		Room room = room(1L, 7L, 42L, RoomStatus.RECRUITING, 1, 3, NOW.plusSeconds(60));
 		PageRequest pageable = pageable();

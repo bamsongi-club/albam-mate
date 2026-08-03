@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
@@ -22,6 +23,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 
 import cloud.bamsongi.albammate.room.entity.Room;
+import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
@@ -122,6 +124,124 @@ class RoomListReadServiceTest {
 		verify(roomRepository)
 			.findPublicRoomsByTitleContainingIgnoreCase(
 				RoomType.PERSON_FOCUSED, null, "모임", PUBLIC_STATUSES, pageable);
+	}
+
+	@Test
+	void P1_조건은_하나의_동적_조회에_전달한다() {
+		PageRequest pageable = pageable();
+		Set<ExperienceLevel> experienceLevels = Set.of(ExperienceLevel.BEGINNER_WELCOME);
+		when(roomRepository.findPublicRooms(
+			RoomType.PERSON_FOCUSED,
+			null,
+			true,
+			"모임",
+			true,
+			Instant.parse("2099-01-01T00:00:00Z"),
+			true,
+			Instant.parse("2099-01-02T00:00:00Z"),
+			true,
+			2,
+			experienceLevels,
+			true,
+			PUBLIC_STATUSES,
+			pageable))
+			.thenReturn(Page.empty(pageable));
+
+		roomListReadService.findPublicRooms(
+			RoomType.PERSON_FOCUSED,
+			null,
+			"모임",
+			Instant.parse("2099-01-01T00:00:00Z"),
+			Instant.parse("2099-01-02T00:00:00Z"),
+			2,
+			experienceLevels,
+			true,
+			pageable,
+			null);
+
+		verify(roomRepository).findPublicRooms(
+			RoomType.PERSON_FOCUSED,
+			null,
+			true,
+			"모임",
+			true,
+			Instant.parse("2099-01-01T00:00:00Z"),
+			true,
+			Instant.parse("2099-01-02T00:00:00Z"),
+			true,
+			2,
+			experienceLevels,
+			true,
+			PUBLIC_STATUSES,
+			pageable);
+	}
+
+	@Test
+	void P1_빈_페이지의_로그인_사용자는_ACTIVE_참가를_조회하지_않는다() {
+		PageRequest pageable = pageable();
+		Set<ExperienceLevel> allExperienceLevels = Set.of(ExperienceLevel.values());
+		when(roomRepository.findPublicRooms(
+			null,
+			null,
+			false,
+			"",
+			false,
+			Instant.EPOCH,
+			false,
+			Instant.EPOCH,
+			false,
+			0,
+			allExperienceLevels,
+			false,
+			PUBLIC_STATUSES,
+			pageable))
+			.thenReturn(Page.empty(pageable));
+
+		RoomListReadService.RoomListReadResult result = roomListReadService.findPublicRooms(
+			null, null, null, null, null, null, Set.of(), false, pageable, 42L);
+
+		assertEquals(Set.of(), result.activeParticipationRoomIds());
+		verify(roomRepository, never()).findActiveParticipationRoomIds(anyLong(), any());
+	}
+
+	@Test
+	void P1_비어있지_않은_페이지의_로그인_사용자는_ACTIVE_참가를_일괄_조회한다() {
+		PageRequest pageable = pageable();
+		Set<ExperienceLevel> experienceLevels = Set.of(ExperienceLevel.ALL_LEVELS);
+		Page<Room> rooms = new PageImpl<>(List.of(room(10L), room(20L)), pageable, 2);
+		when(roomRepository.findPublicRooms(
+			RoomType.PERSON_FOCUSED,
+			null,
+			false,
+			"",
+			false,
+			Instant.EPOCH,
+			false,
+			Instant.EPOCH,
+			false,
+			0,
+			experienceLevels,
+			false,
+			PUBLIC_STATUSES,
+			pageable))
+			.thenReturn(rooms);
+		when(roomRepository.findActiveParticipationRoomIds(42L, List.of(10L, 20L)))
+			.thenReturn(List.of(10L));
+
+		RoomListReadService.RoomListReadResult result = roomListReadService.findPublicRooms(
+			RoomType.PERSON_FOCUSED,
+			null,
+			null,
+			null,
+			null,
+			null,
+			experienceLevels,
+			false,
+			pageable,
+			42L);
+
+		assertEquals(Set.of(10L), result.activeParticipationRoomIds());
+		verify(roomRepository).findActiveParticipationRoomIds(42L, List.of(10L, 20L));
 	}
 
 	private PageRequest pageable() {

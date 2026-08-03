@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.room.service.query;
 
+import java.util.EnumSet;
 import java.util.Set;
 
 import org.springframework.data.domain.Page;
@@ -9,6 +10,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import cloud.bamsongi.albammate.room.entity.Room;
+import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
@@ -31,6 +33,49 @@ class RoomListReadService {
 				roomType, gameId, PUBLIC_STATUSES, pageable)
 			: roomRepository.findPublicRoomsByTitleContainingIgnoreCase(
 				roomType, gameId, keyword, PUBLIC_STATUSES, pageable);
+		Set<Long> activeParticipationRoomIds = currentUserId == null || rooms.isEmpty()
+			? Set.of()
+			: Set.copyOf(
+				roomRepository.findActiveParticipationRoomIds(
+					currentUserId,
+					rooms.getContent().stream().map(Room::getId).toList()));
+		return new RoomListReadResult(rooms, activeParticipationRoomIds);
+	}
+
+	@Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
+	public RoomListReadResult findPublicRooms(
+		RoomType roomType,
+		Long gameId,
+		String keyword,
+		java.time.Instant startsAtFrom,
+		java.time.Instant startsAtTo,
+		Integer minRemainingSeats,
+		Set<ExperienceLevel> experienceLevels,
+		boolean rulemasterOnly,
+		Pageable pageable,
+		Long currentUserId) {
+		Set<ExperienceLevel> appliedExperienceLevels = experienceLevels.isEmpty()
+			? EnumSet.allOf(ExperienceLevel.class)
+			: experienceLevels;
+		boolean keywordFilterEnabled = keyword != null;
+		boolean startsAtFromFilterEnabled = startsAtFrom != null;
+		boolean startsAtToFilterEnabled = startsAtTo != null;
+		boolean minRemainingSeatsFilterEnabled = minRemainingSeats != null;
+		Page<Room> rooms = roomRepository.findPublicRooms(
+			roomType,
+			gameId,
+			keywordFilterEnabled,
+			keywordFilterEnabled ? keyword : "",
+			startsAtFromFilterEnabled,
+			startsAtFromFilterEnabled ? startsAtFrom : java.time.Instant.EPOCH,
+			startsAtToFilterEnabled,
+			startsAtToFilterEnabled ? startsAtTo : java.time.Instant.EPOCH,
+			minRemainingSeatsFilterEnabled,
+			minRemainingSeatsFilterEnabled ? minRemainingSeats : 0,
+			appliedExperienceLevels,
+			rulemasterOnly,
+			PUBLIC_STATUSES,
+			pageable);
 		Set<Long> activeParticipationRoomIds = currentUserId == null || rooms.isEmpty()
 			? Set.of()
 			: Set.copyOf(

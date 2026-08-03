@@ -22,6 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
@@ -135,6 +136,11 @@ class RoomControllerTest {
 			isNull(),
 			isNull(),
 			isNull(),
+			isNull(),
+			isNull(),
+			isNull(),
+			eq(Set.of()),
+			eq(false),
 			eq(0),
 			eq(10),
 			eq(Optional.empty())))
@@ -161,6 +167,11 @@ class RoomControllerTest {
 			eq(RoomType.PERSON_FOCUSED),
 			isNull(),
 			eq("모임"),
+			isNull(),
+			isNull(),
+			isNull(),
+			eq(Set.of()),
+			eq(false),
 			eq(1),
 			eq(20),
 			eq(Optional.of(42L))))
@@ -173,7 +184,18 @@ class RoomControllerTest {
 			.andExpect(jsonPath("$.data.content[0].joinable").value(true));
 
 		verify(roomListQueryService)
-			.findPage(RoomType.PERSON_FOCUSED, null, "모임", 1, 20, Optional.of(42L));
+			.findPage(
+				RoomType.PERSON_FOCUSED,
+				null,
+				"모임",
+				null,
+				null,
+				null,
+				Set.of(),
+				false,
+				1,
+				20,
+				Optional.of(42L));
 	}
 
 	@Test
@@ -184,6 +206,16 @@ class RoomControllerTest {
 			"type=INVALID",
 			"gameId=0",
 			"gameId=not-a-number",
+			"startsAtFrom=not-a-date",
+			"startsAtFrom=2099-01-01T00:00:00Z&startsAtTo=2099-01-01T00:00:00Z",
+			"minRemainingSeats=0",
+			"minRemainingSeats=11",
+			"minRemainingSeats=not-a-number",
+			"experienceLevels=INVALID",
+			"rulemasterOnly=not-a-boolean",
+			"rulemasterOnly=yes",
+			"rulemasterOnly=on",
+			"rulemasterOnly=1",
 			"sort=startsAt",
 			"page=not-a-number",
 			"page=-1",
@@ -198,9 +230,31 @@ class RoomControllerTest {
 	}
 
 	@Test
+	void 방_목록의_뒤집힌_날짜_범위는_VALIDATION_ERROR다() throws Exception {
+		clearInvocations(roomListQueryService);
+
+		mockMvc.perform(
+			get("/api/rooms?startsAtFrom=2099-01-02T00:00:00Z&startsAtTo=2099-01-01T00:00:00Z"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
+		verifyNoInteractions(roomListQueryService);
+	}
+
+	@Test
 	void 빈_방_목록_페이지_parameter는_기본값을_유지한다() throws Exception {
 		when(roomListQueryService.findPage(
-			isNull(), isNull(), isNull(), eq(0), eq(10), eq(Optional.empty())))
+			isNull(),
+			isNull(),
+			isNull(),
+			isNull(),
+			isNull(),
+			isNull(),
+			eq(Set.of()),
+			eq(false),
+			eq(0),
+			eq(10),
+			eq(Optional.empty())))
 			.thenReturn(pageResponse(false));
 
 		mockMvc.perform(get("/api/rooms?page=&size="))
@@ -209,7 +263,49 @@ class RoomControllerTest {
 			.andExpect(jsonPath("$.data.size").value(10));
 
 		verify(roomListQueryService).findPage(
-			null, null, null, 0, 10, Optional.empty());
+			null, null, null, null, null, null, Set.of(), false, 0, 10, Optional.empty());
+	}
+
+	@Test
+	void P1_방_조건을_중복없이_서비스에_전달한다() throws Exception {
+		Instant startsAtFrom = Instant.parse("2099-01-01T00:00:00Z");
+		Instant startsAtTo = Instant.parse("2099-01-02T00:00:00Z");
+		Set<ExperienceLevel> experienceLevels = Set.of(
+			ExperienceLevel.ALL_LEVELS, ExperienceLevel.BEGINNER_WELCOME);
+		when(roomListQueryService.findPage(
+			eq(RoomType.GAME_FOCUSED),
+			eq(7L),
+			eq("모임"),
+			eq(startsAtFrom),
+			eq(startsAtTo),
+			eq(2),
+			eq(experienceLevels),
+			eq(true),
+			eq(0),
+			eq(10),
+			eq(Optional.of(42L))))
+			.thenReturn(pageResponse(true));
+
+		mockMvc.perform(
+			get("/api/rooms?type=GAME_FOCUSED&gameId=7&keyword=모임"
+				+ "&startsAtFrom=2099-01-01T00:00:00Z&startsAtTo=2099-01-02T00:00:00Z"
+				+ "&minRemainingSeats=2&experienceLevels=ALL_LEVELS"
+				+ "&experienceLevels=ALL_LEVELS&experienceLevels=BEGINNER_WELCOME&rulemasterOnly=true")
+				.with(authenticationFor(42L)))
+			.andExpect(status().isOk());
+
+		verify(roomListQueryService).findPage(
+			RoomType.GAME_FOCUSED,
+			7L,
+			"모임",
+			startsAtFrom,
+			startsAtTo,
+			2,
+			experienceLevels,
+			true,
+			0,
+			10,
+			Optional.of(42L));
 	}
 
 	@Autowired

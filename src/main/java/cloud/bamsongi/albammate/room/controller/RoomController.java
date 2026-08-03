@@ -74,6 +74,11 @@ public class RoomController {
 				listRequest.getType(),
 				listRequest.getGameId(),
 				listRequest.getKeyword(),
+				listRequest.getStartsAtFrom(),
+				listRequest.getStartsAtTo(),
+				listRequest.getMinRemainingSeats(),
+				listRequest.getExperienceLevels(),
+				listRequest.isRulemasterOnly(),
 				listRequest.getPage(),
 				listRequest.getSize(),
 				currentUserAccessor.currentUserId())));

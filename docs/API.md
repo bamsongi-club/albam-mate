@@ -859,11 +859,11 @@ P0에서는 닉네임만 수정한다.
 | `type` | RoomType | N | 전달 시 | P0 | 제공 | 방 유형 |
 | `gameId` | integer | N | 전달 시 | P0 | 제공 | 1 이상의 알밤메이트 내부 게임 ID |
 | `keyword` | string | N | 전달 시 | P0 | 제공 | 방 제목 부분 일치 |
-| `startsAtFrom` | string(date-time) | N | 전달 시 | P1 | 구현 예정 | `startsAt >= startsAtFrom` |
-| `startsAtTo` | string(date-time) | N | 전달 시 | P1 | 구현 예정 | `startsAt < startsAtTo` |
-| `minRemainingSeats` | integer | N | 전달 시 | P1 | 구현 예정 | 최소 남은 모집 자리, 1~10 |
-| `experienceLevels` | ExperienceLevel | N | 전달 시 | P1 | 구현 예정 | 반복 전달 가능한 권장 경험 수준. 목록 안 OR |
-| `rulemasterOnly` | boolean | N | `true`일 때 | P1 | 구현 예정 | 룰마스터 진행 방만 반환 |
+| `startsAtFrom` | string(date-time) | N | 전달 시 | P1 | 제공 | `startsAt >= startsAtFrom` |
+| `startsAtTo` | string(date-time) | N | 전달 시 | P1 | 제공 | `startsAt < startsAtTo` |
+| `minRemainingSeats` | integer | N | 전달 시 | P1 | 제공 | 최소 남은 모집 자리, 1~10 |
+| `experienceLevels` | ExperienceLevel | N | 전달 시 | P1 | 제공 | 반복 전달 가능한 권장 경험 수준. 목록 안 OR |
+| `rulemasterOnly` | boolean | N | `true`일 때 | P1 | 제공 | 룰마스터 진행 방만 반환 |
 | `page` | integer | N | 항상 | P0 | 제공 | 기본값 `0` |
 | `size` | integer | N | 항상 | P0 | 제공 | 기본값 `10`, 1~100 |
 

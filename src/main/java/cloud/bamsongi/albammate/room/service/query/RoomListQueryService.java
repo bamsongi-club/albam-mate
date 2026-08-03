@@ -40,6 +40,38 @@ public class RoomListQueryService {
 		RoomType roomType,
 		Long gameId,
 		String keyword,
+		Instant startsAtFrom,
+		Instant startsAtTo,
+		Integer minRemainingSeats,
+		Set<cloud.bamsongi.albammate.room.enums.ExperienceLevel> experienceLevels,
+		boolean rulemasterOnly,
+		int page,
+		int size,
+		Optional<Long> currentUserId) {
+		Instant requestTime = Instant.now(clock);
+		statusCorrectionCoordinator.correctDueRooms(requestTime);
+
+		PageRequest pageable = PageRequest.of(
+			page, size, Sort.by(Sort.Order.asc("startAt"), Sort.Order.asc("id")));
+		String normalizedKeyword = normalizeKeyword(keyword);
+		RoomListReadService.RoomListReadResult readResult = roomListReadService.findPublicRooms(
+			roomType,
+			gameId,
+			normalizedKeyword,
+			startsAtFrom,
+			startsAtTo,
+			minRemainingSeats,
+			experienceLevels,
+			rulemasterOnly,
+			pageable,
+			currentUserId.orElse(null));
+		return toPageResponse(readResult, requestTime, currentUserId);
+	}
+
+	public PageResponse<PublicRoomResponse> findPage(
+		RoomType roomType,
+		Long gameId,
+		String keyword,
 		int page,
 		int size,
 		Optional<Long> currentUserId) {
@@ -51,6 +83,13 @@ public class RoomListQueryService {
 		String normalizedKeyword = normalizeKeyword(keyword);
 		RoomListReadService.RoomListReadResult readResult = roomListReadService.findPublicRooms(
 			roomType, gameId, normalizedKeyword, pageable, currentUserId.orElse(null));
+		return toPageResponse(readResult, requestTime, currentUserId);
+	}
+
+	private PageResponse<PublicRoomResponse> toPageResponse(
+		RoomListReadService.RoomListReadResult readResult,
+		Instant requestTime,
+		Optional<Long> currentUserId) {
 		Map<Long, GameSummary> gameSummaries = findGameSummaries(readResult.rooms().getContent());
 		Page<PublicRoomResponse> response = readResult
 			.rooms()
