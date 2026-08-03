@@ -1,13 +1,11 @@
 # ADR-0026: 게임 인원·시간 표시값과 검색 수치를 분리
 
-- 상태: 제안됨
+- 상태: 승인됨
 - 작성일: 2026-07-31
-- 결정일: 미정
+- 결정일: 2026-08-03
 - 관련: [SEARCH-01 게임 조건 검색](../../p1/search.md#search-01-게임-조건-검색), [P1 게임 데이터 정규화](../../P1-spec.md#게임-데이터-정규화), [게임 목록·검색 API](../../API.md#game-01-게임-목록검색), [ERD GAMES](../../ERD.md#games), [ADR-0015](0015-bgg-baseline-team-collected-game-list.md), [ADR-0008](../platform/0008-flyway-database-migrations.md), [ADR-0023](../platform/0023-p0-flyway-baseline-reset-player-count-stages.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
-
-> 이 문서는 팀 논의를 위한 제안이다. 승인 전에는 구현 정본으로 사용하지 않는다.
 
 **결정 요약:** 인원·시간 표시 문자열은 유지하고, 같은 적재 배치에서 검증한 최소·최대 수치를 검색에 사용한다.
 

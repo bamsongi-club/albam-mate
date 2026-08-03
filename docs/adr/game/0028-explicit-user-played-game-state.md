@@ -1,13 +1,11 @@
 # ADR-0028: 사용자가 표시한 해 본 게임만 관계로 저장
 
-- 상태: 제안됨
+- 상태: 승인됨
 - 작성일: 2026-07-31
-- 결정일: 미정
+- 결정일: 2026-08-03
 - 관련: [SEARCH-03 사용자별 해 본 게임](../../p1/search.md#search-03-사용자별-해-본-게임), [P0 권한과 공개 범위](../../archive/p0/P0-spec.md#권한과-공개-범위), [게임 API](../../API.md#6-게임-api), [ERD GAMES](../../ERD.md#games), [ADR-0003](../auth/0003-p0-server-session-spring-security.md), [ADR-0006](../platform/0006-p0-bigint-identity-ids.md), [ADR-0008](../platform/0008-flyway-database-migrations.md), [ADR-0020](../auth/0020-api-endpoint-authorization-policy-registry.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
-
-> 이 문서는 팀 논의를 위한 제안이다. 승인 전에는 구현 정본으로 사용하지 않는다.
 
 > 이 결정은 P1 필수 범위가 아니라 확장 후보다. 상위 P1 범위에 채택되기 전에는 API·ERD·구현 계약에 반영하지 않는다.
 
