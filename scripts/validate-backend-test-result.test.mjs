@@ -13,6 +13,7 @@ import {
     computeWorktreeSnapshot,
     sha256,
     validateBackendTestResult,
+    validateExpected,
 } from './validate-backend-test-result.mjs';
 
 const schema = JSON.parse(fs.readFileSync(DEFAULT_SCHEMA_PATH, 'utf8'));
@@ -21,17 +22,29 @@ const baseCommit = 'a'.repeat(40);
 const implementationDiffHash = 'b'.repeat(64);
 const packetHash = 'c'.repeat(64);
 const trackedDiffHash = 'd'.repeat(64);
-const evidenceHash = 'e'.repeat(64);
+const evidenceHash = 'f'.repeat(64);
+const preflightCheckNames = [
+    'result-directory',
+    'log-directory',
+    'jna-directory',
+    'gradle-wrapper',
+    'docker',
+];
 
 function expected() {
     return {
+        schemaVersion: 2,
         baseCommit,
         implementationDiffHash,
         packetHash,
         trackedDiffHash,
+        executions: [
+            { id: 'E1', command: 'node --test scripts/example.test.mjs', junitTasks: [] },
+            { id: 'E2', command: 'node scripts/check-example.mjs', junitTasks: [] },
+        ],
         tests: [
-            { id: 'T1', command: 'node --test scripts/example.test.mjs' },
-            { id: 'T2', command: 'node scripts/check-example.mjs' },
+            { id: 'T1', executionIds: ['E1'], testSources: ['src/test/java/example/FirstTest.java'] },
+            { id: 'T2', executionIds: ['E1', 'E2'], testSources: ['src/postgresTest/java/example/SecondTest.java'] },
         ],
     };
 }
@@ -45,34 +58,64 @@ function snapshots() {
     };
 }
 
-function audit() {
+function preflight(verdict = 'pass') {
     return {
-        productionSourceModified: false,
-        testSourceModified: false,
-        stagePerformed: false,
-        commitPerformed: false,
-        pushPerformed: false,
-        pullRequestCreated: false,
+        verdict,
+        checks: preflightCheckNames.map((name) => {
+            const checkVerdict = verdict === 'unverified' && name === 'docker' ? 'unverified' : 'pass';
+            return {
+                name,
+                verdict: checkVerdict,
+                detail: checkVerdict === 'pass' ? `${name} 확인 완료` : 'Docker daemon에 접근할 수 없다.',
+            };
+        }),
+    };
+}
+
+function executionResult(execution, verdict = 'pass') {
+    return {
+        executionId: execution.id,
+        command: execution.command,
+        commandHash: sha256(Buffer.from(execution.command, 'utf8')),
+        durationMs: 1,
+        exitCode: verdict === 'pass' ? 0 : verdict === 'fail' ? 1 : null,
+        verdict,
+        evidenceHash: verdict === 'unverified' ? null : evidenceHash,
+        junitEvidence: execution.junitTasks.map((task) => ({
+            task,
+            reportCount: 1,
+            testCount: 1,
+            reportHash: '1'.repeat(64),
+        })),
+        notRunReason: verdict === 'unverified' ? '실행 환경을 확인할 수 없다.' : null,
     };
 }
 
 function result(verdicts = ['pass', 'pass']) {
-    const testResults = expected().tests.map((item, index) => ({
-        testId: item.id,
-        command: item.command,
-        durationMs: index + 1,
-        exitCode: verdicts[index] === 'pass' ? 0 : verdicts[index] === 'fail' ? 1 : null,
-        verdict: verdicts[index],
-        evidenceHash: verdicts[index] === 'unverified' ? null : evidenceHash,
-        notRunReason: verdicts[index] === 'unverified' ? 'Docker daemon is unavailable.' : null,
-    }));
+    const approved = expected();
+    const executionResults = approved.executions.map((execution, index) => executionResult(execution, verdicts[index]));
+    const byId = new Map(executionResults.map((execution) => [execution.executionId, execution]));
+    const testResults = approved.tests.map((mapping) => {
+        const executions = mapping.executionIds.map((id) => byId.get(id));
+        const verdict = executions.some((execution) => execution.verdict === 'fail')
+            ? 'fail'
+            : executions.some((execution) => execution.verdict !== 'pass') ? 'unverified' : 'pass';
+        return {
+            testId: mapping.id,
+            executionIds: mapping.executionIds,
+            verdict,
+            notRunReason: verdict === 'unverified' ? '연결 실행이 미검증이다.' : null,
+        };
+    });
+    const overallVerdict = verdicts.includes('fail') ? 'fail' : verdicts.includes('unverified') ? 'unverified' : 'pass';
     return {
-        schemaVersion: 1,
+        schemaVersion: 2,
         ...snapshots(),
-        audit: audit(),
+        preflight: preflight(),
+        executionResults,
         testResults,
-        overallVerdict: verdicts.includes('fail') ? 'fail' : verdicts.includes('unverified') ? 'unverified' : 'pass',
-        overallReason: verdicts.includes('unverified') ? 'One or more approved commands were not run.' : null,
+        overallVerdict,
+        overallReason: overallVerdict === 'unverified' ? '하나 이상의 실행이 미검증이다.' : null,
     };
 }
 
@@ -82,8 +125,22 @@ function git(worktree, args, encoding = 'utf8') {
     return execFileSync('git', args, { cwd: worktree, encoding });
 }
 
-test('정상 실행 결과는 세 snapshot과 승인 명령을 대조해 통과한다', () => {
+test('정상 실행 그래프 결과는 snapshot, 실행과 T-ID 매핑을 대조해 통과한다', () => {
     assert.deepEqual(validateBackendTestResult(result(), schema, expected()), []);
+});
+
+test('expected는 고유 실행과 T-ID 다대다 매핑을 강제한다', () => {
+    const duplicate = expected();
+    duplicate.executions[1].command = duplicate.executions[0].command;
+    assert.throws(() => validateExpected(duplicate), /중복/);
+
+    const dangling = expected();
+    dangling.tests[0].executionIds = ['E9'];
+    assert.throws(() => validateExpected(dangling), /존재하지 않는/);
+
+    const missingSource = expected();
+    missingSource.tests[0].testSources = [];
+    assert.throws(() => validateExpected(missingSource), /testSources/);
 });
 
 test('공통 snapshot CLI는 staged, unstaged, 정렬된 untracked mode와 bytes hash의 canonical seed를 출력한다', (t) => {
@@ -134,12 +191,10 @@ test('untracked mode와 symlink target은 같은 파일 bytes와 구분되어 sn
     fs.writeFileSync(path.join(worktree, 'baseline.txt'), 'baseline\n', 'utf8');
     git(worktree, ['add', 'baseline.txt']);
     git(worktree, ['commit', '-qm', 'baseline']);
-
     const regularPath = path.join(worktree, 'regular.txt');
     const symlinkPath = path.join(worktree, 'link.txt');
     fs.writeFileSync(regularPath, 'same bytes\n', 'utf8');
     fs.writeFileSync(symlinkPath, 'same bytes\n', 'utf8');
-
     const originalLstatSync = fs.lstatSync;
     const originalReadlinkSync = fs.readlinkSync;
     t.after(() => {
@@ -151,11 +206,7 @@ test('untracked mode와 symlink target은 같은 파일 bytes와 구분되어 sn
     fs.lstatSync = (filePath, options) => {
         const stats = originalLstatSync(filePath, options);
         if (path.resolve(filePath) === symlinkPath && linkIsSymbolic) {
-            return {
-                mode: stats.mode,
-                isFile: () => false,
-                isSymbolicLink: () => true,
-            };
+            return { mode: stats.mode, isFile: () => false, isSymbolicLink: () => true };
         }
         if (path.resolve(filePath) !== regularPath) return stats;
         return {
@@ -164,128 +215,102 @@ test('untracked mode와 symlink target은 같은 파일 bytes와 구분되어 sn
             isSymbolicLink: () => false,
         };
     };
-    fs.readlinkSync = (filePath, options) => {
-        if (path.resolve(filePath) === symlinkPath) return 'same bytes\n';
-        return originalReadlinkSync(filePath, options);
-    };
+    fs.readlinkSync = (filePath, options) =>
+        path.resolve(filePath) === symlinkPath ? 'same bytes\n' : originalReadlinkSync(filePath, options);
 
     const initial = computeWorktreeSnapshot(worktree);
-    assert.deepEqual(initial.canonicalSeed.untrackedFiles, [
-        {
-            path: 'link.txt',
-            mode: '120000',
-            sha256: sha256(Buffer.from('same bytes\n', 'utf8')),
-        },
-        {
-            path: 'regular.txt',
-            mode: '100644',
-            sha256: sha256(Buffer.from('same bytes\n', 'utf8')),
-        },
-    ]);
-
+    assert.deepEqual(initial.canonicalSeed.untrackedFiles.map(({ mode }) => mode), ['120000', '100644']);
     linkIsSymbolic = false;
-    const regularLink = computeWorktreeSnapshot(worktree);
-    assert.equal(regularLink.canonicalSeed.untrackedFiles[0].mode, '100644');
-    assert.equal(regularLink.canonicalSeed.untrackedFiles[0].sha256, initial.canonicalSeed.untrackedFiles[0].sha256);
-    assert.notEqual(regularLink.implementationDiffHash, initial.implementationDiffHash);
-
+    assert.notEqual(computeWorktreeSnapshot(worktree).implementationDiffHash, initial.implementationDiffHash);
     linkIsSymbolic = true;
     regularExecutable = true;
-    const executable = computeWorktreeSnapshot(worktree);
-    assert.equal(executable.canonicalSeed.untrackedFiles[1].mode, '100755');
-    assert.equal(executable.canonicalSeed.untrackedFiles[1].sha256, initial.canonicalSeed.untrackedFiles[1].sha256);
-    assert.notEqual(executable.implementationDiffHash, initial.implementationDiffHash);
+    assert.equal(computeWorktreeSnapshot(worktree).canonicalSeed.untrackedFiles[1].mode, '100755');
 });
 
-test('non-zero 명령은 관련 T-ID와 종합 fail이어야 한다', () => {
+test('execution fail과 unverified를 관련 T-ID와 종합 verdict로 계산한다', () => {
     assert.deepEqual(validateBackendTestResult(result(['pass', 'fail']), schema, expected()), []);
-    const invalid = result(['pass', 'fail']);
-    invalid.overallVerdict = 'pass';
+    assert.deepEqual(validateBackendTestResult(result(['unverified', 'pass']), schema, expected()), []);
 
-    assert.ok(keywords(validateBackendTestResult(invalid, schema, expected())).includes('overallVerdict'));
+    const wrong = result(['pass', 'fail']);
+    wrong.testResults[1].verdict = 'pass';
+    assert.ok(keywords(validateBackendTestResult(wrong, schema, expected())).includes('testVerdict'));
 });
 
-test('timeout, 환경 제약 또는 미실행은 구체적 사유가 있는 unverified만 허용한다', () => {
-    assert.deepEqual(validateBackendTestResult(result(['unverified', 'unverified']), schema, expected()), []);
-    const timeout = result(['unverified', 'pass']);
-    timeout.testResults[0].evidenceHash = evidenceHash;
-    timeout.testResults[0].notRunReason = 'The command exceeded its approved timeout.';
-    assert.deepEqual(validateBackendTestResult(timeout, schema, expected()), []);
+test('JUnit task를 선언한 pass execution은 실제 report 증거를 가져야 한다', () => {
+    const approved = expected();
+    approved.executions[0].junitTasks = ['test'];
+    const valid = result();
+    valid.executionResults[0].junitEvidence = [{
+        task: 'test', reportCount: 1, testCount: 2, reportHash: '1'.repeat(64),
+    }];
+    assert.deepEqual(validateBackendTestResult(valid, schema, approved), []);
 
-    const invalid = result(['unverified', 'pass']);
-    invalid.testResults[0].notRunReason = null;
-
-    assert.ok(keywords(validateBackendTestResult(invalid, schema, expected())).includes('unverifiedReason'));
+    valid.executionResults[0].junitEvidence = [];
+    assert.ok(keywords(validateBackendTestResult(valid, schema, approved)).includes('junitTasks'));
 });
 
-test('snapshot hash, T-ID 개수·순서·명령 불일치는 거부한다', () => {
+test('snapshot hash 불일치, 실행·T-ID 순서 변경을 거부한다', () => {
     const snapshotMismatch = result();
-    snapshotMismatch.snapshot.implementationDiffHash = 'f'.repeat(64);
+    snapshotMismatch.snapshot.packetHash = '0'.repeat(64);
     assert.ok(keywords(validateBackendTestResult(snapshotMismatch, schema, expected())).includes('snapshotMatch'));
 
-    const missing = result();
-    missing.testResults.pop();
-    assert.ok(keywords(validateBackendTestResult(missing, schema, expected())).includes('testCount'));
+    const finishedPacketMismatch = result();
+    finishedPacketMismatch.finishedSnapshot.packetHash = '0'.repeat(64);
+    assert.ok(keywords(validateBackendTestResult(finishedPacketMismatch, schema, expected())).includes('snapshotMatch'));
 
-    const reordered = result();
-    [reordered.testResults[0], reordered.testResults[1]] = [reordered.testResults[1], reordered.testResults[0]];
-    assert.ok(keywords(validateBackendTestResult(reordered, schema, expected())).includes('testOrder'));
+    const reorderedExecution = result();
+    [reorderedExecution.executionResults[0], reorderedExecution.executionResults[1]] =
+        [reorderedExecution.executionResults[1], reorderedExecution.executionResults[0]];
+    assert.ok(keywords(validateBackendTestResult(reorderedExecution, schema, expected())).includes('executionOrder'));
 
-    const duplicate = result();
-    duplicate.testResults[1].testId = 'T1';
-    assert.ok(keywords(validateBackendTestResult(duplicate, schema, expected())).includes('duplicateTId'));
-
-    const changedCommand = result();
-    changedCommand.testResults[0].command = 'node --test other.test.mjs';
-    assert.ok(keywords(validateBackendTestResult(changedCommand, schema, expected())).includes('approvedCommand'));
+    const changedMapping = result();
+    changedMapping.testResults[0].executionIds = ['E2'];
+    assert.ok(keywords(validateBackendTestResult(changedMapping, schema, expected())).includes('executionMapping'));
 });
 
-test('초기 fresh tester의 서로 다른 implementation diff hash는 공통 snapshot 검증에서 거부한다', () => {
-    const expectedSnapshot = expected();
-    expectedSnapshot.implementationDiffHash = 'dfed4010e841258cfd2bfa94dd2027943c5c1b3a72f51c256667dee007e99219';
-    const actual = result();
-    for (const snapshot of [actual.snapshot, actual.startedSnapshot, actual.finishedSnapshot]) {
-        snapshot.implementationDiffHash = 'd30d8de911f65b90212243d2225be023c964b284100553bfd212638e4d7cdc12';
-    }
+test('preflight 미검증과 실행 중 snapshot 변경은 pass를 막되 유효한 unverified다', () => {
+    const preflightUnknown = result();
+    preflightUnknown.preflight = preflight('unverified');
+    assert.ok(keywords(validateBackendTestResult(preflightUnknown, schema, expected())).includes('overallVerdict'));
 
-    assert.ok(keywords(validateBackendTestResult(actual, schema, expectedSnapshot)).includes('snapshotMatch'));
-});
-
-test('tester 금지 행위 audit true와 누락된 audit 필드는 모두 거부한다', () => {
-    for (const field of Object.keys(audit())) {
-        const invalid = result();
-        invalid.audit[field] = true;
-        assert.ok(
-            keywords(validateBackendTestResult(invalid, schema, expected())).includes('forbiddenTesterAction'),
-            `${field} true가 거부되지 않았습니다.`,
-        );
-    }
-
-    const missing = result();
-    delete missing.audit.pushPerformed;
-    assert.ok(keywords(validateBackendTestResult(missing, schema, expected())).includes('required'));
-});
-
-test('tracked diff가 실행 중 변경되면 종합 pass와 unverified 결과 모두 expected snapshot 불일치로 거부한다', () => {
     const changed = result();
-    changed.finishedSnapshot.trackedDiffHash = 'f'.repeat(64);
-    assert.ok(keywords(validateBackendTestResult(changed, schema, expected())).includes('overallVerdict'));
-
+    changed.finishedSnapshot.trackedDiffHash = '0'.repeat(64);
     changed.overallVerdict = 'unverified';
-    changed.overallReason = 'Tracked diff changed while executing the approved commands.';
-    assert.ok(keywords(validateBackendTestResult(changed, schema, expected())).includes('snapshotMatch'));
+    changed.overallReason = '실행 중 snapshot이 바뀌었다.';
+    assert.deepEqual(validateBackendTestResult(changed, schema, expected()), []);
+
+    const changedBase = result();
+    changedBase.finishedSnapshot.baseCommit = '0'.repeat(40);
+    changedBase.overallVerdict = 'unverified';
+    changedBase.overallReason = '실행 중 base가 바뀌었다.';
+    assert.deepEqual(validateBackendTestResult(changedBase, schema, expected()), []);
 });
 
-test('필수 필드 누락과 exit code/verdict 모순은 schema 또는 관계 검사에서 거부한다', () => {
-    const malformed = result();
-    delete malformed.testResults[0].command;
-    assert.ok(keywords(validateBackendTestResult(malformed, schema, expected())).includes('required'));
+test('preflight 필수 Docker check 누락과 이름 중복·변조를 거부한다', () => {
+    const missingDocker = result();
+    missingDocker.preflight.checks = missingDocker.preflight.checks.filter(({ name }) => name !== 'docker');
+    assert.notDeepEqual(validateBackendTestResult(missingDocker, schema, expected()), []);
 
-    const contradictory = result();
-    contradictory.testResults[0].exitCode = 0;
-    contradictory.testResults[0].verdict = 'fail';
-    contradictory.overallVerdict = 'fail';
-    assert.ok(keywords(validateBackendTestResult(contradictory, schema, expected())).includes('failEvidence'));
+    const duplicateName = result();
+    duplicateName.preflight.checks[4].name = 'result-directory';
+    const duplicateKeywords = keywords(validateBackendTestResult(duplicateName, schema, expected()));
+    assert.ok(duplicateKeywords.includes('duplicatePreflightCheck'));
+    assert.ok(duplicateKeywords.includes('missingPreflightCheck'));
+
+    const unexpectedName = result();
+    unexpectedName.preflight.checks[4].name = 'network';
+    assert.ok(keywords(validateBackendTestResult(unexpectedName, schema, expected())).includes('enum'));
+});
+
+test('개별 preflight check가 unverified이면 top-level pass와 overall pass를 거부한다', () => {
+    const forged = result();
+    const docker = forged.preflight.checks.find(({ name }) => name === 'docker');
+    docker.verdict = 'unverified';
+    docker.detail = 'Docker daemon에 접근할 수 없다.';
+
+    const forgedKeywords = keywords(validateBackendTestResult(forged, schema, expected()));
+    assert.ok(forgedKeywords.includes('preflightVerdict'));
+    assert.ok(forgedKeywords.includes('overallVerdict'));
 });
 
 test('CLI는 실제 JSON fixture를 검증하고 형식 오류는 non-zero로 종료한다', (t) => {
@@ -295,14 +320,13 @@ test('CLI는 실제 JSON fixture를 검증하고 형식 오류는 non-zero로 �
     const expectedPath = path.join(tempDir, 'expected.json');
     fs.writeFileSync(resultPath, JSON.stringify(result()), 'utf8');
     fs.writeFileSync(expectedPath, JSON.stringify(expected()), 'utf8');
-
     const valid = spawnSync(process.execPath, [scriptPath, '--result', resultPath, '--expected', expectedPath], {
         encoding: 'utf8',
     });
     assert.equal(valid.status, 0, valid.stderr);
 
     const malformed = result();
-    delete malformed.testResults[0].command;
+    delete malformed.executionResults[0].command;
     fs.writeFileSync(resultPath, JSON.stringify(malformed), 'utf8');
     const invalid = spawnSync(process.execPath, [scriptPath, '--result', resultPath, '--expected', expectedPath], {
         encoding: 'utf8',

@@ -8,6 +8,14 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 export const DEFAULT_SCHEMA_PATH = fileURLToPath(
     new URL('../.codex/contracts/backend-test-result.schema.json', import.meta.url),
 );
+export const DEFAULT_TEST_TIMEOUT_MS = 15 * 60 * 1000;
+const REQUIRED_PREFLIGHT_CHECK_NAMES = [
+    'result-directory',
+    'log-directory',
+    'jna-directory',
+    'gradle-wrapper',
+    'docker',
+];
 
 export function canonicalJson(value) {
     if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
@@ -166,25 +174,146 @@ function snapshotMatches(snapshot, expected, instancePath, errors, fields) {
     }
 }
 
-function validateExpected(expected) {
+export function validateExpected(expected) {
     const errors = [];
     const commit = /^[0-9a-f]{40}$/;
     const hash = /^[0-9a-f]{64}$/;
+    if (expected?.schemaVersion !== 2) errors.push('schemaVersion은 2여야 합니다.');
+    const allowedTopLevelKeys = new Set([
+        'schemaVersion',
+        'baseCommit',
+        'implementationDiffHash',
+        'trackedDiffHash',
+        'packetHash',
+        'executions',
+        'tests',
+    ]);
+    for (const key of Object.keys(expected ?? {})) {
+        if (!allowedTopLevelKeys.has(key)) errors.push(`${key}는 expected에 허용되지 않습니다.`);
+    }
     if (!commit.test(expected?.baseCommit ?? '')) errors.push('baseCommit은 40자리 소문자 commit SHA여야 합니다.');
     for (const field of ['implementationDiffHash', 'packetHash', 'trackedDiffHash']) {
         if (!hash.test(expected?.[field] ?? '')) errors.push(`${field}는 64자리 소문자 SHA-256이어야 합니다.`);
     }
+    const executionIds = new Set();
+    const commands = new Set();
+    if (!Array.isArray(expected?.executions) || expected.executions.length === 0) {
+        errors.push('executions는 하나 이상의 고유 실행을 포함해야 합니다.');
+    } else {
+        expected.executions.forEach((execution, index) => {
+            if (execution?.id !== `E${index + 1}`) errors.push(`executions[${index}].id는 E${index + 1}이어야 합니다.`);
+            executionIds.add(execution?.id);
+            if (typeof execution?.command !== 'string' || !/\S/u.test(execution.command)) {
+                errors.push(`executions[${index}].command가 비어 있습니다.`);
+            } else if (commands.has(execution.command)) {
+                errors.push(`executions[${index}].command가 중복되었습니다.`);
+            }
+            commands.add(execution?.command);
+            if (execution?.timeoutMs !== undefined &&
+                (!Number.isInteger(execution.timeoutMs) || execution.timeoutMs < 1000)) {
+                errors.push(`executions[${index}].timeoutMs는 1000 이상의 정수여야 합니다.`);
+            }
+            if (!Array.isArray(execution?.junitTasks) ||
+                execution.junitTasks.some((task) => typeof task !== 'string' || !/^[A-Za-z0-9:_-]+$/u.test(task)) ||
+                new Set(execution.junitTasks).size !== execution.junitTasks.length) {
+                errors.push(`executions[${index}].junitTasks가 올바르지 않습니다.`);
+            }
+            const allowedKeys = new Set(['id', 'command', 'timeoutMs', 'junitTasks']);
+            for (const key of Object.keys(execution ?? {})) {
+                if (!allowedKeys.has(key)) errors.push(`executions[${index}].${key}는 허용되지 않습니다.`);
+            }
+        });
+    }
     if (!Array.isArray(expected?.tests) || expected.tests.length === 0) {
-        errors.push('tests는 하나 이상의 승인 T-ID와 명령을 포함해야 합니다.');
+        errors.push('tests는 하나 이상의 승인 T-ID 증거 매핑을 포함해야 합니다.');
     } else {
         expected.tests.forEach((test, index) => {
             if (test?.id !== `T${index + 1}`) errors.push(`tests[${index}].id는 T${index + 1}이어야 합니다.`);
-            if (typeof test?.command !== 'string' || !/\S/.test(test.command)) {
-                errors.push(`tests[${index}].command가 비어 있습니다.`);
+            if (!Array.isArray(test?.executionIds) || test.executionIds.length === 0 ||
+                new Set(test.executionIds).size !== test.executionIds.length) {
+                errors.push(`tests[${index}].executionIds가 비어 있거나 중복되었습니다.`);
+            } else {
+                test.executionIds.forEach((executionId) => {
+                    if (!executionIds.has(executionId)) {
+                        errors.push(`tests[${index}].executionIds에 존재하지 않는 ${executionId}가 있습니다.`);
+                    }
+                });
+            }
+            if (!Array.isArray(test?.testSources) || test.testSources.length === 0 ||
+                new Set(test.testSources).size !== test.testSources.length ||
+                test.testSources.some((source) =>
+                    typeof source !== 'string' || !/^src\/(?:test|postgresTest)\/java\/.+\.java$/u.test(source))) {
+                errors.push(`tests[${index}].testSources가 올바르지 않습니다.`);
+            }
+            const allowedKeys = new Set(['id', 'executionIds', 'testSources']);
+            for (const key of Object.keys(test ?? {})) {
+                if (!allowedKeys.has(key)) errors.push(`tests[${index}].${key}는 허용되지 않습니다.`);
             }
         });
     }
     if (errors.length > 0) throw new Error(`expected 입력이 올바르지 않습니다: ${errors.join(' ')}`);
+}
+
+function calculatedTestVerdict(executionIds, executionById) {
+    const executions = executionIds.map((executionId) => executionById.get(executionId));
+    if (executions.some((execution) => execution?.verdict === 'fail')) return 'fail';
+    if (executions.some((execution) => execution?.verdict !== 'pass')) return 'unverified';
+    return 'pass';
+}
+
+function validatePreflightRelations(preflight, errors) {
+    const checks = Array.isArray(preflight?.checks) ? preflight.checks : [];
+    if (checks.length !== REQUIRED_PREFLIGHT_CHECK_NAMES.length) {
+        addError(
+            errors,
+            '$.preflight.checks',
+            'preflightCheckCount',
+            `필수 preflight check ${REQUIRED_PREFLIGHT_CHECK_NAMES.length}개가 정확히 있어야 합니다.`,
+        );
+    }
+
+    const requiredNames = new Set(REQUIRED_PREFLIGHT_CHECK_NAMES);
+    const seenNames = new Set();
+    checks.forEach((check, index) => {
+        if (!requiredNames.has(check?.name)) {
+            addError(
+                errors,
+                `$.preflight.checks[${index}].name`,
+                'unexpectedPreflightCheck',
+                '허용되지 않는 preflight check입니다.',
+            );
+        }
+        if (seenNames.has(check?.name)) {
+            addError(
+                errors,
+                `$.preflight.checks[${index}].name`,
+                'duplicatePreflightCheck',
+                'preflight check 이름이 중복되었습니다.',
+            );
+        }
+        seenNames.add(check?.name);
+    });
+    for (const name of REQUIRED_PREFLIGHT_CHECK_NAMES) {
+        if (!seenNames.has(name)) {
+            addError(
+                errors,
+                '$.preflight.checks',
+                'missingPreflightCheck',
+                `필수 preflight check ${name}이(가) 없습니다.`,
+            );
+        }
+    }
+
+    const calculatedVerdict = checks.some(({ verdict }) => verdict !== 'pass') ? 'unverified' : 'pass';
+    if (preflight?.verdict !== calculatedVerdict) {
+        addError(
+            errors,
+            '$.preflight.verdict',
+            'preflightVerdict',
+            `개별 check 결과에 따른 ${calculatedVerdict}여야 합니다.`,
+        );
+    }
+    return calculatedVerdict;
 }
 
 function validateResultRelations(result, expected) {
@@ -196,20 +325,51 @@ function validateResultRelations(result, expected) {
         'baseCommit', 'implementationDiffHash', 'packetHash', 'trackedDiffHash',
     ]);
     snapshotMatches(result?.finishedSnapshot, expected, '$.finishedSnapshot', errors, [
-        'baseCommit', 'implementationDiffHash', 'packetHash', 'trackedDiffHash',
+        'packetHash',
     ]);
-    for (const field of [
-        'productionSourceModified',
-        'testSourceModified',
-        'stagePerformed',
-        'commitPerformed',
-        'pushPerformed',
-        'pullRequestCreated',
-    ]) {
-        if (result?.audit?.[field] === true) {
-            addError(errors, `$.audit.${field}`, 'forbiddenTesterAction', 'backend-tester의 금지 행위입니다.');
-        }
+    const calculatedPreflightVerdict = validatePreflightRelations(result?.preflight, errors);
+
+    const executionResults = Array.isArray(result?.executionResults) ? result.executionResults : [];
+    if (executionResults.length !== expected.executions.length) {
+        addError(errors, '$.executionResults', 'executionCount', '승인 실행 개수와 다릅니다.');
     }
+    const executionById = new Map();
+    executionResults.forEach((executionResult, index) => {
+        const expectedExecution = expected.executions[index];
+        if (executionById.has(executionResult?.executionId)) {
+            addError(errors, `$.executionResults[${index}].executionId`, 'duplicateExecution', 'executionId가 중복되었습니다.');
+        }
+        executionById.set(executionResult?.executionId, executionResult);
+        if (executionResult?.executionId !== expectedExecution?.id) {
+            addError(errors, `$.executionResults[${index}].executionId`, 'executionOrder', '승인 실행 순서 또는 ID와 다릅니다.');
+        }
+        if (executionResult?.command !== expectedExecution?.command) {
+            addError(errors, `$.executionResults[${index}].command`, 'approvedCommand', '승인된 명령 원문과 다릅니다.');
+        }
+        if (executionResult?.commandHash !== sha256(Buffer.from(expectedExecution?.command ?? '', 'utf8'))) {
+            addError(errors, `$.executionResults[${index}].commandHash`, 'commandHash', '승인 명령 SHA-256과 다릅니다.');
+        }
+        const executed = typeof executionResult?.evidenceHash === 'string';
+        const junitEvidence = Array.isArray(executionResult?.junitEvidence) ? executionResult.junitEvidence : [];
+        if (executionResult?.verdict === 'pass' &&
+            !(executionResult.exitCode === 0 && executed && executionResult.notRunReason === null)) {
+            addError(errors, `$.executionResults[${index}]`, 'passEvidence', 'pass는 exitCode 0, evidenceHash와 null notRunReason이 필요합니다.');
+        }
+        if (executionResult?.verdict === 'pass') {
+            const actualTasks = junitEvidence.map(({ task }) => task);
+            if (!isDeepStrictEqual(actualTasks, expectedExecution?.junitTasks ?? [])) {
+                addError(errors, `$.executionResults[${index}].junitEvidence`, 'junitTasks', '승인 실행의 JUnit task 증거와 다릅니다.');
+            }
+        }
+        if (executionResult?.verdict === 'fail' &&
+            !(Number.isInteger(executionResult.exitCode) && executionResult.exitCode !== 0 && executed && executionResult.notRunReason === null)) {
+            addError(errors, `$.executionResults[${index}]`, 'failEvidence', 'fail은 non-zero exitCode, evidenceHash와 null notRunReason이 필요합니다.');
+        }
+        if (executionResult?.verdict === 'unverified' &&
+            !(typeof executionResult.notRunReason === 'string' && /\S/u.test(executionResult.notRunReason))) {
+            addError(errors, `$.executionResults[${index}]`, 'unverifiedReason', 'unverified는 구체적 notRunReason이 필요합니다.');
+        }
+    });
 
     const testResults = Array.isArray(result?.testResults) ? result.testResults : [];
     if (testResults.length !== expected.tests.length) {
@@ -225,30 +385,31 @@ function validateResultRelations(result, expected) {
         if (testResult?.testId !== expectedTest?.id) {
             addError(errors, `$.testResults[${index}].testId`, 'testOrder', '승인 T-ID 순서 또는 값이 다릅니다.');
         }
-        if (testResult?.command !== expectedTest?.command) {
-            addError(errors, `$.testResults[${index}].command`, 'approvedCommand', '승인된 명령 원문과 다릅니다.');
+        if (!isDeepStrictEqual(testResult?.executionIds, expectedTest?.executionIds)) {
+            addError(errors, `$.testResults[${index}].executionIds`, 'executionMapping', '승인 T-ID 실행 매핑과 다릅니다.');
         }
-        const executed = typeof testResult?.evidenceHash === 'string';
-        if (testResult?.verdict === 'pass' &&
-            !(testResult.exitCode === 0 && executed && testResult.notRunReason === null)) {
-            addError(errors, `$.testResults[${index}]`, 'passEvidence', 'pass는 exitCode 0, evidenceHash와 null notRunReason이 필요합니다.');
+        const calculated = calculatedTestVerdict(expectedTest?.executionIds ?? [], executionById);
+        if (testResult?.verdict !== calculated) {
+            addError(errors, `$.testResults[${index}].verdict`, 'testVerdict', `연결 실행 결과에 따른 ${calculated}여야 합니다.`);
         }
-        if (testResult?.verdict === 'fail' &&
-            !(Number.isInteger(testResult.exitCode) && testResult.exitCode !== 0 && executed && testResult.notRunReason === null)) {
-            addError(errors, `$.testResults[${index}]`, 'failEvidence', 'fail은 non-zero exitCode, evidenceHash와 null notRunReason이 필요합니다.');
+        const hasReason = typeof testResult?.notRunReason === 'string' && /\S/u.test(testResult.notRunReason);
+        if (calculated === 'unverified' && !hasReason) {
+            addError(errors, `$.testResults[${index}].notRunReason`, 'unverifiedReason', '미검증 T-ID에는 구체적 사유가 필요합니다.');
         }
-        if (testResult?.verdict === 'unverified' &&
-            !(testResult.exitCode === null &&
-                typeof testResult.notRunReason === 'string' && /\S/.test(testResult.notRunReason))) {
-            addError(errors, `$.testResults[${index}]`, 'unverifiedReason', 'unverified는 null exitCode와 구체적 notRunReason이 필요합니다.');
+        if (calculated !== 'unverified' && testResult?.notRunReason !== null) {
+            addError(errors, `$.testResults[${index}].notRunReason`, 'notRunReason', 'pass 또는 fail T-ID의 notRunReason은 null이어야 합니다.');
         }
     });
 
-    const trackedDiffChanged = result?.startedSnapshot?.trackedDiffHash !== result?.finishedSnapshot?.trackedDiffHash;
-    const verdicts = testResults.map((testResult) => testResult?.verdict);
+    const snapshotChanged = [
+        'baseCommit',
+        'implementationDiffHash',
+        'trackedDiffHash',
+    ].some((field) => result?.startedSnapshot?.[field] !== result?.finishedSnapshot?.[field]);
+    const verdicts = executionResults.map((executionResult) => executionResult?.verdict);
     const calculatedOverall = verdicts.includes('fail')
         ? 'fail'
-        : trackedDiffChanged || verdicts.includes('unverified')
+        : snapshotChanged || calculatedPreflightVerdict === 'unverified' || verdicts.includes('unverified')
             ? 'unverified'
             : 'pass';
     if (result?.overallVerdict !== calculatedOverall) {
