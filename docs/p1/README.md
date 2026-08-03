@@ -32,7 +32,7 @@ P1 저장 계약의 준비 상태는 기능별로 다르다. 알림 저장 계�
 | [`NOTI-01`](notification.md#noti-01-모임-변경-알림-생성) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
 | [`NOTI-02`](notification.md#noti-02-내-알림-목록미확인-개수) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
 | [`NOTI-03`](notification.md#noti-03-알림-읽음-처리) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
-| [`CHAT-01`](chatting.md#chat-01-채팅방-생성접근) | 계약 준비 완료 | 부분 구현 ([#279](https://github.com/bamsongi-club/albam-mate/issues/279)) | 부분 검증 ([#279](https://github.com/bamsongi-club/albam-mate/issues/279)) | 미배포·미측정 |
+| [`CHAT-01`](chatting.md#chat-01-채팅방-생성접근) | 선행 계약 필요 | 부분 구현 ([#279](https://github.com/bamsongi-club/albam-mate/issues/279)) | 부분 검증 ([#279](https://github.com/bamsongi-club/albam-mate/issues/279)) | 미배포·미측정 |
 | [`CHAT-02`](chatting.md#chat-02-메시지-전송이력-조회) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |
 | [`CHAT-03`](chatting.md#chat-03-실시간-전달재연결-복구) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |
 | [`CHAT-04`](chatting.md#chat-04-채팅-안전운영) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |
@@ -48,16 +48,16 @@ P1 저장 계약의 준비 상태는 기능별로 다르다. 알림 저장 계�
 
 ### 채팅의 선행 계약 사유
 
-다음 표는 채팅 ADR 승인 뒤에 남았던 `CHAT-01`~`CHAT-04`의 선행 계약과 해소 위치를 한곳에 모은다. 실제 상태는 위 상태표만 갱신하며, 세부 선택을 마치면 선택값과 근거를 기능·API·ERD·아키텍처·실행 구성 중 표에 적은 위치에 반영한다. 승인 ADR 링크는 구현 이슈에 결정을 위임한 근거이며 승인된 결정 본문을 수정하라는 뜻이 아니다. 승인 경계를 바꿔야 하면 기존 ADR을 고치지 않고 새 ADR로 대체한다.
+다음 표는 채팅 ADR 승인 뒤에도 `CHAT-01`~`CHAT-04`가 `선행 계약 필요`인 이유와 해소 위치를 한곳에 모은다. 실제 상태는 위 상태표만 갱신하며, 세부 선택을 마치면 선택값과 근거를 기능·API·ERD·아키텍처·실행 구성 중 표에 적은 위치에 반영한다. 승인 ADR 링크는 구현 이슈에 결정을 위임한 근거이며 승인된 결정 본문을 수정하라는 뜻이 아니다. 승인 경계를 바꿔야 하면 기존 ADR을 고치지 않고 새 ADR로 대체한다.
 
-| 기능 ID | 착수 전 계약·현재 결과 | 결정 주체 | 위임 근거·반영 위치 |
+| 기능 ID | 착수 전에 확정할 계약 | 결정 주체 | 위임 근거·반영 위치 |
 | --- | --- | --- | --- |
-| `CHAT-01` | 확정됨: 최초 활성화 때 ROOM 쓰기를 drain·중지하고 하나의 backfill 경계와 일괄 절체를 사용 | `CHAT-01` 구현 담당자. 실제 운영 쓰기 중지·절체는 사용자·OPS 승인 | 위임 근거는 [ADR-0034 결정](../adr/chat/0034-chat-message-retention-and-deletion.md#결정). 선택 결과는 [CHAT-01](chatting.md#chat-01-채팅방-생성접근), [ERD](../ERD.md#chat_rooms), [채팅 흐름](../ARCHITECTURE.md#채팅-흐름)과 마이그레이션에 반영 |
+| `CHAT-01` | 기존 ROOM의 채팅방 backfill과 ROOM 생성·상태 전환 경합을 막을 동시성 제어·최종 보정, 배포 절체 방식 | `CHAT-01` 구현 담당자. 서비스 중단·트래픽 차단이 필요하면 사용자·OPS 승인 | 위임 근거는 [ADR-0034 결정](../adr/chat/0034-chat-message-retention-and-deletion.md#결정). 선택 결과는 [CHAT-01](chatting.md#chat-01-채팅방-생성접근), [ERD](../ERD.md#chat_rooms), [채팅 흐름](../ARCHITECTURE.md#채팅-흐름)과 마이그레이션에 반영 |
 | `CHAT-02`, `CHAT-04` | Redis 사용자·방 단위 전송 제한의 정확한 임계값과 `Retry-After` 계산 | `CHAT-04` 구현 담당자. 공개 오류나 제품·보안 정책을 바꾸면 사용자 확인 | [채팅 전송 오류](../API.md#chat-02-메시지-전송), [공통 `RATE_LIMIT_EXCEEDED`](../API.md#102-인증회원-오류), [CHAT-04](chatting.md#chat-04-채팅-안전운영) |
 | `CHAT-03` | 세션 TTL·직렬화 방식과 정확한 Redis key·channel namespace | `FND-10`·`CHAT-03` 구현 담당자 | 위임 근거는 [ADR-0038 결정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md#결정). 선택 결과는 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반), [다중 인스턴스 실행](../ARCHITECTURE.md#다중-인스턴스-실행)과 실행 구성에 반영 |
 | `CHAT-04` | 채팅 만료 삭제 잠금 이름·`lockAtMostFor`·실행시간 경고 기준 | `CHAT-04` 구현 담당자가 측정 근거로 확정 | 위임 근거는 [ADR-0034 결정](../adr/chat/0034-chat-message-retention-and-deletion.md#결정)과 [ADR-0038 결정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md#결정). 선택 결과는 [CHAT-04](chatting.md#chat-04-채팅-안전운영), 실행 구성과 관련 운영 가이드에 반영 |
 
-`CHAT-01`과 `CHAT-05`는 제품·API·저장·아키텍처 계약과 필수 ADR에 남은 결정이 없어 `계약 준비 완료`다. 이는 생산 코드가 모두 구현됐거나 `CHAT-01`~`CHAT-03`의 구현 없이 독립적으로 사용자 흐름을 완료할 수 있다는 뜻이 아니다.
+`CHAT-05`는 제품·API·저장·아키텍처 계약과 필수 ADR에 남은 결정이 없어 `계약 준비 완료`다. 이는 `CHAT-01`~`CHAT-03`의 구현 없이 독립적으로 사용자 흐름을 완료할 수 있다는 뜻이 아니다.
 
 `FND-10`은 `CHAT-03` 계약을 수동으로 기다리는 작업이 아니라 세션·Redis 구성값을 확정하고 실시간 기반을 구현하는 소유 작업이다. 따라서 별도 채팅 계약 이슈를 기다리는 `선행 기능 계약 대기`가 아니라, 같은 `FND-10` 이슈·PR에서 위 값을 먼저 확정하는 `선행 계약 필요`로 판정한다.
 
