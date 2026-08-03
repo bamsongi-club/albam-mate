@@ -65,7 +65,18 @@ const PLAY_TIME_LABEL = {
   MEDIUM: '20분 초과 60분 이하',
   LONG: '60분 초과'
 };
-const COMPLEXITY_OPTIONS = [1, 2, 3, 4, 5];
+// 난이도 점대는 계약의 닫힌 구간 하한·상한으로 보낸다. 5점만 있는 마지막 칸은 상한도 5다.
+const COMPLEXITY_BANDS = [
+  { value: '1', label: '1점대', min: '1', max: '1.99' },
+  { value: '2', label: '2점대', min: '2', max: '2.99' },
+  { value: '3', label: '3점대', min: '3', max: '3.99' },
+  { value: '4', label: '4점대', min: '4', max: '4.99' },
+  { value: '5', label: '5점', min: '5', max: '5' }
+];
+
+function complexityBandOf(filters) {
+  return COMPLEXITY_BANDS.find((band) => band.min === filters.complexityMin && band.max === filters.complexityMax);
+}
 
 function zeroPad(value) {
   return String(value).padStart(2, '0');
@@ -774,23 +785,26 @@ function gameFilterChips(filters, onChange) {
   const players = PLAYER_COUNT_OPTIONS.find((option) => String(option.value) === filters.playerCount);
   if (players) chips.push({ key: 'players', label: players.label, onClear: () => update({ playerCount: '' }) });
   if (filters.playTime) chips.push({ key: 'playTime', label: PLAY_TIME_LABEL[filters.playTime], onClear: () => update({ playTime: '' }) });
-  if (filters.complexityMin) chips.push({ key: 'complexityMin', label: '난이도 ' + Number(filters.complexityMin).toFixed(1) + ' 이상', onClear: () => update({ complexityMin: '' }) });
-  if (filters.complexityMax) chips.push({ key: 'complexityMax', label: '난이도 ' + Number(filters.complexityMax).toFixed(1) + ' 이하', onClear: () => update({ complexityMax: '' }) });
+  const band = complexityBandOf(filters);
+  if (band) chips.push({ key: 'complexity', label: '난이도 ' + band.label, onClear: () => update({ complexityMin: '', complexityMax: '' }) });
   if (filters.upcomingOnly) chips.push({ key: 'upcomingOnly', label: '예정 모임 있음', onClear: () => update({ upcomingOnly: false }) });
   return chips;
 }
 
 function GameFilters({ filters, onChange }) {
   const update = (patch) => onChange({ ...filters, ...patch });
-  const complexityOptions = [{ value: '', label: '전체' }, ...COMPLEXITY_OPTIONS.map((complexity) => ({ value: String(complexity), label: complexity.toFixed(1) }))];
+  const selectBand = (value) => {
+    const band = COMPLEXITY_BANDS.find((option) => option.value === value);
+    update({ complexityMin: band ? band.min : '', complexityMax: band ? band.max : '' });
+  };
   return (
     <FilterPanel chips={gameFilterChips(filters, onChange)} onReset={() => onChange(EMPTY_GAME_FILTERS)}>
       <FilterRadioGroup name="game-filter-players" label="인원" value={filters.playerCount} onChange={(playerCount) => update({ playerCount })}
         options={[{ value: '', label: '전체' }, ...PLAYER_COUNT_OPTIONS.map((option) => ({ value: String(option.value), label: option.label }))]} />
       <FilterRadioGroup name="game-filter-time" label="플레이 시간" value={filters.playTime} onChange={(playTime) => update({ playTime })}
         options={[{ value: '', label: '전체' }, ...Object.entries(PLAY_TIME_LABEL).map(([code, label]) => ({ value: code, label }))]} />
-      <FilterRadioGroup name="game-filter-complexity-min" label="최소 난이도" value={filters.complexityMin} onChange={(complexityMin) => update({ complexityMin })} options={complexityOptions} />
-      <FilterRadioGroup name="game-filter-complexity-max" label="최대 난이도" value={filters.complexityMax} onChange={(complexityMax) => update({ complexityMax })} options={complexityOptions} />
+      <FilterRadioGroup name="game-filter-complexity" label="게임 난이도" value={complexityBandOf(filters)?.value || ''} onChange={selectBand}
+        options={[{ value: '', label: '전체' }, ...COMPLEXITY_BANDS.map((band) => ({ value: band.value, label: band.label }))]} />
       <FilterCheckGroup label="모임" checked={filters.upcomingOnly} onChange={(upcomingOnly) => update({ upcomingOnly })} text="예정 모임 있는 게임만" />
     </FilterPanel>
   );
