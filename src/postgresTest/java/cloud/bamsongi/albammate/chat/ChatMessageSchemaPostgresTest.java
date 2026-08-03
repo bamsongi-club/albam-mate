@@ -55,15 +55,16 @@ class ChatMessageSchemaPostgresTest {
 			migrate(schemaName, null);
 			assertNotNull(jdbcTemplate.queryForObject(
 				"select to_regclass(?)", String.class, schemaName + ".chat_messages"));
+			long hostUserId = insertUser(schemaName, "host-t1@example.com");
 			long senderUserId = insertUser(schemaName, "sender-t1@example.com");
-			long chatRoomId = insertChatRoom(schemaName, senderUserId);
+			long chatRoomId = insertChatRoom(schemaName, hostUserId);
 			long messageId = insertMessage(schemaName, chatRoomId, senderUserId, "client-message-1", "안녕하세요");
 
 			assertEquals(1, messageCount(schemaName));
 			assertTrue(messageId > 0);
-			assertForeignKeyViolation(() -> insertMessage(
+			assertForeignKeyViolation("fk_chat_messages_chat_room", () -> insertMessage(
 				schemaName, Long.MAX_VALUE, senderUserId, "client-message-2", "존재하지 않는 채팅방"));
-			assertForeignKeyViolation(() -> insertMessage(
+			assertForeignKeyViolation("fk_chat_messages_sender_user", () -> insertMessage(
 				schemaName, chatRoomId, Long.MAX_VALUE, "client-message-3", "존재하지 않는 작성자"));
 		} finally {
 			dropSchema(schemaName);
@@ -76,8 +77,18 @@ class ChatMessageSchemaPostgresTest {
 		try {
 			migrate(schemaName, null);
 			long senderUserId = insertUser(schemaName, "sender-t2@example.com");
+			long otherSenderUserId = insertUser(schemaName, "other-sender-t2@example.com");
 			long chatRoomId = insertChatRoom(schemaName, senderUserId);
+			long otherChatRoomId = insertChatRoom(schemaName, senderUserId);
 			insertMessage(schemaName, chatRoomId, senderUserId, "client-message-1", "첫 메시지");
+			long otherRoomMessageId = insertMessage(
+				schemaName, otherChatRoomId, senderUserId, "client-message-1", "다른 방 메시지");
+			long otherSenderMessageId = insertMessage(
+				schemaName, chatRoomId, otherSenderUserId, "client-message-1", "다른 작성자 메시지");
+
+			assertTrue(otherRoomMessageId > 0);
+			assertTrue(otherSenderMessageId > 0);
+			assertEquals(3, messageCount(schemaName));
 
 			assertUniqueViolation(() -> insertMessage(
 				schemaName, chatRoomId, senderUserId, "client-message-1", "중복 메시지"));
@@ -180,8 +191,9 @@ class ChatMessageSchemaPostgresTest {
 		assertConstraintViolation("23505", "uq_chat_messages_room_sender_client_message", operation);
 	}
 
-	private void assertForeignKeyViolation(org.junit.jupiter.api.function.Executable operation) {
-		assertConstraintViolation("23503", null, operation);
+	private void assertForeignKeyViolation(
+		String expectedConstraint, org.junit.jupiter.api.function.Executable operation) {
+		assertConstraintViolation("23503", expectedConstraint, operation);
 	}
 
 	private void assertConstraintViolation(
