@@ -239,7 +239,7 @@ P1 채팅방을 저장하는 구현된 테이블이다. `V6__create_p1_chat_room
 
 ### CHAT_MESSAGES
 
-P1 구현 예정 테이블이며 메시지 저장의 최종 정본이다([ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)). `id`는 승인된 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)의 커서와 실시간 catch-up 기준으로 사용하며, 클라이언트 시각으로 순서를 정하지 않는다.
+P1 CHAT-02의 V9 전진 Flyway가 생성하는 메시지 저장의 최종 정본이다([ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)). `id`는 승인된 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)의 커서와 실시간 catch-up 기준으로 사용하며, 클라이언트 시각으로 순서를 정하지 않는다.
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
