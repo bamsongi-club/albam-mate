@@ -352,7 +352,7 @@ function descriptionTemplate(game, rankByBggId, field) {
 function normalizeGame(game) {
     const bggId = Number(game.bgg_id);
     const players = normalizePositiveRange(game.supported_player_count, "명");
-    const playTime = normalizePositiveRange(game.estimated_play_time, "분");
+    const playTime = normalizePlayTime(game.estimated_play_time);
     const complexity = normalizeComplexity(game.complexity);
     return {
         ...Object.fromEntries(
@@ -372,7 +372,7 @@ function normalizeGame(game) {
 function searchNumericFieldSummary(games) {
     const fields = {
         players: games.map((game) => normalizePositiveRange(game.supported_player_count, "명")),
-        playTimeMinutes: games.map((game) => normalizePositiveRange(game.estimated_play_time, "분")),
+        playTimeMinutes: games.map((game) => normalizePlayTime(game.estimated_play_time)),
         complexity: games.map((game) => normalizeComplexity(game.complexity)),
     };
     return Object.fromEntries(
@@ -456,6 +456,13 @@ function normalizePositiveRange(value, suffix) {
     return { min, max, status: "valid" };
 }
 
+function normalizePlayTime(value) {
+    if (value === "정보 없음") {
+        return { min: null, max: null, status: "missing", normalizedToNull: true };
+    }
+    return normalizePositiveRange(value, "분");
+}
+
 function validateSearchNumericDisplayValues(games) {
     const invalidValues = [];
     for (const [index, game] of games.entries()) {
@@ -466,7 +473,10 @@ function validateSearchNumericDisplayValues(games) {
             ["supported_player_count", "명"],
             ["estimated_play_time", "분"],
         ]) {
-            const normalized = normalizePositiveRange(game[field], suffix);
+            const normalized =
+                field === "estimated_play_time"
+                    ? normalizePlayTime(game[field])
+                    : normalizePositiveRange(game[field], suffix);
             if (normalized.status === "excluded") {
                 invalidValues.push({
                     row: index + 1,

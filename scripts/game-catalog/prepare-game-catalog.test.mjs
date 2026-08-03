@@ -144,6 +144,51 @@ test("비어 있지 않은 0분과 음수 시간은 품질 오류로 전체 적�
     });
 });
 
+test("정보 없음 표시값은 검색 수치를 NULL로 두고 표시 문자열을 유지한다", () => {
+    const rows = [
+        game(1, "10", "시간 미제공 게임", "No Play Time Game"),
+        game(2, "20", "단일 시간 게임", "Single Play Time Game"),
+    ];
+    rows[0].estimated_play_time = "정보 없음";
+    rows[1].estimated_play_time = "90분";
+
+    withCase(rows, ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 0, result.stderr);
+        const catalog = readJson(join(out, "service-catalog.json"));
+        assert.deepEqual(
+            catalog.map(
+                ({ estimated_play_time, min_play_time_minutes, max_play_time_minutes }) => [
+                    estimated_play_time,
+                    min_play_time_minutes,
+                    max_play_time_minutes,
+                ],
+            ),
+            [
+                ["정보 없음", null, null],
+                ["90분", 90, 90],
+            ],
+        );
+        const report = readJson(join(out, "quality-report.json"));
+        assert.deepEqual(report.searchNumericFields.playTimeMinutes, {
+            label: "예상 플레이 시간",
+            total: 2,
+            valid: 1,
+            missing: 1,
+            excluded: 0,
+            normalizedToNull: 1,
+            exclusionReasons: [],
+        });
+        assert.equal(
+            report.errors.some(({ code }) => code === "INVALID_SEARCH_NUMERIC_DISPLAY_VALUE"),
+            false,
+        );
+    });
+});
+
 test("해석 불가 또는 PostgreSQL INTEGER 범위 밖 표시값은 적재 전에 차단한다", async (context) => {
     const cases = [
         {
