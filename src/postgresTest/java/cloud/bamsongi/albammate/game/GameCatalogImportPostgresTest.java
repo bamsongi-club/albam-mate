@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.game;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -85,6 +87,80 @@ class GameCatalogImportPostgresTest {
 		assertThrows(SQLException.class, () -> executeSql(sql));
 
 		assertEquals(0, gameCount());
+	}
+
+	@Test
+	void 검색_수치를_적재해도_표시_문자열을_유지한다() throws Exception {
+		executeSql(prepareSql(List.of(game(1, 10, "표시 유지 게임", "Display Game"))));
+
+		assertEquals("2~4명", jdbcTemplate.queryForObject(
+			"select supported_player_count from games where bgg_id = 10", String.class));
+		assertEquals("60~120분", jdbcTemplate.queryForObject(
+			"select estimated_play_time from games where bgg_id = 10", String.class));
+		assertEquals(2, jdbcTemplate.queryForObject(
+			"select min_players from games where bgg_id = 10", Integer.class));
+		assertEquals(4, jdbcTemplate.queryForObject(
+			"select max_players from games where bgg_id = 10", Integer.class));
+	}
+
+	@Test
+	void 검색_수치_제약은_불완전하거나_유효하지_않은_범위를_거절한다() throws Exception {
+		executeSql(prepareSql(List.of(game(1, 10, "제약 게임", "Constraint Game"))));
+
+		assertConstraintViolation("update games set min_players = 2, max_players = null where bgg_id = 10");
+		assertConstraintViolation("update games set min_players = 0, max_players = 4 where bgg_id = 10");
+		assertConstraintViolation("update games set min_players = 5, max_players = 4 where bgg_id = 10");
+		assertConstraintViolation(
+			"update games set min_play_time_minutes = 10, max_play_time_minutes = null where bgg_id = 10");
+		assertConstraintViolation(
+			"update games set min_play_time_minutes = 0, max_play_time_minutes = 20 where bgg_id = 10");
+		assertConstraintViolation(
+			"update games set min_play_time_minutes = 30, max_play_time_minutes = 20 where bgg_id = 10");
+		assertConstraintViolation("update games set complexity = 0.00 where bgg_id = 10");
+	}
+
+	@Test
+	void V8은_기존_범위_밖_복잡도를_NULL로_정규화한_뒤_제약을_추가한다() throws Exception {
+		String schema = "v8_legacy_complexity_" + System.nanoTime();
+		Path migration = Path.of(System.getProperty("user.dir"))
+			.resolve("src/main/resources/db/migration/V8__add_p1_game_search_numeric_fields.sql");
+
+		try (Connection connection = dataSource.getConnection();
+			Statement statement = connection.createStatement()) {
+			connection.setAutoCommit(false);
+			statement.execute("create schema " + schema);
+			statement.execute("set local search_path to " + schema);
+			statement.execute("create table games (id integer primary key, complexity decimal(3, 2))");
+			statement.execute(
+				"insert into games (id, complexity) values (1, 0.00), (2, 0.50), (3, 1.00), (4, 5.50)");
+			for (String sql : Files.readString(migration, StandardCharsets.UTF_8).split(";")) {
+				if (!sql.isBlank()) {
+					statement.execute(sql);
+				}
+			}
+			try (var result = statement.executeQuery("select id, complexity from games order by id")) {
+				result.next();
+				assertNull(result.getBigDecimal("complexity"));
+				result.next();
+				assertNull(result.getBigDecimal("complexity"));
+				result.next();
+				assertEquals(new java.math.BigDecimal("1.00"), result.getBigDecimal("complexity"));
+				result.next();
+				assertNull(result.getBigDecimal("complexity"));
+			}
+			statement.execute("savepoint before_below_range_update");
+			assertThrows(SQLException.class,
+				() -> statement.execute("update games set complexity = 0.50 where id = 3"));
+			statement.execute("rollback to savepoint before_below_range_update");
+			assertThrows(SQLException.class,
+				() -> statement.execute("update games set complexity = 5.50 where id = 3"));
+		} finally {
+			jdbcTemplate.execute("drop schema if exists " + schema + " cascade");
+		}
+	}
+
+	private void assertConstraintViolation(String sql) {
+		assertThrows(DataIntegrityViolationException.class, () -> jdbcTemplate.execute(sql));
 	}
 
 	private String prepareSql(List<GameInput> games) throws Exception {
@@ -227,6 +303,10 @@ class GameCatalogImportPostgresTest {
 			    "supported_player_count": "games.supported_player_count",
 			    "tag": "games.tag",
 			    "estimated_play_time": "games.estimated_play_time",
+			    "min_players": "games.supported_player_count를 검증해 정규화",
+			    "max_players": "games.supported_player_count를 검증해 정규화",
+			    "min_play_time_minutes": "games.estimated_play_time를 검증해 정규화",
+			    "max_play_time_minutes": "games.estimated_play_time를 검증해 정규화",
 			    "complexity": "games.complexity",
 			    "description": "games.description",
 			    "detail_description": "games.detail_description"

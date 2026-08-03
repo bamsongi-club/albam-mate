@@ -93,6 +93,277 @@ test("승인된 입력은 내부 id를 제외한 결정적 카탈로그와 UPSER
     });
 });
 
+test("비어 있지 않은 0분과 음수 시간은 품질 오류로 전체 적재를 차단한다", () => {
+    const rows = [
+        game(1, "10", "범위 게임", "Range Game"),
+        game(2, "20", "단일 게임", "Single Game"),
+        game(3, "30", "0분 게임", "Zero Time Game"),
+        game(4, "40", "음수 게임", "Negative Time Game"),
+    ];
+    rows[0].supported_player_count = "2~4명";
+    rows[0].estimated_play_time = "10~20분";
+    rows[1].supported_player_count = "1명";
+    rows[1].estimated_play_time = "60분";
+    rows[1].complexity = 0;
+    rows[2].estimated_play_time = "0분";
+    rows[3].estimated_play_time = "-5분";
+
+    withCase(rows, ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 1);
+        const report = readJson(join(out, "quality-report.json"));
+        assert.deepEqual(report.searchNumericFields.players, {
+            label: "가능 인원",
+            total: 4,
+            valid: 4,
+            missing: 0,
+            excluded: 0,
+            normalizedToNull: 0,
+            exclusionReasons: [],
+        });
+        assert.deepEqual(report.searchNumericFields.playTimeMinutes.exclusionReasons, [
+            { code: "NON_POSITIVE_VALUE", count: 2 },
+        ]);
+        assert.equal(report.searchNumericFields.playTimeMinutes.excluded, 2);
+        const invalidValues = report.errors.find(
+            ({ code }) => code === "INVALID_SEARCH_NUMERIC_DISPLAY_VALUE",
+        );
+        assert.equal(invalidValues.count, 2);
+        assert.deepEqual(
+            invalidValues.sample.map(({ value, reason }) => ({ value, reason })),
+            [
+                { value: "0분", reason: "NON_POSITIVE_VALUE" },
+                { value: "-5분", reason: "NON_POSITIVE_VALUE" },
+            ],
+        );
+        assert.throws(() => readFileSync(join(out, "service-catalog.json")));
+        assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
+    });
+});
+
+test("정보 없음 표시값은 검색 수치를 NULL로 두고 표시 문자열을 유지한다", () => {
+    const rows = [
+        game(1, "10", "시간 미제공 게임", "No Play Time Game"),
+        game(2, "20", "단일 시간 게임", "Single Play Time Game"),
+    ];
+    rows[0].estimated_play_time = "정보 없음";
+    rows[1].estimated_play_time = "90분";
+
+    withCase(rows, ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 0, result.stderr);
+        const catalog = readJson(join(out, "service-catalog.json"));
+        assert.deepEqual(
+            catalog.map(
+                ({ estimated_play_time, min_play_time_minutes, max_play_time_minutes }) => [
+                    estimated_play_time,
+                    min_play_time_minutes,
+                    max_play_time_minutes,
+                ],
+            ),
+            [
+                ["정보 없음", null, null],
+                ["90분", 90, 90],
+            ],
+        );
+        const report = readJson(join(out, "quality-report.json"));
+        assert.deepEqual(report.searchNumericFields.playTimeMinutes, {
+            label: "예상 플레이 시간",
+            total: 2,
+            valid: 1,
+            missing: 1,
+            excluded: 0,
+            normalizedToNull: 1,
+            exclusionReasons: [],
+        });
+        assert.equal(
+            report.errors.some(({ code }) => code === "INVALID_SEARCH_NUMERIC_DISPLAY_VALUE"),
+            false,
+        );
+    });
+});
+
+test("해석 불가 또는 PostgreSQL INTEGER 범위 밖 표시값은 적재 전에 차단한다", async (context) => {
+    const cases = [
+        {
+            name: "해석 불가 인원",
+            field: "supported_player_count",
+            value: "두 명",
+            reason: "UNPARSABLE_DISPLAY_VALUE",
+        },
+        {
+            name: "PostgreSQL INTEGER 최대값 초과 시간",
+            field: "estimated_play_time",
+            value: "2147483648분",
+            reason: "OUT_OF_POSTGRES_INTEGER_RANGE",
+        },
+        {
+            name: "JavaScript safe integer 초과 인원",
+            field: "supported_player_count",
+            value: "9007199254740992명",
+            reason: "OUT_OF_POSTGRES_INTEGER_RANGE",
+        },
+    ];
+
+    for (const { name, field, value, reason } of cases) {
+        await context.test(name, () => {
+            withCase([game(1, "10", "첫 번째 게임", "First Game")], ({
+                games,
+                ranks,
+                manifest,
+                out,
+            }) => {
+                const rows = readJson(games);
+                rows[0][field] = value;
+                writeFileSync(games, `${JSON.stringify(rows, null, 2)}\n`);
+                writeManifest(manifest, games, ranks, []);
+
+                const result = runCli(games, ranks, out, manifest);
+
+                assert.equal(result.status, 1);
+                const report = readJson(join(out, "quality-report.json"));
+                const invalidValues = report.errors.find(
+                    ({ code }) => code === "INVALID_SEARCH_NUMERIC_DISPLAY_VALUE",
+                );
+                assert.equal(invalidValues.count, 1);
+                assert.deepEqual(invalidValues.sample, [
+                    {
+                        row: 1,
+                        bgg_id: "10",
+                        field,
+                        value,
+                        reason,
+                    },
+                ]);
+                assert.throws(() => readFileSync(join(out, "service-catalog.json")));
+                assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
+            });
+        });
+    }
+});
+
+test("complexity는 0을 NULL로 정규화하고 1.00~5.00 경계만 유지한다", () => {
+    const rows = [
+        game(1, "10", "복잡도 없음", "No Complexity"),
+        game(2, "20", "최소 복잡도", "Minimum Complexity"),
+        game(3, "30", "최대 복잡도", "Maximum Complexity"),
+        game(4, "40", "낮은 범위 밖", "Below Range"),
+        game(5, "50", "높은 범위 밖", "Above Range"),
+    ];
+    rows[0].complexity = 0;
+    rows[1].complexity = 1;
+    rows[2].complexity = 5;
+    rows[3].complexity = 0.99;
+    rows[4].complexity = 5.01;
+
+    withCase(rows, ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 0, result.stderr);
+        const catalog = readJson(join(out, "service-catalog.json"));
+        assert.deepEqual(catalog.map(({ complexity }) => complexity), [null, 1, 5, null, null]);
+        const report = readJson(join(out, "quality-report.json"));
+        assert.deepEqual(report.searchNumericFields.complexity, {
+            label: "복잡도",
+            total: 5,
+            valid: 2,
+            missing: 1,
+            excluded: 2,
+            normalizedToNull: 1,
+            exclusionReasons: [
+                { code: "OUT_OF_RANGE", count: 2 },
+                { code: "ZERO_NORMALIZED_TO_NULL", count: 1 },
+            ],
+        });
+    });
+});
+
+test("문자열과 boolean complexity는 INVALID_COMPLEXITY와 같은 행으로 제외한다", () => {
+    const rows = [
+        game(1, "10", "문자열 복잡도", "String Complexity"),
+        game(2, "20", "boolean 복잡도", "Boolean Complexity"),
+        game(3, "30", "유효 복잡도", "Valid Complexity"),
+    ];
+    rows[0].complexity = "3.25";
+    rows[1].complexity = true;
+    rows[2].complexity = 3.25;
+
+    withCase(rows, ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 1);
+        const report = readJson(join(out, "quality-report.json"));
+        assert.deepEqual(report.searchNumericFields.complexity, {
+            label: "복잡도",
+            total: 3,
+            valid: 1,
+            missing: 0,
+            excluded: 2,
+            normalizedToNull: 0,
+            exclusionReasons: [{ code: "INVALID_COMPLEXITY", count: 2 }],
+        });
+        assert.equal(report.checks.invalidComplexityRows, 2);
+        const invalidComplexityError = report.errors.find(
+            ({ code }) => code === "INVALID_COMPLEXITY",
+        );
+        assert.equal(invalidComplexityError.count, 2);
+        assert.deepEqual(
+            invalidComplexityError.sample,
+            [
+                { row: 1, value: "3.25" },
+                { row: 2, value: true },
+            ],
+        );
+        assert.throws(() => readFileSync(join(out, "service-catalog.json")));
+        assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
+    });
+});
+
+test("같은 입력을 두 번 실행하면 검색 수치를 포함한 카탈로그와 품질 보고서가 같다", () => {
+    const rows = [
+        game(2, "20", "두 번째 검색 게임", "Second Search Game"),
+        game(1, "10", "첫 번째 검색 게임", "First Search Game"),
+    ];
+    rows[0].supported_player_count = "1명";
+    rows[0].estimated_play_time = "30분";
+    rows[1].supported_player_count = "2~4명";
+    rows[1].estimated_play_time = "10~20분";
+
+    withCase(rows, ({ root, games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+        assert.equal(runCli(games, ranks, out, manifest).status, 0);
+        const catalog = readFileSync(join(out, "service-catalog.json"), "utf8");
+        const report = readFileSync(join(out, "quality-report.json"), "utf8");
+
+        const secondOut = join(root, "second-search-output");
+        assert.equal(runCli(games, ranks, secondOut, manifest).status, 0);
+        assert.equal(readFileSync(join(secondOut, "service-catalog.json"), "utf8"), catalog);
+        assert.equal(readFileSync(join(secondOut, "quality-report.json"), "utf8"), report);
+        assert.deepEqual(
+            readJson(join(secondOut, "service-catalog.json")).map((row) => [
+                row.min_players,
+                row.max_players,
+                row.min_play_time_minutes,
+                row.max_play_time_minutes,
+            ]),
+            [
+                [2, 4, 10, 20],
+                [1, 1, 30, 30],
+            ],
+        );
+    });
+});
+
 test("구 recommended_player_count만 있는 입력은 supported_player_count 필수 오류로 차단한다", () => {
     withCase([game(1, "10", "첫 번째 게임", "First Game")], ({
         games,
@@ -552,6 +823,50 @@ test("같은 표시 이름의 서로 다른 BGG 게임은 버전 충돌 경고�
     });
 });
 
+test("판본 충돌 비교는 제목 의미 기호를 보존한다", () => {
+    const symbolRows = [
+        game(1, "10", "Bullet♥︎", "Bullet Heart"),
+        game(2, "20", "Bullet★", "Bullet Star"),
+    ];
+    withCase(symbolRows, ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 0, result.stderr);
+        const report = readJson(join(out, "quality-report.json"));
+        assert.ok(!report.warnings.some(({ code }) => code === "POSSIBLE_VERSION_COLLISION"));
+    });
+
+    const equivalentRows = [
+        game(1, "10", "Bullet♥︎", "Bullet Heart"),
+        game(2, "20", "bullet ♥", "Bullet Heart Two"),
+    ];
+    withCase(equivalentRows, ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 1);
+        const report = readJson(join(out, "quality-report.json"));
+        assert.ok(report.warnings.some(({ code }) => code === "POSSIBLE_VERSION_COLLISION"));
+    });
+
+    const punctuationRows = [
+        game(1, "10", "Bullet! Game", "Bullet Game One"),
+        game(2, "20", "bullet game", "Bullet Game Two"),
+    ];
+    withCase(punctuationRows, ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 1);
+        const report = readJson(join(out, "quality-report.json"));
+        assert.ok(report.warnings.some(({ code }) => code === "POSSIBLE_VERSION_COLLISION"));
+    });
+});
+
 test("TODO 출처 정보는 검수 승인으로 바꿔도 적재를 허용하지 않는다", () => {
     withCase([game(1, "10", "첫 번째 게임", "First Game")], ({
         games,
@@ -945,6 +1260,10 @@ function writeManifest(path, gamesPath, ranksPath, acceptedWarnings) {
             supported_player_count: "games.supported_player_count",
             tag: "games.tag",
             estimated_play_time: "games.estimated_play_time",
+            min_players: "games.supported_player_count를 검증해 정규화",
+            max_players: "games.supported_player_count를 검증해 정규화",
+            min_play_time_minutes: "games.estimated_play_time를 검증해 정규화",
+            max_play_time_minutes: "games.estimated_play_time를 검증해 정규화",
             complexity: "games.complexity",
             description: "games.description",
             detail_description: "games.detail_description",

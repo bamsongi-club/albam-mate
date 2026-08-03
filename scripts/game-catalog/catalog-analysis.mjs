@@ -10,10 +10,19 @@ export const CATALOG_FIELDS = [
     "supported_player_count",
     "tag",
     "estimated_play_time",
+    "min_players",
+    "max_players",
+    "min_play_time_minutes",
+    "max_play_time_minutes",
     "complexity",
     "description",
     "detail_description",
 ];
+const SEARCH_NUMERIC_FIELD_LABELS = {
+    players: "가능 인원",
+    playTimeMinutes: "예상 플레이 시간",
+    complexity: "복잡도",
+};
 const TEXT_FIELDS = [
     "name",
     "english_name",
@@ -45,6 +54,7 @@ const FIELD_LENGTHS = {
     estimated_play_time: 50,
 };
 const OPTIONAL_TEXT_FIELDS = new Set(["alias", "image_url"]);
+const POSTGRES_INTEGER_MAX = 2_147_483_647;
 
 export function analyzeCatalog({
     games,
@@ -59,6 +69,7 @@ export function analyzeCatalog({
     const validGameRows = gameRows.filter(isRecord);
     const errors = validateManifest(manifest, gamesPath, gamesContents, ranksPath, ranksContents);
     errors.push(...validateData(games, rankRows));
+    errors.push(...validateSearchNumericDisplayValues(gameRows));
     const duplicatedBggIds = duplicateValues(
         validGameRows.map((game) => canonicalBggId(game.bgg_id)).filter(Boolean),
     );
@@ -73,8 +84,8 @@ export function analyzeCatalog({
     const rankByBggId = new Map(
         rankRows.map((row) => [canonicalBggId(row.id), row]).filter(([bggId]) => bggId),
     );
-    const catalog = validGameRows
-        .map((game) => normalizeGame(game))
+    const normalizedGames = validGameRows.map((game) => normalizeGame(game));
+    const catalog = normalizedGames
         .sort((left, right) => left.bgg_id - right.bgg_id);
     errors.push(...validateSelectionCounts(manifest, gameRows.length, catalog.length, catalog));
     const warnings = qualityWarnings(validGameRows, rankByBggId);
@@ -101,6 +112,7 @@ export function analyzeCatalog({
         errors,
         warnings,
         checks,
+        searchNumericFields: searchNumericFieldSummary(validGameRows),
     };
 }
 
@@ -135,14 +147,11 @@ function checkSummary(games, rankByBggId) {
                 ([field, limit]) => !blank(game[field]) && String(game[field]).length > limit,
             ),
         );
-        const complexity = Number(game.complexity);
-        const complexityDecimals = String(game.complexity).split(".")[1]?.length ?? 0;
         invalidComplexityRows += Number(
             !blank(game.complexity) &&
-                (!Number.isFinite(complexity) ||
-                    complexity < 0 ||
-                    complexity > 5 ||
-                    complexityDecimals > 2),
+                (!isValidComplexityValue(game.complexity) ||
+                    game.complexity < 0 ||
+                    game.complexity > 5),
         );
         if (!blank(game.image_url)) {
             try {
@@ -272,15 +281,13 @@ function suspiciousComplexityRankCorrelation(games, rankByBggId) {
 }
 
 function isValidComplexity(value) {
-    return value !== null && value !== undefined && isValidComplexityValue(value);
+    return isValidComplexityValue(value) && value >= 1 && value <= 5;
 }
 
 function isValidComplexityValue(value) {
     return (
         typeof value === "number" &&
         Number.isFinite(value) &&
-        value >= 0 &&
-        value <= 5 &&
         /^\d+(?:\.\d{1,2})?$/.test(String(value))
     );
 }
@@ -293,7 +300,7 @@ function possibleVersionCollisions(games) {
     const groups = new Map();
     for (const field of ["name", "english_name"]) {
         for (const game of games) {
-            const normalized = normalizeName(game[field]);
+            const normalized = normalizeVersionCollisionName(game[field]);
             if (!normalized) {
                 continue;
             }
@@ -344,12 +351,172 @@ function descriptionTemplate(game, rankByBggId, field) {
 
 function normalizeGame(game) {
     const bggId = Number(game.bgg_id);
+    const players = normalizePositiveRange(game.supported_player_count, "명");
+    const playTime = normalizePlayTime(game.estimated_play_time);
+    const complexity = normalizeComplexity(game.complexity);
+    return {
+        ...Object.fromEntries(
+            CATALOG_FIELDS.map((field) => [
+                field,
+                field === "bgg_id" ? bggId : (game[field] ?? null),
+            ]),
+        ),
+        min_players: players.min,
+        max_players: players.max,
+        min_play_time_minutes: playTime.min,
+        max_play_time_minutes: playTime.max,
+        complexity: complexity.value,
+    };
+}
+
+function searchNumericFieldSummary(games) {
+    const fields = {
+        players: games.map((game) => normalizePositiveRange(game.supported_player_count, "명")),
+        playTimeMinutes: games.map((game) => normalizePlayTime(game.estimated_play_time)),
+        complexity: games.map((game) => normalizeComplexity(game.complexity)),
+    };
     return Object.fromEntries(
-        CATALOG_FIELDS.map((field) => [
+        Object.entries(fields).map(([field, results]) => [
             field,
-            field === "bgg_id" ? bggId : (game[field] ?? null),
+            summarizeNormalization(SEARCH_NUMERIC_FIELD_LABELS[field], results),
         ]),
     );
+}
+
+function summarizeNormalization(label, results) {
+    const reasonCounts = new Map();
+    let valid = 0;
+    let missing = 0;
+    let excluded = 0;
+    let normalizedToNull = 0;
+    for (const result of results) {
+        if (result.status === "valid") {
+            valid += 1;
+        } else if (result.status === "missing") {
+            missing += 1;
+        } else {
+            excluded += 1;
+        }
+        if (result.normalizedToNull) {
+            normalizedToNull += 1;
+        }
+        if (result.reason) {
+            reasonCounts.set(result.reason, (reasonCounts.get(result.reason) ?? 0) + 1);
+        }
+    }
+    return {
+        label,
+        total: results.length,
+        valid,
+        missing,
+        excluded,
+        normalizedToNull,
+        exclusionReasons: [...reasonCounts.entries()]
+            .map(([code, count]) => ({ code, count }))
+            .sort((left, right) => left.code.localeCompare(right.code)),
+    };
+}
+
+function normalizePositiveRange(value, suffix) {
+    if (blank(value)) {
+        return { min: null, max: null, status: "missing" };
+    }
+    const matched =
+        typeof value === "string" &&
+        new RegExp(`^(-?\\d+)(?:~(-?\\d+))?${suffix}$`).exec(value);
+    if (!matched) {
+        return {
+            min: null,
+            max: null,
+            status: "excluded",
+            reason: "UNPARSABLE_DISPLAY_VALUE",
+        };
+    }
+    const min = Number(matched[1]);
+    const max = Number(matched[2] ?? matched[1]);
+    if (
+        !Number.isSafeInteger(min) ||
+        !Number.isSafeInteger(max) ||
+        min > POSTGRES_INTEGER_MAX ||
+        max > POSTGRES_INTEGER_MAX
+    ) {
+        return {
+            min: null,
+            max: null,
+            status: "excluded",
+            reason: "OUT_OF_POSTGRES_INTEGER_RANGE",
+        };
+    }
+    if (min <= 0 || max <= 0) {
+        return { min: null, max: null, status: "excluded", reason: "NON_POSITIVE_VALUE" };
+    }
+    if (min > max) {
+        return { min: null, max: null, status: "excluded", reason: "MINIMUM_EXCEEDS_MAXIMUM" };
+    }
+    return { min, max, status: "valid" };
+}
+
+function normalizePlayTime(value) {
+    if (value === "정보 없음") {
+        return { min: null, max: null, status: "missing", normalizedToNull: true };
+    }
+    return normalizePositiveRange(value, "분");
+}
+
+function validateSearchNumericDisplayValues(games) {
+    const invalidValues = [];
+    for (const [index, game] of games.entries()) {
+        if (!isRecord(game)) {
+            continue;
+        }
+        for (const [field, suffix] of [
+            ["supported_player_count", "명"],
+            ["estimated_play_time", "분"],
+        ]) {
+            const normalized =
+                field === "estimated_play_time"
+                    ? normalizePlayTime(game[field])
+                    : normalizePositiveRange(game[field], suffix);
+            if (normalized.status === "excluded") {
+                invalidValues.push({
+                    row: index + 1,
+                    bgg_id: canonicalBggId(game.bgg_id),
+                    field,
+                    value: game[field],
+                    reason: normalized.reason,
+                });
+            }
+        }
+    }
+    const errors = [];
+    addValidationError(
+        errors,
+        "INVALID_SEARCH_NUMERIC_DISPLAY_VALUE",
+        "비어 있지 않은 인원·시간 표시값은 PostgreSQL INTEGER 범위의 양의 오름차순 정수 또는 범위여야 합니다.",
+        invalidValues,
+    );
+    return errors;
+}
+
+function normalizeComplexity(value) {
+    if (value === null || value === undefined) {
+        return { value: null, status: "missing" };
+    }
+    if (!isValidComplexityValue(value)) {
+        return { value: null, status: "excluded", reason: "INVALID_COMPLEXITY" };
+    }
+    if (value === 0) {
+        return {
+            value: null,
+            status: "missing",
+            normalizedToNull: true,
+            reason: "ZERO_NORMALIZED_TO_NULL",
+        };
+    }
+    if (value >= 1 && value <= 5) {
+        return { value, status: "valid" };
+    }
+    return { value: null, status: "excluded", reason: "OUT_OF_RANGE" };
 }
 
 function validateData(games, rankRows) {
@@ -463,11 +630,8 @@ function validateData(games, rankRows) {
             }
         }
 
-        if (
-            game.complexity !== undefined &&
-            game.complexity !== null &&
-            !isValidComplexityValue(game.complexity)
-        ) {
+        if (game.complexity !== undefined && game.complexity !== null &&
+            !isValidComplexityValue(game.complexity)) {
             invalidComplexities.push({ row: rowNumber, value: game.complexity });
         }
         if (!blank(game?.image_url)) {
@@ -579,6 +743,13 @@ function normalizeName(value) {
         .normalize("NFKC")
         .toLocaleLowerCase("en-US")
         .replaceAll(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function normalizeVersionCollisionName(value) {
+    return String(value ?? "")
+        .normalize("NFKC")
+        .toLocaleLowerCase("en-US")
+        .replaceAll(/[\p{White_Space}\p{P}\uFE0E\uFE0F]+/gu, "");
 }
 
 function validateManifest(manifest, gamesPath, gamesContents, ranksPath, ranksContents) {

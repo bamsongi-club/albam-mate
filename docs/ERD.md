@@ -1,6 +1,6 @@
 # 알밤메이트 ERD
 
-이 문서는 현재 제공 중인 P0와 승인된 P1 알림·채팅·다중 인스턴스 스케줄 잠금의 데이터 모델·데이터 제약을 정의한다. P1 항목은 구현 예정 계약이며 Flyway 마이그레이션과 코드가 반영되기 전에는 현재 운영 스키마로 보지 않는다.
+이 문서는 현재 제공 중인 P0와 승인된 P1 알림·채팅·다중 인스턴스 스케줄 잠금, 구현 예정인 P1 게임 검색 수치의 데이터 모델·데이터 제약을 정의한다. P1 항목은 구현 예정 계약이며 Flyway 마이그레이션과 코드가 반영되기 전에는 현재 운영 스키마로 보지 않는다.
 
 ### 이 문서의 범위
 
@@ -13,8 +13,8 @@
 ## 기준과 범위
 
 - 기준: P0 제품 규칙은 [P0 공통 명세](archive/p0/P0-spec.md), P1 알림·채팅·스케줄 규칙은 [P1 명세](P1-spec.md)와 [관련 승인 ADR](adr/README.md)을 따른다.
-- 범위: 현재 P0의 오프라인 방·게임 목록·사용자·방 참가, P1 구현 예정인 서비스 내 알림·방별 채팅·공용 스케줄 잠금
-- 제외: 아직 저장 계약을 확정하지 않은 P1 검색·대기 구조, 온라인 방, 온라인 자동 매칭, 후기, 룰마스터 가능 게임, 결제·포인트
+- 범위: 현재 P0의 오프라인 방·게임 목록·사용자·방 참가, P1 구현 예정인 게임 검색 수치·서비스 내 알림·방별 채팅·공용 스케줄 잠금
+- 제외: 아직 저장 계약을 확정하지 않은 P1 대기 구조, 온라인 방, 온라인 자동 매칭, 후기, 룰마스터 가능 게임, 결제·포인트
 - P0 검색: 게임 목록은 게임명 `keyword`, 사람 중심 방 목록은 방 제목 `keyword` 검색을 지원한다. 게임 태그는 표시값이며 필터가 아니다.
 - 시간대가 겹치는 서로 다른 방에는 같은 사용자가 동시에 참가할 수 있다. 따라서 종료 시각과 시간 중복 제약은 두지 않는다.
 
@@ -51,6 +51,10 @@ erDiagram
         VARCHAR best_player_count
         VARCHAR tag
         VARCHAR estimated_play_time
+        INT min_players
+        INT max_players
+        INT min_play_time_minutes
+        INT max_play_time_minutes
         DECIMAL complexity
         TEXT description
         TEXT detail_description
@@ -163,7 +167,11 @@ P1 알림의 제한 값은 PostgreSQL 네이티브 enum이 아니라 `VARCHAR`�
 | best_player_count | VARCHAR(50) | NULL | 표시용 최적 인원. 승인된 이용자 평가 집계가 생기기 전까지 `NULL` |
 | tag | VARCHAR(30) | NN | 게임 스타일 태그 |
 | estimated_play_time | VARCHAR(50) | NN | 표시용 예상 플레이 시간 |
-| complexity | DECIMAL(3,2) | NULL | 난이도 표시값 |
+| min_players | INTEGER | NULL | 검색용 가능 인원 최소값. `max_players`와 함께 `NULL`이거나 양의 정수이며 최소값 이하 |
+| max_players | INTEGER | NULL | 검색용 가능 인원 최대값. `min_players`와 함께 `NULL`이거나 양의 정수이며 최소값 이상 |
+| min_play_time_minutes | INTEGER | NULL | 검색용 플레이 시간 최소값(분). 최대값과 함께 `NULL`이거나 양의 정수이며 최소값 이하 |
+| max_play_time_minutes | INTEGER | NULL | 검색용 플레이 시간 최대값(분). 최소값과 함께 `NULL`이거나 양의 정수이며 최소값 이상 |
+| complexity | DECIMAL(3,2) | NULL, 1.00~5.00 | BGG 복잡도. 입력 `0.00`은 평가 없음으로 `NULL` 정규화 |
 | description | TEXT | NN | 게임 상세 화면에 표시하는 간단 설명 |
 | detail_description | TEXT | NN | 게임 상세 설명 |
 | created_at | TIMESTAMPTZ | NN | 등록 시각 |

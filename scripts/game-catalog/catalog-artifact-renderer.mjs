@@ -17,6 +17,7 @@ export function buildQualityReport({
     errors,
     warnings,
     checks,
+    searchNumericFields,
     outputs = null,
 }) {
     const report = {
@@ -39,6 +40,7 @@ export function buildQualityReport({
         errors,
         warnings,
         checks,
+        searchNumericFields,
         outputs,
     };
     if (

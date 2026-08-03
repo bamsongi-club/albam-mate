@@ -167,6 +167,25 @@ class GameHttpIntegrationTest {
 	}
 
 	@Test
+	void 검색_수치가_NULL이어도_기존_표시_필드는_유지하고_API에_노출하지_않는다() throws Exception {
+		Game game = saveGame(10032L, "표시 문자열 유지", "게임 설명", "게임 상세 설명");
+		ReflectionTestUtils.setField(game, "minPlayers", null);
+		ReflectionTestUtils.setField(game, "maxPlayers", null);
+		ReflectionTestUtils.setField(game, "minPlayTimeMinutes", null);
+		ReflectionTestUtils.setField(game, "maxPlayTimeMinutes", null);
+		gameRepository.saveAndFlush(game);
+
+		mockMvc.perform(get("/api/games/{gameId}", game.getId()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.supportedPlayerCount").value("3~4명"))
+			.andExpect(jsonPath("$.data.estimatedPlayTime").value("60~90분"))
+			.andExpect(jsonPath("$.data.minPlayers").doesNotExist())
+			.andExpect(jsonPath("$.data.maxPlayers").doesNotExist())
+			.andExpect(jsonPath("$.data.minPlayTimeMinutes").doesNotExist())
+			.andExpect(jsonPath("$.data.maxPlayTimeMinutes").doesNotExist());
+	}
+
+	@Test
 	void 존재하지_않는_양의_게임_ID는_실제_예외_처리_경로에서_GAME_NOT_FOUND를_반환한다() throws Exception {
 		mockMvc.perform(get("/api/games/999999"))
 			.andExpect(status().isNotFound())

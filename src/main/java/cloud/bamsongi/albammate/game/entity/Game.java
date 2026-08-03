@@ -48,6 +48,18 @@ public class Game extends BaseEntity {
 	@Column(name = "estimated_play_time", nullable = false, length = 50)
 	private String estimatedPlayTime;
 
+	@Column(name = "min_players")
+	private Integer minPlayers;
+
+	@Column(name = "max_players")
+	private Integer maxPlayers;
+
+	@Column(name = "min_play_time_minutes")
+	private Integer minPlayTimeMinutes;
+
+	@Column(name = "max_play_time_minutes")
+	private Integer maxPlayTimeMinutes;
+
 	@Column(name = "complexity", precision = 3, scale = 2)
 	private BigDecimal complexity;
 
