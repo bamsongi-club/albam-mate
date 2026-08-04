@@ -1,4 +1,6 @@
 spring:
+  session:
+    timeout: 30m
   jpa:
     hibernate:
       ddl-auto: validate

@@ -22,12 +22,17 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 import cloud.bamsongi.albammate.global.security.endpoint.ApiEndpointPolicyRegistry;
 import cloud.bamsongi.albammate.global.security.error.ApiAccessDeniedHandler;
 import cloud.bamsongi.albammate.global.security.error.ApiAuthenticationEntryPoint;
+import cloud.bamsongi.albammate.global.security.session.SessionConfiguration;
 import cloud.bamsongi.albammate.global.security.session.SessionCookieConfigurer;
 
 /** P0 서버 세션, CSRF와 공개·보호 HTTP 경계를 구성한다. */
 @Configuration
 @EnableConfigurationProperties(SecurityCookieProperties.class)
-@Import({ApiEndpointPolicyRegistry.class, SessionCookieConfigurer.class})
+@Import({
+	ApiEndpointPolicyRegistry.class,
+	SessionConfiguration.class,
+	SessionCookieConfigurer.class
+})
 public class SecurityConfig {
 
 	/**
