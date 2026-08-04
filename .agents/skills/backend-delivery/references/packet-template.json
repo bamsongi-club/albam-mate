@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "workItem": {
     "kind": "issue",
     "id": "<이슈-번호>",
@@ -31,14 +31,6 @@
   "testContractApproval": {
     "issueNumber": "<이슈-번호>",
     "commentUrl": "https://github.com/<owner>/<repo>/issues/<issue-number>#issuecomment-<comment-id>"
-  },
-  "validation": {
-    "targetedTests": [
-      "<대상-테스트-명령>"
-    ],
-    "finalCommands": [
-      "<구현-에이전트-최종-검증-명령>"
-    ]
   },
   "confirmedDecisions": [
     "<확정된-아키텍처-또는-범위-결정>"
