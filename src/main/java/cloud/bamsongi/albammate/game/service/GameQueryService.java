@@ -56,7 +56,8 @@ public class GameQueryService implements GameQuery {
 	 * @return 예정 모임 수가 포함된 게임 목록 페이지
 	 */
 	public Page<GameListItem> findPage(String keyword, Pageable pageable) {
-		return findPage(GameListSearchCriteria.keywordOnly(keyword), pageable.getPageNumber(), pageable.getPageSize(), null);
+		return findPage(GameListSearchCriteria.keywordOnly(keyword), pageable.getPageNumber(), pageable.getPageSize(),
+			null);
 	}
 
 	/**
@@ -126,7 +127,8 @@ public class GameQueryService implements GameQuery {
 
 		Page<Game> games = gameRepository.findAll(criteria.toSpecification(), pageable);
 		if (games.isEmpty()) {
-			return games.map(game -> GameListItem.from(GameListRow.from(game), 0L, playedByMe(currentUserId, game.getId())));
+			return games
+				.map(game -> GameListItem.from(GameListRow.from(game), 0L, playedByMe(currentUserId, game.getId())));
 		}
 
 		if (!criteria.isUpcomingOnly()) {

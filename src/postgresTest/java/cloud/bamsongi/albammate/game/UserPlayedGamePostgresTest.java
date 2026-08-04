@@ -55,7 +55,8 @@ class UserPlayedGamePostgresTest {
 
 	@AfterEach
 	void tearDown() {
-		userIds.forEach(userId -> gameIds.forEach(gameId -> userPlayedGameRepository.deleteByUserIdAndGameId(userId, gameId)));
+		userIds.forEach(
+			userId -> gameIds.forEach(gameId -> userPlayedGameRepository.deleteByUserIdAndGameId(userId, gameId)));
 		gameIds.forEach(gameRepository::deleteById);
 		userIds.forEach(userRepository::deleteById);
 	}

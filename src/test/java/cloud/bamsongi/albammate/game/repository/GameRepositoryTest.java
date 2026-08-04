@@ -247,7 +247,8 @@ class GameRepositoryTest {
 		Game wrongComplexity = saveGame(1007L, "All Filter Wrong Complexity", 2, 4, 30, new BigDecimal("3.50"));
 		Game wrongMechanism = saveGame(1008L, "All Filter Wrong Mechanism", 2, 4, 30, new BigDecimal("2.50"));
 		Game unplayed = saveGame(1009L, "All Filter Unplayed", 2, 4, 30, new BigDecimal("2.50"));
-		for (Game game : List.of(alpha, beta, wrongKeyword, wrongUpcoming, wrongPlayerCount, wrongPlayTime, wrongComplexity)) {
+		for (Game game : List.of(alpha, beta, wrongKeyword, wrongUpcoming, wrongPlayerCount, wrongPlayTime,
+			wrongComplexity)) {
 			gameMechanismRelationRepository.saveAndFlush(new GameMechanismRelation(game, mechanism));
 			userPlayedGameRepository.saveAndFlush(
 				UserPlayedGame.create(user.getId(), game.getId(), Instant.parse("2026-08-04T00:00:00Z")));

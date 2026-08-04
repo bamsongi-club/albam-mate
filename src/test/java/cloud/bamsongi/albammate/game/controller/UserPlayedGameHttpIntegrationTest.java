@@ -50,7 +50,8 @@ class UserPlayedGameHttpIntegrationTest {
 
 	@AfterEach
 	void tearDown() {
-		userIds.forEach(userId -> gameIds.forEach(gameId -> userPlayedGameRepository.deleteByUserIdAndGameId(userId, gameId)));
+		userIds.forEach(
+			userId -> gameIds.forEach(gameId -> userPlayedGameRepository.deleteByUserIdAndGameId(userId, gameId)));
 		gameIds.forEach(gameRepository::deleteById);
 		userIds.forEach(userRepository::deleteById);
 	}
@@ -107,7 +108,8 @@ class UserPlayedGameHttpIntegrationTest {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
 		}
-		for (var request : List.of(put("/api/users/me/played-games/999999"), delete("/api/users/me/played-games/999999"))) {
+		for (var request : List.of(put("/api/users/me/played-games/999999"),
+			delete("/api/users/me/played-games/999999"))) {
 			mockMvc.perform(request.with(authenticationFor(user.getId())).with(csrf()))
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.code").value(ErrorCode.GAME_NOT_FOUND.getCode()));
@@ -135,7 +137,8 @@ class UserPlayedGameHttpIntegrationTest {
 		gameRepository.saveAndFlush(beta);
 		mark(userA, alpha);
 
-		mockMvc.perform(get("/api/games").param("keyword", "PlayedGameHttp-Alpha").with(authenticationFor(userA.getId())))
+		mockMvc
+			.perform(get("/api/games").param("keyword", "PlayedGameHttp-Alpha").with(authenticationFor(userA.getId())))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.content[0].playedByMe").value(true));
 		mockMvc.perform(get("/api/games/{gameId}", alpha.getId()).with(authenticationFor(userB.getId())))

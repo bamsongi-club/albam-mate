@@ -55,6 +55,7 @@ class UserPlayedGameServiceTest {
 		doThrow(expected).when(commandExecutor).markPlayed(1L, 2L);
 		when(commandExecutor.inspectAfterMarkFailure(1L, 2L)).thenReturn(RecoveryState.GAME_EXISTS);
 
-		assertSame(expected, assertThrows(DataIntegrityViolationException.class, () -> userPlayedGameService.markPlayed(1L, 2L)));
+		assertSame(expected,
+			assertThrows(DataIntegrityViolationException.class, () -> userPlayedGameService.markPlayed(1L, 2L)));
 	}
 }
