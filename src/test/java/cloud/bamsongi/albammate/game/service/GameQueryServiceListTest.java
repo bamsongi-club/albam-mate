@@ -55,7 +55,8 @@ class GameQueryServiceListTest {
 	@Test
 	void 모든_조건을_불변_검색_조건으로_묶어_단일_저장소_조회에_전달한다() {
 		Pageable pageable = fixedPageRequest(0, 10);
-		GameListRequest request = request("  카탄  ", false, 4, GamePlayTimeFilter.MEDIUM, "2.00", "3.00");
+		GameListRequest request = request(
+			"  카탄  ", false, 4, List.of(GamePlayTimeFilter.OVER_30_TO_60), "2.00", "3.00");
 		Game game = game(1L, "카탄");
 		when(gameRepository.findAll(any(Specification.class), eq(pageable)))
 			.thenReturn(new PageImpl<>(List.of(game), pageable, 1));
@@ -100,7 +101,7 @@ class GameQueryServiceListTest {
 		String keyword,
 		boolean upcomingOnly,
 		Integer playerCount,
-		GamePlayTimeFilter playTime,
+		List<GamePlayTimeFilter> playTime,
 		String complexityMin,
 		String complexityMax) {
 		GameListRequest request = new GameListRequest();

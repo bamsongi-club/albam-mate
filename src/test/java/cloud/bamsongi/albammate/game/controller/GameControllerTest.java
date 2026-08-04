@@ -31,6 +31,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import cloud.bamsongi.albammate.game.dto.GameDetail;
 import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
+import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
 import cloud.bamsongi.albammate.game.service.GameQueryService;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -156,7 +157,11 @@ class GameControllerTest {
 		for (String query : List.of(
 			"page=-1", "size=0", "size=101", "page=not-a-number", "size=not-a-number", "upcomingOnly=not-a-boolean",
 			"playerCount=0", "playerCount=11", "playTime=INVALID", "complexityMin=0.99", "complexityMax=5.01",
-			"complexityMin=3.00&complexityMax=2.00")) {
+			"complexityMin=3.00&complexityMax=2.00",
+			"playTime=SHORT", "playTime=MEDIUM", "playTime=LONG", "playTime=UP_TO_10&playTime=SHORT",
+			"playerCountMin=0", "playerCountMax=0", "playerCountMin=5&playerCountMax=4",
+			"playerCountMin=not-a-number", "exclusivePlayerCount=3", "exclusivePlayerCount=0",
+			"playerCountMin=2&exclusivePlayerCount=1", "playerCountMax=4&exclusivePlayerCount=2")) {
 			mockMvc.perform(get("/api/games?" + query))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
@@ -185,16 +190,44 @@ class GameControllerTest {
 		when(gameQueryService.findPage(any(GameListRequest.class)))
 			.thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
 
-		mockMvc.perform(get("/api/games?playerCount=10&playTime=MEDIUM&complexityMin=2.00&complexityMax=3.00"))
+		mockMvc.perform(
+			get("/api/games?playerCount=10&playTime=UP_TO_10&playTime=AT_LEAST_90"
+				+ "&complexityMin=2.00&complexityMax=3.00"))
 			.andExpect(status().isOk());
 
 		GameListRequest request = capturedListRequest();
 		org.junit.jupiter.api.Assertions.assertEquals(10, request.getPlayerCount());
 		org.junit.jupiter.api.Assertions.assertEquals(
-			cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter.MEDIUM,
+			List.of(GamePlayTimeFilter.UP_TO_10, GamePlayTimeFilter.AT_LEAST_90),
 			request.getPlayTime());
 		org.junit.jupiter.api.Assertions.assertEquals(new BigDecimal("2.00"), request.getComplexityMin());
 		org.junit.jupiter.api.Assertions.assertEquals(new BigDecimal("3.00"), request.getComplexityMax());
+	}
+
+	@Test
+	void 인원_범위_조건_파라미터를_서비스에_전달한다() throws Exception {
+		when(gameQueryService.findPage(any(GameListRequest.class)))
+			.thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+
+		mockMvc.perform(get("/api/games?playerCountMin=2&playerCountMax=4&playerCountExact=true"))
+			.andExpect(status().isOk());
+
+		GameListRequest request = capturedListRequest();
+		org.junit.jupiter.api.Assertions.assertEquals(2, request.getPlayerCountMin());
+		org.junit.jupiter.api.Assertions.assertEquals(4, request.getPlayerCountMax());
+		org.junit.jupiter.api.Assertions.assertTrue(request.isPlayerCountExact());
+	}
+
+	@Test
+	void 반복_전달한_전용_인원을_목록으로_바인딩한다() throws Exception {
+		when(gameQueryService.findPage(any(GameListRequest.class)))
+			.thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+
+		mockMvc.perform(get("/api/games?exclusivePlayerCount=1&exclusivePlayerCount=2"))
+			.andExpect(status().isOk());
+
+		org.junit.jupiter.api.Assertions.assertEquals(
+			List.of(1, 2), capturedListRequest().getExclusivePlayerCount());
 	}
 
 	@Test
