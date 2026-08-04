@@ -1306,6 +1306,29 @@ test("승인 code 매핑 누락 또는 checksum 불일치는 적재 산출물을
 	});
 });
 
+test("메커니즘 reviewedAt은 실제 ISO-8601 instant가 아니면 적재 산출물을 차단한다", async (context) => {
+	const row = game(1, "10", "첫 번째 게임", "First Game");
+	row.mechanisms = [{ bgg_id: "2040", name: "Hand Management", name_ko: "핸드 관리" }];
+	for (const reviewedAt of ["2026-08-04T00:00:00", "2026-02-30T00:00:00Z"]) {
+		await context.test(reviewedAt, () => {
+			withCase([row], ({ games, ranks, manifest, out }) => {
+				writeManifest(manifest, games, ranks, []);
+				writeMechanismManifest(manifest, 1, 1, { 2040: "HAND_MANAGEMENT" });
+				const value = readJson(manifest);
+				value.mechanismCatalog.reviewedAt = reviewedAt;
+				writeFileSync(manifest, `${JSON.stringify(value, null, 2)}\n`);
+
+				const result = runCli(games, ranks, out, manifest);
+
+				assert.equal(result.status, 1);
+				assert.ok(readJson(join(out, "quality-report.json")).errors.some(
+					({ code }) => code === "INVALID_MECHANISM_MANIFEST"));
+				assert.throws(() => readFileSync(join(out, "upsert-game-mechanisms.sql")));
+			});
+		});
+	}
+});
+
 function withCase(rows, operation) {
     const root = mkdtempSync(join(tmpdir(), "albam-mate-game-catalog-"));
     try {
