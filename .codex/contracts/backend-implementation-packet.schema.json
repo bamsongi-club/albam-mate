@@ -14,12 +14,11 @@
     "completionCriteria",
     "requiredTests",
     "testContractApproval",
-    "validation",
     "confirmedDecisions"
   ],
   "properties": {
     "schemaVersion": {
-      "const": 2
+      "const": 3
     },
     "workItem": {
       "type": "object",
@@ -122,22 +121,6 @@
         },
         "commentUrl": {
           "$ref": "#/$defs/githubIssueCommentUrl"
-        }
-      }
-    },
-    "validation": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "targetedTests",
-        "finalCommands"
-      ],
-      "properties": {
-        "targetedTests": {
-          "$ref": "#/$defs/nonEmptyStringArray"
-        },
-        "finalCommands": {
-          "$ref": "#/$defs/nonEmptyStringArray"
         }
       }
     },
