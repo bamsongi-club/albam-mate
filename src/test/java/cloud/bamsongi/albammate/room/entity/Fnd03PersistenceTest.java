@@ -215,11 +215,11 @@ class Fnd03PersistenceTest {
 
 	@Test
 	void ERD_핵심_DB_제약은_H2_Flyway_스키마에서_위반을_거절한다() {
-		insertUser(101L, "constraint-user@example.com");
-		insertUser(102L, "participant-user@example.com");
+		insertUser(-101L, "constraint-user@example.com");
+		insertUser(-102L, "participant-user@example.com");
 		insertGame(201L, 9001L);
-		insertRoom(301L, 201L, 101L, 2, 0);
-		insertParticipation(401L, 301L, 102L, "ACTIVE", null);
+		insertRoom(301L, 201L, -101L, 2, 0);
+		insertParticipation(401L, 301L, -102L, "ACTIVE", null);
 
 		assertEquals(
 			"홍대",
@@ -235,21 +235,21 @@ class Fnd03PersistenceTest {
 			jdbcTemplate.queryForObject(
 				"select version from rooms where id = 301", Long.class));
 
-		assertConstraintViolation(() -> insertUser(103L, "constraint-user@example.com"));
+		assertConstraintViolation(() -> insertUser(-103L, "constraint-user@example.com"));
 		assertConstraintViolation(() -> insertGame(202L, 9001L));
-		assertConstraintViolation(() -> insertRoom(302L, null, 101L, 2, 0));
-		assertConstraintViolation(() -> insertRoom(303L, 201L, 101L, 0, 0));
-		assertConstraintViolation(() -> insertRoom(304L, 201L, 101L, 11, 0));
-		assertConstraintViolation(() -> insertRoom(305L, 201L, 101L, 2, -1));
-		assertConstraintViolation(() -> insertRoom(306L, 201L, 101L, 2, 3));
-		assertConstraintViolation(() -> insertParticipation(402L, 301L, 102L, "ACTIVE", null));
+		assertConstraintViolation(() -> insertRoom(302L, null, -101L, 2, 0));
+		assertConstraintViolation(() -> insertRoom(303L, 201L, -101L, 0, 0));
+		assertConstraintViolation(() -> insertRoom(304L, 201L, -101L, 11, 0));
+		assertConstraintViolation(() -> insertRoom(305L, 201L, -101L, 2, -1));
+		assertConstraintViolation(() -> insertRoom(306L, 201L, -101L, 2, 3));
+		assertConstraintViolation(() -> insertParticipation(402L, 301L, -102L, "ACTIVE", null));
 		assertConstraintViolation(
-			() -> insertParticipation(403L, 301L, 101L, "ACTIVE", "2026-07-26T04:00:00Z"));
-		assertConstraintViolation(() -> insertParticipation(404L, 301L, 101L, "CANCELED", null));
+			() -> insertParticipation(403L, 301L, -101L, "ACTIVE", "2026-07-26T04:00:00Z"));
+		assertConstraintViolation(() -> insertParticipation(404L, 301L, -101L, "CANCELED", null));
 
-		assertConstraintViolation(() -> insertRoom(307L, 999_999L, 101L, 2, 0));
+		assertConstraintViolation(() -> insertRoom(307L, 999_999L, -101L, 2, 0));
 		assertConstraintViolation(() -> insertRoom(308L, 201L, 999_999L, 2, 0));
-		assertConstraintViolation(() -> insertParticipation(405L, 999_999L, 102L, "ACTIVE", null));
+		assertConstraintViolation(() -> insertParticipation(405L, 999_999L, -102L, "ACTIVE", null));
 		assertConstraintViolation(() -> insertParticipation(406L, 301L, 999_999L, "ACTIVE", null));
 	}
 
