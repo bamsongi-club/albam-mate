@@ -127,17 +127,14 @@ function requestedUrl(fetchMock) {
 }
 
 describe('게임 목록 검색 API', () => {
-  it('인원 범위·시간·복잡도 필터를 계약된 이름과 값으로 전달한다', async () => {
+  it('인원·시간·복잡도 필터를 계약된 이름과 값으로 전달한다', async () => {
     const fetchMock = stubFetch();
 
     await api.getGames({
       keyword: '루미',
       upcomingOnly: true,
-      playerCountMin: '2',
-      playerCountMax: '4',
-      playerCountExact: true,
-      exclusivePlayerCount: [],
-      playTime: ['UP_TO_10', 'AT_LEAST_90'],
+      playerCount: '10',
+      playTime: 'MEDIUM',
       complexityMin: '2',
       complexityMax: '4',
       page: 0,
@@ -145,19 +142,7 @@ describe('게임 목록 검색 API', () => {
     });
 
     expect(requestedUrl(fetchMock)).toBe(
-      '/api/games?keyword=%EB%A3%A8%EB%AF%B8&upcomingOnly=true&playerCountMin=2&playerCountMax=4'
-        + '&playerCountExact=true&playTime=UP_TO_10&playTime=AT_LEAST_90'
-        + '&complexityMin=2&complexityMax=4&page=0&size=24'
-    );
-  });
-
-  it('전용 인원은 같은 이름을 반복해 전달한다', async () => {
-    const fetchMock = stubFetch();
-
-    await api.getGames({ exclusivePlayerCount: ['1', '2'], playTime: [], page: 0, size: 24 });
-
-    expect(requestedUrl(fetchMock)).toBe(
-      '/api/games?exclusivePlayerCount=1&exclusivePlayerCount=2&page=0&size=24'
+      '/api/games?keyword=%EB%A3%A8%EB%AF%B8&upcomingOnly=true&playerCount=10&playTime=MEDIUM&complexityMin=2&complexityMax=4&page=0&size=24'
     );
   });
 
@@ -167,18 +152,15 @@ describe('게임 목록 검색 API', () => {
     await api.getGames({
       keyword: '',
       upcomingOnly: false,
-      playerCountMin: '',
-      playerCountMax: '',
-      playerCountExact: false,
-      exclusivePlayerCount: [],
-      playTime: [],
+      playerCount: '',
+      playTime: '',
       complexityMin: '',
       complexityMax: '',
       page: 0,
       size: 24
     });
 
-    expect(requestedUrl(fetchMock)).toBe('/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24');
+    expect(requestedUrl(fetchMock)).toBe('/api/games?upcomingOnly=false&page=0&size=24');
   });
 });
 

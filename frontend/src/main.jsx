@@ -22,8 +22,6 @@ const GAME_LIST_PAGE_SIZE = 24;
 const ROOM_LIST_PAGE_SIZE = 12;
 const loadFirstNotificationPage = (signal) => api.getNotifications({ page: 0, size: 10 }, signal);
 const GAME_SEARCH_DEBOUNCE_MS = 250;
-// 인원 숫자 입력은 마지막 입력 뒤 이 시간이 지나면 조회한다. 체크박스는 기다리지 않는다.
-const GAME_NUMBER_FILTER_DEBOUNCE_MS = 400;
 // 회원가입 비밀번호 한도는 서버 검증 규칙과 같은 값을 쓴다. 한쪽만 바뀌면 안내와 결과가 어긋난다.
 const PASSWORD_MIN_CODE_POINTS = 15;
 const PASSWORD_MAX_CODE_POINTS = 64;
@@ -50,30 +48,24 @@ const EMPTY_ROOM_FILTERS = {
   experienceLevel: '',
   rulemasterOnly: false
 };
-// 게임 필터 상태는 쿼리 파라미터 이름과 값을 그대로 쓴다. 빈 문자열과 빈 배열은 조건 없음이라 요청에서 빠진다.
+// 게임 필터 상태는 쿼리 파라미터 이름과 값을 그대로 쓴다. 빈 문자열은 조건 없음이라 요청에서 빠진다.
 const EMPTY_GAME_FILTERS = {
-  playerCountMin: '',
-  playerCountMax: '',
-  playerCountExact: false,
-  exclusivePlayerCount: [],
-  playTime: [],
+  playerCount: '',
+  playTime: '',
   complexityMin: '',
   complexityMax: '',
   upcomingOnly: false
 };
 const EMPTY_GAME_FILTER_KEY = JSON.stringify(EMPTY_GAME_FILTERS);
-// 계약의 허용값은 1인과 2인뿐이다.
-const EXCLUSIVE_PLAYER_COUNT_OPTIONS = [
-  { value: '1', label: '1인 전용' },
-  { value: '2', label: '2인 전용' }
+// 10은 정확히 10명이 아니라 최대 가능 인원이 10 이상이라는 뜻이다.
+const PLAYER_COUNT_OPTIONS = [
+  ...Array.from({ length: 9 }, (_, index) => ({ value: index + 1, label: index + 1 + '명' })),
+  { value: 10, label: '10명 이상' }
 ];
 const PLAY_TIME_LABEL = {
-  UP_TO_10: '10분 이내',
-  OVER_10_TO_20: '10~20분',
-  OVER_20_TO_30: '20~30분',
-  OVER_30_TO_60: '30~60분',
-  OVER_60_UNDER_90: '60~90분',
-  AT_LEAST_90: '90분 이상'
+  SHORT: '20분 이하',
+  MEDIUM: '20분 초과 60분 이하',
+  LONG: '60분 초과'
 };
 // 난이도 점대는 계약의 닫힌 구간 하한·상한으로 보낸다. 5점만 있는 마지막 칸은 상한도 5다.
 const COMPLEXITY_BANDS = [
@@ -638,7 +630,7 @@ function roomFilterKey(filters, today) {
 
 const EMPTY_ROOM_FILTER_KEY = roomFilterKey(EMPTY_ROOM_FILTERS, '');
 
-// 한 값만 고르는 조건은 라디오로 그린다. 값이 빈 문자열인 선택지가 조건 없음이다.
+// 조건은 모두 한 값만 고르므로 라디오로 그린다. 값이 빈 문자열인 선택지가 조건 없음이다.
 function FilterRadioGroup({ name, label, value, options, onChange, children }) {
   return (
     <fieldset className="filter-group">
@@ -664,84 +656,6 @@ function FilterCheckGroup({ label, checked, onChange, text }) {
       </label>
     </fieldset>
   );
-}
-
-// 여러 값을 함께 고르는 조건은 체크박스로 그린다. 고른 값들은 목록 안에서 OR로 결합한다.
-function FilterMultiCheckGroup({ label, values, options, onToggle, children }) {
-  return (
-    <fieldset className="filter-group">
-      <legend>{label}</legend>
-      {options.map((option) => (
-        <label className="filter-option" key={option.value}>
-          <input
-            type="checkbox"
-            checked={values.includes(option.value)}
-            onChange={(event) => onToggle(option.value, event.target.checked)}
-          />
-          {option.label}
-        </label>
-      ))}
-      {children}
-    </fieldset>
-  );
-}
-
-// 최소·최대는 각각 생략할 수 있다. 마지막 입력 뒤 조회는 화면이 맡고 이 컴포넌트는 입력만 다룬다.
-function FilterNumberRangeGroup({ label, min, max, unit, onMinChange, onMaxChange, children }) {
-  return (
-    <fieldset className="filter-group">
-      <legend>{label}</legend>
-      <div className="filter-range">
-        <input
-          type="number"
-          inputMode="numeric"
-          min="1"
-          aria-label="최소"
-          placeholder="최소"
-          value={min}
-          onChange={(event) => onMinChange(event.target.value)}
-        />
-        <span className="filter-range-dash" aria-hidden="true">~</span>
-        <input
-          type="number"
-          inputMode="numeric"
-          min="1"
-          aria-label="최대"
-          placeholder="최대"
-          value={max}
-          onChange={(event) => onMaxChange(event.target.value)}
-        />
-        <span className="filter-range-unit">{unit}</span>
-      </div>
-      {children}
-    </fieldset>
-  );
-}
-
-// 인원 숫자만 지운 상태로 비교한다. 숫자 입력과 나머지 선택의 변경을 가려내는 기준이다.
-function gameFiltersWithoutPlayerCountNumbers(filters) {
-  return JSON.stringify({ ...filters, playerCountMin: '', playerCountMax: '' });
-}
-
-/**
- * 조회에 실제로 쓸 게임 조건을 고른다.
- *
- * 숫자 입력만 바뀌면 마지막 입력 뒤에 조회한다. 체크박스처럼 다른 조건이 함께 바뀌면 기다리지 않는다.
- * 전용 인원을 고르면 인원 범위가 함께 지워지므로, 이때 숫자를 늦게 반영하면 계약이 금지한
- * 범위·전용 인원 조합을 한 번 요청하게 된다. 그래서 함께 바뀐 변경은 즉시 반영해야 한다.
- */
-function useAppliedGameFilters(filters) {
-  const [applied, setApplied] = useState(filters);
-  useEffect(() => {
-    if (filters === applied) return undefined;
-    if (gameFiltersWithoutPlayerCountNumbers(filters) !== gameFiltersWithoutPlayerCountNumbers(applied)) {
-      setApplied(filters);
-      return undefined;
-    }
-    const timer = setTimeout(() => setApplied(filters), GAME_NUMBER_FILTER_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [filters, applied]);
-  return applied;
 }
 
 // 고른 조건은 칩으로 보여 주고 칩마다 그 조건만 해제한다. 패널을 접어도 무엇이 걸려 있는지 남는다.
@@ -874,79 +788,12 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
   );
 }
 
-/**
- * 전용 인원 선택을 인원 조건 patch로 바꾼다.
- *
- * 하나만 고르면 `1인 전용`은 `min_players = max_players = 1`이라 `1 ~ 1` 경계 정확 일치와 같은 조건이다.
- * 그래서 범위 입력에 그대로 되비춰 무엇을 고른 상태인지 보여 준다. 둘을 함께 고르면 OR이라
- * 하나의 범위로 나타낼 수 없으므로 범위 입력을 비운다.
- */
-function exclusivePlayerCountPatch(selected) {
-  const single = selected.length === 1 ? selected[0] : '';
-  return {
-    exclusivePlayerCount: selected,
-    playerCountMin: single,
-    playerCountMax: single,
-    playerCountExact: selected.length === 1
-  };
-}
-
-function clearedExclusivePlayerCount(filters, value) {
-  return exclusivePlayerCountPatch(filters.exclusivePlayerCount.filter((selected) => selected !== value));
-}
-
-/**
- * 요청에 실제로 실을 조건을 만든다.
- *
- * 전용 인원을 고른 상태의 범위 입력은 같은 조건을 되비추는 표시일 뿐이다. 계약은 범위 계열과
- * 전용 인원을 함께 담은 요청을 검증 오류로 거절하므로 이때 범위 파라미터를 뺀다.
- */
-function gameFilterParameters(filters) {
-  if (!filters.exclusivePlayerCount.length) return filters;
-  return { ...filters, playerCountMin: '', playerCountMax: '', playerCountExact: false };
-}
-
-function playerCountRangeLabel(filters) {
-  if (!filters.playerCountMin && !filters.playerCountMax) return '';
-  const suffix = filters.playerCountExact ? ' 정확히' : '';
-  if (filters.playerCountMin && filters.playerCountMax) {
-    return filters.playerCountMin + '~' + filters.playerCountMax + '명' + suffix;
-  }
-  if (filters.playerCountMin) return filters.playerCountMin + '명 이상' + suffix;
-  return filters.playerCountMax + '명 이하' + suffix;
-}
-
 function gameFilterChips(filters, onChange) {
   const update = (patch) => onChange({ ...filters, ...patch });
   const chips = [];
-  // 전용 인원을 고르면 범위 입력이 같은 조건을 되비추므로 칩을 두 번 만들지 않는다.
-  const rangeLabel = filters.exclusivePlayerCount.length ? '' : playerCountRangeLabel(filters);
-  if (rangeLabel) {
-    chips.push({
-      key: 'playerCountRange',
-      label: rangeLabel,
-      onClear: () => update({ playerCountMin: '', playerCountMax: '', playerCountExact: false })
-    });
-  }
-  filters.exclusivePlayerCount.forEach((value) => {
-    const option = EXCLUSIVE_PLAYER_COUNT_OPTIONS.find((candidate) => candidate.value === value);
-    if (option) {
-      chips.push({
-        key: 'exclusive-' + value,
-        label: option.label,
-        onClear: () => update(clearedExclusivePlayerCount(filters, value))
-      });
-    }
-  });
-  filters.playTime.forEach((value) => {
-    if (PLAY_TIME_LABEL[value]) {
-      chips.push({
-        key: 'playTime-' + value,
-        label: PLAY_TIME_LABEL[value],
-        onClear: () => update({ playTime: filters.playTime.filter((selected) => selected !== value) })
-      });
-    }
-  });
+  const players = PLAYER_COUNT_OPTIONS.find((option) => String(option.value) === filters.playerCount);
+  if (players) chips.push({ key: 'players', label: players.label, onClear: () => update({ playerCount: '' }) });
+  if (filters.playTime) chips.push({ key: 'playTime', label: PLAY_TIME_LABEL[filters.playTime], onClear: () => update({ playTime: '' }) });
   const band = complexityBandOf(filters);
   if (band) chips.push({ key: 'complexity', label: '난이도 ' + band.label, onClear: () => update({ complexityMin: '', complexityMax: '' }) });
   if (filters.upcomingOnly) chips.push({ key: 'upcomingOnly', label: '예정 모임 있음', onClear: () => update({ upcomingOnly: false }) });
@@ -959,39 +806,12 @@ function GameFilters({ filters, onChange }) {
     const band = COMPLEXITY_BANDS.find((option) => option.value === value);
     update({ complexityMin: band ? band.min : '', complexityMax: band ? band.max : '' });
   };
-  // 범위를 직접 입력하면 전용 인원 선택을 되비추던 상태가 아니게 되므로 선택을 해제한다.
-  const updateRange = (patch) => update({ ...patch, exclusivePlayerCount: [] });
-  const toggleExclusive = (value, checked) => update(exclusivePlayerCountPatch(
-    checked
-      ? [...filters.exclusivePlayerCount, value]
-      : filters.exclusivePlayerCount.filter((selected) => selected !== value)
-  ));
-  const togglePlayTime = (value, checked) => update({
-    playTime: checked ? [...filters.playTime, value] : filters.playTime.filter((selected) => selected !== value)
-  });
   return (
     <FilterPanel chips={gameFilterChips(filters, onChange)} onReset={() => onChange(EMPTY_GAME_FILTERS)}>
-      <FilterNumberRangeGroup label="게임 인원" unit="명" min={filters.playerCountMin} max={filters.playerCountMax}
-        onMinChange={(playerCountMin) => updateRange({ playerCountMin })} onMaxChange={(playerCountMax) => updateRange({ playerCountMax })}>
-        <label className="filter-option filter-option-picker">
-          <input type="checkbox" checked={filters.playerCountExact} onChange={(event) => updateRange({ playerCountExact: event.target.checked })} />
-          인원 정확히 일치
-        </label>
-        {/* 범위 조건과 전용 인원은 서로 전환하는 조건이라 같은 칼럼에서 구분선으로 나눈다. */}
-        <hr className="filter-group-divider" />
-        {EXCLUSIVE_PLAYER_COUNT_OPTIONS.map((option) => (
-          <label className="filter-option" key={option.value}>
-            <input
-              type="checkbox"
-              checked={filters.exclusivePlayerCount.includes(option.value)}
-              onChange={(event) => toggleExclusive(option.value, event.target.checked)}
-            />
-            {option.label}
-          </label>
-        ))}
-      </FilterNumberRangeGroup>
-      <FilterMultiCheckGroup label="플레이 시간" values={filters.playTime} onToggle={togglePlayTime}
-        options={Object.entries(PLAY_TIME_LABEL).map(([code, label]) => ({ value: code, label }))} />
+      <FilterRadioGroup name="game-filter-players" label="인원" value={filters.playerCount} onChange={(playerCount) => update({ playerCount })}
+        options={[{ value: '', label: '전체' }, ...PLAYER_COUNT_OPTIONS.map((option) => ({ value: String(option.value), label: option.label }))]} />
+      <FilterRadioGroup name="game-filter-time" label="플레이 시간" value={filters.playTime} onChange={(playTime) => update({ playTime })}
+        options={[{ value: '', label: '전체' }, ...Object.entries(PLAY_TIME_LABEL).map(([code, label]) => ({ value: code, label }))]} />
       <FilterRadioGroup name="game-filter-complexity" label="게임 난이도" value={complexityBandOf(filters)?.value || ''} onChange={selectBand}
         options={[{ value: '', label: '전체' }, ...COMPLEXITY_BANDS.map((band) => ({ value: band.value, label: band.label }))]} />
       <FilterCheckGroup label="모임" checked={filters.upcomingOnly} onChange={(upcomingOnly) => update({ upcomingOnly })} text="예정 모임 있는 게임만" />
@@ -999,14 +819,13 @@ function GameFilters({ filters, onChange }) {
   );
 }
 
-export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion }) {
+function GamesView({ title, gameQuery, onGameQueryChange, dataVersion }) {
   const [input, setInput] = useState(gameQuery);
   const [filters, setFilters] = useState(EMPTY_GAME_FILTERS);
   const keyword = gameQuery.trim();
-  const parameters = gameFilterParameters(useAppliedGameFilters(filters));
-  const filterKey = JSON.stringify(parameters);
+  const filterKey = JSON.stringify(filters);
   const { data, loading, error, setPage } = usePaginatedRequest(
-    (page, signal) => api.getGames({ keyword, ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal),
+    (page, signal) => api.getGames({ keyword, ...filters, page, size: GAME_LIST_PAGE_SIZE }, signal),
     [keyword, filterKey, dataVersion]
   );
   const games = (data?.content || []).map(normalizeGameSummary);
@@ -1966,8 +1785,4 @@ function App() {
   );
 }
 
-// 테스트가 화면 컴포넌트만 불러올 때는 앱을 마운트하지 않는다.
-const rootElement = document.getElementById('root');
-if (rootElement) {
-  createRoot(rootElement).render(<App />);
-}
+createRoot(document.getElementById('root')).render(<App />);
