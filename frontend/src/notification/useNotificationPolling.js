@@ -20,10 +20,15 @@ export function useNotificationPolling({
   const [documentVisible, setDocumentVisible] = useState(isDocumentVisible);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(null);
+  const [unreadCountRevision, setUnreadCountRevision] = useState(0);
   const [listStatus, setListStatus] = useState('idle');
+  const [readSynchronizationPaused, setReadSynchronizationPaused] = useState(false);
   const generationRef = useRef(0);
   const listRequestRef = useRef(null);
   const unreadRequestRef = useRef(null);
+  const readSynchronizationPausedRef = useRef(false);
+  // 재시도와 일괄 읽음이 겹치면 각 작업이 획득한 pause를 모두 반납한 뒤 polling한다.
+  const readSynchronizationPauseCountRef = useRef(0);
   const listSucceededRef = useRef(false);
   const reportedBackgroundErrorRef = useRef({ list: false, unread: false });
   const onBackgroundErrorRef = useRef(onBackgroundError);
@@ -39,8 +44,10 @@ export function useNotificationPolling({
     if (!alreadyReported) onBackgroundErrorRef.current?.(error);
   }, []);
 
-  const refreshList = useCallback(() => {
-    if (!enabled) return Promise.resolve();
+  const refreshList = useCallback(({ allowWhilePaused = false, rejectOnError = false } = {}) => {
+    if (!enabled || (readSynchronizationPausedRef.current && !allowWhilePaused)) {
+      return Promise.resolve(false);
+    }
     if (listRequestRef.current) return listRequestRef.current.promise;
 
     const controller = new AbortController();
@@ -51,16 +58,19 @@ export function useNotificationPolling({
     requestState.promise = Promise.resolve()
       .then(() => loadNotifications(controller.signal))
       .then((page) => {
-        if (controller.signal.aborted || generation !== generationRef.current) return;
+        if (controller.signal.aborted || generation !== generationRef.current) return false;
         setNotifications(Array.isArray(page?.content) ? page.content : []);
         setListStatus('ready');
         listSucceededRef.current = true;
         reportedBackgroundErrorRef.current.list = false;
+        return true;
       })
       .catch((error) => {
-        if (isAborted(error, controller) || generation !== generationRef.current) return;
+        if (isAborted(error, controller) || generation !== generationRef.current) return false;
+        if (rejectOnError) throw error;
         if (listSucceededRef.current) reportBackgroundError('list', error);
         else setListStatus('error');
+        return false;
       })
       .finally(() => {
         if (listRequestRef.current === requestState) listRequestRef.current = null;
@@ -70,8 +80,10 @@ export function useNotificationPolling({
     return requestState.promise;
   }, [enabled, loadNotifications, reportBackgroundError]);
 
-  const refreshUnreadCount = useCallback(() => {
-    if (!enabled) return Promise.resolve();
+  const refreshUnreadCount = useCallback(({ allowWhilePaused = false, rejectOnError = false } = {}) => {
+    if (!enabled || (readSynchronizationPausedRef.current && !allowWhilePaused)) {
+      return Promise.resolve(false);
+    }
     if (unreadRequestRef.current) return unreadRequestRef.current.promise;
 
     const controller = new AbortController();
@@ -81,14 +93,18 @@ export function useNotificationPolling({
     requestState.promise = Promise.resolve()
       .then(() => loadUnreadCount(controller.signal))
       .then((response) => {
-        if (controller.signal.aborted || generation !== generationRef.current) return;
+        if (controller.signal.aborted || generation !== generationRef.current) return false;
         const count = Number(response?.unreadCount);
         setUnreadCount(Number.isFinite(count) ? Math.max(0, count) : 0);
+        setUnreadCountRevision((revision) => revision + 1);
         reportedBackgroundErrorRef.current.unread = false;
+        return true;
       })
       .catch((error) => {
-        if (isAborted(error, controller) || generation !== generationRef.current) return;
+        if (isAborted(error, controller) || generation !== generationRef.current) return false;
+        if (rejectOnError) throw error;
         reportBackgroundError('unread', error);
+        return false;
       })
       .finally(() => {
         if (unreadRequestRef.current === requestState) unreadRequestRef.current = null;
@@ -111,6 +127,45 @@ export function useNotificationPolling({
     unreadRequestRef.current = null;
   }, []);
 
+  const pauseForReadSynchronization = useCallback(() => {
+    readSynchronizationPauseCountRef.current += 1;
+    readSynchronizationPausedRef.current = true;
+    setReadSynchronizationPaused(true);
+    stopRequests();
+  }, [stopRequests]);
+
+  const resumeAfterReadSynchronization = useCallback(() => {
+    if (readSynchronizationPauseCountRef.current === 0) return;
+    readSynchronizationPauseCountRef.current -= 1;
+    if (readSynchronizationPauseCountRef.current > 0) return;
+    readSynchronizationPausedRef.current = false;
+    setReadSynchronizationPaused(false);
+  }, []);
+
+  const replaceNotification = useCallback((updatedNotification) => {
+    setNotifications((currentNotifications) => currentNotifications.map((notification) => (
+      notification.id === updatedNotification.id ? updatedNotification : notification
+    )));
+  }, []);
+
+  const refreshUnreadAfterSingleRead = useCallback(async () => {
+    stopRequests();
+    try {
+      return await refreshUnreadCount({ allowWhilePaused: true, rejectOnError: true });
+    } catch {
+      return false;
+    }
+  }, [refreshUnreadCount, stopRequests]);
+
+  const refreshAfterReadSynchronization = useCallback(async () => {
+    stopRequests();
+    const results = await Promise.allSettled([
+      refreshList({ allowWhilePaused: true, rejectOnError: true }),
+      refreshUnreadCount({ allowWhilePaused: true, rejectOnError: true })
+    ]);
+    return results.every((result) => result.status === 'fulfilled' && result.value === true);
+  }, [refreshList, refreshUnreadCount, stopRequests]);
+
   useEffect(() => {
     const handleVisibilityChange = () => setDocumentVisible(isDocumentVisible());
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -120,10 +175,14 @@ export function useNotificationPolling({
   useEffect(() => {
     if (!enabled) {
       stopRequests();
+      readSynchronizationPausedRef.current = false;
+      readSynchronizationPauseCountRef.current = 0;
+      setReadSynchronizationPaused(false);
       listSucceededRef.current = false;
       reportedBackgroundErrorRef.current = { list: false, unread: false };
       setNotifications([]);
       setUnreadCount(null);
+      setUnreadCountRevision(0);
       setListStatus('idle');
       return undefined;
     }
@@ -145,18 +204,25 @@ export function useNotificationPolling({
   }, [documentVisible, enabled, panelOpen, refreshList, refreshUnreadCount]);
 
   useEffect(() => {
-    if (!enabled || !documentVisible) return undefined;
+    if (!enabled || !documentVisible || readSynchronizationPaused) return undefined;
     const timer = window.setInterval(() => {
       refreshUnreadCount();
       if (panelOpen) refreshList();
     }, NOTIFICATION_POLL_INTERVAL_MS);
     return () => window.clearInterval(timer);
-  }, [documentVisible, enabled, panelOpen, refreshList, refreshUnreadCount]);
+  }, [documentVisible, enabled, panelOpen, readSynchronizationPaused, refreshList, refreshUnreadCount]);
 
   return {
     notifications,
     unreadCount,
+    unreadCountRevision,
+    readSynchronizationPaused,
     listStatus,
-    retry: refreshAll
+    retry: refreshAll,
+    pauseForReadSynchronization,
+    resumeAfterReadSynchronization,
+    replaceNotification,
+    refreshUnreadAfterSingleRead,
+    refreshAfterReadSynchronization
   };
 }

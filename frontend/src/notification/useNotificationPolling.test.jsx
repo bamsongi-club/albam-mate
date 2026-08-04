@@ -11,6 +11,16 @@ const FIRST_PAGE = {
 
 let hidden;
 
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  return { promise, resolve, reject };
+}
+
 async function flushRequests() {
   await act(async () => {
     await Promise.resolve();
@@ -52,6 +62,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 describe('T1 세션 시작 조회', () => {
@@ -190,5 +201,160 @@ describe('T7 로딩과 실패 복구', () => {
     expect(polling.result.current.listStatus).toBe('ready');
     expect(polling.result.current.notifications).toEqual(FIRST_PAGE.content);
     expect(onBackgroundError).toHaveBeenCalledOnce();
+  });
+});
+
+describe('#272 T4~T6 읽음 동기화 generation', () => {
+  it('polling을 멈추고 이전 GET을 취소·폐기한 뒤 새 generation 응답만 적용한다', async () => {
+    const staleList = deferred();
+    const staleUnread = deferred();
+    const freshList = deferred();
+    const freshUnread = deferred();
+    const loadNotifications = vi.fn()
+      .mockReturnValueOnce(staleList.promise)
+      .mockReturnValueOnce(freshList.promise)
+      .mockResolvedValue(FIRST_PAGE);
+    const loadUnreadCount = vi.fn()
+      .mockReturnValueOnce(staleUnread.promise)
+      .mockReturnValueOnce(freshUnread.promise)
+      .mockResolvedValue({ unreadCount: 1 });
+    const polling = renderPolling({ panelOpen: true, loadNotifications, loadUnreadCount });
+    await flushRequests();
+    const staleListSignal = loadNotifications.mock.calls[0][0];
+    const staleUnreadSignal = loadUnreadCount.mock.calls[0][0];
+
+    act(() => polling.result.current.pauseForReadSynchronization());
+    expect(staleListSignal.aborted).toBe(true);
+    expect(staleUnreadSignal.aborted).toBe(true);
+
+    act(() => vi.advanceTimersByTime(NOTIFICATION_POLL_INTERVAL_MS));
+    await flushRequests();
+    expect(loadNotifications).toHaveBeenCalledOnce();
+    expect(loadUnreadCount).toHaveBeenCalledOnce();
+
+    let refreshPromise;
+    act(() => {
+      refreshPromise = polling.result.current.refreshAfterReadSynchronization();
+    });
+    await flushRequests();
+    staleList.resolve({ content: [{ ...FIRST_PAGE.content[0], roomTitle: '오래된 모임' }] });
+    staleUnread.resolve({ unreadCount: 8 });
+    freshList.resolve({ content: [{ ...FIRST_PAGE.content[0], roomTitle: '새 모임' }] });
+    freshUnread.resolve({ unreadCount: 1 });
+
+    let synchronized;
+    await act(async () => {
+      synchronized = await refreshPromise;
+    });
+    expect(synchronized).toBe(true);
+    expect(polling.result.current.notifications[0].roomTitle).toBe('새 모임');
+    expect(polling.result.current.unreadCount).toBe(1);
+
+    act(() => polling.result.current.resumeAfterReadSynchronization());
+    act(() => vi.advanceTimersByTime(NOTIFICATION_POLL_INTERVAL_MS));
+    await flushRequests();
+    expect(loadNotifications).toHaveBeenCalledTimes(3);
+    expect(loadUnreadCount).toHaveBeenCalledTimes(3);
+  });
+
+  it('abort signal이 바뀌지 않아도 이전 generation 응답을 폐기한다', async () => {
+    const abort = vi.fn();
+    class StableSignalAbortController {
+      constructor() {
+        this.signal = { aborted: false };
+      }
+
+      abort() {
+        abort();
+      }
+    }
+    vi.stubGlobal('AbortController', StableSignalAbortController);
+    const staleList = deferred();
+    const staleUnread = deferred();
+    const polling = renderPolling({
+      loadNotifications: vi.fn().mockReturnValue(staleList.promise),
+      loadUnreadCount: vi.fn().mockReturnValue(staleUnread.promise)
+    });
+    await flushRequests();
+
+    act(() => polling.result.current.pauseForReadSynchronization());
+    expect(abort).toHaveBeenCalledTimes(2);
+
+    staleList.resolve({ content: [{ ...FIRST_PAGE.content[0], roomTitle: '폐기할 모임' }] });
+    staleUnread.resolve({ unreadCount: 9 });
+    await flushRequests();
+
+    expect(polling.result.current.notifications).toEqual([]);
+    expect(polling.result.current.unreadCount).toBeNull();
+  });
+
+  it('겹친 동기화 작업이 각자 획득한 pause를 모두 해제한 뒤에만 polling한다', async () => {
+    const polling = renderPolling({ panelOpen: true });
+    await flushRequests();
+    const initialListCalls = polling.loadNotifications.mock.calls.length;
+    const initialUnreadCalls = polling.loadUnreadCount.mock.calls.length;
+
+    act(() => {
+      polling.result.current.pauseForReadSynchronization();
+      polling.result.current.pauseForReadSynchronization();
+      polling.result.current.resumeAfterReadSynchronization();
+    });
+    act(() => vi.advanceTimersByTime(NOTIFICATION_POLL_INTERVAL_MS));
+    await flushRequests();
+    expect(polling.loadNotifications).toHaveBeenCalledTimes(initialListCalls);
+    expect(polling.loadUnreadCount).toHaveBeenCalledTimes(initialUnreadCalls);
+
+    act(() => polling.result.current.resumeAfterReadSynchronization());
+    act(() => vi.advanceTimersByTime(NOTIFICATION_POLL_INTERVAL_MS));
+    await flushRequests();
+    expect(polling.loadNotifications).toHaveBeenCalledTimes(initialListCalls + 1);
+    expect(polling.loadUnreadCount).toHaveBeenCalledTimes(initialUnreadCalls + 1);
+  });
+});
+
+describe('#272 T8 읽음 재동기화 실패', () => {
+  it('목록만 실패하고 count가 성공하면 false를 반환하고 마지막 성공 목록을 유지한다', async () => {
+    const loadNotifications = vi.fn()
+      .mockResolvedValueOnce(FIRST_PAGE)
+      .mockRejectedValueOnce(new Error('list failed'));
+    const loadUnreadCount = vi.fn()
+      .mockResolvedValueOnce({ unreadCount: 2 })
+      .mockResolvedValueOnce({ unreadCount: 1 });
+    const polling = renderPolling({ loadNotifications, loadUnreadCount });
+    await flushRequests();
+
+    act(() => polling.result.current.pauseForReadSynchronization());
+    let synchronized;
+    await act(async () => {
+      synchronized = await polling.result.current.refreshAfterReadSynchronization();
+    });
+
+    expect(synchronized).toBe(false);
+    expect(polling.result.current.notifications).toEqual(FIRST_PAGE.content);
+    expect(polling.result.current.unreadCount).toBe(1);
+  });
+
+  it('목록과 count가 모두 성공할 때 true를 반환하고 두 상태를 갱신한다', async () => {
+    const refreshedPage = {
+      content: [{ ...FIRST_PAGE.content[0], readAt: '2026-08-04T10:00:00+09:00' }]
+    };
+    const loadNotifications = vi.fn()
+      .mockResolvedValueOnce(FIRST_PAGE)
+      .mockResolvedValueOnce(refreshedPage);
+    const loadUnreadCount = vi.fn()
+      .mockResolvedValueOnce({ unreadCount: 2 })
+      .mockResolvedValueOnce({ unreadCount: 0 });
+    const polling = renderPolling({ loadNotifications, loadUnreadCount });
+    await flushRequests();
+
+    act(() => polling.result.current.pauseForReadSynchronization());
+    let synchronized;
+    await act(async () => {
+      synchronized = await polling.result.current.refreshAfterReadSynchronization();
+    });
+
+    expect(synchronized).toBe(true);
+    expect(polling.result.current.notifications).toEqual(refreshedPage.content);
+    expect(polling.result.current.unreadCount).toBe(0);
   });
 });

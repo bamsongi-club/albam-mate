@@ -19,3 +19,23 @@ export async function navigateToNotificationRoom({
     return false;
   }
 }
+
+export function selectNotificationAndNavigate({
+  notification,
+  markAsRead,
+  getRoom,
+  navigate,
+  isUnauthenticated,
+  onUnauthenticated,
+  onUnavailable
+}) {
+  markAsRead(notification);
+  return navigateToNotificationRoom({
+    notification,
+    getRoom,
+    navigate,
+    isUnauthenticated,
+    onUnauthenticated,
+    onUnavailable
+  });
+}

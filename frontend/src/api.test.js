@@ -40,6 +40,45 @@ describe('알림 조회 API', () => {
     );
   });
 
+  it('#272 T9 단건·일괄 읽음은 mutate 경계에서 현재 CSRF 토큰을 전송한다', async () => {
+    const updatedNotification = { id: 7, readAt: '2026-08-04T09:00:00+09:00' };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({
+        headerName: 'X-CSRF-TOKEN',
+        token: 'current-csrf-token'
+      }))
+      .mockResolvedValueOnce(successfulResponse(updatedNotification))
+      .mockResolvedValueOnce(successfulResponse({
+        updatedCount: 2,
+        boundaryNotificationId: 9
+      }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(api.markNotificationRead(7)).resolves.toEqual(updatedNotification);
+    await api.markAllNotificationsRead();
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/users/me/notifications/7',
+      expect.objectContaining({
+        method: 'PATCH',
+        credentials: 'include',
+        headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'current-csrf-token' }),
+        body: JSON.stringify({ read: true })
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      '/api/users/me/notifications',
+      expect.objectContaining({
+        method: 'PATCH',
+        credentials: 'include',
+        headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'current-csrf-token' }),
+        body: JSON.stringify({ read: true })
+      })
+    );
+  });
+
   it('현재 인증 세대의 모든 401을 공통 세션 만료 흐름으로 보낸다', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       status: 401,

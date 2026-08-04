@@ -166,6 +166,14 @@ export const api = {
     request('/api/users/me/notifications' + query({ page, size }), { signal }),
   getUnreadNotificationCount: (signal) =>
     request('/api/users/me/notifications/unread-count', { signal }),
+  markNotificationRead: (notificationId) => mutate(
+    '/api/users/me/notifications/' + notificationId,
+    { method: 'PATCH', body: { read: true } }
+  ),
+  markAllNotificationsRead: () => mutate(
+    '/api/users/me/notifications',
+    { method: 'PATCH', body: { read: true } }
+  ),
   signup: async (credentials) => mutate('/api/auth/signup', { method: 'POST', body: credentials }),
   login: async (credentials) => {
     const user = await mutate('/api/auth/login', { method: 'POST', body: credentials });
