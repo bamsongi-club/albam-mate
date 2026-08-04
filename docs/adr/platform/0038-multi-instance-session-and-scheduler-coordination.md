@@ -54,7 +54,7 @@ ROOM 상태 보정과 채팅 만료 삭제는 모든 인스턴스에 Spring Sche
 - 잠금은 중복 실행을 줄이는 운영 조정 장치다. 임대 만료나 프로세스 종료로 실행이 겹쳐도 작업 본문은 최신 조건을 다시 확인하고 같은 결과로 수렴해야 한다.
 - ShedLock은 `Room.version` 낙관 락, 참가·대기 불변식과 채팅 저장 정합성을 대체하지 않는다. 다중 인스턴스라는 이유만으로 ROOM 업무 락을 Redis 분산 락으로 바꾸지 않는다.
 - 알림 relay는 이 단일 실행 대상에서 제외한다. [ADR-0030](../notification/0030-postgresql-notification-relay-processing-recovery.md)에 따라 모든 인스턴스의 worker가 실행되고 `FOR UPDATE SKIP LOCKED`로 서로 다른 이벤트를 나눠 처리한다.
-- 정확한 잠금 이름, `lockAtMostFor`와 실행시간 경고 기준은 각 구현 이슈에서 측정 근거와 함께 확정한다.
+- #289 채팅 보관 작업은 공식 JDBC Provider의 `usingDbTime()`으로 PostgreSQL 시계를 사용하고 잠금 이름 `chat-message-retention`을 쓴다. 로컬 PostgreSQL에서 방 50개·메시지 5,000개를 방별 100개 chunk로 처리한 126ms 실측을 근거로, 실행시간 1초 초과를 경고하고 `lockAtMostFor`는 5초로 확정한다. 다른 작업의 이름·임대·경고 기준은 각 구현 이슈에서 별도로 측정한다.
 
 세션 TTL·직렬화 방식과 정확한 key·channel namespace도 후속 구현 이슈에서 확정한다. 운영 Redis 제품, HA·TLS·접근 제어·비밀 주입·비용과 실제 ALB·ASG 검증은 후속 OPS에서 결정한다.
 
@@ -87,12 +87,11 @@ ROOM 상태 보정과 채팅 만료 삭제는 모든 인스턴스에 Spring Sche
 
 ## 검증
 
-- 상태: 미검증
-- 근거: 없음
+- 상태: 부분 검증
+- 근거: #289의 Testcontainers PostgreSQL 테스트에서 공식 JDBC ShedLock Provider와 PostgreSQL 시계로 두 동시 실행 중 하나만 소유하고 다른 실행이 skip하는 것을 확인했다.
 - 미검증:
     - Spring Session Redis와 Redis 장애 시 fallback 금지·`503 SERVICE_UNAVAILABLE` 경로를 구현하지 않았다.
     - `local-multi`에서 HTTP·WebSocket 교차 인스턴스 세션을 확인하지 않았다.
-    - PostgreSQL ShedLock 단일 실행, 잠금 보유 인스턴스 종료와 임대 만료 복구를 확인하지 않았다.
-    - 실제 AWS ALB·ASG와 운영 Redis 구성은 후속 OPS 검증이 필요하다.
+    - 실제 운영 인스턴스 종료 뒤 임대 만료 복구, AWS ALB·ASG와 운영 Redis 구성은 후속 OPS 검증이 필요하다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

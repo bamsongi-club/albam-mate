@@ -34,13 +34,13 @@ P1에는 채팅 메시지 신고·운영자 숨김 기능이 없다. 따라서 �
 
 `RECRUITING`·`CLOSED` 방의 메시지는 삭제하지 않는다. 방이 `CANCELED` 또는 `FINISHED`로 전환되면 일반 사용자 접근을 즉시 차단하고, 그 전환 시각부터 30일 동안 메시지를 보관한다.
 
-채팅 기능을 처음 활성화하는 전진 Flyway 마이그레이션은 기존 방도 `CHAT_ROOMS` 1:1 계약에 포함한다. 기존 `RECRUITING`·`CLOSED` 방은 `purge_after`와 `messages_purged_at`을 비워 둔다. 기존 `CANCELED`·`FINISHED` 방에는 P1 메시지가 존재할 수 없으므로 같은 PostgreSQL 마이그레이션 기준 시각을 두 컬럼에 기록해 빈 보관 완료로 초기화한다. `ROOMS.updated_at`을 과거 최종 상태 전환 시각으로 추정하지 않는다. 이 마이그레이션 예외는 활성화 뒤 생성되거나 최종 상태로 전환되는 방의 30일 보관 정책을 바꾸지 않는다.
+`V11` 전진 Flyway의 기존 ROOM 초기화는 #289의 로컬·초기화 검증 범위다. `CHAT_ROOMS`가 없는 행만 만들며, `RECRUITING`·`CLOSED` 방은 `purge_after`와 `messages_purged_at`을 비워 둔다. 기존 `CANCELED`·`FINISHED` 방에는 P1 메시지가 존재할 수 없으므로 하나의 PostgreSQL 마이그레이션 기준 시각을 두 컬럼에 기록해 빈 보관 완료로 초기화한다. 기존 `CHAT_ROOMS`는 덮어쓰지 않고 `ROOMS.updated_at`을 과거 최종 상태 전환 시각으로 추정하지 않는다. 이 초기화 예외는 활성화 뒤 생성되거나 최종 상태로 전환되는 방의 30일 보관 정책을 바꾸지 않는다.
 
-backfill과 ROOM 생성·상태 전환이 경쟁하더라도 완료 시점에는 모든 `ROOMS`에 `CHAT_ROOMS`가 정확히 하나 있고, 각 backfill 행의 보관 값은 일관된 초기화 경계에서 판정한 ROOM 상태와 맞아야 한다. 직렬화 또는 최종 보정 중 어떤 방식으로 이 불변식을 보장할지와 배포 절체 순서는 후속 구현에서 확정한다. 이 ADR은 rolling 배포 금지, 서비스 중단·트래픽 차단이나 특정 PostgreSQL 잠금 모드를 승인하지 않으며, 운영 절체가 필요하면 별도 OPS 승인을 받는다.
+live 운영 데이터의 one-shot backfill, ROOM 생성·상태 전환과의 쓰기 통제·최종 보정, 배포 절체는 #281이 소유한다. #289의 로컬 검증용 자동 Flyway는 그 운영 계약을 승인하거나 대체하지 않으며, ADR-0045는 계속 제안 상태다.
 
 - 최종 상태 전환은 `room.contract.RoomTerminalStateReached`를 발행하고 `chat`의 동기 listener가 같은 트랜잭션에서 `CHAT_ROOMS.purge_after`를 전환 시각에서 30일 뒤로 설정한다.
 - 하루 한 번 Spring Scheduler가 `purge_after`가 지난 채팅방을 조회한다.
-- 다중 인스턴스 실행에서는 [ADR-0038](../platform/0038-multi-instance-session-and-scheduler-coordination.md)의 PostgreSQL ShedLock 계약으로 한 실행만 삭제 작업을 소유한다. 채팅 만료 삭제용 잠금 이름·`lockAtMostFor`와 실행시간 경고 기준은 구현 이슈에서 확정한다.
+- 다중 인스턴스 실행에서는 [ADR-0038](../platform/0038-multi-instance-session-and-scheduler-coordination.md)의 PostgreSQL ShedLock 계약으로 한 실행만 삭제 작업을 소유한다. 채팅 만료 삭제용 잠금 이름은 `chat-message-retention`이다. #289의 대표 로컬 PostgreSQL 배치(방 50개, 메시지 5,000개, 방별 100개 chunk)는 126ms였고, 정상 상한 경고는 1초, `lockAtMostFor`는 5초로 확정한다. 경고는 임대 만료 전에 조사할 신호이며, 임대가 실제로 만료해 겹쳐도 아래 멱등 조건으로 수렴한다.
 - 만료된 `CHAT_MESSAGES`를 설정 가능한 소량 묶음으로 물리 삭제한다.
 - 만료 시각과 스케줄 실행 간격 때문에 실제 live DB 삭제는 30일 경과 후 최대 24시간 늦을 수 있다.
 - 각 묶음은 독립 트랜잭션이다. 성공한 묶음은 유지하고 실패한 묶음만 롤백한다.
@@ -71,12 +71,10 @@ backfill과 ROOM 생성·상태 전환이 경쟁하더라도 완료 시점에는
 
 ## 검증
 
-- 상태: 미검증
-- 근거: 없음
+- 상태: 부분 검증
+- 근거: #289의 대상 H2와 Testcontainers PostgreSQL 테스트에서 V11 로컬 초기화, ID 순 chunk 삭제, 부분 실패 격리, ShedLock skip과 중복 삭제 수렴을 확인했다. 대표 PostgreSQL 배치는 방 50개·메시지 5,000개를 126ms에 처리했다.
 - 미검증:
-    - 기존 방 전체의 `CHAT_ROOMS` 1:1 backfill과 상태별 보관 시각 초기화, ROOM 생성·상태 전환과의 경합에서 1:1·상태별 초기화를 보존하는 방식을 구현·검증하지 않았다.
-    - 보관 컬럼·삭제 스케줄러·ShedLock 잠금·부분 실패 처리와 메트릭이 구현되지 않았다.
-    - 로컬 애플리케이션 두 대에서 한 실행만 잠금을 얻는지, 잠금 보유 인스턴스 종료와 임대 만료 뒤 다음 실행이 복구되는지 확인하지 않았다.
-    - 30일 경계, 최대 24시간 지연과 RDS 백업 만료 뒤 복구 불가 여부를 확인하지 않았다.
+    - #281이 소유한 live 운영 one-shot backfill, ROOM 쓰기 통제·최종 보정·배포 절체는 이 검증에 포함하지 않았다.
+    - 실제 운영 인스턴스 종료 뒤 임대 만료 복구와 RDS 백업 만료 뒤 복구 불가 여부는 확인하지 않았다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.
