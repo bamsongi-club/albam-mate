@@ -159,7 +159,8 @@ class RedisSessionRuntimePostgresTest {
 
 			REDIS.stop();
 			try {
-				HttpResponse<String> unavailable = getWithSession(secondUri.resolve("/api/users/me"), activeSessionCookie);
+				HttpResponse<String> unavailable = getWithSession(secondUri.resolve("/api/users/me"),
+					activeSessionCookie);
 				assertNotEquals(200, unavailable.statusCode());
 			} catch (IOException expected) {
 				assertTrue(expected.getMessage() != null);
