@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -19,6 +20,17 @@ import cloud.bamsongi.albammate.room.enums.RoomType;
 import jakarta.persistence.LockModeType;
 
 public interface RoomRepository extends JpaRepository<Room, Long> {
+
+	/** 활성 대기 등록 전에 읽은 ROOM version이 아직 최신일 때만 claim한다. */
+	@Modifying(flushAutomatically = true)
+	@Query("""
+		update Room room
+		set room.version = room.version + 1
+		where room.id = :roomId and room.version = :expectedVersion
+		""")
+	int claimVersion(@Param("roomId")
+	Long roomId, @Param("expectedVersion")
+	Long expectedVersion);
 
 	/** 채팅 접근과 후속 동작을 한 트랜잭션으로 묶기 위해 ROOM 행의 공유 잠금을 얻는다. */
 	@Lock(LockModeType.PESSIMISTIC_READ)

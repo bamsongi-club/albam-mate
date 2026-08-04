@@ -335,7 +335,7 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 
 ### ROOM_WAITLISTS
 
-> 이 절은 [ADR-0046](adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)과 [PART-04a 최신 전체 테스트 계약](https://github.com/bamsongi-club/albam-mate/issues/302#issuecomment-5177035904)이 승인한 P1 목표 저장 계약이다. 아직 Flyway·JPA·Repository·자동 검증이 반영된 현재 생산 스키마가 아니며 실제 상태는 [P1 기능 상태 정본의 `PART-04`](p1/README.md#기능별-현재-상태)을 따른다.
+> 이 절은 [ADR-0046](adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)과 [PART-04a 최신 전체 테스트 계약](https://github.com/bamsongi-club/albam-mate/issues/302#issuecomment-5177035904)이 승인한 저장 기반 계약이다. PART-04 전체의 제공·검증 상태는 후속 이슈가 남아 있으므로 [P1 기능 상태 정본의 `PART-04`](p1/README.md#기능별-현재-상태)을 따른다.
 
 같은 ROOM과 사용자의 최신 대기 결과를 한 행으로 저장한다. 상태 변경별 이력 행, 별도 단일 `id`와 대기 행의 `version`은 두지 않는다.
 
