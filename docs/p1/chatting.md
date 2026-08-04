@@ -14,7 +14,7 @@
 - `local-multi`와 `production`은 Spring Session, Pub/Sub과 사용자·방 단위 전송 제한에 하나의 Redis를 사용하되 key prefix, TTL과 channel namespace를 분리한다. Redis가 없을 때 인메모리 구현으로 자동 fallback하지 않는다.
 - 세션 또는 전송 제한을 확인할 수 없으면 API 정본의 `503 SERVICE_UNAVAILABLE`로 실패한다. PostgreSQL 커밋 뒤 Redis Pub/Sub 발행·구독이 실패하면 저장 성공은 유지하고 이력 조회·다음 신호·재연결로 복구한다.
 - 운영 Redis 제품, HA, TLS, 접근 제어, 비밀 주입과 비용은 후속 OPS에서 확정한다.
-- 채팅 전송 제한의 사용자·방 임계값, 고정 창·TTL, 원자 판정, `Retry-After`와 Redis 장애 시 503 경계는 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)에서 승인했고 이 문서와 [API 정본](../API.md#전송-제한-계약)에 반영한다. 세션 TTL·직렬화 방식과 정확한 세션·Pub/Sub key·channel namespace는 후속 구현 이슈에서 별도로 확정한다.
+- 채팅 전송 제한의 사용자·방 임계값, 고정 창·TTL, 원자 판정, `Retry-After`와 Redis 장애 시 503 경계는 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)에서 승인했고 이 문서와 [API 정본](../API.md#전송-제한-계약)에 반영한다. 공용 Redis namespace의 분리와 #360에서 확정한 session namespace는 아래 계약과 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반)을 따른다.
 - 세션 TTL 30분, JSON 직렬화(`SecurityJacksonModules`와 `CurrentUserPrincipal` mixin)와 session namespace `albam-mate:{env}:session`은 #360에서 확정했다. `production`의 Redis 서비스·secret 공급과 실제 운영 실측은 후속 OPS에서 확정한다.
 
 ## CHAT-01 채팅방 생성·접근
