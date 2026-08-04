@@ -14,6 +14,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -21,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 
 import javax.sql.DataSource;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.builder.SpringApplicationBuilder;
@@ -67,6 +70,25 @@ class NotificationCleanupPostgresTest {
 
 	@Autowired
 	private Clock applicationClock;
+
+	private final List<Fixture> createdFixtures = new ArrayList<>();
+
+	@AfterEach
+	void 생성한_fixture를_삭제한다() {
+		for (Fixture fixture : createdFixtures) {
+			jdbcTemplate.update(
+				"delete from notifications where room_id = ? or recipient_user_id = ?",
+				fixture.roomId(), fixture.recipientUserId());
+			jdbcTemplate.update(
+				"delete from notification_outbox_events where room_id = ?",
+				fixture.roomId());
+			jdbcTemplate.update("delete from rooms where id = ?", fixture.roomId());
+			jdbcTemplate.update(
+				"delete from users where id in (?, ?)",
+				fixture.hostUserId(), fixture.recipientUserId());
+		}
+		createdFixtures.clear();
+	}
 
 	@Test
 	void 두_cleanup_인스턴스는_잠긴_가장_이른_due_Notification을_건너뛰고_중복_삭제하지_않는다() throws Exception {
@@ -295,7 +317,9 @@ class NotificationCleanupPostgresTest {
 				+ "'RECRUITING', now(), now()) returning id",
 			Long.class,
 			hostUserId);
-		return new Fixture(roomId, recipientUserId);
+		Fixture fixture = new Fixture(hostUserId, recipientUserId, roomId);
+		createdFixtures.add(fixture);
+		return fixture;
 	}
 
 	private long insertNotification(Fixture fixture, String createdAtExpression) {
@@ -594,6 +618,6 @@ class NotificationCleanupPostgresTest {
 		}
 	}
 
-	private record Fixture(long roomId, long recipientUserId) {
+	private record Fixture(long hostUserId, long recipientUserId, long roomId) {
 	}
 }
