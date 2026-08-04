@@ -93,7 +93,7 @@ P0는 `게임부터 찾기`, `사람부터 만나기`, `방 만들기` 세 흐�
 | `500` | 처리하지 않은 서버 오류 |
 | `503` | 서비스 일시 사용 불가 |
 
-- 요청 본문으로 기존 리소스의 일부를 수정하는 API는 `PATCH`를 사용한다. 클라이언트가 리소스 전체 표현을 결정해 교체할 때만 `PUT`을 사용하며, 세부 기준과 종료 명령의 재시도 기준은 [ADR-0022](adr/platform/0022-p0-update-api-http-method-and-finish-idempotency.md)를 따른다.
+- 요청 본문으로 기존 리소스의 일부를 수정하는 API는 `PATCH`를 사용한다. 클라이언트가 리소스 전체 표현을 결정해 교체하거나, 경로와 메서드만으로 전체 목표 상태가 결정되는 관계 리소스의 존재를 멱등하게 확정할 때 `PUT`을 사용한다. 따라서 `SEARCH-03` 표시는 request body 없는 `PUT`을 사용한다. 세부 기준과 방 종료 명령의 재시도 기준은 [ADR-0047](adr/platform/0047-http-method-and-target-state-idempotency.md)을 따른다.
 
 JSON 필드는 camelCase를 사용한다. 저장 컬럼(snake_case)과의 대응은 [ERD 테이블 명세](ERD.md#테이블-명세)를 정본으로 한다.
 
@@ -224,8 +224,8 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 4 | P0 | [AUTH-03](#auth-03-로그아웃) · [정본](archive/p0/auth-profile.md#auth-03-로그인로그아웃) | POST | `/api/auth/logout` | Y | Y | 200 |
 | 5 | P0 | [AUTH-04](#auth-04-내-프로필-조회) · [정본](archive/p0/auth-profile.md#auth-04-내-프로필-조회수정) | GET | `/api/users/me` | Y | N | 200 |
 | 6 | P0 | [AUTH-04](#auth-04-내-프로필-수정) · [정본](archive/p0/auth-profile.md#auth-04-내-프로필-조회수정) | PATCH | `/api/users/me` | Y | Y | 200 |
-| 7 | P0·P1 | [GAME-01](#game-01-게임-목록검색) · [P0 정본](archive/p0/game-catalog.md#game-01-게임-목록검색) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) | GET | `/api/games` | N | N | 200 |
-| 8 | P0 | [GAME-02](#game-02-게임-상세-조회) · [정본](archive/p0/game-catalog.md#game-02-게임-상세-조회) | GET | `/api/games/{gameId}` | N | N | 200 |
+| 7 | P0·P1 | [GAME-01](#game-01-게임-목록검색) · [P0 정본](archive/p0/game-catalog.md#game-01-게임-목록검색) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games` | 선택 | N | 200 |
+| 8 | P0·P1 | [GAME-02](#game-02-게임-상세-조회) · [P0 정본](archive/p0/game-catalog.md#game-02-게임-상세-조회) · [SEARCH-03 정본](p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games/{gameId}` | 선택 | N | 200 |
 | 9 | P0 | [ROOM-03](#room-03-방-생성) · [정본](archive/p0/room.md#room-03-방-생성) | POST | `/api/rooms` | Y | Y | 201 |
 | 10 | P0·P1 | [ROOM-01](#room-01-방-목록-조회) · [P0 정본](archive/p0/room.md#room-01-방-탐색) · [SEARCH-02 정본](p1/search.md#search-02-방-조건-검색) · [ROOM-08 정본](p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | GET | `/api/rooms` | 선택 | N | 200 |
 | 11 | P0·P1 | [ROOM-02](#room-02-방-상세-조회) · [P0 정본](archive/p0/room.md#room-02-방-상세) · [ROOM-08 정본](p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | GET | `/api/rooms/{roomId}` | 선택 | N | 200 |
@@ -249,8 +249,10 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 29 | P1 | [AUTH-05](#소셜-로그인-authorization-시작) · [정본](p1/social-login.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/authorization/{provider}` | N | N | 302 |
 | 30 | P1 | [AUTH-05](#소셜-callback과-고정-결과) · [정본](p1/social-login.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/callback/{provider}` | N | N | 302 |
 | 31 | P1 | [AUTH-05](#소셜-계정-연결-시작) · [정본](p1/social-login.md#auth-05-소셜-로그인계정-연결) | POST | `/api/users/me/social-accounts/{provider}/link` | Y | Y | 200 |
+| 32 | P1 | [SEARCH-03](#search-03-해-본-게임-표시) · [정본](p1/search.md#search-03-사용자별-해-본-게임) | PUT | `/api/users/me/played-games/{gameId}` | Y | Y | 200 |
+| 33 | P1 | [SEARCH-03](#search-03-해-본-게임-표시-취소) · [정본](p1/search.md#search-03-사용자별-해-본-게임) | DELETE | `/api/users/me/played-games/{gameId}` | Y | Y | 200 |
 
-`GET /api/rooms`, `GET /api/rooms/{roomId}`와 `GET /api/auth/social/providers`의 인증은 "선택"이다. 비로그인도 호출할 수 있고, 유효한 세션이 있으면 요청자 기준 값을 계산한다.
+`GET /api/games`, `GET /api/games/{gameId}`, `GET /api/rooms`, `GET /api/rooms/{roomId}`와 `GET /api/auth/social/providers`의 인증은 "선택"이다. 비로그인도 호출할 수 있고, 유효한 세션이 있으면 요청자 기준 값을 계산한다. 단, `GET /api/games`의 유효한 `playedFilter`는 로그인을 요구한다.
 
 ## 3. Enum
 
@@ -349,6 +351,19 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | `MEDIUM` | 20분 초과 60분 이하 |
 | `LONG` | 60분 초과 |
 
+### PlayedFilter
+
+> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `SEARCH-03`](p1/README.md#기능별-현재-상태)
+
+`GET /api/games`의 사용자별 해 본 게임 관계 필터다.
+
+| 값 | 의미 |
+|---|---|
+| `PLAYED_ONLY` | 현재 사용자가 해 본 게임으로 표시한 결과만 반환 |
+| `EXCLUDE_PLAYED` | 현재 사용자가 해 본 게임으로 표시한 결과를 제외 |
+
+두 값 모두 로그인한 사용자만 사용할 수 있다. 필터를 생략하면 로그인 여부와 관계없이 사용자 관계로 결과를 제한하지 않는다.
+
 ### SocialProvider
 
 > **단계: P1 계약 승인·구현 대기** · 현재 상태: [P1 기능 상태 정본의 `AUTH-05`](p1/README.md#기능별-현재-상태)
@@ -415,28 +430,29 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 
 ### 4.5 GameListItem
 
-| 필드 | 타입 | 필수 | nullable | 설명 |
-|---|---|:---:|:---:|---|
-| `id` | integer | Y | N | 알밤메이트 내부 게임 ID |
-| `bggId` | integer | Y | N | BoardGameGeek 식별자 |
-| `name` | string | Y | N | 게임명 |
-| `englishName` | string | Y | N | 영문명 |
-| `imageUrl` | string | Y | Y | 대표 이미지 URL |
-| `supportedPlayerCount` | string | Y | N | 표시용 가능 인원. 게임 규칙상 플레이 가능한 범위 (예: `2~4명`) |
-| `tag` | string | Y | N | 표시용 게임 스타일 태그. 목록 필터로 사용하지 않는다 |
-| `estimatedPlayTime` | string | Y | N | 표시용 예상 시간 (예: `30분`) |
-| `complexity` | number | Y | Y | 난이도 표시값 |
-| `upcomingRoomCount` | integer | Y | N | 미래 시점의 `GAME_FOCUSED` 방 중 `CANCELED`·`FINISHED`가 아닌 건수 |
+| 필드 | 타입 | 필수 | nullable | 도입 단계 | 제공 상태 | 설명 |
+|---|---|:---:|:---:|:---:|:---:|---|
+| `id` | integer | Y | N | P0 | 제공 | 알밤메이트 내부 게임 ID |
+| `bggId` | integer | Y | N | P0 | 제공 | BoardGameGeek 식별자 |
+| `name` | string | Y | N | P0 | 제공 | 게임명 |
+| `englishName` | string | Y | N | P0 | 제공 | 영문명 |
+| `imageUrl` | string | Y | Y | P0 | 제공 | 대표 이미지 URL |
+| `supportedPlayerCount` | string | Y | N | P0 | 제공 | 표시용 가능 인원. 게임 규칙상 플레이 가능한 범위 (예: `2~4명`) |
+| `tag` | string | Y | N | P0 | 제공 | 표시용 게임 스타일 태그. 목록 필터로 사용하지 않는다 |
+| `estimatedPlayTime` | string | Y | N | P0 | 제공 | 표시용 예상 시간 (예: `30분`) |
+| `complexity` | number | Y | Y | P0 | 제공 | 난이도 표시값 |
+| `upcomingRoomCount` | integer | Y | N | P0 | 제공 | 미래 시점의 `GAME_FOCUSED` 방 중 `CANCELED`·`FINISHED`가 아닌 건수 |
+| `playedByMe` | boolean | Y | Y | P1 | 구현 예정 | 유효한 세션에서 본인 표시 관계가 있으면 `true`, 없으면 `false`; 비로그인이면 `null` |
 
 ### 4.6 GameDetail
 
-`GameListItem`의 모든 필드와 다음 필드를 포함한다.
+`GameListItem`의 모든 필드와 다음 필드를 포함한다. 따라서 `playedByMe`도 같은 로그인·비로그인 의미로 반환한다.
 
-| 필드 | 타입 | 필수 | nullable | 설명 |
-|---|---|:---:|:---:|---|
-| `alias` | string | Y | Y | 게임 별칭 |
-| `description` | string | Y | N | 간단 설명 |
-| `detailDescription` | string | Y | N | 상세 설명 |
+| 필드 | 타입 | 필수 | nullable | 도입 단계 | 제공 상태 | 설명 |
+|---|---|:---:|:---:|:---:|:---:|---|
+| `alias` | string | Y | Y | P0 | 제공 | 게임 별칭 |
+| `description` | string | Y | N | P0 | 제공 | 간단 설명 |
+| `detailDescription` | string | Y | N | P0 | 제공 | 상세 설명 |
 
 ### 4.7 PublicRoomResponse
 
@@ -635,6 +651,15 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
 | `authorizationUri` | string | Y | N | 연결 인증을 계속할 same-site authorization 경로 |
+
+### 4.21 PlayedGameStateResponse
+
+> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `SEARCH-03`](p1/README.md#기능별-현재-상태)
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `gameId` | integer | Y | N | 표시하거나 표시를 취소한 알밤메이트 내부 게임 ID |
+| `playedByMe` | boolean | Y | N | 표시 성공은 `true`, 표시 취소 성공은 `false` |
 
 ## 5. 인증·프로필 API
 
@@ -886,7 +911,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | 항목 | 값 |
 |---|---|
 | Method / Path | `GET /api/games` |
-| 인증 / CSRF | 불필요 / 불필요 |
+| 인증 / CSRF | 선택 / 불필요. 유효한 `playedFilter` 사용 시 인증 필요 |
 | 성공 | `200 OK`, `data`: `PageResponse<GameListItem>` |
 
 #### Query Parameters
@@ -905,10 +930,11 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | `playTime` | GamePlayTimeFilter | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 검증된 최대 플레이 시간 구간. 목록 안 OR |
 | `complexityMin` | number | N | 검색 없음 | P1 | 제공 | `1.00`~`5.00`, 난이도 닫힌 구간의 하한 |
 | `complexityMax` | number | N | 검색 없음 | P1 | 제공 | `1.00`~`5.00`, 난이도 닫힌 구간의 상한 |
+| `playedFilter` | PlayedFilter | N | 검색 없음 | P1 | 구현 예정 | 단일 값. `PLAYED_ONLY` 또는 `EXCLUDE_PLAYED`; 사용 시 로그인 필요 |
 | `page` | integer | N | `0` | P0 | 제공 | 페이지 번호 |
 | `size` | integer | N | `10` | P0 | 제공 | 페이지 크기, 1~100 |
 
-- 서로 다른 필터 종류는 AND로 결합한다. 같은 이름을 반복 전달해도 한 번 전달한 것과 결과가 같다.
+- 서로 다른 필터 종류는 AND로 결합한다. 반복 전달을 허용한 필터는 같은 값을 반복해도 한 번 전달한 것과 결과가 같다. `playedFilter`는 단일 값이므로 같은 값도 중복 전달하면 검증 오류다.
 - `playerCount=10`은 정확히 10명만 뜻하지 않고 최대 가능 인원이 10 이상인 게임을 뜻한다.
 - 인원 조건은 범위 계열(`playerCountMin`, `playerCountMax`, `playerCountExact`)과 전용 인원(`exclusivePlayerCount`)으로 나뉜다. `playerCountMin`이나 `playerCountMax`를 `exclusivePlayerCount`와 함께 전달하면 검증 오류다.
 - `playerCountExact`를 생략하거나 `false`로 두면 범위 판정은 다음과 같다. 게임이 요청 범위 전체를 지원해야 한다.
@@ -934,24 +960,29 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 
 - 이전 `playTime` 값 `SHORT`, `MEDIUM`, `LONG`은 제거했다. 단독으로 전달하거나 새 값과 섞어 전달하면 검증 오류이며 조용히 무시하지 않는다.
 - 복잡도는 전달한 하한 이상·상한 이하의 닫힌 구간으로 판정한다. 두 값을 함께 전달할 때 하한이 상한보다 크면 검증 오류다.
+- `PLAYED_ONLY`는 현재 사용자의 표시 관계가 있는 게임만, `EXCLUDE_PLAYED`는 그 관계가 없는 게임만 반환한다. 관계가 없다는 사실을 실제 미플레이로 해석하지 않는다.
+- `playedFilter`를 생략하면 관계 필터를 적용하지 않는다. 잘못된 값이나 중복 전달은 로그인 여부와 관계없이 먼저 `400 VALIDATION_ERROR`, 유효한 값을 비로그인으로 전달하면 `401 UNAUTHENTICATED`다.
 - 인원·시간·복잡도 필터를 적용하면 해당 조건을 판정할 검증값이 없는 게임은 제외한다. 필터를 생략하면 누락값만으로 제외하지 않는다.
 - 모든 필터를 적용한 뒤 전체 건수, `name ASC, id ASC` 정렬과 페이지를 계산한다.
 
-`tag`·메커니즘·테마 필터, 사용자별 해 본 게임 필터와 클라이언트 지정 `sort`는 지원하지 않는다. 메커니즘과 해 본 게임 기능은 [P1 게임 탐색 명세](p1/search.md)의 확장 후보이며, 범위에 채택되기 전에는 API 계약으로 확정하지 않는다.
+`tag`·메커니즘·테마 필터와 클라이언트 지정 `sort`는 지원하지 않는다. 메커니즘은 [P1 게임 탐색 명세](p1/search.md)의 확장 후보이며 범위에 채택되기 전에는 API 계약으로 확정하지 않는다.
 
 #### 오류
 
 | 발생 조건 | HTTP | code |
 |---|---:|---|
 | query parameter 검증 실패 | 400 | `VALIDATION_ERROR` |
+| 유효한 `playedFilter`를 인증 없이 사용 | 401 | `UNAUTHENTICATED` |
 
 ### GAME-02 게임 상세 조회
 
 | 항목 | 값 |
 |---|---|
 | Method / Path | `GET /api/games/{gameId}` |
-| 인증 / CSRF | 불필요 / 불필요 |
+| 인증 / CSRF | 선택 / 불필요 |
 | 성공 | `200 OK`, `data`: `GameDetail` |
+
+유효한 세션이 있으면 `playedByMe`는 본인 표시 관계에 따라 `true` 또는 `false`, 비로그인이면 `null`이다. 어느 경우에도 다른 사용자의 관계를 공개하지 않는다.
 
 #### Path Variables
 
@@ -965,6 +996,56 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 |---|---:|---|
 | path ID 형식·범위 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 게임이 없음 | 404 | `GAME_NOT_FOUND` |
+
+### SEARCH-03 해 본 게임 표시
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `PUT /api/users/me/played-games/{gameId}` |
+| 인증 / CSRF | 필요 / 필요 |
+| Request Body | 없음 |
+| 성공 | `200 OK`, `data`: `PlayedGameStateResponse` (`playedByMe=true`) |
+
+존재하는 게임을 본인의 해 본 게임으로 표시한다. 관계가 이미 있어도 새 행을 만들지 않고 같은 `200 OK` 응답을 반환한다. `created_at`은 최초로 관계가 생성된 표시 시각이며 응답에 노출하지 않는다.
+
+#### Path Variables
+
+| 이름 | 타입 | 필수 | 검증 |
+|---|---|:---:|---|
+| `gameId` | integer | Y | 1 이상의 알밤메이트 내부 게임 ID |
+
+#### 오류 판정 순서
+
+1. 세션이 없거나 유효하지 않으면 `401 UNAUTHENTICATED`
+2. CSRF 토큰이 없거나 유효하지 않으면 `403 CSRF_TOKEN_INVALID`
+3. path ID 형식·범위가 잘못되면 `400 VALIDATION_ERROR`
+4. 게임이 없으면 `404 GAME_NOT_FOUND`
+
+### SEARCH-03 해 본 게임 표시 취소
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `DELETE /api/users/me/played-games/{gameId}` |
+| 인증 / CSRF | 필요 / 필요 |
+| Request Body | 없음 |
+| 성공 | `200 OK`, `data`: `PlayedGameStateResponse` (`playedByMe=false`) |
+
+본인의 표시 관계를 삭제한다. 관계가 없어도 같은 `200 OK` 응답을 반환한다. 게임 존재 여부는 확인하므로 없는 게임 ID는 멱등 성공이 아니라 `GAME_NOT_FOUND`다.
+
+#### Path Variables
+
+| 이름 | 타입 | 필수 | 검증 |
+|---|---|:---:|---|
+| `gameId` | integer | Y | 1 이상의 알밤메이트 내부 게임 ID |
+
+#### 오류 판정 순서
+
+1. 세션이 없거나 유효하지 않으면 `401 UNAUTHENTICATED`
+2. CSRF 토큰이 없거나 유효하지 않으면 `403 CSRF_TOKEN_INVALID`
+3. path ID 형식·범위가 잘못되면 `400 VALIDATION_ERROR`
+4. 게임이 없으면 `404 GAME_NOT_FOUND`
+
+별도 `GET /api/users/me/played-games`는 제공하지 않는다. 본인이 표시한 게임 목록은 `GET /api/games?playedFilter=PLAYED_ONLY`로 조회한다.
 
 ## 7. 방 API
 
@@ -1816,8 +1897,10 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 | `POST /api/users/me/social-accounts/{provider}/link` | `UNAUTHENTICATED`, `SOCIAL_PROVIDER_NOT_AVAILABLE`, `SOCIAL_ACCOUNT_ALREADY_LINKED`, `CSRF_TOKEN_INVALID` |
 | `GET /api/users/me` | `UNAUTHENTICATED` |
 | `PATCH /api/users/me` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `CSRF_TOKEN_INVALID` |
-| `GET /api/games` | `VALIDATION_ERROR` |
+| `GET /api/games` | `VALIDATION_ERROR`, `UNAUTHENTICATED` |
 | `GET /api/games/{gameId}` | `VALIDATION_ERROR`, `GAME_NOT_FOUND` |
+| `PUT /api/users/me/played-games/{gameId}` | `UNAUTHENTICATED`, `CSRF_TOKEN_INVALID`, `VALIDATION_ERROR`, `GAME_NOT_FOUND` |
+| `DELETE /api/users/me/played-games/{gameId}` | `UNAUTHENTICATED`, `CSRF_TOKEN_INVALID`, `VALIDATION_ERROR`, `GAME_NOT_FOUND` |
 | `POST /api/rooms` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `CSRF_TOKEN_INVALID` |
 | `GET /api/rooms` | `VALIDATION_ERROR`, `ROOM_CONCURRENT_MODIFICATION` |
 | `GET /api/rooms/{roomId}` | `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `ROOM_CONCURRENT_MODIFICATION` |

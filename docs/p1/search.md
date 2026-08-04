@@ -1,12 +1,12 @@
 # P1 검색 기능 명세
 
-이 문서는 P1 필수 범위인 `SEARCH-01`, `SEARCH-02`의 구현 규칙과 완료 기준을 정의하고, 메커니즘 검색과 `SEARCH-03`을 채택 전 후속 후보로 구분해 기록한다. 현재 계약·생산 코드·자동 검증·운영 상태는 [P1 기능 상태 정본](README.md#기능별-현재-상태)을 따르며, 후보는 [P1 명세](../P1-spec.md)의 범위를 변경하기 전에는 P1 구현·완료 계약에 포함하지 않는다.
+이 문서는 P1 필수 범위인 `SEARCH-01`~`SEARCH-03`의 구현 규칙과 완료 기준을 정의하고, 메커니즘 검색은 채택 전 후속 후보로 구분해 기록한다. 현재 계약·생산 코드·자동 검증·운영 상태는 [P1 기능 상태 정본](README.md#기능별-현재-상태)을 따르며, 후보는 [P1 명세](../P1-spec.md)의 범위를 변경하기 전에는 P1 구현·완료 계약에 포함하지 않는다.
 
-전체 범위·공통 검색 규칙은 [P1 명세](../P1-spec.md), 기존 동작은 [P0 완료 문서](../archive/p0/README.md), 요청·응답·오류는 [API 명세](../API.md), 저장 구조와 제약은 [ERD](../ERD.md)를 따른다. P1 검색용 저장 계약은 아직 ERD에 반영되지 않았으므로 구현 작업에서 전진 Flyway 마이그레이션과 PostgreSQL 검증을 함께 추가해야 한다.
+전체 범위·공통 검색 규칙은 [P1 명세](../P1-spec.md), 기존 동작은 [P0 완료 문서](../archive/p0/README.md), 요청·응답·오류는 [API 명세](../API.md), 저장 구조와 제약은 [ERD](../ERD.md)를 따른다. `SEARCH-03` 저장 계약은 ERD에 반영하며, 구현 작업은 전진 Flyway 마이그레이션과 PostgreSQL 검증을 함께 추가해야 한다.
 
-P1 필수 게임 데이터 적재·검증 대상은 현재 확보한 약 2,000건이다. 전체 카탈로그 확장과 새 외부 데이터 취득은 별도 승인 범위다. ADR-0026~ADR-0028의 결정은 승인됐으며, 필수 범위는 [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md)을 따른다. 메커니즘과 `SEARCH-03`은 ADR 승인과 별개로 상위 범위에 채택돼야 한다.
+P1 필수 게임 데이터 적재·검증 대상은 현재 확보한 약 2,000건이다. 전체 카탈로그 확장과 새 외부 데이터 취득은 별도 승인 범위다. ADR-0026~ADR-0028의 결정은 승인됐으며, 필수 범위는 [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md)과 [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md)을 따른다. 메커니즘은 ADR 승인과 별개로 상위 범위에 채택돼야 한다.
 
-ADR-0026 승인 조건은 충족됐으며, 검색 저장 계약의 ERD 반영은 필수 범위 구현·테스트의 병합 조건이다. 승인된 결정이 바뀌면 후속 ADR로 기존 결정을 대체하고 이 문서를 함께 갱신한다.
+`SEARCH-03`은 2026-08-04 P1 필수 범위로 채택됐다. 승인된 결정이 바뀌면 후속 ADR로 기존 결정을 대체하고 이 문서를 함께 갱신한다.
 
 ## 필터별 데이터 출처와 구현 가능 여부
 
@@ -16,7 +16,7 @@ ADR-0026 승인 조건은 충족됐으며, 검색 저장 계약의 ERD 반영은
 | 플레이 시간 | `Game.estimatedPlayTime` 표시 문자열 | 가능. 현재 입력을 분 단위로 수치화한다. BGG 상세 `minplaytime`·`maxplaytime` 신규 취득은 이용 범위를 확인한 뒤 별도로 보강한다 |
 | 복잡도 | nullable `Game.complexity` | 가능. 입력 `0.00`을 `NULL`로 정규화하고 `1.00`~`5.00`만 필터에 사용한다 |
 | 메커니즘(후보) | 관계 없음 | 채택 시 가능. 출처·이용 조건 확인과 내부 통제 목록·게임별 연결 검수가 선행이다 |
-| 해 본 게임 포함·제외(후보) | 관계 없음 | 채택 시 가능. 사용자·게임 유일 관계와 본인 등록·취소 계약이 선행이다 |
+| 해 본 게임 포함·제외 | `USER_PLAYED_GAMES` 구현 예정 | 가능. 사용자·게임 유일 관계와 본인 등록·취소 계약을 사용한다 |
 | 방 날짜 | `Room.startAt` | 가능. 기존 필드에 범위 조건만 추가한다 |
 | 방 남은 자리 | `Room.capacity`, `Room.activeParticipantCount` | 가능. 상태 정합화 뒤 두 값의 파생식으로 판정하고 별도 저장값을 추가하지 않는다 |
 | 방 경험 수준 | `Room.experienceLevel` | 가능. 기존 enum 목록 조건만 추가한다 |
@@ -47,7 +47,7 @@ BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건�
 ### 기능 규칙
 
 - 쿼리 파라미터 이름·타입·허용값·기본값은 [게임 목록·검색 API](../API.md#game-01-게임-목록검색)가 정본이다. 이 절은 필터의 의미와 판정 규칙만 정의하며 파라미터 이름을 새로 만들지 않는다.
-- 게임 목록은 P0와 같이 인증 없이 조회한다. 필터를 모두 생략하면 P0의 공개 범위, 응답 필드, `name ASC, id ASC` 정렬과 페이지네이션을 유지한다.
+- 게임 목록은 P0와 같이 비로그인도 조회한다. 필터를 모두 생략하면 P0의 공개 범위와 기존 응답 필드, `name ASC, id ASC` 정렬과 페이지네이션을 유지하되 `SEARCH-03`의 `playedByMe`만 추가한다.
 - 기존 표시 문자열은 화면 표시와 입력 추적을 위해 유지하고, 조회 요청마다 문자열을 해석하지 않는다. 적재·마이그레이션 단계에서 검증한 수치만 필터에 사용한다.
 - 아래 인원·시간 이름은 검색용 논리 필드이며, 실제 열 이름·타입·제약은 [GAMES](../ERD.md#games)에서 확정한다.
 - 검색용 가능 인원은 양의 정수 `min_players`, `max_players`로 표현하고 두 값은 함께 존재하며 `min_players <= max_players`여야 한다.
@@ -107,7 +107,7 @@ BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건�
 
 - 현재 `GameQueryService#findPage`는 `keyword`, `upcomingOnly` 조합마다 `GameRepository`의 파생 조회 메서드를 골라 쓴다. P1 조건을 같은 방식으로 늘리면 조합 수만큼 메서드가 증가하므로, 새 조건은 불변 검색 조건 하나로 묶어 단일 동적 조회 경계에 전달한다.
 - 약 2,000건 범위에서는 `upcomingOnly`가 사용하는 기존 `UpcomingRoomCountQuery`의 예정 모임 게임 ID 집합을 다른 조건과 함께 전달해 현재 모듈 경계를 유지할 수 있다. 전체 카탈로그로 확장할 때는 `FND-09` 측정 결과에 따라 DB `EXISTS` 조회 경계를 재검토한다.
-- 후보를 채택하면 메커니즘과 `PLAYED_ONLY`는 `EXISTS`, `EXCLUDE_PLAYED`는 `NOT EXISTS`로 판정해 관계 조인으로 게임 행이 중복되지 않게 한다.
+- 메커니즘 후보를 채택하면 메커니즘은 `EXISTS`로 판정한다. `PLAYED_ONLY`는 `EXISTS`, `EXCLUDE_PLAYED`는 `NOT EXISTS`로 판정해 관계 조인으로 게임 행이 중복되지 않게 한다.
 
 ### 완료 기준
 
@@ -117,7 +117,7 @@ BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건�
 - `SEARCH-01-AC4` 복잡도 `1.00`~`5.00` 범위의 최소·최대 단독·조합 조건이 동작하고 입력 `0.00`은 평가 없음으로 처리된다.
 - `SEARCH-01-AC5` 기존 검색어, 예정 모임 존재 여부와 모든 P1 필수 게임 조건을 조합해도 각 결과가 전달한 조건을 모두 만족한다.
 - `SEARCH-01-AC6` 모든 조건을 적용한 뒤 `name ASC, id ASC` 정렬과 페이지네이션을 수행하고 필터 결과 기준 페이지 메타데이터를 반환한다.
-- `SEARCH-01-AC7` 필터를 생략하면 P0 게임 검색의 공개 범위, 응답 필드와 기본 정렬·페이지네이션을 유지한다.
+- `SEARCH-01-AC7` 필터를 생략하면 `SEARCH-03`의 `playedByMe` 추가를 제외하고 P0 게임 검색의 공개 범위, 기존 응답 필드와 기본 정렬·페이지네이션을 유지한다.
 - `SEARCH-01-AC8` 표시용 인원·시간 문자열을 유지하면서 검색용 값의 유효·누락·제외 건수와 출처를 재현 가능한 품질 보고서로 검증한다.
 - `SEARCH-01-AC9` 인원 범위·경계 정확 일치·전용 인원이 확정한 판정대로 동작하고, 범위 조건과 전용 인원을 함께 전달하거나 최소가 최대보다 크면 검증 오류로 거절한다.
 
@@ -125,7 +125,7 @@ BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건�
 
 ### 제외 범위
 
-- 메커니즘과 사용자별 해 본 게임 필터. 두 기능의 규칙은 이 문서에 기록하지만 필수 구현·완료 판단에서 제외한다.
+- 메커니즘 필터. 후보 규칙은 이 문서에 기록하지만 채택 전에는 필수 구현·완료 판단에서 제외한다.
 - 특수 조건·테마·튜토리얼 보유·번역 완료 여부 필터
 - 추천 인원·최적 인원을 가능 인원처럼 검색하는 기능
 - 사용자 지정 정렬, 오타·초성 검색과 패싯별 결과 건수
@@ -187,38 +187,48 @@ BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건�
 
 ## SEARCH-03 사용자별 해 본 게임
 
-`SEARCH-03`은 P1 후속 후보다. 아래 규칙은 후보의 의미를 고정하지만, 상위 P1 범위에 채택하고 API·ERD·ADR을 갱신하기 전에는 구현하거나 P1 필수 완료 기준으로 사용하지 않는다.
+`SEARCH-03`은 2026-08-04 P1 필수 범위로 채택됐다. 사용자가 직접 표시한 관계만 저장하고, 그 관계로 본인 표시 상태와 포함·제외 검색을 제공한다.
 
 ### 구현 컨텍스트
 
 | 구분 | 정본 |
 | --- | --- |
-| 범위 상태 | P1 후속 후보. 현재 API·저장 계약이 없고 HTTP·조회·저장 경계도 구현되지 않았다 |
+| 범위 상태 | P1 필수. 현재 상태는 [P1 기능 상태 정본의 `SEARCH-03`](README.md#기능별-현재-상태)을 따른다 |
 | 검색 진입점 | [게임 목록·검색](../API.md#game-01-게임-목록검색) |
 | 인증·공개 범위 | [P1 P0 계약 상속](../P1-spec.md#p0-계약-상속) |
-| 게임 식별자 | [GAMES](../ERD.md#games), [ADR-0006](../adr/platform/0006-p0-bigint-identity-ids.md) |
-| 후보 ADR | [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md) — 승인됨. 기능 범위는 P1 후속 후보 |
+| 저장 계약 | [USER_PLAYED_GAMES](../ERD.md#user_played_games), [ADR-0006](../adr/platform/0006-p0-bigint-identity-ids.md) |
+| 필수 ADR | [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md), [ADR-0047](../adr/platform/0047-http-method-and-target-state-idempotency.md) |
+| 백엔드 구현 | [#356](https://github.com/bamsongi-club/albam-mate/issues/356) |
+| 프론트엔드 구현 | [#357](https://github.com/bamsongi-club/albam-mate/issues/357) |
 
 ### 기능 규칙
 
 - 사용자가 자신이 해 본 게임을 직접 표시하면 사용자·게임 관계가 생기고, 표시를 취소하면 관계가 사라진다. 관계가 없다는 사실을 `실제로 해보지 않음`으로 해석하지 않는다.
-- 같은 사용자와 게임 조합의 관계는 최대 하나다. 방 생성·참가·종료나 외부 기록으로 자동 변경하지 않는다.
-- 등록·취소는 로그인한 사용자가 존재하는 Albam Mate 내부 게임 ID로 자신의 관계만 변경한다. 이미 등록한 게임의 재등록과 미등록 게임의 재취소는 최종 상태가 같으면 멱등 성공으로 수렴한다.
+- 관계는 `id BIGINT GENERATED BY DEFAULT AS IDENTITY` 기본 키와 `user_id`, `game_id`, `created_at`을 가진다. 사용자·게임 조합은 최대 하나고 두 FK는 `ON DELETE NO ACTION`이다. 생성 시각은 표시한 시각이며 실제 플레이 날짜가 아니다.
+- 등록은 `PUT /api/users/me/played-games/{gameId}`, 취소는 같은 경로의 `DELETE`다. 둘 다 로그인·CSRF가 필요하고 request body는 없다.
+- 이미 등록한 게임의 재등록과 미등록 게임의 재취소도 `200 OK`다. 성공 `data`는 `{ gameId, playedByMe }`이며 등록은 `true`, 취소는 `false`로 같은 최종 상태에 수렴한다.
+- 등록·취소 오류는 `UNAUTHENTICATED` → `CSRF_TOKEN_INVALID` → `VALIDATION_ERROR` → `GAME_NOT_FOUND` 순서로 판정한다.
+- 방 생성·참가·종료나 외부 기록으로 관계를 자동 변경하지 않는다.
 - 다른 사용자의 상태를 조회하거나 변경하는 공개 인터페이스를 제공하지 않는다.
+- 공개 게임 목록·상세의 `playedByMe`는 유효한 세션에서 관계가 있으면 `true`, 없으면 `false`, 비로그인이면 `null`이다. `false`는 실제 미플레이가 아니라 표시되지 않음을 뜻한다.
+- 게임 목록의 선택 파라미터 `playedFilter`는 단일 값 `PLAYED_ONLY` 또는 `EXCLUDE_PLAYED`만 허용한다. 생략하면 관계 필터를 적용하지 않는다.
+- 잘못된 `playedFilter` 값이나 중복 전달은 로그인 여부와 관계없이 먼저 `400 VALIDATION_ERROR`다. 유효한 관계 필터를 비로그인으로 전달하면 `401 UNAUTHENTICATED`다.
 - `PLAYED_ONLY`는 현재 사용자가 표시한 게임만 반환하고, `EXCLUDE_PLAYED`는 그 관계가 있는 게임을 결과에서 제외한다. 후자의 결과를 `해보지 않은 게임`이라고 단정하지 않는다.
-- 관계 필터는 로그인 사용자만 사용하며, 다른 게임 필터와 함께 적용한 뒤 전체 건수·정렬·페이지를 계산한다.
-- 후보를 채택하면 게임 목록·상세의 본인 기준 표시 필드와 등록·취소·검색 인터페이스를 [API 명세](../API.md)에 확정한다. 이 문서에서 경로와 HTTP 메서드를 먼저 확정하지 않는다.
+- 관계 필터는 다른 게임 필터와 AND로 결합하고 모든 조건을 적용한 뒤 전체 건수, `name ASC, id ASC` 정렬과 페이지를 계산한다.
+- 별도 `GET /api/users/me/played-games`는 만들지 않고 `GET /api/games?playedFilter=PLAYED_ONLY`를 사용한다.
+- 웹은 목록 카드와 상세 화면 모두에 `해봤어요` 표시·취소를 둔다. 요청 중에는 조작을 잠그고 서버 성공 뒤 `playedByMe`를 반영하며 실패하면 기존 상태를 유지한다.
+- 관계 필터는 게임 난이도와 같은 단일 `FilterRadioGroup`으로 `전체 / 해 본 게임만 / 해 본 게임 제외`를 제공한다. `전체`는 `playedFilter`를 보내지 않는다.
 - 플레이 횟수, 플레이 날짜, 평점, 후기와 하고 싶은 게임 상태는 저장하지 않는다.
 
 ### 완료 기준
 
-범위 채택 전에는 `SEARCH-03-AC*`를 부여하지 않는다. 채택 시 다음 검증 항목을 고유 완료 기준으로 전환한다.
-
-- 본인 게임 표시의 등록·취소가 멱등하게 동작하고 사용자·게임 관계가 중복되지 않는다.
-- 사용자는 다른 사용자의 관계를 조회·변경할 수 없다.
-- `PLAYED_ONLY`, `EXCLUDE_PLAYED`가 현재 사용자의 관계만 반영하며 다른 필터·정렬·페이지네이션과 함께 동작한다.
-- 필터가 없는 공개 게임 검색은 로그인 여부와 관계없이 P0 공개 결과를 유지한다.
-- 관계가 없는 게임을 `해보지 않음`으로 저장하거나 응답하지 않는다.
+- `SEARCH-03-AC1` `USER_PLAYED_GAMES`가 identity 기본 키, 사용자·게임 FK, 표시 시각을 가지며 `(user_id, game_id)` 유일성과 두 FK의 `ON DELETE NO ACTION`을 보장한다.
+- `SEARCH-03-AC2` 등록 API가 로그인·CSRF를 요구하고 신규·반복 요청 모두 `200 OK`의 `{ gameId, playedByMe: true }`로 수렴하며 확정한 오류 우선순위를 지킨다.
+- `SEARCH-03-AC3` 취소 API가 로그인·CSRF를 요구하고 기존·반복 요청 모두 `200 OK`의 `{ gameId, playedByMe: false }`로 수렴하며 확정한 오류 우선순위를 지킨다.
+- `SEARCH-03-AC4` 사용자는 자신의 관계만 조회·변경할 수 있고 방 이력 자동 표시와 다른 사용자 관계 공개가 발생하지 않는다.
+- `SEARCH-03-AC5` 게임 목록·상세의 `playedByMe`가 유효한 세션에는 본인 관계의 `true`·`false`, 비로그인에는 `null`을 반환하며 `false`를 실제 미플레이로 표현하지 않는다.
+- `SEARCH-03-AC6` 단일 `playedFilter`의 생략·두 허용값·잘못된 값·중복·비로그인 요청이 확정한 검증·인증 계약을 따르고, 다른 필터와 AND 결합한 뒤 전체 건수·`name ASC, id ASC` 정렬·페이지를 계산한다.
+- `SEARCH-03-AC7` 목록 카드·상세의 표시·취소와 단일 선택 관계 필터가 제공되고 요청 중 중복 조작을 막으며 서버 성공 뒤에만 `playedByMe`를 반영한다. 실패하면 기존 화면 상태를 유지하고 공통 오류 흐름을 사용한다.
 
 ### 제외 범위
 
@@ -235,26 +245,27 @@ BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건�
 
 ### 정본별 반영 시점
 
-필수 범위와 후속 후보는 서로 다른 승인 시점에 정본에 반영한다.
+필수 범위와 메커니즘 후속 후보는 서로 다른 승인 시점에 정본에 반영한다.
 
-| 정본 | 필수 범위 반영 | 후보 채택 시 반영 |
+| 정본 | 현재 P1 필수 범위 반영 | 메커니즘 후보 채택 시 반영 |
 | --- | --- | --- |
-| [P1 명세](../P1-spec.md) | `SEARCH-01`, `SEARCH-02` 범위 유지 | 메커니즘 범위와 `SEARCH-03` 기능 목록·완료 기준 추가 |
-| [API 명세](../API.md) | 확정된 게임·방 검색 파라미터와 오류 계약 | 메커니즘·해 본 게임 파라미터, 등록·취소 인터페이스와 본인 기준 표시 필드 |
-| [ERD](../ERD.md) | 인원·시간 수치 열과 제약 | 메커니즘 관계, 사용자별 해 본 게임 관계와 제약 |
-| ADR | [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md) 승인 | [ADR-0027](../adr/game/0027-controlled-game-mechanism-taxonomy-and-provenance.md), [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md) 승인 |
+| [P1 명세](../P1-spec.md) | `SEARCH-01`~`SEARCH-03` 기능 목록·완료 기준 | 메커니즘 범위와 완료 기준 추가 |
+| [API 명세](../API.md) | 게임·방 검색과 해 본 게임 파라미터·등록·취소·본인 표시 상태 | 메커니즘 파라미터·응답·선택지 조회 |
+| [ERD](../ERD.md) | 인원·시간 수치 열과 사용자별 해 본 게임 관계·제약 | 메커니즘 목록·게임 관계·제약 |
+| ADR | [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md), [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md) 승인 | [ADR-0027](../adr/game/0027-controlled-game-mechanism-taxonomy-and-provenance.md) 승인과 범위 채택 |
 | 카탈로그 manifest·가이드 | 인원·시간 필드의 출처, 정규화와 검증 결과 | 메커니즘 필드별 출처, 검수 결과와 반복 적재 계약 |
-| [기반 작업](foundation.md) | `FND-09` 대표 데이터·쿼리·측정 기준 | 채택된 후보를 포함한 대표 쿼리 추가 측정 |
+| [기반 작업](foundation.md) | 구현된 필수 검색의 대표 데이터·쿼리·측정 기준 | 채택된 메커니즘을 포함한 대표 쿼리 추가 측정 |
 
 ### 예상 변경 지점
 
-아래는 현재 존재하는 파일 기준의 변경 지점이다. 신규 타입·테이블 이름은 이 문서에서 확정하지 않고 구현 설계와 ERD에서 정한다. Java 경로는 `src/main/java/cloud/bamsongi/albammate/` 기준이고, 그 밖의 경로는 저장소 루트 기준이다.
+아래는 현재 존재하는 파일 기준의 변경 지점이다. `USER_PLAYED_GAMES` 물리 계약은 ERD가 정본이며 Java 타입·파일 배치는 구현 이슈에서 기존 구조와 컨벤션에 맞춘다. Java 경로는 `src/main/java/cloud/bamsongi/albammate/` 기준이고, 그 밖의 경로는 저장소 루트 기준이다.
 
 | 영역 | 현재 파일 |
 | --- | --- |
 | 게임 저장 모델 | `game/entity/Game.java` |
 | 게임 요청·응답 | `game/dto/GameListRequest.java`, `game/dto/GameListItem.java`, `game/dto/GameDetail.java` |
 | 게임 HTTP·조회 | `game/controller/GameController.java`, `game/service/GameQueryService.java`, `game/repository/GameRepository.java`, `game/repository/GameListRow.java` |
+| 해 본 게임 관계 | 신규 Entity·Repository·Service와 `USER_PLAYED_GAMES` 전진 마이그레이션 |
 | 카탈로그 변환 | `scripts/game-catalog/`의 변환·분석 스크립트와 테스트 |
 | 방 요청·HTTP | `room/dto/RoomListRequest.java`, `room/controller/RoomController.java`, `room/controller/RoomQueryParameterAllowlistValidator.java` |
 | 방 조회 | `room/service/query/RoomListQueryService.java`, `room/service/query/RoomListReadService.java`, `room/repository/RoomRepository.java` |
@@ -267,17 +278,18 @@ BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건�
 - 게임 데이터 정규화는 전진 Flyway 마이그레이션, JPA 매핑과 PostgreSQL 검증을 함께 포함한다.
 - 카탈로그 변환 테스트는 인원·시간 경계, `0분` 거절, 복잡도 `0.00`의 `NULL` 정규화와 누락값 처리를 검증한다.
 - 게임·방 조회 테스트는 단독 필터, 종류 사이 AND, 모든 필수 조건 조합과 필터 후 페이지 계산을 검증한다.
-- 필터가 없는 게임·방 요청은 기존 P0 동작의 회귀 테스트를 유지한다.
+- 해 본 게임 테스트는 사용자 격리, 등록·취소 멱등성, 오류 우선순위, 목록·상세 표시값과 관계 필터의 검증·인증·복합 검색을 HTTP와 PostgreSQL 경계에서 검증한다.
+- 필터가 없는 게임·방 요청은 `SEARCH-03`의 `playedByMe` 추가를 제외한 기존 P0 동작의 회귀 테스트를 유지한다.
 - PostgreSQL 전용 제약·마이그레이션·실행 계획은 H2 테스트만으로 검증했다고 보지 않는다.
 - 인덱스의 필요성과 효과는 기능 테스트 통과 뒤 `FND-09`에서 별도로 측정한다.
 
 ### 구현 전 확인 필요
 
-메커니즘과 `SEARCH-03` 관련 항목은 후속 후보의 채택 조건이며 필수 검색 범위의 구현을 막지 않는다. 아래 항목은 팀이 결정하며 구현 담당자나 에이전트가 임의로 확정하지 않는다. 결정 전에는 해당 데이터를 적재하거나 선택지를 공개하지 않는다.
+아래 메커니즘 관련 항목은 후속 후보의 채택 조건이며 필수 검색 범위의 구현을 막지 않는다. 팀이 결정하기 전에는 구현 담당자나 에이전트가 해당 데이터를 적재하거나 선택지를 공개하지 않는다.
 
 - 메커니즘 출처별 실제 취득 경로와 이용 조건
 - 초기 약 10~20개 메커니즘의 목록, 표시명과 항목별 최소 연결 게임 수
 - 메커니즘 출처 우선순위, 충돌 검수 규칙과 초기 적재 범위
 - BGG 상세 플레이 시간을 전체 백필해 시간 구간 필터로 사용하는 행위가 현재 승인 범위에 포함되는지 여부
 - 약 2,000건 이후 전체 카탈로그로 확장할 때 인원·시간·복잡도가 없는 게임의 공개·필터 정책
-- 메커니즘과 `SEARCH-03`을 필수 범위로 올리는 P1 명세 변경 승인
+- 메커니즘을 필수 범위로 올리는 P1 명세 변경 승인
