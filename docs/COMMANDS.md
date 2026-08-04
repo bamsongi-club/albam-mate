@@ -169,7 +169,7 @@ JUnit execution은 새로 생성되거나 갱신된 XML과 1개 이상의 테스
 
 ## 게임 카탈로그 검수
 
-BGG 기준 CSV와 팀 검수 JSON의 매핑·중복·필수값·품질 경고를 확인한다. 출처 manifest가 없거나 검수 상태가 승인되지 않으면 보고서만 만들고 적재 SQL은 생성하지 않는다.
+BGG 기준 CSV와 팀 검수 JSON의 매핑·중복·필수값·품질 경고를 확인한다. 출처 manifest가 없거나 검수 상태가 승인되지 않으면 보고서만 만들고 적재 SQL은 생성하지 않는다. 메커니즘 승인 배치는 `mechanismCatalog`이 있는 manifest를 전달한다.
 
 ```sh
 node scripts/game-catalog/prepare-game-catalog.mjs \
@@ -178,7 +178,17 @@ node scripts/game-catalog/prepare-game-catalog.mjs \
   --out build/game-catalog/draft
 ```
 
-테스트와 승인 후 적재 절차는 [게임 카탈로그 검수·적재](guides/GAME_CATALOG_IMPORT.md)를 따른다.
+승인된 manifest로 적재 산출물을 만들 때는 다음처럼 실행한다.
+
+```sh
+node scripts/game-catalog/prepare-game-catalog.mjs \
+  --games /path/to/games.json \
+  --ranks /path/to/boardgames_ranks07-24.csv \
+  --manifest /path/to/approved-manifest.json \
+  --out build/game-catalog/approved
+```
+
+메커니즘 승인 배치는 `upsert-games.sql`을 먼저 실행하고 `upsert-game-mechanisms.sql`을 이어서 실행한다. 현재 Issue #351 배치는 실행 후 공개 메커니즘 189개와 관계 13,263개를 확인한다. 상세 절차는 [게임 카탈로그 검수·적재](guides/GAME_CATALOG_IMPORT.md)를 따른다.
 
 ## 프롬프트 기록 확인
 
