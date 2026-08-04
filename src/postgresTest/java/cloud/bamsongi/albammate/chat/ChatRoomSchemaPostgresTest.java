@@ -59,7 +59,7 @@ class ChatRoomSchemaPostgresTest {
 			insertRoom(schemaName, "CANCELED");
 			insertRoom(schemaName, "FINISHED");
 
-			migrate(schemaName, null);
+			migrate(schemaName, "7");
 
 			assertNotNull(
 				jdbcTemplate.queryForObject("select to_regclass(?)", String.class, schemaName + ".chat_rooms"));
