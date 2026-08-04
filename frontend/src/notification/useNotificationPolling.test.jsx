@@ -313,13 +313,13 @@ describe('#272 T4~T6 읽음 동기화 generation', () => {
 });
 
 describe('#272 T8 읽음 재동기화 실패', () => {
-  it('한 조회라도 실패하면 마지막 성공 목록과 미확인 수를 유지한다', async () => {
+  it('목록만 실패하고 count가 성공하면 false를 반환하고 마지막 성공 목록을 유지한다', async () => {
     const loadNotifications = vi.fn()
       .mockResolvedValueOnce(FIRST_PAGE)
       .mockRejectedValueOnce(new Error('list failed'));
     const loadUnreadCount = vi.fn()
       .mockResolvedValueOnce({ unreadCount: 2 })
-      .mockRejectedValueOnce(new Error('count failed'));
+      .mockResolvedValueOnce({ unreadCount: 1 });
     const polling = renderPolling({ loadNotifications, loadUnreadCount });
     await flushRequests();
 
@@ -331,6 +331,30 @@ describe('#272 T8 읽음 재동기화 실패', () => {
 
     expect(synchronized).toBe(false);
     expect(polling.result.current.notifications).toEqual(FIRST_PAGE.content);
-    expect(polling.result.current.unreadCount).toBe(2);
+    expect(polling.result.current.unreadCount).toBe(1);
+  });
+
+  it('목록과 count가 모두 성공할 때 true를 반환하고 두 상태를 갱신한다', async () => {
+    const refreshedPage = {
+      content: [{ ...FIRST_PAGE.content[0], readAt: '2026-08-04T10:00:00+09:00' }]
+    };
+    const loadNotifications = vi.fn()
+      .mockResolvedValueOnce(FIRST_PAGE)
+      .mockResolvedValueOnce(refreshedPage);
+    const loadUnreadCount = vi.fn()
+      .mockResolvedValueOnce({ unreadCount: 2 })
+      .mockResolvedValueOnce({ unreadCount: 0 });
+    const polling = renderPolling({ loadNotifications, loadUnreadCount });
+    await flushRequests();
+
+    act(() => polling.result.current.pauseForReadSynchronization());
+    let synchronized;
+    await act(async () => {
+      synchronized = await polling.result.current.refreshAfterReadSynchronization();
+    });
+
+    expect(synchronized).toBe(true);
+    expect(polling.result.current.notifications).toEqual(refreshedPage.content);
+    expect(polling.result.current.unreadCount).toBe(0);
   });
 });
