@@ -21,12 +21,14 @@ public class UserPlayedGameService {
 		try {
 			commandExecutor.markPlayed(userId, gameId);
 		} catch (DataIntegrityViolationException exception) {
-			switch (commandExecutor.inspectAfterMarkFailure(userId, gameId)) {
-				case RELATION_EXISTS -> {
-					// 같은 사용자·게임 관계의 동시 생성은 성공 상태로 수렴한다.
-				}
-				case GAME_MISSING -> throw new BusinessException(ErrorCode.GAME_NOT_FOUND);
-				case GAME_EXISTS -> throw exception;
+			UserPlayedGameCommandExecutor.RecoveryState recoveryState = commandExecutor.inspectAfterMarkFailure(
+				userId, gameId);
+			if (recoveryState == UserPlayedGameCommandExecutor.RecoveryState.RELATION_EXISTS) {
+				// 같은 사용자·게임 관계의 동시 생성은 성공 상태로 수렴한다.
+			} else if (recoveryState == UserPlayedGameCommandExecutor.RecoveryState.GAME_MISSING) {
+				throw new BusinessException(ErrorCode.GAME_NOT_FOUND);
+			} else {
+				throw exception;
 			}
 		}
 		return new PlayedGameStateResponse(gameId, true);

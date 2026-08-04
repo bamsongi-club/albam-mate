@@ -2,6 +2,7 @@ package cloud.bamsongi.albammate.game.dto;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
@@ -129,5 +130,29 @@ class GameListRequestTest {
 		request.setExclusivePlayerCount(Collections.singletonList(null));
 
 		assertTrue(validator.validate(request).isEmpty());
+	}
+
+	@Test
+	void 해본게임_필터는_단일_비null값만_조회와_검증에_사용한다() {
+		GameListRequest missing = new GameListRequest();
+		GameListRequest empty = new GameListRequest();
+		empty.setPlayedFilter(List.of());
+		GameListRequest nullValue = new GameListRequest();
+		nullValue.setPlayedFilter(Collections.singletonList(null));
+		GameListRequest duplicate = new GameListRequest();
+		duplicate.setPlayedFilter(List.of(PlayedFilter.PLAYED_ONLY, PlayedFilter.EXCLUDE_PLAYED));
+		GameListRequest single = new GameListRequest();
+		single.setPlayedFilter(List.of(PlayedFilter.PLAYED_ONLY));
+
+		assertNull(missing.getPlayedFilter());
+		assertNull(empty.getPlayedFilter());
+		assertNull(nullValue.getPlayedFilter());
+		assertNull(duplicate.getPlayedFilter());
+		assertEquals(PlayedFilter.PLAYED_ONLY, single.getPlayedFilter());
+		assertTrue(validator.validate(missing).isEmpty());
+		assertFalse(validator.validate(empty).isEmpty());
+		assertFalse(validator.validate(nullValue).isEmpty());
+		assertFalse(validator.validate(duplicate).isEmpty());
+		assertTrue(validator.validate(single).isEmpty());
 	}
 }

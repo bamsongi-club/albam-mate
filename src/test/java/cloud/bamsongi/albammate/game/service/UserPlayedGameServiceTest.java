@@ -7,6 +7,10 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -15,6 +19,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import cloud.bamsongi.albammate.game.dto.PlayedGameStateResponse;
+import cloud.bamsongi.albammate.game.repository.GameRepository;
+import cloud.bamsongi.albammate.game.repository.UserPlayedGameRepository;
 import cloud.bamsongi.albammate.game.service.UserPlayedGameCommandExecutor.RecoveryState;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -24,6 +30,10 @@ class UserPlayedGameServiceTest {
 
 	@Mock
 	private UserPlayedGameCommandExecutor commandExecutor;
+	@Mock
+	private GameRepository gameRepository;
+	@Mock
+	private UserPlayedGameRepository userPlayedGameRepository;
 	@InjectMocks
 	private UserPlayedGameService userPlayedGameService;
 
@@ -57,5 +67,19 @@ class UserPlayedGameServiceTest {
 
 		assertSame(expected,
 			assertThrows(DataIntegrityViolationException.class, () -> userPlayedGameService.markPlayed(1L, 2L)));
+	}
+
+	@Test
+	void 무결성오류뒤_새읽기경계는_관계와_게임존재상태를_구분한다() {
+		UserPlayedGameCommandExecutor executor = new UserPlayedGameCommandExecutor(
+			gameRepository,
+			userPlayedGameRepository,
+			Clock.fixed(Instant.parse("2026-08-04T00:00:00Z"), ZoneOffset.UTC));
+		when(userPlayedGameRepository.existsByUserIdAndGameId(1L, 2L)).thenReturn(true, false, false);
+		when(gameRepository.existsById(2L)).thenReturn(true, false);
+
+		assertEquals(RecoveryState.RELATION_EXISTS, executor.inspectAfterMarkFailure(1L, 2L));
+		assertEquals(RecoveryState.GAME_EXISTS, executor.inspectAfterMarkFailure(1L, 2L));
+		assertEquals(RecoveryState.GAME_MISSING, executor.inspectAfterMarkFailure(1L, 2L));
 	}
 }
