@@ -36,9 +36,9 @@ P1 저장 계약의 준비 상태는 기능별로 다르다. 알림 저장 계�
 | [`NOTI-02`](notification.md#noti-02-내-알림-목록미확인-개수) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
 | [`NOTI-03`](notification.md#noti-03-알림-읽음-처리) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
 | [`CHAT-01`](chatting.md#chat-01-채팅방-생성접근) | 선행 계약 필요 | 부분 구현 ([#279](https://github.com/bamsongi-club/albam-mate/issues/279)) | 부분 검증 ([#279](https://github.com/bamsongi-club/albam-mate/issues/279)) | 미배포·미측정 |
-| [`CHAT-02`](chatting.md#chat-02-메시지-전송이력-조회) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |
+| [`CHAT-02`](chatting.md#chat-02-메시지-전송이력-조회) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
 | [`CHAT-03`](chatting.md#chat-03-실시간-전달재연결-복구) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |
-| [`CHAT-04`](chatting.md#chat-04-채팅-안전운영) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |
+| [`CHAT-04`](chatting.md#chat-04-채팅-안전운영) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
 | [`CHAT-05`](chatting.md#chat-05-내-모임-채팅-진입) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
 | [`FND-09`](foundation.md#fnd-09-검색-성능과-인덱스-검증) | 선행 기능 계약 대기 | 미구현 | 미검증 | 미배포·미측정 |
 | [`FND-10`](foundation.md#fnd-10-실시간-전달과-재연결-기반) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |
@@ -56,7 +56,7 @@ P1 저장 계약의 준비 상태는 기능별로 다르다. 알림 저장 계�
 | 기능 ID | 착수 전에 확정할 계약 | 결정 주체 | 위임 근거·반영 위치 |
 | --- | --- | --- | --- |
 | `CHAT-01` | 기존 ROOM의 채팅방 backfill과 ROOM 생성·상태 전환 경합을 막을 동시성 제어·최종 보정, 배포 절체 방식 | [#281](https://github.com/bamsongi-club/albam-mate/issues/281) 구현 담당자. 서비스 중단·트래픽 차단이 필요하면 사용자·OPS 승인 | [#279의 최신 승인 테스트 계약](https://github.com/bamsongi-club/albam-mate/issues/279#issuecomment-5161788285)에 따라 #279는 V6 스키마·제약만 소유한다. [ADR-0045 제안](../adr/chat/0045-chat-room-schema-and-backfill-boundary.md)은 명시적 one-shot/maintenance 경계의 후보이며 팀 채택 전에는 확정 근거가 아니다. #281의 승인된 선택 결과는 [CHAT-01](chatting.md#chat-01-채팅방-생성접근), [ERD](../ERD.md#chat_rooms), [채팅 흐름](../ARCHITECTURE.md#채팅-흐름)과 실행 작업에 반영 |
-| `CHAT-02`, `CHAT-04` | Redis 사용자·방 단위 전송 제한의 정확한 임계값과 `Retry-After` 계산 | `CHAT-04` 구현 담당자. 공개 오류나 제품·보안 정책을 바꾸면 사용자 확인 | [채팅 전송 오류](../API.md#chat-02-메시지-전송), [공통 `RATE_LIMIT_EXCEEDED`](../API.md#102-인증회원-오류), [CHAT-04](chatting.md#chat-04-채팅-안전운영) |
+| `CHAT-02`, `CHAT-04` | Redis 사용자·방 단위 전송 제한의 정확한 임계값과 `Retry-After` 계산 | [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)에서 승인 | [#372 정본 반영 이슈](https://github.com/bamsongi-club/albam-mate/issues/372), [채팅 전송 오류](../API.md#chat-02-메시지-전송), [공통 `RATE_LIMIT_EXCEEDED`](../API.md#102-인증회원-오류), [CHAT-04](chatting.md#chat-04-채팅-안전운영) |
 | `CHAT-03` | 세션 TTL·직렬화 방식과 정확한 Redis key·channel namespace | `FND-10`·`CHAT-03` 구현 담당자 | 위임 근거는 [ADR-0038 결정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md#결정). 선택 결과는 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반), [다중 인스턴스 실행](../ARCHITECTURE.md#다중-인스턴스-실행)과 실행 구성에 반영 |
 | `CHAT-04` | 채팅 만료 삭제 잠금 이름·`lockAtMostFor`·실행시간 경고 기준 | `CHAT-04` 구현 담당자가 측정 근거로 확정 | 위임 근거는 [ADR-0034 결정](../adr/chat/0034-chat-message-retention-and-deletion.md#결정)과 [ADR-0038 결정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md#결정). 선택 결과는 [CHAT-04](chatting.md#chat-04-채팅-안전운영), 실행 구성과 관련 운영 가이드에 반영 |
 
