@@ -20,12 +20,15 @@ export function useNotificationPolling({
   const [documentVisible, setDocumentVisible] = useState(isDocumentVisible);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(null);
+  const [unreadCountRevision, setUnreadCountRevision] = useState(0);
   const [listStatus, setListStatus] = useState('idle');
   const [readSynchronizationPaused, setReadSynchronizationPaused] = useState(false);
   const generationRef = useRef(0);
   const listRequestRef = useRef(null);
   const unreadRequestRef = useRef(null);
   const readSynchronizationPausedRef = useRef(false);
+  // 재시도와 일괄 읽음이 겹치면 각 작업이 획득한 pause를 모두 반납한 뒤 polling한다.
+  const readSynchronizationPauseCountRef = useRef(0);
   const listSucceededRef = useRef(false);
   const reportedBackgroundErrorRef = useRef({ list: false, unread: false });
   const onBackgroundErrorRef = useRef(onBackgroundError);
@@ -93,6 +96,7 @@ export function useNotificationPolling({
         if (controller.signal.aborted || generation !== generationRef.current) return false;
         const count = Number(response?.unreadCount);
         setUnreadCount(Number.isFinite(count) ? Math.max(0, count) : 0);
+        setUnreadCountRevision((revision) => revision + 1);
         reportedBackgroundErrorRef.current.unread = false;
         return true;
       })
@@ -124,12 +128,16 @@ export function useNotificationPolling({
   }, []);
 
   const pauseForReadSynchronization = useCallback(() => {
+    readSynchronizationPauseCountRef.current += 1;
     readSynchronizationPausedRef.current = true;
     setReadSynchronizationPaused(true);
     stopRequests();
   }, [stopRequests]);
 
   const resumeAfterReadSynchronization = useCallback(() => {
+    if (readSynchronizationPauseCountRef.current === 0) return;
+    readSynchronizationPauseCountRef.current -= 1;
+    if (readSynchronizationPauseCountRef.current > 0) return;
     readSynchronizationPausedRef.current = false;
     setReadSynchronizationPaused(false);
   }, []);
@@ -168,11 +176,13 @@ export function useNotificationPolling({
     if (!enabled) {
       stopRequests();
       readSynchronizationPausedRef.current = false;
+      readSynchronizationPauseCountRef.current = 0;
       setReadSynchronizationPaused(false);
       listSucceededRef.current = false;
       reportedBackgroundErrorRef.current = { list: false, unread: false };
       setNotifications([]);
       setUnreadCount(null);
+      setUnreadCountRevision(0);
       setListStatus('idle');
       return undefined;
     }
@@ -205,6 +215,8 @@ export function useNotificationPolling({
   return {
     notifications,
     unreadCount,
+    unreadCountRevision,
+    readSynchronizationPaused,
     listStatus,
     retry: refreshAll,
     pauseForReadSynchronization,

@@ -255,6 +255,29 @@ describe('#272 T4~T6 읽음 동기화 generation', () => {
     expect(loadNotifications).toHaveBeenCalledTimes(3);
     expect(loadUnreadCount).toHaveBeenCalledTimes(3);
   });
+
+  it('겹친 동기화 작업이 각자 획득한 pause를 모두 해제한 뒤에만 polling한다', async () => {
+    const polling = renderPolling({ panelOpen: true });
+    await flushRequests();
+    const initialListCalls = polling.loadNotifications.mock.calls.length;
+    const initialUnreadCalls = polling.loadUnreadCount.mock.calls.length;
+
+    act(() => {
+      polling.result.current.pauseForReadSynchronization();
+      polling.result.current.pauseForReadSynchronization();
+      polling.result.current.resumeAfterReadSynchronization();
+    });
+    act(() => vi.advanceTimersByTime(NOTIFICATION_POLL_INTERVAL_MS));
+    await flushRequests();
+    expect(polling.loadNotifications).toHaveBeenCalledTimes(initialListCalls);
+    expect(polling.loadUnreadCount).toHaveBeenCalledTimes(initialUnreadCalls);
+
+    act(() => polling.result.current.resumeAfterReadSynchronization());
+    act(() => vi.advanceTimersByTime(NOTIFICATION_POLL_INTERVAL_MS));
+    await flushRequests();
+    expect(polling.loadNotifications).toHaveBeenCalledTimes(initialListCalls + 1);
+    expect(polling.loadUnreadCount).toHaveBeenCalledTimes(initialUnreadCalls + 1);
+  });
 });
 
 describe('#272 T8 읽음 재동기화 실패', () => {

@@ -40,15 +40,21 @@ function renderReadSync(overrides = {}) {
     isUnauthenticated: vi.fn().mockReturnValue(false)
   };
   const hook = renderHook(
-    ({ enabled, unreadCount }) => useNotificationReadSync({
-      enabled,
-      unreadCount,
-      ...controls
-    }),
+    ({ enabled, unreadCount, unreadCountRevision, readSynchronizationPaused }) => (
+      useNotificationReadSync({
+        enabled,
+        unreadCount,
+        unreadCountRevision,
+        readSynchronizationPaused,
+        ...controls
+      })
+    ),
     {
       initialProps: {
         enabled: overrides.enabled ?? true,
-        unreadCount: overrides.unreadCount ?? 3
+        unreadCount: overrides.unreadCount ?? 3,
+        unreadCountRevision: overrides.unreadCountRevision ?? 0,
+        readSynchronizationPaused: overrides.readSynchronizationPaused ?? false
       }
     }
   );
@@ -88,6 +94,52 @@ describe('#272 T2 단건 성공', () => {
     expect(sync.refreshUnreadAfterSingleRead).toHaveBeenCalledOnce();
     expect(sync.result.current.optimisticReadIds.has(7)).toBe(false);
     expect(sync.result.current.synchronizationFailed).toBe(false);
+  });
+
+  it('즉시 count 재조회 실패 뒤 성공 polling이 overlay와 오류를 정리한다', async () => {
+    const sync = renderReadSync({
+      refreshUnreadAfterSingleRead: vi.fn().mockResolvedValue(false)
+    });
+
+    await act(async () => sync.result.current.markAsRead(UNREAD_NOTIFICATION));
+    expect(sync.result.current.optimisticReadIds.has(7)).toBe(true);
+    expect(sync.result.current.synchronizationFailed).toBe(true);
+
+    sync.rerender({ enabled: true, unreadCount: 2, unreadCountRevision: 1 });
+    expect(sync.result.current.optimisticReadIds.has(7)).toBe(false);
+    expect(sync.result.current.visibleUnreadCount).toBe(2);
+    expect(sync.result.current.synchronizationFailed).toBe(false);
+  });
+
+  it('전체 재동기화 중 count만 성공해도 목록 실패 오류를 숨기지 않는다', async () => {
+    const retryRequest = deferred();
+    const sync = renderReadSync({
+      refreshUnreadAfterSingleRead: vi.fn().mockResolvedValue(false),
+      refreshAfterReadSynchronization: vi.fn().mockReturnValue(retryRequest.promise)
+    });
+    await act(async () => sync.result.current.markAsRead(UNREAD_NOTIFICATION));
+
+    let retryPromise;
+    act(() => {
+      retryPromise = sync.result.current.retrySynchronization();
+    });
+    sync.rerender({
+      enabled: true,
+      unreadCount: 2,
+      unreadCountRevision: 1,
+      readSynchronizationPaused: true
+    });
+    retryRequest.resolve(false);
+    await act(async () => retryPromise);
+    sync.rerender({
+      enabled: true,
+      unreadCount: 2,
+      unreadCountRevision: 1,
+      readSynchronizationPaused: false
+    });
+
+    expect(sync.result.current.optimisticReadIds.has(7)).toBe(true);
+    expect(sync.result.current.synchronizationFailed).toBe(true);
   });
 });
 
@@ -161,6 +213,32 @@ describe('#272 T4~T7 일괄 읽음', () => {
     await act(async () => bulkPromise);
   });
 
+  it('일괄 읽음 시작 뒤 앞선 단건 PATCH가 실패해도 별도 동기화를 시작하지 않는다', async () => {
+    const singleRequest = deferred();
+    const bulkRequest = deferred();
+    const sync = renderReadSync({
+      markNotificationRead: vi.fn().mockReturnValue(singleRequest.promise),
+      markAllNotificationsRead: vi.fn().mockReturnValue(bulkRequest.promise)
+    });
+    let singlePromise;
+    let bulkPromise;
+
+    act(() => {
+      singlePromise = sync.result.current.markAsRead(UNREAD_NOTIFICATION);
+      bulkPromise = sync.result.current.markAllAsRead();
+    });
+
+    singleRequest.reject(new Error('single PATCH failed'));
+    await act(async () => singlePromise);
+    expect(sync.pauseForReadSynchronization).toHaveBeenCalledOnce();
+    expect(sync.refreshAfterReadSynchronization).not.toHaveBeenCalled();
+
+    bulkRequest.resolve({ updatedCount: 1, boundaryNotificationId: 7 });
+    await act(async () => bulkPromise);
+    expect(sync.refreshAfterReadSynchronization).toHaveBeenCalledOnce();
+    expect(sync.resumeAfterReadSynchronization).toHaveBeenCalledOnce();
+  });
+
   it('PATCH가 실패해도 목록과 미확인 수를 다시 조회한 뒤 polling을 재개한다', async () => {
     const sync = renderReadSync({
       markAllNotificationsRead: vi.fn().mockRejectedValue(new Error('PATCH failed'))
@@ -185,6 +263,63 @@ describe('#272 T8 재동기화 실패', () => {
 
     await act(async () => sync.result.current.retrySynchronization());
     expect(refreshAfterReadSynchronization).toHaveBeenCalledTimes(2);
+    expect(sync.result.current.synchronizationFailed).toBe(false);
+  });
+
+  it('재시도 중 시작한 일괄 읽음이 끝날 때까지 bulk 작업 상태를 유지한다', async () => {
+    const retryRequest = deferred();
+    const bulkRequest = deferred();
+    const refreshAfterReadSynchronization = vi.fn()
+      .mockResolvedValueOnce(false)
+      .mockReturnValueOnce(retryRequest.promise)
+      .mockResolvedValueOnce(true);
+    const markAllNotificationsRead = vi.fn()
+      .mockResolvedValueOnce({ updatedCount: 0, boundaryNotificationId: null })
+      .mockReturnValueOnce(bulkRequest.promise);
+    const sync = renderReadSync({
+      refreshAfterReadSynchronization,
+      markAllNotificationsRead
+    });
+
+    await act(async () => sync.result.current.markAllAsRead());
+    let retryPromise;
+    let bulkPromise;
+    act(() => {
+      retryPromise = sync.result.current.retrySynchronization();
+      bulkPromise = sync.result.current.markAllAsRead();
+    });
+
+    retryRequest.resolve(false);
+    await act(async () => retryPromise);
+    expect(sync.result.current.bulkReadPending).toBe(true);
+    expect(sync.result.current.synchronizationFailed).toBe(false);
+
+    bulkRequest.resolve({ updatedCount: 1, boundaryNotificationId: 7 });
+    await act(async () => bulkPromise);
+    expect(sync.result.current.bulkReadPending).toBe(false);
+    expect(sync.result.current.synchronizationFailed).toBe(false);
+  });
+
+  it('로그아웃으로 무효화된 재시도 결과를 다음 세션 오류 상태에 적용하지 않는다', async () => {
+    const retryRequest = deferred();
+    const refreshAfterReadSynchronization = vi.fn()
+      .mockResolvedValueOnce(false)
+      .mockReturnValueOnce(retryRequest.promise);
+    const sync = renderReadSync({ refreshAfterReadSynchronization });
+
+    await act(async () => sync.result.current.markAllAsRead());
+    expect(sync.result.current.synchronizationFailed).toBe(true);
+
+    let retryPromise;
+    act(() => {
+      retryPromise = sync.result.current.retrySynchronization();
+    });
+    sync.rerender({ enabled: false, unreadCount: null, unreadCountRevision: 0 });
+    expect(sync.result.current.synchronizationFailed).toBe(false);
+
+    retryRequest.resolve(false);
+    await act(async () => retryPromise);
+    sync.rerender({ enabled: true, unreadCount: 0, unreadCountRevision: 1 });
     expect(sync.result.current.synchronizationFailed).toBe(false);
   });
 });

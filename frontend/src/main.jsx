@@ -1551,6 +1551,8 @@ function App() {
   const notificationReadSync = useNotificationReadSync({
     enabled: Boolean(me),
     unreadCount: notificationState.unreadCount,
+    unreadCountRevision: notificationState.unreadCountRevision,
+    readSynchronizationPaused: notificationState.readSynchronizationPaused,
     markNotificationRead: api.markNotificationRead,
     markAllNotificationsRead: api.markAllNotificationsRead,
     replaceNotification: notificationState.replaceNotification,
