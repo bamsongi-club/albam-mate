@@ -17,6 +17,7 @@ class ChatMessageRetentionMetrics {
 	private final Counter roomsPurged;
 	private final Counter messagesDeleted;
 	private final Counter failures;
+	private final Counter leaseGuardAborted;
 	private final Timer executionDuration;
 
 	ChatMessageRetentionMetrics(MeterRegistry meterRegistry) {
@@ -25,6 +26,7 @@ class ChatMessageRetentionMetrics {
 		roomsPurged = Counter.builder("chat.message.retention.rooms.purged").register(meterRegistry);
 		messagesDeleted = Counter.builder("chat.message.retention.messages.deleted").register(meterRegistry);
 		failures = Counter.builder("chat.message.retention.failures").register(meterRegistry);
+		leaseGuardAborted = Counter.builder("chat.message.retention.lease.guard.aborted").register(meterRegistry);
 		executionDuration = Timer.builder("chat.message.retention.execution.duration").register(meterRegistry);
 	}
 
@@ -40,6 +42,9 @@ class ChatMessageRetentionMetrics {
 		roomsPurged.increment(summary.purgedRoomCount());
 		messagesDeleted.increment(summary.deletedMessageCount());
 		failures.increment(summary.failureCount());
+		if (summary.leaseGuardAborted()) {
+			leaseGuardAborted.increment();
+		}
 		executionDuration.record(Duration.ofMillis(summary.durationMillis()));
 	}
 }

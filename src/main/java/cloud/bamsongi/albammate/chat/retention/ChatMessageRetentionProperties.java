@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -35,6 +36,17 @@ public class ChatMessageRetentionProperties {
 
 	@NotNull @DurationMin(nanos = 1)
 	private Duration executionWarningThreshold = Duration.ofSeconds(1);
+
+	@NotNull @DurationMin(nanos = 1)
+	private Duration maxRunDuration = Duration.ofSeconds(3);
+
+	/** 반복 batch가 임대 안에서 끝나야 하므로 실행 상한은 항상 잠금 임대보다 짧다. */
+	@AssertTrue public boolean isRunDurationWithinLockLease() {
+		if (maxRunDuration == null || lockAtMostFor == null) {
+			return true;
+		}
+		return maxRunDuration.compareTo(lockAtMostFor) < 0;
+	}
 
 	public boolean isEnabled() {
 		return enabled;
@@ -98,5 +110,13 @@ public class ChatMessageRetentionProperties {
 
 	public void setExecutionWarningThreshold(Duration executionWarningThreshold) {
 		this.executionWarningThreshold = executionWarningThreshold;
+	}
+
+	public Duration getMaxRunDuration() {
+		return maxRunDuration;
+	}
+
+	public void setMaxRunDuration(Duration maxRunDuration) {
+		this.maxRunDuration = maxRunDuration;
 	}
 }

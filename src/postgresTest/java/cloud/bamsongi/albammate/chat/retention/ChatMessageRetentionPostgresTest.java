@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -11,6 +12,7 @@ import static org.mockito.Mockito.doAnswer;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -18,6 +20,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterEach;
@@ -61,6 +64,9 @@ class ChatMessageRetentionPostgresTest {
 		properties.setMaxRoomsPerRun(50);
 		properties.setMaxMessagesPerRun(5_000);
 		properties.setMessageChunkSize(100);
+		properties.setLockAtMostFor(Duration.ofSeconds(5));
+		properties.setLockAtLeastFor(Duration.ofSeconds(5));
+		properties.setMaxRunDuration(Duration.ofSeconds(3));
 		jdbcTemplate.update(
 			"delete from chat_messages where sender_user_id in (select id from users where email like 'retention-%')");
 		jdbcTemplate.update(
@@ -345,6 +351,46 @@ class ChatMessageRetentionPostgresTest {
 		assertTrue(messagesPurgedAt(limitedRoom.chatRoomId()) != null);
 		assertEquals(0, countMessages(nextRoom.chatRoomId()));
 		assertTrue(messagesPurgedAt(nextRoom.chatRoomId()) != null);
+	}
+
+	@Test
+	void 반복_batch는_잠금_임대_전에_중단되고_지연된_두번째_실행은_소유권을_얻지_못한다() {
+		properties.setMaxRoomsPerRun(1);
+		properties.setMaxMessagesPerRun(10);
+		properties.setMessageChunkSize(10);
+		properties.setLockAtMostFor(Duration.ofSeconds(1));
+		properties.setLockAtLeastFor(Duration.ofSeconds(1));
+		properties.setMaxRunDuration(Duration.ofMillis(300));
+		Instant dueTime = Instant.now().minusSeconds(31L * 24 * 60 * 60);
+		List<Fixture> fixtures = new ArrayList<>();
+		for (int roomIndex = 0; roomIndex < 6; roomIndex++) {
+			Fixture fixture = createFixture("guard-" + roomIndex, "FINISHED", dueTime.plusSeconds(roomIndex));
+			insertMessage(fixture.chatRoomId(), fixture.userId(), "guard-" + roomIndex);
+			fixtures.add(fixture);
+		}
+		doAnswer(invocation -> {
+			Thread.sleep(200);
+			return invocation.callRealMethod();
+		}).when(store).findDueChatRooms(any(), any(), anyInt());
+		AtomicReference<ChatMessageRetentionCoordinator.RetentionRunSummary> summaryHolder = new AtomicReference<>();
+
+		ScheduledTaskLock.LockExecution owner = scheduledTaskLock.tryExecute(
+			"chat-message-retention-lease-guard-test", properties.getLockAtMostFor(), properties.getLockAtLeastFor(),
+			() -> summaryHolder.set(coordinator.purgeExpiredMessages()));
+		ScheduledTaskLock.LockExecution delayed = scheduledTaskLock.tryExecute(
+			"chat-message-retention-lease-guard-test", properties.getLockAtMostFor(), properties.getLockAtLeastFor(),
+			() -> {
+				throw new AssertionError("delayed execution must not run");
+			});
+
+		ChatMessageRetentionCoordinator.RetentionRunSummary summary = summaryHolder.get();
+		assertTrue(owner.acquired());
+		assertFalse(delayed.acquired());
+		assertTrue(summary.leaseGuardAborted());
+		assertTrue(summary.durationMillis() < properties.getLockAtMostFor().toMillis());
+		assertTrue(summary.purgedRoomCount() < fixtures.size());
+		assertEquals(fixtures.size() - summary.purgedRoomCount(),
+			fixtures.stream().filter(fixture -> messagesPurgedAt(fixture.chatRoomId()) == null).count());
 	}
 
 	private Fixture createFixture(String suffix, String status, Instant purgeAfter) {

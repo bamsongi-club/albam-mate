@@ -231,6 +231,9 @@
   (방 50개, 메시지 5,000개, 방별 100개 chunk)를 기준으로 정상 실행시간 경고는
   1초, `chat-message-retention`의 `lockAtMostFor`와 `lockAtLeastFor`는 각각 5초로 둔다.
   하나의 cron 실행은 batch를 반복하며, 각 batch의 5,000개 후보 예산은 모든 방이 공유한다.
+  반복 batch 전체는 `lockAtMostFor`보다 짧은 실행 상한 3초 안에서만 수행하고, 상한에
+  도달하면 다음 batch를 조회하지 않고 중단해 남은 방을 다음 스케줄로 넘긴다. 중단은
+  경고 로그와 전용 metric으로 기록한다.
   한 방의 실패는 현재 주기에서 해당 방만 제외하고 뒤따르는 방 처리는 계속한다.
 - `V13` 전진 Flyway는 `SHEDLOCK` 테이블만 생성한다. local profile의
   `db/local/afterMigrate.sql` callback이 기존 ROOM을 상태별 보관 값으로

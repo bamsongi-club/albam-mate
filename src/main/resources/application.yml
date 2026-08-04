@@ -24,6 +24,7 @@ app:
       lock-at-most-for: 5s
       lock-at-least-for: 5s
       execution-warning-threshold: 1s
+      max-run-duration: 3s
 
   social:
     # Client ID와 Client Secret 두 값이 모두 있는 제공자만 활성화한다. 실제 값은 저장소에 두지 않고

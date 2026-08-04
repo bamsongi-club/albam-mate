@@ -38,15 +38,21 @@ class ChatMessageRetentionCoordinator {
 	RetentionRunSummary purgeExpiredMessages() {
 		long startedAtNanos = System.nanoTime();
 		Instant referenceTime = Instant.now(clock);
+		Instant runDeadline = referenceTime.plus(properties.getMaxRunDuration());
 		int purgedRoomCount = 0;
 		int deletedMessageCount = 0;
 		int failureCount = 0;
 		long maximumDelayMillis = 0;
+		boolean leaseGuardAborted = false;
 		ChatMessageRetentionStore.DueChatRoomCursor cursor = null;
 		ArrayDeque<ChatMessageRetentionStore.DueChatRoom> pendingChatRooms = new ArrayDeque<>();
 
 		while (true) {
 			if (pendingChatRooms.isEmpty()) {
+				if (isRunDeadlineReached(runDeadline)) {
+					leaseGuardAborted = true;
+					break;
+				}
 				List<ChatMessageRetentionStore.DueChatRoom> dueChatRooms = store.findDueChatRooms(
 					referenceTime, cursor, properties.getMaxRoomsPerRun());
 				if (dueChatRooms.isEmpty()) {
@@ -57,6 +63,10 @@ class ChatMessageRetentionCoordinator {
 			}
 			int remainingMessageCandidateBudget = properties.getMaxMessagesPerRun();
 			while (remainingMessageCandidateBudget > 0 && !pendingChatRooms.isEmpty()) {
+				if (isRunDeadlineReached(runDeadline)) {
+					leaseGuardAborted = true;
+					break;
+				}
 				ChatMessageRetentionStore.DueChatRoom dueChatRoom = pendingChatRooms.removeFirst();
 				try {
 					ChatMessageRetentionRoomProcessor.RoomProcessResult result = roomProcessor.process(
@@ -87,17 +97,35 @@ class ChatMessageRetentionCoordinator {
 						exception.getClass().getSimpleName());
 				}
 			}
+			if (leaseGuardAborted) {
+				break;
+			}
 		}
 
+		if (leaseGuardAborted) {
+			log.warn(
+				"event=chat_message_retention_lease_guard_aborted maxRunDurationMs={} lockAtMostForMs={} "
+					+ "purgedRoomCount={} deletedMessageCount={}",
+				properties.getMaxRunDuration().toMillis(),
+				properties.getLockAtMostFor().toMillis(),
+				purgedRoomCount,
+				deletedMessageCount);
+		}
 		RetentionRunSummary summary = new RetentionRunSummary(
 			purgedRoomCount,
 			deletedMessageCount,
 			maximumDelayMillis,
 			failureCount,
-			Duration.ofNanos(System.nanoTime() - startedAtNanos).toMillis());
+			Duration.ofNanos(System.nanoTime() - startedAtNanos).toMillis(),
+			leaseGuardAborted);
 		metrics.recordCompleted(summary);
 		logSummary(summary);
 		return summary;
+	}
+
+	/** 반복 batch가 잠금 임대를 넘기지 않도록 남은 작업을 다음 스케줄로 넘길 시점을 판정한다. */
+	private boolean isRunDeadlineReached(Instant runDeadline) {
+		return !Instant.now(clock).isBefore(runDeadline);
 	}
 
 	private void logSummary(RetentionRunSummary summary) {
@@ -121,6 +149,7 @@ class ChatMessageRetentionCoordinator {
 		int deletedMessageCount,
 		long maximumDelayMillis,
 		int failureCount,
-		long durationMillis) {
+		long durationMillis,
+		boolean leaseGuardAborted) {
 	}
 }

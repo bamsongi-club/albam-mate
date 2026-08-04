@@ -2,12 +2,18 @@ package cloud.bamsongi.albammate.chat.retention;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -145,6 +151,90 @@ class ChatMessageRetentionCoordinatorTest {
 		verify(processor).process(stalledRoom, Instant.now(clock), 5);
 		verify(processor).process(successfulRoom, Instant.now(clock), 5);
 		meterRegistry.close();
+	}
+
+	@Test
+	void 실행_상한에_도달하면_다음_batch를_조회하지_않고_중단한다() {
+		ChatMessageRetentionStore store = mock(ChatMessageRetentionStore.class);
+		ChatMessageRetentionRoomProcessor processor = mock(ChatMessageRetentionRoomProcessor.class);
+		ChatMessageRetentionProperties properties = new ChatMessageRetentionProperties();
+		properties.setMaxRoomsPerRun(1);
+		properties.setMaxMessagesPerRun(5);
+		properties.setMaxRunDuration(Duration.ofSeconds(2));
+		SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+		ChatMessageRetentionMetrics metrics = new ChatMessageRetentionMetrics(meterRegistry);
+		ChatMessageRetentionCoordinator coordinator = new ChatMessageRetentionCoordinator(
+			store, processor, properties, metrics, steppingClock(Duration.ofMillis(500)));
+		ChatMessageRetentionStore.DueChatRoom firstRoom = new ChatMessageRetentionStore.DueChatRoom(
+			1L, Instant.parse("2026-08-01T00:00:00Z"));
+		when(store.findDueChatRooms(any(), any(), eq(1))).thenReturn(List.of(firstRoom), List.of());
+		when(processor.process(eq(firstRoom), any(), eq(5))).thenReturn(
+			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 1, 1, false));
+
+		ChatMessageRetentionCoordinator.RetentionRunSummary summary = coordinator.purgeExpiredMessages();
+
+		assertTrue(summary.leaseGuardAborted());
+		assertEquals(1, summary.purgedRoomCount());
+		assertEquals(1.0, meterRegistry.get("chat.message.retention.lease.guard.aborted").counter().count());
+		verify(store, times(1)).findDueChatRooms(any(), any(), eq(1));
+		meterRegistry.close();
+	}
+
+	@Test
+	void 실행_상한에_도달하면_같은_batch의_남은_방도_처리하지_않는다() {
+		ChatMessageRetentionStore store = mock(ChatMessageRetentionStore.class);
+		ChatMessageRetentionRoomProcessor processor = mock(ChatMessageRetentionRoomProcessor.class);
+		ChatMessageRetentionProperties properties = new ChatMessageRetentionProperties();
+		properties.setMaxRoomsPerRun(3);
+		properties.setMaxMessagesPerRun(5);
+		properties.setMaxRunDuration(Duration.ofSeconds(2));
+		SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+		ChatMessageRetentionMetrics metrics = new ChatMessageRetentionMetrics(meterRegistry);
+		ChatMessageRetentionCoordinator coordinator = new ChatMessageRetentionCoordinator(
+			store, processor, properties, metrics, steppingClock(Duration.ofMillis(500)));
+		ChatMessageRetentionStore.DueChatRoom firstRoom = new ChatMessageRetentionStore.DueChatRoom(
+			1L, Instant.parse("2026-08-01T00:00:00Z"));
+		ChatMessageRetentionStore.DueChatRoom secondRoom = new ChatMessageRetentionStore.DueChatRoom(
+			2L, Instant.parse("2026-08-01T00:00:00Z"));
+		ChatMessageRetentionStore.DueChatRoom thirdRoom = new ChatMessageRetentionStore.DueChatRoom(
+			3L, Instant.parse("2026-08-01T00:00:00Z"));
+		when(store.findDueChatRooms(any(), any(), eq(3)))
+			.thenReturn(List.of(firstRoom, secondRoom, thirdRoom), List.of());
+		when(processor.process(eq(firstRoom), any(), eq(5))).thenReturn(
+			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 1, 1, false));
+
+		ChatMessageRetentionCoordinator.RetentionRunSummary summary = coordinator.purgeExpiredMessages();
+
+		assertTrue(summary.leaseGuardAborted());
+		assertEquals(1, summary.purgedRoomCount());
+		verify(processor, never()).process(eq(secondRoom), any(), anyInt());
+		verify(processor, never()).process(eq(thirdRoom), any(), anyInt());
+		meterRegistry.close();
+	}
+
+	/** 고정 시각에서 호출마다 같은 폭으로만 진행해 실행 상한 도달 시점을 결정적으로 만든다. */
+	private Clock steppingClock(Duration step) {
+		return new Clock() {
+
+			private Instant current = Instant.parse("2026-08-02T00:00:00Z");
+
+			@Override
+			public ZoneOffset getZone() {
+				return ZoneOffset.UTC;
+			}
+
+			@Override
+			public Clock withZone(java.time.ZoneId zone) {
+				return this;
+			}
+
+			@Override
+			public Instant instant() {
+				Instant reading = current;
+				current = current.plus(step);
+				return reading;
+			}
+		};
 	}
 
 	private ListAppender<ILoggingEvent> attachLogAppender() {
