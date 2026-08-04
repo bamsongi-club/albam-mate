@@ -1724,7 +1724,7 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 
 ### 채팅 공통 계약
 
-채팅의 제품 규칙은 [P1 방 채팅 기능 명세](p1/chatting.md)를 따른다. 아래 인터페이스는 구현 예정 계약이다. [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)부터 [ADR-0034](adr/chat/0034-chat-message-retention-and-deletion.md)까지 승인됐지만, 구현과 검증이 끝나기 전에는 제공 기능을 뜻하지 않는다.
+채팅의 제품 규칙은 [P1 방 채팅 기능 명세](p1/chatting.md)를 따른다. 아래 인터페이스는 구현 예정 계약이다. [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)부터 [ADR-0034](adr/chat/0034-chat-message-retention-and-deletion.md)까지 승인됐지만, 구현과 검증이 끝나기 전에는 제공 기능을 뜻하지 않는다. 전송 제한·Redis 실패 처리의 공개 계약은 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)과 [#372 정본 반영 이슈](https://github.com/bamsongi-club/albam-mate/issues/372)에 따른다.
 
 모든 채팅 요청은 요청 시점의 방 상태와 주최자·현재 `ACTIVE` 참가자 관계를 서버에서 다시 확인한다. `RECRUITING`·`CLOSED` 방만 일반 사용자 접근을 허용하며, 참가 취소·`CANCELED`·`FINISHED` 상태는 `FORBIDDEN`으로 거절한다. 메시지 본문은 로그와 메트릭에 기록하지 않는다.
 
@@ -1756,7 +1756,20 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 | `clientMessageId` | string | Y | 1~100자. 같은 방·같은 사용자에서 재시도 멱등성의 기준 |
 | `content` | string | Y | 앞뒤 공백 제거 후 1~500자의 일반 텍스트 |
 
-검증·권한 판정은 세션, 방 존재, 방 상태·현재 관계, 본문, 전송 제한 순서로 수행한다. 같은 사용자가 같은 방에서 같은 `clientMessageId`로 다른 본문을 보내면 `400 VALIDATION_ERROR`다.
+검증·권한 판정은 세션, 방 존재, 방 상태·현재 관계, 본문, 멱등성 순서로 수행한다. 같은 사용자가 같은 방에서 같은 `clientMessageId`로 다른 본문을 보내면 `400 VALIDATION_ERROR`다. 전송 제한은 아래 검증을 통과한 신규 전송에만 적용하며 PostgreSQL 저장 직전에 두 bucket을 함께 판정한다.
+
+#### 전송 제한 계약
+
+| 대상 | 제한 키 | 허용량 | 창·TTL |
+|---|---|---:|---|
+| 사용자 | 인증된 `userId`, 모든 방 합산 | 5건/10초 | 10초 고정 창 |
+| 방 | `roomId`, 모든 참여자 합산 | 30건/10초 | 10초 고정 창 |
+
+- 첫 허용 요청이 각 bucket의 TTL을 시작한다. 이후 허용·거절 요청은 TTL을 연장하지 않는다.
+- 사용자·방 bucket의 허용 확인과 증가는 원자적으로 처리한다. 하나라도 초과하면 어느 bucket도 증가시키지 않는다.
+- 인증·관계·본문·멱등성 검증 실패, 권한 거부, 이미 저장된 동일 `clientMessageId`의 동일 payload 재전송은 quota를 소비하지 않는다.
+- 제한 초과는 `429 RATE_LIMIT_EXCEEDED`로 응답한다. `Retry-After`는 초과한 bucket의 남은 TTL을 밀리초에서 올림한 초 단위 값으로 계산하며, 두 bucket이 초과하면 더 큰 값을 사용한다. 이 헤더는 429에만 포함하고 성공 응답과 503에는 포함하지 않는다.
+- Redis 연결·명령·원자 연산·TTL 확인 실패 또는 결과 불명확은 fail closed로 처리한다. 메시지를 PostgreSQL에 저장하지 않고 `503 SERVICE_UNAVAILABLE`을 반환하며 인메모리 fallback은 허용하지 않는다.
 
 #### 오류
 
@@ -1767,7 +1780,7 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 | 주최자·현재 `ACTIVE` 참가자가 아니거나 방이 `CANCELED`·`FINISHED`임 | 403 | `FORBIDDEN` |
 | 본문·경로·멱등성 키 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 사용자·방 단위 전송 제한 초과 | 429 | `RATE_LIMIT_EXCEEDED` |
-| 세션 또는 전송 제한 상태 저장소를 확인할 수 없음 | 503 | `SERVICE_UNAVAILABLE` |
+| 세션 또는 전송 제한 상태 저장소를 확인할 수 없음 | 503 | `SERVICE_UNAVAILABLE` (전송 제한 장애는 저장 전, `Retry-After` 없음) |
 | CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
 
 ### CHAT-02 메시지 이력 조회
@@ -1856,7 +1869,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 
 `METHOD_NOT_ALLOWED`, `NOT_ACCEPTABLE`, `UNSUPPORTED_MEDIA_TYPE` 응답은 Spring MVC 예외가 제공하는 `Allow`, `Accept`, `Accept-Patch` 등의 프로토콜 헤더가 있으면 그대로 포함한다.
 
-`SERVICE_UNAVAILABLE`의 현재 적용 범위는 [채팅 API](#채팅-공통-계약)의 세 엔드포인트다. `local-multi`와 `prod`에서 채팅 요청이 Spring Session Redis의 세션 상태를 확인할 수 없으면 이 코드를 반환하며, 메시지 전송은 세션 저장소가 정상이더라도 전송 제한 상태 저장소를 확인할 수 없으면 같은 코드를 반환한다. Redis 장애 시 인메모리 구현으로 자동 대체하지 않는 근거는 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)을 따른다.
+`SERVICE_UNAVAILABLE`의 현재 적용 범위는 [채팅 API](#채팅-공통-계약)의 세 엔드포인트다. `local-multi`와 `prod`에서 채팅 요청이 Spring Session Redis의 세션 상태를 확인할 수 없으면 이 코드를 반환하며, 메시지 전송은 세션 저장소가 정상이더라도 전송 제한 상태 저장소를 확인할 수 없으면 저장 전에 같은 코드를 반환한다. 전송 제한 장애의 503에는 `Retry-After`를 포함하지 않는다. Redis 장애 시 인메모리 구현으로 자동 대체하지 않는 근거는 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)과 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)을 따른다.
 
 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트로 이 코드를 확장할지는 이 문서에서 아직 결정하지 않는다. 확장이 필요하면 적용 엔드포인트를 명시한 별도 계약 변경으로 승인받은 뒤 이 절과 [엔드포인트별 오류 매트릭스](#11-부록-엔드포인트별-오류-매트릭스)를 함께 갱신한다.
 
@@ -1870,7 +1883,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 | `SOCIAL_ACCOUNT_ALREADY_LINKED` | 409 | 해당 소셜 계정 제공자가 이미 연결되어 있습니다. | 로그인 사용자가 같은 제공자의 다른 연결을 시작함 |
 | `RATE_LIMIT_EXCEEDED` | 429 | 요청 처리 한도를 초과했습니다. 잠시 후 다시 시도해 주세요. | 인증·채팅 등 요청 횟수 또는 비밀번호 해시 동시 실행 한도 초과 |
 
-인증 요청의 `Retry-After` 계산은 [인증 요청 남용 제한](#인증-요청-남용-제한)을 따른다. 채팅 전송 제한 응답도 재시도까지 남은 초를 `Retry-After`로 반환하며, 정확한 임계값과 계산은 구현 전에 운영·보안 계약으로 확정한다.
+인증 요청의 `Retry-After` 계산은 [인증 요청 남용 제한](#인증-요청-남용-제한)을 따른다. 채팅 전송 제한은 [전송 제한 계약](#전송-제한-계약)과 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)을 따른다.
 
 ### 10.3 게임 오류
 
