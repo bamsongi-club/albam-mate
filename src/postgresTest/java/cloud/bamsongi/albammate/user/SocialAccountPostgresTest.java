@@ -203,6 +203,44 @@ class SocialAccountPostgresTest {
 	}
 
 	@Test
+	void PostgreSQL에서_같은_사용자의_같은_외부_신원_동시_연결은_한_행으로_수렴한다() throws Exception {
+		long userId = insertUser(unique("same-identity-link") + "@example.com");
+		String subject = unique("same-subject");
+		SocialIdentity identity = new SocialIdentity(
+			SocialProvider.GOOGLE,
+			subject,
+			Optional.empty(),
+			Optional.empty());
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		socialIdentityReadGate.armLink(
+			SocialProvider.GOOGLE,
+			List.of(subject, subject),
+			List.of(userId, userId));
+		try {
+			Future<SocialLinkResult> first = executor.submit(() -> socialAccountService.link(userId, identity));
+			Future<SocialLinkResult> second = executor.submit(() -> socialAccountService.link(userId, identity));
+
+			assertEquals(SocialLinkResult.LINKED, first.get(15, TimeUnit.SECONDS));
+			assertEquals(SocialLinkResult.LINKED, second.get(15, TimeUnit.SECONDS));
+			assertEquals(2, socialIdentityReadGate.absentIdentityReadCount());
+			assertEquals(2, socialIdentityReadGate.absentUserProviderReadCount());
+			assertEquals(1, socialIdentityReadGate.postGateIdentityReadCount());
+			assertEquals(0, socialIdentityReadGate.postGateUserProviderReadCount());
+			assertEquals(
+				1,
+				jdbcTemplate.queryForObject(
+					"select count(*) from social_accounts where user_id = ? and provider = ? and provider_subject = ?",
+					Integer.class,
+					userId,
+					SocialProvider.GOOGLE.name(),
+					subject));
+		} finally {
+			socialIdentityReadGate.disarm();
+			executor.shutdownNow();
+		}
+	}
+
+	@Test
 	void PostgreSQL에서_한_사용자의_같은_제공자_다른_외부_신원_동시_연결은_기존_연결을_보존한다() throws Exception {
 		long userId = insertUser(unique("same-user-link") + "@example.com");
 		String firstSubject = unique("first-subject");

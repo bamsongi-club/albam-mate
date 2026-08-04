@@ -77,7 +77,7 @@ ERD에는 승인된 P1 알림·채팅·ShedLock 저장 계약이 구현 예정 �
 | ADR | [ADR-0031](../adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](../adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](../adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md) — 승인됨 |
 | 저장·구조 계약 | [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md) |
 | 필수 검증 환경 | 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL·Redis로 구성한 `local-multi` |
-| 착수 전 확정 | 세션 TTL·직렬화 방식과 정확한 Redis key·channel namespace. 같은 `FND-10` 이슈·PR에서 관련 구성·생산 코드보다 먼저 선택값과 근거를 정본에 반영 |
+| 착수 전 확정 | #360에서 확정: `local-multi` 세션 TTL 30분, JSON 직렬화(`SecurityJacksonModules`와 `CurrentUserPrincipal` mixin), namespace `albam-mate:local-multi:session\|ratelimit\|chat:events`. `local`·`test`·`postgresTest`는 인메모리 저장소를 사용하며 `local-multi` Redis는 fallback하지 않는다. |
 
 ### 산출물
 

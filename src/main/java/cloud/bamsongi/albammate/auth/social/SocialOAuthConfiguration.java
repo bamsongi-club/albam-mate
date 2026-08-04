@@ -11,8 +11,10 @@ import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
+import org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationFilter;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 
+import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserAccessor;
 import jakarta.servlet.Filter;
 
 /** AUTH-05 OAuth 로그인을 공용 SecurityFilterChain에 더한다. */
@@ -43,6 +45,21 @@ public class SocialOAuthConfiguration {
 		return new SocialProviderAvailabilityFilter(clientRegistrationRepository);
 	}
 
+	@Bean
+	Filter socialLinkCurrentUserFilter(CurrentUserAccessor currentUserAccessor) {
+		return new SocialLinkCurrentUserFilter(currentUserAccessor);
+	}
+
+	/** 위 filter도 callback 경로에서만 의미가 있어 서블릿 컨테이너에 자동 등록하지 않는다. */
+	@Bean
+	FilterRegistrationBean<Filter> socialLinkCurrentUserFilterRegistration(
+		@Qualifier("socialLinkCurrentUserFilter") Filter socialLinkCurrentUserFilter) {
+		FilterRegistrationBean<Filter> registration = new FilterRegistrationBean<>(
+			socialLinkCurrentUserFilter);
+		registration.setEnabled(false);
+		return registration;
+	}
+
 	/**
 	 * 위 filter를 서블릿 컨테이너에 자동 등록하지 않는다.
 	 *
@@ -65,15 +82,18 @@ public class SocialOAuthConfiguration {
 	@Bean
 	Customizer<HttpSecurity> socialLoginSecurityCustomizer(
 		OAuth2AuthorizedClientRepository authorizedClientRepository,
+		SocialLinkAuthorizationRequestRepository socialLinkAuthorizationRequestRepository,
 		SocialLoginSuccessHandler socialLoginSuccessHandler,
 		SocialLoginFailureHandler socialLoginFailureHandler,
-		@Qualifier("socialProviderAvailabilityFilter") Filter socialProviderAvailabilityFilter) {
+		@Qualifier("socialProviderAvailabilityFilter") Filter socialProviderAvailabilityFilter,
+		@Qualifier("socialLinkCurrentUserFilter") Filter socialLinkCurrentUserFilter) {
 		return http -> http
 			.oauth2Login(
 				oauth2Login -> oauth2Login.loginPage(LOGIN_PAGE)
 					.authorizationEndpoint(
 						endpoint -> endpoint.baseUri(
-							SocialClientRegistrationRepository.AUTHORIZATION_BASE_URI))
+							SocialClientRegistrationRepository.AUTHORIZATION_BASE_URI)
+							.authorizationRequestRepository(socialLinkAuthorizationRequestRepository))
 					.redirectionEndpoint(
 						endpoint -> endpoint.baseUri(
 							SocialClientRegistrationRepository.CALLBACK_BASE_URI + "/*"))
@@ -81,6 +101,7 @@ public class SocialOAuthConfiguration {
 					.successHandler(socialLoginSuccessHandler)
 					.failureHandler(socialLoginFailureHandler))
 			.addFilterBefore(
-				socialProviderAvailabilityFilter, OAuth2AuthorizationRequestRedirectFilter.class);
+				socialProviderAvailabilityFilter, OAuth2AuthorizationRequestRedirectFilter.class)
+			.addFilterBefore(socialLinkCurrentUserFilter, OAuth2LoginAuthenticationFilter.class);
 	}
 }

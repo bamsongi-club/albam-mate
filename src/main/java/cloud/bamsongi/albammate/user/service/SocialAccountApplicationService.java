@@ -1,5 +1,7 @@
 package cloud.bamsongi.albammate.user.service;
 
+import java.util.Set;
+
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -7,6 +9,7 @@ import cloud.bamsongi.albammate.user.contract.SocialAccountService;
 import cloud.bamsongi.albammate.user.contract.SocialIdentity;
 import cloud.bamsongi.albammate.user.contract.SocialLinkResult;
 import cloud.bamsongi.albammate.user.contract.SocialLoginResult;
+import cloud.bamsongi.albammate.user.contract.SocialProvider;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
@@ -36,5 +39,10 @@ public class SocialAccountApplicationService implements SocialAccountService {
 		} catch (DataIntegrityViolationException exception) {
 			return transactionService.resolveLinkConflict(userId, identity);
 		}
+	}
+
+	@Override
+	public Set<SocialProvider> linkedProviders(Long userId) {
+		return userId == null ? Set.of() : transactionService.linkedProviders(userId);
 	}
 }

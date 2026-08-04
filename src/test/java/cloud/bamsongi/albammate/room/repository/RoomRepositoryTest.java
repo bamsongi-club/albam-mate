@@ -124,6 +124,18 @@ class RoomRepositoryTest {
 		assertEquals(List.of("느낌! 모임"), findPersonRoomTitles("느낌!!"));
 	}
 
+	@Test
+	void 기대한_version과_일치할_때만_ROOM_version을_claim한다() {
+		Room room = personRoom("version claim 방");
+		roomRepository.saveAndFlush(room);
+
+		assertEquals(1, roomRepository.claimVersion(room.getId(), 0L));
+		assertEquals(0, roomRepository.claimVersion(room.getId(), 0L));
+		assertEquals(
+			1L,
+			jdbcTemplate.queryForObject("select version from rooms where id = ?", Long.class, room.getId()));
+	}
+
 	private List<String> findPersonRoomTitles(String keyword) {
 		return roomRepository
 			.findPublicRoomsByTitleContainingIgnoreCase(

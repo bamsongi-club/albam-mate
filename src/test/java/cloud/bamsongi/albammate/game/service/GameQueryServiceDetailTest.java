@@ -26,6 +26,7 @@ import cloud.bamsongi.albammate.game.dto.GameDetail;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
+import cloud.bamsongi.albammate.game.repository.UserPlayedGameRepository;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 
@@ -43,12 +44,19 @@ class GameQueryServiceDetailTest {
 	@Mock
 	private GameMechanismRepository gameMechanismRepository;
 
+	@Mock
+	private UserPlayedGameRepository userPlayedGameRepository;
+
 	private GameQueryService gameQueryService;
 
 	@BeforeEach
 	void setUp() {
 		gameQueryService = new GameQueryService(
-			gameRepository, Clock.fixed(NOW, ZoneOffset.UTC), upcomingRoomCountQuery, gameMechanismRepository);
+			gameRepository,
+			Clock.fixed(NOW, ZoneOffset.UTC),
+			upcomingRoomCountQuery,
+			gameMechanismRepository,
+			userPlayedGameRepository);
 	}
 
 	@Test

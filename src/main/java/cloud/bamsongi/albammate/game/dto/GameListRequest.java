@@ -37,6 +37,8 @@ public class GameListRequest {
 
 	private List<GamePlayTimeFilter> playTime;
 
+	private List<PlayedFilter> playedFilter;
+
 	@DecimalMin("1.00") @DecimalMax("5.00") private BigDecimal complexityMin;
 
 	@DecimalMin("1.00") @DecimalMax("5.00") private BigDecimal complexityMax;
@@ -111,6 +113,17 @@ public class GameListRequest {
 		this.playTime = playTime;
 	}
 
+	public PlayedFilter getPlayedFilter() {
+		if (playedFilter == null || playedFilter.size() != 1 || playedFilter.getFirst() == null) {
+			return null;
+		}
+		return playedFilter.getFirst();
+	}
+
+	public void setPlayedFilter(List<PlayedFilter> playedFilter) {
+		this.playedFilter = playedFilter;
+	}
+
 	public BigDecimal getComplexityMin() {
 		return complexityMin;
 	}
@@ -148,6 +161,10 @@ public class GameListRequest {
 		boolean hasExclusive = exclusivePlayerCount != null
 			&& exclusivePlayerCount.stream().anyMatch(Objects::nonNull);
 		return !hasRange || !hasExclusive;
+	}
+
+	@AssertTrue(message = "playedFilter는 한 번만 전달할 수 있습니다.") public boolean isPlayedFilterSingleValue() {
+		return playedFilter == null || (playedFilter.size() == 1 && playedFilter.getFirst() != null);
 	}
 
 	public int getPage() {

@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.test.web.servlet.MockMvc;
@@ -37,17 +36,15 @@ class UserProfileHttpIntegrationTest {
 			User.create("profile-http@example.com", "{bcrypt}hash", "이전 닉네임"));
 		CsrfContext csrfContext = csrfContext(user.getId());
 
-		mockMvc.perform(get("/api/users/me").with(currentUserAuthentication(user.getId())))
+		mockMvc.perform(get("/api/users/me").cookie(csrfContext.sessionCookie()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.id").value(user.getId()))
 			.andExpect(jsonPath("$.data.nickname").value("이전 닉네임"));
 
 		mockMvc.perform(
 			patch("/api/users/me")
-				.with(currentUserAuthentication(user.getId()))
-				.session(csrfContext.session())
-				.cookie(csrfContext.cookie())
-				.header("X-XSRF-TOKEN", csrfContext.cookie().getValue())
+				.cookie(csrfContext.csrfCookie(), csrfContext.sessionCookie())
+				.header("X-XSRF-TOKEN", csrfContext.csrfCookie().getValue())
 				.contentType("application/json")
 				.content("{\"nickname\":\" 변경 닉네임 \"}"))
 			.andExpect(status().isOk())
@@ -56,7 +53,7 @@ class UserProfileHttpIntegrationTest {
 			.andExpect(jsonPath("$.data.email").doesNotExist())
 			.andExpect(jsonPath("$.data.passwordHash").doesNotExist());
 
-		mockMvc.perform(get("/api/users/me").with(currentUserAuthentication(user.getId())))
+		mockMvc.perform(get("/api/users/me").cookie(csrfContext.sessionCookie()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.nickname").value("변경 닉네임"));
 	}
@@ -67,8 +64,9 @@ class UserProfileHttpIntegrationTest {
 			.andReturn();
 		Cookie csrfCookie = csrfResult.getResponse().getCookie("XSRF-TOKEN");
 		assertNotNull(csrfCookie);
-		return new CsrfContext(
-			csrfCookie, (MockHttpSession)csrfResult.getRequest().getSession(false));
+		Cookie sessionCookie = csrfResult.getResponse().getCookie("JSESSIONID");
+		assertNotNull(sessionCookie);
+		return new CsrfContext(csrfCookie, sessionCookie);
 	}
 
 	private static org.springframework.test.web.servlet.request.RequestPostProcessor currentUserAuthentication(
@@ -78,6 +76,6 @@ class UserProfileHttpIntegrationTest {
 				new CurrentUserPrincipal(userId), null, AuthorityUtils.NO_AUTHORITIES));
 	}
 
-	private record CsrfContext(Cookie cookie, MockHttpSession session) {
+	private record CsrfContext(Cookie csrfCookie, Cookie sessionCookie) {
 	}
 }

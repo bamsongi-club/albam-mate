@@ -8,13 +8,14 @@
 
 ## 실행 환경과 실패 경계
 
-- `local-single`은 인메모리 세션·fan-out을 허용하는 빠른 단일 서버 개발 프로필이며 다중 인스턴스 검증 근거가 아니다.
+- `local-single`은 실제 Spring profile `local`을 사용하는 빠른 단일 서버 개발 환경이며 인메모리 세션·fan-out을 허용하지만 다중 인스턴스 검증 근거가 아니다.
 - P1 필수 검증 환경인 `local-multi`는 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL과 Redis로 구성한다.
 - `prod`의 목표 운영 토폴로지는 ALB·ASG 애플리케이션 인스턴스와 공용 RDS PostgreSQL·Redis로 구성한다. 이 목표는 현재 운영 배포 완료를 뜻하지 않으며, 배포·실측 상태는 [P1 기능별 상태 정본](README.md#기능별-현재-상태)의 `운영 배포·실측` 열을 따른다. 실제 AWS scale-out·WebSocket Upgrade·연결 draining 검증은 후속 OPS이며 채팅 구현 완료를 막지 않는다.
-- `local-multi`와 `prod`는 Spring Session, Pub/Sub과 사용자·방 단위 전송 제한에 하나의 Redis를 사용하되 key prefix, TTL과 channel namespace를 분리한다. Redis가 없을 때 인메모리 구현으로 자동 fallback하지 않는다.
+- `local-multi`는 Spring Session, Pub/Sub과 사용자·방 단위 전송 제한에 하나의 Redis를 사용하되 key prefix, TTL과 channel namespace를 분리한다. Redis가 없을 때 인메모리 구현으로 자동 fallback하지 않는다.
 - 세션 또는 전송 제한을 확인할 수 없으면 API 정본의 `503 SERVICE_UNAVAILABLE`로 실패한다. PostgreSQL 커밋 뒤 Redis Pub/Sub 발행·구독이 실패하면 저장 성공은 유지하고 이력 조회·다음 신호·재연결로 복구한다.
 - 운영 Redis 제품, HA, TLS, 접근 제어, 비밀 주입과 비용은 후속 OPS에서 확정한다.
-- 채팅 전송 제한의 사용자·방 임계값, 고정 창·TTL, 원자 판정, `Retry-After`와 Redis 장애 시 503 경계는 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)에서 승인했고 이 문서와 [API 정본](../API.md#전송-제한-계약)에 반영한다. 세션 TTL·직렬화 방식과 정확한 세션·Pub/Sub key·channel namespace는 후속 구현 이슈에서 별도로 확정한다.
+- 채팅 전송 제한의 사용자·방 임계값, 고정 창·TTL, 원자 판정, `Retry-After`와 Redis 장애 시 503 경계는 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)에서 승인했고 이 문서와 [API 정본](../API.md#전송-제한-계약)에 반영한다. 공용 Redis namespace의 분리와 #360에서 확정한 `local-multi` session namespace는 아래 계약과 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반)을 따른다.
+- `local-multi`의 세션 TTL은 30분이며 JSON 직렬화에 `SecurityJacksonModules`와 `CurrentUserPrincipal` mixin을 사용한다. session namespace는 `albam-mate:local-multi:session`이다.
 
 ## CHAT-01 채팅방 생성·접근
 
@@ -207,7 +208,7 @@
 | 입력·오류 | [API 공통 계약](../API.md#1-공통-계약), [채팅 API 오류 계약](../API.md#채팅-공통-계약) |
 | 로그 | [Logging 규칙](../CONVENTIONS.md#logging) |
 | 보안 | 세션 인증, CSRF, 출력 인코딩과 Redis 사용자·방 단위 전송 제한 |
-| 관련 정본 | [ADR-0049 메시지 보관·삭제와 잠금 구간](../adr/chat/0049-chat-message-retention-lock-section-boundary.md), [ADR-0038 스케줄 실행 조정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), [#288 전송 제한 계약 승인](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930), [CHAT_ROOMS](../ERD.md#chat_rooms), [SHEDLOCK](../ERD.md#shedlock) |
+| 관련 정본 | [ADR-0049 메시지 보관·삭제와 잠금 구간 경계](../adr/chat/0049-chat-message-retention-lock-section-boundary.md), [ADR-0038 스케줄 실행 조정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), [#288 전송 제한 계약 승인](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930), [CHAT_ROOMS](../ERD.md#chat_rooms), [SHEDLOCK](../ERD.md#shedlock) |
 
 ### 기능 규칙
 
@@ -227,25 +228,6 @@
 - 모든 인스턴스가 만료 삭제 스케줄을 등록하되 PostgreSQL ShedLock을 얻은 하나만
   실행한다. 잠금과 별개로 삭제 작업은 재실행해도 같은 결과로 수렴하며 각 묶음은
   독립 트랜잭션을 유지한다.
-- 기본 UTC cron은 매일 03:00이고 설정으로 바꿀 수 있다. 대표 로컬 PostgreSQL batch
-  (방 50개, 메시지 5,000개, 방별 100개 chunk) 측정을 기준으로 `chat-message-retention`의
-  `lockAtMostFor`는 2분, `lockAtLeastFor`는 5초, 정상 실행시간 경고는 30초로 둔다.
-  하나의 cron 실행은 batch를 반복하며, 각 batch의 5,000개 후보 예산은 모든 방이 공유한다.
-  한 방의 실패는 현재 주기에서 해당 방만 제외하고 뒤따르는 방 처리는 계속한다.
-- 한 잠금 구간은 실행 상한 1분 안에서만 작업한다. batch 조회 전과 각 방의 chunk 처리 전에
-  상한 도달을 확인해 중단하고, 조회·삭제·완료 질의에는 10초 시간 상한을 둔다. 마지막 확인
-  뒤에 진행 중인 chunk까지 더해도 상한이 임대보다 짧도록 `maxRunDuration + 3 × queryTimeout
-  < lockAtMostFor`를 기동 시점에 검증한다.
-- 상한에 걸린 적체는 다음 일일 스케줄로 미루지 않는다. 구간이 상한에서 중단되면 같은 cron
-  실행 안에서 잠금을 다시 얻어 최대 30구간까지 이어 처리하므로, 만료 삭제는 ADR-0049의
-  24시간 상한 안에서 완료된다. 30구간을 모두 소진하고도 적체가 남으면 경고 로그와 전용
-  metric으로 알리고 상한·주기를 조정한다. 구간 중단과 삭제 지연도 각각 metric으로 남긴다.
-- `V16` 전진 Flyway는 `SHEDLOCK` 테이블만 생성한다. local profile의
-  `db/local/afterMigrate.sql` callback이 기존 ROOM을 상태별 보관 값으로
-  `CHAT_ROOMS`에 멱등 초기화하고 기존 행은 보존한다. production profile은
-  `db/local`을 로드하지 않으며 live 운영 ROOM backfill·쓰기와 경쟁하는 절체·최종
-  보정·배포 절차는 [ADR-0045](../adr/chat/0045-chat-room-schema-and-backfill-boundary.md)와
-  #281의 별도 운영 경계로 둔다.
 
 ### 완료 기준
 

@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.game.service;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -22,12 +23,15 @@ import cloud.bamsongi.albammate.game.contract.UpcomingRoomCountQuery;
 import cloud.bamsongi.albammate.game.dto.GameDetail;
 import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
+import cloud.bamsongi.albammate.game.dto.PlayedFilter;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.repository.GameListRow;
 import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
+import cloud.bamsongi.albammate.game.repository.UserPlayedGameRepository;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.global.exception.UnauthenticatedException;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
@@ -40,6 +44,7 @@ public class GameQueryService implements GameQuery {
 	@NonNull private final Clock clock;
 	@NonNull private final UpcomingRoomCountQuery upcomingRoomCountQuery;
 	@NonNull private final GameMechanismRepository gameMechanismRepository;
+	@NonNull private final UserPlayedGameRepository userPlayedGameRepository;
 
 	/**
 	 * 게임 이름 검색 결과를 페이지로 조회하고 조회 시각 기준 예정 모임 수를 결합한다.
@@ -51,7 +56,8 @@ public class GameQueryService implements GameQuery {
 	 * @return 예정 모임 수가 포함된 게임 목록 페이지
 	 */
 	public Page<GameListItem> findPage(String keyword, Pageable pageable) {
-		return findPage(GameListSearchCriteria.keywordOnly(keyword), pageable.getPageNumber(), pageable.getPageSize());
+		return findPage(GameListSearchCriteria.keywordOnly(keyword), pageable.getPageNumber(), pageable.getPageSize(),
+			null);
 	}
 
 	/**
@@ -69,7 +75,7 @@ public class GameQueryService implements GameQuery {
 		GameListRequest request = new GameListRequest();
 		request.setKeyword(keyword);
 		request.setUpcomingOnly(upcomingOnly);
-		return findPage(request, page, size);
+		return findPage(request, page, size, null);
 	}
 
 	/**
@@ -79,12 +85,24 @@ public class GameQueryService implements GameQuery {
 	 * @return 예정 모임 수가 포함된 게임 목록 페이지
 	 */
 	public Page<GameListItem> findPage(GameListRequest request) {
-		return findPage(request, request.getPage(), request.getSize());
+		return findPage(request, null);
 	}
 
-	private Page<GameListItem> findPage(GameListRequest request, int page, int size) {
+	public Page<GameListItem> findPage(GameListRequest request, Long currentUserId) {
+		return findPage(request, request.getPage(), request.getSize(), currentUserId);
+	}
+
+	private Page<GameListItem> findPage(GameListRequest request, int page, int size, Long currentUserId) {
+		PlayedFilter playedFilter = request.getPlayedFilter();
+		if (playedFilter != null && currentUserId == null) {
+			throw new UnauthenticatedException();
+		}
 		validatePublicMechanismCodes(request.getMechanism());
-		return findPage(GameListSearchCriteria.from(request), page, size);
+		GameListSearchCriteria criteria = GameListSearchCriteria.from(request);
+		if (playedFilter != null) {
+			criteria = criteria.withPlayedFilter(currentUserId);
+		}
+		return findPage(criteria, page, size, currentUserId);
 	}
 
 	private void validatePublicMechanismCodes(List<String> requestedCodes) {
@@ -94,7 +112,8 @@ public class GameQueryService implements GameQuery {
 		}
 	}
 
-	private Page<GameListItem> findPage(GameListSearchCriteria criteria, int page, int size) {
+	private Page<GameListItem> findPage(
+		GameListSearchCriteria criteria, int page, int size, Long currentUserId) {
 		Pageable pageable = PageRequest.of(
 			page, size, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
 		Map<Long, Long> upcomingRoomCounts = Map.of();
@@ -106,9 +125,13 @@ public class GameQueryService implements GameQuery {
 			criteria = criteria.withUpcomingGameIds(upcomingRoomCounts.keySet());
 		}
 
-		Page<Game> games = gameRepository.findAll(criteria.toSpecification(), pageable);
+		GameListSearchCriteria pageCriteria = criteria;
+		Page<Game> games = gameRepository.findAll(pageCriteria.toSpecification(), pageable);
 		if (games.isEmpty()) {
-			return games.map(game -> GameListItem.from(GameListRow.from(game), 0L));
+			return games
+				.map(game -> GameListItem.from(GameListRow.from(game), 0L,
+					playedByMe(pageCriteria, currentUserId, game.getId(),
+						java.util.Set.of())));
 		}
 
 		if (!criteria.isUpcomingOnly()) {
@@ -118,8 +141,28 @@ public class GameQueryService implements GameQuery {
 		}
 
 		Map<Long, Long> counts = upcomingRoomCounts;
+		var playedGameIds = currentUserId == null || pageCriteria.getPlayedFilter() != null
+			? java.util.Set.<Long>of()
+			: new HashSet<>(
+				userPlayedGameRepository.findGameIdsByUserIdAndGameIdIn(
+					currentUserId,
+					games.getContent().stream().map(Game::getId).toList()));
 		return games.map(
-			game -> GameListItem.from(GameListRow.from(game), counts.getOrDefault(game.getId(), 0L)));
+			game -> GameListItem.from(
+				GameListRow.from(game),
+				counts.getOrDefault(game.getId(), 0L),
+				playedByMe(pageCriteria, currentUserId, game.getId(), playedGameIds)));
+	}
+
+	private Boolean playedByMe(
+		GameListSearchCriteria criteria, Long currentUserId, Long gameId, java.util.Set<Long> playedGameIds) {
+		if (currentUserId == null) {
+			return null;
+		}
+		if (criteria.getPlayedFilter() != null) {
+			return criteria.getPlayedFilter() == PlayedFilter.PLAYED_ONLY;
+		}
+		return playedGameIds.contains(gameId);
 	}
 
 	/**
@@ -130,6 +173,10 @@ public class GameQueryService implements GameQuery {
 	 * @throws BusinessException 게임이 없으면 {@link ErrorCode#GAME_NOT_FOUND}
 	 */
 	public GameDetail findById(Long gameId) {
+		return findById(gameId, null);
+	}
+
+	public GameDetail findById(Long gameId, Long currentUserId) {
 		Game game = gameRepository
 			.findById(gameId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.GAME_NOT_FOUND));
@@ -137,7 +184,14 @@ public class GameQueryService implements GameQuery {
 			.findUpcomingRoomCounts(List.of(game.getId()), Instant.now(clock))
 			.getOrDefault(game.getId(), 0L);
 
-		return GameDetail.from(game, upcomingRoomCount);
+		Boolean playedByMe = playedByMe(currentUserId, gameId);
+		return GameDetail.from(game, upcomingRoomCount, playedByMe);
+	}
+
+	private Boolean playedByMe(Long currentUserId, Long gameId) {
+		return currentUserId == null
+			? null
+			: userPlayedGameRepository.existsByUserIdAndGameId(currentUserId, gameId);
 	}
 
 	@Override

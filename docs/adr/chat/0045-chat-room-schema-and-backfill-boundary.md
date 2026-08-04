@@ -24,14 +24,14 @@
 
 | 대안 | 장점 | 비용·위험 | 판단 |
 | --- | --- | --- | --- |
-| V16 스키마와 기존 ROOM backfill을 하나의 공통 Flyway에 포함 | 배포 단계가 짧고 별도 명령이 없다. | production 기동 스냅샷이 ROOM 쓰기와 경합하고, 누락·최종 보정을 자동으로 보장하지 못한다. | 제외 |
-| V16 스키마 전용 + local profile `afterMigrate.sql` callback backfill | local 검증 데이터는 자동으로 복구하면서 production 기동은 스키마만 준비한다. | local callback은 live 운영 backfill·절체를 대체하지 않으며, #281 운영 작업이 별도로 필요하다. | 선택 |
-| V16 스키마 전용 + 명시적 one-shot/maintenance backfill만 사용 | live 절체 경계를 가장 명확하게 운영할 수 있다. | local 개발·검증 데이터 복구에도 별도 실행이 필요하다. | 보류 |
+| V6 스키마와 기존 ROOM backfill을 하나의 공통 Flyway에 포함 | 배포 단계가 짧고 별도 명령이 없다. | production 기동 스냅샷이 ROOM 쓰기와 경합하고, 누락·최종 보정을 자동으로 보장하지 못한다. | 제외 |
+| V6 스키마 전용 + local profile `afterMigrate.sql` callback backfill | local 검증 데이터는 자동으로 복구하면서 production 기동은 스키마만 준비한다. | local callback은 live 운영 backfill·절체를 대체하지 않으며, #281 운영 작업이 별도로 필요하다. | 선택 |
+| V6 스키마 전용 + 명시적 one-shot/maintenance backfill만 사용 | live 절체 경계를 가장 명확하게 운영할 수 있다. | local 개발·검증 데이터 복구에도 별도 실행이 필요하다. | 보류 |
 | ROOM 생성 시 누락 채팅방을 지연 생성 | backfill 작업을 줄일 수 있다. | 첫 접근·상태 전환과 데이터 생성이 결합되고, 기존 ROOM 전체 준비 완료를 명확히 증명하기 어렵다. | 제외 |
 
 ## 결정
 
-1. `V16__create_p1_chat_retention_schema.sql`은 `SHEDLOCK` 테이블만 생성한다. 공통 Flyway는 기존 `ROOMS`를 조회하거나 `CHAT_ROOMS` 행을 삽입·갱신하지 않는다.
+1. `V6__create_p1_chat_room_schema.sql`은 `CHAT_ROOMS` 테이블·FK·유일 제약·보관 완료 CHECK 등 스키마만 생성한다. 기존 `ROOMS`를 조회하거나 `CHAT_ROOMS` 행을 삽입·갱신하지 않는다.
 2. local profile은 `classpath:db/local`을 Flyway 위치로 포함하고, `afterMigrate.sql` callback이 기존 `CHAT_ROOMS`가 없는 ROOM만 상태별 보관 값으로 멱등 초기화한다. 이미 있는 `CHAT_ROOMS` 행은 보존한다.
 3. production profile은 `db/local`을 로드하지 않는다. live 운영 ROOM의 채팅방 생성·상태별 초기화·ROOM 생성·상태 전환 경합·최종 보정·배포 절체는 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)이 소유하는 별도 작업으로 수행한다.
 4. 서비스 중단·트래픽 차단·rolling 배포 제약처럼 별도 운영 권한이 필요한 절체는 이 ADR이 승인하지 않는다. 필요하면 사용자·OPS 승인을 별도로 기록한다.
@@ -65,9 +65,9 @@
 
 - 상태: 검증됨
 - 근거:
-    - 결정: PR #366의 수정 방향으로 사용자가 local callback backfill 대안을 선택했고, #289 구현 범위를 V16 schema-only와 local callback으로 확정했다.
-    - 구현·테스트: V16 공통 migration의 ShedLock schema-only, local callback의 멱등 초기화·기존 행 보존·상태별 값과 lockAtLeastFor 동작을 Testcontainers PostgreSQL 11개 테스트로 확인했다.
-    - 정적 검사: 문서 링크, Spotless, Convention 검사가 통과했다.
+    - 구현·테스트: #366의 V16 schema-only와 local callback의 멱등 초기화·기존 행 보존·상태별 보관 값을 Testcontainers PostgreSQL 테스트로 확인했다.
+    - 정적 검사: 문서 링크와 diff 검사를 통과했다.
+- 미검증:
     - 범위: #281의 live 운영 backfill·ROOM 쓰기 경계·최종 보정·배포 절체는 이 ADR이 승인하지 않은 별도 운영 범위로 남긴다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

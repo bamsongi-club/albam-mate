@@ -176,5 +176,6 @@ class GameQueryServiceListIntegrationTest {
 		Clock fixedClock() {
 			return Clock.fixed(NOW, ZoneOffset.UTC);
 		}
+
 	}
 }

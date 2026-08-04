@@ -13,6 +13,7 @@ import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.service.GameQueryService;
 import cloud.bamsongi.albammate.global.response.ApiResponse;
 import cloud.bamsongi.albammate.global.response.PageResponse;
+import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserAccessor;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import lombok.NonNull;
@@ -24,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 public class GameController {
 
 	@NonNull private final GameQueryService gameQueryService;
+	@NonNull private final CurrentUserAccessor currentUserAccessor;
 
 	@GetMapping
 	public ApiResponse<PageResponse<GameListItem>> listGames(
@@ -31,11 +33,13 @@ public class GameController {
 		GameListRequest request) {
 		return ApiResponse.success(
 			HttpStatus.OK,
-			PageResponse.from(gameQueryService.findPage(request)));
+			PageResponse.from(gameQueryService.findPage(request, currentUserAccessor.currentUserId().orElse(null))));
 	}
 
 	@GetMapping("/{gameId}")
 	public ApiResponse<GameDetail> getGameDetail(@PathVariable @Min(1) Long gameId) {
-		return ApiResponse.success(HttpStatus.OK, gameQueryService.findById(gameId));
+		return ApiResponse.success(
+			HttpStatus.OK,
+			gameQueryService.findById(gameId, currentUserAccessor.currentUserId().orElse(null)));
 	}
 }

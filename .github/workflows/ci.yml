@@ -47,6 +47,16 @@ jobs:
       - name: Build and verify
         run: ./gradlew build -x jacocoTestCoverageVerification --no-daemon --stacktrace
 
+      - name: Verify local-multi runtime
+        run: |
+          docker compose --env-file .env.example -f compose.local-multi.yml config --quiet
+          docker compose --env-file .env.example -f compose.local-multi.yml up -d --build --wait
+          ./gradlew postgresTest --tests "cloud.bamsongi.albammate.global.security.session.LocalMultiProxyRuntimePostgresTest" -Dissue360.localMultiProxy=true --no-daemon --stacktrace
+
+      - name: Stop local-multi runtime
+        if: ${{ always() }}
+        run: docker compose --env-file .env.example -f compose.local-multi.yml down
+
       # 두 Test 태스크가 모두 포함된 하나의 태스크 그래프에서 합산 커버리지를 판정한다.
       - name: Verify PostgreSQL schema and branch coverage
         run: ./gradlew postgresTest jacocoAllTestReport jacocoAllTestCoverageVerification --no-daemon --stacktrace

@@ -187,6 +187,13 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .menu-arrow { color: var(--gray); flex: 0 0 auto; font-size: 17px; line-height: 1; }
 .menu-panel { border-top: 1px solid var(--line); padding: 16px 18px; }
 .menu-panel input { flex: 1; min-width: 140px; }
+.menu-row.static:hover { background: none; }
+.social-link-row { align-items: center; display: flex; font-size: 14px; font-weight: 700; gap: 12px; justify-content: space-between; min-height: 44px; }
+.social-link-row + .social-link-row { border-top: 1px solid var(--line); }
+.social-link-state { color: var(--sub); font-size: 13px; font-weight: 700; }
+.social-auth { border-top: 1px solid var(--line); display: grid; gap: 8px; margin-top: 20px; padding-top: 16px; }
+.social-auth-label { color: var(--sub); font-size: 13px; font-weight: 700; }
+.social-auth-btn { width: 100%; }
 .infobox-action { color: var(--accent-dark); font-weight: 800; }
 .infobox-action:hover { text-decoration: underline; }
 .banner { border-radius: 12px; font-size: 14px; font-weight: 800; margin-bottom: 16px; padding: 11px 16px; }

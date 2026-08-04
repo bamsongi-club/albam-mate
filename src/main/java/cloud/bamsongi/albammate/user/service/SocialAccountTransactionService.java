@@ -1,5 +1,8 @@
 package cloud.bamsongi.albammate.user.service;
 
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -7,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import cloud.bamsongi.albammate.user.contract.SocialIdentity;
 import cloud.bamsongi.albammate.user.contract.SocialLinkResult;
 import cloud.bamsongi.albammate.user.contract.SocialLoginResult;
+import cloud.bamsongi.albammate.user.contract.SocialProvider;
 import cloud.bamsongi.albammate.user.entity.SocialAccount;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.SocialAccountRepository;
@@ -66,6 +70,14 @@ class SocialAccountTransactionService {
 		socialAccountRepository.saveAndFlush(
 			SocialAccount.create(user, identity.provider(), identity.providerSubject()));
 		return SocialLinkResult.LINKED;
+	}
+
+	@Transactional(readOnly = true)
+	public Set<SocialProvider> linkedProviders(Long userId) {
+		return socialAccountRepository.findAllByUserId(userId)
+			.stream()
+			.map(SocialAccount::getProvider)
+			.collect(Collectors.toUnmodifiableSet());
 	}
 
 	@Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
