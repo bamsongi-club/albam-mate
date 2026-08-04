@@ -125,8 +125,13 @@ export function setUnauthenticatedHandler(handler) {
 
 function query(parameters) {
   const search = new URLSearchParams();
+  const append = (key, value) => {
+    if (value !== undefined && value !== null && value !== '') search.append(key, String(value));
+  };
+  // 배열은 같은 이름을 반복해 전달한다. 빈 배열은 조건 없음과 같아 아무것도 붙이지 않는다.
   Object.entries(parameters).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') search.set(key, String(value));
+    if (Array.isArray(value)) value.forEach((item) => append(key, item));
+    else append(key, value);
   });
   const value = search.toString();
   return value ? '?' + value : '';
@@ -135,11 +140,26 @@ function query(parameters) {
 export const api = {
   getMyProfile: () => request('/api/users/me'),
   getGame: (gameId, signal) => request('/api/games/' + gameId, { signal }),
-  getGames: ({ keyword, upcomingOnly, page = 0, size = 10 }, signal) =>
-    request('/api/games' + query({ keyword, upcomingOnly, page, size }), { signal }),
+  getGames: ({ keyword, upcomingOnly, playerCount, playTime, complexityMin, complexityMax, page = 0, size = 10 }, signal) =>
+    request('/api/games' + query({ keyword, upcomingOnly, playerCount, playTime, complexityMin, complexityMax, page, size }), { signal }),
   getRoom: (roomId, signal) => request('/api/rooms/' + roomId, { signal }),
-  getRooms: ({ type, gameId, keyword, page = 0, size = 10 }, signal) =>
-    request('/api/rooms' + query({ type, gameId, keyword, page, size }), { signal }),
+  getRooms: (
+    { type, gameId, keyword, startsAtFrom, startsAtTo, minRemainingSeats, experienceLevels, rulemasterOnly, page = 0, size = 10 },
+    signal
+  ) =>
+    request('/api/rooms' + query({
+      type,
+      gameId,
+      keyword,
+      startsAtFrom,
+      startsAtTo,
+      minRemainingSeats,
+      experienceLevels,
+      // 룰마스터 진행 여부는 조건으로 쓸 때만 보낸다. false는 조건 없음과 같다.
+      rulemasterOnly: rulemasterOnly ? 'true' : undefined,
+      page,
+      size
+    }), { signal }),
   getMyRooms: ({ role, page = 0, size = 10 }, signal) =>
     request('/api/users/me/rooms' + query({ role, page, size }), { signal }),
   getNotifications: ({ page = 0, size = 10 } = {}, signal) =>

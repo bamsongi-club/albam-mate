@@ -27,10 +27,58 @@ const PASSWORD_MIN_CODE_POINTS = 15;
 const PASSWORD_MAX_CODE_POINTS = 64;
 const PASSWORD_MAX_UTF8_BYTES = 72;
 const ROOM_TYPE_FILTERS = [
-  { value: '', label: '전체', short: '전체' },
-  { value: 'GAME_FOCUSED', label: '게임 중심', short: '게임' },
-  { value: 'PERSON_FOCUSED', label: '사람 중심', short: '사람' }
+  { value: '', label: '전체' },
+  { value: 'GAME_FOCUSED', label: '게임 중심' },
+  { value: 'PERSON_FOCUSED', label: '사람 중심' }
 ];
+// Asia/Seoul은 일광절약시간을 쓰지 않아 오프셋이 항상 같다.
+const SEOUL_OFFSET = '+09:00';
+// 라디오 그룹이 실제 조건을 그대로 나타내도록, 특정 날짜를 고른 상태도 선택지 하나로 둔다.
+const DATE_EXACT = 'EXACT';
+const DATE_PRESET_LABEL = {
+  TODAY: '오늘',
+  WEEKEND: '이번 주말',
+  THIS_WEEK: '이번 주'
+};
+// 프리셋과 지정 날짜는 함께 쓰지 않는다. 한쪽을 고르면 다른 쪽은 비운다.
+const EMPTY_ROOM_FILTERS = {
+  datePreset: '',
+  date: '',
+  minRemainingSeats: '',
+  experienceLevel: '',
+  rulemasterOnly: false
+};
+// 게임 필터 상태는 쿼리 파라미터 이름과 값을 그대로 쓴다. 빈 문자열은 조건 없음이라 요청에서 빠진다.
+const EMPTY_GAME_FILTERS = {
+  playerCount: '',
+  playTime: '',
+  complexityMin: '',
+  complexityMax: '',
+  upcomingOnly: false
+};
+const EMPTY_GAME_FILTER_KEY = JSON.stringify(EMPTY_GAME_FILTERS);
+// 10은 정확히 10명이 아니라 최대 가능 인원이 10 이상이라는 뜻이다.
+const PLAYER_COUNT_OPTIONS = [
+  ...Array.from({ length: 9 }, (_, index) => ({ value: index + 1, label: index + 1 + '명' })),
+  { value: 10, label: '10명 이상' }
+];
+const PLAY_TIME_LABEL = {
+  SHORT: '20분 이하',
+  MEDIUM: '20분 초과 60분 이하',
+  LONG: '60분 초과'
+};
+// 난이도 점대는 계약의 닫힌 구간 하한·상한으로 보낸다. 5점만 있는 마지막 칸은 상한도 5다.
+const COMPLEXITY_BANDS = [
+  { value: '1', label: '1점대', min: '1', max: '1.99' },
+  { value: '2', label: '2점대', min: '2', max: '2.99' },
+  { value: '3', label: '3점대', min: '3', max: '3.99' },
+  { value: '4', label: '4점대', min: '4', max: '4.99' },
+  { value: '5', label: '5점', min: '5', max: '5' }
+];
+
+function complexityBandOf(filters) {
+  return COMPLEXITY_BANDS.find((band) => band.min === filters.complexityMin && band.max === filters.complexityMax);
+}
 
 function zeroPad(value) {
   return String(value).padStart(2, '0');
@@ -90,10 +138,46 @@ function todayInSeoul() {
   return isoDateInSeoul(new Date());
 }
 
+function addIsoDays(isoDate, days) {
+  const parts = dateParts(isoDate);
+  if (!parts) return '';
+  const moved = new Date(Date.UTC(parts.year, parts.monthIndex, parts.day + days));
+  return isoDateFromParts(moved.getUTCFullYear(), moved.getUTCMonth(), moved.getUTCDate());
+}
+
+function nextIsoDate(isoDate) {
+  return addIsoDays(isoDate, 1);
+}
+
+// 0은 일요일, 6은 토요일이다.
+function weekdayOf(isoDate) {
+  const parts = dateParts(isoDate);
+  return parts ? new Date(Date.UTC(parts.year, parts.monthIndex, parts.day)).getUTCDay() : null;
+}
+
+// 프리셋을 오늘 기준 반열린 구간 [시작 날짜, 끝 날짜)로 바꾼다. 끝 날짜는 결과에 포함하지 않는다.
+function datePresetRange(preset, today) {
+  const weekday = weekdayOf(today);
+  if (weekday === null) return null;
+  if (preset === 'TODAY') return { from: today, to: nextIsoDate(today) };
+  // 주말은 다가오는 토요일과 일요일이다. 토·일 당일에는 남은 주말만 남긴다.
+  if (preset === 'WEEKEND') {
+    if (weekday === 0) return { from: today, to: nextIsoDate(today) };
+    const saturday = addIsoDays(today, 6 - weekday);
+    return { from: saturday, to: addIsoDays(saturday, 2) };
+  }
+  // 이번 주는 오늘부터 다가오는 일요일까지다. 일요일 당일에는 오늘 하루다.
+  if (preset === 'THIS_WEEK') return { from: today, to: addIsoDays(today, (7 - weekday) % 7 + 1) };
+  return null;
+}
+
 function defaultRoomDate(today = todayInSeoul()) {
-  const parts = dateParts(today);
-  const tomorrow = new Date(Date.UTC(parts.year, parts.monthIndex, parts.day + 1));
-  return isoDateFromParts(tomorrow.getUTCFullYear(), tomorrow.getUTCMonth(), tomorrow.getUTCDate());
+  return nextIsoDate(today);
+}
+
+// 날짜 필터는 일 단위로 고르고, 요청에는 Asia/Seoul 기준 해당 날짜 00:00의 오프셋 있는 시각을 보낸다.
+function seoulDayStart(isoDate) {
+  return dateParts(isoDate) ? isoDate + 'T00:00:00' + SEOUL_OFFSET : undefined;
 }
 
 function millisecondsUntilNextSeoulMidnight() {
@@ -527,15 +611,135 @@ function HomeView({ onBrowsePeople, onSearchGame, dataVersion }) {
   );
 }
 
+function roomFilterParameters(filters, today) {
+  const range = datePresetRange(filters.datePreset, today) || { from: filters.date, to: nextIsoDate(filters.date) };
+  return {
+    startsAtFrom: seoulDayStart(range.from),
+    startsAtTo: seoulDayStart(range.to),
+    minRemainingSeats: filters.minRemainingSeats,
+    // 파라미터 이름은 계약대로 복수형이며 화면에서는 한 값만 고른다.
+    experienceLevels: filters.experienceLevel,
+    rulemasterOnly: filters.rulemasterOnly
+  };
+}
+
+// 요청에 실제로 담기는 값만 비교해 조회 의존성과 초기화 버튼 노출을 판정한다.
+function roomFilterKey(filters, today) {
+  return JSON.stringify(roomFilterParameters(filters, today));
+}
+
+const EMPTY_ROOM_FILTER_KEY = roomFilterKey(EMPTY_ROOM_FILTERS, '');
+
+// 조건은 모두 한 값만 고르므로 라디오로 그린다. 값이 빈 문자열인 선택지가 조건 없음이다.
+function FilterRadioGroup({ name, label, value, options, onChange, children }) {
+  return (
+    <fieldset className="filter-group">
+      <legend>{label}</legend>
+      {options.map((option) => (
+        <label className="filter-option" key={String(option.value)}>
+          <input type="radio" name={name} checked={value === option.value} onChange={() => onChange(option.value)} />
+          {option.label}
+        </label>
+      ))}
+      {children}
+    </fieldset>
+  );
+}
+
+function FilterCheckGroup({ label, checked, onChange, text }) {
+  return (
+    <fieldset className="filter-group">
+      <legend>{label}</legend>
+      <label className="filter-option">
+        <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+        {text}
+      </label>
+    </fieldset>
+  );
+}
+
+// 고른 조건은 칩으로 보여 주고 칩마다 그 조건만 해제한다. 패널을 접어도 무엇이 걸려 있는지 남는다.
+function FilterPanel({ chips, onReset, children }) {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <div className="filter-shell">
+      <div className="filter-bar">
+        <button type="button" className={'filter-toggle' + (isOpen ? ' on' : '')} aria-expanded={isOpen} aria-controls="search-filter-panel" aria-label="조건 필터" onClick={() => setIsOpen(!isOpen)}>
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><line x1="4" y1="8" x2="20" y2="8" /><line x1="4" y1="16" x2="20" y2="16" /><circle cx="10" cy="8" r="2.4" fill="currentColor" stroke="none" /><circle cx="15" cy="16" r="2.4" fill="currentColor" stroke="none" /></svg>
+        </button>
+        {chips.map((chip) => (
+          <button type="button" className="filter-chip" key={chip.key} aria-label={chip.label + ' 조건 해제'} onClick={chip.onClear}>{chip.label}<span aria-hidden="true">×</span></button>
+        ))}
+      </div>
+      {isOpen && (
+        <div className="filter-panel" id="search-filter-panel">
+          <div className="filter-groups">{children}</div>
+          <div className="filter-panel-foot">
+            {!!chips.length && <button type="button" className="filter-reset" onClick={onReset}>초기화</button>}
+            <button type="button" className="filter-close" onClick={() => setIsOpen(false)}>닫기</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function roomFilterChips(filters, onChange, roomType, onRoomTypeChange) {
+  const update = (patch) => onChange({ ...filters, ...patch });
+  const chips = [];
+  const type = ROOM_TYPE_FILTERS.find((filter) => filter.value === roomType);
+  if (roomType) chips.push({ key: 'type', label: type.label, onClear: () => onRoomTypeChange('') });
+  if (filters.datePreset) chips.push({ key: 'datePreset', label: DATE_PRESET_LABEL[filters.datePreset], onClear: () => update({ datePreset: '' }) });
+  if (filters.date) chips.push({ key: 'date', label: formatRoomDate(filters.date), onClear: () => update({ date: '' }) });
+  if (filters.minRemainingSeats) chips.push({ key: 'seats', label: filters.minRemainingSeats + '자리 이상', onClear: () => update({ minRemainingSeats: '' }) });
+  if (filters.experienceLevel) chips.push({ key: 'experience', label: EXP_LABEL[filters.experienceLevel], onClear: () => update({ experienceLevel: '' }) });
+  if (filters.rulemasterOnly) chips.push({ key: 'rulemaster', label: '룰마스터 진행', onClear: () => update({ rulemasterOnly: false }) });
+  return chips;
+}
+
+function RoomFilters({ filters, onChange, today, roomType, onRoomTypeChange, counts }) {
+  const update = (patch) => onChange({ ...filters, ...patch });
+  const withCount = (filter) => filter.label + (counts ? ' (' + counts[filter.value] + ')' : '');
+  return (
+    <FilterPanel
+      chips={roomFilterChips(filters, onChange, roomType, onRoomTypeChange)}
+      onReset={() => { onRoomTypeChange(''); onChange(EMPTY_ROOM_FILTERS); }}
+    >
+      <FilterRadioGroup name="room-filter-type" label="유형" value={roomType} onChange={onRoomTypeChange}
+        options={ROOM_TYPE_FILTERS.map((filter) => ({ value: filter.value, label: withCount(filter) }))} />
+      <FilterRadioGroup name="room-filter-date" label="날짜" value={filters.date ? DATE_EXACT : filters.datePreset}
+        onChange={(value) => update(value === DATE_EXACT ? { datePreset: '', date: defaultRoomDate(today) } : { datePreset: value, date: '' })}
+        options={[
+          { value: '', label: '전체' },
+          ...Object.entries(DATE_PRESET_LABEL).map(([code, label]) => ({ value: code, label })),
+          { value: DATE_EXACT, label: '날짜 지정' }
+        ]}>
+        {!!filters.date && (
+          <div className="filter-option-picker">
+            <DatePicker id="room-filter-date-exact" value={filters.date} onChange={(date) => update({ date, datePreset: '' })} today={today} placeholder="날짜 지정" />
+          </div>
+        )}
+      </FilterRadioGroup>
+      <FilterRadioGroup name="room-filter-seats" label="최소 남은 자리" value={filters.minRemainingSeats} onChange={(minRemainingSeats) => update({ minRemainingSeats })}
+        options={[{ value: '', label: '전체' }, ...CAPACITY_OPTIONS.map((seats) => ({ value: String(seats), label: seats + '자리 이상' }))]} />
+      <FilterRadioGroup name="room-filter-experience" label="경험 수준" value={filters.experienceLevel} onChange={(experienceLevel) => update({ experienceLevel })}
+        options={[{ value: '', label: '전체' }, ...Object.entries(EXP_LABEL).map(([code, label]) => ({ value: code, label }))]} />
+      <FilterCheckGroup label="진행" checked={filters.rulemasterOnly} onChange={(rulemasterOnly) => update({ rulemasterOnly })} text="룰마스터 진행만" />
+    </FilterPanel>
+  );
+}
+
 // 유형 필터에 붙일 개수. 방 유형은 두 가지뿐이라 전체는 둘의 합으로 구한다.
-function useRoomTypeCounts(keyword, dataVersion) {
+function useRoomTypeCounts(keyword, filters, today, dataVersion) {
   const [counts, setCounts] = useState(null);
+  const filterKey = roomFilterKey(filters, today);
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
+    const parameters = roomFilterParameters(filters, today);
     Promise.all([
-      api.getRooms({ type: 'GAME_FOCUSED', keyword, page: 0, size: 1 }, controller.signal),
-      api.getRooms({ type: 'PERSON_FOCUSED', keyword, page: 0, size: 1 }, controller.signal)
+      api.getRooms({ type: 'GAME_FOCUSED', keyword, ...parameters, page: 0, size: 1 }, controller.signal),
+      api.getRooms({ type: 'PERSON_FOCUSED', keyword, ...parameters, page: 0, size: 1 }, controller.signal)
     ])
       .then(([game, person]) => {
         if (!active) return;
@@ -545,18 +749,20 @@ function useRoomTypeCounts(keyword, dataVersion) {
       })
       .catch(() => { if (active) setCounts(null); });
     return () => { active = false; controller.abort(); };
-  }, [keyword, dataVersion]);
+  }, [keyword, filterKey, dataVersion]);
   return counts;
 }
 
-function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChange, dataVersion }) {
+function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChange, roomFilters, onRoomFiltersChange, dataVersion }) {
   const [input, setInput] = useState(roomQuery);
   const keyword = roomQuery.trim();
-  const counts = useRoomTypeCounts(keyword, dataVersion);
+  const today = useSeoulToday();
+  const filterKey = roomFilterKey(roomFilters, today);
+  const counts = useRoomTypeCounts(keyword, roomFilters, today, dataVersion);
   const { data, loading, error, setPage } = usePaginatedRequest(
     // 유형을 비우면 두 유형의 공개 방을 함께 받는다.
-    (page, signal) => api.getRooms({ type: roomType, keyword, page, size: ROOM_LIST_PAGE_SIZE }, signal),
-    [roomType, keyword, dataVersion]
+    (page, signal) => api.getRooms({ type: roomType, keyword, ...roomFilterParameters(roomFilters, today), page, size: ROOM_LIST_PAGE_SIZE }, signal),
+    [roomType, keyword, filterKey, dataVersion]
   );
   const rooms = (data?.content || []).map(normalizeRoom);
   useEffect(() => setInput(roomQuery), [roomQuery]);
@@ -564,11 +770,6 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
     <>
       <h2><SectionIcon name="rooms" />모임 찾기 <span className="cnt">{loading && !data ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
       <div className="tabs-row">
-        <div className="tabs" role="group" aria-label="모임 유형">
-          {ROOM_TYPE_FILTERS.map((filter) => (
-            <button type="button" key={filter.label} className={roomType === filter.value ? 'on' : ''} aria-pressed={roomType === filter.value} onClick={() => onRoomTypeChange(filter.value)}><span className="tab-full">{filter.label}{counts ? ' (' + counts[filter.value] + ')' : ''}</span><span className="tab-short">{filter.short}{counts ? ' ' + counts[filter.value] : ''}</span></button>
-          ))}
-        </div>
         <form className="inline-search" onSubmit={(event) => { event.preventDefault(); onRoomQueryChange(input.trim()); }}>
           <label className="hint" htmlFor="room-q" style={{ position: 'absolute', left: -9999 }}>모임 제목 검색</label>
           <input id="room-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="모임 제목으로 검색" />
@@ -577,6 +778,7 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
         <a className="btn ghost" href="#/create">✏️ 모임 만들기</a>
       </div>
       <p className="hint" style={{ marginTop: -10, marginBottom: 15 }}>모임 제목의 부분 일치 검색만 제공해요.</p>
+      <RoomFilters filters={roomFilters} onChange={onRoomFiltersChange} today={today} roomType={roomType} onRoomTypeChange={onRoomTypeChange} counts={counts} />
       {error && <ErrorBox message={error} />}
       {!error && loading && !data && <LoadingBox />}
       {!error && !!rooms.length && <div className="grid cols2 list-swappable" style={{ opacity: loading ? 0.6 : 1 }}>{rooms.map((room) => <SessionCard key={room.id} room={room} />)}</div>}
@@ -586,13 +788,45 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
   );
 }
 
+function gameFilterChips(filters, onChange) {
+  const update = (patch) => onChange({ ...filters, ...patch });
+  const chips = [];
+  const players = PLAYER_COUNT_OPTIONS.find((option) => String(option.value) === filters.playerCount);
+  if (players) chips.push({ key: 'players', label: players.label, onClear: () => update({ playerCount: '' }) });
+  if (filters.playTime) chips.push({ key: 'playTime', label: PLAY_TIME_LABEL[filters.playTime], onClear: () => update({ playTime: '' }) });
+  const band = complexityBandOf(filters);
+  if (band) chips.push({ key: 'complexity', label: '난이도 ' + band.label, onClear: () => update({ complexityMin: '', complexityMax: '' }) });
+  if (filters.upcomingOnly) chips.push({ key: 'upcomingOnly', label: '예정 모임 있음', onClear: () => update({ upcomingOnly: false }) });
+  return chips;
+}
+
+function GameFilters({ filters, onChange }) {
+  const update = (patch) => onChange({ ...filters, ...patch });
+  const selectBand = (value) => {
+    const band = COMPLEXITY_BANDS.find((option) => option.value === value);
+    update({ complexityMin: band ? band.min : '', complexityMax: band ? band.max : '' });
+  };
+  return (
+    <FilterPanel chips={gameFilterChips(filters, onChange)} onReset={() => onChange(EMPTY_GAME_FILTERS)}>
+      <FilterRadioGroup name="game-filter-players" label="인원" value={filters.playerCount} onChange={(playerCount) => update({ playerCount })}
+        options={[{ value: '', label: '전체' }, ...PLAYER_COUNT_OPTIONS.map((option) => ({ value: String(option.value), label: option.label }))]} />
+      <FilterRadioGroup name="game-filter-time" label="플레이 시간" value={filters.playTime} onChange={(playTime) => update({ playTime })}
+        options={[{ value: '', label: '전체' }, ...Object.entries(PLAY_TIME_LABEL).map(([code, label]) => ({ value: code, label }))]} />
+      <FilterRadioGroup name="game-filter-complexity" label="게임 난이도" value={complexityBandOf(filters)?.value || ''} onChange={selectBand}
+        options={[{ value: '', label: '전체' }, ...COMPLEXITY_BANDS.map((band) => ({ value: band.value, label: band.label }))]} />
+      <FilterCheckGroup label="모임" checked={filters.upcomingOnly} onChange={(upcomingOnly) => update({ upcomingOnly })} text="예정 모임 있는 게임만" />
+    </FilterPanel>
+  );
+}
+
 function GamesView({ title, gameQuery, onGameQueryChange, dataVersion }) {
   const [input, setInput] = useState(gameQuery);
-  const [upcomingOnly, setUpcomingOnly] = useState(false);
+  const [filters, setFilters] = useState(EMPTY_GAME_FILTERS);
   const keyword = gameQuery.trim();
+  const filterKey = JSON.stringify(filters);
   const { data, loading, error, setPage } = usePaginatedRequest(
-    (page, signal) => api.getGames({ keyword, upcomingOnly, page, size: GAME_LIST_PAGE_SIZE }, signal),
-    [keyword, upcomingOnly, dataVersion]
+    (page, signal) => api.getGames({ keyword, ...filters, page, size: GAME_LIST_PAGE_SIZE }, signal),
+    [keyword, filterKey, dataVersion]
   );
   const games = (data?.content || []).map(normalizeGameSummary);
   useEffect(() => setInput(gameQuery), [gameQuery]);
@@ -604,10 +838,8 @@ function GamesView({ title, gameQuery, onGameQueryChange, dataVersion }) {
         <input id="game-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임 이름으로 검색" />
         <button type="submit" aria-label="검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.65" y2="16.65" /></svg></button>
       </form>
-      <div className="games-filter">
-        <label className="checkline"><input type="checkbox" checked={upcomingOnly} onChange={(event) => setUpcomingOnly(event.target.checked)} /> 예정 모임 있는 게임만</label>
-        <p className="hint">게임 이름의 부분 일치 검색만 제공해요.</p>
-      </div>
+      <p className="hint" style={{ marginTop: -10, marginBottom: 15 }}>게임 이름의 부분 일치 검색만 제공해요.</p>
+      <GameFilters filters={filters} onChange={setFilters} />
       {error && <ErrorBox message={error} />}
       {!error && loading && !data && <LoadingBox />}
       {!error && !!games.length && <div className="grid cols3">{games.map((game) => <GameCard key={game.id} game={game} />)}</div>}
@@ -865,17 +1097,19 @@ function usePopoverDismiss(isOpen, containerRef, onDismiss) {
   }, [isOpen]);
 }
 
-function DatePicker({ id, value, onChange, today }) {
-  const selectedDate = dateParts(value) ? value : defaultRoomDate(today);
+// placeholder를 주면 값을 비운 상태를 허용한다. 필터처럼 날짜를 고르지 않는 선택지가 있을 때 쓴다.
+function DatePicker({ id, value, onChange, today, placeholder }) {
+  const selectedDate = dateParts(value) ? value : (placeholder ? '' : defaultRoomDate(today));
+  const openDate = selectedDate || today;
   const [isOpen, setIsOpen] = useState(false);
-  const [draftDate, setDraftDate] = useState(selectedDate);
-  const [visibleMonth, setVisibleMonth] = useState(() => monthFromIsoDate(selectedDate));
+  const [draftDate, setDraftDate] = useState(openDate);
+  const [visibleMonth, setVisibleMonth] = useState(() => monthFromIsoDate(openDate));
   const pickerRef = useRef(null);
   const triggerRef = useRef(null);
 
   const openPicker = () => {
-    setDraftDate(selectedDate);
-    setVisibleMonth(monthFromIsoDate(selectedDate));
+    setDraftDate(openDate);
+    setVisibleMonth(monthFromIsoDate(openDate));
     setIsOpen(true);
   };
   const closePicker = (restoreFocus = false) => {
@@ -897,8 +1131,8 @@ function DatePicker({ id, value, onChange, today }) {
 
   return (
     <div className="date-picker" ref={pickerRef}>
-      <button id={id} ref={triggerRef} type="button" className="date-picker-trigger" aria-label={'날짜 ' + formatCalendarDate(selectedDate)} aria-expanded={isOpen} aria-haspopup="dialog" aria-controls={isOpen ? id + '-calendar' : undefined} onClick={() => isOpen ? closePicker() : openPicker()}>
-        <span className="date-picker-value">{formatRoomDate(selectedDate)}</span>
+      <button id={id} ref={triggerRef} type="button" className="date-picker-trigger" aria-label={selectedDate ? '날짜 ' + formatCalendarDate(selectedDate) : placeholder} aria-expanded={isOpen} aria-haspopup="dialog" aria-controls={isOpen ? id + '-calendar' : undefined} onClick={() => isOpen ? closePicker() : openPicker()}>
+        <span className={'date-picker-value' + (selectedDate ? '' : ' empty')}>{selectedDate ? formatRoomDate(selectedDate) : placeholder}</span>
       </button>
       {isOpen && (
         <section id={id + '-calendar'} className="date-picker-popover" role="dialog" aria-label="날짜 선택">
@@ -908,7 +1142,7 @@ function DatePicker({ id, value, onChange, today }) {
           </div>
           <div className="date-picker-weekdays" aria-hidden="true">{WEEKDAY_LABELS.map((weekday, index) => <span className={index === 0 ? 'sun' : index === 6 ? 'sat' : ''} key={weekday}>{weekday}</span>)}</div>
           <div className="date-picker-days">{days.map((day) => <button type="button" key={day.isoDate} className={['date-picker-day', !day.isCurrentMonth && 'outside', day.isoDate === today && 'today', day.isoDate === draftDate && 'selected', day.weekday === 0 && 'sun', day.weekday === 6 && 'sat'].filter(Boolean).join(' ')} aria-label={formatCalendarDate(day.isoDate)} aria-pressed={day.isoDate === draftDate} disabled={day.isPast} onClick={() => { setDraftDate(day.isoDate); if (!day.isCurrentMonth) setVisibleMonth(monthFromIsoDate(day.isoDate)); }}>{day.day}</button>)}</div>
-          <div className="date-picker-footer"><button type="button" className="date-picker-today" onClick={() => { setDraftDate(today); setVisibleMonth(monthFromIsoDate(today)); }}>오늘</button><button type="button" className="date-picker-confirm" onClick={() => { onChange(draftDate); closePicker(true); }}>선택 완료</button></div>
+          <div className="date-picker-footer"><button type="button" className="date-picker-today" onClick={() => { setDraftDate(today); setVisibleMonth(monthFromIsoDate(today)); }}>오늘</button>{placeholder && <button type="button" className="date-picker-today" onClick={() => { onChange(''); closePicker(true); }}>선택 해제</button>}<button type="button" className="date-picker-confirm" onClick={() => { onChange(draftDate); closePicker(true); }}>선택 완료</button></div>
         </section>
       )}
     </div>
@@ -1266,6 +1500,7 @@ function App() {
   const [gameQuery, setGameQuery] = useState('');
   const [roomQuery, setRoomQuery] = useState('');
   const [roomType, setRoomType] = useState('');
+  const [roomFilters, setRoomFilters] = useState(EMPTY_ROOM_FILTERS);
   const [myTab, setMyTab] = useState('joined');
   const [createMode, setCreateMode] = useState('GAME_FOCUSED');
   const [createGame, setCreateGame] = useState(null);
@@ -1516,7 +1751,7 @@ function App() {
   };
 
   let content;
-  if (route === 'find') content = <FindRoomsView roomType={roomType} onRoomTypeChange={setRoomType} roomQuery={roomQuery} onRoomQueryChange={setRoomQuery} dataVersion={dataVersion} />;
+  if (route === 'find') content = <FindRoomsView roomType={roomType} onRoomTypeChange={setRoomType} roomQuery={roomQuery} onRoomQueryChange={setRoomQuery} roomFilters={roomFilters} onRoomFiltersChange={setRoomFilters} dataVersion={dataVersion} />;
   else if (route === 'game-list') content = <GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} />;
   else if (route === 'game') content = <GameDetailView gameId={arg} onCreateGame={handleCreateGame} dataVersion={dataVersion} />;
   else if (route === 'session') content = <SessionDetailView sessionId={arg} me={me} onApply={handleApply} onCancelApply={handleCancelApply} onHostCancel={handleHostCancel} onFinish={handleFinish} dataVersion={dataVersion} />;

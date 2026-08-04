@@ -101,7 +101,10 @@ header {
 .notification-item-message { font-size: 14px; font-weight: 700; }
 .notification-item time { color: var(--sub); font-size: 11.5px; }
 /* 메뉴와 성격이 다른 계정 진입점이라 앞쪽을 한 칸 더 띄운다. */
-#gnb .profile-icon { align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 999px; display: inline-flex; justify-content: center; margin-left: 8px; padding: 8px; }
+#gnb .profile-icon { align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 999px; display: inline-flex; justify-content: center; padding: 8px; }
+/* 텍스트 메뉴는 좌우 여백이 배경 안에 있고 원형 버튼은 없어서, 같은 gap이어도 아이콘 쪽만 붙어 보인다.
+   아이콘 앞에 같은 값을 더해 메뉴와 아이콘 사이, 아이콘끼리의 간격을 같게 맞춘다. */
+#gnb .notification-menu, #gnb .profile-icon { margin-left: 4px; }
 
 /* margin auto로 가운데 정렬한다. flex 아이템이라 auto 마진이 stretch를 끄므로 width를 함께 명시한다. */
 main { flex: 1 0 auto; margin: 0 auto; max-width: 1180px; padding: 28px 20px 84px; width: 100%; }
@@ -224,6 +227,7 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .date-picker-trigger::after { color: var(--ink); content: '▾'; font-size: 14px; line-height: 1; }
 .date-picker-trigger[aria-expanded="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(201, 78, 64, 0.13); }
 .date-picker-value { align-items: center; display: flex; font-weight: inherit; }
+.date-picker-value.empty { color: var(--sub); }
 .date-picker-popover { background: var(--card); border: 1px solid var(--line); border-radius: 4px; box-shadow: 0 12px 26px rgba(40, 38, 35, 0.15); left: 0; padding: 14px; position: absolute; top: calc(100% + 8px); width: 340px; z-index: 15; }
 .date-picker-header { align-items: center; display: flex; justify-content: space-between; margin-bottom: 13px; }
 .date-picker-month { align-items: center; display: flex; font-size: 15px; }
@@ -291,9 +295,25 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .modecard span { color: var(--sub); display: block; font-size: 12.5px; margin-top: 4px; }
 .checkline { align-items: center; display: flex; font-size: 13px; gap: 8px; padding: 8px 0; }
 .checkline input { accent-color: var(--accent); width: auto; }
-.games-filter { align-items: center; column-gap: 16px; display: flex; flex-wrap: wrap; justify-content: space-between; margin: -6px 0 15px; row-gap: 4px; }
-.games-filter .checkline { font-weight: 800; padding: 0; }
-.games-filter .hint { margin: 0; }
+/* 게임 목록과 모임 목록이 함께 쓰는 조건 필터. 토글과 고른 조건 칩을 한 줄에 두고, 펼치면 섹션별 목록이 나온다. */
+.filter-bar { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.filter-toggle { align-items: center; background: var(--brown); border-radius: 999px; color: #fff; display: inline-flex; height: 38px; justify-content: center; width: 50px; }
+.filter-toggle.on, .filter-toggle:hover { background: var(--accent-dark); }
+.filter-chip { align-items: center; background: var(--brown); border-radius: 999px; color: #fff; display: inline-flex; font-size: 13px; font-weight: 800; gap: 8px; height: 34px; padding: 0 14px; }
+.filter-chip:hover { background: var(--accent-dark); }
+.filter-chip span { font-size: 15px; line-height: 1; opacity: 0.75; }
+.filter-panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 16px; padding: 20px 22px 16px; }
+.filter-groups { display: grid; gap: 20px 26px; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); }
+.filter-group { border: 0; margin: 0; min-width: 0; padding: 0; }
+.filter-group legend { color: var(--brown2); font-size: 12.5px; font-weight: 800; margin-bottom: 9px; padding: 0; }
+.filter-option { align-items: center; color: var(--ink); display: flex; font-size: 13.5px; font-weight: 600; gap: 9px; margin-bottom: 0; min-height: 29px; }
+.filter-option input { accent-color: var(--accent); height: 16px; margin: 0; width: 16px; }
+.filter-option-picker { margin-top: 9px; }
+.filter-panel-foot { border-top: 1px solid var(--line); display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; padding-top: 14px; }
+.filter-reset { color: var(--accent-dark); font-size: 13px; font-weight: 900; padding: 0 6px; }
+.filter-reset:hover { text-decoration: underline; }
+.filter-close { background: var(--soft); border-radius: 6px; color: var(--brown2); font-size: 13px; font-weight: 800; padding: 9px 20px; }
+.filter-close:hover { background: var(--line); }
 .list-swappable { transition: opacity 0.15s ease; }
 .create-submit { width: 100%; }
 .create-note b { display: block; margin-bottom: 7px; }
@@ -373,6 +393,10 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
   /* 손가락 탭 기준 44px에 맞춘다. 데스크톱 밀도를 바꾸지 않도록 좁은 화면에만 적용한다. */
   #gnb a, .game-search-open, .tabs button { align-items: center; display: inline-flex; justify-content: center; min-height: 44px; }
   .page-btn, .btn, select, .date-picker-trigger { min-height: 44px; }
+  /* 좁은 화면에서는 조건을 두 칸으로 두고 선택지 높이를 손가락 탭 기준에 맞춘다. */
+  .filter-groups { grid-template-columns: repeat(2, 1fr); }
+  .filter-option { min-height: 36px; }
+  .filter-toggle, .filter-chip { min-height: 40px; }
   .pagination { gap: 8px; }
   .checkline { min-height: 44px; }
   .checkline input { height: 20px; width: 20px; }
