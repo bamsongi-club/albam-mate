@@ -2,6 +2,7 @@ package cloud.bamsongi.albammate.notification.cleanup;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -27,7 +28,9 @@ class NotificationCleanupExecutorTest {
 			NotificationCleanupTarget.NOTIFICATION, 10);
 
 		assertEquals(NotificationCleanupTarget.NOTIFICATION, result.targetType());
+		assertEquals(measurementTime, result.measurementTime());
 		assertEquals(3, result.deletedCount());
+		verify(eventRepository, times(1)).findCleanupMeasurementTime();
 		verify(notificationRepository).deleteExpiredNotifications(measurementTime, 10);
 	}
 
@@ -44,7 +47,9 @@ class NotificationCleanupExecutorTest {
 			NotificationCleanupTarget.OUTBOX, 10);
 
 		assertEquals(NotificationCleanupTarget.OUTBOX, result.targetType());
+		assertEquals(measurementTime, result.measurementTime());
 		assertEquals(4, result.deletedCount());
+		verify(eventRepository, times(1)).findCleanupMeasurementTime();
 		verify(eventRepository).deleteExpiredProcessedOrDiscardedEvents(measurementTime, 10);
 	}
 }

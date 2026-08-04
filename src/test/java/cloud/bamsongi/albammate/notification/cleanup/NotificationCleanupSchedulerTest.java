@@ -2,6 +2,7 @@ package cloud.bamsongi.albammate.notification.cleanup;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -45,6 +46,21 @@ class NotificationCleanupSchedulerTest {
 		assertEquals(
 			NOW.plus(Duration.ofHours(1)),
 			scheduler.nextExecution(new SimpleTriggerContext(Clock.fixed(NOW, ZoneOffset.UTC))));
+	}
+
+	@Test
+	void 허용된_최대_jitter는_0분부터_5분_사이의_밀리초만_만든다() {
+		NotificationCleanupScheduler scheduler = new NotificationCleanupScheduler(
+			mock(NotificationCleanupCoordinator.class),
+			properties());
+		long maximumJitterMillis = Duration.ofMinutes(5).toMillis();
+
+		for (int attempt = 0; attempt < 100; attempt++) {
+			long jitterMillis = scheduler.nextJitterMillis(maximumJitterMillis);
+
+			assertTrue(jitterMillis >= 0);
+			assertTrue(jitterMillis <= maximumJitterMillis);
+		}
 	}
 
 	@Test

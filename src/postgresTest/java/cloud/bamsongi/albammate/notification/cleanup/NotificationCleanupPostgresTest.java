@@ -120,6 +120,18 @@ class NotificationCleanupPostgresTest {
 	}
 
 	@Test
+	void 미래_cleanupAt의_완료와_폐기_Outbox는_삭제하지_않는다() {
+		Fixture fixture = createFixture();
+		long futureProcessedEventId = insertProcessedOutbox(fixture, "clock_timestamp() - interval '29 days'");
+		long futureDiscardedEventId = insertDiscardedOutbox(fixture, "clock_timestamp() - interval '29 days'");
+
+		executor.cleanupOneBatch(NotificationCleanupTarget.OUTBOX, 500);
+
+		assertTrue(outboxExists(futureProcessedEventId));
+		assertTrue(outboxExists(futureDiscardedEventId));
+	}
+
+	@Test
 	void 만료_Notification과_정리_기한이_지난_완료_폐기_Outbox만_삭제한다() {
 		Fixture fixture = createFixture();
 		long expiredNotificationId = insertNotification(fixture, "clock_timestamp() - interval '91 days'");
@@ -165,6 +177,45 @@ class NotificationCleanupPostgresTest {
 				"select count(*) from notification_outbox_recipients where outbox_event_id = ?",
 				Integer.class,
 				eventId));
+	}
+
+	@Test
+	void 두_cleanup_인스턴스는_잠긴_가장_이른_due_Outbox를_건너뛰고_중복_삭제하지_않는다() throws Exception {
+		Fixture fixture = createFixture();
+		long firstOutboxEventId = insertProcessedOutbox(fixture, "clock_timestamp() - interval '31 days'");
+		long secondOutboxEventId = insertProcessedOutbox(fixture, "clock_timestamp() - interval '31 days'");
+		int advisoryLockKey = Math.toIntExact(firstOutboxEventId);
+		ExecutorService workers = Executors.newFixedThreadPool(2);
+		try (
+			ConfigurableApplicationContext firstContext = createCleanupContext();
+			ConfigurableApplicationContext secondContext = createCleanupContext();
+			Connection advisoryLockConnection = dataSource.getConnection()) {
+			NotificationCleanupExecutor firstExecutor = firstContext.getBean(NotificationCleanupExecutor.class);
+			NotificationCleanupExecutor secondExecutor = secondContext.getBean(NotificationCleanupExecutor.class);
+			acquireAdvisoryLock(advisoryLockConnection, advisoryLockKey);
+			installFirstOutboxWorkerDeleteGate(firstOutboxEventId, advisoryLockKey);
+			Future<NotificationCleanupExecutor.CleanupBatchResult> firstWorker = workers.submit(
+				() -> firstExecutor.cleanupOneBatch(NotificationCleanupTarget.OUTBOX, 1));
+			awaitWorkerWaitingForAdvisoryLock(advisoryLockKey);
+
+			NotificationCleanupExecutor.CleanupBatchResult secondResult = workers.submit(
+				() -> secondExecutor.cleanupOneBatch(NotificationCleanupTarget.OUTBOX, 1))
+				.get(5, TimeUnit.SECONDS);
+			assertEquals(1, secondResult.deletedCount());
+			assertTrue(outboxExists(firstOutboxEventId));
+			assertFalse(outboxExists(secondOutboxEventId));
+
+			releaseAdvisoryLock(advisoryLockConnection, advisoryLockKey);
+			NotificationCleanupExecutor.CleanupBatchResult firstResult = firstWorker.get(5, TimeUnit.SECONDS);
+			assertEquals(1, firstResult.deletedCount());
+			assertFalse(outboxExists(firstOutboxEventId));
+		} finally {
+			workers.shutdownNow();
+			workers.awaitTermination(5, TimeUnit.SECONDS);
+			jdbcTemplate.execute(
+				"drop trigger if exists notification_outbox_cleanup_hold_first_worker on notification_outbox_events");
+			jdbcTemplate.execute("drop function if exists notification_outbox_cleanup_hold_first_worker()");
+		}
 	}
 
 	@Test
@@ -440,6 +491,24 @@ class NotificationCleanupPostgresTest {
 			create trigger notification_cleanup_fail_second_delete
 			before delete on notifications
 			for each row execute function notification_cleanup_fail_second_delete()
+			""");
+	}
+
+	private void installFirstOutboxWorkerDeleteGate(long outboxEventId, int advisoryLockKey) {
+		jdbcTemplate.execute("""
+			create function notification_outbox_cleanup_hold_first_worker() returns trigger as $$
+			begin
+			    if old.id = %d then
+			        perform pg_advisory_xact_lock(%d, %d);
+			    end if;
+			    return old;
+			end;
+			$$ language plpgsql
+			""".formatted(outboxEventId, CLEANUP_TEST_ADVISORY_LOCK_CLASS, advisoryLockKey));
+		jdbcTemplate.execute("""
+			create trigger notification_outbox_cleanup_hold_first_worker
+			before delete on notification_outbox_events
+			for each row execute function notification_outbox_cleanup_hold_first_worker()
 			""");
 	}
 

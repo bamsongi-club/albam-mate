@@ -44,6 +44,7 @@ public class NotificationCleanupScheduler implements Trigger, SchedulingConfigur
 	}
 
 	long nextJitterMillis(long maximumInclusive) {
-		return ThreadLocalRandom.current().nextLong(maximumInclusive + 1);
+		long exclusiveUpperBound = Math.addExact(maximumInclusive, 1);
+		return ThreadLocalRandom.current().nextLong(exclusiveUpperBound);
 	}
 }

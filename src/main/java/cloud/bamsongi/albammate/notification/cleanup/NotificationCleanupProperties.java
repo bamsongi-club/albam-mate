@@ -2,6 +2,7 @@ package cloud.bamsongi.albammate.notification.cleanup;
 
 import java.time.Duration;
 
+import org.hibernate.validator.constraints.time.DurationMax;
 import org.hibernate.validator.constraints.time.DurationMin;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
@@ -20,6 +21,7 @@ public class NotificationCleanupProperties {
 	private Duration interval = Duration.ofHours(1);
 
 	@NotNull @DurationMin(nanos = 0)
+	@DurationMax(minutes = 5)
 	private Duration jitter = Duration.ofMinutes(5);
 
 	@Min(1) private int batchSize = 500;
