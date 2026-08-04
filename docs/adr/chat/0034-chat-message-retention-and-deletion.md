@@ -5,7 +5,7 @@
 - 결정일: 2026-08-01
 - 관련: [P1 방 채팅 명세](../../p1/chatting.md), [채팅 저장 계약](../../ERD.md#chat_rooms), [아키텍처](../../ARCHITECTURE.md#채팅-흐름), [ADR-0009 UTC 시간 기준](../platform/0009-utc-time-standard.md), [ADR-0021 AWS 배포 기준선](../platform/0021-p0-aws-ec2-rds-deployment-baseline.md), [ADR-0036 ROOM 상태 자동 전환](../room/0036-bounded-room-state-transition-processing.md), [ADR-0038 공용 세션·스케줄 조정](../platform/0038-multi-instance-session-and-scheduler-coordination.md)
 - 대체 대상: 없음
-- 후속 ADR: [ADR-0045 채팅방 스키마와 local ROOM 초기화 경계](0045-chat-room-schema-and-backfill-boundary.md)
+- 후속 ADR: [ADR-0045](0045-chat-room-schema-and-backfill-boundary.md) — 기존 ROOM 초기화 실행 경계, [ADR-0049](0049-chat-message-retention-lock-section-boundary.md) — 보관·삭제 결정과 잠금 구간 실행 경계
 
 ## 맥락
 
@@ -72,7 +72,7 @@ backfill과 ROOM 생성·상태 전환이 경쟁하더라도 완료 시점에는
 ## 검증
 
 - 상태: 부분 검증
-- 근거: #289의 대상 H2와 Testcontainers PostgreSQL 테스트에서 V14 스키마, local callback 초기화, ID 순 chunk 삭제, 부분 실패 격리, ShedLock skip과 중복 삭제 수렴을 확인했다. 대표 PostgreSQL 배치(방 50개·메시지 5,000개)의 처리 시간은 실행 환경에 따라 95ms에서 3.2초까지 측정됐다. 잠금 임대·실행 상한은 느린 측정값을 기준으로 두고, 상한에 걸린 적체는 같은 cron 실행의 다음 잠금 구간이 이어받아 24시간 삭제 상한 안에서 완료한다.
+- 근거: #289의 대상 H2와 Testcontainers PostgreSQL 테스트에서 V16 스키마, local callback 초기화, ID 순 chunk 삭제, 부분 실패 격리, ShedLock skip과 중복 삭제 수렴을 확인했다. 대표 PostgreSQL 배치(방 50개·메시지 5,000개)의 처리 시간은 실행 환경에 따라 95ms에서 3.2초까지 측정됐다. 잠금 임대·실행 상한은 느린 측정값을 기준으로 두고, 상한에 걸린 적체는 같은 cron 실행의 다음 잠금 구간이 이어받아 24시간 삭제 상한 안에서 완료한다.
 - 미검증:
     - #281이 소유한 live 운영 one-shot backfill, ROOM 쓰기 통제·최종 보정·배포 절체는 이 검증에 포함하지 않았다.
     - 실제 운영 인스턴스 종료 뒤 임대 만료 복구와 RDS 백업 만료 뒤 복구 불가 여부는 확인하지 않았다.

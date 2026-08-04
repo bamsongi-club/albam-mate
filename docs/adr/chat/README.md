@@ -11,3 +11,4 @@
 | [0033](0033-postgresql-source-after-commit-delivery.md) | PostgreSQL을 정본으로 두고 커밋 뒤 Redis로 fan-out | 승인됨 | 2026-08-01 | 미검증 |
 | [0034](0034-chat-message-retention-and-deletion.md) | 최종 상태 채팅 메시지를 30일 보관한 뒤 일괄 삭제 | 대체됨 | 2026-08-01 | 부분 검증 |
 | [0045](0045-chat-room-schema-and-backfill-boundary.md) | 채팅방 스키마와 local ROOM 초기화 경계 분리 | 승인됨 | 2026-08-04 | 검증됨 |
+| [0049](0049-chat-message-retention-lock-section-boundary.md) | 최종 상태 채팅 메시지 보관·삭제와 잠금 구간 실행 경계 | 승인됨 | 2026-08-04 | 미검증 |

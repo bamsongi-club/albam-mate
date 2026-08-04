@@ -77,7 +77,7 @@ class ChatMessageRetentionPostgresTest {
 	}
 
 	@Test
-	void V14_공통_migration은_ShedLock_스키마만_만들고_기존_ROOM을_초기화하지_않는다() {
+	void V16_공통_migration은_ShedLock_스키마만_만들고_기존_ROOM을_초기화하지_않는다() {
 		Flyway.configure()
 			.dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
 			.schemas(MIGRATION_SCHEMA)
@@ -106,7 +106,7 @@ class ChatMessageRetentionPostgresTest {
 		assertEquals(0,
 			jdbcTemplate.queryForObject("select count(*) from retention_migration_test.shedlock", Integer.class));
 		assertEquals(1, jdbcTemplate.queryForObject(
-			"select count(*) from retention_migration_test.flyway_schema_history where version = '14'", Integer.class));
+			"select count(*) from retention_migration_test.flyway_schema_history where version = '16'", Integer.class));
 	}
 
 	@Test

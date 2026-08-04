@@ -1726,7 +1726,7 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 
 ### 채팅 공통 계약
 
-채팅의 제품 규칙은 [P1 방 채팅 기능 명세](p1/chatting.md)를 따른다. 아래 인터페이스는 구현 예정 계약이다. [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)부터 [ADR-0034](adr/chat/0034-chat-message-retention-and-deletion.md)까지 승인됐지만, 구현과 검증이 끝나기 전에는 제공 기능을 뜻하지 않는다. 전송 제한·Redis 실패 처리의 공개 계약은 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)과 [#372 정본 반영 이슈](https://github.com/bamsongi-club/albam-mate/issues/372)에 따른다.
+채팅의 제품 규칙은 [P1 방 채팅 기능 명세](p1/chatting.md)를 따른다. 아래 인터페이스는 구현 예정 계약이다. [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)부터 [ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)까지와 [ADR-0049](adr/chat/0049-chat-message-retention-lock-section-boundary.md)가 승인됐지만, 구현과 검증이 끝나기 전에는 제공 기능을 뜻하지 않는다. 전송 제한·Redis 실패 처리의 공개 계약은 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)과 [#372 정본 반영 이슈](https://github.com/bamsongi-club/albam-mate/issues/372)에 따른다.
 
 모든 채팅 요청은 요청 시점의 방 상태와 주최자·현재 `ACTIVE` 참가자 관계를 서버에서 다시 확인한다. `RECRUITING`·`CLOSED` 방만 일반 사용자 접근을 허용하며, 참가 취소·`CANCELED`·`FINISHED` 상태는 `FORBIDDEN`으로 거절한다. 메시지 본문은 로그와 메트릭에 기록하지 않는다.
 

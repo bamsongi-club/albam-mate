@@ -2,7 +2,7 @@
 
 이 문서는 P1에서 기존 방의 주최자와 현재 `ACTIVE` 참가자가 모임을 조율하는 `CHAT-01`~`CHAT-05`의 구현 규칙과 완료 기준을 정의한다. 현재 계약 준비·생산 코드·자동 검증·운영 배포와 실측 상태는 [P1 기능별 상태 정본](README.md#기능별-현재-상태)을 따른다. 이 문서에서 **채팅 관계자**는 방의 주최자 또는 현재 `ACTIVE` 참가자를 뜻한다.
 
-채팅 접근·생명주기와 메시지 공통 규칙은 [P1 명세](../P1-spec.md#채팅-접근과-생명주기), 요청·응답·오류와 실시간 연결은 [API 명세](../API.md#채팅-공통-계약), 저장 계약은 [ERD](../ERD.md)를 따른다. 신규 API와 저장 개념은 구현 예정 계약이며, 메시지 ID cursor·실시간·저장·보관 방식은 승인된 [ADR-0031](../adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](../adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](../adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0034](../adr/chat/0034-chat-message-retention-and-deletion.md), 공용 세션·스케줄 실행은 [ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), 모듈·인프라 경계는 [아키텍처](../ARCHITECTURE.md)를 따른다. 채팅방 스키마와 기존 ROOM backfill의 실행 경계는 승인된 [ADR-0045](../adr/chat/0045-chat-room-schema-and-backfill-boundary.md)의 production schema-only 및 local callback 결정을 따른다. 실시간 공통 기반은 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반)이 소유한다.
+채팅 접근·생명주기와 메시지 공통 규칙은 [P1 명세](../P1-spec.md#채팅-접근과-생명주기), 요청·응답·오류와 실시간 연결은 [API 명세](../API.md#채팅-공통-계약), 저장 계약은 [ERD](../ERD.md)를 따른다. 신규 API와 저장 개념은 구현 예정 계약이며, 메시지 ID cursor·실시간·저장·보관 방식은 승인된 [ADR-0031](../adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](../adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](../adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0049](../adr/chat/0049-chat-message-retention-lock-section-boundary.md), 공용 세션·스케줄 실행은 [ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), 모듈·인프라 경계는 [아키텍처](../ARCHITECTURE.md)를 따른다. 채팅방 스키마와 기존 ROOM backfill의 실행 경계는 승인된 [ADR-0045](../adr/chat/0045-chat-room-schema-and-backfill-boundary.md)의 production schema-only 및 local callback 결정을 따른다. 실시간 공통 기반은 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반)이 소유한다.
 
 본 명세는 기존 오프라인 방 흐름에 방별 그룹 채팅을 추가하며 새로운 온라인 방 유형이나 실시간 자동 매칭을 도입하지 않는다. 메시지의 정본은 실시간 연결이 아니라 PostgreSQL 이력이다.
 
@@ -207,7 +207,7 @@
 | 입력·오류 | [API 공통 계약](../API.md#1-공통-계약), [채팅 API 오류 계약](../API.md#채팅-공통-계약) |
 | 로그 | [Logging 규칙](../CONVENTIONS.md#logging) |
 | 보안 | 세션 인증, CSRF, 출력 인코딩과 Redis 사용자·방 단위 전송 제한 |
-| 관련 정본 | [ADR-0034 메시지 보관·삭제](../adr/chat/0034-chat-message-retention-and-deletion.md), [ADR-0038 스케줄 실행 조정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), [#288 전송 제한 계약 승인](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930), [CHAT_ROOMS](../ERD.md#chat_rooms), [SHEDLOCK](../ERD.md#shedlock) |
+| 관련 정본 | [ADR-0049 메시지 보관·삭제와 잠금 구간](../adr/chat/0049-chat-message-retention-lock-section-boundary.md), [ADR-0038 스케줄 실행 조정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), [#288 전송 제한 계약 승인](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930), [CHAT_ROOMS](../ERD.md#chat_rooms), [SHEDLOCK](../ERD.md#shedlock) |
 
 ### 기능 규칙
 
@@ -237,10 +237,10 @@
   뒤에 진행 중인 chunk까지 더해도 상한이 임대보다 짧도록 `maxRunDuration + 3 × queryTimeout
   < lockAtMostFor`를 기동 시점에 검증한다.
 - 상한에 걸린 적체는 다음 일일 스케줄로 미루지 않는다. 구간이 상한에서 중단되면 같은 cron
-  실행 안에서 잠금을 다시 얻어 최대 30구간까지 이어 처리하므로, 만료 삭제는 ADR-0034의
+  실행 안에서 잠금을 다시 얻어 최대 30구간까지 이어 처리하므로, 만료 삭제는 ADR-0049의
   24시간 상한 안에서 완료된다. 30구간을 모두 소진하고도 적체가 남으면 경고 로그와 전용
   metric으로 알리고 상한·주기를 조정한다. 구간 중단과 삭제 지연도 각각 metric으로 남긴다.
-- `V14` 전진 Flyway는 `SHEDLOCK` 테이블만 생성한다. local profile의
+- `V16` 전진 Flyway는 `SHEDLOCK` 테이블만 생성한다. local profile의
   `db/local/afterMigrate.sql` callback이 기존 ROOM을 상태별 보관 값으로
   `CHAT_ROOMS`에 멱등 초기화하고 기존 행은 보존한다. production profile은
   `db/local`을 로드하지 않으며 live 운영 ROOM backfill·쓰기와 경쟁하는 절체·최종
