@@ -3,6 +3,9 @@ package cloud.bamsongi.albammate.room;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
@@ -12,6 +15,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+
+import javax.sql.DataSource;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,6 +56,8 @@ class RoomWaitlistConcurrencyPostgresTest {
 	private PlatformTransactionManager transactionManager;
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+	@Autowired
+	private DataSource dataSource;
 
 	private long roomId;
 	private long firstUserId;
@@ -107,7 +114,7 @@ class RoomWaitlistConcurrencyPostgresTest {
 			return nextQueueOrder;
 		});
 
-		List<Integer> firstTransitionResults = executeConcurrently(
+		List<Integer> firstTransitionResults = executeConcurrentlyWhileWaitlistLocked(
 			() -> new TransactionTemplate(transactionManager).execute(
 				status -> roomWaitlistRepository.cancelWaiting(roomId, firstUserId, REQUEST_TIME.plusSeconds(60))),
 			() -> new TransactionTemplate(transactionManager).execute(status -> roomWaitlistRepository.promoteWaiting(
@@ -117,19 +124,17 @@ class RoomWaitlistConcurrencyPostgresTest {
 				REQUEST_TIME.plusSeconds(60))));
 		assertEquals(1, firstTransitionResults.stream().mapToInt(Integer::intValue).sum());
 
-		List<Integer> reapplyResults = executeConcurrently(
-			() -> new TransactionTemplate(transactionManager)
-				.execute(status -> roomWaitlistRepository.reactivateWaiting(
-					roomId,
-					firstUserId,
-					roomWaitlistRepository.getNextQueueOrder(),
-					REQUEST_TIME.plusSeconds(120))),
-			() -> new TransactionTemplate(transactionManager)
-				.execute(status -> roomWaitlistRepository.reactivateWaiting(
-					roomId,
-					firstUserId,
-					roomWaitlistRepository.getNextQueueOrder(),
-					REQUEST_TIME.plusSeconds(120))));
+		List<Integer> reapplyResults = executeConcurrentlyWhileWaitlistLocked(
+			() -> new TransactionTemplate(transactionManager).execute(status -> {
+				long nextQueueOrder = roomWaitlistRepository.getNextQueueOrder();
+				return roomWaitlistRepository.reactivateWaiting(roomId, firstUserId, nextQueueOrder,
+					REQUEST_TIME.plusSeconds(120));
+			}),
+			() -> new TransactionTemplate(transactionManager).execute(status -> {
+				long nextQueueOrder = roomWaitlistRepository.getNextQueueOrder();
+				return roomWaitlistRepository.reactivateWaiting(roomId, firstUserId, nextQueueOrder,
+					REQUEST_TIME.plusSeconds(120));
+			}));
 		assertEquals(1, reapplyResults.stream().mapToInt(Integer::intValue).sum());
 		assertEquals(
 			"WAITING",
@@ -155,7 +160,7 @@ class RoomWaitlistConcurrencyPostgresTest {
 			roomWaitlistRepository.saveAndFlush(RoomWaitlist.create(roomId, thirdUserId, 30L, REQUEST_TIME));
 		});
 
-		executeConcurrently(
+		executeConcurrentlyWhileWaitlistLocked(
 			() -> new TransactionTemplate(transactionManager).execute(
 				status -> roomWaitlistRepository.cancelWaiting(roomId, firstUserId, REQUEST_TIME.plusSeconds(60))),
 			() -> new TransactionTemplate(transactionManager).execute(status -> roomWaitlistRepository
@@ -217,6 +222,50 @@ class RoomWaitlistConcurrencyPostgresTest {
 			executor.shutdownNow();
 			assertTrue(executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS));
 		}
+	}
+
+	private <T> List<T> executeConcurrentlyWhileWaitlistLocked(Callable<T> first, Callable<T> second) throws Exception {
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		try (Connection lockHolder = dataSource.getConnection()) {
+			lockHolder.setAutoCommit(false);
+			lockWaitlist(lockHolder);
+			Future<T> firstFuture = executor.submit(first);
+			Future<T> secondFuture = executor.submit(second);
+			awaitWorkersWaitingForWaitlistLock(2);
+			lockHolder.commit();
+			return List.of(firstFuture.get(WAIT_SECONDS, TimeUnit.SECONDS),
+				secondFuture.get(WAIT_SECONDS, TimeUnit.SECONDS));
+		} finally {
+			executor.shutdownNow();
+			assertTrue(executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS));
+		}
+	}
+
+	private void lockWaitlist(Connection connection) throws SQLException {
+		try (PreparedStatement statement = connection.prepareStatement(
+			"select room_id from room_waitlists where room_id = ? and user_id = ? for update")) {
+			statement.setLong(1, roomId);
+			statement.setLong(2, firstUserId);
+			statement.executeQuery();
+		}
+	}
+
+	private void awaitWorkersWaitingForWaitlistLock(int expectedWorkerCount) {
+		long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(WAIT_SECONDS);
+		while (System.nanoTime() < deadlineNanos) {
+			Integer waitingWorkerCount = jdbcTemplate.queryForObject("""
+				select count(*)
+				from pg_stat_activity
+				where datname = current_database()
+				  and wait_event_type = 'Lock'
+				  and query like '%update room_waitlists%'
+				""", Integer.class);
+			if (waitingWorkerCount != null && waitingWorkerCount >= expectedWorkerCount) {
+				return;
+			}
+			Thread.onSpinWait();
+		}
+		throw new AssertionError("두 waitlist UPDATE worker가 행 잠금을 기다리지 않았습니다.");
 	}
 
 	private void awaitClaims(CountDownLatch claimStarted) {
