@@ -3,10 +3,8 @@ package cloud.bamsongi.albammate.chat.retention;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -21,28 +19,32 @@ class ChatMessageRetentionStore {
 		this.jdbcTemplate = Objects.requireNonNull(jdbcTemplate, "jdbcTemplate");
 	}
 
-	List<DueChatRoom> findDueChatRooms(Instant referenceTime, int limit) {
-		return findDueChatRooms(referenceTime, limit, Set.of());
-	}
-
 	List<DueChatRoom> findDueChatRooms(
-		Instant referenceTime, int limit, Collection<Long> excludedRoomIds) {
-		String excludedRooms = excludedRoomIds.isEmpty()
+		Instant referenceTime, DueChatRoomCursor cursor, int limit) {
+		String afterCursor = cursor == null
 			? ""
-			: "\n  and id not in ("
-				+ String.join(", ", java.util.Collections.nCopies(excludedRoomIds.size(), "?")) + ")";
+			: """
+				and (
+				    purge_after > ?
+				    or (purge_after = ? and id > ?)
+				)
+				""";
 		String query = """
 			select id, purge_after
 			from chat_rooms
 			where purge_after <= ?
 			  and messages_purged_at is null
-			""" + excludedRooms + """
+			""" + afterCursor + """
 			order by purge_after asc, id asc
 			limit ?
 			""";
 		List<Object> parameters = new ArrayList<>();
 		parameters.add(Timestamp.from(referenceTime));
-		parameters.addAll(excludedRoomIds);
+		if (cursor != null) {
+			parameters.add(Timestamp.from(cursor.purgeAfter()));
+			parameters.add(Timestamp.from(cursor.purgeAfter()));
+			parameters.add(cursor.chatRoomId());
+		}
 		parameters.add(limit);
 		return jdbcTemplate.query(query, (resultSet, rowNumber) -> new DueChatRoom(
 			resultSet.getLong("id"), resultSet.getTimestamp("purge_after").toInstant()),
@@ -88,5 +90,12 @@ class ChatMessageRetentionStore {
 	}
 
 	record DueChatRoom(long chatRoomId, Instant purgeAfter) {
+	}
+
+	record DueChatRoomCursor(Instant purgeAfter, long chatRoomId) {
+
+		static DueChatRoomCursor after(DueChatRoom dueChatRoom) {
+			return new DueChatRoomCursor(dueChatRoom.purgeAfter(), dueChatRoom.chatRoomId());
+		}
 	}
 }

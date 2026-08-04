@@ -39,6 +39,7 @@ class JdbcShedLockTaskLock implements ScheduledTaskLock {
 		Objects.requireNonNull(lockAtMostFor, "lockAtMostFor");
 		Objects.requireNonNull(lockAtLeastFor, "lockAtLeastFor");
 		Objects.requireNonNull(task, "task");
+		validateLockDurations(lockAtMostFor, lockAtLeastFor);
 		try {
 			LockingTaskExecutor.TaskResult<Void> result = lockingTaskExecutor.executeWithLock(
 				(LockingTaskExecutor.TaskWithResult<Void>)() -> {
@@ -51,6 +52,12 @@ class JdbcShedLockTaskLock implements ScheduledTaskLock {
 			throw exception;
 		} catch (Throwable throwable) {
 			throw new IllegalStateException("ShedLock task execution failed", throwable);
+		}
+	}
+
+	private void validateLockDurations(Duration lockAtMostFor, Duration lockAtLeastFor) {
+		if (lockAtLeastFor.compareTo(lockAtMostFor) > 0) {
+			throw new IllegalArgumentException("lockAtLeastFor must not exceed lockAtMostFor");
 		}
 	}
 }

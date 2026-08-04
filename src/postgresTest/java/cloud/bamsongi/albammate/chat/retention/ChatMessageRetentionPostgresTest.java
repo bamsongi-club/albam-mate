@@ -132,17 +132,21 @@ class ChatMessageRetentionPostgresTest {
 	}
 
 	@Test
-	void 만료_방은_purgeAfter와_chatRoomId_오름차순으로_제한_조회한다() {
+	void 만료_방은_purgeAfter와_chatRoomId_오름차순_keyset_page로_조회한다() {
 		Instant dueTime = Instant.now().minusSeconds(31L * 24 * 60 * 60);
 		Fixture first = createFixture("first", "CANCELED", dueTime.minusSeconds(1));
 		Fixture second = createFixture("second", "FINISHED", dueTime);
 		Fixture third = createFixture("third", "FINISHED", dueTime);
 
-		List<ChatMessageRetentionStore.DueChatRoom> dueChatRooms = store.findDueChatRooms(Instant.now(), 2);
+		Instant referenceTime = Instant.now();
+		List<ChatMessageRetentionStore.DueChatRoom> dueChatRooms = store.findDueChatRooms(referenceTime, null, 2);
+		List<ChatMessageRetentionStore.DueChatRoom> nextDueChatRooms = store.findDueChatRooms(
+			referenceTime, ChatMessageRetentionStore.DueChatRoomCursor.after(dueChatRooms.getLast()), 2);
 
 		assertEquals(List.of(first.chatRoomId(), second.chatRoomId()),
 			dueChatRooms.stream().map(ChatMessageRetentionStore.DueChatRoom::chatRoomId).toList());
-		assertTrue(third.chatRoomId() > second.chatRoomId());
+		assertEquals(List.of(third.chatRoomId()),
+			nextDueChatRooms.stream().map(ChatMessageRetentionStore.DueChatRoom::chatRoomId).toList());
 	}
 
 	@Test

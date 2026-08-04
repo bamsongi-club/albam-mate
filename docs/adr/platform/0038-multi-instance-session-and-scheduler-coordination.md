@@ -54,7 +54,7 @@ ROOM 상태 보정과 채팅 만료 삭제는 모든 인스턴스에 Spring Sche
 - 잠금은 중복 실행을 줄이는 운영 조정 장치다. 임대 만료나 프로세스 종료로 실행이 겹쳐도 작업 본문은 최신 조건을 다시 확인하고 같은 결과로 수렴해야 한다.
 - ShedLock은 `Room.version` 낙관 락, 참가·대기 불변식과 채팅 저장 정합성을 대체하지 않는다. 다중 인스턴스라는 이유만으로 ROOM 업무 락을 Redis 분산 락으로 바꾸지 않는다.
 - 알림 relay는 이 단일 실행 대상에서 제외한다. [ADR-0030](../notification/0030-postgresql-notification-relay-processing-recovery.md)에 따라 모든 인스턴스의 worker가 실행되고 `FOR UPDATE SKIP LOCKED`로 서로 다른 이벤트를 나눠 처리한다.
-- #289 채팅 보관 작업은 공식 JDBC Provider의 `usingDbTime()`으로 PostgreSQL 시계를 사용하고 잠금 이름 `chat-message-retention`을 쓴다. 하나의 cron 실행은 최대 50개 방·5,000개 메시지 후보를 처리하는 batch를 반복해 같은 주기 안에 due 적체를 소진한다. 한 방의 실패는 현재 주기에서 해당 방만 제외하고 뒤따르는 방 처리는 계속한다. 로컬 PostgreSQL의 대표 batch 126ms 실측을 근거로 실행시간 1초 초과를 경고하고 `lockAtMostFor`는 5초, `lockAtLeastFor`는 10초로 둔다. 처리 상한은 batch 단위로 적용하며 같은 cron 주기의 지연된 재획득을 막는다.
+- 정확한 잠금 이름, `lockAtMostFor`와 실행시간 경고 기준은 각 구현 이슈에서 측정 근거와 함께 확정한다.
 
 세션 TTL·직렬화 방식과 정확한 key·channel namespace도 후속 구현 이슈에서 확정한다. 운영 Redis 제품, HA·TLS·접근 제어·비밀 주입·비용과 실제 ALB·ASG 검증은 후속 OPS에서 결정한다.
 

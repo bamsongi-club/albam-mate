@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.chat.retention;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -36,10 +37,13 @@ class ChatMessageRetentionCoordinatorTest {
 			1L, Instant.parse("2026-08-01T00:00:00Z"));
 		ChatMessageRetentionStore.DueChatRoom failedRoom = new ChatMessageRetentionStore.DueChatRoom(
 			2L, Instant.parse("2026-08-01T00:00:00Z"));
-		when(store.findDueChatRooms(Instant.now(clock), 2)).thenReturn(List.of(successfulRoom, failedRoom));
+		ChatMessageRetentionStore.DueChatRoomCursor failedRoomCursor = ChatMessageRetentionStore.DueChatRoomCursor
+			.after(failedRoom);
+		when(store.findDueChatRooms(Instant.now(clock), null, 2)).thenReturn(List.of(successfulRoom, failedRoom));
+		when(store.findDueChatRooms(Instant.now(clock), failedRoomCursor, 2)).thenReturn(List.of());
 		when(processor.process(successfulRoom, Instant.now(clock), 5)).thenReturn(
 			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 3, 3, false));
-		when(processor.process(failedRoom, Instant.now(clock), 5))
+		when(processor.process(failedRoom, Instant.now(clock), 2))
 			.thenThrow(new IllegalStateException("message-content-secret user=99 session=token"));
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 		try {
@@ -54,6 +58,7 @@ class ChatMessageRetentionCoordinatorTest {
 			String logs = appender.list.stream().map(ILoggingEvent::getFormattedMessage).reduce("", String::concat);
 			assertFalse(logs.contains("message-content-secret"));
 			assertFalse(logs.contains("session=token"));
+			verify(processor).process(failedRoom, Instant.now(clock), 2);
 		} finally {
 			detachLogAppender(appender);
 			meterRegistry.close();
@@ -61,7 +66,7 @@ class ChatMessageRetentionCoordinatorTest {
 	}
 
 	@Test
-	void 메시지_후보_batch가_끝나도_같은_cron_주기에_다음_batch를_계속_처리한다() {
+	void 한_batch의_메시지_후보_예산을_방들이_공유하고_다음_batch에서_초기화한다() {
 		ChatMessageRetentionStore store = mock(ChatMessageRetentionStore.class);
 		ChatMessageRetentionRoomProcessor processor = mock(ChatMessageRetentionRoomProcessor.class);
 		ChatMessageRetentionProperties properties = new ChatMessageRetentionProperties();
@@ -72,24 +77,73 @@ class ChatMessageRetentionCoordinatorTest {
 		Clock clock = Clock.fixed(Instant.parse("2026-08-02T00:00:00Z"), ZoneOffset.UTC);
 		ChatMessageRetentionCoordinator coordinator = new ChatMessageRetentionCoordinator(
 			store, processor, properties, metrics, clock);
-		ChatMessageRetentionStore.DueChatRoom limitedRoom = new ChatMessageRetentionStore.DueChatRoom(
+		ChatMessageRetentionStore.DueChatRoom firstRoom = new ChatMessageRetentionStore.DueChatRoom(
 			1L, Instant.parse("2026-08-01T00:00:00Z"));
-		ChatMessageRetentionStore.DueChatRoom nextRoom = new ChatMessageRetentionStore.DueChatRoom(
+		ChatMessageRetentionStore.DueChatRoom secondRoom = new ChatMessageRetentionStore.DueChatRoom(
 			2L, Instant.parse("2026-08-01T00:00:00Z"));
-		when(store.findDueChatRooms(Instant.now(clock), 2))
-			.thenReturn(List.of(limitedRoom, nextRoom), List.of());
-		when(processor.process(limitedRoom, Instant.now(clock), 5)).thenReturn(
-			new ChatMessageRetentionRoomProcessor.RoomProcessResult(false, 4, 5, false));
-		when(processor.process(nextRoom, Instant.now(clock), 5)).thenReturn(
+		ChatMessageRetentionStore.DueChatRoom nextPageRoom = new ChatMessageRetentionStore.DueChatRoom(
+			3L, Instant.parse("2026-08-01T00:00:00Z"));
+		ChatMessageRetentionStore.DueChatRoomCursor secondRoomCursor = ChatMessageRetentionStore.DueChatRoomCursor
+			.after(secondRoom);
+		ChatMessageRetentionStore.DueChatRoomCursor nextPageRoomCursor = ChatMessageRetentionStore.DueChatRoomCursor
+			.after(nextPageRoom);
+		when(store.findDueChatRooms(Instant.now(clock), null, 2)).thenReturn(List.of(firstRoom, secondRoom));
+		when(store.findDueChatRooms(Instant.now(clock), secondRoomCursor, 2)).thenReturn(List.of(nextPageRoom));
+		when(store.findDueChatRooms(Instant.now(clock), nextPageRoomCursor, 2)).thenReturn(List.of());
+		when(processor.process(firstRoom, Instant.now(clock), 5)).thenReturn(
+			new ChatMessageRetentionRoomProcessor.RoomProcessResult(false, 5, 5, false),
+			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 1, 1, false));
+		when(processor.process(secondRoom, Instant.now(clock), 4)).thenReturn(
+			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 2, 2, false));
+		when(processor.process(nextPageRoom, Instant.now(clock), 5)).thenReturn(
+			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 1, 1, false));
+
+		ChatMessageRetentionCoordinator.RetentionRunSummary summary = coordinator.purgeExpiredMessages();
+
+		assertEquals(3, summary.purgedRoomCount());
+		assertEquals(9, summary.deletedMessageCount());
+		assertEquals(9.0, meterRegistry.get("chat.message.retention.messages.deleted").counter().count());
+		verify(processor, times(2)).process(firstRoom, Instant.now(clock), 5);
+		verify(processor).process(secondRoom, Instant.now(clock), 4);
+		verify(processor).process(nextPageRoom, Instant.now(clock), 5);
+		meterRegistry.close();
+	}
+
+	@Test
+	void 무진행_방은_실패로_격리하고_다음_keyset_page를_계속_처리한다() {
+		ChatMessageRetentionStore store = mock(ChatMessageRetentionStore.class);
+		ChatMessageRetentionRoomProcessor processor = mock(ChatMessageRetentionRoomProcessor.class);
+		ChatMessageRetentionProperties properties = new ChatMessageRetentionProperties();
+		properties.setMaxRoomsPerRun(1);
+		properties.setMaxMessagesPerRun(5);
+		SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+		ChatMessageRetentionMetrics metrics = new ChatMessageRetentionMetrics(meterRegistry);
+		Clock clock = Clock.fixed(Instant.parse("2026-08-02T00:00:00Z"), ZoneOffset.UTC);
+		ChatMessageRetentionCoordinator coordinator = new ChatMessageRetentionCoordinator(
+			store, processor, properties, metrics, clock);
+		ChatMessageRetentionStore.DueChatRoom stalledRoom = new ChatMessageRetentionStore.DueChatRoom(
+			1L, Instant.parse("2026-08-01T00:00:00Z"));
+		ChatMessageRetentionStore.DueChatRoom successfulRoom = new ChatMessageRetentionStore.DueChatRoom(
+			2L, Instant.parse("2026-08-01T00:00:00Z"));
+		ChatMessageRetentionStore.DueChatRoomCursor stalledRoomCursor = ChatMessageRetentionStore.DueChatRoomCursor
+			.after(stalledRoom);
+		ChatMessageRetentionStore.DueChatRoomCursor successfulRoomCursor = ChatMessageRetentionStore.DueChatRoomCursor
+			.after(successfulRoom);
+		when(store.findDueChatRooms(Instant.now(clock), null, 1)).thenReturn(List.of(stalledRoom));
+		when(store.findDueChatRooms(Instant.now(clock), stalledRoomCursor, 1)).thenReturn(List.of(successfulRoom));
+		when(store.findDueChatRooms(Instant.now(clock), successfulRoomCursor, 1)).thenReturn(List.of());
+		when(processor.process(stalledRoom, Instant.now(clock), 5)).thenReturn(
+			new ChatMessageRetentionRoomProcessor.RoomProcessResult(false, 0, 0, false));
+		when(processor.process(successfulRoom, Instant.now(clock), 5)).thenReturn(
 			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 1, 1, false));
 
 		ChatMessageRetentionCoordinator.RetentionRunSummary summary = coordinator.purgeExpiredMessages();
 
 		assertEquals(1, summary.purgedRoomCount());
-		assertEquals(5, summary.deletedMessageCount());
-		assertEquals(5.0, meterRegistry.get("chat.message.retention.messages.deleted").counter().count());
-		verify(processor).process(limitedRoom, Instant.now(clock), 5);
-		verify(processor).process(nextRoom, Instant.now(clock), 5);
+		assertEquals(1, summary.deletedMessageCount());
+		assertEquals(1, summary.failureCount());
+		verify(processor).process(stalledRoom, Instant.now(clock), 5);
+		verify(processor).process(successfulRoom, Instant.now(clock), 5);
 		meterRegistry.close();
 	}
 

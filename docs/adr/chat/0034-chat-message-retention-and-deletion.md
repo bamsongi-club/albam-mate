@@ -34,11 +34,13 @@ P1에는 채팅 메시지 신고·운영자 숨김 기능이 없다. 따라서 �
 
 `RECRUITING`·`CLOSED` 방의 메시지는 삭제하지 않는다. 방이 `CANCELED` 또는 `FINISHED`로 전환되면 일반 사용자 접근을 즉시 차단하고, 그 전환 시각부터 30일 동안 메시지를 보관한다.
 
-`V6__create_p1_chat_room_schema.sql`은 `CHAT_ROOMS` 스키마·제약만 생성한다. `V11__create_p1_chat_retention_schema.sql`은 기존 방도 `CHAT_ROOMS` 1:1 계약에 포함하도록 상태별 보관 값을 초기화하며, `ON CONFLICT DO NOTHING`으로 기존 행을 보존한다. 기존 ROOM backfill과 상태별 초기화가 live 운영 ROOM 쓰기와 경쟁하는 절체·최종 보정·배포 절차는 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)이 소유한다. 일반 애플리케이션 기동의 V11은 승인된 초기화 계약을 수행하며, 운영 절체 절차를 대체하지 않는다.
+채팅 기능을 처음 활성화하는 전진 Flyway 마이그레이션은 기존 방도 `CHAT_ROOMS` 1:1 계약에 포함한다. 기존 `RECRUITING`·`CLOSED` 방은 `purge_after`와 `messages_purged_at`을 비워 둔다. 기존 `CANCELED`·`FINISHED` 방에는 P1 메시지가 존재할 수 없으므로 같은 PostgreSQL 마이그레이션 기준 시각을 두 컬럼에 기록해 빈 보관 완료로 초기화한다. `ROOMS.updated_at`을 과거 최종 상태 전환 시각으로 추정하지 않는다. 이 마이그레이션 예외는 활성화 뒤 생성되거나 최종 상태로 전환되는 방의 30일 보관 정책을 바꾸지 않는다.
+
+backfill과 ROOM 생성·상태 전환이 경쟁하더라도 완료 시점에는 모든 `ROOMS`에 `CHAT_ROOMS`가 정확히 하나 있고, 각 backfill 행의 보관 값은 일관된 초기화 경계에서 판정한 ROOM 상태와 맞아야 한다. 직렬화 또는 최종 보정 중 어떤 방식으로 이 불변식을 보장할지와 배포 절체 순서는 후속 구현에서 확정한다. 이 ADR은 rolling 배포 금지, 서비스 중단·트래픽 차단이나 특정 PostgreSQL 잠금 모드를 승인하지 않으며, 운영 절체가 필요하면 별도 OPS 승인을 받는다.
 
 - 최종 상태 전환은 `room.contract.RoomTerminalStateReached`를 발행하고 `chat`의 동기 listener가 같은 트랜잭션에서 `CHAT_ROOMS.purge_after`를 전환 시각에서 30일 뒤로 설정한다.
 - 하루 한 번 Spring Scheduler가 `purge_after`가 지난 채팅방을 조회한다.
-- 다중 인스턴스 실행에서는 [ADR-0038](../platform/0038-multi-instance-session-and-scheduler-coordination.md)의 PostgreSQL ShedLock 계약으로 한 실행만 삭제 작업을 소유한다. 채팅 만료 삭제용 잠금 이름은 `chat-message-retention`이다. 하나의 cron 실행은 최대 50개 방과 5,000개 메시지 후보를 처리하는 batch를 반복해 같은 주기 안에 due 적체를 소진한다. 한 방의 실패는 현재 주기에서 해당 방만 제외하고 뒤따르는 방 처리는 계속한다. 대표 로컬 PostgreSQL batch의 `lockAtMostFor=5s` 실측 전제를 유지하고, 같은 cron 주기의 지연 재획득을 막기 위해 `lockAtLeastFor=10s`를 둔다. 정상 실행시간 경고는 1초로 두며, 임대가 실제로 만료해 겹쳐도 아래 멱등 조건으로 수렴한다.
+- 다중 인스턴스 실행에서는 [ADR-0038](../platform/0038-multi-instance-session-and-scheduler-coordination.md)의 PostgreSQL ShedLock 계약으로 한 실행만 삭제 작업을 소유한다. 채팅 만료 삭제용 잠금 이름·`lockAtMostFor`와 실행시간 경고 기준은 구현 이슈에서 확정한다.
 - 만료된 `CHAT_MESSAGES`를 설정 가능한 소량 묶음으로 물리 삭제한다.
 - 만료 시각과 스케줄 실행 간격 때문에 실제 live DB 삭제는 30일 경과 후 최대 24시간 늦을 수 있다.
 - 각 묶음은 독립 트랜잭션이다. 성공한 묶음은 유지하고 실패한 묶음만 롤백한다.
@@ -52,9 +54,9 @@ P1에는 채팅 메시지 신고·운영자 숨김 기능이 없다. 따라서 �
 ## 결과
 
 - 얻는 것: 최종 상태 메시지의 보관 상한을 정하고 live DB 저장량과 개인정보 보유 범위를 줄인다. 방 상태 전환은 대량 삭제와 분리되고, 인스턴스 수가 늘어도 한 실행만 만료 스캔을 소유한다.
-- 감수할 비용·위험: 최종 상태 전환 뒤 30일 동안, 그리고 삭제 전 생성된 백업의 보존주기 동안 데이터가 남는다. 정상 처리량이 유입량을 따라가지 못하거나 지속 실패가 발생하면 최대 24시간 보장이 깨질 수 있으므로 실행시간·적체·실패를 관찰해야 한다. 잠금 임대가 작업보다 먼저 만료되면 실행이 겹칠 수 있으므로 시간 알림과 멱등 조건이 필요하다.
+- 감수할 비용·위험: 최종 상태 전환 뒤 30일 동안, 그리고 삭제 전 생성된 백업의 보존주기 동안 데이터가 남는다. 삭제는 만료 뒤 최대 24시간 늦을 수 있다. 초기화 경합 제어 방식은 후속 구현 결정이므로 1:1·상태별 초기화 검증이 필요하다. 잠금 임대가 작업보다 먼저 만료되면 실행이 겹칠 수 있으므로 시간 알림과 멱등 조건이 필요하다.
 - 비용: 공통 스케줄 인프라 비용은 ADR-0038을 따르며, 채팅은 삭제 조회·배치 실행과 메트릭을 추가로 운영한다.
-- 후속 작업: live 운영 ROOM 쓰기와 경쟁하는 backfill·최종 보정·배포 절체 방식은 #281에서 별도 OPS 승인과 함께 확정한다. `purge_after`·`messages_purged_at`, 만료 조회 인덱스, 공통 ShedLock adapter를 사용하는 배치 삭제와 실패·실행 시간·잠금 획득 실패 메트릭·알림을 구현한다.
+- 후속 작업: 기존 방 backfill과 상태별 초기화, ROOM 쓰기와 경쟁해도 1:1을 보장할 동시성 제어·최종 보정 방식을 구현 전에 확정한다. 운영 절체가 필요하면 별도 OPS 승인을 받는다. `purge_after`·`messages_purged_at`, 만료 조회 인덱스, 공통 ShedLock adapter를 사용하는 배치 삭제와 실패·실행 시간·잠금 획득 실패 메트릭·알림을 구현한다.
 
 ## 보류 및 재검토
 

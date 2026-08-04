@@ -31,7 +31,7 @@ public class ChatMessageRetentionProperties {
 	private Duration lockAtMostFor = Duration.ofSeconds(5);
 
 	@NotNull @DurationMin(nanos = 1)
-	private Duration lockAtLeastFor = Duration.ofSeconds(10);
+	private Duration lockAtLeastFor = Duration.ofSeconds(5);
 
 	@NotNull @DurationMin(nanos = 1)
 	private Duration executionWarningThreshold = Duration.ofSeconds(1);

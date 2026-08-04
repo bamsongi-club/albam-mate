@@ -218,13 +218,13 @@
   실행한다. 잠금과 별개로 삭제 작업은 재실행해도 같은 결과로 수렴하며 각 묶음은
   독립 트랜잭션을 유지한다.
 - 기본 UTC cron은 매일 03:00이고 설정으로 바꿀 수 있다. 대표 로컬 PostgreSQL batch
-  (방 50개, 메시지 5,000개, 방별 100개 chunk)는 126ms였으므로, 정상 실행시간 경고는
-  1초, `chat-message-retention`의 `lockAtMostFor`는 5초, `lockAtLeastFor`는 10초로 둔다.
-  하나의 cron 실행은 이 batch를 반복해 due 적체를 같은 주기 안에 소진하며, 한 방의
-  실패는 현재 주기에서 해당 방만 제외하고 뒤따르는 방 처리는 계속한다.
+  (방 50개, 메시지 5,000개, 방별 100개 chunk)를 기준으로 정상 실행시간 경고는
+  1초, `chat-message-retention`의 `lockAtMostFor`와 `lockAtLeastFor`는 각각 5초로 둔다.
+  하나의 cron 실행은 batch를 반복하며, 각 batch의 5,000개 후보 예산은 모든 방이 공유한다.
+  한 방의 실패는 현재 주기에서 해당 방만 제외하고 뒤따르는 방 처리는 계속한다.
 - `V11` 전진 Flyway는 기존 ROOM을 상태별 보관 값으로 `CHAT_ROOMS`에 멱등 초기화하고
-  `ON CONFLICT DO NOTHING`으로 기존 행을 보존한다. live 운영 ROOM 쓰기와
-  경쟁하는 절체·최종 보정·배포 절차는 #281이 소유한다.
+  기존 행은 보존한다. live 운영 ROOM 쓰기와 경쟁하는 절체·최종 보정·배포 절차는
+  별도 운영 경계로 둔다.
 
 ### 완료 기준
 
