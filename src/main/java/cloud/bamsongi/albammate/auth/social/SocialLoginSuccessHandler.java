@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import cloud.bamsongi.albammate.auth.security.AppSessionEstablisher;
 import cloud.bamsongi.albammate.user.contract.SocialAccountService;
 import cloud.bamsongi.albammate.user.contract.SocialIdentity;
+import cloud.bamsongi.albammate.user.contract.SocialLinkResult;
 import cloud.bamsongi.albammate.user.contract.SocialLoginResult;
 import cloud.bamsongi.albammate.user.contract.SocialProvider;
 import jakarta.servlet.http.HttpServletRequest;
@@ -36,6 +37,7 @@ public final class SocialLoginSuccessHandler implements AuthenticationSuccessHan
 	@NonNull private final SocialAccountService socialAccountService;
 	@NonNull private final AppSessionEstablisher sessionEstablisher;
 	@NonNull private final CsrfTokenRepository csrfTokenRepository;
+	@NonNull private final SocialLinkIntentStore linkIntentStore;
 
 	private final RedirectStrategy redirectStrategy = new DefaultRedirectStrategy();
 
@@ -43,22 +45,38 @@ public final class SocialLoginSuccessHandler implements AuthenticationSuccessHan
 	public void onAuthenticationSuccess(
 		HttpServletRequest request, HttpServletResponse response, Authentication authentication)
 		throws IOException {
-		SocialAuthResult result = handle(request, response, authentication);
-		redirectStrategy.sendRedirect(request, response, result.location());
+		boolean linkAttempt = linkIntentStore.isLinkCallback(request);
+		SocialLinkIntent linkIntent = linkIntentStore.consumeCallbackIntent(request).orElse(null);
+		SocialAuthResult result = handle(request, response, authentication, linkAttempt, linkIntent);
+		redirectStrategy.sendRedirect(request, response, result.location(linkAttempt));
 	}
 
 	private SocialAuthResult handle(
-		HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
+		HttpServletRequest request,
+		HttpServletResponse response,
+		Authentication authentication,
+		boolean linkAttempt,
+		SocialLinkIntent linkIntent) {
 		if (!(authentication instanceof OAuth2AuthenticationToken token)) {
-			sessionEstablisher.discard(request, response);
+			restoreSession(
+				SocialLinkCurrentUserFilter.currentUserId(request).orElse(null), request, response);
 			return SocialAuthResult.FAILED;
 		}
 		SocialProvider provider = clientRegistrationRepository
 			.configuredProvider(token.getAuthorizedClientRegistrationId())
 			.orElse(null);
 		if (provider == null) {
-			sessionEstablisher.discard(request, response);
+			restoreSession(
+				SocialLinkCurrentUserFilter.currentUserId(request).orElse(null), request, response);
 			return SocialAuthResult.PROVIDER_UNAVAILABLE;
+		}
+		if (linkAttempt) {
+			if (linkIntent == null) {
+				restoreSession(
+					SocialLinkCurrentUserFilter.currentUserId(request).orElse(null), request, response);
+				return SocialAuthResult.INVALID_STATE;
+			}
+			return link(linkIntent, provider, token, request, response);
 		}
 
 		SocialLoginResult loginResult;
@@ -78,5 +96,56 @@ public final class SocialLoginSuccessHandler implements AuthenticationSuccessHan
 		}
 		sessionEstablisher.discard(request, response);
 		return SocialAuthResult.LINK_REQUIRED;
+	}
+
+	/**
+	 * 연결 의도가 있는 callback을 현재 사용자의 명시적 연결로 처리한다.
+	 *
+	 * <p>제공자 이메일은 연결 대상을 고르는 데 쓰지 않고, 의도의 제공자와 사용자가 callback 직전의 세션 사용자와 모두 맞을 때만 연결한다.
+	 * 어느 쪽이든 결과가 정해지면 callback 직전에 로그인해 있던 사용자를 다시 세운다. 의도의 사용자로 되세우면 세션 사용자가 바뀐 경우에 다른
+	 * 사용자로 로그인되기 때문이다.
+	 */
+	private SocialAuthResult link(
+		SocialLinkIntent intent,
+		SocialProvider provider,
+		OAuth2AuthenticationToken token,
+		HttpServletRequest request,
+		HttpServletResponse response) {
+		Long currentUserId = SocialLinkCurrentUserFilter.currentUserId(request).orElse(null);
+		if (!intent.provider().equals(provider) || !intent.userId().equals(currentUserId)) {
+			restoreSession(currentUserId, request, response);
+			return SocialAuthResult.INVALID_STATE;
+		}
+
+		SocialLinkResult linkResult;
+		try {
+			SocialIdentity identity = identityMapper.map(provider, token.getPrincipal().getAttributes());
+			linkResult = socialAccountService.link(intent.userId(), identity);
+		} catch (RuntimeException exception) {
+			restoreSession(currentUserId, request, response);
+			return SocialAuthResult.FAILED;
+		}
+
+		restoreSession(currentUserId, request, response);
+		if (linkResult == SocialLinkResult.LINKED) {
+			csrfTokenRepository.saveToken(null, request, response);
+			return SocialAuthResult.LINK_SUCCESS;
+		}
+		return SocialAuthResult.LINK_CONFLICT;
+	}
+
+	/**
+	 * 연결 시도면 callback 직전의 로그인 사용자를 되돌리고, 로그인 시도면 남은 인증을 지운다.
+	 *
+	 * <p>OAuth filter는 성공 처리 직전에 세션 인증을 외부 principal로 덮으므로, 연결 결과가 성공이든 실패든 원래 로그인 사용자를 다시
+	 * 세우지 않으면 연결 시도만으로 로그아웃된다.
+	 */
+	private void restoreSession(
+		Long userId, HttpServletRequest request, HttpServletResponse response) {
+		if (userId == null) {
+			sessionEstablisher.discard(request, response);
+			return;
+		}
+		sessionEstablisher.establish(userId, request, response);
 	}
 }
