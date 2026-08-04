@@ -14,6 +14,16 @@ spring:
         jdbc:
           time_zone: UTC
 app:
+
+  chat:
+    retention:
+      enabled: true
+      cron: "0 0 3 * * *"
+      max-rooms-per-run: 50
+      message-chunk-size: 100
+      lock-at-most-for: 5s
+      execution-warning-threshold: 1s
+
   notification:
     relay:
       enabled: true
