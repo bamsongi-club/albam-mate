@@ -98,6 +98,21 @@ class NotificationOutboxRecoveryPostgresTest {
 	}
 
 	@Test
+	void NOTIFICATION_EXPIRED는_재처리_창_안이어도_상태와_수신자를_보존한다() {
+		Fixture fixture = createFixture();
+		long eventId = insertFailedEvent(fixture.roomId(), "1 day", "NOTIFICATION_EXPIRED");
+		insertRecipient(eventId, fixture.recipientUserId());
+
+		assertThrows(NotificationOutboxRecoveryInputException.class,
+			() -> recoveryService.execute(reprocess(List.of(eventId))));
+
+		assertEquals("FAILED", jdbcTemplate.queryForObject(
+			"select status from notification_outbox_events where id = ?", String.class, eventId));
+		assertEquals(1, jdbcTemplate.queryForObject(
+			"select count(*) from notification_outbox_recipients where outbox_event_id = ?", Integer.class, eventId));
+	}
+
+	@Test
 	void 없는_대상이_섞이면_기존_FAILED도_변경하지_않는다() {
 		Fixture fixture = createFixture();
 		long eventId = insertFailedEvent(fixture.roomId(), "1 day", "RELAY_PROCESSING_FAILURE");
