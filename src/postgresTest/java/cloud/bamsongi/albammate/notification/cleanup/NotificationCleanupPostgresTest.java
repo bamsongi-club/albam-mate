@@ -7,9 +7,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -146,6 +149,12 @@ class NotificationCleanupPostgresTest {
 		jdbcTemplate.update(
 			"insert into notification_outbox_recipients (outbox_event_id, recipient_user_id) values (?, ?)",
 			eventId, fixture.recipientUserId());
+		assertEquals("CASCADE", jdbcTemplate.queryForObject("""
+			select delete_rule
+			from information_schema.referential_constraints
+			where constraint_schema = 'public'
+			  and constraint_name = 'fk_notification_outbox_recipients_outbox_event'
+			""", String.class));
 
 		executor.cleanupOneBatch(NotificationCleanupTarget.OUTBOX, 500);
 
@@ -156,6 +165,12 @@ class NotificationCleanupPostgresTest {
 				"select count(*) from notification_outbox_recipients where outbox_event_id = ?",
 				Integer.class,
 				eventId));
+	}
+
+	@Test
+	void Outbox_cleanup_인덱스가_Flyway_스키마에_정의되고_실제_삭제_쿼리_계획에서_사용된다() throws SQLException {
+		assertOutboxCleanupIndexDefinition();
+		assertOutboxCleanupDeletePlanUsesIndex();
 	}
 
 	@Test
@@ -328,6 +343,68 @@ class NotificationCleanupPostgresTest {
 	private boolean outboxExists(long outboxEventId) {
 		return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
 			"select exists (select 1 from notification_outbox_events where id = ?)", Boolean.class, outboxEventId));
+	}
+
+	private void assertOutboxCleanupIndexDefinition() {
+		String indexDefinition = jdbcTemplate.queryForObject("""
+			select pg_get_indexdef('idx_notification_outbox_events_cleanup'::regclass)
+			""", String.class);
+
+		assertTrue(indexDefinition.contains(
+			"ON public.notification_outbox_events USING btree (cleanup_at, id) WHERE (cleanup_at IS NOT NULL)"),
+			indexDefinition);
+	}
+
+	private void assertOutboxCleanupDeletePlanUsesIndex() throws SQLException {
+		try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
+			connection.setAutoCommit(false);
+			try {
+				statement.execute("set local enable_seqscan = off");
+				Instant measurementTime = selectPostgreSqlMeasurementTime(statement);
+				String executionPlan = explainOutboxCleanupDelete(connection, measurementTime);
+
+				assertTrue(executionPlan.contains("idx_notification_outbox_events_cleanup"), executionPlan);
+			} finally {
+				connection.rollback();
+			}
+		}
+	}
+
+	private Instant selectPostgreSqlMeasurementTime(Statement statement) throws SQLException {
+		try (ResultSet resultSet = statement.executeQuery("select clock_timestamp()")) {
+			resultSet.next();
+			return resultSet.getObject(1, OffsetDateTime.class).toInstant();
+		}
+	}
+
+	private String explainOutboxCleanupDelete(Connection connection, Instant measurementTime) throws SQLException {
+		try (PreparedStatement statement = connection.prepareStatement("""
+			explain (costs off)
+			with due_events as (
+			    select event.id
+			    from notification_outbox_events event
+			    where event.status in ('PROCESSED', 'DISCARDED')
+			      and event.cleanup_at <= ?
+			    order by event.cleanup_at asc, event.id asc
+			    limit 500
+			    for update of event skip locked
+			), deleted_events as (
+			    delete from notification_outbox_events event
+			    using due_events
+			    where event.id = due_events.id
+			    returning event.id
+			)
+			select count(*) from deleted_events
+			""")) {
+			statement.setObject(1, OffsetDateTime.ofInstant(measurementTime, ZoneOffset.UTC));
+			try (ResultSet resultSet = statement.executeQuery()) {
+				StringBuilder executionPlan = new StringBuilder();
+				while (resultSet.next()) {
+					executionPlan.append(resultSet.getString(1)).append('\n');
+				}
+				return executionPlan.toString();
+			}
+		}
 	}
 
 	private void installFirstWorkerDeleteGate(long notificationId, int advisoryLockKey) {

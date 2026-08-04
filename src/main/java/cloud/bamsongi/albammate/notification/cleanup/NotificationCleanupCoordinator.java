@@ -81,13 +81,13 @@ public class NotificationCleanupCoordinator {
 		long durationMillis) {
 		if (measurementTime == null) {
 			log.warn(
-				"event=notification_cleanup_failed targetType={} batchNumber={} failureCode={} exceptionClass={} durationMs={}",
-				targetType, batchNumber, CLEANUP_BATCH_FAILURE, exceptionClass, durationMillis);
+				"event=notification_cleanup_failed targetType={} batchNumber={} deletedCount={} failureCode={} exceptionClass={} durationMs={}",
+				targetType, batchNumber, 0, CLEANUP_BATCH_FAILURE, exceptionClass, durationMillis);
 			return;
 		}
 		log.warn(
-			"event=notification_cleanup_failed targetType={} batchNumber={} failureCode={} exceptionClass={} durationMs={} measurementTime={}",
-			targetType, batchNumber, CLEANUP_BATCH_FAILURE, exceptionClass, durationMillis, measurementTime);
+			"event=notification_cleanup_failed targetType={} batchNumber={} deletedCount={} failureCode={} exceptionClass={} durationMs={} measurementTime={}",
+			targetType, batchNumber, 0, CLEANUP_BATCH_FAILURE, exceptionClass, durationMillis, measurementTime);
 	}
 
 	private long elapsedMillis(long startedAtNanos) {

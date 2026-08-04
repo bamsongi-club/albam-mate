@@ -79,7 +79,7 @@ class NotificationCleanupCoordinatorTest {
 			assertEquals(Level.WARN, appender.list.get(1).getLevel());
 			assertTrue(failureLog.contains("targetType=OUTBOX batchNumber=1"));
 			assertTrue(failureLog.contains(
-				"failureCode=CLEANUP_BATCH_FAILURE exceptionClass=IllegalStateException durationMs="));
+				"deletedCount=0 failureCode=CLEANUP_BATCH_FAILURE exceptionClass=IllegalStateException durationMs="));
 			assertFalse(failureLog.contains("measurementTime="));
 			assertFalse(failureLog.contains("user@example.com"));
 			assertFalse(failureLog.contains("sensitive-token"));
@@ -105,7 +105,7 @@ class NotificationCleanupCoordinatorTest {
 
 			String failureLog = appender.list.get(0).getFormattedMessage();
 			assertTrue(failureLog.contains(
-				"targetType=NOTIFICATION batchNumber=1 failureCode=CLEANUP_BATCH_FAILURE "
+				"targetType=NOTIFICATION batchNumber=1 deletedCount=0 failureCode=CLEANUP_BATCH_FAILURE "
 					+ "exceptionClass=IllegalArgumentException durationMs="));
 			assertTrue(failureLog.endsWith("measurementTime=" + MEASUREMENT_TIME));
 			assertFalse(failureLog.contains("user@example.com"));
