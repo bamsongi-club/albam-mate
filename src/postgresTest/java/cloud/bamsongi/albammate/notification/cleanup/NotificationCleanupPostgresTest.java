@@ -245,6 +245,25 @@ class NotificationCleanupPostgresTest {
 		}
 	}
 
+	@Test
+	void commit_시점_실패도_고정한_measurementTime을_남기고_batch를_롤백한다() {
+		Fixture fixture = createFixture();
+		long notificationId = insertNotification(fixture, "clock_timestamp() - interval '91 days'");
+		installNotificationDeleteCommitFailure();
+		try {
+			NotificationCleanupExecutor.CleanupBatchFailedException exception = assertThrows(
+				NotificationCleanupExecutor.CleanupBatchFailedException.class,
+				() -> executor.cleanupOneBatch(NotificationCleanupTarget.NOTIFICATION, 1));
+
+			assertTrue(exception.getMeasurementTime() != null);
+			assertFalse(exception.getOriginalExceptionClass().isBlank());
+			assertTrue(notificationExists(notificationId));
+		} finally {
+			jdbcTemplate.execute("drop trigger if exists notification_cleanup_fail_at_commit on notifications");
+			jdbcTemplate.execute("drop function if exists notification_cleanup_fail_at_commit()");
+		}
+	}
+
 	private ConfigurableApplicationContext createCleanupContext() {
 		return new SpringApplicationBuilder(AlbamMateApplication.class)
 			.run(
@@ -491,6 +510,22 @@ class NotificationCleanupPostgresTest {
 			create trigger notification_cleanup_fail_second_delete
 			before delete on notifications
 			for each row execute function notification_cleanup_fail_second_delete()
+			""");
+	}
+
+	private void installNotificationDeleteCommitFailure() {
+		jdbcTemplate.execute("""
+			create function notification_cleanup_fail_at_commit() returns trigger as $$
+			begin
+			    raise exception 'notification cleanup test sensitive payload';
+			end;
+			$$ language plpgsql
+			""");
+		jdbcTemplate.execute("""
+			create constraint trigger notification_cleanup_fail_at_commit
+			after delete on notifications
+			deferrable initially deferred
+			for each row execute function notification_cleanup_fail_at_commit()
 			""");
 	}
 
