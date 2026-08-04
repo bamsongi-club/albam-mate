@@ -75,6 +75,7 @@ const EMPTY_GAME_FILTERS = {
   upcomingOnly: false
 };
 const EMPTY_GAME_FILTER_KEY = JSON.stringify(EMPTY_GAME_FILTERS);
+const EMPTY_PLAYER_COUNT_RANGE = { playerCountMin: '', playerCountMax: '', playerCountExact: false };
 // 계약의 허용값은 1인과 2인뿐이다.
 const EXCLUSIVE_PLAYER_COUNT_OPTIONS = [
   { value: '1', label: '1인 전용' },
@@ -936,7 +937,7 @@ function clearedExclusivePlayerCount(filters, value) {
  */
 function gameFilterParameters(filters) {
   if (!filters.exclusivePlayerCount.length) return filters;
-  return { ...filters, playerCountMin: '', playerCountMax: '', playerCountExact: false };
+  return { ...filters, ...EMPTY_PLAYER_COUNT_RANGE };
 }
 
 function playerCountRangeLabel(filters) {
@@ -993,7 +994,13 @@ function GameFilters({ filters, onChange }) {
     update({ complexityMin: band ? band.min : '', complexityMax: band ? band.max : '' });
   };
   // 범위를 직접 입력하면 전용 인원 선택을 되비추던 상태가 아니게 되므로 선택을 해제한다.
-  const updateRange = (patch) => update({ ...patch, exclusivePlayerCount: [] });
+  // 되비추던 값도 함께 비운다. 남겨 두면 최소만 바꿔도 전용 인원이 넣어 둔 최대·정확히 일치가
+  // 그대로 따라가 `playerCountMin=3&playerCountMax=2&playerCountExact=true` 같은 검증 오류가 된다.
+  const updateRange = (patch) => update({
+    ...(filters.exclusivePlayerCount.length ? EMPTY_PLAYER_COUNT_RANGE : null),
+    ...patch,
+    exclusivePlayerCount: []
+  });
   const toggleExclusive = (value, checked) => update(exclusivePlayerCountPatch(
     checked
       ? [...filters.exclusivePlayerCount, value]

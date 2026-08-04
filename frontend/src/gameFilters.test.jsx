@@ -46,7 +46,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('T8 게임 조건 필터 조회 시점', () => {
+describe('T2·T3 게임 조건 필터 조회 시점', () => {
   it('숫자 입력은 마지막 입력 0.4초가 지난 뒤에만 조회한다', () => {
     renderGamesView();
     openFilterPanel();
@@ -76,6 +76,18 @@ describe('T8 게임 조건 필터 조회 시점', () => {
     expect(lastQuery().playTime).toEqual(['AT_LEAST_90']);
   });
 
+  it('플레이 시간은 확정한 6구간만 제공하고 제거된 구간을 남기지 않는다', () => {
+    renderGamesView();
+    openFilterPanel();
+
+    ['10분 이내', '10~20분', '20~30분', '30~60분', '60~90분', '90분 이상'].forEach((label) => {
+      expect(screen.getByLabelText(label)).toBeTruthy();
+    });
+    ['20분 이하', '20분 초과 60분 이하', '60분 초과'].forEach((label) => {
+      expect(screen.queryByLabelText(label)).toBeNull();
+    });
+  });
+
   it('플레이 시간 여러 구간을 함께 선택하면 선택한 값을 모두 전달한다', () => {
     renderGamesView();
     openFilterPanel();
@@ -102,7 +114,7 @@ describe('T8 게임 조건 필터 조회 시점', () => {
   });
 });
 
-describe('T3·T4 인원 범위와 전용 인원의 화면 전환', () => {
+describe('T1 인원 범위와 전용 인원의 화면 전환', () => {
   it('전용 인원을 하나 고르면 그 인원의 범위와 정확히 일치를 화면에 되비춘다', () => {
     renderGamesView();
     openFilterPanel();
@@ -181,5 +193,33 @@ describe('T3·T4 인원 범위와 전용 인원의 화면 전환', () => {
     expect(screen.getByLabelText('2인 전용').checked).toBe(false);
     expect(lastQuery().exclusivePlayerCount).toEqual([]);
     expect(lastQuery().playerCountMin).toBe('3');
+  });
+
+  it('전용 인원에서 범위로 전환하면 되비추던 최대와 정확히 일치를 남기지 않는다', () => {
+    renderGamesView();
+    openFilterPanel();
+    fireEvent.click(screen.getByLabelText('2인 전용'));
+
+    fireEvent.change(screen.getByLabelText('최소'), { target: { value: '3' } });
+    act(() => { vi.advanceTimersByTime(400); });
+
+    expect(screen.getByLabelText('최대').value).toBe('');
+    expect(screen.getByLabelText('인원 정확히 일치').checked).toBe(false);
+    expect(lastQuery().playerCountMax).toBe('');
+    expect(lastQuery().playerCountExact).toBe(false);
+  });
+
+  it('전용 인원에서 정확히 일치만 해제해도 되비추던 범위를 남기지 않는다', () => {
+    renderGamesView();
+    openFilterPanel();
+    fireEvent.click(screen.getByLabelText('2인 전용'));
+
+    fireEvent.click(screen.getByLabelText('인원 정확히 일치'));
+    act(() => { vi.advanceTimersByTime(400); });
+
+    expect(screen.getByLabelText('최소').value).toBe('');
+    expect(screen.getByLabelText('최대').value).toBe('');
+    expect(lastQuery().playerCountMin).toBe('');
+    expect(lastQuery().playerCountMax).toBe('');
   });
 });
