@@ -192,7 +192,7 @@ BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건�
 | 인증·공개 범위 | [P1 P0 계약 상속](../P1-spec.md#p0-계약-상속) |
 | 저장 계약 | [USER_PLAYED_GAMES](../ERD.md#user_played_games), [ADR-0006](../adr/platform/0006-p0-bigint-identity-ids.md) |
 | 필수 ADR | [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md), [ADR-0047](../adr/platform/0047-http-method-and-target-state-idempotency.md) |
-| 백엔드 구현 | [#356](https://github.com/bamsongi-club/albam-mate/issues/356) |
+| 백엔드 구현·개발 검증 | [#356](https://github.com/bamsongi-club/albam-mate/issues/356) (구현 완료; H2·PostgreSQL 대상 테스트 통과) |
 | 프론트엔드 구현 | [#357](https://github.com/bamsongi-club/albam-mate/issues/357) |
 
 ### 기능 규칙

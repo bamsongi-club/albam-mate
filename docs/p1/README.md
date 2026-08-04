@@ -14,7 +14,7 @@ P1 2차 MVP의 현재 계획·구현 기준 문서 묶음이다. 문서가 존�
 | [방 채팅](chatting.md) | `CHAT-01`~`CHAT-05`의 채팅방 접근, 영속 이력, 실시간 전달·복구와 안전·운영 |
 | [기반 작업](foundation.md) | `FND-09`, `FND-10`의 검색 성능·인덱스 검증과 실시간 전달 기반 |
 
-기능 구현은 해당 기능 문서의 완료 기준과 현재 [API](../API.md), [ERD](../ERD.md), 관련 승인 ADR을 함께 충족해야 한다. API에 적은 P1 인터페이스는 구현 예정 계약이며, 코드·ERD·아키텍처와 필요한 ADR에 반영되고 검증되기 전에는 현재 제공 기능으로 보지 않는다.
+기능 구현은 해당 기능 문서의 완료 기준과 현재 [API](../API.md), [ERD](../ERD.md), 관련 승인 ADR을 함께 충족해야 한다. API에 적은 P1 인터페이스 중 제공 상태가 `구현 예정`인 계약은 코드·ERD·아키텍처와 필요한 ADR에 반영되고 검증되기 전에는 현재 제공 기능으로 보지 않는다.
 
 P1 저장 계약의 준비 상태는 기능별로 다르다. 알림 저장 계약, 승인된 PART-04 대기열 저장 계약과 P1 채팅 저장 구조 및 [ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)의 ShedLock 구조는 [ERD](../ERD.md)에 구현 예정 계약으로 반영됐고, 기능 전체의 계약 준비 여부는 아래 표의 `계약 준비` 열을 따른다. 구현 작업은 준비된 저장 계약도 전진 Flyway 마이그레이션과 생산 코드로 구현해야 하며, `선행 계약 필요`인 기능의 미확정 문서 후보를 그대로 물리 저장 계약으로 사용하지 않는다. 다만 같은 이슈·PR에서 아래 단일 이슈·PR 규칙의 1~2단계를 마쳐 선택한 계약을 정본에 반영했다면, 상태표의 중간 갱신 없이 그 계약으로 구현을 계속할 수 있다.
 
@@ -27,7 +27,7 @@ P1 저장 계약의 준비 상태는 기능별로 다르다. 알림 저장 계�
 | [`AUTH-05`](social-login.md#auth-05-소셜-로그인계정-연결) | 계약 준비 완료 | 부분 구현 ([#331](https://github.com/bamsongi-club/albam-mate/issues/331), [#333](https://github.com/bamsongi-club/albam-mate/issues/333)) | 부분 검증 ([#331](https://github.com/bamsongi-club/albam-mate/issues/331), [#333](https://github.com/bamsongi-club/albam-mate/issues/333)) | 미배포·미측정 |
 | [`SEARCH-01`](search.md#search-01-게임-조건-검색) | 계약 준비 완료 | 구현 완료 ([#293](https://github.com/bamsongi-club/albam-mate/issues/293), [#295](https://github.com/bamsongi-club/albam-mate/issues/295), [#348](https://github.com/bamsongi-club/albam-mate/issues/348), [#351](https://github.com/bamsongi-club/albam-mate/issues/351)) | 검증 완료 ([#293](https://github.com/bamsongi-club/albam-mate/issues/293), [#295](https://github.com/bamsongi-club/albam-mate/issues/295), [#348](https://github.com/bamsongi-club/albam-mate/issues/348), [#351](https://github.com/bamsongi-club/albam-mate/issues/351)) | 미배포·미측정 |
 | [`SEARCH-02`](search.md#search-02-방-조건-검색) | 계약 준비 완료 | 구현 완료 ([#294](https://github.com/bamsongi-club/albam-mate/issues/294), [PR #317](https://github.com/bamsongi-club/albam-mate/pull/317)) | 검증 완료 ([#294](https://github.com/bamsongi-club/albam-mate/issues/294), [PR #317](https://github.com/bamsongi-club/albam-mate/pull/317)) | 미배포·미측정 |
-| [`SEARCH-03`](search.md#search-03-사용자별-해-본-게임) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
+| [`SEARCH-03`](search.md#search-03-사용자별-해-본-게임) | 계약 준비 완료 | 부분 구현 ([#356](https://github.com/bamsongi-club/albam-mate/issues/356)) | 부분 검증 ([#356](https://github.com/bamsongi-club/albam-mate/issues/356): H2·PostgreSQL 대상 테스트) | 미배포·미측정 |
 | [`ROOM-08`](room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
 | [`PART-04`](room.md#part-04-선착순-대기열과-자동-승격) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
 | [`ROOM-09`](room.md#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |

@@ -17,9 +17,45 @@ public record GameDetail(
 	long upcomingRoomCount,
 	String alias,
 	String description,
-	String detailDescription) {
+	String detailDescription,
+	Boolean playedByMe) {
+
+	public GameDetail(
+		Long id,
+		Long bggId,
+		String name,
+		String englishName,
+		String imageUrl,
+		String supportedPlayerCount,
+		String tag,
+		String estimatedPlayTime,
+		BigDecimal complexity,
+		long upcomingRoomCount,
+		String alias,
+		String description,
+		String detailDescription) {
+		this(
+			id,
+			bggId,
+			name,
+			englishName,
+			imageUrl,
+			supportedPlayerCount,
+			tag,
+			estimatedPlayTime,
+			complexity,
+			upcomingRoomCount,
+			alias,
+			description,
+			detailDescription,
+			null);
+	}
 
 	public static GameDetail from(Game game, long upcomingRoomCount) {
+		return from(game, upcomingRoomCount, null);
+	}
+
+	public static GameDetail from(Game game, long upcomingRoomCount, Boolean playedByMe) {
 		return new GameDetail(
 			game.getId(),
 			game.getBggId(),
@@ -33,6 +69,7 @@ public record GameDetail(
 			upcomingRoomCount,
 			game.getAlias(),
 			game.getDescription(),
-			game.getDetailDescription());
+			game.getDetailDescription(),
+			playedByMe);
 	}
 }

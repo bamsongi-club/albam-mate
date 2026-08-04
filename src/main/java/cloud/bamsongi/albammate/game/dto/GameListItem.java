@@ -14,9 +14,39 @@ public record GameListItem(
 	String tag,
 	String estimatedPlayTime,
 	BigDecimal complexity,
-	long upcomingRoomCount) {
+	long upcomingRoomCount,
+	Boolean playedByMe) {
+
+	public GameListItem(
+		Long id,
+		Long bggId,
+		String name,
+		String englishName,
+		String imageUrl,
+		String supportedPlayerCount,
+		String tag,
+		String estimatedPlayTime,
+		BigDecimal complexity,
+		long upcomingRoomCount) {
+		this(
+			id,
+			bggId,
+			name,
+			englishName,
+			imageUrl,
+			supportedPlayerCount,
+			tag,
+			estimatedPlayTime,
+			complexity,
+			upcomingRoomCount,
+			null);
+	}
 
 	public static GameListItem from(GameListRow game, long upcomingRoomCount) {
+		return from(game, upcomingRoomCount, null);
+	}
+
+	public static GameListItem from(GameListRow game, long upcomingRoomCount, Boolean playedByMe) {
 		return new GameListItem(
 			game.id(),
 			game.bggId(),
@@ -27,6 +57,7 @@ public record GameListItem(
 			game.tag(),
 			game.estimatedPlayTime(),
 			game.complexity(),
-			upcomingRoomCount);
+			upcomingRoomCount,
+			playedByMe);
 	}
 }

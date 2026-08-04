@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -21,11 +22,17 @@ import org.springframework.test.util.ReflectionTestUtils;
 import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
+import cloud.bamsongi.albammate.game.dto.PlayedFilter;
 import cloud.bamsongi.albammate.game.entity.Game;
+import cloud.bamsongi.albammate.game.entity.GameMechanism;
+import cloud.bamsongi.albammate.game.entity.GameMechanismRelation;
+import cloud.bamsongi.albammate.game.entity.UserPlayedGame;
 import cloud.bamsongi.albammate.game.fixture.GameFixture;
 import cloud.bamsongi.albammate.game.service.GameListSearchCriteria;
 import cloud.bamsongi.albammate.global.config.JpaConfig;
 import cloud.bamsongi.albammate.global.config.TimeConfig;
+import cloud.bamsongi.albammate.user.entity.User;
+import cloud.bamsongi.albammate.user.repository.UserRepository;
 
 @DataJpaTest
 @Import({JpaConfig.class, TimeConfig.class})
@@ -33,6 +40,14 @@ class GameRepositoryTest {
 
 	@Autowired
 	private GameRepository gameRepository;
+	@Autowired
+	private GameMechanismRepository gameMechanismRepository;
+	@Autowired
+	private GameMechanismRelationRepository gameMechanismRelationRepository;
+	@Autowired
+	private UserPlayedGameRepository userPlayedGameRepository;
+	@Autowired
+	private UserRepository userRepository;
 
 	@Test
 	void 저장하면_감사_시각이_채워진다() {
@@ -206,6 +221,62 @@ class GameRepositoryTest {
 		assertEquals(
 			List.of(secondAlpha.getId()),
 			find(pagedCriteria(), 1, 1).getContent().stream().map(Game::getId).toList());
+	}
+
+	@Test
+	void 해본게임_관계필터는_기존의_모든_게임조건_정렬_페이지와_함께_AND로_적용한다() {
+		User user = userRepository.saveAndFlush(
+			User.create("played-filter@example.com", "{bcrypt}hash", "검색사용자"));
+		GameMechanism mechanism = gameMechanismRepository.saveAndFlush(
+			new GameMechanism(
+				2_001L,
+				"ALL_FILTER",
+				"전체 필터",
+				"All Filter",
+				1,
+				true,
+				"test",
+				"tester",
+				Instant.parse("2026-08-04T00:00:00Z")));
+		Game alpha = saveGame(1001L, "All Filter Alpha", 2, 4, 30, new BigDecimal("2.50"));
+		Game beta = saveGame(1002L, "All Filter Beta", 2, 4, 30, new BigDecimal("2.50"));
+		Game wrongKeyword = saveGame(1003L, "Different Keyword", 2, 4, 30, new BigDecimal("2.50"));
+		Game wrongUpcoming = saveGame(1004L, "All Filter Wrong Upcoming", 2, 4, 30, new BigDecimal("2.50"));
+		Game wrongPlayerCount = saveGame(1005L, "All Filter Wrong Player", 3, 4, 30, new BigDecimal("2.50"));
+		Game wrongPlayTime = saveGame(1006L, "All Filter Wrong Time", 2, 4, 90, new BigDecimal("2.50"));
+		Game wrongComplexity = saveGame(1007L, "All Filter Wrong Complexity", 2, 4, 30, new BigDecimal("3.50"));
+		Game wrongMechanism = saveGame(1008L, "All Filter Wrong Mechanism", 2, 4, 30, new BigDecimal("2.50"));
+		Game unplayed = saveGame(1009L, "All Filter Unplayed", 2, 4, 30, new BigDecimal("2.50"));
+		for (Game game : List.of(alpha, beta, wrongKeyword, wrongUpcoming, wrongPlayerCount, wrongPlayTime,
+			wrongComplexity)) {
+			gameMechanismRelationRepository.saveAndFlush(new GameMechanismRelation(game, mechanism));
+			userPlayedGameRepository.saveAndFlush(
+				UserPlayedGame.create(user.getId(), game.getId(), Instant.parse("2026-08-04T00:00:00Z")));
+		}
+		userPlayedGameRepository.saveAndFlush(
+			UserPlayedGame.create(user.getId(), wrongMechanism.getId(), Instant.parse("2026-08-04T00:00:00Z")));
+		gameMechanismRelationRepository.saveAndFlush(new GameMechanismRelation(unplayed, mechanism));
+
+		GameListSearchCriteria criteria = criteria(request -> {
+			request.setKeyword("all filter");
+			request.setUpcomingOnly(true);
+			request.setPlayerCount(2);
+			request.setPlayTime(List.of(GamePlayTimeFilter.OVER_20_TO_30));
+			request.setComplexityMin(new BigDecimal("2.00"));
+			request.setComplexityMax(new BigDecimal("3.00"));
+			request.setMechanism(List.of("ALL_FILTER"));
+			request.setPlayedFilter(List.of(PlayedFilter.PLAYED_ONLY));
+		}).withUpcomingGameIds(
+			List.of(
+				alpha.getId(), beta.getId(), wrongKeyword.getId(), wrongPlayerCount.getId(), wrongPlayTime.getId(),
+				wrongComplexity.getId(), wrongMechanism.getId(), unplayed.getId()))
+			.withPlayedFilter(user.getId());
+
+		Page<Game> firstPage = find(criteria, 0, 1);
+		assertEquals(2, firstPage.getTotalElements());
+		assertEquals(2, firstPage.getTotalPages());
+		assertEquals(List.of(alpha.getId()), firstPage.getContent().stream().map(Game::getId).toList());
+		assertEquals(List.of(beta.getId()), find(criteria, 1, 1).getContent().stream().map(Game::getId).toList());
 	}
 
 	@Test

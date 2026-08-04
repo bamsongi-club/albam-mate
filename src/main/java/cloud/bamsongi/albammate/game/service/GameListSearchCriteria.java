@@ -12,8 +12,10 @@ import org.springframework.util.StringUtils;
 
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
+import cloud.bamsongi.albammate.game.dto.PlayedFilter;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.entity.GameMechanismRelation;
+import cloud.bamsongi.albammate.game.entity.UserPlayedGame;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
@@ -37,6 +39,8 @@ public final class GameListSearchCriteria {
 	private final List<GamePlayTimeFilter> playTimes;
 	private final BigDecimal complexityMin;
 	private final BigDecimal complexityMax;
+	private final PlayedFilter playedFilter;
+	private final Long currentUserId;
 	private final List<String> mechanisms;
 
 	private GameListSearchCriteria(GameListRequest request) {
@@ -52,10 +56,13 @@ public final class GameListSearchCriteria {
 		this.playTimes = distinctValues(request.getPlayTime());
 		this.complexityMin = request.getComplexityMin();
 		this.complexityMax = request.getComplexityMax();
+		this.playedFilter = request.getPlayedFilter();
+		this.currentUserId = null;
 		this.mechanisms = distinctValues(request.getMechanism());
 	}
 
-	private GameListSearchCriteria(GameListSearchCriteria source, Collection<Long> upcomingGameIds) {
+	private GameListSearchCriteria(
+		GameListSearchCriteria source, Collection<Long> upcomingGameIds, Long currentUserId) {
 		this.keyword = source.keyword;
 		this.upcomingOnly = source.upcomingOnly;
 		this.upcomingGameIds = List.copyOf(upcomingGameIds);
@@ -67,6 +74,8 @@ public final class GameListSearchCriteria {
 		this.playTimes = source.playTimes;
 		this.complexityMin = source.complexityMin;
 		this.complexityMax = source.complexityMax;
+		this.playedFilter = source.playedFilter;
+		this.currentUserId = currentUserId;
 		this.mechanisms = source.mechanisms;
 	}
 
@@ -89,7 +98,11 @@ public final class GameListSearchCriteria {
 	}
 
 	public GameListSearchCriteria withUpcomingGameIds(Collection<Long> upcomingGameIds) {
-		return new GameListSearchCriteria(this, upcomingGameIds);
+		return new GameListSearchCriteria(this, upcomingGameIds, currentUserId);
+	}
+
+	public GameListSearchCriteria withPlayedFilter(long currentUserId) {
+		return new GameListSearchCriteria(this, upcomingGameIds, currentUserId);
 	}
 
 	public Specification<Game> toSpecification() {
@@ -114,8 +127,28 @@ public final class GameListSearchCriteria {
 				predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("complexity"), complexityMax));
 			}
 			addMechanismPredicate(root, query, criteriaBuilder, predicates);
+			addPlayedGamePredicate(root, query, criteriaBuilder, predicates);
 			return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
 		};
+	}
+
+	/** 현재 사용자의 표시 관계를 EXISTS 또는 NOT EXISTS로 적용한다. */
+	private void addPlayedGamePredicate(
+		Root<Game> root,
+		jakarta.persistence.criteria.CriteriaQuery<?> query,
+		CriteriaBuilder criteriaBuilder,
+		List<Predicate> predicates) {
+		if (playedFilter == null) {
+			return;
+		}
+		var subquery = query.subquery(Long.class);
+		Root<UserPlayedGame> relation = subquery.from(UserPlayedGame.class);
+		subquery.select(criteriaBuilder.literal(1L));
+		subquery.where(
+			criteriaBuilder.equal(relation.get("userId"), currentUserId),
+			criteriaBuilder.equal(relation.get("gameId"), root.get("id")));
+		Predicate exists = criteriaBuilder.exists(subquery);
+		predicates.add(playedFilter == PlayedFilter.PLAYED_ONLY ? exists : criteriaBuilder.not(exists));
 	}
 
 	/** 선택한 공개 메커니즘 중 하나와 관계가 있는 게임만 EXISTS로 남긴다. */
