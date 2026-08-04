@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -14,6 +16,7 @@ import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.boot.DefaultApplicationArguments;
 import org.springframework.mock.env.MockEnvironment;
 
@@ -62,6 +65,24 @@ class NotificationOpsRunnerTest {
 	}
 
 	@Test
+	void REPROCESS의_dry_run_기본값은_preview만_한번_실행한다() {
+		NotificationOutboxRecoveryService recoveryService = mock(NotificationOutboxRecoveryService.class);
+		when(recoveryService.preview(org.mockito.ArgumentMatchers.any())).thenReturn(
+			new NotificationOutboxRecoveryResult(List.of(3L), 1, 0, List.of()));
+		NotificationOpsRunner runner = new NotificationOpsRunner(recoveryService,
+			defaultDryRunEnvironment("REPROCESS", "operator private reason"));
+
+		captureOutput(runner);
+
+		ArgumentCaptor<NotificationOutboxRecoveryRequest> requestCaptor = ArgumentCaptor.forClass(
+			NotificationOutboxRecoveryRequest.class);
+		verify(recoveryService).preview(requestCaptor.capture());
+		verify(recoveryService, never()).execute(org.mockito.ArgumentMatchers.any());
+		assertTrue(requestCaptor.getValue().dryRun());
+		assertEquals(0, runner.getExitCode());
+	}
+
+	@Test
 	void INSPECT_감사_메타데이터는_각각_종료코드_2로_거절하고_출력하지_않는다() {
 		assertInspectMetadataRejected("app.notification.ops.reason", "private reason");
 		assertInspectMetadataRejected("app.notification.ops.reason-reference", "INVALID-REFERENCE");
@@ -80,6 +101,15 @@ class NotificationOpsRunnerTest {
 			.withProperty("app.notification.ops.action", action)
 			.withProperty("app.notification.ops.event-ids", "3")
 			.withProperty("app.notification.ops.dry-run", "false")
+			.withProperty("app.notification.ops.reason-reference", "ISSUE-267")
+			.withProperty("app.notification.ops.reason", reason)
+			.withProperty("app.notification.ops.requested-by", "ops-user");
+	}
+
+	private static MockEnvironment defaultDryRunEnvironment(String action, String reason) {
+		return new MockEnvironment()
+			.withProperty("app.notification.ops.action", action)
+			.withProperty("app.notification.ops.event-ids", "3")
 			.withProperty("app.notification.ops.reason-reference", "ISSUE-267")
 			.withProperty("app.notification.ops.reason", reason)
 			.withProperty("app.notification.ops.requested-by", "ops-user");

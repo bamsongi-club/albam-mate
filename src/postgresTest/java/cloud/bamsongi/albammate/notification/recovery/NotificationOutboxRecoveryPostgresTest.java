@@ -127,6 +127,32 @@ class NotificationOutboxRecoveryPostgresTest {
 	}
 
 	@Test
+	void DISCARD에_부적격_대상이_섞이면_모든_이벤트와_수신자를_보존한다() {
+		Fixture fixture = createFixture();
+		long eligibleEventId = insertFailedEvent(fixture.roomId(), "1 day", "RELAY_PROCESSING_FAILURE");
+		long ineligibleEventId = insertFailedEvent(fixture.roomId(), "1 day", "RELAY_PROCESSING_FAILURE");
+		insertRecipient(eligibleEventId, fixture.recipientUserId());
+		insertRecipient(ineligibleEventId, fixture.recipientUserId());
+		jdbcTemplate.update(
+			"update notification_outbox_events set status = 'RETRY_WAIT', available_at = clock_timestamp() where id = ?",
+			ineligibleEventId);
+
+		assertThrows(NotificationOutboxRecoveryInputException.class,
+			() -> recoveryService.execute(discard(List.of(eligibleEventId, ineligibleEventId))));
+
+		assertEquals("FAILED", jdbcTemplate.queryForObject(
+			"select status from notification_outbox_events where id = ?", String.class, eligibleEventId));
+		assertEquals("RETRY_WAIT", jdbcTemplate.queryForObject(
+			"select status from notification_outbox_events where id = ?", String.class, ineligibleEventId));
+		assertEquals(1, jdbcTemplate.queryForObject(
+			"select count(*) from notification_outbox_recipients where outbox_event_id = ?", Integer.class,
+			eligibleEventId));
+		assertEquals(1, jdbcTemplate.queryForObject(
+			"select count(*) from notification_outbox_recipients where outbox_event_id = ?", Integer.class,
+			ineligibleEventId));
+	}
+
+	@Test
 	void 잠금_대기_뒤_89일_경계에_도달한_이벤트는_재처리하지_않는다() throws Exception {
 		Fixture fixture = createFixture();
 		long eventId = insertFailedEvent(fixture.roomId(), "1 day", "RELAY_PROCESSING_FAILURE");

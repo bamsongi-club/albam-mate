@@ -52,6 +52,38 @@ class NotificationOpsLaunchPolicyTest {
 	}
 
 	@Test
+	void Spring_application_JSON의_중첩_profile과_운영_키를_평탄화해_기동_전에_판정한다() {
+		String json = """
+			{"spring":{"profiles":{"active":"notification-ops"}},"app":{"notification":{"ops":{"action":"INSPECT"}}}}
+			""";
+		assertEquals(NotificationOpsLaunchPolicy.LaunchDecision.NOTIFICATION_OPS,
+			decision(new String[0], new Properties(), Map.of("SPRING_APPLICATION_JSON", json)));
+		assertEquals(NotificationOpsLaunchPolicy.LaunchDecision.NOTIFICATION_OPS,
+			decision(new String[0], systemProperty("spring.application.json", json), Map.of()));
+
+		String operationOnlyJson = """
+			{"app":{"notification":{"ops":{"action":"INSPECT"}}}}
+			""";
+		assertEquals(NotificationOpsLaunchPolicy.LaunchDecision.REJECT_OPERATION_ARGUMENTS,
+			decision(new String[0], new Properties(), Map.of("SPRING_APPLICATION_JSON", operationOnlyJson)));
+		assertEquals(NotificationOpsLaunchPolicy.LaunchDecision.REJECT_OPERATION_ARGUMENTS,
+			decision(new String[0], systemProperty("spring.application.json", operationOnlyJson), Map.of()));
+	}
+
+	@Test
+	void Spring_application_JSON은_명령행보다_낮고_시스템속성_환경변수보다_높은_우선순위를_가진다() {
+		String json = """
+			{"spring":{"profiles":{"active":"notification-ops"}}}
+			""";
+		assertEquals(NotificationOpsLaunchPolicy.LaunchDecision.NORMAL,
+			decision(new String[] {"--spring.profiles.active=local", "--spring.application.json=" + json},
+				new Properties(), Map.of()));
+		assertEquals(NotificationOpsLaunchPolicy.LaunchDecision.NOTIFICATION_OPS,
+			decision(new String[0], systemProperty("spring.profiles.active", "local"),
+				Map.of("SPRING_APPLICATION_JSON", json)));
+	}
+
+	@Test
 	void 명령행_active_include_default_profile은_ops_애플리케이션을_선택한다() {
 		assertEquals(NotificationOpsLaunchPolicy.LaunchDecision.NOTIFICATION_OPS,
 			decisionForArguments("--spring.profiles.active=local,notification-ops"));
