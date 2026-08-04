@@ -8,7 +8,7 @@
 
 ## 실행 환경과 실패 경계
 
-- `local-single`은 인메모리 세션·fan-out을 허용하는 빠른 단일 서버 개발 프로필이며 다중 인스턴스 검증 근거가 아니다.
+- `local-single`은 실제 Spring profile `local`을 사용하는 빠른 단일 서버 개발 환경이며 인메모리 세션·fan-out을 허용하지만 다중 인스턴스 검증 근거가 아니다.
 - P1 필수 검증 환경인 `local-multi`는 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL과 Redis로 구성한다.
 - `production`의 목표 운영 토폴로지는 ALB·ASG 애플리케이션 인스턴스와 공용 RDS PostgreSQL·Redis로 구성한다. 이 목표는 현재 운영 배포 완료를 뜻하지 않으며, 배포·실측 상태는 [P1 기능별 상태 정본](README.md#기능별-현재-상태)의 `운영 배포·실측` 열을 따른다. 실제 AWS scale-out·WebSocket Upgrade·연결 draining 검증은 후속 OPS이며 채팅 구현 완료를 막지 않는다.
 - `local-multi`와 `production`은 Spring Session, Pub/Sub과 사용자·방 단위 전송 제한에 하나의 Redis를 사용하되 key prefix, TTL과 channel namespace를 분리한다. Redis가 없을 때 인메모리 구현으로 자동 fallback하지 않는다.

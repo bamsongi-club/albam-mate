@@ -308,7 +308,7 @@ P1 필수 구현은 다음 여덟 가지 흐름을 처음부터 끝까지 연결
 
 다중 인스턴스 실행, 공용 세션과 스케줄 실행 조정의 기술 결정은 승인된 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)을 따른다.
 
-- `local-single`은 빠른 단일 서버 개발용 프로필이다. 인메모리 세션·채팅 fan-out을 사용할 수 있지만 P1 다중 인스턴스 검증 근거로 인정하지 않는다.
+- `local-single`은 빠른 단일 서버 개발용 실행 환경이며 실제 Spring profile 이름은 `local`이다. 인메모리 세션·채팅 fan-out을 사용할 수 있지만 P1 다중 인스턴스 검증 근거로 인정하지 않는다.
 - `local-multi`는 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL과 Redis로 구성한다. HTTP 저장 요청과 WebSocket 연결이 다른 인스턴스에 도달하는 세션·전달·재연결 경로를 검증하며 P1 채팅 완료의 필수 환경이다.
 - `production`의 목표 운영 토폴로지는 ALB, ASG 애플리케이션 인스턴스, 공용 RDS PostgreSQL과 Redis로 구성한다. 이 목표는 현재 운영 배포 완료를 뜻하지 않으며, 배포·실측 상태는 [P1 기능별 상태 정본](p1/README.md#기능별-현재-상태)의 `운영 배포·실측` 열을 따른다. 실제 AWS scale-out, WebSocket Upgrade, 인스턴스 교체와 연결 draining 검증은 후속 OPS로 분리하며 P1 채팅 구현 완료를 막지 않는다.
 - `local-multi`와 `production`에서는 Redis를 필수 의존성으로 사용하고 인메모리 구현으로 자동 fallback하지 않는다. 세션 또는 전송 제한을 확인할 수 없을 때 `503 SERVICE_UNAVAILABLE`을 반환하는 현재 범위는 [API 정본](API.md#101-공통-오류)의 채팅 API 세 엔드포인트로 한정한다. 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트의 오류 계약은 적용 엔드포인트를 명시한 별도 계약 변경 전까지 확정하지 않는다.

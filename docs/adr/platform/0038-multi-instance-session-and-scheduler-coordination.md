@@ -38,7 +38,7 @@ P1은 채팅을 별도 서비스로 분리하지 않고 현재 Spring Boot 모�
 
 P1은 하나의 Spring Boot 모듈러 모놀리스를 다음 세 실행 프로필로 운영한다.
 
-- `local-single`: 빠른 단일 서버 개발용이다. 인메모리 세션·채팅 fan-out을 허용하지만 다중 인스턴스 검증 근거로 인정하지 않는다.
+- `local-single`: 실제 Spring profile `local`을 사용하는 빠른 단일 서버 개발 환경이다. 인메모리 세션·채팅 fan-out을 허용하지만 다중 인스턴스 검증 근거로 인정하지 않는다.
 - `local-multi`: 로컬 프록시 뒤 애플리케이션 두 대와 공용 PostgreSQL·Redis로 구성하고 P1 필수 교차 인스턴스 검증 환경으로 사용한다.
 - `production`: ALB가 ASG 애플리케이션 인스턴스로 요청을 분산하고 모든 인스턴스가 공용 RDS PostgreSQL·Redis를 사용한다. 실제 AWS scale-out·WebSocket Upgrade·연결 draining 검증은 후속 OPS로 분리한다.
 
