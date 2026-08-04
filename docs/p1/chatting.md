@@ -217,16 +217,14 @@
 - 모든 인스턴스가 만료 삭제 스케줄을 등록하되 PostgreSQL ShedLock을 얻은 하나만
   실행한다. 잠금과 별개로 삭제 작업은 재실행해도 같은 결과로 수렴하며 각 묶음은
   독립 트랜잭션을 유지한다.
-- 기본 UTC cron은 매일 03:00이고 설정으로 바꿀 수 있다. 대표 로컬 PostgreSQL 배치
-  (방 50개, 메시지 5,000개, 방별 100개 chunk)는 126ms였으므로, 정상 상한 경고는
-  1초, `chat-message-retention`의 `lockAtMostFor`는 5초로 둔다. 경고와 임대 만료
-  중첩은 각각 메트릭·로그와 최신 `messages_purged_at` 조건으로 관찰·수렴한다.
-- 한 실행은 최대 50개 방과 5,000개 메시지 후보를 처리한다. 메시지 상한에 도달한
-  방은 완료 기록 없이 다음 일일 실행으로 넘겨 `lockAtMostFor`의 실측 전제를
-  코드로 강제한다.
-- `V11` 전진 Flyway는 ShedLock 기술 테이블만 생성하며 기존 ROOM 또는
-  `CHAT_ROOMS` 데이터를 읽거나 backfill하지 않는다. 기존 ROOM backfill·상태별
-  초기화·쓰기 통제·배포 절체는 #281이 소유한다.
+- 기본 UTC cron은 매일 03:00이고 설정으로 바꿀 수 있다. 대표 로컬 PostgreSQL batch
+  (방 50개, 메시지 5,000개, 방별 100개 chunk)는 126ms였으므로, 정상 실행시간 경고는
+  1초, `chat-message-retention`의 `lockAtMostFor`는 5초, `lockAtLeastFor`는 10초로 둔다.
+  하나의 cron 실행은 이 batch를 반복해 due 적체를 같은 주기 안에 소진하며, 한 방의
+  실패는 현재 주기에서 해당 방만 제외하고 뒤따르는 방 처리는 계속한다.
+- `V11` 전진 Flyway는 기존 ROOM을 상태별 보관 값으로 `CHAT_ROOMS`에 멱등 초기화하고
+  `ON CONFLICT DO NOTHING`으로 기존 행을 보존한다. live 운영 ROOM 쓰기와
+  경쟁하는 절체·최종 보정·배포 절차는 #281이 소유한다.
 
 ### 완료 기준
 

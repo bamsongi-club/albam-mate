@@ -24,7 +24,8 @@ class ChatMessageRetentionSchedulerTest {
 		SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 		ChatMessageRetentionMetrics metrics = new ChatMessageRetentionMetrics(meterRegistry);
 		when(scheduledTaskLock.tryExecute(
-			eq(ChatMessageRetentionScheduler.LOCK_NAME), eq(properties.getLockAtMostFor()), any(Runnable.class)))
+			eq(ChatMessageRetentionScheduler.LOCK_NAME), eq(properties.getLockAtMostFor()),
+			eq(properties.getLockAtLeastFor()), any(Runnable.class)))
 			.thenReturn(ScheduledTaskLock.LockExecution.skippedResult());
 		ChatMessageRetentionScheduler scheduler = new ChatMessageRetentionScheduler(
 			scheduledTaskLock, coordinator, properties, metrics);
@@ -32,7 +33,8 @@ class ChatMessageRetentionSchedulerTest {
 		scheduler.purgeExpiredMessages();
 
 		verify(scheduledTaskLock).tryExecute(
-			eq(ChatMessageRetentionScheduler.LOCK_NAME), eq(properties.getLockAtMostFor()), any(Runnable.class));
+			eq(ChatMessageRetentionScheduler.LOCK_NAME), eq(properties.getLockAtMostFor()),
+			eq(properties.getLockAtLeastFor()), any(Runnable.class));
 		assertEquals(1.0, meterRegistry.get("chat.message.retention.lock.skipped").counter().count());
 		meterRegistry.close();
 	}
@@ -62,7 +64,8 @@ class ChatMessageRetentionSchedulerTest {
 		SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 		ChatMessageRetentionMetrics metrics = new ChatMessageRetentionMetrics(meterRegistry);
 		when(scheduledTaskLock.tryExecute(
-			eq(ChatMessageRetentionScheduler.LOCK_NAME), eq(properties.getLockAtMostFor()), any(Runnable.class)))
+			eq(ChatMessageRetentionScheduler.LOCK_NAME), eq(properties.getLockAtMostFor()),
+			eq(properties.getLockAtLeastFor()), any(Runnable.class)))
 			.thenThrow(new IllegalStateException("message-content-secret session=token"));
 		ChatMessageRetentionScheduler scheduler = new ChatMessageRetentionScheduler(
 			scheduledTaskLock, coordinator, properties, metrics);

@@ -3,8 +3,10 @@ package cloud.bamsongi.albammate.chat.retention;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -20,16 +22,31 @@ class ChatMessageRetentionStore {
 	}
 
 	List<DueChatRoom> findDueChatRooms(Instant referenceTime, int limit) {
-		return jdbcTemplate.query("""
+		return findDueChatRooms(referenceTime, limit, Set.of());
+	}
+
+	List<DueChatRoom> findDueChatRooms(
+		Instant referenceTime, int limit, Collection<Long> excludedRoomIds) {
+		String excludedRooms = excludedRoomIds.isEmpty()
+			? ""
+			: "\n  and id not in ("
+				+ String.join(", ", java.util.Collections.nCopies(excludedRoomIds.size(), "?")) + ")";
+		String query = """
 			select id, purge_after
 			from chat_rooms
 			where purge_after <= ?
 			  and messages_purged_at is null
+			""" + excludedRooms + """
 			order by purge_after asc, id asc
 			limit ?
-			""", (resultSet, rowNumber) -> new DueChatRoom(
+			""";
+		List<Object> parameters = new ArrayList<>();
+		parameters.add(Timestamp.from(referenceTime));
+		parameters.addAll(excludedRoomIds);
+		parameters.add(limit);
+		return jdbcTemplate.query(query, (resultSet, rowNumber) -> new DueChatRoom(
 			resultSet.getLong("id"), resultSet.getTimestamp("purge_after").toInstant()),
-			Timestamp.from(referenceTime), limit);
+			parameters.toArray());
 	}
 
 	List<Long> findNextMessageIds(long chatRoomId, int limit) {

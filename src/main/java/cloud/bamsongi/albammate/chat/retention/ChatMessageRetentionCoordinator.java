@@ -3,8 +3,10 @@ package cloud.bamsongi.albammate.chat.retention;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 
@@ -37,37 +39,47 @@ class ChatMessageRetentionCoordinator {
 	RetentionRunSummary purgeExpiredMessages() {
 		long startedAtNanos = System.nanoTime();
 		Instant referenceTime = Instant.now(clock);
-		List<ChatMessageRetentionStore.DueChatRoom> dueChatRooms = store.findDueChatRooms(
-			referenceTime, properties.getMaxRoomsPerRun());
 		int purgedRoomCount = 0;
 		int deletedMessageCount = 0;
 		int failureCount = 0;
-		int remainingMessageCandidateCount = properties.getMaxMessagesPerRun();
 		long maximumDelayMillis = 0;
+		Set<Long> failedRoomIds = new HashSet<>();
 
-		for (ChatMessageRetentionStore.DueChatRoom dueChatRoom : dueChatRooms) {
-			if (remainingMessageCandidateCount == 0) {
+		while (true) {
+			List<ChatMessageRetentionStore.DueChatRoom> dueChatRooms = failedRoomIds.isEmpty()
+				? store.findDueChatRooms(referenceTime, properties.getMaxRoomsPerRun())
+				: store.findDueChatRooms(referenceTime, properties.getMaxRoomsPerRun(), failedRoomIds);
+			if (dueChatRooms.isEmpty()) {
 				break;
 			}
-			try {
-				ChatMessageRetentionRoomProcessor.RoomProcessResult result = roomProcessor.process(
-					dueChatRoom, Instant.now(clock), remainingMessageCandidateCount);
-				remainingMessageCandidateCount -= result.candidateMessageCount();
-				deletedMessageCount += result.deletedMessageCount();
-				if (result.completed()) {
-					purgedRoomCount++;
-					maximumDelayMillis = Math.max(maximumDelayMillis,
-						Duration.between(dueChatRoom.purgeAfter(), referenceTime).toMillis());
-				}
-				if (result.failed()) {
+			boolean madeProgress = false;
+			for (ChatMessageRetentionStore.DueChatRoom dueChatRoom : dueChatRooms) {
+				try {
+					ChatMessageRetentionRoomProcessor.RoomProcessResult result = roomProcessor.process(
+						dueChatRoom, Instant.now(clock), properties.getMaxMessagesPerRun());
+					madeProgress |= result.completed() || result.candidateMessageCount() > 0;
+					deletedMessageCount += result.deletedMessageCount();
+					if (result.completed()) {
+						purgedRoomCount++;
+						maximumDelayMillis = Math.max(maximumDelayMillis,
+							Duration.between(dueChatRoom.purgeAfter(), referenceTime).toMillis());
+					}
+					if (result.failed()) {
+						failureCount++;
+						failedRoomIds.add(dueChatRoom.chatRoomId());
+						log.warn("event=chat_message_retention_room_failed");
+					}
+				} catch (RuntimeException exception) {
 					failureCount++;
-					log.warn("event=chat_message_retention_room_failed");
+					failedRoomIds.add(dueChatRoom.chatRoomId());
+					log.warn("event=chat_message_retention_room_failed exceptionClass={}",
+						exception.getClass().getSimpleName());
 				}
-			} catch (RuntimeException exception) {
-				failureCount++;
-				log.warn("event=chat_message_retention_room_failed exceptionClass={}",
-					exception.getClass().getSimpleName());
-				break;
+			}
+			if (!madeProgress) {
+				failedRoomIds.addAll(dueChatRooms.stream()
+					.map(ChatMessageRetentionStore.DueChatRoom::chatRoomId)
+					.toList());
 			}
 		}
 

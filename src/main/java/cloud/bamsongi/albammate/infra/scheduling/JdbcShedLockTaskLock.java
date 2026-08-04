@@ -29,8 +29,15 @@ class JdbcShedLockTaskLock implements ScheduledTaskLock {
 
 	@Override
 	public LockExecution tryExecute(String lockName, Duration lockAtMostFor, Runnable task) {
+		return tryExecute(lockName, lockAtMostFor, Duration.ZERO, task);
+	}
+
+	@Override
+	public LockExecution tryExecute(
+		String lockName, Duration lockAtMostFor, Duration lockAtLeastFor, Runnable task) {
 		Objects.requireNonNull(lockName, "lockName");
 		Objects.requireNonNull(lockAtMostFor, "lockAtMostFor");
+		Objects.requireNonNull(lockAtLeastFor, "lockAtLeastFor");
 		Objects.requireNonNull(task, "task");
 		try {
 			LockingTaskExecutor.TaskResult<Void> result = lockingTaskExecutor.executeWithLock(
@@ -38,7 +45,7 @@ class JdbcShedLockTaskLock implements ScheduledTaskLock {
 					task.run();
 					return null;
 				},
-				new LockConfiguration(Instant.now(clock), lockName, lockAtMostFor, Duration.ZERO));
+				new LockConfiguration(Instant.now(clock), lockName, lockAtMostFor, lockAtLeastFor));
 			return result.wasExecuted() ? LockExecution.acquiredResult() : LockExecution.skippedResult();
 		} catch (RuntimeException | Error exception) {
 			throw exception;

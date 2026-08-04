@@ -22,6 +22,7 @@ app:
       max-messages-per-run: 5000
       message-chunk-size: 100
       lock-at-most-for: 5s
+      lock-at-least-for: 10s
       execution-warning-threshold: 1s
 
   social:

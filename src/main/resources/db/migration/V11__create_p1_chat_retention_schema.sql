@@ -4,3 +4,13 @@ CREATE TABLE shedlock (
     locked_at TIMESTAMP WITH TIME ZONE NOT NULL,
     locked_by VARCHAR(255) NOT NULL
 );
+
+INSERT INTO chat_rooms (room_id, purge_after, messages_purged_at, created_at, updated_at)
+SELECT
+    rooms.id,
+    CASE WHEN rooms.status IN ('CANCELED', 'FINISHED') THEN CURRENT_TIMESTAMP ELSE NULL END,
+    CASE WHEN rooms.status IN ('CANCELED', 'FINISHED') THEN CURRENT_TIMESTAMP ELSE NULL END,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+FROM rooms
+ON CONFLICT DO NOTHING;

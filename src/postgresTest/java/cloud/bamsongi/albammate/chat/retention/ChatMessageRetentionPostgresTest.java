@@ -70,7 +70,7 @@ class ChatMessageRetentionPostgresTest {
 	}
 
 	@Test
-	void V11은_ShedLock만_만들고_기존_ROOM을_backfill하거나_채팅방을_변경하지_않는다() {
+	void V11_로컬_초기화는_기존_행을_보존하고_상태별_값을_하나의_PostgreSQL_기준_시각으로_설정한다() {
 		Flyway.configure()
 			.dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
 			.schemas(MIGRATION_SCHEMA)
@@ -81,8 +81,10 @@ class ChatMessageRetentionPostgresTest {
 			.load()
 			.migrate();
 		long userId = migrationUser();
+		long recruitingRoomId = migrationRoom(userId, "RECRUITING", "recruiting");
 		long closedRoomId = migrationRoom(userId, "CLOSED", "closed");
 		long canceledRoomId = migrationRoom(userId, "CANCELED", "canceled");
+		long finishedRoomId = migrationRoom(userId, "FINISHED", "finished");
 		Instant preservedPurgeAfter = Instant.parse("2026-01-01T00:00:00Z");
 		jdbcTemplate.update(
 			"""
@@ -100,13 +102,18 @@ class ChatMessageRetentionPostgresTest {
 			.load()
 			.migrate();
 
+		assertNull(migrationTimestamp(recruitingRoomId, "purge_after"));
+		assertNull(migrationTimestamp(recruitingRoomId, "messages_purged_at"));
 		assertEquals(preservedPurgeAfter, migrationTimestamp(closedRoomId, "purge_after"));
 		assertNull(migrationTimestamp(closedRoomId, "messages_purged_at"));
-		assertEquals(1,
+		assertEquals(migrationTimestamp(canceledRoomId, "purge_after"),
+			migrationTimestamp(canceledRoomId, "messages_purged_at"));
+		assertEquals(migrationTimestamp(finishedRoomId, "purge_after"),
+			migrationTimestamp(finishedRoomId, "messages_purged_at"));
+		assertEquals(migrationTimestamp(canceledRoomId, "purge_after"),
+			migrationTimestamp(finishedRoomId, "purge_after"));
+		assertEquals(4,
 			jdbcTemplate.queryForObject("select count(*) from retention_migration_test.chat_rooms", Integer.class));
-		assertEquals(0,
-			jdbcTemplate.queryForObject("select count(*) from retention_migration_test.chat_rooms where room_id = ?",
-				Integer.class, canceledRoomId));
 		assertEquals(0,
 			jdbcTemplate.queryForObject("select count(*) from retention_migration_test.shedlock", Integer.class));
 	}
@@ -284,14 +291,14 @@ class ChatMessageRetentionPostgresTest {
 
 		ChatMessageRetentionCoordinator.RetentionRunSummary summary = coordinator.purgeExpiredMessages();
 
-		assertEquals(49, summary.purgedRoomCount());
+		assertEquals(50, summary.purgedRoomCount());
 		assertEquals(5_000, summary.deletedMessageCount());
 		assertEquals(0, summary.failureCount());
-		assertNull(messagesPurgedAt(lastFixture.chatRoomId()));
+		assertTrue(messagesPurgedAt(lastFixture.chatRoomId()) != null);
 	}
 
 	@Test
-	void 실행당_메시지_후보_상한은_다음_방을_시작하지_않고_상한_방을_미완료로_남긴다() {
+	void 실행당_메시지_후보_batch는_같은_cron_주기에_남은_방까지_소진한다() {
 		properties.setMaxRoomsPerRun(2);
 		properties.setMaxMessagesPerRun(3);
 		properties.setMessageChunkSize(2);
@@ -305,12 +312,12 @@ class ChatMessageRetentionPostgresTest {
 
 		ChatMessageRetentionCoordinator.RetentionRunSummary summary = coordinator.purgeExpiredMessages();
 
-		assertEquals(0, summary.purgedRoomCount());
-		assertEquals(3, summary.deletedMessageCount());
-		assertEquals(2, countMessages(limitedRoom.chatRoomId()));
-		assertNull(messagesPurgedAt(limitedRoom.chatRoomId()));
-		assertEquals(1, countMessages(nextRoom.chatRoomId()));
-		assertNull(messagesPurgedAt(nextRoom.chatRoomId()));
+		assertEquals(2, summary.purgedRoomCount());
+		assertEquals(6, summary.deletedMessageCount());
+		assertEquals(0, countMessages(limitedRoom.chatRoomId()));
+		assertTrue(messagesPurgedAt(limitedRoom.chatRoomId()) != null);
+		assertEquals(0, countMessages(nextRoom.chatRoomId()));
+		assertTrue(messagesPurgedAt(nextRoom.chatRoomId()) != null);
 	}
 
 	private Fixture createFixture(String suffix, String status, Instant purgeAfter) {

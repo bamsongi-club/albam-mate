@@ -7,6 +7,11 @@ public interface ScheduledTaskLock {
 
 	LockExecution tryExecute(String lockName, Duration lockAtMostFor, Runnable task);
 
+	default LockExecution tryExecute(
+		String lockName, Duration lockAtMostFor, Duration lockAtLeastFor, Runnable task) {
+		return tryExecute(lockName, lockAtMostFor, task);
+	}
+
 	record LockExecution(boolean acquired) {
 
 		public static LockExecution acquiredResult() {

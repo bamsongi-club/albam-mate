@@ -38,7 +38,8 @@ class ChatMessageRetentionScheduler {
 		}
 		try {
 			ScheduledTaskLock.LockExecution execution = scheduledTaskLock.tryExecute(
-				LOCK_NAME, properties.getLockAtMostFor(), coordinator::purgeExpiredMessages);
+				LOCK_NAME, properties.getLockAtMostFor(), properties.getLockAtLeastFor(),
+				coordinator::purgeExpiredMessages);
 			if (!execution.acquired()) {
 				metrics.recordLockSkipped();
 				log.info("event=chat_message_retention_lock_skipped lockName={}", LOCK_NAME);
