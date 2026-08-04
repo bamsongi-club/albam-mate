@@ -169,6 +169,22 @@ class SocialLinkHttpIntegrationTest {
 		mockMvc.perform(get("/api/users/me").session(session)).andExpect(status().isOk());
 	}
 
+	@Test
+	void 제공자_목록은_로그인_사용자의_실제_연결_여부를_반영한다() throws Exception {
+		UserAccount account = createAccount();
+		socialAccountService.link(
+			account.id(),
+			new SocialIdentity(
+				SocialProvider.NAVER, UUID.randomUUID().toString(), Optional.empty(), Optional.empty()));
+
+		mockMvc.perform(get("/api/auth/social/providers").session(signedInSession(account)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data[0].provider").value("GOOGLE"))
+			.andExpect(jsonPath("$.data[0].linked").value(false))
+			.andExpect(jsonPath("$.data[1].provider").value("NAVER"))
+			.andExpect(jsonPath("$.data[1].linked").value(true));
+	}
+
 	private String startLink(String registrationId, MockHttpSession session) throws Exception {
 		String body = mockMvc.perform(link(registrationId, session))
 			.andExpect(status().isOk())
