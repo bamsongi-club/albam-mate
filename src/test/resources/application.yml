@@ -1,6 +1,8 @@
 spring:
   application:
     name: albam-mate
+  session:
+    timeout: 30m
   jackson:
     time-zone: UTC
   datasource:

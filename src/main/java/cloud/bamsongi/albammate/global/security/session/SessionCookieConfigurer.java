@@ -14,9 +14,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public final class SessionCookieConfigurer {
 
-	private static final String SESSION_COOKIE_NAME = "JSESSIONID";
-	private static final String COOKIE_PATH = "/";
-	private static final String SAME_SITE = "Lax";
+	static final String SESSION_COOKIE_NAME = "JSESSIONID";
+	static final String COOKIE_PATH = "/";
+	static final String SAME_SITE = "Lax";
 
 	@NonNull private final SecurityCookieProperties properties;
 
