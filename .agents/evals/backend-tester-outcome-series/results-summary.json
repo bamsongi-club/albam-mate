@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "suiteId": "backend-tester-outcome-series-v1",
+  "generatedOn": "2026-08-04",
+  "status": "completed-with-limitations",
+  "subject": {
+    "issue": 315,
+    "repository": "bamsongi-club/albam-mate",
+    "formalCaseCount": 5,
+    "retrospectiveCaseCount": 1
+  },
+  "protocol": {
+    "outcomes": [
+      "caught-risk",
+      "confirmed-only",
+      "missed-risk",
+      "inconclusive"
+    ],
+    "changedDuringSeries": true,
+    "alignmentIssue": 335,
+    "alignmentPullRequest": 336,
+    "comparableCaseCount": 2
+  },
+  "cases": [
+    {
+      "case": 1,
+      "issue": 270,
+      "pullRequest": 339,
+      "preTesterDecision": "proceed",
+      "outcome": "inconclusive",
+      "measurementHead": "8335fb6935468c067aec89275a0cfd013cc19264",
+      "mergedHead": "8335fb6935468c067aec89275a0cfd013cc19264",
+      "runner": {
+        "attempts": 4,
+        "completedAttempts": 3,
+        "finalVerdict": "pass",
+        "finalDurationMs": 296162,
+        "resultHash": "886f3584e551e90d7fff6fc98e741167015a74133e9feb0dbbebd9b8e3ec76d5"
+      },
+      "reason": "위험이 남은 최초 snapshot은 tester 환경·증거 부족 뒤 reviewer 수정으로 head가 바뀌어 tester의 검출 여부를 재현할 수 없다.",
+      "delivery": "merged",
+      "archiveStatus": "not-archived"
+    },
+    {
+      "case": 2,
+      "issue": 294,
+      "pullRequest": 317,
+      "preTesterDecision": null,
+      "outcome": "inconclusive",
+      "measurementHead": null,
+      "mergedHead": "b8d42fb57b596d7268d067d7cb63f4558121d51a",
+      "runner": null,
+      "reason": "tester·reviewer 결과 확인 전 Draft head 사전 등록 증거가 없다.",
+      "delivery": "merged",
+      "archiveStatus": "not-archived"
+    },
+    {
+      "case": 3,
+      "issue": 266,
+      "pullRequest": 329,
+      "preTesterDecision": "proceed",
+      "outcome": "inconclusive",
+      "measurementHead": null,
+      "mergedHead": "6cb177a5aefb31f8fabeea62124fb7ad8daffdb8",
+      "runner": null,
+      "reason": "PR 생성 전 diff 등록 뒤 리뷰로 head가 변경됐고, 새 Draft head 사전 등록과 동일 head tester 결과가 없다.",
+      "delivery": "merged",
+      "archiveStatus": "not-archived"
+    },
+    {
+      "case": 4,
+      "issue": 267,
+      "pullRequest": 340,
+      "preTesterDecision": "proceed",
+      "outcome": "missed-risk",
+      "measurementHead": "5a4abbdf4b93cc74f4486845e860f1dc48abe87f",
+      "mergedHead": "40f77a9616392e362bf936b4d3ab58f2d1f6c988",
+      "runner": {
+        "successfulRuns": 5,
+        "environmentUnverifiedRuns": 1,
+        "finalVerdict": "pass",
+        "finalDurationMs": 297595,
+        "successfulDurationMs": 1599874,
+        "resultHash": "0860c18ae48c2bb130118217c7581025d877dfff3e444972909b024e48da9311"
+      },
+      "reason": "fresh tester가 통과한 등록 snapshot에서 독립 리뷰가 actionable risk를 발견했다.",
+      "postMeasurementHeadChanged": true,
+      "delivery": "merged-after-additional-human-review",
+      "archiveStatus": "not-archived"
+    },
+    {
+      "case": 5,
+      "issue": 268,
+      "pullRequest": 365,
+      "preTesterDecision": "proceed",
+      "outcome": "missed-risk",
+      "measurementHead": "cef5f9fbd36dbfe161eb80d5fea874b248065bfa",
+      "mergedHead": "70eb889f2e019bf4f07eb961ede01d2b0c4a1abc",
+      "runner": {
+        "attempts": 3,
+        "finalVerdict": "pass",
+        "totalDurationMs": 665202,
+        "finalDurationMs": 281909,
+        "testerCaughtRiskCount": 1,
+        "resultHash": null
+      },
+      "reviewEvidence": {
+        "riskAfterTesterPass": true,
+        "postPublishedOutcomeMajorFindingCount": 5
+      },
+      "reason": "tester가 coverage gate를 차단했지만 다음 tester-pass snapshot에서 T-ID reviewer와 후속 사람 리뷰가 추가 actionable risk를 발견했다.",
+      "postMeasurementHeadChanged": true,
+      "delivery": "merged-after-additional-human-review",
+      "archiveStatus": "not-archived"
+    }
+  ],
+  "retrospective": {
+    "id": "R1",
+    "issue": 265,
+    "pullRequest": 309,
+    "outcome": "missed-risk",
+    "formalAggregateIncluded": false,
+    "reason": "독립 T-ID 실행과 snapshot validator가 통과한 head에서 후속 사람 리뷰가 PostgreSQL 시간 창의 flaky 위험을 발견했다.",
+    "archiveStatus": "not-archived"
+  },
+  "aggregate": {
+    "outcomes": {
+      "caught-risk": 0,
+      "confirmed-only": 0,
+      "missed-risk": 2,
+      "inconclusive": 3
+    },
+    "conclusiveCases": 2,
+    "missedRiskAmongConclusiveCases": 2,
+    "testerCaughtRiskCount": 1,
+    "deliveredCases": 5,
+    "archivedCases": 0
+  },
+  "archive": {
+    "status": "not-archived",
+    "algorithm": "sha256",
+    "receiptHash": null,
+    "coreLinkHash": null,
+    "rationale": "검증 가능한 raw packet·expected·result receipt가 없으며 사후 재구성하지 않는다."
+  },
+  "conclusion": {
+    "deterministicRunner": "승인 명령 실행, snapshot, JUnit freshness, fail-fast와 validator 검증을 위한 게이트로 유지할 가치가 있다.",
+    "semanticReview": "backend-tester는 T-ID reviewer와 일반 위험 리뷰를 대체하지 않는다.",
+    "llmExecutor": "LLM wrapper 자체의 추가 가치는 이 series에서 입증되지 않았다.",
+    "generalization": "소표본, 상관된 작업, 프로토콜 변경과 archive 부재 때문에 검출률·생산성 효과를 일반화하지 않는다."
+  },
+  "limitations": [
+    "정식 다섯 건 중 세 건이 프로토콜 증거 부족으로 inconclusive다.",
+    "Case 3~5는 같은 알림 relay 수명주기의 상관된 작업이다.",
+    "Case 2·3 완료 뒤 측정 프로토콜이 정합화됐다.",
+    "Case 4·5의 측정 결과 공개 뒤 추가 사람 리뷰와 head 변경이 있었다.",
+    "raw 실행 자료와 Private archive receipt가 없어 replay와 독립 재계산이 불가능하다.",
+    "R1은 사전 등록 전 결과가 관찰된 회고 사례다."
+  ]
+}
