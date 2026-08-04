@@ -243,7 +243,7 @@ flowchart LR
     waitlistQuery --> statusCoordinator["RoomStatusCorrectionCoordinator<br/>GET ROOM 충돌 예산"]
     statusCoordinator --> statusExecutor["RoomStatusCorrectionExecutor<br/>REQUIRES_NEW"]
     statusExecutor --> correctionCommitted["ROOM 보정 시도 완료"]
-    correctionCommitted --> waitlistRead["상태·position 조회<br/>별도 readOnly 트랜잭션"]
+    correctionCommitted --> waitlistRead["상태·position 단일 SQL<br/>호출자 read transaction 참여"]
     waitlistRead --> waitlistRepository["단일 RoomWaitlistRepository"]
     waitlistController --> waitlistCommand["대기 CommandService<br/>request time 고정"]
     waitlistCommand --> waitlistCoordinator["등록 전용 Coordinator<br/>ROOM·순번 충돌 총 3회"]
@@ -258,7 +258,7 @@ flowchart LR
 
 `RoomWaitlistController`는 `POST /api/rooms/{roomId}/waitlist`, `GET /api/rooms/{roomId}/waitlist/me`, `DELETE /api/rooms/{roomId}/waitlist/me`만 소유한다. 인증 사용자·path·CSRF를 HTTP 경계에서 처리한 뒤 전용 Query·Command Service에 위임하며 Repository·Entity·Executor를 직접 사용하지 않는다.
 
-대기 Query Service는 request time을 한 번 고정하고 기존 `RoomStatusCorrectionCoordinator`의 단건 보정이 커밋될 때까지 기다린다. 보정 충돌이 기존 ROOM 재시도 예산을 소진하면 `409 ROOM_CONCURRENT_MODIFICATION`으로 종료하고 대기 상태를 읽지 않는다. 보정 완료 뒤 별도의 짧은 읽기 전용 트랜잭션에서 [PART-04 저장 정본](ERD.md#room_waitlists)의 상태·`position` 단일 SQL을 실행한다. 이 조회 경계가 시작 시각의 `WAITING → EXPIRED`를 직접 구현하지 않으며, 해당 전이를 상태 보정과 같은 일관성 경계에 연결하는 책임은 ROOM-09에 남긴다.
+대기 Query Service는 request time을 한 번 고정하고 기존 `RoomStatusCorrectionCoordinator`의 단건 보정이 커밋될 때까지 기다린다. 보정 충돌이 기존 ROOM 재시도 예산을 소진하면 `409 ROOM_CONCURRENT_MODIFICATION`으로 종료하고 대기 상태를 읽지 않는다. 보정 완료 뒤 [PART-04 저장 정본](ERD.md#room_waitlists)의 상태·`position`을 한 SQL·한 데이터베이스 스냅샷으로 조회한다. 해당 조회는 호출자의 읽기 트랜잭션에 참여하고 별도 트랜잭션·조회 락·`SKIP LOCKED`를 열지 않는다. 이 조회 경계가 시작 시각의 `WAITING → EXPIRED`를 직접 구현하지 않으며, 해당 전이를 상태 보정과 같은 일관성 경계에 연결하는 책임은 ROOM-09에 남긴다.
 
 대기 Command Service는 등록·재신청을 PART-04 등록 전용 Coordinator에 위임한다. 대기 취소는 기존 `RoomCommandExecutionCoordinator`가 고정한 request time과 ROOM 충돌 예산으로 대기 취소 Executor를 호출한다. 취소 Executor는 한 `REQUIRES_NEW` 시도 안에서 ROOM을 먼저 보정하고 현재 `WAITING → CANCELED` 조건부 전이를 실행한다. 대기 취소 자체는 ROOM version을 강제로 claim하거나 sequence를 발급하지 않으며, 보정으로 발생한 ROOM 충돌의 예산 소진은 `409 ROOM_CONCURRENT_MODIFICATION`으로 반환한다. 등록 전용 Coordinator와 기존 ROOM 명령 Coordinator를 한 요청에 중첩하지 않는다.
 
