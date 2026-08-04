@@ -245,8 +245,8 @@ flowchart LR
     statusExecutor --> correctionCommitted["ROOM 보정 시도 완료"]
     correctionCommitted --> waitlistRead["RoomWaitlistReadService<br/>readOnly·REQUIRED"]
     waitlistRead --> waitlistRepository["상태·position 단일 SQL<br/>호출자 transaction 참여"]
-    waitlistController --> waitlistCommand["대기 CommandService<br/>request time 고정"]
-    waitlistCommand --> waitlistCoordinator["등록 전용 Coordinator<br/>ROOM·순번 충돌 총 3회"]
+    waitlistController --> waitlistCommand["대기 CommandService<br/>등록·재신청 위임"]
+    waitlistCommand --> waitlistCoordinator["등록 전용 Coordinator<br/>request time 고정·ROOM·순번 충돌 총 3회"]
     waitlistCoordinator --> waitlistExecutor["대기 등록 Executor<br/>REQUIRES_NEW"]
     waitlistExecutor --> waitlistRepositories["Room·Participation Repository"]
     waitlistExecutor --> waitlistRepository
