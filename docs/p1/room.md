@@ -99,6 +99,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 고도화 이유 | 정원이 찬 인기 모임을 기다릴 방법과 참가 취소로 생긴 빈자리의 배정 순서가 없다. |
 | 가능 여부 | [ROOM-08 방 상태와 직접 참가·대기 가능 여부 분리](#room-08-방-상태와-직접-참가대기-가능-여부-분리) |
 | 공통 규칙 | [P0 계약 상속](../P1-spec.md#p0-계약-상속), [RoomStatus](../API.md#roomstatus), [ROOMS](../ERD.md#rooms), [PARTICIPATIONS](../ERD.md#participations) |
+| 저장 계약 | [ROOM_WAITLISTS 목표 저장 계약](../ERD.md#room_waitlists) |
 | 필수 ADR | [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0046 ROOM 대기열 단일 최신 상태·조건부 전이·등록 재시도](../adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md) |
 
 ### 기능 규칙
@@ -120,8 +121,8 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 - 자동 승격 시점에도 참가 자격, 정원과 활성 대기 관계를 최신 상태로 다시 확인한다.
 - 자동 승격은 처리 시점의 첫 `WAITING` 대기자를 대상으로 한다. 앞선 대기 관계가 동시 취소 등으로 이미 다른 상태가 됐다면 그 최신 상태를 유지하고 별도 `SKIPPED` 상태 없이 다음 현재 `WAITING` 대기자를 계속 검사한다.
 - 참가 취소만 반영되고 승격이 누락되거나 한 빈자리에 둘 이상이 승격되는 부분 성공 상태를 허용하지 않는다.
-- `now >= startsAt`이면 새 대기 신청과 자동 승격을 허용하지 않고 남은 `WAITING` 관계를 `EXPIRED`로 바꾼다.
-- 주최자가 ROOM을 취소하면 남은 `WAITING` 관계를 `ROOM_CANCELED`로 바꾼다.
+- `now >= startsAt`이면 새 대기 신청과 자동 승격을 허용하지 않는다. 남은 `WAITING → EXPIRED` 실행은 [ROOM-09](#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화)가 ROOM 상태 보정과 같은 일관성 경계에서 소유한다.
+- 주최자가 ROOM을 취소하면 PART-04c의 `RoomStatusChangeExecutor`가 같은 트랜잭션에서 남은 `WAITING` 관계를 `ROOM_CANCELED`로 바꾼다.
 
 ### 완료 기준
 
@@ -135,6 +136,8 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 - `PART-04-AC8` 신규 대기·재신청과 참가 취소의 두 커밋 순서, 대기 취소·승격과 시작·ROOM 취소 경계의 저장 불변식은 PostgreSQL 기반 통합 테스트로 검증된다.
 - `PART-04-AC9` 신규·중복·재신청, 상태 조회와 취소의 HTTP 상태·응답·오류가 [API 명세의 PART-04 계약](../API.md#part-04-대기-등록재신청)과 일치한다.
 - `PART-04-AC10` 신규 대기·재신청과 참가 취소가 동시에 실행되면 먼저 커밋된 결과에 따라 다른 요청이 전체 재시도한다. 어느 커밋 순서에서도 활성 대기가 있는 `RECRUITING` ROOM이 남지 않는다.
+
+`PART-04-AC7`의 시작 경계 `EXPIRED`는 ROOM-09의 실행·검증 책임이다. 따라서 #302·#325·#326이 모두 병합되더라도 PART-04 전체 구현·검증·배포를 완료로 표시하지 않으며, ROOM-09가 시작 경계 종료와 사용자 조회 결과를 검증한 뒤 전체 완료를 판정한다.
 
 ### 제외 범위
 

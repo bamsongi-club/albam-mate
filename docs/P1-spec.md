@@ -329,7 +329,7 @@ P1 필수 구현은 다음 여덟 가지 흐름을 처음부터 끝까지 연결
 ### 선착순 대기열과 자동 승격
 
 - 대기 순서는 서버가 신청을 성공으로 확정한 순서를 기준으로 하는 FIFO이며, ROOM·사용자 조합마다 단일 최신 상태 레코드를 유지한다.
-- 복합 PK 단일 최신 상태, 전역 sequence 순번, 조건부 전이와 등록 재시도 계약은 [ADR-0046](adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)에서 승인했으며, 후속 ERD·구현·검증은 아직 완료되지 않았다.
+- 복합 PK 단일 최신 상태, 전역 sequence 순번, 조건부 전이와 등록 재시도 계약은 [ADR-0046](adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)에서 승인했고 [ERD](ERD.md#room_waitlists)에 반영했으며, 후속 Flyway·JPA·Repository 구현과 자동 검증은 아직 완료되지 않았다.
 - 중복 신청은 레코드나 순서를 바꾸지 않고 최신 `WAITING` 상태와 현재 순번을 반환한다. 허용된 `CANCELED`·`PROMOTED` 재신청은 같은 레코드에 새 순번·신청 시각을 기록하되 최초 생성 시각을 보존해 대기열 맨 뒤로 이동하며, `EXPIRED`·`ROOM_CANCELED`는 재활성화하지 않는다.
 - 본인은 ROOM별 `WAITING`, `PROMOTED`, `CANCELED`, `EXPIRED`, `ROOM_CANCELED` 상태를 조회할 수 있고, 현재 순번은 `WAITING`일 때만 반환한다.
 - 시작 전 참가 취소로 빈자리가 생기면 참가 취소와 첫 `WAITING` 대기자 한 명의 `PROMOTED`·`ACTIVE` 전이를 같은 ROOM 일관성 경계에서 처리한다. 활성 대기자가 없을 때만 ROOM을 `RECRUITING`으로 되돌린다.
@@ -450,7 +450,7 @@ P1 필수 구현은 다음 여덟 가지 흐름을 처음부터 끝까지 연결
 | 게임 | 인원·시간 검색용 수치 컬럼과 검증 제약을 추가하고 기존 표시 필드는 유지한다. 검수된 메커니즘 목록·게임 다대다 관계와 사용자별 해 본 게임 관계를 별도로 저장한다. |
 | 방 | 새 상태를 추가하지 않는다. `waitlistable`은 저장 상태가 아니라 기준 시각·정원·요청자 관계로 계산하며, 검색·상태 자동 전환 인덱스는 측정 근거에 따라 추가한다. |
 | 참가 | 상태와 정원 계산식을 변경하지 않는다. 자동 승격은 기존 `ACTIVE` 참가 관계를 사용하고, 알림·채팅 권한과 측정은 최종 성공한 참가 결과를 따른다. |
-| 대기 | ROOM·사용자 조합마다 단일 최신 상태 레코드를 두고 FIFO 순서와 `WAITING`, `PROMOTED`, `CANCELED`, `EXPIRED`, `ROOM_CANCELED` 결과를 보존한다. 상태 변경별 이력 레코드는 추가하지 않는다. 복합 PK·전역 sequence·제약·인덱스의 물리 선택은 [ADR-0046](adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)에서 승인됐으며 후속 ERD·구현·검증은 아직 완료되지 않았다. |
+| 대기 | ROOM·사용자 조합마다 단일 최신 상태 레코드를 두고 FIFO 순서와 `WAITING`, `PROMOTED`, `CANCELED`, `EXPIRED`, `ROOM_CANCELED` 결과를 보존한다. 상태 변경별 이력 레코드는 추가하지 않는다. 복합 PK·전역 sequence·제약·인덱스의 물리 선택은 [ADR-0046](adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)에서 승인돼 [ERD](ERD.md#room_waitlists)에 반영됐으며 후속 Flyway·JPA·Repository 구현과 자동 검증은 아직 완료되지 않았다. |
 | 이벤트 | 원인 이벤트 식별자, 유형, Aggregate, 수신자 고정 목록, 발생·처리 가능 시각, 처리·재시도 상태를 가진 영속 계약을 추가한다. |
 | 알림 | 수신자, 원인 이벤트, 유형, 관련 대상, 원인 이벤트 시각을 사용하는 `createdAt`, 읽은 시각과 중복 방지에 필요한 저장 계약을 추가한다. |
 | 채팅 | 방별 `CHAT_ROOMS`와 작성자, 본문, 클라이언트 메시지 식별자, 서버 생성 시각을 가진 `CHAT_MESSAGES` 저장 계약을 추가한다. 최종 상태의 삭제 기준과 완료 시각을 저장한다. |
