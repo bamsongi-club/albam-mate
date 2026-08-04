@@ -397,7 +397,7 @@ P1 필수 구현은 다음 여덟 가지 흐름을 처음부터 끝까지 연결
 - `RECRUITING`, `CLOSED` 방의 주최자와 현재 `ACTIVE` 참가자는 이력 조회, 구독과 메시지 전송을 할 수 있다.
 - 참가 취소가 성공하면 해당 사용자는 즉시 채팅 이력 조회, 구독과 전송 권한을 잃는다.
 - `CANCELED`, `FINISHED` 방은 주최자와 참가자 모두에게 이력 조회, 구독과 메시지 전송을 제공하지 않는다.
-- 최종 상태 전환 시점부터 메시지를 30일 보관한 뒤 일일 정리 작업에서 소량 묶음으로 완전 삭제한다. 보관·삭제 규칙은 승인된 [ADR-0034](adr/chat/0034-chat-message-retention-and-deletion.md), 다중 인스턴스 실행 조정은 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)을 따른다.
+- 최종 상태 전환 시점부터 메시지를 30일 보관한 뒤 일일 정리 작업에서 소량 묶음으로 완전 삭제한다. 보관·삭제 규칙은 승인된 [ADR-0049](adr/chat/0049-chat-message-retention-lock-section-boundary.md), 다중 인스턴스 실행 조정은 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)을 따른다.
 - 연결 성공 여부만 신뢰하지 않고 이력 조회, 구독과 메시지 전송마다 현재 방 관계와 상태를 검사한다.
 - 권한 없는 요청에는 방·메시지 존재 여부를 불필요하게 노출하지 않도록 P0의 존재 여부 은닉 원칙을 적용한다.
 

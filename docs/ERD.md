@@ -382,7 +382,7 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 
 ### CHAT_ROOMS
 
-P1 채팅방을 저장하는 구현된 테이블이다. `V6__create_p1_chat_room_schema.sql`은 테이블·제약만 생성하고 기존 `ROOMS`를 조회하거나 `CHAT_ROOMS` 행을 backfill하지 않는다. [#279의 최신 승인 테스트 계약](https://github.com/bamsongi-club/albam-mate/issues/279#issuecomment-5161788285)은 기존 ROOM 초기화와 ROOM 생성·상태 전환의 경합·최종 보정·배포 절체를 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 후속 범위로 분리한다. [ADR-0045](adr/chat/0045-chat-room-schema-and-backfill-boundary.md)은 명시적 one-shot/maintenance 작업 경계를 제안하며 팀 채택 전에는 승인된 실행 계약이 아니다. 현재 일반 애플리케이션 기동과 Flyway 자동 실행에는 기존 ROOM 데이터 작업이 없다.
+P1 채팅방을 저장하는 구현된 테이블이다. `V6__create_p1_chat_room_schema.sql`은 테이블·제약만 생성하고 기존 `ROOMS`를 조회하거나 `CHAT_ROOMS` 행을 backfill하지 않는다. [#279의 최신 승인 테스트 계약](https://github.com/bamsongi-club/albam-mate/issues/279#issuecomment-5161788285)은 기존 ROOM 초기화와 ROOM 생성·상태 전환의 경합·최종 보정·배포 절체를 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 후속 범위로 분리한다. [ADR-0045](adr/chat/0045-chat-room-schema-and-backfill-boundary.md)은 production 스키마 기동과 local profile callback 초기화의 경계를 승인한다. production profile은 `db/local`을 로드하지 않으므로 일반 애플리케이션 기동과 Flyway 자동 실행에는 live ROOM 데이터 작업이 없다.
 
 활성화 뒤 새 방은 방 생성 트랜잭션에서 `ROOMS`와 `CHAT_ROOMS`를 함께 생성한다. 채팅 회원을 별도로 저장하지 않고, 접근 권한은 `ROOMS.host_user_id`와 현재 `ACTIVE PARTICIPATIONS`를 매 요청에서 계산한다.
 
@@ -620,13 +620,13 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 
 ### 채팅·스케줄 제약과 인덱스
 
-- `CHAT_ROOMS` 생성 마이그레이션은 스키마·제약만 만들고 기존 `ROOMS`를 backfill하지 않는다. 기존 ROOM backfill·ROOM 생성·상태 전환 경합·최종 보정과 배포 절체는 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 후속 범위다. [ADR-0045](adr/chat/0045-chat-room-schema-and-backfill-boundary.md)은 명시적 one-shot/maintenance 작업 경계를 제안하며 팀 채택 전에는 승인된 실행 계약이 아니다. 기존 최종 상태 방은 빈 보관 완료 시각을 기록하고 메시지 이력을 만들지 않는다.
+- `CHAT_ROOMS` 생성 마이그레이션은 스키마·제약만 만들고 기존 `ROOMS`를 backfill하지 않는다. 기존 ROOM backfill·ROOM 생성·상태 전환 경합·최종 보정과 배포 절체는 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 후속 범위다. [ADR-0045](adr/chat/0045-chat-room-schema-and-backfill-boundary.md)은 production 스키마 기동과 local profile callback 초기화의 경계를 승인한다. 기존 최종 상태 방은 빈 보관 완료 시각을 기록하고 메시지 이력을 만들지 않는다.
 - 방 생성과 `CHAT_ROOMS` 생성은 하나의 트랜잭션에서 성공하거나 함께 롤백한다.
 - `CHAT_MESSAGES(chat_room_id, id DESC)` 인덱스로 최신 이력과 `beforeMessageId` 커서 조회를 지원한다.
 - `CHAT_ROOMS(purge_after)` 조건부 인덱스로 삭제 기준 시각이 지났고 아직 `messages_purged_at`이 없는 채팅방을 선별한다.
 - `CHAT_MESSAGES(chat_room_id, sender_user_id, client_message_id)` 유일 제약으로 재시도 중복 저장을 막는다. 같은 키로 다른 본문을 보내면 저장하지 않고 `VALIDATION_ERROR`를 반환한다.
 - 같은 채팅방의 메시지는 `CHAT_ROOMS` 행을 잠근 뒤 ID를 할당해 방별 ID 순서와 커밋 가시성 순서를 일치시킨다.
-- 방이 `CANCELED`·`FINISHED`로 전환되면 `purge_after`를 전환 시각에서 30일 뒤로 설정한다. 만료 뒤 일일 스케줄러가 메시지를 물리 삭제하고 `messages_purged_at`을 기록한다([ADR-0034](adr/chat/0034-chat-message-retention-and-deletion.md)).
+- 방이 `CANCELED`·`FINISHED`로 전환되면 `purge_after`를 전환 시각에서 30일 뒤로 설정한다. 만료 뒤 일일 스케줄러가 메시지를 물리 삭제하고 `messages_purged_at`을 기록한다([ADR-0049](adr/chat/0049-chat-message-retention-lock-section-boundary.md)).
 - ShedLock은 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)에 따라 PostgreSQL 시각으로 `lock_until`을 비교한다. 잠금 획득·해제 트랜잭션은 ROOM별 상태 전환과 채팅 삭제 묶음의 업무 트랜잭션에 결합하지 않는다.
 - `SHEDLOCK`은 중복 스케줄 실행을 줄이는 조정 테이블이며 `Room.version` 낙관 락, 참가·대기 불변식과 채팅 메시지 정본을 대체하지 않는다.
 
