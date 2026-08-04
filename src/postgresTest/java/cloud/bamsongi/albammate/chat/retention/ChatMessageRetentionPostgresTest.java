@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -70,7 +71,7 @@ class ChatMessageRetentionPostgresTest {
 	}
 
 	@Test
-	void V11_로컬_초기화는_기존_행을_보존하고_상태별_값을_하나의_PostgreSQL_기준_시각으로_설정한다() {
+	void V13_공통_migration은_ShedLock_스키마만_만들고_기존_ROOM을_초기화하지_않는다() {
 		Flyway.configure()
 			.dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
 			.schemas(MIGRATION_SCHEMA)
@@ -81,18 +82,10 @@ class ChatMessageRetentionPostgresTest {
 			.load()
 			.migrate();
 		long userId = migrationUser();
-		long recruitingRoomId = migrationRoom(userId, "RECRUITING", "recruiting");
-		long closedRoomId = migrationRoom(userId, "CLOSED", "closed");
-		long canceledRoomId = migrationRoom(userId, "CANCELED", "canceled");
-		long finishedRoomId = migrationRoom(userId, "FINISHED", "finished");
-		Instant preservedPurgeAfter = Instant.parse("2026-01-01T00:00:00Z");
-		jdbcTemplate.update(
-			"""
-				insert into retention_migration_test.chat_rooms (room_id, purge_after, messages_purged_at, created_at, updated_at)
-				values (?, ?, null, ?, ?)
-				""",
-			closedRoomId, timestamp(preservedPurgeAfter), timestamp(preservedPurgeAfter),
-			timestamp(preservedPurgeAfter));
+		migrationRoom(userId, "RECRUITING", "recruiting");
+		migrationRoom(userId, "CLOSED", "closed");
+		migrationRoom(userId, "CANCELED", "canceled");
+		migrationRoom(userId, "FINISHED", "finished");
 
 		Flyway.configure()
 			.dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
@@ -102,20 +95,50 @@ class ChatMessageRetentionPostgresTest {
 			.load()
 			.migrate();
 
-		assertNull(migrationTimestamp(recruitingRoomId, "purge_after"));
-		assertNull(migrationTimestamp(recruitingRoomId, "messages_purged_at"));
-		assertEquals(preservedPurgeAfter, migrationTimestamp(closedRoomId, "purge_after"));
-		assertNull(migrationTimestamp(closedRoomId, "messages_purged_at"));
-		assertEquals(migrationTimestamp(canceledRoomId, "purge_after"),
-			migrationTimestamp(canceledRoomId, "messages_purged_at"));
-		assertEquals(migrationTimestamp(finishedRoomId, "purge_after"),
-			migrationTimestamp(finishedRoomId, "messages_purged_at"));
-		assertEquals(migrationTimestamp(canceledRoomId, "purge_after"),
-			migrationTimestamp(finishedRoomId, "purge_after"));
-		assertEquals(4,
+		assertEquals(0,
 			jdbcTemplate.queryForObject("select count(*) from retention_migration_test.chat_rooms", Integer.class));
 		assertEquals(0,
 			jdbcTemplate.queryForObject("select count(*) from retention_migration_test.shedlock", Integer.class));
+		assertEquals(1, jdbcTemplate.queryForObject(
+			"select count(*) from retention_migration_test.flyway_schema_history where version = '13'", Integer.class));
+	}
+
+	@Test
+	void lockAtLeastFor가_5초면_직후에는_skip하고_5초_뒤_재획득한다() {
+		AtomicInteger executionCount = new AtomicInteger();
+
+		ScheduledTaskLock.LockExecution owner = scheduledTaskLock.tryExecute(
+			"chat-message-retention-lock-at-least-for-test",
+			Duration.ofSeconds(5),
+			Duration.ofSeconds(5),
+			executionCount::incrementAndGet);
+		ScheduledTaskLock.LockExecution skipped = scheduledTaskLock.tryExecute(
+			"chat-message-retention-lock-at-least-for-test",
+			Duration.ofSeconds(5),
+			Duration.ofSeconds(5),
+			() -> {
+				throw new AssertionError("skipped execution must not run");
+			});
+
+		assertTrue(owner.acquired());
+		assertFalse(skipped.acquired());
+		assertEquals(1, executionCount.get());
+
+		try {
+			Thread.sleep(5_200);
+		} catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			throw new AssertionError("lockAtLeastFor 검증 대기 중 인터럽트가 발생했습니다", exception);
+		}
+
+		ScheduledTaskLock.LockExecution reacquired = scheduledTaskLock.tryExecute(
+			"chat-message-retention-lock-at-least-for-test",
+			Duration.ofSeconds(5),
+			Duration.ofSeconds(5),
+			executionCount::incrementAndGet);
+
+		assertTrue(reacquired.acquired());
+		assertEquals(2, executionCount.get());
 	}
 
 	@Test
@@ -360,11 +383,6 @@ class ChatMessageRetentionPostgresTest {
 				current_timestamp, current_timestamp) returning id
 				""",
 			Long.class, userId, suffix, status);
-	}
-
-	private Instant migrationTimestamp(long roomId, String column) {
-		return jdbcTemplate.queryForObject(
-			"select " + column + " from retention_migration_test.chat_rooms where room_id = ?", Instant.class, roomId);
 	}
 
 	private void insertMessage(long chatRoomId, long userId, String clientMessageId) {

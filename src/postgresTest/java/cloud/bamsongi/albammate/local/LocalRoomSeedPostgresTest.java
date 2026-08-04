@@ -1,6 +1,8 @@
 package cloud.bamsongi.albammate.local;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Timestamp;
@@ -56,7 +58,8 @@ class LocalRoomSeedPostgresTest {
 
 		long manualUserId = insertUser("manual@example.com", "수동 사용자");
 		long manualGameId = insertGame(10_001L, "수동 양수 게임");
-		long manualRoomId = insertRoom(manualGameId, manualUserId, "수동 모임", "수동 설명", "수동 장소");
+		long manualRoomId = insertRoom(
+			manualGameId, manualUserId, "수동 모임", "수동 설명", "수동 장소", "RECRUITING");
 		insertParticipation(manualRoomId, manualUserId);
 		long seedHostId = userId(SEED_HOST_EMAIL);
 		long hostManualRoomId = insertRoom(
@@ -64,14 +67,24 @@ class LocalRoomSeedPostgresTest {
 			seedHostId,
 			"로컬 사용자의 수동 모임",
 			"호스트 수동 설명",
-			"호스트 수동 장소");
+			"호스트 수동 장소",
+			"RECRUITING");
 		insertParticipation(hostManualRoomId, seedHostId);
+		long canceledManualRoomId = insertRoom(
+			manualGameId, manualUserId, "취소된 수동 모임", "취소 수동 설명", "취소 수동 장소", "CANCELED");
+		long finishedManualRoomId = insertRoom(
+			manualGameId, manualUserId, "완료된 수동 모임", "완료 수동 설명", "완료 수동 장소", "FINISHED");
 		insertGame(-77L, "외부 음수 게임");
 		for (int index = 2; index <= 30; index++) {
 			insertGame(10_000L + index, "양수 게임 " + index);
 		}
 
 		long firstGameRoomId = firstGameFocusedSeedRoomId();
+		Instant preservedPurgeAfter = Instant.parse("2026-01-01T00:00:00Z");
+		jdbcTemplate.update(
+			"update chat_rooms set purge_after = ?, messages_purged_at = null where room_id = ?",
+			Timestamp.from(preservedPurgeAfter),
+			firstGameRoomId);
 		for (int index = 1; index <= 6; index++) {
 			long participantId = insertUser("participant" + index + "@example.com", "참가자" + index);
 			insertParticipation(firstGameRoomId, participantId);
@@ -86,7 +99,9 @@ class LocalRoomSeedPostgresTest {
 				""",
 			Timestamp.from(Instant.now().minusSeconds(86_400)),
 			firstGameRoomId);
-		jdbcTemplate.update("delete from rooms where id = ?", roomId(LAST_PERSON_SEED_TITLE));
+		long lastPersonSeedRoomId = roomId(LAST_PERSON_SEED_TITLE);
+		jdbcTemplate.update("delete from chat_rooms where room_id = ?", lastPersonSeedRoomId);
+		jdbcTemplate.update("delete from rooms where id = ?", lastPersonSeedRoomId);
 
 		flyway.migrate();
 
@@ -116,6 +131,16 @@ class LocalRoomSeedPostgresTest {
 					  and place = '합정역 근처 보드게임 카페' and status = 'CLOSED'
 					""".formatted(firstGameRoomId)));
 		assertEquals(1, count("select count(*) from rooms where title = '" + LAST_PERSON_SEED_TITLE + "'"));
+		assertEquals(count("select count(*) from rooms"), count("select count(*) from chat_rooms"));
+		assertNull(chatRoomPurgeAfter(manualRoomId));
+		assertNull(chatRoomMessagesPurgedAt(manualRoomId));
+		assertNull(chatRoomPurgeAfter(hostManualRoomId));
+		assertNull(chatRoomMessagesPurgedAt(hostManualRoomId));
+		assertEquals(preservedPurgeAfter, chatRoomPurgeAfter(firstGameRoomId));
+		assertNull(chatRoomMessagesPurgedAt(firstGameRoomId));
+		assertTerminalChatRoomIsInitialized(canceledManualRoomId);
+		assertTerminalChatRoomIsInitialized(finishedManualRoomId);
+		assertEquals(chatRoomPurgeAfter(canceledManualRoomId), chatRoomPurgeAfter(finishedManualRoomId));
 		assertTrue(minimumSeedStartAt().isAfter(Instant.now()));
 	}
 
@@ -124,6 +149,7 @@ class LocalRoomSeedPostgresTest {
 		assertEquals(30, countSeedRooms("PERSON_FOCUSED"));
 		assertEquals(1, count("select count(*) from users where email = '" + SEED_HOST_EMAIL + "'"));
 		assertEquals(30, countReservedFallbackGames());
+		assertEquals(count("select count(*) from rooms"), count("select count(*) from chat_rooms"));
 		assertTrue(minimumSeedStartAt().isAfter(Instant.now()));
 	}
 
@@ -152,21 +178,23 @@ class LocalRoomSeedPostgresTest {
 		return jdbcTemplate.queryForObject("select id from games where bgg_id = ?", Long.class, bggId);
 	}
 
-	private long insertRoom(long gameId, long hostUserId, String title, String description, String place) {
+	private long insertRoom(long gameId, long hostUserId, String title, String description, String place,
+		String status) {
 		jdbcTemplate.update(
 			"""
 				insert into rooms (
 				    game_id, host_user_id, room_type, title, description, experience_level,
 				    is_rulemaster_led, region, capacity, active_participant_count, start_at,
 				    place, status, version, created_at, updated_at)
-				values (?, ?, 'GAME_FOCUSED', ?, ?, 'ALL_LEVELS', false, '홍대', 6, 0,
-				        CURRENT_TIMESTAMP + INTERVAL '2 days', ?, 'RECRUITING', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-				""",
+					values (?, ?, 'GAME_FOCUSED', ?, ?, 'ALL_LEVELS', false, '홍대', 6, 0,
+					        CURRENT_TIMESTAMP + INTERVAL '2 days', ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+					""",
 			gameId,
 			hostUserId,
 			title,
 			description,
-			place);
+			place,
+			status);
 		return jdbcTemplate.queryForObject(
 			"select id from rooms where host_user_id = ? and title = ?",
 			Long.class,
@@ -288,6 +316,25 @@ class LocalRoomSeedPostgresTest {
 			Instant.class,
 			SEED_HOST_EMAIL,
 			HOST_MANUAL_ROOM_TITLE);
+	}
+
+	private void assertTerminalChatRoomIsInitialized(long roomId) {
+		Instant purgeAfter = chatRoomPurgeAfter(roomId);
+		Instant messagesPurgedAt = chatRoomMessagesPurgedAt(roomId);
+
+		assertNotNull(purgeAfter);
+		assertNotNull(messagesPurgedAt);
+		assertEquals(purgeAfter, messagesPurgedAt);
+	}
+
+	private Instant chatRoomPurgeAfter(long roomId) {
+		return jdbcTemplate.queryForObject("select purge_after from chat_rooms where room_id = ?", Instant.class,
+			roomId);
+	}
+
+	private Instant chatRoomMessagesPurgedAt(long roomId) {
+		return jdbcTemplate.queryForObject(
+			"select messages_purged_at from chat_rooms where room_id = ?", Instant.class, roomId);
 	}
 
 	private int count(String query) {

@@ -408,3 +408,21 @@ WHERE NOT EXISTS (
     WHERE room.host_user_id = seed_targets.host_user_id
         AND room.title = seed_targets.title
 );
+
+WITH callback_now AS (
+    SELECT CURRENT_TIMESTAMP AS value
+)
+INSERT INTO chat_rooms (room_id, purge_after, messages_purged_at, created_at, updated_at)
+SELECT
+    rooms.id,
+    CASE WHEN rooms.status IN ('CANCELED', 'FINISHED') THEN callback_now.value ELSE NULL END,
+    CASE WHEN rooms.status IN ('CANCELED', 'FINISHED') THEN callback_now.value ELSE NULL END,
+    callback_now.value,
+    callback_now.value
+FROM rooms
+CROSS JOIN callback_now
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM chat_rooms existing_chat_room
+    WHERE existing_chat_room.room_id = rooms.id
+);

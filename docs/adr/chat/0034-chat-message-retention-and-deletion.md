@@ -1,11 +1,11 @@
 # ADR-0034: 최종 상태 채팅 메시지를 30일 보관한 뒤 일괄 삭제
 
-- 상태: 승인됨
+- 상태: 대체됨
 - 작성일: 2026-07-31
 - 결정일: 2026-08-01
 - 관련: [P1 방 채팅 명세](../../p1/chatting.md), [채팅 저장 계약](../../ERD.md#chat_rooms), [아키텍처](../../ARCHITECTURE.md#채팅-흐름), [ADR-0009 UTC 시간 기준](../platform/0009-utc-time-standard.md), [ADR-0021 AWS 배포 기준선](../platform/0021-p0-aws-ec2-rds-deployment-baseline.md), [ADR-0036 ROOM 상태 자동 전환](../room/0036-bounded-room-state-transition-processing.md), [ADR-0038 공용 세션·스케줄 조정](../platform/0038-multi-instance-session-and-scheduler-coordination.md)
 - 대체 대상: 없음
-- 후속 ADR: 없음
+- 후속 ADR: [ADR-0045 채팅방 스키마와 local ROOM 초기화 경계](0045-chat-room-schema-and-backfill-boundary.md)
 
 ## 맥락
 
@@ -72,7 +72,7 @@ backfill과 ROOM 생성·상태 전환이 경쟁하더라도 완료 시점에는
 ## 검증
 
 - 상태: 부분 검증
-- 근거: #289의 대상 H2와 Testcontainers PostgreSQL 테스트에서 V11 로컬 초기화, ID 순 chunk 삭제, 부분 실패 격리, ShedLock skip과 중복 삭제 수렴을 확인했다. 대표 PostgreSQL 배치는 방 50개·메시지 5,000개를 126ms에 처리했다.
+- 근거: #289의 대상 H2와 Testcontainers PostgreSQL 테스트에서 V13 스키마, local callback 초기화, ID 순 chunk 삭제, 부분 실패 격리, ShedLock skip과 중복 삭제 수렴을 확인했다. 대표 PostgreSQL 배치는 방 50개·메시지 5,000개를 126ms에 처리했다.
 - 미검증:
     - #281이 소유한 live 운영 one-shot backfill, ROOM 쓰기 통제·최종 보정·배포 절체는 이 검증에 포함하지 않았다.
     - 실제 운영 인스턴스 종료 뒤 임대 만료 복구와 RDS 백업 만료 뒤 복구 불가 여부는 확인하지 않았다.
