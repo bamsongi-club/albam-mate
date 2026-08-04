@@ -1,0 +1,256 @@
+package cloud.bamsongi.albammate.room;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+
+import cloud.bamsongi.albammate.room.entity.RoomWaitlist;
+import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
+
+@Testcontainers
+@SpringBootTest
+class RoomWaitlistConcurrencyPostgresTest {
+
+	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final Instant REQUEST_TIME = Instant.parse("2026-08-04T00:00:00Z");
+	private static final long WAIT_SECONDS = 10;
+
+	@Container
+	@ServiceConnection
+	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
+		.withDatabaseName("albam_mate_waitlist_concurrency_test");
+
+	@Autowired
+	private RoomRepository roomRepository;
+	@Autowired
+	private RoomWaitlistRepository roomWaitlistRepository;
+	@Autowired
+	private PlatformTransactionManager transactionManager;
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
+
+	private long roomId;
+	private long firstUserId;
+	private long secondUserId;
+	private long thirdUserId;
+
+	@BeforeEach
+	void setUp() {
+		long hostUserId = insertUser("concurrency-waitlist-host@example.com");
+		firstUserId = insertUser("concurrency-waitlist-first@example.com");
+		secondUserId = insertUser("concurrency-waitlist-second@example.com");
+		thirdUserId = insertUser("concurrency-waitlist-third@example.com");
+		roomId = insertRoom(hostUserId);
+	}
+
+	@AfterEach
+	void tearDown() {
+		jdbcTemplate.execute("truncate table room_waitlists, rooms, users restart identity cascade");
+	}
+
+	@Test
+	void 동시_신규_저장과_조건부_승격은_한_행과_FIFO_단일_전이로_수렴한다() throws Exception {
+		CountDownLatch claimStarted = new CountDownLatch(2);
+		List<Boolean> saved = executeConcurrently(
+			() -> saveAfterRoomClaim(firstUserId, claimStarted),
+			() -> saveAfterRoomClaim(secondUserId, claimStarted));
+
+		assertEquals(1, saved.stream().filter(Boolean::booleanValue).count());
+		int promotedCount = new TransactionTemplate(transactionManager).execute(status -> {
+			long queueOrder = jdbcTemplate.queryForObject(
+				"select queue_order from room_waitlists where room_id = ?", Long.class, roomId);
+			return roomWaitlistRepository.promoteWaiting(roomId, firstUserId, queueOrder, REQUEST_TIME.plusSeconds(60))
+				+ roomWaitlistRepository.promoteWaiting(roomId, secondUserId, queueOrder, REQUEST_TIME.plusSeconds(60));
+		});
+		assertEquals(1, promotedCount);
+		assertEquals(
+			1,
+			jdbcTemplate.queryForObject(
+				"select count(*) from room_waitlists where room_id = ?", Integer.class, roomId));
+		assertEquals(
+			0,
+			jdbcTemplate.queryForObject(
+				"select count(*) from room_waitlists where room_id = ? and status = 'WAITING'",
+				Integer.class,
+				roomId));
+	}
+
+	@Test
+	void 동시_취소_재신청_승격은_조건부_전이_하나만_남긴다() throws Exception {
+		long queueOrder = new TransactionTemplate(transactionManager).execute(status -> {
+			long nextQueueOrder = roomWaitlistRepository.getNextQueueOrder();
+			roomWaitlistRepository.saveAndFlush(
+				RoomWaitlist.create(roomId, firstUserId, nextQueueOrder, REQUEST_TIME));
+			return nextQueueOrder;
+		});
+
+		List<Integer> firstTransitionResults = executeConcurrently(
+			() -> new TransactionTemplate(transactionManager).execute(
+				status -> roomWaitlistRepository.cancelWaiting(roomId, firstUserId, REQUEST_TIME.plusSeconds(60))),
+			() -> new TransactionTemplate(transactionManager).execute(status -> roomWaitlistRepository.promoteWaiting(
+				roomId,
+				firstUserId,
+				queueOrder,
+				REQUEST_TIME.plusSeconds(60))));
+		assertEquals(1, firstTransitionResults.stream().mapToInt(Integer::intValue).sum());
+
+		List<Integer> reapplyResults = executeConcurrently(
+			() -> new TransactionTemplate(transactionManager)
+				.execute(status -> roomWaitlistRepository.reactivateWaiting(
+					roomId,
+					firstUserId,
+					roomWaitlistRepository.getNextQueueOrder(),
+					REQUEST_TIME.plusSeconds(120))),
+			() -> new TransactionTemplate(transactionManager)
+				.execute(status -> roomWaitlistRepository.reactivateWaiting(
+					roomId,
+					firstUserId,
+					roomWaitlistRepository.getNextQueueOrder(),
+					REQUEST_TIME.plusSeconds(120))));
+		assertEquals(1, reapplyResults.stream().mapToInt(Integer::intValue).sum());
+		assertEquals(
+			"WAITING",
+			jdbcTemplate.queryForObject(
+				"select status from room_waitlists where room_id = ? and user_id = ?",
+				String.class,
+				roomId,
+				firstUserId));
+		assertEquals(
+			1,
+			jdbcTemplate.queryForObject(
+				"select count(*) from room_waitlists where room_id = ? and user_id = ?",
+				Integer.class,
+				roomId,
+				firstUserId));
+	}
+
+	@Test
+	void 첫_대기자_취소와_승격_경쟁뒤에는_다음_FIFO_후보만_승격한다() throws Exception {
+		new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+			roomWaitlistRepository.saveAndFlush(RoomWaitlist.create(roomId, firstUserId, 10L, REQUEST_TIME));
+			roomWaitlistRepository.saveAndFlush(RoomWaitlist.create(roomId, secondUserId, 20L, REQUEST_TIME));
+			roomWaitlistRepository.saveAndFlush(RoomWaitlist.create(roomId, thirdUserId, 30L, REQUEST_TIME));
+		});
+
+		executeConcurrently(
+			() -> new TransactionTemplate(transactionManager).execute(
+				status -> roomWaitlistRepository.cancelWaiting(roomId, firstUserId, REQUEST_TIME.plusSeconds(60))),
+			() -> new TransactionTemplate(transactionManager).execute(status -> roomWaitlistRepository
+				.promoteWaiting(roomId, firstUserId, 10L, REQUEST_TIME.plusSeconds(60))));
+		int promoted = new TransactionTemplate(transactionManager).execute(status -> roomWaitlistRepository
+			.findFirstWaitingByRoomId(roomId)
+			.map(candidate -> roomWaitlistRepository.promoteWaiting(roomId, candidate.getUserId(),
+				candidate.getQueueOrder(), REQUEST_TIME.plusSeconds(120)))
+			.orElse(0));
+
+		assertEquals(1, promoted);
+		assertEquals(20L, jdbcTemplate.queryForObject(
+			"select queue_order from room_waitlists where room_id = ? and user_id = ?", Long.class, roomId,
+			secondUserId));
+		assertEquals("PROMOTED", jdbcTemplate.queryForObject(
+			"select status from room_waitlists where room_id = ? and user_id = ?", String.class, roomId, secondUserId));
+		assertEquals("WAITING", jdbcTemplate.queryForObject(
+			"select status from room_waitlists where room_id = ? and user_id = ?", String.class, roomId, thirdUserId));
+	}
+
+	@Test
+	void claim과_순번_발급_뒤_실패하면_방과_대기행은_롤백되고_순번만_공백으로_남는다() {
+		long consumedQueueOrder = new TransactionTemplate(transactionManager).execute(status -> {
+			assertEquals(1, roomRepository.claimVersion(roomId, 0L));
+			long queueOrder = roomWaitlistRepository.getNextQueueOrder();
+			roomWaitlistRepository.saveAndFlush(RoomWaitlist.create(roomId, firstUserId, queueOrder, REQUEST_TIME));
+			status.setRollbackOnly();
+			return queueOrder;
+		});
+
+		assertEquals(0L, jdbcTemplate.queryForObject("select version from rooms where id = ?", Long.class, roomId));
+		assertEquals(0, jdbcTemplate.queryForObject("select count(*) from room_waitlists where room_id = ?",
+			Integer.class, roomId));
+		assertTrue(roomWaitlistRepository.getNextQueueOrder() > consumedQueueOrder);
+	}
+
+	private boolean saveAfterRoomClaim(long userId, CountDownLatch claimStarted) throws Exception {
+		return new TransactionTemplate(transactionManager).execute(status -> {
+			Long version = jdbcTemplate.queryForObject("select version from rooms where id = ?", Long.class, roomId);
+			claimStarted.countDown();
+			awaitClaims(claimStarted);
+			if (roomRepository.claimVersion(roomId, version) == 0) {
+				return false;
+			}
+			long queueOrder = roomWaitlistRepository.getNextQueueOrder();
+			roomWaitlistRepository.saveAndFlush(RoomWaitlist.create(roomId, userId, queueOrder, REQUEST_TIME));
+			return true;
+		});
+	}
+
+	private <T> List<T> executeConcurrently(Callable<T> first, Callable<T> second) throws Exception {
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		try {
+			Future<T> firstFuture = executor.submit(first);
+			Future<T> secondFuture = executor.submit(second);
+			return List.of(firstFuture.get(WAIT_SECONDS, TimeUnit.SECONDS),
+				secondFuture.get(WAIT_SECONDS, TimeUnit.SECONDS));
+		} finally {
+			executor.shutdownNow();
+			assertTrue(executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS));
+		}
+	}
+
+	private void awaitClaims(CountDownLatch claimStarted) {
+		try {
+			assertTrue(claimStarted.await(WAIT_SECONDS, TimeUnit.SECONDS));
+		} catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			throw new IllegalStateException("동시 시작 대기 중 인터럽트되었습니다.", exception);
+		}
+	}
+
+	private long insertUser(String email) {
+		jdbcTemplate.update(
+			"insert into users (email, password_hash, nickname, created_at, updated_at) values (?, 'hash', ?, ?, ?)",
+			email,
+			email,
+			Timestamp.from(REQUEST_TIME),
+			Timestamp.from(REQUEST_TIME));
+		return jdbcTemplate.queryForObject("select id from users where email = ?", Long.class, email);
+	}
+
+	private long insertRoom(long hostUserId) {
+		jdbcTemplate.update(
+			"""
+				insert into rooms (
+				    host_user_id, room_type, title, experience_level, is_rulemaster_led, region, capacity,
+				    active_participant_count, start_at, place, status, version, created_at, updated_at)
+				values (?, 'PERSON_FOCUSED', '동시성 대기열 방', 'ALL_LEVELS', false, '홍대', 4, 0, ?, '테스트 장소',
+				        'RECRUITING', 0, ?, ?)
+				""",
+			hostUserId,
+			Timestamp.from(REQUEST_TIME.plusSeconds(3600)),
+			Timestamp.from(REQUEST_TIME),
+			Timestamp.from(REQUEST_TIME));
+		return jdbcTemplate.queryForObject("select id from rooms where host_user_id = ?", Long.class, hostUserId);
+	}
+}
