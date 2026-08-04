@@ -66,6 +66,20 @@ docker compose --env-file .env -f compose.local.yml stop postgres
 docker compose --env-file .env -f compose.local.yml down --volumes
 ```
 
+`local-multi`는 프록시, Spring 두 대, 공용 PostgreSQL·Redis로 교차 인스턴스 세션을 확인하는 전용 구성이다. `.env.example`을 바탕으로 `.env`를 준비하고, 기존 `compose.local.yml` 스택과 동시에 실행하지 않는다.
+
+```sh
+docker compose --env-file .env -f compose.local-multi.yml up -d --build --wait
+docker compose --env-file .env -f compose.local-multi.yml ps
+docker compose --env-file .env -f compose.local-multi.yml down
+```
+
+Compose가 실행 중인 상태에서 프록시를 통과하는 동일 세션 검증은 별도 명령으로 실행한다. 일반 `postgresTest`는 외부 Compose 의존성을 만들지 않도록 이 테스트를 건너뛴다.
+
+```sh
+./gradlew postgresTest --tests "cloud.bamsongi.albammate.global.security.session.LocalMultiProxyRuntimePostgresTest" -Dissue360.localMultiProxy=true --no-daemon --stacktrace
+```
+
 ## 운영 Compose
 
 호스트 준비, 이미지 게시, 배포·롤백 의미와 Docker 계약 검증은 [P0 AWS 운영 인프라 기준](guides/AWS_P0_INFRASTRUCTURE.md#운영-compose-준비와-실행)을 따른다. 아래 명령은 `/etc/albam-mate/production.env`, TLS 인증서와 RDS CA가 준비된 운영 호스트에서 반복해서 사용한다.
