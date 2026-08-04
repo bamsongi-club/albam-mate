@@ -56,14 +56,16 @@ public final class SocialLoginSuccessHandler implements AuthenticationSuccessHan
 		Authentication authentication,
 		SocialLinkIntent linkIntent) {
 		if (!(authentication instanceof OAuth2AuthenticationToken token)) {
-			restoreSession(linkIntent, request, response);
+			restoreSession(
+				SocialLinkCurrentUserFilter.currentUserId(request).orElse(null), request, response);
 			return SocialAuthResult.FAILED;
 		}
 		SocialProvider provider = clientRegistrationRepository
 			.configuredProvider(token.getAuthorizedClientRegistrationId())
 			.orElse(null);
 		if (provider == null) {
-			restoreSession(linkIntent, request, response);
+			restoreSession(
+				SocialLinkCurrentUserFilter.currentUserId(request).orElse(null), request, response);
 			return SocialAuthResult.PROVIDER_UNAVAILABLE;
 		}
 		if (linkIntent != null) {
@@ -92,8 +94,9 @@ public final class SocialLoginSuccessHandler implements AuthenticationSuccessHan
 	/**
 	 * 연결 의도가 있는 callback을 현재 사용자의 명시적 연결로 처리한다.
 	 *
-	 * <p>제공자 이메일은 연결 대상을 고르는 데 쓰지 않고 의도에 담긴 사용자를 그대로 연결한다. OAuth filter가 이미 세션 인증을 외부
-	 * principal로 덮었으므로, 성공·실패 어느 쪽이든 의도에 담긴 사용자의 앱 세션을 다시 세운다.
+	 * <p>제공자 이메일은 연결 대상을 고르는 데 쓰지 않고, 의도의 제공자와 사용자가 callback 직전의 세션 사용자와 모두 맞을 때만 연결한다.
+	 * 어느 쪽이든 결과가 정해지면 callback 직전에 로그인해 있던 사용자를 다시 세운다. 의도의 사용자로 되세우면 세션 사용자가 바뀐 경우에 다른
+	 * 사용자로 로그인되기 때문이다.
 	 */
 	private SocialAuthResult link(
 		SocialLinkIntent intent,
@@ -101,8 +104,9 @@ public final class SocialLoginSuccessHandler implements AuthenticationSuccessHan
 		OAuth2AuthenticationToken token,
 		HttpServletRequest request,
 		HttpServletResponse response) {
-		if (!intent.provider().equals(provider)) {
-			restoreSession(intent, request, response);
+		Long currentUserId = SocialLinkCurrentUserFilter.currentUserId(request).orElse(null);
+		if (!intent.provider().equals(provider) || !intent.userId().equals(currentUserId)) {
+			restoreSession(currentUserId, request, response);
 			return SocialAuthResult.INVALID_STATE;
 		}
 
@@ -111,11 +115,11 @@ public final class SocialLoginSuccessHandler implements AuthenticationSuccessHan
 			SocialIdentity identity = identityMapper.map(provider, token.getPrincipal().getAttributes());
 			linkResult = socialAccountService.link(intent.userId(), identity);
 		} catch (RuntimeException exception) {
-			restoreSession(intent, request, response);
+			restoreSession(currentUserId, request, response);
 			return SocialAuthResult.FAILED;
 		}
 
-		restoreSession(intent, request, response);
+		restoreSession(currentUserId, request, response);
 		if (linkResult == SocialLinkResult.LINKED) {
 			csrfTokenRepository.saveToken(null, request, response);
 			return SocialAuthResult.LINK_SUCCESS;
@@ -124,17 +128,17 @@ public final class SocialLoginSuccessHandler implements AuthenticationSuccessHan
 	}
 
 	/**
-	 * 연결 시도면 의도에 담긴 사용자의 앱 세션을 되돌리고, 로그인 시도면 남은 인증을 지운다.
+	 * 연결 시도면 callback 직전의 로그인 사용자를 되돌리고, 로그인 시도면 남은 인증을 지운다.
 	 *
 	 * <p>OAuth filter는 성공 처리 직전에 세션 인증을 외부 principal로 덮으므로, 연결 결과가 성공이든 실패든 원래 로그인 사용자를 다시
 	 * 세우지 않으면 연결 시도만으로 로그아웃된다.
 	 */
 	private void restoreSession(
-		SocialLinkIntent intent, HttpServletRequest request, HttpServletResponse response) {
-		if (intent == null) {
+		Long userId, HttpServletRequest request, HttpServletResponse response) {
+		if (userId == null) {
 			sessionEstablisher.discard(request, response);
 			return;
 		}
-		sessionEstablisher.establish(intent.userId(), request, response);
+		sessionEstablisher.establish(userId, request, response);
 	}
 }

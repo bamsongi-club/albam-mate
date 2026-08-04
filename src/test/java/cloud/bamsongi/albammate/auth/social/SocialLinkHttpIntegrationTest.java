@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.auth.social;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -49,9 +50,10 @@ import cloud.bamsongi.albammate.user.contract.UserNickname;
 import jakarta.servlet.http.Cookie;
 
 /**
- * T1과 {@code AUTH-05c-AC1}을 HTTP 경계에서 검증한다.
+ * T1~T5와 {@code AUTH-05c-AC1}~{@code AUTH-05c-AC5}를 HTTP 경계에서 검증한다.
  *
- * <p>Kakao는 자격증명을 주지 않아 설정되지 않은 제공자로 함께 검증한다.
+ * <p>Kakao는 자격증명을 주지 않아 설정되지 않은 제공자로 함께 검증한다. 같은 사용자·같은 외부 식별자의 수렴은 연결 시작이 먼저 거절하므로 이
+ * 경계에서는 도달하지 않고, 사용자 모듈의 연결 계약 테스트가 담당한다.
  */
 @SpringBootTest(properties = {
 	"app.social.providers.google.client-id=google-test-id",
@@ -185,6 +187,63 @@ class SocialLinkHttpIntegrationTest {
 			.andExpect(jsonPath("$.data[1].linked").value(true));
 	}
 
+	@Test
+	void 연결_의도를_만든_사용자와_다른_사용자의_세션이면_연결하지_않는다() throws Exception {
+		UserAccount starter = createAccount();
+		UserAccount other = createAccount();
+		MockHttpSession session = signedInSession(starter);
+		stubSocialProvider.respondWith(naverUser(UUID.randomUUID().toString(), "밤톨"));
+
+		String state = state(authorizationRedirect(startLink("naver", session), session));
+		authenticate(session, other);
+
+		assertEquals(
+			"/?socialAuth=invalid-state#/profile",
+			callback("naver", session, state).getResponse().getHeader("Location"));
+		assertEquals(Set.of(), socialAccountService.linkedProviders(starter.id()));
+		assertEquals(Set.of(), socialAccountService.linkedProviders(other.id()));
+	}
+
+	@Test
+	void 비로그인과_CSRF_오류의_연결_시작은_거절한다() throws Exception {
+		mockMvc.perform(post(LINK_URI, "naver"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
+
+		mockMvc.perform(post(LINK_URI, "naver").session(signedInSession()))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("CSRF_TOKEN_INVALID"));
+	}
+
+	@Test
+	void 연결_성공은_세션_ID와_CSRF를_교체한다() throws Exception {
+		UserAccount account = createAccount();
+		MockHttpSession session = signedInSession(account);
+		stubSocialProvider.respondWith(naverUser(UUID.randomUUID().toString(), "밤톨"));
+
+		Cookie staleCsrf = csrfCookie(session);
+		String sessionIdBeforeLink = session.getId();
+		String state = state(authorizationRedirect(startLink("naver", session), session));
+		assertEquals(
+			"/?socialAuth=link-success#/profile",
+			callback("naver", session, state).getResponse().getHeader("Location"));
+
+		assertNotEquals(sessionIdBeforeLink, session.getId(), "연결 성공이 세션 ID를 교체하지 않았습니다");
+		mockMvc.perform(
+			post("/api/auth/logout").session(session)
+				.cookie(staleCsrf)
+				.header("X-XSRF-TOKEN", staleCsrf.getValue()))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("CSRF_TOKEN_INVALID"));
+
+		Cookie refreshedCsrf = csrfCookie(session);
+		mockMvc.perform(
+			post("/api/auth/logout").session(session)
+				.cookie(refreshedCsrf)
+				.header("X-XSRF-TOKEN", refreshedCsrf.getValue()))
+			.andExpect(status().isOk());
+	}
+
 	private String startLink(String registrationId, MockHttpSession session) throws Exception {
 		String body = mockMvc.perform(link(registrationId, session))
 			.andExpect(status().isOk())
@@ -259,11 +318,15 @@ class SocialLinkHttpIntegrationTest {
 
 	private MockHttpSession signedInSession(UserAccount account) {
 		MockHttpSession session = new MockHttpSession();
+		authenticate(session, account);
+		return session;
+	}
+
+	private void authenticate(MockHttpSession session, UserAccount account) {
 		SecurityContext context = SecurityContextHolder.createEmptyContext();
 		context.setAuthentication(
 			UsernamePasswordAuthenticationToken.authenticated(
 				new CurrentUserPrincipal(account.id()), null, AuthorityUtils.NO_AUTHORITIES));
 		session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
-		return session;
 	}
 }

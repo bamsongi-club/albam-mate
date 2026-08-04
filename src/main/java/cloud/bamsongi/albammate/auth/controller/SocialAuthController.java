@@ -23,7 +23,9 @@ public final class SocialAuthController {
 
 	@PostMapping("/{provider}/link")
 	public ApiResponse<SocialAuthorizationResponse> startLink(
-		@PathVariable String provider, HttpServletRequest request) {
+		@PathVariable
+		String provider,
+		HttpServletRequest request) {
 		return ApiResponse.success(HttpStatus.OK, socialLinkService.startLink(provider, request));
 	}
 }
