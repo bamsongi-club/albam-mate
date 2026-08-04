@@ -23,6 +23,8 @@ class ErrorCodeTest {
 			Map.entry(ErrorCode.CSRF_TOKEN_INVALID, "CSRF 토큰이 없거나 유효하지 않습니다."),
 			Map.entry(ErrorCode.INVALID_CREDENTIALS, "이메일 또는 비밀번호가 일치하지 않습니다."),
 			Map.entry(ErrorCode.EMAIL_ALREADY_EXISTS, "이미 사용 중인 이메일입니다."),
+			Map.entry(ErrorCode.SOCIAL_PROVIDER_NOT_AVAILABLE, "사용할 수 없는 소셜 로그인 제공자입니다."),
+			Map.entry(ErrorCode.SOCIAL_ACCOUNT_ALREADY_LINKED, "이미 연결된 소셜 계정입니다."),
 			Map.entry(
 				ErrorCode.RATE_LIMIT_EXCEEDED,
 				"인증 요청 처리 한도를 초과했습니다. 잠시 후 다시 시도해 주세요."),
@@ -54,6 +56,8 @@ class ErrorCodeTest {
 			Map.entry(ErrorCode.CSRF_TOKEN_INVALID, HttpStatus.FORBIDDEN),
 			Map.entry(ErrorCode.INVALID_CREDENTIALS, HttpStatus.UNAUTHORIZED),
 			Map.entry(ErrorCode.EMAIL_ALREADY_EXISTS, HttpStatus.CONFLICT),
+			Map.entry(ErrorCode.SOCIAL_PROVIDER_NOT_AVAILABLE, HttpStatus.NOT_FOUND),
+			Map.entry(ErrorCode.SOCIAL_ACCOUNT_ALREADY_LINKED, HttpStatus.CONFLICT),
 			Map.entry(ErrorCode.RATE_LIMIT_EXCEEDED, HttpStatus.TOO_MANY_REQUESTS),
 			Map.entry(ErrorCode.GAME_NOT_FOUND, HttpStatus.NOT_FOUND),
 			Map.entry(ErrorCode.ROOM_NOT_FOUND, HttpStatus.NOT_FOUND),

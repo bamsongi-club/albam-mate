@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import cloud.bamsongi.albammate.auth.security.AppSessionEstablisher;
 import cloud.bamsongi.albammate.user.contract.SocialAccountService;
 import cloud.bamsongi.albammate.user.contract.SocialIdentity;
+import cloud.bamsongi.albammate.user.contract.SocialLinkResult;
 import cloud.bamsongi.albammate.user.contract.SocialLoginResult;
 import cloud.bamsongi.albammate.user.contract.SocialProvider;
 import jakarta.servlet.http.HttpServletRequest;
@@ -36,6 +37,7 @@ public final class SocialLoginSuccessHandler implements AuthenticationSuccessHan
 	@NonNull private final SocialAccountService socialAccountService;
 	@NonNull private final AppSessionEstablisher sessionEstablisher;
 	@NonNull private final CsrfTokenRepository csrfTokenRepository;
+	@NonNull private final SocialLinkIntentStore linkIntentStore;
 
 	private final RedirectStrategy redirectStrategy = new DefaultRedirectStrategy();
 
@@ -61,6 +63,11 @@ public final class SocialLoginSuccessHandler implements AuthenticationSuccessHan
 			return SocialAuthResult.PROVIDER_UNAVAILABLE;
 		}
 
+		SocialLinkIntent linkIntent = linkIntentStore.consume(request).orElse(null);
+		if (linkIntent != null) {
+			return link(linkIntent, provider, token, request, response);
+		}
+
 		SocialLoginResult loginResult;
 		try {
 			SocialIdentity identity = identityMapper.map(provider, token.getPrincipal().getAttributes());
@@ -78,5 +85,39 @@ public final class SocialLoginSuccessHandler implements AuthenticationSuccessHan
 		}
 		sessionEstablisher.discard(request, response);
 		return SocialAuthResult.LINK_REQUIRED;
+	}
+
+	/**
+	 * 연결 의도가 있는 callback을 현재 사용자의 명시적 연결로 처리한다.
+	 *
+	 * <p>제공자 이메일은 연결 대상을 고르는 데 쓰지 않고 의도에 담긴 사용자를 그대로 연결한다. OAuth filter가 이미 세션 인증을 외부
+	 * principal로 덮었으므로, 성공·실패 어느 쪽이든 의도에 담긴 사용자의 앱 세션을 다시 세운다.
+	 */
+	private SocialAuthResult link(
+		SocialLinkIntent intent,
+		SocialProvider provider,
+		OAuth2AuthenticationToken token,
+		HttpServletRequest request,
+		HttpServletResponse response) {
+		if (!intent.provider().equals(provider)) {
+			sessionEstablisher.establish(intent.userId(), request, response);
+			return SocialAuthResult.INVALID_STATE;
+		}
+
+		SocialLinkResult linkResult;
+		try {
+			SocialIdentity identity = identityMapper.map(provider, token.getPrincipal().getAttributes());
+			linkResult = socialAccountService.link(intent.userId(), identity);
+		} catch (RuntimeException exception) {
+			sessionEstablisher.establish(intent.userId(), request, response);
+			return SocialAuthResult.FAILED;
+		}
+
+		sessionEstablisher.establish(intent.userId(), request, response);
+		if (linkResult == SocialLinkResult.LINKED) {
+			csrfTokenRepository.saveToken(null, request, response);
+			return SocialAuthResult.LINK_SUCCESS;
+		}
+		return SocialAuthResult.LINK_CONFLICT;
 	}
 }

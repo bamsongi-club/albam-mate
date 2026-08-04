@@ -17,6 +17,8 @@ public enum ErrorCode {
 	CSRF_TOKEN_INVALID(HttpStatus.FORBIDDEN, "CSRF 토큰이 없거나 유효하지 않습니다."),
 	INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 일치하지 않습니다."),
 	EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 사용 중인 이메일입니다."),
+	SOCIAL_PROVIDER_NOT_AVAILABLE(HttpStatus.NOT_FOUND, "사용할 수 없는 소셜 로그인 제공자입니다."),
+	SOCIAL_ACCOUNT_ALREADY_LINKED(HttpStatus.CONFLICT, "이미 연결된 소셜 계정입니다."),
 	RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "인증 요청 처리 한도를 초과했습니다. 잠시 후 다시 시도해 주세요."),
 	GAME_NOT_FOUND(HttpStatus.NOT_FOUND, "게임을 찾을 수 없습니다."),
 	ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "방을 찾을 수 없습니다."),

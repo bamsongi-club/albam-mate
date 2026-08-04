@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.user.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,4 +13,6 @@ public interface SocialAccountRepository extends JpaRepository<SocialAccount, Lo
 	Optional<SocialAccount> findByProviderAndProviderSubject(SocialProvider provider, String providerSubject);
 
 	Optional<SocialAccount> findByUserIdAndProvider(Long userId, SocialProvider provider);
+
+	List<SocialAccount> findAllByUserId(Long userId);
 }
