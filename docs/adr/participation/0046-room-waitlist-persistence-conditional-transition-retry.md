@@ -1,17 +1,19 @@
-# ADR-0043: ROOM 대기열을 단일 최신 상태로 저장하고 조건부 전이·등록 재시도를 조정
+# ADR-0046: ROOM 대기열을 단일 최신 상태로 저장하고 조건부 전이·등록 재시도를 조정
 
-- 상태: 대체됨
-- 작성일: 2026-08-03
-- 결정일: 2026-08-03
-- 관련: [P1 PART-04](../../p1/room.md#part-04-선착순-대기열과-자동-승격), [P1 대기 API 계약](../../API.md#part-04-대기-등록재신청), [ERD](../../ERD.md), [ROOM 명령 아키텍처](../../ARCHITECTURE.md#방-변경), [GitHub Issue #344](https://github.com/bamsongi-club/albam-mate/issues/344), [ADR-0005](0005-room-participation-optimistic-locking.md), [ADR-0035](../room/0035-room-status-action-eligibility-separation.md), [ADR-0036](../room/0036-bounded-room-state-transition-processing.md)
-- 대체 대상: [ADR-0037](0037-room-waitlist-latest-state-atomic-promotion.md)
-- 후속 ADR: [ADR-0046](0046-room-waitlist-persistence-conditional-transition-retry.md)
+- 상태: 승인됨
+- 작성일: 2026-08-04
+- 결정일: 2026-08-04
+- 관련: [P1 PART-04](../../p1/room.md#part-04-선착순-대기열과-자동-승격), [P1 대기 API 계약](../../API.md#part-04-대기-등록재신청), [ERD](../../ERD.md), [ROOM 명령 아키텍처](../../ARCHITECTURE.md#방-변경), [GitHub Issue #355](https://github.com/bamsongi-club/albam-mate/issues/355), [기존 정본화 Issue #344](https://github.com/bamsongi-club/albam-mate/issues/344), [ADR-0005](0005-room-participation-optimistic-locking.md), [ADR-0035](../room/0035-room-status-action-eligibility-separation.md), [ADR-0036](../room/0036-bounded-room-state-transition-processing.md)
+- 대체 대상: [ADR-0043](0043-room-waitlist-persistence-conditional-transition-retry.md)
+- 후속 ADR: 없음
 
 ## 맥락
 
 P1은 시작 전 정원이 찬 ROOM에 별도로 대기를 신청하고, 본인의 최신 대기 상태와 현재 순번을 조회하며, 참가 취소로 생긴 빈자리에 첫 대기자를 자동 승격한다. 동일 사용자의 중복 신청은 기존 순서를 유지하고, 허용된 종료 상태에서 재신청하면 새 순번으로 대기열 맨 뒤에 들어가야 한다. 시작 시각 도달과 ROOM 취소 뒤에는 남은 대기도 종료 상태로 조회할 수 있어야 한다.
 
-[ADR-0037](0037-room-waitlist-latest-state-atomic-promotion.md)은 ROOM·사용자별 단일 최신 상태, 조건부 상태 전이, FIFO 자동 승격과 참가 취소·승격의 원자적 처리를 승인했다. 이후 구현자가 임의로 선택하지 않도록 복합 식별자, 순번 발급, JPA 신규 판정, 재신청 출발 상태, 상태·순번 조회 스냅샷과 대기 등록 재시도 경계를 추가로 확정했다. 승인된 ADR의 결정 본문은 사후에 수정하지 않으므로 이 ADR이 기존 결정을 보존하면서 최신 계약으로 대체한다.
+[ADR-0037](0037-room-waitlist-latest-state-atomic-promotion.md)은 ROOM·사용자별 단일 최신 상태, 조건부 상태 전이, FIFO 자동 승격과 참가 취소·승격의 원자적 처리를 승인했다. [ADR-0043](0043-room-waitlist-persistence-conditional-transition-retry.md)은 이 결정을 보존하면서 복합 식별자, 순번 발급, JPA 신규 판정, 재신청 출발 상태, 상태·순번 조회 스냅샷과 대기 등록 재시도 경계를 추가로 확정했다.
+
+ADR-0043의 승인된 선택 자체는 유효하지만, 서로 독립적인 결정 질문을 세 대안표에 묶고 각 표에 선택 행을 두 개씩 표시했다. 이 구조만으로는 선택 행이 누적되는지 상호 배타적인지 구현자가 확정할 수 없다. 승인된 ADR의 결정 본문은 사후에 수정하지 않으므로 이 ADR이 기존 의미를 바꾸지 않고 일곱 결정 축을 각각의 대안표로 분리해 ADR-0043을 대체한다.
 
 판단 기준은 다음과 같다.
 
@@ -24,33 +26,54 @@ P1은 시작 전 정원이 찬 ROOM에 별도로 대기를 신청하고, 본인�
 
 ## 검토한 대안
 
-### 저장·식별자와 순번
+### 저장 모델·식별자
 
 | 대안 | 장점 | 비용·위험 | 판단 |
 | --- | --- | --- | --- |
 | 신청·취소·승격마다 이력 행 추가 | 과거 변경과 순서를 복원할 수 있다. | 현재 상태 선별과 중복 활성 대기 방어가 복잡해지고 현재 API가 요구하지 않는 감사 기능을 먼저 구현한다. | 제외 |
 | ROOM·사용자별 단일 최신 행과 `(room_id, user_id)` 복합 PK | 현재 관계가 한 행으로 고정되고 별도 식별자가 필요 없다. | 과거 이력을 복원할 수 없고 재신청 시 순번·시각을 명시적으로 갱신해야 한다. | 선택 |
+
+### 순번 발급
+
+| 대안 | 장점 | 비용·위험 | 판단 |
+| --- | --- | --- | --- |
 | ROOM별 `max(queue_order) + 1` | 별도 sequence가 필요 없다. | 동시 신청이 같은 최댓값을 읽어 충돌하고 순번 발급을 위해 추가 직렬화가 필요하다. | 제외 |
 | 전역 BIGINT sequence를 코드에서 명시적으로 발급 | 동시 요청 사이의 유일한 정렬 키를 단순하게 발급하고 ROOM별 FIFO를 결정적으로 비교할 수 있다. | 롤백으로 번호 공백이 생기고 전역 번호가 ROOM마다 연속되지 않는다. | 선택 |
 
-### JPA 영속성과 상태 전이
+### JPA 신규 판정
 
 | 대안 | 장점 | 비용·위험 | 판단 |
 | --- | --- | --- | --- |
 | 복합 ID가 있는 신규 Entity를 기본 `save()` 판정에 맡김 | 추가 인터페이스가 필요 없다. | 할당된 식별자를 기존 행으로 오인해 최초 저장이 `merge`가 될 수 있다. | 제외 |
 | `RoomWaitlist`만 `Persistable`로 신규 여부를 명시 | 최초 저장을 INSERT로 고정하고 공통 Entity 계층을 바꾸지 않는다. | 영속·조회 이후 신규 플래그 전환과 재시도마다 새 Entity 생성이 필요하다. | 선택 |
+
+### 상태 전이 방식
+
+| 대안 | 장점 | 비용·위험 | 판단 |
+| --- | --- | --- | --- |
 | 관리 Entity의 임의 변경으로 모든 상태 전이 처리 | 일반적인 dirty checking 흐름을 사용할 수 있다. | 경쟁 중 오래된 상태가 먼저 확정된 조건부 전이를 덮어쓸 수 있다. | 제외 |
 | 목적별 조건부 SQL과 갱신 행 수 분기 | 허용된 출발 상태만 바꾸고 경쟁에서 먼저 확정된 결과를 보존한다. | 0행 결과마다 호출자가 최신 상태와 업무 결과를 구분해야 한다. | 선택 |
 
-### 동시성·재시도
+### 참가 취소·승격 트랜잭션 경계
 
 | 대안 | 장점 | 비용·위험 | 판단 |
 | --- | --- | --- | --- |
 | 참가 취소와 자동 승격을 별도 트랜잭션으로 처리 | 각 작업이 단순하다. | 빈자리만 남거나 같은 빈자리에 둘 이상이 승격되는 부분 성공이 노출될 수 있다. | 제외 |
-| ROOM 낙관적 락과 대기 조건부 전이를 같은 ROOM 처리 트랜잭션에서 사용 | 기존 동시성 루트를 유지하면서 대기 상태 덮어쓰기를 막는다. | 충돌 시 최신 상태를 다시 읽는 독립 트랜잭션이 필요하다. | 선택 |
+| 참가 취소와 자동 승격을 같은 ROOM 처리 트랜잭션에서 함께 커밋·롤백 | 참가 취소·승격·참가 관계·ROOM 변경의 부분 성공을 막는다. | 여러 데이터 변경이 한 트랜잭션에 묶여 하나의 실패가 전체 롤백으로 이어진다. | 선택 |
+
+### 대기 전이 동시성 기준선
+
+| 대안 | 장점 | 비용·위험 | 판단 |
+| --- | --- | --- | --- |
+| ROOM 낙관적 락과 대기 조건부 전이를 함께 사용 | 기존 동시성 루트를 유지하면서 대기 상태 덮어쓰기를 막는다. | 충돌 시 최신 상태를 다시 읽는 독립 트랜잭션이 필요하다. | 선택 |
+| 대기 행 버전, 비관적 락 또는 `SKIP LOCKED` | 일부 경쟁을 데이터베이스 잠금이나 버전으로 직렬화할 수 있다. | 일괄 종료·엄격한 FIFO와 혼용할 경계가 복잡해지고 측정 전부터 잠금 대기 비용을 부담한다. | 제외 |
+
+### 등록 재시도 조정
+
+| 대안 | 장점 | 비용·위험 | 판단 |
+| --- | --- | --- | --- |
 | 기존 `RoomOptimisticLockRetrier`와 순번 충돌 재시도기를 중첩 | 기존 코드를 그대로 감쌀 수 있다. | 실제 시도 횟수가 두 예산의 곱으로 늘고 어떤 오류가 최종 결과를 소유하는지 불명확하다. | 제외 |
 | PART-04 전용 Coordinator가 두 재시도 원인의 단일 예산을 관리 | 전체 시도 횟수와 롤백·오류 경계가 하나로 고정된다. | 공통 Retrier와 다른 좁은 조정 경계가 하나 더 필요하다. | 선택 |
-| 대기 행 버전, 비관적 락 또는 `SKIP LOCKED` | 일부 경쟁을 데이터베이스 잠금이나 버전으로 직렬화할 수 있다. | 일괄 종료·엄격한 FIFO와 혼용할 경계가 복잡해지고 측정 전부터 잠금 대기 비용을 부담한다. | 제외 |
 
 ## 결정
 
@@ -139,11 +162,13 @@ PK·FK·CHECK·그 밖의 UNIQUE 위반, 교착, 직렬화 실패와 분류할 �
 
 ## 참고 자료
 
+- [ADR-0043: ROOM 대기열을 단일 최신 상태로 저장하고 조건부 전이·등록 재시도를 조정](0043-room-waitlist-persistence-conditional-transition-retry.md)
 - [ADR-0037: ROOM 대기열을 단일 최신 상태로 저장하고 자동 승격을 원자적으로 처리](0037-room-waitlist-latest-state-atomic-promotion.md)
 - [ADR-0005: 방 참가 동시성 제어에 낙관 락을 사용](0005-room-participation-optimistic-locking.md)
 - [P1 PART-04 기능 계약](../../p1/room.md#part-04-선착순-대기열과-자동-승격)
 - [P1 대기 API 계약](../../API.md#part-04-대기-등록재신청)
-- [GitHub Issue #344](https://github.com/bamsongi-club/albam-mate/issues/344)
+- [GitHub Issue #355](https://github.com/bamsongi-club/albam-mate/issues/355)
+- [기존 정본화 Issue #344](https://github.com/bamsongi-club/albam-mate/issues/344)
 
 ## 검증
 
