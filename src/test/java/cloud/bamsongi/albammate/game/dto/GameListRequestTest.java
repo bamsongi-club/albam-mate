@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.util.Collections;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
@@ -59,7 +61,7 @@ class GameListRequestTest {
 	void 검색_수치_조건의_유효_범위와_닫힌_복잡도_구간을_검증한다() {
 		GameListRequest valid = new GameListRequest();
 		valid.setPlayerCount(10);
-		valid.setPlayTime(GamePlayTimeFilter.MEDIUM);
+		valid.setPlayTime(List.of(GamePlayTimeFilter.OVER_20_TO_30, GamePlayTimeFilter.AT_LEAST_90));
 		valid.setComplexityMin(new BigDecimal("1.00"));
 		valid.setComplexityMax(new BigDecimal("5.00"));
 
@@ -75,5 +77,57 @@ class GameListRequestTest {
 		assertFalse(validator.validate(invalidPlayerCount).isEmpty());
 		assertFalse(validator.validate(invalidComplexity).isEmpty());
 		assertFalse(validator.validate(reversedComplexity).isEmpty());
+	}
+
+	@Test
+	void 인원_범위와_전용_인원_조건은_각각_유효한_입력만_허용한다() {
+		GameListRequest range = new GameListRequest();
+		range.setPlayerCountMin(2);
+		range.setPlayerCountMax(4);
+		range.setPlayerCountExact(true);
+		GameListRequest exclusiveOnly = new GameListRequest();
+		exclusiveOnly.setExclusivePlayerCount(List.of(1, 2));
+		GameListRequest minOnly = new GameListRequest();
+		minOnly.setPlayerCountMin(3);
+		GameListRequest exactWithoutBoundary = new GameListRequest();
+		exactWithoutBoundary.setPlayerCountExact(true);
+
+		assertTrue(validator.validate(range).isEmpty());
+		assertTrue(validator.validate(exclusiveOnly).isEmpty());
+		assertTrue(validator.validate(minOnly).isEmpty());
+		assertTrue(validator.validate(exactWithoutBoundary).isEmpty());
+	}
+
+	@Test
+	void 인원_범위와_전용_인원을_함께_전달하거나_경계가_잘못되면_거절한다() {
+		GameListRequest rangeWithExclusive = new GameListRequest();
+		rangeWithExclusive.setPlayerCountMin(2);
+		rangeWithExclusive.setExclusivePlayerCount(List.of(1));
+		GameListRequest maxWithExclusive = new GameListRequest();
+		maxWithExclusive.setPlayerCountMax(4);
+		maxWithExclusive.setExclusivePlayerCount(List.of(2));
+		GameListRequest reversedRange = new GameListRequest();
+		reversedRange.setPlayerCountMin(5);
+		reversedRange.setPlayerCountMax(4);
+		GameListRequest zeroMin = new GameListRequest();
+		zeroMin.setPlayerCountMin(0);
+		GameListRequest unsupportedExclusive = new GameListRequest();
+		unsupportedExclusive.setExclusivePlayerCount(List.of(3));
+
+		assertFalse(validator.validate(rangeWithExclusive).isEmpty());
+		assertFalse(validator.validate(maxWithExclusive).isEmpty());
+		assertFalse(validator.validate(reversedRange).isEmpty());
+		assertFalse(validator.validate(zeroMin).isEmpty());
+		assertFalse(validator.validate(unsupportedExclusive).isEmpty());
+	}
+
+	@Test
+	void 빈_값만_담긴_전용_인원은_인원_범위와_충돌하지_않는다() {
+		GameListRequest request = new GameListRequest();
+		request.setPlayerCountMin(2);
+		request.setPlayerCountMax(4);
+		request.setExclusivePlayerCount(Collections.singletonList(null));
+
+		assertTrue(validator.validate(request).isEmpty());
 	}
 }
