@@ -22,12 +22,18 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal;
 import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
 import cloud.bamsongi.albammate.user.contract.RawPassword;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
@@ -235,6 +241,49 @@ class SocialLoginHttpIntegrationTest {
 				String.valueOf(session.getAttribute(attributeName)).contains(StubSocialProvider.ACCESS_TOKEN),
 				"세션에 외부 token이 남았습니다: " + attributeName);
 		}
+	}
+
+	/**
+	 * OAuth 실패는 로그인을 만들지 않을 뿐이며 이미 있는 앱 세션의 인증을 지우지 않는다.
+	 *
+	 * <p>callback은 {@code permitAll}이고 세션 쿠키는 {@code SameSite=Lax}라 top-level GET에 실려 나간다. 실패
+	 * 처리가 저장된 인증을 비우면 공격자가 링크 하나로 로그인한 사용자를 로그아웃시킬 수 있다.
+	 *
+	 * <p>검사 대상은 실패 처리가 저장소의 인증을 건드리는지 하나뿐이므로 보호 API 대신 저장된 컨텍스트를 직접 본다. 사용자 행을 만들지
+	 * 않아 이 클래스가 공유 데이터베이스에 남기는 흔적도 늘리지 않는다.
+	 */
+	@Test
+	void OAuth_실패_callback은_이미_있는_세션_인증을_지우지_않는다() throws Exception {
+		MockHttpSession session = new MockHttpSession();
+		SecurityContext signedIn = authenticatedContext(session);
+
+		mockMvc.perform(get(CALLBACK_URI + "naver").param("code", "stub-code").session(session))
+			.andExpect(header().string("Location", "/?socialAuth=invalid-state#/auth"));
+		assertEquals(signedIn, storedContext(session), "state 없는 callback이 인증을 지웠습니다");
+
+		callback("naver", session, "tampered-state");
+		assertEquals(signedIn, storedContext(session), "state가 다른 callback이 인증을 지웠습니다");
+
+		mockMvc.perform(
+			get(CALLBACK_URI + "naver").param("error", "access_denied")
+				.param("state", state(authorizationRedirect("naver", session)))
+				.session(session))
+			.andExpect(header().string("Location", "/?socialAuth=canceled#/auth"));
+		assertEquals(signedIn, storedContext(session), "사용자 취소가 인증을 지웠습니다");
+	}
+
+	private SecurityContext authenticatedContext(MockHttpSession session) {
+		SecurityContext context = SecurityContextHolder.createEmptyContext();
+		context.setAuthentication(
+			UsernamePasswordAuthenticationToken.authenticated(
+				new CurrentUserPrincipal(7L), null, AuthorityUtils.NO_AUTHORITIES));
+		session.setAttribute(
+			HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
+		return context;
+	}
+
+	private Object storedContext(MockHttpSession session) {
+		return session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
 	}
 
 	private void login(String registrationId) throws Exception {
