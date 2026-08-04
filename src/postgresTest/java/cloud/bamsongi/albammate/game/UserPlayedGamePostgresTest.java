@@ -2,7 +2,10 @@ package cloud.bamsongi.albammate.game;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -16,15 +19,23 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import cloud.bamsongi.albammate.game.dto.GameListRequest;
+import cloud.bamsongi.albammate.game.dto.PlayedFilter;
 import cloud.bamsongi.albammate.game.dto.PlayedGameStateResponse;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 import cloud.bamsongi.albammate.game.repository.UserPlayedGameRepository;
+import cloud.bamsongi.albammate.game.service.GameQueryService;
 import cloud.bamsongi.albammate.game.service.UserPlayedGameService;
+import cloud.bamsongi.albammate.room.service.query.RoomUpcomingRoomCountQuery;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 
@@ -43,12 +54,18 @@ class UserPlayedGamePostgresTest {
 	private JdbcTemplate jdbcTemplate;
 	@Autowired
 	private GameRepository gameRepository;
+	@MockitoSpyBean
+	private RoomUpcomingRoomCountQuery upcomingRoomCountQuery;
 	@Autowired
 	private UserRepository userRepository;
 	@Autowired
 	private UserPlayedGameRepository userPlayedGameRepository;
 	@Autowired
 	private UserPlayedGameService userPlayedGameService;
+	@Autowired
+	private GameQueryService gameQueryService;
+	@Autowired
+	private PlatformTransactionManager transactionManager;
 
 	private final List<Long> gameIds = new ArrayList<>();
 	private final List<Long> userIds = new ArrayList<>();
@@ -118,6 +135,51 @@ class UserPlayedGamePostgresTest {
 			}
 		}
 		assertEquals(1, userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).size());
+	}
+
+	@Test
+	void PostgreSQL_PLAYED_ONLY_페이지조회뒤_동시취소가_커밋돼도_playedByMe는_true로_일치한다() {
+		User user = user("played-only-snapshot");
+		Game game = game("PlayedOnlySnapshot");
+		userPlayedGameService.markPlayed(user.getId(), game.getId());
+		commitAfterPageSql(() -> userPlayedGameService.unmarkPlayed(user.getId(), game.getId()));
+
+		var page = gameQueryService.findPage(request(PlayedFilter.PLAYED_ONLY), user.getId());
+
+		assertEquals(1, page.getTotalElements());
+		assertEquals(game.getId(), page.getContent().getFirst().id());
+		assertEquals(true, page.getContent().getFirst().playedByMe());
+		assertTrue(userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).isEmpty());
+	}
+
+	@Test
+	void PostgreSQL_EXCLUDE_PLAYED_페이지조회뒤_동시등록이_커밋돼도_playedByMe는_false로_일치한다() {
+		User user = user("exclude-played-snapshot");
+		Game game = game("ExcludePlayedSnapshot");
+		commitAfterPageSql(() -> userPlayedGameService.markPlayed(user.getId(), game.getId()));
+
+		var page = gameQueryService.findPage(request(PlayedFilter.EXCLUDE_PLAYED), user.getId());
+
+		assertEquals(1, page.getTotalElements());
+		assertEquals(game.getId(), page.getContent().getFirst().id());
+		assertEquals(false, page.getContent().getFirst().playedByMe());
+		assertEquals(1, userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).size());
+	}
+
+	private void commitAfterPageSql(Runnable change) {
+		doAnswer(invocation -> {
+			Object result = invocation.callRealMethod();
+			TransactionTemplate requiresNew = new TransactionTemplate(transactionManager);
+			requiresNew.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+			requiresNew.executeWithoutResult(status -> change.run());
+			return result;
+		}).when(upcomingRoomCountQuery).findUpcomingRoomCounts(any(List.class), any(Instant.class));
+	}
+
+	private GameListRequest request(PlayedFilter playedFilter) {
+		GameListRequest request = new GameListRequest();
+		request.setPlayedFilter(List.of(playedFilter));
+		return request;
 	}
 
 	private Callable<PlayedGameStateResponse> markCall(

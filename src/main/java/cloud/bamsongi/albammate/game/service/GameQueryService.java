@@ -125,10 +125,13 @@ public class GameQueryService implements GameQuery {
 			criteria = criteria.withUpcomingGameIds(upcomingRoomCounts.keySet());
 		}
 
-		Page<Game> games = gameRepository.findAll(criteria.toSpecification(), pageable);
+		GameListSearchCriteria pageCriteria = criteria;
+		Page<Game> games = gameRepository.findAll(pageCriteria.toSpecification(), pageable);
 		if (games.isEmpty()) {
 			return games
-				.map(game -> GameListItem.from(GameListRow.from(game), 0L, playedByMe(currentUserId, game.getId())));
+				.map(game -> GameListItem.from(GameListRow.from(game), 0L,
+					playedByMe(pageCriteria, currentUserId, game.getId(),
+						java.util.Set.of())));
 		}
 
 		if (!criteria.isUpcomingOnly()) {
@@ -138,7 +141,7 @@ public class GameQueryService implements GameQuery {
 		}
 
 		Map<Long, Long> counts = upcomingRoomCounts;
-		var playedGameIds = currentUserId == null
+		var playedGameIds = currentUserId == null || pageCriteria.getPlayedFilter() != null
 			? java.util.Set.<Long>of()
 			: new HashSet<>(
 				userPlayedGameRepository.findGameIdsByUserIdAndGameIdIn(
@@ -148,7 +151,18 @@ public class GameQueryService implements GameQuery {
 			game -> GameListItem.from(
 				GameListRow.from(game),
 				counts.getOrDefault(game.getId(), 0L),
-				currentUserId == null ? null : playedGameIds.contains(game.getId())));
+				playedByMe(pageCriteria, currentUserId, game.getId(), playedGameIds)));
+	}
+
+	private Boolean playedByMe(
+		GameListSearchCriteria criteria, Long currentUserId, Long gameId, java.util.Set<Long> playedGameIds) {
+		if (currentUserId == null) {
+			return null;
+		}
+		if (criteria.getPlayedFilter() != null) {
+			return criteria.getPlayedFilter() == PlayedFilter.PLAYED_ONLY;
+		}
+		return playedGameIds.contains(gameId);
 	}
 
 	/**
