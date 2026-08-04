@@ -9,6 +9,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -37,6 +38,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.user.contract.SocialAccountService;
 import cloud.bamsongi.albammate.user.contract.SocialIdentity;
+import cloud.bamsongi.albammate.user.contract.SocialLinkResult;
 import cloud.bamsongi.albammate.user.contract.SocialLoginResult;
 import cloud.bamsongi.albammate.user.contract.SocialProvider;
 import cloud.bamsongi.albammate.user.contract.UserNickname;
@@ -153,12 +155,91 @@ class SocialAccountPostgresTest {
 
 			assertEquals(loggedIn(first.get(15, TimeUnit.SECONDS)).account(),
 				loggedIn(second.get(15, TimeUnit.SECONDS)).account());
-			assertEquals(2, socialIdentityReadGate.absentReadCount());
+			assertEquals(2, socialIdentityReadGate.absentIdentityReadCount());
 			assertEquals(usersBefore + 1, userRepository.count());
 			assertEquals(
 				1,
 				socialAccountRepository.findByProviderAndProviderSubject(SocialProvider.KAKAO, subject).stream()
 					.count());
+		} finally {
+			socialIdentityReadGate.disarm();
+			executor.shutdownNow();
+		}
+	}
+
+	@Test
+	void PostgreSQL에서_두_사용자의_같은_외부_신원_동시_연결은_기존_소유자를_덮어쓰지_않는다() throws Exception {
+		long firstUserId = insertUser(unique("first-link") + "@example.com");
+		long secondUserId = insertUser(unique("second-link") + "@example.com");
+		String subject = unique("shared-link");
+		SocialIdentity identity = new SocialIdentity(
+			SocialProvider.GOOGLE,
+			subject,
+			Optional.empty(),
+			Optional.empty());
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		socialIdentityReadGate.armLink(
+			SocialProvider.GOOGLE,
+			List.of(subject, subject),
+			List.of(firstUserId, secondUserId));
+		try {
+			Future<SocialLinkResult> first = executor.submit(() -> socialAccountService.link(firstUserId, identity));
+			Future<SocialLinkResult> second = executor.submit(() -> socialAccountService.link(secondUserId, identity));
+
+			SocialLinkResult firstResult = first.get(15, TimeUnit.SECONDS);
+			SocialLinkResult secondResult = second.get(15, TimeUnit.SECONDS);
+			assertOneLinkedAndOneConflict(firstResult, secondResult);
+			assertEquals(2, socialIdentityReadGate.absentIdentityReadCount());
+			assertEquals(2, socialIdentityReadGate.absentUserProviderReadCount());
+			assertEquals(1, socialIdentityReadGate.postGateIdentityReadCount());
+			assertEquals(0, socialIdentityReadGate.postGateUserProviderReadCount());
+			assertEquals(
+				firstResult == SocialLinkResult.LINKED ? firstUserId : secondUserId,
+				socialAccountOwner(SocialProvider.GOOGLE, subject));
+		} finally {
+			socialIdentityReadGate.disarm();
+			executor.shutdownNow();
+		}
+	}
+
+	@Test
+	void PostgreSQL에서_한_사용자의_같은_제공자_다른_외부_신원_동시_연결은_기존_연결을_보존한다() throws Exception {
+		long userId = insertUser(unique("same-user-link") + "@example.com");
+		String firstSubject = unique("first-subject");
+		String secondSubject = unique("second-subject");
+		SocialIdentity firstIdentity = new SocialIdentity(
+			SocialProvider.NAVER,
+			firstSubject,
+			Optional.empty(),
+			Optional.empty());
+		SocialIdentity secondIdentity = new SocialIdentity(
+			SocialProvider.NAVER,
+			secondSubject,
+			Optional.empty(),
+			Optional.empty());
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		socialIdentityReadGate.armLink(
+			SocialProvider.NAVER,
+			List.of(firstSubject, secondSubject),
+			List.of(userId, userId));
+		try {
+			Future<SocialLinkResult> first = executor.submit(() -> socialAccountService.link(userId, firstIdentity));
+			Future<SocialLinkResult> second = executor.submit(() -> socialAccountService.link(userId, secondIdentity));
+
+			SocialLinkResult firstResult = first.get(15, TimeUnit.SECONDS);
+			SocialLinkResult secondResult = second.get(15, TimeUnit.SECONDS);
+			assertOneLinkedAndOneConflict(firstResult, secondResult);
+			assertEquals(2, socialIdentityReadGate.absentIdentityReadCount());
+			assertEquals(2, socialIdentityReadGate.absentUserProviderReadCount());
+			assertEquals(1, socialIdentityReadGate.postGateIdentityReadCount());
+			assertEquals(1, socialIdentityReadGate.postGateUserProviderReadCount());
+			assertEquals(
+				firstResult == SocialLinkResult.LINKED ? firstSubject : secondSubject,
+				jdbcTemplate.queryForObject(
+					"select provider_subject from social_accounts where user_id = ? and provider = ?",
+					String.class,
+					userId,
+					SocialProvider.NAVER.name()));
 		} finally {
 			socialIdentityReadGate.disarm();
 			executor.shutdownNow();
@@ -202,6 +283,22 @@ class SocialAccountPostgresTest {
 			userId,
 			provider,
 			subject);
+	}
+
+	private long socialAccountOwner(SocialProvider provider, String subject) {
+		return jdbcTemplate.queryForObject(
+			"select user_id from social_accounts where provider = ? and provider_subject = ?",
+			Long.class,
+			provider.name(),
+			subject);
+	}
+
+	private void assertOneLinkedAndOneConflict(SocialLinkResult first, SocialLinkResult second) {
+		assertEquals(1, (first == SocialLinkResult.LINKED ? 1 : 0) + (second == SocialLinkResult.LINKED ? 1 : 0));
+		assertEquals(
+			1,
+			(first == SocialLinkResult.LINK_CONFLICT ? 1 : 0)
+				+ (second == SocialLinkResult.LINK_CONFLICT ? 1 : 0));
 	}
 
 	private void assertConstraint(
@@ -268,9 +365,12 @@ class SocialAccountPostgresTest {
 			try {
 				Object result = method.invoke(delegate, arguments);
 				if ("findByProviderAndProviderSubject".equals(method.getName())
-					&& result instanceof Optional<?> optional
-					&& optional.isEmpty()) {
-					gate.awaitSecondAbsentRead((SocialProvider)arguments[0], (String)arguments[1]);
+					&& result instanceof Optional<?> optional) {
+					gate.awaitAfterIdentityRead((SocialProvider)arguments[0], (String)arguments[1], optional.isEmpty());
+				}
+				if ("findByUserIdAndProvider".equals(method.getName())
+					&& result instanceof Optional<?> optional) {
+					gate.awaitAfterUserProviderRead((Long)arguments[0], (SocialProvider)arguments[1], optional.isEmpty());
 				}
 				return result;
 			} catch (InvocationTargetException exception) {
@@ -282,46 +382,111 @@ class SocialAccountPostgresTest {
 	static final class SocialIdentityReadGate {
 
 		private SocialProvider provider;
-		private String subject;
-		private CountDownLatch bothAbsentReads;
-		private int absentReadCount;
+		private List<String> subjects;
+		private List<Long> userIds;
+		private CountDownLatch bothAbsentIdentityReads;
+		private CountDownLatch bothAbsentUserProviderReads;
+		private int absentIdentityReadCount;
+		private int absentUserProviderReadCount;
+		private int postGateIdentityReadCount;
+		private int postGateUserProviderReadCount;
 
 		synchronized void arm(SocialProvider provider, String subject) {
-			this.provider = provider;
-			this.subject = subject;
-			bothAbsentReads = new CountDownLatch(2);
-			absentReadCount = 0;
+			arm(provider, List.of(subject, subject), List.of());
 		}
 
-		void awaitSecondAbsentRead(SocialProvider provider, String subject) {
+		synchronized void armLink(SocialProvider provider, List<String> subjects, List<Long> userIds) {
+			arm(provider, subjects, userIds);
+		}
+
+		private void arm(SocialProvider provider, List<String> subjects, List<Long> userIds) {
+			this.provider = provider;
+			this.subjects = subjects;
+			this.userIds = userIds;
+			bothAbsentIdentityReads = new CountDownLatch(subjects.size());
+			bothAbsentUserProviderReads = userIds.isEmpty() ? null : new CountDownLatch(userIds.size());
+			absentIdentityReadCount = 0;
+			absentUserProviderReadCount = 0;
+			postGateIdentityReadCount = 0;
+			postGateUserProviderReadCount = 0;
+		}
+
+		void awaitAfterIdentityRead(SocialProvider provider, String subject, boolean absent) {
 			CountDownLatch latch;
 			synchronized (this) {
-				if (bothAbsentReads == null || this.provider != provider || !this.subject.equals(subject)
-					|| absentReadCount >= 2) {
+				if (bothAbsentIdentityReads == null || this.provider != provider || !subjects.contains(subject)) {
 					return;
 				}
-				absentReadCount++;
-				latch = bothAbsentReads;
+				if (absentIdentityReadCount >= subjects.size()) {
+					postGateIdentityReadCount++;
+					return;
+				}
+				if (!absent) {
+					throw new AssertionError("소셜 연결 요청이 외부 신원 부재 조회를 마치지 못했습니다.");
+				}
+				absentIdentityReadCount++;
+				latch = bothAbsentIdentityReads;
 			}
 			latch.countDown();
 			try {
 				if (!latch.await(5, TimeUnit.SECONDS)) {
-					throw new AssertionError("두 소셜 로그인 요청이 모두 외부 신원 미존재 조회에 도달하지 못했습니다.");
+					throw new AssertionError("두 소셜 연결 요청이 모두 외부 신원 미존재 조회에 도달하지 못했습니다.");
 				}
 			} catch (InterruptedException exception) {
 				Thread.currentThread().interrupt();
-				throw new AssertionError("소셜 로그인 동시성 게이트를 기다리다 인터럽트되었습니다.", exception);
+				throw new AssertionError("소셜 연결 외부 신원 조회 게이트를 기다리다 인터럽트되었습니다.", exception);
 			}
 		}
 
-		synchronized int absentReadCount() {
-			return absentReadCount;
+		void awaitAfterUserProviderRead(Long userId, SocialProvider provider, boolean absent) {
+			CountDownLatch latch;
+			synchronized (this) {
+				if (bothAbsentUserProviderReads == null || this.provider != provider || !userIds.contains(userId)) {
+					return;
+				}
+				if (absentUserProviderReadCount >= userIds.size()) {
+					postGateUserProviderReadCount++;
+					return;
+				}
+				if (!absent) {
+					throw new AssertionError("소셜 연결 요청이 사용자 제공자 부재 조회를 마치지 못했습니다.");
+				}
+				absentUserProviderReadCount++;
+				latch = bothAbsentUserProviderReads;
+			}
+			latch.countDown();
+			try {
+				if (!latch.await(5, TimeUnit.SECONDS)) {
+					throw new AssertionError("두 소셜 연결 요청이 모두 사용자 제공자 미존재 조회에 도달하지 못했습니다.");
+				}
+			} catch (InterruptedException exception) {
+				Thread.currentThread().interrupt();
+				throw new AssertionError("소셜 연결 사용자 제공자 조회 게이트를 기다리다 인터럽트되었습니다.", exception);
+			}
+		}
+
+		synchronized int absentIdentityReadCount() {
+			return absentIdentityReadCount;
+		}
+
+		synchronized int absentUserProviderReadCount() {
+			return absentUserProviderReadCount;
+		}
+
+		synchronized int postGateIdentityReadCount() {
+			return postGateIdentityReadCount;
+		}
+
+		synchronized int postGateUserProviderReadCount() {
+			return postGateUserProviderReadCount;
 		}
 
 		synchronized void disarm() {
 			provider = null;
-			subject = null;
-			bothAbsentReads = null;
+			subjects = null;
+			userIds = null;
+			bothAbsentIdentityReads = null;
+			bothAbsentUserProviderReads = null;
 		}
 	}
 }
