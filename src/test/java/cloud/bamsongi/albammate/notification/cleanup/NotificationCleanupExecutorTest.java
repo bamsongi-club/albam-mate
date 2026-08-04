@@ -1,10 +1,13 @@
 package cloud.bamsongi.albammate.notification.cleanup;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -99,6 +102,27 @@ class NotificationCleanupExecutorTest {
 		assertEquals(
 			TransactionDefinition.PROPAGATION_REQUIRES_NEW,
 			transactionDefinition.getValue().getPropagationBehavior());
+	}
+
+	@Test
+	void DB_시각_조회_전_실패는_원본_예외를_그대로_전달하고_delete하지_않는다() {
+		// Arrange
+		NotificationRepository notificationRepository = mock(NotificationRepository.class);
+		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
+		RuntimeException measurementTimeFailure = new IllegalStateException("measurement time query failure");
+		when(eventRepository.findCleanupMeasurementTime()).thenThrow(measurementTimeFailure);
+		NotificationCleanupExecutor executor = executor(notificationRepository, eventRepository, transactionManager());
+
+		// Act
+		RuntimeException thrownException = assertThrows(
+			RuntimeException.class,
+			() -> executor.cleanupOneBatch(NotificationCleanupTarget.NOTIFICATION, 10));
+
+		// Assert
+		assertSame(measurementTimeFailure, thrownException);
+		verify(eventRepository, times(1)).findCleanupMeasurementTime();
+		verify(notificationRepository, never()).deleteExpiredNotifications(any(), anyInt());
+		verify(eventRepository, never()).deleteExpiredProcessedOrDiscardedEvents(any(), anyInt());
 	}
 
 	private NotificationCleanupExecutor executor(
