@@ -370,7 +370,8 @@ class SocialAccountPostgresTest {
 				}
 				if ("findByUserIdAndProvider".equals(method.getName())
 					&& result instanceof Optional<?> optional) {
-					gate.awaitAfterUserProviderRead((Long)arguments[0], (SocialProvider)arguments[1], optional.isEmpty());
+					gate.awaitAfterUserProviderRead(
+						(Long)arguments[0], (SocialProvider)arguments[1], optional.isEmpty());
 				}
 				return result;
 			} catch (InvocationTargetException exception) {
