@@ -18,6 +18,10 @@ public interface NotificationOutboxEventRepository extends JpaRepository<Notific
 	@Query(value = "select clock_timestamp()", nativeQuery = true)
 	Instant findRecoveryOperationTime();
 
+	/** cleanup batch가 due 판정·삭제·로그에 함께 사용할 PostgreSQL 기준 시각을 한 번 고정한다. */
+	@Query(value = "select clock_timestamp()", nativeQuery = true)
+	Instant findCleanupMeasurementTime();
+
 	/** 실제 변경 전 전체 대상을 ID 오름차순으로 잠근다. */
 	@Query(value = "select * from notification_outbox_events where id in (:eventIds) order by id for update", nativeQuery = true)
 	List<NotificationOutboxEvent> findAllByIdInOrderByIdForUpdate(@Param("eventIds")
@@ -188,6 +192,28 @@ public interface NotificationOutboxEventRepository extends JpaRepository<Notific
 		@Param("fourthRetryDelaySeconds")
 		long fourthRetryDelaySeconds);
 
+	/** 고정된 PostgreSQL 기준 시각으로 정리 가능한 Outbox를 인덱스 순서로 선점·삭제한다. */
+	@Query(value = """
+		with due_events as (
+		    select event.id
+		    from notification_outbox_events event
+		    where event.status in ('PROCESSED', 'DISCARDED')
+		      and event.cleanup_at <= :measurementTime
+		    order by event.cleanup_at asc, event.id asc
+		    limit :batchSize
+		    for update of event skip locked
+		), deleted_events as (
+		    delete from notification_outbox_events event
+		    using due_events
+		    where event.id = due_events.id
+		    returning event.id
+		)
+		select count(*) from deleted_events
+		""", nativeQuery = true)
+	long deleteExpiredProcessedOrDiscardedEvents(@Param("measurementTime")
+	Instant measurementTime, @Param("batchSize")
+	int batchSize);
+
 	interface RelayClaim {
 
 		Long getId();
@@ -217,4 +243,5 @@ public interface NotificationOutboxEventRepository extends JpaRepository<Notific
 
 		boolean isRetryScheduled();
 	}
+
 }

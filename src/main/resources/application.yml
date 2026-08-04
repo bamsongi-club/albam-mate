@@ -15,6 +15,11 @@ spring:
           time_zone: UTC
 app:
   notification:
+    cleanup:
+      interval: 1h
+      jitter: 5m
+      batch-size: 500
+      max-batches-per-target: 5
     relay:
       enabled: true
       poll-interval: 5s

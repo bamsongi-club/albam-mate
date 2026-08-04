@@ -1,5 +1,7 @@
 package cloud.bamsongi.albammate.notification.repository;
 
+import java.time.Instant;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -23,4 +25,25 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 		""", nativeQuery = true)
 	int insertIfAbsent(@Param("notification")
 	Notification notification);
+
+	/** 고정된 PostgreSQL 기준 시각으로 만료 Notification을 인덱스 순서로 선점·삭제한다. */
+	@Query(value = """
+		with due_notifications as (
+		    select notification.id
+		    from notifications notification
+		    where notification.expires_at <= :measurementTime
+		    order by notification.expires_at asc, notification.id asc
+		    limit :batchSize
+		    for update of notification skip locked
+		), deleted_notifications as (
+		    delete from notifications notification
+		    using due_notifications
+		    where notification.id = due_notifications.id
+		    returning notification.id
+		)
+		select count(*) from deleted_notifications
+		""", nativeQuery = true)
+	long deleteExpiredNotifications(@Param("measurementTime")
+	Instant measurementTime, @Param("batchSize")
+	int batchSize);
 }
