@@ -290,6 +290,9 @@ tasks.named('postgresTest', Test) {
     environment 'SPRING_DATASOURCE_URL', ambientDataSource.url
     environment 'SPRING_DATASOURCE_USERNAME', ambientDataSource.username
     environment 'SPRING_DATASOURCE_PASSWORD', ambientDataSource.password
+
+    systemProperty 'issue360.localMultiProxy',
+            System.getProperty('issue360.localMultiProxy', 'false')
 }
 
 spotless {
