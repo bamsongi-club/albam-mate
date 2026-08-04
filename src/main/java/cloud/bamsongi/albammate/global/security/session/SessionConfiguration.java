@@ -34,7 +34,7 @@ public class SessionConfiguration {
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	@Profile("!local-multi & !production")
+	@Profile("!local-multi")
 	@EnableSpringHttpSession
 	static class InMemorySessionRepositoryConfiguration {
 

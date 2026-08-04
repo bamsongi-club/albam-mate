@@ -52,7 +52,7 @@ class SessionConfigurationTest {
 	}
 
 	@Test
-	void local_multi와_production은_Redis_세션만_선택하고_인메모리_fallback을_등록하지_않는다() {
+	void local_multi는_Redis_세션만_선택하고_인메모리_fallback을_등록하지_않는다() {
 		Profile redisProfile = AnnotatedElementUtils.findMergedAnnotation(
 			RedisSessionConfiguration.class, Profile.class);
 		Profile inMemoryProfile = AnnotatedElementUtils.findMergedAnnotation(
@@ -61,16 +61,10 @@ class SessionConfigurationTest {
 		EnableRedisHttpSession localMultiSession = AnnotatedElementUtils.findMergedAnnotation(
 			nestedRedisConfiguration("LocalMultiSessionRepositoryConfiguration"),
 			EnableRedisHttpSession.class);
-		EnableRedisHttpSession productionSession = AnnotatedElementUtils.findMergedAnnotation(
-			nestedRedisConfiguration("ProductionSessionRepositoryConfiguration"),
-			EnableRedisHttpSession.class);
-
-		assertEquals("local-multi | production", redisProfile.value()[0]);
-		assertEquals("!local-multi & !production", inMemoryProfile.value()[0]);
+		assertEquals("local-multi", redisProfile.value()[0]);
+		assertEquals("!local-multi", inMemoryProfile.value()[0]);
 		assertEquals("albam-mate:local-multi:session", localMultiSession.redisNamespace());
-		assertEquals("albam-mate:production:session", productionSession.redisNamespace());
 		assertEquals(Duration.ofMinutes(30).toSeconds(), localMultiSession.maxInactiveIntervalInSeconds());
-		assertEquals(Duration.ofMinutes(30).toSeconds(), productionSession.maxInactiveIntervalInSeconds());
 		assertTrue(AnnotatedElementUtils.hasAnnotation(
 			SessionConfiguration.InMemorySessionRepositoryConfiguration.class, EnableSpringHttpSession.class));
 		assertFalse(AnnotatedElementUtils.hasAnnotation(

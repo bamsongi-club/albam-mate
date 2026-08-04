@@ -10,12 +10,12 @@
 
 - `local-single`은 실제 Spring profile `local`을 사용하는 빠른 단일 서버 개발 환경이며 인메모리 세션·fan-out을 허용하지만 다중 인스턴스 검증 근거가 아니다.
 - P1 필수 검증 환경인 `local-multi`는 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL과 Redis로 구성한다.
-- `production`의 목표 운영 토폴로지는 ALB·ASG 애플리케이션 인스턴스와 공용 RDS PostgreSQL·Redis로 구성한다. 이 목표는 현재 운영 배포 완료를 뜻하지 않으며, 배포·실측 상태는 [P1 기능별 상태 정본](README.md#기능별-현재-상태)의 `운영 배포·실측` 열을 따른다. 실제 AWS scale-out·WebSocket Upgrade·연결 draining 검증은 후속 OPS이며 채팅 구현 완료를 막지 않는다.
-- `local-multi`와 `production`은 Spring Session, Pub/Sub과 사용자·방 단위 전송 제한에 하나의 Redis를 사용하되 key prefix, TTL과 channel namespace를 분리한다. Redis가 없을 때 인메모리 구현으로 자동 fallback하지 않는다.
+- `prod`의 목표 운영 토폴로지는 ALB·ASG 애플리케이션 인스턴스와 공용 RDS PostgreSQL·Redis로 구성한다. 이 목표는 현재 운영 배포 완료를 뜻하지 않으며, 배포·실측 상태는 [P1 기능별 상태 정본](README.md#기능별-현재-상태)의 `운영 배포·실측` 열을 따른다. 실제 AWS scale-out·WebSocket Upgrade·연결 draining 검증은 후속 OPS이며 채팅 구현 완료를 막지 않는다.
+- `local-multi`는 Spring Session, Pub/Sub과 사용자·방 단위 전송 제한에 하나의 Redis를 사용하되 key prefix, TTL과 channel namespace를 분리한다. Redis가 없을 때 인메모리 구현으로 자동 fallback하지 않는다.
 - 세션 또는 전송 제한을 확인할 수 없으면 API 정본의 `503 SERVICE_UNAVAILABLE`로 실패한다. PostgreSQL 커밋 뒤 Redis Pub/Sub 발행·구독이 실패하면 저장 성공은 유지하고 이력 조회·다음 신호·재연결로 복구한다.
 - 운영 Redis 제품, HA, TLS, 접근 제어, 비밀 주입과 비용은 후속 OPS에서 확정한다.
-- 채팅 전송 제한의 사용자·방 임계값, 고정 창·TTL, 원자 판정, `Retry-After`와 Redis 장애 시 503 경계는 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)에서 승인했고 이 문서와 [API 정본](../API.md#전송-제한-계약)에 반영한다. 공용 Redis namespace의 분리와 #360에서 확정한 session namespace는 아래 계약과 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반)을 따른다.
-- 세션 TTL 30분, JSON 직렬화(`SecurityJacksonModules`와 `CurrentUserPrincipal` mixin)와 session namespace `albam-mate:{env}:session`은 #360에서 확정했다. `production`의 Redis 서비스·secret 공급과 실제 운영 실측은 후속 OPS에서 확정한다.
+- 채팅 전송 제한의 사용자·방 임계값, 고정 창·TTL, 원자 판정, `Retry-After`와 Redis 장애 시 503 경계는 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)에서 승인했고 이 문서와 [API 정본](../API.md#전송-제한-계약)에 반영한다. 공용 Redis namespace의 분리와 #360에서 확정한 `local-multi` session namespace는 아래 계약과 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반)을 따른다.
+- `local-multi`의 세션 TTL은 30분이며 JSON 직렬화에 `SecurityJacksonModules`와 `CurrentUserPrincipal` mixin을 사용한다. session namespace는 `albam-mate:local-multi:session`이다.
 
 ## CHAT-01 채팅방 생성·접근
 
@@ -147,7 +147,7 @@
 - P1은 인증된 HTTP로 메시지를 전송·조회하고, 방별 WebSocket으로 커밋된 메시지를
   실시간 수신한다. WebSocket으로 메시지 저장 명령을 받지 않는다.
 - WebSocket handshake는 기존 `JSESSIONID` 세션과 허용된 `Origin`을 검증하며,
-  별도 JWT·WebSocket 전용 토큰을 사용하지 않는다. `local-multi`와 `production`의 세션은
+  별도 JWT·WebSocket 전용 토큰을 사용하지 않는다. `local-multi`와 `prod`의 세션은
   Spring Session Redis에 공유하고 ALB stickiness에 정합성을 의존하지 않는다.
 - 실시간 연결을 열거나 유지하는 동안에도 현재 채팅 관계를 검증한다.
 - 저장 성공 응답과 실시간 이벤트는 같은 메시지 식별자를 사용한다.
@@ -212,7 +212,7 @@
 ### 기능 규칙
 
 - 메시지는 일반 텍스트로 렌더링하고 사용자 입력을 HTML로 실행하지 않는다.
-- 사용자·방 단위 전송 제한은 `local-multi`와 `production`의 공용 Redis에서 서로 다른
+- 사용자·방 단위 전송 제한은 `local-multi`와 `prod`의 공용 Redis에서 서로 다른
   key prefix와 TTL로 관리한다. 사용자 bucket은 5건/10초, 방 bucket은 30건/10초의
   10초 고정 창이며 TTL을 연장하지 않는다. 두 bucket의 확인·증가는 원자적으로
   처리하고, 초과 요청은 counter를 증가시키지 않는다.

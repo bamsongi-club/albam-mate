@@ -1,8 +1,10 @@
 package cloud.bamsongi.albammate.global.security.session;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
 import java.net.HttpCookie;
@@ -12,6 +14,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -24,9 +27,14 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 class LocalMultiProxyRuntimePostgresTest {
 
 	private static final Pattern CSRF_TOKEN_PATTERN = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"");
+	private static final List<String> LOCAL_MULTI_SERVICES = List.of("postgres", "redis", "spring-1", "spring-2",
+		"proxy");
+	private static final Set<String> PUBLIC_SERVICES = Set.of("postgres", "redis", "proxy");
 
 	@Test
-	void 프록시_경유_동일_JSESSIONID가_두_애플리케이션_인스턴스에서_유지된다() throws Exception {
+	void local_multi_서비스가_healthy이고_공개_포트가_loopback에만_바인딩되며_프록시_세션이_공유된다() throws Exception {
+		assertLocalMultiServicesHealthyAndLoopbackBound();
+
 		URI proxyUri = URI.create("http://127.0.0.1:5174");
 		String password = "123456789012345";
 		String email = "proxy-runtime-" + UUID.randomUUID() + "@example.com";
@@ -64,6 +72,50 @@ class LocalMultiProxyRuntimePostgresTest {
 			upstreams.add(profile.headers().firstValue("X-Albam-Mate-Upstream").orElseThrow());
 		}
 		assertEquals(2, upstreams.size(), "proxy did not route requests to both Spring instances: " + upstreams);
+	}
+
+	private void assertLocalMultiServicesHealthyAndLoopbackBound() throws Exception {
+		for (String service : LOCAL_MULTI_SERVICES) {
+			String containerId = dockerCompose("ps", "-q", service).trim();
+			assertFalse(containerId.isBlank(), service + " container is not running");
+			assertEquals("running", dockerInspect(containerId, "{{.State.Status}}"), service + " state");
+			assertEquals("healthy", dockerInspect(containerId, "{{.State.Health.Status}}"), service + " health");
+
+			String publishedHostIps = dockerInspect(
+				containerId,
+				"{{range .NetworkSettings.Ports}}{{range .}}{{println .HostIp}}{{end}}{{end}}");
+			if (PUBLIC_SERVICES.contains(service)) {
+				assertFalse(publishedHostIps.isBlank(), service + " has no published host binding");
+			}
+			publishedHostIps.lines()
+				.filter(hostIp -> !hostIp.isBlank())
+				.forEach(hostIp -> assertEquals("127.0.0.1", hostIp, service + " published HostIp"));
+		}
+	}
+
+	private String dockerCompose(String... arguments) throws Exception {
+		String[] command = new String[arguments.length + 6];
+		command[0] = "docker";
+		command[1] = "compose";
+		command[2] = "--env-file";
+		command[3] = ".env.example";
+		command[4] = "-f";
+		command[5] = "compose.local-multi.yml";
+		System.arraycopy(arguments, 0, command, 6, arguments.length);
+		return runCommand(command);
+	}
+
+	private String dockerInspect(String containerId, String format) throws Exception {
+		return runCommand("docker", "inspect", "--format", format, containerId);
+	}
+
+	private String runCommand(String... command) throws IOException, InterruptedException {
+		Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
+		String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+		assertTrue(process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS),
+			String.join(" ", command) + " timed out");
+		assertEquals(0, process.exitValue(), String.join(" ", command) + " failed: " + output);
+		return output.trim();
 	}
 
 	private HttpResponse<String> get(HttpClient client, URI uri) throws Exception {
