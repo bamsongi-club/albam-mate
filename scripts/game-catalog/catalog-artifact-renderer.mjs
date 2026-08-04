@@ -18,6 +18,7 @@ export function buildQualityReport({
     warnings,
     checks,
     searchNumericFields,
+    mechanismCatalog = null,
     outputs = null,
 }) {
     const report = {
@@ -41,6 +42,7 @@ export function buildQualityReport({
         warnings,
         checks,
         searchNumericFields,
+        mechanismCatalog,
         outputs,
     };
     if (

@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.game;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -21,6 +22,10 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
 import cloud.bamsongi.albammate.game.entity.Game;
+import cloud.bamsongi.albammate.game.entity.GameMechanism;
+import cloud.bamsongi.albammate.game.entity.GameMechanismRelation;
+import cloud.bamsongi.albammate.game.repository.GameMechanismRelationRepository;
+import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 import cloud.bamsongi.albammate.game.service.GameListSearchCriteria;
 
@@ -38,6 +43,31 @@ class GameListFilterPostgresTest {
 
 	@Autowired
 	private GameRepository gameRepository;
+
+	@Autowired
+	private GameMechanismRepository gameMechanismRepository;
+
+	@Autowired
+	private GameMechanismRelationRepository gameMechanismRelationRepository;
+
+	@Test
+	void PostgreSQL에서_메커니즘_EXISTS_조건은_OR와_다른_조건_AND를_중복없이_적용한다() {
+		GameMechanism hand = saveMechanism(2040L, "HAND_MANAGEMENT", true);
+		GameMechanism dice = saveMechanism(2072L, "DICE_ROLLING", true);
+		Game both = saveGame(1101L, "Alpha", 2, 4, 20, new BigDecimal("2.00"));
+		Game diceOnly = saveGame(1102L, "Beta", 2, 4, 20, new BigDecimal("2.00"));
+		saveGame(1103L, "Gamma", 5, 5, 20, new BigDecimal("2.00"));
+		gameMechanismRelationRepository.saveAndFlush(new GameMechanismRelation(both, hand));
+		gameMechanismRelationRepository.saveAndFlush(new GameMechanismRelation(both, dice));
+		gameMechanismRelationRepository.saveAndFlush(new GameMechanismRelation(diceOnly, dice));
+
+		assertEquals(
+			List.of(both.getId(), diceOnly.getId()),
+			ids(request -> {
+				request.setMechanism(List.of("HAND_MANAGEMENT", "DICE_ROLLING", "DICE_ROLLING"));
+				request.setPlayerCount(2);
+			}));
+	}
 
 	@Test
 	void PostgreSQL에서_모든_게임_조건과_정렬_페이지_전체건수를_함께_적용한다() {
@@ -133,5 +163,19 @@ class GameListFilterPostgresTest {
 		ReflectionTestUtils.setField(game, "maxPlayTimeMinutes", maxPlayTimeMinutes);
 		ReflectionTestUtils.setField(game, "complexity", complexity);
 		return gameRepository.saveAndFlush(game);
+	}
+
+	private GameMechanism saveMechanism(long bggId, String code, boolean isPublic) {
+		return gameMechanismRepository.saveAndFlush(
+			new GameMechanism(
+				bggId,
+				code,
+				code,
+				code,
+				null,
+				isPublic,
+				"Issue #351",
+				isPublic ? "beyejin" : null,
+				isPublic ? Instant.parse("2026-08-04T00:00:00Z") : null));
 	}
 }

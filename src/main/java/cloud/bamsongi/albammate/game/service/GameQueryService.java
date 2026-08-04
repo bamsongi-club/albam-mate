@@ -24,6 +24,7 @@ import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.repository.GameListRow;
+import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -38,6 +39,7 @@ public class GameQueryService implements GameQuery {
 	@NonNull private final GameRepository gameRepository;
 	@NonNull private final Clock clock;
 	@NonNull private final UpcomingRoomCountQuery upcomingRoomCountQuery;
+	@NonNull private final GameMechanismRepository gameMechanismRepository;
 
 	/**
 	 * 게임 이름 검색 결과를 페이지로 조회하고 조회 시각 기준 예정 모임 수를 결합한다.
@@ -81,7 +83,15 @@ public class GameQueryService implements GameQuery {
 	}
 
 	private Page<GameListItem> findPage(GameListRequest request, int page, int size) {
+		validatePublicMechanismCodes(request.getMechanism());
 		return findPage(GameListSearchCriteria.from(request), page, size);
+	}
+
+	private void validatePublicMechanismCodes(List<String> requestedCodes) {
+		List<String> codes = requestedCodes == null ? List.of() : requestedCodes.stream().distinct().toList();
+		if (!codes.isEmpty() && gameMechanismRepository.countByCodeInAndIsPublicTrue(codes) != codes.size()) {
+			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+		}
 	}
 
 	private Page<GameListItem> findPage(GameListSearchCriteria criteria, int page, int size) {
