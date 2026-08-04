@@ -1,11 +1,11 @@
 # ADR-0043: ROOM 대기열을 단일 최신 상태로 저장하고 조건부 전이·등록 재시도를 조정
 
-- 상태: 승인됨
+- 상태: 대체됨
 - 작성일: 2026-08-03
 - 결정일: 2026-08-03
 - 관련: [P1 PART-04](../../p1/room.md#part-04-선착순-대기열과-자동-승격), [P1 대기 API 계약](../../API.md#part-04-대기-등록재신청), [ERD](../../ERD.md), [ROOM 명령 아키텍처](../../ARCHITECTURE.md#방-변경), [GitHub Issue #344](https://github.com/bamsongi-club/albam-mate/issues/344), [ADR-0005](0005-room-participation-optimistic-locking.md), [ADR-0035](../room/0035-room-status-action-eligibility-separation.md), [ADR-0036](../room/0036-bounded-room-state-transition-processing.md)
 - 대체 대상: [ADR-0037](0037-room-waitlist-latest-state-atomic-promotion.md)
-- 후속 ADR: 없음
+- 후속 ADR: [ADR-0046](0046-room-waitlist-persistence-conditional-transition-retry.md)
 
 ## 맥락
 

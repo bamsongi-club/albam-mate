@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.function.Consumer;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,7 +46,12 @@ class GameListFilterPostgresTest {
 		saveGame(1003L, "Beta", 2, 10, 61, new BigDecimal("2.00"));
 		saveGame(1004L, "Missing", null, null, null, null);
 
-		GameListSearchCriteria criteria = criteria(10, GamePlayTimeFilter.SHORT, "2.00", "2.00");
+		GameListSearchCriteria criteria = criteria(request -> {
+			request.setPlayerCount(10);
+			request.setPlayTime(List.of(GamePlayTimeFilter.OVER_10_TO_20));
+			request.setComplexityMin(new BigDecimal("2.00"));
+			request.setComplexityMax(new BigDecimal("2.00"));
+		});
 
 		var firstPage = gameRepository.findAll(
 			criteria.toSpecification(),
@@ -59,13 +65,49 @@ class GameListFilterPostgresTest {
 		assertEquals(List.of(), secondPage.getContent());
 	}
 
-	private GameListSearchCriteria criteria(
-		Integer playerCount, GamePlayTimeFilter playTime, String complexityMin, String complexityMax) {
+	@Test
+	void PostgreSQL에서_인원_범위_전용_인원과_플레이_시간_경계를_판정한다() {
+		Game solo = saveGame(1001L, "Solo", 1, 1, 10, new BigDecimal("2.00"));
+		Game twoToFour = saveGame(1002L, "TwoToFour", 2, 4, 89, new BigDecimal("2.00"));
+		Game twoToTwo = saveGame(1003L, "TwoToTwo", 2, 2, 90, new BigDecimal("2.00"));
+		saveGame(1004L, "Missing", null, null, null, null);
+
+		assertEquals(
+			List.of(twoToFour.getId()),
+			ids(request -> {
+				request.setPlayerCountMin(2);
+				request.setPlayerCountMax(4);
+			}));
+		assertEquals(
+			List.of(twoToFour.getId()),
+			ids(request -> {
+				request.setPlayerCountExact(true);
+				request.setPlayerCountMin(2);
+				request.setPlayerCountMax(4);
+			}));
+		assertEquals(
+			List.of(solo.getId(), twoToTwo.getId()),
+			ids(request -> request.setExclusivePlayerCount(List.of(1, 2))));
+		assertEquals(
+			List.of(twoToFour.getId()),
+			ids(request -> request.setPlayTime(List.of(GamePlayTimeFilter.OVER_60_UNDER_90))));
+		assertEquals(
+			List.of(solo.getId(), twoToTwo.getId()),
+			ids(request -> request.setPlayTime(
+				List.of(GamePlayTimeFilter.UP_TO_10, GamePlayTimeFilter.AT_LEAST_90))));
+	}
+
+	private List<Long> ids(Consumer<GameListRequest> customizer) {
+		return gameRepository
+			.findAll(
+				criteria(customizer).toSpecification(),
+				PageRequest.of(0, 10, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id"))))
+			.getContent().stream().map(Game::getId).toList();
+	}
+
+	private GameListSearchCriteria criteria(Consumer<GameListRequest> customizer) {
 		GameListRequest request = new GameListRequest();
-		request.setPlayerCount(playerCount);
-		request.setPlayTime(playTime);
-		request.setComplexityMin(new BigDecimal(complexityMin));
-		request.setComplexityMax(new BigDecimal(complexityMax));
+		customizer.accept(request);
 		return GameListSearchCriteria.from(request);
 	}
 

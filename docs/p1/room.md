@@ -99,13 +99,13 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 고도화 이유 | 정원이 찬 인기 모임을 기다릴 방법과 참가 취소로 생긴 빈자리의 배정 순서가 없다. |
 | 가능 여부 | [ROOM-08 방 상태와 직접 참가·대기 가능 여부 분리](#room-08-방-상태와-직접-참가대기-가능-여부-분리) |
 | 공통 규칙 | [P0 계약 상속](../P1-spec.md#p0-계약-상속), [RoomStatus](../API.md#roomstatus), [ROOMS](../ERD.md#rooms), [PARTICIPATIONS](../ERD.md#participations) |
-| 필수 ADR | [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0043 ROOM 대기열 단일 최신 상태·조건부 전이·등록 재시도](../adr/participation/0043-room-waitlist-persistence-conditional-transition-retry.md) |
+| 필수 ADR | [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0046 ROOM 대기열 단일 최신 상태·조건부 전이·등록 재시도](../adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md) |
 
 ### 기능 규칙
 
 - 대기 신청은 직접 참가와 분리된 명시적 요청이다. 직접 참가 실패를 대기 신청 성공으로 바꾸지 않는다.
 - 대기 순서는 서버가 대기 신청을 성공으로 확정한 순서를 기준으로 하는 FIFO다.
-- 전역 sequence 순번, 유스케이스 최초 고정 request time과 PART-04 전용 총 3회 재시도 경계는 [ADR-0043](../adr/participation/0043-room-waitlist-persistence-conditional-transition-retry.md)을 따른다.
+- 전역 sequence 순번, 유스케이스 최초 고정 request time과 PART-04 전용 총 3회 재시도 경계는 [ADR-0046](../adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)을 따른다.
 - 대기열에는 제품 정책상 최대 인원 상한을 두지 않는다. 이는 무제한 규모의 성능을 보장한다는 뜻이 아니다.
 - 같은 ROOM과 사용자 조합의 대기는 하나의 레코드로 관리한다. 신청·취소·승격·만료·ROOM 취소는 같은 레코드의 최신 상태를 변경하며, ROOM 데이터가 유지되는 동안 최신 결과를 보존한다. 신청과 취소가 반복될 때마다 별도 이력 레코드를 추가하지 않는다.
 - 같은 사용자는 같은 방에 하나의 `WAITING` 관계만 가질 수 있다. 중복 신청은 새 관계를 만들지 않고 기존 순서를 유지한 채 최신 순번을 정상 응답으로 반환한다.

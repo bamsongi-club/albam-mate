@@ -14,7 +14,6 @@ spring:
         jdbc:
           time_zone: UTC
 app:
-
   chat:
     retention:
       enabled: true
@@ -25,6 +24,19 @@ app:
       lock-at-most-for: 5s
       execution-warning-threshold: 1s
 
+  social:
+    # Client ID와 Client Secret 두 값이 모두 있는 제공자만 활성화한다. 실제 값은 저장소에 두지 않고
+    # 환경 변수로 주입하며, 주입하지 않은 제공자는 빈 값으로 남아 로그인 진입점에 노출되지 않는다.
+    providers:
+      google:
+        client-id: ${ALBAM_MATE_GOOGLE_OAUTH_CLIENT_ID:}
+        client-secret: ${ALBAM_MATE_GOOGLE_OAUTH_CLIENT_SECRET:}
+      naver:
+        client-id: ${ALBAM_MATE_NAVER_OAUTH_CLIENT_ID:}
+        client-secret: ${ALBAM_MATE_NAVER_OAUTH_CLIENT_SECRET:}
+      kakao:
+        client-id: ${ALBAM_MATE_KAKAO_OAUTH_CLIENT_ID:}
+        client-secret: ${ALBAM_MATE_KAKAO_OAUTH_CLIENT_SECRET:}
   notification:
     relay:
       enabled: true

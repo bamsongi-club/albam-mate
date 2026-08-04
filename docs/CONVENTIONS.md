@@ -100,7 +100,7 @@ Controller에는 다음 책임을 두지 않는다.
 
 `@NonNull`은 런타임 검사이며 정적 분석용 nullness 어노테이션이나 Bean Validation의 `@NotNull`과 목적이 다르다. 임포트는 항상 `lombok.NonNull`을 사용한다.
 
-기존 리소스 표현의 일부를 수정하는 엔드포인트는 `@PatchMapping`을 사용한다. 클라이언트가 리소스 표현 전체를 결정해 교체하는 경우에만 `@PutMapping`을 사용하며, 세부 기준은 [ADR-0022](adr/platform/0022-p0-update-api-http-method-and-finish-idempotency.md)를 따른다.
+기존 리소스 표현의 일부를 수정하는 엔드포인트는 `@PatchMapping`을 사용한다. 클라이언트가 리소스 표현 전체를 결정해 교체하거나, 경로와 메서드만으로 전체 목표 상태가 결정되는 관계 리소스의 존재를 멱등하게 설정할 때 `@PutMapping`을 사용한다. 세부 기준은 [ADR-0047](adr/platform/0047-http-method-and-target-state-idempotency.md)을 따른다.
 
 ## Service
 
