@@ -4,6 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -13,6 +16,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterEach;
@@ -21,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -42,7 +47,7 @@ class ChatMessageRetentionPostgresTest {
 	private JdbcTemplate jdbcTemplate;
 	@Autowired
 	private ChatMessageRetentionCoordinator coordinator;
-	@Autowired
+	@MockitoSpyBean
 	private ChatMessageRetentionStore store;
 	@Autowired
 	private ScheduledTaskLock scheduledTaskLock;
@@ -167,6 +172,16 @@ class ChatMessageRetentionPostgresTest {
 		for (int index = 0; index < 150; index++) {
 			insertMessage(fixture.chatRoomId(), fixture.userId(), "overlap-" + index);
 		}
+		CountDownLatch firstReadsReady = new CountDownLatch(2);
+		AtomicInteger firstReadCount = new AtomicInteger();
+		doAnswer(invocation -> {
+			@SuppressWarnings("unchecked") List<Long> messageIds = (List<Long>)invocation.callRealMethod();
+			if (firstReadCount.getAndIncrement() < 2) {
+				firstReadsReady.countDown();
+				await(firstReadsReady);
+			}
+			return messageIds;
+		}).when(store).findNextMessageIds(eq(fixture.chatRoomId()), anyInt());
 		ExecutorService executorService = Executors.newFixedThreadPool(2);
 		try {
 			Future<ChatMessageRetentionCoordinator.RetentionRunSummary> first = executorService
