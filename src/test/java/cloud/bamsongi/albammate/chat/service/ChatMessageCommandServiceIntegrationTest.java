@@ -136,6 +136,7 @@ class ChatMessageCommandServiceIntegrationTest {
 		participationRepository.saveAndFlush(canceledParticipation);
 
 		assertValidationError(hostUserId, inputRoom.getId(), new ChatMessageSendRequest("i".repeat(101), "본문"));
+		assertValidationError(hostUserId, inputRoom.getId(), new ChatMessageSendRequest(null, "본문"));
 		assertValidationError(hostUserId, inputRoom.getId(), new ChatMessageSendRequest("null-content", null));
 		assertValidationError(hostUserId, inputRoom.getId(), new ChatMessageSendRequest("empty-content", ""));
 		assertValidationError(hostUserId, inputRoom.getId(),
