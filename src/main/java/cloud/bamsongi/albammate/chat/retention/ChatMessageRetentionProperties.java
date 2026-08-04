@@ -28,24 +28,32 @@ public class ChatMessageRetentionProperties {
 
 	@Min(1) private int messageChunkSize = 100;
 
+	@Min(1) private int maxLockSectionsPerRun = 30;
+
 	@NotNull @DurationMin(nanos = 1)
-	private Duration lockAtMostFor = Duration.ofSeconds(5);
+	private Duration lockAtMostFor = Duration.ofMinutes(2);
 
 	@NotNull @DurationMin(nanos = 1)
 	private Duration lockAtLeastFor = Duration.ofSeconds(5);
 
 	@NotNull @DurationMin(nanos = 1)
-	private Duration executionWarningThreshold = Duration.ofSeconds(1);
+	private Duration executionWarningThreshold = Duration.ofSeconds(30);
 
 	@NotNull @DurationMin(nanos = 1)
-	private Duration maxRunDuration = Duration.ofSeconds(3);
+	private Duration maxRunDuration = Duration.ofMinutes(1);
 
-	/** 반복 batch가 임대 안에서 끝나야 하므로 실행 상한은 항상 잠금 임대보다 짧다. */
+	@NotNull @DurationMin(seconds = 1)
+	private Duration queryTimeout = Duration.ofSeconds(10);
+
+	/**
+	 * 한 잠금 구간이 임대 안에서 끝나야 한다. 마지막 상한 확인 뒤에도 진행 중인 chunk의 조회·삭제·완료
+	 * 질의가 남으므로, 실행 상한에 질의 시간 상한 세 번을 더한 값이 임대보다 짧아야 한다.
+	 */
 	@AssertTrue public boolean isRunDurationWithinLockLease() {
-		if (maxRunDuration == null || lockAtMostFor == null) {
+		if (maxRunDuration == null || queryTimeout == null || lockAtMostFor == null) {
 			return true;
 		}
-		return maxRunDuration.compareTo(lockAtMostFor) < 0;
+		return maxRunDuration.plus(queryTimeout.multipliedBy(3)).compareTo(lockAtMostFor) < 0;
 	}
 
 	public boolean isEnabled() {
@@ -118,5 +126,21 @@ public class ChatMessageRetentionProperties {
 
 	public void setMaxRunDuration(Duration maxRunDuration) {
 		this.maxRunDuration = maxRunDuration;
+	}
+
+	public Duration getQueryTimeout() {
+		return queryTimeout;
+	}
+
+	public void setQueryTimeout(Duration queryTimeout) {
+		this.queryTimeout = queryTimeout;
+	}
+
+	public int getMaxLockSectionsPerRun() {
+		return maxLockSectionsPerRun;
+	}
+
+	public void setMaxLockSectionsPerRun(int maxLockSectionsPerRun) {
+		this.maxLockSectionsPerRun = maxLockSectionsPerRun;
 	}
 }

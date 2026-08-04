@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.chat.retention;
 
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -31,19 +32,34 @@ class ChatMessageRetentionScheduler {
 		this.metrics = Objects.requireNonNull(metrics, "metrics");
 	}
 
+	/**
+	 * 실행 상한에 걸린 적체를 다음 일일 스케줄로 미루지 않는다. 한 잠금 구간이 상한에서 중단되면 같은
+	 * cron 실행 안에서 잠금을 다시 얻어 이어 처리하고, 각 구간은 자신의 임대 안에서만 작업한다.
+	 */
 	@Scheduled(cron = "${app.chat.retention.cron:0 0 3 * * *}", zone = "UTC")
 	void purgeExpiredMessages() {
 		if (!properties.isEnabled()) {
 			return;
 		}
 		try {
-			ScheduledTaskLock.LockExecution execution = scheduledTaskLock.tryExecute(
-				LOCK_NAME, properties.getLockAtMostFor(), properties.getLockAtLeastFor(),
-				coordinator::purgeExpiredMessages);
-			if (!execution.acquired()) {
-				metrics.recordLockSkipped();
-				log.info("event=chat_message_retention_lock_skipped lockName={}", LOCK_NAME);
+			for (int section = 1; section <= properties.getMaxLockSectionsPerRun(); section++) {
+				AtomicReference<ChatMessageRetentionCoordinator.RetentionRunSummary> summary = new AtomicReference<>();
+				ScheduledTaskLock.LockExecution execution = scheduledTaskLock.tryExecute(
+					LOCK_NAME, properties.getLockAtMostFor(), properties.getLockAtLeastFor(),
+					() -> summary.set(coordinator.purgeExpiredMessages()));
+				if (!execution.acquired()) {
+					metrics.recordLockSkipped();
+					log.info("event=chat_message_retention_lock_skipped lockName={} section={}", LOCK_NAME, section);
+					return;
+				}
+				ChatMessageRetentionCoordinator.RetentionRunSummary result = summary.get();
+				if (result == null || !result.leaseGuardAborted()) {
+					return;
+				}
 			}
+			metrics.recordBacklogRemaining();
+			log.warn("event=chat_message_retention_backlog_remaining maxLockSectionsPerRun={}",
+				properties.getMaxLockSectionsPerRun());
 		} catch (RuntimeException exception) {
 			metrics.recordExecutionFailure();
 			log.error("event=chat_message_retention_failed exceptionClass={}",

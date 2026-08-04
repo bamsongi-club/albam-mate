@@ -70,10 +70,14 @@ class ChatMessageRetentionCoordinator {
 				ChatMessageRetentionStore.DueChatRoom dueChatRoom = pendingChatRooms.removeFirst();
 				try {
 					ChatMessageRetentionRoomProcessor.RoomProcessResult result = roomProcessor.process(
-						dueChatRoom, Instant.now(clock), remainingMessageCandidateBudget);
+						dueChatRoom, Instant.now(clock), remainingMessageCandidateBudget, runDeadline);
 					remainingMessageCandidateBudget = Math.max(0,
 						remainingMessageCandidateBudget - result.candidateMessageCount());
 					deletedMessageCount += result.deletedMessageCount();
+					if (result.deadlineReached()) {
+						leaseGuardAborted = true;
+						break;
+					}
 					if (result.completed()) {
 						purgedRoomCount++;
 						maximumDelayMillis = Math.max(maximumDelayMillis,

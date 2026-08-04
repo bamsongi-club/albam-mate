@@ -228,14 +228,19 @@
   실행한다. 잠금과 별개로 삭제 작업은 재실행해도 같은 결과로 수렴하며 각 묶음은
   독립 트랜잭션을 유지한다.
 - 기본 UTC cron은 매일 03:00이고 설정으로 바꿀 수 있다. 대표 로컬 PostgreSQL batch
-  (방 50개, 메시지 5,000개, 방별 100개 chunk)를 기준으로 정상 실행시간 경고는
-  1초, `chat-message-retention`의 `lockAtMostFor`와 `lockAtLeastFor`는 각각 5초로 둔다.
+  (방 50개, 메시지 5,000개, 방별 100개 chunk) 측정을 기준으로 `chat-message-retention`의
+  `lockAtMostFor`는 2분, `lockAtLeastFor`는 5초, 정상 실행시간 경고는 30초로 둔다.
   하나의 cron 실행은 batch를 반복하며, 각 batch의 5,000개 후보 예산은 모든 방이 공유한다.
-  반복 batch 전체는 `lockAtMostFor`보다 짧은 실행 상한 3초 안에서만 수행하고, 상한에
-  도달하면 다음 batch를 조회하지 않고 중단해 남은 방을 다음 스케줄로 넘긴다. 중단은
-  경고 로그와 전용 metric으로 기록한다.
   한 방의 실패는 현재 주기에서 해당 방만 제외하고 뒤따르는 방 처리는 계속한다.
-- `V13` 전진 Flyway는 `SHEDLOCK` 테이블만 생성한다. local profile의
+- 한 잠금 구간은 실행 상한 1분 안에서만 작업한다. batch 조회 전과 각 방의 chunk 처리 전에
+  상한 도달을 확인해 중단하고, 조회·삭제·완료 질의에는 10초 시간 상한을 둔다. 마지막 확인
+  뒤에 진행 중인 chunk까지 더해도 상한이 임대보다 짧도록 `maxRunDuration + 3 × queryTimeout
+  < lockAtMostFor`를 기동 시점에 검증한다.
+- 상한에 걸린 적체는 다음 일일 스케줄로 미루지 않는다. 구간이 상한에서 중단되면 같은 cron
+  실행 안에서 잠금을 다시 얻어 최대 30구간까지 이어 처리하므로, 만료 삭제는 ADR-0034의
+  24시간 상한 안에서 완료된다. 30구간을 모두 소진하고도 적체가 남으면 경고 로그와 전용
+  metric으로 알리고 상한·주기를 조정한다. 구간 중단과 삭제 지연도 각각 metric으로 남긴다.
+- `V14` 전진 Flyway는 `SHEDLOCK` 테이블만 생성한다. local profile의
   `db/local/afterMigrate.sql` callback이 기존 ROOM을 상태별 보관 값으로
   `CHAT_ROOMS`에 멱등 초기화하고 기존 행은 보존한다. production profile은
   `db/local`을 로드하지 않으며 live 운영 ROOM backfill·쓰기와 경쟁하는 절체·최종

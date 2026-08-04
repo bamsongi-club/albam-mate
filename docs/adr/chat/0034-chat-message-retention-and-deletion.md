@@ -72,7 +72,7 @@ backfill과 ROOM 생성·상태 전환이 경쟁하더라도 완료 시점에는
 ## 검증
 
 - 상태: 부분 검증
-- 근거: #289의 대상 H2와 Testcontainers PostgreSQL 테스트에서 V13 스키마, local callback 초기화, ID 순 chunk 삭제, 부분 실패 격리, ShedLock skip과 중복 삭제 수렴을 확인했다. 대표 PostgreSQL 배치는 방 50개·메시지 5,000개를 126ms에 처리했다.
+- 근거: #289의 대상 H2와 Testcontainers PostgreSQL 테스트에서 V14 스키마, local callback 초기화, ID 순 chunk 삭제, 부분 실패 격리, ShedLock skip과 중복 삭제 수렴을 확인했다. 대표 PostgreSQL 배치(방 50개·메시지 5,000개)의 처리 시간은 실행 환경에 따라 95ms에서 3.2초까지 측정됐다. 잠금 임대·실행 상한은 느린 측정값을 기준으로 두고, 상한에 걸린 적체는 같은 cron 실행의 다음 잠금 구간이 이어받아 24시간 삭제 상한 안에서 완료한다.
 - 미검증:
     - #281이 소유한 live 운영 one-shot backfill, ROOM 쓰기 통제·최종 보정·배포 절체는 이 검증에 포함하지 않았다.
     - 실제 운영 인스턴스 종료 뒤 임대 만료 복구와 RDS 백업 만료 뒤 복구 불가 여부는 확인하지 않았다.

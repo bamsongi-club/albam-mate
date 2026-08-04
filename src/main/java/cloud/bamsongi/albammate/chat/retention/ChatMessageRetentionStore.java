@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import javax.sql.DataSource;
+
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -15,8 +17,16 @@ class ChatMessageRetentionStore {
 
 	private final JdbcTemplate jdbcTemplate;
 
-	ChatMessageRetentionStore(JdbcTemplate jdbcTemplate) {
-		this.jdbcTemplate = Objects.requireNonNull(jdbcTemplate, "jdbcTemplate");
+	/**
+	 * 보관 삭제 전용 JdbcTemplate에 질의 시간 상한을 걸어, 느린 조회·삭제·완료 질의가 잠금 임대를
+	 * 넘기지 않게 한다. DataSource가 같으므로 진행 중인 트랜잭션의 연결을 그대로 사용한다.
+	 */
+	ChatMessageRetentionStore(DataSource dataSource, ChatMessageRetentionProperties properties) {
+		Objects.requireNonNull(dataSource, "dataSource");
+		Objects.requireNonNull(properties, "properties");
+		JdbcTemplate template = new JdbcTemplate(dataSource);
+		template.setQueryTimeout(Math.toIntExact(properties.getQueryTimeout().toSeconds()));
+		this.jdbcTemplate = template;
 	}
 
 	List<DueChatRoom> findDueChatRooms(

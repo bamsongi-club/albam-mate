@@ -295,7 +295,7 @@ flowchart LR
 
 #### 채팅 흐름
 
-`V6__create_p1_chat_room_schema.sql`은 `CHAT_ROOMS` 테이블·제약만 생성하며 기존 `ROOMS`를 조회하거나 `CHAT_ROOMS` 행을 삽입·갱신하지 않는다. `V13__create_p1_chat_retention_schema.sql`은 `SHEDLOCK` 테이블만 생성한다. local profile의 `db/local/afterMigrate.sql` callback은 `CHAT_ROOMS`가 없는 기존 ROOM만 상태별 보관 값으로 멱등 생성하며 이미 있는 행은 덮어쓰지 않는다. production profile은 `db/local`을 로드하지 않으므로 live 운영 backfill·상태별 초기화·ROOM 생성·상태 전환 경합·최종 보정·배포 절체는 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 별도 범위로 남는다. 이 경계는 [ADR-0045](adr/chat/0045-chat-room-schema-and-backfill-boundary.md)에 기록한다.
+`V6__create_p1_chat_room_schema.sql`은 `CHAT_ROOMS` 테이블·제약만 생성하며 기존 `ROOMS`를 조회하거나 `CHAT_ROOMS` 행을 삽입·갱신하지 않는다. `V14__create_p1_chat_retention_schema.sql`은 `SHEDLOCK` 테이블만 생성한다. local profile의 `db/local/afterMigrate.sql` callback은 `CHAT_ROOMS`가 없는 기존 ROOM만 상태별 보관 값으로 멱등 생성하며 이미 있는 행은 덮어쓰지 않는다. production profile은 `db/local`을 로드하지 않으므로 live 운영 backfill·상태별 초기화·ROOM 생성·상태 전환 경합·최종 보정·배포 절체는 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 별도 범위로 남는다. 이 경계는 [ADR-0045](adr/chat/0045-chat-room-schema-and-backfill-boundary.md)에 기록한다.
 
 활성화 뒤 P1 채팅은 방 생성과 채팅방 생성을 한 트랜잭션으로 묶고, 메시지 전송·이력 조회는 `chat` 모듈이 소유한다. `RoomCreateService`는 `chat`을 직접 참조하지 않고 `room.contract.RoomCreated` 이벤트를 발행한다. `chat`의 동기 listener가 같은 트랜잭션에서 `CHAT_ROOMS`를 만들며, 실패하면 방 생성도 함께 롤백된다. `CANCELED`·`FINISHED` 전환도 `room.contract.RoomTerminalStateReached`를 발행하고 `chat`의 동기 listener가 같은 트랜잭션에서 `purge_after`를 설정한다.
 

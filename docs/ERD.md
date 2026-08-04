@@ -382,7 +382,7 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 
 ### CHAT_ROOMS
 
-P1 채팅방을 저장하는 구현된 테이블이다. `V6__create_p1_chat_room_schema.sql`은 테이블·제약만 만들고 기존 `ROOMS`를 조회하지 않는다. `V13__create_p1_chat_retention_schema.sql`은 `SHEDLOCK` 테이블만 생성하며, local profile의 `db/local/afterMigrate.sql` callback이 `CHAT_ROOMS`가 없는 기존 ROOM만 상태별 보관 값으로 생성한다. 기존 행은 덮어쓰지 않는다. production profile은 `db/local`을 로드하지 않으며 live 운영 backfill·ROOM 쓰기 통제·최종 보정·배포 절체는 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 별도 범위다. 이 실행 경계는 [ADR-0045](adr/chat/0045-chat-room-schema-and-backfill-boundary.md)에 기록한다.
+P1 채팅방을 저장하는 구현된 테이블이다. `V6__create_p1_chat_room_schema.sql`은 테이블·제약만 만들고 기존 `ROOMS`를 조회하지 않는다. `V14__create_p1_chat_retention_schema.sql`은 `SHEDLOCK` 테이블만 생성하며, local profile의 `db/local/afterMigrate.sql` callback이 `CHAT_ROOMS`가 없는 기존 ROOM만 상태별 보관 값으로 생성한다. 기존 행은 덮어쓰지 않는다. production profile은 `db/local`을 로드하지 않으며 live 운영 backfill·ROOM 쓰기 통제·최종 보정·배포 절체는 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 별도 범위다. 이 실행 경계는 [ADR-0045](adr/chat/0045-chat-room-schema-and-backfill-boundary.md)에 기록한다.
 
 활성화 뒤 새 방은 방 생성 트랜잭션에서 `ROOMS`와 `CHAT_ROOMS`를 함께 생성한다. 채팅 회원을 별도로 저장하지 않고, 접근 권한은 `ROOMS.host_user_id`와 현재 `ACTIVE PARTICIPATIONS`를 매 요청에서 계산한다.
 
@@ -620,7 +620,7 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 
 ### 채팅·스케줄 제약과 인덱스
 
-- `V13`은 production에서 `SHEDLOCK` 테이블만 생성하고 local callback은 기존 `CHAT_ROOMS`가 없는 ROOM만 생성한다. `RECRUITING`·`CLOSED`는 `NULL` 보관 값, `CANCELED`·`FINISHED`는 하나의 PostgreSQL 기준 시각의 빈 보관 완료 값을 쓴다. 기존 행은 덮어쓰지 않는다. live 운영 backfill·ROOM 생성·상태 전환 경합·최종 보정과 배포 절체는 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 별도 범위이며, 실행 경계는 [ADR-0045](adr/chat/0045-chat-room-schema-and-backfill-boundary.md)을 따른다.
+- `V14`은 production에서 `SHEDLOCK` 테이블만 생성하고 local callback은 기존 `CHAT_ROOMS`가 없는 ROOM만 생성한다. `RECRUITING`·`CLOSED`는 `NULL` 보관 값, `CANCELED`·`FINISHED`는 하나의 PostgreSQL 기준 시각의 빈 보관 완료 값을 쓴다. 기존 행은 덮어쓰지 않는다. live 운영 backfill·ROOM 생성·상태 전환 경합·최종 보정과 배포 절체는 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 별도 범위이며, 실행 경계는 [ADR-0045](adr/chat/0045-chat-room-schema-and-backfill-boundary.md)을 따른다.
 - 방 생성과 `CHAT_ROOMS` 생성은 하나의 트랜잭션에서 성공하거나 함께 롤백한다.
 - `CHAT_MESSAGES(chat_room_id, id DESC)` 인덱스로 최신 이력과 `beforeMessageId` 커서 조회를 지원한다.
 - `CHAT_ROOMS(purge_after)` 조건부 인덱스로 삭제 기준 시각이 지났고 아직 `messages_purged_at`이 없는 채팅방을 선별한다.

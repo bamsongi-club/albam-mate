@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -17,6 +18,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 
@@ -27,6 +29,9 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 class ChatMessageRetentionCoordinatorTest {
 
+	private static final Instant NOW = Instant.parse("2026-08-02T00:00:00Z");
+	private static final Instant PURGE_AFTER = Instant.parse("2026-08-01T00:00:00Z");
+
 	@Test
 	void 한_방의_실패가_앞선_성공을_되돌리지_않고_민감한_예외_본문을_로그에_남기지_않는다() {
 		ChatMessageRetentionStore store = mock(ChatMessageRetentionStore.class);
@@ -36,20 +41,18 @@ class ChatMessageRetentionCoordinatorTest {
 		properties.setMaxMessagesPerRun(5);
 		SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 		ChatMessageRetentionMetrics metrics = new ChatMessageRetentionMetrics(meterRegistry);
-		Clock clock = Clock.fixed(Instant.parse("2026-08-02T00:00:00Z"), ZoneOffset.UTC);
 		ChatMessageRetentionCoordinator coordinator = new ChatMessageRetentionCoordinator(
-			store, processor, properties, metrics, clock);
+			store, processor, properties, metrics, Clock.fixed(NOW, ZoneOffset.UTC));
 		ChatMessageRetentionStore.DueChatRoom successfulRoom = new ChatMessageRetentionStore.DueChatRoom(
-			1L, Instant.parse("2026-08-01T00:00:00Z"));
-		ChatMessageRetentionStore.DueChatRoom failedRoom = new ChatMessageRetentionStore.DueChatRoom(
-			2L, Instant.parse("2026-08-01T00:00:00Z"));
+			1L, PURGE_AFTER);
+		ChatMessageRetentionStore.DueChatRoom failedRoom = new ChatMessageRetentionStore.DueChatRoom(2L, PURGE_AFTER);
 		ChatMessageRetentionStore.DueChatRoomCursor failedRoomCursor = ChatMessageRetentionStore.DueChatRoomCursor
 			.after(failedRoom);
-		when(store.findDueChatRooms(Instant.now(clock), null, 2)).thenReturn(List.of(successfulRoom, failedRoom));
-		when(store.findDueChatRooms(Instant.now(clock), failedRoomCursor, 2)).thenReturn(List.of());
-		when(processor.process(successfulRoom, Instant.now(clock), 5)).thenReturn(
-			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 3, 3, false));
-		when(processor.process(failedRoom, Instant.now(clock), 2))
+		when(store.findDueChatRooms(eq(NOW), isNull(), eq(2))).thenReturn(List.of(successfulRoom, failedRoom));
+		when(store.findDueChatRooms(eq(NOW), eq(failedRoomCursor), eq(2))).thenReturn(List.of());
+		when(processor.process(eq(successfulRoom), eq(NOW), eq(5), any())).thenReturn(
+			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 3, 3, false, false));
+		when(processor.process(eq(failedRoom), eq(NOW), eq(2), any()))
 			.thenThrow(new IllegalStateException("message-content-secret user=99 session=token"));
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 		try {
@@ -58,13 +61,14 @@ class ChatMessageRetentionCoordinatorTest {
 			assertEquals(1, summary.purgedRoomCount());
 			assertEquals(3, summary.deletedMessageCount());
 			assertEquals(1, summary.failureCount());
+			assertFalse(summary.leaseGuardAborted());
 			assertEquals(1.0, meterRegistry.get("chat.message.retention.rooms.purged").counter().count());
 			assertEquals(3.0, meterRegistry.get("chat.message.retention.messages.deleted").counter().count());
 			assertEquals(1.0, meterRegistry.get("chat.message.retention.failures").counter().count());
 			String logs = appender.list.stream().map(ILoggingEvent::getFormattedMessage).reduce("", String::concat);
 			assertFalse(logs.contains("message-content-secret"));
 			assertFalse(logs.contains("session=token"));
-			verify(processor).process(failedRoom, Instant.now(clock), 2);
+			verify(processor).process(eq(failedRoom), eq(NOW), eq(2), any());
 		} finally {
 			detachLogAppender(appender);
 			meterRegistry.close();
@@ -80,38 +84,34 @@ class ChatMessageRetentionCoordinatorTest {
 		properties.setMaxMessagesPerRun(5);
 		SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 		ChatMessageRetentionMetrics metrics = new ChatMessageRetentionMetrics(meterRegistry);
-		Clock clock = Clock.fixed(Instant.parse("2026-08-02T00:00:00Z"), ZoneOffset.UTC);
 		ChatMessageRetentionCoordinator coordinator = new ChatMessageRetentionCoordinator(
-			store, processor, properties, metrics, clock);
-		ChatMessageRetentionStore.DueChatRoom firstRoom = new ChatMessageRetentionStore.DueChatRoom(
-			1L, Instant.parse("2026-08-01T00:00:00Z"));
-		ChatMessageRetentionStore.DueChatRoom secondRoom = new ChatMessageRetentionStore.DueChatRoom(
-			2L, Instant.parse("2026-08-01T00:00:00Z"));
-		ChatMessageRetentionStore.DueChatRoom nextPageRoom = new ChatMessageRetentionStore.DueChatRoom(
-			3L, Instant.parse("2026-08-01T00:00:00Z"));
+			store, processor, properties, metrics, Clock.fixed(NOW, ZoneOffset.UTC));
+		ChatMessageRetentionStore.DueChatRoom firstRoom = new ChatMessageRetentionStore.DueChatRoom(1L, PURGE_AFTER);
+		ChatMessageRetentionStore.DueChatRoom secondRoom = new ChatMessageRetentionStore.DueChatRoom(2L, PURGE_AFTER);
+		ChatMessageRetentionStore.DueChatRoom nextPageRoom = new ChatMessageRetentionStore.DueChatRoom(3L, PURGE_AFTER);
 		ChatMessageRetentionStore.DueChatRoomCursor secondRoomCursor = ChatMessageRetentionStore.DueChatRoomCursor
 			.after(secondRoom);
 		ChatMessageRetentionStore.DueChatRoomCursor nextPageRoomCursor = ChatMessageRetentionStore.DueChatRoomCursor
 			.after(nextPageRoom);
-		when(store.findDueChatRooms(Instant.now(clock), null, 2)).thenReturn(List.of(firstRoom, secondRoom));
-		when(store.findDueChatRooms(Instant.now(clock), secondRoomCursor, 2)).thenReturn(List.of(nextPageRoom));
-		when(store.findDueChatRooms(Instant.now(clock), nextPageRoomCursor, 2)).thenReturn(List.of());
-		when(processor.process(firstRoom, Instant.now(clock), 5)).thenReturn(
-			new ChatMessageRetentionRoomProcessor.RoomProcessResult(false, 5, 5, false),
-			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 1, 1, false));
-		when(processor.process(secondRoom, Instant.now(clock), 4)).thenReturn(
-			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 2, 2, false));
-		when(processor.process(nextPageRoom, Instant.now(clock), 5)).thenReturn(
-			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 1, 1, false));
+		when(store.findDueChatRooms(eq(NOW), isNull(), eq(2))).thenReturn(List.of(firstRoom, secondRoom));
+		when(store.findDueChatRooms(eq(NOW), eq(secondRoomCursor), eq(2))).thenReturn(List.of(nextPageRoom));
+		when(store.findDueChatRooms(eq(NOW), eq(nextPageRoomCursor), eq(2))).thenReturn(List.of());
+		when(processor.process(eq(firstRoom), eq(NOW), eq(5), any())).thenReturn(
+			new ChatMessageRetentionRoomProcessor.RoomProcessResult(false, 5, 5, false, false),
+			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 1, 1, false, false));
+		when(processor.process(eq(secondRoom), eq(NOW), eq(4), any())).thenReturn(
+			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 2, 2, false, false));
+		when(processor.process(eq(nextPageRoom), eq(NOW), eq(5), any())).thenReturn(
+			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 1, 1, false, false));
 
 		ChatMessageRetentionCoordinator.RetentionRunSummary summary = coordinator.purgeExpiredMessages();
 
 		assertEquals(3, summary.purgedRoomCount());
 		assertEquals(9, summary.deletedMessageCount());
 		assertEquals(9.0, meterRegistry.get("chat.message.retention.messages.deleted").counter().count());
-		verify(processor, times(2)).process(firstRoom, Instant.now(clock), 5);
-		verify(processor).process(secondRoom, Instant.now(clock), 4);
-		verify(processor).process(nextPageRoom, Instant.now(clock), 5);
+		verify(processor, times(2)).process(eq(firstRoom), eq(NOW), eq(5), any());
+		verify(processor).process(eq(secondRoom), eq(NOW), eq(4), any());
+		verify(processor).process(eq(nextPageRoom), eq(NOW), eq(5), any());
 		meterRegistry.close();
 	}
 
@@ -124,32 +124,102 @@ class ChatMessageRetentionCoordinatorTest {
 		properties.setMaxMessagesPerRun(5);
 		SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 		ChatMessageRetentionMetrics metrics = new ChatMessageRetentionMetrics(meterRegistry);
-		Clock clock = Clock.fixed(Instant.parse("2026-08-02T00:00:00Z"), ZoneOffset.UTC);
 		ChatMessageRetentionCoordinator coordinator = new ChatMessageRetentionCoordinator(
-			store, processor, properties, metrics, clock);
-		ChatMessageRetentionStore.DueChatRoom stalledRoom = new ChatMessageRetentionStore.DueChatRoom(
-			1L, Instant.parse("2026-08-01T00:00:00Z"));
+			store, processor, properties, metrics, Clock.fixed(NOW, ZoneOffset.UTC));
+		ChatMessageRetentionStore.DueChatRoom stalledRoom = new ChatMessageRetentionStore.DueChatRoom(1L, PURGE_AFTER);
 		ChatMessageRetentionStore.DueChatRoom successfulRoom = new ChatMessageRetentionStore.DueChatRoom(
-			2L, Instant.parse("2026-08-01T00:00:00Z"));
+			2L, PURGE_AFTER);
 		ChatMessageRetentionStore.DueChatRoomCursor stalledRoomCursor = ChatMessageRetentionStore.DueChatRoomCursor
 			.after(stalledRoom);
 		ChatMessageRetentionStore.DueChatRoomCursor successfulRoomCursor = ChatMessageRetentionStore.DueChatRoomCursor
 			.after(successfulRoom);
-		when(store.findDueChatRooms(Instant.now(clock), null, 1)).thenReturn(List.of(stalledRoom));
-		when(store.findDueChatRooms(Instant.now(clock), stalledRoomCursor, 1)).thenReturn(List.of(successfulRoom));
-		when(store.findDueChatRooms(Instant.now(clock), successfulRoomCursor, 1)).thenReturn(List.of());
-		when(processor.process(stalledRoom, Instant.now(clock), 5)).thenReturn(
-			new ChatMessageRetentionRoomProcessor.RoomProcessResult(false, 0, 0, false));
-		when(processor.process(successfulRoom, Instant.now(clock), 5)).thenReturn(
-			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 1, 1, false));
+		when(store.findDueChatRooms(eq(NOW), isNull(), eq(1))).thenReturn(List.of(stalledRoom));
+		when(store.findDueChatRooms(eq(NOW), eq(stalledRoomCursor), eq(1))).thenReturn(List.of(successfulRoom));
+		when(store.findDueChatRooms(eq(NOW), eq(successfulRoomCursor), eq(1))).thenReturn(List.of());
+		when(processor.process(eq(stalledRoom), eq(NOW), eq(5), any())).thenReturn(
+			new ChatMessageRetentionRoomProcessor.RoomProcessResult(false, 0, 0, false, false));
+		when(processor.process(eq(successfulRoom), eq(NOW), eq(5), any())).thenReturn(
+			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 1, 1, false, false));
 
 		ChatMessageRetentionCoordinator.RetentionRunSummary summary = coordinator.purgeExpiredMessages();
 
 		assertEquals(1, summary.purgedRoomCount());
 		assertEquals(1, summary.deletedMessageCount());
 		assertEquals(1, summary.failureCount());
-		verify(processor).process(stalledRoom, Instant.now(clock), 5);
-		verify(processor).process(successfulRoom, Instant.now(clock), 5);
+		verify(processor).process(eq(stalledRoom), eq(NOW), eq(5), any());
+		verify(processor).process(eq(successfulRoom), eq(NOW), eq(5), any());
+		meterRegistry.close();
+	}
+
+	@Test
+	void 완료한_방의_최대_삭제_지연을_metric으로_기록한다() {
+		ChatMessageRetentionStore store = mock(ChatMessageRetentionStore.class);
+		ChatMessageRetentionRoomProcessor processor = mock(ChatMessageRetentionRoomProcessor.class);
+		ChatMessageRetentionProperties properties = new ChatMessageRetentionProperties();
+		properties.setMaxRoomsPerRun(1);
+		SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+		ChatMessageRetentionMetrics metrics = new ChatMessageRetentionMetrics(meterRegistry);
+		ChatMessageRetentionCoordinator coordinator = new ChatMessageRetentionCoordinator(
+			store, processor, properties, metrics, Clock.fixed(NOW, ZoneOffset.UTC));
+		ChatMessageRetentionStore.DueChatRoom lateRoom = new ChatMessageRetentionStore.DueChatRoom(1L, PURGE_AFTER);
+		ChatMessageRetentionStore.DueChatRoomCursor lateRoomCursor = ChatMessageRetentionStore.DueChatRoomCursor
+			.after(lateRoom);
+		when(store.findDueChatRooms(eq(NOW), isNull(), eq(1))).thenReturn(List.of(lateRoom));
+		when(store.findDueChatRooms(eq(NOW), eq(lateRoomCursor), eq(1))).thenReturn(List.of());
+		when(processor.process(eq(lateRoom), eq(NOW), anyInt(), any())).thenReturn(
+			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 1, 1, false, false));
+
+		ChatMessageRetentionCoordinator.RetentionRunSummary summary = coordinator.purgeExpiredMessages();
+
+		assertEquals(Duration.between(PURGE_AFTER, NOW).toMillis(), summary.maximumDelayMillis());
+		assertEquals(1, meterRegistry.get("chat.message.retention.delay").timer().count());
+		assertEquals(Duration.between(PURGE_AFTER, NOW).toMillis(),
+			meterRegistry.get("chat.message.retention.delay").timer().totalTime(TimeUnit.MILLISECONDS));
+		meterRegistry.close();
+	}
+
+	@Test
+	void 삭제한_방이_없으면_지연을_기록하지_않는다() {
+		ChatMessageRetentionStore store = mock(ChatMessageRetentionStore.class);
+		ChatMessageRetentionRoomProcessor processor = mock(ChatMessageRetentionRoomProcessor.class);
+		SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+		ChatMessageRetentionMetrics metrics = new ChatMessageRetentionMetrics(meterRegistry);
+		ChatMessageRetentionCoordinator coordinator = new ChatMessageRetentionCoordinator(
+			store, processor, new ChatMessageRetentionProperties(), metrics, Clock.fixed(NOW, ZoneOffset.UTC));
+		when(store.findDueChatRooms(eq(NOW), isNull(), anyInt())).thenReturn(List.of());
+
+		coordinator.purgeExpiredMessages();
+
+		assertEquals(0, meterRegistry.get("chat.message.retention.delay").timer().count());
+		meterRegistry.close();
+	}
+
+	@Test
+	void 방_처리_중_상한_도달은_실패가_아니라_실행_중단으로_기록한다() {
+		ChatMessageRetentionStore store = mock(ChatMessageRetentionStore.class);
+		ChatMessageRetentionRoomProcessor processor = mock(ChatMessageRetentionRoomProcessor.class);
+		ChatMessageRetentionProperties properties = new ChatMessageRetentionProperties();
+		properties.setMaxRoomsPerRun(2);
+		properties.setMaxMessagesPerRun(5);
+		SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+		ChatMessageRetentionMetrics metrics = new ChatMessageRetentionMetrics(meterRegistry);
+		ChatMessageRetentionCoordinator coordinator = new ChatMessageRetentionCoordinator(
+			store, processor, properties, metrics, Clock.fixed(NOW, ZoneOffset.UTC));
+		ChatMessageRetentionStore.DueChatRoom slowRoom = new ChatMessageRetentionStore.DueChatRoom(1L, PURGE_AFTER);
+		ChatMessageRetentionStore.DueChatRoom nextRoom = new ChatMessageRetentionStore.DueChatRoom(2L, PURGE_AFTER);
+		when(store.findDueChatRooms(eq(NOW), isNull(), eq(2))).thenReturn(List.of(slowRoom, nextRoom));
+		when(processor.process(eq(slowRoom), eq(NOW), eq(5), any())).thenReturn(
+			new ChatMessageRetentionRoomProcessor.RoomProcessResult(false, 2, 2, false, true));
+
+		ChatMessageRetentionCoordinator.RetentionRunSummary summary = coordinator.purgeExpiredMessages();
+
+		assertTrue(summary.leaseGuardAborted());
+		assertEquals(0, summary.failureCount());
+		assertEquals(0, summary.purgedRoomCount());
+		assertEquals(2, summary.deletedMessageCount());
+		assertEquals(1.0, meterRegistry.get("chat.message.retention.lease.guard.aborted").counter().count());
+		assertEquals(0.0, meterRegistry.get("chat.message.retention.failures").counter().count());
+		verify(processor, never()).process(eq(nextRoom), any(), anyInt(), any());
 		meterRegistry.close();
 	}
 
@@ -165,11 +235,10 @@ class ChatMessageRetentionCoordinatorTest {
 		ChatMessageRetentionMetrics metrics = new ChatMessageRetentionMetrics(meterRegistry);
 		ChatMessageRetentionCoordinator coordinator = new ChatMessageRetentionCoordinator(
 			store, processor, properties, metrics, steppingClock(Duration.ofMillis(500)));
-		ChatMessageRetentionStore.DueChatRoom firstRoom = new ChatMessageRetentionStore.DueChatRoom(
-			1L, Instant.parse("2026-08-01T00:00:00Z"));
+		ChatMessageRetentionStore.DueChatRoom firstRoom = new ChatMessageRetentionStore.DueChatRoom(1L, PURGE_AFTER);
 		when(store.findDueChatRooms(any(), any(), eq(1))).thenReturn(List.of(firstRoom), List.of());
-		when(processor.process(eq(firstRoom), any(), eq(5))).thenReturn(
-			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 1, 1, false));
+		when(processor.process(eq(firstRoom), any(), eq(5), any())).thenReturn(
+			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 1, 1, false, false));
 
 		ChatMessageRetentionCoordinator.RetentionRunSummary summary = coordinator.purgeExpiredMessages();
 
@@ -192,23 +261,20 @@ class ChatMessageRetentionCoordinatorTest {
 		ChatMessageRetentionMetrics metrics = new ChatMessageRetentionMetrics(meterRegistry);
 		ChatMessageRetentionCoordinator coordinator = new ChatMessageRetentionCoordinator(
 			store, processor, properties, metrics, steppingClock(Duration.ofMillis(500)));
-		ChatMessageRetentionStore.DueChatRoom firstRoom = new ChatMessageRetentionStore.DueChatRoom(
-			1L, Instant.parse("2026-08-01T00:00:00Z"));
-		ChatMessageRetentionStore.DueChatRoom secondRoom = new ChatMessageRetentionStore.DueChatRoom(
-			2L, Instant.parse("2026-08-01T00:00:00Z"));
-		ChatMessageRetentionStore.DueChatRoom thirdRoom = new ChatMessageRetentionStore.DueChatRoom(
-			3L, Instant.parse("2026-08-01T00:00:00Z"));
+		ChatMessageRetentionStore.DueChatRoom firstRoom = new ChatMessageRetentionStore.DueChatRoom(1L, PURGE_AFTER);
+		ChatMessageRetentionStore.DueChatRoom secondRoom = new ChatMessageRetentionStore.DueChatRoom(2L, PURGE_AFTER);
+		ChatMessageRetentionStore.DueChatRoom thirdRoom = new ChatMessageRetentionStore.DueChatRoom(3L, PURGE_AFTER);
 		when(store.findDueChatRooms(any(), any(), eq(3)))
 			.thenReturn(List.of(firstRoom, secondRoom, thirdRoom), List.of());
-		when(processor.process(eq(firstRoom), any(), eq(5))).thenReturn(
-			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 1, 1, false));
+		when(processor.process(eq(firstRoom), any(), eq(5), any())).thenReturn(
+			new ChatMessageRetentionRoomProcessor.RoomProcessResult(true, 1, 1, false, false));
 
 		ChatMessageRetentionCoordinator.RetentionRunSummary summary = coordinator.purgeExpiredMessages();
 
 		assertTrue(summary.leaseGuardAborted());
 		assertEquals(1, summary.purgedRoomCount());
-		verify(processor, never()).process(eq(secondRoom), any(), anyInt());
-		verify(processor, never()).process(eq(thirdRoom), any(), anyInt());
+		verify(processor, never()).process(eq(secondRoom), any(), anyInt(), any());
+		verify(processor, never()).process(eq(thirdRoom), any(), anyInt(), any());
 		meterRegistry.close();
 	}
 
@@ -216,7 +282,7 @@ class ChatMessageRetentionCoordinatorTest {
 	private Clock steppingClock(Duration step) {
 		return new Clock() {
 
-			private Instant current = Instant.parse("2026-08-02T00:00:00Z");
+			private Instant current = NOW;
 
 			@Override
 			public ZoneOffset getZone() {
