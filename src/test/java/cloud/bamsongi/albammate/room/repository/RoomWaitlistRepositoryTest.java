@@ -161,6 +161,21 @@ class RoomWaitlistRepositoryTest {
 	}
 
 	@Test
+	void 취소와_승격_대기행만_재신청할_수_있다() {
+		saveWaiting(firstUserId, 10L, FIRST_REQUEST_TIME);
+		assertEquals(1, roomWaitlistRepository.cancelWaiting(roomId, firstUserId, SECOND_REQUEST_TIME));
+		assertEquals(1, roomWaitlistRepository.reactivateWaiting(roomId, firstUserId, 20L, SECOND_REQUEST_TIME));
+		assertEquals(1, roomWaitlistRepository.cancelAllWaiting(roomId, SECOND_REQUEST_TIME));
+		assertEquals(0, roomWaitlistRepository.reactivateWaiting(roomId, firstUserId, 30L, SECOND_REQUEST_TIME));
+
+		saveWaiting(secondUserId, 40L, FIRST_REQUEST_TIME);
+		assertEquals(1, roomWaitlistRepository.promoteWaiting(roomId, secondUserId, 40L, SECOND_REQUEST_TIME));
+		assertEquals(1, roomWaitlistRepository.reactivateWaiting(roomId, secondUserId, 50L, SECOND_REQUEST_TIME));
+		assertEquals(1, roomWaitlistRepository.expireAllWaiting(roomId, SECOND_REQUEST_TIME));
+		assertEquals(0, roomWaitlistRepository.reactivateWaiting(roomId, secondUserId, 60L, SECOND_REQUEST_TIME));
+	}
+
+	@Test
 	void 순번은_전역_sequence에서_명시적으로_발급한다() {
 		long firstQueueOrder = roomWaitlistRepository.getNextQueueOrder();
 		long secondQueueOrder = roomWaitlistRepository.getNextQueueOrder();
