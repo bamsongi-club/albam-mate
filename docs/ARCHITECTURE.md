@@ -154,6 +154,7 @@ flowchart LR
 | 소셜 계정 연결 시작 | 외부 인증 진입은 `auth`, 연결 저장은 `user.contract`로 위임 | `SocialAuthController` |
 | 내 프로필 조회·수정 | 인증 기능이 아니라 사용자 리소스이므로 `user`가 소유 | `UserProfileController` |
 | 방 조회·생성·상태 변경·참가 | 방과 참가 불변식을 다루므로 `room`이 소유 | `RoomController`, `RoomParticipationController` |
+| 대기 등록·본인 상태 조회·대기 취소(P1) | 대기 리소스의 HTTP 경계를 분리하되 방·참가 불변식을 다루므로 `room`이 소유 | `RoomWaitlistController` |
 | `/api/users/me/rooms` 조회 | URL에 `users`가 있어도 방과 참가 관계를 조회하므로 `room`이 소유 | `MyRoomController` |
 | 방별 채팅 전송·이력·실시간 구독 | 메시지와 채팅 접근 경계를 다루므로 `chat`이 소유 | P1 구현 시 생성 |
 
@@ -172,6 +173,7 @@ flowchart LR
 | Command Executor | 독립 트랜잭션에서 최신 Entity 조회, 규칙 검증과 상태 변경을 수행한다. |
 | Coordinator | 트랜잭션 밖에서 기준 시각, 실행 순서와 재시도를 조정한다. |
 | Retrier | 낙관 락 충돌의 재시도·로그·오류 변환만 담당한다. |
+| PART-04 대기 Query·Read·Command Service | `RoomWaitlistController`의 전용 진입점이다. Query는 트랜잭션 밖에서 상태 보정을 조정하고, Read는 보정 커밋 뒤 짧은 읽기 트랜잭션에서 본인의 최신 상태·동적 순번을 조회하며, Command는 등록·재신청과 취소 유스케이스를 조정한다. |
 | PART-04 대기 등록 Coordinator | 트랜잭션 밖에서 고정 request time과 ROOM 충돌·정확한 대기 순번 UNIQUE 충돌의 단일 3회 예산을 관리한다. |
 | StatusCorrection Coordinator·Executor | Query·Scheduler가 공유하는 자동 상태 보정을 트랜잭션 밖 조정과 독립 트랜잭션 실행으로 나눈다. |
 | Integration Event Recorder | `room.contract`의 기록 포트를 구현하고 호출한 Room Command Executor의 트랜잭션에 참여해 Outbox 이벤트와 수신자 스냅샷만 저장한다. |
@@ -237,13 +239,47 @@ PART-04 대기 등록·재신청은 [ADR-0046](adr/participation/0046-room-waitl
 
 ```mermaid
 flowchart LR
-    waitlistController["대기 Controller"] --> waitlistCommand["대기 등록 CommandService<br/>트랜잭션 없음"]
-    waitlistCommand --> waitlistCoordinator["PART-04 전용 Coordinator<br/>request time 고정·총 3회"]
+    waitlistController["RoomWaitlistController<br/>POST·GET·DELETE만 소유"] --> waitlistQuery["대기 QueryService<br/>트랜잭션 없음·request time 고정"]
+    waitlistQuery --> statusCoordinator["RoomStatusCorrectionCoordinator<br/>GET ROOM 충돌 예산"]
+    statusCoordinator --> statusExecutor["RoomStatusCorrectionExecutor<br/>REQUIRES_NEW"]
+    statusExecutor --> correctionCommitted["ROOM 보정 시도 완료"]
+    correctionCommitted --> waitlistRead["RoomWaitlistReadService<br/>readOnly·REQUIRED"]
+    waitlistRead --> waitlistRepository["상태·position 단일 SQL<br/>호출자 transaction 참여"]
+    waitlistController --> waitlistCommand["대기 CommandService<br/>등록·재신청 위임"]
+    waitlistCommand --> waitlistCoordinator["등록 전용 Coordinator<br/>request time 고정·ROOM·순번 충돌 총 3회"]
     waitlistCoordinator --> waitlistExecutor["대기 등록 Executor<br/>REQUIRES_NEW"]
-    waitlistExecutor --> waitlistRepositories["Room·Participation·Waitlist Repository"]
+    waitlistExecutor --> waitlistRepositories["Room·Participation Repository"]
+    waitlistExecutor --> waitlistRepository
+    waitlistCommand --> roomCommandCoordinator["RoomCommandExecutionCoordinator<br/>DELETE ROOM 충돌 예산"]
+    roomCommandCoordinator --> waitlistCancelExecutor["대기 취소 Executor<br/>REQUIRES_NEW"]
+    waitlistCancelExecutor --> roomRepository["RoomRepository"]
+    waitlistCancelExecutor --> waitlistRepository
 ```
 
+`RoomWaitlistController`는 `POST /api/rooms/{roomId}/waitlist`, `GET /api/rooms/{roomId}/waitlist/me`, `DELETE /api/rooms/{roomId}/waitlist/me`만 소유한다. 인증 사용자·path·CSRF를 HTTP 경계에서 처리한 뒤 전용 Query·Command Service에 위임하며 Repository·Entity·Executor를 직접 사용하지 않는다.
+
+대기 Query Service는 트랜잭션을 시작하지 않고 request time을 한 번 고정한 뒤 기존 `RoomStatusCorrectionCoordinator`의 단건 보정이 커밋될 때까지 기다린다. 보정 충돌이 기존 ROOM 재시도 예산을 소진하면 `409 ROOM_CONCURRENT_MODIFICATION`으로 종료하고 대기 상태를 읽지 않는다. 보정 완료 뒤 Spring Proxy를 거쳐 `RoomWaitlistReadService`를 호출한다. 이 ReadService의 호출 경계가 `readOnly = true`, `REQUIRED` 전파인 짧은 읽기 트랜잭션을 소유하고, `RoomWaitlistRepository`는 그 호출자 트랜잭션에 참여해 [PART-04 저장 정본](ERD.md#room_waitlists)의 상태·`position`을 한 SQL·한 데이터베이스 스냅샷으로 조회한다. 이 읽기 트랜잭션에는 Query Service·상태 보정 Coordinator·상태 보정 Executor를 포함하지 않으며, Repository는 별도 트랜잭션·조회 락·`SKIP LOCKED`를 열지 않는다. 구체적인 트랜잭션 애너테이션 부착 위치는 이 경계를 지키는 범위에서 #302의 구현 자유로 남긴다. 이 조회 경계가 시작 시각의 `WAITING → EXPIRED`를 직접 구현하지 않으며, 해당 전이를 상태 보정과 같은 일관성 경계에 연결하는 책임은 ROOM-09에 남긴다.
+
+대기 Command Service는 등록·재신청을 PART-04 등록 전용 Coordinator에 위임한다. 대기 취소는 기존 `RoomCommandExecutionCoordinator`가 고정한 request time과 ROOM 충돌 예산으로 대기 취소 Executor를 호출한다. 취소 Executor는 한 `REQUIRES_NEW` 시도 안에서 ROOM을 먼저 보정하고 현재 `WAITING → CANCELED` 조건부 전이를 실행한다. 대기 취소 자체는 ROOM version을 강제로 claim하거나 sequence를 발급하지 않으며, 보정으로 발생한 ROOM 충돌의 예산 소진은 `409 ROOM_CONCURRENT_MODIFICATION`으로 반환한다. 등록 전용 Coordinator와 기존 ROOM 명령 Coordinator를 한 요청에 중첩하지 않는다.
+
 PART-04 전용 Coordinator는 ROOM 낙관적 락·조건부 version claim 충돌과 정확한 `uq_room_waitlists_waiting_room_queue_order` 충돌만 최초 시도 포함 총 3회의 같은 예산으로 재시도한다. 기존 `RoomOptimisticLockRetrier`를 안에 중첩하거나 그 의미를 확장하지 않는다. 각 실패 시도는 전체 롤백하고 다음 시도에서 최신 업무 상태를 다시 읽으며, 최초에 고정한 같은 request time을 사용한다. PK·FK·CHECK·그 밖의 UNIQUE, 교착·직렬화·분류할 수 없는 DB 오류는 재시도하지 않고 내부 제약·SQL 정보를 숨긴 공통 500으로 변환한다. 최종 내부 오류의 정제된 `ERROR` 로그는 요청당 한 번만 남긴다.
+
+PART-04 자동 처리는 새 공용 승격 계층을 만들지 않고 기존 ROOM 명령 Executor가 소유한다.
+
+```mermaid
+flowchart LR
+    participationCancel["RoomParticipationCancelExecutor<br/>기존 REQUIRES_NEW"] --> roomRepository["RoomRepository"]
+    participationCancel --> participationRepository["ParticipationRepository"]
+    participationCancel --> waitlistRepository["단일 RoomWaitlistRepository"]
+    roomCancel["RoomStatusChangeExecutor<br/>기존 REQUIRES_NEW"] --> roomRepository
+    roomCancel --> waitlistRepository
+```
+
+- `RoomParticipationCancelExecutor`가 기존 참가 취소와 현재 첫 `WAITING`의 조건부 승격, 승격 사용자의 참가 관계 생성·재활성화를 같은 트랜잭션에서 직접 조정한다.
+- `RoomStatusChangeExecutor`가 ROOM 취소와 남은 현재 `WAITING → ROOM_CANCELED`를 같은 트랜잭션에서 직접 조정한다.
+- 두 Executor는 #302의 단일 `RoomWaitlistRepository`를 직접 사용한다. 공용 승격 Service, 별도 자동 승격 collaborator와 중첩 재시도기를 추가하지 않으며 필요한 private helper만 둔다.
+- 필요한 명시적 flush로 참가 취소 경로의 데이터베이스 변경 순서를 `ROOM → 기존 참가 취소 → 대기 승격 → 승격 참가 생성·재활성화`, ROOM 취소 경로를 `ROOM → 남은 WAITING 종료`로 고정한다. 어느 단계의 실패도 ROOM·Participation·Waitlist 변경을 함께 롤백한다.
+- 시작 시각 경계의 `WAITING → EXPIRED` 실행은 [ROOM-09](p1/room.md#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화)가 소유한다. PART-04c Executor는 `now >= startsAt`이면 자동 승격이나 시작 경계 종료 쓰기를 남기지 않는다.
 
 상태 의존 Command는 같은 트랜잭션에서 시간 기반 상태를 먼저 보정한 뒤 유스케이스 규칙을 적용한다. Query·Scheduler용 상태 보정 Coordinator는 호출하지 않는다.
 
