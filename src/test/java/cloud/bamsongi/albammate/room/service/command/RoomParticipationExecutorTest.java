@@ -51,6 +51,8 @@ class RoomParticipationExecutorTest {
 		when(room.getHostUserId()).thenReturn(1L);
 		when(room.getActiveParticipantCount()).thenReturn(0, 1, 1);
 		when(room.getCapacity()).thenReturn(2);
+		when(room.getTotalParticipantCount()).thenReturn(2);
+		when(room.getRemainingRecruitmentSeats()).thenReturn(1);
 		when(room.getStartAt()).thenReturn(REQUEST_TIME.plusSeconds(3600));
 		when(room.getId()).thenReturn(ROOM_ID);
 

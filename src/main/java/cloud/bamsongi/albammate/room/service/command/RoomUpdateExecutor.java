@@ -19,8 +19,12 @@ import cloud.bamsongi.albammate.room.enums.MyRole;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailability;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailabilityEvaluator;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailabilityFacts;
 import cloud.bamsongi.albammate.user.contract.UserQuery;
 import lombok.AccessLevel;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
 /** 방 수정 한 번을 상태 보정과 함께 독립된 쓰기 트랜잭션에서 실행한다. */
@@ -28,9 +32,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 class RoomUpdateExecutor {
 
-	private final RoomRepository roomRepository;
-	private final GameQuery gameQuery;
-	private final UserQuery userQuery;
+	@NonNull private final RoomRepository roomRepository;
+	@NonNull private final GameQuery gameQuery;
+	@NonNull private final UserQuery userQuery;
+	@NonNull private final RoomActionAvailabilityEvaluator roomActionAvailabilityEvaluator;
 
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public ParticipantRoomResponse updateRoom(
@@ -70,11 +75,12 @@ class RoomUpdateExecutor {
 			userQuery
 				.findNicknameById(currentUserId)
 				.orElseThrow(UnauthenticatedException::new));
+		RoomActionAvailability availability = roomActionAvailabilityEvaluator.evaluate(
+			new RoomActionAvailabilityFacts(room, requestTime, true, true, false, false));
 		return ParticipantRoomResponse.from(
 			room,
 			game,
-			room.getActiveParticipantCount(),
-			false,
+			availability,
 			MyRole.HOST,
 			host,
 			java.util.List.of(host));

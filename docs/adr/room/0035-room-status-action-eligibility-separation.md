@@ -71,11 +71,14 @@ P0는 `RoomStatus`로 ROOM의 생명주기를 표현하고, 공개 ROOM 응답�
 
 ## 검증
 
-- 상태: 미검증
-- 근거: 없음
-- 미검증:
-    - Room 순수 파생 메서드와 서버 공통 판정 구현
-    - 현재 `ACTIVE`·`WAITING` 사실을 사용한 세 ROOM 응답 조립
-    - 행동 가능성 상호 배타성·시작 경계·기존 `joinable` 호환성 테스트
+- 상태: 검증됨
+- 근거:
+    - 구현:
+        - `Room`의 순수 인원·잔여석 파생 메서드와 `RoomActionAvailabilityEvaluator`가 요청자별 직접 참가·대기 가능 여부를 함께 판정한다.
+        - `PublicRoomResponse`, `ParticipantRoomResponse`, `MyRoomListItem`은 같은 `RoomActionAvailability`를 사용하고 `RoomParticipationResponse`는 행동 가능성 필드를 추가하지 않는다.
+    - 테스트:
+        - `room.service.RoomActionAvailabilityContractTest`는 파생값, 상호 배타적 판정, 세 공개 DTO 조립을 확인한다.
+        - ROOM 컨트롤러 테스트는 세 공개 DTO의 HTTP JSON 직렬화 경계를 확인한다.
+        - `room.service.command.RoomParticipationServiceTest`는 직접 참가 실패가 대기 생성으로 바뀌지 않는 기존 명령 계약을 확인한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

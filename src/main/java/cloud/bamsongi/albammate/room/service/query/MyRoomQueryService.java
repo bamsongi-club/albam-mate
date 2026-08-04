@@ -23,28 +23,23 @@ import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.MyRole;
 import cloud.bamsongi.albammate.room.enums.MyRoomRole;
 import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailability;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailabilityEvaluator;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailabilityFacts;
 import cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionCoordinator;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 
 /** 상태 보정 후 현재 사용자의 내 모임 목록을 계약 필드로 조립한다. */
 @Service
+@RequiredArgsConstructor
 public class MyRoomQueryService {
 
-	private final RoomStatusCorrectionCoordinator statusCorrectionCoordinator;
-	private final MyRoomReadService myRoomReadService;
-	private final GameQuery gameQuery;
-	private final Clock clock;
-
-	public MyRoomQueryService(
-		RoomStatusCorrectionCoordinator statusCorrectionCoordinator,
-		MyRoomReadService myRoomReadService,
-		GameQuery gameQuery,
-		Clock clock) {
-		this.statusCorrectionCoordinator = Objects.requireNonNull(
-			statusCorrectionCoordinator, "statusCorrectionCoordinator");
-		this.myRoomReadService = Objects.requireNonNull(myRoomReadService, "myRoomReadService");
-		this.gameQuery = Objects.requireNonNull(gameQuery, "gameQuery");
-		this.clock = Objects.requireNonNull(clock, "clock");
-	}
+	@NonNull private final RoomStatusCorrectionCoordinator statusCorrectionCoordinator;
+	@NonNull private final MyRoomReadService myRoomReadService;
+	@NonNull private final GameQuery gameQuery;
+	@NonNull private final Clock clock;
+	@NonNull private final RoomActionAvailabilityEvaluator roomActionAvailabilityEvaluator;
 
 	/** 보정 커밋 뒤 역할 필터·중복 제거·고정 정렬이 적용된 내 모임 페이지를 반환한다. */
 	public PageResponse<MyRoomListItem> findPage(
@@ -60,10 +55,18 @@ public class MyRoomQueryService {
 			rooms.map(
 				room -> {
 					MyRole myRole = room.getHostUserId().equals(currentUserId) ? MyRole.HOST : MyRole.JOINED;
+					RoomActionAvailability availability = roomActionAvailabilityEvaluator.evaluate(
+						new RoomActionAvailabilityFacts(
+							room,
+							requestTime,
+							true,
+							myRole == MyRole.HOST,
+							myRole == MyRole.JOINED,
+							false));
 					return MyRoomListItem.from(
 						room,
 						getGameSummary(room, gameSummaries),
-						false,
+						availability,
 						myRole,
 						myRole == MyRole.JOINED ? ParticipationStatus.ACTIVE : null);
 				}));

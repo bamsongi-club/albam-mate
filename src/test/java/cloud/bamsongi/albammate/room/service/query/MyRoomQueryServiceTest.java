@@ -33,6 +33,7 @@ import cloud.bamsongi.albammate.room.enums.MyRoomRole;
 import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailabilityEvaluator;
 import cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionCoordinator;
 
 @ExtendWith(MockitoExtension.class)
@@ -55,7 +56,8 @@ class MyRoomQueryServiceTest {
 			statusCorrectionCoordinator,
 			myRoomReadService,
 			gameQuery,
-			Clock.fixed(NOW, ZoneOffset.UTC));
+			Clock.fixed(NOW, ZoneOffset.UTC),
+			new RoomActionAvailabilityEvaluator());
 	}
 
 	@Test
@@ -105,7 +107,8 @@ class MyRoomQueryServiceTest {
 		when(room.getStartAt()).thenReturn(NOW.plusSeconds(3600));
 		when(room.getRegion()).thenReturn("홍대");
 		when(room.getCapacity()).thenReturn(capacity);
-		when(room.getActiveParticipantCount()).thenReturn(activeParticipantCount);
+		when(room.getTotalParticipantCount()).thenReturn(activeParticipantCount + 1);
+		when(room.getRemainingRecruitmentSeats()).thenReturn(capacity - activeParticipantCount);
 		when(room.getStatus()).thenReturn(RoomStatus.RECRUITING);
 		return room;
 	}

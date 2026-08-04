@@ -27,6 +27,7 @@ import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
 
 @ExtendWith(MockitoExtension.class)
 class RoomListReadServiceTest {
@@ -35,12 +36,14 @@ class RoomListReadServiceTest {
 
 	@Mock
 	private RoomRepository roomRepository;
+	@Mock
+	private RoomWaitlistRepository roomWaitlistRepository;
 
 	private RoomListReadService roomListReadService;
 
 	@BeforeEach
 	void setUp() {
-		roomListReadService = new RoomListReadService(roomRepository);
+		roomListReadService = new RoomListReadService(roomRepository, roomWaitlistRepository);
 	}
 
 	@Test

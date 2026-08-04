@@ -13,6 +13,7 @@ import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailability;
 
 class PublicRoomResponseTest {
 
@@ -28,10 +29,12 @@ class PublicRoomResponseTest {
 		when(room.getStartAt()).thenReturn(Instant.parse("2026-08-01T00:00:00Z"));
 		when(room.getRegion()).thenReturn("홍대");
 		when(room.getCapacity()).thenReturn(3);
+		when(room.getTotalParticipantCount()).thenReturn(2);
+		when(room.getRemainingRecruitmentSeats()).thenReturn(2);
 		when(room.getStatus()).thenReturn(RoomStatus.RECRUITING);
 
 		PublicRoomResponse response = PublicRoomResponse.from(
-			room, new GameSummary(3L, 1003L, "카탄"), 1, true);
+			room, new GameSummary(3L, 1003L, "카탄"), new RoomActionAvailability(true, false));
 
 		assertEquals(7L, response.id());
 		assertEquals(2, response.participantCount());

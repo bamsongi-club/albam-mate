@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -38,6 +39,7 @@ import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailabilityEvaluator;
 import cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionCoordinator;
 
 @ExtendWith(MockitoExtension.class)
@@ -51,6 +53,7 @@ class RoomListQueryServiceTest {
 	private RoomListReadService roomListReadService;
 	@Mock
 	private GameQuery gameQuery;
+	private final RoomActionAvailabilityEvaluator roomActionAvailabilityEvaluator = new RoomActionAvailabilityEvaluator();
 
 	private RoomListQueryService roomListQueryService;
 
@@ -60,7 +63,8 @@ class RoomListQueryServiceTest {
 			statusCorrectionCoordinator,
 			roomListReadService,
 			gameQuery,
-			Clock.fixed(NOW, ZoneOffset.UTC));
+			Clock.fixed(NOW, ZoneOffset.UTC),
+			roomActionAvailabilityEvaluator);
 	}
 
 	@Test
@@ -316,7 +320,7 @@ class RoomListQueryServiceTest {
 	private RoomListReadService.RoomListReadResult readResult(
 		List<Room> rooms, PageRequest pageable, Set<Long> activeParticipationRoomIds) {
 		return new RoomListReadService.RoomListReadResult(
-			new PageImpl<>(rooms, pageable, rooms.size()), activeParticipationRoomIds);
+			new PageImpl<>(rooms, pageable, rooms.size()), activeParticipationRoomIds, Set.of());
 	}
 
 	private Room room(
@@ -340,7 +344,9 @@ class RoomListQueryServiceTest {
 		when(room.getStartAt()).thenReturn(startsAt);
 		when(room.getRegion()).thenReturn("홍대");
 		when(room.getCapacity()).thenReturn(capacity);
-		when(room.getActiveParticipantCount()).thenReturn(activeParticipantCount);
+		lenient().when(room.getActiveParticipantCount()).thenReturn(activeParticipantCount);
+		when(room.getTotalParticipantCount()).thenReturn(activeParticipantCount + 1);
+		when(room.getRemainingRecruitmentSeats()).thenReturn(capacity - activeParticipantCount);
 		when(room.getStatus()).thenReturn(status);
 		return room;
 	}

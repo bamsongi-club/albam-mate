@@ -147,6 +147,7 @@ class RoomControllerTest {
 			.andExpect(jsonPath("$.status").value(200))
 			.andExpect(jsonPath("$.data.content[0].id").value(1))
 			.andExpect(jsonPath("$.data.content[0].joinable").value(false))
+			.andExpect(jsonPath("$.data.content[0].waitlistable").value(false))
 			.andExpect(jsonPath("$.data.content[0].place").doesNotExist())
 			.andExpect(jsonPath("$.data.content[0].host").doesNotExist())
 			.andExpect(jsonPath("$.data.content[0].participants").doesNotExist())
@@ -166,7 +167,8 @@ class RoomControllerTest {
 			get("/api/rooms?type=PERSON_FOCUSED&keyword=모임&page=1&size=20")
 				.with(authenticationFor(42L)))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.content[0].joinable").value(true));
+			.andExpect(jsonPath("$.data.content[0].joinable").value(true))
+			.andExpect(jsonPath("$.data.content[0].waitlistable").value(false));
 
 		ArgumentCaptor<RoomListRequest> requestCaptor = ArgumentCaptor.forClass(RoomListRequest.class);
 		verify(roomListQueryService).findPage(requestCaptor.capture(), eq(Optional.of(42L)));
@@ -308,6 +310,7 @@ class RoomControllerTest {
 			.andExpect(jsonPath("$.data.remainingRecruitmentSeats").value(3))
 			.andExpect(jsonPath("$.data.status").value("RECRUITING"))
 			.andExpect(jsonPath("$.data.joinable").value(false))
+			.andExpect(jsonPath("$.data.waitlistable").value(false))
 			.andExpect(jsonPath("$.data.myRole").value("HOST"))
 			.andExpect(jsonPath("$.data.place").value("홍대 장소"))
 			.andExpect(jsonPath("$.data.host.nickname").value("방장"))
@@ -357,6 +360,8 @@ class RoomControllerTest {
 				.content("{\"title\":\"수정 제목\",\"description\":null}"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.status").value(200))
+			.andExpect(jsonPath("$.data.joinable").value(false))
+			.andExpect(jsonPath("$.data.waitlistable").value(false))
 			.andExpect(jsonPath("$.data.myRole").value("HOST"));
 
 		ArgumentCaptor<RoomUpdateRequest> requestCaptor = ArgumentCaptor.forClass(RoomUpdateRequest.class);
@@ -598,6 +603,7 @@ class RoomControllerTest {
 			3,
 			RoomStatus.RECRUITING,
 			false,
+			false,
 			MyRole.HOST,
 			"홍대 장소",
 			host,
@@ -622,7 +628,8 @@ class RoomControllerTest {
 					2,
 					2,
 					RoomStatus.RECRUITING,
-					joinable)),
+					joinable,
+					false)),
 			0,
 			10,
 			1,

@@ -19,6 +19,7 @@ import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
 import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
 
 @ExtendWith(MockitoExtension.class)
 class RoomDetailReadServiceTest {
@@ -27,12 +28,15 @@ class RoomDetailReadServiceTest {
 	private RoomRepository roomRepository;
 	@Mock
 	private ParticipationRepository participationRepository;
+	@Mock
+	private RoomWaitlistRepository roomWaitlistRepository;
 
 	private RoomDetailReadService roomDetailReadService;
 
 	@BeforeEach
 	void setUp() {
-		roomDetailReadService = new RoomDetailReadService(roomRepository, participationRepository);
+		roomDetailReadService = new RoomDetailReadService(
+			roomRepository, participationRepository, roomWaitlistRepository);
 	}
 
 	@Test

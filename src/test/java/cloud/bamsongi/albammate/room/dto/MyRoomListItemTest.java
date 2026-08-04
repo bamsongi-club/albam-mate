@@ -15,6 +15,7 @@ import cloud.bamsongi.albammate.room.enums.MyRole;
 import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailability;
 
 class MyRoomListItemTest {
 
@@ -31,12 +32,14 @@ class MyRoomListItemTest {
 		when(room.getRegion()).thenReturn("홍대");
 		when(room.getCapacity()).thenReturn(4);
 		when(room.getActiveParticipantCount()).thenReturn(2);
+		when(room.getTotalParticipantCount()).thenReturn(3);
+		when(room.getRemainingRecruitmentSeats()).thenReturn(2);
 		when(room.getStatus()).thenReturn(RoomStatus.CLOSED);
 
 		MyRoomListItem response = MyRoomListItem.from(
 			room,
 			new GameSummary(3L, 1003L, "카탄"),
-			false,
+			new RoomActionAvailability(false, false),
 			MyRole.JOINED,
 			ParticipationStatus.ACTIVE);
 

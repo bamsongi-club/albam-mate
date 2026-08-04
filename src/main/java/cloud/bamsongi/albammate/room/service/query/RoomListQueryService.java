@@ -22,19 +22,23 @@ import cloud.bamsongi.albammate.global.response.PageResponse;
 import cloud.bamsongi.albammate.room.dto.PublicRoomResponse;
 import cloud.bamsongi.albammate.room.dto.RoomListRequest;
 import cloud.bamsongi.albammate.room.entity.Room;
-import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailability;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailabilityEvaluator;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailabilityFacts;
 import cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionCoordinator;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class RoomListQueryService {
 
-	private final RoomStatusCorrectionCoordinator statusCorrectionCoordinator;
-	private final RoomListReadService roomListReadService;
-	private final GameQuery gameQuery;
-	private final Clock clock;
+	@NonNull private final RoomStatusCorrectionCoordinator statusCorrectionCoordinator;
+	@NonNull private final RoomListReadService roomListReadService;
+	@NonNull private final GameQuery gameQuery;
+	@NonNull private final Clock clock;
+	@NonNull private final RoomActionAvailabilityEvaluator roomActionAvailabilityEvaluator;
 
 	/** 상태 보정이 끝난 시점의 공개 방을 고정 정렬과 요청자 기준 참가 가능 여부로 반환한다. */
 	public PageResponse<PublicRoomResponse> findPage(
@@ -72,9 +76,7 @@ public class RoomListQueryService {
 				room -> PublicRoomResponse.from(
 					room,
 					getGameSummary(room, gameSummaries),
-					room.getActiveParticipantCount(),
-					isJoinable(
-						room, requestTime, currentUserId, readResult.activeParticipationRoomIds())));
+					availabilityFor(room, requestTime, currentUserId, readResult)));
 		return PageResponse.from(response);
 	}
 
@@ -104,20 +106,18 @@ public class RoomListQueryService {
 			.orElseThrow(() -> new BusinessException(ErrorCode.GAME_NOT_FOUND));
 	}
 
-	private boolean isJoinable(
+	private RoomActionAvailability availabilityFor(
 		Room room,
 		Instant requestTime,
 		Optional<Long> currentUserId,
-		java.util.Set<Long> activeParticipationRoomIds) {
-		int remainingRecruitmentSeats = room.getCapacity() - room.getActiveParticipantCount();
-		boolean joinable = currentUserId
-			.filter(userId -> !userId.equals(room.getHostUserId()))
-			.filter(
-				userId -> !activeParticipationRoomIds.contains(room.getId()))
-			.isPresent()
-			&& room.getStatus() == RoomStatus.RECRUITING
-			&& requestTime.isBefore(room.getStartAt())
-			&& remainingRecruitmentSeats >= 1;
-		return joinable;
+		RoomListReadService.RoomListReadResult readResult) {
+		Long currentUserIdOrNull = currentUserId.orElse(null);
+		return roomActionAvailabilityEvaluator.evaluate(new RoomActionAvailabilityFacts(
+			room,
+			requestTime,
+			currentUserId.isPresent(),
+			currentUserId.filter(room.getHostUserId()::equals).isPresent(),
+			readResult.activeParticipationRoomIds().contains(room.getId()),
+			currentUserIdOrNull != null && readResult.waitingRoomIds().contains(room.getId())));
 	}
 }

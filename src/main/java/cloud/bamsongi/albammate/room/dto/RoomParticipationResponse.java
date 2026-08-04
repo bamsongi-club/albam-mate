@@ -12,12 +12,11 @@ public record RoomParticipationResponse(
 	int remainingRecruitmentSeats) {
 
 	public static RoomParticipationResponse from(Room room, ParticipationStatus participationStatus) {
-		int activeParticipantCount = room.getActiveParticipantCount();
 		return new RoomParticipationResponse(
 			room.getId(),
 			participationStatus,
 			room.getStatus(),
-			activeParticipantCount + 1,
-			room.getCapacity() - activeParticipantCount);
+			room.getTotalParticipantCount(),
+			room.getRemainingRecruitmentSeats());
 	}
 }
