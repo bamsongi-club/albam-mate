@@ -175,6 +175,7 @@ public final class ApiEndpointPolicyRegistry {
 			policy(HttpMethod.POST, "/api/auth/signup", PUBLIC, true),
 			policy(HttpMethod.POST, "/api/auth/login", PUBLIC, true),
 			policy(HttpMethod.POST, "/api/auth/logout", AUTHENTICATED, true),
+			policy(HttpMethod.GET, "/api/auth/social/providers", OPTIONAL_AUTHENTICATION, false),
 			policy(HttpMethod.GET, "/api/users/me", AUTHENTICATED, false),
 			policy(HttpMethod.PATCH, "/api/users/me", AUTHENTICATED, true),
 			policy(HttpMethod.GET, "/api/users/me/notifications", AUTHENTICATED, false),

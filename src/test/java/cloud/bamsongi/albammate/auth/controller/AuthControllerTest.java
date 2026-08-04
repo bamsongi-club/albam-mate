@@ -25,6 +25,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
+import cloud.bamsongi.albammate.auth.security.AppSessionEstablisher;
 import cloud.bamsongi.albammate.auth.service.LoginService;
 import cloud.bamsongi.albammate.auth.service.SignupService;
 import cloud.bamsongi.albammate.global.config.SecurityConfig;
@@ -47,6 +48,7 @@ import tools.jackson.databind.ObjectMapper;
 @WebMvcTest(controllers = AuthController.class)
 @Import({
 	SecurityConfig.class,
+	AppSessionEstablisher.class,
 	ApiAccessDeniedHandler.class,
 	ApiAuthenticationEntryPoint.class,
 	SecurityErrorResponseWriter.class,
