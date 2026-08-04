@@ -40,7 +40,7 @@ P1 저장 계약의 준비 상태는 기능별로 다르다. 알림 저장 계�
 | [`CHAT-03`](chatting.md#chat-03-실시간-전달재연결-복구) | 선행 계약 필요 | 부분 구현 ([#285](https://github.com/bamsongi-club/albam-mate/issues/285)) | 부분 검증 ([#285](https://github.com/bamsongi-club/albam-mate/issues/285)) | 미배포·미측정 |
 | [`CHAT-04`](chatting.md#chat-04-채팅-안전운영) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |
 | [`CHAT-05`](chatting.md#chat-05-내-모임-채팅-진입) | 계약 준비 완료 | 구현 완료 ([#290](https://github.com/bamsongi-club/albam-mate/issues/290), [#427](https://github.com/bamsongi-club/albam-mate/issues/427)) | 검증 완료 ([#290](https://github.com/bamsongi-club/albam-mate/issues/290), [#427](https://github.com/bamsongi-club/albam-mate/issues/427)) | 미배포·미측정 |
-| [`FND-09`](foundation.md#fnd-09-검색-성능과-인덱스-검증) | 선행 기능 계약 대기 | 미구현 | 미검증 | 미배포·미측정 |
+| [`FND-09`](foundation.md#fnd-09-검색-성능과-인덱스-검증) | 계약 준비 완료 | 구현 완료 (#307) | 검증 완료 (#307: PostgreSQL 검색 성능·인덱스 검증) | 미배포·미측정 |
 | [`FND-10`](foundation.md#fnd-10-실시간-전달과-재연결-기반) | 계약 준비 완료 | 부분 구현 ([#360](https://github.com/bamsongi-club/albam-mate/issues/360)) | 부분 검증 ([#360](https://github.com/bamsongi-club/albam-mate/issues/360)) | 미배포·미측정 |
 
 - `계약 준비 완료`: 기능 구현에 필요한 제품·API·저장·아키텍처 계약과 필수 ADR이 모두 반영·승인됐다. 생산 코드나 검증 완료를 뜻하지 않는다.
