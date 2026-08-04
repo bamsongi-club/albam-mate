@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.chat.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,4 +14,7 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
 
 	List<ChatMessage> findByChatRoomIdAndIdLessThanOrderByIdDesc(Long chatRoomId, Long beforeMessageId,
 		Pageable pageable);
+
+	Optional<ChatMessage> findByChatRoomIdAndSenderUserIdAndClientMessageId(
+		Long chatRoomId, Long senderUserId, String clientMessageId);
 }

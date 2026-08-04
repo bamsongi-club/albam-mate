@@ -1435,11 +1435,15 @@ function ProfileView({ me, onSave, onLogout }) {
   );
 }
 
-// 하한은 브라우저 minLength가 알려준다. 사용자가 스스로 셀 수 없는 상한만 여기서 판정한다.
+// 브라우저 minLength와 서버의 Unicode 문자 수 계산이 다를 수 있어 하한도 같은 기준으로 판정한다.
 // 안내 문구의 한글 24자는 72바이트를 한글 한 글자 3바이트로 나눈 값이다.
 // 이 문장이 가입이 막힌 사유를 알리는 유일한 자리다. 같은 말을 오류 상자에 겹쳐 띄우지 않는다.
 function signupPasswordError(password) {
-  if ([...password].length > PASSWORD_MAX_CODE_POINTS) {
+  const codePointLength = [...password].length;
+  if (password && codePointLength < PASSWORD_MIN_CODE_POINTS) {
+    return PASSWORD_MIN_CODE_POINTS + '자 이상 입력해야 회원가입을 진행할 수 있어요.';
+  }
+  if (codePointLength > PASSWORD_MAX_CODE_POINTS) {
     return PASSWORD_MAX_CODE_POINTS + '자를 넘어 회원가입을 진행할 수 없어요. 조금 줄여주세요.';
   }
   if (new TextEncoder().encode(password).length > PASSWORD_MAX_UTF8_BYTES) {
@@ -1448,7 +1452,7 @@ function signupPasswordError(password) {
   return '';
 }
 
-function AuthView({ onLogin, onSignup }) {
+export function AuthView({ onLogin, onSignup }) {
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -1814,4 +1818,5 @@ function App() {
   );
 }
 
-createRoot(document.getElementById('root')).render(<App />);
+const rootElement = document.getElementById('root');
+if (rootElement) createRoot(rootElement).render(<App />);

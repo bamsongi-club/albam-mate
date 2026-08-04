@@ -14,7 +14,7 @@ const approvedComment = 'https://github.com/bamsongi-club/albam-mate/issues/14#i
 
 function validPacket() {
     return {
-        schemaVersion: 2,
+        schemaVersion: 3,
         workItem: {
             kind: 'issue',
             id: '#14',
@@ -46,17 +46,13 @@ function validPacket() {
             issueNumber: 14,
             commentUrl: approvedComment,
         },
-        validation: {
-            targetedTests: ['./gradlew.bat test --tests "*Signup*"'],
-            finalCommands: ['git diff --check'],
-        },
         confirmedDecisions: ['테스트 계약은 이슈 코멘트를 정본으로 사용한다'],
     };
 }
 
 const keywords = (errors) => errors.map((error) => error.keyword);
 
-test('schemaVersion 2 패킷과 승인된 연속 T-ID는 실제 스키마를 통과한다', () => {
+test('schemaVersion 3 패킷과 승인된 연속 T-ID는 실제 스키마를 통과한다', () => {
     assert.deepEqual(validatePacket(validPacket(), schema), []);
 });
 
@@ -81,7 +77,7 @@ test('PR 피드백이 기존 T-ID 범위 안이면 원래 이슈 승인 참조�
 
 test('이전 스키마 버전과 새 필수 필드 누락을 거부한다', () => {
     const packet = validPacket();
-    packet.schemaVersion = 1;
+    packet.schemaVersion = 2;
     delete packet.requiredTests;
     delete packet.testContractApproval;
 
@@ -90,6 +86,18 @@ test('이전 스키마 버전과 새 필수 필드 누락을 거부한다', () =
     assert.ok(errors.some((error) => error.instancePath === '$.schemaVersion' && error.keyword === 'const'));
     assert.ok(errors.some((error) => error.instancePath === '$.requiredTests' && error.keyword === 'required'));
     assert.ok(errors.some((error) => error.instancePath === '$.testContractApproval' && error.keyword === 'required'));
+});
+
+test('v3에서 제거된 validation 필드를 거부한다', () => {
+    const packet = validPacket();
+    packet.validation = {
+        targetedTests: ['./gradlew.bat test --tests "*Signup*"'],
+        finalCommands: ['git diff --check'],
+    };
+
+    const errors = validatePacket(packet, schema);
+
+    assert.ok(errors.some((error) => error.instancePath === '$.validation' && error.keyword === 'additionalProperties'));
 });
 
 test('스키마에 없는 패킷 속성을 거부한다', () => {

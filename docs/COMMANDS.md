@@ -152,20 +152,43 @@ node --test scripts/check-doc-links.test.mjs
 
 ## 백엔드 전달 테스트 계약
 
-full-delivery의 최종 packet과 execution plan은 작업 트리 밖의 임시 JSON으로 유지한다. builder가 현재 snapshot을 계산하고 plan의 중복 명령, T-ID 매핑, 실제 test source와 packet의 대상·최종 명령 포함 여부를 검증한 뒤 대상 테스트, 그 밖의 T-ID 실행, 최종 명령 순서로 expected를 만든다.
+구현 packet과 test manifest는 작업 트리 밖의 임시 JSON으로 유지한다. packet v3는 승인된 자연어 T-ID를 보존하고, manifest는 각 T-ID를 실제 source·Gradle task·wildcard 없는 exact selector에만 연결한다. manifest 검증은 source 존재와 source set 일치에 더해 selector가 가리키는 메서드가 그 source에 실제로 선언됐는지까지 확인한다. Red 상태와 실행 결과는 manifest가 아니라 구현자의 텍스트 보고로 확인한다.
 
 ```sh
-node scripts/build-backend-test-plan.mjs --packet <packet.json> --plan <plan.json> --output <expected.json> --worktree <worktree>
+node scripts/validate-packet.mjs <packet.json>
+node scripts/validate-backend-test-manifest.mjs --packet <packet.json> --manifest <manifest.json> --worktree <worktree>
 ```
 
-fresh backend-tester는 생성된 고유 execution을 runner로 한 번씩 실행한다. 첫 실행 실패는 남은 명령을 중단하고 구현자가 실패 명령만 반복해 수정하게 하며, 수정 완료 뒤 새 snapshot에서 runner 전체를 최종 한 번 실행한다. 미검증 결과는 원인을 해결한 뒤 새 result 경로로 runner 전체를 다시 실행한다.
+Red에서는 선택한 모든 실패를 관찰할 수 있도록 `--fail-fast`를 쓰지 않는다. Green과 full-delivery의 고정 head 최종 재실행에서만 `--fail-fast`를 사용한다. H2와 PostgreSQL selector는 task별 한 명령에 묶고 `--rerun`으로 정확히 실행한다. `--rerun`이 없으면 소스가 그대로일 때 Gradle이 Test task를 `UP-TO-DATE`로 건너뛰고 종료 코드 0을 내므로, 테스트를 한 건도 돌리지 않은 실행이 통과처럼 보인다. PostgreSQL 실행 전에는 `docker version`으로 daemon 접근을 확인한다.
 
-```sh
-node scripts/run-backend-test-contract.mjs --expected <expected.json> --result <result.json> --worktree <worktree>
-node scripts/validate-backend-test-result.mjs --result <result.json> --expected <expected.json>
+selector 문법은 [Gradle 테스트 필터링](https://docs.gradle.org/current/userguide/java_testing.html)과 [TestFilter](https://docs.gradle.org/current/javadoc/org/gradle/api/tasks/testing/TestFilter.html)를 따른다.
+
+```powershell
+# Red: 첫 실패에서 중단하지 않는다.
+.\gradlew.bat test `
+  --tests "cloud.bamsongi.FirstTest.첫_동작" `
+  --tests "cloud.bamsongi.SecondTest.둘째_동작" `
+  --rerun
+
+# Green: H2 selector를 한 번에 확인한다.
+.\gradlew.bat test `
+  --tests "cloud.bamsongi.FirstTest.첫_동작" `
+  --tests "cloud.bamsongi.SecondTest.둘째_동작" `
+  --rerun --fail-fast
+
+# PostgreSQL Green: docker version 성공 뒤 별도 task로 확인한다.
+.\gradlew.bat postgresTest `
+  --tests "cloud.bamsongi.ExamplePostgresTest.경계를_검증한다" `
+  --rerun --fail-fast
 ```
 
-JUnit execution은 새로 생성되거나 갱신된 XML과 1개 이상의 테스트를 증명해야 하며, exit code 0만으로 통과하지 않는다. 상세 입력·결과 계약은 [backend-delivery 테스트 하네스](../.agents/skills/backend-delivery/references/test-contract-harness.md)를 따른다.
+일반 TDD 루프에서는 [기본 Gradle Daemon](https://docs.gradle.org/current/userguide/gradle_daemon.html)을 사용하고 `--no-daemon`, `--rerun-tasks`, 전체 build와 전체 coverage를 실행하지 않는다. 변경한 생산 패키지가 `gatedBranchCoverage`에 없을 때만 다음 조건부 게이트를 완료 기준에 추가한다.
+
+```powershell
+.\gradlew.bat jacocoTestReport verifyCoverageRuleTargets
+```
+
+이 명령은 `jacocoTestReport`가 `test`에 의존하므로 전체 H2 test 1회와 커버리지 구조 검사를 포함한다. 기준 실측은 약 70초이며 머신 상태에 따라 더 걸릴 수 있으므로 짧은 정적 검사로 취급하지 않는다. 로컬은 targeted 테스트와 이 조건부 전체 H2 게이트까지 책임지고, 기존 래칫 비율 회귀·PostgreSQL 합산 coverage·전체 회귀는 GitHub CI가 판정한다. 전달 종료 시 임시 packet과 manifest를 삭제한다.
 
 ## 게임 카탈로그 검수
 

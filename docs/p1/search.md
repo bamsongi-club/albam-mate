@@ -2,7 +2,7 @@
 
 이 문서는 P1 필수 범위인 메커니즘을 포함한 `SEARCH-01`~`SEARCH-03`의 구현 규칙과 완료 기준을 정의한다. 현재 계약·생산 코드·자동 검증·운영 상태는 [P1 기능 상태 정본](README.md#기능별-현재-상태)을 따른다.
 
-전체 범위·공통 검색 규칙은 [P1 명세](../P1-spec.md), 기존 동작은 [P0 완료 문서](../archive/p0/README.md), 요청·응답·오류는 [API 명세](../API.md), 저장 구조와 제약은 [ERD](../ERD.md)를 따른다. 메커니즘과 `SEARCH-03` 저장 계약은 ERD에 반영하며, 구현 작업은 전진 Flyway 마이그레이션과 PostgreSQL 검증을 함께 추가해야 한다.
+전체 범위·공통 검색 규칙은 [P1 명세](../P1-spec.md), 기존 동작은 [P0 완료 문서](../archive/p0/README.md), 요청·응답·오류는 [API 명세](../API.md), 저장 구조와 제약은 [ERD](../ERD.md)를 따른다. 메커니즘과 `SEARCH-03` 저장 계약은 ERD에 반영하며, 해당 저장 계약을 구현할 때는 전진 Flyway 마이그레이션과 PostgreSQL 검증을 함께 추가한다. 기존 `ROOMS` 필드만 사용하는 `SEARCH-02`에는 신규 저장 계약이나 마이그레이션을 요구하지 않는다.
 
 P1 필수 게임 데이터 적재·검증 대상은 현재 확보한 약 2,000건이다. 전체 카탈로그 확장과 새 외부 데이터 취득은 별도 승인 범위다. 수치 검색은 [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md), 메커니즘은 [ADR-0048](../adr/game/0048-full-reviewed-game-mechanism-catalog.md), 사용자별 해 본 게임은 [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md)을 따른다.
 

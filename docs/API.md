@@ -484,7 +484,7 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 `joinable`은 다음을 **모두** 만족할 때만 `true`이고, 그 외에는 `false`다.
 
 1. 요청자가 로그인했다.
-2. 요청자가 주최자도, 현재 `ACTIVE` 참가자도 아니다.
+2. 요청자가 주최자도, 현재 `ACTIVE` 참가자도, 현재 `WAITING` 대기자도 아니다.
 3. 방 상태가 `RECRUITING`이다.
 4. 현재 시각이 `startsAt`보다 이르다(`now < startsAt`).
 5. `remainingRecruitmentSeats`가 1 이상이다.
@@ -500,6 +500,8 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 5. `remainingRecruitmentSeats`가 `0`이다.
 
 직접 참가 또는 대기를 취소한 사용자는 현재 조건을 다시 충족하면 각각 참가하거나 대기할 수 있다. 직접 참가 요청이 좌석 경합으로 실패해도 서버는 해당 요청으로 대기 관계를 만들지 않는다.
+
+이미 현재 `WAITING`인 요청자는 두 값이 모두 `false`이며, 현재 `WAITING`은 독립적인 `joinable=true` 조건이 아니다. 위에서 정의한 직접 참가·대기 신청 조건을 충족하지 않는 조합도 두 값이 모두 `false`다.
 
 ### 4.8 ParticipantRoomResponse
 

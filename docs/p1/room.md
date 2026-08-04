@@ -30,7 +30,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 선행 승인 | [ADR-0035 방 생명주기 상태와 요청자별 행동 가능성을 분리](../adr/room/0035-room-status-action-eligibility-separation.md), [ADR-0041 상태 보정 뒤 ROOM 조회를 PostgreSQL 일관 스냅샷으로 구성](../adr/room/0041-postgresql-room-query-consistent-snapshot.md) — `승인됨` |
 | 연결 기능 | [PART-04 선착순 대기열과 자동 승격](#part-04-선착순-대기열과-자동-승격) |
 | 선행 구현 | PART-04가 소유하는 현재 WAITING 저장·조회 기반([#302](https://github.com/bamsongi-club/albam-mate/issues/302))이 기준 브랜치에 병합된 뒤 ROOM-08 구현을 시작한다. |
-| 필수 테스트 계약 | [#303의 최신 전체 ROOM-08-T1~T8](https://github.com/bamsongi-club/albam-mate/issues/303#issuecomment-5163681578) |
+| 필수 테스트 계약 | [#303의 최신 전체 ROOM-08-T1~T8](https://github.com/bamsongi-club/albam-mate/issues/303#issuecomment-5177036311) |
 | 착수 전 확정 | 없음 |
 
 ### 기능 규칙
@@ -59,7 +59,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 - `ROOM-08-AC4` `PublicRoomResponse`, `ParticipantRoomResponse`, `MyRoomListItem`은 기존 표시 정보를 유지하면서 Room 파생값과 공통 availability로 필수·non-null `waitlistable`을 포함한 응답을 조립하고, `RoomParticipationResponse`에는 행동 가능성 필드를 추가하지 않는다.
 - `ROOM-08-AC5` 상태 보정 커밋 뒤 목록·상세 조회가 독립 `REPEATABLE_READ` 읽기 트랜잭션에서 ROOM과 필요한 현재 `ACTIVE`·`WAITING` 사실을 같은 PostgreSQL 스냅샷으로 읽으며 조회 락·거대 projection 없이 Game·User 조회와 DTO 조립을 그 밖에 둔다.
 - `ROOM-08-AC6` 조회 행동 가능성을 참가 허가로 사용하지 않고 실제 참가 명령이 최신 상태를 다시 검증하며, 직접 참가 실패를 WAITING 생성으로 바꾸지 않고 생성·수정 응답에도 같은 공통 availability를 사용한다.
-- `ROOM-08-AC7` [최신 전체 ROOM-08-T1~T8](https://github.com/bamsongi-club/albam-mate/issues/303#issuecomment-5163681578)로 AC1~AC6의 성공·실패 경로, 무 I/O·금지 구조와 기존 생성·수정·참가·취소·Controller 회귀를 단위·HTTP·PostgreSQL 테스트와 전체 CI에서 검증한다.
+- `ROOM-08-AC7` [최신 전체 ROOM-08-T1~T8](https://github.com/bamsongi-club/albam-mate/issues/303#issuecomment-5177036311)로 AC1~AC6의 성공·실패 경로, 무 I/O·금지 구조와 기존 생성·수정·참가·취소·Controller 회귀를 단위·HTTP·PostgreSQL 테스트와 전체 CI에서 검증한다.
 
 | 완료 기준 | 필수 테스트 계약 |
 | --- | --- |
@@ -68,8 +68,8 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | `ROOM-08-AC3` | `ROOM-08-T4`, `ROOM-08-T8` |
 | `ROOM-08-AC4` | `ROOM-08-T3`, `ROOM-08-T5`, `ROOM-08-T8` |
 | `ROOM-08-AC5` | `ROOM-08-T6` |
-| `ROOM-08-AC6` | `ROOM-08-T7`, 추가 회귀 계약 |
-| `ROOM-08-AC7` | `ROOM-08-T1`~`ROOM-08-T8`, 추가 회귀 계약 |
+| `ROOM-08-AC6` | `ROOM-08-T7` |
+| `ROOM-08-AC7` | `ROOM-08-T1`~`ROOM-08-T8` |
 
 ### 제외 범위
 
