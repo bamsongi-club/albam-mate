@@ -140,9 +140,12 @@ class ChatMessageCommandConcurrencyPostgresTest {
 				}));
 			await(messageSaved);
 
-			Future<?> cancel = executor
-				.submit(() -> cancelRoomInTransaction(room.getId(), new CountDownLatch(0), releaseMessageCommit));
-			assertCommandIsBlocked(cancel);
+			CountDownLatch cancelStarted = new CountDownLatch(1);
+			Future<?> cancel = executor.submit(() -> {
+				cancelStarted.countDown();
+				cancelRoomInTransaction(room.getId(), new CountDownLatch(0), releaseMessageCommit);
+			});
+			assertCommandIsBlocked(cancel, cancelStarted);
 			releaseMessageCommit.countDown();
 			ChatMessageSendResult result = send.get(WAIT_SECONDS, TimeUnit.SECONDS);
 			cancel.get(WAIT_SECONDS, TimeUnit.SECONDS);
@@ -180,9 +183,12 @@ class ChatMessageCommandConcurrencyPostgresTest {
 				}));
 			await(messageSaved);
 
-			Future<?> cancel = executor.submit(
-				() -> roomParticipationCancelService.cancelParticipation(participantUserId, room.getId()));
-			assertCommandIsBlocked(cancel);
+			CountDownLatch cancelStarted = new CountDownLatch(1);
+			Future<?> cancel = executor.submit(() -> {
+				cancelStarted.countDown();
+				roomParticipationCancelService.cancelParticipation(participantUserId, room.getId());
+			});
+			assertCommandIsBlocked(cancel, cancelStarted);
 			releaseMessageCommit.countDown();
 			assertTrue(send.get(WAIT_SECONDS, TimeUnit.SECONDS).created());
 			cancel.get(WAIT_SECONDS, TimeUnit.SECONDS);
@@ -210,10 +216,13 @@ class ChatMessageCommandConcurrencyPostgresTest {
 			Future<?> cancel = executor.submit(
 				() -> cancelRoomInTransaction(room.getId(), cancelFlushed, releaseCancelCommit));
 			await(cancelFlushed);
-			Future<ChatMessageSendResult> send = executor.submit(
-				() -> chatMessageCommandService.send(
-					hostUserId, room.getId(), new ChatMessageSendRequest("client-after", "취소 뒤 본문")));
-			assertCommandIsBlocked(send);
+			CountDownLatch sendStarted = new CountDownLatch(1);
+			Future<ChatMessageSendResult> send = executor.submit(() -> {
+				sendStarted.countDown();
+				return chatMessageCommandService.send(
+					hostUserId, room.getId(), new ChatMessageSendRequest("client-after", "취소 뒤 본문"));
+			});
+			assertCommandIsBlocked(send, sendStarted);
 			releaseCancelCommit.countDown();
 			cancel.get(WAIT_SECONDS, TimeUnit.SECONDS);
 
@@ -249,7 +258,8 @@ class ChatMessageCommandConcurrencyPostgresTest {
 		assertEquals(ErrorCode.FORBIDDEN, ((BusinessException)exception.getCause()).getErrorCode());
 	}
 
-	private void assertCommandIsBlocked(Future<?> command) {
+	private void assertCommandIsBlocked(Future<?> command, CountDownLatch started) {
+		await(started);
 		assertFalse(command.isDone(), "ROOM 공유 잠금이 유지되는 동안 상태 변경이 완료됐습니다.");
 		assertThrows(TimeoutException.class, () -> command.get(1, TimeUnit.SECONDS));
 	}
