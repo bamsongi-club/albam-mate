@@ -1,12 +1,13 @@
 package cloud.bamsongi.albammate.game.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -19,11 +20,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.HttpMethod;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
@@ -32,10 +37,10 @@ import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
+import jakarta.servlet.http.Cookie;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class UserPlayedGameHttpIntegrationTest {
 
 	@Autowired
@@ -64,7 +69,7 @@ class UserPlayedGameHttpIntegrationTest {
 		Game game = game("State");
 
 		for (int ignored = 0; ignored < 2; ignored++) {
-			mockMvc.perform(put(path(game)).with(authenticationFor(user.getId())).with(csrf()))
+			performWithCsrf(put(path(game)), user.getId(), true)
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.data.gameId").value(game.getId()))
 				.andExpect(jsonPath("$.data.playedByMe").value(true))
@@ -73,7 +78,7 @@ class UserPlayedGameHttpIntegrationTest {
 		assertEquals(1, userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).size());
 
 		for (int ignored = 0; ignored < 2; ignored++) {
-			mockMvc.perform(delete(path(game)).with(authenticationFor(user.getId())).with(csrf()))
+			performWithCsrf(delete(path(game)), user.getId(), true)
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.data.gameId").value(game.getId()))
 				.andExpect(jsonPath("$.data.playedByMe").value(false))
@@ -88,31 +93,30 @@ class UserPlayedGameHttpIntegrationTest {
 		Game game = game("Priority");
 		mark(user, game);
 
-		for (var request : List.of(put(path(game)), delete(path(game)))) {
-			mockMvc.perform(request)
+		for (HttpMethod method : List.of(HttpMethod.PUT, HttpMethod.DELETE)) {
+			mockMvc.perform(request(method, path(game)))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
 			assertEquals(1, userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).size());
-			mockMvc.perform(request.with(authenticationFor(user.getId())).with(csrf().useInvalidToken()))
+			performWithCsrf(request(method, path(game)), user.getId(), false)
 				.andExpect(status().isForbidden())
 				.andExpect(jsonPath("$.code").value(ErrorCode.CSRF_TOKEN_INVALID.getCode()));
 			assertEquals(1, userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).size());
 		}
 
-		for (var request : List.of(put("/api/users/me/played-games/0"), delete("/api/users/me/played-games/0"))) {
-			mockMvc.perform(request)
+		for (HttpMethod method : List.of(HttpMethod.PUT, HttpMethod.DELETE)) {
+			mockMvc.perform(request(method, "/api/users/me/played-games/0"))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
-			mockMvc.perform(request.with(authenticationFor(user.getId())).with(csrf().useInvalidToken()))
+			performWithCsrf(request(method, "/api/users/me/played-games/0"), user.getId(), false)
 				.andExpect(status().isForbidden())
 				.andExpect(jsonPath("$.code").value(ErrorCode.CSRF_TOKEN_INVALID.getCode()));
-			mockMvc.perform(request.with(authenticationFor(user.getId())).with(csrf()))
+			performWithCsrf(request(method, "/api/users/me/played-games/0"), user.getId(), true)
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
 		}
-		for (var request : List.of(put("/api/users/me/played-games/999999"),
-			delete("/api/users/me/played-games/999999"))) {
-			mockMvc.perform(request.with(authenticationFor(user.getId())).with(csrf()))
+		for (HttpMethod method : List.of(HttpMethod.PUT, HttpMethod.DELETE)) {
+			performWithCsrf(request(method, "/api/users/me/played-games/999999"), user.getId(), true)
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.code").value(ErrorCode.GAME_NOT_FOUND.getCode()));
 		}
@@ -200,7 +204,7 @@ class UserPlayedGameHttpIntegrationTest {
 		mark(userA, game);
 		mark(userB, game);
 
-		mockMvc.perform(delete(path(game)).with(authenticationFor(userA.getId())).with(csrf()))
+		performWithCsrf(delete(path(game)), userA.getId(), true)
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.playedByMe").value(false));
 
@@ -235,8 +239,28 @@ class UserPlayedGameHttpIntegrationTest {
 	}
 
 	private void mark(User user, Game game) throws Exception {
-		mockMvc.perform(put(path(game)).with(authenticationFor(user.getId())).with(csrf()))
+		performWithCsrf(put(path(game)), user.getId(), true)
 			.andExpect(status().isOk());
+	}
+
+	private ResultActions performWithCsrf(MockHttpServletRequestBuilder request, long userId, boolean valid)
+		throws Exception {
+		CsrfContext csrfContext = csrfContext(userId);
+		return mockMvc.perform(
+			request.with(authenticationFor(userId))
+				.session(csrfContext.session())
+				.cookie(csrfContext.cookie())
+				.header("X-XSRF-TOKEN", valid ? csrfContext.cookie().getValue() : "invalid"));
+	}
+
+	private CsrfContext csrfContext(long userId) throws Exception {
+		MockHttpSession session = new MockHttpSession();
+		MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf").session(session).with(authenticationFor(userId)))
+			.andExpect(status().isOk())
+			.andReturn();
+		Cookie csrfCookie = csrfResult.getResponse().getCookie("XSRF-TOKEN");
+		assertNotNull(csrfCookie);
+		return new CsrfContext(csrfCookie, session);
 	}
 
 	private String path(Game game) {
@@ -269,5 +293,8 @@ class UserPlayedGameHttpIntegrationTest {
 		return authentication(
 			UsernamePasswordAuthenticationToken.authenticated(
 				new CurrentUserPrincipal(userId), null, AuthorityUtils.NO_AUTHORITIES));
+	}
+
+	private record CsrfContext(Cookie cookie, MockHttpSession session) {
 	}
 }
