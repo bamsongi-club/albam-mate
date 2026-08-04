@@ -6,6 +6,7 @@ import { ApiError, api, clearCsrfToken, messageForError, setUnauthenticatedHandl
 import { NotificationPanel } from './notification/NotificationPanel';
 import { navigateToNotificationRoom } from './notification/notificationNavigation';
 import { useNotificationPolling } from './notification/useNotificationPolling';
+import { useNotificationReadSync } from './notification/useNotificationReadSync';
 import './styles.css';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -454,9 +455,15 @@ function Header({ route, me, notificationMenu }) {
                 open={notificationMenu.open}
                 notifications={notificationMenu.notifications}
                 listStatus={notificationMenu.listStatus}
+                optimisticReadIds={notificationMenu.optimisticReadIds}
+                canMarkAllAsRead={notificationMenu.unreadCount > 0}
+                bulkReadPending={notificationMenu.bulkReadPending}
+                synchronizationFailed={notificationMenu.synchronizationFailed}
                 onClose={notificationMenu.onClose}
                 onRetry={notificationMenu.onRetry}
                 onSelectNotification={notificationMenu.onSelectNotification}
+                onMarkAllAsRead={notificationMenu.onMarkAllAsRead}
+                onRetrySynchronization={notificationMenu.onRetrySynchronization}
               />
             </div>
           )}
@@ -1541,6 +1548,18 @@ function App() {
     loadUnreadCount: api.getUnreadNotificationCount,
     onBackgroundError: handleNotificationBackgroundError
   });
+  const notificationReadSync = useNotificationReadSync({
+    enabled: Boolean(me),
+    unreadCount: notificationState.unreadCount,
+    markNotificationRead: api.markNotificationRead,
+    markAllNotificationsRead: api.markAllNotificationsRead,
+    replaceNotification: notificationState.replaceNotification,
+    refreshUnreadAfterSingleRead: notificationState.refreshUnreadAfterSingleRead,
+    pauseForReadSynchronization: notificationState.pauseForReadSynchronization,
+    refreshAfterReadSynchronization: notificationState.refreshAfterReadSynchronization,
+    resumeAfterReadSynchronization: notificationState.resumeAfterReadSynchronization,
+    isUnauthenticated
+  });
 
   const refreshData = () => setDataVersion((version) => version + 1);
 
@@ -1577,14 +1596,17 @@ function App() {
     showToast(messageForError(error, fallback), 'err');
   };
 
-  const handleNotificationSelect = (notification) => navigateToNotificationRoom({
-    notification,
-    getRoom: api.getRoom,
-    navigate,
-    isUnauthenticated,
-    onUnauthenticated: expireAuthentication,
-    onUnavailable: (message) => showToast(message, 'err')
-  });
+  const handleNotificationSelect = (notification) => {
+    notificationReadSync.markAsRead(notification);
+    return navigateToNotificationRoom({
+      notification,
+      getRoom: api.getRoom,
+      navigate,
+      isUnauthenticated,
+      onUnauthenticated: expireAuthentication,
+      onUnavailable: (message) => showToast(message, 'err')
+    });
+  };
 
   const handleBrowsePeople = () => setRoomType('PERSON_FOCUSED');
 
@@ -1769,13 +1791,18 @@ function App() {
         me={me}
         notificationMenu={{
           open: notificationOpen,
-          unreadCount: notificationState.unreadCount,
+          unreadCount: notificationReadSync.visibleUnreadCount,
           notifications: notificationState.notifications,
           listStatus: notificationState.listStatus,
+          optimisticReadIds: notificationReadSync.optimisticReadIds,
+          bulkReadPending: notificationReadSync.bulkReadPending,
+          synchronizationFailed: notificationReadSync.synchronizationFailed,
           onToggle: () => setNotificationOpen((open) => !open),
           onClose: () => setNotificationOpen(false),
           onRetry: notificationState.retry,
-          onSelectNotification: handleNotificationSelect
+          onSelectNotification: handleNotificationSelect,
+          onMarkAllAsRead: notificationReadSync.markAllAsRead,
+          onRetrySynchronization: notificationReadSync.retrySynchronization
         }}
       />
       <main>{content}</main>
