@@ -45,15 +45,17 @@ public final class SocialLoginSuccessHandler implements AuthenticationSuccessHan
 	public void onAuthenticationSuccess(
 		HttpServletRequest request, HttpServletResponse response, Authentication authentication)
 		throws IOException {
-		SocialLinkIntent linkIntent = linkIntentStore.consume(request).orElse(null);
-		SocialAuthResult result = handle(request, response, authentication, linkIntent);
-		redirectStrategy.sendRedirect(request, response, result.location(linkIntent != null));
+		boolean linkAttempt = linkIntentStore.isLinkCallback(request);
+		SocialLinkIntent linkIntent = linkIntentStore.consumeCallbackIntent(request).orElse(null);
+		SocialAuthResult result = handle(request, response, authentication, linkAttempt, linkIntent);
+		redirectStrategy.sendRedirect(request, response, result.location(linkAttempt));
 	}
 
 	private SocialAuthResult handle(
 		HttpServletRequest request,
 		HttpServletResponse response,
 		Authentication authentication,
+		boolean linkAttempt,
 		SocialLinkIntent linkIntent) {
 		if (!(authentication instanceof OAuth2AuthenticationToken token)) {
 			restoreSession(
@@ -68,7 +70,12 @@ public final class SocialLoginSuccessHandler implements AuthenticationSuccessHan
 				SocialLinkCurrentUserFilter.currentUserId(request).orElse(null), request, response);
 			return SocialAuthResult.PROVIDER_UNAVAILABLE;
 		}
-		if (linkIntent != null) {
+		if (linkAttempt) {
+			if (linkIntent == null) {
+				restoreSession(
+					SocialLinkCurrentUserFilter.currentUserId(request).orElse(null), request, response);
+				return SocialAuthResult.INVALID_STATE;
+			}
 			return link(linkIntent, provider, token, request, response);
 		}
 

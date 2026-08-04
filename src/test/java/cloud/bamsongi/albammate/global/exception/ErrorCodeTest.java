@@ -24,7 +24,9 @@ class ErrorCodeTest {
 			Map.entry(ErrorCode.INVALID_CREDENTIALS, "이메일 또는 비밀번호가 일치하지 않습니다."),
 			Map.entry(ErrorCode.EMAIL_ALREADY_EXISTS, "이미 사용 중인 이메일입니다."),
 			Map.entry(ErrorCode.SOCIAL_PROVIDER_NOT_AVAILABLE, "사용할 수 없는 소셜 로그인 제공자입니다."),
-			Map.entry(ErrorCode.SOCIAL_ACCOUNT_ALREADY_LINKED, "이미 연결된 소셜 계정입니다."),
+			Map.entry(
+				ErrorCode.SOCIAL_ACCOUNT_ALREADY_LINKED,
+				"해당 소셜 계정 제공자가 이미 연결되어 있습니다."),
 			Map.entry(
 				ErrorCode.RATE_LIMIT_EXCEEDED,
 				"인증 요청 처리 한도를 초과했습니다. 잠시 후 다시 시도해 주세요."),

@@ -1,10 +1,12 @@
 package cloud.bamsongi.albammate.auth.social;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -13,6 +15,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -26,6 +32,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
@@ -82,12 +89,14 @@ class SocialLinkHttpIntegrationTest {
 	private SocialAccountService socialAccountService;
 
 	@Test
-	void 연결_시작은_설정된_제공자의_authorization_경로만_반환한다() throws Exception {
+	void 연결_시작은_설정된_제공자의_nonce_결속_authorization_경로를_반환한다() throws Exception {
 		MockHttpSession session = signedInSession();
 
-		mockMvc.perform(link("naver", session))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.authorizationUri").value("/api/auth/social/authorization/naver"));
+		String authorizationUri = startLink("naver", session);
+
+		assertTrue(
+			authorizationUri.startsWith("/api/auth/social/authorization/naver?linkNonce="),
+			"연결 전용 nonce가 authorization URI에 없습니다: " + authorizationUri);
 	}
 
 	@Test
@@ -97,6 +106,7 @@ class SocialLinkHttpIntegrationTest {
 		for (String registrationId : List.of("kakao", "apple")) {
 			mockMvc.perform(link(registrationId, session))
 				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.status").value(404))
 				.andExpect(jsonPath("$.code").value("SOCIAL_PROVIDER_NOT_AVAILABLE"));
 		}
 	}
@@ -111,7 +121,9 @@ class SocialLinkHttpIntegrationTest {
 
 		mockMvc.perform(link("naver", signedInSession(account)))
 			.andExpect(status().isConflict())
-			.andExpect(jsonPath("$.code").value("SOCIAL_ACCOUNT_ALREADY_LINKED"));
+			.andExpect(jsonPath("$.status").value(409))
+			.andExpect(jsonPath("$.code").value("SOCIAL_ACCOUNT_ALREADY_LINKED"))
+			.andExpect(jsonPath("$.message").value("해당 소셜 계정 제공자가 이미 연결되어 있습니다."));
 	}
 
 	@Test
@@ -129,6 +141,69 @@ class SocialLinkHttpIntegrationTest {
 			callback("naver", session, state).getResponse().getHeader("Location"));
 		assertEquals(
 			Set.of(SocialProvider.NAVER), socialAccountService.linkedProviders(account.id()));
+	}
+
+	@Test
+	void 제공자_이메일의_중복과_부재와_무관하게_callback_직전_사용자에게_연결한다() throws Exception {
+		String duplicateEmail = "social-link-duplicate@example.com";
+		createAccount(duplicateEmail);
+		UserAccount emailDuplicateTarget = createAccount();
+		stubSocialProvider.respondWith(googleUser(UUID.randomUUID().toString(), duplicateEmail));
+		MockHttpSession duplicateSession = signedInSession(emailDuplicateTarget);
+
+		String duplicateState = state(authorizationRedirect(startLink("google", duplicateSession), duplicateSession));
+		assertEquals(
+			"/?socialAuth=link-success#/profile",
+			callback("google", duplicateSession, duplicateState).getResponse().getHeader("Location"));
+		assertEquals(
+			Set.of(SocialProvider.GOOGLE), socialAccountService.linkedProviders(emailDuplicateTarget.id()));
+
+		UserAccount emailAbsentTarget = createAccount();
+		stubSocialProvider.respondWith(googleUserWithoutEmail(UUID.randomUUID().toString()));
+		MockHttpSession absentSession = signedInSession(emailAbsentTarget);
+
+		String absentState = state(authorizationRedirect(startLink("google", absentSession), absentSession));
+		assertEquals(
+			"/?socialAuth=link-success#/profile",
+			callback("google", absentSession, absentState).getResponse().getHeader("Location"));
+		assertEquals(
+			Set.of(SocialProvider.GOOGLE), socialAccountService.linkedProviders(emailAbsentTarget.id()));
+	}
+
+	@Test
+	void 일반_로그인_시작은_남은_연결_의도를_취소하고_auth_모드로_완료한다() throws Exception {
+		UserAccount account = createAccount();
+		MockHttpSession session = signedInSession(account);
+		stubSocialProvider.respondWith(naverUser(UUID.randomUUID().toString(), "밤톨"));
+
+		String linkState = state(authorizationRedirect(startLink("naver", session), session));
+		String loginState = state(
+			authorizationRedirect(
+				SocialClientRegistrationRepository.AUTHORIZATION_BASE_URI + "/naver", session));
+
+		assertEquals(
+			"/?socialAuth=login-success#/home",
+			callback("naver", session, loginState).getResponse().getHeader("Location"));
+		assertEquals(Set.of(), socialAccountService.linkedProviders(account.id()));
+		assertEquals(
+			"/?socialAuth=invalid-state#/profile",
+			callback("naver", session, linkState).getResponse().getHeader("Location"));
+		assertEquals(Set.of(), socialAccountService.linkedProviders(account.id()));
+
+		UserAccount canceledAccount = createAccount();
+		MockHttpSession canceledSession = signedInSession(canceledAccount);
+		String canceledLinkState = state(authorizationRedirect(startLink("naver", canceledSession), canceledSession));
+		String canceledLoginState = state(
+			authorizationRedirect(
+				SocialClientRegistrationRepository.AUTHORIZATION_BASE_URI + "/naver", canceledSession));
+		mockMvc.perform(
+			get(CALLBACK_URI + "naver").param("error", "access_denied").param("state", canceledLoginState)
+				.session(canceledSession))
+			.andExpect(header().string("Location", "/?socialAuth=canceled#/auth"));
+		assertEquals(
+			"/?socialAuth=invalid-state#/profile",
+			callback("naver", canceledSession, canceledLinkState).getResponse().getHeader("Location"));
+		assertEquals(Set.of(), socialAccountService.linkedProviders(canceledAccount.id()));
 	}
 
 	@Test
@@ -150,6 +225,7 @@ class SocialLinkHttpIntegrationTest {
 			callback("naver", session, state).getResponse().getHeader("Location"));
 		assertEquals(Set.of(SocialProvider.NAVER), socialAccountService.linkedProviders(owner.id()));
 		assertEquals(Set.of(), socialAccountService.linkedProviders(other.id()));
+		mockMvc.perform(get("/api/users/me").session(session)).andExpect(status().isOk());
 	}
 
 	@Test
@@ -164,11 +240,88 @@ class SocialLinkHttpIntegrationTest {
 		mockMvc.perform(get("/api/users/me").session(session)).andExpect(status().isOk());
 		assertEquals(Set.of(), socialAccountService.linkedProviders(account.id()));
 
-		startLink("naver", session);
+		String originalLinkState = state(authorizationRedirect(startLink("naver", session), session));
 		assertEquals(
 			"/?socialAuth=invalid-state#/profile",
 			callback("naver", session, "tampered-state").getResponse().getHeader("Location"));
 		mockMvc.perform(get("/api/users/me").session(session)).andExpect(status().isOk());
+		assertEquals(
+			"/?socialAuth=invalid-state#/profile",
+			callback("naver", session, originalLinkState).getResponse().getHeader("Location"));
+		assertEquals(Set.of(), socialAccountService.linkedProviders(account.id()));
+	}
+
+	@Test
+	void 연결_취소_뒤_같은_callback을_재사용해도_연결하지_않는다() throws Exception {
+		UserAccount account = createAccount();
+		MockHttpSession session = signedInSession(account);
+		String state = state(authorizationRedirect(startLink("naver", session), session));
+
+		mockMvc.perform(
+			get(CALLBACK_URI + "naver").param("error", "access_denied").param("state", state).session(session))
+			.andExpect(header().string("Location", "/?socialAuth=canceled#/profile"));
+		assertEquals(
+			"/?socialAuth=invalid-state#/profile",
+			callback("naver", session, state).getResponse().getHeader("Location"));
+
+		mockMvc.perform(get("/api/users/me").session(session)).andExpect(status().isOk());
+		assertEquals(Set.of(), socialAccountService.linkedProviders(account.id()));
+	}
+
+	@Test
+	void 취소된_link_state_표식은_고정_상한을_지키고_만료된다() {
+		MutableClock clock = new MutableClock(Instant.parse("2026-08-04T00:00:00Z"));
+		SocialLinkIntentStore store = new SocialLinkIntentStore(clock);
+		MockHttpSession session = new MockHttpSession();
+		String latestState = null;
+
+		for (int index = 0; index <= SocialLinkIntentStore.MAX_DISCARDED_STATES; index++) {
+			MockHttpServletRequest request = request(session);
+			SocialLinkIntent intent = SocialLinkIntent.create(SocialProvider.NAVER, 1L);
+			latestState = "discarded-state-" + index;
+			store.save(request, intent);
+			store.bindAuthorizationRequest(request, latestState, intent.nonce());
+			store.discardPendingIntent(request);
+		}
+
+		Map<?, ?> discardedStates = (Map<?, ?>)session.getAttribute(
+			SocialLinkIntentStore.DISCARDED_STATES_ATTRIBUTE);
+		assertEquals(SocialLinkIntentStore.MAX_DISCARDED_STATES, discardedStates.size());
+
+		MockHttpServletRequest delayedCallback = request(session);
+		store.activateForCallback(delayedCallback, latestState);
+		assertTrue(store.isLinkCallback(delayedCallback));
+		assertTrue(store.consumeCallbackIntent(delayedCallback).isEmpty());
+
+		clock.advance(SocialLinkIntentStore.DISCARDED_STATE_TTL);
+		MockHttpServletRequest expiredCallback = request(session);
+		store.activateForCallback(expiredCallback, latestState);
+		assertFalse(store.isLinkCallback(expiredCallback));
+		assertEquals(0, discardedStates.size());
+	}
+
+	@Test
+	void 연결_의도_store는_결속되지_않은_입력과_세션_없는_요청을_무시한다() {
+		SocialLinkIntentStore store = new SocialLinkIntentStore(Clock.systemUTC());
+		MockHttpServletRequest noSessionRequest = new MockHttpServletRequest();
+
+		store.bindAuthorizationRequest(noSessionRequest, null, null);
+		assertFalse(store.discardPendingIntent(noSessionRequest));
+		store.activateForCallback(noSessionRequest, "state");
+		assertFalse(store.isLinkCallback(noSessionRequest));
+
+		MockHttpSession session = new MockHttpSession();
+		MockHttpServletRequest request = request(session);
+		SocialLinkIntent intent = SocialLinkIntent.create(SocialProvider.NAVER, 1L);
+		store.save(request, intent);
+		store.bindAuthorizationRequest(request, null, intent.nonce());
+		store.bindAuthorizationRequest(request, "state", null);
+		store.bindAuthorizationRequest(request, "state", "mismatched-nonce");
+		store.bindAuthorizationRequest(request, "state", intent.nonce());
+
+		store.activateForCallback(request, "different-state");
+		assertFalse(store.isLinkCallback(request));
+		assertTrue(store.consumeCallbackIntent(request).isEmpty());
 	}
 
 	@Test
@@ -208,10 +361,12 @@ class SocialLinkHttpIntegrationTest {
 	void 비로그인과_CSRF_오류의_연결_시작은_거절한다() throws Exception {
 		mockMvc.perform(post(LINK_URI, "naver"))
 			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.status").value(401))
 			.andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
 
 		mockMvc.perform(post(LINK_URI, "naver").session(signedInSession()))
 			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.status").value(403))
 			.andExpect(jsonPath("$.code").value("CSRF_TOKEN_INVALID"));
 	}
 
@@ -238,6 +393,14 @@ class SocialLinkHttpIntegrationTest {
 
 		Cookie refreshedCsrf = csrfCookie(session);
 		mockMvc.perform(
+			patch("/api/users/me").session(session)
+				.cookie(refreshedCsrf)
+				.header("X-XSRF-TOKEN", refreshedCsrf.getValue())
+				.contentType("application/json")
+				.content("{\"nickname\":\"연결 후 닉네임\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.nickname").value("연결 후 닉네임"));
+		mockMvc.perform(
 			post("/api/auth/logout").session(session)
 				.cookie(refreshedCsrf)
 				.header("X-XSRF-TOKEN", refreshedCsrf.getValue()))
@@ -247,6 +410,7 @@ class SocialLinkHttpIntegrationTest {
 	private String startLink(String registrationId, MockHttpSession session) throws Exception {
 		String body = mockMvc.perform(link(registrationId, session))
 			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.status").value(200))
 			.andReturn()
 			.getResponse()
 			.getContentAsString();
@@ -262,8 +426,8 @@ class SocialLinkHttpIntegrationTest {
 			.getResponse()
 			.getHeader("Location");
 		assertTrue(
-			location != null && location.startsWith("https://nid.naver.com/"),
-			"연결 시작이 제공자로 이동하지 않았습니다: " + location);
+			location != null && location.startsWith("https://"),
+			"연결 시작이 OAuth 제공자로 이동하지 않았습니다: " + location);
 		return location;
 	}
 
@@ -287,6 +451,14 @@ class SocialLinkHttpIntegrationTest {
 		return Map.of("resultcode", "00", "response", Map.of("id", subject, "nickname", nickname));
 	}
 
+	private Map<String, Object> googleUser(String subject, String email) {
+		return Map.of("sub", subject, "email", email, "email_verified", true, "name", "밤톨");
+	}
+
+	private Map<String, Object> googleUserWithoutEmail(String subject) {
+		return Map.of("sub", subject, "name", "밤톨");
+	}
+
 	private MockHttpServletRequestBuilder link(String registrationId, MockHttpSession session) throws Exception {
 		Cookie csrf = csrfCookie(session);
 		return post(LINK_URI, registrationId).session(session)
@@ -305,9 +477,13 @@ class SocialLinkHttpIntegrationTest {
 	}
 
 	private UserAccount createAccount() {
+		return createAccount("link-" + UUID.randomUUID() + "@example.com");
+	}
+
+	private UserAccount createAccount(String email) {
 		return userAccountService.createAccount(
 			new CreateUserAccountCommand(
-				UserEmail.from("link-" + UUID.randomUUID() + "@example.com").orElseThrow(),
+				UserEmail.from(email).orElseThrow(),
 				RawPassword.from("123456789012345").orElseThrow(),
 				UserNickname.from("밤톨").orElseThrow()));
 	}
@@ -328,5 +504,39 @@ class SocialLinkHttpIntegrationTest {
 			UsernamePasswordAuthenticationToken.authenticated(
 				new CurrentUserPrincipal(account.id()), null, AuthorityUtils.NO_AUTHORITIES));
 		session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
+	}
+
+	private MockHttpServletRequest request(MockHttpSession session) {
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setSession(session);
+		return request;
+	}
+
+	private static final class MutableClock extends Clock {
+
+		private Instant instant;
+
+		private MutableClock(Instant instant) {
+			this.instant = instant;
+		}
+
+		void advance(java.time.Duration duration) {
+			instant = instant.plus(duration);
+		}
+
+		@Override
+		public ZoneId getZone() {
+			return ZoneOffset.UTC;
+		}
+
+		@Override
+		public Clock withZone(ZoneId zone) {
+			return this;
+		}
+
+		@Override
+		public Instant instant() {
+			return instant;
+		}
 	}
 }

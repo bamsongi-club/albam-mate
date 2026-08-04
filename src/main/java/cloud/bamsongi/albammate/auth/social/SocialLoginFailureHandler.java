@@ -41,7 +41,11 @@ public final class SocialLoginFailureHandler implements AuthenticationFailureHan
 	public void onAuthenticationFailure(
 		HttpServletRequest request, HttpServletResponse response, AuthenticationException exception)
 		throws IOException {
-		boolean linkAttempt = linkIntentStore.consume(request).isPresent();
+		boolean linkAttempt = linkIntentStore.isLinkCallback(request);
+		if (!linkAttempt) {
+			linkAttempt = linkIntentStore.discardPendingIntent(request);
+		}
+		linkIntentStore.consumeCallbackIntent(request);
 		redirectStrategy.sendRedirect(request, response, result(exception).location(linkAttempt));
 	}
 

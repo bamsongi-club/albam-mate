@@ -82,6 +82,7 @@ public class SocialOAuthConfiguration {
 	@Bean
 	Customizer<HttpSecurity> socialLoginSecurityCustomizer(
 		OAuth2AuthorizedClientRepository authorizedClientRepository,
+		SocialLinkAuthorizationRequestRepository socialLinkAuthorizationRequestRepository,
 		SocialLoginSuccessHandler socialLoginSuccessHandler,
 		SocialLoginFailureHandler socialLoginFailureHandler,
 		@Qualifier("socialProviderAvailabilityFilter") Filter socialProviderAvailabilityFilter,
@@ -91,7 +92,8 @@ public class SocialOAuthConfiguration {
 				oauth2Login -> oauth2Login.loginPage(LOGIN_PAGE)
 					.authorizationEndpoint(
 						endpoint -> endpoint.baseUri(
-							SocialClientRegistrationRepository.AUTHORIZATION_BASE_URI))
+							SocialClientRegistrationRepository.AUTHORIZATION_BASE_URI)
+							.authorizationRequestRepository(socialLinkAuthorizationRequestRepository))
 					.redirectionEndpoint(
 						endpoint -> endpoint.baseUri(
 							SocialClientRegistrationRepository.CALLBACK_BASE_URI + "/*"))

@@ -1,9 +1,11 @@
 package cloud.bamsongi.albammate.auth.service;
 
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import cloud.bamsongi.albammate.auth.dto.SocialAuthorizationResponse;
 import cloud.bamsongi.albammate.auth.social.SocialClientRegistrationRepository;
+import cloud.bamsongi.albammate.auth.social.SocialLinkAuthorizationRequestRepository;
 import cloud.bamsongi.albammate.auth.social.SocialLinkIntent;
 import cloud.bamsongi.albammate.auth.social.SocialLinkIntentStore;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
@@ -38,8 +40,13 @@ public class SocialLinkService {
 			throw new BusinessException(ErrorCode.SOCIAL_ACCOUNT_ALREADY_LINKED);
 		}
 
-		linkIntentStore.save(request, new SocialLinkIntent(provider, userId));
+		SocialLinkIntent intent = SocialLinkIntent.create(provider, userId);
+		linkIntentStore.save(request, intent);
 		return new SocialAuthorizationResponse(
-			SocialClientRegistrationRepository.AUTHORIZATION_BASE_URI + "/" + registrationId);
+			UriComponentsBuilder.fromPath(
+				SocialClientRegistrationRepository.AUTHORIZATION_BASE_URI + "/" + registrationId)
+				.queryParam(SocialLinkAuthorizationRequestRepository.LINK_NONCE_PARAMETER, intent.nonce())
+				.build()
+				.toUriString());
 	}
 }
