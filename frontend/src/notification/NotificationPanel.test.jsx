@@ -59,7 +59,7 @@ describe('T7 알림 패널 상태', () => {
 
 describe('#272 T1 낙관 읽음 표시', () => {
   it('서버 readAt을 만들지 않고 지정된 행만 읽음 스타일로 표시한다', () => {
-    const notification = {
+    const selectedNotification = {
       id: 4,
       type: 'ROOM_CANCELED',
       roomId: 9,
@@ -67,14 +67,22 @@ describe('#272 T1 낙관 읽음 표시', () => {
       readAt: null,
       createdAt: '2026-08-04T09:00:00+09:00'
     };
+    const otherNotification = {
+      ...selectedNotification,
+      id: 5,
+      roomTitle: '다른 미확인 모임'
+    };
     renderPanel({
-      notifications: [notification],
+      notifications: [selectedNotification, otherNotification],
       optimisticReadIds: new Set([4])
     });
 
-    const row = screen.getByRole('button', { name: /낙관 표시 모임/ });
-    expect(row.classList.contains('read')).toBe(true);
-    expect(notification.readAt).toBeNull();
+    const selectedRow = screen.getByRole('button', { name: /낙관 표시 모임/ });
+    const otherRow = screen.getByRole('button', { name: /다른 미확인 모임/ });
+    expect(selectedRow.classList.contains('read')).toBe(true);
+    expect(otherRow.classList.contains('unread')).toBe(true);
+    expect(selectedNotification.readAt).toBeNull();
+    expect(otherNotification.readAt).toBeNull();
   });
 });
 

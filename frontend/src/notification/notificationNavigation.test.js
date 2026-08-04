@@ -1,8 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   navigateToNotificationRoom,
+  selectNotificationAndNavigate,
   UNAVAILABLE_NOTIFICATION_ROOM_MESSAGE
 } from './notificationNavigation';
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return { promise, resolve };
+}
 
 function navigationOptions(overrides = {}) {
   return {
@@ -60,5 +69,25 @@ describe('T6 알림에서 방 이동', () => {
     expect(options.navigate).not.toHaveBeenCalled();
     expect(options.onUnauthenticated).not.toHaveBeenCalled();
     expect(options.onUnavailable).not.toHaveBeenCalled();
+  });
+});
+
+describe('#272 T1 읽음 처리와 방 이동 순서', () => {
+  it('읽음 PATCH 완료를 기다리지 않고 방 이동을 시작한다', async () => {
+    const readRequest = deferred();
+    const options = navigationOptions({
+      notification: { id: 7, roomId: 42 },
+      markAsRead: vi.fn().mockReturnValue(readRequest.promise)
+    });
+
+    const navigationPromise = selectNotificationAndNavigate(options);
+
+    expect(options.markAsRead).toHaveBeenCalledWith(options.notification);
+    expect(options.getRoom).toHaveBeenCalledWith(42);
+    await expect(navigationPromise).resolves.toBe(true);
+    expect(options.navigate).toHaveBeenCalledWith('/session/42');
+
+    readRequest.resolve(true);
+    await readRequest.promise;
   });
 });

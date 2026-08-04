@@ -35,7 +35,9 @@ export function useNotificationReadSync({
 }) {
   const [optimisticReadIds, setOptimisticReadIds] = useState(() => new Set());
   const [bulkReadPending, setBulkReadPending] = useState(false);
-  const [synchronizationFailed, setSynchronizationFailed] = useState(false);
+  // 전체 목록·count 실패는 단건 count 성공만으로 해제하면 안 되므로 따로 기록한다.
+  const [fullSynchronizationFailed, setFullSynchronizationFailed] = useState(false);
+  const [unreadCountSynchronizationFailed, setUnreadCountSynchronizationFailed] = useState(false);
   const pendingSingleReadIdsRef = useRef(new Set());
   const confirmedReadIdsRef = useRef(new Set());
   const bulkReadPendingRef = useRef(false);
@@ -67,15 +69,19 @@ export function useNotificationReadSync({
   ), []);
 
   const applySynchronizationResult = useCallback((synchronized) => {
-    setSynchronizationFailed(!synchronized);
-    if (synchronized) clearConfirmedOptimisticReads();
+    setFullSynchronizationFailed(!synchronized);
+    if (synchronized) {
+      setUnreadCountSynchronizationFailed(false);
+      clearConfirmedOptimisticReads();
+    }
     return synchronized;
   }, [clearConfirmedOptimisticReads]);
 
   const applyBulkSynchronizationResult = useCallback((synchronized) => {
     confirmedReadIdsRef.current.clear();
     setOptimisticReadIds(new Set());
-    setSynchronizationFailed(!synchronized);
+    setFullSynchronizationFailed(!synchronized);
+    if (synchronized) setUnreadCountSynchronizationFailed(false);
     return synchronized;
   }, []);
 
@@ -123,7 +129,6 @@ export function useNotificationReadSync({
     pendingSingleReadIdsRef.current.add(notificationId);
     const sessionGeneration = sessionGenerationRef.current;
     const operationGeneration = readOperationGenerationRef.current;
-    setSynchronizationFailed(false);
     setOptimisticReadIds((currentIds) => new Set(currentIds).add(notificationId));
 
     return (async () => {
@@ -137,9 +142,9 @@ export function useNotificationReadSync({
         if (!operationIsCurrent(sessionGeneration, operationGeneration)) return false;
         if (unreadCountRefreshed) {
           clearConfirmedOptimisticReads();
-          setSynchronizationFailed(false);
+          setUnreadCountSynchronizationFailed(false);
         } else if (synchronizationGeneration === synchronizationGenerationRef.current) {
-          setSynchronizationFailed(true);
+          setUnreadCountSynchronizationFailed(true);
         }
         return true;
       } catch (error) {
@@ -175,7 +180,6 @@ export function useNotificationReadSync({
     const sessionGeneration = sessionGenerationRef.current;
     const operationGeneration = readOperationGenerationRef.current;
     setBulkReadPending(true);
-    setSynchronizationFailed(false);
     pauseForReadSynchronization();
 
     return (async () => {
@@ -225,7 +229,8 @@ export function useNotificationReadSync({
     bulkReadPendingRef.current = false;
     setOptimisticReadIds(new Set());
     setBulkReadPending(false);
-    setSynchronizationFailed(false);
+    setFullSynchronizationFailed(false);
+    setUnreadCountSynchronizationFailed(false);
   }, [enabled]);
 
   useEffect(() => {
@@ -235,9 +240,10 @@ export function useNotificationReadSync({
     if (confirmedReadIdsRef.current.size === 0) return;
     // 단건 직후 조회가 실패해도 다음 정상 polling count가 오면 낙관 차감을 끝낸다.
     clearConfirmedOptimisticReads();
-    setSynchronizationFailed(false);
+    setUnreadCountSynchronizationFailed(false);
   }, [clearConfirmedOptimisticReads, readSynchronizationPaused, unreadCountRevision]);
 
+  const synchronizationFailed = fullSynchronizationFailed || unreadCountSynchronizationFailed;
   const visibleUnreadCount = unreadCount === null
     ? null
     : Math.max(0, unreadCount - optimisticReadIds.size);

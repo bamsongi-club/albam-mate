@@ -4,7 +4,7 @@ import brandSymbol from '../assets/albam-mate-symbol.png';
 import poweredByBgg from '../assets/powered-by-bgg.svg';
 import { ApiError, api, clearCsrfToken, messageForError, setUnauthenticatedHandler } from './api';
 import { NotificationPanel } from './notification/NotificationPanel';
-import { navigateToNotificationRoom } from './notification/notificationNavigation';
+import { selectNotificationAndNavigate } from './notification/notificationNavigation';
 import { useNotificationPolling } from './notification/useNotificationPolling';
 import { useNotificationReadSync } from './notification/useNotificationReadSync';
 import './styles.css';
@@ -1599,9 +1599,9 @@ function App() {
   };
 
   const handleNotificationSelect = (notification) => {
-    notificationReadSync.markAsRead(notification);
-    return navigateToNotificationRoom({
+    return selectNotificationAndNavigate({
       notification,
+      markAsRead: notificationReadSync.markAsRead,
       getRoom: api.getRoom,
       navigate,
       isUnauthenticated,

@@ -62,6 +62,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 describe('T1 세션 시작 조회', () => {
@@ -254,6 +255,37 @@ describe('#272 T4~T6 읽음 동기화 generation', () => {
     await flushRequests();
     expect(loadNotifications).toHaveBeenCalledTimes(3);
     expect(loadUnreadCount).toHaveBeenCalledTimes(3);
+  });
+
+  it('abort signal이 바뀌지 않아도 이전 generation 응답을 폐기한다', async () => {
+    const abort = vi.fn();
+    class StableSignalAbortController {
+      constructor() {
+        this.signal = { aborted: false };
+      }
+
+      abort() {
+        abort();
+      }
+    }
+    vi.stubGlobal('AbortController', StableSignalAbortController);
+    const staleList = deferred();
+    const staleUnread = deferred();
+    const polling = renderPolling({
+      loadNotifications: vi.fn().mockReturnValue(staleList.promise),
+      loadUnreadCount: vi.fn().mockReturnValue(staleUnread.promise)
+    });
+    await flushRequests();
+
+    act(() => polling.result.current.pauseForReadSynchronization());
+    expect(abort).toHaveBeenCalledTimes(2);
+
+    staleList.resolve({ content: [{ ...FIRST_PAGE.content[0], roomTitle: '폐기할 모임' }] });
+    staleUnread.resolve({ unreadCount: 9 });
+    await flushRequests();
+
+    expect(polling.result.current.notifications).toEqual([]);
+    expect(polling.result.current.unreadCount).toBeNull();
   });
 
   it('겹친 동기화 작업이 각자 획득한 pause를 모두 해제한 뒤에만 polling한다', async () => {

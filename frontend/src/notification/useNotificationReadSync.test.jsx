@@ -82,6 +82,37 @@ describe('#272 T1 단건 낙관 표시', () => {
     readRequest.resolve(READ_NOTIFICATION);
     await act(async () => requestPromise);
   });
+
+  it('이미 읽은 알림은 PATCH를 보내지 않는다', async () => {
+    const sync = renderReadSync();
+    let marked;
+
+    await act(async () => {
+      marked = await sync.result.current.markAsRead(READ_NOTIFICATION);
+    });
+
+    expect(marked).toBe(false);
+    expect(sync.markNotificationRead).not.toHaveBeenCalled();
+    expect(sync.result.current.optimisticReadIds).toEqual(new Set());
+  });
+
+  it('미확인 수가 0이면 낙관 차감 중에도 배지를 음수로 만들지 않는다', async () => {
+    const readRequest = deferred();
+    const sync = renderReadSync({
+      unreadCount: 0,
+      markNotificationRead: vi.fn().mockReturnValue(readRequest.promise)
+    });
+    let requestPromise;
+
+    act(() => {
+      requestPromise = sync.result.current.markAsRead(UNREAD_NOTIFICATION);
+    });
+
+    expect(sync.result.current.visibleUnreadCount).toBe(0);
+
+    readRequest.resolve(READ_NOTIFICATION);
+    await act(async () => requestPromise);
+  });
 });
 
 describe('#272 T2 단건 성공', () => {
@@ -288,6 +319,22 @@ describe('#272 T8 재동기화 실패', () => {
     expect(sync.result.current.synchronizationFailed).toBe(false);
   });
 
+  it('단건 count 성공은 실패한 전체 목록·count 동기화 오류를 숨기지 않는다', async () => {
+    const refreshAfterReadSynchronization = vi.fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    const sync = renderReadSync({ refreshAfterReadSynchronization });
+
+    await act(async () => sync.result.current.markAllAsRead());
+    expect(sync.result.current.synchronizationFailed).toBe(true);
+
+    await act(async () => sync.result.current.markAsRead(UNREAD_NOTIFICATION));
+    expect(sync.result.current.synchronizationFailed).toBe(true);
+
+    await act(async () => sync.result.current.retrySynchronization());
+    expect(sync.result.current.synchronizationFailed).toBe(false);
+  });
+
   it('겹친 재시도에서는 가장 최근 동기화 결과만 반영한다', async () => {
     const firstRetryRequest = deferred();
     const secondRetryRequest = deferred();
@@ -318,19 +365,23 @@ describe('#272 T8 재동기화 실패', () => {
 
   it('재시도 중 시작한 단건 읽음 뒤에는 이전 재시도 결과를 반영하지 않는다', async () => {
     const retryRequest = deferred();
-    const refreshAfterReadSynchronization = vi.fn()
+    const refreshUnreadAfterSingleRead = vi.fn()
       .mockResolvedValueOnce(false)
-      .mockReturnValueOnce(retryRequest.promise);
-    const sync = renderReadSync({ refreshAfterReadSynchronization });
+      .mockResolvedValueOnce(true);
+    const sync = renderReadSync({
+      refreshUnreadAfterSingleRead,
+      refreshAfterReadSynchronization: vi.fn().mockReturnValue(retryRequest.promise)
+    });
+    const anotherNotification = { ...UNREAD_NOTIFICATION, id: 8 };
 
-    await act(async () => sync.result.current.markAllAsRead());
+    await act(async () => sync.result.current.markAsRead(UNREAD_NOTIFICATION));
     expect(sync.result.current.synchronizationFailed).toBe(true);
 
     let retryPromise;
     act(() => {
       retryPromise = sync.result.current.retrySynchronization();
     });
-    await act(async () => sync.result.current.markAsRead(UNREAD_NOTIFICATION));
+    await act(async () => sync.result.current.markAsRead(anotherNotification));
     expect(sync.result.current.synchronizationFailed).toBe(false);
 
     retryRequest.resolve(false);
@@ -338,7 +389,7 @@ describe('#272 T8 재동기화 실패', () => {
     expect(sync.result.current.synchronizationFailed).toBe(false);
   });
 
-  it('재시도 중 시작한 일괄 읽음이 끝날 때까지 bulk 작업 상태를 유지한다', async () => {
+  it('재시도 중 시작한 일괄 읽음이 끝날 때까지 bulk 상태와 기존 오류를 유지한다', async () => {
     const retryRequest = deferred();
     const bulkRequest = deferred();
     const refreshAfterReadSynchronization = vi.fn()
@@ -364,7 +415,7 @@ describe('#272 T8 재동기화 실패', () => {
     retryRequest.resolve(false);
     await act(async () => retryPromise);
     expect(sync.result.current.bulkReadPending).toBe(true);
-    expect(sync.result.current.synchronizationFailed).toBe(false);
+    expect(sync.result.current.synchronizationFailed).toBe(true);
 
     bulkRequest.resolve({ updatedCount: 1, boundaryNotificationId: 7 });
     await act(async () => bulkPromise);
