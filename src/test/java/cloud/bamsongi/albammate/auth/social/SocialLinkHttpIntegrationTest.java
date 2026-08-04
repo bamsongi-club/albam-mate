@@ -144,6 +144,39 @@ class SocialLinkHttpIntegrationTest {
 	}
 
 	@Test
+	void 다른_제공자의_callback은_연결하지_않고_연결_의도를_폐기한다() throws Exception {
+		UserAccount account = createAccount();
+		MockHttpSession session = signedInSession(account);
+		String state = state(authorizationRedirect(startLink("naver", session), session));
+
+		assertEquals(
+			"/?socialAuth=invalid-state#/profile",
+			callback("google", session, state).getResponse().getHeader("Location"));
+		assertEquals(
+			"/?socialAuth=invalid-state#/profile",
+			callback("naver", session, state).getResponse().getHeader("Location"));
+		assertEquals(Set.of(), socialAccountService.linkedProviders(account.id()));
+		mockMvc.perform(get("/api/users/me").session(session)).andExpect(status().isOk());
+	}
+
+	@Test
+	void 연결_성공_뒤_callback_state_재사용은_연결하지_않고_기존_로그인을_유지한다() throws Exception {
+		UserAccount account = createAccount();
+		MockHttpSession session = signedInSession(account);
+		stubSocialProvider.respondWith(naverUser(UUID.randomUUID().toString(), "밤톨"));
+		String state = state(authorizationRedirect(startLink("naver", session), session));
+
+		assertEquals(
+			"/?socialAuth=link-success#/profile",
+			callback("naver", session, state).getResponse().getHeader("Location"));
+		assertEquals(
+			"/?socialAuth=invalid-state#/profile",
+			callback("naver", session, state).getResponse().getHeader("Location"));
+		assertEquals(Set.of(SocialProvider.NAVER), socialAccountService.linkedProviders(account.id()));
+		mockMvc.perform(get("/api/users/me").session(session)).andExpect(status().isOk());
+	}
+
+	@Test
 	void 제공자_이메일의_중복과_부재와_무관하게_callback_직전_사용자에게_연결한다() throws Exception {
 		String duplicateEmail = "social-link-duplicate@example.com";
 		createAccount(duplicateEmail);

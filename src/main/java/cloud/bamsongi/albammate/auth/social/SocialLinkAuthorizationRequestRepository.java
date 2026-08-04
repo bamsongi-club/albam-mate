@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.auth.social;
 import org.springframework.security.oauth2.client.web.AuthorizationRequestRepository;
 import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizationRequestRepository;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
+import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.stereotype.Component;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -49,6 +50,12 @@ public final class SocialLinkAuthorizationRequestRepository
 		HttpServletRequest request, HttpServletResponse response) {
 		OAuth2AuthorizationRequest authorizationRequest = delegate.removeAuthorizationRequest(request, response);
 		linkIntentStore.activateForCallback(request, request.getParameter("state"));
+		if (linkIntentStore.isLinkCallback(request)
+			&& (authorizationRequest == null || !request.getRequestURI()
+				.substring(request.getRequestURI().lastIndexOf('/') + 1)
+				.equals(authorizationRequest.getAttribute(OAuth2ParameterNames.REGISTRATION_ID)))) {
+			return null;
+		}
 		if (!linkIntentStore.isLinkCallback(request) && linkIntentStore.discardPendingIntent(request)) {
 			delegate.saveAuthorizationRequest(null, request, response);
 			linkIntentStore.markLinkCallback(request);
