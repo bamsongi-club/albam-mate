@@ -34,7 +34,7 @@ public final class SocialProviderAvailabilityFilter extends OncePerRequestFilter
 		if (registrationId != null
 			&& clientRegistrationRepository.configuredProvider(registrationId).isEmpty()) {
 			redirectStrategy.sendRedirect(
-				request, response, SocialAuthResult.PROVIDER_UNAVAILABLE.location());
+				request, response, SocialAuthResult.PROVIDER_UNAVAILABLE.location(false));
 			return;
 		}
 		filterChain.doFilter(request, response);

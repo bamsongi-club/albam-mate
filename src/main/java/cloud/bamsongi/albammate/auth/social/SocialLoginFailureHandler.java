@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 
 /**
  * OAuth 인증 실패와 사용자 취소를 고정 결과로 바꾼다.
@@ -21,13 +23,17 @@ import jakarta.servlet.http.HttpServletResponse;
  *
  * <p>이미 있는 앱 세션은 지우지 않는다. callback은 공개 경로이고 세션 쿠키가 {@code SameSite=Lax}라 top-level GET에 실려
  * 나가므로, 실패 처리가 저장된 인증을 비우면 공격자가 링크 하나로 로그인한 사용자를 로그아웃시킬 수 있다. 실패한 시도의 인증 컨텍스트는
- * {@code AbstractAuthenticationProcessingFilter}가 이미 비우며 저장소에는 쓰지 않는다.
+ * {@code AbstractAuthenticationProcessingFilter}가 이미 비우며 저장소에는 쓰지 않는다. 연결 시도는 이 성질 덕분에 기존
+ * 로그인이 그대로 남고, 남은 일회성 연결 의도만 폐기한다.
  */
 @Component
+@RequiredArgsConstructor
 public final class SocialLoginFailureHandler implements AuthenticationFailureHandler {
 
 	/** Spring Security가 저장된 authorization request를 찾지 못할 때 사용하는 오류 코드다. */
 	private static final String AUTHORIZATION_REQUEST_NOT_FOUND = "authorization_request_not_found";
+
+	@NonNull private final SocialLinkIntentStore linkIntentStore;
 
 	private final RedirectStrategy redirectStrategy = new DefaultRedirectStrategy();
 
@@ -35,7 +41,8 @@ public final class SocialLoginFailureHandler implements AuthenticationFailureHan
 	public void onAuthenticationFailure(
 		HttpServletRequest request, HttpServletResponse response, AuthenticationException exception)
 		throws IOException {
-		redirectStrategy.sendRedirect(request, response, result(exception).location());
+		boolean linkAttempt = linkIntentStore.consume(request).isPresent();
+		redirectStrategy.sendRedirect(request, response, result(exception).location(linkAttempt));
 	}
 
 	private SocialAuthResult result(AuthenticationException exception) {

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -63,6 +64,7 @@ import jakarta.servlet.http.Cookie;
 class SocialLinkHttpIntegrationTest {
 
 	private static final String LINK_URI = "/api/users/me/social-accounts/{provider}/link";
+	private static final String CALLBACK_URI = "/api/auth/social/callback/";
 	private static final Pattern AUTHORIZATION_URI_PATTERN = Pattern.compile("\"authorizationUri\":\"([^\"]+)\"");
 
 	@Autowired
@@ -125,6 +127,46 @@ class SocialLinkHttpIntegrationTest {
 			callback("naver", session, state).getResponse().getHeader("Location"));
 		assertEquals(
 			Set.of(SocialProvider.NAVER), socialAccountService.linkedProviders(account.id()));
+	}
+
+	@Test
+	void 다른_사용자에게_연결된_외부_식별자는_기존_연결을_보존한_채_충돌이_된다() throws Exception {
+		UserAccount owner = createAccount();
+		String subject = UUID.randomUUID().toString();
+		socialAccountService.link(
+			owner.id(),
+			new SocialIdentity(SocialProvider.NAVER, subject, Optional.empty(), Optional.empty()));
+
+		UserAccount other = createAccount();
+		MockHttpSession session = signedInSession(other);
+		stubSocialProvider.respondWith(naverUser(subject, "밤톨"));
+
+		String state = state(authorizationRedirect(startLink("naver", session), session));
+
+		assertEquals(
+			"/?socialAuth=link-conflict#/profile",
+			callback("naver", session, state).getResponse().getHeader("Location"));
+		assertEquals(Set.of(SocialProvider.NAVER), socialAccountService.linkedProviders(owner.id()));
+		assertEquals(Set.of(), socialAccountService.linkedProviders(other.id()));
+	}
+
+	@Test
+	void 연결_취소와_state_불일치는_연결_시도_화면으로_돌아가고_기존_로그인을_유지한다() throws Exception {
+		UserAccount account = createAccount();
+		MockHttpSession session = signedInSession(account);
+
+		String state = state(authorizationRedirect(startLink("naver", session), session));
+		mockMvc.perform(
+			get(CALLBACK_URI + "naver").param("error", "access_denied").param("state", state).session(session))
+			.andExpect(header().string("Location", "/?socialAuth=canceled#/profile"));
+		mockMvc.perform(get("/api/users/me").session(session)).andExpect(status().isOk());
+		assertEquals(Set.of(), socialAccountService.linkedProviders(account.id()));
+
+		startLink("naver", session);
+		assertEquals(
+			"/?socialAuth=invalid-state#/profile",
+			callback("naver", session, "tampered-state").getResponse().getHeader("Location"));
+		mockMvc.perform(get("/api/users/me").session(session)).andExpect(status().isOk());
 	}
 
 	private String startLink(String registrationId, MockHttpSession session) throws Exception {

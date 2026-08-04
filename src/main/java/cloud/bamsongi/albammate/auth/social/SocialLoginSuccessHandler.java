@@ -45,25 +45,27 @@ public final class SocialLoginSuccessHandler implements AuthenticationSuccessHan
 	public void onAuthenticationSuccess(
 		HttpServletRequest request, HttpServletResponse response, Authentication authentication)
 		throws IOException {
-		SocialAuthResult result = handle(request, response, authentication);
-		redirectStrategy.sendRedirect(request, response, result.location());
+		SocialLinkIntent linkIntent = linkIntentStore.consume(request).orElse(null);
+		SocialAuthResult result = handle(request, response, authentication, linkIntent);
+		redirectStrategy.sendRedirect(request, response, result.location(linkIntent != null));
 	}
 
 	private SocialAuthResult handle(
-		HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
+		HttpServletRequest request,
+		HttpServletResponse response,
+		Authentication authentication,
+		SocialLinkIntent linkIntent) {
 		if (!(authentication instanceof OAuth2AuthenticationToken token)) {
-			sessionEstablisher.discard(request, response);
+			restoreSession(linkIntent, request, response);
 			return SocialAuthResult.FAILED;
 		}
 		SocialProvider provider = clientRegistrationRepository
 			.configuredProvider(token.getAuthorizedClientRegistrationId())
 			.orElse(null);
 		if (provider == null) {
-			sessionEstablisher.discard(request, response);
+			restoreSession(linkIntent, request, response);
 			return SocialAuthResult.PROVIDER_UNAVAILABLE;
 		}
-
-		SocialLinkIntent linkIntent = linkIntentStore.consume(request).orElse(null);
 		if (linkIntent != null) {
 			return link(linkIntent, provider, token, request, response);
 		}
@@ -100,7 +102,7 @@ public final class SocialLoginSuccessHandler implements AuthenticationSuccessHan
 		HttpServletRequest request,
 		HttpServletResponse response) {
 		if (!intent.provider().equals(provider)) {
-			sessionEstablisher.establish(intent.userId(), request, response);
+			restoreSession(intent, request, response);
 			return SocialAuthResult.INVALID_STATE;
 		}
 
@@ -109,15 +111,30 @@ public final class SocialLoginSuccessHandler implements AuthenticationSuccessHan
 			SocialIdentity identity = identityMapper.map(provider, token.getPrincipal().getAttributes());
 			linkResult = socialAccountService.link(intent.userId(), identity);
 		} catch (RuntimeException exception) {
-			sessionEstablisher.establish(intent.userId(), request, response);
+			restoreSession(intent, request, response);
 			return SocialAuthResult.FAILED;
 		}
 
-		sessionEstablisher.establish(intent.userId(), request, response);
+		restoreSession(intent, request, response);
 		if (linkResult == SocialLinkResult.LINKED) {
 			csrfTokenRepository.saveToken(null, request, response);
 			return SocialAuthResult.LINK_SUCCESS;
 		}
 		return SocialAuthResult.LINK_CONFLICT;
+	}
+
+	/**
+	 * 연결 시도면 의도에 담긴 사용자의 앱 세션을 되돌리고, 로그인 시도면 남은 인증을 지운다.
+	 *
+	 * <p>OAuth filter는 성공 처리 직전에 세션 인증을 외부 principal로 덮으므로, 연결 결과가 성공이든 실패든 원래 로그인 사용자를 다시
+	 * 세우지 않으면 연결 시도만으로 로그아웃된다.
+	 */
+	private void restoreSession(
+		SocialLinkIntent intent, HttpServletRequest request, HttpServletResponse response) {
+		if (intent == null) {
+			sessionEstablisher.discard(request, response);
+			return;
+		}
+		sessionEstablisher.establish(intent.userId(), request, response);
 	}
 }
