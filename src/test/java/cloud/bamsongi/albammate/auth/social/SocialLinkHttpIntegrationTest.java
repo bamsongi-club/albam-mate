@@ -177,6 +177,24 @@ class SocialLinkHttpIntegrationTest {
 	}
 
 	@Test
+	void 필수_subject가_없는_연결_callback은_실패_뒤_의도를_폐기하고_기존_로그인을_유지한다() throws Exception {
+		UserAccount account = createAccount();
+		MockHttpSession session = signedInSession(account);
+		stubSocialProvider.respondWith(Map.of("response", Map.of("nickname", "밤톨")));
+		String state = state(authorizationRedirect(startLink("naver", session), session));
+
+		assertEquals(
+			"/?socialAuth=failed#/profile",
+			callback("naver", session, state).getResponse().getHeader("Location"));
+		mockMvc.perform(get("/api/users/me").session(session)).andExpect(status().isOk());
+		assertEquals(Set.of(), socialAccountService.linkedProviders(account.id()));
+		assertEquals(
+			"/?socialAuth=invalid-state#/profile",
+			callback("naver", session, state).getResponse().getHeader("Location"));
+		assertEquals(Set.of(), socialAccountService.linkedProviders(account.id()));
+	}
+
+	@Test
 	void 제공자_이메일의_중복과_부재와_무관하게_callback_직전_사용자에게_연결한다() throws Exception {
 		String duplicateEmail = "social-link-duplicate@example.com";
 		createAccount(duplicateEmail);
