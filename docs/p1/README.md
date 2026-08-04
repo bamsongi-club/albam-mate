@@ -26,7 +26,7 @@ P1 저장 계약의 준비 상태는 기능별로 다르다. 알림 저장 계�
 | --- | --- | --- | --- | --- |
 | [`AUTH-05`](social-login.md#auth-05-소셜-로그인계정-연결) | 계약 준비 완료 | 부분 구현 ([#331](https://github.com/bamsongi-club/albam-mate/issues/331), [#333](https://github.com/bamsongi-club/albam-mate/issues/333)) | 부분 검증 ([#331](https://github.com/bamsongi-club/albam-mate/issues/331), [#333](https://github.com/bamsongi-club/albam-mate/issues/333)) | 미배포·미측정 |
 | [`SEARCH-01`](search.md#search-01-게임-조건-검색) | 계약 준비 완료 | 구현 완료 ([#293](https://github.com/bamsongi-club/albam-mate/issues/293), [#295](https://github.com/bamsongi-club/albam-mate/issues/295), [#348](https://github.com/bamsongi-club/albam-mate/issues/348), [#351](https://github.com/bamsongi-club/albam-mate/issues/351)) | 검증 완료 ([#293](https://github.com/bamsongi-club/albam-mate/issues/293), [#295](https://github.com/bamsongi-club/albam-mate/issues/295), [#348](https://github.com/bamsongi-club/albam-mate/issues/348), [#351](https://github.com/bamsongi-club/albam-mate/issues/351)) | 미배포·미측정 |
-| [`SEARCH-02`](search.md#search-02-방-조건-검색) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |
+| [`SEARCH-02`](search.md#search-02-방-조건-검색) | 계약 준비 완료 | 구현 완료 ([#294](https://github.com/bamsongi-club/albam-mate/issues/294), [PR #317](https://github.com/bamsongi-club/albam-mate/pull/317)) | 검증 완료 ([#294](https://github.com/bamsongi-club/albam-mate/issues/294), [PR #317](https://github.com/bamsongi-club/albam-mate/pull/317)) | 미배포·미측정 |
 | [`SEARCH-03`](search.md#search-03-사용자별-해-본-게임) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
 | [`ROOM-08`](room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
 | [`PART-04`](room.md#part-04-선착순-대기열과-자동-승격) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
