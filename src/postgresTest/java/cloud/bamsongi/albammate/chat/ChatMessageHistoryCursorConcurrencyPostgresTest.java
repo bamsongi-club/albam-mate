@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.chat;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -101,6 +102,14 @@ class ChatMessageHistoryCursorConcurrencyPostgresTest {
 							hostUserId, room.getId(), new ChatMessageSendRequest(clientMessageId, "동시 저장 본문"))));
 			}
 
+			for (Future<?> writer : writers) {
+				writer.get(WAIT_SECONDS, TimeUnit.SECONDS);
+			}
+			assertEquals(
+				(long)(INITIAL_MESSAGE_COUNT + CONCURRENT_MESSAGE_COUNT),
+				chatMessageRepository.count(),
+				"이어 읽기 전에 동시 저장이 커밋되어 페이지 경계 사이 삽입 상태가 만들어져야 합니다.");
+
 			List<Long> collectedIds = new ArrayList<>(idsOf(firstPage));
 			ChatMessagePageResponse page = firstPage;
 			while (page.hasNext()) {
@@ -109,18 +118,17 @@ class ChatMessageHistoryCursorConcurrencyPostgresTest {
 				collectedIds.addAll(idsOf(page));
 			}
 
-			for (Future<?> writer : writers) {
-				writer.get(WAIT_SECONDS, TimeUnit.SECONDS);
-			}
-
 			Set<Long> uniqueCollectedIds = new LinkedHashSet<>(collectedIds);
 			assertEquals(collectedIds.size(), uniqueCollectedIds.size(), "이어 읽은 구간에 중복 messageId가 있습니다.");
 			assertEquals(new LinkedHashSet<>(initialMessageIds), uniqueCollectedIds);
-			assertEquals(
-				(long)(INITIAL_MESSAGE_COUNT + CONCURRENT_MESSAGE_COUNT), chatMessageRepository.count());
 		} finally {
 			writerExecutor.shutdown();
-			writerExecutor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS);
+			if (!writerExecutor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS)) {
+				writerExecutor.shutdownNow();
+				assertTrue(
+					writerExecutor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS),
+					"writer executor가 종료되지 않아 테스트 워커가 남았습니다.");
+			}
 		}
 	}
 

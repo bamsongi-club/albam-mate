@@ -86,8 +86,11 @@ class ChatMessageHistoryQueryServiceIntegrationTest {
 	void 존재하지_않는_양수_cursor는_오류_없이_빈_경계를_반환한다() {
 		long hostUserId = insertUser("host");
 		Room room = createChatRoom(hostUserId);
-		List<Long> messageIds = insertMessages(room.getId(), hostUserId, 1);
-		long nonExistentCursor = messageIds.get(0) - 1;
+		List<Long> messageIds = insertMessages(room.getId(), hostUserId, 2);
+		long nonExistentCursor = messageIds.get(0);
+		chatMessageRepository.deleteById(nonExistentCursor);
+		assertTrue(nonExistentCursor > 0, "cursor는 양수여야 합니다.");
+		assertFalse(chatMessageRepository.existsById(nonExistentCursor), "cursor는 존재하지 않아야 합니다.");
 
 		ChatMessagePageResponse page = chatMessageHistoryQueryService
 			.history(hostUserId, room.getId(), nonExistentCursor, 50);
