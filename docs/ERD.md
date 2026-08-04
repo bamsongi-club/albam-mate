@@ -1,6 +1,6 @@
 # 알밤메이트 ERD
 
-이 문서는 현재 제공 중인 P0, 승인된 P1 알림·채팅·다중 인스턴스 스케줄 잠금·소셜 계정과 구현 예정인 P1 게임 검색 수치·사용자별 해 본 게임 관계의 데이터 모델·데이터 제약을 정의한다. P1 항목은 Flyway 마이그레이션과 코드가 반영되기 전에는 현재 운영 스키마로 보지 않는다.
+이 문서는 현재 제공 중인 P0, 승인된 P1 알림·채팅·다중 인스턴스 스케줄 잠금·소셜 계정과 P1 게임 검색 수치·메커니즘·사용자별 해 본 게임 관계의 데이터 모델·데이터 제약을 정의한다. P1 항목은 Flyway 마이그레이션과 코드가 반영되기 전에는 현재 운영 스키마로 보지 않는다.
 
 ### 이 문서의 범위
 
@@ -13,7 +13,7 @@
 ## 기준과 범위
 
 - 기준: P0 제품 규칙은 [P0 공통 명세](archive/p0/P0-spec.md), P1 규칙은 [P1 명세](P1-spec.md)와 [관련 ADR](adr/README.md)을 따른다. 소셜 로그인 저장 계약은 #328과 승인된 ADR-0042를 따른다.
-- 범위: 현재 P0의 오프라인 방·게임 목록·사용자·방 참가, P1의 소셜 계정과 구현 예정인 게임 검색 수치·사용자별 해 본 게임 관계·서비스 내 알림·방별 채팅·공용 스케줄 잠금
+- 범위: 현재 P0의 오프라인 방·게임 목록·사용자·방 참가, P1의 소셜 계정과 게임 검색 수치·메커니즘 목록·관계·사용자별 해 본 게임 관계·서비스 내 알림·방별 채팅·공용 스케줄 잠금
 - 제외: [ADR-0046](adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)에서 저장 계약은 승인됐지만 ERD·Flyway·JPA 반영이 아직 완료되지 않은 P1 대기 구조, 온라인 방, 온라인 자동 매칭, 후기, 룰마스터 가능 게임, 결제·포인트
 - P0 검색: 게임 목록은 게임명 `keyword`, 사람 중심 방 목록은 방 제목 `keyword` 검색을 지원한다. 게임 태그는 표시값이며 필터가 아니다.
 - 시간대가 겹치는 서로 다른 방에는 같은 사용자가 동시에 참가할 수 있다. 따라서 종료 시각과 시간 중복 제약은 두지 않는다.
@@ -27,6 +27,8 @@ erDiagram
     GAMES o|--o{ ROOMS : "선택됨"
     USERS ||--o{ USER_PLAYED_GAMES : "해 본 게임 표시"
     GAMES ||--o{ USER_PLAYED_GAMES : "표시됨"
+    GAMES ||--o{ GAME_MECHANISM_RELATIONS : "메커니즘 관계"
+    GAME_MECHANISMS ||--o{ GAME_MECHANISM_RELATIONS : "게임 관계"
     USERS ||--o{ PARTICIPATIONS : "참가"
     ROOMS ||--o{ PARTICIPATIONS : "참가 관계 보유"
     ROOMS ||--|| CHAT_ROOMS : "채팅방 하나"
@@ -79,6 +81,26 @@ erDiagram
         BIGINT user_id FK
         BIGINT game_id FK
         TIMESTAMPTZ created_at
+    }
+
+    GAME_MECHANISMS {
+        BIGINT id PK
+        BIGINT bgg_mechanism_id UK
+        VARCHAR code UK
+        VARCHAR name_ko
+        VARCHAR name_en
+        SMALLINT featured_order UK
+        BOOLEAN is_public
+        VARCHAR source_reference
+        VARCHAR reviewed_by
+        TIMESTAMPTZ reviewed_at
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    GAME_MECHANISM_RELATIONS {
+        BIGINT game_id PK, FK
+        BIGINT mechanism_id PK, FK
     }
 
     ROOMS {
@@ -226,6 +248,38 @@ P1 소셜 제공자와 알림의 제한 값은 PostgreSQL 네이티브 enum이 �
 | created_at | TIMESTAMPTZ | NN | 사용자가 표시한 시각. 실제 플레이 날짜가 아님 |
 
 `updated_at`, 상태 enum, 취소 시각과 플레이 날짜·횟수는 두지 않는다. 표시 취소는 관계 행을 삭제하고, 다시 표시하면 새 관계와 새 표시 시각을 만든다.
+
+### GAME_MECHANISMS
+
+[ADR-0048](adr/game/0048-full-reviewed-game-mechanism-catalog.md)의 검수된 내부 메커니즘 목록이다. 표시명이 바뀌어도 `id`와 `code` 의미는 유지하고, 새 항목은 기본 비공개로 저장한다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | BIGINT | PK, NN, AI | 내부 메커니즘 식별자 |
+| bgg_mechanism_id | BIGINT | UQ, NN | BGG 원본 메커니즘 식별자 |
+| code | VARCHAR(64) | UQ, NN | API 검색에 쓰는 안정적인 `UPPER_SNAKE_CASE` 코드 |
+| name_ko | VARCHAR(100) | NN | 검수된 한국어 표시명 |
+| name_en | VARCHAR(100) | NN | BGG 영문명 |
+| featured_order | SMALLINT | UQ, NULL | 대표 8개는 `1`~`8`, 나머지는 `NULL` |
+| is_public | BOOLEAN | NN, DEFAULT `false` | 검수 후 선택지·검색에 공개할지 여부 |
+| source_reference | VARCHAR(500) | NN | 다시 확인 가능한 출처·배치 근거 |
+| reviewed_by | VARCHAR(100) | NULL | 공개 항목 검수자 |
+| reviewed_at | TIMESTAMPTZ | NULL | 공개 항목 검수 시각 |
+| created_at | TIMESTAMPTZ | NN | 목록 행 생성 시각 |
+| updated_at | TIMESTAMPTZ | NN | 표시명·공개 상태 갱신 시각 |
+
+현재 공개 189개와 관계의 정확한 입력 checksum·매핑·검수 범위는 카탈로그 manifest와 품질 보고서가 소유한다. 원본 JSON·CSV와 생성 SQL은 저장소에 커밋하지 않는다.
+
+### GAME_MECHANISM_RELATIONS
+
+게임과 메커니즘의 다대다 관계다. 별도 관계 ID를 만들지 않고 두 외래 키를 복합 기본 키로 사용한다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| game_id | BIGINT | PK, FK → GAMES.id, NN | 알밤메이트 내부 게임 식별자 |
+| mechanism_id | BIGINT | PK, FK → GAME_MECHANISMS.id, NN | 내부 메커니즘 식별자 |
+
+두 외래 키는 참조 행 삭제 시 관계만 함께 삭제한다. 서비스 카탈로그 적재는 `bgg_id`와 `bgg_mechanism_id`로 내부 ID를 해석해 반복 실행해도 같은 복합 키 한 건으로 수렴한다.
 
 ### ROOMS
 
@@ -475,6 +529,12 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 | SOCIAL_ACCOUNTS | UNIQUE (user_id, provider) | 한 사용자는 제공자마다 외부 계정 하나만 연결한다. |
 | GAMES | UNIQUE (bgg_id) | 하나의 BGG 게임은 게임 목록에 한 번만 저장한다. |
 | USER_PLAYED_GAMES | UNIQUE (user_id, game_id) | 한 사용자는 한 게임을 최대 한 번만 표시한다. |
+| GAME_MECHANISMS | UNIQUE (bgg_mechanism_id) | 하나의 BGG 메커니즘은 내부 목록에 한 번만 매핑한다. |
+| GAME_MECHANISMS | UNIQUE (code) | 공개 검색 코드는 중복될 수 없다. |
+| GAME_MECHANISMS | UNIQUE (featured_order) | 값이 있는 대표 순서는 한 항목에만 배정한다. 여러 `NULL`은 허용한다. |
+| GAME_MECHANISMS | CHECK (featured_order IS NULL OR featured_order BETWEEN 1 AND 8) | 대표 순서는 `1`~`8`만 허용한다. |
+| GAME_MECHANISMS | CHECK (NOT is_public OR (reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL)) | 공개 항목은 검수자와 검수 시각을 반드시 가진다. |
+| GAME_MECHANISM_RELATIONS | PRIMARY KEY (game_id, mechanism_id) | 같은 게임과 메커니즘 관계는 하나만 저장한다. |
 | ROOMS | CHECK (room_type <> 'GAME_FOCUSED' OR game_id IS NOT NULL) | 게임 중심 방은 게임을 반드시 선택한다. |
 | ROOMS | CHECK (capacity BETWEEN 1 AND 10) | 개설자를 제외한 모집 정원은 1명 이상 10명 이하다. |
 | ROOMS | CHECK (active_participant_count BETWEEN 0 AND capacity) | 현재 점유 인원은 음수이거나 모집 정원을 초과할 수 없다. |
@@ -486,6 +546,8 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 | SHEDLOCK | PRIMARY KEY (name) | 같은 이름의 스케줄 잠금은 하나의 임대 상태만 가진다. |
 
 - 사람 중심 방의 `game_id`는 NULL일 수 있으며, 게임을 선택한 사람 중심 방도 허용한다.
+- `GAME_MECHANISMS`의 공개 상태는 애플리케이션 enum이 아니다. 선택지와 검색은 `is_public = true`인 항목만 사용하고, 새 항목은 검수 전 공개하지 않는다.
+- `GAME_MECHANISM_RELATIONS(mechanism_id, game_id)` 인덱스로 공개 코드의 관계 존재 여부를 조회하며 관계 조인으로 게임 행을 중복시키지 않는다.
 - `SOCIAL_ACCOUNTS.user_id`는 `ON DELETE NO ACTION`이다. 계정 삭제는 AUTH-05 범위에 없으며 도입 시 외부 연결 처리 순서를 별도로 결정한다.
 - `USER_PLAYED_GAMES.user_id`와 `game_id`는 모두 `ON DELETE NO ACTION`이다. 사용자·게임 삭제로 관계를 암묵적으로 연쇄 삭제하지 않으며, 삭제 기능을 도입할 때 정리 순서를 별도로 결정한다.
 - 재참가 시 기존 `PARTICIPATIONS` 행을 재활성화한다. `CANCELED`를 `ACTIVE`로 바꾸고 `joined_at`을 갱신하며 `canceled_at`은 NULL로 되돌린다.

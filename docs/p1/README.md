@@ -8,7 +8,7 @@ P1 2차 MVP의 현재 계획·구현 기준 문서 묶음이다. 문서가 존�
 | --- | --- |
 | [P1 공통 명세](../P1-spec.md) | P1 범위, 핵심 흐름, 공통 규칙, 구현 완료 기준 |
 | [소셜 로그인](social-login.md) | `AUTH-05`의 Google·Naver·Kakao 로그인과 기존 계정의 명시적 연결 |
-| [검색](search.md) | `SEARCH-01`~`SEARCH-03`과 메커니즘 후속 후보 |
+| [검색](search.md) | 메커니즘을 포함한 `SEARCH-01`~`SEARCH-03` |
 | [ROOM·참가 고도화](room.md) | `ROOM-08`~`ROOM-10`, `PART-04`의 행동 가능성·대기열·상태 자동 전환·동시성 실증 |
 | [알림](notification.md) | `NOTI-01`~`NOTI-03`의 알림 생성, 본인 목록·미확인 개수와 읽음 처리 |
 | [방 채팅](chatting.md) | `CHAT-01`~`CHAT-05`의 채팅방 접근, 영속 이력, 실시간 전달·복구와 안전·운영 |
@@ -25,7 +25,7 @@ P1 저장 계약의 준비 상태는 기능별로 다르다. 알림 저장 계�
 | 기능 ID | 계약 준비 | 생산 코드 | 자동 검증 | 운영 배포·실측 |
 | --- | --- | --- | --- | --- |
 | [`AUTH-05`](social-login.md#auth-05-소셜-로그인계정-연결) | 계약 준비 완료 | 부분 구현 ([#331](https://github.com/bamsongi-club/albam-mate/issues/331), [#333](https://github.com/bamsongi-club/albam-mate/issues/333)) | 부분 검증 ([#331](https://github.com/bamsongi-club/albam-mate/issues/331), [#333](https://github.com/bamsongi-club/albam-mate/issues/333)) | 미배포·미측정 |
-| [`SEARCH-01`](search.md#search-01-게임-조건-검색) | 계약 준비 완료 | 구현 완료 ([#293](https://github.com/bamsongi-club/albam-mate/issues/293), [#295](https://github.com/bamsongi-club/albam-mate/issues/295), [#348](https://github.com/bamsongi-club/albam-mate/issues/348)) | 검증 완료 ([#293](https://github.com/bamsongi-club/albam-mate/issues/293), [#295](https://github.com/bamsongi-club/albam-mate/issues/295), [#348](https://github.com/bamsongi-club/albam-mate/issues/348)) | 미배포·미측정 |
+| [`SEARCH-01`](search.md#search-01-게임-조건-검색) | 계약 준비 완료 | 구현 완료 ([#293](https://github.com/bamsongi-club/albam-mate/issues/293), [#295](https://github.com/bamsongi-club/albam-mate/issues/295), [#348](https://github.com/bamsongi-club/albam-mate/issues/348), [#351](https://github.com/bamsongi-club/albam-mate/issues/351)) | 검증 완료 ([#293](https://github.com/bamsongi-club/albam-mate/issues/293), [#295](https://github.com/bamsongi-club/albam-mate/issues/295), [#348](https://github.com/bamsongi-club/albam-mate/issues/348), [#351](https://github.com/bamsongi-club/albam-mate/issues/351)) | 미배포·미측정 |
 | [`SEARCH-02`](search.md#search-02-방-조건-검색) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |
 | [`SEARCH-03`](search.md#search-03-사용자별-해-본-게임) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
 | [`ROOM-08`](room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
