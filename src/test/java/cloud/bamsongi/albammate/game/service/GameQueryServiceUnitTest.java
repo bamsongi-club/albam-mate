@@ -18,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.game.contract.UpcomingRoomCountQuery;
+import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,6 +32,9 @@ class GameQueryServiceUnitTest {
 
 	@Mock
 	private UpcomingRoomCountQuery upcomingRoomCountQuery;
+
+	@Mock
+	private GameMechanismRepository gameMechanismRepository;
 
 	@InjectMocks
 	private GameQueryService gameQueryService;

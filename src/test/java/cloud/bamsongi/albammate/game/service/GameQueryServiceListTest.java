@@ -31,6 +31,7 @@ import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
 import cloud.bamsongi.albammate.game.entity.Game;
+import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -44,12 +45,15 @@ class GameQueryServiceListTest {
 	@Mock
 	private UpcomingRoomCountQuery upcomingRoomCountQuery;
 
+	@Mock
+	private GameMechanismRepository gameMechanismRepository;
+
 	private GameQueryService gameQueryService;
 
 	@BeforeEach
 	void setUp() {
 		gameQueryService = new GameQueryService(
-			gameRepository, Clock.fixed(NOW, ZoneOffset.UTC), upcomingRoomCountQuery);
+			gameRepository, Clock.fixed(NOW, ZoneOffset.UTC), upcomingRoomCountQuery, gameMechanismRepository);
 	}
 
 	@Test

@@ -9,6 +9,8 @@ import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 
 /**
  * 빈 query parameter가 {@code null}로 바인딩돼도 nullable wrapper setter가
@@ -38,6 +40,8 @@ public class GameListRequest {
 	@DecimalMin("1.00") @DecimalMax("5.00") private BigDecimal complexityMin;
 
 	@DecimalMin("1.00") @DecimalMax("5.00") private BigDecimal complexityMax;
+
+	private List<@NotBlank @Pattern(regexp = "[A-Z][A-Z0-9_]*") String> mechanism;
 
 	@Min(0) private int page = 0;
 
@@ -121,6 +125,14 @@ public class GameListRequest {
 
 	public void setComplexityMax(BigDecimal complexityMax) {
 		this.complexityMax = complexityMax;
+	}
+
+	public List<String> getMechanism() {
+		return mechanism;
+	}
+
+	public void setMechanism(List<String> mechanism) {
+		this.mechanism = mechanism;
 	}
 
 	@AssertTrue(message = "complexityMin은 complexityMax보다 클 수 없습니다.") public boolean isComplexityRangeValid() {

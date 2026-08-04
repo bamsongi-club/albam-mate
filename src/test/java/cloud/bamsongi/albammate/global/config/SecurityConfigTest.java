@@ -92,6 +92,7 @@ class SecurityConfigTest {
 		mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk());
 		mockMvc.perform(get("/api/games")).andExpect(status().isOk());
 		mockMvc.perform(get("/api/games/1")).andExpect(status().isOk());
+		mockMvc.perform(get("/api/game-mechanisms")).andExpect(status().isOk());
 		mockMvc.perform(get("/api/rooms")).andExpect(status().isOk());
 	}
 
@@ -350,7 +351,7 @@ class SecurityConfigTest {
 			this.currentUserAccessor = currentUserAccessor;
 		}
 
-		@GetMapping({"/api/auth/csrf", "/api/games", "/api/rooms"})
+		@GetMapping({"/api/auth/csrf", "/api/games", "/api/game-mechanisms", "/api/rooms"})
 		MapResponse publicResponse(HttpServletRequest request) {
 			if ("/api/auth/csrf".equals(request.getRequestURI())) {
 				CsrfToken token = (CsrfToken)request.getAttribute(CsrfToken.class.getName());

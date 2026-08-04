@@ -13,6 +13,7 @@ import org.springframework.util.StringUtils;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
 import cloud.bamsongi.albammate.game.entity.Game;
+import cloud.bamsongi.albammate.game.entity.GameMechanismRelation;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
@@ -36,6 +37,7 @@ public final class GameListSearchCriteria {
 	private final List<GamePlayTimeFilter> playTimes;
 	private final BigDecimal complexityMin;
 	private final BigDecimal complexityMax;
+	private final List<String> mechanisms;
 
 	private GameListSearchCriteria(GameListRequest request) {
 		String requestKeyword = request.getKeyword();
@@ -50,6 +52,7 @@ public final class GameListSearchCriteria {
 		this.playTimes = distinctValues(request.getPlayTime());
 		this.complexityMin = request.getComplexityMin();
 		this.complexityMax = request.getComplexityMax();
+		this.mechanisms = distinctValues(request.getMechanism());
 	}
 
 	private GameListSearchCriteria(GameListSearchCriteria source, Collection<Long> upcomingGameIds) {
@@ -64,6 +67,7 @@ public final class GameListSearchCriteria {
 		this.playTimes = source.playTimes;
 		this.complexityMin = source.complexityMin;
 		this.complexityMax = source.complexityMax;
+		this.mechanisms = source.mechanisms;
 	}
 
 	/** 같은 값을 반복 전달해도 한 번 전달한 것과 같도록 빈 값과 중복을 걷어낸다. */
@@ -109,8 +113,29 @@ public final class GameListSearchCriteria {
 			if (complexityMax != null) {
 				predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("complexity"), complexityMax));
 			}
+			addMechanismPredicate(root, query, criteriaBuilder, predicates);
 			return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
 		};
+	}
+
+	/** 선택한 공개 메커니즘 중 하나와 관계가 있는 게임만 EXISTS로 남긴다. */
+	private void addMechanismPredicate(
+		Root<Game> root,
+		jakarta.persistence.criteria.CriteriaQuery<?> query,
+		CriteriaBuilder criteriaBuilder,
+		List<Predicate> predicates) {
+		if (mechanisms.isEmpty()) {
+			return;
+		}
+		var subquery = query.subquery(Long.class);
+		Root<GameMechanismRelation> relation = subquery.from(GameMechanismRelation.class);
+		var mechanism = relation.join("mechanism");
+		subquery.select(criteriaBuilder.literal(1L));
+		subquery.where(
+			criteriaBuilder.equal(relation.get("game"), root),
+			mechanism.get("code").in(mechanisms),
+			criteriaBuilder.isTrue(mechanism.get("isPublic")));
+		predicates.add(criteriaBuilder.exists(subquery));
 	}
 
 	/**

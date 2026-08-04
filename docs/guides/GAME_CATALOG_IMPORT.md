@@ -45,8 +45,8 @@ node scripts/game-catalog/prepare-game-catalog.mjs \
 node scripts/game-catalog/prepare-game-catalog.mjs \
   --games /path/to/games.json \
   --ranks /path/to/boardgames_ranks07-24.csv \
-  --manifest docs/game-catalog/2026-07-24-source-manifest.draft.json \
-  --out build/game-catalog/2026-07-24-approved
+  --manifest /path/to/approved-manifest.json \
+  --out build/game-catalog/approved
 ```
 
 성공하면 아래 파일을 만든다.
@@ -54,8 +54,11 @@ node scripts/game-catalog/prepare-game-catalog.mjs \
 - `quality-report.json`: 입력·결과 행 수, 체크섬, 오류와 승인된 경고
 - `service-catalog.json`: 내부 `id`를 제외하고 `bgg_id`로 정규화한 서비스 데이터
 - `upsert-games.sql`: 한 트랜잭션에서 실행하는 `bgg_id` 기준 `UPSERT`
+- `mechanismCatalog`이 있는 manifest라면 `service-mechanism-catalog.json`: 검수된 메커니즘 목록
+- `mechanismCatalog`이 있는 manifest라면 `upsert-game-mechanisms.sql`: 공개 메커니즘과 게임 관계를 승인 스냅샷으로 수렴시키는 SQL
 
 `upsert-games.sql`은 기존 내부 `id`와 `created_at`을 유지하며, 새 입력에서 빠진 기존 게임을 삭제하지 않는다.
+`upsert-game-mechanisms.sql`은 게임 내부 ID를 해석해야 하므로 반드시 `upsert-games.sql` 다음에 실행한다. 승인 관계의 게임이나 메커니즘을 해석하지 못하면 전체 트랜잭션을 롤백한다.
 
 ## 4. PostgreSQL 적재
 
@@ -64,10 +67,25 @@ node scripts/game-catalog/prepare-game-catalog.mjs \
 ```sh
 psql "$DATABASE_URL" \
   --set ON_ERROR_STOP=on \
-  --file build/game-catalog/2026-07-24-approved/upsert-games.sql
+  --file build/game-catalog/approved/upsert-games.sql
+
+# mechanismCatalog이 있는 승인 배치에서만 이어서 실행한다.
+psql "$DATABASE_URL" \
+  --set ON_ERROR_STOP=on \
+  --file build/game-catalog/approved/upsert-game-mechanisms.sql
 ```
 
-어느 행에서든 실패하면 `COMMIT`에 도달하지 않아 전체 배치가 롤백된다. 적재 전후 행 수, 기존 `bgg_id`의 내부 `id` 유지와 반복 실행 결과를 확인한다.
+어느 행에서든 실패하면 해당 SQL의 `COMMIT`에 도달하지 않아 그 트랜잭션 전체가 롤백된다. 적재 전후 행 수, 기존 `bgg_id`의 내부 `id` 유지와 반복 실행 결과를 확인한다.
+
+현재 Issue #351 승인 배치는 공개 메커니즘 189개와 관계 13,263개여야 한다. 두 SQL 실행 후 아래 결과가 각각 `189`, `13263`인지 확인한다. 이후 배치는 승인된 `quality-report.json`의 `mechanismCatalog` 건수와 대조한다.
+
+```sh
+psql "$DATABASE_URL" \
+  --set ON_ERROR_STOP=on \
+  --tuples-only \
+  --command "SELECT COUNT(*) FROM game_mechanisms WHERE is_public = true;" \
+  --command "SELECT COUNT(*) FROM game_mechanism_relations;"
+```
 
 ## 검증 명령
 
