@@ -3,10 +3,13 @@ package cloud.bamsongi.albammate.chat.service;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import cloud.bamsongi.albammate.chat.contract.MessageCommitted;
 import cloud.bamsongi.albammate.chat.dto.ChatMessageResponse;
@@ -33,6 +36,7 @@ public class ChatMessageCommandService {
 	private final ChatRoomRepository chatRoomRepository;
 	private final ChatMessageRepository chatMessageRepository;
 	private final UserQuery userQuery;
+	private final ChatMessageRateLimiter chatMessageRateLimiter;
 	private final ApplicationEventPublisher eventPublisher;
 	private final Clock clock;
 
@@ -76,10 +80,39 @@ public class ChatMessageCommandService {
 		String clientMessageId,
 		String content,
 		String nickname) {
-		ChatMessage saved = chatMessageRepository.save(
-			ChatMessage.create(chatRoom.getId(), currentUserId, clientMessageId, content, Instant.now(clock)));
-		eventPublisher.publishEvent(MessageCommitted.messageCreated(roomId, saved.getId()));
-		return new ChatMessageSendResult(ChatMessageResponse.from(saved, roomId, nickname), true);
+		ChatMessageRateLimiter.RateLimitReservation reservation = chatMessageRateLimiter.reserve(currentUserId, roomId);
+		Runnable releaseOnce = releaseOnce(reservation);
+		try {
+			ChatMessage saved = chatMessageRepository.save(
+				ChatMessage.create(chatRoom.getId(), currentUserId, clientMessageId, content, Instant.now(clock)));
+			registerReservationReleaseOnRollback(releaseOnce);
+			eventPublisher.publishEvent(MessageCommitted.messageCreated(roomId, saved.getId()));
+			return new ChatMessageSendResult(ChatMessageResponse.from(saved, roomId, nickname), true);
+		} catch (RuntimeException exception) {
+			releaseOnce.run();
+			throw exception;
+		}
+	}
+
+	private Runnable releaseOnce(ChatMessageRateLimiter.RateLimitReservation reservation) {
+		AtomicBoolean released = new AtomicBoolean();
+		return () -> {
+			if (released.compareAndSet(false, true)) {
+				reservation.release();
+			}
+		};
+	}
+
+	private void registerReservationReleaseOnRollback(Runnable releaseOnce) {
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+
+			@Override
+			public void afterCompletion(int status) {
+				if (status != STATUS_COMMITTED) {
+					releaseOnce.run();
+				}
+			}
+		});
 	}
 
 	private String validateClientMessageId(String clientMessageId) {
