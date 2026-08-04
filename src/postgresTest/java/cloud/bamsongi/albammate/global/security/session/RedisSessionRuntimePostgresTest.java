@@ -15,7 +15,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -58,7 +57,7 @@ class RedisSessionRuntimePostgresTest {
 
 	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final String REDIS_IMAGE = "redis:8.4-alpine";
-	private static final String SESSION_KEY_PATTERN = "albam-mate:local-multi:session:sessions:*";
+	private static final String SESSION_KEY_PREFIX = "albam-mate:local-multi:session:sessions:";
 	private static final long SESSION_TTL_SECONDS = 30 * 60;
 	private static final Pattern CSRF_TOKEN_PATTERN = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"");
 
@@ -128,8 +127,8 @@ class RedisSessionRuntimePostgresTest {
 				org.springframework.session.MapSessionRepository.class).isEmpty());
 			StringRedisTemplate redis = new StringRedisTemplate(redisConnectionFactory);
 			redis.afterPropertiesSet();
-			String sessionKey = awaitSessionKey(redis);
-			assertTrue(sessionKey.startsWith("albam-mate:local-multi:session:sessions:"), sessionKey);
+			String sessionKey = awaitSessionKey(redis, sessionCookie.getValue());
+			assertEquals(SESSION_KEY_PREFIX + sessionCookie.getValue(), sessionKey);
 			Long ttl = redis.getExpire(sessionKey, TimeUnit.SECONDS);
 			assertNotNull(ttl);
 			assertTrue(ttl > 0 && ttl <= SESSION_TTL_SECONDS, "actual TTL=" + ttl);
@@ -215,16 +214,16 @@ class RedisSessionRuntimePostgresTest {
 		return Long.parseLong(matcher.group(1));
 	}
 
-	private String awaitSessionKey(StringRedisTemplate redis) throws InterruptedException {
+	private String awaitSessionKey(StringRedisTemplate redis, String sessionId) throws InterruptedException {
+		String sessionKey = SESSION_KEY_PREFIX + sessionId;
 		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
 		while (System.nanoTime() < deadline) {
-			Set<String> keys = redis.keys(SESSION_KEY_PATTERN);
-			if (keys != null && !keys.isEmpty()) {
-				return keys.iterator().next();
+			if (Boolean.TRUE.equals(redis.hasKey(sessionKey))) {
+				return sessionKey;
 			}
 			Thread.sleep(100);
 		}
-		throw new AssertionError("Redis session key was not created in the expected namespace");
+		throw new AssertionError("Redis session key was not created: " + sessionKey);
 	}
 
 	private void awaitSessionExpiry(StringRedisTemplate redis, String sessionKey) throws InterruptedException {
