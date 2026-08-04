@@ -93,7 +93,7 @@ P0는 `게임부터 찾기`, `사람부터 만나기`, `방 만들기` 세 흐�
 | `500` | 처리하지 않은 서버 오류 |
 | `503` | 서비스 일시 사용 불가 |
 
-- 요청 본문으로 기존 리소스의 일부를 수정하는 API는 `PATCH`를 사용한다. 클라이언트가 리소스 전체 표현을 결정해 교체할 때 `PUT`을 사용하며, 경로로 식별한 본인 해 본 게임 관계의 존재 자체를 멱등하게 확정하는 `SEARCH-03` 표시도 request body 없는 `PUT`을 사용한다. 세부 기준과 종료 명령의 재시도 기준은 [ADR-0022](adr/platform/0022-p0-update-api-http-method-and-finish-idempotency.md)를 따른다.
+- 요청 본문으로 기존 리소스의 일부를 수정하는 API는 `PATCH`를 사용한다. 클라이언트가 리소스 전체 표현을 결정해 교체하거나, 경로와 메서드만으로 전체 목표 상태가 결정되는 관계 리소스의 존재를 멱등하게 확정할 때 `PUT`을 사용한다. 따라서 `SEARCH-03` 표시는 request body 없는 `PUT`을 사용한다. 세부 기준과 방 종료 명령의 재시도 기준은 [ADR-0047](adr/platform/0047-http-method-and-target-state-idempotency.md)을 따른다.
 
 JSON 필드는 camelCase를 사용한다. 저장 컬럼(snake_case)과의 대응은 [ERD 테이블 명세](ERD.md#테이블-명세)를 정본으로 한다.
 

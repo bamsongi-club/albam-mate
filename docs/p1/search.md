@@ -2,7 +2,7 @@
 
 이 문서는 P1 필수 범위인 `SEARCH-01`~`SEARCH-03`의 구현 규칙과 완료 기준을 정의하고, 메커니즘 검색은 채택 전 후속 후보로 구분해 기록한다. 현재 계약·생산 코드·자동 검증·운영 상태는 [P1 기능 상태 정본](README.md#기능별-현재-상태)을 따르며, 후보는 [P1 명세](../P1-spec.md)의 범위를 변경하기 전에는 P1 구현·완료 계약에 포함하지 않는다.
 
-전체 범위·공통 검색 규칙은 [P1 명세](../P1-spec.md), 기존 동작은 [P0 완료 문서](../archive/p0/README.md), 요청·응답·오류는 [API 명세](../API.md), 저장 구조와 제약은 [ERD](../ERD.md)를 따른다. `SEARCH-03` 저장 계약은 구현 예정 계약으로 ERD에 반영됐으며, 구현 작업은 전진 Flyway 마이그레이션과 PostgreSQL 검증을 함께 추가해야 한다.
+전체 범위·공통 검색 규칙은 [P1 명세](../P1-spec.md), 기존 동작은 [P0 완료 문서](../archive/p0/README.md), 요청·응답·오류는 [API 명세](../API.md), 저장 구조와 제약은 [ERD](../ERD.md)를 따른다. `SEARCH-03` 저장 계약은 ERD에 반영하며, 구현 작업은 전진 Flyway 마이그레이션과 PostgreSQL 검증을 함께 추가해야 한다.
 
 P1 필수 게임 데이터 적재·검증 대상은 현재 확보한 약 2,000건이다. 전체 카탈로그 확장과 새 외부 데이터 취득은 별도 승인 범위다. ADR-0026~ADR-0028의 결정은 승인됐으며, 필수 범위는 [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md)과 [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md)을 따른다. 메커니즘은 ADR 승인과 별개로 상위 범위에 채택돼야 한다.
 
@@ -193,11 +193,11 @@ BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건�
 
 | 구분 | 정본 |
 | --- | --- |
-| 범위 상태 | P1 필수. API·저장 계약은 준비됐고 운영 코드·Flyway·자동 검증은 구현 전이다 |
+| 범위 상태 | P1 필수. 현재 상태는 [P1 기능 상태 정본의 `SEARCH-03`](README.md#기능별-현재-상태)을 따른다 |
 | 검색 진입점 | [게임 목록·검색](../API.md#game-01-게임-목록검색) |
 | 인증·공개 범위 | [P1 P0 계약 상속](../P1-spec.md#p0-계약-상속) |
 | 저장 계약 | [USER_PLAYED_GAMES](../ERD.md#user_played_games), [ADR-0006](../adr/platform/0006-p0-bigint-identity-ids.md) |
-| 필수 ADR | [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md) — 승인됨 |
+| 필수 ADR | [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md), [ADR-0047](../adr/platform/0047-http-method-and-target-state-idempotency.md) |
 | 백엔드 구현 | [#356](https://github.com/bamsongi-club/albam-mate/issues/356) |
 | 프론트엔드 구현 | [#357](https://github.com/bamsongi-club/albam-mate/issues/357) |
 

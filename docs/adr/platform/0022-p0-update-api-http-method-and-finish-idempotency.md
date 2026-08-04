@@ -1,11 +1,11 @@
 # ADR-0022: P0 수정 API에 PATCH를 유지하고 방 종료 명령을 멱등 처리
 
-- 상태: 승인됨
+- 상태: 대체됨
 - 작성일: 2026-07-28
 - 결정일: 2026-07-28
 - 관련: [API 명세](../../API.md), [P0 명세](../../archive/p0/P0-spec.md), [ROOM-05 정본](../../archive/p0/room.md#room-05-방-취소종료), [ADR-0012](../room/0012-room-request-boundary-state-reconciliation.md), [결정 이슈 #101](https://github.com/bamsongi-club/albam-mate/issues/101), [구현 이슈 #32](https://github.com/bamsongi-club/albam-mate/issues/32), [PR #98](https://github.com/bamsongi-club/albam-mate/pull/98)
 - 대체 대상: ADR-0016
-- 후속 ADR: 없음
+- 후속 ADR: [ADR-0047](0047-http-method-and-target-state-idempotency.md)
 
 ## 맥락
 
