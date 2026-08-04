@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.global.security.session;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -133,6 +134,12 @@ class RedisSessionRuntimePostgresTest {
 			assertNotNull(ttl);
 			assertTrue(ttl > 0 && ttl <= SESSION_TTL_SECONDS, "actual TTL=" + ttl);
 
+			assertTrue(redis.expire(sessionKey, 1, TimeUnit.SECONDS));
+			awaitSessionExpiry(redis, sessionKey);
+			HttpResponse<String> expiredSession = getWithSession(
+				firstUri.resolve("/api/users/me"), sessionCookie);
+			assertEquals(401, expiredSession.statusCode());
+
 			REDIS.stop();
 			try {
 				HttpResponse<String> unavailable = getWithSession(secondUri.resolve("/api/users/me"), sessionCookie);
@@ -218,6 +225,17 @@ class RedisSessionRuntimePostgresTest {
 			Thread.sleep(100);
 		}
 		throw new AssertionError("Redis session key was not created in the expected namespace");
+	}
+
+	private void awaitSessionExpiry(StringRedisTemplate redis, String sessionKey) throws InterruptedException {
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+		while (System.nanoTime() < deadline) {
+			if (!Boolean.TRUE.equals(redis.hasKey(sessionKey))) {
+				return;
+			}
+			Thread.sleep(100);
+		}
+		assertFalse(redis.hasKey(sessionKey), "Redis session key did not expire: " + sessionKey);
 	}
 
 	private CreateUserAccountCommand command(String email, String password, String nickname) {

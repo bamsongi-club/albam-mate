@@ -11,6 +11,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -54,11 +56,14 @@ class LocalMultiProxyRuntimePostgresTest {
 		assertEquals(200, login.statusCode());
 
 		HttpCookie sessionCookie = cookieNamed(client, "JSESSIONID");
+		Set<String> upstreams = new HashSet<>();
 		for (int requestNumber = 0; requestNumber < 8; requestNumber++) {
 			HttpResponse<String> profile = getWithSession(
 				proxyUri.resolve("/api/users/me"), sessionCookie);
 			assertEquals(200, profile.statusCode(), "proxy request " + requestNumber + " lost the shared session");
+			upstreams.add(profile.headers().firstValue("X-Albam-Mate-Upstream").orElseThrow());
 		}
+		assertEquals(2, upstreams.size(), "proxy did not route requests to both Spring instances: " + upstreams);
 	}
 
 	private HttpResponse<String> get(HttpClient client, URI uri) throws Exception {
