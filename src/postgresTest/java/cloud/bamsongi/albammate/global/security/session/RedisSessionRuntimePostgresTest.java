@@ -125,6 +125,8 @@ class RedisSessionRuntimePostgresTest {
 
 			assertTrue(applicationContext.getBeansOfType(
 				org.springframework.session.MapSessionRepository.class).isEmpty());
+			assertTrue(secondContext.getBeansOfType(
+				org.springframework.session.MapSessionRepository.class).isEmpty());
 			StringRedisTemplate redis = new StringRedisTemplate(redisConnectionFactory);
 			redis.afterPropertiesSet();
 			String sessionKey = awaitSessionKey(redis, sessionCookie.getValue());
@@ -139,9 +141,25 @@ class RedisSessionRuntimePostgresTest {
 				firstUri.resolve("/api/users/me"), sessionCookie);
 			assertEquals(401, expiredSession.statusCode());
 
+			CookieManager activeSessionCookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+			HttpClient activeSessionClient = HttpClient.newBuilder()
+				.cookieHandler(activeSessionCookies)
+				.build();
+			HttpResponse<String> activeSessionCsrf = get(activeSessionClient, firstUri.resolve("/api/auth/csrf"));
+			assertEquals(200, activeSessionCsrf.statusCode());
+			HttpResponse<String> activeSessionLogin = post(
+				activeSessionClient,
+				firstUri.resolve("/api/auth/login"),
+				"{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}",
+				csrfToken(activeSessionCsrf.body()));
+			assertEquals(200, activeSessionLogin.statusCode());
+			HttpCookie activeSessionCookie = cookieNamed(activeSessionClient, "JSESSIONID");
+			String activeSessionKey = awaitSessionKey(redis, activeSessionCookie.getValue());
+			assertTrue(redis.hasKey(activeSessionKey));
+
 			REDIS.stop();
 			try {
-				HttpResponse<String> unavailable = getWithSession(secondUri.resolve("/api/users/me"), sessionCookie);
+				HttpResponse<String> unavailable = getWithSession(secondUri.resolve("/api/users/me"), activeSessionCookie);
 				assertNotEquals(200, unavailable.statusCode());
 			} catch (IOException expected) {
 				assertTrue(expected.getMessage() != null);
