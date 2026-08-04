@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,6 +37,7 @@ import cloud.bamsongi.albammate.game.service.GameQueryService;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.exception.GlobalExceptionHandler;
+import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserAccessor;
 
 @WebMvcTest(controllers = GameController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -48,9 +50,14 @@ class GameControllerTest {
 	@Autowired
 	private MockMvc mockMvc;
 
+	@Autowired
+	private CurrentUserAccessor currentUserAccessor;
+
 	@BeforeEach
 	void setUp() {
 		reset(gameQueryService);
+		reset(currentUserAccessor);
+		when(currentUserAccessor.currentUserId()).thenReturn(Optional.empty());
 	}
 
 	@Test
@@ -66,7 +73,7 @@ class GameControllerTest {
 			"60~90분",
 			new BigDecimal("2.00"),
 			0L);
-		when(gameQueryService.findPage(any(GameListRequest.class)))
+		when(gameQueryService.findPage(any(GameListRequest.class), any()))
 			.thenReturn(new PageImpl<>(List.of(item), PageRequest.of(0, 10), 1));
 
 		mockMvc.perform(get("/api/games"))
@@ -93,7 +100,7 @@ class GameControllerTest {
 	@Test
 	void 검색어와_페이지_파라미터를_서비스에_전달한다() throws Exception {
 		PageRequest pageable = PageRequest.of(1, 1);
-		when(gameQueryService.findPage(any(GameListRequest.class)))
+		when(gameQueryService.findPage(any(GameListRequest.class), any()))
 			.thenReturn(new PageImpl<>(List.of(), pageable, 3));
 
 		mockMvc.perform(get("/api/games?keyword=Catan&page=1&size=1"))
@@ -115,7 +122,7 @@ class GameControllerTest {
 	@Test
 	void 예정_모임_필터_true를_서비스에_전달한다() throws Exception {
 		PageRequest pageable = PageRequest.of(0, 10);
-		when(gameQueryService.findPage(any(GameListRequest.class)))
+		when(gameQueryService.findPage(any(GameListRequest.class), any()))
 			.thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
 		mockMvc.perform(get("/api/games?upcomingOnly=true"))
@@ -128,7 +135,7 @@ class GameControllerTest {
 	@Test
 	void 예정_모임_필터_false를_서비스에_전달한다() throws Exception {
 		PageRequest pageable = PageRequest.of(0, 10);
-		when(gameQueryService.findPage(any(GameListRequest.class)))
+		when(gameQueryService.findPage(any(GameListRequest.class), any()))
 			.thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
 		mockMvc.perform(get("/api/games?upcomingOnly=false"))
@@ -141,7 +148,7 @@ class GameControllerTest {
 	@Test
 	void size_상한_100은_성공한다() throws Exception {
 		PageRequest pageable = PageRequest.of(0, 100);
-		when(gameQueryService.findPage(any(GameListRequest.class)))
+		when(gameQueryService.findPage(any(GameListRequest.class), any()))
 			.thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
 		mockMvc.perform(get("/api/games?size=100"))
@@ -171,7 +178,7 @@ class GameControllerTest {
 	@Test
 	void 빈_목록_parameter는_기본값으로_서비스에_전달한다() throws Exception {
 		PageRequest pageable = PageRequest.of(0, 10);
-		when(gameQueryService.findPage(any(GameListRequest.class)))
+		when(gameQueryService.findPage(any(GameListRequest.class), any()))
 			.thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
 		mockMvc.perform(get("/api/games?page=&size=&upcomingOnly="))
@@ -187,7 +194,7 @@ class GameControllerTest {
 
 	@Test
 	void 게임_조건_파라미터를_서비스에_전달한다() throws Exception {
-		when(gameQueryService.findPage(any(GameListRequest.class)))
+		when(gameQueryService.findPage(any(GameListRequest.class), any()))
 			.thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
 
 		mockMvc.perform(
@@ -206,7 +213,7 @@ class GameControllerTest {
 
 	@Test
 	void 인원_범위_조건_파라미터를_서비스에_전달한다() throws Exception {
-		when(gameQueryService.findPage(any(GameListRequest.class)))
+		when(gameQueryService.findPage(any(GameListRequest.class), any()))
 			.thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
 
 		mockMvc.perform(get("/api/games?playerCountMin=2&playerCountMax=4&playerCountExact=true"))
@@ -220,7 +227,7 @@ class GameControllerTest {
 
 	@Test
 	void 반복_전달한_전용_인원을_목록으로_바인딩한다() throws Exception {
-		when(gameQueryService.findPage(any(GameListRequest.class)))
+		when(gameQueryService.findPage(any(GameListRequest.class), any()))
 			.thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
 
 		mockMvc.perform(get("/api/games?exclusivePlayerCount=1&exclusivePlayerCount=2"))
@@ -255,7 +262,7 @@ class GameControllerTest {
 			"카탄 기본판",
 			"간단한 게임 설명",
 			"상세한 게임 설명");
-		when(gameQueryService.findById(1L)).thenReturn(detail);
+		when(gameQueryService.findById(1L, null)).thenReturn(detail);
 
 		mockMvc.perform(get("/api/games/1"))
 			.andExpect(status().isOk())
@@ -275,12 +282,12 @@ class GameControllerTest {
 			.andExpect(jsonPath("$.data.description").value("간단한 게임 설명"))
 			.andExpect(jsonPath("$.data.detailDescription").value("상세한 게임 설명"));
 
-		verify(gameQueryService).findById(1L);
+		verify(gameQueryService).findById(1L, null);
 	}
 
 	@Test
 	void 없는_게임_상세는_GAME_NOT_FOUND다() throws Exception {
-		when(gameQueryService.findById(999L))
+		when(gameQueryService.findById(999L, null))
 			.thenThrow(new BusinessException(ErrorCode.GAME_NOT_FOUND));
 
 		mockMvc.perform(get("/api/games/999"))
@@ -299,7 +306,7 @@ class GameControllerTest {
 
 	private GameListRequest capturedListRequest() {
 		ArgumentCaptor<GameListRequest> requestCaptor = ArgumentCaptor.forClass(GameListRequest.class);
-		verify(gameQueryService).findPage(requestCaptor.capture());
+		verify(gameQueryService).findPage(requestCaptor.capture(), org.mockito.ArgumentMatchers.isNull());
 		return requestCaptor.getValue();
 	}
 
@@ -309,6 +316,11 @@ class GameControllerTest {
 		@Bean
 		GameQueryService gameQueryService() {
 			return mock(GameQueryService.class);
+		}
+
+		@Bean
+		CurrentUserAccessor currentUserAccessor() {
+			return mock(CurrentUserAccessor.class);
 		}
 	}
 }

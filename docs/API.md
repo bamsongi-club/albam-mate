@@ -443,7 +443,7 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 | `estimatedPlayTime` | string | Y | N | P0 | 제공 | 표시용 예상 시간 (예: `30분`) |
 | `complexity` | number | Y | Y | P0 | 제공 | 난이도 표시값 |
 | `upcomingRoomCount` | integer | Y | N | P0 | 제공 | 미래 시점의 `GAME_FOCUSED` 방 중 `CANCELED`·`FINISHED`가 아닌 건수 |
-| `playedByMe` | boolean | Y | Y | P1 | 구현 예정 | 유효한 세션에서 본인 표시 관계가 있으면 `true`, 없으면 `false`; 비로그인이면 `null` |
+| `playedByMe` | boolean | Y | Y | P1 | 제공 | 유효한 세션에서 본인 표시 관계가 있으면 `true`, 없으면 `false`; 비로그인이면 `null` |
 
 ### 4.6 GameDetail
 
@@ -933,7 +933,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | `playTime` | GamePlayTimeFilter | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 검증된 최대 플레이 시간 구간. 목록 안 OR |
 | `complexityMin` | number | N | 검색 없음 | P1 | 제공 | `1.00`~`5.00`, 난이도 닫힌 구간의 하한 |
 | `complexityMax` | number | N | 검색 없음 | P1 | 제공 | `1.00`~`5.00`, 난이도 닫힌 구간의 상한 |
-| `playedFilter` | PlayedFilter | N | 검색 없음 | P1 | 구현 예정 | 단일 값. `PLAYED_ONLY` 또는 `EXCLUDE_PLAYED`; 사용 시 로그인 필요 |
+| `playedFilter` | PlayedFilter | N | 검색 없음 | P1 | 제공 | 단일 값. `PLAYED_ONLY` 또는 `EXCLUDE_PLAYED`; 사용 시 로그인 필요 |
 | `mechanism` | string | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 공개 메커니즘 내부 코드. 목록 안 OR |
 | `page` | integer | N | `0` | P0 | 제공 | 페이지 번호 |
 | `size` | integer | N | `10` | P0 | 제공 | 페이지 크기, 1~100 |
