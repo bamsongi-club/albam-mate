@@ -898,15 +898,41 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | `keyword` | string | N | 검색 없음 | P0 | 제공 | 게임명 부분 일치 |
 | `upcomingOnly` | boolean | N | `false` | P0 | 제공 | `true`이면 예정 모임이 한 개 이상인 게임만 반환 |
 | `playerCount` | integer | N | 검색 없음 | P1 | 제공 | `1`~`9`는 해당 인원을 포함하는 게임, `10`은 최대 가능 인원이 10 이상인 게임 |
-| `playTime` | GamePlayTimeFilter | N | 검색 없음 | P1 | 제공 | 검증된 최대 플레이 시간 구간 |
+| `playerCountMin` | integer | N | 검색 없음 | P1 | 제공 | 1 이상, 찾는 인원 범위의 최소값 |
+| `playerCountMax` | integer | N | 검색 없음 | P1 | 제공 | 1 이상, 찾는 인원 범위의 최대값 |
+| `playerCountExact` | boolean | N | `false` | P1 | 제공 | `true`이면 전달한 인원 경계를 정확히 일치시킨다 |
+| `exclusivePlayerCount` | integer | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 전용 인원. 허용값은 `1`, `2`. 목록 안 OR |
+| `playTime` | GamePlayTimeFilter | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 검증된 최대 플레이 시간 구간. 목록 안 OR |
 | `complexityMin` | number | N | 검색 없음 | P1 | 제공 | `1.00`~`5.00`, 난이도 닫힌 구간의 하한 |
 | `complexityMax` | number | N | 검색 없음 | P1 | 제공 | `1.00`~`5.00`, 난이도 닫힌 구간의 상한 |
 | `page` | integer | N | `0` | P0 | 제공 | 페이지 번호 |
 | `size` | integer | N | `10` | P0 | 제공 | 페이지 크기, 1~100 |
 
-- 서로 다른 필터 종류는 AND로 결합한다.
+- 서로 다른 필터 종류는 AND로 결합한다. 같은 이름을 반복 전달해도 한 번 전달한 것과 결과가 같다.
 - `playerCount=10`은 정확히 10명만 뜻하지 않고 최대 가능 인원이 10 이상인 게임을 뜻한다.
-- `playTime`은 최대 플레이 시간이 `SHORT` 20분 이하, `MEDIUM` 20분 초과 60분 이하, `LONG` 60분 초과인 게임을 반환한다.
+- 인원 조건은 범위 계열(`playerCountMin`, `playerCountMax`, `playerCountExact`)과 전용 인원(`exclusivePlayerCount`)으로 나뉜다. `playerCountMin`이나 `playerCountMax`를 `exclusivePlayerCount`와 함께 전달하면 검증 오류다.
+- `playerCountExact`를 생략하거나 `false`로 두면 범위 판정은 다음과 같다. 게임이 요청 범위 전체를 지원해야 한다.
+
+| 전달한 값 | 판정 |
+|---|---|
+| 최소·최대 모두 | `min_players <= playerCountMin AND max_players >= playerCountMax` |
+| 최소만 | `max_players >= playerCountMin` |
+| 최대만 | `min_players <= playerCountMax` |
+
+- `playerCountExact=true`는 전달한 경계를 정확히 맞춘다. 최소·최대 모두 전달하면 `min_players = playerCountMin AND max_players = playerCountMax`, 최소만 전달하면 `min_players = playerCountMin`, 최대만 전달하면 `max_players = playerCountMax`다. 맞출 경계가 없으면, 즉 최소·최대를 모두 생략하면 인원 조건을 적용하지 않는다.
+- `exclusivePlayerCount=1`은 `min_players = max_players = 1`, `exclusivePlayerCount=2`는 `min_players = max_players = 2`다. 두 값을 함께 전달하면 OR로 결합하고 결과에 같은 게임을 중복해 담지 않는다.
+- `playTime`은 검증된 `max_play_time_minutes` 한 값으로 아래 6구간을 판정하며, 경계값은 정확히 한 구간에만 속한다. 여러 값을 전달하면 OR로 결합한다.
+
+| 값 | 판정 |
+|---|---|
+| `UP_TO_10` | `<= 10` |
+| `OVER_10_TO_20` | `> 10 AND <= 20` |
+| `OVER_20_TO_30` | `> 20 AND <= 30` |
+| `OVER_30_TO_60` | `> 30 AND <= 60` |
+| `OVER_60_UNDER_90` | `> 60 AND < 90` |
+| `AT_LEAST_90` | `>= 90` |
+
+- 이전 `playTime` 값 `SHORT`, `MEDIUM`, `LONG`은 제거했다. 단독으로 전달하거나 새 값과 섞어 전달하면 검증 오류이며 조용히 무시하지 않는다.
 - 복잡도는 전달한 하한 이상·상한 이하의 닫힌 구간으로 판정한다. 두 값을 함께 전달할 때 하한이 상한보다 크면 검증 오류다.
 - 인원·시간·복잡도 필터를 적용하면 해당 조건을 판정할 검증값이 없는 게임은 제외한다. 필터를 생략하면 누락값만으로 제외하지 않는다.
 - 모든 필터를 적용한 뒤 전체 건수, `name ASC, id ASC` 정렬과 페이지를 계산한다.
