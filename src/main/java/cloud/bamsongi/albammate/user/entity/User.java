@@ -24,23 +24,31 @@ public class User extends BaseEntity {
 	@Column(name = "id")
 	private Long id;
 
-	@Column(name = "email", nullable = false, unique = true, length = 255)
+	@Column(name = "email", unique = true, length = 255)
 	private String email;
 
-	@Column(name = "password_hash", nullable = false, length = 255)
+	@Column(name = "password_hash", length = 255)
 	private String passwordHash;
 
 	@Column(name = "nickname", nullable = false, length = 50)
 	private String nickname;
 
 	private User(String email, String passwordHash, String nickname) {
-		this.email = Objects.requireNonNull(email, "email");
-		this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash");
+		this.email = email;
+		this.passwordHash = passwordHash;
 		this.nickname = Objects.requireNonNull(nickname, "nickname");
 	}
 
 	public static User create(String email, String passwordHash, String nickname) {
-		return new User(email, passwordHash, nickname);
+		return new User(
+			Objects.requireNonNull(email, "email"),
+			Objects.requireNonNull(passwordHash, "passwordHash"),
+			nickname);
+	}
+
+	/** 소셜 첫 로그인에서 선택 이메일과 비밀번호 없는 사용자를 만든다. */
+	public static User createSocial(String email, String nickname) {
+		return new User(email, null, nickname);
 	}
 
 	/** 로그인 성공 뒤 비용 상향이 필요한 경우에만 저장 해시를 교체한다. */
