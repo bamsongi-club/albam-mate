@@ -50,6 +50,9 @@ class ModuleArchitectureTest {
 		ROOT_PACKAGE + ".notification.recovery",
 		ROOT_PACKAGE + ".notification.cleanup");
 	private static final Set<String> ALLOWED_CHAT_PACKAGES = Set.of(
+		ROOT_PACKAGE + ".chat.contract",
+		ROOT_PACKAGE + ".chat.controller",
+		ROOT_PACKAGE + ".chat.dto",
 		ROOT_PACKAGE + ".chat.entity",
 		ROOT_PACKAGE + ".chat.repository",
 		ROOT_PACKAGE + ".chat.service");
