@@ -21,7 +21,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpMethod;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -247,20 +246,21 @@ class UserPlayedGameHttpIntegrationTest {
 		throws Exception {
 		CsrfContext csrfContext = csrfContext(userId);
 		return mockMvc.perform(
-			request.with(authenticationFor(userId))
-				.session(csrfContext.session())
-				.cookie(csrfContext.cookie())
-				.header("X-XSRF-TOKEN", valid ? csrfContext.cookie().getValue() : "invalid"));
+			request.cookie(csrfContext.csrfCookie(), csrfContext.sessionCookie())
+				.header("X-XSRF-TOKEN", valid ? csrfContext.csrfCookie().getValue() : "invalid"));
 	}
 
+	// 인증은 첫 요청에서만 후처리기로 만들고 이후에는 세션 쿠키로 잇는다. Spring Session이 관리하는 세션은
+	// MockHttpSession을 주입해도 쓰이지 않아 SecurityContext와 CSRF 토큰이 유실된다.
 	private CsrfContext csrfContext(long userId) throws Exception {
-		MockHttpSession session = new MockHttpSession();
-		MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf").session(session).with(authenticationFor(userId)))
+		MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf").with(authenticationFor(userId)))
 			.andExpect(status().isOk())
 			.andReturn();
 		Cookie csrfCookie = csrfResult.getResponse().getCookie("XSRF-TOKEN");
 		assertNotNull(csrfCookie);
-		return new CsrfContext(csrfCookie, session);
+		Cookie sessionCookie = csrfResult.getResponse().getCookie("JSESSIONID");
+		assertNotNull(sessionCookie);
+		return new CsrfContext(csrfCookie, sessionCookie);
 	}
 
 	private String path(Game game) {
@@ -295,6 +295,6 @@ class UserPlayedGameHttpIntegrationTest {
 				new CurrentUserPrincipal(userId), null, AuthorityUtils.NO_AUTHORITIES));
 	}
 
-	private record CsrfContext(Cookie cookie, MockHttpSession session) {
+	private record CsrfContext(Cookie csrfCookie, Cookie sessionCookie) {
 	}
 }
