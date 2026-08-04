@@ -322,6 +322,10 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .filter-option { align-items: center; color: var(--ink); display: flex; font-size: 13.5px; font-weight: 600; gap: 9px; margin-bottom: 0; min-height: 29px; }
 .filter-option input { accent-color: var(--accent); height: 16px; margin: 0; width: 16px; }
 .filter-option-picker { margin-top: 9px; }
+.filter-range { align-items: center; display: flex; gap: 7px; }
+.filter-range input { min-width: 0; padding: 8px 10px; text-align: center; }
+.filter-range-dash, .filter-range-unit { color: var(--brown2); flex: none; font-size: 13px; font-weight: 700; }
+.filter-group-divider { border: 0; border-top: 1px dashed var(--line); margin: 13px 0 11px; }
 .filter-panel-foot { border-top: 1px solid var(--line); display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; padding-top: 14px; }
 .filter-reset { color: var(--accent-dark); font-size: 13px; font-weight: 900; padding: 0 6px; }
 .filter-reset:hover { text-decoration: underline; }
