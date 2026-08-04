@@ -14,7 +14,7 @@
 - `local-multi`와 `prod`는 Spring Session, Pub/Sub과 사용자·방 단위 전송 제한에 하나의 Redis를 사용하되 key prefix, TTL과 channel namespace를 분리한다. Redis가 없을 때 인메모리 구현으로 자동 fallback하지 않는다.
 - 세션 또는 전송 제한을 확인할 수 없으면 API 정본의 `503 SERVICE_UNAVAILABLE`로 실패한다. PostgreSQL 커밋 뒤 Redis Pub/Sub 발행·구독이 실패하면 저장 성공은 유지하고 이력 조회·다음 신호·재연결로 복구한다.
 - 운영 Redis 제품, HA, TLS, 접근 제어, 비밀 주입과 비용은 후속 OPS에서 확정한다.
-- 세션 TTL·직렬화 방식과 정확한 key·channel namespace는 후속 구현 이슈에서 확정한다.
+- 채팅 전송 제한의 사용자·방 임계값, 고정 창·TTL, 원자 판정, `Retry-After`와 Redis 장애 시 503 경계는 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)에서 승인했고 이 문서와 [API 정본](../API.md#전송-제한-계약)에 반영한다. 세션 TTL·직렬화 방식과 정확한 세션·Pub/Sub key·channel namespace는 후속 구현 이슈에서 별도로 확정한다.
 
 ## CHAT-01 채팅방 생성·접근
 
@@ -86,7 +86,7 @@
 | 공통 응답·오류 | [API 공통 계약](../API.md#1-공통-계약), [오류 코드](../API.md#10-오류-코드) |
 | 시간 기준 | [ADR-0009 UTC 저장과 서비스 시간대 변환](../adr/platform/0009-utc-time-standard.md) |
 | 검증 환경 | [ADR-0010 H2와 PostgreSQL 테스트 경계](../adr/platform/0010-h2-postgresql-test-boundary.md) |
-| 기술 결정 | [ADR-0031 메시지 ID 커서](../adr/chat/0031-chat-history-cursor-pagination.md) — 승인됨, [ADR-0033 PostgreSQL 정본·커밋 후 전달](../adr/chat/0033-postgresql-source-after-commit-delivery.md) — 승인됨 |
+| 기술 결정 | [ADR-0031 메시지 ID 커서](../adr/chat/0031-chat-history-cursor-pagination.md) — 승인됨, [ADR-0033 PostgreSQL 정본·커밋 후 전달](../adr/chat/0033-postgresql-source-after-commit-delivery.md) — 승인됨, [#288 전송 제한 계약 승인](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930) |
 
 ### 기능 규칙
 
@@ -102,6 +102,9 @@
 - 이력 항목은 메시지 식별자, 방 식별자, 작성자 표시 정보, 본문과 서버 생성 시각을
   제공한다. 내부 사용자 식별자와 참가 관계 정보는 노출하지 않는다.
 - 동일한 클라이언트 메시지 식별자로 재전송된 요청은 멱등하게 처리한다.
+- 인증·관계·본문·멱등성 검증을 통과한 신규 전송에만 사용자 bucket 5건/10초와 방 bucket 30건/10초를 적용한다. 사용자 bucket은 모든 방, 방 bucket은 모든 참여자의 전송을 합산한다.
+- 두 bucket은 10초 고정 창으로 동작하고 TTL을 연장하지 않는다. 허용 확인과 증가는 원자적으로 처리하며 하나라도 초과하면 어느 bucket도 증가시키지 않는다. 검증 실패·권한 거부·이미 저장된 동일 payload의 멱등 재전송은 quota를 소비하지 않는다.
+- 제한 초과는 429와 초과 bucket의 남은 TTL을 올림한 `Retry-After`를 반환한다. 두 bucket이 초과하면 더 큰 값을 사용하며, 이 헤더는 429에만 포함한다. Redis 제한 상태 확인 실패·결과 불명확은 저장 전 503으로 실패하고 인메모리 fallback과 `Retry-After`를 허용하지 않는다.
 - 사용자가 참가를 취소하거나 방이 최종 상태로 전이되는 요청과 메시지 전송이
   겹치면, 커밋 시점의 최신 권한·상태를 만족한 메시지만 저장한다.
 
@@ -204,14 +207,20 @@
 | 입력·오류 | [API 공통 계약](../API.md#1-공통-계약), [채팅 API 오류 계약](../API.md#채팅-공통-계약) |
 | 로그 | [Logging 규칙](../CONVENTIONS.md#logging) |
 | 보안 | 세션 인증, CSRF, 출력 인코딩과 Redis 사용자·방 단위 전송 제한 |
-| 관련 정본 | [ADR-0034 메시지 보관·삭제](../adr/chat/0034-chat-message-retention-and-deletion.md), [ADR-0038 스케줄 실행 조정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), [CHAT_ROOMS](../ERD.md#chat_rooms), [SHEDLOCK](../ERD.md#shedlock) |
+| 관련 정본 | [ADR-0034 메시지 보관·삭제](../adr/chat/0034-chat-message-retention-and-deletion.md), [ADR-0038 스케줄 실행 조정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), [#288 전송 제한 계약 승인](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930), [CHAT_ROOMS](../ERD.md#chat_rooms), [SHEDLOCK](../ERD.md#shedlock) |
 
 ### 기능 규칙
 
 - 메시지는 일반 텍스트로 렌더링하고 사용자 입력을 HTML로 실행하지 않는다.
 - 사용자·방 단위 전송 제한은 `local-multi`와 `prod`의 공용 Redis에서 서로 다른
-  key prefix와 TTL로 관리한다. Redis에서 제한 상태를 확인할 수 없으면 메시지를
-  저장하지 않고 API 정본의 `503 SERVICE_UNAVAILABLE`로 실패시킨다.
+  key prefix와 TTL로 관리한다. 사용자 bucket은 5건/10초, 방 bucket은 30건/10초의
+  10초 고정 창이며 TTL을 연장하지 않는다. 두 bucket의 확인·증가는 원자적으로
+  처리하고, 초과 요청은 counter를 증가시키지 않는다.
+- 인증·관계·본문·멱등성 검증 실패와 동일 payload의 멱등 재전송은 제한량을 소비하지
+  않는다. 초과 시 저장하지 않고 429와 초과 bucket TTL을 올림한 `Retry-After`를
+  반환하며, 두 bucket이 초과하면 더 큰 값을 사용한다. Redis 제한 상태 확인 실패나
+  결과 불명확은 인메모리 fallback 없이 저장 전 `503 SERVICE_UNAVAILABLE`으로
+  실패하고 `Retry-After`를 포함하지 않는다.
 - 메시지 본문, 세션 식별자와 내부 사용자 식별자는 로그·메트릭에 포함하지 않는다.
 - 만료 삭제 작업은 성공·삭제 건수·지연·실패를 기록하고, 실패한 묶음만 다음
   스케줄에서 다시 처리한다.
@@ -234,8 +243,8 @@
 
 - `CHAT-04-AC1` 스크립트·HTML 형태의 입력이 다른 사용자의 브라우저에서 실행되지
   않는다.
-- `CHAT-04-AC2` 전송 제한을 초과한 요청은 메시지를 저장하지 않고 계약된 오류와
-  재시도 가능 시점을 반환한다.
+- `CHAT-04-AC2` 전송 제한을 초과한 요청은 메시지를 저장하지 않고 429와 초과
+  bucket TTL에 따른 `Retry-After`를 반환한다.
 - `CHAT-04-AC3` 애플리케이션 로그와 운영 메트릭에 메시지 본문·세션 식별자·내부
   사용자 식별자가 기록되지 않는다.
 - `CHAT-04-AC4` 최종 상태 전환 뒤 30일이 지난 메시지는 다음 일일 스케줄에서
@@ -243,9 +252,9 @@
   확인할 수 있다.
 - `CHAT-04-AC5` 두 애플리케이션 인스턴스에 같은 만료 스케줄이 등록되어도 한
   실행만 작업을 소유하고, 각 삭제 묶음의 성공은 다른 묶음 실패로 롤백되지 않는다.
-- `CHAT-04-AC6` `local-multi`에서 Redis 전송 제한 상태를 확인할 수 없으면
-  인메모리로 fallback하지 않고 메시지도 저장하지 않은 채 `503 SERVICE_UNAVAILABLE`을
-  반환한다.
+- `CHAT-04-AC6` `local-multi`에서 Redis 전송 제한 상태를 확인할 수 없거나 결과가
+  불명확하면 인메모리로 fallback하지 않고 메시지도 저장하지 않은 채
+  `Retry-After` 없는 `503 SERVICE_UNAVAILABLE`을 반환한다.
 
 ### 제외 범위
 

@@ -54,6 +54,7 @@ class GameCatalogImportPostgresTest {
 	void 데이터베이스를_정리한다() {
 		jdbcTemplate.execute("alter table games drop constraint if exists ck_test_game_name");
 		jdbcTemplate.execute("delete from games");
+		jdbcTemplate.execute("delete from game_mechanisms");
 	}
 
 	@Test
@@ -159,6 +160,52 @@ class GameCatalogImportPostgresTest {
 		}
 	}
 
+	@Test
+	void 메커니즘_관계의_게임을_해석하지_못하면_적재_전체를_롤백한다() throws Exception {
+		executeSql(prepareSql(List.of(game(1, 10, "기존 게임", "Existing Game"))));
+
+		GameInput missingGame = game(1, 20, "없는 게임", "Missing Game");
+		missingGame.mechanisms = List.of(mechanism(2040, "Hand Management", "핸드 관리"));
+
+		assertThrows(SQLException.class, () -> executeSql(prepareMechanismSql(List.of(missingGame))));
+
+		assertEquals(0, mechanismCount());
+		assertEquals(0, mechanismRelationCount());
+	}
+
+	@Test
+	void 메커니즘_재적재는_관계를_승인_스냅샷에_수렴시키고_누락된_공개_항목을_비공개로_전환한다() throws Exception {
+		GameInput first = game(1, 10, "첫 번째 게임", "First Game");
+		first.mechanisms = List.of(
+			mechanism(2040, "Hand Management", "핸드 관리"),
+			mechanism(2072, "Dice Rolling", "주사위 굴림"));
+		GameInput second = game(2, 20, "두 번째 게임", "Second Game");
+		second.mechanisms = List.of(mechanism(2072, "Dice Rolling", "주사위 굴림"));
+		executeSql(prepareSql(List.of(first, second)));
+		executeSql(prepareMechanismSql(List.of(first, second)));
+
+		Long handManagementId = mechanismId(2040);
+		Long diceRollingId = mechanismId(2072);
+		assertEquals(3, mechanismRelationCount());
+
+		GameInput approved = game(1, 10, "첫 번째 게임", "First Game");
+		approved.mechanisms = List.of(mechanism(2040, "Hand Management", "핸드 관리"));
+		executeSql(prepareMechanismSql(List.of(approved)));
+
+		assertEquals(handManagementId, mechanismId(2040));
+		assertEquals(diceRollingId, mechanismId(2072));
+		assertEquals(1, mechanismRelationCount());
+		assertEquals(true, jdbcTemplate.queryForObject(
+			"select is_public from game_mechanisms where bgg_mechanism_id = 2040", Boolean.class));
+		assertEquals(false, jdbcTemplate.queryForObject(
+			"select is_public from game_mechanisms where bgg_mechanism_id = 2072", Boolean.class));
+		assertNull(jdbcTemplate.queryForObject(
+			"select featured_order from game_mechanisms where bgg_mechanism_id = 2072", Integer.class));
+
+		executeSql(prepareMechanismSql(List.of(approved)));
+		assertEquals(1, mechanismRelationCount());
+	}
+
 	private void assertConstraintViolation(String sql) {
 		assertThrows(DataIntegrityViolationException.class, () -> jdbcTemplate.execute(sql));
 	}
@@ -197,6 +244,40 @@ class GameCatalogImportPostgresTest {
 		return Files.readString(outputPath.resolve("upsert-games.sql"), StandardCharsets.UTF_8);
 	}
 
+	private String prepareMechanismSql(List<GameInput> games) throws Exception {
+		Path caseDirectory = Files.createTempDirectory(tempDirectory, "mechanism-catalog-");
+		Path gamesPath = caseDirectory.resolve("games.json");
+		Path ranksPath = caseDirectory.resolve("ranks.csv");
+		Path manifestPath = caseDirectory.resolve("manifest.json");
+		Path outputPath = caseDirectory.resolve("output");
+		Files.writeString(gamesPath, gamesJson(games), StandardCharsets.UTF_8);
+		Files.writeString(ranksPath, ranksCsv(games), StandardCharsets.UTF_8);
+		Files.writeString(
+			manifestPath,
+			mechanismManifestJson(gamesPath, ranksPath, games),
+			StandardCharsets.UTF_8);
+
+		Path script = Path.of(System.getProperty("user.dir"))
+			.resolve("scripts/game-catalog/prepare-game-catalog.mjs");
+		Process process = new ProcessBuilder(
+			"node",
+			script.toString(),
+			"--games",
+			gamesPath.toString(),
+			"--ranks",
+			ranksPath.toString(),
+			"--manifest",
+			manifestPath.toString(),
+			"--out",
+			outputPath.toString())
+			.redirectErrorStream(true)
+			.start();
+		String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+		int exitCode = process.waitFor();
+		assertEquals(0, exitCode, output);
+		return Files.readString(outputPath.resolve("upsert-game-mechanisms.sql"), StandardCharsets.UTF_8);
+	}
+
 	private void executeSql(String sql) throws SQLException {
 		try (Connection connection = dataSource.getConnection();
 			Statement statement = connection.createStatement()) {
@@ -227,6 +308,19 @@ class GameCatalogImportPostgresTest {
 		return jdbcTemplate.queryForObject("select count(*) from games", Integer.class);
 	}
 
+	private int mechanismCount() {
+		return jdbcTemplate.queryForObject("select count(*) from game_mechanisms", Integer.class);
+	}
+
+	private Long mechanismId(long bggMechanismId) {
+		return jdbcTemplate.queryForObject(
+			"select id from game_mechanisms where bgg_mechanism_id = ?", Long.class, bggMechanismId);
+	}
+
+	private int mechanismRelationCount() {
+		return jdbcTemplate.queryForObject("select count(*) from game_mechanism_relations", Integer.class);
+	}
+
 	private String gamesJson(List<GameInput> games) {
 		return games.stream()
 			.map(
@@ -243,7 +337,7 @@ class GameCatalogImportPostgresTest {
 					  "estimated_play_time": "60~120분",
 					  "complexity": 3.25,
 					  "description": "%s 설명",
-					  "detail_description": "%s 상세 설명"
+					  "detail_description": "%s 상세 설명"%s
 					}
 					"""
 					.formatted(
@@ -255,7 +349,8 @@ class GameCatalogImportPostgresTest {
 						game.englishName,
 						game.bggId,
 						game.name,
-						game.name)
+						game.name,
+						mechanismsJson(game.mechanisms))
 					.strip())
 			.collect(java.util.stream.Collectors.joining(",\n", "[\n", "\n]\n"));
 	}
@@ -337,6 +432,34 @@ class GameCatalogImportPostgresTest {
 			.formatted(sha256(gamesPath), sha256(ranksPath), rowCount, rowCount);
 	}
 
+	private String mechanismManifestJson(Path gamesPath, Path ranksPath, List<GameInput> games) throws IOException {
+		int relationCount = games.stream().mapToInt(game -> game.mechanisms.size()).sum();
+		String approvedCodes = games.stream()
+			.flatMap(game -> game.mechanisms.stream())
+			.distinct()
+			.map(mechanism -> "\"%d\":\"%s\"".formatted(
+				mechanism.bggMechanismId, mechanism.code()))
+			.collect(java.util.stream.Collectors.joining(","));
+		String checksum = sha256("{" + approvedCodes + "}");
+		String baseManifest = manifestJson(gamesPath, ranksPath, games.size());
+		return baseManifest.substring(0, baseManifest.lastIndexOf('}')) + """
+			  ,"mechanismCatalog": {
+			    "publishedCount": %d,
+			    "relationCount": %d,
+			    "sourceReference": "postgres mechanism fixture",
+			    "reviewedBy": "postgres-test",
+			    "reviewedAt": "2026-08-04T00:00:00Z",
+			    "approvedCodes": {%s},
+			    "approvedCodesSha256": "%s"
+			  }
+			}
+			""".formatted(
+			(int)games.stream().flatMap(game -> game.mechanisms.stream()).distinct().count(),
+			relationCount,
+			approvedCodes,
+			checksum);
+	}
+
 	private String sha256(Path path) throws IOException {
 		try {
 			byte[] digest = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path));
@@ -346,10 +469,55 @@ class GameCatalogImportPostgresTest {
 		}
 	}
 
+	private String sha256(String value) {
+		try {
+			return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+				.digest(value.getBytes(StandardCharsets.UTF_8)));
+		} catch (NoSuchAlgorithmException exception) {
+			throw new IllegalStateException("SHA-256 is unavailable", exception);
+		}
+	}
+
 	private GameInput game(int rank, long bggId, String name, String englishName) {
 		return new GameInput(rank, bggId, name, englishName);
 	}
 
-	private record GameInput(int rank, long bggId, String name, String englishName) {
+	private MechanismInput mechanism(long bggMechanismId, String nameEn, String nameKo) {
+		return new MechanismInput(bggMechanismId, nameEn, nameKo);
+	}
+
+	private String mechanismsJson(List<MechanismInput> mechanisms) {
+		if (mechanisms.isEmpty()) {
+			return "";
+		}
+		return ",\n  \"mechanisms\": [" + mechanisms.stream()
+			.map(mechanism -> "{\"bgg_id\":\"%d\",\"name\":\"%s\",\"name_ko\":\"%s\"}"
+				.formatted(mechanism.bggMechanismId, mechanism.nameEn, mechanism.nameKo))
+			.collect(java.util.stream.Collectors.joining(",")) + "]";
+	}
+
+	private static final class GameInput {
+		private final int rank;
+		private final long bggId;
+		private final String name;
+		private final String englishName;
+		private List<MechanismInput> mechanisms = List.of();
+
+		private GameInput(int rank, long bggId, String name, String englishName) {
+			this.rank = rank;
+			this.bggId = bggId;
+			this.name = name;
+			this.englishName = englishName;
+		}
+	}
+
+	private record MechanismInput(long bggMechanismId, String nameEn, String nameKo) {
+		private String code() {
+			return switch ((int)bggMechanismId) {
+				case 2040 -> "HAND_MANAGEMENT";
+				case 2072 -> "DICE_ROLLING";
+				default -> throw new IllegalArgumentException("Unsupported test mechanism: " + bggMechanismId);
+			};
+		}
 	}
 }

@@ -2,9 +2,9 @@
 
 > 원하는 게임과 모임 조건을 확인하고 함께할 사람을 찾아, 실제 보드게임 플레이까지 이어지도록 돕는 모임 매칭 서비스입니다.
 
-[제품 목표](docs/PRD.md) · [P0 완료 명세](docs/archive/p0/P0-spec.md) · [P1 계획 명세](docs/P1-spec.md) · [API 계약](docs/API.md) · [아키텍처](docs/ARCHITECTURE.md)
+[제품 목표](docs/PRD.md) · [P0 완료 명세](docs/archive/p0/P0-spec.md) · [P1 명세](docs/P1-spec.md) · [API 계약](docs/API.md) · [아키텍처](docs/ARCHITECTURE.md)
 
-P0 백엔드 17개 API와 프론트엔드 연동을 구현했지만 운영 배포는 시작하지 않았습니다. 상세 구현·검증 상태는 [현재 개발 상태](#현재-개발-상태)를 따릅니다.
+P0 백엔드 17개 API와 프론트엔드 연동을 완료했고, P1 2차 MVP는 기능별 계약·구현·검증을 진행 중입니다. 운영 배포는 아직 시작하지 않았습니다. 상세 상태는 [현재 개발 상태](#현재-개발-상태)를 따릅니다.
 
 ## 해결하려는 문제
 
@@ -47,11 +47,11 @@ P0는 홍대 오프라인 모임만 다루며 운영 제재·결제·알림·대
 | 게임 카탈로그 | [기능 명세](docs/archive/p0/game-catalog.md) 있음 | `GAME-01`·`GAME-02`의 2개 API, 예정 모임 필터와 2,000건 검수·적재 도구 | 목록·검색·예정 모임 필터·상세 테스트와 PostgreSQL 재적재·롤백 테스트 |
 | 방 | [기능 명세](docs/archive/p0/room.md) 있음 | `ROOM-01`~`ROOM-05`의 6개 API와 전체 공개 방 필터, 상태 보정·스케줄러 | 목록·필터, 상태 경계·보정, 취소·종료와 권한 테스트 |
 | 참가·내 모임 | [기능 명세](docs/archive/p0/participation.md) 있음 | `PART-01`~`PART-03`의 3개 API | PostgreSQL 낙관 락 동시성 테스트 |
-| 프론트엔드 | [프론트엔드 README](frontend/README.md) 있음 | React 화면과 세션 쿠키·CSRF를 포함한 P0 API 연동 | `npm ci`와 Vite 운영 빌드를 CI에서 검증, 자동 동작 테스트는 아직 없음 |
-| 운영 배포 | [ADR-0021 운영 인프라 기준](docs/adr/platform/0021-p0-aws-ec2-rds-deployment-baseline.md) 있음 | 구현 전 | 검증 전 |
+| 프론트엔드 | [프론트엔드 README](frontend/README.md) 있음 | React 화면과 세션 쿠키·CSRF를 포함한 P0 API 연동, 게임·방 조건 필터와 웹 알림함 | Vitest API·알림 회귀 테스트와 Vite 운영 빌드를 CI에서 실행 |
+| 운영 배포 | [운영 가이드](docs/guides/AWS_P0_INFRASTRUCTURE.md)와 [ADR-0021](docs/adr/platform/0021-p0-aws-ec2-rds-deployment-baseline.md) 있음 | 백엔드·웹 이미지, 로컬·운영 Compose, production 프로파일과 롤백 명령 구현. 실제 AWS 배포는 미수행 | production 설정 자동 테스트와 Docker 배포 계약 검증기 있음. 공개 HTTPS·RDS 복구·경보 수신 검증은 남음 |
 | P1 2차 MVP | [P1 공통 명세](docs/P1-spec.md)와 [기능별 상태 정본](docs/p1/README.md#기능별-현재-상태) | [기능별 상태 정본](docs/p1/README.md#기능별-현재-상태)의 `생산 코드` 열 | 같은 표의 `자동 검증`·`운영 배포·실측` 열 |
 
-P0 구현 상태는 2026-07-31 기준이며, P1 행은 요약입니다. P1 기능별 계약·구현·자동 검증·운영 상태는 [P1 기능별 상태 정본](docs/p1/README.md#기능별-현재-상태)을 따릅니다.
+P0 기능 행은 `v0.1.0` 완료 시점 기록을 요약하고, 프론트엔드·운영 배포·P1 행은 2026-08-04 기준입니다. P1 기능별 계약·구현·자동 검증·운영 상태는 [P1 기능별 상태 정본](docs/p1/README.md#기능별-현재-상태)을 따릅니다.
 
 ## 팀 — 밤송이클럽
 
@@ -77,11 +77,11 @@ P0의 사용자 흐름과 저장·보안 계약에 직접 영향을 주는 결�
 | API 인가 경계 | 엔드포인트 정책 등록부 | 인증·CSRF 정책을 한 목록에 모으고 Spring MVC 매핑과 자동 대조해 등록 누락을 CI에서 막습니다. [ADR-0020](docs/adr/auth/0020-api-endpoint-authorization-policy-registry.md) |
 | 방 참가 동시성 | 낙관 락과 제한된 재시도 | 충돌이 드물다는 현재 가정 아래 평상시 잠금 대기를 피합니다. 정원 초과·중복 참가 방지와 재시도 상한을 PostgreSQL 동시성 테스트로 확인했습니다. [ADR-0005](docs/adr/participation/0005-room-participation-optimistic-locking.md) |
 | 게임 목록 데이터 | BGG 기준 스냅샷과 팀 수집 자료 | 외부 식별자를 보존하면서 서비스 표시 필드의 출처를 추적하고, 검증을 통과한 데이터셋만 하나의 트랜잭션으로 반영합니다. [ADR-0015](docs/adr/game/0015-bgg-baseline-team-collected-game-list.md) |
-| P0 운영 배포 | EC2 `t4g.small`과 private RDS PostgreSQL | 애플리케이션과 운영 데이터를 분리하고, RDS는 EC2 애플리케이션만 접근하게 합니다. 운영 Compose·네트워크·백업 검증은 아직 남아 있습니다. [ADR-0021](docs/adr/platform/0021-p0-aws-ec2-rds-deployment-baseline.md) |
+| P0 운영 배포 | EC2 `t4g.small`과 private RDS PostgreSQL | 애플리케이션과 운영 데이터를 분리하고, RDS는 EC2 애플리케이션만 접근하게 합니다. 운영 Docker 이미지·Compose·production 프로파일은 구현했지만, 실제 HTTPS·전용 DB 사용자·재시작·RDS 복구·경보 수신 검증이 남아 있습니다. [ADR-0021](docs/adr/platform/0021-p0-aws-ec2-rds-deployment-baseline.md) |
 
 ## 로컬에서 확인하기
 
-애플리케이션과 테스트에는 Java 21이 필요합니다. 별도의 Gradle 설치 대신 저장소의 Wrapper를 사용합니다.
+애플리케이션과 백엔드 테스트에는 Java 21, 프론트엔드와 문서 링크 검사에는 Node.js 20 이상이 필요합니다. 별도의 Gradle 설치 대신 저장소의 Wrapper를 사용합니다.
 
 Windows PowerShell:
 
@@ -97,7 +97,7 @@ macOS·Linux:
 ./gradlew conventionCheck
 ```
 
-`test`는 H2 인메모리 데이터베이스를 사용하므로 Docker 없이 실행됩니다. 실제 PostgreSQL을 사용하는 `postgresTest`와 `bootRun`에는 Docker가 필요합니다.
+`test`는 H2 인메모리 데이터베이스를 사용하므로 Docker 없이 실행됩니다. Testcontainers로 PostgreSQL 18.4를 띄우는 `postgresTest`는 Docker가 필요하고, `bootRun`은 PostgreSQL 연결이 필요하며 로컬 표준 절차는 Docker Compose를 사용합니다.
 
 ```sh
 ./gradlew postgresTest

@@ -251,6 +251,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 31 | P1 | [AUTH-05](#소셜-계정-연결-시작) · [정본](p1/social-login.md#auth-05-소셜-로그인계정-연결) | POST | `/api/users/me/social-accounts/{provider}/link` | Y | Y | 200 |
 | 32 | P1 | [SEARCH-03](#search-03-해-본-게임-표시) · [정본](p1/search.md#search-03-사용자별-해-본-게임) | PUT | `/api/users/me/played-games/{gameId}` | Y | Y | 200 |
 | 33 | P1 | [SEARCH-03](#search-03-해-본-게임-표시-취소) · [정본](p1/search.md#search-03-사용자별-해-본-게임) | DELETE | `/api/users/me/played-games/{gameId}` | Y | Y | 200 |
+| 34 | P1 | [GAME-03](#game-03-게임-메커니즘-선택지-조회) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) | GET | `/api/game-mechanisms` | N | N | 200 |
 
 `GET /api/games`, `GET /api/games/{gameId}`, `GET /api/rooms`, `GET /api/rooms/{roomId}`와 `GET /api/auth/social/providers`의 인증은 "선택"이다. 비로그인도 호출할 수 있고, 유효한 세션이 있으면 요청자 기준 값을 계산한다. 단, `GET /api/games`의 유효한 `playedFilter`는 로그인을 요구한다.
 
@@ -931,6 +932,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | `complexityMin` | number | N | 검색 없음 | P1 | 제공 | `1.00`~`5.00`, 난이도 닫힌 구간의 하한 |
 | `complexityMax` | number | N | 검색 없음 | P1 | 제공 | `1.00`~`5.00`, 난이도 닫힌 구간의 상한 |
 | `playedFilter` | PlayedFilter | N | 검색 없음 | P1 | 구현 예정 | 단일 값. `PLAYED_ONLY` 또는 `EXCLUDE_PLAYED`; 사용 시 로그인 필요 |
+| `mechanism` | string | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 공개 메커니즘 내부 코드. 목록 안 OR |
 | `page` | integer | N | `0` | P0 | 제공 | 페이지 번호 |
 | `size` | integer | N | `10` | P0 | 제공 | 페이지 크기, 1~100 |
 
@@ -962,10 +964,12 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 - 복잡도는 전달한 하한 이상·상한 이하의 닫힌 구간으로 판정한다. 두 값을 함께 전달할 때 하한이 상한보다 크면 검증 오류다.
 - `PLAYED_ONLY`는 현재 사용자의 표시 관계가 있는 게임만, `EXCLUDE_PLAYED`는 그 관계가 없는 게임만 반환한다. 관계가 없다는 사실을 실제 미플레이로 해석하지 않는다.
 - `playedFilter`를 생략하면 관계 필터를 적용하지 않는다. 잘못된 값이나 중복 전달은 로그인 여부와 관계없이 먼저 `400 VALIDATION_ERROR`, 유효한 값을 비로그인으로 전달하면 `401 UNAUTHENTICATED`다.
-- 인원·시간·복잡도 필터를 적용하면 해당 조건을 판정할 검증값이 없는 게임은 제외한다. 필터를 생략하면 누락값만으로 제외하지 않는다.
+- `mechanism`은 [GAME-03](#game-03-게임-메커니즘-선택지-조회)의 공개 `code`를 정확히 전달한다. 여러 코드는 OR로 결합하고 다른 필터와는 AND로 결합하며, 같은 코드를 반복해도 결과를 중복하지 않는다.
+- 존재하지 않거나 비공개인 메커니즘 코드는 전체 요청을 `VALIDATION_ERROR`로 거절한다. 일부 유효 코드가 함께 있어도 잘못된 코드를 조용히 무시하지 않는다.
+- 인원·시간·복잡도·메커니즘 필터를 적용하면 해당 조건을 판정할 검증값이나 관계가 없는 게임은 제외한다. 필터를 생략하면 누락값이나 관계 부재만으로 제외하지 않는다.
 - 모든 필터를 적용한 뒤 전체 건수, `name ASC, id ASC` 정렬과 페이지를 계산한다.
 
-`tag`·메커니즘·테마 필터와 클라이언트 지정 `sort`는 지원하지 않는다. 메커니즘은 [P1 게임 탐색 명세](p1/search.md)의 확장 후보이며 범위에 채택되기 전에는 API 계약으로 확정하지 않는다.
+`tag`·테마 필터와 클라이언트 지정 `sort`는 지원하지 않는다.
 
 #### 오류
 
@@ -973,6 +977,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 |---|---:|---|
 | query parameter 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 유효한 `playedFilter`를 인증 없이 사용 | 401 | `UNAUTHENTICATED` |
+| 존재하지 않거나 비공개인 `mechanism` 코드 | 400 | `VALIDATION_ERROR` |
 
 ### GAME-02 게임 상세 조회
 
@@ -1046,6 +1051,38 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 4. 게임이 없으면 `404 GAME_NOT_FOUND`
 
 별도 `GET /api/users/me/played-games`는 제공하지 않는다. 본인이 표시한 게임 목록은 `GET /api/games?playedFilter=PLAYED_ONLY`로 조회한다.
+
+### GAME-03 게임 메커니즘 선택지 조회
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `GET /api/game-mechanisms` |
+| 인증 / CSRF | 불필요 / 불필요 |
+| 성공 | `200 OK`, `data`: `GameMechanismOption[]` |
+
+검수 후 공개된 항목만 반환한다. `featuredOrder`가 있는 대표 8개를 오름차순으로 먼저 반환하고, 나머지는 `nameKo ASC, code ASC`로 반환한다. 데이터베이스 내부 ID, BGG ID, 검수자·검수일과 출처 기록은 응답에 노출하지 않는다.
+
+#### GameMechanismOption
+
+| 필드 | 타입 | null | 설명 |
+|---|---|:---:|---|
+| `code` | string | N | 표시명과 분리된 안정적인 내부 코드 |
+| `nameKo` | string | N | 검수된 한국어 표시명 |
+| `nameEn` | string | N | BGG 영문명 |
+| `featuredOrder` | integer | Y | 대표 8개는 `1`~`8`, 나머지는 `null` |
+
+대표 8개는 아래 이름과 순서를 사용한다.
+
+| featuredOrder | nameKo |
+|---:|---|
+| 1 | 핸드 관리 |
+| 2 | 주사위 굴림 |
+| 3 | 셋 컬렉션 |
+| 4 | 협력 게임 |
+| 5 | 타일 놓기 |
+| 6 | 조립 보드 |
+| 7 | 솔로/솔로테어 게임 |
+| 8 | 일꾼 놓기 |
 
 ## 7. 방 API
 
@@ -1687,7 +1724,7 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 
 ### 채팅 공통 계약
 
-채팅의 제품 규칙은 [P1 방 채팅 기능 명세](p1/chatting.md)를 따른다. 아래 인터페이스는 구현 예정 계약이다. [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)부터 [ADR-0034](adr/chat/0034-chat-message-retention-and-deletion.md)까지 승인됐지만, 구현과 검증이 끝나기 전에는 제공 기능을 뜻하지 않는다.
+채팅의 제품 규칙은 [P1 방 채팅 기능 명세](p1/chatting.md)를 따른다. 아래 인터페이스는 구현 예정 계약이다. [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)부터 [ADR-0034](adr/chat/0034-chat-message-retention-and-deletion.md)까지 승인됐지만, 구현과 검증이 끝나기 전에는 제공 기능을 뜻하지 않는다. 전송 제한·Redis 실패 처리의 공개 계약은 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)과 [#372 정본 반영 이슈](https://github.com/bamsongi-club/albam-mate/issues/372)에 따른다.
 
 모든 채팅 요청은 요청 시점의 방 상태와 주최자·현재 `ACTIVE` 참가자 관계를 서버에서 다시 확인한다. `RECRUITING`·`CLOSED` 방만 일반 사용자 접근을 허용하며, 참가 취소·`CANCELED`·`FINISHED` 상태는 `FORBIDDEN`으로 거절한다. 메시지 본문은 로그와 메트릭에 기록하지 않는다.
 
@@ -1719,7 +1756,20 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 | `clientMessageId` | string | Y | 1~100자. 같은 방·같은 사용자에서 재시도 멱등성의 기준 |
 | `content` | string | Y | 앞뒤 공백 제거 후 1~500자의 일반 텍스트 |
 
-검증·권한 판정은 세션, 방 존재, 방 상태·현재 관계, 본문, 전송 제한 순서로 수행한다. 같은 사용자가 같은 방에서 같은 `clientMessageId`로 다른 본문을 보내면 `400 VALIDATION_ERROR`다.
+검증·권한 판정은 세션, 방 존재, 방 상태·현재 관계, 본문, 멱등성 순서로 수행한다. 같은 사용자가 같은 방에서 같은 `clientMessageId`로 다른 본문을 보내면 `400 VALIDATION_ERROR`다. 전송 제한은 아래 검증을 통과한 신규 전송에만 적용하며 PostgreSQL 저장 직전에 두 bucket을 함께 판정한다.
+
+#### 전송 제한 계약
+
+| 대상 | 제한 키 | 허용량 | 창·TTL |
+|---|---|---:|---|
+| 사용자 | 인증된 `userId`, 모든 방 합산 | 5건/10초 | 10초 고정 창 |
+| 방 | `roomId`, 모든 참여자 합산 | 30건/10초 | 10초 고정 창 |
+
+- 첫 허용 요청이 각 bucket의 TTL을 시작한다. 이후 허용·거절 요청은 TTL을 연장하지 않는다.
+- 사용자·방 bucket의 허용 확인과 증가는 원자적으로 처리한다. 하나라도 초과하면 어느 bucket도 증가시키지 않는다.
+- 인증·관계·본문·멱등성 검증 실패, 권한 거부, 이미 저장된 동일 `clientMessageId`의 동일 payload 재전송은 quota를 소비하지 않는다.
+- 제한 초과는 `429 RATE_LIMIT_EXCEEDED`로 응답한다. `Retry-After`는 초과한 bucket의 남은 TTL을 밀리초에서 올림한 초 단위 값으로 계산하며, 두 bucket이 초과하면 더 큰 값을 사용한다. 이 헤더는 429에만 포함하고 성공 응답과 503에는 포함하지 않는다.
+- Redis 연결·명령·원자 연산·TTL 확인 실패 또는 결과 불명확은 fail closed로 처리한다. 메시지를 PostgreSQL에 저장하지 않고 `503 SERVICE_UNAVAILABLE`을 반환하며 인메모리 fallback은 허용하지 않는다.
 
 #### 오류
 
@@ -1730,7 +1780,7 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 | 주최자·현재 `ACTIVE` 참가자가 아니거나 방이 `CANCELED`·`FINISHED`임 | 403 | `FORBIDDEN` |
 | 본문·경로·멱등성 키 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 사용자·방 단위 전송 제한 초과 | 429 | `RATE_LIMIT_EXCEEDED` |
-| 세션 또는 전송 제한 상태 저장소를 확인할 수 없음 | 503 | `SERVICE_UNAVAILABLE` |
+| 세션 또는 전송 제한 상태 저장소를 확인할 수 없음 | 503 | `SERVICE_UNAVAILABLE` (전송 제한 장애는 저장 전, `Retry-After` 없음) |
 | CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
 
 ### CHAT-02 메시지 이력 조회
@@ -1819,7 +1869,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 
 `METHOD_NOT_ALLOWED`, `NOT_ACCEPTABLE`, `UNSUPPORTED_MEDIA_TYPE` 응답은 Spring MVC 예외가 제공하는 `Allow`, `Accept`, `Accept-Patch` 등의 프로토콜 헤더가 있으면 그대로 포함한다.
 
-`SERVICE_UNAVAILABLE`의 현재 적용 범위는 [채팅 API](#채팅-공통-계약)의 세 엔드포인트다. `local-multi`와 `prod`에서 채팅 요청이 Spring Session Redis의 세션 상태를 확인할 수 없으면 이 코드를 반환하며, 메시지 전송은 세션 저장소가 정상이더라도 전송 제한 상태 저장소를 확인할 수 없으면 같은 코드를 반환한다. Redis 장애 시 인메모리 구현으로 자동 대체하지 않는 근거는 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)을 따른다.
+`SERVICE_UNAVAILABLE`의 현재 적용 범위는 [채팅 API](#채팅-공통-계약)의 세 엔드포인트다. `local-multi`와 `prod`에서 채팅 요청이 Spring Session Redis의 세션 상태를 확인할 수 없으면 이 코드를 반환하며, 메시지 전송은 세션 저장소가 정상이더라도 전송 제한 상태 저장소를 확인할 수 없으면 저장 전에 같은 코드를 반환한다. 전송 제한 장애의 503에는 `Retry-After`를 포함하지 않는다. Redis 장애 시 인메모리 구현으로 자동 대체하지 않는 근거는 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)과 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)을 따른다.
 
 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트로 이 코드를 확장할지는 이 문서에서 아직 결정하지 않는다. 확장이 필요하면 적용 엔드포인트를 명시한 별도 계약 변경으로 승인받은 뒤 이 절과 [엔드포인트별 오류 매트릭스](#11-부록-엔드포인트별-오류-매트릭스)를 함께 갱신한다.
 
@@ -1833,7 +1883,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 | `SOCIAL_ACCOUNT_ALREADY_LINKED` | 409 | 해당 소셜 계정 제공자가 이미 연결되어 있습니다. | 로그인 사용자가 같은 제공자의 다른 연결을 시작함 |
 | `RATE_LIMIT_EXCEEDED` | 429 | 요청 처리 한도를 초과했습니다. 잠시 후 다시 시도해 주세요. | 인증·채팅 등 요청 횟수 또는 비밀번호 해시 동시 실행 한도 초과 |
 
-인증 요청의 `Retry-After` 계산은 [인증 요청 남용 제한](#인증-요청-남용-제한)을 따른다. 채팅 전송 제한 응답도 재시도까지 남은 초를 `Retry-After`로 반환하며, 정확한 임계값과 계산은 구현 전에 운영·보안 계약으로 확정한다.
+인증 요청의 `Retry-After` 계산은 [인증 요청 남용 제한](#인증-요청-남용-제한)을 따른다. 채팅 전송 제한은 [전송 제한 계약](#전송-제한-계약)과 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)을 따른다.
 
 ### 10.3 게임 오류
 

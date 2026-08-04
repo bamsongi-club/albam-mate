@@ -1213,6 +1213,122 @@ test("빈 games 입력은 실행할 수 없는 빈 UPSERT를 만들지 않는다
     });
 });
 
+test("승인된 메커니즘 manifest는 결정적인 목록과 중복 없는 관계 UPSERT를 만든다", () => {
+	const first = game(1, "10", "첫 번째 게임", "First Game");
+	const second = game(2, "20", "두 번째 게임", "Second Game");
+	first.mechanisms = [
+		{ bgg_id: "2040", name: "Hand Management", name_ko: "핸드 관리" },
+		{ bgg_id: "2072", name: "Dice Rolling", name_ko: "주사위 굴림" },
+	];
+	second.mechanisms = [{ bgg_id: "2072", name: "Dice Rolling", name_ko: "주사위 굴림" }];
+
+	withCase([first, second], ({ root, games, ranks, manifest, out }) => {
+		writeManifest(manifest, games, ranks, []);
+		writeMechanismManifest(manifest, 2, 3, {
+			2040: "HAND_MANAGEMENT",
+			2072: "DICE_ROLLING",
+		});
+
+		const firstResult = runCli(games, ranks, out, manifest);
+		assert.equal(firstResult.status, 0, firstResult.stderr);
+		const catalog = readJson(join(out, "service-mechanism-catalog.json"));
+		assert.deepEqual(catalog.map(({ code }) => code), ["HAND_MANAGEMENT", "DICE_ROLLING"]);
+		assert.deepEqual(catalog.map(({ featured_order }) => featured_order), [1, 2]);
+		const sql = readFileSync(join(out, "upsert-game-mechanisms.sql"), "utf8");
+		assert.match(sql, /ON CONFLICT \(game_id, mechanism_id\) DO NOTHING/);
+
+		const secondOut = join(root, "second-output");
+		const secondResult = runCli(games, ranks, secondOut, manifest);
+		assert.equal(secondResult.status, 0, secondResult.stderr);
+		assert.equal(
+			readFileSync(join(secondOut, "upsert-game-mechanisms.sql"), "utf8"),
+			sql,
+		);
+	});
+});
+
+test("메커니즘 승인 건수가 입력과 다르면 적재 산출물을 차단한다", () => {
+	const row = game(1, "10", "첫 번째 게임", "First Game");
+	row.mechanisms = [{ bgg_id: "2040", name: "Hand Management", name_ko: "핸드 관리" }];
+	withCase([row], ({ games, ranks, manifest, out }) => {
+		writeManifest(manifest, games, ranks, []);
+		writeMechanismManifest(manifest, 189, 13263, { 2040: "HAND_MANAGEMENT" });
+
+		const result = runCli(games, ranks, out, manifest);
+		assert.equal(result.status, 1);
+		const report = readJson(join(out, "quality-report.json"));
+		assert.ok(report.errors.some(({ code }) => code === "MECHANISM_COUNT_MISMATCH"));
+		assert.throws(() => readFileSync(join(out, "service-mechanism-catalog.json")));
+		assert.throws(() => readFileSync(join(out, "upsert-game-mechanisms.sql")));
+	});
+});
+
+test("승인 code 매핑은 영문 표시명이 바뀌어도 공개 code를 바꾸지 않는다", () => {
+	const row = game(1, "10", "첫 번째 게임", "First Game");
+	row.mechanisms = [{ bgg_id: "2040", name: "Hand Management Revised", name_ko: "핸드 관리" }];
+	withCase([row], ({ games, ranks, manifest, out }) => {
+		writeManifest(manifest, games, ranks, []);
+		writeMechanismManifest(manifest, 1, 1, { 2040: "HAND_MANAGEMENT" });
+
+		const result = runCli(games, ranks, out, manifest);
+		assert.equal(result.status, 0, result.stderr);
+		assert.equal(readJson(join(out, "service-mechanism-catalog.json"))[0].code, "HAND_MANAGEMENT");
+	});
+});
+
+test("승인 code 매핑 누락 또는 checksum 불일치는 적재 산출물을 차단한다", async (context) => {
+	const row = game(1, "10", "첫 번째 게임", "First Game");
+	row.mechanisms = [{ bgg_id: "2040", name: "Hand Management", name_ko: "핸드 관리" }];
+	await context.test("매핑 누락", () => {
+		withCase([row], ({ games, ranks, manifest, out }) => {
+			writeManifest(manifest, games, ranks, []);
+			writeMechanismManifest(manifest, 1, 1, {});
+
+			const result = runCli(games, ranks, out, manifest);
+			assert.equal(result.status, 1);
+			assert.ok(readJson(join(out, "quality-report.json")).errors.some(
+				({ code }) => code === "MISSING_APPROVED_MECHANISM_CODE"));
+		});
+	});
+	await context.test("매핑 checksum 불일치", () => {
+		withCase([row], ({ games, ranks, manifest, out }) => {
+			writeManifest(manifest, games, ranks, []);
+			writeMechanismManifest(manifest, 1, 1, { 2040: "HAND_MANAGEMENT" });
+			const value = readJson(manifest);
+			value.mechanismCatalog.approvedCodes[2040] = "RENAMED_CODE";
+			writeFileSync(manifest, `${JSON.stringify(value, null, 2)}\n`);
+
+			const result = runCli(games, ranks, out, manifest);
+			assert.equal(result.status, 1);
+			assert.ok(readJson(join(out, "quality-report.json")).errors.some(
+				({ code }) => code === "APPROVED_CODE_MAPPING_MISMATCH"));
+		});
+	});
+});
+
+test("메커니즘 reviewedAt은 실제 ISO-8601 instant가 아니면 적재 산출물을 차단한다", async (context) => {
+	const row = game(1, "10", "첫 번째 게임", "First Game");
+	row.mechanisms = [{ bgg_id: "2040", name: "Hand Management", name_ko: "핸드 관리" }];
+	for (const reviewedAt of ["2026-08-04T00:00:00", "2026-02-30T00:00:00Z"]) {
+		await context.test(reviewedAt, () => {
+			withCase([row], ({ games, ranks, manifest, out }) => {
+				writeManifest(manifest, games, ranks, []);
+				writeMechanismManifest(manifest, 1, 1, { 2040: "HAND_MANAGEMENT" });
+				const value = readJson(manifest);
+				value.mechanismCatalog.reviewedAt = reviewedAt;
+				writeFileSync(manifest, `${JSON.stringify(value, null, 2)}\n`);
+
+				const result = runCli(games, ranks, out, manifest);
+
+				assert.equal(result.status, 1);
+				assert.ok(readJson(join(out, "quality-report.json")).errors.some(
+					({ code }) => code === "INVALID_MECHANISM_MANIFEST"));
+				assert.throws(() => readFileSync(join(out, "upsert-game-mechanisms.sql")));
+			});
+		});
+	}
+});
+
 function withCase(rows, operation) {
     const root = mkdtempSync(join(tmpdir(), "albam-mate-game-catalog-"));
     try {
@@ -1291,6 +1407,27 @@ function writeManifest(path, gamesPath, ranksPath, acceptedWarnings) {
         },
     };
     writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
+function writeMechanismManifest(path, publishedCount, relationCount, approvedCodes) {
+	const manifest = readJson(path);
+	manifest.mechanismCatalog = {
+		publishedCount,
+		relationCount,
+		sourceReference: "승인된 BGG 메커니즘 입력",
+		reviewedBy: "test-reviewer",
+		reviewedAt: "2026-08-04T00:00:00Z",
+		approvedCodes,
+		approvedCodesSha256: codeMappingSha256(approvedCodes),
+	};
+	writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
+function codeMappingSha256(codes) {
+	const canonical = JSON.stringify(
+		Object.fromEntries(Object.entries(codes).sort(([left], [right]) => left.localeCompare(right))),
+	);
+	return createHash("sha256").update(canonical).digest("hex");
 }
 
 function sourceMetadata(path, source) {

@@ -8,7 +8,7 @@ import {
     statSync,
     writeFileSync,
 } from "node:fs";
-import { basename, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 
 import { analyzeCatalog, parseRankRows, sha256 } from "./catalog-analysis.mjs";
 import {
@@ -16,6 +16,7 @@ import {
     renderJson,
     renderUpsertSql,
 } from "./catalog-artifact-renderer.mjs";
+import { extractMechanismCatalog, renderMechanismUpsertSql } from "./mechanism-catalog.mjs";
 
 const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
 
@@ -46,7 +47,7 @@ function ensureSeparatePaths({ games, ranks, manifest, out }) {
     const outputs = [
         "quality-report.json",
         "service-catalog.json",
-        "upsert-games.sql",
+        "upsert-games.sql", "service-mechanism-catalog.json", "upsert-game-mechanisms.sql",
     ].map((fileName) => resolve(outputDirectory, fileName));
     const inputPaths = [games, ranks, manifest].filter(Boolean);
     for (const input of inputPaths) {
@@ -99,7 +100,7 @@ function realPathIfPresent(path) {
 }
 
 function clearLoadArtifacts({ out }) {
-    for (const fileName of ["service-catalog.json", "upsert-games.sql"]) {
+    for (const fileName of ["service-catalog.json", "upsert-games.sql", "service-mechanism-catalog.json", "upsert-game-mechanisms.sql"]) {
         rmSync(resolve(out, fileName), { force: true });
     }
 }
@@ -152,15 +153,20 @@ function prepareCatalog({ games: gamesPath, ranks: ranksPath, manifest: manifest
               "manifest",
           )
         : null;
+    const resolvedManifest = manifest ? resolveManifest(manifest, manifestPath) : null;
     const analysis = analyzeCatalog({
         games,
         rankRows,
-        manifest,
+        manifest: resolvedManifest,
         gamesPath,
         gamesContents,
         ranksPath,
         ranksContents,
     });
+    const mechanisms = extractMechanismCatalog(games, resolvedManifest);
+    if (mechanisms) {
+        analysis.errors.push(...mechanisms.errors);
+    }
     const reportInput = {
         ...analysis,
         gamesPath,
@@ -179,6 +185,16 @@ function prepareCatalog({ games: gamesPath, ranks: ranksPath, manifest: manifest
     const sqlText = renderUpsertSql(analysis.catalog);
     writeFileSync(resolve(out, "service-catalog.json"), catalogText, "utf8");
     writeFileSync(resolve(out, "upsert-games.sql"), sqlText, "utf8");
+    if (mechanisms) {
+        const mechanismCatalogText = renderJson(mechanisms.catalog);
+        const mechanismSqlText = renderMechanismUpsertSql(mechanisms.catalog, mechanisms.relations);
+        writeFileSync(resolve(out, "service-mechanism-catalog.json"), mechanismCatalogText, "utf8");
+        writeFileSync(resolve(out, "upsert-game-mechanisms.sql"), mechanismSqlText, "utf8");
+        reportInput.mechanismCatalog = {
+            publishedCount: mechanisms.catalog.length,
+            relationCount: mechanisms.relations.length,
+        };
+    }
     writeJson(
         resolve(out, "quality-report.json"),
         buildQualityReport({
@@ -190,6 +206,27 @@ function prepareCatalog({ games: gamesPath, ranks: ranksPath, manifest: manifest
             },
         }),
     );
+}
+
+function resolveManifest(manifest, manifestPath) {
+    if (!manifest.baseManifest) {
+        return manifest;
+    }
+    const basePath = resolve(dirname(manifestPath), manifest.baseManifest);
+    const baseManifest = parseJson(
+        readInput(basePath, "base manifest"),
+        "INVALID_BASE_MANIFEST_JSON",
+        "기준 manifest를 해석할 수 없습니다.",
+        "base manifest",
+    );
+    return {
+        ...baseManifest,
+        ...manifest,
+        sources: { ...baseManifest.sources, ...manifest.sources },
+        provenance: { ...baseManifest.provenance, ...manifest.provenance },
+        fieldSources: { ...baseManifest.fieldSources, ...manifest.fieldSources },
+        review: { ...baseManifest.review, ...manifest.review },
+    };
 }
 
 function writeFailureReport({ games, ranks, manifest, out }, error) {
