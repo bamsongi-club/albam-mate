@@ -1,6 +1,6 @@
 ---
 name: review-code
-description: "현재 브랜치 diff·지정 파일·현재 저장소 PR을 read-only로 리뷰하거나 승인된 T-ID와 고정 diff의 테스트 계약을 검증한다. 코드 리뷰, PR 리뷰·게시, T-ID 계약 검증, 병렬·관점별 리뷰 요청에 사용한다."
+description: "현재 브랜치 diff·지정 파일·현재 저장소 PR을 read-only로 일반 리뷰한다. 코드 리뷰, PR 리뷰·게시, 병렬·관점별 리뷰와 테스트 적합성 검토 요청에 사용한다."
 ---
 
 # Review Code
@@ -17,7 +17,6 @@ description: "현재 브랜치 diff·지정 파일·현재 저장소 PR을 read-
 
 1. 모든 요청에서 [범위와 라우팅](references/scope-and-routing.md)을 읽고 대상 모드, base/head 또는 파일 스냅샷, 파일·hunk 범위와 게시 여부를 고정한다.
 2. 일반 리뷰라면 [일반 리뷰 실행 계약](references/general-review-workflow.md)을 읽고 변경 위험에 맞는 차원·샤드를 정해 reviewer를 배치한다. agent를 시작하기 전에 [일반 리뷰 기계 출력 계약](references/general-review-machine-output-contract.md) 파일 전체를 전달하고 필요한 후보만 judge로 재판정한다.
-3. T-ID 계약 검증이라면 일반 리뷰 실행 계약을 읽거나 적용하지 않는다. [T-ID verifier 기계 출력 계약](references/test-contract-verifier-output-contract.md) 파일 전체를 전달하고 범위와 라우팅의 전용 절차를 따른다.
-4. 반환 JSONL을 파싱·검증한 뒤, 일반 리뷰의 검증된 결과를 사용자에게 확장할 때만 [사용자 출력 표시 계약](references/presentation-contract.md)을 읽는다. T-ID 검증에는 이 표시 계약을 전달하지 않는다.
-5. 게시 모드라면 범위·출력 검증 후 [GitHub PR 게시 계약](references/github-publishing.md)을 읽고 현재 head의 한 번의 `COMMENT` review만 게시한다.
-6. 미검토 범위, agent 폴백, 검증 실패 또는 게시 실패를 성공으로 숨기지 않고 최종 판정과 실제 상태를 보고한다.
+3. 반환 JSONL을 파싱·검증한 뒤 검증된 결과를 사용자에게 확장할 때만 [사용자 출력 표시 계약](references/presentation-contract.md)을 읽는다.
+4. 게시 모드라면 범위·출력 검증 후 [GitHub PR 게시 계약](references/github-publishing.md)을 읽고 현재 head의 한 번의 `COMMENT` review만 게시한다.
+5. 미검토 범위, agent 폴백, 검증 실패 또는 게시 실패를 성공으로 숨기지 않고 최종 판정과 실제 상태를 보고한다.

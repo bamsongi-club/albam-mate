@@ -4,31 +4,55 @@
 
 - 사람이 작업 GitHub 이슈의 한 코멘트에서 승인한 최신 전체 `T1`…`Tn`만 순서대로 재사용한다. 이슈가 없으면 feature·bug 이슈 생성과 승인을, 관찰 가능한 동작·테스트 의도가 달라지면 원래 이슈의 새 전체 승인을 먼저 요청한다.
 - 모든 `sourceRef`와 승인 URL은 승인 코멘트를 가리키며, PR 리뷰 코멘트 자체는 정본이나 승인이 아니다.
-- `.codex/contracts/backend-implementation-packet.schema.json`과 [패킷 템플릿](packet-template.json)에 따라 `allowedPaths`·`forbiddenPaths`를 포함한 패킷을 만든다. 미선언 공유 파일이 필요하면 결정을 요청한다.
+- `.codex/contracts/backend-implementation-packet.schema.json`과 [패킷 템플릿](packet-template.json)에 따라 `allowedPaths`·`forbiddenPaths`를 포함한 v3 패킷을 만든다. 미선언 공유 파일이 필요하면 결정을 요청한다.
 - HTTP 경계 작업은 [HTTP 기능 테스트 매트릭스](../../../references/http-feature-test-matrix.md)를 적용하고 제외 근거를 패킷에 남긴다.
 
 ## 구현 위임
 
 - 완성한 JSON을 저장소 밖의 고유한 임시 파일에 저장하고 `node scripts/validate-packet.mjs <임시-패킷.json>`을 통과시킨다. `<...>` placeholder 부재와 인용한 정본·사람 승인 사실도 직접 확인한다.
 - `postgresTest`가 필요하면 위임 전에 `docker version`으로 daemon 접근을 확인한다.
-- 검증된 JSON만 `backend-developer`에 전달해 소유·대상 테스트·금지 경계를 고정한다. 구현자는 개발 중 대상 테스트만 실행하고, T-ID별 실제 test source와 필요한 H2·PostgreSQL 실행 경계를 보고한다.
+- 검증된 JSON만 `backend-developer`에 전달해 소유·대상 테스트·금지 경계를 고정한다. 구현자는 T-ID별 테스트를 먼저 Red로 확인하고 최소 구현으로 Green을 만든 뒤, task별 최종 Green과 실제 source·exact selector manifest를 보고한다.
+- 구현자가 반환한 T-ID별 Red 보고와 최종 Green을 확인하고, manifest를 저장소 밖 임시 JSON으로 만들어 `node scripts/validate-backend-test-manifest.mjs --packet <packet.json> --manifest <manifest.json> --worktree <worktree>`를 통과시킨다.
 - 구현 중 정본 충돌·선행 공개 계약 부재·미선언 공유 파일이 드러나면 구현을 멈추고 `DECISION_NEEDED`를 반환한다.
+- 새 생산 패키지 또는 `gatedBranchCoverage`에 없는 변경 패키지가 구현 중 확인되면 사용자 결정을 기다리지 않는다. `build.gradle` 조건부 허용 경로와 `.\gradlew.bat jacocoTestReport verifyCoverageRuleTargets` 완료 기준을 packet에 추가해 다시 검증하고, 같은 구현자에게 필요한 map 변경만 후속 전달한다.
+- map을 바꾸면 `git diff HEAD -- build.gradle`로 `gatedBranchCoverage` 항목 추가 또는 최소선 상향 hunk만 있는지 감사한다. coverage 명령은 전체 H2 test 1회를 포함하며 약 70초가 걸릴 수 있지만 Docker와 `postgresTest`는 요구하지 않는다. 분기 10개 미만이면 map을 바꾸지 않고, 10개 이상이면 H2 실측값을 0.01 단위로 내린 최소선만 추가한다. 다른 build hunk는 래칫 예외로 허용하지 않고 별도 고위험 범위로 packet에 명시하며, 최소선 하향·삭제와 기존 비율 회귀는 이 예외로 해결하지 않는다. PostgreSQL 합산 coverage는 CI에 맡긴다.
+
+## TDD 사이클
+
+1. 구현자는 T-ID를 직접 검증하는 exact selector 테스트를 생산 코드보다 먼저 작성하고 `--rerun` Red와 기대 실패를 보고한다.
+2. 최소 생산 코드로 같은 selector를 `--rerun --fail-fast` Green으로 만든다.
+3. 리팩터링 뒤 task별 모든 selector를 묶어 최종 Green과 test manifest를 보고한다.
 
 ## Draft PR과 snapshot 고정
 
 - 사용자가 커밋·push·PR 생성을 요청한 범위에서만 구현자의 대상 테스트 통과 뒤 원격 base를 한 번 갱신하고 필요한 정렬을 끝낸다. 관련 없는 변경이 섞인 worktree는 자동 rebase하지 않는다.
-- `pr-writer`로 승인 범위만 커밋·push하고 Draft PR을 만든다. Draft의 현재 `headRefOid`를 독립 검증 snapshot으로 고정하며, PR 생성 자체를 검증 완료로 표시하지 않는다.
-- 검증 중 `origin/develop`이 이동했다는 사실만으로 Draft branch를 rebase하거나 expected·tester·reviewer 결과를 무효화하지 않는다. 코드·테스트 또는 Draft head가 바뀌면 새 head에서 snapshot과 검증을 다시 만든다.
+- 구현자의 실제 최종 Green과 manifest로 아래 `PR 테스트 항목 handoff`를 먼저 만들고 `pr-writer`에 전달한다.
+- `pr-writer`로 승인 범위만 커밋·push하고 Draft PR을 만든다. Draft의 현재 `headRefOid`를 검증 head로 고정하며, PR 생성 자체를 검증 완료로 표시하지 않는다.
+- `origin/develop` 이동만으로 Draft branch를 rebase하거나 현재 head의 결과를 무효화하지 않는다. 코드·테스트 또는 Draft head가 바뀌면 새 head에서 아래 검증을 모두 반복한다.
 
-## 비게시 독립 검증과 Ready 전환
+## 고정 head 검증과 Ready 전환
 
-- 구현자의 concrete test manifest로 execution plan을 작성하고 `node scripts/build-backend-test-plan.mjs`로 현재 snapshot이 포함된 expected JSON을 만든다. 모든 T-ID는 실제 test source와 하나 이상의 execution을 참조하고, 패킷의 모든 `targetedTests`·`finalCommands`가 plan에 포함돼야 한다. builder는 `targetedTests`를 먼저, 그 밖의 T-ID 실행을 중간에, `finalCommands`를 마지막에 배치한다.
-- 같은 명령은 한 번만 선언한다. 승인된 서로 다른 명령의 Gradle selector 포함 관계를 별도로 추론하거나 병합하지 않는다.
-- 패킷 작성자·구현자와 다른 fresh `backend-tester`는 expected JSON만 받아 runner를 정확히 한 번 실행한다. runner 밖에서 명령별 wrapper, hash 계산기나 result JSON을 만들지 않는다.
-- runner는 첫 execution `fail`에서 남은 실행을 중단한다. 구현자는 실패한 명령과 직접 관련 테스트만 반복해 수정하고 같은 실패가 반복되면 원인을 먼저 분석한다. 수정한 대상 테스트가 통과하면 새 snapshot·expected와 fresh tester로 전체 runner를 최종 한 번 실행한다. `unverified`는 환경·증거 부족 원인을 해결한 뒤 새 result 경로로 전체 runner를 다시 실행하며, 코드나 snapshot이 바뀌면 expected부터 새로 만든다.
-- 같은 Draft head의 CI, tester와 fresh `review-code-reviewer` 자체 리뷰를 진행한다. reviewer에는 고정 diff와 `requiredTests`의 `id`·`intent`만 전달하고 runner 결과는 전달하지 않는다. 일반 위험 리뷰가 필요하면 `review-code`의 비게시 read-only 모드로 수행한다.
-- tester·reviewer 결과와 Finding은 대화와 임시 검증 자료에만 유지한다. 사용자가 별도로 게시를 명시하지 않으면 GitHub PR review·comment·reply로 게시하거나 review thread를 만들고 해결하지 않는다.
-- Ready 전환 직전에 최신 `origin/develop` 변경이 Draft의 변경 경로·공유 계약·API·스키마·마이그레이션·보안·빌드와 충돌하거나 merge conflict를 만드는지 확인한다. 영향이 없으면 기존 tester·reviewer 결과를 유지하고 현재 head의 CI와 mergeability만 확인한다. 저장소 규칙이 최신 base 통합 CI를 요구할 때만 그 CI를 추가한다. 영향이 있으면 한 번 정렬하고 바뀐 head에서 snapshot·tester·reviewer·CI를 다시 수행한다.
-- 현재 Draft head에서 tester `pass`, T-ID 계약 `Approve`, 필요한 일반 리뷰 통과와 CI 성공을 모두 확인한 뒤에만 Ready for review로 전환해 사람 리뷰를 요청한다.
+- 고정한 Draft head에서 같은 manifest를 `node scripts/validate-backend-test-manifest.mjs --packet <packet.json> --manifest <manifest.json> --worktree <worktree>`로 다시 검증한다.
+- manifest의 H2 selector를 한 `.\gradlew.bat test ... --rerun --fail-fast` 명령으로 묶어 최대 한 번 재실행한다. PostgreSQL selector가 있으면 먼저 `docker version`을 확인하고 한 `.\gradlew.bat postgresTest ... --rerun --fail-fast` 명령으로 묶어 최대 한 번 재실행한다.
+- 두 재실행 모두 해당 Test task가 실제로 실행돼야 한다. `--rerun` 없이 같은 selector를 다시 돌리면 Gradle이 `UP-TO-DATE`로 건너뛰고 종료 코드 0을 내므로, `Task :test`·`Task :postgresTest`가 `UP-TO-DATE`로 끝난 실행은 이 게이트의 통과 근거로 쓰지 않는다.
+- 같은 Draft head에서 `review-code` 일반 리뷰를 비게시 read-only로 한 번 호출한다. 고정 diff, 승인된 T-ID와 manifest를 함께 전달해 변경 위험과 assertion·mock·실행 경계·누락 테스트를 일반 Finding으로 검토하며 T-ID별 별도 verdict를 만들지 않는다.
+- targeted 실행, 일반 리뷰와 현재 head CI가 모두 성공해야 Ready for review로 전환한다. 결과와 Finding은 대화와 임시 자료에만 유지하고, 사용자가 별도로 요청하지 않으면 review·comment·reply를 게시하거나 thread를 해결하지 않는다.
+- Ready 전환 직전에 최신 `origin/develop`이 변경 경로·공유 계약·API·스키마·마이그레이션·보안·빌드와 충돌하거나 merge conflict를 만드는지 확인한다. 영향이 없으면 현재 결과를 유지하고 CI와 mergeability만 확인한다. 영향이 있어 head를 바꾸면 manifest 검증, task별 targeted 실행, 일반 리뷰와 CI를 모두 새 head에서 반복한다.
 - Markdown을 바꾸면 `node scripts/check-doc-links.mjs`를 실행하고, 실행하지 못한 조건부 검증을 완료로 표시하지 않는다.
-- 종료 후 저장소 밖 임시 packet·plan·expected·result와 로그를 삭제한다.
+
+## PR 테스트 항목 handoff
+
+- Draft 생성과 Ready 전환 때마다 최신 head의 실제 성공 결과로 `.github/PULL_REQUEST_TEMPLATE.md`의 `## 테스트 및 확인` 체크박스를 다시 만들고 `pr-writer`에 전달한다.
+- T-ID가 1개든 6개든 각각 한 줄씩 `단순 클래스명#메서드명 (task)`으로 쓰며 같은 T-ID의 복수 evidence는 `;`로 구분한다. 단순 클래스명이 충돌할 때만 package-qualified class명을 쓴다.
+- H2와 PostgreSQL Green 명령은 실행한 task별 한 줄로 묶고 coverage ratchet을 성공했을 때만 별도 한 줄을 둔다. 실행하지 않은 PostgreSQL·coverage와 Red 내용은 넣지 않으며 실제 성공한 항목만 `[x]`로 표시한다.
+- 다음 형식으로 만들고 heading과 템플릿 순서를 바꾸지 않는다.
+
+```markdown
+- [x] T1 — `NotificationReadCommandServiceTest#미존재_알림을_숨긴다` (`test`)
+- [x] T2 — `NotificationReadPostgresTest#읽음_시각을_보존한다` (`postgresTest`)
+- [x] Green H2 — `.\gradlew.bat test --tests "..." --rerun --fail-fast`
+- [x] Green PostgreSQL — `.\gradlew.bat postgresTest --tests "..." --rerun --fail-fast`
+- [x] Coverage ratchet — `.\gradlew.bat jacocoTestReport verifyCoverageRuleTargets`
+```
+
+- 종료 후 저장소 밖 임시 packet과 manifest를 삭제한다.

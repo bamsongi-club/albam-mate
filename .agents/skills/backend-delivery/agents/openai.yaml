@@ -1,4 +1,4 @@
 interface:
   display_name: "백엔드 전달 절차"
-  short_description: "저위험 이슈·리뷰는 빠르게, 고위험 변경은 독립 검증합니다"
-  default_prompt: "$backend-delivery를 사용해 백엔드 작업의 위험도를 분류하고 알맞은 검증 경로로 구현·전달해줘."
+  short_description: "저위험은 TDD·CI로, 고위험은 targeted 재검증·리뷰로 전달합니다"
+  default_prompt: "$backend-delivery를 사용해 승인된 T-ID를 코드 TDD로 구현하고 위험도에 맞게 검증·전달해줘."
