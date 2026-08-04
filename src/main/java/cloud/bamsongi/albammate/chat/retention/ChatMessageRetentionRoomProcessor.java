@@ -26,19 +26,30 @@ class ChatMessageRetentionRoomProcessor {
 		this.properties = Objects.requireNonNull(properties, "properties");
 	}
 
-	RoomProcessResult process(ChatMessageRetentionStore.DueChatRoom dueChatRoom, Instant completedAt) {
+	RoomProcessResult process(
+		ChatMessageRetentionStore.DueChatRoom dueChatRoom, Instant completedAt, int maximumMessageCandidateCount) {
 		int deletedMessageCount = 0;
-		while (true) {
+		int candidateMessageCount = 0;
+		while (candidateMessageCount < maximumMessageCandidateCount) {
+			int chunkSize = Math.min(properties.getMessageChunkSize(),
+				maximumMessageCandidateCount - candidateMessageCount);
 			List<Long> messageIds = store.findNextMessageIds(dueChatRoom.chatRoomId(),
-				properties.getMessageChunkSize());
+				chunkSize);
 			if (messageIds.isEmpty()) {
 				boolean completed = completionExecutor.markCompleted(dueChatRoom.chatRoomId(), completedAt);
-				return new RoomProcessResult(completed, deletedMessageCount);
+				return new RoomProcessResult(completed, deletedMessageCount, candidateMessageCount, false);
 			}
-			deletedMessageCount += chunkExecutor.deleteChunk(dueChatRoom.chatRoomId(), messageIds);
+			candidateMessageCount += messageIds.size();
+			try {
+				deletedMessageCount += chunkExecutor.deleteChunk(dueChatRoom.chatRoomId(), messageIds);
+			} catch (RuntimeException exception) {
+				return new RoomProcessResult(false, deletedMessageCount, candidateMessageCount, true);
+			}
 		}
+		return new RoomProcessResult(false, deletedMessageCount, candidateMessageCount, false);
 	}
 
-	record RoomProcessResult(boolean completed, int deletedMessageCount) {
+	record RoomProcessResult(
+		boolean completed, int deletedMessageCount, int candidateMessageCount, boolean failed) {
 	}
 }

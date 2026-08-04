@@ -34,13 +34,11 @@ P1에는 채팅 메시지 신고·운영자 숨김 기능이 없다. 따라서 �
 
 `RECRUITING`·`CLOSED` 방의 메시지는 삭제하지 않는다. 방이 `CANCELED` 또는 `FINISHED`로 전환되면 일반 사용자 접근을 즉시 차단하고, 그 전환 시각부터 30일 동안 메시지를 보관한다.
 
-`V11` 전진 Flyway의 기존 ROOM 초기화는 #289의 로컬·초기화 검증 범위다. `CHAT_ROOMS`가 없는 행만 만들며, `RECRUITING`·`CLOSED` 방은 `purge_after`와 `messages_purged_at`을 비워 둔다. 기존 `CANCELED`·`FINISHED` 방에는 P1 메시지가 존재할 수 없으므로 하나의 PostgreSQL 마이그레이션 기준 시각을 두 컬럼에 기록해 빈 보관 완료로 초기화한다. 기존 `CHAT_ROOMS`는 덮어쓰지 않고 `ROOMS.updated_at`을 과거 최종 상태 전환 시각으로 추정하지 않는다. 이 초기화 예외는 활성화 뒤 생성되거나 최종 상태로 전환되는 방의 30일 보관 정책을 바꾸지 않는다.
-
-live 운영 데이터의 one-shot backfill, ROOM 생성·상태 전환과의 쓰기 통제·최종 보정, 배포 절체는 #281이 소유한다. #289의 로컬 검증용 자동 Flyway는 그 운영 계약을 승인하거나 대체하지 않으며, ADR-0045는 계속 제안 상태다.
+`V6__create_p1_chat_room_schema.sql`은 `CHAT_ROOMS` 스키마·제약만 생성하고, `V11__create_p1_chat_retention_schema.sql`은 ShedLock 기술 테이블만 생성한다. 기존 ROOM backfill·상태별 초기화·ROOM 생성·상태 전환과의 쓰기 통제·최종 보정·배포 절체는 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)이 소유한다. 일반 애플리케이션 기동과 Flyway 자동 실행은 기존 ROOM 데이터를 읽거나 `CHAT_ROOMS`를 backfill하지 않는다. [ADR-0045](0045-chat-room-schema-and-backfill-boundary.md)은 명시적 one-shot/maintenance 작업 경계의 제안이며 팀 채택 전에는 승인된 실행 계약이 아니다.
 
 - 최종 상태 전환은 `room.contract.RoomTerminalStateReached`를 발행하고 `chat`의 동기 listener가 같은 트랜잭션에서 `CHAT_ROOMS.purge_after`를 전환 시각에서 30일 뒤로 설정한다.
 - 하루 한 번 Spring Scheduler가 `purge_after`가 지난 채팅방을 조회한다.
-- 다중 인스턴스 실행에서는 [ADR-0038](../platform/0038-multi-instance-session-and-scheduler-coordination.md)의 PostgreSQL ShedLock 계약으로 한 실행만 삭제 작업을 소유한다. 채팅 만료 삭제용 잠금 이름은 `chat-message-retention`이다. #289의 대표 로컬 PostgreSQL 배치(방 50개, 메시지 5,000개, 방별 100개 chunk)는 126ms였고, 정상 상한 경고는 1초, `lockAtMostFor`는 5초로 확정한다. 경고는 임대 만료 전에 조사할 신호이며, 임대가 실제로 만료해 겹쳐도 아래 멱등 조건으로 수렴한다.
+- 다중 인스턴스 실행에서는 [ADR-0038](../platform/0038-multi-instance-session-and-scheduler-coordination.md)의 PostgreSQL ShedLock 계약으로 한 실행만 삭제 작업을 소유한다. 채팅 만료 삭제용 잠금 이름은 `chat-message-retention`이다. 한 실행은 최대 50개 방과 5,000개 메시지 후보를 방별 최대 100개 chunk로 처리하며, 상한에 도달한 방은 완료 기록 없이 다음 일일 실행으로 넘긴다. 대표 로컬 PostgreSQL 배치의 `lockAtMostFor=5s` 실측 전제를 코드로 강제하고, 정상 상한 경고는 1초로 둔다. 경고는 임대 만료 전에 조사할 신호이며, 임대가 실제로 만료해 겹쳐도 아래 멱등 조건으로 수렴한다.
 - 만료된 `CHAT_MESSAGES`를 설정 가능한 소량 묶음으로 물리 삭제한다.
 - 만료 시각과 스케줄 실행 간격 때문에 실제 live DB 삭제는 30일 경과 후 최대 24시간 늦을 수 있다.
 - 각 묶음은 독립 트랜잭션이다. 성공한 묶음은 유지하고 실패한 묶음만 롤백한다.

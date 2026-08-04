@@ -47,6 +47,8 @@ class ChatMessageRetentionPostgresTest {
 	private JdbcTemplate jdbcTemplate;
 	@Autowired
 	private ChatMessageRetentionCoordinator coordinator;
+	@Autowired
+	private ChatMessageRetentionProperties properties;
 	@MockitoSpyBean
 	private ChatMessageRetentionStore store;
 	@Autowired
@@ -55,6 +57,9 @@ class ChatMessageRetentionPostgresTest {
 	@AfterEach
 	void retention_테스트_데이터를_정리한다() {
 		jdbcTemplate.execute("drop schema if exists " + MIGRATION_SCHEMA + " cascade");
+		properties.setMaxRoomsPerRun(50);
+		properties.setMaxMessagesPerRun(5_000);
+		properties.setMessageChunkSize(100);
 		jdbcTemplate.update(
 			"delete from chat_messages where sender_user_id in (select id from users where email like 'retention-%')");
 		jdbcTemplate.update(
@@ -65,7 +70,7 @@ class ChatMessageRetentionPostgresTest {
 	}
 
 	@Test
-	void V11_로컬_초기화는_기존_행을_보존하고_상태별_값을_하나의_PostgreSQL_기준_시각으로_설정한다() {
+	void V11은_ShedLock만_만들고_기존_ROOM을_backfill하거나_채팅방을_변경하지_않는다() {
 		Flyway.configure()
 			.dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
 			.schemas(MIGRATION_SCHEMA)
@@ -76,10 +81,8 @@ class ChatMessageRetentionPostgresTest {
 			.load()
 			.migrate();
 		long userId = migrationUser();
-		long recruitingRoomId = migrationRoom(userId, "RECRUITING", "recruiting");
 		long closedRoomId = migrationRoom(userId, "CLOSED", "closed");
 		long canceledRoomId = migrationRoom(userId, "CANCELED", "canceled");
-		long finishedRoomId = migrationRoom(userId, "FINISHED", "finished");
 		Instant preservedPurgeAfter = Instant.parse("2026-01-01T00:00:00Z");
 		jdbcTemplate.update(
 			"""
@@ -97,18 +100,15 @@ class ChatMessageRetentionPostgresTest {
 			.load()
 			.migrate();
 
-		assertNull(migrationTimestamp(recruitingRoomId, "purge_after"));
-		assertNull(migrationTimestamp(recruitingRoomId, "messages_purged_at"));
 		assertEquals(preservedPurgeAfter, migrationTimestamp(closedRoomId, "purge_after"));
 		assertNull(migrationTimestamp(closedRoomId, "messages_purged_at"));
-		assertEquals(migrationTimestamp(canceledRoomId, "purge_after"),
-			migrationTimestamp(canceledRoomId, "messages_purged_at"));
-		assertEquals(migrationTimestamp(finishedRoomId, "purge_after"),
-			migrationTimestamp(finishedRoomId, "messages_purged_at"));
-		assertEquals(migrationTimestamp(canceledRoomId, "purge_after"),
-			migrationTimestamp(finishedRoomId, "purge_after"));
-		assertEquals(4,
+		assertEquals(1,
 			jdbcTemplate.queryForObject("select count(*) from retention_migration_test.chat_rooms", Integer.class));
+		assertEquals(0,
+			jdbcTemplate.queryForObject("select count(*) from retention_migration_test.chat_rooms where room_id = ?",
+				Integer.class, canceledRoomId));
+		assertEquals(0,
+			jdbcTemplate.queryForObject("select count(*) from retention_migration_test.shedlock", Integer.class));
 	}
 
 	@Test
@@ -273,8 +273,10 @@ class ChatMessageRetentionPostgresTest {
 	@Test
 	void 대표_로컬_PostgreSQL_배치는_50개_방_5000개_메시지를_처리한다() {
 		Instant dueTime = Instant.now().minusSeconds(31L * 24 * 60 * 60);
+		Fixture lastFixture = null;
 		for (int roomIndex = 0; roomIndex < 50; roomIndex++) {
 			Fixture fixture = createFixture("benchmark-" + roomIndex, "FINISHED", dueTime);
+			lastFixture = fixture;
 			for (int messageIndex = 0; messageIndex < 100; messageIndex++) {
 				insertMessage(fixture.chatRoomId(), fixture.userId(), "benchmark-" + roomIndex + "-" + messageIndex);
 			}
@@ -282,9 +284,33 @@ class ChatMessageRetentionPostgresTest {
 
 		ChatMessageRetentionCoordinator.RetentionRunSummary summary = coordinator.purgeExpiredMessages();
 
-		assertEquals(50, summary.purgedRoomCount());
+		assertEquals(49, summary.purgedRoomCount());
 		assertEquals(5_000, summary.deletedMessageCount());
 		assertEquals(0, summary.failureCount());
+		assertNull(messagesPurgedAt(lastFixture.chatRoomId()));
+	}
+
+	@Test
+	void 실행당_메시지_후보_상한은_다음_방을_시작하지_않고_상한_방을_미완료로_남긴다() {
+		properties.setMaxRoomsPerRun(2);
+		properties.setMaxMessagesPerRun(3);
+		properties.setMessageChunkSize(2);
+		Instant dueTime = Instant.now().minusSeconds(31L * 24 * 60 * 60);
+		Fixture limitedRoom = createFixture("limited", "FINISHED", dueTime.minusSeconds(1));
+		Fixture nextRoom = createFixture("next", "FINISHED", dueTime);
+		for (int messageIndex = 0; messageIndex < 5; messageIndex++) {
+			insertMessage(limitedRoom.chatRoomId(), limitedRoom.userId(), "limited-" + messageIndex);
+		}
+		insertMessage(nextRoom.chatRoomId(), nextRoom.userId(), "next");
+
+		ChatMessageRetentionCoordinator.RetentionRunSummary summary = coordinator.purgeExpiredMessages();
+
+		assertEquals(0, summary.purgedRoomCount());
+		assertEquals(3, summary.deletedMessageCount());
+		assertEquals(2, countMessages(limitedRoom.chatRoomId()));
+		assertNull(messagesPurgedAt(limitedRoom.chatRoomId()));
+		assertEquals(1, countMessages(nextRoom.chatRoomId()));
+		assertNull(messagesPurgedAt(nextRoom.chatRoomId()));
 	}
 
 	private Fixture createFixture(String suffix, String status, Instant purgeAfter) {

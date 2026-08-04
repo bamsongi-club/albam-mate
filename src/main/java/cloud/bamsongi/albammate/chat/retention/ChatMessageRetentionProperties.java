@@ -23,6 +23,8 @@ public class ChatMessageRetentionProperties {
 
 	@Min(1) private int maxRoomsPerRun = 50;
 
+	@Min(1) private int maxMessagesPerRun = 5_000;
+
 	@Min(1) private int messageChunkSize = 100;
 
 	@NotNull @DurationMin(nanos = 1)
@@ -53,6 +55,14 @@ public class ChatMessageRetentionProperties {
 
 	public void setMaxRoomsPerRun(int maxRoomsPerRun) {
 		this.maxRoomsPerRun = maxRoomsPerRun;
+	}
+
+	public int getMaxMessagesPerRun() {
+		return maxMessagesPerRun;
+	}
+
+	public void setMaxMessagesPerRun(int maxMessagesPerRun) {
+		this.maxMessagesPerRun = maxMessagesPerRun;
 	}
 
 	public int getMessageChunkSize() {

@@ -42,22 +42,32 @@ class ChatMessageRetentionCoordinator {
 		int purgedRoomCount = 0;
 		int deletedMessageCount = 0;
 		int failureCount = 0;
+		int remainingMessageCandidateCount = properties.getMaxMessagesPerRun();
 		long maximumDelayMillis = 0;
 
 		for (ChatMessageRetentionStore.DueChatRoom dueChatRoom : dueChatRooms) {
+			if (remainingMessageCandidateCount == 0) {
+				break;
+			}
 			try {
 				ChatMessageRetentionRoomProcessor.RoomProcessResult result = roomProcessor.process(
-					dueChatRoom, Instant.now(clock));
+					dueChatRoom, Instant.now(clock), remainingMessageCandidateCount);
+				remainingMessageCandidateCount -= result.candidateMessageCount();
+				deletedMessageCount += result.deletedMessageCount();
 				if (result.completed()) {
 					purgedRoomCount++;
-					deletedMessageCount += result.deletedMessageCount();
 					maximumDelayMillis = Math.max(maximumDelayMillis,
 						Duration.between(dueChatRoom.purgeAfter(), referenceTime).toMillis());
+				}
+				if (result.failed()) {
+					failureCount++;
+					log.warn("event=chat_message_retention_room_failed");
 				}
 			} catch (RuntimeException exception) {
 				failureCount++;
 				log.warn("event=chat_message_retention_room_failed exceptionClass={}",
 					exception.getClass().getSimpleName());
+				break;
 			}
 		}
 

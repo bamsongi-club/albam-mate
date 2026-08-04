@@ -40,7 +40,7 @@ class JdbcShedLockTaskLock implements ScheduledTaskLock {
 				},
 				new LockConfiguration(Instant.now(clock), lockName, lockAtMostFor, Duration.ZERO));
 			return result.wasExecuted() ? LockExecution.acquiredResult() : LockExecution.skippedResult();
-		} catch (RuntimeException exception) {
+		} catch (RuntimeException | Error exception) {
 			throw exception;
 		} catch (Throwable throwable) {
 			throw new IllegalStateException("ShedLock task execution failed", throwable);

@@ -221,9 +221,12 @@
   (방 50개, 메시지 5,000개, 방별 100개 chunk)는 126ms였으므로, 정상 상한 경고는
   1초, `chat-message-retention`의 `lockAtMostFor`는 5초로 둔다. 경고와 임대 만료
   중첩은 각각 메트릭·로그와 최신 `messages_purged_at` 조건으로 관찰·수렴한다.
-- `V11` 전진 Flyway는 로컬·초기화 검증에서 기존 `CHAT_ROOMS`가 없는 ROOM만
-  상태별 보관 값으로 만든다. 이는 이미 있는 행을 덮어쓰지 않으며, #281이 소유한
-  live 운영 one-shot backfill·쓰기 통제·배포 절체를 대체하지 않는다.
+- 한 실행은 최대 50개 방과 5,000개 메시지 후보를 처리한다. 메시지 상한에 도달한
+  방은 완료 기록 없이 다음 일일 실행으로 넘겨 `lockAtMostFor`의 실측 전제를
+  코드로 강제한다.
+- `V11` 전진 Flyway는 ShedLock 기술 테이블만 생성하며 기존 ROOM 또는
+  `CHAT_ROOMS` 데이터를 읽거나 backfill하지 않는다. 기존 ROOM backfill·상태별
+  초기화·쓰기 통제·배포 절체는 #281이 소유한다.
 
 ### 완료 기준
 
