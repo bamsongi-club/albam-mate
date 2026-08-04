@@ -140,8 +140,35 @@ function query(parameters) {
 export const api = {
   getMyProfile: () => request('/api/users/me'),
   getGame: (gameId, signal) => request('/api/games/' + gameId, { signal }),
-  getGames: ({ keyword, upcomingOnly, playerCount, playTime, complexityMin, complexityMax, page = 0, size = 10 }, signal) =>
-    request('/api/games' + query({ keyword, upcomingOnly, playerCount, playTime, complexityMin, complexityMax, page, size }), { signal }),
+  getGames: (
+    {
+      keyword,
+      upcomingOnly,
+      playerCountMin,
+      playerCountMax,
+      playerCountExact,
+      exclusivePlayerCount,
+      playTime,
+      complexityMin,
+      complexityMax,
+      page = 0,
+      size = 10
+    },
+    signal
+  ) =>
+    request('/api/games' + query({
+      keyword,
+      upcomingOnly,
+      playerCountMin,
+      playerCountMax,
+      playerCountExact,
+      exclusivePlayerCount,
+      playTime,
+      complexityMin,
+      complexityMax,
+      page,
+      size
+    }), { signal }),
   getRoom: (roomId, signal) => request('/api/rooms/' + roomId, { signal }),
   getRooms: (
     { type, gameId, keyword, startsAtFrom, startsAtTo, minRemainingSeats, experienceLevels, rulemasterOnly, page = 0, size = 10 },
