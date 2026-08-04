@@ -28,6 +28,11 @@ app:
         client-id: ${ALBAM_MATE_KAKAO_OAUTH_CLIENT_ID:}
         client-secret: ${ALBAM_MATE_KAKAO_OAUTH_CLIENT_SECRET:}
   notification:
+    cleanup:
+      interval: 1h
+      jitter: 5m
+      batch-size: 500
+      max-batches-per-target: 5
     relay:
       enabled: true
       poll-interval: 5s
