@@ -266,6 +266,34 @@ describe('#272 T8 재동기화 실패', () => {
     expect(sync.result.current.synchronizationFailed).toBe(false);
   });
 
+  it('겹친 재시도에서는 가장 최근 동기화 결과만 반영한다', async () => {
+    const firstRetryRequest = deferred();
+    const secondRetryRequest = deferred();
+    const refreshAfterReadSynchronization = vi.fn()
+      .mockResolvedValueOnce(false)
+      .mockReturnValueOnce(firstRetryRequest.promise)
+      .mockReturnValueOnce(secondRetryRequest.promise);
+    const sync = renderReadSync({ refreshAfterReadSynchronization });
+
+    await act(async () => sync.result.current.markAllAsRead());
+    expect(sync.result.current.synchronizationFailed).toBe(true);
+
+    let firstRetryPromise;
+    let secondRetryPromise;
+    act(() => {
+      firstRetryPromise = sync.result.current.retrySynchronization();
+      secondRetryPromise = sync.result.current.retrySynchronization();
+    });
+
+    secondRetryRequest.resolve(true);
+    await act(async () => secondRetryPromise);
+    expect(sync.result.current.synchronizationFailed).toBe(false);
+
+    firstRetryRequest.resolve(false);
+    await act(async () => firstRetryPromise);
+    expect(sync.result.current.synchronizationFailed).toBe(false);
+  });
+
   it('재시도 중 시작한 일괄 읽음이 끝날 때까지 bulk 작업 상태를 유지한다', async () => {
     const retryRequest = deferred();
     const bulkRequest = deferred();

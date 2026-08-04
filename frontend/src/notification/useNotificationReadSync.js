@@ -42,6 +42,7 @@ export function useNotificationReadSync({
   // 일괄 읽음은 이전 단건 작업을, 세션 전환은 이전 사용자의 모든 작업을 무효화한다.
   const readOperationGenerationRef = useRef(0);
   const sessionGenerationRef = useRef(0);
+  const synchronizationGenerationRef = useRef(0);
   const observedUnreadCountRevisionRef = useRef(unreadCountRevision);
 
   const clearOptimisticRead = useCallback((notificationId) => {
@@ -79,13 +80,17 @@ export function useNotificationReadSync({
   }, []);
 
   const synchronizeWithServer = useCallback(async () => {
-    if (!enabled) return false;
+    if (!enabled || bulkReadPendingRef.current) return false;
     const sessionGeneration = sessionGenerationRef.current;
     const operationGeneration = readOperationGenerationRef.current;
+    // 재시도가 겹치면 가장 최근에 시작한 동기화만 화면 상태를 갱신한다.
+    synchronizationGenerationRef.current += 1;
+    const synchronizationGeneration = synchronizationGenerationRef.current;
     pauseForReadSynchronization();
     try {
       const synchronized = await refreshAfterReadSynchronization();
       if (!operationIsCurrent(sessionGeneration, operationGeneration)) return false;
+      if (synchronizationGeneration !== synchronizationGenerationRef.current) return false;
       return applySynchronizationResult(synchronized);
     } finally {
       if (sessionGeneration === sessionGenerationRef.current) {
