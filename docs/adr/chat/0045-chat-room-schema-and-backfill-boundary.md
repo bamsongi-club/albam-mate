@@ -63,11 +63,10 @@
 
 ## 검증
 
-- 상태: 검증됨
-- 근거:
-    - 결정: PR #366의 수정 방향으로 사용자가 local callback backfill 대안을 선택했고, #289 구현 범위를 V6 schema-only와 local callback으로 확정했다.
-    - 구현·테스트: local callback의 멱등 초기화, 기존 `CHAT_ROOMS` 행 보존과 상태별 보관 값을 Testcontainers PostgreSQL 테스트로 확인했다.
-    - 정적 검사: 문서 링크, Spotless, Convention 검사가 통과했다.
+- 상태: 미검증
+- 근거: 없음
+- 미검증:
+    - local callback의 멱등 초기화, 기존 `CHAT_ROOMS` 행 보존과 상태별 보관 값은 구현·테스트가 아직 `develop`에 반영되지 않아 확인하지 않았다.
     - 범위: #281의 live 운영 backfill·ROOM 쓰기 경계·최종 보정·배포 절체는 이 ADR이 승인하지 않은 별도 운영 범위로 남긴다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.
