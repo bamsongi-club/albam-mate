@@ -13,4 +13,8 @@ SELECT
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
 FROM rooms
-ON CONFLICT DO NOTHING;
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM chat_rooms existing_chat_room
+    WHERE existing_chat_room.room_id = rooms.id
+);
