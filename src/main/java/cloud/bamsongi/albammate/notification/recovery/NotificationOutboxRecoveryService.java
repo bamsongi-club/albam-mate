@@ -102,6 +102,7 @@ public class NotificationOutboxRecoveryService {
 			return;
 		}
 		if (isBlankOrTooLong(request.reason(), 500) || isBlankOrTooLong(request.requestedBy(), 100)
+			|| containsIsoControlCharacter(request.requestedBy())
 			|| request.reasonReference() == null
 			|| !request.reasonReference().matches("(?:INC-[0-9]{4}-[0-9]{1,10}|ISSUE-[1-9][0-9]{0,9})")) {
 			throw new NotificationOutboxRecoveryInputException();
@@ -124,6 +125,10 @@ public class NotificationOutboxRecoveryService {
 
 	private static boolean isBlankOrTooLong(String value, int maxLength) {
 		return value == null || value.isEmpty() || value.length() > maxLength;
+	}
+
+	private static boolean containsIsoControlCharacter(String value) {
+		return value.codePoints().anyMatch(Character::isISOControl);
 	}
 
 	private void ensureAllEligible(

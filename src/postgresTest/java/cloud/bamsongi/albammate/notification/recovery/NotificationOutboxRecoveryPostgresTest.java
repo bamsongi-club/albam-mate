@@ -136,13 +136,13 @@ class NotificationOutboxRecoveryPostgresTest {
 			lockHolder.setAutoCommit(false);
 			lockEvent(lockHolder, eventId);
 			Future<Boolean> reprocessResult = worker.submit(() -> executeReprocess(List.of(eventId)));
-			awaitRecoveryWorkerWaitingForEventLock();
+			awaitRecoveryWorkersWaitingForEventLock(1);
 			moveOccurredAtToReprocessBoundary(lockHolder, eventId);
 			lockHolder.commit();
 
 			assertFalse(reprocessResult.get(5, TimeUnit.SECONDS));
 		} finally {
-			worker.shutdownNow();
+			shutdownWorkers(worker);
 		}
 		assertEquals("FAILED", jdbcTemplate.queryForObject(
 			"select status from notification_outbox_events where id = ?", String.class, eventId));
@@ -156,13 +156,17 @@ class NotificationOutboxRecoveryPostgresTest {
 		insertRecipient(firstEventId, fixture.recipientUserId());
 		insertRecipient(secondEventId, fixture.recipientUserId());
 		ExecutorService workers = Executors.newFixedThreadPool(2);
-		try {
+		try (Connection lockHolder = dataSource.getConnection()) {
+			lockHolder.setAutoCommit(false);
+			lockEvent(lockHolder, firstEventId);
 			Future<Boolean> reverseIds = workers.submit(() -> executeReprocess(List.of(secondEventId, firstEventId)));
 			Future<Boolean> orderedIds = workers.submit(() -> executeReprocess(List.of(firstEventId, secondEventId)));
+			awaitRecoveryWorkersWaitingForEventLock(2);
+			lockHolder.commit();
 			assertEquals(1,
 				(reverseIds.get(5, TimeUnit.SECONDS) ? 1 : 0) + (orderedIds.get(5, TimeUnit.SECONDS) ? 1 : 0));
 		} finally {
-			workers.shutdownNow();
+			shutdownWorkers(workers);
 		}
 		assertEquals(List.of("RETRY_WAIT", "RETRY_WAIT"), jdbcTemplate.query(
 			"select status from notification_outbox_events where id in (?, ?) order by id",
@@ -218,24 +222,27 @@ class NotificationOutboxRecoveryPostgresTest {
 		}
 	}
 
-	private void awaitRecoveryWorkerWaitingForEventLock() {
+	private void awaitRecoveryWorkersWaitingForEventLock(int expectedWorkerCount) {
 		long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
 		while (System.nanoTime() < deadlineNanos) {
-			Boolean waiting = jdbcTemplate.queryForObject("""
-				select exists (
-				    select 1
-				    from pg_stat_activity
-				    where wait_event_type = 'Lock'
-				      and query like '%notification_outbox_events%'
-				      and query like '%for update%'
-				)
-				""", Boolean.class);
-			if (Boolean.TRUE.equals(waiting)) {
+			Integer waitingWorkerCount = jdbcTemplate.queryForObject("""
+				select count(*)
+				from pg_stat_activity
+				where wait_event_type = 'Lock'
+				  and query like '%notification_outbox_events%'
+				  and query like '%for update%'
+				""", Integer.class);
+			if (waitingWorkerCount != null && waitingWorkerCount >= expectedWorkerCount) {
 				return;
 			}
 			Thread.onSpinWait();
 		}
-		throw new AssertionError("recovery worker did not wait for the notification outbox event lock");
+		throw new AssertionError("recovery workers did not wait for the notification outbox event lock");
+	}
+
+	private static void shutdownWorkers(ExecutorService workers) throws InterruptedException {
+		workers.shutdownNow();
+		assertTrue(workers.awaitTermination(5, TimeUnit.SECONDS), "recovery workers did not terminate");
 	}
 
 	private NotificationOutboxRecoveryRequest reprocess(List<Long> eventIds) {

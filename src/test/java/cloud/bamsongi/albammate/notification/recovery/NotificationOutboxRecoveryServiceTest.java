@@ -87,6 +87,31 @@ class NotificationOutboxRecoveryServiceTest {
 	}
 
 	@Test
+	void REPROCESS와_DISCARD의_제어문자_포함_요청자는_preview와_execute_조회_전_입력오류로_거절한다() {
+		assertRequestedByRejected(NotificationRecoveryAction.REPROCESS, "ops-user\r\nnext-log-line", null);
+		assertRequestedByRejected(NotificationRecoveryAction.DISCARD, "ops-user\nnext-log-line", "DISCARD");
+	}
+
+	private static void assertRequestedByRejected(
+		NotificationRecoveryAction action,
+		String requestedBy,
+		String confirm) {
+		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
+		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);
+		NotificationOutboxRecoveryService service = new NotificationOutboxRecoveryService(eventRepository,
+			recipientRepository);
+		NotificationOutboxRecoveryRequest previewRequest = new NotificationOutboxRecoveryRequest(action, List.of(3L),
+			true, "INC-2026-267", "fixed incident", requestedBy, null);
+		NotificationOutboxRecoveryRequest executeRequest = new NotificationOutboxRecoveryRequest(action, List.of(3L),
+			false,
+			"INC-2026-267", "fixed incident", requestedBy, confirm);
+
+		assertThrows(NotificationOutboxRecoveryInputException.class, () -> service.preview(previewRequest));
+		assertThrows(NotificationOutboxRecoveryInputException.class, () -> service.execute(executeRequest));
+		verifyNoInteractions(eventRepository, recipientRepository);
+	}
+
+	@Test
 	void 적격_재처리는_고정된_시각으로_새_주기를_시작한다() {
 		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
 		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);

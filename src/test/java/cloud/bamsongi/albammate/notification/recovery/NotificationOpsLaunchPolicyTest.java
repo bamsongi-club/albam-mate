@@ -126,11 +126,13 @@ class NotificationOpsLaunchPolicyTest {
 	}
 
 	@Test
-	void 같은_명령행_profile_option은_마지막_값을_사용한다() {
-		assertEquals(NotificationOpsLaunchPolicy.LaunchDecision.NORMAL,
+	void 반복_명령행_profile_option은_Spring과_같이_모든_값을_결합한다() {
+		assertEquals(NotificationOpsLaunchPolicy.LaunchDecision.NOTIFICATION_OPS,
 			decisionForArguments("--spring.profiles.active=notification-ops", "--spring.profiles.active=local"));
 		assertEquals(NotificationOpsLaunchPolicy.LaunchDecision.NOTIFICATION_OPS,
-			decisionForArguments("--spring.profiles.active=local", "--spring.profiles.active=notification-ops"));
+			decisionForArguments("--spring.profiles.include=local", "--spring.profiles.include=notification-ops"));
+		assertEquals(NotificationOpsLaunchPolicy.LaunchDecision.NOTIFICATION_OPS,
+			decisionForArguments("--spring.profiles.default=local", "--spring.profiles.default=notification-ops"));
 	}
 
 	@Test

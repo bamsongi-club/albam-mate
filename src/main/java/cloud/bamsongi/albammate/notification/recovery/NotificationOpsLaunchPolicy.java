@@ -3,6 +3,8 @@ package cloud.bamsongi.albammate.notification.recovery;
 import java.util.Map;
 import java.util.Properties;
 
+import org.springframework.core.env.SimpleCommandLinePropertySource;
+
 /** main 메서드가 process 종료 전에 선택하는 일반 앱·ops 앱·입력 거절 경계다. */
 public final class NotificationOpsLaunchPolicy {
 
@@ -35,23 +37,12 @@ public final class NotificationOpsLaunchPolicy {
 		Map<String, String> environmentVariables,
 		String propertyKey,
 		String environmentKey) {
-		String commandLineValue = lastCommandLineProfileValue(args, propertyKey);
+		String commandLineValue = new SimpleCommandLinePropertySource(args).getProperty(propertyKey);
 		if (commandLineValue != null) {
 			return commandLineValue;
 		}
 		String systemPropertyValue = systemProperties.getProperty(propertyKey);
 		return systemPropertyValue != null ? systemPropertyValue : environmentVariables.get(environmentKey);
-	}
-
-	private static String lastCommandLineProfileValue(String[] args, String propertyKey) {
-		String optionPrefix = "--" + propertyKey + "=";
-		String lastValue = null;
-		for (String argument : args) {
-			if (argument.startsWith(optionPrefix)) {
-				lastValue = profileValue(argument);
-			}
-		}
-		return lastValue;
 	}
 
 	private static boolean containsNotificationOpsProfile(String profiles) {
@@ -76,10 +67,6 @@ public final class NotificationOpsLaunchPolicy {
 			}
 		}
 		return false;
-	}
-
-	private static String profileValue(String argument) {
-		return argument.substring(argument.indexOf('=') + 1);
 	}
 
 	private static boolean hasNotificationOpsConfiguration(
