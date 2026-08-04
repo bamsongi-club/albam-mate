@@ -1,6 +1,6 @@
 ---
 name: review-code
-description: "현재 브랜치 diff·지정 파일·현재 저장소 PR을 read-only로 일반 리뷰한다. 코드 리뷰, PR 리뷰·게시, 병렬·관점별 리뷰와 테스트 적합성 검토 요청에 사용한다."
+description: "현재 브랜치 diff·지정 파일·현재 저장소 PR을 read-only로 일반 리뷰한다. 코드 리뷰, PR 리뷰·게시, 병렬·관점별 리뷰, 이미 한 리뷰 뒤의 2차 관점 확인과 테스트 적합성 검토 요청에 사용한다."
 ---
 
 # Review Code
@@ -20,3 +20,5 @@ description: "현재 브랜치 diff·지정 파일·현재 저장소 PR을 read-
 3. 반환 JSONL을 파싱·검증한 뒤 검증된 결과를 사용자에게 확장할 때만 [사용자 출력 표시 계약](references/presentation-contract.md)을 읽는다.
 4. 게시 모드라면 범위·출력 검증 후 [GitHub PR 게시 계약](references/github-publishing.md)을 읽고 현재 head의 한 번의 `COMMENT` review만 게시한다.
 5. 미검토 범위, agent 폴백, 검증 실패 또는 게시 실패를 성공으로 숨기지 않고 최종 판정과 실제 상태를 보고한다.
+
+사용자가 이미 한 리뷰 뒤의 다른 관점 확인을 요청하면 [2차 관점 리뷰](references/second-opinion-mode.md)를 함께 읽고 관점 선택과 보고에만 적용한다.
