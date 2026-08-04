@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import brandSymbol from '../assets/albam-mate-symbol.png';
 import poweredByBgg from '../assets/powered-by-bgg.svg';
-import { ApiError, api, clearCsrfToken, messageForError, setUnauthenticatedHandler } from './api';
+import { ApiError, api, clearCsrfToken, messageForError, setUnauthenticatedHandler, socialLoginUrl } from './api';
 import { NotificationPanel } from './notification/NotificationPanel';
 import { selectNotificationAndNavigate } from './notification/notificationNavigation';
 import { useNotificationPolling } from './notification/useNotificationPolling';
@@ -27,6 +27,18 @@ const GAME_SEARCH_DEBOUNCE_MS = 250;
 const PASSWORD_MIN_CODE_POINTS = 15;
 const PASSWORD_MAX_CODE_POINTS = 64;
 const PASSWORD_MAX_UTF8_BYTES = 72;
+const SOCIAL_PROVIDER_LABEL = { GOOGLE: 'Google', NAVER: 'Naver', KAKAO: 'Kakao' };
+// callback이 돌려주는 고정 결과다. 여기 없는 값과 제공자 오류 설명은 해석하지도 보여주지도 않는다.
+const SOCIAL_AUTH_RESULT = {
+  'login-success': { message: '로그인했어요.', type: '' },
+  'link-success': { message: '소셜 계정을 연결했어요.', type: '' },
+  'link-required': { message: '같은 이메일을 쓰는 계정이 이미 있어요. 로그인한 뒤 마이페이지에서 연결해주세요.', type: 'err' },
+  'link-conflict': { message: '이미 연결된 계정이 있어 연결하지 못했어요.', type: 'err' },
+  canceled: { message: '동의를 취소해서 중단했어요.', type: '' },
+  'invalid-state': { message: '요청이 만료됐어요. 처음부터 다시 시도해주세요.', type: 'err' },
+  'provider-unavailable': { message: '지금은 사용할 수 없는 로그인 방법이에요.', type: 'err' },
+  failed: { message: '요청을 끝내지 못했어요. 잠시 후 다시 시도해주세요.', type: 'err' }
+};
 const ROOM_TYPE_FILTERS = [
   { value: '', label: '전체' },
   { value: 'GAME_FOCUSED', label: '게임 중심' },
@@ -292,6 +304,20 @@ function useRequest(load, dependencies) {
   }, dependencies);
 
   return state;
+}
+
+export function readSocialAuthResult(search) {
+  const value = new URLSearchParams(search).get('socialAuth');
+  return value && Object.hasOwn(SOCIAL_AUTH_RESULT, value) ? SOCIAL_AUTH_RESULT[value] : null;
+}
+
+// 결과를 읽는 즉시 query를 지운다. 허용하지 않는 값이 섞여 와도 주소와 히스토리에 남기지 않는다.
+export function consumeSocialAuthResult() {
+  const result = readSocialAuthResult(window.location.search);
+  if (window.location.search) {
+    window.history.replaceState(window.history.state, '', window.location.pathname + window.location.hash);
+  }
+  return result;
 }
 
 function parseRoute() {
@@ -1373,11 +1399,12 @@ function MyRoomsSection({ myTab, onMyTabChange, dataVersion }) {
   );
 }
 
-function ProfileView({ me, onSave, onLogout }) {
+export function ProfileView({ me, onSave, onLogout, socialProviders = [], onSocialLink }) {
   const [nickname, setNickname] = useState(me.nickname);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [linking, setLinking] = useState('');
   useEffect(() => setNickname(me.nickname), [me.nickname]);
   const logout = async () => {
     setLoggingOut(true);
@@ -1395,6 +1422,11 @@ function ProfileView({ me, onSave, onLogout }) {
     } finally {
       setSaving(false);
     }
+  };
+  // 연결은 제공자 화면으로 전체 페이지를 넘긴다. 성공하면 이 화면이 다시 그려지지 않으므로 상태를 되돌리지 않는다.
+  const startLink = async (provider) => {
+    setLinking(provider);
+    if (!await onSocialLink(provider)) setLinking('');
   };
   return (
     <>
@@ -1426,6 +1458,25 @@ function ProfileView({ me, onSave, onLogout }) {
               </form>
             )}
           </div>
+          {socialProviders.length > 0 && (
+            <div>
+              <div className="menu-row static">
+                <span className="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5" /><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5" /></svg></span>
+                <span className="menu-label">소셜 계정 연결</span>
+              </div>
+              <div className="menu-panel social-link-list">
+                {socialProviders.map((item) => (
+                  <div className="social-link-row" key={item.provider}>
+                    <span>{SOCIAL_PROVIDER_LABEL[item.provider]}</span>
+                    {item.linked
+                      ? <span className="social-link-state">연결됨</span>
+                      : <button className="btn ghost" type="button" disabled={Boolean(linking)} onClick={() => startLink(item.provider)}>{linking === item.provider ? '이동 중…' : SOCIAL_PROVIDER_LABEL[item.provider] + ' 연결'}</button>}
+                  </div>
+                ))}
+                <p className="hint">연결한 계정으로도 로그인할 수 있어요. 연결 해제와 교체는 아직 제공하지 않아요.</p>
+              </div>
+            </div>
+          )}
           <button className="menu-row" type="button" disabled={loggingOut} onClick={logout}>
             <span className="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></svg></span>
             <span className="menu-label">{loggingOut ? '로그아웃 중…' : '로그아웃'}</span>
@@ -1452,7 +1503,7 @@ function signupPasswordError(password) {
   return '';
 }
 
-export function AuthView({ onLogin, onSignup }) {
+export function AuthView({ onLogin, onSignup, socialProviders = [], onSocialLogin }) {
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -1496,6 +1547,16 @@ export function AuthView({ onLogin, onSignup }) {
         {error && <ErrorBox message={error} />}
         <button className="btn big" disabled={submitting} type="submit">{submitting ? '처리 중…' : signup ? '회원가입' : '로그인'}</button>
       </form>
+      {socialProviders.length > 0 && (
+        <div className="social-auth">
+          <p className="social-auth-label">소셜 계정으로 계속하기</p>
+          {socialProviders.map((item) => (
+            <button className="btn ghost social-auth-btn" key={item.provider} type="button" onClick={() => onSocialLogin(item.provider)}>
+              {SOCIAL_PROVIDER_LABEL[item.provider]}로 로그인
+            </button>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -1517,7 +1578,9 @@ function App() {
   const [createGame, setCreateGame] = useState(null);
   const [dataVersion, setDataVersion] = useState(0);
   const [notificationOpen, setNotificationOpen] = useState(false);
+  const [socialProviders, setSocialProviders] = useState([]);
   const [toast, setToast] = useState({ message: '', type: '' });
+  const authenticated = Boolean(me);
   const toastTimer = useRef(null);
   const meRef = useRef(null);
 
@@ -1590,6 +1653,25 @@ function App() {
     };
   }, []);
   useEffect(() => {
+    const result = consumeSocialAuthResult();
+    if (result) showToast(result.message, result.type);
+  }, [showToast]);
+  // 연결 여부는 요청자 기준으로 계산되므로 로그인 상태가 바뀌면 다시 조회한다.
+  useEffect(() => {
+    let active = true;
+    api.getSocialProviders()
+      .then((providers) => {
+        if (active) setSocialProviders(providers);
+      })
+      // 목록을 얻지 못하면 소셜 진입만 감춘다. 이메일 로그인은 그대로 쓸 수 있어 알리지 않는다.
+      .catch(() => {
+        if (active) setSocialProviders([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [authenticated]);
+  useEffect(() => {
     window.scrollTo(0, 0);
     setNotificationOpen(false);
   }, [route, arg]);
@@ -1638,6 +1720,21 @@ function App() {
       return true;
     } catch (error) {
       showToast(messageForError(error, '로그인하지 못했어요.'), 'err');
+      return false;
+    }
+  };
+
+  // 로그인·연결 모두 제공자 화면으로 전체 페이지를 넘긴다. state 생성과 리다이렉트는 서버가 담당한다.
+  const handleSocialLogin = (provider) => {
+    window.location.assign(socialLoginUrl(provider));
+  };
+
+  const handleSocialLink = async (provider) => {
+    try {
+      window.location.assign(await api.startSocialLink(provider));
+      return true;
+    } catch (error) {
+      handleProtectedError(error, '소셜 계정 연결을 시작하지 못했어요.');
       return false;
     }
   };
@@ -1786,8 +1883,8 @@ function App() {
   else if (route === 'create') content = me ? <CreateView createMode={createMode} onCreateModeChange={setCreateMode} initialGame={createGame} onCreate={handleCreate} today={today} /> : <LoginRequiredView message="모임을 만들려면 로그인해주세요." />;
   else if (route === 'edit') content = me ? <EditView sessionId={arg} onSave={handleSave} dataVersion={dataVersion} today={today} /> : <LoginRequiredView message="모임을 수정하려면 로그인해주세요." />;
   else if (route === 'my') content = me ? <MyRoomsSection myTab={myTab} onMyTabChange={setMyTab} dataVersion={dataVersion} /> : <LoginRequiredView message="내 모임을 보려면 로그인해주세요." />;
-  else if (route === 'profile') content = me ? <ProfileView me={me} onSave={handleSaveProfile} onLogout={handleLogout} /> : <LoginRequiredView message="마이페이지를 보려면 로그인해주세요." />;
-  else if (route === 'auth') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <AuthView onLogin={handleLogin} onSignup={handleSignup} />;
+  else if (route === 'profile') content = me ? <ProfileView me={me} onSave={handleSaveProfile} onLogout={handleLogout} socialProviders={socialProviders} onSocialLink={handleSocialLink} /> : <LoginRequiredView message="마이페이지를 보려면 로그인해주세요." />;
+  else if (route === 'auth') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <AuthView onLogin={handleLogin} onSignup={handleSignup} socialProviders={socialProviders} onSocialLogin={handleSocialLogin} />;
   else content = <HomeView onBrowsePeople={handleBrowsePeople} onSearchGame={handleSearchGame} dataVersion={dataVersion} />;
 
   return (

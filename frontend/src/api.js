@@ -110,6 +110,15 @@ async function mutate(path, options = {}) {
   });
 }
 
+// 경로의 제공자 값은 SocialProvider의 소문자 표기다.
+function socialProviderPath(provider) {
+  return String(provider).toLowerCase();
+}
+
+export function socialLoginUrl(provider) {
+  return endpoint('/api/auth/social/authorization/' + socialProviderPath(provider));
+}
+
 export function clearCsrfToken() {
   csrfToken = undefined;
 }
@@ -139,6 +148,15 @@ function query(parameters) {
 
 export const api = {
   getMyProfile: () => request('/api/users/me'),
+  getSocialProviders: (signal) => request('/api/auth/social/providers', { signal }),
+  // 서버는 same-site authorization 경로만 돌려주며 실제 이동은 호출자가 전체 페이지 이동으로 수행한다.
+  startSocialLink: async (provider) => {
+    const { authorizationUri } = await mutate(
+      '/api/users/me/social-accounts/' + socialProviderPath(provider) + '/link',
+      { method: 'POST' }
+    );
+    return endpoint(authorizationUri);
+  },
   getGame: (gameId, signal) => request('/api/games/' + gameId, { signal }),
   getGames: ({ keyword, upcomingOnly, playerCount, playTime, complexityMin, complexityMax, page = 0, size = 10 }, signal) =>
     request('/api/games' + query({ keyword, upcomingOnly, playerCount, playTime, complexityMin, complexityMax, page, size }), { signal }),
