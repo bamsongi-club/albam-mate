@@ -9,7 +9,7 @@
 
 ## 맥락
 
-P1은 시작 전 정원이 찬 ROOM에 별도로 대기를 신청하고, 본인의 최신 대기 상태와 현재 순번을 조회하며, 참가 취소로 생긴 빈자리에 첫 대기자를 자동 승격한다. 동일 사용자의 중복 신청은 기존 순서를 유지하고, 허용된 종료 상태에서 재신청하면 새 순번으로 대기열 맨 뒤에 들어가야 한다. 시작 시각 도달과 ROOM 취소 뒤에는 남은 대기도 종료 상태로 조회할 수 있어야 한다.
+P1은 시작 전 정원이 찬 ROOM에 별도로 대기를 신청하고, 본인의 최신 대기 상태와 현재 순번을 조회하며, 참가 취소로 생긴 빈자리에 첫 대기자를 자동 승격한다. 동일 사용자의 중복 신청은 기존 순서를 유지하고, `CANCELED` 또는 `PROMOTED` 상태에서 재신청하면 새 순번으로 대기열 맨 뒤에 들어가야 한다. 시작 시각 도달과 ROOM 취소 뒤에는 남은 대기도 종료 상태로 조회할 수 있어야 한다.
 
 [ADR-0037](0037-room-waitlist-latest-state-atomic-promotion.md)은 ROOM·사용자별 단일 최신 상태, 조건부 상태 전이, FIFO 자동 승격과 참가 취소·승격의 원자적 처리를 승인했다. [ADR-0043](0043-room-waitlist-persistence-conditional-transition-retry.md)은 이 결정을 보존하면서 복합 식별자, 순번 발급, JPA 신규 판정, 재신청 출발 상태, 상태·순번 조회 스냅샷과 대기 등록 재시도 경계를 추가로 확정했다.
 
@@ -18,7 +18,7 @@ ADR-0043의 승인된 선택 자체는 유효하지만, 서로 독립적인 결�
 판단 기준은 다음과 같다.
 
 - 같은 ROOM과 사용자의 현재 대기 결과를 하나의 저장 정본에서 조회한다.
-- 중복 신청은 순서를 바꾸지 않고, 허용된 재신청은 새 순번으로 FIFO 맨 뒤에 배치한다.
+- 중복 신청은 순서를 바꾸지 않고, `CANCELED`·`PROMOTED` 재신청은 새 순번으로 FIFO 맨 뒤에 배치한다.
 - 참가 취소·승격·ROOM 상태·참가 관계가 부분 성공하지 않게 한다.
 - 현재 상태와 동적 순번을 서로 다른 데이터베이스 스냅샷에서 조합하지 않는다.
 - ROOM 낙관적 락과 대기 순번 충돌의 재시도 횟수를 하나의 제한된 예산으로 관리한다.
@@ -83,7 +83,7 @@ ADR-0043의 승인된 선택 자체는 유효하지만, 서로 독립적인 결�
 
 JPA 복합 ID는 `roomId`, `userId` scalar 값만 가진 `@EmbeddedId RoomWaitlistId`로 매핑한다. `RoomWaitlist`에서 `Room`·`User` 연관관계를 매핑하지 않는다. `RoomWaitlist`만 `Persistable<RoomWaitlistId>`을 구현해 최초 저장의 신규 여부를 명시하고 `@PostPersist`·`@PostLoad` 뒤에는 기존 Entity로 전환한다. 이를 위해 공통 BaseEntity를 새로 만들지 않으며, 등록 재시도의 각 INSERT 시도는 새 Entity를 사용한다.
 
-저장값은 `status VARCHAR(20)`, 양수인 `queue_order BIGINT`, `queued_at`, `created_at`, `updated_at`이다. 세 시각은 `TIMESTAMPTZ`이며 한 유스케이스가 최초에 고정한 request time을 사용한다. 최초 INSERT에서는 세 시각이 같은 request time이고, 허용된 재신청에서는 `queued_at`과 `updated_at`을 새 request time으로 바꾸되 최초 `created_at`은 보존한다. 종료 전이는 순번·신청 시각·생성 시각을 보존하고 `updated_at`만 해당 요청의 고정 시각으로 바꾼다.
+저장값은 `status VARCHAR(20)`, 양수인 `queue_order BIGINT`, `queued_at`, `created_at`, `updated_at`이다. 세 시각은 `TIMESTAMPTZ`이며 한 유스케이스가 최초에 고정한 request time을 사용한다. 최초 INSERT에서는 세 시각이 같은 request time이고, `CANCELED`·`PROMOTED` 재신청에서는 `queued_at`과 `updated_at`을 새 request time으로 바꾸되 최초 `created_at`은 보존한다. 종료 전이는 순번·신청 시각·생성 시각을 보존하고 `updated_at`만 해당 요청의 고정 시각으로 바꾼다.
 
 순번은 전역 `room_waitlist_queue_order_seq`에서 발급한다. sequence는 `BIGINT`, `START 1`, `INCREMENT 1`, `NO CYCLE`, `CACHE 1`이며 `queue_order`에 DB `DEFAULT`를 두지 않는다. `WAITING` 활성화 트랜잭션이 `Room.version` claim에 성공한 뒤 코드가 순번을 명시적으로 발급한다. 롤백으로 생긴 공백은 정상이며 반환하거나 재사용하지 않는다.
 
@@ -112,7 +112,7 @@ JPA 복합 ID는 `roomId`, `userId` scalar 값만 가진 `@EmbeddedId RoomWaitli
 
 ### ROOM 일관성 경계
 
-신규 대기와 허용된 재신청처럼 대기 관계를 `WAITING`으로 활성화하는 요청은 같은 트랜잭션에서 `Room.version`을 claim한 뒤 순번을 발급하고 대기 관계를 변경한다. 중복 `WAITING` 신청과 `WAITING → CANCELED`는 ROOM version을 강제로 증가시키지 않는다.
+신규 대기와 `CANCELED`·`PROMOTED` 재신청처럼 대기 관계를 `WAITING`으로 활성화하는 요청은 같은 트랜잭션에서 `Room.version`을 claim한 뒤 순번을 발급하고 대기 관계를 변경한다. 중복 `WAITING` 신청과 `WAITING → CANCELED`는 ROOM version을 강제로 증가시키지 않는다.
 
 시작 전 참가 취소로 빈자리가 생기면 참가 취소, 첫 현재 `WAITING`의 `PROMOTED`, 기존 `CANCELED` 참가 관계의 재활성화 또는 새 `ACTIVE` 참가 관계 생성, ROOM 참가 인원과 상태 변경을 같은 ROOM 처리 트랜잭션에서 함께 커밋하거나 함께 롤백한다. 고수준 데이터베이스 변경 순서는 `ROOM → 기존 참가 취소 → 대기 승격 → 승격 참가 생성·복구`이고, ROOM 취소는 `ROOM → 남은 WAITING 종료`다. 구체적인 저장·flush 구조는 이 순서를 검증 가능하게 유지하되 별도 승인된 구현 계약이 소유한다.
 
