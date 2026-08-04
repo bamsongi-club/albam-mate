@@ -111,6 +111,28 @@ describe('#272 T2 단건 성공', () => {
     expect(sync.result.current.synchronizationFailed).toBe(false);
   });
 
+  it('겹친 단건 count 조회에서는 최신 성공 결과로 모든 확인된 overlay를 정리한다', async () => {
+    const firstCountRequest = deferred();
+    const refreshUnreadAfterSingleRead = vi.fn()
+      .mockReturnValueOnce(firstCountRequest.promise)
+      .mockResolvedValueOnce(true);
+    const sync = renderReadSync({ refreshUnreadAfterSingleRead });
+    const anotherNotification = { ...UNREAD_NOTIFICATION, id: 8 };
+    let firstReadPromise;
+
+    act(() => {
+      firstReadPromise = sync.result.current.markAsRead(UNREAD_NOTIFICATION);
+    });
+    await act(async () => Promise.resolve());
+    await act(async () => sync.result.current.markAsRead(anotherNotification));
+
+    firstCountRequest.resolve(false);
+    await act(async () => firstReadPromise);
+
+    expect(sync.result.current.optimisticReadIds).toEqual(new Set());
+    expect(sync.result.current.synchronizationFailed).toBe(false);
+  });
+
   it('전체 재동기화 중 count만 성공해도 목록 실패 오류를 숨기지 않는다', async () => {
     const retryRequest = deferred();
     const sync = renderReadSync({
@@ -291,6 +313,28 @@ describe('#272 T8 재동기화 실패', () => {
 
     firstRetryRequest.resolve(false);
     await act(async () => firstRetryPromise);
+    expect(sync.result.current.synchronizationFailed).toBe(false);
+  });
+
+  it('재시도 중 시작한 단건 읽음 뒤에는 이전 재시도 결과를 반영하지 않는다', async () => {
+    const retryRequest = deferred();
+    const refreshAfterReadSynchronization = vi.fn()
+      .mockResolvedValueOnce(false)
+      .mockReturnValueOnce(retryRequest.promise);
+    const sync = renderReadSync({ refreshAfterReadSynchronization });
+
+    await act(async () => sync.result.current.markAllAsRead());
+    expect(sync.result.current.synchronizationFailed).toBe(true);
+
+    let retryPromise;
+    act(() => {
+      retryPromise = sync.result.current.retrySynchronization();
+    });
+    await act(async () => sync.result.current.markAsRead(UNREAD_NOTIFICATION));
+    expect(sync.result.current.synchronizationFailed).toBe(false);
+
+    retryRequest.resolve(false);
+    await act(async () => retryPromise);
     expect(sync.result.current.synchronizationFailed).toBe(false);
   });
 

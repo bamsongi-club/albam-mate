@@ -117,6 +117,9 @@ export function useNotificationReadSync({
       return Promise.resolve(false);
     }
 
+    // 단건 count 조회가 진행 중인 전체 재동기화를 취소하므로 그 결과도 함께 무효화한다.
+    synchronizationGenerationRef.current += 1;
+    const synchronizationGeneration = synchronizationGenerationRef.current;
     pendingSingleReadIdsRef.current.add(notificationId);
     const sessionGeneration = sessionGenerationRef.current;
     const operationGeneration = readOperationGenerationRef.current;
@@ -132,8 +135,12 @@ export function useNotificationReadSync({
 
         const unreadCountRefreshed = await refreshUnreadAfterSingleRead();
         if (!operationIsCurrent(sessionGeneration, operationGeneration)) return false;
-        setSynchronizationFailed(!unreadCountRefreshed);
-        if (unreadCountRefreshed) clearConfirmedRead(notificationId);
+        if (unreadCountRefreshed) {
+          clearConfirmedOptimisticReads();
+          setSynchronizationFailed(false);
+        } else if (synchronizationGeneration === synchronizationGenerationRef.current) {
+          setSynchronizationFailed(true);
+        }
         return true;
       } catch (error) {
         if (sessionGeneration === sessionGenerationRef.current) {
@@ -150,6 +157,7 @@ export function useNotificationReadSync({
     })();
   }, [
     clearConfirmedRead,
+    clearConfirmedOptimisticReads,
     enabled,
     isUnauthenticated,
     markNotificationRead,
