@@ -30,6 +30,49 @@ const PASSWORD_MIN_CODE_POINTS = 15;
 const PASSWORD_MAX_CODE_POINTS = 64;
 const PASSWORD_MAX_UTF8_BYTES = 72;
 const SOCIAL_PROVIDER_LABEL = { GOOGLE: 'Google', NAVER: 'Naver', KAKAO: 'Kakao' };
+function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="26" height="26" aria-hidden="true">
+      <path fill="#4285F4" d="M19.6 10.23c0-.68-.06-1.33-.17-1.96H10v3.71h5.4a4.62 4.62 0 0 1-2 3.03v2.52h3.24c1.9-1.75 2.96-4.33 2.96-7.3z" />
+      <path fill="#34A853" d="M10 20c2.7 0 4.96-.89 6.62-2.42l-3.24-2.52c-.9.6-2.05.96-3.38.96-2.6 0-4.8-1.75-5.59-4.11H1.06v2.6A10 10 0 0 0 10 20z" />
+      <path fill="#FBBC05" d="M4.41 11.9A5.99 5.99 0 0 1 4.09 10c0-.66.11-1.3.32-1.9V5.5H1.06A9.98 9.98 0 0 0 0 10c0 1.61.39 3.14 1.06 4.5l3.35-2.6z" />
+      <path fill="#EA4335" d="M10 3.96c1.47 0 2.79.5 3.83 1.49l2.87-2.87C14.95.98 12.7 0 10 0 6.09 0 2.71 2.24 1.06 5.5l3.35 2.6C5.2 5.71 7.4 3.96 10 3.96z" />
+    </svg>
+  );
+}
+function NaverIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="35" height="35" aria-hidden="true">
+      <rect width="20" height="20" rx="4" fill="#03C75A" />
+      <path fill="#fff" d="M11.6 5v5.3L8.4 5H6v10h2.4v-5.3l3.2 5.3H14V5z" />
+    </svg>
+  );
+}
+function KakaoIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="35" height="35" aria-hidden="true">
+      <circle cx="10" cy="10" r="10" fill="#FEE500" />
+      <path fill="#391B1B" d="M10 4.8c-3.31 0-6 2.13-6 4.76 0 1.7 1.14 3.2 2.85 4.05-.13.46-.46 1.63-.53 1.88-.08.31.11.31.24.22.1-.07 1.62-1.1 2.28-1.55.37.05.75.08 1.16.08 3.31 0 6-2.13 6-4.76s-2.69-4.68-6-4.68z" />
+    </svg>
+  );
+}
+const SOCIAL_PROVIDER_ICON = { GOOGLE: <GoogleIcon />, NAVER: <NaverIcon />, KAKAO: <KakaoIcon /> };
+function EyeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+function EyeOffIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a18.6 18.6 0 0 1 4.22-5.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a18.6 18.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  );
+}
 
 // 채팅 진입은 서버가 매 요청마다 다시 판정한다. 거절 사유는 코드로만 구분해 안내한다.
 const CHAT_ACCESS_MESSAGE = {
@@ -489,7 +532,7 @@ function SectionIcon({ name }) {
 }
 
 function Header({ route, me, notificationMenu }) {
-  const rootRoute = { find: 'find', game: 'game-list', 'game-list': 'game-list', create: 'profile', edit: 'profile', my: 'profile', chat: 'profile', profile: 'profile', auth: 'auth' };
+  const rootRoute = { find: 'find', game: 'game-list', 'game-list': 'game-list', create: 'profile', edit: 'profile', my: 'profile', chat: 'profile', profile: 'profile' };
   const visibleUnreadCount = notificationMenu.unreadCount > 99 ? '99+' : notificationMenu.unreadCount;
   const notificationLabel = notificationMenu.unreadCount > 0
     ? '알림함, 읽지 않은 알림 ' + notificationMenu.unreadCount + '개'
@@ -536,7 +579,7 @@ function Header({ route, me, notificationMenu }) {
           )}
           {me
             ? <a href="#/profile" className={'profile-icon ' + (rootRoute[route] === 'profile' ? 'on' : '')} aria-label={me.nickname + ' 프로필'}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></svg></a>
-            : <a href="#/auth" className={rootRoute[route] === 'auth' ? 'on' : ''}>로그인</a>}
+            : <a href="#/auth" className="btn pill">로그인</a>}
         </nav>
       </div>
     </header>
@@ -2071,7 +2114,7 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onSoci
                     <span>{SOCIAL_PROVIDER_LABEL[item.provider]}</span>
                     {item.linked
                       ? <span className="social-link-state">연결됨</span>
-                      : <button className="btn ghost" type="button" disabled={Boolean(linking)} onClick={() => startLink(item.provider)}>{linking === item.provider ? '이동 중…' : SOCIAL_PROVIDER_LABEL[item.provider] + ' 연결'}</button>}
+                      : <button className="btn ghost pill" type="button" disabled={Boolean(linking)} onClick={() => startLink(item.provider)}>{linking === item.provider ? '이동 중…' : SOCIAL_PROVIDER_LABEL[item.provider] + ' 연결'}</button>}
                   </div>
                 ))}
                 <p className="hint">연결한 계정으로도 로그인할 수 있어요. 연결 해제와 교체는 아직 제공하지 않아요.</p>
@@ -2104,16 +2147,70 @@ function signupPasswordError(password) {
   return '';
 }
 
-export function AuthView({ onLogin, onSignup, socialProviders = [], onSocialLogin }) {
-  const [mode, setMode] = useState('login');
+export function AuthView({ onLogin, socialProviders = [], onSocialLogin }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [remember, setRemember] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const submit = async (event) => {
+    event.preventDefault();
+    setSubmitting(true);
+    setError('');
+    try {
+      await onLogin({ email, password });
+    } catch (requestError) {
+      setError(messageForError(requestError));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  return (
+    <div className="auth-modal-backdrop">
+      <section className="auth-modal" aria-label="로그인">
+        <a className="auth-modal-close" href="#/home" aria-label="닫기">×</a>
+        <form onSubmit={submit}>
+          <div className="auth-email-header">
+            <span className="auth-email-brand"><img src={brandSymbol} alt="" /></span>
+            <span className="auth-email-title">알밤메이트로 로그인하기</span>
+            <label className="auth-remember">
+              <span>로그인 유지</span>
+              <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} />
+              <span className="auth-remember-track" aria-hidden="true"></span>
+            </label>
+          </div>
+          <div className="formrow single"><div><label className="sr-only" htmlFor="auth-email">이메일</label><input id="auth-email" type="email" autoComplete="email" placeholder="이메일" required value={email} onChange={(event) => setEmail(event.target.value)} /></div><div><label className="sr-only" htmlFor="auth-password">비밀번호</label><div className="auth-password-field"><input id="auth-password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="비밀번호" required value={password} onChange={(event) => setPassword(event.target.value)} /><button type="button" className="auth-password-toggle" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}>{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button></div></div></div>
+          {error && <ErrorBox message={error} />}
+          <button className="btn big pill" disabled={submitting} type="submit">{submitting ? '처리 중…' : '로그인'}</button>
+        </form>
+        {socialProviders.length > 0 && (
+          <>
+            <div className="auth-divider">또는</div>
+            <div className="social-auth">
+              {socialProviders.map((item) => (
+                <button className={'social-auth-btn ' + item.provider.toLowerCase()} key={item.provider} type="button" onClick={() => onSocialLogin(item.provider)} aria-label={SOCIAL_PROVIDER_LABEL[item.provider] + '로 계속하기'}>
+                  <span className="social-auth-icon">{SOCIAL_PROVIDER_ICON[item.provider]}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        <a className="auth-switch-link" href="#/signup">알밤메이트가 처음이신가요? <u>가입하기</u></a>
+      </section>
+    </div>
+  );
+}
+
+export function SignupView({ onSignup }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const signup = mode === 'signup';
+  const [showPassword, setShowPassword] = useState(false);
   const passwordRef = useRef(null);
-  const passwordError = signup ? signupPasswordError(password) : '';
+  const passwordError = signupPasswordError(password);
   const submit = async (event) => {
     event.preventDefault();
     // 사유는 입력란 아래 안내 한 곳에서만 말한다. 여기서는 고칠 자리로 보내기만 한다.
@@ -2124,15 +2221,8 @@ export function AuthView({ onLogin, onSignup, socialProviders = [], onSocialLogi
     setSubmitting(true);
     setError('');
     try {
-      if (signup) {
-        const created = await onSignup({ email, password, nickname });
-        if (created) {
-          setMode('login');
-          setPassword('');
-        }
-      } else {
-        await onLogin({ email, password });
-      }
+      const created = await onSignup({ email, password, nickname });
+      if (created) window.location.hash = '#/auth';
     } catch (requestError) {
       setError(messageForError(requestError));
     } finally {
@@ -2140,24 +2230,18 @@ export function AuthView({ onLogin, onSignup, socialProviders = [], onSocialLogi
     }
   };
   return (
-    <section className="card" style={{ margin: '0 auto', maxWidth: 560 }}>
-      <h2>{signup ? '회원가입' : '로그인'}</h2>
-      <div className="tabs"><button type="button" className={!signup ? 'on' : ''} onClick={() => { setMode('login'); setError(''); }}>로그인</button><button type="button" className={signup ? 'on' : ''} onClick={() => { setMode('signup'); setError(''); }}>회원가입</button></div>
+    <section className="card signup-page" style={{ margin: '0 auto', maxWidth: 460 }}>
+      <h2>회원가입</h2>
       <form onSubmit={submit}>
-        <div className="formrow single"><div><label htmlFor="auth-email">이메일</label><input id="auth-email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></div>{signup && <div><label htmlFor="auth-nickname">닉네임</label><input id="auth-nickname" maxLength="50" required value={nickname} onChange={(event) => setNickname(event.target.value)} /></div>}<div><label htmlFor="auth-password">비밀번호</label><input id="auth-password" ref={passwordRef} type="password" autoComplete={signup ? 'new-password' : 'current-password'} minLength={signup ? PASSWORD_MIN_CODE_POINTS : 1} required value={password} onChange={(event) => setPassword(event.target.value)} aria-describedby={signup ? 'auth-password-hint' : undefined} aria-invalid={passwordError ? true : undefined} />{signup && <p id="auth-password-hint" className={passwordError ? 'hint warn' : 'hint'} role={passwordError ? 'alert' : undefined}>{passwordError || '15자 이상, 영문·숫자는 64자까지 한글은 24자까지 입력할 수 있어요.'}</p>}</div></div>
-        {error && <ErrorBox message={error} />}
-        <button className="btn big" disabled={submitting} type="submit">{submitting ? '처리 중…' : signup ? '회원가입' : '로그인'}</button>
-      </form>
-      {socialProviders.length > 0 && (
-        <div className="social-auth">
-          <p className="social-auth-label">소셜 계정으로 계속하기</p>
-          {socialProviders.map((item) => (
-            <button className="btn ghost social-auth-btn" key={item.provider} type="button" onClick={() => onSocialLogin(item.provider)}>
-              {SOCIAL_PROVIDER_LABEL[item.provider]}로 로그인
-            </button>
-          ))}
+        <div className="auth-email-header">
+          <span className="auth-email-brand"><img src={brandSymbol} alt="" /></span>
+          <span className="auth-email-title">알밤메이트로 회원가입하기</span>
         </div>
-      )}
+        <div className="formrow single"><div><label className="sr-only" htmlFor="signup-email">이메일</label><input id="signup-email" type="email" autoComplete="email" placeholder="이메일" required value={email} onChange={(event) => setEmail(event.target.value)} /></div><div><label className="sr-only" htmlFor="signup-nickname">닉네임</label><input id="signup-nickname" maxLength="50" placeholder="닉네임" required value={nickname} onChange={(event) => setNickname(event.target.value)} /></div><div><label className="sr-only" htmlFor="signup-password">비밀번호</label><div className="auth-password-field"><input id="signup-password" ref={passwordRef} type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={PASSWORD_MIN_CODE_POINTS} placeholder="비밀번호" required value={password} onChange={(event) => setPassword(event.target.value)} aria-describedby="signup-password-hint" aria-invalid={passwordError ? true : undefined} /><button type="button" className="auth-password-toggle" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}>{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button></div><p id="signup-password-hint" className={passwordError ? 'hint warn' : 'hint'} role={passwordError ? 'alert' : undefined}>{passwordError || '15자 이상, 영문·숫자는 64자까지 한글은 24자까지 입력할 수 있어요.'}</p></div></div>
+        {error && <ErrorBox message={error} />}
+        <button className="btn big pill" disabled={submitting} type="submit">{submitting ? '처리 중…' : '회원가입'}</button>
+      </form>
+      <a className="auth-switch-link" href="#/auth">이미 계정이 있으신가요? <u>로그인</u></a>
     </section>
   );
 }
@@ -2488,7 +2572,8 @@ export function App() {
   else if (route === 'my') content = me ? <MyRoomsSection myTab={myTab} onMyTabChange={setMyTab} dataVersion={dataVersion} /> : <LoginRequiredView message="내 모임을 보려면 로그인해주세요." />;
   else if (route === 'chat') content = me ? <ChatRoomView roomId={arg} dataVersion={dataVersion} me={me} /> : <LoginRequiredView message="모임 채팅을 보려면 로그인해주세요." />;
   else if (route === 'profile') content = me ? <ProfileView me={me} onSave={handleSaveProfile} onLogout={handleLogout} socialProviders={socialProviders} onSocialLink={handleSocialLink} /> : <LoginRequiredView message="마이페이지를 보려면 로그인해주세요." />;
-  else if (route === 'auth') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <AuthView onLogin={handleLogin} onSignup={handleSignup} socialProviders={socialProviders} onSocialLogin={handleSocialLogin} />;
+  else if (route === 'auth') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <AuthView onLogin={handleLogin} socialProviders={socialProviders} onSocialLogin={handleSocialLogin} />;
+  else if (route === 'signup') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <SignupView onSignup={handleSignup} />;
   else content = <HomeView onBrowsePeople={handleBrowsePeople} onSearchGame={handleSearchGame} dataVersion={dataVersion} />;
 
   return (
