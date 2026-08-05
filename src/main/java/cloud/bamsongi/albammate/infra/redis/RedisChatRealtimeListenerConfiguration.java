@@ -26,7 +26,8 @@ class RedisChatRealtimeListenerConfiguration {
 
 	@Bean
 	RedisMessageListenerContainer chatRealtimeMessageListenerContainer(
-		RedisConnectionFactory redisConnectionFactory, RedisChatRealtimeSubscriber subscriber, Environment environment) {
+		RedisConnectionFactory redisConnectionFactory, RedisChatRealtimeSubscriber subscriber,
+		Environment environment) {
 		RedisMessageListenerContainer container = new RedisMessageListenerContainer();
 		container.setConnectionFactory(redisConnectionFactory);
 		container.addMessageListener(subscriber, new ChannelTopic(RedisChatRealtimePublisher.channelFor(environment)));

@@ -13,12 +13,12 @@ import java.net.http.WebSocket;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -34,7 +34,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import cloud.bamsongi.albammate.chat.contract.ChatRealtimePublisher;
 import cloud.bamsongi.albammate.chat.dto.ChatMessagePageResponse;
 import cloud.bamsongi.albammate.chat.dto.ChatMessageSendRequest;
-import cloud.bamsongi.albammate.chat.entity.ChatMessage;
 import cloud.bamsongi.albammate.chat.entity.ChatRoom;
 import cloud.bamsongi.albammate.chat.repository.ChatMessageRepository;
 import cloud.bamsongi.albammate.chat.repository.ChatRoomRepository;
@@ -123,9 +122,12 @@ class ChatMessagePublishFailureRecoveryIntegrationTest {
 		ChatMessagePageResponse history = chatMessageHistoryQueryService.history(
 			currentUserId, room.getId(), null, 50);
 		assertEquals(3, history.messages().size());
-		assertTrue(history.messages().stream().anyMatch(message -> message.messageId() == result.message().messageId()));
-		assertTrue(history.messages().stream().anyMatch(message -> message.messageId() == missedResult.message().messageId()));
-		assertTrue(history.messages().stream().anyMatch(message -> message.messageId() == laterMissedResult.message().messageId()));
+		assertTrue(
+			history.messages().stream().anyMatch(message -> message.messageId() == result.message().messageId()));
+		assertTrue(
+			history.messages().stream().anyMatch(message -> message.messageId() == missedResult.message().messageId()));
+		assertTrue(history.messages().stream()
+			.anyMatch(message -> message.messageId() == laterMissedResult.message().messageId()));
 
 		CookieManager cookieManager = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
 		HttpClient client = HttpClient.newBuilder().cookieHandler(cookieManager).build();
@@ -136,7 +138,8 @@ class ChatMessagePublishFailureRecoveryIntegrationTest {
 			post(client, serverUri.resolve("/api/auth/login"), loginBody(email), csrfToken).statusCode());
 
 		LinkedBlockingQueue<String> receivedFrames = new LinkedBlockingQueue<>();
-		WebSocket webSocket = connect(serverUri, room.getId(), result.message().messageId(), cookieManager, receivedFrames);
+		WebSocket webSocket = connect(serverUri, room.getId(), result.message().messageId(), cookieManager,
+			receivedFrames);
 		try {
 			String firstRecoveredFrame = receivedFrames.poll(10, TimeUnit.SECONDS);
 			String secondRecoveredFrame = receivedFrames.poll(10, TimeUnit.SECONDS);

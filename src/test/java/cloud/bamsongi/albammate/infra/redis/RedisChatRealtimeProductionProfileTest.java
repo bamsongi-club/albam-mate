@@ -53,7 +53,8 @@ class RedisChatRealtimeProductionProfileTest {
 		String environmentExample = Files.readString(Path.of(".env.production.example"));
 		String deploymentVerifier = Files.readString(Path.of("scripts/verify-docker-deployment.mjs"));
 
-		assertTrue(compose.contains("ALBAM_MATE_REDIS_HOST: ${ALBAM_MATE_REDIS_HOST:?ALBAM_MATE_REDIS_HOST must be set}"));
+		assertTrue(
+			compose.contains("ALBAM_MATE_REDIS_HOST: ${ALBAM_MATE_REDIS_HOST:?ALBAM_MATE_REDIS_HOST must be set}"));
 		assertTrue(compose.contains("ALBAM_MATE_REDIS_PORT: ${ALBAM_MATE_REDIS_PORT:-6379}"));
 		assertTrue(environmentExample.contains("ALBAM_MATE_REDIS_HOST=replace-with-redis-endpoint"));
 		assertTrue(environmentExample.contains("ALBAM_MATE_REDIS_PORT=6379"));
