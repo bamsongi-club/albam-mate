@@ -88,9 +88,10 @@ ROOM 상태 보정과 채팅 만료 삭제는 모든 인스턴스에 Spring Sche
 ## 검증
 
 - 상태: 미검증
-- 근거: #360에서 세션·local-multi 구현과 T1~T7 실행 경로를 추가했으며, 이 ADR의 ShedLock·실제 AWS 운영 검증은 별도 범위다.
+- 근거:
+    - 구현: [#360](https://github.com/bamsongi-club/albam-mate/issues/360)에서 `local-multi` Spring Session Redis를, [#286](https://github.com/bamsongi-club/albam-mate/issues/286)에서 같은 세션 계약의 `production` profile과 Redis Pub/Sub을 구현했다.
+    - 테스트: #286의 production 두 인스턴스 Redis 세션·채팅 fan-out PostgreSQL 검증이 같은 `JSESSIONID`와 PostgreSQL catch-up 경계를 확인한다.
 - 미검증:
-    - #360의 승인 backend test runner 최종 결과와 실제 실행 증거를 이 ADR에 아직 고정하지 않았다.
     - PostgreSQL ShedLock 단일 실행, 잠금 보유 인스턴스 종료와 임대 만료 복구를 확인하지 않았다.
     - 실제 AWS ALB·ASG와 운영 Redis 구성은 후속 OPS 검증이 필요하다.
 
