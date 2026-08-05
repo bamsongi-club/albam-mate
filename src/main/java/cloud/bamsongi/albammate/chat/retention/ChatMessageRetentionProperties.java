@@ -56,6 +56,17 @@ public class ChatMessageRetentionProperties {
 		return maxRunDuration.plus(queryTimeout.multipliedBy(3)).compareTo(lockAtMostFor) < 0;
 	}
 
+	/**
+	 * 실행 상한에서 중단된 잠금 구간은 최소 잠금 시간이 지난 뒤에야 해제되므로, 실행 상한이 최소
+	 * 잠금 시간보다 짧으면 중단 시점에 잠금이 아직 유지돼 같은 cron 실행이 잠금을 다시 얻지 못한다.
+	 */
+	@AssertTrue public boolean isMaxRunDurationAtLeastLockAtLeastFor() {
+		if (maxRunDuration == null || lockAtLeastFor == null) {
+			return true;
+		}
+		return maxRunDuration.compareTo(lockAtLeastFor) >= 0;
+	}
+
 	public boolean isEnabled() {
 		return enabled;
 	}

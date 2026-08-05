@@ -47,4 +47,38 @@ class ChatMessageRetentionPropertiesTest {
 		assertTrue(missingQueryTimeout.isRunDurationWithinLockLease());
 		assertTrue(missingLease.isRunDurationWithinLockLease());
 	}
+
+	@Test
+	void 실행_상한이_최소_잠금_시간보다_짧으면_같은_cron_재획득_설정을_거절한다() {
+		ChatMessageRetentionProperties properties = new ChatMessageRetentionProperties();
+		properties.setLockAtLeastFor(Duration.ofSeconds(5));
+		properties.setMaxRunDuration(Duration.ofMillis(300));
+
+		assertFalse(properties.isMaxRunDurationAtLeastLockAtLeastFor());
+	}
+
+	@Test
+	void 실행_상한과_최소_잠금_시간이_같으면_허용한다() {
+		ChatMessageRetentionProperties properties = new ChatMessageRetentionProperties();
+		properties.setLockAtLeastFor(Duration.ofSeconds(5));
+		properties.setMaxRunDuration(Duration.ofSeconds(5));
+
+		assertTrue(properties.isMaxRunDurationAtLeastLockAtLeastFor());
+	}
+
+	@Test
+	void 기본_설정은_실행_상한이_최소_잠금_시간_이상이라_허용한다() {
+		assertTrue(new ChatMessageRetentionProperties().isMaxRunDurationAtLeastLockAtLeastFor());
+	}
+
+	@Test
+	void 최소_잠금_시간_또는_실행_상한이_없으면_비교하지_않는다() {
+		ChatMessageRetentionProperties missingLockAtLeastFor = new ChatMessageRetentionProperties();
+		missingLockAtLeastFor.setLockAtLeastFor(null);
+		ChatMessageRetentionProperties missingRunDuration = new ChatMessageRetentionProperties();
+		missingRunDuration.setMaxRunDuration(null);
+
+		assertTrue(missingLockAtLeastFor.isMaxRunDurationAtLeastLockAtLeastFor());
+		assertTrue(missingRunDuration.isMaxRunDurationAtLeastLockAtLeastFor());
+	}
 }
