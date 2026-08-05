@@ -189,21 +189,25 @@ export function repoRootOf(cwd = process.cwd()) {
     return execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd, encoding: 'utf8' }).trim();
 }
 
-// base를 주지 않으면 worktree와 HEAD를 비교한다. 커밋을 만든 뒤에는 그 diff가 비므로 고정한
-// Draft head를 검증할 때는 base를 함께 넘겨 두 커밋 사이의 래칫 변경을 검사한다.
-export function validateCoverageRatchetInRepo(repoRoot, { base = null, head = null } = {}) {
+// 모드는 둘뿐이고 각 모드에서 diff 방향과 pre·post image가 일치한다.
+// base 없음: HEAD -> worktree. pre는 HEAD의 파일, post는 worktree의 파일이다.
+// base 지정: base -> HEAD. pre는 base의 파일, post는 HEAD의 파일이다.
+// 커밋을 만든 뒤에는 첫 모드의 diff가 비므로 고정한 Draft head 검증에는 base를 넘긴다.
+// 임의의 ref 하나만 받는 모드는 두지 않는다. `git diff <ref>`는 ref를 pre-image로 쓰는데
+// 같은 ref에서 post-image까지 읽으면 두 image가 어긋나 줄 범위 판정이 불성립한다.
+export function validateCoverageRatchetInRepo(repoRoot, { base = null } = {}) {
     const git = (args) =>
         execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
-    const diffArgs =
+    const diffText = git(
         base === null
-            ? ['diff', head ?? 'HEAD', '--', 'build.gradle']
-            : ['diff', base, head ?? 'HEAD', '--', 'build.gradle'];
-    const diffText = git(diffArgs);
+            ? ['diff', 'HEAD', '--', 'build.gradle']
+            : ['diff', base, 'HEAD', '--', 'build.gradle'],
+    );
     const buildFileText =
-        base === null && head === null
+        base === null
             ? fs.readFileSync(path.join(repoRoot, 'build.gradle'), 'utf8')
-            : git(['show', `${head ?? 'HEAD'}:build.gradle`]);
-    const preImageText = git(['show', `${base ?? head ?? 'HEAD'}:build.gradle`]);
+            : git(['show', 'HEAD:build.gradle']);
+    const preImageText = git(['show', `${base ?? 'HEAD'}:build.gradle`]);
     return {
         diffText,
         problems: validateCoverageRatchetDiff(diffText, buildFileText, preImageText),
@@ -212,7 +216,7 @@ export function validateCoverageRatchetInRepo(repoRoot, { base = null, head = nu
 
 function parseArguments(argv) {
     const values = { base: null, head: null };
-    const allowed = new Set(['--base', '--head']);
+    const allowed = new Set(['--base']);
     for (let index = 0; index < argv.length; index += 2) {
         const option = argv[index];
         const value = argv[index + 1];
@@ -227,7 +231,7 @@ function parseArguments(argv) {
 function runCli() {
     const args = parseArguments(process.argv.slice(2));
     if (args === null) {
-        console.error('사용법: node scripts/validate-coverage-ratchet.mjs [--base <ref>] [--head <ref>]');
+        console.error('사용법: node scripts/validate-coverage-ratchet.mjs [--base <ref>]');
         process.exitCode = 2;
         return;
     }

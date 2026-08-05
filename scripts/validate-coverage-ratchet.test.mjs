@@ -5,6 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
+import { fileURLToPath } from 'node:url';
+
 import {
     duplicateEntryKeys,
     mapBlockRange,
@@ -299,4 +301,32 @@ test('맵 밖에서 같은 키를 삭제하고 맵 안에 상향 추가하는 �
 
     assert.equal(problems.length, 1);
     assert.match(problems[0], /base의 gatedBranchCoverage 맵 블록\(5~7줄\) 밖에서 삭제한 줄입니다: cloud\.a \(2줄\)/u);
+});
+
+test('임의의 ref 하나만 받는 모드를 두지 않는다', () => {
+    // `git diff <ref>`는 ref를 pre-image로 쓰므로 같은 ref에서 post-image까지 읽으면
+    // 두 image가 어긋난다. 그 모드 자체를 없앴는지 CLI 인자 파싱으로 고정한다.
+    const scriptPath = fileURLToPath(new URL('./validate-coverage-ratchet.mjs', import.meta.url));
+    const rejected = spawnSync(process.execPath, [scriptPath, '--head', 'HEAD~1'], {
+        encoding: 'utf8',
+    });
+
+    assert.equal(rejected.status, 2);
+    assert.match(rejected.stderr, /사용법: node scripts\/validate-coverage-ratchet\.mjs \[--base <ref>\]/u);
+});
+
+test('두 모드 모두 diff 방향과 pre·post image가 일치한다', (t) => {
+    // base 없음: HEAD -> worktree. 커밋하지 않은 하향을 잡아야 한다.
+    const { repo, git, write } = createRepo(t, ["    'cloud.a' : 0.90,"]);
+    write(["    'cloud.a' : 0.10,"]);
+    const uncommitted = validateCoverageRatchetInRepo(repo).problems;
+    assert.equal(uncommitted.length, 1);
+    assert.match(uncommitted[0], /최소선 상향이 아닙니다: cloud\.a 0\.9 → 0\.1/u);
+
+    // base 지정: base -> HEAD. 같은 하향을 커밋한 뒤에도 잡아야 한다.
+    git('add', '--all');
+    git('-c', 'user.name=t', '-c', 'user.email=t@e.com', 'commit', '--quiet', '-m', 'lower');
+    const committed = validateCoverageRatchetInRepo(repo, { base: 'HEAD~1' }).problems;
+    assert.equal(committed.length, 1);
+    assert.match(committed[0], /최소선 상향이 아닙니다: cloud\.a 0\.9 → 0\.1/u);
 });
