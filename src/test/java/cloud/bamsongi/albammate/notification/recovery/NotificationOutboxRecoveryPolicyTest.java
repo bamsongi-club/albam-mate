@@ -1,13 +1,24 @@
 package cloud.bamsongi.albammate.notification.recovery;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import cloud.bamsongi.albammate.notification.entity.NotificationOutboxEvent;
+import cloud.bamsongi.albammate.notification.enums.NotificationOutboxEventType;
+import cloud.bamsongi.albammate.notification.enums.NotificationOutboxStatus;
 
 class NotificationOutboxRecoveryPolicyTest {
+
+	private static final Instant OPERATION_TIME = Instant.parse("2026-08-03T00:00:00Z");
 
 	private final NotificationOutboxRecoveryPolicy policy = new NotificationOutboxRecoveryPolicy();
 
@@ -64,6 +75,66 @@ class NotificationOutboxRecoveryPolicyTest {
 			NotificationOutboxRecoveryPolicy.ExecutionMode.EXECUTE);
 	}
 
+	@Test
+	void FAILED가_아닌_이벤트는_모든_action에서_부적격이다() {
+		NotificationOutboxEvent event = event(3L, NotificationOutboxStatus.RETRY_WAIT,
+			OPERATION_TIME.minusSeconds(60), "RELAY_PROCESSING_FAILURE");
+
+		for (NotificationRecoveryAction action : NotificationRecoveryAction.values()) {
+			NotificationOutboxRecoveryPolicy.RecoveryEligibility result = policy.evaluateEligibility(
+				event, action, OPERATION_TIME, true);
+			assertFalse(result.reprocessable());
+			assertFalse(result.eligible());
+		}
+	}
+
+	@Test
+	void REPROCESS는_수신자_스냅샷과_89일_경계와_만료코드를_함께_판정한다() {
+		NotificationOutboxEvent justBefore = failed(3L,
+			OPERATION_TIME.minus(Duration.ofDays(89)).plusSeconds(1), "RELAY_PROCESSING_FAILURE");
+		NotificationOutboxEvent exactBoundary = failed(4L,
+			OPERATION_TIME.minus(Duration.ofDays(89)), "RELAY_PROCESSING_FAILURE");
+		NotificationOutboxEvent afterBoundary = failed(5L,
+			OPERATION_TIME.minus(Duration.ofDays(89)).minusSeconds(1), "RELAY_PROCESSING_FAILURE");
+		NotificationOutboxEvent expiredCode = failed(6L, OPERATION_TIME.minusSeconds(60), "NOTIFICATION_EXPIRED");
+
+		assertEquals(new NotificationOutboxRecoveryPolicy.RecoveryEligibility(true, true),
+			policy.evaluateEligibility(justBefore, NotificationRecoveryAction.REPROCESS, OPERATION_TIME, true));
+		assertEquals(new NotificationOutboxRecoveryPolicy.RecoveryEligibility(false, false),
+			policy.evaluateEligibility(exactBoundary, NotificationRecoveryAction.REPROCESS, OPERATION_TIME, true));
+		assertEquals(new NotificationOutboxRecoveryPolicy.RecoveryEligibility(false, false),
+			policy.evaluateEligibility(afterBoundary, NotificationRecoveryAction.REPROCESS, OPERATION_TIME, true));
+		assertEquals(new NotificationOutboxRecoveryPolicy.RecoveryEligibility(false, false),
+			policy.evaluateEligibility(expiredCode, NotificationRecoveryAction.REPROCESS, OPERATION_TIME, true));
+		assertEquals(new NotificationOutboxRecoveryPolicy.RecoveryEligibility(false, false),
+			policy.evaluateEligibility(justBefore, NotificationRecoveryAction.REPROCESS, OPERATION_TIME, false));
+	}
+
+	@Test
+	void INSPECT는_FAILED를_적격으로_유지하면서_실제_수신자_여부로_reprocessable을_알린다() {
+		NotificationOutboxEvent event = failed(3L, OPERATION_TIME.minusSeconds(60), "RELAY_PROCESSING_FAILURE");
+
+		assertEquals(new NotificationOutboxRecoveryPolicy.RecoveryEligibility(true, true),
+			policy.evaluateEligibility(event, NotificationRecoveryAction.INSPECT, OPERATION_TIME, true));
+		assertEquals(new NotificationOutboxRecoveryPolicy.RecoveryEligibility(false, true),
+			policy.evaluateEligibility(event, NotificationRecoveryAction.INSPECT, OPERATION_TIME, false));
+	}
+
+	@Test
+	void DISCARD의_eligible은_수신자와_무관하고_reprocessable은_실제_재처리_가능성을_알린다() {
+		NotificationOutboxEvent event = failed(3L, OPERATION_TIME.minusSeconds(60), "RELAY_PROCESSING_FAILURE");
+
+		NotificationOutboxRecoveryPolicy.RecoveryEligibility withRecipients = policy.evaluateEligibility(
+			event, NotificationRecoveryAction.DISCARD, OPERATION_TIME, true);
+		NotificationOutboxRecoveryPolicy.RecoveryEligibility withoutRecipients = policy.evaluateEligibility(
+			event, NotificationRecoveryAction.DISCARD, OPERATION_TIME, false);
+
+		assertTrue(withRecipients.reprocessable());
+		assertTrue(withRecipients.eligible());
+		assertFalse(withoutRecipients.reprocessable());
+		assertTrue(withoutRecipients.eligible());
+	}
+
 	private void assertRejected(NotificationOutboxRecoveryRequest request) {
 		assertRejected(request, NotificationOutboxRecoveryPolicy.ExecutionMode.PREVIEW);
 	}
@@ -94,6 +165,23 @@ class NotificationOutboxRecoveryPolicyTest {
 
 	private static Metadata validMetadata(String confirm) {
 		return new Metadata("ISSUE-267", "reason", "ops-user", confirm);
+	}
+
+	private static NotificationOutboxEvent failed(long eventId, Instant occurredAt, String failureCode) {
+		return event(eventId, NotificationOutboxStatus.FAILED, occurredAt, failureCode);
+	}
+
+	private static NotificationOutboxEvent event(
+		long eventId,
+		NotificationOutboxStatus status,
+		Instant occurredAt,
+		String failureCode) {
+		NotificationOutboxEvent event = NotificationOutboxEvent.createPending(
+			NotificationOutboxEventType.PARTICIPATION_JOINED, 1L, occurredAt, occurredAt);
+		ReflectionTestUtils.setField(event, "id", eventId);
+		ReflectionTestUtils.setField(event, "status", status);
+		ReflectionTestUtils.setField(event, "lastFailureCode", failureCode);
+		return event;
 	}
 
 	private record Metadata(String reasonReference, String reason, String requestedBy, String confirm) {

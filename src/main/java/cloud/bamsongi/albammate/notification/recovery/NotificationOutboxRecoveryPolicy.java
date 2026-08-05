@@ -1,5 +1,7 @@
 package cloud.bamsongi.albammate.notification.recovery;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -9,6 +11,9 @@ import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Component;
 
+import cloud.bamsongi.albammate.notification.entity.NotificationOutboxEvent;
+import cloud.bamsongi.albammate.notification.enums.NotificationOutboxStatus;
+
 /** 운영 복구 요청의 의미 검증과 정규화를 한 곳에서 수행한다. */
 @Component
 class NotificationOutboxRecoveryPolicy {
@@ -16,6 +21,7 @@ class NotificationOutboxRecoveryPolicy {
 	private static final int MAX_EVENT_IDS = 50;
 	private static final int MAX_REASON_LENGTH = 500;
 	private static final int MAX_REQUESTED_BY_LENGTH = 100;
+	private static final Duration REPROCESS_WINDOW = Duration.ofDays(89);
 	private static final Pattern REASON_REFERENCE_PATTERN = Pattern.compile(
 		"(?:INC-[0-9]{4}-[0-9]{1,10}|ISSUE-[1-9][0-9]{0,9})");
 
@@ -27,6 +33,29 @@ class NotificationOutboxRecoveryPolicy {
 		validateMetadata(request);
 		validateExecutionMode(request, mode);
 		return eventIds;
+	}
+
+	/**
+	 * 현재 이벤트 상태와 고정된 operationTime, 수신자 스냅샷으로 최종 적격성을 한 번에 판정한다.
+	 * preview는 action과 관계없이 실제 {@link RecoveryEligibility#reprocessable()} 값을 제공한다.
+	 * execute DISCARD는 수신자 스냅샷을 조회하지 않고 {@link RecoveryEligibility#eligible()}만 사용한다.
+	 */
+	RecoveryEligibility evaluateEligibility(
+		NotificationOutboxEvent event,
+		NotificationRecoveryAction action,
+		Instant operationTime,
+		boolean recipientSnapshotExists) {
+		if (event.getStatus() != NotificationOutboxStatus.FAILED) {
+			return new RecoveryEligibility(false, false);
+		}
+		boolean reprocessable = recipientSnapshotExists
+			&& !"NOTIFICATION_EXPIRED".equals(event.getLastFailureCode())
+			&& operationTime.isBefore(event.getOccurredAt().plus(REPROCESS_WINDOW));
+		boolean eligible = switch (action) {
+			case INSPECT, DISCARD -> true;
+			case REPROCESS -> reprocessable;
+		};
+		return new RecoveryEligibility(reprocessable, eligible);
 	}
 
 	private static List<Long> normalizeEventIds(List<Long> eventIds) {
@@ -80,5 +109,8 @@ class NotificationOutboxRecoveryPolicy {
 	enum ExecutionMode {
 		PREVIEW,
 		EXECUTE
+	}
+
+	record RecoveryEligibility(boolean reprocessable, boolean eligible) {
 	}
 }
