@@ -73,6 +73,8 @@ const EMPTY_GAME_FILTERS = {
   complexityMin: '',
   complexityMax: '',
   mechanism: [],
+  // 관계 필터는 한 값만 쓴다. 빈 값이 `전체`이며 요청에서 빠진다.
+  playedFilter: '',
   upcomingOnly: false
 };
 const EMPTY_GAME_FILTER_KEY = JSON.stringify(EMPTY_GAME_FILTERS);
@@ -81,6 +83,12 @@ const EMPTY_PLAYER_COUNT_RANGE = { playerCountMin: '', playerCountMax: '', playe
 const EXCLUSIVE_PLAYER_COUNT_OPTIONS = [
   { value: '1', label: '1인 전용' },
   { value: '2', label: '2인 전용' }
+];
+// 관계 필터는 게임 난이도와 같은 단일 선택이다. 둘 이상의 관계 조건을 만들지 않는다.
+const PLAYED_FILTER_OPTIONS = [
+  { value: '', label: '전체' },
+  { value: 'PLAYED_ONLY', label: '해 본 게임만' },
+  { value: 'EXCLUDE_PLAYED', label: '해 본 게임 제외' }
 ];
 const PLAY_TIME_LABEL = {
   UP_TO_10: '10분 이내',
@@ -288,7 +296,9 @@ function normalizeGameSummary(game) {
     upcomingRoomCount: Number(game.upcomingRoomCount || 0),
     alias: game.alias || null,
     description: game.description || '',
-    detailDescription: game.detailDescription || ''
+    detailDescription: game.detailDescription || '',
+    // 비로그인 응답의 `null`은 관계 없음이 아니라 아직 판정하지 않은 상태다. 그대로 둔다.
+    playedByMe: game.playedByMe ?? null
   };
 }
 
@@ -571,16 +581,39 @@ function SessionCard({ room }) {
   );
 }
 
-function GameCard({ game }) {
+/**
+ * 본인이 해 본 게임으로 표시했는지를 켜고 끄는 조작이다.
+ *
+ * 관계가 없거나 아직 판정하지 않은 상태를 `해보지 않음`으로 부르지 않고 눌리지 않은 상태로만 둔다.
+ * 다른 사용자의 관계는 응답에 없으므로 화면에도 없다.
+ */
+function PlayedGameToggle({ played, pending, onToggle }) {
   return (
-    <a className="gcard" href={'#/game/' + game.id}>
-      <div className="gart">{game.imageUrl ? <img src={game.imageUrl} alt="" loading="lazy" /> : '🎲'}</div>
-      <div className="gtitle">{game.title}</div>
-      <div className="gen">{game.englishName}</div>
-      <div className="gmeta">{gameMeta(game)}</div>
-      {game.tag && <span className="chip">{game.tag}</span>}
-      <div className="gsess">예정 모임 {game.upcomingRoomCount}개</div>
-    </a>
+    <button
+      type="button"
+      className={'played-toggle' + (played ? ' on' : '')}
+      aria-pressed={played === true}
+      disabled={pending}
+      onClick={onToggle}
+    >
+      해봤어요
+    </button>
+  );
+}
+
+function GameCard({ game, played, pending, onTogglePlayed }) {
+  return (
+    <div className="gcard-shell">
+      <a className="gcard" href={'#/game/' + game.id}>
+        <div className="gart">{game.imageUrl ? <img src={game.imageUrl} alt="" loading="lazy" /> : '🎲'}</div>
+        <div className="gtitle">{game.title}</div>
+        <div className="gen">{game.englishName}</div>
+        <div className="gmeta">{gameMeta(game)}</div>
+        {game.tag && <span className="chip">{game.tag}</span>}
+        <div className="gsess">예정 모임 {game.upcomingRoomCount}개</div>
+      </a>
+      <PlayedGameToggle played={played} pending={pending} onToggle={onTogglePlayed} />
+    </div>
   );
 }
 
@@ -609,12 +642,42 @@ function usePaginatedRequest(loadPage, dependencies) {
       .then((data) => { if (active) setState({ data, loading: false, error: '' }); })
       .catch((error) => {
         if (!active || error?.name === 'AbortError') return;
-        setState({ data: null, loading: false, error: messageForError(error) });
+        // 로그인이 필요한 조건으로 조회했는지 화면이 구분할 수 있게 함께 알린다.
+        setState({ data: null, loading: false, error: messageForError(error), unauthenticated: isUnauthenticated(error) });
       });
     return () => { active = false; controller.abort(); };
   }, [page, ...dependencies]);
 
   return { ...state, page, setPage };
+}
+
+/**
+ * 해 본 게임 표시·취소를 서버 응답 기준으로 화면에 반영한다.
+ *
+ * 요청이 끝나기 전에는 같은 게임의 조작을 잠그고, 성공한 `200` 응답의 `playedByMe`만 반영한다.
+ * 실패하면 이전 상태를 그대로 두고 공통 오류 흐름에 넘긴다.
+ */
+function usePlayedGames(onError) {
+  const [played, setPlayed] = useState({});
+  const [pending, setPending] = useState({});
+  const toggle = async (gameId, current) => {
+    if (pending[gameId]) return;
+    setPending((currentPending) => ({ ...currentPending, [gameId]: true }));
+    try {
+      const result = current ? await api.unmarkGamePlayed(gameId) : await api.markGamePlayed(gameId);
+      setPlayed((currentPlayed) => ({ ...currentPlayed, [gameId]: result.playedByMe }));
+    } catch (error) {
+      onError?.(error, '해 본 게임 표시를 바꾸지 못했어요.');
+    } finally {
+      setPending((currentPending) => ({ ...currentPending, [gameId]: false }));
+    }
+  };
+  const stateOf = (game) => played[game.id] ?? game.playedByMe;
+  return {
+    stateOf,
+    isPending: (game) => Boolean(pending[game.id]),
+    toggle: (game) => toggle(game.id, stateOf(game))
+  };
 }
 
 function Pagination({ page, totalPages, loading, onChange }) {
@@ -1123,6 +1186,8 @@ function gameFilterChips(filters, onChange, mechanismOptions) {
       });
     }
   });
+  const playedOption = PLAYED_FILTER_OPTIONS.find((option) => option.value && option.value === filters.playedFilter);
+  if (playedOption) chips.push({ key: 'playedFilter', label: playedOption.label, onClear: () => update({ playedFilter: '' }) });
   const band = complexityBandOf(filters);
   if (band) chips.push({ key: 'complexity', label: '난이도 ' + band.label, onClear: () => update({ complexityMin: '', complexityMax: '' }) });
   if (filters.upcomingOnly) chips.push({ key: 'upcomingOnly', label: '예정 모임 있음', onClear: () => update({ upcomingOnly: false }) });
@@ -1179,6 +1244,8 @@ function GameFilters({ filters, onChange }) {
       <FilterMultiCheckGroup label="플레이 시간" values={filters.playTime} onToggle={togglePlayTime}
         options={Object.entries(PLAY_TIME_LABEL).map(([code, label]) => ({ value: code, label }))} />
       <MechanismFilterGroup options={mechanismOptions} selected={filters.mechanism} onToggle={toggleMechanism} />
+      <FilterRadioGroup name="game-filter-played" label="해 본 게임" value={filters.playedFilter}
+        onChange={(playedFilter) => update({ playedFilter })} options={PLAYED_FILTER_OPTIONS} />
       <FilterRadioGroup name="game-filter-complexity" label="게임 난이도" value={complexityBandOf(filters)?.value || ''} onChange={selectBand}
         options={[{ value: '', label: '전체' }, ...COMPLEXITY_BANDS.map((band) => ({ value: band.value, label: band.label }))]} />
       <FilterCheckGroup label="모임" checked={filters.upcomingOnly} onChange={(upcomingOnly) => update({ upcomingOnly })} text="예정 모임 있는 게임만" />
@@ -1186,16 +1253,17 @@ function GameFilters({ filters, onChange }) {
   );
 }
 
-export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion }) {
+export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, onPlayedError }) {
   const [input, setInput] = useState(gameQuery);
   const [filters, setFilters] = useState(EMPTY_GAME_FILTERS);
   const keyword = gameQuery.trim();
   const parameters = gameFilterParameters(useAppliedGameFilters(filters));
   const filterKey = JSON.stringify(parameters);
-  const { data, loading, error, setPage } = usePaginatedRequest(
+  const { data, loading, error, unauthenticated, setPage } = usePaginatedRequest(
     (page, signal) => api.getGames({ keyword, ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal),
     [keyword, filterKey, dataVersion]
   );
+  const playedGames = usePlayedGames(onPlayedError);
   const games = (data?.content || []).map(normalizeGameSummary);
   useEffect(() => setInput(gameQuery), [gameQuery]);
   return (
@@ -1208,16 +1276,31 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion }) 
       </form>
       <p className="hint" style={{ marginTop: -10, marginBottom: 15 }}>게임 이름의 부분 일치 검색만 제공해요.</p>
       <GameFilters filters={filters} onChange={setFilters} />
-      {error && <ErrorBox message={error} />}
+      {error && (unauthenticated
+        ? <LoginRequiredView message="해 본 게임으로 거르려면 로그인해주세요." />
+        : <ErrorBox message={error} />)}
       {!error && loading && !data && <LoadingBox />}
-      {!error && !!games.length && <div className="grid cols3">{games.map((game) => <GameCard key={game.id} game={game} />)}</div>}
+      {!error && !!games.length && (
+        <div className="grid cols3">
+          {games.map((game) => (
+            <GameCard
+              key={game.id}
+              game={game}
+              played={playedGames.stateOf(game)}
+              pending={playedGames.isPending(game)}
+              onTogglePlayed={() => playedGames.toggle(game)}
+            />
+          ))}
+        </div>
+      )}
       {!error && !loading && !games.length && <div className="infobox" style={{ marginTop: 14 }}>검색 결과가 없어요. 다른 게임 이름으로 다시 찾아보세요.</div>}
       {!error && !!games.length && <Pagination page={data?.page ?? 0} totalPages={data?.totalPages ?? 0} loading={loading} onChange={setPage} />}
     </>
   );
 }
 
-function GameDetailView({ gameId, onCreateGame, dataVersion }) {
+export function GameDetailView({ gameId, onCreateGame, dataVersion, onPlayedError }) {
+  const playedGames = usePlayedGames(onPlayedError);
   const { data: gameData, loading: gameLoading, error: gameError } = useRequest(
     (signal) => api.getGame(gameId, signal),
     [gameId, dataVersion]
@@ -1243,7 +1326,14 @@ function GameDetailView({ gameId, onCreateGame, dataVersion }) {
             <div className="gmeta" style={{ fontSize: 14 }}>{gameMeta(game)}</div>
             {game.tag && <span className="chip">{game.tag}</span>}
             {game.description && <p className="hint" style={{ marginTop: 12 }}>{game.description}</p>}
-            <div style={{ marginTop: 15 }}><button className="btn" type="button" onClick={() => onCreateGame(game)}>이 게임으로 모임 만들기</button></div>
+            <div className="page-actions" style={{ marginTop: 15 }}>
+              <button className="btn" type="button" onClick={() => onCreateGame(game)}>이 게임으로 모임 만들기</button>
+              <PlayedGameToggle
+                played={playedGames.stateOf(game)}
+                pending={playedGames.isPending(game)}
+                onToggle={() => playedGames.toggle(game)}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -2212,8 +2302,8 @@ function App() {
 
   let content;
   if (route === 'find') content = <FindRoomsView roomType={roomType} onRoomTypeChange={setRoomType} roomQuery={roomQuery} onRoomQueryChange={setRoomQuery} roomFilters={roomFilters} onRoomFiltersChange={setRoomFilters} dataVersion={dataVersion} />;
-  else if (route === 'game-list') content = <GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} />;
-  else if (route === 'game') content = <GameDetailView gameId={arg} onCreateGame={handleCreateGame} dataVersion={dataVersion} />;
+  else if (route === 'game-list') content = <GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} onPlayedError={handleProtectedError} />;
+  else if (route === 'game') content = <GameDetailView gameId={arg} onCreateGame={handleCreateGame} dataVersion={dataVersion} onPlayedError={handleProtectedError} />;
   else if (route === 'session') content = <SessionDetailView sessionId={arg} me={me} onApply={handleApply} onCancelApply={handleCancelApply} onHostCancel={handleHostCancel} onFinish={handleFinish} dataVersion={dataVersion} />;
   else if (route === 'create') content = me ? <CreateView createMode={createMode} onCreateModeChange={setCreateMode} initialGame={createGame} onCreate={handleCreate} today={today} /> : <LoginRequiredView message="모임을 만들려면 로그인해주세요." />;
   else if (route === 'edit') content = me ? <EditView sessionId={arg} onSave={handleSave} dataVersion={dataVersion} today={today} /> : <LoginRequiredView message="모임을 수정하려면 로그인해주세요." />;

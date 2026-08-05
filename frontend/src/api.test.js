@@ -231,6 +231,38 @@ describe('게임 목록 검색 API', () => {
   });
 });
 
+describe('해 본 게임 API', () => {
+  it('관계 필터는 단일 값으로 전달하고 선택하지 않으면 생략한다', async () => {
+    const fetchMock = stubFetch();
+
+    await api.getGames({ exclusivePlayerCount: [], playTime: [], mechanism: [], playedFilter: 'PLAYED_ONLY', page: 0, size: 24 });
+
+    expect(requestedUrl(fetchMock)).toBe('/api/games?playedFilter=PLAYED_ONLY&page=0&size=24');
+  });
+
+  it('표시·취소는 mutate 경계에서 현재 CSRF 토큰을 전송한다', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'current-csrf-token' }))
+      .mockResolvedValueOnce(successfulResponse({ gameId: 7, playedByMe: true }))
+      .mockResolvedValueOnce(successfulResponse({ gameId: 7, playedByMe: false }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(api.markGamePlayed(7)).resolves.toEqual({ gameId: 7, playedByMe: true });
+    await expect(api.unmarkGamePlayed(7)).resolves.toEqual({ gameId: 7, playedByMe: false });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/users/me/played-games/7',
+      expect.objectContaining({ method: 'PUT', credentials: 'include', headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'current-csrf-token' }) })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      '/api/users/me/played-games/7',
+      expect.objectContaining({ method: 'DELETE', credentials: 'include', headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'current-csrf-token' }) })
+    );
+  });
+});
+
 describe('게임 메커니즘 선택지 API', () => {
   it('공개 선택지를 조건 없는 GET 경로로 조회한다', async () => {
     const fetchMock = vi.fn().mockResolvedValue(successfulResponse([]));

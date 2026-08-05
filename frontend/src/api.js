@@ -170,6 +170,7 @@ export const api = {
       complexityMin,
       complexityMax,
       mechanism,
+      playedFilter,
       page = 0,
       size = 10
     },
@@ -186,10 +187,13 @@ export const api = {
       complexityMin,
       complexityMax,
       mechanism,
+      playedFilter,
       page,
       size
     }), { signal }),
   getGameMechanisms: (signal) => request('/api/game-mechanisms', { signal }),
+  markGamePlayed: (gameId) => mutate('/api/users/me/played-games/' + gameId, { method: 'PUT' }),
+  unmarkGamePlayed: (gameId) => mutate('/api/users/me/played-games/' + gameId, { method: 'DELETE' }),
   getRoom: (roomId, signal) => request('/api/rooms/' + roomId, { signal }),
   getRooms: (
     { type, gameId, keyword, startsAtFrom, startsAtTo, minRemainingSeats, experienceLevels, rulemasterOnly, page = 0, size = 10 },
