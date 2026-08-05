@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -24,14 +25,18 @@ import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.contract.ChatAccessGuard;
 import cloud.bamsongi.albammate.user.contract.UserQuery;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /** ROOM 접근 잠금 안에서 메시지를 저장하고, 신규 저장만 커밋 뒤 전달 이벤트로 등록한다. */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatMessageCommandService {
 
 	private static final int MAX_CLIENT_MESSAGE_ID_LENGTH = 100;
 	private static final int MAX_CONTENT_LENGTH = 500;
+	/** room 도메인의 자유 텍스트 필드(title·description·place)와 같은 제어문자 거부 규칙이다. */
+	private static final Pattern NO_CONTROL_CHARACTER_PATTERN = Pattern.compile("^[^\\p{Cc}]*$");
 
 	private final ChatAccessGuard chatAccessGuard;
 	private final ChatRoomRepository chatRoomRepository;
@@ -56,9 +61,7 @@ public class ChatMessageCommandService {
 			.orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
 		String clientMessageId = validateClientMessageId(request.clientMessageId());
 		String content = normalizeContent(request.content());
-		String nickname = userQuery
-			.findNicknameById(currentUserId)
-			.orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR));
+		String nickname = requireSenderNickname(roomId, currentUserId);
 
 		return chatMessageRepository
 			.findByChatRoomIdAndSenderUserIdAndClientMessageId(chatRoom.getId(), currentUserId, clientMessageId)
@@ -130,9 +133,21 @@ public class ChatMessageCommandService {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
 		}
 		String normalized = content.strip();
-		if (normalized.isEmpty() || normalized.length() > MAX_CONTENT_LENGTH) {
+		if (normalized.isEmpty()
+			|| normalized.length() > MAX_CONTENT_LENGTH
+			|| !NO_CONTROL_CHARACTER_PATTERN.matcher(normalized).matches()) {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
 		}
 		return normalized;
+	}
+
+	/** 발신자 표시명을 조회하며, 접근 검증을 통과했는데도 닉네임이 없는 예기치 않은 상태만 roomId로 기록한다. */
+	private String requireSenderNickname(long roomId, long currentUserId) {
+		return userQuery
+			.findNicknameById(currentUserId)
+			.orElseThrow(() -> {
+				log.error("event=chat_message_sender_nickname_missing roomId={}", roomId);
+				return new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+			});
 	}
 }
