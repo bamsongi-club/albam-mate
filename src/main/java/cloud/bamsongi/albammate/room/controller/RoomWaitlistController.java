@@ -62,10 +62,16 @@ public class RoomWaitlistController {
 	}
 
 	private static void requireEmptyRequest(HttpServletRequest request) throws IOException {
-		boolean hasContentType = request.getContentType() != null;
-		boolean hasRequestBody = request.getInputStream().read() != -1;
-
-		if (hasContentType || hasRequestBody) {
+		if (request.getContentType() != null) {
+			throw new BusinessException(ErrorCode.UNSUPPORTED_MEDIA_TYPE);
+		}
+		if (request.getContentLengthLong() > 0) {
+			throw new BusinessException(ErrorCode.UNSUPPORTED_MEDIA_TYPE);
+		}
+		if (request.getHeader("Transfer-Encoding") != null) {
+			throw new BusinessException(ErrorCode.UNSUPPORTED_MEDIA_TYPE);
+		}
+		if (request.getInputStream().read() != -1) {
 			throw new BusinessException(ErrorCode.UNSUPPORTED_MEDIA_TYPE);
 		}
 	}

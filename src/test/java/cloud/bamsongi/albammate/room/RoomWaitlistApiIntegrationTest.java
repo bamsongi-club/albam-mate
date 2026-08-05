@@ -11,9 +11,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 
 import org.junit.jupiter.api.AfterEach;
@@ -27,8 +29,10 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
@@ -36,12 +40,17 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
+import cloud.bamsongi.albammate.global.exception.BusinessException;
+import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal;
+import cloud.bamsongi.albammate.room.controller.RoomWaitlistController;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.entity.RoomWaitlist;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
 import cloud.bamsongi.albammate.room.service.command.RoomWaitlistCommandService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequestWrapper;
 
 /** PART-04 HTTP 계약과 H2 저장 경계를 실제 보안 필터를 거쳐 검증한다. */
 @SpringBootTest
@@ -59,6 +68,8 @@ class RoomWaitlistApiIntegrationTest {
 	private RoomWaitlistRepository roomWaitlistRepository;
 	@Autowired
 	private RoomWaitlistCommandService roomWaitlistCommandService;
+	@Autowired
+	private RoomWaitlistController roomWaitlistController;
 	@Autowired
 	private ResponseReadFailureGate responseReadFailureGate;
 	@Autowired
@@ -94,6 +105,10 @@ class RoomWaitlistApiIntegrationTest {
 		assertUnsupportedMediaType(mockMvc.perform(
 			post(waitlistPath()).with(authenticationFor(waitingUserId)).with(csrf())
 				.contentType(MediaType.TEXT_PLAIN)));
+		assertUnsupportedMediaType(mockMvc.perform(
+			post(waitlistPath()).with(authenticationFor(waitingUserId)).with(csrf())
+				.header(HttpHeaders.TRANSFER_ENCODING, "chunked")));
+		assertHeaderlessRequestBodyIsRejected();
 
 		assertUnsupportedMediaType(
 			mockMvc.perform(get(waitlistMePath()).with(authenticationFor(waitingUserId)).content("unexpected body")));
@@ -320,6 +335,23 @@ class RoomWaitlistApiIntegrationTest {
 		resultActions.andExpect(status().isUnsupportedMediaType())
 			.andExpect(jsonPath("$.status").value(415))
 			.andExpect(jsonPath("$.code").value("UNSUPPORTED_MEDIA_TYPE"));
+	}
+
+	private void assertHeaderlessRequestBodyIsRejected() throws IOException {
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setContent("unexpected body".getBytes(StandardCharsets.UTF_8));
+		HttpServletRequest headerlessRequest = new HttpServletRequestWrapper(request) {
+
+			@Override
+			public long getContentLengthLong() {
+				return -1L;
+			}
+		};
+
+		BusinessException exception = org.junit.jupiter.api.Assertions.assertThrows(
+			BusinessException.class,
+			() -> roomWaitlistController.register(roomId, headerlessRequest));
+		org.junit.jupiter.api.Assertions.assertEquals(ErrorCode.UNSUPPORTED_MEDIA_TYPE, exception.getErrorCode());
 	}
 
 	private void assertWaitlistRegistrationRejected(long userId, String errorCode) throws Exception {
