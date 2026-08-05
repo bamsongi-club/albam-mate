@@ -32,6 +32,8 @@ public enum ErrorCode {
 	CAPACITY_EXCEEDED(HttpStatus.CONFLICT, "모집 가능한 인원을 초과했습니다."),
 	ROOM_NOT_RECRUITING(HttpStatus.CONFLICT, "현재 모집 중인 방이 아닙니다."),
 	ALREADY_PARTICIPATING(HttpStatus.CONFLICT, "이미 참가 중인 방입니다."),
+	WAITLIST_NOT_AVAILABLE(HttpStatus.CONFLICT, "현재 대기 등록을 할 수 없습니다."),
+	WAITLIST_ENTRY_NOT_FOUND(HttpStatus.NOT_FOUND, "현재 대기 정보를 찾을 수 없습니다."),
 	INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");
 
 	private final HttpStatus httpStatus;
