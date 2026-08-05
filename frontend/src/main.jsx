@@ -72,6 +72,7 @@ const EMPTY_GAME_FILTERS = {
   playTime: [],
   complexityMin: '',
   complexityMax: '',
+  mechanism: [],
   upcomingOnly: false
 };
 const EMPTY_GAME_FILTER_KEY = JSON.stringify(EMPTY_GAME_FILTERS);
@@ -88,6 +89,20 @@ const PLAY_TIME_LABEL = {
   OVER_30_TO_60: '30~60분',
   OVER_60_UNDER_90: '60~90분',
   AT_LEAST_90: '90분 이상'
+};
+/*
+ * 대표 메커니즘 설명은 계약이 고정한 `featuredOrder` 1~8에 맞춰 둔다.
+ * 선택지 API는 코드·표시명·대표 순서만 반환하고 설명을 담지 않으므로 화면이 문구를 가진다.
+ */
+const MECHANISM_FEATURED_DESCRIPTIONS = {
+  1: '손에 든 카드를 언제 내고 언제 아껴 둘지 고르는 방식이에요.',
+  2: '주사위를 굴려 나온 눈으로 할 수 있는 행동이나 결과가 정해져요.',
+  3: '같은 종류나 짝이 맞는 것을 모아서 점수를 얻는 방식이에요.',
+  4: '편을 나누지 않고 참가자가 함께 목표를 이루는 방식이에요.',
+  5: '타일을 판에 이어 놓으면서 지형이나 모양을 만들어 가요.',
+  6: '판을 매번 다르게 조립해서 시작 지형이 게임마다 달라져요.',
+  7: '혼자서도 규칙대로 끝까지 즐길 수 있는 방식이에요.',
+  8: '내 말을 자리에 먼저 놓아서 그 자리의 행동을 가져가요.'
 };
 // 난이도 점대는 계약의 닫힌 구간 하한·상한으로 보낸다. 5점만 있는 마지막 칸은 상한도 5다.
 const COMPLEXITY_BANDS = [
@@ -752,6 +767,111 @@ function FilterNumberRangeGroup({ label, min, max, unit, onMinChange, onMaxChang
   );
 }
 
+/**
+ * 대표 메커니즘의 설명을 여는 정보 아이콘이다.
+ *
+ * 데스크톱은 hover와 키보드 focus, 모바일은 아이콘 tap으로 같은 말풍선을 연다.
+ * 화면을 막는 모달을 쓰지 않으므로 다른 조건을 보면서 설명을 확인할 수 있다.
+ */
+function MechanismHint({ code, name, description }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const tooltipId = 'mechanism-hint-' + code;
+  return (
+    <span
+      className={'mechanism-hint' + (isOpen ? ' on' : '')}
+      onMouseEnter={() => setIsOpen(true)}
+      onMouseLeave={() => setIsOpen(false)}
+    >
+      <button
+        type="button"
+        className="mechanism-hint-button"
+        aria-label={name + ' 설명'}
+        aria-describedby={tooltipId}
+        aria-expanded={isOpen}
+        onFocus={() => setIsOpen(true)}
+        onBlur={() => setIsOpen(false)}
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <span aria-hidden="true">i</span>
+      </button>
+      {isOpen && <span className="mechanism-hint-text" id={tooltipId} role="tooltip">{description}</span>}
+    </span>
+  );
+}
+
+// 선택지 API는 대표 8개를 먼저 반환하지만, 계약이 고정한 순서는 화면에서 다시 맞춘다.
+function featuredMechanisms(options) {
+  return options.filter((option) => option.featuredOrder).sort((left, right) => left.featuredOrder - right.featuredOrder);
+}
+
+function advancedMechanisms(options, keyword) {
+  const needle = keyword.trim().toLowerCase();
+  return options
+    .filter((option) => !option.featuredOrder)
+    // 검색은 한국어명과 BGG 영문명 모두 맞추고 화면에는 한국어명만 보여 준다.
+    .filter((option) => !needle
+      || option.nameKo.toLowerCase().includes(needle)
+      || option.nameEn.toLowerCase().includes(needle))
+    .sort((left, right) => left.nameKo.localeCompare(right.nameKo, 'ko'));
+}
+
+function MechanismCheckOption({ option, selected, onToggle }) {
+  return (
+    <label className="filter-option">
+      <input
+        type="checkbox"
+        checked={selected.includes(option.code)}
+        onChange={(event) => onToggle(option.code, event.target.checked)}
+      />
+      {option.nameKo}
+    </label>
+  );
+}
+
+// 대표 8개는 항상 보여 주고 나머지는 접힌 고급 목록에 둔다. 고급 목록은 모바일에서 전체 화면으로 열린다.
+function MechanismFilterGroup({ options, selected, onToggle }) {
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const [keyword, setKeyword] = useState('');
+  return (
+    <fieldset className="filter-group">
+      <legend>메커니즘</legend>
+      {featuredMechanisms(options).map((option) => (
+        <div className="mechanism-featured" key={option.code}>
+          <MechanismCheckOption option={option} selected={selected} onToggle={onToggle} />
+          <MechanismHint code={option.code} name={option.nameKo} description={MECHANISM_FEATURED_DESCRIPTIONS[option.featuredOrder]} />
+        </div>
+      ))}
+      <button
+        type="button"
+        className="mechanism-more"
+        aria-expanded={isAdvancedOpen}
+        aria-controls="mechanism-advanced"
+        onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
+      >
+        메커니즘 더 보기
+      </button>
+      {isAdvancedOpen && (
+        <div className="mechanism-advanced" id="mechanism-advanced">
+          <input
+            type="search"
+            className="mechanism-search"
+            aria-label="메커니즘 검색"
+            placeholder="메커니즘 이름으로 찾기"
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+          />
+          <div className="mechanism-advanced-list">
+            {advancedMechanisms(options, keyword).map((option) => (
+              <MechanismCheckOption key={option.code} option={option} selected={selected} onToggle={onToggle} />
+            ))}
+          </div>
+          <button type="button" className="filter-close" onClick={() => setIsAdvancedOpen(false)}>메커니즘 목록 닫기</button>
+        </div>
+      )}
+    </fieldset>
+  );
+}
+
 // 인원 숫자만 지운 상태로 비교한다. 숫자 입력과 나머지 선택의 변경을 가려내는 기준이다.
 function gameFiltersWithoutPlayerCountNumbers(filters) {
   return JSON.stringify({ ...filters, playerCountMin: '', playerCountMax: '' });
@@ -776,6 +896,18 @@ function useAppliedGameFilters(filters) {
     return () => clearTimeout(timer);
   }, [filters, applied]);
   return applied;
+}
+
+// 메커니즘 선택지는 조회 조건에 따라 바뀌지 않으므로 화면에 들어올 때 한 번만 불러온다.
+function useGameMechanisms() {
+  const [options, setOptions] = useState([]);
+  useEffect(() => {
+    const controller = new AbortController();
+    // 선택지를 못 불러오면 메커니즘 조건만 비어 있고 나머지 조건은 그대로 쓸 수 있다.
+    api.getGameMechanisms(controller.signal).then((loaded) => setOptions(loaded || [])).catch(() => setOptions([]));
+    return () => controller.abort();
+  }, []);
+  return options;
 }
 
 // 고른 조건은 칩으로 보여 주고 칩마다 그 조건만 해제한다. 패널을 접어도 무엇이 걸려 있는지 남는다.
@@ -950,7 +1082,7 @@ function playerCountRangeLabel(filters) {
   return filters.playerCountMax + '명 이하' + suffix;
 }
 
-function gameFilterChips(filters, onChange) {
+function gameFilterChips(filters, onChange, mechanismOptions) {
   const update = (patch) => onChange({ ...filters, ...patch });
   const chips = [];
   // 전용 인원을 고르면 범위 입력이 같은 조건을 되비추므로 칩을 두 번 만들지 않는다.
@@ -981,6 +1113,16 @@ function gameFilterChips(filters, onChange) {
       });
     }
   });
+  filters.mechanism.forEach((code) => {
+    const option = mechanismOptions.find((candidate) => candidate.code === code);
+    if (option) {
+      chips.push({
+        key: 'mechanism-' + code,
+        label: option.nameKo,
+        onClear: () => update({ mechanism: filters.mechanism.filter((selected) => selected !== code) })
+      });
+    }
+  });
   const band = complexityBandOf(filters);
   if (band) chips.push({ key: 'complexity', label: '난이도 ' + band.label, onClear: () => update({ complexityMin: '', complexityMax: '' }) });
   if (filters.upcomingOnly) chips.push({ key: 'upcomingOnly', label: '예정 모임 있음', onClear: () => update({ upcomingOnly: false }) });
@@ -988,6 +1130,7 @@ function gameFilterChips(filters, onChange) {
 }
 
 function GameFilters({ filters, onChange }) {
+  const mechanismOptions = useGameMechanisms();
   const update = (patch) => onChange({ ...filters, ...patch });
   const selectBand = (value) => {
     const band = COMPLEXITY_BANDS.find((option) => option.value === value);
@@ -1009,8 +1152,11 @@ function GameFilters({ filters, onChange }) {
   const togglePlayTime = (value, checked) => update({
     playTime: checked ? [...filters.playTime, value] : filters.playTime.filter((selected) => selected !== value)
   });
+  const toggleMechanism = (code, checked) => update({
+    mechanism: checked ? [...filters.mechanism, code] : filters.mechanism.filter((selected) => selected !== code)
+  });
   return (
-    <FilterPanel chips={gameFilterChips(filters, onChange)} onReset={() => onChange(EMPTY_GAME_FILTERS)}>
+    <FilterPanel chips={gameFilterChips(filters, onChange, mechanismOptions)} onReset={() => onChange(EMPTY_GAME_FILTERS)}>
       <FilterNumberRangeGroup label="게임 인원" unit="명" min={filters.playerCountMin} max={filters.playerCountMax}
         onMinChange={(playerCountMin) => updateRange({ playerCountMin })} onMaxChange={(playerCountMax) => updateRange({ playerCountMax })}>
         <label className="filter-option filter-option-picker">
@@ -1032,6 +1178,7 @@ function GameFilters({ filters, onChange }) {
       </FilterNumberRangeGroup>
       <FilterMultiCheckGroup label="플레이 시간" values={filters.playTime} onToggle={togglePlayTime}
         options={Object.entries(PLAY_TIME_LABEL).map(([code, label]) => ({ value: code, label }))} />
+      <MechanismFilterGroup options={mechanismOptions} selected={filters.mechanism} onToggle={toggleMechanism} />
       <FilterRadioGroup name="game-filter-complexity" label="게임 난이도" value={complexityBandOf(filters)?.value || ''} onChange={selectBand}
         options={[{ value: '', label: '전체' }, ...COMPLEXITY_BANDS.map((band) => ({ value: band.value, label: band.label }))]} />
       <FilterCheckGroup label="모임" checked={filters.upcomingOnly} onChange={(upcomingOnly) => update({ upcomingOnly })} text="예정 모임 있는 게임만" />

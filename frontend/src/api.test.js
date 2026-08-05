@@ -219,6 +219,31 @@ describe('게임 목록 검색 API', () => {
 
     expect(requestedUrl(fetchMock)).toBe('/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24');
   });
+
+  it('메커니즘은 같은 이름을 반복해 전달한다', async () => {
+    const fetchMock = stubFetch();
+
+    await api.getGames({ exclusivePlayerCount: [], playTime: [], mechanism: ['HAND_MANAGEMENT', 'DICE_ROLLING'], page: 0, size: 24 });
+
+    expect(requestedUrl(fetchMock)).toBe(
+      '/api/games?mechanism=HAND_MANAGEMENT&mechanism=DICE_ROLLING&page=0&size=24'
+    );
+  });
+});
+
+describe('게임 메커니즘 선택지 API', () => {
+  it('공개 선택지를 조건 없는 GET 경로로 조회한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(successfulResponse([]));
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await api.getGameMechanisms(controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/game-mechanisms',
+      expect.objectContaining({ method: 'GET', credentials: 'include', signal: controller.signal })
+    );
+  });
 });
 
 describe('방 목록 검색 API', () => {

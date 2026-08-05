@@ -169,6 +169,7 @@ export const api = {
       playTime,
       complexityMin,
       complexityMax,
+      mechanism,
       page = 0,
       size = 10
     },
@@ -184,9 +185,11 @@ export const api = {
       playTime,
       complexityMin,
       complexityMax,
+      mechanism,
       page,
       size
     }), { signal }),
+  getGameMechanisms: (signal) => request('/api/game-mechanisms', { signal }),
   getRoom: (roomId, signal) => request('/api/rooms/' + roomId, { signal }),
   getRooms: (
     { type, gameId, keyword, startsAtFrom, startsAtTo, minRemainingSeats, experienceLevels, rulemasterOnly, page = 0, size = 10 },
