@@ -1945,6 +1945,8 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
   const historyInitializedRef = useRef(false);
   const isChatAtBottomRef = useRef(true);
   const scrollToBottomRef = useRef(false);
+  const composeInputRef = useRef(null);
+  const refocusComposeRef = useRef(false);
   const mergeMessages = (incoming) => setMessages((current) => mergeChatMessages(current, incoming));
 
   useEffect(() => {
@@ -2113,6 +2115,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
       setSendError('메시지는 500자까지 입력할 수 있어요.');
       return;
     }
+    refocusComposeRef.current = true;
     setSending(true);
     setSendError('');
     const messageId = clientMessageContent === null || clientMessageContent === trimmed
@@ -2137,6 +2140,14 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
       if (roomIdRef.current === requestedRoomId && roomGenerationRef.current === requestedGeneration) setSending(false);
     }
   };
+
+  // 전송 중에는 입력이 disabled가 되어 브라우저가 포커스를 뗀다. 전송이 끝나면 되돌려 바로 이어 쓸 수 있게 한다.
+  // 실패해도 되돌려 사용자가 고쳐서 다시 보낼 수 있게 한다. 최초 렌더에서는 플래그가 없어 포커스를 가져가지 않는다.
+  useEffect(() => {
+    if (sending || !refocusComposeRef.current) return;
+    refocusComposeRef.current = false;
+    composeInputRef.current?.focus();
+  }, [sending]);
 
   const handleChatScroll = (event) => {
     const history = event.currentTarget;
@@ -2182,7 +2193,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
       )}
       {!error && <form className="chat-compose" onSubmit={submit}>
         <label htmlFor="chat-message">메시지</label>
-        <textarea id="chat-message" disabled={sending} maxLength="500" value={content} onChange={(event) => { setContent(event.target.value); setSendError(''); }} onKeyDown={handleComposeKeyDown} placeholder="메시지를 입력해주세요." />
+        <textarea id="chat-message" ref={composeInputRef} disabled={sending} maxLength="500" value={content} onChange={(event) => { setContent(event.target.value); setSendError(''); }} onKeyDown={handleComposeKeyDown} placeholder="메시지를 입력해주세요." />
         <div className="chat-compose-actions"><span className="hint">Enter 전송 · Shift+Enter 줄바꿈 · {[...content].length}/500</span><button className="btn" disabled={sending} type="submit">{sending ? '전송 중…' : '전송'}</button></div>
         {sendError && <p className="hint warn" role="alert">{sendError}</p>}
       </form>}

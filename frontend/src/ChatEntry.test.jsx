@@ -315,6 +315,64 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     await waitFor(() => expect(send).toHaveBeenCalledWith('7', expect.objectContaining({ content: '키보드 전송' })));
   });
 
+  it('전송을 마치면 입력에 포커스를 되돌려 이어서 칠 수 있다', async () => {
+    useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({ messages: [], nextBeforeMessageId: null, hasNext: false });
+    vi.spyOn(api, 'sendChatMessage').mockResolvedValue({
+      messageId: 1,
+      roomId: 7,
+      sender: { nickname: '테스터' },
+      isMine: true,
+      content: '이어서 칠게요',
+      createdAt: '2026-09-01T19:01:00+09:00'
+    });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(screen.getByLabelText('메시지')).toBeTruthy());
+
+    const input = screen.getByLabelText('메시지');
+    input.focus();
+    fireEvent.change(input, { target: { value: '이어서 칠게요' } });
+    fireEvent.click(screen.getByRole('button', { name: '전송' }));
+    // 실제 브라우저는 disabled가 되는 순간 포커스를 뗀다. jsdom은 disabled 요소의 blur를 무시하므로
+    // 다른 요소로 포커스를 옮겨 같은 상태를 만든다.
+    const elsewhere = document.body.appendChild(document.createElement('input'));
+    elsewhere.focus();
+    expect(document.activeElement).toBe(elsewhere);
+
+    await waitFor(() => expect(input.disabled).toBe(false));
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    elsewhere.remove();
+  });
+
+  it('전송에 실패해도 입력에 포커스를 되돌려 고쳐서 다시 보낼 수 있다', async () => {
+    useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({ messages: [], nextBeforeMessageId: null, hasNext: false });
+    vi.spyOn(api, 'sendChatMessage').mockRejectedValue(new ApiError({
+      status: 503,
+      code: 'SERVICE_UNAVAILABLE',
+      message: '일시적으로 메시지를 보낼 수 없습니다.'
+    }));
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(screen.getByLabelText('메시지')).toBeTruthy());
+
+    const input = screen.getByLabelText('메시지');
+    input.focus();
+    fireEvent.change(input, { target: { value: '실패할 메시지' } });
+    fireEvent.click(screen.getByRole('button', { name: '전송' }));
+    // 실제 브라우저는 disabled가 되는 순간 포커스를 뗀다. jsdom은 disabled 요소의 blur를 무시하므로
+    // 다른 요소로 포커스를 옮겨 같은 상태를 만든다.
+    const elsewhere = document.body.appendChild(document.createElement('input'));
+    elsewhere.focus();
+    expect(document.activeElement).toBe(elsewhere);
+
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    expect(input.disabled).toBe(false);
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    elsewhere.remove();
+  });
+
   it('메시지를 보내면 채팅 목록을 하단으로 이동한다', async () => {
     const sockets = useFakeWebSocket();
     vi.spyOn(api, 'getChatMessages').mockResolvedValue({
