@@ -1780,6 +1780,7 @@ function CreateView({ createMode, onCreateModeChange, initialGame, onCreate, tod
       setSubmitting(false);
     }
   };
+
   return (
     <>
       <h2><SectionIcon name="pencil" />모임 만들기</h2>
@@ -2127,6 +2128,12 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     }
   };
 
+  const handleComposeKeyDown = (event) => {
+    if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
+  };
+
   return (
     <>
       <h2><SectionIcon name="chat" />모임 채팅</h2>
@@ -2160,8 +2167,8 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
       )}
       {!error && <form className="chat-compose" onSubmit={submit}>
         <label htmlFor="chat-message">메시지</label>
-        <textarea id="chat-message" disabled={sending} maxLength="500" value={content} onChange={(event) => { setContent(event.target.value); setSendError(''); }} placeholder="메시지를 입력해주세요." />
-        <div className="chat-compose-actions"><span className="hint">{[...content].length}/500</span><button className="btn" disabled={sending} type="submit">{sending ? '전송 중…' : '전송'}</button></div>
+        <textarea id="chat-message" disabled={sending} maxLength="500" value={content} onChange={(event) => { setContent(event.target.value); setSendError(''); }} onKeyDown={handleComposeKeyDown} placeholder="메시지를 입력해주세요." />
+        <div className="chat-compose-actions"><span className="hint">Enter 전송 · Shift+Enter 줄바꿈 · {[...content].length}/500</span><button className="btn" disabled={sending} type="submit">{sending ? '전송 중…' : '전송'}</button></div>
         {sendError && <p className="hint warn" role="alert">{sendError}</p>}
       </form>}
     </>
