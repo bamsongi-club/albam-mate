@@ -129,7 +129,8 @@ public class ChatWebSocketHandler implements WebSocketHandler, ChatRealtimeSigna
 	private RoomConnection registerConnection(WebSocketSession session) {
 		Map<String, Object> attributes = session.getAttributes();
 		Long roomId = attribute(attributes, ROOM_ID_ATTRIBUTE, Long.class);
-		if (roomId == null) {
+		Long userId = attribute(attributes, USER_ID_ATTRIBUTE, Long.class);
+		if (roomId == null || userId == null) {
 			return null;
 		}
 		Long chatRoomId = chatRoomRepository.findByRoomId(roomId).map(ChatRoom::getId).orElse(null);
@@ -138,7 +139,7 @@ public class ChatWebSocketHandler implements WebSocketHandler, ChatRealtimeSigna
 		}
 		Long afterMessageId = attribute(attributes, AFTER_MESSAGE_ID_ATTRIBUTE, Long.class);
 		long baseline = afterMessageId != null ? afterMessageId : latestMessageId(chatRoomId);
-		RoomConnection connection = new RoomConnection(session, roomId, chatRoomId, baseline);
+		RoomConnection connection = new RoomConnection(session, roomId, chatRoomId, userId, baseline);
 		connectionsBySession.put(session, connection);
 		connectionsByRoomId.computeIfAbsent(roomId, key -> ConcurrentHashMap.newKeySet()).add(connection);
 		metrics.connectionOpened();
@@ -207,7 +208,10 @@ public class ChatWebSocketHandler implements WebSocketHandler, ChatRealtimeSigna
 				break;
 			}
 			ChatMessageResponse response = ChatMessageResponse.from(
-				message, connection.roomId, nicknames.getOrDefault(message.getSenderUserId(), ""));
+				message,
+				connection.roomId,
+				nicknames.getOrDefault(message.getSenderUserId(), ""),
+				message.getSenderUserId().equals(connection.userId));
 			if (!send(connection.session, ChatMessageEvent.messageCreated(response))) {
 				metrics.recordDeliveryFailure();
 				closeForTransportFailure(connection.session);
@@ -285,13 +289,15 @@ public class ChatWebSocketHandler implements WebSocketHandler, ChatRealtimeSigna
 		private final WebSocketSession session;
 		private final long roomId;
 		private final long chatRoomId;
+		private final long userId;
 		private final AtomicLong lastDeliveredMessageId;
 		private final ReentrantLock lock = new ReentrantLock();
 
-		private RoomConnection(WebSocketSession session, long roomId, long chatRoomId, long baseline) {
+		private RoomConnection(WebSocketSession session, long roomId, long chatRoomId, long userId, long baseline) {
 			this.session = session;
 			this.roomId = roomId;
 			this.chatRoomId = chatRoomId;
+			this.userId = userId;
 			this.lastDeliveredMessageId = new AtomicLong(baseline);
 		}
 	}
