@@ -99,6 +99,12 @@ class RoomParticipationConcurrencyPostgresTest {
 	private RoomReadGate roomReadGate;
 
 	@Autowired
+	private RoomVersionClaimGate roomVersionClaimGate;
+
+	@Autowired
+	private WaitlistReactivationGate waitlistReactivationGate;
+
+	@Autowired
 	private ParticipationWriteFailureGate participationWriteFailureGate;
 
 	@Autowired
@@ -125,6 +131,8 @@ class RoomParticipationConcurrencyPostgresTest {
 	@AfterEach
 	void tearDown() {
 		roomReadGate.deactivate();
+		roomVersionClaimGate.deactivate();
+		waitlistReactivationGate.deactivate();
 		participationWriteFailureGate.deactivate();
 		participationCancelStepGate.deactivate();
 		roomTerminalEventCounter.clear();
@@ -473,6 +481,26 @@ class RoomParticipationConcurrencyPostgresTest {
 	}
 
 	@Test
+	void 취소된_대기_재신청이_먼저_확정되면_참가_취소는_재신청자를_승격한다() throws Exception {
+		assertReapplicationWins(createCanceledWaitlistFixture("canceled-reapply-first"));
+	}
+
+	@Test
+	void 승격된_대기_재신청이_먼저_확정되면_참가_취소는_재신청자를_승격한다() throws Exception {
+		assertReapplicationWins(createPromotedWaitlistFixture("promoted-reapply-first"));
+	}
+
+	@Test
+	void 취소된_대기_재신청보다_참가_취소가_먼저_확정되면_재신청은_거절된다() throws Exception {
+		assertCancellationWins(createCanceledWaitlistFixture("canceled-cancel-first"));
+	}
+
+	@Test
+	void 승격된_대기_재신청보다_참가_취소가_먼저_확정되면_재신청은_거절된다() throws Exception {
+		assertCancellationWins(createPromotedWaitlistFixture("promoted-cancel-first"));
+	}
+
+	@Test
 	void ROOM_취소가_승리하면_terminal_event와_채팅_수명주기를_한_번만_반영한다() throws Exception {
 		long hostUserId = insertUser("cancel-promotion-race-host", "방장");
 		long leavingUserId = insertUser("cancel-promotion-race-leaving", "취소자");
@@ -543,6 +571,118 @@ class RoomParticipationConcurrencyPostgresTest {
 			"select count(*) from room_waitlists where room_id = ? and status = 'WAITING'",
 			Integer.class,
 			roomId);
+	}
+
+	private ReapplicationFixture createCanceledWaitlistFixture(String emailPrefix) {
+		long hostUserId = insertUser(emailPrefix + "-host", "방장");
+		long leavingUserId = insertUser(emailPrefix + "-leaving", "취소자");
+		long reapplyingUserId = insertUser(emailPrefix + "-reapplying", "재신청자");
+		Room room = createRoom(hostUserId, 1);
+		roomParticipationService.participate(leavingUserId, room.getId());
+		assertTrue(roomWaitlistCommandService.register(reapplyingUserId, room.getId()).created());
+		roomWaitlistCommandService.cancel(reapplyingUserId, room.getId());
+		assertEquals(RoomWaitlistStatus.CANCELED, waitlistStatus(room.getId(), reapplyingUserId));
+		return new ReapplicationFixture(room, leavingUserId, reapplyingUserId);
+	}
+
+	private ReapplicationFixture createPromotedWaitlistFixture(String emailPrefix) {
+		long hostUserId = insertUser(emailPrefix + "-host", "방장");
+		long initiallyParticipatingUserId = insertUser(emailPrefix + "-initial", "초기참가자");
+		long reapplyingUserId = insertUser(emailPrefix + "-reapplying", "재신청자");
+		long leavingUserId = insertUser(emailPrefix + "-leaving", "취소자");
+		Room room = createRoom(hostUserId, 1);
+		roomParticipationService.participate(initiallyParticipatingUserId, room.getId());
+		assertTrue(roomWaitlistCommandService.register(reapplyingUserId, room.getId()).created());
+		roomParticipationCancelService.cancelParticipation(initiallyParticipatingUserId, room.getId());
+		assertEquals(RoomWaitlistStatus.PROMOTED, waitlistStatus(room.getId(), reapplyingUserId));
+		assertEquals(ParticipationStatus.ACTIVE, participationStatus(room.getId(), reapplyingUserId));
+		roomParticipationCancelService.cancelParticipation(reapplyingUserId, room.getId());
+		assertEquals(RoomWaitlistStatus.PROMOTED, waitlistStatus(room.getId(), reapplyingUserId));
+		assertEquals(ParticipationStatus.CANCELED, participationStatus(room.getId(), reapplyingUserId));
+		roomParticipationService.participate(leavingUserId, room.getId());
+		return new ReapplicationFixture(room, leavingUserId, reapplyingUserId);
+	}
+
+	private void assertReapplicationWins(ReapplicationFixture fixture) throws Exception {
+		roomReadGate.activate(fixture.room().getId());
+		participationCancelStepGate.activate(fixture.room().getId(), fixture.leavingUserId());
+		waitlistReactivationGate.activate(fixture.room().getId(), fixture.reapplyingUserId());
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		try {
+			Future<CommandResult> registrationFuture = executor.submit(
+				() -> execute(() -> roomWaitlistCommandService.register(
+					fixture.reapplyingUserId(), fixture.room().getId())));
+			Future<CommandResult> cancellationFuture = executor.submit(
+				() -> execute(() -> roomParticipationCancelService.cancelParticipation(
+					fixture.leavingUserId(), fixture.room().getId())));
+
+			participationCancelStepGate.awaitCancellationBlocked();
+			assertTrue(registrationFuture.get(WAIT_SECONDS, TimeUnit.SECONDS).successful());
+			waitlistReactivationGate.assertExactlyOneReactivation();
+			participationCancelStepGate.releaseCancellation();
+			assertTrue(cancellationFuture.get(WAIT_SECONDS, TimeUnit.SECONDS).successful());
+			roomReadGate.assertExactlyTwoReadsOfOneVersion();
+		} finally {
+			participationCancelStepGate.releaseCancellation();
+			participationCancelStepGate.deactivate();
+			roomReadGate.deactivate();
+			waitlistReactivationGate.deactivate();
+			executor.shutdown();
+			if (!executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS)) {
+				executor.shutdownNow();
+				assertTrue(executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS));
+			}
+		}
+
+		Room finalRoom = roomRepository.findById(fixture.room().getId()).orElseThrow();
+		assertEquals(RoomWaitlistStatus.PROMOTED, waitlistStatus(fixture.room().getId(), fixture.reapplyingUserId()));
+		assertEquals(ParticipationStatus.ACTIVE, participationStatus(fixture.room().getId(), fixture.reapplyingUserId()));
+		assertEquals(RoomStatus.CLOSED, finalRoom.getStatus());
+		assertEquals(0, activeWaitingCount(fixture.room().getId()));
+		assertRoomInvariant(fixture.room().getId());
+	}
+
+	private void assertCancellationWins(ReapplicationFixture fixture) throws Exception {
+		roomReadGate.activate(fixture.room().getId());
+		roomVersionClaimGate.activate(fixture.room().getId());
+		participationCancelStepGate.activate(fixture.room().getId(), fixture.leavingUserId());
+		waitlistReactivationGate.activate(fixture.room().getId(), fixture.reapplyingUserId());
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		try {
+			Future<CommandResult> registrationFuture = executor.submit(
+				() -> execute(() -> roomWaitlistCommandService.register(
+					fixture.reapplyingUserId(), fixture.room().getId())));
+			Future<CommandResult> cancellationFuture = executor.submit(
+				() -> execute(() -> roomParticipationCancelService.cancelParticipation(
+					fixture.leavingUserId(), fixture.room().getId())));
+
+			participationCancelStepGate.awaitCancellationBlocked();
+			roomVersionClaimGate.awaitRegistrationBlocked();
+			participationCancelStepGate.releaseCancellation();
+			assertTrue(cancellationFuture.get(WAIT_SECONDS, TimeUnit.SECONDS).successful());
+			roomVersionClaimGate.releaseRegistration();
+			CommandResult registrationResult = registrationFuture.get(WAIT_SECONDS, TimeUnit.SECONDS);
+			assertEquals(ErrorCode.WAITLIST_NOT_AVAILABLE, registrationResult.errorCode());
+			waitlistReactivationGate.assertNoReactivation();
+			roomReadGate.assertExactlyTwoReadsOfOneVersion();
+		} finally {
+			participationCancelStepGate.releaseCancellation();
+			roomVersionClaimGate.releaseRegistration();
+			participationCancelStepGate.deactivate();
+			roomVersionClaimGate.deactivate();
+			roomReadGate.deactivate();
+			waitlistReactivationGate.deactivate();
+			executor.shutdown();
+			if (!executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS)) {
+				executor.shutdownNow();
+				assertTrue(executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS));
+			}
+		}
+
+		Room finalRoom = roomRepository.findById(fixture.room().getId()).orElseThrow();
+		assertEquals(RoomStatus.RECRUITING, finalRoom.getStatus());
+		assertEquals(0, activeWaitingCount(fixture.room().getId()));
+		assertRoomInvariant(fixture.room().getId());
 	}
 
 	private List<CommandResult> executeConcurrently(Callable<?> first, Callable<?> second)
@@ -632,6 +772,9 @@ class RoomParticipationConcurrencyPostgresTest {
 		}
 	}
 
+	private record ReapplicationFixture(Room room, long leavingUserId, long reapplyingUserId) {
+	}
+
 	@TestConfiguration(proxyBeanMethods = false)
 	static class ConcurrencyTestConfiguration {
 
@@ -644,6 +787,16 @@ class RoomParticipationConcurrencyPostgresTest {
 		@Bean
 		RoomReadGate roomReadGate() {
 			return new RoomReadGate();
+		}
+
+		@Bean
+		RoomVersionClaimGate roomVersionClaimGate() {
+			return new RoomVersionClaimGate();
+		}
+
+		@Bean
+		WaitlistReactivationGate waitlistReactivationGate() {
+			return new WaitlistReactivationGate();
 		}
 
 		@Bean
@@ -664,11 +817,27 @@ class RoomParticipationConcurrencyPostgresTest {
 		@Bean(name = "gatedRoomRepository")
 		@Primary
 		RoomRepository gatedRoomRepository(
-			@Qualifier("roomRepository") RoomRepository delegate, RoomReadGate roomReadGate) {
-			InvocationHandler handler = new GateAwareRoomRepositoryInvocationHandler(delegate, roomReadGate);
+			@Qualifier("roomRepository") RoomRepository delegate,
+			RoomReadGate roomReadGate,
+			RoomVersionClaimGate roomVersionClaimGate) {
+			InvocationHandler handler = new GateAwareRoomRepositoryInvocationHandler(
+				delegate, roomReadGate, roomVersionClaimGate);
 			return (RoomRepository)Proxy.newProxyInstance(
 				RoomRepository.class.getClassLoader(),
 				new Class<?>[] {RoomRepository.class},
+				handler);
+		}
+
+		@Bean(name = "gatedRoomWaitlistRepository")
+		@Primary
+		RoomWaitlistRepository gatedRoomWaitlistRepository(
+			@Qualifier("roomWaitlistRepository") RoomWaitlistRepository delegate,
+			WaitlistReactivationGate waitlistReactivationGate) {
+			InvocationHandler handler = new GateAwareRoomWaitlistRepositoryInvocationHandler(
+				delegate, waitlistReactivationGate);
+			return (RoomWaitlistRepository)Proxy.newProxyInstance(
+				RoomWaitlistRepository.class.getClassLoader(),
+				new Class<?>[] {RoomWaitlistRepository.class},
 				handler);
 		}
 
@@ -692,16 +861,19 @@ class RoomParticipationConcurrencyPostgresTest {
 
 		private final RoomRepository delegate;
 		private final RoomReadGate roomReadGate;
+		private final RoomVersionClaimGate roomVersionClaimGate;
 
 		private GateAwareRoomRepositoryInvocationHandler(
-			RoomRepository delegate, RoomReadGate roomReadGate) {
+			RoomRepository delegate, RoomReadGate roomReadGate, RoomVersionClaimGate roomVersionClaimGate) {
 			this.delegate = delegate;
 			this.roomReadGate = roomReadGate;
+			this.roomVersionClaimGate = roomVersionClaimGate;
 		}
 
 		@Override
 		public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
 			try {
+				roomVersionClaimGate.blockBeforeClaimVersion(method, args);
 				Object result = method.invoke(delegate, args);
 				if (method.getName().equals("findById")
 					&& args != null
@@ -710,6 +882,30 @@ class RoomParticipationConcurrencyPostgresTest {
 					&& result instanceof Optional<?> optional) {
 					roomReadGate.afterFindById(roomId, optional.map(Room.class::cast));
 				}
+				return result;
+			} catch (InvocationTargetException exception) {
+				throw exception.getCause();
+			}
+		}
+	}
+
+	private static final class GateAwareRoomWaitlistRepositoryInvocationHandler
+		implements InvocationHandler {
+
+		private final RoomWaitlistRepository delegate;
+		private final WaitlistReactivationGate waitlistReactivationGate;
+
+		private GateAwareRoomWaitlistRepositoryInvocationHandler(
+			RoomWaitlistRepository delegate, WaitlistReactivationGate waitlistReactivationGate) {
+			this.delegate = delegate;
+			this.waitlistReactivationGate = waitlistReactivationGate;
+		}
+
+		@Override
+		public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+			try {
+				Object result = method.invoke(delegate, args);
+				waitlistReactivationGate.afterReactivateWaiting(method, args);
 				return result;
 			} catch (InvocationTargetException exception) {
 				throw exception.getCause();
@@ -805,6 +1001,121 @@ class RoomParticipationConcurrencyPostgresTest {
 
 			private Scenario(long roomId) {
 				this.roomId = roomId;
+			}
+		}
+	}
+
+	static final class RoomVersionClaimGate {
+
+		private final AtomicReference<Scenario> activeScenario = new AtomicReference<>();
+
+		void activate(long roomId) {
+			assertTrue(activeScenario.compareAndSet(null, new Scenario(roomId)));
+		}
+
+		void blockBeforeClaimVersion(Method method, Object[] arguments) {
+			Scenario scenario = activeScenario.get();
+			if (scenario == null
+				|| !method.getName().equals("claimVersion")
+				|| arguments == null
+				|| arguments.length != 2
+				|| !(arguments[0] instanceof Long roomId)
+				|| scenario.roomId != roomId
+				|| !scenario.firstClaim.compareAndSet(false, true)) {
+				return;
+			}
+
+			scenario.registrationBlocked.countDown();
+			await(scenario.registrationMayContinue);
+		}
+
+		void awaitRegistrationBlocked() {
+			Scenario scenario = activeScenario.get();
+			assertNotNull(scenario);
+			await(scenario.registrationBlocked);
+		}
+
+		void releaseRegistration() {
+			Scenario scenario = activeScenario.get();
+			if (scenario != null) {
+				scenario.registrationMayContinue.countDown();
+			}
+		}
+
+		void deactivate() {
+			activeScenario.set(null);
+		}
+
+		private void await(CountDownLatch latch) {
+			try {
+				assertTrue(latch.await(WAIT_SECONDS, TimeUnit.SECONDS));
+			} catch (InterruptedException exception) {
+				Thread.currentThread().interrupt();
+				throw new AssertionError("ROOM version claim 대기 중 인터럽트되었습니다.", exception);
+			}
+		}
+
+		private static final class Scenario {
+
+			private final long roomId;
+			private final AtomicBoolean firstClaim = new AtomicBoolean();
+			private final CountDownLatch registrationBlocked = new CountDownLatch(1);
+			private final CountDownLatch registrationMayContinue = new CountDownLatch(1);
+
+			private Scenario(long roomId) {
+				this.roomId = roomId;
+			}
+		}
+	}
+
+	static final class WaitlistReactivationGate {
+
+		private final AtomicReference<Scenario> activeScenario = new AtomicReference<>();
+
+		void activate(long roomId, long userId) {
+			assertTrue(activeScenario.compareAndSet(null, new Scenario(roomId, userId)));
+		}
+
+		void afterReactivateWaiting(Method method, Object[] arguments) {
+			Scenario scenario = activeScenario.get();
+			if (scenario == null
+				|| !method.getName().equals("reactivateWaiting")
+				|| arguments == null
+				|| arguments.length != 4
+				|| !(arguments[0] instanceof Long roomId)
+				|| !(arguments[1] instanceof Long userId)
+				|| scenario.roomId != roomId
+				|| scenario.userId != userId) {
+				return;
+			}
+			scenario.reactivationCount.incrementAndGet();
+		}
+
+		void assertExactlyOneReactivation() {
+			Scenario scenario = activeScenario.get();
+			assertNotNull(scenario);
+			assertEquals(1, scenario.reactivationCount.get());
+		}
+
+		void assertNoReactivation() {
+			Scenario scenario = activeScenario.get();
+			assertNotNull(scenario);
+			assertEquals(0, scenario.reactivationCount.get());
+		}
+
+		void deactivate() {
+			activeScenario.set(null);
+		}
+
+		private static final class Scenario {
+
+			private final long roomId;
+			private final long userId;
+			private final AtomicInteger reactivationCount = new AtomicInteger();
+
+			private Scenario(long roomId, long userId) {
+				this.roomId = roomId;
+				this.userId = userId;
 			}
 		}
 	}
