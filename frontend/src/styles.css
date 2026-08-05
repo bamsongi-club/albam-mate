@@ -212,7 +212,14 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .gmeta { color: var(--brown2); font-size: 12.5px; font-weight: 700; margin: 6px 0 7px; }
 .gsess { color: var(--green); font-size: 12px; font-weight: 800; margin-top: 8px; }
 /* 카드 전체가 상세 링크라 해 본 게임 조작은 링크 밖에 두고 카드 위에 겹친다. */
-.gcard-shell { position: relative; }
+.gcard-shell { display: flex; position: relative; }
+/* 제목·설명 줄 수가 게임마다 달라도 카드 높이는 같게 둔다. 예정 모임은 언제나 맨 아래에 붙는다. */
+.gcard-shell .gcard { display: flex; flex: 1; flex-direction: column; }
+.gcard-shell .gtitle, .gcard-shell .gen { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 인원·시간·난이도가 한 줄일 때와 두 줄일 때 카드가 어긋나지 않게 두 줄 자리를 고정한다. */
+.gcard-shell .gmeta { -webkit-box-orient: vertical; -webkit-line-clamp: 2; display: -webkit-box; height: 2.9em; line-height: 1.45; overflow: hidden; }
+.gtags { min-height: 24px; }
+.gcard-shell .gsess { margin-top: auto; }
 .played-toggle { background: var(--card); border: 1px solid var(--line); border-radius: 999px; color: var(--brown2); font-size: 12.5px; font-weight: 800; padding: 7px 13px; }
 .played-toggle:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-dark); }
 .played-toggle.on { background: var(--accent); border-color: var(--accent); color: #fff; }

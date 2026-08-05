@@ -607,7 +607,8 @@ function GameCard({ game, played, pending, onTogglePlayed }) {
         <div className="gtitle">{game.title}</div>
         <div className="gen">{game.englishName}</div>
         <div className="gmeta">{gameMeta(game)}</div>
-        {game.tag && <span className="chip">{game.tag}</span>}
+        {/* 태그가 없는 게임도 같은 자리를 비워 둬야 카드 높이가 서로 어긋나지 않는다. */}
+        <div className="gtags">{game.tag && <span className="chip">{game.tag}</span>}</div>
         <div className="gsess">예정 모임 {game.upcomingRoomCount}개</div>
       </a>
       <PlayedGameToggle played={played} pending={pending} onToggle={onTogglePlayed} />
