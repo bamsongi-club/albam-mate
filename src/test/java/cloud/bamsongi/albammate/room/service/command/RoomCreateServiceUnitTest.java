@@ -34,6 +34,7 @@ import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.MyRole;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailabilityEvaluator;
 import cloud.bamsongi.albammate.user.contract.UserQuery;
 
 @ExtendWith(MockitoExtension.class)
@@ -55,7 +56,8 @@ class RoomCreateServiceUnitTest {
 	@BeforeEach
 	void setUp() {
 		roomCreateService = new RoomCreateService(
-			roomRepository, gameQuery, userQuery, Clock.fixed(NOW, ZoneOffset.UTC), eventPublisher);
+			roomRepository, gameQuery, userQuery, Clock.fixed(NOW, ZoneOffset.UTC), eventPublisher,
+			new RoomActionAvailabilityEvaluator());
 		lenient().when(userQuery.findNicknameById(42L)).thenReturn(Optional.of("방장"));
 		lenient()
 			.when(roomRepository.save(any(Room.class)))

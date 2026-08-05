@@ -28,7 +28,7 @@ P1 저장 계약의 준비 상태는 기능별로 다르다. 알림 저장 계�
 | [`SEARCH-01`](search.md#search-01-게임-조건-검색) | 계약 준비 완료 | 구현 완료 ([#293](https://github.com/bamsongi-club/albam-mate/issues/293), [#295](https://github.com/bamsongi-club/albam-mate/issues/295), [#348](https://github.com/bamsongi-club/albam-mate/issues/348), [#351](https://github.com/bamsongi-club/albam-mate/issues/351)) | 검증 완료 ([#293](https://github.com/bamsongi-club/albam-mate/issues/293), [#295](https://github.com/bamsongi-club/albam-mate/issues/295), [#348](https://github.com/bamsongi-club/albam-mate/issues/348), [#351](https://github.com/bamsongi-club/albam-mate/issues/351)) | 미배포·미측정 |
 | [`SEARCH-02`](search.md#search-02-방-조건-검색) | 계약 준비 완료 | 구현 완료 ([#294](https://github.com/bamsongi-club/albam-mate/issues/294), [PR #317](https://github.com/bamsongi-club/albam-mate/pull/317)) | 검증 완료 ([#294](https://github.com/bamsongi-club/albam-mate/issues/294), [PR #317](https://github.com/bamsongi-club/albam-mate/pull/317)) | 미배포·미측정 |
 | [`SEARCH-03`](search.md#search-03-사용자별-해-본-게임) | 계약 준비 완료 | 부분 구현 ([#356](https://github.com/bamsongi-club/albam-mate/issues/356)) | 부분 검증 ([#356](https://github.com/bamsongi-club/albam-mate/issues/356): H2·PostgreSQL 대상 테스트) | 미배포·미측정 |
-| [`ROOM-08`](room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
+| [`ROOM-08`](room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | 계약 준비 완료 | 구현 완료 ([#303](https://github.com/bamsongi-club/albam-mate/issues/303)) | 검증 완료 ([#303](https://github.com/bamsongi-club/albam-mate/issues/303): H2·PostgreSQL 대상 테스트) | 미배포·미측정 |
 | [`PART-04`](room.md#part-04-선착순-대기열과-자동-승격) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
 | [`ROOM-09`](room.md#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |
 | [`ROOM-10`](room.md#room-10-동시성과-락-전략-실증) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |
@@ -37,7 +37,7 @@ P1 저장 계약의 준비 상태는 기능별로 다르다. 알림 저장 계�
 | [`NOTI-03`](notification.md#noti-03-알림-읽음-처리) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
 | [`CHAT-01`](chatting.md#chat-01-채팅방-생성접근) | 선행 계약 필요 | 부분 구현 ([#279](https://github.com/bamsongi-club/albam-mate/issues/279)) | 부분 검증 ([#279](https://github.com/bamsongi-club/albam-mate/issues/279)) | 미배포·미측정 |
 | [`CHAT-02`](chatting.md#chat-02-메시지-전송이력-조회) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
-| [`CHAT-03`](chatting.md#chat-03-실시간-전달재연결-복구) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |
+| [`CHAT-03`](chatting.md#chat-03-실시간-전달재연결-복구) | 선행 계약 필요 | 부분 구현 ([#285](https://github.com/bamsongi-club/albam-mate/issues/285)) | 부분 검증 ([#285](https://github.com/bamsongi-club/albam-mate/issues/285)) | 미배포·미측정 |
 | [`CHAT-04`](chatting.md#chat-04-채팅-안전운영) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |
 | [`CHAT-05`](chatting.md#chat-05-내-모임-채팅-진입) | 계약 준비 완료 | 구현 완료 ([#290](https://github.com/bamsongi-club/albam-mate/issues/290)) | 검증 완료 ([#290](https://github.com/bamsongi-club/albam-mate/issues/290)) | 미배포·미측정 |
 | [`FND-09`](foundation.md#fnd-09-검색-성능과-인덱스-검증) | 선행 기능 계약 대기 | 미구현 | 미검증 | 미배포·미측정 |

@@ -16,9 +16,7 @@ class NotificationQueryH2IntegrationTest {
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
 	@Autowired
-	private NotificationListQueryService notificationListQueryService;
-	@Autowired
-	private UnreadNotificationCountQueryService unreadNotificationCountQueryService;
+	private NotificationQueryService notificationQueryService;
 
 	@Test
 	void 본인_미만료_알림만_고정_정렬과_현재_방_제목으로_조회하고_미확인_수를_센다() {
@@ -31,12 +29,12 @@ class NotificationQueryH2IntegrationTest {
 		insertNotification(otherUserId, roomId, "PARTICIPANT_JOINED", null, "2099-01-03T00:00:00Z");
 		insertNotification(userId, roomId, "PARTICIPANT_JOINED", null, "2020-01-01T00:00:00Z");
 
-		var page = notificationListQueryService.findPage(userId, 0, 10);
+		var page = notificationQueryService.findPage(userId, 0, 10);
 
 		assertEquals(2, page.totalElements());
 		assertEquals(laterId, page.content().getFirst().id());
 		assertEquals("변경된 방 제목", page.content().getFirst().roomTitle());
-		assertEquals(1, unreadNotificationCountQueryService.countUnread(userId).unreadCount());
+		assertEquals(1, notificationQueryService.countUnread(userId).unreadCount());
 	}
 
 	private long user(String email) {

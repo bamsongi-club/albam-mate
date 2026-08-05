@@ -15,6 +15,7 @@ import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.MyRole;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailability;
 
 class ParticipantRoomResponseTest {
 
@@ -25,7 +26,8 @@ class ParticipantRoomResponseTest {
 		GameSummary game = new GameSummary(3L, 1003L, "카탄");
 
 		ParticipantRoomResponse response = ParticipantRoomResponse.from(
-			room, game, 2, true, MyRole.JOINED, host, List.of(host, new NicknameSummary("참가자")));
+			room, game, new RoomActionAvailability(true, false), MyRole.JOINED, host,
+			List.of(host, new NicknameSummary("참가자")));
 
 		assertEquals(7L, response.id());
 		assertEquals(game, response.game());
@@ -48,6 +50,8 @@ class ParticipantRoomResponseTest {
 		when(room.getStartAt()).thenReturn(Instant.parse("2026-08-01T00:00:00Z"));
 		when(room.getRegion()).thenReturn("홍대");
 		when(room.getCapacity()).thenReturn(4);
+		when(room.getTotalParticipantCount()).thenReturn(3);
+		when(room.getRemainingRecruitmentSeats()).thenReturn(2);
 		when(room.getStatus()).thenReturn(RoomStatus.RECRUITING);
 		when(room.getPlace()).thenReturn("장소");
 		return room;

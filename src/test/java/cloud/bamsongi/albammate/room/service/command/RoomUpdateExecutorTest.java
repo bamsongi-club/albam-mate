@@ -29,6 +29,7 @@ import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailabilityEvaluator;
 import cloud.bamsongi.albammate.user.contract.UserQuery;
 
 @ExtendWith(MockitoExtension.class)
@@ -49,7 +50,7 @@ class RoomUpdateExecutorTest {
 
 	@BeforeEach
 	void setUp() {
-		executor = new RoomUpdateExecutor(roomRepository, gameQuery, userQuery);
+		executor = new RoomUpdateExecutor(roomRepository, gameQuery, userQuery, new RoomActionAvailabilityEvaluator());
 		lenient().when(userQuery.findNicknameById(HOST_ID)).thenReturn(Optional.of("방장"));
 	}
 

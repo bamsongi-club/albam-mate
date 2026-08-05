@@ -21,27 +21,33 @@ import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.MyRole;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailability;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailabilityEvaluator;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailabilityFacts;
 import cloud.bamsongi.albammate.user.contract.UserQuery;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class RoomCreateService {
 
-	private final RoomRepository roomRepository;
-	private final GameQuery gameQuery;
-	private final UserQuery userQuery;
-	private final Clock clock;
-	private final ApplicationEventPublisher eventPublisher;
+	@NonNull private final RoomRepository roomRepository;
+	@NonNull private final GameQuery gameQuery;
+	@NonNull private final UserQuery userQuery;
+	@NonNull private final Clock clock;
+	@NonNull private final ApplicationEventPublisher eventPublisher;
+	@NonNull private final RoomActionAvailabilityEvaluator roomActionAvailabilityEvaluator;
 
 	/** 로그인한 사용자를 주최자로 기록하고 모집 중인 방을 생성한다. */
 	@Transactional
 	public ParticipantRoomResponse createRoom(long currentUserId, CreateRoomRequest request) {
+		Instant requestTime = Instant.now(clock);
 		String hostNickname = userQuery
 			.findNicknameById(currentUserId)
 			.orElseThrow(UnauthenticatedException::new);
 		GameSummary game = resolveGame(request);
-		validateStartsAt(request.startsAt());
+		validateStartsAt(request.startsAt(), requestTime);
 
 		Room room = Room.create(
 			currentUserId,
@@ -57,11 +63,12 @@ public class RoomCreateService {
 		Room savedRoom = roomRepository.save(room);
 		eventPublisher.publishEvent(new RoomCreated(savedRoom.getId()));
 		NicknameSummary host = new NicknameSummary(hostNickname);
+		RoomActionAvailability availability = roomActionAvailabilityEvaluator.evaluate(
+			new RoomActionAvailabilityFacts(savedRoom, requestTime, true, true, false, false));
 		return ParticipantRoomResponse.from(
 			savedRoom,
 			game,
-			savedRoom.getActiveParticipantCount(),
-			false,
+			availability,
 			MyRole.HOST,
 			host,
 			java.util.List.of(host));
@@ -78,8 +85,8 @@ public class RoomCreateService {
 		return game.orElseThrow(() -> new BusinessException(ErrorCode.GAME_NOT_FOUND));
 	}
 
-	private void validateStartsAt(Instant startsAt) {
-		if (!startsAt.isAfter(Instant.now(clock))) {
+	private void validateStartsAt(Instant startsAt, Instant requestTime) {
+		if (!startsAt.isAfter(requestTime)) {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
 		}
 	}

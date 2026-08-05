@@ -150,6 +150,10 @@
 - WebSocket handshake는 기존 `JSESSIONID` 세션과 허용된 `Origin`을 검증하며,
   별도 JWT·WebSocket 전용 토큰을 사용하지 않는다. `local-multi`와 `prod`의 세션은
   Spring Session Redis에 공유하고 ALB stickiness에 정합성을 의존하지 않는다.
+- 허용 `Origin`은 `app.chat.websocket.allowed-origin` 하나로 프로필별로 주입한다.
+  비운영 프로필은 프런트엔드 개발 서버 `http://localhost:5173`을 사용하고, `production`은
+  운영 도메인을 하드코딩하지 않고 `ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN`으로 주입하며
+  값이 비어 있으면 모든 handshake를 거절한다.
 - 실시간 연결을 열거나 유지하는 동안에도 현재 채팅 관계를 검증한다.
 - 저장 성공 응답과 실시간 이벤트는 같은 메시지 식별자를 사용한다.
 - PostgreSQL 커밋 뒤 Redis Pub/Sub에는 `eventType`, `roomId`, `messageId`만

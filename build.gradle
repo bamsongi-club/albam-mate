@@ -129,6 +129,7 @@ def gatedBranchCoverage = [
     'cloud.bamsongi.albammate.auth.validation': 0.85,
     'cloud.bamsongi.albammate.chat.retention' : 0.56,
     'cloud.bamsongi.albammate.chat.service'   : 0.92,
+    'cloud.bamsongi.albammate.chat.websocket' : 0.62,
     'cloud.bamsongi.albammate.game.dto'       : 1.00,
     'cloud.bamsongi.albammate.game.service'   : 1.00,
     'cloud.bamsongi.albammate.global.config'               : 1.00,

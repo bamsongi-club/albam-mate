@@ -48,7 +48,7 @@ public class NotificationRelayCoordinator {
 		}
 
 		Long oldestProcessableAgeMillis = eventRepository.findOldestProcessableAgeMillis();
-		RelayBatchSummary summary = RelayBatchSummary.completed(
+		RelayBatchSummary summary = new RelayBatchSummary(
 			claimedCount,
 			processedCount,
 			retryScheduledCount,
@@ -82,16 +82,5 @@ public class NotificationRelayCoordinator {
 		int failedCount,
 		long durationMillis,
 		Long oldestProcessableAgeMillis) {
-
-		public static RelayBatchSummary completed(
-			int claimedCount,
-			int processedCount,
-			int retryScheduledCount,
-			int failedCount,
-			long durationMillis,
-			Long oldestProcessableAgeMillis) {
-			return new RelayBatchSummary(claimedCount, processedCount, retryScheduledCount, failedCount, durationMillis,
-				oldestProcessableAgeMillis);
-		}
 	}
 }

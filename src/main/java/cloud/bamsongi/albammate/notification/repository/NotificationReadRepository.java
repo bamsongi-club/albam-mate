@@ -22,6 +22,10 @@ public class NotificationReadRepository {
 
 	@NonNull private final JdbcTemplate jdbcTemplate;
 
+	/**
+	 * 대상 행을 잠가 반복·동시 요청이 같은 최신 readAt을 확인하게 한다. readAt이 없는 경우에만 operationTime으로
+	 * 갱신하고, coalesce로 이번 요청의 갱신 여부와 관계없이 보존된 최초 readAt을 반환한다.
+	 */
 	public Optional<NotificationListItem> markReadAndFindCurrentItem(long recipientUserId, long notificationId) {
 		return jdbcTemplate.query(
 			"""

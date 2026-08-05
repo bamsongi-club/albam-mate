@@ -76,6 +76,7 @@ class RoomControllerDetailTest {
 			.andExpect(jsonPath("$.status").value(200))
 			.andExpect(jsonPath("$.data.id").value(1))
 			.andExpect(jsonPath("$.data.joinable").value(false))
+			.andExpect(jsonPath("$.data.waitlistable").value(false))
 			.andExpect(jsonPath("$.data.place").doesNotExist())
 			.andExpect(jsonPath("$.data.host").doesNotExist())
 			.andExpect(jsonPath("$.data.participants").doesNotExist())
@@ -95,9 +96,21 @@ class RoomControllerDetailTest {
 		mockMvc.perform(get("/api/rooms/1").with(authenticationFor(99L)))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.joinable").value(true))
+			.andExpect(jsonPath("$.data.waitlistable").value(false))
 			.andExpect(jsonPath("$.data.place").doesNotExist())
 			.andExpect(jsonPath("$.data.participants").doesNotExist())
 			.andExpect(header().string("Cache-Control", "private, no-store"));
+	}
+
+	@Test
+	void 대기_신청_가능_상세는_waitlistable_true를_직렬화한다() throws Exception {
+		when(roomDetailService.findRoomDetail(1L, Optional.of(99L)))
+			.thenReturn(publicResponse(false, true));
+
+		mockMvc.perform(get("/api/rooms/1").with(authenticationFor(99L)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.joinable").value(false))
+			.andExpect(jsonPath("$.data.waitlistable").value(true));
 	}
 
 	@Test
@@ -135,6 +148,7 @@ class RoomControllerDetailTest {
 		mockMvc.perform(get("/api/rooms/1").with(authenticationFor(88L)))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.joinable").value(true))
+			.andExpect(jsonPath("$.data.waitlistable").value(false))
 			.andExpect(jsonPath("$.data.myRole").doesNotExist())
 			.andExpect(jsonPath("$.data.place").doesNotExist());
 	}
@@ -175,6 +189,10 @@ class RoomControllerDetailTest {
 	}
 
 	private PublicRoomResponse publicResponse(boolean joinable) {
+		return publicResponse(joinable, false);
+	}
+
+	private PublicRoomResponse publicResponse(boolean joinable, boolean waitlistable) {
 		return new PublicRoomResponse(
 			1L,
 			RoomType.GAME_FOCUSED,
@@ -189,7 +207,8 @@ class RoomControllerDetailTest {
 			2,
 			2,
 			RoomStatus.RECRUITING,
-			joinable);
+			joinable,
+			waitlistable);
 	}
 
 	private ParticipantRoomResponse participantResponse(MyRole myRole) {
@@ -208,6 +227,7 @@ class RoomControllerDetailTest {
 			2,
 			2,
 			RoomStatus.RECRUITING,
+			false,
 			false,
 			myRole,
 			"정확한 장소",

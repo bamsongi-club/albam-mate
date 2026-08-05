@@ -102,7 +102,11 @@ public interface NotificationOutboxEventRepository extends JpaRepository<Notific
 		""", nativeQuery = true)
 	Long findOldestProcessableAgeMillis();
 
-	/** 실패 기록 트랜잭션의 PostgreSQL 시각으로 아직 처리 가능한 동일 이벤트만 갱신한다. */
+	/**
+	 * 실패 기록 트랜잭션에서 PostgreSQL 시각을 한 번 고정해 재시도 시각과 만료를 함께 판정한다.
+	 * 자동 재시도 조건이면 RETRY_WAIT, 결정적 실패·만료·시도 소진이면 FAILED로 전환한다.
+	 * 이미 완료됐거나 별도 트랜잭션에서 상태가 바뀐 이벤트는 잠금 대상에서 제외해 늦게 도착한 실패가 덮어쓰지 못한다.
+	 */
 	@Query(value = """
 			with operation as materialized (
 			    select clock_timestamp() as operation_time

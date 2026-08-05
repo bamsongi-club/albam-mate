@@ -361,7 +361,7 @@ flowchart LR
 | 재시도하는 Command | Command Coordinator |
 | Query | 각 QueryService 실행 시작 지점 |
 | Scheduler | 스케줄 실행 시작 지점 |
-| Notification 목록·미확인 개수의 만료 판정 | 각 QueryService 읽기 트랜잭션의 PostgreSQL `transaction_timestamp()` |
+| Notification 목록·미확인 개수의 만료 판정 | `NotificationQueryService`의 메서드별 독립 읽기 트랜잭션에서 고정한 PostgreSQL `transaction_timestamp()` |
 | Outbox 최초·재시도·수동 재처리 `availableAt`과 relay due·oldest 판정 | 각 DB 쓰기·조회가 PostgreSQL에서 한 번 고정한 `operationTime` |
 | Notification 기록 | relay 이벤트 Executor가 PostgreSQL에서 한 번 조회한 `operationTime` |
 | Notification 단건·일괄 읽음 | 읽음 SQL 내부에서 한 번 평가한 PostgreSQL `clock_timestamp()` |

@@ -17,6 +17,7 @@ import cloud.bamsongi.albammate.room.enums.MyRole;
 import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailability;
 
 class MyRoomListItemTest {
 
@@ -33,12 +34,14 @@ class MyRoomListItemTest {
 		when(room.getRegion()).thenReturn("홍대");
 		when(room.getCapacity()).thenReturn(4);
 		when(room.getActiveParticipantCount()).thenReturn(2);
+		when(room.getTotalParticipantCount()).thenReturn(3);
+		when(room.getRemainingRecruitmentSeats()).thenReturn(2);
 		when(room.getStatus()).thenReturn(RoomStatus.CLOSED);
 
 		MyRoomListItem response = MyRoomListItem.from(
 			room,
 			new GameSummary(3L, 1003L, "카탄"),
-			false,
+			new RoomActionAvailability(false, false),
 			MyRole.JOINED,
 			ParticipationStatus.ACTIVE);
 
@@ -53,7 +56,8 @@ class MyRoomListItemTest {
 		Room room = mock(Room.class);
 		when(room.getStatus()).thenReturn(RoomStatus.RECRUITING);
 
-		MyRoomListItem response = MyRoomListItem.from(room, null, false, MyRole.HOST, null);
+		MyRoomListItem response = MyRoomListItem.from(
+			room, null, RoomActionAvailability.UNAVAILABLE, MyRole.HOST, null);
 
 		assertTrue(response.chatAvailable());
 	}
@@ -63,8 +67,8 @@ class MyRoomListItemTest {
 		Room room = mock(Room.class);
 		when(room.getStatus()).thenReturn(RoomStatus.CLOSED);
 
-		MyRoomListItem response = MyRoomListItem
-			.from(room, null, false, MyRole.JOINED, ParticipationStatus.ACTIVE);
+		MyRoomListItem response = MyRoomListItem.from(
+			room, null, RoomActionAvailability.UNAVAILABLE, MyRole.JOINED, ParticipationStatus.ACTIVE);
 
 		assertTrue(response.chatAvailable());
 	}
@@ -76,10 +80,15 @@ class MyRoomListItemTest {
 		Room finishedRoom = mock(Room.class);
 		when(finishedRoom.getStatus()).thenReturn(RoomStatus.FINISHED);
 
-		assertFalse(MyRoomListItem.from(canceledRoom, null, false, MyRole.HOST, null).chatAvailable());
 		assertFalse(
 			MyRoomListItem
-				.from(finishedRoom, null, false, MyRole.JOINED, ParticipationStatus.ACTIVE)
+				.from(canceledRoom, null, RoomActionAvailability.UNAVAILABLE, MyRole.HOST, null)
+				.chatAvailable());
+		assertFalse(
+			MyRoomListItem
+				.from(
+					finishedRoom, null, RoomActionAvailability.UNAVAILABLE, MyRole.JOINED,
+					ParticipationStatus.ACTIVE)
 				.chatAvailable());
 	}
 }

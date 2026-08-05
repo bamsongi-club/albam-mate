@@ -442,6 +442,7 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 | `tag` | string | Y | N | P0 | 제공 | 표시용 게임 스타일 태그. 목록 필터로 사용하지 않는다 |
 | `estimatedPlayTime` | string | Y | N | P0 | 제공 | 표시용 예상 시간 (예: `30분`) |
 | `complexity` | number | Y | Y | P0 | 제공 | 난이도 표시값 |
+| `releaseYear` | integer | Y | Y | P1 | 제공 | BGG 기준 CSV의 `yearpublished`. 미상 값은 `null` |
 | `upcomingRoomCount` | integer | Y | N | P0 | 제공 | 미래 시점의 `GAME_FOCUSED` 방 중 `CANCELED`·`FINISHED`가 아닌 건수 |
 | `playedByMe` | boolean | Y | Y | P1 | 제공 | 유효한 세션에서 본인 표시 관계가 있으면 `true`, 없으면 `false`; 비로그인이면 `null` |
 
@@ -459,8 +460,6 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 
 방을 탐색·참가 판단하는 데 필요한 비식별 정보만 반환한다. `place`, 주최자·참가자 목록과 사용자 ID는 포함하지 않는다.
 
-> `구현 예정` 필드는 현재 응답에 포함되지 않는다. `필수`·`nullable`은 제공 전환 뒤의 목표 스키마다.
-
 | 필드 | 타입 | 필수 | nullable | 도입 단계 | 제공 상태 | 설명 |
 |---|---|:---:|:---:|:---:|:---:|---|
 | `id` | integer | Y | N | P0 | 제공 | 방 ID |
@@ -477,7 +476,7 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 | `remainingRecruitmentSeats` | integer | Y | N | P0 | 제공 | `recruitmentCapacity − 현재 ACTIVE 참가 관계 수` |
 | `status` | RoomStatus | Y | N | P0 | 제공 | 현재 방 상태 |
 | `joinable` | boolean | Y | N | P0 | 제공 | 현재 요청자의 참가 가능 여부. 판정 규칙은 아래 참고 |
-| `waitlistable` | boolean | Y | N | P1 | 구현 예정 | 현재 요청자의 대기 신청 가능 여부. 판정 규칙은 아래 참고 |
+| `waitlistable` | boolean | Y | N | P1 | 제공 | 현재 요청자의 대기 신청 가능 여부. 판정 규칙은 아래 참고 |
 
 `joinable`과 `waitlistable`은 서버의 같은 행동 가능성 판정에서 계산하며 동시에 `true`일 수 없다.
 
@@ -507,7 +506,7 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 
 주최자 또는 현재 `ACTIVE` 참가자에게 반환하며, `PublicRoomResponse`의 모든 필드에 다음을 추가한다.
 
-상속 필드의 `도입 단계`와 `제공 상태`는 `PublicRoomResponse` 표를 따른다. 따라서 `waitlistable`은 현재 `ParticipantRoomResponse`에도 포함되지 않는다. 아래 추가 필드는 모두 `P0`에 도입되어 현재 `제공` 중이므로 두 열을 생략한다.
+상속 필드의 `도입 단계`와 `제공 상태`는 `PublicRoomResponse` 표를 따른다. 따라서 `waitlistable`은 현재 `ParticipantRoomResponse`에도 포함된다. 아래 추가 필드는 모두 `P0`에 도입되어 현재 `제공` 중이므로 두 열을 생략한다.
 
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
@@ -538,7 +537,7 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 
 `GET /api/users/me/rooms`의 각 항목이며, `PublicRoomResponse`의 모든 필드에 다음을 추가한다. 정확한 `place`와 참가자 목록은 내 모임 이력에도 포함하지 않는다.
 
-> `구현 예정` 필드는 현재 응답에 포함되지 않는다. `필수`·`nullable`은 제공 전환 뒤의 목표 스키마다. 상속 필드의 상태는 `PublicRoomResponse` 표를 따르므로 `waitlistable`도 현재 응답에 포함되지 않는다.
+> `chatAvailable`은 현재 응답에 포함되지 않는다. `필수`·`nullable`은 제공 전환 뒤의 목표 스키마다. 상속 필드의 상태는 `PublicRoomResponse` 표를 따른다.
 
 | 필드 | 타입 | 필수 | nullable | 도입 단계 | 제공 상태 | 설명 |
 |---|---|:---:|:---:|:---:|:---:|---|

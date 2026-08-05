@@ -9,6 +9,7 @@ import cloud.bamsongi.albammate.room.enums.MyRole;
 import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailability;
 
 /** 내 모임 목록에만 현재 사용자의 역할과 참가 상태를 추가한 비식별 방 표현이다. */
 public record MyRoomListItem(
@@ -26,6 +27,7 @@ public record MyRoomListItem(
 	int remainingRecruitmentSeats,
 	RoomStatus status,
 	boolean joinable,
+	boolean waitlistable,
 	MyRole myRole,
 	ParticipationStatus participationStatus,
 	boolean chatAvailable) {
@@ -33,10 +35,9 @@ public record MyRoomListItem(
 	public static MyRoomListItem from(
 		Room room,
 		GameSummary game,
-		boolean joinable,
+		RoomActionAvailability availability,
 		MyRole myRole,
 		ParticipationStatus participationStatus) {
-		int activeParticipantCount = room.getActiveParticipantCount();
 		return new MyRoomListItem(
 			room.getId(),
 			room.getRoomType(),
@@ -48,10 +49,11 @@ public record MyRoomListItem(
 			room.getStartAt(),
 			room.getRegion(),
 			room.getCapacity(),
-			activeParticipantCount + 1,
-			room.getCapacity() - activeParticipantCount,
+			room.getTotalParticipantCount(),
+			room.getRemainingRecruitmentSeats(),
 			room.getStatus(),
-			joinable,
+			availability.joinable(),
+			availability.waitlistable(),
 			myRole,
 			participationStatus,
 			isChatAvailable(room.getStatus()));

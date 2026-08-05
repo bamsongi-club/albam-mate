@@ -27,6 +27,7 @@ import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
 
 @ExtendWith(MockitoExtension.class)
 class RoomListReadServiceTest {
@@ -35,12 +36,14 @@ class RoomListReadServiceTest {
 
 	@Mock
 	private RoomRepository roomRepository;
+	@Mock
+	private RoomWaitlistRepository roomWaitlistRepository;
 
 	private RoomListReadService roomListReadService;
 
 	@BeforeEach
 	void setUp() {
-		roomListReadService = new RoomListReadService(roomRepository);
+		roomListReadService = new RoomListReadService(roomRepository, roomWaitlistRepository);
 	}
 
 	@Test
@@ -244,6 +247,25 @@ class RoomListReadServiceTest {
 
 		assertEquals(Set.of(10L), result.activeParticipationRoomIds());
 		verify(roomRepository).findActiveParticipationRoomIds(42L, List.of(10L, 20L));
+	}
+
+	@Test
+	void 로그인_사용자의_현재_페이지_WAITING_방을_한번에_읽는다() {
+		PageRequest pageable = pageable();
+		Page<Room> rooms = new PageImpl<>(List.of(room(10L), room(20L)), pageable, 2);
+		when(roomRepository.findPublicRooms(
+			null, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable))
+			.thenReturn(rooms);
+		when(roomRepository.findActiveParticipationRoomIds(42L, List.of(10L, 20L))).thenReturn(List.of());
+		when(roomWaitlistRepository.findWaitingRoomIdsByUserIdAndRoomIds(42L, List.of(10L, 20L)))
+			.thenReturn(List.of(20L));
+
+		RoomListReadService.RoomListReadResult result = roomListReadService.findPublicRooms(
+			criteria(null, null, null), pageable, 42L);
+
+		assertEquals(Set.of(20L), result.waitingRoomIds());
+		verify(roomWaitlistRepository).findWaitingRoomIdsByUserIdAndRoomIds(42L, List.of(10L, 20L));
 	}
 
 	private PageRequest pageable() {

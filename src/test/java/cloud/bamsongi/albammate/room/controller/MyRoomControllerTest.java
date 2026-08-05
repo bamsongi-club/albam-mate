@@ -83,6 +83,7 @@ class MyRoomControllerTest {
 			.andExpect(jsonPath("$.data.content[0].myRole").value("JOINED"))
 			.andExpect(jsonPath("$.data.content[0].participationStatus").value("ACTIVE"))
 			.andExpect(jsonPath("$.data.content[0].joinable").value(false))
+			.andExpect(jsonPath("$.data.content[0].waitlistable").value(false))
 			.andExpect(jsonPath("$.data.content[0].chatAvailable").value(true))
 			.andExpect(jsonPath("$.data.content[0].place").doesNotExist())
 			.andExpect(jsonPath("$.data.content[0].host").doesNotExist())
@@ -179,6 +180,7 @@ class MyRoomControllerTest {
 					2,
 					2,
 					RoomStatus.RECRUITING,
+					false,
 					false,
 					MyRole.JOINED,
 					ParticipationStatus.ACTIVE,

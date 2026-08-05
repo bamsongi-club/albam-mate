@@ -56,7 +56,8 @@ class ModuleArchitectureTest {
 		ROOT_PACKAGE + ".chat.entity",
 		ROOT_PACKAGE + ".chat.repository",
 		ROOT_PACKAGE + ".chat.service",
-		ROOT_PACKAGE + ".chat.retention");
+		ROOT_PACKAGE + ".chat.retention",
+		ROOT_PACKAGE + ".chat.websocket");
 	private static final String ROOM_RETRIER = ROOT_PACKAGE + ".room.service.RoomOptimisticLockRetrier";
 	private static final Set<String> ALLOWED_ROOM_RETRIER_USERS = Set.of(
 		ROOT_PACKAGE + ".room.service.command.RoomCommandExecutionCoordinator",
@@ -169,7 +170,8 @@ class ModuleArchitectureTest {
 			.that()
 			.resideInAPackage(ROOT_PACKAGE + ".chat..")
 			.should(resideInAllowedPackage(ALLOWED_CHAT_PACKAGES, "Chat"))
-			.because("CHAT-01은 entity, repository와 room.contract만 사용하는 lifecycle service를 소유한다")
+			.because("CHAT-01은 entity, repository와 room.contract만 사용하는 lifecycle service를 소유하고,"
+				+ " CHAT-03은 방별 WebSocket handshake 경계를 websocket 패키지에 소유한다")
 			.check(PRODUCTION_CLASSES);
 	}
 
