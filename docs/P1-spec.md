@@ -424,11 +424,14 @@ P1 필수 구현은 다음 여덟 가지 흐름을 처음부터 끝까지 연결
 ### 시간 기반 ROOM 상태 자동 전환
 
 - `RECRUITING → CLOSED → FINISHED`의 시간 조건과 순서, 시작 24시간 후 자동 종료 기준은 P0 규칙을 유지한다.
-- 자동 전환 대상은 상한 없는 ROOM Entity 전체가 아니라 제한된 수의 ROOM ID로 선별하고, 각 ROOM은 독립 처리 단위에서 최신 상태와 버전을 다시 읽어 판정한다.
+- Scheduler 자동 전환 대상은 상한 없는 ROOM Entity 전체가 아니라 고정한 순회 기준 시각과 영속 cursor 뒤의 제한된 ROOM ID로 선별하고, 각 ROOM은 독립 처리 단위에서 최신 상태와 버전을 다시 읽어 판정한다.
 - 한 ROOM의 실패가 이미 성공한 다른 ROOM의 결과를 롤백하지 않으며, 실패 ROOM ID와 원인을 식별해 해당 ROOM만 재처리할 수 있어야 한다.
 - 시작 시각에 도달한 ROOM은 정원 충족으로 이미 `CLOSED`였는지와 관계없이 상태 판정과 남은 대기열 종료를 같은 ROOM 일관성 경계에서 수행한다.
-- 모든 인스턴스가 Spring Scheduler를 등록하되 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)에 따라 PostgreSQL ShedLock의 ROOM 상태 보정용 잠금을 얻은 하나만 실행을 조정한다. 정확한 잠금 이름은 구현 이슈에서 정하고, 잠금 트랜잭션과 각 ROOM의 독립 트랜잭션을 결합하지 않는다.
-- 스케줄 잠금 임대가 만료되어 실행이 겹쳐도 각 ROOM은 최신 상태와 `Room.version`을 다시 확인하고 같은 결과로 수렴해야 한다. 다중 인스턴스라는 이유로 Redis 분산 락을 도입하지 않는다.
+- 모든 인스턴스가 Spring Scheduler를 등록하되 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)에 따라 공용 PostgreSQL ShedLock adapter의 `room-status-correction` 잠금을 얻은 하나만 실행을 조정한다. 공용 `SHEDLOCK` 테이블·adapter는 병합된 [PR #366](https://github.com/bamsongi-club/albam-mate/pull/366)이 제공하고 [#289](https://github.com/bamsongi-club/albam-mate/issues/289)가 소유하며 ROOM은 이를 읽기 전용으로 사용한다.
+- `ROOM_STATUS_CORRECTION_PROGRESS` 단일 행은 순회 기준 시각, 마지막 시도 cursor, progress version과 실행 generation을 저장한다. 실행 주체는 잠금 획득 뒤 generation을 점유하고 모든 cursor 전진·회전을 기대 generation·version의 조건부 갱신으로 확정한다. 늦은 실행 주체의 갱신은 거절하고 이후 처리를 중단한다.
+- ROOM 처리 커밋 뒤 cursor 커밋 전 장애에서는 같은 ROOM을 다시 선별할 수 있다. cursor를 먼저 전진해 미처리 ROOM을 건너뛰지 않으며, 최신 상태 재판정과 멱등 전이로 at-least-once 재실행을 수렴시킨다.
+- ShedLock, 진행 상태, 후보 선별, 각 ROOM 처리와 cursor 갱신은 하나의 트랜잭션으로 묶지 않는다. 스케줄 잠금 임대가 만료되어 실행이 겹쳐도 각 ROOM은 최신 상태와 `Room.version`을 다시 확인하고 같은 결과로 수렴하며, 다중 인스턴스라는 이유로 Redis 분산 락을 도입하지 않는다.
+- API 요청 경계 상태 보정은 Scheduler 잠금·cursor를 사용하지 않고 [ADR-0012](adr/room/0012-room-request-boundary-state-reconciliation.md)의 현재 상태 계약을 유지한다.
 - 현재 구현을 비교 기준선으로 남기고 제한 처리의 ID 수 후보를 같은 데이터·반복 조건에서 측정한다. 한 번당 ID 수와 반복·재시도·실행 주기의 운영 고정값은 측정 전에 임의로 정하지 않고 결과를 근거로 확정한다.
 - 제한된 ROOM별 처리에서 병목이 측정된 뒤에만 조건부 DB 직접 갱신 비교 여부를 사용자에게 확인한다. Quartz 클러스터는 동적 Trigger·Misfire·영속 Job 복구 요구가 생기기 전에는 도입하지 않는다.
 
@@ -456,6 +459,7 @@ P1 필수 구현은 다음 여덟 가지 흐름을 처음부터 끝까지 연결
 | 알림 | 수신자, 원인 이벤트, 유형, 관련 대상, 원인 이벤트 시각을 사용하는 `createdAt`, 읽은 시각과 중복 방지에 필요한 저장 계약을 추가한다. |
 | 채팅 | 방별 `CHAT_ROOMS`와 작성자, 본문, 클라이언트 메시지 식별자, 서버 생성 시각을 가진 `CHAT_MESSAGES` 저장 계약을 추가한다. 최종 상태의 삭제 기준과 완료 시각을 저장한다. |
 | 실시간 연결 | 별도 제품 상태로 저장하지 않는다. Redis에는 제한된 신호만 발행하고, 연결이 끊기거나 신호가 유실돼도 채팅 메시지는 PostgreSQL 이력으로 복구한다. |
+| ROOM 상태 보정 진행 | `ROOM_STATUS_CORRECTION_PROGRESS` 단일 행에 Scheduler 순회 기준 시각·cursor·progress version·실행 generation을 저장한다. API 요청 경계 상태 보정과 채팅 작업은 이 행을 사용하지 않는다. |
 | 스케줄 잠금 | 공용 PostgreSQL의 `SHEDLOCK` 테이블은 다중 인스턴스 스케줄 실행 주체만 조정하며 ROOM·채팅 업무 상태나 분산 락을 저장하지 않는다. |
 | 상태값 | `RoomStatus`와 참여 상태는 유지하고 대기 결과만 별도 `WaitlistStatus`로 표현한다. 직접 참가·대기·채팅 가능 여부는 방 상태와 현재 관계에서 계산하고, 알림 읽음은 읽은 시각으로 판정한다. |
 | 오류 응답 | 대기는 `WAITLIST_NOT_AVAILABLE`, `WAITLIST_ENTRY_NOT_FOUND`와 기존 `ALREADY_PARTICIPATING`, `ROOM_CONCURRENT_MODIFICATION`을 사용한다. 검색·알림·채팅 오류는 기존 공통 응답 형식과 API 명세를 따른다. |

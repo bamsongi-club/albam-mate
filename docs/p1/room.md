@@ -167,9 +167,21 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 승인 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0036 제한 ID·ROOM별 독립 처리](../adr/room/0036-bounded-room-state-transition-processing.md), [ADR-0038 다중 인스턴스 스케줄 실행 조정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md) |
 | 현재 구현 기준선 | [`RoomRepository.findDueRooms`](../../src/main/java/cloud/bamsongi/albammate/room/repository/RoomRepository.java), [`RoomStatusCorrectionExecutor`](../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionExecutor.java) |
 | 연결 기능 | [PART-04 선착순 대기열과 자동 승격](#part-04-선착순-대기열과-자동-승격) |
-| 착수 전 확정 | 제한 처리 측정의 데이터 규모·ID 수 후보·반복 조건·측정 도구와 로그·메트릭, due ROOM의 결정적 순서, 영속 cursor·순회 기준 시각의 저장 위치·갱신·wrap-around·장애 복구 계약, 중첩 실행의 stale 갱신을 거절할 progress version·generation과 조건부 갱신 방식, ROOM 전환·대기열 종료의 트랜잭션·잠금 설계, ROOM 상태 보정용 잠금 이름과 `lockAtMostFor`·실행시간 경고의 측정 후보 |
+| 진행 상태 저장 | [`ROOM_STATUS_CORRECTION_PROGRESS`](../ERD.md#room_status_correction_progress) 단일 행 |
+| 착수 전 확정 | 없음 |
 | 구현·측정 후 확정 | 한 번당 ID 수와 반복·재시도·실행 주기, 측정된 최대 실행시간을 반영한 `lockAtMostFor`와 실행시간 경고의 초기 운영값 |
 | 측정 후 사용자 결정 | 실패 backoff·격리 비교와 제한 범위의 조건부 DB 직접 갱신 비교 여부. 기준선 결과를 `DECISION_NEEDED`로 제시하고 승인 전에는 비교 구현에 착수하지 않음 |
+
+### 실행·진행 상태 계약
+
+- ROOM Scheduler 전용 잠금 이름은 `room-status-correction`이다. 병합된 [PR #366](https://github.com/bamsongi-club/albam-mate/pull/366)이 제공하고 [#289](https://github.com/bamsongi-club/albam-mate/issues/289)가 소유하는 공용 `global/scheduling` port와 PostgreSQL ShedLock adapter를 읽기 전용으로 사용하며, ROOM은 공용 `SHEDLOCK` 스키마·adapter를 수정하지 않는다.
+- `ROOM_STATUS_CORRECTION_PROGRESS`는 `job_name = 'room-status-correction'`인 행 하나만 가진다. `turn_cutoff`, 마지막으로 시도한 선별 키인 `cursor_due_at`·`cursor_room_id`, 모든 진행 상태 변경의 CAS 값인 `progress_version`, 실행 주체 fencing 값인 `execution_generation`, `updated_at`을 저장한다. cursor 두 컬럼은 함께 `NULL`이거나 함께 값이 있어야 하고, 값이 있으면 `cursor_due_at <= turn_cutoff`여야 한다.
+- 전진 Flyway 마이그레이션은 이 단일 행을 `turn_cutoff = NULL`, cursor 두 컬럼 `NULL`, `progress_version = 0`, `execution_generation = 0`으로 생성한다. 행이 없거나 둘 이상인 상태를 런타임에서 자동 복구하지 않고 설정 오류로 실패시킨다.
+- ShedLock을 얻은 Scheduler 실행은 후보를 읽기 전에 짧은 독립 트랜잭션에서 진행 행을 `FOR UPDATE`로 읽고 `execution_generation`과 `progress_version`을 각각 1 증가시켜 실행 세대를 점유한다. 최초 실행처럼 `turn_cutoff`이 `NULL`이면 이번 Scheduler의 고정 `requestTime`으로 초기화한다. cursor가 `NULL`인 완료된 순회를 새 실행이 이어받으면 `turn_cutoff`을 기존 값과 `requestTime` 중 뒤 시각으로 전진시킨다.
+- 후보 선별 뒤 cursor 전진과 wrap-around는 각각 별도의 짧은 독립 트랜잭션에서 `job_name`, 실행 세대와 기대 `progress_version`이 모두 일치할 때만 갱신하고 `progress_version`을 1 증가시킨다. 조건부 갱신이 0건이면 늦은 실행 주체로 판정해 이후 ROOM을 처리하지 않고 실행을 끝낸다.
+- cursor는 ROOM 처리 성공·무변경·격리된 실패와 관계없이 해당 후보를 시도한 뒤 선별에 사용한 `(논리적 처리 예정 시각, roomId)`로 전진한다. ROOM 트랜잭션이 커밋된 뒤 cursor 커밋 전에 프로세스가 종료되면 같은 ROOM을 다시 선별할 수 있는 at-least-once 방식이며, 최신 상태 재판정과 멱등 전이로 같은 결과에 수렴한다. cursor를 먼저 전진시켜 미처리 ROOM을 건너뛰는 방식은 허용하지 않는다.
+- cursor 뒤 후보가 없으면 같은 CAS 경계에서 cursor를 `NULL`로 회전한다. 이번 실행의 `requestTime`이 기존 `turn_cutoff`보다 뒤이고 실행당 반복 예산이 남았을 때만 새 cutoff로 다음 순회를 시작한다. 같은 cutoff를 다시 여는 즉시 반복은 금지하고 다음 Scheduler 실행에 맡긴다.
+- Scheduler의 제한 선별·진행 상태는 API 요청 경계 상태 보정에 사용하지 않는다. 목록·상세·내 모임과 상태 의존 명령은 [ADR-0012](../adr/room/0012-room-request-boundary-state-reconciliation.md)의 현재 상태 보정·오류 계약을 유지하고, ShedLock 미획득이나 Scheduler cursor 때문에 현재 상태 판정을 생략하지 않는다.
 
 ### 기능 규칙
 
