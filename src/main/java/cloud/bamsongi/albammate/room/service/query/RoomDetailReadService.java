@@ -37,9 +37,9 @@ class RoomDetailReadService {
 			roomId, ParticipationStatus.ACTIVE);
 		boolean currentUserWaiting = shouldReadCurrentUserWaiting(room, activeParticipations, currentUserId)
 			&& roomWaitlistRepository
-			.findStateWithPositionByRoomIdAndUserId(roomId, currentUserId)
-			.map(state -> state.getStatus() == RoomWaitlistStatus.WAITING)
-			.orElse(false);
+				.findStateWithPositionByRoomIdAndUserId(roomId, currentUserId)
+				.map(state -> state.getStatus() == RoomWaitlistStatus.WAITING)
+				.orElse(false);
 		return new RoomDetailReadResult(room, List.copyOf(activeParticipations), currentUserWaiting);
 	}
 
@@ -47,7 +47,8 @@ class RoomDetailReadService {
 		Room room, List<Participation> activeParticipations, Long currentUserId) {
 		return currentUserId != null
 			&& !room.getHostUserId().equals(currentUserId)
-			&& activeParticipations.stream().noneMatch(participation -> participation.getUserId().equals(currentUserId));
+			&& activeParticipations.stream()
+				.noneMatch(participation -> participation.getUserId().equals(currentUserId));
 	}
 
 	public record RoomDetailReadResult(
