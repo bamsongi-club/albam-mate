@@ -212,7 +212,7 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .gmeta { color: var(--brown2); font-size: 12.5px; font-weight: 700; margin: 6px 0 7px; }
 .gsess { color: var(--green); font-size: 12px; font-weight: 800; margin-top: 8px; }
 /* 해 본 게임 조작은 링크 안에 넣을 수 없어 카드 껍데기가 테두리를 쥐고 링크는 내용만 감싼다. */
-.gcard-shell { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); display: flex; flex-direction: column; padding: 16px; transition: transform 0.15s, border-color 0.15s; }
+.gcard-shell { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); display: flex; flex-direction: column; padding: 16px; position: relative; transition: transform 0.15s, border-color 0.15s; }
 .gcard-shell:hover { border-color: var(--accent); transform: translateY(-2px); }
 .gcard-shell .gcard { background: none; border: 0; border-radius: 0; box-shadow: none; display: flex; flex: 1; flex-direction: column; padding: 0; transition: none; }
 .gcard-shell .gcard:hover { border-color: transparent; transform: none; }
@@ -222,14 +222,15 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .gcard-shell .gtitle .gen { flex: 0 1 auto; font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
 /* 조건은 한 줄로 자른다. 줄 수가 게임마다 달라지면 카드 높이가 어긋난다. */
 .gcard-shell .gmeta { margin: 7px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* 태그가 없는 게임도 같은 자리를 차지해 아래 칸 위치가 흔들리지 않는다. */
-.gcard-info { align-items: center; display: flex; gap: 8px; justify-content: space-between; margin-top: auto; min-height: 26px; padding-top: 9px; }
-.gcard-shell .gsess { margin-top: 0; }
-.gcard-foot { border-top: 1px solid var(--line); display: flex; justify-content: flex-end; margin-top: 11px; padding-top: 11px; }
+.gcard-shell .gsess { margin-top: auto; padding-top: 9px; }
 .played-toggle { background: var(--card); border: 1px solid var(--line); border-radius: 999px; color: var(--brown2); font-size: 12.5px; font-weight: 800; padding: 7px 13px; }
 .played-toggle:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-dark); }
 .played-toggle.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .played-toggle:disabled { opacity: 0.55; }
+/* 목록 카드에서는 표지 오른쪽 위 점 하나로 둔다. 어떤 표지 위에서도 보이게 흰 테두리를 준다. */
+.played-toggle.dot { background: rgba(255, 255, 255, 0.82); border: 2px solid #fff; box-shadow: 0 1px 4px rgba(60, 40, 25, 0.3); height: 20px; padding: 0; position: absolute; right: 25px; top: 25px; width: 20px; z-index: 1; }
+.played-toggle.dot:hover:not(:disabled) { background: #fff; border-color: var(--accent); }
+.played-toggle.dot.on { background: var(--accent); border-color: #fff; }
 .scard-top { align-items: flex-start; display: flex; gap: 12px; }
 .gemoji { align-items: center; background: var(--soft); border-radius: 10px; display: flex; flex: 0 0 52px; font-size: 29px; height: 52px; justify-content: center; width: 52px; }
 .srow { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; margin: 11px 0 9px; }

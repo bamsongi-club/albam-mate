@@ -585,16 +585,19 @@ function SessionCard({ room }) {
  * 관계가 없거나 아직 판정하지 않은 상태를 `해보지 않음`으로 부르지 않고 눌리지 않은 상태로만 둔다.
  * 다른 사용자의 관계는 응답에 없으므로 화면에도 없다.
  */
-function PlayedGameToggle({ played, pending, onToggle }) {
+function PlayedGameToggle({ played, pending, onToggle, compact = false }) {
   return (
     <button
       type="button"
-      className={'played-toggle' + (played ? ' on' : '')}
+      className={'played-toggle' + (compact ? ' dot' : '') + (played ? ' on' : '')}
+      // 점만 두는 목록 카드에서도 조작 이름은 화면 낭독과 hover 안내로 남긴다.
+      aria-label={compact ? '해봤어요' : undefined}
+      title={compact ? '해봤어요' : undefined}
       aria-pressed={played === true}
       disabled={pending}
       onClick={onToggle}
     >
-      해봤어요
+      {compact ? null : '해봤어요'}
     </button>
   );
 }
@@ -609,16 +612,10 @@ function GameCard({ game, played, pending, onTogglePlayed }) {
           {game.englishName && <span className="gen">{game.englishName}</span>}
         </div>
         <div className="gmeta">{gameMeta(game)}</div>
-        {/* 태그가 없는 게임도 같은 자리를 비워 둬야 카드 높이가 서로 어긋나지 않는다. */}
-        <div className="gcard-info">
-          {game.tag ? <span className="chip">{game.tag}</span> : <span />}
-          <span className="gsess">예정 모임 {game.upcomingRoomCount}개</span>
-        </div>
+        <div className="gsess">예정 모임 {game.upcomingRoomCount}개</div>
       </a>
-      {/* 카드 전체가 상세 링크라 해 본 게임 조작은 링크 밖 아래 칸에 둔다. */}
-      <div className="gcard-foot">
-        <PlayedGameToggle played={played} pending={pending} onToggle={onTogglePlayed} />
-      </div>
+      {/* 카드 전체가 상세 링크라 해 본 게임 조작은 링크 밖에 두고 표지 모서리에 점으로 얹는다. */}
+      <PlayedGameToggle played={played} pending={pending} onToggle={onTogglePlayed} compact />
     </div>
   );
 }
