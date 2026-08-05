@@ -543,7 +543,7 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 |---|---|:---:|:---:|:---:|:---:|---|
 | `myRole` | MyRole | Y | N | P0 | 제공 | `HOST` 또는 `JOINED` |
 | `participationStatus` | ParticipationStatus | Y | Y | P0 | 제공 | `myRole = JOINED`이면 항상 `ACTIVE`, `HOST`이면 `null` |
-| `chatAvailable` | boolean | Y | N | P1 | 구현 예정 | 현재 요청자가 채팅방에 진입할 수 있는지. `HOST` 또는 `ACTIVE` 참가자이고 방 상태가 `RECRUITING`·`CLOSED`일 때만 `true` |
+| `chatAvailable` | boolean | Y | N | P1 | 제공 | 현재 요청자가 채팅방에 진입할 수 있는지. `HOST` 또는 `ACTIVE` 참가자이고 방 상태가 `RECRUITING`·`CLOSED`일 때만 `true` |
 
 `joinable`과 `waitlistable`은 `PublicRoomResponse`와 같은 요청자 기준 값이다. 내 모임은 주최·참가 ROOM만 반환하므로 두 값은 항상 `false`이고, 대기 중인 ROOM을 조회 대상에 추가하지 않는다. `chatAvailable = false`인 항목은 채팅 진입을 표시하지 않으며, 직접 채팅 API를 호출해도 서버가 같은 관계·상태 규칙으로 거절한다. 참가 취소 관계와 `CANCELED`·`FINISHED` 방은 채팅 진입 대상에서 제외한다.
 

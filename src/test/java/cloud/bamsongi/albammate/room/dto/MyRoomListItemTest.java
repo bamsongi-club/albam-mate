@@ -1,6 +1,8 @@
 package cloud.bamsongi.albammate.room.dto;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -47,5 +49,46 @@ class MyRoomListItemTest {
 		assertEquals(2, response.remainingRecruitmentSeats());
 		assertEquals(MyRole.JOINED, response.myRole());
 		assertEquals(ParticipationStatus.ACTIVE, response.participationStatus());
+	}
+
+	@Test
+	void 방_생성자는_RECRUITING_상태에서_chatAvailable_true를_받는다() {
+		Room room = mock(Room.class);
+		when(room.getStatus()).thenReturn(RoomStatus.RECRUITING);
+
+		MyRoomListItem response = MyRoomListItem.from(
+			room, null, RoomActionAvailability.UNAVAILABLE, MyRole.HOST, null);
+
+		assertTrue(response.chatAvailable());
+	}
+
+	@Test
+	void 현재_ACTIVE_참가자는_CLOSED_상태에서_chatAvailable_true를_받는다() {
+		Room room = mock(Room.class);
+		when(room.getStatus()).thenReturn(RoomStatus.CLOSED);
+
+		MyRoomListItem response = MyRoomListItem.from(
+			room, null, RoomActionAvailability.UNAVAILABLE, MyRole.JOINED, ParticipationStatus.ACTIVE);
+
+		assertTrue(response.chatAvailable());
+	}
+
+	@Test
+	void CANCELED_또는_FINISHED_상태는_주최자와_참가자_모두_chatAvailable_false다() {
+		Room canceledRoom = mock(Room.class);
+		when(canceledRoom.getStatus()).thenReturn(RoomStatus.CANCELED);
+		Room finishedRoom = mock(Room.class);
+		when(finishedRoom.getStatus()).thenReturn(RoomStatus.FINISHED);
+
+		assertFalse(
+			MyRoomListItem
+				.from(canceledRoom, null, RoomActionAvailability.UNAVAILABLE, MyRole.HOST, null)
+				.chatAvailable());
+		assertFalse(
+			MyRoomListItem
+				.from(
+					finishedRoom, null, RoomActionAvailability.UNAVAILABLE, MyRole.JOINED,
+					ParticipationStatus.ACTIVE)
+				.chatAvailable());
 	}
 }
