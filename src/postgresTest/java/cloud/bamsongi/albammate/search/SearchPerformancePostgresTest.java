@@ -4,6 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -11,13 +15,21 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
+
+import javax.sql.DataSource;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,10 +38,15 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Bean;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -44,7 +61,9 @@ import cloud.bamsongi.albammate.global.response.PageResponse;
 import cloud.bamsongi.albammate.room.dto.PublicRoomResponse;
 import cloud.bamsongi.albammate.room.dto.RoomListRequest;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
+import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
+import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.service.query.RoomListQueryService;
 
 @Testcontainers
@@ -71,6 +90,10 @@ class SearchPerformancePostgresTest {
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+	@Autowired
+	private RoomRepository roomRepository;
+	@Autowired
+	private QueryPlanCapture queryPlanCapture;
 	@Autowired
 	private GameQueryService gameQueryService;
 	@Autowired
@@ -244,7 +267,33 @@ class SearchPerformancePostgresTest {
 		assertIndexExists(ROOM_INDEX);
 		assertRoomIndexDefinition();
 		assertFalse(indexExists(GAME_INDEX));
-		assertTrue(explainPreparedPublicRoomQuery().contains(ROOM_INDEX));
+		List<CapturedQuery> queries = queryPlanCapture.capture(() -> roomRepository.findPublicRooms(
+			null,
+			null,
+			false,
+			"",
+			false,
+			ROOM_START,
+			false,
+			ROOM_START,
+			false,
+			0,
+			Set.of(ExperienceLevel.ALL_LEVELS, ExperienceLevel.BEGINNER_WELCOME, ExperienceLevel.EXPERIENCED_PREFERRED),
+			false,
+			Set.of(RoomStatus.RECRUITING, RoomStatus.CLOSED),
+			PageRequest.of(0, 25, Sort.by(Sort.Order.asc("startAt"), Sort.Order.asc("id")))));
+		CapturedQuery contentQuery = queries.stream()
+			.filter(query -> !query.countQuery())
+			.findFirst()
+			.orElseThrow(() -> new AssertionError("RoomRepository content SQL plan was not captured"));
+		CapturedQuery countQuery = queries.stream()
+			.filter(CapturedQuery::countQuery)
+			.findFirst()
+			.orElseThrow(() -> new AssertionError("RoomRepository count SQL plan was not captured"));
+		assertTrue(contentQuery.sql().toLowerCase(Locale.ROOT).contains(" from rooms "), contentQuery.sql());
+		assertTrue(contentQuery.plan().contains(ROOM_INDEX), contentQuery.plan());
+		assertPlanFields(contentQuery.plan());
+		assertPlanFields(countQuery.plan());
 	}
 
 	@Test
@@ -420,35 +469,6 @@ class SearchPerformancePostgresTest {
 
 	private String explain(String sql) {
 		return jdbcTemplate.queryForObject("explain (analyze, buffers, format json) " + sql, String.class);
-	}
-
-	private String explainPreparedPublicRoomQuery() {
-		return jdbcTemplate.queryForObject("""
-			explain (analyze, buffers, format json)
-			select room.id
-			from rooms room
-			where (cast(? as varchar) is null or room.room_type = ?)
-			  and room.status in (?, ?)
-			  and (cast(? as bigint) is null or room.game_id = ?)
-			  and (? = false or lower(room.title) like concat('%', lower(?), '%') escape '!')
-			  and (? = false or room.start_at >= ?)
-			  and (? = false or room.start_at < ?)
-			  and (? = false or room.capacity - room.active_participant_count >= ?)
-			  and room.experience_level in (?, ?, ?)
-			  and (? = false or room.is_rulemaster_led = true)
-			order by room.start_at, room.id
-			limit ? offset ?
-			""", String.class,
-			null, null,
-			"RECRUITING", "CLOSED",
-			null, null,
-			false, "",
-			false, ROOM_START_UTC,
-			false, ROOM_START_UTC,
-			false, 0,
-			"ALL_LEVELS", "BEGINNER_WELCOME", "EXPERIENCED_PREFERRED",
-			false,
-			25, 0);
 	}
 
 	private void assertIndexExists(String index) {
@@ -672,6 +692,219 @@ class SearchPerformancePostgresTest {
 		assertTrue(plan.contains("Planning Time"));
 		assertTrue(plan.contains("Execution Time"));
 		assertTrue(plan.contains("Shared Hit Blocks"));
+	}
+
+	@TestConfiguration(proxyBeanMethods = false)
+	static class QueryPlanCaptureConfiguration {
+
+		@Bean
+		QueryPlanCapture queryPlanCapture() {
+			return new QueryPlanCapture();
+		}
+
+		@Bean
+		static BeanPostProcessor queryPlanCaptureDataSourcePostProcessor(QueryPlanCapture capture) {
+			return new BeanPostProcessor() {
+
+				@Override
+				public Object postProcessAfterInitialization(Object bean, String beanName) {
+					if ("dataSource".equals(beanName) && bean instanceof DataSource dataSource) {
+						return capture.wrap(dataSource);
+					}
+					return bean;
+				}
+			};
+		}
+	}
+
+	static class QueryPlanCapture {
+
+		private final ThreadLocal<CaptureSession> currentSession = new ThreadLocal<>();
+
+		DataSource wrap(DataSource dataSource) {
+			return (DataSource)Proxy.newProxyInstance(
+				DataSource.class.getClassLoader(),
+				new Class<?>[] {DataSource.class},
+				new DataSourceInvocationHandler(dataSource, this));
+		}
+
+		<T> List<CapturedQuery> capture(Supplier<T> action) {
+			CaptureSession session = new CaptureSession();
+			currentSession.set(session);
+			try {
+				action.get();
+				return List.copyOf(session.queries());
+			} finally {
+				currentSession.remove();
+			}
+		}
+
+		private Connection wrap(Connection connection) {
+			return (Connection)Proxy.newProxyInstance(
+				Connection.class.getClassLoader(),
+				new Class<?>[] {Connection.class},
+				new ConnectionInvocationHandler(connection, this));
+		}
+
+		private PreparedStatement wrap(Connection connection, PreparedStatement statement, String sql) {
+			return (PreparedStatement)Proxy.newProxyInstance(
+				PreparedStatement.class.getClassLoader(),
+				new Class<?>[] {PreparedStatement.class},
+				new PreparedStatementInvocationHandler(connection, statement, sql, this));
+		}
+
+		private void explain(Connection connection, String sql, List<ParameterBinding> bindings) {
+			CaptureSession session = currentSession.get();
+			if (session == null || !isRoomRepositoryQuery(sql)) {
+				return;
+			}
+			try (PreparedStatement statement = connection.prepareStatement(
+				"explain (analyze, buffers, format json) " + sql)) {
+				for (ParameterBinding binding : bindings) {
+					binding.apply(statement);
+				}
+				try (ResultSet resultSet = statement.executeQuery()) {
+					if (!resultSet.next()) {
+						throw new SQLException("EXPLAIN returned no plan");
+					}
+					session.queries().add(new CapturedQuery(sql, resultSet.getString(1)));
+				}
+			} catch (SQLException exception) {
+				throw new AssertionError("Failed to capture the RoomRepository execution plan", exception);
+			}
+		}
+
+		private boolean isRoomRepositoryQuery(String sql) {
+			String normalized = sql.toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
+			return normalized.startsWith("select ") && normalized.contains(" from rooms ");
+		}
+	}
+
+	private static Object invokeTarget(Object target, Method method, Object[] arguments) throws Throwable {
+		try {
+			return method.invoke(target, arguments);
+		} catch (InvocationTargetException exception) {
+			throw exception.getCause();
+		}
+	}
+
+	private static final class DataSourceInvocationHandler implements InvocationHandler {
+
+		private final DataSource delegate;
+		private final QueryPlanCapture capture;
+
+		private DataSourceInvocationHandler(DataSource delegate, QueryPlanCapture capture) {
+			this.delegate = delegate;
+			this.capture = capture;
+		}
+
+		@Override
+		public Object invoke(Object proxy, Method method, Object[] arguments) throws Throwable {
+			Object result = invokeTarget(delegate, method, arguments);
+			return method.getName().equals("getConnection") && result instanceof Connection connection
+				? capture.wrap(connection)
+				: result;
+		}
+	}
+
+	private static final class ConnectionInvocationHandler implements InvocationHandler {
+
+		private final Connection delegate;
+		private final QueryPlanCapture capture;
+
+		private ConnectionInvocationHandler(Connection delegate, QueryPlanCapture capture) {
+			this.delegate = delegate;
+			this.capture = capture;
+		}
+
+		@Override
+		public Object invoke(Object proxy, Method method, Object[] arguments) throws Throwable {
+			Object result = invokeTarget(delegate, method, arguments);
+			if (method.getName().equals("prepareStatement")
+				&& arguments != null
+				&& arguments.length > 0
+				&& arguments[0] instanceof String sql
+				&& result instanceof PreparedStatement statement) {
+				return capture.wrap(delegate, statement, sql);
+			}
+			return result;
+		}
+	}
+
+	private static final class PreparedStatementInvocationHandler implements InvocationHandler {
+
+		private final Connection connection;
+		private final PreparedStatement delegate;
+		private final String sql;
+		private final QueryPlanCapture capture;
+		private final List<ParameterBinding> bindings = new ArrayList<>();
+
+		private PreparedStatementInvocationHandler(
+			Connection connection, PreparedStatement delegate, String sql, QueryPlanCapture capture) {
+			this.connection = connection;
+			this.delegate = delegate;
+			this.sql = sql;
+			this.capture = capture;
+		}
+
+		@Override
+		public Object invoke(Object proxy, Method method, Object[] arguments) throws Throwable {
+			Object result;
+			if (isParameterBinding(method, arguments)) {
+				result = invokeTarget(delegate, method, arguments);
+				bindings.add(new ParameterBinding(method, arguments.clone()));
+				return result;
+			}
+			if (isQueryExecution(method, arguments)) {
+				capture.explain(connection, sql, bindings);
+			}
+			return invokeTarget(delegate, method, arguments);
+		}
+
+		private boolean isParameterBinding(Method method, Object[] arguments) {
+			return method.getName().startsWith("set")
+				&& arguments != null
+				&& arguments.length >= 2
+				&& arguments[0] instanceof Integer;
+		}
+
+		private boolean isQueryExecution(Method method, Object[] arguments) {
+			return (method.getName().equals("executeQuery") || method.getName().equals("execute"))
+				&& (arguments == null || arguments.length == 0);
+		}
+	}
+
+	private record ParameterBinding(Method method, Object[] arguments) {
+
+		private void apply(PreparedStatement statement) throws SQLException {
+			try {
+				method.invoke(statement, arguments);
+			} catch (IllegalAccessException exception) {
+				throw new SQLException("Could not copy JDBC parameter binding", exception);
+			} catch (InvocationTargetException exception) {
+				Throwable cause = exception.getCause();
+				if (cause instanceof SQLException sqlException) {
+					throw sqlException;
+				}
+				throw new SQLException("Could not copy JDBC parameter binding", cause);
+			}
+		}
+	}
+
+	private record CapturedQuery(String sql, String plan) {
+
+		private boolean countQuery() {
+			return sql.toLowerCase(Locale.ROOT).contains("count(");
+		}
+	}
+
+	private static final class CaptureSession {
+
+		private final List<CapturedQuery> queries = new ArrayList<>();
+
+		private List<CapturedQuery> queries() {
+			return queries;
+		}
 	}
 
 	private record Scenario(String name, String contentSql, String countSql) {
