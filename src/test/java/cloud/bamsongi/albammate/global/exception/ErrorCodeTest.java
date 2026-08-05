@@ -30,6 +30,9 @@ class ErrorCodeTest {
 			Map.entry(
 				ErrorCode.RATE_LIMIT_EXCEEDED,
 				"인증 요청 처리 한도를 초과했습니다. 잠시 후 다시 시도해 주세요."),
+			Map.entry(
+				ErrorCode.SERVICE_UNAVAILABLE,
+				"현재 서비스를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요."),
 			Map.entry(ErrorCode.GAME_NOT_FOUND, "게임을 찾을 수 없습니다."),
 			Map.entry(ErrorCode.ROOM_NOT_FOUND, "방을 찾을 수 없습니다."),
 			Map.entry(ErrorCode.NOTIFICATION_NOT_FOUND, "알림을 찾을 수 없습니다."),
@@ -61,6 +64,7 @@ class ErrorCodeTest {
 			Map.entry(ErrorCode.SOCIAL_PROVIDER_NOT_AVAILABLE, HttpStatus.NOT_FOUND),
 			Map.entry(ErrorCode.SOCIAL_ACCOUNT_ALREADY_LINKED, HttpStatus.CONFLICT),
 			Map.entry(ErrorCode.RATE_LIMIT_EXCEEDED, HttpStatus.TOO_MANY_REQUESTS),
+			Map.entry(ErrorCode.SERVICE_UNAVAILABLE, HttpStatus.SERVICE_UNAVAILABLE),
 			Map.entry(ErrorCode.GAME_NOT_FOUND, HttpStatus.NOT_FOUND),
 			Map.entry(ErrorCode.ROOM_NOT_FOUND, HttpStatus.NOT_FOUND),
 			Map.entry(ErrorCode.NOTIFICATION_NOT_FOUND, HttpStatus.NOT_FOUND),

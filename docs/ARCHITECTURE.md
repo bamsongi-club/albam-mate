@@ -447,9 +447,6 @@ Repository Projection은 쿼리가 선택한 열을 담는 저장소 계층 타�
 - Chat 코드를 `entity`·`repository` 허용 패키지에만 배치
 - P1 Notification 코드를 조회·변경·relay·recovery·cleanup 책임에 맞는 허용 패키지에만 배치
 - Retrier 직접 사용자를 `RoomCommandExecutionCoordinator`, `RoomStatusCorrectionCoordinator`로 제한
-
-현재 `infra` 패키지가 없으므로 다음 규칙은 P1 구현 시 같은 변경에서 ArchUnit으로 추가하고 위의 현재 목록으로 옮긴다.
-
 - `infra`가 업무 모듈의 `contract` 밖 내부 구현에 의존하지 않는다.
 - 업무 모듈이 `infra`의 구체 구현을 참조하지 않는다.
 
