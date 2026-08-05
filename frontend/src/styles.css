@@ -219,12 +219,16 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .cap { color: var(--brown2); font-size: 12.5px; font-weight: 800; }
 .sfoot { align-items: center; color: var(--sub); display: flex; flex-wrap: wrap; font-size: 12px; gap: 7px; }
 
-/* 카드 전체가 링크라 채팅 진입은 카드 밖에 둔다. */
-.my-room-entry { display: grid; gap: 8px; grid-template-rows: 1fr auto; }
 .chat-entry { justify-self: start; }
 .chat-log { display: grid; gap: 10px; list-style: none; }
-.chat-message { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.chat-message { border: 1px solid var(--line); border-radius: 12px; max-width: min(82%, 620px); padding: 12px 14px; }
+.chat-message.mine { background: var(--amber-soft); justify-self: end; }
+.chat-message.theirs { background: var(--card); justify-self: start; }
 .chat-message-head { align-items: baseline; display: flex; font-size: 13.5px; gap: 8px; }
+.chat-compose { background: var(--card); border: 1px solid var(--line); border-radius: 12px; display: grid; gap: 8px; margin-top: 16px; padding: 14px; }
+.chat-compose textarea { min-height: 72px; }
+.chat-compose-actions { align-items: center; display: flex; justify-content: space-between; }
+.chat-load-more { display: block; margin: 0 auto 14px; }
 .chat-time { color: var(--gray); font-size: 12px; }
 .chat-content { font-size: 14px; margin-top: 6px; overflow-wrap: anywhere; white-space: pre-wrap; }
 

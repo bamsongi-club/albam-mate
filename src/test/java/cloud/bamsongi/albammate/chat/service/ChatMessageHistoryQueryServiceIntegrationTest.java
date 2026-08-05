@@ -84,9 +84,24 @@ class ChatMessageHistoryQueryServiceIntegrationTest {
 		assertEquals(messageIds.get(messageIds.size() - 1), page.messages().get(0).messageId());
 		assertEquals(messageIds.get(1), page.messages().get(49).messageId());
 		assertEquals(messageIds.get(1), page.nextBeforeMessageId());
+		assertTrue(page.messages().stream().allMatch(message -> message.isMine()));
 		for (int i = 0; i < page.messages().size() - 1; i++) {
 			assertTrue(page.messages().get(i).messageId() > page.messages().get(i + 1).messageId());
 		}
+	}
+
+	@Test
+	void 현재_요청자와_다른_발신자를_isMine으로_구분한다() {
+		long hostUserId = insertUser("host");
+		long otherUserId = insertUser("same-nickname");
+		Room room = createChatRoom(hostUserId);
+		insertMessages(room.getId(), hostUserId, 1);
+		insertMessages(room.getId(), otherUserId, 1);
+
+		ChatMessagePageResponse page = chatMessageHistoryQueryService.history(hostUserId, room.getId(), null, 50);
+
+		assertFalse(page.messages().get(0).isMine());
+		assertTrue(page.messages().get(1).isMine());
 	}
 
 	@Test

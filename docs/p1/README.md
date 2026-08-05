@@ -36,10 +36,10 @@ P1 저장 계약의 준비 상태는 기능별로 다르다. 알림 저장 계�
 | [`NOTI-02`](notification.md#noti-02-내-알림-목록미확인-개수) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
 | [`NOTI-03`](notification.md#noti-03-알림-읽음-처리) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
 | [`CHAT-01`](chatting.md#chat-01-채팅방-생성접근) | 선행 계약 필요 | 부분 구현 ([#279](https://github.com/bamsongi-club/albam-mate/issues/279)) | 부분 검증 ([#279](https://github.com/bamsongi-club/albam-mate/issues/279)) | 미배포·미측정 |
-| [`CHAT-02`](chatting.md#chat-02-메시지-전송이력-조회) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
+| [`CHAT-02`](chatting.md#chat-02-메시지-전송이력-조회) | 계약 준비 완료 | 구현 완료 ([#427](https://github.com/bamsongi-club/albam-mate/issues/427)) | 검증 완료 ([#427](https://github.com/bamsongi-club/albam-mate/issues/427): 백엔드 전체 테스트·프론트 자동화 테스트·Vite build) | 미배포·미측정 |
 | [`CHAT-03`](chatting.md#chat-03-실시간-전달재연결-복구) | 선행 계약 필요 | 부분 구현 ([#285](https://github.com/bamsongi-club/albam-mate/issues/285)) | 부분 검증 ([#285](https://github.com/bamsongi-club/albam-mate/issues/285)) | 미배포·미측정 |
 | [`CHAT-04`](chatting.md#chat-04-채팅-안전운영) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |
-| [`CHAT-05`](chatting.md#chat-05-내-모임-채팅-진입) | 계약 준비 완료 | 구현 완료 ([#290](https://github.com/bamsongi-club/albam-mate/issues/290), [#291](https://github.com/bamsongi-club/albam-mate/issues/291)) | 검증 완료 ([#290](https://github.com/bamsongi-club/albam-mate/issues/290), [#291](https://github.com/bamsongi-club/albam-mate/issues/291)) | 미배포·미측정 |
+| [`CHAT-05`](chatting.md#chat-05-내-모임-채팅-진입) | 계약 준비 완료 | 구현 완료 ([#290](https://github.com/bamsongi-club/albam-mate/issues/290), [#427](https://github.com/bamsongi-club/albam-mate/issues/427)) | 검증 완료 ([#290](https://github.com/bamsongi-club/albam-mate/issues/290), [#427](https://github.com/bamsongi-club/albam-mate/issues/427)) | 미배포·미측정 |
 | [`FND-09`](foundation.md#fnd-09-검색-성능과-인덱스-검증) | 선행 기능 계약 대기 | 미구현 | 미검증 | 미배포·미측정 |
 | [`FND-10`](foundation.md#fnd-10-실시간-전달과-재연결-기반) | 계약 준비 완료 | 부분 구현 ([#360](https://github.com/bamsongi-club/albam-mate/issues/360)) | 부분 검증 ([#360](https://github.com/bamsongi-club/albam-mate/issues/360)) | 미배포·미측정 |
 

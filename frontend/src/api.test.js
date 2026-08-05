@@ -258,3 +258,28 @@ describe('방 목록 검색 API', () => {
     expect(requestedUrl(fetchMock)).toBe('/api/rooms?page=0&size=12');
   });
 });
+
+describe('채팅 API', () => {
+  it('메시지 이력 커서와 크기를 query parameter로 전달한다', async () => {
+    const fetchMock = stubFetch();
+
+    await api.getChatMessages('7', { beforeMessageId: 42, size: 20 });
+
+    expect(requestedUrl(fetchMock)).toBe('/api/rooms/7/chat/messages?beforeMessageId=42&size=20');
+  });
+
+  it('메시지 전송은 CSRF 토큰과 clientMessageId를 함께 보낸다', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'csrf-token' }))
+      .mockResolvedValueOnce(successfulResponse({ messageId: 8 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await api.sendChatMessage('7', { clientMessageId: 'retry-key', content: '안녕하세요' });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/rooms/7/chat/messages', expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'csrf-token' }),
+      body: JSON.stringify({ clientMessageId: 'retry-key', content: '안녕하세요' })
+    }));
+  });
+});
