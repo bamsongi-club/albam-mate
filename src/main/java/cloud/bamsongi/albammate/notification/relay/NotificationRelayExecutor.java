@@ -30,7 +30,6 @@ public class NotificationRelayExecutor {
 	@NonNull private final NotificationOutboxEventRepository eventRepository;
 	@NonNull private final NotificationOutboxRecipientRepository recipientRepository;
 	@NonNull private final NotificationRepository notificationRepository;
-	@NonNull private final NotificationEventTypeMapper eventTypeMapper;
 
 	/** 처리 가능한 가장 이른 이벤트 하나만 독립 트랜잭션에서 처리한다. */
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -60,7 +59,7 @@ public class NotificationRelayExecutor {
 		if (!operationTime.isBefore(event.getOccurredAt().plus(Duration.ofDays(90)))) {
 			throw NotificationRelayProcessingException.expired(event.getId());
 		}
-		NotificationType notificationType = eventTypeMapper.map(event.getEventType());
+		NotificationType notificationType = event.getEventType().toNotificationType();
 		List<Long> recipientUserIds = recipientRepository.findRecipientUserIdsByOutboxEventId(event.getId());
 		if (recipientUserIds.isEmpty()) {
 			throw new IllegalStateException("claimed notification outbox event has no recipients");
