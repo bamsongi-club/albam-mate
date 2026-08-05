@@ -166,14 +166,17 @@ function requestedUrl(fetchMock) {
 }
 
 describe('게임 목록 검색 API', () => {
-  it('인원·시간·복잡도 필터를 계약된 이름과 값으로 전달한다', async () => {
+  it('인원 범위·시간·복잡도 필터를 계약된 이름과 값으로 전달한다', async () => {
     const fetchMock = stubFetch();
 
     await api.getGames({
       keyword: '루미',
       upcomingOnly: true,
-      playerCount: '10',
-      playTime: 'MEDIUM',
+      playerCountMin: '2',
+      playerCountMax: '4',
+      playerCountExact: true,
+      exclusivePlayerCount: [],
+      playTime: ['UP_TO_10', 'AT_LEAST_90'],
       complexityMin: '2',
       complexityMax: '4',
       page: 0,
@@ -181,7 +184,19 @@ describe('게임 목록 검색 API', () => {
     });
 
     expect(requestedUrl(fetchMock)).toBe(
-      '/api/games?keyword=%EB%A3%A8%EB%AF%B8&upcomingOnly=true&playerCount=10&playTime=MEDIUM&complexityMin=2&complexityMax=4&page=0&size=24'
+      '/api/games?keyword=%EB%A3%A8%EB%AF%B8&upcomingOnly=true&playerCountMin=2&playerCountMax=4'
+        + '&playerCountExact=true&playTime=UP_TO_10&playTime=AT_LEAST_90'
+        + '&complexityMin=2&complexityMax=4&page=0&size=24'
+    );
+  });
+
+  it('전용 인원은 같은 이름을 반복해 전달한다', async () => {
+    const fetchMock = stubFetch();
+
+    await api.getGames({ exclusivePlayerCount: ['1', '2'], playTime: [], page: 0, size: 24 });
+
+    expect(requestedUrl(fetchMock)).toBe(
+      '/api/games?exclusivePlayerCount=1&exclusivePlayerCount=2&page=0&size=24'
     );
   });
 
@@ -191,15 +206,75 @@ describe('게임 목록 검색 API', () => {
     await api.getGames({
       keyword: '',
       upcomingOnly: false,
-      playerCount: '',
-      playTime: '',
+      playerCountMin: '',
+      playerCountMax: '',
+      playerCountExact: false,
+      exclusivePlayerCount: [],
+      playTime: [],
       complexityMin: '',
       complexityMax: '',
       page: 0,
       size: 24
     });
 
-    expect(requestedUrl(fetchMock)).toBe('/api/games?upcomingOnly=false&page=0&size=24');
+    expect(requestedUrl(fetchMock)).toBe('/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24');
+  });
+
+  it('메커니즘은 같은 이름을 반복해 전달한다', async () => {
+    const fetchMock = stubFetch();
+
+    await api.getGames({ exclusivePlayerCount: [], playTime: [], mechanism: ['HAND_MANAGEMENT', 'DICE_ROLLING'], page: 0, size: 24 });
+
+    expect(requestedUrl(fetchMock)).toBe(
+      '/api/games?mechanism=HAND_MANAGEMENT&mechanism=DICE_ROLLING&page=0&size=24'
+    );
+  });
+});
+
+describe('해 본 게임 API', () => {
+  it('관계 필터는 단일 값으로 전달하고 선택하지 않으면 생략한다', async () => {
+    const fetchMock = stubFetch();
+
+    await api.getGames({ exclusivePlayerCount: [], playTime: [], mechanism: [], playedFilter: 'PLAYED_ONLY', page: 0, size: 24 });
+
+    expect(requestedUrl(fetchMock)).toBe('/api/games?playedFilter=PLAYED_ONLY&page=0&size=24');
+  });
+
+  it('표시·취소는 mutate 경계에서 현재 CSRF 토큰을 전송한다', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'current-csrf-token' }))
+      .mockResolvedValueOnce(successfulResponse({ gameId: 7, playedByMe: true }))
+      .mockResolvedValueOnce(successfulResponse({ gameId: 7, playedByMe: false }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(api.markGamePlayed(7)).resolves.toEqual({ gameId: 7, playedByMe: true });
+    await expect(api.unmarkGamePlayed(7)).resolves.toEqual({ gameId: 7, playedByMe: false });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/users/me/played-games/7',
+      expect.objectContaining({ method: 'PUT', credentials: 'include', headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'current-csrf-token' }) })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      '/api/users/me/played-games/7',
+      expect.objectContaining({ method: 'DELETE', credentials: 'include', headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'current-csrf-token' }) })
+    );
+  });
+});
+
+describe('게임 메커니즘 선택지 API', () => {
+  it('공개 선택지를 조건 없는 GET 경로로 조회한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(successfulResponse([]));
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await api.getGameMechanisms(controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/game-mechanisms',
+      expect.objectContaining({ method: 'GET', credentials: 'include', signal: controller.signal })
+    );
   });
 });
 
