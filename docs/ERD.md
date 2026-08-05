@@ -319,6 +319,8 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 | created_at | TIMESTAMPTZ | NN | 생성 시각 |
 | updated_at | TIMESTAMPTZ | NN | 수정 시각 |
 
+`idx_rooms_public_start_at_id (start_at, id) WHERE status IN ('RECRUITING', 'CLOSED')`는 공개 방의 날짜 범위와 `startsAt ASC, id ASC` 페이지를 위한 PostgreSQL 전용 부분 인덱스다.
+
 ### PARTICIPATIONS
 
 개설자는 이 테이블에 넣지 않는다. 이 테이블은 개설자 외 사용자의 방 참가 관계만 저장한다.

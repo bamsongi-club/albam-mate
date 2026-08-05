@@ -3,11 +3,17 @@ package cloud.bamsongi.albammate.room;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -22,8 +28,13 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -31,12 +42,16 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import cloud.bamsongi.albammate.global.exception.BusinessException;
+import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.entity.RoomWaitlist;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
+import cloud.bamsongi.albammate.room.service.command.RoomWaitlistCommandService;
 
 @Testcontainers
 @SpringBootTest
+@Import(RoomWaitlistConcurrencyPostgresTest.WaitlistQueueConflictConfiguration.class)
 class RoomWaitlistConcurrencyPostgresTest {
 
 	private static final String POSTGRES_IMAGE = "postgres:18.4";
@@ -58,6 +73,10 @@ class RoomWaitlistConcurrencyPostgresTest {
 	private JdbcTemplate jdbcTemplate;
 	@Autowired
 	private DataSource dataSource;
+	@Autowired
+	private RoomWaitlistCommandService roomWaitlistCommandService;
+	@Autowired
+	private QueueOrderConflictGate queueOrderConflictGate;
 
 	private long roomId;
 	private long firstUserId;
@@ -197,6 +216,30 @@ class RoomWaitlistConcurrencyPostgresTest {
 		assertTrue(roomWaitlistRepository.getNextQueueOrder() > consumedQueueOrder);
 	}
 
+	@Test
+	void T5_실제_WAITING_순번_UNIQUE_충돌은_독립_세번_시도마다_롤백한다() {
+		jdbcTemplate.update("update rooms set active_participant_count = capacity, status = 'CLOSED' where id = ?",
+			roomId);
+		new TransactionTemplate(transactionManager).executeWithoutResult(
+			status -> roomWaitlistRepository.saveAndFlush(RoomWaitlist.create(roomId, firstUserId, 10L, REQUEST_TIME)));
+		queueOrderConflictGate.returnDuplicateQueueOrder(10L);
+
+		BusinessException exception = new TransactionTemplate(transactionManager).execute(status -> {
+			BusinessException thrown = org.junit.jupiter.api.Assertions.assertThrows(
+				BusinessException.class,
+				() -> roomWaitlistCommandService.register(secondUserId, roomId));
+			assertTrue(!status.isRollbackOnly());
+			return thrown;
+		});
+
+		assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, exception.getErrorCode());
+		assertEquals(3, queueOrderConflictGate.getIssuedDuplicateQueueOrderCount());
+		assertEquals(0L, jdbcTemplate.queryForObject("select version from rooms where id = ?", Long.class, roomId));
+		assertEquals(0, jdbcTemplate.queryForObject(
+			"select count(*) from room_waitlists where room_id = ? and user_id = ?", Integer.class, roomId,
+			secondUserId));
+	}
+
 	private boolean saveAfterRoomClaim(long userId, CountDownLatch claimStarted) throws Exception {
 		return new TransactionTemplate(transactionManager).execute(status -> {
 			Long version = jdbcTemplate.queryForObject("select version from rooms where id = ?", Long.class, roomId);
@@ -301,5 +344,81 @@ class RoomWaitlistConcurrencyPostgresTest {
 			Timestamp.from(REQUEST_TIME),
 			Timestamp.from(REQUEST_TIME));
 		return jdbcTemplate.queryForObject("select id from rooms where host_user_id = ?", Long.class, hostUserId);
+	}
+
+	@TestConfiguration(proxyBeanMethods = false)
+	static class WaitlistQueueConflictConfiguration {
+
+		@Bean
+		@Primary
+		Clock fixedClock() {
+			return Clock.fixed(REQUEST_TIME, ZoneOffset.UTC);
+		}
+
+		@Bean
+		QueueOrderConflictGate queueOrderConflictGate() {
+			return new QueueOrderConflictGate();
+		}
+
+		@Bean(name = "queueOrderConflictRoomWaitlistRepository")
+		@Primary
+		RoomWaitlistRepository queueOrderConflictRoomWaitlistRepository(
+			@Qualifier("roomWaitlistRepository") RoomWaitlistRepository delegate,
+			QueueOrderConflictGate queueOrderConflictGate) {
+			InvocationHandler handler = new QueueOrderConflictRepositoryInvocationHandler(delegate,
+				queueOrderConflictGate);
+			return (RoomWaitlistRepository)Proxy.newProxyInstance(
+				RoomWaitlistRepository.class.getClassLoader(),
+				new Class<?>[] {RoomWaitlistRepository.class},
+				handler);
+		}
+	}
+
+	static final class QueueOrderConflictGate {
+
+		private Long duplicateQueueOrder;
+		private int issuedDuplicateQueueOrderCount;
+
+		void returnDuplicateQueueOrder(long queueOrder) {
+			duplicateQueueOrder = queueOrder;
+			issuedDuplicateQueueOrderCount = 0;
+		}
+
+		long replaceIssuedQueueOrder(long issuedQueueOrder) {
+			if (duplicateQueueOrder == null) {
+				return issuedQueueOrder;
+			}
+			issuedDuplicateQueueOrderCount++;
+			return duplicateQueueOrder;
+		}
+
+		int getIssuedDuplicateQueueOrderCount() {
+			return issuedDuplicateQueueOrderCount;
+		}
+	}
+
+	private static final class QueueOrderConflictRepositoryInvocationHandler implements InvocationHandler {
+
+		private final RoomWaitlistRepository delegate;
+		private final QueueOrderConflictGate queueOrderConflictGate;
+
+		private QueueOrderConflictRepositoryInvocationHandler(
+			RoomWaitlistRepository delegate, QueueOrderConflictGate queueOrderConflictGate) {
+			this.delegate = delegate;
+			this.queueOrderConflictGate = queueOrderConflictGate;
+		}
+
+		@Override
+		public Object invoke(Object proxy, Method method, Object[] arguments) throws Throwable {
+			try {
+				Object result = method.invoke(delegate, arguments);
+				if (method.getName().equals("getNextQueueOrder")) {
+					return queueOrderConflictGate.replaceIssuedQueueOrder((long)result);
+				}
+				return result;
+			} catch (InvocationTargetException exception) {
+				throw exception.getCause();
+			}
+		}
 	}
 }

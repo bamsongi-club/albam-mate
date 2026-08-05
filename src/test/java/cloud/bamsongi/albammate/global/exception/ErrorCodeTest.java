@@ -47,6 +47,8 @@ class ErrorCodeTest {
 			Map.entry(ErrorCode.CAPACITY_EXCEEDED, "모집 가능한 인원을 초과했습니다."),
 			Map.entry(ErrorCode.ROOM_NOT_RECRUITING, "현재 모집 중인 방이 아닙니다."),
 			Map.entry(ErrorCode.ALREADY_PARTICIPATING, "이미 참가 중인 방입니다."),
+			Map.entry(ErrorCode.WAITLIST_NOT_AVAILABLE, "현재 대기 등록을 할 수 없습니다."),
+			Map.entry(ErrorCode.WAITLIST_ENTRY_NOT_FOUND, "현재 대기 정보를 찾을 수 없습니다."),
 			Map.entry(ErrorCode.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다."));
 		Map<ErrorCode, HttpStatus> expectedStatuses = Map.ofEntries(
 			Map.entry(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST),
@@ -77,6 +79,8 @@ class ErrorCodeTest {
 			Map.entry(ErrorCode.CAPACITY_EXCEEDED, HttpStatus.CONFLICT),
 			Map.entry(ErrorCode.ROOM_NOT_RECRUITING, HttpStatus.CONFLICT),
 			Map.entry(ErrorCode.ALREADY_PARTICIPATING, HttpStatus.CONFLICT),
+			Map.entry(ErrorCode.WAITLIST_NOT_AVAILABLE, HttpStatus.CONFLICT),
+			Map.entry(ErrorCode.WAITLIST_ENTRY_NOT_FOUND, HttpStatus.NOT_FOUND),
 			Map.entry(
 				ErrorCode.INTERNAL_SERVER_ERROR, HttpStatus.INTERNAL_SERVER_ERROR));
 

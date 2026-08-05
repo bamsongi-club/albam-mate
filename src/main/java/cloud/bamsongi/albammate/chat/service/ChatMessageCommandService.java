@@ -74,7 +74,7 @@ public class ChatMessageCommandService {
 		if (!existing.getContent().equals(content)) {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
 		}
-		return new ChatMessageSendResult(ChatMessageResponse.from(existing, roomId, nickname), false);
+		return new ChatMessageSendResult(ChatMessageResponse.from(existing, roomId, nickname, true), false);
 	}
 
 	private ChatMessageSendResult saveNewMessage(
@@ -91,7 +91,7 @@ public class ChatMessageCommandService {
 				ChatMessage.create(chatRoom.getId(), currentUserId, clientMessageId, content, Instant.now(clock)));
 			registerReservationReleaseOnRollback(releaseOnce);
 			eventPublisher.publishEvent(MessageCommitted.messageCreated(roomId, saved.getId()));
-			return new ChatMessageSendResult(ChatMessageResponse.from(saved, roomId, nickname), true);
+			return new ChatMessageSendResult(ChatMessageResponse.from(saved, roomId, nickname, true), true);
 		} catch (RuntimeException exception) {
 			releaseOnce.run();
 			throw exception;
