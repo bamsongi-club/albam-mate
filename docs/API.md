@@ -551,15 +551,15 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 
 `GET /api/users/me/rooms`의 각 항목이며, `PublicRoomResponse`의 모든 필드에 다음을 추가한다. 정확한 `place`와 참가자 목록은 내 모임 이력에도 포함하지 않는다.
 
-> `chatAvailable`은 현재 응답에 포함되지 않는다. `필수`·`nullable`은 제공 전환 뒤의 목표 스키마다. 상속 필드의 상태는 `PublicRoomResponse` 표를 따른다.
+> 상속 필드의 상태는 `PublicRoomResponse` 표를 따른다.
 
 | 필드 | 타입 | 필수 | nullable | 도입 단계 | 제공 상태 | 설명 |
 |---|---|:---:|:---:|:---:|:---:|---|
 | `myRole` | MyRole | Y | N | P0 | 제공 | `HOST` 또는 `JOINED` |
 | `participationStatus` | ParticipationStatus | Y | Y | P0 | 제공 | `myRole = JOINED`이면 항상 `ACTIVE`, `HOST`이면 `null` |
-| `chatAvailable` | boolean | Y | N | P1 | 제공 | 현재 요청자가 채팅방에 진입할 수 있는지. `HOST` 또는 `ACTIVE` 참가자이고 방 상태가 `RECRUITING`·`CLOSED`일 때만 `true` |
+| `chatAvailable` | boolean | Y | N | P1 | 제공 | 현재 요청자가 채팅 API에 접근할 수 있는지. `HOST` 또는 `ACTIVE` 참가자이고 방 상태가 `RECRUITING`·`CLOSED`일 때만 `true`. 프론트엔드의 직접 진입점은 모임 상세이며 내 모임 목록에서는 이 필드로 채팅 버튼을 표시하지 않는다 |
 
-`joinable`과 `waitlistable`은 `PublicRoomResponse`와 같은 요청자 기준 값이다. 내 모임은 주최·참가 ROOM만 반환하므로 두 값은 항상 `false`이고, 대기 중인 ROOM을 조회 대상에 추가하지 않는다. `chatAvailable = false`인 항목은 채팅 진입을 표시하지 않으며, 직접 채팅 API를 호출해도 서버가 같은 관계·상태 규칙으로 거절한다. 참가 취소 관계와 `CANCELED`·`FINISHED` 방은 채팅 진입 대상에서 제외한다.
+`joinable`과 `waitlistable`은 `PublicRoomResponse`와 같은 요청자 기준 값이다. 내 모임은 주최·참가 ROOM만 반환하므로 두 값은 항상 `false`이고, 대기 중인 ROOM을 조회 대상에 추가하지 않는다. `chatAvailable`은 서버 접근 가능성의 계약 일치를 위한 값이며, 채팅 버튼은 모임 상세의 `myRole`·방 상태 기준으로 표시한다. 내 모임 목록에는 중복 채팅 진입을 표시하지 않으며, 직접 채팅 API를 호출해도 서버가 같은 관계·상태 규칙으로 거절한다.
 
 ### 4.11 RoomStatusResponse
 
@@ -615,6 +615,7 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 | `roomId` | integer | Y | N | 채팅 대상 방 ID |
 | `clientMessageId` | string | Y | N | 클라이언트가 재시도 멱등성에 사용하는 1~100자 식별자 |
 | `sender` | NicknameSummary | Y | N | 작성자 표시명 |
+| `isMine` | boolean | Y | N | 서버가 현재 요청자와 발신자가 같은지 계산한 값. 사용자 ID는 노출하지 않는다 |
 | `content` | string | Y | N | 앞뒤 공백 제거 후 1~500자의 일반 텍스트 |
 | `createdAt` | string(date-time) | Y | N | 서버가 저장한 시각 |
 
@@ -1935,7 +1936,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 
 `METHOD_NOT_ALLOWED`, `NOT_ACCEPTABLE`, `UNSUPPORTED_MEDIA_TYPE` 응답은 Spring MVC 예외가 제공하는 `Allow`, `Accept`, `Accept-Patch` 등의 프로토콜 헤더가 있으면 그대로 포함한다.
 
-`SERVICE_UNAVAILABLE`의 현재 적용 범위는 [채팅 API](#채팅-공통-계약)의 세 엔드포인트다. `local-multi`와 `prod`에서 채팅 요청이 Spring Session Redis의 세션 상태를 확인할 수 없으면 이 코드를 반환하며, 메시지 전송은 세션 저장소가 정상이더라도 전송 제한 상태 저장소를 확인할 수 없으면 저장 전에 같은 코드를 반환한다. 전송 제한 장애의 503에는 `Retry-After`를 포함하지 않는다. Redis 장애 시 인메모리 구현으로 자동 대체하지 않는 근거는 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)과 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)을 따른다.
+`SERVICE_UNAVAILABLE`의 현재 적용 범위는 [채팅 API](#채팅-공통-계약)의 세 엔드포인트다. `local-multi`에서 채팅 요청이 Spring Session Redis의 세션 상태를 확인할 수 없으면 이 코드를 반환하며, 메시지 전송은 세션 저장소가 정상이더라도 전송 제한 상태 저장소를 확인할 수 없으면 저장 전에 같은 코드를 반환한다. 전송 제한 장애의 503에는 `Retry-After`를 포함하지 않는다. Redis 장애 시 인메모리 구현으로 자동 대체하지 않는 근거는 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)과 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)을 따른다. `prod` 적용은 별도 운영 설정·계약 확정 후 다룬다.
 
 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트로 이 코드를 확장할지는 이 문서에서 아직 결정하지 않는다. 확장이 필요하면 적용 엔드포인트를 명시한 별도 계약 변경으로 승인받은 뒤 이 절과 [엔드포인트별 오류 매트릭스](#11-부록-엔드포인트별-오류-매트릭스)를 함께 갱신한다.
 

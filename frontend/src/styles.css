@@ -47,11 +47,11 @@ button { background: none; border: 0; color: inherit; cursor: pointer; font: inh
 input, select, textarea {
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: 999px;
   color: var(--ink);
   font: inherit;
   font-size: 14px;
-  padding: 9px 12px;
+  padding: 9px 16px;
   width: 100%;
 }
 textarea { min-height: 88px; resize: vertical; }
@@ -137,6 +137,10 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .pagination .page-btn:disabled { cursor: not-allowed; opacity: 0.45; }
 .pagination .page-ellipsis { color: var(--sub); font-weight: 800; padding: 0 2px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; }
+.auth-modal-backdrop { align-items: center; background: rgba(55, 46, 35, 0.55); display: flex; inset: 0; justify-content: center; overflow-y: auto; padding: 24px; position: fixed; z-index: 40; }
+.auth-modal { background: var(--card); border-radius: 20px; box-shadow: 0 24px 60px rgba(55, 46, 35, 0.35); margin: auto; max-width: 420px; padding: 60px 36px; position: relative; width: 100%; }
+.auth-modal-close { align-items: center; border-radius: 999px; color: var(--sub); display: inline-flex; font-size: 22px; height: 32px; justify-content: center; line-height: 1; position: absolute; right: 14px; top: 14px; width: 32px; }
+.auth-modal-close:hover { background: var(--soft); color: var(--brown); }
 .hero { padding: 38px 34px; text-align: center; }
 .hero > p { color: var(--sub); margin-top: 10px; text-wrap: balance; }
 .hero-search { margin: 22px auto 0; }
@@ -165,6 +169,7 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .btn:active, .modecard:active { transform: translateY(1px); }
 .btn.big { font-size: 15px; padding: 13px; width: 100%; }
 .btn.ghost { background: #fff; border: 1.5px solid var(--line); color: var(--brown2); }
+.btn.pill { border-radius: 999px; }
 .btn.green { background: var(--green); }
 .btn.redline { background: #fff; border: 1.5px solid var(--red-soft); color: var(--red); }
 .hint { color: var(--sub); font-size: 12px; margin-top: 4px; }
@@ -191,9 +196,37 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .social-link-row { align-items: center; display: flex; font-size: 14px; font-weight: 700; gap: 12px; justify-content: space-between; min-height: 44px; }
 .social-link-row + .social-link-row { border-top: 1px solid var(--line); }
 .social-link-state { color: var(--sub); font-size: 13px; font-weight: 700; }
-.social-auth { border-top: 1px solid var(--line); display: grid; gap: 8px; margin-top: 20px; padding-top: 16px; }
-.social-auth-label { color: var(--sub); font-size: 13px; font-weight: 700; }
-.social-auth-btn { width: 100%; }
+.social-auth { display: flex; gap: 16px; justify-content: center; margin-top: 22px; }
+.social-auth-btn { align-items: center; border-radius: 50%; display: flex; height: 48px; justify-content: center; padding: 0; transition: transform 0.15s; width: 48px; }
+.social-auth-btn:hover { transform: translateY(-2px); }
+.social-auth-btn.google { background: #f2f2f2; border: 1px solid #e0e0e0; color: #37352f; }
+.social-auth-btn.naver { background: #03c75a; border: none; color: #fff; }
+.social-auth-btn.kakao { background: #fee500; border: none; color: #391b1b; }
+.social-auth-icon { display: inline-flex; flex: 0 0 auto; }
+.auth-divider { align-items: center; color: var(--sub); display: flex; font-size: 12px; font-weight: 700; gap: 10px; margin: 34px 0; }
+.auth-divider::before, .auth-divider::after { background: var(--line); content: ''; flex: 1; height: 1px; }
+.auth-email-header { align-items: center; display: flex; gap: 10px; margin-bottom: 28px; }
+.auth-email-brand { display: inline-flex; flex: 0 0 auto; height: 24px; overflow: hidden; width: 24px; }
+.auth-email-brand img { display: block; height: 32px; transform: translate(-4px, -4px); width: 32px; }
+.auth-email-title { flex: 1; font-size: 14px; font-weight: 700; }
+.auth-remember { align-items: center; display: inline-flex; gap: 8px; }
+.auth-remember span { color: var(--sub); font-size: 12.5px; font-weight: 700; }
+.auth-remember input { position: absolute; opacity: 0; pointer-events: none; }
+.auth-remember-track { background: var(--line); border-radius: 999px; display: inline-block; height: 22px; position: relative; transition: background-color 0.15s; width: 40px; }
+.auth-remember-track::after { background: #fff; border-radius: 50%; box-shadow: 0 1px 2px rgba(55, 46, 35, 0.3); content: ''; height: 18px; left: 2px; position: absolute; top: 2px; transition: transform 0.15s; width: 18px; }
+.auth-remember input:checked + .auth-remember-track { background: var(--accent); }
+.auth-remember input:checked + .auth-remember-track::after { transform: translateX(18px); }
+.auth-password-field { position: relative; }
+.auth-password-field input { padding-right: 42px; }
+.auth-password-toggle { align-items: center; color: var(--sub); display: inline-flex; height: 32px; justify-content: center; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); width: 32px; }
+.auth-password-toggle:hover { color: var(--brown); }
+.auth-modal input:focus-visible, .auth-modal select:focus-visible, .auth-modal textarea:focus-visible { outline: none; }
+.signup-page input:focus-visible { outline: none; }
+.sr-only { border: 0; clip: rect(0, 0, 0, 0); height: 1px; margin: -1px; overflow: hidden; padding: 0; position: absolute; white-space: nowrap; width: 1px; }
+.auth-modal input, .signup-page input { background: var(--soft); border-color: transparent; }
+.auth-modal input::placeholder, .signup-page input::placeholder { color: var(--sub); }
+.auth-switch-link { color: var(--sub); display: block; font-size: 13px; margin-top: 30px; text-align: center; }
+.auth-switch-link u { color: var(--accent-dark); font-weight: 800; }
 .infobox-action { color: var(--accent-dark); font-weight: 800; }
 .infobox-action:hover { text-decoration: underline; }
 .banner { border-radius: 12px; font-size: 14px; font-weight: 800; margin-bottom: 16px; padding: 11px 16px; }
@@ -211,6 +244,26 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .gen, .smeta { color: var(--sub); font-size: 12.5px; }
 .gmeta { color: var(--brown2); font-size: 12.5px; font-weight: 700; margin: 6px 0 7px; }
 .gsess { color: var(--green); font-size: 12px; font-weight: 800; margin-top: 8px; }
+/* 해 본 게임 조작은 링크 안에 넣을 수 없어 카드 껍데기가 테두리를 쥐고 링크는 내용만 감싼다. */
+.gcard-shell { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); display: flex; flex-direction: column; padding: 16px; position: relative; transition: transform 0.15s, border-color 0.15s; }
+.gcard-shell:hover { border-color: var(--accent); transform: translateY(-2px); }
+.gcard-shell .gcard { background: none; border: 0; border-radius: 0; box-shadow: none; display: flex; flex: 1; flex-direction: column; padding: 0; transition: none; }
+.gcard-shell .gcard:hover { border-color: transparent; transform: none; }
+/* 한글명과 영문명을 한 줄에 두고, 자리가 모자라면 영문명부터 줄인다. */
+.gcard-shell .gtitle { align-items: baseline; display: flex; gap: 6px; overflow: hidden; white-space: nowrap; }
+.gcard-shell .gname { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
+.gcard-shell .gtitle .gen { flex: 0 1 auto; font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+/* 조건은 한 줄로 자른다. 줄 수가 게임마다 달라지면 카드 높이가 어긋난다. */
+.gcard-shell .gmeta { margin: 7px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gcard-shell .gsess { margin-top: auto; padding-top: 9px; }
+.played-toggle { background: var(--card); border: 1px solid var(--line); border-radius: 999px; color: var(--brown2); font-size: 12.5px; font-weight: 800; padding: 7px 13px; }
+.played-toggle:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-dark); }
+.played-toggle.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.played-toggle:disabled { opacity: 0.55; }
+/* 목록 카드에서는 표지 오른쪽 위 점 하나로 둔다. 어떤 표지 위에서도 보이게 흰 테두리를 준다. */
+.played-toggle.dot { background: rgba(255, 255, 255, 0.82); border: 2px solid #fff; box-shadow: 0 1px 4px rgba(60, 40, 25, 0.3); height: 20px; padding: 0; position: absolute; right: 25px; top: 25px; width: 20px; z-index: 1; }
+.played-toggle.dot:hover:not(:disabled) { background: #fff; border-color: var(--accent); }
+.played-toggle.dot.on { background: var(--accent); border-color: #fff; }
 .scard-top { align-items: flex-start; display: flex; gap: 12px; }
 .gemoji { align-items: center; background: var(--soft); border-radius: 10px; display: flex; flex: 0 0 52px; font-size: 29px; height: 52px; justify-content: center; width: 52px; }
 .srow { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; margin: 11px 0 9px; }
@@ -218,6 +271,19 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .seat.f { background: var(--accent); border-color: var(--accent); }
 .cap { color: var(--brown2); font-size: 12.5px; font-weight: 800; }
 .sfoot { align-items: center; color: var(--sub); display: flex; flex-wrap: wrap; font-size: 12px; gap: 7px; }
+
+.chat-entry { justify-self: start; }
+.chat-log { display: grid; gap: 10px; list-style: none; }
+.chat-message { border: 1px solid var(--line); border-radius: 12px; max-width: min(82%, 620px); padding: 12px 14px; }
+.chat-message.mine { background: var(--amber-soft); justify-self: end; }
+.chat-message.theirs { background: var(--card); justify-self: start; }
+.chat-message-head { align-items: baseline; display: flex; font-size: 13.5px; gap: 8px; }
+.chat-compose { background: var(--card); border: 1px solid var(--line); border-radius: 12px; display: grid; gap: 8px; margin-top: 16px; padding: 14px; }
+.chat-compose textarea { min-height: 72px; }
+.chat-compose-actions { align-items: center; display: flex; justify-content: space-between; }
+.chat-load-more { display: block; margin: 0 auto 14px; }
+.chat-time { color: var(--gray); font-size: 12px; }
+.chat-content { font-size: 14px; margin-top: 6px; overflow-wrap: anywhere; white-space: pre-wrap; }
 
 .detail-head { align-items: flex-start; display: flex; gap: 20px; }
 .dart { align-items: center; background: var(--soft); border-radius: 18px; display: flex; flex: 0 0 112px; font-size: 54px; height: 112px; justify-content: center; overflow: hidden; width: 112px; }
@@ -322,11 +388,37 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .filter-option { align-items: center; color: var(--ink); display: flex; font-size: 13.5px; font-weight: 600; gap: 9px; margin-bottom: 0; min-height: 29px; }
 .filter-option input { accent-color: var(--accent); height: 16px; margin: 0; width: 16px; }
 .filter-option-picker { margin-top: 9px; }
+.filter-range { align-items: center; display: flex; gap: 7px; }
+.filter-range input { min-width: 0; padding: 8px 10px; text-align: center; }
+.filter-range-dash, .filter-range-unit { color: var(--brown2); flex: none; font-size: 13px; font-weight: 700; }
+.filter-group-divider { border: 0; border-top: 1px dashed var(--line); margin: 13px 0 11px; }
 .filter-panel-foot { border-top: 1px solid var(--line); display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; padding-top: 14px; }
 .filter-reset { color: var(--accent-dark); font-size: 13px; font-weight: 900; padding: 0 6px; }
 .filter-reset:hover { text-decoration: underline; }
 .filter-close { background: var(--soft); border-radius: 6px; color: var(--brown2); font-size: 13px; font-weight: 800; padding: 9px 20px; }
 .filter-close:hover { background: var(--line); }
+/* 선택지가 많아 한 칼럼에 세우면 조건 목록이 길어진다. 패널 전체 너비를 쓰고 가로로 흘린다. */
+.mechanism-group { grid-column: 1 / -1; }
+.mechanism-featured-list { display: flex; flex-wrap: wrap; gap: 2px 20px; }
+.mechanism-featured { align-items: center; display: flex; gap: 5px; }
+/* 말풍선은 아이콘을 기준으로 띄우고 조건 목록의 높이를 바꾸지 않는다. */
+.mechanism-hint { flex: none; line-height: 0; position: relative; }
+.mechanism-hint-button { align-items: center; background: var(--soft); border-radius: 999px; color: var(--brown2); display: inline-flex; font-size: 11px; font-weight: 900; height: 18px; justify-content: center; width: 18px; }
+.mechanism-hint-button:hover, .mechanism-hint.on .mechanism-hint-button { background: var(--accent); color: #fff; }
+.mechanism-hint-text { background: var(--brown); border-radius: 8px; bottom: calc(100% + 7px); color: #fff; display: none; font-size: 12.5px; font-weight: 600; left: 50%; line-height: 1.5; padding: 9px 11px; position: absolute; transform: translateX(-50%); width: 208px; z-index: 5; }
+/* 누른 상태와 키보드 focus는 어디서나 연다. `:focus-visible`이라 tap·클릭 focus로는 열리지 않는다. */
+.mechanism-hint.on .mechanism-hint-text,
+.mechanism-hint-button:focus-visible + .mechanism-hint-text { display: block; }
+/* hover 규칙은 마우스가 있는 화면에만 준다. 터치에서 hover가 눌러붙어 닫히지 않는 상태를 막는다. */
+@media (hover: hover) {
+  .mechanism-hint:hover .mechanism-hint-text { display: block; }
+}
+.mechanism-more { color: var(--accent-dark); font-size: 13px; font-weight: 800; margin-top: 11px; padding: 0; text-align: left; }
+.mechanism-more:hover { text-decoration: underline; }
+.mechanism-advanced { border-top: 1px dashed var(--line); margin-top: 10px; padding-top: 12px; }
+.mechanism-search { max-width: 280px; padding: 8px 10px; width: 100%; }
+.mechanism-advanced-list { display: flex; flex-wrap: wrap; gap: 2px 20px; margin-top: 10px; max-height: 268px; overflow-y: auto; }
+.mechanism-advanced .filter-close { display: none; }
 .list-swappable { transition: opacity 0.15s ease; }
 .create-submit { width: 100%; }
 .create-note b { display: block; margin-bottom: 7px; }
@@ -338,8 +430,8 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .inline-search button { align-items: center; color: var(--sub); display: flex; flex: 0 0 auto; justify-content: center; padding: 0 14px; }
 .inline-search button:hover { color: var(--accent); }
 .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-.tabs button { background: #fff; border: 1.5px solid var(--line); border-radius: 999px; color: var(--sub); font-size: 14px; font-weight: 800; padding: 9px 18px; }
-.tabs button.on { background: var(--brown); border-color: var(--brown); color: #fff; }
+.tabs button, .tabs a { background: #fff; border: 1.5px solid var(--line); border-radius: 999px; color: var(--sub); font-size: 14px; font-weight: 800; padding: 9px 18px; }
+.tabs button.on, .tabs a.on { background: var(--brown); border-color: var(--brown); color: #fff; }
 #toast { background: var(--brown); border-radius: 999px; bottom: 34px; box-shadow: 0 6px 20px rgba(40, 25, 10, 0.3); color: #fff; font-size: 14px; font-weight: 800; left: 50%; max-width: 88vw; opacity: 0; padding: 12px 22px; pointer-events: none; position: fixed; text-align: center; transform: translateX(-50%) translateY(20px); transition: 0.25s; z-index: 20; }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 #toast.err { background: var(--red); }
@@ -410,6 +502,14 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
   .filter-groups { grid-template-columns: repeat(2, 1fr); }
   .filter-option { min-height: 36px; }
   .filter-toggle, .filter-chip { min-height: 40px; }
+  /* 좁은 화면에서는 고급 목록을 전체 화면으로 열어 검색과 목록에 자리를 준다. */
+  .mechanism-advanced { background: var(--card); border: 0; border-radius: 0; bottom: 0; display: flex; flex-direction: column; left: 0; margin: 0; overflow-y: auto; padding: 16px; position: fixed; right: 0; top: 0; z-index: 40; }
+  .mechanism-search { max-width: none; }
+  .mechanism-advanced-list { align-content: flex-start; flex: 1 1 auto; max-height: none; }
+  .mechanism-advanced .filter-close { display: block; margin-top: 12px; min-height: 44px; }
+  .mechanism-hint-button { height: 26px; width: 26px; }
+  .mechanism-hint-text { width: 60vw; }
+  .played-toggle { min-height: 40px; }
   .pagination { gap: 8px; }
   .checkline { min-height: 44px; }
   .checkline input { height: 20px; width: 20px; }

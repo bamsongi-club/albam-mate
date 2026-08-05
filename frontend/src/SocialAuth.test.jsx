@@ -36,25 +36,25 @@ afterEach(() => {
 
 describe('#334 T1 로그인 화면의 제공자 표시와 authorization 경로', () => {
   it('설정된 제공자만 서버가 준 순서로 표시한다', () => {
-    render(<AuthView onLogin={vi.fn()} onSignup={vi.fn()} socialProviders={[GOOGLE_NOT_LINKED, KAKAO_NOT_LINKED]} onSocialLogin={vi.fn()} />);
+    render(<AuthView onLogin={vi.fn()} socialProviders={[GOOGLE_NOT_LINKED, KAKAO_NOT_LINKED]} onSocialLogin={vi.fn()} />);
 
-    const buttons = screen.getAllByRole('button', { name: /로 로그인$/ });
-    expect(buttons.map((button) => button.textContent)).toEqual(['Google로 로그인', 'Kakao로 로그인']);
-    expect(screen.queryByRole('button', { name: 'Naver로 로그인' })).toBeNull();
+    const buttons = screen.getAllByRole('button', { name: /로 계속하기$/ });
+    expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual(['Google로 계속하기', 'Kakao로 계속하기']);
+    expect(screen.queryByRole('button', { name: 'Naver로 계속하기' })).toBeNull();
   });
 
   it('설정된 제공자가 없으면 소셜 로그인 영역을 표시하지 않는다', () => {
-    render(<AuthView onLogin={vi.fn()} onSignup={vi.fn()} socialProviders={[]} onSocialLogin={vi.fn()} />);
+    render(<AuthView onLogin={vi.fn()} socialProviders={[]} onSocialLogin={vi.fn()} />);
 
-    expect(screen.queryByRole('button', { name: /로 로그인$/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /로 계속하기$/ })).toBeNull();
     expect(screen.getByLabelText('이메일')).toBeTruthy();
   });
 
   it('제공자를 선택하면 해당 제공자로 로그인 시작을 요청한다', () => {
     const onSocialLogin = vi.fn();
-    render(<AuthView onLogin={vi.fn()} onSignup={vi.fn()} socialProviders={[GOOGLE_NOT_LINKED]} onSocialLogin={onSocialLogin} />);
+    render(<AuthView onLogin={vi.fn()} socialProviders={[GOOGLE_NOT_LINKED]} onSocialLogin={onSocialLogin} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Google로 로그인' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Google로 계속하기' }));
 
     expect(onSocialLogin).toHaveBeenCalledWith('GOOGLE');
   });

@@ -136,6 +136,33 @@ class ModuleArchitectureTest {
 	}
 
 	@Test
+	void infra는_업무_모듈의_contract만_참조한다() {
+		for (String targetModule : BUSINESS_MODULES) {
+			noClasses()
+				.that()
+				.resideInAPackage(ROOT_PACKAGE + ".infra..")
+				.should()
+				.dependOnClassesThat(
+					resideInAPackage(modulePackage(targetModule))
+						.and(resideOutsideOfPackage(contractPackage(targetModule))))
+				.because("infra는 업무 모듈의 contract를 통해서만 참조한다")
+				.check(PRODUCTION_CLASSES);
+		}
+	}
+
+	@Test
+	void 업무_모듈은_infra_구체_구현을_참조하지_않는다() {
+		noClasses()
+			.that()
+			.resideInAnyPackage(BUSINESS_MODULE_PACKAGES)
+			.should()
+			.dependOnClassesThat()
+			.resideInAPackage(ROOT_PACKAGE + ".infra..")
+			.because("업무 모듈은 infra의 구체 구현을 직접 참조하지 않는다")
+			.check(PRODUCTION_CLASSES);
+	}
+
+	@Test
 	void production_코드는_Autowired를_사용하지_않는다() {
 		classes()
 			.should(notUseAutowired())

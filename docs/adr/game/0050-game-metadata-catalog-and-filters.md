@@ -65,7 +65,7 @@
 
 - 얻는 것: 170,000개 게임에서 의미가 분리된 다중 메타데이터, 한글 선택지와 정확한 복합 필터를 제공한다.
 - 감수할 비용·위험: XML snapshot·한글 사전·manifest 품질을 지속해서 검수하고 대용량 적재·성능 측정을 수행해야 한다.
-- 후속 작업: V18, JPA·API, 수집·정규화·UPSERT 도구, PostgreSQL 검증과 170,000행 실행 계획을 구현한다.
+- 후속 작업: V20, JPA·API, 수집·정규화·UPSERT 도구, PostgreSQL 검증과 170,000행 실행 계획을 구현한다.
 
 ## 보류 및 재검토
 
@@ -83,6 +83,6 @@
 ## 검증
 
 - 상태: 검증됨
-- 근거: V18 관계 제약·renderer 수렴/롤백 PostgreSQL 검증, 선택지·상세·OR·AND·ANY·ALL HTTP·PostgreSQL 검증, 170,000행 PostgreSQL 실행 계획 측정. 상세 수치와 명령은 [성능 측정 기록](../../game-catalog/2026-08-05-game-metadata-filter-performance.md)을 따른다.
+- 근거: V20 관계 제약·renderer 수렴/롤백 PostgreSQL 검증, 선택지·상세·OR·AND·ANY·ALL HTTP·PostgreSQL 검증, 170,000행 PostgreSQL 실행 계획 측정. 상세 수치와 명령은 [성능 측정 기록](../../game-catalog/2026-08-05-game-metadata-filter-performance.md)을 따른다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

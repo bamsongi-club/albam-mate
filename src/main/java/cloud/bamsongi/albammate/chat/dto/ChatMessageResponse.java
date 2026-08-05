@@ -10,15 +10,17 @@ public record ChatMessageResponse(
 	long roomId,
 	String clientMessageId,
 	ChatMessageSender sender,
+	boolean isMine,
 	String content,
 	Instant createdAt) {
 
-	public static ChatMessageResponse from(ChatMessage message, long roomId, String nickname) {
+	public static ChatMessageResponse from(ChatMessage message, long roomId, String nickname, boolean isMine) {
 		return new ChatMessageResponse(
 			message.getId(),
 			roomId,
 			message.getClientMessageId(),
 			new ChatMessageSender(nickname),
+			isMine,
 			message.getContent(),
 			message.getCreatedAt());
 	}

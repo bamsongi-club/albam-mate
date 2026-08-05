@@ -265,7 +265,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 
 | 영역 | 현재 파일 |
 | --- | --- |
-| 게임 메타데이터 저장 모델 | 신규 category·theme·player preference Entity·Repository와 V18 전진 마이그레이션 |
+| 게임 메타데이터 저장 모델 | 신규 category·theme·player preference Entity·Repository와 V20 전진 마이그레이션 |
 | 게임 요청·응답 | `game/dto/GameListRequest.java`, `game/dto/GameDetail.java`, 신규 category/theme option·summary DTO |
 | 게임 HTTP·조회 | `game/controller/GameController.java`, 신규 category/theme Controller, `game/service/GameListSearchCriteria.java`, `game/service/GameQueryService.java` |
 | 해 본 게임 관계 | 신규 Entity·Repository·Service와 `USER_PLAYED_GAMES` 전진 마이그레이션 |

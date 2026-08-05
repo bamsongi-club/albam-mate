@@ -23,11 +23,64 @@ const GAME_LIST_PAGE_SIZE = 24;
 const ROOM_LIST_PAGE_SIZE = 12;
 const loadFirstNotificationPage = (signal) => api.getNotifications({ page: 0, size: 10 }, signal);
 const GAME_SEARCH_DEBOUNCE_MS = 250;
+// 인원 숫자 입력은 마지막 입력 뒤 이 시간이 지나면 조회한다. 체크박스는 기다리지 않는다.
+const GAME_NUMBER_FILTER_DEBOUNCE_MS = 400;
 // 회원가입 비밀번호 한도는 서버 검증 규칙과 같은 값을 쓴다. 한쪽만 바뀌면 안내와 결과가 어긋난다.
 const PASSWORD_MIN_CODE_POINTS = 15;
 const PASSWORD_MAX_CODE_POINTS = 64;
 const PASSWORD_MAX_UTF8_BYTES = 72;
 const SOCIAL_PROVIDER_LABEL = { GOOGLE: 'Google', NAVER: 'Naver', KAKAO: 'Kakao' };
+function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="26" height="26" aria-hidden="true">
+      <path fill="#4285F4" d="M19.6 10.23c0-.68-.06-1.33-.17-1.96H10v3.71h5.4a4.62 4.62 0 0 1-2 3.03v2.52h3.24c1.9-1.75 2.96-4.33 2.96-7.3z" />
+      <path fill="#34A853" d="M10 20c2.7 0 4.96-.89 6.62-2.42l-3.24-2.52c-.9.6-2.05.96-3.38.96-2.6 0-4.8-1.75-5.59-4.11H1.06v2.6A10 10 0 0 0 10 20z" />
+      <path fill="#FBBC05" d="M4.41 11.9A5.99 5.99 0 0 1 4.09 10c0-.66.11-1.3.32-1.9V5.5H1.06A9.98 9.98 0 0 0 0 10c0 1.61.39 3.14 1.06 4.5l3.35-2.6z" />
+      <path fill="#EA4335" d="M10 3.96c1.47 0 2.79.5 3.83 1.49l2.87-2.87C14.95.98 12.7 0 10 0 6.09 0 2.71 2.24 1.06 5.5l3.35 2.6C5.2 5.71 7.4 3.96 10 3.96z" />
+    </svg>
+  );
+}
+function NaverIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="35" height="35" aria-hidden="true">
+      <rect width="20" height="20" rx="4" fill="#03C75A" />
+      <path fill="#fff" d="M11.6 5v5.3L8.4 5H6v10h2.4v-5.3l3.2 5.3H14V5z" />
+    </svg>
+  );
+}
+function KakaoIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="35" height="35" aria-hidden="true">
+      <circle cx="10" cy="10" r="10" fill="#FEE500" />
+      <path fill="#391B1B" d="M10 4.8c-3.31 0-6 2.13-6 4.76 0 1.7 1.14 3.2 2.85 4.05-.13.46-.46 1.63-.53 1.88-.08.31.11.31.24.22.1-.07 1.62-1.1 2.28-1.55.37.05.75.08 1.16.08 3.31 0 6-2.13 6-4.76s-2.69-4.68-6-4.68z" />
+    </svg>
+  );
+}
+const SOCIAL_PROVIDER_ICON = { GOOGLE: <GoogleIcon />, NAVER: <NaverIcon />, KAKAO: <KakaoIcon /> };
+function EyeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+function EyeOffIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a18.6 18.6 0 0 1 4.22-5.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a18.6 18.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  );
+}
+
+// 채팅 진입은 서버가 매 요청마다 다시 판정한다. 거절 사유는 코드로만 구분해 안내한다.
+const CHAT_ACCESS_MESSAGE = {
+  FORBIDDEN: '지금은 이 모임의 채팅에 들어갈 수 없어요. 참가 중인 모집 중·마감 모임에서만 채팅할 수 있어요.',
+  ROOM_NOT_FOUND: '모임을 찾을 수 없어 채팅을 열 수 없어요.',
+  VALIDATION_ERROR: '채팅 주소가 올바르지 않아요.'
+};
+const createClientMessageId = () => globalThis.crypto?.randomUUID?.() || 'chat-' + Date.now() + '-' + Math.random().toString(36).slice(2);
 // callback이 돌려주는 고정 결과다. 여기 없는 값과 제공자 오류 설명은 해석하지도 보여주지도 않는다.
 const SOCIAL_AUTH_RESULT = {
   'login-success': { message: '로그인했어요.', type: '' },
@@ -61,24 +114,52 @@ const EMPTY_ROOM_FILTERS = {
   experienceLevel: '',
   rulemasterOnly: false
 };
-// 게임 필터 상태는 쿼리 파라미터 이름과 값을 그대로 쓴다. 빈 문자열은 조건 없음이라 요청에서 빠진다.
+// 게임 필터 상태는 쿼리 파라미터 이름과 값을 그대로 쓴다. 빈 문자열과 빈 배열은 조건 없음이라 요청에서 빠진다.
 const EMPTY_GAME_FILTERS = {
-  playerCount: '',
-  playTime: '',
+  playerCountMin: '',
+  playerCountMax: '',
+  playerCountExact: false,
+  exclusivePlayerCount: [],
+  playTime: [],
   complexityMin: '',
   complexityMax: '',
+  mechanism: [],
+  // 관계 필터는 한 값만 쓴다. 빈 값이 `전체`이며 요청에서 빠진다.
+  playedFilter: '',
   upcomingOnly: false
 };
 const EMPTY_GAME_FILTER_KEY = JSON.stringify(EMPTY_GAME_FILTERS);
-// 10은 정확히 10명이 아니라 최대 가능 인원이 10 이상이라는 뜻이다.
-const PLAYER_COUNT_OPTIONS = [
-  ...Array.from({ length: 9 }, (_, index) => ({ value: index + 1, label: index + 1 + '명' })),
-  { value: 10, label: '10명 이상' }
+const EMPTY_PLAYER_COUNT_RANGE = { playerCountMin: '', playerCountMax: '', playerCountExact: false };
+// 계약의 허용값은 1인과 2인뿐이다.
+const EXCLUSIVE_PLAYER_COUNT_OPTIONS = [
+  { value: '1', label: '1인 전용' },
+  { value: '2', label: '2인 전용' }
+];
+// 관계 필터는 게임 난이도와 같은 단일 선택이다. 둘 이상의 관계 조건을 만들지 않는다.
+const PLAYED_FILTER_OPTIONS = [
+  { value: '', label: '전체' },
+  { value: 'PLAYED_ONLY', label: '해 본 게임만' },
+  { value: 'EXCLUDE_PLAYED', label: '해 본 게임 제외' }
 ];
 const PLAY_TIME_LABEL = {
-  SHORT: '20분 이하',
-  MEDIUM: '20분 초과 60분 이하',
-  LONG: '60분 초과'
+  UP_TO_10: '10분 이내',
+  OVER_10_TO_20: '10~20분',
+  OVER_20_TO_30: '20~30분',
+  OVER_30_TO_60: '30~60분',
+  OVER_60_UNDER_90: '60~90분',
+  AT_LEAST_90: '90분 이상'
+};
+/*
+ * 대표 메커니즘 설명은 계약이 고정한 `featuredOrder`에 맞춰 둔다.
+ * 선택지 API는 코드·표시명·대표 순서만 반환하고 설명을 담지 않으므로 화면이 문구를 가진다.
+ * `2` 주사위 굴림, `4` 협력 게임, `5` 타일 놓기는 표시명이 곧 동작이라 설명을 두지 않는다.
+ */
+const MECHANISM_FEATURED_DESCRIPTIONS = {
+  1: '손에 든 패를 잘 활용해야 해요',
+  3: '같은 종류끼리 모으면 좋아요',
+  6: '할 때마다 판이 다르게 꾸며져요',
+  7: '혼자서도 즐길 수 있어요',
+  8: '자리를 먼저 차지하는 게 중요해요'
 };
 // 난이도 점대는 계약의 닫힌 구간 하한·상한으로 보낸다. 5점만 있는 마지막 칸은 상한도 5다.
 const COMPLEXITY_BANDS = [
@@ -264,7 +345,9 @@ function normalizeGameSummary(game) {
     upcomingRoomCount: Number(game.upcomingRoomCount || 0),
     alias: game.alias || null,
     description: game.description || '',
-    detailDescription: game.detailDescription || ''
+    detailDescription: game.detailDescription || '',
+    // 비로그인 응답의 `null`은 관계 없음이 아니라 아직 판정하지 않은 상태다. 그대로 둔다.
+    playedByMe: game.playedByMe ?? null
   };
 }
 
@@ -438,7 +521,8 @@ const SECTION_ICONS = {
   games: <><rect x="3" y="3" width="18" height="18" rx="4" /><circle cx="8.5" cy="8.5" r="1.1" /><circle cx="15.5" cy="8.5" r="1.1" /><circle cx="8.5" cy="15.5" r="1.1" /><circle cx="15.5" cy="15.5" r="1.1" /></>,
   list: <><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3.5 6h.01" /><path d="M3.5 12h.01" /><path d="M3.5 18h.01" /></>,
   calendar: <><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M8 3v4" /><path d="M16 3v4" /><path d="M3 10h18" /></>,
-  pencil: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></>
+  pencil: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></>,
+  chat: <path d="M20 12a7 7 0 0 1-7 7H9l-4 3v-4.2A7 7 0 0 1 9 5h4a7 7 0 0 1 7 7Z" />
 };
 
 function SectionIcon({ name }) {
@@ -448,7 +532,7 @@ function SectionIcon({ name }) {
 }
 
 function Header({ route, me, notificationMenu }) {
-  const rootRoute = { find: 'find', game: 'game-list', 'game-list': 'game-list', create: 'profile', edit: 'profile', my: 'profile', profile: 'profile', auth: 'auth' };
+  const rootRoute = { find: 'find', game: 'game-list', 'game-list': 'game-list', create: 'profile', edit: 'profile', my: 'profile', chat: 'profile', profile: 'profile' };
   const visibleUnreadCount = notificationMenu.unreadCount > 99 ? '99+' : notificationMenu.unreadCount;
   const notificationLabel = notificationMenu.unreadCount > 0
     ? '알림함, 읽지 않은 알림 ' + notificationMenu.unreadCount + '개'
@@ -495,7 +579,7 @@ function Header({ route, me, notificationMenu }) {
           )}
           {me
             ? <a href="#/profile" className={'profile-icon ' + (rootRoute[route] === 'profile' ? 'on' : '')} aria-label={me.nickname + ' 프로필'}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></svg></a>
-            : <a href="#/auth" className={rootRoute[route] === 'auth' ? 'on' : ''}>로그인</a>}
+            : <a href="#/auth" className="btn pill">로그인</a>}
         </nav>
       </div>
     </header>
@@ -547,16 +631,44 @@ function SessionCard({ room }) {
   );
 }
 
-function GameCard({ game }) {
+/**
+ * 본인이 해 본 게임으로 표시했는지를 켜고 끄는 조작이다.
+ *
+ * 관계가 없거나 아직 판정하지 않은 상태를 `해보지 않음`으로 부르지 않고 눌리지 않은 상태로만 둔다.
+ * 다른 사용자의 관계는 응답에 없으므로 화면에도 없다.
+ */
+function PlayedGameToggle({ played, pending, onToggle, compact = false }) {
   return (
-    <a className="gcard" href={'#/game/' + game.id}>
-      <div className="gart">{game.imageUrl ? <img src={game.imageUrl} alt="" loading="lazy" /> : '🎲'}</div>
-      <div className="gtitle">{game.title}</div>
-      <div className="gen">{game.englishName}</div>
-      <div className="gmeta">{gameMeta(game)}</div>
-      {game.tag && <span className="chip">{game.tag}</span>}
-      <div className="gsess">예정 모임 {game.upcomingRoomCount}개</div>
-    </a>
+    <button
+      type="button"
+      className={'played-toggle' + (compact ? ' dot' : '') + (played ? ' on' : '')}
+      // 점만 두는 목록 카드에서도 조작 이름은 화면 낭독과 hover 안내로 남긴다.
+      aria-label={compact ? '해봤어요' : undefined}
+      title={compact ? '해봤어요' : undefined}
+      aria-pressed={played === true}
+      disabled={pending}
+      onClick={onToggle}
+    >
+      {compact ? null : '해봤어요'}
+    </button>
+  );
+}
+
+function GameCard({ game, played, pending, onTogglePlayed }) {
+  return (
+    <div className="gcard-shell">
+      <a className="gcard" href={'#/game/' + game.id}>
+        <div className="gart">{game.imageUrl ? <img src={game.imageUrl} alt="" loading="lazy" /> : '🎲'}</div>
+        <div className="gtitle">
+          <span className="gname">{game.title}</span>
+          {game.englishName && <span className="gen">{game.englishName}</span>}
+        </div>
+        <div className="gmeta">{gameMeta(game)}</div>
+        <div className="gsess">예정 모임 {game.upcomingRoomCount}개</div>
+      </a>
+      {/* 카드 전체가 상세 링크라 해 본 게임 조작은 링크 밖에 두고 표지 모서리에 점으로 얹는다. */}
+      <PlayedGameToggle played={played} pending={pending} onToggle={onTogglePlayed} compact />
+    </div>
   );
 }
 
@@ -585,12 +697,47 @@ function usePaginatedRequest(loadPage, dependencies) {
       .then((data) => { if (active) setState({ data, loading: false, error: '' }); })
       .catch((error) => {
         if (!active || error?.name === 'AbortError') return;
-        setState({ data: null, loading: false, error: messageForError(error) });
+        // 로그인이 필요한 조건으로 조회했는지 화면이 구분할 수 있게 함께 알린다.
+        setState({ data: null, loading: false, error: messageForError(error), unauthenticated: isUnauthenticated(error) });
       });
     return () => { active = false; controller.abort(); };
   }, [page, ...dependencies]);
 
   return { ...state, page, setPage };
+}
+
+/**
+ * 해 본 게임 표시·취소를 서버 응답 기준으로 화면에 반영한다.
+ *
+ * 요청이 끝나기 전에는 같은 게임의 조작을 잠그고, 성공한 `200` 응답의 `playedByMe`만 반영한다.
+ * 실패하면 이전 상태를 그대로 두고 공통 오류 흐름에 넘긴다.
+ */
+function usePlayedGames(onError) {
+  const [played, setPlayed] = useState({});
+  const [pending, setPending] = useState({});
+  // 활성 해 본 게임 필터(PLAYED_ONLY·EXCLUDE_PLAYED)가 표시·취소 뒤에도 목록·전체 건수와
+  // 일치하도록, 성공할 때마다 올려 목록 조회 쪽에서 재조회 신호로 쓸 수 있게 한다.
+  const [version, setVersion] = useState(0);
+  const toggle = async (gameId, current) => {
+    if (pending[gameId]) return;
+    setPending((currentPending) => ({ ...currentPending, [gameId]: true }));
+    try {
+      const result = current ? await api.unmarkGamePlayed(gameId) : await api.markGamePlayed(gameId);
+      setPlayed((currentPlayed) => ({ ...currentPlayed, [gameId]: result.playedByMe }));
+      setVersion((currentVersion) => currentVersion + 1);
+    } catch (error) {
+      onError?.(error, '해 본 게임 표시를 바꾸지 못했어요.');
+    } finally {
+      setPending((currentPending) => ({ ...currentPending, [gameId]: false }));
+    }
+  };
+  const stateOf = (game) => played[game.id] ?? game.playedByMe;
+  return {
+    stateOf,
+    isPending: (game) => Boolean(pending[game.id]),
+    toggle: (game) => toggle(game.id, stateOf(game)),
+    version
+  };
 }
 
 function Pagination({ page, totalPages, loading, onChange }) {
@@ -663,7 +810,7 @@ function roomFilterKey(filters, today) {
 
 const EMPTY_ROOM_FILTER_KEY = roomFilterKey(EMPTY_ROOM_FILTERS, '');
 
-// 조건은 모두 한 값만 고르므로 라디오로 그린다. 값이 빈 문자열인 선택지가 조건 없음이다.
+// 한 값만 고르는 조건은 라디오로 그린다. 값이 빈 문자열인 선택지가 조건 없음이다.
 function FilterRadioGroup({ name, label, value, options, onChange, children }) {
   return (
     <fieldset className="filter-group">
@@ -689,6 +836,200 @@ function FilterCheckGroup({ label, checked, onChange, text }) {
       </label>
     </fieldset>
   );
+}
+
+// 여러 값을 함께 고르는 조건은 체크박스로 그린다. 고른 값들은 목록 안에서 OR로 결합한다.
+function FilterMultiCheckGroup({ label, values, options, onToggle, children }) {
+  return (
+    <fieldset className="filter-group">
+      <legend>{label}</legend>
+      {options.map((option) => (
+        <label className="filter-option" key={option.value}>
+          <input
+            type="checkbox"
+            checked={values.includes(option.value)}
+            onChange={(event) => onToggle(option.value, event.target.checked)}
+          />
+          {option.label}
+        </label>
+      ))}
+      {children}
+    </fieldset>
+  );
+}
+
+// 최소·최대는 각각 생략할 수 있다. 마지막 입력 뒤 조회는 화면이 맡고 이 컴포넌트는 입력만 다룬다.
+function FilterNumberRangeGroup({ label, min, max, unit, onMinChange, onMaxChange, children }) {
+  return (
+    <fieldset className="filter-group">
+      <legend>{label}</legend>
+      <div className="filter-range">
+        <input
+          type="number"
+          inputMode="numeric"
+          min="1"
+          aria-label="최소"
+          placeholder="최소"
+          value={min}
+          onChange={(event) => onMinChange(event.target.value)}
+        />
+        <span className="filter-range-dash" aria-hidden="true">~</span>
+        <input
+          type="number"
+          inputMode="numeric"
+          min="1"
+          aria-label="최대"
+          placeholder="최대"
+          value={max}
+          onChange={(event) => onMaxChange(event.target.value)}
+        />
+        <span className="filter-range-unit">{unit}</span>
+      </div>
+      {children}
+    </fieldset>
+  );
+}
+
+/**
+ * 대표 메커니즘의 설명을 여는 정보 아이콘이다.
+ *
+ * 데스크톱 hover와 키보드 focus는 CSS가 열고, 아이콘을 누르면 여기서 고정한다.
+ * tap은 hover·focus를 함께 일으키므로 상태를 셋으로 나눠 두면 누를 때 도로 닫히는 순서가 생긴다.
+ * 화면을 막는 모달을 쓰지 않으므로 다른 조건을 보면서 설명을 확인할 수 있다.
+ */
+function MechanismHint({ code, name, description }) {
+  const [isPinned, setIsPinned] = useState(false);
+  const tooltipId = 'mechanism-hint-' + code;
+  return (
+    <span className={'mechanism-hint' + (isPinned ? ' on' : '')}>
+      <button
+        type="button"
+        className="mechanism-hint-button"
+        aria-label={name + ' 설명'}
+        aria-describedby={tooltipId}
+        aria-expanded={isPinned}
+        onClick={() => setIsPinned(!isPinned)}
+      >
+        <span aria-hidden="true">i</span>
+      </button>
+      <span className="mechanism-hint-text" id={tooltipId} role="tooltip">{description}</span>
+    </span>
+  );
+}
+
+// 선택지 API는 대표 8개를 먼저 반환하지만, 계약이 고정한 순서는 화면에서 다시 맞춘다.
+function featuredMechanisms(options) {
+  return options.filter((option) => option.featuredOrder).sort((left, right) => left.featuredOrder - right.featuredOrder);
+}
+
+function advancedMechanisms(options, keyword) {
+  const needle = keyword.trim().toLowerCase();
+  return options
+    .filter((option) => !option.featuredOrder)
+    // 검색은 한국어명과 BGG 영문명 모두 맞추고 화면에는 한국어명만 보여 준다.
+    .filter((option) => !needle
+      || option.nameKo.toLowerCase().includes(needle)
+      || option.nameEn.toLowerCase().includes(needle))
+    .sort((left, right) => left.nameKo.localeCompare(right.nameKo, 'ko'));
+}
+
+function MechanismCheckOption({ option, selected, onToggle }) {
+  return (
+    <label className="filter-option">
+      <input
+        type="checkbox"
+        checked={selected.includes(option.code)}
+        onChange={(event) => onToggle(option.code, event.target.checked)}
+      />
+      {option.nameKo}
+    </label>
+  );
+}
+
+// 대표 8개는 항상 보여 주고 나머지는 접힌 고급 목록에 둔다. 고급 목록은 모바일에서 전체 화면으로 열린다.
+function MechanismFilterGroup({ options, selected, onToggle }) {
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const [keyword, setKeyword] = useState('');
+  return (
+    <fieldset className="filter-group mechanism-group">
+      <legend>메커니즘</legend>
+      <div className="mechanism-featured-list">
+        {featuredMechanisms(options).map((option) => (
+          <div className="mechanism-featured" key={option.code}>
+            <MechanismCheckOption option={option} selected={selected} onToggle={onToggle} />
+            {MECHANISM_FEATURED_DESCRIPTIONS[option.featuredOrder] && (
+              <MechanismHint code={option.code} name={option.nameKo} description={MECHANISM_FEATURED_DESCRIPTIONS[option.featuredOrder]} />
+            )}
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        className="mechanism-more"
+        aria-expanded={isAdvancedOpen}
+        aria-controls="mechanism-advanced"
+        onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
+      >
+        메커니즘 더 보기
+      </button>
+      {isAdvancedOpen && (
+        <div className="mechanism-advanced" id="mechanism-advanced">
+          <input
+            type="search"
+            className="mechanism-search"
+            aria-label="메커니즘 검색"
+            placeholder="메커니즘 이름으로 찾기"
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+          />
+          <div className="mechanism-advanced-list">
+            {advancedMechanisms(options, keyword).map((option) => (
+              <MechanismCheckOption key={option.code} option={option} selected={selected} onToggle={onToggle} />
+            ))}
+          </div>
+          <button type="button" className="filter-close" onClick={() => setIsAdvancedOpen(false)}>메커니즘 목록 닫기</button>
+        </div>
+      )}
+    </fieldset>
+  );
+}
+
+// 인원 숫자만 지운 상태로 비교한다. 숫자 입력과 나머지 선택의 변경을 가려내는 기준이다.
+function gameFiltersWithoutPlayerCountNumbers(filters) {
+  return JSON.stringify({ ...filters, playerCountMin: '', playerCountMax: '' });
+}
+
+/**
+ * 조회에 실제로 쓸 게임 조건을 고른다.
+ *
+ * 숫자 입력만 바뀌면 마지막 입력 뒤에 조회한다. 체크박스처럼 다른 조건이 함께 바뀌면 기다리지 않는다.
+ * 전용 인원을 고르면 인원 범위가 함께 지워지므로, 이때 숫자를 늦게 반영하면 계약이 금지한
+ * 범위·전용 인원 조합을 한 번 요청하게 된다. 그래서 함께 바뀐 변경은 즉시 반영해야 한다.
+ */
+function useAppliedGameFilters(filters) {
+  const [applied, setApplied] = useState(filters);
+  useEffect(() => {
+    if (filters === applied) return undefined;
+    if (gameFiltersWithoutPlayerCountNumbers(filters) !== gameFiltersWithoutPlayerCountNumbers(applied)) {
+      setApplied(filters);
+      return undefined;
+    }
+    const timer = setTimeout(() => setApplied(filters), GAME_NUMBER_FILTER_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [filters, applied]);
+  return applied;
+}
+
+// 메커니즘 선택지는 조회 조건에 따라 바뀌지 않으므로 화면에 들어올 때 한 번만 불러온다.
+function useGameMechanisms() {
+  const [options, setOptions] = useState([]);
+  useEffect(() => {
+    const controller = new AbortController();
+    // 선택지를 못 불러오면 메커니즘 조건만 비어 있고 나머지 조건은 그대로 쓸 수 있다.
+    api.getGameMechanisms(controller.signal).then((loaded) => setOptions(loaded || [])).catch(() => setOptions([]));
+    return () => controller.abort();
+  }, []);
+  return options;
 }
 
 // 고른 조건은 칩으로 보여 주고 칩마다 그 조건만 해제한다. 패널을 접어도 무엇이 걸려 있는지 남는다.
@@ -821,12 +1162,91 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
   );
 }
 
-function gameFilterChips(filters, onChange) {
+/**
+ * 전용 인원 선택을 인원 조건 patch로 바꾼다.
+ *
+ * 하나만 고르면 `1인 전용`은 `min_players = max_players = 1`이라 `1 ~ 1` 경계 정확 일치와 같은 조건이다.
+ * 그래서 범위 입력에 그대로 되비춰 무엇을 고른 상태인지 보여 준다. 둘을 함께 고르면 OR이라
+ * 하나의 범위로 나타낼 수 없으므로 범위 입력을 비운다.
+ */
+function exclusivePlayerCountPatch(selected) {
+  const single = selected.length === 1 ? selected[0] : '';
+  return {
+    exclusivePlayerCount: selected,
+    playerCountMin: single,
+    playerCountMax: single,
+    playerCountExact: selected.length === 1
+  };
+}
+
+function clearedExclusivePlayerCount(filters, value) {
+  return exclusivePlayerCountPatch(filters.exclusivePlayerCount.filter((selected) => selected !== value));
+}
+
+/**
+ * 요청에 실제로 실을 조건을 만든다.
+ *
+ * 전용 인원을 고른 상태의 범위 입력은 같은 조건을 되비추는 표시일 뿐이다. 계약은 범위 계열과
+ * 전용 인원을 함께 담은 요청을 검증 오류로 거절하므로 이때 범위 파라미터를 뺀다.
+ */
+function gameFilterParameters(filters) {
+  if (!filters.exclusivePlayerCount.length) return filters;
+  return { ...filters, ...EMPTY_PLAYER_COUNT_RANGE };
+}
+
+function playerCountRangeLabel(filters) {
+  if (!filters.playerCountMin && !filters.playerCountMax) return '';
+  const suffix = filters.playerCountExact ? ' 정확히' : '';
+  if (filters.playerCountMin && filters.playerCountMax) {
+    return filters.playerCountMin + '~' + filters.playerCountMax + '명' + suffix;
+  }
+  if (filters.playerCountMin) return filters.playerCountMin + '명 이상' + suffix;
+  return filters.playerCountMax + '명 이하' + suffix;
+}
+
+function gameFilterChips(filters, onChange, mechanismOptions) {
   const update = (patch) => onChange({ ...filters, ...patch });
   const chips = [];
-  const players = PLAYER_COUNT_OPTIONS.find((option) => String(option.value) === filters.playerCount);
-  if (players) chips.push({ key: 'players', label: players.label, onClear: () => update({ playerCount: '' }) });
-  if (filters.playTime) chips.push({ key: 'playTime', label: PLAY_TIME_LABEL[filters.playTime], onClear: () => update({ playTime: '' }) });
+  // 전용 인원을 고르면 범위 입력이 같은 조건을 되비추므로 칩을 두 번 만들지 않는다.
+  const rangeLabel = filters.exclusivePlayerCount.length ? '' : playerCountRangeLabel(filters);
+  if (rangeLabel) {
+    chips.push({
+      key: 'playerCountRange',
+      label: rangeLabel,
+      onClear: () => update({ playerCountMin: '', playerCountMax: '', playerCountExact: false })
+    });
+  }
+  filters.exclusivePlayerCount.forEach((value) => {
+    const option = EXCLUSIVE_PLAYER_COUNT_OPTIONS.find((candidate) => candidate.value === value);
+    if (option) {
+      chips.push({
+        key: 'exclusive-' + value,
+        label: option.label,
+        onClear: () => update(clearedExclusivePlayerCount(filters, value))
+      });
+    }
+  });
+  filters.playTime.forEach((value) => {
+    if (PLAY_TIME_LABEL[value]) {
+      chips.push({
+        key: 'playTime-' + value,
+        label: PLAY_TIME_LABEL[value],
+        onClear: () => update({ playTime: filters.playTime.filter((selected) => selected !== value) })
+      });
+    }
+  });
+  filters.mechanism.forEach((code) => {
+    const option = mechanismOptions.find((candidate) => candidate.code === code);
+    if (option) {
+      chips.push({
+        key: 'mechanism-' + code,
+        label: option.nameKo,
+        onClear: () => update({ mechanism: filters.mechanism.filter((selected) => selected !== code) })
+      });
+    }
+  });
+  const playedOption = PLAYED_FILTER_OPTIONS.find((option) => option.value && option.value === filters.playedFilter);
+  if (playedOption) chips.push({ key: 'playedFilter', label: playedOption.label, onClear: () => update({ playedFilter: '' }) });
   const band = complexityBandOf(filters);
   if (band) chips.push({ key: 'complexity', label: '난이도 ' + band.label, onClear: () => update({ complexityMin: '', complexityMax: '' }) });
   if (filters.upcomingOnly) chips.push({ key: 'upcomingOnly', label: '예정 모임 있음', onClear: () => update({ upcomingOnly: false }) });
@@ -834,17 +1254,57 @@ function gameFilterChips(filters, onChange) {
 }
 
 function GameFilters({ filters, onChange }) {
+  const mechanismOptions = useGameMechanisms();
   const update = (patch) => onChange({ ...filters, ...patch });
   const selectBand = (value) => {
     const band = COMPLEXITY_BANDS.find((option) => option.value === value);
     update({ complexityMin: band ? band.min : '', complexityMax: band ? band.max : '' });
   };
+  // 범위를 직접 입력하면 전용 인원 선택을 되비추던 상태가 아니게 되므로 선택을 해제한다.
+  // 되비추던 값도 함께 비운다. 남겨 두면 최소만 바꿔도 전용 인원이 넣어 둔 최대·정확히 일치가
+  // 그대로 따라가 `playerCountMin=3&playerCountMax=2&playerCountExact=true` 같은 검증 오류가 된다.
+  const updateRange = (patch) => update({
+    ...(filters.exclusivePlayerCount.length ? EMPTY_PLAYER_COUNT_RANGE : null),
+    ...patch,
+    exclusivePlayerCount: []
+  });
+  const toggleExclusive = (value, checked) => update(exclusivePlayerCountPatch(
+    checked
+      ? [...filters.exclusivePlayerCount, value]
+      : filters.exclusivePlayerCount.filter((selected) => selected !== value)
+  ));
+  const togglePlayTime = (value, checked) => update({
+    playTime: checked ? [...filters.playTime, value] : filters.playTime.filter((selected) => selected !== value)
+  });
+  const toggleMechanism = (code, checked) => update({
+    mechanism: checked ? [...filters.mechanism, code] : filters.mechanism.filter((selected) => selected !== code)
+  });
   return (
-    <FilterPanel chips={gameFilterChips(filters, onChange)} onReset={() => onChange(EMPTY_GAME_FILTERS)}>
-      <FilterRadioGroup name="game-filter-players" label="인원" value={filters.playerCount} onChange={(playerCount) => update({ playerCount })}
-        options={[{ value: '', label: '전체' }, ...PLAYER_COUNT_OPTIONS.map((option) => ({ value: String(option.value), label: option.label }))]} />
-      <FilterRadioGroup name="game-filter-time" label="플레이 시간" value={filters.playTime} onChange={(playTime) => update({ playTime })}
-        options={[{ value: '', label: '전체' }, ...Object.entries(PLAY_TIME_LABEL).map(([code, label]) => ({ value: code, label }))]} />
+    <FilterPanel chips={gameFilterChips(filters, onChange, mechanismOptions)} onReset={() => onChange(EMPTY_GAME_FILTERS)}>
+      <FilterNumberRangeGroup label="게임 인원" unit="명" min={filters.playerCountMin} max={filters.playerCountMax}
+        onMinChange={(playerCountMin) => updateRange({ playerCountMin })} onMaxChange={(playerCountMax) => updateRange({ playerCountMax })}>
+        <label className="filter-option filter-option-picker">
+          <input type="checkbox" checked={filters.playerCountExact} onChange={(event) => updateRange({ playerCountExact: event.target.checked })} />
+          인원 정확히 일치
+        </label>
+        {/* 범위 조건과 전용 인원은 서로 전환하는 조건이라 같은 칼럼에서 구분선으로 나눈다. */}
+        <hr className="filter-group-divider" />
+        {EXCLUSIVE_PLAYER_COUNT_OPTIONS.map((option) => (
+          <label className="filter-option" key={option.value}>
+            <input
+              type="checkbox"
+              checked={filters.exclusivePlayerCount.includes(option.value)}
+              onChange={(event) => toggleExclusive(option.value, event.target.checked)}
+            />
+            {option.label}
+          </label>
+        ))}
+      </FilterNumberRangeGroup>
+      <FilterMultiCheckGroup label="플레이 시간" values={filters.playTime} onToggle={togglePlayTime}
+        options={Object.entries(PLAY_TIME_LABEL).map(([code, label]) => ({ value: code, label }))} />
+      <MechanismFilterGroup options={mechanismOptions} selected={filters.mechanism} onToggle={toggleMechanism} />
+      <FilterRadioGroup name="game-filter-played" label="해 본 게임" value={filters.playedFilter}
+        onChange={(playedFilter) => update({ playedFilter })} options={PLAYED_FILTER_OPTIONS} />
       <FilterRadioGroup name="game-filter-complexity" label="게임 난이도" value={complexityBandOf(filters)?.value || ''} onChange={selectBand}
         options={[{ value: '', label: '전체' }, ...COMPLEXITY_BANDS.map((band) => ({ value: band.value, label: band.label }))]} />
       <FilterCheckGroup label="모임" checked={filters.upcomingOnly} onChange={(upcomingOnly) => update({ upcomingOnly })} text="예정 모임 있는 게임만" />
@@ -852,14 +1312,19 @@ function GameFilters({ filters, onChange }) {
   );
 }
 
-function GamesView({ title, gameQuery, onGameQueryChange, dataVersion }) {
+export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, onPlayedError }) {
   const [input, setInput] = useState(gameQuery);
   const [filters, setFilters] = useState(EMPTY_GAME_FILTERS);
   const keyword = gameQuery.trim();
-  const filterKey = JSON.stringify(filters);
-  const { data, loading, error, setPage } = usePaginatedRequest(
-    (page, signal) => api.getGames({ keyword, ...filters, page, size: GAME_LIST_PAGE_SIZE }, signal),
-    [keyword, filterKey, dataVersion]
+  const parameters = gameFilterParameters(useAppliedGameFilters(filters));
+  const filterKey = JSON.stringify(parameters);
+  const playedGames = usePlayedGames(onPlayedError);
+  // 해 본 게임 필터가 활성화된 동안에만 표시·취소 성공을 재조회 신호로 쓴다.
+  // 그 외에는 조회 결과가 playedByMe로 걸러지지 않으므로 다시 부를 필요가 없다.
+  const playedRefreshKey = filters.playedFilter ? playedGames.version : 0;
+  const { data, loading, error, unauthenticated, setPage } = usePaginatedRequest(
+    (page, signal) => api.getGames({ keyword, ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal),
+    [keyword, filterKey, dataVersion, playedRefreshKey]
   );
   const games = (data?.content || []).map(normalizeGameSummary);
   useEffect(() => setInput(gameQuery), [gameQuery]);
@@ -873,16 +1338,31 @@ function GamesView({ title, gameQuery, onGameQueryChange, dataVersion }) {
       </form>
       <p className="hint" style={{ marginTop: -10, marginBottom: 15 }}>게임 이름의 부분 일치 검색만 제공해요.</p>
       <GameFilters filters={filters} onChange={setFilters} />
-      {error && <ErrorBox message={error} />}
+      {error && (unauthenticated
+        ? <LoginRequiredView message="해 본 게임으로 거르려면 로그인해주세요." />
+        : <ErrorBox message={error} />)}
       {!error && loading && !data && <LoadingBox />}
-      {!error && !!games.length && <div className="grid cols3">{games.map((game) => <GameCard key={game.id} game={game} />)}</div>}
+      {!error && !!games.length && (
+        <div className="grid cols3">
+          {games.map((game) => (
+            <GameCard
+              key={game.id}
+              game={game}
+              played={playedGames.stateOf(game)}
+              pending={playedGames.isPending(game)}
+              onTogglePlayed={() => playedGames.toggle(game)}
+            />
+          ))}
+        </div>
+      )}
       {!error && !loading && !games.length && <div className="infobox" style={{ marginTop: 14 }}>검색 결과가 없어요. 다른 게임 이름으로 다시 찾아보세요.</div>}
       {!error && !!games.length && <Pagination page={data?.page ?? 0} totalPages={data?.totalPages ?? 0} loading={loading} onChange={setPage} />}
     </>
   );
 }
 
-function GameDetailView({ gameId, onCreateGame, dataVersion }) {
+export function GameDetailView({ gameId, onCreateGame, dataVersion, onPlayedError }) {
+  const playedGames = usePlayedGames(onPlayedError);
   const { data: gameData, loading: gameLoading, error: gameError } = useRequest(
     (signal) => api.getGame(gameId, signal),
     [gameId, dataVersion]
@@ -908,7 +1388,14 @@ function GameDetailView({ gameId, onCreateGame, dataVersion }) {
             <div className="gmeta" style={{ fontSize: 14 }}>{gameMeta(game)}</div>
             {game.tag && <span className="chip">{game.tag}</span>}
             {game.description && <p className="hint" style={{ marginTop: 12 }}>{game.description}</p>}
-            <div style={{ marginTop: 15 }}><button className="btn" type="button" onClick={() => onCreateGame(game)}>이 게임으로 모임 만들기</button></div>
+            <div className="page-actions" style={{ marginTop: 15 }}>
+              <button className="btn" type="button" onClick={() => onCreateGame(game)}>이 게임으로 모임 만들기</button>
+              <PlayedGameToggle
+                played={playedGames.stateOf(game)}
+                pending={playedGames.isPending(game)}
+                onToggle={() => playedGames.toggle(game)}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -955,7 +1442,7 @@ function SessionActions({ room, me, onApply, onCancelApply, onHostCancel, onFini
   return <div className="infobox amber">모집이 마감되었거나 지금은 참가할 수 없어요.</div>;
 }
 
-function SessionDetailView({ sessionId, me, onApply, onCancelApply, onHostCancel, onFinish, dataVersion }) {
+export function SessionDetailView({ sessionId, me, onApply, onCancelApply, onHostCancel, onFinish, dataVersion }) {
   const { data, loading, error } = useRequest(
     async (signal) => normalizeRoom(await api.getRoom(sessionId, signal)),
     [sessionId, dataVersion]
@@ -965,6 +1452,7 @@ function SessionDetailView({ sessionId, me, onApply, onCancelApply, onHostCancel
   const room = data;
   if (!room) return <div className="card">모임을 찾을 수 없어요.</div>;
   const status = statusMeta(room);
+  const canEnterChat = Boolean(room.myRole && (status.code === 'RECRUITING' || status.code === 'CLOSED'));
   const privateView = Boolean(room.myRole);
   const game = room.game;
   const banners = {
@@ -987,6 +1475,7 @@ function SessionDetailView({ sessionId, me, onApply, onCancelApply, onHostCancel
                 <h2>{room.title} <span className={'badge ' + (room.roomType === 'PERSON_FOCUSED' ? 'people' : 'game')}>{room.roomType === 'PERSON_FOCUSED' ? '사람 중심' : '게임 중심'}</span></h2>
                 <p className="smeta">{game ? '🎲 ' + game.title : '게임은 모임에서 정해요'}</p>
                 {room.description && <p style={{ color: 'var(--brown2)', marginTop: 10 }}>{room.description}</p>}
+                {canEnterChat && <div className="page-actions" style={{ marginTop: 15 }}><a className="btn ghost chat-entry" href={'#/chat/' + room.id}>💬 모임 채팅</a></div>}
                 <table className="metatable"><tbody>
                   <tr><td>일시</td><td>{formatStartsAt(room.startsAt)}</td></tr>
                   {privateView
@@ -1359,7 +1848,7 @@ function EditView({ sessionId, onSave, dataVersion, today }) {
   return <EditSessionForm key={data.id} room={data} onSave={onSave} today={today} />;
 }
 
-function MyRoomsSection({ myTab, onMyTabChange, dataVersion }) {
+export function MyRoomsSection({ myTab, onMyTabChange, dataVersion }) {
   const joined = usePaginatedRequest(
     (page, signal) => api.getMyRooms({ role: 'joined', page, size: ROOM_LIST_PAGE_SIZE }, signal),
     [dataVersion]
@@ -1385,7 +1874,9 @@ function MyRoomsSection({ myTab, onMyTabChange, dataVersion }) {
       </div>
       {page.error && <ErrorBox message={page.error} />}
       {!page.error && page.loading && !page.data && <LoadingBox />}
-      {!page.error && !!list.length && <div className="grid cols2">{list.map((room) => <SessionCard key={room.id} room={room} />)}</div>}
+      {!page.error && !!list.length && (
+        <div className="grid cols2">{list.map((room) => <SessionCard key={room.id} room={room} />)}</div>
+      )}
       {!page.error && !page.loading && !list.length && (
         <div className="infobox">
           {tab === 'joined'
@@ -1395,6 +1886,159 @@ function MyRoomsSection({ myTab, onMyTabChange, dataVersion }) {
       )}
       {!page.error && !!list.length && <Pagination page={page.data?.page ?? 0} totalPages={page.data?.totalPages ?? 0} loading={page.loading} onChange={page.setPage} />}
       {!page.error && !!list.length && <p className="hint" style={{ marginTop: 14 }}>카드는 공개 모임 정보만 표시하고, 정확한 장소와 참가자 목록은 모임 상세에서 권한에 따라 확인할 수 있어요.</p>}
+    </>
+  );
+}
+
+// 직접 URL로 들어와도 진입 여부는 서버 응답으로만 정해진다. 거절은 서버 원문 대신 계약된 code로 안내한다.
+function chatAccessError(error) {
+  const message = error instanceof ApiError ? CHAT_ACCESS_MESSAGE[error.code] : undefined;
+  return message ? new ApiError({ status: error.status, code: error.code, message }) : error;
+}
+
+export function ChatRoomView({ roomId, dataVersion, me }) {
+  const { data, loading, error } = useRequest(
+    (signal) => api.getChatMessages(roomId, signal).catch((cause) => { throw chatAccessError(cause); }),
+    [roomId, dataVersion]
+  );
+  const roomIdRef = useRef(roomId);
+  const roomGenerationRef = useRef(0);
+  const previousRoomIdRef = useRef(roomId);
+  if (previousRoomIdRef.current !== roomId) {
+    previousRoomIdRef.current = roomId;
+    roomGenerationRef.current += 1;
+  }
+  roomIdRef.current = roomId;
+  const [messages, setMessages] = useState([]);
+  const [messagesRoomId, setMessagesRoomId] = useState(roomId);
+  const [nextBeforeMessageId, setNextBeforeMessageId] = useState(null);
+  const [hasNext, setHasNext] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [content, setContent] = useState('');
+  const [clientMessageId, setClientMessageId] = useState(createClientMessageId);
+  const [clientMessageContent, setClientMessageContent] = useState(null);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
+
+  useEffect(() => {
+    setMessagesRoomId(roomId);
+    setMessages([]);
+    setNextBeforeMessageId(null);
+    setHasNext(false);
+    setLoadingMore(false);
+    setSending(false);
+    setContent('');
+    setClientMessageContent(null);
+    setSendError('');
+    setClientMessageId(createClientMessageId());
+  }, [roomId]);
+
+  useEffect(() => {
+    if (!data) return;
+    setMessagesRoomId(roomId);
+    setMessages((current) => {
+      const byId = new Map(current.map((message) => [String(message.messageId), message]));
+      (data.messages || []).forEach((message) => byId.set(String(message.messageId), message));
+      return [...byId.values()].sort((left, right) => Number(left.messageId) - Number(right.messageId));
+    });
+    setNextBeforeMessageId(data.nextBeforeMessageId ?? null);
+    setHasNext(Boolean(data.hasNext));
+  }, [data]);
+
+  const mergeMessages = (incoming) => {
+    setMessages((current) => {
+      const byId = new Map(current.map((message) => [String(message.messageId), message]));
+      incoming.forEach((message) => byId.set(String(message.messageId), message));
+      return [...byId.values()].sort((left, right) => Number(left.messageId) - Number(right.messageId));
+    });
+  };
+
+  const loadPreviousMessages = async () => {
+    if (!hasNext || loadingMore || nextBeforeMessageId === null) return;
+    const requestedRoomId = roomId;
+    const requestedGeneration = roomGenerationRef.current;
+    setLoadingMore(true);
+    try {
+      const page = await api.getChatMessages(roomId, { beforeMessageId: nextBeforeMessageId, size: 50 });
+      if (roomIdRef.current !== requestedRoomId || roomGenerationRef.current !== requestedGeneration) return;
+      mergeMessages(page.messages || []);
+      setNextBeforeMessageId(page.nextBeforeMessageId ?? null);
+      setHasNext(Boolean(page.hasNext));
+    } catch (cause) {
+      if (roomIdRef.current !== requestedRoomId || roomGenerationRef.current !== requestedGeneration) return;
+      setSendError(messageForError(cause, '이전 메시지를 불러오지 못했어요.'));
+    } finally {
+      if (roomIdRef.current === requestedRoomId && roomGenerationRef.current === requestedGeneration) setLoadingMore(false);
+    }
+  };
+
+  const submit = async (event) => {
+    event.preventDefault();
+    const trimmed = content.trim();
+    if (!trimmed) {
+      setSendError('메시지를 입력해주세요.');
+      return;
+    }
+    if ([...trimmed].length > 500) {
+      setSendError('메시지는 500자까지 입력할 수 있어요.');
+      return;
+    }
+    setSending(true);
+    setSendError('');
+    const messageId = clientMessageContent === null || clientMessageContent === trimmed
+      ? clientMessageId
+      : createClientMessageId();
+    setClientMessageId(messageId);
+    setClientMessageContent(trimmed);
+    const requestedRoomId = roomId;
+    const requestedGeneration = roomGenerationRef.current;
+    try {
+      const saved = await api.sendChatMessage(roomId, { clientMessageId: messageId, content: trimmed });
+      if (roomIdRef.current !== requestedRoomId || roomGenerationRef.current !== requestedGeneration) return;
+      mergeMessages([saved]);
+      setContent('');
+      setClientMessageId(createClientMessageId());
+      setClientMessageContent(null);
+    } catch (cause) {
+      if (roomIdRef.current !== requestedRoomId || roomGenerationRef.current !== requestedGeneration) return;
+      setSendError(messageForError(cause, '메시지를 보내지 못했어요. 다시 시도해주세요.'));
+    } finally {
+      if (roomIdRef.current === requestedRoomId && roomGenerationRef.current === requestedGeneration) setSending(false);
+    }
+  };
+
+  const displayedMessages = messagesRoomId === roomId ? messages : [];
+
+  return (
+    <>
+      <h2><SectionIcon name="chat" />모임 채팅</h2>
+      <div className="page-actions" style={{ marginBottom: 14 }}>
+        <a className="btn ghost" href={'#/session/' + roomId}>모임 상세</a>
+        <a className="btn ghost" href="#/my">내 모임</a>
+      </div>
+      {error && <ErrorBox message={error} />}
+      {!error && loading && !data && <LoadingBox label="채팅을 불러오는 중…" />}
+      {!error && hasNext && <button className="btn ghost chat-load-more" disabled={loadingMore} type="button" onClick={loadPreviousMessages}>{loadingMore ? '불러오는 중…' : '이전 메시지 불러오기'}</button>}
+      {!error && !loading && !displayedMessages.length && <div className="infobox">아직 주고받은 메시지가 없어요.</div>}
+      {!error && !!displayedMessages.length && (
+        <ul className="chat-log">
+          {displayedMessages.map((message) => {
+            const isMine = Boolean(message.isMine);
+            return (
+            <li className={'chat-message ' + (isMine ? 'mine' : 'theirs')} data-message-owner={isMine ? 'mine' : 'theirs'} key={message.messageId}>
+              <div className="chat-message-head"><b>{isMine ? '나' : message.sender?.nickname}</b><span className="chat-time">{formatStartsAt(message.createdAt)}</span></div>
+              <p className="chat-content">{message.content}</p>
+            </li>
+            );
+          })}
+        </ul>
+      )}
+      {!error && <form className="chat-compose" onSubmit={submit}>
+        <label htmlFor="chat-message">메시지</label>
+        <textarea id="chat-message" disabled={sending} maxLength="500" value={content} onChange={(event) => { setContent(event.target.value); setSendError(''); }} placeholder="메시지를 입력해주세요." />
+        <div className="chat-compose-actions"><span className="hint">{[...content].length}/500</span><button className="btn" disabled={sending} type="submit">{sending ? '전송 중…' : '전송'}</button></div>
+        {sendError && <p className="hint warn" role="alert">{sendError}</p>}
+      </form>}
     </>
   );
 }
@@ -1470,7 +2114,7 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onSoci
                     <span>{SOCIAL_PROVIDER_LABEL[item.provider]}</span>
                     {item.linked
                       ? <span className="social-link-state">연결됨</span>
-                      : <button className="btn ghost" type="button" disabled={Boolean(linking)} onClick={() => startLink(item.provider)}>{linking === item.provider ? '이동 중…' : SOCIAL_PROVIDER_LABEL[item.provider] + ' 연결'}</button>}
+                      : <button className="btn ghost pill" type="button" disabled={Boolean(linking)} onClick={() => startLink(item.provider)}>{linking === item.provider ? '이동 중…' : SOCIAL_PROVIDER_LABEL[item.provider] + ' 연결'}</button>}
                   </div>
                 ))}
                 <p className="hint">연결한 계정으로도 로그인할 수 있어요. 연결 해제와 교체는 아직 제공하지 않아요.</p>
@@ -1503,16 +2147,70 @@ function signupPasswordError(password) {
   return '';
 }
 
-export function AuthView({ onLogin, onSignup, socialProviders = [], onSocialLogin }) {
-  const [mode, setMode] = useState('login');
+export function AuthView({ onLogin, socialProviders = [], onSocialLogin }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [remember, setRemember] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const submit = async (event) => {
+    event.preventDefault();
+    setSubmitting(true);
+    setError('');
+    try {
+      await onLogin({ email, password });
+    } catch (requestError) {
+      setError(messageForError(requestError));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  return (
+    <div className="auth-modal-backdrop">
+      <section className="auth-modal" aria-label="로그인">
+        <a className="auth-modal-close" href="#/home" aria-label="닫기">×</a>
+        <form onSubmit={submit}>
+          <div className="auth-email-header">
+            <span className="auth-email-brand"><img src={brandSymbol} alt="" /></span>
+            <span className="auth-email-title">알밤메이트로 로그인하기</span>
+            <label className="auth-remember">
+              <span>로그인 유지</span>
+              <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} />
+              <span className="auth-remember-track" aria-hidden="true"></span>
+            </label>
+          </div>
+          <div className="formrow single"><div><label className="sr-only" htmlFor="auth-email">이메일</label><input id="auth-email" type="email" autoComplete="email" placeholder="이메일" required value={email} onChange={(event) => setEmail(event.target.value)} /></div><div><label className="sr-only" htmlFor="auth-password">비밀번호</label><div className="auth-password-field"><input id="auth-password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="비밀번호" required value={password} onChange={(event) => setPassword(event.target.value)} /><button type="button" className="auth-password-toggle" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}>{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button></div></div></div>
+          {error && <ErrorBox message={error} />}
+          <button className="btn big pill" disabled={submitting} type="submit">{submitting ? '처리 중…' : '로그인'}</button>
+        </form>
+        {socialProviders.length > 0 && (
+          <>
+            <div className="auth-divider">또는</div>
+            <div className="social-auth">
+              {socialProviders.map((item) => (
+                <button className={'social-auth-btn ' + item.provider.toLowerCase()} key={item.provider} type="button" onClick={() => onSocialLogin(item.provider)} aria-label={SOCIAL_PROVIDER_LABEL[item.provider] + '로 계속하기'}>
+                  <span className="social-auth-icon">{SOCIAL_PROVIDER_ICON[item.provider]}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        <a className="auth-switch-link" href="#/signup">알밤메이트가 처음이신가요? <u>가입하기</u></a>
+      </section>
+    </div>
+  );
+}
+
+export function SignupView({ onSignup }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const signup = mode === 'signup';
+  const [showPassword, setShowPassword] = useState(false);
   const passwordRef = useRef(null);
-  const passwordError = signup ? signupPasswordError(password) : '';
+  const passwordError = signupPasswordError(password);
   const submit = async (event) => {
     event.preventDefault();
     // 사유는 입력란 아래 안내 한 곳에서만 말한다. 여기서는 고칠 자리로 보내기만 한다.
@@ -1523,15 +2221,8 @@ export function AuthView({ onLogin, onSignup, socialProviders = [], onSocialLogi
     setSubmitting(true);
     setError('');
     try {
-      if (signup) {
-        const created = await onSignup({ email, password, nickname });
-        if (created) {
-          setMode('login');
-          setPassword('');
-        }
-      } else {
-        await onLogin({ email, password });
-      }
+      const created = await onSignup({ email, password, nickname });
+      if (created) window.location.hash = '#/auth';
     } catch (requestError) {
       setError(messageForError(requestError));
     } finally {
@@ -1539,24 +2230,18 @@ export function AuthView({ onLogin, onSignup, socialProviders = [], onSocialLogi
     }
   };
   return (
-    <section className="card" style={{ margin: '0 auto', maxWidth: 560 }}>
-      <h2>{signup ? '회원가입' : '로그인'}</h2>
-      <div className="tabs"><button type="button" className={!signup ? 'on' : ''} onClick={() => { setMode('login'); setError(''); }}>로그인</button><button type="button" className={signup ? 'on' : ''} onClick={() => { setMode('signup'); setError(''); }}>회원가입</button></div>
+    <section className="card signup-page" style={{ margin: '0 auto', maxWidth: 460 }}>
+      <h2>회원가입</h2>
       <form onSubmit={submit}>
-        <div className="formrow single"><div><label htmlFor="auth-email">이메일</label><input id="auth-email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></div>{signup && <div><label htmlFor="auth-nickname">닉네임</label><input id="auth-nickname" maxLength="50" required value={nickname} onChange={(event) => setNickname(event.target.value)} /></div>}<div><label htmlFor="auth-password">비밀번호</label><input id="auth-password" ref={passwordRef} type="password" autoComplete={signup ? 'new-password' : 'current-password'} minLength={signup ? PASSWORD_MIN_CODE_POINTS : 1} required value={password} onChange={(event) => setPassword(event.target.value)} aria-describedby={signup ? 'auth-password-hint' : undefined} aria-invalid={passwordError ? true : undefined} />{signup && <p id="auth-password-hint" className={passwordError ? 'hint warn' : 'hint'} role={passwordError ? 'alert' : undefined}>{passwordError || '15자 이상, 영문·숫자는 64자까지 한글은 24자까지 입력할 수 있어요.'}</p>}</div></div>
-        {error && <ErrorBox message={error} />}
-        <button className="btn big" disabled={submitting} type="submit">{submitting ? '처리 중…' : signup ? '회원가입' : '로그인'}</button>
-      </form>
-      {socialProviders.length > 0 && (
-        <div className="social-auth">
-          <p className="social-auth-label">소셜 계정으로 계속하기</p>
-          {socialProviders.map((item) => (
-            <button className="btn ghost social-auth-btn" key={item.provider} type="button" onClick={() => onSocialLogin(item.provider)}>
-              {SOCIAL_PROVIDER_LABEL[item.provider]}로 로그인
-            </button>
-          ))}
+        <div className="auth-email-header">
+          <span className="auth-email-brand"><img src={brandSymbol} alt="" /></span>
+          <span className="auth-email-title">알밤메이트로 회원가입하기</span>
         </div>
-      )}
+        <div className="formrow single"><div><label className="sr-only" htmlFor="signup-email">이메일</label><input id="signup-email" type="email" autoComplete="email" placeholder="이메일" required value={email} onChange={(event) => setEmail(event.target.value)} /></div><div><label className="sr-only" htmlFor="signup-nickname">닉네임</label><input id="signup-nickname" maxLength="50" placeholder="닉네임" required value={nickname} onChange={(event) => setNickname(event.target.value)} /></div><div><label className="sr-only" htmlFor="signup-password">비밀번호</label><div className="auth-password-field"><input id="signup-password" ref={passwordRef} type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={PASSWORD_MIN_CODE_POINTS} placeholder="비밀번호" required value={password} onChange={(event) => setPassword(event.target.value)} aria-describedby="signup-password-hint" aria-invalid={passwordError ? true : undefined} /><button type="button" className="auth-password-toggle" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}>{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button></div><p id="signup-password-hint" className={passwordError ? 'hint warn' : 'hint'} role={passwordError ? 'alert' : undefined}>{passwordError || '15자 이상, 영문·숫자는 64자까지 한글은 24자까지 입력할 수 있어요.'}</p></div></div>
+        {error && <ErrorBox message={error} />}
+        <button className="btn big pill" disabled={submitting} type="submit">{submitting ? '처리 중…' : '회원가입'}</button>
+      </form>
+      <a className="auth-switch-link" href="#/auth">이미 계정이 있으신가요? <u>로그인</u></a>
     </section>
   );
 }
@@ -1565,7 +2250,7 @@ function isUnauthenticated(error) {
   return error instanceof ApiError && (error.code === 'UNAUTHENTICATED' || error.status === 401);
 }
 
-function App() {
+export function App() {
   const [{ route, arg }, navigate] = useHashRoute();
   const today = useSeoulToday();
   const [me, setMe] = useState(null);
@@ -1678,6 +2363,8 @@ function App() {
 
   const handleProtectedError = (error, fallback) => {
     if (isUnauthenticated(error)) {
+      // 이미 비로그인 상태면 expireAuthentication이 아무 것도 하지 않으므로 여기서 직접 안내한다.
+      showToast('로그인이 필요해요.', 'err');
       expireAuthentication();
       return;
     }
@@ -1877,14 +2564,16 @@ function App() {
 
   let content;
   if (route === 'find') content = <FindRoomsView roomType={roomType} onRoomTypeChange={setRoomType} roomQuery={roomQuery} onRoomQueryChange={setRoomQuery} roomFilters={roomFilters} onRoomFiltersChange={setRoomFilters} dataVersion={dataVersion} />;
-  else if (route === 'game-list') content = <GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} />;
-  else if (route === 'game') content = <GameDetailView gameId={arg} onCreateGame={handleCreateGame} dataVersion={dataVersion} />;
+  else if (route === 'game-list') content = <GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} onPlayedError={handleProtectedError} />;
+  else if (route === 'game') content = <GameDetailView gameId={arg} onCreateGame={handleCreateGame} dataVersion={dataVersion} onPlayedError={handleProtectedError} />;
   else if (route === 'session') content = <SessionDetailView sessionId={arg} me={me} onApply={handleApply} onCancelApply={handleCancelApply} onHostCancel={handleHostCancel} onFinish={handleFinish} dataVersion={dataVersion} />;
   else if (route === 'create') content = me ? <CreateView createMode={createMode} onCreateModeChange={setCreateMode} initialGame={createGame} onCreate={handleCreate} today={today} /> : <LoginRequiredView message="모임을 만들려면 로그인해주세요." />;
   else if (route === 'edit') content = me ? <EditView sessionId={arg} onSave={handleSave} dataVersion={dataVersion} today={today} /> : <LoginRequiredView message="모임을 수정하려면 로그인해주세요." />;
   else if (route === 'my') content = me ? <MyRoomsSection myTab={myTab} onMyTabChange={setMyTab} dataVersion={dataVersion} /> : <LoginRequiredView message="내 모임을 보려면 로그인해주세요." />;
+  else if (route === 'chat') content = me ? <ChatRoomView roomId={arg} dataVersion={dataVersion} me={me} /> : <LoginRequiredView message="모임 채팅을 보려면 로그인해주세요." />;
   else if (route === 'profile') content = me ? <ProfileView me={me} onSave={handleSaveProfile} onLogout={handleLogout} socialProviders={socialProviders} onSocialLink={handleSocialLink} /> : <LoginRequiredView message="마이페이지를 보려면 로그인해주세요." />;
-  else if (route === 'auth') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <AuthView onLogin={handleLogin} onSignup={handleSignup} socialProviders={socialProviders} onSocialLogin={handleSocialLogin} />;
+  else if (route === 'auth') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <AuthView onLogin={handleLogin} socialProviders={socialProviders} onSocialLogin={handleSocialLogin} />;
+  else if (route === 'signup') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <SignupView onSignup={handleSignup} />;
   else content = <HomeView onBrowsePeople={handleBrowsePeople} onSearchGame={handleSearchGame} dataVersion={dataVersion} />;
 
   return (

@@ -20,6 +20,7 @@ public enum ErrorCode {
 	SOCIAL_PROVIDER_NOT_AVAILABLE(HttpStatus.NOT_FOUND, "사용할 수 없는 소셜 로그인 제공자입니다."),
 	SOCIAL_ACCOUNT_ALREADY_LINKED(HttpStatus.CONFLICT, "해당 소셜 계정 제공자가 이미 연결되어 있습니다."),
 	RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "인증 요청 처리 한도를 초과했습니다. 잠시 후 다시 시도해 주세요."),
+	SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "현재 서비스를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요."),
 	GAME_NOT_FOUND(HttpStatus.NOT_FOUND, "게임을 찾을 수 없습니다."),
 	ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "방을 찾을 수 없습니다."),
 	NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "알림을 찾을 수 없습니다."),
@@ -31,6 +32,8 @@ public enum ErrorCode {
 	CAPACITY_EXCEEDED(HttpStatus.CONFLICT, "모집 가능한 인원을 초과했습니다."),
 	ROOM_NOT_RECRUITING(HttpStatus.CONFLICT, "현재 모집 중인 방이 아닙니다."),
 	ALREADY_PARTICIPATING(HttpStatus.CONFLICT, "이미 참가 중인 방입니다."),
+	WAITLIST_NOT_AVAILABLE(HttpStatus.CONFLICT, "현재 대기 등록을 할 수 없습니다."),
+	WAITLIST_ENTRY_NOT_FOUND(HttpStatus.NOT_FOUND, "현재 대기 정보를 찾을 수 없습니다."),
 	INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");
 
 	private final HttpStatus httpStatus;

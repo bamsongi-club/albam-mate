@@ -158,8 +158,42 @@ export const api = {
     return endpoint(authorizationUri);
   },
   getGame: (gameId, signal) => request('/api/games/' + gameId, { signal }),
-  getGames: ({ keyword, upcomingOnly, playerCount, playTime, complexityMin, complexityMax, page = 0, size = 10 }, signal) =>
-    request('/api/games' + query({ keyword, upcomingOnly, playerCount, playTime, complexityMin, complexityMax, page, size }), { signal }),
+  getGames: (
+    {
+      keyword,
+      upcomingOnly,
+      playerCountMin,
+      playerCountMax,
+      playerCountExact,
+      exclusivePlayerCount,
+      playTime,
+      complexityMin,
+      complexityMax,
+      mechanism,
+      playedFilter,
+      page = 0,
+      size = 10
+    },
+    signal
+  ) =>
+    request('/api/games' + query({
+      keyword,
+      upcomingOnly,
+      playerCountMin,
+      playerCountMax,
+      playerCountExact,
+      exclusivePlayerCount,
+      playTime,
+      complexityMin,
+      complexityMax,
+      mechanism,
+      playedFilter,
+      page,
+      size
+    }), { signal }),
+  getGameMechanisms: (signal) => request('/api/game-mechanisms', { signal }),
+  markGamePlayed: (gameId) => mutate('/api/users/me/played-games/' + gameId, { method: 'PUT' }),
+  unmarkGamePlayed: (gameId) => mutate('/api/users/me/played-games/' + gameId, { method: 'DELETE' }),
   getRoom: (roomId, signal) => request('/api/rooms/' + roomId, { signal }),
   getRooms: (
     { type, gameId, keyword, startsAtFrom, startsAtTo, minRemainingSeats, experienceLevels, rulemasterOnly, page = 0, size = 10 },
@@ -180,6 +214,12 @@ export const api = {
     }), { signal }),
   getMyRooms: ({ role, page = 0, size = 10 }, signal) =>
     request('/api/users/me/rooms' + query({ role, page, size }), { signal }),
+  getChatMessages: (roomId, optionsOrSignal = {}, maybeSignal) => {
+    const signal = optionsOrSignal?.aborted !== undefined ? optionsOrSignal : maybeSignal;
+    const options = signal ? {} : optionsOrSignal;
+    return request('/api/rooms/' + roomId + '/chat/messages' + query(options), { signal });
+  },
+  sendChatMessage: (roomId, message) => mutate('/api/rooms/' + roomId + '/chat/messages', { method: 'POST', body: message }),
   getNotifications: ({ page = 0, size = 10 } = {}, signal) =>
     request('/api/users/me/notifications' + query({ page, size }), { signal }),
   getUnreadNotificationCount: (signal) =>

@@ -30,6 +30,9 @@ class ErrorCodeTest {
 			Map.entry(
 				ErrorCode.RATE_LIMIT_EXCEEDED,
 				"인증 요청 처리 한도를 초과했습니다. 잠시 후 다시 시도해 주세요."),
+			Map.entry(
+				ErrorCode.SERVICE_UNAVAILABLE,
+				"현재 서비스를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요."),
 			Map.entry(ErrorCode.GAME_NOT_FOUND, "게임을 찾을 수 없습니다."),
 			Map.entry(ErrorCode.ROOM_NOT_FOUND, "방을 찾을 수 없습니다."),
 			Map.entry(ErrorCode.NOTIFICATION_NOT_FOUND, "알림을 찾을 수 없습니다."),
@@ -44,6 +47,8 @@ class ErrorCodeTest {
 			Map.entry(ErrorCode.CAPACITY_EXCEEDED, "모집 가능한 인원을 초과했습니다."),
 			Map.entry(ErrorCode.ROOM_NOT_RECRUITING, "현재 모집 중인 방이 아닙니다."),
 			Map.entry(ErrorCode.ALREADY_PARTICIPATING, "이미 참가 중인 방입니다."),
+			Map.entry(ErrorCode.WAITLIST_NOT_AVAILABLE, "현재 대기 등록을 할 수 없습니다."),
+			Map.entry(ErrorCode.WAITLIST_ENTRY_NOT_FOUND, "현재 대기 정보를 찾을 수 없습니다."),
 			Map.entry(ErrorCode.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다."));
 		Map<ErrorCode, HttpStatus> expectedStatuses = Map.ofEntries(
 			Map.entry(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST),
@@ -61,6 +66,7 @@ class ErrorCodeTest {
 			Map.entry(ErrorCode.SOCIAL_PROVIDER_NOT_AVAILABLE, HttpStatus.NOT_FOUND),
 			Map.entry(ErrorCode.SOCIAL_ACCOUNT_ALREADY_LINKED, HttpStatus.CONFLICT),
 			Map.entry(ErrorCode.RATE_LIMIT_EXCEEDED, HttpStatus.TOO_MANY_REQUESTS),
+			Map.entry(ErrorCode.SERVICE_UNAVAILABLE, HttpStatus.SERVICE_UNAVAILABLE),
 			Map.entry(ErrorCode.GAME_NOT_FOUND, HttpStatus.NOT_FOUND),
 			Map.entry(ErrorCode.ROOM_NOT_FOUND, HttpStatus.NOT_FOUND),
 			Map.entry(ErrorCode.NOTIFICATION_NOT_FOUND, HttpStatus.NOT_FOUND),
@@ -73,6 +79,8 @@ class ErrorCodeTest {
 			Map.entry(ErrorCode.CAPACITY_EXCEEDED, HttpStatus.CONFLICT),
 			Map.entry(ErrorCode.ROOM_NOT_RECRUITING, HttpStatus.CONFLICT),
 			Map.entry(ErrorCode.ALREADY_PARTICIPATING, HttpStatus.CONFLICT),
+			Map.entry(ErrorCode.WAITLIST_NOT_AVAILABLE, HttpStatus.CONFLICT),
+			Map.entry(ErrorCode.WAITLIST_ENTRY_NOT_FOUND, HttpStatus.NOT_FOUND),
 			Map.entry(
 				ErrorCode.INTERNAL_SERVER_ERROR, HttpStatus.INTERNAL_SERVER_ERROR));
 
