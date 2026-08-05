@@ -265,19 +265,21 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| 내 모임 계약 | [MyRoomListItem](../API.md#410-myroomlistitem), [내 모임 조회](../API.md#part-03-내-모임-조회) |
+| 모임 상세 계약 | [ParticipantRoomResponse](../API.md#48-participantroomresponse), [ROOM-02 방 상세 조회](../API.md#room-02-방-상세-조회) |
 | 관계·상태 | [MyRole](../API.md#myrole), [RoomStatus](../API.md#roomstatus), [ParticipationStatus](../API.md#participationstatus) |
 | 접근 검증 | 화면 표시와 별개로 모든 채팅 요청에서 서버가 현재 관계·상태를 다시 검증 |
-| 관련 정본 | [MyRoomListItem.chatAvailable](../API.md#410-myroomlistitem), 프론트엔드 라우팅 |
+| 목록 보조 계약 | [MyRoomListItem.chatAvailable](../API.md#410-myroomlistitem)은 접근 가능성 일치 검증용이며, 내 모임의 직접 진입 버튼을 결정하지 않는다 |
+| 관련 정본 | [ChatMessage.isMine](../API.md#415-chatmessage), 프론트엔드 라우팅 |
 
 ### 기능 규칙
 
-- 내 모임 화면은 요청자가 주최자 또는 현재 `ACTIVE` 참가자이고, 방 상태가
-  `RECRUITING` 또는 `CLOSED`인 항목만 채팅 진입 대상으로 표시한다.
-- 방 생성자는 다른 참가자가 없어도 생성한 방 항목에서 채팅방으로 진입할 수 있다.
-- 사용자는 참가 성공 뒤 내 모임의 해당 방 항목에서 채팅방으로 진입하며, 참가 전에
-  저장된 기존 메시지도 조회한다.
-- 참가 취소, 세션 만료 또는 방의 `CANCELED`·`FINISHED` 전이 뒤에는 내 모임에서
+- 모임 상세는 요청자가 주최자 또는 현재 `ACTIVE` 참가자이고, 방 상태가
+  `RECRUITING` 또는 `CLOSED`일 때 채팅 진입을 표시한다.
+- 방 생성자는 다른 참가자가 없어도 생성한 모임 상세에서 채팅방으로 진입할 수 있다.
+- 사용자는 참가 성공 뒤 모임 상세에서 채팅방으로 진입하며, 참가 전에 저장된 기존
+  메시지도 조회한다.
+- 내 모임 화면에는 모임 상세와 중복되는 직접 채팅 버튼을 표시하지 않는다.
+- 참가 취소, 세션 만료 또는 방의 `CANCELED`·`FINISHED` 전이 뒤에는 모임 상세에서
   채팅 진입을 표시하지 않는다.
 - 화면에서 채팅 진입을 숨긴 것만으로 권한을 보장하지 않으며, 직접 URL 요청도
   서버에서 같은 관계·상태 규칙으로 거절한다.
@@ -286,16 +288,16 @@
 
 ### 완료 기준
 
-- `CHAT-05-AC1` 방 생성자는 생성 직후 내 모임의 해당 방에서 채팅방으로 진입할 수
+- `CHAT-05-AC1` 방 생성자는 생성 직후 모임 상세에서 채팅방으로 진입할 수
   있다.
-- `CHAT-05-AC2` 현재 `ACTIVE` 참가자는 내 모임의 참가한 방에서 채팅방으로
+- `CHAT-05-AC2` 현재 `ACTIVE` 참가자는 참가한 방의 모임 상세에서 채팅방으로
   진입할 수 있다.
-- `CHAT-05-AC3` 참가를 취소한 사용자의 내 모임에는 해당 방의 채팅 진입이
+- `CHAT-05-AC3` 참가를 취소한 사용자의 모임 상세에는 해당 방의 채팅 진입이
   표시되지 않고 직접 접근도 거절된다.
 - `CHAT-05-AC4` `CANCELED` 또는 `FINISHED` 방은 주최자·참가자 모두에게 채팅
   진입이 표시되지 않고 직접 접근도 거절된다.
-- `CHAT-05-AC5` `RECRUITING`·`CLOSED`와 현재 관계의 조합별 프론트엔드 표시와
-  백엔드 접근 결과가 일치한다.
+- `CHAT-05-AC5` `RECRUITING`·`CLOSED`와 현재 관계의 조합별 모임 상세 표시와
+  백엔드 접근 결과가 일치하고, 내 모임에는 중복 채팅 진입이 없다.
 
 ### 제외 범위
 

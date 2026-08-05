@@ -67,7 +67,7 @@ describe('#427 내 모임 중복 채팅 진입 제거', () => {
   });
 });
 
-describe('#291 T3 참가 취소·최종 상태 방', () => {
+describe('#427 T3 참가 취소·최종 상태 방', () => {
   it('취소된 모임에도 채팅 버튼을 표시하지 않는다', async () => {
     renderMyRooms(myRoom({ status: 'CANCELED', chatAvailable: false }));
 
@@ -85,7 +85,7 @@ describe('#291 T3 참가 취소·최종 상태 방', () => {
   });
 });
 
-describe('#291 T4 직접 URL 접근 거절', () => {
+describe('#427 T4 직접 URL 접근 거절', () => {
   it('서버가 FORBIDDEN으로 거절하면 안내만 남기고 메시지를 보여주지 않는다', async () => {
     vi.spyOn(api, 'getChatMessages').mockRejectedValue(new ApiError({
       status: 403,
@@ -122,11 +122,11 @@ function stubAppDependencies(profile) {
   vi.spyOn(api, 'getUnreadNotificationCount').mockResolvedValue({ unreadCount: 0 });
 }
 
-describe('#291 T4 채팅 라우트 진입', () => {
+describe('#427 T4 채팅 라우트 진입', () => {
   it('로그인 상태의 #/chat/{roomId} 진입은 해당 방의 채팅 화면을 연다', async () => {
     stubAppDependencies({ id: 1, nickname: '테스터' });
     const getChatMessages = vi.spyOn(api, 'getChatMessages').mockResolvedValue({
-      messages: [{ messageId: 1, roomId: 7, clientMessageId: 'c1', sender: { nickname: '주최자' }, content: '7시에 만나요', createdAt: '2026-09-01T19:00:00+09:00' }],
+      messages: [{ messageId: 1, roomId: 7, clientMessageId: 'c1', sender: { nickname: '주최자' }, isMine: false, content: '7시에 만나요', createdAt: '2026-09-01T19:00:00+09:00' }],
       nextBeforeMessageId: null,
       hasNext: false
     });
@@ -150,12 +150,12 @@ describe('#291 T4 채팅 라우트 진입', () => {
   });
 });
 
-describe('#291 T5 채팅 화면 이력 표시', () => {
+describe('#427 T5 채팅 화면 이력 표시', () => {
   it('허용된 방의 이력을 오래된 순서로 일반 텍스트로 보여준다', async () => {
     vi.spyOn(api, 'getChatMessages').mockResolvedValue({
       messages: [
-        { messageId: 2, roomId: 7, clientMessageId: 'c2', sender: { nickname: '참가자' }, content: '<img src=x onerror=alert(1)>', createdAt: '2026-09-01T19:05:00+09:00' },
-        { messageId: 1, roomId: 7, clientMessageId: 'c1', sender: { nickname: '주최자' }, content: '7시에 만나요', createdAt: '2026-09-01T19:00:00+09:00' }
+        { messageId: 2, roomId: 7, clientMessageId: 'c2', sender: { nickname: '참가자' }, isMine: false, content: '<img src=x onerror=alert(1)>', createdAt: '2026-09-01T19:05:00+09:00' },
+        { messageId: 1, roomId: 7, clientMessageId: 'c1', sender: { nickname: '주최자' }, isMine: false, content: '7시에 만나요', createdAt: '2026-09-01T19:00:00+09:00' }
       ],
       nextBeforeMessageId: null,
       hasNext: false
@@ -172,8 +172,8 @@ describe('#291 T5 채팅 화면 이력 표시', () => {
   it('내 메시지는 오른쪽 나 말풍선, 상대 메시지는 왼쪽 상대 말풍선으로 구분한다', async () => {
     vi.spyOn(api, 'getChatMessages').mockResolvedValue({
       messages: [
-        { messageId: 2, roomId: 7, sender: { nickname: '상대방' }, content: '안녕하세요', createdAt: '2026-09-01T19:05:00+09:00' },
-        { messageId: 1, roomId: 7, sender: { nickname: '테스터' }, content: '반갑습니다', createdAt: '2026-09-01T19:00:00+09:00' }
+        { messageId: 2, roomId: 7, sender: { nickname: '테스터' }, isMine: false, content: '동명이인 상대', createdAt: '2026-09-01T19:05:00+09:00' },
+        { messageId: 1, roomId: 7, sender: { nickname: '테스터' }, isMine: true, content: '내 메시지', createdAt: '2026-09-01T19:00:00+09:00' }
       ],
       nextBeforeMessageId: null,
       hasNext: false
@@ -184,6 +184,7 @@ describe('#291 T5 채팅 화면 이력 표시', () => {
     expect(container.querySelectorAll('[data-message-owner="mine"]')).toHaveLength(1);
     expect(container.querySelectorAll('[data-message-owner="theirs"]')).toHaveLength(1);
     expect(screen.getByText('나')).toBeTruthy();
+    expect(screen.getByText('동명이인 상대')).toBeTruthy();
   });
 });
 
@@ -194,6 +195,7 @@ describe('#427 T1~T4 메시지 전송·이력 추가 조회', () => {
       messageId: 3,
       roomId: 7,
       sender: { nickname: '테스터' },
+      isMine: true,
       content: '저도 참여할게요',
       createdAt: '2026-09-01T19:10:00+09:00'
     });
@@ -208,6 +210,39 @@ describe('#427 T1~T4 메시지 전송·이력 추가 조회', () => {
     expect(api.sendChatMessage).toHaveBeenCalledWith('7', expect.objectContaining({ content: '저도 참여할게요', clientMessageId: expect.any(String) }));
   });
 
+  it('전송 실패 뒤 같은 본문은 같은 키로 재시도하고 본문을 바꾸면 새 키를 발급한다', async () => {
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({ messages: [], nextBeforeMessageId: null, hasNext: false });
+    const send = vi.spyOn(api, 'sendChatMessage')
+      .mockRejectedValueOnce(new ApiError({ status: 503, code: 'SERVICE_UNAVAILABLE', message: '잠시 후 다시 시도해주세요.' }))
+      .mockRejectedValueOnce(new ApiError({ status: 503, code: 'SERVICE_UNAVAILABLE', message: '잠시 후 다시 시도해주세요.' }))
+      .mockResolvedValueOnce({
+        messageId: 4,
+        roomId: 7,
+        sender: { nickname: '테스터' },
+        isMine: true,
+        content: '수정한 메시지',
+        createdAt: '2026-09-01T19:11:00+09:00'
+      });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(screen.getByLabelText('메시지')).toBeTruthy());
+    const input = screen.getByLabelText('메시지');
+    const sendButton = screen.getByRole('button', { name: '전송' });
+    fireEvent.change(input, { target: { value: '첫 번째 메시지' } });
+    fireEvent.click(sendButton);
+    await waitFor(() => expect(screen.getByText('잠시 후 다시 시도해주세요.')).toBeTruthy());
+    const firstMessageId = send.mock.calls[0][1].clientMessageId;
+
+    fireEvent.click(sendButton);
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+    expect(send.mock.calls[1][1].clientMessageId).toBe(firstMessageId);
+
+    fireEvent.change(input, { target: { value: '수정한 메시지' } });
+    fireEvent.click(sendButton);
+    await waitFor(() => expect(screen.getByText('수정한 메시지')).toBeTruthy());
+    expect(send.mock.calls[2][1].clientMessageId).not.toBe(firstMessageId);
+  });
+
   it('느린 초기 이력 응답이 전송 성공 메시지를 덮어쓰지 않는다', async () => {
     let resolveHistory;
     vi.spyOn(api, 'getChatMessages').mockReturnValue(new Promise((resolve) => { resolveHistory = resolve; }));
@@ -215,6 +250,7 @@ describe('#427 T1~T4 메시지 전송·이력 추가 조회', () => {
       messageId: 3,
       roomId: 7,
       sender: { nickname: '테스터' },
+      isMine: true,
       content: '먼저 보낸 메시지',
       createdAt: '2026-09-01T19:10:00+09:00'
     });

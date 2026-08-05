@@ -38,10 +38,10 @@ public class ChatMessageHistoryQueryService {
 		return chatAccessGuard.executeWithAccess(
 			currentUserId,
 			roomId,
-			() -> queryHistory(roomId, beforeMessageId, size));
+			() -> queryHistory(currentUserId, roomId, beforeMessageId, size));
 	}
 
-	private ChatMessagePageResponse queryHistory(long roomId, Long beforeMessageId, int size) {
+	private ChatMessagePageResponse queryHistory(long currentUserId, long roomId, Long beforeMessageId, int size) {
 		ChatRoom chatRoom = chatRoomRepository
 			.findByRoomId(roomId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
@@ -56,7 +56,11 @@ public class ChatMessageHistoryQueryService {
 		Map<Long, String> nicknamesById = userQuery.findNicknamesByIds(
 			page.stream().map(ChatMessage::getSenderUserId).collect(Collectors.toSet()));
 		List<ChatMessageResponse> messages = page.stream()
-			.map(message -> ChatMessageResponse.from(message, roomId, nicknameOf(nicknamesById, message, roomId)))
+			.map(message -> ChatMessageResponse.from(
+				message,
+				roomId,
+				nicknameOf(nicknamesById, message, roomId),
+				message.getSenderUserId() == currentUserId))
 			.toList();
 		Long nextBeforeMessageId = hasNext ? page.get(page.size() - 1).getId() : null;
 		return new ChatMessagePageResponse(messages, nextBeforeMessageId, hasNext);

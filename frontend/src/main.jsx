@@ -1438,6 +1438,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [content, setContent] = useState('');
   const [clientMessageId, setClientMessageId] = useState(createClientMessageId);
+  const [clientMessageContent, setClientMessageContent] = useState(null);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
 
@@ -1449,6 +1450,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     setLoadingMore(false);
     setSending(false);
     setContent('');
+    setClientMessageContent(null);
     setSendError('');
     setClientMessageId(createClientMessageId());
   }, [roomId]);
@@ -1505,14 +1507,20 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     }
     setSending(true);
     setSendError('');
+    const messageId = clientMessageContent === null || clientMessageContent === trimmed
+      ? clientMessageId
+      : createClientMessageId();
+    setClientMessageId(messageId);
+    setClientMessageContent(trimmed);
     const requestedRoomId = roomId;
     const requestedGeneration = roomGenerationRef.current;
     try {
-      const saved = await api.sendChatMessage(roomId, { clientMessageId, content: trimmed });
+      const saved = await api.sendChatMessage(roomId, { clientMessageId: messageId, content: trimmed });
       if (roomIdRef.current !== requestedRoomId || roomGenerationRef.current !== requestedGeneration) return;
       mergeMessages([saved]);
       setContent('');
       setClientMessageId(createClientMessageId());
+      setClientMessageContent(null);
     } catch (cause) {
       if (roomIdRef.current !== requestedRoomId || roomGenerationRef.current !== requestedGeneration) return;
       setSendError(messageForError(cause, '메시지를 보내지 못했어요. 다시 시도해주세요.'));
@@ -1537,7 +1545,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
       {!error && !!displayedMessages.length && (
         <ul className="chat-log">
           {displayedMessages.map((message) => {
-            const isMine = Boolean(me?.nickname && message.sender?.nickname === me.nickname);
+            const isMine = Boolean(message.isMine);
             return (
             <li className={'chat-message ' + (isMine ? 'mine' : 'theirs')} data-message-owner={isMine ? 'mine' : 'theirs'} key={message.messageId}>
               <div className="chat-message-head"><b>{isMine ? '나' : message.sender?.nickname}</b><span className="chat-time">{formatStartsAt(message.createdAt)}</span></div>
