@@ -211,23 +211,25 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .gen, .smeta { color: var(--sub); font-size: 12.5px; }
 .gmeta { color: var(--brown2); font-size: 12.5px; font-weight: 700; margin: 6px 0 7px; }
 .gsess { color: var(--green); font-size: 12px; font-weight: 800; margin-top: 8px; }
-/* 카드 전체가 상세 링크라 해 본 게임 조작은 링크 밖에 두고 카드 위에 겹친다. */
-.gcard-shell { display: flex; position: relative; }
-/* 제목·설명 줄 수가 게임마다 달라도 카드 높이는 같게 둔다. 예정 모임은 언제나 맨 아래에 붙는다. */
-.gcard-shell .gcard { display: flex; flex: 1; flex-direction: column; }
+/* 해 본 게임 조작은 링크 안에 넣을 수 없어 카드 껍데기가 테두리를 쥐고 링크는 내용만 감싼다. */
+.gcard-shell { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); display: flex; flex-direction: column; padding: 16px; transition: transform 0.15s, border-color 0.15s; }
+.gcard-shell:hover { border-color: var(--accent); transform: translateY(-2px); }
+.gcard-shell .gcard { background: none; border: 0; border-radius: 0; box-shadow: none; display: flex; flex: 1; flex-direction: column; padding: 0; transition: none; }
+.gcard-shell .gcard:hover { border-color: transparent; transform: none; }
 /* 한글명과 영문명을 한 줄에 두고, 자리가 모자라면 영문명부터 줄인다. */
 .gcard-shell .gtitle { align-items: baseline; display: flex; gap: 6px; overflow: hidden; white-space: nowrap; }
 .gcard-shell .gname { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
 .gcard-shell .gtitle .gen { flex: 0 1 auto; font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
-/* 인원·시간·난이도가 한 줄일 때와 두 줄일 때 카드가 어긋나지 않게 두 줄 자리를 고정한다. */
-.gcard-shell .gmeta { -webkit-box-orient: vertical; -webkit-line-clamp: 2; display: -webkit-box; height: 2.9em; line-height: 1.45; overflow: hidden; }
-.gtags { min-height: 24px; }
-.gcard-shell .gsess { margin-top: auto; }
+/* 조건은 한 줄로 자른다. 줄 수가 게임마다 달라지면 카드 높이가 어긋난다. */
+.gcard-shell .gmeta { margin: 7px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 태그가 없는 게임도 같은 자리를 차지해 아래 칸 위치가 흔들리지 않는다. */
+.gcard-info { align-items: center; display: flex; gap: 8px; justify-content: space-between; margin-top: auto; min-height: 26px; padding-top: 9px; }
+.gcard-shell .gsess { margin-top: 0; }
+.gcard-foot { border-top: 1px solid var(--line); display: flex; justify-content: flex-end; margin-top: 11px; padding-top: 11px; }
 .played-toggle { background: var(--card); border: 1px solid var(--line); border-radius: 999px; color: var(--brown2); font-size: 12.5px; font-weight: 800; padding: 7px 13px; }
 .played-toggle:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-dark); }
 .played-toggle.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .played-toggle:disabled { opacity: 0.55; }
-.gcard-shell .played-toggle { position: absolute; right: 12px; top: 12px; z-index: 1; }
 .scard-top { align-items: flex-start; display: flex; gap: 12px; }
 .gemoji { align-items: center; background: var(--soft); border-radius: 10px; display: flex; flex: 0 0 52px; font-size: 29px; height: 52px; justify-content: center; width: 52px; }
 .srow { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; margin: 11px 0 9px; }

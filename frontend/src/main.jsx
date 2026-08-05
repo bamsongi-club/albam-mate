@@ -610,10 +610,15 @@ function GameCard({ game, played, pending, onTogglePlayed }) {
         </div>
         <div className="gmeta">{gameMeta(game)}</div>
         {/* 태그가 없는 게임도 같은 자리를 비워 둬야 카드 높이가 서로 어긋나지 않는다. */}
-        <div className="gtags">{game.tag && <span className="chip">{game.tag}</span>}</div>
-        <div className="gsess">예정 모임 {game.upcomingRoomCount}개</div>
+        <div className="gcard-info">
+          {game.tag ? <span className="chip">{game.tag}</span> : <span />}
+          <span className="gsess">예정 모임 {game.upcomingRoomCount}개</span>
+        </div>
       </a>
-      <PlayedGameToggle played={played} pending={pending} onToggle={onTogglePlayed} />
+      {/* 카드 전체가 상세 링크라 해 본 게임 조작은 링크 밖 아래 칸에 둔다. */}
+      <div className="gcard-foot">
+        <PlayedGameToggle played={played} pending={pending} onToggle={onTogglePlayed} />
+      </div>
     </div>
   );
 }
