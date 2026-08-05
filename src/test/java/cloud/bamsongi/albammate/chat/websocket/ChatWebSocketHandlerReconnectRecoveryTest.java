@@ -1,0 +1,157 @@
+package cloud.bamsongi.albammate.chat.websocket;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.session.MapSession;
+import org.springframework.session.MapSessionRepository;
+import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketSession;
+
+import cloud.bamsongi.albammate.chat.contract.MessageCommitted;
+import cloud.bamsongi.albammate.chat.entity.ChatMessage;
+import cloud.bamsongi.albammate.chat.entity.ChatRoom;
+import cloud.bamsongi.albammate.chat.repository.ChatMessageRepository;
+import cloud.bamsongi.albammate.chat.repository.ChatRoomRepository;
+import cloud.bamsongi.albammate.room.contract.ChatAccessGuard;
+import cloud.bamsongi.albammate.user.contract.UserQuery;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import tools.jackson.databind.json.JsonMapper;
+
+/** T5: afterMessageId 재연결의 누락분 catch-up과 복구 중 도착한 이벤트의 중복 없는 합류를 검증한다. */
+class ChatWebSocketHandlerReconnectRecoveryTest {
+
+	private static final long ROOM_ID = 7L;
+	private static final long CHAT_ROOM_ID = 99L;
+	private static final long USER_ID = 42L;
+	private static final String SESSION_ID = "session-id";
+	private static final Instant CREATED_AT = Instant.parse("2026-08-05T00:00:00Z");
+
+	private final MapSessionRepository sessionRepository = new MapSessionRepository(new HashMap<>());
+	private final TaskScheduler taskScheduler = mock(TaskScheduler.class);
+	private final ChatAccessGuard chatAccessGuard = mock(ChatAccessGuard.class);
+	private final ChatWebSocketProperties properties = new ChatWebSocketProperties();
+	private final ChatRoomRepository chatRoomRepository = mock(ChatRoomRepository.class);
+	private final ChatMessageRepository chatMessageRepository = mock(ChatMessageRepository.class);
+	private final UserQuery userQuery = mock(UserQuery.class);
+	private final ChatWebSocketMetrics metrics = new ChatWebSocketMetrics(new SimpleMeterRegistry());
+
+	@Test
+	void afterMessageId_재연결은_누락분을_ASC로_먼저_전달한다() throws Exception {
+		ChatMessage message6 = chatMessage(6L);
+		ChatMessage message7 = chatMessage(7L);
+		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 5L))
+			.thenReturn(List.of(message6, message7));
+		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+		WebSocketSession session = session(5L);
+		ChatWebSocketHandler handler = handler();
+
+		handler.afterConnectionEstablished(session);
+
+		ArgumentCaptor<TextMessage> captor = ArgumentCaptor.forClass(TextMessage.class);
+		verify(session, times(2)).sendMessage(captor.capture());
+		assertTrue(captor.getAllValues().get(0).getPayload().contains("\"eventId\":6"));
+		assertTrue(captor.getAllValues().get(1).getPayload().contains("\"eventId\":7"));
+	}
+
+	@Test
+	void 복구_중_도착한_신호는_중복_전달_없이_이어서_전달된다() throws Exception {
+		ChatMessage message1 = chatMessage(1L);
+		ChatMessage message2 = chatMessage(2L);
+		CountDownLatch catchupStarted = new CountDownLatch(1);
+		CountDownLatch releaseCatchup = new CountDownLatch(1);
+		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(eq(CHAT_ROOM_ID), eq(0L)))
+			.thenAnswer(invocation -> {
+				catchupStarted.countDown();
+				assertTrue(releaseCatchup.await(5, TimeUnit.SECONDS), "release timed out");
+				return List.of(message1);
+			});
+		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(eq(CHAT_ROOM_ID), eq(1L)))
+			.thenReturn(List.of(message2));
+		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+		WebSocketSession session = session(null);
+		ChatWebSocketHandler handler = handler();
+
+		Thread connectThread = new Thread(() -> handler.afterConnectionEstablished(session));
+		connectThread.start();
+		assertTrue(catchupStarted.await(5, TimeUnit.SECONDS), "catch-up did not start in time");
+
+		Thread signalThread = new Thread(
+			() -> handler.onMessageCommitted(MessageCommitted.messageCreated(ROOM_ID, 2L)));
+		signalThread.start();
+		releaseCatchup.countDown();
+		connectThread.join(5_000);
+		signalThread.join(5_000);
+
+		ArgumentCaptor<TextMessage> captor = ArgumentCaptor.forClass(TextMessage.class);
+		verify(session, times(2)).sendMessage(captor.capture());
+		assertTrue(captor.getAllValues().get(0).getPayload().contains("\"eventId\":1"));
+		assertTrue(captor.getAllValues().get(1).getPayload().contains("\"eventId\":2"));
+	}
+
+	private ChatWebSocketHandler handler() {
+		return new ChatWebSocketHandler(
+			chatAccessGuard,
+			sessionRepository,
+			taskScheduler,
+			properties,
+			chatRoomRepository,
+			chatMessageRepository,
+			userQuery,
+			metrics,
+			JsonMapper.builder().build(),
+			Clock.fixed(CREATED_AT.plusSeconds(1), ZoneOffset.UTC));
+	}
+
+	private WebSocketSession session(Long afterMessageId) {
+		MapSession savedSession = sessionRepository.createSession();
+		savedSession.setId(SESSION_ID);
+		sessionRepository.save(savedSession);
+		Map<String, Object> attributes = new HashMap<>();
+		attributes.put(ChatWebSocketHandler.SESSION_ID_ATTRIBUTE, SESSION_ID);
+		attributes.put(ChatWebSocketHandler.USER_ID_ATTRIBUTE, USER_ID);
+		attributes.put(ChatWebSocketHandler.ROOM_ID_ATTRIBUTE, ROOM_ID);
+		if (afterMessageId != null) {
+			attributes.put(ChatWebSocketHandler.AFTER_MESSAGE_ID_ATTRIBUTE, afterMessageId);
+		}
+		WebSocketSession session = mock(WebSocketSession.class);
+		when(session.isOpen()).thenReturn(true);
+		when(session.getAttributes()).thenReturn(attributes);
+		ChatRoom chatRoom = mock(ChatRoom.class);
+		when(chatRoom.getId()).thenReturn(CHAT_ROOM_ID);
+		when(chatRoomRepository.findByRoomId(ROOM_ID)).thenReturn(Optional.of(chatRoom));
+		if (afterMessageId == null) {
+			when(chatMessageRepository.findByChatRoomIdOrderByIdDesc(eq(CHAT_ROOM_ID), any()))
+				.thenReturn(List.of());
+		}
+		return session;
+	}
+
+	private ChatMessage chatMessage(long messageId) {
+		ChatMessage message = mock(ChatMessage.class);
+		when(message.getId()).thenReturn(messageId);
+		when(message.getSenderUserId()).thenReturn(USER_ID);
+		when(message.getClientMessageId()).thenReturn("client-" + messageId);
+		when(message.getContent()).thenReturn("내용 " + messageId);
+		when(message.getCreatedAt()).thenReturn(CREATED_AT);
+		return message;
+	}
+}
