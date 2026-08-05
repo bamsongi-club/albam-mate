@@ -202,4 +202,27 @@ describe('T9 비로그인 사용자의 해 본 게임 처리', () => {
     expect(screen.getByText('로그인이 필요해요')).toBeTruthy();
     expect(screen.getByRole('link', { name: '로그인 또는 회원가입' })).toBeTruthy();
   });
+
+  it('목록 토글의 401은 공통 인증 실패 흐름에 그대로 넘긴다', async () => {
+    const unauthenticated = new TestApiError({ status: 401, code: 'UNAUTHENTICATED', message: '로그인이 필요합니다.' });
+    markGamePlayed.mockRejectedValue(unauthenticated);
+    const onPlayedError = vi.fn();
+    await renderGamesView({ onPlayedError });
+
+    await act(async () => { fireEvent.click(playedToggle()); });
+
+    expect(playedToggle().disabled).toBe(false);
+    expect(onPlayedError).toHaveBeenCalledWith(unauthenticated, expect.any(String));
+  });
+
+  it('상세 토글의 401도 같은 흐름으로 넘긴다', async () => {
+    const unauthenticated = new TestApiError({ status: 401, code: 'UNAUTHENTICATED', message: '로그인이 필요합니다.' });
+    markGamePlayed.mockRejectedValue(unauthenticated);
+    const onPlayedError = vi.fn();
+    await renderGameDetailView({ onPlayedError });
+
+    await act(async () => { fireEvent.click(playedToggle()); });
+
+    expect(onPlayedError).toHaveBeenCalledWith(unauthenticated, expect.any(String));
+  });
 });
