@@ -12,9 +12,19 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
-import cloud.bamsongi.albammate.game.entity.*;
+import cloud.bamsongi.albammate.game.entity.Game;
+import cloud.bamsongi.albammate.game.entity.GameCategory;
+import cloud.bamsongi.albammate.game.entity.GameCategoryRelation;
+import cloud.bamsongi.albammate.game.entity.GamePlayerPreference;
+import cloud.bamsongi.albammate.game.entity.GameTheme;
+import cloud.bamsongi.albammate.game.entity.GameThemeRelation;
 import cloud.bamsongi.albammate.game.fixture.GameFixture;
-import cloud.bamsongi.albammate.game.repository.*;
+import cloud.bamsongi.albammate.game.repository.GameCategoryRelationRepository;
+import cloud.bamsongi.albammate.game.repository.GameCategoryRepository;
+import cloud.bamsongi.albammate.game.repository.GamePlayerPreferenceRepository;
+import cloud.bamsongi.albammate.game.repository.GameRepository;
+import cloud.bamsongi.albammate.game.repository.GameThemeRelationRepository;
+import cloud.bamsongi.albammate.game.repository.GameThemeRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -102,8 +112,10 @@ class GameMetadataHttpIntegrationTest {
 	void 카테고리와_테마_선택지는_내부식별자없이_공개필드만_반환한다() throws Exception {
 		categoryRepository.saveAndFlush(new GameCategory("STRATEGY", "전략", "Strategy", "strategygames", 1));
 		themeRepository.saveAndFlush(new GameTheme(100L, "FANTASY", "판타지", "Fantasy"));
-		mockMvc.perform(get("/api/game-categories")).andExpect(status().isOk()).andExpect(jsonPath("$.data[0].id").doesNotExist());
-		mockMvc.perform(get("/api/game-themes")).andExpect(status().isOk()).andExpect(jsonPath("$.data[0].bggThemeId").doesNotExist());
+		mockMvc.perform(get("/api/game-categories")).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data[0].id").doesNotExist());
+		mockMvc.perform(get("/api/game-themes")).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data[0].bggThemeId").doesNotExist());
 	}
 
 	@Test
@@ -144,8 +156,10 @@ class GameMetadataHttpIntegrationTest {
 	void 관계없는_상세는_메타데이터_빈배열을_반환한다() throws Exception {
 		Game game = saveGame(420099L, "Metadata empty");
 		mockMvc.perform(get("/api/games/{id}", game.getId())).andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.categories.length()").value(0)).andExpect(jsonPath("$.data.themes.length()").value(0))
-			.andExpect(jsonPath("$.data.recommendedPlayerCounts.length()").value(0)).andExpect(jsonPath("$.data.bestPlayerCounts.length()").value(0));
+			.andExpect(jsonPath("$.data.categories.length()").value(0))
+			.andExpect(jsonPath("$.data.themes.length()").value(0))
+			.andExpect(jsonPath("$.data.recommendedPlayerCounts.length()").value(0))
+			.andExpect(jsonPath("$.data.bestPlayerCounts.length()").value(0));
 	}
 
 	private Game saveGame(long bggId, String name) {
