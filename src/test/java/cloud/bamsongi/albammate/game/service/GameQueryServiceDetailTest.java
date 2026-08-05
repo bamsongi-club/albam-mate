@@ -72,6 +72,7 @@ class GameQueryServiceDetailTest {
 		when(game.getTag()).thenReturn("전략");
 		when(game.getEstimatedPlayTime()).thenReturn("60~90분");
 		when(game.getComplexity()).thenReturn(new BigDecimal("2.00"));
+		when(game.getReleaseYear()).thenReturn(1995);
 		when(game.getDescription()).thenReturn("간단한 게임 설명");
 		when(game.getDetailDescription()).thenReturn("상세한 게임 설명");
 		when(gameRepository.findById(1L)).thenReturn(Optional.of(game));
@@ -91,10 +92,12 @@ class GameQueryServiceDetailTest {
 				"전략",
 				"60~90분",
 				new BigDecimal("2.00"),
+				1995,
 				2L,
 				"카탄 기본판",
 				"간단한 게임 설명",
-				"상세한 게임 설명"),
+				"상세한 게임 설명",
+				null),
 			result);
 		verify(gameRepository).findById(1L);
 		verify(upcomingRoomCountQuery).findUpcomingRoomCounts(List.of(1L), NOW);
