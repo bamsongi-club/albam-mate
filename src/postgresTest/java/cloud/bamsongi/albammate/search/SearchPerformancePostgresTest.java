@@ -236,14 +236,12 @@ class SearchPerformancePostgresTest {
 	@Order(1)
 	void PostgreSQL_Flyway_인덱스가_존재하고_대표_계획에서_사용된다() {
 		assertEquals(1, jdbcTemplate.queryForObject(
-			"select count(*) from flyway_schema_history where version = '16' and success = true and script = 'V16__add_p1_search_indexes.sql'",
+			"select count(*) from flyway_schema_history where version = '18' and success = true and script = 'V18__add_p1_search_indexes.sql'",
 			Integer.class));
 		assertIndexExists(ROOM_INDEX);
 		assertRoomIndexDefinition();
 		assertFalse(indexExists(GAME_INDEX));
-		assertTrue(explain(
-			"select id from rooms where status in ('RECRUITING', 'CLOSED') and start_at >= timestamp with time zone '2099-01-01T00:10:00Z' order by start_at, id limit 25")
-			.contains(ROOM_INDEX));
+		assertTrue(explainPreparedPublicRoomQuery().contains(ROOM_INDEX));
 	}
 
 	@Test
@@ -298,7 +296,8 @@ class SearchPerformancePostgresTest {
 				request.setPlayTime(List.of(GamePlayTimeFilter.AT_LEAST_90));
 				request.setMechanism(List.of("DICE_ROLLING"));
 				request.setPlayedFilter(List.of(PlayedFilter.EXCLUDE_PLAYED));
-			}));
+			}),
+			allFilterGameRequest());
 	}
 
 	private List<RoomListRequest> roomRequests() {
@@ -312,14 +311,45 @@ class SearchPerformancePostgresTest {
 			roomRequest(request -> request.setMinRemainingSeats(4)),
 			roomRequest(request -> request.setExperienceLevels(Set.of(ExperienceLevel.BEGINNER_WELCOME))),
 			roomRequest(request -> request.setRulemasterOnly(true)),
-			roomRequest(request -> {
-				request.setType(RoomType.GAME_FOCUSED);
-				request.setStartsAtFrom(ROOM_START.plusSeconds(600));
-				request.setStartsAtTo(ROOM_START.plusSeconds(21_600));
-				request.setMinRemainingSeats(3);
-				request.setExperienceLevels(Set.of(ExperienceLevel.BEGINNER_WELCOME, ExperienceLevel.ALL_LEVELS));
-				request.setRulemasterOnly(true);
-			}));
+			allFilterRoomRequest(),
+			allFilterRoomWithGameRequest());
+	}
+
+	private GameListRequest allFilterGameRequest() {
+		return gameRequest(request -> {
+			request.setKeyword("Game");
+			request.setPlayerCount(4);
+			request.setPlayTime(List.of(GamePlayTimeFilter.AT_LEAST_90));
+			request.setMechanism(List.of("DICE_ROLLING", "HAND_MANAGEMENT"));
+			request.setPlayedFilter(List.of(PlayedFilter.EXCLUDE_PLAYED));
+			request.setPage(10);
+		});
+	}
+
+	private RoomListRequest allFilterRoomRequest() {
+		return roomRequest(request -> {
+			request.setType(RoomType.GAME_FOCUSED);
+			request.setStartsAtFrom(ROOM_START.plusSeconds(600));
+			request.setStartsAtTo(ROOM_START.plusSeconds(21_600));
+			request.setMinRemainingSeats(3);
+			request.setExperienceLevels(Set.of(ExperienceLevel.BEGINNER_WELCOME, ExperienceLevel.ALL_LEVELS));
+			request.setRulemasterOnly(true);
+			request.setKeyword("Room");
+			request.setPage(3);
+		});
+	}
+
+	private RoomListRequest allFilterRoomWithGameRequest() {
+		return roomRequest(request -> {
+			request.setType(RoomType.GAME_FOCUSED);
+			request.setGameId(GAME_ID_BASE + 66);
+			request.setKeyword("Room-0066");
+			request.setStartsAtFrom(ROOM_START.plusSeconds(3_600));
+			request.setStartsAtTo(ROOM_START.plusSeconds(21_600));
+			request.setMinRemainingSeats(4);
+			request.setExperienceLevels(Set.of(ExperienceLevel.BEGINNER_WELCOME));
+			request.setRulemasterOnly(true);
+		});
 	}
 
 	private Page<GameListItem> gamePage(GameListRequest request) {
@@ -389,6 +419,35 @@ class SearchPerformancePostgresTest {
 		return jdbcTemplate.queryForObject("explain (analyze, buffers, format json) " + sql, String.class);
 	}
 
+	private String explainPreparedPublicRoomQuery() {
+		return jdbcTemplate.queryForObject("""
+			explain (analyze, buffers, format json)
+			select room.id
+			from rooms room
+			where (cast(? as varchar) is null or room.room_type = ?)
+			  and room.status in (?, ?)
+			  and (cast(? as bigint) is null or room.game_id = ?)
+			  and (? = false or lower(room.title) like concat('%', lower(?), '%') escape '!')
+			  and (? = false or room.start_at >= ?)
+			  and (? = false or room.start_at < ?)
+			  and (? = false or room.capacity - room.active_participant_count >= ?)
+			  and room.experience_level in (?, ?, ?)
+			  and (? = false or room.is_rulemaster_led = true)
+			order by room.start_at, room.id
+			limit ? offset ?
+			""", String.class,
+			null, null,
+			"RECRUITING", "CLOSED",
+			null, null,
+			false, "",
+			false, ROOM_START,
+			false, ROOM_START,
+			false, 0,
+			"ALL_LEVELS", "BEGINNER_WELCOME", "EXPERIENCED_PREFERRED",
+			false,
+			25, 0);
+	}
+
 	private void assertIndexExists(String index) {
 		assertTrue(indexExists(index));
 	}
@@ -435,6 +494,9 @@ class SearchPerformancePostgresTest {
 			new Scenario("game-complex",
 				"select g.id from games g where g.max_play_time_minutes >= 90 and not exists (select 1 from user_played_games u where u.user_id = 9000001 and u.game_id = g.id) order by g.name, g.id limit 25",
 				"select count(*) from games g where g.max_play_time_minutes >= 90 and not exists (select 1 from user_played_games u where u.user_id = 9000001 and u.game_id = g.id)"),
+			new Scenario("game-all-filter-deep-page",
+				"select g.id from games g where lower(g.name) like '%game%' and g.min_players <= 4 and g.max_players >= 4 and g.max_play_time_minutes >= 90 and exists (select 1 from game_mechanism_relations r join game_mechanisms m on m.id = r.mechanism_id where r.game_id = g.id and m.code in ('DICE_ROLLING', 'HAND_MANAGEMENT') and m.is_public) and not exists (select 1 from user_played_games u where u.user_id = 9000001 and u.game_id = g.id) order by g.name, g.id limit 25 offset 250",
+				"select count(*) from games g where lower(g.name) like '%game%' and g.min_players <= 4 and g.max_players >= 4 and g.max_play_time_minutes >= 90 and exists (select 1 from game_mechanism_relations r join game_mechanisms m on m.id = r.mechanism_id where r.game_id = g.id and m.code in ('DICE_ROLLING', 'HAND_MANAGEMENT') and m.is_public) and not exists (select 1 from user_played_games u where u.user_id = 9000001 and u.game_id = g.id)"),
 			new Scenario("room-unfiltered",
 				"select id from rooms where status in ('RECRUITING', 'CLOSED') order by start_at, id limit 25",
 				"select count(*) from rooms where status in ('RECRUITING', 'CLOSED')"),
@@ -443,7 +505,13 @@ class SearchPerformancePostgresTest {
 				"select count(*) from rooms where status in ('RECRUITING', 'CLOSED') and room_type = 'GAME_FOCUSED'"),
 			new Scenario("room-p1",
 				"select id from rooms where status in ('RECRUITING', 'CLOSED') and start_at >= timestamp with time zone '2099-01-01T00:10:00Z' and capacity - active_participant_count >= 3 and experience_level = 'BEGINNER_WELCOME' and is_rulemaster_led order by start_at, id limit 25",
-				"select count(*) from rooms where status in ('RECRUITING', 'CLOSED') and start_at >= timestamp with time zone '2099-01-01T00:10:00Z' and capacity - active_participant_count >= 3 and experience_level = 'BEGINNER_WELCOME' and is_rulemaster_led"));
+				"select count(*) from rooms where status in ('RECRUITING', 'CLOSED') and start_at >= timestamp with time zone '2099-01-01T00:10:00Z' and capacity - active_participant_count >= 3 and experience_level = 'BEGINNER_WELCOME' and is_rulemaster_led"),
+			new Scenario("room-all-filter-deep-page",
+				"select id from rooms where status in ('RECRUITING', 'CLOSED') and room_type = 'GAME_FOCUSED' and lower(title) like '%room%' and start_at >= timestamp with time zone '2099-01-01T01:00:00Z' and start_at < timestamp with time zone '2099-01-01T06:00:00Z' and capacity - active_participant_count >= 3 and experience_level in ('BEGINNER_WELCOME', 'ALL_LEVELS') and is_rulemaster_led order by start_at, id limit 25 offset 75",
+				"select count(*) from rooms where status in ('RECRUITING', 'CLOSED') and room_type = 'GAME_FOCUSED' and lower(title) like '%room%' and start_at >= timestamp with time zone '2099-01-01T01:00:00Z' and start_at < timestamp with time zone '2099-01-01T06:00:00Z' and capacity - active_participant_count >= 3 and experience_level in ('BEGINNER_WELCOME', 'ALL_LEVELS') and is_rulemaster_led"),
+			new Scenario("room-all-filter-game-id",
+				"select id from rooms where status in ('RECRUITING', 'CLOSED') and room_type = 'GAME_FOCUSED' and game_id = 1000066 and lower(title) like '%room-0066%' and start_at >= timestamp with time zone '2099-01-01T01:00:00Z' and start_at < timestamp with time zone '2099-01-01T06:00:00Z' and capacity - active_participant_count >= 4 and experience_level = 'BEGINNER_WELCOME' and is_rulemaster_led order by start_at, id limit 25",
+				"select count(*) from rooms where status in ('RECRUITING', 'CLOSED') and room_type = 'GAME_FOCUSED' and game_id = 1000066 and lower(title) like '%room-0066%' and start_at >= timestamp with time zone '2099-01-01T01:00:00Z' and start_at < timestamp with time zone '2099-01-01T06:00:00Z' and capacity - active_participant_count >= 4 and experience_level = 'BEGINNER_WELCOME' and is_rulemaster_led"));
 	}
 
 	private List<Measurement> measureAll(String phase, List<Scenario> scenarios) {
@@ -481,12 +549,23 @@ class SearchPerformancePostgresTest {
 	private void measureServiceWholeCalls(String phase) {
 		GameListRequest gameRequest = gameRequest(request -> request.setPlayTime(List.of(GamePlayTimeFilter.UP_TO_10)));
 		RoomListRequest roomRequest = roomRequest(request -> request.setStartsAtFrom(ROOM_START.plusSeconds(600)));
+		GameListRequest allFilterGameRequest = allFilterGameRequest();
+		RoomListRequest allFilterRoomRequest = allFilterRoomRequest();
 		gameQueryService.findPage(gameRequest, null);
 		roomListQueryService.findPage(roomRequest, Optional.empty());
+		gameQueryService.findPage(allFilterGameRequest, USER_ID);
+		roomListQueryService.findPage(allFilterRoomRequest, Optional.empty());
 		List<Double> gameTimes = wallClockMillis(() -> gameQueryService.findPage(gameRequest, null));
 		List<Double> roomTimes = wallClockMillis(() -> roomListQueryService.findPage(roomRequest, Optional.empty()));
+		List<Double> allFilterGameTimes = wallClockMillis(
+			() -> gameQueryService.findPage(allFilterGameRequest, USER_ID));
+		List<Double> allFilterRoomTimes = wallClockMillis(
+			() -> roomListQueryService.findPage(allFilterRoomRequest, Optional.empty()));
 		System.out.printf("SEARCH_PERF application-service %s gameMs=%s median=%.3f roomMs=%s median=%.3f%n",
 			phase, gameTimes, median(gameTimes), roomTimes, median(roomTimes));
+		System.out.printf(
+			"SEARCH_PERF application-service %s gameAllFiltersMs=%s median=%.3f roomAllFiltersMs=%s median=%.3f%n",
+			phase, allFilterGameTimes, median(allFilterGameTimes), allFilterRoomTimes, median(allFilterRoomTimes));
 	}
 
 	private void measureHttpCalls(String phase) {
