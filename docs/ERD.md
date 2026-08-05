@@ -29,6 +29,11 @@ erDiagram
     GAMES ||--o{ USER_PLAYED_GAMES : "표시됨"
     GAMES ||--o{ GAME_MECHANISM_RELATIONS : "메커니즘 관계"
     GAME_MECHANISMS ||--o{ GAME_MECHANISM_RELATIONS : "게임 관계"
+    GAMES ||--o{ GAME_CATEGORY_RELATIONS : "카테고리 관계"
+    GAME_CATEGORIES ||--o{ GAME_CATEGORY_RELATIONS : "게임 관계"
+    GAMES ||--o{ GAME_THEME_RELATIONS : "테마 관계"
+    GAME_THEMES ||--o{ GAME_THEME_RELATIONS : "게임 관계"
+    GAMES ||--o{ GAME_PLAYER_PREFERENCES : "추천·베스트 인원"
     USERS ||--o{ PARTICIPATIONS : "참가"
     ROOMS ||--o{ PARTICIPATIONS : "참가 관계 보유"
     USERS ||--o{ ROOM_WAITLISTS : "대기"
@@ -103,6 +108,44 @@ erDiagram
     GAME_MECHANISM_RELATIONS {
         BIGINT game_id PK, FK
         BIGINT mechanism_id PK, FK
+    }
+
+    GAME_CATEGORIES {
+        BIGINT id PK
+        VARCHAR code UK
+        VARCHAR bgg_subdomain UK
+        VARCHAR name_ko
+        VARCHAR name_en
+        SMALLINT display_order UK
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    GAME_CATEGORY_RELATIONS {
+        BIGINT game_id PK, FK
+        BIGINT category_id PK, FK
+    }
+
+    GAME_THEMES {
+        BIGINT id PK
+        BIGINT bgg_theme_id UK
+        VARCHAR code UK
+        VARCHAR name_ko
+        VARCHAR name_en
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    GAME_THEME_RELATIONS {
+        BIGINT game_id PK, FK
+        BIGINT theme_id PK, FK
+    }
+
+    GAME_PLAYER_PREFERENCES {
+        BIGINT game_id PK, FK
+        INT player_count PK
+        BOOLEAN is_recommended
+        BOOLEAN is_best
     }
 
     ROOMS {
@@ -233,8 +276,8 @@ P1 소셜 제공자·대기 상태와 알림의 제한 값은 PostgreSQL 네이�
 | alias | VARCHAR(255) | NULL | 별칭 |
 | image_url | VARCHAR(500) | NULL | 대표 이미지 주소 |
 | supported_player_count | VARCHAR(50) | NN | 표시용 가능 인원. 게임 규칙상 플레이 가능한 범위, 예: `2~4명` |
-| recommended_player_count | VARCHAR(50) | NULL | 표시용 추천 인원. 승인된 이용자 평가 집계가 생기기 전까지 `NULL` |
-| best_player_count | VARCHAR(50) | NULL | 표시용 최적 인원. 승인된 이용자 평가 집계가 생기기 전까지 `NULL` |
+| recommended_player_count | VARCHAR(50) | NULL | 과거 표시용 추천 인원 문자열. 검색·상세 정본은 GAME_PLAYER_PREFERENCES 관계 |
+| best_player_count | VARCHAR(50) | NULL | 과거 표시용 베스트 인원 문자열. 검색·상세 정본은 GAME_PLAYER_PREFERENCES 관계 |
 | tag | VARCHAR(30) | NN | 게임 스타일 태그 |
 | estimated_play_time | VARCHAR(50) | NN | 표시용 예상 플레이 시간 |
 | min_players | INTEGER | NULL | 검색용 가능 인원 최소값. `max_players`와 함께 `NULL`이거나 양의 정수이며 최소값 이하 |
@@ -294,6 +337,64 @@ P1 소셜 제공자·대기 상태와 알림의 제한 값은 PostgreSQL 네이�
 | mechanism_id | BIGINT | PK, FK → GAME_MECHANISMS.id, NN | 내부 메커니즘 식별자 |
 
 두 외래 키는 참조 행 삭제 시 관계만 함께 삭제한다. 서비스 카탈로그 적재는 `bgg_id`와 `bgg_mechanism_id`로 내부 ID를 해석해 반복 실행해도 같은 복합 키 한 건으로 수렴한다.
+
+### GAME_CATEGORIES
+
+[ADR-0050](adr/game/0050-game-metadata-catalog-and-filters.md)의 고정 8개 BGG subdomain 그룹이다. code와 표시명은 분리하며, rank가 없는 게임에 카테고리를 추정하지 않는다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | BIGINT | PK, NN, AI | 내부 카테고리 식별자 |
+| code | VARCHAR(64) | UQ, NN | API 검색에 쓰는 안정적인 UPPER_SNAKE_CASE code |
+| bgg_subdomain | VARCHAR(32) | UQ, NN | 순위 CSV의 BGG subdomain |
+| name_ko | VARCHAR(100) | NN | 화면 표시 한글명 |
+| name_en | VARCHAR(100) | NN | BGG 영문 그룹명 |
+| display_order | SMALLINT | UQ, NN, 1~8 | 화면 고정 노출 순서 |
+| created_at | TIMESTAMPTZ | NN | 목록 행 생성 시각 |
+| updated_at | TIMESTAMPTZ | NN | 목록 행 갱신 시각 |
+
+### GAME_CATEGORY_RELATIONS
+
+게임과 카테고리의 다대다 관계다. 순위 CSV의 해당 subdomain rank가 양수인 경우만 연결한다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| game_id | BIGINT | PK, FK → GAMES.id, NN, ON DELETE CASCADE | 알밤메이트 내부 게임 식별자 |
+| category_id | BIGINT | PK, FK → GAME_CATEGORIES.id, NN, ON DELETE CASCADE | 내부 카테고리 식별자 |
+
+### GAME_THEMES
+
+BGG boardgamecategory 원본을 검수된 한국어 표시명과 안정 code로 관리하는 내부 목록이다. 한글명·영문명·원본 ID·code가 완성되지 않은 항목은 적재·공개하지 않는다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | BIGINT | PK, NN, AI | 내부 테마 식별자 |
+| bgg_theme_id | BIGINT | UQ, NN | BGG boardgamecategory 원본 식별자 |
+| code | VARCHAR(64) | UQ, NN | API 검색에 쓰는 안정적인 UPPER_SNAKE_CASE code |
+| name_ko | VARCHAR(100) | NN | 검수된 화면 표시 한글명 |
+| name_en | VARCHAR(100) | NN | BGG 원문 영문명 |
+| created_at | TIMESTAMPTZ | NN | 목록 행 생성 시각 |
+| updated_at | TIMESTAMPTZ | NN | 목록 행 갱신 시각 |
+
+### GAME_THEME_RELATIONS
+
+게임과 테마의 다대다 관계다. XML에 같은 link가 반복되어도 복합 키 한 행만 저장한다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| game_id | BIGINT | PK, FK → GAMES.id, NN, ON DELETE CASCADE | 알밤메이트 내부 게임 식별자 |
+| theme_id | BIGINT | PK, FK → GAME_THEMES.id, NN, ON DELETE CASCADE | 내부 테마 식별자 |
+
+### GAME_PLAYER_PREFERENCES
+
+가능 인원과 분리한 BGG suggested_numplayers 투표의 게임별 추천·베스트 인원 관계다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| game_id | BIGINT | PK, FK → GAMES.id, NN, ON DELETE CASCADE | 알밤메이트 내부 게임 식별자 |
+| player_count | INTEGER | PK, NN, > 0 | 정규화된 실제 인원 수 |
+| is_recommended | BOOLEAN | NN | 추천 인원 여부 |
+| is_best | BOOLEAN | NN, is_best → is_recommended | 베스트 인원 여부 |
 
 ### ROOMS
 
@@ -596,6 +697,13 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 | GAME_MECHANISMS | CHECK (featured_order IS NULL OR featured_order BETWEEN 1 AND 8) | 대표 순서는 `1`~`8`만 허용한다. |
 | GAME_MECHANISMS | CHECK (NOT is_public OR (reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL)) | 공개 항목은 검수자와 검수 시각을 반드시 가진다. |
 | GAME_MECHANISM_RELATIONS | PRIMARY KEY (game_id, mechanism_id) | 같은 게임과 메커니즘 관계는 하나만 저장한다. |
+| GAME_CATEGORIES | UNIQUE (code), UNIQUE (bgg_subdomain), UNIQUE (display_order) | 고정 카테고리 code·원본 subdomain·표시 순서는 각각 하나다. |
+| GAME_CATEGORIES | CHECK (display_order BETWEEN 1 AND 8) | 고정 카테고리의 화면 순서는 1~8이다. |
+| GAME_CATEGORY_RELATIONS | PRIMARY KEY (game_id, category_id) | 같은 게임과 카테고리 관계는 하나만 저장한다. |
+| GAME_THEMES | UNIQUE (bgg_theme_id), UNIQUE (code) | 하나의 BGG 테마와 공개 검색 code는 각각 하나의 내부 목록에만 매핑한다. |
+| GAME_THEME_RELATIONS | PRIMARY KEY (game_id, theme_id) | 같은 게임과 테마 관계는 하나만 저장한다. |
+| GAME_PLAYER_PREFERENCES | PRIMARY KEY (game_id, player_count), CHECK (player_count > 0) | 게임별 실제 인원은 한 번만 저장하고 양의 정수다. |
+| GAME_PLAYER_PREFERENCES | CHECK (NOT is_best OR is_recommended) | 베스트 인원은 반드시 추천 인원이다. |
 | ROOMS | CHECK (room_type <> 'GAME_FOCUSED' OR game_id IS NOT NULL) | 게임 중심 방은 게임을 반드시 선택한다. |
 | ROOMS | CHECK (capacity BETWEEN 1 AND 10) | 개설자를 제외한 모집 정원은 1명 이상 10명 이하다. |
 | ROOMS | CHECK (active_participant_count BETWEEN 0 AND capacity) | 현재 점유 인원은 음수이거나 모집 정원을 초과할 수 없다. |
@@ -609,6 +717,8 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 - 사람 중심 방의 `game_id`는 NULL일 수 있으며, 게임을 선택한 사람 중심 방도 허용한다.
 - `GAME_MECHANISMS`의 공개 상태는 애플리케이션 enum이 아니다. 선택지와 검색은 `is_public = true`인 항목만 사용하고, 새 항목은 검수 전 공개하지 않는다.
 - `GAME_MECHANISM_RELATIONS(mechanism_id, game_id)` 인덱스로 공개 코드의 관계 존재 여부를 조회하며 관계 조인으로 게임 행을 중복시키지 않는다.
+- GAME_CATEGORY_RELATIONS(category_id, game_id)와 GAME_THEME_RELATIONS(theme_id, game_id) 인덱스는 category/theme FK의 삭제 비용을 막고, 목록 필터는 관계별 EXISTS로 판정해 게임 행을 중복시키지 않는다.
+- GAME_PLAYER_PREFERENCES는 복합 기본 키의 game_id 선두 인덱스로 상세 인원 배열을 조회한다. player_count 선두의 검색 인덱스와 다른 역방향 인덱스는 170,000건 실행 계획에서 병목이 재현될 때만 추가한다.
 - `SOCIAL_ACCOUNTS.user_id`는 `ON DELETE NO ACTION`이다. 계정 삭제는 AUTH-05 범위에 없으며 도입 시 외부 연결 처리 순서를 별도로 결정한다.
 - `USER_PLAYED_GAMES.user_id`와 `game_id`는 모두 `ON DELETE NO ACTION`이다. 사용자·게임 삭제로 관계를 암묵적으로 연쇄 삭제하지 않으며, 삭제 기능을 도입할 때 정리 순서를 별도로 결정한다.
 - 재참가 시 기존 `PARTICIPATIONS` 행을 재활성화한다. `CANCELED`를 `ACTIVE`로 바꾸고 `joined_at`을 갱신하며 `canceled_at`은 NULL로 되돌린다.

@@ -1,6 +1,6 @@
 # 게임 카탈로그 검수·적재
 
-이 절차는 [ADR-0015](../adr/game/0015-bgg-baseline-team-collected-game-list.md)의 단일 BGG 기준 스냅샷, 출처 기록, 선검증과 트랜잭션 단위 `UPSERT` 규칙을 실행한다. 원본과 생성 산출물은 저장소에 커밋하지 않고, 출처 manifest와 검수 기록만 보관한다.
+이 절차는 [ADR-0015](../adr/game/0015-bgg-baseline-team-collected-game-list.md)와 [ADR-0050](../adr/game/0050-game-metadata-catalog-and-filters.md)의 BGG 기준 snapshot, 출처 기록, 선검증과 transaction 단위 `UPSERT` 규칙을 실행한다. 원본과 생성 산출물은 저장소에 커밋하지 않고, 출처 manifest와 검수 기록만 보관한다.
 
 입력 JSON의 `supported_player_count`는 게임 규칙상 플레이 가능한 인원 범위다. 이용자 평가 기반 추천 인원·최적 인원과는 구분한다.
 
@@ -56,9 +56,12 @@ node scripts/game-catalog/prepare-game-catalog.mjs \
 - `upsert-games.sql`: 한 트랜잭션에서 실행하는 `bgg_id` 기준 `UPSERT`
 - `mechanismCatalog`이 있는 manifest라면 `service-mechanism-catalog.json`: 검수된 메커니즘 목록
 - `mechanismCatalog`이 있는 manifest라면 `upsert-game-mechanisms.sql`: 공개 메커니즘과 게임 관계를 승인 스냅샷으로 수렴시키는 SQL
+- `metadataCatalog`이 있는 manifest라면 `service-game-metadata.json`: 카테고리·테마·추천/베스트 인원 관계의 정규화 결과
+- `metadataCatalog`이 있는 manifest라면 `upsert-game-metadata.sql`: 고정 카테고리, 검수된 테마, 게임 관계와 인원 선호를 승인 snapshot으로 수렴시키는 SQL
 
 `upsert-games.sql`은 기존 내부 `id`와 `created_at`을 유지하며, 새 입력에서 빠진 기존 게임을 삭제하지 않는다.
 `upsert-game-mechanisms.sql`은 게임 내부 ID를 해석해야 하므로 반드시 `upsert-games.sql` 다음에 실행한다. 승인 관계의 게임이나 메커니즘을 해석하지 못하면 전체 트랜잭션을 롤백한다.
+`upsert-game-metadata.sql`도 반드시 `upsert-games.sql` 다음에 실행한다. 승인 category/theme 관계의 게임이나 테마를 해석하지 못하면 category·theme·인원 선호 적재 전체를 롤백한다. 새 snapshot에 없다는 이유로 GAMES 행을 삭제하지 않는다.
 
 ## 4. PostgreSQL 적재
 
@@ -73,6 +76,11 @@ psql "$DATABASE_URL" \
 psql "$DATABASE_URL" \
   --set ON_ERROR_STOP=on \
   --file build/game-catalog/approved/upsert-game-mechanisms.sql
+
+# metadataCatalog이 있는 승인 배치에서만 이어서 실행한다.
+psql "$DATABASE_URL" \
+  --set ON_ERROR_STOP=on \
+  --file build/game-catalog/approved/upsert-game-metadata.sql
 ```
 
 어느 행에서든 실패하면 해당 SQL의 `COMMIT`에 도달하지 않아 그 트랜잭션 전체가 롤백된다. 적재 전후 행 수, 기존 `bgg_id`의 내부 `id` 유지와 반복 실행 결과를 확인한다.
@@ -87,10 +95,27 @@ psql "$DATABASE_URL" \
   --command "SELECT COUNT(*) FROM game_mechanism_relations;"
 ```
 
+## 5. 17만 게임 메타데이터 batch
+
+운영 metadata는 성능 fixture에서 만들지 않는다. 승인된 170,000개 BGG ID, 순위 CSV, BGG XML snapshot, 한글 테마 사전과 metadata manifest를 같은 batch로 보관한다.
+
+수집기는 최대 20개 ID씩 호출하고, 완료된 batch checksum은 다시 요청하지 않는다. manifest에는 요청 ID·응답 ID 집합, HTTP status, bytes, raw XML SHA-256, 취득 시각만 기록한다. Bearer token은 macOS Keychain에서 실행 시에만 읽고 터미널 출력·오류·manifest·Git에 남기지 않는다.
+
+metadata 품질 게이트는 아래를 모두 만족해야 한다.
+
+- 대상 BGG ID 170,000개와 응답 ID 집합이 같고 중복이 없다.
+- CSV의 양수 subdomain rank만 고정 8개 category relation으로 만들며 누락·0·음수 rank를 추정하지 않는다.
+- 모든 공개 theme에 BGG ID·영문명·안정 code·검수 한글명이 있고, theme와 relation 중복이 없다.
+- suggested_numplayers의 recommended/best 판정, N+ 확장, 동률·poll 누락·잘못된 label 처리가 승인된 규칙과 일치한다.
+- manifest의 입력·snapshot·한글 사전·산출물 checksum과 행 수가 quality report에 다시 기록된다.
+
+어느 게이트라도 실패하거나 manifest가 승인되지 않으면 quality report만 생성하고 service JSON·UPSERT SQL을 만들지 않는다.
+
 ## 검증 명령
 
 ```sh
 node --test scripts/game-catalog/prepare-game-catalog.test.mjs
+node --test scripts/game-catalog/game-metadata-catalog.test.mjs
 ./gradlew postgresTest --no-daemon --stacktrace
 ```
 
