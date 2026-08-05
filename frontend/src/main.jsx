@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import brandSymbol from '../assets/albam-mate-symbol.png';
 import poweredByBgg from '../assets/powered-by-bgg.svg';
@@ -1938,11 +1938,17 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
   const [streamStatus, setStreamStatus] = useState('connecting');
   const [streamError, setStreamError] = useState('');
   const lastEventIdRef = useRef(null);
+  const chatHistoryRef = useRef(null);
+  const loadMoreSentinelRef = useRef(null);
+  const historyScrollSnapshotRef = useRef(null);
+  const historyInitializedRef = useRef(false);
   const mergeMessages = (incoming) => setMessages((current) => mergeChatMessages(current, incoming));
 
   useEffect(() => {
     setMessagesRoomId(roomId);
     setMessages([]);
+    historyInitializedRef.current = false;
+    historyScrollSnapshotRef.current = null;
     setNextBeforeMessageId(null);
     setHasNext(false);
     setLoadingMore(false);
@@ -2034,6 +2040,12 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
 
   const loadPreviousMessages = async () => {
     if (!hasNext || loadingMore || nextBeforeMessageId === null) return;
+    if (chatHistoryRef.current) {
+      historyScrollSnapshotRef.current = {
+        scrollHeight: chatHistoryRef.current.scrollHeight,
+        scrollTop: chatHistoryRef.current.scrollTop
+      };
+    }
     const requestedRoomId = roomId;
     const requestedGeneration = roomGenerationRef.current;
     setLoadingMore(true);
@@ -2050,6 +2062,30 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
       if (roomIdRef.current === requestedRoomId && roomGenerationRef.current === requestedGeneration) setLoadingMore(false);
     }
   };
+
+  useEffect(() => {
+    if (!loadMoreSentinelRef.current || !globalThis.IntersectionObserver) return undefined;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) loadPreviousMessages();
+    }, { root: chatHistoryRef.current, rootMargin: '120px 0px 0px', threshold: 0 });
+    observer.observe(loadMoreSentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasNext, loadingMore, nextBeforeMessageId, roomId]);
+
+  const displayedMessages = messagesRoomId === roomId ? messages : [];
+
+  useLayoutEffect(() => {
+    const history = chatHistoryRef.current;
+    if (!history || !displayedMessages.length) return;
+    const snapshot = historyScrollSnapshotRef.current;
+    if (snapshot) {
+      history.scrollTop = snapshot.scrollTop + history.scrollHeight - snapshot.scrollHeight;
+      historyScrollSnapshotRef.current = null;
+    } else if (!historyInitializedRef.current) {
+      history.scrollTop = history.scrollHeight;
+      historyInitializedRef.current = true;
+    }
+  }, [displayedMessages.length, roomId]);
 
   const submit = async (event) => {
     event.preventDefault();
@@ -2086,8 +2122,6 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     }
   };
 
-  const displayedMessages = messagesRoomId === roomId ? messages : [];
-
   return (
     <>
       <h2><SectionIcon name="chat" />모임 채팅</h2>
@@ -2101,20 +2135,23 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
       {!error && data && streamStatus === 'connected' && <p className="hint" role="status">실시간 연결됨</p>}
       {error && <ErrorBox message={error} />}
       {!error && loading && !data && <LoadingBox label="채팅을 불러오는 중…" />}
-      {!error && hasNext && <button className="btn ghost chat-load-more" disabled={loadingMore} type="button" onClick={loadPreviousMessages}>{loadingMore ? '불러오는 중…' : '이전 메시지 불러오기'}</button>}
       {!error && !loading && !displayedMessages.length && <div className="infobox">아직 주고받은 메시지가 없어요.</div>}
       {!error && !!displayedMessages.length && (
-        <ul className="chat-log">
-          {displayedMessages.map((message) => {
-            const isMine = Boolean(message.isMine);
-            return (
-            <li className={'chat-message ' + (isMine ? 'mine' : 'theirs')} data-message-owner={isMine ? 'mine' : 'theirs'} key={message.messageId}>
-              <div className="chat-message-head"><b>{isMine ? '나' : message.sender?.nickname}</b><span className="chat-time">{formatStartsAt(message.createdAt)}</span></div>
-              <p className="chat-content">{message.content}</p>
-            </li>
-            );
-          })}
-        </ul>
+        <div className="chat-history" ref={chatHistoryRef}>
+          <div className="chat-load-sentinel" ref={loadMoreSentinelRef} aria-hidden="true" />
+          {loadingMore && <p className="hint chat-loading-more" role="status">이전 메시지를 불러오는 중…</p>}
+          <ul className="chat-log">
+            {displayedMessages.map((message) => {
+              const isMine = Boolean(message.isMine);
+              return (
+              <li className={'chat-message ' + (isMine ? 'mine' : 'theirs')} data-message-owner={isMine ? 'mine' : 'theirs'} key={message.messageId}>
+                <div className="chat-message-head"><b>{isMine ? '나' : message.sender?.nickname}</b><span className="chat-time">{formatStartsAt(message.createdAt)}</span></div>
+                <p className="chat-content">{message.content}</p>
+              </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
       {!error && <form className="chat-compose" onSubmit={submit}>
         <label htmlFor="chat-message">메시지</label>

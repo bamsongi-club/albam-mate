@@ -33,6 +33,23 @@ class FakeWebSocket {
   }
 }
 
+class FakeIntersectionObserver {
+  static instances = [];
+
+  constructor(callback) {
+    this.callback = callback;
+    FakeIntersectionObserver.instances.push(this);
+  }
+
+  observe() {}
+
+  disconnect() {}
+
+  trigger(isIntersecting = true) {
+    this.callback([{ isIntersecting }]);
+  }
+}
+
 function myRoom(overrides) {
   return {
     id: 7,
@@ -418,12 +435,14 @@ describe('#427 T1~T4 메시지 전송·이력 추가 조회', () => {
         ? { messages: [{ messageId: 3, sender: { nickname: '나' }, content: '현재 방', createdAt: '2026-09-01T19:02:00+09:00' }], nextBeforeMessageId: 3, hasNext: true }
         : { messages: [{ messageId: 8, sender: { nickname: '새 방' }, content: '새 방 현재 이력', createdAt: '2026-09-01T19:03:00+09:00' }], nextBeforeMessageId: 8, hasNext: true });
     });
+    FakeIntersectionObserver.instances = [];
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
     const view = render(<ChatRoomView roomId="7" dataVersion={0} />);
-    await waitFor(() => expect(screen.getByRole('button', { name: '이전 메시지 불러오기' })).toBeTruthy());
-    fireEvent.click(screen.getByRole('button', { name: '이전 메시지 불러오기' }));
+    await waitFor(() => expect(FakeIntersectionObserver.instances).toHaveLength(1));
+    FakeIntersectionObserver.instances[0].trigger();
 
     view.rerender(<ChatRoomView roomId="8" dataVersion={0} />);
-    await waitFor(() => expect(screen.getByRole('button', { name: '이전 메시지 불러오기' }).disabled).toBe(false));
+    await waitFor(() => expect(screen.getByText('새 방 현재 이력')).toBeTruthy());
     await act(async () => {
       resolvePrevious({ messages: [{ messageId: 2, sender: { nickname: '이전' }, content: '이전 방 이력', createdAt: '2026-09-01T19:01:00+09:00' }], nextBeforeMessageId: null, hasNext: false });
       await Promise.resolve();
@@ -453,9 +472,11 @@ describe('#427 T1~T4 메시지 전송·이력 추가 조회', () => {
     const get = vi.spyOn(api, 'getChatMessages')
       .mockResolvedValueOnce({ messages: [{ messageId: 3, sender: { nickname: '나' }, content: '세 번째', createdAt: '2026-09-01T19:02:00+09:00' }], nextBeforeMessageId: 3, hasNext: true })
       .mockResolvedValueOnce({ messages: [{ messageId: 3, sender: { nickname: '나' }, content: '세 번째', createdAt: '2026-09-01T19:02:00+09:00' }, { messageId: 2, sender: { nickname: '상대' }, content: '두 번째', createdAt: '2026-09-01T19:01:00+09:00' }], nextBeforeMessageId: null, hasNext: false });
+    FakeIntersectionObserver.instances = [];
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
     render(<ChatRoomView roomId="7" dataVersion={0} />);
-    await waitFor(() => expect(screen.getByRole('button', { name: '이전 메시지 불러오기' })).toBeTruthy());
-    fireEvent.click(screen.getByRole('button', { name: '이전 메시지 불러오기' }));
+    await waitFor(() => expect(FakeIntersectionObserver.instances).toHaveLength(1));
+    FakeIntersectionObserver.instances[0].trigger();
 
     await waitFor(() => expect(screen.getByText('두 번째')).toBeTruthy());
     expect(get).toHaveBeenNthCalledWith(2, '7', { beforeMessageId: 3, size: 50 });
