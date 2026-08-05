@@ -14,6 +14,7 @@ import cloud.bamsongi.albammate.room.dto.RoomStatusResponse;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 class RoomStatusChangeExecutor {
 
 	private final RoomRepository roomRepository;
+	private final RoomWaitlistRepository roomWaitlistRepository;
 	private final ApplicationEventPublisher eventPublisher;
 
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -32,7 +34,9 @@ class RoomStatusChangeExecutor {
 		if (!room.cancel()) {
 			throw new BusinessException(ErrorCode.INVALID_ROOM_STATUS_TRANSITION);
 		}
+		roomRepository.save(room);
 		roomRepository.flush();
+		roomWaitlistRepository.cancelAllWaiting(room.getId(), requestTime);
 		eventPublisher.publishEvent(new RoomTerminalStateReached(room.getId(), requestTime));
 		return RoomStatusResponse.from(room);
 	}

@@ -21,6 +21,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -34,26 +35,36 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.context.event.EventListener;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import cloud.bamsongi.albammate.chat.entity.ChatRoom;
+import cloud.bamsongi.albammate.chat.repository.ChatRoomRepository;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.room.contract.RoomTerminalStateReached;
 import cloud.bamsongi.albammate.room.dto.RoomUpdateRequest;
 import cloud.bamsongi.albammate.room.entity.Participation;
 import cloud.bamsongi.albammate.room.entity.Room;
+import cloud.bamsongi.albammate.room.entity.RoomWaitlist;
+import cloud.bamsongi.albammate.room.entity.RoomWaitlistId;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
+import cloud.bamsongi.albammate.room.enums.RoomWaitlistStatus;
 import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationCancelService;
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
+import cloud.bamsongi.albammate.room.service.command.RoomStatusChangeService;
 import cloud.bamsongi.albammate.room.service.command.RoomUpdateService;
+import cloud.bamsongi.albammate.room.service.command.RoomWaitlistCommandService;
 
 @Testcontainers
 @SpringBootTest
@@ -79,10 +90,22 @@ class RoomParticipationConcurrencyPostgresTest {
 	private RoomUpdateService roomUpdateService;
 
 	@Autowired
+	private RoomStatusChangeService roomStatusChangeService;
+
+	@Autowired
+	private RoomWaitlistCommandService roomWaitlistCommandService;
+
+	@Autowired
 	private RoomReadGate roomReadGate;
 
 	@Autowired
 	private ParticipationWriteFailureGate participationWriteFailureGate;
+
+	@Autowired
+	private ParticipationCancelStepGate participationCancelStepGate;
+
+	@Autowired
+	private RoomTerminalEventCounter roomTerminalEventCounter;
 
 	@Autowired
 	@Qualifier("roomRepository") private RoomRepository roomRepository;
@@ -91,14 +114,22 @@ class RoomParticipationConcurrencyPostgresTest {
 	@Qualifier("participationRepository") private ParticipationRepository participationRepository;
 
 	@Autowired
+	private RoomWaitlistRepository roomWaitlistRepository;
+
+	@Autowired
+	private ChatRoomRepository chatRoomRepository;
+
+	@Autowired
 	private JdbcTemplate jdbcTemplate;
 
 	@AfterEach
 	void tearDown() {
 		roomReadGate.deactivate();
 		participationWriteFailureGate.deactivate();
+		participationCancelStepGate.deactivate();
+		roomTerminalEventCounter.clear();
 		jdbcTemplate.execute(
-			"truncate table participations, rooms, users restart identity cascade");
+			"truncate table chat_rooms, room_waitlists, participations, rooms, users restart identity cascade");
 	}
 
 	@Test
@@ -290,6 +321,230 @@ class RoomParticipationConcurrencyPostgresTest {
 		assertEquals(0, activeParticipationCount);
 	}
 
+	@Test
+	void 승격_참가_저장_실패는_참가_취소와_대기_승격과_ROOM_변경을_모두_롤백한다() {
+		long hostUserId = insertUser("promotion-rollback-host", "방장");
+		long leavingUserId = insertUser("promotion-rollback-leaving", "취소자");
+		long waitingUserId = insertUser("promotion-rollback-waiting", "대기자");
+		Room room = createRoom(hostUserId, 1);
+		roomParticipationService.participate(leavingUserId, room.getId());
+		roomWaitlistRepository.saveAndFlush(RoomWaitlist.create(room.getId(), waitingUserId, 10L, NOW));
+
+		participationWriteFailureGate.activateAfterSuccessfulWrites(1);
+		try {
+			assertThrows(
+				DataIntegrityViolationException.class,
+				() -> roomParticipationCancelService.cancelParticipation(leavingUserId, room.getId()));
+		} finally {
+			participationWriteFailureGate.deactivate();
+		}
+
+		Room storedRoom = roomRepository.findById(room.getId()).orElseThrow();
+		assertEquals(RoomStatus.CLOSED, storedRoom.getStatus());
+		assertEquals(1, storedRoom.getActiveParticipantCount());
+		assertEquals(ParticipationStatus.ACTIVE, participationRepository
+			.findByRoomIdAndUserId(room.getId(), leavingUserId)
+			.orElseThrow()
+			.getStatus());
+		assertEquals(RoomWaitlistStatus.WAITING, roomWaitlistRepository
+			.findById(new RoomWaitlistId(room.getId(), waitingUserId))
+			.orElseThrow()
+			.getStatus());
+		assertTrue(participationRepository.findByRoomIdAndUserId(room.getId(), waitingUserId).isEmpty());
+	}
+
+	@Test
+	void 복수_참가_취소는_빈자리마다_서로_다른_현재_FIFO_대기자만_승격한다() throws Exception {
+		long hostUserId = insertUser("multiple-promotion-host", "방장");
+		long firstLeavingUserId = insertUser("multiple-promotion-first-leaving", "취소자1");
+		long secondLeavingUserId = insertUser("multiple-promotion-second-leaving", "취소자2");
+		long firstWaitingUserId = insertUser("multiple-promotion-first-waiting", "대기자1");
+		long secondWaitingUserId = insertUser("multiple-promotion-second-waiting", "대기자2");
+		long thirdWaitingUserId = insertUser("multiple-promotion-third-waiting", "대기자3");
+		Room room = createRoom(hostUserId, 2);
+		roomParticipationService.participate(firstLeavingUserId, room.getId());
+		roomParticipationService.participate(secondLeavingUserId, room.getId());
+		roomWaitlistRepository.saveAndFlush(RoomWaitlist.create(room.getId(), firstWaitingUserId, 10L, NOW));
+		roomWaitlistRepository.saveAndFlush(RoomWaitlist.create(room.getId(), secondWaitingUserId, 20L, NOW));
+		roomWaitlistRepository.saveAndFlush(RoomWaitlist.create(room.getId(), thirdWaitingUserId, 30L, NOW));
+
+		roomReadGate.activate(room.getId());
+		List<CommandResult> results;
+		try {
+			results = executeConcurrently(
+				() -> roomParticipationCancelService.cancelParticipation(firstLeavingUserId, room.getId()),
+				() -> roomParticipationCancelService.cancelParticipation(secondLeavingUserId, room.getId()));
+			roomReadGate.assertExactlyTwoReadsOfOneVersion();
+		} finally {
+			roomReadGate.deactivate();
+		}
+
+		assertTrue(results.stream().allMatch(CommandResult::successful));
+		assertEquals(RoomWaitlistStatus.PROMOTED, waitlistStatus(room.getId(), firstWaitingUserId));
+		assertEquals(RoomWaitlistStatus.PROMOTED, waitlistStatus(room.getId(), secondWaitingUserId));
+		assertEquals(RoomWaitlistStatus.WAITING, waitlistStatus(room.getId(), thirdWaitingUserId));
+		assertEquals(ParticipationStatus.ACTIVE, participationStatus(room.getId(), firstWaitingUserId));
+		assertEquals(ParticipationStatus.ACTIVE, participationStatus(room.getId(), secondWaitingUserId));
+		assertEquals(2, jdbcTemplate.queryForObject(
+			"select count(*) from participations where room_id = ? and status = 'ACTIVE'",
+			Integer.class,
+			room.getId()));
+		assertRoomInvariant(room.getId());
+	}
+
+	@Test
+	void 대기_활성화가_먼저_확정되면_참가_취소는_그_대기자를_승격하고_방을_마감한다() throws Exception {
+		long hostUserId = insertUser("registration-first-host", "방장");
+		long leavingUserId = insertUser("registration-first-leaving", "취소자");
+		long waitingUserId = insertUser("registration-first-waiting", "신청자");
+		Room room = createRoom(hostUserId, 1);
+		roomParticipationService.participate(leavingUserId, room.getId());
+
+		participationCancelStepGate.activate(room.getId(), leavingUserId);
+		ExecutorService executor = Executors.newFixedThreadPool(1);
+		try {
+			Future<CommandResult> participationCancelFuture = executor.submit(
+				() -> execute(() -> roomParticipationCancelService.cancelParticipation(leavingUserId, room.getId())));
+
+			participationCancelStepGate.awaitCancellationBlocked();
+			assertTrue(roomWaitlistCommandService.register(waitingUserId, room.getId()).created());
+			assertEquals(RoomWaitlistStatus.WAITING, waitlistStatus(room.getId(), waitingUserId));
+			participationCancelStepGate.releaseCancellation();
+			assertTrue(participationCancelFuture.get(WAIT_SECONDS, TimeUnit.SECONDS).successful());
+		} finally {
+			participationCancelStepGate.releaseCancellation();
+			participationCancelStepGate.deactivate();
+			executor.shutdown();
+			if (!executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS)) {
+				executor.shutdownNow();
+				assertTrue(executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS));
+			}
+		}
+
+		Room promotedRoom = roomRepository.findById(room.getId()).orElseThrow();
+		assertEquals(RoomStatus.CLOSED, promotedRoom.getStatus());
+		assertEquals(1, promotedRoom.getActiveParticipantCount());
+		assertEquals(RoomWaitlistStatus.PROMOTED, waitlistStatus(room.getId(), waitingUserId));
+		assertEquals(ParticipationStatus.ACTIVE, participationStatus(room.getId(), waitingUserId));
+		assertEquals(ParticipationStatus.CANCELED, participationStatus(room.getId(), leavingUserId));
+		assertEquals(0, activeWaitingCount(room.getId()));
+		assertRoomInvariant(room.getId());
+	}
+
+	@Test
+	void 신규_대기_신청과_참가_취소가_경합해도_활성_대기가_있는_모집_상태로_수렴하지_않는다() throws Exception {
+		long hostUserId = insertUser("registration-cancel-race-host", "방장");
+		long leavingUserId = insertUser("registration-cancel-race-leaving", "취소자");
+		long waitingUserId = insertUser("registration-cancel-race-waiting", "신청자");
+		Room room = createRoom(hostUserId, 1);
+		roomParticipationService.participate(leavingUserId, room.getId());
+
+		roomReadGate.activate(room.getId());
+		List<CommandResult> results;
+		try {
+			results = executeConcurrently(
+				() -> roomWaitlistCommandService.register(waitingUserId, room.getId()),
+				() -> roomParticipationCancelService.cancelParticipation(leavingUserId, room.getId()));
+			roomReadGate.assertExactlyTwoReadsOfOneVersion();
+		} finally {
+			roomReadGate.deactivate();
+		}
+
+		CommandResult registrationResult = results.get(0);
+		assertTrue(results.get(1).successful());
+		assertEquals(ParticipationStatus.CANCELED, participationStatus(room.getId(), leavingUserId));
+		assertEquals(0, activeWaitingCount(room.getId()));
+		Room finalRoom = roomRepository.findById(room.getId()).orElseThrow();
+		if (registrationResult.successful()) {
+			assertEquals(RoomStatus.CLOSED, finalRoom.getStatus());
+			assertEquals(1, finalRoom.getActiveParticipantCount());
+			assertEquals(RoomWaitlistStatus.PROMOTED, waitlistStatus(room.getId(), waitingUserId));
+			assertEquals(ParticipationStatus.ACTIVE, participationStatus(room.getId(), waitingUserId));
+		} else {
+			assertEquals(ErrorCode.WAITLIST_NOT_AVAILABLE, registrationResult.errorCode());
+			assertEquals(RoomStatus.RECRUITING, finalRoom.getStatus());
+			assertEquals(0, finalRoom.getActiveParticipantCount());
+			assertEquals(0, jdbcTemplate.queryForObject(
+				"select count(*) from participations where room_id = ? and status = 'ACTIVE'",
+				Integer.class,
+				room.getId()));
+		}
+		assertRoomInvariant(room.getId());
+	}
+
+	@Test
+	void ROOM_취소가_승리하면_terminal_event와_채팅_수명주기를_한_번만_반영한다() throws Exception {
+		long hostUserId = insertUser("cancel-promotion-race-host", "방장");
+		long leavingUserId = insertUser("cancel-promotion-race-leaving", "취소자");
+		long waitingUserId = insertUser("cancel-promotion-race-waiting", "대기자");
+		Room room = createRoom(hostUserId, 1);
+		roomParticipationService.participate(leavingUserId, room.getId());
+		roomWaitlistRepository.saveAndFlush(RoomWaitlist.create(room.getId(), waitingUserId, 10L, NOW));
+		chatRoomRepository.saveAndFlush(ChatRoom.create(room.getId()));
+
+		roomReadGate.activate(room.getId());
+		participationCancelStepGate.activate(room.getId(), leavingUserId);
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		try {
+			Future<CommandResult> roomCancelFuture = executor.submit(
+				() -> execute(() -> roomStatusChangeService.cancelRoom(hostUserId, room.getId())));
+			Future<CommandResult> participationCancelFuture = executor.submit(
+				() -> execute(() -> roomParticipationCancelService.cancelParticipation(leavingUserId, room.getId())));
+
+			participationCancelStepGate.awaitCancellationBlocked();
+			assertTrue(roomCancelFuture.get(WAIT_SECONDS, TimeUnit.SECONDS).successful());
+			assertEquals(RoomStatus.CANCELED, roomRepository.findById(room.getId()).orElseThrow().getStatus());
+			participationCancelStepGate.releaseCancellation();
+			assertTrue(participationCancelFuture.get(WAIT_SECONDS, TimeUnit.SECONDS).successful());
+			roomReadGate.assertExactlyTwoReadsOfOneVersion();
+		} finally {
+			participationCancelStepGate.releaseCancellation();
+			participationCancelStepGate.deactivate();
+			roomReadGate.deactivate();
+			executor.shutdown();
+			if (!executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS)) {
+				executor.shutdownNow();
+				assertTrue(executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS));
+			}
+		}
+
+		assertEquals(RoomStatus.CANCELED, roomRepository.findById(room.getId()).orElseThrow().getStatus());
+		assertEquals(RoomWaitlistStatus.ROOM_CANCELED, waitlistStatus(room.getId(), waitingUserId));
+		assertEquals(0, jdbcTemplate.queryForObject(
+			"select count(*) from participations where room_id = ? and user_id = ? and status = 'ACTIVE'",
+			Integer.class,
+			room.getId(),
+			waitingUserId));
+		assertEquals(1, roomTerminalEventCounter.count());
+		assertEquals(NOW.plusSeconds(TimeUnit.DAYS.toSeconds(30)), chatRoomRepository
+			.findByRoomId(room.getId())
+			.orElseThrow()
+			.getPurgeAfter());
+		assertEquals(0, jdbcTemplate.queryForObject(
+			"select count(*) from room_waitlists where room_id = ? and status = 'WAITING'",
+			Integer.class,
+			room.getId()));
+		assertTrue(jdbcTemplate.queryForObject(
+			"select count(*) from participations where room_id = ? and status = 'ACTIVE'",
+			Integer.class,
+			room.getId()) <= 1);
+	}
+
+	private RoomWaitlistStatus waitlistStatus(long roomId, long userId) {
+		return roomWaitlistRepository.findById(new RoomWaitlistId(roomId, userId)).orElseThrow().getStatus();
+	}
+
+	private ParticipationStatus participationStatus(long roomId, long userId) {
+		return participationRepository.findByRoomIdAndUserId(roomId, userId).orElseThrow().getStatus();
+	}
+
+	private int activeWaitingCount(long roomId) {
+		return jdbcTemplate.queryForObject(
+			"select count(*) from room_waitlists where room_id = ? and status = 'WAITING'",
+			Integer.class,
+			roomId);
+	}
+
 	private List<CommandResult> executeConcurrently(Callable<?> first, Callable<?> second)
 		throws Exception {
 		ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -396,6 +651,16 @@ class RoomParticipationConcurrencyPostgresTest {
 			return new ParticipationWriteFailureGate();
 		}
 
+		@Bean
+		ParticipationCancelStepGate participationCancelStepGate() {
+			return new ParticipationCancelStepGate();
+		}
+
+		@Bean
+		RoomTerminalEventCounter roomTerminalEventCounter() {
+			return new RoomTerminalEventCounter();
+		}
+
 		@Bean(name = "gatedRoomRepository")
 		@Primary
 		RoomRepository gatedRoomRepository(
@@ -411,9 +676,10 @@ class RoomParticipationConcurrencyPostgresTest {
 		@Primary
 		ParticipationRepository gatedParticipationRepository(
 			@Qualifier("participationRepository") ParticipationRepository delegate,
-			ParticipationWriteFailureGate participationWriteFailureGate) {
+			ParticipationWriteFailureGate participationWriteFailureGate,
+			ParticipationCancelStepGate participationCancelStepGate) {
 			InvocationHandler handler = new GateAwareParticipationRepositoryInvocationHandler(
-				delegate, participationWriteFailureGate);
+				delegate, participationWriteFailureGate, participationCancelStepGate);
 			return (ParticipationRepository)Proxy.newProxyInstance(
 				ParticipationRepository.class.getClassLoader(),
 				new Class<?>[] {ParticipationRepository.class},
@@ -456,17 +722,21 @@ class RoomParticipationConcurrencyPostgresTest {
 
 		private final ParticipationRepository delegate;
 		private final ParticipationWriteFailureGate participationWriteFailureGate;
+		private final ParticipationCancelStepGate participationCancelStepGate;
 
 		private GateAwareParticipationRepositoryInvocationHandler(
 			ParticipationRepository delegate,
-			ParticipationWriteFailureGate participationWriteFailureGate) {
+			ParticipationWriteFailureGate participationWriteFailureGate,
+			ParticipationCancelStepGate participationCancelStepGate) {
 			this.delegate = delegate;
 			this.participationWriteFailureGate = participationWriteFailureGate;
+			this.participationCancelStepGate = participationCancelStepGate;
 		}
 
 		@Override
 		public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
 			try {
+				participationCancelStepGate.blockBeforeParticipationLookup(method, args);
 				Object result = method.invoke(delegate, args);
 				if (method.getName().equals("save")
 					&& args != null
@@ -541,19 +811,108 @@ class RoomParticipationConcurrencyPostgresTest {
 
 	static final class ParticipationWriteFailureGate {
 
-		private final AtomicReference<AtomicInteger> remainingFailures = new AtomicReference<>();
+		private final AtomicReference<AtomicInteger> successfulWritesBeforeFailure = new AtomicReference<>();
 
 		void activate() {
-			assertTrue(remainingFailures.compareAndSet(null, new AtomicInteger(1)));
+			activateAfterSuccessfulWrites(0);
+		}
+
+		void activateAfterSuccessfulWrites(int successfulWriteCount) {
+			assertTrue(successfulWritesBeforeFailure.compareAndSet(null, new AtomicInteger(successfulWriteCount)));
 		}
 
 		boolean consumeFailureWhenActive() {
-			AtomicInteger failures = remainingFailures.get();
-			return failures != null && failures.getAndDecrement() > 0;
+			AtomicInteger remainingWrites = successfulWritesBeforeFailure.get();
+			return remainingWrites != null && remainingWrites.getAndDecrement() == 0;
 		}
 
 		void deactivate() {
-			remainingFailures.set(null);
+			successfulWritesBeforeFailure.set(null);
+		}
+	}
+
+	static final class ParticipationCancelStepGate {
+
+		private final AtomicReference<Scenario> activeScenario = new AtomicReference<>();
+
+		void activate(long roomId, long userId) {
+			assertTrue(activeScenario.compareAndSet(null, new Scenario(roomId, userId)));
+		}
+
+		void blockBeforeParticipationLookup(Method method, Object[] arguments) {
+			Scenario scenario = activeScenario.get();
+			if (scenario == null
+				|| !method.getName().equals("findByRoomIdAndUserId")
+				|| arguments == null
+				|| arguments.length != 2
+				|| !(arguments[0] instanceof Long roomId)
+				|| !(arguments[1] instanceof Long userId)
+				|| scenario.roomId != roomId
+				|| scenario.userId != userId
+				|| !scenario.firstLookup.compareAndSet(false, true)) {
+				return;
+			}
+
+			scenario.cancellationBlocked.countDown();
+			await(scenario.cancellationMayContinue);
+		}
+
+		void awaitCancellationBlocked() {
+			Scenario scenario = activeScenario.get();
+			assertNotNull(scenario);
+			await(scenario.cancellationBlocked);
+		}
+
+		void releaseCancellation() {
+			Scenario scenario = activeScenario.get();
+			if (scenario != null) {
+				scenario.cancellationMayContinue.countDown();
+			}
+		}
+
+		void deactivate() {
+			activeScenario.set(null);
+		}
+
+		private void await(CountDownLatch latch) {
+			try {
+				assertTrue(latch.await(WAIT_SECONDS, TimeUnit.SECONDS));
+			} catch (InterruptedException exception) {
+				Thread.currentThread().interrupt();
+				throw new AssertionError("참가 취소 단계 게이트 대기 중 인터럽트되었습니다.", exception);
+			}
+		}
+
+		private static final class Scenario {
+
+			private final long roomId;
+			private final long userId;
+			private final AtomicBoolean firstLookup = new AtomicBoolean();
+			private final CountDownLatch cancellationBlocked = new CountDownLatch(1);
+			private final CountDownLatch cancellationMayContinue = new CountDownLatch(1);
+
+			private Scenario(long roomId, long userId) {
+				this.roomId = roomId;
+				this.userId = userId;
+			}
+		}
+	}
+
+	static final class RoomTerminalEventCounter {
+
+		private final AtomicInteger count = new AtomicInteger();
+
+		@EventListener
+		public void onApplicationEvent(RoomTerminalStateReached event) {
+			count.incrementAndGet();
+		}
+
+		int count() {
+			return count.get();
+		}
+
+		void clear() {
+			count.set(0);
 		}
 	}
 }
