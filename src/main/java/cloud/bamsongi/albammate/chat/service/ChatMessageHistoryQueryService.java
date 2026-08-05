@@ -20,8 +20,10 @@ import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.contract.ChatAccessGuard;
 import cloud.bamsongi.albammate.user.contract.UserQuery;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /** ChatAccessGuard 접근 판정 안에서 방별 채팅 이력을 읽기 전용으로 조회한다. */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatMessageHistoryQueryService {
@@ -54,15 +56,17 @@ public class ChatMessageHistoryQueryService {
 		Map<Long, String> nicknamesById = userQuery.findNicknamesByIds(
 			page.stream().map(ChatMessage::getSenderUserId).collect(Collectors.toSet()));
 		List<ChatMessageResponse> messages = page.stream()
-			.map(message -> ChatMessageResponse.from(message, roomId, nicknameOf(nicknamesById, message)))
+			.map(message -> ChatMessageResponse.from(message, roomId, nicknameOf(nicknamesById, message, roomId)))
 			.toList();
 		Long nextBeforeMessageId = hasNext ? page.get(page.size() - 1).getId() : null;
 		return new ChatMessagePageResponse(messages, nextBeforeMessageId, hasNext);
 	}
 
-	private String nicknameOf(Map<Long, String> nicknamesById, ChatMessage message) {
+	/** 닉네임을 찾지 못하는 예기치 않은 상태만 roomId로 기록하고, 발신자 내부 사용자 ID는 남기지 않는다. */
+	private String nicknameOf(Map<Long, String> nicknamesById, ChatMessage message, long roomId) {
 		String nickname = nicknamesById.get(message.getSenderUserId());
 		if (nickname == null) {
+			log.error("event=chat_message_sender_nickname_missing roomId={}", roomId);
 			throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
 		}
 		return nickname;
