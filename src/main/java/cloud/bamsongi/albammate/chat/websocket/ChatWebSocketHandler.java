@@ -57,7 +57,8 @@ public class ChatWebSocketHandler implements WebSocketHandler, ChatRealtimeSigna
 
 	private final ChatAccessGuard chatAccessGuard;
 	private final SessionRepository<? extends Session> sessionRepository;
-	private final TaskScheduler taskScheduler;
+	// Redis 프로필이 구독 재시도용 TaskScheduler를 함께 등록하므로 빈 이름과 같은 필드명으로 대상을 고정한다.
+	private final TaskScheduler chatWebSocketTaskScheduler;
 	private final ChatWebSocketProperties properties;
 	private final ChatRoomRepository chatRoomRepository;
 	private final ChatMessageRepository chatMessageRepository;
@@ -80,7 +81,7 @@ public class ChatWebSocketHandler implements WebSocketHandler, ChatRealtimeSigna
 		}
 
 		Duration interval = properties.getAccessValidationInterval();
-		ScheduledFuture<?> validation = taskScheduler.scheduleAtFixedRate(
+		ScheduledFuture<?> validation = chatWebSocketTaskScheduler.scheduleAtFixedRate(
 			() -> validateAccess(session), interval);
 		session.getAttributes().put(SCHEDULED_VALIDATION_ATTRIBUTE, validation);
 
