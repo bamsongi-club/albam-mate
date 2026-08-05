@@ -83,10 +83,7 @@
 
 ## 검증
 
-- 상태: 미검증
-- 근거: 없음
-- 미검증:
-    - V18 Flyway·JPA 제약, 적재 수렴·롤백, 선택지·상세 API와 OR·AND·ANY·ALL 계약
-    - 170,000행 PostgreSQL 실행 계획·응답시간과 추가 인덱스 불필요성
+- 상태: 검증됨
+- 근거: V18 관계 제약·renderer 수렴/롤백 PostgreSQL 검증, 선택지·상세·OR·AND·ANY·ALL HTTP·PostgreSQL 검증, 170,000행 PostgreSQL 실행 계획 측정. 상세 수치와 명령은 [성능 측정 기록](../../game-catalog/2026-08-05-game-metadata-filter-performance.md)을 따른다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

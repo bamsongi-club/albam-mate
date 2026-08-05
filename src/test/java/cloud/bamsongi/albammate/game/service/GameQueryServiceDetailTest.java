@@ -25,7 +25,12 @@ import cloud.bamsongi.albammate.game.contract.UpcomingRoomCountQuery;
 import cloud.bamsongi.albammate.game.dto.GameDetail;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
+import cloud.bamsongi.albammate.game.repository.GameCategoryRelationRepository;
+import cloud.bamsongi.albammate.game.repository.GameCategoryRepository;
+import cloud.bamsongi.albammate.game.repository.GamePlayerPreferenceRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
+import cloud.bamsongi.albammate.game.repository.GameThemeRelationRepository;
+import cloud.bamsongi.albammate.game.repository.GameThemeRepository;
 import cloud.bamsongi.albammate.game.repository.UserPlayedGameRepository;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -47,6 +52,21 @@ class GameQueryServiceDetailTest {
 	@Mock
 	private UserPlayedGameRepository userPlayedGameRepository;
 
+	@Mock
+	private GameCategoryRepository gameCategoryRepository;
+
+	@Mock
+	private GameThemeRepository gameThemeRepository;
+
+	@Mock
+	private GameCategoryRelationRepository gameCategoryRelationRepository;
+
+	@Mock
+	private GameThemeRelationRepository gameThemeRelationRepository;
+
+	@Mock
+	private GamePlayerPreferenceRepository gamePlayerPreferenceRepository;
+
 	private GameQueryService gameQueryService;
 
 	@BeforeEach
@@ -56,7 +76,12 @@ class GameQueryServiceDetailTest {
 			Clock.fixed(NOW, ZoneOffset.UTC),
 			upcomingRoomCountQuery,
 			gameMechanismRepository,
-			userPlayedGameRepository);
+			userPlayedGameRepository,
+			gameCategoryRepository,
+			gameThemeRepository,
+			gameCategoryRelationRepository,
+			gameThemeRelationRepository,
+			gamePlayerPreferenceRepository);
 	}
 
 	@Test

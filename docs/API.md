@@ -947,11 +947,11 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | `complexityMax` | number | N | 검색 없음 | P1 | 제공 | `1.00`~`5.00`, 난이도 닫힌 구간의 상한 |
 | `playedFilter` | PlayedFilter | N | 검색 없음 | P1 | 제공 | 단일 값. `PLAYED_ONLY` 또는 `EXCLUDE_PLAYED`; 사용 시 로그인 필요 |
 | `mechanism` | string | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 공개 메커니즘 내부 코드. 목록 안 OR |
-| `category` | string | N | 검색 없음 | P1 | 구현 예정 | 반복 전달 가능한 고정 카테고리 code. 목록 안 OR |
-| `theme` | string | N | 검색 없음 | P1 | 구현 예정 | 반복 전달 가능한 테마 code. themeMatch에 따라 ANY 또는 ALL |
-| `themeMatch` | ThemeMatch | N | `ANY` | P1 | 구현 예정 | 단일 값. `ANY` 또는 `ALL`; theme이 없어도 유효 |
-| `recommendedPlayerCount` | integer | N | 검색 없음 | P1 | 구현 예정 | 반복 전달 가능한 양의 추천 인원. 목록 안 OR |
-| `bestPlayerCount` | integer | N | 검색 없음 | P1 | 구현 예정 | 반복 전달 가능한 양의 베스트 인원. 목록 안 OR |
+| `category` | string | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 고정 카테고리 code. 목록 안 OR |
+| `theme` | string | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 테마 code. themeMatch에 따라 ANY 또는 ALL |
+| `themeMatch` | ThemeMatch | N | `ANY` | P1 | 제공 | 단일 값. `ANY` 또는 `ALL`; theme이 없어도 유효 |
+| `recommendedPlayerCount` | integer | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 양의 추천 인원. 목록 안 OR |
+| `bestPlayerCount` | integer | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 양의 베스트 인원. 목록 안 OR |
 | `page` | integer | N | `0` | P0 | 제공 | 페이지 번호 |
 | `size` | integer | N | `10` | P0 | 제공 | 페이지 크기, 1~100 |
 

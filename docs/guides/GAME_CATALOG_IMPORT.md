@@ -101,6 +101,46 @@ psql "$DATABASE_URL" \
 
 수집기는 최대 20개 ID씩 호출하고, 완료된 batch checksum은 다시 요청하지 않는다. manifest에는 요청 ID·응답 ID 집합, HTTP status, bytes, raw XML SHA-256, 취득 시각만 기록한다. Bearer token은 macOS Keychain에서 실행 시에만 읽고 터미널 출력·오류·manifest·Git에 남기지 않는다.
 
+### 외부 입력 계약
+
+메타데이터 변환기는 저장소 밖 `metadata-input-manifest.json` 하나만 입력으로 받는다. 경로는 팀 공유 저장소 또는 로컬 절대 경로여도 되지만, 그 파일과 원본·산출물은 Git에 넣지 않는다.
+
+```json
+{
+  "schemaVersion": 1,
+  "approved": true,
+  "games": { "path": "/path/to/games.json", "sha256": "<64-hex>", "rows": 170000 },
+  "ranks": { "path": "/path/to/boardgames_ranks07-24.csv", "sha256": "<64-hex>", "rows": 179329 },
+  "xmlSnapshot": {
+    "rawDirectory": "/path/to/raw",
+    "manifestPath": "/path/to/manifest.json",
+    "manifestSha256": "<64-hex>"
+  },
+  "themeDictionary": { "path": "/path/to/bgg-theme-ko-map.json", "sha256": "<64-hex>" },
+  "reviewedBy": "<reviewer>",
+  "reviewedAt": "2026-08-05T00:00:00Z"
+}
+```
+
+`bgg-theme-ko-map.json`은 아래처럼 BGG 원본 ID·영문명·검수 한글명을 함께 둔다. ID만 맞고 영문명이 달라진 행, 빈 한글명, 중복 ID·영문명·한글명은 오류다. 변환기는 이 사전에 없는 XML 테마를 자동 번역하거나 누락한 채 통과시키지 않는다.
+
+```json
+{
+  "schemaVersion": 1,
+  "entries": [
+    { "bggThemeId": 1016, "nameEn": "Science Fiction", "nameKo": "SF 공상 과학" }
+  ]
+}
+```
+
+실행은 다음과 같다. `--out`은 저장소 밖 빈 배치 디렉터리여야 하며, 실패한 품질 게이트에서는 `quality-report.json`만 남긴다.
+
+```sh
+node scripts/game-catalog/prepare-game-metadata-catalog.mjs \
+  --input-manifest /path/to/metadata-input-manifest.json \
+  --out /path/to/approved-game-metadata-batch
+```
+
 metadata 품질 게이트는 아래를 모두 만족해야 한다.
 
 - 대상 BGG ID 170,000개와 응답 ID 집합이 같고 중복이 없다.
@@ -110,6 +150,19 @@ metadata 품질 게이트는 아래를 모두 만족해야 한다.
 - manifest의 입력·snapshot·한글 사전·산출물 checksum과 행 수가 quality report에 다시 기록된다.
 
 어느 게이트라도 실패하거나 manifest가 승인되지 않으면 quality report만 생성하고 service JSON·UPSERT SQL을 만들지 않는다.
+
+### 17만 행 성능 fixture 계약
+
+`games-170k.performance.json`과 그 `source-manifest.performance.json`은 `productionImportApproved=false`를 유지한 채 PostgreSQL 성능 테스트에만 쓴다. 테스트는 manifest의 `rows=170000`와 fixture SHA-256을 먼저 검증하고, category 관계는 같은 manifest가 가리키는 실제 순위 CSV의 양수 rank에서만 만든다.
+
+170,000개 ID의 전체 XML snapshot과 한글 사전이 아직 없는 상태에서 테마·추천/베스트 조합 성능을 측정할 때는 테스트 코드가 고정 seed로 만든 **성능 전용 관계 분포**만 사용한다. 이 분포는 report에 `performanceFixtureRelations=true`로 남기며 service JSON·UPSERT SQL·운영 metadata manifest에 전달하면 실패해야 한다. 따라서 T10은 조회 경로와 실행 계획의 재현 근거이고, 운영 원본 사실을 주장하지 않는다.
+
+```sh
+JAVA_TOOL_OPTIONS="-Dissue420.fixture=/path/to/games-170k.performance.json -Dissue420.fixtureManifest=/path/to/source-manifest.performance.json -Dissue420.rankCsv=/path/to/boardgames_ranks07-24.csv -Dissue420.performanceReport=/path/to/game-metadata-performance-report.json" \
+  ./gradlew postgresTest \
+  --tests "cloud.bamsongi.albammate.game.GameMetadataSearchPerformancePostgresTest.십칠만건_fixture에서_대표조합의_결과_전체건수_실행계획과_시간을_기록한다" \
+  --rerun --fail-fast
+```
 
 ## 검증 명령
 

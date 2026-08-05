@@ -155,4 +155,19 @@ class GameListRequestTest {
 		assertFalse(validator.validate(duplicate).isEmpty());
 		assertTrue(validator.validate(single).isEmpty());
 	}
+
+	@Test
+	void 메타데이터_코드와_인원_themeMatch를_검증하고_기본_ANY를_유지한다() {
+		GameListRequest valid = new GameListRequest();
+		valid.setCategory(List.of("STRATEGY"));
+		valid.setTheme(List.of("FANTASY"));
+		valid.setRecommendedPlayerCount(List.of(3));
+		assertEquals(ThemeMatch.ANY, valid.getThemeMatch());
+		assertTrue(validator.validate(valid).isEmpty());
+		GameListRequest invalid = new GameListRequest();
+		invalid.setCategory(List.of("strategy", ""));
+		invalid.setRecommendedPlayerCount(List.of(0));
+		invalid.setThemeMatch(List.of(ThemeMatch.ANY, ThemeMatch.ALL));
+		assertFalse(validator.validate(invalid).isEmpty());
+	}
 }

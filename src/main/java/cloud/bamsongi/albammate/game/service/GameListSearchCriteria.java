@@ -13,8 +13,12 @@ import org.springframework.util.StringUtils;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
 import cloud.bamsongi.albammate.game.dto.PlayedFilter;
+import cloud.bamsongi.albammate.game.dto.ThemeMatch;
 import cloud.bamsongi.albammate.game.entity.Game;
+import cloud.bamsongi.albammate.game.entity.GameCategoryRelation;
 import cloud.bamsongi.albammate.game.entity.GameMechanismRelation;
+import cloud.bamsongi.albammate.game.entity.GamePlayerPreference;
+import cloud.bamsongi.albammate.game.entity.GameThemeRelation;
 import cloud.bamsongi.albammate.game.entity.UserPlayedGame;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
@@ -42,6 +46,11 @@ public final class GameListSearchCriteria {
 	private final PlayedFilter playedFilter;
 	private final Long currentUserId;
 	private final List<String> mechanisms;
+	private final List<String> categories;
+	private final List<String> themes;
+	private final ThemeMatch themeMatch;
+	private final List<Integer> recommendedPlayerCounts;
+	private final List<Integer> bestPlayerCounts;
 
 	private GameListSearchCriteria(GameListRequest request) {
 		String requestKeyword = request.getKeyword();
@@ -59,6 +68,11 @@ public final class GameListSearchCriteria {
 		this.playedFilter = request.getPlayedFilter();
 		this.currentUserId = null;
 		this.mechanisms = distinctValues(request.getMechanism());
+		this.categories = distinctValues(request.getCategory());
+		this.themes = distinctValues(request.getTheme());
+		this.themeMatch = request.getThemeMatch();
+		this.recommendedPlayerCounts = distinctValues(request.getRecommendedPlayerCount());
+		this.bestPlayerCounts = distinctValues(request.getBestPlayerCount());
 	}
 
 	private GameListSearchCriteria(
@@ -77,6 +91,11 @@ public final class GameListSearchCriteria {
 		this.playedFilter = source.playedFilter;
 		this.currentUserId = currentUserId;
 		this.mechanisms = source.mechanisms;
+		this.categories = source.categories;
+		this.themes = source.themes;
+		this.themeMatch = source.themeMatch;
+		this.recommendedPlayerCounts = source.recommendedPlayerCounts;
+		this.bestPlayerCounts = source.bestPlayerCounts;
 	}
 
 	/** 같은 값을 반복 전달해도 한 번 전달한 것과 같도록 빈 값과 중복을 걷어낸다. */
@@ -127,9 +146,58 @@ public final class GameListSearchCriteria {
 				predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("complexity"), complexityMax));
 			}
 			addMechanismPredicate(root, query, criteriaBuilder, predicates);
+			addCategoryPredicate(root, query, criteriaBuilder, predicates);
+			addThemePredicate(root, query, criteriaBuilder, predicates);
+			addPlayerPreferencePredicate(root, query, criteriaBuilder, predicates, recommendedPlayerCounts, true);
+			addPlayerPreferencePredicate(root, query, criteriaBuilder, predicates, bestPlayerCounts, false);
 			addPlayedGamePredicate(root, query, criteriaBuilder, predicates);
 			return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
 		};
+	}
+
+	private void addCategoryPredicate(Root<Game> root, jakarta.persistence.criteria.CriteriaQuery<?> query,
+		CriteriaBuilder criteriaBuilder, List<Predicate> predicates) {
+		if (categories.isEmpty())
+			return;
+		var subquery = query.subquery(Long.class);
+		Root<GameCategoryRelation> relation = subquery.from(GameCategoryRelation.class);
+		subquery.select(criteriaBuilder.literal(1L));
+		subquery.where(criteriaBuilder.equal(relation.get("game"), root),
+			relation.join("category").get("code").in(categories));
+		predicates.add(criteriaBuilder.exists(subquery));
+	}
+
+	private void addThemePredicate(Root<Game> root, jakarta.persistence.criteria.CriteriaQuery<?> query,
+		CriteriaBuilder criteriaBuilder, List<Predicate> predicates) {
+		if (themes.isEmpty())
+			return;
+		var subquery = query.subquery(Long.class);
+		Root<GameThemeRelation> relation = subquery.from(GameThemeRelation.class);
+		var theme = relation.join("theme");
+		if (themeMatch == ThemeMatch.ALL) {
+			subquery.select(criteriaBuilder.countDistinct(theme.get("code")));
+			subquery.where(criteriaBuilder.equal(relation.get("game"), root), theme.get("code").in(themes));
+			predicates.add(criteriaBuilder.equal(subquery, (long)themes.size()));
+			return;
+		}
+		subquery.select(criteriaBuilder.literal(1L));
+		subquery.where(criteriaBuilder.equal(relation.get("game"), root), theme.get("code").in(themes));
+		predicates.add(criteriaBuilder.exists(subquery));
+	}
+
+	private void addPlayerPreferencePredicate(Root<Game> root, jakarta.persistence.criteria.CriteriaQuery<?> query,
+		CriteriaBuilder criteriaBuilder, List<Predicate> predicates, List<Integer> playerCounts, boolean recommended) {
+		if (playerCounts.isEmpty())
+			return;
+		var subquery = query.subquery(Long.class);
+		Root<GamePlayerPreference> preference = subquery.from(GamePlayerPreference.class);
+		subquery.select(criteriaBuilder.literal(1L));
+		subquery.where(
+			criteriaBuilder.equal(preference.get("game"), root),
+			preference.get("id").get("playerCount").in(playerCounts),
+			recommended ? criteriaBuilder.isTrue(preference.get("isRecommended"))
+				: criteriaBuilder.isTrue(preference.get("isBest")));
+		predicates.add(criteriaBuilder.exists(subquery));
 	}
 
 	/** 현재 사용자의 표시 관계를 EXISTS 또는 NOT EXISTS로 적용한다. */
