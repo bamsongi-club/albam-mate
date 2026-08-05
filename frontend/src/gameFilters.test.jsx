@@ -33,6 +33,8 @@ const FEATURED_MECHANISM_NAMES = [
   '솔로/솔로테어 게임',
   '일꾼 놓기'
 ];
+// 표시명이 곧 동작인 항목은 설명을 두지 않는다. 나머지만 정보 아이콘을 가진다.
+const DESCRIBED_MECHANISM_NAMES = ['핸드 관리', '셋 컬렉션', '조립 보드', '솔로/솔로테어 게임', '일꾼 놓기'];
 const MECHANISM_OPTIONS = [
   { code: 'HAND_MANAGEMENT', nameKo: '핸드 관리', nameEn: 'Hand Management', featuredOrder: 1 },
   { code: 'DICE_ROLLING', nameKo: '주사위 굴림', nameEn: 'Dice Rolling', featuredOrder: 2 },
@@ -305,7 +307,7 @@ describe('T4 대표 메커니즘과 설명', () => {
   it('마우스가 올라오거나 focus를 받은 상태에서 눌러도 말풍선이 닫히지 않는다', async () => {
     await renderGamesView();
     openFilterPanel();
-    const hint = screen.getByLabelText('주사위 굴림 설명');
+    const hint = screen.getByLabelText('셋 컬렉션 설명');
 
     // tap은 hover·focus를 함께 일으킨다. 이 순서에서 눌러도 설명이 열려 있어야 한다.
     fireEvent.mouseEnter(hint.parentElement);
@@ -315,17 +317,27 @@ describe('T4 대표 메커니즘과 설명', () => {
     expect(hint.getAttribute('aria-expanded')).toBe('true');
   });
 
-  it('대표 8개마다 서로 다른 설명을 연결한다', async () => {
+  it('표시명만으로 알기 어려운 항목에만 서로 다른 설명을 연결한다', async () => {
     await renderGamesView();
     openFilterPanel();
 
-    const descriptions = FEATURED_MECHANISM_NAMES.map((name) => {
+    const descriptions = DESCRIBED_MECHANISM_NAMES.map((name) => {
       const hint = screen.getByLabelText(name + ' 설명');
       return document.getElementById(hint.getAttribute('aria-describedby')).textContent.trim();
     });
 
     expect(descriptions.every(Boolean)).toBe(true);
-    expect(new Set(descriptions).size).toBe(FEATURED_MECHANISM_NAMES.length);
+    expect(new Set(descriptions).size).toBe(DESCRIBED_MECHANISM_NAMES.length);
+  });
+
+  it('표시명이 곧 동작인 대표 항목에는 정보 아이콘을 두지 않는다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+
+    ['주사위 굴림', '협력 게임', '타일 놓기'].forEach((name) => {
+      expect(screen.getByLabelText(name)).toBeTruthy();
+      expect(screen.queryByLabelText(name + ' 설명')).toBeNull();
+    });
   });
 
   it('대표 8개 밖 항목에는 설명을 제공하지 않는다', async () => {

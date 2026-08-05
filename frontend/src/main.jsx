@@ -99,18 +99,16 @@ const PLAY_TIME_LABEL = {
   AT_LEAST_90: '90분 이상'
 };
 /*
- * 대표 메커니즘 설명은 계약이 고정한 `featuredOrder` 1~8에 맞춰 둔다.
+ * 대표 메커니즘 설명은 계약이 고정한 `featuredOrder`에 맞춰 둔다.
  * 선택지 API는 코드·표시명·대표 순서만 반환하고 설명을 담지 않으므로 화면이 문구를 가진다.
+ * `2` 주사위 굴림, `4` 협력 게임, `5` 타일 놓기는 표시명이 곧 동작이라 설명을 두지 않는다.
  */
 const MECHANISM_FEATURED_DESCRIPTIONS = {
-  1: '손에 든 카드를 언제 내고 언제 아껴 둘지 고르는 방식이에요.',
-  2: '주사위를 굴려 나온 눈으로 할 수 있는 행동이나 결과가 정해져요.',
-  3: '같은 종류나 짝이 맞는 것을 모아서 점수를 얻는 방식이에요.',
-  4: '편을 나누지 않고 참가자가 함께 목표를 이루는 방식이에요.',
-  5: '타일을 판에 이어 놓으면서 지형이나 모양을 만들어 가요.',
-  6: '판을 매번 다르게 조립해서 시작 지형이 게임마다 달라져요.',
-  7: '혼자서도 규칙대로 끝까지 즐길 수 있는 방식이에요.',
-  8: '내 말을 자리에 먼저 놓아서 그 자리의 행동을 가져가요.'
+  1: '손패 관리',
+  3: '같은 짝·세트 모으기',
+  6: '판 구성이 매번 달라짐',
+  7: '혼자서도 가능',
+  8: '자리를 먼저 잡아 행동 가져오기'
 };
 // 난이도 점대는 계약의 닫힌 구간 하한·상한으로 보낸다. 5점만 있는 마지막 칸은 상한도 5다.
 const COMPLEXITY_BANDS = [
@@ -891,14 +889,18 @@ function MechanismFilterGroup({ options, selected, onToggle }) {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [keyword, setKeyword] = useState('');
   return (
-    <fieldset className="filter-group">
+    <fieldset className="filter-group mechanism-group">
       <legend>메커니즘</legend>
-      {featuredMechanisms(options).map((option) => (
-        <div className="mechanism-featured" key={option.code}>
-          <MechanismCheckOption option={option} selected={selected} onToggle={onToggle} />
-          <MechanismHint code={option.code} name={option.nameKo} description={MECHANISM_FEATURED_DESCRIPTIONS[option.featuredOrder]} />
-        </div>
-      ))}
+      <div className="mechanism-featured-list">
+        {featuredMechanisms(options).map((option) => (
+          <div className="mechanism-featured" key={option.code}>
+            <MechanismCheckOption option={option} selected={selected} onToggle={onToggle} />
+            {MECHANISM_FEATURED_DESCRIPTIONS[option.featuredOrder] && (
+              <MechanismHint code={option.code} name={option.nameKo} description={MECHANISM_FEATURED_DESCRIPTIONS[option.featuredOrder]} />
+            )}
+          </div>
+        ))}
+      </div>
       <button
         type="button"
         className="mechanism-more"
