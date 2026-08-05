@@ -61,7 +61,7 @@ node scripts/game-catalog/prepare-game-catalog.mjs \
 
 `upsert-games.sql`은 기존 내부 `id`와 `created_at`을 유지하며, 새 입력에서 빠진 기존 게임을 삭제하지 않는다.
 `upsert-game-mechanisms.sql`은 게임 내부 ID를 해석해야 하므로 반드시 `upsert-games.sql` 다음에 실행한다. 승인 관계의 게임이나 메커니즘을 해석하지 못하면 전체 트랜잭션을 롤백한다.
-`upsert-game-metadata.sql`도 반드시 `upsert-games.sql` 다음에 실행한다. 승인 category/theme 관계의 게임이나 테마를 해석하지 못하면 category·theme·인원 선호 적재 전체를 롤백한다. 새 snapshot에 없다는 이유로 GAMES 행을 삭제하지 않는다.
+`upsert-game-metadata.sql`도 반드시 `upsert-games.sql` 다음에 실행한다. 승인 category/theme 관계의 게임이나 테마를 해석하지 못하면 category·theme·인원 선호 적재 전체를 롤백한다. 새 snapshot에 없다는 이유로 GAMES 행을 삭제하지 않는다. `quality-report.json`의 `testOnly`가 `true`인 산출물은 이 운영 경로로 실행하지 않는다.
 
 ## 4. PostgreSQL 적재
 
@@ -109,6 +109,7 @@ psql "$DATABASE_URL" \
 {
   "schemaVersion": 1,
   "approved": true,
+  "testOnly": false,
   "games": { "path": "/path/to/games.json", "sha256": "<64-hex>", "rows": 170000 },
   "ranks": { "path": "/path/to/boardgames_ranks07-24.csv", "sha256": "<64-hex>", "rows": 179329 },
   "xmlSnapshot": {
@@ -144,12 +145,22 @@ node scripts/game-catalog/prepare-game-metadata-catalog.mjs \
 metadata 품질 게이트는 아래를 모두 만족해야 한다.
 
 - 대상 BGG ID 170,000개와 응답 ID 집합이 같고 중복이 없다.
-- CSV의 양수 subdomain rank만 고정 8개 category relation으로 만들며 누락·0·음수 rank를 추정하지 않는다.
-- 모든 공개 theme에 BGG ID·영문명·안정 code·검수 한글명이 있고, theme와 relation 중복이 없다.
+- CSV의 실제 `<subdomain>_rank` 열(예: `strategygames_rank`)의 양수 값만 고정 8개 category relation으로 만들며, 8개 source 열의 누락·0·음수 rank를 추정하지 않는다.
+- 모든 공개 theme에 BGG ID·영문명·안정 code·검수 한글명이 있고, theme와 relation 중복이 없다. theme code는 영문명을 ASCII UPPER_SNAKE_CASE로 정규화한 `<BASE>_BGG_<bggThemeId>`라서 snapshot 순서와 증분 적재에 따라 바뀌지 않는다.
 - suggested_numplayers의 recommended/best 판정, N+ 확장, 동률·poll 누락·잘못된 label 처리가 승인된 규칙과 일치한다.
 - manifest의 입력·snapshot·한글 사전·산출물 checksum과 행 수가 quality report에 다시 기록된다.
 
 어느 게이트라도 실패하거나 manifest가 승인되지 않으면 quality report만 생성하고 service JSON·UPSERT SQL을 만들지 않는다.
+
+`testOnly: true`는 PostgreSQL 검증 fixture에만 허용한다. 생성된 service JSON과 quality report에도 `testOnly: true`가 보존되고, 생성 SQL은 기본 세션에서 `albam_mate.allow_test_only_metadata_import`가 설정되지 않으면 즉시 실패한다. 따라서 운영 배치는 반드시 `testOnly: false`(또는 생략)인 승인 산출물만 위 운영 명령으로 실행한다.
+
+테스트 전용 SQL을 PostgreSQL 검증에서 실행할 때만 아래처럼 명시적으로 허가한다.
+
+```sh
+PGOPTIONS='-c albam_mate.allow_test_only_metadata_import=true' \
+  psql "$DATABASE_URL" --set ON_ERROR_STOP=on \
+  --file /path/to/test-only/upsert-game-metadata.sql
+```
 
 ### 17만 행 성능 fixture 계약
 

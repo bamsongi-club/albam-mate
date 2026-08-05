@@ -30,7 +30,7 @@
 
 - GAME_CATEGORIES에는 전략, 추상 전략, 컬렉터블, 가족, 어린이, 테마, 파티, 워게임의 고정 8개 code·한글명·영문명·CSV subdomain·표시 순서를 둔다.
 - GAME_CATEGORY_RELATIONS는 순위 CSV의 해당 subdomain rank가 양수인 경우만 game_id와 category_id 복합 키로 연결한다.
-- GAME_THEMES에는 BGG boardgamecategory의 원본 ID, 안정적인 내부 code, 검수된 한글명, 원문 영문명을 둔다. code는 영문명을 ASCII UPPER_SNAKE_CASE로 정규화하고 충돌하면 _BGG_<bgg_theme_id>를 붙인다.
+- GAME_THEMES에는 BGG boardgamecategory의 원본 ID, 안정적인 내부 code, 검수된 한글명, 원문 영문명을 둔다. code는 영문명을 ASCII UPPER_SNAKE_CASE로 정규화한 뒤 항상 _BGG_<bgg_theme_id>를 붙여 증분 snapshot에서도 바뀌지 않게 한다.
 - GAME_THEME_RELATIONS는 game_id와 theme_id 복합 키로 한 번만 연결한다.
 - GAME_PLAYER_PREFERENCES는 game_id와 player_count 복합 키와 is_recommended, is_best를 둔다. 데이터베이스 CHECK와 정규화 단계 모두에서 is_best -> is_recommended를 보장한다.
 

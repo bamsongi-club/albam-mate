@@ -2,7 +2,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { parseRankRows, sha256 } from './catalog-analysis.mjs';
-import { buildMetadataArtifact, CATEGORY_DEFINITIONS, parseBggMetadataXml } from './game-metadata-catalog.mjs';
+import { buildMetadataArtifact, CATEGORY_DEFINITIONS, createMetadataArtifact, missingCategoryRankColumns, parseBggMetadataXml, testOnlyMetadataSqlGuard } from './game-metadata-catalog.mjs';
 
 const [flag, manifestPath, outFlag, out] = process.argv.slice(2);
 if (flag !== '--input-manifest' || outFlag !== '--out' || !manifestPath || !out) throw new Error('usage: --input-manifest <path> --out <path>');
@@ -26,20 +26,22 @@ try {
     dictionaryById.set(entry.bggThemeId, entry); dictionaryNames.add(entry.nameEn); dictionaryNames.add(entry.nameKo);
   }
   const ranks = parseRankRows(readFileSync(manifest.ranks.path, 'utf8'));
+  const missingRankColumns = missingCategoryRankColumns(ranks);
+  if (missingRankColumns.length) problems.push(`missing category rank columns: ${missingRankColumns.join(', ')}`);
   const xml = validateXmlSnapshot(manifest.xmlSnapshot, gameIds);
   problems.push(...xml.errors);
   if (problems.length) throw new Error(problems.join('; '));
   const xmlGames = xml.games;
   const built=buildMetadataArtifact({games:xmlGames,rankRows:ranks,dictionary}); if(built.errors.length) throw new Error(built.errors.join('; '));
-  const artifact = { schemaVersion: 1, approved: true, performanceFixtureRelations: false, targetBggIds: [...gameIds].sort((a, b) => a - b), ...built.artifact };
+  const artifact = createMetadataArtifact({ targetBggIds: gameIds, built: built.artifact, testOnly: manifest.testOnly === true });
   const artifactPath = join(out, 'service-game-metadata.json');
   const sqlPath = join(out, 'upsert-game-metadata.sql');
   writeFileSync(artifactPath, JSON.stringify(artifact));
   writeFileSync(sqlPath, renderSql(artifact));
-  writeFileSync(qualityPath, JSON.stringify({ status: 'approved', inputs, snapshot: { manifestPath: manifest.xmlSnapshot.manifestPath, manifestSha256: checksum(manifest.xmlSnapshot.manifestPath), rawDirectory: manifest.xmlSnapshot.rawDirectory }, outputs: { artifact: { sha256: checksum(artifactPath) }, sql: { sha256: checksum(sqlPath) }, targetGames: artifact.targetBggIds.length, themes: artifact.themes.length, categoryRelations: artifact.categoryRelations.length, themeRelations: artifact.themeRelations.length, preferences: artifact.preferences.length } }, null, 2));
+  writeFileSync(qualityPath, JSON.stringify({ status: 'approved', testOnly: artifact.testOnly, inputs, snapshot: { manifestPath: manifest.xmlSnapshot.manifestPath, manifestSha256: checksum(manifest.xmlSnapshot.manifestPath), rawDirectory: manifest.xmlSnapshot.rawDirectory }, outputs: { artifact: { sha256: checksum(artifactPath) }, sql: { sha256: checksum(sqlPath) }, targetGames: artifact.targetBggIds.length, themes: artifact.themes.length, categoryRelations: artifact.categoryRelations.length, themeRelations: artifact.themeRelations.length, preferences: artifact.preferences.length } }, null, 2));
 } catch (error) { failure(null, [error.message]); }
 
-function validateManifest(value) { const errors = []; if (value?.schemaVersion !== 1 || value?.approved !== true || !value?.reviewedBy || !value?.reviewedAt) errors.push('unapproved metadata manifest'); for (const key of ['games','ranks','themeDictionary']) if (!value?.[key]?.path || !/^[a-f0-9]{64}$/.test(value[key].sha256 ?? '')) errors.push(`invalid ${key}`); if (!value?.xmlSnapshot?.rawDirectory || !value?.xmlSnapshot?.manifestPath || !/^[a-f0-9]{64}$/.test(value?.xmlSnapshot?.manifestSha256 ?? '')) errors.push('invalid XML snapshot'); return errors; }
+function validateManifest(value) { const errors = []; if (value?.schemaVersion !== 1 || value?.approved !== true || !value?.reviewedBy || !value?.reviewedAt) errors.push('unapproved metadata manifest'); if (value?.testOnly !== undefined && typeof value.testOnly !== 'boolean') errors.push('invalid testOnly'); for (const key of ['games','ranks','themeDictionary']) if (!value?.[key]?.path || !/^[a-f0-9]{64}$/.test(value[key].sha256 ?? '')) errors.push(`invalid ${key}`); if (!value?.xmlSnapshot?.rawDirectory || !value?.xmlSnapshot?.manifestPath || !/^[a-f0-9]{64}$/.test(value?.xmlSnapshot?.manifestSha256 ?? '')) errors.push('invalid XML snapshot'); return errors; }
 function checksum(path) { return path && existsSync(path) ? sha256(readFileSync(path)) : null; }
 function failure(manifest, errors) { writeFileSync(qualityPath, JSON.stringify({ status: 'blocked', manifest: manifest ? resolve(manifestPath) : null, errors }, null, 2)); process.exitCode = 1; }
 function validateXmlSnapshot(snapshot, expectedGameIds) {
@@ -87,5 +89,5 @@ function renderSql(artifact) {
   const themeRelations = `with target(bgg_id) as (${targets}), desired(bgg_id,bgg_theme_id) as (${themesDesired}) delete from game_theme_relations relation using games game where relation.game_id=game.id and game.bgg_id in (select bgg_id from target) and not exists (select 1 from desired join game_themes theme on theme.bgg_theme_id=desired.bgg_theme_id where desired.bgg_id=game.bgg_id and theme.id=relation.theme_id);\nwith desired(bgg_id,bgg_theme_id) as (${themesDesired}) insert into game_theme_relations(game_id,theme_id) select game.id,theme.id from desired join games game on game.bgg_id=desired.bgg_id join game_themes theme on theme.bgg_theme_id=desired.bgg_theme_id on conflict do nothing;`;
   const staleThemes = `with approved(bgg_theme_id) as (${values(artifact.themes.map(theme => [theme.bggThemeId]), ['bigint'])}) delete from game_theme_relations relation using game_themes theme where relation.theme_id=theme.id and not exists (select 1 from approved where approved.bgg_theme_id=theme.bgg_theme_id);\nwith approved(bgg_theme_id) as (${values(artifact.themes.map(theme => [theme.bggThemeId]), ['bigint'])}) delete from game_themes theme where not exists (select 1 from approved where approved.bgg_theme_id=theme.bgg_theme_id);`;
   const preferences = `with target(bgg_id) as (${targets}), desired(bgg_id,player_count,is_recommended,is_best) as (${preferencesDesired}) delete from game_player_preferences preference using games game where preference.game_id=game.id and game.bgg_id in (select bgg_id from target) and not exists (select 1 from desired where desired.bgg_id=game.bgg_id and desired.player_count=preference.player_count);\nwith desired(bgg_id,player_count,is_recommended,is_best) as (${preferencesDesired}) insert into game_player_preferences(game_id,player_count,is_recommended,is_best) select game.id,desired.player_count,desired.is_recommended,desired.is_best from desired join games game on game.bgg_id=desired.bgg_id on conflict (game_id,player_count) do update set is_recommended=excluded.is_recommended,is_best=excluded.is_best;`;
-  return `begin;\n${categorySql}\n${staleThemes}\n${themeSql}\n${gameGuard}\n${themeGuard}\n${categoryRelations}\n${themeRelations}\n${preferences}\ncommit;\n`;
+  return `begin;\n${testOnlyMetadataSqlGuard(artifact.testOnly)}${categorySql}\n${staleThemes}\n${themeSql}\n${gameGuard}\n${themeGuard}\n${categoryRelations}\n${themeRelations}\n${preferences}\ncommit;\n`;
 }

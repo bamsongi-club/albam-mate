@@ -61,14 +61,14 @@
 
 | `code` | `bgg_subdomain` | `name_ko` | `name_en` | 순서 |
 | --- | --- | --- | --- | ---: |
-| `STRATEGY_GAMES` | `strategygames` | 전략 | Strategy Games | 1 |
-| `ABSTRACT_GAMES` | `abstracts` | 추상 전략 | Abstract Games | 2 |
-| `CUSTOMIZABLE_GAMES` | `cgs` | 컬렉터블 | Customizable Games | 3 |
-| `FAMILY_GAMES` | `familygames` | 가족 | Family Games | 4 |
-| `CHILDRENS_GAMES` | `childrensgames` | 어린이 | Children's Games | 5 |
-| `THEMATIC_GAMES` | `thematic` | 테마 | Thematic Games | 6 |
-| `PARTY_GAMES` | `partygames` | 파티 | Party Games | 7 |
-| `WARGAMES` | `wargames` | 워게임 | Wargames | 8 |
+| `STRATEGY` | `strategygames` | 전략 | Strategy | 1 |
+| `ABSTRACT_STRATEGY` | `abstracts` | 추상 전략 | Abstract Strategy | 2 |
+| `COLLECTIBLE` | `cgs` | 컬렉터블 | Collectible | 3 |
+| `FAMILY` | `familygames` | 가족 | Family | 4 |
+| `CHILDREN` | `childrensgames` | 어린이 | Children | 5 |
+| `THEMATIC` | `thematic` | 테마 | Thematic | 6 |
+| `PARTY` | `partygames` | 파티 | Party | 7 |
+| `WARGAME` | `wargames` | 워게임 | Wargame | 8 |
 
 `GAME_CATEGORY_RELATIONS`는 `(game_id, category_id)` 복합 기본 키와 두 외래 키만 가진다. 해당 CSV rank가 양수인 카테고리만 관계를 만든다. rank 누락·0·음수에서 임의 카테고리를 만들지 않는다.
 
@@ -84,7 +84,7 @@
 | `name_ko` | NOT NULL | 검수된 화면 표시 한글명 |
 | `name_en` | NOT NULL | XML `value` 영문명 |
 
-`code`는 한글·영문 표시명과 분리한다. 최초 매핑에서 영문명을 ASCII `UPPER_SNAKE_CASE`로 정규화하고, 충돌하면 `_BGG_{bgg_theme_id}`를 붙인다. 한 번 공개한 코드는 표시명이 바뀌어도 바꾸지 않는다.
+`code`는 한글·영문 표시명과 분리한다. 영문명을 ASCII `UPPER_SNAKE_CASE`로 정규화한 뒤 항상 `_BGG_{bgg_theme_id}`를 붙인다. 그래서 새 테마가 더 낮은 BGG ID로 추가되어도 기존 공개 코드는 바뀌지 않는다.
 
 `GAME_THEME_RELATIONS`는 `(game_id, theme_id)` 복합 기본 키와 두 외래 키만 가진다. XML에 같은 테마 link가 중복되어도 하나의 관계만 만든다. 테마가 없는 게임은 관계가 없으며, 테마 필터를 생략한 조회에서는 계속 결과에 포함된다.
 
@@ -146,10 +146,10 @@
 | `recommendedPlayerCount` | positive integer, 반복 가능 | 검색 없음 | 선택한 추천 인원 |
 | `bestPlayerCount` | positive integer, 반복 가능 | 검색 없음 | 선택한 베스트 인원 |
 
-예시는 아래와 같다.
+아래는 선택지 API에서 받은 실제 테마 코드를 넣는 형식 예시다.
 
 ```text
-GET /api/games?category=STRATEGY_GAMES&category=FAMILY_GAMES&theme=ECONOMIC&theme=SCIENCE_FICTION&themeMatch=ALL&recommendedPlayerCount=3&recommendedPlayerCount=4&bestPlayerCount=4
+GET /api/games?category=STRATEGY&category=FAMILY&theme=<themeCodeA>&theme=<themeCodeB>&themeMatch=ALL&recommendedPlayerCount=3&recommendedPlayerCount=4&bestPlayerCount=4
 ```
 
 | 그룹 | 같은 그룹 안 결합 | 다른 그룹과 결합 |
@@ -171,8 +171,8 @@ GET /api/games?category=STRATEGY_GAMES&category=FAMILY_GAMES&theme=ECONOMIC&them
 
 ```json
 {
-  "categories": [{"code": "STRATEGY_GAMES", "nameKo": "전략", "nameEn": "Strategy Games"}],
-  "themes": [{"code": "ECONOMIC", "nameKo": "경제", "nameEn": "Economic"}],
+  "categories": [{"code": "STRATEGY", "nameKo": "전략", "nameEn": "Strategy"}],
+  "themes": [{"code": "<NORMALIZED_NAME>_BGG_<bggThemeId>", "nameKo": "경제", "nameEn": "Economic"}],
   "recommendedPlayerCounts": [3, 4, 5],
   "bestPlayerCounts": [4]
 }

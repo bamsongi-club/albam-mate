@@ -39,21 +39,25 @@ class GameMetadataCatalogImportPostgresTest {
 		String script = Files.readString(sql);
 		assertTrue(script.startsWith("begin;"));
 		assertTrue(script.endsWith("commit;\n"));
+		assertTrue(script.contains("albam_mate.allow_test_only_metadata_import"));
+		assertTrue(Files.readString(sql.getParent().resolve("service-game-metadata.json")).contains("\"testOnly\":true"));
 		seed(100L);
-		execute(sql);
+		assertThrows(Exception.class, () -> execute(sql));
+		executeTestOnly(sql);
 		int approvedCategories = count("game_category_relations");
+		assertEquals(2, approvedCategories);
 		assertCounts(approvedCategories, 1, 1);
 		seedStaleRelations();
 		assertCounts(approvedCategories + 1, 2, 2);
-		execute(sql);
+		executeTestOnly(sql);
 		assertCounts(approvedCategories, 1, 1);
 		assertEquals(0, jdbc.queryForObject("select count(*) from game_themes where bgg_theme_id=99", Integer.class));
 		jdbc.update("delete from game_theme_relations where theme_id in (select id from game_themes where bgg_theme_id=10)");
 		jdbc.update("delete from game_themes where bgg_theme_id=10");
-		jdbc.update("insert into game_themes(bgg_theme_id,code,name_ko,name_en,created_at,updated_at) values(199,'FANTASY','오래된 이름','Stale Fantasy',current_timestamp,current_timestamp)");
-		execute(sql);
+		jdbc.update("insert into game_themes(bgg_theme_id,code,name_ko,name_en,created_at,updated_at) values(199,'FANTASY_BGG_10','오래된 이름','Stale Fantasy',current_timestamp,current_timestamp)");
+		executeTestOnly(sql);
 		assertCounts(approvedCategories, 1, 1);
-		assertEquals(1, jdbc.queryForObject("select count(*) from game_themes where bgg_theme_id=10 and code='FANTASY'", Integer.class));
+		assertEquals(1, jdbc.queryForObject("select count(*) from game_themes where bgg_theme_id=10 and code='FANTASY_BGG_10'", Integer.class));
 		assertEquals(0, jdbc.queryForObject("select count(*) from game_themes where bgg_theme_id=199", Integer.class));
 
 		jdbc.update("update game_categories set name_ko='실행전' where code='STRATEGY'");
@@ -62,7 +66,7 @@ class GameMetadataCatalogImportPostgresTest {
 		jdbc.update("delete from game_theme_relations");
 		jdbc.update("delete from game_player_preferences");
 		jdbc.update("delete from games where bgg_id=100");
-		assertThrows(Exception.class, () -> execute(sql));
+		assertThrows(Exception.class, () -> executeTestOnly(sql));
 		assertCounts(0, 0, 0);
 		assertEquals("실행전", jdbc.queryForObject("select name_ko from game_categories where code='STRATEGY'", String.class));
 		assertEquals("실행전", jdbc.queryForObject("select name_ko from game_themes where bgg_theme_id=10", String.class));
@@ -70,7 +74,7 @@ class GameMetadataCatalogImportPostgresTest {
 
 	private void seedStaleRelations() {
 		jdbc.update("insert into game_themes(bgg_theme_id,code,name_ko,name_en,created_at,updated_at) values(99,'STALE','오래됨','Stale',current_timestamp,current_timestamp)");
-		jdbc.update("insert into game_category_relations(game_id,category_id) select g.id,c.id from games g join game_categories c on c.code='STRATEGY' where g.bgg_id=100");
+		jdbc.update("insert into game_category_relations(game_id,category_id) select g.id,c.id from games g join game_categories c on c.code='WARGAME' where g.bgg_id=100");
 		jdbc.update("insert into game_theme_relations(game_id,theme_id) select g.id,t.id from games g join game_themes t on t.bgg_theme_id=99 where g.bgg_id=100");
 		jdbc.update("insert into game_player_preferences(game_id,player_count,is_recommended,is_best) select id,2,true,false from games where bgg_id=100");
 	}
@@ -102,12 +106,27 @@ class GameMetadataCatalogImportPostgresTest {
 
 	private void execute(Path sql) throws Exception {
 		try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+			execute(statement, sql);
+		}
+	}
+
+	private void executeTestOnly(Path sql) throws Exception {
+		try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+			statement.execute("set albam_mate.allow_test_only_metadata_import='true'");
 			try {
-				for (String part : splitSql(Files.readString(sql))) if (!part.isBlank()) statement.execute(part);
-			} catch (Exception error) {
-				statement.execute("rollback");
-				throw error;
+				execute(statement, sql);
+			} finally {
+				statement.execute("reset albam_mate.allow_test_only_metadata_import");
 			}
+		}
+	}
+
+	private void execute(java.sql.Statement statement, Path sql) throws Exception {
+		try {
+			for (String part : splitSql(Files.readString(sql))) if (!part.isBlank()) statement.execute(part);
+		} catch (Exception error) {
+			statement.execute("rollback");
+			throw error;
 		}
 	}
 

@@ -16,16 +16,29 @@ export const CATEGORY_SUBDOMAINS = Object.freeze(
 );
 
 export function categoryCodesFromRanks(row) {
-  return Object.entries(CATEGORY_SUBDOMAINS)
-    .filter(([column]) => Number(row[column]) > 0).map(([, code]) => code);
+  return CATEGORY_DEFINITIONS
+    .filter(([, , , subdomain]) => Number(row[`${subdomain}_rank`]) > 0)
+    .map(([code]) => code);
 }
 
-export function stableThemeCode(nameEn, bggThemeId, usedCodes = new Set()) {
+export function missingCategoryRankColumns(rankRows) {
+  const columns = new Set(rankRows.flatMap(row => Object.keys(row)));
+  return CATEGORY_DEFINITIONS.map(([, , , subdomain]) => `${subdomain}_rank`)
+    .filter(column => !columns.has(column));
+}
+
+export function stableThemeCode(nameEn, bggThemeId) {
   const base = nameEn.normalize('NFKD').replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '').toUpperCase();
   if (!base) throw new Error(`theme code conflict: ${bggThemeId}`);
-  let code = usedCodes.has(base) ? `${base}_BGG_${bggThemeId}` : base;
-  for (let suffix = 2; usedCodes.has(code); suffix += 1) code = `${base}_BGG_${bggThemeId}_${suffix}`;
-  usedCodes.add(code); return code;
+  return `${base}_BGG_${bggThemeId}`;
+}
+
+export function createMetadataArtifact({ targetBggIds, built, testOnly }) {
+  return { schemaVersion: 1, approved: true, testOnly, performanceFixtureRelations: false, targetBggIds: [...targetBggIds].sort((a, b) => a - b), ...built };
+}
+
+export function testOnlyMetadataSqlGuard(testOnly) {
+  return testOnly ? "do $$ begin if coalesce(current_setting('albam_mate.allow_test_only_metadata_import', true), 'false') <> 'true' then raise exception 'test-only metadata import requires albam_mate.allow_test_only_metadata_import=true'; end if; end $$;\n" : '';
 }
 
 export function playerPreferences(polls, maxPlayers) {
@@ -74,12 +87,12 @@ export function validateThemeDictionary(entries) {
 }
 
 export function buildMetadataArtifact({ games, rankRows, dictionary }) {
-  const { errors, byId } = validateThemeDictionary(dictionary); const usedCodes = new Set(); const themes = new Map(); const themeRelations = []; const preferences = []; const seenRelations = new Set();
+  const { errors, byId } = validateThemeDictionary(dictionary); const themes = new Map(); const themeRelations = []; const preferences = []; const seenRelations = new Set();
   for (const game of games) {
     for (const theme of game.themes) { const mapped = byId.get(theme.bggThemeId); if (!mapped || mapped.nameEn !== theme.nameEn) { errors.push(`theme mismatch: ${theme.bggThemeId}`); continue; } themes.set(theme.bggThemeId, mapped); const key=`${game.bggId}:${theme.bggThemeId}`; if (seenRelations.has(key)) errors.push(`duplicate theme relation: ${key}`); seenRelations.add(key); themeRelations.push({ bggId: game.bggId, bggThemeId: theme.bggThemeId }); }
     try { preferences.push(...playerPreferences(game.polls, game.maxPlayers).map(value => ({ bggId: game.bggId, ...value }))); } catch (error) { errors.push(error.message); }
   }
-  const rankedThemes = [...themes.entries()].sort(([left], [right]) => left - right).map(([id, theme]) => ({ ...theme, bggThemeId: id, code: stableThemeCode(theme.nameEn, id, usedCodes) }));
+  const rankedThemes = [...themes.entries()].sort(([left], [right]) => left - right).map(([id, theme]) => ({ ...theme, bggThemeId: id, code: stableThemeCode(theme.nameEn, id) }));
   const ranks = new Map(rankRows.map(row => [Number(row.id), row]));
   return { errors, artifact: { themes: rankedThemes, categoryRelations: games.flatMap(game => categoryCodesFromRanks(ranks.get(game.bggId) ?? {}).map(category => ({ bggId: game.bggId, category }))), themeRelations, preferences } };
 }
