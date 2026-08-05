@@ -35,7 +35,7 @@ class NotificationOutboxRecoveryServiceTest {
 		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
 		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);
 		NotificationOutboxRecoveryService service = new NotificationOutboxRecoveryService(eventRepository,
-			recipientRepository);
+			recipientRepository, new NotificationOutboxRecoveryPolicy());
 		NotificationOutboxEvent first = failed(2L, OPERATION_TIME.minusSeconds(60));
 		NotificationOutboxEvent second = failed(7L, OPERATION_TIME.minusSeconds(60));
 		when(eventRepository.findRecoveryOperationTime()).thenReturn(OPERATION_TIME);
@@ -56,7 +56,7 @@ class NotificationOutboxRecoveryServiceTest {
 		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
 		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);
 		NotificationOutboxRecoveryService service = new NotificationOutboxRecoveryService(eventRepository,
-			recipientRepository);
+			recipientRepository, new NotificationOutboxRecoveryPolicy());
 
 		assertThrows(NotificationOutboxRecoveryInputException.class, () -> service.preview(inspect(List.of(3L, 3L))));
 		verify(eventRepository, never()).findAllByIdInOrderById(anyCollection());
@@ -78,7 +78,7 @@ class NotificationOutboxRecoveryServiceTest {
 		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
 		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);
 		NotificationOutboxRecoveryService service = new NotificationOutboxRecoveryService(eventRepository,
-			recipientRepository);
+			recipientRepository, new NotificationOutboxRecoveryPolicy());
 
 		assertThrows(NotificationOutboxRecoveryInputException.class, () -> service.preview(
 			new NotificationOutboxRecoveryRequest(NotificationRecoveryAction.INSPECT, List.of(3L), true,
@@ -99,7 +99,7 @@ class NotificationOutboxRecoveryServiceTest {
 		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
 		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);
 		NotificationOutboxRecoveryService service = new NotificationOutboxRecoveryService(eventRepository,
-			recipientRepository);
+			recipientRepository, new NotificationOutboxRecoveryPolicy());
 		NotificationOutboxRecoveryRequest previewRequest = new NotificationOutboxRecoveryRequest(action, List.of(3L),
 			true, "INC-2026-267", "fixed incident", requestedBy, null);
 		NotificationOutboxRecoveryRequest executeRequest = new NotificationOutboxRecoveryRequest(action, List.of(3L),
@@ -116,7 +116,7 @@ class NotificationOutboxRecoveryServiceTest {
 		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
 		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);
 		NotificationOutboxRecoveryService service = new NotificationOutboxRecoveryService(eventRepository,
-			recipientRepository);
+			recipientRepository, new NotificationOutboxRecoveryPolicy());
 		NotificationOutboxEvent event = failed(3L, OPERATION_TIME.minusSeconds(60));
 		when(eventRepository.findRecoveryOperationTime()).thenReturn(OPERATION_TIME);
 		when(eventRepository.findAllByIdInOrderByIdForUpdate(List.of(3L))).thenReturn(List.of(event));
@@ -138,7 +138,7 @@ class NotificationOutboxRecoveryServiceTest {
 		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
 		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);
 		NotificationOutboxRecoveryService service = new NotificationOutboxRecoveryService(eventRepository,
-			recipientRepository);
+			recipientRepository, new NotificationOutboxRecoveryPolicy());
 		NotificationOutboxEvent eligible = failed(3L, OPERATION_TIME.minusSeconds(60));
 		NotificationOutboxEvent expired = failed(5L, OPERATION_TIME.minusSeconds(89L * 24 * 60 * 60));
 		when(eventRepository.findRecoveryOperationTime()).thenReturn(OPERATION_TIME);

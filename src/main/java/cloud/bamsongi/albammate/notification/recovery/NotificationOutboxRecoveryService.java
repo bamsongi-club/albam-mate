@@ -3,11 +3,8 @@ package cloud.bamsongi.albammate.notification.recovery;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -28,19 +25,19 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class NotificationOutboxRecoveryService {
 
-	private static final int MAX_EVENT_IDS = 50;
 	private static final Duration REPROCESS_WINDOW = Duration.ofDays(89);
 	private static final Duration NOTIFICATION_RETENTION = Duration.ofDays(90);
 	private static final Duration DISCARDED_RETENTION = Duration.ofDays(30);
 
 	@NonNull private final NotificationOutboxEventRepository eventRepository;
 	@NonNull private final NotificationOutboxRecipientRepository recipientRepository;
+	@NonNull private final NotificationOutboxRecoveryPolicy recoveryPolicy;
 
 	/** inspect와 dry-run은 현재 상태를 읽기만 하고 실제 변경 때는 다시 검증한다. */
 	@Transactional(readOnly = true)
 	public NotificationOutboxRecoveryResult preview(NotificationOutboxRecoveryRequest request) {
-		List<Long> eventIds = normalizeEventIds(request.eventIds());
-		validateCommand(request, false);
+		List<Long> eventIds = recoveryPolicy.validateAndNormalize(request,
+			NotificationOutboxRecoveryPolicy.ExecutionMode.PREVIEW);
 		Instant operationTime = eventRepository.findRecoveryOperationTime();
 		List<NotificationOutboxEvent> events = eventRepository.findAllByIdInOrderById(eventIds);
 		List<NotificationOutboxRecoveryItem> items = createPreviewItems(eventIds, events, request.action(),
@@ -53,8 +50,8 @@ public class NotificationOutboxRecoveryService {
 	/** 한 PostgreSQL operationTime과 오름차순 행 잠금 안에서 전체 적격성을 먼저 확인한다. */
 	@Transactional
 	public NotificationOutboxRecoveryResult execute(NotificationOutboxRecoveryRequest request) {
-		List<Long> eventIds = normalizeEventIds(request.eventIds());
-		validateCommand(request, true);
+		List<Long> eventIds = recoveryPolicy.validateAndNormalize(request,
+			NotificationOutboxRecoveryPolicy.ExecutionMode.EXECUTE);
 		List<NotificationOutboxEvent> events = eventRepository.findAllByIdInOrderByIdForUpdate(eventIds);
 		Instant operationTime = eventRepository.findRecoveryOperationTime();
 		ensureAllEligible(events, eventIds, request.action(), operationTime);
@@ -76,59 +73,6 @@ public class NotificationOutboxRecoveryService {
 			reason);
 		recipientRepository.deleteByIdOutboxEventIdIn(eventIds);
 		return changedCount;
-	}
-
-	private static List<Long> normalizeEventIds(List<Long> eventIds) {
-		if (eventIds == null || eventIds.isEmpty() || eventIds.size() > MAX_EVENT_IDS) {
-			throw new NotificationOutboxRecoveryInputException();
-		}
-		Set<Long> distinctIds = new HashSet<>();
-		for (Long eventId : eventIds) {
-			if (eventId == null || eventId <= 0 || !distinctIds.add(eventId)) {
-				throw new NotificationOutboxRecoveryInputException();
-			}
-		}
-		List<Long> sortedEventIds = new ArrayList<>(distinctIds);
-		sortedEventIds.sort(Comparator.naturalOrder());
-		return List.copyOf(sortedEventIds);
-	}
-
-	private static void validateCommand(NotificationOutboxRecoveryRequest request, boolean actualChange) {
-		if (request == null || request.action() == null) {
-			throw new NotificationOutboxRecoveryInputException();
-		}
-		if (request.action() == NotificationRecoveryAction.INSPECT) {
-			validateInspectMetadataIsAbsent(request);
-			return;
-		}
-		if (isBlankOrTooLong(request.reason(), 500) || isBlankOrTooLong(request.requestedBy(), 100)
-			|| containsIsoControlCharacter(request.requestedBy())
-			|| request.reasonReference() == null
-			|| !request.reasonReference().matches("(?:INC-[0-9]{4}-[0-9]{1,10}|ISSUE-[1-9][0-9]{0,9})")) {
-			throw new NotificationOutboxRecoveryInputException();
-		}
-		if (actualChange && request.dryRun()) {
-			throw new NotificationOutboxRecoveryInputException();
-		}
-		if (actualChange && request.action() == NotificationRecoveryAction.DISCARD
-			&& !"DISCARD".equals(request.confirm())) {
-			throw new NotificationOutboxRecoveryInputException();
-		}
-	}
-
-	private static void validateInspectMetadataIsAbsent(NotificationOutboxRecoveryRequest request) {
-		if (request.reasonReference() != null || request.reason() != null || request.requestedBy() != null
-			|| request.confirm() != null) {
-			throw new NotificationOutboxRecoveryInputException();
-		}
-	}
-
-	private static boolean isBlankOrTooLong(String value, int maxLength) {
-		return value == null || value.isEmpty() || value.length() > maxLength;
-	}
-
-	private static boolean containsIsoControlCharacter(String value) {
-		return value.codePoints().anyMatch(Character::isISOControl);
 	}
 
 	private void ensureAllEligible(
