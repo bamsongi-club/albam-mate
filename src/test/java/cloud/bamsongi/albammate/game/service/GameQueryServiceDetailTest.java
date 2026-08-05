@@ -98,6 +98,7 @@ class GameQueryServiceDetailTest {
 		when(game.getEstimatedPlayTime()).thenReturn("60~90분");
 		when(game.getComplexity()).thenReturn(new BigDecimal("2.00"));
 		when(game.getReleaseYear()).thenReturn(1995);
+		when(game.getMinAge()).thenReturn(null);
 		when(game.getDescription()).thenReturn("간단한 게임 설명");
 		when(game.getDetailDescription()).thenReturn("상세한 게임 설명");
 		when(gameRepository.findById(1L)).thenReturn(Optional.of(game));
