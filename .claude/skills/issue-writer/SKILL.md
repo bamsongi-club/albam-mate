@@ -5,7 +5,7 @@ description: "저장소의 등록된 GitHub Issue Form을 요청 성격에 따�
 
 이 문서는 Claude Code 실행 어댑터다. 절차 정본은 [.agents/skills/issue-writer/SKILL.md](../../../.agents/skills/issue-writer/SKILL.md)이며 여기에 절차를 복사하지 않는다. 이슈 기준을 바꿀 때는 정본만 고친다.
 
-- 정본을 먼저 읽고 그 경계와 정본 규칙, 게시 절차를 그대로 따른다.
+- 정본을 먼저 읽고 그 [경계와 정본](../../../.agents/skills/issue-writer/SKILL.md#경계와-정본) 규칙, [게시 절차](../../../.agents/skills/issue-writer/SKILL.md#게시-절차)를 그대로 따른다.
 - 정본이 참조하는 `templates.json`, `.github/ISSUE_TEMPLATE/*.yml`, `scripts/validate-template-registry.mjs`는 저장소 루트 기준 경로 그대로 쓴다.
 - 정본을 읽지 못하면 템플릿을 추측하지 않고 중단한다.
 - `node`와 `gh` 명령은 `Bash` 도구로 실행한다. 서브에이전트를 만들지 않고 메인 대화가 직접 수행한다.

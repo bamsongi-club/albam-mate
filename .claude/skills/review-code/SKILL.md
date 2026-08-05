@@ -7,7 +7,7 @@ description: "현재 브랜치 diff·지정 파일·현재 저장소 PR을 read-
 
 ## 사용법
 
-- 정본 `SKILL.md`를 먼저 읽고 그 불변식과 상위 오케스트레이션 순서를 그대로 따른다.
+- 정본 `SKILL.md`를 먼저 읽고 그 [불변식](../../../.agents/skills/review-code/SKILL.md#불변식)과 [상위 오케스트레이션](../../../.agents/skills/review-code/SKILL.md#상위-오케스트레이션) 순서를 그대로 따른다.
 - 정본이 링크하는 `references/*.md`는 정본 파일 기준 상대 경로이므로 `.agents/skills/review-code/` 아래에서 읽는다.
 - 정본을 읽지 못하면 리뷰 기준을 추측하지 않고 중단한다.
 

@@ -7,7 +7,7 @@ description: "Albam Mate의 확정된 백엔드 기능·버그 수정과 기존 
 
 ## 사용법
 
-- 정본 `SKILL.md`를 먼저 읽고 그 `진입`·`모드 선택`·`공통 전달 경계`를 그대로 따른다.
+- 정본 `SKILL.md`를 먼저 읽고 그 [진입](../../../.agents/skills/backend-delivery/SKILL.md#진입)·[모드 선택](../../../.agents/skills/backend-delivery/SKILL.md#모드-선택)·[공통 전달 경계](../../../.agents/skills/backend-delivery/SKILL.md#공통-전달-경계)를 그대로 따른다.
 - 정본이 링크하는 `references/review-fast.md`, `references/full-delivery.md`, `references/packet-template.json`은 정본 파일 기준 상대 경로이므로 `.agents/skills/backend-delivery/` 아래에서 읽는다.
 - 정본을 읽지 못하면 절차를 추측하지 않고 중단한다.
 
