@@ -42,6 +42,7 @@ import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.MyRole;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailabilityEvaluator;
 import cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionCoordinator;
 import cloud.bamsongi.albammate.user.contract.UserQuery;
 
@@ -68,13 +69,14 @@ class RoomDetailServiceTest {
 			roomDetailReadService,
 			gameQuery,
 			userQuery,
-			Clock.fixed(NOW, ZoneOffset.UTC));
+			Clock.fixed(NOW, ZoneOffset.UTC),
+			new RoomActionAvailabilityEvaluator());
 	}
 
 	@Test
 	void 상태_보정_후_동일한_요청시각의_공개_상세를_반환한다() {
 		Room room = room(7L, 42L, null, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
-		when(roomDetailReadService.findRoomDetail(7L)).thenReturn(readResult(room, List.of()));
+		when(roomDetailReadService.findRoomDetail(7L, null)).thenReturn(readResult(room, List.of(), false));
 
 		RoomDetailResponse result = roomDetailService.findRoomDetail(7L, Optional.empty());
 
@@ -84,7 +86,7 @@ class RoomDetailServiceTest {
 		assertFalse(response.joinable());
 		InOrder inOrder = inOrder(statusCorrectionCoordinator, roomDetailReadService);
 		inOrder.verify(statusCorrectionCoordinator).correctRoom(7L, NOW);
-		inOrder.verify(roomDetailReadService).findRoomDetail(7L);
+		inOrder.verify(roomDetailReadService).findRoomDetail(7L, null);
 		verify(gameQuery, never()).findSummaryById(org.mockito.ArgumentMatchers.anyLong());
 		verifyNoInteractions(userQuery);
 	}
@@ -92,7 +94,7 @@ class RoomDetailServiceTest {
 	@Test
 	void 관계없는_로그인_사용자는_모집중_빈자리에_참가할_수_있다() {
 		Room room = room(7L, 42L, null, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
-		when(roomDetailReadService.findRoomDetail(7L)).thenReturn(readResult(room, List.of()));
+		when(roomDetailReadService.findRoomDetail(7L, 99L)).thenReturn(readResult(room, List.of(), false));
 
 		PublicRoomResponse response = assertInstanceOf(
 			PublicRoomResponse.class,
@@ -104,7 +106,7 @@ class RoomDetailServiceTest {
 	@Test
 	void CANCELED_참가관계는_ACTIVE_목록에_없으므로_재참가할_수_있다() {
 		Room room = room(7L, 42L, null, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
-		when(roomDetailReadService.findRoomDetail(7L)).thenReturn(readResult(room, List.of()));
+		when(roomDetailReadService.findRoomDetail(7L, 77L)).thenReturn(readResult(room, List.of(), false));
 
 		PublicRoomResponse response = assertInstanceOf(
 			PublicRoomResponse.class,
@@ -116,10 +118,12 @@ class RoomDetailServiceTest {
 	@Test
 	void 주최자는_정확한_장소와_HOST_역할_및_ACTIVE_참가자_목록을_받는다() {
 		Room room = room(7L, 42L, 100L, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
+		when(room.getTotalParticipantCount()).thenReturn(3);
+		when(room.getRemainingRecruitmentSeats()).thenReturn(1);
 		Participation firstParticipation = participation(77L);
 		Participation secondParticipation = participation(88L);
-		when(roomDetailReadService.findRoomDetail(7L))
-			.thenReturn(readResult(room, List.of(firstParticipation, secondParticipation)));
+		when(roomDetailReadService.findRoomDetail(7L, 42L))
+			.thenReturn(readResult(room, List.of(firstParticipation, secondParticipation), false));
 		when(gameQuery.findSummaryById(100L))
 			.thenReturn(Optional.of(new GameSummary(100L, 1100L, "카탄")));
 		when(userQuery.findNicknamesByIds(List.of(42L, 77L, 88L)))
@@ -143,11 +147,26 @@ class RoomDetailServiceTest {
 	}
 
 	@Test
+	void 상세의_Game_User_조회와_DTO_조립은_ReadService_반환_뒤에_수행한다() {
+		Room room = room(7L, 42L, 100L, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
+		when(roomDetailReadService.findRoomDetail(7L, 42L)).thenReturn(readResult(room, List.of(), false));
+		when(gameQuery.findSummaryById(100L)).thenReturn(Optional.of(new GameSummary(100L, 1100L, "카탄")));
+		when(userQuery.findNicknamesByIds(List.of(42L))).thenReturn(Map.of(42L, "방장"));
+
+		roomDetailService.findRoomDetail(7L, Optional.of(42L));
+
+		InOrder inOrder = inOrder(roomDetailReadService, gameQuery, userQuery);
+		inOrder.verify(roomDetailReadService).findRoomDetail(7L, 42L);
+		inOrder.verify(gameQuery).findSummaryById(100L);
+		inOrder.verify(userQuery).findNicknamesByIds(List.of(42L));
+	}
+
+	@Test
 	void CANCELED_방의_주최자는_관계자_상세를_받는다() {
 		Room room = room(7L, 42L, null, RoomStatus.CANCELED, 3, NOW.plusSeconds(60));
 		Participation participation = participation(77L);
-		when(roomDetailReadService.findRoomDetail(7L))
-			.thenReturn(readResult(room, List.of(participation)));
+		when(roomDetailReadService.findRoomDetail(7L, 42L))
+			.thenReturn(readResult(room, List.of(participation), false));
 		when(userQuery.findNicknamesByIds(List.of(42L, 77L)))
 			.thenReturn(Map.of(42L, "방장", 77L, "참가자"));
 
@@ -168,8 +187,8 @@ class RoomDetailServiceTest {
 	void ACTIVE_참가자는_JOINED_역할을_받고_사람중심_방은_게임이_null이다() {
 		Room room = room(7L, 42L, null, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
 		Participation participation = participation(77L);
-		when(roomDetailReadService.findRoomDetail(7L))
-			.thenReturn(readResult(room, List.of(participation)));
+		when(roomDetailReadService.findRoomDetail(7L, 77L))
+			.thenReturn(readResult(room, List.of(participation), false));
 		when(userQuery.findNicknamesByIds(List.of(42L, 77L)))
 			.thenReturn(Map.of(42L, "방장", 77L, "참가자"));
 
@@ -187,8 +206,8 @@ class RoomDetailServiceTest {
 	void FINISHED_방의_ACTIVE_참가자는_관계자_상세를_받는다() {
 		Room room = room(7L, 42L, null, RoomStatus.FINISHED, 3, NOW.plusSeconds(60));
 		Participation participation = participation(77L);
-		when(roomDetailReadService.findRoomDetail(7L))
-			.thenReturn(readResult(room, List.of(participation)));
+		when(roomDetailReadService.findRoomDetail(7L, 77L))
+			.thenReturn(readResult(room, List.of(participation), false));
 		when(userQuery.findNicknamesByIds(List.of(42L, 77L)))
 			.thenReturn(Map.of(42L, "방장", 77L, "참가자"));
 
@@ -211,10 +230,9 @@ class RoomDetailServiceTest {
 		when(room.getHostUserId()).thenReturn(42L);
 		when(room.getGameId()).thenReturn(null);
 		when(room.getStatus()).thenReturn(RoomStatus.RECRUITING);
-		when(room.getCapacity()).thenReturn(3);
 		Participation participation = participation(77L);
-		when(roomDetailReadService.findRoomDetail(7L))
-			.thenReturn(readResult(room, List.of(participation)));
+		when(roomDetailReadService.findRoomDetail(7L, 42L))
+			.thenReturn(readResult(room, List.of(participation), false));
 		when(userQuery.findNicknamesByIds(List.of(42L, 77L))).thenReturn(Map.of(42L, "방장"));
 
 		BusinessException exception = assertThrows(
@@ -229,7 +247,7 @@ class RoomDetailServiceTest {
 		Room room = mock(Room.class);
 		when(room.getHostUserId()).thenReturn(42L);
 		when(room.getStatus()).thenReturn(RoomStatus.CANCELED);
-		when(roomDetailReadService.findRoomDetail(7L)).thenReturn(readResult(room, List.of()));
+		when(roomDetailReadService.findRoomDetail(7L, 99L)).thenReturn(readResult(room, List.of(), false));
 
 		BusinessException exception = assertThrows(
 			BusinessException.class,
@@ -239,8 +257,8 @@ class RoomDetailServiceTest {
 	}
 
 	private RoomDetailReadService.RoomDetailReadResult readResult(
-		Room room, List<Participation> activeParticipations) {
-		return new RoomDetailReadService.RoomDetailReadResult(room, activeParticipations);
+		Room room, List<Participation> activeParticipations, boolean currentUserWaiting) {
+		return new RoomDetailReadService.RoomDetailReadResult(room, activeParticipations, currentUserWaiting);
 	}
 
 	private Participation participation(long userId) {
@@ -269,6 +287,8 @@ class RoomDetailServiceTest {
 		when(room.getStartAt()).thenReturn(startsAt);
 		when(room.getRegion()).thenReturn("홍대");
 		when(room.getCapacity()).thenReturn(capacity);
+		when(room.getTotalParticipantCount()).thenReturn(1);
+		when(room.getRemainingRecruitmentSeats()).thenReturn(capacity);
 		when(room.getStatus()).thenReturn(status);
 		lenient().when(room.getPlace()).thenReturn("정확한 장소");
 		return room;

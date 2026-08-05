@@ -181,6 +181,16 @@ public class Room extends BaseEntity {
 		return true;
 	}
 
+	/** 주최자를 포함한 화면 표시용 전체 참가 인원을 반환한다. */
+	public int getTotalParticipantCount() {
+		return activeParticipantCount + 1;
+	}
+
+	/** 현재 활성 참가 관계만 기준으로 남은 직접 모집 좌석을 반환한다. */
+	public int getRemainingRecruitmentSeats() {
+		return capacity - activeParticipantCount;
+	}
+
 	/** 수정 가능 조건을 통과한 방의 허용 필드만 새 값으로 반영한다. */
 	public void update(
 		String title,

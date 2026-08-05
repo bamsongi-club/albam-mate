@@ -19,6 +19,8 @@ class RoomParticipationResponseTest {
 		when(room.getStatus()).thenReturn(RoomStatus.CLOSED);
 		when(room.getActiveParticipantCount()).thenReturn(3);
 		when(room.getCapacity()).thenReturn(3);
+		when(room.getTotalParticipantCount()).thenReturn(4);
+		when(room.getRemainingRecruitmentSeats()).thenReturn(0);
 
 		RoomParticipationResponse response = RoomParticipationResponse.from(room, ParticipationStatus.ACTIVE);
 

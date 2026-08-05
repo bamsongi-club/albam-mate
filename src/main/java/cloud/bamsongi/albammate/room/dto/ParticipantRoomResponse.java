@@ -9,6 +9,7 @@ import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.MyRole;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
+import cloud.bamsongi.albammate.room.service.RoomActionAvailability;
 
 /** 주최자 또는 현재 활성 참가자에게 반환하는 방 상세 표현이다. */
 public record ParticipantRoomResponse(
@@ -26,6 +27,7 @@ public record ParticipantRoomResponse(
 	int remainingRecruitmentSeats,
 	RoomStatus status,
 	boolean joinable,
+	boolean waitlistable,
 	MyRole myRole,
 	String place,
 	NicknameSummary host,
@@ -36,8 +38,7 @@ public record ParticipantRoomResponse(
 	public static ParticipantRoomResponse from(
 		Room room,
 		GameSummary game,
-		int activeParticipantCount,
-		boolean joinable,
+		RoomActionAvailability availability,
 		MyRole myRole,
 		NicknameSummary host,
 		List<NicknameSummary> participants) {
@@ -52,10 +53,11 @@ public record ParticipantRoomResponse(
 			room.getStartAt(),
 			room.getRegion(),
 			room.getCapacity(),
-			activeParticipantCount + 1,
-			room.getCapacity() - activeParticipantCount,
+			room.getTotalParticipantCount(),
+			room.getRemainingRecruitmentSeats(),
 			room.getStatus(),
-			joinable,
+			availability.joinable(),
+			availability.waitlistable(),
 			myRole,
 			room.getPlace(),
 			host,
