@@ -373,3 +373,25 @@ test('CLI는 allowedPaths 밖 변경을 감사에서 차단한다', (t) => {
     assert.equal(result.status, 1);
     assert.match(result.stderr, /alwaysReadOnly/);
 });
+
+test('rename의 원본 경로도 변경 경로로 감사한다', (t) => {
+    const worktree = createWorktree(t);
+    const protectedPath = path.join(worktree, 'docs/adr/platform');
+    fs.mkdirSync(protectedPath, { recursive: true });
+    fs.writeFileSync(path.join(protectedPath, '0008-flyway.md'), '# ADR\n', 'utf8');
+    initGitRepo(worktree);
+
+    // 항상 read-only인 ADR을 허용 경로로 옮긴다. rename을 감지하면 원본 경로가 사라진다.
+    const moved = 'src/test/java/cloud/bamsongi/moved.md';
+    fs.renameSync(path.join(protectedPath, '0008-flyway.md'), path.join(worktree, moved));
+    spawnSync('git', ['-C', worktree, 'add', '--all'], { encoding: 'utf8', windowsHide: true });
+
+    const changed = changedPathsIn(worktree);
+
+    assert.ok(changed.includes('docs/adr/platform/0008-flyway.md'), JSON.stringify(changed));
+    assert.ok(changed.includes(moved));
+
+    const packet = validPacket();
+    packet.allowedPaths = ['src/test/'];
+    assert.deepEqual(keywords(auditChangedPaths(packet, changed)), ['alwaysReadOnly']);
+});

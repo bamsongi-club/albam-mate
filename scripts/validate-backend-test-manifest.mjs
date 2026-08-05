@@ -102,6 +102,10 @@ function isUnsupportedPattern(pattern) {
 
 // worktree에서 HEAD 대비 변경된 경로와 추적되지 않은 새 파일을 모은다. 새 파일을 빠뜨리면
 // 경계를 벗어난 신규 파일이 감사를 그대로 통과한다.
+//
+// `--no-renames`가 필요하다. rename을 감지하면 git이 새 경로만 보고하므로, 항상 read-only인
+// 파일을 허용 경로로 옮기면 보호된 원본 경로가 감사에서 빠진다. rename을 삭제와 추가로
+// 나눠 받아 원본과 대상 경로를 모두 감사한다.
 export function changedPathsIn(worktree) {
     const run = (args) =>
         execFileSync('git', args, { cwd: worktree, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 })
@@ -109,7 +113,7 @@ export function changedPathsIn(worktree) {
             .filter(Boolean);
     return [
         ...new Set([
-            ...run(['diff', '--name-only', '-z', 'HEAD']),
+            ...run(['diff', '--name-only', '--no-renames', '-z', 'HEAD']),
             ...run(['ls-files', '--others', '--exclude-standard', '-z']),
         ]),
     ].sort();

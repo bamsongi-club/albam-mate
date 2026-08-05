@@ -37,6 +37,27 @@ function addProblem(problems, detail) {
     problems.push(detail);
 }
 
+// Groovy 맵은 같은 키가 여러 번 나오면 뒤쪽 값이 유효값이 된다. 따라서 기존 패키지를 더 낮은
+// 값으로 맵 아래쪽에 다시 추가하면 삭제 줄이 없어 추가·상향 판정만으로는 통과하는데 실제
+// 최소선은 내려간다. post-image 맵 전체에서 중복 키를 거부해 이 우회를 막는다.
+export function duplicateEntryKeys(buildFileText, range) {
+    const lines = buildFileText.split('\n');
+    const counts = new Map();
+    const duplicates = [];
+    for (let index = range.start; index < range.end - 1; index += 1) {
+        const entry = MAP_ENTRY.exec(lines[index]);
+        if (!entry) {
+            continue;
+        }
+        const count = (counts.get(entry[1]) ?? 0) + 1;
+        counts.set(entry[1], count);
+        if (count === 2) {
+            duplicates.push(entry[1]);
+        }
+    }
+    return duplicates;
+}
+
 // diff의 추가·삭제 줄만 본다. 추가 줄은 post-image 줄 번호를 함께 모아 맵 블록 안인지 확인한다.
 function collectChangedEntryLines(diffText, problems) {
     const added = [];
@@ -105,6 +126,13 @@ export function validateCoverageRatchetDiff(diffText, buildFileText) {
         return problems;
     }
 
+    for (const packageName of duplicateEntryKeys(buildFileText, range)) {
+        addProblem(
+            problems,
+            `gatedBranchCoverage에 같은 패키지 키가 두 번 있습니다. 뒤쪽 값이 유효값이 되므로 최소선을 낮출 수 있습니다: ${packageName}`,
+        );
+    }
+
     const { added, removed } = collectChangedEntryLines(diffText, problems);
     const addedEntries = parseEntries(added, '추가', problems);
     const removedEntries = parseEntries(removed, '삭제', problems);
@@ -141,20 +169,48 @@ export function repoRootOf(cwd = process.cwd()) {
     return execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd, encoding: 'utf8' }).trim();
 }
 
-export function validateCoverageRatchetInRepo(repoRoot) {
-    const diffText = execFileSync('git', ['diff', 'HEAD', '--', 'build.gradle'], {
-        cwd: repoRoot,
-        encoding: 'utf8',
-        maxBuffer: 32 * 1024 * 1024,
-    });
-    const buildFileText = fs.readFileSync(path.join(repoRoot, 'build.gradle'), 'utf8');
+// base를 주지 않으면 worktree와 HEAD를 비교한다. 커밋을 만든 뒤에는 그 diff가 비므로 고정한
+// Draft head를 검증할 때는 base를 함께 넘겨 두 커밋 사이의 래칫 변경을 검사한다.
+export function validateCoverageRatchetInRepo(repoRoot, { base = null, head = null } = {}) {
+    const git = (args) =>
+        execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+    const diffArgs =
+        base === null
+            ? ['diff', head ?? 'HEAD', '--', 'build.gradle']
+            : ['diff', base, head ?? 'HEAD', '--', 'build.gradle'];
+    const diffText = git(diffArgs);
+    const buildFileText =
+        base === null && head === null
+            ? fs.readFileSync(path.join(repoRoot, 'build.gradle'), 'utf8')
+            : git(['show', `${head ?? 'HEAD'}:build.gradle`]);
     return { diffText, problems: validateCoverageRatchetDiff(diffText, buildFileText) };
 }
 
+function parseArguments(argv) {
+    const values = { base: null, head: null };
+    const allowed = new Set(['--base', '--head']);
+    for (let index = 0; index < argv.length; index += 2) {
+        const option = argv[index];
+        const value = argv[index + 1];
+        if (!allowed.has(option) || value === undefined || value.startsWith('--')) {
+            return null;
+        }
+        values[option.slice(2)] = value;
+    }
+    return values;
+}
+
 function runCli() {
+    const args = parseArguments(process.argv.slice(2));
+    if (args === null) {
+        console.error('사용법: node scripts/validate-coverage-ratchet.mjs [--base <ref>] [--head <ref>]');
+        process.exitCode = 2;
+        return;
+    }
+
     try {
         const repoRoot = repoRootOf();
-        const { diffText, problems } = validateCoverageRatchetInRepo(repoRoot);
+        const { diffText, problems } = validateCoverageRatchetInRepo(repoRoot, args);
         if (problems.length > 0) {
             console.error('커버리지 래칫 예외로 허용할 수 없는 build.gradle 변경이 있습니다.');
             for (const problem of problems) {
