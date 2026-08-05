@@ -197,6 +197,7 @@ public final class ApiEndpointPolicyRegistry {
 			policy(HttpMethod.PATCH, "/api/rooms/{roomId}/status", AUTHENTICATED, true),
 			policy(HttpMethod.DELETE, "/api/rooms/{roomId}/participants/me", AUTHENTICATED, true),
 			policy(HttpMethod.POST, "/api/rooms/{roomId}/chat/messages", AUTHENTICATED, true),
+			policy(HttpMethod.GET, "/api/rooms/{roomId}/chat/messages", AUTHENTICATED, false),
 			policy(HttpMethod.GET, "/api/users/me/rooms", AUTHENTICATED, false));
 	}
 
