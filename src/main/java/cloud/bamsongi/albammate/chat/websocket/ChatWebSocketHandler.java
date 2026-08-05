@@ -138,7 +138,8 @@ public class ChatWebSocketHandler implements WebSocketHandler, ChatRealtimeSigna
 			return null;
 		}
 		Long afterMessageId = attribute(attributes, AFTER_MESSAGE_ID_ATTRIBUTE, Long.class);
-		long baseline = afterMessageId != null ? afterMessageId : latestMessageId(chatRoomId);
+		long latestMessageId = latestMessageId(chatRoomId);
+		long baseline = afterMessageId != null ? Math.min(afterMessageId, latestMessageId) : latestMessageId;
 		RoomConnection connection = new RoomConnection(session, roomId, chatRoomId, userId, baseline);
 		connectionsBySession.put(session, connection);
 		connectionsByRoomId.computeIfAbsent(roomId, key -> ConcurrentHashMap.newKeySet()).add(connection);

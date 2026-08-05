@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.session.MapSession;
 import org.springframework.session.MapSessionRepository;
@@ -58,6 +59,8 @@ class ChatWebSocketHandlerReconnectRecoveryTest {
 	void afterMessageId_재연결은_누락분을_ASC로_먼저_전달한다() throws Exception {
 		ChatMessage message6 = chatMessage(6L);
 		ChatMessage message7 = chatMessage(7L);
+		when(chatMessageRepository.findByChatRoomIdOrderByIdDesc(CHAT_ROOM_ID, PageRequest.of(0, 1)))
+			.thenReturn(List.of(message7));
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 5L))
 			.thenReturn(List.of(message6, message7));
 		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
@@ -70,6 +73,26 @@ class ChatWebSocketHandlerReconnectRecoveryTest {
 		verify(session, times(2)).sendMessage(captor.capture());
 		assertTrue(captor.getAllValues().get(0).getPayload().contains("\"eventId\":6"));
 		assertTrue(captor.getAllValues().get(1).getPayload().contains("\"eventId\":7"));
+	}
+
+	@Test
+	void afterMessageId가_현재_이력보다_크면_현재_최신값으로_제한해_새_메시지를_전달한다() throws Exception {
+		ChatMessage currentLatest = chatMessage(5L);
+		ChatMessage laterMessage = chatMessage(6L);
+		when(chatMessageRepository.findByChatRoomIdOrderByIdDesc(CHAT_ROOM_ID, PageRequest.of(0, 1)))
+			.thenReturn(List.of(currentLatest));
+		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 5L))
+			.thenReturn(List.of(), List.of(laterMessage));
+		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+		WebSocketSession session = session(9L);
+		ChatWebSocketHandler handler = handler();
+
+		handler.afterConnectionEstablished(session);
+		handler.onMessageCommitted(MessageCommitted.messageCreated(ROOM_ID, laterMessage.getId()));
+
+		ArgumentCaptor<TextMessage> captor = ArgumentCaptor.forClass(TextMessage.class);
+		verify(session).sendMessage(captor.capture());
+		assertTrue(captor.getValue().getPayload().contains("\"eventId\":6"));
 	}
 
 	@Test
