@@ -157,8 +157,9 @@ public final class GameListSearchCriteria {
 
 	private void addCategoryPredicate(Root<Game> root, jakarta.persistence.criteria.CriteriaQuery<?> query,
 		CriteriaBuilder criteriaBuilder, List<Predicate> predicates) {
-		if (categories.isEmpty())
+		if (categories.isEmpty()) {
 			return;
+		}
 		var subquery = query.subquery(Long.class);
 		Root<GameCategoryRelation> relation = subquery.from(GameCategoryRelation.class);
 		subquery.select(criteriaBuilder.literal(1L));
@@ -169,8 +170,9 @@ public final class GameListSearchCriteria {
 
 	private void addThemePredicate(Root<Game> root, jakarta.persistence.criteria.CriteriaQuery<?> query,
 		CriteriaBuilder criteriaBuilder, List<Predicate> predicates) {
-		if (themes.isEmpty())
+		if (themes.isEmpty()) {
 			return;
+		}
 		var subquery = query.subquery(Long.class);
 		Root<GameThemeRelation> relation = subquery.from(GameThemeRelation.class);
 		var theme = relation.join("theme");
@@ -187,8 +189,9 @@ public final class GameListSearchCriteria {
 
 	private void addPlayerPreferencePredicate(Root<Game> root, jakarta.persistence.criteria.CriteriaQuery<?> query,
 		CriteriaBuilder criteriaBuilder, List<Predicate> predicates, List<Integer> playerCounts, boolean recommended) {
-		if (playerCounts.isEmpty())
+		if (playerCounts.isEmpty()) {
 			return;
+		}
 		var subquery = query.subquery(Long.class);
 		Root<GamePlayerPreference> preference = subquery.from(GamePlayerPreference.class);
 		subquery.select(criteriaBuilder.literal(1L));

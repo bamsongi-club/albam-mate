@@ -1,7 +1,16 @@
 package cloud.bamsongi.albammate.game.entity;
 
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.EmbeddedId;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.MapsId;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -20,8 +29,9 @@ public class GamePlayerPreference {
 	private boolean isBest;
 
 	public GamePlayerPreference(Game game, Integer playerCount, boolean isRecommended, boolean isBest) {
-		if (isBest && !isRecommended)
+		if (isBest && !isRecommended) {
 			throw new IllegalArgumentException("best requires recommended");
+		}
 		this.game = game;
 		this.id = new GamePlayerPreferenceId(game.getId(), playerCount);
 		this.isRecommended = isRecommended;

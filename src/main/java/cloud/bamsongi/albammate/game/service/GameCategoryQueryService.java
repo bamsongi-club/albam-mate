@@ -7,7 +7,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import cloud.bamsongi.albammate.game.dto.GameCategoryOption;
 import cloud.bamsongi.albammate.game.repository.GameCategoryRepository;
-import lombok.*;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @Transactional(readOnly = true)
