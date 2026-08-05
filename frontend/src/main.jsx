@@ -2013,9 +2013,14 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
       socket.onerror = () => {
         if (active) setStreamError('실시간 연결이 불안정해요. 다시 연결하는 중…');
       };
-      socket.onclose = () => {
+      socket.onclose = (event) => {
         if (!active) return;
         clearTimeout(stableConnectionTimer);
+        if (event?.code === 1008) {
+          setStreamStatus('closed');
+          setStreamError('채팅 접근 권한이 종료되어 실시간 연결을 닫았어요.');
+          return;
+        }
         if (reconnectAttempts >= CHAT_RECONNECT_LIMIT) {
           setStreamStatus('closed');
           setStreamError('실시간 연결을 복구하지 못했어요. 새로고침 후 다시 시도해주세요.');

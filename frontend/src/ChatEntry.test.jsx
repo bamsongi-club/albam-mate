@@ -28,8 +28,8 @@ class FakeWebSocket {
     this.onmessage?.({ data: JSON.stringify(payload) });
   }
 
-  drop() {
-    this.onclose?.({ code: 1006 });
+  drop(code = 1006) {
+    this.onclose?.({ code });
   }
 }
 
@@ -329,6 +329,33 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
       });
     });
     expect(Array.from(document.querySelectorAll('.chat-content')).map((node) => node.textContent)).toEqual(['마지막 이력', '복구 첫 메시지', '복구 다음 메시지']);
+    vi.useRealTimers();
+  });
+
+  it('정책 위반 종료는 접근 종료로 표시하고 재연결하지 않는다', async () => {
+    vi.useFakeTimers();
+    const sockets = useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [{ messageId: 30, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '기존 메시지', createdAt: '2026-09-01T19:00:00+09:00' }],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(sockets).toHaveLength(1);
+    sockets[0].open();
+    sockets[0].drop(1008);
+    await act(async () => {
+      vi.advanceTimersByTime(8000);
+      await Promise.resolve();
+    });
+
+    expect(sockets).toHaveLength(1);
+    expect(screen.getByRole('status').textContent).toContain('채팅 접근 권한이 종료되어');
     vi.useRealTimers();
   });
 });
