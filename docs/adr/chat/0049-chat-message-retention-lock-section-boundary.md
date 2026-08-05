@@ -34,7 +34,7 @@
 ## 결정
 
 1. ADR-0034의 보관·삭제 결정을 그대로 승계한다. `RECRUITING`·`CLOSED` 방의 메시지는 삭제하지 않는다. 방이 `CANCELED` 또는 `FINISHED`로 전환되면 일반 사용자 접근을 즉시 차단하고, `room.contract.RoomTerminalStateReached`를 받은 `chat`의 동기 listener가 같은 트랜잭션에서 `CHAT_ROOMS.purge_after`를 전환 시각에서 30일 뒤로 설정한다. 하루 한 번 Spring Scheduler가 `purge_after`가 지난 채팅방을 조회하고, 만료된 `CHAT_MESSAGES`를 설정 가능한 소량 묶음으로 물리 삭제한다. 각 묶음은 독립 트랜잭션이며 성공한 묶음은 실패한 묶음 때문에 롤백되지 않는다. 삭제를 마친 채팅방은 `messages_purged_at`을 기록하고, 작업은 `purge_after <= now`이면서 `messages_purged_at IS NULL`인 대상만 처리해 겹쳐 실행되더라도 같은 최종 결과로 수렴한다. 실패한 묶음은 무한 즉시 재시도하지 않는다.
-2. 만료 삭제 스케줄에는 [ADR-0038](../platform/0038-multi-instance-session-and-scheduler-coordination.md)의 PostgreSQL ShedLock 계약을 사용하고, 잠금을 얻은 실행만 삭제 작업을 소유한다. `V14__create_p1_chat_retention_schema.sql`은 `SHEDLOCK` 테이블만 생성하며 기존 `ROOMS`를 조회하거나 `CHAT_ROOMS` 행을 삽입·갱신하지 않는다. 채팅방 스키마와 기존 ROOM 초기화 경계는 [ADR-0045](0045-chat-room-schema-and-backfill-boundary.md)가 소유한다.
+2. 만료 삭제 스케줄에는 [ADR-0038](../platform/0038-multi-instance-session-and-scheduler-coordination.md)의 PostgreSQL ShedLock 계약을 사용하고, 잠금을 얻은 실행만 삭제 작업을 소유한다. `V16__create_p1_chat_retention_schema.sql`은 `SHEDLOCK` 테이블만 생성하며 기존 `ROOMS`를 조회하거나 `CHAT_ROOMS` 행을 삽입·갱신하지 않는다. 채팅방 스키마와 기존 ROOM 초기화 경계는 [ADR-0045](0045-chat-room-schema-and-backfill-boundary.md)가 소유한다.
 3. 한 잠금 구간은 잠금 임대보다 짧은 실행 상한 안에서만 작업한다. 만료 방 batch를 조회하기 전과 각 방의 메시지 chunk를 처리하기 전에 상한 도달을 확인하고, 도달하면 완료를 기록하지 않고 중단한다.
 4. 만료 방 조회, 메시지 chunk 조회·삭제와 완료 기록 질의에 질의 시간 상한을 둔다. 마지막 상한 확인 뒤에도 진행 중인 chunk의 질의가 남으므로, `실행 상한 + 3 × 질의 상한 < lockAtMostFor`를 애플리케이션 기동 시점에 검증하고 만족하지 않으면 기동을 실패시킨다.
 5. 실행 상한에서 중단된 적체는 다음 일일 스케줄로 미루지 않는다. 같은 cron 실행에서 잠금을 다시 얻어 정해진 구간 수 상한까지 이어 처리한다. 각 구간은 자신의 임대 안에서만 작업하므로 한 시점에 한 실행만 작업을 소유하는 계약은 유지된다. 잠금을 얻지 못하면 대기하지 않고 그 cron 실행을 끝낸다.
@@ -73,7 +73,7 @@
 - 상태: 미검증
 - 근거: 없음
 - 미검증:
-    - `V14` `SHEDLOCK` 스키마, 다구간 잠금 재획득, 실행 상한과 질의 시간 상한 구현은 [#289](https://github.com/bamsongi-club/albam-mate/issues/289)가 소유하며 `develop`에 병합되지 않았다.
+    - `V16` `SHEDLOCK` 스키마, 다구간 잠금 재획득, 실행 상한과 질의 시간 상한 구현은 #366에서 검증 중이며 아직 `develop`에 병합되지 않았다.
     - 구간 수 상한을 소진하는 적체 경로와 운영 환경의 삭제 지연·구간 중단 metric은 확인하지 않았다.
     - 잠금 보유 인스턴스 종료와 임대 만료 뒤 다음 실행 복구는 운영 환경에서 확인하지 않았다.
 

@@ -55,7 +55,8 @@ class ModuleArchitectureTest {
 		ROOT_PACKAGE + ".chat.dto",
 		ROOT_PACKAGE + ".chat.entity",
 		ROOT_PACKAGE + ".chat.repository",
-		ROOT_PACKAGE + ".chat.service");
+		ROOT_PACKAGE + ".chat.service",
+		ROOT_PACKAGE + ".chat.retention");
 	private static final String ROOM_RETRIER = ROOT_PACKAGE + ".room.service.RoomOptimisticLockRetrier";
 	private static final Set<String> ALLOWED_ROOM_RETRIER_USERS = Set.of(
 		ROOT_PACKAGE + ".room.service.command.RoomCommandExecutionCoordinator",

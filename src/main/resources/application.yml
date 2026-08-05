@@ -14,6 +14,20 @@ spring:
         jdbc:
           time_zone: UTC
 app:
+  chat:
+    retention:
+      enabled: true
+      cron: "0 0 3 * * *"
+      max-rooms-per-run: 50
+      max-messages-per-run: 5000
+      message-chunk-size: 100
+      lock-at-most-for: 2m
+      lock-at-least-for: 5s
+      execution-warning-threshold: 30s
+      max-run-duration: 1m
+      query-timeout: 10s
+      max-lock-sections-per-run: 30
+
   social:
     # Client ID와 Client Secret 두 값이 모두 있는 제공자만 활성화한다. 실제 값은 저장소에 두지 않고
     # 환경 변수로 주입하며, 주입하지 않은 제공자는 빈 값으로 남아 로그인 진입점에 노출되지 않는다.
