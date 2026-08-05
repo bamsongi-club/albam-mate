@@ -12,6 +12,8 @@ import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -55,6 +57,7 @@ class SearchPerformancePostgresTest {
 	private static final long GAME_ID_BASE = 1_000_000L;
 	private static final long ROOM_ID_BASE = 2_000_000L;
 	private static final Instant ROOM_START = Instant.parse("2099-01-01T00:00:00Z");
+	private static final OffsetDateTime ROOM_START_UTC = ROOM_START.atOffset(ZoneOffset.UTC);
 	private static final String GAME_INDEX = "idx_games_max_play_time_name_id";
 	private static final String ROOM_INDEX = "idx_rooms_public_start_at_id";
 	private static final String ROOM_INDEX_PREDICATE = "((status)::text = ANY ((ARRAY['RECRUITING'::character varying, "
@@ -440,8 +443,8 @@ class SearchPerformancePostgresTest {
 			"RECRUITING", "CLOSED",
 			null, null,
 			false, "",
-			false, ROOM_START,
-			false, ROOM_START,
+			false, ROOM_START_UTC,
+			false, ROOM_START_UTC,
 			false, 0,
 			"ALL_LEVELS", "BEGINNER_WELCOME", "EXPERIENCED_PREFERRED",
 			false,
