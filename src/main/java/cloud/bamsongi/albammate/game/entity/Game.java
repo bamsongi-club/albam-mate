@@ -63,6 +63,9 @@ public class Game extends BaseEntity {
 	@Column(name = "complexity", precision = 3, scale = 2)
 	private BigDecimal complexity;
 
+	@Column(name = "release_year")
+	private Integer releaseYear;
+
 	@Column(name = "description", nullable = false, columnDefinition = "TEXT")
 	private String description;
 

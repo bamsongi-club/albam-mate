@@ -15,6 +15,7 @@ export const CATALOG_FIELDS = [
     "min_play_time_minutes",
     "max_play_time_minutes",
     "complexity",
+    "release_year",
     "description",
     "detail_description",
 ];
@@ -54,6 +55,7 @@ const FIELD_LENGTHS = {
     estimated_play_time: 50,
 };
 const OPTIONAL_TEXT_FIELDS = new Set(["alias", "image_url"]);
+const POSTGRES_INTEGER_MIN = -2_147_483_648;
 const POSTGRES_INTEGER_MAX = 2_147_483_647;
 
 export function analyzeCatalog({
@@ -84,7 +86,7 @@ export function analyzeCatalog({
     const rankByBggId = new Map(
         rankRows.map((row) => [canonicalBggId(row.id), row]).filter(([bggId]) => bggId),
     );
-    const normalizedGames = validGameRows.map((game) => normalizeGame(game));
+    const normalizedGames = validGameRows.map((game) => normalizeGame(game, rankByBggId));
     const catalog = normalizedGames
         .sort((left, right) => left.bgg_id - right.bgg_id);
     errors.push(...validateSelectionCounts(manifest, gameRows.length, catalog.length, catalog));
@@ -112,6 +114,7 @@ export function analyzeCatalog({
         errors,
         warnings,
         checks,
+        releaseYears: releaseYearSummary(validGameRows, rankByBggId),
         searchNumericFields: searchNumericFieldSummary(validGameRows),
     };
 }
@@ -183,13 +186,14 @@ function checkSummary(games, rankByBggId) {
 
 function qualityWarnings(games, rankByBggId) {
     const warnings = [];
-    const versionCollisions = possibleVersionCollisions(games);
+    const versionCollisions = possibleVersionCollisions(games, rankByBggId);
     if (versionCollisions.length > 0) {
         warnings.push({
             code: "POSSIBLE_VERSION_COLLISION",
             message: "서로 다른 bgg_id가 같은 표시 이름을 사용해 판본·변형 검수가 필요합니다.",
             groupCount: versionCollisions.length,
             sample: versionCollisions.slice(0, 10),
+            allCollisions: versionCollisions,
         });
     }
     const correlationWarning = suspiciousComplexityRankCorrelation(games, rankByBggId);
@@ -296,7 +300,7 @@ function mean(values) {
     return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
-function possibleVersionCollisions(games) {
+function possibleVersionCollisions(games, rankByBggId = null) {
     const groups = new Map();
     for (const field of ["name", "english_name"]) {
         for (const game of games) {
@@ -306,7 +310,18 @@ function possibleVersionCollisions(games) {
             }
             const key = `${field}:${normalized}`;
             const values = groups.get(key) ?? [];
-            values.push({ bgg_id: game.bgg_id, name: game.name, english_name: game.english_name });
+            values.push({
+                bgg_id: Number(game.bgg_id),
+                name: game.name,
+                english_name: game.english_name,
+                ...(rankByBggId
+                    ? {
+                        release_year: releaseYear(
+                            rankByBggId.get(canonicalBggId(game.bgg_id))?.yearpublished,
+                        ),
+                    }
+                    : {}),
+            });
             groups.set(key, values);
         }
     }
@@ -349,7 +364,7 @@ function descriptionTemplate(game, rankByBggId, field) {
     return template.replaceAll(/\d+/g, "{N}");
 }
 
-function normalizeGame(game) {
+function normalizeGame(game, rankByBggId) {
     const bggId = Number(game.bgg_id);
     const players = normalizePositiveRange(game.supported_player_count, "명");
     const playTime = normalizePlayTime(game.estimated_play_time);
@@ -366,6 +381,40 @@ function normalizeGame(game) {
         min_play_time_minutes: playTime.min,
         max_play_time_minutes: playTime.max,
         complexity: complexity.value,
+        release_year: releaseYear(rankByBggId.get(canonicalBggId(game.bgg_id))?.yearpublished),
+    };
+}
+
+function releaseYear(value) {
+    return normalizeReleaseYear(value).value;
+}
+
+function normalizeReleaseYear(value) {
+    if (blank(value)) {
+        return { value: null, status: "missing" };
+    }
+    const normalized = String(value).trim();
+    if (!/^-?\d+$/.test(normalized)) {
+        return { value: null, status: "excluded", reason: "UNPARSABLE_RELEASE_YEAR" };
+    }
+    const year = Number(normalized);
+    if (
+        !Number.isSafeInteger(year) ||
+        year < POSTGRES_INTEGER_MIN ||
+        year > POSTGRES_INTEGER_MAX
+    ) {
+        return { value: null, status: "excluded", reason: "OUT_OF_POSTGRES_INTEGER_RANGE" };
+    }
+    return { value: year, status: "valid" };
+}
+
+function releaseYearSummary(games, rankByBggId) {
+    const years = games.map((game) =>
+        releaseYear(rankByBggId.get(canonicalBggId(game.bgg_id))?.yearpublished),
+    );
+    return {
+        filledRows: years.filter((year) => year !== null).length,
+        missingRows: years.filter((year) => year === null).length,
     };
 }
 
@@ -548,6 +597,14 @@ function validateData(games, rankRows) {
             sample: rankDuplicates.slice(0, 10),
         });
     }
+    const invalidReleaseYears = rankRows
+        .map((row) => ({
+            bgg_id: canonicalBggId(row.id),
+            ...normalizeReleaseYear(row.yearpublished),
+            value: row.yearpublished,
+        }))
+        .filter(({ status }) => status === "excluded")
+        .map(({ bgg_id, value, reason }) => ({ bgg_id, value, reason }));
     const rankByBggId = new Map(
         rankRows.map((row) => [canonicalBggId(row.id), row]).filter(([bggId]) => bggId),
     );
@@ -664,6 +721,12 @@ function validateData(games, rankRows) {
         invalidFieldTypes,
     );
     addValidationError(errors, "MISSING_REQUIRED_VALUE", "필수값이 비어 있습니다.", missingRequired);
+    addValidationError(
+        errors,
+        "INVALID_RELEASE_YEAR",
+        "BGG 기준 CSV yearpublished는 비어 있거나 PostgreSQL INTEGER 범위의 정수여야 합니다.",
+        invalidReleaseYears,
+    );
     addValidationError(errors, "INVALID_BGG_ID", "bgg_id는 양의 정수여야 합니다.", invalidBggIds);
     addValidationError(
         errors,

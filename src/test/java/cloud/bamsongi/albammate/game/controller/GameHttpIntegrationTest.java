@@ -167,6 +167,30 @@ class GameHttpIntegrationTest {
 	}
 
 	@Test
+	void 게임_목록과_상세는_출시_연도를_값과_NULL로_반환한다() throws Exception {
+		Game knownYear = saveGame(40611L, "ReleaseYearKnown", "1995년 설명", "상세 설명");
+		ReflectionTestUtils.setField(knownYear, "releaseYear", 1995);
+		gameRepository.saveAndFlush(knownYear);
+		Game unknownYear = saveGame(40612L, "ReleaseYearUnknown", "2001년 설명", "상세 설명");
+
+		mockMvc.perform(get("/api/games").param("keyword", "ReleaseYearKnown"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.content[0].id").value(knownYear.getId()))
+			.andExpect(jsonPath("$.data.content[0].releaseYear").value(1995));
+		mockMvc.perform(get("/api/games/{gameId}", knownYear.getId()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.releaseYear").value(1995));
+
+		mockMvc.perform(get("/api/games").param("keyword", "ReleaseYearUnknown"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.content[0].id").value(unknownYear.getId()))
+			.andExpect(jsonPath("$.data.content[0].releaseYear").value((Object)null));
+		mockMvc.perform(get("/api/games/{gameId}", unknownYear.getId()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.releaseYear").value((Object)null));
+	}
+
+	@Test
 	void 검색_수치가_NULL이어도_기존_표시_필드는_유지하고_API에_노출하지_않는다() throws Exception {
 		Game game = saveGame(10032L, "표시 문자열 유지", "게임 설명", "게임 상세 설명");
 		ReflectionTestUtils.setField(game, "minPlayers", null);
