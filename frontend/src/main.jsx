@@ -28,6 +28,13 @@ const PASSWORD_MIN_CODE_POINTS = 15;
 const PASSWORD_MAX_CODE_POINTS = 64;
 const PASSWORD_MAX_UTF8_BYTES = 72;
 const SOCIAL_PROVIDER_LABEL = { GOOGLE: 'Google', NAVER: 'Naver', KAKAO: 'Kakao' };
+
+// 채팅 진입은 서버가 매 요청마다 다시 판정한다. 거절 사유는 코드로만 구분해 안내한다.
+const CHAT_ACCESS_MESSAGE = {
+  FORBIDDEN: '지금은 이 모임의 채팅에 들어갈 수 없어요. 참가 중인 모집 중·마감 모임에서만 채팅할 수 있어요.',
+  ROOM_NOT_FOUND: '모임을 찾을 수 없어 채팅을 열 수 없어요.',
+  VALIDATION_ERROR: '채팅 주소가 올바르지 않아요.'
+};
 // callback이 돌려주는 고정 결과다. 여기 없는 값과 제공자 오류 설명은 해석하지도 보여주지도 않는다.
 const SOCIAL_AUTH_RESULT = {
   'login-success': { message: '로그인했어요.', type: '' },
@@ -438,7 +445,8 @@ const SECTION_ICONS = {
   games: <><rect x="3" y="3" width="18" height="18" rx="4" /><circle cx="8.5" cy="8.5" r="1.1" /><circle cx="15.5" cy="8.5" r="1.1" /><circle cx="8.5" cy="15.5" r="1.1" /><circle cx="15.5" cy="15.5" r="1.1" /></>,
   list: <><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3.5 6h.01" /><path d="M3.5 12h.01" /><path d="M3.5 18h.01" /></>,
   calendar: <><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M8 3v4" /><path d="M16 3v4" /><path d="M3 10h18" /></>,
-  pencil: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></>
+  pencil: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></>,
+  chat: <path d="M20 12a7 7 0 0 1-7 7H9l-4 3v-4.2A7 7 0 0 1 9 5h4a7 7 0 0 1 7 7Z" />
 };
 
 function SectionIcon({ name }) {
@@ -448,7 +456,7 @@ function SectionIcon({ name }) {
 }
 
 function Header({ route, me, notificationMenu }) {
-  const rootRoute = { find: 'find', game: 'game-list', 'game-list': 'game-list', create: 'profile', edit: 'profile', my: 'profile', profile: 'profile', auth: 'auth' };
+  const rootRoute = { find: 'find', game: 'game-list', 'game-list': 'game-list', create: 'profile', edit: 'profile', my: 'profile', chat: 'profile', profile: 'profile', auth: 'auth' };
   const visibleUnreadCount = notificationMenu.unreadCount > 99 ? '99+' : notificationMenu.unreadCount;
   const notificationLabel = notificationMenu.unreadCount > 0
     ? '알림함, 읽지 않은 알림 ' + notificationMenu.unreadCount + '개'
@@ -1359,7 +1367,7 @@ function EditView({ sessionId, onSave, dataVersion, today }) {
   return <EditSessionForm key={data.id} room={data} onSave={onSave} today={today} />;
 }
 
-function MyRoomsSection({ myTab, onMyTabChange, dataVersion }) {
+export function MyRoomsSection({ myTab, onMyTabChange, dataVersion }) {
   const joined = usePaginatedRequest(
     (page, signal) => api.getMyRooms({ role: 'joined', page, size: ROOM_LIST_PAGE_SIZE }, signal),
     [dataVersion]
@@ -1385,7 +1393,17 @@ function MyRoomsSection({ myTab, onMyTabChange, dataVersion }) {
       </div>
       {page.error && <ErrorBox message={page.error} />}
       {!page.error && page.loading && !page.data && <LoadingBox />}
-      {!page.error && !!list.length && <div className="grid cols2">{list.map((room) => <SessionCard key={room.id} room={room} />)}</div>}
+      {!page.error && !!list.length && (
+        <div className="grid cols2">
+          {list.map((room) => (
+            <div className="my-room-entry" key={room.id}>
+              <SessionCard room={room} />
+              {/* 서버가 판정한 chatAvailable만 신뢰한다. 화면에서 감춘 것으로 권한을 보장하지 않는다. */}
+              {room.chatAvailable && <a className="btn ghost chat-entry" href={'#/chat/' + room.id}>💬 채팅 열기</a>}
+            </div>
+          ))}
+        </div>
+      )}
       {!page.error && !page.loading && !list.length && (
         <div className="infobox">
           {tab === 'joined'
@@ -1395,6 +1413,45 @@ function MyRoomsSection({ myTab, onMyTabChange, dataVersion }) {
       )}
       {!page.error && !!list.length && <Pagination page={page.data?.page ?? 0} totalPages={page.data?.totalPages ?? 0} loading={page.loading} onChange={page.setPage} />}
       {!page.error && !!list.length && <p className="hint" style={{ marginTop: 14 }}>카드는 공개 모임 정보만 표시하고, 정확한 장소와 참가자 목록은 모임 상세에서 권한에 따라 확인할 수 있어요.</p>}
+    </>
+  );
+}
+
+// 직접 URL로 들어와도 진입 여부는 서버 응답으로만 정해진다. 거절은 서버 원문 대신 계약된 code로 안내한다.
+function chatAccessError(error) {
+  const message = error instanceof ApiError ? CHAT_ACCESS_MESSAGE[error.code] : undefined;
+  return message ? new ApiError({ status: error.status, code: error.code, message }) : error;
+}
+
+export function ChatRoomView({ roomId, dataVersion }) {
+  const { data, loading, error } = useRequest(
+    (signal) => api.getChatMessages(roomId, signal).catch((cause) => { throw chatAccessError(cause); }),
+    [roomId, dataVersion]
+  );
+  // 이력은 최신 메시지부터 오므로 화면에서는 오래된 순서로 되돌린다.
+  const messages = [...(data?.messages || [])].reverse();
+  return (
+    <>
+      <h2><SectionIcon name="chat" />모임 채팅</h2>
+      <div className="page-actions" style={{ marginBottom: 14 }}>
+        <a className="btn ghost" href={'#/session/' + roomId}>모임 상세</a>
+        <a className="btn ghost" href="#/my">내 모임</a>
+      </div>
+      {error && <ErrorBox message={error} />}
+      {!error && loading && !data && <LoadingBox label="채팅을 불러오는 중…" />}
+      {!error && !loading && !messages.length && <div className="infobox">아직 주고받은 메시지가 없어요.</div>}
+      {/* 과거 구간 반복 조회는 CHAT-02 화면 범위다. 여기서는 최신 구간만 보여준다는 사실을 숨기지 않는다. */}
+      {!error && data?.hasNext && <div className="infobox">최근 메시지만 보여주고 있어요.</div>}
+      {!error && !!messages.length && (
+        <ul className="chat-log">
+          {messages.map((message) => (
+            <li className="chat-message" key={message.messageId}>
+              <div className="chat-message-head"><b>{message.sender?.nickname}</b><span className="chat-time">{formatStartsAt(message.createdAt)}</span></div>
+              <p className="chat-content">{message.content}</p>
+            </li>
+          ))}
+        </ul>
+      )}
     </>
   );
 }
@@ -1565,7 +1622,7 @@ function isUnauthenticated(error) {
   return error instanceof ApiError && (error.code === 'UNAUTHENTICATED' || error.status === 401);
 }
 
-function App() {
+export function App() {
   const [{ route, arg }, navigate] = useHashRoute();
   const today = useSeoulToday();
   const [me, setMe] = useState(null);
@@ -1883,6 +1940,7 @@ function App() {
   else if (route === 'create') content = me ? <CreateView createMode={createMode} onCreateModeChange={setCreateMode} initialGame={createGame} onCreate={handleCreate} today={today} /> : <LoginRequiredView message="모임을 만들려면 로그인해주세요." />;
   else if (route === 'edit') content = me ? <EditView sessionId={arg} onSave={handleSave} dataVersion={dataVersion} today={today} /> : <LoginRequiredView message="모임을 수정하려면 로그인해주세요." />;
   else if (route === 'my') content = me ? <MyRoomsSection myTab={myTab} onMyTabChange={setMyTab} dataVersion={dataVersion} /> : <LoginRequiredView message="내 모임을 보려면 로그인해주세요." />;
+  else if (route === 'chat') content = me ? <ChatRoomView roomId={arg} dataVersion={dataVersion} /> : <LoginRequiredView message="모임 채팅을 보려면 로그인해주세요." />;
   else if (route === 'profile') content = me ? <ProfileView me={me} onSave={handleSaveProfile} onLogout={handleLogout} socialProviders={socialProviders} onSocialLink={handleSocialLink} /> : <LoginRequiredView message="마이페이지를 보려면 로그인해주세요." />;
   else if (route === 'auth') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <AuthView onLogin={handleLogin} onSignup={handleSignup} socialProviders={socialProviders} onSocialLogin={handleSocialLogin} />;
   else content = <HomeView onBrowsePeople={handleBrowsePeople} onSearchGame={handleSearchGame} dataVersion={dataVersion} />;

@@ -537,7 +537,7 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 
 `GET /api/users/me/rooms`의 각 항목이며, `PublicRoomResponse`의 모든 필드에 다음을 추가한다. 정확한 `place`와 참가자 목록은 내 모임 이력에도 포함하지 않는다.
 
-> `chatAvailable`은 현재 응답에 포함되지 않는다. `필수`·`nullable`은 제공 전환 뒤의 목표 스키마다. 상속 필드의 상태는 `PublicRoomResponse` 표를 따른다.
+> 상속 필드의 상태는 `PublicRoomResponse` 표를 따른다.
 
 | 필드 | 타입 | 필수 | nullable | 도입 단계 | 제공 상태 | 설명 |
 |---|---|:---:|:---:|:---:|:---:|---|
