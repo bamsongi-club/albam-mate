@@ -12,7 +12,6 @@ import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.entity.Participation;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
-import cloud.bamsongi.albammate.room.enums.RoomWaitlistStatus;
 import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
@@ -37,9 +36,8 @@ class RoomDetailReadService {
 			roomId, ParticipationStatus.ACTIVE);
 		boolean currentUserWaiting = shouldReadCurrentUserWaiting(room, activeParticipations, currentUserId)
 			&& roomWaitlistRepository
-				.findStateWithPositionByRoomIdAndUserId(roomId, currentUserId)
-				.map(state -> state.getStatus() == RoomWaitlistStatus.WAITING)
-				.orElse(false);
+				.findWaitingRoomIdsByUserIdAndRoomIds(currentUserId, List.of(roomId))
+				.contains(roomId);
 		return new RoomDetailReadResult(room, List.copyOf(activeParticipations), currentUserWaiting);
 	}
 

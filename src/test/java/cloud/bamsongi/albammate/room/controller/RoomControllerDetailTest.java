@@ -103,7 +103,7 @@ class RoomControllerDetailTest {
 	}
 
 	@Test
-	void T5_대기_신청_가능_상세는_waitlistable_true를_직렬화한다() throws Exception {
+	void 대기_신청_가능_상세는_waitlistable_true를_직렬화한다() throws Exception {
 		when(roomDetailService.findRoomDetail(1L, Optional.of(99L)))
 			.thenReturn(publicResponse(false, true));
 

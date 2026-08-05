@@ -1,7 +1,6 @@
 package cloud.bamsongi.albammate.room.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.time.Instant;
 import java.util.List;
@@ -25,7 +24,7 @@ import cloud.bamsongi.albammate.room.enums.RoomType;
 class RoomActionAvailabilityContractTest {
 
 	@Test
-	void T1_Room은_저장된_ACTIVE_인원만으로_표시_인원과_잔여_좌석을_계산한다() {
+	void Room은_저장된_ACTIVE_인원만으로_표시_인원과_잔여_좌석을_계산한다() {
 		Room room = room(2, RoomStatus.RECRUITING);
 		assertEquals(1, room.getTotalParticipantCount());
 		assertEquals(2, room.getRemainingRecruitmentSeats());
@@ -35,7 +34,7 @@ class RoomActionAvailabilityContractTest {
 	}
 
 	@Test
-	void T2_하나의_evaluator가_상호_배타적인_직접_참가와_대기_가능_여부를_판정한다() {
+	void evaluator는_요청자_관계_상태_시각_잔여석에_따라_상호_배타적으로_판정한다() {
 		RoomActionAvailabilityEvaluator evaluator = new RoomActionAvailabilityEvaluator();
 		Room recruiting = room(2, RoomStatus.RECRUITING);
 		assertEquals(new RoomActionAvailability(true, false),
@@ -51,6 +50,12 @@ class RoomActionAvailabilityContractTest {
 		ReflectionTestUtils.setField(closed, "activeParticipantCount", 1);
 		assertEquals(new RoomActionAvailability(false, true),
 			availability(evaluator, closed, true, false, false, false));
+		assertEquals(RoomActionAvailability.UNAVAILABLE,
+			availability(evaluator, room(1, RoomStatus.CLOSED), true, false, false, false));
+		Room fullRecruiting = room(1, RoomStatus.RECRUITING);
+		ReflectionTestUtils.setField(fullRecruiting, "activeParticipantCount", 1);
+		assertEquals(RoomActionAvailability.UNAVAILABLE,
+			availability(evaluator, fullRecruiting, true, false, false, false));
 		assertEquals(RoomActionAvailability.UNAVAILABLE, availability(evaluator, closed, true, false, false, true));
 		assertEquals(RoomActionAvailability.UNAVAILABLE,
 			availability(evaluator, room(1, RoomStatus.CANCELED), true, false, false, false));
@@ -59,7 +64,7 @@ class RoomActionAvailabilityContractTest {
 	}
 
 	@Test
-	void T3_세_공개_조회_DTO는_waitlistable을_포함하고_참가_응답에는_포함하지_않는다() {
+	void 세_공개_조회_DTO는_waitlistable을_포함하고_참가_응답에는_포함하지_않는다() {
 		Room room = room(3, RoomStatus.RECRUITING);
 		ReflectionTestUtils.setField(room, "id", 7L);
 		RoomActionAvailability availability = new RoomActionAvailability(false, true);
@@ -73,13 +78,6 @@ class RoomActionAvailabilityContractTest {
 		assertEquals(1, participation.participantCount());
 		assertEquals(3, participation.remainingRecruitmentSeats());
 		assertEquals(5, RoomParticipationResponse.class.getRecordComponents().length);
-	}
-
-	@Test
-	void T4_공통_evaluator는_모든_판정에서_동시에_true를_반환하지_않는다() {
-		RoomActionAvailability availability = availability(
-			new RoomActionAvailabilityEvaluator(), room(2, RoomStatus.RECRUITING), true, false, false, false);
-		assertFalse(availability.joinable() && availability.waitlistable());
 	}
 
 	private RoomActionAvailability availability(

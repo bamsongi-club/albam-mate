@@ -62,27 +62,34 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 	}
 
 	@Test
-	void PostgreSQL_목록과_상세_ReadService_proxy는_중간_WAITING_커밋을_섞지_않고_조회_락을_사용하지_않는다() {
+	void 외부_READ_COMMITTED_호출자도_목록과_상세_ReadService_proxy의_READ_ONLY_REPEATABLE_READ_스냅샷에_중간_WAITING_커밋을_섞지_않고_조회_락을_사용하지_않는다() {
 		long hostUserId = user("snapshot-host@example.com");
 		long requesterUserId = user("snapshot-requester@example.com");
 		Room room = room(hostUserId);
 
 		waitlistReadHook.beforeListWaitingRead = () -> {
+			assertReadOnlyRepeatableRead();
 			commitWaiting(room.getId(), requesterUserId);
 			assertNoRowReadLock();
 		};
-		RoomListReadService.RoomListReadResult listResult = roomListReadService.findPublicRooms(
-			new RoomListSearchCriteria(null, null, null, null, null, null, java.util.Set.of(), false),
-			PageRequest.of(0, 10), requesterUserId);
+		RoomListReadService.RoomListReadResult listResult = readCommitted().execute(status -> {
+			assertEquals("read committed", transactionIsolation());
+			return roomListReadService.findPublicRooms(
+				new RoomListSearchCriteria(null, null, null, null, null, null, java.util.Set.of(), false),
+				PageRequest.of(0, 10), requesterUserId);
+		});
 		assertEquals(java.util.Set.of(), listResult.waitingRoomIds());
 
 		long detailRequesterUserId = user("snapshot-detail-requester@example.com");
 		waitlistReadHook.beforeDetailWaitingRead = () -> {
+			assertReadOnlyRepeatableRead();
 			commitWaiting(room.getId(), detailRequesterUserId);
 			assertNoRowReadLock();
 		};
-		RoomDetailReadService.RoomDetailReadResult detailResult = roomDetailReadService.findRoomDetail(
-			room.getId(), detailRequesterUserId);
+		RoomDetailReadService.RoomDetailReadResult detailResult = readCommitted().execute(status -> {
+			assertEquals("read committed", transactionIsolation());
+			return roomDetailReadService.findRoomDetail(room.getId(), detailRequesterUserId);
+		});
 		assertFalse(detailResult.currentUserWaiting());
 		assertTrue(jdbcTemplate.queryForObject(
 			"select exists(select 1 from room_waitlists where room_id = ? and user_id = ? and status = 'WAITING')",
@@ -109,6 +116,15 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 		assertFalse(Boolean.TRUE.equals(usesRowReadLock));
 	}
 
+	private void assertReadOnlyRepeatableRead() {
+		assertEquals("repeatable read", transactionIsolation());
+		assertEquals("on", jdbcTemplate.queryForObject("show transaction_read_only", String.class));
+	}
+
+	private String transactionIsolation() {
+		return jdbcTemplate.queryForObject("show transaction_isolation", String.class);
+	}
+
 	private void commitWaiting(long roomId, long userId) {
 		requiresNew().executeWithoutResult(status -> jdbcTemplate.update(
 			"""
@@ -126,6 +142,12 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 	private TransactionTemplate requiresNew() {
 		TransactionTemplate template = new TransactionTemplate(transactionManager);
 		template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+		return template;
+	}
+
+	private TransactionTemplate readCommitted() {
+		TransactionTemplate template = new TransactionTemplate(transactionManager);
+		template.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
 		return template;
 	}
 
@@ -160,15 +182,15 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 				RoomWaitlistRepository.class.getClassLoader(),
 				new Class<?>[] {RoomWaitlistRepository.class},
 				(proxy, method, arguments) -> {
-					if (method.getName().equals("findWaitingRoomIdsByUserIdAndRoomIds")
-						&& hook.beforeListWaitingRead != null) {
-						hook.beforeListWaitingRead.run();
-						hook.beforeListWaitingRead = null;
-					}
-					if (method.getName().equals("findStateWithPositionByRoomIdAndUserId")
-						&& hook.beforeDetailWaitingRead != null) {
-						hook.beforeDetailWaitingRead.run();
-						hook.beforeDetailWaitingRead = null;
+					if (method.getName().equals("findWaitingRoomIdsByUserIdAndRoomIds")) {
+						if (hook.beforeListWaitingRead != null) {
+							hook.beforeListWaitingRead.run();
+							hook.beforeListWaitingRead = null;
+						}
+						if (hook.beforeDetailWaitingRead != null) {
+							hook.beforeDetailWaitingRead.run();
+							hook.beforeDetailWaitingRead = null;
+						}
 					}
 					try {
 						return method.invoke(delegate, arguments);

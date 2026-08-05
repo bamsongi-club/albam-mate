@@ -118,7 +118,7 @@ class RoomListQueryServiceTest {
 	}
 
 	@Test
-	void T5_현재_대기중이_아닌_로그인_사용자는_닫힌_만석_방에_대기_신청할_수_있다() {
+	void 현재_대기중이_아닌_로그인_사용자는_닫힌_만석_방에_대기_신청할_수_있다() {
 		PageRequest pageable = pageable();
 		Room room = room(1L, null, 42L, RoomStatus.CLOSED, 3, 3, NOW.plusSeconds(60));
 		when(roomListReadService.findPublicRooms(
@@ -158,7 +158,7 @@ class RoomListQueryServiceTest {
 	}
 
 	@Test
-	void T6_목록의_Game_조회와_DTO_조립은_ReadService_반환_뒤에_수행한다() {
+	void 목록의_Game_조회와_DTO_조립은_ReadService_반환_뒤에_수행한다() {
 		PageRequest pageable = pageable();
 		Room room = room(1L, 7L, 42L, RoomStatus.RECRUITING, 0, 3, NOW.plusSeconds(60));
 		when(roomListReadService.findPublicRooms(criteria(RoomType.GAME_FOCUSED, 7L, null), pageable, 99L))

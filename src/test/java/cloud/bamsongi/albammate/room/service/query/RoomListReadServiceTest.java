@@ -250,7 +250,7 @@ class RoomListReadServiceTest {
 	}
 
 	@Test
-	void T5_로그인_사용자의_현재_페이지_WAITING_방을_한번에_읽는다() {
+	void 로그인_사용자의_현재_페이지_WAITING_방을_한번에_읽는다() {
 		PageRequest pageable = pageable();
 		Page<Room> rooms = new PageImpl<>(List.of(room(10L), room(20L)), pageable, 2);
 		when(roomRepository.findPublicRooms(

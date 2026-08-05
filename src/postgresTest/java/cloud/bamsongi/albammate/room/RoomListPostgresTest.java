@@ -90,7 +90,7 @@ class RoomListPostgresTest {
 	}
 
 	@Test
-	void T5_실제_WAITING_사용자와_비WAITING_사용자는_닫힌_만석_방에서_서로_다른_대기_가능_여부를_받는다() throws Exception {
+	void 실제_WAITING_사용자와_비WAITING_사용자는_닫힌_만석_방에서_서로_다른_대기_가능_여부를_받는다() throws Exception {
 		UserAccount waitingUser = createLoginUser("room-waitlist-existing@example.com");
 		createLoginUser("room-waitlist-requester@example.com");
 		Long roomId = saveRoom(
@@ -119,7 +119,7 @@ class RoomListPostgresTest {
 	}
 
 	@Test
-	void T8_한_ROOM의_minRemainingSeats_SQL_포함_결과는_Room_잔여석_계산과_세_경계값에서_같다() throws Exception {
+	void 한_ROOM의_minRemainingSeats_SQL_포함_결과는_Room_잔여석_계산과_세_경계값에서_같다() throws Exception {
 		Long roomId = saveRoom(
 			RoomType.PERSON_FOCUSED,
 			"임계값 방",

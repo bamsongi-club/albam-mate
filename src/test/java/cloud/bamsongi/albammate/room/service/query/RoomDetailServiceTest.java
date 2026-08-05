@@ -147,7 +147,7 @@ class RoomDetailServiceTest {
 	}
 
 	@Test
-	void T6_상세의_Game_User_조회와_DTO_조립은_ReadService_반환_뒤에_수행한다() {
+	void 상세의_Game_User_조회와_DTO_조립은_ReadService_반환_뒤에_수행한다() {
 		Room room = room(7L, 42L, 100L, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
 		when(roomDetailReadService.findRoomDetail(7L, 42L)).thenReturn(readResult(room, List.of(), false));
 		when(gameQuery.findSummaryById(100L)).thenReturn(Optional.of(new GameSummary(100L, 1100L, "카탄")));

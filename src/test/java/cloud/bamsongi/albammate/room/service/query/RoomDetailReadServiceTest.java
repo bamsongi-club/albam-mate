@@ -20,11 +20,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import cloud.bamsongi.albammate.room.entity.Participation;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
-import cloud.bamsongi.albammate.room.enums.RoomWaitlistStatus;
 import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
-import cloud.bamsongi.albammate.room.repository.RoomWaitlistStateProjection;
 
 @ExtendWith(MockitoExtension.class)
 class RoomDetailReadServiceTest {
@@ -64,7 +62,7 @@ class RoomDetailReadServiceTest {
 	}
 
 	@Test
-	void T6_주최자와_ACTIVE_참가자는_이미_읽은_사실로_대기열_순번_조회를_건너뛴다() {
+	void 주최자와_ACTIVE_참가자는_이미_읽은_사실로_WAITING_조회를_건너뛴다() {
 		Room room = org.mockito.Mockito.mock(Room.class);
 		Participation activeParticipation = org.mockito.Mockito.mock(Participation.class);
 		when(roomRepository.findById(7L)).thenReturn(Optional.of(room));
@@ -77,37 +75,22 @@ class RoomDetailReadServiceTest {
 		assertFalse(roomDetailReadService.findRoomDetail(7L, 42L).currentUserWaiting());
 		assertFalse(roomDetailReadService.findRoomDetail(7L, 77L).currentUserWaiting());
 
-		verify(roomWaitlistRepository, never()).findStateWithPositionByRoomIdAndUserId(
-			org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong());
+		verify(roomWaitlistRepository, never()).findWaitingRoomIdsByUserIdAndRoomIds(
+			org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyList());
 	}
 
 	@Test
-	void T5_관계없는_요청자의_현재_WAITING_사실을_상세_결과로_전달한다() {
+	void 관계없는_요청자의_현재_WAITING_사실을_상세_결과로_전달한다() {
 		Room room = org.mockito.Mockito.mock(Room.class);
-		RoomWaitlistStateProjection waitingState = org.mockito.Mockito.mock(RoomWaitlistStateProjection.class);
 		when(roomRepository.findById(7L)).thenReturn(Optional.of(room));
 		when(room.getHostUserId()).thenReturn(42L);
 		when(participationRepository.findByRoomIdAndStatusOrderByJoinedAtAscIdAsc(
 			7L, ParticipationStatus.ACTIVE))
 			.thenReturn(List.of());
-		when(roomWaitlistRepository.findStateWithPositionByRoomIdAndUserId(7L, 99L))
-			.thenReturn(Optional.of(waitingState));
-		when(waitingState.getStatus()).thenReturn(RoomWaitlistStatus.WAITING);
+		when(roomWaitlistRepository.findWaitingRoomIdsByUserIdAndRoomIds(99L, List.of(7L)))
+			.thenReturn(List.of(7L));
 
 		assertTrue(roomDetailReadService.findRoomDetail(7L, 99L).currentUserWaiting());
-	}
-
-	@Test
-	void T6_상세_스냅샷_결과는_현재_운영_시그니처만_노출한다() {
-		assertEquals(
-			0,
-			java.util.Arrays.stream(RoomDetailReadService.class.getDeclaredMethods())
-				.filter(method -> method.getName().equals("findRoomDetail") && method.getParameterCount() == 1)
-				.count());
-		assertEquals(
-			0,
-			java.util.Arrays.stream(RoomDetailReadService.RoomDetailReadResult.class.getDeclaredConstructors())
-				.filter(constructor -> constructor.getParameterCount() == 2)
-				.count());
+		verify(roomWaitlistRepository).findWaitingRoomIdsByUserIdAndRoomIds(99L, List.of(7L));
 	}
 }

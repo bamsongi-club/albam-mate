@@ -73,7 +73,7 @@ ROOM 스냅샷 트랜잭션에는 ROOM과 현재 `ACTIVE`·`WAITING` 사실을 �
         - 목록·상세 ReadService는 상태 보정 커밋 뒤 `REQUIRES_NEW`, `readOnly = true`, `REPEATABLE_READ`에서 ROOM과 현재 `ACTIVE`·`WAITING` 사실만 읽는다.
         - Game·User 조회와 DTO 조립은 ROOM 스냅샷 트랜잭션 밖에서 수행한다.
     - 테스트:
-        - `room.service.query.RoomActionAvailabilityReadServiceTest`는 목록·상세의 독립 읽기 트랜잭션 애너테이션과 SEARCH-02 조회 경계 보존을 확인한다.
-        - `room.service.query.RoomActionAvailabilitySnapshotPostgresTest`는 PostgreSQL에서 중간 `WAITING` 커밋이 같은 목록 스냅샷에 섞이지 않고 조회 락이 없는지 확인한다.
+        - `room.service.query.RoomActionAvailabilitySnapshotPostgresTest`는 PostgreSQL에서 외부 `READ_COMMITTED` 호출자와 분리된 목록·상세 `readOnly`·`REPEATABLE_READ` 스냅샷에 중간 `WAITING` 커밋이 섞이지 않고 조회 락이 없는지 확인한다.
+        - `room.service.query.RoomListQueryServiceTest`와 `room.service.query.RoomDetailServiceTest`는 ReadService 반환 뒤에 Game·User 조회와 DTO 조립이 수행되는지 확인한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.
