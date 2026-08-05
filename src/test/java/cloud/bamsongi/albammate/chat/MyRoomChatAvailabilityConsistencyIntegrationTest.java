@@ -122,7 +122,7 @@ class MyRoomChatAvailabilityConsistencyIntegrationTest {
 	}
 
 	@ParameterizedTest
-	@EnumSource(value = RoomStatus.class, names = { "RECRUITING", "CLOSED" })
+	@EnumSource(value = RoomStatus.class, names = {"RECRUITING", "CLOSED"})
 	void RECRUITING_CLOSED_상태와_관계_조합별로_내_모임_표시와_직접_접근_결과가_일치한다(RoomStatus status) {
 		Instant startAt = status == RoomStatus.RECRUITING ? RECRUITING_START : CLOSED_START;
 
