@@ -180,6 +180,7 @@ export const api = {
     }), { signal }),
   getMyRooms: ({ role, page = 0, size = 10 }, signal) =>
     request('/api/users/me/rooms' + query({ role, page, size }), { signal }),
+  getChatMessages: (roomId, signal) => request('/api/rooms/' + roomId + '/chat/messages', { signal }),
   getNotifications: ({ page = 0, size = 10 } = {}, signal) =>
     request('/api/users/me/notifications' + query({ page, size }), { signal }),
   getUnreadNotificationCount: (signal) =>

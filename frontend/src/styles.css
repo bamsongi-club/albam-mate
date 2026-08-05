@@ -219,6 +219,15 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .cap { color: var(--brown2); font-size: 12.5px; font-weight: 800; }
 .sfoot { align-items: center; color: var(--sub); display: flex; flex-wrap: wrap; font-size: 12px; gap: 7px; }
 
+/* 카드 전체가 링크라 채팅 진입은 카드 밖에 둔다. */
+.my-room-entry { display: grid; gap: 8px; grid-template-rows: 1fr auto; }
+.chat-entry { justify-self: start; }
+.chat-log { display: grid; gap: 10px; list-style: none; }
+.chat-message { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.chat-message-head { align-items: baseline; display: flex; font-size: 13.5px; gap: 8px; }
+.chat-time { color: var(--gray); font-size: 12px; }
+.chat-content { font-size: 14px; margin-top: 6px; overflow-wrap: anywhere; white-space: pre-wrap; }
+
 .detail-head { align-items: flex-start; display: flex; gap: 20px; }
 .dart { align-items: center; background: var(--soft); border-radius: 18px; display: flex; flex: 0 0 112px; font-size: 54px; height: 112px; justify-content: center; overflow: hidden; width: 112px; }
 .dart img { display: block; height: 100%; object-fit: contain; width: 100%; }
