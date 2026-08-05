@@ -180,6 +180,12 @@ export const api = {
     }), { signal }),
   getMyRooms: ({ role, page = 0, size = 10 }, signal) =>
     request('/api/users/me/rooms' + query({ role, page, size }), { signal }),
+  getChatMessages: (roomId, optionsOrSignal = {}, maybeSignal) => {
+    const signal = optionsOrSignal?.aborted !== undefined ? optionsOrSignal : maybeSignal;
+    const options = signal ? {} : optionsOrSignal;
+    return request('/api/rooms/' + roomId + '/chat/messages' + query(options), { signal });
+  },
+  sendChatMessage: (roomId, message) => mutate('/api/rooms/' + roomId + '/chat/messages', { method: 'POST', body: message }),
   getNotifications: ({ page = 0, size = 10 } = {}, signal) =>
     request('/api/users/me/notifications' + query({ page, size }), { signal }),
   getUnreadNotificationCount: (signal) =>

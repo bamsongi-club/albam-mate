@@ -28,6 +28,14 @@ const PASSWORD_MIN_CODE_POINTS = 15;
 const PASSWORD_MAX_CODE_POINTS = 64;
 const PASSWORD_MAX_UTF8_BYTES = 72;
 const SOCIAL_PROVIDER_LABEL = { GOOGLE: 'Google', NAVER: 'Naver', KAKAO: 'Kakao' };
+
+// 채팅 진입은 서버가 매 요청마다 다시 판정한다. 거절 사유는 코드로만 구분해 안내한다.
+const CHAT_ACCESS_MESSAGE = {
+  FORBIDDEN: '지금은 이 모임의 채팅에 들어갈 수 없어요. 참가 중인 모집 중·마감 모임에서만 채팅할 수 있어요.',
+  ROOM_NOT_FOUND: '모임을 찾을 수 없어 채팅을 열 수 없어요.',
+  VALIDATION_ERROR: '채팅 주소가 올바르지 않아요.'
+};
+const createClientMessageId = () => globalThis.crypto?.randomUUID?.() || 'chat-' + Date.now() + '-' + Math.random().toString(36).slice(2);
 // callback이 돌려주는 고정 결과다. 여기 없는 값과 제공자 오류 설명은 해석하지도 보여주지도 않는다.
 const SOCIAL_AUTH_RESULT = {
   'login-success': { message: '로그인했어요.', type: '' },
@@ -438,7 +446,8 @@ const SECTION_ICONS = {
   games: <><rect x="3" y="3" width="18" height="18" rx="4" /><circle cx="8.5" cy="8.5" r="1.1" /><circle cx="15.5" cy="8.5" r="1.1" /><circle cx="8.5" cy="15.5" r="1.1" /><circle cx="15.5" cy="15.5" r="1.1" /></>,
   list: <><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3.5 6h.01" /><path d="M3.5 12h.01" /><path d="M3.5 18h.01" /></>,
   calendar: <><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M8 3v4" /><path d="M16 3v4" /><path d="M3 10h18" /></>,
-  pencil: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></>
+  pencil: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></>,
+  chat: <path d="M20 12a7 7 0 0 1-7 7H9l-4 3v-4.2A7 7 0 0 1 9 5h4a7 7 0 0 1 7 7Z" />
 };
 
 function SectionIcon({ name }) {
@@ -448,7 +457,7 @@ function SectionIcon({ name }) {
 }
 
 function Header({ route, me, notificationMenu }) {
-  const rootRoute = { find: 'find', game: 'game-list', 'game-list': 'game-list', create: 'profile', edit: 'profile', my: 'profile', profile: 'profile', auth: 'auth' };
+  const rootRoute = { find: 'find', game: 'game-list', 'game-list': 'game-list', create: 'profile', edit: 'profile', my: 'profile', chat: 'profile', profile: 'profile', auth: 'auth' };
   const visibleUnreadCount = notificationMenu.unreadCount > 99 ? '99+' : notificationMenu.unreadCount;
   const notificationLabel = notificationMenu.unreadCount > 0
     ? '알림함, 읽지 않은 알림 ' + notificationMenu.unreadCount + '개'
@@ -955,7 +964,7 @@ function SessionActions({ room, me, onApply, onCancelApply, onHostCancel, onFini
   return <div className="infobox amber">모집이 마감되었거나 지금은 참가할 수 없어요.</div>;
 }
 
-function SessionDetailView({ sessionId, me, onApply, onCancelApply, onHostCancel, onFinish, dataVersion }) {
+export function SessionDetailView({ sessionId, me, onApply, onCancelApply, onHostCancel, onFinish, dataVersion }) {
   const { data, loading, error } = useRequest(
     async (signal) => normalizeRoom(await api.getRoom(sessionId, signal)),
     [sessionId, dataVersion]
@@ -965,6 +974,7 @@ function SessionDetailView({ sessionId, me, onApply, onCancelApply, onHostCancel
   const room = data;
   if (!room) return <div className="card">모임을 찾을 수 없어요.</div>;
   const status = statusMeta(room);
+  const canEnterChat = Boolean(room.myRole && (status.code === 'RECRUITING' || status.code === 'CLOSED'));
   const privateView = Boolean(room.myRole);
   const game = room.game;
   const banners = {
@@ -987,6 +997,7 @@ function SessionDetailView({ sessionId, me, onApply, onCancelApply, onHostCancel
                 <h2>{room.title} <span className={'badge ' + (room.roomType === 'PERSON_FOCUSED' ? 'people' : 'game')}>{room.roomType === 'PERSON_FOCUSED' ? '사람 중심' : '게임 중심'}</span></h2>
                 <p className="smeta">{game ? '🎲 ' + game.title : '게임은 모임에서 정해요'}</p>
                 {room.description && <p style={{ color: 'var(--brown2)', marginTop: 10 }}>{room.description}</p>}
+                {canEnterChat && <div className="page-actions" style={{ marginTop: 15 }}><a className="btn ghost chat-entry" href={'#/chat/' + room.id}>💬 모임 채팅</a></div>}
                 <table className="metatable"><tbody>
                   <tr><td>일시</td><td>{formatStartsAt(room.startsAt)}</td></tr>
                   {privateView
@@ -1359,7 +1370,7 @@ function EditView({ sessionId, onSave, dataVersion, today }) {
   return <EditSessionForm key={data.id} room={data} onSave={onSave} today={today} />;
 }
 
-function MyRoomsSection({ myTab, onMyTabChange, dataVersion }) {
+export function MyRoomsSection({ myTab, onMyTabChange, dataVersion }) {
   const joined = usePaginatedRequest(
     (page, signal) => api.getMyRooms({ role: 'joined', page, size: ROOM_LIST_PAGE_SIZE }, signal),
     [dataVersion]
@@ -1385,7 +1396,9 @@ function MyRoomsSection({ myTab, onMyTabChange, dataVersion }) {
       </div>
       {page.error && <ErrorBox message={page.error} />}
       {!page.error && page.loading && !page.data && <LoadingBox />}
-      {!page.error && !!list.length && <div className="grid cols2">{list.map((room) => <SessionCard key={room.id} room={room} />)}</div>}
+      {!page.error && !!list.length && (
+        <div className="grid cols2">{list.map((room) => <SessionCard key={room.id} room={room} />)}</div>
+      )}
       {!page.error && !page.loading && !list.length && (
         <div className="infobox">
           {tab === 'joined'
@@ -1395,6 +1408,159 @@ function MyRoomsSection({ myTab, onMyTabChange, dataVersion }) {
       )}
       {!page.error && !!list.length && <Pagination page={page.data?.page ?? 0} totalPages={page.data?.totalPages ?? 0} loading={page.loading} onChange={page.setPage} />}
       {!page.error && !!list.length && <p className="hint" style={{ marginTop: 14 }}>카드는 공개 모임 정보만 표시하고, 정확한 장소와 참가자 목록은 모임 상세에서 권한에 따라 확인할 수 있어요.</p>}
+    </>
+  );
+}
+
+// 직접 URL로 들어와도 진입 여부는 서버 응답으로만 정해진다. 거절은 서버 원문 대신 계약된 code로 안내한다.
+function chatAccessError(error) {
+  const message = error instanceof ApiError ? CHAT_ACCESS_MESSAGE[error.code] : undefined;
+  return message ? new ApiError({ status: error.status, code: error.code, message }) : error;
+}
+
+export function ChatRoomView({ roomId, dataVersion, me }) {
+  const { data, loading, error } = useRequest(
+    (signal) => api.getChatMessages(roomId, signal).catch((cause) => { throw chatAccessError(cause); }),
+    [roomId, dataVersion]
+  );
+  const roomIdRef = useRef(roomId);
+  const roomGenerationRef = useRef(0);
+  const previousRoomIdRef = useRef(roomId);
+  if (previousRoomIdRef.current !== roomId) {
+    previousRoomIdRef.current = roomId;
+    roomGenerationRef.current += 1;
+  }
+  roomIdRef.current = roomId;
+  const [messages, setMessages] = useState([]);
+  const [messagesRoomId, setMessagesRoomId] = useState(roomId);
+  const [nextBeforeMessageId, setNextBeforeMessageId] = useState(null);
+  const [hasNext, setHasNext] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [content, setContent] = useState('');
+  const [clientMessageId, setClientMessageId] = useState(createClientMessageId);
+  const [clientMessageContent, setClientMessageContent] = useState(null);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
+
+  useEffect(() => {
+    setMessagesRoomId(roomId);
+    setMessages([]);
+    setNextBeforeMessageId(null);
+    setHasNext(false);
+    setLoadingMore(false);
+    setSending(false);
+    setContent('');
+    setClientMessageContent(null);
+    setSendError('');
+    setClientMessageId(createClientMessageId());
+  }, [roomId]);
+
+  useEffect(() => {
+    if (!data) return;
+    setMessagesRoomId(roomId);
+    setMessages((current) => {
+      const byId = new Map(current.map((message) => [String(message.messageId), message]));
+      (data.messages || []).forEach((message) => byId.set(String(message.messageId), message));
+      return [...byId.values()].sort((left, right) => Number(left.messageId) - Number(right.messageId));
+    });
+    setNextBeforeMessageId(data.nextBeforeMessageId ?? null);
+    setHasNext(Boolean(data.hasNext));
+  }, [data]);
+
+  const mergeMessages = (incoming) => {
+    setMessages((current) => {
+      const byId = new Map(current.map((message) => [String(message.messageId), message]));
+      incoming.forEach((message) => byId.set(String(message.messageId), message));
+      return [...byId.values()].sort((left, right) => Number(left.messageId) - Number(right.messageId));
+    });
+  };
+
+  const loadPreviousMessages = async () => {
+    if (!hasNext || loadingMore || nextBeforeMessageId === null) return;
+    const requestedRoomId = roomId;
+    const requestedGeneration = roomGenerationRef.current;
+    setLoadingMore(true);
+    try {
+      const page = await api.getChatMessages(roomId, { beforeMessageId: nextBeforeMessageId, size: 50 });
+      if (roomIdRef.current !== requestedRoomId || roomGenerationRef.current !== requestedGeneration) return;
+      mergeMessages(page.messages || []);
+      setNextBeforeMessageId(page.nextBeforeMessageId ?? null);
+      setHasNext(Boolean(page.hasNext));
+    } catch (cause) {
+      if (roomIdRef.current !== requestedRoomId || roomGenerationRef.current !== requestedGeneration) return;
+      setSendError(messageForError(cause, '이전 메시지를 불러오지 못했어요.'));
+    } finally {
+      if (roomIdRef.current === requestedRoomId && roomGenerationRef.current === requestedGeneration) setLoadingMore(false);
+    }
+  };
+
+  const submit = async (event) => {
+    event.preventDefault();
+    const trimmed = content.trim();
+    if (!trimmed) {
+      setSendError('메시지를 입력해주세요.');
+      return;
+    }
+    if ([...trimmed].length > 500) {
+      setSendError('메시지는 500자까지 입력할 수 있어요.');
+      return;
+    }
+    setSending(true);
+    setSendError('');
+    const messageId = clientMessageContent === null || clientMessageContent === trimmed
+      ? clientMessageId
+      : createClientMessageId();
+    setClientMessageId(messageId);
+    setClientMessageContent(trimmed);
+    const requestedRoomId = roomId;
+    const requestedGeneration = roomGenerationRef.current;
+    try {
+      const saved = await api.sendChatMessage(roomId, { clientMessageId: messageId, content: trimmed });
+      if (roomIdRef.current !== requestedRoomId || roomGenerationRef.current !== requestedGeneration) return;
+      mergeMessages([saved]);
+      setContent('');
+      setClientMessageId(createClientMessageId());
+      setClientMessageContent(null);
+    } catch (cause) {
+      if (roomIdRef.current !== requestedRoomId || roomGenerationRef.current !== requestedGeneration) return;
+      setSendError(messageForError(cause, '메시지를 보내지 못했어요. 다시 시도해주세요.'));
+    } finally {
+      if (roomIdRef.current === requestedRoomId && roomGenerationRef.current === requestedGeneration) setSending(false);
+    }
+  };
+
+  const displayedMessages = messagesRoomId === roomId ? messages : [];
+
+  return (
+    <>
+      <h2><SectionIcon name="chat" />모임 채팅</h2>
+      <div className="page-actions" style={{ marginBottom: 14 }}>
+        <a className="btn ghost" href={'#/session/' + roomId}>모임 상세</a>
+        <a className="btn ghost" href="#/my">내 모임</a>
+      </div>
+      {error && <ErrorBox message={error} />}
+      {!error && loading && !data && <LoadingBox label="채팅을 불러오는 중…" />}
+      {!error && hasNext && <button className="btn ghost chat-load-more" disabled={loadingMore} type="button" onClick={loadPreviousMessages}>{loadingMore ? '불러오는 중…' : '이전 메시지 불러오기'}</button>}
+      {!error && !loading && !displayedMessages.length && <div className="infobox">아직 주고받은 메시지가 없어요.</div>}
+      {!error && !!displayedMessages.length && (
+        <ul className="chat-log">
+          {displayedMessages.map((message) => {
+            const isMine = Boolean(message.isMine);
+            return (
+            <li className={'chat-message ' + (isMine ? 'mine' : 'theirs')} data-message-owner={isMine ? 'mine' : 'theirs'} key={message.messageId}>
+              <div className="chat-message-head"><b>{isMine ? '나' : message.sender?.nickname}</b><span className="chat-time">{formatStartsAt(message.createdAt)}</span></div>
+              <p className="chat-content">{message.content}</p>
+            </li>
+            );
+          })}
+        </ul>
+      )}
+      {!error && <form className="chat-compose" onSubmit={submit}>
+        <label htmlFor="chat-message">메시지</label>
+        <textarea id="chat-message" disabled={sending} maxLength="500" value={content} onChange={(event) => { setContent(event.target.value); setSendError(''); }} placeholder="메시지를 입력해주세요." />
+        <div className="chat-compose-actions"><span className="hint">{[...content].length}/500</span><button className="btn" disabled={sending} type="submit">{sending ? '전송 중…' : '전송'}</button></div>
+        {sendError && <p className="hint warn" role="alert">{sendError}</p>}
+      </form>}
     </>
   );
 }
@@ -1565,7 +1731,7 @@ function isUnauthenticated(error) {
   return error instanceof ApiError && (error.code === 'UNAUTHENTICATED' || error.status === 401);
 }
 
-function App() {
+export function App() {
   const [{ route, arg }, navigate] = useHashRoute();
   const today = useSeoulToday();
   const [me, setMe] = useState(null);
@@ -1883,6 +2049,7 @@ function App() {
   else if (route === 'create') content = me ? <CreateView createMode={createMode} onCreateModeChange={setCreateMode} initialGame={createGame} onCreate={handleCreate} today={today} /> : <LoginRequiredView message="모임을 만들려면 로그인해주세요." />;
   else if (route === 'edit') content = me ? <EditView sessionId={arg} onSave={handleSave} dataVersion={dataVersion} today={today} /> : <LoginRequiredView message="모임을 수정하려면 로그인해주세요." />;
   else if (route === 'my') content = me ? <MyRoomsSection myTab={myTab} onMyTabChange={setMyTab} dataVersion={dataVersion} /> : <LoginRequiredView message="내 모임을 보려면 로그인해주세요." />;
+  else if (route === 'chat') content = me ? <ChatRoomView roomId={arg} dataVersion={dataVersion} me={me} /> : <LoginRequiredView message="모임 채팅을 보려면 로그인해주세요." />;
   else if (route === 'profile') content = me ? <ProfileView me={me} onSave={handleSaveProfile} onLogout={handleLogout} socialProviders={socialProviders} onSocialLink={handleSocialLink} /> : <LoginRequiredView message="마이페이지를 보려면 로그인해주세요." />;
   else if (route === 'auth') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <AuthView onLogin={handleLogin} onSignup={handleSignup} socialProviders={socialProviders} onSocialLogin={handleSocialLogin} />;
   else content = <HomeView onBrowsePeople={handleBrowsePeople} onSearchGame={handleSearchGame} dataVersion={dataVersion} />;
