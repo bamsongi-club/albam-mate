@@ -12,10 +12,10 @@
 - 완성한 JSON을 저장소 밖의 고유한 임시 파일에 저장하고 `node scripts/validate-packet.mjs <임시-패킷.json>`을 통과시킨다. `<...>` placeholder 부재와 인용한 정본·사람 승인 사실도 직접 확인한다.
 - `postgresTest`가 필요하면 위임 전에 `docker version`으로 daemon 접근을 확인한다.
 - 검증된 JSON만 `backend-developer`에 전달해 소유·대상 테스트·금지 경계를 고정한다. 구현자는 T-ID별 테스트를 먼저 Red로 확인하고 최소 구현으로 Green을 만든 뒤, task별 최종 Green과 실제 source·exact selector manifest를 보고한다.
-- 구현자가 반환한 T-ID별 Red 보고와 최종 Green을 확인하고, manifest를 저장소 밖 임시 JSON으로 만들어 `node scripts/validate-backend-test-manifest.mjs --packet <packet.json> --manifest <manifest.json> --worktree <worktree>`를 통과시킨다.
+- 구현자가 반환한 T-ID별 Red 보고와 최종 Green을 확인하고, manifest를 저장소 밖 임시 JSON으로 만들어 `node scripts/validate-backend-test-manifest.mjs --packet <packet.json> --manifest <manifest.json> --worktree <worktree>`를 통과시킨다. 이 검사는 manifest와 함께 실제 변경 경로가 packet의 소유 경계와 항상 read-only 목록 안인지 감사하므로 범위 밖 변경을 따로 눈으로 확인하지 않는다.
 - 구현 중 정본 충돌·선행 공개 계약 부재·미선언 공유 파일이 드러나면 구현을 멈추고 `DECISION_NEEDED`를 반환한다.
 - 새 생산 패키지 또는 `gatedBranchCoverage`에 없는 변경 패키지가 구현 중 확인되면 사용자 결정을 기다리지 않는다. `build.gradle` 조건부 허용 경로와 `.\gradlew.bat jacocoTestReport verifyCoverageRuleTargets` 완료 기준을 packet에 추가해 다시 검증하고, 같은 구현자에게 필요한 map 변경만 후속 전달한다.
-- map을 바꾸면 `git diff HEAD -- build.gradle`로 `gatedBranchCoverage` 항목 추가 또는 최소선 상향 hunk만 있는지 감사한다. coverage 명령은 전체 H2 test 1회를 포함하며 약 70초가 걸릴 수 있지만 Docker와 `postgresTest`는 요구하지 않는다. 분기 10개 미만이면 map을 바꾸지 않고, 10개 이상이면 H2 실측값을 0.01 단위로 내린 최소선만 추가한다. 다른 build hunk는 래칫 예외로 허용하지 않고 별도 고위험 범위로 packet에 명시하며, 최소선 하향·삭제와 기존 비율 회귀는 이 예외로 해결하지 않는다. PostgreSQL 합산 coverage는 CI에 맡긴다.
+- map을 바꾸면 `node scripts/validate-coverage-ratchet.mjs`를 통과시킨다. 이 검사가 실패한 build 변경은 래칫 예외로 허용하지 않고 별도 고위험 범위로 packet에 명시한다. coverage 명령은 전체 H2 test 1회를 포함하며 약 70초가 걸릴 수 있지만 Docker와 `postgresTest`는 요구하지 않는다. 분기 10개 미만이면 map을 바꾸지 않고, 10개 이상이면 H2 실측값을 0.01 단위로 내린 최소선만 추가한다. 기존 비율 회귀와 PostgreSQL 합산 coverage는 CI에 맡긴다.
 
 ## TDD 사이클
 
@@ -55,4 +55,4 @@
 - [x] Coverage ratchet — `.\gradlew.bat jacocoTestReport verifyCoverageRuleTargets`
 ```
 
-- 종료 후 저장소 밖 임시 packet과 manifest를 삭제한다.
+- 종료 후 저장소 밖 임시 packet과 manifest는 삭제하지 않고 Private Brain의 전달 아카이브로 옮긴다. 아카이브 경로와 파일 구조는 Private Brain 정본을 따르고 공개 파일에 적지 않는다.

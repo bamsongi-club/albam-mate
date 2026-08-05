@@ -7,7 +7,11 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import {
+    ALWAYS_READ_ONLY_PATTERNS,
     DEFAULT_MANIFEST_SCHEMA_PATH,
+    auditChangedPaths,
+    changedPathsIn,
+    matchesPathPattern,
     validateBackendTestManifest,
 } from './validate-backend-test-manifest.mjs';
 import { DEFAULT_SCHEMA_PATH as DEFAULT_PACKET_SCHEMA_PATH } from './validate-packet.mjs';
@@ -97,6 +101,31 @@ function createWorktree(t) {
 
 function validate(packet, manifest, worktree) {
     return validateBackendTestManifest(packet, manifest, worktree, packetSchema, manifestSchema);
+}
+
+// 실제 게이트는 git worktree에서 돌고 packet·manifest는 저장소 밖에 둔다. CLI 검증도 같은
+// 조건을 만들어야 경로 감사가 임시 파일을 범위 밖 변경으로 보고하지 않는다.
+function initGitRepo(worktree) {
+    const git = (...args) =>
+        spawnSync('git', ['-C', worktree, ...args], { encoding: 'utf8', windowsHide: true });
+    git('init', '--quiet');
+    git('add', '--all');
+    git(
+        '-c',
+        'user.name=test',
+        '-c',
+        'user.email=test@example.com',
+        'commit',
+        '--quiet',
+        '--message',
+        'baseline',
+    );
+}
+
+function createOutsideDirectory(t) {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'backend-test-manifest-outside-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    return directory;
 }
 
 const keywords = (errors) => errors.map((error) => error.keyword);
@@ -223,8 +252,10 @@ test('Red 상태, 명령과 실행 결과 필드를 schema에서 거부한다', 
 
 test('CLI는 유효 manifest는 0, 무효 manifest는 1로 종료한다', (t) => {
     const worktree = createWorktree(t);
-    const packetPath = path.join(worktree, 'packet.json');
-    const manifestPath = path.join(worktree, 'manifest.json');
+    initGitRepo(worktree);
+    const outside = createOutsideDirectory(t);
+    const packetPath = path.join(outside, 'packet.json');
+    const manifestPath = path.join(outside, 'manifest.json');
     fs.writeFileSync(packetPath, JSON.stringify(validPacket()), 'utf8');
     fs.writeFileSync(manifestPath, JSON.stringify(validManifest()), 'utf8');
 
@@ -246,4 +277,99 @@ test('CLI는 유효 manifest는 0, 무효 manifest는 1로 종료한다', (t) =>
     );
     assert.equal(invalid.status, 1);
     assert.match(invalid.stderr, /exactSelector/);
+});
+
+test('지원하는 경로 패턴만 매칭한다', () => {
+    assert.ok(matchesPathPattern('build.gradle', 'build.gradle'));
+    assert.ok(!matchesPathPattern('build.gradle', 'frontend/build.gradle'));
+    assert.ok(matchesPathPattern('src/main/java/a/**', 'src/main/java/a/B.java'));
+    assert.ok(!matchesPathPattern('src/main/java/a/**', 'src/main/java/ab/B.java'));
+    assert.ok(matchesPathPattern('src/test/', 'src/test/java/a/BTest.java'));
+    assert.ok(matchesPathPattern('**/AGENTS.md', 'AGENTS.md'));
+    assert.ok(matchesPathPattern('**/AGENTS.md', 'src/main/resources/db/migration/AGENTS.md'));
+    assert.ok(!matchesPathPattern('**/AGENTS.md', 'docs/AGENTS.md.bak'));
+});
+
+test('지원하지 않는 와일드카드 패턴을 통과시키지 않는다', () => {
+    const packet = validPacket();
+    packet.allowedPaths = ['src/main/java/**/notification/**'];
+    const errors = auditChangedPaths(packet, ['src/main/java/cloud/notification/A.java']);
+
+    assert.deepEqual(keywords(errors), ['pathPattern']);
+});
+
+test('allowedPaths 안의 변경만 허용한다', () => {
+    const packet = validPacket();
+
+    assert.deepEqual(
+        auditChangedPaths(packet, [
+            'src/main/java/cloud/bamsongi/albammate/notification/Notification.java',
+        ]),
+        [],
+    );
+    assert.deepEqual(
+        keywords(auditChangedPaths(packet, ['src/main/java/cloud/bamsongi/albammate/room/Room.java'])),
+        ['allowedPath'],
+    );
+});
+
+test('forbiddenPaths 변경을 거부한다', () => {
+    const packet = validPacket();
+    packet.allowedPaths = ['frontend/'];
+    packet.forbiddenPaths = ['frontend/src/generated/'];
+    const errors = auditChangedPaths(packet, ['frontend/src/generated/api.ts']);
+
+    assert.deepEqual(keywords(errors), ['forbiddenPath']);
+});
+
+test('allowedPaths에 있어도 항상 read-only인 경로 변경을 거부한다', () => {
+    const packet = validPacket();
+    packet.allowedPaths = [...ALWAYS_READ_ONLY_PATTERNS, 'docs/API.md'];
+
+    for (const changed of [
+        'AGENTS.md',
+        'src/main/resources/db/migration/AGENTS.md',
+        'CLAUDE.md',
+        'docs/PRD.md',
+        'docs/P0-spec.md',
+        'docs/CONVENTIONS.md',
+        'docs/adr/chat/0049-chat-message-retention.md',
+    ]) {
+        assert.deepEqual(keywords(auditChangedPaths(packet, [changed])), ['alwaysReadOnly'], changed);
+    }
+
+    // 조건부로 허용되는 정본 문서는 allowedPaths에 있으면 통과한다.
+    assert.deepEqual(auditChangedPaths(packet, ['docs/API.md']), []);
+});
+
+test('추적되지 않은 새 파일도 변경 경로로 모은다', (t) => {
+    const worktree = createWorktree(t);
+    initGitRepo(worktree);
+    const tracked = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(path.join(worktree, 'untracked.md'), '새 파일', 'utf8');
+    fs.appendFileSync(path.join(worktree, tracked), '\n// 변경\n', 'utf8');
+
+    const changed = changedPathsIn(worktree);
+
+    assert.deepEqual(changed, [tracked, 'untracked.md'].sort());
+});
+
+test('CLI는 allowedPaths 밖 변경을 감사에서 차단한다', (t) => {
+    const worktree = createWorktree(t);
+    initGitRepo(worktree);
+    const outside = createOutsideDirectory(t);
+    const packetPath = path.join(outside, 'packet.json');
+    const manifestPath = path.join(outside, 'manifest.json');
+    fs.writeFileSync(packetPath, JSON.stringify(validPacket()), 'utf8');
+    fs.writeFileSync(manifestPath, JSON.stringify(validManifest()), 'utf8');
+    fs.writeFileSync(path.join(worktree, 'AGENTS.md'), '규약을 바꾼다', 'utf8');
+
+    const result = spawnSync(
+        process.execPath,
+        [scriptPath, '--packet', packetPath, '--manifest', manifestPath, '--worktree', worktree],
+        { encoding: 'utf8' },
+    );
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /alwaysReadOnly/);
 });

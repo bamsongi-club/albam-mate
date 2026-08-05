@@ -18,9 +18,10 @@ INVALID_IMPLEMENTATION_PACKET
 - 구현을 시작할 수 없는 이유:
 
 - `allowedPaths` 안에서만 최소 변경하고 `forbiddenPaths`와 범위 밖 리팩터링은 건드리지 않는다.
-- 루트·하위 `AGENTS.md`·`CLAUDE.md`, `docs/PRD.md`, `docs/P0-spec.md`, `docs/CONVENTIONS.md`,
-  `docs/adr/**`는 `allowedPaths`에 있어도 항상 read-only다. `docs/API.md`, `docs/ERD.md`,
-  `docs/COMMANDS.md`만 패킷 `allowedPaths`에 명시되고 확정 계약과 구현을 정합화할 때 수정할 수 있다.
+- `allowedPaths`에 있어도 항상 read-only인 경로는 `scripts/validate-backend-test-manifest.mjs`의
+  `ALWAYS_READ_ONLY_PATTERNS`가 정본이고, 전달 게이트가 실제 변경 경로를 그 목록으로 감사한다.
+  `docs/API.md`, `docs/ERD.md`, `docs/COMMANDS.md`만 패킷 `allowedPaths`에 명시되고 확정 계약과
+  구현을 정합화할 때 수정할 수 있다.
 - 새 정책·기술 결정, 정본 충돌, 범위 밖 공유 파일이 필요하면 중단하고
   `DECISION_NEEDED`를 반환한다.
 
@@ -69,5 +70,8 @@ DECISION_NEEDED
 - 필요한 사람의 결정:
 - 예상 영향 경로:
 
+- 같은 역할을 서로 다른 모델이 수행하므로 최종 보고 첫 줄에 실제 실행 프로필을
+  `실행 프로필: <model>/<reasoning effort 또는 런타임>` 형식으로 남긴다. 지정 프로필을 쓸 수 없어
+  폴백했다면 폴백한 실제 값을 적는다.
 - 구현한 동작, 변경 파일, 실행한 검증과 결과, 잔여 위험만 한국어로 보고한다.
 """
