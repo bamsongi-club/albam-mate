@@ -16,6 +16,7 @@ public record GameDetail(
 	String estimatedPlayTime,
 	BigDecimal complexity,
 	Integer releaseYear,
+	Integer minAge,
 	long upcomingRoomCount,
 	String alias,
 	String description,
@@ -43,7 +44,7 @@ public record GameDetail(
 		String detailDescription,
 		Boolean playedByMe) {
 		this(id, bggId, name, englishName, imageUrl, supportedPlayerCount, tag, estimatedPlayTime,
-			complexity, releaseYear, upcomingRoomCount, alias, description, detailDescription, playedByMe,
+			complexity, releaseYear, null, upcomingRoomCount, alias, description, detailDescription, playedByMe,
 			List.of(), List.of(), List.of(), List.of());
 	}
 
@@ -71,6 +72,7 @@ public record GameDetail(
 			tag,
 			estimatedPlayTime,
 			complexity,
+			null,
 			null,
 			upcomingRoomCount,
 			alias,
@@ -110,6 +112,7 @@ public record GameDetail(
 			game.getEstimatedPlayTime(),
 			game.getComplexity(),
 			game.getReleaseYear(),
+			game.getMinAge(),
 			upcomingRoomCount,
 			game.getAlias(),
 			game.getDescription(),

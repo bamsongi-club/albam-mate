@@ -15,6 +15,7 @@ public record GameListItem(
 	String estimatedPlayTime,
 	BigDecimal complexity,
 	Integer releaseYear,
+	Integer minAge,
 	long upcomingRoomCount,
 	Boolean playedByMe) {
 
@@ -40,6 +41,7 @@ public record GameListItem(
 			estimatedPlayTime,
 			complexity,
 			null,
+			null,
 			upcomingRoomCount,
 			null);
 	}
@@ -60,6 +62,7 @@ public record GameListItem(
 			game.estimatedPlayTime(),
 			game.complexity(),
 			game.releaseYear(),
+			game.minAge(),
 			upcomingRoomCount,
 			playedByMe);
 	}

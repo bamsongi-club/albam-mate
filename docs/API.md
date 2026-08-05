@@ -456,6 +456,7 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 | `estimatedPlayTime` | string | Y | N | P0 | 제공 | 표시용 예상 시간 (예: `30분`) |
 | `complexity` | number | Y | Y | P0 | 제공 | 난이도 표시값 |
 | `releaseYear` | integer | Y | Y | P1 | 제공 | BGG 기준 CSV의 `yearpublished`. 미상 값은 `null` |
+| `minAge` | integer | Y | Y | P1 | 제공 | BGG thing XML의 `minage`. 누락 또는 `0`은 `null` |
 | `upcomingRoomCount` | integer | Y | N | P0 | 제공 | 미래 시점의 `GAME_FOCUSED` 방 중 `CANCELED`·`FINISHED`가 아닌 건수 |
 | `playedByMe` | boolean | Y | Y | P1 | 제공 | 유효한 세션에서 본인 표시 관계가 있으면 `true`, 없으면 `false`; 비로그인이면 `null` |
 

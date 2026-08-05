@@ -33,6 +33,14 @@ export function stableThemeCode(nameEn, bggThemeId) {
   return `${base}_BGG_${bggThemeId}`;
 }
 
+export function normalizeMinAge(value) {
+  if (value === undefined || value === null || value === '' || value === '0') return null;
+  if (!/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) > 2147483647) {
+    throw new Error(`invalid minage: ${value}`);
+  }
+  return Number(value);
+}
+
 export function createMetadataArtifact({ targetBggIds, built, testOnly }) {
   return { schemaVersion: 1, approved: true, testOnly, performanceFixtureRelations: false, targetBggIds: [...targetBggIds].sort((a, b) => a - b), ...built };
 }
@@ -63,7 +71,7 @@ export function playerPreferences(polls, maxPlayers) {
 export function parseBggMetadataXml(xml) {
   const games = [];
   for (const item of xml.matchAll(/<item[^>]*id="(\d+)"[\s\S]*?<\/item>/g)) {
-    const body = item[0]; const maxPlayers = Number(/<maxplayers value="(\d+)"/.exec(body)?.[1]);
+    const body = item[0]; const minAge = normalizeMinAge(/<minage value="([^"]*)"/.exec(body)?.[1]); const maxPlayers = Number(/<maxplayers value="(\d+)"/.exec(body)?.[1]);
     const themes = [...body.matchAll(/<link type="boardgamecategory" id="(\d+)" value="([^"]+)"/g)]
       .map(match => ({ bggThemeId: Number(match[1]), nameEn: match[2] }));
     const poll = /<poll name="suggested_numplayers"[\s\S]*?<\/poll>/.exec(body)?.[0];
@@ -71,7 +79,7 @@ export function parseBggMetadataXml(xml) {
       numPlayers: match[1], bestVotes: Number(/value="Best" numvotes="(\d+)"/.exec(match[2])?.[1]),
       recommendedVotes: Number(/value="Recommended" numvotes="(\d+)"/.exec(match[2])?.[1]),
       notRecommendedVotes: Number(/value="Not Recommended" numvotes="(\d+)"/.exec(match[2])?.[1]) })) : [];
-    games.push({ bggId: Number(item[1]), maxPlayers, themes, polls });
+    games.push({ bggId: Number(item[1]), minAge, maxPlayers, themes, polls });
   }
   return games;
 }
@@ -87,14 +95,15 @@ export function validateThemeDictionary(entries) {
 }
 
 export function buildMetadataArtifact({ games, rankRows, dictionary }) {
-  const { errors, byId } = validateThemeDictionary(dictionary); const themes = new Map(); const themeRelations = []; const preferences = []; const seenRelations = new Set();
+  const { errors, byId } = validateThemeDictionary(dictionary); const themes = new Map(); const themeRelations = []; const preferences = []; const minAges = []; const seenRelations = new Set();
   for (const game of games) {
+	minAges.push({ bggId: game.bggId, minAge: game.minAge ?? null });
     for (const theme of game.themes) { const mapped = byId.get(theme.bggThemeId); if (!mapped || mapped.nameEn !== theme.nameEn) { errors.push(`theme mismatch: ${theme.bggThemeId}`); continue; } themes.set(theme.bggThemeId, mapped); const key=`${game.bggId}:${theme.bggThemeId}`; if (seenRelations.has(key)) errors.push(`duplicate theme relation: ${key}`); seenRelations.add(key); themeRelations.push({ bggId: game.bggId, bggThemeId: theme.bggThemeId }); }
     try { preferences.push(...playerPreferences(game.polls, game.maxPlayers).map(value => ({ bggId: game.bggId, ...value }))); } catch (error) { errors.push(error.message); }
   }
   const rankedThemes = [...themes.entries()].sort(([left], [right]) => left - right).map(([id, theme]) => ({ ...theme, bggThemeId: id, code: stableThemeCode(theme.nameEn, id) }));
   const ranks = new Map(rankRows.map(row => [Number(row.id), row]));
-  return { errors, artifact: { themes: rankedThemes, categoryRelations: games.flatMap(game => categoryCodesFromRanks(ranks.get(game.bggId) ?? {}).map(category => ({ bggId: game.bggId, category }))), themeRelations, preferences } };
+  return { errors, artifact: { themes: rankedThemes, categoryRelations: games.flatMap(game => categoryCodesFromRanks(ranks.get(game.bggId) ?? {}).map(category => ({ bggId: game.bggId, category }))), themeRelations, preferences, minAges } };
 }
 
 export function sha256(value) { return crypto.createHash('sha256').update(value).digest('hex'); }

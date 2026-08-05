@@ -55,6 +55,8 @@ class GameMetadataHttpIntegrationTest {
 		GameTheme fantasy = themeRepository.saveAndFlush(new GameTheme(1L, "FANTASY", "판타지", "Fantasy"));
 		GameTheme war = themeRepository.saveAndFlush(new GameTheme(2L, "WAR", "전쟁", "War"));
 		Game both = saveGame(420001L, "Metadata both");
+		ReflectionTestUtils.setField(both, "tag", "legacy display tag");
+		gameRepository.saveAndFlush(both);
 		Game one = saveGame(420002L, "Metadata one");
 		Game paged = saveGame(420003L, "Metadata paged");
 		categoryRelationRepository.saveAndFlush(new GameCategoryRelation(both, strategy));
@@ -93,6 +95,7 @@ class GameMetadataHttpIntegrationTest {
 			.andExpect(jsonPath("$.data.content[0].id").value(paged.getId()));
 		mockMvc.perform(get("/api/games/{id}", both.getId()))
 			.andExpect(status().isOk()).andExpect(jsonPath("$.data.categories[0].code").value("STRATEGY"))
+			.andExpect(jsonPath("$.data.tag").value("legacy display tag"))
 			.andExpect(jsonPath("$.data.categories[0].nameEn").value("Strategy"))
 			.andExpect(jsonPath("$.data.themes[0].code").value("WAR"))
 			.andExpect(jsonPath("$.data.themes[0].nameEn").value("War"))

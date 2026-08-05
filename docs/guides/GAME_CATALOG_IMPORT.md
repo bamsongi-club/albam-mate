@@ -61,7 +61,7 @@ node scripts/game-catalog/prepare-game-catalog.mjs \
 
 `upsert-games.sql`은 기존 내부 `id`와 `created_at`을 유지하며, 새 입력에서 빠진 기존 게임을 삭제하지 않는다.
 `upsert-game-mechanisms.sql`은 게임 내부 ID를 해석해야 하므로 반드시 `upsert-games.sql` 다음에 실행한다. 승인 관계의 게임이나 메커니즘을 해석하지 못하면 전체 트랜잭션을 롤백한다.
-`upsert-game-metadata.sql`도 반드시 `upsert-games.sql` 다음에 실행한다. 승인 category/theme 관계의 게임이나 테마를 해석하지 못하면 category·theme·인원 선호 적재 전체를 롤백한다. 새 snapshot에 없다는 이유로 GAMES 행을 삭제하지 않는다. `quality-report.json`의 `testOnly`가 `true`인 산출물은 이 운영 경로로 실행하지 않는다.
+`upsert-game-metadata.sql`도 반드시 `upsert-games.sql` 다음에 실행한다. 승인 category/theme 관계의 게임이나 테마를 해석하지 못하면 category·theme·인원 선호·최소 연령 적재 전체를 롤백한다. BGG XML의 `minage`는 양의 PostgreSQL `INTEGER`만 저장하며 누락·`0`은 `NULL`로 재적재한다. 새 snapshot에 없다는 이유로 GAMES 행을 삭제하지 않는다. `quality-report.json`의 `testOnly`가 `true`인 산출물은 이 운영 경로로 실행하지 않는다.
 
 ## 4. PostgreSQL 적재
 
@@ -148,6 +148,8 @@ metadata 품질 게이트는 아래를 모두 만족해야 한다.
 - CSV의 실제 `<subdomain>_rank` 열(예: `strategygames_rank`)의 양수 값만 고정 8개 category relation으로 만들며, 8개 source 열의 누락·0·음수 rank를 추정하지 않는다.
 - 모든 공개 theme에 BGG ID·영문명·안정 code·검수 한글명이 있고, theme와 relation 중복이 없다. theme code는 영문명을 ASCII UPPER_SNAKE_CASE로 정규화한 `<BASE>_BGG_<bggThemeId>`라서 snapshot 순서와 증분 적재에 따라 바뀌지 않는다.
 - suggested_numplayers의 recommended/best 판정, N+ 확장, 동률·poll 누락·잘못된 label 처리가 승인된 규칙과 일치한다.
+- BGG XML `minage`의 양의 `INTEGER`만 사용하고, 누락·`0`은 `NULL`이며 음수·비정수·PostgreSQL `INTEGER` 범위 밖 값은 품질 게이트에서 차단한다.
+- quality report는 최소 연령의 채움·누락 건수와 입력·snapshot·산출물 checksum을 함께 기록한다.
 - manifest의 입력·snapshot·한글 사전·산출물 checksum과 행 수가 quality report에 다시 기록된다.
 
 어느 게이트라도 실패하거나 manifest가 승인되지 않으면 quality report만 생성하고 service JSON·UPSERT SQL을 만들지 않는다.

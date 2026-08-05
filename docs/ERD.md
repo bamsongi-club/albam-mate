@@ -77,6 +77,8 @@ erDiagram
         INT min_play_time_minutes
         INT max_play_time_minutes
         DECIMAL complexity
+        INT release_year
+        INT min_age
         TEXT description
         TEXT detail_description
         TIMESTAMPTZ created_at
@@ -286,6 +288,7 @@ P1 소셜 제공자·대기 상태와 알림의 제한 값은 PostgreSQL 네이�
 | max_play_time_minutes | INTEGER | NULL | 검색용 플레이 시간 최대값(분). 최소값과 함께 `NULL`이거나 양의 정수이며 최소값 이상 |
 | complexity | DECIMAL(3,2) | NULL, 1.00~5.00 | BGG 복잡도. 입력 `0.00`은 평가 없음으로 `NULL` 정규화 |
 | release_year | INTEGER | NULL | BGG 기준 CSV의 `yearpublished`. 미상 값은 `NULL` |
+| min_age | INTEGER | NULL | BGG thing XML의 `minage`. 누락 또는 `0`은 `NULL` |
 | description | TEXT | NN | 게임 상세 화면에 표시하는 간단 설명 |
 | detail_description | TEXT | NN | 게임 상세 설명 |
 | created_at | TIMESTAMPTZ | NN | 등록 시각 |

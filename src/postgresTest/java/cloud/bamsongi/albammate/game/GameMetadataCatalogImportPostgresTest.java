@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.game;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -45,9 +46,15 @@ class GameMetadataCatalogImportPostgresTest {
 		assertTrue(script.contains("albam_mate.allow_test_only_metadata_import"));
 		assertTrue(
 			Files.readString(sql.getParent().resolve("service-game-metadata.json")).contains("\"testOnly\":true"));
+		String qualityReport = Files.readString(sql.getParent().resolve("quality-report.json"));
+		assertTrue(qualityReport.contains("\"minAge\": {\n    \"filled\": 1,\n    \"missing\": 1\n  }"));
 		seed(100L);
+		seed(101L);
+		jdbc.update("update games set min_age=99 where bgg_id=101");
 		assertThrows(Exception.class, () -> execute(sql));
 		executeTestOnly(sql);
+		assertEquals(7, jdbc.queryForObject("select min_age from games where bgg_id=100", Integer.class));
+		assertNull(jdbc.queryForObject("select min_age from games where bgg_id=101", Integer.class));
 		int approvedCategories = count("game_category_relations");
 		assertEquals(2, approvedCategories);
 		assertCounts(approvedCategories, 1, 1);
@@ -95,22 +102,22 @@ class GameMetadataCatalogImportPostgresTest {
 		Path raw = Files.createDirectories(temp.resolve("raw"));
 		Path xml = raw.resolve("batch.xml");
 		write(xml,
-			"<items><item id=\"100\"><maxplayers value=\"4\"/><link type=\"boardgamecategory\" id=\"10\" value=\"Fantasy\"/><poll name=\"suggested_numplayers\"><results numplayers=\"4\"><result value=\"Best\" numvotes=\"3\"/><result value=\"Recommended\" numvotes=\"1\"/><result value=\"Not Recommended\" numvotes=\"0\"/></results></poll></item></items>");
+			"<items><item id=\"100\"><minage value=\"7\"/><maxplayers value=\"4\"/><link type=\"boardgamecategory\" id=\"10\" value=\"Fantasy\"/><poll name=\"suggested_numplayers\"><results numplayers=\"4\"><result value=\"Best\" numvotes=\"3\"/><result value=\"Recommended\" numvotes=\"1\"/><result value=\"Not Recommended\" numvotes=\"0\"/></results></poll></item><item id=\"101\"><maxplayers value=\"4\"/></item></items>");
 		Path xmlManifest = temp.resolve("xml-manifest.json");
 		write(xmlManifest,
-			"{\"files\":[{\"file\":\"batch.xml\",\"requestIds\":[100],\"responseIds\":[100],\"httpStatus\":200,\"bytes\":"
+			"{\"files\":[{\"file\":\"batch.xml\",\"requestIds\":[100,101],\"responseIds\":[100,101],\"httpStatus\":200,\"bytes\":"
 				+ Files.size(xml) + ",\"sha256\":\"" + sha(xml) + "\",\"acquiredAt\":\"2026-08-05T00:00:00Z\"}]}");
 		Path games = temp.resolve("games.json");
-		write(games, "[{\"bgg_id\":100}]");
+		write(games, "[{\"bgg_id\":100},{\"bgg_id\":101}]");
 		Path ranks = temp.resolve("ranks.csv");
 		write(ranks,
-			"id,name,yearpublished,rank,bayesaverage,average,usersrated,is_expansion,abstracts_rank,cgs_rank,childrensgames_rank,familygames_rank,partygames_rank,strategygames_rank,thematic_rank,wargames_rank\n100,x,2020,1,1,1,1,0,0,0,0,1,0,1,0,0\n");
+			"id,name,yearpublished,rank,bayesaverage,average,usersrated,is_expansion,abstracts_rank,cgs_rank,childrensgames_rank,familygames_rank,partygames_rank,strategygames_rank,thematic_rank,wargames_rank\n100,x,2020,1,1,1,1,0,0,0,0,1,0,1,0,0\n101,y,2020,1,1,1,1,0,0,0,0,0,0,0,0,0\n");
 		Path dictionary = temp.resolve("themes.json");
 		write(dictionary, "{\"entries\":[{\"bggThemeId\":10,\"nameEn\":\"Fantasy\",\"nameKo\":\"판타지\"}]}");
 		Path manifest = temp.resolve("metadata-input-manifest.json");
 		write(manifest,
 			"{\"schemaVersion\":1,\"approved\":true,\"testOnly\":true,\"games\":{\"path\":\"" + games
-				+ "\",\"sha256\":\"" + sha(games) + "\",\"rows\":1},\"ranks\":{\"path\":\"" + ranks + "\",\"sha256\":\""
+				+ "\",\"sha256\":\"" + sha(games) + "\",\"rows\":2},\"ranks\":{\"path\":\"" + ranks + "\",\"sha256\":\""
 				+ sha(ranks) + "\"},\"xmlSnapshot\":{\"rawDirectory\":\"" + raw + "\",\"manifestPath\":\"" + xmlManifest
 				+ "\",\"manifestSha256\":\"" + sha(xmlManifest) + "\"},\"themeDictionary\":{\"path\":\"" + dictionary
 				+ "\",\"sha256\":\"" + sha(dictionary)
