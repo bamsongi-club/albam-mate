@@ -17,4 +17,7 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
 
 	Optional<ChatMessage> findByChatRoomIdAndSenderUserIdAndClientMessageId(
 		Long chatRoomId, Long senderUserId, String clientMessageId);
+
+	/** CHAT-03 실시간 catch-up이 연결별 마지막 전달 ID 이후의 누락 메시지를 오름차순으로 복구할 때 사용한다. */
+	List<ChatMessage> findByChatRoomIdAndIdGreaterThanOrderByIdAsc(Long chatRoomId, Long afterMessageId);
 }
