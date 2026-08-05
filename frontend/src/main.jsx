@@ -604,8 +604,10 @@ function GameCard({ game, played, pending, onTogglePlayed }) {
     <div className="gcard-shell">
       <a className="gcard" href={'#/game/' + game.id}>
         <div className="gart">{game.imageUrl ? <img src={game.imageUrl} alt="" loading="lazy" /> : '🎲'}</div>
-        <div className="gtitle">{game.title}</div>
-        <div className="gen">{game.englishName}</div>
+        <div className="gtitle">
+          <span className="gname">{game.title}</span>
+          {game.englishName && <span className="gen">{game.englishName}</span>}
+        </div>
         <div className="gmeta">{gameMeta(game)}</div>
         {/* 태그가 없는 게임도 같은 자리를 비워 둬야 카드 높이가 서로 어긋나지 않는다. */}
         <div className="gtags">{game.tag && <span className="chip">{game.tag}</span>}</div>
