@@ -29,15 +29,14 @@
 
 ## 검증
 
-- 구현자의 T-ID별 Red 보고, 최종 Green과 manifest를 확인한다. manifest는 저장소 밖 임시 파일로 만들고 `node scripts/validate-backend-test-manifest.mjs --packet <packet.json> --manifest <manifest.json> --worktree <worktree>`를 통과시킨다.
+- 구현자의 T-ID별 Red 보고, 최종 Green과 manifest를 확인한다. manifest는 저장소 밖 임시 파일로 만들고 `node scripts/validate-backend-test-manifest.mjs --packet <packet.json> --manifest <manifest.json> --worktree <worktree>`를 통과시킨다. 이 검사는 manifest와 함께 실제 변경 경로가 packet의 소유 경계와 항상 read-only 목록 안인지 감사하므로 범위 밖 변경을 따로 눈으로 확인하지 않는다.
 - 구현자가 성공시킨 targeted 테스트를 메인 에이전트가 반복하지 않는다. `git diff --check`와 커밋 훅의 `conventionCheck`를 추가 게이트로 사용하고 전체 회귀는 GitHub CI에 맡긴다. 훅이 성공한 검사는 반복하지 않는다.
 - 직접 테스트 부재, 대상 테스트 실패, 정본 충돌, 범위 확대 또는 고위험 변경이 드러나면 `SKILL.md`로 돌아가 `full-delivery`로 재분류한다.
 
 ## 커버리지 래칫 예외
 
 - 구현 중 새 생산 패키지 또는 `gatedBranchCoverage`에 없는 변경 패키지가 확인되면 사용자 결정을 기다리지 않는다. packet에 `build.gradle` 조건부 허용 경로와 coverage 완료 기준을 추가해 다시 검증하고, 같은 구현자에게 필요한 map 변경만 후속 전달한다.
-- `build.gradle`이 바뀌면 메인 에이전트가 `git diff HEAD -- build.gradle`을 실행한다. diff가 `gatedBranchCoverage` 항목 추가 또는 기존 최소선 상향 hunk에만 있는지 직접 확인한다.
-- 다른 hunk, 최소선 하향·삭제, 전체 임계값, task, plugin 또는 dependency 변경이 있으면 `full-delivery`로 재분류한다.
+- `build.gradle`이 바뀌면 `node scripts/validate-coverage-ratchet.mjs`를 통과시킨다. 이 검사가 변경이 `gatedBranchCoverage` 항목 추가와 최소선 상향뿐인지 판정하며, 실패하면 `full-delivery`로 재분류한다.
 - 비래칫 생산 패키지가 있으면 `.\gradlew.bat jacocoTestReport verifyCoverageRuleTargets`를 성공시킨다. 이 명령은 전체 H2 test 1회와 커버리지 구조 검사를 포함하며 약 70초가 걸릴 수 있지만 Docker와 `postgresTest`는 요구하지 않는다. 분기 10개 미만이면 map을 바꾸지 않고, 10개 이상이면 H2 실측값을 0.01 단위로 내린 최소선만 추가한다. 이미 래칫된 패키지의 비율 회귀와 PostgreSQL 합산 coverage는 CI에 맡긴다.
 
 ## PR 테스트 항목 handoff
@@ -54,4 +53,5 @@ PR을 요청받으면 `pr-writer` 호출 전에 최신 실제 결과로 `.github
 
 - T-ID가 1개든 6개든 각각 한 줄씩 `단순 클래스명#메서드명 (task)`으로 쓰고, 같은 T-ID의 복수 evidence는 한 체크박스에서 `;`로 구분한다. 단순 클래스명이 충돌할 때만 package-qualified class명을 쓴다.
 - Green 명령은 task별 한 줄로 묶는다. 실행하지 않은 PostgreSQL·coverage와 Red 내용은 넣지 않고 실제 성공한 항목만 `[x]`로 표시한다.
-- 템플릿 heading과 순서를 바꾸지 않는다. 전달 종료 후 저장소 밖 packet과 manifest를 삭제한다.
+- 템플릿 heading과 순서를 바꾸지 않는다. 전달 종료 후 저장소 밖 packet과 manifest는 삭제하지 않고 Private Brain의 전달 아카이브로 옮긴다. 아카이브 경로와 파일 구조는 Private Brain 정본을 따르고 공개 파일에 적지 않는다.
+- 이관을 마치면 `archiveId`와 receipt의 packet·manifest SHA-256을 대화 보고에 남긴다. 이관이나 receipt를 확인하지 못하면 임시 파일을 삭제하지 않고 확인하지 못한 사실을 보고한다.

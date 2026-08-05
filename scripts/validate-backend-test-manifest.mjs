@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -17,6 +18,18 @@ const SOURCE_SET_PREFIXES = {
     postgresTest: 'src/postgresTest/java/',
 };
 const JAVA_IDENTIFIER = /^[$_\p{ID_Start}][$_\u200c\u200d\p{ID_Continue}]*$/u;
+
+// \uad6c\ud604\uc790\uac00 packet\uc758 allowedPaths\uc5d0 \uc788\uc5b4\ub3c4 \ubc14\uafc0 \uc218 \uc5c6\ub294 \uacbd\ub85c\ub2e4. \uc774 \uc0c1\uc218\uac00 \uc815\ubcf8\uc774\uba70
+// \uc5d0\uc774\uc804\ud2b8 \uc9c0\uc2dc\ubb38\uc740 \ubaa9\ub85d\uc744 \ub2e4\uc2dc \uc801\uc9c0 \uc54a\uace0 \uc774 \uac80\uc0ac\ub97c \uac00\ub9ac\ud0a8\ub2e4. \ud558\uc704 \ub514\ub809\ud130\ub9ac\uc758
+// AGENTS.md\u00b7CLAUDE.md\ub3c4 \uac19\uc740 \uaddc\uce59\uc774\ubbc0\ub85c \ud30c\uc77c\uba85 \ud328\ud134\uc73c\ub85c \ub454\ub2e4.
+export const ALWAYS_READ_ONLY_PATTERNS = [
+    '**/AGENTS.md',
+    '**/CLAUDE.md',
+    'docs/PRD.md',
+    'docs/P0-spec.md',
+    'docs/CONVENTIONS.md',
+    'docs/adr/**',
+];
 
 function addError(errors, instancePath, keyword, message) {
     errors.push({ instancePath, schemaPath: '#/relations', keyword, message });
@@ -62,6 +75,114 @@ function resolveWorktree(worktreePath) {
 function isInsideWorktree(worktree, candidate) {
     const relative = path.relative(worktree, candidate);
     return relative !== '' && relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+}
+
+// packet이 쓰는 경로 표기만 지원한다. 정확한 경로, `접두어/**`, `접두어/`와 `**/파일명`이며
+// 그 밖의 와일드카드는 조용히 통과시키지 않고 패턴 오류로 보고한다. 경계 판정이 불확실한
+// 패턴을 넘기면 감사가 통과로 보이기 때문이다.
+export function matchesPathPattern(pattern, filePath) {
+    if (pattern.startsWith('**/')) {
+        const name = pattern.slice(3);
+        return filePath === name || filePath.endsWith(`/${name}`);
+    }
+    if (pattern.endsWith('/**')) {
+        return filePath.startsWith(pattern.slice(0, -2));
+    }
+    if (pattern.endsWith('/')) {
+        return filePath.startsWith(pattern);
+    }
+    return filePath === pattern;
+}
+
+function isUnsupportedPattern(pattern) {
+    if (pattern.startsWith('**/')) return pattern.slice(3).includes('*');
+    if (pattern.endsWith('/**')) return pattern.slice(0, -3).includes('*');
+    return pattern.includes('*');
+}
+
+// worktree에서 HEAD 대비 변경된 경로와 추적되지 않은 새 파일을 모은다. 새 파일을 빠뜨리면
+// 경계를 벗어난 신규 파일이 감사를 그대로 통과한다.
+//
+// `--no-renames`가 필요하다. rename을 감지하면 git이 새 경로만 보고하므로, 항상 read-only인
+// 파일을 허용 경로로 옮기면 보호된 원본 경로가 감사에서 빠진다. rename을 삭제와 추가로
+// 나눠 받아 원본과 대상 경로를 모두 감사한다.
+// base를 주지 않으면 HEAD와 worktree를 비교한다. 커밋을 만든 뒤에는 그 diff가 비므로 고정한
+// Draft head를 검증할 때는 base를 함께 넘겨야 앞선 커밋의 범위 밖 변경까지 감사한다.
+// base를 주면 base와 worktree를 비교해 커밋된 변경과 미커밋 변경을 모두 담는다.
+export function changedPathsIn(worktree, base = null) {
+    const run = (args) =>
+        execFileSync('git', args, { cwd: worktree, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 })
+            .split('\0')
+            .filter(Boolean);
+    return [
+        ...new Set([
+            ...run(['diff', '--name-only', '--no-renames', '-z', base ?? 'HEAD']),
+            ...run(['ls-files', '--others', '--exclude-standard', '-z']),
+        ]),
+    ].sort();
+}
+
+// 구현자가 실제로 바꾼 경로가 packet이 고정한 소유 경계 안인지 판정한다. 지금까지 사람이
+// 눈으로 확인했던 범위 밖 변경 확인을 대체한다.
+export function auditChangedPaths(packet, changedPaths) {
+    const errors = [];
+    const allowed = Array.isArray(packet?.allowedPaths) ? packet.allowedPaths : [];
+    const forbidden = Array.isArray(packet?.forbiddenPaths) ? packet.forbiddenPaths : [];
+
+    for (const [key, patterns] of [
+        ['allowedPaths', allowed],
+        ['forbiddenPaths', forbidden],
+    ]) {
+        patterns.forEach((pattern, index) => {
+            if (typeof pattern === 'string' && isUnsupportedPattern(pattern)) {
+                addError(
+                    errors,
+                    `$packet.${key}[${index}]`,
+                    'pathPattern',
+                    `지원하지 않는 경로 패턴입니다. 정확한 경로, '접두어/**', '접두어/' 또는 '**/파일명'만 씁니다: ${pattern}`,
+                );
+            }
+        });
+    }
+    if (errors.length > 0) {
+        return errors;
+    }
+
+    for (const changed of changedPaths) {
+        const readOnlyPattern = ALWAYS_READ_ONLY_PATTERNS.find((pattern) =>
+            matchesPathPattern(pattern, changed),
+        );
+        if (readOnlyPattern) {
+            addError(
+                errors,
+                `$changedPaths['${changed}']`,
+                'alwaysReadOnly',
+                `항상 read-only인 경로를 변경했습니다 (${readOnlyPattern}).`,
+            );
+            continue;
+        }
+
+        const forbiddenPattern = forbidden.find((pattern) => matchesPathPattern(pattern, changed));
+        if (forbiddenPattern) {
+            addError(
+                errors,
+                `$changedPaths['${changed}']`,
+                'forbiddenPath',
+                `forbiddenPaths에 해당하는 경로를 변경했습니다 (${forbiddenPattern}).`,
+            );
+            continue;
+        }
+
+        if (!allowed.some((pattern) => matchesPathPattern(pattern, changed))) {
+            addError(
+                errors,
+                `$changedPaths['${changed}']`,
+                'allowedPath',
+                'allowedPaths 밖의 경로를 변경했습니다.',
+            );
+        }
+    }
+    return errors;
 }
 
 function isExactSelector(selector, source) {
@@ -236,17 +357,33 @@ function validateManifestRelations(packet, manifest, worktree) {
     return errors;
 }
 
-export function validateBackendTestManifest(packet, manifest, worktreePath, packetSchema, manifestSchema) {
+// changedPaths가 null이면 경로 감사를 건너뛴다. CLI는 항상 실제 변경 경로를 넘기므로
+// 전달 게이트에서는 감사가 생략되지 않는다.
+export function validateBackendTestManifest(
+    packet,
+    manifest,
+    worktreePath,
+    packetSchema,
+    manifestSchema,
+    changedPaths = null,
+) {
     const worktree = resolveWorktree(worktreePath);
     const packetErrors = prefixErrors(validatePacket(packet, packetSchema), '$packet');
     const manifestErrors = prefixErrors(validateAgainstSchema(manifestSchema, manifest), '$manifest');
-    return [...packetErrors, ...manifestErrors, ...validateManifestRelations(packet, manifest, worktree)];
+    const pathErrors = changedPaths === null ? [] : auditChangedPaths(packet, changedPaths);
+    return [
+        ...packetErrors,
+        ...manifestErrors,
+        ...validateManifestRelations(packet, manifest, worktree),
+        ...pathErrors,
+    ];
 }
 
 export function validateBackendTestManifestFiles({
     packetPath,
     manifestPath,
     worktreePath,
+    base = null,
     packetSchemaPath = DEFAULT_PACKET_SCHEMA_PATH,
     manifestSchemaPath = DEFAULT_MANIFEST_SCHEMA_PATH,
 }) {
@@ -258,7 +395,15 @@ export function validateBackendTestManifestFiles({
     const manifest = readJson(resolvedManifestPath, 'manifest');
     const packetSchema = readJson(resolvedPacketSchemaPath, '패킷 스키마');
     const manifestSchema = readJson(resolvedManifestSchemaPath, 'manifest 스키마');
-    const errors = validateBackendTestManifest(packet, manifest, worktreePath, packetSchema, manifestSchema);
+    const changedPaths = changedPathsIn(path.resolve(worktreePath), base);
+    const errors = validateBackendTestManifest(
+        packet,
+        manifest,
+        worktreePath,
+        packetSchema,
+        manifestSchema,
+        changedPaths,
+    );
 
     return {
         packet,
@@ -266,13 +411,14 @@ export function validateBackendTestManifestFiles({
         packetPath: resolvedPacketPath,
         manifestPath: resolvedManifestPath,
         worktreePath: path.resolve(worktreePath),
+        changedPaths,
         errors,
     };
 }
 
 function parseArguments(argv) {
     const values = {};
-    const allowed = new Set(['--packet', '--manifest', '--worktree']);
+    const allowed = new Set(['--packet', '--manifest', '--worktree', '--base']);
     for (let index = 0; index < argv.length; index += 2) {
         const option = argv[index];
         const value = argv[index + 1];
@@ -288,7 +434,7 @@ function runCli() {
     const args = parseArguments(process.argv.slice(2));
     if (!args) {
         console.error(
-            '사용법: node scripts/validate-backend-test-manifest.mjs --packet <packet.json> --manifest <manifest.json> --worktree <worktree>',
+            '사용법: node scripts/validate-backend-test-manifest.mjs --packet <packet.json> --manifest <manifest.json> --worktree <worktree> [--base <ref>]',
         );
         process.exitCode = 2;
         return;
@@ -299,6 +445,7 @@ function runCli() {
             packetPath: args.packet,
             manifestPath: args.manifest,
             worktreePath: args.worktree,
+            base: args.base ?? null,
         });
         if (result.errors.length > 0) {
             console.error(`backend test manifest 검증 실패: ${result.manifestPath}`);
@@ -310,7 +457,7 @@ function runCli() {
         }
 
         console.log(
-            `backend test manifest 검증 통과: ${result.manifestPath} (T-ID ${result.manifest.tests.length}개)`,
+            `backend test manifest 검증 통과: ${result.manifestPath} (T-ID ${result.manifest.tests.length}개, 감사한 변경 경로 ${result.changedPaths.length}개)`,
         );
     } catch (error) {
         console.error(`backend test manifest 검증 실패: ${error.message}`);
