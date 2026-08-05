@@ -5,9 +5,33 @@ import { ApiError, api } from './api';
 import { App, ChatRoomView, MyRoomsSection, SessionDetailView } from './main';
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   cleanup();
 });
+
+class FakeWebSocket {
+  static instances = [];
+
+  constructor(url) {
+    this.url = url;
+    this.close = vi.fn(() => this.onclose?.({ code: 1000 }));
+    FakeWebSocket.instances.push(this);
+  }
+
+  open() {
+    this.onopen?.();
+  }
+
+  message(payload) {
+    this.onmessage?.({ data: JSON.stringify(payload) });
+  }
+
+  drop() {
+    this.onclose?.({ code: 1006 });
+  }
+}
 
 function myRoom(overrides) {
   return {
@@ -185,6 +209,90 @@ describe('#427 T5 채팅 화면 이력 표시', () => {
     expect(container.querySelectorAll('[data-message-owner="theirs"]')).toHaveLength(1);
     expect(screen.getByText('나')).toBeTruthy();
     expect(screen.getByText('동명이인 상대')).toBeTruthy();
+  });
+});
+
+describe('#431 CHAT-03 실시간 수신·재연결', () => {
+  function useFakeWebSocket() {
+    FakeWebSocket.instances = [];
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+    return FakeWebSocket.instances;
+  }
+
+  it('채팅 화면이 확정 이벤트를 실시간으로 한 번 표시한다', async () => {
+    const sockets = useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [{ messageId: 10, roomId: 7, sender: { nickname: '주최자' }, isMine: false, content: '기존 메시지', createdAt: '2026-09-01T19:00:00+09:00' }],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(sockets).toHaveLength(1));
+    expect(sockets[0].url).toContain('/api/rooms/7/chat/ws?afterMessageId=10');
+    sockets[0].open();
+    sockets[0].message({
+      eventId: 11,
+      type: 'MESSAGE_CREATED',
+      message: { messageId: 11, roomId: 7, sender: { nickname: '참가자' }, isMine: false, content: '방금 도착한 메시지', createdAt: '2026-09-01T19:01:00+09:00' }
+    });
+
+    await waitFor(() => expect(screen.getByText('방금 도착한 메시지')).toBeTruthy());
+    expect(screen.getByRole('status').textContent).toContain('실시간 연결됨');
+  });
+
+  it('HTTP 저장 응답과 같은 WebSocket 이벤트는 메시지 하나로 합친다', async () => {
+    const sockets = useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({ messages: [], nextBeforeMessageId: null, hasNext: false });
+    vi.spyOn(api, 'sendChatMessage').mockResolvedValue({
+      messageId: 12,
+      roomId: 7,
+      sender: { nickname: '테스터' },
+      isMine: true,
+      content: '중복 없는 메시지',
+      createdAt: '2026-09-01T19:02:00+09:00'
+    });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(sockets).toHaveLength(1));
+    sockets[0].open();
+    fireEvent.change(await screen.findByLabelText('메시지'), { target: { value: '중복 없는 메시지' } });
+    fireEvent.click(screen.getByRole('button', { name: '전송' }));
+    await waitFor(() => expect(screen.getByText('중복 없는 메시지')).toBeTruthy());
+    sockets[0].message({
+      eventId: 12,
+      type: 'MESSAGE_CREATED',
+      message: { messageId: 12, roomId: 7, sender: { nickname: '테스터' }, isMine: true, content: '중복 없는 메시지', createdAt: '2026-09-01T19:02:00+09:00' }
+    });
+
+    await waitFor(() => expect(screen.getAllByText('중복 없는 메시지')).toHaveLength(1));
+  });
+
+  it('연결이 끊기면 마지막 이벤트 ID로 재연결한다', async () => {
+    vi.useFakeTimers();
+    const sockets = useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [{ messageId: 20, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '마지막 이력', createdAt: '2026-09-01T19:00:00+09:00' }],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(sockets).toHaveLength(1);
+    sockets[0].open();
+    sockets[0].drop();
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+      await Promise.resolve();
+    });
+
+    expect(sockets).toHaveLength(2);
+    expect(sockets[1].url).toContain('/api/rooms/7/chat/ws?afterMessageId=20');
+    vi.useRealTimers();
   });
 });
 

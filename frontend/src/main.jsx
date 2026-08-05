@@ -1896,6 +1896,15 @@ function chatAccessError(error) {
   return message ? new ApiError({ status: error.status, code: error.code, message }) : error;
 }
 
+const CHAT_RECONNECT_LIMIT = 5;
+const CHAT_RECONNECT_DELAYS = [500, 1000, 2000, 4000, 8000];
+
+function chatStreamMessage(payload, roomId) {
+  if (!payload || payload.type !== 'MESSAGE_CREATED' || !payload.message) return null;
+  if (String(payload.message.roomId) !== String(roomId) || payload.message.messageId === undefined) return null;
+  return payload.message;
+}
+
 export function ChatRoomView({ roomId, dataVersion, me }) {
   const { data, loading, error } = useRequest(
     (signal) => api.getChatMessages(roomId, signal).catch((cause) => { throw chatAccessError(cause); }),
@@ -1919,6 +1928,9 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
   const [clientMessageContent, setClientMessageContent] = useState(null);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
+  const [streamStatus, setStreamStatus] = useState('connecting');
+  const [streamError, setStreamError] = useState('');
+  const lastEventIdRef = useRef(null);
 
   useEffect(() => {
     setMessagesRoomId(roomId);
@@ -1936,6 +1948,11 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
   useEffect(() => {
     if (!data) return;
     setMessagesRoomId(roomId);
+    const latestMessageId = (data.messages || []).reduce(
+      (latest, message) => Math.max(latest, Number(message.messageId) || 0),
+      0
+    );
+    if (latestMessageId > 0) lastEventIdRef.current = latestMessageId;
     setMessages((current) => {
       const byId = new Map(current.map((message) => [String(message.messageId), message]));
       (data.messages || []).forEach((message) => byId.set(String(message.messageId), message));
@@ -1944,6 +1961,68 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     setNextBeforeMessageId(data.nextBeforeMessageId ?? null);
     setHasNext(Boolean(data.hasNext));
   }, [data]);
+
+  useEffect(() => {
+    if (!data || error) return undefined;
+    let active = true;
+    let socket;
+    let reconnectTimer;
+    let reconnectAttempts = 0;
+
+    const connect = () => {
+      if (!active) return;
+      setStreamStatus(reconnectAttempts === 0 ? 'connecting' : 'reconnecting');
+      try {
+        socket = api.openChatWebSocket(roomId, { afterMessageId: lastEventIdRef.current });
+      } catch (cause) {
+        if (!active) return;
+        setStreamStatus('closed');
+        setStreamError(messageForError(cause, '실시간 채팅을 연결하지 못했어요.'));
+        return;
+      }
+      socket.onopen = () => {
+        if (!active) return;
+        setStreamStatus('connected');
+        setStreamError('');
+      };
+      socket.onmessage = (event) => {
+        if (!active) return;
+        try {
+          const payload = JSON.parse(event.data);
+          const message = chatStreamMessage(payload, roomId);
+          if (!message) return;
+          const eventId = Number(payload.eventId || message.messageId);
+          if (eventId > 0) lastEventIdRef.current = Math.max(lastEventIdRef.current || 0, eventId);
+          mergeMessages([message]);
+        } catch {
+          setStreamError('실시간 메시지 형식을 확인하지 못했어요.');
+        }
+      };
+      socket.onerror = () => {
+        if (active) setStreamError('실시간 연결이 불안정해요. 다시 연결하는 중…');
+      };
+      socket.onclose = () => {
+        if (!active) return;
+        if (reconnectAttempts >= CHAT_RECONNECT_LIMIT) {
+          setStreamStatus('closed');
+          setStreamError('실시간 연결을 복구하지 못했어요. 새로고침 후 다시 시도해주세요.');
+          return;
+        }
+        setStreamStatus('reconnecting');
+        setStreamError('실시간 연결이 끊겨 다시 연결하는 중…');
+        const delay = CHAT_RECONNECT_DELAYS[reconnectAttempts] || CHAT_RECONNECT_DELAYS.at(-1);
+        reconnectAttempts += 1;
+        reconnectTimer = setTimeout(connect, delay);
+      };
+    };
+
+    connect();
+    return () => {
+      active = false;
+      clearTimeout(reconnectTimer);
+      socket?.close();
+    };
+  }, [data, error, roomId]);
 
   const mergeMessages = (incoming) => {
     setMessages((current) => {
@@ -2016,6 +2095,10 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
         <a className="btn ghost" href={'#/session/' + roomId}>모임 상세</a>
         <a className="btn ghost" href="#/my">내 모임</a>
       </div>
+      {!error && data && streamStatus !== 'connected' && (
+        <p className="hint warn" role="status">{streamError || (streamStatus === 'connecting' ? '실시간 채팅에 연결하는 중…' : '실시간 연결을 복구하는 중…')}</p>
+      )}
+      {!error && data && streamStatus === 'connected' && <p className="hint" role="status">실시간 연결됨</p>}
       {error && <ErrorBox message={error} />}
       {!error && loading && !data && <LoadingBox label="채팅을 불러오는 중…" />}
       {!error && hasNext && <button className="btn ghost chat-load-more" disabled={loadingMore} type="button" onClick={loadPreviousMessages}>{loadingMore ? '불러오는 중…' : '이전 메시지 불러오기'}</button>}
