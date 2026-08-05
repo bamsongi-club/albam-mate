@@ -35,6 +35,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import cloud.bamsongi.albammate.chat.contract.ChatMessageRateLimiter;
 import cloud.bamsongi.albammate.chat.contract.ChatRealtimePublisher;
 import cloud.bamsongi.albammate.chat.contract.MessageCommitted;
 import cloud.bamsongi.albammate.chat.dto.ChatMessageSendRequest;
@@ -42,7 +43,6 @@ import cloud.bamsongi.albammate.chat.entity.ChatRoom;
 import cloud.bamsongi.albammate.chat.repository.ChatMessageRepository;
 import cloud.bamsongi.albammate.chat.repository.ChatRoomRepository;
 import cloud.bamsongi.albammate.chat.service.ChatMessageCommandService;
-import cloud.bamsongi.albammate.chat.service.ChatMessageRateLimiter;
 import cloud.bamsongi.albammate.chat.service.ChatMessageSendResult;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -206,10 +206,12 @@ class ChatMessageRateLimitPostgresTest {
 
 		send(hostUserId, room.getId(), "replay", "첫 본문");
 		send(hostUserId, room.getId(), "replay", "첫 본문");
+		assertEquals("1", redis().opsForValue().get(roomKey(room.getId())));
 		for (int index = 2; index <= 5; index++) {
 			send(hostUserId, room.getId(), "new-" + index);
 		}
 
+		assertEquals("5", redis().opsForValue().get(roomKey(room.getId())));
 		assertRateLimited(() -> send(hostUserId, room.getId(), "new-6"));
 		assertEquals(5, chatMessageRepository.count());
 		assertEquals(5, realtimePublisher.events().size());

@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import cloud.bamsongi.albammate.chat.contract.ChatMessageRateLimiter;
 import cloud.bamsongi.albammate.chat.contract.MessageCommitted;
 import cloud.bamsongi.albammate.chat.dto.ChatMessageResponse;
 import cloud.bamsongi.albammate.chat.dto.ChatMessageSendRequest;
