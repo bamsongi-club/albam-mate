@@ -7,7 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Timestamp;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -369,6 +371,12 @@ class ChatMessageRateLimitPostgresTest {
 		@Primary
 		RecordingChatRealtimePublisher recordingChatRealtimePublisher() {
 			return new RecordingChatRealtimePublisher();
+		}
+
+		@Bean
+		@Primary
+		Clock fixedClock() {
+			return Clock.fixed(NOW, ZoneOffset.UTC);
 		}
 	}
 
