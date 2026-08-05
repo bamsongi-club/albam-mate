@@ -76,7 +76,6 @@
 ## 참고 자료
 
 - [Issue #420](https://github.com/bamsongi-club/albam-mate/issues/420)
-- [17만 게임 메타데이터와 상세 필터 설계](../../superpowers/specs/2026-08-05-game-metadata-filters-design.md)
 - [BGG XML API2](https://boardgamegeek.com/wiki/page/bgg_xml_api2)
 - [ADR-0019](0019-bgg-full-catalog-staged-enrichment.md)
 - [ADR-0048](0048-full-reviewed-game-mechanism-catalog.md)
