@@ -1,5 +1,7 @@
 package cloud.bamsongi.albammate.room.controller;
 
+import java.io.IOException;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -10,11 +12,14 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import cloud.bamsongi.albammate.global.exception.BusinessException;
+import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.response.ApiResponse;
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserAccessor;
 import cloud.bamsongi.albammate.room.dto.MyRoomWaitlistResponse;
 import cloud.bamsongi.albammate.room.service.command.RoomWaitlistCommandService;
 import cloud.bamsongi.albammate.room.service.query.RoomWaitlistQueryService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.Positive;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +35,9 @@ public class RoomWaitlistController {
 	@NonNull private final CurrentUserAccessor currentUserAccessor;
 
 	@PostMapping(value = "/{roomId}/waitlist", produces = MediaType.APPLICATION_JSON_VALUE)
-	public ResponseEntity<ApiResponse<MyRoomWaitlistResponse>> register(@PathVariable @Positive long roomId) {
+	public ResponseEntity<ApiResponse<MyRoomWaitlistResponse>> register(
+		@PathVariable @Positive long roomId, HttpServletRequest request) throws IOException {
+		requireEmptyRequest(request);
 		long currentUserId = currentUserAccessor.requireCurrentUserId();
 		RoomWaitlistCommandService.RegistrationResult result = commandService.register(currentUserId, roomId);
 		HttpStatus status = result.created() ? HttpStatus.CREATED : HttpStatus.OK;
@@ -38,15 +45,28 @@ public class RoomWaitlistController {
 	}
 
 	@GetMapping(value = "/{roomId}/waitlist/me", produces = MediaType.APPLICATION_JSON_VALUE)
-	public ResponseEntity<ApiResponse<MyRoomWaitlistResponse>> findMyWaitlist(@PathVariable @Positive long roomId) {
+	public ResponseEntity<ApiResponse<MyRoomWaitlistResponse>> findMyWaitlist(
+		@PathVariable @Positive long roomId, HttpServletRequest request) throws IOException {
+		requireEmptyRequest(request);
 		return ResponseEntity.ok(ApiResponse.success(
 			HttpStatus.OK,
 			queryService.findMyWaitlist(currentUserAccessor.requireCurrentUserId(), roomId)));
 	}
 
 	@DeleteMapping(value = "/{roomId}/waitlist/me", produces = MediaType.APPLICATION_JSON_VALUE)
-	public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> cancel(@PathVariable @Positive long roomId) {
+	public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> cancel(
+		@PathVariable @Positive long roomId, HttpServletRequest request) throws IOException {
+		requireEmptyRequest(request);
 		commandService.cancel(currentUserAccessor.requireCurrentUserId(), roomId);
 		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK));
+	}
+
+	private static void requireEmptyRequest(HttpServletRequest request) throws IOException {
+		boolean hasContentType = request.getContentType() != null;
+		boolean hasRequestBody = request.getInputStream().read() != -1;
+
+		if (hasContentType || hasRequestBody) {
+			throw new BusinessException(ErrorCode.UNSUPPORTED_MEDIA_TYPE);
+		}
 	}
 }

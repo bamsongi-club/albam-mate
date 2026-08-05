@@ -33,6 +33,7 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal;
@@ -88,6 +89,23 @@ class RoomWaitlistApiIntegrationTest {
 
 	@Test
 	void T1_세_대기_endpoint는_인증_CSRF와_응답_미디어_계약을_지킨다() throws Exception {
+		assertUnsupportedMediaType(mockMvc.perform(
+			post(waitlistPath()).with(authenticationFor(waitingUserId)).with(csrf()).content("unexpected body")));
+		assertUnsupportedMediaType(mockMvc.perform(
+			post(waitlistPath()).with(authenticationFor(waitingUserId)).with(csrf())
+				.contentType(MediaType.TEXT_PLAIN)));
+
+		assertUnsupportedMediaType(
+			mockMvc.perform(get(waitlistMePath()).with(authenticationFor(waitingUserId)).content("unexpected body")));
+		assertUnsupportedMediaType(mockMvc.perform(
+			get(waitlistMePath()).with(authenticationFor(waitingUserId)).contentType(MediaType.TEXT_PLAIN)));
+
+		assertUnsupportedMediaType(mockMvc.perform(
+			delete(waitlistMePath()).with(authenticationFor(waitingUserId)).with(csrf()).content("unexpected body")));
+		assertUnsupportedMediaType(mockMvc.perform(
+			delete(waitlistMePath()).with(authenticationFor(waitingUserId)).with(csrf())
+				.contentType(MediaType.TEXT_PLAIN)));
+
 		mockMvc.perform(post(waitlistPath()).with(authenticationFor(waitingUserId)).with(csrf()))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.status").value(201))
@@ -296,6 +314,12 @@ class RoomWaitlistApiIntegrationTest {
 
 	private String waitlistPath() {
 		return "/api/rooms/" + roomId + "/waitlist";
+	}
+
+	private void assertUnsupportedMediaType(ResultActions resultActions) throws Exception {
+		resultActions.andExpect(status().isUnsupportedMediaType())
+			.andExpect(jsonPath("$.status").value(415))
+			.andExpect(jsonPath("$.code").value("UNSUPPORTED_MEDIA_TYPE"));
 	}
 
 	private void assertWaitlistRegistrationRejected(long userId, String errorCode) throws Exception {
