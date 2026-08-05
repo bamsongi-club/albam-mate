@@ -663,12 +663,16 @@ function usePaginatedRequest(loadPage, dependencies) {
 function usePlayedGames(onError) {
   const [played, setPlayed] = useState({});
   const [pending, setPending] = useState({});
+  // 활성 해 본 게임 필터(PLAYED_ONLY·EXCLUDE_PLAYED)가 표시·취소 뒤에도 목록·전체 건수와
+  // 일치하도록, 성공할 때마다 올려 목록 조회 쪽에서 재조회 신호로 쓸 수 있게 한다.
+  const [version, setVersion] = useState(0);
   const toggle = async (gameId, current) => {
     if (pending[gameId]) return;
     setPending((currentPending) => ({ ...currentPending, [gameId]: true }));
     try {
       const result = current ? await api.unmarkGamePlayed(gameId) : await api.markGamePlayed(gameId);
       setPlayed((currentPlayed) => ({ ...currentPlayed, [gameId]: result.playedByMe }));
+      setVersion((currentVersion) => currentVersion + 1);
     } catch (error) {
       onError?.(error, '해 본 게임 표시를 바꾸지 못했어요.');
     } finally {
@@ -679,7 +683,8 @@ function usePlayedGames(onError) {
   return {
     stateOf,
     isPending: (game) => Boolean(pending[game.id]),
-    toggle: (game) => toggle(game.id, stateOf(game))
+    toggle: (game) => toggle(game.id, stateOf(game)),
+    version
   };
 }
 
@@ -1261,11 +1266,14 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
   const keyword = gameQuery.trim();
   const parameters = gameFilterParameters(useAppliedGameFilters(filters));
   const filterKey = JSON.stringify(parameters);
+  const playedGames = usePlayedGames(onPlayedError);
+  // 해 본 게임 필터가 활성화된 동안에만 표시·취소 성공을 재조회 신호로 쓴다.
+  // 그 외에는 조회 결과가 playedByMe로 걸러지지 않으므로 다시 부를 필요가 없다.
+  const playedRefreshKey = filters.playedFilter ? playedGames.version : 0;
   const { data, loading, error, unauthenticated, setPage } = usePaginatedRequest(
     (page, signal) => api.getGames({ keyword, ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal),
-    [keyword, filterKey, dataVersion]
+    [keyword, filterKey, dataVersion, playedRefreshKey]
   );
-  const playedGames = usePlayedGames(onPlayedError);
   const games = (data?.content || []).map(normalizeGameSummary);
   useEffect(() => setInput(gameQuery), [gameQuery]);
   return (

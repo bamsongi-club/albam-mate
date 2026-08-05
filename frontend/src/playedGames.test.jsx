@@ -181,6 +181,42 @@ describe('T8 해 본 게임 검색 필터', () => {
     expect(playedFilterOption('해 본 게임만').checked).toBe(false);
     expect(playedFilterOption('전체').checked).toBe(false);
   });
+
+  it('해 본 게임만 필터 중 표시를 취소하면 목록을 다시 불러온다', async () => {
+    getGames.mockResolvedValue(gamePage({ ...GAME, playedByMe: true }));
+    unmarkGamePlayed.mockResolvedValue({ gameId: 7, playedByMe: false });
+    await renderGamesView();
+    openFilterPanel();
+    fireEvent.click(playedFilterOption('해 본 게임만'));
+    const callsBeforeToggle = getGames.mock.calls.length;
+
+    await act(async () => { fireEvent.click(playedToggle()); });
+
+    expect(getGames.mock.calls.length).toBeGreaterThan(callsBeforeToggle);
+  });
+
+  it('해 본 게임 제외 필터 중 표시하면 목록을 다시 불러온다', async () => {
+    getGames.mockResolvedValue(gamePage({ ...GAME, playedByMe: false }));
+    markGamePlayed.mockResolvedValue({ gameId: 7, playedByMe: true });
+    await renderGamesView();
+    openFilterPanel();
+    fireEvent.click(playedFilterOption('해 본 게임 제외'));
+    const callsBeforeToggle = getGames.mock.calls.length;
+
+    await act(async () => { fireEvent.click(playedToggle()); });
+
+    expect(getGames.mock.calls.length).toBeGreaterThan(callsBeforeToggle);
+  });
+
+  it('전체 상태에서는 표시·취소해도 목록을 다시 불러오지 않는다', async () => {
+    markGamePlayed.mockResolvedValue({ gameId: 7, playedByMe: true });
+    await renderGamesView();
+    const callsBeforeToggle = getGames.mock.calls.length;
+
+    await act(async () => { fireEvent.click(playedToggle()); });
+
+    expect(getGames.mock.calls.length).toBe(callsBeforeToggle);
+  });
 });
 
 describe('T9 비로그인 사용자의 해 본 게임 처리', () => {
