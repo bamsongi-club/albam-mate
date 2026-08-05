@@ -317,7 +317,7 @@ P1 필수 구현은 다음 여덟 가지 흐름을 처음부터 끝까지 연결
 - Redis Pub/Sub은 `eventType`, `roomId`, `messageId`만 담은 best-effort 신호다. 메시지 본문·사용자·세션 정보와 영속 제품 상태는 저장하지 않는다.
 - Redis Pub/Sub 또는 WebSocket 실패는 이미 커밋된 PostgreSQL 메시지를 롤백하거나 삭제하지 않는다. 신호 누락·중복·순서 역전은 다음 신호나 `afterMessageId` 재연결에서 `messageId ASC` PostgreSQL 조회로 복구한다.
 - 운영 Redis 제품, HA, TLS, 접근 제어, 비밀 주입과 비용은 후속 OPS에서 확정한다.
-- `local-multi` 세션 TTL 30분, JSON 직렬화 방식과 정확한 session·rate limit·chat event namespace는 #360에서 확정했다. 스케줄 잠금 이름·`lockAtMostFor`와 실행시간 경고 기준은 후속 구현 이슈에서 확정한다.
+- `local-multi` 세션 TTL 30분, JSON 직렬화 방식과 정확한 session·rate limit·chat event namespace는 #360에서 확정했다. `lockAtMostFor`와 실행시간 경고 기준은 후속 구현 이슈에서 확정한다.
 
 ### ROOM 상태와 행동 가능성
 

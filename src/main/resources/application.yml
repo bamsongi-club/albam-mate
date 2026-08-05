@@ -14,6 +14,11 @@ spring:
         jdbc:
           time_zone: UTC
 app:
+  room:
+    status-correction:
+      lock-name: room-status-correction
+      trigger-delay: 15m
+      trigger-jitter: 3m
   chat:
     retention:
       enabled: true

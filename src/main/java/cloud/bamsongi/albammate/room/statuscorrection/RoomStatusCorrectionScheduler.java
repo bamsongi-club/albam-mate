@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.global.scheduling.ScheduledTaskLock;
 import lombok.extern.slf4j.Slf4j;
 
 /** 요청이 없는 방도 같은 상태 보정 규칙으로 주기적으로 정리한다. */
@@ -24,13 +25,27 @@ public class RoomStatusCorrectionScheduler implements Trigger {
 	static final long SECOND_ATTEMPT_MAX_DELAY_MILLIS = 250;
 	static final long THIRD_ATTEMPT_MAX_DELAY_MILLIS = 500;
 
+	private final ScheduledTaskLock scheduledTaskLock;
 	private final RoomStatusCorrectionCoordinator coordinator;
+	private final RoomStatusCorrectionProgressStore progressStore;
+	private final RoomStatusCorrectionProperties properties;
 	private final Clock clock;
 
-	public RoomStatusCorrectionScheduler(
-		RoomStatusCorrectionCoordinator coordinator, Clock clock) {
+	RoomStatusCorrectionScheduler(
+		ScheduledTaskLock scheduledTaskLock,
+		RoomStatusCorrectionCoordinator coordinator,
+		RoomStatusCorrectionProgressStore progressStore,
+		RoomStatusCorrectionProperties properties,
+		Clock clock) {
+		this.scheduledTaskLock = Objects.requireNonNull(scheduledTaskLock, "scheduledTaskLock");
 		this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
+		this.progressStore = Objects.requireNonNull(progressStore, "progressStore");
+		this.properties = Objects.requireNonNull(properties, "properties");
 		this.clock = Objects.requireNonNull(clock, "clock");
+	}
+
+	long elapsedNanos() {
+		return System.nanoTime();
 	}
 
 	long nextJitterMillis(long maxInclusive) {
@@ -44,6 +59,18 @@ public class RoomStatusCorrectionScheduler implements Trigger {
 	/** 현재 시각을 한 번 얻어 due 방의 상태를 보정하고, 스케줄러 경로만 충돌 재시도에 지연을 둔다. */
 	public void correctDueRooms() {
 		Instant requestTime = Instant.now(clock);
+		ScheduledTaskLock.LockExecution lockExecution = scheduledTaskLock.tryExecute(
+			properties.getLockName(), properties.getLockAtMostFor(), () -> {
+				progressStore.claimExecution(requestTime);
+				correctDueRooms(requestTime);
+			});
+		if (!lockExecution.acquired()) {
+			log.debug("event=room_state_reconciliation_lock_skipped lockName={}", properties.getLockName());
+		}
+	}
+
+	private void correctDueRooms(Instant requestTime) {
+		long startedAtNanos = elapsedNanos();
 		try {
 			int changedCount = coordinator.correctDueRooms(requestTime, this::waitBeforeRetry);
 			if (changedCount > 0) {
@@ -59,6 +86,16 @@ public class RoomStatusCorrectionScheduler implements Trigger {
 		} catch (RuntimeException exception) {
 			log.warn("event=room_state_reconciliation_failed");
 			throw exception;
+		} finally {
+			warnIfExecutionSlow(elapsedNanos() - startedAtNanos);
+		}
+	}
+
+	private void warnIfExecutionSlow(long durationNanos) {
+		Duration duration = Duration.ofNanos(durationNanos);
+		if (duration.compareTo(properties.getExecutionWarningThreshold()) > 0) {
+			log.warn("event=room_status_correction_execution_slow durationMs={} thresholdMs={}",
+				duration.toMillis(), properties.getExecutionWarningThreshold().toMillis());
 		}
 	}
 
@@ -70,8 +107,8 @@ public class RoomStatusCorrectionScheduler implements Trigger {
 		if (anchor == null) {
 			anchor = triggerContext.getClock().instant();
 		}
-		long jitterMillis = nextJitterMillis(MAX_SCHEDULE_JITTER.toMillis());
-		return anchor.plus(BASE_DELAY).plusMillis(jitterMillis);
+		long jitterMillis = nextJitterMillis(properties.getTriggerJitter().toMillis());
+		return anchor.plus(properties.getTriggerDelay()).plusMillis(jitterMillis);
 	}
 
 	private void waitBeforeRetry(int nextAttempt) {
