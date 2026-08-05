@@ -5,11 +5,13 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -22,12 +24,15 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
+import cloud.bamsongi.albammate.chat.dto.ChatMessagePageResponse;
 import cloud.bamsongi.albammate.chat.dto.ChatMessageResponse;
 import cloud.bamsongi.albammate.chat.dto.ChatMessageSendRequest;
 import cloud.bamsongi.albammate.chat.dto.ChatMessageSender;
 import cloud.bamsongi.albammate.chat.service.ChatMessageCommandService;
+import cloud.bamsongi.albammate.chat.service.ChatMessageHistoryQueryService;
 import cloud.bamsongi.albammate.chat.service.ChatMessageSendResult;
 import cloud.bamsongi.albammate.global.config.SecurityConfig;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
@@ -55,6 +60,8 @@ class ChatMessageControllerTest {
 	private MockMvc mockMvc;
 	@Autowired
 	private ChatMessageCommandService chatMessageCommandService;
+	@Autowired
+	private ChatMessageHistoryQueryService chatMessageHistoryQueryService;
 
 	@Test
 	void 비로그인_POST는_UNAUTHENTICATED이고_명령을_호출하지_않는다() throws Exception {
@@ -146,6 +153,50 @@ class ChatMessageControllerTest {
 		assertErrorEnvelope(400L, ErrorCode.VALIDATION_ERROR);
 	}
 
+	@Test
+	void size_100_요청은_허용하고_101_요청은_VALIDATION_ERROR고_조회를_호출하지_않는다() throws Exception {
+		when(chatMessageHistoryQueryService.history(42L, 1L, null, 100))
+			.thenReturn(new ChatMessagePageResponse(List.of(), null, false));
+
+		mockMvc.perform(historyGet(1L).param("size", "100").with(authenticationFor(42L)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.hasNext").value(false))
+			.andExpect(jsonPath("$.data.nextBeforeMessageId").doesNotExist());
+
+		clearInvocations(chatMessageHistoryQueryService);
+		mockMvc.perform(historyGet(1L).param("size", "101").with(authenticationFor(42L)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+		verifyNoInteractions(chatMessageHistoryQueryService);
+	}
+
+	@Test
+	void 이력_조회_query_parameter_검증_실패는_VALIDATION_ERROR고_조회를_호출하지_않는다() throws Exception {
+		clearInvocations(chatMessageHistoryQueryService);
+
+		mockMvc.perform(historyGet(0L).with(authenticationFor(42L)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+		mockMvc.perform(historyGet(1L).param("beforeMessageId", "0").with(authenticationFor(42L)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+		mockMvc.perform(historyGet(1L).param("beforeMessageId", "not-a-number").with(authenticationFor(42L)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+		mockMvc.perform(historyGet(1L).param("size", "0").with(authenticationFor(42L)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+		mockMvc.perform(historyGet(1L).param("size", "not-a-number").with(authenticationFor(42L)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
+		verifyNoInteractions(chatMessageHistoryQueryService);
+	}
+
+	private MockHttpServletRequestBuilder historyGet(long roomId) {
+		return get("/api/rooms/{roomId}/chat/messages", roomId);
+	}
+
 	private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder messagePost(long roomId) {
 		return post("/api/rooms/{roomId}/chat/messages", roomId)
 			.contentType(MediaType.APPLICATION_JSON)
@@ -185,6 +236,11 @@ class ChatMessageControllerTest {
 		@Bean
 		ChatMessageCommandService chatMessageCommandService() {
 			return Mockito.mock(ChatMessageCommandService.class);
+		}
+
+		@Bean
+		ChatMessageHistoryQueryService chatMessageHistoryQueryService() {
+			return Mockito.mock(ChatMessageHistoryQueryService.class);
 		}
 	}
 }
