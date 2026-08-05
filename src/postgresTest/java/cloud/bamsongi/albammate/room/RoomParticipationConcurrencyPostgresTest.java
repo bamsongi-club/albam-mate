@@ -636,7 +636,8 @@ class RoomParticipationConcurrencyPostgresTest {
 
 		Room finalRoom = roomRepository.findById(fixture.room().getId()).orElseThrow();
 		assertEquals(RoomWaitlistStatus.PROMOTED, waitlistStatus(fixture.room().getId(), fixture.reapplyingUserId()));
-		assertEquals(ParticipationStatus.ACTIVE, participationStatus(fixture.room().getId(), fixture.reapplyingUserId()));
+		assertEquals(ParticipationStatus.ACTIVE,
+			participationStatus(fixture.room().getId(), fixture.reapplyingUserId()));
 		assertEquals(RoomStatus.CLOSED, finalRoom.getStatus());
 		assertEquals(0, activeWaitingCount(fixture.room().getId()));
 		assertRoomInvariant(fixture.room().getId());
