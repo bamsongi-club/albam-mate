@@ -12,9 +12,9 @@ import cloud.bamsongi.albammate.chat.contract.ChatRealtimeSignalGateway;
 import cloud.bamsongi.albammate.chat.contract.MessageCommitted;
 import lombok.RequiredArgsConstructor;
 
-/** local-multi 공용 Redis 채널을 구독해 커밋 신호를 방별 로컬 WebSocket 연결 게이트웨이로 넘긴다. */
+/** Redis 운영 프로필의 채널을 구독해 커밋 신호를 방별 로컬 WebSocket 연결 게이트웨이로 넘긴다. */
 @Component
-@Profile("local-multi")
+@Profile({"local-multi", "production"})
 @RequiredArgsConstructor
 class RedisChatRealtimeSubscriber implements MessageListener {
 

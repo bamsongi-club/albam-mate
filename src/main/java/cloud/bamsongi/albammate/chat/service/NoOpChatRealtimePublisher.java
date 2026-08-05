@@ -6,9 +6,9 @@ import org.springframework.stereotype.Component;
 import cloud.bamsongi.albammate.chat.contract.ChatRealtimePublisher;
 import cloud.bamsongi.albammate.chat.contract.MessageCommitted;
 
-/** local-multi 외 프로필에서 Redis fan-out 없이 커밋 후 포트를 안전하게 닫는 기본 구현이다. */
+/** Redis를 사용하지 않는 개발·테스트 프로필에서 커밋 후 포트를 안전하게 닫는 기본 구현이다. */
 @Component
-@Profile("!local-multi")
+@Profile("!local-multi & !production")
 class NoOpChatRealtimePublisher implements ChatRealtimePublisher {
 
 	@Override
