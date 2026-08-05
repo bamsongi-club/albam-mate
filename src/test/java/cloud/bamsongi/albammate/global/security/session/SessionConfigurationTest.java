@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.util.TestPropertyValues;
@@ -52,7 +53,7 @@ class SessionConfigurationTest {
 	}
 
 	@Test
-	void local_multi는_Redis_세션만_선택하고_인메모리_fallback을_등록하지_않는다() {
+	void local_multi와_production은_Redis_세션만_선택하고_인메모리_fallback을_등록하지_않는다() {
 		Profile redisProfile = AnnotatedElementUtils.findMergedAnnotation(
 			RedisSessionConfiguration.class, Profile.class);
 		Profile inMemoryProfile = AnnotatedElementUtils.findMergedAnnotation(
@@ -61,19 +62,36 @@ class SessionConfigurationTest {
 		EnableRedisHttpSession localMultiSession = AnnotatedElementUtils.findMergedAnnotation(
 			nestedRedisConfiguration("LocalMultiSessionRepositoryConfiguration"),
 			EnableRedisHttpSession.class);
-		assertEquals("local-multi", redisProfile.value()[0]);
-		assertEquals("!local-multi", inMemoryProfile.value()[0]);
+		EnableRedisHttpSession productionSession = AnnotatedElementUtils.findMergedAnnotation(
+			nestedRedisConfiguration("ProductionSessionRepositoryConfiguration"),
+			EnableRedisHttpSession.class);
+		assertEquals(List.of("local-multi", "production"), Arrays.asList(redisProfile.value()));
+		assertEquals("!local-multi & !production", inMemoryProfile.value()[0]);
 		assertEquals("albam-mate:local-multi:session", localMultiSession.redisNamespace());
+		assertEquals("albam-mate:production:session", productionSession.redisNamespace());
 		assertEquals(Duration.ofMinutes(30).toSeconds(), localMultiSession.maxInactiveIntervalInSeconds());
+		assertEquals(Duration.ofMinutes(30).toSeconds(), productionSession.maxInactiveIntervalInSeconds());
 		assertTrue(AnnotatedElementUtils.hasAnnotation(
 			SessionConfiguration.InMemorySessionRepositoryConfiguration.class, EnableSpringHttpSession.class));
 		assertFalse(AnnotatedElementUtils.hasAnnotation(
 			nestedRedisConfiguration("LocalMultiSessionRepositoryConfiguration"), EnableSpringHttpSession.class));
+		assertFalse(AnnotatedElementUtils.hasAnnotation(
+			nestedRedisConfiguration("ProductionSessionRepositoryConfiguration"), EnableSpringHttpSession.class));
 	}
 
 	@Test
 	void Redis_연결은_프로필_외부_설정값을_사용한다() {
-		try (AnnotationConfigApplicationContext context = redisSessionContext()) {
+		try (AnnotationConfigApplicationContext context = redisSessionContext("local-multi")) {
+			LettuceConnectionFactory connectionFactory = context.getBean(LettuceConnectionFactory.class);
+
+			assertEquals("redis", connectionFactory.getHostName());
+			assertEquals(6379, connectionFactory.getPort());
+		}
+	}
+
+	@Test
+	void production은_Redis_세션_연결을_등록한다() {
+		try (AnnotationConfigApplicationContext context = redisSessionContext("production")) {
 			LettuceConnectionFactory connectionFactory = context.getBean(LettuceConnectionFactory.class);
 
 			assertEquals("redis", connectionFactory.getHostName());
@@ -101,7 +119,7 @@ class SessionConfigurationTest {
 
 	@Test
 	void Redis_세션_JSON은_Security_인증과_현재_사용자_주체를_복원한다() {
-		try (AnnotationConfigApplicationContext context = redisSessionContext()) {
+		try (AnnotationConfigApplicationContext context = redisSessionContext("local-multi")) {
 			RedisSerializer<Object> serializer = context.getBean(
 				"springSessionDefaultRedisSerializer", RedisSerializer.class);
 			CurrentUserPrincipal principal = new CurrentUserPrincipal(42L);
@@ -117,9 +135,9 @@ class SessionConfigurationTest {
 		}
 	}
 
-	private AnnotationConfigApplicationContext redisSessionContext() {
+	private AnnotationConfigApplicationContext redisSessionContext(String profile) {
 		AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
-		context.getEnvironment().setActiveProfiles("local-multi");
+		context.getEnvironment().setActiveProfiles(profile);
 		TestPropertyValues.of("app.redis.host=redis", "app.redis.port=6379").applyTo(context);
 		context.register(RedisSessionConfiguration.class);
 		context.refresh();

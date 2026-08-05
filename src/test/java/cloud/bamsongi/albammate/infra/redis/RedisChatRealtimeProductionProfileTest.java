@@ -45,6 +45,8 @@ class RedisChatRealtimeProductionProfileTest {
 
 		assertEquals("${ALBAM_MATE_REDIS_HOST}", properties.getProperty("spring.data.redis.host"));
 		assertEquals("${ALBAM_MATE_REDIS_PORT:6379}", properties.getProperty("spring.data.redis.port"));
+		assertEquals("${ALBAM_MATE_REDIS_HOST}", properties.getProperty("app.redis.host"));
+		assertEquals("${ALBAM_MATE_REDIS_PORT:6379}", properties.getProperty("app.redis.port"));
 	}
 
 	@Test

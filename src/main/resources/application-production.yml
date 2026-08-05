@@ -36,6 +36,9 @@ app:
   security:
     cookie:
       secure: true
+  redis:
+    host: ${ALBAM_MATE_REDIS_HOST}
+    port: ${ALBAM_MATE_REDIS_PORT:6379}
   chat:
     websocket:
       allowed-origin: ${ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN:}
