@@ -69,4 +69,17 @@ class RoomWaitlistRegistrationCoordinatorTest {
 		assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, exception.getErrorCode());
 		verify(executor).register(7L, 1L, REQUEST_TIME);
 	}
+
+	@Test
+	void 메시지_없는_DB_오류는_재시도하지_않는다() {
+		RoomWaitlistRegistrationCoordinator coordinator = new RoomWaitlistRegistrationCoordinator(
+			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor);
+		when(executor.register(eq(7L), eq(1L), any(Instant.class)))
+			.thenThrow(new DataIntegrityViolationException((String)null));
+
+		BusinessException exception = assertThrows(BusinessException.class, () -> coordinator.register(7L, 1L));
+
+		assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, exception.getErrorCode());
+		verify(executor).register(7L, 1L, REQUEST_TIME);
+	}
 }
