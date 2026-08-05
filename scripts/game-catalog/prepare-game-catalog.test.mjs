@@ -93,6 +93,32 @@ test("승인된 입력은 내부 id를 제외한 결정적 카탈로그와 UPSER
     });
 });
 
+test("BGG 기준 CSV의 yearpublished만 출시 연도로 적재 산출물에 매핑한다", () => {
+    const rows = [
+        game(1, "10", "기준 연도 게임", "Baseline Year Game"),
+        game(2, "20", "연도 미상 게임", "Unknown Year Game"),
+    ];
+    rows[0].yearpublished = "1995";
+    rows[1].yearpublished = "";
+    rows[0].description = "2011년에 나온 것처럼 보이는 설명입니다.";
+    rows[1].description = "2001년이라는 숫자가 있어도 추정하지 않습니다.";
+
+    withCase(rows, ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 0, result.stderr);
+        const catalog = readJson(join(out, "service-catalog.json"));
+        assert.deepEqual(
+            catalog.map(({ bgg_id, release_year }) => [bgg_id, release_year]),
+            [[10, 1995], [20, null]],
+        );
+        assert.match(readFileSync(join(out, "upsert-games.sql"), "utf8"), /release_year/);
+        assert.equal(readJson(manifest).fieldSources.release_year, "ranks.yearpublished");
+    });
+});
+
 test("비어 있지 않은 0분과 음수 시간은 품질 오류로 전체 적재를 차단한다", () => {
     const rows = [
         game(1, "10", "범위 게임", "Range Game"),
@@ -241,6 +267,66 @@ test("해석 불가 또는 PostgreSQL INTEGER 범위 밖 표시값은 적재 전
                         reason,
                     },
                 ]);
+                assert.throws(() => readFileSync(join(out, "service-catalog.json")));
+                assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
+            });
+        });
+    }
+
+    await context.test("출시 연도 빈 값과 PostgreSQL INTEGER 경계값은 허용한다", () => {
+        const maximumYear = game(1, "10", "최대 출시 연도", "Maximum Release Year");
+        maximumYear.yearpublished = "2147483647";
+        const unknownYear = game(2, "20", "미상 출시 연도", "Unknown Release Year");
+        unknownYear.yearpublished = "";
+        const minimumYear = game(3, "30", "최소 출시 연도", "Minimum Release Year");
+        minimumYear.yearpublished = "-2147483648";
+
+        withCase([maximumYear, unknownYear, minimumYear], ({ games, ranks, manifest, out }) => {
+            writeManifest(manifest, games, ranks, []);
+
+            const result = runCli(games, ranks, out, manifest);
+
+            assert.equal(result.status, 0, result.stderr);
+            assert.deepEqual(
+                readJson(join(out, "service-catalog.json"))
+                    .map(({ bgg_id, release_year }) => [bgg_id, release_year]),
+                [[10, 2147483647], [20, null], [30, -2147483648]],
+            );
+        });
+    });
+
+    for (const { name, value, reason } of [
+        {
+            name: "PostgreSQL INTEGER 최대값을 초과한 출시 연도",
+            value: "2147483648",
+            reason: "OUT_OF_POSTGRES_INTEGER_RANGE",
+        },
+        {
+            name: "해석할 수 없는 출시 연도",
+            value: "unknown",
+            reason: "UNPARSABLE_RELEASE_YEAR",
+        },
+    ]) {
+        await context.test(name, () => {
+            const row = game(1, "10", "출시 연도 검증", "Release Year Validation");
+            row.yearpublished = value;
+
+            withCase([row], ({ games, ranks, manifest, out }) => {
+                writeManifest(manifest, games, ranks, []);
+
+                const result = runCli(games, ranks, out, manifest);
+
+                assert.equal(result.status, 1);
+                const report = readJson(join(out, "quality-report.json"));
+                const invalidReleaseYears = report.errors.find(
+                    ({ code }) => code === "INVALID_RELEASE_YEAR",
+                );
+                assert.deepEqual(invalidReleaseYears, {
+                    code: "INVALID_RELEASE_YEAR",
+                    message: "BGG 기준 CSV yearpublished는 비어 있거나 PostgreSQL INTEGER 범위의 정수여야 합니다.",
+                    count: 1,
+                    sample: [{ bgg_id: "10", value, reason }],
+                });
                 assert.throws(() => readFileSync(join(out, "service-catalog.json")));
                 assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
             });
@@ -805,20 +891,44 @@ test("필수값 누락과 BGG 기준 이름 불일치는 함께 보고하고 적
     });
 });
 
-test("같은 표시 이름의 서로 다른 BGG 게임은 버전 충돌 경고로 남긴다", () => {
-    const rows = [
-        game(1, "10", "같은 게임", "Same Game"),
-        game(2, "20", "같은 게임", "Same Game: Second Edition"),
-    ];
+test("품질 보고서는 같은 표시명의 BGG 게임별 출시 연도와 채움·누락을 남긴다", () => {
+    const rows = Array.from({ length: 25 }, (_, index) => [
+        game(index * 2 + 1, String(index * 2 + 10), `같은 게임 ${index}`, `Same Game ${index} A`),
+        game(index * 2 + 2, String(index * 2 + 11), `같은 게임 ${index}`, `Same Game ${index} B`),
+    ]).flat();
+    rows.forEach((row, index) => {
+        row.yearpublished = String(1995 + index);
+    });
 
     withCase(rows, ({ games, ranks, manifest, out }) => {
-        writeManifest(manifest, games, ranks, []);
+        writeManifest(manifest, games, ranks, [
+            "POSSIBLE_VERSION_COLLISION",
+            "LOW_SUPPORTED_PLAYER_COUNT_DIVERSITY",
+            "LOW_ESTIMATED_PLAY_TIME_DIVERSITY",
+            "LOW_DESCRIPTION_DIVERSITY",
+            "LOW_DETAIL_DESCRIPTION_DIVERSITY",
+        ]);
         const result = runCli(games, ranks, out, manifest);
 
-        assert.equal(result.status, 1);
+        assert.equal(result.status, 0, result.stderr);
         const report = readJson(join(out, "quality-report.json"));
         assert.ok(
             report.warnings.some(({ code }) => code === "POSSIBLE_VERSION_COLLISION"),
+        );
+        assert.deepEqual(report.releaseYears, { filledRows: 50, missingRows: 0 });
+        const collisionWarning = report.warnings.find(
+            ({ code }) => code === "POSSIBLE_VERSION_COLLISION",
+        );
+        assert.equal(collisionWarning.sample.length, 10);
+        assert.equal(collisionWarning.allCollisions.length, 25);
+        assert.deepEqual(
+            collisionWarning.allCollisions
+                .flatMap(({ games: collisionGames }) => collisionGames)
+                .map(({ bgg_id, release_year }) => [bgg_id, release_year])
+                .sort((left, right) => left[0] - right[0]),
+            readJson(join(out, "service-catalog.json"))
+                .map(({ bgg_id, release_year }) => [bgg_id, release_year])
+                .sort((left, right) => left[0] - right[0]),
         );
     });
 });
@@ -1381,6 +1491,7 @@ function writeManifest(path, gamesPath, ranksPath, acceptedWarnings) {
             min_play_time_minutes: "games.estimated_play_time를 검증해 정규화",
             max_play_time_minutes: "games.estimated_play_time를 검증해 정규화",
             complexity: "games.complexity",
+            release_year: "ranks.yearpublished",
             description: "games.description",
             detail_description: "games.detail_description",
         },
@@ -1481,7 +1592,7 @@ function ranksCsv(rows) {
         [
             row.bgg_id,
             csvCell(row.english_name),
-            "2020",
+            row.yearpublished ?? "2020",
             row.id,
             "8.0",
             "8.0",

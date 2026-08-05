@@ -77,6 +77,24 @@ class GameCatalogImportPostgresTest {
 	}
 
 	@Test
+	void 출시_연도_재적재는_내부_ID를_유지하고_미상_연도는_NULL로_저장한다() throws Exception {
+		GameInput knownYear = game(1, 10, "출시 연도 있는 게임", "Known Release Year Game");
+		knownYear.yearpublished = "1995";
+		GameInput unknownYear = game(2, 20, "출시 연도 미상 게임", "Unknown Release Year Game");
+		unknownYear.yearpublished = "";
+		executeSql(prepareSql(List.of(knownYear, unknownYear)));
+
+		Long knownGameId = gameId(10);
+		executeSql(prepareSql(List.of(knownYear, unknownYear)));
+
+		assertEquals(knownGameId, gameId(10));
+		assertEquals(1995, jdbcTemplate.queryForObject(
+			"select release_year from games where bgg_id = 10", Integer.class));
+		assertNull(jdbcTemplate.queryForObject(
+			"select release_year from games where bgg_id = 20", Integer.class));
+	}
+
+	@Test
 	void 적재_중_한_행이_실패하면_배치_전체를_롤백한다() throws Exception {
 		jdbcTemplate.execute(
 			"alter table games add constraint ck_test_game_name check (name <> '실패 게임')");
@@ -361,8 +379,8 @@ class GameCatalogImportPostgresTest {
 			+ "partygames_rank,strategygames_rank,thematic_rank,wargames_rank\n";
 		String body = games.stream()
 			.map(
-				game -> "%d,\"%s\",2020,%d,8.0,8.0,100,0,,,,,,1,,"
-					.formatted(game.bggId, game.englishName, game.rank))
+				game -> "%d,\"%s\",%s,%d,8.0,8.0,100,0,,,,,,1,,"
+					.formatted(game.bggId, game.englishName, game.yearpublished, game.rank))
 			.collect(java.util.stream.Collectors.joining("\n"));
 		return header + body + "\n";
 	}
@@ -403,6 +421,7 @@ class GameCatalogImportPostgresTest {
 			    "min_play_time_minutes": "games.estimated_play_time를 검증해 정규화",
 			    "max_play_time_minutes": "games.estimated_play_time를 검증해 정규화",
 			    "complexity": "games.complexity",
+			    "release_year": "ranks.yearpublished",
 			    "description": "games.description",
 			    "detail_description": "games.detail_description"
 			  },
@@ -501,6 +520,7 @@ class GameCatalogImportPostgresTest {
 		private final long bggId;
 		private final String name;
 		private final String englishName;
+		private String yearpublished = "2020";
 		private List<MechanismInput> mechanisms = List.of();
 
 		private GameInput(int rank, long bggId, String name, String englishName) {

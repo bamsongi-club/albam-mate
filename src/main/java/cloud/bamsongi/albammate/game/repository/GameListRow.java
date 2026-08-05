@@ -14,7 +14,8 @@ public record GameListRow(
 	String supportedPlayerCount,
 	String tag,
 	String estimatedPlayTime,
-	BigDecimal complexity) {
+	BigDecimal complexity,
+	Integer releaseYear) {
 
 	public static GameListRow from(Game game) {
 		return new GameListRow(
@@ -26,6 +27,7 @@ public record GameListRow(
 			game.getSupportedPlayerCount(),
 			game.getTag(),
 			game.getEstimatedPlayTime(),
-			game.getComplexity());
+			game.getComplexity(),
+			game.getReleaseYear());
 	}
 }
