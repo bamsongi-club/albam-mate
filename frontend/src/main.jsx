@@ -1513,7 +1513,7 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onSoci
                     <span>{SOCIAL_PROVIDER_LABEL[item.provider]}</span>
                     {item.linked
                       ? <span className="social-link-state">연결됨</span>
-                      : <button className="btn ghost" type="button" disabled={Boolean(linking)} onClick={() => startLink(item.provider)}>{linking === item.provider ? '이동 중…' : SOCIAL_PROVIDER_LABEL[item.provider] + ' 연결'}</button>}
+                      : <button className="btn ghost pill" type="button" disabled={Boolean(linking)} onClick={() => startLink(item.provider)}>{linking === item.provider ? '이동 중…' : SOCIAL_PROVIDER_LABEL[item.provider] + ' 연결'}</button>}
                   </div>
                 ))}
                 <p className="hint">연결한 계정으로도 로그인할 수 있어요. 연결 해제와 교체는 아직 제공하지 않아요.</p>
