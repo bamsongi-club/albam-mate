@@ -5,11 +5,15 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -18,11 +22,13 @@ import java.util.concurrent.TimeUnit;
 
 import javax.sql.DataSource;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -31,6 +37,7 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.AlbamMateApplication;
+import cloud.bamsongi.albammate.notification.repository.NotificationOutboxRecipientRepository;
 
 /** 실제 PostgreSQL의 operationTime, FOR UPDATE 및 수신자 삭제 원자성을 검증한다. */
 @Testcontainers
@@ -45,11 +52,19 @@ class NotificationOutboxRecoveryPostgresTest {
 	@Autowired
 	private NotificationOutboxRecoveryService recoveryService;
 
+	@MockitoSpyBean
+	private NotificationOutboxRecipientRepository recipientRepository;
+
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
 
 	@Autowired
 	private DataSource dataSource;
+
+	@BeforeEach
+	void clearRecipientRepositoryInvocations() {
+		clearInvocations(recipientRepository);
+	}
 
 	@Test
 	void PostgreSQL_시각_창_안의_FAILED만_RETRY_WAIT로_원자적으로_복구한다() {
@@ -76,9 +91,63 @@ class NotificationOutboxRecoveryPostgresTest {
 	}
 
 	@Test
+	void 여러_FAILED_재처리는_수신자_event_ID를_distinct_batch로_한번만_조회한다() {
+		Fixture fixture = createFixture();
+		long firstEventId = insertFailedEvent(fixture.roomId(), "1 day", "RELAY_PROCESSING_FAILURE");
+		long secondEventId = insertFailedEvent(fixture.roomId(), "1 day", "RELAY_PROCESSING_FAILURE");
+		insertRecipient(firstEventId, fixture.recipientUserId());
+		insertRecipient(secondEventId, fixture.recipientUserId());
+		long anotherRecipientUserId = insertUser("recovery-batch-" + UUID.randomUUID() + "@example.com");
+		insertRecipient(firstEventId, anotherRecipientUserId);
+
+		recoveryService.execute(reprocess(List.of(firstEventId, secondEventId)));
+
+		verify(recipientRepository, times(1))
+			.findOutboxEventIdsWithRecipients(List.of(firstEventId, secondEventId));
+	}
+
+	@Test
+	void batch_JPQL은_요청_ID_중_실제_수신자가_있는_event_ID만_distinct로_반환한다() {
+		Fixture fixture = createFixture();
+		long firstEventId = insertFailedEvent(fixture.roomId(), "1 day", "RELAY_PROCESSING_FAILURE");
+		long missingRecipientEventId = insertFailedEvent(fixture.roomId(), "1 day", "RELAY_PROCESSING_FAILURE");
+		long thirdEventId = insertFailedEvent(fixture.roomId(), "1 day", "RELAY_PROCESSING_FAILURE");
+		insertRecipient(firstEventId, fixture.recipientUserId());
+		insertRecipient(thirdEventId, fixture.recipientUserId());
+		long anotherRecipientUserId = insertUser("recovery-distinct-" + UUID.randomUUID() + "@example.com");
+		insertRecipient(firstEventId, anotherRecipientUserId);
+
+		List<Long> result = recipientRepository.findOutboxEventIdsWithRecipients(
+			List.of(firstEventId, missingRecipientEventId, thirdEventId));
+
+		assertEquals(2, result.size());
+		assertEquals(Set.of(firstEventId, thirdEventId), Set.copyOf(result));
+	}
+
+	@Test
+	void 수신자_없는_이벤트가_섞이면_모든_상태와_기존_수신자를_보존한다() {
+		Fixture fixture = createFixture();
+		long recipientEventId = insertFailedEvent(fixture.roomId(), "1 day", "RELAY_PROCESSING_FAILURE");
+		long missingRecipientEventId = insertFailedEvent(fixture.roomId(), "1 day", "RELAY_PROCESSING_FAILURE");
+		insertRecipient(recipientEventId, fixture.recipientUserId());
+
+		assertThrows(NotificationOutboxRecoveryInputException.class,
+			() -> recoveryService.execute(reprocess(List.of(recipientEventId, missingRecipientEventId))));
+
+		assertEquals(List.of("FAILED", "FAILED"), jdbcTemplate.query(
+			"select status from notification_outbox_events where id in (?, ?) order by id",
+			(resultSet, rowNumber) -> resultSet.getString(1), recipientEventId, missingRecipientEventId));
+		assertEquals(1, jdbcTemplate.queryForObject(
+			"select count(*) from notification_outbox_recipients where outbox_event_id = ?", Integer.class,
+			recipientEventId));
+		verify(recipientRepository, times(1))
+			.findOutboxEventIdsWithRecipients(List.of(recipientEventId, missingRecipientEventId));
+	}
+
+	@Test
 	void 만료_경계는_재처리하지_않고_확인된_폐기만_수신자를_함께_삭제한다() {
 		Fixture fixture = createFixture();
-		long eventId = insertFailedEvent(fixture.roomId(), "89 days", "NOTIFICATION_EXPIRED");
+		long eventId = insertFailedEvent(fixture.roomId(), "89 days", "RELAY_PROCESSING_FAILURE");
 		insertRecipient(eventId, fixture.recipientUserId());
 
 		assertThrows(NotificationOutboxRecoveryInputException.class,

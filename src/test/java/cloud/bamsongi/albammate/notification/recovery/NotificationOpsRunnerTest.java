@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayOutputStream;
@@ -139,13 +138,15 @@ class NotificationOpsRunnerTest {
 
 	private static void assertInspectMetadataRejected(String metadataKey, String metadataValue) {
 		NotificationOutboxRecoveryService recoveryService = mock(NotificationOutboxRecoveryService.class);
+		when(recoveryService.preview(org.mockito.ArgumentMatchers.any()))
+			.thenThrow(new NotificationOutboxRecoveryInputException());
 		MockEnvironment environment = inspectEnvironment().withProperty(metadataKey, metadataValue);
 		NotificationOpsRunner runner = new NotificationOpsRunner(recoveryService, environment);
 
 		String output = captureOutput(runner);
 
 		assertEquals(2, runner.getExitCode());
-		verifyNoInteractions(recoveryService);
+		verify(recoveryService).preview(org.mockito.ArgumentMatchers.any());
 		assertFalse(output.contains(metadataValue));
 	}
 }

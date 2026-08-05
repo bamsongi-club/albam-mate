@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.notification.repository;
 
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -23,7 +24,14 @@ public interface NotificationOutboxRecipientRepository
 	List<Long> findRecipientUserIdsByOutboxEventId(@Param("outboxEventId")
 	Long outboxEventId);
 
-	boolean existsByIdOutboxEventId(Long outboxEventId);
+	/** 요청한 이벤트 중 수신자 스냅샷이 하나 이상 존재하는 이벤트 ID만 중복 없이 반환한다. */
+	@Query("""
+		select distinct recipient.id.outboxEventId
+		from NotificationOutboxRecipient recipient
+		where recipient.id.outboxEventId in :outboxEventIds
+		""")
+	List<Long> findOutboxEventIdsWithRecipients(@Param("outboxEventIds")
+	Collection<Long> outboxEventIds);
 
 	@Modifying
 	long deleteByIdOutboxEventIdIn(List<Long> outboxEventIds);
