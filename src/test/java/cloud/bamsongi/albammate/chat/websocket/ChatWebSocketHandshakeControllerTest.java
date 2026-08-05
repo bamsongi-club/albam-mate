@@ -105,6 +105,53 @@ class ChatWebSocketHandshakeControllerTest {
 			.andExpect(jsonPath("$.code").value(ErrorCode.FORBIDDEN.getCode()));
 	}
 
+	@Test
+	void T6_afterMessageId가_0이거나_음수면_VALIDATION_ERROR이고_접근_판정을_호출하지_않는다() throws Exception {
+		clearInvocations(chatAccessGuard);
+
+		mockMvc
+			.perform(
+				handshakeGet(1L).param("afterMessageId", "0").header("Origin", ALLOWED_ORIGIN)
+					.with(authenticationFor(42L)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+		mockMvc
+			.perform(
+				handshakeGet(1L).param("afterMessageId", "-1").header("Origin", ALLOWED_ORIGIN)
+					.with(authenticationFor(42L)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
+		verifyNoInteractions(chatAccessGuard);
+	}
+
+	@Test
+	void T6_afterMessageId가_숫자가_아니면_VALIDATION_ERROR이고_접근_판정을_호출하지_않는다() throws Exception {
+		clearInvocations(chatAccessGuard);
+
+		mockMvc
+			.perform(
+				handshakeGet(1L).param("afterMessageId", "not-a-number").header("Origin", ALLOWED_ORIGIN)
+					.with(authenticationFor(42L)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+
+		verifyNoInteractions(chatAccessGuard);
+	}
+
+	@Test
+	void T6_존재하지_않는_양수_afterMessageId는_검증을_통과해_접근_판정까지_도달한다() throws Exception {
+		clearInvocations(chatAccessGuard);
+
+		mockMvc
+			.perform(
+				handshakeGet(1L).param("afterMessageId", "999999").header("Origin", ALLOWED_ORIGIN)
+					.with(authenticationFor(42L)))
+			.andExpect(result -> {});
+
+		org.mockito.Mockito.verify(chatAccessGuard).executeWithAccess(eq(42L), eq(1L), any());
+	}
+
 	/** 운영 프로필이 허용 Origin을 아직 주입하지 않은 상태를 재현한다. */
 	@Nested
 	@TestPropertySource(properties = "app.chat.websocket.allowed-origin=")

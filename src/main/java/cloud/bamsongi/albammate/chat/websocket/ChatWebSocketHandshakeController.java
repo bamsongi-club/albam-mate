@@ -8,15 +8,18 @@ import org.springframework.http.server.ServletServerHttpRequest;
 import org.springframework.http.server.ServletServerHttpResponse;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.socket.server.HandshakeHandler;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.global.exception.UnauthenticatedException;
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserAccessor;
 import cloud.bamsongi.albammate.room.contract.ChatAccessGuard;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 
@@ -39,15 +42,23 @@ public class ChatWebSocketHandshakeController {
 	@GetMapping("/api/rooms/{roomId}/chat/ws")
 	public void handshake(
 		@PathVariable @Positive long roomId,
+		@RequestParam(required = false) @Positive Long afterMessageId,
 		HttpServletRequest request,
 		HttpServletResponse response) throws Exception {
 		long currentUserId = currentUserAccessor.requireCurrentUserId();
 		requireAllowedOrigin(request);
 		chatAccessGuard.executeWithAccess(currentUserId, roomId, () -> null);
+		HttpSession httpSession = request.getSession(false);
+		if (httpSession == null) {
+			throw new UnauthenticatedException();
+		}
 		Map<String, Object> attributes = new HashMap<>();
 		attributes.put(ChatWebSocketHandler.ROOM_ID_ATTRIBUTE, roomId);
 		attributes.put(ChatWebSocketHandler.USER_ID_ATTRIBUTE, currentUserId);
-		attributes.put(ChatWebSocketHandler.SESSION_ID_ATTRIBUTE, request.getSession(false).getId());
+		attributes.put(ChatWebSocketHandler.SESSION_ID_ATTRIBUTE, httpSession.getId());
+		if (afterMessageId != null) {
+			attributes.put(ChatWebSocketHandler.AFTER_MESSAGE_ID_ATTRIBUTE, afterMessageId);
+		}
 		chatHandshakeHandler.doHandshake(
 			new ServletServerHttpRequest(request),
 			new ServletServerHttpResponse(response),

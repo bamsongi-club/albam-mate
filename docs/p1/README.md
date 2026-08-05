@@ -37,11 +37,11 @@ P1 저장 계약의 준비 상태는 기능별로 다르다. 알림 저장 계�
 | [`NOTI-03`](notification.md#noti-03-알림-읽음-처리) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
 | [`CHAT-01`](chatting.md#chat-01-채팅방-생성접근) | 선행 계약 필요 | 부분 구현 ([#279](https://github.com/bamsongi-club/albam-mate/issues/279)) | 부분 검증 ([#279](https://github.com/bamsongi-club/albam-mate/issues/279)) | 미배포·미측정 |
 | [`CHAT-02`](chatting.md#chat-02-메시지-전송이력-조회) | 계약 준비 완료 | 구현 완료 ([#427](https://github.com/bamsongi-club/albam-mate/issues/427)) | 검증 완료 ([#427](https://github.com/bamsongi-club/albam-mate/issues/427): 백엔드 전체 테스트·프론트 자동화 테스트·Vite build) | 미배포·미측정 |
-| [`CHAT-03`](chatting.md#chat-03-실시간-전달재연결-복구) | 선행 계약 필요 | 부분 구현 ([#285](https://github.com/bamsongi-club/albam-mate/issues/285)) | 부분 검증 ([#285](https://github.com/bamsongi-club/albam-mate/issues/285)) | 미배포·미측정 |
+| [`CHAT-03`](chatting.md#chat-03-실시간-전달재연결-복구) | 계약 준비 완료 | 구현 완료 ([#285](https://github.com/bamsongi-club/albam-mate/issues/285), [#286](https://github.com/bamsongi-club/albam-mate/issues/286)) | 검증 완료 ([#286](https://github.com/bamsongi-club/albam-mate/issues/286): H2·PostgreSQL T1~T12 대상 테스트) | 미배포·미측정 |
 | [`CHAT-04`](chatting.md#chat-04-채팅-안전운영) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |
 | [`CHAT-05`](chatting.md#chat-05-내-모임-채팅-진입) | 계약 준비 완료 | 구현 완료 ([#290](https://github.com/bamsongi-club/albam-mate/issues/290), [#427](https://github.com/bamsongi-club/albam-mate/issues/427)) | 검증 완료 ([#290](https://github.com/bamsongi-club/albam-mate/issues/290), [#427](https://github.com/bamsongi-club/albam-mate/issues/427)) | 미배포·미측정 |
 | [`FND-09`](foundation.md#fnd-09-검색-성능과-인덱스-검증) | 계약 준비 완료 | 구현 완료 (#307) | 검증 완료 (#307: PostgreSQL 검색 성능·인덱스 검증) | 미배포·미측정 |
-| [`FND-10`](foundation.md#fnd-10-실시간-전달과-재연결-기반) | 계약 준비 완료 | 부분 구현 ([#360](https://github.com/bamsongi-club/albam-mate/issues/360)) | 부분 검증 ([#360](https://github.com/bamsongi-club/albam-mate/issues/360)) | 미배포·미측정 |
+| [`FND-10`](foundation.md#fnd-10-실시간-전달과-재연결-기반) | 계약 준비 완료 | 구현 완료 ([#360](https://github.com/bamsongi-club/albam-mate/issues/360), [#286](https://github.com/bamsongi-club/albam-mate/issues/286)) | 검증 완료 ([#286](https://github.com/bamsongi-club/albam-mate/issues/286): H2·PostgreSQL T1~T12 대상 테스트) | 미배포·미측정 |
 
 - `계약 준비 완료`: 기능 구현에 필요한 제품·API·저장·아키텍처 계약과 필수 ADR이 모두 반영·승인됐다. 생산 코드나 검증 완료를 뜻하지 않는다.
 - `선행 계약 필요`: 기능 명세가 있더라도 필수 ADR 승인, ERD·아키텍처 반영 또는 `착수 전 확정`과 같은 구현 전 결정이 남아 있다.
@@ -61,7 +61,7 @@ P1 저장 계약의 준비 상태는 기능별로 다르다. 알림 저장 계�
 
 `CHAT-05`는 제품·API·저장·아키텍처 계약과 필수 ADR에 남은 결정이 없어 `계약 준비 완료`다. 이는 `CHAT-01`~`CHAT-03`의 구현 없이 독립적으로 사용자 흐름을 완료할 수 있다는 뜻이 아니다.
 
-`FND-10`은 `CHAT-03` 계약을 수동으로 기다리는 작업이 아니라 세션·Redis 구성값을 확정하고 실시간 기반을 구현하는 소유 작업이다. #360에서 위 값을 정본에 반영해 `계약 준비 완료`가 됐으며, 표의 `부분 구현`·`부분 검증`은 Spring Session·local-multi 기반에만 한정한다.
+`FND-10`은 `CHAT-03` 계약을 수동으로 기다리는 작업이 아니라 세션·Redis 구성값을 확정하고 실시간 기반을 구현하는 소유 작업이다. #360에서 `local-multi` 값을 정본에 반영하고 #286에서 같은 공유 세션·Pub/Sub 계약을 `production` profile까지 구현·검증해 `계약 준비 완료`가 됐다.
 
 ### 계약과 구현을 같은 이슈·PR에서 처리할 때
 

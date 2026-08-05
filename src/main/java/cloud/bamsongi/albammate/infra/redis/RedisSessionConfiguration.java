@@ -16,12 +16,16 @@ import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 
 /** Redis 프로필의 Spring Session 연결, 직렬화와 저장소를 구성하는 기술 어댑터다. */
 @Configuration(proxyBeanMethods = false)
-@Profile("local-multi")
+@Profile({"local-multi", "production"})
 @EnableConfigurationProperties(RedisSessionProperties.class)
-@Import(RedisSessionConfiguration.LocalMultiSessionRepositoryConfiguration.class)
+@Import({
+	RedisSessionConfiguration.LocalMultiSessionRepositoryConfiguration.class,
+	RedisSessionConfiguration.ProductionSessionRepositoryConfiguration.class
+})
 public class RedisSessionConfiguration {
 
 	static final String LOCAL_MULTI_SESSION_NAMESPACE = "albam-mate:local-multi:session";
+	static final String PRODUCTION_SESSION_NAMESPACE = "albam-mate:production:session";
 	private static final int SESSION_TTL_SECONDS = 30 * 60;
 
 	@Bean
@@ -44,5 +48,10 @@ public class RedisSessionConfiguration {
 	@Profile("local-multi")
 	@EnableRedisHttpSession(redisNamespace = LOCAL_MULTI_SESSION_NAMESPACE, maxInactiveIntervalInSeconds = SESSION_TTL_SECONDS)
 	static class LocalMultiSessionRepositoryConfiguration {}
+
+	@Configuration(proxyBeanMethods = false)
+	@Profile("production")
+	@EnableRedisHttpSession(redisNamespace = PRODUCTION_SESSION_NAMESPACE, maxInactiveIntervalInSeconds = SESSION_TTL_SECONDS)
+	static class ProductionSessionRepositoryConfiguration {}
 
 }

@@ -1,8 +1,6 @@
 package cloud.bamsongi.albammate.chat;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.CookieManager;
@@ -13,11 +11,11 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.WebSocket;
-import java.net.http.WebSocketHandshakeException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -53,7 +51,10 @@ import cloud.bamsongi.albammate.user.contract.UserAccountService;
 import cloud.bamsongi.albammate.user.contract.UserEmail;
 import cloud.bamsongi.albammate.user.contract.UserNickname;
 
-/** T4: HTTP 저장과 WebSocket 연결이 서로 다른 인스턴스에 도달해도 공용 세션이 같은 경계로 판정하는지 검증한다. */
+/**
+ * T7: 저장 인스턴스와 WebSocket 인스턴스가 달라도 공용 세션과 Redis 신호로 커밋된 메시지가 실제 텍스트 프레임으로
+ * 전달되는지 검증한다.
+ */
 @Testcontainers
 @ActiveProfiles("local-multi")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -61,7 +62,7 @@ import cloud.bamsongi.albammate.user.contract.UserNickname;
 	"app.security.cookie.secure=false",
 	"app.notification.relay.enabled=false"
 })
-class ChatWebSocketCrossInstanceSessionPostgresTest {
+class ChatWebSocketCrossInstanceDeliveryPostgresTest {
 
 	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final String REDIS_IMAGE = "redis:8.4-alpine";
@@ -73,7 +74,7 @@ class ChatWebSocketCrossInstanceSessionPostgresTest {
 	@Container
 	@ServiceConnection
 	static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_chat_ws_session_test");
+		.withDatabaseName("albam_mate_chat_ws_delivery_test");
 
 	@Container
 	static final GenericContainer REDIS = new GenericContainer(REDIS_IMAGE)
@@ -100,9 +101,9 @@ class ChatWebSocketCrossInstanceSessionPostgresTest {
 	}
 
 	@Test
-	void 메시지를_저장한_인스턴스와_다른_인스턴스의_WebSocket_handshake도_같은_공용_세션으로_판정된다() throws Exception {
-		String email = "chat-ws-cross-instance-" + UUID.randomUUID() + "@example.com";
-		long hostUserId = userAccountService.createAccount(command(email, "교차 인스턴스 주최자")).id();
+	void 메시지를_저장한_인스턴스와_다른_인스턴스의_WebSocket_연결이_커밋된_메시지를_실시간으로_수신한다() throws Exception {
+		String email = "chat-ws-cross-delivery-" + UUID.randomUUID() + "@example.com";
+		long hostUserId = userAccountService.createAccount(command(email, "교차 인스턴스 수신자")).id();
 		Room room = createChatRoom(hostUserId);
 
 		try (ConfigurableApplicationContext webSocketInstance = secondApplicationContext()) {
@@ -117,31 +118,27 @@ class ChatWebSocketCrossInstanceSessionPostgresTest {
 				post(client, httpInstanceUri.resolve("/api/auth/login"), loginBody(email), csrfToken).statusCode());
 			String sessionId = cookieNamed(cookieManager, "JSESSIONID").getValue();
 
-			csrfToken = csrfToken(get(client, httpInstanceUri.resolve("/api/auth/csrf")).body());
-			HttpResponse<String> sendResponse = post(
-				client,
-				httpInstanceUri.resolve("/api/rooms/" + room.getId() + "/chat/messages"),
-				"{\"clientMessageId\":\"" + UUID.randomUUID() + "\",\"content\":\"교차 인스턴스 메시지\"}",
-				csrfToken);
-			assertEquals(201, sendResponse.statusCode(), sendResponse.body());
-
-			WebSocket webSocket = connect(webSocketInstancePort, room.getId(), sessionId);
+			LinkedBlockingQueue<String> receivedFrames = new LinkedBlockingQueue<>();
+			WebSocket webSocket = connect(webSocketInstancePort, room.getId(), sessionId, receivedFrames);
 			try {
-				assertTrue(!webSocket.isOutputClosed());
+				String clientMessageId = UUID.randomUUID().toString();
+				csrfToken = csrfToken(get(client, httpInstanceUri.resolve("/api/auth/csrf")).body());
+				HttpResponse<String> sendResponse = post(
+					client,
+					httpInstanceUri.resolve("/api/rooms/" + room.getId() + "/chat/messages"),
+					"{\"clientMessageId\":\"" + clientMessageId + "\",\"content\":\"교차 인스턴스 실시간 메시지\"}",
+					csrfToken);
+				assertEquals(201, sendResponse.statusCode(), sendResponse.body());
+				long messageId = messageId(sendResponse.body());
+
+				String frame = receivedFrames.poll(15, TimeUnit.SECONDS);
+				assertTrue(frame != null, "WebSocket 인스턴스가 실시간 프레임을 받지 못했습니다.");
+				assertTrue(frame.contains("\"eventId\":" + messageId), frame);
+				assertTrue(frame.contains("\"type\":\"MESSAGE_CREATED\""), frame);
+				assertTrue(frame.contains("교차 인스턴스 실시간 메시지"), frame);
 			} finally {
 				webSocket.abort();
 			}
-
-			csrfToken = csrfToken(get(client, httpInstanceUri.resolve("/api/auth/csrf")).body());
-			assertEquals(
-				200,
-				post(client, httpInstanceUri.resolve("/api/auth/logout"), "", csrfToken).statusCode());
-
-			ExecutionException rejected = assertThrows(
-				ExecutionException.class, () -> connect(webSocketInstancePort, room.getId(), sessionId));
-			assertEquals(
-				401,
-				assertInstanceOf(WebSocketHandshakeException.class, rejected.getCause()).getResponse().statusCode());
 		}
 	}
 
@@ -163,21 +160,29 @@ class ChatWebSocketCrossInstanceSessionPostgresTest {
 		return ((ServletWebServerApplicationContext)context).getWebServer().getPort();
 	}
 
-	private WebSocket connect(int port, long roomId, String sessionId) throws Exception {
+	private WebSocket connect(int port, long roomId, String sessionId, LinkedBlockingQueue<String> receivedFrames)
+		throws Exception {
 		return HttpClient.newHttpClient()
 			.newWebSocketBuilder()
 			.header("Cookie", "JSESSIONID=" + sessionId)
 			.header("Origin", ALLOWED_ORIGIN)
 			.buildAsync(
 				URI.create("ws://localhost:" + port + "/api/rooms/" + roomId + "/chat/ws"),
-				new WebSocket.Listener() {})
+				new WebSocket.Listener() {
+
+					@Override
+					public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+						receivedFrames.add(data.toString());
+						webSocket.request(1);
+						return null;
+					}
+				})
 			.get(10, TimeUnit.SECONDS);
 	}
 
 	private HttpResponse<String> get(HttpClient client, URI uri) throws Exception {
 		return client.send(
-			HttpRequest.newBuilder(uri).GET().build(),
-			HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+			HttpRequest.newBuilder(uri).GET().build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
 	}
 
 	private HttpResponse<String> post(HttpClient client, URI uri, String body, String csrfToken) throws Exception {
@@ -195,7 +200,10 @@ class ChatWebSocketCrossInstanceSessionPostgresTest {
 	}
 
 	private HttpCookie cookieNamed(CookieManager cookieManager, String name) {
-		return cookieManager.getCookieStore().getCookies().stream()
+		return cookieManager
+			.getCookieStore()
+			.getCookies()
+			.stream()
 			.filter(cookie -> name.equals(cookie.getName()))
 			.findFirst()
 			.orElseThrow();
@@ -207,10 +215,15 @@ class ChatWebSocketCrossInstanceSessionPostgresTest {
 		return matcher.group(1);
 	}
 
+	private long messageId(String body) {
+		Matcher matcher = Pattern.compile("\\\"messageId\\\":(\\d+)").matcher(body);
+		assertTrue(matcher.find(), body);
+		return Long.parseLong(matcher.group(1));
+	}
+
 	private CreateUserAccountCommand command(String email, String nickname) {
 		return new CreateUserAccountCommand(
-			UserEmail.from(email).orElseThrow(),
-			RawPassword.from(PASSWORD).orElseThrow(),
+			UserEmail.from(email).orElseThrow(), RawPassword.from(PASSWORD).orElseThrow(),
 			UserNickname.from(nickname).orElseThrow());
 	}
 
@@ -219,7 +232,7 @@ class ChatWebSocketCrossInstanceSessionPostgresTest {
 			Room.create(
 				hostUserId,
 				RoomType.PERSON_FOCUSED,
-				"교차 인스턴스 handshake 방",
+				"교차 인스턴스 실시간 전달 방",
 				null,
 				null,
 				ExperienceLevel.ALL_LEVELS,
