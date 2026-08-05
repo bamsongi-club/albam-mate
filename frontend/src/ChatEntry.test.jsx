@@ -239,6 +239,12 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
 
     await waitFor(() => expect(screen.getByText('방금 도착한 메시지')).toBeTruthy());
     expect(screen.getByRole('status').textContent).toContain('실시간 연결됨');
+    sockets[0].message({
+      eventId: 99,
+      type: 'MESSAGE_CREATED',
+      message: { messageId: 13, roomId: 7, sender: { nickname: '참가자' }, isMine: false, content: '잘못된 식별자', createdAt: '2026-09-01T19:02:00+09:00' }
+    });
+    expect(screen.queryByText('잘못된 식별자')).toBeNull();
   });
 
   it('HTTP 저장 응답과 같은 WebSocket 이벤트는 메시지 하나로 합친다', async () => {
@@ -292,6 +298,20 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
 
     expect(sockets).toHaveLength(2);
     expect(sockets[1].url).toContain('/api/rooms/7/chat/ws?afterMessageId=20');
+    sockets[1].open();
+    await act(async () => {
+      sockets[1].message({
+        eventId: 21,
+        type: 'MESSAGE_CREATED',
+        message: { messageId: 21, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '복구 첫 메시지', createdAt: '2026-09-01T19:01:00+09:00' }
+      });
+      sockets[1].message({
+        eventId: 22,
+        type: 'MESSAGE_CREATED',
+        message: { messageId: 22, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '복구 다음 메시지', createdAt: '2026-09-01T19:02:00+09:00' }
+      });
+    });
+    expect(Array.from(document.querySelectorAll('.chat-content')).map((node) => node.textContent)).toEqual(['마지막 이력', '복구 첫 메시지', '복구 다음 메시지']);
     vi.useRealTimers();
   });
 });

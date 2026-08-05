@@ -1902,7 +1902,14 @@ const CHAT_RECONNECT_DELAYS = [500, 1000, 2000, 4000, 8000];
 function chatStreamMessage(payload, roomId) {
   if (!payload || payload.type !== 'MESSAGE_CREATED' || !payload.message) return null;
   if (String(payload.message.roomId) !== String(roomId) || payload.message.messageId === undefined) return null;
+  if (Number(payload.eventId) !== Number(payload.message.messageId)) return null;
   return payload.message;
+}
+
+function mergeChatMessages(current, incoming) {
+  const byId = new Map(current.map((message) => [String(message.messageId), message]));
+  incoming.forEach((message) => byId.set(String(message.messageId), message));
+  return [...byId.values()].sort((left, right) => Number(left.messageId) - Number(right.messageId));
 }
 
 export function ChatRoomView({ roomId, dataVersion, me }) {
@@ -1931,6 +1938,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
   const [streamStatus, setStreamStatus] = useState('connecting');
   const [streamError, setStreamError] = useState('');
   const lastEventIdRef = useRef(null);
+  const mergeMessages = (incoming) => setMessages((current) => mergeChatMessages(current, incoming));
 
   useEffect(() => {
     setMessagesRoomId(roomId);
@@ -1953,11 +1961,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
       0
     );
     if (latestMessageId > 0) lastEventIdRef.current = latestMessageId;
-    setMessages((current) => {
-      const byId = new Map(current.map((message) => [String(message.messageId), message]));
-      (data.messages || []).forEach((message) => byId.set(String(message.messageId), message));
-      return [...byId.values()].sort((left, right) => Number(left.messageId) - Number(right.messageId));
-    });
+    mergeMessages(data.messages || []);
     setNextBeforeMessageId(data.nextBeforeMessageId ?? null);
     setHasNext(Boolean(data.hasNext));
   }, [data]);
@@ -1967,6 +1971,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     let active = true;
     let socket;
     let reconnectTimer;
+    let stableConnectionTimer;
     let reconnectAttempts = 0;
 
     const connect = () => {
@@ -1984,6 +1989,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
         if (!active) return;
         setStreamStatus('connected');
         setStreamError('');
+        stableConnectionTimer = setTimeout(() => { reconnectAttempts = 0; }, 10000);
       };
       socket.onmessage = (event) => {
         if (!active) return;
@@ -1991,8 +1997,8 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
           const payload = JSON.parse(event.data);
           const message = chatStreamMessage(payload, roomId);
           if (!message) return;
-          const eventId = Number(payload.eventId || message.messageId);
-          if (eventId > 0) lastEventIdRef.current = Math.max(lastEventIdRef.current || 0, eventId);
+          const eventId = Number(payload.eventId);
+          lastEventIdRef.current = Math.max(lastEventIdRef.current || 0, eventId);
           mergeMessages([message]);
         } catch {
           setStreamError('실시간 메시지 형식을 확인하지 못했어요.');
@@ -2003,6 +2009,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
       };
       socket.onclose = () => {
         if (!active) return;
+        clearTimeout(stableConnectionTimer);
         if (reconnectAttempts >= CHAT_RECONNECT_LIMIT) {
           setStreamStatus('closed');
           setStreamError('실시간 연결을 복구하지 못했어요. 새로고침 후 다시 시도해주세요.');
@@ -2020,17 +2027,10 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     return () => {
       active = false;
       clearTimeout(reconnectTimer);
+      clearTimeout(stableConnectionTimer);
       socket?.close();
     };
   }, [data, error, roomId]);
-
-  const mergeMessages = (incoming) => {
-    setMessages((current) => {
-      const byId = new Map(current.map((message) => [String(message.messageId), message]));
-      incoming.forEach((message) => byId.set(String(message.messageId), message));
-      return [...byId.values()].sort((left, right) => Number(left.messageId) - Number(right.messageId));
-    });
-  };
 
   const loadPreviousMessages = async () => {
     if (!hasNext || loadingMore || nextBeforeMessageId === null) return;
