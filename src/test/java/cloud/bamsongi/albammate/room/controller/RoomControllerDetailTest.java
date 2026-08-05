@@ -103,6 +103,17 @@ class RoomControllerDetailTest {
 	}
 
 	@Test
+	void T5_대기_신청_가능_상세는_waitlistable_true를_직렬화한다() throws Exception {
+		when(roomDetailService.findRoomDetail(1L, Optional.of(99L)))
+			.thenReturn(publicResponse(false, true));
+
+		mockMvc.perform(get("/api/rooms/1").with(authenticationFor(99L)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.joinable").value(false))
+			.andExpect(jsonPath("$.data.waitlistable").value(true));
+	}
+
+	@Test
 	void 주최자는_HOST_역할과_관계자_필드를_받는다() throws Exception {
 		when(roomDetailService.findRoomDetail(1L, Optional.of(42L)))
 			.thenReturn(participantResponse(MyRole.HOST));
@@ -178,6 +189,10 @@ class RoomControllerDetailTest {
 	}
 
 	private PublicRoomResponse publicResponse(boolean joinable) {
+		return publicResponse(joinable, false);
+	}
+
+	private PublicRoomResponse publicResponse(boolean joinable, boolean waitlistable) {
 		return new PublicRoomResponse(
 			1L,
 			RoomType.GAME_FOCUSED,
@@ -193,7 +208,7 @@ class RoomControllerDetailTest {
 			2,
 			RoomStatus.RECRUITING,
 			joinable,
-			false);
+			waitlistable);
 	}
 
 	private ParticipantRoomResponse participantResponse(MyRole myRole) {

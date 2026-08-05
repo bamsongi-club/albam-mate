@@ -111,13 +111,12 @@ public class RoomListQueryService {
 		Instant requestTime,
 		Optional<Long> currentUserId,
 		RoomListReadService.RoomListReadResult readResult) {
-		Long currentUserIdOrNull = currentUserId.orElse(null);
 		return roomActionAvailabilityEvaluator.evaluate(new RoomActionAvailabilityFacts(
 			room,
 			requestTime,
 			currentUserId.isPresent(),
 			currentUserId.filter(room.getHostUserId()::equals).isPresent(),
 			readResult.activeParticipationRoomIds().contains(room.getId()),
-			currentUserIdOrNull != null && readResult.waitingRoomIds().contains(room.getId())));
+			readResult.waitingRoomIds().contains(room.getId())));
 	}
 }

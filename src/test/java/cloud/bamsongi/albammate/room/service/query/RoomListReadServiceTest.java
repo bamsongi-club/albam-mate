@@ -249,6 +249,25 @@ class RoomListReadServiceTest {
 		verify(roomRepository).findActiveParticipationRoomIds(42L, List.of(10L, 20L));
 	}
 
+	@Test
+	void T5_로그인_사용자의_현재_페이지_WAITING_방을_한번에_읽는다() {
+		PageRequest pageable = pageable();
+		Page<Room> rooms = new PageImpl<>(List.of(room(10L), room(20L)), pageable, 2);
+		when(roomRepository.findPublicRooms(
+			null, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable))
+			.thenReturn(rooms);
+		when(roomRepository.findActiveParticipationRoomIds(42L, List.of(10L, 20L))).thenReturn(List.of());
+		when(roomWaitlistRepository.findWaitingRoomIdsByUserIdAndRoomIds(42L, List.of(10L, 20L)))
+			.thenReturn(List.of(20L));
+
+		RoomListReadService.RoomListReadResult result = roomListReadService.findPublicRooms(
+			criteria(null, null, null), pageable, 42L);
+
+		assertEquals(Set.of(20L), result.waitingRoomIds());
+		verify(roomWaitlistRepository).findWaitingRoomIdsByUserIdAndRoomIds(42L, List.of(10L, 20L));
+	}
+
 	private PageRequest pageable() {
 		return PageRequest.of(0, 10, Sort.by(Sort.Order.asc("startAt"), Sort.Order.asc("id")));
 	}

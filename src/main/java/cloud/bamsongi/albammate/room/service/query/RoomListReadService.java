@@ -5,6 +5,7 @@ import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,7 +26,7 @@ class RoomListReadService {
 	@NonNull private final RoomRepository roomRepository;
 	@NonNull private final RoomWaitlistRepository roomWaitlistRepository;
 
-	@Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+	@Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW, isolation = Isolation.REPEATABLE_READ)
 	public RoomListReadResult findPublicRooms(
 		RoomListSearchCriteria criteria, Pageable pageable, Long currentUserId) {
 		Page<Room> rooms = findFilteredPublicRooms(criteria, pageable);

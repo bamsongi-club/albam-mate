@@ -21,8 +21,7 @@ public class RoomActionAvailabilityEvaluator {
 			return new RoomActionAvailability(true, false);
 		}
 		if (facts.room().getStatus() == RoomStatus.CLOSED
-			&& facts.room().getRemainingRecruitmentSeats() == 0
-			&& !facts.waiting()) {
+			&& facts.room().getRemainingRecruitmentSeats() == 0) {
 			return new RoomActionAvailability(false, true);
 		}
 		return RoomActionAvailability.UNAVAILABLE;

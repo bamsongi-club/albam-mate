@@ -147,6 +147,21 @@ class RoomDetailServiceTest {
 	}
 
 	@Test
+	void T6_상세의_Game_User_조회와_DTO_조립은_ReadService_반환_뒤에_수행한다() {
+		Room room = room(7L, 42L, 100L, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
+		when(roomDetailReadService.findRoomDetail(7L, 42L)).thenReturn(readResult(room, List.of(), false));
+		when(gameQuery.findSummaryById(100L)).thenReturn(Optional.of(new GameSummary(100L, 1100L, "카탄")));
+		when(userQuery.findNicknamesByIds(List.of(42L))).thenReturn(Map.of(42L, "방장"));
+
+		roomDetailService.findRoomDetail(7L, Optional.of(42L));
+
+		InOrder inOrder = inOrder(roomDetailReadService, gameQuery, userQuery);
+		inOrder.verify(roomDetailReadService).findRoomDetail(7L, 42L);
+		inOrder.verify(gameQuery).findSummaryById(100L);
+		inOrder.verify(userQuery).findNicknamesByIds(List.of(42L));
+	}
+
+	@Test
 	void CANCELED_방의_주최자는_관계자_상세를_받는다() {
 		Room room = room(7L, 42L, null, RoomStatus.CANCELED, 3, NOW.plusSeconds(60));
 		Participation participation = participation(77L);
@@ -239,11 +254,6 @@ class RoomDetailServiceTest {
 			() -> roomDetailService.findRoomDetail(7L, Optional.of(99L)));
 
 		assertEquals(ErrorCode.ROOM_NOT_FOUND, exception.getErrorCode());
-	}
-
-	private RoomDetailReadService.RoomDetailReadResult readResult(
-		Room room, List<Participation> activeParticipations) {
-		return new RoomDetailReadService.RoomDetailReadResult(room, activeParticipations);
 	}
 
 	private RoomDetailReadService.RoomDetailReadResult readResult(

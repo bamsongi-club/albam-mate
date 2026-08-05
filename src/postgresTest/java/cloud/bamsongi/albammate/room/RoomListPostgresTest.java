@@ -86,7 +86,69 @@ class RoomListPostgresTest {
 	@AfterEach
 	void tearDown() {
 		jdbcTemplate.execute(
-			"truncate table participations, rooms, games, users restart identity cascade");
+			"truncate table room_waitlists, participations, rooms, games, users restart identity cascade");
+	}
+
+	@Test
+	void T5_실제_WAITING_사용자와_비WAITING_사용자는_닫힌_만석_방에서_서로_다른_대기_가능_여부를_받는다() throws Exception {
+		UserAccount waitingUser = createLoginUser("room-waitlist-existing@example.com");
+		createLoginUser("room-waitlist-requester@example.com");
+		Long roomId = saveRoom(
+			RoomType.PERSON_FOCUSED,
+			"대기 가능 닫힌 방",
+			null,
+			START_AT,
+			RoomStatus.CLOSED,
+			ExperienceLevel.ALL_LEVELS,
+			false,
+			3,
+			3);
+		insertWaiting(roomId, waitingUser.id());
+
+		HttpClient waitingClient = login("room-waitlist-existing@example.com");
+		HttpClient requesterClient = login("room-waitlist-requester@example.com");
+		JsonNode waitingListRoom = roomFromList(getRooms(waitingClient, ""));
+		JsonNode waitingDetailRoom = roomFromDetail(get(waitingClient, "/api/rooms/" + roomId));
+		JsonNode requesterListRoom = roomFromList(getRooms(requesterClient, ""));
+		JsonNode requesterDetailRoom = roomFromDetail(get(requesterClient, "/api/rooms/" + roomId));
+
+		assertFalse(waitingListRoom.path("waitlistable").asBoolean());
+		assertFalse(waitingDetailRoom.path("waitlistable").asBoolean());
+		assertTrue(requesterListRoom.path("waitlistable").asBoolean());
+		assertTrue(requesterDetailRoom.path("waitlistable").asBoolean());
+	}
+
+	@Test
+	void T8_한_ROOM의_minRemainingSeats_SQL_포함_결과는_Room_잔여석_계산과_세_경계값에서_같다() throws Exception {
+		Long roomId = saveRoom(
+			RoomType.PERSON_FOCUSED,
+			"임계값 방",
+			null,
+			START_AT,
+			RoomStatus.RECRUITING,
+			ExperienceLevel.ALL_LEVELS,
+			false,
+			5,
+			2);
+		int remainingSeats = roomRepository.findById(roomId).orElseThrow().getRemainingRecruitmentSeats();
+
+		assertEquals(3, remainingSeats);
+		assertTitlePresent(getRooms("?minRemainingSeats=" + (remainingSeats - 1)).body(), "임계값 방");
+		assertTitlePresent(getRooms("?minRemainingSeats=" + remainingSeats).body(), "임계값 방");
+		assertTitleAbsent(getRooms("?minRemainingSeats=" + (remainingSeats + 1)).body(), "임계값 방");
+	}
+
+	private JsonNode roomFromList(HttpResponse<String> response) throws Exception {
+		assertEquals(200, response.statusCode());
+		return objectMapper.readTree(response.body())
+			.path("data")
+			.path("content")
+			.path(0);
+	}
+
+	private JsonNode roomFromDetail(HttpResponse<String> response) throws Exception {
+		assertEquals(200, response.statusCode());
+		return objectMapper.readTree(response.body()).path("data");
 	}
 
 	@Test
@@ -467,6 +529,20 @@ class RoomListPostgresTest {
 		jdbcTemplate.update(
 			"insert into participations (room_id, user_id, status, joined_at, created_at, updated_at) "
 				+ "values (?, ?, 'ACTIVE', ?, ?, ?)",
+			roomId,
+			userId,
+			START_AT_UTC,
+			START_AT_UTC,
+			START_AT_UTC);
+	}
+
+	private void insertWaiting(long roomId, long userId) {
+		jdbcTemplate.update(
+			"""
+				insert into room_waitlists (
+				    room_id, user_id, status, queue_order, queued_at, created_at, updated_at)
+				values (?, ?, 'WAITING', nextval('room_waitlist_queue_order_seq'), ?, ?, ?)
+				""",
 			roomId,
 			userId,
 			START_AT_UTC,

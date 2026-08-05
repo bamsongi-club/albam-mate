@@ -118,6 +118,21 @@ class RoomListQueryServiceTest {
 	}
 
 	@Test
+	void T5_현재_대기중이_아닌_로그인_사용자는_닫힌_만석_방에_대기_신청할_수_있다() {
+		PageRequest pageable = pageable();
+		Room room = room(1L, null, 42L, RoomStatus.CLOSED, 3, 3, NOW.plusSeconds(60));
+		when(roomListReadService.findPublicRooms(
+			criteria(RoomType.PERSON_FOCUSED, null, null), pageable, 99L))
+			.thenReturn(readResult(List.of(room), pageable, Set.of(), Set.of()));
+
+		var response = roomListQueryService.findPage(
+			RoomType.PERSON_FOCUSED, null, null, 0, 10, Optional.of(99L));
+
+		assertFalse(response.content().getFirst().joinable());
+		assertTrue(response.content().getFirst().waitlistable());
+	}
+
+	@Test
 	void 상태_보정_후_같은_요청시각으로_공개_게임방을_페이지_응답으로_조립한다() {
 		Room room = room(1L, 7L, 42L, RoomStatus.RECRUITING, 1, 3, NOW.plusSeconds(60));
 		PageRequest pageable = pageable();
@@ -140,6 +155,22 @@ class RoomListQueryServiceTest {
 		inOrder.verify(statusCorrectionCoordinator).correctDueRooms(NOW);
 		inOrder.verify(roomListReadService)
 			.findPublicRooms(criteria(RoomType.GAME_FOCUSED, 7L, null), pageable, 99L);
+	}
+
+	@Test
+	void T6_목록의_Game_조회와_DTO_조립은_ReadService_반환_뒤에_수행한다() {
+		PageRequest pageable = pageable();
+		Room room = room(1L, 7L, 42L, RoomStatus.RECRUITING, 0, 3, NOW.plusSeconds(60));
+		when(roomListReadService.findPublicRooms(criteria(RoomType.GAME_FOCUSED, 7L, null), pageable, 99L))
+			.thenReturn(readResult(List.of(room), pageable, Set.of()));
+		when(gameQuery.findSummariesByIds(Set.of(7L)))
+			.thenReturn(Map.of(7L, new GameSummary(7L, 1007L, "카탄")));
+
+		roomListQueryService.findPage(RoomType.GAME_FOCUSED, 7L, null, 0, 10, Optional.of(99L));
+
+		InOrder inOrder = inOrder(roomListReadService, gameQuery);
+		inOrder.verify(roomListReadService).findPublicRooms(criteria(RoomType.GAME_FOCUSED, 7L, null), pageable, 99L);
+		inOrder.verify(gameQuery).findSummariesByIds(Set.of(7L));
 	}
 
 	@Test
@@ -319,8 +350,16 @@ class RoomListQueryServiceTest {
 
 	private RoomListReadService.RoomListReadResult readResult(
 		List<Room> rooms, PageRequest pageable, Set<Long> activeParticipationRoomIds) {
+		return readResult(rooms, pageable, activeParticipationRoomIds, Set.of());
+	}
+
+	private RoomListReadService.RoomListReadResult readResult(
+		List<Room> rooms,
+		PageRequest pageable,
+		Set<Long> activeParticipationRoomIds,
+		Set<Long> waitingRoomIds) {
 		return new RoomListReadService.RoomListReadResult(
-			new PageImpl<>(rooms, pageable, rooms.size()), activeParticipationRoomIds, Set.of());
+			new PageImpl<>(rooms, pageable, rooms.size()), activeParticipationRoomIds, waitingRoomIds);
 	}
 
 	private Room room(
