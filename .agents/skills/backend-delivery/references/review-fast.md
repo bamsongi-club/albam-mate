@@ -54,3 +54,4 @@ PR을 요청받으면 `pr-writer` 호출 전에 최신 실제 결과로 `.github
 - T-ID가 1개든 6개든 각각 한 줄씩 `단순 클래스명#메서드명 (task)`으로 쓰고, 같은 T-ID의 복수 evidence는 한 체크박스에서 `;`로 구분한다. 단순 클래스명이 충돌할 때만 package-qualified class명을 쓴다.
 - Green 명령은 task별 한 줄로 묶는다. 실행하지 않은 PostgreSQL·coverage와 Red 내용은 넣지 않고 실제 성공한 항목만 `[x]`로 표시한다.
 - 템플릿 heading과 순서를 바꾸지 않는다. 전달 종료 후 저장소 밖 packet과 manifest는 삭제하지 않고 Private Brain의 전달 아카이브로 옮긴다. 아카이브 경로와 파일 구조는 Private Brain 정본을 따르고 공개 파일에 적지 않는다.
+- 이관을 마치면 `archiveId`와 receipt의 packet·manifest SHA-256을 대화 보고에 남긴다. 이관이나 receipt를 확인하지 못하면 임시 파일을 삭제하지 않고 확인하지 못한 사실을 보고한다.

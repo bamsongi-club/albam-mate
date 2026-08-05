@@ -202,7 +202,16 @@ selector 문법은 [Gradle 테스트 필터링](https://docs.gradle.org/current/
 .\gradlew.bat jacocoTestReport verifyCoverageRuleTargets
 ```
 
-이 명령은 `jacocoTestReport`가 `test`에 의존하므로 전체 H2 test 1회와 커버리지 구조 검사를 포함한다. 기준 실측은 약 70초이며 머신 상태에 따라 더 걸릴 수 있으므로 짧은 정적 검사로 취급하지 않는다. 로컬은 targeted 테스트와 이 조건부 전체 H2 게이트까지 책임지고, 기존 래칫 비율 회귀·PostgreSQL 합산 coverage·전체 회귀는 GitHub CI가 판정한다. 전달 종료 시 임시 packet과 manifest를 삭제한다.
+이 명령은 `jacocoTestReport`가 `test`에 의존하므로 전체 H2 test 1회와 커버리지 구조 검사를 포함한다. 기준 실측은 약 70초이며 머신 상태에 따라 더 걸릴 수 있으므로 짧은 정적 검사로 취급하지 않는다. 로컬은 targeted 테스트와 이 조건부 전체 H2 게이트까지 책임지고, 기존 래칫 비율 회귀·PostgreSQL 합산 coverage·전체 회귀는 GitHub CI가 판정한다.
+
+`build.gradle`의 `gatedBranchCoverage`를 바꿨다면 다음 검사를 통과시킨다. 아직 커밋하지 않은 변경은 인자 없이, 커밋한 뒤 고정한 head를 검증할 때는 `--base`로 고정한 base를 넘긴다. 인자 없이 실행하면 커밋된 변경이 빈 diff가 되어 검사가 아무것도 보지 못한다.
+
+```sh
+node scripts/validate-coverage-ratchet.mjs
+node scripts/validate-coverage-ratchet.mjs --base <고정한-base-sha>
+```
+
+전달 종료 시 임시 packet과 manifest는 삭제하지 않고 Private Brain의 전달 아카이브로 옮긴다. 아카이브 경로는 Private Brain 정본을 따르고 공개 파일에 적지 않으며, 이관 결과는 `archiveId`와 receipt의 packet·manifest SHA-256으로 확인한다.
 
 ## 게임 카탈로그 검수
 

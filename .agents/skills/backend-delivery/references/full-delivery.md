@@ -33,6 +33,7 @@
 ## 고정 head 검증과 Ready 전환
 
 - 고정한 Draft head에서 같은 manifest를 `node scripts/validate-backend-test-manifest.mjs --packet <packet.json> --manifest <manifest.json> --worktree <worktree>`로 다시 검증한다.
+- `build.gradle`을 바꿨다면 고정한 head에서 `node scripts/validate-coverage-ratchet.mjs --base <고정한-base-sha>`를 통과시킨다. 인자 없이 실행하면 이미 커밋된 래칫 변경이 빈 diff가 되어 하향·삭제를 놓친다.
 - manifest의 H2 selector를 한 `.\gradlew.bat test ... --rerun --fail-fast` 명령으로 묶어 최대 한 번 재실행한다. PostgreSQL selector가 있으면 먼저 `docker version`을 확인하고 한 `.\gradlew.bat postgresTest ... --rerun --fail-fast` 명령으로 묶어 최대 한 번 재실행한다.
 - 두 재실행 모두 해당 Test task가 실제로 실행돼야 한다. `--rerun` 없이 같은 selector를 다시 돌리면 Gradle이 `UP-TO-DATE`로 건너뛰고 종료 코드 0을 내므로, `Task :test`·`Task :postgresTest`가 `UP-TO-DATE`로 끝난 실행은 이 게이트의 통과 근거로 쓰지 않는다.
 - 같은 Draft head에서 `review-code` 일반 리뷰를 비게시 read-only로 한 번 호출한다. 고정 diff, 승인된 T-ID와 manifest를 함께 전달해 변경 위험과 assertion·mock·실행 경계·누락 테스트를 일반 Finding으로 검토하며 T-ID별 별도 verdict를 만들지 않는다.
@@ -56,3 +57,4 @@
 ```
 
 - 종료 후 저장소 밖 임시 packet과 manifest는 삭제하지 않고 Private Brain의 전달 아카이브로 옮긴다. 아카이브 경로와 파일 구조는 Private Brain 정본을 따르고 공개 파일에 적지 않는다.
+- 이관을 마치면 `archiveId`와 receipt의 packet·manifest SHA-256을 대화 보고에 남긴다. 이 두 값이 handoff 식별자이므로 경로 대신 이것으로 아카이브를 지목한다. 이관이나 receipt를 확인하지 못하면 임시 파일을 삭제하지 않고 확인하지 못한 사실을 보고한다.
