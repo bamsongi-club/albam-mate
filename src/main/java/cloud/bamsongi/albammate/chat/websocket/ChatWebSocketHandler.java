@@ -82,11 +82,12 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 		Long roomId = attribute(attributes, ROOM_ID_ATTRIBUTE, Long.class);
 		Long userId = attribute(attributes, USER_ID_ATTRIBUTE, Long.class);
 		String sessionId = attribute(attributes, SESSION_ID_ATTRIBUTE, String.class);
-		if (roomId == null || userId == null || sessionId == null || sessionRepository.findById(sessionId) == null) {
-			closeForPolicyViolation(session);
-			return;
-		}
 		try {
+			if (roomId == null || userId == null || sessionId == null
+				|| sessionRepository.findById(sessionId) == null) {
+				closeForPolicyViolation(session);
+				return;
+			}
 			chatAccessGuard.executeWithAccess(userId, roomId, () -> null);
 		} catch (RuntimeException exception) {
 			closeForPolicyViolation(session);
