@@ -28,9 +28,22 @@ public class RedisChatMessageRateLimiter implements ChatMessageRateLimiter {
 	private static final DefaultRedisScript<List> RESERVE_SCRIPT = new DefaultRedisScript<>("""
 		local userValue = redis.call('GET', KEYS[1])
 		local roomValue = redis.call('GET', KEYS[2])
-		local userCount = userValue and tonumber(userValue) or 0
-		local roomCount = roomValue and tonumber(roomValue) or 0
-		if not userCount or not roomCount or userCount < 0 or roomCount < 0 then
+		local function toIncrCompatibleCount(rawValue)
+		  if not rawValue then
+		    return true, 0
+		  end
+		  if not string.match(rawValue, '^%-?%d+$') then
+		    return false, 0
+		  end
+		  local number = tonumber(rawValue)
+		  if number == nil or number < 0 then
+		    return false, 0
+		  end
+		  return true, number
+		end
+		local userValid, userCount = toIncrCompatibleCount(userValue)
+		local roomValid, roomCount = toIncrCompatibleCount(roomValue)
+		if not userValid or not roomValid then
 		  return {-1, 0}
 		end
 		local userTtl = redis.call('PTTL', KEYS[1])

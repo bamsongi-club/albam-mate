@@ -192,6 +192,36 @@ class ChatMessageRateLimitPostgresTest {
 	}
 
 	@Test
+	void room_key가_비정수이면_user_INCR_전에_검증에서_막혀_두_bucket_모두_변하지_않고_503으로_끝난다() {
+		long userId = insertUser("코럽트룸");
+		Room room = createChatRoom(userId, 2);
+		redis().opsForValue().set(userKey(userId), "2", 10_000, TimeUnit.MILLISECONDS);
+		redis().opsForValue().set(roomKey(room.getId()), "1.5", 10_000, TimeUnit.MILLISECONDS);
+
+		assertBusinessError(ErrorCode.SERVICE_UNAVAILABLE,
+			() -> send(userId, room.getId(), "corrupt-room"));
+
+		assertEquals("2", redis().opsForValue().get(userKey(userId)));
+		assertEquals("1.5", redis().opsForValue().get(roomKey(room.getId())));
+		assertEquals(0, chatMessageRepository.count());
+	}
+
+	@Test
+	void user_key가_비정수이면_room_INCR_전에_검증에서_막혀_두_bucket_모두_변하지_않고_503으로_끝난다() {
+		long userId = insertUser("코럽트유저");
+		Room room = createChatRoom(userId, 2);
+		redis().opsForValue().set(userKey(userId), "abc", 10_000, TimeUnit.MILLISECONDS);
+		redis().opsForValue().set(roomKey(room.getId()), "3", 10_000, TimeUnit.MILLISECONDS);
+
+		assertBusinessError(ErrorCode.SERVICE_UNAVAILABLE,
+			() -> send(userId, room.getId(), "corrupt-user"));
+
+		assertEquals("abc", redis().opsForValue().get(userKey(userId)));
+		assertEquals("3", redis().opsForValue().get(roomKey(room.getId())));
+		assertEquals(0, chatMessageRepository.count());
+	}
+
+	@Test
 	void 검증과_권한_실패와_동일_멱등_재전송은_quota를_소비하지_않고_신규_메시지만_소비한다() {
 		long hostUserId = insertUser("검증방장");
 		long strangerUserId = insertUser("비참여자");
@@ -202,6 +232,7 @@ class ChatMessageRateLimitPostgresTest {
 		assertBusinessError(ErrorCode.FORBIDDEN,
 			() -> send(strangerUserId, room.getId(), "forbidden", "본문"));
 		assertFalse(Boolean.TRUE.equals(redis().hasKey(userKey(hostUserId))));
+		assertFalse(Boolean.TRUE.equals(redis().hasKey(userKey(strangerUserId))));
 		assertFalse(Boolean.TRUE.equals(redis().hasKey(roomKey(room.getId()))));
 
 		send(hostUserId, room.getId(), "replay", "첫 본문");
