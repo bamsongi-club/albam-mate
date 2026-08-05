@@ -77,11 +77,11 @@ Redis 발행·구독 또는 WebSocket 전달 실패는 저장 결과를 바꾸�
 ## 검증
 
 - 상태: 미검증
-- 근거: 없음
+- 근거:
+    - 구현: [#286](https://github.com/bamsongi-club/albam-mate/issues/286)에서 `local-multi`와 `production` Redis publisher·subscriber·listener container, PostgreSQL catch-up 전달, `afterMessageId` 재연결과 전달 직전 관계·세션 gate를 구현했다. production Compose는 Redis host·port를 명시적으로 Spring 컨테이너에 전달한다.
+    - 계약: 채팅 Redis channel namespace는 `albam-mate:local-multi:chat:events`와 `albam-mate:production:chat:events`로 확정했으며, 두 환경 모두 `eventType`·`roomId`·`messageId`만 신호에 담고 PostgreSQL 이력으로 catch-up한다.
+    - 테스트: [#286](https://github.com/bamsongi-club/albam-mate/issues/286)의 T1~T12로 커밋 후 전달, 중복·유실·역순 복구, 실제 WebSocket 재연결, local-multi 교차 인스턴스·재시작 복구, 세션 저장소 장애와 관측 경계를 자동 검증한다.
 - 미검증:
-    - 채팅 저장·잠금·AFTER_COMMIT Redis publisher와 subscriber 구현 및 PostgreSQL 경쟁 테스트가 없다.
-    - 로컬 두 인스턴스 교차 전달과 Redis 신호 누락·순서 역전 복구를 확인하지 않았다.
-    - 세션 만료·삭제 이벤트가 유실된 상태의 전달 직전 세션 유효성 확인과 연결 종료를 확인하지 않았다.
     - 실제 AWS의 Redis·ASG 운영 부하는 후속 OPS 검증이 필요하다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.
