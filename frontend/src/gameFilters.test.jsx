@@ -274,28 +274,58 @@ describe('T4 대표 메커니즘과 설명', () => {
     expect(shownMechanismNames()).toEqual(FEATURED_MECHANISM_NAMES);
   });
 
-  it('대표 항목의 정보 아이콘을 누르면 그 항목의 설명을 말풍선으로 보여 준다', async () => {
+  it('대표 항목의 정보 아이콘을 누르면 그 항목의 설명을 말풍선으로 연다', async () => {
     await renderGamesView();
     openFilterPanel();
 
     const hint = screen.getByLabelText('핸드 관리 설명');
-    expect(screen.queryByRole('tooltip')).toBeNull();
+    expect(hint.getAttribute('aria-expanded')).toBe('false');
 
     fireEvent.click(hint);
 
-    const tooltip = screen.getByRole('tooltip');
+    expect(hint.getAttribute('aria-expanded')).toBe('true');
+    const tooltip = document.getElementById(hint.getAttribute('aria-describedby'));
+    expect(tooltip.getAttribute('role')).toBe('tooltip');
     expect(tooltip.textContent.trim()).not.toBe('');
-    expect(hint.getAttribute('aria-describedby')).toBe(tooltip.id);
+    // 화면을 막는 모달을 쓰지 않으므로 다른 조건을 보면서 설명을 읽을 수 있다.
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('키보드 focus로도 같은 설명을 확인할 수 있다', async () => {
+  it('아이콘을 다시 누르면 말풍선을 닫는다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    const hint = screen.getByLabelText('핸드 관리 설명');
+
+    fireEvent.click(hint);
+    fireEvent.click(hint);
+
+    expect(hint.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('마우스가 올라오거나 focus를 받은 상태에서 눌러도 말풍선이 닫히지 않는다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    const hint = screen.getByLabelText('주사위 굴림 설명');
+
+    // tap은 hover·focus를 함께 일으킨다. 이 순서에서 눌러도 설명이 열려 있어야 한다.
+    fireEvent.mouseEnter(hint.parentElement);
+    fireEvent.focus(hint);
+    fireEvent.click(hint);
+
+    expect(hint.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('대표 8개마다 서로 다른 설명을 연결한다', async () => {
     await renderGamesView();
     openFilterPanel();
 
-    fireEvent.focus(screen.getByLabelText('주사위 굴림 설명'));
+    const descriptions = FEATURED_MECHANISM_NAMES.map((name) => {
+      const hint = screen.getByLabelText(name + ' 설명');
+      return document.getElementById(hint.getAttribute('aria-describedby')).textContent.trim();
+    });
 
-    expect(screen.getByRole('tooltip').textContent.trim()).not.toBe('');
+    expect(descriptions.every(Boolean)).toBe(true);
+    expect(new Set(descriptions).size).toBe(FEATURED_MECHANISM_NAMES.length);
   });
 
   it('대표 8개 밖 항목에는 설명을 제공하지 않는다', async () => {
@@ -384,5 +414,96 @@ describe('T6 메커니즘 선택과 조회', () => {
     openFilterPanel();
 
     expect(getGameMechanisms).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('T10 조건 조합', () => {
+  function applyEveryCondition() {
+    fireEvent.change(screen.getByLabelText('최소'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('최대'), { target: { value: '4' } });
+    fireEvent.click(screen.getByLabelText('90분 이상'));
+    fireEvent.click(screen.getByLabelText('핸드 관리'));
+    fireEvent.click(within(screen.getByRole('group', { name: '해 본 게임' })).getByLabelText('해 본 게임만'));
+    fireEvent.click(within(screen.getByRole('group', { name: '게임 난이도' })).getByLabelText('3점대'));
+    fireEvent.click(screen.getByLabelText('예정 모임 있는 게임만'));
+    act(() => { vi.advanceTimersByTime(400); });
+  }
+
+  it('모든 조건과 검색어를 함께 걸어도 계약한 파라미터를 한 요청에 담는다', async () => {
+    render(<GamesView title="게임 찾기" gameQuery="루미" onGameQueryChange={vi.fn()} dataVersion={0} />);
+    await act(async () => {});
+    openFilterPanel();
+
+    applyEveryCondition();
+
+    expect(lastQuery()).toMatchObject({
+      keyword: '루미',
+      playerCountMin: '2',
+      playerCountMax: '4',
+      playerCountExact: false,
+      exclusivePlayerCount: [],
+      playTime: ['AT_LEAST_90'],
+      mechanism: ['HAND_MANAGEMENT'],
+      playedFilter: 'PLAYED_ONLY',
+      complexityMin: '3',
+      complexityMax: '3.99',
+      upcomingOnly: true
+    });
+  });
+
+  it('건 조건을 모두 칩으로 보여 주고 초기화하면 함께 해제한다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    applyEveryCondition();
+
+    ['2~4명', '90분 이상', '핸드 관리', '해 본 게임만', '난이도 3점대', '예정 모임 있음'].forEach((label) => {
+      expect(screen.getByLabelText(label + ' 조건 해제')).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByText('초기화'));
+    act(() => { vi.advanceTimersByTime(400); });
+
+    expect(screen.queryByLabelText('핸드 관리 조건 해제')).toBeNull();
+    expect(lastQuery()).toMatchObject({
+      playerCountMin: '',
+      playTime: [],
+      mechanism: [],
+      playedFilter: '',
+      upcomingOnly: false
+    });
+  });
+
+  it('조건을 걸어 둔 채 필터를 닫았다 열어도 모든 선택 상태를 유지한다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    applyEveryCondition();
+
+    fireEvent.click(screen.getByText('닫기'));
+    openFilterPanel();
+
+    expect(screen.getByLabelText('최소').value).toBe('2');
+    expect(screen.getByLabelText('90분 이상').checked).toBe(true);
+    expect(screen.getByLabelText('핸드 관리').checked).toBe(true);
+    expect(within(screen.getByRole('group', { name: '해 본 게임' })).getByLabelText('해 본 게임만').checked).toBe(true);
+  });
+
+  it('조건을 건 조회의 로딩과 빈 결과를 그대로 알린다', async () => {
+    let resolvePage;
+    getGames.mockReturnValue(new Promise((resolve) => { resolvePage = resolve; }));
+    await renderGamesView();
+
+    // 제목 옆 건수와 목록 자리 모두 불러오는 중임을 알린다.
+    expect(screen.getAllByText('불러오는 중…')).toHaveLength(2);
+
+    await act(async () => { resolvePage(EMPTY_PAGE); });
+    expect(screen.getByText(/검색 결과가 없어요/)).toBeTruthy();
+  });
+
+  it('조건을 건 조회가 실패하면 오류를 알린다', async () => {
+    getGames.mockRejectedValue(new Error('조회하지 못했어요.'));
+
+    await renderGamesView();
+
+    expect(screen.getByText('요청을 처리하지 못했어요.')).toBeTruthy();
   });
 });

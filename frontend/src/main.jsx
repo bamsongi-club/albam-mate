@@ -833,31 +833,26 @@ function FilterNumberRangeGroup({ label, min, max, unit, onMinChange, onMaxChang
 /**
  * 대표 메커니즘의 설명을 여는 정보 아이콘이다.
  *
- * 데스크톱은 hover와 키보드 focus, 모바일은 아이콘 tap으로 같은 말풍선을 연다.
+ * 데스크톱 hover와 키보드 focus는 CSS가 열고, 아이콘을 누르면 여기서 고정한다.
+ * tap은 hover·focus를 함께 일으키므로 상태를 셋으로 나눠 두면 누를 때 도로 닫히는 순서가 생긴다.
  * 화면을 막는 모달을 쓰지 않으므로 다른 조건을 보면서 설명을 확인할 수 있다.
  */
 function MechanismHint({ code, name, description }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
   const tooltipId = 'mechanism-hint-' + code;
   return (
-    <span
-      className={'mechanism-hint' + (isOpen ? ' on' : '')}
-      onMouseEnter={() => setIsOpen(true)}
-      onMouseLeave={() => setIsOpen(false)}
-    >
+    <span className={'mechanism-hint' + (isPinned ? ' on' : '')}>
       <button
         type="button"
         className="mechanism-hint-button"
         aria-label={name + ' 설명'}
         aria-describedby={tooltipId}
-        aria-expanded={isOpen}
-        onFocus={() => setIsOpen(true)}
-        onBlur={() => setIsOpen(false)}
-        onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isPinned}
+        onClick={() => setIsPinned(!isPinned)}
       >
         <span aria-hidden="true">i</span>
       </button>
-      {isOpen && <span className="mechanism-hint-text" id={tooltipId} role="tooltip">{description}</span>}
+      <span className="mechanism-hint-text" id={tooltipId} role="tooltip">{description}</span>
     </span>
   );
 }
