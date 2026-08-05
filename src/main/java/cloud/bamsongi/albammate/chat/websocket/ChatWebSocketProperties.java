@@ -1,5 +1,7 @@
 package cloud.bamsongi.albammate.chat.websocket;
 
+import java.time.Duration;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -12,6 +14,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class ChatWebSocketProperties {
 
 	private String allowedOrigin = "http://localhost:5173";
+	private Duration accessValidationInterval = Duration.ofSeconds(1);
 
 	public String getAllowedOrigin() {
 		return allowedOrigin;
@@ -19,5 +22,13 @@ public class ChatWebSocketProperties {
 
 	public void setAllowedOrigin(String allowedOrigin) {
 		this.allowedOrigin = allowedOrigin;
+	}
+
+	public Duration getAccessValidationInterval() {
+		return accessValidationInterval;
+	}
+
+	public void setAccessValidationInterval(Duration accessValidationInterval) {
+		this.accessValidationInterval = accessValidationInterval;
 	}
 }

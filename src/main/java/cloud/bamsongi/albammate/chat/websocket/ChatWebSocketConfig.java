@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.chat.websocket;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.web.socket.server.HandshakeHandler;
 import org.springframework.web.socket.server.support.DefaultHandshakeHandler;
 
@@ -14,5 +15,13 @@ public class ChatWebSocketConfig {
 	@Bean
 	HandshakeHandler chatHandshakeHandler() {
 		return new DefaultHandshakeHandler();
+	}
+
+	@Bean(destroyMethod = "shutdown")
+	ThreadPoolTaskScheduler chatWebSocketTaskScheduler() {
+		ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+		scheduler.setPoolSize(1);
+		scheduler.setThreadNamePrefix("chat-websocket-validation-");
+		return scheduler;
 	}
 }

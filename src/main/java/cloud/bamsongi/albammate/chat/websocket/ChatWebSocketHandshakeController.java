@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.chat.websocket;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.http.HttpHeaders;
@@ -43,11 +44,15 @@ public class ChatWebSocketHandshakeController {
 		long currentUserId = currentUserAccessor.requireCurrentUserId();
 		requireAllowedOrigin(request);
 		chatAccessGuard.executeWithAccess(currentUserId, roomId, () -> null);
+		Map<String, Object> attributes = new HashMap<>();
+		attributes.put(ChatWebSocketHandler.ROOM_ID_ATTRIBUTE, roomId);
+		attributes.put(ChatWebSocketHandler.USER_ID_ATTRIBUTE, currentUserId);
+		attributes.put(ChatWebSocketHandler.SESSION_ID_ATTRIBUTE, request.getSession(false).getId());
 		chatHandshakeHandler.doHandshake(
 			new ServletServerHttpRequest(request),
 			new ServletServerHttpResponse(response),
 			chatWebSocketHandler,
-			Map.of());
+			attributes);
 	}
 
 	private void requireAllowedOrigin(HttpServletRequest request) {

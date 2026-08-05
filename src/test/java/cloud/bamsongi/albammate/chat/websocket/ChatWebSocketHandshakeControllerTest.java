@@ -162,7 +162,7 @@ class ChatWebSocketHandshakeControllerTest {
 
 		@Bean
 		ChatWebSocketHandler chatWebSocketHandler() {
-			return new ChatWebSocketHandler();
+			return Mockito.mock(ChatWebSocketHandler.class);
 		}
 	}
 }
