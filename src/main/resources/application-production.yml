@@ -32,3 +32,6 @@ app:
   security:
     cookie:
       secure: true
+  chat:
+    websocket:
+      allowed-origin: ${ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN:}
