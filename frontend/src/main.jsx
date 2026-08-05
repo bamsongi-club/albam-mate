@@ -2105,6 +2105,8 @@ function App() {
 
   const handleProtectedError = (error, fallback) => {
     if (isUnauthenticated(error)) {
+      // 이미 비로그인 상태면 expireAuthentication이 아무 것도 하지 않으므로 여기서 직접 안내한다.
+      showToast('로그인이 필요해요.', 'err');
       expireAuthentication();
       return;
     }

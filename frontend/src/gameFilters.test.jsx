@@ -330,6 +330,27 @@ describe('T4 대표 메커니즘과 설명', () => {
     expect(new Set(descriptions).size).toBe(DESCRIBED_MECHANISM_NAMES.length);
   });
 
+  // 문구 자체는 리뷰에서 사람 검수·승인이 아직 끝나지 않았다. 여기서는 현재 문구를 고정해
+  // 승인 전 문구가 예고 없이 바뀌지 않도록 막는다.
+  it('대표 항목 설명 문구를 고정한다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+
+    const expectedByName = {
+      '핸드 관리': '손패 관리',
+      '셋 컬렉션': '같은 짝·세트 모으기',
+      '조립 보드': '판 구성이 매번 달라짐',
+      '솔로/솔로테어 게임': '혼자서도 가능',
+      '일꾼 놓기': '자리를 먼저 잡아 행동 가져오기'
+    };
+
+    Object.entries(expectedByName).forEach(([name, text]) => {
+      const hint = screen.getByLabelText(name + ' 설명');
+      const tooltip = document.getElementById(hint.getAttribute('aria-describedby'));
+      expect(tooltip.textContent.trim()).toBe(text);
+    });
+  });
+
   it('표시명이 곧 동작인 대표 항목에는 정보 아이콘을 두지 않는다', async () => {
     await renderGamesView();
     openFilterPanel();
