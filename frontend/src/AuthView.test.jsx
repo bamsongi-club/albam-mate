@@ -2,13 +2,12 @@ import React from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from './api';
-import { AuthView } from './main';
+import { AuthView, SignupView } from './main';
 
 afterEach(cleanup);
 
 function renderSignup(onSignup) {
-  render(<AuthView onLogin={vi.fn()} onSignup={onSignup} />);
-  fireEvent.click(screen.getByRole('button', { name: '회원가입' }));
+  render(<SignupView onSignup={onSignup} />);
   fireEvent.change(screen.getByLabelText('이메일'), { target: { value: 'user@example.com' } });
   fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: '테스터' } });
   return screen.getByLabelText('비밀번호');
@@ -116,7 +115,7 @@ describe('#387 T4·T5 회원가입 제출 경계 회귀', () => {
 
   it('로그인 비밀번호는 회원가입 길이 검증을 적용하지 않는다', () => {
     const onLogin = vi.fn().mockResolvedValue(undefined);
-    render(<AuthView onLogin={onLogin} onSignup={vi.fn()} />);
+    render(<AuthView onLogin={onLogin} />);
     fireEvent.change(screen.getByLabelText('이메일'), { target: { value: 'user@example.com' } });
     fireEvent.change(screen.getByLabelText('비밀번호'), { target: { value: 'short' } });
 
