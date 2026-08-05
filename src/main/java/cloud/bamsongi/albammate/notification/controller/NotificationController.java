@@ -21,8 +21,7 @@ import cloud.bamsongi.albammate.notification.dto.NotificationListRequest;
 import cloud.bamsongi.albammate.notification.dto.NotificationReadRequest;
 import cloud.bamsongi.albammate.notification.dto.UnreadNotificationCountResponse;
 import cloud.bamsongi.albammate.notification.service.command.NotificationReadCommandService;
-import cloud.bamsongi.albammate.notification.service.query.NotificationListQueryService;
-import cloud.bamsongi.albammate.notification.service.query.UnreadNotificationCountQueryService;
+import cloud.bamsongi.albammate.notification.service.query.NotificationQueryService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -37,8 +36,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class NotificationController {
 
-	@NonNull private final NotificationListQueryService notificationListQueryService;
-	@NonNull private final UnreadNotificationCountQueryService unreadNotificationCountQueryService;
+	@NonNull private final NotificationQueryService notificationQueryService;
 	@NonNull private final NotificationReadCommandService notificationReadCommandService;
 	@NonNull private final CurrentUserAccessor currentUserAccessor;
 
@@ -50,7 +48,7 @@ public class NotificationController {
 		NotificationQueryParameterAllowlistValidator.validateList(servletRequest);
 		return ResponseEntity.ok(ApiResponse.success(
 			HttpStatus.OK,
-			notificationListQueryService.findPage(
+			notificationQueryService.findPage(
 				currentUserAccessor.requireCurrentUserId(), request.getPage(), request.getSize())));
 	}
 
@@ -59,7 +57,7 @@ public class NotificationController {
 		NotificationQueryParameterAllowlistValidator.validateUnreadCount(servletRequest);
 		return ResponseEntity.ok(ApiResponse.success(
 			HttpStatus.OK,
-			unreadNotificationCountQueryService.countUnread(currentUserAccessor.requireCurrentUserId())));
+			notificationQueryService.countUnread(currentUserAccessor.requireCurrentUserId())));
 	}
 
 	@PatchMapping(path = "/{notificationId}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)

@@ -41,8 +41,7 @@ import cloud.bamsongi.albammate.notification.dto.NotificationListItem;
 import cloud.bamsongi.albammate.notification.dto.UnreadNotificationCountResponse;
 import cloud.bamsongi.albammate.notification.enums.NotificationType;
 import cloud.bamsongi.albammate.notification.service.command.NotificationReadCommandService;
-import cloud.bamsongi.albammate.notification.service.query.NotificationListQueryService;
-import cloud.bamsongi.albammate.notification.service.query.UnreadNotificationCountQueryService;
+import cloud.bamsongi.albammate.notification.service.query.NotificationQueryService;
 
 @WebMvcTest(NotificationController.class)
 @Import({
@@ -59,22 +58,20 @@ class NotificationControllerTest {
 	@Autowired
 	private MockMvc mockMvc;
 	@Autowired
-	private NotificationListQueryService notificationListQueryService;
-	@Autowired
-	private UnreadNotificationCountQueryService unreadNotificationCountQueryService;
+	private NotificationQueryService notificationQueryService;
 	@Autowired
 	private NotificationReadCommandService notificationReadCommandService;
 
 	@Test
 	void 비로그인_두_GET은_UNAUTHENTICATED다() throws Exception {
-		clearInvocations(notificationListQueryService, unreadNotificationCountQueryService);
+		clearInvocations(notificationQueryService);
 		mockMvc.perform(get("/api/users/me/notifications"))
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
 		mockMvc.perform(get("/api/users/me/notifications/unread-count"))
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
-		verifyNoInteractions(notificationListQueryService, unreadNotificationCountQueryService);
+		verifyNoInteractions(notificationQueryService);
 	}
 
 	@Test
@@ -90,7 +87,7 @@ class NotificationControllerTest {
 
 	@Test
 	void 목록은_기본_페이지와_허용된_필드만_봉투에_반환한다() throws Exception {
-		when(notificationListQueryService.findPage(42L, 0, 10)).thenReturn(page());
+		when(notificationQueryService.findPage(42L, 0, 10)).thenReturn(page());
 		mockMvc.perform(get("/api/users/me/notifications").with(authenticationFor(42L)))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.status").value(200))
@@ -106,15 +103,15 @@ class NotificationControllerTest {
 			mockMvc.perform(get("/api/users/me/notifications").with(authenticationFor(42L)))
 				.andExpect(jsonPath("$.data.content[0]." + field).doesNotExist());
 		}
-		verify(notificationListQueryService, atLeastOnce()).findPage(42L, 0, 10);
+		verify(notificationQueryService, atLeastOnce()).findPage(42L, 0, 10);
 	}
 
 	@Test
 	void page_size_경계와_미확인_응답을_검증한다() throws Exception {
-		when(notificationListQueryService.findPage(42L, 0, 1)).thenReturn(page());
-		when(notificationListQueryService.findPage(42L, 0, 100)).thenReturn(page());
-		when(notificationListQueryService.findPage(42L, 3, 100)).thenReturn(page());
-		when(unreadNotificationCountQueryService.countUnread(42L)).thenReturn(new UnreadNotificationCountResponse(0));
+		when(notificationQueryService.findPage(42L, 0, 1)).thenReturn(page());
+		when(notificationQueryService.findPage(42L, 0, 100)).thenReturn(page());
+		when(notificationQueryService.findPage(42L, 3, 100)).thenReturn(page());
+		when(notificationQueryService.countUnread(42L)).thenReturn(new UnreadNotificationCountResponse(0));
 		mockMvc.perform(get("/api/users/me/notifications?page=3&size=100").with(authenticationFor(42L)))
 			.andExpect(status().isOk());
 		mockMvc.perform(get("/api/users/me/notifications?page=0&size=1").with(authenticationFor(42L)))
@@ -129,8 +126,8 @@ class NotificationControllerTest {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
 		}
-		verify(notificationListQueryService).findPage(42L, 3, 100);
-		verify(unreadNotificationCountQueryService).countUnread(42L);
+		verify(notificationQueryService).findPage(42L, 3, 100);
+		verify(notificationQueryService).countUnread(42L);
 	}
 
 	@Test
@@ -234,13 +231,8 @@ class NotificationControllerTest {
 	@TestConfiguration(proxyBeanMethods = false)
 	static class TestBeans {
 		@Bean
-		NotificationListQueryService notificationListQueryService() {
-			return mock(NotificationListQueryService.class);
-		}
-
-		@Bean
-		UnreadNotificationCountQueryService unreadNotificationCountQueryService() {
-			return mock(UnreadNotificationCountQueryService.class);
+		NotificationQueryService notificationQueryService() {
+			return mock(NotificationQueryService.class);
 		}
 
 		@Bean

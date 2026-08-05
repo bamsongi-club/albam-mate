@@ -21,8 +21,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.notification.repository.NotificationQueryRepository;
-import cloud.bamsongi.albammate.notification.service.query.NotificationListQueryService;
-import cloud.bamsongi.albammate.notification.service.query.UnreadNotificationCountQueryService;
+import cloud.bamsongi.albammate.notification.service.query.NotificationQueryService;
 
 /** PostgreSQL transaction_timestamp 만료 경계와 현재 방 제목 투영을 검증한다. */
 @Testcontainers
@@ -37,9 +36,7 @@ class NotificationQueryPostgresTest {
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
 	@Autowired
-	private NotificationListQueryService notificationListQueryService;
-	@Autowired
-	private UnreadNotificationCountQueryService unreadNotificationCountQueryService;
+	private NotificationQueryService notificationQueryService;
 	@Autowired
 	private PlatformTransactionManager transactionManager;
 	@MockitoSpyBean
@@ -57,21 +54,21 @@ class NotificationQueryPostgresTest {
 		notification(userId, roomId, "PARTICIPANT_JOINED", "null", "transaction_timestamp() - interval '91 days'");
 		jdbcTemplate.update("update rooms set title = '현재 제목' where id = ?", roomId);
 
-		var page = notificationListQueryService.findPage(userId, 0, 10);
+		var page = notificationQueryService.findPage(userId, 0, 10);
 
 		assertEquals(2, page.totalElements());
 		assertEquals(secondId, page.content().getFirst().id());
 		assertEquals(firstId, page.content().get(1).id());
-		assertEquals(secondId, notificationListQueryService.findPage(userId, 0, 1).content().getFirst().id());
-		assertEquals(firstId, notificationListQueryService.findPage(userId, 1, 1).content().getFirst().id());
-		assertEquals(2, notificationListQueryService.findPage(userId, 2, 1).totalElements());
-		assertTrue(notificationListQueryService.findPage(userId, 2, 1).content().isEmpty());
+		assertEquals(secondId, notificationQueryService.findPage(userId, 0, 1).content().getFirst().id());
+		assertEquals(firstId, notificationQueryService.findPage(userId, 1, 1).content().getFirst().id());
+		assertEquals(2, notificationQueryService.findPage(userId, 2, 1).totalElements());
+		assertTrue(notificationQueryService.findPage(userId, 2, 1).content().isEmpty());
 		assertTrue(page.content().stream().allMatch(item -> item.roomTitle().equals("현재 제목")));
-		assertEquals(1, unreadNotificationCountQueryService.countUnread(userId).unreadCount());
+		assertEquals(1, notificationQueryService.countUnread(userId).unreadCount());
 		jdbcTemplate.update("update notifications set read_at = transaction_timestamp() where recipient_user_id = ?",
 			userId);
-		assertEquals(0, unreadNotificationCountQueryService.countUnread(userId).unreadCount());
-		assertEquals(0, notificationListQueryService.findPage(otherUserId + 10_000_000L, 0, 10).totalElements());
+		assertEquals(0, notificationQueryService.countUnread(userId).unreadCount());
+		assertEquals(0, notificationQueryService.findPage(otherUserId + 10_000_000L, 0, 10).totalElements());
 	}
 
 	@Test
@@ -86,7 +83,7 @@ class NotificationQueryPostgresTest {
 			return result;
 		}).when(notificationQueryRepository).findPage(userId, 0, 10);
 
-		var page = notificationListQueryService.findPage(userId, 0, 10);
+		var page = notificationQueryService.findPage(userId, 0, 10);
 
 		assertEquals(1, page.content().size());
 		assertEquals(1, page.totalElements());
