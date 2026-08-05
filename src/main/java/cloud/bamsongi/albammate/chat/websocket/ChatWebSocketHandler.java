@@ -172,18 +172,21 @@ public class ChatWebSocketHandler implements WebSocketHandler, ChatRealtimeSigna
 	/**
 	 * 현재 방에 없는 cursor는 과거 메시지를 건너뛰게 하므로 이력 처음부터 복구한다.
 	 *
-	 * <p>현재 이력보다 큰 cursor만 최신 ID로 제한한다. 이는 아직 저장되지 않은 미래 ID가 이후 메시지 전달을 막지 않게
-	 * 하되, 다른 방의 더 작은 메시지 ID를 현재 방의 기준으로 오인하지 않게 한다.
+	 * <p>현재 방에 실제로 없는 cursor는 다른 방의 ID 또는 삭제된 이력일 수 있으므로 기준을 0으로 되돌린다. 다만
+	 * 아직 저장되지 않은 미래 ID는 최신 ID로 제한해 이후 메시지 전달을 막지 않는다.
 	 */
 	private long initialBaseline(long chatRoomId, Long afterMessageId) {
 		long latestMessageId = latestMessageId(chatRoomId);
 		if (afterMessageId == null) {
 			return latestMessageId;
 		}
-		if (afterMessageId > latestMessageId) {
+		if (chatMessageRepository.existsByIdAndChatRoomId(afterMessageId, chatRoomId)) {
+			return afterMessageId;
+		}
+		if (afterMessageId > latestMessageId && !chatMessageRepository.existsById(afterMessageId)) {
 			return latestMessageId;
 		}
-		return chatMessageRepository.existsByIdAndChatRoomId(afterMessageId, chatRoomId) ? afterMessageId : 0L;
+		return 0L;
 	}
 
 	/**

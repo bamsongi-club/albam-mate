@@ -21,6 +21,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -87,7 +88,7 @@ class ChatMessagePublishFailureRecoveryIntegrationTest {
 	@Autowired
 	private UserAccountService userAccountService;
 	@Autowired
-	private AtomicBoolean chatRealtimePublishFailure;
+	private ChatRealtimePublishControl chatRealtimePublishControl;
 	@Autowired
 	private MeterRegistry meterRegistry;
 	@LocalServerPort
@@ -99,7 +100,7 @@ class ChatMessagePublishFailureRecoveryIntegrationTest {
 
 	@AfterEach
 	void tearDown() {
-		chatRealtimePublishFailure.set(false);
+		chatRealtimePublishControl.reset();
 		if (chatRoomId != null) {
 			jdbcTemplate.update("delete from chat_messages where chat_room_id = ?", chatRoomId);
 			jdbcTemplate.update("delete from chat_rooms where id = ?", chatRoomId);
@@ -114,6 +115,7 @@ class ChatMessagePublishFailureRecoveryIntegrationTest {
 
 	@Test
 	void T8_발행_실패_뒤_afterMessageId_WebSocket_재연결은_누락분을_ASC_한번만_수신한다() throws Exception {
+		chatRealtimePublishControl.reset();
 		String email = "chat-publish-failure-" + UUID.randomUUID() + "@example.com";
 		long currentUserId = userAccountService.createAccount(command(email, "발행실패검증")).id();
 		userId = currentUserId;
@@ -137,14 +139,18 @@ class ChatMessagePublishFailureRecoveryIntegrationTest {
 			String firstLiveFrame = liveReceivedFrames.poll(10, TimeUnit.SECONDS);
 			assertTrue(firstLiveFrame != null, "활성 WebSocket 연결이 첫 메시지 프레임을 받지 못했습니다.");
 			assertEquals(result.message().messageId(), eventId(firstLiveFrame));
+			assertEquals(1, chatRealtimePublishControl.publishAttempts());
+			assertEquals(0, chatRealtimePublishControl.failedPublishAttempts());
 
-			chatRealtimePublishFailure.set(true);
+			chatRealtimePublishControl.failPublishes();
 			ChatMessageSendResult missedResult = chatMessageCommandService.send(
 				currentUserId, room.getId(), new ChatMessageSendRequest("publish-fail-2", "두 번째 발행 실패"));
 			ChatMessageSendResult laterMissedResult = chatMessageCommandService.send(
 				currentUserId, room.getId(), new ChatMessageSendRequest("publish-fail-3", "세 번째 발행 실패"));
 			assertTrue(missedResult.created());
 			assertTrue(laterMissedResult.created());
+			assertEquals(3, chatRealtimePublishControl.publishAttempts());
+			assertEquals(2, chatRealtimePublishControl.failedPublishAttempts());
 			assertNull(
 				liveReceivedFrames.poll(1, TimeUnit.SECONDS),
 				"Pub/Sub 발행 실패 뒤 활성 WebSocket 연결이 메시지를 받았습니다.");
@@ -291,8 +297,8 @@ class ChatMessagePublishFailureRecoveryIntegrationTest {
 	static class TestBeans {
 
 		@Bean
-		AtomicBoolean chatRealtimePublishFailure() {
-			return new AtomicBoolean();
+		ChatRealtimePublishControl chatRealtimePublishControl() {
+			return new ChatRealtimePublishControl();
 		}
 
 		@Bean(destroyMethod = "shutdown")
@@ -304,14 +310,53 @@ class ChatMessagePublishFailureRecoveryIntegrationTest {
 		@Primary
 		ChatRealtimePublisher controlledChatRealtimePublisher(
 			ChatRealtimeSignalGateway chatRealtimeSignalGateway,
-			AtomicBoolean chatRealtimePublishFailure,
+			ChatRealtimePublishControl chatRealtimePublishControl,
 			ExecutorService chatRealtimeSignalExecutor) {
 			return event -> {
-				if (chatRealtimePublishFailure.get()) {
+				chatRealtimePublishControl.recordPublishAttempt();
+				if (chatRealtimePublishControl.publishFailureEnabled()) {
+					chatRealtimePublishControl.recordFailedPublishAttempt();
 					throw new IllegalStateException("redis publish unavailable");
 				}
 				chatRealtimeSignalExecutor.execute(() -> chatRealtimeSignalGateway.onMessageCommitted(event));
 			};
+		}
+	}
+
+	static final class ChatRealtimePublishControl {
+
+		private final AtomicBoolean publishFailure = new AtomicBoolean();
+		private final AtomicInteger publishAttempts = new AtomicInteger();
+		private final AtomicInteger failedPublishAttempts = new AtomicInteger();
+
+		void reset() {
+			publishFailure.set(false);
+			publishAttempts.set(0);
+			failedPublishAttempts.set(0);
+		}
+
+		void failPublishes() {
+			publishFailure.set(true);
+		}
+
+		boolean publishFailureEnabled() {
+			return publishFailure.get();
+		}
+
+		void recordPublishAttempt() {
+			publishAttempts.incrementAndGet();
+		}
+
+		void recordFailedPublishAttempt() {
+			failedPublishAttempts.incrementAndGet();
+		}
+
+		int publishAttempts() {
+			return publishAttempts.get();
+		}
+
+		int failedPublishAttempts() {
+			return failedPublishAttempts.get();
 		}
 	}
 }
