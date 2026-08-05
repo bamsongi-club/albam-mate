@@ -27,7 +27,8 @@ public record MyRoomListItem(
 	RoomStatus status,
 	boolean joinable,
 	MyRole myRole,
-	ParticipationStatus participationStatus) {
+	ParticipationStatus participationStatus,
+	boolean chatAvailable) {
 
 	public static MyRoomListItem from(
 		Room room,
@@ -52,6 +53,11 @@ public record MyRoomListItem(
 			room.getStatus(),
 			joinable,
 			myRole,
-			participationStatus);
+			participationStatus,
+			isChatAvailable(room.getStatus()));
+	}
+
+	private static boolean isChatAvailable(RoomStatus status) {
+		return status == RoomStatus.RECRUITING || status == RoomStatus.CLOSED;
 	}
 }
