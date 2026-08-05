@@ -565,6 +565,67 @@ describe('#427 T1~T4 메시지 전송·이력 추가 조회', () => {
     expect(get).toHaveBeenNthCalledWith(2, '7', { beforeMessageId: 3, size: 50 });
     expect(screen.getAllByText('세 번째')).toHaveLength(1);
   });
+
+  it('이전 이력 응답보다 실시간 메시지가 먼저 도착해도 읽던 스크롤 위치를 보존한다', async () => {
+    FakeWebSocket.instances = [];
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+    const sockets = FakeWebSocket.instances;
+    let resolvePrevious;
+    vi.spyOn(api, 'getChatMessages').mockImplementation((roomId, optionsOrSignal) => {
+      if (optionsOrSignal?.beforeMessageId) {
+        return new Promise((resolve) => { resolvePrevious = resolve; });
+      }
+      return Promise.resolve({
+        messages: [{ messageId: 10, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '기준 메시지', createdAt: '2026-09-01T19:05:00+09:00' }],
+        nextBeforeMessageId: 10,
+        hasNext: true
+      });
+    });
+    FakeIntersectionObserver.instances = [];
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(sockets).toHaveLength(1));
+    await waitFor(() => expect(screen.getByText('기준 메시지')).toBeTruthy());
+
+    // 사용자가 위로 스크롤해 과거 이력을 보는 상태를 만든다.
+    // jsdom은 layout을 계산하지 않으므로 렌더된 메시지 수에 비례하는 높이로 대신한다.
+    const history = document.querySelector('.chat-history');
+    Object.defineProperties(history, {
+      scrollHeight: { configurable: true, get: () => history.querySelectorAll('.chat-log > li').length * 200 },
+      clientHeight: { configurable: true, value: 100 },
+      scrollTop: { configurable: true, writable: true, value: 40 }
+    });
+    fireEvent.scroll(history);
+
+    await waitFor(() => expect(FakeIntersectionObserver.instances.length).toBeGreaterThan(0));
+    FakeIntersectionObserver.instances.at(-1).trigger();
+
+    // 이전 이력 응답을 기다리는 동안 실시간 메시지가 먼저 도착한다.
+    await act(async () => {
+      sockets[0].message({
+        eventId: 11,
+        type: 'MESSAGE_CREATED',
+        message: { messageId: 11, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '실시간 메시지', createdAt: '2026-09-01T19:06:00+09:00' }
+      });
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(screen.getByText('실시간 메시지')).toBeTruthy());
+
+    const scrollTopBeforePrepend = history.scrollTop;
+
+    // 이제 과거 이력이 앞에 붙는다. 늘어난 높이만큼 보정되어야 읽던 위치가 유지된다.
+    await act(async () => {
+      resolvePrevious({
+        messages: [{ messageId: 9, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '과거 메시지', createdAt: '2026-09-01T19:04:00+09:00' }],
+        nextBeforeMessageId: null,
+        hasNext: false
+      });
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(screen.getByText('과거 메시지')).toBeTruthy());
+
+    expect(history.scrollTop).toBe(scrollTopBeforePrepend + 200);
+  });
 });
 
 describe('#427 T5~T6 모임 상세 채팅 진입', () => {

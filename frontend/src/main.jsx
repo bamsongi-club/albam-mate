@@ -2050,19 +2050,22 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
 
   const loadPreviousMessages = async () => {
     if (!hasNext || loadingMore || nextBeforeMessageId === null) return;
-    if (chatHistoryRef.current) {
-      historyScrollSnapshotRef.current = {
-        scrollHeight: chatHistoryRef.current.scrollHeight,
-        scrollTop: chatHistoryRef.current.scrollTop
-      };
-    }
     const requestedRoomId = roomId;
     const requestedGeneration = roomGenerationRef.current;
     setLoadingMore(true);
     try {
       const page = await api.getChatMessages(roomId, { beforeMessageId: nextBeforeMessageId, size: 50 });
       if (roomIdRef.current !== requestedRoomId || roomGenerationRef.current !== requestedGeneration) return;
-      mergeMessages(page.messages || []);
+      const previousMessages = page.messages || [];
+      // 응답을 기다리는 동안 도착한 실시간 메시지가 스냅샷을 먼저 소모하지 않도록 prepend 직전에 잡는다.
+      // 빈 응답은 목록 길이를 바꾸지 않아 보정 대상이 아니므로 스냅샷도 남기지 않는다.
+      if (previousMessages.length && chatHistoryRef.current) {
+        historyScrollSnapshotRef.current = {
+          scrollHeight: chatHistoryRef.current.scrollHeight,
+          scrollTop: chatHistoryRef.current.scrollTop
+        };
+      }
+      mergeMessages(previousMessages);
       setNextBeforeMessageId(page.nextBeforeMessageId ?? null);
       setHasNext(Boolean(page.hasNext));
     } catch (cause) {
