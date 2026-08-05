@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.chat;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.CookieManager;
@@ -15,8 +16,11 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -32,6 +36,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import cloud.bamsongi.albammate.chat.contract.ChatRealtimePublisher;
+import cloud.bamsongi.albammate.chat.contract.ChatRealtimeSignalGateway;
 import cloud.bamsongi.albammate.chat.dto.ChatMessagePageResponse;
 import cloud.bamsongi.albammate.chat.dto.ChatMessageSendRequest;
 import cloud.bamsongi.albammate.chat.entity.ChatRoom;
@@ -49,6 +54,8 @@ import cloud.bamsongi.albammate.user.contract.RawPassword;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
 import cloud.bamsongi.albammate.user.contract.UserEmail;
 import cloud.bamsongi.albammate.user.contract.UserNickname;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 
 /**
  * T8: 커밋 뒤 Pub/Sub 발행이 실패해도 저장 성공 응답과 이력이 유지되고, 이력 조회와 재연결이 누락분을 복구하는지 검증한다.
@@ -79,6 +86,10 @@ class ChatMessagePublishFailureRecoveryIntegrationTest {
 	private JdbcTemplate jdbcTemplate;
 	@Autowired
 	private UserAccountService userAccountService;
+	@Autowired
+	private AtomicBoolean chatRealtimePublishFailure;
+	@Autowired
+	private MeterRegistry meterRegistry;
 	@LocalServerPort
 	private int serverPort;
 
@@ -88,6 +99,7 @@ class ChatMessagePublishFailureRecoveryIntegrationTest {
 
 	@AfterEach
 	void tearDown() {
+		chatRealtimePublishFailure.set(false);
 		if (chatRoomId != null) {
 			jdbcTemplate.update("delete from chat_messages where chat_room_id = ?", chatRoomId);
 			jdbcTemplate.update("delete from chat_rooms where id = ?", chatRoomId);
@@ -107,28 +119,6 @@ class ChatMessagePublishFailureRecoveryIntegrationTest {
 		userId = currentUserId;
 		Room room = createChatRoom(currentUserId);
 
-		ChatMessageSendResult result = chatMessageCommandService.send(
-			currentUserId, room.getId(), new ChatMessageSendRequest("publish-fail-1", "첫 번째 발행 실패"));
-		ChatMessageSendResult missedResult = chatMessageCommandService.send(
-			currentUserId, room.getId(), new ChatMessageSendRequest("publish-fail-2", "두 번째 발행 실패"));
-		ChatMessageSendResult laterMissedResult = chatMessageCommandService.send(
-			currentUserId, room.getId(), new ChatMessageSendRequest("publish-fail-3", "세 번째 발행 실패"));
-
-		assertTrue(result.created());
-		assertTrue(missedResult.created());
-		assertTrue(laterMissedResult.created());
-		assertEquals(3, chatMessageRepository.count());
-
-		ChatMessagePageResponse history = chatMessageHistoryQueryService.history(
-			currentUserId, room.getId(), null, 50);
-		assertEquals(3, history.messages().size());
-		assertTrue(
-			history.messages().stream().anyMatch(message -> message.messageId() == result.message().messageId()));
-		assertTrue(
-			history.messages().stream().anyMatch(message -> message.messageId() == missedResult.message().messageId()));
-		assertTrue(history.messages().stream()
-			.anyMatch(message -> message.messageId() == laterMissedResult.message().messageId()));
-
 		CookieManager cookieManager = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
 		HttpClient client = HttpClient.newBuilder().cookieHandler(cookieManager).build();
 		URI serverUri = URI.create("http://localhost:" + serverPort);
@@ -137,23 +127,72 @@ class ChatMessagePublishFailureRecoveryIntegrationTest {
 			200,
 			post(client, serverUri.resolve("/api/auth/login"), loginBody(email), csrfToken).statusCode());
 
-		LinkedBlockingQueue<String> receivedFrames = new LinkedBlockingQueue<>();
-		WebSocket webSocket = connect(serverUri, room.getId(), result.message().messageId(), cookieManager,
-			receivedFrames);
+		LinkedBlockingQueue<String> liveReceivedFrames = new LinkedBlockingQueue<>();
+		WebSocket liveWebSocket = connect(serverUri, room.getId(), null, cookieManager, liveReceivedFrames);
 		try {
-			String firstRecoveredFrame = receivedFrames.poll(10, TimeUnit.SECONDS);
-			String secondRecoveredFrame = receivedFrames.poll(10, TimeUnit.SECONDS);
-			assertTrue(firstRecoveredFrame != null, "afterMessageId 재연결이 첫 누락 메시지 프레임을 받지 못했습니다.");
-			assertTrue(secondRecoveredFrame != null, "afterMessageId 재연결이 두 번째 누락 메시지 프레임을 받지 못했습니다.");
-			assertTrue(firstRecoveredFrame.contains("\"type\":\"MESSAGE_CREATED\""), firstRecoveredFrame);
-			assertTrue(secondRecoveredFrame.contains("\"type\":\"MESSAGE_CREATED\""), secondRecoveredFrame);
-			assertEquals(
-				List.of(missedResult.message().messageId(), laterMissedResult.message().messageId()),
-				List.of(eventId(firstRecoveredFrame), eventId(secondRecoveredFrame)));
-			assertEquals(null, receivedFrames.poll(1, TimeUnit.SECONDS), "동일 messageId가 중복 전달됐습니다.");
+			awaitActiveWebSocketConnection();
+			ChatMessageSendResult result = chatMessageCommandService.send(
+				currentUserId, room.getId(), new ChatMessageSendRequest("publish-success-1", "첫 번째 정상 발행"));
+			assertTrue(result.created());
+			String firstLiveFrame = liveReceivedFrames.poll(10, TimeUnit.SECONDS);
+			assertTrue(firstLiveFrame != null, "활성 WebSocket 연결이 첫 메시지 프레임을 받지 못했습니다.");
+			assertEquals(result.message().messageId(), eventId(firstLiveFrame));
+
+			chatRealtimePublishFailure.set(true);
+			ChatMessageSendResult missedResult = chatMessageCommandService.send(
+				currentUserId, room.getId(), new ChatMessageSendRequest("publish-fail-2", "두 번째 발행 실패"));
+			ChatMessageSendResult laterMissedResult = chatMessageCommandService.send(
+				currentUserId, room.getId(), new ChatMessageSendRequest("publish-fail-3", "세 번째 발행 실패"));
+			assertTrue(missedResult.created());
+			assertTrue(laterMissedResult.created());
+			assertNull(
+				liveReceivedFrames.poll(1, TimeUnit.SECONDS),
+				"Pub/Sub 발행 실패 뒤 활성 WebSocket 연결이 메시지를 받았습니다.");
+			assertEquals(3, chatMessageRepository.count());
+
+			ChatMessagePageResponse history = chatMessageHistoryQueryService.history(
+				currentUserId, room.getId(), null, 50);
+			assertEquals(3, history.messages().size());
+			assertTrue(history.messages().stream()
+				.anyMatch(message -> message.messageId() == result.message().messageId()));
+			assertTrue(history.messages().stream()
+				.anyMatch(message -> message.messageId() == missedResult.message().messageId()));
+			assertTrue(history.messages().stream()
+				.anyMatch(message -> message.messageId() == laterMissedResult.message().messageId()));
+
+			liveWebSocket.abort();
+			LinkedBlockingQueue<String> recoveredFrames = new LinkedBlockingQueue<>();
+			WebSocket recoveredWebSocket = connect(
+				serverUri, room.getId(), result.message().messageId(), cookieManager, recoveredFrames);
+			try {
+				String firstRecoveredFrame = recoveredFrames.poll(10, TimeUnit.SECONDS);
+				String secondRecoveredFrame = recoveredFrames.poll(10, TimeUnit.SECONDS);
+				assertTrue(firstRecoveredFrame != null, "afterMessageId 재연결이 첫 누락 메시지 프레임을 받지 못했습니다.");
+				assertTrue(secondRecoveredFrame != null, "afterMessageId 재연결이 두 번째 누락 메시지 프레임을 받지 못했습니다.");
+				assertTrue(firstRecoveredFrame.contains("\"type\":\"MESSAGE_CREATED\""), firstRecoveredFrame);
+				assertTrue(secondRecoveredFrame.contains("\"type\":\"MESSAGE_CREATED\""), secondRecoveredFrame);
+				assertEquals(
+					List.of(missedResult.message().messageId(), laterMissedResult.message().messageId()),
+					List.of(eventId(firstRecoveredFrame), eventId(secondRecoveredFrame)));
+				assertNull(recoveredFrames.poll(1, TimeUnit.SECONDS), "동일 messageId가 중복 전달됐습니다.");
+			} finally {
+				recoveredWebSocket.abort();
+			}
 		} finally {
-			webSocket.abort();
+			liveWebSocket.abort();
 		}
+	}
+
+	private void awaitActiveWebSocketConnection() throws InterruptedException {
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+		while (System.nanoTime() < deadline) {
+			Gauge activeConnections = meterRegistry.find("chat.websocket.connections.active").gauge();
+			if (activeConnections != null && activeConnections.value() >= 1.0) {
+				return;
+			}
+			Thread.sleep(10);
+		}
+		throw new AssertionError("WebSocket 연결 등록이 제한 시간 안에 완료되지 않았습니다.");
 	}
 
 	private HttpResponse<String> get(HttpClient client, URI uri) throws Exception {
@@ -172,21 +211,22 @@ class ChatMessagePublishFailureRecoveryIntegrationTest {
 	}
 
 	private WebSocket connect(
-		URI serverUri, long roomId, long afterMessageId, CookieManager cookieManager,
+		URI serverUri, long roomId, Long afterMessageId, CookieManager cookieManager,
 		LinkedBlockingQueue<String> receivedFrames) throws Exception {
-		String sessionId = cookieManager.getCookieStore().getCookies().stream()
-			.filter(cookie -> "JSESSIONID".equals(cookie.getName()))
-			.findFirst()
-			.orElseThrow()
-			.getValue();
+		String sessionId = sessionId(cookieManager);
 		return HttpClient.newHttpClient()
 			.newWebSocketBuilder()
 			.header("Cookie", "JSESSIONID=" + sessionId)
 			.header("Origin", "http://localhost:5173")
 			.buildAsync(
 				URI.create("ws://localhost:" + serverUri.getPort() + "/api/rooms/" + roomId
-					+ "/chat/ws?afterMessageId=" + afterMessageId),
+					+ "/chat/ws" + (afterMessageId == null ? "" : "?afterMessageId=" + afterMessageId)),
 				new WebSocket.Listener() {
+
+					@Override
+					public void onOpen(WebSocket webSocket) {
+						webSocket.request(1);
+					}
 
 					@Override
 					public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
@@ -196,6 +236,14 @@ class ChatMessagePublishFailureRecoveryIntegrationTest {
 					}
 				})
 			.get(10, TimeUnit.SECONDS);
+	}
+
+	private String sessionId(CookieManager cookieManager) {
+		return cookieManager.getCookieStore().getCookies().stream()
+			.filter(cookie -> "JSESSIONID".equals(cookie.getName()))
+			.findFirst()
+			.orElseThrow()
+			.getValue();
 	}
 
 	private String csrfToken(String body) {
@@ -243,10 +291,26 @@ class ChatMessagePublishFailureRecoveryIntegrationTest {
 	static class TestBeans {
 
 		@Bean
+		AtomicBoolean chatRealtimePublishFailure() {
+			return new AtomicBoolean();
+		}
+
+		@Bean(destroyMethod = "shutdown")
+		ExecutorService chatRealtimeSignalExecutor() {
+			return Executors.newSingleThreadExecutor();
+		}
+
+		@Bean
 		@Primary
-		ChatRealtimePublisher throwingChatRealtimePublisher() {
+		ChatRealtimePublisher controlledChatRealtimePublisher(
+			ChatRealtimeSignalGateway chatRealtimeSignalGateway,
+			AtomicBoolean chatRealtimePublishFailure,
+			ExecutorService chatRealtimeSignalExecutor) {
 			return event -> {
-				throw new IllegalStateException("redis publish unavailable");
+				if (chatRealtimePublishFailure.get()) {
+					throw new IllegalStateException("redis publish unavailable");
+				}
+				chatRealtimeSignalExecutor.execute(() -> chatRealtimeSignalGateway.onMessageCommitted(event));
 			};
 		}
 	}

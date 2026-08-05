@@ -19,6 +19,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -177,6 +179,48 @@ class ChatWebSocketHandlerRealtimeDeliveryTest {
 
 		handler.onMessageCommitted(MessageCommitted.messageCreated(ROOM_ID, 10L));
 
+		verify(session, never()).sendMessage(any());
+		verify(session).close(CloseStatus.POLICY_VIOLATION);
+	}
+
+	@Test
+	void T10_스케줄러_접근_실패와_동시_전달도_직렬화해_전달하지_않는다() throws Exception {
+		WebSocketSession session = connectedSession();
+		ChatWebSocketHandler handler = handler();
+		handler.afterConnectionEstablished(session);
+		ArgumentCaptor<Runnable> validation = ArgumentCaptor.forClass(Runnable.class);
+		verify(taskScheduler).scheduleAtFixedRate(validation.capture(), any());
+		clearInvocations(session, chatMessageRepository, chatAccessGuard);
+
+		ChatMessage message10 = chatMessage(10L);
+		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
+			.thenReturn(List.of(message10));
+		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+		CountDownLatch validationAccessChecked = new CountDownLatch(1);
+		CountDownLatch allowValidationClose = new CountDownLatch(1);
+		when(chatAccessGuard.executeWithAccess(eq(USER_ID), eq(ROOM_ID), any()))
+			.thenAnswer(invocation -> {
+				if ("chat-access-validation".equals(Thread.currentThread().getName())) {
+					validationAccessChecked.countDown();
+					assertTrue(allowValidationClose.await(5, TimeUnit.SECONDS), "validation release timed out");
+					throw new BusinessException(ErrorCode.FORBIDDEN);
+				}
+				return null;
+			});
+
+		Thread validationThread = new Thread(validation.getValue(), "chat-access-validation");
+		Thread deliveryThread = new Thread(
+			() -> handler.onMessageCommitted(MessageCommitted.messageCreated(ROOM_ID, message10.getId())),
+			"chat-message-delivery");
+		validationThread.start();
+		assertTrue(validationAccessChecked.await(5, TimeUnit.SECONDS), "scheduled validation did not start in time");
+		deliveryThread.start();
+		allowValidationClose.countDown();
+		validationThread.join(5_000);
+		deliveryThread.join(5_000);
+
+		assertTrue(!validationThread.isAlive(), "scheduled validation did not finish in time");
+		assertTrue(!deliveryThread.isAlive(), "concurrent delivery did not finish in time");
 		verify(session, never()).sendMessage(any());
 		verify(session).close(CloseStatus.POLICY_VIOLATION);
 	}

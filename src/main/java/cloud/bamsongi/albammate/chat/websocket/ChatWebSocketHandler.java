@@ -138,8 +138,7 @@ public class ChatWebSocketHandler implements WebSocketHandler, ChatRealtimeSigna
 			return null;
 		}
 		Long afterMessageId = attribute(attributes, AFTER_MESSAGE_ID_ATTRIBUTE, Long.class);
-		long latestMessageId = latestMessageId(chatRoomId);
-		long baseline = afterMessageId != null ? Math.min(afterMessageId, latestMessageId) : latestMessageId;
+		long baseline = initialBaseline(chatRoomId, afterMessageId);
 		RoomConnection connection = new RoomConnection(session, roomId, chatRoomId, userId, baseline);
 		connectionsBySession.put(session, connection);
 		connectionsByRoomId.computeIfAbsent(roomId, key -> ConcurrentHashMap.newKeySet()).add(connection);
@@ -171,6 +170,23 @@ public class ChatWebSocketHandler implements WebSocketHandler, ChatRealtimeSigna
 	}
 
 	/**
+	 * 현재 방에 없는 cursor는 과거 메시지를 건너뛰게 하므로 이력 처음부터 복구한다.
+	 *
+	 * <p>현재 이력보다 큰 cursor만 최신 ID로 제한한다. 이는 아직 저장되지 않은 미래 ID가 이후 메시지 전달을 막지 않게
+	 * 하되, 다른 방의 더 작은 메시지 ID를 현재 방의 기준으로 오인하지 않게 한다.
+	 */
+	private long initialBaseline(long chatRoomId, Long afterMessageId) {
+		long latestMessageId = latestMessageId(chatRoomId);
+		if (afterMessageId == null) {
+			return latestMessageId;
+		}
+		if (afterMessageId > latestMessageId) {
+			return latestMessageId;
+		}
+		return chatMessageRepository.existsByIdAndChatRoomId(afterMessageId, chatRoomId) ? afterMessageId : 0L;
+	}
+
+	/**
 	 * 전달 직전에 접근·세션 유효성을 다시 확인하고, 연결별 마지막 전달 ID 이후의 메시지를 오름차순으로 전달한다.
 	 *
 	 * <p>연결마다 하나의 잠금으로 직렬화하므로, 최초 연결의 catch-up과 이후 신호가 촉진한 재조회가 겹쳐도 중복·누락 없이
@@ -179,7 +195,7 @@ public class ChatWebSocketHandler implements WebSocketHandler, ChatRealtimeSigna
 	private void deliver(RoomConnection connection) {
 		connection.lock.lock();
 		try {
-			if (!connection.session.isOpen()) {
+			if (closeRequestedSessions.contains(connection.session) || !connection.session.isOpen()) {
 				return;
 			}
 			if (!isAccessValid(connection.session)) {
@@ -205,7 +221,7 @@ public class ChatWebSocketHandler implements WebSocketHandler, ChatRealtimeSigna
 			newMessages.stream().map(ChatMessage::getSenderUserId).collect(Collectors.toSet()));
 		int delivered = 0;
 		for (ChatMessage message : newMessages) {
-			if (!connection.session.isOpen()) {
+			if (closeRequestedSessions.contains(connection.session) || !connection.session.isOpen()) {
 				break;
 			}
 			ChatMessageResponse response = ChatMessageResponse.from(
@@ -235,11 +251,20 @@ public class ChatWebSocketHandler implements WebSocketHandler, ChatRealtimeSigna
 	}
 
 	private void validateAccess(WebSocketSession session) {
-		if (!session.isOpen()) {
+		RoomConnection connection = connectionsBySession.get(session);
+		if (connection == null) {
 			return;
 		}
-		if (!isAccessValid(session)) {
-			closeForPolicyViolation(session);
+		connection.lock.lock();
+		try {
+			if (closeRequestedSessions.contains(session) || !session.isOpen()) {
+				return;
+			}
+			if (!isAccessValid(session)) {
+				closeForPolicyViolation(session);
+			}
+		} finally {
+			connection.lock.unlock();
 		}
 	}
 

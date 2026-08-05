@@ -61,6 +61,7 @@ class ChatWebSocketHandlerReconnectRecoveryTest {
 		ChatMessage message7 = chatMessage(7L);
 		when(chatMessageRepository.findByChatRoomIdOrderByIdDesc(CHAT_ROOM_ID, PageRequest.of(0, 1)))
 			.thenReturn(List.of(message7));
+		when(chatMessageRepository.existsByIdAndChatRoomId(5L, CHAT_ROOM_ID)).thenReturn(true);
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 5L))
 			.thenReturn(List.of(message6, message7));
 		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
@@ -93,6 +94,27 @@ class ChatWebSocketHandlerReconnectRecoveryTest {
 		ArgumentCaptor<TextMessage> captor = ArgumentCaptor.forClass(TextMessage.class);
 		verify(session).sendMessage(captor.capture());
 		assertTrue(captor.getValue().getPayload().contains("\"eventId\":6"));
+	}
+
+	@Test
+	void 다른_방_afterMessageId는_현재_방_이력을_누락시키지_않는다() throws Exception {
+		ChatMessage currentRoomFirstMessage = chatMessage(10L);
+		ChatMessage currentRoomLatestMessage = chatMessage(20L);
+		when(chatMessageRepository.findByChatRoomIdOrderByIdDesc(CHAT_ROOM_ID, PageRequest.of(0, 1)))
+			.thenReturn(List.of(currentRoomLatestMessage));
+		when(chatMessageRepository.existsByIdAndChatRoomId(15L, CHAT_ROOM_ID)).thenReturn(false);
+		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
+			.thenReturn(List.of(currentRoomFirstMessage, currentRoomLatestMessage));
+		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+		WebSocketSession session = session(15L);
+		ChatWebSocketHandler handler = handler();
+
+		handler.afterConnectionEstablished(session);
+
+		ArgumentCaptor<TextMessage> captor = ArgumentCaptor.forClass(TextMessage.class);
+		verify(session, times(2)).sendMessage(captor.capture());
+		assertTrue(captor.getAllValues().get(0).getPayload().contains("\"eventId\":10"));
+		assertTrue(captor.getAllValues().get(1).getPayload().contains("\"eventId\":20"));
 	}
 
 	@Test

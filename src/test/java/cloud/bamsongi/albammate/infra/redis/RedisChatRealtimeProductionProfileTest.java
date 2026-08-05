@@ -1,7 +1,6 @@
 package cloud.bamsongi.albammate.infra.redis;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -34,8 +33,8 @@ class RedisChatRealtimeProductionProfileTest {
 			assertInstanceOf(RedisChatRealtimePublisher.class, publisher);
 			assertEquals("albam-mate:production:chat:events", ReflectionTestUtils.getField(publisher, "channel"));
 			assertEquals(1, context.getBeansOfType(ChatRealtimePublisher.class).size());
-			assertFalse(context.getBeansOfType(RedisChatRealtimeSubscriber.class).isEmpty());
-			assertFalse(context.getBeansOfType(RedisMessageListenerContainer.class).isEmpty());
+			assertEquals(1, context.getBeansOfType(RedisChatRealtimeSubscriber.class).size());
+			assertEquals(1, context.getBeansOfType(RedisMessageListenerContainer.class).size());
 		}
 	}
 
@@ -72,8 +71,8 @@ class RedisChatRealtimeProductionProfileTest {
 			assertInstanceOf(RedisChatRealtimePublisher.class, publisher);
 			assertEquals("albam-mate:local-multi:chat:events", ReflectionTestUtils.getField(publisher, "channel"));
 			assertEquals(1, context.getBeansOfType(ChatRealtimePublisher.class).size());
-			assertFalse(context.getBeansOfType(RedisChatRealtimeSubscriber.class).isEmpty());
-			assertFalse(context.getBeansOfType(RedisMessageListenerContainer.class).isEmpty());
+			assertEquals(1, context.getBeansOfType(RedisChatRealtimeSubscriber.class).size());
+			assertEquals(1, context.getBeansOfType(RedisMessageListenerContainer.class).size());
 		}
 	}
 
