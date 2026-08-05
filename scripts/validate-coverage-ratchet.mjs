@@ -16,7 +16,7 @@ import { pathToFileURL } from 'node:url';
 const MAP_START = /^\s*def\s+gatedBranchCoverage\s*=\s*\[\s*$/u;
 const MAP_END = /^\s*\]\s*$/u;
 const MAP_ENTRY = /^\s*'([\w.]+)'\s*:\s*(\d+(?:\.\d+)?)\s*,?\s*$/u;
-const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/u;
+const HUNK_HEADER = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/u;
 
 // 맵 블록의 1-based 줄 범위를 찾는다. 블록을 못 찾으면 어떤 변경도 래칫으로 인정하지 않는다.
 export function mapBlockRange(buildFileText) {
@@ -58,11 +58,14 @@ export function duplicateEntryKeys(buildFileText, range) {
     return duplicates;
 }
 
-// diff의 추가·삭제 줄만 본다. 추가 줄은 post-image 줄 번호를 함께 모아 맵 블록 안인지 확인한다.
+// diff의 추가·삭제 줄만 본다. 추가 줄은 post-image, 삭제 줄은 pre-image 줄 번호를 함께 모아
+// 각각 해당 image의 맵 블록 안인지 확인한다. 삭제 줄의 위치를 버리면 다른 맵의 같은 키를
+// 지우면서 래칫 맵에 더 높은 값으로 추가해 상향으로 위장할 수 있다.
 function collectChangedEntryLines(diffText, problems) {
     const added = [];
     const removed = [];
     let newLine = 0;
+    let oldLine = 0;
     let inHunk = false;
 
     for (const line of diffText.split('\n')) {
@@ -75,7 +78,8 @@ function collectChangedEntryLines(diffText, problems) {
         }
         const hunk = HUNK_HEADER.exec(line);
         if (hunk) {
-            newLine = Number(hunk[1]);
+            oldLine = Number(hunk[1]);
+            newLine = Number(hunk[2]);
             inHunk = true;
             continue;
         }
@@ -89,9 +93,11 @@ function collectChangedEntryLines(diffText, problems) {
             continue;
         }
         if (line.startsWith('-')) {
-            removed.push({ text: line.slice(1) });
+            removed.push({ text: line.slice(1), line: oldLine });
+            oldLine += 1;
             continue;
         }
+        oldLine += 1;
         newLine += 1;
     }
 
@@ -114,7 +120,7 @@ function parseEntries(changedLines, kind, problems) {
     return entries;
 }
 
-export function validateCoverageRatchetDiff(diffText, buildFileText) {
+export function validateCoverageRatchetDiff(diffText, buildFileText, preImageText) {
     const problems = [];
     if (diffText.trim() === '') {
         return problems;
@@ -123,6 +129,11 @@ export function validateCoverageRatchetDiff(diffText, buildFileText) {
     const range = mapBlockRange(buildFileText);
     if (range === null) {
         addProblem(problems, 'build.gradle에서 gatedBranchCoverage 맵 블록을 찾을 수 없습니다.');
+        return problems;
+    }
+    const preImageRange = mapBlockRange(preImageText);
+    if (preImageRange === null) {
+        addProblem(problems, 'base의 build.gradle에서 gatedBranchCoverage 맵 블록을 찾을 수 없습니다.');
         return problems;
     }
 
@@ -142,6 +153,15 @@ export function validateCoverageRatchetDiff(diffText, buildFileText) {
             addProblem(
                 problems,
                 `gatedBranchCoverage 맵 블록(${range.start}~${range.end}줄) 밖의 변경입니다: ${packageName} (${entry.line}줄)`,
+            );
+        }
+    }
+
+    for (const [packageName, entry] of removedEntries) {
+        if (entry.line < preImageRange.start || entry.line > preImageRange.end) {
+            addProblem(
+                problems,
+                `base의 gatedBranchCoverage 맵 블록(${preImageRange.start}~${preImageRange.end}줄) 밖에서 삭제한 줄입니다: ${packageName} (${entry.line}줄)`,
             );
         }
     }
@@ -183,7 +203,11 @@ export function validateCoverageRatchetInRepo(repoRoot, { base = null, head = nu
         base === null && head === null
             ? fs.readFileSync(path.join(repoRoot, 'build.gradle'), 'utf8')
             : git(['show', `${head ?? 'HEAD'}:build.gradle`]);
-    return { diffText, problems: validateCoverageRatchetDiff(diffText, buildFileText) };
+    const preImageText = git(['show', `${base ?? head ?? 'HEAD'}:build.gradle`]);
+    return {
+        diffText,
+        problems: validateCoverageRatchetDiff(diffText, buildFileText, preImageText),
+    };
 }
 
 function parseArguments(argv) {

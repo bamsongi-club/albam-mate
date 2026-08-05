@@ -395,3 +395,47 @@ test('rename의 원본 경로도 변경 경로로 감사한다', (t) => {
     packet.allowedPaths = ['src/test/'];
     assert.deepEqual(keywords(auditChangedPaths(packet, changed)), ['alwaysReadOnly']);
 });
+
+test('커밋된 head의 범위 밖 변경을 base 비교로 감사한다', (t) => {
+    const worktree = createWorktree(t);
+    fs.mkdirSync(path.join(worktree, 'docs/adr/platform'), { recursive: true });
+    fs.writeFileSync(path.join(worktree, 'docs/adr/platform/0008-flyway.md'), '# ADR\n', 'utf8');
+    initGitRepo(worktree);
+
+    const git = (...args) =>
+        spawnSync('git', ['-C', worktree, ...args], { encoding: 'utf8', windowsHide: true });
+    fs.appendFileSync(path.join(worktree, 'docs/adr/platform/0008-flyway.md'), '변경\n', 'utf8');
+    git('add', '--all');
+    git('-c', 'user.name=t', '-c', 'user.email=t@e.com', 'commit', '--quiet', '-m', 'ADR 변경');
+
+    // 커밋 뒤 worktree가 깨끗하면 base 없이는 감사 대상이 비어 통과한다.
+    assert.deepEqual(changedPathsIn(worktree), []);
+
+    const withBase = changedPathsIn(worktree, 'HEAD~1');
+    assert.deepEqual(withBase, ['docs/adr/platform/0008-flyway.md']);
+    assert.deepEqual(keywords(auditChangedPaths(validPacket(), withBase)), ['alwaysReadOnly']);
+});
+
+test('CLI가 --base로 커밋된 범위 밖 변경을 차단한다', (t) => {
+    const worktree = createWorktree(t);
+    initGitRepo(worktree);
+    const outside = createOutsideDirectory(t);
+    const packetPath = path.join(outside, 'packet.json');
+    const manifestPath = path.join(outside, 'manifest.json');
+    fs.writeFileSync(packetPath, JSON.stringify(validPacket()), 'utf8');
+    fs.writeFileSync(manifestPath, JSON.stringify(validManifest()), 'utf8');
+
+    const git = (...args) =>
+        spawnSync('git', ['-C', worktree, ...args], { encoding: 'utf8', windowsHide: true });
+    fs.writeFileSync(path.join(worktree, 'AGENTS.md'), '규약을 바꾼다\n', 'utf8');
+    git('add', '--all');
+    git('-c', 'user.name=t', '-c', 'user.email=t@e.com', 'commit', '--quiet', '-m', 'AGENTS 변경');
+
+    const args = [scriptPath, '--packet', packetPath, '--manifest', manifestPath, '--worktree', worktree];
+    const withoutBase = spawnSync(process.execPath, args, { encoding: 'utf8' });
+    assert.equal(withoutBase.status, 0, withoutBase.stderr);
+
+    const withBase = spawnSync(process.execPath, [...args, '--base', 'HEAD~1'], { encoding: 'utf8' });
+    assert.equal(withBase.status, 1);
+    assert.match(withBase.stderr, /alwaysReadOnly/);
+});

@@ -106,14 +106,17 @@ function isUnsupportedPattern(pattern) {
 // `--no-renames`가 필요하다. rename을 감지하면 git이 새 경로만 보고하므로, 항상 read-only인
 // 파일을 허용 경로로 옮기면 보호된 원본 경로가 감사에서 빠진다. rename을 삭제와 추가로
 // 나눠 받아 원본과 대상 경로를 모두 감사한다.
-export function changedPathsIn(worktree) {
+// base를 주지 않으면 HEAD와 worktree를 비교한다. 커밋을 만든 뒤에는 그 diff가 비므로 고정한
+// Draft head를 검증할 때는 base를 함께 넘겨야 앞선 커밋의 범위 밖 변경까지 감사한다.
+// base를 주면 base와 worktree를 비교해 커밋된 변경과 미커밋 변경을 모두 담는다.
+export function changedPathsIn(worktree, base = null) {
     const run = (args) =>
         execFileSync('git', args, { cwd: worktree, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 })
             .split('\0')
             .filter(Boolean);
     return [
         ...new Set([
-            ...run(['diff', '--name-only', '--no-renames', '-z', 'HEAD']),
+            ...run(['diff', '--name-only', '--no-renames', '-z', base ?? 'HEAD']),
             ...run(['ls-files', '--others', '--exclude-standard', '-z']),
         ]),
     ].sort();
@@ -380,6 +383,7 @@ export function validateBackendTestManifestFiles({
     packetPath,
     manifestPath,
     worktreePath,
+    base = null,
     packetSchemaPath = DEFAULT_PACKET_SCHEMA_PATH,
     manifestSchemaPath = DEFAULT_MANIFEST_SCHEMA_PATH,
 }) {
@@ -391,7 +395,7 @@ export function validateBackendTestManifestFiles({
     const manifest = readJson(resolvedManifestPath, 'manifest');
     const packetSchema = readJson(resolvedPacketSchemaPath, '패킷 스키마');
     const manifestSchema = readJson(resolvedManifestSchemaPath, 'manifest 스키마');
-    const changedPaths = changedPathsIn(path.resolve(worktreePath));
+    const changedPaths = changedPathsIn(path.resolve(worktreePath), base);
     const errors = validateBackendTestManifest(
         packet,
         manifest,
@@ -414,7 +418,7 @@ export function validateBackendTestManifestFiles({
 
 function parseArguments(argv) {
     const values = {};
-    const allowed = new Set(['--packet', '--manifest', '--worktree']);
+    const allowed = new Set(['--packet', '--manifest', '--worktree', '--base']);
     for (let index = 0; index < argv.length; index += 2) {
         const option = argv[index];
         const value = argv[index + 1];
@@ -430,7 +434,7 @@ function runCli() {
     const args = parseArguments(process.argv.slice(2));
     if (!args) {
         console.error(
-            '사용법: node scripts/validate-backend-test-manifest.mjs --packet <packet.json> --manifest <manifest.json> --worktree <worktree>',
+            '사용법: node scripts/validate-backend-test-manifest.mjs --packet <packet.json> --manifest <manifest.json> --worktree <worktree> [--base <ref>]',
         );
         process.exitCode = 2;
         return;
@@ -441,6 +445,7 @@ function runCli() {
             packetPath: args.packet,
             manifestPath: args.manifest,
             worktreePath: args.worktree,
+            base: args.base ?? null,
         });
         if (result.errors.length > 0) {
             console.error(`backend test manifest 검증 실패: ${result.manifestPath}`);

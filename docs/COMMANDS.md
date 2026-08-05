@@ -211,6 +211,12 @@ node scripts/validate-coverage-ratchet.mjs
 node scripts/validate-coverage-ratchet.mjs --base <고정한-base-sha>
 ```
 
+manifest 검증도 같다. 커밋 뒤 고정한 head를 검증할 때는 `--base`를 넘긴다. 깨끗한 worktree에서 `--base` 없이 실행하면 감사할 변경 경로가 비어 앞선 커밋의 범위 밖 변경을 놓친다.
+
+```sh
+node scripts/validate-backend-test-manifest.mjs --packet <packet.json> --manifest <manifest.json> --worktree <worktree> --base <고정한-base-sha>
+```
+
 전달 종료 시 임시 packet과 manifest는 삭제하지 않고 Private Brain의 전달 아카이브로 옮긴다. 아카이브 경로는 Private Brain 정본을 따르고 공개 파일에 적지 않으며, 이관 결과는 `archiveId`와 receipt의 packet·manifest SHA-256으로 확인한다.
 
 ## 게임 카탈로그 검수

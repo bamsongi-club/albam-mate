@@ -45,13 +45,14 @@ test('맵 블록이 없으면 어떤 변경도 래칫으로 인정하지 않는�
     const problems = validateCoverageRatchetDiff(
         diff('@@ -5,2 +5,3 @@', " 'a'", "+    'cloud.x' : 0.10,"),
         'def other = []',
+        buildFile,
     );
     assert.equal(problems.length, 1);
     assert.match(problems[0], /맵 블록을 찾을 수 없습니다/u);
 });
 
 test('변경이 없으면 통과한다', () => {
-    assert.deepEqual(validateCoverageRatchetDiff('', buildFile), []);
+    assert.deepEqual(validateCoverageRatchetDiff('', buildFile, buildFile), []);
 });
 
 test('새 항목 추가를 허용한다', () => {
@@ -63,6 +64,7 @@ test('새 항목 추가를 허용한다', () => {
             "+    'cloud.bamsongi.albammate.chat.service': 0.92,",
             ' ]',
         ),
+        buildFile,
         buildFile,
     );
     assert.deepEqual(problems, []);
@@ -78,6 +80,7 @@ test('기존 최소선 상향을 허용한다', () => {
             " ]",
         ),
         buildFile,
+        buildFile,
     );
     assert.deepEqual(problems, []);
 });
@@ -91,6 +94,7 @@ test('최소선 하향을 거부한다', () => {
             "+    'cloud.bamsongi.albammate.auth.dto'    : 0.50,",
             " ]",
         ),
+        buildFile,
         buildFile,
     );
     assert.equal(problems.length, 1);
@@ -107,6 +111,7 @@ test('같은 값 재작성을 거부한다', () => {
             " ]",
         ),
         buildFile,
+        buildFile,
     );
     assert.equal(problems.length, 1);
     assert.match(problems[0], /최소선 상향이 아닙니다/u);
@@ -120,6 +125,7 @@ test('항목 삭제를 거부한다', () => {
             "-    'cloud.bamsongi.albammate.auth.dto'    : 0.67,",
             " ]",
         ),
+        buildFile,
         buildFile,
     );
     assert.equal(problems.length, 1);
@@ -136,6 +142,7 @@ test('맵 항목이 아닌 build 변경을 거부한다', () => {
             ' }',
         ),
         buildFile,
+        buildFile,
     );
     assert.equal(problems.length, 1);
     assert.match(problems[0], /항목이 아닌 추가 줄이 있습니다/u);
@@ -144,6 +151,7 @@ test('맵 항목이 아닌 build 변경을 거부한다', () => {
 test('맵 블록 밖에 추가한 항목을 거부한다', () => {
     const problems = validateCoverageRatchetDiff(
         diff('@@ -10,1 +10,2 @@', ' def applyCoverageRules = { verification -> }', "+    'cloud.x' : 0.10,"),
+        buildFile,
         buildFile,
     );
     assert.equal(problems.length, 1);
@@ -160,6 +168,7 @@ test('build.gradle 밖의 파일이 섞이면 거부한다', () => {
             "-rootProject.name = 'a'",
             "+rootProject.name = 'b'",
         ].join('\n'),
+        buildFile,
         buildFile,
     );
     assert.ok(problems.some((problem) => /build\.gradle 밖의 파일/u.test(problem)));
@@ -181,6 +190,7 @@ test('기존 키를 낮은 값으로 중복 추가하는 우회를 거부한다'
             "+    'cloud.bamsongi.albammate.auth.dto'    : 0.10,",
         ),
         duplicated,
+        duplicated,
     );
 
     assert.equal(problems.length, 1);
@@ -196,6 +206,7 @@ test('중복 키가 상향이어도 거부한다', () => {
     ].join('\n');
     const problems = validateCoverageRatchetDiff(
         diff('@@ -2,1 +2,2 @@', "     'cloud.a' : 0.10,", "+    'cloud.a' : 0.90,"),
+        duplicated,
         duplicated,
     );
 
@@ -246,4 +257,46 @@ test('커밋된 head의 정상 상향은 base 비교에서도 통과한다', (t)
     git('-c', 'user.name=t', '-c', 'user.email=t@e.com', 'commit', '--quiet', '-m', 'raise');
 
     assert.deepEqual(validateCoverageRatchetInRepo(repo, { base: 'HEAD~1' }).problems, []);
+});
+
+test('맵 밖에서 같은 키를 삭제하고 맵 안에 상향 추가하는 위장을 거부한다', () => {
+    // 다른 맵의 'cloud.a' : 0.90을 지우고 래칫 맵에 0.95로 추가하면 키·값만 보면 상향으로 보인다.
+    const preImage = [
+        'def otherThresholds = [',
+        "    'cloud.a' : 0.90,",
+        ']',
+        '',
+        'def gatedBranchCoverage = [',
+        "    'cloud.b' : 0.80,",
+        ']',
+    ].join('\n');
+    const postImage = [
+        'def otherThresholds = [',
+        ']',
+        '',
+        'def gatedBranchCoverage = [',
+        "    'cloud.b' : 0.80,",
+        "    'cloud.a' : 0.95,",
+        ']',
+    ].join('\n');
+    const problems = validateCoverageRatchetDiff(
+        [
+            'diff --git a/build.gradle b/build.gradle',
+            '--- a/build.gradle',
+            '+++ b/build.gradle',
+            '@@ -1,3 +1,2 @@',
+            ' def otherThresholds = [',
+            "-    'cloud.a' : 0.90,",
+            ' ]',
+            '@@ -5,2 +4,3 @@',
+            ' def gatedBranchCoverage = [',
+            "     'cloud.b' : 0.80,",
+            "+    'cloud.a' : 0.95,",
+        ].join('\n'),
+        postImage,
+        preImage,
+    );
+
+    assert.equal(problems.length, 1);
+    assert.match(problems[0], /base의 gatedBranchCoverage 맵 블록\(5~7줄\) 밖에서 삭제한 줄입니다: cloud\.a \(2줄\)/u);
 });
