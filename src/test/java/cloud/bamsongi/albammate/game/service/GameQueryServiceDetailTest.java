@@ -138,4 +138,30 @@ class GameQueryServiceDetailTest {
 		assertEquals(ErrorCode.GAME_NOT_FOUND, exception.getErrorCode());
 		verifyNoInteractions(upcomingRoomCountQuery);
 	}
+
+	@Test
+	void 메타데이터_관계_저장소가_없으면_기존_상세_형식으로_반환한다() {
+		gameQueryService = new GameQueryService(
+			gameRepository,
+			Clock.fixed(NOW, ZoneOffset.UTC),
+			upcomingRoomCountQuery,
+			gameMechanismRepository,
+			userPlayedGameRepository,
+			null,
+			null,
+			null,
+			null,
+			null);
+		Game game = mock(Game.class);
+		when(game.getId()).thenReturn(1L);
+		when(gameRepository.findById(1L)).thenReturn(Optional.of(game));
+		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW)).thenReturn(Map.of());
+
+		GameDetail result = gameQueryService.findById(1L);
+
+		assertEquals(1L, result.id());
+		assertEquals(0L, result.upcomingRoomCount());
+		assertEquals(List.of(), result.categories());
+		assertEquals(List.of(), result.themes());
+	}
 }

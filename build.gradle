@@ -77,6 +77,8 @@ dependencies {
     postgresTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+def postgresPerformanceTestClass = 'cloud.bamsongi.albammate.game.GameMetadataSearchPerformancePostgresTest'
+
 tasks.register('postgresTest', Test) {
     description = 'Runs PostgreSQL integration tests with Testcontainers.'
     group = 'verification'
@@ -84,6 +86,21 @@ tasks.register('postgresTest', Test) {
     classpath = sourceSets.postgresTest.runtimeClasspath
     dependsOn tasks.named('postgresTestClasses')
     shouldRunAfter tasks.named('test')
+    filter {
+        excludeTestsMatching(postgresPerformanceTestClass)
+    }
+}
+
+tasks.register('postgresPerformanceTest', Test) {
+    description = 'Runs the external-fixture PostgreSQL performance test.'
+    group = 'verification'
+    testClassesDirs = sourceSets.postgresTest.output.classesDirs
+    classpath = sourceSets.postgresTest.runtimeClasspath
+    dependsOn tasks.named('postgresTestClasses')
+    shouldRunAfter tasks.named('postgresTest')
+    filter {
+        includeTestsMatching(postgresPerformanceTestClass)
+    }
 }
 
 // 커버리지 태스크는 담당 Test 태스크의 execution data만 명시적으로 사용한다.
@@ -276,8 +293,8 @@ tasks.withType(Test).configureEach {
     systemProperty 'user.timezone', 'UTC'
 }
 
-// 개발 셸의 SPRING_DATASOURCE_* 값이 테스트 경계를 흐리지 않도록 두 Test 태스크에
-// 의도적으로 도달시킨다. H2 test는 시스템 속성으로 이를 이겨야 하고, postgresTest는
+// 개발 셸의 SPRING_DATASOURCE_* 값이 테스트 경계를 흐리지 않도록 PostgreSQL Test 태스크에
+// 의도적으로 도달시킨다. H2 test는 시스템 속성으로 이를 이겨야 하고, 두 PostgreSQL 태스크는
 // @ServiceConnection이 Testcontainers 연결을 우선해야 한다.
 def ambientDataSource = [
     url     : 'jdbc:postgresql://127.0.0.1:65432/ambient',
@@ -304,6 +321,19 @@ tasks.named('postgresTest', Test) {
 
     systemProperty 'issue360.localMultiProxy',
             System.getProperty('issue360.localMultiProxy', 'false')
+}
+
+tasks.named('postgresPerformanceTest', Test) {
+    environment 'SPRING_DATASOURCE_URL', ambientDataSource.url
+    environment 'SPRING_DATASOURCE_USERNAME', ambientDataSource.username
+    environment 'SPRING_DATASOURCE_PASSWORD', ambientDataSource.password
+
+    ['fixture', 'fixtureManifest', 'rankCsv', 'performanceReport'].each { suffix ->
+        def propertyName = "issue420.${suffix}"
+        if (System.getProperty(propertyName) != null) {
+            systemProperty propertyName, System.getProperty(propertyName)
+        }
+    }
 }
 
 spotless {

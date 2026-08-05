@@ -170,7 +170,7 @@ PGOPTIONS='-c albam_mate.allow_test_only_metadata_import=true' \
 
 ```sh
 JAVA_TOOL_OPTIONS="-Dissue420.fixture=/path/to/games-170k.performance.json -Dissue420.fixtureManifest=/path/to/source-manifest.performance.json -Dissue420.rankCsv=/path/to/boardgames_ranks07-24.csv -Dissue420.performanceReport=/path/to/game-metadata-performance-report.json" \
-  ./gradlew postgresTest \
+  ./gradlew postgresPerformanceTest \
   --tests "cloud.bamsongi.albammate.game.GameMetadataSearchPerformancePostgresTest.십칠만건_fixture에서_대표조합의_결과_전체건수_실행계획과_시간을_기록한다" \
   --rerun --fail-fast
 ```

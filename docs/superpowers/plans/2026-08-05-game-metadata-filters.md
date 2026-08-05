@@ -488,7 +488,7 @@ LIMIT 10;
 
 Run: docker version
 
-Run: ./gradlew postgresTest --tests "cloud.bamsongi.albammate.game.GameMetadataSearchPerformancePostgresTest.십칠만건_fixture에서_대표조합의_결과_전체건수_실행계획과_시간을_기록한다" --rerun --fail-fast -Dissue420.fixture=/absolute/path/games-170k.performance.json -Dissue420.performanceReport=/absolute/path/game-metadata-performance-report.json
+Run: ./gradlew postgresPerformanceTest --tests "cloud.bamsongi.albammate.game.GameMetadataSearchPerformancePostgresTest.십칠만건_fixture에서_대표조합의_결과_전체건수_실행계획과_시간을_기록한다" --rerun --fail-fast -Dissue420.fixture=/absolute/path/games-170k.performance.json -Dissue420.fixtureManifest=/absolute/path/source-manifest.performance.json -Dissue420.rankCsv=/absolute/path/boardgames_ranks07-24.csv -Dissue420.performanceReport=/absolute/path/game-metadata-performance-report.json
 
 Expected: Testcontainers PostgreSQL에서 7개 대표 조합의 plan/시간이 report에 남는다. cache와 추가 검색 인덱스는 넣지 않는다.
 
@@ -540,7 +540,9 @@ Run: node scripts/validate-backend-test-manifest.mjs --packet /absolute/temp/iss
 
 Run: ./gradlew test --tests "cloud.bamsongi.albammate.game.GameMetadataHttpIntegrationTest.카테고리와_테마_선택지는_내부식별자없이_결정적_정렬로_반환한다" --tests "cloud.bamsongi.albammate.game.controller.GameControllerTest.게임_메타데이터_조건이_형식오류면_VALIDATION_ERROR다" --tests "cloud.bamsongi.albammate.game.service.GameQueryServiceDetailTest.게임_상세는_메타데이터배열을_정해진순서로_매핑한다" --rerun --fail-fast
 
-Run: ./gradlew postgresTest --tests "cloud.bamsongi.albammate.game.GameMetadataCatalogImportPostgresTest.메타데이터_재적재는_관계를_승인_스냅샷에_수렴시킨다" --tests "cloud.bamsongi.albammate.game.GameMetadataFilterPostgresTest.PostgreSQL에서_카테고리_테마_인원선호와_기존조건은_중복없이_결합한다" --tests "cloud.bamsongi.albammate.game.GameMetadataSearchPerformancePostgresTest.십칠만건_fixture에서_대표조합의_결과_전체건수_실행계획과_시간을_기록한다" --rerun --fail-fast -Dissue420.fixture=/absolute/path/games-170k.performance.json -Dissue420.performanceReport=/absolute/path/game-metadata-performance-report.json
+Run: ./gradlew postgresTest --tests "cloud.bamsongi.albammate.game.GameMetadataCatalogImportPostgresTest.메타데이터_재적재는_관계를_승인_스냅샷에_수렴시킨다" --tests "cloud.bamsongi.albammate.game.GameMetadataFilterPostgresTest.PostgreSQL에서_카테고리_테마_인원선호와_기존조건은_중복없이_결합한다" --rerun --fail-fast
+
+Run: ./gradlew postgresPerformanceTest --tests "cloud.bamsongi.albammate.game.GameMetadataSearchPerformancePostgresTest.십칠만건_fixture에서_대표조합의_결과_전체건수_실행계획과_시간을_기록한다" --rerun --fail-fast -Dissue420.fixture=/absolute/path/games-170k.performance.json -Dissue420.fixtureManifest=/absolute/path/source-manifest.performance.json -Dissue420.rankCsv=/absolute/path/boardgames_ranks07-24.csv -Dissue420.performanceReport=/absolute/path/game-metadata-performance-report.json
 
 - [ ] **Step 3: diff·문서·커버리지 규칙을 검사한다**
 

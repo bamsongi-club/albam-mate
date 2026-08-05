@@ -170,4 +170,20 @@ class GameListRequestTest {
 		invalid.setThemeMatch(List.of(ThemeMatch.ANY, ThemeMatch.ALL));
 		assertFalse(validator.validate(invalid).isEmpty());
 	}
+
+	@Test
+	void 빈_themeMatch는_기본_ANY로_조회된다() {
+		GameListRequest request = new GameListRequest();
+		request.setThemeMatch(List.of());
+
+		assertEquals(ThemeMatch.ANY, request.getThemeMatch());
+	}
+
+	@Test
+	void null을_담은_단일_themeMatch는_검증오류로_거절한다() {
+		GameListRequest request = new GameListRequest();
+		request.setThemeMatch(Collections.singletonList(null));
+
+		assertFalse(validator.validate(request).isEmpty());
+	}
 }

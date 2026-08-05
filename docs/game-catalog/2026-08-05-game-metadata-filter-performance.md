@@ -6,7 +6,7 @@
 - 측정: PostgreSQL Testcontainers, cache·추가 검색 인덱스 없음
 
 ```sh
-JAVA_TOOL_OPTIONS='-Dissue420.fixture=/Users/han-yejin/Downloads/albam-mate-search-perf-170k/games-170k.performance.json -Dissue420.fixtureManifest=/Users/han-yejin/Downloads/albam-mate-search-perf-170k/source-manifest.performance.json -Dissue420.rankCsv=/Users/han-yejin/Downloads/boardgames_ranks07-24.csv -Dissue420.performanceReport=/var/folders/v9/g612x8h14tbf3_946mnk5f1h0000gn/T/albam-mate-issue-420-performance-report.json' ./gradlew postgresTest --tests 'cloud.bamsongi.albammate.game.GameMetadataSearchPerformancePostgresTest.십칠만건_fixture에서_대표조합의_결과_전체건수_실행계획과_시간을_기록한다' --rerun --fail-fast
+JAVA_TOOL_OPTIONS='-Dissue420.fixture=/Users/han-yejin/Downloads/albam-mate-search-perf-170k/games-170k.performance.json -Dissue420.fixtureManifest=/Users/han-yejin/Downloads/albam-mate-search-perf-170k/source-manifest.performance.json -Dissue420.rankCsv=/Users/han-yejin/Downloads/boardgames_ranks07-24.csv -Dissue420.performanceReport=/var/folders/v9/g612x8h14tbf3_946mnk5f1h0000gn/T/albam-mate-issue-420-performance-report.json' ./gradlew postgresPerformanceTest --tests 'cloud.bamsongi.albammate.game.GameMetadataSearchPerformancePostgresTest.십칠만건_fixture에서_대표조합의_결과_전체건수_실행계획과_시간을_기록한다' --rerun --fail-fast
 ```
 
 | 조합 | total | page IDs | elapsed ms | 실행 계획 핵심 |
