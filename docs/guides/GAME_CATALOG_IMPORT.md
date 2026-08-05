@@ -166,16 +166,18 @@ PGOPTIONS='-c albam_mate.allow_test_only_metadata_import=true' \
 
 ### 17만 행 성능 fixture 계약
 
-`games-170k.performance.json`과 그 `source-manifest.performance.json`은 `productionImportApproved=false`를 유지한 채 PostgreSQL 성능 테스트에만 쓴다. 테스트는 manifest의 `rows=170000`와 fixture SHA-256을 먼저 검증하고, category 관계는 같은 manifest가 가리키는 실제 순위 CSV의 양수 rank에서만 만든다.
+`games-170k.performance.json`과 그 `source-manifest.performance.json`은 `productionImportApproved=false`를 유지한 채 PostgreSQL 성능 테스트에만 쓴다. 테스트는 manifest의 `rows=170000`와 fixture SHA-256을 먼저 검증하고, category 관계는 같은 manifest가 가리키는 실제 순위 CSV의 양수 rank에서만 만든다. `issue420.fixture`가 없으면 JUnit 조건으로 성능 클래스를 건너뛰므로, 외부 입력이 없는 기본 `postgresTest`는 이 fixture를 요구하거나 실패하지 않는다.
 
 170,000개 ID의 전체 XML snapshot과 한글 사전이 아직 없는 상태에서 테마·추천/베스트 조합 성능을 측정할 때는 테스트 코드가 고정 seed로 만든 **성능 전용 관계 분포**만 사용한다. 이 분포는 report에 `performanceFixtureRelations=true`로 남기며 service JSON·UPSERT SQL·운영 metadata manifest에 전달하면 실패해야 한다. 따라서 T10은 조회 경로와 실행 계획의 재현 근거이고, 운영 원본 사실을 주장하지 않는다.
 
 ```sh
 JAVA_TOOL_OPTIONS="-Dissue420.fixture=/path/to/games-170k.performance.json -Dissue420.fixtureManifest=/path/to/source-manifest.performance.json -Dissue420.rankCsv=/path/to/boardgames_ranks07-24.csv -Dissue420.performanceReport=/path/to/game-metadata-performance-report.json" \
-  ./gradlew postgresPerformanceTest \
+  ./gradlew postgresTest \
   --tests "cloud.bamsongi.albammate.game.GameMetadataSearchPerformancePostgresTest.십칠만건_fixture에서_대표조합의_결과_전체건수_실행계획과_시간을_기록한다" \
   --rerun --fail-fast
 ```
+
+report의 `pageAndCountElapsedMs`는 page 조회와 total count 조회만 잰 시간이고, `explainAnalyzeElapsedMs`는 `EXPLAIN ANALYZE`를 별도로 실행한 시간이다. 두 값은 합산하거나 서로의 응답 시간으로 해석하지 않는다.
 
 ## 검증 명령
 

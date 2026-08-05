@@ -18,6 +18,7 @@ import java.util.Map;
 import javax.sql.DataSource;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -31,6 +32,7 @@ import tools.jackson.databind.ObjectMapper;
 
 @Testcontainers
 @SpringBootTest
+@EnabledIfSystemProperty(named = "issue420.fixture", matches = ".+")
 class GameMetadataSearchPerformancePostgresTest {
 	@Container
 	@ServiceConnection
@@ -90,7 +92,11 @@ class GameMetadataSearchPerformancePostgresTest {
 		}
 		json.append("]}");
 		Files.writeString(report, json.toString());
-		assertTrue(Files.readString(report).contains("compound"));
+		String reportJson = Files.readString(report);
+		assertTrue(reportJson.contains("compound"));
+		assertTrue(reportJson.contains("\"pageAndCountElapsedMs\":"));
+		assertTrue(reportJson.contains("\"explainAnalyzeElapsedMs\":"));
+		assertFalse(reportJson.contains("\"elapsedMs\":"));
 	}
 
 	private static String required(String key) {
@@ -108,14 +114,17 @@ class GameMetadataSearchPerformancePostgresTest {
 	private String run(Scenario scenario) {
 		String page = "select g.id from games g where " + scenario.predicate + " order by g.name,g.id limit 10";
 		String count = "select count(*) from games g where " + scenario.predicate;
-		long start = System.nanoTime();
+		long pageAndCountStart = System.nanoTime();
 		List<Long> ids = jdbc.queryForList(page, Long.class);
 		Long total = jdbc.queryForObject(count, Long.class);
+		long pageAndCountElapsed = (System.nanoTime() - pageAndCountStart) / 1_000_000;
+		long explainAnalyzeStart = System.nanoTime();
 		String plan = jdbc.queryForObject("explain (analyze,buffers,format json) " + page, String.class);
-		long elapsed = (System.nanoTime() - start) / 1_000_000;
+		long explainAnalyzeElapsed = (System.nanoTime() - explainAnalyzeStart) / 1_000_000;
 		assertTrue(ids.size() <= total);
-		return "{\"name\":\"" + scenario.name + "\",\"pageIds\":" + ids + ",\"total\":" + total + ",\"elapsedMs\":"
-			+ elapsed + ",\"explain\":\"" + escape(plan) + "\"}";
+		return "{\"name\":\"" + scenario.name + "\",\"pageIds\":" + ids + ",\"total\":" + total
+			+ ",\"pageAndCountElapsedMs\":" + pageAndCountElapsed + ",\"explainAnalyzeElapsedMs\":"
+			+ explainAnalyzeElapsed + ",\"explain\":\"" + escape(plan) + "\"}";
 	}
 
 	private void seedCategories(Path ranks) throws Exception {

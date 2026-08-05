@@ -6,17 +6,19 @@
 - 측정: PostgreSQL Testcontainers, cache·추가 검색 인덱스 없음
 
 ```sh
-JAVA_TOOL_OPTIONS='-Dissue420.fixture=/Users/han-yejin/Downloads/albam-mate-search-perf-170k/games-170k.performance.json -Dissue420.fixtureManifest=/Users/han-yejin/Downloads/albam-mate-search-perf-170k/source-manifest.performance.json -Dissue420.rankCsv=/Users/han-yejin/Downloads/boardgames_ranks07-24.csv -Dissue420.performanceReport=/var/folders/v9/g612x8h14tbf3_946mnk5f1h0000gn/T/albam-mate-issue-420-performance-report.json' ./gradlew postgresPerformanceTest --tests 'cloud.bamsongi.albammate.game.GameMetadataSearchPerformancePostgresTest.십칠만건_fixture에서_대표조합의_결과_전체건수_실행계획과_시간을_기록한다' --rerun --fail-fast
+JAVA_TOOL_OPTIONS='-Dissue420.fixture=/Users/han-yejin/Downloads/albam-mate-search-perf-170k/games-170k.performance.json -Dissue420.fixtureManifest=/Users/han-yejin/Downloads/albam-mate-search-perf-170k/source-manifest.performance.json -Dissue420.rankCsv=/Users/han-yejin/Downloads/boardgames_ranks07-24.csv -Dissue420.performanceReport=/tmp/albam-mate-424-performance-green.json' ./gradlew postgresTest --tests 'cloud.bamsongi.albammate.game.GameMetadataSearchPerformancePostgresTest.십칠만건_fixture에서_대표조합의_결과_전체건수_실행계획과_시간을_기록한다' --rerun --fail-fast
 ```
 
-| 조합 | total | page IDs | elapsed ms | 실행 계획 핵심 |
-|---|---:|---:|---:|---|
-| no-filter | 170,000 | 10 | 95 | `EXPLAIN ANALYZE BUFFERS FORMAT JSON` 기록 |
-| category-single | 3,266 | 10 | 26 | 상관 EXISTS |
-| category-or | 6,423 | 10 | 47 | 상관 EXISTS + IN |
-| theme-any-single | 84,838 | 10 | 561 | 상관 EXISTS |
-| theme-any-multiple | 113,279 | 10 | 674 | 상관 EXISTS + IN |
-| theme-all-multiple | 28,345 | 10 | 2,231 | countDistinct 상관 subquery |
-| compound | 835 | 10 | 87 | 카테고리·인원·메커니즘·테마 AND |
+`page+count ms`는 page 조회와 total count 조회만의 시간이고, `EXPLAIN ANALYZE ms`는 실행 계획 수집 시간이다. 두 값은 합산하지 않는다.
+
+| 조합 | total | page IDs | page+count ms | EXPLAIN ANALYZE ms | 실행 계획 핵심 |
+|---|---:|---:|---:|---:|---|
+| no-filter | 170,000 | 10 | 122 | 117 | `EXPLAIN ANALYZE BUFFERS FORMAT JSON` 기록 |
+| category-single | 3,266 | 10 | 75 | 41 | 상관 EXISTS |
+| category-or | 6,423 | 10 | 92 | 38 | 상관 EXISTS + IN |
+| theme-any-single | 84,838 | 10 | 799 | 637 | 상관 EXISTS |
+| theme-any-multiple | 113,279 | 10 | 1,092 | 1,145 | 상관 EXISTS + IN |
+| theme-all-multiple | 28,345 | 10 | 4,019 | 1,494 | countDistinct 상관 subquery |
+| compound | 835 | 10 | 284 | 124 | 카테고리·인원·메커니즘·테마 AND |
 
 각 조합의 전체 `EXPLAIN ANALYZE BUFFERS FORMAT JSON`과 page IDs는 저장소 밖 성능 report에만 둡니다. 측정은 역방향 검색 인덱스나 cache 도입 근거를 만들지 않았습니다.
