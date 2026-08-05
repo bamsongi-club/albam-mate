@@ -1943,6 +1943,8 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
   const loadMoreSentinelRef = useRef(null);
   const historyScrollSnapshotRef = useRef(null);
   const historyInitializedRef = useRef(false);
+  const isChatAtBottomRef = useRef(true);
+  const scrollToBottomRef = useRef(false);
   const mergeMessages = (incoming) => setMessages((current) => mergeChatMessages(current, incoming));
 
   useEffect(() => {
@@ -1950,6 +1952,8 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     setMessages([]);
     historyInitializedRef.current = false;
     historyScrollSnapshotRef.current = null;
+    isChatAtBottomRef.current = true;
+    scrollToBottomRef.current = false;
     setNextBeforeMessageId(null);
     setHasNext(false);
     setLoadingMore(false);
@@ -2087,8 +2091,10 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     if (snapshot) {
       history.scrollTop = snapshot.scrollTop + history.scrollHeight - snapshot.scrollHeight;
       historyScrollSnapshotRef.current = null;
-    } else if (!historyInitializedRef.current) {
+    } else if (scrollToBottomRef.current || !historyInitializedRef.current || isChatAtBottomRef.current) {
       history.scrollTop = history.scrollHeight;
+      scrollToBottomRef.current = false;
+      isChatAtBottomRef.current = true;
       historyInitializedRef.current = true;
     }
   }, [displayedMessages.length, roomId]);
@@ -2116,6 +2122,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     try {
       const saved = await api.sendChatMessage(roomId, { clientMessageId: messageId, content: trimmed });
       if (roomIdRef.current !== requestedRoomId || roomGenerationRef.current !== requestedGeneration) return;
+      scrollToBottomRef.current = true;
       mergeMessages([saved]);
       setContent('');
       setClientMessageId(createClientMessageId());
@@ -2126,6 +2133,11 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     } finally {
       if (roomIdRef.current === requestedRoomId && roomGenerationRef.current === requestedGeneration) setSending(false);
     }
+  };
+
+  const handleChatScroll = (event) => {
+    const history = event.currentTarget;
+    isChatAtBottomRef.current = history.scrollHeight - history.clientHeight - history.scrollTop <= 48;
   };
 
   const handleComposeKeyDown = (event) => {
@@ -2149,7 +2161,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
       {!error && loading && !data && <LoadingBox label="채팅을 불러오는 중…" />}
       {!error && !loading && !displayedMessages.length && <div className="infobox">아직 주고받은 메시지가 없어요.</div>}
       {!error && !!displayedMessages.length && (
-        <div className="chat-history" ref={chatHistoryRef}>
+        <div className="chat-history" ref={chatHistoryRef} onScroll={handleChatScroll}>
           <div className="chat-load-sentinel" ref={loadMoreSentinelRef} aria-hidden="true" />
           {loadingMore && <p className="hint chat-loading-more" role="status">이전 메시지를 불러오는 중…</p>}
           <ul className="chat-log">

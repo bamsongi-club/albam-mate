@@ -315,6 +315,38 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     await waitFor(() => expect(send).toHaveBeenCalledWith('7', expect.objectContaining({ content: '키보드 전송' })));
   });
 
+  it('메시지를 보내면 채팅 목록을 하단으로 이동한다', async () => {
+    const sockets = useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [{ messageId: 1, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '기존 메시지', createdAt: '2026-09-01T19:00:00+09:00' }],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+    vi.spyOn(api, 'sendChatMessage').mockResolvedValue({
+      messageId: 2,
+      roomId: 7,
+      sender: { nickname: '테스터' },
+      isMine: true,
+      content: '아래로 이동',
+      createdAt: '2026-09-01T19:01:00+09:00'
+    });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(sockets).toHaveLength(1));
+    const history = document.querySelector('.chat-history');
+    Object.defineProperties(history, {
+      scrollHeight: { configurable: true, value: 100 },
+      clientHeight: { configurable: true, value: 50 },
+      scrollTop: { configurable: true, writable: true, value: 0 }
+    });
+    fireEvent.scroll(history);
+    fireEvent.change(screen.getByLabelText('메시지'), { target: { value: '아래로 이동' } });
+    fireEvent.click(screen.getByRole('button', { name: '전송' }));
+
+    await waitFor(() => expect(screen.getByText('아래로 이동')).toBeTruthy());
+    expect(history.scrollTop).toBe(100);
+  });
+
   it('연결이 끊기면 마지막 이벤트 ID로 재연결한다', async () => {
     vi.useFakeTimers();
     const sockets = useFakeWebSocket();
