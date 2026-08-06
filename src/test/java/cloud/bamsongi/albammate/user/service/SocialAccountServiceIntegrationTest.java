@@ -179,14 +179,16 @@ class SocialAccountServiceIntegrationTest {
 			Optional.of("http://example.com/first.png"));
 
 		SocialLoginResult.LoggedIn first = loggedIn(socialAccountService.login(initialIdentity));
-		assertEquals("http://example.com/first.png", userRepository.findById(first.account().id()).orElseThrow().getProfileImageUrl());
+		assertEquals("http://example.com/first.png",
+			userRepository.findById(first.account().id()).orElseThrow().getProfileImageUrl());
 
 		SocialIdentity updatedIdentity = new SocialIdentity(
 			SocialProvider.GOOGLE, subject, Optional.empty(), Optional.empty(),
 			Optional.of("http://example.com/second.png"));
 
 		SocialLoginResult.LoggedIn second = loggedIn(socialAccountService.login(updatedIdentity));
-		assertEquals("http://example.com/second.png", userRepository.findById(second.account().id()).orElseThrow().getProfileImageUrl());
+		assertEquals("http://example.com/second.png",
+			userRepository.findById(second.account().id()).orElseThrow().getProfileImageUrl());
 	}
 
 	private SocialLoginResult.LoggedIn loggedIn(SocialLoginResult result) {

@@ -12,7 +12,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
 	private final String uploadDir;
 
 	public WebMvcConfig(
-			@Value("${app.profile-image.upload-dir:./uploads/profile}") String uploadDir) {
+		@Value("${app.profile-image.upload-dir:./uploads/profile}")
+		String uploadDir) {
 		this.uploadDir = uploadDir;
 	}
 

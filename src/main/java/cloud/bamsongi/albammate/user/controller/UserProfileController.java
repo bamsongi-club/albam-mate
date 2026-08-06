@@ -52,7 +52,8 @@ public final class UserProfileController {
 
 	@PostMapping("/profile-image")
 	public ResponseEntity<ApiResponse<UserProfileResponse>> uploadProfileImage(
-			@RequestParam("file") MultipartFile file) {
+		@RequestParam("file")
+		MultipartFile file) {
 		validateProfileImage(file);
 		try {
 			String imageUrl = profileImageStorage.store(
