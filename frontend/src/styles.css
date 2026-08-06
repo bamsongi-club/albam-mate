@@ -130,21 +130,7 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .tabs-row { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
 .tabs-row .tabs { margin-bottom: 0; }
 /* 필터를 왼쪽에 두고 검색창은 줄 오른쪽 끝에 붙인다. */
-.tabs-row .inline-search { flex: 0 0 320px; height: 44px; margin: 0 0 0 auto; }
-.tabs-row > a.btn { align-items: center; display: inline-flex; height: 44px; }
-
-/* UI 시안 프로토타입(검색창 배치) — 결정 후 승자 시안만 남기고 이 블록과 SearchHeader/PrototypeSwitcher를 정리한다. */
-.search-hero { align-items: center; display: flex; flex-direction: column; gap: 12px; margin: 8px 0 18px; }
-.search-hero .inline-search { height: 52px; max-width: 560px; width: 100%; }
-.search-hero .inline-search input { font-size: 16px; }
 .search-header-hint { margin: 4px 0 15px; }
-.search-inline-row { align-items: center; display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 16px; }
-.search-inline-title { margin: 0; }
-.search-inline-row .inline-search { flex: 0 0 280px; height: 44px; margin: 0; }
-.prototype-switcher { align-items: center; background: var(--ink); border-radius: 999px; bottom: 20px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); color: #fff; display: flex; gap: 10px; left: 50%; padding: 8px 14px; position: fixed; transform: translateX(-50%); z-index: 50; }
-.prototype-switcher button { align-items: center; background: rgba(255, 255, 255, 0.15); border-radius: 999px; color: #fff; display: inline-flex; height: 28px; justify-content: center; width: 28px; }
-.prototype-switcher button:hover { background: rgba(255, 255, 255, 0.28); }
-.prototype-switcher-label { font-size: 13px; font-weight: 700; white-space: nowrap; }
 .tab-short { display: none; }
 .pagination { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 26px; }
 .pagination .page-btn { align-items: center; background: #fff; border: 1.5px solid var(--line); border-radius: 10px; color: var(--brown2); display: inline-flex; font-size: 13px; font-weight: 800; justify-content: center; min-width: 38px; padding: 8px 11px; }
