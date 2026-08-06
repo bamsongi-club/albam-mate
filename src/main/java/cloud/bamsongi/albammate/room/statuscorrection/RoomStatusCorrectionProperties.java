@@ -9,6 +9,7 @@ import org.springframework.validation.annotation.Validated;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 
 /** ROOM 상태 보정의 Trigger와 잠금·관측 입력을 검증해 바인딩한다. */
 @Component
@@ -16,7 +17,7 @@ import jakarta.validation.constraints.NotNull;
 @ConfigurationProperties(prefix = "app.room.status-correction")
 public class RoomStatusCorrectionProperties {
 
-	@NotBlank private String lockName;
+	@NotBlank @Pattern(regexp = "room-status-correction") private String lockName;
 
 	@NotNull @DurationMin(nanos = 1)
 	private Duration triggerDelay;

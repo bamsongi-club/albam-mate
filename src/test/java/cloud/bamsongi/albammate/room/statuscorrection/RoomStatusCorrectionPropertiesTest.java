@@ -30,6 +30,15 @@ class RoomStatusCorrectionPropertiesTest {
 			.run(context -> assertFalse(context.getStartupFailure() != null));
 	}
 
+	@Test
+	void lockName은_room_status_correction만_허용한다() {
+		contextRunner.withPropertyValues(
+			"app.room.status-correction.lock-at-most-for=2m",
+			"app.room.status-correction.execution-warning-threshold=30s",
+			"app.room.status-correction.lock-name=another-room-job")
+			.run(context -> assertTrue(context.getStartupFailure() != null));
+	}
+
 	@Configuration(proxyBeanMethods = false)
 	@EnableConfigurationProperties(RoomStatusCorrectionProperties.class)
 	static class PropertiesConfiguration {}
