@@ -130,11 +130,21 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .tabs-row { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
 .tabs-row .tabs { margin-bottom: 0; }
 /* 필터를 왼쪽에 두고 검색창은 줄 오른쪽 끝에 붙인다. */
-.tabs-row .inline-search { flex: 0 0 320px; margin-bottom: 0; margin-left: auto; }
-/* 검색창과 그 아래 안내를 한 덩어리로 묶어 줄 오른쪽 끝에 붙인다. */
-.tabs-row .search-block { flex: 0 0 320px; margin-left: auto; }
-.search-block .inline-search { flex: 1 1 auto; margin-bottom: 0; margin-left: 0; }
-.search-hint { margin-top: 6px; padding-left: 2px; }
+.tabs-row .inline-search { flex: 0 0 320px; height: 44px; margin: 0 0 0 auto; }
+.tabs-row > a.btn { align-items: center; display: inline-flex; height: 44px; }
+
+/* UI 시안 프로토타입(검색창 배치) — 결정 후 승자 시안만 남기고 이 블록과 SearchHeader/PrototypeSwitcher를 정리한다. */
+.search-hero { align-items: center; display: flex; flex-direction: column; gap: 12px; margin: 8px 0 18px; }
+.search-hero .inline-search { height: 52px; max-width: 560px; width: 100%; }
+.search-hero .inline-search input { font-size: 16px; }
+.search-header-hint { margin: 4px 0 15px; }
+.search-inline-row { align-items: center; display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 16px; }
+.search-inline-title { margin: 0; }
+.search-inline-row .inline-search { flex: 0 0 280px; height: 44px; margin: 0; }
+.prototype-switcher { align-items: center; background: var(--ink); border-radius: 999px; bottom: 20px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); color: #fff; display: flex; gap: 10px; left: 50%; padding: 8px 14px; position: fixed; transform: translateX(-50%); z-index: 50; }
+.prototype-switcher button { align-items: center; background: rgba(255, 255, 255, 0.15); border-radius: 999px; color: #fff; display: inline-flex; height: 28px; justify-content: center; width: 28px; }
+.prototype-switcher button:hover { background: rgba(255, 255, 255, 0.28); }
+.prototype-switcher-label { font-size: 13px; font-weight: 700; white-space: nowrap; }
 .tab-short { display: none; }
 .pagination { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 26px; }
 .pagination .page-btn { align-items: center; background: #fff; border: 1.5px solid var(--line); border-radius: 10px; color: var(--brown2); display: inline-flex; font-size: 13px; font-weight: 800; justify-content: center; min-width: 38px; padding: 8px 11px; }
@@ -425,10 +435,14 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .checkline input { accent-color: var(--accent); width: auto; }
 /* 게임 목록과 모임 목록이 함께 쓰는 조건 필터. 토글과 고른 조건 칩을 한 줄에 두고, 펼치면 섹션별 목록이 나온다. */
 .filter-bar { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.filter-bar-search { align-items: center; display: flex; gap: 8px; margin: 0 0 0 auto; }
+.filter-bar-search .inline-search { height: 38px; margin: 0; }
+.filter-bar-search .inline-search input, .filter-bar-search .inline-search button { min-height: 38px; }
+.filter-bar-search > a.btn { align-items: center; display: inline-flex; height: 38px; }
 /* 아이콘만 두면 눌러보기 전에는 무슨 버튼인지 알 수 없어 글자를 함께 둔다. */
 .filter-toggle { align-items: center; background: var(--brown); border-radius: 999px; color: #fff; display: inline-flex; font-size: 13.5px; font-weight: 800; gap: 6px; height: 38px; justify-content: center; padding: 0 16px 0 13px; }
 .filter-toggle.on, .filter-toggle:hover { background: var(--accent-dark); }
-.filter-chip { align-items: center; background: var(--brown); border-radius: 999px; color: #fff; display: inline-flex; font-size: 13px; font-weight: 800; gap: 8px; height: 34px; padding: 0 14px; }
+.filter-chip { align-items: center; background: var(--brown); border-radius: 999px; color: #fff; display: inline-flex; font-size: 13px; font-weight: 800; gap: 8px; height: 38px; padding: 0 14px; }
 .filter-chip:hover { background: var(--accent-dark); }
 .filter-chip span { font-size: 15px; line-height: 1; opacity: 0.75; }
 .filter-panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 16px; padding: 20px 22px 16px; }
@@ -479,8 +493,8 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .create-note li { padding-left: 12px; position: relative; }
 .create-note li::before { background: var(--accent); border-radius: 50%; content: ''; height: 4px; left: 0; position: absolute; top: 0.62em; width: 4px; }
 .inline-search { background: #fff; border: 1px solid var(--line); border-radius: 999px; display: flex; margin-bottom: 18px; max-width: 420px; overflow: hidden; }
-.inline-search input { background: transparent; border: 0; flex: 1; padding: 9px 16px; }
-.inline-search button { align-items: center; color: var(--sub); display: flex; flex: 0 0 auto; justify-content: center; padding: 0 14px; }
+.inline-search input { -webkit-appearance: none; appearance: none; background: transparent; border: 0; flex: 1; min-height: 44px; padding: 9px 16px; }
+.inline-search button { align-items: center; color: var(--sub); display: flex; flex: 0 0 auto; justify-content: center; min-height: 44px; padding: 0 14px; }
 .inline-search button:hover { color: var(--accent); }
 .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
 .tabs button, .tabs a { background: #fff; border: 1.5px solid var(--line); border-radius: 999px; color: var(--sub); font-size: 14px; font-weight: 800; padding: 9px 18px; }
@@ -488,6 +502,8 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 #toast { background: var(--brown); border-radius: 999px; bottom: 34px; box-shadow: 0 6px 20px rgba(40, 25, 10, 0.3); color: #fff; font-size: 14px; font-weight: 800; left: 50%; max-width: 88vw; opacity: 0; padding: 12px 22px; pointer-events: none; position: fixed; text-align: center; transform: translateX(-50%) translateY(20px); transition: 0.25s; z-index: 20; }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 #toast.err { background: var(--red); }
+.scroll-top-btn { align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 999px; bottom: 24px; box-shadow: 0 8px 20px rgba(80, 60, 30, 0.2); color: var(--brown2); display: flex; height: 44px; justify-content: center; position: fixed; right: 24px; transition: transform 0.15s ease, color 0.15s ease; width: 44px; z-index: 20; }
+.scroll-top-btn:hover { color: var(--accent-dark); transform: translateY(-2px); }
 
 /* 게임 정보 출처 표기는 모든 화면 하단에 둔다. 헤더와 같은 폭에 맞추고 경계선을 위아래 대칭으로 쓴다. */
 .site-footer { background: var(--bg); border-top: 1px solid var(--line); margin-top: auto; }
@@ -536,7 +552,7 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
   .notification-panel { position: fixed; right: 12px; top: 72px; width: calc(100vw - 24px); }
   .brand-wordmark { display: none; }
   .inline-search { max-width: none; }
-  .tabs-row .inline-search, .tabs-row .search-block { flex: 1 1 100%; }
+  .tabs-row .inline-search { flex: 1 1 100%; }
   .inline-search input, .inline-search button { min-height: 44px; }
   /* 탭 라벨을 줄여 탭과 모임 만들기 버튼을 한 줄에 넣는다. 화면 제목이 맥락을 준다. */
   .tab-full { display: none; }

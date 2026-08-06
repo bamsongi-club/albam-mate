@@ -443,6 +443,110 @@ function useHashRoute() {
   return [location, navigate];
 }
 
+// UI 시안 프로토타입: ?variant= 쿼리스트링으로 게임 찾기·모임 찾기의 검색창 배치를 함께 전환한다.
+// 결정 후 SearchHeader/PrototypeSwitcher와 이 훅은 승자 시안만 남기고 정리한다.
+const PROTOTYPE_VARIANTS = ['A', 'B', 'C'];
+const PROTOTYPE_VARIANT_LABELS = { A: '오른쪽 정렬(기존 모임 찾기 방식)', B: '가운데 큰 검색창', C: '제목과 한 줄' };
+
+function readPrototypeVariant() {
+  const value = new URLSearchParams(window.location.search).get('variant');
+  return PROTOTYPE_VARIANTS.includes(value) ? value : PROTOTYPE_VARIANTS[0];
+}
+
+function usePrototypeVariant() {
+  const [variant, setVariantState] = useState(readPrototypeVariant);
+
+  const setVariant = (next) => {
+    setVariantState(next);
+    const url = new URL(window.location.href);
+    url.searchParams.set('variant', next);
+    window.history.replaceState(null, '', url);
+  };
+
+  return [variant, setVariant];
+}
+
+function PrototypeSwitcher({ variant, onChange }) {
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      const active = document.activeElement;
+      const isEditable = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+      if (isEditable) return;
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      const delta = event.key === 'ArrowLeft' ? -1 : 1;
+      const index = PROTOTYPE_VARIANTS.indexOf(variant);
+      onChange(PROTOTYPE_VARIANTS[(index + delta + PROTOTYPE_VARIANTS.length) % PROTOTYPE_VARIANTS.length]);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [variant, onChange]);
+
+  if (import.meta.env.PROD) return null;
+
+  const cycle = (delta) => {
+    const index = PROTOTYPE_VARIANTS.indexOf(variant);
+    onChange(PROTOTYPE_VARIANTS[(index + delta + PROTOTYPE_VARIANTS.length) % PROTOTYPE_VARIANTS.length]);
+  };
+
+  return (
+    <div className="prototype-switcher" role="toolbar" aria-label="검색창 배치 시안 전환">
+      <button type="button" onClick={() => cycle(-1)} aria-label="이전 시안">←</button>
+      <span className="prototype-switcher-label">{variant} — {PROTOTYPE_VARIANT_LABELS[variant]}</span>
+      <button type="button" onClick={() => cycle(1)} aria-label="다음 시안">→</button>
+    </div>
+  );
+}
+
+// 게임 찾기·모임 찾기가 공유하는 검색 헤더. 시안별로 검색창 위치·정보 계층을 다르게 배치한다.
+function SearchHeader({ variant, icon, title, countText, keywordId, keywordLabel, inputValue, onInputChange, onSubmit, placeholder, hint, actionSlot, filtersSlot }) {
+  const searchForm = (
+    <form className="inline-search" onSubmit={onSubmit}>
+      <label className="sr-only" htmlFor={keywordId}>{keywordLabel}</label>
+      <input id={keywordId} value={inputValue} onChange={onInputChange} placeholder={placeholder} />
+      <button type="submit" aria-label="검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.65" y2="16.65" /></svg></button>
+    </form>
+  );
+  const hintNode = hint ? <p className="hint search-header-hint">{hint}</p> : null;
+
+  if (variant === 'B') {
+    return (
+      <>
+        <h2><SectionIcon name={icon} />{title} <span className="cnt">{countText}</span></h2>
+        <div className="search-hero">
+          {searchForm}
+          {actionSlot && <div className="search-hero-action">{actionSlot}</div>}
+        </div>
+        {hintNode}
+        {filtersSlot(null)}
+      </>
+    );
+  }
+
+  if (variant === 'C') {
+    return (
+      <>
+        <div className="search-inline-row">
+          <h2 className="search-inline-title"><SectionIcon name={icon} />{title}</h2>
+          {searchForm}
+          <span className="cnt">{countText}</span>
+          {actionSlot}
+        </div>
+        {hintNode}
+        {filtersSlot(null)}
+      </>
+    );
+  }
+
+  // 기본(A): 검색창·액션을 조건 필터 바 안으로 넣어 한 줄에 둔다.
+  return (
+    <>
+      <h2><SectionIcon name={icon} />{title} <span className="cnt">{countText}</span></h2>
+      {hintNode}
+      {filtersSlot(<>{searchForm}{actionSlot}</>)}
+    </>
+  );
+}
+
 function activeParticipantCount(room) {
   return Math.max(0, room.participantCount - 1);
 }
@@ -618,6 +722,29 @@ function SiteFooter() {
         <p className="fnote">게임 정보는 <a href="https://boardgamegeek.com" target="_blank" rel="noreferrer noopener">BoardGameGeek</a>, 국내 보드게임 자료, 알밤 메이트 팀의 직접 작성·검수와 플레이 경험을 바탕으로 구성했습니다.</p>
       </div>
     </footer>
+  );
+}
+
+function ScrollToTopButton() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setVisible(window.scrollY > 400);
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <button
+      type="button"
+      className="scroll-top-btn"
+      aria-label="맨 위로 이동"
+      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+    >
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" /></svg>
+    </button>
   );
 }
 
@@ -1077,7 +1204,7 @@ function useGameOptions(load) {
 }
 
 // 고른 조건은 칩으로 보여 주고 칩마다 그 조건만 해제한다. 패널을 접어도 무엇이 걸려 있는지 남는다.
-function FilterPanel({ chips, onReset, children }) {
+function FilterPanel({ chips, onReset, children, searchSlot }) {
   const [isOpen, setIsOpen] = useState(false);
   return (
     <div className="filter-shell">
@@ -1089,6 +1216,7 @@ function FilterPanel({ chips, onReset, children }) {
         {chips.map((chip) => (
           <button type="button" className="filter-chip" key={chip.key} aria-label={chip.label + ' 조건 해제'} onClick={chip.onClear}>{chip.label}<span aria-hidden="true">×</span></button>
         ))}
+        {searchSlot && <div className="filter-bar-search">{searchSlot}</div>}
       </div>
       {isOpen && (
         <div className="filter-panel" id="search-filter-panel">
@@ -1116,13 +1244,14 @@ function roomFilterChips(filters, onChange, roomType, onRoomTypeChange) {
   return chips;
 }
 
-function RoomFilters({ filters, onChange, today, roomType, onRoomTypeChange, counts }) {
+function RoomFilters({ filters, onChange, today, roomType, onRoomTypeChange, counts, searchSlot }) {
   const update = (patch) => onChange({ ...filters, ...patch });
   const withCount = (filter) => filter.label + (counts ? ' (' + counts[filter.value] + ')' : '');
   return (
     <FilterPanel
       chips={roomFilterChips(filters, onChange, roomType, onRoomTypeChange)}
       onReset={() => { onRoomTypeChange(''); onChange(EMPTY_ROOM_FILTERS); }}
+      searchSlot={searchSlot}
     >
       <FilterRadioGroup name="room-filter-type" label="유형" value={roomType} onChange={onRoomTypeChange}
         options={ROOM_TYPE_FILTERS.map((filter) => ({ value: filter.value, label: withCount(filter) }))} />
@@ -1172,7 +1301,7 @@ function useRoomTypeCounts(keyword, filters, today, dataVersion) {
   return counts;
 }
 
-function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChange, roomFilters, onRoomFiltersChange, dataVersion }) {
+function FindRoomsView({ searchHeaderVariant, roomType, onRoomTypeChange, roomQuery, onRoomQueryChange, roomFilters, onRoomFiltersChange, dataVersion }) {
   const [input, setInput] = useState(roomQuery);
   const keyword = roomQuery.trim();
   const today = useSeoulToday();
@@ -1188,20 +1317,20 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
   useEffect(() => setInput(roomQuery), [roomQuery]);
   return (
     <>
-      <h2><SectionIcon name="rooms" />모임 찾기 <span className="cnt">{loading && !data ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
-      <div className="tabs-row">
-        {/* 검색 한계 안내는 검색창 바로 아래에 둔다. 줄 왼쪽 끝에 떨어져 있으면 무엇에 대한 안내인지 읽히지 않는다. */}
-        <div className="search-block">
-          <form className="inline-search" onSubmit={(event) => { event.preventDefault(); onRoomQueryChange(input.trim()); }}>
-            <label className="sr-only" htmlFor="room-q">모임 제목 검색</label>
-            <input id="room-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="모임 제목으로 검색" />
-            <button type="submit" aria-label="검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.65" y2="16.65" /></svg></button>
-          </form>
-          <p className="hint search-hint">모임 제목의 부분 일치 검색만 제공해요.</p>
-        </div>
-        <a className="btn ghost" href="#/create"><span aria-hidden="true">✏️</span> 모임 만들기</a>
-      </div>
-      <RoomFilters filters={roomFilters} onChange={onRoomFiltersChange} today={today} roomType={roomType} onRoomTypeChange={onRoomTypeChange} counts={counts} />
+      <SearchHeader
+        variant={searchHeaderVariant}
+        icon="rooms"
+        title="모임 찾기"
+        countText={(loading && !data ? '불러오는 중…' : (data?.totalElements ?? 0) + '개') + (keyword ? ' · \'' + keyword + '\' 검색 결과' : '')}
+        keywordId="room-q"
+        keywordLabel="모임 제목 검색"
+        inputValue={input}
+        onInputChange={(event) => setInput(event.target.value)}
+        onSubmit={(event) => { event.preventDefault(); onRoomQueryChange(input.trim()); }}
+        placeholder="모임 제목으로 검색"
+        actionSlot={<a className="btn ghost" href="#/create"><span aria-hidden="true">✏️</span> 모임 만들기</a>}
+        filtersSlot={(searchSlot) => <RoomFilters searchSlot={searchSlot} filters={roomFilters} onChange={onRoomFiltersChange} today={today} roomType={roomType} onRoomTypeChange={onRoomTypeChange} counts={counts} />}
+      />
       {error && <ErrorBox message={error} />}
       {!error && loading && !data && <LoadingBox />}
       {!error && !!rooms.length && <div className="grid cols2 list-swappable" style={{ opacity: loading ? 0.6 : 1 }}>{rooms.map((room) => <SessionCard key={room.id} room={room} />)}</div>}
@@ -1328,7 +1457,7 @@ function gameFilterChips(filters, onChange, mechanismOptions, categoryOptions = 
   return chips;
 }
 
-function GameFilters({ filters, onChange }) {
+function GameFilters({ filters, onChange, searchSlot }) {
   const mechanismOptions = useGameMechanisms();
   const categoryOptions = useGameOptions(api.getGameCategories);
   const themeOptions = useGameOptions(api.getGameThemes);
@@ -1360,7 +1489,7 @@ function GameFilters({ filters, onChange }) {
     mechanism: checked ? [...filters.mechanism, code] : filters.mechanism.filter((selected) => selected !== code)
   });
   return (
-    <FilterPanel chips={gameFilterChips(filters, onChange, mechanismOptions, categoryOptions, themeOptions)} onReset={() => onChange(EMPTY_GAME_FILTERS)}>
+    <FilterPanel chips={gameFilterChips(filters, onChange, mechanismOptions, categoryOptions, themeOptions)} onReset={() => onChange(EMPTY_GAME_FILTERS)} searchSlot={searchSlot}>
       <FilterNumberRangeGroup label="게임 인원" unit="명" min={filters.playerCountMin} max={filters.playerCountMax}
         onMinChange={(playerCountMin) => updateRange({ playerCountMin })} onMaxChange={(playerCountMax) => updateRange({ playerCountMax })}>
         <label className="filter-option filter-option-picker">
@@ -1418,7 +1547,7 @@ function GameFilters({ filters, onChange }) {
   );
 }
 
-export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, onPlayedError }) {
+export function GamesView({ searchHeaderVariant, title, gameQuery, onGameQueryChange, dataVersion, onPlayedError }) {
   const [input, setInput] = useState(gameQuery);
   const [filters, setFilters] = useState(EMPTY_GAME_FILTERS);
   const keyword = gameQuery.trim();
@@ -1436,14 +1565,19 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
   useEffect(() => setInput(gameQuery), [gameQuery]);
   return (
     <>
-      <h2><SectionIcon name="games" />{title} <span className="cnt">{loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
-      <form className="inline-search" onSubmit={(event) => { event.preventDefault(); onGameQueryChange(input.trim()); }}>
-        <label className="hint" htmlFor="game-q" style={{ position: 'absolute', left: -9999 }}>게임 이름 검색</label>
-        <input id="game-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임 이름으로 검색" />
-        <button type="submit" aria-label="검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.65" y2="16.65" /></svg></button>
-      </form>
-      <p className="hint" style={{ marginTop: -10, marginBottom: 15 }}>게임 이름의 부분 일치 검색만 제공해요.</p>
-      <GameFilters filters={filters} onChange={setFilters} />
+      <SearchHeader
+        variant={searchHeaderVariant}
+        icon="games"
+        title={title}
+        countText={(loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개') + (keyword ? ' · \'' + keyword + '\' 검색 결과' : '')}
+        keywordId="game-q"
+        keywordLabel="게임 이름 검색"
+        inputValue={input}
+        onInputChange={(event) => setInput(event.target.value)}
+        onSubmit={(event) => { event.preventDefault(); onGameQueryChange(input.trim()); }}
+        placeholder="게임 이름으로 검색"
+        filtersSlot={(searchSlot) => <GameFilters searchSlot={searchSlot} filters={filters} onChange={setFilters} />}
+      />
       {error && (unauthenticated
         ? <LoginRequiredView message="해 본 게임으로 거르려면 로그인해주세요." />
         : <ErrorBox message={error} />)}
@@ -2431,6 +2565,7 @@ function isUnauthenticated(error) {
 
 export function App() {
   const [{ route, arg }, navigate] = useHashRoute();
+  const [searchHeaderVariant, setSearchHeaderVariant] = usePrototypeVariant();
   const today = useSeoulToday();
   const [me, setMe] = useState(null);
   const [gameQuery, setGameQuery] = useState('');
@@ -2742,8 +2877,8 @@ export function App() {
   };
 
   let content;
-  if (route === 'find') content = <FindRoomsView roomType={roomType} onRoomTypeChange={setRoomType} roomQuery={roomQuery} onRoomQueryChange={setRoomQuery} roomFilters={roomFilters} onRoomFiltersChange={setRoomFilters} dataVersion={dataVersion} />;
-  else if (route === 'game-list') content = <GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} onPlayedError={handleProtectedError} />;
+  if (route === 'find') content = <FindRoomsView searchHeaderVariant={searchHeaderVariant} roomType={roomType} onRoomTypeChange={setRoomType} roomQuery={roomQuery} onRoomQueryChange={setRoomQuery} roomFilters={roomFilters} onRoomFiltersChange={setRoomFilters} dataVersion={dataVersion} />;
+  else if (route === 'game-list') content = <GamesView searchHeaderVariant={searchHeaderVariant} title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} onPlayedError={handleProtectedError} />;
   else if (route === 'game') content = <GameDetailView gameId={arg} onCreateGame={handleCreateGame} dataVersion={dataVersion} onPlayedError={handleProtectedError} />;
   else if (route === 'session') content = <SessionDetailView sessionId={arg} me={me} onApply={handleApply} onCancelApply={handleCancelApply} onHostCancel={handleHostCancel} onFinish={handleFinish} dataVersion={dataVersion} />;
   else if (route === 'create') content = me ? <CreateView createMode={createMode} onCreateModeChange={setCreateMode} initialGame={createGame} onCreate={handleCreate} today={today} /> : <LoginRequiredView message="모임을 만들려면 로그인해주세요." />;
@@ -2778,7 +2913,9 @@ export function App() {
       />
       <main>{content}</main>
       <SiteFooter />
+      <ScrollToTopButton />
       <div id="toast" role="status" aria-live="polite" className={(toast.message ? 'show ' : '') + (toast.type === 'err' ? 'err' : '')}>{toast.message}</div>
+      {(route === 'find' || route === 'game-list') && <PrototypeSwitcher variant={searchHeaderVariant} onChange={setSearchHeaderVariant} />}
     </>
   );
 }
