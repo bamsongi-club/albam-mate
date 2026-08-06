@@ -555,6 +555,8 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
   .filter-groups { grid-template-columns: repeat(2, 1fr); }
   .filter-option { min-height: 36px; }
   .filter-toggle, .filter-chip { min-height: 40px; }
+  /* 검색창과 만들기 버튼을 한 줄에 두면 320px에서 넘친다. 세로로 쌓는다. */
+  .filter-bar-search { align-items: stretch; flex-direction: column; margin: 0; width: 100%; }
   /* 좁은 화면에서는 고급 목록을 전체 화면으로 열어 검색과 목록에 자리를 준다. */
   .mechanism-advanced { background: var(--card); border: 0; border-radius: 0; bottom: 0; display: flex; flex-direction: column; left: 0; margin: 0; overflow-y: auto; padding: 16px; position: fixed; right: 0; top: 0; z-index: 40; }
   .mechanism-search { max-width: none; }
