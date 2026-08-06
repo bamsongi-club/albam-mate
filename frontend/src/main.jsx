@@ -1425,6 +1425,12 @@ function GameFilters({ filters, onChange, searchSlot }) {
   });
   return (
     <FilterPanel chips={gameFilterChips(filters, onChange, mechanismOptions, categoryOptions, themeOptions)} onReset={() => onChange(EMPTY_GAME_FILTERS)} searchSlot={searchSlot}>
+      <FilterMultiCheckGroup label="카테고리" values={filters.category} onToggle={toggleIn('category')}
+        options={categoryOptions.map((option) => ({ value: option.code, label: option.nameKo }))} />
+      <FilterRadioGroup name="game-filter-complexity" label="게임 난이도" value={complexityBandOf(filters)?.value || ''} onChange={selectBand}
+        options={[{ value: '', label: '전체' }, ...COMPLEXITY_BANDS.map((band) => ({ value: band.value, label: band.label }))]} />
+      <FilterMultiCheckGroup label="플레이 시간" values={filters.playTime} onToggle={togglePlayTime}
+        options={Object.entries(PLAY_TIME_LABEL).map(([code, label]) => ({ value: code, label }))} />
       <FilterNumberRangeGroup label="게임 인원" unit="명" min={filters.playerCountMin} max={filters.playerCountMax}
         onMinChange={(playerCountMin) => updateRange({ playerCountMin })} onMaxChange={(playerCountMax) => updateRange({ playerCountMax })}>
         <label className="filter-option filter-option-picker">
@@ -1444,11 +1450,16 @@ function GameFilters({ filters, onChange, searchSlot }) {
           </label>
         ))}
       </FilterNumberRangeGroup>
-      <FilterMultiCheckGroup label="플레이 시간" values={filters.playTime} onToggle={togglePlayTime}
-        options={Object.entries(PLAY_TIME_LABEL).map(([code, label]) => ({ value: code, label }))} />
-      <MechanismFilterGroup options={mechanismOptions} selected={filters.mechanism} onToggle={toggleMechanism} />
-      <FilterMultiCheckGroup label="카테고리" values={filters.category} onToggle={toggleIn('category')}
-        options={categoryOptions.map((option) => ({ value: option.code, label: option.nameKo }))} />
+      <FilterMultiCheckGroup label="추천 인원" values={filters.recommendedPlayerCount} onToggle={toggleIn('recommendedPlayerCount')}
+        options={PREFERRED_PLAYER_COUNT_OPTIONS}>
+        <CustomPlayerCountInput label="추천 인원" values={filters.recommendedPlayerCount}
+          onAdd={(value) => update({ recommendedPlayerCount: [...filters.recommendedPlayerCount, value] })} />
+      </FilterMultiCheckGroup>
+      <FilterMultiCheckGroup label="베스트 인원" values={filters.bestPlayerCount} onToggle={toggleIn('bestPlayerCount')}
+        options={PREFERRED_PLAYER_COUNT_OPTIONS}>
+        <CustomPlayerCountInput label="베스트 인원" values={filters.bestPlayerCount}
+          onAdd={(value) => update({ bestPlayerCount: [...filters.bestPlayerCount, value] })} />
+      </FilterMultiCheckGroup>
       {/* 테마를 하나만 고르면 포함 방식이 결과를 바꾸지 않으므로 둘 이상일 때만 보여 준다. */}
       <FilterMultiCheckGroup wide label="테마" values={filters.theme} onToggle={toggleIn('theme')}
         options={themeOptions.map((option) => ({ value: option.code, label: option.nameKo }))}>
@@ -1469,20 +1480,9 @@ function GameFilters({ filters, onChange, searchSlot }) {
           </>
         )}
       </FilterMultiCheckGroup>
-      <FilterMultiCheckGroup label="추천 인원" values={filters.recommendedPlayerCount} onToggle={toggleIn('recommendedPlayerCount')}
-        options={PREFERRED_PLAYER_COUNT_OPTIONS}>
-        <CustomPlayerCountInput label="추천 인원" values={filters.recommendedPlayerCount}
-          onAdd={(value) => update({ recommendedPlayerCount: [...filters.recommendedPlayerCount, value] })} />
-      </FilterMultiCheckGroup>
-      <FilterMultiCheckGroup label="베스트 인원" values={filters.bestPlayerCount} onToggle={toggleIn('bestPlayerCount')}
-        options={PREFERRED_PLAYER_COUNT_OPTIONS}>
-        <CustomPlayerCountInput label="베스트 인원" values={filters.bestPlayerCount}
-          onAdd={(value) => update({ bestPlayerCount: [...filters.bestPlayerCount, value] })} />
-      </FilterMultiCheckGroup>
+      <MechanismFilterGroup options={mechanismOptions} selected={filters.mechanism} onToggle={toggleMechanism} />
       <FilterRadioGroup name="game-filter-played" label="해 본 게임" value={filters.playedFilter}
         onChange={(playedFilter) => update({ playedFilter })} options={PLAYED_FILTER_OPTIONS} />
-      <FilterRadioGroup name="game-filter-complexity" label="게임 난이도" value={complexityBandOf(filters)?.value || ''} onChange={selectBand}
-        options={[{ value: '', label: '전체' }, ...COMPLEXITY_BANDS.map((band) => ({ value: band.value, label: band.label }))]} />
       <FilterCheckGroup label="모임" checked={filters.upcomingOnly} onChange={(upcomingOnly) => update({ upcomingOnly })} text="예정 모임 있는 게임만" />
     </FilterPanel>
   );
