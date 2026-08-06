@@ -444,7 +444,7 @@ function useHashRoute() {
 }
 
 // 게임 찾기·모임 찾기가 공유하는 검색 헤더. 검색창·액션을 조건 필터 바 안에 넣어 한 줄에 둔다.
-function SearchHeader({ icon, title, countText, keywordId, keywordLabel, inputValue, onInputChange, onSubmit, placeholder, hint, actionSlot, filtersSlot }) {
+function SearchHeader({ icon, title, keywordId, keywordLabel, inputValue, onInputChange, onSubmit, placeholder, hint, actionSlot, filtersSlot }) {
   const searchForm = (
     <form className="inline-search" onSubmit={onSubmit}>
       <label className="sr-only" htmlFor={keywordId}>{keywordLabel}</label>
@@ -456,7 +456,7 @@ function SearchHeader({ icon, title, countText, keywordId, keywordLabel, inputVa
 
   return (
     <>
-      <h2><SectionIcon name={icon} />{title} <span className="cnt">{countText}</span></h2>
+      <h2><SectionIcon name={icon} />{title}</h2>
       {hintNode}
       {filtersSlot(<>{searchForm}{actionSlot}</>)}
     </>
@@ -1236,7 +1236,6 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
       <SearchHeader
         icon="rooms"
         title="모임 찾기"
-        countText={(loading && !data ? '불러오는 중…' : (data?.totalElements ?? 0) + '개') + (keyword ? ' · \'' + keyword + '\' 검색 결과' : '')}
         keywordId="room-q"
         keywordLabel="모임 제목 검색"
         inputValue={input}
@@ -1483,7 +1482,6 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
       <SearchHeader
         icon="games"
         title={title}
-        countText={(loading ? '불러오는 중…' : (data?.totalElements ?? 0) + '개') + (keyword ? ' · \'' + keyword + '\' 검색 결과' : '')}
         keywordId="game-q"
         keywordLabel="게임 이름 검색"
         inputValue={input}
