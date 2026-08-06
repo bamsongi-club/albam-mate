@@ -131,9 +131,22 @@ Windows PowerShell:
 
 ```powershell
 docker version
-$env:JAVA_TOOL_OPTIONS = '-Dissue383.measurement=true'
-.\gradlew.bat postgresTest --tests "cloud.bamsongi.albammate.room.measurement.RoomStatusCorrectionBaselineMeasurementPostgresTest.승인_규모_기준선을_측정한다" --rerun --fail-fast
-Remove-Item Env:JAVA_TOOL_OPTIONS
+$hadJavaToolOptions = Test-Path Env:JAVA_TOOL_OPTIONS
+$previousJavaToolOptions = $env:JAVA_TOOL_OPTIONS
+try {
+    $env:JAVA_TOOL_OPTIONS = if ([string]::IsNullOrWhiteSpace($previousJavaToolOptions)) {
+        '-Dissue383.measurement=true'
+    } else {
+        "$previousJavaToolOptions -Dissue383.measurement=true".Trim()
+    }
+    .\gradlew.bat postgresTest --tests "cloud.bamsongi.albammate.room.measurement.RoomStatusCorrectionBaselineMeasurementPostgresTest.승인_규모_기준선을_측정한다" --rerun --fail-fast
+} finally {
+    if ($hadJavaToolOptions) {
+        $env:JAVA_TOOL_OPTIONS = $previousJavaToolOptions
+    } else {
+        Remove-Item Env:JAVA_TOOL_OPTIONS -ErrorAction SilentlyContinue
+    }
+}
 ```
 
 macOS·Linux:

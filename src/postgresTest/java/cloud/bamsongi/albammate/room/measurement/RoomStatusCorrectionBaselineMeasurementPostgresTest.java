@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.room.measurement;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -35,7 +36,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @Testcontainers
-@SpringBootTest
+@SpringBootTest(properties = "spring.task.scheduling.enabled=false")
 class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 
 	private static final Instant REQUEST_TIME = Instant.parse("2026-08-06T00:00:00Z");
@@ -94,6 +95,9 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 		assertTrue(report.summary().minThroughputPerSecond() > 0);
 		assertTrue(report.summary().medianThroughputPerSecond() > 0);
 		assertTrue(report.summary().maxThroughputPerSecond() > 0);
+		assertDockerVersionRecorded(report.measurementStartEnvironment());
+		assertTrue(report.measuredRuns().stream()
+			.allMatch(run -> run.runStartEnvironment().configuration().containsKey("dockerVersion")));
 		JsonNode rawReport = objectMapper.readTree(Files.readString(reportPath(SMALL)));
 		JsonNode firstMeasuredRun = rawReport.path("measuredRuns").get(0);
 		assertTrue(firstMeasuredRun.path("throughputPerSecond").asDouble() > 0);
@@ -126,6 +130,7 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 			assertTrue(rawReport.path("partialRuns").get(0).path("throughputPerSecond").isNull());
 			assertTrue(rawReport.path("partialRuns").get(0).hasNonNull("runStartEnvironment"));
 			assertTrue(rawReport.hasNonNull("measurementStartEnvironment"));
+			assertDockerVersionRecorded(rawReport.path("measurementStartEnvironment"));
 			assertTrue(Files.exists(failureReportPath(SMALL)));
 		} finally {
 			jdbcTemplate.execute("drop trigger if exists room_09c_measurement_failure_trigger on rooms");
@@ -159,6 +164,7 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 		assertEquals("후보 수 사전 검증 실패", rawReport.path("runFailure").path("category").asText());
 		assertEquals(20, rawReport.path("partialRuns").get(0).path("candidateCount").asInt());
 		assertTrue(rawReport.path("partialRuns").get(0).path("pgStatStatements").size() > 0);
+		assertDockerVersionRecorded(rawReport.path("measurementStartEnvironment"));
 	}
 
 	@Test
@@ -168,6 +174,7 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 			MeasurementReport report = measure(profile);
 			assertEquals("SUCCESS", report.outcome());
 			assertEquals(5, report.measuredRuns().size());
+			assertDockerVersionRecorded(report.measurementStartEnvironment());
 		}
 	}
 
@@ -235,11 +242,13 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 			startedAtNanos = System.nanoTime();
 			int changedCount = coordinator.correctDueRooms(REQUEST_TIME);
 			long elapsedNanos = System.nanoTime() - startedAtNanos;
+			List<PgStatStatement> pgStatStatements = pgStatStatements();
+			assertMeasuredStatements(pgStatStatements, profile.dueRoomCount());
 			assertEquals(profile.dueRoomCount(), changedCount, "현행 전체 Entity 기준선 변경 수");
 			assertEquals(NON_DUE_CLOSED_ROOM_COUNT, countNonDueClosedRooms(),
 				"finishedThreshold 직후 CLOSED ROOM은 실행 결과에서 제외");
 			return new MeasurementRun(phase, iteration, candidateCount, changedCount, elapsedNanos,
-				throughputPerSecond(changedCount, elapsedNanos), runStartEnvironment, pgStatStatements());
+				throughputPerSecond(changedCount, elapsedNanos), runStartEnvironment, pgStatStatements);
 		} catch (RuntimeException | AssertionError exception) {
 			Long elapsedNanos = startedAtNanos == null ? null : System.nanoTime() - startedAtNanos;
 			MeasurementRun partialRun = new MeasurementRun(phase, iteration, candidateCount, null, elapsedNanos, null,
@@ -251,8 +260,22 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 	private MeasurementGate writeMeasurementGate() throws Exception {
 		String selector = "cloud.bamsongi.albammate.room.measurement."
 			+ "RoomStatusCorrectionBaselineMeasurementPostgresTest.승인_규모_기준선을_측정한다";
-		String command = "$env:JAVA_TOOL_OPTIONS = '-Dissue383.measurement=true'\n"
-			+ ".\\gradlew.bat postgresTest --tests \"" + selector + "\" --rerun --fail-fast";
+		String command = "$hadJavaToolOptions = Test-Path Env:JAVA_TOOL_OPTIONS\n"
+			+ "$previousJavaToolOptions = $env:JAVA_TOOL_OPTIONS\n"
+			+ "try {\n"
+			+ "    $env:JAVA_TOOL_OPTIONS = if ([string]::IsNullOrWhiteSpace($previousJavaToolOptions)) {\n"
+			+ "        '-Dissue383.measurement=true'\n"
+			+ "    } else {\n"
+			+ "        \"$previousJavaToolOptions -Dissue383.measurement=true\".Trim()\n"
+			+ "    }\n"
+			+ "    .\\gradlew.bat postgresTest --tests \"" + selector + "\" --rerun --fail-fast\n"
+			+ "} finally {\n"
+			+ "    if ($hadJavaToolOptions) {\n"
+			+ "        $env:JAVA_TOOL_OPTIONS = $previousJavaToolOptions\n"
+			+ "    } else {\n"
+			+ "        Remove-Item Env:JAVA_TOOL_OPTIONS -ErrorAction SilentlyContinue\n"
+			+ "    }\n"
+			+ "}";
 		MeasurementGate gate = new MeasurementGate(
 			List.of(SMALL), List.of(MEDIUM, LARGE),
 			command,
@@ -294,14 +317,34 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 
 	private List<PgStatStatement> pgStatStatements() {
 		return jdbcTemplate.query("""
-			select query, queryid::text, calls, total_exec_time, rows, shared_blks_hit, shared_blks_read
-			from pg_stat_statements
-			where dbid = (select oid from pg_database where datname = current_database())
-			order by total_exec_time desc, queryid
+				select query, queryid::text, calls, total_exec_time, rows, shared_blks_hit, shared_blks_read
+				from pg_stat_statements
+				where dbid = (select oid from pg_database where datname = current_database())
+				  and query not like 'select pg_stat_statements_reset%'
+				order by total_exec_time desc, queryid
 			""", (resultSet, rowNum) -> new PgStatStatement(
 			resultSet.getString("query"), resultSet.getString("queryid"), resultSet.getLong("calls"),
 			resultSet.getDouble("total_exec_time"), resultSet.getLong("rows"),
 			resultSet.getLong("shared_blks_hit"), resultSet.getLong("shared_blks_read")));
+	}
+
+	private void assertMeasuredStatements(List<PgStatStatement> statements, int expectedUpdateCount) {
+		assertTrue(statements.stream().noneMatch(statement -> statement.query().contains("pg_stat_statements_reset")),
+			"측정 원자료에 reset 제어 쿼리를 포함하지 않습니다.");
+		PgStatStatement candidateQuery = statements.stream()
+			.filter(statement -> statement.query().startsWith("select ")
+				&& statement.query().contains("from rooms r1_0")
+				&& statement.query().contains("start_at"))
+			.findFirst()
+			.orElseThrow(() -> new AssertionError("findDueRooms SQL 원자료가 없습니다."));
+		assertEquals(1L, candidateQuery.calls(), "재시도 없는 단일 일괄 트랜잭션의 후보 조회 횟수");
+
+		PgStatStatement roomUpdate = statements.stream()
+			.filter(statement -> statement.query().startsWith("update rooms set"))
+			.findFirst()
+			.orElseThrow(() -> new AssertionError("ROOM 상태 보정 UPDATE 원자료가 없습니다."));
+		assertEquals(expectedUpdateCount, roomUpdate.calls(), "ROOM 상태 보정 UPDATE 호출 수");
+		assertEquals(expectedUpdateCount, roomUpdate.rows(), "ROOM 상태 보정 UPDATE 처리 행 수");
 	}
 
 	private List<PgStatStatement> capturePgStatStatements() {
@@ -321,9 +364,34 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 			runtime.totalMemory() - runtime.freeMemory(),
 			runtime.maxMemory(), Map.of(
 				"postgresImage", POSTGRES.getDockerImageName(),
+				"dockerVersion", dockerVersion(),
 				"sharedPreloadLibraries", jdbcTemplate.queryForObject("show shared_preload_libraries", String.class),
 				"measurementProperty", System.getProperty("issue383.measurement", "false"),
 				"profile", profile.name()));
+	}
+
+	private String dockerVersion() {
+		try {
+			Process process = new ProcessBuilder("docker", "version", "--format", "{{.Server.Version}}")
+				.redirectErrorStream(true)
+				.start();
+			String version = new String(process.getInputStream().readAllBytes()).trim();
+			return process.waitFor() == 0 && !version.isBlank() ? version : "UNAVAILABLE";
+		} catch (Exception ignored) {
+			return "UNAVAILABLE";
+		}
+	}
+
+	private void assertDockerVersionRecorded(MeasurementEnvironment environment) {
+		String dockerVersion = environment.configuration().get("dockerVersion");
+		assertTrue(dockerVersion != null && !dockerVersion.isBlank(), "Docker Engine 버전을 기록해야 합니다.");
+		assertNotEquals("UNAVAILABLE", dockerVersion, "Docker Engine 버전을 읽지 못했습니다.");
+	}
+
+	private void assertDockerVersionRecorded(JsonNode environment) {
+		String dockerVersion = environment.path("configuration").path("dockerVersion").asText();
+		assertTrue(!dockerVersion.isBlank(), "실패 원자료에도 Docker Engine 버전을 기록해야 합니다.");
+		assertNotEquals("UNAVAILABLE", dockerVersion, "실패 원자료에서 Docker Engine 버전을 읽지 못했습니다.");
 	}
 
 	private String gitSha() {
