@@ -19,6 +19,8 @@ app:
       lock-name: room-status-correction
       trigger-delay: 15m
       trigger-jitter: 3m
+      lock-at-most-for: 2m
+      execution-warning-threshold: 30s
   chat:
     retention:
       enabled: true
