@@ -12,17 +12,17 @@
 
 ## 2026-08-06 기준선 결과
 
-세 profile 모두 고정 실행 SHA `8e45214194aa9be8ea109f7372627dcc6adb0652`에서 실행했고, 결과 JSON의 `measurementStartEnvironment`와 각 run의 `runStartEnvironment`에 같은 SHA·환경 snapshot을 남겼다. 아래 수치는 최종 fixture 보강을 포함한 현재 일괄 처리 경로의 2026-08-06 실행 결과이지 운영 합격선이나 SLO가 아니다.
+세 profile 모두 고정 실행 SHA `4688316415113b4457f03628d77bdcb7f594c294`에서 실행했고, 결과 JSON의 `measurementStartEnvironment`와 각 run의 `runStartEnvironment`에 같은 SHA·환경 snapshot을 남겼다. 아래 수치는 최종 fixture 보강을 포함한 현재 일괄 처리 경로의 2026-08-06 실행 결과이지 운영 합격선이나 SLO가 아니다.
 
 실행 환경은 Java `21.0.11`, Docker Engine 버전은 각 결과 JSON의 `measurementStartEnvironment.configuration.dockerVersion`, PostgreSQL `18.4 (Debian 18.4-1.pgdg13+1)`, Windows 11, CPU 24개, PostgreSQL image `postgres:18.4`, `shared_preload_libraries=pg_stat_statements`였다. 측정 중 notification relay·chat retention은 비활성화하고 ROOM 상태 보정·notification cleanup의 첫 스케줄 실행은 24시간 뒤로 설정했으며, 이 설정도 각 결과 JSON의 configuration에 기록했다. 모든 profile은 `SUCCESS`, WAITING `0`, warm-up `1회`, 실측 `5회`, 후보 수와 변경 수가 due 수와 같았다.
 
 | profile | fixture (전체/due/non-due) | 실측 실행시간 최솟값/중앙값/최댓값 (ms) | 처리량 최솟값/중앙값/최댓값 (ROOM/s) |
 | --- | ---: | ---: | ---: |
-| small | 100 / 20 / 80 | 73.6205 / 86.6473 / 93.6094 | 213.6538 / 230.8208 / 271.6635 |
-| medium | 10,000 / 2,000 / 8,000 | 6,048.6129 / 6,250.3559 / 7,509.4744 | 266.3302 / 319.9818 / 330.6543 |
-| large | 50,000 / 10,000 / 40,000 | 46,014.2505 / 54,342.1629 / 142,663.7053 | 70.0949 / 184.0192 / 217.3240 |
+| small | 100 / 20 / 80 | 50.8900 / 87.0308 / 106.1030 | 188.4961 / 229.8037 / 393.0045 |
+| medium | 10,000 / 2,000 / 8,000 | 4,396.2845 / 4,715.5992 / 7,152.7056 | 279.6145 / 424.1243 / 454.9296 |
+| large | 50,000 / 10,000 / 40,000 | 132,745.3430 / 137,464.4264 / 145,619.3626 | 68.6722 / 72.7461 / 75.3322 |
 
-시간은 JSON의 `elapsedNanos / 1_000_000`, 처리량은 JSON의 `throughputPerSecond`를 그대로 표시했다. 성공 결과의 각 warm-up·실측 run에는 후보 수·변경 수·run 시작 환경·`pg_stat_statements` query별 호출 수·DB 실행시간·행 수·shared buffer hit/read가 남아 있으며, 표의 원자료는 아래 버전 관리 파일과 SHA-256으로 고정한다.
+시간은 JSON의 `elapsedNanos / 1_000_000`, 처리량은 JSON의 `throughputPerSecond`를 그대로 표시했다. 성공 결과의 각 warm-up·실측 run에는 후보 수·변경 수·run 시작 환경·`pg_stat_statements` query별 호출 수·DB 실행시간·행 수·shared buffer hit/read가 남아 있으며, 표의 원자료는 아래 버전 관리 파일과 SHA-256으로 고정한다. SHA-256은 OS 줄바꿈 차이를 제거한 Git canonical blob bytes 기준이며, working tree의 CRLF 파일을 직접 해시한 값과 다를 수 있다.
 
 ## 측정 결과와 증거 파일
 
@@ -30,11 +30,12 @@
 
 | 파일 | 의미 | SHA-256 |
 | --- | --- | --- |
-| [`room-09c-small.json`](results/room-09c/room-09c-small.json) | small 성공 결과, 실측 5회 | `EFD209388F914E5A4656DDE78467E5B9A8C690F870FF3E269A856AB8E28485AE` |
-| [`room-09c-medium.json`](results/room-09c/room-09c-medium.json) | medium 성공 결과, 실측 5회 | `26BAC0DAD99220121014B038FAC6D3FC8EC01DE1B558769B36F568201266083F` |
-| [`room-09c-large.json`](results/room-09c/room-09c-large.json) | large 성공 결과, 실측 5회 | `83DA1E8CB0C0B674418D7F391417CA4620EA53FE26C22904C66B80D5FBBA7CA6` |
-| [`room-09c-small-run-failure.json`](results/room-09c/room-09c-small-run-failure.json) | 후보 수 사전 검증 실패와 부분 실행 결과 | `A67F9292DDD68045E487D83A7E59EF994D4D9D0844F343F8D9A2AE8CCBF5AC28` |
-| [`room-09c-measurement-gate.json`](results/room-09c/room-09c-measurement-gate.json) | 기본·명시 profile과 재현 selector | `F20442306F730046097D4AFE7570F440A706ED6CAA875B37532BE313A49BB2A5` |
+| [`room-09c-small.json`](results/room-09c/room-09c-small.json) | small 성공 결과, 실측 5회 | `470CE093524CDCAA049F574308BC687DA5F4AA8129C98D1977BDFF2F7448CF3F` |
+| [`room-09c-medium.json`](results/room-09c/room-09c-medium.json) | medium 성공 결과, 실측 5회 | `B5E1A3880E3C7A73B66C762C63A722D5B09E0BE7C8872273DDE833F730E86EB0` |
+| [`room-09c-large.json`](results/room-09c/room-09c-large.json) | large 성공 결과, 실측 5회 | `3323DEEF404A171B8A15701BF89DA7A02D99EF5943CB446CF27BBC45FDAF1506` |
+| [`room-09c-small-run-failure.json`](results/room-09c/room-09c-small-run-failure.json) | candidate-check 실패와 부분 실행 결과 | `BC81624AE3E3948E8BAEFFD9482E25F27ECFA51FBC0FFB97FDD4D00F186B1DE2` |
+| [`room-09c-small-run-level-failure.json`](results/room-09c/room-09c-small-run-level-failure.json) | warm-up 일괄 트랜잭션 실패와 부분 실행 결과 | `4E281FCE05B2D72BCF6936A75102BDF2D7E9F7C925EB360FB09FBFDEA3E4F0AF` |
+| [`room-09c-measurement-gate.json`](results/room-09c/room-09c-measurement-gate.json) | 기본·명시 profile과 재현 selector | `B82E749A7D0EEAEF8ED63C6AC8E5AAAF34D37EB48E335568BC3D1A8DA43A97D8` |
 
 각 실행은 `build/reports/measurements/room-09c-{small|medium|large}.json`에 다음을 기록한다.
 
@@ -46,7 +47,7 @@
 
 각 profile의 fixture를 준비한 뒤 현행 Repository의 `findDueRooms`로 후보 수를 한 번 확인하고, `finishedThreshold` 직후의 non-due `CLOSED` ROOM이 후보에서 제외되는지 검증한다. 성공 warm-up·실측 run에서는 같은 고정 fixture를 다시 준비하고, run 시작 환경 snapshot을 남긴 뒤 `pg_stat_statements_reset()`을 호출하고 현행 `correctDueRooms` 경로를 시간 측정한다. 시간 측정 직후 reset 제어 쿼리를 제외한 `pgStatStatements`를 먼저 수집하고, 후보 조회가 1회·ROOM UPDATE 호출과 처리 행이 due 수와 같은지 확인한 뒤 사후 fixture 검증을 수행한다. 따라서 정상 run은 retry가 없는 단일 일괄 트랜잭션 기준선만 성공 결과로 남기며, retry나 상태 보정 SQL 누락은 RUN_FAILURE로 기록한다. 측정 중 notification relay·chat retention은 비활성화하고 ROOM 상태 보정·notification cleanup의 첫 스케줄 실행은 24시간 뒤로 설정하지만, 성공 run의 `pgStatStatements`에는 상태 보정 경로의 이벤트·부수 쿼리와 테스트 외 동시 활동이 포함될 수 있으며, 이는 `correctDueRooms`만을 분리한 profiler 결과가 아니다. 반대로 `candidate-check` 실패 원자료에는 사전 fixture 준비와 후보 조회가 포함될 수 있으며 성능 측정 결과로 해석하지 않는다.
 
-`room-09c-{small|medium|large}-run-failure.json`은 `outcome: RUN_FAILURE`와 예외 유형·이미 완료된 run·실패 run의 부분 원자료를 남긴다. `partialRuns[].phase`가 `candidate-check`이면 `runFailure.category`는 `후보 수 사전 검증 실패`이며 `correctDueRooms`가 실행되지 않은 사전 검증 실패다. `warm-up` 또는 `measured`이면 `현행 일괄 트랜잭션 실패`로 분류한다. 실행이 시작되지 않은 실패의 `throughputPerSecond`는 `null`이고, 이는 ROOM별 실패가 아니므로 `roomFailures`를 비워 별도 의미를 보존한다. 현재 보존한 small failure 원자료는 `candidate-check` 사례다.
+`room-09c-{small|medium|large}-run-failure.json`은 `candidate-check` 단계의 `outcome: RUN_FAILURE`와 예외 유형·부분 원자료를 남긴다. `room-09c-{small|medium|large}-run-level-failure.json`은 `warm-up` 또는 `measured` 단계의 현행 일괄 트랜잭션 실패와 부분 원자료를 별도 보존한다. `partialRuns[].phase`가 `candidate-check`이면 `runFailure.category`는 `후보 수 사전 검증 실패`이며 `correctDueRooms`가 실행되지 않은 사전 검증 실패다. `warm-up` 또는 `measured`이면 `현행 일괄 트랜잭션 실패`로 분류한다. 실행이 시작되지 않은 실패의 `throughputPerSecond`는 `null`이고, 이는 ROOM별 실패가 아니므로 `roomFailures`를 비워 별도 의미를 보존한다. 현재 보존한 small 원자료는 candidate-check와 warm-up 일괄 트랜잭션 실패 각각 한 건이다.
 
 `room-09c-measurement-gate.json`은 기본 profile과 명시적 profile, 대형 측정 재현 명령, 처리량 산식을 기록한다. 실패·gate 원자료도 위 증거 파일에 함께 보존하며, 표의 모든 수치는 위 성공 JSON의 `summary`에서 직접 옮겼다.
 
