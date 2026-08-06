@@ -96,7 +96,11 @@ final class RoomConcurrencyBaselineSupport {
 				capacity));
 	}
 
-	RoundMeasurement measureRound(String scenario, int concurrencyLevel, List<Callable<?>> commands)
+	RoundMeasurement measureRound(
+		String scenario,
+		int concurrencyLevel,
+		RoomReadGate roomReadGate,
+		List<Callable<?>> commands)
 		throws Exception {
 		resetPostgresStatistics();
 		RetryLogCapture retryLogCapture = RetryLogCapture.attach();
@@ -106,7 +110,7 @@ final class RoomConcurrencyBaselineSupport {
 		try {
 			List<Future<RequestMeasurement>> futures = new ArrayList<>();
 			for (Callable<?> command : commands) {
-				futures.add(executor.submit(() -> measureRequest(command, ready, start)));
+				futures.add(executor.submit(() -> measureRequest(command, roomReadGate, ready, start)));
 			}
 			await(ready, "동시 요청 준비");
 			start.countDown();
@@ -179,21 +183,24 @@ final class RoomConcurrencyBaselineSupport {
 
 	private RequestMeasurement measureRequest(
 		Callable<?> command,
+		RoomReadGate roomReadGate,
 		CountDownLatch ready,
 		CountDownLatch start) throws Exception {
 		ready.countDown();
 		await(start, "동시 요청 시작");
+		roomReadGate.armResponseTimer();
 		MeasuredRequestTrace trace = measuredRetrier.beginRequest();
 		long startedAt = System.nanoTime();
 		try {
 			command.call();
-			return RequestMeasurement.success(System.nanoTime() - startedAt, trace.retryCount());
+			return RequestMeasurement.success(roomReadGate.elapsedNanosSince(startedAt), trace.retryCount());
 		} catch (BusinessException exception) {
 			return RequestMeasurement.businessFailure(
-				System.nanoTime() - startedAt, trace.retryCount(), exception.getErrorCode());
+				roomReadGate.elapsedNanosSince(startedAt), trace.retryCount(), exception.getErrorCode());
 		} catch (Exception exception) {
-			return RequestMeasurement.technicalFailure(System.nanoTime() - startedAt, trace.retryCount());
+			return RequestMeasurement.technicalFailure(roomReadGate.elapsedNanosSince(startedAt), trace.retryCount());
 		} finally {
+			roomReadGate.clearResponseTimer();
 			measuredRetrier.endRequest();
 		}
 	}
@@ -280,6 +287,8 @@ final class RoomConcurrencyBaselineSupport {
 	static final class RoomReadGate {
 
 		private final AtomicReference<Scenario> activeScenario = new AtomicReference<>();
+		private final ThreadLocal<Boolean> responseTimerArmed = new ThreadLocal<>();
+		private final ThreadLocal<Long> gateWaitNanos = new ThreadLocal<>();
 
 		void activate(long roomId, int expectedReaders) {
 			if (!activeScenario.compareAndSet(null, new Scenario(roomId, expectedReaders))) {
@@ -297,8 +306,32 @@ final class RoomConcurrencyBaselineSupport {
 				return;
 			}
 			scenario.observedVersions.add(room.orElseThrow().getVersion());
+			long gateWaitStartedAt = System.nanoTime();
 			scenario.initialReads.countDown();
 			awaitGate(scenario.initialReads);
+			addGateWaitNanos(System.nanoTime() - gateWaitStartedAt);
+		}
+
+		void armResponseTimer() {
+			responseTimerArmed.set(true);
+			gateWaitNanos.set(0L);
+		}
+
+		long elapsedNanosSince(long fallbackStartNanos) {
+			Long measuredGateWaitNanos = gateWaitNanos.get();
+			long excludedNanos = measuredGateWaitNanos == null ? 0 : measuredGateWaitNanos;
+			return System.nanoTime() - fallbackStartNanos - excludedNanos;
+		}
+
+		void clearResponseTimer() {
+			responseTimerArmed.remove();
+			gateWaitNanos.remove();
+		}
+
+		private void addGateWaitNanos(long durationNanos) {
+			if (Boolean.TRUE.equals(responseTimerArmed.get())) {
+				gateWaitNanos.set(gateWaitNanos.get() + durationNanos);
+			}
 		}
 
 		void deactivate() {

@@ -252,6 +252,7 @@ class RoomParticipationConcurrencyBaselinePostgresTest {
 			RoomConcurrencyBaselineSupport.RoundMeasurement measurement = baselineSupport.measureRound(
 				"last-seat",
 				fixture.participantUserIds().size(),
+				roomReadGate,
 				lastSeatCommands(fixture));
 			roomReadGate.assertInitialReadsShareOneVersion();
 			return measurement;

@@ -26,7 +26,7 @@
 
 ## 수집 방식과 산식
 
-- 요청별 응답시간은 `System.nanoTime()`의 시작·종료 차이로 기록한다. 이는 monotonic time이며 wall clock 변경의 영향을 받지 않는다.
+- 요청별 응답시간은 command 시작부터 `System.nanoTime()`의 종료까지 기록한다. 이는 monotonic time이며 결정적 gate가 추가한 barrier 대기시간만 별도 차감해 스케줄링 편차와 wall clock 변경의 영향을 표본에서 제외한다.
 - 결과 분포는 `success`, `businessFailure`, `concurrencyFailure`, `technicalFailure` 네 범주로 기록한다. 네 값의 합은 요청 수와 같아야 한다.
 - 실제 `RoomOptimisticLockRetrier`의 `room_participation_retry` 로그에서 attempt를 읽는다. 요청별 재시도 횟수는 `attemptCount - 1`이고, `0`·`1`·`2`회 bucket과 세 번째 시도 소진을 별도 기록한다.
 - 낙관 락 충돌 수는 재시도 조정자가 잡은 `OptimisticLockException` 또는 `ObjectOptimisticLockingFailureException` 수다. 충돌률은 `conflictCount / totalRequestCount`로 기록한다.
