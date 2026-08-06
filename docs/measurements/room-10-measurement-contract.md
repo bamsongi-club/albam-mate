@@ -65,8 +65,8 @@
 
 | 파일 | 의미 | SHA-256 |
 | --- | --- | --- |
-| [`room-10a.json`](results/room-10a/room-10a.json) | 마지막 좌석 동시 참가, 수준 `2`·`4`·`8` 각 3 round | `B3CA80FF495F62CF95889C2A22897B06225A1472E78767370B9144EC453A091F` |
-| [`room-10b.json`](results/room-10b/room-10b.json) | 대기·자동 승격 5개 경합 시나리오 21 round | `9C049FC43E0F6998B55E454A3426A31E05D4ACBF78329199F04F7541DEAA6E4E` |
+| [`room-10a.json`](results/room-10a/room-10a.json) | 마지막 좌석 동시 참가, 수준 `2`·`4`·`8` 각 3 round | `E2007E34F3CB30E95078FD6A5BD52E59F83882436429348EFBC3B85BA4B30781` |
+| [`room-10b.json`](results/room-10b/room-10b.json) | 대기·자동 승격 5개 경합 시나리오 21 round | `D60BFA4984D9105B604D1CD748C4DD07DAA445FAF7EDBA8837FE5A125A0F7529` |
 
 SHA-256은 OS 줄바꿈 차이를 제거한 Git canonical blob bytes 기준이며, working tree의 CRLF 파일을 직접 해시한 값과 다를 수 있다.
 
