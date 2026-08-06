@@ -13,6 +13,7 @@
   --brown2: #7a563a;
   --accent: #d9782d;
   --accent-dark: #bf6a22;
+  --accent-light: #e6a06a;
   --soft: #f3e5d0;
   --line: #e6d9c2;
   --green: #4f7d46;
@@ -23,7 +24,7 @@
   --red-soft: #f6e0da;
   --gray: #9a917f;
   --gray-soft: #eee9de;
-  --radius: 16px;
+  --radius: 10px;
   --shadow: 0 2px 10px rgba(80, 60, 30, 0.08);
 }
 
@@ -77,8 +78,8 @@ header {
 .brand-name { color: var(--brown); }
 .brand-mate { color: var(--accent-dark); }
 #gnb { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
-#gnb a { border-radius: 10px; color: var(--brown2); font-size: 14px; font-weight: 800; padding: 8px 12px; }
-#gnb a:hover, #gnb a.on { background: var(--soft); color: var(--brown); }
+#gnb a { border-radius: 999px; color: var(--brown2); font-size: 14px; font-weight: 800; padding: 8px 12px; }
+#gnb a:hover, #gnb a.on { color: var(--brown); }
 .notification-menu { align-items: center; display: flex; position: relative; }
 .notification-trigger { align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 999px; color: var(--brown2); display: inline-flex; height: 36px; justify-content: center; position: relative; width: 36px; }
 .notification-trigger:hover, .notification-trigger.on { background: var(--soft); color: var(--brown); }
@@ -164,9 +165,8 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .badge.gray { background: var(--gray-soft); color: var(--gray); }
 .badge.people { background: #e3edf3; color: #3d6b85; }
 .badge.game { background: var(--soft); color: var(--brown2); }
-.chip { background: var(--soft); border-radius: 999px; color: var(--brown2); display: inline-block; font-size: 12px; font-weight: 800; padding: 3px 10px; }
-.btn { background: var(--accent); border-radius: 12px; color: #fff; display: inline-block; font-size: 14px; font-weight: 800; padding: 10px 20px; text-align: center; transition: background-color 0.16s ease, transform 0.16s ease; }
-.btn:hover { background: var(--accent-dark); }
+.chip { background: var(--soft); border-radius: 10px; color: var(--brown2); display: inline-block; font-size: 12px; font-weight: 800; padding: 3px 10px; }
+.btn { background: var(--accent-light); border-radius: 999px; color: #fff; display: inline-block; font-size: 14px; font-weight: 800; padding: 10px 20px; text-align: center; transition: background-color 0.16s ease, transform 0.16s ease; }
 .btn:active, .modecard:active { transform: translateY(1px); }
 .btn.big { font-size: 15px; padding: 13px; width: 100%; }
 .btn.ghost { background: #fff; border: 1.5px solid var(--line); color: var(--brown2); }
