@@ -31,7 +31,7 @@ class SignupHttpIntegrationTest {
 	@Test
 	void 회원가입_HTTP_경로는_계정만_생성하고_해시된_자격증명과_UserSummary를_반환한다() throws Exception {
 		String email = "http-signup-success@example.com";
-		String rawPassword = " 123456789012345 ";
+		String rawPassword = "Valid-Password123!";
 		MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
 		Cookie csrfCookie = csrfResult.getResponse().getCookie("XSRF-TOKEN");
 		assertNotNull(csrfCookie);
@@ -48,7 +48,7 @@ class SignupHttpIntegrationTest {
 				.contentType("application/json")
 				.content(
 					"{\"email\":\" HTTP-Signup-Success@Example.com \","
-						+ "\"password\":\" 123456789012345 \","
+						+ "\"password\":\"Valid-Password123!\","
 						+ "\"nickname\":\" HTTP 사용자 \"}"))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.status").value(201))
