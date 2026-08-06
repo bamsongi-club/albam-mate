@@ -25,6 +25,8 @@ class UserProfileServiceTest {
 
 	@Mock
 	private UserRepository userRepository;
+	@Mock
+	private ProfileImageStorage profileImageStorage;
 	@InjectMocks
 	private UserProfileService userProfileService;
 
@@ -111,6 +113,47 @@ class UserProfileServiceTest {
 			() -> userProfileService.changeNickname(-1L, userNickname("새 닉네임")));
 
 		verifyNoInteractions(userRepository);
+	}
+
+	@Test
+	void 프로필_이미지를_변경한다() {
+		User user = User.create("user@example.com", "{bcrypt}hash", "이전 닉네임");
+		when(userRepository.findById(7L)).thenReturn(Optional.of(user));
+
+		UserProfileResponse profile = userProfileService.changeProfileImage(7L, "new-url");
+
+		assertEquals("new-url", user.getProfileImageUrl());
+		assertEquals(new UserProfileResponse(null, "이전 닉네임", "new-url"), profile);
+	}
+
+	@Test
+	void 프로필_이미지_변경시_사용자가_없으면_미인증으로_변환한다() {
+		when(userRepository.findById(7L)).thenReturn(Optional.empty());
+
+		assertThrows(
+			UnauthenticatedException.class,
+			() -> userProfileService.changeProfileImage(7L, "new-url"));
+	}
+
+	@Test
+	void 프로필_이미지를_삭제한다() {
+		User user = User.create("user@example.com", "{bcrypt}hash", "이전 닉네임", "old-url");
+		when(userRepository.findById(7L)).thenReturn(Optional.of(user));
+
+		UserProfileResponse profile = userProfileService.removeProfileImage(7L);
+
+		assertEquals(null, user.getProfileImageUrl());
+		assertEquals(new UserProfileResponse(null, "이전 닉네임", null), profile);
+		verify(profileImageStorage).delete("old-url");
+	}
+
+	@Test
+	void 프로필_이미지_삭제시_사용자가_없으면_미인증으로_변환한다() {
+		when(userRepository.findById(7L)).thenReturn(Optional.empty());
+
+		assertThrows(
+			UnauthenticatedException.class,
+			() -> userProfileService.removeProfileImage(7L));
 	}
 
 	private static UserNickname userNickname(String value) {
