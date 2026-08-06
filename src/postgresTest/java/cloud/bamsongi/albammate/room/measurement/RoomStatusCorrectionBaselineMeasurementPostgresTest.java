@@ -27,6 +27,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import cloud.bamsongi.albammate.room.entity.Room;
+import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionCoordinator;
 import tools.jackson.databind.JsonNode;
@@ -38,6 +40,7 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 
 	private static final Instant REQUEST_TIME = Instant.parse("2026-08-06T00:00:00Z");
 	private static final Instant FINISHED_THRESHOLD = REQUEST_TIME.minusSeconds(24 * 60 * 60);
+	private static final int NON_DUE_CLOSED_ROOM_COUNT = 10;
 	private static final Path REPORT_DIRECTORY = Path.of("build", "reports", "measurements");
 	private static final String FIXTURE_SEED = "ROOM-09c-baseline-v1";
 	private static final String THROUGHPUT_FORMULA = "throughputPerSecond = changedCount * 1_000_000_000 / elapsedNanos";
@@ -81,6 +84,7 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 		assertEquals("SUCCESS", report.outcome());
 		assertEquals(SMALL.roomCount(), report.fixture().roomCount());
 		assertEquals(SMALL.dueRoomCount(), report.fixture().dueRoomCount());
+		assertEquals(NON_DUE_CLOSED_ROOM_COUNT, report.fixture().nonDueClosedRoomCount());
 		assertEquals(0, report.fixture().waitingRoomCount());
 		assertEquals(1, report.warmUpRuns().size());
 		assertEquals(5, report.measuredRuns().size());
@@ -224,6 +228,8 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 			int changedCount = coordinator.correctDueRooms(REQUEST_TIME);
 			long elapsedNanos = System.nanoTime() - startedAtNanos;
 			assertEquals(profile.dueRoomCount(), changedCount, "현행 전체 Entity 기준선 변경 수");
+			assertEquals(NON_DUE_CLOSED_ROOM_COUNT, countNonDueClosedRooms(),
+				"finishedThreshold 직후 CLOSED ROOM은 실행 결과에서 제외");
 			return new MeasurementRun(phase, iteration, candidateCount, changedCount, elapsedNanos,
 				throughputPerSecond(changedCount, elapsedNanos), runStartEnvironment, pgStatStatements());
 		} catch (RuntimeException | AssertionError exception) {
@@ -261,7 +267,21 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 	}
 
 	private int findDueRoomCount() {
-		return roomRepository.findDueRooms(REQUEST_TIME, FINISHED_THRESHOLD).size();
+		List<Room> dueRooms = roomRepository.findDueRooms(REQUEST_TIME, FINISHED_THRESHOLD);
+		assertTrue(dueRooms.stream().noneMatch(room -> room.getStatus() == RoomStatus.CLOSED
+			&& room.getStartAt().isAfter(FINISHED_THRESHOLD)),
+			"finishedThreshold 직후 CLOSED ROOM은 후보에서 제외");
+		return dueRooms.size();
+	}
+
+	private int countNonDueClosedRooms() {
+		return jdbcTemplate.queryForObject("""
+			select count(*)
+			from rooms
+			where title like 'ROOM-09c 기준선 non-due-closed %'
+			  and status = 'CLOSED'
+			  and start_at > ?
+			""", Integer.class, Timestamp.from(FINISHED_THRESHOLD));
 	}
 
 	private List<PgStatStatement> pgStatStatements() {
@@ -313,7 +333,8 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 
 	private Fixture fixture(MeasurementProfile profile) {
 		return new Fixture(profile.name(), profile.roomCount(), profile.dueRoomCount(),
-			profile.roomCount() - profile.dueRoomCount(), 0, REQUEST_TIME.toString(), FIXTURE_SEED,
+			profile.roomCount() - profile.dueRoomCount(), NON_DUE_CLOSED_ROOM_COUNT, 0,
+			REQUEST_TIME.toString(), FIXTURE_SEED,
 			FIXTURE_SEED + ":" + profile.name() + ":" + profile.roomCount() + ":" + profile.dueRoomCount());
 	}
 
@@ -362,13 +383,23 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 			public void setValues(PreparedStatement statement, int index) throws java.sql.SQLException {
 				boolean due = index < dueRoomCount;
 				boolean closedDueRoom = due && index % 2 == 1;
-				Instant startAt = due
-					? (closedDueRoom ? FINISHED_THRESHOLD : REQUEST_TIME)
-					: REQUEST_TIME.plusSeconds(24 * 60 * 60);
+				boolean nonDueClosedRoom = !due && index < dueRoomCount + NON_DUE_CLOSED_ROOM_COUNT;
+				boolean closedRoom = closedDueRoom || nonDueClosedRoom;
+				Instant startAt;
+				if (due) {
+					startAt = closedDueRoom ? FINISHED_THRESHOLD : REQUEST_TIME;
+				} else if (nonDueClosedRoom) {
+					startAt = FINISHED_THRESHOLD.plusSeconds(1);
+				} else {
+					startAt = REQUEST_TIME.plusSeconds(24 * 60 * 60);
+				}
 				statement.setLong(1, hostUserId);
-				statement.setString(2, "ROOM-09c 기준선 " + index);
+				String title = nonDueClosedRoom
+					? "ROOM-09c 기준선 non-due-closed " + index
+					: "ROOM-09c 기준선 " + index;
+				statement.setString(2, title);
 				statement.setTimestamp(3, Timestamp.from(startAt));
-				statement.setString(4, closedDueRoom ? "CLOSED" : "RECRUITING");
+				statement.setString(4, closedRoom ? "CLOSED" : "RECRUITING");
 				statement.setTimestamp(5, Timestamp.from(REQUEST_TIME));
 				statement.setTimestamp(6, Timestamp.from(REQUEST_TIME));
 			}
@@ -407,6 +438,7 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 		int roomCount,
 		int dueRoomCount,
 		int nonDueRoomCount,
+		int nonDueClosedRoomCount,
 		int waitingRoomCount,
 		String requestTime,
 		String seed,
