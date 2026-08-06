@@ -1,13 +1,13 @@
-# 최종 발표 AWS 자체 운영 인프라 제안 실행안
+# P1 AWS 자체 운영 인프라 제안 실행안
 
-이 문서는 Albam Mate의 최종 발표 환경을 Terraform으로 반복 생성하고 검증하기 위한 제안 실행안이다.
+이 문서는 Albam Mate의 P1 검증 환경을 Terraform으로 반복 생성하고 역할별 병목을 측정하기 위한 제안 실행안이다.
 
-기술 선택과 기존 운영 기준의 대체 여부는 [제안 ADR-0051](../adr/platform/0051-final-presentation-self-managed-aws-infrastructure.md)이 소유한다.
+기술 선택과 기존 운영 기준의 대체 여부는 [제안 ADR-0051](../adr/platform/0051-p1-self-managed-aws-infrastructure.md)이 소유한다.
 
 실제 Terraform 코드는 아직 작성되지 않았다.
 
 > - 상태: **제안 실행안**
-> - 목표 시점: **최종 발표 리허설과 발표 당일**
+> - 목표 범위: **P1 부하·장애 검증과 단계적 용량 확장**
 > - 현재 정본: [ADR-0021](../adr/platform/0021-p0-aws-ec2-rds-deployment-baseline.md)과 [P1 실행 환경](../P1-spec.md#실행-환경과-공용-인프라)
 > - 구현·배포·검증: **미착수·미검증**
 
@@ -19,34 +19,35 @@
 
 | 구분 | 내용 | 현재 판정 |
 | --- | --- | --- |
-| 2026-08-06 논의에서 직접 제시 | RDS·ElastiCache 대신 EC2에서 PostgreSQL·Redis를 Docker로 운영, Spring 2대·DB 1대·Redis 1대, 필요하면 Spring 1대로 축소, Terraform으로 팀원 계정에 재현, 인프라 저장소 분리 | 제안 |
+| 2026-08-06 초기 논의에서 직접 제시 | RDS·ElastiCache 대신 EC2에서 PostgreSQL·Redis를 Docker로 운영, Spring 2대·DB 1대·Redis 1대, 단순 시연에서는 Spring 1대도 가능, Terraform으로 팀원 계정에 재현, 인프라 저장소 분리 | 제안 |
+| 2026-08-06 이후 구체화한 P1 기준선 | Spring 2대를 유지한 EC2 4대 모두 `t4g.micro`로 시작하고, 역할별 병목을 확인한 뒤 필요한 자원만 단계적으로 확장 | 제안 |
 | 현재 프로젝트 계약 | ALB·ASG와 공용 RDS PostgreSQL·Redis 목표 토폴로지, 채팅 세션·전송 제한 경로의 Redis fallback 금지, PostgreSQL 업무 데이터 정본, Flyway migration | 승인·구현 상태는 연결된 정본에서 별도 확인 |
 | 이 문서가 보강한 설계 | 비공개 서브넷과 NAT Gateway, EBS, private DNS, SSM, S3 백업, CloudWatch | 팀 미승인 제안 |
-| 수치 근거가 없는 내용 | 관리형 서비스 비용 배수, 크레딧 사용 기간, EC2·EBS 크기 | 실제 계정 조건으로 재계산 필요 |
+| 조건이 확정되지 않은 내용 | 관리형 서비스 비용 배수, 월 예상 비용, 크레딧 사용 기간, EBS 용량, `t4g.micro` 이후의 확장 유형 | 실제 계정과 측정 결과로 재계산·결정 필요 |
 
-따라서 “EC2 네 대와 Terraform을 검토한다”는 대화 맥락은 반영했지만, ALB·ASG·NAT·백업 방식까지 튜터가 확정했다고 해석하지 않는다. ALB·ASG는 기존 P1 목표에서 이어받았고 나머지는 이 문서의 보강 제안이다.
+따라서 “네 EC2를 `t4g.micro`로 시작하고 Terraform으로 재현한 뒤 병목에 따라 확장한다”는 대화 맥락을 반영한다. ALB·ASG는 기존 P1 목표에서 이어받았고 NAT·백업 방식은 이 문서의 보강 제안이다.
 
 ## 문서 소유 경계
 
 | 문서·저장소 | 소유 내용 |
 | --- | --- |
 | 제안 ADR-0051 | 자체 운영 PostgreSQL·Redis, Spring EC2 수, Terraform 도입의 선택과 트레이드오프 |
-| 이 가이드 | 최종 발표 환경의 Terraform 구조, 생성·배포·검증·철거 절차 |
+| 이 가이드 | P1 검증 환경의 Terraform 구조, 생성·배포·측정·확장·철거 절차 |
 | `docs/P1-spec.md`, `docs/ARCHITECTURE.md` | 승인 후 반영할 애플리케이션 실행 계약과 목표 토폴로지 |
 | 애플리케이션 저장소 | Docker 이미지, Flyway 마이그레이션, 실행 환경변수 계약 |
 | 별도 인프라 저장소 | 실제 `.tf`, cloud-init, 역할별 Compose와 배포 자동화 |
 
 가이드에는 선택 근거를 복제하지 않고 ADR을 참조한다. 실제 Terraform 코드는 애플리케이션 저장소와 분리한 인프라 저장소에서 관리하되, 저장소 분리 자체를 비밀 보호 수단으로 간주하지 않는다.
 
-## 승인 시 목표 구성
+## 승인 시 P1 초기 구성
 
-승인되면 최종 리허설과 발표 당일에는 Spring 애플리케이션 두 대, PostgreSQL 한 대, Redis 한 대의 EC2 네 대를 사용한다. 평상시 개발 환경은 상시 유지하지 않고 필요할 때 같은 Terraform stack으로 다시 만든다.
+승인되면 Spring 애플리케이션 두 대, PostgreSQL 한 대, Redis 한 대의 EC2 네 대를 모두 `t4g.micro`로 시작한다. Spring JVM 최대 heap은 `-Xmx256m`를 초기값으로 둔다. 이 사양은 P1의 최종 용량이 아니라 병목을 찾기 위한 공통 기준선이다. 검증하지 않을 때에는 환경을 상시 유지하지 않고 필요할 때 같은 Terraform stack으로 다시 만든다.
 
 Spring 한 대 구성은 단순 시연에는 사용할 수 있지만 교차 인스턴스 검증 근거로 사용하지 않는다.
 
 ```mermaid
 flowchart TB
-    USER["발표자와 사용자"] -->|"HTTPS 443"| ALB["ALB<br/>ACM TLS · WebSocket"]
+    USER["P1 검증 사용자"] -->|"HTTPS 443"| ALB["ALB<br/>ACM TLS · WebSocket"]
 
     subgraph AWS["AWS · 단일 리전"]
         subgraph PUBLIC["Public Subnet · 2 AZ"]
@@ -55,13 +56,13 @@ flowchart TB
         end
 
         subgraph APP["Private App Subnet · 2 AZ"]
-            APP1["Spring EC2 A<br/>web + spring"]
-            APP2["Spring EC2 B<br/>web + spring"]
+            APP1["Spring EC2 A<br/>t4g.micro · web + spring"]
+            APP2["Spring EC2 B<br/>t4g.micro · web + spring"]
         end
 
         subgraph DATA["Private Data Subnet"]
-            DB["PostgreSQL EC2<br/>postgres:18.4 + 암호화 EBS"]
-            REDIS["Redis EC2<br/>redis:8.4-alpine + 암호화 EBS"]
+            DB["PostgreSQL EC2<br/>t4g.micro · postgres:18.4 + 암호화 EBS"]
+            REDIS["Redis EC2<br/>t4g.micro · redis:8.4-alpine + 암호화 EBS"]
         end
 
         STATE["S3<br/>Terraform state 전용"]
@@ -92,18 +93,18 @@ flowchart TB
     CW -.-> REDIS
 ```
 
-이 구성은 최종 발표 환경이지 고가용성 운영 구성은 아니다. Spring 한 대 장애는 ALB로 격리할 수 있지만 PostgreSQL과 Redis는 각각 단일 장애 지점이다. 데이터 서비스의 자동 장애 조치, Multi-AZ와 무중단 복구를 보장하지 않는다.
+이 구성은 P1의 초기 검증 환경이며 최종 용량이나 고가용성 운영 구성이 아니다. Spring 한 대 장애는 ALB로 격리할 수 있지만 PostgreSQL과 Redis는 각각 단일 장애 지점이다. 데이터 서비스의 자동 장애 조치, Multi-AZ와 무중단 복구를 보장하지 않는다.
 
 ## 구성 요소와 고정 경계
 
-| 영역 | 발표 목표 | 고정 경계 |
+| 영역 | P1 초기 구성 | 고정 경계 |
 | --- | --- | --- |
 | 외부 진입 | Internet-facing ALB, ACM 인증서 | HTTPS와 WebSocket Upgrade를 처리하고 정상 Spring 대상에만 전달한다. 현재 Compose와의 연결 방식은 별도 구현이 필요하다. |
-| 애플리케이션 | Launch Template와 ASG `desired=2` | 동일한 Git SHA 이미지 두 대를 서로 다른 AZ에 배치한다. |
-| PostgreSQL | EC2 한 대, `postgres:18.4`, 별도 EBS | 방·채팅·알림과 ShedLock의 최종 정본이다. 컨테이너 삭제와 데이터 볼륨 수명을 분리한다. |
-| Redis | EC2 한 대, `redis:8.4-alpine`, AOF와 별도 EBS | Spring Session, Rate Limit, Pub/Sub 신호를 공유한다. 업무 데이터 정본으로 사용하지 않는다. |
+| 애플리케이션 | `t4g.micro`, Launch Template와 ASG `desired=2`, JVM `-Xmx256m` | 동일한 Git SHA 이미지 두 대를 서로 다른 AZ에 배치한다. 컨테이너 메모리 한도와 실제 사용량, OOM 동작을 함께 측정한다. |
+| PostgreSQL | `t4g.micro` 한 대, `postgres:18.4`, 별도 EBS | 방·채팅·알림과 ShedLock의 업무 데이터 정본이다. 컨테이너 삭제와 데이터 볼륨 수명을 분리한다. |
+| Redis | `t4g.micro` 한 대, `redis:8.4-alpine`, AOF와 별도 EBS | Spring Session, Rate Limit, Pub/Sub 신호를 공유한다. 업무 데이터 정본으로 사용하지 않는다. |
 | 내부 주소 | Route 53 private hosted zone | 애플리케이션은 IP가 아니라 `db.albam.internal`, `redis.albam.internal` 같은 이름을 사용한다. |
-| 이미지 | ECR의 변경 불가 Git SHA tag | Terraform은 이미지를 빌드하지 않고 배포할 digest만 입력받는다. |
+| 이미지 | ECR의 변경 불가 Git SHA tag | Terraform은 이미지를 빌드하지 않고 배포할 digest만 입력받는다. `t4g`에서 실행할 `linux/arm64` 이미지 또는 해당 아키텍처를 포함한 multi-arch manifest를 사용한다. |
 | 비밀값 | SSM Parameter Store `SecureString` | Terraform에는 parameter 이름만 전달하고 실제 값은 EC2 역할로 기동 시 조회한다. |
 | 운영 접근 | Systems Manager Session Manager | Public SSH 22, bastion host와 장기 SSH key를 두지 않는다. |
 | 백업 | 논리 백업 S3와 EBS snapshot | `terraform destroy` 전에 복구 가능한 산출물을 확인한다. snapshot만으로 PostgreSQL 복구를 보장하지 않는다. |
@@ -111,7 +112,7 @@ flowchart TB
 
 ## 네트워크와 보안 그룹
 
-ALB만 인터넷 인바운드를 받는다. 네 EC2는 비공개 서브넷에 두고 공인 IP를 할당하지 않는다. 발표 환경의 비용을 제한하기 위해 NAT Gateway는 한 AZ에 한 대만 두며, 그 장애가 전체 외부 통신을 막을 수 있음을 수용한다.
+ALB만 인터넷 인바운드를 받는다. 네 EC2는 비공개 서브넷에 두고 공인 IP를 할당하지 않는다. P1 검증 비용을 제한하기 위해 NAT Gateway는 한 AZ에 한 대만 두며, 그 장애가 전체 외부 통신을 막을 수 있음을 수용한다.
 
 | 보안 그룹 | 허용 인바운드 | 주요 아웃바운드 |
 | --- | --- | --- |
@@ -131,7 +132,7 @@ PostgreSQL·Redis 포트를 CIDR 전체나 `0.0.0.0/0`에 열지 않는다. 보�
 - 목표 구성에서는 PostgreSQL이 private DNS 이름에 맞는 서버 인증서로 TLS를 제공한다.
 - 애플리케이션은 `sslmode=verify-full`을 유지하고 RDS 전용 CA 경로를 자체 운영 PostgreSQL CA 경로로 바꾼다. 이 실행 설정 변경은 ADR 승인 뒤 별도 구현 작업에서 수행한다.
 - 스키마는 Terraform이나 JPA 자동 생성이 아니라 기존 Flyway migration으로 관리한다.
-- 매일 `pg_dump`를 S3에 올리고 EBS snapshot을 별도로 만든다. 발표 리허설 전에 빈 EC2와 새 EBS로 논리 백업 복구를 한 번 검증한다.
+- 매일 `pg_dump`를 S3에 올리고 EBS snapshot을 별도로 만든다. P1 장애 검증 전에 빈 EC2와 새 EBS로 논리 백업 복구를 한 번 확인한다.
 
 ### Redis
 
@@ -169,7 +170,7 @@ infra/
 │  ├─ redis-ec2/                 # EC2, EBS, private DNS
 │  ├─ identity/                  # instance profile, OIDC apply role
 │  └─ observability/             # log group, dashboard, alarm, SNS
-├─ stacks/aws/presentation/      # 최종 리허설과 발표 환경 root module
+├─ stacks/aws/p1/                # P1 검증 환경 root module
 ├─ stacks/aws/perf/              # 부하 측정 후 제거하는 별도 state
 ├─ cloud-init/
 │  ├─ app.yaml.tftpl
@@ -181,7 +182,7 @@ infra/
    └─ redis.yml
 ```
 
-AWS와 GCP는 같은 Terraform 언어를 사용해도 리소스와 네트워크 모델이 다르다. 향후 GCP로 이동할 때는 `modules/gcp/**`와 `stacks/gcp/presentation`을 별도로 구현하고, 공통 입력 이름·Docker 이미지·cloud-init 역할 계약만 맞춘다.
+AWS와 GCP는 같은 Terraform 언어를 사용해도 리소스와 네트워크 모델이 다르다. 향후 GCP로 이동할 때는 `modules/gcp/**`와 `stacks/gcp/p1`을 별도로 구현하고, 공통 입력 이름·Docker 이미지·cloud-init 역할 계약만 맞춘다.
 
 AWS provider 이름만 바꿔 같은 상태 파일을 재사용하지 않는다.
 
@@ -189,7 +190,7 @@ AWS provider 이름만 바꿔 같은 상태 파일을 재사용하지 않는다.
 
 1. 각 AWS 계정에서 `bootstrap/aws`를 로컬 상태 파일로 한 번 적용한다.
 2. 버전 관리, 서버 측 암호화와 public access block을 켠 S3 bucket을 만든다.
-3. presentation과 perf의 state key를 분리하고 S3 lockfile을 사용한다.
+3. p1과 perf의 state key를 분리하고 S3 lockfile을 사용한다.
 4. backend bucket·key만 담은 `backend.hcl`은 Git에 커밋하지 않는다.
 5. AWS SSO profile 또는 짧은 수명의 역할로 `terraform init`·`plan`·`apply`를 실행한다.
 6. 계정을 바꾸면 새 계정의 backend와 새 상태 파일로 같은 stack을 적용한다. 다른 계정의 상태 파일을 복사해 소유권을 바꾸지 않는다.
@@ -204,7 +205,7 @@ Terraform user data에는 비밀값을 넣지 않고 역할과 parameter 경로�
 
 | 역할 | 최초 기동 작업 |
 | --- | --- |
-| Spring | Docker·Compose 설치, ECR 로그인, SSM parameter 조회, release digest 검증, `app.yml` 실행 |
+| Spring | Docker·Compose 설치, ECR 로그인, SSM parameter 조회, ARM64 release digest와 JVM `-Xmx256m` 확인, `app.yml` 실행 |
 | PostgreSQL | Docker·Compose 설치, EBS 포맷·마운트, TLS·DB parameter 조회, `postgres.yml` 실행, 백업 timer 등록 |
 | Redis | Docker·Compose 설치, EBS 포맷·마운트, Redis 설정 parameter 조회, `redis.yml` 실행 |
 
@@ -223,18 +224,36 @@ flowchart LR
     INFRA --> REFRESH
     REFRESH --> BOOT["Spring 기동<br/>현재 Flyway 자동 실행"]
     BOOT --> HEALTH["ALB 상태 확인"]
-    HEALTH --> VERIFY["교차 인스턴스 · 복구 · 발표 시나리오"]
+    HEALTH --> VERIFY["교차 인스턴스 · 복구 · 병목 측정"]
 ```
 
 1. 고정된 애플리케이션 commit의 테스트와 문서 검사를 통과시킨다.
-2. 백엔드와 웹 이미지를 같은 40자리 Git SHA로 ECR에 게시한다.
+2. 백엔드와 웹의 `linux/arm64` 이미지 또는 multi-arch manifest를 같은 40자리 Git SHA로 ECR에 게시한다.
 3. `terraform fmt -check`, `terraform validate`, `terraform plan`을 검토한 뒤 인프라를 적용한다.
 4. PostgreSQL·Redis 상태와 private DNS 연결을 먼저 확인한다. TLS·인증을 선택했다면 해당 연결도 함께 확인한다.
 5. Spring Launch Template에 image digest와 parameter 경로를 반영하고 Instance Refresh를 수행한다.
 6. 현재 구현대로 각 Spring 기동에서 Flyway와 Hibernate `validate`가 성공하는지 확인한다. 별도 1회 migration 작업은 구현된 뒤에만 배포 gate로 사용한다.
-7. 두 Spring 대상이 합의한 ALB 상태 확인을 통과한 뒤에만 발표 URL을 사용한다. 전용 readiness endpoint는 아직 구현되지 않았다.
+7. 두 Spring 대상이 합의한 ALB 상태 확인을 통과한 뒤에만 P1 검증 URL을 사용한다. 전용 readiness endpoint는 아직 구현되지 않았다.
 
 Terraform은 애플리케이션 이미지 빌드, DB schema 정의와 테스트 데이터 원본을 소유하지 않는다.
+
+## 병목 측정과 단계적 확장
+
+`t4g.micro` 네 대는 비용표의 최종 선택이 아니라 P1 기준 부하에서 처음 한계가 나타나는 위치를 찾기 위한 기준선이다. 인스턴스 유형을 먼저 키운 뒤 결과를 추정하지 않는다.
+
+| 역할 | 함께 기록할 지표와 증상 | 확장 판단 예시 |
+| --- | --- | --- |
+| Spring | CPU와 CPU credit, 컨테이너·JVM 메모리, GC, OOM·재시작, ALB 지연과 5xx | 초기 `-Xmx256m`, 컨테이너 한도와 인스턴스 자원 중 원인을 구분한다. 단일 인스턴스 자원이 부족하면 인스턴스 유형을, 요청 분산이 필요하면 인스턴스 수를 검토한다. |
+| PostgreSQL | CPU와 CPU credit, 메모리, 연결 수, slow query, lock, EBS queue·지연·처리량 | 쿼리·연결 설정, EC2 자원과 EBS 성능 중 병목 원인을 구분한 뒤 해당 자원만 조정한다. |
+| Redis | CPU와 CPU credit, `used_memory`, `evicted_keys`, 명령 지연, 연결 수, AOF 저장 시간 | 메모리 부족, CPU 병목과 영속화 I/O 병목을 구분한 뒤 인스턴스 또는 EBS를 조정한다. |
+
+확장은 다음 순서로 반복한다.
+
+1. release SHA, 테스트 데이터, 부하 시나리오와 실행 시간을 고정하고 네 EC2를 모두 `t4g.micro`로 생성한다.
+2. 정상 흐름과 장애 시나리오를 실행해 최초 오류 시점과 직전 지표를 같은 시간축으로 기록한다.
+3. 병목 원인이 확인된 역할의 변수 하나만 한 단계 변경한다. 다음 인스턴스 유형과 EBS 용량은 이 측정 결과로 정한다.
+4. 같은 시나리오를 다시 실행해 처리량, 지연, 오류율과 비용 변화를 이전 결과와 비교한다.
+5. 개선 근거가 없으면 변경을 되돌리고 다른 원인을 검토한다. 근거 없이 네 인스턴스를 한꺼번에 상향하지 않는다.
 
 ## 필수 검증
 
@@ -242,6 +261,7 @@ Terraform은 애플리케이션 이미지 빌드, DB schema 정의와 테스트 
 
 - `terraform fmt -check`, `terraform validate`와 저장한 plan 검토
 - 실제 AWS 계정·리전이 목표와 일치하는지 확인
+- 네 EC2가 모두 `t4g.micro`이고 배포 이미지가 `linux/arm64`에서 기동하는지 확인
 - ALB 외 EC2 공인 IP·공개 인바운드가 없는지 확인
 - PostgreSQL 5432와 Redis 6379가 Spring 보안 그룹에서만 연결되는지 확인
 - state bucket 암호화·versioning·public access block·lockfile과 백업 bucket의 권한 분리 확인
@@ -264,42 +284,43 @@ Terraform은 애플리케이션 이미지 빌드, DB schema 정의와 테스트 
 - EBS snapshot 생성·복원과 volume attachment 절차를 확인
 - Redis 단일 장애 때 세션·Rate Limit·채팅 신호의 실제 실패 결과를 기록
 
-## 최종 발표 운영 순서
+## P1 검증 환경 운영 순서
 
-### 리허설 전
+### 최초 측정 전
 
 1. 사용할 AWS 계정, 리전, 도메인과 비용 한도를 확정한다.
 2. Terraform state 접근자와 실제 apply 담당자를 확정한다.
-3. `presentation` stack을 생성하고 전체 검증을 수행한다.
-4. 최종 release SHA, Terraform commit, 적용한 plan과 테스트 결과를 함께 기록한다.
-5. PostgreSQL 논리 백업과 복구 리허설을 완료한다.
+3. `p1` stack의 네 EC2 instance type이 모두 `t4g.micro`인지 plan에서 확인한다.
+4. 기준 release SHA, Terraform commit, 적용한 plan과 부하 시나리오를 함께 기록한다.
+5. PostgreSQL 논리 백업과 복구 절차를 확인한다.
 
-### 발표 전날
+### 측정 반복마다
 
-1. 같은 plan에서 예상하지 않은 변경이 없는지 다시 확인한다.
+1. 같은 plan에서 예상하지 않은 변경이 없는지 확인한다.
 2. ALB target, Spring·PostgreSQL·Redis health와 CloudWatch alarm 수신을 확인한다.
-3. 회원가입·로그인·방 생성·참가·채팅·알림의 발표 시나리오를 실행한다.
-4. 장애 시 단일 Spring으로 계속 시연하는 절차와 DB backup 위치를 확인한다.
+3. 회원가입·로그인·방 생성·참가·채팅·알림의 P1 시나리오와 합의한 부하를 실행한다.
+4. 최초 오류 시점, 역할별 지표, 로그와 재현 조건을 기록한다.
+5. 한 번에 한 역할의 변수만 변경한 뒤 같은 시나리오로 전후 결과를 비교한다.
 
-### 발표 종료 후
+### 검증 종료 후
 
 1. 필요한 로그·지표·부하 테스트 결과를 비밀값 없이 보존한다.
-2. 최종 `pg_dump`와 snapshot 보존 필요 여부를 확인한다.
+2. `pg_dump`와 snapshot 보존 필요 여부를 확인한다.
 3. 담당자 확인 없이 state bucket과 DB EBS를 삭제하지 않는다.
-4. 보존 승인이 끝나면 `presentation` stack과 잔여 과금 리소스를 제거한다.
+4. 보존 승인이 끝나면 `p1` stack과 잔여 과금 리소스를 제거한다.
 
 ## 팀 승인 전 고정하지 않는 값
 
 다음 값은 구현자가 임의로 확정하지 않고 제안 ADR 승인 또는 인프라 작업 착수 시 확인한다.
 
-- AWS 계정·리전·최종 도메인과 DNS 소유권
-- Spring·PostgreSQL·Redis의 EC2 instance type과 EBS 용량
-- 최종 발표 외 상시 가동 여부와 비용 한도
+- AWS 계정·리전·도메인과 DNS 소유권
+- 역할별 `t4g.micro` 이후 확장 기준·다음 instance type과 EBS 용량
+- P1 검증 외 상시 가동 여부와 비용 한도
 - PostgreSQL·Redis 인증서 발급·갱신 주체
 - backup 보존 기간, snapshot 삭제 권한과 복구 담당자
 - SNS 실제 수신자와 장애 대응 담당자
 
-튜터 설명에서 언급된 관리형 서비스 대비 비용 배수와 크레딧 기간은 계정·리전·사양·가동 시간 조건이 없으므로 이 설계의 확정 수치로 사용하지 않는다. 실제 Terraform plan의 리소스 목록과 AWS 비용 계산 결과로 다시 확인한다.
+논의 중 제시된 관리형 서비스 대비 비용 배수와 월 예상 비용은 계정·리전·스토리지·가동 시간 조건이 고정되지 않았으므로 이 설계의 확정 수치로 사용하지 않는다. 실제 Terraform plan의 리소스 목록과 AWS 비용 계산 결과로 다시 확인한다.
 
 ## 구현 착수 조건
 
@@ -307,7 +328,7 @@ Terraform은 애플리케이션 이미지 빌드, DB schema 정의와 테스트 
 - 인프라 저장소 공개 범위와 apply 권한 확정
 - state backend와 secret 주입 경계 확정
 - 애플리케이션의 RDS 전용 CA·endpoint 표현을 자체 운영 PostgreSQL로 전환할 별도 작업 승인
-- final presentation 성공 기준과 철거·데이터 보존 담당자 확정
+- P1 부하·장애 검증의 성공 기준과 철거·데이터 보존 담당자 확정
 
 ## 참고 자료
 

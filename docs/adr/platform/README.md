@@ -21,4 +21,4 @@
 | [0024](0024-naver-java-format-and-project-checkstyle.md) | 네이버 Java 포맷과 프로젝트 Checkstyle로 컨벤션을 자동화 | 승인됨 | 2026-07-31 | 검증됨 |
 | [0038](0038-multi-instance-session-and-scheduler-coordination.md) | 다중 인스턴스의 공용 세션과 스케줄 실행을 공유 인프라로 조정 | 승인됨 | 2026-08-01 | 미검증 |
 | [0047](0047-http-method-and-target-state-idempotency.md) | 수정·관계 설정 API의 HTTP 메서드와 방 종료 멱등성을 확정 | 승인됨 | 2026-08-04 | 미검증 |
-| [0051](0051-final-presentation-self-managed-aws-infrastructure.md) | 최종 발표 환경의 자체 운영 PostgreSQL·Redis 도입 제안 | 제안됨 | 미정 | 미검증 |
+| [0051](0051-p1-self-managed-aws-infrastructure.md) | P1 자체 운영 PostgreSQL·Redis 도입과 초기 용량 검증 제안 | 제안됨 | 미정 | 미검증 |
