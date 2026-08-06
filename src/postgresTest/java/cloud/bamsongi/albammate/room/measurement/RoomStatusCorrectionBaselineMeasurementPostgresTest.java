@@ -128,10 +128,11 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 		installRunFailureTrigger();
 		try {
 			MeasurementRunFailureException failure = assertThrows(
-				MeasurementRunFailureException.class, () -> measure(SMALL));
+				MeasurementRunFailureException.class,
+				() -> measure(SMALL, SMALL.dueRoomCount(), runLevelFailureReportPath(SMALL)));
 
 			assertTrue(failure.getCause().getClass().getName().contains("JpaSystemException"));
-			JsonNode rawReport = objectMapper.readTree(Files.readString(failureReportPath(SMALL)));
+			JsonNode rawReport = objectMapper.readTree(Files.readString(runLevelFailureReportPath(SMALL)));
 			assertEquals("RUN_FAILURE", rawReport.path("outcome").asText());
 			assertEquals(0, rawReport.path("roomFailures").size());
 			assertTrue(rawReport.path("runFailure").path("exceptionType").asText()
@@ -145,7 +146,7 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 			assertTrue(rawReport.hasNonNull("measurementStartEnvironment"));
 			assertDockerVersionRecorded(rawReport.path("measurementStartEnvironment"));
 			assertMeasurementIsolation(rawReport.path("measurementStartEnvironment"));
-			assertTrue(Files.exists(failureReportPath(SMALL)));
+			assertTrue(Files.exists(runLevelFailureReportPath(SMALL)));
 		} finally {
 			jdbcTemplate.execute("drop trigger if exists room_09c_measurement_failure_trigger on rooms");
 			jdbcTemplate.execute("drop function if exists room_09c_measurement_failure()");
@@ -199,6 +200,11 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 	}
 
 	private MeasurementReport measure(MeasurementProfile profile, int expectedDueRoomCount) throws Exception {
+		return measure(profile, expectedDueRoomCount, failureReportPath(profile));
+	}
+
+	private MeasurementReport measure(
+		MeasurementProfile profile, int expectedDueRoomCount, Path failureReportPath) throws Exception {
 		List<MeasurementRun> warmUpRuns = new ArrayList<>();
 		List<MeasurementRun> measuredRuns = new ArrayList<>();
 		MeasurementEnvironment measurementStartEnvironment = environment(profile);
@@ -217,7 +223,7 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 				measurementStartEnvironment, fixture(profile), warmUpRuns, measuredRuns,
 				exception.partialRun(),
 				new RunFailure(exception.getCause().getClass().getName(), failureCategory(exception.partialRun())));
-			writeReport(failureReportPath(profile), report);
+			writeReport(failureReportPath, report);
 			throw exception;
 		} finally {
 			clearFixture();
@@ -347,6 +353,11 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 	private void assertMeasuredStatements(List<PgStatStatement> statements, int expectedUpdateCount) {
 		assertTrue(statements.stream().noneMatch(statement -> statement.query().contains("pg_stat_statements_reset")),
 			"측정 원자료에 reset 제어 쿼리를 포함하지 않습니다.");
+		PgStatStatement begin = statements.stream()
+			.filter(statement -> statement.query().equals("BEGIN"))
+			.findFirst()
+			.orElseThrow(() -> new AssertionError("단일 일괄 트랜잭션 BEGIN 원자료가 없습니다."));
+		assertEquals(1L, begin.calls(), "단일 일괄 트랜잭션 BEGIN 호출 수");
 		PgStatStatement candidateQuery = statements.stream()
 			.filter(statement -> statement.query().startsWith("select ")
 				&& statement.query().contains("from rooms r1_0")
@@ -482,6 +493,10 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 
 	private Path failureReportPath(MeasurementProfile profile) {
 		return REPORT_DIRECTORY.resolve("room-09c-" + profile.name() + "-run-failure.json");
+	}
+
+	private Path runLevelFailureReportPath(MeasurementProfile profile) {
+		return REPORT_DIRECTORY.resolve("room-09c-" + profile.name() + "-run-level-failure.json");
 	}
 
 	private void writeReport(Path reportPath, Object report) throws Exception {
