@@ -8,19 +8,23 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.entity.RoomWaitlist;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
@@ -69,6 +73,7 @@ class RoomStatusCorrectionBoundedPostgresTest {
 
 	@AfterEach
 	void tearDown() {
+		dropCursorFailureTrigger();
 		dropRoomFailureTrigger();
 		dropWaitlistFailureTrigger();
 		roomIds.forEach(roomId -> {
@@ -105,6 +110,67 @@ class RoomStatusCorrectionBoundedPostgresTest {
 		assertEquals(RoomStatus.CLOSED, currentRoom(failed.getId()).getStatus());
 		assertEquals(RoomStatus.CLOSED, currentRoom(newlyDue.getId()).getStatus());
 		assertCursorWrapped(nextRequestTime.plusNanos(1_000));
+	}
+
+	@Test
+	void ROOM_커밋_뒤_cursor_갱신_실패와_반복_실패는_재시작_뒤_새_due와_함께_수렴한다() {
+		Room committedBeforeCursor = saveRoom(REQUEST_TIME.minusSeconds(3));
+		Room repeatedFailure = saveRoom(REQUEST_TIME.minusSeconds(2));
+		installCursorFailureTrigger();
+
+		RoomStatusCorrectionProgressStore.ProgressSnapshot firstClaim = progressStore
+			.claimExecution(REQUEST_TIME);
+		assertThrows(RuntimeException.class,
+			() -> coordinator.correctBoundedDueRooms(REQUEST_TIME, firstClaim, 2));
+
+		assertEquals(RoomStatus.CLOSED, currentRoom(committedBeforeCursor.getId()).getStatus());
+		assertNull(progressStore.current().cursorRoomId());
+
+		dropCursorFailureTrigger();
+		installRoomFailureTrigger(repeatedFailure.getId());
+		Room newlyDueFirst = saveRoom(REQUEST_TIME.plusSeconds(1));
+		Room newlyDueSecond = saveRoom(REQUEST_TIME.plusSeconds(2));
+
+		try (ConfigurableApplicationContext restartedContext = applicationContext()) {
+			RoomStatusCorrectionProgressStore restartedProgress = restartedContext
+				.getBean(RoomStatusCorrectionProgressStore.class);
+			RoomStatusCorrectionCoordinator restartedCoordinator = restartedContext
+				.getBean(RoomStatusCorrectionCoordinator.class);
+			Instant restartedRequestTime = REQUEST_TIME.plusSeconds(5);
+			RoomStatusCorrectionProgressStore.ProgressSnapshot restartedClaim = restartedProgress
+				.claimExecution(restartedRequestTime);
+
+			restartedCoordinator.correctBoundedDueRooms(restartedRequestTime, restartedClaim, 2);
+
+			assertEquals(RoomStatus.RECRUITING, currentRoom(repeatedFailure.getId()).getStatus());
+			assertEquals(RoomStatus.CLOSED, currentRoom(newlyDueFirst.getId()).getStatus());
+			assertEquals(RoomStatus.CLOSED, currentRoom(newlyDueSecond.getId()).getStatus());
+			assertCursorWrapped(restartedProgress, restartedRequestTime.plusNanos(1_000));
+
+			Instant repeatedRequestTime = REQUEST_TIME.plusSeconds(6);
+			RoomStatusCorrectionProgressStore.ProgressSnapshot repeatedClaim = restartedProgress
+				.claimExecution(repeatedRequestTime);
+			restartedCoordinator.correctBoundedDueRooms(repeatedRequestTime, repeatedClaim, 2);
+
+			assertEquals(RoomStatus.RECRUITING, currentRoom(repeatedFailure.getId()).getStatus());
+			assertCursorWrapped(restartedProgress, repeatedRequestTime.plusNanos(1_000));
+		}
+
+		dropRoomFailureTrigger();
+		try (ConfigurableApplicationContext finalRestartedContext = applicationContext()) {
+			RoomStatusCorrectionProgressStore finalProgress = finalRestartedContext
+				.getBean(RoomStatusCorrectionProgressStore.class);
+			RoomStatusCorrectionCoordinator finalCoordinator = finalRestartedContext
+				.getBean(RoomStatusCorrectionCoordinator.class);
+			Instant finalRequestTime = REQUEST_TIME.plusSeconds(10);
+			RoomStatusCorrectionProgressStore.ProgressSnapshot finalClaim = finalProgress
+				.claimExecution(finalRequestTime);
+
+			finalCoordinator.correctBoundedDueRooms(finalRequestTime, finalClaim, 2);
+
+			assertEquals(RoomStatus.CLOSED, currentRoom(repeatedFailure.getId()).getStatus());
+			assertCursorWrapped(finalProgress, finalRequestTime.plusNanos(1_000));
+		}
 	}
 
 	@Test
@@ -192,7 +258,12 @@ class RoomStatusCorrectionBoundedPostgresTest {
 	}
 
 	private void assertCursorWrapped(Instant expectedTurnCutoff) {
-		RoomStatusCorrectionProgressStore.ProgressSnapshot progress = progressStore.current();
+		assertCursorWrapped(progressStore, expectedTurnCutoff);
+	}
+
+	private void assertCursorWrapped(
+		RoomStatusCorrectionProgressStore store, Instant expectedTurnCutoff) {
+		RoomStatusCorrectionProgressStore.ProgressSnapshot progress = store.current();
 		assertEquals(expectedTurnCutoff, progress.turnCutoff());
 		assertNull(progress.cursorDueAt());
 		assertNull(progress.cursorRoomId());
@@ -286,5 +357,65 @@ class RoomStatusCorrectionBoundedPostgresTest {
 	private void dropWaitlistFailureTrigger() {
 		jdbcTemplate.execute("drop trigger if exists room_382_fail_waitlist_expiry_trigger on room_waitlists");
 		jdbcTemplate.execute("drop function if exists room_382_fail_waitlist_expiry()");
+	}
+
+	private void installCursorFailureTrigger() {
+		jdbcTemplate.execute("""
+			create or replace function room_382_fail_cursor_update() returns trigger language plpgsql as $$
+			begin
+			    if new.cursor_room_id is not null then
+			        raise exception 'ROOM-382 injected cursor update failure';
+			    end if;
+			    return new;
+			end;
+			$$
+			""");
+		jdbcTemplate.execute("""
+			create trigger room_382_fail_cursor_update_trigger
+			before update of cursor_room_id on room_status_correction_progress
+			for each row execute function room_382_fail_cursor_update()
+			""");
+	}
+
+	private void dropCursorFailureTrigger() {
+		jdbcTemplate.execute(
+			"drop trigger if exists room_382_fail_cursor_update_trigger on room_status_correction_progress");
+		jdbcTemplate.execute("drop function if exists room_382_fail_cursor_update()");
+	}
+
+	private ConfigurableApplicationContext applicationContext() {
+		String previousUrl = System.getProperty("spring.datasource.url");
+		String previousUsername = System.getProperty("spring.datasource.username");
+		String previousPassword = System.getProperty("spring.datasource.password");
+		System.setProperty("spring.datasource.url", POSTGRES.getJdbcUrl());
+		System.setProperty("spring.datasource.username", POSTGRES.getUsername());
+		System.setProperty("spring.datasource.password", POSTGRES.getPassword());
+		try {
+			return new SpringApplicationBuilder(AlbamMateApplication.class)
+				.properties(Map.of(
+					"server.port", "0",
+					"spring.task.scheduling.enabled", "false",
+					"spring.datasource.url", POSTGRES.getJdbcUrl(),
+					"spring.datasource.username", POSTGRES.getUsername(),
+					"spring.datasource.password", POSTGRES.getPassword(),
+					"app.room.status-correction.lock-name", "room-status-correction",
+					"app.room.status-correction.trigger-delay", "15m",
+					"app.room.status-correction.trigger-jitter", "3m",
+					"app.room.status-correction.lock-at-most-for", "2m",
+					"app.room.status-correction.execution-warning-threshold", "30s"))
+				.run();
+		} finally {
+			restoreSystemProperty("spring.datasource.url", previousUrl);
+			restoreSystemProperty("spring.datasource.username", previousUsername);
+			restoreSystemProperty("spring.datasource.password", previousPassword);
+		}
+	}
+
+	private void restoreSystemProperty(String name, String value) {
+		if (value == null) {
+			System.clearProperty(name);
+			return;
+		}
+		System.setProperty(name, value);
 	}
 }
