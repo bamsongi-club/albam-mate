@@ -61,7 +61,6 @@ public class RoomStatusCorrectionScheduler implements Trigger {
 		Instant requestTime = Instant.now(clock);
 		ScheduledTaskLock.LockExecution lockExecution = scheduledTaskLock.tryExecute(
 			properties.getLockName(), properties.getLockAtMostFor(), () -> {
-				progressStore.claimExecution(requestTime);
 				correctDueRooms(requestTime);
 			});
 		if (!lockExecution.acquired()) {
@@ -72,6 +71,7 @@ public class RoomStatusCorrectionScheduler implements Trigger {
 	private void correctDueRooms(Instant requestTime) {
 		long startedAtNanos = elapsedNanos();
 		try {
+			progressStore.claimExecution(requestTime);
 			int changedCount = coordinator.correctDueRooms(requestTime, this::waitBeforeRetry);
 			if (changedCount > 0) {
 				log.info("event=room_state_reconciliation_completed changedCount={}", changedCount);

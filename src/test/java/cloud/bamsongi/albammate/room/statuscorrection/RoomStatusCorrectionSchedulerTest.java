@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -17,6 +18,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.IntConsumer;
 
 import org.junit.jupiter.api.Test;
@@ -133,6 +135,60 @@ class RoomStatusCorrectionSchedulerTest {
 		assertSlowWarningCount(new IllegalStateException("unexpected"), Duration.ofSeconds(31), 1);
 		assertSlowWarningCount(new IllegalStateException("unexpected"), Duration.ofSeconds(30), 0);
 		assertSlowWarningCount(new IllegalStateException("unexpected"), Duration.ofSeconds(29), 0);
+	}
+
+	@Test
+	void progress_점유가_경고_기준을_초과하면_ROOM_전용_WARN을_한번_기록한다() {
+		RoomStatusCorrectionProgressStore progressStore = mock(RoomStatusCorrectionProgressStore.class);
+		AtomicBoolean claimed = new AtomicBoolean();
+		doAnswer(invocation -> {
+			claimed.set(true);
+			return null;
+		}).when(progressStore).claimExecution(any());
+		RoomStatusCorrectionScheduler scheduler = new RoomStatusCorrectionScheduler(
+			lockAlwaysAcquired(), mock(RoomStatusCorrectionCoordinator.class), progressStore, schedulerProperties(),
+			Clock.fixed(NOW, ZoneOffset.UTC)) {
+			@Override
+			long elapsedNanos() {
+				return claimed.get() ? Duration.ofSeconds(30).plusNanos(1).toNanos() : 0L;
+			}
+		};
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			scheduler.correctDueRooms();
+
+			assertEquals(1L, warningCount(appender, "event=room_status_correction_execution_slow"));
+		} finally {
+			detachLogAppender(appender);
+		}
+	}
+
+	@Test
+	void progress_점유_예외도_실패와_slow_WARN_경계에_포함한다() {
+		RoomStatusCorrectionProgressStore progressStore = mock(RoomStatusCorrectionProgressStore.class);
+		AtomicBoolean claimed = new AtomicBoolean();
+		IllegalStateException expected = new IllegalStateException("progress claim failed");
+		doAnswer(invocation -> {
+			claimed.set(true);
+			throw expected;
+		}).when(progressStore).claimExecution(any());
+		RoomStatusCorrectionScheduler scheduler = new RoomStatusCorrectionScheduler(
+			lockAlwaysAcquired(), mock(RoomStatusCorrectionCoordinator.class), progressStore, schedulerProperties(),
+			Clock.fixed(NOW, ZoneOffset.UTC)) {
+			@Override
+			long elapsedNanos() {
+				return claimed.get() ? Duration.ofSeconds(30).plusNanos(1).toNanos() : 0L;
+			}
+		};
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			assertSame(expected, assertThrows(IllegalStateException.class, scheduler::correctDueRooms));
+
+			assertEquals(1L, warningCount(appender, "event=room_status_correction_execution_slow"));
+			assertEquals(1L, warningCount(appender, "event=room_state_reconciliation_failed"));
+		} finally {
+			detachLogAppender(appender);
+		}
 	}
 
 	@Test
@@ -271,6 +327,13 @@ class RoomStatusCorrectionSchedulerTest {
 		logger.detachAppender(appender);
 		logger.setLevel(null);
 		appender.stop();
+	}
+
+	private long warningCount(ListAppender<ILoggingEvent> appender, String event) {
+		return appender.list.stream()
+			.filter(loggingEvent -> loggingEvent.getLevel() == Level.WARN)
+			.filter(loggingEvent -> loggingEvent.getFormattedMessage().startsWith(event))
+			.count();
 	}
 
 	private void assertSlowWarningCount(
