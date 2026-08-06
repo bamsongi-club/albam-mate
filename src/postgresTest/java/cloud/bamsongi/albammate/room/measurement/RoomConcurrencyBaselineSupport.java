@@ -18,6 +18,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -304,6 +305,15 @@ final class RoomConcurrencyBaselineSupport {
 		private final AtomicReference<Scenario> activeScenario = new AtomicReference<>();
 		private final ThreadLocal<Boolean> responseTimerArmed = new ThreadLocal<>();
 		private final ThreadLocal<Long> gateWaitNanos = new ThreadLocal<>();
+		private final LongSupplier nanoTime;
+
+		RoomReadGate() {
+			this(System::nanoTime);
+		}
+
+		RoomReadGate(LongSupplier nanoTime) {
+			this.nanoTime = Objects.requireNonNull(nanoTime, "nanoTime");
+		}
 
 		void activate(long roomId, int expectedReaders) {
 			if (!activeScenario.compareAndSet(null, new Scenario(roomId, expectedReaders))) {
@@ -321,10 +331,10 @@ final class RoomConcurrencyBaselineSupport {
 				return;
 			}
 			scenario.observedVersions.add(room.orElseThrow().getVersion());
-			long gateWaitStartedAt = System.nanoTime();
+			long gateWaitStartedAt = nanoTime.getAsLong();
 			scenario.initialReads.countDown();
 			awaitGate(scenario.initialReads);
-			addGateWaitNanos(System.nanoTime() - gateWaitStartedAt);
+			recordGateWaitNanos(nanoTime.getAsLong() - gateWaitStartedAt);
 		}
 
 		void armResponseTimer() {
@@ -335,7 +345,7 @@ final class RoomConcurrencyBaselineSupport {
 		long elapsedNanosSince(long fallbackStartNanos) {
 			Long measuredGateWaitNanos = gateWaitNanos.get();
 			long excludedNanos = measuredGateWaitNanos == null ? 0 : measuredGateWaitNanos;
-			return System.nanoTime() - fallbackStartNanos - excludedNanos;
+			return nanoTime.getAsLong() - fallbackStartNanos - excludedNanos;
 		}
 
 		void clearResponseTimer() {
@@ -343,7 +353,7 @@ final class RoomConcurrencyBaselineSupport {
 			gateWaitNanos.remove();
 		}
 
-		private void addGateWaitNanos(long durationNanos) {
+		void recordGateWaitNanos(long durationNanos) {
 			if (Boolean.TRUE.equals(responseTimerArmed.get())) {
 				gateWaitNanos.set(gateWaitNanos.get() + durationNanos);
 			}

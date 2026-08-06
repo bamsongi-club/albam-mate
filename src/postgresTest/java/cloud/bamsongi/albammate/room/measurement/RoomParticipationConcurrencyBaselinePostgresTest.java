@@ -111,6 +111,19 @@ class RoomParticipationConcurrencyBaselinePostgresTest {
 	}
 
 	@Test
+	void gate_대기_시간은_응답시간에서_한_번만_제외한다() {
+		RoomConcurrencyBaselineSupport.RoomReadGate gate = new RoomConcurrencyBaselineSupport.RoomReadGate(
+			() -> 1_500L);
+		gate.armResponseTimer();
+		try {
+			gate.recordGateWaitNanos(200L);
+			assertEquals(300L, gate.elapsedNanosSince(1_000L));
+		} finally {
+			gate.clearResponseTimer();
+		}
+	}
+
+	@Test
 	void 마지막_좌석_동시_참가는_모든_고정_수준에서_한_건만_성공한다() throws Exception {
 		for (int concurrencyLevel : List.of(2, 4, 8)) {
 			LastSeatFixture fixture = createLastSeatFixture(concurrencyLevel, 0);
@@ -269,12 +282,18 @@ class RoomParticipationConcurrencyBaselinePostgresTest {
 		roomReadGate.activate(fixture.room().getId(), fixture.participantUserIds().size());
 		try {
 			jdbcTemplate.execute("select id as room10a_fixture_marker from users limit 0");
+			assertTrue(
+				baselineSupport.statementCallsContaining(FIXTURE_STATEMENT_MARKER) > 0L,
+				"fixture marker SQL이 pg_stat_statements에 기록되지 않았습니다.");
 			RoomConcurrencyBaselineSupport.RoundMeasurement measurement = baselineSupport.measureRound(
 				"last-seat",
 				fixture.participantUserIds().size(),
 				roomReadGate,
 				lastSeatCommands(fixture));
-			assertEquals(0L, baselineSupport.statementCallsContaining(FIXTURE_STATEMENT_MARKER));
+			assertEquals(
+				0L,
+				baselineSupport.statementCallsContaining(FIXTURE_STATEMENT_MARKER),
+				"fixture marker SQL이 측정 round의 PostgreSQL 비용에 포함되었습니다.");
 			roomReadGate.assertInitialReadsShareOneVersion();
 			return measurement;
 		} finally {
