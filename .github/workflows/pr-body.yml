@@ -34,7 +34,6 @@ jobs:
             "## 작업 내용",
             "## 변경 이유",
             "## 주요 변경 사항",
-            "## 테스트 및 확인",
             "## AI 활용 내용",
             "## 리뷰 포인트",
             "## 연결 이슈"
@@ -49,8 +48,9 @@ jobs:
             }
           }
 
-          if ($body -match "(?m)^## 테스트\s*$" -and $body -notmatch "(?m)^## 테스트 및 확인\s*$") {
-            Write-Host "::error title=PR body template::테스트 섹션 제목은 '## 테스트 및 확인'을 사용해야 합니다."
+          $testSectionPattern = '(?ms)<details>\s*<summary>\s*<strong>테스트 및 확인</strong>\s*</summary>.*?</details>'
+          if ($body -notmatch $testSectionPattern) {
+            Write-Host "::error title=PR body template::테스트 및 확인은 접을 수 있는 details 섹션으로 작성해야 합니다."
             $hasError = $true
           }
 
