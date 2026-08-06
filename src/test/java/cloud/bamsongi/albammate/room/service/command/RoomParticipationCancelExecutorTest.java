@@ -420,6 +420,47 @@ class RoomParticipationCancelExecutorTest {
 	}
 
 	@Test
+	void 대기자_승격_경쟁_실패_후_후보가_소진되면_주최자에게_기록한다() {
+		long roomId = 7L;
+		long hostUserId = 1L;
+		long participantUserId = 10L;
+		RoomRepository mockedRoomRepository = mock(RoomRepository.class);
+		ParticipationRepository mockedParticipationRepository = mock(ParticipationRepository.class);
+		RoomWaitlistRepository mockedWaitlistRepository = mock(RoomWaitlistRepository.class);
+		RoomChangeEventRecorder recorder = mock(RoomChangeEventRecorder.class);
+		Room room = mock(Room.class);
+		Participation participation = mock(Participation.class);
+		RoomWaitlistCandidateProjection waiting = candidate(20L, 1L);
+		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
+			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder);
+		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(room));
+		when(room.getHostUserId()).thenReturn(hostUserId);
+		when(room.getId()).thenReturn(roomId);
+		when(room.getStartAt()).thenReturn(NOW.plusSeconds(3600));
+		when(room.getStatus()).thenReturn(RoomStatus.RECRUITING);
+		when(room.getRemainingRecruitmentSeats()).thenReturn(1);
+		when(participation.getStatus()).thenReturn(ParticipationStatus.ACTIVE);
+		when(mockedParticipationRepository.findByRoomIdAndUserId(roomId, participantUserId))
+			.thenReturn(java.util.Optional.of(participation));
+		when(mockedWaitlistRepository.findFirstWaitingByRoomId(roomId))
+			.thenReturn(java.util.Optional.of(waiting), java.util.Optional.empty());
+		when(mockedWaitlistRepository.promoteWaiting(roomId, 20L, 1L, NOW)).thenReturn(0);
+
+		executor.cancelParticipation(participantUserId, roomId, NOW);
+
+		org.mockito.ArgumentCaptor<RoomChangeEvent> eventCaptor = org.mockito.ArgumentCaptor
+			.forClass(RoomChangeEvent.class);
+		org.mockito.ArgumentCaptor<java.util.Collection<Long>> recipientsCaptor = org.mockito.ArgumentCaptor
+			.forClass(java.util.Collection.class);
+		verify(recorder).record(eventCaptor.capture(), recipientsCaptor.capture());
+		ParticipationCanceledEvent event = org.junit.jupiter.api.Assertions.assertInstanceOf(
+			ParticipationCanceledEvent.class, eventCaptor.getValue());
+		assertEquals(roomId, event.roomId());
+		assertEquals(NOW, event.occurredAt());
+		assertEquals(java.util.List.of(hostUserId), recipientsCaptor.getValue());
+	}
+
+	@Test
 	void 취소된_방의_재시도는_PARTICIPATION_CANCELED를_기록하지_않는다() {
 		long roomId = 7L;
 		long participantUserId = 10L;
