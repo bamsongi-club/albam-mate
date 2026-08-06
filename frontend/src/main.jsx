@@ -134,7 +134,8 @@ const EMPTY_GAME_FILTERS = {
   playedFilter: '',
   upcomingOnly: false
 };
-// 추천·베스트 인원은 목록 카드에 드러나는 범위에 맞춰 1~8명만 고르게 한다.
+// 계약은 추천·베스트 인원 상한을 두지 않으므로 자주 쓰는 1~8명만 체크박스로 먼저 보이고,
+// 그보다 큰 값은 CustomPlayerCountInput으로 직접 입력해 추가한다.
 const PREFERRED_PLAYER_COUNT_OPTIONS = Array.from({ length: 8 }, (_, index) => ({
   value: String(index + 1),
   label: index + 1 + '명'
@@ -934,6 +935,25 @@ function FilterMultiCheckGroup({ label, values, options, onToggle, children, wid
   );
 }
 
+// 고정 체크박스에 없는 값(9명 이상)을 계약이 받는 양의 정수 그대로 추가한다.
+function CustomPlayerCountInput({ label, values, onAdd }) {
+  const [value, setValue] = useState('');
+  const submit = (event) => {
+    event.preventDefault();
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < 1) return;
+    const stringValue = String(parsed);
+    if (!values.includes(stringValue)) onAdd(stringValue);
+    setValue('');
+  };
+  return (
+    <form className="filter-custom-add" onSubmit={submit}>
+      <input type="number" inputMode="numeric" min="1" aria-label={label + ' 직접 입력'} placeholder="직접 입력" value={value} onChange={(event) => setValue(event.target.value)} />
+      <button type="submit">추가</button>
+    </form>
+  );
+}
+
 // 최소·최대는 각각 생략할 수 있다. 마지막 입력 뒤 조회는 화면이 맡고 이 컴포넌트는 입력만 다룬다.
 function FilterNumberRangeGroup({ label, min, max, unit, onMinChange, onMaxChange, children }) {
   return (
@@ -1450,9 +1470,15 @@ function GameFilters({ filters, onChange, searchSlot }) {
         )}
       </FilterMultiCheckGroup>
       <FilterMultiCheckGroup label="추천 인원" values={filters.recommendedPlayerCount} onToggle={toggleIn('recommendedPlayerCount')}
-        options={PREFERRED_PLAYER_COUNT_OPTIONS} />
+        options={PREFERRED_PLAYER_COUNT_OPTIONS}>
+        <CustomPlayerCountInput label="추천 인원" values={filters.recommendedPlayerCount}
+          onAdd={(value) => update({ recommendedPlayerCount: [...filters.recommendedPlayerCount, value] })} />
+      </FilterMultiCheckGroup>
       <FilterMultiCheckGroup label="베스트 인원" values={filters.bestPlayerCount} onToggle={toggleIn('bestPlayerCount')}
-        options={PREFERRED_PLAYER_COUNT_OPTIONS} />
+        options={PREFERRED_PLAYER_COUNT_OPTIONS}>
+        <CustomPlayerCountInput label="베스트 인원" values={filters.bestPlayerCount}
+          onAdd={(value) => update({ bestPlayerCount: [...filters.bestPlayerCount, value] })} />
+      </FilterMultiCheckGroup>
       <FilterRadioGroup name="game-filter-played" label="해 본 게임" value={filters.playedFilter}
         onChange={(playedFilter) => update({ playedFilter })} options={PLAYED_FILTER_OPTIONS} />
       <FilterRadioGroup name="game-filter-complexity" label="게임 난이도" value={complexityBandOf(filters)?.value || ''} onChange={selectBand}

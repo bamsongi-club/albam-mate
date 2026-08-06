@@ -442,6 +442,10 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .filter-range { align-items: center; display: flex; gap: 7px; }
 .filter-range input { min-width: 0; padding: 8px 10px; text-align: center; }
 .filter-range-dash, .filter-range-unit { color: var(--brown2); flex: none; font-size: 13px; font-weight: 700; }
+.filter-custom-add { align-items: center; display: flex; gap: 7px; margin-top: 9px; }
+.filter-custom-add input { flex: 1; min-width: 0; padding: 8px 10px; text-align: center; }
+.filter-custom-add button { background: #fff; border: 1.5px solid var(--line); border-radius: 8px; color: var(--brown2); flex: none; font-size: 13px; font-weight: 800; padding: 8px 12px; }
+.filter-custom-add button:hover { border-color: var(--accent); color: var(--accent-dark); }
 .filter-group-divider { border: 0; border-top: 1px dashed var(--line); margin: 13px 0 11px; }
 /* 선택지가 많은 조건은 메커니즘과 같은 규격으로 전체 폭에서 가로로 흐르게 한다. */
 .filter-group-wide { grid-column: 1 / -1; }
