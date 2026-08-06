@@ -19,6 +19,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -59,6 +60,8 @@ class Room06RequestBoundaryCommandIntegrationTest {
 	private RoomRepository roomRepository;
 	@Autowired
 	private UserRepository userRepository;
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
 
 	private final List<Long> participationIds = new ArrayList<>();
 	private final List<Long> roomIds = new ArrayList<>();
@@ -67,6 +70,8 @@ class Room06RequestBoundaryCommandIntegrationTest {
 	@AfterEach
 	void tearDown() {
 		participationIds.forEach(participationRepository::deleteById);
+		roomIds
+			.forEach(roomId -> jdbcTemplate.update("delete from notification_outbox_events where room_id = ?", roomId));
 		roomIds.forEach(roomRepository::deleteById);
 		userIds.forEach(userRepository::deleteById);
 	}

@@ -25,6 +25,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.room.contract.ParticipationCanceledEvent;
+import cloud.bamsongi.albammate.room.contract.RoomChangeEvent;
+import cloud.bamsongi.albammate.room.contract.RoomChangeEventRecorder;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import cloud.bamsongi.albammate.room.entity.Participation;
 import cloud.bamsongi.albammate.room.entity.Room;
@@ -222,7 +225,8 @@ class RoomParticipationCancelExecutorTest {
 		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
 			mockedRoomRepository,
 			mockedParticipationRepository,
-			mockedWaitlistRepository);
+			mockedWaitlistRepository,
+			mock(RoomChangeEventRecorder.class));
 		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(mockedRoom));
 		when(mockedRoom.getHostUserId()).thenReturn(1L);
 		when(mockedRoom.getId()).thenReturn(roomId);
@@ -351,6 +355,68 @@ class RoomParticipationCancelExecutorTest {
 			.findById(new RoomWaitlistId(room.getId(), waitingUserId))
 			.orElseThrow()
 			.getStatus());
+	}
+
+	@Test
+	void 자동_승격_없이_실제_빈자리가_남은_참가_취소만_주최자에게_기록한다() {
+		long roomId = 7L;
+		long participantUserId = 10L;
+		RoomRepository mockedRoomRepository = mock(RoomRepository.class);
+		ParticipationRepository mockedParticipationRepository = mock(ParticipationRepository.class);
+		RoomWaitlistRepository mockedWaitlistRepository = mock(RoomWaitlistRepository.class);
+		RoomChangeEventRecorder recorder = mock(RoomChangeEventRecorder.class);
+		Room room = mock(Room.class);
+		Participation participation = mock(Participation.class);
+		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
+			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder);
+		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(room));
+		when(room.getHostUserId()).thenReturn(1L);
+		when(room.getId()).thenReturn(roomId);
+		when(room.getStartAt()).thenReturn(NOW.plusSeconds(3600));
+		when(room.getStatus()).thenReturn(RoomStatus.RECRUITING);
+		when(room.getRemainingRecruitmentSeats()).thenReturn(1);
+		when(participation.getStatus()).thenReturn(ParticipationStatus.ACTIVE);
+		when(mockedParticipationRepository.findByRoomIdAndUserId(roomId, participantUserId))
+			.thenReturn(java.util.Optional.of(participation));
+		when(mockedWaitlistRepository.findFirstWaitingByRoomId(roomId)).thenReturn(java.util.Optional.empty());
+
+		executor.cancelParticipation(participantUserId, roomId, NOW);
+
+		org.mockito.ArgumentCaptor<RoomChangeEvent> eventCaptor = org.mockito.ArgumentCaptor
+			.forClass(RoomChangeEvent.class);
+		org.mockito.ArgumentCaptor<java.util.Collection<Long>> recipientsCaptor = org.mockito.ArgumentCaptor
+			.forClass(java.util.Collection.class);
+		verify(recorder).record(eventCaptor.capture(), recipientsCaptor.capture());
+		ParticipationCanceledEvent event = org.junit.jupiter.api.Assertions.assertInstanceOf(
+			ParticipationCanceledEvent.class, eventCaptor.getValue());
+		assertEquals(roomId, event.roomId());
+		assertEquals(NOW, event.occurredAt());
+		assertEquals(java.util.List.of(1L), recipientsCaptor.getValue());
+
+		RoomRepository promotedRoomRepository = mock(RoomRepository.class);
+		ParticipationRepository promotedParticipationRepository = mock(ParticipationRepository.class);
+		RoomWaitlistRepository promotedWaitlistRepository = mock(RoomWaitlistRepository.class);
+		RoomChangeEventRecorder promotedRecorder = mock(RoomChangeEventRecorder.class);
+		Room promotedRoom = mock(Room.class);
+		Participation leavingParticipation = mock(Participation.class);
+		RoomWaitlistCandidateProjection waiting = candidate(20L, 1L);
+		RoomParticipationCancelExecutor promotedExecutor = new RoomParticipationCancelExecutor(
+			promotedRoomRepository, promotedParticipationRepository, promotedWaitlistRepository, promotedRecorder);
+		when(promotedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(promotedRoom));
+		when(promotedRoom.getHostUserId()).thenReturn(1L);
+		when(promotedRoom.getId()).thenReturn(roomId);
+		when(promotedRoom.getStartAt()).thenReturn(NOW.plusSeconds(3600));
+		when(promotedRoom.getStatus()).thenReturn(RoomStatus.RECRUITING);
+		when(leavingParticipation.getStatus()).thenReturn(ParticipationStatus.ACTIVE);
+		when(promotedParticipationRepository.findByRoomIdAndUserId(roomId, participantUserId))
+			.thenReturn(java.util.Optional.of(leavingParticipation));
+		when(promotedParticipationRepository.findByRoomIdAndUserId(roomId, 20L)).thenReturn(java.util.Optional.empty());
+		when(promotedWaitlistRepository.findFirstWaitingByRoomId(roomId)).thenReturn(java.util.Optional.of(waiting));
+		when(promotedWaitlistRepository.promoteWaiting(roomId, 20L, 1L, NOW)).thenReturn(1);
+
+		promotedExecutor.cancelParticipation(participantUserId, roomId, NOW);
+
+		org.mockito.Mockito.verifyNoInteractions(promotedRecorder);
 	}
 
 	private Room createRoom(long hostUserId, int capacity, Instant startAt) {

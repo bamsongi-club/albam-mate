@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.room.service.command;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -10,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.room.contract.ParticipationJoinedEvent;
+import cloud.bamsongi.albammate.room.contract.RoomChangeEventRecorder;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import cloud.bamsongi.albammate.room.entity.Participation;
 import cloud.bamsongi.albammate.room.entity.Room;
@@ -24,11 +27,15 @@ class RoomParticipationExecutor {
 
 	private final RoomRepository roomRepository;
 	private final ParticipationRepository participationRepository;
+	private final RoomChangeEventRecorder roomChangeEventRecorder;
 
 	RoomParticipationExecutor(
-		RoomRepository roomRepository, ParticipationRepository participationRepository) {
+		RoomRepository roomRepository,
+		ParticipationRepository participationRepository,
+		RoomChangeEventRecorder roomChangeEventRecorder) {
 		this.roomRepository = Objects.requireNonNull(roomRepository, "roomRepository");
 		this.participationRepository = Objects.requireNonNull(participationRepository, "participationRepository");
+		this.roomChangeEventRecorder = Objects.requireNonNull(roomChangeEventRecorder, "roomChangeEventRecorder");
 	}
 
 	/** 요청 시각의 방 상태를 보정한 뒤 신규 또는 취소된 참가 관계를 활성화한다. */
@@ -58,6 +65,8 @@ class RoomParticipationExecutor {
 		roomRepository.save(room);
 		roomRepository.flush();
 		participationRepository.save(participation);
+		roomChangeEventRecorder.record(
+			new ParticipationJoinedEvent(room.getId(), requestTime), List.of(room.getHostUserId()));
 		return RoomParticipationResponse.from(room, ParticipationStatus.ACTIVE);
 	}
 
