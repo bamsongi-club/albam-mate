@@ -9,10 +9,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.room.contract.RoomCanceledEvent;
+import cloud.bamsongi.albammate.room.contract.RoomChangeEventRecorder;
 import cloud.bamsongi.albammate.room.contract.RoomTerminalStateReached;
 import cloud.bamsongi.albammate.room.dto.RoomStatusResponse;
 import cloud.bamsongi.albammate.room.entity.Room;
+import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
+import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
 import lombok.AccessLevel;
@@ -25,6 +29,8 @@ class RoomStatusChangeExecutor {
 
 	private final RoomRepository roomRepository;
 	private final RoomWaitlistRepository roomWaitlistRepository;
+	private final ParticipationRepository participationRepository;
+	private final RoomChangeEventRecorder roomChangeEventRecorder;
 	private final ApplicationEventPublisher eventPublisher;
 
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -37,6 +43,11 @@ class RoomStatusChangeExecutor {
 		roomRepository.save(room);
 		roomRepository.flush();
 		roomWaitlistRepository.cancelAllWaiting(room.getId(), requestTime);
+		var recipientUserIds = participationRepository.findUserIdsByRoomIdAndStatusOrderByJoinedAtAscIdAsc(
+			room.getId(), ParticipationStatus.ACTIVE);
+		if (!recipientUserIds.isEmpty()) {
+			roomChangeEventRecorder.record(new RoomCanceledEvent(room.getId(), requestTime), recipientUserIds);
+		}
 		eventPublisher.publishEvent(new RoomTerminalStateReached(room.getId(), requestTime));
 		return RoomStatusResponse.from(room);
 	}

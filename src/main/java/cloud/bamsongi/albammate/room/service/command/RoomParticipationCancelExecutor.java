@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.room.service.command;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 
 import org.springframework.stereotype.Service;
@@ -9,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.room.contract.ParticipationCanceledEvent;
+import cloud.bamsongi.albammate.room.contract.RoomChangeEventRecorder;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import cloud.bamsongi.albammate.room.entity.Participation;
 import cloud.bamsongi.albammate.room.entity.Room;
@@ -25,14 +28,17 @@ class RoomParticipationCancelExecutor {
 	private final RoomRepository roomRepository;
 	private final ParticipationRepository participationRepository;
 	private final RoomWaitlistRepository roomWaitlistRepository;
+	private final RoomChangeEventRecorder roomChangeEventRecorder;
 
 	RoomParticipationCancelExecutor(
 		RoomRepository roomRepository,
 		ParticipationRepository participationRepository,
-		RoomWaitlistRepository roomWaitlistRepository) {
+		RoomWaitlistRepository roomWaitlistRepository,
+		RoomChangeEventRecorder roomChangeEventRecorder) {
 		this.roomRepository = Objects.requireNonNull(roomRepository, "roomRepository");
 		this.participationRepository = Objects.requireNonNull(participationRepository, "participationRepository");
 		this.roomWaitlistRepository = Objects.requireNonNull(roomWaitlistRepository, "roomWaitlistRepository");
+		this.roomChangeEventRecorder = Objects.requireNonNull(roomChangeEventRecorder, "roomChangeEventRecorder");
 	}
 
 	/** 요청 시각의 방 상태를 보정한 뒤 활성 참가 관계를 취소하고 점유 인원을 갱신한다. */
@@ -55,20 +61,26 @@ class RoomParticipationCancelExecutor {
 		participation.cancel(requestTime);
 		participationRepository.save(participation);
 		participationRepository.flush();
-		promoteFirstWaiting(room, requestTime);
+		boolean promoted = promoteFirstWaiting(room, requestTime);
+		if (!promoted
+			&& room.getStatus() == RoomStatus.RECRUITING
+			&& room.getRemainingRecruitmentSeats() > 0) {
+			roomChangeEventRecorder.record(
+				new ParticipationCanceledEvent(room.getId(), requestTime), List.of(room.getHostUserId()));
+		}
 		return RoomParticipationResponse.from(room, ParticipationStatus.CANCELED);
 	}
 
 	/** 현재 ROOM의 빈자리 하나에는 조건부 전이에 성공한 첫 대기자만 활성 참가로 만든다. */
-	private void promoteFirstWaiting(Room room, Instant requestTime) {
+	private boolean promoteFirstWaiting(Room room, Instant requestTime) {
 		if (room.getStatus() != RoomStatus.RECRUITING) {
-			return;
+			return false;
 		}
 
 		while (true) {
 			var candidate = roomWaitlistRepository.findFirstWaitingByRoomId(room.getId());
 			if (candidate.isEmpty()) {
-				return;
+				return false;
 			}
 			var waiting = candidate.get();
 			if (roomWaitlistRepository.promoteWaiting(
@@ -82,7 +94,7 @@ class RoomParticipationCancelExecutor {
 			Participation promotedParticipation = promotedParticipationOf(room, waiting.getUserId(), requestTime);
 			participationRepository.save(promotedParticipation);
 			participationRepository.flush();
-			return;
+			return true;
 		}
 	}
 

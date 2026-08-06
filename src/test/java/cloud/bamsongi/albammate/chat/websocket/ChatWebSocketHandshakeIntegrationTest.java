@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import cloud.bamsongi.albammate.chat.entity.ChatRoom;
 import cloud.bamsongi.albammate.chat.repository.ChatRoomRepository;
@@ -69,6 +70,8 @@ class ChatWebSocketHandshakeIntegrationTest {
 	private ParticipationRepository participationRepository;
 	@Autowired
 	private UserRepository userRepository;
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
 
 	private final List<Long> roomIds = new ArrayList<>();
 	private final List<Long> userIds = new ArrayList<>();
@@ -81,6 +84,7 @@ class ChatWebSocketHandshakeIntegrationTest {
 					.ifPresent(participationRepository::delete);
 			}
 			chatRoomRepository.findByRoomId(roomId).ifPresent(chatRoomRepository::delete);
+			jdbcTemplate.update("delete from notification_outbox_events where room_id = ?", roomId);
 			roomRepository.deleteById(roomId);
 		}
 		userIds.forEach(userRepository::deleteById);
