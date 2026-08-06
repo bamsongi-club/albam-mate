@@ -197,28 +197,7 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 			assertEquals(concurrencyLevel, measurement.successCount() + measurement.concurrencyFailureCount());
 			assertEquals(0, measurement.businessFailureCount());
 			assertEquals(0, measurement.technicalFailureCount());
-			assertEquals(fixture.room().getCapacity(), activeParticipantCount(fixture.room().getId()));
-			assertEquals(RoomStatus.CLOSED, roomStatus(fixture.room().getId()));
-			for (int index = 0; index < fixture.leavingUserIds().size(); index++) {
-				ParticipationStatus expectedStatus = measurement.requests().get(index).successful()
-					? ParticipationStatus.CANCELED
-					: ParticipationStatus.ACTIVE;
-				assertEquals(expectedStatus,
-					participationStatus(fixture.room().getId(), fixture.leavingUserIds().get(index)));
-			}
-			for (int index = 0; index < fixture.waitingUserIds().size(); index++) {
-				if (index < measurement.successCount()) {
-					assertEquals(RoomWaitlistStatus.PROMOTED,
-						waitlistStatus(fixture.room().getId(), fixture.waitingUserIds().get(index)));
-					assertEquals(ParticipationStatus.ACTIVE,
-						participationStatus(fixture.room().getId(), fixture.waitingUserIds().get(index)));
-				} else {
-					assertEquals(RoomWaitlistStatus.WAITING,
-						waitlistStatus(fixture.room().getId(), fixture.waitingUserIds().get(index)));
-					assertEquals(0, participationCount(fixture.room().getId(), fixture.waitingUserIds().get(index)));
-				}
-			}
-			assertEquals(concurrencyLevel - measurement.successCount() + 1, activeWaitingCount(fixture.room().getId()));
+			assertCancellationPromotionOutcome(fixture, measurement);
 			assertWaitlistRoomInvariant(fixture.room().getId());
 		}
 	}
@@ -230,13 +209,7 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 			cancellationFirstFixture, TransitionOrder.CANCEL_FIRST);
 
 		assertEquals(2, cancellationFirst.successCount());
-		assertEquals(RoomWaitlistStatus.CANCELED,
-			waitlistStatus(cancellationFirstFixture.room().getId(), cancellationFirstFixture.firstWaitingUserId()));
-		assertEquals(RoomWaitlistStatus.PROMOTED,
-			waitlistStatus(cancellationFirstFixture.room().getId(), cancellationFirstFixture.secondWaitingUserId()));
-		assertEquals(ParticipationStatus.ACTIVE,
-			participationStatus(cancellationFirstFixture.room().getId(),
-				cancellationFirstFixture.secondWaitingUserId()));
+		assertWaitlistCancellationOutcome(cancellationFirstFixture, TransitionOrder.CANCEL_FIRST);
 		assertWaitlistRoomInvariant(cancellationFirstFixture.room().getId());
 
 		WaitlistCancellationFixture promotionFirstFixture = createWaitlistCancellationFixture("promotion-first");
@@ -246,15 +219,7 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 		assertEquals(1, promotionFirst.successCount());
 		assertEquals(1, promotionFirst.businessFailureCount());
 		assertTrue(promotionFirst.hasOnlyBusinessError(ErrorCode.WAITLIST_ENTRY_NOT_FOUND));
-		assertEquals(RoomWaitlistStatus.PROMOTED,
-			waitlistStatus(promotionFirstFixture.room().getId(), promotionFirstFixture.firstWaitingUserId()));
-		assertEquals(ParticipationStatus.ACTIVE,
-			participationStatus(promotionFirstFixture.room().getId(), promotionFirstFixture.firstWaitingUserId()));
-		assertEquals(RoomWaitlistStatus.WAITING,
-			waitlistStatus(promotionFirstFixture.room().getId(), promotionFirstFixture.secondWaitingUserId()));
-		assertEquals(0, participationCount(
-			promotionFirstFixture.room().getId(), promotionFirstFixture.secondWaitingUserId()));
-		assertEquals(1, activeWaitingCount(promotionFirstFixture.room().getId()));
+		assertWaitlistCancellationOutcome(promotionFirstFixture, TransitionOrder.PROMOTION_FIRST);
 		assertWaitlistRoomInvariant(promotionFirstFixture.room().getId());
 	}
 
@@ -288,6 +253,7 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 					"raw-promotion-" + concurrencyLevel + "-" + round, concurrencyLevel);
 				RoomConcurrencyBaselineSupport.RoundMeasurement measurement = measureCancellationPromotionRound(
 					fixture);
+				assertCancellationPromotionOutcome(fixture, measurement);
 				assertWaitlistRoomInvariant(fixture.room().getId());
 				assertRawMeasurement(measurement,
 					"cancel-promote", concurrencyLevel, fixture.room().getId(), PARTICIPATION_CANCEL_RETRY_EVENT);
@@ -299,6 +265,7 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 				WaitlistCancellationFixture fixture = createWaitlistCancellationFixture("raw-" + order + "-" + round);
 				RoomConcurrencyBaselineSupport.RoundMeasurement measurement = measureWaitlistCancellationRound(fixture,
 					order);
+				assertWaitlistCancellationOutcome(fixture, order);
 				assertWaitlistRoomInvariant(fixture.room().getId());
 				assertRawMeasurement(measurement, order.scenarioName(), 2,
 					fixture.room().getId(), WAITLIST_CANCEL_RETRY_EVENT, PARTICIPATION_CANCEL_RETRY_EVENT);
@@ -371,6 +338,42 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 			measureWaitlistCancellationRound(fixture, order);
 			assertWaitlistRoomInvariant(fixture.room().getId());
 		}
+	}
+
+	/**
+	 * FIFO 불변식이 실제로 역순 승격을 걸러내는지 확인한다. 승격한 마지막 항목과 남은 첫 대기자의 `queue_order`만 맞바꾸면 인원·상태·중복
+	 * 조건은 모두 그대로이고 잔여 WAITING 순서도 증가하므로, 이 상태를 통과시키는 불변식은 FIFO를 보장하지 않는다.
+	 */
+	@Test
+	void 대기_저장_불변식은_선두를_건너뛴_승격을_통과시키지_않는다() throws Exception {
+		CancellationPromotionFixture fixture = createCancellationPromotionFixture(
+			"fifo-guard", CONCURRENCY_LEVELS.get(0));
+		RoomConcurrencyBaselineSupport.RoundMeasurement measurement = measureCancellationPromotionRound(fixture);
+		long roomId = fixture.room().getId();
+		assertTrue(measurement.successCount() > 0);
+		assertCancellationPromotionOutcome(fixture, measurement);
+		assertWaitlistRoomInvariant(roomId);
+
+		int promotedCount = (int)measurement.successCount();
+		swapQueueOrder(roomId,
+			fixture.waitingUserIds().get(promotedCount - 1),
+			fixture.waitingUserIds().get(promotedCount));
+
+		assertThrows(AssertionError.class, () -> assertWaitlistRoomInvariant(roomId));
+	}
+
+	private void swapQueueOrder(long roomId, long promotedUserId, long waitingUserId) {
+		Long promotedOrder = queueOrder(roomId, promotedUserId);
+		Long waitingOrder = queueOrder(roomId, waitingUserId);
+		jdbcTemplate.update("update room_waitlists set queue_order = ? where room_id = ? and user_id = ?",
+			waitingOrder, roomId, promotedUserId);
+		jdbcTemplate.update("update room_waitlists set queue_order = ? where room_id = ? and user_id = ?",
+			promotedOrder, roomId, waitingUserId);
+	}
+
+	private Long queueOrder(long roomId, long userId) {
+		return jdbcTemplate.queryForObject(
+			"select queue_order from room_waitlists where room_id = ? and user_id = ?", Long.class, roomId, userId);
 	}
 
 	@Test
@@ -694,6 +697,57 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 			.allMatch(log -> log.attempt() == 3));
 	}
 
+	/**
+	 * 취소 성공 수만큼 FIFO 선두 대기자만 승격했는지 확인한다. 원자료를 남기는 round와 시나리오 전용 round가 같은 기준으로 저장 결과를
+	 * 확인해야 특정 round의 FIFO 위반이 원자료에 섞이지 않는다.
+	 */
+	private void assertCancellationPromotionOutcome(
+		CancellationPromotionFixture fixture, RoomConcurrencyBaselineSupport.RoundMeasurement measurement) {
+		long roomId = fixture.room().getId();
+		assertEquals(fixture.room().getCapacity(), activeParticipantCount(roomId));
+		assertEquals(RoomStatus.CLOSED, roomStatus(roomId));
+		for (int index = 0; index < fixture.leavingUserIds().size(); index++) {
+			ParticipationStatus expectedStatus = measurement.requests().get(index).successful()
+				? ParticipationStatus.CANCELED
+				: ParticipationStatus.ACTIVE;
+			assertEquals(expectedStatus, participationStatus(roomId, fixture.leavingUserIds().get(index)));
+		}
+		for (int index = 0; index < fixture.waitingUserIds().size(); index++) {
+			if (index < measurement.successCount()) {
+				assertEquals(RoomWaitlistStatus.PROMOTED, waitlistStatus(roomId, fixture.waitingUserIds().get(index)));
+				assertEquals(ParticipationStatus.ACTIVE,
+					participationStatus(roomId, fixture.waitingUserIds().get(index)));
+			} else {
+				assertEquals(RoomWaitlistStatus.WAITING, waitlistStatus(roomId, fixture.waitingUserIds().get(index)));
+				assertEquals(0, participationCount(roomId, fixture.waitingUserIds().get(index)));
+			}
+		}
+		assertEquals(fixture.waitingUserIds().size() - measurement.successCount(), activeWaitingCount(roomId));
+	}
+
+	/**
+	 * 확정 순서별로 승격 대상과 남는 대기자가 달라지므로 순서를 입력으로 받아 저장 결과를 확인한다.
+	 */
+	private void assertWaitlistCancellationOutcome(WaitlistCancellationFixture fixture, TransitionOrder order) {
+		long roomId = fixture.room().getId();
+		if (order == TransitionOrder.CANCEL_FIRST) {
+			assertEquals(RoomWaitlistStatus.CANCELED, waitlistStatus(roomId, fixture.firstWaitingUserId()));
+			assertEquals(RoomWaitlistStatus.PROMOTED, waitlistStatus(roomId, fixture.secondWaitingUserId()));
+			assertEquals(ParticipationStatus.ACTIVE, participationStatus(roomId, fixture.secondWaitingUserId()));
+			assertEquals(0, activeWaitingCount(roomId));
+			return;
+		}
+		assertEquals(RoomWaitlistStatus.PROMOTED, waitlistStatus(roomId, fixture.firstWaitingUserId()));
+		assertEquals(ParticipationStatus.ACTIVE, participationStatus(roomId, fixture.firstWaitingUserId()));
+		assertEquals(RoomWaitlistStatus.WAITING, waitlistStatus(roomId, fixture.secondWaitingUserId()));
+		assertEquals(0, participationCount(roomId, fixture.secondWaitingUserId()));
+		assertEquals(1, activeWaitingCount(roomId));
+	}
+
+	/**
+	 * 잔여 WAITING의 `queue_order` 증가만으로는 FIFO 승격이 보장되지 않는다. 선두 대기자를 남기고 뒤 대기자를 승격한 결과도 잔여 순서는
+	 * 증가하므로, 승격한 항목의 `queue_order`가 남은 WAITING보다 앞서는지와 승격이 실제 ACTIVE 참가로 확정됐는지를 함께 확인한다.
+	 */
 	private void assertWaitlistRoomInvariant(long roomId) {
 		RoomConcurrencyBaselineSupport.RoomInvariant invariant = baselineSupport.readRoomInvariant(roomId);
 		assertEquals(invariant.activeParticipantCount(), invariant.activeParticipationCount());
@@ -717,6 +771,26 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 		for (int index = 1; index < queueOrders.size(); index++) {
 			assertTrue(queueOrders.get(index - 1) < queueOrders.get(index));
 		}
+		assertEquals(0, jdbcTemplate.queryForObject("""
+			select count(*)
+			from room_waitlists waiting
+			where waiting.room_id = ? and waiting.status = 'WAITING'
+				and exists (
+					select 1
+					from room_waitlists promoted
+					where promoted.room_id = waiting.room_id and promoted.status = 'PROMOTED'
+						and promoted.queue_order > waiting.queue_order)
+			""", Integer.class, roomId));
+		assertEquals(0, jdbcTemplate.queryForObject("""
+			select count(*)
+			from room_waitlists promoted
+			where promoted.room_id = ? and promoted.status = 'PROMOTED'
+				and not exists (
+					select 1
+					from participations participation
+					where participation.room_id = promoted.room_id and participation.user_id = promoted.user_id
+						and participation.status = 'ACTIVE')
+			""", Integer.class, roomId));
 	}
 
 	private LastSeatWaitlistFixture createLastSeatWaitlistFixture(String suffix) {
