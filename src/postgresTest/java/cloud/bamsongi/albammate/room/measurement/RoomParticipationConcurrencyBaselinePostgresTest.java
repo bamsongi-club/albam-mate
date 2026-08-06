@@ -48,6 +48,8 @@ class RoomParticipationConcurrencyBaselinePostgresTest {
 	private static final Instant NOW = Instant.parse("2026-07-28T00:00:00Z");
 	private static final String FIXTURE_SEED = "ROOM-10A-20260806";
 	private static final String FIXTURE_STATEMENT_MARKER = "room10a_fixture_marker";
+	private static final String DETERMINISTIC_RETRY_EVENT = "room_10a_retry";
+	private static final String PARTICIPATION_RETRY_EVENT = "room_participation_retry";
 
 	@Container
 	@ServiceConnection
@@ -126,8 +128,8 @@ class RoomParticipationConcurrencyBaselinePostgresTest {
 		for (int concurrencyLevel : List.of(2, 4, 8)) {
 			runLastSeatPreparationRound(createLastSeatFixture(concurrencyLevel, 0));
 			for (int round = 1; round <= 3; round++) {
-				RoomConcurrencyBaselineSupport.RoundMeasurement measurement = measureLastSeatRound(
-					createLastSeatFixture(concurrencyLevel, round));
+				LastSeatFixture fixture = createLastSeatFixture(concurrencyLevel, round);
+				RoomConcurrencyBaselineSupport.RoundMeasurement measurement = measureLastSeatRound(fixture);
 
 				assertEquals(concurrencyLevel, measurement.totalRequestCount());
 				assertEquals(
@@ -139,7 +141,9 @@ class RoomParticipationConcurrencyBaselinePostgresTest {
 				assertEquals(concurrencyLevel, measurement.retryCount(0)
 					+ measurement.retryCount(1)
 					+ measurement.retryCount(2));
-				assertEquals(measurement.totalRetryCount(), measurement.retryLogCount());
+				assertEquals(measurement.totalRetryCount(), measurement.retryAttemptLogCount());
+				assertEquals(measurement.concurrencyFailureCount(), measurement.exhaustedLogCount());
+				assertParticipationRetryLogFormat(measurement, fixture.room().getId());
 				assertEquals(measurement.concurrencyFailureCount(), measurement.exhaustedCount());
 				assertTrue(measurement.requestDurationsNanos().stream().allMatch(duration -> duration > 0));
 				assertTrue(measurement.postgresCost().statementCalls() > 0);
@@ -180,7 +184,7 @@ class RoomParticipationConcurrencyBaselinePostgresTest {
 
 		BusinessException exception = assertThrows(
 			BusinessException.class,
-			() -> measurement.execute(roomOptimisticLockRetrier, "room_10a_retry", () -> {
+			() -> measurement.execute(roomOptimisticLockRetrier, DETERMINISTIC_RETRY_EVENT, () -> {
 				throw new OptimisticLockException("deterministic conflict");
 			}));
 
@@ -205,7 +209,7 @@ class RoomParticipationConcurrencyBaselinePostgresTest {
 
 		BusinessException exception = assertThrows(
 			BusinessException.class,
-			() -> measurement.execute(roomOptimisticLockRetrier, "room_10a_retry", () -> {
+			() -> measurement.execute(roomOptimisticLockRetrier, DETERMINISTIC_RETRY_EVENT, () -> {
 				if (invocation.getAndIncrement() == 0) {
 					throw new OptimisticLockException("deterministic conflict");
 				}
@@ -228,7 +232,7 @@ class RoomParticipationConcurrencyBaselinePostgresTest {
 	private RoomConcurrencyBaselineSupport.RetryMeasurement retryMeasurement(
 		RoomConcurrencyBaselineSupport.AttemptPlan... plans) {
 		RoomConcurrencyBaselineSupport.RetryMeasurement measurement = baselineSupport.newRetryMeasurement();
-		measurement.executeDeterministic(roomOptimisticLockRetrier, "room_10a_retry", List.of(plans));
+		measurement.executeDeterministic(roomOptimisticLockRetrier, DETERMINISTIC_RETRY_EVENT, List.of(plans));
 		return measurement;
 	}
 
@@ -242,7 +246,27 @@ class RoomParticipationConcurrencyBaselinePostgresTest {
 		assertEquals(conflicts, measurement.conflictCount());
 		assertEquals(retries, measurement.retryCount());
 		assertEquals(exhausted, measurement.exhausted());
-		assertEquals(retries, measurement.retryLogCount());
+
+		List<Integer> expectedAttempts = new ArrayList<>();
+		for (int attempt = 2; attempt <= attempts; attempt++) {
+			expectedAttempts.add(attempt);
+		}
+		if (exhausted) {
+			expectedAttempts.add(attempts);
+		}
+
+		List<RoomConcurrencyBaselineSupport.RetryLogRecord> retryLogs = measurement.retryLogRecords();
+		assertEquals(expectedAttempts, retryLogs.stream()
+			.map(RoomConcurrencyBaselineSupport.RetryLogRecord::attempt)
+			.toList());
+		assertTrue(retryLogs.stream().allMatch(log -> DETERMINISTIC_RETRY_EVENT.equals(log.event())));
+		assertTrue(retryLogs.stream().allMatch(log -> log.roomId() == null));
+		assertEquals(retries, retryLogs.stream()
+			.filter(RoomConcurrencyBaselineSupport.RetryLogRecord::retryAttempt)
+			.count());
+		assertEquals(exhausted ? 1 : 0, retryLogs.stream()
+			.filter(RoomConcurrencyBaselineSupport.RetryLogRecord::exhaustedAttempt)
+			.count());
 	}
 
 	private RoomConcurrencyBaselineSupport.RoundMeasurement measureLastSeatRound(LastSeatFixture fixture)
@@ -261,6 +285,22 @@ class RoomParticipationConcurrencyBaselinePostgresTest {
 		} finally {
 			roomReadGate.deactivate();
 		}
+	}
+
+	private void assertParticipationRetryLogFormat(
+		RoomConcurrencyBaselineSupport.RoundMeasurement measurement,
+		long roomId) {
+		List<RoomConcurrencyBaselineSupport.RetryLogRecord> retryLogs = measurement.retryLogRecords();
+		assertEquals(
+			measurement.totalRetryCount() + measurement.concurrencyFailureCount(),
+			retryLogs.size());
+		assertTrue(retryLogs.stream().allMatch(log -> PARTICIPATION_RETRY_EVENT.equals(log.event())));
+		assertTrue(retryLogs.stream().allMatch(log -> Long.valueOf(roomId).equals(log.roomId())));
+		assertTrue(retryLogs.stream().allMatch(log -> log.attempt() >= 2 && log.attempt() <= 3));
+		assertTrue(retryLogs.stream().allMatch(log -> log.retryAttempt() || log.exhaustedAttempt()));
+		assertTrue(retryLogs.stream()
+			.filter(RoomConcurrencyBaselineSupport.RetryLogRecord::exhaustedAttempt)
+			.allMatch(log -> log.attempt() == 3));
 	}
 
 	private void runLastSeatPreparationRound(LastSeatFixture fixture) throws Exception {

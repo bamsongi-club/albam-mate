@@ -19,6 +19,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -121,7 +123,7 @@ final class RoomConcurrencyBaselineSupport {
 			PostgresCost postgresCost = readPostgresCost();
 			String rawRecord = formatRawRecord(scenario, concurrencyLevel, requests, postgresCost);
 			LoggerFactory.getLogger(RoomConcurrencyBaselineSupport.class).info(rawRecord);
-			return new RoundMeasurement(requests, postgresCost, rawRecord, retryLogCapture.retryLogCount());
+			return new RoundMeasurement(requests, postgresCost, rawRecord, retryLogCapture.retryLogRecords());
 		} finally {
 			start.countDown();
 			retryLogCapture.detach();
@@ -393,6 +395,7 @@ final class RoomConcurrencyBaselineSupport {
 		private int businessFailureCount;
 		private int technicalFailureCount;
 		private boolean exhausted;
+		private List<RetryLogRecord> retryLogRecords = List.of();
 
 		void executeDeterministic(
 			RoomOptimisticLockRetrier retrier,
@@ -427,13 +430,14 @@ final class RoomConcurrencyBaselineSupport {
 			} finally {
 				attemptCount = transactionIds.size();
 				conflictCount = trace.retryCount() + (exhausted ? 1 : 0);
-				retryLogCount = retryLogCapture.retryLogCount();
-				measuredRetrier.endRequest();
-				retryLogCapture.detach();
+				try {
+					retryLogRecords = retryLogCapture.retryLogRecords();
+				} finally {
+					measuredRetrier.endRequest();
+					retryLogCapture.detach();
+				}
 			}
 		}
-
-		private int retryLogCount;
 
 		private <T> T executeOneAttempt(Supplier<T> command) {
 			Long transactionId = jdbcTemplate.queryForObject("select txid_current()", Long.class);
@@ -457,8 +461,8 @@ final class RoomConcurrencyBaselineSupport {
 			return exhausted;
 		}
 
-		int retryLogCount() {
-			return retryLogCount;
+		List<RetryLogRecord> retryLogRecords() {
+			return retryLogRecords;
 		}
 
 		List<Long> transactionIds() {
@@ -498,7 +502,7 @@ final class RoomConcurrencyBaselineSupport {
 		List<RequestMeasurement> requests,
 		PostgresCost postgresCost,
 		String rawRecord,
-		int retryLogCount) {
+		List<RetryLogRecord> retryLogRecords) {
 
 		int totalRequestCount() {
 			return requests.size();
@@ -528,6 +532,14 @@ final class RoomConcurrencyBaselineSupport {
 
 		long totalRetryCount() {
 			return requests.stream().mapToLong(RequestMeasurement::retryCount).sum();
+		}
+
+		long retryAttemptLogCount() {
+			return retryLogRecords.stream().filter(RetryLogRecord::retryAttempt).count();
+		}
+
+		long exhaustedLogCount() {
+			return retryLogRecords.stream().filter(RetryLogRecord::exhaustedAttempt).count();
 		}
 
 		long exhaustedCount() {
@@ -584,6 +596,21 @@ final class RoomConcurrencyBaselineSupport {
 		long rows,
 		long sharedBlockHits,
 		long sharedBlockReads) {
+	}
+
+	record RetryLogRecord(
+		String event,
+		Long roomId,
+		int attempt,
+		Level level) {
+
+		boolean retryAttempt() {
+			return level == Level.DEBUG;
+		}
+
+		boolean exhaustedAttempt() {
+			return level == Level.WARN;
+		}
 	}
 
 	record RoomInvariant(
@@ -668,6 +695,9 @@ final class RoomConcurrencyBaselineSupport {
 
 	private static final class RetryLogCapture {
 
+		private static final Pattern RETRY_LOG_PATTERN = Pattern.compile(
+			"^event=(\\S+)(?: roomId=(\\d+))? attempt=(\\d+)$");
+
 		private final Logger logger;
 		private final Level previousLevel;
 		private final ListAppender<ILoggingEvent> appender;
@@ -688,12 +718,24 @@ final class RoomConcurrencyBaselineSupport {
 			return new RetryLogCapture(logger, previousLevel, appender);
 		}
 
-		private int retryLogCount() {
-			return (int)appender.list.stream()
-				.filter(event -> event.getLevel() == Level.DEBUG)
-				.map(ILoggingEvent::getFormattedMessage)
-				.filter(message -> message.contains("event=") && message.contains("attempt="))
-				.count();
+		private List<RetryLogRecord> retryLogRecords() {
+			return appender.list.stream()
+				.map(RetryLogCapture::parse)
+				.toList();
+		}
+
+		private static RetryLogRecord parse(ILoggingEvent event) {
+			String message = event.getFormattedMessage();
+			Matcher matcher = RETRY_LOG_PATTERN.matcher(message);
+			if (!matcher.matches()) {
+				throw new AssertionError("재시도 로그 형식이 계약과 다릅니다: " + message);
+			}
+			Long roomId = matcher.group(2) == null ? null : Long.valueOf(matcher.group(2));
+			return new RetryLogRecord(
+				matcher.group(1),
+				roomId,
+				Integer.parseInt(matcher.group(3)),
+				event.getLevel());
 		}
 
 		private void detach() {

@@ -28,11 +28,12 @@
 
 - 요청별 응답시간은 command 시작부터 `System.nanoTime()`의 종료까지 기록한다. 이는 monotonic time이며 결정적 gate가 추가한 barrier 대기시간만 별도 차감해 스케줄링 편차와 wall clock 변경의 영향을 표본에서 제외한다.
 - 결과 분포는 `success`, `businessFailure`, `concurrencyFailure`, `technicalFailure` 네 범주로 기록한다. 네 값의 합은 요청 수와 같아야 한다.
-- 실제 `RoomOptimisticLockRetrier`의 `room_participation_retry` 로그에서 attempt를 읽는다. 요청별 재시도 횟수는 `attemptCount - 1`이고, `0`·`1`·`2`회 bucket과 세 번째 시도 소진을 별도 기록한다.
+- 요청별 재시도 bucket은 기준선 테스트가 주입한 `MeasuredRoomOptimisticLockRetrier`의 `beforeRetry` hook 호출 횟수에서 산출한다. hook은 실제 `RoomOptimisticLockRetrier` 실행 경계 안에서 다음 시도 직전에 호출되므로 `retryCount = beforeRetry 호출 횟수`이며, `0`·`1`·`2`회 bucket과 세 번째 시도 소진을 별도 기록한다.
+- 실제 `RoomOptimisticLockRetrier`의 `room_participation_retry` 로그는 bucket 산출 근거와 분리한 형식 회귀 원자료로 수집한다. 로그의 `event`, 선택적 `roomId`, `attempt`를 파싱하고 DEBUG는 다음 시도, WARN은 세 번째 시도 소진으로 검증한다. 결정적 재시도 테스트는 `event`·`attempt` 순서와 로그 수준을, 마지막 좌석 측정은 `event`·`roomId`·`attempt` 형식을 assertion한다.
 - 낙관 락 충돌 수는 재시도 조정자가 잡은 `OptimisticLockException` 또는 `ObjectOptimisticLockingFailureException` 수다. 충돌률은 `conflictCount / totalRequestCount`로 기록한다.
 - 측정 round 직전에 `pg_stat_statements_reset()`을 실행한다. round 뒤 같은 database의 `pg_stat_statements`에서 `calls`, `total_exec_time`, `rows`, `shared_blks_hit`, `shared_blks_read` 합계를 읽는다. fixture SQL과 reset 전 statement는 이 범위에 없다.
 - raw 결과는 테스트 로그에 한 줄 `ROOM10A_RAW` 레코드로 남긴다. 레코드는 결과 분포(`success`, `businessFailure`, `concurrencyFailure`, `technicalFailure`), 충돌(`conflictCount`, `conflictRate`), 재시도 bucket(`retry0`, `retry1`, `retry2`), 소진(`exhausted`), 요청별 단조 시간(`responseNanos`), PostgreSQL 비용(`calls`, `totalExecMs`, `rows`, `sharedBlksHit`, `sharedBlksRead`)을 같은 이름으로 남긴다.
-- fixture를 만든 뒤 측정 직전에 통계를 초기화하므로 fixture SQL은 PostgreSQL 비용에 포함하지 않는다. 기준선 테스트가 주입한 측정용 retrier와 raw logger의 계측 자체도 요청 결과와 별도로 다룬다.
+- fixture를 만든 뒤 측정 직전에 통계를 초기화하므로 fixture SQL은 PostgreSQL 비용에 포함하지 않는다. 기준선 테스트가 주입한 측정용 retrier의 hook 계측과 raw logger의 형식 회귀 검증은 요청 결과와 별도로 다룬다.
 - 수준 간 결과는 같은 필드명과 산식만 비교할 수 있으며, 수준 간 해석과 재시도 소진율 변곡점 판정은 ROOM-10c가 소유한다.
 
 ## PostgreSQL 검증 불변식
