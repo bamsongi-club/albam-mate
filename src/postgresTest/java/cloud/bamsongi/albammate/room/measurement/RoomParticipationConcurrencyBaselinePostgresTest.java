@@ -112,9 +112,15 @@ class RoomParticipationConcurrencyBaselinePostgresTest {
 
 	@Test
 	void gate_대기_시간은_응답시간에서_한_번만_제외한다() {
-		assertEquals(
-			300L,
-			RoomConcurrencyBaselineSupport.RoomReadGate.calculateResponseNanos(1_000L, 1_500L, 200L));
+		RoomConcurrencyBaselineSupport.RoomReadGate gate = new RoomConcurrencyBaselineSupport.RoomReadGate(
+			() -> 1_500L);
+		gate.armResponseTimer();
+		try {
+			gate.recordGateWaitNanos(200L);
+			assertEquals(300L, gate.elapsedNanosSince(1_000L));
+		} finally {
+			gate.clearResponseTimer();
+		}
 	}
 
 	@Test
