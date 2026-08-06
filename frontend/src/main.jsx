@@ -654,7 +654,9 @@ function PlayedGameToggle({ played, pending, onToggle, compact = false }) {
       disabled={pending}
       onClick={onToggle}
     >
-      {compact ? null : '해봤어요'}
+      {compact
+        ? <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
+        : '해봤어요'}
     </button>
   );
 }

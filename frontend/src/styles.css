@@ -268,9 +268,10 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .played-toggle.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .played-toggle:disabled { opacity: 0.55; }
 /* 목록 카드에서는 표지 오른쪽 위 점 하나로 둔다. 어떤 표지 위에서도 보이게 흰 테두리를 준다. */
-.played-toggle.dot { background: rgba(255, 255, 255, 0.82); border: 2px solid #fff; box-shadow: 0 1px 4px rgba(60, 40, 25, 0.3); height: 20px; padding: 0; position: absolute; right: 25px; top: 25px; width: 20px; z-index: 1; }
-.played-toggle.dot:hover:not(:disabled) { background: #fff; border-color: var(--accent); }
-.played-toggle.dot.on { background: var(--accent); border-color: #fff; }
+/* 표지 위에 얹는 점 변형. 빈 원은 무엇을 하는 조작인지 알 수 없어 체크 표시를 넣는다. */
+.played-toggle.dot { align-items: center; background: rgba(255, 255, 255, 0.82); border: 2px solid #fff; box-shadow: 0 1px 4px rgba(60, 40, 25, 0.3); color: var(--gray); display: inline-flex; height: 22px; justify-content: center; padding: 0; position: absolute; right: 25px; top: 25px; width: 22px; z-index: 1; }
+.played-toggle.dot:hover:not(:disabled) { background: #fff; border-color: var(--accent); color: var(--accent-dark); }
+.played-toggle.dot.on { background: var(--accent); border-color: #fff; color: #fff; }
 .scard-top { align-items: flex-start; display: flex; gap: 12px; }
 .gemoji { align-items: center; background: var(--soft); border-radius: 10px; display: flex; flex: 0 0 52px; font-size: 29px; height: 52px; justify-content: center; width: 52px; }
 .srow { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; margin: 11px 0 9px; }
@@ -552,7 +553,9 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
   .mechanism-advanced .filter-close { display: block; margin-top: 12px; min-height: 44px; }
   .mechanism-hint-button { height: 26px; width: 26px; }
   .mechanism-hint-text { width: 60vw; }
-  .played-toggle { min-height: 40px; }
+  /* 손가락 탭 높이는 글자 버튼에만 준다. 점 변형까지 늘리면 원이 세로로 찌그러진다. */
+  .played-toggle:not(.dot) { min-height: 40px; }
+  .played-toggle.dot { height: 26px; right: 20px; top: 20px; width: 26px; }
   .pagination { gap: 8px; }
   .checkline { min-height: 44px; }
   .checkline input { height: 20px; width: 20px; }
