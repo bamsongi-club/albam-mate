@@ -52,7 +52,7 @@ import cloud.bamsongi.albammate.room.service.command.RoomStatusChangeService;
 
 /** PostgreSQL에서 ROOM 변경의 실제 커밋 순서별 Outbox 수신자 스냅샷을 검증한다. */
 @Testcontainers
-@SpringBootTest(classes = AlbamMateApplication.class)
+@SpringBootTest(classes = AlbamMateApplication.class, properties = "app.notification.relay.enabled=false")
 @Import(NotificationRoomChangeOutboxPostgresTest.AheadApplicationClockConfiguration.class)
 class NotificationRoomChangeOutboxPostgresTest {
 
