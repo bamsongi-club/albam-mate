@@ -12,7 +12,9 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.WebSocket;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;
@@ -295,6 +297,12 @@ class ChatMessagePublishFailureRecoveryIntegrationTest {
 
 	@TestConfiguration(proxyBeanMethods = false)
 	static class TestBeans {
+
+		@Bean
+		@Primary
+		Clock fixedClock() {
+			return Clock.fixed(NOW, ZoneOffset.UTC);
+		}
 
 		@Bean
 		ChatRealtimePublishControl chatRealtimePublishControl() {
