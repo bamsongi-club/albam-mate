@@ -24,17 +24,17 @@
 
 시간은 JSON의 `elapsedNanos / 1_000_000`, 처리량은 JSON의 `throughputPerSecond`를 그대로 표시했다. 성공 결과의 각 warm-up·실측 run에는 후보 수·변경 수·run 시작 환경·`pg_stat_statements` query별 호출 수·DB 실행시간·행 수·shared buffer hit/read가 남아 있으며, 표의 원자료는 아래 버전 관리 파일과 SHA-256으로 고정한다.
 
-## 수집 원자료와 증거 파일
+## 측정 결과와 증거 파일
 
-테스트는 먼저 `build/reports/measurements/`에 JSON을 생성하고, 이 결과 문서의 표에 사용한 동일 파일을 `raw/room-09c/`에 보존했다. 따라서 `build/` 경로의 재생성 파일이 아니라 아래 버전 관리 파일을 결과의 증거로 사용한다.
+테스트는 먼저 `build/reports/measurements/`에 JSON을 생성하고, 이 결과 문서의 표에 사용한 동일 파일을 `results/room-09c/`에 보존했다. 따라서 `build/` 경로의 재생성 파일이 아니라 아래 버전 관리 파일을 결과의 증거로 사용한다.
 
 | 파일 | 의미 | SHA-256 |
 | --- | --- | --- |
-| [`room-09c-small.json`](raw/room-09c/room-09c-small.json) | small 성공 결과, 실측 5회 | `D218957B99C7FC460C827FA8BC60F72FD60338ABF338641B3387DBBECCB6B68B` |
-| [`room-09c-medium.json`](raw/room-09c/room-09c-medium.json) | medium 성공 결과, 실측 5회 | `86E66FC90F77834E48DC934E7825797E846228FBEA880B0D7BCBEF35ED260BC7` |
-| [`room-09c-large.json`](raw/room-09c/room-09c-large.json) | large 성공 결과, 실측 5회 | `82B8997468F19CD1CFD02D991367BFCFAF6AA3FE1FD9F9900689FDAB4A1FD02F` |
-| [`room-09c-small-run-failure.json`](raw/room-09c/room-09c-small-run-failure.json) | 후보 수 사전 검증 실패와 부분 실행 원자료 | `54F7A6AAA289708B7E8FF628D9C7A959EAB945061D567AF0798A842500106B5C` |
-| [`room-09c-measurement-gate.json`](raw/room-09c/room-09c-measurement-gate.json) | 기본·명시 profile과 재현 selector | `DD67D15E859FB25EE48B3B4AA84BED975919E6AC27477C6DF5E893B7D7C36D07` |
+| [`room-09c-small.json`](results/room-09c/room-09c-small.json) | small 성공 결과, 실측 5회 | `D218957B99C7FC460C827FA8BC60F72FD60338ABF338641B3387DBBECCB6B68B` |
+| [`room-09c-medium.json`](results/room-09c/room-09c-medium.json) | medium 성공 결과, 실측 5회 | `86E66FC90F77834E48DC934E7825797E846228FBEA880B0D7BCBEF35ED260BC7` |
+| [`room-09c-large.json`](results/room-09c/room-09c-large.json) | large 성공 결과, 실측 5회 | `82B8997468F19CD1CFD02D991367BFCFAF6AA3FE1FD9F9900689FDAB4A1FD02F` |
+| [`room-09c-small-run-failure.json`](results/room-09c/room-09c-small-run-failure.json) | 후보 수 사전 검증 실패와 부분 실행 결과 | `54F7A6AAA289708B7E8FF628D9C7A959EAB945061D567AF0798A842500106B5C` |
+| [`room-09c-measurement-gate.json`](results/room-09c/room-09c-measurement-gate.json) | 기본·명시 profile과 재현 selector | `DD67D15E859FB25EE48B3B4AA84BED975919E6AC27477C6DF5E893B7D7C36D07` |
 
 각 실행은 `build/reports/measurements/room-09c-{small|medium|large}.json`에 다음을 기록한다.
 
