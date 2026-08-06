@@ -45,6 +45,16 @@ public class GameListRequest {
 
 	private List<@NotBlank @Pattern(regexp = "[A-Z][A-Z0-9_]*") String> mechanism;
 
+	private List<@NotBlank @Pattern(regexp = "[A-Z][A-Z0-9_]*") String> category;
+
+	private List<@NotBlank @Pattern(regexp = "[A-Z][A-Z0-9_]*") String> theme;
+
+	private List<ThemeMatch> themeMatch;
+
+	private List<@Min(1) Integer> recommendedPlayerCount;
+
+	private List<@Min(1) Integer> bestPlayerCount;
+
 	@Min(0) private int page = 0;
 
 	@Min(1) @Max(100) private int size = 10;
@@ -148,6 +158,46 @@ public class GameListRequest {
 		this.mechanism = mechanism;
 	}
 
+	public List<String> getCategory() {
+		return category;
+	}
+
+	public void setCategory(List<String> category) {
+		this.category = category;
+	}
+
+	public List<String> getTheme() {
+		return theme;
+	}
+
+	public void setTheme(List<String> theme) {
+		this.theme = theme;
+	}
+
+	public ThemeMatch getThemeMatch() {
+		return themeMatch == null || themeMatch.isEmpty() ? ThemeMatch.ANY : themeMatch.getFirst();
+	}
+
+	public void setThemeMatch(List<ThemeMatch> themeMatch) {
+		this.themeMatch = themeMatch;
+	}
+
+	public List<Integer> getRecommendedPlayerCount() {
+		return recommendedPlayerCount;
+	}
+
+	public void setRecommendedPlayerCount(List<Integer> recommendedPlayerCount) {
+		this.recommendedPlayerCount = recommendedPlayerCount;
+	}
+
+	public List<Integer> getBestPlayerCount() {
+		return bestPlayerCount;
+	}
+
+	public void setBestPlayerCount(List<Integer> bestPlayerCount) {
+		this.bestPlayerCount = bestPlayerCount;
+	}
+
 	@AssertTrue(message = "complexityMin은 complexityMax보다 클 수 없습니다.") public boolean isComplexityRangeValid() {
 		return complexityMin == null || complexityMax == null || complexityMin.compareTo(complexityMax) <= 0;
 	}
@@ -165,6 +215,10 @@ public class GameListRequest {
 
 	@AssertTrue(message = "playedFilter는 한 번만 전달할 수 있습니다.") public boolean isPlayedFilterSingleValue() {
 		return playedFilter == null || (playedFilter.size() == 1 && playedFilter.getFirst() != null);
+	}
+
+	@AssertTrue(message = "themeMatch는 한 번만 전달할 수 있습니다.") public boolean isThemeMatchSingleValue() {
+		return themeMatch == null || (themeMatch.size() == 1 && themeMatch.getFirst() != null);
 	}
 
 	public int getPage() {

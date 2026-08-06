@@ -49,8 +49,9 @@ jobs:
             }
           }
 
-          if ($body -match "(?m)^## 테스트\s*$" -and $body -notmatch "(?m)^## 테스트 및 확인\s*$") {
-            Write-Host "::error title=PR body template::테스트 섹션 제목은 '## 테스트 및 확인'을 사용해야 합니다."
+          $testSectionPattern = '(?ms)^## 테스트 및 확인\s*\r?\n\s*<details>\s*<summary>\s*상세 내용\s*</summary>.*?</details>'
+          if ($body -notmatch $testSectionPattern) {
+            Write-Host "::error title=PR body template::테스트 및 확인 아래에 '상세 내용' details 영역이 필요합니다."
             $hasError = $true
           }
 

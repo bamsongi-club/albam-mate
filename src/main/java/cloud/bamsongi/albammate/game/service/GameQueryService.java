@@ -25,9 +25,14 @@ import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.PlayedFilter;
 import cloud.bamsongi.albammate.game.entity.Game;
+import cloud.bamsongi.albammate.game.repository.GameCategoryRelationRepository;
+import cloud.bamsongi.albammate.game.repository.GameCategoryRepository;
 import cloud.bamsongi.albammate.game.repository.GameListRow;
 import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
+import cloud.bamsongi.albammate.game.repository.GamePlayerPreferenceRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
+import cloud.bamsongi.albammate.game.repository.GameThemeRelationRepository;
+import cloud.bamsongi.albammate.game.repository.GameThemeRepository;
 import cloud.bamsongi.albammate.game.repository.UserPlayedGameRepository;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -45,6 +50,11 @@ public class GameQueryService implements GameQuery {
 	@NonNull private final UpcomingRoomCountQuery upcomingRoomCountQuery;
 	@NonNull private final GameMechanismRepository gameMechanismRepository;
 	@NonNull private final UserPlayedGameRepository userPlayedGameRepository;
+	private final GameCategoryRepository gameCategoryRepository;
+	private final GameThemeRepository gameThemeRepository;
+	private final GameCategoryRelationRepository gameCategoryRelationRepository;
+	private final GameThemeRelationRepository gameThemeRelationRepository;
+	private final GamePlayerPreferenceRepository gamePlayerPreferenceRepository;
 
 	/**
 	 * 게임 이름 검색 결과를 페이지로 조회하고 조회 시각 기준 예정 모임 수를 결합한다.
@@ -98,11 +108,27 @@ public class GameQueryService implements GameQuery {
 			throw new UnauthenticatedException();
 		}
 		validatePublicMechanismCodes(request.getMechanism());
+		validateCategoryCodes(request.getCategory());
+		validateThemeCodes(request.getTheme());
 		GameListSearchCriteria criteria = GameListSearchCriteria.from(request);
 		if (playedFilter != null) {
 			criteria = criteria.withPlayedFilter(currentUserId);
 		}
 		return findPage(criteria, page, size, currentUserId);
+	}
+
+	private void validateCategoryCodes(List<String> requestedCodes) {
+		List<String> codes = requestedCodes == null ? List.of() : requestedCodes.stream().distinct().toList();
+		if (!codes.isEmpty() && gameCategoryRepository.countByCodeIn(codes) != codes.size()) {
+			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+		}
+	}
+
+	private void validateThemeCodes(List<String> requestedCodes) {
+		List<String> codes = requestedCodes == null ? List.of() : requestedCodes.stream().distinct().toList();
+		if (!codes.isEmpty() && gameThemeRepository.countByCodeIn(codes) != codes.size()) {
+			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+		}
 	}
 
 	private void validatePublicMechanismCodes(List<String> requestedCodes) {
@@ -185,7 +211,17 @@ public class GameQueryService implements GameQuery {
 			.getOrDefault(game.getId(), 0L);
 
 		Boolean playedByMe = playedByMe(currentUserId, gameId);
-		return GameDetail.from(game, upcomingRoomCount, playedByMe);
+		if (gameCategoryRelationRepository == null) {
+			return GameDetail.from(game, upcomingRoomCount, playedByMe);
+		}
+		var categories = gameCategoryRelationRepository.findSummariesByGameIdIn(List.of(gameId)).stream()
+			.map(cloud.bamsongi.albammate.game.dto.GameCategorySummary::from).toList();
+		var themes = gameThemeRelationRepository.findSummariesByGameIdIn(List.of(gameId)).stream()
+			.map(cloud.bamsongi.albammate.game.dto.GameThemeSummary::from).toList();
+		var preferences = gamePlayerPreferenceRepository.findByGameIdOrderByIdPlayerCountAsc(gameId);
+		return GameDetail.from(game, upcomingRoomCount, playedByMe, categories, themes,
+			preferences.stream().filter(p -> p.isRecommended()).map(p -> p.getPlayerCount()).toList(),
+			preferences.stream().filter(p -> p.isBest()).map(p -> p.getPlayerCount()).toList());
 	}
 
 	private Boolean playedByMe(Long currentUserId, Long gameId) {

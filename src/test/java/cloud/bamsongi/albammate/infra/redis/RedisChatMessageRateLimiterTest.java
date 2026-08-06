@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
@@ -27,7 +28,9 @@ class RedisChatMessageRateLimiterTest {
 
 	@BeforeEach
 	void setUp() {
-		limiter = new RedisChatMessageRateLimiter(mock(RedisConnectionFactory.class));
+		MockEnvironment environment = new MockEnvironment();
+		environment.setActiveProfiles("local-multi");
+		limiter = new RedisChatMessageRateLimiter(mock(RedisConnectionFactory.class), environment);
 		redisTemplate = mock(StringRedisTemplate.class);
 		ReflectionTestUtils.setField(limiter, "redisTemplate", redisTemplate);
 	}

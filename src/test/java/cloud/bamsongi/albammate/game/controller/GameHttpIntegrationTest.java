@@ -191,6 +191,28 @@ class GameHttpIntegrationTest {
 	}
 
 	@Test
+	void 게임_목록과_상세는_최소_연령을_값과_NULL로_반환한다() throws Exception {
+		Game knownAge = saveGame(42411L, "MinAgeKnown", "연령 설명", "상세 설명");
+		ReflectionTestUtils.setField(knownAge, "minAge", 8);
+		gameRepository.saveAndFlush(knownAge);
+		Game unknownAge = saveGame(42412L, "MinAgeUnknown", "연령 설명", "상세 설명");
+
+		mockMvc.perform(get("/api/games").param("keyword", "MinAgeKnown"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.content[0].minAge").value(8));
+		mockMvc.perform(get("/api/games/{gameId}", knownAge.getId()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.minAge").value(8));
+
+		mockMvc.perform(get("/api/games").param("keyword", "MinAgeUnknown"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.content[0].minAge").value((Object)null));
+		mockMvc.perform(get("/api/games/{gameId}", unknownAge.getId()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.minAge").value((Object)null));
+	}
+
+	@Test
 	void 검색_수치가_NULL이어도_기존_표시_필드는_유지하고_API에_노출하지_않는다() throws Exception {
 		Game game = saveGame(10032L, "표시 문자열 유지", "게임 설명", "게임 상세 설명");
 		ReflectionTestUtils.setField(game, "minPlayers", null);

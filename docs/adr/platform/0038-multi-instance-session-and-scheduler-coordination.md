@@ -38,13 +38,13 @@ P1은 채팅을 별도 서비스로 분리하지 않고 현재 Spring Boot 모�
 
 P1은 하나의 Spring Boot 모듈러 모놀리스를 다음 세 실행 프로필로 운영한다.
 
-- `local-single`: 빠른 단일 서버 개발용이다. 인메모리 세션·채팅 fan-out을 허용하지만 다중 인스턴스 검증 근거로 인정하지 않는다.
+- `local-single`: 실제 Spring profile `local`을 쓰는 빠른 단일 서버 개발용이다. 인메모리 세션·채팅 fan-out을 허용하지만 다중 인스턴스 검증 근거로 인정하지 않는다.
 - `local-multi`: 로컬 프록시 뒤 애플리케이션 두 대와 공용 PostgreSQL·Redis로 구성하고 P1 필수 교차 인스턴스 검증 환경으로 사용한다.
-- `prod`: ALB가 ASG 애플리케이션 인스턴스로 요청을 분산하고 모든 인스턴스가 공용 RDS PostgreSQL·Redis를 사용한다. 실제 AWS scale-out·WebSocket Upgrade·연결 draining 검증은 후속 OPS로 분리한다.
+- `production`: ALB가 ASG 애플리케이션 인스턴스로 요청을 분산하고 모든 인스턴스가 공용 RDS PostgreSQL·Redis를 사용한다. 실제 AWS scale-out·WebSocket Upgrade·연결 draining 검증은 후속 OPS로 분리한다.
 
-`local-multi`와 `prod`의 `JSESSIONID` 인증 상태는 Spring Session Redis로 공유한다. ALB stickiness는 연결 분산 최적화에 사용할 수 있지만 인증 정합성과 재연결 성공의 전제는 아니다. 하나의 공용 Redis를 Spring Session, 채팅 Pub/Sub과 사용자·방 단위 전송 제한에 사용하되 key prefix, TTL과 channel namespace를 논리적으로 분리한다.
+`local-multi`와 `production`의 `JSESSIONID` 인증 상태는 Spring Session Redis로 공유한다. ALB stickiness는 연결 분산 최적화에 사용할 수 있지만 인증 정합성과 재연결 성공의 전제는 아니다. 하나의 공용 Redis를 Spring Session, 채팅 Pub/Sub과 사용자·방 단위 전송 제한에 사용하되 key prefix, TTL과 channel namespace를 논리적으로 분리한다.
 
-`local-multi`와 `prod`는 Redis가 필요한 세션·전송 제한 경로를 인메모리 구현으로 자동 대체하지 않는다. 세션 또는 전송 제한 상태를 확인할 수 없으면 API 정본의 `503 SERVICE_UNAVAILABLE`로 실패시킨다. 이 ADR은 fallback 금지와 실패 방향만 소유하고, 어떤 엔드포인트가 이 코드를 반환하는지는 [API 정본](../../API.md#101-공통-오류)이 소유한다. 현재 API 정본에 반영된 적용 범위는 채팅 API이며, 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트로의 확장은 적용 엔드포인트를 명시한 별도 계약 변경으로 승인한다. PostgreSQL 커밋 뒤 채팅 Pub/Sub만 실패한 경우의 저장 결과와 복구 방식은 [ADR-0033](../chat/0033-postgresql-source-after-commit-delivery.md)이 소유한다.
+`local-multi`와 `production`은 Redis가 필요한 세션·전송 제한 경로를 인메모리 구현으로 자동 대체하지 않는다. 세션 또는 전송 제한 상태를 확인할 수 없으면 API 정본의 `503 SERVICE_UNAVAILABLE`로 실패시킨다. 이 ADR은 fallback 금지와 실패 방향만 소유하고, 어떤 엔드포인트가 이 코드를 반환하는지는 [API 정본](../../API.md#101-공통-오류)이 소유한다. 현재 API 정본에 반영된 적용 범위는 채팅 API이며, 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트로의 확장은 적용 엔드포인트를 명시한 별도 계약 변경으로 승인한다. PostgreSQL 커밋 뒤 채팅 Pub/Sub만 실패한 경우의 저장 결과와 복구 방식은 [ADR-0033](../chat/0033-postgresql-source-after-commit-delivery.md)이 소유한다.
 
 ROOM 상태 보정과 채팅 만료 삭제는 모든 인스턴스에 Spring Scheduler를 등록하고 PostgreSQL 기반 ShedLock으로 한 실행 주기의 소유자를 하나로 제한한다.
 
@@ -88,9 +88,10 @@ ROOM 상태 보정과 채팅 만료 삭제는 모든 인스턴스에 Spring Sche
 ## 검증
 
 - 상태: 미검증
-- 근거: #360에서 세션·local-multi 구현과 T1~T7 실행 경로를 추가했으며, 이 ADR의 ShedLock·실제 AWS 운영 검증은 별도 범위다.
+- 근거:
+    - 구현: [#360](https://github.com/bamsongi-club/albam-mate/issues/360)에서 `local-multi` Spring Session Redis를, [#286](https://github.com/bamsongi-club/albam-mate/issues/286)에서 같은 세션 계약의 `production` profile과 Redis Pub/Sub을 구현했다.
+    - 테스트: #286의 production 두 인스턴스 Redis 세션·채팅 fan-out PostgreSQL 검증이 같은 `JSESSIONID`와 PostgreSQL catch-up 경계를 확인한다.
 - 미검증:
-    - #360의 승인 backend test runner 최종 결과와 실제 실행 증거를 이 ADR에 아직 고정하지 않았다.
     - PostgreSQL ShedLock 단일 실행, 잠금 보유 인스턴스 종료와 임대 만료 복구를 확인하지 않았다.
     - 실제 AWS ALB·ASG와 운영 Redis 구성은 후속 OPS 검증이 필요하다.
 

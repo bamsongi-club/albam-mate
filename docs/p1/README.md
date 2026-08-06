@@ -16,7 +16,7 @@ P1 2차 MVP의 현재 계획·구현 기준 문서 묶음이다. 문서가 존�
 
 기능 구현은 해당 기능 문서의 완료 기준과 현재 [API](../API.md), [ERD](../ERD.md), 관련 승인 ADR을 함께 충족해야 한다. API에 적은 P1 인터페이스 중 제공 상태가 `구현 예정`인 계약은 코드·ERD·아키텍처와 필요한 ADR에 반영되고 검증되기 전에는 현재 제공 기능으로 보지 않는다.
 
-P1 저장 계약의 준비 상태는 기능별로 다르다. 알림 저장 계약, 승인된 PART-04 대기열 저장 계약과 P1 채팅 저장 구조 및 [ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)의 ShedLock 구조는 [ERD](../ERD.md)에 구현 예정 계약으로 반영됐고, 기능 전체의 계약 준비 여부는 아래 표의 `계약 준비` 열을 따른다. 구현 작업은 준비된 저장 계약도 전진 Flyway 마이그레이션과 생산 코드로 구현해야 하며, `선행 계약 필요`인 기능의 미확정 문서 후보를 그대로 물리 저장 계약으로 사용하지 않는다. 다만 같은 이슈·PR에서 아래 단일 이슈·PR 규칙의 1~2단계를 마쳐 선택한 계약을 정본에 반영했다면, 상태표의 중간 갱신 없이 그 계약으로 구현을 계속할 수 있다.
+P1 저장 계약의 준비 상태는 기능별로 다르다. 알림 저장 계약, 승인된 PART-04 대기열 저장 계약과 P1 채팅 저장 구조, [ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)의 ShedLock 구조와 ROOM 상태 보정 영속 진행 상태는 [ERD](../ERD.md)에 구현 예정 계약으로 반영됐고, 기능 전체의 계약 준비 여부는 아래 표의 `계약 준비` 열을 따른다. 구현 작업은 준비된 저장 계약도 전진 Flyway 마이그레이션과 생산 코드로 구현해야 하며, `선행 계약 필요`인 기능의 미확정 문서 후보를 그대로 물리 저장 계약으로 사용하지 않는다. 다만 같은 이슈·PR에서 아래 단일 이슈·PR 규칙의 1~2단계를 마쳐 선택한 계약을 정본에 반영했다면, 상태표의 중간 갱신 없이 그 계약으로 구현을 계속할 수 있다.
 
 ## 기능별 현재 상태
 
@@ -25,23 +25,23 @@ P1 저장 계약의 준비 상태는 기능별로 다르다. 알림 저장 계�
 | 기능 ID | 계약 준비 | 생산 코드 | 자동 검증 | 운영 배포·실측 |
 | --- | --- | --- | --- | --- |
 | [`AUTH-05`](social-login.md#auth-05-소셜-로그인계정-연결) | 계약 준비 완료 | 구현 완료 ([#331](https://github.com/bamsongi-club/albam-mate/issues/331), [#332](https://github.com/bamsongi-club/albam-mate/issues/332), [#333](https://github.com/bamsongi-club/albam-mate/issues/333), [#334](https://github.com/bamsongi-club/albam-mate/issues/334)) | 검증 완료 ([#331](https://github.com/bamsongi-club/albam-mate/issues/331), [#332](https://github.com/bamsongi-club/albam-mate/issues/332), [#333](https://github.com/bamsongi-club/albam-mate/issues/333), [#334](https://github.com/bamsongi-club/albam-mate/issues/334), [#425](https://github.com/bamsongi-club/albam-mate/issues/425): 제공자 콘솔 등록이 필요한 수동 QA 수행됨) | 미배포·미측정 |
-| [`SEARCH-01`](search.md#search-01-게임-조건-검색) | 계약 준비 완료 | 구현 완료 ([#293](https://github.com/bamsongi-club/albam-mate/issues/293), [#295](https://github.com/bamsongi-club/albam-mate/issues/295), [#348](https://github.com/bamsongi-club/albam-mate/issues/348), [#351](https://github.com/bamsongi-club/albam-mate/issues/351), [#357](https://github.com/bamsongi-club/albam-mate/issues/357): 프론트엔드 인원·시간·메커니즘 조건) | 검증 완료 ([#293](https://github.com/bamsongi-club/albam-mate/issues/293), [#295](https://github.com/bamsongi-club/albam-mate/issues/295), [#348](https://github.com/bamsongi-club/albam-mate/issues/348), [#351](https://github.com/bamsongi-club/albam-mate/issues/351), [#357](https://github.com/bamsongi-club/albam-mate/issues/357): 대표 메커니즘 설명 문구는 사람 검수 완료) | 미배포·미측정 |
+| [`SEARCH-01`](search.md#search-01-게임-조건-검색) | 계약 준비 완료 ([#420](https://github.com/bamsongi-club/albam-mate/issues/420)) | 부분 구현 (기존 [#293](https://github.com/bamsongi-club/albam-mate/issues/293), [#295](https://github.com/bamsongi-club/albam-mate/issues/295), [#348](https://github.com/bamsongi-club/albam-mate/issues/348), [#351](https://github.com/bamsongi-club/albam-mate/issues/351), [#357](https://github.com/bamsongi-club/albam-mate/issues/357): 프론트엔드 인원·시간·메커니즘 조건 완료; #420 메타데이터 관계·필터 구현 중) | 부분 검증 (기존 이슈와 [#357](https://github.com/bamsongi-club/albam-mate/issues/357) 검증 완료; #420 메타데이터 적재·성능 실측은 진행 중) | 미배포·미측정 |
 | [`SEARCH-02`](search.md#search-02-방-조건-검색) | 계약 준비 완료 | 구현 완료 ([#294](https://github.com/bamsongi-club/albam-mate/issues/294), [PR #317](https://github.com/bamsongi-club/albam-mate/pull/317)) | 검증 완료 ([#294](https://github.com/bamsongi-club/albam-mate/issues/294), [PR #317](https://github.com/bamsongi-club/albam-mate/pull/317)) | 미배포·미측정 |
 | [`SEARCH-03`](search.md#search-03-사용자별-해-본-게임) | 계약 준비 완료 | 구현 완료 ([#356](https://github.com/bamsongi-club/albam-mate/issues/356), [#357](https://github.com/bamsongi-club/albam-mate/issues/357): 프론트엔드 `SEARCH-03-AC7`) | 검증 완료 ([#356](https://github.com/bamsongi-club/albam-mate/issues/356): H2·PostgreSQL 대상 테스트, [#357](https://github.com/bamsongi-club/albam-mate/issues/357): 프론트엔드 표시·취소·관계 필터 테스트) | 미배포·미측정 |
 | [`ROOM-08`](room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | 계약 준비 완료 | 구현 완료 ([#303](https://github.com/bamsongi-club/albam-mate/issues/303)) | 검증 완료 ([#303](https://github.com/bamsongi-club/albam-mate/issues/303): H2·PostgreSQL 대상 테스트) | 미배포·미측정 |
 | [`PART-04`](room.md#part-04-선착순-대기열과-자동-승격) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
-| [`ROOM-09`](room.md#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |
+| [`ROOM-09`](room.md#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화) | 계약 준비 완료 | 부분 구현 ([#381](https://github.com/bamsongi-club/albam-mate/issues/381): 영속 progress·ShedLock 실행 기반; 전체 제한 후보 선별·ROOM별 처리·전체 순회는 [#382](https://github.com/bamsongi-club/albam-mate/issues/382) 후속) | 부분 검증 ([#381](https://github.com/bamsongi-club/albam-mate/issues/381): T1–T6 단위·PostgreSQL·local-multi; 기준선·측정은 [#383](https://github.com/bamsongi-club/albam-mate/issues/383)·[#390](https://github.com/bamsongi-club/albam-mate/issues/390) 후속) | 미배포·미측정 |
 | [`ROOM-10`](room.md#room-10-동시성과-락-전략-실증) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |
 | [`NOTI-01`](notification.md#noti-01-모임-변경-알림-생성) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
 | [`NOTI-02`](notification.md#noti-02-내-알림-목록미확인-개수) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
 | [`NOTI-03`](notification.md#noti-03-알림-읽음-처리) | 계약 준비 완료 | 미구현 | 미검증 | 미배포·미측정 |
 | [`CHAT-01`](chatting.md#chat-01-채팅방-생성접근) | 선행 계약 필요 | 부분 구현 ([#279](https://github.com/bamsongi-club/albam-mate/issues/279)) | 부분 검증 ([#279](https://github.com/bamsongi-club/albam-mate/issues/279)) | 미배포·미측정 |
 | [`CHAT-02`](chatting.md#chat-02-메시지-전송이력-조회) | 계약 준비 완료 | 구현 완료 ([#427](https://github.com/bamsongi-club/albam-mate/issues/427)) | 검증 완료 ([#427](https://github.com/bamsongi-club/albam-mate/issues/427): 백엔드 전체 테스트·프론트 자동화 테스트·Vite build) | 미배포·미측정 |
-| [`CHAT-03`](chatting.md#chat-03-실시간-전달재연결-복구) | 선행 계약 필요 | 부분 구현 ([#285](https://github.com/bamsongi-club/albam-mate/issues/285)) | 부분 검증 ([#285](https://github.com/bamsongi-club/albam-mate/issues/285)) | 미배포·미측정 |
+| [`CHAT-03`](chatting.md#chat-03-실시간-전달재연결-복구) | 계약 준비 완료 | 구현 완료 ([#285](https://github.com/bamsongi-club/albam-mate/issues/285), [#286](https://github.com/bamsongi-club/albam-mate/issues/286)) | 검증 완료 ([#286](https://github.com/bamsongi-club/albam-mate/issues/286): H2·PostgreSQL T1~T12 대상 테스트) | 미배포·미측정 |
 | [`CHAT-04`](chatting.md#chat-04-채팅-안전운영) | 선행 계약 필요 | 미구현 | 미검증 | 미배포·미측정 |
 | [`CHAT-05`](chatting.md#chat-05-내-모임-채팅-진입) | 계약 준비 완료 | 구현 완료 ([#290](https://github.com/bamsongi-club/albam-mate/issues/290), [#427](https://github.com/bamsongi-club/albam-mate/issues/427)) | 검증 완료 ([#290](https://github.com/bamsongi-club/albam-mate/issues/290), [#427](https://github.com/bamsongi-club/albam-mate/issues/427)) | 미배포·미측정 |
 | [`FND-09`](foundation.md#fnd-09-검색-성능과-인덱스-검증) | 계약 준비 완료 | 구현 완료 (#307) | 검증 완료 (#307: PostgreSQL 검색 성능·인덱스 검증) | 미배포·미측정 |
-| [`FND-10`](foundation.md#fnd-10-실시간-전달과-재연결-기반) | 계약 준비 완료 | 부분 구현 ([#360](https://github.com/bamsongi-club/albam-mate/issues/360)) | 부분 검증 ([#360](https://github.com/bamsongi-club/albam-mate/issues/360)) | 미배포·미측정 |
+| [`FND-10`](foundation.md#fnd-10-실시간-전달과-재연결-기반) | 계약 준비 완료 | 구현 완료 ([#360](https://github.com/bamsongi-club/albam-mate/issues/360), [#286](https://github.com/bamsongi-club/albam-mate/issues/286)) | 검증 완료 ([#286](https://github.com/bamsongi-club/albam-mate/issues/286): H2·PostgreSQL T1~T12 대상 테스트) | 미배포·미측정 |
 
 - `계약 준비 완료`: 기능 구현에 필요한 제품·API·저장·아키텍처 계약과 필수 ADR이 모두 반영·승인됐다. 생산 코드나 검증 완료를 뜻하지 않는다.
 - `선행 계약 필요`: 기능 명세가 있더라도 필수 ADR 승인, ERD·아키텍처 반영 또는 `착수 전 확정`과 같은 구현 전 결정이 남아 있다.
@@ -61,7 +61,7 @@ P1 저장 계약의 준비 상태는 기능별로 다르다. 알림 저장 계�
 
 `CHAT-05`는 제품·API·저장·아키텍처 계약과 필수 ADR에 남은 결정이 없어 `계약 준비 완료`다. 이는 `CHAT-01`~`CHAT-03`의 구현 없이 독립적으로 사용자 흐름을 완료할 수 있다는 뜻이 아니다.
 
-`FND-10`은 `CHAT-03` 계약을 수동으로 기다리는 작업이 아니라 세션·Redis 구성값을 확정하고 실시간 기반을 구현하는 소유 작업이다. #360에서 위 값을 정본에 반영해 `계약 준비 완료`가 됐으며, 표의 `부분 구현`·`부분 검증`은 Spring Session·local-multi 기반에만 한정한다.
+`FND-10`은 `CHAT-03` 계약을 수동으로 기다리는 작업이 아니라 세션·Redis 구성값을 확정하고 실시간 기반을 구현하는 소유 작업이다. #360에서 `local-multi` 값을 정본에 반영하고 #286에서 같은 공유 세션·Pub/Sub 계약을 `production` profile까지 구현·검증해 `계약 준비 완료`가 됐다.
 
 ### 계약과 구현을 같은 이슈·PR에서 처리할 때
 

@@ -5,7 +5,7 @@
 - 결정일: 2026-08-03
 - 관련: [제품 후속 기능 후보](../../PRD.md#후속-기능-후보-도입-차수-미정), [ERD GAMES](../../ERD.md#games), [게임 목록·검색 API](../../API.md#game-01-게임-목록검색), [ADR-0015](0015-bgg-baseline-team-collected-game-list.md), [ADR-0018](0018-expansion-type-and-relations.md)
 - 대체 대상: 없음
-- 후속 ADR: 없음
+- 후속 ADR: [ADR-0050](0050-game-metadata-catalog-and-filters.md) — 17만건 카테고리·테마·추천/베스트 인원 관계 범위
 
 ## 맥락
 

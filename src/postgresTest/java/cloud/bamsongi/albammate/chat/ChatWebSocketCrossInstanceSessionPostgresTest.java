@@ -66,7 +66,7 @@ class ChatWebSocketCrossInstanceSessionPostgresTest {
 	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final String REDIS_IMAGE = "redis:8.4-alpine";
 	private static final Instant FUTURE_STARTS_AT = Instant.parse("2099-01-01T10:00:00Z");
-	private static final String ALLOWED_ORIGIN = "http://localhost:5173";
+	private static final String ALLOWED_ORIGIN = "http://localhost:5174";
 	private static final String PASSWORD = "123456789012345";
 	private static final Pattern CSRF_TOKEN_PATTERN = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"");
 

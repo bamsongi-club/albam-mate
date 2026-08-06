@@ -298,6 +298,8 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 
 .chat-main { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); display: flex; flex-direction: column; height: min(70vh, 620px); overflow: hidden; }
 .chat-log { background: var(--bg); flex: 1; overflow-y: auto; padding: 16px; }
+.chat-load-sentinel { height: 1px; }
+.chat-loading-more { margin: 0 0 10px; text-align: center; }
 .chat-day { display: grid; list-style: none; }
 .chat-daymark { align-items: center; display: flex; gap: 12px; margin: 4px 0 14px; }
 .chat-daymark::before, .chat-daymark::after { background: var(--line); content: ''; flex: 1; height: 1px; }
@@ -312,7 +314,6 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .chat-message.mine .chat-content { background: var(--amber-soft); border-color: transparent; }
 .chat-time { color: var(--gray); flex: 0 0 auto; font-size: 10.5px; font-variant-numeric: tabular-nums; padding-bottom: 2px; }
 .chat-empty { color: var(--sub); font-size: 13.5px; padding: 34px 0; text-align: center; }
-.chat-load-more { display: block; margin: 0 auto 14px; }
 
 .chat-compose { align-items: center; border-top: 1px solid var(--line); display: flex; gap: 8px; padding: 11px 13px; position: relative; }
 .chat-compose textarea { background: var(--bg); border-radius: 20px; max-height: 110px; min-height: 42px; padding: 10px 15px; resize: none; }

@@ -192,6 +192,8 @@ function productionEnvironment(certificateDirectory) {
         ALBAM_MATE_DB_NAME: 'albam_mate',
         ALBAM_MATE_DB_USER: 'verify_user',
         ALBAM_MATE_DB_PASSWORD: 'verify_password',
+        ALBAM_MATE_REDIS_HOST: 'redis.example.internal',
+        ALBAM_MATE_REDIS_PORT: '6379',
     };
 }
 
@@ -255,6 +257,14 @@ function assertProductionConfig(config) {
     assert(
         config.services.web.image === `registry.example.com/albam-mate/web:${releaseSha}`,
         'web does not use namespace/web with the shared release',
+    );
+    assert(
+        config.services.spring.environment.ALBAM_MATE_REDIS_HOST === 'redis.example.internal',
+        'Spring does not receive the required Redis host',
+    );
+    assert(
+        config.services.spring.environment.ALBAM_MATE_REDIS_PORT === '6379',
+        'Spring does not receive the Redis port',
     );
     for (const serviceName of serviceNames) {
         assert(

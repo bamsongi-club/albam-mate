@@ -8,7 +8,13 @@
 -
 
 ## 테스트 및 확인
+
+<details>
+<summary>상세 내용</summary>
+
 - [ ]
+
+</details>
 
 ## AI 활용 내용
 -

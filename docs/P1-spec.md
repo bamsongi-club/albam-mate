@@ -51,9 +51,7 @@ P1 기능 문서와 [기반 작업 문서](p1/foundation.md)는 P0와 같은 규
 P1은 P0의 탐색·방·참가 흐름을 유지하면서 다음 경험과 검증 기반을 필수 범위로 추가한다.
 
 - Google·Naver·Kakao 계정으로 로그인하고, 이메일이 같은 기존 계정은 로그인 뒤 명시적으로 연결한다.
-- 원하는 인원, 플레이 시간과 난이도로 게임을 찾는다.
-- 해 본 게임을 직접 표시·취소하고, 표시한 게임만 보거나 표시한 게임을 제외해 찾는다.
-- 원하는 인원, 플레이 시간, 난이도와 검수된 메커니즘으로 게임을 찾는다.
+- 170,000개 게임을 가능 인원, 플레이 시간, 난이도, 카테고리, 테마, 검수된 메커니즘, 추천·베스트 인원으로 찾는다.
 - 해 본 게임을 직접 표시·취소하고, 표시한 게임만 보거나 표시한 게임을 제외해 찾는다.
 - 날짜, 남은 자리, 경험 수준과 룰마스터 진행 여부로 방을 찾는다.
 - 시작 전 정원이 찬 방에 명시적으로 대기하고, 빈자리가 생기면 FIFO 순서로 자동 승격된다.
@@ -138,7 +136,7 @@ P1 필수 구현은 다음 여덟 가지 흐름을 처음부터 끝까지 연결
 | 영역 | 기능 ID | 필수 범위 | 상세 문서 |
 | --- | --- | --- | --- |
 | 인증 | `AUTH-05` | Google·Naver·Kakao 로그인, provider subject 기반 사용자 식별과 기존 계정의 명시적 연결 | [소셜 로그인](p1/social-login.md#auth-05-소셜-로그인계정-연결) |
-| 게임 탐색 | `SEARCH-01` | 약 2,000개 게임의 인원·시간·난이도를 정규화하고 검수된 메커니즘 189개 관계와 복합 필터 제공 | [게임 조건 검색](p1/search.md#search-01-게임-조건-검색) |
+| 게임 탐색 | `SEARCH-01` | 170,000개 게임의 카테고리·테마·추천/베스트 인원 관계와 기존 인원·시간·난이도·메커니즘의 복합 필터 제공 | [게임 조건 검색](p1/search.md#search-01-게임-조건-검색) |
 | 해 본 게임 | `SEARCH-03` | 사용자별 해 본 게임 표시·취소, 본인 표시 상태와 포함·제외 검색 제공 | [사용자별 해 본 게임](p1/search.md#search-03-사용자별-해-본-게임) |
 | 방 탐색 | `SEARCH-02` | 날짜, 남은 자리, 경험 수준과 룰마스터 진행 여부 필터 제공 | [방 조건 검색](p1/search.md#search-02-방-조건-검색) |
 | ROOM 행동 가능성 | `ROOM-08` | P0 방 상태와 직접 참가·대기 신청 가능 여부를 분리하고 요청자별 `waitlistable` 제공 | [ROOM 상태·행동 가능성](p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) |
@@ -310,14 +308,14 @@ P1 필수 구현은 다음 여덟 가지 흐름을 처음부터 끝까지 연결
 
 - `local-single`은 빠른 단일 서버 개발용 실행 환경이며 실제 Spring profile 이름은 `local`이다. 인메모리 세션·채팅 fan-out을 사용할 수 있지만 P1 다중 인스턴스 검증 근거로 인정하지 않는다.
 - `local-multi`는 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL과 Redis로 구성한다. HTTP 저장 요청과 WebSocket 연결이 다른 인스턴스에 도달하는 세션·전달·재연결 경로를 검증하며 P1 채팅 완료의 필수 환경이다.
-- `prod`의 목표 운영 토폴로지는 ALB, ASG 애플리케이션 인스턴스, 공용 RDS PostgreSQL과 Redis로 구성한다. 이 목표는 현재 운영 배포 완료를 뜻하지 않으며, 배포·실측 상태는 [P1 기능별 상태 정본](p1/README.md#기능별-현재-상태)의 `운영 배포·실측` 열을 따른다. 실제 AWS scale-out, WebSocket Upgrade, 인스턴스 교체와 연결 draining 검증은 후속 OPS로 분리하며 P1 채팅 구현 완료를 막지 않는다.
-- `local-multi`에서는 Redis를 필수 의존성으로 사용하고 인메모리 구현으로 자동 fallback하지 않는다. 세션 또는 전송 제한을 확인할 수 없을 때 `503 SERVICE_UNAVAILABLE`을 반환하는 현재 범위는 [API 정본](API.md#101-공통-오류)의 채팅 API 세 엔드포인트로 한정한다. 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트의 오류 계약은 적용 엔드포인트를 명시한 별도 계약 변경 전까지 확정하지 않는다.
-- Spring Session은 모든 프로필에서 같은 쿠키·직렬화·필터 경로를 사용하고 저장소만 분기한다. `local-multi`는 Redis, `local`·`test`·`postgresTest`는 30분 TTL의 인메모리 저장소를 사용한다. Redis 세션은 `SecurityJacksonModules`와 `CurrentUserPrincipal` mixin을 적용한 JSON serializer를 사용하고 namespace는 `albam-mate:local-multi:session`으로 둔다. rate limit과 채팅 이벤트 namespace는 각각 `albam-mate:local-multi:ratelimit`, `albam-mate:local-multi:chat:events`로 분리한다.
+- `production`의 목표 운영 토폴로지는 ALB, ASG 애플리케이션 인스턴스, 공용 RDS PostgreSQL과 Redis로 구성한다. 이 목표는 현재 운영 배포 완료를 뜻하지 않으며, 배포·실측 상태는 [P1 기능별 상태 정본](p1/README.md#기능별-현재-상태)의 `운영 배포·실측` 열을 따른다. 실제 AWS scale-out, WebSocket Upgrade, 인스턴스 교체와 연결 draining 검증은 후속 OPS로 분리하며 P1 채팅 구현 완료를 막지 않는다.
+- `local-multi`와 `production`은 Redis 세션을 필수 의존성으로 사용하고 인메모리 구현으로 자동 fallback하지 않는다. 세션 또는 전송 제한을 확인할 수 없을 때 `503 SERVICE_UNAVAILABLE`을 반환하는 현재 범위는 [API 정본](API.md#101-공통-오류)의 채팅 API 세 엔드포인트로 한정한다. 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트의 오류 계약은 적용 엔드포인트를 명시한 별도 계약 변경 전까지 확정하지 않는다.
+- Spring Session은 모든 프로필에서 같은 쿠키·직렬화·필터 경로를 사용하고 저장소만 분기한다. `local-multi`와 `production`은 30분 TTL의 Redis 저장소, `local`·`test`·`postgresTest`는 인메모리 저장소를 사용한다. Redis 세션은 `SecurityJacksonModules`와 `CurrentUserPrincipal` mixin을 적용한 JSON serializer를 사용하고 namespace는 각각 `albam-mate:local-multi:session`, `albam-mate:production:session`으로 둔다. rate limit namespace는 각각 `albam-mate:local-multi:ratelimit`, `albam-mate:production:ratelimit`으로, 환경별 채팅 이벤트 channel은 `albam-mate:{env}:chat:events`로 분리한다.
 - 하나의 공용 Redis를 Spring Session, 채팅 Pub/Sub, 사용자·방 단위 전송 제한에 사용하되 key prefix, TTL과 channel namespace를 분리한다.
 - Redis Pub/Sub은 `eventType`, `roomId`, `messageId`만 담은 best-effort 신호다. 메시지 본문·사용자·세션 정보와 영속 제품 상태는 저장하지 않는다.
 - Redis Pub/Sub 또는 WebSocket 실패는 이미 커밋된 PostgreSQL 메시지를 롤백하거나 삭제하지 않는다. 신호 누락·중복·순서 역전은 다음 신호나 `afterMessageId` 재연결에서 `messageId ASC` PostgreSQL 조회로 복구한다.
 - 운영 Redis 제품, HA, TLS, 접근 제어, 비밀 주입과 비용은 후속 OPS에서 확정한다.
-- `local-multi` 세션 TTL 30분, JSON 직렬화 방식과 정확한 session·rate limit·chat event namespace는 #360에서 확정했다. 스케줄 잠금 이름·`lockAtMostFor`와 실행시간 경고 기준은 후속 구현 이슈에서 확정한다.
+- `local-multi` 세션 TTL 30분, JSON 직렬화 방식과 정확한 session·rate limit·chat event namespace는 #360에서 확정했다. `lockAtMostFor`와 실행시간 경고 기준은 후속 구현 이슈에서 확정한다.
 
 ### ROOM 상태와 행동 가능성
 
@@ -339,7 +337,7 @@ P1 필수 구현은 다음 여덟 가지 흐름을 처음부터 끝까지 연결
 ### 게임 데이터 정규화
 
 - 기존 인원·시간 표시 문자열과 난이도 표시값은 화면 표시와 원본 추적을 위해 유지한다.
-- 확보된 약 2,000개 게임 데이터에 인원 범위와 플레이 시간 범위를 검색 가능한 수치로 적재한다. 난이도는 기존 수치의 유효성과 누락 여부를 검증한 뒤 필터에 사용한다.
+- 승인된 170,000개 게임 ID에 가능 인원·플레이 시간·난이도 수치와 카테고리·테마·추천/베스트 인원 관계를 적재한다. 난이도와 관계 메타데이터는 원본·한글 매핑·품질 게이트를 통과한 값만 사용한다.
 - 조회 요청마다 표시 문자열을 해석하지 않고, 적재·마이그레이션 단계에서 검증한 수치 데이터를 검색에 사용한다.
 - 수치 데이터의 단위, 경계 포함 여부, 누락값 처리와 DB 제약은 [P1 검색 기능 명세](p1/search.md)와 ERD에서 확정한다.
 
@@ -424,11 +422,14 @@ P1 필수 구현은 다음 여덟 가지 흐름을 처음부터 끝까지 연결
 ### 시간 기반 ROOM 상태 자동 전환
 
 - `RECRUITING → CLOSED → FINISHED`의 시간 조건과 순서, 시작 24시간 후 자동 종료 기준은 P0 규칙을 유지한다.
-- 자동 전환 대상은 상한 없는 ROOM Entity 전체가 아니라 제한된 수의 ROOM ID로 선별하고, 각 ROOM은 독립 처리 단위에서 최신 상태와 버전을 다시 읽어 판정한다.
+- Scheduler 자동 전환 대상은 상한 없는 ROOM Entity 전체가 아니라 고정한 순회 기준 시각과 영속 cursor 뒤의 제한된 ROOM ID로 선별하고, 각 ROOM은 독립 처리 단위에서 최신 상태와 버전을 다시 읽어 판정한다.
 - 한 ROOM의 실패가 이미 성공한 다른 ROOM의 결과를 롤백하지 않으며, 실패 ROOM ID와 원인을 식별해 해당 ROOM만 재처리할 수 있어야 한다.
 - 시작 시각에 도달한 ROOM은 정원 충족으로 이미 `CLOSED`였는지와 관계없이 상태 판정과 남은 대기열 종료를 같은 ROOM 일관성 경계에서 수행한다.
-- 모든 인스턴스가 Spring Scheduler를 등록하되 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)에 따라 PostgreSQL ShedLock의 ROOM 상태 보정용 잠금을 얻은 하나만 실행을 조정한다. 정확한 잠금 이름은 구현 이슈에서 정하고, 잠금 트랜잭션과 각 ROOM의 독립 트랜잭션을 결합하지 않는다.
-- 스케줄 잠금 임대가 만료되어 실행이 겹쳐도 각 ROOM은 최신 상태와 `Room.version`을 다시 확인하고 같은 결과로 수렴해야 한다. 다중 인스턴스라는 이유로 Redis 분산 락을 도입하지 않는다.
+- 모든 인스턴스가 Spring Scheduler를 등록하되 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)에 따라 공용 PostgreSQL ShedLock adapter의 `room-status-correction` 잠금을 얻은 하나만 실행을 조정한다. 공용 `SHEDLOCK` 테이블·adapter는 병합된 [PR #366](https://github.com/bamsongi-club/albam-mate/pull/366)이 제공하고 [#289](https://github.com/bamsongi-club/albam-mate/issues/289)가 소유하며 ROOM은 이를 읽기 전용으로 사용한다.
+- `ROOM_STATUS_CORRECTION_PROGRESS` 단일 행은 순회 기준 시각, 마지막 시도 cursor, progress version과 실행 generation을 저장한다. 실행 주체는 잠금 획득 뒤 generation을 점유하고 모든 cursor 전진·회전을 기대 generation·version의 조건부 갱신으로 확정한다. 늦은 실행 주체의 갱신은 거절하고 이후 처리를 중단한다.
+- ROOM 처리 커밋 뒤 cursor 커밋 전 장애에서는 같은 ROOM을 다시 선별할 수 있다. cursor를 먼저 전진해 미처리 ROOM을 건너뛰지 않으며, 최신 상태 재판정과 멱등 전이로 at-least-once 재실행을 수렴시킨다.
+- ShedLock, 진행 상태, 후보 선별, 각 ROOM 처리와 cursor 갱신은 하나의 트랜잭션으로 묶지 않는다. 스케줄 잠금 임대가 만료되어 실행이 겹쳐도 각 ROOM은 최신 상태와 `Room.version`을 다시 확인하고 같은 결과로 수렴하며, 다중 인스턴스라는 이유로 Redis 분산 락을 도입하지 않는다.
+- API 요청 경계 상태 보정은 Scheduler 잠금·cursor를 사용하지 않고 [ADR-0012](adr/room/0012-room-request-boundary-state-reconciliation.md)의 현재 상태 계약을 유지한다.
 - 현재 구현을 비교 기준선으로 남기고 제한 처리의 ID 수 후보를 같은 데이터·반복 조건에서 측정한다. 한 번당 ID 수와 반복·재시도·실행 주기의 운영 고정값은 측정 전에 임의로 정하지 않고 결과를 근거로 확정한다.
 - 제한된 ROOM별 처리에서 병목이 측정된 뒤에만 조건부 DB 직접 갱신 비교 여부를 사용자에게 확인한다. Quartz 클러스터는 동적 Trigger·Misfire·영속 Job 복구 요구가 생기기 전에는 도입하지 않는다.
 
@@ -448,7 +449,7 @@ P1 필수 구현은 다음 여덟 가지 흐름을 처음부터 끝까지 연결
 | 영역 | P1 변경 범위 |
 | --- | --- |
 | 사용자·소셜 계정 | 소셜 전용 사용자를 위해 이메일·비밀번호 해시는 nullable로 확장하고, `provider + providerSubject`와 사용자별 제공자 연결을 별도 관계로 저장한다. 이메일 회원은 기존 두 값을 그대로 유지한다. |
-| 게임 | 인원·시간 검색용 수치 컬럼과 검증 제약을 추가하고 기존 표시 필드는 유지한다. 검수된 메커니즘 목록·게임 다대다 관계와 사용자별 해 본 게임 관계를 별도로 저장한다. |
+| 게임 | 기존 표시 필드와 인원·시간 검색용 수치를 유지하고, 카테고리·테마·추천/베스트 인원·검수된 메커니즘·사용자별 해 본 게임을 각각 의미가 분리된 관계로 저장한다. |
 | 방 | 새 상태를 추가하지 않는다. `waitlistable`은 저장 상태가 아니라 기준 시각·정원·요청자 관계로 계산하며, 검색·상태 자동 전환 인덱스는 측정 근거에 따라 추가한다. |
 | 참가 | 상태와 정원 계산식을 변경하지 않는다. 자동 승격은 기존 `ACTIVE` 참가 관계를 사용하고, 알림·채팅 권한과 측정은 최종 성공한 참가 결과를 따른다. |
 | 대기 | ROOM·사용자 조합마다 단일 최신 상태 레코드를 두고 FIFO 순서와 `WAITING`, `PROMOTED`, `CANCELED`, `EXPIRED`, `ROOM_CANCELED` 결과를 보존한다. 상태 변경별 이력 레코드는 추가하지 않는다. 복합 PK·전역 sequence·제약·인덱스의 물리 선택은 [ADR-0046](adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)에서 승인돼 [ERD](ERD.md#room_waitlists)에 반영됐으며 후속 Flyway·JPA·Repository 구현과 자동 검증은 아직 완료되지 않았다. |
@@ -456,6 +457,7 @@ P1 필수 구현은 다음 여덟 가지 흐름을 처음부터 끝까지 연결
 | 알림 | 수신자, 원인 이벤트, 유형, 관련 대상, 원인 이벤트 시각을 사용하는 `createdAt`, 읽은 시각과 중복 방지에 필요한 저장 계약을 추가한다. |
 | 채팅 | 방별 `CHAT_ROOMS`와 작성자, 본문, 클라이언트 메시지 식별자, 서버 생성 시각을 가진 `CHAT_MESSAGES` 저장 계약을 추가한다. 최종 상태의 삭제 기준과 완료 시각을 저장한다. |
 | 실시간 연결 | 별도 제품 상태로 저장하지 않는다. Redis에는 제한된 신호만 발행하고, 연결이 끊기거나 신호가 유실돼도 채팅 메시지는 PostgreSQL 이력으로 복구한다. |
+| ROOM 상태 보정 진행 | `ROOM_STATUS_CORRECTION_PROGRESS` 단일 행에 Scheduler 순회 기준 시각·cursor·progress version·실행 generation을 저장한다. API 요청 경계 상태 보정과 채팅 작업은 이 행을 사용하지 않는다. |
 | 스케줄 잠금 | 공용 PostgreSQL의 `SHEDLOCK` 테이블은 다중 인스턴스 스케줄 실행 주체만 조정하며 ROOM·채팅 업무 상태나 분산 락을 저장하지 않는다. |
 | 상태값 | `RoomStatus`와 참여 상태는 유지하고 대기 결과만 별도 `WaitlistStatus`로 표현한다. 직접 참가·대기·채팅 가능 여부는 방 상태와 현재 관계에서 계산하고, 알림 읽음은 읽은 시각으로 판정한다. |
 | 오류 응답 | 대기는 `WAITLIST_NOT_AVAILABLE`, `WAITLIST_ENTRY_NOT_FOUND`와 기존 `ALREADY_PARTICIPATING`, `ROOM_CONCURRENT_MODIFICATION`을 사용한다. 검색·알림·채팅 오류는 기존 공통 응답 형식과 API 명세를 따른다. |
@@ -493,6 +495,8 @@ P1은 P0의 17개 API를 유지하고, 소셜 로그인·계정 연결과 대기
 | 23 | 신규 API | 해 본 게임 표시 | `PUT /api/users/me/played-games/{gameId}` | `SEARCH-03` |
 | 24 | 신규 API | 해 본 게임 표시 취소 | `DELETE /api/users/me/played-games/{gameId}` | `SEARCH-03` |
 | 25 | 신규 API | 검수된 게임 메커니즘 선택지 조회 | `GET /api/game-mechanisms` | `SEARCH-01` |
+| 26 | 신규 API | 게임 카테고리 선택지 조회 | `GET /api/game-categories` | `SEARCH-01` |
+| 27 | 신규 API | 게임 테마 선택지 조회 | `GET /api/game-themes` | `SEARCH-01` |
 
 - `PublicRoomResponse`, `ParticipantRoomResponse`, `MyRoomListItem`은 필수·non-null boolean `waitlistable`을 포함한다. `GET /api/users/me/rooms`는 주최·참가 ROOM만 계속 반환하므로 각 `MyRoomListItem`의 값은 `false`이고, 대기 중인 ROOM을 조회 대상에 추가하지 않는다.
 - 참가 취소 응답은 자동 승격까지 끝난 최종 `roomStatus`, `participantCount`, `remainingRecruitmentSeats`를 기존 `RoomParticipationResponse`로 반환한다. 승격 여부 필드와 승격된 사용자 신원은 추가하지 않는다.
@@ -515,8 +519,8 @@ P1은 P0의 17개 API를 유지하고, 소셜 로그인·계정 연결과 대기
 - 모든 P1 필수 기능 ID별 상세 문서의 완료 기준을 만족한다.
 - 소셜 로그인·계정 연결, 게임·방 검색, ROOM 행동 가능성, 대기·자동 승격, 알림과 채팅 인터페이스가 [API 명세서](API.md)의 요청·응답·리다이렉트·실시간 메시지·HTTP 상태·오류 계약대로 재현된다.
 - `AUTH-05`는 세 제공자의 신규·재로그인과 명시적 연결, state 실패·취소, 중복·동시 요청, 기존 세션·CSRF와 이메일 인증 회귀를 [소셜 로그인 완료 기준](p1/social-login.md#상위-통합-완료-기준)대로 검증한다.
-- 약 2,000개 게임의 인원·시간·난이도와 검수된 메커니즘 189개·관계 13,263건이 정한 규칙에 따라 적재·검증되고 기존 표시 데이터가 유지된다.
-- 게임·방 단독 필터와 복합 필터가 공개 범위, 메커니즘 내부 OR·다른 조건과 AND, 기본 정렬과 페이지네이션 규칙을 일관되게 따른다.
+- 170,000개 게임의 카테고리·테마·추천/베스트 인원 관계와 기존 인원·시간·난이도·메커니즘이 승인된 원본·한글 매핑·품질 게이트를 통과해 반복 적재되고 기존 표시 데이터가 유지된다.
+- 게임·방 단독 필터와 복합 필터가 공개 범위, category·recommended/best·mechanism 내부 OR, theme ANY·ALL, 다른 조건과 AND, 기본 정렬과 페이지네이션 규칙을 일관되게 따른다.
 - 해 본 게임 관계는 사용자·게임 조합마다 하나만 존재하고 두 FK를 암묵 삭제하지 않는다. 본인만 멱등 등록·취소할 수 있으며 방 이력 자동 표시와 다른 사용자 관계 공개가 발생하지 않는다.
 - 게임 목록·상세의 `playedByMe`와 `playedFilter`가 로그인·비로그인 의미, 검증·인증 우선순위, 복합 검색·전체 건수·기본 정렬·페이지네이션 계약을 지킨다. 목록 카드와 상세 화면은 서버 성공 뒤에만 표시 상태를 반영한다.
 - 대표 검색 쿼리의 실행 계획과 응답시간을 변경 전후로 비교하고, 추가한 인덱스의 근거와 효과를 재현할 수 있다.

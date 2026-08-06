@@ -119,6 +119,15 @@ export function socialLoginUrl(provider) {
   return endpoint('/api/auth/social/authorization/' + socialProviderPath(provider));
 }
 
+export function openChatWebSocket(roomId, { afterMessageId } = {}) {
+  const url = new URL(endpoint('/api/rooms/' + roomId + '/chat/ws'), window.location.href);
+  if (afterMessageId !== undefined && afterMessageId !== null) {
+    url.searchParams.set('afterMessageId', String(afterMessageId));
+  }
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  return new WebSocket(url.toString());
+}
+
 export function clearCsrfToken() {
   csrfToken = undefined;
 }
@@ -231,6 +240,7 @@ export const api = {
     const options = signal ? {} : optionsOrSignal;
     return request('/api/rooms/' + roomId + '/chat/messages' + query(options), { signal });
   },
+  openChatWebSocket,
   sendChatMessage: (roomId, message) => mutate('/api/rooms/' + roomId + '/chat/messages', { method: 'POST', body: message }),
   getNotifications: ({ page = 0, size = 10 } = {}, signal) =>
     request('/api/users/me/notifications' + query({ page, size }), { signal }),

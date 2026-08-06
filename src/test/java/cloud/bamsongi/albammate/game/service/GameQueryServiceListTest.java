@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.game.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -31,9 +32,16 @@ import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
 import cloud.bamsongi.albammate.game.entity.Game;
+import cloud.bamsongi.albammate.game.repository.GameCategoryRelationRepository;
+import cloud.bamsongi.albammate.game.repository.GameCategoryRepository;
 import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
+import cloud.bamsongi.albammate.game.repository.GamePlayerPreferenceRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
+import cloud.bamsongi.albammate.game.repository.GameThemeRelationRepository;
+import cloud.bamsongi.albammate.game.repository.GameThemeRepository;
 import cloud.bamsongi.albammate.game.repository.UserPlayedGameRepository;
+import cloud.bamsongi.albammate.global.exception.BusinessException;
+import cloud.bamsongi.albammate.global.exception.ErrorCode;
 
 @ExtendWith(MockitoExtension.class)
 class GameQueryServiceListTest {
@@ -52,6 +60,21 @@ class GameQueryServiceListTest {
 	@Mock
 	private UserPlayedGameRepository userPlayedGameRepository;
 
+	@Mock
+	private GameCategoryRepository gameCategoryRepository;
+
+	@Mock
+	private GameThemeRepository gameThemeRepository;
+
+	@Mock
+	private GameCategoryRelationRepository gameCategoryRelationRepository;
+
+	@Mock
+	private GameThemeRelationRepository gameThemeRelationRepository;
+
+	@Mock
+	private GamePlayerPreferenceRepository gamePlayerPreferenceRepository;
+
 	private GameQueryService gameQueryService;
 
 	@BeforeEach
@@ -61,7 +84,12 @@ class GameQueryServiceListTest {
 			Clock.fixed(NOW, ZoneOffset.UTC),
 			upcomingRoomCountQuery,
 			gameMechanismRepository,
-			userPlayedGameRepository);
+			userPlayedGameRepository,
+			gameCategoryRepository,
+			gameThemeRepository,
+			gameCategoryRelationRepository,
+			gameThemeRelationRepository,
+			gamePlayerPreferenceRepository);
 	}
 
 	@Test
@@ -78,6 +106,20 @@ class GameQueryServiceListTest {
 
 		verify(gameRepository).findAll(any(Specification.class), eq(pageable));
 		assertEquals(2L, result.getContent().getFirst().upcomingRoomCount());
+	}
+
+	@Test
+	void 존재하지_않는_테마_코드는_검증오류로_거절한다() {
+		GameListRequest request = new GameListRequest();
+		request.setTheme(List.of("UNKNOWN_THEME"));
+		when(gameThemeRepository.countByCodeIn(List.of("UNKNOWN_THEME"))).thenReturn(0L);
+
+		BusinessException exception = assertThrows(BusinessException.class,
+			() -> gameQueryService.findPage(request));
+
+		assertEquals(ErrorCode.VALIDATION_ERROR, exception.getErrorCode());
+		verify(gameThemeRepository).countByCodeIn(List.of("UNKNOWN_THEME"));
+		verifyNoInteractions(gameRepository);
 	}
 
 	@Test

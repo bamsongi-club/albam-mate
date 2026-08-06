@@ -225,7 +225,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 5 | P0 | [AUTH-04](#auth-04-내-프로필-조회) · [정본](archive/p0/auth-profile.md#auth-04-내-프로필-조회수정) | GET | `/api/users/me` | Y | N | 200 |
 | 6 | P0 | [AUTH-04](#auth-04-내-프로필-수정) · [정본](archive/p0/auth-profile.md#auth-04-내-프로필-조회수정) | PATCH | `/api/users/me` | Y | Y | 200 |
 | 7 | P0·P1 | [GAME-01](#game-01-게임-목록검색) · [P0 정본](archive/p0/game-catalog.md#game-01-게임-목록검색) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games` | 선택 | N | 200 |
-| 8 | P0·P1 | [GAME-02](#game-02-게임-상세-조회) · [P0 정본](archive/p0/game-catalog.md#game-02-게임-상세-조회) · [SEARCH-03 정본](p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games/{gameId}` | 선택 | N | 200 |
+| 8 | P0·P1 | [GAME-02](#game-02-게임-상세-조회) · [P0 정본](archive/p0/game-catalog.md#game-02-게임-상세-조회) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games/{gameId}` | 선택 | N | 200 |
 | 9 | P0 | [ROOM-03](#room-03-방-생성) · [정본](archive/p0/room.md#room-03-방-생성) | POST | `/api/rooms` | Y | Y | 201 |
 | 10 | P0·P1 | [ROOM-01](#room-01-방-목록-조회) · [P0 정본](archive/p0/room.md#room-01-방-탐색) · [SEARCH-02 정본](p1/search.md#search-02-방-조건-검색) · [ROOM-08 정본](p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | GET | `/api/rooms` | 선택 | N | 200 |
 | 11 | P0·P1 | [ROOM-02](#room-02-방-상세-조회) · [P0 정본](archive/p0/room.md#room-02-방-상세) · [ROOM-08 정본](p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | GET | `/api/rooms/{roomId}` | 선택 | N | 200 |
@@ -252,6 +252,8 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 32 | P1 | [SEARCH-03](#search-03-해-본-게임-표시) · [정본](p1/search.md#search-03-사용자별-해-본-게임) | PUT | `/api/users/me/played-games/{gameId}` | Y | Y | 200 |
 | 33 | P1 | [SEARCH-03](#search-03-해-본-게임-표시-취소) · [정본](p1/search.md#search-03-사용자별-해-본-게임) | DELETE | `/api/users/me/played-games/{gameId}` | Y | Y | 200 |
 | 34 | P1 | [GAME-03](#game-03-게임-메커니즘-선택지-조회) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) | GET | `/api/game-mechanisms` | N | N | 200 |
+| 35 | P1 | [GAME-04](#game-04-게임-카테고리-선택지-조회) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) | GET | `/api/game-categories` | N | N | 200 |
+| 36 | P1 | [GAME-05](#game-05-게임-테마-선택지-조회) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) | GET | `/api/game-themes` | N | N | 200 |
 
 `GET /api/games`, `GET /api/games/{gameId}`, `GET /api/rooms`, `GET /api/rooms/{roomId}`와 `GET /api/auth/social/providers`의 인증은 "선택"이다. 비로그인도 호출할 수 있고, 유효한 세션이 있으면 요청자 기준 값을 계산한다. 단, `GET /api/games`의 유효한 `playedFilter`는 로그인을 요구한다.
 
@@ -365,6 +367,17 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 두 값 모두 로그인한 사용자만 사용할 수 있다. 필터를 생략하면 로그인 여부와 관계없이 사용자 관계로 결과를 제한하지 않는다.
 
+### ThemeMatch
+
+> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `SEARCH-01`](p1/README.md#기능별-현재-상태)
+
+`GET /api/games`의 반복 `theme` 조건 결합 방식이다. `theme`을 생략하면 두 값 모두 결과에 영향을 주지 않는다.
+
+| 값 | 의미 |
+|---|---|
+| `ANY` | 전달한 테마 중 하나라도 포함한 게임 |
+| `ALL` | 전달한 테마를 모두 포함한 게임 |
+
 ### SocialProvider
 
 > **단계: P1 계약 승인·구현 대기** · 현재 상태: [P1 기능 상태 정본의 `AUTH-05`](p1/README.md#기능별-현재-상태)
@@ -443,6 +456,7 @@ P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는
 | `estimatedPlayTime` | string | Y | N | P0 | 제공 | 표시용 예상 시간 (예: `30분`) |
 | `complexity` | number | Y | Y | P0 | 제공 | 난이도 표시값 |
 | `releaseYear` | integer | Y | Y | P1 | 제공 | BGG 기준 CSV의 `yearpublished`. 미상 값은 `null` |
+| `minAge` | integer | Y | Y | P1 | 제공 | BGG thing XML의 `minage`. 누락 또는 `0`은 `null` |
 | `upcomingRoomCount` | integer | Y | N | P0 | 제공 | 미래 시점의 `GAME_FOCUSED` 방 중 `CANCELED`·`FINISHED`가 아닌 건수 |
 | `playedByMe` | boolean | Y | Y | P1 | 제공 | 유효한 세션에서 본인 표시 관계가 있으면 `true`, 없으면 `false`; 비로그인이면 `null` |
 
@@ -935,6 +949,11 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | `complexityMax` | number | N | 검색 없음 | P1 | 제공 | `1.00`~`5.00`, 난이도 닫힌 구간의 상한 |
 | `playedFilter` | PlayedFilter | N | 검색 없음 | P1 | 제공 | 단일 값. `PLAYED_ONLY` 또는 `EXCLUDE_PLAYED`; 사용 시 로그인 필요 |
 | `mechanism` | string | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 공개 메커니즘 내부 코드. 목록 안 OR |
+| `category` | string | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 고정 카테고리 code. 목록 안 OR |
+| `theme` | string | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 테마 code. themeMatch에 따라 ANY 또는 ALL |
+| `themeMatch` | ThemeMatch | N | `ANY` | P1 | 제공 | 단일 값. `ANY` 또는 `ALL`; theme이 없어도 유효 |
+| `recommendedPlayerCount` | integer | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 양의 추천 인원. 목록 안 OR |
+| `bestPlayerCount` | integer | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 양의 베스트 인원. 목록 안 OR |
 | `page` | integer | N | `0` | P0 | 제공 | 페이지 번호 |
 | `size` | integer | N | `10` | P0 | 제공 | 페이지 크기, 1~100 |
 
@@ -968,10 +987,13 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 - `playedFilter`를 생략하면 관계 필터를 적용하지 않는다. 잘못된 값이나 중복 전달은 로그인 여부와 관계없이 먼저 `400 VALIDATION_ERROR`, 유효한 값을 비로그인으로 전달하면 `401 UNAUTHENTICATED`다.
 - `mechanism`은 [GAME-03](#game-03-게임-메커니즘-선택지-조회)의 공개 `code`를 정확히 전달한다. 여러 코드는 OR로 결합하고 다른 필터와는 AND로 결합하며, 같은 코드를 반복해도 결과를 중복하지 않는다.
 - 존재하지 않거나 비공개인 메커니즘 코드는 전체 요청을 `VALIDATION_ERROR`로 거절한다. 일부 유효 코드가 함께 있어도 잘못된 코드를 조용히 무시하지 않는다.
-- 인원·시간·복잡도·메커니즘 필터를 적용하면 해당 조건을 판정할 검증값이나 관계가 없는 게임은 제외한다. 필터를 생략하면 누락값이나 관계 부재만으로 제외하지 않는다.
+- `category`는 [GAME-04](#game-04-게임-카테고리-선택지-조회)의 code를 반복 전달하고 같은 목록 안에서 OR다. `theme`은 [GAME-05](#game-05-게임-테마-선택지-조회)의 code를 반복 전달하며, `themeMatch=ANY`는 하나 이상, `themeMatch=ALL`은 모든 고유 code 관계를 요구한다.
+- `recommendedPlayerCount`와 `bestPlayerCount`는 각각 BGG 투표에서 정규화한 양의 인원을 반복 전달하며 같은 목록 안에서 OR다. 가능 인원과 다른 의미이며 `4+` 결과는 해당 게임의 검증된 최대 가능 인원까지 확장된 관계로 판정한다.
+- `themeMatch`는 생략하면 `ANY`이고 theme 없이 보내도 유효하다. 중복된 themeMatch, 존재하지 않는 category/theme code, 0 이하 인원은 일부 유효 값이 함께 있어도 전체 요청을 `VALIDATION_ERROR`로 거절한다.
+- 인원·시간·복잡도·카테고리·테마·추천/베스트·메커니즘 필터를 적용하면 해당 조건을 판정할 검증값이나 관계가 없는 게임은 제외한다. 필터를 생략하면 누락값이나 관계 부재만으로 제외하지 않는다.
 - 모든 필터를 적용한 뒤 전체 건수, `name ASC, id ASC` 정렬과 페이지를 계산한다.
 
-`tag`·테마 필터와 클라이언트 지정 `sort`는 지원하지 않는다.
+`tag` 필터와 클라이언트 지정 `sort`는 지원하지 않는다.
 
 #### 오류
 
@@ -980,6 +1002,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | query parameter 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 유효한 `playedFilter`를 인증 없이 사용 | 401 | `UNAUTHENTICATED` |
 | 존재하지 않거나 비공개인 `mechanism` 코드 | 400 | `VALIDATION_ERROR` |
+| 존재하지 않는 `category` 또는 `theme` code, 중복·잘못된 `themeMatch`, 0 이하 추천·베스트 인원 | 400 | `VALIDATION_ERROR` |
 
 ### GAME-02 게임 상세 조회
 
@@ -990,6 +1013,15 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | 성공 | `200 OK`, `data`: `GameDetail` |
 
 유효한 세션이 있으면 `playedByMe`는 본인 표시 관계에 따라 `true` 또는 `false`, 비로그인이면 `null`이다. 어느 경우에도 다른 사용자의 관계를 공개하지 않는다.
+
+#### Metadata Fields
+
+| 필드 | 타입 | null | 설명 |
+|---|---|:---:|---|
+| `categories` | GameCategorySummary[] | N | displayOrder ASC의 `code`, `nameKo`, `nameEn` 배열 |
+| `themes` | GameThemeSummary[] | N | `nameKo ASC, code ASC`의 `code`, `nameKo`, `nameEn` 배열 |
+| `recommendedPlayerCounts` | integer[] | N | 오름차순 추천 인원. 관계가 없으면 빈 배열 |
+| `bestPlayerCounts` | integer[] | N | 오름차순 베스트 인원. 관계가 없으면 빈 배열 |
 
 #### Path Variables
 
@@ -1085,6 +1117,39 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | 6 | 조립 보드 |
 | 7 | 솔로/솔로테어 게임 |
 | 8 | 일꾼 놓기 |
+
+### GAME-04 게임 카테고리 선택지 조회
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `GET /api/game-categories` |
+| 인증 / CSRF | 불필요 / 불필요 |
+| 성공 | `200 OK`, `data`: `GameCategoryOption[]` |
+
+고정 8개 카테고리를 `displayOrder ASC`로 반환한다. 내부 ID와 CSV rank 값은 응답에 노출하지 않는다.
+
+| 필드 | 타입 | null | 설명 |
+|---|---|:---:|---|
+| `code` | string | N | 변경하지 않는 내부 category code |
+| `nameKo` | string | N | 화면 표시 한글명 |
+| `nameEn` | string | N | BGG subdomain의 영문 그룹명 |
+| `displayOrder` | integer | N | 화면 고정 노출 순서 1~8 |
+
+### GAME-05 게임 테마 선택지 조회
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `GET /api/game-themes` |
+| 인증 / CSRF | 불필요 / 불필요 |
+| 성공 | `200 OK`, `data`: `GameThemeOption[]` |
+
+검수된 한글명과 안정 code가 있는 테마만 `nameKo ASC, code ASC`로 반환한다. 내부 ID와 BGG 원본 ID는 응답에 노출하지 않는다.
+
+| 필드 | 타입 | null | 설명 |
+|---|---|:---:|---|
+| `code` | string | N | 표시명과 분리된 안정적인 내부 theme code |
+| `nameKo` | string | N | 검수된 화면 표시 한글명 |
+| `nameEn` | string | N | BGG boardgamecategory 영문명 |
 
 ## 7. 방 API
 
@@ -1871,7 +1936,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 
 `METHOD_NOT_ALLOWED`, `NOT_ACCEPTABLE`, `UNSUPPORTED_MEDIA_TYPE` 응답은 Spring MVC 예외가 제공하는 `Allow`, `Accept`, `Accept-Patch` 등의 프로토콜 헤더가 있으면 그대로 포함한다.
 
-`SERVICE_UNAVAILABLE`의 현재 적용 범위는 [채팅 API](#채팅-공통-계약)의 세 엔드포인트다. `local-multi`에서 채팅 요청이 Spring Session Redis의 세션 상태를 확인할 수 없으면 이 코드를 반환하며, 메시지 전송은 세션 저장소가 정상이더라도 전송 제한 상태 저장소를 확인할 수 없으면 저장 전에 같은 코드를 반환한다. 전송 제한 장애의 503에는 `Retry-After`를 포함하지 않는다. Redis 장애 시 인메모리 구현으로 자동 대체하지 않는 근거는 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)과 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)을 따른다. `prod` 적용은 별도 운영 설정·계약 확정 후 다룬다.
+`SERVICE_UNAVAILABLE`의 현재 적용 범위는 [채팅 API](#채팅-공통-계약)의 세 엔드포인트다. `local-multi`와 `production`에서 채팅 요청이 Spring Session Redis의 세션 상태를 확인할 수 없으면 이 코드를 반환하며, 메시지 전송은 세션 저장소가 정상이더라도 전송 제한 상태 저장소를 확인할 수 없으면 저장 전에 같은 코드를 반환한다. 전송 제한 장애의 503에는 `Retry-After`를 포함하지 않는다. Redis 장애 시 인메모리 구현으로 자동 대체하지 않는 근거는 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)과 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)을 따른다.
 
 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트로 이 코드를 확장할지는 이 문서에서 아직 결정하지 않는다. 확장이 필요하면 적용 엔드포인트를 명시한 별도 계약 변경으로 승인받은 뒤 이 절과 [엔드포인트별 오류 매트릭스](#11-부록-엔드포인트별-오류-매트릭스)를 함께 갱신한다.
 

@@ -1,13 +1,54 @@
 import React from 'react';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, api } from './api';
 import { App, ChatRoomView, MyRoomsSection, SessionDetailView } from './main';
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   cleanup();
 });
+
+class FakeWebSocket {
+  static instances = [];
+
+  constructor(url) {
+    this.url = url;
+    this.close = vi.fn(() => this.onclose?.({ code: 1000 }));
+    FakeWebSocket.instances.push(this);
+  }
+
+  open() {
+    this.onopen?.();
+  }
+
+  message(payload) {
+    this.onmessage?.({ data: JSON.stringify(payload) });
+  }
+
+  drop(code = 1006) {
+    this.onclose?.({ code });
+  }
+}
+
+class FakeIntersectionObserver {
+  static instances = [];
+
+  constructor(callback) {
+    this.callback = callback;
+    FakeIntersectionObserver.instances.push(this);
+  }
+
+  observe() {}
+
+  disconnect() {}
+
+  trigger(isIntersecting = true) {
+    this.callback([{ isIntersecting }]);
+  }
+}
 
 function myRoom(overrides) {
   return {
@@ -188,6 +229,304 @@ describe('#427 T5 채팅 화면 이력 표시', () => {
   });
 });
 
+describe('#431 CHAT-03 실시간 수신·재연결', () => {
+  function useFakeWebSocket() {
+    FakeWebSocket.instances = [];
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+    return FakeWebSocket.instances;
+  }
+
+  it('채팅 화면이 확정 이벤트를 실시간으로 한 번 표시한다', async () => {
+    const sockets = useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [{ messageId: 10, roomId: 7, sender: { nickname: '주최자' }, isMine: false, content: '기존 메시지', createdAt: '2026-09-01T19:00:00+09:00' }],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(sockets).toHaveLength(1));
+    expect(sockets[0].url).toContain('/api/rooms/7/chat/ws?afterMessageId=10');
+    sockets[0].open();
+    sockets[0].message({
+      eventId: 11,
+      type: 'MESSAGE_CREATED',
+      message: { messageId: 11, roomId: 7, sender: { nickname: '참가자' }, isMine: false, content: '방금 도착한 메시지', createdAt: '2026-09-01T19:01:00+09:00' }
+    });
+
+    await waitFor(() => expect(screen.getByText('방금 도착한 메시지')).toBeTruthy());
+    expect(screen.getByRole('status').textContent).toContain('실시간 연결됨');
+    sockets[0].message({
+      eventId: 99,
+      type: 'MESSAGE_CREATED',
+      message: { messageId: 13, roomId: 7, sender: { nickname: '참가자' }, isMine: false, content: '잘못된 식별자', createdAt: '2026-09-01T19:02:00+09:00' }
+    });
+    expect(screen.queryByText('잘못된 식별자')).toBeNull();
+  });
+
+  it('HTTP 저장 응답과 같은 WebSocket 이벤트는 메시지 하나로 합친다', async () => {
+    const sockets = useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({ messages: [], nextBeforeMessageId: null, hasNext: false });
+    vi.spyOn(api, 'sendChatMessage').mockResolvedValue({
+      messageId: 12,
+      roomId: 7,
+      sender: { nickname: '테스터' },
+      isMine: true,
+      content: '중복 없는 메시지',
+      createdAt: '2026-09-01T19:02:00+09:00'
+    });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(sockets).toHaveLength(1));
+    sockets[0].open();
+    fireEvent.change(await screen.findByLabelText('메시지'), { target: { value: '중복 없는 메시지' } });
+    fireEvent.click(screen.getByRole('button', { name: '전송' }));
+    await waitFor(() => expect(screen.getByText('중복 없는 메시지')).toBeTruthy());
+    sockets[0].message({
+      eventId: 12,
+      type: 'MESSAGE_CREATED',
+      message: { messageId: 12, roomId: 7, sender: { nickname: '테스터' }, isMine: true, content: '중복 없는 메시지', createdAt: '2026-09-01T19:02:00+09:00' }
+    });
+
+    await waitFor(() => expect(screen.getAllByText('중복 없는 메시지')).toHaveLength(1));
+  });
+
+  it('Enter로 전송하고 Shift+Enter는 줄바꿈을 허용한다', async () => {
+    const sockets = useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({ messages: [], nextBeforeMessageId: null, hasNext: false });
+    const send = vi.spyOn(api, 'sendChatMessage').mockResolvedValue({
+      messageId: 13,
+      roomId: 7,
+      sender: { nickname: '테스터' },
+      isMine: true,
+      content: '키보드 전송',
+      createdAt: '2026-09-01T19:02:00+09:00'
+    });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(sockets).toHaveLength(1));
+    const input = await screen.findByLabelText('메시지');
+    fireEvent.change(input, { target: { value: '줄바꿈' } });
+    fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
+    expect(send).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: '키보드 전송' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => expect(send).toHaveBeenCalledWith('7', expect.objectContaining({ content: '키보드 전송' })));
+  });
+
+  it('전송을 마치면 입력에 포커스를 되돌려 이어서 칠 수 있다', async () => {
+    useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({ messages: [], nextBeforeMessageId: null, hasNext: false });
+    vi.spyOn(api, 'sendChatMessage').mockResolvedValue({
+      messageId: 1,
+      roomId: 7,
+      sender: { nickname: '테스터' },
+      isMine: true,
+      content: '이어서 칠게요',
+      createdAt: '2026-09-01T19:01:00+09:00'
+    });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(screen.getByLabelText('메시지')).toBeTruthy());
+
+    const input = screen.getByLabelText('메시지');
+    input.focus();
+    fireEvent.change(input, { target: { value: '이어서 칠게요' } });
+    fireEvent.click(screen.getByRole('button', { name: '전송' }));
+    // 실제 브라우저는 disabled가 되는 순간 포커스를 뗀다. jsdom은 disabled 요소의 blur를 무시하므로
+    // 다른 요소로 포커스를 옮겨 같은 상태를 만든다.
+    const elsewhere = document.body.appendChild(document.createElement('input'));
+    elsewhere.focus();
+    expect(document.activeElement).toBe(elsewhere);
+
+    await waitFor(() => expect(input.disabled).toBe(false));
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    elsewhere.remove();
+  });
+
+  it('전송에 실패해도 입력에 포커스를 되돌려 고쳐서 다시 보낼 수 있다', async () => {
+    useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({ messages: [], nextBeforeMessageId: null, hasNext: false });
+    vi.spyOn(api, 'sendChatMessage').mockRejectedValue(new ApiError({
+      status: 503,
+      code: 'SERVICE_UNAVAILABLE',
+      message: '일시적으로 메시지를 보낼 수 없습니다.'
+    }));
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(screen.getByLabelText('메시지')).toBeTruthy());
+
+    const input = screen.getByLabelText('메시지');
+    input.focus();
+    fireEvent.change(input, { target: { value: '실패할 메시지' } });
+    fireEvent.click(screen.getByRole('button', { name: '전송' }));
+    // 실제 브라우저는 disabled가 되는 순간 포커스를 뗀다. jsdom은 disabled 요소의 blur를 무시하므로
+    // 다른 요소로 포커스를 옮겨 같은 상태를 만든다.
+    const elsewhere = document.body.appendChild(document.createElement('input'));
+    elsewhere.focus();
+    expect(document.activeElement).toBe(elsewhere);
+
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    expect(input.disabled).toBe(false);
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    elsewhere.remove();
+  });
+
+  it('메시지를 보내면 채팅 목록을 하단으로 이동한다', async () => {
+    const sockets = useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [{ messageId: 1, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '기존 메시지', createdAt: '2026-09-01T19:00:00+09:00' }],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+    vi.spyOn(api, 'sendChatMessage').mockResolvedValue({
+      messageId: 2,
+      roomId: 7,
+      sender: { nickname: '테스터' },
+      isMine: true,
+      content: '아래로 이동',
+      createdAt: '2026-09-01T19:01:00+09:00'
+    });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(sockets).toHaveLength(1));
+    const history = document.querySelector('.chat-log');
+    Object.defineProperties(history, {
+      scrollHeight: { configurable: true, value: 100 },
+      clientHeight: { configurable: true, value: 50 },
+      scrollTop: { configurable: true, writable: true, value: 0 }
+    });
+    fireEvent.scroll(history);
+    fireEvent.change(screen.getByLabelText('메시지'), { target: { value: '아래로 이동' } });
+    fireEvent.click(screen.getByRole('button', { name: '전송' }));
+
+    await waitFor(() => expect(screen.getByText('아래로 이동')).toBeTruthy());
+    expect(history.scrollTop).toBe(100);
+  });
+
+  it('보낸 메시지의 실시간 이벤트가 HTTP 저장 응답보다 먼저 와도 즉시 하단으로 이동한다', async () => {
+    const sockets = useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [{ messageId: 1, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '기존 메시지', createdAt: '2026-09-01T19:00:00+09:00' }],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+    let resolveSend;
+    vi.spyOn(api, 'sendChatMessage').mockImplementation(() => new Promise((resolve) => { resolveSend = resolve; }));
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(sockets).toHaveLength(1));
+    const history = document.querySelector('.chat-log');
+    let currentScrollTop = 0;
+    Object.defineProperties(history, {
+      scrollHeight: { configurable: true, value: 100 },
+      clientHeight: { configurable: true, value: 50 },
+      scrollTop: {
+        configurable: true,
+        get: () => currentScrollTop,
+        set: (value) => { currentScrollTop = value; }
+      }
+    });
+    // 사용자가 위로 스크롤해 하단에 있지 않은 상태를 만든다.
+    currentScrollTop = 0;
+    fireEvent.scroll(history);
+    fireEvent.change(screen.getByLabelText('메시지'), { target: { value: '경합 메시지' } });
+    fireEvent.click(screen.getByRole('button', { name: '전송' }));
+
+    // HTTP 응답이 아직 오지 않은 상태에서 같은 메시지의 실시간 이벤트가 먼저 도착한다.
+    await act(async () => {
+      sockets[0].message({
+        eventId: 2,
+        type: 'MESSAGE_CREATED',
+        message: { messageId: 2, roomId: 7, sender: { nickname: '테스터' }, isMine: true, content: '경합 메시지', createdAt: '2026-09-01T19:01:00+09:00' }
+      });
+      await Promise.resolve();
+    });
+    // 실시간 이벤트 도착 즉시 하단으로 이동해야 한다. HTTP 응답을 기다리는 다음 메시지까지 지연되지 않는다.
+    const chatLog = document.querySelector('.chat-log');
+    await waitFor(() => expect(within(chatLog).getByText('경합 메시지')).toBeTruthy());
+    expect(history.scrollTop).toBe(100);
+
+    // 같은 messageId의 HTTP 응답은 중복 병합이라 목록 길이가 바뀌지 않는다. 별도 스크롤 없이 안전하게 끝난다.
+    currentScrollTop = 42;
+    await act(async () => {
+      resolveSend({ messageId: 2, roomId: 7, sender: { nickname: '테스터' }, isMine: true, content: '경합 메시지', createdAt: '2026-09-01T19:01:00+09:00' });
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(screen.getByLabelText('메시지').disabled).toBe(false));
+    expect(history.scrollTop).toBe(42);
+  });
+
+  it('연결이 끊기면 마지막 이벤트 ID로 재연결한다', async () => {
+    vi.useFakeTimers();
+    const sockets = useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [{ messageId: 20, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '마지막 이력', createdAt: '2026-09-01T19:00:00+09:00' }],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(sockets).toHaveLength(1);
+    sockets[0].open();
+    sockets[0].drop();
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+      await Promise.resolve();
+    });
+
+    expect(sockets).toHaveLength(2);
+    expect(sockets[1].url).toContain('/api/rooms/7/chat/ws?afterMessageId=20');
+    sockets[1].open();
+    await act(async () => {
+      sockets[1].message({
+        eventId: 21,
+        type: 'MESSAGE_CREATED',
+        message: { messageId: 21, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '복구 첫 메시지', createdAt: '2026-09-01T19:01:00+09:00' }
+      });
+      sockets[1].message({
+        eventId: 22,
+        type: 'MESSAGE_CREATED',
+        message: { messageId: 22, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '복구 다음 메시지', createdAt: '2026-09-01T19:02:00+09:00' }
+      });
+    });
+    expect(Array.from(document.querySelectorAll('.chat-content')).map((node) => node.textContent)).toEqual(['마지막 이력', '복구 첫 메시지', '복구 다음 메시지']);
+    vi.useRealTimers();
+  });
+
+  it('정책 위반 종료는 접근 종료로 표시하고 재연결하지 않는다', async () => {
+    vi.useFakeTimers();
+    const sockets = useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [{ messageId: 30, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '기존 메시지', createdAt: '2026-09-01T19:00:00+09:00' }],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(sockets).toHaveLength(1);
+    sockets[0].open();
+    sockets[0].drop(1008);
+    await act(async () => {
+      vi.advanceTimersByTime(8000);
+      await Promise.resolve();
+    });
+
+    expect(sockets).toHaveLength(1);
+    expect(screen.getByRole('status').textContent).toContain('채팅 접근 권한이 종료되어');
+    vi.useRealTimers();
+  });
+});
+
 describe('#427 T1~T4 메시지 전송·이력 추가 조회', () => {
   it('유효한 메시지를 전송하고 서버가 확정한 메시지를 목록에 표시한다', async () => {
     vi.spyOn(api, 'getChatMessages').mockResolvedValue({ messages: [], nextBeforeMessageId: null, hasNext: false });
@@ -290,12 +629,14 @@ describe('#427 T1~T4 메시지 전송·이력 추가 조회', () => {
         ? { messages: [{ messageId: 3, sender: { nickname: '나' }, content: '현재 방', createdAt: '2026-09-01T19:02:00+09:00' }], nextBeforeMessageId: 3, hasNext: true }
         : { messages: [{ messageId: 8, sender: { nickname: '새 방' }, content: '새 방 현재 이력', createdAt: '2026-09-01T19:03:00+09:00' }], nextBeforeMessageId: 8, hasNext: true });
     });
+    FakeIntersectionObserver.instances = [];
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
     const view = render(<ChatRoomView roomId="7" dataVersion={0} />);
-    await waitFor(() => expect(screen.getByRole('button', { name: '이전 메시지 불러오기' })).toBeTruthy());
-    fireEvent.click(screen.getByRole('button', { name: '이전 메시지 불러오기' }));
+    await waitFor(() => expect(FakeIntersectionObserver.instances).toHaveLength(1));
+    FakeIntersectionObserver.instances[0].trigger();
 
     view.rerender(<ChatRoomView roomId="8" dataVersion={0} />);
-    await waitFor(() => expect(screen.getByRole('button', { name: '이전 메시지 불러오기' }).disabled).toBe(false));
+    await waitFor(() => expect(screen.getByText('새 방 현재 이력')).toBeTruthy());
     await act(async () => {
       resolvePrevious({ messages: [{ messageId: 2, sender: { nickname: '이전' }, content: '이전 방 이력', createdAt: '2026-09-01T19:01:00+09:00' }], nextBeforeMessageId: null, hasNext: false });
       await Promise.resolve();
@@ -325,13 +666,76 @@ describe('#427 T1~T4 메시지 전송·이력 추가 조회', () => {
     const get = vi.spyOn(api, 'getChatMessages')
       .mockResolvedValueOnce({ messages: [{ messageId: 3, sender: { nickname: '나' }, content: '세 번째', createdAt: '2026-09-01T19:02:00+09:00' }], nextBeforeMessageId: 3, hasNext: true })
       .mockResolvedValueOnce({ messages: [{ messageId: 3, sender: { nickname: '나' }, content: '세 번째', createdAt: '2026-09-01T19:02:00+09:00' }, { messageId: 2, sender: { nickname: '상대' }, content: '두 번째', createdAt: '2026-09-01T19:01:00+09:00' }], nextBeforeMessageId: null, hasNext: false });
+    FakeIntersectionObserver.instances = [];
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
     render(<ChatRoomView roomId="7" dataVersion={0} />);
-    await waitFor(() => expect(screen.getByRole('button', { name: '이전 메시지 불러오기' })).toBeTruthy());
-    fireEvent.click(screen.getByRole('button', { name: '이전 메시지 불러오기' }));
+    await waitFor(() => expect(FakeIntersectionObserver.instances).toHaveLength(1));
+    FakeIntersectionObserver.instances[0].trigger();
 
     await waitFor(() => expect(screen.getByText('두 번째')).toBeTruthy());
     expect(get).toHaveBeenNthCalledWith(2, '7', { beforeMessageId: 3, size: 50 });
     expect(screen.getAllByText('세 번째')).toHaveLength(1);
+  });
+
+  it('이전 이력 응답보다 실시간 메시지가 먼저 도착해도 읽던 스크롤 위치를 보존한다', async () => {
+    FakeWebSocket.instances = [];
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+    const sockets = FakeWebSocket.instances;
+    let resolvePrevious;
+    vi.spyOn(api, 'getChatMessages').mockImplementation((roomId, optionsOrSignal) => {
+      if (optionsOrSignal?.beforeMessageId) {
+        return new Promise((resolve) => { resolvePrevious = resolve; });
+      }
+      return Promise.resolve({
+        messages: [{ messageId: 10, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '기준 메시지', createdAt: '2026-09-01T19:05:00+09:00' }],
+        nextBeforeMessageId: 10,
+        hasNext: true
+      });
+    });
+    FakeIntersectionObserver.instances = [];
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(sockets).toHaveLength(1));
+    await waitFor(() => expect(screen.getByText('기준 메시지')).toBeTruthy());
+
+    // 사용자가 위로 스크롤해 과거 이력을 보는 상태를 만든다.
+    // jsdom은 layout을 계산하지 않으므로 렌더된 메시지 수에 비례하는 높이로 대신한다.
+    const history = document.querySelector('.chat-log');
+    Object.defineProperties(history, {
+      scrollHeight: { configurable: true, get: () => history.querySelectorAll('.chat-message').length * 200 },
+      clientHeight: { configurable: true, value: 100 },
+      scrollTop: { configurable: true, writable: true, value: 40 }
+    });
+    fireEvent.scroll(history);
+
+    await waitFor(() => expect(FakeIntersectionObserver.instances.length).toBeGreaterThan(0));
+    FakeIntersectionObserver.instances.at(-1).trigger();
+
+    // 이전 이력 응답을 기다리는 동안 실시간 메시지가 먼저 도착한다.
+    await act(async () => {
+      sockets[0].message({
+        eventId: 11,
+        type: 'MESSAGE_CREATED',
+        message: { messageId: 11, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '실시간 메시지', createdAt: '2026-09-01T19:06:00+09:00' }
+      });
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(screen.getByText('실시간 메시지')).toBeTruthy());
+
+    const scrollTopBeforePrepend = history.scrollTop;
+
+    // 이제 과거 이력이 앞에 붙는다. 늘어난 높이만큼 보정되어야 읽던 위치가 유지된다.
+    await act(async () => {
+      resolvePrevious({
+        messages: [{ messageId: 9, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '과거 메시지', createdAt: '2026-09-01T19:04:00+09:00' }],
+        nextBeforeMessageId: null,
+        hasNext: false
+      });
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(screen.getByText('과거 메시지')).toBeTruthy());
+
+    expect(history.scrollTop).toBe(scrollTopBeforePrepend + 200);
   });
 });
 

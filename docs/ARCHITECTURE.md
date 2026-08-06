@@ -122,7 +122,7 @@ flowchart LR
 | `room/service/query` | ROOM 조회 유스케이스와 조회 전용 내부 협력자 |
 | `room/service/command` | ROOM 변경 유스케이스, Coordinator와 Executor |
 | `room/enums` | ROOM Entity·DTO가 공유하는 방·참가 도메인 타입 |
-| `room/statuscorrection` | Query·Scheduler가 공유하는 자동 상태 보정 |
+| `room/statuscorrection` | 공통 단건 상태 보정과 Scheduler 전용 제한 선별·영속 진행 조정 |
 | `chat/service` (P1) | 채팅방 접근, 메시지 저장·이력 조회 유스케이스 |
 | `chat/websocket` (P1) | 방별 WebSocket handshake, 인스턴스 로컬 연결과 PostgreSQL 이력 복구 상태 |
 | `chat/retention` (P1) | 최종 상태 메시지의 일일 만료 선별, 소량 묶음 삭제와 실패 계측 |
@@ -175,7 +175,8 @@ flowchart LR
 | Retrier | 낙관 락 충돌의 재시도·로그·오류 변환만 담당한다. |
 | PART-04 대기 Query·Read·Command Service | `RoomWaitlistController`의 전용 진입점이다. Query는 트랜잭션 밖에서 상태 보정을 조정하고, Read는 보정 커밋 뒤 짧은 읽기 트랜잭션에서 본인의 최신 상태·동적 순번을 조회하며, Command는 등록·재신청과 취소 유스케이스를 조정한다. |
 | PART-04 대기 등록 Coordinator | 트랜잭션 밖에서 고정 request time과 ROOM 충돌·정확한 대기 순번 UNIQUE 충돌의 단일 3회 예산을 관리한다. |
-| StatusCorrection Coordinator·Executor | Query·Scheduler가 공유하는 자동 상태 보정을 트랜잭션 밖 조정과 독립 트랜잭션 실행으로 나눈다. |
+| 요청 경계 StatusCorrection Coordinator·Executor | Query가 현재 상태를 보정하도록 트랜잭션 밖 재시도 조정과 독립 트랜잭션 실행으로 나눈다. Scheduler 진행 상태나 ShedLock을 사용하지 않는다. |
+| StatusCorrection Scheduler Coordinator | 공용 스케줄 잠금, 실행 세대 점유, 제한 후보 선별, ROOM별 실행과 cursor CAS를 장기 트랜잭션 없이 조정한다. |
 | Integration Event Recorder | `room.contract`의 기록 포트를 구현하고 호출한 Room Command Executor의 트랜잭션에 참여해 Outbox 이벤트와 수신자 스냅샷만 저장한다. |
 | Notification Relay Coordinator·Executor | polling과 최대 처리 수는 트랜잭션 밖에서 조정하고, 선점·Notification 생성·완료 전환은 이벤트별 독립 트랜잭션에서 수행한다. |
 | Notification Recovery·Cleanup | 운영 명령 adapter와 Scheduler는 Repository를 직접 사용하지 않으며, application service·Executor가 제한된 묶음의 상태 전환과 물리 삭제 트랜잭션을 소유한다. |
@@ -293,6 +294,28 @@ flowchart LR
 
 재시도하지 않는 단일 트랜잭션 유스케이스에는 Coordinator와 Executor를 추가하지 않는다. 재시도가 필요할 때만 Spring Proxy가 독립 트랜잭션을 적용할 수 있도록 Service와 Executor를 분리한다.
 
+#### ROOM 상태 보정 Scheduler 흐름
+
+ROOM Scheduler는 병합된 [PR #366](https://github.com/bamsongi-club/albam-mate/pull/366)이 제공하는 `global/scheduling` port를 `room-status-correction` 이름으로 호출한다. `infra/scheduling`의 PostgreSQL adapter와 `SHEDLOCK` 스키마는 [#289](https://github.com/bamsongi-club/albam-mate/issues/289)가 소유하는 공용 기반이며 ROOM은 읽기 전용으로 사용한다. ROOM은 `ROOM_STATUS_CORRECTION_PROGRESS`와 업무 흐름만 소유한다.
+
+```mermaid
+flowchart LR
+    scheduler["RoomStatusCorrectionScheduler<br/>request time 고정"] --> lock["ScheduledTaskLock<br/>room-status-correction"]
+    lock -->|미획득| skip["이번 실행 건너뜀"]
+    lock -->|획득| claim["진행 세대 점유<br/>REQUIRES_NEW·행 잠금"]
+    claim --> select["turn cutoff·cursor 뒤<br/>제한된 ROOM ID 선별"]
+    select -->|후보 있음| roomExecutor["ROOM 상태 보정 Executor<br/>ROOM별 REQUIRES_NEW·최대 3회"]
+    roomExecutor --> progress["cursor 전진<br/>REQUIRES_NEW·generation/version CAS"]
+    progress --> select
+    select -->|후보 없음| wrap["cursor 회전·다음 cutoff<br/>generation/version CAS"]
+```
+
+실행 세대 점유는 진행 행을 잠근 짧은 트랜잭션에서 `execution_generation`과 `progress_version`을 증가시킨다. 이후 후보별 cursor 전진과 순회 회전은 그 실행 세대와 기대 version이 모두 일치할 때만 별도 짧은 트랜잭션으로 커밋한다. 임대가 만료된 이전 실행은 ROOM 하나를 중복 처리할 수 있지만 첫 CAS 거절 뒤 즉시 중단하므로 새 실행의 진척을 덮어쓰지 않는다.
+
+cursor는 후보를 시도한 뒤에만 전진하며, ROOM 커밋과 cursor 커밋 사이의 장애는 재선별을 허용하는 at-least-once 경계다. 진행 상태 조회·CAS 자체의 장애나 CAS 거절 뒤에는 후속 ROOM을 처리하지 않는다. 제한 후보 선별과 각 ROOM 트랜잭션의 상태 전이·시작 경계 대기열 종료는 [ROOM-09](p1/room.md#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화)의 기능 규칙을 따르며 이 문서에서 별도 계약을 만들지 않는다.
+
+목록·상세·내 모임과 상태 의존 명령의 요청 경계 보정은 이 Scheduler Coordinator, `SHEDLOCK`, `ROOM_STATUS_CORRECTION_PROGRESS`를 호출하지 않는다. 요청 경로는 [ADR-0012](adr/room/0012-room-request-boundary-state-reconciliation.md)의 현재 상태·오류 계약을 독립적으로 유지하면서 같은 Entity 전이 규칙과 ROOM별 Executor 정책을 재사용한다.
+
 #### 채팅 흐름
 
 `V6__create_p1_chat_room_schema.sql`은 `CHAT_ROOMS` 테이블·제약만 생성하며 기존 `ROOMS`를 조회하거나 `CHAT_ROOMS` 행을 삽입·갱신하지 않는다. [#279의 최신 승인 테스트 계약](https://github.com/bamsongi-club/albam-mate/issues/279#issuecomment-5161788285)은 기존 ROOM backfill·상태별 초기화·ROOM 생성·상태 전환 경합·최종 보정·배포 절체를 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 후속 범위로 분리한다. [ADR-0045](adr/chat/0045-chat-room-schema-and-backfill-boundary.md)은 production Flyway가 스키마만 준비하고 local profile의 `db/local/afterMigrate.sql` callback만 기존 ROOM을 상태별 보관 값으로 멱등 초기화하는 경계를 승인한다. production profile은 `db/local`을 로드하지 않으므로 일반 애플리케이션 기동과 Flyway 자동 실행에는 live ROOM 데이터 작업이 없다.
@@ -341,9 +364,9 @@ flowchart LR
 
 - `JSESSIONID`의 인증 상태는 Spring Session Redis에 저장한다. HTTP 요청과 WebSocket handshake가 다른 인스턴스에 도달해도 동일 세션을 사용하며 ALB stickiness에 정합성을 의존하지 않는다.
 - 하나의 Redis를 Spring Session, 채팅 Pub/Sub과 사용자·방 단위 rate limit에 사용하되 key prefix, TTL과 channel namespace를 분리한다.
-- 전송 제한의 사용자·방 bucket 값과 429·503 응답 경계는 [API 전송 제한 계약](API.md#전송-제한-계약)과 [CHAT-04 정본](p1/chatting.md#chat-04-채팅-안전운영)을 따른다. 공용 Redis의 Spring Session·채팅 Pub/Sub·전송 제한 간 key prefix·TTL·channel namespace는 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)에 따라 논리적으로 분리하며, #360에서 확정한 `local-multi` namespace는 [FND-10](p1/foundation.md#fnd-10-실시간-전달과-재연결-기반)을 따른다.
-- 세션 TTL은 30분이며, `local-multi` Redis 세션은 `SecurityJacksonModules`와 `CurrentUserPrincipal` mixin을 적용한 JSON으로 직렬화한다. namespace는 `albam-mate:local-multi:session`, rate limit key는 `albam-mate:local-multi:ratelimit`, 채팅 이벤트 channel은 `albam-mate:local-multi:chat:events`다.
-- `local`·`test`·`postgresTest`는 같은 Spring Session 쿠키·필터 경계에서 인메모리 저장소를 사용한다. Redis 저장소는 `local-multi`에만 적용하며, 해당 Redis가 필요할 때 인메모리 구현으로 자동 fallback하지 않는다. 세션·rate limit을 확인할 수 없을 때 `503 SERVICE_UNAVAILABLE`을 반환하는 현재 범위는 API 정본의 채팅 API 세 엔드포인트로 한정한다. 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트의 오류 계약은 적용 엔드포인트를 명시한 별도 계약 변경 전까지 확정하지 않는다.
+- 전송 제한의 사용자·방 bucket 값과 429·503 응답 경계는 [API 전송 제한 계약](API.md#전송-제한-계약)과 [CHAT-04 정본](p1/chatting.md#chat-04-채팅-안전운영)을 따른다. 공용 Redis의 Spring Session·채팅 Pub/Sub·전송 제한 간 key prefix·TTL·channel namespace는 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)에 따라 논리적으로 분리하며, #360의 `local-multi`와 #286의 `production` namespace는 [FND-10](p1/foundation.md#fnd-10-실시간-전달과-재연결-기반)을 따른다.
+- 세션 TTL은 30분이며, `local-multi`와 `production` Redis 세션은 `SecurityJacksonModules`와 `CurrentUserPrincipal` mixin을 적용한 JSON으로 직렬화한다. namespace는 각각 `albam-mate:local-multi:session`, `albam-mate:production:session`이다. rate limit key는 각각 `albam-mate:local-multi:ratelimit`, `albam-mate:production:ratelimit`이고, 채팅 이벤트 channel은 `albam-mate:{env}:chat:events`다.
+- `local`·`test`·`postgresTest`는 같은 Spring Session 쿠키·필터 경계에서 인메모리 저장소를 사용한다. Redis 저장소는 `local-multi`와 `production`에 적용하며, 해당 Redis가 필요할 때 인메모리 구현으로 자동 fallback하지 않는다. 세션·rate limit을 확인할 수 없을 때 `503 SERVICE_UNAVAILABLE`을 반환하는 현재 범위는 API 정본의 채팅 API 세 엔드포인트로 한정한다. 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트의 오류 계약은 적용 엔드포인트를 명시한 별도 계약 변경 전까지 확정하지 않는다.
 - 각 인스턴스는 자신에게 연결된 WebSocket만 메모리에 보관한다. Redis subscriber는 `chat.contract`의 수신 port를 호출하고 구체 Redis 타입을 `chat`에 노출하지 않는다.
 - 참가 취소·방 최종 상태 신호는 해당 방의 로컬 연결이 현재 권한을 다시 확인하게 하고, 세션 만료 이벤트는 해당 연결을 종료하는 빠른 정리 경로로 사용한다. 신호와 이벤트는 권한 회수의 근거가 아니며, 메시지 전달 직전에 PostgreSQL의 현재 관계·상태와 공용 세션의 현재 유효성을 함께 확인한다. 관계·상태가 유효하지 않거나 세션이 만료됐거나 확인에 실패하면 메시지를 전달하지 않고 연결을 종료한다.
 - Redis Pub/Sub 누락·중복·순서 역전은 다음 신호 또는 PostgreSQL `messageId` catch-up으로 복구한다. 커밋 뒤 Redis 발행·구독 실패는 메시지 저장 결과를 롤백하거나 삭제하지 않는다.

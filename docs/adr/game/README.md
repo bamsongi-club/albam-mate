@@ -16,3 +16,4 @@
 | [0027](0027-controlled-game-mechanism-taxonomy-and-provenance.md) | 게임 메커니즘을 검수된 내부 목록과 관계로 관리 | 대체됨 | 2026-08-03 | 미검증 |
 | [0028](0028-explicit-user-played-game-state.md) | 사용자가 표시한 해 본 게임만 관계로 저장 | 승인됨 | 2026-08-03 | 미검증 |
 | [0048](0048-full-reviewed-game-mechanism-catalog.md) | 검수된 메커니즘 189개 전체를 안정적인 내부 목록으로 공개 | 승인됨 | 2026-08-04 | 검증됨 |
+| [0050](0050-game-metadata-catalog-and-filters.md) | 17만 게임 메타데이터를 관계로 관리하고 상세 필터를 제공 | 승인됨 | 2026-08-05 | 미검증 |

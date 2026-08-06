@@ -26,6 +26,13 @@ app:
   security:
     cookie:
       secure: false
+  chat:
+    websocket:
+      allowed-origin: ${ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN:http://localhost:5174}
+  room:
+    status-correction:
+      lock-at-most-for: 2m
+      execution-warning-threshold: 30s
   redis:
     host: ${ALBAM_MATE_LOCAL_MULTI_REDIS_HOST}
     port: ${ALBAM_MATE_LOCAL_MULTI_REDIS_PORT:6379}
