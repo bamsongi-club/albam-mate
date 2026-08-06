@@ -282,6 +282,9 @@ final class RoomConcurrencyBaselineSupport {
 		try {
 			if (!executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS)) {
 				executor.shutdownNow();
+				if (!executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS)) {
+					throw new AssertionError("측정 round의 요청 스레드가 종료되지 않았습니다.");
+				}
 			}
 		} catch (InterruptedException exception) {
 			Thread.currentThread().interrupt();
