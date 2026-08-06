@@ -53,6 +53,27 @@
 - 사용자별 ACTIVE participation은 최대 하나
 - 마지막 좌석이 차면 `CLOSED`, 남으면 `RECRUITING`이며 종료 상태로 바뀌지 않는다.
 
+## 원자료 보존
+
+측정 round는 로그 출력만으로 남기지 않는다. 로그는 실행이 끝나면 사라져 후속 통합이 쓸 입력이 되지 못하므로, `room-09-bounded-processing-baseline.md`가 확립한 방식을 따른다.
+
+1. 테스트가 `build/reports/measurements/room-10a.json`과 `room-10b.json`을 생성한다.
+2. 같은 파일을 `results/room-10a/`와 `results/room-10b/`에 버전 관리로 보존한다.
+3. `ROOM-10c-T6`은 `build/` 경로의 재생성 파일이 아니라 이 버전 관리 파일을 입력으로 사용한다.
+
+각 JSON은 `reportName`, `environment`, `rounds`로 구성한다. `environment`에는 기준 SHA, Java·PostgreSQL 버전, OS와 버전, CPU 수, 시작 heap 사용량·최대 heap과 `configuration`을 남긴다. `configuration`은 PostgreSQL image, `shared_preload_libraries`, fixture seed, 고정 시각, 동시 요청 수준, 배경 스케줄러 차단 여부를 담는다. `rounds`에는 시나리오, 동시 요청 수준, 전체 요청 수, 성공·업무 실패·동시성 실패·기술 실패 수, 낙관 락 충돌 수와 충돌률, `0`·`1`·`2`회 재시도 수, 세 번째 시도 소진 수, 요청별 monotonic 응답시간, PostgreSQL 비용과 raw record를 남긴다.
+
+| 파일 | 의미 | SHA-256 |
+| --- | --- | --- |
+| [`room-10a.json`](results/room-10a/room-10a.json) | 마지막 좌석 동시 참가, 수준 `2`·`4`·`8` 각 3 round | `B3CA80FF495F62CF95889C2A22897B06225A1472E78767370B9144EC453A091F` |
+| [`room-10b.json`](results/room-10b/room-10b.json) | 대기·자동 승격 5개 경합 시나리오 21 round | `9C049FC43E0F6998B55E454A3426A31E05D4ACBF78329199F04F7541DEAA6E4E` |
+
+SHA-256은 OS 줄바꿈 차이를 제거한 Git canonical blob bytes 기준이며, working tree의 CRLF 파일을 직접 해시한 값과 다를 수 있다.
+
+보존한 두 파일은 `build -x jacocoTestCoverageVerification`·`conventionCheck`·`postgresTest`·`jacocoAllTestReport`·`jacocoAllTestCoverageVerification`을 함께 실행한 같은 세션에서 생성했다. 응답시간과 PostgreSQL 비용은 실행마다 달라지므로, 결과를 갱신할 때는 두 파일을 같은 세션에서 다시 만들고 위 SHA-256도 함께 고친다.
+
+측정 중에는 `spring.task.scheduling.enabled=false`로 배경 스케줄러를 차단하고 알림 relay·채팅 만료 삭제도 함께 끈다. 배경 SQL이 `pg_stat_statements` 합계에 섞이면 요청 외 비용이 측정값에 포함된다.
+
 ## 재현 명령
 
 Docker daemon 접근을 먼저 확인한다.
@@ -60,6 +81,9 @@ Docker daemon 접근을 먼저 확인한다.
 ```powershell
 docker version
 .\gradlew.bat postgresTest --tests "cloud.bamsongi.albammate.room.measurement.RoomParticipationConcurrencyBaselinePostgresTest.*" --rerun --fail-fast
+.\gradlew.bat postgresTest --tests "cloud.bamsongi.albammate.room.measurement.RoomWaitlistConcurrencyBaselinePostgresTest.*" --rerun --fail-fast
 ```
+
+두 명령은 `build/reports/measurements/`에 JSON을 다시 만든다. 결과를 갱신하려면 그 파일을 위 `results/` 경로로 복사하고 표의 SHA-256을 다시 계산한다.
 
 이 명령은 기준선 fixture를 실행할 뿐 운영 성능 수치나 잠금 전략 채택 결론을 만들지 않는다.
