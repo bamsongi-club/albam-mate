@@ -615,19 +615,23 @@ function SessionCard({ room }) {
   return (
     <a className="scard" href={'#/session/' + room.id}>
       <div className="scard-top">
-        <span className="gemoji">{game ? '🎲' : '🙌'}</span>
+        <span className="gemoji" aria-hidden="true">{game ? '🎲' : '🙌'}</span>
         <div>
           <div className="stitle">
             {room.title} <span className={'badge ' + (room.roomType === 'PERSON_FOCUSED' ? 'people' : 'game')}>{room.roomType === 'PERSON_FOCUSED' ? '사람 중심' : '게임 중심'}</span>{' '}
             <span className="chip">{EXP_LABEL[room.experienceLevel]}</span>
             {status.code !== 'RECRUITING' && <>{' '}<span className={'badge ' + status.className}>{status.label}</span></>}
           </div>
-          <div className="smeta">{game ? '🎲 ' + game.title : '게임은 모임에서 정해요'}</div>
-          <div className="smeta">🕐 {formatStartsAt(room.startsAt)} · 📍 {room.region || '홍대'}</div>
+          {/* 장식 이모지는 낭독기가 "시계"·"압정"으로 읽지 않도록 본문에서 떼어 놓는다. */}
+          <div className="smeta">{game ? <><span aria-hidden="true">🎲</span> {game.title}</> : '게임은 모임에서 정해요'}</div>
+          <div className="smeta"><span aria-hidden="true">🕐</span> {formatStartsAt(room.startsAt)} · <span aria-hidden="true">📍</span> {room.region || '홍대'}</div>
         </div>
       </div>
-      <div className="srow"><span className="cap">총 {participantCount(room)}/{room.recruitmentCapacity + 1}명</span></div>
-      <div className="sfoot"><span>{room.isRulemasterLed ? '룰마스터 진행' : '참가자끼리 진행'}</span><span>상세 위치는 참가 후 확인</span></div>
+      {/* 카드마다 같은 문구가 반복되던 "상세 위치는 참가 후 확인"은 뺐다. 상세 화면에서 안내한다. */}
+      <div className="sfoot">
+        <span className="cap">총 {participantCount(room)}/{room.recruitmentCapacity + 1}명</span>
+        <span>{room.isRulemasterLed ? '룰마스터 진행' : '참가자끼리 진행'}</span>
+      </div>
     </a>
   );
 }
@@ -664,8 +668,9 @@ function GameCard({ game, played, pending, onTogglePlayed }) {
           <span className="gname">{game.title}</span>
           {game.englishName && <span className="gen">{game.englishName}</span>}
         </div>
-        <div className="gmeta">{gameMeta(game)}</div>
-        <div className="gsess">예정 모임 {game.upcomingRoomCount}개</div>
+        {/* 카드 높이를 맞추려고 한 줄로 자른다. 잘린 뒷부분은 hover로 확인한다. */}
+        <div className="gmeta" title={gameMeta(game)}>{gameMeta(game)}</div>
+        <div className={'gsess' + (game.upcomingRoomCount ? '' : ' none')}>예정 모임 {game.upcomingRoomCount}개</div>
       </a>
       {/* 카드 전체가 상세 링크라 해 본 게임 조작은 링크 밖에 두고 표지 모서리에 점으로 얹는다. */}
       <PlayedGameToggle played={played} pending={pending} onToggle={onTogglePlayed} compact />
@@ -1041,6 +1046,7 @@ function FilterPanel({ chips, onReset, children }) {
       <div className="filter-bar">
         <button type="button" className={'filter-toggle' + (isOpen ? ' on' : '')} aria-expanded={isOpen} aria-controls="search-filter-panel" aria-label="조건 필터" onClick={() => setIsOpen(!isOpen)}>
           <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><line x1="4" y1="8" x2="20" y2="8" /><line x1="4" y1="16" x2="20" y2="16" /><circle cx="10" cy="8" r="2.4" fill="currentColor" stroke="none" /><circle cx="15" cy="16" r="2.4" fill="currentColor" stroke="none" /></svg>
+          <span>조건</span>
         </button>
         {chips.map((chip) => (
           <button type="button" className="filter-chip" key={chip.key} aria-label={chip.label + ' 조건 해제'} onClick={chip.onClear}>{chip.label}<span aria-hidden="true">×</span></button>
@@ -1146,14 +1152,17 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
     <>
       <h2><SectionIcon name="rooms" />모임 찾기 <span className="cnt">{loading && !data ? '불러오는 중…' : (data?.totalElements ?? 0) + '개'}{keyword ? ' · \'' + keyword + '\' 검색 결과' : ''}</span></h2>
       <div className="tabs-row">
-        <form className="inline-search" onSubmit={(event) => { event.preventDefault(); onRoomQueryChange(input.trim()); }}>
-          <label className="hint" htmlFor="room-q" style={{ position: 'absolute', left: -9999 }}>모임 제목 검색</label>
-          <input id="room-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="모임 제목으로 검색" />
-          <button type="submit" aria-label="검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.65" y2="16.65" /></svg></button>
-        </form>
-        <a className="btn ghost" href="#/create">✏️ 모임 만들기</a>
+        {/* 검색 한계 안내는 검색창 바로 아래에 둔다. 줄 왼쪽 끝에 떨어져 있으면 무엇에 대한 안내인지 읽히지 않는다. */}
+        <div className="search-block">
+          <form className="inline-search" onSubmit={(event) => { event.preventDefault(); onRoomQueryChange(input.trim()); }}>
+            <label className="sr-only" htmlFor="room-q">모임 제목 검색</label>
+            <input id="room-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="모임 제목으로 검색" />
+            <button type="submit" aria-label="검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><line x1="20" y1="20" x2="16.65" y2="16.65" /></svg></button>
+          </form>
+          <p className="hint search-hint">모임 제목의 부분 일치 검색만 제공해요.</p>
+        </div>
+        <a className="btn ghost" href="#/create"><span aria-hidden="true">✏️</span> 모임 만들기</a>
       </div>
-      <p className="hint" style={{ marginTop: -10, marginBottom: 15 }}>모임 제목의 부분 일치 검색만 제공해요.</p>
       <RoomFilters filters={roomFilters} onChange={onRoomFiltersChange} today={today} roomType={roomType} onRoomTypeChange={onRoomTypeChange} counts={counts} />
       {error && <ErrorBox message={error} />}
       {!error && loading && !data && <LoadingBox />}
@@ -1872,7 +1881,7 @@ export function MyRoomsSection({ myTab, onMyTabChange, dataVersion }) {
           <button type="button" className={tab === 'joined' ? 'on' : ''} onClick={() => onMyTabChange('joined')}><span className="tab-full">참가한 모임 ({joinedCount})</span><span className="tab-short">참가 {joinedCount}</span></button>
           <button type="button" className={tab === 'hosted' ? 'on' : ''} onClick={() => onMyTabChange('hosted')}><span className="tab-full">개설한 모임 ({hostedCount})</span><span className="tab-short">개설 {hostedCount}</span></button>
         </div>
-        <a className="btn ghost" href="#/create">✏️ 모임 만들기</a>
+        <a className="btn ghost" href="#/create"><span aria-hidden="true">✏️</span> 모임 만들기</a>
       </div>
       {page.error && <ErrorBox message={page.error} />}
       {!page.error && page.loading && !page.data && <LoadingBox />}
