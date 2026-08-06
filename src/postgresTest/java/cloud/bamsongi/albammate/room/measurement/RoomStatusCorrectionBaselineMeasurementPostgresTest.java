@@ -36,7 +36,15 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @Testcontainers
-@SpringBootTest(properties = "spring.task.scheduling.enabled=false")
+@SpringBootTest(properties = {
+	"spring.task.scheduling.enabled=false",
+	"app.notification.relay.enabled=false",
+	"app.chat.retention.enabled=false",
+	"app.room.status-correction.trigger-delay=24h",
+	"app.room.status-correction.trigger-jitter=0s",
+	"app.notification.cleanup.interval=24h",
+	"app.notification.cleanup.jitter=0s"
+})
 class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 
 	private static final Instant REQUEST_TIME = Instant.parse("2026-08-06T00:00:00Z");
@@ -362,12 +370,23 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 			jdbcTemplate.queryForObject("show server_version", String.class), System.getProperty("os.name"),
 			System.getProperty("os.version"), runtime.availableProcessors(),
 			runtime.totalMemory() - runtime.freeMemory(),
-			runtime.maxMemory(), Map.of(
-				"postgresImage", POSTGRES.getDockerImageName(),
-				"dockerVersion", dockerVersion(),
-				"sharedPreloadLibraries", jdbcTemplate.queryForObject("show shared_preload_libraries", String.class),
-				"measurementProperty", System.getProperty("issue383.measurement", "false"),
-				"profile", profile.name()));
+			runtime.maxMemory(), Map.ofEntries(
+				Map.entry("postgresImage", POSTGRES.getDockerImageName()),
+				Map.entry("dockerVersion", dockerVersion()),
+				Map.entry("sharedPreloadLibraries",
+					jdbcTemplate.queryForObject("show shared_preload_libraries", String.class)),
+				Map.entry("measurementProperty", System.getProperty("issue383.measurement", "false")),
+				Map.entry("profile", profile.name()),
+				Map.entry("notificationRelayEnabled", System.getProperty("app.notification.relay.enabled", "true")),
+				Map.entry("chatRetentionEnabled", System.getProperty("app.chat.retention.enabled", "true")),
+				Map.entry("roomStatusCorrectionTriggerDelay",
+					System.getProperty("app.room.status-correction.trigger-delay", "15m")),
+				Map.entry("roomStatusCorrectionTriggerJitter",
+					System.getProperty("app.room.status-correction.trigger-jitter", "3m")),
+				Map.entry("notificationCleanupInterval",
+					System.getProperty("app.notification.cleanup.interval", "1h")),
+				Map.entry("notificationCleanupJitter",
+					System.getProperty("app.notification.cleanup.jitter", "5m"))));
 	}
 
 	private String dockerVersion() {
