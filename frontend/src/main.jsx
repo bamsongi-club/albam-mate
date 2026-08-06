@@ -1228,8 +1228,9 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
     (page, signal) => api.getRooms({ type: roomType, keyword, ...roomFilterParameters(roomFilters, today), page, size: ROOM_LIST_PAGE_SIZE }, signal),
     [roomType, keyword, filterKey, dataVersion]
   );
-  // 백엔드가 status 필터를 아직 지원하지 않아, 기본으로 모집 중인 모임만 보이도록 프런트에서 걸러낸다.
-  const rooms = (data?.content || []).map(normalizeRoom).filter((room) => room.status === 'RECRUITING');
+  // 서버가 페이지네이션 전에 상태를 걸러주지 않아, 프런트에서 상태로 거르면 페이지당 건수·전체 건수가 어긋나고
+  // 모집 마감이라도 대기 신청이 가능한 방의 진입점이 사라진다. 서버가 주는 공개 방을 그대로 보여준다.
+  const rooms = (data?.content || []).map(normalizeRoom);
   useEffect(() => setInput(roomQuery), [roomQuery]);
   return (
     <>
