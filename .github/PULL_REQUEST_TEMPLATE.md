@@ -7,8 +7,10 @@
 ## 주요 변경 사항
 -
 
+## 테스트 및 확인
+
 <details>
-<summary><strong>테스트 및 확인</strong></summary>
+<summary>상세 내용</summary>
 
 - [ ]
 
