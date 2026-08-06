@@ -15,8 +15,128 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.paths.outputs.backend }}
+      frontend: ${{ steps.paths.outputs.frontend }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Classify changed paths
+        id: paths
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            node scripts/classify-ci-paths.mjs --all >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            base_sha="$PR_BASE_SHA"
+          else
+            base_sha="$PUSH_BEFORE_SHA"
+          fi
+
+          if [[ -z "$base_sha" || "$base_sha" =~ ^0+$ ]]; then
+            node scripts/classify-ci-paths.mjs --all >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! git cat-file -e "${base_sha}^{commit}"; then
+            node scripts/classify-ci-paths.mjs --all >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git diff --name-only --no-renames "$base_sha" "$GITHUB_SHA" \
+            > "$RUNNER_TEMP/changed-paths.txt"
+          node scripts/classify-ci-paths.mjs \
+            --paths-file "$RUNNER_TEMP/changed-paths.txt" >> "$GITHUB_OUTPUT"
+
+  backend-static:
+    name: Backend Static
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      TZ: UTC
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+        with:
+          cache-provider: basic
+          cache-read-only: ${{ github.ref != 'refs/heads/develop' && github.ref != 'refs/heads/main' }}
+          validate-wrappers: true
+
+      - name: Assemble and check conventions
+        run: ./gradlew assemble conventionCheck --no-daemon --stacktrace
+
+  local-multi-runtime:
+    name: Local Multi Runtime
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TZ: UTC
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+        with:
+          cache-provider: basic
+          cache-read-only: ${{ github.ref != 'refs/heads/develop' && github.ref != 'refs/heads/main' }}
+          validate-wrappers: true
+
+      - name: Verify local-multi runtime
+        run: |
+          docker compose --env-file .env.example -f compose.local-multi.yml config --quiet
+          docker compose --env-file .env.example -f compose.local-multi.yml up -d --build --wait
+          ./gradlew postgresTest --tests "cloud.bamsongi.albammate.global.security.session.LocalMultiProxyRuntimePostgresTest" -Dissue360.localMultiProxy=true --no-daemon --stacktrace
+
+      - name: Stop local-multi runtime
+        if: ${{ always() }}
+        run: docker compose --env-file .env.example -f compose.local-multi.yml down
+
+  backend-coverage:
+    name: Backend Coverage
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -41,25 +161,17 @@ jobs:
           cache-read-only: ${{ github.ref != 'refs/heads/develop' && github.ref != 'refs/heads/main' }}
           validate-wrappers: true
 
-      # 커버리지는 아래 합산 게이트로 판정하므로 test 전용 게이트는 제외한다. 제외하지
-      # 않으면 build가 test 결과만으로 먼저 판정해, postgresTest가 담당하는 범위에
-      # 의존하는 변경이 합산 판정에 닿기 전에 막힌다.
-      - name: Build and verify
-        run: ./gradlew build -x jacocoTestCoverageVerification --no-daemon --stacktrace
-
-      - name: Verify local-multi runtime
-        run: |
-          docker compose --env-file .env.example -f compose.local-multi.yml config --quiet
-          docker compose --env-file .env.example -f compose.local-multi.yml up -d --build --wait
-          ./gradlew postgresTest --tests "cloud.bamsongi.albammate.global.security.session.LocalMultiProxyRuntimePostgresTest" -Dissue360.localMultiProxy=true --no-daemon --stacktrace
-
-      - name: Stop local-multi runtime
-        if: ${{ always() }}
-        run: docker compose --env-file .env.example -f compose.local-multi.yml down
-
-      # 두 Test 태스크가 모두 포함된 하나의 태스크 그래프에서 합산 커버리지를 판정한다.
-      - name: Verify PostgreSQL schema and branch coverage
-        run: ./gradlew postgresTest jacocoAllTestReport jacocoAllTestCoverageVerification --no-daemon --stacktrace
+      # H2와 PostgreSQL 실행 데이터를 한 태스크 그래프에서 한 번씩 생성해 합산한다.
+      # 서로 다른 job으로 나누면 JaCoCo execution data 전달과 별도 병합 gate가 필요하다.
+      - name: Test and verify PostgreSQL branch coverage
+        run: >-
+          ./gradlew
+          test
+          postgresTest
+          jacocoAllTestReport
+          jacocoAllTestCoverageVerification
+          --no-daemon
+          --stacktrace
 
       - name: Publish coverage summary
         if: ${{ always() && hashFiles('build/reports/jacoco/jacocoAllTestReport/jacocoAllTestReport.xml') != '' }}
@@ -99,6 +211,8 @@ jobs:
 
   frontend:
     name: Frontend
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     defaults:
@@ -151,6 +265,59 @@ jobs:
       - name: Test delivery gate validators
         run: >-
           node --test
+          scripts/classify-ci-paths.test.mjs
           scripts/validate-packet.test.mjs
           scripts/validate-backend-test-manifest.test.mjs
           scripts/validate-coverage-ratchet.test.mjs
+
+  ci-gate:
+    name: CI Gate
+    if: ${{ always() }}
+    needs:
+      - changes
+      - backend-static
+      - local-multi-runtime
+      - backend-coverage
+      - frontend
+      - docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Verify required jobs
+        shell: bash
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          DOCS_RESULT: ${{ needs.docs.result }}
+          BACKEND_REQUIRED: ${{ needs.changes.outputs.backend }}
+          BACKEND_STATIC_RESULT: ${{ needs.backend-static.result }}
+          LOCAL_MULTI_RESULT: ${{ needs.local-multi-runtime.result }}
+          BACKEND_COVERAGE_RESULT: ${{ needs.backend-coverage.result }}
+          FRONTEND_REQUIRED: ${{ needs.changes.outputs.frontend }}
+          FRONTEND_RESULT: ${{ needs.frontend.result }}
+        run: |
+          fail() {
+            echo "::error::$1"
+            exit 1
+          }
+
+          if [[ "$CHANGES_RESULT" != "success" || "$DOCS_RESULT" != "success" ]]; then
+            fail "Changes와 Docs는 항상 성공해야 합니다."
+          fi
+
+          if [[ "$BACKEND_REQUIRED" != "true" && "$BACKEND_REQUIRED" != "false" ]]; then
+            fail "backend 경로 분류 결과가 없습니다."
+          fi
+          if [[ "$FRONTEND_REQUIRED" != "true" && "$FRONTEND_REQUIRED" != "false" ]]; then
+            fail "frontend 경로 분류 결과가 없습니다."
+          fi
+
+          if [[ "$BACKEND_REQUIRED" == "true" ]]; then
+            [[ "$BACKEND_STATIC_RESULT" == "success" ]] || fail "Backend Static이 실패했습니다."
+            [[ "$LOCAL_MULTI_RESULT" == "success" ]] || fail "Local Multi Runtime이 실패했습니다."
+            [[ "$BACKEND_COVERAGE_RESULT" == "success" ]] || fail "Backend Coverage가 실패했습니다."
+          fi
+
+          if [[ "$FRONTEND_REQUIRED" == "true" ]]; then
+            [[ "$FRONTEND_RESULT" == "success" ]] || fail "Frontend가 실패했습니다."
+          fi
