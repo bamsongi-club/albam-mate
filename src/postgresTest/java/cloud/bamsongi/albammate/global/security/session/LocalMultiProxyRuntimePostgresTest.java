@@ -128,7 +128,7 @@ class LocalMultiProxyRuntimePostgresTest {
 			assertEquals(101, webSocket.statusCode);
 			String webSocketUpstream = webSocket.headers.get(UPSTREAM_HEADER);
 
-			// Nginx가 단일 worker 및 shared zone으로 실행되어 라운드로빈이 결정적이다.
+			// Nginx upstream의 shared zone이 worker 간 실행 상태를 공유하므로 순차 요청의 라운드로빈이 결정적이다.
 			// CSRF 조회+전송(2회 요청)만 반복하면 WebSocket과의 상대 패리티가 고정되므로,
 			// 홀수 시도에서 CSRF를 한 번 더 조회해 패리티를 뒤집어 교차 인스턴스 저장을 만든다.
 			long targetMessageId = -1;
