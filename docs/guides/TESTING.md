@@ -116,9 +116,17 @@ build/reports/jacoco/jacocoAllTestReport/html/index.html
 
 ## CI 판정
 
-CI는 `build`에서 H2 전용 게이트를 제외한 뒤 `postgresTest`, 합산 리포트와 정본 게이트를 하나의 흐름으로 실행한다. H2 게이트가 PostgreSQL 전용 분기를 먼저 미검증으로 판정해 정본 게이트를 가로막지 않게 하기 위해서다.
+CI는 변경 경로를 먼저 분류한다. 문서만 바뀌면 `Docs`, 프론트엔드만 바뀌면 `Frontend`와 `Docs`만 실행한다. 백엔드, Gradle, Compose, workflow처럼 그 밖의 경로가 바뀌면 다음 백엔드 job을 병렬로 실행한다.
+
+- `Backend Static`: 애플리케이션 조립, Spotless와 모든 Java source set의 Checkstyle
+- `Local Multi Runtime`: 프록시, Spring 두 대, PostgreSQL과 Redis를 사용하는 교차 인스턴스 세션
+- `Backend Coverage`: H2 `test`, `postgresTest`, 합산 리포트와 정본 커버리지 게이트
+
+`Backend Coverage`는 H2와 PostgreSQL 실행 데이터를 하나의 Gradle 태스크 그래프에서 한 번씩 생성한다. H2 게이트가 PostgreSQL 전용 분기를 먼저 미검증으로 판정해 정본 게이트를 가로막지 않으며, 서로 다른 runner 사이에서 JaCoCo execution data를 전달하지 않는다. 수동 실행과 변경 경로를 확정할 수 없는 실행은 전체 검증으로 안전하게 폴백한다.
 
 합산 리포트가 생성되면 전체 분기·라인 비율을 job summary에 남기고 HTML·XML을 `jacoco-coverage-<run attempt>` artifact로 14일간 보관한다. 게이트가 실패해도 리포트 생성 단계까지 진행됐다면 같은 artifact에서 미커버 위치를 확인한다.
+
+마지막 `CI Gate`는 경로 분류상 필요한 job과 항상 실행되는 `Docs`가 모두 성공했는지 집계한다. 보호 규칙에 required status check를 지정할 때는 조건부로 건너뛰는 개별 job 대신 이 고정 이름을 사용한다.
 
 ## 문제 해결
 
