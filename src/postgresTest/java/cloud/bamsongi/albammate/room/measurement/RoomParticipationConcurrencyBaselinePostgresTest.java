@@ -47,6 +47,7 @@ class RoomParticipationConcurrencyBaselinePostgresTest {
 
 	private static final Instant NOW = Instant.parse("2026-07-28T00:00:00Z");
 	private static final String FIXTURE_SEED = "ROOM-10A-20260806";
+	private static final String FIXTURE_STATEMENT_MARKER = "room10a_fixture_marker";
 
 	@Container
 	@ServiceConnection
@@ -84,7 +85,7 @@ class RoomParticipationConcurrencyBaselinePostgresTest {
 	}
 
 	@Test
-	void 결정적_attempt_gate는_시도_충돌_재시도_소진과_fixture_제외를_구분한다() {
+	void 결정적_attempt_gate는_시도_충돌_재시도_소진을_구분한다() {
 		RoomConcurrencyBaselineSupport.RetryMeasurement firstSuccess = retryMeasurement(
 			RoomConcurrencyBaselineSupport.AttemptPlan.success());
 		RoomConcurrencyBaselineSupport.RetryMeasurement oneConflictThenSuccess = retryMeasurement(
@@ -103,7 +104,6 @@ class RoomParticipationConcurrencyBaselinePostgresTest {
 		assertRetryMeasurement(oneConflictThenSuccess, 2, 1, 1, false);
 		assertRetryMeasurement(twoConflictsThenSuccess, 3, 2, 2, false);
 		assertRetryMeasurement(exhausted, 3, 3, 2, true);
-		assertEquals(0, firstSuccess.fixtureStatementCalls());
 	}
 
 	@Test
@@ -249,11 +249,13 @@ class RoomParticipationConcurrencyBaselinePostgresTest {
 		throws Exception {
 		roomReadGate.activate(fixture.room().getId(), fixture.participantUserIds().size());
 		try {
+			jdbcTemplate.execute("select id as room10a_fixture_marker from users limit 0");
 			RoomConcurrencyBaselineSupport.RoundMeasurement measurement = baselineSupport.measureRound(
 				"last-seat",
 				fixture.participantUserIds().size(),
 				roomReadGate,
 				lastSeatCommands(fixture));
+			assertEquals(0L, baselineSupport.statementCallsContaining(FIXTURE_STATEMENT_MARKER));
 			roomReadGate.assertInitialReadsShareOneVersion();
 			return measurement;
 		} finally {

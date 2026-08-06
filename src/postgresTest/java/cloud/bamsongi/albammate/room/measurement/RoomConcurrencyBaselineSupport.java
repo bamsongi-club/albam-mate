@@ -219,6 +219,15 @@ final class RoomConcurrencyBaselineSupport {
 				rs.getLong(1), rs.getDouble(2), rs.getLong(3), rs.getLong(4), rs.getLong(5)));
 	}
 
+	long statementCallsContaining(String queryFragment) {
+		return jdbcTemplate.queryForObject(
+			"select coalesce(sum(calls), 0) from pg_stat_statements "
+				+ "where dbid = (select oid from pg_database where datname = current_database()) "
+				+ "and query like ? and query not like '%pg_stat_statements%'",
+			Long.class,
+			"%" + queryFragment + "%");
+	}
+
 	private String formatRawRecord(
 		String scenario,
 		int concurrencyLevel,
@@ -450,10 +459,6 @@ final class RoomConcurrencyBaselineSupport {
 
 		int retryLogCount() {
 			return retryLogCount;
-		}
-
-		int fixtureStatementCalls() {
-			return 0;
 		}
 
 		List<Long> transactionIds() {
