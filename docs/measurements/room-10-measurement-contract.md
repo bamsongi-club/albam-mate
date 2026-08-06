@@ -9,12 +9,20 @@
 | 항목 | 고정값 또는 기록값 |
 | --- | --- |
 | 기준 SHA | 실행 시 `git rev-parse HEAD` 값 |
-| Java | 실행 시 `java --version` 값 (Java 21) |
+| 측정 호스트 | 로컬 PC 스냅샷 (2026-08-06) |
+| 호스트 OS | Windows 11 Pro 64-bit, version `10.0.26200` (build `26200`) |
+| CPU | Intel(R) Core(TM) Ultra 9 275HX, 24코어·24논리 프로세서 |
+| 호스트 메모리 | 31.4 GiB |
+| Java | Eclipse Temurin `21.0.11` (LTS) |
+| Gradle | Gradle Wrapper `9.5.1` |
+| Docker Desktop | `4.73.1.226574` |
+| Docker Engine | `29.4.3`, Linux `amd64`, WSL2 kernel `6.6.114.1-microsoft-standard-WSL2`, 24 vCPU·15.3 GiB |
 | PostgreSQL | Testcontainers `postgres:18.4` |
 | PostgreSQL 설정 | `shared_preload_libraries=pg_stat_statements`, `pg_stat_statements` extension |
 | 시간 | `Clock.fixed(2026-07-28T00:00:00Z, UTC)` |
 | fixture seed | `ROOM-10A-20260806` |
-| 실행 환경 | 호스트 OS·CPU·메모리와 Docker 버전 |
+
+위 호스트·Docker 값은 로컬 기준선 측정에 사용한 환경 스냅샷이다. 다른 PC나 CI 결과와 비교할 때는 해당 실행 환경도 같은 항목으로 별도 기록한다.
 
 ## fixture와 round
 
