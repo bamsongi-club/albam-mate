@@ -124,10 +124,25 @@ const EMPTY_GAME_FILTERS = {
   complexityMin: '',
   complexityMax: '',
   mechanism: [],
+  category: [],
+  theme: [],
+  // 테마를 둘 이상 고를 때만 의미가 있다. 빈 값이 `아무거나`이며 요청에서 빠진다.
+  themeMatch: '',
+  recommendedPlayerCount: [],
+  bestPlayerCount: [],
   // 관계 필터는 한 값만 쓴다. 빈 값이 `전체`이며 요청에서 빠진다.
   playedFilter: '',
   upcomingOnly: false
 };
+// 추천·베스트 인원은 목록 카드에 드러나는 범위에 맞춰 1~8명만 고르게 한다.
+const PREFERRED_PLAYER_COUNT_OPTIONS = Array.from({ length: 8 }, (_, index) => ({
+  value: String(index + 1),
+  label: index + 1 + '명'
+}));
+const THEME_MATCH_OPTIONS = [
+  { value: '', label: '아무거나' },
+  { value: 'ALL', label: '모두 포함' }
+];
 const EMPTY_GAME_FILTER_KEY = JSON.stringify(EMPTY_GAME_FILTERS);
 const EMPTY_PLAYER_COUNT_RANGE = { playerCountMin: '', playerCountMax: '', playerCountExact: false };
 // 계약의 허용값은 1인과 2인뿐이다.
@@ -344,6 +359,8 @@ function normalizeGameSummary(game) {
     tag: game.tag || '',
     upcomingRoomCount: Number(game.upcomingRoomCount || 0),
     alias: game.alias || null,
+    // 값이 없으면 추정하거나 대체값을 넣지 않는다. 화면에서도 그 자리를 비운다.
+    minAge: Number.isFinite(Number(game.minAge)) && game.minAge !== null ? Number(game.minAge) : null,
     description: game.description || '',
     detailDescription: game.detailDescription || '',
     // 비로그인 응답의 `null`은 관계 없음이 아니라 아직 판정하지 않은 상태다. 그대로 둔다.
@@ -513,7 +530,12 @@ function validateRoomForm(form, roomType) {
 }
 
 function gameMeta(game) {
-  return [game.players, game.time, game.complexity ? '난이도 ' + game.complexity : ''].filter(Boolean).join(' · ');
+  return [
+    game.players,
+    game.time,
+    game.complexity ? '난이도 ' + game.complexity : '',
+    game.minAge ? game.minAge + '세 이상' : ''
+  ].filter(Boolean).join(' · ');
 }
 
 const SECTION_ICONS = {
@@ -847,20 +869,23 @@ function FilterCheckGroup({ label, checked, onChange, text }) {
 }
 
 // 여러 값을 함께 고르는 조건은 체크박스로 그린다. 고른 값들은 목록 안에서 OR로 결합한다.
-function FilterMultiCheckGroup({ label, values, options, onToggle, children }) {
+// wide는 선택지가 많은 조건에서 쓴다. 좁은 칼럼에 세로로 쌓지 않고 전체 폭에서 가로로 흐른다.
+function FilterMultiCheckGroup({ label, values, options, onToggle, children, wide = false }) {
   return (
-    <fieldset className="filter-group">
+    <fieldset className={'filter-group' + (wide ? ' filter-group-wide' : '')}>
       <legend>{label}</legend>
-      {options.map((option) => (
-        <label className="filter-option" key={option.value}>
-          <input
-            type="checkbox"
-            checked={values.includes(option.value)}
-            onChange={(event) => onToggle(option.value, event.target.checked)}
-          />
-          {option.label}
-        </label>
-      ))}
+      <div className="filter-option-list">
+        {options.map((option) => (
+          <label className="filter-option" key={option.value}>
+            <input
+              type="checkbox"
+              checked={values.includes(option.value)}
+              onChange={(event) => onToggle(option.value, event.target.checked)}
+            />
+            {option.label}
+          </label>
+        ))}
+      </div>
       {children}
     </fieldset>
   );
@@ -1040,6 +1065,17 @@ function useGameMechanisms() {
   return options;
 }
 
+// 카테고리·테마도 조회 조건에 따라 바뀌지 않는다. 못 불러오면 그 조건만 비고 나머지는 그대로 쓴다.
+function useGameOptions(load) {
+  const [options, setOptions] = useState([]);
+  useEffect(() => {
+    const controller = new AbortController();
+    load(controller.signal).then((loaded) => setOptions(loaded || [])).catch(() => setOptions([]));
+    return () => controller.abort();
+  }, []);
+  return options;
+}
+
 // 고른 조건은 칩으로 보여 주고 칩마다 그 조건만 해제한다. 패널을 접어도 무엇이 걸려 있는지 남는다.
 function FilterPanel({ chips, onReset, children }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -1203,8 +1239,9 @@ function clearedExclusivePlayerCount(filters, value) {
  * 전용 인원을 함께 담은 요청을 검증 오류로 거절하므로 이때 범위 파라미터를 뺀다.
  */
 function gameFilterParameters(filters) {
-  if (!filters.exclusivePlayerCount.length) return filters;
-  return { ...filters, ...EMPTY_PLAYER_COUNT_RANGE };
+  const applied = filters.exclusivePlayerCount.length ? { ...filters, ...EMPTY_PLAYER_COUNT_RANGE } : filters;
+  // 테마가 하나 이하면 포함 방식이 결과를 바꾸지 않으므로 요청에서 뺀다.
+  return applied.theme.length > 1 ? applied : { ...applied, themeMatch: '' };
 }
 
 function playerCountRangeLabel(filters) {
@@ -1217,7 +1254,7 @@ function playerCountRangeLabel(filters) {
   return filters.playerCountMax + '명 이하' + suffix;
 }
 
-function gameFilterChips(filters, onChange, mechanismOptions) {
+function gameFilterChips(filters, onChange, mechanismOptions, categoryOptions = [], themeOptions = []) {
   const update = (patch) => onChange({ ...filters, ...patch });
   const chips = [];
   // 전용 인원을 고르면 범위 입력이 같은 조건을 되비추므로 칩을 두 번 만들지 않는다.
@@ -1258,6 +1295,31 @@ function gameFilterChips(filters, onChange, mechanismOptions) {
       });
     }
   });
+  const pushOptionChips = (key, options, prefix = '') => {
+    filters[key].forEach((code) => {
+      const option = options.find((candidate) => candidate.code === code);
+      if (!option) return;
+      chips.push({
+        key: key + '-' + code,
+        label: prefix + option.nameKo,
+        onClear: () => update({ [key]: filters[key].filter((selected) => selected !== code) })
+      });
+    });
+  };
+  pushOptionChips('category', categoryOptions);
+  pushOptionChips('theme', themeOptions);
+  if (filters.theme.length > 1 && filters.themeMatch === 'ALL') {
+    chips.push({ key: 'themeMatch', label: '테마 모두 포함', onClear: () => update({ themeMatch: '' }) });
+  }
+  [['recommendedPlayerCount', '추천'], ['bestPlayerCount', '베스트']].forEach(([key, prefix]) => {
+    filters[key].forEach((value) => {
+      chips.push({
+        key: key + '-' + value,
+        label: prefix + ' ' + value + '명',
+        onClear: () => update({ [key]: filters[key].filter((selected) => selected !== value) })
+      });
+    });
+  });
   const playedOption = PLAYED_FILTER_OPTIONS.find((option) => option.value && option.value === filters.playedFilter);
   if (playedOption) chips.push({ key: 'playedFilter', label: playedOption.label, onClear: () => update({ playedFilter: '' }) });
   const band = complexityBandOf(filters);
@@ -1268,7 +1330,12 @@ function gameFilterChips(filters, onChange, mechanismOptions) {
 
 function GameFilters({ filters, onChange }) {
   const mechanismOptions = useGameMechanisms();
+  const categoryOptions = useGameOptions(api.getGameCategories);
+  const themeOptions = useGameOptions(api.getGameThemes);
   const update = (patch) => onChange({ ...filters, ...patch });
+  const toggleIn = (key) => (value, checked) => update({
+    [key]: checked ? [...filters[key], value] : filters[key].filter((selected) => selected !== value)
+  });
   const selectBand = (value) => {
     const band = COMPLEXITY_BANDS.find((option) => option.value === value);
     update({ complexityMin: band ? band.min : '', complexityMax: band ? band.max : '' });
@@ -1293,7 +1360,7 @@ function GameFilters({ filters, onChange }) {
     mechanism: checked ? [...filters.mechanism, code] : filters.mechanism.filter((selected) => selected !== code)
   });
   return (
-    <FilterPanel chips={gameFilterChips(filters, onChange, mechanismOptions)} onReset={() => onChange(EMPTY_GAME_FILTERS)}>
+    <FilterPanel chips={gameFilterChips(filters, onChange, mechanismOptions, categoryOptions, themeOptions)} onReset={() => onChange(EMPTY_GAME_FILTERS)}>
       <FilterNumberRangeGroup label="게임 인원" unit="명" min={filters.playerCountMin} max={filters.playerCountMax}
         onMinChange={(playerCountMin) => updateRange({ playerCountMin })} onMaxChange={(playerCountMax) => updateRange({ playerCountMax })}>
         <label className="filter-option filter-option-picker">
@@ -1316,6 +1383,32 @@ function GameFilters({ filters, onChange }) {
       <FilterMultiCheckGroup label="플레이 시간" values={filters.playTime} onToggle={togglePlayTime}
         options={Object.entries(PLAY_TIME_LABEL).map(([code, label]) => ({ value: code, label }))} />
       <MechanismFilterGroup options={mechanismOptions} selected={filters.mechanism} onToggle={toggleMechanism} />
+      <FilterMultiCheckGroup label="카테고리" values={filters.category} onToggle={toggleIn('category')}
+        options={categoryOptions.map((option) => ({ value: option.code, label: option.nameKo }))} />
+      {/* 테마를 하나만 고르면 포함 방식이 결과를 바꾸지 않으므로 둘 이상일 때만 보여 준다. */}
+      <FilterMultiCheckGroup wide label="테마" values={filters.theme} onToggle={toggleIn('theme')}
+        options={themeOptions.map((option) => ({ value: option.code, label: option.nameKo }))}>
+        {filters.theme.length > 1 && (
+          <>
+            <hr className="filter-group-divider" />
+            {THEME_MATCH_OPTIONS.map((option) => (
+              <label className="filter-option" key={option.value || 'any'}>
+                <input
+                  type="radio"
+                  name="game-filter-theme-match"
+                  checked={(filters.themeMatch || '') === option.value}
+                  onChange={() => update({ themeMatch: option.value })}
+                />
+                {option.label}
+              </label>
+            ))}
+          </>
+        )}
+      </FilterMultiCheckGroup>
+      <FilterMultiCheckGroup label="추천 인원" values={filters.recommendedPlayerCount} onToggle={toggleIn('recommendedPlayerCount')}
+        options={PREFERRED_PLAYER_COUNT_OPTIONS} />
+      <FilterMultiCheckGroup label="베스트 인원" values={filters.bestPlayerCount} onToggle={toggleIn('bestPlayerCount')}
+        options={PREFERRED_PLAYER_COUNT_OPTIONS} />
       <FilterRadioGroup name="game-filter-played" label="해 본 게임" value={filters.playedFilter}
         onChange={(playedFilter) => update({ playedFilter })} options={PLAYED_FILTER_OPTIONS} />
       <FilterRadioGroup name="game-filter-complexity" label="게임 난이도" value={complexityBandOf(filters)?.value || ''} onChange={selectBand}

@@ -4,12 +4,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getGames = vi.fn();
 const getGameMechanisms = vi.fn();
+const getGameCategories = vi.fn();
+const getGameThemes = vi.fn();
 
 vi.mock('./api', () => ({
   ApiError: class ApiError extends Error {},
   api: {
     getGames: (...parameters) => getGames(...parameters),
     getGameMechanisms: (...parameters) => getGameMechanisms(...parameters),
+    getGameCategories: (...parameters) => getGameCategories(...parameters),
+    getGameThemes: (...parameters) => getGameThemes(...parameters),
     getMyProfile: vi.fn(),
     getNotifications: vi.fn(),
     getUnreadNotificationCount: vi.fn()
@@ -83,6 +87,10 @@ beforeEach(() => {
   getGames.mockResolvedValue(EMPTY_PAGE);
   getGameMechanisms.mockReset();
   getGameMechanisms.mockResolvedValue(MECHANISM_OPTIONS);
+  getGameCategories.mockReset();
+  getGameCategories.mockResolvedValue([]);
+  getGameThemes.mockReset();
+  getGameThemes.mockResolvedValue([]);
 });
 
 afterEach(() => {

@@ -439,6 +439,9 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .filter-range input { min-width: 0; padding: 8px 10px; text-align: center; }
 .filter-range-dash, .filter-range-unit { color: var(--brown2); flex: none; font-size: 13px; font-weight: 700; }
 .filter-group-divider { border: 0; border-top: 1px dashed var(--line); margin: 13px 0 11px; }
+/* 선택지가 많은 조건은 메커니즘과 같은 규격으로 전체 폭에서 가로로 흐르게 한다. */
+.filter-group-wide { grid-column: 1 / -1; }
+.filter-group-wide .filter-option-list { display: flex; flex-wrap: wrap; gap: 2px 20px; }
 .filter-panel-foot { border-top: 1px solid var(--line); display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; padding-top: 14px; }
 .filter-reset { color: var(--accent-dark); font-size: 13px; font-weight: 900; padding: 0 6px; }
 .filter-reset:hover { text-decoration: underline; }
