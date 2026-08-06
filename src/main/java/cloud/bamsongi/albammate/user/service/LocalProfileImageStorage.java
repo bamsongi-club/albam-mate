@@ -22,7 +22,8 @@ public class LocalProfileImageStorage implements ProfileImageStorage {
 	private final Path uploadDir;
 
 	public LocalProfileImageStorage(
-			@Value("${app.profile-image.upload-dir:./uploads/profile}") String uploadDir) {
+		@Value("${app.profile-image.upload-dir:./uploads/profile}")
+		String uploadDir) {
 		this.uploadDir = Path.of(uploadDir).toAbsolutePath().normalize();
 	}
 

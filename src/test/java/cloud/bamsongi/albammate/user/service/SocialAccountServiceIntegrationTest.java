@@ -171,6 +171,24 @@ class SocialAccountServiceIntegrationTest {
 			.noneMatch(forbiddenNames::contains));
 	}
 
+	@Test
+	void 로그인_시_프로필_이미지_URL이_있으면_계정의_프로필_이미지를_갱신한다() {
+		String subject = unique("profile-image");
+		SocialIdentity initialIdentity = new SocialIdentity(
+			SocialProvider.GOOGLE, subject, Optional.empty(), Optional.empty(),
+			Optional.of("http://example.com/first.png"));
+
+		SocialLoginResult.LoggedIn first = loggedIn(socialAccountService.login(initialIdentity));
+		assertEquals("http://example.com/first.png", userRepository.findById(first.account().id()).orElseThrow().getProfileImageUrl());
+
+		SocialIdentity updatedIdentity = new SocialIdentity(
+			SocialProvider.GOOGLE, subject, Optional.empty(), Optional.empty(),
+			Optional.of("http://example.com/second.png"));
+
+		SocialLoginResult.LoggedIn second = loggedIn(socialAccountService.login(updatedIdentity));
+		assertEquals("http://example.com/second.png", userRepository.findById(second.account().id()).orElseThrow().getProfileImageUrl());
+	}
+
 	private SocialLoginResult.LoggedIn loggedIn(SocialLoginResult result) {
 		return assertInstanceOf(SocialLoginResult.LoggedIn.class, result);
 	}
@@ -185,7 +203,7 @@ class SocialAccountServiceIntegrationTest {
 		String subject,
 		Optional<UserEmail> email,
 		Optional<UserNickname> nickname) {
-		return new SocialIdentity(provider, subject, email, nickname);
+		return new SocialIdentity(provider, subject, email, nickname, java.util.Optional.empty());
 	}
 
 	private UserEmail email(String value) {

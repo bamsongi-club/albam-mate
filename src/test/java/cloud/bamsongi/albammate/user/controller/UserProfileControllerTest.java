@@ -65,7 +65,7 @@ class UserProfileControllerTest {
 
 	@Test
 	void 인증_사용자는_자신의_UserProfileResponse만_조회한다() throws Exception {
-		when(userProfileService.findProfile(7L)).thenReturn(new UserProfileResponse(7L, "닉네임"));
+		when(userProfileService.findProfile(7L)).thenReturn(new UserProfileResponse(7L, "닉네임", null));
 
 		mockMvc.perform(get("/api/users/me").with(currentUserAuthentication()))
 			.andExpect(status().isOk())
@@ -87,7 +87,7 @@ class UserProfileControllerTest {
 	@Test
 	void 유효한_CSRF와_닉네임으로_수정하면_UserProfileResponse를_반환한다() throws Exception {
 		when(userProfileService.changeNickname(7L, UserNickname.from("새 닉네임").orElseThrow()))
-			.thenReturn(new UserProfileResponse(7L, "새 닉네임"));
+			.thenReturn(new UserProfileResponse(7L, "새 닉네임", null));
 		CsrfContext csrfContext = csrfContext();
 
 		mockMvc.perform(

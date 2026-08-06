@@ -33,7 +33,7 @@ class UserProfileServiceTest {
 		User user = User.create("user@example.com", "{bcrypt}hash", "닉네임");
 		when(userRepository.findById(7L)).thenReturn(Optional.of(user));
 
-		assertEquals(new UserProfileResponse(null, "닉네임"), userProfileService.findProfile(7L));
+		assertEquals(new UserProfileResponse(null, "닉네임", null), userProfileService.findProfile(7L));
 		verify(userRepository).findById(7L);
 	}
 
@@ -46,7 +46,7 @@ class UserProfileServiceTest {
 			7L, userNickname(" 새 닉네임 "));
 
 		assertEquals("새 닉네임", user.getNickname());
-		assertEquals(new UserProfileResponse(null, "새 닉네임"), profile);
+		assertEquals(new UserProfileResponse(null, "새 닉네임", null), profile);
 	}
 
 	@Test
@@ -68,7 +68,7 @@ class UserProfileServiceTest {
 			7L, userNickname(nickname));
 
 		assertEquals(nickname, user.getNickname());
-		assertEquals(new UserProfileResponse(null, nickname), profile);
+		assertEquals(new UserProfileResponse(null, nickname, null), profile);
 	}
 
 	@Test
