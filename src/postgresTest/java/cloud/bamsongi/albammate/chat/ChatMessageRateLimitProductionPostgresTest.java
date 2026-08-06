@@ -22,6 +22,7 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.env.Environment;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -91,6 +92,8 @@ class ChatMessageRateLimitProductionPostgresTest {
 	@Autowired
 	private RedisConnectionFactory redisConnectionFactory;
 	@Autowired
+	private Environment environment;
+	@Autowired
 	private RecordingChatRealtimePublisher realtimePublisher;
 
 	@DynamicPropertySource
@@ -155,9 +158,9 @@ class ChatMessageRateLimitProductionPostgresTest {
 		assertInstanceOf(RedisChatMessageRateLimiter.class, chatMessageRateLimiter);
 
 		RedisChatMessageRateLimiter firstInstance = new RedisChatMessageRateLimiter(redisConnectionFactory,
-			PRODUCTION_RATE_LIMIT_PREFIX);
+			environment);
 		RedisChatMessageRateLimiter secondInstance = new RedisChatMessageRateLimiter(redisConnectionFactory,
-			PRODUCTION_RATE_LIMIT_PREFIX);
+			environment);
 
 		long sharedUserId = 9_100_001L;
 		long sharedRoomId = 9_200_001L;
