@@ -56,9 +56,9 @@ input, select, textarea {
   width: 100%;
 }
 textarea { min-height: 88px; resize: vertical; }
+/* 포커스 링은 쓰지 않기로 했다. 입력창은 깜빡이는 캐럿으로 위치가 드러난다. */
 a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 3px;
+  outline: none;
 }
 label { color: var(--ink); display: block; font-size: 12.5px; font-weight: 800; margin-bottom: 6px; }
 
@@ -388,7 +388,6 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .game-picker-search-label { color: var(--sub); flex: 0 0 26px; font-size: 11px; font-weight: 900; white-space: nowrap; }
 .game-picker-search input { border: 0; flex: 1; min-width: 0; padding: 11px 0; width: auto; }
 .game-picker-search input:focus-visible { outline: 0; }
-.game-picker-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(201, 78, 64, 0.13); }
 .game-picker-body { min-height: 220px; overflow-y: auto; padding: 0 20px 16px; }
 .game-search-count { color: var(--sub); font-size: 12px; font-weight: 800; margin: 2px 0 8px; }
 .game-search-empty, .game-search-error { align-items: center; background: var(--soft); border-radius: 4px; color: var(--brown2); display: flex; font-size: 13px; justify-content: center; min-height: 140px; padding: 18px; text-align: center; }
