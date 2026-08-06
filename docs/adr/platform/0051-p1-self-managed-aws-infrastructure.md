@@ -11,7 +11,7 @@
 
 현재 승인된 [ADR-0021](0021-p0-aws-ec2-rds-deployment-baseline.md)은 P0 운영 데이터를 비공개 RDS PostgreSQL에 두고 애플리케이션 EC2와 데이터베이스 수명을 분리한다.
 
-P1 정본과 [ADR-0038](0038-multi-instance-session-and-scheduler-coordination.md)은 ALB·ASG 애플리케이션 인스턴스가 공용 RDS PostgreSQL과 Redis를 사용하는 목표 운영 구성을 기록한다.
+P1 정본과 [ADR-0038](0038-multi-instance-session-and-scheduler-coordination.md)은 ALB 뒤의 여러 애플리케이션 인스턴스가 공용 RDS PostgreSQL과 Redis를 사용하는 목표 운영 구성을 기록한다. 애플리케이션 인스턴스의 생성·교체 방식은 이 제안과 다르다.
 
 이 목표는 아직 실제 운영 배포나 측정이 완료됐다는 뜻이 아니다.
 
@@ -22,7 +22,15 @@ P1 정본과 [ADR-0038](0038-multi-instance-session-and-scheduler-coordination.m
 - Terraform으로 같은 구성을 팀원 계정에 다시 만들고, 인프라 코드는 애플리케이션과 다른 저장소에서 관리한다.
 - 이후 P1 기준선은 Spring 두 대를 유지한 EC2 네 대 구성으로 구체화됐다. 네 EC2는 모두 `t4g.micro`로 시작하고, P1 부하와 장애 시나리오에서 역할별 병목을 측정한 뒤 병목이 확인된 자원만 단계적으로 확장한다.
 
-ALB·ASG는 위 논의에서 직접 제시된 내용이 아니라 현재 P1 목표 운영 구성에서 이어받았다. 비공개 서브넷, NAT Gateway, 별도 EBS, SSM, 백업과 관측 구성은 운영 안전 요구를 만족시키기 위해 이 ADR에서 추가한 설계 제안이다.
+팀은 2026-08-06에 다음 P1 초기 방향을 확인하고 동의했다.
+
+- ALB 뒤에 고정 Spring EC2 두 대를 두고 자동 확장·자동 대체는 사용하지 않는다.
+- PostgreSQL과 Redis는 각각 별도 EC2 한 대에서 실행한다.
+- 네 EC2는 모두 `t4g.micro`로 시작하고 측정된 병목을 근거로 필요한 역할만 수동 확장한다.
+
+이 합의는 EC2 네 대의 초기 토폴로지와 용량 검증 방식에 한정한다. 비공개 서브넷, NAT Gateway, EBS 용량, SSM, TLS, 백업·관측 세부안과 기존 ADR의 대체 범위는 아직 공식 승인 대상이므로 ADR 전체 상태와 결정일은 `제안됨`·`미정`으로 유지한다.
+
+ALB는 Spring 두 대를 하나의 HTTPS·WebSocket 진입점으로 사용하기 위해 현재 P1 목표 운영 구성에서 이어받았다. Spring EC2는 자동 확장이나 자동 대체 없이 Terraform으로 두 대를 고정 생성한다. 비공개 서브넷, NAT Gateway, 별도 EBS, SSM, 백업과 관측 구성은 운영 안전 요구를 만족시키기 위해 이 ADR에서 추가한 설계 제안이다.
 
 P1에서 Spring 두 대의 교차 인스턴스 세션·채팅·스케줄 동작을 검증하려면 이 보강 설계와 현재 구현 사이의 차이도 별도 작업으로 해소해야 한다.
 
@@ -44,8 +52,8 @@ Terraform을 사용해도 AWS 리소스를 GCP 리소스로 자동 변환할 수
 
 | 대안 | 장점 | 비용·위험 | 판단 |
 | --- | --- | --- | --- |
-| ALB·ASG + RDS PostgreSQL + ElastiCache | 자동 백업·복구와 관리형 장애 대응을 활용하고 데이터 서비스 운영 부담이 작다. | 계정·리전·사양에 따른 관리형 서비스 비용이 발생하고 자체 운영 학습 범위가 줄어든다. | 기존 승인 기준 유지 |
-| ALB + `t4g.micro` Spring EC2 2대 + `t4g.micro` PostgreSQL EC2 1대 + `t4g.micro` Redis EC2 1대 | P1 교차 인스턴스 흐름을 유지하면서 Docker·Terraform으로 계정별 재현 범위를 넓히고 역할별 병목을 같은 초기 조건에서 관찰한다. | PostgreSQL·Redis가 단일 장애 지점이며 작은 메모리와 버스트 CPU의 한계가 서비스별로 다르게 나타날 수 있다. 백업·복구·패치·TLS·관측 책임도 팀이 맡는다. | 제안 선택 |
+| 기존 P1 관리형 구성 | 자동 백업·복구와 관리형 장애 대응을 활용하고 데이터 서비스 운영 부담이 작다. | 계정·리전·사양에 따른 관리형 서비스 비용이 발생하고 자체 운영 학습 범위가 줄어든다. | 기존 승인 기준 유지 |
+| ALB + `t4g.micro` Spring EC2 2대 + `t4g.micro` PostgreSQL EC2 1대 + `t4g.micro` Redis EC2 1대 | P1 교차 인스턴스 흐름을 유지하면서 Docker·Terraform으로 계정별 재현 범위를 넓히고 역할별 병목을 같은 초기 조건에서 관찰한다. | PostgreSQL·Redis가 단일 장애 지점이며 작은 메모리와 버스트 CPU의 한계가 서비스별로 다르게 나타날 수 있다. 백업·복구·패치·TLS·관측 책임도 팀이 맡는다. | 초기 방향 합의·운영 세부 승인 대기 |
 | Spring·PostgreSQL·Redis를 EC2 한 대에서 함께 실행 | 구성과 비용이 가장 작고 로컬 Compose와 유사하다. | EC2 한 대 장애가 애플리케이션·DB·Redis 전체 장애가 되고 P1 교차 인스턴스 검증 목표를 충족하지 못한다. | 제외 |
 | ECS·EKS와 관리형 데이터 서비스 | 순차 배포와 오케스트레이션 확장 경로가 넓다. | P1 검증에 필요한 범위보다 IAM·네트워크·스케줄러 운영이 복잡하다. | 제외 |
 | 클라우드마다 수동으로 VM과 네트워크 생성 | 처음 한 번은 Terraform 학습 없이 만들 수 있다. | 계정 이동 때 설정 누락과 구성 차이를 검증하기 어렵고 삭제 대상과 비용 소유권이 불명확해진다. | 제외 |
@@ -54,10 +62,10 @@ Terraform을 사용해도 AWS 리소스를 GCP 리소스로 자동 변환할 수
 
 ## 결정
 
-이 ADR이 승인되면 P1 검증 환경은 다음과 같이 구성한다.
+아래 구성 중 EC2 네 대의 역할·초기 사양, ALB 유지와 자동 확장 제외는 팀이 확인한 P1 초기 방향이다. 네트워크·보안·데이터 운영과 Terraform 상태 관리 세부안은 ADR 공식 승인 전까지 제안으로 남긴다.
 
 1. Internet-facing ALB가 HTTPS와 WebSocket Upgrade를 처리하고 비공개 서브넷의 Spring EC2 두 대에 요청을 분산한다.
-2. Spring은 동일한 Git SHA 이미지를 사용하는 Launch Template와 ASG `desired=2`로 실행한다. 두 인스턴스 모두 `t4g.micro`로 시작하고 JVM 최대 heap은 `-Xmx256m`를 초기값으로 둔다. 컨테이너 메모리 한도와 OOM 동작은 P1 부하에서 함께 검증한다.
+2. Terraform은 Spring EC2 두 대를 서로 다른 AZ에 고정 생성하고 ALB Target Group에 직접 등록한다. 자동 확장·자동 대체 정책은 사용하지 않는다. 두 인스턴스 모두 `t4g.micro`로 시작하고 JVM 최대 heap은 `-Xmx256m`를 초기값으로 둔다. 컨테이너 메모리 한도와 OOM 동작은 P1 부하에서 함께 검증한다.
 3. PostgreSQL `18.4`는 `t4g.micro` EC2 한 대의 Docker 컨테이너로 실행하고 암호화한 별도 EBS에 데이터를 저장한다.
 4. Redis `8.4-alpine`은 `t4g.micro` EC2 한 대의 Docker 컨테이너로 실행하고 AOF와 암호화한 별도 EBS를 사용한다. Redis는 Spring Session, 전송 제한과 Pub/Sub 신호만 소유하며 업무 데이터 정본은 PostgreSQL로 유지한다.
 5. PostgreSQL과 Redis는 공인 IP와 공개 인바운드를 갖지 않는다. Spring 보안 그룹에서 각 서비스 포트로만 접근하고 운영 접속은 SSM Session Manager를 사용한다.
@@ -65,7 +73,7 @@ Terraform을 사용해도 AWS 리소스를 GCP 리소스로 자동 변환할 수
 7. Terraform은 AWS용 모듈과 계정별 원격 상태 파일로 네트워크, ALB, EC2, EBS, IAM, DNS, 백업과 관측 리소스를 관리한다. 애플리케이션 이미지 빌드, Flyway 스키마와 테스트 데이터는 관리하지 않는다. `t4g`의 ARM64 환경에서 실행할 Docker 이미지는 애플리케이션 빌드 파이프라인이 `linux/arm64`를 지원해야 한다.
 8. 각 계정의 Terraform 상태 파일은 versioning·encryption·public access block과 lockfile을 적용한 S3 backend에 분리한다. 실제 비밀값, 상태 파일, 실행 계획과 개인 tfvars는 Git에 저장하지 않는다.
 9. AWS에서 다른 클라우드로 이동할 때에는 provider별 모듈과 상태 파일을 새로 만들고 공통 Docker 이미지와 역할별 입력·출력 계약만 재사용한다.
-10. 이 구성을 P1의 최종 용량이나 고가용성 운영 구성으로 부르지 않는다. 역할별 CPU·메모리·디스크·연결 지표와 실패 증상을 기록하고, 병목이 확인된 역할의 인스턴스 유형·개수·EBS만 단계적으로 조정한다. Spring 한 대 장애는 ALB·ASG로 복구할 수 있지만 단일 PostgreSQL·Redis 장애는 수동 복구 대상이다.
+10. 이 구성을 P1의 최종 용량이나 고가용성 운영 구성으로 부르지 않는다. 역할별 CPU·메모리·디스크·연결 지표와 실패 증상을 기록하고, 병목이 확인된 역할의 인스턴스 유형·개수·EBS만 Terraform 변수로 단계적으로 조정한다. Spring 한 대 장애 시 ALB는 비정상 대상을 제외하지만 EC2 복구는 Terraform으로 수동 수행한다. 단일 PostgreSQL·Redis 장애도 수동 복구 대상이다.
 
 이 제안이 승인되기 전까지 [ADR-0021](0021-p0-aws-ec2-rds-deployment-baseline.md)과 [ADR-0038](0038-multi-instance-session-and-scheduler-coordination.md)의 상태·대체 관계·결정 본문은 변경하지 않는다.
 

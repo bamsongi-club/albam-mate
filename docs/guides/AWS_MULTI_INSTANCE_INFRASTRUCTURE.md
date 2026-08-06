@@ -13,6 +13,8 @@
 
 이 문서가 구체적이라는 이유만으로 팀 채택이나 배포 완료로 읽지 않는다. 팀 승인 전에는 기존 RDS 기준과 P1 목표 토폴로지를 바꾸지 않으며, 애플리케이션 설정도 수정하지 않는다.
 
+다만 EC2 네 대의 역할과 `t4g.micro` 초기 사양, ALB 유지, 자동 확장 제외와 측정 후 수동 확장 방향은 2026-08-06 팀 확인·동의를 마쳤다. ADR의 나머지 운영 세부안은 아직 공식 승인 전이다.
+
 ## 먼저 구분할 것
 
 이 문서는 대화 내용을 그대로 옮긴 회의록이 아니다. 대화에서 나온 방향, 현재 프로젝트 계약, 실행을 위해 보강한 설계를 다음처럼 구분한다.
@@ -20,12 +22,12 @@
 | 구분 | 내용 | 현재 판정 |
 | --- | --- | --- |
 | 2026-08-06 초기 논의에서 직접 제시 | RDS·ElastiCache 대신 EC2에서 PostgreSQL·Redis를 Docker로 운영, Spring 2대·DB 1대·Redis 1대, 단순 시연에서는 Spring 1대도 가능, Terraform으로 팀원 계정에 재현, 인프라 저장소 분리 | 제안 |
-| 2026-08-06 이후 구체화한 P1 기준선 | Spring 2대를 유지한 EC2 4대 모두 `t4g.micro`로 시작하고, 역할별 병목을 확인한 뒤 필요한 자원만 단계적으로 확장 | 제안 |
-| 현재 프로젝트 계약 | ALB·ASG와 공용 RDS PostgreSQL·Redis 목표 토폴로지, 채팅 세션·전송 제한 경로의 Redis fallback 금지, PostgreSQL 업무 데이터 정본, Flyway migration | 승인·구현 상태는 연결된 정본에서 별도 확인 |
+| 2026-08-06 팀이 확인한 P1 기준선 | ALB 뒤의 고정 Spring EC2 2대, PostgreSQL EC2 1대, Redis EC2 1대를 모두 `t4g.micro`로 시작하고 자동 확장 없이 역할별 병목 확인 후 필요한 자원만 수동 확장 | 방향 합의 |
+| 현재 프로젝트 계약 | ALB 뒤의 다중 Spring 인스턴스와 공용 RDS PostgreSQL·Redis 목표 토폴로지, 채팅 세션·전송 제한 경로의 Redis fallback 금지, PostgreSQL 업무 데이터 정본, Flyway migration | 승인·구현 상태는 연결된 정본에서 별도 확인 |
 | 이 문서가 보강한 설계 | 비공개 서브넷과 NAT Gateway, EBS, private DNS, SSM, S3 백업, CloudWatch | 팀 미승인 제안 |
 | 조건이 확정되지 않은 내용 | 관리형 서비스 비용 배수, 월 예상 비용, 크레딧 사용 기간, EBS 용량, `t4g.micro` 이후의 확장 유형 | 실제 계정과 측정 결과로 재계산·결정 필요 |
 
-따라서 “네 EC2를 `t4g.micro`로 시작하고 Terraform으로 재현한 뒤 병목에 따라 확장한다”는 대화 맥락을 반영한다. ALB·ASG는 기존 P1 목표에서 이어받았고 NAT·백업 방식은 이 문서의 보강 제안이다.
+따라서 “네 EC2를 `t4g.micro`로 시작하고 Terraform으로 재현한 뒤 병목에 따라 확장한다”는 대화 맥락을 반영한다. ALB는 Spring 두 대를 하나의 진입점으로 사용하기 위해 유지한다. Spring EC2는 Terraform이 두 대를 직접 생성하고 ALB Target Group에 등록하며 자동 확장·자동 대체 정책은 사용하지 않는다. NAT·백업 방식은 이 문서의 보강 제안이다.
 
 ## 문서 소유 경계
 
@@ -42,6 +44,8 @@
 ## 승인 시 P1 초기 구성
 
 승인되면 Spring 애플리케이션 두 대, PostgreSQL 한 대, Redis 한 대의 EC2 네 대를 모두 `t4g.micro`로 시작한다. Spring JVM 최대 heap은 `-Xmx256m`를 초기값으로 둔다. 이 사양은 P1의 최종 용량이 아니라 병목을 찾기 위한 공통 기준선이다. 검증하지 않을 때에는 환경을 상시 유지하지 않고 필요할 때 같은 Terraform stack으로 다시 만든다.
+
+Spring EC2 수와 사양은 Terraform 변수로만 수동 변경한다. 부하에 따른 자동 확장과 장애 인스턴스 자동 대체는 사용하지 않는다.
 
 Spring 한 대 구성은 단순 시연에는 사용할 수 있지만 교차 인스턴스 검증 근거로 사용하지 않는다.
 
@@ -100,7 +104,7 @@ flowchart TB
 | 영역 | P1 초기 구성 | 고정 경계 |
 | --- | --- | --- |
 | 외부 진입 | Internet-facing ALB, ACM 인증서 | HTTPS와 WebSocket Upgrade를 처리하고 정상 Spring 대상에만 전달한다. 현재 Compose와의 연결 방식은 별도 구현이 필요하다. |
-| 애플리케이션 | `t4g.micro`, Launch Template와 ASG `desired=2`, JVM `-Xmx256m` | 동일한 Git SHA 이미지 두 대를 서로 다른 AZ에 배치한다. 컨테이너 메모리 한도와 실제 사용량, OOM 동작을 함께 측정한다. |
+| 애플리케이션 | 고정 `t4g.micro` EC2 2대, JVM `-Xmx256m` | Terraform이 두 EC2를 서로 다른 AZ에 생성하고 ALB Target Group에 직접 등록한다. 동일한 Git SHA 이미지, 컨테이너 메모리와 OOM 동작을 함께 측정한다. |
 | PostgreSQL | `t4g.micro` 한 대, `postgres:18.4`, 별도 EBS | 방·채팅·알림과 ShedLock의 업무 데이터 정본이다. 컨테이너 삭제와 데이터 볼륨 수명을 분리한다. |
 | Redis | `t4g.micro` 한 대, `redis:8.4-alpine`, AOF와 별도 EBS | Spring Session, Rate Limit, Pub/Sub 신호를 공유한다. 업무 데이터 정본으로 사용하지 않는다. |
 | 내부 주소 | Route 53 private hosted zone | 애플리케이션은 IP가 아니라 `db.albam.internal`, `redis.albam.internal` 같은 이름을 사용한다. |
@@ -165,7 +169,7 @@ infra/
 │  ├─ network/                   # VPC, subnet, route, NAT
 │  ├─ security/                  # 역할별 security group
 │  ├─ edge/                      # ALB, target group, ACM, public DNS
-│  ├─ app-asg/                   # Launch Template, ASG, target attachment
+│  ├─ app-ec2/                   # 고정 EC2 2대, IAM, ALB target attachment
 │  ├─ postgres-ec2/              # EC2, EBS, private DNS, backup role
 │  ├─ redis-ec2/                 # EC2, EBS, private DNS
 │  ├─ identity/                  # instance profile, OIDC apply role
@@ -209,7 +213,7 @@ Terraform user data에는 비밀값을 넣지 않고 역할과 parameter 경로�
 | PostgreSQL | Docker·Compose 설치, EBS 포맷·마운트, TLS·DB parameter 조회, `postgres.yml` 실행, 백업 timer 등록 |
 | Redis | Docker·Compose 설치, EBS 포맷·마운트, Redis 설정 parameter 조회, `redis.yml` 실행 |
 
-user data는 최초 부트스트랩만 담당한다. 이후 릴리스는 Launch Template 버전과 ASG Instance Refresh로 교체한다. DB·Redis 설정 변경은 SSM Automation 또는 검토된 운영 절차로 수행한다.
+user data는 최초 부트스트랩만 담당한다. 이후 애플리케이션 릴리스는 SSM Automation으로 Spring EC2를 한 대씩 ALB에서 제외·교체·검증한 뒤 다시 등록한다. 한 대가 정상 상태로 복귀한 뒤에만 다음 인스턴스를 갱신한다. EC2 자체가 손상되면 Terraform으로 해당 고정 인스턴스를 수동 재생성한다. DB·Redis 설정 변경도 SSM Automation 또는 검토된 운영 절차로 수행한다.
 
 Terraform `remote-exec`와 공개 SSH를 기본 배포 경로로 사용하지 않는다.
 
@@ -220,9 +224,9 @@ flowchart LR
     CODE["애플리케이션 commit"] --> CI["테스트와 이미지 빌드"]
     CI --> ECR["ECR Git SHA digest"]
     TF["Terraform plan/apply"] --> INFRA["네트워크 · EC2 · EBS · ALB"]
-    ECR --> REFRESH["ASG Instance Refresh"]
-    INFRA --> REFRESH
-    REFRESH --> BOOT["Spring 기동<br/>현재 Flyway 자동 실행"]
+    ECR --> DEPLOY["Spring EC2 A/B<br/>순차 배포"]
+    INFRA --> DEPLOY
+    DEPLOY --> BOOT["Spring 기동<br/>현재 Flyway 자동 실행"]
     BOOT --> HEALTH["ALB 상태 확인"]
     HEALTH --> VERIFY["교차 인스턴스 · 복구 · 병목 측정"]
 ```
@@ -231,7 +235,7 @@ flowchart LR
 2. 백엔드와 웹의 `linux/arm64` 이미지 또는 multi-arch manifest를 같은 40자리 Git SHA로 ECR에 게시한다.
 3. `terraform fmt -check`, `terraform validate`, `terraform plan`을 검토한 뒤 인프라를 적용한다.
 4. PostgreSQL·Redis 상태와 private DNS 연결을 먼저 확인한다. TLS·인증을 선택했다면 해당 연결도 함께 확인한다.
-5. Spring Launch Template에 image digest와 parameter 경로를 반영하고 Instance Refresh를 수행한다.
+5. Spring EC2 한 대를 ALB Target Group에서 제외하고 연결 종료를 기다린 뒤 SSM Automation으로 image digest를 갱신한다. 상태 확인을 통과해 Target Group에 다시 등록한 후 나머지 한 대도 같은 순서로 배포한다.
 6. 현재 구현대로 각 Spring 기동에서 Flyway와 Hibernate `validate`가 성공하는지 확인한다. 별도 1회 migration 작업은 구현된 뒤에만 배포 gate로 사용한다.
 7. 두 Spring 대상이 합의한 ALB 상태 확인을 통과한 뒤에만 P1 검증 URL을 사용한다. 전용 readiness endpoint는 아직 구현되지 않았다.
 
@@ -274,7 +278,7 @@ Terraform은 애플리케이션 이미지 빌드, DB schema 정의와 테스트 
 - 채팅 Pub/Sub 신호 유실 뒤 PostgreSQL catch-up으로 누락 메시지를 복구하는지 확인
 - ROOM Scheduler가 PostgreSQL ShedLock으로 한 인스턴스에서만 실행되는지 확인
 - 알림 relay가 두 인스턴스에서 `SKIP LOCKED`로 중복 처리 없이 나뉘는지 확인
-- Spring 한 대를 종료했을 때 ALB가 정상 대상만 사용하고 ASG가 대체하는지 확인
+- Spring 한 대를 종료했을 때 ALB가 비정상 대상을 제외하는지 확인하고, Terraform 수동 재생성과 Target Group 재등록 절차를 검증
 
 ### 데이터와 복구
 
