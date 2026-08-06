@@ -618,14 +618,16 @@ function SessionCard({ room }) {
         <span className="gemoji">{game ? '🎲' : '🙌'}</span>
         <div>
           <div className="stitle">
-            {room.title} <span className={'badge ' + (room.roomType === 'PERSON_FOCUSED' ? 'people' : 'game')}>{room.roomType === 'PERSON_FOCUSED' ? '사람 중심' : '게임 중심'}</span>
+            {room.title} <span className={'badge ' + (room.roomType === 'PERSON_FOCUSED' ? 'people' : 'game')}>{room.roomType === 'PERSON_FOCUSED' ? '사람 중심' : '게임 중심'}</span>{' '}
+            <span className="chip">{EXP_LABEL[room.experienceLevel]}</span>
             {status.code !== 'RECRUITING' && <>{' '}<span className={'badge ' + status.className}>{status.label}</span></>}
           </div>
-          <div className="smeta">{game ? '🎲 ' + game.title : '게임은 모임에서 정해요'} · {formatStartsAt(room.startsAt)} · {room.region || '홍대'}</div>
+          <div className="smeta">{game ? '🎲 ' + game.title : '게임은 모임에서 정해요'}</div>
+          <div className="smeta">🕐 {formatStartsAt(room.startsAt)} · 📍 {room.region || '홍대'}</div>
         </div>
       </div>
       <div className="srow"><span className="cap">총 {participantCount(room)}/{room.recruitmentCapacity + 1}명</span></div>
-      <div className="sfoot"><span className="chip">{EXP_LABEL[room.experienceLevel]}</span><span>{room.isRulemasterLed ? '룰마스터 진행' : '참가자끼리 진행'}</span><span>상세 위치는 참가 후 확인</span></div>
+      <div className="sfoot"><span>{room.isRulemasterLed ? '룰마스터 진행' : '참가자끼리 진행'}</span><span>상세 위치는 참가 후 확인</span></div>
     </a>
   );
 }
@@ -1890,6 +1892,47 @@ export function MyRoomsSection({ myTab, onMyTabChange, dataVersion }) {
   );
 }
 
+const CHAT_GROUP_WINDOW_MS = 3 * 60 * 1000;
+
+function formatChatDay(isoDate) {
+  if (!isoDate) return '';
+  if (isoDate === todayInSeoul()) return '오늘';
+  const parts = dateParts(isoDate);
+  if (!parts) return '';
+  const weekday = new Date(Date.UTC(parts.year, parts.monthIndex, parts.day)).getUTCDay();
+  return (parts.monthIndex + 1) + '월 ' + parts.day + '일 (' + WEEKDAY_LABELS[weekday] + ')';
+}
+
+function formatChatTime(createdAt) {
+  const time = timeInSeoul(createdAt);
+  return time ? formatRoomTime(time) : '';
+}
+
+// 같은 사람이 3분 안에 이어 보낸 메시지는 한 덩어리로 본다. 이름은 덩어리 첫 줄, 시각은 마지막 줄에만 붙는다.
+function groupChatMessages(messages) {
+  const sameGroup = (left, right) => Boolean(left) && Boolean(right)
+    && isoDateInSeoul(left.createdAt) === isoDateInSeoul(right.createdAt)
+    && Boolean(left.isMine) === Boolean(right.isMine)
+    && (left.sender?.nickname || '') === (right.sender?.nickname || '')
+    && Math.abs(new Date(right.createdAt) - new Date(left.createdAt)) <= CHAT_GROUP_WINDOW_MS;
+
+  const days = [];
+  messages.forEach((message, index) => {
+    const day = isoDateInSeoul(message.createdAt);
+    let bucket = days[days.length - 1];
+    if (!bucket || bucket.day !== day) {
+      bucket = { day, rows: [] };
+      days.push(bucket);
+    }
+    bucket.rows.push({
+      message,
+      isGroupStart: !sameGroup(messages[index - 1], message),
+      isGroupEnd: !sameGroup(message, messages[index + 1])
+    });
+  });
+  return days;
+}
+
 // 직접 URL로 들어와도 진입 여부는 서버 응답으로만 정해진다. 거절은 서버 원문 대신 계약된 code로 안내한다.
 function chatAccessError(error) {
   const message = error instanceof ApiError ? CHAT_ACCESS_MESSAGE[error.code] : undefined;
@@ -1901,6 +1944,8 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     (signal) => api.getChatMessages(roomId, signal).catch((cause) => { throw chatAccessError(cause); }),
     [roomId, dataVersion]
   );
+  // 옆 열에 띄울 모임 정보. 못 불러와도 대화는 그대로 보여준다.
+  const roomInfo = useRequest((signal) => api.getRoom(roomId, signal).catch(() => null), [roomId, dataVersion]);
   const roomIdRef = useRef(roomId);
   const roomGenerationRef = useRef(0);
   const previousRoomIdRef = useRef(roomId);
@@ -2011,34 +2056,64 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
 
   return (
     <>
-      <h2><SectionIcon name="chat" />모임 채팅</h2>
-      <div className="page-actions" style={{ marginBottom: 14 }}>
-        <a className="btn ghost" href={'#/session/' + roomId}>모임 상세</a>
-        <a className="btn ghost" href="#/my">내 모임</a>
+      <div className="chat-view">
+        <aside className="chat-side">
+          <p className="chat-side-kicker"><SectionIcon name="chat" />모임 채팅</p>
+          <h2>{roomInfo.data?.title || '모임'}</h2>
+          <dl className="chat-facts">
+            <div><dt>일시</dt><dd>{roomInfo.data ? formatStartsAt(roomInfo.data.startsAt) : '—'}</dd></div>
+            <div><dt>장소</dt><dd>{roomInfo.data?.region || '—'}</dd></div>
+            <div><dt>인원</dt><dd>{roomInfo.data?.participantCount ? participantCount(roomInfo.data) + '명' : '—'}</dd></div>
+            <div><dt>경험</dt><dd>{EXP_LABEL[roomInfo.data?.experienceLevel] || '—'}</dd></div>
+          </dl>
+          <div className="chat-side-links">
+            <a href={'#/session/' + roomId}>모임 상세로</a>
+            <a href="#/my">내 모임</a>
+          </div>
+        </aside>
+
+        <section className="chat-main">
+          <div className="chat-log">
+            {error && <ErrorBox message={error} />}
+            {!error && loading && !data && <LoadingBox label="채팅을 불러오는 중…" />}
+            {!error && hasNext && <button className="btn ghost chat-load-more" disabled={loadingMore} type="button" onClick={loadPreviousMessages}>{loadingMore ? '불러오는 중…' : '이전 메시지 불러오기'}</button>}
+            {!error && !loading && !displayedMessages.length && <p className="chat-empty">아직 주고받은 메시지가 없어요.<br /><span className="hint">모임 전에 인사를 남겨보세요.</span></p>}
+            {groupChatMessages(displayedMessages).map((day) => (
+              <ul className="chat-day" key={day.day}>
+                <li className="chat-daymark" role="presentation"><span>{formatChatDay(day.day)}</span></li>
+                {day.rows.map(({ message, isGroupStart, isGroupEnd }) => {
+                  const isMine = Boolean(message.isMine);
+                  const owner = isMine ? 'mine' : 'theirs';
+                  return (
+                    <li
+                      className={'chat-message ' + owner + (isGroupStart ? ' start' : '')}
+                      data-message-owner={owner}
+                      key={message.messageId}
+                    >
+                      {/* 내 이름은 화면에서는 군더더기라 숨기고, 화면 낭독기에는 남긴다. */}
+                      {isGroupStart && <b className={'chat-sender' + (isMine ? ' sr-only' : '')}>{isMine ? '나' : message.sender?.nickname}</b>}
+                      <span className="chat-line">
+                        <span className="chat-content">{message.content}</span>
+                        {isGroupEnd && <time className="chat-time" dateTime={message.createdAt}>{formatChatTime(message.createdAt)}</time>}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ))}
+          </div>
+
+          {!error && <form className="chat-compose" onSubmit={submit}>
+            <label className="sr-only" htmlFor="chat-message">메시지</label>
+            <textarea id="chat-message" disabled={sending} maxLength="500" value={content} onChange={(event) => { setContent(event.target.value); setSendError(''); }} placeholder="메시지를 입력해주세요." />
+            <button className="chat-send-btn" disabled={sending} type="submit" aria-label={sending ? '전송 중' : '전송'}>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12 20 4l-8 16-2-6z" /></svg>
+            </button>
+            <span className={'chat-count' + ([...content].length > 450 ? ' near' : '')}>{[...content].length}/500</span>
+            {sendError && <p className="hint warn chat-senderror" role="alert">{sendError}</p>}
+          </form>}
+        </section>
       </div>
-      {error && <ErrorBox message={error} />}
-      {!error && loading && !data && <LoadingBox label="채팅을 불러오는 중…" />}
-      {!error && hasNext && <button className="btn ghost chat-load-more" disabled={loadingMore} type="button" onClick={loadPreviousMessages}>{loadingMore ? '불러오는 중…' : '이전 메시지 불러오기'}</button>}
-      {!error && !loading && !displayedMessages.length && <div className="infobox">아직 주고받은 메시지가 없어요.</div>}
-      {!error && !!displayedMessages.length && (
-        <ul className="chat-log">
-          {displayedMessages.map((message) => {
-            const isMine = Boolean(message.isMine);
-            return (
-            <li className={'chat-message ' + (isMine ? 'mine' : 'theirs')} data-message-owner={isMine ? 'mine' : 'theirs'} key={message.messageId}>
-              <div className="chat-message-head"><b>{isMine ? '나' : message.sender?.nickname}</b><span className="chat-time">{formatStartsAt(message.createdAt)}</span></div>
-              <p className="chat-content">{message.content}</p>
-            </li>
-            );
-          })}
-        </ul>
-      )}
-      {!error && <form className="chat-compose" onSubmit={submit}>
-        <label htmlFor="chat-message">메시지</label>
-        <textarea id="chat-message" disabled={sending} maxLength="500" value={content} onChange={(event) => { setContent(event.target.value); setSendError(''); }} placeholder="메시지를 입력해주세요." />
-        <div className="chat-compose-actions"><span className="hint">{[...content].length}/500</span><button className="btn" disabled={sending} type="submit">{sending ? '전송 중…' : '전송'}</button></div>
-        {sendError && <p className="hint warn" role="alert">{sendError}</p>}
-      </form>}
     </>
   );
 }

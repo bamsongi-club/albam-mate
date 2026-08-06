@@ -273,18 +273,55 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .cap { color: var(--brown2); font-size: 12.5px; font-weight: 800; }
 .sfoot { align-items: center; color: var(--sub); display: flex; flex-wrap: wrap; font-size: 12px; gap: 7px; }
 
+/* 채팅 — 왼쪽 열이 "어떤 모임의 대화인가"를 계속 붙들고, 오른쪽 열은 대화만 담는다.
+   말풍선이 놓이는 바닥은 --bg로 한 단계 낮춰 --card 말풍선이 배경에 묻히지 않게 한다. */
 .chat-entry { justify-self: start; }
-.chat-log { display: grid; gap: 10px; list-style: none; }
-.chat-message { border: 1px solid var(--line); border-radius: 12px; max-width: min(82%, 620px); padding: 12px 14px; }
-.chat-message.mine { background: var(--amber-soft); justify-self: end; }
-.chat-message.theirs { background: var(--card); justify-self: start; }
-.chat-message-head { align-items: baseline; display: flex; font-size: 13.5px; gap: 8px; }
-.chat-compose { background: var(--card); border: 1px solid var(--line); border-radius: 12px; display: grid; gap: 8px; margin-top: 16px; padding: 14px; }
-.chat-compose textarea { min-height: 72px; }
-.chat-compose-actions { align-items: center; display: flex; justify-content: space-between; }
+.chat-view { align-items: start; display: grid; gap: 18px; grid-template-columns: 258px minmax(0, 1fr); }
+.chat-side { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; position: sticky; top: 16px; }
+.chat-side-kicker { align-items: center; color: var(--sub); display: flex; font-size: 12px; font-weight: 800; gap: 6px; }
+.chat-side h2 { font-size: 17px; letter-spacing: -0.015em; margin: 7px 0 14px; text-wrap: balance; }
+.chat-facts { border-top: 1px solid var(--line); display: grid; gap: 9px; padding-top: 13px; }
+.chat-facts > div { display: flex; gap: 10px; justify-content: space-between; }
+.chat-facts dt { color: var(--sub); flex: 0 0 auto; font-size: 12.5px; }
+.chat-facts dd { font-size: 12.5px; font-weight: 700; text-align: right; }
+.chat-side-links { border-top: 1px solid var(--line); display: grid; gap: 8px; margin-top: 15px; padding-top: 13px; }
+.chat-side-links a { color: var(--accent-dark); font-size: 13px; font-weight: 800; }
+.chat-side-links a:hover { text-decoration: underline; }
+
+.chat-main { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); display: flex; flex-direction: column; height: min(70vh, 620px); overflow: hidden; }
+.chat-log { background: var(--bg); flex: 1; overflow-y: auto; padding: 16px; }
+.chat-day { display: grid; list-style: none; }
+.chat-daymark { align-items: center; display: flex; gap: 12px; margin: 4px 0 14px; }
+.chat-daymark::before, .chat-daymark::after { background: var(--line); content: ''; flex: 1; height: 1px; }
+.chat-daymark span { color: var(--sub); font-size: 11.5px; font-weight: 800; }
+.chat-message { display: flex; flex-direction: column; gap: 3px; margin-bottom: 3px; max-width: min(78%, 480px); }
+.chat-message.start { margin-top: 11px; }
+.chat-message.mine { align-items: flex-end; margin-left: auto; }
+.chat-sender { color: var(--sub); font-size: 12px; font-weight: 800; padding-left: 3px; }
+.chat-line { align-items: flex-end; display: flex; gap: 6px; }
+.chat-message.mine .chat-line { flex-direction: row-reverse; }
+.chat-content { background: var(--card); border: 1px solid var(--line); border-radius: 13px; font-size: 13.5px; line-height: 1.5; overflow-wrap: anywhere; padding: 8px 12px; white-space: pre-wrap; }
+.chat-message.mine .chat-content { background: var(--amber-soft); border-color: transparent; }
+.chat-time { color: var(--gray); flex: 0 0 auto; font-size: 10.5px; font-variant-numeric: tabular-nums; padding-bottom: 2px; }
+.chat-empty { color: var(--sub); font-size: 13.5px; padding: 34px 0; text-align: center; }
 .chat-load-more { display: block; margin: 0 auto 14px; }
-.chat-time { color: var(--gray); font-size: 12px; }
-.chat-content { font-size: 14px; margin-top: 6px; overflow-wrap: anywhere; white-space: pre-wrap; }
+
+.chat-compose { align-items: center; border-top: 1px solid var(--line); display: flex; gap: 8px; padding: 11px 13px; position: relative; }
+.chat-compose textarea { background: var(--bg); border-radius: 20px; max-height: 110px; min-height: 42px; padding: 10px 15px; resize: none; }
+/* 글자 수는 한도에 가까워질 때만 나타난다. 평소에는 입력창만 남긴다. */
+.chat-count { display: none; }
+.chat-count.near { color: var(--amber); display: inline; font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.chat-send-btn { align-items: center; background: var(--accent); border-radius: 999px; color: #fff; display: inline-flex; flex: 0 0 40px; height: 40px; justify-content: center; padding-right: 2px; transition: background-color 0.18s ease, transform 0.18s ease; }
+.chat-send-btn:hover:not(:disabled) { background: var(--accent-dark); }
+.chat-send-btn:active:not(:disabled) { transform: scale(0.94); }
+.chat-send-btn:disabled { background: var(--gray); opacity: 0.5; }
+.chat-senderror { background: var(--card); border-radius: 9px; bottom: calc(100% + 6px); box-shadow: var(--shadow); left: 13px; margin: 0; padding: 7px 11px; position: absolute; right: 13px; }
+
+@media (max-width: 860px) {
+  .chat-view { grid-template-columns: minmax(0, 1fr); }
+  .chat-side { position: static; }
+  .chat-main { height: min(74vh, 560px); }
+}
 
 .detail-head { align-items: flex-start; display: flex; gap: 20px; }
 .dart { align-items: center; background: var(--soft); border-radius: 18px; display: flex; flex: 0 0 112px; font-size: 54px; height: 112px; justify-content: center; overflow: hidden; width: 112px; }
