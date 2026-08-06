@@ -122,7 +122,7 @@ flowchart LR
 | `room/service/query` | ROOM 조회 유스케이스와 조회 전용 내부 협력자 |
 | `room/service/command` | ROOM 변경 유스케이스, Coordinator와 Executor |
 | `room/enums` | ROOM Entity·DTO가 공유하는 방·참가 도메인 타입 |
-| `room/statuscorrection` | Query·Scheduler가 공유하는 자동 상태 보정 |
+| `room/statuscorrection` | 공통 단건 상태 보정과 Scheduler 전용 제한 선별·영속 진행 조정 |
 | `chat/service` (P1) | 채팅방 접근, 메시지 저장·이력 조회 유스케이스 |
 | `chat/websocket` (P1) | 방별 WebSocket handshake, 인스턴스 로컬 연결과 PostgreSQL 이력 복구 상태 |
 | `chat/retention` (P1) | 최종 상태 메시지의 일일 만료 선별, 소량 묶음 삭제와 실패 계측 |
@@ -175,7 +175,8 @@ flowchart LR
 | Retrier | 낙관 락 충돌의 재시도·로그·오류 변환만 담당한다. |
 | PART-04 대기 Query·Read·Command Service | `RoomWaitlistController`의 전용 진입점이다. Query는 트랜잭션 밖에서 상태 보정을 조정하고, Read는 보정 커밋 뒤 짧은 읽기 트랜잭션에서 본인의 최신 상태·동적 순번을 조회하며, Command는 등록·재신청과 취소 유스케이스를 조정한다. |
 | PART-04 대기 등록 Coordinator | 트랜잭션 밖에서 고정 request time과 ROOM 충돌·정확한 대기 순번 UNIQUE 충돌의 단일 3회 예산을 관리한다. |
-| StatusCorrection Coordinator·Executor | Query·Scheduler가 공유하는 자동 상태 보정을 트랜잭션 밖 조정과 독립 트랜잭션 실행으로 나눈다. |
+| 요청 경계 StatusCorrection Coordinator·Executor | Query가 현재 상태를 보정하도록 트랜잭션 밖 재시도 조정과 독립 트랜잭션 실행으로 나눈다. Scheduler 진행 상태나 ShedLock을 사용하지 않는다. |
+| StatusCorrection Scheduler Coordinator | 공용 스케줄 잠금, 실행 세대 점유, 제한 후보 선별, ROOM별 실행과 cursor CAS를 장기 트랜잭션 없이 조정한다. |
 | Integration Event Recorder | `room.contract`의 기록 포트를 구현하고 호출한 Room Command Executor의 트랜잭션에 참여해 Outbox 이벤트와 수신자 스냅샷만 저장한다. |
 | Notification Relay Coordinator·Executor | polling과 최대 처리 수는 트랜잭션 밖에서 조정하고, 선점·Notification 생성·완료 전환은 이벤트별 독립 트랜잭션에서 수행한다. |
 | Notification Recovery·Cleanup | 운영 명령 adapter와 Scheduler는 Repository를 직접 사용하지 않으며, application service·Executor가 제한된 묶음의 상태 전환과 물리 삭제 트랜잭션을 소유한다. |
@@ -292,6 +293,28 @@ flowchart LR
 일괄 보정 대상 선별 쿼리는 전이 경계에서 파생된 후보 축소 조건이며 Entity의 전이 대상을 빠뜨리지 않아야 한다. 쿼리가 더 넓은 후보를 반환할 수 있지만 최종 전이 여부는 `Room` Entity가 판단한다. Entity의 전이 경계를 바꿀 때는 선별 쿼리와 경계 테스트를 함께 갱신한다.
 
 재시도하지 않는 단일 트랜잭션 유스케이스에는 Coordinator와 Executor를 추가하지 않는다. 재시도가 필요할 때만 Spring Proxy가 독립 트랜잭션을 적용할 수 있도록 Service와 Executor를 분리한다.
+
+#### ROOM 상태 보정 Scheduler 흐름
+
+ROOM Scheduler는 병합된 [PR #366](https://github.com/bamsongi-club/albam-mate/pull/366)이 제공하는 `global/scheduling` port를 `room-status-correction` 이름으로 호출한다. `infra/scheduling`의 PostgreSQL adapter와 `SHEDLOCK` 스키마는 [#289](https://github.com/bamsongi-club/albam-mate/issues/289)가 소유하는 공용 기반이며 ROOM은 읽기 전용으로 사용한다. ROOM은 `ROOM_STATUS_CORRECTION_PROGRESS`와 업무 흐름만 소유한다.
+
+```mermaid
+flowchart LR
+    scheduler["RoomStatusCorrectionScheduler<br/>request time 고정"] --> lock["ScheduledTaskLock<br/>room-status-correction"]
+    lock -->|미획득| skip["이번 실행 건너뜀"]
+    lock -->|획득| claim["진행 세대 점유<br/>REQUIRES_NEW·행 잠금"]
+    claim --> select["turn cutoff·cursor 뒤<br/>제한된 ROOM ID 선별"]
+    select -->|후보 있음| roomExecutor["ROOM 상태 보정 Executor<br/>ROOM별 REQUIRES_NEW·최대 3회"]
+    roomExecutor --> progress["cursor 전진<br/>REQUIRES_NEW·generation/version CAS"]
+    progress --> select
+    select -->|후보 없음| wrap["cursor 회전·다음 cutoff<br/>generation/version CAS"]
+```
+
+실행 세대 점유는 진행 행을 잠근 짧은 트랜잭션에서 `execution_generation`과 `progress_version`을 증가시킨다. 이후 후보별 cursor 전진과 순회 회전은 그 실행 세대와 기대 version이 모두 일치할 때만 별도 짧은 트랜잭션으로 커밋한다. 임대가 만료된 이전 실행은 ROOM 하나를 중복 처리할 수 있지만 첫 CAS 거절 뒤 즉시 중단하므로 새 실행의 진척을 덮어쓰지 않는다.
+
+cursor는 후보를 시도한 뒤에만 전진하며, ROOM 커밋과 cursor 커밋 사이의 장애는 재선별을 허용하는 at-least-once 경계다. 진행 상태 조회·CAS 자체의 장애나 CAS 거절 뒤에는 후속 ROOM을 처리하지 않는다. 제한 후보 선별과 각 ROOM 트랜잭션의 상태 전이·시작 경계 대기열 종료는 [ROOM-09](p1/room.md#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화)의 기능 규칙을 따르며 이 문서에서 별도 계약을 만들지 않는다.
+
+목록·상세·내 모임과 상태 의존 명령의 요청 경계 보정은 이 Scheduler Coordinator, `SHEDLOCK`, `ROOM_STATUS_CORRECTION_PROGRESS`를 호출하지 않는다. 요청 경로는 [ADR-0012](adr/room/0012-room-request-boundary-state-reconciliation.md)의 현재 상태·오류 계약을 독립적으로 유지하면서 같은 Entity 전이 규칙과 ROOM별 Executor 정책을 재사용한다.
 
 #### 채팅 흐름
 
