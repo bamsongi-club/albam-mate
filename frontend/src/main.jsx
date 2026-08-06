@@ -26,7 +26,7 @@ const GAME_SEARCH_DEBOUNCE_MS = 250;
 // 인원 숫자 입력은 마지막 입력 뒤 이 시간이 지나면 조회한다. 체크박스는 기다리지 않는다.
 const GAME_NUMBER_FILTER_DEBOUNCE_MS = 400;
 // 회원가입 비밀번호 한도는 서버 검증 규칙과 같은 값을 쓴다. 한쪽만 바뀌면 안내와 결과가 어긋난다.
-const PASSWORD_MIN_CODE_POINTS = 15;
+const PASSWORD_MIN_CODE_POINTS = 8;
 const PASSWORD_MAX_CODE_POINTS = 64;
 const PASSWORD_MAX_UTF8_BYTES = 72;
 const SOCIAL_PROVIDER_LABEL = { GOOGLE: 'Google', NAVER: 'Naver', KAKAO: 'Kakao' };
@@ -2304,6 +2304,9 @@ function signupPasswordError(password) {
   }
   if (new TextEncoder().encode(password).length > PASSWORD_MAX_UTF8_BYTES) {
     return '비밀번호가 너무 길어 회원가입을 진행할 수 없어요. 한글이나 이모지는 영문보다 길이를 많이 차지해요.';
+  }
+  if (password && !/^[\x21-\x7E]+$/.test(password)) {
+    return '비밀번호는 영문 대소문자, 숫자, 특수기호만 사용할 수 있어요.';
   }
   return '';
 }
