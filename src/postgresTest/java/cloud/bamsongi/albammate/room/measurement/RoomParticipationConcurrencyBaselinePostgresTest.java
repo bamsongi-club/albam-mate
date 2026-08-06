@@ -149,14 +149,7 @@ class RoomParticipationConcurrencyBaselinePostgresTest {
 				assertEquals(measurement.concurrencyFailureCount(), measurement.exhaustedCount());
 				assertTrue(measurement.requestDurationsNanos().stream().allMatch(duration -> duration > 0));
 				assertTrue(measurement.postgresCost().statementCalls() > 0);
-				assertTrue(measurement.rawRecord().startsWith("ROOM10A_RAW"));
-				assertTrue(measurement.rawRecord().contains("conflictCount="));
-				assertTrue(measurement.rawRecord().contains("conflictRate="));
-				assertTrue(measurement.rawRecord().contains("retry0="));
-				assertTrue(measurement.rawRecord().contains("retry2="));
-				assertTrue(measurement.rawRecord().contains("exhausted="));
-				assertTrue(measurement.rawRecord().contains("responseNanos="));
-				assertTrue(measurement.rawRecord().contains("sharedBlksRead="));
+				assertRawRecordValues(measurement, concurrencyLevel);
 			}
 		}
 	}
@@ -303,6 +296,36 @@ class RoomParticipationConcurrencyBaselinePostgresTest {
 		assertTrue(retryLogs.stream()
 			.filter(RoomConcurrencyBaselineSupport.RetryLogRecord::exhaustedAttempt)
 			.allMatch(log -> log.attempt() == 3));
+	}
+
+	private void assertRawRecordValues(
+		RoomConcurrencyBaselineSupport.RoundMeasurement measurement,
+		int concurrencyLevel) {
+		String rawRecord = measurement.rawRecord();
+		long conflictCount = measurement.requests().stream()
+			.mapToLong(RoomConcurrencyBaselineSupport.RequestMeasurement::conflictCount)
+			.sum();
+		double conflictRate = (double)conflictCount / measurement.totalRequestCount();
+		String expectedRawRecord = "ROOM10A_RAW scenario=last-seat"
+			+ " concurrencyLevel=" + concurrencyLevel
+			+ " requestCount=" + measurement.totalRequestCount()
+			+ " success=" + measurement.successCount()
+			+ " businessFailure=" + measurement.businessFailureCount()
+			+ " concurrencyFailure=" + measurement.concurrencyFailureCount()
+			+ " technicalFailure=" + measurement.technicalFailureCount()
+			+ " conflictCount=" + conflictCount
+			+ " conflictRate=" + conflictRate
+			+ " retry0=" + measurement.retryCount(0)
+			+ " retry1=" + measurement.retryCount(1)
+			+ " retry2=" + measurement.retryCount(2)
+			+ " exhausted=" + measurement.exhaustedCount()
+			+ " responseNanos=" + measurement.requestDurationsNanos()
+			+ " calls=" + measurement.postgresCost().statementCalls()
+			+ " totalExecMs=" + measurement.postgresCost().totalExecutionMillis()
+			+ " rows=" + measurement.postgresCost().rows()
+			+ " sharedBlksHit=" + measurement.postgresCost().sharedBlockHits()
+			+ " sharedBlksRead=" + measurement.postgresCost().sharedBlockReads();
+		assertEquals(expectedRawRecord, rawRecord);
 	}
 
 	private void runLastSeatPreparationRound(LastSeatFixture fixture) throws Exception {
