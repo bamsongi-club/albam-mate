@@ -123,6 +123,41 @@ macOS·Linux:
 
 외부 fixture를 사용하는 게임 메타데이터 성능 측정은 [게임 카탈로그 적재 가이드](guides/GAME_CATALOG_IMPORT.md#17만-행-성능-fixture-계약)의 경로·checksum 조건을 준비한 뒤 `postgresTest`의 exact selector로 실행한다. fixture가 없는 기본 `postgresTest`에서는 이 성능 클래스가 건너뛰며, CI 합산 커버리지의 입력을 만들지 않는다.
 
+### ROOM-09c 현행 일괄 처리 기준선 측정
+
+ROOM-09c 기준선의 측정 profile·원자료 필드·결과 해석은 [현행 일괄 처리 기준선 측정](measurements/room-09-bounded-processing-baseline.md)을 따른다. 기본 `postgresTest`는 WAITING 없는 소형 `100/20` fixture의 계약과 1회 warm-up·5회 실측을 실행한다. 중형 `10,000/2,000`과 대형 `50,000/10,000`은 명시적인 시스템 속성이 있을 때만 실행한다.
+
+Windows PowerShell:
+
+```powershell
+docker version
+$hadJavaToolOptions = Test-Path Env:JAVA_TOOL_OPTIONS
+$previousJavaToolOptions = $env:JAVA_TOOL_OPTIONS
+try {
+    $env:JAVA_TOOL_OPTIONS = if ([string]::IsNullOrWhiteSpace($previousJavaToolOptions)) {
+        '-Dissue383.measurement=true'
+    } else {
+        "$previousJavaToolOptions -Dissue383.measurement=true".Trim()
+    }
+    .\gradlew.bat postgresTest --tests "cloud.bamsongi.albammate.room.measurement.RoomStatusCorrectionBaselineMeasurementPostgresTest.승인_규모_기준선을_측정한다" --rerun --fail-fast
+} finally {
+    if ($hadJavaToolOptions) {
+        $env:JAVA_TOOL_OPTIONS = $previousJavaToolOptions
+    } else {
+        Remove-Item Env:JAVA_TOOL_OPTIONS -ErrorAction SilentlyContinue
+    }
+}
+```
+
+macOS·Linux:
+
+```sh
+docker version
+JAVA_TOOL_OPTIONS='-Dissue383.measurement=true' ./gradlew postgresTest --tests "cloud.bamsongi.albammate.room.measurement.RoomStatusCorrectionBaselineMeasurementPostgresTest.승인_규모_기준선을_측정한다" --rerun --fail-fast
+```
+
+성능 합격선이나 운영값은 이 측정에서 임의로 정하지 않는다. 실행 뒤 `build/reports/measurements/room-09c-{small|medium|large}.json`의 고정 시각·seed·data identifier·후보·결과·환경·`pg_stat_statements` 원자료와 문서의 재현 명령을 함께 확인한다.
+
 ## 분기 커버리지 확인
 
 H2 전용 빠른 게이트와 H2·PostgreSQL 합산 정본 게이트의 의미, 최소선 갱신과 CI 결과 해석은 [백엔드 테스트와 커버리지 검증](guides/TESTING.md#커버리지-게이트-실행)을 따른다.

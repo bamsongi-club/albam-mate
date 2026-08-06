@@ -165,7 +165,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 고도화 이유 | 시간 경계를 지난 ROOM Entity 전체를 한 트랜잭션에서 처리해 대상 증가 시 메모리·트랜잭션 범위가 커지고, 한 ROOM의 실패가 전체 작업에 영향을 주며 실패 대상을 식별하기 어렵다. |
 | 상태·시간 규칙 | [P0 계약 상속](../P1-spec.md#p0-계약-상속), [RoomStatus](../API.md#roomstatus), [ROOMS](../ERD.md#rooms) |
 | 승인 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0036 제한 ID·ROOM별 독립 처리](../adr/room/0036-bounded-room-state-transition-processing.md), [ADR-0038 다중 인스턴스 스케줄 실행 조정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md) |
-| 현재 구현 기준선 | [`RoomRepository.findDueRooms`](../../src/main/java/cloud/bamsongi/albammate/room/repository/RoomRepository.java), [`RoomStatusCorrectionExecutor`](../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionExecutor.java) |
+| 현재 구현 기준선 | [`RoomRepository.findDueRooms`](../../src/main/java/cloud/bamsongi/albammate/room/repository/RoomRepository.java), [`RoomStatusCorrectionExecutor`](../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionExecutor.java), [ROOM-09c 현행 일괄 처리 기준선 측정](../measurements/room-09-bounded-processing-baseline.md) |
 | 연결 기능 | [PART-04 선착순 대기열과 자동 승격](#part-04-선착순-대기열과-자동-승격) |
 | 진행 상태 저장 | [`ROOM_STATUS_CORRECTION_PROGRESS`](../ERD.md#room_status_correction_progress) 단일 행 |
 | 착수 전 확정 | 없음 |

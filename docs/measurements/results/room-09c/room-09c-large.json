@@ -1,0 +1,429 @@
+{
+  "outcome" : "SUCCESS",
+  "throughputFormula" : "throughputPerSecond = changedCount * 1_000_000_000 / elapsedNanos",
+  "measurementStartEnvironment" : {
+    "gitSha" : "4688316415113b4457f03628d77bdcb7f594c294",
+    "javaVersion" : "21.0.11",
+    "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
+    "operatingSystem" : "Windows 11",
+    "operatingSystemVersion" : "10.0",
+    "cpuCount" : 24,
+    "startUsedHeapBytes" : 120513576,
+    "maxHeapBytes" : 536870912,
+    "configuration" : {
+      "chatRetentionEnabled" : "false",
+      "roomStatusCorrectionTriggerJitter" : "0s",
+      "measurementProperty" : "true",
+      "dockerVersion" : "29.4.3",
+      "roomStatusCorrectionTriggerDelay" : "24h",
+      "profile" : "large",
+      "postgresImage" : "postgres:18.4",
+      "sharedPreloadLibraries" : "pg_stat_statements",
+      "notificationCleanupJitter" : "0s",
+      "notificationRelayEnabled" : "false",
+      "notificationCleanupInterval" : "24h"
+    }
+  },
+  "fixture" : {
+    "profile" : "large",
+    "roomCount" : 50000,
+    "dueRoomCount" : 10000,
+    "nonDueRoomCount" : 40000,
+    "nonDueClosedRoomCount" : 10,
+    "waitingRoomCount" : 0,
+    "requestTime" : "2026-08-06T00:00:00Z",
+    "seed" : "ROOM-09c-baseline-v1",
+    "dataIdentifier" : "ROOM-09c-baseline-v1:large:50000:10000"
+  },
+  "warmUpRuns" : [ {
+    "phase" : "warm-up",
+    "iteration" : 1,
+    "candidateCount" : 10000,
+    "changedCount" : 10000,
+    "elapsedNanos" : 129590104700,
+    "throughputPerSecond" : 77.16638568315008,
+    "runStartEnvironment" : {
+      "gitSha" : "4688316415113b4457f03628d77bdcb7f594c294",
+      "javaVersion" : "21.0.11",
+      "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
+      "operatingSystem" : "Windows 11",
+      "operatingSystemVersion" : "10.0",
+      "cpuCount" : 24,
+      "startUsedHeapBytes" : 130140088,
+      "maxHeapBytes" : 536870912,
+      "configuration" : {
+        "chatRetentionEnabled" : "false",
+        "roomStatusCorrectionTriggerJitter" : "0s",
+        "measurementProperty" : "true",
+        "dockerVersion" : "29.4.3",
+        "roomStatusCorrectionTriggerDelay" : "24h",
+        "profile" : "large",
+        "postgresImage" : "postgres:18.4",
+        "sharedPreloadLibraries" : "pg_stat_statements",
+        "notificationCleanupJitter" : "0s",
+        "notificationRelayEnabled" : "false",
+        "notificationCleanupInterval" : "24h"
+      }
+    },
+    "pgStatStatements" : [ {
+      "query" : "update rooms set active_participant_count=$1,capacity=$2,description=$3,experience_level=$4,game_id=$5,host_user_id=$6,place=$7,region=$8,room_type=$9,is_rulemaster_led=$10,start_at=$11,status=$12,title=$13,updated_at=$14,version=$15 where id=$16 and version=$17",
+      "queryId" : "-2552764831026882250",
+      "calls" : 10000,
+      "totalExecutionTimeMs" : 1403.6754340000002,
+      "rows" : 10000,
+      "sharedBufferHits" : 116325,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "select cr1_0.id,cr1_0.created_at,cr1_0.messages_purged_at,cr1_0.purge_after,cr1_0.room_id,cr1_0.updated_at from chat_rooms cr1_0 where cr1_0.room_id=$1",
+      "queryId" : "1730739905555994245",
+      "calls" : 5000,
+      "totalExecutionTimeMs" : 96.62969800000015,
+      "rows" : 0,
+      "sharedBufferHits" : 10000,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "select r1_0.id,r1_0.active_participant_count,r1_0.capacity,r1_0.created_at,r1_0.description,r1_0.experience_level,r1_0.game_id,r1_0.host_user_id,r1_0.place,r1_0.region,r1_0.room_type,r1_0.is_rulemaster_led,r1_0.start_at,r1_0.status,r1_0.title,r1_0.updated_at,r1_0.version from rooms r1_0 where (r1_0.status=$3 and r1_0.start_at<=$1) or (r1_0.status=$4 and r1_0.start_at<=$2)",
+      "queryId" : "3846884529641494299",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 10.139751,
+      "rows" : 10000,
+      "sharedBufferHits" : 3418,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "BEGIN",
+      "queryId" : "4854991825702068830",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 0.001045,
+      "rows" : 0,
+      "sharedBufferHits" : 0,
+      "sharedBufferReads" : 0
+    } ]
+  } ],
+  "measuredRuns" : [ {
+    "phase" : "measured",
+    "iteration" : 1,
+    "candidateCount" : 10000,
+    "changedCount" : 10000,
+    "elapsedNanos" : 135876256800,
+    "throughputPerSecond" : 73.59637537498016,
+    "runStartEnvironment" : {
+      "gitSha" : "4688316415113b4457f03628d77bdcb7f594c294",
+      "javaVersion" : "21.0.11",
+      "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
+      "operatingSystem" : "Windows 11",
+      "operatingSystemVersion" : "10.0",
+      "cpuCount" : 24,
+      "startUsedHeapBytes" : 134772944,
+      "maxHeapBytes" : 536870912,
+      "configuration" : {
+        "chatRetentionEnabled" : "false",
+        "roomStatusCorrectionTriggerJitter" : "0s",
+        "measurementProperty" : "true",
+        "dockerVersion" : "29.4.3",
+        "roomStatusCorrectionTriggerDelay" : "24h",
+        "profile" : "large",
+        "postgresImage" : "postgres:18.4",
+        "sharedPreloadLibraries" : "pg_stat_statements",
+        "notificationCleanupJitter" : "0s",
+        "notificationRelayEnabled" : "false",
+        "notificationCleanupInterval" : "24h"
+      }
+    },
+    "pgStatStatements" : [ {
+      "query" : "update rooms set active_participant_count=$1,capacity=$2,description=$3,experience_level=$4,game_id=$5,host_user_id=$6,place=$7,region=$8,room_type=$9,is_rulemaster_led=$10,start_at=$11,status=$12,title=$13,updated_at=$14,version=$15 where id=$16 and version=$17",
+      "queryId" : "-2552764831026882250",
+      "calls" : 10000,
+      "totalExecutionTimeMs" : 1603.3254820000002,
+      "rows" : 10000,
+      "sharedBufferHits" : 116327,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "select cr1_0.id,cr1_0.created_at,cr1_0.messages_purged_at,cr1_0.purge_after,cr1_0.room_id,cr1_0.updated_at from chat_rooms cr1_0 where cr1_0.room_id=$1",
+      "queryId" : "1730739905555994245",
+      "calls" : 5000,
+      "totalExecutionTimeMs" : 115.40966599999985,
+      "rows" : 0,
+      "sharedBufferHits" : 10000,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "select r1_0.id,r1_0.active_participant_count,r1_0.capacity,r1_0.created_at,r1_0.description,r1_0.experience_level,r1_0.game_id,r1_0.host_user_id,r1_0.place,r1_0.region,r1_0.room_type,r1_0.is_rulemaster_led,r1_0.start_at,r1_0.status,r1_0.title,r1_0.updated_at,r1_0.version from rooms r1_0 where (r1_0.status=$3 and r1_0.start_at<=$1) or (r1_0.status=$4 and r1_0.start_at<=$2)",
+      "queryId" : "3846884529641494299",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 9.797464,
+      "rows" : 10000,
+      "sharedBufferHits" : 3418,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "BEGIN",
+      "queryId" : "4854991825702068830",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 9.72E-4,
+      "rows" : 0,
+      "sharedBufferHits" : 0,
+      "sharedBufferReads" : 0
+    } ]
+  }, {
+    "phase" : "measured",
+    "iteration" : 2,
+    "candidateCount" : 10000,
+    "changedCount" : 10000,
+    "elapsedNanos" : 145619362600,
+    "throughputPerSecond" : 68.67218631816755,
+    "runStartEnvironment" : {
+      "gitSha" : "4688316415113b4457f03628d77bdcb7f594c294",
+      "javaVersion" : "21.0.11",
+      "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
+      "operatingSystem" : "Windows 11",
+      "operatingSystemVersion" : "10.0",
+      "cpuCount" : 24,
+      "startUsedHeapBytes" : 164706904,
+      "maxHeapBytes" : 536870912,
+      "configuration" : {
+        "chatRetentionEnabled" : "false",
+        "roomStatusCorrectionTriggerJitter" : "0s",
+        "measurementProperty" : "true",
+        "dockerVersion" : "29.4.3",
+        "roomStatusCorrectionTriggerDelay" : "24h",
+        "profile" : "large",
+        "postgresImage" : "postgres:18.4",
+        "sharedPreloadLibraries" : "pg_stat_statements",
+        "notificationCleanupJitter" : "0s",
+        "notificationRelayEnabled" : "false",
+        "notificationCleanupInterval" : "24h"
+      }
+    },
+    "pgStatStatements" : [ {
+      "query" : "update rooms set active_participant_count=$1,capacity=$2,description=$3,experience_level=$4,game_id=$5,host_user_id=$6,place=$7,region=$8,room_type=$9,is_rulemaster_led=$10,start_at=$11,status=$12,title=$13,updated_at=$14,version=$15 where id=$16 and version=$17",
+      "queryId" : "-2552764831026882250",
+      "calls" : 10000,
+      "totalExecutionTimeMs" : 1631.9915910000002,
+      "rows" : 10000,
+      "sharedBufferHits" : 116207,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "select cr1_0.id,cr1_0.created_at,cr1_0.messages_purged_at,cr1_0.purge_after,cr1_0.room_id,cr1_0.updated_at from chat_rooms cr1_0 where cr1_0.room_id=$1",
+      "queryId" : "1730739905555994245",
+      "calls" : 5000,
+      "totalExecutionTimeMs" : 116.4701869999999,
+      "rows" : 0,
+      "sharedBufferHits" : 10000,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "select r1_0.id,r1_0.active_participant_count,r1_0.capacity,r1_0.created_at,r1_0.description,r1_0.experience_level,r1_0.game_id,r1_0.host_user_id,r1_0.place,r1_0.region,r1_0.room_type,r1_0.is_rulemaster_led,r1_0.start_at,r1_0.status,r1_0.title,r1_0.updated_at,r1_0.version from rooms r1_0 where (r1_0.status=$3 and r1_0.start_at<=$1) or (r1_0.status=$4 and r1_0.start_at<=$2)",
+      "queryId" : "3846884529641494299",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 12.09426,
+      "rows" : 10000,
+      "sharedBufferHits" : 3418,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "BEGIN",
+      "queryId" : "4854991825702068830",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 6.86E-4,
+      "rows" : 0,
+      "sharedBufferHits" : 0,
+      "sharedBufferReads" : 0
+    } ]
+  }, {
+    "phase" : "measured",
+    "iteration" : 3,
+    "candidateCount" : 10000,
+    "changedCount" : 10000,
+    "elapsedNanos" : 137464426400,
+    "throughputPerSecond" : 72.74609338492827,
+    "runStartEnvironment" : {
+      "gitSha" : "4688316415113b4457f03628d77bdcb7f594c294",
+      "javaVersion" : "21.0.11",
+      "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
+      "operatingSystem" : "Windows 11",
+      "operatingSystemVersion" : "10.0",
+      "cpuCount" : 24,
+      "startUsedHeapBytes" : 131893064,
+      "maxHeapBytes" : 536870912,
+      "configuration" : {
+        "chatRetentionEnabled" : "false",
+        "roomStatusCorrectionTriggerJitter" : "0s",
+        "measurementProperty" : "true",
+        "dockerVersion" : "29.4.3",
+        "roomStatusCorrectionTriggerDelay" : "24h",
+        "profile" : "large",
+        "postgresImage" : "postgres:18.4",
+        "sharedPreloadLibraries" : "pg_stat_statements",
+        "notificationCleanupJitter" : "0s",
+        "notificationRelayEnabled" : "false",
+        "notificationCleanupInterval" : "24h"
+      }
+    },
+    "pgStatStatements" : [ {
+      "query" : "update rooms set active_participant_count=$1,capacity=$2,description=$3,experience_level=$4,game_id=$5,host_user_id=$6,place=$7,region=$8,room_type=$9,is_rulemaster_led=$10,start_at=$11,status=$12,title=$13,updated_at=$14,version=$15 where id=$16 and version=$17",
+      "queryId" : "-2552764831026882250",
+      "calls" : 10000,
+      "totalExecutionTimeMs" : 1610.7505629999962,
+      "rows" : 10000,
+      "sharedBufferHits" : 116316,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "select cr1_0.id,cr1_0.created_at,cr1_0.messages_purged_at,cr1_0.purge_after,cr1_0.room_id,cr1_0.updated_at from chat_rooms cr1_0 where cr1_0.room_id=$1",
+      "queryId" : "1730739905555994245",
+      "calls" : 5000,
+      "totalExecutionTimeMs" : 115.95328500000012,
+      "rows" : 0,
+      "sharedBufferHits" : 10000,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "select r1_0.id,r1_0.active_participant_count,r1_0.capacity,r1_0.created_at,r1_0.description,r1_0.experience_level,r1_0.game_id,r1_0.host_user_id,r1_0.place,r1_0.region,r1_0.room_type,r1_0.is_rulemaster_led,r1_0.start_at,r1_0.status,r1_0.title,r1_0.updated_at,r1_0.version from rooms r1_0 where (r1_0.status=$3 and r1_0.start_at<=$1) or (r1_0.status=$4 and r1_0.start_at<=$2)",
+      "queryId" : "3846884529641494299",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 19.482951,
+      "rows" : 10000,
+      "sharedBufferHits" : 3418,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "BEGIN",
+      "queryId" : "4854991825702068830",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 0.001161,
+      "rows" : 0,
+      "sharedBufferHits" : 0,
+      "sharedBufferReads" : 0
+    } ]
+  }, {
+    "phase" : "measured",
+    "iteration" : 4,
+    "candidateCount" : 10000,
+    "changedCount" : 10000,
+    "elapsedNanos" : 132745343000,
+    "throughputPerSecond" : 75.3322095826744,
+    "runStartEnvironment" : {
+      "gitSha" : "4688316415113b4457f03628d77bdcb7f594c294",
+      "javaVersion" : "21.0.11",
+      "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
+      "operatingSystem" : "Windows 11",
+      "operatingSystemVersion" : "10.0",
+      "cpuCount" : 24,
+      "startUsedHeapBytes" : 129503232,
+      "maxHeapBytes" : 536870912,
+      "configuration" : {
+        "chatRetentionEnabled" : "false",
+        "roomStatusCorrectionTriggerJitter" : "0s",
+        "measurementProperty" : "true",
+        "dockerVersion" : "29.4.3",
+        "roomStatusCorrectionTriggerDelay" : "24h",
+        "profile" : "large",
+        "postgresImage" : "postgres:18.4",
+        "sharedPreloadLibraries" : "pg_stat_statements",
+        "notificationCleanupJitter" : "0s",
+        "notificationRelayEnabled" : "false",
+        "notificationCleanupInterval" : "24h"
+      }
+    },
+    "pgStatStatements" : [ {
+      "query" : "update rooms set active_participant_count=$1,capacity=$2,description=$3,experience_level=$4,game_id=$5,host_user_id=$6,place=$7,region=$8,room_type=$9,is_rulemaster_led=$10,start_at=$11,status=$12,title=$13,updated_at=$14,version=$15 where id=$16 and version=$17",
+      "queryId" : "-2552764831026882250",
+      "calls" : 10000,
+      "totalExecutionTimeMs" : 1606.060783000005,
+      "rows" : 10000,
+      "sharedBufferHits" : 116246,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "select cr1_0.id,cr1_0.created_at,cr1_0.messages_purged_at,cr1_0.purge_after,cr1_0.room_id,cr1_0.updated_at from chat_rooms cr1_0 where cr1_0.room_id=$1",
+      "queryId" : "1730739905555994245",
+      "calls" : 5000,
+      "totalExecutionTimeMs" : 116.06449200000021,
+      "rows" : 0,
+      "sharedBufferHits" : 10000,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "select r1_0.id,r1_0.active_participant_count,r1_0.capacity,r1_0.created_at,r1_0.description,r1_0.experience_level,r1_0.game_id,r1_0.host_user_id,r1_0.place,r1_0.region,r1_0.room_type,r1_0.is_rulemaster_led,r1_0.start_at,r1_0.status,r1_0.title,r1_0.updated_at,r1_0.version from rooms r1_0 where (r1_0.status=$3 and r1_0.start_at<=$1) or (r1_0.status=$4 and r1_0.start_at<=$2)",
+      "queryId" : "3846884529641494299",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 27.567795999999998,
+      "rows" : 10000,
+      "sharedBufferHits" : 3418,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "BEGIN",
+      "queryId" : "4854991825702068830",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 7.09E-4,
+      "rows" : 0,
+      "sharedBufferHits" : 0,
+      "sharedBufferReads" : 0
+    } ]
+  }, {
+    "phase" : "measured",
+    "iteration" : 5,
+    "candidateCount" : 10000,
+    "changedCount" : 10000,
+    "elapsedNanos" : 141882916700,
+    "throughputPerSecond" : 70.48064864034474,
+    "runStartEnvironment" : {
+      "gitSha" : "4688316415113b4457f03628d77bdcb7f594c294",
+      "javaVersion" : "21.0.11",
+      "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
+      "operatingSystem" : "Windows 11",
+      "operatingSystemVersion" : "10.0",
+      "cpuCount" : 24,
+      "startUsedHeapBytes" : 197338600,
+      "maxHeapBytes" : 536870912,
+      "configuration" : {
+        "chatRetentionEnabled" : "false",
+        "roomStatusCorrectionTriggerJitter" : "0s",
+        "measurementProperty" : "true",
+        "dockerVersion" : "29.4.3",
+        "roomStatusCorrectionTriggerDelay" : "24h",
+        "profile" : "large",
+        "postgresImage" : "postgres:18.4",
+        "sharedPreloadLibraries" : "pg_stat_statements",
+        "notificationCleanupJitter" : "0s",
+        "notificationRelayEnabled" : "false",
+        "notificationCleanupInterval" : "24h"
+      }
+    },
+    "pgStatStatements" : [ {
+      "query" : "update rooms set active_participant_count=$1,capacity=$2,description=$3,experience_level=$4,game_id=$5,host_user_id=$6,place=$7,region=$8,room_type=$9,is_rulemaster_led=$10,start_at=$11,status=$12,title=$13,updated_at=$14,version=$15 where id=$16 and version=$17",
+      "queryId" : "-2552764831026882250",
+      "calls" : 10000,
+      "totalExecutionTimeMs" : 1700.9214359999978,
+      "rows" : 10000,
+      "sharedBufferHits" : 116285,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "select cr1_0.id,cr1_0.created_at,cr1_0.messages_purged_at,cr1_0.purge_after,cr1_0.room_id,cr1_0.updated_at from chat_rooms cr1_0 where cr1_0.room_id=$1",
+      "queryId" : "1730739905555994245",
+      "calls" : 5000,
+      "totalExecutionTimeMs" : 119.04606500000007,
+      "rows" : 0,
+      "sharedBufferHits" : 10000,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "select r1_0.id,r1_0.active_participant_count,r1_0.capacity,r1_0.created_at,r1_0.description,r1_0.experience_level,r1_0.game_id,r1_0.host_user_id,r1_0.place,r1_0.region,r1_0.room_type,r1_0.is_rulemaster_led,r1_0.start_at,r1_0.status,r1_0.title,r1_0.updated_at,r1_0.version from rooms r1_0 where (r1_0.status=$3 and r1_0.start_at<=$1) or (r1_0.status=$4 and r1_0.start_at<=$2)",
+      "queryId" : "3846884529641494299",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 16.696584,
+      "rows" : 10000,
+      "sharedBufferHits" : 3418,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "BEGIN",
+      "queryId" : "4854991825702068830",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 0.001888,
+      "rows" : 0,
+      "sharedBufferHits" : 0,
+      "sharedBufferReads" : 0
+    } ]
+  } ],
+  "partialRuns" : [ ],
+  "runFailure" : null,
+  "roomFailures" : [ ],
+  "summary" : {
+    "minElapsedNanos" : 132745343000,
+    "medianElapsedNanos" : 137464426400,
+    "maxElapsedNanos" : 145619362600,
+    "minThroughputPerSecond" : 68.67218631816755,
+    "medianThroughputPerSecond" : 72.74609338492827,
+    "maxThroughputPerSecond" : 75.3322095826744
+  }
+}
