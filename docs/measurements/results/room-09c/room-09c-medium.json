@@ -2,19 +2,26 @@
   "outcome" : "SUCCESS",
   "throughputFormula" : "throughputPerSecond = changedCount * 1_000_000_000 / elapsedNanos",
   "measurementStartEnvironment" : {
-    "gitSha" : "15ef30221558a454645c9a7080cc92fce3fece97",
+    "gitSha" : "8e45214194aa9be8ea109f7372627dcc6adb0652",
     "javaVersion" : "21.0.11",
     "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
     "operatingSystem" : "Windows 11",
     "operatingSystemVersion" : "10.0",
     "cpuCount" : 24,
-    "startUsedHeapBytes" : 155339216,
+    "startUsedHeapBytes" : 161418504,
     "maxHeapBytes" : 536870912,
     "configuration" : {
-      "sharedPreloadLibraries" : "pg_stat_statements",
+      "profile" : "medium",
+      "roomStatusCorrectionTriggerDelay" : "24h",
+      "dockerVersion" : "29.4.3",
       "measurementProperty" : "true",
-      "postgresImage" : "postgres:18.4",
-      "profile" : "medium"
+      "roomStatusCorrectionTriggerJitter" : "0s",
+      "chatRetentionEnabled" : "false",
+      "notificationCleanupInterval" : "24h",
+      "notificationRelayEnabled" : "false",
+      "notificationCleanupJitter" : "0s",
+      "sharedPreloadLibraries" : "pg_stat_statements",
+      "postgresImage" : "postgres:18.4"
     }
   },
   "fixture" : {
@@ -33,29 +40,36 @@
     "iteration" : 1,
     "candidateCount" : 2000,
     "changedCount" : 2000,
-    "elapsedNanos" : 9531163300,
-    "throughputPerSecond" : 209.83797434254433,
+    "elapsedNanos" : 8502798900,
+    "throughputPerSecond" : 235.21666495017305,
     "runStartEnvironment" : {
-      "gitSha" : "15ef30221558a454645c9a7080cc92fce3fece97",
+      "gitSha" : "8e45214194aa9be8ea109f7372627dcc6adb0652",
       "javaVersion" : "21.0.11",
       "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
       "operatingSystem" : "Windows 11",
       "operatingSystemVersion" : "10.0",
       "cpuCount" : 24,
-      "startUsedHeapBytes" : 143973608,
+      "startUsedHeapBytes" : 99469016,
       "maxHeapBytes" : 536870912,
       "configuration" : {
-        "sharedPreloadLibraries" : "pg_stat_statements",
+        "profile" : "medium",
+        "roomStatusCorrectionTriggerDelay" : "24h",
+        "dockerVersion" : "29.4.3",
         "measurementProperty" : "true",
-        "postgresImage" : "postgres:18.4",
-        "profile" : "medium"
+        "roomStatusCorrectionTriggerJitter" : "0s",
+        "chatRetentionEnabled" : "false",
+        "notificationCleanupInterval" : "24h",
+        "notificationRelayEnabled" : "false",
+        "notificationCleanupJitter" : "0s",
+        "sharedPreloadLibraries" : "pg_stat_statements",
+        "postgresImage" : "postgres:18.4"
       }
     },
     "pgStatStatements" : [ {
       "query" : "update rooms set active_participant_count=$1,capacity=$2,description=$3,experience_level=$4,game_id=$5,host_user_id=$6,place=$7,region=$8,room_type=$9,is_rulemaster_led=$10,start_at=$11,status=$12,title=$13,updated_at=$14,version=$15 where id=$16 and version=$17",
       "queryId" : "-2552764831026882250",
       "calls" : 2000,
-      "totalExecutionTimeMs" : 225.7926819999998,
+      "totalExecutionTimeMs" : 197.2198019999993,
       "rows" : 2000,
       "sharedBufferHits" : 22119,
       "sharedBufferReads" : 0
@@ -63,63 +77,23 @@
       "query" : "select cr1_0.id,cr1_0.created_at,cr1_0.messages_purged_at,cr1_0.purge_after,cr1_0.room_id,cr1_0.updated_at from chat_rooms cr1_0 where cr1_0.room_id=$1",
       "queryId" : "1730739905555994245",
       "calls" : 1000,
-      "totalExecutionTimeMs" : 11.835531000000003,
+      "totalExecutionTimeMs" : 10.76751700000001,
       "rows" : 0,
       "sharedBufferHits" : 2000,
-      "sharedBufferReads" : 0
-    }, {
-      "query" : "select count(*)\nfrom rooms\nwhere title like $2\n  and status = $3\n  and start_at > $1",
-      "queryId" : "3327735541059554667",
-      "calls" : 1,
-      "totalExecutionTimeMs" : 9.80343,
-      "rows" : 1,
-      "sharedBufferHits" : 584,
       "sharedBufferReads" : 0
     }, {
       "query" : "select r1_0.id,r1_0.active_participant_count,r1_0.capacity,r1_0.created_at,r1_0.description,r1_0.experience_level,r1_0.game_id,r1_0.host_user_id,r1_0.place,r1_0.region,r1_0.room_type,r1_0.is_rulemaster_led,r1_0.start_at,r1_0.status,r1_0.title,r1_0.updated_at,r1_0.version from rooms r1_0 where (r1_0.status=$3 and r1_0.start_at<=$1) or (r1_0.status=$4 and r1_0.start_at<=$2)",
       "queryId" : "3846884529641494299",
       "calls" : 1,
-      "totalExecutionTimeMs" : 1.688998,
+      "totalExecutionTimeMs" : 2.076482,
       "rows" : 2000,
       "sharedBufferHits" : 120,
       "sharedBufferReads" : 0
     }, {
-      "query" : "select pg_stat_statements_reset()",
-      "queryId" : "-4785873706514835710",
-      "calls" : 1,
-      "totalExecutionTimeMs" : 0.09187200000000001,
-      "rows" : 1,
-      "sharedBufferHits" : 0,
-      "sharedBufferReads" : 0
-    }, {
-      "query" : "SELECT c.oid, a.attnum, a.attname, c.relname, n.nspname, a.attnotnull OR (t.typtype = $1 AND t.typnotnull), a.attidentity != $2 OR pg_catalog.pg_get_expr(d.adbin, d.adrelid) LIKE $3 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON (c.relnamespace = n.oid) JOIN pg_catalog.pg_attribute a ON (c.oid = a.attrelid) JOIN pg_catalog.pg_type t ON (a.atttypid = t.oid) LEFT JOIN pg_catalog.pg_attrdef d ON (d.adrelid = a.attrelid AND d.adnum = a.attnum) JOIN (SELECT $4 AS oid , $5 AS attnum UNION ALL SELECT $6, $7) vals ON (c.oid = vals.oid AND a.attnum = vals.attnum) where c.oid in ($8)",
-      "queryId" : "7130512990360958848",
-      "calls" : 1,
-      "totalExecutionTimeMs" : 0.084444,
-      "rows" : 2,
-      "sharedBufferHits" : 23,
-      "sharedBufferReads" : 0
-    }, {
-      "query" : "with operation as materialized (\n    select clock_timestamp() as operation_time\n), claimable as (\n    select event.id as id, event.available_at as available_at, operation.operation_time as operation_time\n    from notification_outbox_events event\n    cross join operation\n    where event.status in ($1 /*, ... */)\n      and event.available_at <= operation.operation_time\n    order by event.available_at asc, event.id asc\n    limit $2\n    for update of event skip locked\n)\nselect id as id, available_at as \"availableAt\", operation_time as \"operationTime\"\nfrom claimable",
-      "queryId" : "-9018051540155931030",
-      "calls" : 2,
-      "totalExecutionTimeMs" : 0.081775,
-      "rows" : 0,
-      "sharedBufferHits" : 8,
-      "sharedBufferReads" : 0
-    }, {
-      "query" : "with operation as materialized (\n    select clock_timestamp() as operation_time\n)\nselect extract($1 from (\n    operation.operation_time - (\n        select min(event.available_at)\n        from notification_outbox_events event\n        where event.status in ($2 /*, ... */)\n          and event.available_at <= operation.operation_time\n    )\n)) * $3\nfrom operation",
-      "queryId" : "7543158657463214979",
-      "calls" : 2,
-      "totalExecutionTimeMs" : 0.018895000000000002,
-      "rows" : 2,
-      "sharedBufferHits" : 2,
-      "sharedBufferReads" : 0
-    }, {
       "query" : "BEGIN",
       "queryId" : "4854991825702068830",
-      "calls" : 3,
-      "totalExecutionTimeMs" : 0.0027619999999999997,
+      "calls" : 1,
+      "totalExecutionTimeMs" : 0.001628,
       "rows" : 0,
       "sharedBufferHits" : 0,
       "sharedBufferReads" : 0
@@ -127,7 +101,7 @@
       "query" : "COMMIT",
       "queryId" : "6097083398544187049",
       "calls" : 1,
-      "totalExecutionTimeMs" : 0.001141,
+      "totalExecutionTimeMs" : 9.98E-4,
       "rows" : 0,
       "sharedBufferHits" : 0,
       "sharedBufferReads" : 0
@@ -138,29 +112,36 @@
     "iteration" : 1,
     "candidateCount" : 2000,
     "changedCount" : 2000,
-    "elapsedNanos" : 7405406700,
-    "throughputPerSecond" : 270.07294548724786,
+    "elapsedNanos" : 7509474400,
+    "throughputPerSecond" : 266.3302241232755,
     "runStartEnvironment" : {
-      "gitSha" : "15ef30221558a454645c9a7080cc92fce3fece97",
+      "gitSha" : "8e45214194aa9be8ea109f7372627dcc6adb0652",
       "javaVersion" : "21.0.11",
       "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
       "operatingSystem" : "Windows 11",
       "operatingSystemVersion" : "10.0",
       "cpuCount" : 24,
-      "startUsedHeapBytes" : 163887848,
+      "startUsedHeapBytes" : 109089032,
       "maxHeapBytes" : 536870912,
       "configuration" : {
-        "sharedPreloadLibraries" : "pg_stat_statements",
+        "profile" : "medium",
+        "roomStatusCorrectionTriggerDelay" : "24h",
+        "dockerVersion" : "29.4.3",
         "measurementProperty" : "true",
-        "postgresImage" : "postgres:18.4",
-        "profile" : "medium"
+        "roomStatusCorrectionTriggerJitter" : "0s",
+        "chatRetentionEnabled" : "false",
+        "notificationCleanupInterval" : "24h",
+        "notificationRelayEnabled" : "false",
+        "notificationCleanupJitter" : "0s",
+        "sharedPreloadLibraries" : "pg_stat_statements",
+        "postgresImage" : "postgres:18.4"
       }
     },
     "pgStatStatements" : [ {
       "query" : "update rooms set active_participant_count=$1,capacity=$2,description=$3,experience_level=$4,game_id=$5,host_user_id=$6,place=$7,region=$8,room_type=$9,is_rulemaster_led=$10,start_at=$11,status=$12,title=$13,updated_at=$14,version=$15 where id=$16 and version=$17",
       "queryId" : "-2552764831026882250",
       "calls" : 2000,
-      "totalExecutionTimeMs" : 205.10134799999986,
+      "totalExecutionTimeMs" : 206.04725199999947,
       "rows" : 2000,
       "sharedBufferHits" : 22120,
       "sharedBufferReads" : 0
@@ -168,55 +149,23 @@
       "query" : "select cr1_0.id,cr1_0.created_at,cr1_0.messages_purged_at,cr1_0.purge_after,cr1_0.room_id,cr1_0.updated_at from chat_rooms cr1_0 where cr1_0.room_id=$1",
       "queryId" : "1730739905555994245",
       "calls" : 1000,
-      "totalExecutionTimeMs" : 10.45257700000001,
+      "totalExecutionTimeMs" : 11.709777999999995,
       "rows" : 0,
       "sharedBufferHits" : 2000,
-      "sharedBufferReads" : 0
-    }, {
-      "query" : "select count(*)\nfrom rooms\nwhere title like $2\n  and status = $3\n  and start_at > $1",
-      "queryId" : "3327735541059554667",
-      "calls" : 1,
-      "totalExecutionTimeMs" : 2.600868,
-      "rows" : 1,
-      "sharedBufferHits" : 899,
       "sharedBufferReads" : 0
     }, {
       "query" : "select r1_0.id,r1_0.active_participant_count,r1_0.capacity,r1_0.created_at,r1_0.description,r1_0.experience_level,r1_0.game_id,r1_0.host_user_id,r1_0.place,r1_0.region,r1_0.room_type,r1_0.is_rulemaster_led,r1_0.start_at,r1_0.status,r1_0.title,r1_0.updated_at,r1_0.version from rooms r1_0 where (r1_0.status=$3 and r1_0.start_at<=$1) or (r1_0.status=$4 and r1_0.start_at<=$2)",
       "queryId" : "3846884529641494299",
       "calls" : 1,
-      "totalExecutionTimeMs" : 2.327315,
+      "totalExecutionTimeMs" : 4.012589,
       "rows" : 2000,
       "sharedBufferHits" : 228,
       "sharedBufferReads" : 0
     }, {
-      "query" : "select pg_stat_statements_reset()",
-      "queryId" : "-4785873706514835710",
-      "calls" : 1,
-      "totalExecutionTimeMs" : 0.106435,
-      "rows" : 1,
-      "sharedBufferHits" : 0,
-      "sharedBufferReads" : 0
-    }, {
-      "query" : "with operation as materialized (\n    select clock_timestamp() as operation_time\n), claimable as (\n    select event.id as id, event.available_at as available_at, operation.operation_time as operation_time\n    from notification_outbox_events event\n    cross join operation\n    where event.status in ($1 /*, ... */)\n      and event.available_at <= operation.operation_time\n    order by event.available_at asc, event.id asc\n    limit $2\n    for update of event skip locked\n)\nselect id as id, available_at as \"availableAt\", operation_time as \"operationTime\"\nfrom claimable",
-      "queryId" : "-9018051540155931030",
-      "calls" : 2,
-      "totalExecutionTimeMs" : 0.080454,
-      "rows" : 0,
-      "sharedBufferHits" : 2,
-      "sharedBufferReads" : 0
-    }, {
-      "query" : "with operation as materialized (\n    select clock_timestamp() as operation_time\n)\nselect extract($1 from (\n    operation.operation_time - (\n        select min(event.available_at)\n        from notification_outbox_events event\n        where event.status in ($2 /*, ... */)\n          and event.available_at <= operation.operation_time\n    )\n)) * $3\nfrom operation",
-      "queryId" : "7543158657463214979",
-      "calls" : 2,
-      "totalExecutionTimeMs" : 0.017501,
-      "rows" : 2,
-      "sharedBufferHits" : 2,
-      "sharedBufferReads" : 0
-    }, {
       "query" : "BEGIN",
       "queryId" : "4854991825702068830",
-      "calls" : 3,
-      "totalExecutionTimeMs" : 0.008475,
+      "calls" : 1,
+      "totalExecutionTimeMs" : 0.001716,
       "rows" : 0,
       "sharedBufferHits" : 0,
       "sharedBufferReads" : 0
@@ -226,85 +175,60 @@
     "iteration" : 2,
     "candidateCount" : 2000,
     "changedCount" : 2000,
-    "elapsedNanos" : 6973673300,
-    "throughputPerSecond" : 286.7929015257999,
+    "elapsedNanos" : 7243886400,
+    "throughputPerSecond" : 276.09488740740056,
     "runStartEnvironment" : {
-      "gitSha" : "15ef30221558a454645c9a7080cc92fce3fece97",
+      "gitSha" : "8e45214194aa9be8ea109f7372627dcc6adb0652",
       "javaVersion" : "21.0.11",
       "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
       "operatingSystem" : "Windows 11",
       "operatingSystemVersion" : "10.0",
       "cpuCount" : 24,
-      "startUsedHeapBytes" : 136590760,
+      "startUsedHeapBytes" : 143853800,
       "maxHeapBytes" : 536870912,
       "configuration" : {
-        "sharedPreloadLibraries" : "pg_stat_statements",
+        "profile" : "medium",
+        "roomStatusCorrectionTriggerDelay" : "24h",
+        "dockerVersion" : "29.4.3",
         "measurementProperty" : "true",
-        "postgresImage" : "postgres:18.4",
-        "profile" : "medium"
+        "roomStatusCorrectionTriggerJitter" : "0s",
+        "chatRetentionEnabled" : "false",
+        "notificationCleanupInterval" : "24h",
+        "notificationRelayEnabled" : "false",
+        "notificationCleanupJitter" : "0s",
+        "sharedPreloadLibraries" : "pg_stat_statements",
+        "postgresImage" : "postgres:18.4"
       }
     },
     "pgStatStatements" : [ {
       "query" : "update rooms set active_participant_count=$1,capacity=$2,description=$3,experience_level=$4,game_id=$5,host_user_id=$6,place=$7,region=$8,room_type=$9,is_rulemaster_led=$10,start_at=$11,status=$12,title=$13,updated_at=$14,version=$15 where id=$16 and version=$17",
       "queryId" : "-2552764831026882250",
       "calls" : 2000,
-      "totalExecutionTimeMs" : 193.1011900000002,
+      "totalExecutionTimeMs" : 197.65137300000004,
       "rows" : 2000,
       "sharedBufferHits" : 22114,
-      "sharedBufferReads" : 0
-    }, {
-      "query" : "select r1_0.id,r1_0.active_participant_count,r1_0.capacity,r1_0.created_at,r1_0.description,r1_0.experience_level,r1_0.game_id,r1_0.host_user_id,r1_0.place,r1_0.region,r1_0.room_type,r1_0.is_rulemaster_led,r1_0.start_at,r1_0.status,r1_0.title,r1_0.updated_at,r1_0.version from rooms r1_0 where (r1_0.status=$3 and r1_0.start_at<=$1) or (r1_0.status=$4 and r1_0.start_at<=$2)",
-      "queryId" : "3846884529641494299",
-      "calls" : 1,
-      "totalExecutionTimeMs" : 12.579260999999999,
-      "rows" : 2000,
-      "sharedBufferHits" : 334,
       "sharedBufferReads" : 0
     }, {
       "query" : "select cr1_0.id,cr1_0.created_at,cr1_0.messages_purged_at,cr1_0.purge_after,cr1_0.room_id,cr1_0.updated_at from chat_rooms cr1_0 where cr1_0.room_id=$1",
       "queryId" : "1730739905555994245",
       "calls" : 1000,
-      "totalExecutionTimeMs" : 10.072446999999984,
+      "totalExecutionTimeMs" : 10.058329000000008,
       "rows" : 0,
       "sharedBufferHits" : 2000,
       "sharedBufferReads" : 0
     }, {
-      "query" : "select count(*)\nfrom rooms\nwhere title like $2\n  and status = $3\n  and start_at > $1",
-      "queryId" : "3327735541059554667",
+      "query" : "select r1_0.id,r1_0.active_participant_count,r1_0.capacity,r1_0.created_at,r1_0.description,r1_0.experience_level,r1_0.game_id,r1_0.host_user_id,r1_0.place,r1_0.region,r1_0.room_type,r1_0.is_rulemaster_led,r1_0.start_at,r1_0.status,r1_0.title,r1_0.updated_at,r1_0.version from rooms r1_0 where (r1_0.status=$3 and r1_0.start_at<=$1) or (r1_0.status=$4 and r1_0.start_at<=$2)",
+      "queryId" : "3846884529641494299",
       "calls" : 1,
-      "totalExecutionTimeMs" : 2.905398,
-      "rows" : 1,
-      "sharedBufferHits" : 1212,
-      "sharedBufferReads" : 0
-    }, {
-      "query" : "select pg_stat_statements_reset()",
-      "queryId" : "-4785873706514835710",
-      "calls" : 1,
-      "totalExecutionTimeMs" : 0.18842899999999999,
-      "rows" : 1,
-      "sharedBufferHits" : 0,
-      "sharedBufferReads" : 0
-    }, {
-      "query" : "with operation as materialized (\n    select clock_timestamp() as operation_time\n), claimable as (\n    select event.id as id, event.available_at as available_at, operation.operation_time as operation_time\n    from notification_outbox_events event\n    cross join operation\n    where event.status in ($1 /*, ... */)\n      and event.available_at <= operation.operation_time\n    order by event.available_at asc, event.id asc\n    limit $2\n    for update of event skip locked\n)\nselect id as id, available_at as \"availableAt\", operation_time as \"operationTime\"\nfrom claimable",
-      "queryId" : "-9018051540155931030",
-      "calls" : 1,
-      "totalExecutionTimeMs" : 0.013415,
-      "rows" : 0,
-      "sharedBufferHits" : 1,
-      "sharedBufferReads" : 0
-    }, {
-      "query" : "with operation as materialized (\n    select clock_timestamp() as operation_time\n)\nselect extract($1 from (\n    operation.operation_time - (\n        select min(event.available_at)\n        from notification_outbox_events event\n        where event.status in ($2 /*, ... */)\n          and event.available_at <= operation.operation_time\n    )\n)) * $3\nfrom operation",
-      "queryId" : "7543158657463214979",
-      "calls" : 1,
-      "totalExecutionTimeMs" : 0.00796,
-      "rows" : 1,
-      "sharedBufferHits" : 1,
+      "totalExecutionTimeMs" : 2.2690599999999996,
+      "rows" : 2000,
+      "sharedBufferHits" : 334,
       "sharedBufferReads" : 0
     }, {
       "query" : "BEGIN",
       "queryId" : "4854991825702068830",
-      "calls" : 2,
-      "totalExecutionTimeMs" : 0.0018549999999999999,
+      "calls" : 1,
+      "totalExecutionTimeMs" : 0.001,
       "rows" : 0,
       "sharedBufferHits" : 0,
       "sharedBufferReads" : 0
@@ -314,29 +238,36 @@
     "iteration" : 3,
     "candidateCount" : 2000,
     "changedCount" : 2000,
-    "elapsedNanos" : 6948147100,
-    "throughputPerSecond" : 287.8465252988095,
+    "elapsedNanos" : 6250355900,
+    "throughputPerSecond" : 319.981778957579,
     "runStartEnvironment" : {
-      "gitSha" : "15ef30221558a454645c9a7080cc92fce3fece97",
+      "gitSha" : "8e45214194aa9be8ea109f7372627dcc6adb0652",
       "javaVersion" : "21.0.11",
       "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
       "operatingSystem" : "Windows 11",
       "operatingSystemVersion" : "10.0",
       "cpuCount" : 24,
-      "startUsedHeapBytes" : 98038000,
+      "startUsedHeapBytes" : 89716416,
       "maxHeapBytes" : 536870912,
       "configuration" : {
-        "sharedPreloadLibraries" : "pg_stat_statements",
+        "profile" : "medium",
+        "roomStatusCorrectionTriggerDelay" : "24h",
+        "dockerVersion" : "29.4.3",
         "measurementProperty" : "true",
-        "postgresImage" : "postgres:18.4",
-        "profile" : "medium"
+        "roomStatusCorrectionTriggerJitter" : "0s",
+        "chatRetentionEnabled" : "false",
+        "notificationCleanupInterval" : "24h",
+        "notificationRelayEnabled" : "false",
+        "notificationCleanupJitter" : "0s",
+        "sharedPreloadLibraries" : "pg_stat_statements",
+        "postgresImage" : "postgres:18.4"
       }
     },
     "pgStatStatements" : [ {
       "query" : "update rooms set active_participant_count=$1,capacity=$2,description=$3,experience_level=$4,game_id=$5,host_user_id=$6,place=$7,region=$8,room_type=$9,is_rulemaster_led=$10,start_at=$11,status=$12,title=$13,updated_at=$14,version=$15 where id=$16 and version=$17",
       "queryId" : "-2552764831026882250",
       "calls" : 2000,
-      "totalExecutionTimeMs" : 192.1880040000002,
+      "totalExecutionTimeMs" : 182.4096820000004,
       "rows" : 2000,
       "sharedBufferHits" : 22123,
       "sharedBufferReads" : 0
@@ -344,55 +275,23 @@
       "query" : "select cr1_0.id,cr1_0.created_at,cr1_0.messages_purged_at,cr1_0.purge_after,cr1_0.room_id,cr1_0.updated_at from chat_rooms cr1_0 where cr1_0.room_id=$1",
       "queryId" : "1730739905555994245",
       "calls" : 1000,
-      "totalExecutionTimeMs" : 11.056099999999992,
+      "totalExecutionTimeMs" : 9.717150000000006,
       "rows" : 0,
       "sharedBufferHits" : 2000,
-      "sharedBufferReads" : 0
-    }, {
-      "query" : "select count(*)\nfrom rooms\nwhere title like $2\n  and status = $3\n  and start_at > $1",
-      "queryId" : "3327735541059554667",
-      "calls" : 1,
-      "totalExecutionTimeMs" : 4.657418,
-      "rows" : 1,
-      "sharedBufferHits" : 1528,
       "sharedBufferReads" : 0
     }, {
       "query" : "select r1_0.id,r1_0.active_participant_count,r1_0.capacity,r1_0.created_at,r1_0.description,r1_0.experience_level,r1_0.game_id,r1_0.host_user_id,r1_0.place,r1_0.region,r1_0.room_type,r1_0.is_rulemaster_led,r1_0.start_at,r1_0.status,r1_0.title,r1_0.updated_at,r1_0.version from rooms r1_0 where (r1_0.status=$3 and r1_0.start_at<=$1) or (r1_0.status=$4 and r1_0.start_at<=$2)",
       "queryId" : "3846884529641494299",
       "calls" : 1,
-      "totalExecutionTimeMs" : 2.0655449999999997,
+      "totalExecutionTimeMs" : 4.968649,
       "rows" : 2000,
       "sharedBufferHits" : 441,
       "sharedBufferReads" : 0
     }, {
-      "query" : "select pg_stat_statements_reset()",
-      "queryId" : "-4785873706514835710",
-      "calls" : 1,
-      "totalExecutionTimeMs" : 0.089963,
-      "rows" : 1,
-      "sharedBufferHits" : 0,
-      "sharedBufferReads" : 0
-    }, {
-      "query" : "with operation as materialized (\n    select clock_timestamp() as operation_time\n), claimable as (\n    select event.id as id, event.available_at as available_at, operation.operation_time as operation_time\n    from notification_outbox_events event\n    cross join operation\n    where event.status in ('PENDING', 'RETRY_WAIT')\n      and event.available_at <= operation.operation_time\n    order by event.available_at asc, event.id asc\n    limit 1\n    for update of event skip locked\n)\nselect id as id, available_at as \"availableAt\", operation_time as \"operationTime\"\nfrom claimable",
-      "queryId" : "-9018051540155931030",
-      "calls" : 2,
-      "totalExecutionTimeMs" : 0.069571,
-      "rows" : 0,
-      "sharedBufferHits" : 2,
-      "sharedBufferReads" : 0
-    }, {
-      "query" : "with operation as materialized (\n    select clock_timestamp() as operation_time\n)\nselect extract(epoch from (\n    operation.operation_time - (\n        select min(event.available_at)\n        from notification_outbox_events event\n        where event.status in ('PENDING', 'RETRY_WAIT')\n          and event.available_at <= operation.operation_time\n    )\n)) * 1000\nfrom operation",
-      "queryId" : "7543158657463214979",
-      "calls" : 2,
-      "totalExecutionTimeMs" : 0.037902,
-      "rows" : 2,
-      "sharedBufferHits" : 2,
-      "sharedBufferReads" : 0
-    }, {
       "query" : "BEGIN",
       "queryId" : "4854991825702068830",
-      "calls" : 3,
-      "totalExecutionTimeMs" : 0.0033150000000000002,
+      "calls" : 1,
+      "totalExecutionTimeMs" : 7.88E-4,
       "rows" : 0,
       "sharedBufferHits" : 0,
       "sharedBufferReads" : 0
@@ -402,37 +301,44 @@
     "iteration" : 4,
     "candidateCount" : 2000,
     "changedCount" : 2000,
-    "elapsedNanos" : 6390957200,
-    "throughputPerSecond" : 312.9421677241087,
+    "elapsedNanos" : 6069221400,
+    "throughputPerSecond" : 329.53156067102776,
     "runStartEnvironment" : {
-      "gitSha" : "15ef30221558a454645c9a7080cc92fce3fece97",
+      "gitSha" : "8e45214194aa9be8ea109f7372627dcc6adb0652",
       "javaVersion" : "21.0.11",
       "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
       "operatingSystem" : "Windows 11",
       "operatingSystemVersion" : "10.0",
       "cpuCount" : 24,
-      "startUsedHeapBytes" : 149216544,
+      "startUsedHeapBytes" : 111857664,
       "maxHeapBytes" : 536870912,
       "configuration" : {
-        "sharedPreloadLibraries" : "pg_stat_statements",
+        "profile" : "medium",
+        "roomStatusCorrectionTriggerDelay" : "24h",
+        "dockerVersion" : "29.4.3",
         "measurementProperty" : "true",
-        "postgresImage" : "postgres:18.4",
-        "profile" : "medium"
+        "roomStatusCorrectionTriggerJitter" : "0s",
+        "chatRetentionEnabled" : "false",
+        "notificationCleanupInterval" : "24h",
+        "notificationRelayEnabled" : "false",
+        "notificationCleanupJitter" : "0s",
+        "sharedPreloadLibraries" : "pg_stat_statements",
+        "postgresImage" : "postgres:18.4"
       }
     },
     "pgStatStatements" : [ {
       "query" : "update rooms set active_participant_count=$1,capacity=$2,description=$3,experience_level=$4,game_id=$5,host_user_id=$6,place=$7,region=$8,room_type=$9,is_rulemaster_led=$10,start_at=$11,status=$12,title=$13,updated_at=$14,version=$15 where id=$16 and version=$17",
       "queryId" : "-2552764831026882250",
       "calls" : 2000,
-      "totalExecutionTimeMs" : 187.05019300000023,
+      "totalExecutionTimeMs" : 180.5308969999997,
       "rows" : 2000,
-      "sharedBufferHits" : 22231,
+      "sharedBufferHits" : 22206,
       "sharedBufferReads" : 0
     }, {
       "query" : "select cr1_0.id,cr1_0.created_at,cr1_0.messages_purged_at,cr1_0.purge_after,cr1_0.room_id,cr1_0.updated_at from chat_rooms cr1_0 where cr1_0.room_id=$1",
       "queryId" : "1730739905555994245",
       "calls" : 1000,
-      "totalExecutionTimeMs" : 9.701237999999996,
+      "totalExecutionTimeMs" : 10.449031000000014,
       "rows" : 0,
       "sharedBufferHits" : 2000,
       "sharedBufferReads" : 0
@@ -440,47 +346,15 @@
       "query" : "select r1_0.id,r1_0.active_participant_count,r1_0.capacity,r1_0.created_at,r1_0.description,r1_0.experience_level,r1_0.game_id,r1_0.host_user_id,r1_0.place,r1_0.region,r1_0.room_type,r1_0.is_rulemaster_led,r1_0.start_at,r1_0.status,r1_0.title,r1_0.updated_at,r1_0.version from rooms r1_0 where (r1_0.status='RECRUITING' and r1_0.start_at<=$1) or (r1_0.status='CLOSED' and r1_0.start_at<=$2)",
       "queryId" : "3846884529641494299",
       "calls" : 1,
-      "totalExecutionTimeMs" : 2.171959,
+      "totalExecutionTimeMs" : 2.767952,
       "rows" : 2000,
       "sharedBufferHits" : 546,
       "sharedBufferReads" : 0
     }, {
-      "query" : "select count(*)\nfrom rooms\nwhere title like $2\n  and status = $3\n  and start_at > $1",
-      "queryId" : "3327735541059554667",
-      "calls" : 1,
-      "totalExecutionTimeMs" : 1.347751,
-      "rows" : 1,
-      "sharedBufferHits" : 1589,
-      "sharedBufferReads" : 0
-    }, {
-      "query" : "select pg_stat_statements_reset()",
-      "queryId" : "-4785873706514835710",
-      "calls" : 1,
-      "totalExecutionTimeMs" : 0.0791,
-      "rows" : 1,
-      "sharedBufferHits" : 0,
-      "sharedBufferReads" : 0
-    }, {
-      "query" : "with operation as materialized (\n    select clock_timestamp() as operation_time\n), claimable as (\n    select event.id as id, event.available_at as available_at, operation.operation_time as operation_time\n    from notification_outbox_events event\n    cross join operation\n    where event.status in ('PENDING', 'RETRY_WAIT')\n      and event.available_at <= operation.operation_time\n    order by event.available_at asc, event.id asc\n    limit 1\n    for update of event skip locked\n)\nselect id as id, available_at as \"availableAt\", operation_time as \"operationTime\"\nfrom claimable",
-      "queryId" : "-9018051540155931030",
-      "calls" : 1,
-      "totalExecutionTimeMs" : 0.019417999999999998,
-      "rows" : 0,
-      "sharedBufferHits" : 1,
-      "sharedBufferReads" : 0
-    }, {
-      "query" : "with operation as materialized (\n    select clock_timestamp() as operation_time\n)\nselect extract(epoch from (\n    operation.operation_time - (\n        select min(event.available_at)\n        from notification_outbox_events event\n        where event.status in ('PENDING', 'RETRY_WAIT')\n          and event.available_at <= operation.operation_time\n    )\n)) * 1000\nfrom operation",
-      "queryId" : "7543158657463214979",
-      "calls" : 1,
-      "totalExecutionTimeMs" : 0.011862,
-      "rows" : 1,
-      "sharedBufferHits" : 1,
-      "sharedBufferReads" : 0
-    }, {
       "query" : "BEGIN",
       "queryId" : "4854991825702068830",
-      "calls" : 2,
-      "totalExecutionTimeMs" : 0.001735,
+      "calls" : 1,
+      "totalExecutionTimeMs" : 9.6E-4,
       "rows" : 0,
       "sharedBufferHits" : 0,
       "sharedBufferReads" : 0
@@ -490,29 +364,36 @@
     "iteration" : 5,
     "candidateCount" : 2000,
     "changedCount" : 2000,
-    "elapsedNanos" : 6369321000,
-    "throughputPerSecond" : 314.00521342855853,
+    "elapsedNanos" : 6048612900,
+    "throughputPerSecond" : 330.6543224149788,
     "runStartEnvironment" : {
-      "gitSha" : "15ef30221558a454645c9a7080cc92fce3fece97",
+      "gitSha" : "8e45214194aa9be8ea109f7372627dcc6adb0652",
       "javaVersion" : "21.0.11",
       "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
       "operatingSystem" : "Windows 11",
       "operatingSystemVersion" : "10.0",
       "cpuCount" : 24,
-      "startUsedHeapBytes" : 99380528,
+      "startUsedHeapBytes" : 131752856,
       "maxHeapBytes" : 536870912,
       "configuration" : {
-        "sharedPreloadLibraries" : "pg_stat_statements",
+        "profile" : "medium",
+        "roomStatusCorrectionTriggerDelay" : "24h",
+        "dockerVersion" : "29.4.3",
         "measurementProperty" : "true",
-        "postgresImage" : "postgres:18.4",
-        "profile" : "medium"
+        "roomStatusCorrectionTriggerJitter" : "0s",
+        "chatRetentionEnabled" : "false",
+        "notificationCleanupInterval" : "24h",
+        "notificationRelayEnabled" : "false",
+        "notificationCleanupJitter" : "0s",
+        "sharedPreloadLibraries" : "pg_stat_statements",
+        "postgresImage" : "postgres:18.4"
       }
     },
     "pgStatStatements" : [ {
       "query" : "update rooms set active_participant_count=$1,capacity=$2,description=$3,experience_level=$4,game_id=$5,host_user_id=$6,place=$7,region=$8,room_type=$9,is_rulemaster_led=$10,start_at=$11,status=$12,title=$13,updated_at=$14,version=$15 where id=$16 and version=$17",
       "queryId" : "-2552764831026882250",
       "calls" : 2000,
-      "totalExecutionTimeMs" : 181.32461099999983,
+      "totalExecutionTimeMs" : 182.47109199999989,
       "rows" : 2000,
       "sharedBufferHits" : 22173,
       "sharedBufferReads" : 0
@@ -520,55 +401,23 @@
       "query" : "select cr1_0.id,cr1_0.created_at,cr1_0.messages_purged_at,cr1_0.purge_after,cr1_0.room_id,cr1_0.updated_at from chat_rooms cr1_0 where cr1_0.room_id=$1",
       "queryId" : "1730739905555994245",
       "calls" : 1000,
-      "totalExecutionTimeMs" : 9.445423999999996,
+      "totalExecutionTimeMs" : 9.382079999999998,
       "rows" : 0,
       "sharedBufferHits" : 2000,
-      "sharedBufferReads" : 0
-    }, {
-      "query" : "select count(*)\nfrom rooms\nwhere title like 'ROOM-09c 기준선 non-due-closed %'\n  and status = 'CLOSED'\n  and start_at > $1",
-      "queryId" : "3327735541059554667",
-      "calls" : 1,
-      "totalExecutionTimeMs" : 3.289812,
-      "rows" : 1,
-      "sharedBufferHits" : 1589,
       "sharedBufferReads" : 0
     }, {
       "query" : "select r1_0.id,r1_0.active_participant_count,r1_0.capacity,r1_0.created_at,r1_0.description,r1_0.experience_level,r1_0.game_id,r1_0.host_user_id,r1_0.place,r1_0.region,r1_0.room_type,r1_0.is_rulemaster_led,r1_0.start_at,r1_0.status,r1_0.title,r1_0.updated_at,r1_0.version from rooms r1_0 where (r1_0.status=$3 and r1_0.start_at<=$1) or (r1_0.status=$4 and r1_0.start_at<=$2)",
       "queryId" : "3846884529641494299",
       "calls" : 1,
-      "totalExecutionTimeMs" : 2.82437,
+      "totalExecutionTimeMs" : 2.202118,
       "rows" : 2000,
-      "sharedBufferHits" : 1589,
-      "sharedBufferReads" : 0
-    }, {
-      "query" : "select pg_stat_statements_reset()",
-      "queryId" : "-4785873706514835710",
-      "calls" : 1,
-      "totalExecutionTimeMs" : 0.06561199999999999,
-      "rows" : 1,
-      "sharedBufferHits" : 0,
-      "sharedBufferReads" : 0
-    }, {
-      "query" : "with operation as materialized (\n    select clock_timestamp() as operation_time\n), claimable as (\n    select event.id as id, event.available_at as available_at, operation.operation_time as operation_time\n    from notification_outbox_events event\n    cross join operation\n    where event.status in ('PENDING', 'RETRY_WAIT')\n      and event.available_at <= operation.operation_time\n    order by event.available_at asc, event.id asc\n    limit 1\n    for update of event skip locked\n)\nselect id as id, available_at as \"availableAt\", operation_time as \"operationTime\"\nfrom claimable",
-      "queryId" : "-9018051540155931030",
-      "calls" : 1,
-      "totalExecutionTimeMs" : 0.060822999999999995,
-      "rows" : 0,
-      "sharedBufferHits" : 1,
-      "sharedBufferReads" : 0
-    }, {
-      "query" : "with operation as materialized (\n    select clock_timestamp() as operation_time\n)\nselect extract(epoch from (\n    operation.operation_time - (\n        select min(event.available_at)\n        from notification_outbox_events event\n        where event.status in ('PENDING', 'RETRY_WAIT')\n          and event.available_at <= operation.operation_time\n    )\n)) * 1000\nfrom operation",
-      "queryId" : "7543158657463214979",
-      "calls" : 1,
-      "totalExecutionTimeMs" : 0.012872,
-      "rows" : 1,
-      "sharedBufferHits" : 1,
+      "sharedBufferHits" : 1602,
       "sharedBufferReads" : 0
     }, {
       "query" : "BEGIN",
       "queryId" : "4854991825702068830",
-      "calls" : 2,
-      "totalExecutionTimeMs" : 0.003762,
+      "calls" : 1,
+      "totalExecutionTimeMs" : 6.91E-4,
       "rows" : 0,
       "sharedBufferHits" : 0,
       "sharedBufferReads" : 0
@@ -578,11 +427,11 @@
   "runFailure" : null,
   "roomFailures" : [ ],
   "summary" : {
-    "minElapsedNanos" : 6369321000,
-    "medianElapsedNanos" : 6948147100,
-    "maxElapsedNanos" : 7405406700,
-    "minThroughputPerSecond" : 270.07294548724786,
-    "medianThroughputPerSecond" : 287.8465252988095,
-    "maxThroughputPerSecond" : 314.00521342855853
+    "minElapsedNanos" : 6048612900,
+    "medianElapsedNanos" : 6250355900,
+    "maxElapsedNanos" : 7509474400,
+    "minThroughputPerSecond" : 266.3302241232755,
+    "medianThroughputPerSecond" : 319.981778957579,
+    "maxThroughputPerSecond" : 330.6543224149788
   }
 }
