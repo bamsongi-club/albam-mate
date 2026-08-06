@@ -2,6 +2,7 @@ package cloud.bamsongi.albammate.room.measurement;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -9,11 +10,14 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -34,6 +38,7 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.TestPropertySource;
@@ -61,12 +66,15 @@ import cloud.bamsongi.albammate.room.service.command.RoomParticipationCancelServ
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
 import cloud.bamsongi.albammate.room.service.command.RoomWaitlistCommandService;
 import jakarta.persistence.OptimisticLockException;
+import tools.jackson.databind.ObjectMapper;
 
 @Testcontainers
 @SpringBootTest
 @TestPropertySource(properties = {
 	"spring.datasource.hikari.maximum-pool-size=10",
-	"app.notification.relay.enabled=false"})
+	"spring.task.scheduling.enabled=false",
+	"app.notification.relay.enabled=false",
+	"app.chat.retention.enabled=false"})
 @Import(RoomWaitlistConcurrencyBaselinePostgresTest.BaselineTestConfiguration.class)
 class RoomWaitlistConcurrencyBaselinePostgresTest {
 
@@ -77,6 +85,7 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 	private static final String PARTICIPATION_RETRY_EVENT = "room_participation_retry";
 	private static final String PARTICIPATION_CANCEL_RETRY_EVENT = "room_participation_cancel_retry";
 	private static final String WAITLIST_CANCEL_RETRY_EVENT = "room_waitlist_cancel_retry";
+	private static final List<Integer> CONCURRENCY_LEVELS = List.of(2, 4, 8);
 
 	@Container
 	@ServiceConnection
@@ -122,6 +131,12 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+
+	@Autowired
+	private ObjectMapper objectMapper;
+
+	@Autowired
+	private Environment springEnvironment;
 
 	@BeforeEach
 	void enablePgStatStatements() {
@@ -173,7 +188,7 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 
 	@Test
 	void 복수_참가_취소는_고정_동시_수준마다_FIFO_자동_승격한다() throws Exception {
-		for (int concurrencyLevel : List.of(2, 4, 8)) {
+		for (int concurrencyLevel : CONCURRENCY_LEVELS) {
 			CancellationPromotionFixture fixture = createCancellationPromotionFixture(
 				"promotion-" + concurrencyLevel, concurrencyLevel);
 			RoomConcurrencyBaselineSupport.RoundMeasurement measurement = measureCancellationPromotionRound(fixture);
@@ -245,6 +260,7 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 
 	@Test
 	void 대기와_자동_승격_경합_측정은_공통_raw_형식으로_기록한다() throws Exception {
+		baselineSupport.clearCollectedRounds();
 		runDirectFirstLastSeatWaitlistPreparationRound(createLastSeatWaitlistFixture("prepare-direct-first"));
 		for (int round = 1; round <= 3; round++) {
 			LastSeatWaitlistFixture fixture = createLastSeatWaitlistFixture("raw-direct-first-" + round);
@@ -264,7 +280,7 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 			assertRawMeasurement(measurement,
 				"last-seat-waitlist", 2, fixture.room().getId(), PARTICIPATION_RETRY_EVENT);
 		}
-		for (int concurrencyLevel : List.of(2, 4, 8)) {
+		for (int concurrencyLevel : CONCURRENCY_LEVELS) {
 			runCancellationPromotionPreparationRound(createCancellationPromotionFixture(
 				"prepare-promotion-" + concurrencyLevel, concurrencyLevel));
 			for (int round = 1; round <= 3; round++) {
@@ -288,6 +304,49 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 					fixture.room().getId(), WAITLIST_CANCEL_RETRY_EVENT, PARTICIPATION_CANCEL_RETRY_EVENT);
 			}
 		}
+
+		assertMeasurementReportPersisted();
+	}
+
+	/**
+	 * 로그 출력만으로는 후속 통합이 쓸 입력이 남지 않으므로 수집한 round를 JSON 원자료로 보존한다. 보존 형식은
+	 * ROOM-09c 기준선과 같고, 버전 관리 사본은 이 파일을 `docs/measurements/results/room-10b/`로 복사해 남긴다.
+	 */
+	private void assertMeasurementReportPersisted() throws Exception {
+		int expectedRoundCount = 3 + 3 + 3 * CONCURRENCY_LEVELS.size() + 3 * TransitionOrder.values().length;
+		assertEquals(expectedRoundCount, baselineSupport.collectedRoundCount());
+
+		Path reportPath = baselineSupport.writeMeasurementReport(objectMapper, "room-10b", Map.ofEntries(
+			Map.entry("postgresImage", postgres.getDockerImageName()),
+			Map.entry("sharedPreloadLibraries",
+				jdbcTemplate.queryForObject("show shared_preload_libraries", String.class)),
+			Map.entry("fixtureSeed", FIXTURE_SEED),
+			Map.entry("fixedClock", NOW.toString()),
+			Map.entry("concurrencyLevels", CONCURRENCY_LEVELS.toString()),
+			Map.entry("schedulingEnabled", springEnvironment.getProperty("spring.task.scheduling.enabled", "true")),
+			Map.entry("notificationRelayEnabled",
+				springEnvironment.getProperty("app.notification.relay.enabled", "true")),
+			Map.entry("chatRetentionEnabled",
+				springEnvironment.getProperty("app.chat.retention.enabled", "true"))));
+
+		assertTrue(Files.exists(reportPath));
+		RoomConcurrencyBaselineSupport.MeasurementReport report = objectMapper.readValue(
+			Files.readString(reportPath), RoomConcurrencyBaselineSupport.MeasurementReport.class);
+		assertEquals("room-10b", report.reportName());
+		assertEquals(expectedRoundCount, report.rounds().size());
+		assertNotEquals("UNAVAILABLE", report.environment().gitSha());
+		assertTrue(report.environment().cpuCount() > 0);
+		assertTrue(report.rounds().stream().allMatch(round -> round.totalRequestCount() > 0));
+		assertTrue(report.rounds().stream().allMatch(round -> round.rawRecord().startsWith("ROOM10A_RAW")));
+		assertTrue(report.rounds().stream().allMatch(round -> round.postgresCost().statementCalls() > 0));
+		assertEquals(
+			CONCURRENCY_LEVELS,
+			report.rounds().stream()
+				.filter(round -> "cancel-promote".equals(round.scenario()))
+				.map(RoomConcurrencyBaselineSupport.RoundReport::concurrencyLevel)
+				.distinct()
+				.sorted()
+				.toList());
 	}
 
 	@Test
@@ -300,7 +359,7 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 		measureWaitlistFirstLastSeatWaitlistRound(waitlistFirstFixture);
 		assertWaitlistRoomInvariant(waitlistFirstFixture.room().getId());
 
-		for (int concurrencyLevel : List.of(2, 4, 8)) {
+		for (int concurrencyLevel : CONCURRENCY_LEVELS) {
 			CancellationPromotionFixture fixture = createCancellationPromotionFixture(
 				"invariant-promotion-" + concurrencyLevel, concurrencyLevel);
 			measureCancellationPromotionRound(fixture);
