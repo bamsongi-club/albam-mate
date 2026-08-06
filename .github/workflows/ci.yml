@@ -127,7 +127,7 @@ jobs:
         run: |
           docker compose --env-file .env.example -f compose.local.yml config --quiet
           docker compose --env-file .env.example -f compose.local.yml up -d --build --wait
-          ./gradlew postgresTest --tests "cloud.bamsongi.albammate.global.security.session.LocalMultiProxyRuntimePostgresTest" -Dissue471.localProxy=true --rerun --fail-fast --no-daemon --stacktrace
+          JAVA_TOOL_OPTIONS='-Dissue471.localProxy=true' ./gradlew postgresTest --tests "cloud.bamsongi.albammate.global.security.session.LocalMultiProxyRuntimePostgresTest" --rerun --fail-fast --no-daemon --stacktrace
 
       - name: Stop local runtime
         if: ${{ always() }}

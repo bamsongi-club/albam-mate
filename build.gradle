@@ -305,8 +305,6 @@ tasks.named('postgresTest', Test) {
 
     systemProperty 'issue360.localMultiProxy',
             System.getProperty('issue360.localMultiProxy', 'false')
-    systemProperty 'issue471.localProxy',
-            System.getProperty('issue471.localProxy', 'false')
 }
 
 spotless {
