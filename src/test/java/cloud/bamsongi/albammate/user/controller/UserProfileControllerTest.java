@@ -206,5 +206,10 @@ class UserProfileControllerTest {
 		LoginService loginService() {
 			return org.mockito.Mockito.mock(LoginService.class);
 		}
+
+		@Bean
+		cloud.bamsongi.albammate.user.service.ProfileImageStorage profileImageStorage() {
+			return org.mockito.Mockito.mock(cloud.bamsongi.albammate.user.service.ProfileImageStorage.class);
+		}
 	}
 }
