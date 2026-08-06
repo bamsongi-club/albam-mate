@@ -69,7 +69,7 @@ docker compose --env-file .env -f compose.local.yml down --volumes
 Compose가 실행 중인 상태에서 프록시를 통과하는 동일 세션 검증은 별도 명령으로 실행한다. 일반 `postgresTest`는 외부 Compose 의존성을 만들지 않도록 이 테스트를 건너뛴다.
 
 ```sh
-./gradlew postgresTest --tests "cloud.bamsongi.albammate.global.security.session.LocalMultiProxyRuntimePostgresTest" -Dissue471.localProxy=true --no-daemon --stacktrace
+./gradlew postgresTest --tests "cloud.bamsongi.albammate.global.security.session.LocalMultiProxyRuntimePostgresTest" -Dissue471.localProxy=true --rerun --fail-fast --no-daemon --stacktrace
 ```
 
 ## 운영 Compose

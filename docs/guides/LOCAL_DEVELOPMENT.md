@@ -61,7 +61,7 @@ docker compose --env-file .env -f compose.local.yml logs --tail 200
 Compose가 실행 중인 상태에서 프록시를 통과하는 세션·교차 인스턴스 검증은 다음 명령으로 실행한다.
 
 ```sh
-./gradlew postgresTest --tests "cloud.bamsongi.albammate.global.security.session.LocalMultiProxyRuntimePostgresTest" -Dissue471.localProxy=true --no-daemon --stacktrace
+./gradlew postgresTest --tests "cloud.bamsongi.albammate.global.security.session.LocalMultiProxyRuntimePostgresTest" -Dissue471.localProxy=true --rerun --fail-fast --no-daemon --stacktrace
 ```
 
 ## 의존성만 실행
