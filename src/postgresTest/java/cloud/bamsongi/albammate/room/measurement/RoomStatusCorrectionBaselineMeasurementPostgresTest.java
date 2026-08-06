@@ -22,6 +22,7 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.junit.jupiter.Container;
@@ -74,6 +75,9 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 	@Autowired
 	private ObjectMapper objectMapper;
 
+	@Autowired
+	private Environment springEnvironment;
+
 	@BeforeEach
 	void setUp() {
 		jdbcTemplate.execute("create extension if not exists pg_stat_statements");
@@ -104,6 +108,7 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 		assertTrue(report.summary().medianThroughputPerSecond() > 0);
 		assertTrue(report.summary().maxThroughputPerSecond() > 0);
 		assertDockerVersionRecorded(report.measurementStartEnvironment());
+		assertMeasurementIsolation(report.measurementStartEnvironment());
 		assertTrue(report.measuredRuns().stream()
 			.allMatch(run -> run.runStartEnvironment().configuration().containsKey("dockerVersion")));
 		JsonNode rawReport = objectMapper.readTree(Files.readString(reportPath(SMALL)));
@@ -139,6 +144,7 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 			assertTrue(rawReport.path("partialRuns").get(0).hasNonNull("runStartEnvironment"));
 			assertTrue(rawReport.hasNonNull("measurementStartEnvironment"));
 			assertDockerVersionRecorded(rawReport.path("measurementStartEnvironment"));
+			assertMeasurementIsolation(rawReport.path("measurementStartEnvironment"));
 			assertTrue(Files.exists(failureReportPath(SMALL)));
 		} finally {
 			jdbcTemplate.execute("drop trigger if exists room_09c_measurement_failure_trigger on rooms");
@@ -173,6 +179,7 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 		assertEquals(20, rawReport.path("partialRuns").get(0).path("candidateCount").asInt());
 		assertTrue(rawReport.path("partialRuns").get(0).path("pgStatStatements").size() > 0);
 		assertDockerVersionRecorded(rawReport.path("measurementStartEnvironment"));
+		assertMeasurementIsolation(rawReport.path("measurementStartEnvironment"));
 	}
 
 	@Test
@@ -183,6 +190,7 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 			assertEquals("SUCCESS", report.outcome());
 			assertEquals(5, report.measuredRuns().size());
 			assertDockerVersionRecorded(report.measurementStartEnvironment());
+			assertMeasurementIsolation(report.measurementStartEnvironment());
 		}
 	}
 
@@ -375,18 +383,19 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 				Map.entry("dockerVersion", dockerVersion()),
 				Map.entry("sharedPreloadLibraries",
 					jdbcTemplate.queryForObject("show shared_preload_libraries", String.class)),
-				Map.entry("measurementProperty", System.getProperty("issue383.measurement", "false")),
+				Map.entry("measurementProperty", springEnvironment.getProperty("issue383.measurement", "false")),
 				Map.entry("profile", profile.name()),
-				Map.entry("notificationRelayEnabled", System.getProperty("app.notification.relay.enabled", "true")),
-				Map.entry("chatRetentionEnabled", System.getProperty("app.chat.retention.enabled", "true")),
+				Map.entry("notificationRelayEnabled",
+					springEnvironment.getProperty("app.notification.relay.enabled", "true")),
+				Map.entry("chatRetentionEnabled", springEnvironment.getProperty("app.chat.retention.enabled", "true")),
 				Map.entry("roomStatusCorrectionTriggerDelay",
-					System.getProperty("app.room.status-correction.trigger-delay", "15m")),
+					springEnvironment.getProperty("app.room.status-correction.trigger-delay", "15m")),
 				Map.entry("roomStatusCorrectionTriggerJitter",
-					System.getProperty("app.room.status-correction.trigger-jitter", "3m")),
+					springEnvironment.getProperty("app.room.status-correction.trigger-jitter", "3m")),
 				Map.entry("notificationCleanupInterval",
-					System.getProperty("app.notification.cleanup.interval", "1h")),
+					springEnvironment.getProperty("app.notification.cleanup.interval", "1h")),
 				Map.entry("notificationCleanupJitter",
-					System.getProperty("app.notification.cleanup.jitter", "5m"))));
+					springEnvironment.getProperty("app.notification.cleanup.jitter", "5m"))));
 	}
 
 	private String dockerVersion() {
@@ -411,6 +420,26 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 		String dockerVersion = environment.path("configuration").path("dockerVersion").asText();
 		assertTrue(!dockerVersion.isBlank(), "실패 원자료에도 Docker Engine 버전을 기록해야 합니다.");
 		assertNotEquals("UNAVAILABLE", dockerVersion, "실패 원자료에서 Docker Engine 버전을 읽지 못했습니다.");
+	}
+
+	private void assertMeasurementIsolation(MeasurementEnvironment environment) {
+		Map<String, String> configuration = environment.configuration();
+		assertEquals("false", configuration.get("notificationRelayEnabled"));
+		assertEquals("false", configuration.get("chatRetentionEnabled"));
+		assertEquals("24h", configuration.get("roomStatusCorrectionTriggerDelay"));
+		assertEquals("0s", configuration.get("roomStatusCorrectionTriggerJitter"));
+		assertEquals("24h", configuration.get("notificationCleanupInterval"));
+		assertEquals("0s", configuration.get("notificationCleanupJitter"));
+	}
+
+	private void assertMeasurementIsolation(JsonNode environment) {
+		JsonNode configuration = environment.path("configuration");
+		assertEquals("false", configuration.path("notificationRelayEnabled").asText());
+		assertEquals("false", configuration.path("chatRetentionEnabled").asText());
+		assertEquals("24h", configuration.path("roomStatusCorrectionTriggerDelay").asText());
+		assertEquals("0s", configuration.path("roomStatusCorrectionTriggerJitter").asText());
+		assertEquals("24h", configuration.path("notificationCleanupInterval").asText());
+		assertEquals("0s", configuration.path("notificationCleanupJitter").asText());
 	}
 
 	private String gitSha() {
