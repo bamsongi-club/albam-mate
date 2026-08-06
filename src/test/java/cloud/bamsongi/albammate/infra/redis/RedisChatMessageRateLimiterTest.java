@@ -27,7 +27,8 @@ class RedisChatMessageRateLimiterTest {
 
 	@BeforeEach
 	void setUp() {
-		limiter = new RedisChatMessageRateLimiter(mock(RedisConnectionFactory.class));
+		limiter = new RedisChatMessageRateLimiter(mock(RedisConnectionFactory.class),
+			"albam-mate:local-multi:ratelimit");
 		redisTemplate = mock(StringRedisTemplate.class);
 		ReflectionTestUtils.setField(limiter, "redisTemplate", redisTemplate);
 	}

@@ -3,23 +3,18 @@ package cloud.bamsongi.albammate.infra.redis;
 import java.util.List;
 import java.util.UUID;
 
-import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
-import org.springframework.stereotype.Component;
 
 import cloud.bamsongi.albammate.chat.contract.ChatMessageRateLimiter;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
 
-/** local-multi 공용 Redis에서 채팅 전송 두 bucket을 Lua 한 번으로 예약하는 adapter다. */
-@Component
-@Profile("local-multi")
+/** 프로필별 공용 Redis에서 채팅 전송 두 bucket을 Lua 한 번으로 예약하는 adapter다. namespace로 프로필 간 key를 분리한다. */
 public class RedisChatMessageRateLimiter implements ChatMessageRateLimiter {
 
-	private static final String KEY_PREFIX = "albam-mate:local-multi:ratelimit";
 	private static final String RESERVATION_SUFFIX = ":reservations";
 	private static final int USER_LIMIT = 5;
 	private static final int ROOM_LIMIT = 30;
@@ -98,10 +93,12 @@ public class RedisChatMessageRateLimiter implements ChatMessageRateLimiter {
 		""", Long.class);
 
 	private final StringRedisTemplate redisTemplate;
+	private final String keyPrefix;
 
-	public RedisChatMessageRateLimiter(RedisConnectionFactory redisConnectionFactory) {
+	public RedisChatMessageRateLimiter(RedisConnectionFactory redisConnectionFactory, String namespace) {
 		redisTemplate = new StringRedisTemplate(redisConnectionFactory);
 		redisTemplate.afterPropertiesSet();
+		keyPrefix = namespace;
 	}
 
 	@Override
@@ -149,11 +146,11 @@ public class RedisChatMessageRateLimiter implements ChatMessageRateLimiter {
 	}
 
 	private String userKey(long userId) {
-		return KEY_PREFIX + ":user:" + userId;
+		return keyPrefix + ":user:" + userId;
 	}
 
 	private String roomKey(long roomId) {
-		return KEY_PREFIX + ":room:" + roomId;
+		return keyPrefix + ":room:" + roomId;
 	}
 
 	private String userReservationsKey(long userId) {
