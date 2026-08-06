@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, api } from './api';
 import { App, ChatRoomView, MyRoomsSection, SessionDetailView } from './main';
@@ -403,6 +403,59 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
 
     await waitFor(() => expect(screen.getByText('아래로 이동')).toBeTruthy());
     expect(history.scrollTop).toBe(100);
+  });
+
+  it('보낸 메시지의 실시간 이벤트가 HTTP 저장 응답보다 먼저 와도 즉시 하단으로 이동한다', async () => {
+    const sockets = useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [{ messageId: 1, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '기존 메시지', createdAt: '2026-09-01T19:00:00+09:00' }],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+    let resolveSend;
+    vi.spyOn(api, 'sendChatMessage').mockImplementation(() => new Promise((resolve) => { resolveSend = resolve; }));
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(sockets).toHaveLength(1));
+    const history = document.querySelector('.chat-history');
+    let currentScrollTop = 0;
+    Object.defineProperties(history, {
+      scrollHeight: { configurable: true, value: 100 },
+      clientHeight: { configurable: true, value: 50 },
+      scrollTop: {
+        configurable: true,
+        get: () => currentScrollTop,
+        set: (value) => { currentScrollTop = value; }
+      }
+    });
+    // 사용자가 위로 스크롤해 하단에 있지 않은 상태를 만든다.
+    currentScrollTop = 0;
+    fireEvent.scroll(history);
+    fireEvent.change(screen.getByLabelText('메시지'), { target: { value: '경합 메시지' } });
+    fireEvent.click(screen.getByRole('button', { name: '전송' }));
+
+    // HTTP 응답이 아직 오지 않은 상태에서 같은 메시지의 실시간 이벤트가 먼저 도착한다.
+    await act(async () => {
+      sockets[0].message({
+        eventId: 2,
+        type: 'MESSAGE_CREATED',
+        message: { messageId: 2, roomId: 7, sender: { nickname: '테스터' }, isMine: true, content: '경합 메시지', createdAt: '2026-09-01T19:01:00+09:00' }
+      });
+      await Promise.resolve();
+    });
+    // 실시간 이벤트 도착 즉시 하단으로 이동해야 한다. HTTP 응답을 기다리는 다음 메시지까지 지연되지 않는다.
+    const chatLog = document.querySelector('.chat-log');
+    await waitFor(() => expect(within(chatLog).getByText('경합 메시지')).toBeTruthy());
+    expect(history.scrollTop).toBe(100);
+
+    // 같은 messageId의 HTTP 응답은 중복 병합이라 목록 길이가 바뀌지 않는다. 별도 스크롤 없이 안전하게 끝난다.
+    currentScrollTop = 42;
+    await act(async () => {
+      resolveSend({ messageId: 2, roomId: 7, sender: { nickname: '테스터' }, isMine: true, content: '경합 메시지', createdAt: '2026-09-01T19:01:00+09:00' });
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(screen.getByLabelText('메시지').disabled).toBe(false));
+    expect(history.scrollTop).toBe(42);
   });
 
   it('연결이 끊기면 마지막 이벤트 ID로 재연결한다', async () => {

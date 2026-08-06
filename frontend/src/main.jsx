@@ -2116,6 +2116,9 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
       return;
     }
     refocusComposeRef.current = true;
+    // WebSocket 이벤트가 이 HTTP 응답보다 먼저 도착할 수 있으므로 대기 전에 미리 세운다.
+    // 그러면 실시간 병합이 먼저 목록 길이를 바꿔도 그 시점에 소비되어 하단 이동이 지연되지 않는다.
+    scrollToBottomRef.current = true;
     setSending(true);
     setSendError('');
     const messageId = clientMessageContent === null || clientMessageContent === trimmed
