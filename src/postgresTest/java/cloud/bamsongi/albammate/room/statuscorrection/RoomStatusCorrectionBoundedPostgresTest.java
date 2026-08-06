@@ -47,6 +47,8 @@ class RoomStatusCorrectionBoundedPostgresTest {
 	@Autowired
 	private RoomStatusCorrectionProgressStore progressStore;
 	@Autowired
+	private RoomStatusCorrectionCandidateSelector candidateSelector;
+	@Autowired
 	private RoomRepository roomRepository;
 	@Autowired
 	private RoomWaitlistRepository roomWaitlistRepository;
@@ -103,6 +105,54 @@ class RoomStatusCorrectionBoundedPostgresTest {
 		assertEquals(RoomStatus.CLOSED, currentRoom(failed.getId()).getStatus());
 		assertEquals(RoomStatus.CLOSED, currentRoom(newlyDue.getId()).getStatus());
 		assertCursorWrapped(nextRequestTime.plusNanos(1_000));
+	}
+
+	@Test
+	void 세_논리_due_경계와_영속_cursor는_마이크로초_동률에서_다음_tuple만_선택한다() {
+		Instant logicalDueAt = REQUEST_TIME.minusNanos(1_000);
+		Room recruitingRoom = saveRoom(logicalDueAt);
+		Room closedWaitingRoom = saveRoom(logicalDueAt);
+		markClosed(closedWaitingRoom.getId());
+		saveWaiting(closedWaitingRoom.getId());
+		Room closedFinishRoom = saveRoom(logicalDueAt.minus(Room.AUTOMATIC_FINISH_AFTER_START));
+		markClosed(closedFinishRoom.getId());
+
+		List<Long> expectedRoomIds = List.of(
+			recruitingRoom.getId(), closedWaitingRoom.getId(), closedFinishRoom.getId())
+			.stream()
+			.sorted()
+			.toList();
+		RoomStatusCorrectionProgressStore.ProgressSnapshot initialProgress = progressStore
+			.claimExecution(REQUEST_TIME);
+
+		List<RoomStatusCorrectionCandidateSelector.DueRoomCandidate> initialCandidates = candidateSelector
+			.select(initialProgress, 10);
+
+		assertEquals(999_999_000, logicalDueAt.getNano());
+		assertEquals(expectedRoomIds, initialCandidates.stream()
+			.map(RoomStatusCorrectionCandidateSelector.DueRoomCandidate::roomId)
+			.toList());
+		assertEquals(
+			List.of(logicalDueAt, logicalDueAt, logicalDueAt),
+			initialCandidates.stream()
+				.map(RoomStatusCorrectionCandidateSelector.DueRoomCandidate::dueAt)
+				.toList());
+
+		Long cursorRoomId = expectedRoomIds.get(1);
+		RoomStatusCorrectionProgressStore.ProgressSnapshot advancedProgress = progressStore
+			.advanceCursor(initialProgress, logicalDueAt, cursorRoomId)
+			.orElseThrow();
+
+		List<RoomStatusCorrectionCandidateSelector.DueRoomCandidate> remainingCandidates = candidateSelector
+			.select(advancedProgress, 10);
+
+		assertEquals(cursorRoomId, advancedProgress.cursorRoomId());
+		assertEquals(
+			List.of(expectedRoomIds.get(2)),
+			remainingCandidates.stream()
+				.map(RoomStatusCorrectionCandidateSelector.DueRoomCandidate::roomId)
+				.toList());
+		assertEquals(logicalDueAt, remainingCandidates.getFirst().dueAt());
 	}
 
 	@Test
@@ -173,6 +223,10 @@ class RoomStatusCorrectionBoundedPostgresTest {
 
 	private Room currentRoom(Long roomId) {
 		return roomRepository.findById(roomId).orElseThrow();
+	}
+
+	private void markClosed(Long roomId) {
+		jdbcTemplate.update("update rooms set status = 'CLOSED' where id = ?", roomId);
 	}
 
 	private Long insertUser(String role) {
