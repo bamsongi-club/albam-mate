@@ -1460,6 +1460,9 @@ function GameFilters({ filters, onChange, searchSlot }) {
         <CustomPlayerCountInput label="베스트 인원" values={filters.bestPlayerCount}
           onAdd={(value) => update({ bestPlayerCount: [...filters.bestPlayerCount, value] })} />
       </FilterMultiCheckGroup>
+      <FilterRadioGroup name="game-filter-played" label="해 본 게임" value={filters.playedFilter}
+        onChange={(playedFilter) => update({ playedFilter })} options={PLAYED_FILTER_OPTIONS} />
+      <FilterCheckGroup label="모임" checked={filters.upcomingOnly} onChange={(upcomingOnly) => update({ upcomingOnly })} text="예정 모임 있는 게임만" />
       {/* 테마를 하나만 고르면 포함 방식이 결과를 바꾸지 않으므로 둘 이상일 때만 보여 준다. */}
       <FilterMultiCheckGroup wide label="테마" values={filters.theme} onToggle={toggleIn('theme')}
         options={themeOptions.map((option) => ({ value: option.code, label: option.nameKo }))}>
@@ -1481,9 +1484,6 @@ function GameFilters({ filters, onChange, searchSlot }) {
         )}
       </FilterMultiCheckGroup>
       <MechanismFilterGroup options={mechanismOptions} selected={filters.mechanism} onToggle={toggleMechanism} />
-      <FilterRadioGroup name="game-filter-played" label="해 본 게임" value={filters.playedFilter}
-        onChange={(playedFilter) => update({ playedFilter })} options={PLAYED_FILTER_OPTIONS} />
-      <FilterCheckGroup label="모임" checked={filters.upcomingOnly} onChange={(upcomingOnly) => update({ upcomingOnly })} text="예정 모임 있는 게임만" />
     </FilterPanel>
   );
 }
