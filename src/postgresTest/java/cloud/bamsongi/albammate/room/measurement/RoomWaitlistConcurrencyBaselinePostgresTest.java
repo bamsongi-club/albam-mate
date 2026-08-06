@@ -106,6 +106,9 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 	private WaitlistFirstDecisionGate waitlistFirstDecisionGate;
 
 	@Autowired
+	private DirectParticipationFirstGate directParticipationFirstGate;
+
+	@Autowired
 	private LatestBusinessStateConflictGate latestBusinessStateConflictGate;
 
 	@Autowired
@@ -129,6 +132,7 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 	void tearDown() {
 		roomReadGate.deactivate();
 		waitlistFirstDecisionGate.deactivate();
+		directParticipationFirstGate.deactivate();
 		latestBusinessStateConflictGate.deactivate();
 		waitlistTransitionGate.deactivate();
 		jdbcTemplate.execute("truncate table participations, room_waitlists, rooms, users restart identity cascade");
@@ -137,26 +141,34 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 	@Test
 	void 마지막_좌석_직전_직접_참가와_대기_신청은_최신_결과로_수렴한다() throws Exception {
 		LastSeatWaitlistFixture directFirstFixture = createLastSeatWaitlistFixture("direct-first");
-		roomParticipationService.participate(directFirstFixture.directJoinUserId(), directFirstFixture.room().getId());
-		assertTrue(roomWaitlistCommandService.register(
-			directFirstFixture.waitingUserId(), directFirstFixture.room().getId()).created());
+		RoomConcurrencyBaselineSupport.RoundMeasurement directFirst = measureDirectFirstLastSeatWaitlistRound(
+			directFirstFixture);
 
+		assertEquals(2, directFirst.successCount());
+		assertEquals(0, directFirst.businessFailureCount());
 		assertEquals(RoomStatus.CLOSED, roomStatus(directFirstFixture.room().getId()));
 		assertEquals(2, activeParticipantCount(directFirstFixture.room().getId()));
 		assertEquals(RoomWaitlistStatus.WAITING,
 			waitlistStatus(directFirstFixture.room().getId(), directFirstFixture.waitingUserId()));
 		assertWaitlistRoomInvariant(directFirstFixture.room().getId());
 
-		LastSeatWaitlistFixture concurrentFixture = createLastSeatWaitlistFixture("same-version");
-		RoomConcurrencyBaselineSupport.RoundMeasurement measurement = measureLastSeatWaitlistRound(concurrentFixture);
+		LastSeatWaitlistFixture waitlistFirstFixture = createLastSeatWaitlistFixture("waitlist-first");
+		RoomConcurrencyBaselineSupport.RoundMeasurement waitlistFirst = measureWaitlistFirstLastSeatWaitlistRound(
+			waitlistFirstFixture);
 
-		assertEquals(1, measurement.successCount());
-		assertEquals(1, measurement.businessFailureCount());
-		assertTrue(measurement.hasOnlyBusinessError(ErrorCode.WAITLIST_NOT_AVAILABLE));
-		assertEquals(RoomStatus.CLOSED, roomStatus(concurrentFixture.room().getId()));
-		assertEquals(2, activeParticipantCount(concurrentFixture.room().getId()));
-		assertEquals(0, activeWaitingCount(concurrentFixture.room().getId()));
-		assertWaitlistRoomInvariant(concurrentFixture.room().getId());
+		assertEquals(1, waitlistFirst.successCount());
+		assertEquals(1, waitlistFirst.businessFailureCount());
+		assertTrue(waitlistFirst.hasOnlyBusinessError(ErrorCode.WAITLIST_NOT_AVAILABLE));
+		assertEquals(RoomStatus.CLOSED, roomStatus(waitlistFirstFixture.room().getId()));
+		assertEquals(2, activeParticipantCount(waitlistFirstFixture.room().getId()));
+		assertEquals(0, activeWaitingCount(waitlistFirstFixture.room().getId()));
+		assertEquals(ParticipationStatus.ACTIVE,
+			participationStatus(waitlistFirstFixture.room().getId(), waitlistFirstFixture.directJoinUserId()));
+		assertEquals(0, participationCount(
+			waitlistFirstFixture.room().getId(), waitlistFirstFixture.waitingUserId()));
+		assertEquals(0, waitlistEntryCount(
+			waitlistFirstFixture.room().getId(), waitlistFirstFixture.waitingUserId()));
+		assertWaitlistRoomInvariant(waitlistFirstFixture.room().getId());
 	}
 
 	@Test
@@ -233,10 +245,23 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 
 	@Test
 	void 대기와_자동_승격_경합_측정은_공통_raw_형식으로_기록한다() throws Exception {
-		runLastSeatWaitlistPreparationRound(createLastSeatWaitlistFixture("prepare-last-seat"));
+		runDirectFirstLastSeatWaitlistPreparationRound(createLastSeatWaitlistFixture("prepare-direct-first"));
 		for (int round = 1; round <= 3; round++) {
-			LastSeatWaitlistFixture fixture = createLastSeatWaitlistFixture("raw-last-seat-" + round);
-			assertRawMeasurement(measureLastSeatWaitlistRound(fixture),
+			LastSeatWaitlistFixture fixture = createLastSeatWaitlistFixture("raw-direct-first-" + round);
+			RoomConcurrencyBaselineSupport.RoundMeasurement measurement = measureDirectFirstLastSeatWaitlistRound(
+				fixture);
+			assertWaitlistRoomInvariant(fixture.room().getId());
+			assertRawMeasurement(measurement,
+				"last-seat-direct-first", 2, fixture.room().getId(), PARTICIPATION_RETRY_EVENT);
+		}
+
+		runWaitlistFirstLastSeatWaitlistPreparationRound(createLastSeatWaitlistFixture("prepare-waitlist-first"));
+		for (int round = 1; round <= 3; round++) {
+			LastSeatWaitlistFixture fixture = createLastSeatWaitlistFixture("raw-waitlist-first-" + round);
+			RoomConcurrencyBaselineSupport.RoundMeasurement measurement = measureWaitlistFirstLastSeatWaitlistRound(
+				fixture);
+			assertWaitlistRoomInvariant(fixture.room().getId());
+			assertRawMeasurement(measurement,
 				"last-seat-waitlist", 2, fixture.room().getId(), PARTICIPATION_RETRY_EVENT);
 		}
 		for (int concurrencyLevel : List.of(2, 4, 8)) {
@@ -245,7 +270,10 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 			for (int round = 1; round <= 3; round++) {
 				CancellationPromotionFixture fixture = createCancellationPromotionFixture(
 					"raw-promotion-" + concurrencyLevel + "-" + round, concurrencyLevel);
-				assertRawMeasurement(measureCancellationPromotionRound(fixture),
+				RoomConcurrencyBaselineSupport.RoundMeasurement measurement = measureCancellationPromotionRound(
+					fixture);
+				assertWaitlistRoomInvariant(fixture.room().getId());
+				assertRawMeasurement(measurement,
 					"cancel-promote", concurrencyLevel, fixture.room().getId(), PARTICIPATION_CANCEL_RETRY_EVENT);
 			}
 		}
@@ -253,7 +281,10 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 			runWaitlistCancellationPreparationRound(createWaitlistCancellationFixture("prepare-" + order), order);
 			for (int round = 1; round <= 3; round++) {
 				WaitlistCancellationFixture fixture = createWaitlistCancellationFixture("raw-" + order + "-" + round);
-				assertRawMeasurement(measureWaitlistCancellationRound(fixture, order), order.scenarioName(), 2,
+				RoomConcurrencyBaselineSupport.RoundMeasurement measurement = measureWaitlistCancellationRound(fixture,
+					order);
+				assertWaitlistRoomInvariant(fixture.room().getId());
+				assertRawMeasurement(measurement, order.scenarioName(), 2,
 					fixture.room().getId(), WAITLIST_CANCEL_RETRY_EVENT, PARTICIPATION_CANCEL_RETRY_EVENT);
 			}
 		}
@@ -261,9 +292,13 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 
 	@Test
 	void 각_측정_round_뒤_PostgreSQL_대기_저장_불변식이_유지된다() throws Exception {
-		LastSeatWaitlistFixture lastSeatFixture = createLastSeatWaitlistFixture("invariant-last-seat");
-		measureLastSeatWaitlistRound(lastSeatFixture);
-		assertWaitlistRoomInvariant(lastSeatFixture.room().getId());
+		LastSeatWaitlistFixture directFirstFixture = createLastSeatWaitlistFixture("invariant-direct-first");
+		measureDirectFirstLastSeatWaitlistRound(directFirstFixture);
+		assertWaitlistRoomInvariant(directFirstFixture.room().getId());
+
+		LastSeatWaitlistFixture waitlistFirstFixture = createLastSeatWaitlistFixture("invariant-waitlist-first");
+		measureWaitlistFirstLastSeatWaitlistRound(waitlistFirstFixture);
+		assertWaitlistRoomInvariant(waitlistFirstFixture.room().getId());
 
 		for (int concurrencyLevel : List.of(2, 4, 8)) {
 			CancellationPromotionFixture fixture = createCancellationPromotionFixture(
@@ -334,18 +369,46 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 		assertEquals(1, technicalFailure.technicalFailureCount());
 	}
 
-	private RoomConcurrencyBaselineSupport.RoundMeasurement measureLastSeatWaitlistRound(
-		LastSeatWaitlistFixture fixture)
-		throws Exception {
+	private RoomConcurrencyBaselineSupport.RoundMeasurement measureDirectFirstLastSeatWaitlistRound(
+		LastSeatWaitlistFixture fixture) throws Exception {
+		directParticipationFirstGate.activate(fixture.room().getId());
+		try {
+			return measureRound("last-seat-direct-first", 2, fixture.room().getId(), 1,
+				directFirstLastSeatWaitlistCommands(fixture));
+		} finally {
+			directParticipationFirstGate.deactivate();
+		}
+	}
+
+	private List<Callable<?>> directFirstLastSeatWaitlistCommands(LastSeatWaitlistFixture fixture) {
+		return List.of(
+			() -> {
+				roomParticipationService.participate(fixture.directJoinUserId(), fixture.room().getId());
+				directParticipationFirstGate.markDirectParticipationCommitted(fixture.room().getId());
+				return null;
+			},
+			() -> {
+				directParticipationFirstGate.markWaitlistRequest();
+				try {
+					return roomWaitlistCommandService.register(fixture.waitingUserId(), fixture.room().getId());
+				} finally {
+					directParticipationFirstGate.clearWaitlistRequest();
+				}
+			});
+	}
+
+	private RoomConcurrencyBaselineSupport.RoundMeasurement measureWaitlistFirstLastSeatWaitlistRound(
+		LastSeatWaitlistFixture fixture) throws Exception {
 		waitlistFirstDecisionGate.activate(fixture.room().getId());
 		try {
-			return measureRound("last-seat-waitlist", 2, fixture.room().getId(), lastSeatWaitlistCommands(fixture));
+			return measureRound("last-seat-waitlist", 2, fixture.room().getId(), 1,
+				waitlistFirstLastSeatWaitlistCommands(fixture));
 		} finally {
 			waitlistFirstDecisionGate.deactivate();
 		}
 	}
 
-	private List<Callable<?>> lastSeatWaitlistCommands(LastSeatWaitlistFixture fixture) {
+	private List<Callable<?>> waitlistFirstLastSeatWaitlistCommands(LastSeatWaitlistFixture fixture) {
 		return List.of(
 			() -> {
 				waitlistFirstDecisionGate.markDirectRequest();
@@ -367,6 +430,7 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 	private RoomConcurrencyBaselineSupport.RoundMeasurement measureCancellationPromotionRound(
 		CancellationPromotionFixture fixture) throws Exception {
 		return measureRound("cancel-promote", fixture.leavingUserIds().size(), fixture.room().getId(),
+			fixture.leavingUserIds().size(),
 			fixture.leavingUserIds().stream().<Callable<?>>map(
 				userId -> () -> roomParticipationCancelService.cancelParticipation(userId, fixture.room().getId()))
 				.toList());
@@ -376,7 +440,7 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 		WaitlistCancellationFixture fixture, TransitionOrder order) throws Exception {
 		waitlistTransitionGate.activate(fixture.room().getId(), fixture.firstWaitingUserId(), order);
 		try {
-			return measureRound(order.scenarioName(), 2, fixture.room().getId(), List.<Callable<?>>of(
+			return measureRound(order.scenarioName(), 2, fixture.room().getId(), 2, List.<Callable<?>>of(
 				() -> {
 					roomWaitlistCommandService.cancel(fixture.firstWaitingUserId(), fixture.room().getId());
 					return null;
@@ -389,8 +453,9 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 	}
 
 	private RoomConcurrencyBaselineSupport.RoundMeasurement measureRound(
-		String scenario, int concurrencyLevel, long roomId, List<Callable<?>> commands) throws Exception {
-		roomReadGate.activate(roomId, commands.size());
+		String scenario, int concurrencyLevel, long roomId, int expectedInitialRoomReaders, List<Callable<?>> commands)
+		throws Exception {
+		roomReadGate.activate(roomId, expectedInitialRoomReaders);
 		Logger rawLogger = (Logger)LoggerFactory.getLogger(RoomConcurrencyBaselineSupport.class);
 		ListAppender<ILoggingEvent> rawLogAppender = new ListAppender<>();
 		rawLogAppender.start();
@@ -426,16 +491,47 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 		}
 	}
 
-	private void runLastSeatWaitlistPreparationRound(LastSeatWaitlistFixture fixture) throws Exception {
-		roomReadGate.activate(fixture.room().getId(), 2);
+	private void runDirectFirstLastSeatWaitlistPreparationRound(LastSeatWaitlistFixture fixture) throws Exception {
+		directParticipationFirstGate.activate(fixture.room().getId());
+		roomReadGate.activate(fixture.room().getId(), 1);
 		try {
-			baselineSupport.runPreparationRound(List.<Callable<?>>of(
-				() -> roomParticipationService.participate(fixture.directJoinUserId(), fixture.room().getId()),
-				() -> runWaitlistCommandForPreparation(fixture.waitingUserId(), fixture.room().getId())));
+			baselineSupport.runPreparationRound(directFirstLastSeatWaitlistCommands(fixture));
 			roomReadGate.assertInitialReadsShareOneVersion();
 		} finally {
 			roomReadGate.deactivate();
+			directParticipationFirstGate.deactivate();
 		}
+	}
+
+	private void runWaitlistFirstLastSeatWaitlistPreparationRound(LastSeatWaitlistFixture fixture) throws Exception {
+		waitlistFirstDecisionGate.activate(fixture.room().getId());
+		roomReadGate.activate(fixture.room().getId(), 1);
+		try {
+			baselineSupport.runPreparationRound(waitlistFirstLastSeatWaitlistPreparationCommands(fixture));
+			roomReadGate.assertInitialReadsShareOneVersion();
+		} finally {
+			roomReadGate.deactivate();
+			waitlistFirstDecisionGate.deactivate();
+		}
+	}
+
+	private List<Callable<?>> waitlistFirstLastSeatWaitlistPreparationCommands(LastSeatWaitlistFixture fixture) {
+		return List.of(
+			() -> {
+				waitlistFirstDecisionGate.markDirectRequest();
+				try {
+					return roomParticipationService.participate(fixture.directJoinUserId(), fixture.room().getId());
+				} finally {
+					waitlistFirstDecisionGate.clearDirectRequest();
+				}
+			},
+			() -> {
+				try {
+					return runWaitlistCommandForPreparation(fixture.waitingUserId(), fixture.room().getId());
+				} finally {
+					waitlistFirstDecisionGate.markWaitlistDecisionCompleted(fixture.room().getId());
+				}
+			});
 	}
 
 	private void runWaitlistCancellationPreparationRound(
@@ -641,6 +737,14 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 			userId);
 	}
 
+	private int waitlistEntryCount(long roomId, long userId) {
+		return jdbcTemplate.queryForObject(
+			"select count(*) from room_waitlists where room_id = ? and user_id = ?",
+			Integer.class,
+			roomId,
+			userId);
+	}
+
 	private record LastSeatWaitlistFixture(Room room, long directJoinUserId, long waitingUserId) {
 	}
 
@@ -710,6 +814,12 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 		}
 
 		@Bean
+		DirectParticipationFirstGate directParticipationFirstGate(
+			RoomConcurrencyBaselineSupport.RoomReadGate roomReadGate) {
+			return new DirectParticipationFirstGate(roomReadGate);
+		}
+
+		@Bean
 		LatestBusinessStateConflictGate latestBusinessStateConflictGate(
 			PlatformTransactionManager transactionManager, JdbcTemplate jdbcTemplate) {
 			return new LatestBusinessStateConflictGate(transactionManager, jdbcTemplate);
@@ -735,11 +845,13 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 			@Qualifier("roomRepository") RoomRepository delegate,
 			RoomConcurrencyBaselineSupport.RoomReadGate roomReadGate,
 			WaitlistFirstDecisionGate waitlistFirstDecisionGate,
+			DirectParticipationFirstGate directParticipationFirstGate,
 			LatestBusinessStateConflictGate latestBusinessStateConflictGate) {
 			RoomRepository readGatedRepository = RoomConcurrencyBaselineSupport.gatedRoomRepository(delegate,
 				roomReadGate);
 			InvocationHandler handler = new GateAwareRoomRepositoryInvocationHandler(
-				readGatedRepository, waitlistFirstDecisionGate, latestBusinessStateConflictGate);
+				readGatedRepository, waitlistFirstDecisionGate, directParticipationFirstGate,
+				latestBusinessStateConflictGate);
 			return (RoomRepository)Proxy.newProxyInstance(
 				RoomRepository.class.getClassLoader(), new Class<?>[] {RoomRepository.class}, handler);
 		}
@@ -787,7 +899,7 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 			}
 		}
 
-		void afterRoomRead(Method method, Object[] arguments) {
+		void beforeRoomRead(Method method, Object[] arguments) {
 			Scenario scenario = activeScenario.get();
 			if (scenario == null || !Boolean.TRUE.equals(directRequest.get())
 				|| !isRoomRead(method, arguments)
@@ -830,6 +942,87 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 			private final long roomId;
 			private final CountDownLatch waitlistDecisionCompleted = new CountDownLatch(1);
 			private final AtomicBoolean directReadBlocked = new AtomicBoolean();
+
+			private Scenario(long roomId) {
+				this.roomId = roomId;
+			}
+		}
+	}
+
+	static final class DirectParticipationFirstGate {
+
+		private final RoomConcurrencyBaselineSupport.RoomReadGate roomReadGate;
+		private final AtomicReference<Scenario> activeScenario = new AtomicReference<>();
+		private final ThreadLocal<Boolean> waitlistRequest = new ThreadLocal<>();
+
+		DirectParticipationFirstGate(RoomConcurrencyBaselineSupport.RoomReadGate roomReadGate) {
+			this.roomReadGate = roomReadGate;
+		}
+
+		void activate(long roomId) {
+			if (!activeScenario.compareAndSet(null, new Scenario(roomId))) {
+				throw new IllegalStateException("직접 참가 우선 gate가 이미 활성화되어 있습니다.");
+			}
+		}
+
+		void markWaitlistRequest() {
+			waitlistRequest.set(true);
+		}
+
+		void clearWaitlistRequest() {
+			waitlistRequest.remove();
+		}
+
+		void markDirectParticipationCommitted(long roomId) {
+			Scenario scenario = activeScenario.get();
+			if (scenario != null && scenario.roomId == roomId) {
+				scenario.directParticipationCommitted.countDown();
+			}
+		}
+
+		void beforeRoomRead(Method method, Object[] arguments) {
+			Scenario scenario = activeScenario.get();
+			if (scenario == null || !Boolean.TRUE.equals(waitlistRequest.get())
+				|| !isRoomRead(method, arguments, scenario)
+				|| !scenario.waitlistReadBlocked.compareAndSet(false, true)) {
+				return;
+			}
+			long gateWaitStartedAt = System.nanoTime();
+			await(scenario.directParticipationCommitted, "직접 참가 커밋");
+			roomReadGate.recordGateWaitNanos(System.nanoTime() - gateWaitStartedAt);
+		}
+
+		void deactivate() {
+			Scenario scenario = activeScenario.getAndSet(null);
+			if (scenario != null) {
+				scenario.directParticipationCommitted.countDown();
+			}
+		}
+
+		private boolean isRoomRead(Method method, Object[] arguments, Scenario scenario) {
+			return method.getName().equals("findById")
+				&& arguments != null
+				&& arguments.length == 1
+				&& arguments[0] instanceof Long roomId
+				&& scenario.roomId == roomId;
+		}
+
+		private void await(CountDownLatch latch, String phase) {
+			try {
+				if (!latch.await(10, TimeUnit.SECONDS)) {
+					throw new AssertionError(phase + " 대기 시간이 초과되었습니다.");
+				}
+			} catch (InterruptedException exception) {
+				Thread.currentThread().interrupt();
+				throw new AssertionError(phase + " 대기 중 인터럽트되었습니다.", exception);
+			}
+		}
+
+		private static final class Scenario {
+
+			private final long roomId;
+			private final CountDownLatch directParticipationCommitted = new CountDownLatch(1);
+			private final AtomicBoolean waitlistReadBlocked = new AtomicBoolean();
 
 			private Scenario(long roomId) {
 				this.roomId = roomId;
@@ -1014,14 +1207,17 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 
 		private final RoomRepository delegate;
 		private final WaitlistFirstDecisionGate waitlistFirstDecisionGate;
+		private final DirectParticipationFirstGate directParticipationFirstGate;
 		private final LatestBusinessStateConflictGate latestBusinessStateConflictGate;
 
 		private GateAwareRoomRepositoryInvocationHandler(
 			RoomRepository delegate,
 			WaitlistFirstDecisionGate waitlistFirstDecisionGate,
+			DirectParticipationFirstGate directParticipationFirstGate,
 			LatestBusinessStateConflictGate latestBusinessStateConflictGate) {
 			this.delegate = delegate;
 			this.waitlistFirstDecisionGate = waitlistFirstDecisionGate;
+			this.directParticipationFirstGate = directParticipationFirstGate;
 			this.latestBusinessStateConflictGate = latestBusinessStateConflictGate;
 		}
 
@@ -1029,8 +1225,9 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 		public Object invoke(Object proxy, Method method, Object[] arguments) throws Throwable {
 			try {
 				latestBusinessStateConflictGate.beforeClaimVersion(method, arguments);
+				waitlistFirstDecisionGate.beforeRoomRead(method, arguments);
+				directParticipationFirstGate.beforeRoomRead(method, arguments);
 				Object result = method.invoke(delegate, arguments);
-				waitlistFirstDecisionGate.afterRoomRead(method, arguments);
 				latestBusinessStateConflictGate.afterRoomRead(method, arguments, result);
 				return result;
 			} catch (InvocationTargetException exception) {
