@@ -32,9 +32,11 @@ import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.notification.service.command.NotificationRoomChangeEventRecorder;
+import cloud.bamsongi.albammate.room.contract.ParticipationCanceledEvent;
 import cloud.bamsongi.albammate.room.contract.ParticipationJoinedEvent;
 import cloud.bamsongi.albammate.room.contract.RoomCanceledEvent;
 import cloud.bamsongi.albammate.room.contract.RoomChangeEvent;
+import cloud.bamsongi.albammate.room.service.command.RoomParticipationCancelService;
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
 import cloud.bamsongi.albammate.room.service.command.RoomStatusChangeService;
 
@@ -52,6 +54,8 @@ class NotificationRoomChangeOutboxPostgresTest {
 	private JdbcTemplate jdbcTemplate;
 	@Autowired
 	private RoomParticipationService roomParticipationService;
+	@Autowired
+	private RoomParticipationCancelService roomParticipationCancelService;
 	@Autowired
 	private RoomStatusChangeService roomStatusChangeService;
 	@MockitoSpyBean
@@ -160,6 +164,103 @@ class NotificationRoomChangeOutboxPostgresTest {
 	}
 
 	@Test
+	void 방_취소가_먼저_커밋되면_재시도_참가_취소는_PARTICIPATION_CANCELED를_남기지_않는다() {
+		long hostUserId = user("cancel-before-participation-cancel-host");
+		long participantUserId = user("cancel-before-participation-cancel-participant");
+		long roomId = room(hostUserId, 2);
+		roomParticipationService.participate(participantUserId, roomId);
+		reset(roomChangeEventRecorder);
+		CountDownLatch reachedCanceledRecorder = new CountDownLatch(1);
+		CountDownLatch releaseCancellation = new CountDownLatch(1);
+		CountDownLatch participationCancelStarted = new CountDownLatch(1);
+		doAnswer(invocation -> {
+			if (invocation.getArgument(0) instanceof RoomCanceledEvent) {
+				reachedCanceledRecorder.countDown();
+				assertTrue(releaseCancellation.await(10, TimeUnit.SECONDS));
+			}
+			return invocation.callRealMethod();
+		}).when(roomChangeEventRecorder).record(any(RoomChangeEvent.class), any());
+		ExecutorService workers = Executors.newFixedThreadPool(2);
+		try {
+			var cancelRoom = workers.submit(() -> roomStatusChangeService.cancelRoom(hostUserId, roomId));
+			assertTrue(reachedCanceledRecorder.await(10, TimeUnit.SECONDS));
+			var cancelParticipation = workers.submit(() -> {
+				participationCancelStarted.countDown();
+				return roomParticipationCancelService.cancelParticipation(participantUserId, roomId);
+			});
+			assertTrue(participationCancelStarted.await(10, TimeUnit.SECONDS));
+			releaseCancellation.countDown();
+			cancelRoom.get(20, TimeUnit.SECONDS);
+			cancelParticipation.get(20, TimeUnit.SECONDS);
+		} catch (Exception exception) {
+			throw new AssertionError(exception);
+		} finally {
+			workers.shutdownNow();
+			try {
+				assertTrue(workers.awaitTermination(5, TimeUnit.SECONDS));
+			} catch (InterruptedException exception) {
+				Thread.currentThread().interrupt();
+				throw new AssertionError(exception);
+			}
+		}
+
+		assertEquals("CANCELED", roomStatus(roomId));
+		assertEquals("CANCELED", participationStatus(roomId, participantUserId));
+		assertEquals(List.of("PARTICIPATION_JOINED", "ROOM_CANCELED"), eventTypes(roomId));
+		assertEquals(List.of(participantUserId), recipients(roomId, "ROOM_CANCELED"));
+		assertEquals(List.of(), recipients(roomId, "PARTICIPATION_CANCELED"));
+	}
+
+	@Test
+	void 참가_취소가_먼저_커밋되면_PARTICIPATION_CANCELED만_주최자에게_기록하고_방은_취소된다() {
+		long hostUserId = user("participation-cancel-before-cancel-host");
+		long participantUserId = user("participation-cancel-before-cancel-participant");
+		long roomId = room(hostUserId, 2);
+		roomParticipationService.participate(participantUserId, roomId);
+		reset(roomChangeEventRecorder);
+		CountDownLatch reachedParticipationCanceledRecorder = new CountDownLatch(1);
+		CountDownLatch releaseParticipationCancellation = new CountDownLatch(1);
+		CountDownLatch roomCancelStarted = new CountDownLatch(1);
+		doAnswer(invocation -> {
+			if (invocation.getArgument(0) instanceof ParticipationCanceledEvent) {
+				reachedParticipationCanceledRecorder.countDown();
+				assertTrue(releaseParticipationCancellation.await(10, TimeUnit.SECONDS));
+			}
+			return invocation.callRealMethod();
+		}).when(roomChangeEventRecorder).record(any(RoomChangeEvent.class), any());
+		ExecutorService workers = Executors.newFixedThreadPool(2);
+		try {
+			var cancelParticipation = workers.submit(
+				() -> roomParticipationCancelService.cancelParticipation(participantUserId, roomId));
+			assertTrue(reachedParticipationCanceledRecorder.await(10, TimeUnit.SECONDS));
+			var cancelRoom = workers.submit(() -> {
+				roomCancelStarted.countDown();
+				return roomStatusChangeService.cancelRoom(hostUserId, roomId);
+			});
+			assertTrue(roomCancelStarted.await(10, TimeUnit.SECONDS));
+			releaseParticipationCancellation.countDown();
+			cancelParticipation.get(20, TimeUnit.SECONDS);
+			cancelRoom.get(20, TimeUnit.SECONDS);
+		} catch (Exception exception) {
+			throw new AssertionError(exception);
+		} finally {
+			workers.shutdownNow();
+			try {
+				assertTrue(workers.awaitTermination(5, TimeUnit.SECONDS));
+			} catch (InterruptedException exception) {
+				Thread.currentThread().interrupt();
+				throw new AssertionError(exception);
+			}
+		}
+
+		assertEquals("CANCELED", roomStatus(roomId));
+		assertEquals("CANCELED", participationStatus(roomId, participantUserId));
+		assertEquals(List.of("PARTICIPATION_JOINED", "PARTICIPATION_CANCELED"), eventTypes(roomId));
+		assertEquals(List.of(hostUserId), recipients(roomId, "PARTICIPATION_CANCELED"));
+		assertEquals(List.of(), recipients(roomId, "ROOM_CANCELED"));
+	}
+
+	@Test
 	void Outbox_기록_실패는_참가와_ROOM과_Outbox를_함께_롤백한다() {
 		long hostUserId = user("outbox-failure-host");
 		long participantUserId = user("outbox-failure-participant");
@@ -240,6 +341,11 @@ class NotificationRoomChangeOutboxPostgresTest {
 	private int participationCount(long roomId, long userId) {
 		return jdbcTemplate.queryForObject(
 			"select count(*) from participations where room_id = ? and user_id = ?", Integer.class, roomId, userId);
+	}
+
+	private String participationStatus(long roomId, long userId) {
+		return jdbcTemplate.queryForObject(
+			"select status from participations where room_id = ? and user_id = ?", String.class, roomId, userId);
 	}
 
 	private List<String> eventTypes(long roomId) {

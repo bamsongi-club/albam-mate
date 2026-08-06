@@ -62,7 +62,9 @@ class RoomParticipationCancelExecutor {
 		participationRepository.save(participation);
 		participationRepository.flush();
 		boolean promoted = promoteFirstWaiting(room, requestTime);
-		if (!promoted && room.getRemainingRecruitmentSeats() > 0) {
+		if (!promoted
+			&& room.getStatus() == RoomStatus.RECRUITING
+			&& room.getRemainingRecruitmentSeats() > 0) {
 			roomChangeEventRecorder.record(
 				new ParticipationCanceledEvent(room.getId(), requestTime), List.of(room.getHostUserId()));
 		}

@@ -419,6 +419,33 @@ class RoomParticipationCancelExecutorTest {
 		org.mockito.Mockito.verifyNoInteractions(promotedRecorder);
 	}
 
+	@Test
+	void 취소된_방의_재시도는_PARTICIPATION_CANCELED를_기록하지_않는다() {
+		long roomId = 7L;
+		long participantUserId = 10L;
+		RoomRepository mockedRoomRepository = mock(RoomRepository.class);
+		ParticipationRepository mockedParticipationRepository = mock(ParticipationRepository.class);
+		RoomWaitlistRepository mockedWaitlistRepository = mock(RoomWaitlistRepository.class);
+		RoomChangeEventRecorder recorder = mock(RoomChangeEventRecorder.class);
+		Room room = mock(Room.class);
+		Participation participation = mock(Participation.class);
+		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
+			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder);
+		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(room));
+		when(room.getHostUserId()).thenReturn(1L);
+		when(room.getId()).thenReturn(roomId);
+		when(room.getStartAt()).thenReturn(NOW.plusSeconds(3600));
+		when(room.getStatus()).thenReturn(RoomStatus.CANCELED);
+		when(room.getRemainingRecruitmentSeats()).thenReturn(1);
+		when(participation.getStatus()).thenReturn(ParticipationStatus.ACTIVE);
+		when(mockedParticipationRepository.findByRoomIdAndUserId(roomId, participantUserId))
+			.thenReturn(java.util.Optional.of(participation));
+
+		executor.cancelParticipation(participantUserId, roomId, NOW);
+
+		org.mockito.Mockito.verifyNoInteractions(recorder);
+	}
+
 	private Room createRoom(long hostUserId, int capacity, Instant startAt) {
 		return roomRepository.saveAndFlush(
 			Room.create(
