@@ -41,7 +41,9 @@ import jakarta.persistence.OptimisticLockException;
 
 @Testcontainers
 @SpringBootTest
-@TestPropertySource(properties = "spring.datasource.hikari.maximum-pool-size=10")
+@TestPropertySource(properties = {
+	"spring.datasource.hikari.maximum-pool-size=10",
+	"app.notification.relay.enabled=false"})
 @Import(RoomParticipationConcurrencyBaselinePostgresTest.BaselineTestConfiguration.class)
 class RoomParticipationConcurrencyBaselinePostgresTest {
 
