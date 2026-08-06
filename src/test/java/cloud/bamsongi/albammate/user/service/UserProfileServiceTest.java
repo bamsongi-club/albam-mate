@@ -137,7 +137,8 @@ class UserProfileServiceTest {
 
 	@Test
 	void 프로필_이미지를_삭제한다() {
-		User user = User.create("user@example.com", "{bcrypt}hash", "이전 닉네임", "old-url");
+		User user = User.create("user@example.com", "{bcrypt}hash", "이전 닉네임");
+		user.changeProfileImageUrl("old-url");
 		when(userRepository.findById(7L)).thenReturn(Optional.of(user));
 
 		UserProfileResponse profile = userProfileService.removeProfileImage(7L);
