@@ -335,7 +335,11 @@ final class RoomConcurrencyBaselineSupport {
 		long elapsedNanosSince(long fallbackStartNanos) {
 			Long measuredGateWaitNanos = gateWaitNanos.get();
 			long excludedNanos = measuredGateWaitNanos == null ? 0 : measuredGateWaitNanos;
-			return System.nanoTime() - fallbackStartNanos - excludedNanos;
+			return calculateResponseNanos(fallbackStartNanos, System.nanoTime(), excludedNanos);
+		}
+
+		static long calculateResponseNanos(long fallbackStartNanos, long currentNanos, long excludedNanos) {
+			return currentNanos - fallbackStartNanos - excludedNanos;
 		}
 
 		void clearResponseTimer() {
