@@ -197,10 +197,10 @@ flowchart LR
     query --> coordinator["RoomStatusCorrectionCoordinator"]
     coordinator --> retrier["RoomOptimisticLockRetrier"]
     retrier --> correctionExecutor["RoomStatusCorrectionExecutor<br/>REQUIRES_NEW"]
-    correctionExecutor --> repositories["Room·Participation Repository"]
+    correctionExecutor --> correctionRepositories["RoomRepository·RoomWaitlistRepository"]
     correctionExecutor --> committed["상태 보정 커밋"]
     committed --> read["대응 ReadService<br/>REQUIRES_NEW readOnly<br/>목록·상세 REPEATABLE_READ"]
-    read --> repositories
+    read --> readRepositories["RoomRepository·ParticipationRepository"]
     read --> facts["ROOM·현재 ACTIVE·WAITING 사실"]
     facts --> evaluator["RoomActionAvailabilityEvaluator"]
     query --> evaluator
@@ -208,6 +208,8 @@ flowchart LR
     evaluator --> response["최종 DTO 조립"]
     contracts --> response
 ```
+
+`RoomStatusCorrectionExecutor`는 같은 `REQUIRES_NEW` 트랜잭션에서 ROOM 상태 전환과 시작 경계의 `WAITING → EXPIRED` 조건부 갱신을 수행한다. 둘 중 하나가 실패하면 같은 ROOM의 변경을 함께 롤백하며, 스케줄러 경로는 이 단건 Executor를 ROOM별로 호출한다.
 
 QueryService는 기준 시각을 고정하고 상태 보정 커밋을 기다린 뒤 ReadService로 최신 상태를 읽는다. ReadService는 별도의 `REQUIRES_NEW`, `readOnly = true` 트랜잭션을 사용한다.
 
