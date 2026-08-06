@@ -119,6 +119,7 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 			assertEquals(0, rawReport.path("roomFailures").size());
 			assertTrue(rawReport.path("runFailure").path("exceptionType").asText()
 				.contains("JpaSystemException"));
+			assertEquals("현행 일괄 트랜잭션 실패", rawReport.path("runFailure").path("category").asText());
 			assertEquals(1, rawReport.path("partialRuns").size());
 			assertEquals(20, rawReport.path("partialRuns").get(0).path("candidateCount").asInt());
 			assertTrue(rawReport.path("partialRuns").get(0).has("throughputPerSecond"));
@@ -155,6 +156,7 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 		JsonNode rawReport = objectMapper.readTree(Files.readString(failureReportPath(SMALL)));
 		assertEquals("RUN_FAILURE", rawReport.path("outcome").asText());
 		assertEquals(0, rawReport.path("roomFailures").size());
+		assertEquals("후보 수 사전 검증 실패", rawReport.path("runFailure").path("category").asText());
 		assertEquals(20, rawReport.path("partialRuns").get(0).path("candidateCount").asInt());
 		assertTrue(rawReport.path("partialRuns").get(0).path("pgStatStatements").size() > 0);
 	}
@@ -191,12 +193,18 @@ class RoomStatusCorrectionBaselineMeasurementPostgresTest {
 			MeasurementReport report = MeasurementReport.runFailure(
 				measurementStartEnvironment, fixture(profile), warmUpRuns, measuredRuns,
 				exception.partialRun(),
-				new RunFailure(exception.getCause().getClass().getName(), "현행 일괄 트랜잭션 실패"));
+				new RunFailure(exception.getCause().getClass().getName(), failureCategory(exception.partialRun())));
 			writeReport(failureReportPath(profile), report);
 			throw exception;
 		} finally {
 			clearFixture();
 		}
+	}
+
+	private String failureCategory(MeasurementRun partialRun) {
+		return "candidate-check".equals(partialRun.phase())
+			? "후보 수 사전 검증 실패"
+			: "현행 일괄 트랜잭션 실패";
 	}
 
 	private int verifyCandidateCount(MeasurementProfile profile, int expectedDueRoomCount) {

@@ -1,0 +1,18 @@
+{
+  "defaultProfiles" : [ {
+    "name" : "small",
+    "roomCount" : 100,
+    "dueRoomCount" : 20
+  } ],
+  "explicitProfiles" : [ {
+    "name" : "medium",
+    "roomCount" : 10000,
+    "dueRoomCount" : 2000
+  }, {
+    "name" : "large",
+    "roomCount" : 50000,
+    "dueRoomCount" : 10000
+  } ],
+  "command" : "$env:JAVA_TOOL_OPTIONS = '-Dissue383.measurement=true'\n.\\gradlew.bat postgresTest --tests \"cloud.bamsongi.albammate.room.measurement.RoomStatusCorrectionBaselineMeasurementPostgresTest.승인_규모_기준선을_측정한다\" --rerun --fail-fast",
+  "throughputFormula" : "throughputPerSecond = changedCount * 1_000_000_000 / elapsedNanos"
+}
