@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 public class UserProfileService {
 
 	@NonNull private final UserRepository userRepository;
+	@NonNull private final ProfileImageStorage profileImageStorage;
 
 	@Transactional(readOnly = true)
 	public UserProfileResponse findProfile(long userId) {
@@ -30,6 +31,28 @@ public class UserProfileService {
 		Objects.requireNonNull(nickname, "nickname");
 		User user = requireCurrentUser(userId);
 		user.changeNickname(nickname.value());
+		return UserProfileResponse.from(user);
+	}
+
+	@Transactional
+	public UserProfileResponse changeProfileImage(long userId, String imageUrl) {
+		User user = requireCurrentUser(userId);
+		String previousUrl = user.getProfileImageUrl();
+		user.changeProfileImageUrl(imageUrl);
+		if (previousUrl != null && !previousUrl.equals(imageUrl)) {
+			profileImageStorage.delete(previousUrl);
+		}
+		return UserProfileResponse.from(user);
+	}
+
+	@Transactional
+	public UserProfileResponse removeProfileImage(long userId) {
+		User user = requireCurrentUser(userId);
+		String previousUrl = user.getProfileImageUrl();
+		user.changeProfileImageUrl(null);
+		if (previousUrl != null) {
+			profileImageStorage.delete(previousUrl);
+		}
 		return UserProfileResponse.from(user);
 	}
 

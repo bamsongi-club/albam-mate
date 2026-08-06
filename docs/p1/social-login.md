@@ -58,6 +58,7 @@
 - `AUTH-05-AC8` 외부 token·authorization code·secret이 DB·세션·응답·리다이렉트·로그에 남지 않는다.
 - `AUTH-05-AC9` 같은 외부 식별자의 동시 첫 로그인에서도 사용자와 소셜 계정이 하나만 남고 이후 재로그인이 같은 사용자로 수렴한다.
 - `AUTH-05-AC10` 기존 이메일 회원가입·로그인·로그아웃과 AUTH-04 프로필 기능의 성공·실패 계약이 회귀하지 않는다.
+- `AUTH-05-AC11` 소셜 로그인 시 외부 프로필 이미지를 가져와 동기화하며, 사용자가 직접 프로필 이미지를 업로드하거나 삭제할 수 있다.
 
 ### 하위 구현 완료 단위
 
@@ -71,6 +72,7 @@
 - `AUTH-05a-AC4` 같은 외부 식별자의 동시 첫 처리와 중복 연결에서도 DB 제약을 깨거나 기존 연결을 덮어쓰지 않는다.
 - `AUTH-05a-AC5` 외부 token·authorization code·secret은 사용자 모듈 계약·Entity·Repository에 들어가지 않는다.
 - `AUTH-05a-AC6` 이메일 자격증명 조회는 `password_hash IS NULL`인 사용자를 자격증명 미존재로 반환하고, 이메일 로그인은 기존 더미 bcrypt·요청 제한을 거쳐 `401 INVALID_CREDENTIALS`로 수렴하며 `500`이나 계정 존재 여부를 노출하지 않는다.
+- `AUTH-05a-AC7` `USERS` 엔티티는 외부 소셜 이미지 URL과 로컬 저장소 이미지 URL을 모두 담을 수 있는 `profile_image_url` 확장을 지원한다.
 
 #### AUTH-05b 세 제공자 OAuth 로그인·앱 세션 전환
 
@@ -82,6 +84,7 @@
 - `AUTH-05b-AC4` callback은 허용된 고정 `socialAuth` 값만 same-site로 리다이렉트하고 code·token·provider 설명·사용자 속성을 복사하지 않는다.
 - `AUTH-05b-AC5` 성공 뒤 `CurrentUserPrincipal`, 교체된 `JSESSIONID`, 새 CSRF, 보호 API와 로그아웃이 기존 인증 계약대로 동작한다.
 - `AUTH-05b-AC6` 외부 authorized client·principal·token을 DB나 서버 세션에 남기지 않는다.
+- `AUTH-05b-AC7` 소셜 첫 로그인 및 재로그인 시 외부 제공자(Google, Naver, Kakao)의 프로필 이미지 URL을 추출해 `USERS`의 `profile_image_url`로 동기화한다.
 
 #### AUTH-05c 로그인 사용자의 명시적 계정 연결
 
@@ -102,13 +105,14 @@
 - `AUTH-05d-AC3` 마이페이지는 제공자별 연결 상태를 표시하고 미연결 제공자만 명시적 연결할 수 있으며 연결된 계정의 교체·해제를 제공하지 않는다.
 - `AUTH-05d-AC4` 로컬 Vite·Compose와 운영 Compose가 same-site callback Host와 선택적인 여섯 credential 환경 변수를 secret 노출 없이 전달한다.
 - `AUTH-05d-AC5` 프론트엔드 빌드와 환경별 callback URI 설정 절차가 재현되고 기존 이메일 로그인·회원가입 화면이 회귀하지 않는다.
+- `AUTH-05d-AC6` 웹 클라이언트에서 사용자 프로필 이미지를 확인할 수 있으며, 5MB 제한 내에서 파일 업로드와 이미지 삭제를 수행할 수 있다.
 
 ### 제외 범위
 
 - JWT·Bearer 인증 전환과 외부 API를 계속 호출하기 위한 token 보관
 - 제공자 계정 전체 로그아웃, 연결 해제·교체와 탈퇴 시 제공자 unlink
 - 이메일 인증, 비밀번호 추가·재설정과 서로 분리된 기존 사용자 계정의 병합
-- 제공자 프로필 이미지·이름의 로그인별 동기화
+- 제공자 이름의 로그인별 동기화
 - 네이티브 Android·iOS SDK와 모바일 딥링크
 
 ### 실행 설정

@@ -38,7 +38,8 @@ public final class SocialIdentityMapper {
 			SocialProvider.GOOGLE,
 			subject(attributes.get("sub")),
 			email,
-			UserNickname.from(text(attributes.get("name"))));
+			UserNickname.from(text(attributes.get("name"))),
+			Optional.ofNullable(text(attributes.get("picture"))));
 	}
 
 	/** Naver 회원 프로필 응답에는 이메일 검증 상태가 없으므로 이메일을 사용하지 않는다. */
@@ -48,7 +49,8 @@ public final class SocialIdentityMapper {
 			SocialProvider.NAVER,
 			subject(response.get("id")),
 			Optional.empty(),
-			UserNickname.from(text(response.get("nickname"))));
+			UserNickname.from(text(response.get("nickname"))),
+			Optional.ofNullable(text(response.get("profile_image"))));
 	}
 
 	private SocialIdentity kakao(Map<String, Object> attributes) {
@@ -61,7 +63,8 @@ public final class SocialIdentityMapper {
 			SocialProvider.KAKAO,
 			subject(attributes.get("sub")),
 			email,
-			UserNickname.from(text(nested(account.get("profile")).get("nickname"))));
+			UserNickname.from(text(nested(account.get("profile")).get("nickname"))),
+			Optional.ofNullable(text(nested(account.get("profile")).get("profile_image_url"))));
 	}
 
 	private String subject(Object value) {

@@ -13,7 +13,13 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
 app:
+  profile-image:
+    upload-dir: ${ALBAM_MATE_PROFILE_IMAGE_DIR:./uploads/profile}
   room:
     status-correction:
       lock-name: room-status-correction

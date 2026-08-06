@@ -32,6 +32,7 @@ class SocialAccountTransactionService {
 			.findByProviderAndProviderSubject(identity.provider(), identity.providerSubject())
 			.orElse(null);
 		if (existing != null) {
+			identity.profileImageUrl().ifPresent(url -> existing.getUser().changeProfileImageUrl(url));
 			return SocialLoginResult.loggedIn(UserContractMapper.toUserAccount(existing.getUser()));
 		}
 		return createFirstSocialLogin(identity);
@@ -102,7 +103,8 @@ class SocialAccountTransactionService {
 		String nickname = identity.nickname()
 			.map(value -> value.value())
 			.orElse(identity.provider().fallbackNickname());
-		User user = userRepository.save(User.createSocial(email, nickname));
+		String profileImageUrl = identity.profileImageUrl().orElse(null);
+		User user = userRepository.save(User.createSocial(email, nickname, profileImageUrl));
 		socialAccountRepository.saveAndFlush(
 			SocialAccount.create(user, identity.provider(), identity.providerSubject()));
 		return SocialLoginResult.loggedIn(UserContractMapper.toUserAccount(user));
