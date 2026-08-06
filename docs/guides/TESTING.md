@@ -116,7 +116,7 @@ build/reports/jacoco/jacocoAllTestReport/html/index.html
 
 ## CI 판정
 
-CI는 변경 경로를 먼저 분류한다. 문서만 바뀌면 `Docs`, 프론트엔드만 바뀌면 `Frontend`와 `Docs`만 실행한다. 백엔드, Gradle, Compose, workflow처럼 그 밖의 경로가 바뀌면 다음 백엔드 job을 병렬로 실행한다.
+CI는 `Changes`에서 변경 경로를 먼저 분류하고, 모든 변경에서 `Docs`와 마지막 `CI Gate`를 실행한다. 문서만 바뀌면 조건부 검증 job은 실행하지 않고, 프론트엔드만 바뀌면 `Frontend`만 추가로 실행한다. 백엔드, Gradle, Compose, workflow처럼 그 밖의 경로가 바뀌면 다음 백엔드 job을 병렬로 실행한다.
 
 - `Backend Static`: 애플리케이션 조립, Spotless와 모든 Java source set의 Checkstyle
 - `Local Multi Runtime`: 프록시, Spring 두 대, PostgreSQL과 Redis를 사용하는 교차 인스턴스 세션
