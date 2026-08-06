@@ -78,7 +78,6 @@ services:
       context: frontend
       dockerfile: Dockerfile
     restart: unless-stopped
-    command: ["nginx", "-g", "daemon off; worker_processes 1;"]
     depends_on:
       spring-1:
         condition: service_healthy
