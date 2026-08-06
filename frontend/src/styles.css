@@ -168,8 +168,11 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .badge.red { background: var(--red-soft); color: var(--red); }
 .badge.gray { background: var(--gray-soft); color: var(--gray); }
 .badge.people { background: #e3edf3; color: #3d6b85; }
-.badge.game { background: var(--soft); color: var(--brown2); }
+/* 유형 배지는 상태 배지와 다른 색을 쓴다. 카드에서 모집 중 상태 배지는 렌더되지 않아 초록끼리 겹치지 않는다. */
+.badge.game { background: #e6eddf; color: #5a7350; }
 .chip { background: var(--soft); border-radius: 10px; color: var(--brown2); display: inline-block; font-size: 12px; font-weight: 800; padding: 3px 10px; }
+/* 모임 카드 제목 줄에서는 배지와 나란히 놓인다. 글자 크기·여백·모서리를 배지에 맞춘다. */
+.stitle .chip { border-radius: 999px; font-size: 11px; padding: 2.5px 9px; vertical-align: 2px; }
 .btn { background: var(--accent-light); border-radius: 999px; color: #fff; display: inline-block; font-size: 14px; font-weight: 800; padding: 10px 20px; text-align: center; transition: background-color 0.16s ease, transform 0.16s ease; }
 .btn:active, .modecard:active { transform: translateY(1px); }
 .btn.big { font-size: 15px; padding: 13px; width: 100%; }
