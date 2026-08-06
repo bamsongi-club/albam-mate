@@ -612,20 +612,19 @@ function SeatIcons({ room }) {
 function SessionCard({ room }) {
   const game = room.game;
   const status = statusMeta(room);
-  const active = activeParticipantCount(room);
   return (
     <a className="scard" href={'#/session/' + room.id}>
       <div className="scard-top">
         <span className="gemoji">{game ? '🎲' : '🙌'}</span>
         <div>
           <div className="stitle">
-            {room.title} <span className={'badge ' + (room.roomType === 'PERSON_FOCUSED' ? 'people' : 'game')}>{room.roomType === 'PERSON_FOCUSED' ? '사람 중심' : '게임 중심'}</span>{' '}
-            <span className={'badge ' + status.className}>{status.label}</span>
+            {room.title} <span className={'badge ' + (room.roomType === 'PERSON_FOCUSED' ? 'people' : 'game')}>{room.roomType === 'PERSON_FOCUSED' ? '사람 중심' : '게임 중심'}</span>
+            {status.code !== 'RECRUITING' && <>{' '}<span className={'badge ' + status.className}>{status.label}</span></>}
           </div>
           <div className="smeta">{game ? '🎲 ' + game.title : '게임은 모임에서 정해요'} · {formatStartsAt(room.startsAt)} · {room.region || '홍대'}</div>
         </div>
       </div>
-      <div className="srow"><SeatIcons room={room} /><span className="cap">모집 {active}/{room.recruitmentCapacity}명 · 총 {participantCount(room)}/{room.recruitmentCapacity + 1}명</span></div>
+      <div className="srow"><span className="cap">총 {participantCount(room)}/{room.recruitmentCapacity + 1}명</span></div>
       <div className="sfoot"><span className="chip">{EXP_LABEL[room.experienceLevel]}</span><span>{room.isRulemasterLed ? '룰마스터 진행' : '참가자끼리 진행'}</span><span>상세 위치는 참가 후 확인</span></div>
     </a>
   );
@@ -1138,7 +1137,8 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
     (page, signal) => api.getRooms({ type: roomType, keyword, ...roomFilterParameters(roomFilters, today), page, size: ROOM_LIST_PAGE_SIZE }, signal),
     [roomType, keyword, filterKey, dataVersion]
   );
-  const rooms = (data?.content || []).map(normalizeRoom);
+  // 백엔드가 status 필터를 아직 지원하지 않아, 기본으로 모집 중인 모임만 보이도록 프런트에서 걸러낸다.
+  const rooms = (data?.content || []).map(normalizeRoom).filter((room) => room.status === 'RECRUITING');
   useEffect(() => setInput(roomQuery), [roomQuery]);
   return (
     <>
