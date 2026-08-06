@@ -38,7 +38,7 @@ public class NotificationOutboxRecoveryService {
 	public NotificationOutboxRecoveryResult preview(NotificationOutboxRecoveryRequest request) {
 		List<Long> eventIds = recoveryPolicy.validateAndNormalize(request,
 			NotificationOutboxRecoveryPolicy.ExecutionMode.PREVIEW);
-		Instant operationTime = eventRepository.findRecoveryOperationTime();
+		Instant operationTime = eventRepository.findPostgresOperationTime();
 		List<NotificationOutboxEvent> events = eventRepository.findAllByIdInOrderById(eventIds);
 		Set<Long> eventIdsWithRecipients = findEventIdsWithRecipients(events);
 		List<NotificationOutboxRecoveryItem> items = createPreviewItems(eventIds, events, request.action(),
@@ -54,7 +54,7 @@ public class NotificationOutboxRecoveryService {
 		List<Long> eventIds = recoveryPolicy.validateAndNormalize(request,
 			NotificationOutboxRecoveryPolicy.ExecutionMode.EXECUTE);
 		List<NotificationOutboxEvent> events = eventRepository.findAllByIdInOrderByIdForUpdate(eventIds);
-		Instant operationTime = eventRepository.findRecoveryOperationTime();
+		Instant operationTime = eventRepository.findPostgresOperationTime();
 		ensureAllEventsExist(events, eventIds);
 		Set<Long> eventIdsWithRecipients = request.action() == NotificationRecoveryAction.REPROCESS
 			? findEventIdsWithRecipients(events)

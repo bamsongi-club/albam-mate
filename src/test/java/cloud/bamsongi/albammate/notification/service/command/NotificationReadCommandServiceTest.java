@@ -50,9 +50,9 @@ class NotificationReadCommandServiceTest {
 	void 일괄_읽음은_Repository의_문장_스냅샷_결과를_그대로_반환한다() {
 		NotificationBulkReadResponse expected = new NotificationBulkReadResponse(
 			0, null, Instant.parse("2026-08-03T00:00:00Z"));
-		when(notificationReadRepository.markAllUnread(42L)).thenReturn(expected);
+		when(notificationReadRepository.markAllUnreadAsRead(42L)).thenReturn(expected);
 
 		assertEquals(expected, notificationReadCommandService.readAll(42L));
-		verify(notificationReadRepository).markAllUnread(42L);
+		verify(notificationReadRepository).markAllUnreadAsRead(42L);
 	}
 }

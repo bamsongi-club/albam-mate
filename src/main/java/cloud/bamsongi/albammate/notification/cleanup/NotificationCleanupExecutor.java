@@ -47,7 +47,7 @@ public class NotificationCleanupExecutor {
 		NotificationCleanupTarget targetType,
 		int batchSize,
 		CleanupBatchExecution execution) {
-		execution.measurementTime = eventRepository.findCleanupMeasurementTime();
+		execution.measurementTime = eventRepository.findPostgresOperationTime();
 		long deletedCount = switch (targetType) {
 			case NOTIFICATION ->
 				notificationRepository.deleteExpiredNotifications(execution.measurementTime, batchSize);

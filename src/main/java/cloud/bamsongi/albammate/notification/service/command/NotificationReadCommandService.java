@@ -26,6 +26,6 @@ public class NotificationReadCommandService {
 
 	@Transactional
 	public NotificationBulkReadResponse readAll(long recipientUserId) {
-		return notificationReadRepository.markAllUnread(recipientUserId);
+		return notificationReadRepository.markAllUnreadAsRead(recipientUserId);
 	}
 }
