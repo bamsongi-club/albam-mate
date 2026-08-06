@@ -66,6 +66,9 @@ public class Game extends BaseEntity {
 	@Column(name = "release_year")
 	private Integer releaseYear;
 
+	@Column(name = "min_age")
+	private Integer minAge;
+
 	@Column(name = "description", nullable = false, columnDefinition = "TEXT")
 	private String description;
 

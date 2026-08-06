@@ -13,6 +13,7 @@
 | --- | --- | --- |
 | 빠른 반복 | `test`, `build` | 단위 테스트, Spring context, MVC, 표준 JPA와 H2로 검증 가능한 서비스 흐름 |
 | PostgreSQL | `postgresTest` | Flyway, PostgreSQL 전용 SQL·타입·제약·잠금·격리·동시성 |
+| 외부 fixture PostgreSQL 성능 | `postgresTest` exact selector | 저장소 밖 17만 행 fixture의 대표 검색 조합·실행 계획·page·count 시간 |
 | 빠른 커버리지 | `jacocoTestCoverageVerification` | H2 `test` 결과만 사용하는 로컬 회귀 게이트 |
 | 정본 커버리지 | `jacocoAllTestCoverageVerification` | `test`와 `postgresTest` 결과를 합산하는 CI 판정 게이트 |
 
@@ -51,6 +52,8 @@ macOS·Linux:
 ```sh
 ./gradlew postgresTest --no-daemon --stacktrace
 ```
+
+`GameMetadataSearchPerformancePostgresTest`는 저장소 밖 fixture와 순위 CSV를 요구한다. `issue420.fixture`가 없으면 JUnit 조건으로 건너뛰므로 기본 `postgresTest`는 실패하지 않는다. 네 입력 경로를 준비한 뒤에는 [게임 카탈로그 적재 가이드](GAME_CATALOG_IMPORT.md#17만-행-성능-fixture-계약)의 `postgresTest` exact selector 명령으로 실행한다.
 
 [ADR-0023](../adr/platform/0023-p0-flyway-baseline-reset-player-count-stages.md)의 일회성 기준선 재생성 뒤에는 다음 규칙을 지킨다.
 

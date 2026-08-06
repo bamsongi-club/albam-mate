@@ -155,4 +155,35 @@ class GameListRequestTest {
 		assertFalse(validator.validate(duplicate).isEmpty());
 		assertTrue(validator.validate(single).isEmpty());
 	}
+
+	@Test
+	void 메타데이터_코드와_인원_themeMatch를_검증하고_기본_ANY를_유지한다() {
+		GameListRequest valid = new GameListRequest();
+		valid.setCategory(List.of("STRATEGY"));
+		valid.setTheme(List.of("FANTASY"));
+		valid.setRecommendedPlayerCount(List.of(3));
+		assertEquals(ThemeMatch.ANY, valid.getThemeMatch());
+		assertTrue(validator.validate(valid).isEmpty());
+		GameListRequest invalid = new GameListRequest();
+		invalid.setCategory(List.of("strategy", ""));
+		invalid.setRecommendedPlayerCount(List.of(0));
+		invalid.setThemeMatch(List.of(ThemeMatch.ANY, ThemeMatch.ALL));
+		assertFalse(validator.validate(invalid).isEmpty());
+	}
+
+	@Test
+	void 빈_themeMatch는_기본_ANY로_조회된다() {
+		GameListRequest request = new GameListRequest();
+		request.setThemeMatch(List.of());
+
+		assertEquals(ThemeMatch.ANY, request.getThemeMatch());
+	}
+
+	@Test
+	void null을_담은_단일_themeMatch는_검증오류로_거절한다() {
+		GameListRequest request = new GameListRequest();
+		request.setThemeMatch(Collections.singletonList(null));
+
+		assertFalse(validator.validate(request).isEmpty());
+	}
 }

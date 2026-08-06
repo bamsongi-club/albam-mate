@@ -33,7 +33,7 @@ public final class ApiEndpointPolicyRegistry {
 	 * 만들고 정책 등록을 빠뜨렸을 때 그 경로가 공개로 열린다.
 	 */
 	private static final List<String> PROTECTED_FUTURE_SUBPATH_PREFIXES = List.of("/api/auth/", "/api/games/",
-		"/api/game-mechanisms/", "/api/rooms/", "/api/users/me/");
+		"/api/game-mechanisms/", "/api/game-categories/", "/api/game-themes/", "/api/rooms/", "/api/users/me/");
 
 	private final List<ApiEndpointPolicy> policies;
 
@@ -188,6 +188,8 @@ public final class ApiEndpointPolicyRegistry {
 			policy(HttpMethod.GET, "/api/games", OPTIONAL_AUTHENTICATION, false),
 			policy(HttpMethod.GET, "/api/games/{gameId}", OPTIONAL_AUTHENTICATION, false),
 			policy(HttpMethod.GET, "/api/game-mechanisms", OPTIONAL_AUTHENTICATION, false),
+			policy(HttpMethod.GET, "/api/game-categories", OPTIONAL_AUTHENTICATION, false),
+			policy(HttpMethod.GET, "/api/game-themes", OPTIONAL_AUTHENTICATION, false),
 			policy(HttpMethod.GET, "/api/rooms", OPTIONAL_AUTHENTICATION, false),
 			policy(HttpMethod.GET, "/api/rooms/{roomId}", OPTIONAL_AUTHENTICATION, false),
 			policy(HttpMethod.POST, "/api/rooms", AUTHENTICATED, true),

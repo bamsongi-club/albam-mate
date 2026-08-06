@@ -1,10 +1,10 @@
 # P1 검색 기능 명세
 
-이 문서는 P1 필수 범위인 메커니즘을 포함한 `SEARCH-01`~`SEARCH-03`의 구현 규칙과 완료 기준을 정의한다. 현재 계약·생산 코드·자동 검증·운영 상태는 [P1 기능 상태 정본](README.md#기능별-현재-상태)을 따른다.
+이 문서는 P1 필수 범위인 카테고리·테마·추천/베스트 인원·메커니즘을 포함한 `SEARCH-01`~`SEARCH-03`의 구현 규칙과 완료 기준을 정의한다. 현재 계약·생산 코드·자동 검증·운영 상태는 [P1 기능 상태 정본](README.md#기능별-현재-상태)을 따른다.
 
 전체 범위·공통 검색 규칙은 [P1 명세](../P1-spec.md), 기존 동작은 [P0 완료 문서](../archive/p0/README.md), 요청·응답·오류는 [API 명세](../API.md), 저장 구조와 제약은 [ERD](../ERD.md)를 따른다. 메커니즘과 `SEARCH-03` 저장 계약은 ERD에 반영하며, 해당 저장 계약을 구현할 때는 전진 Flyway 마이그레이션과 PostgreSQL 검증을 함께 추가한다. 기존 `ROOMS` 필드만 사용하는 `SEARCH-02`에는 신규 저장 계약이나 마이그레이션을 요구하지 않는다.
 
-P1 필수 게임 데이터 적재·검증 대상은 현재 확보한 약 2,000건이다. 전체 카탈로그 확장과 새 외부 데이터 취득은 별도 승인 범위다. 수치 검색은 [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md), 메커니즘은 [ADR-0048](../adr/game/0048-full-reviewed-game-mechanism-catalog.md), 사용자별 해 본 게임은 [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md)을 따른다.
+P1 필수 게임 데이터 적재·검증 대상은 승인된 BGG ID 170,000건이다. 170,000행 성능 fixture는 운영 적재 입력이 아니며, 운영 관계는 승인된 순위 CSV·BGG XML snapshot·한글 테마 사전에서 다시 만든다. 수치 검색은 [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md), 메커니즘은 [ADR-0048](../adr/game/0048-full-reviewed-game-mechanism-catalog.md), 카테고리·테마·추천/베스트 인원은 [ADR-0050](../adr/game/0050-game-metadata-catalog-and-filters.md), 사용자별 해 본 게임은 [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md)을 따른다.
 
 `SEARCH-03`은 2026-08-04 P1 필수 범위로 채택됐다. 승인된 결정이 바뀌면 후속 ADR로 기존 결정을 대체하고 이 문서를 함께 갱신한다.
 
@@ -16,6 +16,9 @@ P1 필수 게임 데이터 적재·검증 대상은 현재 확보한 약 2,000�
 | 플레이 시간 | `Game.estimatedPlayTime` 표시 문자열 | 가능. 현재 입력을 분 단위로 수치화한다. BGG 상세 `minplaytime`·`maxplaytime` 신규 취득은 이용 범위를 확인한 뒤 별도로 보강한다 |
 | 복잡도 | nullable `Game.complexity` | 가능. 입력 `0.00`을 `NULL`로 정규화하고 `1.00`~`5.00`만 필터에 사용한다 |
 | 메커니즘 | 검수된 내부 목록과 게임 다대다 관계 계약 | 가능. 정확한 승인 입력·manifest·검수 증거가 일치한 공개 항목만 사용한다 |
+| 카테고리 | 고정 8개 내부 목록과 게임 다대다 관계 | 가능. 순위 CSV의 양수 BGG subdomain rank만 관계로 만들고 누락·0·음수는 추정하지 않는다 |
+| 테마 | BGG boardgamecategory 내부 목록과 게임 다대다 관계 | 가능. 원본 ID·영문명·안정 code·검수 한글명이 모두 있는 항목만 적재·공개한다 |
+| 추천·베스트 인원 | suggested_numplayers 투표의 게임별 관계 | 가능. 가능 인원과 분리하고 BGG poll의 확정 판정식·N+ 확장·품질 게이트를 사용한다 |
 | 해 본 게임 포함·제외 | `USER_PLAYED_GAMES` 관계 | 가능. 사용자·게임 유일 관계와 본인 등록·취소 계약을 사용한다 |
 | 방 날짜 | `Room.startAt` | 가능. 기존 필드에 범위 조건만 추가한다 |
 | 방 남은 자리 | `Room.capacity`, `Room.activeParticipantCount` | 가능. 상태 정합화 뒤 두 값의 파생식으로 판정하고 별도 저장값을 추가하지 않는다 |
@@ -24,7 +27,7 @@ P1 필수 게임 데이터 적재·검증 대상은 현재 확보한 약 2,000�
 
 표시 문자열의 표현 종류 수, 복잡도의 실제 값 범위와 BGG 기준 스냅샷 행 수는 [입력 검수 기록](../game-catalog/2026-07-24-input-review.md)과 [출처 manifest](../game-catalog/2026-07-24-source-manifest.draft.json)를 정본으로 참조한다. 이 문서는 해당 수치를 복제하지 않는다.
 
-BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건을 넘는 범위의 인원·시간 값을 보강하려면 승인된 취득 경로와 배치 계획이 따로 필요하다. P0 적재 승인이 새 데이터 취득·재가공·공개 운영 권리를 자동으로 포함한다고 보지 않는다.
+BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 게임의 가능 인원·테마·추천/베스트 인원은 승인된 BGG XML snapshot에서만 보강하고, CSV와 XML·한글 사전·manifest의 품질 게이트가 모두 통과한 경우에만 공개·적재한다.
 
 ## SEARCH-01 게임 조건 검색
 
@@ -35,14 +38,14 @@ BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건�
 | 기존 기능 | [GAME-01 게임 목록·검색](../archive/p0/game-catalog.md#game-01-게임-목록검색) |
 | API 계약 | [게임 목록·검색](../API.md#game-01-게임-목록검색) |
 | 공통 규칙 | [게임 데이터 정규화](../P1-spec.md#게임-데이터-정규화), [검색 조건과 결과](../P1-spec.md#검색-조건과-결과) |
-| 데이터 모델 | [GAMES](../ERD.md#games), [GAME_MECHANISMS](../ERD.md#game_mechanisms), [GAME_MECHANISM_RELATIONS](../ERD.md#game_mechanism_relations) |
-| 필수 ADR | [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md), [ADR-0048](../adr/game/0048-full-reviewed-game-mechanism-catalog.md) — 승인됨 |
+| 데이터 모델 | [GAMES](../ERD.md#games), [GAME_CATEGORIES](../ERD.md#game_categories), [GAME_THEMES](../ERD.md#game_themes), [GAME_PLAYER_PREFERENCES](../ERD.md#game_player_preferences), [GAME_MECHANISMS](../ERD.md#game_mechanisms) |
+| 필수 ADR | [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md), [ADR-0048](../adr/game/0048-full-reviewed-game-mechanism-catalog.md), [ADR-0050](../adr/game/0050-game-metadata-catalog-and-filters.md) — 승인됨 |
 | 출처·적재 | [ADR-0015](../adr/game/0015-bgg-baseline-team-collected-game-list.md), [입력 검수 기록](../game-catalog/2026-07-24-input-review.md), [적재 절차](../guides/GAME_CATALOG_IMPORT.md) |
 | 입력 데이터 | 입력 CSV와 변환 산출물은 저장소에 커밋하지 않는다. 적재 작업은 [입력 검수 기록](../game-catalog/2026-07-24-input-review.md)의 SHA-256과 일치하는 팀 공유 입력을 먼저 확보해야 하며, 입력을 새로 수집하거나 생성하지 않는다 |
 | 성능 검증 | [FND-09 검색 성능과 인덱스 검증](foundation.md#fnd-09-검색-성능과-인덱스-검증) |
-| HTTP 경계 | `GameController#listGames`, `GameListRequest`의 기존 조건과 반복 `mechanism`; 선택지는 `GET /api/game-mechanisms` |
+| HTTP 경계 | `GameController#listGames`, `GameListRequest`의 기존 조건과 반복 `category`, `theme`, `recommendedPlayerCount`, `bestPlayerCount`, `mechanism`; 선택지는 `GET /api/game-categories`, `GET /api/game-themes`, `GET /api/game-mechanisms` |
 | 현재 조회 경계 | `GameQueryService#findPage`, 불변 `GameListSearchCriteria`, `GameRepository#findAll(Specification, Pageable)`, `GameListRow`, `UpcomingRoomCountQuery`; 모든 조건은 단일 동적 조회에 전달하고 정렬은 엔티티 필드 `name`, `id` 오름차순 고정 |
-| 저장 계약 | 기존 게임 표시·검색 필드, `GAME_MECHANISMS` 공개 목록과 `GAME_MECHANISM_RELATIONS` 다대다 관계. `Game.tag` 의미는 유지 |
+| 저장 계약 | 기존 게임 표시·검색 필드, 카테고리·테마·인원 선호·메커니즘 관계. `Game.tag` 의미는 유지하고 새 관계의 정본으로 재사용하지 않음 |
 
 ### 기능 규칙
 
@@ -80,6 +83,9 @@ BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건�
 - 기존 `playerCount` 조건은 그대로 유지한다.
 - 복잡도 최소값과 최대값은 각각 생략할 수 있지만 둘 다 전달하면 최소값이 최대값보다 크지 않아야 한다.
 - 메커니즘은 안정적인 내부 코드를 반복 전달한다. 같은 코드를 반복해도 한 번 전달한 것과 같고, 존재하지 않거나 비공개인 코드는 검증 오류다.
+- 카테고리는 고정 8개 안정 code를 반복 전달한다. 같은 category 안에서는 OR이고, 존재하지 않는 code는 일부 유효 code가 함께 있어도 검증 오류다.
+- 테마는 안정 code를 반복 전달한다. `themeMatch`를 생략하면 ANY이며 하나라도 관계가 있으면 되고, ALL이면 선택한 모든 고유 테마와 관계가 있어야 한다. 테마를 보내지 않고 `themeMatch`만 보내는 것은 유효하지만, 잘못되거나 중복된 `themeMatch`는 검증 오류다.
+- 추천 인원은 BGG 투표의 Best 또는 Recommended 우세, 베스트 인원은 Best 단독 우세로 저장한 양의 정수 관계를 반복 전달한다. 각 목록 안에서는 OR이고 다른 필터와는 AND다. `4+`는 가능 인원의 검증된 최대값까지 펼친 관계를 사용한다.
 - 특정 필터를 적용하면 그 조건을 판정할 검증값이 있는 게임만 결과에 포함한다. 필터를 생략한 조회는 해당 값이 없다는 이유만으로 게임을 제외하지 않는다.
 - 서로 다른 필터 종류와 기존 `keyword`, `upcomingOnly`는 AND로 결합한다. 같은 식별자를 반복 전달해도 한 번 전달한 것과 같은 결과여야 한다.
 - 모든 필터를 적용한 뒤 전체 건수를 계산하고 `name ASC, id ASC` 정렬과 페이지네이션을 적용한다. 내용 조회와 전체 건수 조회는 같은 조건을 사용한다.
@@ -99,8 +105,8 @@ BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건�
 ### 권장 조회 구조
 
 - 현재 `GameQueryService#findPage`는 `keyword`, `upcomingOnly` 조합마다 `GameRepository`의 파생 조회 메서드를 골라 쓴다. P1 조건을 같은 방식으로 늘리면 조합 수만큼 메서드가 증가하므로, 새 조건은 불변 검색 조건 하나로 묶어 단일 동적 조회 경계에 전달한다.
-- 약 2,000건 범위에서는 `upcomingOnly`가 사용하는 기존 `UpcomingRoomCountQuery`의 예정 모임 게임 ID 집합을 다른 조건과 함께 전달해 현재 모듈 경계를 유지할 수 있다. 전체 카탈로그로 확장할 때는 `FND-09` 측정 결과에 따라 DB `EXISTS` 조회 경계를 재검토한다.
-- 메커니즘과 `PLAYED_ONLY`는 `EXISTS`, `EXCLUDE_PLAYED`는 `NOT EXISTS`로 판정해 관계 조인으로 게임 행이 중복되지 않게 한다.
+- 170,000건 범위에서도 `upcomingOnly`의 예정 모임 게임 ID 집합을 다른 조건과 함께 전달한다. 카테고리·테마·추천·베스트·메커니즘은 관계별 상관 `EXISTS`로, 테마 ALL은 선택한 고유 code 수와 일치 관계 수 비교로 판정한다.
+- 메커니즘과 `PLAYED_ONLY`는 `EXISTS`, `EXCLUDE_PLAYED`는 `NOT EXISTS`로 판정해 관계 조인으로 게임 행이 중복되지 않게 한다. 새 관계 역방향 인덱스와 cache는 170,000건 실행 계획에서 필요성이 재현될 때만 추가한다.
 
 ### 완료 기준
 
@@ -117,14 +123,17 @@ BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건�
 - `SEARCH-01-AC11` 단일·다중 메커니즘이 각각 관계 게임과 선택 목록 OR를 중복 없이 반환하고 존재하지 않거나 비공개인 코드는 검증 오류다.
 - `SEARCH-01-AC12` 메커니즘과 기존 조건을 조합하면 모든 조건을 만족한 결과 기준 정렬·페이지 메타데이터를 유지한다.
 - `SEARCH-01-AC13` 메커니즘을 생략하면 관계가 없는 게임도 유지하고 적재를 반복해도 같은 게임·메커니즘 관계를 중복 저장하지 않는다.
+- `SEARCH-01-AC14` 순위 CSV의 양수 subdomain rank만 고정 8개 카테고리 관계로 적재하고, category 단일·다중 OR와 존재하지 않는 code·중복 code의 검증을 지킨다.
+- `SEARCH-01-AC15` 테마 선택지는 한글명·영문명·안정 code를 반환하고, theme ANY·ALL과 themeMatch 기본값·중복·형식 오류를 정확히 판정한다.
+- `SEARCH-01-AC16` 추천·베스트 인원은 BGG 투표의 판정식과 N+ 확장을 지키며, 단일·다중 OR와 다른 게임 조건의 AND, 목록·전체 건수 정합성을 지킨다.
+- `SEARCH-01-AC17` 게임 상세는 카테고리·테마·추천/베스트 인원 배열을 정해진 순서로 반환하고, 관계가 없으면 빈 배열을 반환한다.
+- `SEARCH-01-AC18` 170,000행 PostgreSQL fixture에서 대표 category·theme ANY·ALL·추천/베스트·복합 조합의 결과·전체 건수·실행 계획·응답 시간을 cache 없이 재현한다.
 
 ### 제외 범위
 
-- 특수 조건·테마·튜토리얼 보유·번역 완료 여부 필터
-- 추천 인원·최적 인원을 가능 인원처럼 검색하는 기능
+- 특수 조건·튜토리얼 보유·번역 완료 여부 필터
 - 사용자 지정 정렬, 오타·초성 검색과 패싯별 결과 건수
 - 개인화 추천과 별도 검색 엔진
-- 약 2,000건을 넘는 전체 카탈로그 확장
 
 ## SEARCH-02 방 조건 검색
 
@@ -243,11 +252,11 @@ BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건�
 
 | 정본 | P1 필수 범위 반영 |
 | --- | --- |
-| [P1 명세](../P1-spec.md) | 메커니즘을 포함한 `SEARCH-01`~`SEARCH-03` 기능 목록·완료 기준 |
-| [API 명세](../API.md) | 게임·방 검색과 메커니즘 선택지, 해 본 게임 파라미터·등록·취소·본인 표시 상태 |
-| [ERD](../ERD.md) | 인원·시간 수치 열, 메커니즘 목록·관계와 사용자별 해 본 게임 관계·제약 |
-| ADR | [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md), [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md), [ADR-0048](../adr/game/0048-full-reviewed-game-mechanism-catalog.md) 승인 |
-| 카탈로그 manifest·가이드 | 인원·시간·메커니즘 필드의 출처, 정규화·검수 결과와 반복 적재 계약 |
+| [P1 명세](../P1-spec.md) | 카테고리·테마·추천/베스트·메커니즘을 포함한 `SEARCH-01`~`SEARCH-03` 기능 목록·완료 기준 |
+| [API 명세](../API.md) | 게임·방 검색, 카테고리·테마·메커니즘 선택지, 해 본 게임 파라미터·등록·취소·본인 표시 상태 |
+| [ERD](../ERD.md) | 인원·시간 수치 열, 카테고리·테마·인원 선호·메커니즘·해 본 게임 관계와 제약 |
+| ADR | [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md), [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md), [ADR-0048](../adr/game/0048-full-reviewed-game-mechanism-catalog.md), [ADR-0050](../adr/game/0050-game-metadata-catalog-and-filters.md) 승인 |
+| 카탈로그 manifest·가이드 | 인원·시간·카테고리·테마·인원 선호·메커니즘 필드의 출처, 정규화·검수 결과와 반복 적재 계약 |
 | [기반 작업](foundation.md) | 구현된 필수 검색의 대표 데이터·쿼리·측정 기준 |
 
 ### 예상 변경 지점
@@ -256,9 +265,9 @@ BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건�
 
 | 영역 | 현재 파일 |
 | --- | --- |
-| 게임 저장 모델 | `game/entity/Game.java` |
-| 게임 요청·응답 | `game/dto/GameListRequest.java`, `game/dto/GameListItem.java`, `game/dto/GameDetail.java` |
-| 게임 HTTP·조회 | `game/controller/GameController.java`, `game/service/GameQueryService.java`, `game/repository/GameRepository.java`, `game/repository/GameListRow.java` |
+| 게임 메타데이터 저장 모델 | 신규 category·theme·player preference Entity·Repository와 V20 전진 마이그레이션 |
+| 게임 요청·응답 | `game/dto/GameListRequest.java`, `game/dto/GameDetail.java`, 신규 category/theme option·summary DTO |
+| 게임 HTTP·조회 | `game/controller/GameController.java`, 신규 category/theme Controller, `game/service/GameListSearchCriteria.java`, `game/service/GameQueryService.java` |
 | 해 본 게임 관계 | 신규 Entity·Repository·Service와 `USER_PLAYED_GAMES` 전진 마이그레이션 |
 | 카탈로그 변환 | `scripts/game-catalog/`의 변환·분석 스크립트와 테스트 |
 | 방 요청·HTTP | `room/dto/RoomListRequest.java`, `room/controller/RoomController.java`, `room/controller/RoomQueryParameterAllowlistValidator.java` |
@@ -270,8 +279,8 @@ BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건�
 ### 구현·테스트 경계
 
 - 게임 데이터 정규화는 전진 Flyway 마이그레이션, JPA 매핑과 PostgreSQL 검증을 함께 포함한다.
-- 카탈로그 변환 테스트는 인원·시간 경계, `0분` 거절, 복잡도 `0.00`의 `NULL` 정규화와 누락값 처리를 검증한다.
-- 게임·방 조회 테스트는 단독 필터, 종류 사이 AND, 모든 필수 조건 조합과 필터 후 페이지 계산을 검증한다.
+- 카탈로그 변환 테스트는 category rank, theme code·한글명, suggested_numplayers의 N+·동률·poll 누락·잘못된 label, 적재 차단과 수렴·롤백을 검증한다.
+- 게임·방 조회 테스트는 단독 필터, category/recommended/best OR, theme ANY·ALL, 종류 사이 AND, 모든 필수 조건 조합과 필터 후 페이지 계산을 검증한다.
 - 해 본 게임 테스트는 사용자 격리, 등록·취소 멱등성, 오류 우선순위, 목록·상세 표시값과 관계 필터의 검증·인증·복합 검색을 HTTP와 PostgreSQL 경계에서 검증한다.
 - 필터가 없는 게임·방 요청은 `SEARCH-03`의 `playedByMe` 추가를 제외한 기존 P0 동작의 회귀 테스트를 유지한다.
 - PostgreSQL 전용 제약·마이그레이션·실행 계획은 H2 테스트만으로 검증했다고 보지 않는다.
@@ -279,7 +288,4 @@ BGG 기준 순위 스냅샷에는 플레이 시간 열이 없다. 약 2,000건�
 
 ### 구현 전 확인 필요
 
-아래 항목은 현재 채택 범위 밖이거나 별도 데이터 승인 사항이다. 팀이 결정하기 전에는 구현 담당자나 에이전트가 임의로 확정하지 않는다.
-
-- BGG 상세 플레이 시간을 전체 백필해 시간 구간 필터로 사용하는 행위가 현재 승인 범위에 포함되는지 여부
-- 약 2,000건 이후 전체 카탈로그로 확장할 때 인원·시간·복잡도가 없는 게임의 공개·필터 정책
+Issue #420의 사람 승인으로 170,000개 ID, category/theme/인원 선호 관계, 한글 매핑, N+ 규칙과 성능 측정 경계가 확정됐다. 구현 중 선언되지 않은 공유 파일, 정본 충돌, 새 외부 권한이 필요해질 때만 이슈의 DECISION_NEEDED 절차로 다시 중단한다.
