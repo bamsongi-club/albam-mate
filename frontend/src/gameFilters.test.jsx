@@ -532,8 +532,8 @@ describe('T10 조건 조합', () => {
     getGames.mockReturnValue(new Promise((resolve) => { resolvePage = resolve; }));
     await renderGamesView();
 
-    // 제목 옆 건수와 목록 자리 모두 불러오는 중임을 알린다.
-    expect(screen.getAllByText('불러오는 중…')).toHaveLength(2);
+    // 목록 자리에 불러오는 중임을 알린다.
+    expect(screen.getByText('불러오는 중…')).toBeTruthy();
 
     await act(async () => { resolvePage(EMPTY_PAGE); });
     expect(screen.getByText(/검색 결과가 없어요/)).toBeTruthy();
