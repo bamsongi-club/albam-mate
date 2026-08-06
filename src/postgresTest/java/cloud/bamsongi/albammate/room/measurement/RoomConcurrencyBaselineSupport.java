@@ -192,8 +192,9 @@ final class RoomConcurrencyBaselineSupport {
 		await(start, "동시 요청 시작");
 		roomReadGate.armResponseTimer();
 		MeasuredRequestTrace trace = measuredRetrier.beginRequest();
-		long startedAt = System.nanoTime();
+		long startedAt = 0L;
 		try {
+			startedAt = System.nanoTime();
 			command.call();
 			return RequestMeasurement.success(roomReadGate.elapsedNanosSince(startedAt), trace.retryCount());
 		} catch (BusinessException exception) {
