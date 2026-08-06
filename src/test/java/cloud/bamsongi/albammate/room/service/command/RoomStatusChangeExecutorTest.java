@@ -2,6 +2,12 @@ package cloud.bamsongi.albammate.room.service.command;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
@@ -11,18 +17,22 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.room.contract.RoomTerminalStateReached;
 import cloud.bamsongi.albammate.room.dto.RoomStatusResponse;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
 
 @ExtendWith(MockitoExtension.class)
 class RoomStatusChangeExecutorTest {
@@ -34,13 +44,15 @@ class RoomStatusChangeExecutorTest {
 	@Mock
 	private RoomRepository roomRepository;
 	@Mock
+	private RoomWaitlistRepository roomWaitlistRepository;
+	@Mock
 	private ApplicationEventPublisher eventPublisher;
 
 	private RoomStatusChangeExecutor executor;
 
 	@BeforeEach
 	void setUp() {
-		executor = new RoomStatusChangeExecutor(roomRepository, eventPublisher);
+		executor = new RoomStatusChangeExecutor(roomRepository, roomWaitlistRepository, eventPublisher);
 	}
 
 	@Test
@@ -144,6 +156,42 @@ class RoomStatusChangeExecutorTest {
 			BusinessException.class, () -> executor.cancelRoom(HOST_ID, ROOM_ID, NOW));
 
 		assertEquals(ErrorCode.INVALID_ROOM_STATUS_TRANSITION, exception.getErrorCode());
+	}
+
+	@Test
+	void ROOM_취소는_WAITING_종료가_확정된_뒤_terminal_event를_한번_발행한다() {
+		Room room = mock(Room.class);
+		when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(room));
+		when(room.getHostUserId()).thenReturn(HOST_ID);
+		when(room.getId()).thenReturn(ROOM_ID);
+		when(room.cancel()).thenReturn(true);
+		when(room.getStatus()).thenReturn(RoomStatus.CANCELED);
+
+		executor.cancelRoom(HOST_ID, ROOM_ID, NOW);
+
+		InOrder completionOrder = inOrder(roomRepository, roomWaitlistRepository, eventPublisher);
+		completionOrder.verify(roomRepository).save(room);
+		completionOrder.verify(roomRepository).flush();
+		completionOrder.verify(roomWaitlistRepository).cancelAllWaiting(ROOM_ID, NOW);
+		completionOrder.verify(eventPublisher).publishEvent(any(RoomTerminalStateReached.class));
+	}
+
+	@Test
+	void ROOM_취소의_WAITING_종료가_실패하면_terminal_event를_발행하지_않는다() {
+		Room room = mock(Room.class);
+		when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(room));
+		when(room.getHostUserId()).thenReturn(HOST_ID);
+		when(room.getId()).thenReturn(ROOM_ID);
+		when(room.cancel()).thenReturn(true);
+		doThrow(new DataIntegrityViolationException("test waitlist failure"))
+			.when(roomWaitlistRepository)
+			.cancelAllWaiting(ROOM_ID, NOW);
+
+		assertThrows(
+			DataIntegrityViolationException.class,
+			() -> executor.cancelRoom(HOST_ID, ROOM_ID, NOW));
+
+		verify(eventPublisher, never()).publishEvent(any(RoomTerminalStateReached.class));
 	}
 
 	private Room room(Instant startsAt) {
