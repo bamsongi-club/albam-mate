@@ -14,6 +14,10 @@ import cloud.bamsongi.albammate.notification.entity.NotificationOutboxEvent;
 
 public interface NotificationOutboxEventRepository extends JpaRepository<NotificationOutboxEvent, Long> {
 
+	/** 호출 트랜잭션에서 작업 판단과 저장에 한 번 고정해 재사용할 PostgreSQL wall-clock 시각을 반환한다. */
+	@Query(value = "select clock_timestamp()", nativeQuery = true)
+	Instant findPostgresOperationTime();
+
 	/** 운영 복구 트랜잭션에서 사용할 PostgreSQL 기준 시각을 한 번 고정한다. */
 	@Query(value = "select clock_timestamp()", nativeQuery = true)
 	Instant findRecoveryOperationTime();
