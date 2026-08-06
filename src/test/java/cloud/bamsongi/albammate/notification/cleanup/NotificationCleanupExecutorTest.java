@@ -31,7 +31,7 @@ class NotificationCleanupExecutorTest {
 		NotificationRepository notificationRepository = mock(NotificationRepository.class);
 		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
 		Instant measurementTime = Instant.parse("2026-08-04T00:00:00Z");
-		when(eventRepository.findCleanupMeasurementTime()).thenReturn(measurementTime);
+		when(eventRepository.findPostgresOperationTime()).thenReturn(measurementTime);
 		when(notificationRepository.deleteExpiredNotifications(measurementTime, 10)).thenReturn(3L);
 		NotificationCleanupExecutor executor = executor(notificationRepository, eventRepository, transactionManager());
 
@@ -41,7 +41,7 @@ class NotificationCleanupExecutorTest {
 		assertEquals(NotificationCleanupTarget.NOTIFICATION, result.targetType());
 		assertEquals(measurementTime, result.measurementTime());
 		assertEquals(3, result.deletedCount());
-		verify(eventRepository, times(1)).findCleanupMeasurementTime();
+		verify(eventRepository, times(1)).findPostgresOperationTime();
 		verify(notificationRepository).deleteExpiredNotifications(measurementTime, 10);
 	}
 
@@ -50,7 +50,7 @@ class NotificationCleanupExecutorTest {
 		NotificationRepository notificationRepository = mock(NotificationRepository.class);
 		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
 		Instant measurementTime = Instant.parse("2026-08-04T00:00:00Z");
-		when(eventRepository.findCleanupMeasurementTime()).thenReturn(measurementTime);
+		when(eventRepository.findPostgresOperationTime()).thenReturn(measurementTime);
 		when(eventRepository.deleteExpiredProcessedOrDiscardedEvents(measurementTime, 10)).thenReturn(4L);
 		NotificationCleanupExecutor executor = executor(notificationRepository, eventRepository, transactionManager());
 
@@ -60,7 +60,7 @@ class NotificationCleanupExecutorTest {
 		assertEquals(NotificationCleanupTarget.OUTBOX, result.targetType());
 		assertEquals(measurementTime, result.measurementTime());
 		assertEquals(4, result.deletedCount());
-		verify(eventRepository, times(1)).findCleanupMeasurementTime();
+		verify(eventRepository, times(1)).findPostgresOperationTime();
 		verify(eventRepository).deleteExpiredProcessedOrDiscardedEvents(measurementTime, 10);
 	}
 
@@ -69,7 +69,7 @@ class NotificationCleanupExecutorTest {
 		NotificationRepository notificationRepository = mock(NotificationRepository.class);
 		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
 		Instant measurementTime = Instant.parse("2026-08-04T00:00:00Z");
-		when(eventRepository.findCleanupMeasurementTime()).thenReturn(measurementTime);
+		when(eventRepository.findPostgresOperationTime()).thenReturn(measurementTime);
 		when(notificationRepository.deleteExpiredNotifications(measurementTime, 10)).thenReturn(1L);
 		PlatformTransactionManager transactionManager = transactionManager();
 		doThrow(new TransactionSystemException("commit failure"))
@@ -82,7 +82,7 @@ class NotificationCleanupExecutorTest {
 
 		assertEquals(measurementTime, exception.getMeasurementTime());
 		assertEquals(TransactionSystemException.class.getSimpleName(), exception.getOriginalExceptionClass());
-		verify(eventRepository, times(1)).findCleanupMeasurementTime();
+		verify(eventRepository, times(1)).findPostgresOperationTime();
 		verify(notificationRepository).deleteExpiredNotifications(measurementTime, 10);
 	}
 
@@ -91,7 +91,7 @@ class NotificationCleanupExecutorTest {
 		NotificationRepository notificationRepository = mock(NotificationRepository.class);
 		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
 		PlatformTransactionManager transactionManager = transactionManager();
-		when(eventRepository.findCleanupMeasurementTime()).thenReturn(Instant.parse("2026-08-04T00:00:00Z"));
+		when(eventRepository.findPostgresOperationTime()).thenReturn(Instant.parse("2026-08-04T00:00:00Z"));
 		NotificationCleanupExecutor executor = executor(notificationRepository, eventRepository, transactionManager);
 
 		executor.cleanupOneBatch(NotificationCleanupTarget.OUTBOX, 10);
@@ -110,7 +110,7 @@ class NotificationCleanupExecutorTest {
 		NotificationRepository notificationRepository = mock(NotificationRepository.class);
 		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
 		RuntimeException measurementTimeFailure = new IllegalStateException("measurement time query failure");
-		when(eventRepository.findCleanupMeasurementTime()).thenThrow(measurementTimeFailure);
+		when(eventRepository.findPostgresOperationTime()).thenThrow(measurementTimeFailure);
 		NotificationCleanupExecutor executor = executor(notificationRepository, eventRepository, transactionManager());
 
 		// Act
@@ -120,7 +120,7 @@ class NotificationCleanupExecutorTest {
 
 		// Assert
 		assertSame(measurementTimeFailure, thrownException);
-		verify(eventRepository, times(1)).findCleanupMeasurementTime();
+		verify(eventRepository, times(1)).findPostgresOperationTime();
 		verify(notificationRepository, never()).deleteExpiredNotifications(any(), anyInt());
 		verify(eventRepository, never()).deleteExpiredProcessedOrDiscardedEvents(any(), anyInt());
 	}

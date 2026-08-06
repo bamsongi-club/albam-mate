@@ -18,14 +18,6 @@ public interface NotificationOutboxEventRepository extends JpaRepository<Notific
 	@Query(value = "select clock_timestamp()", nativeQuery = true)
 	Instant findPostgresOperationTime();
 
-	/** 운영 복구 트랜잭션에서 사용할 PostgreSQL 기준 시각을 한 번 고정한다. */
-	@Query(value = "select clock_timestamp()", nativeQuery = true)
-	Instant findRecoveryOperationTime();
-
-	/** cleanup batch가 due 판정·삭제·로그에 함께 사용할 PostgreSQL 기준 시각을 한 번 고정한다. */
-	@Query(value = "select clock_timestamp()", nativeQuery = true)
-	Instant findCleanupMeasurementTime();
-
 	/** 실제 변경 전 전체 대상을 ID 오름차순으로 잠근다. */
 	@Query(value = "select * from notification_outbox_events where id in (:eventIds) order by id for update", nativeQuery = true)
 	List<NotificationOutboxEvent> findAllByIdInOrderByIdForUpdate(@Param("eventIds")
