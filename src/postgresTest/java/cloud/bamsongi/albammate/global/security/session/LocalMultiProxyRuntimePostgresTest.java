@@ -39,25 +39,25 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
-@EnabledIfSystemProperty(named = "issue360.localMultiProxy", matches = "true")
+@EnabledIfSystemProperty(named = "issue471.localProxy", matches = "true")
 class LocalMultiProxyRuntimePostgresTest {
 
 	private static final Pattern CSRF_TOKEN_PATTERN = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"");
 	private static final Pattern MESSAGE_ID_PATTERN = Pattern.compile("\\\"messageId\\\":(\\d+)");
 	private static final Pattern ROOM_ID_PATTERN = Pattern.compile("\\\"id\\\":(\\d+)");
-	private static final List<String> LOCAL_MULTI_SERVICES = List.of("postgres", "redis", "spring-1", "spring-2",
+	private static final List<String> LOCAL_SERVICES = List.of("postgres", "redis", "spring-1", "spring-2",
 		"proxy");
 	private static final Set<String> PUBLIC_SERVICES = Set.of("postgres", "redis", "proxy");
-	private static final String ALLOWED_ORIGIN = "http://localhost:5174";
+	private static final String ALLOWED_ORIGIN = "http://localhost:5173";
 	private static final String PASSWORD = "123456789012345";
 	private static final String UPSTREAM_HEADER = "x-albam-mate-upstream";
 	private static final String WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 	@Test
 	void local_multi_서비스가_healthy이고_공개_포트가_loopback에만_바인딩되며_프록시_세션이_공유된다() throws Exception {
-		assertLocalMultiServicesHealthyAndLoopbackBound();
+		assertLocalServicesHealthyAndLoopbackBound();
 
-		URI proxyUri = URI.create("http://127.0.0.1:5174");
+		URI proxyUri = URI.create("http://127.0.0.1:5173");
 		String password = "123456789012345";
 		String email = "proxy-runtime-" + UUID.randomUUID() + "@example.com";
 		HttpClient client = HttpClient.newBuilder()
@@ -99,7 +99,7 @@ class LocalMultiProxyRuntimePostgresTest {
 	/** T1: 프록시 주소로 보낸 WebSocket Upgrade 요청이 실제 Spring 인스턴스까지 라우팅되어 101로 전환된다. */
 	@Test
 	void 프록시_주소로_WebSocket_Upgrade_연결을_생성한다() throws Exception {
-		URI proxyUri = URI.create("http://127.0.0.1:5174");
+		URI proxyUri = URI.create("http://127.0.0.1:5173");
 		HttpClient client = HttpClient.newBuilder()
 			.cookieHandler(new CookieManager(null, CookiePolicy.ACCEPT_ALL))
 			.build();
@@ -117,7 +117,7 @@ class LocalMultiProxyRuntimePostgresTest {
 	/** T2: HTTP로 메시지를 저장한 인스턴스와 다른 인스턴스가 맡은 프록시 WebSocket 연결도 실시간 프레임을 수신한다. */
 	@Test
 	void 메시지를_저장한_인스턴스와_다른_인스턴스의_프록시_WebSocket_연결이_실시간으로_수신한다() throws Exception {
-		URI proxyUri = URI.create("http://127.0.0.1:5174");
+		URI proxyUri = URI.create("http://127.0.0.1:5173");
 		HttpClient client = HttpClient.newBuilder()
 			.cookieHandler(new CookieManager(null, CookiePolicy.ACCEPT_ALL))
 			.build();
@@ -156,7 +156,7 @@ class LocalMultiProxyRuntimePostgresTest {
 	/** T3: 연결이 끊긴 뒤 다른 인스턴스로 재연결해도 같은 세션으로 판정되고 누락 메시지가 복구된다. */
 	@Test
 	void 재연결_시_다른_인스턴스에서도_공용_세션과_누락_메시지가_복구된다() throws Exception {
-		URI proxyUri = URI.create("http://127.0.0.1:5174");
+		URI proxyUri = URI.create("http://127.0.0.1:5173");
 		HttpClient client = HttpClient.newBuilder()
 			.cookieHandler(new CookieManager(null, CookiePolicy.ACCEPT_ALL))
 			.build();
@@ -211,8 +211,8 @@ class LocalMultiProxyRuntimePostgresTest {
 		}
 	}
 
-	private void assertLocalMultiServicesHealthyAndLoopbackBound() throws Exception {
-		for (String service : LOCAL_MULTI_SERVICES) {
+	private void assertLocalServicesHealthyAndLoopbackBound() throws Exception {
+		for (String service : LOCAL_SERVICES) {
 			String containerId = dockerCompose("ps", "-q", service).trim();
 			assertFalse(containerId.isBlank(), service + " container is not running");
 			assertEquals("running", dockerInspect(containerId, "{{.State.Status}}"), service + " state");
@@ -237,7 +237,7 @@ class LocalMultiProxyRuntimePostgresTest {
 		command[2] = "--env-file";
 		command[3] = ".env.example";
 		command[4] = "-f";
-		command[5] = "compose.local-multi.yml";
+		command[5] = "compose.local.yml";
 		System.arraycopy(arguments, 0, command, 6, arguments.length);
 		return runCommand(command);
 	}

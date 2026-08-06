@@ -10,9 +10,11 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
+import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,7 +55,7 @@ import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
 
-/** T1~T3: production profile이 local-multi와 분리된 namespace로 사용자·방 전송 제한을 등록하고 인스턴스 간 상태를 공유하는지 검증한다. */
+/** T1~T3: production profile이 local과 분리된 namespace로 사용자·방 전송 제한을 등록하고 인스턴스 간 상태를 공유하는지 검증한다. */
 @Testcontainers
 @ActiveProfiles("production")
 @SpringBootTest(properties = "app.notification.relay.enabled=false")
@@ -93,6 +95,8 @@ class ChatMessageRateLimitProductionPostgresTest {
 	private RedisConnectionFactory redisConnectionFactory;
 	@Autowired
 	private Environment environment;
+	@Autowired
+	private Flyway flyway;
 	@Autowired
 	private RecordingChatRealtimePublisher realtimePublisher;
 
@@ -151,6 +155,17 @@ class ChatMessageRateLimitProductionPostgresTest {
 		assertTrue(Boolean.TRUE.equals(redis().hasKey(roomKey(PRODUCTION_RATE_LIMIT_PREFIX, room.getId()))));
 		assertRateLimited(() -> send(senders.get(6), room.getId(), "room-31"));
 		assertEquals(30, chatMessageRepository.count());
+	}
+
+	@Test
+	void T6_production_profile은_local_seed_없이_schema_only로_Flyway를_실행한다() {
+		assertTrue(Arrays.stream(flyway.getConfiguration().getLocations())
+			.noneMatch(location -> location.getDescriptor().contains("db/local")));
+		assertEquals(
+			0,
+			jdbcTemplate.queryForObject(
+				"select count(*) from users where email = 'local.seed.host@albammate.local'",
+				Integer.class));
 	}
 
 	@Test

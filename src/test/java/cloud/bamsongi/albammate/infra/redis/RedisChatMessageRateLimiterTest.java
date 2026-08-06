@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.infra.redis;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -29,10 +30,15 @@ class RedisChatMessageRateLimiterTest {
 	@BeforeEach
 	void setUp() {
 		MockEnvironment environment = new MockEnvironment();
-		environment.setActiveProfiles("local-multi");
+		environment.setActiveProfiles("local");
 		limiter = new RedisChatMessageRateLimiter(mock(RedisConnectionFactory.class), environment);
 		redisTemplate = mock(StringRedisTemplate.class);
 		ReflectionTestUtils.setField(limiter, "redisTemplate", redisTemplate);
+	}
+
+	@Test
+	void T3_local_rate_limit_namespace는_production과_분리된다() {
+		assertEquals("albam-mate:local:ratelimit", ReflectionTestUtils.getField(limiter, "keyPrefix"));
 	}
 
 	@Test

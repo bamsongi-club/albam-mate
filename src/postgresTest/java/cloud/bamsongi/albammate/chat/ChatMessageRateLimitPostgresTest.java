@@ -56,14 +56,14 @@ import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
 
 @Testcontainers
-@ActiveProfiles("local-multi")
+@ActiveProfiles("local")
 @SpringBootTest(properties = "app.notification.relay.enabled=false")
 @Import(ChatMessageRateLimitPostgresTest.TestBeans.class)
 class ChatMessageRateLimitPostgresTest {
 
 	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final String REDIS_IMAGE = "redis:8.4-alpine";
-	private static final String RATE_LIMIT_PREFIX = "albam-mate:local-multi:ratelimit";
+	private static final String RATE_LIMIT_PREFIX = "albam-mate:local:ratelimit";
 	private static final Instant NOW = Instant.parse("2026-08-05T00:00:00Z");
 
 	@Container

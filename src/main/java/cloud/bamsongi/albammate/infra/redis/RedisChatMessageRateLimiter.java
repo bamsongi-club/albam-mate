@@ -16,13 +16,13 @@ import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
 
-/** local-multi와 production에서 공용 Redis에 채팅 전송 두 bucket을 Lua 한 번으로 예약하는 adapter다. 자기 자신을 등록하고
+/** local과 production에서 공용 Redis에 채팅 전송 두 bucket을 Lua 한 번으로 예약하는 adapter다. 자기 자신을 등록하고
  * {@link Environment}로 프로필별 namespace를 골라 key를 분리한다. */
 @Component
-@Profile({"local-multi", "production"})
+@Profile({"local", "production"})
 public class RedisChatMessageRateLimiter implements ChatMessageRateLimiter {
 
-	private static final String LOCAL_MULTI_NAMESPACE = "albam-mate:local-multi:ratelimit";
+	private static final String LOCAL_NAMESPACE = "albam-mate:local:ratelimit";
 	private static final String PRODUCTION_NAMESPACE = "albam-mate:production:ratelimit";
 	private static final String RESERVATION_SUFFIX = ":reservations";
 	private static final int USER_LIMIT = 5;
@@ -111,7 +111,7 @@ public class RedisChatMessageRateLimiter implements ChatMessageRateLimiter {
 	}
 
 	static String namespaceFor(Environment environment) {
-		return environment.acceptsProfiles(Profiles.of("production")) ? PRODUCTION_NAMESPACE : LOCAL_MULTI_NAMESPACE;
+		return environment.acceptsProfiles(Profiles.of("production")) ? PRODUCTION_NAMESPACE : LOCAL_NAMESPACE;
 	}
 
 	@Override

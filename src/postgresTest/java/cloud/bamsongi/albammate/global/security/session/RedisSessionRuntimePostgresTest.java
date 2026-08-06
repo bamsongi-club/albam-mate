@@ -47,7 +47,7 @@ import cloud.bamsongi.albammate.user.contract.UserEmail;
 import cloud.bamsongi.albammate.user.contract.UserNickname;
 
 @Testcontainers
-@ActiveProfiles("local-multi")
+@ActiveProfiles("local")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
 	"app.security.cookie.secure=false",
@@ -57,7 +57,7 @@ class RedisSessionRuntimePostgresTest {
 
 	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final String REDIS_IMAGE = "redis:8.4-alpine";
-	private static final String SESSION_KEY_PREFIX = "albam-mate:local-multi:session:sessions:";
+	private static final String SESSION_KEY_PREFIX = "albam-mate:local:session:sessions:";
 	private static final long SESSION_TTL_SECONDS = 30 * 60;
 	private static final Pattern CSRF_TOKEN_PATTERN = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"");
 
@@ -88,8 +88,8 @@ class RedisSessionRuntimePostgresTest {
 		registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
 		registry.add("spring.datasource.username", POSTGRES::getUsername);
 		registry.add("spring.datasource.password", POSTGRES::getPassword);
-		registry.add("ALBAM_MATE_LOCAL_MULTI_REDIS_HOST", REDIS::getHost);
-		registry.add("ALBAM_MATE_LOCAL_MULTI_REDIS_PORT", () -> REDIS.getMappedPort(6379));
+		registry.add("ALBAM_MATE_LOCAL_REDIS_HOST", REDIS::getHost);
+		registry.add("ALBAM_MATE_LOCAL_REDIS_PORT", () -> REDIS.getMappedPort(6379));
 	}
 
 	@Test
@@ -170,7 +170,7 @@ class RedisSessionRuntimePostgresTest {
 
 	private ConfigurableApplicationContext secondApplicationContext() {
 		return new SpringApplicationBuilder(AlbamMateApplication.class).run(
-			"--spring.profiles.active=local-multi",
+			"--spring.profiles.active=local",
 			"--server.port=0",
 			"--spring.datasource.url=" + POSTGRES.getJdbcUrl(),
 			"--spring.datasource.username=" + POSTGRES.getUsername(),
