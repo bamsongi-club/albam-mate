@@ -5,9 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -40,17 +38,18 @@ class NotificationRoomChangeEventRecorderTest {
 
 	@Test
 	void 세_이벤트를_각각의_Outbox_enum과_분리된_수신자_스냅샷으로_저장한다() {
+		when(eventRepository.findPostgresOperationTime()).thenReturn(RECORDED_AT);
 		when(eventRepository.saveAndFlush(any(NotificationOutboxEvent.class))).thenReturn(savedEvent);
 		when(savedEvent.getId()).thenReturn(91L);
 		NotificationRoomChangeEventRecorder recorder = new NotificationRoomChangeEventRecorder(
 			eventRepository,
-			recipientRepository,
-			Clock.fixed(RECORDED_AT, ZoneOffset.UTC));
+			recipientRepository);
 
 		recorder.record(new ParticipationJoinedEvent(7L, OCCURRED_AT), List.of(11L));
 		recorder.record(new ParticipationCanceledEvent(7L, OCCURRED_AT), List.of(12L));
 		recorder.record(new RoomCanceledEvent(7L, OCCURRED_AT), List.of(11L, 12L));
 
+		verify(eventRepository, org.mockito.Mockito.times(3)).findPostgresOperationTime();
 		ArgumentCaptor<NotificationOutboxEvent> eventCaptor = ArgumentCaptor.forClass(NotificationOutboxEvent.class);
 		verify(eventRepository, org.mockito.Mockito.times(3)).saveAndFlush(eventCaptor.capture());
 		assertEquals(
