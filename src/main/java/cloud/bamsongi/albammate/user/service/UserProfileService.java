@@ -4,25 +4,35 @@ import java.io.InputStream;
 import java.util.Objects;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import cloud.bamsongi.albammate.global.exception.UnauthenticatedException;
 import cloud.bamsongi.albammate.user.contract.UserNickname;
 import cloud.bamsongi.albammate.user.dto.UserProfileResponse;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
-import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
 
 /** 현재 인증 사용자의 프로필 조회와 닉네임 변경을 사용자 모듈 트랜잭션으로 처리한다. */
 @Service
-@RequiredArgsConstructor
 public class UserProfileService {
 
-	@NonNull private final UserRepository userRepository;
-	@NonNull private final ProfileImageStorage profileImageStorage;
+	private final UserRepository userRepository;
+	private final ProfileImageStorage profileImageStorage;
+	private final TransactionTemplate transactionTemplate;
+
+	public UserProfileService(
+		UserRepository userRepository,
+		ProfileImageStorage profileImageStorage,
+		PlatformTransactionManager transactionManager) {
+		this.userRepository = Objects.requireNonNull(userRepository, "userRepository");
+		this.profileImageStorage = Objects.requireNonNull(profileImageStorage, "profileImageStorage");
+		this.transactionTemplate = new TransactionTemplate(
+			Objects.requireNonNull(transactionManager, "transactionManager"));
+	}
 
 	@Transactional(readOnly = true)
 	public UserProfileResponse findProfile(long userId) {
@@ -43,22 +53,26 @@ public class UserProfileService {
 	 * 사용자 행을 {@link UserRepository#findByIdForUpdate}로 잠가 같은 사용자에 대한 동시 변경을 직렬화하므로,
 	 * previousUrl은 항상 마지막으로 커밋된 파일을 가리키고 그 파일만 삭제 대상이 된다.
 	 */
-	@Transactional
 	public UserProfileResponse uploadProfileImage(
 		long userId, InputStream inputStream, String originalFilename, String contentType) {
-		User user = requireCurrentUserForUpdate(userId);
-		String previousUrl = user.getProfileImageUrl();
 		String newUrl = profileImageStorage.store(userId, inputStream, originalFilename, contentType);
+		ProfileImageUpdate update;
 		try {
-			user.changeProfileImageUrl(newUrl);
+			update = transactionTemplate.execute(
+				status -> {
+					User user = requireCurrentUserForUpdate(userId);
+					String previousUrl = user.getProfileImageUrl();
+					user.changeProfileImageUrl(newUrl);
+					return new ProfileImageUpdate(UserProfileResponse.from(user), previousUrl);
+				});
 		} catch (RuntimeException exception) {
 			profileImageStorage.delete(newUrl);
 			throw exception;
 		}
-		if (previousUrl != null && !previousUrl.equals(newUrl)) {
-			deleteAfterCommit(previousUrl);
+		if (update.previousUrl() != null && !update.previousUrl().equals(newUrl)) {
+			profileImageStorage.delete(update.previousUrl());
 		}
-		return UserProfileResponse.from(user);
+		return update.response();
 	}
 
 	@Transactional
@@ -109,5 +123,8 @@ public class UserProfileService {
 			throw new UnauthenticatedException();
 		}
 		return userRepository.findByIdForUpdate(userId).orElseThrow(UnauthenticatedException::new);
+	}
+
+	private record ProfileImageUpdate(UserProfileResponse response, String previousUrl) {
 	}
 }
