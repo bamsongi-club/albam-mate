@@ -35,7 +35,8 @@ class GameMechanismControllerTest {
 	@Test
 	void 공개_메커니즘_선택지는_응답_계약_필드만_반환한다() throws Exception {
 		when(gameMechanismQueryService.findPublicOptions()).thenReturn(
-			List.of(new GameMechanismOption("HAND_MANAGEMENT", "핸드 관리", "Hand Management", 1, "손에 든 카드를 관리하는 메커니즘입니다.")));
+			List.of(
+				new GameMechanismOption("HAND_MANAGEMENT", "핸드 관리", "Hand Management", 1, "손에 든 카드를 관리하는 메커니즘입니다.")));
 
 		mockMvc.perform(get("/api/game-mechanisms"))
 			.andExpect(status().isOk())

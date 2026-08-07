@@ -11,6 +11,7 @@ public record GameMechanismOption(
 	String descriptionKo) {
 
 	public static GameMechanismOption from(GameMechanismOptionRow row) {
-		return new GameMechanismOption(row.code(), row.nameKo(), row.nameEn(), row.featuredOrder(), row.descriptionKo());
+		return new GameMechanismOption(row.code(), row.nameKo(), row.nameEn(), row.featuredOrder(),
+			row.descriptionKo());
 	}
 }
