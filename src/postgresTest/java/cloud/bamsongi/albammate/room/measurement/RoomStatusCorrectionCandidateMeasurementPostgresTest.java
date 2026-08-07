@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.AfterEach;
@@ -362,12 +363,15 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 			jdbcTemplate.execute("select pg_stat_statements_reset()");
 			startedAtNanos = runProcessingPath(path, candidateLimit);
 			long elapsedNanos = System.nanoTime() - startedAtNanos;
+			// 사후 검증 SELECT가 통계에 섞이지 않도록 처리 반환 직후에 DB 비용을 먼저 확보한다.
+			// 그래야 실행시간과 DB 비용이 같은 구간을 가리킨다.
+			DatabaseCost databaseCost = databaseCost();
 			int remainingDueRoomCount = remainingDueRoomCount(fixtureType);
 			int successCount = initialDueRoomCount - remainingDueRoomCount;
 			assertEquals(0, remainingDueRoomCount, "동일 초기 due 집합을 끝까지 처리해야 합니다.");
 			return new MeasurementRun(phase, iteration, initialDueRoomCount, successCount, 0, elapsedNanos,
 				elapsedNanos,
-				throughputPerSecond(successCount, elapsedNanos), databaseCost());
+				throughputPerSecond(successCount, elapsedNanos), databaseCost);
 		} catch (RuntimeException | AssertionError exception) {
 			Long elapsedNanos = startedAtNanos == null ? null : System.nanoTime() - startedAtNanos;
 			MeasurementRun partialRun = new MeasurementRun(phase, iteration, initialDueRoomCount, null, null,
@@ -518,6 +522,8 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 				Map.entry("candidateLimit", String.valueOf(candidateLimit)),
 				Map.entry("executionCommand", executionCommand(profile, fixtureType, reportKind)),
 				Map.entry("measurementSystemProperty", measurementSystemProperty(profile, fixtureType, reportKind)),
+				Map.entry("measuredCandidateLimits",
+					measuredCandidateLimits().stream().map(String::valueOf).collect(Collectors.joining(","))),
 				Map.entry("issue390.measurement", System.getProperty("issue390.measurement", "false")),
 				Map.entry("springTaskSchedulingEnabled",
 					springEnvironment.getProperty("spring.task.scheduling.enabled", "true")),
@@ -740,7 +746,8 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 	/**
 	 * 승인 규모의 동일 세션 비교는 한 제한 ID마다 두 경로를 12회 실행하므로 전체 후보를 한 번에 재면 오래 걸린다.
 	 * 기본값은 승인된 후보 전체이고, 부분 재측정이 필요할 때만 {@code issue390.candidateLimits}로 좁힌다.
-	 * 어떤 값으로 실행했는지는 보고서의 `executionCommand`와 `measuredCandidateLimits`에 남는다.
+	 * 실제로 실행한 목록은 환경 메타데이터의 {@code measuredCandidateLimits}에 남는다. 부분 실행 산출물이
+	 * 최종 보존분이 되는 것은 {@code scripts/room09-measurement-report.mjs}의 조합 manifest가 막는다.
 	 */
 	private List<Integer> measuredCandidateLimits() {
 		String configured = System.getProperty("issue390.candidateLimits", "").trim();
