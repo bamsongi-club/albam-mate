@@ -29,6 +29,8 @@ class NotificationRelayFailureClassifierTest {
 			NotificationRelayProcessingException.expired(10L));
 
 		assertEquals("NOTIFICATION_EXPIRED", classification.failureCode());
+		assertEquals("NotificationExpired", classification.failureClass());
+		assertEquals("Notification event expired before relay processing", classification.sanitizedMessage());
 		assertTrue(classification.deterministic());
 	}
 

@@ -57,6 +57,9 @@ class NotificationRelayPostgresTest {
 	private NotificationRelayFailureRecorder failureRecorder;
 
 	@Autowired
+	private NotificationRelayFailureClassifier failureClassifier;
+
+	@Autowired
 	private NotificationRelayCoordinator coordinator;
 
 	@Autowired
@@ -408,6 +411,43 @@ class NotificationRelayPostgresTest {
 	}
 
 	@Test
+	void 만료된_PENDING의_일시_실패는_최신_DB_시각으로_canonical_만료_실패로_덮어쓴다() {
+		Fixture fixture = createFixture();
+		long eventId = insertLongExpiredPendingEvent(fixture.roomId());
+
+		NotificationRelayFailureRecorder.RecordedFailure recordedFailure = failureRecorder.record(
+			NotificationRelayProcessingException.failed(eventId, new IllegalStateException("temporary failure")))
+			.orElseThrow();
+		NotificationRelayFailureClassifier.FailureClassification expired = failureClassifier.expiredClassification();
+
+		assertEquals(expired.failureCode(), recordedFailure.failureCode());
+		assertEquals(expired.failureClass(), recordedFailure.failureClass());
+		assertTrue(recordedFailure.deterministicFailure());
+		assertFalse(recordedFailure.retryScheduled());
+		assertEquals("FAILED", jdbcTemplate.queryForObject(
+			"select status from notification_outbox_events where id = ?", String.class, eventId));
+		assertNull(jdbcTemplate.queryForObject(
+			"select available_at from notification_outbox_events where id = ?", Instant.class, eventId));
+		assertEquals(expired.sanitizedMessage(), jdbcTemplate.queryForObject(
+			"select last_failure_message from notification_outbox_events where id = ?", String.class, eventId));
+	}
+
+	@Test
+	void 존재하지_않는_이벤트의_실패는_변경과_afterCommit_로그를_남기지_않는다() {
+		ListAppender<ILoggingEvent> appender = attachFailureLogAppender();
+		try {
+			Optional<NotificationRelayFailureRecorder.RecordedFailure> result = failureRecorder.record(
+				NotificationRelayProcessingException.failed(Long.MAX_VALUE,
+					new IllegalStateException("missing event")));
+
+			assertTrue(result.isEmpty());
+			assertTrue(appender.list.isEmpty());
+		} finally {
+			detachFailureLogAppender(appender);
+		}
+	}
+
+	@Test
 	void 만료_이벤트는_알림이나_PROCESSED를_만들지_않고_NOTIFICATION_EXPIRED로_격리한다() {
 		Fixture fixture = createFixture();
 		long eventId = insertExpiredPendingEvent(fixture.roomId());
@@ -419,7 +459,7 @@ class NotificationRelayPostgresTest {
 			.orElseThrow();
 
 		assertEquals(NotificationRelayProcessingException.FailureReason.EXPIRED, exception.getFailureReason());
-		assertEquals("NOTIFICATION_EXPIRED", recordedFailure.failureCode());
+		assertEquals(failureClassifier.expiredClassification().failureCode(), recordedFailure.failureCode());
 		assertEquals("FAILED", jdbcTemplate.queryForObject(
 			"select status from notification_outbox_events where id = ?", String.class, eventId));
 		assertEquals(0, jdbcTemplate.queryForObject(
@@ -628,6 +668,17 @@ class NotificationRelayPostgresTest {
 				+ "insert into notification_outbox_events (event_type, room_id, occurred_at, recorded_at, status, available_at, "
 				+ "failure_count, total_failure_count, reprocess_count) "
 				+ "select 'PARTICIPATION_JOINED', ?, operation_time - interval '90 days', operation_time, 'PENDING', "
+				+ "operation_time, 0, 0, 0 from operation returning id",
+			Long.class,
+			roomId);
+	}
+
+	private long insertLongExpiredPendingEvent(long roomId) {
+		return jdbcTemplate.queryForObject(
+			"with operation as materialized (select clock_timestamp() as operation_time) "
+				+ "insert into notification_outbox_events (event_type, room_id, occurred_at, recorded_at, status, available_at, "
+				+ "failure_count, total_failure_count, reprocess_count) "
+				+ "select 'PARTICIPATION_JOINED', ?, operation_time - interval '91 days', operation_time, 'PENDING', "
 				+ "operation_time, 0, 0, 0 from operation returning id",
 			Long.class,
 			roomId);
