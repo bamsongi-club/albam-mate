@@ -170,7 +170,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 연결 기능 | [PART-04 선착순 대기열과 자동 승격](#part-04-선착순-대기열과-자동-승격) |
 | 진행 상태 저장 | [`ROOM_STATUS_CORRECTION_PROGRESS`](../ERD.md#room_status_correction_progress) 단일 행 |
 | 착수 전 확정 | 없음 |
-| 구현·측정 후 확정 | 확정됨. [ROOM-09d 후보 측정](../measurements/room-09-bounded-processing-baseline.md)으로 한 번당 ID 수 `100`, 실행시간 경고 `180s`, `lockAtMostFor` `10m`을 확정했다. 실행 주기는 기존 `15m`(jitter `3m`)을 유지하고, 반복·재시도는 측정이 조정 근거를 만들지 않아 기존 구조를 그대로 둔다. |
+| 구현·측정 후 확정 | 일부 확정. [ROOM-09d 후보 측정](../measurements/room-09-bounded-processing-baseline.md)으로 한 번당 ID 수 `100`, 실행시간 경고 `180s`, `lockAtMostFor` `10m`을 확정했고 실행 주기는 기존 `15m`(jitter `3m`)을 유지한다. **실행당 반복 상한은 미확정이다.** 해당 설정이 구현에 없어 정할 대상이 없었고, 보완과 초기 운영값 확정은 [#504](https://github.com/bamsongi-club/albam-mate/issues/504)가 소유한다. 그 전까지 `lockAtMostFor`는 한 실행의 최장 시간을 보장하지 않는다. 재시도는 공용 낙관적 잠금 재시도를 그대로 쓰고 ROOM 전용 설정을 두지 않는다. |
 | 측정 후 사용자 결정 | 실패 backoff·격리 비교와 제한 범위의 조건부 DB 직접 갱신 비교 여부. 기준선 결과를 `DECISION_NEEDED`로 제시하고 승인 전에는 비교 구현에 착수하지 않음 |
 
 ### 실행·진행 상태 계약
@@ -183,7 +183,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 - ShedLock을 얻은 Scheduler 실행은 후보를 읽기 전에 짧은 독립 트랜잭션에서 진행 행을 `FOR UPDATE`로 읽고 `execution_generation`과 `progress_version`을 각각 1 증가시켜 실행 세대를 점유한다. 최초 실행처럼 `turn_cutoff`이 `NULL`이면 이번 Scheduler의 고정 `requestTime`으로 초기화한다. cursor가 `NULL`인 완료된 순회를 새 실행이 이어받으면 `turn_cutoff`을 기존 값과 `requestTime` 중 뒤 시각으로 전진시킨다.
 - 후보 선별 뒤 cursor 전진과 wrap-around는 각각 별도의 짧은 독립 트랜잭션에서 `job_name`, 실행 세대와 기대 `progress_version`이 모두 일치할 때만 갱신하고 `progress_version`을 1 증가시킨다. 조건부 갱신이 0건이면 늦은 실행 주체로 판정해 이후 ROOM을 처리하지 않고 실행을 끝낸다.
 - cursor는 ROOM 처리 성공·무변경·격리된 실패와 관계없이 해당 후보를 시도한 뒤 선별에 사용한 `(논리적 처리 예정 시각, roomId)`로 전진한다. ROOM 트랜잭션이 커밋된 뒤 cursor 커밋 전에 프로세스가 종료되면 같은 ROOM을 다시 선별할 수 있는 at-least-once 방식이며, 최신 상태 재판정과 멱등 전이로 같은 결과에 수렴한다. cursor를 먼저 전진시켜 미처리 ROOM을 건너뛰는 방식은 허용하지 않는다.
-- cursor 뒤 후보가 없으면 같은 CAS 경계에서 cursor를 `NULL`로 회전한다. 이번 실행의 `requestTime`이 기존 `turn_cutoff`보다 뒤이고 실행당 반복 예산이 남았을 때만 새 cutoff로 다음 순회를 시작한다. 같은 cutoff를 다시 여는 즉시 반복은 금지하고 다음 Scheduler 실행에 맡긴다.
+- cursor 뒤 후보가 없으면 같은 CAS 경계에서 cursor를 `NULL`로 회전하고 이번 실행을 끝낸다. 같은 cutoff를 다시 여는 즉시 반복은 금지하고 다음 Scheduler 실행에 맡긴다. 실행당 반복 예산 설정은 아직 없다. 현재 구현은 회전 뒤 새 cutoff 순회를 이어서 시작하지 않으므로 한 실행이 여는 cutoff는 하나지만, 하나의 cutoff 안에서 처리하는 배치 수에는 상한이 없다. 예산 도입은 [#504](https://github.com/bamsongi-club/albam-mate/issues/504)가 소유한다.
 - Scheduler의 제한 선별·진행 상태는 API 요청 경계 상태 보정에 사용하지 않는다. 목록·상세·내 모임과 상태 의존 명령은 [ADR-0012](../adr/room/0012-room-request-boundary-state-reconciliation.md)의 현재 상태 보정·오류 계약을 유지하고, ShedLock 미획득이나 Scheduler cursor 때문에 현재 상태 판정을 생략하지 않는다.
 
 ### 기능 규칙
