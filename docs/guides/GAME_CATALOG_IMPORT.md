@@ -1,6 +1,6 @@
 # 게임 카탈로그 검수·적재
 
-이 절차는 [ADR-0015](../adr/game/0015-bgg-baseline-team-collected-game-list.md)와 [ADR-0050](../adr/game/0050-game-metadata-catalog-and-filters.md)의 BGG 기준 snapshot, 출처 기록, 선검증과 transaction 단위 `UPSERT` 규칙을 실행한다. 원본과 생성 산출물은 저장소에 커밋하지 않고, 출처 manifest와 검수 기록만 보관한다.
+이 절차는 [ADR-0015](../adr/game/0015-bgg-baseline-team-collected-game-list.md)와 [ADR-0050](../adr/game/0050-game-metadata-catalog-and-filters.md)의 BGG 기준 snapshot, 출처 기록, 선검증과 transaction 단위 `UPSERT` 규칙을 실행한다. 원본과 생성 산출물은 저장소에 커밋하지 않고, 출처·승인 manifest와 각 배치의 `quality-report.json`을 보관한다.
 
 입력 JSON의 `supported_player_count`는 게임 규칙상 플레이 가능한 인원 범위다. 이용자 평가 기반 추천 인원·최적 인원과는 구분한다.
 
@@ -95,7 +95,42 @@ psql "$DATABASE_URL" \
   --command "SELECT COUNT(*) FROM game_mechanism_relations;"
 ```
 
-## 5. 17만 게임 메타데이터 batch
+## 5. 17만 게임 메커니즘 batch
+
+17만 게임의 BGG XML에서 메커니즘 관계를 생성할 때는 기존 `prepare-game-catalog.mjs`의 파일 기반 흐름과 별도의 입력·출력 경로를 사용한다. 기존 게임 산출 디렉터리 `build/game-catalog/approved`를 메커니즘 CLI의 `--out`으로 재사용하지 않는다. CLI는 부분 산출물 혼입을 막기 위해 비어 있지 않은 출력 디렉터리를 거부한다.
+
+입력 manifest는 저장소 밖에 두고 `approved: true`, `testOnly: false`, `games`, `mechanismDictionary`, `xmlSnapshot`, `mechanismCatalog`를 포함해야 한다. `games`는 170,000행의 BGG ID, `mechanismDictionary`는 검수된 `description_ko`, `xmlSnapshot`은 batch별 요청·응답 ID와 raw XML manifest를 가리킨다. `mechanismCatalog`에는 `sourceReference`, `reviewedBy`, `reviewedAt`, `approvalScope`를 기록한다.
+
+```sh
+node scripts/game-catalog/prepare-game-mechanism-catalog.mjs \
+  --input-manifest /path/to/mechanism-input-manifest.json \
+  --out /path/to/approved-game-mechanism-batch
+```
+
+`/path/to/approved-game-mechanism-batch`는 기존 게임 산출 디렉터리와 분리된 빈 디렉터리여야 한다. 성공하면 `service-mechanism-catalog.json`, `upsert-game-mechanisms.sql`, `mechanism-quality-report.json`을 만든다. 품질 보고서는 아래 입력 식별자·검증 checksum·행 수와 승인 provenance를 보존하므로, SQL과 같은 배치 증적 보관 위치에 둔다.
+
+- `inputs.manifest`: 승인 입력 manifest 경로와 SHA-256
+- `inputs.games`: 게임 입력 경로·SHA-256·행 수
+- `inputs.mechanismDictionary`: 메커니즘 사전 경로·SHA-256·행 수
+- `inputs.xmlSnapshotManifest`: XML snapshot manifest 경로·SHA-256·게임 수·batch 수
+- `provenance`: `mechanismInput`, `sourceReference`, `reviewedBy`, `reviewedAt`, `approvalScope`, `approvalReferences`
+- `checks`와 `outputs`: 검증된 대상·snapshot 수와 생성 artifact/SQL SHA-256
+
+실제 적재는 파일을 합쳐 덮어쓰지 않고, 기존 게임 SQL과 별도 메커니즘 SQL을 순서대로 실행한다.
+
+```sh
+psql "$DATABASE_URL" \
+  --set ON_ERROR_STOP=on \
+  --file /path/to/approved/upsert-games.sql
+
+psql "$DATABASE_URL" \
+  --set ON_ERROR_STOP=on \
+  --file /path/to/approved-game-mechanism-batch/upsert-game-mechanisms.sql
+```
+
+`upsert-game-mechanisms.sql`은 자체 transaction 안에서 게임과 메커니즘 관계를 해석하지 못하면 롤백한다. 따라서 `upsert-games.sql`을 먼저 성공시킨 뒤 메커니즘 SQL을 실행하며, 이미 승인 게임이 적재된 경우에는 두 번째 명령만 실행한다. 원본 XML·사전·manifest와 `mechanism-quality-report.json`은 생성 SQL의 정확한 입력을 재현할 수 있을 때까지 함께 보관하고 저장소에는 커밋하지 않는다.
+
+## 6. 17만 게임 메타데이터 batch
 
 운영 metadata는 성능 fixture에서 만들지 않는다. 승인된 170,000개 BGG ID, 순위 CSV, BGG XML snapshot, 한글 테마 사전과 metadata manifest를 같은 batch로 보관한다.
 
@@ -191,7 +226,7 @@ report의 `pageAndCountElapsedMs`는 page 조회와 total count 조회만 잰 �
 | [2026-08-04 P1 게임 메커니즘 품질](../game-catalog/2026-08-04-p1-game-mechanism-quality-report.md) | 공개 메커니즘과 게임 관계 적재 증거 |
 | [2026-08-05 게임 메타데이터 필터 성능](../game-catalog/2026-08-05-game-metadata-filter-performance.md) | 17만 건 검색 fixture와 실행 계획·시간 |
 
-## 검증 명령
+## 7. 검증 명령
 
 ```sh
 node --test scripts/game-catalog/prepare-game-catalog.test.mjs

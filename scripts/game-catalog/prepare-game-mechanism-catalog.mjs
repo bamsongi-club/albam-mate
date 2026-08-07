@@ -62,7 +62,8 @@ function main() {
     throw new Error('usage: --input-manifest <path> --out <path>');
   }
 
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const manifestContents = readFileSync(manifestPath);
+  const manifest = JSON.parse(manifestContents.toString('utf8'));
   if (manifest?.approved !== true || manifest?.testOnly !== false || !manifest?.mechanismCatalog) {
     throw new Error('approved production mechanism manifest required');
   }
@@ -123,23 +124,67 @@ function main() {
 
   const artifactText = JSON.stringify(built.catalog);
   const sqlText = renderMechanismUpsertSql(built.catalog, built.relations);
-  const reportText = JSON.stringify({
-    status: 'approved',
-    testOnly: false,
-    targetGames: targetIds.size,
-    mechanisms: built.catalog.length,
-    relations: built.relations.length,
-    descriptions: built.catalog.length,
+  const reportText = JSON.stringify(buildMechanismQualityReport({
+    manifest,
+    inputs: {
+      manifest: { path: manifestPath, sha256: hash(manifestContents), rows: null },
+      games: { path: manifest.games.path, sha256: hash(gamesContents), rows: targetIds.size },
+      mechanismDictionary: {
+        path: dictionaryMetadata.path,
+        sha256: hash(dictionaryContents),
+        rows: dictionaryById.size,
+      },
+      xmlSnapshotManifest: {
+        path: snapshotMetadata.manifestPath,
+        sha256: hash(snapshotContents),
+        rows: seenGameIds.size,
+        batches: snapshot.files.length,
+      },
+    },
+    checks: {
+      targetGames: targetIds.size,
+      snapshotBatches: snapshot.files.length,
+      snapshotGames: seenGameIds.size,
+    },
+    counts: {
+      targetGames: targetIds.size,
+      mechanisms: built.catalog.length,
+      relations: built.relations.length,
+      descriptions: built.catalog.length,
+    },
     outputs: {
       artifactSha256: hash(artifactText),
       sqlSha256: hash(sqlText),
     },
-  }, null, 2);
+  }), null, 2);
   publishArtifacts(out, {
     'service-mechanism-catalog.json': artifactText,
     'upsert-game-mechanisms.sql': sqlText,
     'mechanism-quality-report.json': reportText,
   });
+}
+
+export function buildMechanismQualityReport({ manifest, inputs, checks, counts, outputs }) {
+  const metadata = manifest.mechanismCatalog;
+  return {
+    schemaVersion: 1,
+    batchId: manifest.batchId ?? null,
+    toolCommit: manifest.toolCommit ?? null,
+    status: 'approved',
+    testOnly: manifest.testOnly,
+    inputs,
+    provenance: {
+      mechanismInput: manifest.provenance?.mechanismInput ?? null,
+      sourceReference: metadata.sourceReference,
+      reviewedBy: metadata.reviewedBy,
+      reviewedAt: metadata.reviewedAt,
+      approvalScope: metadata.approvalScope ?? null,
+      approvalReferences: manifest.review?.approvalReferences ?? [],
+    },
+    checks,
+    ...counts,
+    outputs,
+  };
 }
 
 export function publishArtifacts(out, artifacts, writeArtifact = writeFileSync) {
