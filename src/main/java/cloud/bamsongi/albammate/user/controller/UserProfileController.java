@@ -33,7 +33,6 @@ public final class UserProfileController {
 
 	@NonNull private final CurrentUserAccessor currentUserAccessor;
 	@NonNull private final UserProfileService userProfileService;
-	@NonNull private final cloud.bamsongi.albammate.user.service.ProfileImageStorage profileImageStorage;
 
 	@GetMapping
 	public ResponseEntity<ApiResponse<UserProfileResponse>> findMyProfile() {
@@ -55,9 +54,9 @@ public final class UserProfileController {
 		@RequestParam("file")
 		MultipartFile file) {
 		validateProfileImage(file);
-		String imageUrl;
+		UserProfileResponse profile;
 		try {
-			imageUrl = profileImageStorage.store(
+			profile = userProfileService.uploadProfileImage(
 				currentUserAccessor.requireCurrentUserId(),
 				file.getInputStream(),
 				file.getOriginalFilename(),
@@ -65,14 +64,7 @@ public final class UserProfileController {
 		} catch (IOException exception) {
 			throw new UncheckedIOException("파일을 읽을 수 없습니다.", exception);
 		}
-		try {
-			UserProfileResponse profile = userProfileService.changeProfileImage(
-				currentUserAccessor.requireCurrentUserId(), imageUrl);
-			return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, profile));
-		} catch (RuntimeException exception) {
-			profileImageStorage.delete(imageUrl);
-			throw exception;
-		}
+		return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, profile));
 	}
 
 	@DeleteMapping("/profile-image")

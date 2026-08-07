@@ -2,10 +2,13 @@ package cloud.bamsongi.albammate.user.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.io.InputStream;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -116,30 +119,34 @@ class UserProfileServiceTest {
 	}
 
 	@Test
-	void 프로필_이미지를_변경한다() {
+	void 프로필_이미지를_업로드한다() {
 		User user = User.create("user@example.com", "{bcrypt}hash", "이전 닉네임");
-		when(userRepository.findById(7L)).thenReturn(Optional.of(user));
+		when(userRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(user));
+		when(profileImageStorage.store(eq(7L), any(), any(), any())).thenReturn("new-url");
 
-		UserProfileResponse profile = userProfileService.changeProfileImage(7L, "new-url");
+		UserProfileResponse profile = userProfileService.uploadProfileImage(7L, InputStream.nullInputStream(), "a.png",
+			"image/png");
 
 		assertEquals("new-url", user.getProfileImageUrl());
 		assertEquals(new UserProfileResponse(null, "이전 닉네임", "new-url"), profile);
 	}
 
 	@Test
-	void 프로필_이미지_변경시_사용자가_없으면_미인증으로_변환한다() {
-		when(userRepository.findById(7L)).thenReturn(Optional.empty());
+	void 프로필_이미지_업로드시_사용자가_없으면_저장한_파일을_지우고_미인증으로_변환한다() {
+		when(userRepository.findByIdForUpdate(7L)).thenReturn(Optional.empty());
 
 		assertThrows(
 			UnauthenticatedException.class,
-			() -> userProfileService.changeProfileImage(7L, "new-url"));
+			() -> userProfileService.uploadProfileImage(7L, InputStream.nullInputStream(), "a.png", "image/png"));
+
+		verifyNoInteractions(profileImageStorage);
 	}
 
 	@Test
 	void 프로필_이미지를_삭제한다() {
 		User user = User.create("user@example.com", "{bcrypt}hash", "이전 닉네임");
 		user.changeProfileImageUrl("old-url");
-		when(userRepository.findById(7L)).thenReturn(Optional.of(user));
+		when(userRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(user));
 
 		UserProfileResponse profile = userProfileService.removeProfileImage(7L);
 
@@ -150,7 +157,7 @@ class UserProfileServiceTest {
 
 	@Test
 	void 프로필_이미지_삭제시_사용자가_없으면_미인증으로_변환한다() {
-		when(userRepository.findById(7L)).thenReturn(Optional.empty());
+		when(userRepository.findByIdForUpdate(7L)).thenReturn(Optional.empty());
 
 		assertThrows(
 			UnauthenticatedException.class,

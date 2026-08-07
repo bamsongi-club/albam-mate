@@ -176,9 +176,8 @@ class UserProfileControllerTest {
 	}
 
 	@Test
-	void 유효한_이미지_업로드는_저장소에_위임하고_UserProfileResponse를_반환한다() throws Exception {
-		when(profileImageStorage.store(eq(7L), any(), anyString(), anyString())).thenReturn("/uploads/profile/new.png");
-		when(userProfileService.changeProfileImage(7L, "/uploads/profile/new.png"))
+	void 유효한_이미지_업로드는_서비스에_위임하고_UserProfileResponse를_반환한다() throws Exception {
+		when(userProfileService.uploadProfileImage(eq(7L), any(), anyString(), anyString()))
 			.thenReturn(new UserProfileResponse(7L, "닉네임", "/uploads/profile/new.png"));
 		MockMultipartFile file = new MockMultipartFile("file", "photo.png", "image/png", new byte[] {1, 2, 3});
 		CsrfContext csrfContext = csrfContext();
@@ -193,13 +192,12 @@ class UserProfileControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.profileImageUrl").value("/uploads/profile/new.png"));
 
-		verify(userProfileService).changeProfileImage(7L, "/uploads/profile/new.png");
+		verify(userProfileService).uploadProfileImage(eq(7L), any(), anyString(), anyString());
 	}
 
 	@Test
-	void 저장은_성공했지만_프로필_갱신이_실패하면_새_파일을_보상_삭제한다() throws Exception {
-		when(profileImageStorage.store(eq(7L), any(), anyString(), anyString())).thenReturn("/uploads/profile/new.png");
-		when(userProfileService.changeProfileImage(7L, "/uploads/profile/new.png"))
+	void 프로필_갱신이_실패하면_컨트롤러는_예외를_그대로_전파한다() throws Exception {
+		when(userProfileService.uploadProfileImage(eq(7L), any(), anyString(), anyString()))
 			.thenThrow(new IllegalStateException("db commit failed"));
 		MockMultipartFile file = new MockMultipartFile("file", "photo.png", "image/png", new byte[] {1, 2, 3});
 		CsrfContext csrfContext = csrfContext();
@@ -212,8 +210,6 @@ class UserProfileControllerTest {
 				.cookie(csrfContext.cookie())
 				.header("X-XSRF-TOKEN", csrfContext.cookie().getValue()))
 			.andExpect(status().isInternalServerError());
-
-		verify(profileImageStorage).delete("/uploads/profile/new.png");
 	}
 
 	@Test

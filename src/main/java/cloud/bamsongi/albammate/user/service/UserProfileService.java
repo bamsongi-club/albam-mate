@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.user.service;
 
+import java.io.InputStream;
 import java.util.Objects;
 
 import org.springframework.stereotype.Service;
@@ -36,12 +37,25 @@ public class UserProfileService {
 		return UserProfileResponse.from(user);
 	}
 
+	/**
+	 * 새 프로필 이미지를 저장하고 사용자 행에 반영하는 전체 흐름(파일 저장, DB 갱신, 실패 시 새 파일 보상 삭제,
+	 * 이전 파일의 커밋 후 삭제)을 이 서비스 하나가 책임진다. HTTP 계층은 파일을 어떻게, 어디에 저장할지 몰라야 한다.
+	 * 사용자 행을 {@link UserRepository#findByIdForUpdate}로 잠가 같은 사용자에 대한 동시 변경을 직렬화하므로,
+	 * previousUrl은 항상 마지막으로 커밋된 파일을 가리키고 그 파일만 삭제 대상이 된다.
+	 */
 	@Transactional
-	public UserProfileResponse changeProfileImage(long userId, String imageUrl) {
-		User user = requireCurrentUser(userId);
+	public UserProfileResponse uploadProfileImage(
+		long userId, InputStream inputStream, String originalFilename, String contentType) {
+		User user = requireCurrentUserForUpdate(userId);
 		String previousUrl = user.getProfileImageUrl();
-		user.changeProfileImageUrl(imageUrl);
-		if (previousUrl != null && !previousUrl.equals(imageUrl)) {
+		String newUrl = profileImageStorage.store(userId, inputStream, originalFilename, contentType);
+		try {
+			user.changeProfileImageUrl(newUrl);
+		} catch (RuntimeException exception) {
+			profileImageStorage.delete(newUrl);
+			throw exception;
+		}
+		if (previousUrl != null && !previousUrl.equals(newUrl)) {
 			deleteAfterCommit(previousUrl);
 		}
 		return UserProfileResponse.from(user);
@@ -49,7 +63,7 @@ public class UserProfileService {
 
 	@Transactional
 	public UserProfileResponse removeProfileImage(long userId) {
-		User user = requireCurrentUser(userId);
+		User user = requireCurrentUserForUpdate(userId);
 		String previousUrl = user.getProfileImageUrl();
 		user.changeProfileImageUrl(null);
 		if (previousUrl != null) {
@@ -87,5 +101,13 @@ public class UserProfileService {
 			throw new UnauthenticatedException();
 		}
 		return userRepository.findById(userId).orElseThrow(UnauthenticatedException::new);
+	}
+
+	/** {@link #requireCurrentUser}와 같지만, 프로필 이미지 교체처럼 동시 갱신을 직렬화해야 하는 흐름에 쓴다. */
+	private User requireCurrentUserForUpdate(long userId) {
+		if (userId <= 0) {
+			throw new UnauthenticatedException();
+		}
+		return userRepository.findByIdForUpdate(userId).orElseThrow(UnauthenticatedException::new);
 	}
 }

@@ -84,7 +84,7 @@
 - `AUTH-05b-AC4` callback은 허용된 고정 `socialAuth` 값만 same-site로 리다이렉트하고 code·token·provider 설명·사용자 속성을 복사하지 않는다.
 - `AUTH-05b-AC5` 성공 뒤 `CurrentUserPrincipal`, 교체된 `JSESSIONID`, 새 CSRF, 보호 API와 로그아웃이 기존 인증 계약대로 동작한다.
 - `AUTH-05b-AC6` 외부 authorized client·principal·token을 DB나 서버 세션에 남기지 않는다.
-- `AUTH-05b-AC7` 소셜 첫 로그인 및 재로그인 시 외부 제공자(Google, Naver, Kakao)의 프로필 이미지 URL을 추출해 `USERS`의 `profile_image_url`로 동기화한다.
+- `AUTH-05b-AC7` 소셜 첫 로그인(회원가입) 시 외부 제공자(Google, Naver, Kakao)의 프로필 이미지 URL을 추출해 `USERS`의 `profile_image_url`로 동기화한다. 재로그인은 동기화하지 않는다 — 사용자가 AUTH-05d의 업로드·삭제로 직접 고른 이미지를 소셜 제공자 값이 다시 덮어쓰지 않게 하기 위함이다.
 
 #### AUTH-05c 로그인 사용자의 명시적 계정 연결
 

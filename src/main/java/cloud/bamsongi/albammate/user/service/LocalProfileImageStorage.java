@@ -8,6 +8,8 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -17,6 +19,7 @@ import jakarta.annotation.PostConstruct;
 @Component
 public class LocalProfileImageStorage implements ProfileImageStorage {
 
+	private static final Logger log = LoggerFactory.getLogger(LocalProfileImageStorage.class);
 	private static final String SERVE_PATH_PREFIX = "/uploads/profile/";
 
 	private final Path uploadDir;
@@ -72,7 +75,9 @@ public class LocalProfileImageStorage implements ProfileImageStorage {
 		try {
 			Files.deleteIfExists(file);
 		} catch (IOException exception) {
-			// 이전 이미지 삭제 실패는 무시한다.
+			// DB는 이미 새 이미지로 갱신됐으므로 여기서 예외를 던져도 사용자에게 되돌릴 것이 없다. 다만 파일이
+			// 공개 경로에 계속 남으므로, 운영자가 수동 정리·알림으로 이어갈 수 있게 반드시 남긴다.
+			log.error("프로필 이미지 삭제 실패로 공개 경로에 파일이 남았습니다: {}", file, exception);
 		}
 	}
 }
