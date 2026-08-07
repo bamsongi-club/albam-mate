@@ -1,0 +1,27 @@
+# Redis EC2 전용: Redis 컨테이너만 실행한다.
+# 보안 그룹(sg-redis)에서 App1·App2 EC2(sg-app)에서 오는 TCP 6379만 허용한다.
+# AOF 영속화 데이터는 호스트의 /srv/redis 에 마운트된 EBS 볼륨에 저장한다.
+
+services:
+  redis:
+    image: redis:8.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    ports:
+      # App1·App2 EC2에서 이 EC2의 사설 IP:6379 로 접근한다.
+      # 보안 그룹에서 sg-app 만 허용하므로 0.0.0.0 바인딩이어도 인터넷에 노출되지 않는다.
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    volumes:
+      # /srv/redis 는 Terraform이 생성한 별도 EBS 볼륨 마운트 경로다.
+      - /srv/redis:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: ${ALBAM_MATE_LOG_MAX_SIZE:-10m}
+        max-file: ${ALBAM_MATE_LOG_MAX_FILES:-5}
