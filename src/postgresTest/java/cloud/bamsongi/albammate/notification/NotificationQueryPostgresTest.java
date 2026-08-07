@@ -20,6 +20,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
+import cloud.bamsongi.albammate.notification.enums.NotificationType;
 import cloud.bamsongi.albammate.notification.repository.NotificationQueryRepository;
 import cloud.bamsongi.albammate.notification.service.query.NotificationQueryService;
 
@@ -69,6 +70,22 @@ class NotificationQueryPostgresTest {
 			userId);
 		assertEquals(0, notificationQueryService.countUnread(userId).unreadCount());
 		assertEquals(0, notificationQueryService.findPage(otherUserId + 10_000_000L, 0, 10).totalElements());
+	}
+
+	@Test
+	void WAITLIST_PROMOTED도_본인_미만료_목록과_미확인_개수에_포함하고_타인에게는_숨긴다() {
+		long ownerId = user("promotion-query-owner@example.com");
+		long otherUserId = user("promotion-query-other@example.com");
+		long roomId = room(ownerId, "승격 알림 방");
+		long notificationId = notification(ownerId, roomId, "WAITLIST_PROMOTED", "null",
+			"TIMESTAMPTZ '2099-01-01T00:00:00Z'");
+
+		var page = notificationQueryService.findPage(ownerId, 0, 10);
+
+		assertEquals(notificationId, page.content().getFirst().id());
+		assertEquals(NotificationType.WAITLIST_PROMOTED, page.content().getFirst().type());
+		assertEquals(1, notificationQueryService.countUnread(ownerId).unreadCount());
+		assertEquals(0, notificationQueryService.findPage(otherUserId, 0, 10).totalElements());
 	}
 
 	@Test

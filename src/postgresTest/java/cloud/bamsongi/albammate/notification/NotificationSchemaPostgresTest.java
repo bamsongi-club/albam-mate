@@ -50,7 +50,7 @@ class NotificationSchemaPostgresTest {
 	private EntityManager entityManager;
 
 	@Test
-	void 빈_PostgreSQL에_V4_V5_알림_테이블_제약과_인덱스가_생성된다() {
+	void 빈_PostgreSQL에_V4_V5_V25_알림_테이블_제약과_인덱스가_생성된다() {
 		flyway.validate();
 
 		Set<String> tables = Set.copyOf(jdbcTemplate.query(
@@ -58,7 +58,7 @@ class NotificationSchemaPostgresTest {
 			(resultSet, rowNumber) -> resultSet.getString("table_name").toLowerCase()));
 		assertTrue(tables.containsAll(Set.of(
 			"notification_outbox_events", "notification_outbox_recipients", "notifications")));
-		assertTrue(appliedVersions().containsAll(Set.of("4", "5")));
+		assertTrue(appliedVersions().containsAll(Set.of("4", "5", "25")));
 
 		Map<String, String> indexDefinitions = notificationIndexDefinitions();
 		assertEquals(
@@ -110,6 +110,7 @@ class NotificationSchemaPostgresTest {
 	void 이벤트_유형_상태_실패_재처리와_보존_CHECK가_잘못된_조합을_거절한다() {
 		Fixture fixture = createFixture();
 		String valid = validOutboxValues(fixture);
+		insertOutbox(fixture, valid.replace("'PARTICIPATION_JOINED'", "'WAITLIST_PROMOTED'"));
 
 		assertConstraintViolation(
 			"ck_notification_outbox_events_event_type",
@@ -190,6 +191,8 @@ class NotificationSchemaPostgresTest {
 	void Notification_유형_읽음_보존과_멱등성_CHECK가_위반을_거절한다() {
 		Fixture fixture = createFixture();
 		long sourceEventId = insertOutbox(fixture, validOutboxValues(fixture));
+		insertNotification(fixture, sourceEventId + 100, "WAITLIST_PROMOTED", "NULL",
+			OCCURRED_AT + " + INTERVAL '90 days'");
 
 		assertConstraintViolation(
 			"ck_notifications_type",

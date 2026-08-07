@@ -19,6 +19,7 @@ import cloud.bamsongi.albammate.room.contract.ParticipationJoinedEvent;
 import cloud.bamsongi.albammate.room.contract.RoomCanceledEvent;
 import cloud.bamsongi.albammate.room.contract.RoomChangeEvent;
 import cloud.bamsongi.albammate.room.contract.RoomChangeEventRecorder;
+import cloud.bamsongi.albammate.room.contract.WaitlistPromotedEvent;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
@@ -53,6 +54,7 @@ public class NotificationRoomChangeEventRecorder implements RoomChangeEventRecor
 		return switch (event) {
 			case ParticipationJoinedEvent ignored -> NotificationOutboxEventType.PARTICIPATION_JOINED;
 			case ParticipationCanceledEvent ignored -> NotificationOutboxEventType.PARTICIPATION_CANCELED;
+			case WaitlistPromotedEvent ignored -> NotificationOutboxEventType.WAITLIST_PROMOTED;
 			case RoomCanceledEvent ignored -> NotificationOutboxEventType.ROOM_CANCELED;
 		};
 	}

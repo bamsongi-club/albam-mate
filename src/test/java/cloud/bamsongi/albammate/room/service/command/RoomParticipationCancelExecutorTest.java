@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.room.service.command;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
@@ -28,6 +29,7 @@ import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.contract.ParticipationCanceledEvent;
 import cloud.bamsongi.albammate.room.contract.RoomChangeEvent;
 import cloud.bamsongi.albammate.room.contract.RoomChangeEventRecorder;
+import cloud.bamsongi.albammate.room.contract.WaitlistPromotedEvent;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import cloud.bamsongi.albammate.room.entity.Participation;
 import cloud.bamsongi.albammate.room.entity.Room;
@@ -416,7 +418,53 @@ class RoomParticipationCancelExecutorTest {
 
 		promotedExecutor.cancelParticipation(participantUserId, roomId, NOW);
 
-		org.mockito.Mockito.verifyNoInteractions(promotedRecorder);
+		org.mockito.ArgumentCaptor<RoomChangeEvent> promotedEventCaptor = org.mockito.ArgumentCaptor
+			.forClass(RoomChangeEvent.class);
+		org.mockito.ArgumentCaptor<java.util.Collection<Long>> promotedRecipientsCaptor = org.mockito.ArgumentCaptor
+			.forClass(java.util.Collection.class);
+		verify(promotedRecorder).record(promotedEventCaptor.capture(), promotedRecipientsCaptor.capture());
+		assertInstanceOf(WaitlistPromotedEvent.class, promotedEventCaptor.getValue());
+		assertEquals(java.util.List.of(20L), promotedRecipientsCaptor.getValue());
+	}
+
+	@Test
+	void 자동_승격은_실제_조건부_전이에_성공한_대기자만_수신자로_기록한다() {
+		long roomId = 8L;
+		long leavingUserId = 10L;
+		long promotedUserId = 20L;
+		RoomRepository mockedRoomRepository = mock(RoomRepository.class);
+		ParticipationRepository mockedParticipationRepository = mock(ParticipationRepository.class);
+		RoomWaitlistRepository mockedWaitlistRepository = mock(RoomWaitlistRepository.class);
+		RoomChangeEventRecorder recorder = mock(RoomChangeEventRecorder.class);
+		Room room = mock(Room.class);
+		Participation leavingParticipation = mock(Participation.class);
+		RoomWaitlistCandidateProjection waiting = candidate(promotedUserId, 1L);
+		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
+			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder);
+		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(room));
+		when(room.getHostUserId()).thenReturn(1L);
+		when(room.getId()).thenReturn(roomId);
+		when(room.getStartAt()).thenReturn(NOW.plusSeconds(3600));
+		when(room.getStatus()).thenReturn(RoomStatus.RECRUITING);
+		when(leavingParticipation.getStatus()).thenReturn(ParticipationStatus.ACTIVE);
+		when(mockedParticipationRepository.findByRoomIdAndUserId(roomId, leavingUserId))
+			.thenReturn(java.util.Optional.of(leavingParticipation));
+		when(mockedParticipationRepository.findByRoomIdAndUserId(roomId, promotedUserId))
+			.thenReturn(java.util.Optional.empty());
+		when(mockedWaitlistRepository.findFirstWaitingByRoomId(roomId)).thenReturn(java.util.Optional.of(waiting));
+		when(mockedWaitlistRepository.promoteWaiting(roomId, promotedUserId, 1L, NOW)).thenReturn(1);
+
+		executor.cancelParticipation(leavingUserId, roomId, NOW);
+
+		org.mockito.ArgumentCaptor<RoomChangeEvent> eventCaptor = org.mockito.ArgumentCaptor
+			.forClass(RoomChangeEvent.class);
+		org.mockito.ArgumentCaptor<java.util.Collection<Long>> recipientsCaptor = org.mockito.ArgumentCaptor
+			.forClass(java.util.Collection.class);
+		verify(recorder).record(eventCaptor.capture(), recipientsCaptor.capture());
+		WaitlistPromotedEvent event = assertInstanceOf(WaitlistPromotedEvent.class, eventCaptor.getValue());
+		assertEquals(roomId, event.roomId());
+		assertEquals(NOW, event.occurredAt());
+		assertEquals(java.util.List.of(promotedUserId), recipientsCaptor.getValue());
 	}
 
 	@Test
