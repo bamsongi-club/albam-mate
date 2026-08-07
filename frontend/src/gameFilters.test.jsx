@@ -150,6 +150,25 @@ describe('T2·T3 게임 조건 필터 조회 시점', () => {
     expect(lastQuery().playTime).toEqual(['UP_TO_10', 'AT_LEAST_90']);
   });
 
+  it('연령대는 확정한 4구간만 제공한다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+
+    ['8세 이하', '9~12세', '13~15세', '16세 이상'].forEach((label) => {
+      expect(screen.getByLabelText(label)).toBeTruthy();
+    });
+  });
+
+  it('연령대 여러 구간을 함께 선택하면 선택한 값을 모두 전달한다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+
+    fireEvent.click(screen.getByLabelText('8세 이하'));
+    fireEvent.click(screen.getByLabelText('16세 이상'));
+
+    expect(lastQuery().ageBand).toEqual(['UP_TO_8', 'AT_LEAST_16']);
+  });
+
   it('필터 영역을 닫았다 다시 열어도 입력과 선택을 유지한다', async () => {
     await renderGamesView();
     openFilterPanel();

@@ -10,6 +10,7 @@ import java.util.Objects;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
 
+import cloud.bamsongi.albammate.game.dto.GameAgeBandFilter;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
 import cloud.bamsongi.albammate.game.dto.PlayedFilter;
@@ -41,6 +42,7 @@ public final class GameListSearchCriteria {
 	private final boolean playerCountExact;
 	private final List<Integer> exclusivePlayerCounts;
 	private final List<GamePlayTimeFilter> playTimes;
+	private final List<GameAgeBandFilter> ageBands;
 	private final BigDecimal complexityMin;
 	private final BigDecimal complexityMax;
 	private final PlayedFilter playedFilter;
@@ -63,6 +65,7 @@ public final class GameListSearchCriteria {
 		this.playerCountExact = request.isPlayerCountExact();
 		this.exclusivePlayerCounts = distinctValues(request.getExclusivePlayerCount());
 		this.playTimes = distinctValues(request.getPlayTime());
+		this.ageBands = distinctValues(request.getAgeBand());
 		this.complexityMin = request.getComplexityMin();
 		this.complexityMax = request.getComplexityMax();
 		this.playedFilter = request.getPlayedFilter();
@@ -86,6 +89,7 @@ public final class GameListSearchCriteria {
 		this.playerCountExact = source.playerCountExact;
 		this.exclusivePlayerCounts = source.exclusivePlayerCounts;
 		this.playTimes = source.playTimes;
+		this.ageBands = source.ageBands;
 		this.complexityMin = source.complexityMin;
 		this.complexityMax = source.complexityMax;
 		this.playedFilter = source.playedFilter;
@@ -139,6 +143,7 @@ public final class GameListSearchCriteria {
 			}
 			addPlayerCountPredicates(root, criteriaBuilder, predicates);
 			addPlayTimePredicate(root, criteriaBuilder, predicates);
+			addAgeBandPredicate(root, criteriaBuilder, predicates);
 			if (complexityMin != null) {
 				predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("complexity"), complexityMin));
 			}
@@ -316,6 +321,31 @@ public final class GameListSearchCriteria {
 			bounds.add(
 				criteriaBuilder.lessThanOrEqualTo(
 					root.get("maxPlayTimeMinutes"), playTime.getMaxInclusive()));
+		}
+		return criteriaBuilder.and(bounds.toArray(Predicate[]::new));
+	}
+
+	/** 선택한 연령대 구간을 OR로 결합하고 각 구간은 {@code minAge}로 판정한다. */
+	private void addAgeBandPredicate(
+		Root<Game> root, CriteriaBuilder criteriaBuilder, List<Predicate> predicates) {
+		if (ageBands.isEmpty()) {
+			return;
+		}
+		predicates.add(
+			criteriaBuilder.or(
+				ageBands.stream()
+					.map(ageBand -> ageBandPredicate(root, criteriaBuilder, ageBand))
+					.toArray(Predicate[]::new)));
+	}
+
+	private Predicate ageBandPredicate(
+		Root<Game> root, CriteriaBuilder criteriaBuilder, GameAgeBandFilter ageBand) {
+		List<Predicate> bounds = new ArrayList<>();
+		if (ageBand.getMinInclusive() != null) {
+			bounds.add(criteriaBuilder.greaterThanOrEqualTo(root.get("minAge"), ageBand.getMinInclusive()));
+		}
+		if (ageBand.getMaxInclusive() != null) {
+			bounds.add(criteriaBuilder.lessThanOrEqualTo(root.get("minAge"), ageBand.getMaxInclusive()));
 		}
 		return criteriaBuilder.and(bounds.toArray(Predicate[]::new));
 	}

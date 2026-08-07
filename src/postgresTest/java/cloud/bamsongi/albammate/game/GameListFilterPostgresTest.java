@@ -19,6 +19,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import cloud.bamsongi.albammate.game.dto.GameAgeBandFilter;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
 import cloud.bamsongi.albammate.game.entity.Game;
@@ -125,6 +126,31 @@ class GameListFilterPostgresTest {
 			List.of(solo.getId(), twoToTwo.getId()),
 			ids(request -> request.setPlayTime(
 				List.of(GamePlayTimeFilter.UP_TO_10, GamePlayTimeFilter.AT_LEAST_90))));
+	}
+
+	@Test
+	void PostgreSQL에서_연령대_구간_경계를_minAge로_판정한다() {
+		Game young = saveGameWithAge(1201L, "Young", 8);
+		Game middle = saveGameWithAge(1202L, "Middle", 12);
+		Game old = saveGameWithAge(1203L, "Old", 16);
+		saveGameWithAge(1204L, "Missing", null);
+
+		assertEquals(
+			List.of(young.getId()),
+			ids(request -> request.setAgeBand(List.of(GameAgeBandFilter.UP_TO_8))));
+		assertEquals(
+			List.of(old.getId(), young.getId()),
+			ids(request -> request.setAgeBand(
+				List.of(GameAgeBandFilter.UP_TO_8, GameAgeBandFilter.AT_LEAST_16))));
+		assertEquals(
+			List.of(middle.getId()),
+			ids(request -> request.setAgeBand(List.of(GameAgeBandFilter.FROM_9_TO_12))));
+	}
+
+	private Game saveGameWithAge(long bggId, String name, Integer minAge) {
+		Game game = saveGame(bggId, name, 2, 4, 20, new BigDecimal("2.00"));
+		ReflectionTestUtils.setField(game, "minAge", minAge);
+		return gameRepository.saveAndFlush(game);
 	}
 
 	private List<Long> ids(Consumer<GameListRequest> customizer) {
