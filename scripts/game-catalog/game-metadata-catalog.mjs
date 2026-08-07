@@ -74,12 +74,14 @@ export function parseBggMetadataXml(xml) {
     const body = item[0]; const minAge = normalizeMinAge(/<minage value="([^"]*)"/.exec(body)?.[1]); const maxPlayers = Number(/<maxplayers value="(\d+)"/.exec(body)?.[1]);
     const themes = [...body.matchAll(/<link type="boardgamecategory" id="(\d+)" value="([^"]+)"/g)]
       .map(match => ({ bggThemeId: Number(match[1]), nameEn: match[2] }));
+    const mechanisms = [...body.matchAll(/<link type="boardgamemechanic" id="(\d+)" value="([^"]+)"/g)]
+      .map(match => ({ bgg_id: match[1], name: match[2] }));
     const poll = /<poll name="suggested_numplayers"[\s\S]*?<\/poll>/.exec(body)?.[0];
     const polls = poll ? [...poll.matchAll(/<results numplayers="([^"]+)">([\s\S]*?)<\/results>/g)].map(match => ({
       numPlayers: match[1], bestVotes: Number(/value="Best" numvotes="(\d+)"/.exec(match[2])?.[1]),
       recommendedVotes: Number(/value="Recommended" numvotes="(\d+)"/.exec(match[2])?.[1]),
       notRecommendedVotes: Number(/value="Not Recommended" numvotes="(\d+)"/.exec(match[2])?.[1]) })) : [];
-    games.push({ bggId: Number(item[1]), minAge, maxPlayers, themes, polls });
+    games.push({ bggId: Number(item[1]), minAge, maxPlayers, themes, polls, ...(mechanisms.length ? { mechanisms } : {}) });
   }
   return games;
 }
@@ -99,7 +101,9 @@ export function buildMetadataArtifact({ games, rankRows, dictionary }) {
   for (const game of games) {
 	minAges.push({ bggId: game.bggId, minAge: game.minAge ?? null });
     for (const theme of game.themes) { const mapped = byId.get(theme.bggThemeId); if (!mapped || mapped.nameEn !== theme.nameEn) { errors.push(`theme mismatch: ${theme.bggThemeId}`); continue; } themes.set(theme.bggThemeId, mapped); const key=`${game.bggId}:${theme.bggThemeId}`; if (seenRelations.has(key)) errors.push(`duplicate theme relation: ${key}`); seenRelations.add(key); themeRelations.push({ bggId: game.bggId, bggThemeId: theme.bggThemeId }); }
-    try { preferences.push(...playerPreferences(game.polls, game.maxPlayers).map(value => ({ bggId: game.bggId, ...value }))); } catch (error) { errors.push(error.message); }
+    if (Number.isInteger(game.maxPlayers) && game.maxPlayers >= 1) {
+      try { preferences.push(...playerPreferences(game.polls, game.maxPlayers).map(value => ({ bggId: game.bggId, ...value }))); } catch (error) { errors.push(error.message); }
+    }
   }
   const rankedThemes = [...themes.entries()].sort(([left], [right]) => left - right).map(([id, theme]) => ({ ...theme, bggThemeId: id, code: stableThemeCode(theme.nameEn, id) }));
   const ranks = new Map(rankRows.map(row => [Number(row.id), row]));

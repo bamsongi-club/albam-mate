@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.game;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -224,6 +225,20 @@ class GameCatalogImportPostgresTest {
 		assertEquals(1, mechanismRelationCount());
 	}
 
+	@Test
+	void 설명이_없는_메커니즘_배치는_운영_SQL을_만들지_않는다() throws Exception {
+		GameInput input = game(1, 10, "설명 없는 메커니즘 게임", "Missing Description Mechanism Game");
+		input.mechanisms = List.of(mechanism(2040, "Hand Management", "핸드 관리", " "));
+
+		CatalogPreparation preparation = prepareMechanismCatalog(List.of(input));
+
+		assertEquals(1, preparation.exitCode(), preparation.output());
+		assertFalse(Files.exists(preparation.outputPath().resolve("service-catalog.json")));
+		assertFalse(Files.exists(preparation.outputPath().resolve("upsert-games.sql")));
+		assertFalse(Files.exists(preparation.outputPath().resolve("service-mechanism-catalog.json")));
+		assertFalse(Files.exists(preparation.outputPath().resolve("upsert-game-mechanisms.sql")));
+	}
+
 	private void assertConstraintViolation(String sql) {
 		assertThrows(DataIntegrityViolationException.class, () -> jdbcTemplate.execute(sql));
 	}
@@ -263,6 +278,12 @@ class GameCatalogImportPostgresTest {
 	}
 
 	private String prepareMechanismSql(List<GameInput> games) throws Exception {
+		CatalogPreparation preparation = prepareMechanismCatalog(games);
+		assertEquals(0, preparation.exitCode(), preparation.output());
+		return Files.readString(preparation.outputPath().resolve("upsert-game-mechanisms.sql"), StandardCharsets.UTF_8);
+	}
+
+	private CatalogPreparation prepareMechanismCatalog(List<GameInput> games) throws Exception {
 		Path caseDirectory = Files.createTempDirectory(tempDirectory, "mechanism-catalog-");
 		Path gamesPath = caseDirectory.resolve("games.json");
 		Path ranksPath = caseDirectory.resolve("ranks.csv");
@@ -292,8 +313,7 @@ class GameCatalogImportPostgresTest {
 			.start();
 		String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
 		int exitCode = process.waitFor();
-		assertEquals(0, exitCode, output);
-		return Files.readString(outputPath.resolve("upsert-game-mechanisms.sql"), StandardCharsets.UTF_8);
+		return new CatalogPreparation(outputPath, exitCode, output);
 	}
 
 	private void executeSql(String sql) throws SQLException {
@@ -502,7 +522,11 @@ class GameCatalogImportPostgresTest {
 	}
 
 	private MechanismInput mechanism(long bggMechanismId, String nameEn, String nameKo) {
-		return new MechanismInput(bggMechanismId, nameEn, nameKo);
+		return mechanism(bggMechanismId, nameEn, nameKo, "검수된 한글 설명입니다.");
+	}
+
+	private MechanismInput mechanism(long bggMechanismId, String nameEn, String nameKo, String descriptionKo) {
+		return new MechanismInput(bggMechanismId, nameEn, nameKo, descriptionKo);
 	}
 
 	private String mechanismsJson(List<MechanismInput> mechanisms) {
@@ -510,8 +534,8 @@ class GameCatalogImportPostgresTest {
 			return "";
 		}
 		return ",\n  \"mechanisms\": [" + mechanisms.stream()
-			.map(mechanism -> "{\"bgg_id\":\"%d\",\"name\":\"%s\",\"name_ko\":\"%s\"}"
-				.formatted(mechanism.bggMechanismId, mechanism.nameEn, mechanism.nameKo))
+			.map(mechanism -> "{\"bgg_id\":\"%d\",\"name\":\"%s\",\"name_ko\":\"%s\",\"description_ko\":\"%s\"}"
+				.formatted(mechanism.bggMechanismId, mechanism.nameEn, mechanism.nameKo, mechanism.descriptionKo))
 			.collect(java.util.stream.Collectors.joining(",")) + "]";
 	}
 
@@ -531,7 +555,7 @@ class GameCatalogImportPostgresTest {
 		}
 	}
 
-	private record MechanismInput(long bggMechanismId, String nameEn, String nameKo) {
+	private record MechanismInput(long bggMechanismId, String nameEn, String nameKo, String descriptionKo) {
 		private String code() {
 			return switch ((int)bggMechanismId) {
 				case 2040 -> "HAND_MANAGEMENT";
@@ -539,5 +563,8 @@ class GameCatalogImportPostgresTest {
 				default -> throw new IllegalArgumentException("Unsupported test mechanism: " + bggMechanismId);
 			};
 		}
+	}
+
+	private record CatalogPreparation(Path outputPath, int exitCode, String output) {
 	}
 }

@@ -93,6 +93,21 @@ test("승인된 입력은 내부 id를 제외한 결정적 카탈로그와 UPSER
     });
 });
 
+test("입력 내부 id가 BGG 순위와 달라도 bgg_id 기준으로 적재한다", () => {
+    const row = game(99999, "10", "첫 번째 게임", "First Game");
+
+    withCase([row], ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 0, result.stderr);
+        const catalog = readJson(join(out, "service-catalog.json"));
+        assert.equal(catalog[0].bgg_id, 10);
+        assert.equal(readJson(join(out, "quality-report.json")).checks.matchedRows, 1);
+    });
+});
+
 test("BGG 기준 CSV의 yearpublished만 출시 연도로 적재 산출물에 매핑한다", () => {
     const rows = [
         game(1, "10", "기준 연도 게임", "Baseline Year Game"),
@@ -1327,10 +1342,10 @@ test("승인된 메커니즘 manifest는 결정적인 목록과 중복 없는 �
 	const first = game(1, "10", "첫 번째 게임", "First Game");
 	const second = game(2, "20", "두 번째 게임", "Second Game");
 	first.mechanisms = [
-		{ bgg_id: "2040", name: "Hand Management", name_ko: "핸드 관리" },
-		{ bgg_id: "2072", name: "Dice Rolling", name_ko: "주사위 굴림" },
+		{ bgg_id: "2040", name: "Hand Management", name_ko: "핸드 관리", description_ko: "카드를 관리해요." },
+		{ bgg_id: "2072", name: "Dice Rolling", name_ko: "주사위 굴림", description_ko: "주사위를 굴려요." },
 	];
-	second.mechanisms = [{ bgg_id: "2072", name: "Dice Rolling", name_ko: "주사위 굴림" }];
+	second.mechanisms = [{ bgg_id: "2072", name: "Dice Rolling", name_ko: "주사위 굴림", description_ko: "주사위를 굴려요." }];
 
 	withCase([first, second], ({ root, games, ranks, manifest, out }) => {
 		writeManifest(manifest, games, ranks, []);
@@ -1357,6 +1372,32 @@ test("승인된 메커니즘 manifest는 결정적인 목록과 중복 없는 �
 	});
 });
 
+test("메커니즘 한글 설명이 누락되거나 공백이면 서비스 카탈로그와 운영 UPSERT를 만들지 않는다", async (context) => {
+	for (const descriptionKo of [undefined, "   "]) {
+		await context.test(String(descriptionKo), () => {
+			const row = game(1, "10", "첫 번째 게임", "First Game");
+			row.mechanisms = [{
+				bgg_id: "2040",
+				name: "Hand Management",
+				name_ko: "핸드 관리",
+				...(descriptionKo === undefined ? {} : { description_ko: descriptionKo }),
+			}];
+			withCase([row], ({ games, ranks, manifest, out }) => {
+				writeManifest(manifest, games, ranks, []);
+				writeMechanismManifest(manifest, 1, 1, { 2040: "HAND_MANAGEMENT" });
+
+				const result = runCli(games, ranks, out, manifest);
+
+				assert.equal(result.status, 1);
+				assert.throws(() => readFileSync(join(out, "service-catalog.json")));
+				assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
+				assert.throws(() => readFileSync(join(out, "service-mechanism-catalog.json")));
+				assert.throws(() => readFileSync(join(out, "upsert-game-mechanisms.sql")));
+			});
+		});
+	}
+});
+
 test("메커니즘 승인 건수가 입력과 다르면 적재 산출물을 차단한다", () => {
 	const row = game(1, "10", "첫 번째 게임", "First Game");
 	row.mechanisms = [{ bgg_id: "2040", name: "Hand Management", name_ko: "핸드 관리" }];
@@ -1375,7 +1416,7 @@ test("메커니즘 승인 건수가 입력과 다르면 적재 산출물을 차�
 
 test("승인 code 매핑은 영문 표시명이 바뀌어도 공개 code를 바꾸지 않는다", () => {
 	const row = game(1, "10", "첫 번째 게임", "First Game");
-	row.mechanisms = [{ bgg_id: "2040", name: "Hand Management Revised", name_ko: "핸드 관리" }];
+	row.mechanisms = [{ bgg_id: "2040", name: "Hand Management Revised", name_ko: "핸드 관리", description_ko: "카드를 관리해요." }];
 	withCase([row], ({ games, ranks, manifest, out }) => {
 		writeManifest(manifest, games, ranks, []);
 		writeMechanismManifest(manifest, 1, 1, { 2040: "HAND_MANAGEMENT" });
@@ -1388,7 +1429,7 @@ test("승인 code 매핑은 영문 표시명이 바뀌어도 공개 code를 바�
 
 test("승인 code 매핑 누락 또는 checksum 불일치는 적재 산출물을 차단한다", async (context) => {
 	const row = game(1, "10", "첫 번째 게임", "First Game");
-	row.mechanisms = [{ bgg_id: "2040", name: "Hand Management", name_ko: "핸드 관리" }];
+	row.mechanisms = [{ bgg_id: "2040", name: "Hand Management", name_ko: "핸드 관리", description_ko: "카드를 관리해요." }];
 	await context.test("매핑 누락", () => {
 		withCase([row], ({ games, ranks, manifest, out }) => {
 			writeManifest(manifest, games, ranks, []);

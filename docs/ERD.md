@@ -331,6 +331,7 @@ P1 소셜 제공자·대기 상태와 알림의 제한 값은 PostgreSQL 네이�
 | code | VARCHAR(64) | UQ, NN | API 검색에 쓰는 안정적인 `UPPER_SNAKE_CASE` 코드 |
 | name_ko | VARCHAR(100) | NN | 검수된 한국어 표시명 |
 | name_en | VARCHAR(100) | NN | BGG 영문명 |
+| description_ko | VARCHAR(300) | NULL | 검수된 한국어 메커니즘 설명. 기존 목록은 적재 배치에서 채운다 |
 | featured_order | SMALLINT | UQ, NULL | 대표 8개는 `1`~`8`, 나머지는 `NULL` |
 | is_public | BOOLEAN | NN, DEFAULT `false` | 검수 후 선택지·검색에 공개할지 여부 |
 | source_reference | VARCHAR(500) | NN | 다시 확인 가능한 출처·배치 근거 |

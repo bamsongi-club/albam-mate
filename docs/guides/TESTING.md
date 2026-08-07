@@ -53,7 +53,7 @@ macOS·Linux:
 ./gradlew postgresTest --no-daemon --stacktrace
 ```
 
-`GameMetadataSearchPerformancePostgresTest`는 저장소 밖 fixture와 순위 CSV를 요구한다. `issue420.fixture`가 없으면 JUnit 조건으로 건너뛰므로 기본 `postgresTest`는 실패하지 않는다. 네 입력 경로를 준비한 뒤에는 [게임 카탈로그 적재 가이드](GAME_CATALOG_IMPORT.md#17만-행-성능-fixture-계약)의 `postgresTest` exact selector 명령으로 실행한다.
+`GameMetadataSearchPerformancePostgresTest`는 저장소 밖 fixture와 순위 CSV를 요구한다. `issue420.fixture`가 없으면 JUnit 조건으로 건너뛰므로 기본 `postgresTest`는 실패하지 않는다. 네 입력 경로를 준비한 뒤에는 [게임 카탈로그 적재 가이드](GAME_CATALOG_IMPORT.md#17만-행-게임-기본-정보성능-fixture-계약)의 `postgresTest` exact selector 명령으로 실행한다.
 
 [ADR-0023](../adr/platform/0023-p0-flyway-baseline-reset-player-count-stages.md)의 일회성 기준선 재생성 뒤에는 다음 규칙을 지킨다.
 

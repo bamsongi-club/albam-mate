@@ -149,18 +149,6 @@ const PLAY_TIME_LABEL = {
   OVER_60_UNDER_90: '60~90분',
   AT_LEAST_90: '90분 이상'
 };
-/*
- * 대표 메커니즘 설명은 계약이 고정한 `featuredOrder`에 맞춰 둔다.
- * 선택지 API는 코드·표시명·대표 순서만 반환하고 설명을 담지 않으므로 화면이 문구를 가진다.
- * `2` 주사위 굴림, `4` 협력 게임, `5` 타일 놓기는 표시명이 곧 동작이라 설명을 두지 않는다.
- */
-const MECHANISM_FEATURED_DESCRIPTIONS = {
-  1: '손에 든 패를 잘 활용해야 해요',
-  3: '같은 종류끼리 모으면 좋아요',
-  6: '할 때마다 판이 다르게 꾸며져요',
-  7: '혼자서도 즐길 수 있어요',
-  8: '자리를 먼저 차지하는 게 중요해요'
-};
 // 난이도 점대는 계약의 닫힌 구간 하한·상한으로 보낸다. 5점만 있는 마지막 칸은 상한도 5다.
 const COMPLEXITY_BANDS = [
   { value: '1', label: '1점대', min: '1', max: '1.99' },
@@ -935,14 +923,17 @@ function advancedMechanisms(options, keyword) {
 
 function MechanismCheckOption({ option, selected, onToggle }) {
   return (
-    <label className="filter-option">
-      <input
-        type="checkbox"
-        checked={selected.includes(option.code)}
-        onChange={(event) => onToggle(option.code, event.target.checked)}
-      />
-      {option.nameKo}
-    </label>
+    <div className="mechanism-option">
+      <label className="filter-option">
+        <input
+          type="checkbox"
+          checked={selected.includes(option.code)}
+          onChange={(event) => onToggle(option.code, event.target.checked)}
+        />
+        {option.nameKo}
+      </label>
+      <MechanismHint code={option.code} name={option.nameKo} description={option.descriptionKo} />
+    </div>
   );
 }
 
@@ -957,9 +948,6 @@ function MechanismFilterGroup({ options, selected, onToggle }) {
         {featuredMechanisms(options).map((option) => (
           <div className="mechanism-featured" key={option.code}>
             <MechanismCheckOption option={option} selected={selected} onToggle={onToggle} />
-            {MECHANISM_FEATURED_DESCRIPTIONS[option.featuredOrder] && (
-              <MechanismHint code={option.code} name={option.nameKo} description={MECHANISM_FEATURED_DESCRIPTIONS[option.featuredOrder]} />
-            )}
           </div>
         ))}
       </div>

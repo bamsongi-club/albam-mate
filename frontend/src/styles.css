@@ -409,7 +409,7 @@ img.profile-avatar { object-fit: cover; }
 /* 선택지가 많아 한 칼럼에 세우면 조건 목록이 길어진다. 패널 전체 너비를 쓰고 가로로 흘린다. */
 .mechanism-group { grid-column: 1 / -1; }
 .mechanism-featured-list { display: flex; flex-wrap: wrap; gap: 2px 20px; }
-.mechanism-featured { align-items: center; display: flex; gap: 5px; }
+.mechanism-featured, .mechanism-option { align-items: center; display: flex; gap: 5px; }
 /* 말풍선은 아이콘을 기준으로 띄우고 조건 목록의 높이를 바꾸지 않는다. */
 .mechanism-hint { flex: none; line-height: 0; position: relative; }
 .mechanism-hint-button { align-items: center; background: var(--soft); border-radius: 999px; color: var(--brown2); display: inline-flex; font-size: 11px; font-weight: 900; height: 18px; justify-content: center; width: 18px; }

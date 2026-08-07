@@ -5,5 +5,6 @@ public record GameMechanismOptionRow(
 	String code,
 	String nameKo,
 	String nameEn,
-	Integer featuredOrder) {
+	Integer featuredOrder,
+	String descriptionKo) {
 }

@@ -77,7 +77,7 @@ function renderSql(artifact) {
   const values = (rows, casts) => rows.length
     ? `values ${rows.map(row => `(${row.join(',')})`).join(',')}`
     : `select ${casts.map((cast, index) => `null::${cast} as c${index}`).join(', ')} where false`;
-  const categorySql = categories.map(row => `insert into game_categories(code,name_ko,name_en,bgg_subdomain,display_order,created_at,updated_at) values (${row.map(quote).join(',')},current_timestamp,current_timestamp) on conflict (code) do update set name_ko=excluded.name_ko,name_en=excluded.name_en,updated_at=current_timestamp;`).join('\n');
+  const categorySql = categories.map(row => `insert into game_categories(code,name_ko,name_en,bgg_subdomain,display_order,created_at,updated_at) values (${row.map(quote).join(',')},current_timestamp,current_timestamp) on conflict (bgg_subdomain) do update set code=excluded.code,name_ko=excluded.name_ko,name_en=excluded.name_en,display_order=excluded.display_order,updated_at=current_timestamp;`).join('\n');
   const themeSql = artifact.themes.map(row => `insert into game_themes(bgg_theme_id,code,name_ko,name_en,created_at,updated_at) values (${row.bggThemeId},${quote(row.code)},${quote(row.nameKo)},${quote(row.nameEn)},current_timestamp,current_timestamp) on conflict (bgg_theme_id) do update set code=excluded.code,name_ko=excluded.name_ko,name_en=excluded.name_en,updated_at=current_timestamp;`).join('\n');
   const targets = values(artifact.targetBggIds.map(id => [id]), ['bigint']);
   const categoriesDesired = values(artifact.categoryRelations.map(row => [row.bggId, quote(row.category)]), ['bigint', 'text']);

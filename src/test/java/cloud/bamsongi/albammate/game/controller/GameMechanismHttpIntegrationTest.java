@@ -68,6 +68,27 @@ class GameMechanismHttpIntegrationTest {
 	}
 
 	@Test
+	void 비공개_메커니즘과_설명은_선택지_API에_노출되지_않는다() throws Exception {
+		saveMechanism(2040L, "HAND_MANAGEMENT", "핸드 관리", "Hand Management", 1, true);
+		saveMechanism(9993L, "PRIVATE", "비공개", "Private", null, false);
+		jdbcTemplate.update(
+			"update game_mechanisms set description_ko = ? where bgg_mechanism_id = ?",
+			"공개 설명",
+			2040L);
+		jdbcTemplate.update(
+			"update game_mechanisms set description_ko = ? where bgg_mechanism_id = ?",
+			"비공개 설명",
+			9993L);
+
+		mockMvc.perform(get("/api/game-mechanisms"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.length()").value(1))
+			.andExpect(jsonPath("$.data[0].code").value("HAND_MANAGEMENT"))
+			.andExpect(jsonPath("$.data[0].descriptionKo").value("공개 설명"))
+			.andExpect(jsonPath("$.data[?(@.code == 'PRIVATE')]").isEmpty());
+	}
+
+	@Test
 	void 단일_메커니즘은_관계_게임만_반환하고_비공개_코드는_검증오류다() throws Exception {
 		GameMechanism hand = saveMechanism(2040L, "HAND_MANAGEMENT", "핸드 관리", "Hand Management", 1, true);
 		GameMechanism privateMechanism = saveMechanism(9993L, "PRIVATE", "비공개", "Private", null, false);

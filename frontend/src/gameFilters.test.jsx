@@ -33,21 +33,19 @@ const FEATURED_MECHANISM_NAMES = [
   '솔로/솔로테어 게임',
   '일꾼 놓기'
 ];
-// 표시명이 곧 동작인 항목은 설명을 두지 않는다. 나머지만 정보 아이콘을 가진다.
-const DESCRIBED_MECHANISM_NAMES = ['핸드 관리', '셋 컬렉션', '조립 보드', '솔로/솔로테어 게임', '일꾼 놓기'];
 const MECHANISM_OPTIONS = [
-  { code: 'HAND_MANAGEMENT', nameKo: '핸드 관리', nameEn: 'Hand Management', featuredOrder: 1 },
-  { code: 'DICE_ROLLING', nameKo: '주사위 굴림', nameEn: 'Dice Rolling', featuredOrder: 2 },
-  { code: 'SET_COLLECTION', nameKo: '셋 컬렉션', nameEn: 'Set Collection', featuredOrder: 3 },
-  { code: 'COOPERATIVE_GAME', nameKo: '협력 게임', nameEn: 'Cooperative Game', featuredOrder: 4 },
-  { code: 'TILE_PLACEMENT', nameKo: '타일 놓기', nameEn: 'Tile Placement', featuredOrder: 5 },
-  { code: 'MODULAR_BOARD', nameKo: '조립 보드', nameEn: 'Modular Board', featuredOrder: 6 },
-  { code: 'SOLO_GAME', nameKo: '솔로/솔로테어 게임', nameEn: 'Solo / Solitaire Game', featuredOrder: 7 },
-  { code: 'WORKER_PLACEMENT', nameKo: '일꾼 놓기', nameEn: 'Worker Placement', featuredOrder: 8 },
+  { code: 'HAND_MANAGEMENT', nameKo: '핸드 관리', nameEn: 'Hand Management', featuredOrder: 1, descriptionKo: '손에 든 패를 잘 활용해야 해요' },
+  { code: 'DICE_ROLLING', nameKo: '주사위 굴림', nameEn: 'Dice Rolling', featuredOrder: 2, descriptionKo: '주사위를 굴려 결과를 정해요' },
+  { code: 'SET_COLLECTION', nameKo: '셋 컬렉션', nameEn: 'Set Collection', featuredOrder: 3, descriptionKo: '같은 종류끼리 모으면 좋아요' },
+  { code: 'COOPERATIVE_GAME', nameKo: '협력 게임', nameEn: 'Cooperative Game', featuredOrder: 4, descriptionKo: '모두가 함께 목표를 이루어요' },
+  { code: 'TILE_PLACEMENT', nameKo: '타일 놓기', nameEn: 'Tile Placement', featuredOrder: 5, descriptionKo: '타일을 놓아 판을 만들어요' },
+  { code: 'MODULAR_BOARD', nameKo: '조립 보드', nameEn: 'Modular Board', featuredOrder: 6, descriptionKo: '할 때마다 판이 다르게 꾸며져요' },
+  { code: 'SOLO_GAME', nameKo: '솔로/솔로테어 게임', nameEn: 'Solo / Solitaire Game', featuredOrder: 7, descriptionKo: '혼자서도 즐길 수 있어요' },
+  { code: 'WORKER_PLACEMENT', nameKo: '일꾼 놓기', nameEn: 'Worker Placement', featuredOrder: 8, descriptionKo: '자리를 먼저 차지하는 게 중요해요' },
   // 고급 목록 정렬을 확인하려고 응답은 가나다순이 아닌 차례로 둔다.
-  { code: 'AREA_MAJORITY', nameKo: '영역 우세', nameEn: 'Area Majority', featuredOrder: null },
-  { code: 'DECK_BUILDING', nameKo: '덱 빌딩', nameEn: 'Deck Building', featuredOrder: null },
-  { code: 'AUCTION', nameKo: '경매', nameEn: 'Auction / Bidding', featuredOrder: null }
+  { code: 'AREA_MAJORITY', nameKo: '영역 우세', nameEn: 'Area Majority', featuredOrder: null, descriptionKo: '더 많은 영향력을 가진 사람이 이겨요' },
+  { code: 'DECK_BUILDING', nameKo: '덱 빌딩', nameEn: 'Deck Building', featuredOrder: null, descriptionKo: '게임 중 내 카드 덱을 더 강하게 만들어요' },
+  { code: 'AUCTION', nameKo: '경매', nameEn: 'Auction / Bidding', featuredOrder: null, descriptionKo: '입찰로 원하는 것을 가져가요' }
 ];
 
 function lastQuery() {
@@ -317,27 +315,29 @@ describe('T4 대표 메커니즘과 설명', () => {
     expect(hint.getAttribute('aria-expanded')).toBe('true');
   });
 
-  it('표시명만으로 알기 어려운 항목에만 서로 다른 설명을 연결한다', async () => {
+  it('대표 8개 모두 API가 준 서로 다른 설명을 연결한다', async () => {
     await renderGamesView();
     openFilterPanel();
 
-    const descriptions = DESCRIBED_MECHANISM_NAMES.map((name) => {
+    const descriptions = FEATURED_MECHANISM_NAMES.map((name) => {
       const hint = screen.getByLabelText(name + ' 설명');
       return document.getElementById(hint.getAttribute('aria-describedby')).textContent.trim();
     });
 
     expect(descriptions.every(Boolean)).toBe(true);
-    expect(new Set(descriptions).size).toBe(DESCRIBED_MECHANISM_NAMES.length);
+    expect(new Set(descriptions).size).toBe(FEATURED_MECHANISM_NAMES.length);
   });
 
-  // 사람이 검수·승인한 문구를 고정해 예고 없이 바뀌지 않도록 막는다.
-  it('대표 항목 설명 문구를 고정한다', async () => {
+  it('대표 항목은 화면 상수가 아닌 API 설명을 표시한다', async () => {
     await renderGamesView();
     openFilterPanel();
 
     const expectedByName = {
       '핸드 관리': '손에 든 패를 잘 활용해야 해요',
+      '주사위 굴림': '주사위를 굴려 결과를 정해요',
       '셋 컬렉션': '같은 종류끼리 모으면 좋아요',
+      '협력 게임': '모두가 함께 목표를 이루어요',
+      '타일 놓기': '타일을 놓아 판을 만들어요',
       '조립 보드': '할 때마다 판이 다르게 꾸며져요',
       '솔로/솔로테어 게임': '혼자서도 즐길 수 있어요',
       '일꾼 놓기': '자리를 먼저 차지하는 게 중요해요'
@@ -350,23 +350,14 @@ describe('T4 대표 메커니즘과 설명', () => {
     });
   });
 
-  it('표시명이 곧 동작인 대표 항목에는 정보 아이콘을 두지 않는다', async () => {
-    await renderGamesView();
-    openFilterPanel();
-
-    ['주사위 굴림', '협력 게임', '타일 놓기'].forEach((name) => {
-      expect(screen.getByLabelText(name)).toBeTruthy();
-      expect(screen.queryByLabelText(name + ' 설명')).toBeNull();
-    });
-  });
-
-  it('대표 8개 밖 항목에는 설명을 제공하지 않는다', async () => {
+  it('고급 목록의 항목도 API 설명을 키보드로 확인할 수 있다', async () => {
     await renderGamesView();
     openFilterPanel();
     fireEvent.click(screen.getByRole('button', { name: '메커니즘 더 보기' }));
 
-    expect(screen.getByLabelText('경매')).toBeTruthy();
-    expect(screen.queryByLabelText('경매 설명')).toBeNull();
+    const hint = screen.getByLabelText('경매 설명');
+    fireEvent.focus(hint);
+    expect(document.getElementById(hint.getAttribute('aria-describedby')).textContent.trim()).toBe('입찰로 원하는 것을 가져가요');
   });
 });
 
