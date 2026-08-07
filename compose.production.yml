@@ -36,10 +36,13 @@ services:
       retries: 12
       start_period: 90s
     volumes:
-      - type: bind
-        source: ${ALBAM_MATE_RDS_CA_PATH:?ALBAM_MATE_RDS_CA_PATH must be set}
-        target: /etc/albam-mate/rds-ca-bundle.pem
-        read_only: true
+      # 이 named volume은 이 호스트에만 있다. 목표 운영 토폴로지(docs/p1/README.md의 AUTH-05 운영 배포·실측 =
+      # 미배포·미측정)는 ALB 뒤 여러 인스턴스인데, 여러 인스턴스가 뜨면 각자 로컬 volume이라 서로 다른 인스턴스가
+      # 저장·서빙한 이미지를 못 본다. 실제 scale-out 검증 전에는 이 스토리지를 공용 객체 스토리지(S3 등)로
+      # 옮겨야 한다 — 이 프로젝트의 다른 AWS scale-out 항목과 같은 후속 OPS로 추적한다.
+      - type: volume
+        source: profile-images
+        target: /app/uploads/profile
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
@@ -66,6 +69,9 @@ services:
     init: true
     environment:
       ALBAM_MATE_RELEASE: ${ALBAM_MATE_RELEASE:?ALBAM_MATE_RELEASE must be set}
+      # App2 EC2의 private DNS. entrypoint에서 envsubst가 nginx.conf upstream에 치환한다.
+      # 설정하지 않으면 App1 자신(127.0.0.1)을 App2로도 사용한다.
+      ALBAM_MATE_APP2_HOST: ${ALBAM_MATE_APP2_HOST:-127.0.0.1}
     depends_on:
       spring:
         condition: service_healthy
@@ -108,3 +114,6 @@ services:
 networks:
   application:
     driver: bridge
+
+volumes:
+  profile-images:

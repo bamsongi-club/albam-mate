@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -46,10 +47,14 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.entity.Room;
+import cloud.bamsongi.albammate.room.entity.RoomWaitlist;
+import cloud.bamsongi.albammate.room.entity.RoomWaitlistId;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
+import cloud.bamsongi.albammate.room.enums.RoomWaitlistStatus;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
 
 @Testcontainers
 @SpringBootTest
@@ -71,6 +76,8 @@ class RoomStatusCorrectionPostgresTest {
 
 	@Autowired
 	@Qualifier("roomRepository") private RoomRepository roomRepository;
+	@Autowired
+	private RoomWaitlistRepository roomWaitlistRepository;
 
 	@Autowired
 	private RoomReadGate roomReadGate;
@@ -80,6 +87,7 @@ class RoomStatusCorrectionPostgresTest {
 	private PlatformTransactionManager transactionManager;
 
 	private final List<Long> roomIds = new ArrayList<>();
+	private final List<RoomWaitlistId> waitlistIds = new ArrayList<>();
 	private Long hostUserId;
 
 	@BeforeEach
@@ -89,6 +97,7 @@ class RoomStatusCorrectionPostgresTest {
 
 	@AfterEach
 	void tearDown() {
+		waitlistIds.forEach(waitlistId -> roomWaitlistRepository.deleteById(waitlistId));
 		roomIds.forEach(roomId -> jdbcTemplate.update("delete from rooms where id = ?", roomId));
 		jdbcTemplate.update("delete from users where id = ?", hostUserId);
 	}
@@ -130,6 +139,28 @@ class RoomStatusCorrectionPostgresTest {
 		Room atBoundary = currentRoom(room.getId());
 		assertEquals(RoomStatus.FINISHED, atBoundary.getStatus());
 		assertEquals(closedVersion + 1, atBoundary.getVersion());
+	}
+
+	@Test
+	void 전체_보정은_시작_경계에서_모집중_ROOM을_닫고_기존_닫힌_ROOM의_대기열까지_만료한다() throws ReflectiveOperationException {
+		Room recruitingRoom = saveRoom(START_AT.minusSeconds(1));
+		RoomWaitlist recruitingWaiting = saveWaiting(recruitingRoom.getId());
+		Room closedRoom = saveRoom(START_AT.minusSeconds(1));
+		setStatus(closedRoom, RoomStatus.CLOSED);
+		roomRepository.saveAndFlush(closedRoom);
+		RoomWaitlist closedWaiting = saveWaiting(closedRoom.getId());
+
+		int changedCount = coordinator.correctDueRooms(START_AT);
+
+		assertEquals(2, changedCount);
+		assertEquals(RoomStatus.CLOSED, currentRoom(recruitingRoom.getId()).getStatus());
+		assertEquals(
+			RoomWaitlistStatus.EXPIRED,
+			roomWaitlistRepository.findById(recruitingWaiting.getId()).orElseThrow().getStatus());
+		assertEquals(RoomStatus.CLOSED, currentRoom(closedRoom.getId()).getStatus());
+		assertEquals(
+			RoomWaitlistStatus.EXPIRED,
+			roomWaitlistRepository.findById(closedWaiting.getId()).orElseThrow().getStatus());
 	}
 
 	@Test
@@ -251,6 +282,19 @@ class RoomStatusCorrectionPostgresTest {
 
 	private Room currentRoom(Long roomId) {
 		return roomRepository.findById(roomId).orElseThrow();
+	}
+
+	private RoomWaitlist saveWaiting(Long roomId) {
+		RoomWaitlist waitlist = roomWaitlistRepository.saveAndFlush(
+			RoomWaitlist.create(roomId, hostUserId, roomId, START_AT.minusSeconds(2)));
+		waitlistIds.add(waitlist.getId());
+		return waitlist;
+	}
+
+	private void setStatus(Room room, RoomStatus status) throws ReflectiveOperationException {
+		Field field = Room.class.getDeclaredField("status");
+		field.setAccessible(true);
+		field.set(room, status);
 	}
 
 	private void updateRoomTitleInSeparateTransaction(Long roomId, int attempt) {

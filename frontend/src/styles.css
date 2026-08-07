@@ -110,6 +110,7 @@ header {
 .notification-item.read { color: var(--sub); }
 .notification-item-message { font-size: 14px; font-weight: 700; }
 .notification-item time { color: var(--sub); font-size: 11.5px; }
+.gnb-avatar { border-radius: 999px; display: block; height: 26px; object-fit: cover; width: 26px; }
 /* 텍스트 메뉴는 좌우 여백이 배경 안에 있고 원형 버튼은 없어서, 같은 gap이어도 아이콘 쪽만 붙어 보인다.
    아이콘 앞에 같은 값을 더해 메뉴와 아이콘 사이, 아이콘끼리의 간격을 같게 맞춘다. */
 #gnb .nav-icon-btn, #gnb .notification-menu { margin-left: 4px; }
@@ -189,7 +190,13 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .infobox.gray { background: var(--gray-soft); color: var(--gray); }
 .profile-head { align-items: center; display: flex; gap: 14px; margin-bottom: 30px; }
 .profile-head h2 { margin-bottom: 0; }
+.profile-avatar-wrap { flex: 0 0 auto; position: relative; }
 .profile-avatar { align-items: center; background: var(--soft); border-radius: 999px; color: var(--brown); display: inline-flex; flex: 0 0 auto; font-size: 24px; font-weight: 900; height: 56px; justify-content: center; width: 56px; }
+img.profile-avatar { object-fit: cover; }
+.profile-avatar-edit { align-items: center; background: var(--brown); border: 2px solid #fff; border-radius: 999px; bottom: -2px; color: #fff; display: inline-flex; font-size: 11px; height: 24px; justify-content: center; position: absolute; right: -2px; width: 24px; cursor: pointer; transition: background 0.15s; }
+.profile-avatar-edit:hover { background: var(--brown2); }
+.profile-avatar-edit:disabled { opacity: 0.6; cursor: wait; }
+.btn.ghost.sm { font-size: 12px; padding: 3px 8px; margin-top: 4px; }
 .menu-list { overflow: hidden; padding: 0; }
 .menu-list > * + * { border-top: 1px solid var(--line); }
 .menu-row { align-items: center; display: flex; gap: 14px; min-height: 56px; padding: 14px 18px; text-align: left; width: 100%; }

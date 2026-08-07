@@ -95,8 +95,8 @@ jobs:
       - name: Assemble and check conventions
         run: ./gradlew assemble conventionCheck --no-daemon --stacktrace
 
-  local-multi-runtime:
-    name: Local Multi Runtime
+  local-runtime:
+    name: Local Runtime
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
@@ -123,15 +123,15 @@ jobs:
           cache-read-only: ${{ github.ref != 'refs/heads/develop' && github.ref != 'refs/heads/main' }}
           validate-wrappers: true
 
-      - name: Verify local-multi runtime
+      - name: Verify local runtime
         run: |
-          docker compose --env-file .env.example -f compose.local-multi.yml config --quiet
-          docker compose --env-file .env.example -f compose.local-multi.yml up -d --build --wait
-          ./gradlew postgresTest --tests "cloud.bamsongi.albammate.global.security.session.LocalMultiProxyRuntimePostgresTest" -Dissue360.localMultiProxy=true --no-daemon --stacktrace
+          docker compose --env-file .env.example -f compose.local.yml config --quiet
+          docker compose --env-file .env.example -f compose.local.yml up -d --build --wait
+          JAVA_TOOL_OPTIONS='-Dissue471.localProxy=true' ./gradlew postgresTest --tests "cloud.bamsongi.albammate.global.security.session.LocalMultiProxyRuntimePostgresTest" --rerun --fail-fast --no-daemon --stacktrace
 
-      - name: Stop local-multi runtime
+      - name: Stop local runtime
         if: ${{ always() }}
-        run: docker compose --env-file .env.example -f compose.local-multi.yml down
+        run: docker compose --env-file .env.example -f compose.local.yml down
 
   backend-coverage:
     name: Backend Coverage
@@ -276,7 +276,7 @@ jobs:
     needs:
       - changes
       - backend-static
-      - local-multi-runtime
+      - local-runtime
       - backend-coverage
       - frontend
       - docs
@@ -291,7 +291,7 @@ jobs:
           DOCS_RESULT: ${{ needs.docs.result }}
           BACKEND_REQUIRED: ${{ needs.changes.outputs.backend }}
           BACKEND_STATIC_RESULT: ${{ needs.backend-static.result }}
-          LOCAL_MULTI_RESULT: ${{ needs.local-multi-runtime.result }}
+          LOCAL_RESULT: ${{ needs.local-runtime.result }}
           BACKEND_COVERAGE_RESULT: ${{ needs.backend-coverage.result }}
           FRONTEND_REQUIRED: ${{ needs.changes.outputs.frontend }}
           FRONTEND_RESULT: ${{ needs.frontend.result }}
@@ -314,7 +314,7 @@ jobs:
 
           if [[ "$BACKEND_REQUIRED" == "true" ]]; then
             [[ "$BACKEND_STATIC_RESULT" == "success" ]] || fail "Backend Static이 실패했습니다."
-            [[ "$LOCAL_MULTI_RESULT" == "success" ]] || fail "Local Multi Runtime이 실패했습니다."
+            [[ "$LOCAL_RESULT" == "success" ]] || fail "Local Runtime이 실패했습니다."
             [[ "$BACKEND_COVERAGE_RESULT" == "success" ]] || fail "Backend Coverage가 실패했습니다."
           fi
 

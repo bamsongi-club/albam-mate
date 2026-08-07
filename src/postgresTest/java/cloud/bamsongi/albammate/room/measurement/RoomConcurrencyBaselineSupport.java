@@ -4,9 +4,12 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -18,6 +21,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -41,16 +45,20 @@ import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier;
 import jakarta.persistence.OptimisticLockException;
+import tools.jackson.databind.ObjectMapper;
 
 /** ROOM-10a PostgreSQL 기준선의 결정적 gate, 재시도·비용 원자료 수집을 묶는다. */
 final class RoomConcurrencyBaselineSupport {
 
 	private static final long WAIT_SECONDS = 10;
 
+	private static final Path REPORT_DIRECTORY = Path.of("build", "reports", "measurements");
+
 	private final JdbcTemplate jdbcTemplate;
 	private final RoomRepository roomRepository;
 	private final TransactionTemplate requiresNewTransaction;
 	private final MeasuredRoomOptimisticLockRetrier measuredRetrier = new MeasuredRoomOptimisticLockRetrier();
+	private final List<CollectedRound> collectedRounds = new ArrayList<>();
 
 	RoomConcurrencyBaselineSupport(
 		PlatformTransactionManager transactionManager,
@@ -123,7 +131,10 @@ final class RoomConcurrencyBaselineSupport {
 			PostgresCost postgresCost = readPostgresCost();
 			String rawRecord = formatRawRecord(scenario, concurrencyLevel, requests, postgresCost);
 			LoggerFactory.getLogger(RoomConcurrencyBaselineSupport.class).info(rawRecord);
-			return new RoundMeasurement(requests, postgresCost, rawRecord, retryLogCapture.retryLogRecords());
+			RoundMeasurement measurement = new RoundMeasurement(
+				requests, postgresCost, rawRecord, retryLogCapture.retryLogRecords());
+			collectedRounds.add(new CollectedRound(scenario, concurrencyLevel, measurement));
+			return measurement;
 		} finally {
 			start.countDown();
 			retryLogCapture.detach();
@@ -206,6 +217,91 @@ final class RoomConcurrencyBaselineSupport {
 			roomReadGate.clearResponseTimer();
 			measuredRetrier.endRequest();
 		}
+	}
+
+	/**
+	 * 수집한 측정 round를 JSON 원자료로 보존한다. 로그 출력만으로는 후속 슬라이스가 수준 간 비교에 쓸 입력이
+	 * 남지 않으므로, ROOM-09c 기준선과 같은 형식으로 {@code build/reports/measurements/}에 쓴다.
+	 */
+	Path writeMeasurementReport(
+		ObjectMapper objectMapper, String reportName, Map<String, String> configuration) throws Exception {
+		if (collectedRounds.isEmpty()) {
+			throw new AssertionError("보존할 측정 round가 없습니다: " + reportName);
+		}
+		Path reportPath = REPORT_DIRECTORY.resolve(reportName + ".json");
+		Files.createDirectories(reportPath.getParent());
+		Objects.requireNonNull(objectMapper, "objectMapper")
+			.writerWithDefaultPrettyPrinter()
+			.writeValue(reportPath.toFile(), new MeasurementReport(
+				reportName,
+				measurementEnvironment(configuration),
+				collectedRounds.stream().map(RoomConcurrencyBaselineSupport::toRoundReport).toList()));
+		return reportPath;
+	}
+
+	int collectedRoundCount() {
+		return collectedRounds.size();
+	}
+
+	/**
+	 * 이 support는 테스트 컨텍스트의 단일 bean이라 측정 round가 테스트 메서드 사이에 누적된다. 원자료를 보존하는
+	 * 테스트는 자기 round만 남기도록 시작 시점에 수집분을 비운다.
+	 */
+	void clearCollectedRounds() {
+		collectedRounds.clear();
+	}
+
+	private MeasurementEnvironment measurementEnvironment(Map<String, String> configuration) {
+		Runtime runtime = Runtime.getRuntime();
+		return new MeasurementEnvironment(
+			gitSha(),
+			System.getProperty("java.version"),
+			jdbcTemplate.queryForObject("show server_version", String.class),
+			System.getProperty("os.name"),
+			System.getProperty("os.version"),
+			runtime.availableProcessors(),
+			runtime.totalMemory() - runtime.freeMemory(),
+			runtime.maxMemory(),
+			Map.copyOf(Objects.requireNonNull(configuration, "configuration")));
+	}
+
+	private String gitSha() {
+		try {
+			Process process = new ProcessBuilder(
+				"git", "-c", "safe.directory=" + Path.of("").toAbsolutePath(), "rev-parse", "HEAD")
+				.redirectErrorStream(true)
+				.start();
+			if (process.waitFor() == 0) {
+				return new String(process.getInputStream().readAllBytes()).trim();
+			}
+		} catch (Exception ignored) {
+			// 측정 원자료가 git을 읽지 못해도 실패 원인을 바꾸지 않는다.
+		}
+		return "UNAVAILABLE";
+	}
+
+	private static RoundReport toRoundReport(CollectedRound collected) {
+		RoundMeasurement measurement = collected.measurement();
+		long conflictCount = measurement.requests().stream()
+			.mapToLong(RequestMeasurement::conflictCount)
+			.sum();
+		return new RoundReport(
+			collected.scenario(),
+			collected.concurrencyLevel(),
+			measurement.totalRequestCount(),
+			measurement.successCount(),
+			measurement.businessFailureCount(),
+			measurement.concurrencyFailureCount(),
+			measurement.technicalFailureCount(),
+			conflictCount,
+			(double)conflictCount / measurement.totalRequestCount(),
+			measurement.retryCount(0),
+			measurement.retryCount(1),
+			measurement.retryCount(2),
+			measurement.exhaustedCount(),
+			measurement.requestDurationsNanos(),
+			measurement.postgresCost(),
+			measurement.rawRecord());
 	}
 
 	private void resetPostgresStatistics() {
@@ -304,6 +400,15 @@ final class RoomConcurrencyBaselineSupport {
 		private final AtomicReference<Scenario> activeScenario = new AtomicReference<>();
 		private final ThreadLocal<Boolean> responseTimerArmed = new ThreadLocal<>();
 		private final ThreadLocal<Long> gateWaitNanos = new ThreadLocal<>();
+		private final LongSupplier nanoTime;
+
+		RoomReadGate() {
+			this(System::nanoTime);
+		}
+
+		RoomReadGate(LongSupplier nanoTime) {
+			this.nanoTime = Objects.requireNonNull(nanoTime, "nanoTime");
+		}
 
 		void activate(long roomId, int expectedReaders) {
 			if (!activeScenario.compareAndSet(null, new Scenario(roomId, expectedReaders))) {
@@ -321,10 +426,10 @@ final class RoomConcurrencyBaselineSupport {
 				return;
 			}
 			scenario.observedVersions.add(room.orElseThrow().getVersion());
-			long gateWaitStartedAt = System.nanoTime();
+			long gateWaitStartedAt = nanoTime.getAsLong();
 			scenario.initialReads.countDown();
 			awaitGate(scenario.initialReads);
-			addGateWaitNanos(System.nanoTime() - gateWaitStartedAt);
+			recordGateWaitNanos(nanoTime.getAsLong() - gateWaitStartedAt);
 		}
 
 		void armResponseTimer() {
@@ -335,7 +440,7 @@ final class RoomConcurrencyBaselineSupport {
 		long elapsedNanosSince(long fallbackStartNanos) {
 			Long measuredGateWaitNanos = gateWaitNanos.get();
 			long excludedNanos = measuredGateWaitNanos == null ? 0 : measuredGateWaitNanos;
-			return System.nanoTime() - fallbackStartNanos - excludedNanos;
+			return nanoTime.getAsLong() - fallbackStartNanos - excludedNanos;
 		}
 
 		void clearResponseTimer() {
@@ -343,7 +448,7 @@ final class RoomConcurrencyBaselineSupport {
 			gateWaitNanos.remove();
 		}
 
-		private void addGateWaitNanos(long durationNanos) {
+		void recordGateWaitNanos(long durationNanos) {
 			if (Boolean.TRUE.equals(responseTimerArmed.get())) {
 				gateWaitNanos.set(gateWaitNanos.get() + durationNanos);
 			}
@@ -592,6 +697,46 @@ final class RoomConcurrencyBaselineSupport {
 		static RequestMeasurement technicalFailure(long durationNanos, int retryCount) {
 			return new RequestMeasurement(durationNanos, retryCount, retryCount, false, false, false, true, null);
 		}
+	}
+
+	private record CollectedRound(String scenario, int concurrencyLevel, RoundMeasurement measurement) {
+	}
+
+	record MeasurementReport(
+		String reportName,
+		MeasurementEnvironment environment,
+		List<RoundReport> rounds) {
+	}
+
+	record MeasurementEnvironment(
+		String gitSha,
+		String javaVersion,
+		String postgresqlVersion,
+		String operatingSystem,
+		String operatingSystemVersion,
+		int cpuCount,
+		long startUsedHeapBytes,
+		long maxHeapBytes,
+		Map<String, String> configuration) {
+	}
+
+	record RoundReport(
+		String scenario,
+		int concurrencyLevel,
+		int totalRequestCount,
+		long successCount,
+		long businessFailureCount,
+		long concurrencyFailureCount,
+		long technicalFailureCount,
+		long conflictCount,
+		double conflictRate,
+		long retry0Count,
+		long retry1Count,
+		long retry2Count,
+		long exhaustedCount,
+		List<Long> requestDurationsNanos,
+		PostgresCost postgresCost,
+		String rawRecord) {
 	}
 
 	record PostgresCost(

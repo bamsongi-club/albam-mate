@@ -26,7 +26,7 @@ const GAME_SEARCH_DEBOUNCE_MS = 250;
 // 인원 숫자 입력은 마지막 입력 뒤 이 시간이 지나면 조회한다. 체크박스는 기다리지 않는다.
 const GAME_NUMBER_FILTER_DEBOUNCE_MS = 400;
 // 회원가입 비밀번호 한도는 서버 검증 규칙과 같은 값을 쓴다. 한쪽만 바뀌면 안내와 결과가 어긋난다.
-const PASSWORD_MIN_CODE_POINTS = 15;
+const PASSWORD_MIN_CODE_POINTS = 8;
 const PASSWORD_MAX_CODE_POINTS = 64;
 const PASSWORD_MAX_UTF8_BYTES = 72;
 const SOCIAL_PROVIDER_LABEL = { GOOGLE: 'Google', NAVER: 'Naver', KAKAO: 'Kakao' };
@@ -633,7 +633,7 @@ function Header({ route, me, notificationMenu }) {
             </div>
           )}
           {me
-            ? <a href="#/profile" className={'nav-icon-btn ' + (rootRoute[route] === 'profile' ? 'on' : '')} aria-label={me.nickname + ' 프로필'}><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 0 0-16 0" /></svg></a>
+            ? <a href="#/profile" className={'nav-icon-btn ' + (rootRoute[route] === 'profile' ? 'on' : '')} aria-label={me.nickname + ' 프로필'}>{me.profileImageUrl ? <img className="gnb-avatar" src={me.profileImageUrl} alt="" /> : <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 0 0-16 0" /></svg>}</a>
             : <a href="#/auth" className="btn pill">로그인</a>}
         </nav>
       </div>
@@ -2552,12 +2552,14 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
   );
 }
 
-export function ProfileView({ me, onSave, onLogout, socialProviders = [], onSocialLink }) {
+export function ProfileView({ me, onSave, onLogout, socialProviders = [], onSocialLink, onUploadImage, onDeleteImage }) {
   const [nickname, setNickname] = useState(me.nickname);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [linking, setLinking] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef(null);
   useEffect(() => setNickname(me.nickname), [me.nickname]);
   const logout = async () => {
     setLoggingOut(true);
@@ -2576,6 +2578,34 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onSoci
       setSaving(false);
     }
   };
+  const handleImageSelect = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('5MB 이하의 이미지를 선택해주세요.');
+      return;
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      alert('JPEG, PNG, WebP 형식의 이미지만 업로드할 수 있어요.');
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      await onUploadImage(file);
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+  const handleDeleteImage = async () => {
+    if (!confirm('프로필 이미지를 삭제할까요?')) return;
+    setUploadingImage(true);
+    try {
+      await onDeleteImage();
+    } finally {
+      setUploadingImage(false);
+    }
+  };
   // 연결은 제공자 화면으로 전체 페이지를 넘긴다. 성공하면 이 화면이 다시 그려지지 않으므로 상태를 되돌리지 않는다.
   const startLink = async (provider) => {
     setLinking(provider);
@@ -2584,8 +2614,19 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onSoci
   return (
     <>
       <div className="profile-head">
-        <span className="profile-avatar" aria-hidden="true">{me.nickname.slice(0, 1)}</span>
-        <h2>{me.nickname}</h2>
+        <div className="profile-avatar-wrap">
+          {me.profileImageUrl
+            ? <img className="profile-avatar" src={me.profileImageUrl} alt={me.nickname + ' 프로필 이미지'} />
+            : <span className="profile-avatar" aria-hidden="true">{me.nickname.slice(0, 1)}</span>}
+          <button className="profile-avatar-edit" type="button" disabled={uploadingImage} onClick={() => fileInputRef.current?.click()} aria-label="프로필 이미지 변경">
+            {uploadingImage ? '…' : <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>}
+          </button>
+          <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleImageSelect} />
+        </div>
+        <div>
+          <h2>{me.nickname}</h2>
+          {me.profileImageUrl && <button className="btn ghost sm" type="button" disabled={uploadingImage} onClick={handleDeleteImage}>이미지 삭제</button>}
+        </div>
       </div>
       <div className="card menu-list" style={{ maxWidth: 560 }}>
           <a className="menu-row" href="#/my">
@@ -2657,6 +2698,9 @@ function signupPasswordError(password) {
   }
   if (new TextEncoder().encode(password).length > PASSWORD_MAX_UTF8_BYTES) {
     return '비밀번호가 너무 길어 회원가입을 진행할 수 없어요. 한글이나 이모지는 영문보다 길이를 많이 차지해요.';
+  }
+  if (password && !/^[\x21-\x7E]+$/.test(password)) {
+    return '비밀번호는 영문 대소문자, 숫자, 특수기호만 사용할 수 있어요.';
   }
   return '';
 }
@@ -2751,7 +2795,7 @@ export function SignupView({ onSignup }) {
           <span className="auth-email-brand"><img src={brandSymbol} alt="" /></span>
           <span className="auth-email-title">알밤메이트로 회원가입하기</span>
         </div>
-        <div className="formrow single"><div><label className="sr-only" htmlFor="signup-email">이메일</label><input id="signup-email" type="email" autoComplete="email" placeholder="이메일" required value={email} onChange={(event) => setEmail(event.target.value)} /></div><div><label className="sr-only" htmlFor="signup-nickname">닉네임</label><input id="signup-nickname" maxLength="50" placeholder="닉네임" required value={nickname} onChange={(event) => setNickname(event.target.value)} /></div><div><label className="sr-only" htmlFor="signup-password">비밀번호</label><div className="auth-password-field"><input id="signup-password" ref={passwordRef} type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={PASSWORD_MIN_CODE_POINTS} placeholder="비밀번호" required value={password} onChange={(event) => setPassword(event.target.value)} aria-describedby="signup-password-hint" aria-invalid={passwordError ? true : undefined} /><button type="button" className="auth-password-toggle" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}>{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button></div><p id="signup-password-hint" className={passwordError ? 'hint warn' : 'hint'} role={passwordError ? 'alert' : undefined}>{passwordError || '15자 이상, 영문·숫자는 64자까지 한글은 24자까지 입력할 수 있어요.'}</p></div></div>
+        <div className="formrow single"><div><label className="sr-only" htmlFor="signup-email">이메일</label><input id="signup-email" type="email" autoComplete="email" placeholder="이메일" required value={email} onChange={(event) => setEmail(event.target.value)} /></div><div><label className="sr-only" htmlFor="signup-nickname">닉네임</label><input id="signup-nickname" maxLength="50" placeholder="닉네임" required value={nickname} onChange={(event) => setNickname(event.target.value)} /></div><div><label className="sr-only" htmlFor="signup-password">비밀번호</label><div className="auth-password-field"><input id="signup-password" ref={passwordRef} type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={PASSWORD_MIN_CODE_POINTS} placeholder="비밀번호" required value={password} onChange={(event) => setPassword(event.target.value)} aria-describedby="signup-password-hint" aria-invalid={passwordError ? true : undefined} /><button type="button" className="auth-password-toggle" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}>{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button></div><p id="signup-password-hint" className={passwordError ? 'hint warn' : 'hint'} role={passwordError ? 'alert' : undefined}>{passwordError || '8자 이상, 영문 대소문자, 숫자, 특수기호만 사용할 수 있어요.'}</p></div></div>
         {error && <ErrorBox message={error} />}
         <button className="btn big pill" disabled={submitting} type="submit">{submitting ? '처리 중…' : '회원가입'}</button>
       </form>
@@ -3076,6 +3120,30 @@ export function App() {
     }
   };
 
+  const handleUploadProfileImage = async (file) => {
+    try {
+      const profile = await api.uploadProfileImage(file);
+      setMe(profile);
+      showToast('프로필 이미지를 변경했어요.');
+      return true;
+    } catch (error) {
+      handleProtectedError(error, '프로필 이미지를 변경하지 못했어요.');
+      return false;
+    }
+  };
+
+  const handleDeleteProfileImage = async () => {
+    try {
+      const profile = await api.deleteProfileImage();
+      setMe(profile);
+      showToast('프로필 이미지를 삭제했어요.');
+      return true;
+    } catch (error) {
+      handleProtectedError(error, '프로필 이미지를 삭제하지 못했어요.');
+      return false;
+    }
+  };
+
   let content;
   if (route === 'find') content = <FindRoomsView roomType={roomType} onRoomTypeChange={setRoomType} roomQuery={roomQuery} onRoomQueryChange={setRoomQuery} roomFilters={roomFilters} onRoomFiltersChange={setRoomFilters} dataVersion={dataVersion} />;
   else if (route === 'game-list' && arg === 'played') {
@@ -3092,7 +3160,7 @@ export function App() {
   else if (route === 'my') content = me ? <MyRoomsSection myTab={myTab} onMyTabChange={setMyTab} dataVersion={dataVersion} onCancelApply={handleCancelApply} /> : <LoginRequiredView message="내 모임을 보려면 로그인해주세요." />;
   else if (route === 'chat') content = me ? <ChatRoomView roomId={arg} dataVersion={dataVersion} me={me} /> : <LoginRequiredView message="모임 채팅을 보려면 로그인해주세요." />;
   else if (route === 'chats') content = me ? <ChatListView dataVersion={dataVersion} /> : <LoginRequiredView message="채팅 목록을 보려면 로그인해주세요." />;
-  else if (route === 'profile') content = me ? <ProfileView me={me} onSave={handleSaveProfile} onLogout={handleLogout} socialProviders={socialProviders} onSocialLink={handleSocialLink} /> : <LoginRequiredView message="마이페이지를 보려면 로그인해주세요." />;
+  else if (route === 'profile') content = me ? <ProfileView me={me} onSave={handleSaveProfile} onLogout={handleLogout} socialProviders={socialProviders} onSocialLink={handleSocialLink} onUploadImage={handleUploadProfileImage} onDeleteImage={handleDeleteProfileImage} /> : <LoginRequiredView message="마이페이지를 보려면 로그인해주세요." />;
   else if (route === 'auth') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <AuthView onLogin={handleLogin} socialProviders={socialProviders} onSocialLogin={handleSocialLogin} />;
   else if (route === 'signup') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <SignupView onSignup={handleSignup} />;
   else content = <HomeView onBrowsePeople={handleBrowsePeople} onSearchGame={handleSearchGame} dataVersion={dataVersion} />;

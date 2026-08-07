@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.notification.relay;
 
 import java.time.Duration;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
@@ -36,12 +37,14 @@ public class NotificationRelayCoordinator {
 				processedCount++;
 			} catch (NotificationRelayProcessingException exception) {
 				claimedCount++;
-				NotificationRelayFailureRecorder.RecordedFailure recordedFailure = failureRecorder.record(exception)
-					.orElse(null);
-				if (recordedFailure != null && recordedFailure.retryScheduled()) {
-					retryScheduledCount++;
+				Optional<NotificationRelayFailureRecorder.RecordedFailure> recordedFailure = failureRecorder
+					.record(exception);
+				if (recordedFailure.isEmpty()) {
+					continue;
 				}
-				if (recordedFailure != null && !recordedFailure.retryScheduled()) {
+				if (recordedFailure.get().retryScheduled()) {
+					retryScheduledCount++;
+				} else {
 					failedCount++;
 				}
 			}

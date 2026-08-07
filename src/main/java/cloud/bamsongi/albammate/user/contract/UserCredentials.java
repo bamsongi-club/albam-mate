@@ -1,7 +1,11 @@
 package cloud.bamsongi.albammate.user.contract;
 
 /** 로그인 검증에 필요한 최소 자격증명 표현이다. 저장 해시는 HTTP 응답으로 변환하지 않는다. */
-public record UserCredentials(Long id, String nickname, String passwordHash) {
+public record UserCredentials(Long id, String nickname, String passwordHash, String profileImageUrl) {
+
+	public UserCredentials(Long id, String nickname, String passwordHash) {
+		this(id, nickname, passwordHash, null);
+	}
 
 	public UserCredentials {
 		if (id == null || id <= 0) {

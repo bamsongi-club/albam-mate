@@ -197,10 +197,10 @@ flowchart LR
     query --> coordinator["RoomStatusCorrectionCoordinator"]
     coordinator --> retrier["RoomOptimisticLockRetrier"]
     retrier --> correctionExecutor["RoomStatusCorrectionExecutor<br/>REQUIRES_NEW"]
-    correctionExecutor --> repositories["Room·Participation Repository"]
+    correctionExecutor --> correctionRepositories["RoomRepository·RoomWaitlistRepository"]
     correctionExecutor --> committed["상태 보정 커밋"]
     committed --> read["대응 ReadService<br/>REQUIRES_NEW readOnly<br/>목록·상세 REPEATABLE_READ"]
-    read --> repositories
+    read --> readRepositories["RoomRepository·ParticipationRepository"]
     read --> facts["ROOM·현재 ACTIVE·WAITING 사실"]
     facts --> evaluator["RoomActionAvailabilityEvaluator"]
     query --> evaluator
@@ -208,6 +208,8 @@ flowchart LR
     evaluator --> response["최종 DTO 조립"]
     contracts --> response
 ```
+
+`RoomStatusCorrectionExecutor`는 같은 `REQUIRES_NEW` 트랜잭션에서 ROOM 상태 전환과 시작 경계의 `WAITING → EXPIRED` 조건부 갱신을 수행한다. 둘 중 하나가 실패하면 같은 ROOM의 변경을 함께 롤백하며, 스케줄러 경로는 이 단건 Executor를 ROOM별로 호출한다.
 
 QueryService는 기준 시각을 고정하고 상태 보정 커밋을 기다린 뒤 ReadService로 최신 상태를 읽는다. ReadService는 별도의 `REQUIRES_NEW`, `readOnly = true` 트랜잭션을 사용한다.
 
@@ -358,22 +360,22 @@ flowchart LR
 
 #### 다중 인스턴스 실행
 
-공용 세션과 스케줄 실행 조정의 기술 결정은 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)이 소유한다.
+공용 세션과 스케줄 실행 조정의 기술 결정은 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)이 소유하고, 실행 프로필·로컬 검증 경계는 [ADR-0052](adr/platform/0052-local-profile-multi-instance-default.md)가 소유한다.
 
-`local-single`은 실제 Spring profile `local`을 사용하는, 인메모리 세션·fan-out을 허용하는 빠른 단일 서버 개발 환경이다. P1 필수 검증 환경인 `local-multi`는 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL과 Redis로 구성한다. 목표 운영 토폴로지에서는 ALB가 ASG 애플리케이션 인스턴스로 요청을 분산하고 모든 인스턴스가 공용 RDS PostgreSQL과 Redis를 사용한다. 이 목표는 현재 운영 배포 완료를 뜻하지 않으며, 배포·실측 상태는 [P1 기능별 상태 정본](p1/README.md#기능별-현재-상태)의 `운영 배포·실측` 열을 따른다.
+`local`은 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL과 Redis로 구성하는 기본 개발·데모·P1 검증 환경이다. 단일 서버 실행은 지원 범위에 두지 않는다. P1 AWS 검증 토폴로지에서는 App1 EC2의 Nginx가 고정 Spring EC2 두 대에 요청을 분산하고 모든 Spring이 자체 운영 PostgreSQL EC2와 Redis EC2를 공유한다. 네 EC2는 모두 public subnet의 `t4g.micro`에서 시작하며, 인터넷 인바운드는 App1의 TCP `80`만 기본 허용하고 인증서와 TLS 설정을 준비한 뒤 선택적으로 TCP `443`을 연다. ALB·ASG·NAT Gateway는 사용하지 않는다. Terraform은 AWS 리소스와 SSM inventory를 만들고, cloud-init은 최초 부팅 준비를, Ansible은 SSH 없이 Docker와 공통 호스트 설정을 맡는다. 상세 선택과 ADR-0038의 부분 대체 범위는 [승인된 ADR-0051](adr/platform/0051-p1-self-managed-aws-infrastructure.md)이 소유하며, 승인 사실은 운영 배포 완료를 뜻하지 않는다. 배포·실측 상태는 [P1 기능별 상태 정본](p1/README.md#기능별-현재-상태)의 `운영 배포·실측` 열을 따른다.
 
-- `JSESSIONID`의 인증 상태는 Spring Session Redis에 저장한다. HTTP 요청과 WebSocket handshake가 다른 인스턴스에 도달해도 동일 세션을 사용하며 ALB stickiness에 정합성을 의존하지 않는다.
+- `JSESSIONID`의 인증 상태는 Spring Session Redis에 저장한다. HTTP 요청과 WebSocket handshake가 다른 인스턴스에 도달해도 동일 세션을 사용하며 Nginx의 특정 upstream 고정에 정합성을 의존하지 않는다.
 - 하나의 Redis를 Spring Session, 채팅 Pub/Sub과 사용자·방 단위 rate limit에 사용하되 key prefix, TTL과 channel namespace를 분리한다.
-- 전송 제한의 사용자·방 bucket 값과 429·503 응답 경계는 [API 전송 제한 계약](API.md#전송-제한-계약)과 [CHAT-04 정본](p1/chatting.md#chat-04-채팅-안전운영)을 따른다. 공용 Redis의 Spring Session·채팅 Pub/Sub·전송 제한 간 key prefix·TTL·channel namespace는 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)에 따라 논리적으로 분리하며, #360의 `local-multi`와 #286의 `production` namespace는 [FND-10](p1/foundation.md#fnd-10-실시간-전달과-재연결-기반)을 따른다.
-- 세션 TTL은 30분이며, `local-multi`와 `production` Redis 세션은 `SecurityJacksonModules`와 `CurrentUserPrincipal` mixin을 적용한 JSON으로 직렬화한다. namespace는 각각 `albam-mate:local-multi:session`, `albam-mate:production:session`이다. rate limit key는 각각 `albam-mate:local-multi:ratelimit`, `albam-mate:production:ratelimit`이고, 채팅 이벤트 channel은 `albam-mate:{env}:chat:events`다.
-- `local`·`test`·`postgresTest`는 같은 Spring Session 쿠키·필터 경계에서 인메모리 저장소를 사용한다. Redis 저장소는 `local-multi`와 `production`에 적용하며, 해당 Redis가 필요할 때 인메모리 구현으로 자동 fallback하지 않는다. 세션·rate limit을 확인할 수 없을 때 `503 SERVICE_UNAVAILABLE`을 반환하는 현재 범위는 API 정본의 채팅 API 세 엔드포인트로 한정한다. 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트의 오류 계약은 적용 엔드포인트를 명시한 별도 계약 변경 전까지 확정하지 않는다.
+- 전송 제한의 사용자·방 bucket 값과 429·503 응답 경계는 [API 전송 제한 계약](API.md#전송-제한-계약)과 [CHAT-04 정본](p1/chatting.md#chat-04-채팅-안전운영)을 따른다. 공용 Redis의 Spring Session·채팅 Pub/Sub·전송 제한 간 key prefix·TTL·channel namespace는 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)과 [ADR-0052](adr/platform/0052-local-profile-multi-instance-default.md)에 따라 논리적으로 분리한다.
+- 세션 TTL은 30분이며, `local`과 `production` Redis 세션은 `SecurityJacksonModules`와 `CurrentUserPrincipal` mixin을 적용한 JSON으로 직렬화한다. namespace는 각각 `albam-mate:local:session`, `albam-mate:production:session`이다. rate limit key는 각각 `albam-mate:local:ratelimit`, `albam-mate:production:ratelimit`이고, 채팅 이벤트 channel은 `albam-mate:{env}:chat:events`다.
+- `test`·`postgresTest`는 같은 Spring Session 쿠키·필터 경계에서 인메모리 저장소를 사용한다. Redis 저장소는 `local`과 `production`에 적용하며, 해당 Redis가 필요할 때 인메모리 구현으로 자동 fallback하지 않는다. 세션·rate limit을 확인할 수 없을 때 `503 SERVICE_UNAVAILABLE`을 반환하는 현재 범위는 API 정본의 채팅 API 세 엔드포인트로 한정한다. 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트의 오류 계약은 적용 엔드포인트를 명시한 별도 계약 변경 전까지 확정하지 않는다.
 - 각 인스턴스는 자신에게 연결된 WebSocket만 메모리에 보관한다. Redis subscriber는 `chat.contract`의 수신 port를 호출하고 구체 Redis 타입을 `chat`에 노출하지 않는다.
 - 참가 취소·방 최종 상태 신호는 해당 방의 로컬 연결이 현재 권한을 다시 확인하게 하고, 세션 만료 이벤트는 해당 연결을 종료하는 빠른 정리 경로로 사용한다. 신호와 이벤트는 권한 회수의 근거가 아니며, 메시지 전달 직전에 PostgreSQL의 현재 관계·상태와 공용 세션의 현재 유효성을 함께 확인한다. 관계·상태가 유효하지 않거나 세션이 만료됐거나 확인에 실패하면 메시지를 전달하지 않고 연결을 종료한다.
 - Redis Pub/Sub 누락·중복·순서 역전은 다음 신호 또는 PostgreSQL `messageId` catch-up으로 복구한다. 커밋 뒤 Redis 발행·구독 실패는 메시지 저장 결과를 롤백하거나 삭제하지 않는다.
 - 방·참가 동시성은 공용 PostgreSQL의 기존 `Room.version` 낙관 락과 제한 재시도를 유지한다. 다중 인스턴스라는 이유로 Redis 분산 락으로 교체하지 않는다.
 - 방 상태 보정과 채팅 만료 삭제는 모든 인스턴스에 등록하되 Spring Scheduler와 PostgreSQL ShedLock으로 한 실행만 조정한다. 잠금은 업무 트랜잭션과 분리하고 작업 본문은 재실행되어도 같은 결과로 수렴시킨다.
 - Quartz 클러스터, Outbox, Redis Streams, RabbitMQ와 Kafka는 P1에 도입하지 않는다.
-- 실제 AWS의 WebSocket Upgrade, scale-out, 인스턴스 교체·draining과 운영 Redis 제품·HA·TLS·접근 제어·비밀·비용 검증은 후속 OPS다. 이 미검증은 `local-multi` 기반 P1 채팅 구현을 막지 않는다.
+- 실제 AWS App1 Nginx의 WebSocket Upgrade·다중 upstream·장애 처리, 고정 EC2 수동 교체와 운영 Redis의 HA·TLS·접근 제어·비밀·비용 검증은 후속 OPS다. 이 미검증은 `local` 기반 P1 채팅 구현을 막지 않는다.
 
 #### 기준 시각과 재시도
 

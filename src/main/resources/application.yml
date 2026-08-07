@@ -13,7 +13,16 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+  servlet:
+    multipart:
+      # 업로드 파일 자체의 상한은 컨트롤러가 5MiB(5*1024*1024바이트)로 강제한다. 여기 max-file-size는 그보다
+      # 커야 하는데, multipart 요청은 파일 바이트 외에 헤더·boundary 오버헤드가 붙어서 파일이 정확히 5MiB일 때
+      # 요청 전체 크기가 5MB 한도를 넘어 Spring이 컨트롤러에 도달하기 전에 거절해버리기 때문이다.
+      max-file-size: 6MB
+      max-request-size: 6MB
 app:
+  profile-image:
+    upload-dir: ${ALBAM_MATE_PROFILE_IMAGE_DIR:./uploads/profile}
   room:
     status-correction:
       lock-name: room-status-correction

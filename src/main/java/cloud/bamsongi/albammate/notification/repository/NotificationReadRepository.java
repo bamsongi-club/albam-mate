@@ -61,7 +61,7 @@ public class NotificationReadRepository {
 			recipientUserId).stream().findFirst();
 	}
 
-	public NotificationBulkReadResponse markAllUnread(long recipientUserId) {
+	public NotificationBulkReadResponse markAllUnreadAsRead(long recipientUserId) {
 		return jdbcTemplate.queryForObject(
 			"""
 				with operation as materialized (

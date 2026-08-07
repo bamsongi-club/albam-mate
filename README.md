@@ -2,9 +2,9 @@
 
 > 원하는 게임과 모임 조건을 확인하고 함께할 사람을 찾아, 실제 보드게임 플레이까지 이어지도록 돕는 모임 매칭 서비스입니다.
 
-[제품 목표](docs/PRD.md) · [P0 완료 명세](docs/archive/p0/P0-spec.md) · [P1 명세](docs/P1-spec.md) · [API 계약](docs/API.md) · [아키텍처](docs/ARCHITECTURE.md)
+[제품 목표](docs/PRD.md) · [P0 완료 명세](docs/archive/p0/P0-spec.md) · [P1 명세](docs/P1-spec.md) · [P1 AWS 인프라](docs/guides/AWS_MULTI_INSTANCE_INFRASTRUCTURE.md) · [API 계약](docs/API.md) · [아키텍처](docs/ARCHITECTURE.md)
 
-P0 백엔드 17개 API와 프론트엔드 연동을 완료했고, P1 2차 MVP는 기능별 계약·구현·검증을 진행 중입니다. 운영 배포는 아직 시작하지 않았습니다. 상세 상태는 [현재 개발 상태](#현재-개발-상태)를 따릅니다.
+P0 백엔드 17개 API와 프론트엔드 연동을 완료했고, P1 2차 MVP는 기능별 계약·구현·검증을 진행 중입니다. P1 AWS 검증 환경은 App1 Nginx 단일 진입점과 고정 `t4g.micro` EC2 4대 구성을 채택하고 Terraform·Ansible 1차 코드를 마련했지만, 실제 AWS 배포는 아직 시작하지 않았습니다. 상세 상태는 [현재 개발 상태](#현재-개발-상태)를 따릅니다.
 
 ## 해결하려는 문제
 
@@ -48,10 +48,11 @@ P0는 홍대 오프라인 모임만 다루며 운영 제재·결제·알림·대
 | 방 | [기능 명세](docs/archive/p0/room.md) 있음 | `ROOM-01`~`ROOM-05`의 6개 API와 전체 공개 방 필터, 상태 보정·스케줄러 | 목록·필터, 상태 경계·보정, 취소·종료와 권한 테스트 |
 | 참가·내 모임 | [기능 명세](docs/archive/p0/participation.md) 있음 | `PART-01`~`PART-03`의 3개 API | PostgreSQL 낙관 락 동시성 테스트 |
 | 프론트엔드 | [프론트엔드 README](frontend/README.md) 있음 | React 화면과 세션 쿠키·CSRF를 포함한 P0 API 연동, 게임·방 조건 필터와 웹 알림함 | Vitest API·알림 회귀 테스트와 Vite 운영 빌드를 CI에서 실행 |
-| 운영 배포 | [운영 가이드](docs/guides/AWS_P0_INFRASTRUCTURE.md)와 [ADR-0021](docs/adr/platform/0021-p0-aws-ec2-rds-deployment-baseline.md) 있음 | 백엔드·웹 이미지, 로컬·운영 Compose, production 프로파일과 롤백 명령 구현. 실제 AWS 배포는 미수행 | production 설정 자동 테스트와 Docker 배포 계약 검증기 있음. 공개 HTTPS·RDS 복구·경보 수신 검증은 남음 |
+| P0 운영 배포 기준 | [P0 운영 가이드](docs/guides/AWS_P0_INFRASTRUCTURE.md)와 [ADR-0021](docs/adr/platform/0021-p0-aws-ec2-rds-deployment-baseline.md) 있음 | 백엔드·웹 이미지, 로컬·운영 Compose, production 프로파일과 롤백 명령 구현. 실제 AWS 배포는 미수행 | production 설정 자동 테스트와 Docker 배포 계약 검증기 있음. 공개 HTTPS·RDS 복구·경보 수신 검증은 남음 |
+| P1 AWS 검증 인프라 | [ADR-0051](docs/adr/platform/0051-p1-self-managed-aws-infrastructure.md) 승인, [실행안](docs/guides/AWS_MULTI_INSTANCE_INFRASTRUCTURE.md) 있음 | 별도 [인프라 저장소](https://github.com/bamsongi-club/albam-mate-infra)의 Terraform·cloud-init·SSM 기반 Ansible 1차 구현. App1 Nginx 진입점과 고정 EC2 4대를 선언하지만 서비스 컨테이너 배포는 아직 구현하지 않음 | Terraform `fmt`·`validate` 통과. 실제 AWS `plan`·`apply`, Ansible 실행, 복구와 부하 검증은 미수행 |
 | P1 2차 MVP | [P1 공통 명세](docs/P1-spec.md)와 [기능별 상태 정본](docs/p1/README.md#기능별-현재-상태) | [기능별 상태 정본](docs/p1/README.md#기능별-현재-상태)의 `생산 코드` 열 | 같은 표의 `자동 검증`·`운영 배포·실측` 열 |
 
-P0 기능 행은 `v0.1.0` 완료 시점 기록을 요약하고, 프론트엔드·운영 배포·P1 행은 2026-08-04 기준입니다. P1 기능별 계약·구현·자동 검증·운영 상태는 [P1 기능별 상태 정본](docs/p1/README.md#기능별-현재-상태)을 따릅니다.
+P0 기능 행은 `v0.1.0` 완료 시점 기록을 요약하고, 프론트엔드·운영 배포·P1 행은 2026-08-07 기준입니다. P1 기능별 계약·구현·자동 검증·운영 상태는 [P1 기능별 상태 정본](docs/p1/README.md#기능별-현재-상태)을 따릅니다.
 
 ## 팀 — 밤송이클럽
 
@@ -78,6 +79,7 @@ P0의 사용자 흐름과 저장·보안 계약에 직접 영향을 주는 결�
 | 방 참가 동시성 | 낙관 락과 제한된 재시도 | 충돌이 드물다는 현재 가정 아래 평상시 잠금 대기를 피합니다. 정원 초과·중복 참가 방지와 재시도 상한을 PostgreSQL 동시성 테스트로 확인했습니다. [ADR-0005](docs/adr/participation/0005-room-participation-optimistic-locking.md) |
 | 게임 목록 데이터 | BGG 기준 스냅샷과 팀 수집 자료 | 외부 식별자를 보존하면서 서비스 표시 필드의 출처를 추적하고, 검증을 통과한 데이터셋만 하나의 트랜잭션으로 반영합니다. [ADR-0015](docs/adr/game/0015-bgg-baseline-team-collected-game-list.md) |
 | P0 운영 배포 | EC2 `t4g.small`과 private RDS PostgreSQL | 애플리케이션과 운영 데이터를 분리하고, RDS는 EC2 애플리케이션만 접근하게 합니다. 운영 Docker 이미지·Compose·production 프로파일은 구현했지만, 실제 HTTPS·전용 DB 사용자·재시작·RDS 복구·경보 수신 검증이 남아 있습니다. [ADR-0021](docs/adr/platform/0021-p0-aws-ec2-rds-deployment-baseline.md) |
+| P1 AWS 검증 인프라 | App1 Nginx와 고정 `t4g.micro` EC2 4대 | ALB·ASG·NAT Gateway 비용을 제외하고 Spring 2대·자체 운영 PostgreSQL·Redis의 역할별 병목을 같은 초기 조건에서 측정합니다. 네 EC2는 public subnet을 사용하지만 공개 인바운드는 App1의 TCP 80과 TLS 준비 후 선택하는 443으로 제한합니다. 승인된 결정이지만 실제 배포·복구·부하 검증은 남아 있습니다. [ADR-0051](docs/adr/platform/0051-p1-self-managed-aws-infrastructure.md) |
 
 ## 로컬에서 확인하기
 
@@ -141,6 +143,7 @@ cd frontend && npm run dev
 - 테이블과 데이터 제약: [ERD](docs/ERD.md)
 - 기술 선택과 트레이드오프, 결정별 검증 상태: [ADR](docs/adr/README.md)
 - 운영·설정·데이터 적재와 문제 해결 절차: [프로젝트 가이드](docs/guides/README.md)
+- P1 AWS 인프라 생성·호스트 준비·검증 절차: [P1 AWS 저비용 4 EC2 인프라 실행안](docs/guides/AWS_MULTI_INSTANCE_INFRASTRUCTURE.md)
 - 코드 작성·구현 규칙: [컨벤션](docs/CONVENTIONS.md)
 - 실행·테스트·포맷 명령: [프로젝트 명령](docs/COMMANDS.md)
 - 프론트엔드 화면과 실행: [프론트엔드 README](frontend/README.md)

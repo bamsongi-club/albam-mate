@@ -110,6 +110,59 @@ async function mutate(path, options = {}) {
   });
 }
 
+/** multipart/form-data 전송용 래퍼. Content-Type을 브라우저에 맡긴다. */
+async function mutateMultipart(path, { method = 'POST', body } = {}) {
+  const token = await getCsrfToken();
+  const requestAuthenticationGeneration = authenticationGeneration;
+  let response;
+  let payload;
+  try {
+    response = await fetch(endpoint(path), {
+      method,
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+        [token.headerName]: token.token
+      },
+      body
+    });
+    payload = await parsePayload(response);
+  } catch (error) {
+    if (requestAuthenticationGeneration !== authenticationGeneration) {
+      throw staleAuthenticationError();
+    }
+    throw error;
+  }
+
+  if (requestAuthenticationGeneration !== authenticationGeneration) {
+    throw staleAuthenticationError();
+  }
+
+  if (!response.ok) {
+    const error = new ApiError({
+      status: response.status,
+      code: payload?.code || 'REQUEST_FAILED',
+      message: payload?.message || '요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.',
+      retryAfter: response.headers.get('retry-after')
+    });
+    if (response.status === 401) {
+      clearCsrfToken();
+      unauthenticatedHandler?.();
+    }
+    throw error;
+  }
+
+  if (!payload || payload.status !== response.status || !Object.hasOwn(payload, 'data')) {
+    throw new ApiError({
+      status: response.status,
+      code: 'INVALID_API_RESPONSE',
+      message: '서버 응답 형식을 확인하지 못했어요.'
+    });
+  }
+
+  return payload.data;
+}
+
 // 경로의 제공자 값은 SocialProvider의 소문자 표기다.
 function socialProviderPath(provider) {
   return String(provider).toLowerCase();
@@ -272,6 +325,12 @@ export const api = {
     }
   },
   updateMyProfile: (profile) => mutate('/api/users/me', { method: 'PATCH', body: profile }),
+  uploadProfileImage: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return mutateMultipart('/api/users/me/profile-image', { method: 'POST', body: formData });
+  },
+  deleteProfileImage: () => mutate('/api/users/me/profile-image', { method: 'DELETE' }),
   createRoom: (room) => mutate('/api/rooms', { method: 'POST', body: room }),
   updateRoom: (roomId, room) => mutate('/api/rooms/' + roomId, { method: 'PATCH', body: room }),
   cancelRoom: (roomId) => mutate('/api/rooms/' + roomId, { method: 'DELETE' }),

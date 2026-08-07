@@ -1,9 +1,12 @@
 package cloud.bamsongi.albammate.notification.entity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
 import java.time.Instant;
 
 import org.junit.jupiter.api.Test;
@@ -60,6 +63,17 @@ class NotificationPersistenceModelTest {
 			1L, 2L, 3L, NotificationType.PARTICIPANT_JOINED, OCCURRED_AT, RECORDED_AT);
 
 		assertNull(notification.getReadAt());
-		assertEquals(OCCURRED_AT.plusSeconds(90L * 24 * 60 * 60), notification.getExpiresAt());
+		assertEquals(Notification.expiresAt(OCCURRED_AT), notification.getExpiresAt());
+	}
+
+	@Test
+	void Notification_보존_정책은_90일과_만료_포함_경계를_고정한다() {
+		// ADR-0040이 승인한 정책값을 의도적으로 고정해 보존 기간 변경을 드러낸다.
+		assertEquals(Duration.ofDays(90), Notification.retentionPeriod());
+		Instant expiresAt = Notification.expiresAt(OCCURRED_AT);
+
+		assertFalse(Notification.isExpiredAt(OCCURRED_AT, expiresAt.minusNanos(1)));
+		assertTrue(Notification.isExpiredAt(OCCURRED_AT, expiresAt));
+		assertTrue(Notification.isExpiredAt(OCCURRED_AT, expiresAt.plusNanos(1)));
 	}
 }

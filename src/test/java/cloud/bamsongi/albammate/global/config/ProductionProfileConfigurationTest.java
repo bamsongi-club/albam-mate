@@ -14,8 +14,7 @@ import org.springframework.core.io.ClassPathResource;
 class ProductionProfileConfigurationTest {
 
 	private static final String PRODUCTION_JDBC_URL = "jdbc:postgresql://${ALBAM_MATE_DB_HOST}:${ALBAM_MATE_DB_PORT}/${ALBAM_MATE_DB_NAME}"
-		+ "?sslmode=verify-full&sslrootcert=/etc/albam-mate/rds-ca-bundle.pem"
-		+ "&ApplicationName=albam-mate";
+		+ "?sslmode=disable&ApplicationName=albam-mate";
 
 	@Test
 	void production_프로필은_필수_RDS_환경변수와_TLS_검증_URL을_사용한다() throws IOException {

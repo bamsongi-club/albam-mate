@@ -24,6 +24,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "notification_outbox_events")
 public class NotificationOutboxEvent {
 
+	/** 처리 완료 시각부터 이벤트와 남은 수신자 스냅샷을 보존하는 기간이다. */
 	private static final Duration PROCESSED_OUTBOX_RETENTION = Duration.ofDays(30);
 
 	@Id

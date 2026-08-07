@@ -71,8 +71,14 @@ public class RoomStatusCorrectionScheduler implements Trigger {
 	private void correctDueRooms(Instant requestTime) {
 		long startedAtNanos = elapsedNanos();
 		try {
-			progressStore.claimExecution(requestTime);
-			int changedCount = coordinator.correctDueRooms(requestTime, this::waitBeforeRetry);
+			Integer candidateLimit = properties.getCandidateLimit();
+			if (candidateLimit == null) {
+				log.warn("event=room_status_correction_skipped reason=candidate_limit_missing");
+				return;
+			}
+			RoomStatusCorrectionProgressStore.ProgressSnapshot progress = progressStore.claimExecution(requestTime);
+			int changedCount = coordinator.correctBoundedDueRooms(
+				requestTime, progress, candidateLimit, this::waitBeforeRetry);
 			if (changedCount > 0) {
 				log.info("event=room_state_reconciliation_completed changedCount={}", changedCount);
 			} else {

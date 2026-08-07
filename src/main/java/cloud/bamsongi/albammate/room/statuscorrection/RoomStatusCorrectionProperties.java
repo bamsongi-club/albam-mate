@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -30,6 +31,9 @@ public class RoomStatusCorrectionProperties {
 
 	@NotNull @DurationMin(nanos = 1)
 	private Duration executionWarningThreshold;
+
+	/** #390이 초기 운영값을 확정하기 전까지는 테스트·측정에서만 명시적으로 주입한다. */
+	@Min(1) private Integer candidateLimit;
 
 	public String getLockName() {
 		return lockName;
@@ -69,5 +73,13 @@ public class RoomStatusCorrectionProperties {
 
 	public void setExecutionWarningThreshold(Duration executionWarningThreshold) {
 		this.executionWarningThreshold = executionWarningThreshold;
+	}
+
+	public Integer getCandidateLimit() {
+		return candidateLimit;
+	}
+
+	public void setCandidateLimit(Integer candidateLimit) {
+		this.candidateLimit = candidateLimit;
 	}
 }

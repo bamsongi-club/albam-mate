@@ -3,9 +3,11 @@
 - 상태: 승인됨
 - 작성일: 2026-07-31
 - 결정일: 2026-08-01
-- 관련: [P1 방 채팅 명세](../../p1/chatting.md), [채팅 API](../../API.md#채팅-공통-계약), [아키텍처](../../ARCHITECTURE.md#채팅-흐름), [ADR-0003 서버 세션](../auth/0003-p0-server-session-spring-security.md), [ADR-0020 API 인가 정책](../auth/0020-api-endpoint-authorization-policy-registry.md), [ADR-0031 커서 조회](0031-chat-history-cursor-pagination.md), [ADR-0033 메시지 정본과 전달](0033-postgresql-source-after-commit-delivery.md), [ADR-0038 공용 세션·스케줄 조정](../platform/0038-multi-instance-session-and-scheduler-coordination.md)
+- 관련: [P1 방 채팅 명세](../../p1/chatting.md), [채팅 API](../../API.md#채팅-공통-계약), [아키텍처](../../ARCHITECTURE.md#채팅-흐름), [ADR-0003 서버 세션](../auth/0003-p0-server-session-spring-security.md), [ADR-0020 API 인가 정책](../auth/0020-api-endpoint-authorization-policy-registry.md), [ADR-0031 커서 조회](0031-chat-history-cursor-pagination.md), [ADR-0033 메시지 정본과 전달](0033-postgresql-source-after-commit-delivery.md), [ADR-0038 공용 세션·스케줄 조정](../platform/0038-multi-instance-session-and-scheduler-coordination.md), [ADR-0051 P1 AWS 토폴로지](../platform/0051-p1-self-managed-aws-infrastructure.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
+
+> 2026-08-06 승인된 ADR-0051이 이 문서의 후속 작업에 적힌 ALB·ASG 경로를 App1 Nginx·고정 EC2 경로로 바꿨다. HTTP 저장·WebSocket 수신 결정과 재연결 계약은 그대로 유효하다.
 
 ## 맥락
 
@@ -69,6 +71,6 @@
 - 미검증:
     - WebSocket endpoint, Spring Session Redis와 인증·인가·재연결 구현이 없다.
     - 로컬 두 인스턴스 교차 전달을 확인하지 않았다.
-    - 실제 ALB의 Upgrade, scale-out, 연결 draining·종료 동작은 후속 OPS 검증이 필요하다.
+    - ADR-0051의 App1 Nginx 경로에서 WebSocket Upgrade, App2 실패 제외와 연결 종료 동작을 검증해야 한다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

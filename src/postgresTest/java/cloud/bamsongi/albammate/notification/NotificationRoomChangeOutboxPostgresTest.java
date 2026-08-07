@@ -8,7 +8,10 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.reset;
 
+import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -18,12 +21,19 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.test.util.AopTestUtils;
+import org.springframework.transaction.IllegalTransactionStateException;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -42,7 +52,8 @@ import cloud.bamsongi.albammate.room.service.command.RoomStatusChangeService;
 
 /** PostgreSQL에서 ROOM 변경의 실제 커밋 순서별 Outbox 수신자 스냅샷을 검증한다. */
 @Testcontainers
-@SpringBootTest(classes = AlbamMateApplication.class)
+@SpringBootTest(classes = AlbamMateApplication.class, properties = "app.notification.relay.enabled=false")
+@Import(NotificationRoomChangeOutboxPostgresTest.AheadApplicationClockConfiguration.class)
 class NotificationRoomChangeOutboxPostgresTest {
 
 	@Container
@@ -59,7 +70,13 @@ class NotificationRoomChangeOutboxPostgresTest {
 	@Autowired
 	private RoomStatusChangeService roomStatusChangeService;
 	@MockitoSpyBean
+	private NotificationRoomChangeEventRecorder roomChangeEventRecorderProxy;
 	private NotificationRoomChangeEventRecorder roomChangeEventRecorder;
+
+	@BeforeEach
+	void resolveRecorderSpyTarget() {
+		roomChangeEventRecorder = AopTestUtils.getUltimateTargetObject(roomChangeEventRecorderProxy);
+	}
 
 	@AfterEach
 	void resetRecorderSpy() {
@@ -303,6 +320,45 @@ class NotificationRoomChangeOutboxPostgresTest {
 		assertEquals(List.of("PARTICIPATION_JOINED"), eventTypes(roomId));
 	}
 
+	@Test
+	void 애플리케이션_시각이_DB보다_앞서도_Outbox는_PostgreSQL_시각으로_즉시_처리된다() {
+		long hostUserId = user("postgres-operation-time-host");
+		long participantUserId = user("postgres-operation-time-participant");
+		long roomId = room(hostUserId, 2);
+		Instant databaseTimeBefore = databaseTime();
+
+		roomParticipationService.participate(participantUserId, roomId);
+
+		Instant databaseTimeAfter = databaseTime();
+		OutboxTiming outboxTiming = outboxTiming(roomId, "PARTICIPATION_JOINED");
+		assertEquals(outboxTiming.recordedAt(), outboxTiming.availableAt());
+		assertTrue(!outboxTiming.recordedAt().isBefore(databaseTimeBefore));
+		assertTrue(!outboxTiming.recordedAt().isAfter(databaseTimeAfter));
+		assertTrue(Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
+			select exists (
+			    select 1
+			    from notification_outbox_events
+			    where room_id = ?
+			      and event_type = 'PARTICIPATION_JOINED'
+			      and status = 'PENDING'
+			      and available_at <= clock_timestamp()
+			)
+			""", Boolean.class, roomId)));
+	}
+
+	@Test
+	void 원인_트랜잭션_밖에서_Recorder를_호출하면_Outbox_쓰기_전에_거절된다() {
+		long hostUserId = user("mandatory-transaction-host");
+		long roomId = room(hostUserId, 2);
+
+		assertThrows(IllegalTransactionStateException.class,
+			() -> roomChangeEventRecorderProxy.record(
+				new ParticipationJoinedEvent(roomId, Instant.parse("2026-08-06T00:00:00Z")),
+				List.of(hostUserId)));
+
+		assertEquals(List.of(), eventTypes(roomId));
+	}
+
 	private long user(String prefix) {
 		return jdbcTemplate.queryForObject(
 			"insert into users (email, password_hash, nickname, created_at, updated_at) "
@@ -361,5 +417,32 @@ class NotificationRoomChangeOutboxPostgresTest {
 			where event.room_id = ? and event.event_type = ?
 			order by recipient.recipient_user_id
 			""", Long.class, roomId, eventType);
+	}
+
+	private Instant databaseTime() {
+		return jdbcTemplate.queryForObject("select clock_timestamp()", OffsetDateTime.class).toInstant();
+	}
+
+	private OutboxTiming outboxTiming(long roomId, String eventType) {
+		return jdbcTemplate.queryForObject("""
+			select recorded_at, available_at
+			from notification_outbox_events
+			where room_id = ? and event_type = ?
+			""", (resultSet, rowNum) -> new OutboxTiming(
+			resultSet.getObject("recorded_at", OffsetDateTime.class).toInstant(),
+			resultSet.getObject("available_at", OffsetDateTime.class).toInstant()), roomId, eventType);
+	}
+
+	@TestConfiguration(proxyBeanMethods = false)
+	static class AheadApplicationClockConfiguration {
+
+		@Bean
+		@Primary
+		Clock aheadApplicationClock() {
+			return Clock.offset(Clock.systemUTC(), Duration.ofHours(1));
+		}
+	}
+
+	private record OutboxTiming(Instant recordedAt, Instant availableAt) {
 	}
 }

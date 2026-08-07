@@ -35,7 +35,7 @@ class NotificationOutboxRecoveryServiceTest {
 		Fixture fixture = fixture();
 		NotificationOutboxEvent first = failed(2L, OPERATION_TIME.minusSeconds(60));
 		NotificationOutboxEvent second = failed(7L, OPERATION_TIME.minusSeconds(60));
-		when(fixture.eventRepository().findRecoveryOperationTime()).thenReturn(OPERATION_TIME);
+		when(fixture.eventRepository().findPostgresOperationTime()).thenReturn(OPERATION_TIME);
 		when(fixture.eventRepository().findAllByIdInOrderById(List.of(2L, 7L))).thenReturn(List.of(first, second));
 		when(fixture.recipientRepository().findOutboxEventIdsWithRecipients(List.of(2L, 7L)))
 			.thenReturn(List.of(2L, 7L));
@@ -52,7 +52,7 @@ class NotificationOutboxRecoveryServiceTest {
 	void preview_DISCARD는_batch_조회로_실제_reprocessable을_결과에_담는다() {
 		Fixture fixture = fixture();
 		NotificationOutboxEvent event = failed(3L, OPERATION_TIME.minusSeconds(60));
-		when(fixture.eventRepository().findRecoveryOperationTime()).thenReturn(OPERATION_TIME);
+		when(fixture.eventRepository().findPostgresOperationTime()).thenReturn(OPERATION_TIME);
 		when(fixture.eventRepository().findAllByIdInOrderById(List.of(3L))).thenReturn(List.of(event));
 		when(fixture.recipientRepository().findOutboxEventIdsWithRecipients(List.of(3L))).thenReturn(List.of(3L));
 
@@ -84,7 +84,7 @@ class NotificationOutboxRecoveryServiceTest {
 		List<NotificationOutboxEvent> events = List.of(
 			failed(3L, OPERATION_TIME.minusSeconds(60)),
 			failed(5L, OPERATION_TIME.minusSeconds(120)));
-		when(fixture.eventRepository().findRecoveryOperationTime()).thenReturn(OPERATION_TIME);
+		when(fixture.eventRepository().findPostgresOperationTime()).thenReturn(OPERATION_TIME);
 		when(fixture.eventRepository().findAllByIdInOrderById(eventIds)).thenReturn(events);
 		when(fixture.eventRepository().findAllByIdInOrderByIdForUpdate(eventIds)).thenReturn(events);
 		when(fixture.recipientRepository().findOutboxEventIdsWithRecipients(eventIds)).thenReturn(eventIds);
@@ -102,7 +102,7 @@ class NotificationOutboxRecoveryServiceTest {
 	void 수신자_스냅샷이_없는_REPROCESS는_preview와_execute에서_같이_거절한다() {
 		Fixture fixture = fixture();
 		NotificationOutboxEvent event = failed(3L, OPERATION_TIME.minusSeconds(60));
-		when(fixture.eventRepository().findRecoveryOperationTime()).thenReturn(OPERATION_TIME);
+		when(fixture.eventRepository().findPostgresOperationTime()).thenReturn(OPERATION_TIME);
 		when(fixture.eventRepository().findAllByIdInOrderById(List.of(3L))).thenReturn(List.of(event));
 		when(fixture.eventRepository().findAllByIdInOrderByIdForUpdate(List.of(3L))).thenReturn(List.of(event));
 		when(fixture.recipientRepository().findOutboxEventIdsWithRecipients(List.of(3L))).thenReturn(List.of());
@@ -136,7 +136,7 @@ class NotificationOutboxRecoveryServiceTest {
 		ReflectionTestUtils.setField(ineligible, "status", NotificationOutboxStatus.RETRY_WAIT);
 		when(fixture.eventRepository().findAllByIdInOrderByIdForUpdate(List.of(3L, 5L)))
 			.thenReturn(List.of(eligible, ineligible));
-		when(fixture.eventRepository().findRecoveryOperationTime()).thenReturn(OPERATION_TIME);
+		when(fixture.eventRepository().findPostgresOperationTime()).thenReturn(OPERATION_TIME);
 
 		assertThrows(NotificationOutboxRecoveryInputException.class,
 			() -> fixture.service().execute(discard(List.of(3L, 5L))));
@@ -151,7 +151,7 @@ class NotificationOutboxRecoveryServiceTest {
 		Fixture fixture = fixture();
 		NotificationOutboxEvent event = failed(3L, occurredAt);
 		when(fixture.eventRepository().findAllByIdInOrderByIdForUpdate(List.of(3L))).thenReturn(List.of(event));
-		when(fixture.eventRepository().findRecoveryOperationTime()).thenReturn(OPERATION_TIME);
+		when(fixture.eventRepository().findPostgresOperationTime()).thenReturn(OPERATION_TIME);
 		when(fixture.recipientRepository().findOutboxEventIdsWithRecipients(List.of(3L))).thenReturn(List.of(3L));
 		when(fixture.eventRepository().reprocessAll(List.of(3L), OPERATION_TIME, "fixed incident")).thenReturn(1);
 		try {
@@ -173,7 +173,7 @@ class NotificationOutboxRecoveryServiceTest {
 			.thenReturn(List.of(3L));
 		NotificationOutboxEvent event = failed(3L, OPERATION_TIME.minusSeconds(60));
 		when(eventRepository.findAllByIdInOrderByIdForUpdate(List.of(3L))).thenReturn(List.of(event));
-		when(eventRepository.findRecoveryOperationTime()).thenReturn(OPERATION_TIME);
+		when(eventRepository.findPostgresOperationTime()).thenReturn(OPERATION_TIME);
 		when(policy.evaluateEligibility(event, NotificationRecoveryAction.DISCARD, OPERATION_TIME, false))
 			.thenReturn(new NotificationOutboxRecoveryPolicy.RecoveryEligibility(reprocessable, true));
 		when(eventRepository.discardAll(anyCollection(), any(), any(), anyString())).thenReturn(1);

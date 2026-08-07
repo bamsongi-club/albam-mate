@@ -14,13 +14,9 @@ import cloud.bamsongi.albammate.notification.entity.NotificationOutboxEvent;
 
 public interface NotificationOutboxEventRepository extends JpaRepository<NotificationOutboxEvent, Long> {
 
-	/** 운영 복구 트랜잭션에서 사용할 PostgreSQL 기준 시각을 한 번 고정한다. */
+	/** 호출 트랜잭션에서 작업 판단과 저장에 한 번 고정해 재사용할 PostgreSQL wall-clock 시각을 반환한다. */
 	@Query(value = "select clock_timestamp()", nativeQuery = true)
-	Instant findRecoveryOperationTime();
-
-	/** cleanup batch가 due 판정·삭제·로그에 함께 사용할 PostgreSQL 기준 시각을 한 번 고정한다. */
-	@Query(value = "select clock_timestamp()", nativeQuery = true)
-	Instant findCleanupMeasurementTime();
+	Instant findPostgresOperationTime();
 
 	/** 실제 변경 전 전체 대상을 ID 오름차순으로 잠근다. */
 	@Query(value = "select * from notification_outbox_events where id in (:eventIds) order by id for update", nativeQuery = true)
@@ -106,6 +102,26 @@ public interface NotificationOutboxEventRepository extends JpaRepository<Notific
 	 * 실패 기록 트랜잭션에서 PostgreSQL 시각을 한 번 고정해 재시도 시각과 만료를 함께 판정한다.
 	 * 자동 재시도 조건이면 RETRY_WAIT, 결정적 실패·만료·시도 소진이면 FAILED로 전환한다.
 	 * 이미 완료됐거나 별도 트랜잭션에서 상태가 바뀐 이벤트는 잠금 대상에서 제외해 늦게 도착한 실패가 덮어쓰지 못한다.
+	 * Executor가 선제 만료 검사를 통과한 뒤 다른 처리 예외로 롤백되고 이 별도 {@code REQUIRES_NEW} 트랜잭션이
+	 * 시작되기 전에 보존 경계를 넘으면, 최신 operationTime으로 일반 실패 분류를 만료 실패로 최종 덮어쓴다.
+	 *
+	 * <p>인자는 대상 식별, 이번 실패 분류, 원자적 SQL 판정 정책의 세 묶음이다. 최초 처리와 실패 1~4 뒤 재시도를
+	 * 합쳐 최대 5회 자동 처리하며, 각 지연은 1·2·3·4번째 실패 뒤에 초 단위로 적용한다.
+	 *
+	 * @param eventId 대상 Outbox 이벤트 ID
+	 * @param failureCode 이번 실패의 안정된 코드
+	 * @param failureClass 이번 실패의 정제된 클래스명
+	 * @param failureMessage 이번 실패의 정제된 메시지
+	 * @param deterministicFailure 이번 실패가 즉시 격리할 결정적 실패인지 여부
+	 * @param maxAutomaticAttempts 최초 처리를 포함한 최대 자동 처리 횟수
+	 * @param firstRetryDelaySeconds 첫 번째 실패 뒤 지연(초)
+	 * @param secondRetryDelaySeconds 두 번째 실패 뒤 지연(초)
+	 * @param thirdRetryDelaySeconds 세 번째 실패 뒤 지연(초)
+	 * @param fourthRetryDelaySeconds 네 번째 실패 뒤 지연(초)
+	 * @param notificationRetentionSeconds Notification 보존 기간(초)
+	 * @param expiredFailureCode 만료 시 덮어쓸 canonical 실패 코드
+	 * @param expiredFailureClass 만료 시 덮어쓸 canonical 실패 클래스명
+	 * @param expiredFailureMessage 만료 시 덮어쓸 canonical 실패 메시지
 	 */
 	@Query(value = """
 			with operation as materialized (
@@ -118,17 +134,24 @@ public interface NotificationOutboxEventRepository extends JpaRepository<Notific
 			    where event.id = :eventId
 			      and event.status in ('PENDING', 'RETRY_WAIT')
 			    for update of event
-			), transition as (
+			), evaluation as (
 			    select locked_event.*,
 			        locked_event.failure_count + 1 as next_failure_count,
 			        locked_event.total_failure_count + 1 as next_total_failure_count,
+			        -- Executor 선제 검사 뒤 처리 롤백과 별도 실패 기록 사이에 보존 경계를 넘을 수 있어 최종 판정한다.
+			        -- Notification.isExpiredAt()과 같은 operationTime >= expiresAt 포함 경계를 사용한다.
+			        locked_event.operation_time >= locked_event.occurred_at
+			            + (:notificationRetentionSeconds * interval '1 second') as expired
+			    from locked_event
+			), transition as (
+			    select evaluation.*,
 			        case
 			            when :deterministicFailure
-			                or locked_event.operation_time >= locked_event.occurred_at + interval '90 days'
-			                or locked_event.failure_count + 1 >= :maxAutomaticAttempts then 'FAILED'
+			                or evaluation.expired
+			                or evaluation.next_failure_count >= :maxAutomaticAttempts then 'FAILED'
 			            else 'RETRY_WAIT'
 			        end as next_status
-			    from locked_event
+			    from evaluation
 			), updated as (
 			    update notification_outbox_events event
 			    set status = transition.next_status,
@@ -145,19 +168,16 @@ public interface NotificationOutboxEventRepository extends JpaRepository<Notific
 			        failure_count = transition.next_failure_count,
 			        total_failure_count = transition.next_total_failure_count,
 			        last_failure_code = case
-			            when transition.operation_time >= transition.occurred_at + interval '90 days'
-			                then 'NOTIFICATION_EXPIRED'
+			            when transition.expired then :expiredFailureCode
 			            else :failureCode
 			        end,
 			        last_failed_at = transition.operation_time,
 			        last_failure_class = case
-			            when transition.operation_time >= transition.occurred_at + interval '90 days'
-			                then 'NotificationExpired'
+			            when transition.expired then :expiredFailureClass
 			            else :failureClass
 			        end,
 			        last_failure_message = case
-			            when transition.operation_time >= transition.occurred_at + interval '90 days'
-			                then 'Notification event expired before relay processing'
+			            when transition.expired then :expiredFailureMessage
 			            else :failureMessage
 			        end
 			    from transition
@@ -169,7 +189,7 @@ public interface NotificationOutboxEventRepository extends JpaRepository<Notific
 		    updated.available_at as "nextAvailableAt", updated.failure_count as "failureCount",
 		    updated.total_failure_count as "totalFailureCount", updated.last_failure_code as "failureCode",
 		    updated.last_failure_class as "failureClass", (:deterministicFailure
-		        or exists (select 1 from transition where transition.operation_time >= transition.occurred_at + interval '90 days'))
+		        or exists (select 1 from transition where transition.expired))
 		        as "deterministicFailure",
 			    (updated.status = 'RETRY_WAIT') as "retryScheduled"
 			from updated
@@ -194,7 +214,15 @@ public interface NotificationOutboxEventRepository extends JpaRepository<Notific
 		@Param("thirdRetryDelaySeconds")
 		long thirdRetryDelaySeconds,
 		@Param("fourthRetryDelaySeconds")
-		long fourthRetryDelaySeconds);
+		long fourthRetryDelaySeconds,
+		@Param("notificationRetentionSeconds")
+		long notificationRetentionSeconds,
+		@Param("expiredFailureCode")
+		String expiredFailureCode,
+		@Param("expiredFailureClass")
+		String expiredFailureClass,
+		@Param("expiredFailureMessage")
+		String expiredFailureMessage);
 
 	/** 고정된 PostgreSQL 기준 시각으로 정리 가능한 Outbox를 인덱스 순서로 선점·삭제한다. */
 	@Query(value = """

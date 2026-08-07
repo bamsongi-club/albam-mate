@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import cloud.bamsongi.albammate.notification.entity.Notification;
 import cloud.bamsongi.albammate.notification.entity.NotificationOutboxEvent;
 import cloud.bamsongi.albammate.notification.repository.NotificationOutboxEventRepository;
 import cloud.bamsongi.albammate.notification.repository.NotificationOutboxRecipientRepository;
@@ -26,8 +27,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class NotificationOutboxRecoveryService {
 
-	private static final Duration NOTIFICATION_RETENTION = Duration.ofDays(90);
-	private static final Duration DISCARDED_RETENTION = Duration.ofDays(30);
+	/** 폐기 시각부터 수신자가 제거된 최소 Outbox 이벤트를 보존하는 기간이다. */
+	private static final Duration DISCARDED_OUTBOX_RETENTION = Duration.ofDays(30);
 
 	@NonNull private final NotificationOutboxEventRepository eventRepository;
 	@NonNull private final NotificationOutboxRecipientRepository recipientRepository;
@@ -38,7 +39,7 @@ public class NotificationOutboxRecoveryService {
 	public NotificationOutboxRecoveryResult preview(NotificationOutboxRecoveryRequest request) {
 		List<Long> eventIds = recoveryPolicy.validateAndNormalize(request,
 			NotificationOutboxRecoveryPolicy.ExecutionMode.PREVIEW);
-		Instant operationTime = eventRepository.findRecoveryOperationTime();
+		Instant operationTime = eventRepository.findPostgresOperationTime();
 		List<NotificationOutboxEvent> events = eventRepository.findAllByIdInOrderById(eventIds);
 		Set<Long> eventIdsWithRecipients = findEventIdsWithRecipients(events);
 		List<NotificationOutboxRecoveryItem> items = createPreviewItems(eventIds, events, request.action(),
@@ -54,7 +55,7 @@ public class NotificationOutboxRecoveryService {
 		List<Long> eventIds = recoveryPolicy.validateAndNormalize(request,
 			NotificationOutboxRecoveryPolicy.ExecutionMode.EXECUTE);
 		List<NotificationOutboxEvent> events = eventRepository.findAllByIdInOrderByIdForUpdate(eventIds);
-		Instant operationTime = eventRepository.findRecoveryOperationTime();
+		Instant operationTime = eventRepository.findPostgresOperationTime();
 		ensureAllEventsExist(events, eventIds);
 		Set<Long> eventIdsWithRecipients = request.action() == NotificationRecoveryAction.REPROCESS
 			? findEventIdsWithRecipients(events)
@@ -74,7 +75,8 @@ public class NotificationOutboxRecoveryService {
 	}
 
 	private int discardAll(List<Long> eventIds, Instant operationTime, String reason) {
-		int changedCount = eventRepository.discardAll(eventIds, operationTime, operationTime.plus(DISCARDED_RETENTION),
+		int changedCount = eventRepository.discardAll(eventIds, operationTime,
+			operationTime.plus(DISCARDED_OUTBOX_RETENTION),
 			reason);
 		recipientRepository.deleteByIdOutboxEventIdIn(eventIds);
 		return changedCount;
@@ -136,7 +138,7 @@ public class NotificationOutboxRecoveryService {
 				event.getStatus().name(),
 				event.getEventType().name(),
 				event.getOccurredAt(),
-				event.getOccurredAt().plus(NOTIFICATION_RETENTION),
+				Notification.expiresAt(event.getOccurredAt()),
 				event.getFailureCount(),
 				event.getTotalFailureCount(),
 				event.getLastFailureCode(),

@@ -55,6 +55,21 @@ public class Notification {
 	@Column(name = "expires_at", nullable = false)
 	private Instant expiresAt;
 
+	/** Notification을 원인 업무 시각부터 보존하는 승인 기간을 반환한다. */
+	public static Duration retentionPeriod() {
+		return NOTIFICATION_RETENTION;
+	}
+
+	/** 원인 업무 시각으로부터 Notification 만료 시각을 계산한다. */
+	public static Instant expiresAt(Instant createdAt) {
+		return Objects.requireNonNull(createdAt, "createdAt").plus(retentionPeriod());
+	}
+
+	/** 작업 시각이 만료 시각과 같거나 지난 경우 만료로 판정한다. */
+	public static boolean isExpiredAt(Instant createdAt, Instant operationTime) {
+		return !Objects.requireNonNull(operationTime, "operationTime").isBefore(expiresAt(createdAt));
+	}
+
 	/** relay가 수신자에게 아직 읽지 않은 Notification을 저장할 때 사용한다. */
 	public static Notification createUnread(
 		Long sourceEventId,
@@ -71,7 +86,7 @@ public class Notification {
 		notification.readAt = null;
 		notification.createdAt = Objects.requireNonNull(createdAt, "createdAt");
 		notification.recordedAt = Objects.requireNonNull(recordedAt, "recordedAt");
-		notification.expiresAt = createdAt.plus(NOTIFICATION_RETENTION);
+		notification.expiresAt = expiresAt(notification.createdAt);
 		return notification;
 	}
 }

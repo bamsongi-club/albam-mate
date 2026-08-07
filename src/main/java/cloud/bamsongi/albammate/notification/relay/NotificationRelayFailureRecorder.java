@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import cloud.bamsongi.albammate.notification.entity.Notification;
 import cloud.bamsongi.albammate.notification.relay.NotificationRelayFailureClassifier.FailureClassification;
 import cloud.bamsongi.albammate.notification.repository.NotificationOutboxEventRepository;
 import lombok.NonNull;
@@ -31,9 +32,11 @@ public class NotificationRelayFailureRecorder {
 	@NonNull private final NotificationOutboxEventRepository eventRepository;
 	@NonNull private final NotificationRelayFailureClassifier failureClassifier;
 
+	/** 최초 처리 1회와 실패 1~4 뒤 재시도 4회로 최대 5회 자동 처리한 뒤 최종 실패로 전환한다. */
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public Optional<RecordedFailure> record(NotificationRelayProcessingException processingException) {
 		FailureClassification classification = failureClassifier.classify(processingException);
+		FailureClassification expiredClassification = failureClassifier.expiredClassification();
 		Optional<NotificationOutboxEventRepository.RelayFailureRecord> storedFailure = eventRepository
 			.recordRelayFailure(
 				processingException.getSourceEventId(),
@@ -45,7 +48,11 @@ public class NotificationRelayFailureRecorder {
 				FIRST_RETRY_DELAY.toSeconds(),
 				SECOND_RETRY_DELAY.toSeconds(),
 				THIRD_RETRY_DELAY.toSeconds(),
-				FOURTH_RETRY_DELAY.toSeconds());
+				FOURTH_RETRY_DELAY.toSeconds(),
+				Notification.retentionPeriod().toSeconds(),
+				expiredClassification.failureCode(),
+				expiredClassification.failureClass(),
+				expiredClassification.sanitizedMessage());
 		return storedFailure.map(this::createAndRegisterAfterCommitLog);
 	}
 
