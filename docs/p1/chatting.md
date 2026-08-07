@@ -2,7 +2,7 @@
 
 이 문서는 P1에서 기존 방의 주최자와 현재 `ACTIVE` 참가자가 모임을 조율하는 `CHAT-01`~`CHAT-05`의 구현 규칙과 완료 기준을 정의한다. 현재 계약 준비·생산 코드·자동 검증·운영 배포와 실측 상태는 [P1 기능별 상태 정본](README.md#기능별-현재-상태)을 따른다. 이 문서에서 **채팅 관계자**는 방의 주최자 또는 현재 `ACTIVE` 참가자를 뜻한다.
 
-채팅 접근·생명주기와 메시지 공통 규칙은 [P1 명세](../P1-spec.md#채팅-접근과-생명주기), 요청·응답·오류와 실시간 연결은 [API 명세](../API.md#채팅-공통-계약), 저장 계약은 [ERD](../ERD.md)를 따른다. 신규 API와 저장 개념은 구현 예정 계약이며, 메시지 ID cursor·실시간·저장·보관 방식은 승인된 [ADR-0031](../adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](../adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](../adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0049](../adr/chat/0049-chat-message-retention-lock-section-boundary.md), 공용 세션·스케줄 실행은 [ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), 모듈·인프라 경계는 [아키텍처](../ARCHITECTURE.md)를 따른다. 채팅방 스키마와 기존 ROOM backfill의 실행 경계는 승인된 [ADR-0045](../adr/chat/0045-chat-room-schema-and-backfill-boundary.md)의 production schema-only 및 local callback 결정을 따른다. 실시간 공통 기반은 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반)이 소유한다.
+채팅 접근·생명주기와 메시지 공통 규칙은 [P1 명세](../P1-spec.md#채팅-접근과-생명주기), 요청·응답·오류와 실시간 연결은 [API 명세](../API.md#채팅-공통-계약), 저장 계약은 [ERD](../ERD.md)를 따른다. 신규 API와 저장 개념은 구현 예정 계약이며, 메시지 ID cursor·실시간·저장·보관 방식은 승인된 [ADR-0031](../adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](../adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](../adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0049](../adr/chat/0049-chat-message-retention-lock-section-boundary.md), 공용 세션·스케줄 실행은 [ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), P1 AWS 토폴로지는 [ADR-0051](../adr/platform/0051-p1-self-managed-aws-infrastructure.md), 모듈 경계는 [아키텍처](../ARCHITECTURE.md)를 따른다. 채팅방 스키마와 기존 ROOM backfill의 실행 경계는 승인된 [ADR-0045](../adr/chat/0045-chat-room-schema-and-backfill-boundary.md)의 production schema-only 및 local callback 결정을 따른다. 실시간 공통 기반은 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반)이 소유한다.
 
 본 명세는 기존 오프라인 방 흐름에 방별 그룹 채팅을 추가하며 새로운 온라인 방 유형이나 실시간 자동 매칭을 도입하지 않는다. 메시지의 정본은 실시간 연결이 아니라 PostgreSQL 이력이다.
 
@@ -10,7 +10,7 @@
 
 - `local-single`은 실제 Spring profile `local`을 사용하는 빠른 단일 서버 개발 환경이며 인메모리 세션·fan-out을 허용하지만 다중 인스턴스 검증 근거가 아니다.
 - P1 필수 검증 환경인 `local-multi`는 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL과 Redis로 구성한다.
-- `production`의 목표 운영 토폴로지는 ALB·ASG 애플리케이션 인스턴스와 공용 RDS PostgreSQL·Redis로 구성한다. 이 목표는 현재 운영 배포 완료를 뜻하지 않으며, 배포·실측 상태는 [P1 기능별 상태 정본](README.md#기능별-현재-상태)의 `운영 배포·실측` 열을 따른다. 실제 AWS scale-out·WebSocket Upgrade·연결 draining 검증은 후속 OPS이며 채팅 구현 완료를 막지 않는다.
+- `production`의 AWS 검증 토폴로지는 App1 Nginx 단일 진입점, 고정 Spring EC2 두 대와 자체 운영 PostgreSQL·Redis EC2로 구성한다. 이 결정은 현재 운영 배포 완료를 뜻하지 않으며, 배포·실측 상태는 [P1 기능별 상태 정본](README.md#기능별-현재-상태)의 `운영 배포·실측` 열을 따른다. 실제 AWS WebSocket Upgrade, Nginx 분산·장애 처리와 부하 검증은 후속 OPS이며 채팅 구현 완료를 막지 않는다.
 - `local-multi`와 `production`은 Spring Session, Pub/Sub과 사용자·방 단위 전송 제한에 각자 공용 Redis 하나를 사용하되 key prefix, TTL과 channel namespace를 프로필별로 분리한다. Redis가 없을 때 인메모리 구현으로 자동 fallback하지 않는다.
 - 세션 또는 전송 제한을 확인할 수 없으면 API 정본의 `503 SERVICE_UNAVAILABLE`로 실패한다. PostgreSQL 커밋 뒤 Redis Pub/Sub 발행·구독이 실패하면 저장 성공은 유지하고 이력 조회·다음 신호·재연결로 복구한다.
 - 운영 Redis 제품, HA, TLS, 접근 제어, 비밀 주입과 비용은 후속 OPS에서 확정한다.
@@ -149,7 +149,7 @@
   실시간 수신한다. WebSocket으로 메시지 저장 명령을 받지 않는다.
 - WebSocket handshake는 기존 `JSESSIONID` 세션과 허용된 `Origin`을 검증하며,
   별도 JWT·WebSocket 전용 토큰을 사용하지 않는다. `local-multi`와 `production`의 세션은
-  Spring Session Redis에 공유하고 ALB stickiness에 정합성을 의존하지 않는다.
+  Spring Session Redis에 공유하고 리버스 프록시의 연결 고정에 정합성을 의존하지 않는다.
 - 허용 `Origin`은 `app.chat.websocket.allowed-origin` 하나로 프로필별로 주입한다.
   비운영 프로필은 프런트엔드 개발 서버 `http://localhost:5173`을 사용하고, `production`은
   운영 도메인을 하드코딩하지 않고 `ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN`으로 주입하며
@@ -201,7 +201,7 @@
 - Redis Streams·RabbitMQ·Kafka 기반 영속 메시지 전달
 - 커밋 후 발행 누락을 자동 재처리하는 채팅 Outbox
 - 메시지 전달 순서의 전역 보장
-- 실제 AWS ALB·ASG scale-out·draining과 운영 Redis 제품·HA·TLS·비용 검증
+- 실제 AWS Nginx 분산·장애 처리와 자체 운영 Redis의 HA·TLS·비용 검증
 
 ## CHAT-04 채팅 안전·운영
 
