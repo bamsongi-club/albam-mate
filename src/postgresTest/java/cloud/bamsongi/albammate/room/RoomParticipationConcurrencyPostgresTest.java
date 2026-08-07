@@ -401,14 +401,22 @@ class RoomParticipationConcurrencyPostgresTest {
 			"select count(*) from notification_outbox_events where room_id = ? and event_type = 'WAITLIST_PROMOTED'",
 			Integer.class,
 			room.getId()));
-		assertEquals(2, jdbcTemplate.queryForObject("""
+		assertEquals(1, jdbcTemplate.queryForObject("""
 			select count(*)
 			from notification_outbox_recipients recipient
 			join notification_outbox_events event on event.id = recipient.outbox_event_id
 			where event.room_id = ?
 			  and event.event_type = 'WAITLIST_PROMOTED'
-			  and recipient.recipient_user_id in (?, ?)
-			""", Integer.class, room.getId(), firstWaitingUserId, secondWaitingUserId));
+			  and recipient.recipient_user_id = ?
+			""", Integer.class, room.getId(), firstWaitingUserId));
+		assertEquals(1, jdbcTemplate.queryForObject("""
+			select count(*)
+			from notification_outbox_recipients recipient
+			join notification_outbox_events event on event.id = recipient.outbox_event_id
+			where event.room_id = ?
+			  and event.event_type = 'WAITLIST_PROMOTED'
+			  and recipient.recipient_user_id = ?
+			""", Integer.class, room.getId(), secondWaitingUserId));
 		assertEquals(0, jdbcTemplate.queryForObject("""
 			select count(*)
 			from notification_outbox_recipients recipient

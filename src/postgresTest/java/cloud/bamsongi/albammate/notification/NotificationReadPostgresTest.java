@@ -79,9 +79,19 @@ class NotificationReadPostgresTest {
 			"WAITLIST_PROMOTED");
 
 		NotificationListItem read = notificationReadCommandService.readOne(ownerId, notificationId);
+		long bulkReadNotificationId = notification(ownerId, roomId, null,
+			"transaction_timestamp() + interval '1 day'", "WAITLIST_PROMOTED");
 		assertEquals(NotificationType.WAITLIST_PROMOTED, read.type());
 		assertNotFound(() -> notificationReadCommandService.readOne(otherUserId, notificationId));
-		assertEquals(0, notificationReadCommandService.readAll(ownerId).updatedCount());
+		assertNull(notificationReadAt(bulkReadNotificationId));
+
+		NotificationBulkReadResponse bulkRead = notificationReadCommandService.readAll(ownerId);
+		NotificationBulkReadResponse repeatedBulkRead = notificationReadCommandService.readAll(ownerId);
+
+		assertEquals(1, bulkRead.updatedCount());
+		assertEquals(bulkReadNotificationId, bulkRead.boundaryNotificationId());
+		assertEquals(bulkRead.readAt(), notificationReadAt(bulkReadNotificationId));
+		assertEquals(0, repeatedBulkRead.updatedCount());
 	}
 
 	@Test
