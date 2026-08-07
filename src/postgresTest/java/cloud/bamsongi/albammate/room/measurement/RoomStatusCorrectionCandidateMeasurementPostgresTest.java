@@ -104,7 +104,8 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 
 	@Test
 	void small_후보는_WAITING_없는_동일_fixture를_warm_up_1회와_실측_5회로_기록한다() throws Exception {
-		CandidateMeasurementReport report = measureCandidate(SMALL, FixtureType.NO_WAITING, 10, candidateReportPath(SMALL));
+		CandidateMeasurementReport report = measureCandidate(SMALL, FixtureType.NO_WAITING, 10,
+			candidateReportPath(SMALL));
 
 		assertEquals("SUCCESS", report.outcome());
 		assertEquals(SMALL, report.fixture().profile());
@@ -135,7 +136,8 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 				assertSuccessfulSamples(report);
 				assertEnvironment(report.measurementStartEnvironment(),
 					"승인_규모_후보는_명시적_속성에서만_10_100_1000_후보를_기록한다", "true");
-				assertRecordedMeasurementContract(candidateReportPath(profile, candidateLimit), profile, FixtureType.NO_WAITING,
+				assertRecordedMeasurementContract(candidateReportPath(profile, candidateLimit), profile,
+					FixtureType.NO_WAITING,
 					candidateLimit, "승인_규모_후보는_명시적_속성에서만_10_100_1000_후보를_기록한다", "true");
 			}
 		}
@@ -152,8 +154,8 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 		assertEquals(NON_DUE_CLOSED_ROOM_COUNT, report.fixture().nonDueClosedRoomCount());
 		assertEquals(1, report.warmUpRuns().size());
 		assertEquals(5, report.measuredRuns().size());
-		assertTrue(report.measuredRuns().stream().allMatch(run ->
-			run.candidateCount() == SMALL.dueRoomCount() && run.successCount() == SMALL.dueRoomCount()));
+		assertTrue(report.measuredRuns().stream().allMatch(
+			run -> run.candidateCount() == SMALL.dueRoomCount() && run.successCount() == SMALL.dueRoomCount()));
 		assertEnvironment(report.measurementStartEnvironment(),
 			"CLOSED_due_ROOM마다_WAITING_10명을_둔_별도_fixture의_후보_종료_비용을_기록한다", "false");
 		assertRecordedMeasurementContract(waitingQueueReportPath(SMALL), SMALL, FixtureType.CLOSED_WITH_WAITING, 10,
@@ -172,7 +174,8 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 				measuredRuns.add(executeRun(profile, fixtureType, candidateLimit, "measured", iteration));
 			}
 			CandidateMeasurementReport report = CandidateMeasurementReport.success(
-				environment, fixture(profile, fixtureType), candidateLimit, warmUpRuns, measuredRuns, summary(measuredRuns));
+				environment, fixture(profile, fixtureType), candidateLimit, warmUpRuns, measuredRuns,
+				summary(measuredRuns));
 			writeReport(reportPath, report);
 			return report;
 		} catch (MeasurementRunFailureException exception) {
@@ -194,7 +197,8 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 		try {
 			warmUpRuns.add(executeRun(profile, FixtureType.CLOSED_WITH_WAITING, candidateLimit, "warm-up", 1));
 			for (int iteration = 1; iteration <= 5; iteration++) {
-				measuredRuns.add(executeRun(profile, FixtureType.CLOSED_WITH_WAITING, candidateLimit, "measured", iteration));
+				measuredRuns
+					.add(executeRun(profile, FixtureType.CLOSED_WITH_WAITING, candidateLimit, "measured", iteration));
 			}
 			WaitingQueueMeasurementReport report = WaitingQueueMeasurementReport.success(
 				environment, fixture(profile, FixtureType.CLOSED_WITH_WAITING), candidateLimit, warmUpRuns,
@@ -203,7 +207,8 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 			return report;
 		} catch (MeasurementRunFailureException exception) {
 			writeReport(reportPath, WaitingQueueMeasurementReport.runFailure(
-				environment, fixture(profile, FixtureType.CLOSED_WITH_WAITING), candidateLimit, warmUpRuns, measuredRuns,
+				environment, fixture(profile, FixtureType.CLOSED_WITH_WAITING), candidateLimit, warmUpRuns,
+				measuredRuns,
 				exception.partialRun(), exception.getCause().getClass().getName()));
 			throw exception;
 		} finally {
@@ -230,7 +235,8 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 			int remainingDueRoomCount = remainingDueRoomCount(fixtureType);
 			int successCount = initialDueRoomCount - remainingDueRoomCount;
 			assertEquals(0, remainingDueRoomCount, "동일 초기 due 집합을 끝까지 처리해야 합니다.");
-			return new MeasurementRun(phase, iteration, initialDueRoomCount, successCount, 0, elapsedNanos, elapsedNanos,
+			return new MeasurementRun(phase, iteration, initialDueRoomCount, successCount, 0, elapsedNanos,
+				elapsedNanos,
 				throughputPerSecond(successCount, elapsedNanos), databaseCost());
 		} catch (RuntimeException | AssertionError exception) {
 			Long elapsedNanos = startedAtNanos == null ? null : System.nanoTime() - startedAtNanos;
@@ -327,16 +333,16 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 
 	private int remainingDueRoomCount(FixtureType fixtureType) {
 		Integer count = jdbcTemplate.queryForObject("""
-			select count(*)
-			from rooms r
-			where r.title like ?
-			  and (
-			    (r.status = 'RECRUITING' and r.start_at <= ?)
-			    or (r.status = 'CLOSED' and r.start_at + interval '24 hours' <= ?)
-			    or (? = 'CLOSED_WITH_WAITING' and r.status = 'CLOSED' and r.start_at <= ?
-			        and exists (select 1 from room_waitlists w where w.room_id = r.id and w.status = 'WAITING'))
-			  )
-		""", Integer.class, fixtureTitlePrefix(fixtureType) + "%", Timestamp.from(REQUEST_TIME),
+				select count(*)
+				from rooms r
+				where r.title like ?
+				  and (
+				    (r.status = 'RECRUITING' and r.start_at <= ?)
+				    or (r.status = 'CLOSED' and r.start_at + interval '24 hours' <= ?)
+				    or (? = 'CLOSED_WITH_WAITING' and r.status = 'CLOSED' and r.start_at <= ?
+				        and exists (select 1 from room_waitlists w where w.room_id = r.id and w.status = 'WAITING'))
+				  )
+			""", Integer.class, fixtureTitlePrefix(fixtureType) + "%", Timestamp.from(REQUEST_TIME),
 			Timestamp.from(REQUEST_TIME), fixtureType.name(),
 			Timestamp.from(REQUEST_TIME));
 		return count == null ? 0 : count;
@@ -352,11 +358,14 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 			fixtureType == FixtureType.CLOSED_WITH_WAITING ? 10 : 0, REQUEST_TIME.toString(), seed, dataIdentifier);
 	}
 
-	private MeasurementEnvironment environment(MeasurementProfile profile, FixtureType fixtureType, int candidateLimit) {
+	private MeasurementEnvironment environment(MeasurementProfile profile, FixtureType fixtureType,
+		int candidateLimit) {
 		Runtime runtime = Runtime.getRuntime();
-		return new MeasurementEnvironment(gitSha(), CANDIDATE_IMPLEMENTATION_SOURCE_SHA, System.getProperty("java.version"),
+		return new MeasurementEnvironment(gitSha(), CANDIDATE_IMPLEMENTATION_SOURCE_SHA,
+			System.getProperty("java.version"),
 			jdbcTemplate.queryForObject("show server_version", String.class), System.getProperty("os.name"),
-			runtime.availableProcessors(), runtime.totalMemory() - runtime.freeMemory(), runtime.maxMemory(), Map.ofEntries(
+			runtime.availableProcessors(), runtime.totalMemory() - runtime.freeMemory(), runtime.maxMemory(),
+			Map.ofEntries(
 				Map.entry("postgresImage", POSTGRES.getDockerImageName()), Map.entry("dockerVersion", dockerVersion()),
 				Map.entry("sharedPreloadLibraries",
 					jdbcTemplate.queryForObject("show shared_preload_libraries", String.class)),
@@ -387,8 +396,8 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 	private void assertSuccessfulSamples(CandidateMeasurementReport report) {
 		assertEquals(1, report.warmUpRuns().size());
 		assertEquals(5, report.measuredRuns().size());
-		assertTrue(report.measuredRuns().stream().allMatch(run ->
-			run.candidateCount() == report.fixture().dueRoomCount()
+		assertTrue(report.measuredRuns().stream()
+			.allMatch(run -> run.candidateCount() == report.fixture().dueRoomCount()
 				&& run.successCount() == report.fixture().dueRoomCount() && run.failureCount() == 0
 				&& run.databaseCost().totalExecutionTimeMs() > 0));
 	}
@@ -422,22 +431,26 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 		String testMethodName, String measurementProperty) throws Exception {
 		JsonNode report = objectMapper.readTree(Files.readString(reportPath));
 		assertEquals(fixtureSeed(fixtureType), report.path("fixture").path("seed").asText(), "보고서 fixture seed");
-		assertEquals(fixture(profile, fixtureType).dataIdentifier(), report.path("fixture").path("dataIdentifier").asText(),
+		assertEquals(fixture(profile, fixtureType).dataIdentifier(),
+			report.path("fixture").path("dataIdentifier").asText(),
 			"보고서 fixture dataIdentifier");
 		assertEquals(candidateLimit, report.path("candidateLimit").asInt(), "보고서 candidate limit");
 		JsonNode configuration = report.path("measurementStartEnvironment").path("configuration");
 		assertEquals(executionCommand(profile, fixtureType), configuration.path("executionCommand").asText(),
 			"보고서 실행 명령");
 		assertTrue(configuration.path("executionCommand").asText().contains(testMethodName));
-		assertEquals(String.valueOf(candidateLimit), configuration.path("candidateLimit").asText(), "보고서 설정 candidate limit");
+		assertEquals(String.valueOf(candidateLimit), configuration.path("candidateLimit").asText(),
+			"보고서 설정 candidate limit");
 		assertEquals(measurementProperty, configuration.path("issue390.measurement").asText());
 	}
 
 	private SeriesSummary summary(List<MeasurementRun> measuredRuns) {
 		List<Long> callElapsed = measuredRuns.stream().map(MeasurementRun::callElapsedNanos).sorted().toList();
-		List<Long> wholeTurnElapsed = measuredRuns.stream().map(MeasurementRun::wholeTurnElapsedNanos).sorted().toList();
+		List<Long> wholeTurnElapsed = measuredRuns.stream().map(MeasurementRun::wholeTurnElapsedNanos).sorted()
+			.toList();
 		List<Double> throughput = measuredRuns.stream().map(MeasurementRun::throughputPerSecond).sorted().toList();
-		List<Double> databaseExecution = measuredRuns.stream().map(run -> run.databaseCost().totalExecutionTimeMs()).sorted().toList();
+		List<Double> databaseExecution = measuredRuns.stream().map(run -> run.databaseCost().totalExecutionTimeMs())
+			.sorted().toList();
 		return new SeriesSummary(callElapsed.getFirst(), callElapsed.get(2), callElapsed.getLast(),
 			wholeTurnElapsed.getFirst(), wholeTurnElapsed.get(2), wholeTurnElapsed.getLast(),
 			throughput.getFirst(), throughput.get(2), throughput.getLast(),
@@ -614,7 +627,8 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 		private static CandidateMeasurementReport success(
 			MeasurementEnvironment environment, MeasurementFixture fixture, int candidateLimit,
 			List<MeasurementRun> warmUpRuns, List<MeasurementRun> measuredRuns, SeriesSummary summary) {
-			return new CandidateMeasurementReport("SUCCESS", environment, fixture, candidateLimit, warmUpRuns, measuredRuns,
+			return new CandidateMeasurementReport("SUCCESS", environment, fixture, candidateLimit, warmUpRuns,
+				measuredRuns,
 				List.of(), null, summary);
 		}
 
