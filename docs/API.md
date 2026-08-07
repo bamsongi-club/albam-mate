@@ -224,6 +224,8 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 4 | P0 | [AUTH-03](#auth-03-로그아웃) · [정본](archive/p0/auth-profile.md#auth-03-로그인로그아웃) | POST | `/api/auth/logout` | Y | Y | 200 |
 | 5 | P0 | [AUTH-04](#auth-04-내-프로필-조회) · [정본](archive/p0/auth-profile.md#auth-04-내-프로필-조회수정) | GET | `/api/users/me` | Y | N | 200 |
 | 6 | P0 | [AUTH-04](#auth-04-내-프로필-수정) · [정본](archive/p0/auth-profile.md#auth-04-내-프로필-조회수정) | PATCH | `/api/users/me` | Y | Y | 200 |
+| 6.1 | P1 | [AUTH-04](#auth-04-프로필-이미지-업로드) · [정본](p1/social-login.md) | POST | `/api/users/me/profile-image` | Y | Y | 200 |
+| 6.2 | P1 | [AUTH-04](#auth-04-프로필-이미지-삭제) · [정본](p1/social-login.md) | DELETE | `/api/users/me/profile-image` | Y | Y | 200 |
 | 7 | P0·P1 | [GAME-01](#game-01-게임-목록검색) · [P0 정본](archive/p0/game-catalog.md#game-01-게임-목록검색) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games` | 선택 | N | 200 |
 | 8 | P0·P1 | [GAME-02](#game-02-게임-상세-조회) · [P0 정본](archive/p0/game-catalog.md#game-02-게임-상세-조회) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games/{gameId}` | 선택 | N | 200 |
 | 9 | P0 | [ROOM-03](#room-03-방-생성) · [정본](archive/p0/room.md#room-03-방-생성) | POST | `/api/rooms` | Y | Y | 201 |
@@ -412,8 +414,9 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 |---|---|:---:|:---:|---|
 | `id` | integer | Y | N | 사용자 ID |
 | `nickname` | string | Y | N | 표시 닉네임, 1~50자 |
+| `profileImageUrl` | string | Y | Y | 프로필 이미지 URL. 없으면 `null` |
 
-P0 프로필은 닉네임만 제공·수정한다. 이메일과 인증 정보는 응답에 포함하지 않는다.
+P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 URL을 제공한다. 이메일과 인증 정보는 응답에 포함하지 않는다.
 
 ### 4.2 NicknameSummary
 
@@ -846,6 +849,41 @@ P0에서는 닉네임만 수정한다.
 |---|---:|---|
 | 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
 | 요청값 검증 실패 | 400 | `VALIDATION_ERROR` |
+| CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
+
+### AUTH-04 프로필 이미지 업로드
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `POST /api/users/me/profile-image` |
+| 인증 / CSRF | 필요 / 필요 |
+| 성공 | `200 OK`, `data`: `UserSummary` |
+
+multipart/form-data 형식으로 `file` 파라미터에 이미지를 전송한다. 성공 시 변경된 프로필 정보(새 `profileImageUrl` 포함)를 반환한다.
+
+#### 오류
+
+| 발생 조건 | HTTP | code |
+|---|---:|---|
+| 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
+| 파일 누락, 크기 초과(5MB), 지원하지 않는 형식 | 400 | `VALIDATION_ERROR` |
+| CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
+
+### AUTH-04 프로필 이미지 삭제
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `DELETE /api/users/me/profile-image` |
+| 인증 / CSRF | 필요 / 필요 |
+| 성공 | `200 OK`, `data`: `UserSummary` |
+
+현재 설정된 프로필 이미지를 삭제하고 `profileImageUrl`을 `null`로 만든다.
+
+#### 오류
+
+| 발생 조건 | HTTP | code |
+|---|---:|---|
+| 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
 | CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
 
 ### AUTH-05 소셜 로그인·계정 연결

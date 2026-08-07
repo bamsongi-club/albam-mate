@@ -178,6 +178,8 @@ public final class ApiEndpointPolicyRegistry {
 			policy(HttpMethod.GET, "/api/auth/social/providers", OPTIONAL_AUTHENTICATION, false),
 			policy(HttpMethod.GET, "/api/users/me", AUTHENTICATED, false),
 			policy(HttpMethod.PATCH, "/api/users/me", AUTHENTICATED, true),
+			policy(HttpMethod.POST, "/api/users/me/profile-image", AUTHENTICATED, true),
+			policy(HttpMethod.DELETE, "/api/users/me/profile-image", AUTHENTICATED, true),
 			policy(HttpMethod.POST, "/api/users/me/social-accounts/{provider}/link", AUTHENTICATED, true),
 			policy(HttpMethod.GET, "/api/users/me/notifications", AUTHENTICATED, false),
 			policy(HttpMethod.GET, "/api/users/me/notifications/unread-count", AUTHENTICATED, false),

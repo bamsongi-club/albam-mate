@@ -135,6 +135,7 @@ class AuthControllerTest {
 			.andExpect(jsonPath("$.status").value(201))
 			.andExpect(jsonPath("$.data.id").value(7))
 			.andExpect(jsonPath("$.data.nickname").value("닉네임"))
+			.andExpect(jsonPath("$.data.profileImageUrl").value((Object)null))
 			.andExpect(jsonPath("$.data.email").doesNotExist())
 			.andExpect(jsonPath("$.data.password").doesNotExist())
 			.andExpect(header().doesNotExist("Set-Cookie"));

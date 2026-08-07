@@ -27,8 +27,8 @@ class UserProfileServiceIntegrationTest {
 		UserProfileResponse updated = userProfileService.changeNickname(
 			user.getId(), UserNickname.from("변경됨").orElseThrow());
 
-		assertEquals(new UserProfileResponse(user.getId(), "변경됨"), updated);
+		assertEquals(new UserProfileResponse(user.getId(), "변경됨", null), updated);
 		assertEquals(
-			new UserProfileResponse(user.getId(), "변경됨"), userProfileService.findProfile(user.getId()));
+			new UserProfileResponse(user.getId(), "변경됨", null), userProfileService.findProfile(user.getId()));
 	}
 }

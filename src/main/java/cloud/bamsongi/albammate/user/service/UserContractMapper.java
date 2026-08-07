@@ -10,10 +10,11 @@ final class UserContractMapper {
 	private UserContractMapper() {}
 
 	static UserAccount toUserAccount(User user) {
-		return new UserAccount(user.getId(), user.getNickname());
+		return new UserAccount(user.getId(), user.getNickname(), user.getProfileImageUrl());
 	}
 
 	static UserCredentials toUserCredentials(User user) {
-		return new UserCredentials(user.getId(), user.getNickname(), user.getPasswordHash());
+		return new UserCredentials(
+			user.getId(), user.getNickname(), user.getPasswordHash(), user.getProfileImageUrl());
 	}
 }

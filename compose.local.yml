@@ -71,6 +71,8 @@ services:
       timeout: 5s
       retries: 12
       start_period: 180s
+    volumes: &spring_volumes
+      - albam_mate_profile_images:/app/uploads/profile
 
   spring-2:
     image: albam-mate-spring:local
@@ -86,6 +88,7 @@ services:
         aliases:
           - spring
     healthcheck: *spring_healthcheck
+    volumes: *spring_volumes
 
   proxy:
     image: albam-mate-vite:local
@@ -111,3 +114,4 @@ services:
 
 volumes:
   albam_mate_postgres_data:
+  albam_mate_profile_images:

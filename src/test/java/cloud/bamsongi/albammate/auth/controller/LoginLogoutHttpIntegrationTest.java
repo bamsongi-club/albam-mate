@@ -33,6 +33,8 @@ import cloud.bamsongi.albammate.user.contract.RawPassword;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
 import cloud.bamsongi.albammate.user.contract.UserEmail;
 import cloud.bamsongi.albammate.user.contract.UserNickname;
+import cloud.bamsongi.albammate.user.entity.User;
+import cloud.bamsongi.albammate.user.repository.UserRepository;
 import jakarta.servlet.http.Cookie;
 
 @SpringBootTest
@@ -44,6 +46,8 @@ class LoginLogoutHttpIntegrationTest {
 
 	@Autowired
 	private UserAccountService userAccountService;
+	@Autowired
+	private UserRepository userRepository;
 
 	@Test
 	void 로그인_성공은_사용자_요약을_반환한다() throws Exception {
@@ -70,11 +74,38 @@ class LoginLogoutHttpIntegrationTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.id").value(account.id()))
 			.andExpect(jsonPath("$.data.nickname").value("로그인 사용자"))
+			.andExpect(jsonPath("$.data.profileImageUrl").value((Object)null))
 			.andExpect(jsonPath("$.data.email").doesNotExist())
 			.andReturn();
 
 		// MockMvc는 컨테이너의 세션 쿠키·ID 교체를 재현하지 않는다. 실제 HTTP 로그인·로그아웃은 별도 테스트에서 검증한다.
 		assertNotNull(login.getRequest().getSession(false));
+	}
+
+	@Test
+	void 이미지가_있는_기존_사용자_로그인은_프로필_URL을_반환한다() throws Exception {
+		String email = "login-profile-image@example.com";
+		var account = userAccountService.createAccount(command(email, "123456789012345", "이미지 사용자"));
+		User user = userRepository.findById(account.id()).orElseThrow();
+		user.changeProfileImageUrl("/uploads/profile/login-image.png");
+		userRepository.saveAndFlush(user);
+		MockHttpSession session = new MockHttpSession();
+
+		MvcResult beforeLoginCsrf = mockMvc.perform(get("/api/auth/csrf").session(session))
+			.andExpect(status().isOk())
+			.andReturn();
+		Cookie csrfCookie = beforeLoginCsrf.getResponse().getCookie("XSRF-TOKEN");
+		assertNotNull(csrfCookie);
+
+		mockMvc.perform(
+			post("/api/auth/login")
+				.cookie(csrfCookie)
+				.header("X-XSRF-TOKEN", csrfCookie.getValue())
+				.session(session)
+				.contentType("application/json")
+				.content("{\"email\":\"" + email + "\",\"password\":\"123456789012345\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.profileImageUrl").value("/uploads/profile/login-image.png"));
 	}
 
 	@Test

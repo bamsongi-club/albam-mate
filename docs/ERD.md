@@ -47,6 +47,7 @@ erDiagram
         VARCHAR email UK
         VARCHAR password_hash
         VARCHAR nickname
+        VARCHAR profile_image_url
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
     }
