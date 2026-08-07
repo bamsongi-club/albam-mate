@@ -159,14 +159,10 @@ relay와 cleanup은 처리 수·지연·실패와 PostgreSQL에서 고정한 기
 
 - 상태: 미검증
 - 근거:
-    - 계약:
-        - P1 알림 명세와 ERD가 Outbox 상태·수신자 멱등성·Notification 만료·복구·cleanup 필드와 PostgreSQL 시각 경계를 정의한다.
-        - 운영 런북의 `현재 운영 파라미터 정본`이 이 결정에 연결된 현재 수치를 소유하고 one-shot 복구·cleanup 실행 절차와 증거 형식을 정의한다.
-        - 아키텍처 문서가 relay·recovery·cleanup의 패키지, 트랜잭션과 시각 소유 경계를 연결한다.
+    - 구현: [PR #314](https://github.com/bamsongi-club/albam-mate/pull/314)·[PR #329](https://github.com/bamsongi-club/albam-mate/pull/329)이 선점·멱등 처리와 실패 격리를, [PR #340](https://github.com/bamsongi-club/albam-mate/pull/340)이 `notification-ops` one-shot 복구를, [PR #365](https://github.com/bamsongi-club/albam-mate/pull/365)이 bounded cleanup을 구현했다. [PR #463](https://github.com/bamsongi-club/albam-mate/pull/463)·[PR #466](https://github.com/bamsongi-club/albam-mate/pull/466)·[PR #477](https://github.com/bamsongi-club/albam-mate/pull/477)이 PostgreSQL 시각과 보존·만료 실패 정책을 현재 계약으로 통일했다.
+    - 계약: 운영 런북의 `현재 운영 파라미터 정본`이 relay·복구·cleanup 수치와 실행 증거 형식을 소유한다.
+    - 테스트: `NotificationRelayPostgresTest`·`NotificationOutboxRecoveryPostgresTest`·`NotificationCleanupPostgresTest`가 `FOR UPDATE SKIP LOCKED`, 실패 격리, dry-run·전체 원자성·오름차순 잠금, 89일·90일 경계와 DB 시각 기반 삭제를 검증한다.
 - 미검증:
-    - relay·실패 기록·수동 복구·bounded cleanup 생산 구현과 전진 Flyway 마이그레이션
-    - `FOR UPDATE SKIP LOCKED`, 다중 worker·cleanup, 앱·DB 시계 차이, 89일·90일 경계와 조기 삭제 방지 PostgreSQL 테스트
-    - `notification-ops` profile의 dry-run·전체 원자성·오름차순 잠금·폐기 확인·종료 코드 검증
     - 운영 파라미터의 실제 배포값, 전달 지연·oldest age·DB 부하 측정
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.
