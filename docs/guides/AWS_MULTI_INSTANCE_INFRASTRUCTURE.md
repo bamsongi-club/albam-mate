@@ -38,7 +38,8 @@
 
 ```mermaid
 flowchart TB
-    USER["P1 검증 사용자·외부 부하 발생기"] -->|"HTTPS 443<br/>최초 배포는 SSM 포트 포워딩"| NGINX["App1 EC2 · Elastic IP<br/>Nginx + Spring · t4g.micro"]
+    USER["P1 기능 스모크 사용자"] -->|"HTTPS 443<br/>최초 배포는 SSM 포트 포워딩"| NGINX["App1 EC2 · Elastic IP<br/>Nginx + Spring · t4g.micro"]
+    LOADGEN["외부 부하 발생기"] -->|"허용 CIDR 제한 후<br/>SSM 제외 직접 경로"| NGINX
 
     subgraph AWS["AWS · 단일 리전 · public subnet"]
         NGINX
@@ -120,7 +121,7 @@ App1 Elastic IP는 외부 DNS가 가리킬 안정적인 진입 주소다. 실제
 
 ## P1 최소 배포 목표 상태
 
-이 절은 App1·App2·PostgreSQL·Redis 네 노드의 최소 배포가 성립하는 목표 상태를 확정한다. 후속 구현 이슈는 이 절만 근거로 착수하며, 여기에 없는 계약을 구현에서 새로 정하지 않는다. 이 저장소가 소유하는 항목은 [albam-mate#494](https://github.com/bamsongi-club/albam-mate/issues/494)가, ECR 저장소 이름과 Docker Compose 플러그인 설치는 [albam-mate-infra#1](https://github.com/bamsongi-club/albam-mate-infra/issues/1)이 구현한다.
+이 절은 App1·App2·PostgreSQL·Redis 네 노드의 최소 배포가 성립하는 목표 상태를 확정한다. 후속 구현 이슈는 이 절만 근거로 착수하며, 여기에 없는 계약을 구현에서 새로 정하지 않는다. 이 저장소가 소유하는 항목은 [albam-mate#494](https://github.com/bamsongi-club/albam-mate/issues/494)가, [albam-mate-infra#1](https://github.com/bamsongi-club/albam-mate-infra/issues/1)은 ECR 저장소 이름과 Docker Compose 플러그인 설치·검증만 소유한다. 실제 ARM64 이미지 게시·노드별 환경 전달·배포·분산·복구·부하 증거의 소유자는 별도 인프라 후속 이슈가 확정하기 전까지 미배정이다.
 
 ### 최초 배포 접근과 인증서 순서
 
@@ -131,7 +132,8 @@ App1 Elastic IP는 외부 DNS가 가리킬 안정적인 진입 주소다. 실제
 | `public_ingress_cidrs` | `[]` | 공개 인바운드를 만들지 않는다. |
 | `enable_https` | `false` | 공개 TCP 443 리스너를 만들지 않는다. |
 | `ALBAM_MATE_HTTPS_BIND_ADDRESS` | `127.0.0.1` | web의 443 게시를 App1 호스트 루프백으로 제한한다. |
-| 접근 경로 | SSM 포트 포워딩 | 인터넷 노출 없이 App1의 HTTPS에 접근한다. |
+| 기능 스모크 경로 | SSM 포트 포워딩 | 인터넷 노출 없이 App1의 HTTPS에 접근한다. |
+| 부하 측정 경로 | 최초 배포에서는 실행하지 않음. 이후 SSM을 거치지 않는 제한된 직접 경로 | SSM 터널의 지연·처리량을 App1·App2 병목과 섞지 않는다. |
 
 web의 Nginx는 `ssl_certificate`와 `ssl_certificate_key` 파일이 없으면 기동하지 못한다. 따라서 기존 "App1 기동 후 TLS 연결" 순서가 아니라 **임시 또는 유효 인증서를 App1에 배치한 뒤 web을 기동한다**. 임시 인증서는 SSM 포트 포워딩 클라이언트에서만 신뢰하면 되고 공개 신뢰 체인을 요구하지 않는다.
 
@@ -147,13 +149,14 @@ web의 Nginx는 `ssl_certificate`와 `ssl_certificate_key` 파일이 없으면 �
 ### 2. Nginx upstream 구성
 
 - App1 로컬 Spring은 같은 Compose 네트워크의 서비스 이름(`spring:8080`)으로 지정한다.
-- App2는 private DNS 이름(`app-b.<internal_zone_name>:8080`)으로 지정한다. `internal_zone_name`은 인프라 저장소가 소유하는 Route 53 private hosted zone 이름이며, 설정 파일 주석의 예시도 실제 zone 이름 규칙과 일치시킨다.
+- App2는 private DNS hostname(`app-b.<internal_zone_name>`)에 `:8080`을 붙인 endpoint로 지정한다. `internal_zone_name`은 인프라 저장소가 소유하는 Route 53 private hosted zone 이름이며, 설정 파일 주석의 예시도 실제 zone 이름 규칙과 일치시킨다.
 - 루프백 주소는 upstream에 쓰지 않는다. web 컨테이너 안의 `127.0.0.1:8080`은 App1 Spring이 아니라 web 컨테이너 자신이고, 같은 포트를 듣는 healthz 서버 블록이 `/api/` 요청에 404를 반환한다.
 - 실제 응답한 upstream을 응답 헤더나 접근 로그로 확인할 수 있어야 한다.
 
 ### 3. `ALBAM_MATE_APP2_HOST` 필수값
 
 - 운영 배포에서 필수값이며 누락 시 기동을 거부한다. Compose 변수 해석과 컨테이너 entrypoint 어느 쪽도 기본값으로 대체하지 않는다.
+- `ALBAM_MATE_APP2_HOST`는 포트 없는 private DNS hostname만 받는다(예: `app-b.<internal_zone_name>`). Nginx 템플릿이 `:8080`을 붙이므로 값에 포트 `:8080`을 포함하지 않는다.
 - 미설정 시 App1 자신(`127.0.0.1`)을 App2로 사용하던 폴백 계약은 폐기한다.
 - P1의 목적이 2대 분산 측정이므로, 값 누락이 조용히 1대 운영으로 축소되면 안 된다.
 
@@ -217,9 +220,10 @@ web의 Nginx는 `ssl_certificate`와 `ssl_certificate_key` 파일이 없으면 �
 | 소유 | 범위 | 증거 |
 | --- | --- | --- |
 | [albam-mate#494](https://github.com/bamsongi-club/albam-mate/issues/494) | 목표 상태 1·2·3·4·6·7·8과 아래 [현재 구현과의 차이](#현재-구현과의-차이) 표 정정 | 로컬에서 Compose·Nginx·healthcheck 회귀를 막는 검증 통과 |
-| [albam-mate-infra#1](https://github.com/bamsongi-club/albam-mate-infra/issues/1) | 목표 상태 5(ECR 저장소 이름)와 Docker Compose 플러그인 설치 | ARM64 이미지 게시, SSM 기반 파일·환경값 전달, 역할별 기동, 실제 App1·App2 분산 증거 |
+| [albam-mate-infra#1](https://github.com/bamsongi-club/albam-mate-infra/issues/1) | 목표 상태 5(ECR 저장소 이름)와 Docker Compose 플러그인 설치·검증 | ECR 저장소 이름, 네 노드의 `docker compose version`, `verify.yml`의 플러그인 검증 |
+| 미배정 인프라 후속 이슈 | ARM64 이미지 게시·digest, SSM 기반 파일·환경값 전달, 역할별 기동, 실제 App1·App2 분산·복구·부하 증거 | 소유 이슈와 실제 배포 실행 기록이 확정된 뒤 검증 |
 
-로컬 검증 통과를 실제 AWS 4노드 배포 증거로 표현하지 않는다. 두 Spring에 요청이 실제로 분산됐다는 근거는 인프라 저장소의 배포 실행 기록이 소유한다.
+로컬 검증 통과를 실제 AWS 4노드 배포 증거로 표현하지 않는다. 위 미배정 범위는 소유 이슈가 확정되기 전까지 완료된 것으로 보지 않으며, 두 Spring에 요청이 실제로 분산됐다는 근거도 이 문서나 [albam-mate-infra#1](https://github.com/bamsongi-club/albam-mate-infra/issues/1)이 대신하지 않는다.
 
 ## 현재 구현과의 차이
 
@@ -294,7 +298,8 @@ flowchart LR
     DATA --> APP2
     APP2 --> CERT["App1 인증서 배치"]
     CERT --> APP1["App1 Spring·Nginx 배포"]
-    APP1 --> VERIFY["SSM 포워딩으로<br/>기능·교차 인스턴스·복구·부하 검증"]
+    APP1 --> VERIFY["SSM 포워딩으로<br/>기능 스모크·교차 인스턴스 확인"]
+    APP1 --> LOAD["제한된 직접 경로로<br/>부하 측정"]
 ```
 
 1. 기준 commit의 테스트와 문서 검사를 통과시킨다.
@@ -305,13 +310,13 @@ flowchart LR
 6. 노드별 환경변수 파일을 SSM으로 전달하고 PostgreSQL·Redis를 `--wait`으로 배포해 private DNS 연결을 확인한다.
 7. App2 Spring을 먼저 배포해 host 8080 상태를 App1에서 확인한다.
 8. App1에 임시 또는 유효 인증서를 배치한 뒤 App1 Spring과 Nginx를 배포하고, pull된 digest와 App1·App2 upstream 응답을 각각 확인한다.
-9. SSM 포트 포워딩으로 HTTPS에 접근해 HTTP·WebSocket 교차 인스턴스 시나리오를 실행한다. 외부 DNS와 공인 인증서 연결은 후속 범위다.
+9. SSM 포트 포워딩으로 HTTPS에 접근해 기능 스모크와 HTTP·WebSocket 교차 인스턴스 시나리오를 실행한다. 부하 측정은 SSM을 거치지 않는 제한된 직접 경로를 별도로 연 뒤에만 수행하며, 외부 DNS와 공인 인증서 연결은 후속 범위다.
 
 App1을 갱신하면 단일 진입점이 중단될 수 있다. 이 구성에서 무중단 순차 배포를 보장한다고 표현하지 않는다.
 
 ## 병목 측정과 단계적 확장
 
-부하 발생기는 네 EC2 밖의 별도 환경에서 실행한다. 같은 EC2에서 부하를 만들면 측정 대상의 CPU·네트워크를 함께 소비해 결과를 왜곡한다.
+SSM 포트 포워딩은 최초 배포의 기능 스모크와 교차 인스턴스 확인에만 사용한다. 부하 발생기는 네 EC2 밖의 별도 환경에서 실행하고, `public_ingress_cidrs`를 제한한 뒤 SSM을 거치지 않는 직접 경로로 연결한다. 직접 경로가 승인·기록되지 않은 상태의 결과는 부하 증거로 인정하지 않는다. 같은 EC2에서 부하를 만들거나 SSM 터널을 거치면 측정 대상의 CPU·네트워크·터널 지연을 함께 소비해 결과를 왜곡한다.
 
 | 역할 | 함께 기록할 지표와 증상 | 해석 경계 |
 | --- | --- | --- |
@@ -344,12 +349,13 @@ App1을 갱신하면 단일 진입점이 중단될 수 있다. 이 구성에서 
 
 ### 애플리케이션
 
-아래 항목은 실제 AWS 배포에서 확인하며 소유는 [albam-mate-infra#1](https://github.com/bamsongi-club/albam-mate-infra/issues/1)이다. 로컬 계약 회귀는 [albam-mate#494](https://github.com/bamsongi-club/albam-mate/issues/494)가 소유하며 이 검증을 대신하지 않는다. 프로필 이미지 업로드·조회는 [최소 배포에서 제외하는 기능](#최소-배포에서-제외하는-기능)에 따라 검증 대상에서 제외한다.
+아래 항목은 실제 AWS 배포에서 확인해야 하지만 현재 [albam-mate-infra#1](https://github.com/bamsongi-club/albam-mate-infra/issues/1)의 확정 범위에는 포함되지 않는다. 실제 실행·증거의 소유는 별도 인프라 후속 이슈가 확정한 뒤 따른다. 로컬 계약 회귀는 [albam-mate#494](https://github.com/bamsongi-club/albam-mate/issues/494)가 소유하며 이 검증을 대신하지 않는다. 프로필 이미지 업로드·조회는 [최소 배포에서 제외하는 기능](#최소-배포에서-제외하는-기능)에 따라 검증 대상에서 제외한다.
 
 - 게시한 manifest·digest와 App1·App2가 실제로 pull한 digest가 같은지 확인
 - App1·App2 Spring이 같은 release digest로 실행되는지 확인
 - `ALBAM_MATE_APP2_HOST`를 비운 배포가 기동을 거부하는지 확인
 - upstream 식별 헤더나 로그로 두 Spring에 요청이 분산되는지 확인
+- SSM 포트 포워딩은 기능 스모크에만 사용하고, 부하 측정은 SSM을 거치지 않는 제한된 직접 경로에서 실행하는지 확인
 - HTTP 세션과 WebSocket handshake가 다른 Spring에 도달해도 동일 세션을 사용하는지 확인
 - Pub/Sub 신호 유실 뒤 PostgreSQL catch-up으로 메시지를 복구하는지 확인
 - Scheduler가 PostgreSQL ShedLock으로 한 인스턴스에서만 실행되는지 확인
@@ -370,7 +376,7 @@ App1을 갱신하면 단일 진입점이 중단될 수 있다. 이 구성에서 
 1. AWS 계정, 리전, 도메인, 비용 한도와 철거일을 기록한다.
 2. Terraform state 접근자와 `apply` 담당자를 정한다.
 3. 기준 release SHA, 두 이미지의 digest, Terraform commit과 부하 시나리오를 함께 기록한다.
-4. App1 Elastic IP, SSM 포트 포워딩 경로, 배치한 인증서와 네 upstream 경계를 확인한다.
+4. App1 Elastic IP, 기능 스모크용 SSM 포트 포워딩 경로, 부하 측정용 제한 직접 경로, 배치한 인증서와 네 upstream 경계를 확인한다.
 5. PostgreSQL 논리 백업과 복원 절차를 확인한다.
 
 ### 측정 반복마다
