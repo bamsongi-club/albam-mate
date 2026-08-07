@@ -61,7 +61,7 @@
 2. 같은 파일을 `results/room-10a/`와 `results/room-10b/`에 버전 관리로 보존한다.
 3. `ROOM-10c-T6`은 `build/` 경로의 재생성 파일이 아니라 이 버전 관리 파일을 입력으로 사용한다.
 
-각 JSON은 `reportName`, `environment`, `rounds`로 구성한다. `environment`에는 기준 SHA, Java·PostgreSQL 버전, OS와 버전, CPU 수, 시작 heap 사용량·최대 heap과 `configuration`을 남긴다. `configuration`은 PostgreSQL image, `shared_preload_libraries`, fixture seed, 고정 시각, 동시 요청 수준, 배경 스케줄러 차단 여부를 담는다. `rounds`에는 시나리오, 동시 요청 수준, 전체 요청 수, 성공·업무 실패·동시성 실패·기술 실패 수, 낙관 락 충돌 수와 충돌률, `0`·`1`·`2`회 재시도 수, 세 번째 시도 소진 수, 요청별 monotonic 응답시간, PostgreSQL 비용과 raw record를 남긴다.
+각 JSON은 `reportName`, `environment`, `rounds`로 구성한다. `environment`에는 기준 SHA, Java·PostgreSQL 버전, OS와 버전, CPU 수, 시작 heap 사용량·최대 heap과 `configuration`을 남긴다. `configuration`은 PostgreSQL image, `shared_preload_libraries`, fixture seed, 고정 시각, 동시 요청 수준, 배경 스케줄러·알림 relay·채팅 만료 삭제 차단 여부 8개 키를 담는다. `rounds`에는 시나리오, 동시 요청 수준, 전체 요청 수, 성공·업무 실패·동시성 실패·기술 실패 수, 낙관 락 충돌 수와 충돌률, `0`·`1`·`2`회 재시도 수, 세 번째 시도 소진 수, 요청별 monotonic 응답시간, PostgreSQL 비용과 raw record를 남긴다.
 
 | 파일 | 의미 | SHA-256 |
 | --- | --- | --- |
