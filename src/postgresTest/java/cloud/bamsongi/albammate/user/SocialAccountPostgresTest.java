@@ -145,7 +145,8 @@ class SocialAccountPostgresTest {
 			SocialProvider.KAKAO,
 			subject,
 			Optional.empty(),
-			Optional.of(UserNickname.from("동시 소셜 사용자").orElseThrow()));
+			Optional.of(UserNickname.from("동시 소셜 사용자").orElseThrow()),
+			Optional.empty());
 		long usersBefore = userRepository.count();
 		ExecutorService executor = Executors.newFixedThreadPool(2);
 		socialIdentityReadGate.arm(SocialProvider.KAKAO, subject);
@@ -175,6 +176,7 @@ class SocialAccountPostgresTest {
 		SocialIdentity identity = new SocialIdentity(
 			SocialProvider.GOOGLE,
 			subject,
+			Optional.empty(),
 			Optional.empty(),
 			Optional.empty());
 		ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -209,6 +211,7 @@ class SocialAccountPostgresTest {
 		SocialIdentity identity = new SocialIdentity(
 			SocialProvider.GOOGLE,
 			subject,
+			Optional.empty(),
 			Optional.empty(),
 			Optional.empty());
 		ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -249,10 +252,12 @@ class SocialAccountPostgresTest {
 			SocialProvider.NAVER,
 			firstSubject,
 			Optional.empty(),
+			Optional.empty(),
 			Optional.empty());
 		SocialIdentity secondIdentity = new SocialIdentity(
 			SocialProvider.NAVER,
 			secondSubject,
+			Optional.empty(),
 			Optional.empty(),
 			Optional.empty());
 		ExecutorService executor = Executors.newFixedThreadPool(2);

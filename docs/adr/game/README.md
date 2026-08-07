@@ -12,8 +12,8 @@
 | [0018](0018-expansion-type-and-relations.md) | P0 이후 단독 플레이 가능 여부와 확장 관계를 분리해 관리 | 승인됨 | 2026-08-03 | 미검증 |
 | [0019](0019-bgg-full-catalog-staged-enrichment.md) | 전체 보드게임 카탈로그는 BASIC으로 확장하고 상세 정보는 단계적으로 보강 | 승인됨 | 2026-08-03 | 미검증 |
 | [0025](0025-game-catalog-public-source-attribution.md) | 게임 카탈로그 출처를 전역 푸터와 공개 출처 페이지에 표시 | 승인됨 | 2026-07-31 | 미검증 |
-| [0026](0026-p1-game-search-normalized-numeric-fields.md) | 게임 인원·시간 표시값과 검색 수치를 분리 | 승인됨 | 2026-08-03 | 미검증 |
+| [0026](0026-p1-game-search-normalized-numeric-fields.md) | 게임 인원·시간 표시값과 검색 수치를 분리 | 승인됨 | 2026-08-03 | 검증됨 |
 | [0027](0027-controlled-game-mechanism-taxonomy-and-provenance.md) | 게임 메커니즘을 검수된 내부 목록과 관계로 관리 | 대체됨 | 2026-08-03 | 미검증 |
-| [0028](0028-explicit-user-played-game-state.md) | 사용자가 표시한 해 본 게임만 관계로 저장 | 승인됨 | 2026-08-03 | 미검증 |
+| [0028](0028-explicit-user-played-game-state.md) | 사용자가 표시한 해 본 게임만 관계로 저장 | 승인됨 | 2026-08-03 | 검증됨 |
 | [0048](0048-full-reviewed-game-mechanism-catalog.md) | 검수된 메커니즘 189개 전체를 안정적인 내부 목록으로 공개 | 승인됨 | 2026-08-04 | 검증됨 |
-| [0050](0050-game-metadata-catalog-and-filters.md) | 17만 게임 메타데이터를 관계로 관리하고 상세 필터를 제공 | 승인됨 | 2026-08-05 | 미검증 |
+| [0050](0050-game-metadata-catalog-and-filters.md) | 17만 게임 메타데이터를 관계로 관리하고 상세 필터를 제공 | 승인됨 | 2026-08-05 | 검증됨 |

@@ -7,6 +7,8 @@
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
+> ADR-0052가 본문의 `local-multi` 실행 명칭과 namespace를 현재 다중 인스턴스 `local`로 통합했다. PostgreSQL 정본·커밋 뒤 Redis 신호·catch-up 결정은 그대로 유효하며 현재 namespace는 아래 검증 절을 따른다.
+
 ## 맥락
 
 메시지 저장과 실시간 전달은 함께 보이지만 실패 경계가 다르다. 저장되지 않은 메시지가 WebSocket으로 보이면 안 되고, WebSocket 연결 하나의 실패가 이미 커밋할 메시지를 롤백해서도 안 된다.
@@ -78,9 +80,9 @@ Redis 발행·구독 또는 WebSocket 전달 실패는 저장 결과를 바꾸�
 
 - 상태: 미검증
 - 근거:
-    - 구현: [#286](https://github.com/bamsongi-club/albam-mate/issues/286)에서 `local-multi`와 `production` Redis publisher·subscriber·listener container와 Spring Session Redis, PostgreSQL catch-up 전달, `afterMessageId` 재연결과 전달 직전 관계·세션 gate를 구현했다. production Compose는 Redis host·port를 명시적으로 Spring 컨테이너에 전달한다.
-    - 계약: 채팅 Redis channel namespace는 `albam-mate:local-multi:chat:events`와 `albam-mate:production:chat:events`로 확정했으며, 두 환경 모두 `eventType`·`roomId`·`messageId`만 신호에 담고 PostgreSQL 이력으로 catch-up한다.
-    - 테스트: [#286](https://github.com/bamsongi-club/albam-mate/issues/286)의 T1~T12로 커밋 후 전달, 중복·유실·역순 복구, 실제 WebSocket 재연결, local-multi 교차 인스턴스·재시작 복구, 세션 저장소 장애와 관측 경계를 자동 검증한다.
+    - 구현: [#286](https://github.com/bamsongi-club/albam-mate/issues/286)에서 당시 `local-multi`와 `production` Redis publisher·subscriber·listener container, PostgreSQL catch-up, `afterMessageId` 재연결과 전달 직전 관계·세션 gate를 구현했다. [ADR-0052](../platform/0052-local-profile-multi-instance-default.md)와 [PR #472](https://github.com/bamsongi-club/albam-mate/pull/472)가 같은 로컬 구현을 현재 `local` 프로필로 통합했다.
+    - 계약: 현재 채팅 Redis channel namespace는 `albam-mate:local:chat:events`와 `albam-mate:production:chat:events`다. 두 환경 모두 `eventType`·`roomId`·`messageId`만 신호에 담고 PostgreSQL 이력으로 catch-up한다.
+    - 테스트: #286의 T1~T12와 PR #472의 `local` 프록시 검증이 커밋 후 전달, 중복·유실·역순 복구, 실제 WebSocket 재연결, 교차 인스턴스·재시작 복구, 세션 저장소 장애와 관측 경계를 자동 검증한다.
 - 미검증:
     - ADR-0051의 자체 운영 Redis와 고정 Spring EC2 두 대 환경에서 실제 AWS 운영 부하를 검증해야 한다.
 
