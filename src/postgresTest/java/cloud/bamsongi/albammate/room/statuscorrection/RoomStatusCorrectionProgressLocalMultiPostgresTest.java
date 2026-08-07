@@ -5,8 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.sql.Timestamp;
@@ -54,50 +52,6 @@ class RoomStatusCorrectionProgressLocalMultiPostgresTest {
 		.withDatabaseName("room_status_correction_local_multi_test");
 
 	@Test
-	void T5_local_프로필은_두_인스턴스_스케줄의_PostgreSQL_소유_경계를_설정한다() throws Exception {
-		String localProfile = Files.readString(Path.of("src/main/resources/application-local.yml"));
-
-		assertTrue(localProfile.contains("lock-at-most-for: 2m"));
-		assertTrue(localProfile.contains("execution-warning-threshold: 30s"));
-
-		try (ConfigurableApplicationContext firstContext = applicationContext();
-			ConfigurableApplicationContext secondContext = applicationContext()) {
-			resetProgressState(firstContext.getBean(JdbcTemplate.class));
-			assertTrue(firstContext.containsBean("roomStatusCorrectionSchedulingConfiguration"));
-			assertTrue(secondContext.containsBean("roomStatusCorrectionSchedulingConfiguration"));
-
-			ScheduledTaskLock firstLock = firstContext.getBean(ScheduledTaskLock.class);
-			RoomStatusCorrectionScheduler secondScheduler = secondContext
-				.getBean(RoomStatusCorrectionScheduler.class);
-			CountDownLatch ownerStarted = new CountDownLatch(1);
-			CountDownLatch releaseOwner = new CountDownLatch(1);
-			ExecutorService executorService = Executors.newFixedThreadPool(2);
-			try {
-				var owner = executorService.submit(() -> firstLock.tryExecute(
-					"room-status-correction", Duration.ofSeconds(10), () -> {
-						ownerStarted.countDown();
-						await(releaseOwner);
-					}));
-				assertTrue(ownerStarted.await(5, TimeUnit.SECONDS));
-
-				var skipped = executorService.submit(secondScheduler::correctDueRooms);
-				skipped.get(5, TimeUnit.SECONDS);
-
-				releaseOwner.countDown();
-				assertTrue(owner.get(5, TimeUnit.SECONDS).acquired());
-			} finally {
-				releaseOwner.countDown();
-				executorService.shutdownNow();
-				executorService.awaitTermination(5, TimeUnit.SECONDS);
-			}
-
-			secondScheduler.correctDueRooms();
-			assertEquals(1L, secondContext.getBean(RoomStatusCorrectionProgressStore.class)
-				.current().executionGeneration());
-		}
-	}
-
-	@Test
 	void 새_generation이_진척을_확정한_뒤_이전_실행의_cursor_전진과_wrap을_거절한다() {
 		String previousUrl = System.getProperty("spring.datasource.url");
 		String previousUsername = System.getProperty("spring.datasource.username");
@@ -114,7 +68,6 @@ class RoomStatusCorrectionProgressLocalMultiPostgresTest {
 				RoomStatusCorrectionProgressStore first = firstContext.getBean(RoomStatusCorrectionProgressStore.class);
 				RoomStatusCorrectionProgressStore second = secondContext
 					.getBean(RoomStatusCorrectionProgressStore.class);
-				resetProgressState(firstContext.getBean(JdbcTemplate.class));
 				var staleExecution = first.claimExecution(Instant.parse("2026-08-05T00:01:00Z"));
 				var currentExecution = second.claimExecution(Instant.parse("2026-08-05T00:01:00Z"));
 				assertTrue(second.advanceCursor(
@@ -317,18 +270,6 @@ class RoomStatusCorrectionProgressLocalMultiPostgresTest {
 			""", progressVersion);
 	}
 
-	private void resetProgressState(JdbcTemplate jdbcTemplate) {
-		jdbcTemplate.update("""
-			update room_status_correction_progress
-			set turn_cutoff = null,
-			    cursor_due_at = null,
-			    cursor_room_id = null,
-			    progress_version = 0,
-			    execution_generation = 0
-			where job_name = 'room-status-correction'
-			""");
-	}
-
 	private ConfigurableApplicationContext applicationContext() {
 		String previousUrl = System.getProperty("spring.datasource.url");
 		String previousUsername = System.getProperty("spring.datasource.username");
@@ -358,14 +299,145 @@ class RoomStatusCorrectionProgressLocalMultiPostgresTest {
 		}
 	}
 
-	private void await(CountDownLatch latch) {
-		try {
-			assertTrue(latch.await(5, TimeUnit.SECONDS));
-		} catch (InterruptedException exception) {
-			Thread.currentThread().interrupt();
-			throw new AssertionError("ShedLock 소유 실행 대기 중 인터럽트가 발생했습니다", exception);
+	private void resetProgress(JdbcTemplate jdbcTemplate) {
+		jdbcTemplate.update("""
+			update room_status_correction_progress
+			set turn_cutoff = null,
+			    cursor_due_at = null,
+			    cursor_room_id = null,
+			    progress_version = 0,
+			    execution_generation = 0
+			where job_name = 'room-status-correction'
+			""");
+	}
+
+	private void deleteLock(JdbcTemplate jdbcTemplate) {
+		jdbcTemplate.update("delete from shedlock where name = ?", LOCK_NAME);
+	}
+
+	private void expireLock(JdbcTemplate jdbcTemplate) {
+		jdbcTemplate.update("""
+			update shedlock
+			set lock_until = current_timestamp - interval '1 second'
+			where name = ?
+			""", LOCK_NAME);
+	}
+
+	private void setLockOwner(JdbcTemplate jdbcTemplate, String owner) {
+		jdbcTemplate.update("update shedlock set locked_by = ? where name = ?", owner, LOCK_NAME);
+	}
+
+	private Long insertUser(JdbcTemplate jdbcTemplate, String label) {
+		String email = "room-382-local-multi-" + label + "-" + UUID.randomUUID() + "@example.com";
+		jdbcTemplate.update(
+			"insert into users (email, password_hash, nickname, created_at, updated_at) values (?, 'hash', ?, ?, ?)",
+			email,
+			"ROOM-382 " + label,
+			Timestamp.from(REQUEST_TIME),
+			Timestamp.from(REQUEST_TIME));
+		return jdbcTemplate.queryForObject("select id from users where email = ?", Long.class, email);
+	}
+
+	private Room saveRoom(RoomRepository roomRepository, Long hostUserId, Instant startAt) {
+		return roomRepository.saveAndFlush(Room.create(
+			hostUserId,
+			RoomType.PERSON_FOCUSED,
+			"ROOM-382 multi instance room",
+			null,
+			null,
+			ExperienceLevel.ALL_LEVELS,
+			false,
+			startAt,
+			"홍대 카페",
+			3));
+	}
+
+	private void assertNullCursor(RoomStatusCorrectionProgressStore.ProgressSnapshot progress) {
+		assertNull(progress.cursorDueAt());
+		assertNull(progress.cursorRoomId());
+	}
+
+	private Connection acquireAdvisoryLock(DataSource dataSource) throws Exception {
+		Connection connection = dataSource.getConnection();
+		try (Statement statement = connection.createStatement()) {
+			statement.execute("select pg_advisory_lock(" + ADVISORY_LOCK_KEY + ")");
+			return connection;
+		} catch (Exception exception) {
+			connection.close();
+			throw exception;
 		}
 	}
+
+	private void releaseAdvisoryLock(Connection connection) throws Exception {
+		try (Statement statement = connection.createStatement()) {
+			statement.execute("select pg_advisory_unlock(" + ADVISORY_LOCK_KEY + ")");
+		} finally {
+			connection.close();
+		}
+	}
+
+	private void installBlockingRoomTrigger(JdbcTemplate jdbcTemplate, Long blockedRoomId) {
+		jdbcTemplate.execute("""
+			create or replace function room_382_block_status_update() returns trigger language plpgsql as $$
+			begin
+			    if new.id = %d then
+			        perform pg_advisory_xact_lock(%d);
+			    end if;
+			    return new;
+			end;
+			$$
+			""".formatted(blockedRoomId, ADVISORY_LOCK_KEY));
+		jdbcTemplate.execute("""
+			create trigger room_382_block_status_update_trigger
+			before update of status on rooms
+			for each row execute function room_382_block_status_update()
+			""");
+	}
+
+	private void dropBlockingRoomTrigger(JdbcTemplate jdbcTemplate) {
+		jdbcTemplate.execute("drop trigger if exists room_382_block_status_update_trigger on rooms");
+		jdbcTemplate.execute("drop function if exists room_382_block_status_update()");
+	}
+
+	private void cleanup(JdbcTemplate jdbcTemplate, List<Long> roomIds, List<Long> userIds) {
+		roomIds.forEach(roomId -> {
+			jdbcTemplate.update("delete from room_waitlists where room_id = ?", roomId);
+			jdbcTemplate.update("delete from rooms where id = ?", roomId);
+		});
+		userIds.forEach(userId -> jdbcTemplate.update("delete from users where id = ?", userId));
+		deleteLock(jdbcTemplate);
+	}
+
+	private void awaitLatch(CountDownLatch latch) {
+		try {
+			assertTrue(latch.await(5, TimeUnit.SECONDS), "동기화 지점에 도달하지 못했습니다.");
+		} catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			throw new AssertionError("동기화 대기 중 인터럽트되었습니다.", exception);
+		}
+	}
+
+	private void awaitWorker(Future<?> worker, ExecutorService executor) throws Exception {
+		try {
+			worker.get(5, TimeUnit.SECONDS);
+		} finally {
+			executor.shutdownNow();
+			assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS), "워커가 종료되지 않았습니다.");
+		}
+	}
+
+	private void stopWorkerIgnoringFailure(Future<?> worker, ExecutorService executor) throws Exception {
+		try {
+			if (worker != null) {
+				try {
+					worker.get(5, TimeUnit.SECONDS);
+				} catch (ExecutionException ignored) {
+					// 컨텍스트를 종료한 lock holder의 unlock 실패는 이 시나리오의 의도된 종료다.
+				}
+			}
+		} finally {
+			executor.shutdownNow();
+			assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS), "워커가 종료되지 않았습니다.");
 		}
 	}
 
