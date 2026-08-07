@@ -572,7 +572,7 @@ const SECTION_ICONS = {
   list: <><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3.5 6h.01" /><path d="M3.5 12h.01" /><path d="M3.5 18h.01" /></>,
   calendar: <><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M8 3v4" /><path d="M16 3v4" /><path d="M3 10h18" /></>,
   pencil: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></>,
-  chat: <path d="M20 12a7 7 0 0 1-7 7H9l-4 3v-4.2A7 7 0 0 1 9 5h4a7 7 0 0 1 7 7Z" />
+  chat: <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
 };
 
 function SectionIcon({ name }) {
@@ -599,7 +599,7 @@ function Header({ route, me, notificationMenu }) {
           <a href="#/find" className={rootRoute[route] === 'find' ? 'on' : ''}>모임 찾기</a>
           {me && (
             <a href="#/chats" className={'nav-icon-btn' + (rootRoute[route] === 'chats' ? ' on' : '')} aria-label="채팅">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></svg>
+              <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></svg>
             </a>
           )}
           {me && (
@@ -633,7 +633,7 @@ function Header({ route, me, notificationMenu }) {
             </div>
           )}
           {me
-            ? <a href="#/profile" className={'nav-icon-btn ' + (rootRoute[route] === 'profile' ? 'on' : '')} aria-label={me.nickname + ' 프로필'}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></svg></a>
+            ? <a href="#/profile" className={'nav-icon-btn ' + (rootRoute[route] === 'profile' ? 'on' : '')} aria-label={me.nickname + ' 프로필'}><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 0 0-16 0" /></svg></a>
             : <a href="#/auth" className="btn pill">로그인</a>}
         </nav>
       </div>
