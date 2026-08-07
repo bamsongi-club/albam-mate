@@ -178,6 +178,28 @@ class RoomStatusCorrectionExecutorTest {
 	}
 
 	@Test
+	void 전체_보정은_시작_경계에서_모집중_ROOM을_닫고_기존_닫힌_ROOM의_대기열까지_만료한다() throws ReflectiveOperationException {
+		Room recruitingRoom = saveRoom(REQUEST_TIME.minusSeconds(1));
+		RoomWaitlist recruitingWaiting = saveWaiting(recruitingRoom.getId());
+		Room closedRoom = saveRoom(REQUEST_TIME.minusSeconds(1));
+		setStatus(closedRoom, RoomStatus.CLOSED);
+		roomRepository.save(closedRoom);
+		RoomWaitlist closedWaiting = saveWaiting(closedRoom.getId());
+
+		int changedCount = coordinator.correctDueRooms(REQUEST_TIME);
+
+		assertEquals(2, changedCount);
+		assertEquals(RoomStatus.CLOSED, roomRepository.findById(recruitingRoom.getId()).orElseThrow().getStatus());
+		assertEquals(
+			RoomWaitlistStatus.EXPIRED,
+			roomWaitlistRepository.findById(recruitingWaiting.getId()).orElseThrow().getStatus());
+		assertEquals(RoomStatus.CLOSED, roomRepository.findById(closedRoom.getId()).orElseThrow().getStatus());
+		assertEquals(
+			RoomWaitlistStatus.EXPIRED,
+			roomWaitlistRepository.findById(closedWaiting.getId()).orElseThrow().getStatus());
+	}
+
+	@Test
 	void 제한_후보_조회는_세_경계의_논리_due_순서와_cursor_조건을_적용한다() throws ReflectiveOperationException {
 		Room recruitingAtStart = saveRoom(REQUEST_TIME.minusSeconds(1));
 		Room closedWithWaiting = saveRoom(REQUEST_TIME.minusSeconds(1));

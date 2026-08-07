@@ -42,18 +42,7 @@ class RoomStatusCorrectionExecutor {
 			return false;
 		}
 
-		boolean startBoundaryReached = isStartBoundaryReached(room, requestTime);
-		boolean stateChanged = room.reconcileStateAt(requestTime);
-		if (stateChanged) {
-			roomRepository.save(room);
-			roomRepository.flush();
-			publishTerminalStateReachedIfFinished(room, requestTime);
-		}
-		int expiredWaitingCount = 0;
-		if (startBoundaryReached) {
-			expiredWaitingCount = roomWaitlistRepository.expireAllWaiting(roomId, requestTime);
-		}
-		return stateChanged || expiredWaitingCount > 0;
+		return correctRoom(room, requestTime);
 	}
 
 	/** due 조건에 맞는 방만 읽어 목록·내 모임 조회 전 상태를 일괄 보정한다. */
@@ -63,14 +52,27 @@ class RoomStatusCorrectionExecutor {
 		Instant finishedThreshold = requestTime.minus(Room.AUTOMATIC_FINISH_AFTER_START);
 		int changedCount = 0;
 		for (Room room : roomRepository.findDueRooms(requestTime, finishedThreshold)) {
-			if (room.reconcileStateAt(requestTime)) {
-				roomRepository.save(room);
-				roomRepository.flush();
-				publishTerminalStateReachedIfFinished(room, requestTime);
+			if (correctRoom(room, requestTime)) {
 				changedCount++;
 			}
 		}
 		return changedCount;
+	}
+
+	/** 한 ROOM의 상태와 시작 경계 대기열을 같은 트랜잭션에서 보정한다. */
+	private boolean correctRoom(Room room, Instant requestTime) {
+		boolean startBoundaryReached = isStartBoundaryReached(room, requestTime);
+		boolean stateChanged = room.reconcileStateAt(requestTime);
+		if (stateChanged) {
+			roomRepository.save(room);
+			roomRepository.flush();
+			publishTerminalStateReachedIfFinished(room, requestTime);
+		}
+		int expiredWaitingCount = 0;
+		if (startBoundaryReached) {
+			expiredWaitingCount = roomWaitlistRepository.expireAllWaiting(room.getId(), requestTime);
+		}
+		return stateChanged || expiredWaitingCount > 0;
 	}
 
 	private void publishTerminalStateReachedIfFinished(Room room, Instant requestTime) {

@@ -81,6 +81,14 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		where (room.status = cloud.bamsongi.albammate.room.enums.RoomStatus.RECRUITING
 		        and room.startAt <= :requestTime)
 		    or (room.status = cloud.bamsongi.albammate.room.enums.RoomStatus.CLOSED
+		        and room.startAt <= :requestTime
+		        and exists (
+		            select waitlist.id
+		            from RoomWaitlist waitlist
+		            where waitlist.id.roomId = room.id
+		              and waitlist.status = cloud.bamsongi.albammate.room.enums.RoomWaitlistStatus.WAITING
+		        ))
+		    or (room.status = cloud.bamsongi.albammate.room.enums.RoomStatus.CLOSED
 		        and room.startAt <= :finishedThreshold)
 		""")
 	List<Room> findDueRooms(
