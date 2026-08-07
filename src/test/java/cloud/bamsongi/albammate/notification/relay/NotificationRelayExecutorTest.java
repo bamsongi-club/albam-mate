@@ -15,10 +15,14 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -37,6 +41,16 @@ class NotificationRelayExecutorTest {
 	private static final Instant OCCURRED_AT = Instant.parse("2026-08-03T00:00:00Z");
 	private static final Instant RECORDED_AT = Instant.parse("2026-08-03T00:01:00Z");
 	private static final Instant OPERATION_TIME = Instant.parse("2026-08-03T00:02:00Z");
+
+	@BeforeEach
+	void initializeTransactionSynchronization() {
+		TransactionSynchronizationManager.initSynchronization();
+	}
+
+	@AfterEach
+	void clearTransactionSynchronization() {
+		TransactionSynchronizationManager.clearSynchronization();
+	}
 
 	@Test
 	void 수신자_스냅샷으로_누락_알림을_멱등_저장하고_같은_시각으로_처리_완료한다() {
@@ -83,6 +97,8 @@ class NotificationRelayExecutorTest {
 			NotificationRelayProcessingException.class, executor::processOne);
 
 		assertEquals(10L, exception.getSourceEventId());
+		assertEquals(
+			NotificationRelayProcessingException.FailureReason.PROCESSING_FAILURE, exception.getFailureReason());
 		assertTrue(exception.getCause() instanceof DataIntegrityViolationException);
 		assertEquals(NotificationOutboxStatus.PENDING, event.getStatus());
 	}
@@ -104,13 +120,15 @@ class NotificationRelayExecutorTest {
 			NotificationRelayProcessingException.class, executor::processOne);
 
 		assertEquals(10L, exception.getSourceEventId());
-		assertTrue(exception.getCause() instanceof IllegalStateException);
+		assertEquals(
+			NotificationRelayProcessingException.FailureReason.MISSING_RECIPIENT_SNAPSHOT,
+			exception.getFailureReason());
 		verifyNoInteractions(notificationRepository);
 		assertEquals(NotificationOutboxStatus.PENDING, event.getStatus());
 	}
 
 	@Test
-	void 정상_이벤트_구조화_로그는_필수_필드만_남기고_민감_값을_노출하지_않는다() {
+	void 정상_이벤트_구조화_로그는_커밋_전에는_남기지_않고_afterCommit_뒤에_필수_필드만_남긴다() {
 		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
 		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);
 		NotificationRepository notificationRepository = mock(NotificationRepository.class);
@@ -124,6 +142,9 @@ class NotificationRelayExecutorTest {
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 		try {
 			executor.processOne();
+
+			assertTrue(appender.list.isEmpty());
+			invokeAfterCommit();
 
 			assertEquals(1, appender.list.size());
 			assertEquals(Level.INFO, appender.list.getFirst().getLevel());
@@ -173,8 +194,13 @@ class NotificationRelayExecutorTest {
 		NotificationRelayProcessingException exception = assertThrows(
 			NotificationRelayProcessingException.class, executor::processOne);
 
-		assertTrue(exception.isExpired());
+		assertEquals(NotificationRelayProcessingException.FailureReason.EXPIRED, exception.getFailureReason());
 		verifyNoInteractions(recipientRepository, notificationRepository);
+	}
+
+	private void invokeAfterCommit() {
+		TransactionSynchronizationManager.getSynchronizations()
+			.forEach(TransactionSynchronization::afterCommit);
 	}
 
 	private static NotificationOutboxEvent pendingEvent(Long eventId) {

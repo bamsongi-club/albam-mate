@@ -48,8 +48,7 @@ class NotificationRelayFailureClassifierTest {
 		NotificationRelayFailureClassifier.FailureClassification unsupportedType = classifier.classify(
 			NotificationRelayProcessingException.failed(10L, new IllegalArgumentException("unknown type")));
 		NotificationRelayFailureClassifier.FailureClassification missingRecipients = classifier.classify(
-			NotificationRelayProcessingException.failed(11L,
-				new IllegalStateException("claimed notification outbox event has no recipients")));
+			NotificationRelayProcessingException.missingRecipientSnapshot(11L));
 
 		assertEquals("UNSUPPORTED_EVENT_TYPE", unsupportedType.failureCode());
 		assertTrue(unsupportedType.deterministic());
@@ -64,6 +63,16 @@ class NotificationRelayFailureClassifierTest {
 
 		assertEquals("RELAY_PROCESSING_FAILURE", classification.failureCode());
 		assertEquals("UnknownFailure", classification.failureClass());
+		assertFalse(classification.deterministic());
+	}
+
+	@Test
+	void 수신자_누락과_같은_메시지도_PROCESSING_FAILURE이면_일시_실패로_분류한다() {
+		NotificationRelayFailureClassifier.FailureClassification classification = classifier.classify(
+			NotificationRelayProcessingException.failed(
+				10L, new IllegalStateException("claimed notification outbox event has no recipients")));
+
+		assertEquals("RELAY_PROCESSING_FAILURE", classification.failureCode());
 		assertFalse(classification.deterministic());
 	}
 }

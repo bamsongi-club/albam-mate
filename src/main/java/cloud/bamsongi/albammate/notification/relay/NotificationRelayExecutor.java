@@ -62,7 +62,7 @@ public class NotificationRelayExecutor {
 		NotificationType notificationType = event.getEventType().toNotificationType();
 		List<Long> recipientUserIds = recipientRepository.findRecipientUserIdsByOutboxEventId(event.getId());
 		if (recipientUserIds.isEmpty()) {
-			throw new IllegalStateException("claimed notification outbox event has no recipients");
+			throw NotificationRelayProcessingException.missingRecipientSnapshot(event.getId());
 		}
 
 		for (Long recipientUserId : recipientUserIds) {
@@ -76,15 +76,11 @@ public class NotificationRelayExecutor {
 		eventRepository.flush();
 		ProcessedEvent processedEvent = ProcessedEvent.completed(
 			event, recipientUserIds.size(), operationTime, elapsedMillis(startedAtNanos));
-		logAfterCommit(processedEvent);
+		registerAfterCommitLog(processedEvent);
 		return processedEvent;
 	}
 
-	private void logAfterCommit(ProcessedEvent processedEvent) {
-		if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-			logProcessedEvent(processedEvent);
-			return;
-		}
+	private void registerAfterCommitLog(ProcessedEvent processedEvent) {
 		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
 			@Override
 			public void afterCommit() {
