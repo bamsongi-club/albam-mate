@@ -97,15 +97,6 @@ docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml ima
 docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml down
 ```
 
-App2는 `/etc/albam-mate/app2.env`, PostgreSQL은 `/etc/albam-mate/postgres.env`를 해당 노드의 Compose 파일과 함께 사용한다. Redis는 현재 Compose 기준으로 전용 환경변수가 없다.
-
-```sh
-docker compose --env-file /etc/albam-mate/app2.env -f compose.app2.yml config --quiet
-docker compose --env-file /etc/albam-mate/app2.env -f compose.app2.yml up -d --wait
-docker compose --env-file /etc/albam-mate/postgres.env -f compose.db.yml config --quiet
-docker compose --env-file /etc/albam-mate/postgres.env -f compose.db.yml up -d --wait
-```
-
 ## PostgreSQL 마이그레이션 검증
 
 `postgresTest`는 Testcontainers가 관리하는 임시 PostgreSQL 18.4 컨테이너에서 Flyway 마이그레이션, Hibernate 스키마 검증과 PostgreSQL 전용 계약을 확인한다. 외부 fixture가 필요한 17만 행 성능 클래스도 이 task를 사용하며, `issue420.fixture` 시스템 속성이 없으면 JUnit 조건으로 건너뛴다. fixture를 준비한 정확한 성능 실행 명령과 측정 필드 의미는 [게임 카탈로그 적재 가이드](guides/GAME_CATALOG_IMPORT.md#17만-행-성능-fixture-계약)를 따른다. 데이터베이스 재생성 규칙과 실패 해석은 [백엔드 테스트와 커버리지 검증](guides/TESTING.md#postgresql-검증-실행)을 따른다.
