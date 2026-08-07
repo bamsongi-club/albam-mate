@@ -76,12 +76,12 @@ ADR-0022의 방 종료 결정도 그대로 유지한다. `PATCH /api/rooms/{room
 
 ## 검증
 
-- 상태: 미검증
+- 상태: 검증됨
 - 근거:
     - 계약:
         - 결정 이슈 #308과 API·SEARCH-03 정본이 bodyless 관계 `PUT`·`DELETE`의 목표 상태와 반복 요청 응답을 고정한다.
         - ADR-0022와 ROOM-05의 기존 검증 근거가 방 종료 멱등성의 승계 규칙을 뒷받침한다.
-- 미검증:
-    - #356의 SEARCH-03 운영 코드·Flyway·자동 검증은 아직 반영되지 않았다.
+    - 구현: [PR #388](https://github.com/bamsongi-club/albam-mate/pull/388)이 body 없는 관계 `PUT`·`DELETE`와 동일 목표 상태 수렴을 구현했다.
+    - 테스트: `UserPlayedGameHttpIntegrationTest`·`UserPlayedGamePostgresTest`가 신규·반복·동시 관계 설정과 요청 본문 거절을, `RoomStatusChangeExecutorTest`·`RoomStatusChangeExecutorIntegrationTest`가 이미 `FINISHED`인 방의 무변경 종료 성공을 검증한다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

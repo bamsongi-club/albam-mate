@@ -7,7 +7,7 @@
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
-> 2026-08-06 승인된 ADR-0051이 이 문서의 후속 작업에 적힌 ALB·ASG 경로를 App1 Nginx·고정 EC2 경로로 바꿨다. HTTP 저장·WebSocket 수신 결정과 재연결 계약은 그대로 유효하다.
+> 2026-08-06 승인된 ADR-0051이 이 문서의 후속 작업에 적힌 ALB·ASG 경로를 App1 Nginx·고정 EC2 경로로 바꿨다. ADR-0052는 본문의 `local-multi` 실행 명칭을 현재 다중 인스턴스 `local`로 통합했다. HTTP 저장·WebSocket 수신 결정과 재연결 계약은 그대로 유효하다.
 
 ## 맥락
 
@@ -67,10 +67,10 @@
 ## 검증
 
 - 상태: 미검증
-- 근거: 없음
+- 근거:
+    - 구현: [PR #415](https://github.com/bamsongi-club/albam-mate/pull/415)이 세션·Origin·방 관계를 검증하는 방별 WebSocket endpoint를, [PR #432](https://github.com/bamsongi-club/albam-mate/pull/432)이 브라우저 실시간 수신·재연결을 구현했다.
+    - 테스트: handshake·권한 상실·정책 위반·재연결·실시간 전달 단위·통합 테스트와 `ChatWebSocketCrossInstanceDeliveryPostgresTest`·`ChatWebSocketCrossInstanceSessionPostgresTest`·`ChatWebSocketRestartRecoveryPostgresTest`가 공용 세션과 교차 인스턴스 복구를 검증한다. [PR #457](https://github.com/bamsongi-club/albam-mate/pull/457)은 실제 `local-multi` 프록시 경유 연결도 검증했다.
 - 미검증:
-    - WebSocket endpoint, Spring Session Redis와 인증·인가·재연결 구현이 없다.
-    - 로컬 두 인스턴스 교차 전달을 확인하지 않았다.
     - ADR-0051의 App1 Nginx 경로에서 WebSocket Upgrade, App2 실패 제외와 연결 종료 동작을 검증해야 한다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

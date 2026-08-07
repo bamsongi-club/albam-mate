@@ -105,13 +105,9 @@ relay는 at-least-once 처리를 전제로 하고 Notification에 `(sourceEventI
 
 ## 검증
 
-- 상태: 미검증
+- 상태: 검증됨
 - 근거:
-    - 계약:
-        - P1 알림 구현 명세와 공통 명세는 원인 업무와 영속 이벤트의 동일 트랜잭션, 커밋 시점 수신자 고정과 수신자별 멱등 생성을 요구한다.
-- 미검증:
-    - `room.contract` 이벤트·기록 포트와 `notification` 구현 및 구조 테스트
-    - Outbox·수신자·Notification 마이그레이션과 PostgreSQL 제약 검증
-    - 원인 업무 롤백·낙관적 락 재시도·동시 방 취소의 수신자 스냅샷 통합 테스트
+    - 구현: [PR #297](https://github.com/bamsongi-club/albam-mate/pull/297)이 Outbox·수신자·Notification 스키마와 영속 모델을, [PR #447](https://github.com/bamsongi-club/albam-mate/pull/447)이 `room.contract` 기록 포트와 참가·취소 Command의 동일 트랜잭션 기록을 구현했다.
+    - 테스트: `ModuleArchitectureTest`가 `notification → room.contract` 의존만 허용하고, `NotificationSchemaPostgresTest`·`NotificationRoomChangeOutboxPostgresTest`가 수신자 스냅샷, 롤백, 동시 방 변경과 `(sourceEventId, recipientUserId)` 멱등 제약을 PostgreSQL에서 검증한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

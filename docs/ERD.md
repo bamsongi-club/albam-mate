@@ -1,6 +1,6 @@
 # 알밤메이트 ERD
 
-이 문서는 현재 제공 중인 P0, 승인된 P1 알림·채팅·다중 인스턴스 스케줄 잠금·소셜 계정·대기열과 P1 게임 검색 수치·메커니즘·사용자별 해 본 게임 관계의 데이터 모델·데이터 제약을 정의한다. P1 항목은 Flyway 마이그레이션과 코드가 반영되기 전에는 현재 운영 스키마로 보지 않는다.
+이 문서는 현재 P0·P1 데이터 모델과 데이터 제약을 정의한다. 이 문서에 적은 P1 알림·채팅·다중 인스턴스 스케줄 잠금·소셜 계정·대기열·게임 검색 수치·메타데이터·메커니즘·사용자별 해 본 게임 관계는 전진 Flyway 마이그레이션과 생산 코드에 반영돼 있다. 기능 전체의 제공·검증·배포 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)을 따른다.
 
 ### 이 문서의 범위
 
@@ -47,6 +47,7 @@ erDiagram
         VARCHAR email UK
         VARCHAR password_hash
         VARCHAR nickname
+        VARCHAR profile_image_url
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
     }
@@ -547,7 +548,7 @@ P1 ROOM-09 전진 Flyway가 생성하는 Scheduler 전용 영속 진행 상태�
 
 ### SHEDLOCK
 
-P1 구현 예정 기술 테이블이다. [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)에 따라 모든 애플리케이션 인스턴스에 등록된 ROOM 상태 보정과 채팅 만료 삭제 Spring Scheduler 중 한 실행만 작업을 소유하도록 PostgreSQL 기반 ShedLock이 사용한다. 알림 relay, ROOM·참가 업무 락이나 영속 Job 큐로 사용하지 않는다.
+`V16__create_p1_chat_retention_schema.sql`에 구현된 공용 기술 테이블이다. [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)에 따라 모든 애플리케이션 인스턴스에 등록된 ROOM 상태 보정과 채팅 만료 삭제 Spring Scheduler 중 한 실행만 작업을 소유하도록 PostgreSQL 기반 ShedLock이 사용한다. 알림 relay, ROOM·참가 업무 락이나 영속 Job 큐로 사용하지 않는다.
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
@@ -571,7 +572,7 @@ P1 구현 예정 기술 테이블이다. [ADR-0038](adr/platform/0038-multi-inst
 
 ## P1 알림 저장 계약
 
-> 이 절은 승인된 P1 목표 저장 계약이다. 현재 생산 스키마·코드·자동 검증·운영 상태는 [P1 기능 상태 정본의 `NOTI-01`~`NOTI-03`](p1/README.md#기능별-현재-상태)을 따른다.
+> 이 절의 저장 계약은 `V4__create_p1_notification_schema.sql`과 현재 알림 생산 코드에 구현돼 있다. 기능·자동 검증·운영 상태는 [P1 기능 상태 정본의 `NOTI-01`~`NOTI-03`](p1/README.md#기능별-현재-상태)을 따른다.
 
 ### 알림 관계도
 

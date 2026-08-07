@@ -39,6 +39,10 @@ services:
       timeout: 5s
       retries: 12
       start_period: 90s
+    volumes:
+      - type: volume
+        source: profile-images
+        target: /app/uploads/profile
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
@@ -54,3 +58,6 @@ services:
       options:
         max-size: ${ALBAM_MATE_LOG_MAX_SIZE:-10m}
         max-file: ${ALBAM_MATE_LOG_MAX_FILES:-5}
+
+volumes:
+  profile-images:

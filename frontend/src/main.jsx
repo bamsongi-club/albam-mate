@@ -578,7 +578,7 @@ function Header({ route, me, notificationMenu }) {
             </div>
           )}
           {me
-            ? <a href="#/profile" className={'profile-icon ' + (rootRoute[route] === 'profile' ? 'on' : '')} aria-label={me.nickname + ' 프로필'}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></svg></a>
+            ? <a href="#/profile" className={'profile-icon ' + (rootRoute[route] === 'profile' ? 'on' : '')} aria-label={me.nickname + ' 프로필'}>{me.profileImageUrl ? <img className="gnb-avatar" src={me.profileImageUrl} alt="" /> : <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></svg>}</a>
             : <a href="#/auth" className="btn pill">로그인</a>}
         </nav>
       </div>
@@ -2204,12 +2204,14 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
   );
 }
 
-export function ProfileView({ me, onSave, onLogout, socialProviders = [], onSocialLink }) {
+export function ProfileView({ me, onSave, onLogout, socialProviders = [], onSocialLink, onUploadImage, onDeleteImage }) {
   const [nickname, setNickname] = useState(me.nickname);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [linking, setLinking] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef(null);
   useEffect(() => setNickname(me.nickname), [me.nickname]);
   const logout = async () => {
     setLoggingOut(true);
@@ -2228,6 +2230,34 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onSoci
       setSaving(false);
     }
   };
+  const handleImageSelect = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('5MB 이하의 이미지를 선택해주세요.');
+      return;
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      alert('JPEG, PNG, WebP 형식의 이미지만 업로드할 수 있어요.');
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      await onUploadImage(file);
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+  const handleDeleteImage = async () => {
+    if (!confirm('프로필 이미지를 삭제할까요?')) return;
+    setUploadingImage(true);
+    try {
+      await onDeleteImage();
+    } finally {
+      setUploadingImage(false);
+    }
+  };
   // 연결은 제공자 화면으로 전체 페이지를 넘긴다. 성공하면 이 화면이 다시 그려지지 않으므로 상태를 되돌리지 않는다.
   const startLink = async (provider) => {
     setLinking(provider);
@@ -2236,8 +2266,19 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onSoci
   return (
     <>
       <div className="profile-head">
-        <span className="profile-avatar" aria-hidden="true">{me.nickname.slice(0, 1)}</span>
-        <h2>{me.nickname}</h2>
+        <div className="profile-avatar-wrap">
+          {me.profileImageUrl
+            ? <img className="profile-avatar" src={me.profileImageUrl} alt={me.nickname + ' 프로필 이미지'} />
+            : <span className="profile-avatar" aria-hidden="true">{me.nickname.slice(0, 1)}</span>}
+          <button className="profile-avatar-edit" type="button" disabled={uploadingImage} onClick={() => fileInputRef.current?.click()} aria-label="프로필 이미지 변경">
+            {uploadingImage ? '…' : <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>}
+          </button>
+          <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleImageSelect} />
+        </div>
+        <div>
+          <h2>{me.nickname}</h2>
+          {me.profileImageUrl && <button className="btn ghost sm" type="button" disabled={uploadingImage} onClick={handleDeleteImage}>이미지 삭제</button>}
+        </div>
       </div>
       <div className="card menu-list" style={{ maxWidth: 560 }}>
           <a className="menu-row" href="#/my">
@@ -2726,6 +2767,30 @@ export function App() {
     }
   };
 
+  const handleUploadProfileImage = async (file) => {
+    try {
+      const profile = await api.uploadProfileImage(file);
+      setMe(profile);
+      showToast('프로필 이미지를 변경했어요.');
+      return true;
+    } catch (error) {
+      handleProtectedError(error, '프로필 이미지를 변경하지 못했어요.');
+      return false;
+    }
+  };
+
+  const handleDeleteProfileImage = async () => {
+    try {
+      const profile = await api.deleteProfileImage();
+      setMe(profile);
+      showToast('프로필 이미지를 삭제했어요.');
+      return true;
+    } catch (error) {
+      handleProtectedError(error, '프로필 이미지를 삭제하지 못했어요.');
+      return false;
+    }
+  };
+
   let content;
   if (route === 'find') content = <FindRoomsView roomType={roomType} onRoomTypeChange={setRoomType} roomQuery={roomQuery} onRoomQueryChange={setRoomQuery} roomFilters={roomFilters} onRoomFiltersChange={setRoomFilters} dataVersion={dataVersion} />;
   else if (route === 'game-list') content = <GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} onPlayedError={handleProtectedError} />;
@@ -2735,7 +2800,7 @@ export function App() {
   else if (route === 'edit') content = me ? <EditView sessionId={arg} onSave={handleSave} dataVersion={dataVersion} today={today} /> : <LoginRequiredView message="모임을 수정하려면 로그인해주세요." />;
   else if (route === 'my') content = me ? <MyRoomsSection myTab={myTab} onMyTabChange={setMyTab} dataVersion={dataVersion} /> : <LoginRequiredView message="내 모임을 보려면 로그인해주세요." />;
   else if (route === 'chat') content = me ? <ChatRoomView roomId={arg} dataVersion={dataVersion} me={me} /> : <LoginRequiredView message="모임 채팅을 보려면 로그인해주세요." />;
-  else if (route === 'profile') content = me ? <ProfileView me={me} onSave={handleSaveProfile} onLogout={handleLogout} socialProviders={socialProviders} onSocialLink={handleSocialLink} /> : <LoginRequiredView message="마이페이지를 보려면 로그인해주세요." />;
+  else if (route === 'profile') content = me ? <ProfileView me={me} onSave={handleSaveProfile} onLogout={handleLogout} socialProviders={socialProviders} onSocialLink={handleSocialLink} onUploadImage={handleUploadProfileImage} onDeleteImage={handleDeleteProfileImage} /> : <LoginRequiredView message="마이페이지를 보려면 로그인해주세요." />;
   else if (route === 'auth') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <AuthView onLogin={handleLogin} socialProviders={socialProviders} onSocialLogin={handleSocialLogin} />;
   else if (route === 'signup') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <SignupView onSignup={handleSignup} />;
   else content = <HomeView onBrowsePeople={handleBrowsePeople} onSearchGame={handleSearchGame} dataVersion={dataVersion} />;

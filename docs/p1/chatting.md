@@ -2,7 +2,7 @@
 
 이 문서는 P1에서 기존 방의 주최자와 현재 `ACTIVE` 참가자가 모임을 조율하는 `CHAT-01`~`CHAT-05`의 구현 규칙과 완료 기준을 정의한다. 현재 계약 준비·생산 코드·자동 검증·운영 배포와 실측 상태는 [P1 기능별 상태 정본](README.md#기능별-현재-상태)을 따른다. 이 문서에서 **채팅 관계자**는 방의 주최자 또는 현재 `ACTIVE` 참가자를 뜻한다.
 
-채팅 접근·생명주기와 메시지 공통 규칙은 [P1 명세](../P1-spec.md#채팅-접근과-생명주기), 요청·응답·오류와 실시간 연결은 [API 명세](../API.md#채팅-공통-계약), 저장 계약은 [ERD](../ERD.md)를 따른다. 신규 API와 저장 개념은 구현 예정 계약이며, 메시지 ID cursor·실시간·저장·보관 방식은 승인된 [ADR-0031](../adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](../adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](../adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0049](../adr/chat/0049-chat-message-retention-lock-section-boundary.md), 공용 세션·스케줄 실행은 [ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), P1 AWS 토폴로지는 [ADR-0051](../adr/platform/0051-p1-self-managed-aws-infrastructure.md), 실행 프로필·로컬 검증 경계는 [ADR-0052](../adr/platform/0052-local-profile-multi-instance-default.md), 모듈·인프라 경계는 [아키텍처](../ARCHITECTURE.md)를 따른다. 채팅방 스키마와 기존 ROOM backfill의 실행 경계는 승인된 [ADR-0045](../adr/chat/0045-chat-room-schema-and-backfill-boundary.md)의 production schema-only 및 local callback 결정을 따른다. 실시간 공통 기반은 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반)이 소유한다.
+채팅 접근·생명주기와 메시지 공통 규칙은 [P1 명세](../P1-spec.md#채팅-접근과-생명주기), 요청·응답·오류와 실시간 연결은 [API 명세](../API.md#채팅-공통-계약), 저장 계약은 [ERD](../ERD.md)를 따른다. 현재 채팅 API와 저장 구조가 구현돼 있으며 기능별 완료·운영 상태는 [P1 기능별 상태 정본](README.md#기능별-현재-상태)만 따른다. 메시지 ID cursor·실시간·저장·보관 방식은 승인된 [ADR-0031](../adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](../adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](../adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0049](../adr/chat/0049-chat-message-retention-lock-section-boundary.md), 공용 세션·스케줄 실행은 [ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), P1 AWS 토폴로지는 [ADR-0051](../adr/platform/0051-p1-self-managed-aws-infrastructure.md), 실행 프로필·로컬 검증 경계는 [ADR-0052](../adr/platform/0052-local-profile-multi-instance-default.md), 모듈·인프라 경계는 [아키텍처](../ARCHITECTURE.md)를 따른다. 채팅방 스키마와 기존 ROOM backfill의 실행 경계는 승인된 [ADR-0045](../adr/chat/0045-chat-room-schema-and-backfill-boundary.md)의 production schema-only 및 local callback 결정을 따른다. 실시간 공통 기반은 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반)이 소유한다.
 
 본 명세는 기존 오프라인 방 흐름에 방별 그룹 채팅을 추가하며 새로운 온라인 방 유형이나 실시간 자동 매칭을 도입하지 않는다. 메시지의 정본은 실시간 연결이 아니라 PostgreSQL 이력이다.
 
@@ -231,6 +231,22 @@
 - 모든 인스턴스가 만료 삭제 스케줄을 등록하되 PostgreSQL ShedLock을 얻은 하나만
   실행한다. 잠금과 별개로 삭제 작업은 재실행해도 같은 결과로 수렴하며 각 묶음은
   독립 트랜잭션을 유지한다.
+
+### 현재 만료 삭제 실행값
+
+현재 기본값은 `application.yml`과 `ChatMessageRetentionProperties`가 소유하며 다음과 같다. 운영에서 값을 재정의하면 배포 구성과 이 표를 같은 변경에서 갱신한다.
+
+| 항목 | 현재 값 |
+| --- | --- |
+| 보관 기간 | 방이 `CANCELED`·`FINISHED`가 된 시각부터 30일 |
+| 실행 시각 | 매일 `03:00 UTC` |
+| ShedLock 이름 | `chat-message-retention` |
+| 한 잠금 구간의 방·메시지 상한 | 방 50개·메시지 5,000개 |
+| 메시지 삭제 chunk | 100개 |
+| `lockAtMostFor` / `lockAtLeastFor` | 2분 / 5초 |
+| 구간 실행 상한 / 질의 시간 상한 | 1분 / 10초 |
+| 한 cron 실행의 잠금 구간 상한 | 30개 |
+| 실행시간 경고 기준 | 30초 |
 
 ### 완료 기준
 

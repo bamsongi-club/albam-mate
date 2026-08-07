@@ -67,13 +67,11 @@ P1의 교차 인스턴스 세션·WebSocket·Redis Pub/Sub·전송 제한·ShedL
 
 ## 검증
 
-- 상태: 미검증
-- 근거: 없음
-- 미검증:
-    - local Compose의 proxy·Spring 두 대·PostgreSQL·Redis healthy 기동과 loopback 노출
-    - local Redis Session·rate limit·Pub/Sub namespace와 production 분리
-    - 교차 인스턴스 HTTP/WebSocket 전달·재연결·ShedLock 단일 소유
-    - local seed callback과 production schema-only migration
-    - CI·문서 링크·전체 승인 T1~T7 실행
+- 상태: 검증됨
+- 근거:
+    - 구현: [PR #472](https://github.com/bamsongi-club/albam-mate/pull/472)가 `compose.local.yml`, `application-local.yml`, 로컬 Nginx와 Redis session·rate limit·Pub/Sub namespace를 `local` 기준으로 통합하고 기존 `local-multi` 프로필·Compose를 제거했다.
+    - 런타임: `LocalMultiProxyRuntimePostgresTest`, `RedisSessionRuntimePostgresTest`, `ChatWebSocketCrossInstanceSessionPostgresTest`, `ChatWebSocketCrossInstanceDeliveryPostgresTest`가 proxy·Spring 두 대·PostgreSQL·Redis healthy 기동, loopback 노출, 공용 세션, 전달·재연결과 namespace 분리를 검증한다.
+    - 스케줄·데이터: `RoomStatusCorrectionProgressLocalMultiPostgresTest`와 `LocalRoomSeedPostgresTest`, `ProductionProfileConfigurationTest`가 ShedLock 단일 소유·임대 경쟁, local seed callback과 production schema-only 경계를 검증한다.
+    - CI: PR #472의 `Backend Coverage`, `Backend Static`, `Docs`, `Frontend`, `Local Runtime`, `CI Gate` 검사가 모두 통과한 뒤 merge commit `c05a5de`로 병합됐다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

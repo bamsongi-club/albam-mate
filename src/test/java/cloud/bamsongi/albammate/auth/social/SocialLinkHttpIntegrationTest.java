@@ -123,7 +123,8 @@ class SocialLinkHttpIntegrationTest {
 		socialAccountService.link(
 			account.id(),
 			new SocialIdentity(
-				SocialProvider.NAVER, UUID.randomUUID().toString(), Optional.empty(), Optional.empty()));
+				SocialProvider.NAVER, UUID.randomUUID().toString(), Optional.empty(), Optional.empty(),
+				java.util.Optional.empty()));
 
 		SessionClient session = signedInSession(account);
 		perform(link("naver", session), session)
@@ -270,7 +271,8 @@ class SocialLinkHttpIntegrationTest {
 		String subject = UUID.randomUUID().toString();
 		socialAccountService.link(
 			owner.id(),
-			new SocialIdentity(SocialProvider.NAVER, subject, Optional.empty(), Optional.empty()));
+			new SocialIdentity(SocialProvider.NAVER, subject, Optional.empty(), Optional.empty(),
+				java.util.Optional.empty()));
 
 		UserAccount other = createAccount();
 		SessionClient session = signedInSession(other);
@@ -390,7 +392,8 @@ class SocialLinkHttpIntegrationTest {
 		socialAccountService.link(
 			account.id(),
 			new SocialIdentity(
-				SocialProvider.NAVER, UUID.randomUUID().toString(), Optional.empty(), Optional.empty()));
+				SocialProvider.NAVER, UUID.randomUUID().toString(), Optional.empty(), Optional.empty(),
+				java.util.Optional.empty()));
 
 		perform(get("/api/auth/social/providers"), signedInSession(account))
 			.andExpect(status().isOk())

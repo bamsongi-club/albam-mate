@@ -91,10 +91,10 @@ ROOM 상태 보정과 채팅 만료 삭제는 모든 인스턴스에 Spring Sche
 
 - 상태: 미검증
 - 근거:
-    - 구현: [#360](https://github.com/bamsongi-club/albam-mate/issues/360)에서 `local-multi` Spring Session Redis를, [#286](https://github.com/bamsongi-club/albam-mate/issues/286)에서 같은 세션 계약의 `production` profile과 Redis Pub/Sub을 구현했다.
-    - 테스트: #286의 production 두 인스턴스 Redis 세션·채팅 fan-out PostgreSQL 검증이 같은 `JSESSIONID`와 PostgreSQL catch-up 경계를 확인한다.
+    - 구현: [#360](https://github.com/bamsongi-club/albam-mate/issues/360)에서 당시 `local-multi` Spring Session Redis를, [#286](https://github.com/bamsongi-club/albam-mate/issues/286)에서 같은 세션 계약의 `production` profile과 Redis Pub/Sub을 구현했다. [ADR-0052](0052-local-profile-multi-instance-default.md)와 [PR #472](https://github.com/bamsongi-club/albam-mate/pull/472)가 로컬 실행을 현재 `local` 프로필로 통합했다.
+    - 구현: [PR #366](https://github.com/bamsongi-club/albam-mate/pull/366)이 공용 `SHEDLOCK` 스키마·PostgreSQL adapter와 채팅 만료 삭제 잠금을, ROOM 상태 보정 구현이 같은 adapter의 `room-status-correction` 잠금을 사용한다.
+    - 테스트: `ChatWebSocketCrossInstanceSessionPostgresTest`·`ChatWebSocketCrossInstanceDeliveryPostgresTest`와 PR #457·#472의 프록시 검증이 공용 `JSESSIONID`·fan-out을 확인한다. `RoomStatusCorrectionSchedulerLockTest`·`RoomStatusCorrectionProgressLocalMultiPostgresTest`와 `ChatMessageRetentionPostgresTest`가 PostgreSQL ShedLock 단일 실행, 임대 경쟁과 업무 처리 수렴을 검증한다.
 - 미검증:
-    - PostgreSQL ShedLock 단일 실행, 잠금 보유 인스턴스 종료와 임대 만료 복구를 확인하지 않았다.
     - ADR-0051의 App1 Nginx·고정 EC2 4대·자체 운영 Redis 환경에서 실제 AWS 다중 인스턴스 세션과 스케줄 실행을 검증해야 한다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

@@ -62,10 +62,8 @@ class SocialAccountLoginHttpIntegrationTest {
 		String email = "social-only-" + suffix + "@example.com";
 		socialAccountService.login(
 			new SocialIdentity(
-				SocialProvider.GOOGLE,
-				"subject-" + suffix,
-				Optional.of(UserEmail.from(email).orElseThrow()),
-				Optional.of(UserNickname.from("소셜 전용 사용자").orElseThrow())));
+				SocialProvider.GOOGLE, "subject-" + suffix, Optional.of(UserEmail.from(email).orElseThrow()),
+				Optional.of(UserNickname.from("소셜 전용 사용자").orElseThrow()), java.util.Optional.empty()));
 		assertTrue(userAccountService.findCredentialsByEmail(UserEmail.from(email).orElseThrow()).isEmpty());
 
 		loginPathProbe.reset();
