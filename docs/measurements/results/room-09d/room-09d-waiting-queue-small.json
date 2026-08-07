@@ -1,0 +1,257 @@
+{
+  "outcome" : "SUCCESS",
+  "baselineSourceSha" : "4688316415113b4457f03628d77bdcb7f594c294",
+  "candidateSourceSha" : "8416d3254a3e9e2316bc14745959a2b42dab3c26",
+  "measurementStartEnvironment" : {
+    "gitSha" : "c05a5de367981fdeb2919049d8b75b1ecdaf97c6",
+    "javaVersion" : "21.0.11",
+    "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
+    "operatingSystem" : "Windows 11",
+    "cpuCount" : 24,
+    "configuration" : {
+      "sharedPreloadLibraries" : "pg_stat_statements",
+      "fixtureSeed" : "ROOM-09d-candidate-v1",
+      "command" : ".\\gradlew.bat postgresTest --tests RoomStatusCorrectionCandidateMeasurementPostgresTest --rerun --fail-fast",
+      "requestTime" : "2026-08-06T00:00:00Z",
+      "postgresImage" : "postgres:18.4"
+    }
+  },
+  "directComparisons" : [ ],
+  "waitingQueueMeasurements" : [ {
+    "candidateLimit" : 10,
+    "waitingPerClosedDueRoom" : 10,
+    "candidate" : {
+      "path" : "bounded-candidate",
+      "candidateLimit" : 10,
+      "runs" : [ {
+        "phase" : "warm-up",
+        "iteration" : 1,
+        "initialDueRoomCount" : 20,
+        "successCount" : 20,
+        "failureCount" : 0,
+        "callElapsedNanos" : 370162900,
+        "wholeTurnElapsedNanos" : 370162900,
+        "throughputPerSecond" : 54.03026613418039,
+        "databaseCost" : {
+          "calls" : 130,
+          "totalExecutionTimeMs" : 6.251803000000001,
+          "rows" : 187,
+          "sharedBufferHits" : 1066,
+          "sharedBufferReads" : 0
+        }
+      }, {
+        "phase" : "measured",
+        "iteration" : 1,
+        "initialDueRoomCount" : 20,
+        "successCount" : 20,
+        "failureCount" : 0,
+        "callElapsedNanos" : 331060100,
+        "wholeTurnElapsedNanos" : 331060100,
+        "throughputPerSecond" : 60.41199165952043,
+        "databaseCost" : {
+          "calls" : 130,
+          "totalExecutionTimeMs" : 6.885814000000001,
+          "rows" : 187,
+          "sharedBufferHits" : 1193,
+          "sharedBufferReads" : 0
+        }
+      }, {
+        "phase" : "measured",
+        "iteration" : 2,
+        "initialDueRoomCount" : 20,
+        "successCount" : 20,
+        "failureCount" : 0,
+        "callElapsedNanos" : 329081400,
+        "wholeTurnElapsedNanos" : 329081400,
+        "throughputPerSecond" : 60.775236765128625,
+        "databaseCost" : {
+          "calls" : 130,
+          "totalExecutionTimeMs" : 6.228557999999999,
+          "rows" : 187,
+          "sharedBufferHits" : 1314,
+          "sharedBufferReads" : 0
+        }
+      }, {
+        "phase" : "measured",
+        "iteration" : 3,
+        "initialDueRoomCount" : 20,
+        "successCount" : 20,
+        "failureCount" : 0,
+        "callElapsedNanos" : 353767700,
+        "wholeTurnElapsedNanos" : 353767700,
+        "throughputPerSecond" : 56.53427376213261,
+        "databaseCost" : {
+          "calls" : 130,
+          "totalExecutionTimeMs" : 6.996248000000001,
+          "rows" : 187,
+          "sharedBufferHits" : 1348,
+          "sharedBufferReads" : 0
+        }
+      }, {
+        "phase" : "measured",
+        "iteration" : 4,
+        "initialDueRoomCount" : 20,
+        "successCount" : 20,
+        "failureCount" : 0,
+        "callElapsedNanos" : 351349900,
+        "wholeTurnElapsedNanos" : 351349900,
+        "throughputPerSecond" : 56.9233120601429,
+        "databaseCost" : {
+          "calls" : 130,
+          "totalExecutionTimeMs" : 7.654649000000001,
+          "rows" : 187,
+          "sharedBufferHits" : 1381,
+          "sharedBufferReads" : 0
+        }
+      }, {
+        "phase" : "measured",
+        "iteration" : 5,
+        "initialDueRoomCount" : 20,
+        "successCount" : 20,
+        "failureCount" : 0,
+        "callElapsedNanos" : 334481100,
+        "wholeTurnElapsedNanos" : 334481100,
+        "throughputPerSecond" : 59.794110937807844,
+        "databaseCost" : {
+          "calls" : 130,
+          "totalExecutionTimeMs" : 7.550432000000001,
+          "rows" : 187,
+          "sharedBufferHits" : 1465,
+          "sharedBufferReads" : 0
+        }
+      } ],
+      "summary" : {
+        "minCallElapsedNanos" : 329081400,
+        "medianCallElapsedNanos" : 334481100,
+        "maxCallElapsedNanos" : 353767700,
+        "minWholeTurnElapsedNanos" : 329081400,
+        "medianWholeTurnElapsedNanos" : 334481100,
+        "maxWholeTurnElapsedNanos" : 353767700,
+        "minThroughputPerSecond" : 56.53427376213261,
+        "medianThroughputPerSecond" : 59.794110937807844,
+        "maxThroughputPerSecond" : 60.775236765128625,
+        "minDatabaseExecutionTimeMs" : 6.228557999999999,
+        "medianDatabaseExecutionTimeMs" : 6.996248000000001,
+        "maxDatabaseExecutionTimeMs" : 7.654649000000001
+      }
+    }
+  }, {
+    "candidateLimit" : 20,
+    "waitingPerClosedDueRoom" : 10,
+    "candidate" : {
+      "path" : "bounded-candidate",
+      "candidateLimit" : 20,
+      "runs" : [ {
+        "phase" : "warm-up",
+        "iteration" : 1,
+        "initialDueRoomCount" : 20,
+        "successCount" : 20,
+        "failureCount" : 0,
+        "callElapsedNanos" : 345942800,
+        "wholeTurnElapsedNanos" : 345942800,
+        "throughputPerSecond" : 57.8130257372028,
+        "databaseCost" : {
+          "calls" : 127,
+          "totalExecutionTimeMs" : 7.444737999999999,
+          "rows" : 177,
+          "sharedBufferHits" : 1451,
+          "sharedBufferReads" : 0
+        }
+      }, {
+        "phase" : "measured",
+        "iteration" : 1,
+        "initialDueRoomCount" : 20,
+        "successCount" : 20,
+        "failureCount" : 0,
+        "callElapsedNanos" : 335555300,
+        "wholeTurnElapsedNanos" : 335555300,
+        "throughputPerSecond" : 59.60269439940302,
+        "databaseCost" : {
+          "calls" : 127,
+          "totalExecutionTimeMs" : 7.264162,
+          "rows" : 177,
+          "sharedBufferHits" : 1467,
+          "sharedBufferReads" : 0
+        }
+      }, {
+        "phase" : "measured",
+        "iteration" : 2,
+        "initialDueRoomCount" : 20,
+        "successCount" : 20,
+        "failureCount" : 0,
+        "callElapsedNanos" : 317695600,
+        "wholeTurnElapsedNanos" : 317695600,
+        "throughputPerSecond" : 62.95334275954719,
+        "databaseCost" : {
+          "calls" : 127,
+          "totalExecutionTimeMs" : 7.758141999999999,
+          "rows" : 177,
+          "sharedBufferHits" : 1537,
+          "sharedBufferReads" : 0
+        }
+      }, {
+        "phase" : "measured",
+        "iteration" : 3,
+        "initialDueRoomCount" : 20,
+        "successCount" : 20,
+        "failureCount" : 0,
+        "callElapsedNanos" : 321359100,
+        "wholeTurnElapsedNanos" : 321359100,
+        "throughputPerSecond" : 62.23567342577198,
+        "databaseCost" : {
+          "calls" : 127,
+          "totalExecutionTimeMs" : 7.737262,
+          "rows" : 177,
+          "sharedBufferHits" : 1559,
+          "sharedBufferReads" : 0
+        }
+      }, {
+        "phase" : "measured",
+        "iteration" : 4,
+        "initialDueRoomCount" : 20,
+        "successCount" : 20,
+        "failureCount" : 0,
+        "callElapsedNanos" : 325980100,
+        "wholeTurnElapsedNanos" : 325980100,
+        "throughputPerSecond" : 61.35343844608919,
+        "databaseCost" : {
+          "calls" : 127,
+          "totalExecutionTimeMs" : 7.4965,
+          "rows" : 177,
+          "sharedBufferHits" : 1638,
+          "sharedBufferReads" : 0
+        }
+      }, {
+        "phase" : "measured",
+        "iteration" : 5,
+        "initialDueRoomCount" : 20,
+        "successCount" : 20,
+        "failureCount" : 0,
+        "callElapsedNanos" : 338892100,
+        "wholeTurnElapsedNanos" : 338892100,
+        "throughputPerSecond" : 59.01583424340668,
+        "databaseCost" : {
+          "calls" : 127,
+          "totalExecutionTimeMs" : 7.633977,
+          "rows" : 177,
+          "sharedBufferHits" : 1687,
+          "sharedBufferReads" : 0
+        }
+      } ],
+      "summary" : {
+        "minCallElapsedNanos" : 317695600,
+        "medianCallElapsedNanos" : 325980100,
+        "maxCallElapsedNanos" : 338892100,
+        "minWholeTurnElapsedNanos" : 317695600,
+        "medianWholeTurnElapsedNanos" : 325980100,
+        "maxWholeTurnElapsedNanos" : 338892100,
+        "minThroughputPerSecond" : 59.01583424340668,
+        "medianThroughputPerSecond" : 61.35343844608919,
+        "maxThroughputPerSecond" : 62.95334275954719,
+        "minDatabaseExecutionTimeMs" : 7.264162,
+        "medianDatabaseExecutionTimeMs" : 7.633977,
+        "maxDatabaseExecutionTimeMs" : 7.758141999999999
+      }
+    }
+  } ]
+}

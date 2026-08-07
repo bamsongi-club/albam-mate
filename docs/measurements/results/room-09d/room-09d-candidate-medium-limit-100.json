@@ -1,0 +1,152 @@
+{
+  "outcome" : "SUCCESS",
+  "measurementStartEnvironment" : {
+    "gitSha" : "c05a5de367981fdeb2919049d8b75b1ecdaf97c6",
+    "candidateImplementationSourceSha" : "8416d3254a3e9e2316bc14745959a2b42dab3c26",
+    "javaVersion" : "21.0.11",
+    "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
+    "operatingSystem" : "Windows 11",
+    "cpuCount" : 24,
+    "startUsedHeapBytes" : 141904512,
+    "maxHeapBytes" : 536870912,
+    "configuration" : {
+      "sharedPreloadLibraries" : "pg_stat_statements",
+      "fixtureType" : "NO_WAITING",
+      "postgresImage" : "postgres:18.4",
+      "requestTime" : "2026-08-06T00:00:00Z",
+      "candidateLimit" : "100",
+      "fixtureSeed" : "ROOM-09d-candidate-v1",
+      "profile" : "medium",
+      "dockerVersion" : "29.4.3"
+    }
+  },
+  "fixture" : {
+    "profile" : {
+      "name" : "medium",
+      "roomCount" : 10000,
+      "dueRoomCount" : 2000
+    },
+    "roomCount" : 10000,
+    "dueRoomCount" : 2000,
+    "nonDueRoomCount" : 8000,
+    "waitingPerClosedDueRoom" : 0,
+    "requestTime" : "2026-08-06T00:00:00Z",
+    "seed" : "ROOM-09d-candidate-v1",
+    "dataIdentifier" : "ROOM-09d-candidate-v1:medium:NO_WAITING"
+  },
+  "candidateLimit" : 100,
+  "warmUpRuns" : [ {
+    "phase" : "warm-up",
+    "iteration" : 1,
+    "candidateCount" : 2000,
+    "successCount" : 2000,
+    "failureCount" : 0,
+    "callElapsedNanos" : 23795687200,
+    "wholeTurnElapsedNanos" : 23795687200,
+    "throughputPerSecond" : 84.04884394345207,
+    "databaseCost" : {
+      "calls" : 13073,
+      "totalExecutionTimeMs" : 519.1162669999997,
+      "rows" : 9906,
+      "sharedBufferHits" : 38799,
+      "sharedBufferReads" : 0
+    }
+  } ],
+  "measuredRuns" : [ {
+    "phase" : "measured",
+    "iteration" : 1,
+    "candidateCount" : 2000,
+    "successCount" : 2000,
+    "failureCount" : 0,
+    "callElapsedNanos" : 24519280100,
+    "wholeTurnElapsedNanos" : 24519280100,
+    "throughputPerSecond" : 81.56846334162968,
+    "databaseCost" : {
+      "calls" : 13073,
+      "totalExecutionTimeMs" : 530.2684579999998,
+      "rows" : 9906,
+      "sharedBufferHits" : 38073,
+      "sharedBufferReads" : 0
+    }
+  }, {
+    "phase" : "measured",
+    "iteration" : 2,
+    "candidateCount" : 2000,
+    "successCount" : 2000,
+    "failureCount" : 0,
+    "callElapsedNanos" : 24291674600,
+    "wholeTurnElapsedNanos" : 24291674600,
+    "throughputPerSecond" : 82.33273468927499,
+    "databaseCost" : {
+      "calls" : 13073,
+      "totalExecutionTimeMs" : 533.0618790000008,
+      "rows" : 9906,
+      "sharedBufferHits" : 39956,
+      "sharedBufferReads" : 0
+    }
+  }, {
+    "phase" : "measured",
+    "iteration" : 3,
+    "candidateCount" : 2000,
+    "successCount" : 2000,
+    "failureCount" : 0,
+    "callElapsedNanos" : 24541300900,
+    "wholeTurnElapsedNanos" : 24541300900,
+    "throughputPerSecond" : 81.49527232274798,
+    "databaseCost" : {
+      "calls" : 13073,
+      "totalExecutionTimeMs" : 517.203984,
+      "rows" : 9906,
+      "sharedBufferHits" : 38315,
+      "sharedBufferReads" : 0
+    }
+  }, {
+    "phase" : "measured",
+    "iteration" : 4,
+    "candidateCount" : 2000,
+    "successCount" : 2000,
+    "failureCount" : 0,
+    "callElapsedNanos" : 24373717200,
+    "wholeTurnElapsedNanos" : 24373717200,
+    "throughputPerSecond" : 82.05560044817456,
+    "databaseCost" : {
+      "calls" : 13073,
+      "totalExecutionTimeMs" : 528.4206529999999,
+      "rows" : 9906,
+      "sharedBufferHits" : 38334,
+      "sharedBufferReads" : 0
+    }
+  }, {
+    "phase" : "measured",
+    "iteration" : 5,
+    "candidateCount" : 2000,
+    "successCount" : 2000,
+    "failureCount" : 0,
+    "callElapsedNanos" : 25286645000,
+    "wholeTurnElapsedNanos" : 25286645000,
+    "throughputPerSecond" : 79.09313394481553,
+    "databaseCost" : {
+      "calls" : 13073,
+      "totalExecutionTimeMs" : 555.7443850000002,
+      "rows" : 9906,
+      "sharedBufferHits" : 39851,
+      "sharedBufferReads" : 0
+    }
+  } ],
+  "partialRuns" : [ ],
+  "runFailureExceptionType" : null,
+  "summary" : {
+    "minCallElapsedNanos" : 24291674600,
+    "medianCallElapsedNanos" : 24519280100,
+    "maxCallElapsedNanos" : 25286645000,
+    "minWholeTurnElapsedNanos" : 24291674600,
+    "medianWholeTurnElapsedNanos" : 24519280100,
+    "maxWholeTurnElapsedNanos" : 25286645000,
+    "minThroughputPerSecond" : 79.09313394481553,
+    "medianThroughputPerSecond" : 81.56846334162968,
+    "maxThroughputPerSecond" : 82.33273468927499,
+    "minDatabaseExecutionTimeMs" : 517.203984,
+    "medianDatabaseExecutionTimeMs" : 530.2684579999998,
+    "maxDatabaseExecutionTimeMs" : 555.7443850000002
+  }
+}
