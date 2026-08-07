@@ -110,4 +110,4 @@ ERD에는 승인된 P1 알림·채팅·ShedLock 저장 계약이 구현 예정 �
 - Redis Streams, Transactional Outbox, RabbitMQ·Kafka와 exactly-once 실시간 전달
 - 실시간 연결을 메시지 정본이나 영속 제품 상태로 저장하는 설계
 - 전역 메시지 순서와 exactly-once 전달 보장
-- 실제 AWS ALB·ASG scale-out·draining과 운영 Redis 제품·HA·TLS·접근 제어·비용 검증
+- 실제 AWS Nginx 분산·장애 처리와 자체 운영 Redis의 HA·TLS·접근 제어·비용 검증
