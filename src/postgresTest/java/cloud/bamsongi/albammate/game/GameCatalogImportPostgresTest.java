@@ -180,6 +180,52 @@ class GameCatalogImportPostgresTest {
 	}
 
 	@Test
+	void 마이그레이션은_설명이_없는_기존_공개_메커니즘을_비공개로_전환한다() throws Exception {
+		String schema = "v24_legacy_mechanism_" + System.nanoTime();
+		Path migration = Path.of(System.getProperty("user.dir"))
+			.resolve("src/main/resources/db/migration/V24__add_game_mechanism_description.sql");
+
+		try (Connection connection = dataSource.getConnection();
+			Statement statement = connection.createStatement()) {
+			connection.setAutoCommit(false);
+			statement.execute("create schema " + schema);
+			statement.execute("set local search_path to " + schema);
+			statement.execute("""
+				create table game_mechanisms (
+					id integer primary key,
+					name_ko varchar(100) not null,
+					featured_order smallint,
+					is_public boolean not null
+				)
+				""");
+			statement.execute("""
+				insert into game_mechanisms (id, name_ko, featured_order, is_public)
+				values (1, '핸드 관리', 1, true)
+				""");
+			for (String sql : Files.readString(migration, StandardCharsets.UTF_8).split(";")) {
+				if (!sql.isBlank()) {
+					statement.execute(sql);
+				}
+			}
+
+			try (var result = statement.executeQuery(
+				"select description_ko, featured_order, is_public from game_mechanisms where id = 1")) {
+				result.next();
+				assertNull(result.getString("description_ko"));
+				assertNull(result.getObject("featured_order"));
+				assertEquals(false, result.getBoolean("is_public"));
+			}
+			statement.execute("""
+				update game_mechanisms
+				set description_ko = '검수된 한글 설명입니다.', is_public = true
+				where id = 1
+				""");
+		} finally {
+			jdbcTemplate.execute("drop schema if exists " + schema + " cascade");
+		}
+	}
+
+	@Test
 	void 메커니즘_관계의_게임을_해석하지_못하면_적재_전체를_롤백한다() throws Exception {
 		executeSql(prepareSql(List.of(game(1, 10, "기존 게임", "Existing Game"))));
 
