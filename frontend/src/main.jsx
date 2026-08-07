@@ -26,7 +26,7 @@ const GAME_SEARCH_DEBOUNCE_MS = 250;
 // 인원 숫자 입력은 마지막 입력 뒤 이 시간이 지나면 조회한다. 체크박스는 기다리지 않는다.
 const GAME_NUMBER_FILTER_DEBOUNCE_MS = 400;
 // 회원가입 비밀번호 한도는 서버 검증 규칙과 같은 값을 쓴다. 한쪽만 바뀌면 안내와 결과가 어긋난다.
-const PASSWORD_MIN_CODE_POINTS = 15;
+const PASSWORD_MIN_CODE_POINTS = 8;
 const PASSWORD_MAX_CODE_POINTS = 64;
 const PASSWORD_MAX_UTF8_BYTES = 72;
 const SOCIAL_PROVIDER_LABEL = { GOOGLE: 'Google', NAVER: 'Naver', KAKAO: 'Kakao' };
@@ -2305,6 +2305,9 @@ function signupPasswordError(password) {
   if (new TextEncoder().encode(password).length > PASSWORD_MAX_UTF8_BYTES) {
     return '비밀번호가 너무 길어 회원가입을 진행할 수 없어요. 한글이나 이모지는 영문보다 길이를 많이 차지해요.';
   }
+  if (password && !/^[\x21-\x7E]+$/.test(password)) {
+    return '비밀번호는 영문 대소문자, 숫자, 특수기호만 사용할 수 있어요.';
+  }
   return '';
 }
 
@@ -2398,7 +2401,7 @@ export function SignupView({ onSignup }) {
           <span className="auth-email-brand"><img src={brandSymbol} alt="" /></span>
           <span className="auth-email-title">알밤메이트로 회원가입하기</span>
         </div>
-        <div className="formrow single"><div><label className="sr-only" htmlFor="signup-email">이메일</label><input id="signup-email" type="email" autoComplete="email" placeholder="이메일" required value={email} onChange={(event) => setEmail(event.target.value)} /></div><div><label className="sr-only" htmlFor="signup-nickname">닉네임</label><input id="signup-nickname" maxLength="50" placeholder="닉네임" required value={nickname} onChange={(event) => setNickname(event.target.value)} /></div><div><label className="sr-only" htmlFor="signup-password">비밀번호</label><div className="auth-password-field"><input id="signup-password" ref={passwordRef} type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={PASSWORD_MIN_CODE_POINTS} placeholder="비밀번호" required value={password} onChange={(event) => setPassword(event.target.value)} aria-describedby="signup-password-hint" aria-invalid={passwordError ? true : undefined} /><button type="button" className="auth-password-toggle" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}>{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button></div><p id="signup-password-hint" className={passwordError ? 'hint warn' : 'hint'} role={passwordError ? 'alert' : undefined}>{passwordError || '15자 이상, 영문·숫자는 64자까지 한글은 24자까지 입력할 수 있어요.'}</p></div></div>
+        <div className="formrow single"><div><label className="sr-only" htmlFor="signup-email">이메일</label><input id="signup-email" type="email" autoComplete="email" placeholder="이메일" required value={email} onChange={(event) => setEmail(event.target.value)} /></div><div><label className="sr-only" htmlFor="signup-nickname">닉네임</label><input id="signup-nickname" maxLength="50" placeholder="닉네임" required value={nickname} onChange={(event) => setNickname(event.target.value)} /></div><div><label className="sr-only" htmlFor="signup-password">비밀번호</label><div className="auth-password-field"><input id="signup-password" ref={passwordRef} type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={PASSWORD_MIN_CODE_POINTS} placeholder="비밀번호" required value={password} onChange={(event) => setPassword(event.target.value)} aria-describedby="signup-password-hint" aria-invalid={passwordError ? true : undefined} /><button type="button" className="auth-password-toggle" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}>{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button></div><p id="signup-password-hint" className={passwordError ? 'hint warn' : 'hint'} role={passwordError ? 'alert' : undefined}>{passwordError || '8자 이상, 영문 대소문자, 숫자, 특수기호만 사용할 수 있어요.'}</p></div></div>
         {error && <ErrorBox message={error} />}
         <button className="btn big pill" disabled={submitting} type="submit">{submitting ? '처리 중…' : '회원가입'}</button>
       </form>

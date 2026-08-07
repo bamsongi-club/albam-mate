@@ -736,10 +736,11 @@ Set-Cookie: XSRF-TOKEN={token}; Path=/; HttpOnly; SameSite=Lax
 | 필드 | 타입 | 필수 | nullable | 정규화·검증 |
 |---|---|:---:|:---:|---|
 | `email` | string | Y | N | 앞뒤 공백 제거 후 소문자로 변환. 이메일 형식이어야 하며 정규화 뒤 255자 이하. 중복도 정규화된 값으로 판정 |
-| `password` | string | Y | N | Unicode code point 15개 이상 64개 이하이면서 UTF-8 인코딩 결과 72바이트 이하 |
+| `password` | string | Y | N | Unicode code point 8개 이상 64개 이하이면서 UTF-8 인코딩 결과 72바이트 이하, 영문 대소문자·숫자·ASCII 특수기호만 허용 |
 | `nickname` | string | Y | N | 앞뒤 공백 제거 후 1~50자, 제어문자 금지 |
 
-- 비밀번호는 Unicode와 공백을 허용하고, 앞뒤 공백 제거·Unicode 정규화·자동 잘라내기를 하지 않으며 문자 조합 규칙도 강제하지 않는다.
+- 비밀번호는 영문 대소문자(A-Z, a-z), 숫자(0-9), ASCII 특수기호만 허용하며, 한글·공백·이모지 등 이외의 문자가 포함되면 거절한다.
+- 앞뒤 공백 제거·Unicode 정규화·자동 잘라내기를 하지 않는다.
 - UTF-8 인코딩 결과가 72바이트를 넘는 비밀번호는 `VALIDATION_ERROR`로 거절한다.
 - 비밀번호 원문은 응답에 포함하지 않는다. 저장 방식은 [ADR-0013](adr/auth/0013-p0-password-storage-auth-request-protection.md)을 따른다.
 
