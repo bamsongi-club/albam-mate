@@ -207,7 +207,9 @@ class NotificationRelayCoordinatorTest {
 
 		NotificationRelayCoordinator.RelayBatchSummary summary = coordinator.processBatch();
 
+		verify(executor, times(2)).processOne();
 		assertEquals(1, summary.claimedCount());
+		assertEquals(0, summary.processedCount());
 		assertEquals(0, summary.retryScheduledCount());
 		assertEquals(0, summary.failedCount());
 	}
