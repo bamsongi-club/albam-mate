@@ -651,6 +651,24 @@ function verifyT4() {
             webImage,
         ], { allowFailure: true });
         assert(app2WithPortEntrypoint.status !== 0, 'web entrypoint accepted an App2 host with a port');
+        for (const invalidApp2Host of [
+            '127.0.0.1',
+            'localhost',
+            'app-b.albam-mate.internal bad',
+            'app-b.albam-mate.internal$(id)',
+            'app-b.albam-mate.internal;',
+        ]) {
+            const invalidHostEntrypoint = docker([
+                'run',
+                '--rm',
+                '--env',
+                `ALBAM_MATE_RELEASE=${releaseSha}`,
+                '--env',
+                `ALBAM_MATE_APP2_HOST=${invalidApp2Host}`,
+                webImage,
+            ], { allowFailure: true });
+            assert(invalidHostEntrypoint.status !== 0, `web entrypoint accepted invalid App2 host: ${invalidApp2Host}`);
+        }
         console.log('T4 PASS: ARM64 images retain the release gate and enforce App2 host, 512m Spring memory and JDK heap injection.');
     } finally {
         removeOwnedImages(ownedImages);
@@ -789,20 +807,9 @@ function verifyT6() {
             });
             return response.status === 0 && response.stdout.trim() === 'ok' ? true : false;
         });
-        const app1Response = docker([
-            'exec',
-            web,
-            'wget',
-            '--no-check-certificate',
-            '-S',
-            '-qO-',
-            'https://127.0.0.1:8443/api/verify',
-        ]);
-        assert(app1Response.stdout.trim() === 'production-proxy-app1', `unexpected App1 response: ${app1Response.stdout}`);
-        const app1Upstream = upstreamHeader(app1Response);
-        removeContainer(spring);
-        springCreated = false;
-        const app2Response = waitFor('App2 response after the owned App1 fixture stops', () => {
+        const observedBodies = new Set();
+        const observedUpstreams = new Set();
+        for (let attempt = 0; attempt < 12; attempt += 1) {
             const response = docker([
                 'exec',
                 web,
@@ -811,13 +818,21 @@ function verifyT6() {
                 '-S',
                 '-qO-',
                 'https://127.0.0.1:8443/api/verify',
-            ], { allowFailure: true });
-            return response.status === 0 && response.stdout.trim() === 'production-proxy-app2' ? response : false;
-        }, 5);
-        const app2Upstream = upstreamHeader(app2Response);
-        assert(app1Upstream !== app2Upstream, 'App1 and App2 responses used the same upstream address');
+            ]);
+            const body = response.stdout.trim();
+            const upstream = upstreamHeader(response);
+            assert(
+                body === 'production-proxy-app1' || body === 'production-proxy-app2',
+                `unexpected production upstream response: ${body}`,
+            );
+            observedBodies.add(body);
+            observedUpstreams.add(upstream);
+        }
+        assert(observedBodies.has('production-proxy-app1'), 'repeated requests never observed App1');
+        assert(observedBodies.has('production-proxy-app2'), 'repeated requests never observed App2');
+        assert(observedUpstreams.size === 2, `repeated requests observed ${observedUpstreams.size} upstream addresses`);
         verifyDatabaseHealthcheck();
-        console.log('T6 PASS: two HTTPS requests observed distinct App1/App2 bodies and X-Albam-Mate-Upstream headers; PostgreSQL also reached healthy.');
+        console.log('T6 PASS: repeated HTTPS requests observed both App1/App2 bodies and upstream headers while both backends stayed healthy; PostgreSQL also reached healthy.');
     } finally {
         if (webCreated) removeContainer(web);
         if (app2Created) removeContainer(app2);

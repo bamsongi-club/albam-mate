@@ -148,7 +148,7 @@ web의 Nginx는 `ssl_certificate`와 `ssl_certificate_key` 파일이 없으면 �
 측정 전환은 부하 발생기에서 App1의 외부 HTTPS endpoint로 직접 접속할 때만 수행한다.
 
 1. 부하 발생기의 고정 source CIDR을 먼저 정한다. `0.0.0.0/0`은 사용하지 않으며, `DIRECT_HOST`는 실제 HTTPS URL의 hostname이면서 배치한 인증서의 SAN에 포함된 값으로 고정한다.
-2. Terraform 입력과 App1·App2에 전달하는 `/etc/albam-mate/production.env`를 다음처럼 바꾼다. `ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN`에는 SSM용 `https://127.0.0.1:<포워딩 포트>`가 아니라 직접 접속 URL의 정확한 Origin을 넣는다. 기본 HTTPS 포트 443이면 포트를 생략하고, 비표준 포트면 포트까지 포함한다.
+2. Terraform 입력과 App1·App2에 전달하는 `/etc/albam-mate/app1.env`, `/etc/albam-mate/app2.env`를 다음처럼 바꾼다. `ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN`에는 SSM용 `https://127.0.0.1:<포워딩 포트>`가 아니라 직접 접속 URL의 정확한 Origin을 넣는다. 기본 HTTPS 포트 443이면 포트를 생략하고, 비표준 포트면 포트까지 포함한다.
 
    ```hcl
    # Terraform 입력
@@ -157,7 +157,7 @@ web의 Nginx는 `ssl_certificate`와 `ssl_certificate_key` 파일이 없으면 �
    ```
 
    ```dotenv
-   # /etc/albam-mate/production.env
+   # /etc/albam-mate/app1.env
    ALBAM_MATE_HTTPS_BIND_ADDRESS=0.0.0.0
    ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN=https://<direct-host>
    ```
@@ -167,10 +167,10 @@ web의 Nginx는 `ssl_certificate`와 `ssl_certificate_key` 파일이 없으면 �
 5. bind address와 Origin은 컨테이너 시작 시 읽으므로 설정 파일만 바꾸지 말고 web·spring을 반드시 재생성한다.
 
    ```sh
-   docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml config --quiet
-   docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml up -d --force-recreate --wait
-   docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml ps
-   docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml logs --tail 200 web spring
+   docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml config --quiet
+   docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml up -d --force-recreate --wait
+   docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml ps
+   docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml logs --tail 200 web spring
    ```
 
 6. 부하 발생기에서 먼저 연결을 확인한다. HTTP는 `https://<direct-host>/`에 인증서 검증을 포함해 성공해야 하며, WebSocket은 기존 로그인 `JSESSIONID`와 같은 방의 권한을 사용해 다음 endpoint에 `Origin: https://<direct-host>`로 접속하고 `101 Switching Protocols`를 확인한다.
@@ -187,7 +187,7 @@ web의 Nginx는 `ssl_certificate`와 `ssl_certificate_key` 파일이 없으면 �
 측정이 끝나면 외부 경로를 먼저 닫고, 컨테이너 설정도 최초 배포 상태로 되돌린다.
 
 1. 부하 발생기를 중지하고 로그·지표·결과를 보존한다.
-2. Terraform 입력과 `/etc/albam-mate/production.env`를 다음 값으로 되돌린다.
+2. Terraform 입력과 `/etc/albam-mate/app1.env`, `/etc/albam-mate/app2.env`를 다음 값으로 되돌린다.
 
    ```hcl
    public_ingress_cidrs = []
@@ -203,8 +203,8 @@ web의 Nginx는 `ssl_certificate`와 `ssl_certificate_key` 파일이 없으면 �
 3. Terraform을 적용해 App1 TCP 443의 직접 허용 규칙을 제거한 뒤, 다음 명령으로 web·spring을 다시 재생성한다.
 
    ```sh
-   docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml config --quiet
-   docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml up -d --force-recreate --wait
+   docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml config --quiet
+   docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml up -d --force-recreate --wait
    ```
 
 4. 부하 발생기의 직접 HTTPS 접속이 더 이상 성공하지 않고, SSM 포트 포워딩을 통한 기능 스모크만 성공하는지 확인한다. 직접 443이 닫히고 SSM 경로가 복구된 뒤에야 원복 완료로 기록한다.
@@ -379,9 +379,26 @@ flowchart LR
 3. `terraform fmt -check`, `terraform validate`, 저장한 `plan`의 계정·리전·리소스와 비용을 검토한 뒤 적용한다. 최초 배포는 `public_ingress_cidrs=[]`·`enable_https=false`로 적용한다.
 4. `terraform output -raw ansible_inventory_yaml`로 inventory를 생성하고 계정·리전·instance ID를 검토한다.
 5. Linux 제어 노드에서 Ansible syntax·check mode를 거쳐 Docker 설치와 호스트 검증 playbook을 실행한다. SSH는 사용하지 않는다.
-6. 노드별 환경변수 파일을 SSM으로 전달하고 PostgreSQL·Redis를 `--wait`으로 배포해 private DNS 연결을 확인한다.
-7. App2 Spring을 먼저 배포해 host 8080 상태를 App1에서 확인한다.
-8. App1에 임시 또는 유효 인증서를 배치한 뒤 App1 Spring과 Nginx를 배포하고, pull된 digest와 App1·App2 upstream 응답을 각각 확인한다.
+6. 노드별 환경변수 파일을 SSM으로 전달하고 PostgreSQL·Redis를 `--wait`으로 배포해 private DNS 연결을 확인한다. PostgreSQL은 `/etc/albam-mate/postgres.env`를 사용한다.
+
+   ```sh
+   docker compose --env-file /etc/albam-mate/postgres.env -f compose.db.yml config --quiet
+   docker compose --env-file /etc/albam-mate/postgres.env -f compose.db.yml up -d --wait
+   ```
+
+7. App2 Spring을 먼저 배포해 host 8080 상태를 App1에서 확인한다. App2는 `/etc/albam-mate/app2.env`를 사용한다.
+
+   ```sh
+   docker compose --env-file /etc/albam-mate/app2.env -f compose.app2.yml config --quiet
+   docker compose --env-file /etc/albam-mate/app2.env -f compose.app2.yml up -d --wait
+   ```
+
+8. App1에 임시 또는 유효 인증서를 배치한 뒤 App1 Spring과 Nginx를 배포하고, pull된 digest와 App1·App2 upstream 응답을 각각 확인한다. App1은 `/etc/albam-mate/app1.env`를 사용한다.
+
+   ```sh
+   docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml config --quiet
+   docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml up -d --wait
+   ```
 9. SSM 포트 포워딩으로 HTTPS에 접근해 기능 스모크와 HTTP·WebSocket 교차 인스턴스 시나리오를 실행한다.
 10. 부하 측정이 필요하면 [직접 부하 전환과 원복](#직접-부하-전환과-원복) 절차에 따라 `enable_https=true`, 외부 수신 bind address, 직접 HTTPS Origin, 제한 CIDR을 적용하고 컨테이너를 재생성한다. 직접 HTTP와 WebSocket 접속 확인 뒤에만 측정하고, 종료 후 같은 절차의 원복을 완료한다.
 

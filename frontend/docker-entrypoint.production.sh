@@ -24,6 +24,24 @@ case "$app2_host" in
         exit 1
         ;;
 esac
+case "$app2_host" in
+    *[!a-z0-9.-]*|.*|*.|*..*|localhost|localhost.*)
+        echo 'ALBAM_MATE_APP2_HOST must be a private DNS hostname' >&2
+        exit 1
+        ;;
+esac
+case "$app2_host" in
+    *[a-z]*)
+        ;;
+    *)
+        echo 'ALBAM_MATE_APP2_HOST must be a private DNS hostname, not an IP address' >&2
+        exit 1
+        ;;
+esac
+if ! printf '%s\n' "$app2_host" | grep -Eq '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$'; then
+    echo 'ALBAM_MATE_APP2_HOST must be a valid private DNS hostname' >&2
+    exit 1
+fi
 
 if [ "${1:-}" = '--validate-release-only' ]; then
     exit 0

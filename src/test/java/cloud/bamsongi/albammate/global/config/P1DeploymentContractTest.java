@@ -42,6 +42,8 @@ class P1DeploymentContractTest {
 		assertFalse(compose.contains("${ALBAM_MATE_APP2_HOST:-127.0.0.1}"));
 		assertTrue(entrypoint.contains("ALBAM_MATE_APP2_HOST must be set"));
 		assertTrue(entrypoint.contains("ALBAM_MATE_APP2_HOST must not include a port"));
+		assertTrue(entrypoint.contains("private DNS hostname"));
+		assertTrue(entrypoint.contains("grep -Eq"));
 		assertFalse(entrypoint.contains("ALBAM_MATE_APP2_HOST:-127.0.0.1"));
 	}
 
@@ -60,8 +62,8 @@ class P1DeploymentContractTest {
 		String app2 = section(example, "# App2 (/etc/albam-mate/app2.env)",
 			"# PostgreSQL (/etc/albam-mate/postgres.env)");
 		String postgres = section(example, "# PostgreSQL (/etc/albam-mate/postgres.env)",
-			"# Redis (/etc/albam-mate/redis.env)");
-		String redis = section(example, "# Redis (/etc/albam-mate/redis.env)", null);
+			"# Redis (전용 환경 파일 없음)");
+		String redis = section(example, "# Redis (전용 환경 파일 없음)", null);
 
 		assertTrue(app1.contains("ALBAM_MATE_APP2_HOST=app-b.albam-mate.internal"));
 		assertTrue(app1.contains("ALBAM_MATE_HTTPS_BIND_ADDRESS=127.0.0.1"));
@@ -98,6 +100,9 @@ class P1DeploymentContractTest {
 		assertTrue(verifier.contains("compose.db.yml"));
 		assertTrue(verifier.contains("ALBAM_MATE_APP2_HOST"));
 		assertTrue(verifier.contains("JDK_JAVA_OPTIONS"));
+		assertTrue(verifier.contains("for (let attempt = 0; attempt < 12; attempt += 1)"));
+		assertTrue(verifier.contains("observedBodies.has('production-proxy-app1')"));
+		assertTrue(verifier.contains("observedBodies.has('production-proxy-app2')"));
 		assertFalse(verifier.contains("ALBAM_MATE_RDS_CA_PATH"));
 		assertFalse(verifier.contains("rds-ca-bundle.pem"));
 	}
@@ -108,6 +113,10 @@ class P1DeploymentContractTest {
 
 		assertTrue(guide.contains("원본 설정을 유지하고 /tmp 렌더링 설정으로 Nginx를 기동한다."));
 		assertTrue(guide.contains("App1 `spring:8080`과 App2 private DNS `:8080`을 upstream으로 사용한다."));
+		assertTrue(guide.contains("/etc/albam-mate/app1.env"));
+		assertTrue(guide.contains("/etc/albam-mate/app2.env"));
+		assertTrue(guide.contains("compose.app2.yml"));
+		assertTrue(guide.contains("/etc/albam-mate/postgres.env"));
 		assertTrue(guide.contains("실제 ARM64 이미지 게시·노드별 환경 전달·배포·분산·복구·부하 증거"));
 		assertTrue(guide.contains("로컬 검증 통과를 실제 AWS 4노드 배포 증거로 표현하지 않는다."));
 	}
