@@ -84,6 +84,49 @@ const REQUIRED_CHANGE_METRICS = [
   "medianThroughputPerSecond",
   "medianDatabaseExecutionTimeMs",
 ];
+/** `ROOM-09d-T3`이 요구하는 시작 경계 대기열 fixture의 ROOM당 WAITING 수다. */
+const WAITING_PER_CLOSED_DUE_ROOM = 10;
+/** 저장된 변화율과 실측 재계산값의 허용 오차(%p). 직렬화 반올림만 흡수한다. */
+const CHANGE_TOLERANCE = 1e-6;
+
+/**
+ * `ROOM-09d-T1`–`T3`이 승인한 원자료 조합이다. 디렉터리에 있는 파일만 열거하면 필수 조합을
+ * 지우고 `--write`했을 때 축소된 표와 해시가 정상 상태가 되고, 예상 밖 과거 조합도 표에 섞인다.
+ * 이 목록과 정확히 일치할 때만 보고 단계를 진행한다.
+ */
+const REQUIRED_RAW_DATA = [
+  { kind: "direct-comparison", profile: "small", candidateLimit: 10 },
+  { kind: "direct-comparison", profile: "small", candidateLimit: 20 },
+  { kind: "direct-comparison", profile: "medium", candidateLimit: 10 },
+  { kind: "direct-comparison", profile: "medium", candidateLimit: 100 },
+  { kind: "direct-comparison", profile: "medium", candidateLimit: 1000 },
+  { kind: "direct-comparison", profile: "large", candidateLimit: 10 },
+  { kind: "direct-comparison", profile: "large", candidateLimit: 100 },
+  { kind: "direct-comparison", profile: "large", candidateLimit: 1000 },
+  { kind: "candidate", profile: "small", candidateLimit: 10 },
+  { kind: "waiting-queue", profile: "small", candidateLimit: 10 },
+];
+
+export function rawDataFileName({ kind, profile, candidateLimit }) {
+  return `room-09d-${kind}-${profile}-limit-${candidateLimit}.json`;
+}
+
+/** 승인된 조합과 실제 파일 목록이 정확히 같은지 본다. 누락·중복·예상 밖 파일을 모두 거부한다. */
+export function assertManifestMatches(fileNames) {
+  const expected = REQUIRED_RAW_DATA.map(rawDataFileName);
+  const seen = new Set();
+  const duplicated = fileNames.filter((name) => seen.size === seen.add(name).size);
+  const missing = expected.filter((name) => !fileNames.includes(name));
+  const unexpected = fileNames.filter((name) => !expected.includes(name));
+  const problems = [
+    missing.length > 0 ? `누락: ${missing.join(", ")}` : null,
+    unexpected.length > 0 ? `승인되지 않은 파일: ${unexpected.join(", ")}` : null,
+    duplicated.length > 0 ? `중복: ${duplicated.join(", ")}` : null,
+  ].filter(Boolean);
+  if (problems.length > 0) {
+    throw new Error(`보존 원자료가 승인된 조합과 다릅니다. ${problems.join(" / ")}`);
+  }
+}
 
 /**
  * 파일명에서 읽은 조합이 원자료 내용과 같은지 대조한다. 파일명만 믿으면 limit-10 원자료를
@@ -107,8 +150,12 @@ export function assertReportMatchesDescriptor(report, descriptor) {
   equals("candidateLimit", report.candidateLimit, descriptor.candidateLimit);
 
   const waitingPerRoom = report.fixture?.waitingPerClosedDueRoom;
-  if (descriptor.kind === "waiting-queue" ? !(waitingPerRoom > 0) : waitingPerRoom !== 0) {
-    fail(`fixture 유형이 파일명과 다릅니다. waitingPerClosedDueRoom ${waitingPerRoom}`);
+  const expectedWaiting = descriptor.kind === "waiting-queue" ? WAITING_PER_CLOSED_DUE_ROOM : 0;
+  if (waitingPerRoom !== expectedWaiting) {
+    fail(
+      `fixture의 ROOM당 WAITING이 ${waitingPerRoom}입니다.` +
+        ` ${descriptor.kind}는 ${expectedWaiting}이어야 합니다.`,
+    );
   }
 
   const checkArm = (arm, label, expectedPath, expectedLimit) => {
@@ -140,14 +187,63 @@ export function assertReportMatchesDescriptor(report, descriptor) {
   if (descriptor.kind === "direct-comparison") {
     checkArm(report.baseline, "현행", "current-baseline", null);
     checkArm(report.candidate, "후보", "bounded-candidate", descriptor.candidateLimit);
-    const recorded = (report.observedChanges ?? []).map((entry) => entry.metric);
-    const missing = REQUIRED_CHANGE_METRICS.filter((metric) => !recorded.includes(metric));
-    if (missing.length > 0) {
-      fail(`현행 대비 변화가 빠졌습니다: ${missing.join(", ")}`);
-    }
+    assertObservedChangesMatchRuns(report, fail);
     return;
   }
+  // 후보 단독·대기열 원자료는 arm 없이 평면 구조라 `path`를 담지 않는다. 필드가 생기면 그때부터
+  // 후보 경로만 허용한다. 그 전까지는 kind와 재현 selector가 경로를 고정한다.
+  if (report.path !== undefined && report.path !== "bounded-candidate") {
+    fail(`후보 경로 원자료여야 합니다. path ${JSON.stringify(report.path)}`);
+  }
   checkArm(report, "후보", undefined, undefined);
+}
+
+/** 실측 arm에서 다시 계산한 변화율이다. 저장값을 그대로 믿지 않기 위한 정본이다. */
+export function recomputeChanges(report) {
+  const value = {
+    medianCallElapsedNanos: (arm) => median(arm.measuredRuns.map((run) => run.callElapsedNanos)),
+    medianThroughputPerSecond: (arm) => median(arm.measuredRuns.map((run) => run.throughputPerSecond)),
+    medianDatabaseExecutionTimeMs: (arm) =>
+      median(arm.measuredRuns.map((run) => run.databaseCost.totalExecutionTimeMs)),
+  };
+  return Object.fromEntries(
+    REQUIRED_CHANGE_METRICS.map((metric) => {
+      const baselineValue = value[metric](report.baseline);
+      const candidateValue = value[metric](report.candidate);
+      return [metric, ((candidateValue - baselineValue) / baselineValue) * 100];
+    }),
+  );
+}
+
+/**
+ * 저장된 `observedChanges`가 실측 run에서 다시 계산한 값과 같은지 본다. 표가 저장값을 그대로
+ * 옮기면 그 필드만 고쳐도 문서와 해시가 함께 갱신돼 `--check`를 통과한다.
+ */
+function assertObservedChangesMatchRuns(report, fail) {
+  const recorded = report.observedChanges ?? [];
+  const metrics = recorded.map((entry) => entry.metric);
+  const missing = REQUIRED_CHANGE_METRICS.filter((metric) => !metrics.includes(metric));
+  if (missing.length > 0) {
+    fail(`현행 대비 변화가 빠졌습니다: ${missing.join(", ")}`);
+  }
+  if (new Set(metrics).size !== metrics.length) {
+    fail(`현행 대비 변화에 중복 metric이 있습니다: ${metrics.join(", ")}`);
+  }
+  const expected = recomputeChanges(report);
+  for (const entry of recorded) {
+    if (!REQUIRED_CHANGE_METRICS.includes(entry.metric)) {
+      continue;
+    }
+    if (!Number.isFinite(entry.percentChange)) {
+      fail(`${entry.metric}의 변화율이 유한한 수가 아닙니다: ${entry.percentChange}`);
+    }
+    if (Math.abs(entry.percentChange - expected[entry.metric]) > CHANGE_TOLERANCE) {
+      fail(
+        `${entry.metric}의 저장된 변화율 ${entry.percentChange}이(가)` +
+          ` 실측 재계산값 ${expected[entry.metric]}과 다릅니다.`,
+      );
+    }
+  }
 }
 
 /** 문서가 고정하는 SHA-256은 OS 줄바꿈 차이를 없앤 Git canonical blob bytes 기준이다. */
@@ -241,8 +337,9 @@ export function summarizeArm(runs) {
 function comparisonTable(entries) {
   const rows = [];
   for (const { descriptor, report } of entries) {
-    const change = (metric) =>
-      report.observedChanges.find((entry) => entry.metric === metric).percentChange;
+    // 저장된 observedChanges가 아니라 실측 run에서 다시 계산한 값을 표에 낸다.
+    const recomputed = recomputeChanges(report);
+    const change = (metric) => recomputed[metric];
     const arms = [
       { label: "현행(단일)", summary: summarizeArm(report.baseline.measuredRuns), baseline: true },
       { label: "후보(분할)", summary: summarizeArm(report.candidate.measuredRuns), baseline: false },
@@ -331,9 +428,9 @@ export function spliceGeneratedSection(document, name, content) {
 
 function loadPreservedData(rootDirectory) {
   const directory = path.join(rootDirectory, RESULT_DIRECTORY);
-  return fs
-    .readdirSync(directory)
-    .filter((fileName) => fileName.endsWith(".json"))
+  const fileNames = fs.readdirSync(directory).filter((fileName) => fileName.endsWith(".json"));
+  assertManifestMatches(fileNames);
+  return fileNames
     .map((fileName) => {
       const descriptor = describeFile(fileName);
       const filePath = path.join(directory, fileName);
@@ -400,12 +497,29 @@ function main(argv) {
     return 1;
   }
 
+  // 순차로 덮어쓰다 중간에 실패하면 일부만 갱신된 상태가 남는다. 쓸 내용을 모두 만든 뒤
+  // 한 번에 반영하고, 실패하면 이미 쓴 파일을 원래 내용으로 되돌린다.
+  const pending = [
+    ...drifted.map((file) => ({ path: file.filePath, next: file.text, previous: file.original })),
+    ...(documentDrifted ? [{ path: documentPath, next: document, previous: originalDocument }] : []),
+  ];
+  const written = [];
+  try {
+    for (const target of pending) {
+      fs.writeFileSync(target.path, target.next);
+      written.push(target);
+    }
+  } catch (error) {
+    for (const target of written.reverse()) {
+      fs.writeFileSync(target.path, target.previous);
+    }
+    console.error(`쓰기에 실패해 앞선 변경을 되돌렸습니다: ${error.message}`);
+    return 1;
+  }
   for (const file of drifted) {
-    fs.writeFileSync(file.filePath, file.text);
     console.log(`재현 메타데이터 정정: ${file.descriptor.fileName}`);
   }
   if (documentDrifted) {
-    fs.writeFileSync(documentPath, document);
     console.log(`생성 표 갱신: ${REPORT_DOCUMENT}`);
   }
   console.log(`원자료 ${files.length}개 기준으로 파생물을 다시 만들었습니다. 측정값은 바꾸지 않았습니다.`);

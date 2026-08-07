@@ -3,7 +3,10 @@ import test from "node:test";
 
 import {
   applyReproductionFields,
+  assertManifestMatches,
   assertReportMatchesDescriptor,
+  rawDataFileName,
+  recomputeChanges,
   canonicalSha256,
   describeFile,
   executionCommand,
@@ -154,6 +157,105 @@ function directComparisonReport({ profile = "small", candidateLimit = 10, waitin
   };
 }
 
+const MANIFEST_FILE_NAMES = [
+  { kind: "direct-comparison", profile: "small", candidateLimit: 10 },
+  { kind: "direct-comparison", profile: "small", candidateLimit: 20 },
+  { kind: "direct-comparison", profile: "medium", candidateLimit: 10 },
+  { kind: "direct-comparison", profile: "medium", candidateLimit: 100 },
+  { kind: "direct-comparison", profile: "medium", candidateLimit: 1000 },
+  { kind: "direct-comparison", profile: "large", candidateLimit: 10 },
+  { kind: "direct-comparison", profile: "large", candidateLimit: 100 },
+  { kind: "direct-comparison", profile: "large", candidateLimit: 1000 },
+  { kind: "candidate", profile: "small", candidateLimit: 10 },
+  { kind: "waiting-queue", profile: "small", candidateLimit: 10 },
+].map(rawDataFileName);
+
+test("승인된 조합과 정확히 같을 때만 통과한다", () => {
+  assert.doesNotThrow(() => assertManifestMatches([...MANIFEST_FILE_NAMES]));
+});
+
+test("필수 원자료를 지우면 축소된 표를 만들지 않고 멈춘다", () => {
+  assert.throws(
+    () => assertManifestMatches(MANIFEST_FILE_NAMES.filter((name) => !name.includes("large-limit-1000"))),
+    /누락: room-09d-direct-comparison-large-limit-1000\.json/,
+  );
+});
+
+test("승인되지 않은 과거 조합이 섞이면 멈춘다", () => {
+  assert.throws(
+    () => assertManifestMatches([...MANIFEST_FILE_NAMES, "room-09d-candidate-large-limit-1000.json"]),
+    /승인되지 않은 파일/,
+  );
+});
+
+test("변화율은 실측 run에서 다시 계산한다", () => {
+  const report = directComparisonReport();
+  report.baseline.measuredRuns = [1, 2, 3, 4, 5].map(() => measuredRun(10, 300));
+  report.candidate.measuredRuns = [1, 2, 3, 4, 5].map(() => measuredRun(20, 150));
+
+  const recomputed = recomputeChanges(report);
+  assert.equal(recomputed.medianCallElapsedNanos, 100);
+  assert.equal(recomputed.medianThroughputPerSecond, -50);
+});
+
+test("저장된 변화율만 조작하면 통과하지 않는다", () => {
+  const report = directComparisonReport();
+  report.candidate.measuredRuns = [1, 2, 3, 4, 5].map(() => measuredRun(20, 150));
+  report.observedChanges = [
+    { metric: "medianCallElapsedNanos", percentChange: -99 },
+    { metric: "medianThroughputPerSecond", percentChange: -50 },
+    { metric: "medianDatabaseExecutionTimeMs", percentChange: 0 },
+  ];
+
+  assert.throws(
+    () => assertReportMatchesDescriptor(report, describeFile("room-09d-direct-comparison-small-limit-10.json")),
+    /실측 재계산값 .* 다릅니다/,
+  );
+});
+
+test("변화율이 유한하지 않거나 metric이 중복이면 멈춘다", () => {
+  const descriptor = describeFile("room-09d-direct-comparison-small-limit-10.json");
+
+  const infinite = directComparisonReport();
+  infinite.observedChanges[0].percentChange = null;
+  assert.throws(() => assertReportMatchesDescriptor(infinite, descriptor), /유한한 수가 아닙니다/);
+
+  const duplicated = directComparisonReport();
+  duplicated.observedChanges.push({ metric: "medianCallElapsedNanos", percentChange: 0 });
+  assert.throws(() => assertReportMatchesDescriptor(duplicated, descriptor), /중복 metric/);
+});
+
+test("대기열 원자료는 ROOM당 WAITING이 정확히 10명이어야 한다", () => {
+  const descriptor = describeFile("room-09d-waiting-queue-small-limit-10.json");
+  const waitingReport = (waitingPerClosedDueRoom) => ({
+    outcome: "SUCCESS",
+    candidateLimit: 10,
+    fixture: { profile: { name: "small" }, dueRoomCount: 20, waitingPerClosedDueRoom },
+    warmUpRuns: [measuredRun(10, 300)],
+    measuredRuns: [1, 2, 3, 4, 5].map(() => measuredRun(10, 300)),
+  });
+
+  assert.doesNotThrow(() => assertReportMatchesDescriptor(waitingReport(10), descriptor));
+  assert.throws(() => assertReportMatchesDescriptor(waitingReport(5), descriptor), /ROOM당 WAITING이 5입니다/);
+  assert.throws(() => assertReportMatchesDescriptor(waitingReport(0), descriptor), /ROOM당 WAITING이 0입니다/);
+});
+
+test("후보 단독·대기열 원자료에 다른 경로 식별자가 있으면 멈춘다", () => {
+  const report = {
+    outcome: "SUCCESS",
+    candidateLimit: 10,
+    path: "current-baseline",
+    fixture: { profile: { name: "small" }, dueRoomCount: 20, waitingPerClosedDueRoom: 0 },
+    warmUpRuns: [measuredRun(10, 300)],
+    measuredRuns: [1, 2, 3, 4, 5].map(() => measuredRun(10, 300)),
+  };
+
+  assert.throws(
+    () => assertReportMatchesDescriptor(report, describeFile("room-09d-candidate-small-limit-10.json")),
+    /후보 경로 원자료여야 합니다/,
+  );
+});
+
 test("파일명과 원자료 조건이 같으면 통과한다", () => {
   assert.doesNotThrow(() =>
     assertReportMatchesDescriptor(directComparisonReport(), describeFile("room-09d-direct-comparison-small-limit-10.json")),
@@ -189,7 +291,7 @@ test("대기열 fixture를 직접 비교 이름으로 두면 실패한다", () =
         directComparisonReport({ waitingPerClosedDueRoom: 10 }),
         describeFile("room-09d-direct-comparison-small-limit-10.json"),
       ),
-    /fixture 유형이 파일명과 다릅니다/,
+    /ROOM당 WAITING이 10입니다/,
   );
 });
 
