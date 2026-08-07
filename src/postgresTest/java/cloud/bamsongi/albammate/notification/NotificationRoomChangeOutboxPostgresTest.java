@@ -49,6 +49,7 @@ import cloud.bamsongi.albammate.room.contract.RoomChangeEvent;
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationCancelService;
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
 import cloud.bamsongi.albammate.room.service.command.RoomStatusChangeService;
+import cloud.bamsongi.albammate.room.service.command.RoomWaitlistCommandService;
 
 /** PostgreSQL에서 ROOM 변경의 실제 커밋 순서별 Outbox 수신자 스냅샷을 검증한다. */
 @Testcontainers
@@ -69,6 +70,8 @@ class NotificationRoomChangeOutboxPostgresTest {
 	private RoomParticipationCancelService roomParticipationCancelService;
 	@Autowired
 	private RoomStatusChangeService roomStatusChangeService;
+	@Autowired
+	private RoomWaitlistCommandService roomWaitlistCommandService;
 	@MockitoSpyBean
 	private NotificationRoomChangeEventRecorder roomChangeEventRecorderProxy;
 	private NotificationRoomChangeEventRecorder roomChangeEventRecorder;
@@ -292,6 +295,31 @@ class NotificationRoomChangeOutboxPostgresTest {
 		assertEquals(0, activeParticipantCount(roomId));
 		assertEquals(0, participationCount(roomId, participantUserId));
 		assertEquals(List.of(), eventTypes(roomId));
+	}
+
+	@Test
+	void 승격_알림_Outbox_기록_실패는_참가_취소와_승격과_ROOM과_대기를_함께_롤백한다() {
+		long hostUserId = user("promotion-outbox-failure-host");
+		long leavingUserId = user("promotion-outbox-failure-leaving");
+		long waitingUserId = user("promotion-outbox-failure-waiting");
+		long roomId = room(hostUserId, 1);
+		roomParticipationService.participate(leavingUserId, roomId);
+		roomWaitlistCommandService.register(waitingUserId, roomId);
+		reset(roomChangeEventRecorder);
+		doThrow(new IllegalStateException("promotion outbox failure"))
+			.when(roomChangeEventRecorder)
+			.record(any(RoomChangeEvent.class), any());
+
+		assertThrows(IllegalStateException.class,
+			() -> roomParticipationCancelService.cancelParticipation(leavingUserId, roomId));
+
+		assertEquals(1, activeParticipantCount(roomId));
+		assertEquals("ACTIVE", participationStatus(roomId, leavingUserId));
+		assertEquals(0, participationCount(roomId, waitingUserId));
+		assertEquals("WAITING", jdbcTemplate.queryForObject(
+			"select status from room_waitlists where room_id = ? and user_id = ?", String.class, roomId,
+			waitingUserId));
+		assertEquals(List.of(), recipients(roomId, "WAITLIST_PROMOTED"));
 	}
 
 	@Test

@@ -32,6 +32,7 @@ import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.notification.dto.NotificationBulkReadResponse;
 import cloud.bamsongi.albammate.notification.dto.NotificationListItem;
+import cloud.bamsongi.albammate.notification.enums.NotificationType;
 import cloud.bamsongi.albammate.notification.service.command.NotificationReadCommandService;
 
 /** PostgreSQL clock_timestamp와 읽음 SQL 문장 스냅샷의 회귀 경계다. */
@@ -67,6 +68,30 @@ class NotificationReadPostgresTest {
 		assertEquals(first.readAt(), repeated.readAt());
 		assertEquals(first.readAt(), notificationReadAt(notificationId));
 		assertTrue(first.readAt().isAfter(Instant.parse("2020-01-01T00:00:00Z")));
+	}
+
+	@Test
+	void WAITLIST_PROMOTED도_본인_단건과_일괄_읽음에_포함하고_타인은_읽지_못한다() {
+		long ownerId = user("promotion-read-owner@example.com");
+		long otherUserId = user("promotion-read-other@example.com");
+		long roomId = room(ownerId, "승격 읽음 방");
+		long notificationId = notification(ownerId, roomId, null, "transaction_timestamp() + interval '1 day'",
+			"WAITLIST_PROMOTED");
+
+		NotificationListItem read = notificationReadCommandService.readOne(ownerId, notificationId);
+		long bulkReadNotificationId = notification(ownerId, roomId, null,
+			"transaction_timestamp() + interval '1 day'", "WAITLIST_PROMOTED");
+		assertEquals(NotificationType.WAITLIST_PROMOTED, read.type());
+		assertNotFound(() -> notificationReadCommandService.readOne(otherUserId, notificationId));
+		assertNull(notificationReadAt(bulkReadNotificationId));
+
+		NotificationBulkReadResponse bulkRead = notificationReadCommandService.readAll(ownerId);
+		NotificationBulkReadResponse repeatedBulkRead = notificationReadCommandService.readAll(ownerId);
+
+		assertEquals(1, bulkRead.updatedCount());
+		assertEquals(bulkReadNotificationId, bulkRead.boundaryNotificationId());
+		assertEquals(bulkRead.readAt(), notificationReadAt(bulkReadNotificationId));
+		assertEquals(0, repeatedBulkRead.updatedCount());
 	}
 
 	@Test
@@ -192,13 +217,17 @@ class NotificationReadPostgresTest {
 	}
 
 	private long notification(long userId, long roomId, String readAt, String expiresAt) {
+		return notification(userId, roomId, readAt, expiresAt, "PARTICIPANT_JOINED");
+	}
+
+	private long notification(long userId, long roomId, String readAt, String expiresAt, String type) {
 		Long sourceEventId = jdbcTemplate.queryForObject("select nextval('notification_outbox_events_id_seq')",
 			Long.class);
 		return jdbcTemplate.queryForObject(
-			"insert into notifications (source_event_id, recipient_user_id, room_id, type, read_at, created_at, recorded_at, expires_at) values (?, ?, ?, 'PARTICIPANT_JOINED', "
+			"insert into notifications (source_event_id, recipient_user_id, room_id, type, read_at, created_at, recorded_at, expires_at) values (?, ?, ?, ?, "
 				+ readAt + ", (" + expiresAt + ") - interval '90 days', transaction_timestamp(), " + expiresAt
 				+ ") returning id",
-			Long.class, sourceEventId, userId, roomId);
+			Long.class, sourceEventId, userId, roomId, type);
 	}
 
 	private long insertNotification(Connection connection, long userId, long roomId) throws Exception {

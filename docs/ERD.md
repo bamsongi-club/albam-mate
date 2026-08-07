@@ -238,9 +238,9 @@ erDiagram
 | waitlist_status | `WAITING`, `PROMOTED`, `CANCELED`, `EXPIRED`, `ROOM_CANCELED` | 현재 대기, 승격 완료, 본인 취소, 시작 경계 만료, ROOM 취소 종료 |
 | social_provider | `GOOGLE`, `NAVER`, `KAKAO` | 외부 로그인 제공자 |
 | experience_level | `ALL_LEVELS`, `BEGINNER_WELCOME`, `EXPERIENCED_PREFERRED` | 방이 권장하는 경험 수준 |
-| notification_outbox_event_type | `PARTICIPATION_JOINED`, `PARTICIPATION_CANCELED`, `ROOM_CANCELED` | 참가·재참가 성공, 참가 취소 성공, 방 취소 성공이라는 모듈 간 원인 사실 |
+| notification_outbox_event_type | `PARTICIPATION_JOINED`, `PARTICIPATION_CANCELED`, `WAITLIST_PROMOTED`, `ROOM_CANCELED` | 참가·재참가 성공, 참가 취소 성공, 대기자 자동 승격 성공, 방 취소 성공이라는 모듈 간 원인 사실 |
 | notification_outbox_status | `PENDING`, `RETRY_WAIT`, `PROCESSED`, `FAILED`, `DISCARDED` | 최초 대기, 자동·수동 재처리 대기, 처리 완료, 운영 조치 대기 실패, 운영 폐기 |
-| notification_type | `PARTICIPANT_JOINED`, `PARTICIPANT_CANCELED`, `ROOM_CANCELED` | 사용자에게 표시하는 새 참가자, 빈자리, 방 취소 알림 유형 |
+| notification_type | `PARTICIPANT_JOINED`, `PARTICIPANT_CANCELED`, `WAITLIST_PROMOTED`, `ROOM_CANCELED` | 사용자에게 표시하는 새 참가자, 빈자리, 대기자 자동 승격, 방 취소 알림 유형 |
 
 P1 소셜 제공자·대기 상태와 알림의 제한 값은 PostgreSQL 네이티브 enum이 아니라 `VARCHAR`와 이름 있는 `CHECK` 제약으로 저장한다. 이는 기존 P0 Flyway 상태 컬럼의 물리 저장 방식과 같다.
 
@@ -597,7 +597,7 @@ relay·재시도·보존·복구·cleanup 수치는 [알림 운영 파라미터 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | id | BIGINT | PK, NN, AI | 원인 이벤트 식별자이자 Notification의 논리적 `source_event_id` |
-| event_type | VARCHAR(30) | NN | `PARTICIPATION_JOINED`, `PARTICIPATION_CANCELED`, `ROOM_CANCELED` 중 하나 |
+| event_type | VARCHAR(30) | NN | `PARTICIPATION_JOINED`, `PARTICIPATION_CANCELED`, `WAITLIST_PROMOTED`, `ROOM_CANCELED` 중 하나 |
 | room_id | BIGINT | FK → ROOMS.id, NN, ON DELETE NO ACTION | 원인 방. 방 조회 권한을 뜻하지 않음 |
 | occurred_at | TIMESTAMPTZ | NN | Command Coordinator가 최초 시도 전에 고정하고 모든 낙관 락 재시도에 재사용한 업무 `requestTime` |
 | recorded_at | TIMESTAMPTZ | NN | 최종 성공 트랜잭션이 PostgreSQL `clock_timestamp()`를 한 번 평가해 고정한 Outbox 기록 `operationTime` |
@@ -626,7 +626,7 @@ relay·재시도·보존·복구·cleanup 수치는 [알림 운영 파라미터 
 | outbox_event_id | BIGINT | PK, FK → NOTIFICATION_OUTBOX_EVENTS.id, NN, ON DELETE CASCADE | 원인 이벤트 |
 | recipient_user_id | BIGINT | PK, FK → USERS.id, NN, ON DELETE NO ACTION | 확정 수신자. 사용자 삭제 시 자동 삭제하지 않음 |
 
-`(outbox_event_id, recipient_user_id)`가 복합 기본 키이므로 같은 이벤트에 같은 사용자를 두 번 넣을 수 없다. 방 취소는 커밋 시점의 `ACTIVE` 참가자, 참가·재참가와 참가 취소는 주최자 한 명을 저장한다. 수신자 수와 역할은 원인 업무가 같은 트랜잭션에서 검증하며 행 개수를 이용한 교차 행 CHECK는 두지 않는다. 수신자가 없는 방 취소는 Outbox 이벤트 자체를 만들지 않는다.
+`(outbox_event_id, recipient_user_id)`가 복합 기본 키이므로 같은 이벤트에 같은 사용자를 두 번 넣을 수 없다. 방 취소는 커밋 시점의 `ACTIVE` 참가자, 참가·재참가와 자동 승격 없는 참가 취소는 주최자 한 명을 저장한다. 자동 승격은 실제 `PROMOTED`·`ACTIVE` 전이를 커밋한 사용자 한 명을 저장한다. 수신자 수와 역할은 원인 업무가 같은 트랜잭션에서 검증하며 행 개수를 이용한 교차 행 CHECK는 두지 않는다. 수신자가 없는 방 취소는 Outbox 이벤트 자체를 만들지 않는다.
 
 ### NOTIFICATIONS
 
@@ -640,7 +640,7 @@ relay·재시도·보존·복구·cleanup 수치는 [알림 운영 파라미터 
 | source_event_id | BIGINT | NN | 원인 Outbox 식별자를 복사한 논리 키. FK 아님 |
 | recipient_user_id | BIGINT | FK → USERS.id, NN, ON DELETE NO ACTION | 알림 수신자. 사용자 삭제 시 자동 삭제하지 않음 |
 | room_id | BIGINT | FK → ROOMS.id, NN, ON DELETE NO ACTION | 관련 방. 알림만으로 방 조회 권한을 부여하지 않음 |
-| type | VARCHAR(30) | NN | `PARTICIPANT_JOINED`, `PARTICIPANT_CANCELED`, `ROOM_CANCELED` 중 하나 |
+| type | VARCHAR(30) | NN | `PARTICIPANT_JOINED`, `PARTICIPANT_CANCELED`, `WAITLIST_PROMOTED`, `ROOM_CANCELED` 중 하나 |
 | read_at | TIMESTAMPTZ | NULL | 단건·일괄 읽음 SQL 내부에서 PostgreSQL `clock_timestamp()`를 한 번 평가해 고정한 최초 `operationTime`. 미확인이면 NULL이며 다시 NULL로 되돌리지 않음 |
 | created_at | TIMESTAMPTZ | NN | Outbox의 `occurred_at`을 복사한 원인 업무 기준 시각. relay 저장 시각이 아님 |
 | recorded_at | TIMESTAMPTZ | NN | relay 처리 트랜잭션이 PostgreSQL `clock_timestamp()`를 한 번 평가해 고정한 `operationTime`. 같은 원인 이벤트의 새 Notification이 같은 값을 사용함 |
@@ -663,7 +663,7 @@ relay·재시도·보존·복구·cleanup 수치는 [알림 운영 파라미터 
 
 | 테이블 | CHECK | 의미 |
 |---|---|---|
-| NOTIFICATION_OUTBOX_EVENTS | `event_type IN ('PARTICIPATION_JOINED', 'PARTICIPATION_CANCELED', 'ROOM_CANCELED')` | 승인되지 않은 범용 이벤트를 저장하지 않는다. |
+| NOTIFICATION_OUTBOX_EVENTS | `event_type IN ('PARTICIPATION_JOINED', 'PARTICIPATION_CANCELED', 'WAITLIST_PROMOTED', 'ROOM_CANCELED')` | 승인되지 않은 범용 이벤트를 저장하지 않는다. |
 | NOTIFICATION_OUTBOX_EVENTS | `status IN ('PENDING', 'RETRY_WAIT', 'PROCESSED', 'FAILED', 'DISCARDED')` | 영속 `PROCESSING` 상태나 lease 상태를 추가하지 않는다. |
 | NOTIFICATION_OUTBOX_EVENTS | `failure_count BETWEEN 0 AND <AUTO_PROCESS_MAX_ATTEMPTS> AND total_failure_count >= failure_count AND reprocess_count >= 0` | 현재 주기 상한과 누적 횟수의 역전을 막는다. |
 | NOTIFICATION_OUTBOX_EVENTS | `status IN ('PENDING', 'RETRY_WAIT')`와 `available_at IS NOT NULL`이 서로 동치 | 두 처리 가능 상태만 relay 선점 대상이다. |
@@ -674,7 +674,7 @@ relay·재시도·보존·복구·cleanup 수치는 [알림 운영 파라미터 
 | NOTIFICATION_OUTBOX_EVENTS | `PROCESSED`이면 `processed_at`·`cleanup_at` NN, 폐기 컬럼 NULL, `cleanup_at = processed_at + <PROCESSED_OUTBOX_RETENTION>` | 처리 완료와 정리 시점을 함께 고정한다. |
 | NOTIFICATION_OUTBOX_EVENTS | `DISCARDED`이면 `discarded_at`·비공백 사유·`cleanup_at` NN, `processed_at` NULL, `cleanup_at = discarded_at + <DISCARDED_OUTBOX_RETENTION>` | 운영 폐기와 최소 기록 보존을 함께 고정한다. |
 | NOTIFICATION_OUTBOX_EVENTS | `PENDING`, `RETRY_WAIT`, `FAILED`이면 `processed_at`, 폐기 컬럼, `cleanup_at`이 모두 NULL | 완료·폐기 전 정리 시각 생성을 금지한다. |
-| NOTIFICATIONS | `type IN ('PARTICIPANT_JOINED', 'PARTICIPANT_CANCELED', 'ROOM_CANCELED')` | API의 NotificationType과 저장값을 일치시킨다. |
+| NOTIFICATIONS | `type IN ('PARTICIPANT_JOINED', 'PARTICIPANT_CANCELED', 'WAITLIST_PROMOTED', 'ROOM_CANCELED')` | API의 NotificationType과 저장값을 일치시킨다. |
 | NOTIFICATIONS | `read_at IS NULL OR read_at >= recorded_at` | 같은 PostgreSQL 시계에서 Notification 기록보다 앞선 읽음 시각을 금지한다. |
 | NOTIFICATIONS | `expires_at = created_at + <NOTIFICATION_RETENTION>` | 읽음 여부와 무관한 보존 기간을 적용한다. |
 

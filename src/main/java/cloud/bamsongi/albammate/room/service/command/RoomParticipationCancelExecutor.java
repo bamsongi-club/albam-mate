@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.room.service.command;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -12,6 +13,7 @@ import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.contract.ParticipationCanceledEvent;
 import cloud.bamsongi.albammate.room.contract.RoomChangeEventRecorder;
+import cloud.bamsongi.albammate.room.contract.WaitlistPromotedEvent;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import cloud.bamsongi.albammate.room.entity.Participation;
 import cloud.bamsongi.albammate.room.entity.Room;
@@ -61,9 +63,11 @@ class RoomParticipationCancelExecutor {
 		participation.cancel(requestTime);
 		participationRepository.save(participation);
 		participationRepository.flush();
-		boolean promoted = promoteFirstWaiting(room, requestTime);
-		if (!promoted
-			&& room.getStatus() == RoomStatus.RECRUITING
+		Optional<Long> promotedUserId = promoteFirstWaiting(room, requestTime);
+		if (promotedUserId.isPresent()) {
+			roomChangeEventRecorder.record(
+				new WaitlistPromotedEvent(room.getId(), requestTime), List.of(promotedUserId.get()));
+		} else if (room.getStatus() == RoomStatus.RECRUITING
 			&& room.getRemainingRecruitmentSeats() > 0) {
 			roomChangeEventRecorder.record(
 				new ParticipationCanceledEvent(room.getId(), requestTime), List.of(room.getHostUserId()));
@@ -72,15 +76,15 @@ class RoomParticipationCancelExecutor {
 	}
 
 	/** 현재 ROOM의 빈자리 하나에는 조건부 전이에 성공한 첫 대기자만 활성 참가로 만든다. */
-	private boolean promoteFirstWaiting(Room room, Instant requestTime) {
+	private Optional<Long> promoteFirstWaiting(Room room, Instant requestTime) {
 		if (room.getStatus() != RoomStatus.RECRUITING) {
-			return false;
+			return Optional.empty();
 		}
 
 		while (true) {
 			var candidate = roomWaitlistRepository.findFirstWaitingByRoomId(room.getId());
 			if (candidate.isEmpty()) {
-				return false;
+				return Optional.empty();
 			}
 			var waiting = candidate.get();
 			if (roomWaitlistRepository.promoteWaiting(
@@ -94,7 +98,7 @@ class RoomParticipationCancelExecutor {
 			Participation promotedParticipation = promotedParticipationOf(room, waiting.getUserId(), requestTime);
 			participationRepository.save(promotedParticipation);
 			participationRepository.flush();
-			return true;
+			return Optional.of(waiting.getUserId());
 		}
 	}
 

@@ -20,22 +20,27 @@ function renderPanel(overrides = {}) {
   return { properties, ...render(<NotificationPanel {...properties} />) };
 }
 
-describe('T5 알림 패널 표시', () => {
-  it('roomTitle을 HTML이 아닌 일반 텍스트로 렌더링한다', () => {
+describe('#499 T8 자동 승격 알림 표시와 선택', () => {
+  it('확정 문구를 일반 텍스트로 렌더링하고 기존 선택 흐름에 전달한다', () => {
     const unsafeTitle = '<img src=x onerror=alert(1)>';
-    const { container } = renderPanel({
-      notifications: [{
+    const notification = {
         id: 1,
-        type: 'PARTICIPANT_JOINED',
+        type: 'WAITLIST_PROMOTED',
         roomId: 4,
         roomTitle: unsafeTitle,
         readAt: null,
         createdAt: '2026-08-03T09:00:00+09:00'
-      }]
+    };
+    const { container, properties } = renderPanel({
+      notifications: [notification]
     });
 
-    expect(screen.getByText(`'${unsafeTitle}' 모임에 새 참가자가 있어요.`)).toBeTruthy();
+    const message = screen.getByText(`'${unsafeTitle}' 모임 대기에서 참가자로 확정됐어요.`);
+    const notificationButton = message.closest('button');
+    expect(notificationButton).toBeTruthy();
     expect(container.querySelector('img')).toBeNull();
+    fireEvent.click(notificationButton);
+    expect(properties.onSelectNotification).toHaveBeenCalledWith(notification);
   });
 });
 
