@@ -301,14 +301,14 @@ web의 Nginx는 `ssl_certificate`와 `ssl_certificate_key` 파일이 없으면 �
 
 | 경계 | 확정 전 구현 | 확정된 계약 | 소유 |
 | --- | --- | --- | --- |
-| web 기동 | 읽기 전용 루트에서 `/etc/nginx/nginx.conf`를 덮어써 컨테이너가 죽는다. | 목표 상태 1 | albam-mate#494 |
-| Nginx upstream | upstream이 web 컨테이너 자신인 `127.0.0.1:8080`을 가리킨다. | 목표 상태 2 | albam-mate#494 |
-| App2 주소 | 누락 시 App1 자신으로 폴백해 1대 운영으로 조용히 축소된다. | 목표 상태 3 | albam-mate#494 |
-| Spring 메모리 | `mem_limit` 기본값이 `1024m`이고 heap이 컨테이너 한도 비율로 정해진다. | 목표 상태 4 | albam-mate#494 |
+| web 기동 | 읽기 전용 루트에서 원본 설정을 유지하고 /tmp 렌더링 설정으로 Nginx를 기동한다. | 목표 상태 1 | albam-mate#494 반영 완료 |
+| Nginx upstream | App1 `spring:8080`과 App2 private DNS `:8080`을 upstream으로 사용한다. | 목표 상태 2 | albam-mate#494 반영 완료 |
+| App2 주소 | 누락 시 Compose와 entrypoint가 기동을 거부한다. | 목표 상태 3 | albam-mate#494 반영 완료 |
+| Spring 메모리 | App1·App2 Spring은 `mem_limit: 512m`, `JDK_JAVA_OPTIONS=-Xmx256m`을 사용한다. | 목표 상태 4 | albam-mate#494 반영 완료 |
 | 이미지 참조 | ECR 저장소 이름과 namespace 형태가 확정되지 않았다. | 목표 상태 5 | albam-mate-infra#1 |
-| 노드별 입력 | 운영 환경변수 예시가 P0 RDS 기준이고 노드 구분이 없다. | 목표 상태 6 | albam-mate#494 |
-| 데이터 노드 healthcheck | 사용자·데이터베이스 이름이 호스트에서 빈 문자열로 치환된다. | 목표 상태 7 | albam-mate#494 |
-| 검증기 계약 | RDS CA 마운트를 단언해 production Compose 검증이 실패한다. | 목표 상태 8 | albam-mate#494 |
+| 노드별 입력 | App1·App2·PostgreSQL·Redis별 최소 권한 환경변수 예시를 분리한다. | 목표 상태 6 | albam-mate#494 반영 완료 |
+| 데이터 노드 healthcheck | 컨테이너 내부의 `POSTGRES_USER`·`POSTGRES_DB`로 readiness를 검사한다. | 목표 상태 7 | albam-mate#494 반영 완료 |
+| 검증기 계약 | RDS CA 없이 App2·read-only web·두 upstream·메모리·healthcheck를 검증한다. | 목표 상태 8 | albam-mate#494 반영 완료 |
 | App2 노출 | — | `compose.app2.yml`이 App2 host 8080에 게시하고 `sg-app` 안에서만 접근한다. | 반영 완료 |
 | PostgreSQL 접속 | production 설정이 RDS CA 경로를 전제로 했다. | 자체 운영 PostgreSQL에 private DNS 이름으로 접속하고 RDS CA를 쓰지 않는다. | 반영 완료 |
 
