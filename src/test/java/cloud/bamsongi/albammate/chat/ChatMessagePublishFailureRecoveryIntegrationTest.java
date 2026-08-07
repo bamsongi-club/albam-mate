@@ -30,6 +30,7 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -93,6 +94,8 @@ class ChatMessagePublishFailureRecoveryIntegrationTest {
 	private ChatRealtimePublishControl chatRealtimePublishControl;
 	@Autowired
 	private MeterRegistry meterRegistry;
+	@Autowired
+	@Qualifier("chatRealtimeSignalExecutor") private ExecutorService chatRealtimeSignalExecutor;
 	@LocalServerPort
 	private int serverPort;
 
@@ -143,6 +146,8 @@ class ChatMessagePublishFailureRecoveryIntegrationTest {
 			assertEquals(result.message().messageId(), eventId(firstLiveFrame));
 			assertEquals(1, chatRealtimePublishControl.publishAttempts());
 			assertEquals(0, chatRealtimePublishControl.failedPublishAttempts());
+			awaitRealtimeSignalDelivery();
+			assertNull(liveReceivedFrames.poll(1, TimeUnit.SECONDS), "첫 메시지가 중복 전달됐습니다.");
 
 			chatRealtimePublishControl.failPublishes();
 			ChatMessageSendResult missedResult = chatMessageCommandService.send(
@@ -252,6 +257,11 @@ class ChatMessagePublishFailureRecoveryIntegrationTest {
 			.findFirst()
 			.orElseThrow()
 			.getValue();
+	}
+
+	/** 첫 발행 signal의 비동기 전달과 연결 cursor 갱신이 끝난 뒤 발행 실패 상태로 전환한다. */
+	private void awaitRealtimeSignalDelivery() throws Exception {
+		chatRealtimeSignalExecutor.submit(() -> null).get(10, TimeUnit.SECONDS);
 	}
 
 	private String csrfToken(String body) {

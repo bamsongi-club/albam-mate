@@ -3,9 +3,11 @@
 - 상태: 승인됨
 - 작성일: 2026-08-01
 - 결정일: 2026-08-01
-- 관련: [P1 실행 환경과 공용 인프라](../../P1-spec.md#실행-환경과-공용-인프라), [아키텍처의 다중 인스턴스 실행](../../ARCHITECTURE.md#다중-인스턴스-실행), [ERD의 SHEDLOCK](../../ERD.md#shedlock), [ADR-0003 서버 세션](../auth/0003-p0-server-session-spring-security.md), [ADR-0021 AWS 배포 기준선](0021-p0-aws-ec2-rds-deployment-baseline.md), [ADR-0030 알림 relay](../notification/0030-postgresql-notification-relay-processing-recovery.md), [ADR-0032 채팅 실시간 전달](../chat/0032-http-send-websocket-receive.md), [ADR-0034 채팅 보관·삭제](../chat/0034-chat-message-retention-and-deletion.md), [ADR-0036 ROOM 상태 자동 전환](../room/0036-bounded-room-state-transition-processing.md), [GitHub Issue #244](https://github.com/bamsongi-club/albam-mate/issues/244)
+- 관련: [P1 실행 환경과 공용 인프라](../../P1-spec.md#실행-환경과-공용-인프라), [아키텍처의 다중 인스턴스 실행](../../ARCHITECTURE.md#다중-인스턴스-실행), [ERD의 SHEDLOCK](../../ERD.md#shedlock), [ADR-0003 서버 세션](../auth/0003-p0-server-session-spring-security.md), [ADR-0021 AWS 배포 기준선](0021-p0-aws-ec2-rds-deployment-baseline.md), [ADR-0051 P1 저비용 4 EC2 인프라](0051-p1-self-managed-aws-infrastructure.md), [ADR-0030 알림 relay](../notification/0030-postgresql-notification-relay-processing-recovery.md), [ADR-0032 채팅 실시간 전달](../chat/0032-http-send-websocket-receive.md), [ADR-0034 채팅 보관·삭제](../chat/0034-chat-message-retention-and-deletion.md), [ADR-0036 ROOM 상태 자동 전환](../room/0036-bounded-room-state-transition-processing.md), [GitHub Issue #244](https://github.com/bamsongi-club/albam-mate/issues/244)
 - 대체 대상: 없음
-- 후속 ADR: 없음
+- 후속 ADR: [ADR-0051](0051-p1-self-managed-aws-infrastructure.md) (`production`의 AWS 배포 토폴로지와 운영 리소스 선택만 부분 대체), [ADR-0052](0052-local-profile-multi-instance-default.md) (실행 프로필·로컬 검증 경계)
+
+> 2026-08-06 승인된 ADR-0051이 `production` AWS 토폴로지와 운영 리소스 선택을 대체하고, ADR-0052가 실행 프로필·로컬 검증 경계를 확정한다. 이 ADR의 Spring Session Redis, PostgreSQL ShedLock, fallback 금지와 다중 인스턴스 실행 계약은 계속 유효하다.
 
 ## 맥락
 
@@ -93,6 +95,6 @@ ROOM 상태 보정과 채팅 만료 삭제는 모든 인스턴스에 Spring Sche
     - 테스트: #286의 production 두 인스턴스 Redis 세션·채팅 fan-out PostgreSQL 검증이 같은 `JSESSIONID`와 PostgreSQL catch-up 경계를 확인한다.
 - 미검증:
     - PostgreSQL ShedLock 단일 실행, 잠금 보유 인스턴스 종료와 임대 만료 복구를 확인하지 않았다.
-    - 실제 AWS ALB·ASG와 운영 Redis 구성은 후속 OPS 검증이 필요하다.
+    - ADR-0051의 App1 Nginx·고정 EC2 4대·자체 운영 Redis 환경에서 실제 AWS 다중 인스턴스 세션과 스케줄 실행을 검증해야 한다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

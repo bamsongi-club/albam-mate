@@ -42,4 +42,10 @@ class AlbamMateApplicationTest {
 		assertTrue(appliedVersions.contains("4"));
 		assertFalse(appliedVersions.contains("5"));
 	}
+
+	@Test
+	void H2는_clock_timestamp_호출에서_시각을_반환한다() {
+		assertTrue(Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+			"select clock_timestamp() is not null", Boolean.class)));
+	}
 }

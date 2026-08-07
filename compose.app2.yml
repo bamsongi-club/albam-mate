@@ -1,0 +1,63 @@
+# App2 EC2 전용: Spring Boot 컨테이너만 실행한다.
+# App1 Nginx가 이 EC2의 사설 IP:8080 으로 요청을 분산한다.
+# .env 에 ALBAM_MATE_DB_HOST, ALBAM_MATE_REDIS_HOST 를 DB/Redis EC2의 사설 IP 또는 private DNS로 설정한다.
+
+services:
+  spring:
+    image: ${ALBAM_MATE_IMAGE_NAMESPACE:?ALBAM_MATE_IMAGE_NAMESPACE must be set}/backend:${ALBAM_MATE_RELEASE:?ALBAM_MATE_RELEASE must be set}
+    platform: linux/arm64
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: production
+      ALBAM_MATE_RELEASE: ${ALBAM_MATE_RELEASE:?ALBAM_MATE_RELEASE must be set}
+      ALBAM_MATE_DB_HOST: ${ALBAM_MATE_DB_HOST:?ALBAM_MATE_DB_HOST must be set}
+      ALBAM_MATE_DB_PORT: ${ALBAM_MATE_DB_PORT:-5432}
+      ALBAM_MATE_DB_NAME: ${ALBAM_MATE_DB_NAME:?ALBAM_MATE_DB_NAME must be set}
+      ALBAM_MATE_DB_USER: ${ALBAM_MATE_DB_USER:?ALBAM_MATE_DB_USER must be set}
+      ALBAM_MATE_DB_PASSWORD: ${ALBAM_MATE_DB_PASSWORD:?ALBAM_MATE_DB_PASSWORD must be set}
+      ALBAM_MATE_DB_MAXIMUM_POOL_SIZE: ${ALBAM_MATE_DB_MAXIMUM_POOL_SIZE:-8}
+      ALBAM_MATE_DB_MINIMUM_IDLE: ${ALBAM_MATE_DB_MINIMUM_IDLE:-2}
+      ALBAM_MATE_REDIS_HOST: ${ALBAM_MATE_REDIS_HOST:?ALBAM_MATE_REDIS_HOST must be set}
+      ALBAM_MATE_REDIS_PORT: ${ALBAM_MATE_REDIS_PORT:-6379}
+      ALBAM_MATE_GOOGLE_OAUTH_CLIENT_ID: ${ALBAM_MATE_GOOGLE_OAUTH_CLIENT_ID:-}
+      ALBAM_MATE_GOOGLE_OAUTH_CLIENT_SECRET: ${ALBAM_MATE_GOOGLE_OAUTH_CLIENT_SECRET:-}
+      ALBAM_MATE_NAVER_OAUTH_CLIENT_ID: ${ALBAM_MATE_NAVER_OAUTH_CLIENT_ID:-}
+      ALBAM_MATE_NAVER_OAUTH_CLIENT_SECRET: ${ALBAM_MATE_NAVER_OAUTH_CLIENT_SECRET:-}
+      ALBAM_MATE_KAKAO_OAUTH_CLIENT_ID: ${ALBAM_MATE_KAKAO_OAUTH_CLIENT_ID:-}
+      ALBAM_MATE_KAKAO_OAUTH_CLIENT_SECRET: ${ALBAM_MATE_KAKAO_OAUTH_CLIENT_SECRET:-}
+      ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN: ${ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN:-}
+      TZ: UTC
+    ports:
+      # App1 Nginx가 이 EC2의 사설 IP:8080 으로 접근한다.
+      # 보안 그룹(sg-app)에서 App1에서 오는 TCP 8080만 허용한다.
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "/app/backend-entrypoint.sh --validate-release-only && wget --quiet --output-document=/dev/null 'http://127.0.0.1:8080/api/games?size=1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+    volumes:
+      - type: volume
+        source: profile-images
+        target: /app/uploads/profile
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    mem_limit: ${ALBAM_MATE_SPRING_MEMORY_LIMIT:-1024m}
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: ${ALBAM_MATE_LOG_MAX_SIZE:-10m}
+        max-file: ${ALBAM_MATE_LOG_MAX_FILES:-5}
+
+volumes:
+  profile-images:

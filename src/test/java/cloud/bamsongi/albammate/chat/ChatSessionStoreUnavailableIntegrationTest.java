@@ -23,10 +23,10 @@ import org.springframework.session.MapSessionRepository;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * T9: local-multi에서 세션 저장소를 확인할 수 없으면 채팅 세 엔드포인트가 {@code Retry-After} 없는 503으로 실패하고
+ * T9: local에서 세션 저장소를 확인할 수 없으면 채팅 세 엔드포인트가 {@code Retry-After} 없는 503으로 실패하고
  * WebSocket handshake도 upgrade 전에 거절되며, 인메모리 저장소로 자동 fallback하지 않는지 실제 HTTP로 검증한다.
  */
-@ActiveProfiles("local-multi")
+@ActiveProfiles("local")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
 	"spring.datasource.url=jdbc:h2:mem:chat-session-store-unavailable;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
 	"spring.datasource.username=sa",

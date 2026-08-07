@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import brandSymbol from '../assets/albam-mate-symbol.png';
 import poweredByBgg from '../assets/powered-by-bgg.svg';
@@ -26,7 +26,7 @@ const GAME_SEARCH_DEBOUNCE_MS = 250;
 // 인원 숫자 입력은 마지막 입력 뒤 이 시간이 지나면 조회한다. 체크박스는 기다리지 않는다.
 const GAME_NUMBER_FILTER_DEBOUNCE_MS = 400;
 // 회원가입 비밀번호 한도는 서버 검증 규칙과 같은 값을 쓴다. 한쪽만 바뀌면 안내와 결과가 어긋난다.
-const PASSWORD_MIN_CODE_POINTS = 15;
+const PASSWORD_MIN_CODE_POINTS = 8;
 const PASSWORD_MAX_CODE_POINTS = 64;
 const PASSWORD_MAX_UTF8_BYTES = 72;
 const SOCIAL_PROVIDER_LABEL = { GOOGLE: 'Google', NAVER: 'Naver', KAKAO: 'Kakao' };
@@ -1780,6 +1780,7 @@ function CreateView({ createMode, onCreateModeChange, initialGame, onCreate, tod
       setSubmitting(false);
     }
   };
+
   return (
     <>
       <h2><SectionIcon name="pencil" />모임 만들기</h2>
@@ -1896,6 +1897,22 @@ function chatAccessError(error) {
   return message ? new ApiError({ status: error.status, code: error.code, message }) : error;
 }
 
+const CHAT_RECONNECT_LIMIT = 5;
+const CHAT_RECONNECT_DELAYS = [500, 1000, 2000, 4000, 8000];
+
+function chatStreamMessage(payload, roomId) {
+  if (!payload || payload.type !== 'MESSAGE_CREATED' || !payload.message) return null;
+  if (String(payload.message.roomId) !== String(roomId) || payload.message.messageId === undefined) return null;
+  if (Number(payload.eventId) !== Number(payload.message.messageId)) return null;
+  return payload.message;
+}
+
+function mergeChatMessages(current, incoming) {
+  const byId = new Map(current.map((message) => [String(message.messageId), message]));
+  incoming.forEach((message) => byId.set(String(message.messageId), message));
+  return [...byId.values()].sort((left, right) => Number(left.messageId) - Number(right.messageId));
+}
+
 export function ChatRoomView({ roomId, dataVersion, me }) {
   const { data, loading, error } = useRequest(
     (signal) => api.getChatMessages(roomId, signal).catch((cause) => { throw chatAccessError(cause); }),
@@ -1919,10 +1936,26 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
   const [clientMessageContent, setClientMessageContent] = useState(null);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
+  const [streamStatus, setStreamStatus] = useState('connecting');
+  const [streamError, setStreamError] = useState('');
+  const lastEventIdRef = useRef(null);
+  const chatHistoryRef = useRef(null);
+  const loadMoreSentinelRef = useRef(null);
+  const historyScrollSnapshotRef = useRef(null);
+  const historyInitializedRef = useRef(false);
+  const isChatAtBottomRef = useRef(true);
+  const scrollToBottomRef = useRef(false);
+  const composeInputRef = useRef(null);
+  const refocusComposeRef = useRef(false);
+  const mergeMessages = (incoming) => setMessages((current) => mergeChatMessages(current, incoming));
 
   useEffect(() => {
     setMessagesRoomId(roomId);
     setMessages([]);
+    historyInitializedRef.current = false;
+    historyScrollSnapshotRef.current = null;
+    isChatAtBottomRef.current = true;
+    scrollToBottomRef.current = false;
     setNextBeforeMessageId(null);
     setHasNext(false);
     setLoadingMore(false);
@@ -1936,22 +1969,86 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
   useEffect(() => {
     if (!data) return;
     setMessagesRoomId(roomId);
-    setMessages((current) => {
-      const byId = new Map(current.map((message) => [String(message.messageId), message]));
-      (data.messages || []).forEach((message) => byId.set(String(message.messageId), message));
-      return [...byId.values()].sort((left, right) => Number(left.messageId) - Number(right.messageId));
-    });
+    const latestMessageId = (data.messages || []).reduce(
+      (latest, message) => Math.max(latest, Number(message.messageId) || 0),
+      0
+    );
+    if (latestMessageId > 0) lastEventIdRef.current = latestMessageId;
+    mergeMessages(data.messages || []);
     setNextBeforeMessageId(data.nextBeforeMessageId ?? null);
     setHasNext(Boolean(data.hasNext));
   }, [data]);
 
-  const mergeMessages = (incoming) => {
-    setMessages((current) => {
-      const byId = new Map(current.map((message) => [String(message.messageId), message]));
-      incoming.forEach((message) => byId.set(String(message.messageId), message));
-      return [...byId.values()].sort((left, right) => Number(left.messageId) - Number(right.messageId));
-    });
-  };
+  useEffect(() => {
+    if (!data || error) return undefined;
+    let active = true;
+    let socket;
+    let reconnectTimer;
+    let stableConnectionTimer;
+    let reconnectAttempts = 0;
+
+    const connect = () => {
+      if (!active) return;
+      setStreamStatus(reconnectAttempts === 0 ? 'connecting' : 'reconnecting');
+      try {
+        socket = api.openChatWebSocket(roomId, { afterMessageId: lastEventIdRef.current });
+      } catch (cause) {
+        if (!active) return;
+        setStreamStatus('closed');
+        setStreamError(messageForError(cause, '실시간 채팅을 연결하지 못했어요.'));
+        return;
+      }
+      socket.onopen = () => {
+        if (!active) return;
+        setStreamStatus('connected');
+        setStreamError('');
+        stableConnectionTimer = setTimeout(() => { reconnectAttempts = 0; }, 10000);
+      };
+      socket.onmessage = (event) => {
+        if (!active) return;
+        try {
+          const payload = JSON.parse(event.data);
+          const message = chatStreamMessage(payload, roomId);
+          if (!message) return;
+          const eventId = Number(payload.eventId);
+          lastEventIdRef.current = Math.max(lastEventIdRef.current || 0, eventId);
+          mergeMessages([message]);
+        } catch {
+          setStreamError('실시간 메시지 형식을 확인하지 못했어요.');
+        }
+      };
+      socket.onerror = () => {
+        if (active) setStreamError('실시간 연결이 불안정해요. 다시 연결하는 중…');
+      };
+      socket.onclose = (event) => {
+        if (!active) return;
+        clearTimeout(stableConnectionTimer);
+        if (event?.code === 1008) {
+          setStreamStatus('closed');
+          setStreamError('채팅 접근 권한이 종료되어 실시간 연결을 닫았어요.');
+          return;
+        }
+        if (reconnectAttempts >= CHAT_RECONNECT_LIMIT) {
+          setStreamStatus('closed');
+          setStreamError('실시간 연결을 복구하지 못했어요. 새로고침 후 다시 시도해주세요.');
+          return;
+        }
+        setStreamStatus('reconnecting');
+        setStreamError('실시간 연결이 끊겨 다시 연결하는 중…');
+        const delay = CHAT_RECONNECT_DELAYS[reconnectAttempts] || CHAT_RECONNECT_DELAYS.at(-1);
+        reconnectAttempts += 1;
+        reconnectTimer = setTimeout(connect, delay);
+      };
+    };
+
+    connect();
+    return () => {
+      active = false;
+      clearTimeout(reconnectTimer);
+      clearTimeout(stableConnectionTimer);
+      socket?.close();
+    };
+  }, [data, error, roomId]);
 
   const loadPreviousMessages = async () => {
     if (!hasNext || loadingMore || nextBeforeMessageId === null) return;
@@ -1961,7 +2058,16 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     try {
       const page = await api.getChatMessages(roomId, { beforeMessageId: nextBeforeMessageId, size: 50 });
       if (roomIdRef.current !== requestedRoomId || roomGenerationRef.current !== requestedGeneration) return;
-      mergeMessages(page.messages || []);
+      const previousMessages = page.messages || [];
+      // 응답을 기다리는 동안 도착한 실시간 메시지가 스냅샷을 먼저 소모하지 않도록 prepend 직전에 잡는다.
+      // 빈 응답은 목록 길이를 바꾸지 않아 보정 대상이 아니므로 스냅샷도 남기지 않는다.
+      if (previousMessages.length && chatHistoryRef.current) {
+        historyScrollSnapshotRef.current = {
+          scrollHeight: chatHistoryRef.current.scrollHeight,
+          scrollTop: chatHistoryRef.current.scrollTop
+        };
+      }
+      mergeMessages(previousMessages);
       setNextBeforeMessageId(page.nextBeforeMessageId ?? null);
       setHasNext(Boolean(page.hasNext));
     } catch (cause) {
@@ -1971,6 +2077,32 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
       if (roomIdRef.current === requestedRoomId && roomGenerationRef.current === requestedGeneration) setLoadingMore(false);
     }
   };
+
+  useEffect(() => {
+    if (!loadMoreSentinelRef.current || !globalThis.IntersectionObserver) return undefined;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) loadPreviousMessages();
+    }, { root: chatHistoryRef.current, rootMargin: '120px 0px 0px', threshold: 0 });
+    observer.observe(loadMoreSentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasNext, loadingMore, nextBeforeMessageId, roomId]);
+
+  const displayedMessages = messagesRoomId === roomId ? messages : [];
+
+  useLayoutEffect(() => {
+    const history = chatHistoryRef.current;
+    if (!history || !displayedMessages.length) return;
+    const snapshot = historyScrollSnapshotRef.current;
+    if (snapshot) {
+      history.scrollTop = snapshot.scrollTop + history.scrollHeight - snapshot.scrollHeight;
+      historyScrollSnapshotRef.current = null;
+    } else if (scrollToBottomRef.current || !historyInitializedRef.current || isChatAtBottomRef.current) {
+      history.scrollTop = history.scrollHeight;
+      scrollToBottomRef.current = false;
+      isChatAtBottomRef.current = true;
+      historyInitializedRef.current = true;
+    }
+  }, [displayedMessages.length, roomId]);
 
   const submit = async (event) => {
     event.preventDefault();
@@ -1983,6 +2115,10 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
       setSendError('메시지는 500자까지 입력할 수 있어요.');
       return;
     }
+    refocusComposeRef.current = true;
+    // WebSocket 이벤트가 이 HTTP 응답보다 먼저 도착할 수 있으므로 대기 전에 미리 세운다.
+    // 그러면 실시간 병합이 먼저 목록 길이를 바꿔도 그 시점에 소비되어 하단 이동이 지연되지 않는다.
+    scrollToBottomRef.current = true;
     setSending(true);
     setSendError('');
     const messageId = clientMessageContent === null || clientMessageContent === trimmed
@@ -1995,6 +2131,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     try {
       const saved = await api.sendChatMessage(roomId, { clientMessageId: messageId, content: trimmed });
       if (roomIdRef.current !== requestedRoomId || roomGenerationRef.current !== requestedGeneration) return;
+      scrollToBottomRef.current = true;
       mergeMessages([saved]);
       setContent('');
       setClientMessageId(createClientMessageId());
@@ -2007,7 +2144,24 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     }
   };
 
-  const displayedMessages = messagesRoomId === roomId ? messages : [];
+  // 전송 중에는 입력이 disabled가 되어 브라우저가 포커스를 뗀다. 전송이 끝나면 되돌려 바로 이어 쓸 수 있게 한다.
+  // 실패해도 되돌려 사용자가 고쳐서 다시 보낼 수 있게 한다. 최초 렌더에서는 플래그가 없어 포커스를 가져가지 않는다.
+  useEffect(() => {
+    if (sending || !refocusComposeRef.current) return;
+    refocusComposeRef.current = false;
+    composeInputRef.current?.focus();
+  }, [sending]);
+
+  const handleChatScroll = (event) => {
+    const history = event.currentTarget;
+    isChatAtBottomRef.current = history.scrollHeight - history.clientHeight - history.scrollTop <= 48;
+  };
+
+  const handleComposeKeyDown = (event) => {
+    if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
+  };
 
   return (
     <>
@@ -2016,27 +2170,34 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
         <a className="btn ghost" href={'#/session/' + roomId}>모임 상세</a>
         <a className="btn ghost" href="#/my">내 모임</a>
       </div>
+      {!error && data && streamStatus !== 'connected' && (
+        <p className="hint warn" role="status">{streamError || (streamStatus === 'connecting' ? '실시간 채팅에 연결하는 중…' : '실시간 연결을 복구하는 중…')}</p>
+      )}
+      {!error && data && streamStatus === 'connected' && <p className="hint" role="status">실시간 연결됨</p>}
       {error && <ErrorBox message={error} />}
       {!error && loading && !data && <LoadingBox label="채팅을 불러오는 중…" />}
-      {!error && hasNext && <button className="btn ghost chat-load-more" disabled={loadingMore} type="button" onClick={loadPreviousMessages}>{loadingMore ? '불러오는 중…' : '이전 메시지 불러오기'}</button>}
       {!error && !loading && !displayedMessages.length && <div className="infobox">아직 주고받은 메시지가 없어요.</div>}
       {!error && !!displayedMessages.length && (
-        <ul className="chat-log">
-          {displayedMessages.map((message) => {
-            const isMine = Boolean(message.isMine);
-            return (
-            <li className={'chat-message ' + (isMine ? 'mine' : 'theirs')} data-message-owner={isMine ? 'mine' : 'theirs'} key={message.messageId}>
-              <div className="chat-message-head"><b>{isMine ? '나' : message.sender?.nickname}</b><span className="chat-time">{formatStartsAt(message.createdAt)}</span></div>
-              <p className="chat-content">{message.content}</p>
-            </li>
-            );
-          })}
-        </ul>
+        <div className="chat-history" ref={chatHistoryRef} onScroll={handleChatScroll}>
+          <div className="chat-load-sentinel" ref={loadMoreSentinelRef} aria-hidden="true" />
+          {loadingMore && <p className="hint chat-loading-more" role="status">이전 메시지를 불러오는 중…</p>}
+          <ul className="chat-log">
+            {displayedMessages.map((message) => {
+              const isMine = Boolean(message.isMine);
+              return (
+              <li className={'chat-message ' + (isMine ? 'mine' : 'theirs')} data-message-owner={isMine ? 'mine' : 'theirs'} key={message.messageId}>
+                <div className="chat-message-head"><b>{isMine ? '나' : message.sender?.nickname}</b><span className="chat-time">{formatStartsAt(message.createdAt)}</span></div>
+                <p className="chat-content">{message.content}</p>
+              </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
       {!error && <form className="chat-compose" onSubmit={submit}>
         <label htmlFor="chat-message">메시지</label>
-        <textarea id="chat-message" disabled={sending} maxLength="500" value={content} onChange={(event) => { setContent(event.target.value); setSendError(''); }} placeholder="메시지를 입력해주세요." />
-        <div className="chat-compose-actions"><span className="hint">{[...content].length}/500</span><button className="btn" disabled={sending} type="submit">{sending ? '전송 중…' : '전송'}</button></div>
+        <textarea id="chat-message" ref={composeInputRef} disabled={sending} maxLength="500" value={content} onChange={(event) => { setContent(event.target.value); setSendError(''); }} onKeyDown={handleComposeKeyDown} placeholder="메시지를 입력해주세요." />
+        <div className="chat-compose-actions"><span className="hint">Enter 전송 · Shift+Enter 줄바꿈 · {[...content].length}/500</span><button className="btn" disabled={sending} type="submit">{sending ? '전송 중…' : '전송'}</button></div>
         {sendError && <p className="hint warn" role="alert">{sendError}</p>}
       </form>}
     </>
@@ -2185,6 +2346,9 @@ function signupPasswordError(password) {
   if (new TextEncoder().encode(password).length > PASSWORD_MAX_UTF8_BYTES) {
     return '비밀번호가 너무 길어 회원가입을 진행할 수 없어요. 한글이나 이모지는 영문보다 길이를 많이 차지해요.';
   }
+  if (password && !/^[\x21-\x7E]+$/.test(password)) {
+    return '비밀번호는 영문 대소문자, 숫자, 특수기호만 사용할 수 있어요.';
+  }
   return '';
 }
 
@@ -2278,7 +2442,7 @@ export function SignupView({ onSignup }) {
           <span className="auth-email-brand"><img src={brandSymbol} alt="" /></span>
           <span className="auth-email-title">알밤메이트로 회원가입하기</span>
         </div>
-        <div className="formrow single"><div><label className="sr-only" htmlFor="signup-email">이메일</label><input id="signup-email" type="email" autoComplete="email" placeholder="이메일" required value={email} onChange={(event) => setEmail(event.target.value)} /></div><div><label className="sr-only" htmlFor="signup-nickname">닉네임</label><input id="signup-nickname" maxLength="50" placeholder="닉네임" required value={nickname} onChange={(event) => setNickname(event.target.value)} /></div><div><label className="sr-only" htmlFor="signup-password">비밀번호</label><div className="auth-password-field"><input id="signup-password" ref={passwordRef} type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={PASSWORD_MIN_CODE_POINTS} placeholder="비밀번호" required value={password} onChange={(event) => setPassword(event.target.value)} aria-describedby="signup-password-hint" aria-invalid={passwordError ? true : undefined} /><button type="button" className="auth-password-toggle" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}>{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button></div><p id="signup-password-hint" className={passwordError ? 'hint warn' : 'hint'} role={passwordError ? 'alert' : undefined}>{passwordError || '15자 이상, 영문·숫자는 64자까지 한글은 24자까지 입력할 수 있어요.'}</p></div></div>
+        <div className="formrow single"><div><label className="sr-only" htmlFor="signup-email">이메일</label><input id="signup-email" type="email" autoComplete="email" placeholder="이메일" required value={email} onChange={(event) => setEmail(event.target.value)} /></div><div><label className="sr-only" htmlFor="signup-nickname">닉네임</label><input id="signup-nickname" maxLength="50" placeholder="닉네임" required value={nickname} onChange={(event) => setNickname(event.target.value)} /></div><div><label className="sr-only" htmlFor="signup-password">비밀번호</label><div className="auth-password-field"><input id="signup-password" ref={passwordRef} type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={PASSWORD_MIN_CODE_POINTS} placeholder="비밀번호" required value={password} onChange={(event) => setPassword(event.target.value)} aria-describedby="signup-password-hint" aria-invalid={passwordError ? true : undefined} /><button type="button" className="auth-password-toggle" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}>{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button></div><p id="signup-password-hint" className={passwordError ? 'hint warn' : 'hint'} role={passwordError ? 'alert' : undefined}>{passwordError || '8자 이상, 영문 대소문자, 숫자, 특수기호만 사용할 수 있어요.'}</p></div></div>
         {error && <ErrorBox message={error} />}
         <button className="btn big pill" disabled={submitting} type="submit">{submitting ? '처리 중…' : '회원가입'}</button>
       </form>

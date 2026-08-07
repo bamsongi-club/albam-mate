@@ -74,10 +74,10 @@ ERD에는 승인된 P1 알림·채팅·ShedLock 저장 계약이 구현 예정 �
 | 기능 규칙 | [CHAT-03 실시간 전달·재연결 복구](chatting.md#chat-03-실시간-전달재연결-복구) |
 | API 계약 | [채팅 공통 계약](../API.md#채팅-공통-계약), [실시간 메시지 구독](../API.md#chat-03-실시간-메시지-구독) |
 | 인증·인가 | [ADR-0003](../adr/auth/0003-p0-server-session-spring-security.md), [ADR-0020](../adr/auth/0020-api-endpoint-authorization-policy-registry.md) |
-| ADR | [ADR-0031](../adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](../adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](../adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md) — 승인됨 |
+| ADR | [ADR-0031](../adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](../adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](../adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)·[ADR-0052](../adr/platform/0052-local-profile-multi-instance-default.md) — 승인됨 |
 | 저장·구조 계약 | [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md) |
-| 필수 검증 환경 | 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL·Redis로 구성한 `local-multi` |
-| 착수 전 확정 | #360에서 확정한 `local-multi` 세션 TTL 30분·JSON 직렬화(`SecurityJacksonModules`와 `CurrentUserPrincipal` mixin)와 `albam-mate:local-multi:session\|ratelimit\|chat:events` namespace를 따른다. #286은 같은 세션 계약을 `production`에 적용해 `albam-mate:production:session\|chat:events`를 사용한다. `local`·`test`·`postgresTest`는 인메모리 저장소를 사용하며 Redis profile은 fallback하지 않는다. |
+| 필수 검증 환경 | 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL·Redis로 구성한 `local` |
+| 착수 전 확정 | [ADR-0052](../adr/platform/0052-local-profile-multi-instance-default.md)가 확정한 `local` 세션 TTL 30분·JSON 직렬화(`SecurityJacksonModules`와 `CurrentUserPrincipal` mixin)와 `albam-mate:local:session\|ratelimit\|chat:events` namespace를 따른다. `production`은 같은 세션 계약을 적용해 `albam-mate:production:session\|chat:events`를 사용한다. `test`·`postgresTest`는 인메모리 저장소를 사용하며 Redis profile은 fallback하지 않는다. |
 
 ### 산출물
 
@@ -100,8 +100,8 @@ ERD에는 승인된 P1 알림·채팅·ShedLock 저장 계약이 구현 예정 �
 - `FND-10-AC5` 참가 취소, 방 최종 상태 전환과 세션 만료 뒤 기존 연결이 새 메시지를 받지 않는다. 관계 변경 신호나 Spring Session 만료·삭제 이벤트가 유실된 상태를 재현해도 전달 직전 확인이 전달을 막고 연결을 종료한다.
 - `FND-10-AC6` 연결 수, 저장 후 전달 지연, 전달 실패와 재연결 복구 결과를 민감 정보 없이 관찰할 수 있다.
 - `FND-10-AC7` 승인된 채팅 ADR과 API·ERD·아키텍처 계약에 구현이 일치하고 단위·HTTP·PostgreSQL·실시간 통합 검증이 재현된다.
-- `FND-10-AC8` `local-multi`에서 HTTP 저장과 WebSocket 연결이 서로 다른 애플리케이션 인스턴스에 배정되어도 공용 세션, Redis 신호와 PostgreSQL catch-up으로 메시지를 수신·복구한다.
-- `FND-10-AC9` `local-multi`는 Redis 장애 시 인메모리로 자동 fallback하지 않으며 세션·rate limit 실패와 커밋 뒤 Pub/Sub 실패가 계약된 서로 다른 결과로 검증된다.
+- `FND-10-AC8` `local`에서 HTTP 저장과 WebSocket 연결이 서로 다른 애플리케이션 인스턴스에 배정되어도 공용 세션, Redis 신호와 PostgreSQL catch-up으로 메시지를 수신·복구한다.
+- `FND-10-AC9` `local`은 Redis 장애 시 인메모리로 자동 fallback하지 않으며 세션·rate limit 실패와 커밋 뒤 Pub/Sub 실패가 계약된 서로 다른 결과로 검증된다.
 
 ### 제외 범위
 
@@ -110,4 +110,4 @@ ERD에는 승인된 P1 알림·채팅·ShedLock 저장 계약이 구현 예정 �
 - Redis Streams, Transactional Outbox, RabbitMQ·Kafka와 exactly-once 실시간 전달
 - 실시간 연결을 메시지 정본이나 영속 제품 상태로 저장하는 설계
 - 전역 메시지 순서와 exactly-once 전달 보장
-- 실제 AWS ALB·ASG scale-out·draining과 운영 Redis 제품·HA·TLS·접근 제어·비용 검증
+- 실제 AWS Nginx 분산·장애 처리와 자체 운영 Redis의 HA·TLS·접근 제어·비용 검증

@@ -1,0 +1,120 @@
+{
+  "outcome" : "RUN_FAILURE",
+  "throughputFormula" : "throughputPerSecond = changedCount * 1_000_000_000 / elapsedNanos",
+  "measurementStartEnvironment" : {
+    "gitSha" : "4688316415113b4457f03628d77bdcb7f594c294",
+    "javaVersion" : "21.0.11",
+    "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
+    "operatingSystem" : "Windows 11",
+    "operatingSystemVersion" : "10.0",
+    "cpuCount" : 24,
+    "startUsedHeapBytes" : 197862272,
+    "maxHeapBytes" : 536870912,
+    "configuration" : {
+      "roomStatusCorrectionTriggerDelay" : "24h",
+      "dockerVersion" : "29.4.3",
+      "measurementProperty" : "false",
+      "roomStatusCorrectionTriggerJitter" : "0s",
+      "chatRetentionEnabled" : "false",
+      "notificationCleanupInterval" : "24h",
+      "notificationRelayEnabled" : "false",
+      "notificationCleanupJitter" : "0s",
+      "sharedPreloadLibraries" : "pg_stat_statements",
+      "postgresImage" : "postgres:18.4",
+      "profile" : "small"
+    }
+  },
+  "fixture" : {
+    "profile" : "small",
+    "roomCount" : 100,
+    "dueRoomCount" : 20,
+    "nonDueRoomCount" : 80,
+    "nonDueClosedRoomCount" : 10,
+    "waitingRoomCount" : 0,
+    "requestTime" : "2026-08-06T00:00:00Z",
+    "seed" : "ROOM-09c-baseline-v1",
+    "dataIdentifier" : "ROOM-09c-baseline-v1:small:100:20"
+  },
+  "warmUpRuns" : [ ],
+  "measuredRuns" : [ ],
+  "partialRuns" : [ {
+    "phase" : "candidate-check",
+    "iteration" : 0,
+    "candidateCount" : 20,
+    "changedCount" : null,
+    "elapsedNanos" : null,
+    "throughputPerSecond" : null,
+    "runStartEnvironment" : null,
+    "pgStatStatements" : [ {
+      "query" : "insert into rooms(host_user_id, room_type, title, experience_level, is_rulemaster_led, region,\n\tcapacity, active_participant_count, start_at, place, status, version, created_at, updated_at)\nvalues ($1, 'PERSON_FOCUSED', $2, 'ALL_LEVELS', false, '홍대', 4, 0, $3, '측정 장소', $4, 0, $5, $6)",
+      "queryId" : "-3115795824149741248",
+      "calls" : 100,
+      "totalExecutionTimeMs" : 2.4657759999999995,
+      "rows" : 100,
+      "sharedBufferHits" : 1111,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "select r1_0.id,r1_0.active_participant_count,r1_0.capacity,r1_0.created_at,r1_0.description,r1_0.experience_level,r1_0.game_id,r1_0.host_user_id,r1_0.place,r1_0.region,r1_0.room_type,r1_0.is_rulemaster_led,r1_0.start_at,r1_0.status,r1_0.title,r1_0.updated_at,r1_0.version from rooms r1_0 where (r1_0.status='RECRUITING' and r1_0.start_at<=$1) or (r1_0.status='CLOSED' and r1_0.start_at<=$2)",
+      "queryId" : "3846884529641494299",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 0.065742,
+      "rows" : 20,
+      "sharedBufferHits" : 20,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "delete from rooms where title like $1",
+      "queryId" : "-8418723232441999212",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 0.035991999999999996,
+      "rows" : 0,
+      "sharedBufferHits" : 19,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "insert into users(email, password_hash, nickname, created_at, updated_at) values ($1, $2, $3, $4, $5)",
+      "queryId" : "-4481974861110283216",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 0.035179999999999996,
+      "rows" : 1,
+      "sharedBufferHits" : 4,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "select id from users where email = $1",
+      "queryId" : "8272669786714363472",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 0.012914,
+      "rows" : 1,
+      "sharedBufferHits" : 2,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "delete from users where email = $1",
+      "queryId" : "7349396042126405469",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 0.008161,
+      "rows" : 0,
+      "sharedBufferHits" : 1,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "show shared_preload_libraries",
+      "queryId" : "-2837621813649206874",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 0.007403,
+      "rows" : 0,
+      "sharedBufferHits" : 0,
+      "sharedBufferReads" : 0
+    }, {
+      "query" : "show server_version",
+      "queryId" : "6039773827682666654",
+      "calls" : 1,
+      "totalExecutionTimeMs" : 0.00533,
+      "rows" : 0,
+      "sharedBufferHits" : 0,
+      "sharedBufferReads" : 0
+    } ]
+  } ],
+  "runFailure" : {
+    "exceptionType" : "org.opentest4j.AssertionFailedError",
+    "category" : "후보 수 사전 검증 실패"
+  },
+  "roomFailures" : [ ],
+  "summary" : null
+}

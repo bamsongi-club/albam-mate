@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import cloud.bamsongi.albammate.chat.repository.ChatRoomRepository;
 import cloud.bamsongi.albammate.game.entity.Game;
@@ -72,6 +73,8 @@ class P0CoreUserFlowRealHttpIntegrationTest {
 	private ChatRoomRepository chatRoomRepository;
 	@Autowired
 	private UserRepository userRepository;
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
 
 	private final List<ParticipationCleanupKey> participationCleanupKeys = new ArrayList<>();
 	private final List<Long> roomIds = new ArrayList<>();
@@ -83,6 +86,7 @@ class P0CoreUserFlowRealHttpIntegrationTest {
 	void tearDown() {
 		participationCleanupKeys.forEach(this::deleteParticipationIfPresent);
 		roomCleanupKeys.forEach(this::deleteChatRoomIfPresent);
+		roomIds.forEach(this::deleteOutboxEventsByRoomId);
 		roomIds.forEach(roomRepository::deleteById);
 		roomCleanupKeys.forEach(this::deleteRoomIfPresent);
 		gameIds.forEach(gameRepository::deleteById);
@@ -443,7 +447,14 @@ class P0CoreUserFlowRealHttpIntegrationTest {
 			.filter(
 				room -> cleanupKey.hostUserId().equals(room.getHostUserId())
 					&& cleanupKey.title().equals(room.getTitle()))
-			.forEach(roomRepository::delete);
+			.forEach(room -> {
+				deleteOutboxEventsByRoomId(room.getId());
+				roomRepository.delete(room);
+			});
+	}
+
+	private void deleteOutboxEventsByRoomId(Long roomId) {
+		jdbcTemplate.update("delete from notification_outbox_events where room_id = ?", roomId);
 	}
 
 	private void deleteChatRoomIfPresent(RoomCleanupKey cleanupKey) {

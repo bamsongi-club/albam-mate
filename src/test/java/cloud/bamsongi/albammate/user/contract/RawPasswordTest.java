@@ -13,9 +13,9 @@ class RawPasswordTest {
 	void 회원가입_정책을_만족하는_비밀번호만_생성한다() {
 		assertEquals("123456789012345", RawPassword.from("123456789012345").orElseThrow().value());
 		assertTrue(RawPassword.from(null).isEmpty());
-		assertTrue(RawPassword.from("12345678901234").isEmpty());
+		assertTrue(RawPassword.from("1234567").isEmpty());
 		assertTrue(RawPassword.from("a".repeat(65)).isEmpty());
-		assertTrue(RawPassword.from("가".repeat(23) + "é".repeat(2)).isEmpty());
+		assertTrue(RawPassword.from("가".repeat(8)).isEmpty());
 	}
 
 	@Test

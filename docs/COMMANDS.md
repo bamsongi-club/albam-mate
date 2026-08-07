@@ -36,9 +36,9 @@ Gradle은 별도 설치본 대신 저장소의 Wrapper를 사용한다.
 
 ## 로컬 개발
 
-`.env` 준비, 실행 방식 선택과 운영체제별 호스트 실행은 [로컬 개발 환경 실행](guides/LOCAL_DEVELOPMENT.md)을 따른다. 아래 명령은 `.env`가 준비된 뒤 반복해서 사용한다. 전체 스택과 호스트 개발 방식은 기본 포트가 같으므로 동시에 실행하지 않는다.
+`.env` 준비와 운영체제별 실행은 [로컬 개발 환경 실행](guides/LOCAL_DEVELOPMENT.md)을 따른다. 아래 명령은 `.env`가 준비된 뒤 반복해서 사용한다. 기본 local Compose는 프록시·Spring 두 대·PostgreSQL·Redis를 함께 실행한다.
 
-현재 소스로 PostgreSQL, Spring과 웹을 함께 빌드·실행하고 상태를 확인한다.
+현재 소스로 프록시, Spring 애플리케이션 두 대, PostgreSQL과 Redis를 함께 빌드·실행하고 상태를 확인한다. 이 `local` Compose가 기본 로컬·데모·P1 검증 환경이며 단일 Spring 실행은 검증 경계로 사용하지 않는다.
 
 ```sh
 docker compose --env-file .env -f compose.local.yml up -d --build --wait
@@ -52,12 +52,12 @@ docker compose --env-file .env -f compose.local.yml logs --tail 200
 docker compose --env-file .env -f compose.local.yml down
 ```
 
-호스트에서 Spring이나 웹을 개발할 때는 PostgreSQL만 시작·확인하고, 작업을 마친 뒤 중지한다.
+필요하면 애플리케이션 없이 PostgreSQL과 Redis 의존성만 시작해 DB·Redis 클라이언트 작업을 확인하고, 작업을 마친 뒤 중지한다.
 
 ```sh
-docker compose --env-file .env -f compose.local.yml up -d --wait postgres
-docker compose --env-file .env -f compose.local.yml ps postgres
-docker compose --env-file .env -f compose.local.yml stop postgres
+docker compose --env-file .env -f compose.local.yml up -d --wait postgres redis
+docker compose --env-file .env -f compose.local.yml ps postgres redis
+docker compose --env-file .env -f compose.local.yml stop postgres redis
 ```
 
 로컬 PostgreSQL 데이터를 명시적으로 초기화할 때만 named volume까지 삭제한다.
@@ -66,18 +66,10 @@ docker compose --env-file .env -f compose.local.yml stop postgres
 docker compose --env-file .env -f compose.local.yml down --volumes
 ```
 
-`local-multi`는 프록시, Spring 두 대, 공용 PostgreSQL·Redis로 교차 인스턴스 세션을 확인하는 전용 구성이다. `.env.example`을 바탕으로 `.env`를 준비하고, 기존 `compose.local.yml` 스택과 동시에 실행하지 않는다.
-
-```sh
-docker compose --env-file .env -f compose.local-multi.yml up -d --build --wait
-docker compose --env-file .env -f compose.local-multi.yml ps
-docker compose --env-file .env -f compose.local-multi.yml down
-```
-
 Compose가 실행 중인 상태에서 프록시를 통과하는 동일 세션 검증은 별도 명령으로 실행한다. 일반 `postgresTest`는 외부 Compose 의존성을 만들지 않도록 이 테스트를 건너뛴다.
 
 ```sh
-./gradlew postgresTest --tests "cloud.bamsongi.albammate.global.security.session.LocalMultiProxyRuntimePostgresTest" -Dissue360.localMultiProxy=true --no-daemon --stacktrace
+JAVA_TOOL_OPTIONS='-Dissue471.localProxy=true' ./gradlew postgresTest --tests "cloud.bamsongi.albammate.global.security.session.LocalMultiProxyRuntimePostgresTest" --rerun --fail-fast --no-daemon --stacktrace
 ```
 
 ## 운영 Compose
@@ -122,6 +114,41 @@ macOS·Linux:
 ```
 
 외부 fixture를 사용하는 게임 메타데이터 성능 측정은 [게임 카탈로그 적재 가이드](guides/GAME_CATALOG_IMPORT.md#17만-행-성능-fixture-계약)의 경로·checksum 조건을 준비한 뒤 `postgresTest`의 exact selector로 실행한다. fixture가 없는 기본 `postgresTest`에서는 이 성능 클래스가 건너뛰며, CI 합산 커버리지의 입력을 만들지 않는다.
+
+### ROOM-09c 현행 일괄 처리 기준선 측정
+
+ROOM-09c 기준선의 측정 profile·원자료 필드·결과 해석은 [현행 일괄 처리 기준선 측정](measurements/room-09-bounded-processing-baseline.md)을 따른다. 기본 `postgresTest`는 WAITING 없는 소형 `100/20` fixture의 계약과 1회 warm-up·5회 실측을 실행한다. 중형 `10,000/2,000`과 대형 `50,000/10,000`은 명시적인 시스템 속성이 있을 때만 실행한다.
+
+Windows PowerShell:
+
+```powershell
+docker version
+$hadJavaToolOptions = Test-Path Env:JAVA_TOOL_OPTIONS
+$previousJavaToolOptions = $env:JAVA_TOOL_OPTIONS
+try {
+    $env:JAVA_TOOL_OPTIONS = if ([string]::IsNullOrWhiteSpace($previousJavaToolOptions)) {
+        '-Dissue383.measurement=true'
+    } else {
+        "$previousJavaToolOptions -Dissue383.measurement=true".Trim()
+    }
+    .\gradlew.bat postgresTest --tests "cloud.bamsongi.albammate.room.measurement.RoomStatusCorrectionBaselineMeasurementPostgresTest.승인_규모_기준선을_측정한다" --rerun --fail-fast
+} finally {
+    if ($hadJavaToolOptions) {
+        $env:JAVA_TOOL_OPTIONS = $previousJavaToolOptions
+    } else {
+        Remove-Item Env:JAVA_TOOL_OPTIONS -ErrorAction SilentlyContinue
+    }
+}
+```
+
+macOS·Linux:
+
+```sh
+docker version
+JAVA_TOOL_OPTIONS='-Dissue383.measurement=true' ./gradlew postgresTest --tests "cloud.bamsongi.albammate.room.measurement.RoomStatusCorrectionBaselineMeasurementPostgresTest.승인_규모_기준선을_측정한다" --rerun --fail-fast
+```
+
+성능 합격선이나 운영값은 이 측정에서 임의로 정하지 않는다. 실행 뒤 `build/reports/measurements/room-09c-{small|medium|large}.json`의 고정 시각·seed·data identifier·후보·결과·환경·`pg_stat_statements` 원자료와 문서의 재현 명령을 함께 확인한다.
 
 ## 분기 커버리지 확인
 

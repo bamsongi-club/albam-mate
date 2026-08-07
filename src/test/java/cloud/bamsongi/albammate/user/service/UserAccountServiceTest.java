@@ -113,8 +113,8 @@ class UserAccountServiceTest {
 	}
 
 	@Test
-	void 직접_호출은_짧은_비밀번호를_해시_슬롯_획득_전에_거절한다() {
-		assertInvalidPasswordIsRejectedBeforeHashing("12345678901234");
+	void 가입_비밀번호_하한_미달은_해시하지_않고_거절한다() {
+		assertInvalidPasswordIsRejectedBeforeHashing("1234567");
 	}
 
 	@Test
@@ -123,8 +123,8 @@ class UserAccountServiceTest {
 	}
 
 	@Test
-	void 직접_호출은_UTF8_73바이트_비밀번호를_해시_슬롯_획득_전에_거절한다() {
-		assertInvalidPasswordIsRejectedBeforeHashing("가".repeat(23) + "é".repeat(2));
+	void 허용되지_않은_문자가_있는_가입_비밀번호는_해시하지_않고_거절한다() {
+		assertInvalidPasswordIsRejectedBeforeHashing("가".repeat(8));
 	}
 
 	@Test

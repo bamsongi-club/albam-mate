@@ -12,6 +12,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -53,14 +54,16 @@ class RoomStatusCorrectionSchedulerTest {
 
 		scheduler.correctDueRooms();
 
-		verify(coordinator).correctDueRooms(eq(NOW), any());
+		verify(coordinator).correctBoundedDueRooms(
+			eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), any());
 	}
 
 	@Test
 	void 변경된_방이_있으면_변경건수와_함께_INFO_완료_로그를_남긴다() {
 		RoomStatusCorrectionCoordinator coordinator = mock(RoomStatusCorrectionCoordinator.class);
 		RoomStatusCorrectionScheduler scheduler = scheduler(coordinator, maxInclusive -> 0L, delay -> {});
-		when(coordinator.correctDueRooms(eq(NOW), any())).thenReturn(2);
+		when(coordinator.correctBoundedDueRooms(
+			eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), any())).thenReturn(2);
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 		try {
 			scheduler.correctDueRooms();
@@ -78,7 +81,8 @@ class RoomStatusCorrectionSchedulerTest {
 	void 변경된_방이_없으면_DEBUG_완료_로그를_남긴다() {
 		RoomStatusCorrectionCoordinator coordinator = mock(RoomStatusCorrectionCoordinator.class);
 		RoomStatusCorrectionScheduler scheduler = scheduler(coordinator, maxInclusive -> 0L, delay -> {});
-		when(coordinator.correctDueRooms(eq(NOW), any())).thenReturn(0);
+		when(coordinator.correctBoundedDueRooms(
+			eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), any())).thenReturn(0);
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 		try {
 			scheduler.correctDueRooms();
@@ -93,11 +97,32 @@ class RoomStatusCorrectionSchedulerTest {
 	}
 
 	@Test
+	void 후보_제한이_없으면_전체_조회로_대체하지_않고_실행을_건너뛴다() {
+		RoomStatusCorrectionCoordinator coordinator = mock(RoomStatusCorrectionCoordinator.class);
+		RoomStatusCorrectionProgressStore progressStore = mock(RoomStatusCorrectionProgressStore.class);
+		RoomStatusCorrectionProperties properties = schedulerProperties();
+		properties.setCandidateLimit(null);
+		RoomStatusCorrectionScheduler scheduler = new RoomStatusCorrectionScheduler(
+			lockAlwaysAcquired(), coordinator, progressStore, properties, Clock.fixed(NOW, ZoneOffset.UTC));
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			scheduler.correctDueRooms();
+
+			verifyNoInteractions(coordinator, progressStore);
+			assertEquals("event=room_status_correction_skipped reason=candidate_limit_missing",
+				appender.list.getFirst().getFormattedMessage());
+		} finally {
+			detachLogAppender(appender);
+		}
+	}
+
+	@Test
 	void 비정상_중단은_WARN을_한번_남기고_예외를_다시_던진다() {
 		RoomStatusCorrectionCoordinator coordinator = mock(RoomStatusCorrectionCoordinator.class);
 		RoomStatusCorrectionScheduler scheduler = scheduler(coordinator, maxInclusive -> 0L, delay -> {});
 		IllegalStateException expected = new IllegalStateException("unexpected");
-		doThrow(expected).when(coordinator).correctDueRooms(eq(NOW), any());
+		doThrow(expected).when(coordinator).correctBoundedDueRooms(
+			eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), any());
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 		try {
 			assertSame(expected, assertThrows(IllegalStateException.class, scheduler::correctDueRooms));
@@ -116,7 +141,8 @@ class RoomStatusCorrectionSchedulerTest {
 		RoomStatusCorrectionCoordinator coordinator = mock(RoomStatusCorrectionCoordinator.class);
 		RoomStatusCorrectionScheduler scheduler = scheduler(coordinator, maxInclusive -> 0L, delay -> {});
 		BusinessException expected = new BusinessException(ErrorCode.ROOM_CONCURRENT_MODIFICATION);
-		doThrow(expected).when(coordinator).correctDueRooms(eq(NOW), any());
+		doThrow(expected).when(coordinator).correctBoundedDueRooms(
+			eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), any());
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 		try {
 			assertSame(expected, assertThrows(BusinessException.class, scheduler::correctDueRooms));
@@ -270,7 +296,8 @@ class RoomStatusCorrectionSchedulerTest {
 		scheduler.correctDueRooms();
 
 		ArgumentCaptor<IntConsumer> retryHook = ArgumentCaptor.forClass(IntConsumer.class);
-		verify(coordinator).correctDueRooms(eq(NOW), retryHook.capture());
+		verify(coordinator).correctBoundedDueRooms(
+			eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), retryHook.capture());
 		retryHook.getValue().accept(2);
 		retryHook.getValue().accept(3);
 
@@ -310,6 +337,7 @@ class RoomStatusCorrectionSchedulerTest {
 		properties.setTriggerJitter(RoomStatusCorrectionScheduler.MAX_SCHEDULE_JITTER);
 		properties.setLockAtMostFor(Duration.ofMinutes(2));
 		properties.setExecutionWarningThreshold(Duration.ofSeconds(30));
+		properties.setCandidateLimit(10);
 		return properties;
 	}
 
@@ -340,7 +368,7 @@ class RoomStatusCorrectionSchedulerTest {
 		RuntimeException exception, Duration elapsed, int expectedSlowWarningCount) {
 		RoomStatusCorrectionCoordinator coordinator = mock(RoomStatusCorrectionCoordinator.class);
 		RoomStatusCorrectionScheduler scheduler = new RoomStatusCorrectionScheduler(
-			lockAlwaysAcquired(), coordinator, mock(RoomStatusCorrectionProgressStore.class), schedulerProperties(),
+			lockAlwaysAcquired(), coordinator, TestRoomStatusCorrectionScheduler.progressStore(), schedulerProperties(),
 			Clock.fixed(NOW, ZoneOffset.UTC)) {
 			private int elapsedNanosCallCount;
 
@@ -350,7 +378,8 @@ class RoomStatusCorrectionSchedulerTest {
 			}
 		};
 		if (exception != null) {
-			doThrow(exception).when(coordinator).correctDueRooms(eq(NOW), any());
+			doThrow(exception).when(coordinator).correctBoundedDueRooms(
+				eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), any());
 		}
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 		try {
@@ -399,9 +428,16 @@ class RoomStatusCorrectionSchedulerTest {
 			Clock clock,
 			JitterSource jitterSource,
 			Sleeper sleeper) {
-			super(lockAlwaysAcquired(), coordinator, mock(RoomStatusCorrectionProgressStore.class), properties, clock);
+			super(lockAlwaysAcquired(), coordinator, progressStore(), properties, clock);
 			this.jitterSource = jitterSource;
 			this.sleeper = sleeper;
+		}
+
+		private static RoomStatusCorrectionProgressStore progressStore() {
+			RoomStatusCorrectionProgressStore progressStore = mock(RoomStatusCorrectionProgressStore.class);
+			when(progressStore.claimExecution(any())).thenReturn(
+				new RoomStatusCorrectionProgressStore.ProgressSnapshot(NOW, null, null, 1L, 1L));
+			return progressStore;
 		}
 
 		@Override

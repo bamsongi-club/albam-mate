@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-31
 - 결정일: 2026-08-01
-- 관련: [P1 방 채팅 명세](../../p1/chatting.md), [채팅 저장 계약](../../ERD.md#chat_messages), [아키텍처](../../ARCHITECTURE.md#채팅-흐름), [ADR-0002 PostgreSQL](../platform/0002-postgresql-primary-database.md), [ADR-0021 AWS 배포 기준선](../platform/0021-p0-aws-ec2-rds-deployment-baseline.md), [ADR-0031 커서 조회](0031-chat-history-cursor-pagination.md), [ADR-0032 실시간 전달](0032-http-send-websocket-receive.md), [ADR-0038 공용 세션·스케줄 조정](../platform/0038-multi-instance-session-and-scheduler-coordination.md)
+- 관련: [P1 방 채팅 명세](../../p1/chatting.md), [채팅 저장 계약](../../ERD.md#chat_messages), [아키텍처](../../ARCHITECTURE.md#채팅-흐름), [ADR-0002 PostgreSQL](../platform/0002-postgresql-primary-database.md), [ADR-0021 AWS 배포 기준선](../platform/0021-p0-aws-ec2-rds-deployment-baseline.md), [ADR-0031 커서 조회](0031-chat-history-cursor-pagination.md), [ADR-0032 실시간 전달](0032-http-send-websocket-receive.md), [ADR-0038 공용 세션·스케줄 조정](../platform/0038-multi-instance-session-and-scheduler-coordination.md), [ADR-0051 P1 AWS 토폴로지](../platform/0051-p1-self-managed-aws-infrastructure.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
@@ -82,6 +82,6 @@ Redis 발행·구독 또는 WebSocket 전달 실패는 저장 결과를 바꾸�
     - 계약: 채팅 Redis channel namespace는 `albam-mate:local-multi:chat:events`와 `albam-mate:production:chat:events`로 확정했으며, 두 환경 모두 `eventType`·`roomId`·`messageId`만 신호에 담고 PostgreSQL 이력으로 catch-up한다.
     - 테스트: [#286](https://github.com/bamsongi-club/albam-mate/issues/286)의 T1~T12로 커밋 후 전달, 중복·유실·역순 복구, 실제 WebSocket 재연결, local-multi 교차 인스턴스·재시작 복구, 세션 저장소 장애와 관측 경계를 자동 검증한다.
 - 미검증:
-    - 실제 AWS의 Redis·ASG 운영 부하는 후속 OPS 검증이 필요하다.
+    - ADR-0051의 자체 운영 Redis와 고정 Spring EC2 두 대 환경에서 실제 AWS 운영 부하를 검증해야 한다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

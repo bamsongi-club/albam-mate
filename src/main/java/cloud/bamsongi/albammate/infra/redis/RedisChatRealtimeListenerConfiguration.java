@@ -25,7 +25,7 @@ import lombok.extern.slf4j.Slf4j;
  * 복구되기 전 누락분은 다음 세션·전송 제한 확인이나 재연결의 PostgreSQL catch-up으로 계속 복구된다.
  */
 @Configuration(proxyBeanMethods = false)
-@Profile({"local-multi", "production"})
+@Profile({"local", "production"})
 @Slf4j
 class RedisChatRealtimeListenerConfiguration {
 

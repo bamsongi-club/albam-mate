@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -14,12 +16,14 @@ import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
 
-/** local-multi 공용 Redis에서 채팅 전송 두 bucket을 Lua 한 번으로 예약하는 adapter다. */
+/** local과 production에서 공용 Redis에 채팅 전송 두 bucket을 Lua 한 번으로 예약하는 adapter다. 자기 자신을 등록하고
+ * {@link Environment}로 프로필별 namespace를 골라 key를 분리한다. */
 @Component
-@Profile("local-multi")
+@Profile({"local", "production"})
 public class RedisChatMessageRateLimiter implements ChatMessageRateLimiter {
 
-	private static final String KEY_PREFIX = "albam-mate:local-multi:ratelimit";
+	private static final String LOCAL_NAMESPACE = "albam-mate:local:ratelimit";
+	private static final String PRODUCTION_NAMESPACE = "albam-mate:production:ratelimit";
 	private static final String RESERVATION_SUFFIX = ":reservations";
 	private static final int USER_LIMIT = 5;
 	private static final int ROOM_LIMIT = 30;
@@ -98,10 +102,16 @@ public class RedisChatMessageRateLimiter implements ChatMessageRateLimiter {
 		""", Long.class);
 
 	private final StringRedisTemplate redisTemplate;
+	private final String keyPrefix;
 
-	public RedisChatMessageRateLimiter(RedisConnectionFactory redisConnectionFactory) {
+	public RedisChatMessageRateLimiter(RedisConnectionFactory redisConnectionFactory, Environment environment) {
 		redisTemplate = new StringRedisTemplate(redisConnectionFactory);
 		redisTemplate.afterPropertiesSet();
+		keyPrefix = namespaceFor(environment);
+	}
+
+	static String namespaceFor(Environment environment) {
+		return environment.acceptsProfiles(Profiles.of("production")) ? PRODUCTION_NAMESPACE : LOCAL_NAMESPACE;
 	}
 
 	@Override
@@ -149,11 +159,11 @@ public class RedisChatMessageRateLimiter implements ChatMessageRateLimiter {
 	}
 
 	private String userKey(long userId) {
-		return KEY_PREFIX + ":user:" + userId;
+		return keyPrefix + ":user:" + userId;
 	}
 
 	private String roomKey(long roomId) {
-		return KEY_PREFIX + ":room:" + roomId;
+		return keyPrefix + ":room:" + roomId;
 	}
 
 	private String userReservationsKey(long userId) {

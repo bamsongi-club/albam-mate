@@ -19,10 +19,14 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import cloud.bamsongi.albammate.room.entity.Room;
+import cloud.bamsongi.albammate.room.entity.RoomWaitlist;
+import cloud.bamsongi.albammate.room.entity.RoomWaitlistId;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
+import cloud.bamsongi.albammate.room.enums.RoomWaitlistStatus;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
 
 @SpringBootTest
 class RoomStatusCorrectionExecutorTest {
@@ -34,11 +38,16 @@ class RoomStatusCorrectionExecutorTest {
 	@Autowired
 	private RoomStatusCorrectionCoordinator coordinator;
 	@Autowired
+	private RoomStatusCorrectionCandidateSelector candidateSelector;
+	@Autowired
+	private RoomWaitlistRepository roomWaitlistRepository;
+	@Autowired
 	private JdbcTemplate jdbcTemplate;
 	@Autowired
 	private PlatformTransactionManager transactionManager;
 
 	private final List<Long> roomIds = new ArrayList<>();
+	private final List<RoomWaitlistId> waitlistIds = new ArrayList<>();
 	private final List<Long> hostUserIds = new ArrayList<>();
 	private Long hostUserId;
 
@@ -49,6 +58,7 @@ class RoomStatusCorrectionExecutorTest {
 
 	@AfterEach
 	void tearDown() {
+		waitlistIds.forEach(waitlistId -> roomWaitlistRepository.deleteById(waitlistId));
 		roomIds.forEach(roomId -> roomRepository.deleteById(roomId));
 		hostUserIds.forEach(
 			userId -> jdbcTemplate.update("delete from users where id = ?", userId));
@@ -155,6 +165,66 @@ class RoomStatusCorrectionExecutorTest {
 	}
 
 	@Test
+	void 시작_경계_보정은_ROOM과_대기열을_같은_단건_경로에서_처리한다() {
+		Room room = saveRoom(REQUEST_TIME.minusSeconds(1));
+		RoomWaitlist waitlist = saveWaiting(room.getId());
+
+		coordinator.correctRoom(room.getId(), REQUEST_TIME);
+
+		assertEquals(RoomStatus.CLOSED, roomRepository.findById(room.getId()).orElseThrow().getStatus());
+		assertEquals(
+			RoomWaitlistStatus.EXPIRED,
+			roomWaitlistRepository.findById(waitlist.getId()).orElseThrow().getStatus());
+	}
+
+	@Test
+	void 전체_보정은_시작_경계에서_모집중_ROOM을_닫고_기존_닫힌_ROOM의_대기열까지_만료한다() throws ReflectiveOperationException {
+		Room recruitingRoom = saveRoom(REQUEST_TIME.minusSeconds(1));
+		RoomWaitlist recruitingWaiting = saveWaiting(recruitingRoom.getId());
+		Room closedRoom = saveRoom(REQUEST_TIME.minusSeconds(1));
+		setStatus(closedRoom, RoomStatus.CLOSED);
+		roomRepository.save(closedRoom);
+		RoomWaitlist closedWaiting = saveWaiting(closedRoom.getId());
+
+		int changedCount = coordinator.correctDueRooms(REQUEST_TIME);
+
+		assertEquals(2, changedCount);
+		assertEquals(RoomStatus.CLOSED, roomRepository.findById(recruitingRoom.getId()).orElseThrow().getStatus());
+		assertEquals(
+			RoomWaitlistStatus.EXPIRED,
+			roomWaitlistRepository.findById(recruitingWaiting.getId()).orElseThrow().getStatus());
+		assertEquals(RoomStatus.CLOSED, roomRepository.findById(closedRoom.getId()).orElseThrow().getStatus());
+		assertEquals(
+			RoomWaitlistStatus.EXPIRED,
+			roomWaitlistRepository.findById(closedWaiting.getId()).orElseThrow().getStatus());
+	}
+
+	@Test
+	void 제한_후보_조회는_세_경계의_논리_due_순서와_cursor_조건을_적용한다() throws ReflectiveOperationException {
+		Room recruitingAtStart = saveRoom(REQUEST_TIME.minusSeconds(1));
+		Room closedWithWaiting = saveRoom(REQUEST_TIME.minusSeconds(1));
+		setStatus(closedWithWaiting, RoomStatus.CLOSED);
+		roomRepository.save(closedWithWaiting);
+		saveWaiting(closedWithWaiting.getId());
+		Room closedAtFinish = saveRoom(
+			REQUEST_TIME.minus(Room.AUTOMATIC_FINISH_AFTER_START).minusSeconds(1));
+		setStatus(closedAtFinish, RoomStatus.CLOSED);
+		roomRepository.save(closedAtFinish);
+		Room future = saveRoom(REQUEST_TIME.plusSeconds(1));
+
+		List<RoomStatusCorrectionCandidateSelector.DueRoomCandidate> selected = candidateSelector.select(
+			new RoomStatusCorrectionProgressStore.ProgressSnapshot(REQUEST_TIME, null, null, 0L, 0L), 10);
+
+		assertEquals(
+			List.of(recruitingAtStart.getId(), closedWithWaiting.getId(), closedAtFinish.getId()),
+			selected.stream().map(RoomStatusCorrectionCandidateSelector.DueRoomCandidate::roomId).toList());
+		assertEquals(
+			List.of(REQUEST_TIME.minusSeconds(1), REQUEST_TIME.minusSeconds(1), REQUEST_TIME.minusSeconds(1)),
+			selected.stream().map(RoomStatusCorrectionCandidateSelector.DueRoomCandidate::dueAt).toList());
+		assertTrue(selected.stream().noneMatch(candidate -> candidate.roomId().equals(future.getId())));
+	}
+
+	@Test
 	void 외부_트랜잭션이_롤백되어도_REQUIRES_NEW_보정은_커밋된다() {
 		Room room = saveRoom(REQUEST_TIME.minusSeconds(1));
 		Long versionBefore = roomRepository.findById(room.getId()).orElseThrow().getVersion();
@@ -186,6 +256,13 @@ class RoomStatusCorrectionExecutorTest {
 		Room saved = roomRepository.save(room);
 		roomIds.add(saved.getId());
 		return saved;
+	}
+
+	private RoomWaitlist saveWaiting(Long roomId) {
+		RoomWaitlist waitlist = roomWaitlistRepository.save(
+			RoomWaitlist.create(roomId, hostUserId, roomId, REQUEST_TIME.minusSeconds(2)));
+		waitlistIds.add(waitlist.getId());
+		return waitlist;
 	}
 
 	private Long insertUser() {

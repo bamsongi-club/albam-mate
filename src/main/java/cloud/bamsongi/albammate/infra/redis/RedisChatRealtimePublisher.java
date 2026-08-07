@@ -12,10 +12,10 @@ import cloud.bamsongi.albammate.chat.contract.MessageCommitted;
 
 /** Redis 운영 프로필에서 커밋 후 {@code eventType}·{@code roomId}·{@code messageId}만 발행하는 adapter다. */
 @Component
-@Profile({"local-multi", "production"})
+@Profile({"local", "production"})
 public class RedisChatRealtimePublisher implements ChatRealtimePublisher {
 
-	private static final String LOCAL_MULTI_CHANNEL = "albam-mate:local-multi:chat:events";
+	private static final String LOCAL_CHANNEL = "albam-mate:local:chat:events";
 	private static final String PRODUCTION_CHANNEL = "albam-mate:production:chat:events";
 
 	private final StringRedisTemplate redisTemplate;
@@ -33,7 +33,7 @@ public class RedisChatRealtimePublisher implements ChatRealtimePublisher {
 	}
 
 	static String channelFor(Environment environment) {
-		return environment.acceptsProfiles(Profiles.of("production")) ? PRODUCTION_CHANNEL : LOCAL_MULTI_CHANNEL;
+		return environment.acceptsProfiles(Profiles.of("production")) ? PRODUCTION_CHANNEL : LOCAL_CHANNEL;
 	}
 
 	static String encode(MessageCommitted event) {

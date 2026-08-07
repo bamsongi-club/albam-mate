@@ -165,7 +165,8 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 고도화 이유 | 시간 경계를 지난 ROOM Entity 전체를 한 트랜잭션에서 처리해 대상 증가 시 메모리·트랜잭션 범위가 커지고, 한 ROOM의 실패가 전체 작업에 영향을 주며 실패 대상을 식별하기 어렵다. |
 | 상태·시간 규칙 | [P0 계약 상속](../P1-spec.md#p0-계약-상속), [RoomStatus](../API.md#roomstatus), [ROOMS](../ERD.md#rooms) |
 | 승인 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0036 제한 ID·ROOM별 독립 처리](../adr/room/0036-bounded-room-state-transition-processing.md), [ADR-0038 다중 인스턴스 스케줄 실행 조정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md) |
-| 현재 구현 기준선 | [`RoomRepository.findDueRooms`](../../src/main/java/cloud/bamsongi/albammate/room/repository/RoomRepository.java), [`RoomStatusCorrectionExecutor`](../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionExecutor.java) |
+| 현재 구현 기준선 | [`RoomRepository.findDueRooms`](../../src/main/java/cloud/bamsongi/albammate/room/repository/RoomRepository.java), [`RoomStatusCorrectionExecutor`](../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionExecutor.java), [ROOM-09c 현행 일괄 처리 기준선 측정](../measurements/room-09-bounded-processing-baseline.md) |
+| 제한 처리 구현 | [`RoomStatusCorrectionCandidateSelector`](../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionCandidateSelector.java)가 ROOM ID projection을 논리적 due 순서로 합치고, [`RoomStatusCorrectionCoordinator`](../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionCoordinator.java)가 ROOM별 Executor·cursor CAS를 조정한다. |
 | 연결 기능 | [PART-04 선착순 대기열과 자동 승격](#part-04-선착순-대기열과-자동-승격) |
 | 진행 상태 저장 | [`ROOM_STATUS_CORRECTION_PROGRESS`](../ERD.md#room_status_correction_progress) 단일 행 |
 | 착수 전 확정 | 없음 |
@@ -177,6 +178,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 - ROOM Scheduler 전용 잠금 이름은 `room-status-correction`이다. 병합된 [PR #366](https://github.com/bamsongi-club/albam-mate/pull/366)이 제공하고 [#289](https://github.com/bamsongi-club/albam-mate/issues/289)가 소유하는 공용 `global/scheduling` port와 PostgreSQL ShedLock adapter를 읽기 전용으로 사용하며, ROOM은 공용 `SHEDLOCK` 스키마·adapter를 수정하지 않는다.
 - `lockAtMostFor`와 실행시간 경고 기준은 서로 독립된 ROOM 전용 명시 입력이다. 둘 중 하나라도 없으면 기동에 실패하며, 잠금을 얻은 ROOM 실행이 경고 기준을 초과할 때만 ROOM 전용 WARN 관측 신호를 한 번 남긴다.
 - `ROOM_STATUS_CORRECTION_PROGRESS`는 `job_name = 'room-status-correction'`인 행 하나만 가진다. `turn_cutoff`, 마지막으로 시도한 선별 키인 `cursor_due_at`·`cursor_room_id`, 모든 진행 상태 변경의 CAS 값인 `progress_version`, 실행 주체 fencing 값인 `execution_generation`, `updated_at`을 저장한다. cursor 두 컬럼은 함께 `NULL`이거나 함께 값이 있어야 하고, 값이 있으면 `cursor_due_at <= turn_cutoff`여야 한다.
+- 제한 후보 수는 운영 기본값을 이슈에서 정하지 않는 nullable 명시 입력이다. [#390](https://github.com/bamsongi-club/albam-mate/issues/390)이 초기 운영값을 확정하기 전에는 테스트·측정에서만 주입하며, 스케줄러는 값이 없을 때 전체 Entity 조회로 대체하지 않고 실행을 건너뛴다.
 - 전진 Flyway 마이그레이션은 이 단일 행을 `turn_cutoff = NULL`, cursor 두 컬럼 `NULL`, `progress_version = 0`, `execution_generation = 0`으로 생성한다. 행이 없거나 둘 이상인 상태를 런타임에서 자동 복구하지 않고 설정 오류로 실패시킨다.
 - ShedLock을 얻은 Scheduler 실행은 후보를 읽기 전에 짧은 독립 트랜잭션에서 진행 행을 `FOR UPDATE`로 읽고 `execution_generation`과 `progress_version`을 각각 1 증가시켜 실행 세대를 점유한다. 최초 실행처럼 `turn_cutoff`이 `NULL`이면 이번 Scheduler의 고정 `requestTime`으로 초기화한다. cursor가 `NULL`인 완료된 순회를 새 실행이 이어받으면 `turn_cutoff`을 기존 값과 `requestTime` 중 뒤 시각으로 전진시킨다.
 - 후보 선별 뒤 cursor 전진과 wrap-around는 각각 별도의 짧은 독립 트랜잭션에서 `job_name`, 실행 세대와 기대 `progress_version`이 모두 일치할 때만 갱신하고 `progress_version`을 1 증가시킨다. 조건부 갱신이 0건이면 늦은 실행 주체로 판정해 이후 ROOM을 처리하지 않고 실행을 끝낸다.
@@ -217,8 +219,8 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 - `ROOM-09-AC7` 현재 구현과 제한 처리 후보별 후보 수, 성공·실패, 처리량, 실행시간과 데이터베이스 비용을 같은 조건에서 재현 가능하게 측정하고, 결과를 근거로 초기 운영값을 확정한다. 직접 DB 갱신 비교가 필요해 보이면 결과와 질문을 `DECISION_NEEDED`로 제시하고 승인 전에는 비교 구현에 착수하지 않는다.
 - `ROOM-09-AC8` 순회 시작 때 고정한 기준 시각과 각 선별 시점에 재계산한 `(논리적 처리 예정 시각, roomId)` 순서에서 cursor가 성공 여부와 무관하게 전진한다. cursor보다 큰 키의 신규 due ROOM이 계속 유입돼도 현재 순회가 유한하게 끝나고 cursor가 처음으로 회전하여, cursor 앞의 실패 ROOM을 포함한 다음 due ROOM에 다음 순회의 처리 기회가 돌아간다.
 - `ROOM-09-AC9` 영속 cursor와 순회 기준 시각의 저장·갱신·wrap-around와 장애 재선별·복구를 PostgreSQL 기반 통합 테스트로 검증한다. 연속 신규 due ROOM 유입, 인스턴스 재시작, ShedLock 실행 주체 변경, cursor·순회 경계 갱신과 ROOM 처리 사이의 장애 뒤에도 특정 due ROOM을 영구히 건너뛰거나 현재 순회를 무한히 연장하거나 같은 앞순번 반복으로 다른 ROOM을 무기한 지연시키지 않는다.
-- `ROOM-09-AC10` `local-multi`의 애플리케이션 두 대가 같은 스케줄을 등록해도 유효한 잠금 임대 동안에는 현재 ShedLock을 얻은 실행 주체만 새 ROOM 후보 선별을 시작한다. 잠금 미획득 인스턴스는 해당 실행을 건너뛰고, 잠금 보유 인스턴스 종료·임대 만료 뒤 다른 인스턴스가 영속 cursor와 순회 기준 시각을 이어서 처리한다. 임대가 이전 실행 종료보다 먼저 만료되는 중첩 경로는 `ROOM-09-AC11`로 검증한다.
-- `ROOM-09-AC11` `local-multi`에서 잠금 임대가 만료된 이전 실행 주체와 잠금을 새로 얻은 실행 주체가 같은 영속 진행 상태를 동시에 갱신해도, 신규 실행 주체가 진척을 확정한 뒤 도착한 이전 실행 주체의 cursor 전진과 wrap-around 순회 전환은 기대 progress version·실행 generation 불일치로 적용되지 않고 거절된다. 행 잠금을 선택한 구현도 잠금 획득 뒤 이 조건을 다시 확인하며 단순 직렬화만으로 테스트를 통과할 수 없다. 이 경쟁에서도 순회 기준 시각과 cursor가 역행하거나 갱신을 잃거나 조기에 wrap-around하지 않고, 중첩 실행이 해소된 뒤 현재 순회가 유한하게 끝나 모든 due ROOM에 처리 기회가 돌아간다.
+- `ROOM-09-AC10` `local`의 애플리케이션 두 대가 같은 스케줄을 등록해도 유효한 잠금 임대 동안에는 현재 ShedLock을 얻은 실행 주체만 새 ROOM 후보 선별을 시작한다. 잠금 미획득 인스턴스는 해당 실행을 건너뛰고, 잠금 보유 인스턴스 종료·임대 만료 뒤 다른 인스턴스가 영속 cursor와 순회 기준 시각을 이어서 처리한다. 임대가 이전 실행 종료보다 먼저 만료되는 중첩 경로는 `ROOM-09-AC11`로 검증한다.
+- `ROOM-09-AC11` `local`에서 잠금 임대가 만료된 이전 실행 주체와 잠금을 새로 얻은 실행 주체가 같은 영속 진행 상태를 동시에 갱신해도, 신규 실행 주체가 진척을 확정한 뒤 도착한 이전 실행 주체의 cursor 전진과 wrap-around 순회 전환은 기대 progress version·실행 generation 불일치로 적용되지 않고 거절된다. 행 잠금을 선택한 구현도 잠금 획득 뒤 이 조건을 다시 확인하며 단순 직렬화만으로 테스트를 통과할 수 없다. 이 경쟁에서도 순회 기준 시각과 cursor가 역행하거나 갱신을 잃거나 조기에 wrap-around하지 않고, 중첩 실행이 해소된 뒤 현재 순회가 유한하게 끝나 모든 due ROOM에 처리 기회가 돌아간다.
 
 ### 제외 범위
 

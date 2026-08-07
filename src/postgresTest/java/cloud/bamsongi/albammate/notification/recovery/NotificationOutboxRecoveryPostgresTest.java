@@ -67,9 +67,9 @@ class NotificationOutboxRecoveryPostgresTest {
 	}
 
 	@Test
-	void PostgreSQL_시각_창_안의_FAILED만_RETRY_WAIT로_원자적으로_복구한다() {
+	void PostgreSQL_시각으로_89일_미만의_FAILED만_RETRY_WAIT로_원자적으로_복구한다() {
 		Fixture fixture = createFixture();
-		long eventId = insertFailedEvent(fixture.roomId(), "1 day", "RELAY_PROCESSING_FAILURE");
+		long eventId = insertFailedEvent(fixture.roomId(), "88 days", "RELAY_PROCESSING_FAILURE");
 		insertRecipient(eventId, fixture.recipientUserId());
 
 		NotificationOutboxRecoveryResult result = recoveryService.execute(reprocess(List.of(eventId)));

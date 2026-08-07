@@ -38,7 +38,7 @@ class RoomStatusCorrectionCoordinatorTest {
 		RoomStatusCorrectionExecutor executor = mock(RoomStatusCorrectionExecutor.class);
 		RoomStatusCorrectionCoordinator coordinator = coordinator(executor);
 		OptimisticLockException conflict = new OptimisticLockException();
-		doThrow(conflict).doNothing().when(executor).correctRoom(ROOM_ID, REQUEST_TIME);
+		doThrow(conflict).doReturn(false).when(executor).correctRoom(ROOM_ID, REQUEST_TIME);
 
 		coordinator.correctRoom(ROOM_ID, REQUEST_TIME);
 
@@ -87,7 +87,7 @@ class RoomStatusCorrectionCoordinatorTest {
 		RoomStatusCorrectionCoordinator coordinator = coordinator(executor);
 		ObjectOptimisticLockingFailureException conflict = new ObjectOptimisticLockingFailureException(Room.class,
 			ROOM_ID);
-		doThrow(conflict).doNothing().when(executor).correctRoom(ROOM_ID, REQUEST_TIME);
+		doThrow(conflict).doReturn(false).when(executor).correctRoom(ROOM_ID, REQUEST_TIME);
 
 		coordinator.correctRoom(ROOM_ID, REQUEST_TIME);
 
@@ -220,6 +220,10 @@ class RoomStatusCorrectionCoordinatorTest {
 	}
 
 	private RoomStatusCorrectionCoordinator coordinator(RoomStatusCorrectionExecutor executor) {
-		return new RoomStatusCorrectionCoordinator(executor, new RoomOptimisticLockRetrier());
+		return new RoomStatusCorrectionCoordinator(
+			executor,
+			new RoomOptimisticLockRetrier(),
+			mock(RoomStatusCorrectionCandidateSelector.class),
+			mock(RoomStatusCorrectionProgressStore.class));
 	}
 }

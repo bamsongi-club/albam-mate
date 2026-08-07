@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
@@ -53,35 +55,67 @@ class SessionConfigurationTest {
 	}
 
 	@Test
-	void local_multi와_production은_Redis_세션만_선택하고_인메모리_fallback을_등록하지_않는다() {
+	void T2_local과_production은_Redis_세션만_선택하고_인메모리_fallback을_등록하지_않는다() {
 		Profile redisProfile = AnnotatedElementUtils.findMergedAnnotation(
 			RedisSessionConfiguration.class, Profile.class);
 		Profile inMemoryProfile = AnnotatedElementUtils.findMergedAnnotation(
 			SessionConfiguration.InMemorySessionRepositoryConfiguration.class,
 			Profile.class);
 		EnableRedisHttpSession localMultiSession = AnnotatedElementUtils.findMergedAnnotation(
-			nestedRedisConfiguration("LocalMultiSessionRepositoryConfiguration"),
+			nestedRedisConfiguration("LocalSessionRepositoryConfiguration"),
 			EnableRedisHttpSession.class);
 		EnableRedisHttpSession productionSession = AnnotatedElementUtils.findMergedAnnotation(
 			nestedRedisConfiguration("ProductionSessionRepositoryConfiguration"),
 			EnableRedisHttpSession.class);
-		assertEquals(List.of("local-multi", "production"), Arrays.asList(redisProfile.value()));
-		assertEquals("!local-multi & !production", inMemoryProfile.value()[0]);
-		assertEquals("albam-mate:local-multi:session", localMultiSession.redisNamespace());
+		assertEquals(List.of("local", "production"), Arrays.asList(redisProfile.value()));
+		assertEquals("!local & !production", inMemoryProfile.value()[0]);
+		assertEquals("albam-mate:local:session", localMultiSession.redisNamespace());
 		assertEquals("albam-mate:production:session", productionSession.redisNamespace());
 		assertEquals(Duration.ofMinutes(30).toSeconds(), localMultiSession.maxInactiveIntervalInSeconds());
 		assertEquals(Duration.ofMinutes(30).toSeconds(), productionSession.maxInactiveIntervalInSeconds());
 		assertTrue(AnnotatedElementUtils.hasAnnotation(
 			SessionConfiguration.InMemorySessionRepositoryConfiguration.class, EnableSpringHttpSession.class));
 		assertFalse(AnnotatedElementUtils.hasAnnotation(
-			nestedRedisConfiguration("LocalMultiSessionRepositoryConfiguration"), EnableSpringHttpSession.class));
+			nestedRedisConfiguration("LocalSessionRepositoryConfiguration"), EnableSpringHttpSession.class));
 		assertFalse(AnnotatedElementUtils.hasAnnotation(
 			nestedRedisConfiguration("ProductionSessionRepositoryConfiguration"), EnableSpringHttpSession.class));
 	}
 
 	@Test
+	void T1_local_Compose는_프록시_Spring_2대_PostgreSQL_Redis를_선언한다() throws Exception {
+		String compose = Files.readString(Path.of("compose.local.yml"));
+		String proxy = Files.readString(Path.of("frontend/nginx.local.conf"));
+
+		assertTrue(compose.contains("  redis:"));
+		assertTrue(compose.contains("  spring-1:"));
+		assertTrue(compose.contains("  spring-2:"));
+		assertTrue(compose.contains("  proxy:"));
+		assertTrue(compose.contains("127.0.0.1:"));
+		assertEquals(2, compose.lines().filter(line -> line.trim().equals("- spring")).count());
+		assertTrue(proxy.contains("resolver 127.0.0.11"));
+		assertTrue(proxy.contains("set $spring_upstream http://spring:8080"));
+	}
+
+	@Test
+	void T6_local_시드_콜백은_유지하고_legacy_local_multi_프로필은_제거한다() throws Exception {
+		String localProfile = Files.readString(Path.of("src/main/resources/application-local.yml"));
+
+		assertTrue(localProfile.contains("classpath:db/local"));
+		assertFalse(Files.exists(Path.of("src/main/resources/application-local-multi.yml")));
+	}
+
+	@Test
+	void T7_CI와_로컬_계약은_local_multi_실행_경로를_참조하지_않는다() throws Exception {
+		String ci = Files.readString(Path.of(".github/workflows/ci.yml"));
+
+		assertFalse(ci.contains("local-multi"));
+		assertFalse(Files.exists(Path.of("compose.local-multi.yml")));
+		assertFalse(Files.exists(Path.of("frontend/nginx.local-multi.conf")));
+	}
+
+	@Test
 	void Redis_연결은_프로필_외부_설정값을_사용한다() {
-		try (AnnotationConfigApplicationContext context = redisSessionContext("local-multi")) {
+		try (AnnotationConfigApplicationContext context = redisSessionContext("local")) {
 			LettuceConnectionFactory connectionFactory = context.getBean(LettuceConnectionFactory.class);
 
 			assertEquals("redis", connectionFactory.getHostName());
@@ -119,7 +153,7 @@ class SessionConfigurationTest {
 
 	@Test
 	void Redis_세션_JSON은_Security_인증과_현재_사용자_주체를_복원한다() {
-		try (AnnotationConfigApplicationContext context = redisSessionContext("local-multi")) {
+		try (AnnotationConfigApplicationContext context = redisSessionContext("local")) {
 			RedisSerializer<Object> serializer = context.getBean(
 				"springSessionDefaultRedisSerializer", RedisSerializer.class);
 			CurrentUserPrincipal principal = new CurrentUserPrincipal(42L);
