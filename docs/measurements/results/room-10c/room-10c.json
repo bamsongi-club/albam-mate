@@ -1,23 +1,23 @@
 {
   "reportName" : "room-10c",
   "environment" : {
-    "gitSha" : "05a57bc6baa565a09d152b13e8f8e236c8513daf",
+    "gitSha" : "2b6a101275f8cbd3298fd5157b5d93b08802d7c5",
     "javaVersion" : "21.0.11",
     "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
     "operatingSystem" : "Windows 11",
     "operatingSystemVersion" : "10.0",
     "cpuCount" : 24,
-    "startUsedHeapBytes" : 146931848,
+    "startUsedHeapBytes" : 147201712,
     "maxHeapBytes" : 536870912,
     "configuration" : {
-      "concurrencyLevel" : "2",
       "postgresImage" : "postgres:18.4",
-      "sharedPreloadLibraries" : "pg_stat_statements",
-      "fixtureSeed" : "ROOM-10C-20260807",
-      "fixedClock" : "2026-08-07T00:00:00Z",
-      "notificationRelayEnabled" : "false",
+      "concurrencyLevel" : "2",
+      "chatRetentionEnabled" : "false",
       "schedulingEnabled" : "false",
-      "chatRetentionEnabled" : "false"
+      "notificationRelayEnabled" : "false",
+      "fixedClock" : "2026-08-07T00:00:00Z",
+      "fixtureSeed" : "ROOM-10C-20260807",
+      "sharedPreloadLibraries" : "pg_stat_statements"
     }
   },
   "rounds" : [ {
@@ -34,15 +34,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 9882300, 5766700 ],
+    "requestDurationsNanos" : [ 20613800, 7948500 ],
     "postgresCost" : {
       "statementCalls" : 7,
-      "totalExecutionMillis" : 0.24969100000000002,
+      "totalExecutionMillis" : 0.21000100000000002,
       "rows" : 3,
       "sharedBlockHits" : 43,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-direct-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[9882300, 5766700] calls=7 totalExecMs=0.24969100000000002 rows=3 sharedBlksHit=43 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-direct-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[20613800, 7948500] calls=7 totalExecMs=0.21000100000000002 rows=3 sharedBlksHit=43 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-direct-correction-first",
     "concurrencyLevel" : 2,
@@ -57,15 +57,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 21801300, 14504500 ],
+    "requestDurationsNanos" : [ 19264700, 19413900 ],
     "postgresCost" : {
       "statementCalls" : 7,
-      "totalExecutionMillis" : 0.230064,
+      "totalExecutionMillis" : 0.176207,
       "rows" : 3,
       "sharedBlockHits" : 16,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-direct-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[21801300, 14504500] calls=7 totalExecMs=0.230064 rows=3 sharedBlksHit=16 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-direct-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[19264700, 19413900] calls=7 totalExecMs=0.176207 rows=3 sharedBlksHit=16 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-direct-correction-first",
     "concurrencyLevel" : 2,
@@ -80,15 +80,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 19614600, 8349800 ],
+    "requestDurationsNanos" : [ 18379600, 9424500 ],
     "postgresCost" : {
       "statementCalls" : 7,
-      "totalExecutionMillis" : 0.186956,
+      "totalExecutionMillis" : 0.19929,
       "rows" : 3,
       "sharedBlockHits" : 16,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-direct-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[19614600, 8349800] calls=7 totalExecMs=0.186956 rows=3 sharedBlksHit=16 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-direct-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[18379600, 9424500] calls=7 totalExecMs=0.19929 rows=3 sharedBlksHit=16 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-direct-mutation-first",
     "concurrencyLevel" : 2,
@@ -103,15 +103,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 14563200, 10424600 ],
+    "requestDurationsNanos" : [ 16826900, 13240700 ],
     "postgresCost" : {
       "statementCalls" : 7,
-      "totalExecutionMillis" : 0.15266800000000003,
+      "totalExecutionMillis" : 0.16171399999999997,
       "rows" : 3,
       "sharedBlockHits" : 16,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-direct-mutation-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[14563200, 10424600] calls=7 totalExecMs=0.15266800000000003 rows=3 sharedBlksHit=16 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-direct-mutation-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[16826900, 13240700] calls=7 totalExecMs=0.16171399999999997 rows=3 sharedBlksHit=16 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-direct-mutation-first",
     "concurrencyLevel" : 2,
@@ -126,15 +126,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 18959900, 6501400 ],
+    "requestDurationsNanos" : [ 21543000, 8132600 ],
     "postgresCost" : {
       "statementCalls" : 7,
-      "totalExecutionMillis" : 0.31041799999999997,
+      "totalExecutionMillis" : 0.168205,
       "rows" : 3,
       "sharedBlockHits" : 16,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-direct-mutation-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[18959900, 6501400] calls=7 totalExecMs=0.31041799999999997 rows=3 sharedBlksHit=16 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-direct-mutation-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[21543000, 8132600] calls=7 totalExecMs=0.168205 rows=3 sharedBlksHit=16 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-direct-mutation-first",
     "concurrencyLevel" : 2,
@@ -149,15 +149,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 18698700, 5816200 ],
+    "requestDurationsNanos" : [ 21761400, 5383300 ],
     "postgresCost" : {
       "statementCalls" : 7,
-      "totalExecutionMillis" : 0.21753899999999998,
+      "totalExecutionMillis" : 0.22927699999999998,
       "rows" : 3,
       "sharedBlockHits" : 16,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-direct-mutation-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[18698700, 5816200] calls=7 totalExecMs=0.21753899999999998 rows=3 sharedBlksHit=16 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-direct-mutation-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[21761400, 5383300] calls=7 totalExecMs=0.22927699999999998 rows=3 sharedBlksHit=16 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-waitlist-correction-first",
     "concurrencyLevel" : 2,
@@ -172,15 +172,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 6411900, 19093600 ],
+    "requestDurationsNanos" : [ 11267100, 18384000 ],
     "postgresCost" : {
       "statementCalls" : 8,
-      "totalExecutionMillis" : 0.19601,
+      "totalExecutionMillis" : 0.31625,
       "rows" : 5,
       "sharedBlockHits" : 32,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[6411900, 19093600] calls=8 totalExecMs=0.19601 rows=5 sharedBlksHit=32 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[11267100, 18384000] calls=8 totalExecMs=0.31625 rows=5 sharedBlksHit=32 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-waitlist-correction-first",
     "concurrencyLevel" : 2,
@@ -195,15 +195,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 9371600, 14834700 ],
+    "requestDurationsNanos" : [ 16972400, 12634500 ],
     "postgresCost" : {
       "statementCalls" : 7,
-      "totalExecutionMillis" : 0.194336,
+      "totalExecutionMillis" : 0.14852700000000002,
       "rows" : 3,
       "sharedBlockHits" : 13,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[9371600, 14834700] calls=7 totalExecMs=0.194336 rows=3 sharedBlksHit=13 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[16972400, 12634500] calls=7 totalExecMs=0.14852700000000002 rows=3 sharedBlksHit=13 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-waitlist-correction-first",
     "concurrencyLevel" : 2,
@@ -218,15 +218,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 5126000, 9837400 ],
+    "requestDurationsNanos" : [ 9812300, 17472300 ],
     "postgresCost" : {
       "statementCalls" : 7,
-      "totalExecutionMillis" : 0.134429,
+      "totalExecutionMillis" : 0.227743,
       "rows" : 3,
       "sharedBlockHits" : 13,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[5126000, 9837400] calls=7 totalExecMs=0.134429 rows=3 sharedBlksHit=13 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[9812300, 17472300] calls=7 totalExecMs=0.227743 rows=3 sharedBlksHit=13 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-waitlist-mutation-first",
     "concurrencyLevel" : 2,
@@ -241,15 +241,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 11434500, 16548900 ],
+    "requestDurationsNanos" : [ 15725900, 12026300 ],
     "postgresCost" : {
       "statementCalls" : 7,
-      "totalExecutionMillis" : 0.30074,
+      "totalExecutionMillis" : 0.193971,
       "rows" : 3,
       "sharedBlockHits" : 13,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-mutation-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[11434500, 16548900] calls=7 totalExecMs=0.30074 rows=3 sharedBlksHit=13 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-mutation-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[15725900, 12026300] calls=7 totalExecMs=0.193971 rows=3 sharedBlksHit=13 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-waitlist-mutation-first",
     "concurrencyLevel" : 2,
@@ -264,15 +264,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 8884700, 7238800 ],
+    "requestDurationsNanos" : [ 12799100, 17289100 ],
     "postgresCost" : {
       "statementCalls" : 7,
-      "totalExecutionMillis" : 0.156798,
+      "totalExecutionMillis" : 0.25126399999999993,
       "rows" : 3,
       "sharedBlockHits" : 13,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-mutation-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8884700, 7238800] calls=7 totalExecMs=0.156798 rows=3 sharedBlksHit=13 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-mutation-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[12799100, 17289100] calls=7 totalExecMs=0.25126399999999993 rows=3 sharedBlksHit=13 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-waitlist-mutation-first",
     "concurrencyLevel" : 2,
@@ -287,15 +287,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 6565800, 5833200 ],
+    "requestDurationsNanos" : [ 17374200, 15249200 ],
     "postgresCost" : {
       "statementCalls" : 7,
-      "totalExecutionMillis" : 0.158292,
+      "totalExecutionMillis" : 0.163828,
       "rows" : 3,
       "sharedBlockHits" : 13,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-mutation-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[6565800, 5833200] calls=7 totalExecMs=0.158292 rows=3 sharedBlksHit=13 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-mutation-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[17374200, 15249200] calls=7 totalExecMs=0.163828 rows=3 sharedBlksHit=13 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-cancel-promote-correction-first",
     "concurrencyLevel" : 2,
@@ -310,15 +310,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 7224900, 5301200 ],
+    "requestDurationsNanos" : [ 10269700, 15368400 ],
     "postgresCost" : {
       "statementCalls" : 6,
-      "totalExecutionMillis" : 0.13282899999999997,
+      "totalExecutionMillis" : 0.24641200000000002,
       "rows" : 4,
       "sharedBlockHits" : 13,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-cancel-promote-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[7224900, 5301200] calls=6 totalExecMs=0.13282899999999997 rows=4 sharedBlksHit=13 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-cancel-promote-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[10269700, 15368400] calls=6 totalExecMs=0.24641200000000002 rows=4 sharedBlksHit=13 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-cancel-promote-correction-first",
     "concurrencyLevel" : 2,
@@ -333,15 +333,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 8603500, 10626600 ],
+    "requestDurationsNanos" : [ 8560600, 11481600 ],
     "postgresCost" : {
       "statementCalls" : 6,
-      "totalExecutionMillis" : 0.182731,
+      "totalExecutionMillis" : 0.136709,
       "rows" : 4,
       "sharedBlockHits" : 13,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-cancel-promote-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8603500, 10626600] calls=6 totalExecMs=0.182731 rows=4 sharedBlksHit=13 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-cancel-promote-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8560600, 11481600] calls=6 totalExecMs=0.136709 rows=4 sharedBlksHit=13 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-cancel-promote-correction-first",
     "concurrencyLevel" : 2,
@@ -356,15 +356,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 8866100, 13096400 ],
+    "requestDurationsNanos" : [ 8560100, 11480600 ],
     "postgresCost" : {
       "statementCalls" : 6,
-      "totalExecutionMillis" : 0.14663199999999998,
+      "totalExecutionMillis" : 0.205235,
       "rows" : 4,
       "sharedBlockHits" : 13,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-cancel-promote-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8866100, 13096400] calls=6 totalExecMs=0.14663199999999998 rows=4 sharedBlksHit=13 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-cancel-promote-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8560100, 11480600] calls=6 totalExecMs=0.205235 rows=4 sharedBlksHit=13 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-cancel-promote-mutation-first",
     "concurrencyLevel" : 2,
@@ -379,15 +379,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 13217500, 11765600 ],
+    "requestDurationsNanos" : [ 9759500, 5535700 ],
     "postgresCost" : {
       "statementCalls" : 6,
-      "totalExecutionMillis" : 0.23308800000000002,
+      "totalExecutionMillis" : 0.153542,
       "rows" : 4,
       "sharedBlockHits" : 13,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-cancel-promote-mutation-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[13217500, 11765600] calls=6 totalExecMs=0.23308800000000002 rows=4 sharedBlksHit=13 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-cancel-promote-mutation-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[9759500, 5535700] calls=6 totalExecMs=0.153542 rows=4 sharedBlksHit=13 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-cancel-promote-mutation-first",
     "concurrencyLevel" : 2,
@@ -402,15 +402,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 6127100, 4674500 ],
+    "requestDurationsNanos" : [ 17133400, 15137900 ],
     "postgresCost" : {
       "statementCalls" : 6,
-      "totalExecutionMillis" : 0.134845,
+      "totalExecutionMillis" : 0.24568,
       "rows" : 4,
       "sharedBlockHits" : 13,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-cancel-promote-mutation-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[6127100, 4674500] calls=6 totalExecMs=0.134845 rows=4 sharedBlksHit=13 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-cancel-promote-mutation-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[17133400, 15137900] calls=6 totalExecMs=0.24568 rows=4 sharedBlksHit=13 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-cancel-promote-mutation-first",
     "concurrencyLevel" : 2,
@@ -425,15 +425,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 6645800, 5425700 ],
+    "requestDurationsNanos" : [ 16856700, 7942900 ],
     "postgresCost" : {
       "statementCalls" : 6,
-      "totalExecutionMillis" : 0.136971,
+      "totalExecutionMillis" : 0.295908,
       "rows" : 4,
       "sharedBlockHits" : 13,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-cancel-promote-mutation-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[6645800, 5425700] calls=6 totalExecMs=0.136971 rows=4 sharedBlksHit=13 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-cancel-promote-mutation-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[16856700, 7942900] calls=6 totalExecMs=0.295908 rows=4 sharedBlksHit=13 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-waitlist-cancel-correction-first",
     "concurrencyLevel" : 2,
@@ -448,15 +448,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 6930300, 8318900 ],
+    "requestDurationsNanos" : [ 9565400, 11845700 ],
     "postgresCost" : {
       "statementCalls" : 6,
-      "totalExecutionMillis" : 0.17337200000000003,
+      "totalExecutionMillis" : 0.165698,
       "rows" : 4,
       "sharedBlockHits" : 19,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-cancel-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[6930300, 8318900] calls=6 totalExecMs=0.17337200000000003 rows=4 sharedBlksHit=19 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-cancel-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[9565400, 11845700] calls=6 totalExecMs=0.165698 rows=4 sharedBlksHit=19 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-waitlist-cancel-correction-first",
     "concurrencyLevel" : 2,
@@ -471,15 +471,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 8398700, 12077200 ],
+    "requestDurationsNanos" : [ 9656000, 13503500 ],
     "postgresCost" : {
       "statementCalls" : 6,
-      "totalExecutionMillis" : 0.190759,
+      "totalExecutionMillis" : 0.176682,
       "rows" : 4,
       "sharedBlockHits" : 19,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-cancel-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8398700, 12077200] calls=6 totalExecMs=0.190759 rows=4 sharedBlksHit=19 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-cancel-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[9656000, 13503500] calls=6 totalExecMs=0.176682 rows=4 sharedBlksHit=19 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-waitlist-cancel-correction-first",
     "concurrencyLevel" : 2,
@@ -494,15 +494,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 7158000, 5706300 ],
+    "requestDurationsNanos" : [ 8837700, 14877700 ],
     "postgresCost" : {
       "statementCalls" : 6,
-      "totalExecutionMillis" : 0.211949,
+      "totalExecutionMillis" : 0.265378,
       "rows" : 4,
       "sharedBlockHits" : 19,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-cancel-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[7158000, 5706300] calls=6 totalExecMs=0.211949 rows=4 sharedBlksHit=19 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-cancel-correction-first concurrencyLevel=2 requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8837700, 14877700] calls=6 totalExecMs=0.265378 rows=4 sharedBlksHit=19 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-waitlist-cancel-mutation-first",
     "concurrencyLevel" : 2,
@@ -517,15 +517,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 8050700, 9082000 ],
+    "requestDurationsNanos" : [ 16146700, 9154400 ],
     "postgresCost" : {
       "statementCalls" : 6,
-      "totalExecutionMillis" : 0.20738299999999998,
+      "totalExecutionMillis" : 0.306295,
       "rows" : 4,
       "sharedBlockHits" : 19,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-cancel-mutation-first concurrencyLevel=2 requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8050700, 9082000] calls=6 totalExecMs=0.20738299999999998 rows=4 sharedBlksHit=19 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-cancel-mutation-first concurrencyLevel=2 requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[16146700, 9154400] calls=6 totalExecMs=0.306295 rows=4 sharedBlksHit=19 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-waitlist-cancel-mutation-first",
     "concurrencyLevel" : 2,
@@ -540,15 +540,15 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 7382700, 6762400 ],
+    "requestDurationsNanos" : [ 10020900, 16783800 ],
     "postgresCost" : {
       "statementCalls" : 6,
-      "totalExecutionMillis" : 0.210856,
+      "totalExecutionMillis" : 0.335577,
       "rows" : 4,
       "sharedBlockHits" : 19,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-cancel-mutation-first concurrencyLevel=2 requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[7382700, 6762400] calls=6 totalExecMs=0.210856 rows=4 sharedBlksHit=19 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-cancel-mutation-first concurrencyLevel=2 requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[10020900, 16783800] calls=6 totalExecMs=0.335577 rows=4 sharedBlksHit=19 sharedBlksRead=0"
   }, {
     "scenario" : "start-boundary-waitlist-cancel-mutation-first",
     "concurrencyLevel" : 2,
@@ -563,14 +563,14 @@
     "retry1Count" : 0,
     "retry2Count" : 0,
     "exhaustedCount" : 0,
-    "requestDurationsNanos" : [ 8085300, 7044300 ],
+    "requestDurationsNanos" : [ 16500300, 11547300 ],
     "postgresCost" : {
       "statementCalls" : 6,
-      "totalExecutionMillis" : 0.208498,
+      "totalExecutionMillis" : 0.290124,
       "rows" : 4,
       "sharedBlockHits" : 19,
       "sharedBlockReads" : 0
     },
-    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-cancel-mutation-first concurrencyLevel=2 requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8085300, 7044300] calls=6 totalExecMs=0.208498 rows=4 sharedBlksHit=19 sharedBlksRead=0"
+    "rawRecord" : "ROOM10A_RAW scenario=start-boundary-waitlist-cancel-mutation-first concurrencyLevel=2 requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 conflictRate=0.0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[16500300, 11547300] calls=6 totalExecMs=0.290124 rows=4 sharedBlksHit=19 sharedBlksRead=0"
   } ]
 }
