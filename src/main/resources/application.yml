@@ -29,11 +29,11 @@ app:
       trigger-delay: 15m
       trigger-jitter: 3m
       # 아래 세 값은 ROOM-09d 후보 측정으로 확정했다. 근거는 docs/measurements/room-09-bounded-processing-baseline.md에 있다.
-      # candidate-limit: 대형에서 1000이 3.9% 빨랐으나 같은 규모 안의 편차가 그 폭이라 성능 근거로 삼지 않았다.
+      # candidate-limit: 제한 ID 값은 규모별 우열을 뒤집지 못해 성능 근거로 삼지 않았다.
       # 한 번에 여는 처리 범위가 작아 실패 ROOM의 재처리 폭이 좁은 100을 택한다.
       candidate-limit: 100
-      # execution-warning-threshold: 측정된 정상 전체 실행 최댓값은 대형 125.6초다. 여기에 여유를 더한다.
-      execution-warning-threshold: 150s
+      # execution-warning-threshold: 이 측정에서 관찰한 후보 최대 실행시간은 대형 151.8초다. 여기에 여유를 더한다.
+      execution-warning-threshold: 180s
       # lock-at-most-for: 경고 기준과 고정 비율로 묶지 않는다. 잠금 보유 인스턴스가 죽었을 때 다른 인스턴스가
       # 이어받기까지 감수할 복구 지연으로 정하며, trigger-delay 15m 한 주기 안에 든다.
       lock-at-most-for: 10m

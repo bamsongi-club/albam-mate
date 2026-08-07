@@ -170,7 +170,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 연결 기능 | [PART-04 선착순 대기열과 자동 승격](#part-04-선착순-대기열과-자동-승격) |
 | 진행 상태 저장 | [`ROOM_STATUS_CORRECTION_PROGRESS`](../ERD.md#room_status_correction_progress) 단일 행 |
 | 착수 전 확정 | 없음 |
-| 구현·측정 후 확정 | 확정됨. [ROOM-09d 후보 측정](../measurements/room-09-bounded-processing-baseline.md)으로 한 번당 ID 수 `100`, 실행시간 경고 `150s`, `lockAtMostFor` `10m`을 확정했다. 실행 주기는 기존 `15m`(jitter `3m`)을 유지하고, 반복·재시도는 측정이 조정 근거를 만들지 않아 기존 구조를 그대로 둔다. |
+| 구현·측정 후 확정 | 확정됨. [ROOM-09d 후보 측정](../measurements/room-09-bounded-processing-baseline.md)으로 한 번당 ID 수 `100`, 실행시간 경고 `180s`, `lockAtMostFor` `10m`을 확정했다. 실행 주기는 기존 `15m`(jitter `3m`)을 유지하고, 반복·재시도는 측정이 조정 근거를 만들지 않아 기존 구조를 그대로 둔다. |
 | 측정 후 사용자 결정 | 실패 backoff·격리 비교와 제한 범위의 조건부 DB 직접 갱신 비교 여부. 기준선 결과를 `DECISION_NEEDED`로 제시하고 승인 전에는 비교 구현에 착수하지 않음 |
 
 ### 실행·진행 상태 계약
