@@ -105,12 +105,10 @@ export function buildMetadataArtifact({ games, rankRows, dictionary }) {
   for (const game of games) {
 	minAges.push({ bggId: game.bggId, minAge: game.minAge ?? null });
     for (const theme of game.themes) { const mapped = byId.get(theme.bggThemeId); if (!mapped || mapped.nameEn !== theme.nameEn) { errors.push(`theme mismatch: ${theme.bggThemeId}`); continue; } themes.set(theme.bggThemeId, mapped); const key=`${game.bggId}:${theme.bggThemeId}`; if (seenRelations.has(key)) errors.push(`duplicate theme relation: ${key}`); seenRelations.add(key); themeRelations.push({ bggId: game.bggId, bggThemeId: theme.bggThemeId }); }
-    if (Number.isInteger(game.maxPlayers)) {
-      if (game.maxPlayers < 1) {
-        errors.push(`invalid maxPlayers: ${game.maxPlayers}`);
-      } else {
-        try { preferences.push(...playerPreferences(game.polls, game.maxPlayers).map(value => ({ bggId: game.bggId, ...value }))); } catch (error) { errors.push(error.message); }
-      }
+    if (Number.isInteger(game.maxPlayers) && game.maxPlayers >= 1) {
+      try { preferences.push(...playerPreferences(game.polls, game.maxPlayers).map(value => ({ bggId: game.bggId, ...value }))); } catch (error) { errors.push(error.message); }
+    } else if (game.polls?.length) {
+      errors.push(`invalid maxPlayers: ${game.maxPlayers}`);
     }
   }
   const rankedThemes = [...themes.entries()].sort(([left], [right]) => left - right).map(([id, theme]) => ({ ...theme, bggThemeId: id, code: stableThemeCode(theme.nameEn, id) }));

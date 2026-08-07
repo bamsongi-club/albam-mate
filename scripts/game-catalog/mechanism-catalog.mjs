@@ -45,6 +45,10 @@ export function extractMechanismCatalog(games, manifest) {
 				errors.push({ code: "INVALID_MECHANISM", message: "BGG 메커니즘 한글 설명이 필요합니다." });
 				continue;
 			}
+			if (mechanism.description_ko.length > 300) {
+				errors.push({ code: "INVALID_MECHANISM", message: "BGG 메커니즘 한글 설명은 300자를 넘을 수 없습니다." });
+				continue;
+			}
 			const override = FEATURED_OVERRIDES.get(bggMechanismId);
 			const row = {
 				bgg_mechanism_id: Number(bggMechanismId),

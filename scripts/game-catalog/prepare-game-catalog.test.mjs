@@ -1398,6 +1398,30 @@ test("메커니즘 한글 설명이 누락되거나 공백이면 서비스 카�
 	}
 });
 
+test("메커니즘 한글 설명이 300자를 넘으면 서비스 카탈로그와 운영 UPSERT를 만들지 않고, 300자는 허용한다", () => {
+	const withinLimit = game(1, "10", "첫 번째 게임", "First Game");
+	withinLimit.mechanisms = [{ bgg_id: "2040", name: "Hand Management", name_ko: "핸드 관리", description_ko: "가".repeat(300) }];
+	withCase([withinLimit], ({ games, ranks, manifest, out }) => {
+		writeManifest(manifest, games, ranks, []);
+		writeMechanismManifest(manifest, 1, 1, { 2040: "HAND_MANAGEMENT" });
+		const result = runCli(games, ranks, out, manifest);
+		assert.equal(result.status, 0, result.stderr);
+		const catalog = readJson(join(out, "service-mechanism-catalog.json"));
+		assert.equal(catalog[0].description_ko.length, 300);
+	});
+
+	const overLimit = game(2, "20", "두 번째 게임", "Second Game");
+	overLimit.mechanisms = [{ bgg_id: "2072", name: "Dice Rolling", name_ko: "주사위 굴림", description_ko: "가".repeat(301) }];
+	withCase([overLimit], ({ games, ranks, manifest, out }) => {
+		writeManifest(manifest, games, ranks, []);
+		writeMechanismManifest(manifest, 1, 1, { 2072: "DICE_ROLLING" });
+		const result = runCli(games, ranks, out, manifest);
+		assert.equal(result.status, 1);
+		assert.throws(() => readFileSync(join(out, "service-mechanism-catalog.json")));
+		assert.throws(() => readFileSync(join(out, "upsert-game-mechanisms.sql")));
+	});
+});
+
 test("메커니즘 승인 건수가 입력과 다르면 적재 산출물을 차단한다", () => {
 	const row = game(1, "10", "첫 번째 게임", "First Game");
 	row.mechanisms = [{ bgg_id: "2040", name: "Hand Management", name_ko: "핸드 관리" }];
