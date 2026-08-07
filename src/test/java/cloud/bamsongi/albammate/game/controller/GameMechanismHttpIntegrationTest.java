@@ -188,6 +188,7 @@ class GameMechanismHttpIntegrationTest {
 				code,
 				nameKo,
 				nameEn,
+				isPublic ? nameKo + " 방식을 활용해요." : null,
 				featuredOrder,
 				isPublic,
 				"Issue #351",
