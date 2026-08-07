@@ -116,10 +116,13 @@ class GameMetadataCatalogImportPostgresTest {
 		write(dictionary, "{\"entries\":[{\"bggThemeId\":10,\"nameEn\":\"Fantasy\",\"nameKo\":\"판타지\"}]}");
 		Path manifest = temp.resolve("metadata-input-manifest.json");
 		write(manifest,
-			"{\"schemaVersion\":1,\"approved\":true,\"testOnly\":true,\"games\":{\"path\":\"" + games
-				+ "\",\"sha256\":\"" + sha(games) + "\",\"rows\":2},\"ranks\":{\"path\":\"" + ranks + "\",\"sha256\":\""
-				+ sha(ranks) + "\"},\"xmlSnapshot\":{\"rawDirectory\":\"" + raw + "\",\"manifestPath\":\"" + xmlManifest
-				+ "\",\"manifestSha256\":\"" + sha(xmlManifest) + "\"},\"themeDictionary\":{\"path\":\"" + dictionary
+			"{\"schemaVersion\":1,\"approved\":true,\"testOnly\":true,\"games\":{\"path\":\"" + jsonPath(games)
+				+ "\",\"sha256\":\"" + sha(games) + "\",\"rows\":2},\"ranks\":{\"path\":\"" + jsonPath(ranks)
+				+ "\",\"sha256\":\""
+				+ sha(ranks) + "\"},\"xmlSnapshot\":{\"rawDirectory\":\"" + jsonPath(raw) + "\",\"manifestPath\":\""
+				+ jsonPath(xmlManifest)
+				+ "\",\"manifestSha256\":\"" + sha(xmlManifest) + "\"},\"themeDictionary\":{\"path\":\""
+				+ jsonPath(dictionary)
 				+ "\",\"sha256\":\"" + sha(dictionary)
 				+ "\"},\"reviewedBy\":\"test\",\"reviewedAt\":\"2026-08-05T00:00:00Z\"}");
 		Path out = temp.resolve("out");
@@ -212,5 +215,9 @@ class GameMetadataCatalogImportPostgresTest {
 
 	private String sha(Path path) throws Exception {
 		return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)));
+	}
+
+	private String jsonPath(Path path) {
+		return path.toString().replace('\\', '/');
 	}
 }
