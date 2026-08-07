@@ -137,7 +137,77 @@ App1 Elastic IP는 외부 DNS가 가리킬 안정적인 진입 주소다. 실제
 
 web의 Nginx는 `ssl_certificate`와 `ssl_certificate_key` 파일이 없으면 기동하지 못한다. 따라서 기존 "App1 기동 후 TLS 연결" 순서가 아니라 **임시 또는 유효 인증서를 App1에 배치한 뒤 web을 기동한다**. 임시 인증서는 SSM 포트 포워딩 클라이언트에서만 신뢰하면 되고 공개 신뢰 체인을 요구하지 않는다.
 
-외부 DNS A record, 공인 인증서, HTTP 80 리스너와 80→443 전환은 후속 범위로 유지한다.
+외부 DNS A record, 공인 인증서, HTTP 80 리스너와 80→443 전환은 후속 범위로 유지한다. 따라서 이 최초 배포 상태에서는 직접 HTTPS 부하를 실행하지 않으며, 측정이 필요할 때만 아래 전환 절차를 수행한다.
+
+### 직접 부하 전환과 원복
+
+최초 배포의 `public_ingress_cidrs=[]`, `enable_https=false`, `ALBAM_MATE_HTTPS_BIND_ADDRESS=127.0.0.1` 조합은 SSM 기능 스모크 전용이다. 이 상태에서는 외부 부하 발생기가 App1의 443에 연결할 수 없고, SSM 포워딩용 Origin을 그대로 사용하면 직접 WebSocket handshake도 거절된다. 따라서 `public_ingress_cidrs`만 변경해서는 측정 상태가 되지 않는다.
+
+#### 측정 경로로 전환
+
+측정 전환은 부하 발생기에서 App1의 외부 HTTPS endpoint로 직접 접속할 때만 수행한다.
+
+1. 부하 발생기의 고정 source CIDR을 먼저 정한다. `0.0.0.0/0`은 사용하지 않으며, `DIRECT_HOST`는 실제 HTTPS URL의 hostname이면서 배치한 인증서의 SAN에 포함된 값으로 고정한다.
+2. Terraform 입력과 App1·App2에 전달하는 `/etc/albam-mate/production.env`를 다음처럼 바꾼다. `ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN`에는 SSM용 `https://127.0.0.1:<포워딩 포트>`가 아니라 직접 접속 URL의 정확한 Origin을 넣는다. 기본 HTTPS 포트 443이면 포트를 생략하고, 비표준 포트면 포트까지 포함한다.
+
+   ```hcl
+   # Terraform 입력
+   public_ingress_cidrs = ["<load-generator-cidr>"]
+   enable_https        = true
+   ```
+
+   ```dotenv
+   # /etc/albam-mate/production.env
+   ALBAM_MATE_HTTPS_BIND_ADDRESS=0.0.0.0
+   ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN=https://<direct-host>
+   ```
+
+3. Terraform을 적용한 뒤 App1 보안 그룹의 TCP 443이 `<load-generator-cidr>`에서만 허용되는지 확인한다. App2·PostgreSQL·Redis에는 공개 인바운드를 추가하지 않는다.
+4. `<direct-host>`로 검증 가능한 인증서를 App1의 `ALBAM_MATE_TLS_PATH`에 배치한다. 임시 인증서를 사용할 때는 부하 발생기가 해당 발급자 체인을 신뢰하도록 준비해야 하며, `-k`로 인증서 검증을 우회한 결과는 HTTPS 운영 부하 증거로 기록하지 않는다.
+5. bind address와 Origin은 컨테이너 시작 시 읽으므로 설정 파일만 바꾸지 말고 web·spring을 반드시 재생성한다.
+
+   ```sh
+   docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml config --quiet
+   docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml up -d --force-recreate --wait
+   docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml ps
+   docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml logs --tail 200 web spring
+   ```
+
+6. 부하 발생기에서 먼저 연결을 확인한다. HTTP는 `https://<direct-host>/`에 인증서 검증을 포함해 성공해야 하며, WebSocket은 기존 로그인 `JSESSIONID`와 같은 방의 권한을 사용해 다음 endpoint에 `Origin: https://<direct-host>`로 접속하고 `101 Switching Protocols`를 확인한다.
+
+   ```text
+   wss://<direct-host>/api/rooms/<roomId>/chat/ws
+   ```
+
+   App1 Nginx access log에 해당 요청과 WebSocket `101`이 남고, `/api/` HTTP 응답의 `X-Albam-Mate-Upstream` 또는 upstream 로그로 App1·App2 분산을 확인한 뒤에만 부하를 시작한다. 이 접속 확인과 부하 모두 SSM 포워딩이 아닌 동일한 직접 경로에서 수행한다.
+7. 측정 시작 시각, release SHA·이미지 digest, Terraform commit, 허용 CIDR, `DIRECT_HOST`, 두 Origin 값과 전환·원복 시각을 함께 기록한다.
+
+#### 측정 후 원복
+
+측정이 끝나면 외부 경로를 먼저 닫고, 컨테이너 설정도 최초 배포 상태로 되돌린다.
+
+1. 부하 발생기를 중지하고 로그·지표·결과를 보존한다.
+2. Terraform 입력과 `/etc/albam-mate/production.env`를 다음 값으로 되돌린다.
+
+   ```hcl
+   public_ingress_cidrs = []
+   enable_https        = false
+   ```
+
+   ```dotenv
+   ALBAM_MATE_HTTPS_BIND_ADDRESS=127.0.0.1
+   ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN=https://<ssm-local-host>:<ssm-local-port>
+   ```
+
+   SSM 클라이언트가 실제로 사용하는 host·포트와 Origin을 일치시키며, SSM WebSocket 스모크를 사용하지 않으면 Origin을 비워 모든 handshake를 거절하는 기본 보안 상태로 둘 수 있다.
+3. Terraform을 적용해 App1 TCP 443의 직접 허용 규칙을 제거한 뒤, 다음 명령으로 web·spring을 다시 재생성한다.
+
+   ```sh
+   docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml config --quiet
+   docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml up -d --force-recreate --wait
+   ```
+
+4. 부하 발생기의 직접 HTTPS 접속이 더 이상 성공하지 않고, SSM 포트 포워딩을 통한 기능 스모크만 성공하는지 확인한다. 직접 443이 닫히고 SSM 경로가 복구된 뒤에야 원복 완료로 기록한다.
 
 ### 1. web 컨테이너 기동 계약
 
@@ -299,7 +369,9 @@ flowchart LR
     APP2 --> CERT["App1 인증서 배치"]
     CERT --> APP1["App1 Spring·Nginx 배포"]
     APP1 --> VERIFY["SSM 포워딩으로<br/>기능 스모크·교차 인스턴스 확인"]
-    APP1 --> LOAD["제한된 직접 경로로<br/>부하 측정"]
+    APP1 --> TRANSITION["직접 HTTPS 전환<br/>CIDR·Origin·컨테이너 재생성"]
+    TRANSITION --> LOAD["접속 확인 후<br/>직접 HTTP·WebSocket 부하"]
+    LOAD --> ROLLBACK["측정 후<br/>보안 그룹·Compose 원복"]
 ```
 
 1. 기준 commit의 테스트와 문서 검사를 통과시킨다.
@@ -310,13 +382,14 @@ flowchart LR
 6. 노드별 환경변수 파일을 SSM으로 전달하고 PostgreSQL·Redis를 `--wait`으로 배포해 private DNS 연결을 확인한다.
 7. App2 Spring을 먼저 배포해 host 8080 상태를 App1에서 확인한다.
 8. App1에 임시 또는 유효 인증서를 배치한 뒤 App1 Spring과 Nginx를 배포하고, pull된 digest와 App1·App2 upstream 응답을 각각 확인한다.
-9. SSM 포트 포워딩으로 HTTPS에 접근해 기능 스모크와 HTTP·WebSocket 교차 인스턴스 시나리오를 실행한다. 부하 측정은 SSM을 거치지 않는 제한된 직접 경로를 별도로 연 뒤에만 수행하며, 외부 DNS와 공인 인증서 연결은 후속 범위다.
+9. SSM 포트 포워딩으로 HTTPS에 접근해 기능 스모크와 HTTP·WebSocket 교차 인스턴스 시나리오를 실행한다.
+10. 부하 측정이 필요하면 [직접 부하 전환과 원복](#직접-부하-전환과-원복) 절차에 따라 `enable_https=true`, 외부 수신 bind address, 직접 HTTPS Origin, 제한 CIDR을 적용하고 컨테이너를 재생성한다. 직접 HTTP와 WebSocket 접속 확인 뒤에만 측정하고, 종료 후 같은 절차의 원복을 완료한다.
 
 App1을 갱신하면 단일 진입점이 중단될 수 있다. 이 구성에서 무중단 순차 배포를 보장한다고 표현하지 않는다.
 
 ## 병목 측정과 단계적 확장
 
-SSM 포트 포워딩은 최초 배포의 기능 스모크와 교차 인스턴스 확인에만 사용한다. 부하 발생기는 네 EC2 밖의 별도 환경에서 실행하고, `public_ingress_cidrs`를 제한한 뒤 SSM을 거치지 않는 직접 경로로 연결한다. 직접 경로가 승인·기록되지 않은 상태의 결과는 부하 증거로 인정하지 않는다. 같은 EC2에서 부하를 만들거나 SSM 터널을 거치면 측정 대상의 CPU·네트워크·터널 지연을 함께 소비해 결과를 왜곡한다.
+SSM 포트 포워딩은 최초 배포의 기능 스모크와 교차 인스턴스 확인에만 사용한다. 부하 발생기는 네 EC2 밖의 별도 환경에서 실행하고, [직접 부하 전환과 원복](#직접-부하-전환과-원복)의 `enable_https=true`·외부 수신 bind·직접 HTTPS Origin·제한 CIDR을 적용한 뒤 SSM을 거치지 않는 직접 경로로 연결한다. 직접 HTTP·WebSocket 접속 확인과 전환 기록이 없는 결과는 부하 증거로 인정하지 않는다. 같은 EC2에서 부하를 만들거나 SSM 터널을 거치면 측정 대상의 CPU·네트워크·터널 지연을 함께 소비해 결과를 왜곡한다.
 
 | 역할 | 함께 기록할 지표와 증상 | 해석 경계 |
 | --- | --- | --- |
@@ -355,7 +428,8 @@ SSM 포트 포워딩은 최초 배포의 기능 스모크와 교차 인스턴스
 - App1·App2 Spring이 같은 release digest로 실행되는지 확인
 - `ALBAM_MATE_APP2_HOST`를 비운 배포가 기동을 거부하는지 확인
 - upstream 식별 헤더나 로그로 두 Spring에 요청이 분산되는지 확인
-- SSM 포트 포워딩은 기능 스모크에만 사용하고, 부하 측정은 SSM을 거치지 않는 제한된 직접 경로에서 실행하는지 확인
+- [직접 부하 전환과 원복](#직접-부하-전환과-원복)의 `enable_https=true`, `ALBAM_MATE_HTTPS_BIND_ADDRESS=0.0.0.0`, 직접 HTTPS Origin, 컨테이너 재생성과 제한 CIDR을 적용했는지 확인
+- 직접 HTTP 응답과 WebSocket `101 Switching Protocols`를 부하 발생기에서 확인한 뒤 측정했는지, 종료 후 443·Compose 설정을 원복했는지 확인
 - HTTP 세션과 WebSocket handshake가 다른 Spring에 도달해도 동일 세션을 사용하는지 확인
 - Pub/Sub 신호 유실 뒤 PostgreSQL catch-up으로 메시지를 복구하는지 확인
 - Scheduler가 PostgreSQL ShedLock으로 한 인스턴스에서만 실행되는지 확인
@@ -376,7 +450,7 @@ SSM 포트 포워딩은 최초 배포의 기능 스모크와 교차 인스턴스
 1. AWS 계정, 리전, 도메인, 비용 한도와 철거일을 기록한다.
 2. Terraform state 접근자와 `apply` 담당자를 정한다.
 3. 기준 release SHA, 두 이미지의 digest, Terraform commit과 부하 시나리오를 함께 기록한다.
-4. App1 Elastic IP, 기능 스모크용 SSM 포트 포워딩 경로, 부하 측정용 제한 직접 경로, 배치한 인증서와 네 upstream 경계를 확인한다.
+4. App1 Elastic IP, 기능 스모크용 SSM 포트 포워딩 경로, [직접 부하 전환과 원복](#직접-부하-전환과-원복)에 따른 부하 경로·배치 인증서·네 upstream 경계를 확인한다.
 5. PostgreSQL 논리 백업과 복원 절차를 확인한다.
 
 ### 측정 반복마다
