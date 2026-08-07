@@ -63,7 +63,9 @@
 
 ## 검증
 
-- 상태: 미검증
-- 근거: 관계 스키마, 인증된 등록·취소와 검색 구현이 아직 없다.
+- 상태: 검증됨
+- 근거:
+    - 구현: [PR #388](https://github.com/bamsongi-club/albam-mate/pull/388)이 `V13__add_user_played_games.sql`, 본인 관계 등록·취소와 `playedByMe`·`playedFilter` 검색을 구현했다.
+    - 테스트: `UserPlayedGameServiceTest`·`UserPlayedGameHttpIntegrationTest`와 `UserPlayedGamePostgresTest`가 사용자 격리, body 없는 등록·취소 멱등성, 오류 우선순위, 목록·상세 투영과 관계 필터를 검증한다. [PR #401](https://github.com/bamsongi-club/albam-mate/pull/401)은 실제 Spring Session 쿠키 경계의 회귀를 보강했다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

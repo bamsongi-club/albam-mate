@@ -2,7 +2,7 @@
 
 이 문서는 Albam Mate 백엔드 코드의 안정적인 구조 규칙을 설명하는 정본이다. 개별 파일·클래스·엔드포인트 목록은 관리하지 않으며, 같은 경계 안에서 기능을 추가하는 것만으로는 이 문서를 갱신하지 않는다.
 
-본문에서 `후속`, `P1 구현 시 생성` 또는 `필요 시 생성`으로 표시한 항목은 승인된 경계이지만 아직 생성되거나 자동 검증되지 않은 상태다. 그 밖의 내용은 현재 구현이 따라야 하는 구조다. 기능별 구현·검증 상태는 [README의 현재 개발 상태](../README.md#현재-개발-상태)에서 확인한다.
+본문에서 `후속` 또는 `필요 시 생성`으로 표시한 항목은 아직 만들지 않은 경계다. 모듈 관계 Mermaid와 모듈 책임 표는 현재 생산 코드 구조를 설명하지만, 기능별 절에는 구현된 계약과 남은 운영값이 함께 있을 수 있다. 정확한 구현·자동 검증·운영 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)에서 확인한다.
 
 - 모듈러 모놀리스 선택 근거: [ADR-0007](adr/platform/0007-domain-centered-modular-monolith.md)
 - 낙관 락·상태 보정 트랜잭션 근거: [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0012](adr/room/0012-room-request-boundary-state-reconciliation.md)
@@ -25,7 +25,7 @@
 현재 클래스와 파일을 찾을 때는 문서에 목록을 추가하지 않고 다음 소스 진입점을 사용한다.
 
 - 전체 업무 코드: [운영 코드 루트](../src/main/java/cloud/bamsongi/albammate/)
-- HTTP 진입점: [auth](../src/main/java/cloud/bamsongi/albammate/auth/controller/), [user](../src/main/java/cloud/bamsongi/albammate/user/controller/), [game](../src/main/java/cloud/bamsongi/albammate/game/controller/), [room](../src/main/java/cloud/bamsongi/albammate/room/controller/), `chat` (P1 구현 시 생성)
+- HTTP·WebSocket 진입점: [auth](../src/main/java/cloud/bamsongi/albammate/auth/controller/), [user](../src/main/java/cloud/bamsongi/albammate/user/controller/), [game](../src/main/java/cloud/bamsongi/albammate/game/controller/), [room](../src/main/java/cloud/bamsongi/albammate/room/controller/), [chat HTTP](../src/main/java/cloud/bamsongi/albammate/chat/controller/), [chat WebSocket](../src/main/java/cloud/bamsongi/albammate/chat/websocket/), [notification](../src/main/java/cloud/bamsongi/albammate/notification/controller/)
 - 복잡한 ROOM 흐름: [query](../src/main/java/cloud/bamsongi/albammate/room/service/query/), [command](../src/main/java/cloud/bamsongi/albammate/room/service/command/), [statuscorrection](../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/)
 - 정확한 HTTP 경로와 응답: [API 인덱스](API.md#2-api-인덱스)
 
@@ -52,9 +52,9 @@ flowchart LR
     auth["auth"] -->|"user.contract"| user["user"]
     room["room"] -->|"user.contract"| user
     room -->|"game.contract"| game["game"]
-    chat["chat<br/>(P1 구현 시 생성)"] -->|"room.contract"| room
+    chat["chat"] -->|"room.contract"| room
     chat -->|"user.contract"| user
-    notification["notification<br/>(P1 구현 시 생성)"] -->|"room.contract"| room
+    notification["notification"] -->|"room.contract"| room
 
     auth -.->|"기술 기반"| global["global"]
     user -.->|"기술 기반"| global
@@ -62,7 +62,7 @@ flowchart LR
     room -.->|"기술 기반"| global
     chat -.->|"기술 기반"| global
     notification -.->|"기술 기반"| global
-    infra["infra<br/>(P1 구현 시 생성)"] -.->|"기술 기반"| global
+    infra["infra"] -.->|"기술 기반"| global
     infra -->|"실시간 전달 port 구현"| chat
 ```
 
@@ -70,7 +70,7 @@ flowchart LR
 
 런타임 호출 방향과 컴파일 의존 방향이 다를 수 있다. 예를 들어 `game`이 예정 모임 수를 조회할 때는 [`game.contract.UpcomingRoomCountQuery`](../src/main/java/cloud/bamsongi/albammate/game/contract/UpcomingRoomCountQuery.java)를 [`room.service.query.RoomUpcomingRoomCountQuery`](../src/main/java/cloud/bamsongi/albammate/room/service/query/RoomUpcomingRoomCountQuery.java)가 구현한다. 런타임 호출은 game에서 room으로 이어지지만, 컴파일 의존은 `room → game.contract`로 유지된다.
 
-업무 모듈이 외부 시스템에 요청하는 포트는 이를 소유한 `<module>/contract`에 둔다. `infra`는 이 포트를 구현하고 필요한 업무 모듈의 `contract`와 `global`만 참조한다. P1은 Redis 실시간 전달 adapter와 PostgreSQL 스케줄 잠금 adapter를 위해 `infra`를 생성한다. 업무 모듈은 Redis·ShedLock의 구체 구현을 직접 참조하지 않는다.
+업무 모듈이 외부 시스템에 요청하는 포트는 이를 소유한 `<module>/contract`에 둔다. `infra`는 이 포트를 구현하고 필요한 업무 모듈의 `contract`와 `global`만 참조한다. 현재 `infra`는 Redis 세션·실시간 전달·전송 제한 adapter와 PostgreSQL 스케줄 잠금 adapter를 제공한다. 업무 모듈은 Redis·ShedLock의 구체 구현을 직접 참조하지 않는다.
 
 ### 모듈 책임
 
@@ -156,7 +156,8 @@ flowchart LR
 | 방 조회·생성·상태 변경·참가 | 방과 참가 불변식을 다루므로 `room`이 소유 | `RoomController`, `RoomParticipationController` |
 | 대기 등록·본인 상태 조회·대기 취소(P1) | 대기 리소스의 HTTP 경계를 분리하되 방·참가 불변식을 다루므로 `room`이 소유 | `RoomWaitlistController` |
 | `/api/users/me/rooms` 조회 | URL에 `users`가 있어도 방과 참가 관계를 조회하므로 `room`이 소유 | `MyRoomController` |
-| 방별 채팅 전송·이력·실시간 구독 | 메시지와 채팅 접근 경계를 다루므로 `chat`이 소유 | P1 구현 시 생성 |
+| 방별 채팅 전송·이력 | 메시지와 채팅 접근 경계를 다루므로 `chat`이 소유 | `ChatMessageController` |
+| 방별 실시간 구독 | WebSocket handshake와 현재 채팅 접근 경계를 다루므로 `chat`이 소유 | `ChatWebSocketHandshakeController` |
 
 기존 책임 안에서 Controller나 엔드포인트를 추가하는 것은 아키텍처 변경이 아니다. Controller의 분리 기준이나 모듈 소유권이 바뀔 때만 이 절을 갱신한다.
 

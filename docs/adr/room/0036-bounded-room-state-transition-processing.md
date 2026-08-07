@@ -100,12 +100,13 @@ DB 직접 갱신은 현재 선택하지 않는다. 제한된 ROOM별 처리의 �
 ## 검증
 
 - 상태: 미검증
-- 근거: 없음
+- 근거:
+    - 구현: `V22__create_room_status_correction_progress.sql`과 `RoomStatusCorrectionCandidateSelector`·`RoomStatusCorrectionCoordinator`·`RoomStatusCorrectionProgressStore`·`RoomStatusCorrectionScheduler`가 제한 ID 선별, ROOM별 독립 처리, 영속 turn cutoff·cursor와 generation/version CAS를 구현한다.
+    - 단위 검증: `RoomStatusCorrectionCandidateSelectorTest`, `RoomStatusCorrectionBoundedCoordinatorTest`, `RoomStatusCorrectionSchedulerLockTest`가 결정적 순서, 실패 격리, cursor 전진·회전, 잠금 미획득과 stale 실행 주체 중단을 검증한다.
+    - PostgreSQL 검증: `RoomStatusCorrectionBoundedPostgresTest`, `RoomStatusCorrectionProgressPostgresTest`, `RoomStatusCorrectionProgressLocalMultiPostgresTest`가 대기열 종료와 ROOM 상태의 원자성, 재시작·장애 재선별, `local` 두 인스턴스의 ShedLock 임대 경쟁과 progress CAS를 검증한다.
+    - 기준선 측정: [ROOM-09c 현행 일괄 처리 기준선](../../measurements/room-09-bounded-processing-baseline.md)이 데이터 규모별 처리량·실행시간·PostgreSQL 비용의 재현 계약을 남긴다.
 - 미검증:
-    - 제한 ID 선별과 ROOM별 독립 처리 구현
-    - 논리적 처리 예정 시각과 `roomId` 순서, 영속 cursor와 순회 기준 시각의 저장·갱신·wrap-around·장애 복구, 반복 실패 ROOM과 연속 신규 due ROOM 유입이 있어도 재시작·실행 주체 변경·처리 중 장애 뒤 다른 due ROOM이 처리 기회를 얻는 진척성 계약 검증
-    - `local-multi`의 PostgreSQL ShedLock 단일 실행, 잠금 미획득 건너뛰기, 임대 만료·실행 주체 변경 뒤 영속 순회 복구와 중첩 실행 주체의 진행 상태 갱신 경쟁 검증
-    - 상태 전환과 대기열 종료의 일관성 및 동시성 테스트
-    - 현재 구현과 제한 처리 후보의 기준선 측정, 초기 운영값 확정
+    - 기준선과 제한 처리 후보를 같은 조건에서 측정해 한 번당 ID 수, 반복·재시도·실행 주기, `lockAtMostFor`와 실행시간 경고의 초기 운영값을 확정해야 한다.
+    - 측정 결과가 요구하면 실패 backoff·격리 또는 제한 범위의 조건부 DB 직접 갱신 비교 착수 여부를 사용자 결정으로 남겨야 한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

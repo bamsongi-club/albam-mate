@@ -57,11 +57,11 @@ OAuth 성공 뒤 외부 principal을 애플리케이션 권한 주체로 유지�
 
 ## 검증
 
-- 상태: 미검증
+- 상태: 검증됨
 - 근거:
     - 계약: AUTH-05 명세, API와 ERD가 provider subject, 명시적 연결, 서버 세션과 token 비저장 경계를 정의한다.
-- 미검증:
-    - Flyway·JPA·OAuth provider·이메일 신뢰 상태 매핑과 실제 HTTP·PostgreSQL 검증
-    - Google·Naver·Kakao 개발자 콘솔을 사용한 운영 redirect·동의 항목 수동 QA
+    - 구현: `V10__create_auth_05a_social_account_schema.sql`, `SocialOAuthConfiguration`·`SocialIdentityMapper`·`SocialLoginSuccessHandler`·`SocialLinkService`, `SocialAccount`·`SocialAccountApplicationService`가 provider 매핑, 첫 로그인·명시적 연결과 앱 세션 전환을 구현한다.
+    - 테스트: `SocialIdentityMapperTest`, `SocialLoginHttpIntegrationTest`, `SocialLoginRealHttpIntegrationTest`, `SocialLinkHttpIntegrationTest`, `SocialAccountPostgresTest`와 `frontend/src/SocialAuth.test.jsx`가 provider별 속성, 실제 HTTP callback·연결, PostgreSQL 유일 제약과 화면 흐름을 검증한다.
+    - 수동 QA: [Issue #425](https://github.com/bamsongi-club/albam-mate/issues/425)에서 Google·Naver·Kakao의 실제 authorization·callback, 재로그인과 명시적 연결을 확인했다. 기존 동의 때문에 실제 화면에서 재현하지 못한 동의 취소는 Stub HTTP 통합 테스트로 확인했고, 이 구분을 기록한 뒤 2026-08-05 완료했다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

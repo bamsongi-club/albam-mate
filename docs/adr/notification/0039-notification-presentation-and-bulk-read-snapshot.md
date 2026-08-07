@@ -131,12 +131,9 @@ GROUP BY boundary.notification_id, operation.operation_time;
 
 ## 검증
 
-- 상태: 미검증
+- 상태: 검증됨
 - 근거:
-    - 계약:
-        - API·ERD와 P1 알림 구현 명세가 `type` 기반 클라이언트 렌더링, 현재 방 제목 투영, 업무 시각과 PostgreSQL 조회·저장·처리 시각의 분리, 조회 `transaction_timestamp()`와 읽음 `operationTime` 기반 SQL 스냅샷 및 offset 한계를 정의한다.
-- 미검증:
-    - Notification 마이그레이션·Entity·현재 방 제목 목록 투영이 구현되지 않았다.
-    - 조회 QueryService의 PostgreSQL `transaction_timestamp()` 만료 판정, Outbox·relay·단건 읽음의 PostgreSQL 시각 고정, 애플리케이션 시계가 DB보다 앞서거나 뒤진 조회·저장 테스트, 단일 CTE/`UPDATE` adapter와 문장 스냅샷 획득 전후 동시 알림 생성 PostgreSQL 테스트가 구현·실행되지 않았다.
+    - 구현: [PR #297](https://github.com/bamsongi-club/albam-mate/pull/297)이 문구·방 제목 스냅샷 없는 Notification 모델을, [PR #309](https://github.com/bamsongi-club/albam-mate/pull/309)이 현재 방 제목 투영과 DB 시각 기반 목록·미확인 조회를, [PR #339](https://github.com/bamsongi-club/albam-mate/pull/339)이 단건·일괄 읽음 SQL adapter를 구현했다. [PR #466](https://github.com/bamsongi-club/albam-mate/pull/466)은 저장소 시각과 읽음 의도를 현재 계약에 맞게 정리했다.
+    - 테스트: `NotificationQueryPostgresTest`와 `NotificationReadPostgresTest`가 `transaction_timestamp()` 만료 경계, 현재 방 제목, 앱·DB 시계 차이, 단일 SQL 경계·갱신·응답과 문장 스냅샷 전후 동시 생성을 PostgreSQL에서 검증한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

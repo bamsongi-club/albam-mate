@@ -63,10 +63,9 @@ afterMessageId 복구가 늦게 커밋된 더 작은 ID를 건너뛰지 않도�
 
 ## 검증
 
-- 상태: 미검증
-- 근거: 없음
-- 미검증:
-    - 커서 API·인덱스와 PostgreSQL 통합 테스트가 아직 구현되지 않았다.
-    - 동시 메시지 저장에서 messageId 커밋 가시성 순서가 유지되는지 확인하지 않았다.
+- 상태: 검증됨
+- 근거:
+    - 구현: [PR #400](https://github.com/bamsongi-club/albam-mate/pull/400)이 `beforeMessageId` 기반 이력 조회, `nextBeforeMessageId`·`hasNext` 응답과 조회 인덱스를 구현했다.
+    - 테스트: `ChatMessageHistoryQueryServiceTest`·`ChatMessageHistoryQueryServiceIntegrationTest`가 빈 결과·없는 양수 커서·크기·정렬을, `ChatMessageHistoryCursorConcurrencyPostgresTest`와 `ChatMessageCommandConcurrencyPostgresTest`가 PostgreSQL keyset 경계와 방별 append 커밋 가시성 순서를 검증한다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

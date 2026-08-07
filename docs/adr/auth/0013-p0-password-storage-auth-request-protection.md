@@ -105,6 +105,9 @@ Argon2id를 채택하면 후속 ADR로 이 결정을 대체한다. 그 구현은
 
 - 상태: 미검증
 - 근거:
+    - 구현:
+        - 현재 [`UserPasswordPolicy`](../../../src/main/java/cloud/bamsongi/albammate/user/contract/UserPasswordPolicy.java)는 회원가입 비밀번호를 8~64 code point, 72 UTF-8 byte 이하와 `[A-Za-z0-9\\p{Punct}]`로 제한한다.
+        - 현재 [`InMemoryAuthenticationRequestLimiter`](../../../src/main/java/cloud/bamsongi/albammate/global/security/ratelimit/InMemoryAuthenticationRequestLimiter.java)는 프로필 구분 없이 애플리케이션 인스턴스별 메모리에 인증 요청 제한 상태를 저장한다.
     - 테스트:
         - 2026-07-27 AWS EC2 `t4g.small`의 Amazon Linux 2023 ARM64, Java `21.0.11`, `availableProcessors=2`, `maxHeapBytes=484442112`에서 bcrypt cost 10~14를 warmup 1회, cost·동시성별 3회와 해시 슬롯 4개 조건으로 측정했다.
         - 아래 값은 encode와 matches의 p95 지연(ms)이다.
@@ -119,6 +122,8 @@ Argon2id를 채택하면 후속 ADR로 이 결정을 대체한다. 그 구현은
 
         - cost 10·슬롯 4개로 동시성 5개 요청을 세 번 실행해 12개 허용·3개 즉시 거절과 슬롯 전량 반환을 확인했다. cost 10~13은 약 1초 기준 이내이고 cost 14는 초과해, 현재 설정과 FND-05-AC5의 work factor·동시 작업 한도를 뒷받침한다.
 - 미검증:
+    - 회원가입 비밀번호 최소 15자, Unicode·공백 허용 정책을 구현·검증해야 한다.
+    - 다중 인스턴스 확장 전에 모든 인스턴스가 공유하는 인증 요청 제한 저장소나 게이트웨이를 별도로 결정하고 구현·검증해야 한다.
     - benchmark 경로만 측정했으므로 AUTH-02·AUTH-03 이후 전체 HTTP·PostgreSQL 로그인 경로에서 재측정해 운영 cost를 확정하고 Argon2id를 재검토한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

@@ -79,7 +79,8 @@ Albam Mate의 현재 MVP에서 방 참가·취소 동시성 제어의 기본 전
     - 테스트:
         - `RoomParticipationConcurrencyPostgresTest`는 PostgreSQL 18에서 마지막 좌석 경합, 참가 취소·정원 축소와 새 참가, 취소된 기존 참가의 재참가 및 저장 실패 롤백을 실행하고 매 시나리오 뒤 참가 수 불변식을 확인한다.
         - PostgreSQL 18에서 `ddl-auto=validate`가 통과한다(`SchemaValidationPostgresTest`).
+    - 기준선 측정: [ROOM-10a·10b 동시성 기준선 측정 계약](../../measurements/room-10-measurement-contract.md)과 보존 JSON은 마지막 좌석 참가 및 대기·자동 승격 경합에서 충돌·재시도·결과 분포·PostgreSQL 비용과 저장 불변식을 재현한다.
 - 미검증:
-    - 충돌·재시도 빈도의 부하 측정은 이 ADR의 재검토 조건으로 남는다.
+    - 현재 자료는 로컬 결정적 기준선이며 운영 유사 부하 합격선이나 잠금 전략 결론이 아니다. ROOM-10c에서 결과를 해석하고 현재 낙관 락 유지 또는 비교 착수 여부와 재검토 조건을 확정해야 한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

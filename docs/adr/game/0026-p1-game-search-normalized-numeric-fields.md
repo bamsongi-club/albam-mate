@@ -67,7 +67,9 @@
 
 ## 검증
 
-- 상태: 미검증
-- 근거: 스키마·변환 배치·PostgreSQL 검색 구현이 아직 없다.
+- 상태: 검증됨
+- 근거:
+    - 구현: [PR #316](https://github.com/bamsongi-club/albam-mate/pull/316)이 `V8__add_p1_game_search_numeric_fields.sql`, 수치 JPA 매핑과 결정적 정규화 적재를 구현했고, [PR #338](https://github.com/bamsongi-club/albam-mate/pull/338)·[PR #359](https://github.com/bamsongi-club/albam-mate/pull/359)이 수치 필터와 6개 시간 구간을 구현했다.
+    - 테스트: 카탈로그 변환 테스트가 표시 문자열·수치의 함께 존재·양수·순서 불변식과 실패 차단을, `SearchPerformancePostgresTest`가 PostgreSQL 수치 검색 결과·전체 건수·실행 계획을 검증한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

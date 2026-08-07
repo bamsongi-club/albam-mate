@@ -18,7 +18,7 @@
 | [방 채팅](p1/chatting.md) | 채팅방 접근, 영속 이력, 실시간 전달·복구와 안전·운영 |
 | [기반 작업](p1/foundation.md) | 검색 성능·인덱스 검증과 실시간 전달 기반 |
 | [P0 완료 문서](archive/p0/P0-spec.md) | P1이 이어받는 P0 완료 시점의 제품 배경과 규칙 |
-| [API 명세서](API.md) | P0 제공·P1 구현 예정 요청·응답, 페이지네이션, HTTP·WebSocket 상태와 오류 계약 |
+| [API 명세서](API.md) | P0·P1 요청·응답의 현재 제공 상태, 페이지네이션, HTTP·WebSocket 상태와 오류 계약 |
 | [ERD](ERD.md) | 현재 제공 테이블과 승인된 P1 알림·채팅·스케줄 잠금 저장 계약, 데이터 제약과 계산식 |
 | [ADR](adr/README.md) | 기술 선택, 비교 근거와 검증 방법 |
 | [PRD](PRD.md) | 전체 제품 목표와 P1 이후 기능 후보 |
@@ -111,7 +111,7 @@ P1 필수 구현은 다음 여덟 가지 흐름을 처음부터 끝까지 연결
 - `ROOM-10`의 완료 여부는 임의의 응답시간·충돌률 합격선이 아니라 현재 낙관적 락의 성능과 저장 불변식을 재현 가능하게 측정했는지로 판정한다.
 - 시간 기반 상태 자동 전환은 현재 구현과 제한된 ROOM ID 후보를 같은 조건에서 측정한 뒤 한 번당 ID 수와 반복·재시도·실행 주기의 초기 운영값을 확정한다. 조건부 DB 직접 갱신은 병목 근거와 사용자 승인 없이 비교하거나 채택하지 않는다.
 - 채팅 메시지 저장 명령은 HTTP, 커밋된 메시지의 실시간 수신은 방별 WebSocket을 사용한다. 세션은 Redis로 공유하고, PostgreSQL 커밋 뒤 Redis Pub/Sub 신호로 인스턴스 간 fan-out한다. 공통 실행 경계는 승인된 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), 채팅 전달 경계는 [ADR-0032](adr/chat/0032-http-send-websocket-receive.md)와 [ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)을 따른다.
-- P1 알림은 PostgreSQL에 업무 변경과 전달할 이벤트를 같은 트랜잭션으로 기록하고, DB를 주기적으로 조회하는 relay(중계 작업)로 처리한다. 트랜잭션 경계, relay의 선점·재시도와 보존 정책은 구현 전 ADR과 ERD로 확정한다.
+- P1 알림은 PostgreSQL에 업무 변경과 전달할 이벤트를 같은 트랜잭션으로 기록하고, DB를 주기적으로 조회하는 relay(중계 작업)로 처리한다. 트랜잭션 경계, relay의 선점·재시도·복구와 보존 정책은 [ADR-0029](adr/notification/0029-room-integration-event-transactional-outbox.md)·[ADR-0039](adr/notification/0039-notification-presentation-and-bulk-read-snapshot.md)·[ADR-0040](adr/notification/0040-postgresql-notification-relay-recovery-retention.md)과 [ERD](ERD.md#p1-알림-저장-계약)를 따른다.
 - 검색 결과 캐시와 외부 검색 엔진은 측정 근거 없이 도입하지 않는다. Redis는 승인된 공용 세션·채팅 Pub/Sub·전송 제한에만 사용하며 메시지 정본, ROOM 분산 락이나 영속 작업 큐로 사용하지 않는다.
 
 ### 문서별 단일 책임
@@ -314,7 +314,7 @@ P1 필수 구현은 다음 여덟 가지 흐름을 처음부터 끝까지 연결
 - Redis Pub/Sub은 `eventType`, `roomId`, `messageId`만 담은 best-effort 신호다. 메시지 본문·사용자·세션 정보와 영속 제품 상태는 저장하지 않는다.
 - Redis Pub/Sub 또는 WebSocket 실패는 이미 커밋된 PostgreSQL 메시지를 롤백하거나 삭제하지 않는다. 신호 누락·중복·순서 역전은 다음 신호나 `afterMessageId` 재연결에서 `messageId ASC` PostgreSQL 조회로 복구한다.
 - 운영 Redis 제품, HA, TLS, 접근 제어, 비밀 주입과 비용은 후속 OPS에서 확정한다.
-- `local` 세션 TTL 30분, JSON 직렬화 방식과 정확한 session·rate limit·chat event namespace는 [ADR-0052](adr/platform/0052-local-profile-multi-instance-default.md)에서 `production`과 분리해 확정했다. `lockAtMostFor`와 실행시간 경고 기준은 후속 구현 이슈에서 확정한다.
+- `local` 세션 TTL 30분, JSON 직렬화 방식과 정확한 session·rate limit·chat event namespace는 [ADR-0052](adr/platform/0052-local-profile-multi-instance-default.md)에서 `production`과 분리해 확정했다. 채팅 만료 삭제의 잠금 이름·임대·실행·질의·구간 상한과 실행시간 경고 기준은 [CHAT-04 현재 실행값](p1/chatting.md#현재-만료-삭제-실행값)을 따른다.
 
 ### ROOM 상태와 행동 가능성
 
@@ -327,7 +327,7 @@ P1 필수 구현은 다음 여덟 가지 흐름을 처음부터 끝까지 연결
 ### 선착순 대기열과 자동 승격
 
 - 대기 순서는 서버가 신청을 성공으로 확정한 순서를 기준으로 하는 FIFO이며, ROOM·사용자 조합마다 단일 최신 상태 레코드를 유지한다.
-- 복합 PK 단일 최신 상태, 전역 sequence 순번, 조건부 전이와 등록 재시도 계약은 [ADR-0046](adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)에서 승인했고 [ERD](ERD.md#room_waitlists)에 반영했으며, 후속 Flyway·JPA·Repository 구현과 자동 검증은 아직 완료되지 않았다.
+- 복합 PK 단일 최신 상태, 전역 sequence 순번, 조건부 전이와 등록 재시도 계약은 [ADR-0046](adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)에서 승인했고 [ERD](ERD.md#room_waitlists)와 `V14__create_room_waitlist_schema.sql`·JPA·Repository에 구현됐다. 현재 기능·검증 상태는 [PART-04 상태 정본](p1/README.md#기능별-현재-상태)을 따른다.
 - 중복 신청은 레코드나 순서를 바꾸지 않고 최신 `WAITING` 상태와 현재 순번을 반환한다. 허용된 `CANCELED`·`PROMOTED` 재신청은 같은 레코드에 새 순번·신청 시각을 기록하되 최초 생성 시각을 보존해 대기열 맨 뒤로 이동하며, `EXPIRED`·`ROOM_CANCELED`는 재활성화하지 않는다.
 - 본인은 ROOM별 `WAITING`, `PROMOTED`, `CANCELED`, `EXPIRED`, `ROOM_CANCELED` 상태를 조회할 수 있고, 현재 순번은 `WAITING`일 때만 반환한다.
 - 시작 전 참가 취소로 빈자리가 생기면 참가 취소와 첫 `WAITING` 대기자 한 명의 `PROMOTED`·`ACTIVE` 전이를 같은 ROOM 일관성 경계에서 처리한다. 활성 대기자가 없을 때만 ROOM을 `RECRUITING`으로 되돌린다.
@@ -338,7 +338,7 @@ P1 필수 구현은 다음 여덟 가지 흐름을 처음부터 끝까지 연결
 - 기존 인원·시간 표시 문자열과 난이도 표시값은 화면 표시와 원본 추적을 위해 유지한다.
 - 승인된 170,000개 게임 ID에 가능 인원·플레이 시간·난이도 수치와 카테고리·테마·추천/베스트 인원 관계를 적재한다. 난이도와 관계 메타데이터는 원본·한글 매핑·품질 게이트를 통과한 값만 사용한다.
 - 조회 요청마다 표시 문자열을 해석하지 않고, 적재·마이그레이션 단계에서 검증한 수치 데이터를 검색에 사용한다.
-- 수치 데이터의 단위, 경계 포함 여부, 누락값 처리와 DB 제약은 [P1 검색 기능 명세](p1/search.md)와 ERD에서 확정한다.
+- 수치 데이터의 단위, 경계 포함 여부, 누락값 처리와 DB 제약은 [P1 검색 기능 명세](p1/search.md)와 [ERD](ERD.md#games)에 확정돼 있으며, 검색·적재 구현은 그 계약을 따른다.
 
 ### 검색 조건과 결과
 
@@ -405,7 +405,7 @@ P1 필수 구현은 다음 여덟 가지 흐름을 처음부터 끝까지 연결
 - 클라이언트가 같은 메시지를 재전송해도 수신자에게 중복 저장·전달되지 않도록 사용자와 클라이언트 메시지 식별자의 조합을 사용한다.
 - 메시지 순서는 클라이언트 시각이 아니라 서버가 확정한 안정적인 cursor 기준을 사용한다.
 - 이력은 cursor 페이지네이션으로 조회하며 재접속 시 마지막 확인 지점 이후의 누락 메시지를 가져올 수 있어야 한다.
-- 메시지 길이, 전송 빈도와 방별 이력 조회 크기에 제한을 두고 정확한 값과 초과 오류는 채팅 기능 명세와 API 명세에서 확정한다.
+- 메시지 길이, 사용자·방 전송 빈도와 방별 이력 조회 크기의 현재 값과 초과 오류는 [채팅 기능 명세](p1/chatting.md)와 [API 명세](API.md#채팅-공통-계약)를 따른다.
 - 사용자 입력은 HTML로 실행하지 않고 안전한 텍스트로 표시한다. URL은 텍스트로 보낼 수 있지만 P1에서는 링크 미리보기나 외부 콘텐츠를 자동으로 불러오지 않는다.
 
 ### 실시간 전달 기반
@@ -451,7 +451,7 @@ P1 필수 구현은 다음 여덟 가지 흐름을 처음부터 끝까지 연결
 | 게임 | 기존 표시 필드와 인원·시간 검색용 수치를 유지하고, 카테고리·테마·추천/베스트 인원·검수된 메커니즘·사용자별 해 본 게임을 각각 의미가 분리된 관계로 저장한다. |
 | 방 | 새 상태를 추가하지 않는다. `waitlistable`은 저장 상태가 아니라 기준 시각·정원·요청자 관계로 계산하며, 검색·상태 자동 전환 인덱스는 측정 근거에 따라 추가한다. |
 | 참가 | 상태와 정원 계산식을 변경하지 않는다. 자동 승격은 기존 `ACTIVE` 참가 관계를 사용하고, 알림·채팅 권한과 측정은 최종 성공한 참가 결과를 따른다. |
-| 대기 | ROOM·사용자 조합마다 단일 최신 상태 레코드를 두고 FIFO 순서와 `WAITING`, `PROMOTED`, `CANCELED`, `EXPIRED`, `ROOM_CANCELED` 결과를 보존한다. 상태 변경별 이력 레코드는 추가하지 않는다. 복합 PK·전역 sequence·제약·인덱스의 물리 선택은 [ADR-0046](adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)에서 승인돼 [ERD](ERD.md#room_waitlists)에 반영됐으며 후속 Flyway·JPA·Repository 구현과 자동 검증은 아직 완료되지 않았다. |
+| 대기 | ROOM·사용자 조합마다 단일 최신 상태 레코드를 두고 FIFO 순서와 `WAITING`, `PROMOTED`, `CANCELED`, `EXPIRED`, `ROOM_CANCELED` 결과를 보존한다. 상태 변경별 이력 레코드는 추가하지 않는다. 복합 PK·전역 sequence·제약·인덱스의 물리 선택은 [ADR-0046](adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)에서 승인돼 [ERD](ERD.md#room_waitlists), `V14__create_room_waitlist_schema.sql`과 현재 JPA·Repository에 구현됐다. |
 | 이벤트 | 원인 이벤트 식별자, 유형, Aggregate, 수신자 고정 목록, 발생·처리 가능 시각, 처리·재시도 상태를 가진 영속 계약을 추가한다. |
 | 알림 | 수신자, 원인 이벤트, 유형, 관련 대상, 원인 이벤트 시각을 사용하는 `createdAt`, 읽은 시각과 중복 방지에 필요한 저장 계약을 추가한다. |
 | 채팅 | 방별 `CHAT_ROOMS`와 작성자, 본문, 클라이언트 메시지 식별자, 서버 생성 시각을 가진 `CHAT_MESSAGES` 저장 계약을 추가한다. 최종 상태의 삭제 기준과 완료 시각을 저장한다. |

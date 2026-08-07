@@ -179,6 +179,18 @@ JAVA_TOOL_OPTIONS="-Dissue420.fixture=/path/to/games-170k.performance.json -Diss
 
 report의 `pageAndCountElapsedMs`는 page 조회와 total count 조회만 잰 시간이고, `explainAnalyzeElapsedMs`는 `EXPLAIN ANALYZE`를 별도로 실행한 시간이다. 두 값은 합산하거나 서로의 응답 시간으로 해석하지 않는다.
 
+## 검수·측정 기록 찾기
+
+이 가이드는 실행 절차를 소유하고, 날짜별 문서는 당시 입력·품질·측정 증거를 보존한다. 현재 규칙을 찾을 때는 이 가이드와 승인 ADR을 먼저 보고, 특정 배치의 근거가 필요할 때 아래 기록을 연다.
+
+| 기록 | 확인할 내용 |
+| --- | --- |
+| [2026-07-24 게임 카탈로그 입력 검수](../game-catalog/2026-07-24-input-review.md) | 최초 입력 매핑과 검수 결과 |
+| [2026-08-01 BGG 상세 데이터 취득·검증](../game-catalog/2026-08-01-bgg-detail-acquisition.md) | 상세 원본 취득 범위와 체크섬 |
+| [2026-08-03 P1 검색 수치 품질](../game-catalog/2026-08-03-p1-search-numeric-fields-quality-report.md) | 최소 연령·인원·시간 수치의 품질 게이트 |
+| [2026-08-04 P1 게임 메커니즘 품질](../game-catalog/2026-08-04-p1-game-mechanism-quality-report.md) | 공개 메커니즘과 게임 관계 적재 증거 |
+| [2026-08-05 게임 메타데이터 필터 성능](../game-catalog/2026-08-05-game-metadata-filter-performance.md) | 17만 건 검색 fixture와 실행 계획·시간 |
+
 ## 검증 명령
 
 ```sh
