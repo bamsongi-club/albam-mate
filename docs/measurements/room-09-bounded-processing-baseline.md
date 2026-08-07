@@ -57,8 +57,8 @@
 
 | profile | 제한 ID | 현행 실행시간 중앙값 (ms) | 현행 처리량 중앙값 (ROOM/s) | 후보 실행시간 중앙값 (ms) | 후보 처리량 중앙값 (ROOM/s) | 시간 변화 | 처리량 변화 | 후보 DB 호출 수 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| small | 10 | 113.1877 | 176.6976 | 400.3959 | 49.9506 | +253.75% | −71.73% | 149 |
-| small | 20 | 93.3809 | 214.1766 | 365.4337 | 54.7295 | +291.34% | −74.45% | 146 |
+| small | 10 | 61.0767 | 327.4571 | 233.3307 | 85.7153 | +282.03% | −73.82% | 149 |
+| small | 20 | 53.0012 | 377.3499 | 243.7481 | 82.0519 | +359.89% | −78.26% | 146 |
 | medium | 10 | 7,387.3736 | 270.7322 | 14,359.9942 | 139.2758 | +94.39% | −48.56% | 13,613 |
 | medium | 100 | 11,660.9395 | 171.5128 | 23,994.8042 | 83.3514 | +105.77% | −51.40% | 13,073 |
 | medium | 1000 | 8,111.6719 | 246.5583 | 15,797.3735 | 126.6033 | +94.75% | −48.65% | 13,019 |
@@ -72,7 +72,7 @@
 
 첫째, 규모에 따라 우열이 뒤집힌다. 소형과 중형에서는 현행이 빠르고 대형에서는 후보가 빠르다. 대형에서 후보는 실행시간을 `48.73%`에서 `57.28%`까지 줄이고 처리량을 `95.04%`에서 `134.10%`까지 늘린다. 교차 구간은 due `2,000`과 `10,000` 사이다.
 
-둘째, 소형 열세의 원인은 배치 분할이 아니라 ROOM당 트랜잭션 비용이다. 배치를 `2`개에서 `1`개로 줄여 선별 쿼리를 없애도 후보는 `400.3959 ms`에서 `365.4337 ms`로 약 `9%`만 줄어든다. 같은 20개 ROOM을 처리하는 데 후보는 DB 호출을 `146~149`회 쓴다. ROOM마다 트랜잭션을 열고 최신 상태·버전을 다시 읽어 커밋하는 고정 비용이 남는 격차를 만든다.
+둘째, 소형 열세의 원인은 배치 분할이 아니라 ROOM당 트랜잭션 비용이다. 배치를 `2`개에서 `1`개로 줄여 선별 쿼리를 없애도 후보는 `233.3307 ms`와 `243.7481 ms`로 사실상 같다. 같은 20개 ROOM을 처리하는 데 후보는 DB 호출을 `146~149`회 쓴다. ROOM마다 트랜잭션을 열고 최신 상태·버전을 다시 읽어 커밋하는 고정 비용이 남는 격차를 만든다.
 
 셋째, 제한 ID 값 자체는 우열을 뒤집지 못한다. 같은 규모 안에서 `10`·`100`·`1000`의 시간 변화율이 중형은 `+94.39%`~`+105.77%`, 대형은 `−48.73%`~`−57.28%` 범위에 머문다.
 
@@ -82,24 +82,24 @@
 
 | profile | 제한 ID | ROOM당 WAITING | 실행시간 중앙값 (ms) | 처리량 중앙값 (ROOM/s) | DB 호출 수 |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| small | 10 | 10 | 449.3047 | 44.5132 | 129 |
+| small | 10 | 10 | 257.8804 | 77.5553 | 129 |
 
-`WAITING` 총 200건을 종료하는데도 `WAITING` 없는 같은 fixture의 후보(`400.3959 ms`, `149`회)와 같은 수준이다. 이 규모에서는 시작 경계 대기열 종료가 유의미한 추가 비용을 만들지 않는다.
+`WAITING` 총 200건을 종료하는데도 `WAITING` 없는 같은 fixture의 후보(`233.3307 ms`, `149`회)와 같은 수준이다. 이 규모에서는 시작 경계 대기열 종료가 유의미한 추가 비용을 만들지 않는다. 다만 두 값은 서로 다른 실행에서 얻었으므로 차이를 대기열 유무의 효과로 읽지 않는다.
 
 ### 보존 원자료
 
 | 파일 | SHA-256 |
 | --- | --- |
-| [`room-09d-direct-comparison-small-limit-10.json`](results/room-09d/room-09d-direct-comparison-small-limit-10.json) | `81DB8D154C9599D59AB0D887183C1CA9509100FA796DA0C57F0F91F9CC5A94E9` |
-| [`room-09d-direct-comparison-small-limit-20.json`](results/room-09d/room-09d-direct-comparison-small-limit-20.json) | `6FE67AEAB63DA45E8C4DDE1ED2620322B6C02D1926F22D9EF5CEA34F127EC201` |
+| [`room-09d-direct-comparison-small-limit-10.json`](results/room-09d/room-09d-direct-comparison-small-limit-10.json) | `342231913DA933C8E340A5F72BF9CF160C89A0296135B8F9283C0D8386C136B2` |
+| [`room-09d-direct-comparison-small-limit-20.json`](results/room-09d/room-09d-direct-comparison-small-limit-20.json) | `395ABD48F61FB838C4D443173870F732C39D4D4BD49B8A2A91163927E2B3B2DD` |
 | [`room-09d-direct-comparison-medium-limit-10.json`](results/room-09d/room-09d-direct-comparison-medium-limit-10.json) | `F175DCDE2A47A57EBBC138CC6D6E773E7838CEDE80D66C932A16DBFEFACA15CF` |
 | [`room-09d-direct-comparison-medium-limit-100.json`](results/room-09d/room-09d-direct-comparison-medium-limit-100.json) | `A32695CA53FD0145DE5B4F7574930098B10CAAF8365861E010EADC2117FB016F` |
 | [`room-09d-direct-comparison-medium-limit-1000.json`](results/room-09d/room-09d-direct-comparison-medium-limit-1000.json) | `C2B332FA7F28489FFD4B08BBD003F240F9A7744B4E05EFAEFC9CAD1377615719` |
 | [`room-09d-direct-comparison-large-limit-10.json`](results/room-09d/room-09d-direct-comparison-large-limit-10.json) | `0FD96F64B830477D5FACCFB002423657697F0C281011F0DC232E383987321D02` |
 | [`room-09d-direct-comparison-large-limit-100.json`](results/room-09d/room-09d-direct-comparison-large-limit-100.json) | `5D9FEF7C2D9CBF342FD93728A14CCD9340F1FA0B21CA49FA86950750ABF4B5C2` |
 | [`room-09d-direct-comparison-large-limit-1000.json`](results/room-09d/room-09d-direct-comparison-large-limit-1000.json) | `48B8D4B45F5D71335A2F3F40F2D5D08BECD3ABDF0C24FE40CD65A1ED694E8869` |
-| [`room-09d-candidate-small-limit-10.json`](results/room-09d/room-09d-candidate-small-limit-10.json) | `7AAFAC2AD0163D7B6AFA76DB7348DB12AC846AB1DF79A185D28B86323A20BF42` |
-| [`room-09d-waiting-queue-small-limit-10.json`](results/room-09d/room-09d-waiting-queue-small-limit-10.json) | `3210478F7E83CF47B68A3AF604B8F2C6B887FCC3A30EC63F7983BFBFB05B85B0` |
+| [`room-09d-candidate-small-limit-10.json`](results/room-09d/room-09d-candidate-small-limit-10.json) | `C4286E1C01E263ED0CE3835CCE58636E53F22F8C8B4001C0C099FBCBBFEAF1F2` |
+| [`room-09d-waiting-queue-small-limit-10.json`](results/room-09d/room-09d-waiting-queue-small-limit-10.json) | `AB2D754130A8244E4B4B8EED3CA8141AF06DF7AE150BF80E12C4C1A80AD4C5F2` |
 
 SHA-256 기준은 위 현행 원자료와 같다.
 
@@ -117,6 +117,7 @@ SHA-256 기준은 위 현행 원자료와 같다.
 - 이 수치는 로컬 단일 인스턴스와 Testcontainers 환경의 fixture 결과이며 운영 실측이나 성능 합격선이 아니다. 배포 환경에서 다시 측정한 값과 직접 비교하지 않는다.
 - 조합마다 현행과 후보는 같은 세션에서 얻었지만, 서로 다른 조합은 서로 다른 세션에서 측정했다. 같은 대형 현행이 `153,662 ms`와 `284,453 ms`로 벌어지는 것처럼 절대값은 호스트 부하에 크게 좌우된다. 따라서 조합 간 절대값을 직접 비교하지 않고 각 조합 안의 변화율만 읽는다.
 - 이 측정은 정상 처리 경로만 다룬다. 고의 실패·재시도·순회 중 새 due ROOM 유입은 포함하지 않으며, 실패 격리는 `#382`의 `ROOM-09b-T4` 검증 결과를 재사용한다.
+- 중형·대형 직접 비교 원자료 6개의 `measurementStartEnvironment.configuration.executionCommand`에는 후보 단독 측정 메서드가 적혀 있다. 보고서가 자기 측정 메서드를 기록하도록 고치기 전에 생성한 값이며, 소형 4개는 수정 뒤 다시 만들어 직접 비교 메서드를 가리킨다. 재현할 때는 원자료의 그 필드가 아니라 아래 `재현 명령`을 사용한다. 중형·대형을 다시 만들면 이 항목은 지운다.
 - 소형·중형 열세의 원인을 ROOM당 트랜잭션 고정 비용으로 좁혔으나, 그 고정 비용의 내부 구성까지는 나누지 않았다. 확정하려면 트랜잭션 경계별 프로파일링이 따로 필요하다.
 - 다음 조건 중 하나가 성립하면 제한 ID와 주기를 다시 측정한다. 운영 due ROOM 수가 이 fixture의 대형 규모(`10,000`)를 넘어설 때, 한 순회의 실행시간이 실행시간 경고 기준에 근접할 때, 또는 ROOM당 `WAITING` 수가 이 측정의 `10`명을 크게 넘어설 때다.
 
@@ -159,13 +160,13 @@ try {
 }
 ```
 
-소형 후보 계약과 대기열 포함 후보:
+소형 동일 세션 비교와 후보 계약, 대기열 포함 후보:
 
 ```powershell
 .\gradlew.bat postgresTest --tests "cloud.bamsongi.albammate.room.measurement.RoomStatusCorrectionCandidateMeasurementPostgresTest" --rerun --fail-fast
 ```
 
-중형·대형 승인 규모 후보:
+중형·대형 승인 규모의 현행·후보 동일 세션 비교:
 
 ```powershell
 $hadJavaToolOptions = Test-Path Env:JAVA_TOOL_OPTIONS
@@ -176,7 +177,7 @@ try {
     } else {
         "$previousJavaToolOptions -Dissue390.measurement=true".Trim()
     }
-    .\gradlew.bat postgresTest --tests "cloud.bamsongi.albammate.room.measurement.RoomStatusCorrectionCandidateMeasurementPostgresTest.승인_규모_후보는_명시적_속성에서만_10_100_1000_후보를_기록한다" --rerun --fail-fast
+    .\gradlew.bat postgresTest --tests "cloud.bamsongi.albammate.room.measurement.RoomStatusCorrectionCandidateMeasurementPostgresTest.승인_규모는_현행과_후보를_같은_세션에서_제한_ID별로_비교한다" --rerun --fail-fast
 } finally {
     if ($hadJavaToolOptions) {
         $env:JAVA_TOOL_OPTIONS = $previousJavaToolOptions
@@ -186,6 +187,6 @@ try {
 }
 ```
 
-두 명령은 `build/reports/measurements/`에 JSON을 다시 만든다. 결과를 갱신할 때는 같은 파일을 `results/room-09d/`로 복사하고 위 표의 SHA-256을 다시 계산한다.
+두 명령은 `build/reports/measurements/`에 JSON을 다시 만든다. 제한 ID 일부만 다시 재려면 `issue390.candidateLimits`에 쉼표로 값을 준다. 결과를 갱신할 때는 같은 파일을 `results/room-09d/`로 복사하고 위 표의 SHA-256을 다시 계산한다.
 
 후속 #390은 이 기준선 원자료를 비교 근거로 사용하며, 결과만으로 제한 ID 수·반복·재시도·주기나 조건부 직접 갱신을 확정하지 않는다. 초기 운영값은 위 후보 결과를 제시한 뒤 사용자 승인으로 확정한다.
