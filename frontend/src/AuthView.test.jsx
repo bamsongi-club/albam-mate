@@ -83,6 +83,18 @@ describe('#387 T2·T3 회원가입 비밀번호 상한', () => {
     expect(screen.getByRole('alert').textContent).toContain('영문 대소문자, 숫자, 특수기호만');
   });
 
+  it('허용되지 않은 문자(이모지)가 포함된 8자는 회원가입 요청 전에 거절한다', () => {
+    const onSignup = vi.fn().mockResolvedValue(false);
+    const passwordInput = renderSignup(onSignup);
+    const password = 'a1!b2@c😀';
+
+    fireEvent.change(passwordInput, { target: { value: password } });
+    fireEvent.submit(passwordInput.closest('form'));
+
+    expect(onSignup).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert').textContent).toContain('영문 대소문자, 숫자, 특수기호만');
+  });
+
   it('UTF-8 72바이트를 넘는 한글 25자는 회원가입 요청 전에 거절한다', () => {
     const onSignup = vi.fn().mockResolvedValue(false);
     const passwordInput = renderSignup(onSignup);

@@ -39,6 +39,10 @@ class SignupRequestTest {
 			validator
 				.validate(new SignupRequest("user@example.com", "한글비밀번호!", "닉네임"))
 				.isEmpty());
+		assertFalse(
+			validator
+				.validate(new SignupRequest("user@example.com", "a1!b2@c😀", "닉네임"))
+				.isEmpty());
 		assertTrue(
 			validator
 				.validate(new SignupRequest("user@example.com", "Valid-Password123!", "닉네임"))
