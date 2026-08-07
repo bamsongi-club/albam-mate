@@ -187,8 +187,8 @@ function productionEnvironment(certificateDirectory) {
         ALBAM_MATE_IMAGE_NAMESPACE: 'registry.example.com/albam-mate',
         ALBAM_MATE_RELEASE: releaseSha,
         ALBAM_MATE_TLS_PATH: certificateDirectory,
-        ALBAM_MATE_RDS_CA_PATH: path.join(certificateDirectory, 'rds-ca-bundle.pem'),
-        ALBAM_MATE_DB_HOST: 'db.example.internal',
+        ALBAM_MATE_APP2_HOST: 'app-b.albam-mate.internal',
+        ALBAM_MATE_DB_HOST: 'postgres.albam-mate.internal',
         ALBAM_MATE_DB_NAME: 'albam_mate',
         ALBAM_MATE_DB_USER: 'verify_user',
         ALBAM_MATE_DB_PASSWORD: 'verify_password',
@@ -239,6 +239,10 @@ function loadProductionConfig(env) {
     );
 }
 
+function loadComposeConfig(file, env) {
+    return JSON.parse(docker(['compose', '-f', file, 'config', '--format', 'json'], { env }).stdout);
+}
+
 function assertProductionConfig(config) {
     const serviceNames = Object.keys(config.services).sort();
     assert(JSON.stringify(serviceNames) === JSON.stringify(['spring', 'web']), `unexpected services: ${serviceNames}`);
@@ -266,6 +270,14 @@ function assertProductionConfig(config) {
         config.services.spring.environment.ALBAM_MATE_REDIS_PORT === '6379',
         'Spring does not receive the Redis port',
     );
+    assert(
+        config.services.spring.environment.JDK_JAVA_OPTIONS === '-Xmx256m',
+        'Spring does not receive the P1 heap limit through JDK_JAVA_OPTIONS',
+    );
+    assert(
+        String(config.services.spring.mem_limit) === String(512 * 1024 * 1024) || config.services.spring.mem_limit === '512m',
+        `Spring memory limit is ${config.services.spring.mem_limit}`,
+    );
     for (const serviceName of serviceNames) {
         assert(
             config.services[serviceName].environment.ALBAM_MATE_RELEASE === releaseSha,
@@ -284,12 +296,12 @@ function assertProductionConfig(config) {
     assert(config.services.web.ports.length === 1, `web publishes ${config.services.web.ports.length} host ports`);
     const webPort = config.services.web.ports[0];
     assert(String(webPort.published) === '443' && String(webPort.target) === '8443', 'web is not 443 -> 8443');
-    const springCa = config.services.spring.volumes.find(
-        (volume) => volume.target === '/etc/albam-mate/rds-ca-bundle.pem',
-    );
     const webTls = config.services.web.volumes.find((volume) => volume.target === '/etc/albam-mate/tls');
-    assert(springCa?.read_only === true, 'RDS CA mount is not read-only');
     assert(webTls?.read_only === true, 'TLS mount is not read-only');
+    assert(
+        config.services.web.environment.ALBAM_MATE_APP2_HOST === 'app-b.albam-mate.internal',
+        'web does not receive the required App2 private DNS host',
+    );
     assert(config.services.web.depends_on.spring.condition === 'service_healthy', 'web does not wait for Spring health');
     assert(config.services.web.depends_on.spring.restart === true, 'web dependency restart is not enabled');
 }
@@ -613,12 +625,51 @@ function verifyT4() {
             allowFailure: true,
         });
         assert(missingResult.status !== 0, 'production Compose accepted a missing release');
+        const missingApp2 = { ...env };
+        delete missingApp2.ALBAM_MATE_APP2_HOST;
+        const missingApp2Result = docker(['compose', '-f', 'compose.production.yml', 'config', '--quiet'], {
+            env: missingApp2,
+            allowFailure: true,
+        });
+        assert(missingApp2Result.status !== 0, 'production Compose accepted a missing App2 host');
         assertProductionConfig(loadProductionConfig(env));
         buildOwnedImage(ownedImages, springImage, ['.']);
         buildOwnedImage(ownedImages, webImage, ['--file', 'frontend/Dockerfile.production', 'frontend']);
         assertReleaseGate(springImage, { SPRING_PROFILES_ACTIVE: 'production' });
-        assertReleaseGate(webImage);
-        console.log('T4 PASS: ARM64 images share one required Git SHA, always pull, and have no build fallback.');
+        assertReleaseGate(webImage, { ALBAM_MATE_APP2_HOST: env.ALBAM_MATE_APP2_HOST });
+        const missingApp2Entrypoint = docker(['run', '--rm', '--env', `ALBAM_MATE_RELEASE=${releaseSha}`, webImage], {
+            allowFailure: true,
+        });
+        assert(missingApp2Entrypoint.status !== 0, 'web entrypoint accepted a missing App2 host');
+        const app2WithPortEntrypoint = docker([
+            'run',
+            '--rm',
+            '--env',
+            `ALBAM_MATE_RELEASE=${releaseSha}`,
+            '--env',
+            'ALBAM_MATE_APP2_HOST=app-b.albam-mate.internal:8080',
+            webImage,
+        ], { allowFailure: true });
+        assert(app2WithPortEntrypoint.status !== 0, 'web entrypoint accepted an App2 host with a port');
+        for (const invalidApp2Host of [
+            '127.0.0.1',
+            'localhost',
+            'app-b.albam-mate.internal bad',
+            'app-b.albam-mate.internal$(id)',
+            'app-b.albam-mate.internal;',
+        ]) {
+            const invalidHostEntrypoint = docker([
+                'run',
+                '--rm',
+                '--env',
+                `ALBAM_MATE_RELEASE=${releaseSha}`,
+                '--env',
+                `ALBAM_MATE_APP2_HOST=${invalidApp2Host}`,
+                webImage,
+            ], { allowFailure: true });
+            assert(invalidHostEntrypoint.status !== 0, `web entrypoint accepted invalid App2 host: ${invalidApp2Host}`);
+        }
+        console.log('T4 PASS: ARM64 images retain the release gate and enforce App2 host, 512m Spring memory and JDK heap injection.');
     } finally {
         removeOwnedImages(ownedImages);
         removeOwnedTempDirectory(certificateDirectory, 'albam-mate-contract-t4');
@@ -702,25 +753,25 @@ function verifyT6() {
     const certificateDirectory = createTempDirectory('albam-mate-contract-t6');
     const network = contractResource('albam-mate-contract-t6');
     const spring = contractResource('albam-mate-contract-t6-spring');
+    const app2 = contractResource('albam-mate-contract-t6-app2');
     const web = contractResource('albam-mate-contract-t6-web');
     const webImage = contractImage('albam-mate-web-production', 'T6');
     const ownedImages = new Set();
     let networkCreated = false;
     let springCreated = false;
+    let app2Created = false;
     let webCreated = false;
     try {
-        assertUnusedResources([spring, web], network);
+        assertUnusedResources([spring, app2, web], network);
         createCertificate(certificateDirectory);
-        fs.copyFileSync(
-            path.join(certificateDirectory, 'fullchain.pem'),
-            path.join(certificateDirectory, 'rds-ca-bundle.pem'),
-        );
         assertProductionConfig(loadProductionConfig(productionEnvironment(certificateDirectory)));
         buildOwnedImage(ownedImages, webImage, ['--file', 'frontend/Dockerfile.production', 'frontend']);
         docker(['network', 'create', network]);
         networkCreated = true;
-        docker(['run', '-d', '--name', spring, '--network', network, '--network-alias', 'spring', httpEchoImage, '-listen=:8080', '-text=production-proxy-ok']);
+        docker(['run', '-d', '--name', spring, '--network', network, '--network-alias', 'spring', httpEchoImage, '-listen=:8080', '-text=production-proxy-app1']);
         springCreated = true;
+        docker(['run', '-d', '--name', app2, '--network', network, '--network-alias', 'app-b.albam-mate.internal', httpEchoImage, '-listen=:8080', '-text=production-proxy-app2']);
+        app2Created = true;
         docker([
             'run',
             '-d',
@@ -728,6 +779,8 @@ function verifyT6() {
             web,
             '--env',
             `ALBAM_MATE_RELEASE=${releaseSha}`,
+            '--env',
+            'ALBAM_MATE_APP2_HOST=app-b.albam-mate.internal',
             '--network',
             network,
             '--read-only',
@@ -754,18 +807,35 @@ function verifyT6() {
             });
             return response.status === 0 && response.stdout.trim() === 'ok' ? true : false;
         });
-        const proxy = docker([
-            'exec',
-            web,
-            'wget',
-            '--no-check-certificate',
-            '-qO-',
-            'https://127.0.0.1:8443/api/verify',
-        ]).stdout.trim();
-        assert(proxy === 'production-proxy-ok', `unexpected TLS proxy response: ${proxy}`);
-        console.log('T6 PASS: only web publishes 443; TLS and CA mounts are read-only and HTTPS proxies to internal Spring.');
+        const observedBodies = new Set();
+        const observedUpstreams = new Set();
+        for (let attempt = 0; attempt < 12; attempt += 1) {
+            const response = docker([
+                'exec',
+                web,
+                'wget',
+                '--no-check-certificate',
+                '-S',
+                '-qO-',
+                'https://127.0.0.1:8443/api/verify',
+            ]);
+            const body = response.stdout.trim();
+            const upstream = upstreamHeader(response);
+            assert(
+                body === 'production-proxy-app1' || body === 'production-proxy-app2',
+                `unexpected production upstream response: ${body}`,
+            );
+            observedBodies.add(body);
+            observedUpstreams.add(upstream);
+        }
+        assert(observedBodies.has('production-proxy-app1'), 'repeated requests never observed App1');
+        assert(observedBodies.has('production-proxy-app2'), 'repeated requests never observed App2');
+        assert(observedUpstreams.size === 2, `repeated requests observed ${observedUpstreams.size} upstream addresses`);
+        verifyDatabaseHealthcheck();
+        console.log('T6 PASS: repeated HTTPS requests observed both App1/App2 bodies and upstream headers while both backends stayed healthy; PostgreSQL also reached healthy.');
     } finally {
         if (webCreated) removeContainer(web);
+        if (app2Created) removeContainer(app2);
         if (springCreated) removeContainer(spring);
         if (networkCreated) removeNetwork(network);
         removeOwnedImages(ownedImages);
@@ -773,23 +843,86 @@ function verifyT6() {
     }
 }
 
-function verifyT7() {
-    if (process.platform === 'win32') {
-        run('cmd.exe', [
-            '/d',
-            '/s',
-            '/c',
-            'gradlew.bat test --tests cloud.bamsongi.albammate.global.config.ProductionProfileConfigurationTest --no-daemon',
-        ]);
-    } else {
-        run('./gradlew', [
-            'test',
-            '--tests',
-            'cloud.bamsongi.albammate.global.config.ProductionProfileConfigurationTest',
-            '--no-daemon',
-        ]);
+function upstreamHeader(response) {
+    const match = response.stderr.match(/^\s*X-Albam-Mate-Upstream:\s*(.+)$/imu);
+    assert(match, `response omitted X-Albam-Mate-Upstream: ${response.stderr}`);
+    return match[1].trim();
+}
+
+function verifyDatabaseHealthcheck() {
+    const project = contractProject('T6db');
+    const directory = createTempDirectory('albam-mate-contract-t6-db');
+    const override = path.join(directory, 'compose.override.yml');
+    const files = ['compose.db.yml', override];
+    const env = {
+        ...process.env,
+        ALBAM_MATE_DB_NAME: 'albam_mate_verify',
+        ALBAM_MATE_DB_USER: 'verify_user',
+        ALBAM_MATE_DB_PASSWORD: 'verify_password',
+    };
+    let composeAttempted = false;
+    try {
+        assertProjectUnused(project);
+        fs.writeFileSync(
+            override,
+            'services:\n  postgres:\n    ports: !override []\n    volumes:\n      - postgres_data:/var/lib/postgresql\nvolumes:\n  postgres_data:\n',
+            'utf8',
+        );
+        const config = JSON.parse(compose(files, project, ['config', '--format', 'json'], { env }).stdout);
+        const renderedHealthcheck = config.services.postgres.healthcheck.test.at(-1);
+        assert(/\$\$?POSTGRES_USER/u.test(renderedHealthcheck), `rendered healthcheck lost POSTGRES_USER: ${renderedHealthcheck}`);
+        assert(/\$\$?POSTGRES_DB/u.test(renderedHealthcheck), `rendered healthcheck lost POSTGRES_DB: ${renderedHealthcheck}`);
+        assert(!renderedHealthcheck.includes('""'), `rendered healthcheck contains an empty database input: ${renderedHealthcheck}`);
+        composeAttempted = true;
+        compose(files, project, ['up', '-d', '--wait'], { env });
+        const postgres = serviceContainer(files, project, 'postgres', env);
+        assertHealthy(postgres, 'PostgreSQL');
+        const healthcheck = dockerInspectJson(postgres).Config.Healthcheck.Test.at(-1);
+        assert(/\$POSTGRES_USER/u.test(healthcheck), `container healthcheck lost POSTGRES_USER: ${healthcheck}`);
+        assert(/\$POSTGRES_DB/u.test(healthcheck), `container healthcheck lost POSTGRES_DB: ${healthcheck}`);
+        assert(!healthcheck.includes('""'), `container healthcheck contains an empty database input: ${healthcheck}`);
+    } finally {
+        if (composeAttempted) cleanupProject(files, project, env);
+        removeOwnedTempDirectory(directory, 'albam-mate-contract-t6-db');
     }
-    console.log('T7 PASS: production datasource, verify-full CA, Flyway/JPA/UTC/forwarded-header/shutdown/cookie properties are fixed by test.');
+}
+
+function verifyT7() {
+    const certificateDirectory = createTempDirectory('albam-mate-contract-t7');
+    const env = productionEnvironment(certificateDirectory);
+    try {
+        docker(['compose', '-f', 'compose.production.yml', 'config', '--quiet'], { env });
+        docker(['compose', '-f', 'compose.app2.yml', 'config', '--quiet'], { env });
+        docker(['compose', '-f', 'compose.db.yml', 'config', '--quiet'], { env });
+        const app2Config = loadComposeConfig('compose.app2.yml', env);
+        assert(
+            String(app2Config.services.spring.mem_limit) === String(512 * 1024 * 1024) || app2Config.services.spring.mem_limit === '512m',
+            `App2 Spring memory limit is ${app2Config.services.spring.mem_limit}`,
+        );
+        assert(
+            app2Config.services.spring.environment.JDK_JAVA_OPTIONS === '-Xmx256m',
+            'App2 Spring does not receive the P1 heap limit',
+        );
+        if (process.platform === 'win32') {
+            run('cmd.exe', [
+                '/d',
+                '/s',
+                '/c',
+                'gradlew.bat test --tests cloud.bamsongi.albammate.global.config.ProductionProfileConfigurationTest --rerun --fail-fast',
+            ]);
+        } else {
+            run('./gradlew', [
+                'test',
+                '--tests',
+                'cloud.bamsongi.albammate.global.config.ProductionProfileConfigurationTest',
+                '--rerun',
+                '--fail-fast',
+            ]);
+        }
+        console.log('T7 PASS: production profile regression and App1/App2/PostgreSQL role Compose configs pass without an RDS CA mount.');
+    } finally {
+        removeOwnedTempDirectory(certificateDirectory, 'albam-mate-contract-t7');
+    }
 }
 
 function t8Override(springImage, webImage) {
@@ -839,6 +972,10 @@ function t8Override(springImage, webImage) {
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      application:
+        aliases:
+          - app-b.albam-mate.internal
   web:
     image: ${webImage}
     platform: ${platform}
@@ -862,10 +999,6 @@ function verifyT8() {
     try {
         assertProjectUnused(project);
         createCertificate(certificateDirectory);
-        fs.copyFileSync(
-            path.join(certificateDirectory, 'fullchain.pem'),
-            path.join(certificateDirectory, 'rds-ca-bundle.pem'),
-        );
         fs.writeFileSync(override, t8Override(springImage, webImage), 'utf8');
         buildOwnedImage(ownedImages, springImage, ['.']);
         buildOwnedImage(ownedImages, webImage, ['--file', 'frontend/Dockerfile.production', 'frontend']);
@@ -886,7 +1019,8 @@ function verifyT8() {
             'https://127.0.0.1:8443/api/games?size=1',
         ]).stdout;
         assert(response.includes('"status"'), 'production Compose HTTPS API request failed');
-        console.log('T8 PASS: production Compose up --wait reports PostgreSQL fixture, Spring and web healthy and serves HTTPS API.');
+        run('node', ['scripts/check-doc-links.mjs']);
+        console.log('T8 PASS: production Compose up --wait reports PostgreSQL fixture, Spring and web healthy, serves HTTPS API and has valid guide links.');
     } finally {
         if (composeAttempted) {
             const env = productionEnvironment(certificateDirectory);

@@ -74,27 +74,27 @@ JAVA_TOOL_OPTIONS='-Dissue471.localProxy=true' ./gradlew postgresTest --tests "c
 
 ## 운영 Compose
 
-호스트 준비, 이미지 게시, 배포·롤백 의미와 Docker 계약 검증은 [P0 AWS 운영 인프라 기준](guides/AWS_P0_INFRASTRUCTURE.md#운영-compose-준비와-실행)을 따른다. 아래 명령은 `/etc/albam-mate/production.env`, TLS 인증서와 RDS CA가 준비된 운영 호스트에서 반복해서 사용한다.
+호스트 준비, 이미지 게시, 배포·롤백 의미와 Docker 계약 검증은 [P1 AWS 다중 인스턴스 실행안](guides/AWS_MULTI_INSTANCE_INFRASTRUCTURE.md)을 따른다. 아래 명령은 App1의 `/etc/albam-mate/app1.env`와 TLS 인증서가 준비된 운영 호스트에서 반복해서 사용한다.
 
 비밀값을 출력하지 않고 설정을 검증한 뒤 두 이미지를 받고 health check가 통과할 때까지 기다린다.
 
 ```sh
-docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml config --quiet
-docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml up -d --wait
+docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml config --quiet
+docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml up -d --wait
 ```
 
 서비스 상태, 최근 로그와 실제 이미지 태그를 확인한다.
 
 ```sh
-docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml ps
-docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml logs --tail 200
-docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml images
+docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml ps
+docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml logs --tail 200
+docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml images
 ```
 
 컨테이너만 내린다. 외부 RDS의 데이터는 이 명령의 대상이 아니다.
 
 ```sh
-docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml down
+docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml down
 ```
 
 ## PostgreSQL 마이그레이션 검증

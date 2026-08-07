@@ -1,6 +1,6 @@
 # App2 EC2 전용: Spring Boot 컨테이너만 실행한다.
 # App1 Nginx가 이 EC2의 사설 IP:8080 으로 요청을 분산한다.
-# .env 에 ALBAM_MATE_DB_HOST, ALBAM_MATE_REDIS_HOST 를 DB/Redis EC2의 사설 IP 또는 private DNS로 설정한다.
+# /etc/albam-mate/app2.env 에 DB/Redis EC2의 private DNS와 App2 실행값을 설정한다.
 
 services:
   spring:
@@ -11,6 +11,7 @@ services:
     init: true
     environment:
       SPRING_PROFILES_ACTIVE: production
+      JDK_JAVA_OPTIONS: -Xmx256m
       ALBAM_MATE_RELEASE: ${ALBAM_MATE_RELEASE:?ALBAM_MATE_RELEASE must be set}
       ALBAM_MATE_DB_HOST: ${ALBAM_MATE_DB_HOST:?ALBAM_MATE_DB_HOST must be set}
       ALBAM_MATE_DB_PORT: ${ALBAM_MATE_DB_PORT:-5432}
@@ -51,7 +52,7 @@ services:
     cap_drop:
       - ALL
     pids_limit: 256
-    mem_limit: ${ALBAM_MATE_SPRING_MEMORY_LIMIT:-1024m}
+    mem_limit: 512m
     stop_grace_period: 30s
     logging:
       driver: json-file
