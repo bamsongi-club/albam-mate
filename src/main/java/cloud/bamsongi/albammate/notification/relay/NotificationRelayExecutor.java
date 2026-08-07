@@ -56,7 +56,9 @@ public class NotificationRelayExecutor {
 		NotificationOutboxEvent event = eventRepository.findById(relayClaim.getId())
 			.orElseThrow(() -> new IllegalStateException("claimed notification outbox event is missing"));
 		Instant operationTime = relayClaim.getOperationTime();
-		if (!operationTime.isBefore(event.getOccurredAt().plus(Duration.ofDays(90)))) {
+		Instant notificationCreatedAt = event.getOccurredAt();
+		// Notification 쓰기 전 선제 차단이며, 롤백 뒤 별도 트랜잭션의 최종 실패 판정은 아니다.
+		if (Notification.isExpiredAt(notificationCreatedAt, operationTime)) {
 			throw NotificationRelayProcessingException.expired(event.getId());
 		}
 		NotificationType notificationType = event.getEventType().toNotificationType();
@@ -67,7 +69,7 @@ public class NotificationRelayExecutor {
 
 		for (Long recipientUserId : recipientUserIds) {
 			Notification notification = Notification.createUnread(
-				event.getId(), recipientUserId, event.getRoomId(), notificationType, event.getOccurredAt(),
+				event.getId(), recipientUserId, event.getRoomId(), notificationType, notificationCreatedAt,
 				operationTime);
 			notificationRepository.insertIfAbsent(notification);
 		}

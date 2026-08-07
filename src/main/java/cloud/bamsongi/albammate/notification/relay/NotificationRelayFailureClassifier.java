@@ -16,12 +16,17 @@ public class NotificationRelayFailureClassifier {
 
 	public FailureClassification classify(NotificationRelayProcessingException processingException) {
 		return switch (processingException.getFailureReason()) {
-			case EXPIRED -> FailureClassification.deterministic(
-				"NOTIFICATION_EXPIRED", "NotificationExpired", "Notification event expired before relay processing");
+			case EXPIRED -> expiredClassification();
 			case MISSING_RECIPIENT_SNAPSHOT -> FailureClassification.deterministic(
 				"MISSING_RECIPIENT_SNAPSHOT", "IllegalStateException", "Notification recipient snapshot is missing");
 			case PROCESSING_FAILURE -> classifyProcessingFailure(processingException.getCause());
 		};
+	}
+
+	/** 일반 만료 분류와 실패 기록 SQL의 최종 만료 override가 함께 쓰는 canonical 메타데이터다. */
+	FailureClassification expiredClassification() {
+		return FailureClassification.deterministic(
+			"NOTIFICATION_EXPIRED", "NotificationExpired", "Notification event expired before relay processing");
 	}
 
 	private FailureClassification classifyProcessingFailure(Throwable cause) {

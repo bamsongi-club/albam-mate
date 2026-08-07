@@ -25,6 +25,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import cloud.bamsongi.albammate.notification.entity.Notification;
 import cloud.bamsongi.albammate.notification.repository.NotificationOutboxEventRepository;
 
 class NotificationRelayFailureRecorderTest {
@@ -35,10 +36,10 @@ class NotificationRelayFailureRecorderTest {
 		NotificationOutboxEventRepository.RelayFailureRecord retryRecord = failureRecord(true, false);
 		when(
 			eventRepository.recordRelayFailure(anyLong(), anyString(), anyString(), anyString(), anyBoolean(), anyInt(),
-				anyLong(), anyLong(), anyLong(), anyLong()))
+				anyLong(), anyLong(), anyLong(), anyLong(), anyLong(), anyString(), anyString(), anyString()))
 			.thenReturn(Optional.of(retryRecord));
-		NotificationRelayFailureRecorder recorder = new NotificationRelayFailureRecorder(
-			eventRepository, new NotificationRelayFailureClassifier());
+		NotificationRelayFailureClassifier classifier = new NotificationRelayFailureClassifier();
+		NotificationRelayFailureRecorder recorder = new NotificationRelayFailureRecorder(eventRepository, classifier);
 
 		RecordedFailureResult result = recordWithActiveSynchronization(
 			recorder, NotificationRelayProcessingException.failed(10L, new IllegalStateException("temporary failure")));
@@ -50,7 +51,11 @@ class NotificationRelayFailureRecorderTest {
 			assertEquals(1, recordedFailure.failureCount());
 			verify(eventRepository).recordRelayFailure(
 				eq(10L), eq("RELAY_PROCESSING_FAILURE"), eq("IllegalStateException"),
-				eq("Notification relay processing failed"), eq(false), eq(5), eq(10L), eq(30L), eq(120L), eq(600L));
+				eq("Notification relay processing failed"), eq(false), eq(5), eq(10L), eq(30L), eq(120L), eq(600L),
+				eq(Notification.retentionPeriod().toSeconds()),
+				eq(classifier.expiredClassification().failureCode()),
+				eq(classifier.expiredClassification().failureClass()),
+				eq(classifier.expiredClassification().sanitizedMessage()));
 		} finally {
 			TransactionSynchronizationManager.clearSynchronization();
 		}
@@ -62,7 +67,7 @@ class NotificationRelayFailureRecorderTest {
 		NotificationOutboxEventRepository.RelayFailureRecord failedRecord = failureRecord(false, true);
 		when(
 			eventRepository.recordRelayFailure(anyLong(), anyString(), anyString(), anyString(), anyBoolean(), anyInt(),
-				anyLong(), anyLong(), anyLong(), anyLong()))
+				anyLong(), anyLong(), anyLong(), anyLong(), anyLong(), anyString(), anyString(), anyString()))
 			.thenReturn(Optional.of(failedRecord));
 		NotificationRelayFailureRecorder recorder = new NotificationRelayFailureRecorder(
 			eventRepository, new NotificationRelayFailureClassifier());
@@ -87,7 +92,7 @@ class NotificationRelayFailureRecorderTest {
 		NotificationOutboxEventRepository.RelayFailureRecord retryRecord = failureRecord(true, false);
 		when(
 			eventRepository.recordRelayFailure(anyLong(), anyString(), anyString(), anyString(), anyBoolean(), anyInt(),
-				anyLong(), anyLong(), anyLong(), anyLong()))
+				anyLong(), anyLong(), anyLong(), anyLong(), anyLong(), anyString(), anyString(), anyString()))
 			.thenReturn(Optional.of(retryRecord));
 		NotificationRelayFailureRecorder recorder = new NotificationRelayFailureRecorder(
 			eventRepository, new NotificationRelayFailureClassifier());
@@ -117,7 +122,7 @@ class NotificationRelayFailureRecorderTest {
 		NotificationOutboxEventRepository.RelayFailureRecord failedRecord = failureRecord(false, true);
 		when(
 			eventRepository.recordRelayFailure(anyLong(), anyString(), anyString(), anyString(), anyBoolean(), anyInt(),
-				anyLong(), anyLong(), anyLong(), anyLong()))
+				anyLong(), anyLong(), anyLong(), anyLong(), anyLong(), anyString(), anyString(), anyString()))
 			.thenReturn(Optional.of(failedRecord));
 		NotificationRelayFailureRecorder recorder = new NotificationRelayFailureRecorder(
 			eventRepository, new NotificationRelayFailureClassifier());
