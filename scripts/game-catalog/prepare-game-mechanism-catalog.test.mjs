@@ -8,6 +8,7 @@ import {
   buildMechanismQualityReport,
   publishArtifacts,
   validateMechanismDictionary,
+  validateMechanismManifest,
   validateSnapshotBatch,
 } from './prepare-game-mechanism-catalog.mjs';
 
@@ -45,6 +46,7 @@ test('메커니즘 품질 보고서는 승인 입력의 checksum·행 수·prove
     manifest: {
       batchId: 'mechanism-batch-1',
       toolCommit: 'tool-sha',
+      approved: true,
       testOnly: false,
       provenance: { mechanismInput: 'BGG XML과 검수 사전' },
       mechanismCatalog: {
@@ -108,6 +110,22 @@ test('메커니즘 품질 보고서는 승인 입력의 checksum·행 수·prove
   });
   assert.deepEqual(report.checks, { targetGames: 170000, snapshotBatches: 8500, snapshotGames: 170000 });
   assert.deepEqual(report.outputs, { artifactSha256: 'artifact-sha', sqlSha256: 'sql-sha' });
+});
+
+test('승인 범위 없는 운영 manifest는 산출물 승인 전에 차단한다', () => {
+  const manifest = {
+    approved: true,
+    testOnly: false,
+    mechanismCatalog: { publishedCount: 189, approvalScope: 'P1_NONCOMMERCIAL_LOAD' },
+  };
+
+  assert.equal(validateMechanismManifest(manifest), manifest.mechanismCatalog);
+  for (const approvalScope of [undefined, '', '   ']) {
+    assert.throws(
+      () => validateMechanismManifest({ ...manifest, mechanismCatalog: { ...manifest.mechanismCatalog, approvalScope } }),
+      /approval scope required/u,
+    );
+  }
 });
 
 test('메커니즘 사전은 검수 설명을 필수·비공백·300자 이하로 검증한다', () => {

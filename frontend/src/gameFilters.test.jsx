@@ -360,6 +360,21 @@ describe('T4 대표 메커니즘과 설명', () => {
     expect(document.getElementById(hint.getAttribute('aria-describedby')).textContent.trim()).toBe('입찰로 원하는 것을 가져가요');
   });
 
+  it('고급 목록 툴팁은 스크롤 영역 밖의 fixed portal로 렌더링한다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    fireEvent.click(screen.getByRole('button', { name: '메커니즘 더 보기' }));
+
+    const hint = screen.getByLabelText('경매 설명');
+    fireEvent.click(hint);
+
+    const tooltip = document.getElementById(hint.getAttribute('aria-describedby'));
+    expect(tooltip.parentElement).toBe(document.body);
+    expect(tooltip.style.position).toBe('fixed');
+    expect(tooltip.style.visibility).toBe('visible');
+    expect(document.querySelector('.mechanism-advanced-list [role="tooltip"]')).toBeNull();
+  });
+
   it('설명이 없거나 공백인 선택지에는 빈 툴팁을 렌더링하지 않는다', async () => {
     getGameMechanisms.mockResolvedValueOnce(MECHANISM_OPTIONS.map((option) => (
       option.code === 'DICE_ROLLING' ? { ...option, descriptionKo: '  ' } : option

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { createPortal } from 'react-dom';
 import brandSymbol from '../assets/albam-mate-symbol.png';
 import poweredByBgg from '../assets/powered-by-bgg.svg';
 import { ApiError, api, clearCsrfToken, messageForError, setUnauthenticatedHandler, socialLoginUrl } from './api';
@@ -881,26 +882,81 @@ function FilterNumberRangeGroup({ label, min, max, unit, onMinChange, onMaxChang
 /**
  * 대표 메커니즘의 설명을 여는 정보 아이콘이다.
  *
- * 데스크톱 hover와 키보드 focus는 CSS가 열고, 아이콘을 누르면 여기서 고정한다.
+ * 데스크톱 hover와 키보드 focus는 상태로 열고, 아이콘을 누르면 여기서 고정한다.
+ * 스크롤 목록의 overflow에 잘리지 않도록 설명은 body portal로 렌더링한다.
  * tap은 hover·focus를 함께 일으키므로 상태를 셋으로 나눠 두면 누를 때 도로 닫히는 순서가 생긴다.
  * 화면을 막는 모달을 쓰지 않으므로 다른 조건을 보면서 설명을 확인할 수 있다.
  */
 function MechanismHint({ code, name, description }) {
   const [isPinned, setIsPinned] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [tooltipStyle, setTooltipStyle] = useState({ left: '0px', top: '0px', position: 'fixed', visibility: 'hidden' });
+  const buttonRef = useRef(null);
+  const tooltipRef = useRef(null);
   const tooltipId = 'mechanism-hint-' + code;
+  const isOpen = isPinned || isHovered || isFocused;
+
+  useLayoutEffect(() => {
+    if (!isOpen || !buttonRef.current || !tooltipRef.current) {
+      setTooltipStyle((current) => current.visibility === 'hidden' ? current : { ...current, visibility: 'hidden' });
+      return undefined;
+    }
+
+    const updatePosition = () => {
+      const buttonRect = buttonRef.current.getBoundingClientRect();
+      const tooltipRect = tooltipRef.current.getBoundingClientRect();
+      const gap = 7;
+      const viewportPadding = 8;
+      const maxLeft = Math.max(viewportPadding, window.innerWidth - tooltipRect.width - viewportPadding);
+      const centeredLeft = buttonRect.left + (buttonRect.width - tooltipRect.width) / 2;
+      const left = Math.min(Math.max(viewportPadding, centeredLeft), maxLeft);
+      const canPlaceBelow = buttonRect.bottom + gap + tooltipRect.height <= window.innerHeight - viewportPadding;
+      const preferredTop = canPlaceBelow
+        ? buttonRect.bottom + gap
+        : buttonRect.top - gap - tooltipRect.height;
+      const maxTop = Math.max(viewportPadding, window.innerHeight - tooltipRect.height - viewportPadding);
+      const top = Math.min(Math.max(viewportPadding, preferredTop), maxTop);
+      setTooltipStyle({ left: left + 'px', top: top + 'px', position: 'fixed', visibility: 'visible' });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [description, isOpen]);
+
   return (
-    <span className={'mechanism-hint' + (isPinned ? ' on' : '')}>
+    <span
+      className={'mechanism-hint' + (isPinned ? ' on' : '')}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <button
         type="button"
         className="mechanism-hint-button"
+        ref={buttonRef}
         aria-label={name + ' 설명'}
         aria-describedby={tooltipId}
         aria-expanded={isPinned}
-        onClick={() => setIsPinned(!isPinned)}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        onClick={() => {
+          setIsPinned(!isPinned);
+          setIsFocused(false);
+        }}
       >
         <span aria-hidden="true">i</span>
       </button>
-      <span className="mechanism-hint-text" id={tooltipId} role="tooltip">{description}</span>
+      {createPortal(
+        <span ref={tooltipRef} className="mechanism-hint-text" id={tooltipId} role="tooltip" style={tooltipStyle}>
+          {description}
+        </span>,
+        document.body,
+      )}
     </span>
   );
 }

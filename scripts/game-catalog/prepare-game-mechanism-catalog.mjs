@@ -38,6 +38,15 @@ export function validateMechanismDictionary(dictionary) {
   return dictionaryById;
 }
 
+export function validateMechanismManifest(manifest) {
+  const mechanismCatalog = manifest?.mechanismCatalog;
+  if (manifest?.approved !== true || manifest?.testOnly !== false
+    || !mechanismCatalog || !text(mechanismCatalog.approvalScope)) {
+    throw new Error('approved production mechanism manifest with approval scope required');
+  }
+  return mechanismCatalog;
+}
+
 export function validateSnapshotBatch({ batch, body, targetIds }) {
   if (batch?.httpStatus !== 200) throw new Error(`invalid XML batch status: ${batch?.file}`);
   const requestIds = positiveUniqueIds(batch?.requestIds, 'requestIds');
@@ -64,9 +73,7 @@ function main() {
 
   const manifestContents = readFileSync(manifestPath);
   const manifest = JSON.parse(manifestContents.toString('utf8'));
-  if (manifest?.approved !== true || manifest?.testOnly !== false || !manifest?.mechanismCatalog) {
-    throw new Error('approved production mechanism manifest required');
-  }
+  const mechanismCatalog = validateMechanismManifest(manifest);
   const dictionaryMetadata = manifest.mechanismDictionary;
   const dictionaryContents = readFileSync(dictionaryMetadata.path);
   if (hash(dictionaryContents) !== dictionaryMetadata.sha256) throw new Error('mechanism dictionary checksum mismatch');
@@ -76,7 +83,7 @@ function main() {
   if (hash(gamesContents) !== manifest.games.sha256) throw new Error('games checksum mismatch');
   const targetIds = targetIdsFromGames(JSON.parse(gamesContents.toString('utf8')));
   if (targetIds.size !== PRODUCTION_TARGET_SIZE) throw new Error('production target must contain 170000 unique game IDs');
-  if (dictionaryById.size !== manifest.mechanismCatalog.publishedCount) throw new Error('mechanism dictionary count mismatch');
+  if (dictionaryById.size !== mechanismCatalog.publishedCount) throw new Error('mechanism dictionary count mismatch');
 
   const snapshotMetadata = manifest.xmlSnapshot;
   const snapshotContents = readFileSync(snapshotMetadata.manifestPath);
@@ -165,7 +172,7 @@ function main() {
 }
 
 export function buildMechanismQualityReport({ manifest, inputs, checks, counts, outputs }) {
-  const metadata = manifest.mechanismCatalog;
+  const metadata = validateMechanismManifest(manifest);
   return {
     schemaVersion: 1,
     batchId: manifest.batchId ?? null,
