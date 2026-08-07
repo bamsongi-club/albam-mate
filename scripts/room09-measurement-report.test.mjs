@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   applyReproductionFields,
+  assertReportMatchesDescriptor,
   canonicalSha256,
   describeFile,
   executionCommand,
@@ -98,17 +99,20 @@ test("이미 올바른 원자료는 한 바이트도 바뀌지 않는다", () =>
   assert.equal(applyReproductionFields(correct, DIRECT_COMPARISON_MEDIUM), correct);
 });
 
-test("실측 run에서 T2가 요구하는 최소·중앙·최대와 성공·실패 수를 모은다", () => {
-  const run = (elapsedMs, throughput, calls) => ({
+function measuredRun(elapsedMs, throughput, { wholeTurnMs = elapsedMs, successCount = 20 } = {}) {
+  return {
     candidateCount: 20,
-    successCount: 20,
+    successCount,
     failureCount: 0,
     callElapsedNanos: elapsedMs * 1e6,
-    wholeTurnElapsedNanos: elapsedMs * 1e6,
+    wholeTurnElapsedNanos: wholeTurnMs * 1e6,
     throughputPerSecond: throughput,
-    databaseCost: { calls, totalExecutionTimeMs: 2 },
-  });
-  const summary = summarizeArm([run(30, 100, 53), run(10, 300, 53), run(20, 200, 53)]);
+    databaseCost: { calls: 53, totalExecutionTimeMs: 2 },
+  };
+}
+
+test("실측 run에서 T2가 요구하는 최소·중앙·최대와 성공·실패 수를 모은다", () => {
+  const summary = summarizeArm([measuredRun(30, 100), measuredRun(10, 300), measuredRun(20, 200)]);
 
   assert.equal(summary.minMs, 10);
   assert.equal(summary.medianMs, 20);
@@ -116,7 +120,102 @@ test("실측 run에서 T2가 요구하는 최소·중앙·최대와 성공·실�
   assert.equal(summary.medianThroughput, 200);
   assert.equal(summary.candidateCount, 20);
   assert.equal(summary.failureCount, 0);
-  assert.equal(summary.medianWholeTurnMs, summary.medianMs);
+});
+
+test("호출 시간과 전체 순회 시간이 갈리면 각각의 최소·중앙·최대를 따로 낸다", () => {
+  const summary = summarizeArm([
+    measuredRun(10, 300, { wholeTurnMs: 40 }),
+    measuredRun(20, 200, { wholeTurnMs: 50 }),
+    measuredRun(30, 100, { wholeTurnMs: 90 }),
+  ]);
+
+  assert.deepEqual([summary.minMs, summary.medianMs, summary.maxMs], [10, 20, 30]);
+  assert.deepEqual([summary.minWholeTurnMs, summary.medianWholeTurnMs, summary.maxWholeTurnMs], [40, 50, 90]);
+});
+
+function directComparisonReport({ profile = "small", candidateLimit = 10, waitingPerClosedDueRoom = 0 } = {}) {
+  const arm = (path, limit) => ({
+    path,
+    candidateLimit: limit,
+    warmUpRuns: [measuredRun(10, 300)],
+    measuredRuns: [1, 2, 3, 4, 5].map(() => measuredRun(10, 300)),
+  });
+  return {
+    outcome: "SUCCESS",
+    candidateLimit,
+    fixture: { profile: { name: profile }, dueRoomCount: 20, waitingPerClosedDueRoom },
+    baseline: arm("current-baseline", null),
+    candidate: arm("bounded-candidate", candidateLimit),
+    observedChanges: [
+      { metric: "medianCallElapsedNanos", percentChange: 0 },
+      { metric: "medianThroughputPerSecond", percentChange: 0 },
+      { metric: "medianDatabaseExecutionTimeMs", percentChange: 0 },
+    ],
+  };
+}
+
+test("파일명과 원자료 조건이 같으면 통과한다", () => {
+  assert.doesNotThrow(() =>
+    assertReportMatchesDescriptor(directComparisonReport(), describeFile("room-09d-direct-comparison-small-limit-10.json")),
+  );
+});
+
+test("limit이 다른 원자료를 다른 이름으로 복사하면 실패한다", () => {
+  assert.throws(
+    () =>
+      assertReportMatchesDescriptor(
+        directComparisonReport({ candidateLimit: 10 }),
+        describeFile("room-09d-direct-comparison-small-limit-100.json"),
+      ),
+    /candidateLimit이 파일명과 다릅니다/,
+  );
+});
+
+test("profile이 다른 원자료를 다른 이름으로 복사하면 실패한다", () => {
+  assert.throws(
+    () =>
+      assertReportMatchesDescriptor(
+        directComparisonReport({ profile: "medium" }),
+        describeFile("room-09d-direct-comparison-small-limit-10.json"),
+      ),
+    /profile이 파일명과 다릅니다/,
+  );
+});
+
+test("대기열 fixture를 직접 비교 이름으로 두면 실패한다", () => {
+  assert.throws(
+    () =>
+      assertReportMatchesDescriptor(
+        directComparisonReport({ waitingPerClosedDueRoom: 10 }),
+        describeFile("room-09d-direct-comparison-small-limit-10.json"),
+      ),
+    /fixture 유형이 파일명과 다릅니다/,
+  );
+});
+
+test("정상 표본이 아니거나 run 수·경로·변화율이 계약과 다르면 실패한다", () => {
+  const descriptor = describeFile("room-09d-direct-comparison-small-limit-10.json");
+
+  assert.throws(
+    () => assertReportMatchesDescriptor({ ...directComparisonReport(), outcome: "RUN_FAILURE" }, descriptor),
+    /정상 표본이 아닙니다/,
+  );
+
+  const shortRuns = directComparisonReport();
+  shortRuns.candidate.measuredRuns = shortRuns.candidate.measuredRuns.slice(0, 3);
+  assert.throws(() => assertReportMatchesDescriptor(shortRuns, descriptor), /run 수가/);
+
+  const swappedPath = directComparisonReport();
+  swappedPath.baseline.path = "bounded-candidate";
+  assert.throws(() => assertReportMatchesDescriptor(swappedPath, descriptor), /현행 경로가/);
+
+  const missingChange = directComparisonReport();
+  missingChange.observedChanges = missingChange.observedChanges.slice(0, 1);
+  assert.throws(() => assertReportMatchesDescriptor(missingChange, descriptor), /현행 대비 변화가 빠졌습니다/);
+
+  const unfinished = directComparisonReport();
+  unfinished.candidate.measuredRuns[0] = measuredRun(10, 300, { successCount: 19 });
+  assert.throws(() => assertReportMatchesDescriptor(unfinished, descriptor), /끝까지 처리하지 않은 run/);
 });
 
 test("생성 구역 표시가 없는 문서는 조용히 넘어가지 않고 실패한다", () => {

@@ -77,6 +77,79 @@ export function describeFile(fileName) {
   return { kind: matched[1], profile: matched[2], candidateLimit: Number(matched[3]), fileName };
 }
 
+const WARM_UP_RUN_COUNT = 1;
+const MEASURED_RUN_COUNT = 5;
+const REQUIRED_CHANGE_METRICS = [
+  "medianCallElapsedNanos",
+  "medianThroughputPerSecond",
+  "medianDatabaseExecutionTimeMs",
+];
+
+/**
+ * 파일명에서 읽은 조합이 원자료 내용과 같은지 대조한다. 파일명만 믿으면 limit-10 원자료를
+ * limit-100 이름으로 복사해도 표와 재현 명령이 100으로 생성되고 다음 `--check`까지 통과한다.
+ * 가장 흔한 복사 오류라 `--check`와 `--write` 양쪽에서 실패시킨다.
+ */
+export function assertReportMatchesDescriptor(report, descriptor) {
+  const fail = (reason) => {
+    throw new Error(`${descriptor.fileName}: ${reason}`);
+  };
+  const equals = (label, actual, expected) => {
+    if (actual !== expected) {
+      fail(`${label}이 파일명과 다릅니다. 원자료 ${JSON.stringify(actual)}, 파일명 ${JSON.stringify(expected)}`);
+    }
+  };
+
+  if (report.outcome !== "SUCCESS") {
+    fail(`정상 표본이 아닙니다. outcome ${JSON.stringify(report.outcome)}`);
+  }
+  equals("profile", report.fixture?.profile?.name, descriptor.profile);
+  equals("candidateLimit", report.candidateLimit, descriptor.candidateLimit);
+
+  const waitingPerRoom = report.fixture?.waitingPerClosedDueRoom;
+  if (descriptor.kind === "waiting-queue" ? !(waitingPerRoom > 0) : waitingPerRoom !== 0) {
+    fail(`fixture 유형이 파일명과 다릅니다. waitingPerClosedDueRoom ${waitingPerRoom}`);
+  }
+
+  const checkArm = (arm, label, expectedPath, expectedLimit) => {
+    if (arm === undefined) {
+      fail(`${label} 경로 원자료가 없습니다.`);
+    }
+    if (expectedPath !== null && arm.path !== expectedPath) {
+      fail(`${label} 경로가 ${JSON.stringify(arm.path)}입니다. ${JSON.stringify(expectedPath)}이어야 합니다.`);
+    }
+    if (expectedLimit !== undefined && arm.candidateLimit !== expectedLimit) {
+      fail(`${label} 경로의 candidateLimit이 ${arm.candidateLimit}입니다. ${expectedLimit}이어야 합니다.`);
+    }
+    if (arm.warmUpRuns?.length !== WARM_UP_RUN_COUNT || arm.measuredRuns?.length !== MEASURED_RUN_COUNT) {
+      fail(
+        `${label} 경로의 run 수가 warm-up ${arm.warmUpRuns?.length}·실측 ${arm.measuredRuns?.length}입니다.` +
+          ` warm-up ${WARM_UP_RUN_COUNT}·실측 ${MEASURED_RUN_COUNT}이어야 합니다.`,
+      );
+    }
+    for (const run of arm.measuredRuns) {
+      if (run.failureCount !== 0 || run.successCount !== report.fixture.dueRoomCount) {
+        fail(
+          `${label} 경로에 초기 due 집합을 끝까지 처리하지 않은 run이 있습니다.` +
+            ` 성공 ${run.successCount}, 실패 ${run.failureCount}, due ${report.fixture.dueRoomCount}`,
+        );
+      }
+    }
+  };
+
+  if (descriptor.kind === "direct-comparison") {
+    checkArm(report.baseline, "현행", "current-baseline", null);
+    checkArm(report.candidate, "후보", "bounded-candidate", descriptor.candidateLimit);
+    const recorded = (report.observedChanges ?? []).map((entry) => entry.metric);
+    const missing = REQUIRED_CHANGE_METRICS.filter((metric) => !recorded.includes(metric));
+    if (missing.length > 0) {
+      fail(`현행 대비 변화가 빠졌습니다: ${missing.join(", ")}`);
+    }
+    return;
+  }
+  checkArm(report, "후보", undefined, undefined);
+}
+
 /** 문서가 고정하는 SHA-256은 OS 줄바꿈 차이를 없앤 Git canonical blob bytes 기준이다. */
 export function canonicalSha256(text) {
   return createHash("sha256")
@@ -138,9 +211,14 @@ const integer = (value) => value.toLocaleString("en-US");
 const percent = (value) => `${value >= 0 ? "+" : "−"}${Math.abs(value).toFixed(2)}%`;
 const range = (low, middle, high) => `${decimal(low)} / **${decimal(middle)}** / ${decimal(high)}`;
 
-/** 실측 run에서 `ROOM-09d-T2`가 요구하는 지표를 모은다. */
+/**
+ * 실측 run에서 `ROOM-09d-T2`가 요구하는 지표를 모은다. 호출별 시간과 전체 순회 완료 시간은
+ * 현재 fixture에서 값이 같지만 각각 최소·중앙·최대를 따로 낸다. 한 쪽만 내면 두 값이 갈리는
+ * fixture가 생겼을 때 표와 `--check`가 그 차이를 놓친다.
+ */
 export function summarizeArm(runs) {
   const elapsedMs = runs.map((run) => run.callElapsedNanos / 1e6);
+  const wholeTurnMs = runs.map((run) => run.wholeTurnElapsedNanos / 1e6);
   const throughput = runs.map((run) => run.throughputPerSecond);
   return {
     candidateCount: runs[0].candidateCount,
@@ -149,7 +227,9 @@ export function summarizeArm(runs) {
     minMs: Math.min(...elapsedMs),
     medianMs: median(elapsedMs),
     maxMs: Math.max(...elapsedMs),
-    medianWholeTurnMs: median(runs.map((run) => run.wholeTurnElapsedNanos / 1e6)),
+    minWholeTurnMs: Math.min(...wholeTurnMs),
+    medianWholeTurnMs: median(wholeTurnMs),
+    maxWholeTurnMs: Math.max(...wholeTurnMs),
     minThroughput: Math.min(...throughput),
     medianThroughput: median(throughput),
     maxThroughput: Math.max(...throughput),
@@ -177,6 +257,7 @@ function comparisonTable(entries) {
           integer(summary.successCount),
           summary.failureCount,
           range(summary.minMs, summary.medianMs, summary.maxMs),
+          range(summary.minWholeTurnMs, summary.medianWholeTurnMs, summary.maxWholeTurnMs),
           range(summary.minThroughput, summary.medianThroughput, summary.maxThroughput),
           integer(summary.databaseCalls),
           decimal(summary.databaseMs),
@@ -189,9 +270,10 @@ function comparisonTable(entries) {
   }
   return [
     "| 규모 | 제한 ID | 경로 | 후보 수 | 성공 | 실패 |" +
-      " 실행시간 최소/**중앙**/최대 (ms) | 처리량 최소/**중앙**/최대 (ROOM/s) |" +
+      " 호출 시간 최소/**중앙**/최대 (ms) | 전체 순회 최소/**중앙**/최대 (ms) |" +
+      " 처리량 최소/**중앙**/최대 (ROOM/s) |" +
       " DB 호출 수 | DB 실행시간 중앙 (ms) | 현행 대비 시간 | 현행 대비 처리량 | 현행 대비 DB 시간 |",
-    "| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    "| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ...rows,
   ].join("\n");
 }
@@ -207,6 +289,7 @@ function waitingQueueTable(entries) {
       integer(summary.successCount),
       summary.failureCount,
       range(summary.minMs, summary.medianMs, summary.maxMs),
+      range(summary.minWholeTurnMs, summary.medianWholeTurnMs, summary.maxWholeTurnMs),
       range(summary.minThroughput, summary.medianThroughput, summary.maxThroughput),
       integer(summary.databaseCalls),
       decimal(summary.databaseMs),
@@ -214,9 +297,9 @@ function waitingQueueTable(entries) {
   });
   return [
     "| 규모 | 제한 ID | ROOM당 WAITING | 후보 수 | 성공 | 실패 |" +
-      " 실행시간 최소/**중앙**/최대 (ms) | 처리량 최소/**중앙**/최대 (ROOM/s) |" +
-      " DB 호출 수 | DB 실행시간 중앙 (ms) |",
-    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+      " 호출 시간 최소/**중앙**/최대 (ms) | 전체 순회 최소/**중앙**/최대 (ms) |" +
+      " 처리량 최소/**중앙**/최대 (ROOM/s) | DB 호출 수 | DB 실행시간 중앙 (ms) |",
+    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ...rows,
   ].join("\n");
 }
@@ -255,12 +338,14 @@ function loadPreservedData(rootDirectory) {
       const descriptor = describeFile(fileName);
       const filePath = path.join(directory, fileName);
       const original = fs.readFileSync(filePath, "utf8");
+      const report = JSON.parse(original);
+      assertReportMatchesDescriptor(report, descriptor);
       return {
         descriptor,
         filePath,
         original,
         text: applyReproductionFields(original, descriptor),
-        report: JSON.parse(original),
+        report,
       };
     })
     .sort(
@@ -289,7 +374,15 @@ function main(argv) {
     console.error("사용법: node scripts/room09-measurement-report.mjs [--check | --write]");
     return 2;
   }
-  const { files, documentPath, originalDocument, document } = buildReport(process.cwd());
+  let built;
+  try {
+    built = buildReport(process.cwd());
+  } catch (error) {
+    // 원자료가 파일명과 다르면 파생물을 만들 근거가 없다. --check와 --write 모두 여기서 멈춘다.
+    console.error(`보고 단계를 중단합니다: ${error.message}`);
+    return 1;
+  }
+  const { files, documentPath, originalDocument, document } = built;
   const drifted = files.filter((file) => file.text !== file.original);
   const documentDrifted = document !== originalDocument;
 
