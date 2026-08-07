@@ -29,7 +29,7 @@
       "measurementSystemProperty" : "issue390.measurement=true",
       "dockerVersion" : "29.4.3",
       "roomStatusCorrectionTriggerDelay" : "24h",
-      "executionCommand" : "$env:JAVA_TOOL_OPTIONS = '-Dissue390.measurement=true'; .\\gradlew.bat postgresTest --no-daemon --tests \"cloud.bamsongi.albammate.room.measurement.RoomStatusCorrectionCandidateMeasurementPostgresTest.승인_규모_후보는_명시적_속성에서만_10_100_1000_후보를_기록한다\" --rerun --fail-fast"
+      "executionCommand" : "$env:JAVA_TOOL_OPTIONS = '-Dissue390.measurement=true'; .\\gradlew.bat postgresTest --no-daemon --tests \"cloud.bamsongi.albammate.room.measurement.RoomStatusCorrectionCandidateMeasurementPostgresTest.승인_규모는_현행과_후보를_같은_세션에서_제한_ID별로_비교한다\" --rerun --fail-fast"
     }
   },
   "fixture" : {

@@ -53,18 +53,38 @@
 
 ## 2026-08-07 제한 처리 후보 결과
 
-`ROOM-09d-T1`에 따라 현행과 후보를 **같은 측정 세션 안에서** 실행했다. 한 조합마다 현행 경로와 후보 경로를 번갈아 warm-up 1회와 실측 5회씩 돌려, 한쪽만 특정 시간대의 호스트 부하를 받지 않게 했다. 현행은 #383이 기준선으로 고정한 <code>4688316415113b4457f03628d77bdcb7f594c294</code>의 전체 Entity 단일 트랜잭션 경로이고, 후보는 #382가 병합한 <code>8416d3254a3e9e2316bc14745959a2b42dab3c26</code>의 제한 ID 순회·ROOM별 독립 트랜잭션 경로다. 변화율은 같은 세션 현행 중앙값을 분모로 한 관찰값이며 성능 합격선이나 운영 실측 주장이 아니다.
+`ROOM-09d-T1`에 따라 현행과 후보를 **같은 측정 세션 안에서** 실행했다. 한 조합마다 현행 경로와 후보 경로를 번갈아 warm-up 1회와 실측 5회씩 돌려, 한쪽만 특정 시간대의 호스트 부하를 받지 않게 했다.
 
-| profile | 제한 ID | 현행 실행시간 중앙값 (ms) | 현행 처리량 중앙값 (ROOM/s) | 후보 실행시간 중앙값 (ms) | 후보 처리량 중앙값 (ROOM/s) | 시간 변화 | 처리량 변화 | 후보 DB 호출 수 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| small | 10 | 61.0767 | 327.4571 | 233.3307 | 85.7153 | +282.03% | −73.82% | 149 |
-| small | 20 | 53.0012 | 377.3499 | 243.7481 | 82.0519 | +359.89% | −78.26% | 146 |
-| medium | 10 | 7,387.3736 | 270.7322 | 14,359.9942 | 139.2758 | +94.39% | −48.56% | 13,613 |
-| medium | 100 | 11,660.9395 | 171.5128 | 23,994.8042 | 83.3514 | +105.77% | −51.40% | 13,073 |
-| medium | 1000 | 8,111.6719 | 246.5583 | 15,797.3735 | 126.6033 | +94.75% | −48.65% | 13,019 |
-| large | 10 | 284,453.8824 | 35.1551 | 145,841.8110 | 68.5674 | **−48.73%** | **+95.04%** | 68,013 |
-| large | 100 | 153,662.1539 | 65.0778 | 67,659.9952 | 147.7978 | **−55.97%** | **+127.11%** | 65,317 |
-| large | 1000 | 267,583.1773 | 37.3716 | 114,303.2526 | 87.4866 | **−57.28%** | **+134.10%** | 65,051 |
+측정 대상 변수는 **트랜잭션 범위** 하나다. 두 경로는 같은 커밋에서 같은 fixture를 처리하며, 현행은 due ROOM 전체를 하나의 트랜잭션에서 순회하고(`coordinator.correctDueRooms`, 제한 ID 미설정) 후보는 제한 ID로 나눠 ROOM마다 독립 트랜잭션을 연다(`scheduler.correctDueRooms` → `correctBoundedDueRooms`). 시작 경계 대기열 종료는 두 경로 모두에서 due ROOM마다 실행되므로 비교 변수가 아니라 양쪽 공통 비용이다.
+
+원자료의 `baselineSourceSha`(<code>4688316415113b4457f03628d77bdcb7f594c294</code>)와 `candidateSourceSha`(<code>8416d3254a3e9e2316bc14745959a2b42dab3c26</code>)는 각 처리 전략을 도입한 **유래 커밋**이며 실행된 커밋이 아니다. 실행 커밋은 같은 파일의 `measurementStartEnvironment.gitSha`에 따로 남으며, 두 경로 모두 그 커밋 하나에서 실행했다.
+
+변화율은 같은 세션 현행 중앙값을 분모로 한 관찰값이며 성능 합격선이나 운영 실측 주장이 아니다.
+
+`ROOM-09d-T2`가 요구하는 지표를 하나의 대비 표에 옮겼다. 이 표는 아래 보존 원자료에서 [`scripts/room09-measurement-report.mjs`](../../scripts/room09-measurement-report.mjs)가 생성하므로 손으로 고치지 않는다.
+
+<!-- room09-report:comparison-table:start -->
+| 규모 | 제한 ID | 경로 | 후보 수 | 성공 | 실패 | 실행시간 최소/**중앙**/최대 (ms) | 처리량 최소/**중앙**/최대 (ROOM/s) | DB 호출 수 | DB 실행시간 중앙 (ms) | 현행 대비 시간 | 현행 대비 처리량 | 현행 대비 DB 시간 |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| small | 10 | 현행(단일) | 20 | 20 | 0 | 56.7525 / **61.0767** / 90.0883 | 222.0044 / **327.4571** / 352.4074 | 53 | 2.4620 | 기준 | 기준 | 기준 |
+| small | 10 | 후보(분할) | 20 | 20 | 0 | 218.1029 / **233.3307** / 288.8958 | 69.2291 / **85.7153** / 91.6998 | 149 | 5.3852 | +282.03% | −73.82% | +118.73% |
+| small | 20 | 현행(단일) | 20 | 20 | 0 | 51.5494 / **53.0012** / 57.2266 | 349.4878 / **377.3499** / 387.9774 | 53 | 2.2346 | 기준 | 기준 | 기준 |
+| small | 20 | 후보(분할) | 20 | 20 | 0 | 203.6582 / **243.7481** / 258.5902 | 77.3425 / **82.0519** / 98.2038 | 146 | 5.2518 | +359.89% | −78.26% | +135.03% |
+| medium | 10 | 현행(단일) | 2,000 | 2,000 | 0 | 7,328.3884 / **7,387.3736** / 7,976.2829 | 250.7434 / **270.7322** / 272.9113 | 5,003 | 175.4721 | 기준 | 기준 | 기준 |
+| medium | 10 | 후보(분할) | 2,000 | 2,000 | 0 | 14,147.1113 / **14,359.9942** / 15,522.9240 | 128.8417 / **139.2758** / 141.3716 | 13,613 | 390.5296 | +94.39% | −48.56% | +122.56% |
+| medium | 100 | 현행(단일) | 2,000 | 2,000 | 0 | 10,829.0857 / **11,660.9395** / 11,830.1347 | 169.0598 / **171.5128** / 184.6878 | 5,003 | 243.9787 | 기준 | 기준 | 기준 |
+| medium | 100 | 후보(분할) | 2,000 | 2,000 | 0 | 23,607.5525 / **23,994.8042** / 25,223.8549 | 79.2900 / **83.3514** / 84.7187 | 13,073 | 472.4451 | +105.77% | −51.40% | +93.64% |
+| medium | 1000 | 현행(단일) | 2,000 | 2,000 | 0 | 7,886.9309 / **8,111.6719** / 8,365.5170 | 239.0767 / **246.5583** / 253.5841 | 5,003 | 191.2156 | 기준 | 기준 | 기준 |
+| medium | 1000 | 후보(분할) | 2,000 | 2,000 | 0 | 15,342.6804 / **15,797.3735** / 16,219.8304 | 123.3059 / **126.6033** / 130.3553 | 13,019 | 366.4445 | +94.75% | −48.65% | +91.64% |
+| large | 10 | 현행(단일) | 10,000 | 10,000 | 0 | 174,866.9621 / **284,453.8824** / 320,321.7204 | 31.2186 / **35.1551** / 57.1863 | 25,003 | 1,744.2023 | 기준 | 기준 | 기준 |
+| large | 10 | 후보(분할) | 10,000 | 10,000 | 0 | 73,919.1350 / **145,841.8110** / 151,774.4103 | 65.8873 / **68.5674** / 135.2830 | 68,014 | 3,378.7362 | −48.73% | +95.04% | +93.71% |
+| large | 100 | 현행(단일) | 10,000 | 10,000 | 0 | 139,126.1343 / **153,662.1539** / 214,242.8636 | 46.6760 / **65.0778** / 71.8772 | 25,003 | 1,333.6814 | 기준 | 기준 | 기준 |
+| large | 100 | 후보(분할) | 10,000 | 10,000 | 0 | 63,413.4151 / **67,659.9952** / 108,056.3586 | 92.5443 / **147.7978** / 157.6953 | 65,314 | 1,752.2884 | −55.97% | +127.11% | +31.39% |
+| large | 1000 | 현행(단일) | 10,000 | 10,000 | 0 | 155,413.3337 / **267,583.1773** / 274,361.8127 | 36.4482 / **37.3716** / 64.3445 | 25,005 | 1,866.2098 | 기준 | 기준 | 기준 |
+| large | 1000 | 후보(분할) | 10,000 | 10,000 | 0 | 79,431.1564 / **114,303.2526** / 126,136.4719 | 79.2792 / **87.4866** / 125.8952 | 65,044 | 2,325.9530 | −57.28% | +134.10% | +24.64% |
+<!-- room09-report:comparison-table:end -->
+
+`callElapsedNanos`(호출별)와 `wholeTurnElapsedNanos`(전체 순회 완료)는 모든 run에서 같다. 한 번의 호출이 곧 due 집합 전체 순회이고 순회 중 새 due ROOM 유입을 넣지 않았기 때문이며, 두 지표가 갈리는 조건은 이 측정 범위 밖이다. 실패는 모든 조합에서 `0`이고 성공 수는 초기 due 수와 같다.
 
 소형은 due ROOM이 20개다. 제한 ID `10`은 두 배치로 나누고 `20`은 한 배치로 전부 처리한다. `100`·`1000`은 `20`과 같은 단일 배치가 되어 별도로 측정하지 않았다.
 
@@ -80,28 +100,32 @@
 
 시작 경계를 지난 `CLOSED` due ROOM마다 `WAITING` 10명을 둔 별도 fixture의 후보 종료 비용이다. 현행 비교 없이 후보만 측정했고 fixture 구성이 달라 위 표에 넣지 않는다.
 
-| profile | 제한 ID | ROOM당 WAITING | 실행시간 중앙값 (ms) | 처리량 중앙값 (ROOM/s) | DB 호출 수 |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| small | 10 | 10 | 257.8804 | 77.5553 | 129 |
+<!-- room09-report:waiting-queue-table:start -->
+| 규모 | 제한 ID | ROOM당 WAITING | 후보 수 | 성공 | 실패 | 실행시간 최소/**중앙**/최대 (ms) | 처리량 최소/**중앙**/최대 (ROOM/s) | DB 호출 수 | DB 실행시간 중앙 (ms) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| small | 10 | 10 | 20 | 20 | 0 | 216.4720 / **257.8804** / 268.6512 | 74.4460 / **77.5553** / 92.3907 | 129 | 5.1126 |
+<!-- room09-report:waiting-queue-table:end -->
 
 `WAITING` 총 200건을 종료하는데도 `WAITING` 없는 같은 fixture의 후보(`233.3307 ms`, `149`회)와 같은 수준이다. 이 규모에서는 시작 경계 대기열 종료가 유의미한 추가 비용을 만들지 않는다. 다만 두 값은 서로 다른 실행에서 얻었으므로 차이를 대기열 유무의 효과로 읽지 않는다.
 
 ### 보존 원자료
 
+<!-- room09-report:preserved-data-table:start -->
 | 파일 | SHA-256 |
 | --- | --- |
 | [`room-09d-direct-comparison-small-limit-10.json`](results/room-09d/room-09d-direct-comparison-small-limit-10.json) | `342231913DA933C8E340A5F72BF9CF160C89A0296135B8F9283C0D8386C136B2` |
 | [`room-09d-direct-comparison-small-limit-20.json`](results/room-09d/room-09d-direct-comparison-small-limit-20.json) | `395ABD48F61FB838C4D443173870F732C39D4D4BD49B8A2A91163927E2B3B2DD` |
-| [`room-09d-direct-comparison-medium-limit-10.json`](results/room-09d/room-09d-direct-comparison-medium-limit-10.json) | `F175DCDE2A47A57EBBC138CC6D6E773E7838CEDE80D66C932A16DBFEFACA15CF` |
-| [`room-09d-direct-comparison-medium-limit-100.json`](results/room-09d/room-09d-direct-comparison-medium-limit-100.json) | `A32695CA53FD0145DE5B4F7574930098B10CAAF8365861E010EADC2117FB016F` |
-| [`room-09d-direct-comparison-medium-limit-1000.json`](results/room-09d/room-09d-direct-comparison-medium-limit-1000.json) | `C2B332FA7F28489FFD4B08BBD003F240F9A7744B4E05EFAEFC9CAD1377615719` |
-| [`room-09d-direct-comparison-large-limit-10.json`](results/room-09d/room-09d-direct-comparison-large-limit-10.json) | `0FD96F64B830477D5FACCFB002423657697F0C281011F0DC232E383987321D02` |
-| [`room-09d-direct-comparison-large-limit-100.json`](results/room-09d/room-09d-direct-comparison-large-limit-100.json) | `5D9FEF7C2D9CBF342FD93728A14CCD9340F1FA0B21CA49FA86950750ABF4B5C2` |
-| [`room-09d-direct-comparison-large-limit-1000.json`](results/room-09d/room-09d-direct-comparison-large-limit-1000.json) | `48B8D4B45F5D71335A2F3F40F2D5D08BECD3ABDF0C24FE40CD65A1ED694E8869` |
+| [`room-09d-direct-comparison-medium-limit-10.json`](results/room-09d/room-09d-direct-comparison-medium-limit-10.json) | `5F4DA6AB29E0885E44FFEAEE39BA9A1CC6388315040A898C9EE6E4AC1370D04D` |
+| [`room-09d-direct-comparison-medium-limit-100.json`](results/room-09d/room-09d-direct-comparison-medium-limit-100.json) | `B812E6F156CD9D0CD95BE01C43C2FAAAB281BC657CBBA95C62C3B11D6706C5C1` |
+| [`room-09d-direct-comparison-medium-limit-1000.json`](results/room-09d/room-09d-direct-comparison-medium-limit-1000.json) | `CD1CC766E40527B96AA0775E22DB9CEDEBD6502A950DAE19F489CBF31F747E2C` |
+| [`room-09d-direct-comparison-large-limit-10.json`](results/room-09d/room-09d-direct-comparison-large-limit-10.json) | `7EAA1730951DCCF9F8A195D1E3A6AA99749730085DC97F5AA5CE99B63221F3A7` |
+| [`room-09d-direct-comparison-large-limit-100.json`](results/room-09d/room-09d-direct-comparison-large-limit-100.json) | `18F631A7E6C1679C7297DAC07F335A689215E2E019EA26A01D03C670C6BFB725` |
+| [`room-09d-direct-comparison-large-limit-1000.json`](results/room-09d/room-09d-direct-comparison-large-limit-1000.json) | `D73A889156F0A8F535C2876F490A0BCCD3284EE4ED48ECFDA8A8F300A5978921` |
 | [`room-09d-candidate-small-limit-10.json`](results/room-09d/room-09d-candidate-small-limit-10.json) | `C4286E1C01E263ED0CE3835CCE58636E53F22F8C8B4001C0C099FBCBBFEAF1F2` |
 | [`room-09d-waiting-queue-small-limit-10.json`](results/room-09d/room-09d-waiting-queue-small-limit-10.json) | `AB2D754130A8244E4B4B8EED3CA8141AF06DF7AE150BF80E12C4C1A80AD4C5F2` |
+<!-- room09-report:preserved-data-table:end -->
 
-SHA-256 기준은 위 현행 원자료와 같다.
+SHA-256 기준은 위 현행 원자료와 같다. 이 표도 생성물이며 `scripts/room09-measurement-report.mjs`가 원자료에서 다시 계산한다.
 
 ### 확정한 초기 운영값
 
@@ -117,7 +141,7 @@ SHA-256 기준은 위 현행 원자료와 같다.
 - 이 수치는 로컬 단일 인스턴스와 Testcontainers 환경의 fixture 결과이며 운영 실측이나 성능 합격선이 아니다. 배포 환경에서 다시 측정한 값과 직접 비교하지 않는다.
 - 조합마다 현행과 후보는 같은 세션에서 얻었지만, 서로 다른 조합은 서로 다른 세션에서 측정했다. 같은 대형 현행이 `153,662 ms`와 `284,453 ms`로 벌어지는 것처럼 절대값은 호스트 부하에 크게 좌우된다. 따라서 조합 간 절대값을 직접 비교하지 않고 각 조합 안의 변화율만 읽는다.
 - 이 측정은 정상 처리 경로만 다룬다. 고의 실패·재시도·순회 중 새 due ROOM 유입은 포함하지 않으며, 실패 격리는 `#382`의 `ROOM-09b-T4` 검증 결과를 재사용한다.
-- 중형·대형 직접 비교 원자료 6개의 `measurementStartEnvironment.configuration.executionCommand`에는 후보 단독 측정 메서드가 적혀 있다. 보고서가 자기 측정 메서드를 기록하도록 고치기 전에 생성한 값이며, 소형 4개는 수정 뒤 다시 만들어 직접 비교 메서드를 가리킨다. 재현할 때는 원자료의 그 필드가 아니라 아래 `재현 명령`을 사용한다. 중형·대형을 다시 만들면 이 항목은 지운다.
+- 중형·대형 직접 비교 원자료 6개의 `executionCommand`는 측정 당시(`gitSha` `a3adcaeabf0e2a60751978767a9a0f9b9202c038`) 보고서 생성 코드의 selector 오류로 후보 단독 메서드를 가리켰고, 측정을 다시 하지 않고 `scripts/room09-measurement-report.mjs`가 정정했다. 정정은 그 필드 한 줄만 바꾸며, 스크립트가 나머지 모든 값이 동일한지 확인한 뒤에만 파일을 쓴다. 측정값은 여전히 `a3adcae`에서 실행한 결과다.
 - 소형·중형 열세의 원인을 ROOM당 트랜잭션 고정 비용으로 좁혔으나, 그 고정 비용의 내부 구성까지는 나누지 않았다. 확정하려면 트랜잭션 경계별 프로파일링이 따로 필요하다.
 - 다음 조건 중 하나가 성립하면 제한 ID와 주기를 다시 측정한다. 운영 due ROOM 수가 이 fixture의 대형 규모(`10,000`)를 넘어설 때, 한 순회의 실행시간이 실행시간 경고 기준에 근접할 때, 또는 ROOM당 `WAITING` 수가 이 측정의 `10`명을 크게 넘어설 때다.
 
@@ -187,6 +211,22 @@ try {
 }
 ```
 
-두 명령은 `build/reports/measurements/`에 JSON을 다시 만든다. 제한 ID 일부만 다시 재려면 `issue390.candidateLimits`에 쉼표로 값을 준다. 결과를 갱신할 때는 같은 파일을 `results/room-09d/`로 복사하고 위 표의 SHA-256을 다시 계산한다.
+두 명령은 `build/reports/measurements/`에 JSON을 다시 만든다. 제한 ID 일부만 다시 재려면 `issue390.candidateLimits`에 쉼표로 값을 준다.
+
+### 보고 단계
+
+측정과 보고를 나눈다. 대형 한 조합이 수십 분이라, 재현 명령·대비 표·SHA-256 같은 파생물이 원자료와 어긋날 때 측정을 다시 돌릴 수 없기 때문이다. 파생물은 보존 원자료만 읽어 다시 만든다.
+
+```powershell
+node scripts/room09-measurement-report.mjs --check
+```
+
+`--check`는 보존 원자료의 재현 메타데이터와 이 문서의 생성 표가 원자료와 일치하는지만 확인하고 아무것도 쓰지 않는다. 어긋나면 실패한다.
+
+```powershell
+node scripts/room09-measurement-report.mjs --write
+```
+
+`--write`는 원자료를 정본으로 삼아 재현 메타데이터와 위 세 생성 표를 다시 만든다. 측정값은 바꾸지 않으며, 재현 메타데이터를 뺀 나머지가 모두 같은지 확인한 뒤에만 파일을 쓴다. 새로 측정했다면 `build/reports/measurements/`의 JSON을 `results/room-09d/`로 복사한 뒤 `--write`를 실행한다.
 
 후속 #390은 이 기준선 원자료를 비교 근거로 사용하며, 결과만으로 제한 ID 수·반복·재시도·주기나 조건부 직접 갱신을 확정하지 않는다. 초기 운영값은 위 후보 결과를 제시한 뒤 사용자 승인으로 확정한다.
