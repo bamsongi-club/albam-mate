@@ -922,6 +922,7 @@ function advancedMechanisms(options, keyword) {
 }
 
 function MechanismCheckOption({ option, selected, onToggle }) {
+  const description = typeof option.descriptionKo === 'string' ? option.descriptionKo.trim() : '';
   return (
     <div className="mechanism-option">
       <label className="filter-option">
@@ -932,7 +933,7 @@ function MechanismCheckOption({ option, selected, onToggle }) {
         />
         {option.nameKo}
       </label>
-      <MechanismHint code={option.code} name={option.nameKo} description={option.descriptionKo} />
+      {description && <MechanismHint code={option.code} name={option.nameKo} description={description} />}
     </div>
   );
 }

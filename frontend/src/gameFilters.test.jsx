@@ -359,6 +359,17 @@ describe('T4 대표 메커니즘과 설명', () => {
     fireEvent.focus(hint);
     expect(document.getElementById(hint.getAttribute('aria-describedby')).textContent.trim()).toBe('입찰로 원하는 것을 가져가요');
   });
+
+  it('설명이 없거나 공백인 선택지에는 빈 툴팁을 렌더링하지 않는다', async () => {
+    getGameMechanisms.mockResolvedValueOnce(MECHANISM_OPTIONS.map((option) => (
+      option.code === 'DICE_ROLLING' ? { ...option, descriptionKo: '  ' } : option
+    )));
+    await renderGamesView();
+    openFilterPanel();
+
+    expect(screen.getByLabelText('주사위 굴림')).toBeTruthy();
+    expect(screen.queryByLabelText('주사위 굴림 설명')).toBeNull();
+  });
 });
 
 describe('T5 메커니즘 고급 목록', () => {

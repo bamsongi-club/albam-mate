@@ -8,4 +8,4 @@ WHERE is_public = true
 
 ALTER TABLE game_mechanisms
     ADD CONSTRAINT ck_game_mechanisms_public_description
-        CHECK (NOT is_public OR description_ko IS NOT NULL);
+        CHECK (NOT is_public OR NULLIF(BTRIM(description_ko), '') IS NOT NULL);

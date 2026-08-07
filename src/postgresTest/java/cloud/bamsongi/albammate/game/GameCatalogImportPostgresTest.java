@@ -193,6 +193,19 @@ class GameCatalogImportPostgresTest {
 	}
 
 	@Test
+	void 공개_메커니즘은_검수된_비공백_설명만_저장한다() throws Exception {
+		GameInput input = game(1, 10, "공개 설명 메커니즘 게임", "Public Description Mechanism Game");
+		input.mechanisms = List.of(mechanism(2040, "Hand Management", "핸드 관리"));
+		executeSql(prepareSql(List.of(input)));
+		executeSql(prepareMechanismSql(List.of(input)));
+
+		assertEquals("검수된 한글 설명입니다.", jdbcTemplate.queryForObject(
+			"select description_ko from game_mechanisms where bgg_mechanism_id = 2040", String.class));
+		assertConstraintViolation(
+			"update game_mechanisms set description_ko = ' ' where bgg_mechanism_id = 2040");
+	}
+
+	@Test
 	void 메커니즘_재적재는_관계를_승인_스냅샷에_수렴시키고_누락된_공개_항목을_비공개로_전환한다() throws Exception {
 		GameInput first = game(1, 10, "첫 번째 게임", "First Game");
 		first.mechanisms = List.of(
@@ -220,6 +233,11 @@ class GameCatalogImportPostgresTest {
 			"select is_public from game_mechanisms where bgg_mechanism_id = 2072", Boolean.class));
 		assertNull(jdbcTemplate.queryForObject(
 			"select featured_order from game_mechanisms where bgg_mechanism_id = 2072", Integer.class));
+		assertConstraintViolation(
+			"update game_mechanisms set description_ko = '' where bgg_mechanism_id = 2040");
+		jdbcTemplate.update("update game_mechanisms set description_ko = null where bgg_mechanism_id = 2072");
+		assertNull(jdbcTemplate.queryForObject(
+			"select description_ko from game_mechanisms where bgg_mechanism_id = 2072", String.class));
 
 		executeSql(prepareMechanismSql(List.of(approved)));
 		assertEquals(1, mechanismRelationCount());

@@ -415,8 +415,8 @@ img.profile-avatar { object-fit: cover; }
 .mechanism-hint-button { align-items: center; background: var(--soft); border-radius: 999px; color: var(--brown2); display: inline-flex; font-size: 11px; font-weight: 900; height: 18px; justify-content: center; width: 18px; }
 .mechanism-hint-button:hover, .mechanism-hint.on .mechanism-hint-button { background: var(--accent); color: #fff; }
 .mechanism-hint-text { background: var(--brown); border-radius: 8px; bottom: calc(100% + 7px); color: #fff; display: none; font-size: 12.5px; font-weight: 600; left: 50%; line-height: 1.5; padding: 9px 11px; position: absolute; transform: translateX(-50%); width: 208px; z-index: 5; }
-/* 고급 목록 첫 행은 위로 열면 스크롤 영역 상단에 잘리므로 아래로 연다. */
-.mechanism-advanced-list .mechanism-option:first-child .mechanism-hint-text { bottom: auto; top: calc(100% + 7px); }
+/* 고급 목록은 첫 시각 행의 모든 툴팁이 스크롤 영역 상단에 잘리지 않도록 아래로 연다. */
+.mechanism-advanced-list .mechanism-hint-text { bottom: auto; top: calc(100% + 7px); }
 /* 누른 상태와 키보드 focus는 어디서나 연다. `:focus-visible`이라 tap·클릭 focus로는 열리지 않는다. */
 .mechanism-hint.on .mechanism-hint-text,
 .mechanism-hint-button:focus-visible + .mechanism-hint-text { display: block; }
