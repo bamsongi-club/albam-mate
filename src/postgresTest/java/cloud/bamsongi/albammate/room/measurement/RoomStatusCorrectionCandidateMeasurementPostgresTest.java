@@ -67,7 +67,12 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 	private static final String WAITING_QUEUE_ROOM_TITLE_PREFIX = "ROOM-09d 후보 closed_with_waiting";
 	private static final int NON_DUE_CLOSED_ROOM_COUNT = 10;
 	private static final String CANDIDATE_IMPLEMENTATION_SOURCE_SHA = "8416d3254a3e9e2316bc14745959a2b42dab3c26";
-	/** #383이 현행 기준선을 고정한 SHA다. 현행 경로는 그 뒤로 바뀌지 않았고 이 측정에서 같은 경로를 다시 실행한다. */
+	/**
+	 * #383이 단일 일괄 트랜잭션 전략을 고정한 SHA다. 원자료의 {@code baselineSourceSha}는 전략의 유래를 남기는
+	 * 값이며 실행 커밋이 아니다. 실행 커밋은 {@code measurementStartEnvironment.gitSha}에 따로 남고, 현행과
+	 * 후보 두 경로 모두 그 커밋 하나에서 실행한다. 그 뒤 두 경로에 공통으로 들어온 시작 경계 대기열 종료는
+	 * 양쪽에 똑같이 실행되므로 트랜잭션 범위 비교의 변수가 아니다.
+	 */
 	private static final String BASELINE_IMPLEMENTATION_SOURCE_SHA = "4688316415113b4457f03628d77bdcb7f594c294";
 	private static final Path REPORT_DIRECTORY = Path.of("build", "reports", "measurements");
 	private static final MeasurementProfile SMALL = new MeasurementProfile("small", 100, 20);
@@ -339,9 +344,10 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 	}
 
 	/**
-	 * 같은 fixture를 두 경로로 실행한다. {@code CURRENT_BASELINE}은 #383이 기준선으로 남긴 전체 Entity 단일 트랜잭션
-	 * 경로이고 제한 ID를 사용하지 않는다. {@code BOUNDED_CANDIDATE}는 #382가 병합한 제한 ID 순회·ROOM별 독립
-	 * 트랜잭션 경로다. 두 경로를 한 측정 세션 안에서 번갈아 실행해야 호스트 부하 차이를 구현 차이와 섞지 않는다.
+	 * 같은 커밋에서 같은 fixture를 두 경로로 실행한다. 비교 변수는 트랜잭션 범위 하나다.
+	 * {@code CURRENT_BASELINE}은 #383이 남긴 전체 Entity 단일 트랜잭션 경로이고 제한 ID를 사용하지 않는다.
+	 * {@code BOUNDED_CANDIDATE}는 #382가 병합한 제한 ID 순회·ROOM별 독립 트랜잭션 경로다. 두 경로를 한 측정
+	 * 세션 안에서 번갈아 실행해야 호스트 부하 차이를 구현 차이와 섞지 않는다.
 	 */
 	private MeasurementRun executeRun(MeasurementProfile profile, FixtureType fixtureType, ProcessingPath path,
 		int candidateLimit, String phase, int iteration) {
