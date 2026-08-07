@@ -59,6 +59,14 @@ class LocalMultiProxyRuntimePostgresTest {
 	 * 긴 시간 재시도해야 관측된다.
 	 */
 	private static final long CROSS_INSTANCE_TIMEOUT_MILLIS = 60_000;
+	/**
+	 * 채팅 전송은 사용자당 {@code RedisChatMessageRateLimiter.USER_LIMIT}건 / {@code WINDOW_MILLIS}로 제한된다.
+	 * 재시도가 제한에 걸려 429로 실패하지 않도록 한 창에서 보내는 개수를 제한 아래로 두고, 더 필요하면
+	 * 창이 지나기를 기다린다. 재연결은 메시지를 만들지 않으므로 이 제한과 무관하게 반복할 수 있다.
+	 */
+	private static final int MESSAGES_PER_RATE_LIMIT_WINDOW = 3;
+	private static final long RATE_LIMIT_WINDOW_MILLIS = 10_000;
+	private static final int RECONNECT_ATTEMPTS_PER_MESSAGE = 6;
 
 	@Test
 	void local_multi_서비스가_healthy이고_공개_포트가_loopback에만_바인딩되며_프록시_세션이_공유된다() throws Exception {
@@ -143,6 +151,9 @@ class LocalMultiProxyRuntimePostgresTest {
 			int sentMessageCount = 0;
 			long deadline = System.currentTimeMillis() + CROSS_INSTANCE_TIMEOUT_MILLIS;
 			while (targetMessageId < 0 && System.currentTimeMillis() < deadline) {
+				if (sentMessageCount > 0 && sentMessageCount % MESSAGES_PER_RATE_LIMIT_WINDOW == 0) {
+					Thread.sleep(RATE_LIMIT_WINDOW_MILLIS);
+				}
 				HttpResponse<String> sendResponse = sendMessage(
 					client, proxyUri, roomId, "프록시 교차 인스턴스 메시지 " + sentMessageCount,
 					sentMessageCount % 2 == 1);
@@ -190,17 +201,18 @@ class LocalMultiProxyRuntimePostgresTest {
 
 		ProxyWebSocket reconnected = null;
 		try {
-			// 누락 메시지 저장과 재연결을 한 묶음으로 재시도한다. 캐시가 만료되면 둘 사이의 인스턴스 관계도
-			// 함께 흔들리므로, 재연결만 다시 시도해서는 교차 인스턴스 조건을 만들 수 없다.
+			// 캐시가 만료되면 누락 메시지 저장과 재연결 사이의 인스턴스 관계도 함께 흔들리므로 둘을
+			// 한 묶음으로 재시도한다. 다만 메시지 전송은 전송 제한을 받으니 재연결 쪽을 먼저 반복하고,
+			// 그래도 조건을 못 만들 때만 창을 지켜 가며 누락 메시지를 다시 보낸다.
 			long missedMessageId;
 			String missedHttpUpstream;
-			String reconnectedWsUpstream;
+			String reconnectedWsUpstream = null;
 			int missedMessageCount = 0;
+			boolean crossInstance = false;
 			long deadline = System.currentTimeMillis() + CROSS_INSTANCE_TIMEOUT_MILLIS;
 			do {
-				if (reconnected != null) {
-					reconnected.close();
-					reconnected = null;
+				if (missedMessageCount > 0 && missedMessageCount % MESSAGES_PER_RATE_LIMIT_WINDOW == 0) {
+					Thread.sleep(RATE_LIMIT_WINDOW_MILLIS);
 				}
 				HttpResponse<String> missedResponse = sendMessage(
 					client, proxyUri, roomId, "연결이 끊긴 동안 커밋된 메시지 " + missedMessageCount);
@@ -208,12 +220,18 @@ class LocalMultiProxyRuntimePostgresTest {
 				missedMessageId = messageId(missedResponse.body());
 				missedHttpUpstream = missedResponse.headers().firstValue(UPSTREAM_HEADER).orElseThrow();
 
-				reconnected = connectProxyWebSocket(proxyUri, roomId, sessionId, firstMessageId);
-				assertEquals(101, reconnected.statusCode, "같은 세션의 재연결 handshake가 실패했습니다.");
-				reconnectedWsUpstream = reconnected.headers.get(UPSTREAM_HEADER);
-			} while ((reconnectedWsUpstream.equals(firstInstanceUpstream)
-				|| reconnectedWsUpstream.equals(missedHttpUpstream))
-				&& System.currentTimeMillis() < deadline);
+				for (int attempt = 0; attempt < RECONNECT_ATTEMPTS_PER_MESSAGE && !crossInstance; attempt++) {
+					if (reconnected != null) {
+						reconnected.close();
+						reconnected = null;
+					}
+					reconnected = connectProxyWebSocket(proxyUri, roomId, sessionId, firstMessageId);
+					assertEquals(101, reconnected.statusCode, "같은 세션의 재연결 handshake가 실패했습니다.");
+					reconnectedWsUpstream = reconnected.headers.get(UPSTREAM_HEADER);
+					crossInstance = !reconnectedWsUpstream.equals(firstInstanceUpstream)
+						&& !reconnectedWsUpstream.equals(missedHttpUpstream);
+				}
+			} while (!crossInstance && System.currentTimeMillis() < deadline);
 
 			assertTrue(missedMessageId > firstMessageId);
 			assertNotEquals(
