@@ -32,7 +32,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import cloud.bamsongi.albammate.chat.contract.ChatRealtimePublisher;
 import cloud.bamsongi.albammate.chat.contract.ChatRealtimeSignalGateway;
 
-/** T7: production과 local-multi가 같은 PostgreSQL catch-up용 Redis fan-out adapter를 등록하는지 검증한다. */
+/** T7: production과 local이 같은 PostgreSQL catch-up용 Redis fan-out adapter를 등록하는지 검증한다. */
 class RedisChatRealtimeProductionProfileTest {
 
 	@Test
@@ -75,12 +75,12 @@ class RedisChatRealtimeProductionProfileTest {
 	}
 
 	@Test
-	void T7_local_multi는_Redis_발행구독과_listener_container를_등록한다() {
-		try (AnnotationConfigApplicationContext context = redisRealtimeContext("local-multi")) {
+	void T3_local은_Redis_발행구독과_listener_container를_등록한다() {
+		try (AnnotationConfigApplicationContext context = redisRealtimeContext("local")) {
 			ChatRealtimePublisher publisher = context.getBean(ChatRealtimePublisher.class);
 
 			assertInstanceOf(RedisChatRealtimePublisher.class, publisher);
-			assertEquals("albam-mate:local-multi:chat:events", ReflectionTestUtils.getField(publisher, "channel"));
+			assertEquals("albam-mate:local:chat:events", ReflectionTestUtils.getField(publisher, "channel"));
 			assertEquals(1, context.getBeansOfType(ChatRealtimePublisher.class).size());
 			assertEquals(1, context.getBeansOfType(RedisChatRealtimeSubscriber.class).size());
 			assertEquals(1, context.getBeansOfType(RedisMessageListenerContainer.class).size());

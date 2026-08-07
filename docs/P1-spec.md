@@ -304,18 +304,17 @@ P1 필수 구현은 다음 여덟 가지 흐름을 처음부터 끝까지 연결
 
 ### 실행 환경과 공용 인프라
 
-다중 인스턴스 실행, 공용 세션과 스케줄 실행 조정의 기술 결정은 승인된 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)을 따른다.
+다중 인스턴스 실행, 공용 세션과 스케줄 실행 조정의 기술 결정은 승인된 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)과 실행 프로필·로컬 검증 경계를 확정한 [ADR-0052](adr/platform/0052-local-profile-multi-instance-default.md)를 따른다.
 
-- `local-single`은 빠른 단일 서버 개발용 실행 환경이며 실제 Spring profile 이름은 `local`이다. 인메모리 세션·채팅 fan-out을 사용할 수 있지만 P1 다중 인스턴스 검증 근거로 인정하지 않는다.
-- `local-multi`는 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL과 Redis로 구성한다. HTTP 저장 요청과 WebSocket 연결이 다른 인스턴스에 도달하는 세션·전달·재연결 경로를 검증하며 P1 채팅 완료의 필수 환경이다.
+- `local`은 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL과 Redis로 구성하는 기본 개발·데모·P1 검증 환경이다. HTTP 저장 요청과 WebSocket 연결이 다른 인스턴스에 도달하는 세션·전달·재연결 경로를 검증하며 단일 서버 실행은 지원 범위에 두지 않는다.
 - 승인된 P1 AWS 검증 토폴로지는 App1 Nginx 단일 진입점, 고정 Spring EC2 2대, 자체 운영 PostgreSQL EC2 1대와 Redis EC2 1대로 구성한다. 네 EC2는 모두 `t4g.micro`와 public subnet에서 시작하고 ALB·ASG·NAT Gateway는 사용하지 않는다. 인터넷 인바운드는 App1의 TCP `80`만 기본 허용하고 인증서와 TLS 설정을 준비한 뒤 선택적으로 TCP `443`을 열며, 데이터 서비스는 애플리케이션 보안 그룹에서만 접근한다. 상세 선택과 ADR-0038의 부분 대체 범위는 [ADR-0051](adr/platform/0051-p1-self-managed-aws-infrastructure.md)이 소유하고, 배포·실측 상태는 [P1 기능별 상태 정본](p1/README.md#기능별-현재-상태)의 `운영 배포·실측` 열을 따른다. 실제 AWS WebSocket Upgrade, Nginx 분산·장애 처리, 수동 교체와 부하 검증은 후속 OPS이며 P1 채팅 구현 완료를 막지 않는다.
-- `local-multi`와 `production`은 Redis 세션을 필수 의존성으로 사용하고 인메모리 구현으로 자동 fallback하지 않는다. 세션 또는 전송 제한을 확인할 수 없을 때 `503 SERVICE_UNAVAILABLE`을 반환하는 현재 범위는 [API 정본](API.md#101-공통-오류)의 채팅 API 세 엔드포인트로 한정한다. 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트의 오류 계약은 적용 엔드포인트를 명시한 별도 계약 변경 전까지 확정하지 않는다.
-- Spring Session은 모든 프로필에서 같은 쿠키·직렬화·필터 경로를 사용하고 저장소만 분기한다. `local-multi`와 `production`은 30분 TTL의 Redis 저장소, `local`·`test`·`postgresTest`는 인메모리 저장소를 사용한다. Redis 세션은 `SecurityJacksonModules`와 `CurrentUserPrincipal` mixin을 적용한 JSON serializer를 사용하고 namespace는 각각 `albam-mate:local-multi:session`, `albam-mate:production:session`으로 둔다. rate limit namespace는 각각 `albam-mate:local-multi:ratelimit`, `albam-mate:production:ratelimit`으로, 환경별 채팅 이벤트 channel은 `albam-mate:{env}:chat:events`로 분리한다.
+- `local`과 `production`은 Redis 세션을 필수 의존성으로 사용하고 인메모리 구현으로 자동 fallback하지 않는다. 세션 또는 전송 제한을 확인할 수 없을 때 `503 SERVICE_UNAVAILABLE`을 반환하는 현재 범위는 [API 정본](API.md#101-공통-오류)의 채팅 API 세 엔드포인트로 한정한다. 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트의 오류 계약은 적용 엔드포인트를 명시한 별도 계약 변경 전까지 확정하지 않는다.
+- Spring Session은 모든 프로필에서 같은 쿠키·직렬화·필터 경로를 사용하고 저장소만 분기한다. `local`과 `production`은 30분 TTL의 Redis 저장소, `test`·`postgresTest`는 인메모리 저장소를 사용한다. Redis 세션은 `SecurityJacksonModules`와 `CurrentUserPrincipal` mixin을 적용한 JSON serializer를 사용하고 namespace는 각각 `albam-mate:local:session`, `albam-mate:production:session`으로 둔다. rate limit namespace는 각각 `albam-mate:local:ratelimit`, `albam-mate:production:ratelimit`으로, 환경별 채팅 이벤트 channel은 `albam-mate:{env}:chat:events`로 분리한다.
 - 하나의 공용 Redis를 Spring Session, 채팅 Pub/Sub, 사용자·방 단위 전송 제한에 사용하되 key prefix, TTL과 channel namespace를 분리한다.
 - Redis Pub/Sub은 `eventType`, `roomId`, `messageId`만 담은 best-effort 신호다. 메시지 본문·사용자·세션 정보와 영속 제품 상태는 저장하지 않는다.
 - Redis Pub/Sub 또는 WebSocket 실패는 이미 커밋된 PostgreSQL 메시지를 롤백하거나 삭제하지 않는다. 신호 누락·중복·순서 역전은 다음 신호나 `afterMessageId` 재연결에서 `messageId ASC` PostgreSQL 조회로 복구한다.
 - 운영 Redis 제품, HA, TLS, 접근 제어, 비밀 주입과 비용은 후속 OPS에서 확정한다.
-- `local-multi` 세션 TTL 30분, JSON 직렬화 방식과 정확한 session·rate limit·chat event namespace는 #360에서 확정했다. `lockAtMostFor`와 실행시간 경고 기준은 후속 구현 이슈에서 확정한다.
+- `local` 세션 TTL 30분, JSON 직렬화 방식과 정확한 session·rate limit·chat event namespace는 [ADR-0052](adr/platform/0052-local-profile-multi-instance-default.md)에서 `production`과 분리해 확정했다. `lockAtMostFor`와 실행시간 경고 기준은 후속 구현 이슈에서 확정한다.
 
 ### ROOM 상태와 행동 가능성
 
@@ -537,9 +536,9 @@ P1은 P0의 17개 API를 유지하고, 소셜 로그인·계정 연결과 대기
 - 기존 오프라인 방의 주최자와 현재 `ACTIVE` 참가자는 참가 직후부터 채팅 이력을 조회하고 메시지를 주고받을 수 있다.
 - 참가 취소한 사용자와 최종 상태 방의 관계자는 채팅 이력 조회·전송·실시간 구독을 할 수 없다.
 - 동일한 사용자·클라이언트 메시지 식별자의 저장 결과는 한 건으로 수렴한다. 실시간 이벤트가 중복되거나 연결이 끊겨도 메시지 ID 중복 제거와 cursor 이력 조회로 일관된 결과와 누락분을 복구할 수 있다.
-- `local-multi`의 프록시 뒤 애플리케이션 두 대가 공용 PostgreSQL·Redis를 사용할 때 HTTP 저장 인스턴스와 WebSocket 연결 인스턴스가 달라도 세션, 메시지 전달과 `afterMessageId` 복구가 동작한다.
+- `local`의 프록시 뒤 애플리케이션 두 대가 공용 PostgreSQL·Redis를 사용할 때 HTTP 저장 인스턴스와 WebSocket 연결 인스턴스가 달라도 세션, 메시지 전달과 `afterMessageId` 복구가 동작한다.
 - Redis Pub/Sub 신호가 누락·중복·역전되거나 AFTER_COMMIT 발행이 실패해도 PostgreSQL에 커밋된 메시지는 유지되고 다음 신호·이력 조회·재연결에서 복구된다.
-- `local-multi`는 Redis 장애 시 인메모리로 자동 fallback하지 않는다. 채팅 API 세 엔드포인트의 세션·전송 제한 실패는 `503 SERVICE_UNAVAILABLE`, 커밋 뒤 Pub/Sub 실패는 저장 성공으로 구분한다.
+- `local`은 Redis 장애 시 인메모리로 자동 fallback하지 않는다. 채팅 API 세 엔드포인트의 세션·전송 제한 실패는 `503 SERVICE_UNAVAILABLE`, 커밋 뒤 Pub/Sub 실패는 저장 성공으로 구분한다. `production`도 같은 실패 경계를 사용한다.
 - 권한 없는 채팅 조회·구독·전송, 제한을 넘은 메시지와 실행 가능한 사용자 입력이 차단된다.
 - 실시간 전송 방식, 공용 세션, 스케줄 단일 실행과 보안 경계가 승인된 ADR·ERD·아키텍처에 반영된다.
 - 실제 AWS App1 Nginx의 다중 upstream·WebSocket·장애 처리, 고정 EC2 수동 교체와 운영 Redis의 HA·TLS·비밀·비용 검증은 후속 OPS이며, 그 미검증은 P1 채팅 구현 완료를 막지 않는다.

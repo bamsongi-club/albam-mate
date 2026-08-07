@@ -17,6 +17,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -27,6 +29,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 class LocalRoomSeedPostgresTest {
 
 	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final String REDIS_IMAGE = "redis:8.4-alpine";
 	private static final String SEED_HOST_EMAIL = "local.seed.host@albammate.local";
 	private static final String HOST_MANUAL_ROOM_TITLE = "로컬 사용자의 수동 모임";
 	private static final String LAST_PERSON_SEED_TITLE = "뭐 할지 정하기 어려우면";
@@ -36,6 +39,11 @@ class LocalRoomSeedPostgresTest {
 	@ServiceConnection
 	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
 		.withDatabaseName("albam_mate_local_seed_test");
+
+	@Container
+	static final GenericContainer redis = new GenericContainer(REDIS_IMAGE)
+		.withExposedPorts(6379)
+		.waitingFor(Wait.forListeningPort());
 
 	@Autowired
 	private Flyway flyway;
@@ -50,6 +58,8 @@ class LocalRoomSeedPostgresTest {
 		registry.add("ALBAM_MATE_LOCAL_DB_NAME", postgres::getDatabaseName);
 		registry.add("ALBAM_MATE_LOCAL_DB_USER", postgres::getUsername);
 		registry.add("ALBAM_MATE_LOCAL_DB_PASSWORD", postgres::getPassword);
+		registry.add("ALBAM_MATE_LOCAL_REDIS_HOST", redis::getHost);
+		registry.add("ALBAM_MATE_LOCAL_REDIS_PORT", () -> redis.getMappedPort(6379));
 	}
 
 	@Test

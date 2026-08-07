@@ -55,7 +55,7 @@ import cloud.bamsongi.albammate.user.contract.UserNickname;
 
 /** T4: HTTP 저장과 WebSocket 연결이 서로 다른 인스턴스에 도달해도 공용 세션이 같은 경계로 판정하는지 검증한다. */
 @Testcontainers
-@ActiveProfiles("local-multi")
+@ActiveProfiles("local")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
 	"app.security.cookie.secure=false",
@@ -66,7 +66,7 @@ class ChatWebSocketCrossInstanceSessionPostgresTest {
 	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final String REDIS_IMAGE = "redis:8.4-alpine";
 	private static final Instant FUTURE_STARTS_AT = Instant.parse("2099-01-01T10:00:00Z");
-	private static final String ALLOWED_ORIGIN = "http://localhost:5174";
+	private static final String ALLOWED_ORIGIN = "http://localhost:5173";
 	private static final String PASSWORD = "123456789012345";
 	private static final Pattern CSRF_TOKEN_PATTERN = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"");
 
@@ -95,8 +95,8 @@ class ChatWebSocketCrossInstanceSessionPostgresTest {
 		registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
 		registry.add("spring.datasource.username", POSTGRES::getUsername);
 		registry.add("spring.datasource.password", POSTGRES::getPassword);
-		registry.add("ALBAM_MATE_LOCAL_MULTI_REDIS_HOST", REDIS::getHost);
-		registry.add("ALBAM_MATE_LOCAL_MULTI_REDIS_PORT", () -> REDIS.getMappedPort(6379));
+		registry.add("ALBAM_MATE_LOCAL_REDIS_HOST", REDIS::getHost);
+		registry.add("ALBAM_MATE_LOCAL_REDIS_PORT", () -> REDIS.getMappedPort(6379));
 	}
 
 	@Test
@@ -147,7 +147,7 @@ class ChatWebSocketCrossInstanceSessionPostgresTest {
 
 	private ConfigurableApplicationContext secondApplicationContext() {
 		return new SpringApplicationBuilder(AlbamMateApplication.class).run(
-			"--spring.profiles.active=local-multi",
+			"--spring.profiles.active=local",
 			"--server.port=0",
 			"--spring.datasource.url=" + POSTGRES.getJdbcUrl(),
 			"--spring.datasource.username=" + POSTGRES.getUsername(),

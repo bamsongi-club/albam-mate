@@ -36,9 +36,9 @@ Gradle은 별도 설치본 대신 저장소의 Wrapper를 사용한다.
 
 ## 로컬 개발
 
-`.env` 준비, 실행 방식 선택과 운영체제별 호스트 실행은 [로컬 개발 환경 실행](guides/LOCAL_DEVELOPMENT.md)을 따른다. 아래 명령은 `.env`가 준비된 뒤 반복해서 사용한다. 전체 스택과 호스트 개발 방식은 기본 포트가 같으므로 동시에 실행하지 않는다.
+`.env` 준비와 운영체제별 실행은 [로컬 개발 환경 실행](guides/LOCAL_DEVELOPMENT.md)을 따른다. 아래 명령은 `.env`가 준비된 뒤 반복해서 사용한다. 기본 local Compose는 프록시·Spring 두 대·PostgreSQL·Redis를 함께 실행한다.
 
-현재 소스로 PostgreSQL, Spring과 웹을 함께 빌드·실행하고 상태를 확인한다.
+현재 소스로 프록시, Spring 애플리케이션 두 대, PostgreSQL과 Redis를 함께 빌드·실행하고 상태를 확인한다. 이 `local` Compose가 기본 로컬·데모·P1 검증 환경이며 단일 Spring 실행은 검증 경계로 사용하지 않는다.
 
 ```sh
 docker compose --env-file .env -f compose.local.yml up -d --build --wait
@@ -52,12 +52,12 @@ docker compose --env-file .env -f compose.local.yml logs --tail 200
 docker compose --env-file .env -f compose.local.yml down
 ```
 
-호스트에서 Spring이나 웹을 개발할 때는 PostgreSQL만 시작·확인하고, 작업을 마친 뒤 중지한다.
+필요하면 애플리케이션 없이 PostgreSQL과 Redis 의존성만 시작해 DB·Redis 클라이언트 작업을 확인하고, 작업을 마친 뒤 중지한다.
 
 ```sh
-docker compose --env-file .env -f compose.local.yml up -d --wait postgres
-docker compose --env-file .env -f compose.local.yml ps postgres
-docker compose --env-file .env -f compose.local.yml stop postgres
+docker compose --env-file .env -f compose.local.yml up -d --wait postgres redis
+docker compose --env-file .env -f compose.local.yml ps postgres redis
+docker compose --env-file .env -f compose.local.yml stop postgres redis
 ```
 
 로컬 PostgreSQL 데이터를 명시적으로 초기화할 때만 named volume까지 삭제한다.
@@ -66,18 +66,10 @@ docker compose --env-file .env -f compose.local.yml stop postgres
 docker compose --env-file .env -f compose.local.yml down --volumes
 ```
 
-`local-multi`는 프록시, Spring 두 대, 공용 PostgreSQL·Redis로 교차 인스턴스 세션을 확인하는 전용 구성이다. `.env.example`을 바탕으로 `.env`를 준비하고, 기존 `compose.local.yml` 스택과 동시에 실행하지 않는다.
-
-```sh
-docker compose --env-file .env -f compose.local-multi.yml up -d --build --wait
-docker compose --env-file .env -f compose.local-multi.yml ps
-docker compose --env-file .env -f compose.local-multi.yml down
-```
-
 Compose가 실행 중인 상태에서 프록시를 통과하는 동일 세션 검증은 별도 명령으로 실행한다. 일반 `postgresTest`는 외부 Compose 의존성을 만들지 않도록 이 테스트를 건너뛴다.
 
 ```sh
-./gradlew postgresTest --tests "cloud.bamsongi.albammate.global.security.session.LocalMultiProxyRuntimePostgresTest" -Dissue360.localMultiProxy=true --no-daemon --stacktrace
+JAVA_TOOL_OPTIONS='-Dissue471.localProxy=true' ./gradlew postgresTest --tests "cloud.bamsongi.albammate.global.security.session.LocalMultiProxyRuntimePostgresTest" --rerun --fail-fast --no-daemon --stacktrace
 ```
 
 ## 운영 Compose

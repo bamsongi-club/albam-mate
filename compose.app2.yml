@@ -1,3 +1,7 @@
+# App2 EC2 전용: Spring Boot 컨테이너만 실행한다.
+# App1 Nginx가 이 EC2의 사설 IP:8080 으로 요청을 분산한다.
+# .env 에 ALBAM_MATE_DB_HOST, ALBAM_MATE_REDIS_HOST 를 DB/Redis EC2의 사설 IP 또는 private DNS로 설정한다.
+
 services:
   spring:
     image: ${ALBAM_MATE_IMAGE_NAMESPACE:?ALBAM_MATE_IMAGE_NAMESPACE must be set}/backend:${ALBAM_MATE_RELEASE:?ALBAM_MATE_RELEASE must be set}
@@ -17,18 +21,18 @@ services:
       ALBAM_MATE_DB_MINIMUM_IDLE: ${ALBAM_MATE_DB_MINIMUM_IDLE:-2}
       ALBAM_MATE_REDIS_HOST: ${ALBAM_MATE_REDIS_HOST:?ALBAM_MATE_REDIS_HOST must be set}
       ALBAM_MATE_REDIS_PORT: ${ALBAM_MATE_REDIS_PORT:-6379}
-      # 소셜 제공자는 ID와 secret이 모두 있을 때만 활성화된다. 비우면 그 제공자만 숨겨지고 기동은 막지 않는다.
       ALBAM_MATE_GOOGLE_OAUTH_CLIENT_ID: ${ALBAM_MATE_GOOGLE_OAUTH_CLIENT_ID:-}
       ALBAM_MATE_GOOGLE_OAUTH_CLIENT_SECRET: ${ALBAM_MATE_GOOGLE_OAUTH_CLIENT_SECRET:-}
       ALBAM_MATE_NAVER_OAUTH_CLIENT_ID: ${ALBAM_MATE_NAVER_OAUTH_CLIENT_ID:-}
       ALBAM_MATE_NAVER_OAUTH_CLIENT_SECRET: ${ALBAM_MATE_NAVER_OAUTH_CLIENT_SECRET:-}
       ALBAM_MATE_KAKAO_OAUTH_CLIENT_ID: ${ALBAM_MATE_KAKAO_OAUTH_CLIENT_ID:-}
       ALBAM_MATE_KAKAO_OAUTH_CLIENT_SECRET: ${ALBAM_MATE_KAKAO_OAUTH_CLIENT_SECRET:-}
-      # 채팅 WebSocket handshake가 허용할 운영 Origin. 비우면 모든 handshake를 거절한다.
       ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN: ${ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN:-}
       TZ: UTC
-    expose:
-      - "8080"
+    ports:
+      # App1 Nginx가 이 EC2의 사설 IP:8080 으로 접근한다.
+      # 보안 그룹(sg-app)에서 App1에서 오는 TCP 8080만 허용한다.
+      - "8080:8080"
     healthcheck:
       test: ["CMD-SHELL", "/app/backend-entrypoint.sh --validate-release-only && wget --quiet --output-document=/dev/null 'http://127.0.0.1:8080/api/games?size=1'"]
       interval: 10s
@@ -50,59 +54,3 @@ services:
       options:
         max-size: ${ALBAM_MATE_LOG_MAX_SIZE:-10m}
         max-file: ${ALBAM_MATE_LOG_MAX_FILES:-5}
-    networks:
-      - application
-
-  web:
-    image: ${ALBAM_MATE_IMAGE_NAMESPACE:?ALBAM_MATE_IMAGE_NAMESPACE must be set}/web:${ALBAM_MATE_RELEASE:?ALBAM_MATE_RELEASE must be set}
-    platform: linux/arm64
-    pull_policy: always
-    restart: unless-stopped
-    init: true
-    environment:
-      ALBAM_MATE_RELEASE: ${ALBAM_MATE_RELEASE:?ALBAM_MATE_RELEASE must be set}
-      # App2 EC2의 private DNS. entrypoint에서 envsubst가 nginx.conf upstream에 치환한다.
-      # 설정하지 않으면 App1 자신(127.0.0.1)을 App2로도 사용한다.
-      ALBAM_MATE_APP2_HOST: ${ALBAM_MATE_APP2_HOST:-127.0.0.1}
-    depends_on:
-      spring:
-        condition: service_healthy
-        restart: true
-    ports:
-      - "${ALBAM_MATE_HTTPS_BIND_ADDRESS:-0.0.0.0}:443:8443"
-    healthcheck:
-      test: ["CMD-SHELL", "/usr/local/bin/albam-mate-entrypoint --validate-release-only && wget --quiet --output-document=/dev/null http://127.0.0.1:8080/healthz"]
-      interval: 10s
-      timeout: 5s
-      retries: 6
-      start_period: 10s
-    volumes:
-      - type: bind
-        source: ${ALBAM_MATE_TLS_PATH:?ALBAM_MATE_TLS_PATH must be set}
-        target: /etc/albam-mate/tls
-        read_only: true
-    read_only: true
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=32m,mode=1777
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
-    pids_limit: 128
-    mem_limit: ${ALBAM_MATE_WEB_MEMORY_LIMIT:-128m}
-    stop_grace_period: 10s
-    logging:
-      driver: json-file
-      options:
-        max-size: ${ALBAM_MATE_LOG_MAX_SIZE:-10m}
-        max-file: ${ALBAM_MATE_LOG_MAX_FILES:-5}
-    networks:
-      - application
-
-networks:
-  application:
-    driver: bridge

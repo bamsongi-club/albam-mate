@@ -312,12 +312,13 @@ function verifyT1() {
     const image = contractImage('albam-mate-spring', 'T1');
     const network = contractResource('albam-mate-contract-t1');
     const postgres = contractResource('albam-mate-contract-t1-postgres');
+    const redis = contractResource('albam-mate-contract-t1-redis');
     const spring = contractResource('albam-mate-contract-t1-spring');
     const ownedImages = new Set();
     const ownedContainers = new Set();
     let networkCreated = false;
     try {
-        assertUnusedResources([postgres, spring], network);
+        assertUnusedResources([postgres, redis, spring], network);
         buildOwnedImage(ownedImages, image, ['.']);
         const inspect = JSON.parse(docker(['image', 'inspect', image]).stdout)[0];
         assert(inspect.Config.User === '10001:10001', `unexpected configured user: ${inspect.Config.User}`);
@@ -367,6 +368,12 @@ function verifyT1() {
             });
             return health.status === 0 && health.stdout.trim() === 'healthy';
         });
+        docker(['run', '-d', '--name', redis, '--network', network, 'redis:8.4-alpine']);
+        ownedContainers.add(redis);
+        waitFor('Redis health', () => {
+            const response = docker(['exec', redis, 'redis-cli', 'ping'], { allowFailure: true });
+            return response.status === 0 && response.stdout.trim() === 'PONG';
+        });
         docker([
             'run',
             '-d',
@@ -386,6 +393,10 @@ function verifyT1() {
             'ALBAM_MATE_LOCAL_DB_USER=verify_user',
             '--env',
             'ALBAM_MATE_LOCAL_DB_PASSWORD=verify_password',
+            '--env',
+            'ALBAM_MATE_LOCAL_REDIS_HOST=redis',
+            '--env',
+            'ALBAM_MATE_LOCAL_REDIS_PORT=6379',
             '--env',
             'TZ=UTC',
             image,
@@ -477,55 +488,111 @@ function verifyT3() {
     const override = path.join(contractDirectory, 'compose.override.yml');
     const springImage = contractImage('albam-mate-spring', 'T3');
     const viteImage = contractImage('albam-mate-vite', 'T3');
+    const filler = contractResource('albam-mate-contract-t3-filler');
     const files = ['compose.local.yml', override];
     const ownedImages = new Set();
     let composeAttempted = false;
+    let fillerCreated = false;
     const env = {
         ...process.env,
         ALBAM_MATE_LOCAL_DB_NAME: 'albam_mate_verify',
         ALBAM_MATE_LOCAL_DB_USER: 'verify_user',
         ALBAM_MATE_LOCAL_DB_PASSWORD: 'verify_password',
         ALBAM_MATE_LOCAL_DB_PORT: '0',
-        ALBAM_MATE_LOCAL_SPRING_PORT: '0',
-        ALBAM_MATE_LOCAL_WEB_PORT: '0',
+        ALBAM_MATE_LOCAL_REDIS_PORT: '0',
+        ALBAM_MATE_LOCAL_PROXY_PORT: '0',
     };
     try {
         assertProjectUnused(project);
+        assertUnusedResources([filler], null);
         assertUnusedImages([springImage, viteImage]);
         fs.writeFileSync(
             override,
-            `services:\n  spring:\n    image: ${springImage}\n  vite:\n    image: ${viteImage}\n`,
+            `services:\n  spring-1:\n    image: ${springImage}\n  spring-2:\n    image: ${springImage}\n  proxy:\n    image: ${viteImage}\n`,
             'utf8',
         );
-        compose(files, project, ['build', 'spring'], { env });
+        compose(files, project, ['build', 'spring-1'], { env });
         ownedImages.add(springImage);
-        compose(files, project, ['build', 'vite'], { env });
+        compose(files, project, ['build', 'proxy'], { env });
         ownedImages.add(viteImage);
         const config = JSON.parse(compose(files, project, ['config', '--format', 'json'], { env }).stdout);
-        assert(
-            config.services.spring.depends_on.postgres.condition === 'service_healthy',
-            'Spring does not wait for PostgreSQL health',
-        );
-        assert(
-            config.services.vite.depends_on.spring.condition === 'service_healthy',
-            'Vite does not wait for Spring health',
-        );
+        for (const service of ['spring-1', 'spring-2']) {
+            assert(
+                config.services[service].depends_on.postgres.condition === 'service_healthy',
+                `${service} does not wait for PostgreSQL health`,
+            );
+            assert(
+                config.services[service].depends_on.redis.condition === 'service_healthy',
+                `${service} does not wait for Redis health`,
+            );
+        }
+        for (const spring of ['spring-1', 'spring-2']) {
+            assert(
+                config.services.proxy.depends_on[spring].condition === 'service_healthy',
+                `proxy does not wait for ${spring} health`,
+            );
+            assert(
+                config.services[spring].networks.default.aliases.includes('spring'),
+                `${spring} does not publish the shared spring DNS alias`,
+            );
+        }
         composeAttempted = true;
         compose(files, project, ['up', '-d', '--no-build', '--wait'], { env });
-        for (const service of ['postgres', 'spring', 'vite']) {
+        for (const service of ['postgres', 'redis', 'spring-1', 'spring-2', 'proxy']) {
             const container = serviceContainer(files, project, service, env);
             assertHealthy(container, service);
             const bindings = dockerInspectJson(container).HostConfig.PortBindings;
-            assert(Object.keys(bindings).length > 0, `${service} has no host binding`);
+            const expectsPublishedPort = ['postgres', 'redis', 'proxy'].includes(service);
+            assert(
+                expectsPublishedPort === (Object.keys(bindings).length > 0),
+                `${service} host binding expectation is incorrect`,
+            );
             for (const values of Object.values(bindings)) {
                 for (const binding of values) assert(binding.HostIp === '127.0.0.1', `${service} binds ${binding.HostIp}`);
             }
         }
-        const vite = serviceContainer(files, project, 'vite', env);
-        const api = docker(['exec', vite, 'wget', '-qO-', 'http://127.0.0.1/api/games?size=1']).stdout;
-        assert(api.includes('"status"'), 'local Compose /api request failed');
-        console.log('T3 PASS: PostgreSQL, Spring and Vite are healthy with loopback-only host bindings.');
+        const proxy = serviceContainer(files, project, 'proxy', env);
+        const firstSpring = serviceContainer(files, project, 'spring-1', env);
+        const firstSpringIp = Object.values(dockerInspectJson(firstSpring).NetworkSettings.Networks)[0].IPAddress;
+        const initialApi = docker(['exec', proxy, 'wget', '-qO-', 'http://127.0.0.1/api/games?size=1']).stdout;
+        assert(initialApi.includes('"status"'), 'local Compose /api request failed before Spring recreation');
+
+        compose(files, project, ['rm', '--stop', '--force', 'spring-1'], { env });
+        docker([
+            'run',
+            '-d',
+            '--name',
+            filler,
+            '--network',
+            `${project}_default`,
+            httpEchoImage,
+            '-listen=:8080',
+            '-text=filler',
+        ]);
+        fillerCreated = true;
+        const survivingApi = waitFor('local proxy DNS re-resolution after Spring removal', () => {
+            const response = docker(['exec', proxy, 'wget', '-qO-', 'http://127.0.0.1/api/games?size=1'], {
+                allowFailure: true,
+            });
+            return response.status === 0 && response.stdout.includes('"status"') ? response.stdout : false;
+        });
+        assert(survivingApi.includes('"status"'), 'local proxy did not route to the surviving Spring instance');
+
+        compose(files, project, ['up', '-d', '--no-build', '--wait', 'spring-1'], { env });
+        const recreatedSpring = serviceContainer(files, project, 'spring-1', env);
+        assertHealthy(recreatedSpring, 'spring-1 after recreation');
+        const recreatedSpringIp = Object.values(dockerInspectJson(recreatedSpring).NetworkSettings.Networks)[0].IPAddress;
+        assert(firstSpringIp !== recreatedSpringIp, `Spring IP did not change: ${firstSpringIp}`);
+        const restoredApi = waitFor('local proxy DNS re-resolution after Spring recreation', () => {
+            const response = docker(['exec', proxy, 'wget', '-qO-', 'http://127.0.0.1/api/games?size=1'], {
+                allowFailure: true,
+            });
+            return response.status === 0 && response.stdout.includes('"status"') ? response.stdout : false;
+        });
+        assert(restoredApi.includes('"status"'), 'local proxy did not route after Spring recreation');
+        console.log(`T3 PASS: local proxy, two Spring instances, PostgreSQL and Redis are healthy with loopback-only host bindings and DNS recovery (${firstSpringIp} -> ${recreatedSpringIp}).`);
     } finally {
+        if (fillerCreated) removeContainer(filler);
         if (composeAttempted) cleanupProject(files, project, env);
         removeOwnedImages(ownedImages);
         removeOwnedTempDirectory(contractDirectory, 'albam-mate-contract-t3');
@@ -745,6 +812,15 @@ function t8Override(springImage, webImage) {
       - postgres_data:/var/lib/postgresql
     networks:
       - application
+  redis:
+    image: redis:8.4-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+    networks:
+      - application
   spring:
     image: ${springImage}
     platform: ${platform}
@@ -756,8 +832,12 @@ function t8Override(springImage, webImage) {
       ALBAM_MATE_LOCAL_DB_NAME: albam_mate_verify
       ALBAM_MATE_LOCAL_DB_USER: verify_user
       ALBAM_MATE_LOCAL_DB_PASSWORD: verify_password
+      ALBAM_MATE_LOCAL_REDIS_HOST: redis
+      ALBAM_MATE_LOCAL_REDIS_PORT: 6379
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
   web:
     image: ${webImage}

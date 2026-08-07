@@ -3,7 +3,7 @@ spring:
     activate:
       on-profile: production
   datasource:
-    url: "jdbc:postgresql://${ALBAM_MATE_DB_HOST}:${ALBAM_MATE_DB_PORT}/${ALBAM_MATE_DB_NAME}?sslmode=verify-full&sslrootcert=/etc/albam-mate/rds-ca-bundle.pem&ApplicationName=albam-mate"
+    url: "jdbc:postgresql://${ALBAM_MATE_DB_HOST}:${ALBAM_MATE_DB_PORT}/${ALBAM_MATE_DB_NAME}?sslmode=disable&ApplicationName=albam-mate"
     username: ${ALBAM_MATE_DB_USER}
     password: ${ALBAM_MATE_DB_PASSWORD}
     driver-class-name: org.postgresql.Driver

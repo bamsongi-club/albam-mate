@@ -39,7 +39,7 @@ import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 
-@ActiveProfiles("local-multi")
+@ActiveProfiles("local")
 @SpringBootTest(properties = {
 	"spring.datasource.url=jdbc:h2:mem:chat-rate-limit-unavailable;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
 	"spring.datasource.username=sa",

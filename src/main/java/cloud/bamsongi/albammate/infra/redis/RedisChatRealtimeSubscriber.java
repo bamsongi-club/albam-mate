@@ -14,7 +14,7 @@ import lombok.RequiredArgsConstructor;
 
 /** Redis 운영 프로필의 채널을 구독해 커밋 신호를 방별 로컬 WebSocket 연결 게이트웨이로 넘긴다. */
 @Component
-@Profile({"local-multi", "production"})
+@Profile({"local", "production"})
 @RequiredArgsConstructor
 class RedisChatRealtimeSubscriber implements MessageListener {
 

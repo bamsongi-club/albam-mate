@@ -39,25 +39,40 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
-@EnabledIfSystemProperty(named = "issue360.localMultiProxy", matches = "true")
+@EnabledIfSystemProperty(named = "issue471.localProxy", matches = "true")
 class LocalMultiProxyRuntimePostgresTest {
 
 	private static final Pattern CSRF_TOKEN_PATTERN = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"");
 	private static final Pattern MESSAGE_ID_PATTERN = Pattern.compile("\\\"messageId\\\":(\\d+)");
 	private static final Pattern ROOM_ID_PATTERN = Pattern.compile("\\\"id\\\":(\\d+)");
-	private static final List<String> LOCAL_MULTI_SERVICES = List.of("postgres", "redis", "spring-1", "spring-2",
+	private static final List<String> LOCAL_SERVICES = List.of("postgres", "redis", "spring-1", "spring-2",
 		"proxy");
 	private static final Set<String> PUBLIC_SERVICES = Set.of("postgres", "redis", "proxy");
-	private static final String ALLOWED_ORIGIN = "http://localhost:5174";
+	private static final String ALLOWED_ORIGIN = "http://localhost:5173";
 	private static final String PASSWORD = "123456789012345";
 	private static final String UPSTREAM_HEADER = "x-albam-mate-upstream";
 	private static final String WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+	/**
+	 * 프록시는 upstream 블록 없이 Docker DNS가 돌려주는 두 주소를 라운드로빈한다
+	 * (frontend/nginx.local.conf의 resolver + 변수 proxy_pass). 한 캐시 창 안에서는 순차적이지만
+	 * valid=10s가 만료되면 주소 순서와 커서가 다시 정해지므로, 교차 인스턴스 조건은 캐시 창보다
+	 * 긴 시간 재시도해야 관측된다.
+	 */
+	private static final long CROSS_INSTANCE_TIMEOUT_MILLIS = 60_000;
+	/**
+	 * 채팅 전송은 사용자당 {@code RedisChatMessageRateLimiter.USER_LIMIT}건 / {@code WINDOW_MILLIS}로 제한된다.
+	 * 재시도가 제한에 걸려 429로 실패하지 않도록 한 창에서 보내는 개수를 제한 아래로 두고, 더 필요하면
+	 * 창이 지나기를 기다린다. 재연결은 메시지를 만들지 않으므로 이 제한과 무관하게 반복할 수 있다.
+	 */
+	private static final int MESSAGES_PER_RATE_LIMIT_WINDOW = 3;
+	private static final long RATE_LIMIT_WINDOW_MILLIS = 10_000;
+	private static final int RECONNECT_ATTEMPTS_PER_MESSAGE = 6;
 
 	@Test
 	void local_multi_서비스가_healthy이고_공개_포트가_loopback에만_바인딩되며_프록시_세션이_공유된다() throws Exception {
-		assertLocalMultiServicesHealthyAndLoopbackBound();
+		assertLocalServicesHealthyAndLoopbackBound();
 
-		URI proxyUri = URI.create("http://127.0.0.1:5174");
+		URI proxyUri = URI.create("http://127.0.0.1:5173");
 		String password = "123456789012345";
 		String email = "proxy-runtime-" + UUID.randomUUID() + "@example.com";
 		HttpClient client = HttpClient.newBuilder()
@@ -99,7 +114,7 @@ class LocalMultiProxyRuntimePostgresTest {
 	/** T1: 프록시 주소로 보낸 WebSocket Upgrade 요청이 실제 Spring 인스턴스까지 라우팅되어 101로 전환된다. */
 	@Test
 	void 프록시_주소로_WebSocket_Upgrade_연결을_생성한다() throws Exception {
-		URI proxyUri = URI.create("http://127.0.0.1:5174");
+		URI proxyUri = URI.create("http://127.0.0.1:5173");
 		HttpClient client = HttpClient.newBuilder()
 			.cookieHandler(new CookieManager(null, CookiePolicy.ACCEPT_ALL))
 			.build();
@@ -117,7 +132,7 @@ class LocalMultiProxyRuntimePostgresTest {
 	/** T2: HTTP로 메시지를 저장한 인스턴스와 다른 인스턴스가 맡은 프록시 WebSocket 연결도 실시간 프레임을 수신한다. */
 	@Test
 	void 메시지를_저장한_인스턴스와_다른_인스턴스의_프록시_WebSocket_연결이_실시간으로_수신한다() throws Exception {
-		URI proxyUri = URI.create("http://127.0.0.1:5174");
+		URI proxyUri = URI.create("http://127.0.0.1:5173");
 		HttpClient client = HttpClient.newBuilder()
 			.cookieHandler(new CookieManager(null, CookiePolicy.ACCEPT_ALL))
 			.build();
@@ -128,14 +143,21 @@ class LocalMultiProxyRuntimePostgresTest {
 			assertEquals(101, webSocket.statusCode);
 			String webSocketUpstream = webSocket.headers.get(UPSTREAM_HEADER);
 
-			// Nginx upstream의 shared zone이 worker 간 실행 상태를 공유하므로 순차 요청의 라운드로빈이 결정적이다.
 			// CSRF 조회+전송(2회 요청)만 반복하면 WebSocket과의 상대 패리티가 고정되므로,
 			// 홀수 시도에서 CSRF를 한 번 더 조회해 패리티를 뒤집어 교차 인스턴스 저장을 만든다.
+			// 패리티 조정만으로는 부족하다. 캐시 만료로 순서가 다시 정해질 수 있어 마감시한까지 재시도한다.
 			long targetMessageId = -1;
 			String targetHttpUpstream = null;
-			for (int attempt = 0; attempt < 4 && targetMessageId < 0; attempt++) {
+			int sentMessageCount = 0;
+			long deadline = System.currentTimeMillis() + CROSS_INSTANCE_TIMEOUT_MILLIS;
+			while (targetMessageId < 0 && System.currentTimeMillis() < deadline) {
+				if (sentMessageCount > 0 && sentMessageCount % MESSAGES_PER_RATE_LIMIT_WINDOW == 0) {
+					Thread.sleep(RATE_LIMIT_WINDOW_MILLIS);
+				}
 				HttpResponse<String> sendResponse = sendMessage(
-					client, proxyUri, roomId, "프록시 교차 인스턴스 메시지 " + attempt, attempt % 2 == 1);
+					client, proxyUri, roomId, "프록시 교차 인스턴스 메시지 " + sentMessageCount,
+					sentMessageCount % 2 == 1);
+				sentMessageCount++;
 				String httpUpstream = sendResponse.headers().firstValue(UPSTREAM_HEADER).orElseThrow();
 				if (!httpUpstream.equals(webSocketUpstream)) {
 					targetMessageId = messageId(sendResponse.body());
@@ -144,10 +166,12 @@ class LocalMultiProxyRuntimePostgresTest {
 			}
 			assertTrue(
 				targetMessageId > 0,
-				"WebSocket과 다른 인스턴스로 메시지를 저장하는 시도가 모두 실패했습니다.");
+				"WebSocket과 다른 인스턴스로 메시지를 저장하는 시도가 "
+					+ CROSS_INSTANCE_TIMEOUT_MILLIS + "ms 동안 모두 실패했습니다.");
 			assertNotEquals(webSocketUpstream, targetHttpUpstream, "메시지 저장 인스턴스(HTTP)와 WebSocket 연결 인스턴스가 동일합니다.");
 
-			String frame = pollUntilEventId(webSocket, targetMessageId, 4);
+			// 실시간 프레임은 전송한 순서대로 도착하므로, 재시도로 보낸 앞선 메시지만큼 건너뛴다.
+			String frame = pollUntilEventId(webSocket, targetMessageId, sentMessageCount + 4);
 			assertNotNull(frame, "다른 인스턴스가 저장한 메시지의 실시간 프레임을 받지 못했습니다.");
 			assertTrue(frame.contains("\"type\":\"MESSAGE_CREATED\""), frame);
 		}
@@ -156,7 +180,7 @@ class LocalMultiProxyRuntimePostgresTest {
 	/** T3: 연결이 끊긴 뒤 다른 인스턴스로 재연결해도 같은 세션으로 판정되고 누락 메시지가 복구된다. */
 	@Test
 	void 재연결_시_다른_인스턴스에서도_공용_세션과_누락_메시지가_복구된다() throws Exception {
-		URI proxyUri = URI.create("http://127.0.0.1:5174");
+		URI proxyUri = URI.create("http://127.0.0.1:5173");
 		HttpClient client = HttpClient.newBuilder()
 			.cookieHandler(new CookieManager(null, CookiePolicy.ACCEPT_ALL))
 			.build();
@@ -175,33 +199,51 @@ class LocalMultiProxyRuntimePostgresTest {
 			assertNotNull(liveFrame, "재연결 전 실시간 프레임을 받지 못했습니다.");
 		}
 
-		HttpResponse<String> missedResponse = sendMessage(client, proxyUri, roomId, "연결이 끊긴 동안 커밋된 메시지");
-		long missedMessageId = messageId(missedResponse.body());
-		String missedHttpUpstream = missedResponse.headers().firstValue(UPSTREAM_HEADER).orElseThrow();
-		assertTrue(missedMessageId > firstMessageId);
-
 		ProxyWebSocket reconnected = null;
 		try {
-			for (int attempt = 0; attempt < 4; attempt++) {
-				if (reconnected != null) {
-					reconnected.close();
+			// 캐시가 만료되면 누락 메시지 저장과 재연결 사이의 인스턴스 관계도 함께 흔들리므로 둘을
+			// 한 묶음으로 재시도한다. 다만 메시지 전송은 전송 제한을 받으니 재연결 쪽을 먼저 반복하고,
+			// 그래도 조건을 못 만들 때만 창을 지켜 가며 누락 메시지를 다시 보낸다.
+			long missedMessageId;
+			String missedHttpUpstream;
+			String reconnectedWsUpstream = null;
+			int missedMessageCount = 0;
+			boolean crossInstance = false;
+			long deadline = System.currentTimeMillis() + CROSS_INSTANCE_TIMEOUT_MILLIS;
+			do {
+				if (missedMessageCount > 0 && missedMessageCount % MESSAGES_PER_RATE_LIMIT_WINDOW == 0) {
+					Thread.sleep(RATE_LIMIT_WINDOW_MILLIS);
 				}
-				reconnected = connectProxyWebSocket(proxyUri, roomId, sessionId, firstMessageId);
-				assertEquals(101, reconnected.statusCode, "같은 세션의 재연결 handshake가 실패했습니다.");
-				if (!firstInstanceUpstream.equals(reconnected.headers.get(UPSTREAM_HEADER))) {
-					break;
+				HttpResponse<String> missedResponse = sendMessage(
+					client, proxyUri, roomId, "연결이 끊긴 동안 커밋된 메시지 " + missedMessageCount);
+				missedMessageCount++;
+				missedMessageId = messageId(missedResponse.body());
+				missedHttpUpstream = missedResponse.headers().firstValue(UPSTREAM_HEADER).orElseThrow();
+
+				for (int attempt = 0; attempt < RECONNECT_ATTEMPTS_PER_MESSAGE && !crossInstance; attempt++) {
+					if (reconnected != null) {
+						reconnected.close();
+						reconnected = null;
+					}
+					reconnected = connectProxyWebSocket(proxyUri, roomId, sessionId, firstMessageId);
+					assertEquals(101, reconnected.statusCode, "같은 세션의 재연결 handshake가 실패했습니다.");
+					reconnectedWsUpstream = reconnected.headers.get(UPSTREAM_HEADER);
+					crossInstance = !reconnectedWsUpstream.equals(firstInstanceUpstream)
+						&& !reconnectedWsUpstream.equals(missedHttpUpstream);
 				}
-			}
-			String reconnectedWsUpstream = reconnected.headers.get(UPSTREAM_HEADER);
+			} while (!crossInstance && System.currentTimeMillis() < deadline);
+
+			assertTrue(missedMessageId > firstMessageId);
 			assertNotEquals(
 				firstInstanceUpstream, reconnectedWsUpstream,
-				"재연결이 다른 인스턴스로 라우팅되지 않았습니다.");
+				"재연결이 " + CROSS_INSTANCE_TIMEOUT_MILLIS + "ms 동안 다른 인스턴스로 라우팅되지 않았습니다.");
 			assertNotEquals(
 				missedHttpUpstream, reconnectedWsUpstream,
 				"누락 메시지를 저장한 HTTP 인스턴스(" + missedHttpUpstream + ")와 복구 WebSocket 인스턴스("
 					+ reconnectedWsUpstream + ")가 동일하여 FND-10-AC8 교차 인스턴스 조건이 검증되지 않았습니다.");
 
-			String recoveredFrame = pollUntilEventId(reconnected, missedMessageId, 4);
+			// catch-up은 firstMessageId 이후의 누락 메시지를 모두 재생하므로, 재시도로 쌓인 개수만큼 건너뛴다.
+			String recoveredFrame = pollUntilEventId(reconnected, missedMessageId, missedMessageCount + 4);
 			assertNotNull(recoveredFrame, "재연결 뒤 다른 인스턴스의 catch-up 프레임을 받지 못했습니다.");
 			assertTrue(recoveredFrame.contains("\"type\":\"MESSAGE_CREATED\""), recoveredFrame);
 		} finally {
@@ -211,8 +253,8 @@ class LocalMultiProxyRuntimePostgresTest {
 		}
 	}
 
-	private void assertLocalMultiServicesHealthyAndLoopbackBound() throws Exception {
-		for (String service : LOCAL_MULTI_SERVICES) {
+	private void assertLocalServicesHealthyAndLoopbackBound() throws Exception {
+		for (String service : LOCAL_SERVICES) {
 			String containerId = dockerCompose("ps", "-q", service).trim();
 			assertFalse(containerId.isBlank(), service + " container is not running");
 			assertEquals("running", dockerInspect(containerId, "{{.State.Status}}"), service + " state");
@@ -237,7 +279,7 @@ class LocalMultiProxyRuntimePostgresTest {
 		command[2] = "--env-file";
 		command[3] = ".env.example";
 		command[4] = "-f";
-		command[5] = "compose.local-multi.yml";
+		command[5] = "compose.local.yml";
 		System.arraycopy(arguments, 0, command, 6, arguments.length);
 		return runCommand(command);
 	}
@@ -341,7 +383,8 @@ class LocalMultiProxyRuntimePostgresTest {
 
 	/**
 	 * 프록시 라운드로빈 패리티를 뒤집어야 할 때 CSRF를 한 번 더 미리 조회해 요청 수를 홀수만큼 늘린다.
-	 * 라운드로빈은 결정적이므로 같은 개수의 요청을 반복하면 상대 인스턴스가 고정된다.
+	 * 한 캐시 창 안에서는 라운드로빈이 순차적이라 같은 개수의 요청만 반복하면 상대 인스턴스가 고정되기 때문이다.
+	 * 캐시가 만료되면 순서가 다시 정해지므로, 이 패리티 조정만으로는 부족하고 호출부에서 재시도까지 해야 한다.
 	 */
 	private HttpResponse<String> sendMessage(
 		HttpClient client, URI proxyUri, long roomId, String content, boolean shiftRoundRobinParity)
