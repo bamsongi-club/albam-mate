@@ -4,6 +4,8 @@ import java.util.Objects;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import cloud.bamsongi.albammate.global.exception.UnauthenticatedException;
 import cloud.bamsongi.albammate.user.contract.UserNickname;
@@ -40,7 +42,7 @@ public class UserProfileService {
 		String previousUrl = user.getProfileImageUrl();
 		user.changeProfileImageUrl(imageUrl);
 		if (previousUrl != null && !previousUrl.equals(imageUrl)) {
-			profileImageStorage.delete(previousUrl);
+			deleteAfterCommit(previousUrl);
 		}
 		return UserProfileResponse.from(user);
 	}
@@ -51,9 +53,26 @@ public class UserProfileService {
 		String previousUrl = user.getProfileImageUrl();
 		user.changeProfileImageUrl(null);
 		if (previousUrl != null) {
-			profileImageStorage.delete(previousUrl);
+			deleteAfterCommit(previousUrl);
 		}
 		return UserProfileResponse.from(user);
+	}
+
+	/**
+	 * 이전 파일은 DB 커밋이 실제로 성공한 뒤에만 지운다. 커밋 전에 지우면 커밋 실패 시 DB는 이전 URL로 남는데
+	 * 파일은 이미 사라져 프로필이 깨진다.
+	 */
+	private void deleteAfterCommit(String previousUrl) {
+		if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+			profileImageStorage.delete(previousUrl);
+			return;
+		}
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void afterCommit() {
+				profileImageStorage.delete(previousUrl);
+			}
+		});
 	}
 
 	/**

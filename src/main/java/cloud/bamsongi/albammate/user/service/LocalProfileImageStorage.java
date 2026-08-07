@@ -5,7 +5,7 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -38,14 +38,21 @@ public class LocalProfileImageStorage implements ProfileImageStorage {
 
 	@Override
 	public String store(long userId, InputStream inputStream, String originalFilename, String contentType) {
-		String extension = extractExtension(originalFilename, contentType);
+		byte[] content;
+		try {
+			content = inputStream.readAllBytes();
+		} catch (IOException exception) {
+			throw new UncheckedIOException("프로필 이미지를 읽을 수 없습니다.", exception);
+		}
+		String extension = ImageFormatSniffer.detectExtension(content)
+			.orElseThrow(() -> new IllegalArgumentException("지원하지 않는 이미지 형식입니다."));
 		String storedFilename = userId + "_" + UUID.randomUUID() + extension;
 		Path target = uploadDir.resolve(storedFilename).normalize();
 		if (!target.startsWith(uploadDir)) {
 			throw new IllegalArgumentException("유효하지 않은 파일명입니다.");
 		}
 		try {
-			Files.copy(inputStream, target, StandardCopyOption.REPLACE_EXISTING);
+			Files.write(target, content, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
 		} catch (IOException exception) {
 			throw new UncheckedIOException("프로필 이미지를 저장할 수 없습니다.", exception);
 		}
@@ -67,16 +74,5 @@ public class LocalProfileImageStorage implements ProfileImageStorage {
 		} catch (IOException exception) {
 			// 이전 이미지 삭제 실패는 무시한다.
 		}
-	}
-
-	private String extractExtension(String originalFilename, String contentType) {
-		if (originalFilename != null && originalFilename.contains(".")) {
-			return originalFilename.substring(originalFilename.lastIndexOf('.'));
-		}
-		return switch (contentType) {
-			case "image/png" -> ".png";
-			case "image/webp" -> ".webp";
-			default -> ".jpg";
-		};
 	}
 }

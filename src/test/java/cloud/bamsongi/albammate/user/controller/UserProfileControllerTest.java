@@ -1,11 +1,16 @@
 package cloud.bamsongi.albammate.user.controller;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -20,6 +25,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.test.web.servlet.MockMvc;
@@ -38,6 +44,7 @@ import cloud.bamsongi.albammate.global.security.error.ApiAuthenticationEntryPoin
 import cloud.bamsongi.albammate.global.security.error.SecurityErrorResponseWriter;
 import cloud.bamsongi.albammate.user.contract.UserNickname;
 import cloud.bamsongi.albammate.user.dto.UserProfileResponse;
+import cloud.bamsongi.albammate.user.service.ProfileImageStorage;
 import cloud.bamsongi.albammate.user.service.UserProfileService;
 import jakarta.servlet.http.Cookie;
 
@@ -57,10 +64,12 @@ class UserProfileControllerTest {
 	private MockMvc mockMvc;
 	@Autowired
 	private UserProfileService userProfileService;
+	@Autowired
+	private ProfileImageStorage profileImageStorage;
 
 	@BeforeEach
 	void resetMocks() {
-		reset(userProfileService);
+		reset(userProfileService, profileImageStorage);
 	}
 
 	@Test
@@ -162,6 +171,130 @@ class UserProfileControllerTest {
 				.content("{\"nickname\":\"닉\\n네임\"}"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+		verifyNoInteractions(userProfileService);
+	}
+
+	@Test
+	void 유효한_이미지_업로드는_저장소에_위임하고_UserProfileResponse를_반환한다() throws Exception {
+		when(profileImageStorage.store(eq(7L), any(), anyString(), anyString())).thenReturn("/uploads/profile/new.png");
+		when(userProfileService.changeProfileImage(7L, "/uploads/profile/new.png"))
+			.thenReturn(new UserProfileResponse(7L, "닉네임", "/uploads/profile/new.png"));
+		MockMultipartFile file = new MockMultipartFile("file", "photo.png", "image/png", new byte[] {1, 2, 3});
+		CsrfContext csrfContext = csrfContext();
+
+		mockMvc.perform(
+			multipart("/api/users/me/profile-image")
+				.file(file)
+				.with(currentUserAuthentication())
+				.session(csrfContext.session())
+				.cookie(csrfContext.cookie())
+				.header("X-XSRF-TOKEN", csrfContext.cookie().getValue()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.profileImageUrl").value("/uploads/profile/new.png"));
+
+		verify(userProfileService).changeProfileImage(7L, "/uploads/profile/new.png");
+	}
+
+	@Test
+	void 저장은_성공했지만_프로필_갱신이_실패하면_새_파일을_보상_삭제한다() throws Exception {
+		when(profileImageStorage.store(eq(7L), any(), anyString(), anyString())).thenReturn("/uploads/profile/new.png");
+		when(userProfileService.changeProfileImage(7L, "/uploads/profile/new.png"))
+			.thenThrow(new IllegalStateException("db commit failed"));
+		MockMultipartFile file = new MockMultipartFile("file", "photo.png", "image/png", new byte[] {1, 2, 3});
+		CsrfContext csrfContext = csrfContext();
+
+		mockMvc.perform(
+			multipart("/api/users/me/profile-image")
+				.file(file)
+				.with(currentUserAuthentication())
+				.session(csrfContext.session())
+				.cookie(csrfContext.cookie())
+				.header("X-XSRF-TOKEN", csrfContext.cookie().getValue()))
+			.andExpect(status().isInternalServerError());
+
+		verify(profileImageStorage).delete("/uploads/profile/new.png");
+	}
+
+	@Test
+	void 빈_파일과_5MB_초과_파일과_지원하지_않는_형식은_VALIDATION_ERROR다() throws Exception {
+		CsrfContext csrfContext = csrfContext();
+
+		MockMultipartFile emptyFile = new MockMultipartFile("file", "empty.png", "image/png", new byte[0]);
+		mockMvc.perform(
+			multipart("/api/users/me/profile-image")
+				.file(emptyFile)
+				.with(currentUserAuthentication())
+				.session(csrfContext.session())
+				.cookie(csrfContext.cookie())
+				.header("X-XSRF-TOKEN", csrfContext.cookie().getValue()))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+		MockMultipartFile oversizedFile = new MockMultipartFile(
+			"file", "big.png", "image/png", new byte[6 * 1024 * 1024]);
+		mockMvc.perform(
+			multipart("/api/users/me/profile-image")
+				.file(oversizedFile)
+				.with(currentUserAuthentication())
+				.session(csrfContext.session())
+				.cookie(csrfContext.cookie())
+				.header("X-XSRF-TOKEN", csrfContext.cookie().getValue()))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+		MockMultipartFile unsupportedType = new MockMultipartFile(
+			"file", "photo.gif", "image/gif", new byte[] {1, 2, 3});
+		mockMvc.perform(
+			multipart("/api/users/me/profile-image")
+				.file(unsupportedType)
+				.with(currentUserAuthentication())
+				.session(csrfContext.session())
+				.cookie(csrfContext.cookie())
+				.header("X-XSRF-TOKEN", csrfContext.cookie().getValue()))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+		verifyNoInteractions(userProfileService, profileImageStorage);
+	}
+
+	@Test
+	void 업로드는_인증과_CSRF가_없으면_컨트롤러까지_도달하지_않는다() throws Exception {
+		MockMultipartFile file = new MockMultipartFile("file", "photo.png", "image/png", new byte[] {1, 2, 3});
+
+		mockMvc.perform(multipart("/api/users/me/profile-image").file(file))
+			.andExpect(status().isUnauthorized());
+		mockMvc.perform(multipart("/api/users/me/profile-image").file(file).with(currentUserAuthentication()))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("CSRF_TOKEN_INVALID"));
+
+		verifyNoInteractions(userProfileService, profileImageStorage);
+	}
+
+	@Test
+	void 유효한_CSRF로_삭제하면_UserProfileResponse를_반환한다() throws Exception {
+		when(userProfileService.removeProfileImage(7L)).thenReturn(new UserProfileResponse(7L, "닉네임", null));
+		CsrfContext csrfContext = csrfContext();
+
+		mockMvc.perform(
+			delete("/api/users/me/profile-image")
+				.with(currentUserAuthentication())
+				.session(csrfContext.session())
+				.cookie(csrfContext.cookie())
+				.header("X-XSRF-TOKEN", csrfContext.cookie().getValue()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.profileImageUrl").doesNotExist());
+
+		verify(userProfileService).removeProfileImage(7L);
+	}
+
+	@Test
+	void 삭제는_인증과_CSRF가_없으면_컨트롤러까지_도달하지_않는다() throws Exception {
+		mockMvc.perform(delete("/api/users/me/profile-image"))
+			.andExpect(status().isUnauthorized());
+		mockMvc.perform(delete("/api/users/me/profile-image").with(currentUserAuthentication()))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("CSRF_TOKEN_INVALID"));
 
 		verifyNoInteractions(userProfileService);
 	}

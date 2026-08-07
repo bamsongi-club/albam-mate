@@ -32,7 +32,6 @@ class SocialAccountTransactionService {
 			.findByProviderAndProviderSubject(identity.provider(), identity.providerSubject())
 			.orElse(null);
 		if (existing != null) {
-			identity.profileImageUrl().ifPresent(url -> existing.getUser().changeProfileImageUrl(url));
 			return SocialLoginResult.loggedIn(UserContractMapper.toUserAccount(existing.getUser()));
 		}
 		return createFirstSocialLogin(identity);

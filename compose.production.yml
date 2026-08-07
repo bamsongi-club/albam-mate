@@ -40,6 +40,9 @@ services:
         source: ${ALBAM_MATE_RDS_CA_PATH:?ALBAM_MATE_RDS_CA_PATH must be set}
         target: /etc/albam-mate/rds-ca-bundle.pem
         read_only: true
+      - type: volume
+        source: profile-images
+        target: /app/uploads/profile
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
@@ -108,3 +111,6 @@ services:
 networks:
   application:
     driver: bridge
+
+volumes:
+  profile-images:

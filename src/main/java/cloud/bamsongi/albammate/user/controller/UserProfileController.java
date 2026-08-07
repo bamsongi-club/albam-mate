@@ -55,17 +55,23 @@ public final class UserProfileController {
 		@RequestParam("file")
 		MultipartFile file) {
 		validateProfileImage(file);
+		String imageUrl;
 		try {
-			String imageUrl = profileImageStorage.store(
+			imageUrl = profileImageStorage.store(
 				currentUserAccessor.requireCurrentUserId(),
 				file.getInputStream(),
 				file.getOriginalFilename(),
 				file.getContentType());
+		} catch (IOException exception) {
+			throw new UncheckedIOException("파일을 읽을 수 없습니다.", exception);
+		}
+		try {
 			UserProfileResponse profile = userProfileService.changeProfileImage(
 				currentUserAccessor.requireCurrentUserId(), imageUrl);
 			return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, profile));
-		} catch (IOException exception) {
-			throw new UncheckedIOException("파일을 읽을 수 없습니다.", exception);
+		} catch (RuntimeException exception) {
+			profileImageStorage.delete(imageUrl);
+			throw exception;
 		}
 	}
 
