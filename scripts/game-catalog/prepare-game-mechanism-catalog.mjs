@@ -23,12 +23,15 @@ if (dictionaryById.size !== manifest.mechanismCatalog.publishedCount) throw new 
 const snapshot = JSON.parse(readFileSync(manifest.xmlSnapshot.manifestPath, 'utf8'));
 if (hash(readFileSync(manifest.xmlSnapshot.manifestPath)) !== manifest.xmlSnapshot.manifestSha256) throw new Error('XML snapshot manifest checksum mismatch');
 const games = [];
+const seenGameIds = new Set();
 for (const batch of snapshot.files ?? []) {
   const file = join(manifest.xmlSnapshot.rawDirectory, batch.file);
   const body = readFileSync(file, 'utf8');
   if (batch.httpStatus !== 200 || hash(body) !== batch.sha256) throw new Error(`invalid XML batch: ${batch.file}`);
   for (const game of parseBggMetadataXml(body)) {
     if (!targetIds.has(game.bggId)) throw new Error(`unexpected snapshot game: ${game.bggId}`);
+    if (seenGameIds.has(game.bggId)) throw new Error(`duplicate snapshot game: ${game.bggId}`);
+    seenGameIds.add(game.bggId);
     games.push({
       bgg_id: game.bggId,
       mechanisms: (game.mechanisms ?? []).map((mechanism) => {
