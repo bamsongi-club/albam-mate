@@ -28,11 +28,15 @@ class RoomStatusCorrectionSchedulerLockTest {
 	void room_상태_보정은_잠금_획득_실행만_한번_시작하고_미획득이면_건너뛴다() {
 		ScheduledTaskLock taskLock = mock(ScheduledTaskLock.class);
 		RoomStatusCorrectionCoordinator coordinator = mock(RoomStatusCorrectionCoordinator.class);
+		RoomStatusCorrectionProgressStore progressStore = mock(RoomStatusCorrectionProgressStore.class);
 		RoomStatusCorrectionProperties properties = properties();
+		when(progressStore.claimExecution(any())).thenReturn(
+			new RoomStatusCorrectionProgressStore.ProgressSnapshot(
+				Instant.parse("2026-08-05T00:00:00Z"), null, null, 1L, 1L));
 		RoomStatusCorrectionScheduler scheduler = new RoomStatusCorrectionScheduler(
 			taskLock,
 			coordinator,
-			mock(RoomStatusCorrectionProgressStore.class),
+			progressStore,
 			properties,
 			Clock.fixed(Instant.parse("2026-08-05T00:00:00Z"), ZoneOffset.UTC));
 		doAnswer(invocation -> {
@@ -43,13 +47,17 @@ class RoomStatusCorrectionSchedulerLockTest {
 		scheduler.correctDueRooms();
 
 		verify(taskLock).tryExecute(eq("room-status-correction"), eq(Duration.ofMinutes(2)), any());
-		verify(coordinator).correctDueRooms(eq(Instant.parse("2026-08-05T00:00:00Z")), any());
+		verify(coordinator).correctBoundedDueRooms(
+			eq(Instant.parse("2026-08-05T00:00:00Z")),
+			any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), any());
 		when(taskLock.tryExecute(eq("room-status-correction"), eq(Duration.ofMinutes(2)), any()))
 			.thenReturn(ScheduledTaskLock.LockExecution.skippedResult());
 
 		scheduler.correctDueRooms();
 
-		verify(coordinator).correctDueRooms(eq(Instant.parse("2026-08-05T00:00:00Z")), any());
+		verify(coordinator).correctBoundedDueRooms(
+			eq(Instant.parse("2026-08-05T00:00:00Z")),
+			any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), any());
 	}
 
 	@Test
@@ -93,6 +101,7 @@ class RoomStatusCorrectionSchedulerLockTest {
 		properties.setTriggerJitter(Duration.ofMinutes(3));
 		properties.setLockAtMostFor(Duration.ofMinutes(2));
 		properties.setExecutionWarningThreshold(Duration.ofSeconds(30));
+		properties.setCandidateLimit(10);
 		return properties;
 	}
 

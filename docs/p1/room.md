@@ -166,6 +166,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 상태·시간 규칙 | [P0 계약 상속](../P1-spec.md#p0-계약-상속), [RoomStatus](../API.md#roomstatus), [ROOMS](../ERD.md#rooms) |
 | 승인 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0036 제한 ID·ROOM별 독립 처리](../adr/room/0036-bounded-room-state-transition-processing.md), [ADR-0038 다중 인스턴스 스케줄 실행 조정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md) |
 | 현재 구현 기준선 | [`RoomRepository.findDueRooms`](../../src/main/java/cloud/bamsongi/albammate/room/repository/RoomRepository.java), [`RoomStatusCorrectionExecutor`](../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionExecutor.java), [ROOM-09c 현행 일괄 처리 기준선 측정](../measurements/room-09-bounded-processing-baseline.md) |
+| 제한 처리 구현 | [`RoomStatusCorrectionCandidateSelector`](../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionCandidateSelector.java)가 ROOM ID projection을 논리적 due 순서로 합치고, [`RoomStatusCorrectionCoordinator`](../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionCoordinator.java)가 ROOM별 Executor·cursor CAS를 조정한다. |
 | 연결 기능 | [PART-04 선착순 대기열과 자동 승격](#part-04-선착순-대기열과-자동-승격) |
 | 진행 상태 저장 | [`ROOM_STATUS_CORRECTION_PROGRESS`](../ERD.md#room_status_correction_progress) 단일 행 |
 | 착수 전 확정 | 없음 |
@@ -177,6 +178,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 - ROOM Scheduler 전용 잠금 이름은 `room-status-correction`이다. 병합된 [PR #366](https://github.com/bamsongi-club/albam-mate/pull/366)이 제공하고 [#289](https://github.com/bamsongi-club/albam-mate/issues/289)가 소유하는 공용 `global/scheduling` port와 PostgreSQL ShedLock adapter를 읽기 전용으로 사용하며, ROOM은 공용 `SHEDLOCK` 스키마·adapter를 수정하지 않는다.
 - `lockAtMostFor`와 실행시간 경고 기준은 서로 독립된 ROOM 전용 명시 입력이다. 둘 중 하나라도 없으면 기동에 실패하며, 잠금을 얻은 ROOM 실행이 경고 기준을 초과할 때만 ROOM 전용 WARN 관측 신호를 한 번 남긴다.
 - `ROOM_STATUS_CORRECTION_PROGRESS`는 `job_name = 'room-status-correction'`인 행 하나만 가진다. `turn_cutoff`, 마지막으로 시도한 선별 키인 `cursor_due_at`·`cursor_room_id`, 모든 진행 상태 변경의 CAS 값인 `progress_version`, 실행 주체 fencing 값인 `execution_generation`, `updated_at`을 저장한다. cursor 두 컬럼은 함께 `NULL`이거나 함께 값이 있어야 하고, 값이 있으면 `cursor_due_at <= turn_cutoff`여야 한다.
+- 제한 후보 수는 운영 기본값을 이슈에서 정하지 않는 nullable 명시 입력이다. [#390](https://github.com/bamsongi-club/albam-mate/issues/390)이 초기 운영값을 확정하기 전에는 테스트·측정에서만 주입하며, 스케줄러는 값이 없을 때 전체 Entity 조회로 대체하지 않고 실행을 건너뛴다.
 - 전진 Flyway 마이그레이션은 이 단일 행을 `turn_cutoff = NULL`, cursor 두 컬럼 `NULL`, `progress_version = 0`, `execution_generation = 0`으로 생성한다. 행이 없거나 둘 이상인 상태를 런타임에서 자동 복구하지 않고 설정 오류로 실패시킨다.
 - ShedLock을 얻은 Scheduler 실행은 후보를 읽기 전에 짧은 독립 트랜잭션에서 진행 행을 `FOR UPDATE`로 읽고 `execution_generation`과 `progress_version`을 각각 1 증가시켜 실행 세대를 점유한다. 최초 실행처럼 `turn_cutoff`이 `NULL`이면 이번 Scheduler의 고정 `requestTime`으로 초기화한다. cursor가 `NULL`인 완료된 순회를 새 실행이 이어받으면 `turn_cutoff`을 기존 값과 `requestTime` 중 뒤 시각으로 전진시킨다.
 - 후보 선별 뒤 cursor 전진과 wrap-around는 각각 별도의 짧은 독립 트랜잭션에서 `job_name`, 실행 세대와 기대 `progress_version`이 모두 일치할 때만 갱신하고 `progress_version`을 1 증가시킨다. 조건부 갱신이 0건이면 늦은 실행 주체로 판정해 이후 ROOM을 처리하지 않고 실행을 끝낸다.

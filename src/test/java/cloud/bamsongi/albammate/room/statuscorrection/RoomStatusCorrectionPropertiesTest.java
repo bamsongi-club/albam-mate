@@ -39,6 +39,24 @@ class RoomStatusCorrectionPropertiesTest {
 			.run(context -> assertTrue(context.getStartupFailure() != null));
 	}
 
+	@Test
+	void 후보_제한은_운영_기본값_없이_양수_명시값만_허용한다() {
+		contextRunner.withPropertyValues(
+			"app.room.status-correction.lock-at-most-for=2m",
+			"app.room.status-correction.execution-warning-threshold=30s")
+			.run(context -> assertFalse(context.getStartupFailure() != null));
+		contextRunner.withPropertyValues(
+			"app.room.status-correction.lock-at-most-for=2m",
+			"app.room.status-correction.execution-warning-threshold=30s",
+			"app.room.status-correction.candidate-limit=0")
+			.run(context -> assertTrue(context.getStartupFailure() != null));
+		contextRunner.withPropertyValues(
+			"app.room.status-correction.lock-at-most-for=2m",
+			"app.room.status-correction.execution-warning-threshold=30s",
+			"app.room.status-correction.candidate-limit=10")
+			.run(context -> assertFalse(context.getStartupFailure() != null));
+	}
+
 	@Configuration(proxyBeanMethods = false)
 	@EnableConfigurationProperties(RoomStatusCorrectionProperties.class)
 	static class PropertiesConfiguration {}

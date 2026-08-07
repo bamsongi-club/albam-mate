@@ -81,6 +81,14 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		where (room.status = cloud.bamsongi.albammate.room.enums.RoomStatus.RECRUITING
 		        and room.startAt <= :requestTime)
 		    or (room.status = cloud.bamsongi.albammate.room.enums.RoomStatus.CLOSED
+		        and room.startAt <= :requestTime
+		        and exists (
+		            select waitlist.id
+		            from RoomWaitlist waitlist
+		            where waitlist.id.roomId = room.id
+		              and waitlist.status = cloud.bamsongi.albammate.room.enums.RoomWaitlistStatus.WAITING
+		        ))
+		    or (room.status = cloud.bamsongi.albammate.room.enums.RoomStatus.CLOSED
 		        and room.startAt <= :finishedThreshold)
 		""")
 	List<Room> findDueRooms(
@@ -88,6 +96,84 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		Instant requestTime,
 		@Param("finishedThreshold")
 		Instant finishedThreshold);
+
+	/** 시작 경계의 상태 보정이 필요한 모집 중 ROOM ID를 논리적 due 순서로 제한 선별한다. */
+	@Query("""
+		select room.id as roomId, room.startAt as startAt
+		from Room room
+		where room.status = cloud.bamsongi.albammate.room.enums.RoomStatus.RECRUITING
+		  and room.startAt <= :turnCutoff
+		  and (:hasCursor = false
+		       or room.startAt > :cursorDueAt
+		       or (room.startAt = :cursorDueAt and room.id > :cursorRoomId))
+		order by room.startAt asc, room.id asc
+		""")
+	List<DueRoomCandidate> findRecruitingDueRoomCandidates(
+		@Param("turnCutoff")
+		Instant turnCutoff,
+		@Param("cursorDueAt")
+		Instant cursorDueAt,
+		@Param("cursorRoomId")
+		Long cursorRoomId,
+		@Param("hasCursor")
+		boolean hasCursor,
+		Pageable pageable);
+
+	/** 시작 경계에 남은 WAITING이 있는 CLOSED ROOM ID를 제한 선별한다. */
+	@Query("""
+		select room.id as roomId, room.startAt as startAt
+		from Room room
+		where room.status = cloud.bamsongi.albammate.room.enums.RoomStatus.CLOSED
+		  and room.startAt <= :turnCutoff
+		  and exists (
+		      select waitlist.id
+		      from RoomWaitlist waitlist
+		      where waitlist.id.roomId = room.id
+		        and waitlist.status = cloud.bamsongi.albammate.room.enums.RoomWaitlistStatus.WAITING
+		  )
+		  and (:hasCursor = false
+		       or room.startAt > :cursorDueAt
+		       or (room.startAt = :cursorDueAt and room.id > :cursorRoomId))
+		order by room.startAt asc, room.id asc
+		""")
+	List<DueRoomCandidate> findClosedWaitingDueRoomCandidates(
+		@Param("turnCutoff")
+		Instant turnCutoff,
+		@Param("cursorDueAt")
+		Instant cursorDueAt,
+		@Param("cursorRoomId")
+		Long cursorRoomId,
+		@Param("hasCursor")
+		boolean hasCursor,
+		Pageable pageable);
+
+	/** 시작 경계 대기열이 끝난 CLOSED ROOM ID를 종료 시각 순서로 제한 선별한다. */
+	@Query("""
+		select room.id as roomId, room.startAt as startAt
+		from Room room
+		where room.status = cloud.bamsongi.albammate.room.enums.RoomStatus.CLOSED
+		  and room.startAt <= :finishBoundaryStartAt
+		  and not exists (
+		      select waitlist.id
+		      from RoomWaitlist waitlist
+		      where waitlist.id.roomId = room.id
+		        and waitlist.status = cloud.bamsongi.albammate.room.enums.RoomWaitlistStatus.WAITING
+		  )
+		  and (:hasCursor = false
+		       or room.startAt > :cursorFinishStartAt
+		       or (room.startAt = :cursorFinishStartAt and room.id > :cursorRoomId))
+		order by room.startAt asc, room.id asc
+		""")
+	List<DueRoomCandidate> findClosedFinishDueRoomCandidates(
+		@Param("finishBoundaryStartAt")
+		Instant finishBoundaryStartAt,
+		@Param("cursorFinishStartAt")
+		Instant cursorFinishStartAt,
+		@Param("cursorRoomId")
+		Long cursorRoomId,
+		@Param("hasCursor")
+		boolean hasCursor,
+		Pageable pageable);
 
 	@Query("""
 		select room
@@ -209,5 +295,12 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		Long getGameId();
 
 		Long getRoomCount();
+	}
+
+	interface DueRoomCandidate {
+
+		Long getRoomId();
+
+		Instant getStartAt();
 	}
 }
