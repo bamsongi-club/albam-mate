@@ -217,7 +217,8 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 
 	private CandidateMeasurementReport measureCandidate(
 		MeasurementProfile profile, FixtureType fixtureType, int candidateLimit, Path reportPath) throws Exception {
-		MeasurementEnvironment environment = environment(profile, fixtureType, candidateLimit);
+		MeasurementEnvironment environment = environment(profile, fixtureType, candidateLimit,
+			ReportKind.CANDIDATE_ONLY);
 		List<MeasurementRun> warmUpRuns = new ArrayList<>();
 		List<MeasurementRun> measuredRuns = new ArrayList<>();
 		try {
@@ -247,7 +248,8 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 	 */
 	private DirectComparisonReport measureDirectComparison(
 		MeasurementProfile profile, int candidateLimit, Path reportPath) throws Exception {
-		MeasurementEnvironment environment = environment(profile, FixtureType.NO_WAITING, candidateLimit);
+		MeasurementEnvironment environment = environment(profile, FixtureType.NO_WAITING, candidateLimit,
+			ReportKind.DIRECT_COMPARISON);
 		List<MeasurementRun> baselineWarmUp = new ArrayList<>();
 		List<MeasurementRun> baselineMeasured = new ArrayList<>();
 		List<MeasurementRun> candidateWarmUp = new ArrayList<>();
@@ -304,7 +306,8 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 
 	private WaitingQueueMeasurementReport measureWaitingQueue(
 		MeasurementProfile profile, int candidateLimit, Path reportPath) throws Exception {
-		MeasurementEnvironment environment = environment(profile, FixtureType.CLOSED_WITH_WAITING, candidateLimit);
+		MeasurementEnvironment environment = environment(profile, FixtureType.CLOSED_WITH_WAITING, candidateLimit,
+			ReportKind.CANDIDATE_ONLY);
 		List<MeasurementRun> warmUpRuns = new ArrayList<>();
 		List<MeasurementRun> measuredRuns = new ArrayList<>();
 		try {
@@ -494,7 +497,7 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 	}
 
 	private MeasurementEnvironment environment(MeasurementProfile profile, FixtureType fixtureType,
-		int candidateLimit) {
+		int candidateLimit, ReportKind reportKind) {
 		Runtime runtime = Runtime.getRuntime();
 		return new MeasurementEnvironment(gitSha(), CANDIDATE_IMPLEMENTATION_SOURCE_SHA,
 			System.getProperty("java.version"),
@@ -507,8 +510,8 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 				Map.entry("requestTime", REQUEST_TIME.toString()), Map.entry("fixtureSeed", fixtureSeed(fixtureType)),
 				Map.entry("profile", profile.name()), Map.entry("fixtureType", fixtureType.name()),
 				Map.entry("candidateLimit", String.valueOf(candidateLimit)),
-				Map.entry("executionCommand", executionCommand(profile, fixtureType)),
-				Map.entry("measurementSystemProperty", measurementSystemProperty(profile, fixtureType)),
+				Map.entry("executionCommand", executionCommand(profile, fixtureType, reportKind)),
+				Map.entry("measurementSystemProperty", measurementSystemProperty(profile, fixtureType, reportKind)),
 				Map.entry("issue390.measurement", System.getProperty("issue390.measurement", "false")),
 				Map.entry("springTaskSchedulingEnabled",
 					springEnvironment.getProperty("spring.task.scheduling.enabled", "true")),
@@ -572,7 +575,8 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 			"보고서 fixture dataIdentifier");
 		assertEquals(candidateLimit, report.path("candidateLimit").asInt(), "보고서 candidate limit");
 		JsonNode configuration = report.path("measurementStartEnvironment").path("configuration");
-		assertEquals(executionCommand(profile, fixtureType), configuration.path("executionCommand").asText(),
+		assertEquals(executionCommand(profile, fixtureType, ReportKind.CANDIDATE_ONLY),
+			configuration.path("executionCommand").asText(),
 			"보고서 실행 명령");
 		assertTrue(configuration.path("executionCommand").asText().contains(testMethodName));
 		assertEquals(String.valueOf(candidateLimit), configuration.path("candidateLimit").asText(),
@@ -682,12 +686,12 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 	 * Gradle `-D` 인자로는 포크된 테스트 JVM에 닿지 않으므로 {@code JAVA_TOOL_OPTIONS}로 전달한다. 셸에 의존하지 않는
 	 * 소비자는 이 문자열 대신 {@code measurementSystemProperty} 필드를 읽는다.
 	 */
-	private String executionCommand(MeasurementProfile profile, FixtureType fixtureType) {
-		String selector = measurementSelector(profile, fixtureType);
+	private String executionCommand(MeasurementProfile profile, FixtureType fixtureType, ReportKind reportKind) {
+		String selector = measurementSelector(profile, fixtureType, reportKind);
 		boolean windows = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
 		String wrapper = windows ? ".\\gradlew.bat" : "./gradlew";
 		String gradleCommand = wrapper + " postgresTest --no-daemon --tests \"" + selector + "\" --rerun --fail-fast";
-		String systemProperty = measurementSystemProperty(profile, fixtureType);
+		String systemProperty = measurementSystemProperty(profile, fixtureType, reportKind);
 		if (systemProperty.isEmpty()) {
 			return gradleCommand;
 		}
@@ -697,15 +701,21 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 	}
 
 	/** 셸 문법 없이 재현 조건만 읽을 수 있도록 gate 속성을 별도로 남긴다. 필요 없으면 빈 문자열이다. */
-	private String measurementSystemProperty(MeasurementProfile profile, FixtureType fixtureType) {
+	private String measurementSystemProperty(MeasurementProfile profile, FixtureType fixtureType,
+		ReportKind reportKind) {
 		return profile == SMALL || fixtureType == FixtureType.CLOSED_WITH_WAITING ? "" : "issue390.measurement=true";
 	}
 
-	private String measurementSelector(MeasurementProfile profile, FixtureType fixtureType) {
+	private String measurementSelector(MeasurementProfile profile, FixtureType fixtureType, ReportKind reportKind) {
 		String className = "cloud.bamsongi.albammate.room.measurement."
 			+ "RoomStatusCorrectionCandidateMeasurementPostgresTest.";
 		if (fixtureType == FixtureType.CLOSED_WITH_WAITING) {
 			return className + "CLOSED_due_ROOM마다_WAITING_10명을_둔_별도_fixture의_후보_종료_비용을_기록한다";
+		}
+		if (reportKind == ReportKind.DIRECT_COMPARISON) {
+			return profile == SMALL
+				? className + "소형은_현행과_후보를_같은_세션에서_각각_warm_up_1회와_실측_5회로_비교한다"
+				: className + "승인_규모는_현행과_후보를_같은_세션에서_제한_ID별로_비교한다";
 		}
 		if (profile == SMALL) {
 			return className + "small_후보는_WAITING_없는_동일_fixture를_warm_up_1회와_실측_5회로_기록한다";
@@ -761,6 +771,12 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 	private enum ProcessingPath {
 		CURRENT_BASELINE,
 		BOUNDED_CANDIDATE
+	}
+
+	/** 같은 fixture라도 어떤 테스트가 만든 보고서인지에 따라 재현 selector가 다르다. */
+	private enum ReportKind {
+		CANDIDATE_ONLY,
+		DIRECT_COMPARISON
 	}
 
 	private static final class MeasurementRunFailureException extends RuntimeException {
