@@ -2,6 +2,7 @@ package cloud.bamsongi.albammate.room.measurement;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
@@ -13,7 +14,9 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +36,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionCoordinator;
 import cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionProperties;
 import cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionScheduler;
 import tools.jackson.databind.JsonNode;
@@ -63,6 +67,8 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 	private static final String WAITING_QUEUE_ROOM_TITLE_PREFIX = "ROOM-09d 후보 closed_with_waiting";
 	private static final int NON_DUE_CLOSED_ROOM_COUNT = 10;
 	private static final String CANDIDATE_IMPLEMENTATION_SOURCE_SHA = "8416d3254a3e9e2316bc14745959a2b42dab3c26";
+	/** #383이 현행 기준선을 고정한 SHA다. 현행 경로는 그 뒤로 바뀌지 않았고 이 측정에서 같은 경로를 다시 실행한다. */
+	private static final String BASELINE_IMPLEMENTATION_SOURCE_SHA = "4688316415113b4457f03628d77bdcb7f594c294";
 	private static final Path REPORT_DIRECTORY = Path.of("build", "reports", "measurements");
 	private static final MeasurementProfile SMALL = new MeasurementProfile("small", 100, 20);
 	private static final MeasurementProfile MEDIUM = new MeasurementProfile("medium", 10_000, 2_000);
@@ -75,6 +81,10 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 
 	@Autowired
 	private RoomStatusCorrectionScheduler scheduler;
+
+	/** #383이 기준선으로 남긴 전체 Entity 단일 트랜잭션 경로를 같은 세션에서 실행하려고 직접 사용한다. */
+	@Autowired
+	private RoomStatusCorrectionCoordinator coordinator;
 
 	@Autowired
 	private RoomStatusCorrectionProperties properties;
@@ -119,6 +129,48 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 		assertRecordedMeasurementContract(candidateReportPath(SMALL), SMALL, FixtureType.NO_WAITING, 10,
 			"small_후보는_WAITING_없는_동일_fixture를_warm_up_1회와_실측_5회로_기록한다", "false");
 		assertTrue(Files.exists(candidateReportPath(SMALL)));
+	}
+
+	/**
+	 * `ROOM-09d-T1`의 동일 세션 비교다. 소형은 제한 ID `10`(2배치)과 `20`(1배치)으로 나눠, 후보의 비용이 배치 분할에서
+	 * 오는지 ROOM별 트랜잭션에서 오는지 갈라 볼 수 있게 한다.
+	 */
+	@Test
+	void 소형은_현행과_후보를_같은_세션에서_각각_warm_up_1회와_실측_5회로_비교한다() throws Exception {
+		for (int candidateLimit : List.of(10, 20)) {
+			DirectComparisonReport report = measureDirectComparison(
+				SMALL, candidateLimit, directComparisonReportPath(SMALL, candidateLimit));
+
+			assertEquals("SUCCESS", report.outcome());
+			assertEquals(BASELINE_IMPLEMENTATION_SOURCE_SHA, report.baselineSourceSha());
+			assertEquals(CANDIDATE_IMPLEMENTATION_SOURCE_SHA, report.candidateSourceSha());
+			assertNull(report.baseline().candidateLimit(), "현행 경로는 제한 ID를 사용하지 않습니다.");
+			assertEquals(candidateLimit, report.candidate().candidateLimit());
+			assertEquals(1, report.baseline().warmUpRuns().size());
+			assertEquals(5, report.baseline().measuredRuns().size());
+			assertEquals(1, report.candidate().warmUpRuns().size());
+			assertEquals(5, report.candidate().measuredRuns().size());
+			assertEquals(3, report.observedChanges().size());
+			assertTrue(Files.exists(directComparisonReportPath(SMALL, candidateLimit)));
+		}
+	}
+
+	@Test
+	@EnabledIfSystemProperty(named = "issue390.measurement", matches = "true")
+	void 승인_규모는_현행과_후보를_같은_세션에서_제한_ID별로_비교한다() throws Exception {
+		for (MeasurementProfile profile : List.of(MEDIUM, LARGE)) {
+			for (int candidateLimit : measuredCandidateLimits()) {
+				DirectComparisonReport report = measureDirectComparison(
+					profile, candidateLimit, directComparisonReportPath(profile, candidateLimit));
+
+				assertEquals("SUCCESS", report.outcome());
+				assertEquals(profile, report.fixture().profile());
+				assertNull(report.baseline().candidateLimit());
+				assertEquals(candidateLimit, report.candidate().candidateLimit());
+				assertEquals(5, report.baseline().measuredRuns().size());
+				assertEquals(5, report.candidate().measuredRuns().size());
+			}
+		}
 	}
 
 	@Test
@@ -189,6 +241,67 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 		}
 	}
 
+	/**
+	 * `ROOM-09d-T1`이 요구하는 동일 세션 비교다. 같은 호스트·Java·PostgreSQL·설정에서 현행과 후보를 각각
+	 * warm-up 1회와 실측 5회로 실행한다. 두 경로를 번갈아 실행해 한쪽만 특정 시간대의 호스트 부하를 받지 않게 한다.
+	 */
+	private DirectComparisonReport measureDirectComparison(
+		MeasurementProfile profile, int candidateLimit, Path reportPath) throws Exception {
+		MeasurementEnvironment environment = environment(profile, FixtureType.NO_WAITING, candidateLimit);
+		List<MeasurementRun> baselineWarmUp = new ArrayList<>();
+		List<MeasurementRun> baselineMeasured = new ArrayList<>();
+		List<MeasurementRun> candidateWarmUp = new ArrayList<>();
+		List<MeasurementRun> candidateMeasured = new ArrayList<>();
+		try {
+			baselineWarmUp.add(
+				executeRun(profile, FixtureType.NO_WAITING, ProcessingPath.CURRENT_BASELINE, candidateLimit,
+					"warm-up", 1));
+			candidateWarmUp.add(
+				executeRun(profile, FixtureType.NO_WAITING, ProcessingPath.BOUNDED_CANDIDATE, candidateLimit,
+					"warm-up", 1));
+			for (int iteration = 1; iteration <= 5; iteration++) {
+				baselineMeasured.add(
+					executeRun(profile, FixtureType.NO_WAITING, ProcessingPath.CURRENT_BASELINE, candidateLimit,
+						"measured", iteration));
+				candidateMeasured.add(
+					executeRun(profile, FixtureType.NO_WAITING, ProcessingPath.BOUNDED_CANDIDATE, candidateLimit,
+						"measured", iteration));
+			}
+			SeriesSummary baselineSummary = summary(baselineMeasured);
+			SeriesSummary candidateSummary = summary(candidateMeasured);
+			DirectComparisonReport report = new DirectComparisonReport("SUCCESS", environment,
+				fixture(profile, FixtureType.NO_WAITING), candidateLimit, BASELINE_IMPLEMENTATION_SOURCE_SHA,
+				CANDIDATE_IMPLEMENTATION_SOURCE_SHA,
+				new PathSeries("current-baseline", null, baselineWarmUp, baselineMeasured, baselineSummary),
+				new PathSeries("bounded-candidate", candidateLimit, candidateWarmUp, candidateMeasured,
+					candidateSummary),
+				observedChanges(baselineSummary, candidateSummary));
+			writeReport(reportPath, report);
+			return report;
+		} finally {
+			clearFixture();
+			resetProgress();
+		}
+	}
+
+	/** 변화율은 현행 중앙값을 분모로 한 관찰값이며 합격선이 아니다. */
+	private List<ObservedChange> observedChanges(SeriesSummary baseline, SeriesSummary candidate) {
+		return List.of(
+			new ObservedChange("medianCallElapsedNanos", baseline.medianCallElapsedNanos(),
+				candidate.medianCallElapsedNanos(),
+				percentChange(baseline.medianCallElapsedNanos(), candidate.medianCallElapsedNanos())),
+			new ObservedChange("medianThroughputPerSecond", baseline.medianThroughputPerSecond(),
+				candidate.medianThroughputPerSecond(),
+				percentChange(baseline.medianThroughputPerSecond(), candidate.medianThroughputPerSecond())),
+			new ObservedChange("medianDatabaseExecutionTimeMs", baseline.medianDatabaseExecutionTimeMs(),
+				candidate.medianDatabaseExecutionTimeMs(),
+				percentChange(baseline.medianDatabaseExecutionTimeMs(), candidate.medianDatabaseExecutionTimeMs())));
+	}
+
+	private double percentChange(double baselineValue, double candidateValue) {
+		return (candidateValue - baselineValue) / baselineValue * 100;
+	}
+
 	private WaitingQueueMeasurementReport measureWaitingQueue(
 		MeasurementProfile profile, int candidateLimit, Path reportPath) throws Exception {
 		MeasurementEnvironment environment = environment(profile, FixtureType.CLOSED_WITH_WAITING, candidateLimit);
@@ -219,6 +332,16 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 
 	private MeasurementRun executeRun(
 		MeasurementProfile profile, FixtureType fixtureType, int candidateLimit, String phase, int iteration) {
+		return executeRun(profile, fixtureType, ProcessingPath.BOUNDED_CANDIDATE, candidateLimit, phase, iteration);
+	}
+
+	/**
+	 * 같은 fixture를 두 경로로 실행한다. {@code CURRENT_BASELINE}은 #383이 기준선으로 남긴 전체 Entity 단일 트랜잭션
+	 * 경로이고 제한 ID를 사용하지 않는다. {@code BOUNDED_CANDIDATE}는 #382가 병합한 제한 ID 순회·ROOM별 독립
+	 * 트랜잭션 경로다. 두 경로를 한 측정 세션 안에서 번갈아 실행해야 호스트 부하 차이를 구현 차이와 섞지 않는다.
+	 */
+	private MeasurementRun executeRun(MeasurementProfile profile, FixtureType fixtureType, ProcessingPath path,
+		int candidateLimit, String phase, int iteration) {
 		Long startedAtNanos = null;
 		int initialDueRoomCount = profile.dueRoomCount();
 		try {
@@ -228,9 +351,7 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 			initialDueRoomCount = remainingDueRoomCount(fixtureType);
 			assertEquals(profile.dueRoomCount(), initialDueRoomCount, "seed한 due 집합이 profile과 같아야 합니다.");
 			jdbcTemplate.execute("select pg_stat_statements_reset()");
-			properties.setCandidateLimit(candidateLimit);
-			startedAtNanos = System.nanoTime();
-			scheduler.correctDueRooms();
+			startedAtNanos = runProcessingPath(path, candidateLimit);
 			long elapsedNanos = System.nanoTime() - startedAtNanos;
 			int remainingDueRoomCount = remainingDueRoomCount(fixtureType);
 			int successCount = initialDueRoomCount - remainingDueRoomCount;
@@ -244,6 +365,20 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 				elapsedNanos, elapsedNanos, null, captureDatabaseCost());
 			throw new MeasurementRunFailureException(partialRun, exception);
 		}
+	}
+
+	/** 측정 구간을 최소로 유지하려고 경로 분기와 설정 주입을 끝낸 직후의 시작 시각을 돌려준다. */
+	private long runProcessingPath(ProcessingPath path, int candidateLimit) {
+		if (path == ProcessingPath.CURRENT_BASELINE) {
+			properties.setCandidateLimit(null);
+			long startedAtNanos = System.nanoTime();
+			coordinator.correctDueRooms(REQUEST_TIME);
+			return startedAtNanos;
+		}
+		properties.setCandidateLimit(candidateLimit);
+		long startedAtNanos = System.nanoTime();
+		scheduler.correctDueRooms();
+		return startedAtNanos;
 	}
 
 	private void seedFixture(MeasurementProfile profile, FixtureType fixtureType) {
@@ -373,6 +508,7 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 				Map.entry("profile", profile.name()), Map.entry("fixtureType", fixtureType.name()),
 				Map.entry("candidateLimit", String.valueOf(candidateLimit)),
 				Map.entry("executionCommand", executionCommand(profile, fixtureType)),
+				Map.entry("measurementSystemProperty", measurementSystemProperty(profile, fixtureType)),
 				Map.entry("issue390.measurement", System.getProperty("issue390.measurement", "false")),
 				Map.entry("springTaskSchedulingEnabled",
 					springEnvironment.getProperty("spring.task.scheduling.enabled", "true")),
@@ -541,13 +677,28 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 		return fixtureType == FixtureType.NO_WAITING ? BASELINE_FIXTURE_SEED : WAITING_QUEUE_FIXTURE_SEED;
 	}
 
+	/**
+	 * 보고서를 만든 환경에서 그대로 붙여 넣을 수 있도록 실행 OS의 wrapper와 셸 문법으로 기록한다. 측정 gate 속성은
+	 * Gradle `-D` 인자로는 포크된 테스트 JVM에 닿지 않으므로 {@code JAVA_TOOL_OPTIONS}로 전달한다. 셸에 의존하지 않는
+	 * 소비자는 이 문자열 대신 {@code measurementSystemProperty} 필드를 읽는다.
+	 */
 	private String executionCommand(MeasurementProfile profile, FixtureType fixtureType) {
 		String selector = measurementSelector(profile, fixtureType);
-		if (profile == SMALL || fixtureType == FixtureType.CLOSED_WITH_WAITING) {
-			return ".\\gradlew.bat postgresTest --no-daemon --tests \"" + selector + "\" --rerun --fail-fast";
+		boolean windows = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
+		String wrapper = windows ? ".\\gradlew.bat" : "./gradlew";
+		String gradleCommand = wrapper + " postgresTest --no-daemon --tests \"" + selector + "\" --rerun --fail-fast";
+		String systemProperty = measurementSystemProperty(profile, fixtureType);
+		if (systemProperty.isEmpty()) {
+			return gradleCommand;
 		}
-		return "$env:JAVA_TOOL_OPTIONS = '-Dissue390.measurement=true'; .\\gradlew.bat postgresTest --no-daemon --tests \""
-			+ selector + "\" --rerun --fail-fast";
+		return windows
+			? "$env:JAVA_TOOL_OPTIONS = '-D" + systemProperty + "'; " + gradleCommand
+			: "JAVA_TOOL_OPTIONS='-D" + systemProperty + "' " + gradleCommand;
+	}
+
+	/** 셸 문법 없이 재현 조건만 읽을 수 있도록 gate 속성을 별도로 남긴다. 필요 없으면 빈 문자열이다. */
+	private String measurementSystemProperty(MeasurementProfile profile, FixtureType fixtureType) {
+		return profile == SMALL || fixtureType == FixtureType.CLOSED_WITH_WAITING ? "" : "issue390.measurement=true";
 	}
 
 	private String measurementSelector(MeasurementProfile profile, FixtureType fixtureType) {
@@ -570,6 +721,28 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 		return REPORT_DIRECTORY.resolve("room-09d-candidate-" + profile.name() + "-limit-" + candidateLimit + ".json");
 	}
 
+	/**
+	 * 승인 규모의 동일 세션 비교는 한 제한 ID마다 두 경로를 12회 실행하므로 전체 후보를 한 번에 재면 오래 걸린다.
+	 * 기본값은 승인된 후보 전체이고, 부분 재측정이 필요할 때만 {@code issue390.candidateLimits}로 좁힌다.
+	 * 어떤 값으로 실행했는지는 보고서의 `executionCommand`와 `measuredCandidateLimits`에 남는다.
+	 */
+	private List<Integer> measuredCandidateLimits() {
+		String configured = System.getProperty("issue390.candidateLimits", "").trim();
+		if (configured.isEmpty()) {
+			return List.of(10, 100, 1_000);
+		}
+		return Stream.of(configured.split(","))
+			.map(String::trim)
+			.filter(value -> !value.isEmpty())
+			.map(Integer::parseInt)
+			.toList();
+	}
+
+	private Path directComparisonReportPath(MeasurementProfile profile, int candidateLimit) {
+		return REPORT_DIRECTORY
+			.resolve("room-09d-direct-comparison-" + profile.name() + "-limit-" + candidateLimit + ".json");
+	}
+
 	private Path waitingQueueReportPath(MeasurementProfile profile) {
 		return REPORT_DIRECTORY.resolve("room-09d-waiting-queue-" + profile.name() + "-limit-10.json");
 	}
@@ -582,6 +755,12 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 	private enum FixtureType {
 		NO_WAITING,
 		CLOSED_WITH_WAITING
+	}
+
+	/** #383 기준선 경로와 #382 후보 경로를 같은 측정 세션에서 구분해 실행하기 위한 식별자다. */
+	private enum ProcessingPath {
+		CURRENT_BASELINE,
+		BOUNDED_CANDIDATE
 	}
 
 	private static final class MeasurementRunFailureException extends RuntimeException {
@@ -639,6 +818,33 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 			return new CandidateMeasurementReport("RUN_FAILURE", environment, fixture, candidateLimit, warmUpRuns,
 				measuredRuns, List.of(partialRun), exceptionType, null);
 		}
+	}
+
+	private record DirectComparisonReport(
+		String outcome,
+		MeasurementEnvironment measurementStartEnvironment,
+		MeasurementFixture fixture,
+		int candidateLimit,
+		String baselineSourceSha,
+		String candidateSourceSha,
+		PathSeries baseline,
+		PathSeries candidate,
+		List<ObservedChange> observedChanges) {
+	}
+
+	private record PathSeries(
+		String path,
+		Integer candidateLimit,
+		List<MeasurementRun> warmUpRuns,
+		List<MeasurementRun> measuredRuns,
+		SeriesSummary summary) {
+	}
+
+	private record ObservedChange(
+		String metric,
+		double baselineValue,
+		double candidateValue,
+		double percentChange) {
 	}
 
 	private record WaitingQueueMeasurementReport(

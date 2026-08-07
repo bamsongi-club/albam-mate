@@ -80,7 +80,7 @@ class RoomStatusCorrectionPropertiesTest {
 		RoomStatusCorrectionProperties properties = bindProductionProperties();
 
 		assertEquals(100, properties.getCandidateLimit());
-		assertEquals(Duration.ofSeconds(150), properties.getExecutionWarningThreshold());
+		assertEquals(Duration.ofSeconds(180), properties.getExecutionWarningThreshold());
 		assertEquals(Duration.ofMinutes(10), properties.getLockAtMostFor());
 		assertEquals(Duration.ofMinutes(15), properties.getTriggerDelay());
 		assertEquals(Duration.ofMinutes(3), properties.getTriggerJitter());
