@@ -5,7 +5,7 @@
 - 결정일: 2026-07-31
 - 관련: [P1 알림 구현 명세](../../p1/notification.md#noti-01-모임-변경-알림-생성), [P1 알림 생성과 조회](../../P1-spec.md#알림-생성과-조회), [아키텍처](../../ARCHITECTURE.md), [P1 알림 저장 계약](../../ERD.md#p1-알림-저장-계약), [ADR-0002](../platform/0002-postgresql-primary-database.md), [ADR-0005](../participation/0005-room-participation-optimistic-locking.md), [ADR-0007](../platform/0007-domain-centered-modular-monolith.md), [ADR-0009](../platform/0009-utc-time-standard.md), [ADR-0030](0030-postgresql-notification-relay-processing-recovery.md)
 - 대체 대상: 없음
-- 후속 ADR: 없음
+- 후속 ADR: [ADR-0053](0053-waitlist-promotion-notification.md)이 공개 이벤트 종류와 참가 취소 뒤 자동 승격 알림 부재 범위를 부분 대체
 
 ## 맥락
 
