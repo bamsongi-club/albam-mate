@@ -106,19 +106,22 @@ class NotificationRelayPostgresTest {
 	}
 
 	@Test
-	void WAITLIST_PROMOTED는_반복_처리에도_수신자별_한건으로_수렴한다() {
+	void WAITLIST_PROMOTED는_기존_알림이_있는_PENDING_재처리에도_수신자별_한건으로_수렴한다() {
 		Fixture fixture = createFixture();
 		long eventId = insertPendingEvent(fixture.roomId(), "WAITLIST_PROMOTED");
 		insertRecipient(eventId, fixture.firstRecipientUserId());
+		insertExistingNotification(
+			eventId, fixture.firstRecipientUserId(), fixture.roomId(), "WAITLIST_PROMOTED");
 
 		executor.processOne().orElseThrow();
-		executor.processOne();
 
 		assertEquals("WAITLIST_PROMOTED", jdbcTemplate.queryForObject(
 			"select type from notifications where source_event_id = ?", String.class, eventId));
 		assertEquals(1, jdbcTemplate.queryForObject(
 			"select count(*) from notifications where source_event_id = ? and recipient_user_id = ?",
 			Integer.class, eventId, fixture.firstRecipientUserId()));
+		assertEquals("PROCESSED", jdbcTemplate.queryForObject(
+			"select status from notification_outbox_events where id = ?", String.class, eventId));
 	}
 
 	@Test
@@ -333,7 +336,8 @@ class NotificationRelayPostgresTest {
 		long eventId = insertPendingEvent(fixture.roomId());
 		insertRecipient(eventId, fixture.firstRecipientUserId());
 		insertRecipient(eventId, fixture.secondRecipientUserId());
-		insertExistingNotification(eventId, fixture.firstRecipientUserId(), fixture.roomId());
+		insertExistingNotification(
+			eventId, fixture.firstRecipientUserId(), fixture.roomId(), "PARTICIPANT_JOINED");
 
 		executor.processOne().orElseThrow();
 
@@ -620,15 +624,15 @@ class NotificationRelayPostgresTest {
 			""");
 	}
 
-	private void insertExistingNotification(long eventId, long recipientUserId, long roomId) {
+	private void insertExistingNotification(long eventId, long recipientUserId, long roomId, String notificationType) {
 		jdbcTemplate.update("""
 			with operation as materialized (select clock_timestamp() as operation_time)
 			insert into notifications (
 				source_event_id, recipient_user_id, room_id, type, created_at, recorded_at, expires_at)
-			select ?, ?, ?, 'PARTICIPANT_JOINED', operation_time - interval '1 minute', operation_time,
+			select ?, ?, ?, ?, operation_time - interval '1 minute', operation_time,
 				operation_time - interval '1 minute' + interval '90 days'
 			from operation
-			""", eventId, recipientUserId, roomId);
+			""", eventId, recipientUserId, roomId, notificationType);
 	}
 
 	private Fixture createFixture() {
