@@ -4,5 +4,9 @@ public enum RoomStatus {
 	RECRUITING,
 	CLOSED,
 	CANCELED,
-	FINISHED
+	FINISHED;
+
+	public boolean isChatAvailable() {
+		return this == RECRUITING || this == CLOSED;
+	}
 }
