@@ -172,6 +172,7 @@ class GameListFilterPostgresTest {
 				code,
 				code,
 				code,
+				isPublic ? code + " 방식을 활용해요." : null,
 				null,
 				isPublic,
 				"Issue #351",

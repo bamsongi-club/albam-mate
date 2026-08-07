@@ -937,10 +937,10 @@ class SearchPerformancePostgresTest {
 			GAME_ID_BASE);
 		jdbcTemplate.update(
 			"""
-				insert into game_mechanisms (id, bgg_mechanism_id, code, name_ko, name_en, is_public, source_reference, reviewed_by, reviewed_at, created_at, updated_at)
+				insert into game_mechanisms (id, bgg_mechanism_id, code, name_ko, name_en, description_ko, is_public, source_reference, reviewed_by, reviewed_at, created_at, updated_at)
 				select 910000 + value, value,
 				       case when value = 1 then 'DICE_ROLLING' when value = 2 then 'HAND_MANAGEMENT' else format('MECHANISM_%03s', value) end,
-				       format('메커니즘 %s', value), format('Mechanism %s', value), true, 'fixture', 'tester', now(), now(), now()
+				       format('메커니즘 %s', value), format('Mechanism %s', value), format('메커니즘 %s 방식을 활용해요.', value), true, 'fixture', 'tester', now(), now(), now()
 				from generate_series(1, 189) value
 				""");
 		jdbcTemplate.update(
