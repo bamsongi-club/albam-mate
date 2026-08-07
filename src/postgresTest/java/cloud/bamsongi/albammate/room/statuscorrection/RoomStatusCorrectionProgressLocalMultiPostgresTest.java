@@ -279,18 +279,18 @@ class RoomStatusCorrectionProgressLocalMultiPostgresTest {
 		System.setProperty("spring.datasource.password", POSTGRES.getPassword());
 		try {
 			return new SpringApplicationBuilder(AlbamMateApplication.class)
-				.properties(Map.of(
-					"spring.profiles.active", "local",
-					"server.port", "0",
-					"spring.task.scheduling.enabled", "false",
-					"spring.datasource.url", POSTGRES.getJdbcUrl(),
-					"spring.datasource.username", POSTGRES.getUsername(),
-					"spring.datasource.password", POSTGRES.getPassword(),
-					"app.room.status-correction.lock-name", "room-status-correction",
-					"app.room.status-correction.trigger-delay", "15m",
-					"app.room.status-correction.trigger-jitter", "3m",
-					"app.room.status-correction.lock-at-most-for", "2m",
-					"app.room.status-correction.execution-warning-threshold", "30s"))
+				.properties(
+					"spring.profiles.active=local",
+					"server.port=0",
+					"spring.task.scheduling.enabled=false",
+					"spring.datasource.url=" + POSTGRES.getJdbcUrl(),
+					"spring.datasource.username=" + POSTGRES.getUsername(),
+					"spring.datasource.password=" + POSTGRES.getPassword(),
+					"app.room.status-correction.lock-name=room-status-correction",
+					"app.room.status-correction.trigger-delay=15m",
+					"app.room.status-correction.trigger-jitter=3m",
+					"app.room.status-correction.lock-at-most-for=2m",
+					"app.room.status-correction.execution-warning-threshold=30s")
 				.run();
 		} finally {
 			restoreSystemProperty("spring.datasource.url", previousUrl);
