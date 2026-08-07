@@ -28,14 +28,20 @@ app:
       lock-name: room-status-correction
       trigger-delay: 15m
       trigger-jitter: 3m
-      # 아래 세 값은 ROOM-09d 후보 측정으로 확정했다. 근거는 docs/measurements/room-09-bounded-processing-baseline.md에 있다.
+      # 아래 세 값은 ROOM-09d 후보 측정 결과로 제안하고 사용자 승인으로 확정했다.
+      # 측정 근거와 승인 기록은 docs/measurements/room-09-bounded-processing-baseline.md에 있다.
       # candidate-limit: 제한 ID 값은 규모별 우열을 뒤집지 못해 성능 근거로 삼지 않았다.
-      # 한 번에 여는 처리 범위가 작아 실패 ROOM의 재처리 폭이 좁은 100을 택한다.
+      # 배치 하나가 DB 호출 3회를 쓰므로 총 호출은 1/limit로 준다. 대형에서 10 -> 100이 2,700회를 줄이고
+      # 100 -> 1000은 270회만 더 줄여, 100이 선별 오버헤드가 사실상 사라지는 지점이다.
+      # 실패 파급 범위는 ROOM마다 독립 트랜잭션이고 커서도 ROOM마다 전진해 이 값과 무관하다.
       candidate-limit: 100
-      # execution-warning-threshold: 이 측정에서 관찰한 후보 최대 실행시간은 대형 151.8초다. 여기에 여유를 더한다.
+      # execution-warning-threshold: candidate-limit 100의 관찰 최대 실행시간은 대형 108.1초다.
+      # 쓰지 않는 제한 ID까지 포함한 관찰 최대 151.8초를 기준으로 보수적으로 잡는다.
       execution-warning-threshold: 180s
       # lock-at-most-for: 경고 기준과 고정 비율로 묶지 않는다. 잠금 보유 인스턴스가 죽었을 때 다른 인스턴스가
       # 이어받기까지 감수할 복구 지연으로 정하며, trigger-delay 15m 한 주기 안에 든다.
+      # 한 실행의 최장 시간을 보장하는 값은 아니다. 실행 총량에 상한이 없어 이 값을 넘길 수 있고, 그때는
+      # 다음 실행의 claim이 executionGeneration을 올려 기존 실행이 다음 ROOM 직후 커서 CAS 실패로 멈춘다.
       lock-at-most-for: 10m
   chat:
     retention:
