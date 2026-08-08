@@ -4,8 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
+
 import org.junit.jupiter.api.Test;
 
+import cloud.bamsongi.albammate.auth.validation.PasswordValidator;
+import cloud.bamsongi.albammate.auth.validation.ValidPassword;
 import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -43,6 +47,19 @@ class SignupRequestTest {
 			validator
 				.validate(new SignupRequest("user@example.com", " 가😀라마바사아자차카타파하 ", "닉네임"))
 				.isEmpty());
+	}
+
+	@Test
+	void 실제_회원가입_비밀번호_컴포넌트_제약은_null을_다른_필수값_제약에_위임한다() {
+		ValidPassword passwordConstraint = Arrays.stream(SignupRequest.class.getRecordComponents())
+			.filter(component -> component.getName().equals("password"))
+			.findFirst()
+			.orElseThrow()
+			.getAnnotation(ValidPassword.class);
+		PasswordValidator passwordValidator = new PasswordValidator();
+		passwordValidator.initialize(passwordConstraint);
+
+		assertTrue(passwordValidator.isValid(null, null));
 	}
 
 	@Test
