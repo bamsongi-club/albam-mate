@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.room.statuscorrection;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -139,8 +140,24 @@ class RoomStatusCorrectionBoundedPostgresTest {
 			REQUEST_TIME, secondClaim, 1, 2);
 
 		assertEquals(1, secondResult.changedCount());
-		assertTrue(!secondResult.hasRemainingCandidates());
+		assertFalse(secondResult.hasRemainingCandidates());
 		assertEquals(RoomStatus.CLOSED, currentRoom(third.getId()).getStatus());
+		assertCursorWrapped(REQUEST_TIME.plusNanos(1_000));
+	}
+
+	@Test
+	void 실행당_배치_상한을_정확히_소진하면_loop_뒤_빈_후보를_확인하고_cursor를_wrap한다() {
+		Room first = saveRoom(REQUEST_TIME.minusSeconds(2));
+		Room second = saveRoom(REQUEST_TIME.minusSeconds(1));
+
+		RoomStatusCorrectionProgressStore.ProgressSnapshot claim = progressStore.claimExecution(REQUEST_TIME);
+		RoomStatusCorrectionCoordinator.BoundedCorrectionResult result = coordinator.correctBoundedDueRooms(
+			REQUEST_TIME, claim, 1, 2);
+
+		assertEquals(2, result.changedCount());
+		assertFalse(result.hasRemainingCandidates());
+		assertEquals(RoomStatus.CLOSED, currentRoom(first.getId()).getStatus());
+		assertEquals(RoomStatus.CLOSED, currentRoom(second.getId()).getStatus());
 		assertCursorWrapped(REQUEST_TIME.plusNanos(1_000));
 	}
 

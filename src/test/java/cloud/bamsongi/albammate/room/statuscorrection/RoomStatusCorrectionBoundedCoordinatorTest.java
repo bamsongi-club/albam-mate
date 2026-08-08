@@ -119,6 +119,37 @@ class RoomStatusCorrectionBoundedCoordinatorTest {
 			eq(CUTOFF.plusNanos(1_000)));
 	}
 
+	@Test
+	void 실행당_배치_상한을_정확히_소진하고_잔여_후보가_없으면_cursor를_wrap한다() {
+		RoomStatusCorrectionExecutor executor = mock(RoomStatusCorrectionExecutor.class);
+		RoomStatusCorrectionCandidateSelector selector = mock(RoomStatusCorrectionCandidateSelector.class);
+		RoomStatusCorrectionProgressStore progressStore = mock(RoomStatusCorrectionProgressStore.class);
+		RoomStatusCorrectionCoordinator coordinator = new RoomStatusCorrectionCoordinator(
+			executor, new RoomOptimisticLockRetrier(), selector, progressStore);
+		RoomStatusCorrectionProgressStore.ProgressSnapshot claimed = snapshot(1L, null, null);
+		RoomStatusCorrectionProgressStore.ProgressSnapshot afterFirst = snapshot(2L, CUTOFF.minusSeconds(10), 10L);
+		RoomStatusCorrectionProgressStore.ProgressSnapshot afterSecond = snapshot(3L, CUTOFF.minusSeconds(20), 20L);
+		when(executor.correctRoom(anyLong(), eq(CUTOFF))).thenReturn(true);
+		when(selector.select(claimed, 1)).thenReturn(List.of(candidate(10L)));
+		when(selector.select(afterFirst, 1)).thenReturn(List.of(candidate(20L)));
+		when(selector.select(afterSecond, 1)).thenReturn(List.of());
+		when(progressStore.advanceCursor(claimed, CUTOFF.minusSeconds(10), 10L)).thenReturn(Optional.of(afterFirst));
+		when(progressStore.advanceCursor(afterFirst, CUTOFF.minusSeconds(20), 20L))
+			.thenReturn(Optional.of(afterSecond));
+		when(progressStore.wrap(afterSecond, CUTOFF.plusNanos(1_000)))
+			.thenReturn(Optional.of(snapshot(4L, null, null)));
+
+		RoomStatusCorrectionCoordinator.BoundedCorrectionResult result = coordinator.correctBoundedDueRooms(
+			CUTOFF, claimed, 1, 2);
+
+		assertEquals(2, result.changedCount());
+		assertFalse(result.hasRemainingCandidates());
+		verify(executor).correctRoom(10L, CUTOFF);
+		verify(executor).correctRoom(20L, CUTOFF);
+		verify(selector).select(afterSecond, 1);
+		verify(progressStore).wrap(afterSecond, CUTOFF.plusNanos(1_000));
+	}
+
 	private RoomStatusCorrectionCandidateSelector.DueRoomCandidate candidate(long roomId) {
 		return new RoomStatusCorrectionCandidateSelector.DueRoomCandidate(roomId, CUTOFF.minusSeconds(roomId));
 	}
