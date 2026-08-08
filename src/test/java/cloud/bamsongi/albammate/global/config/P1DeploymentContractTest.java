@@ -33,6 +33,8 @@ class P1DeploymentContractTest {
 	private static final Path REPOSITORY_ROOT = Path.of("").toAbsolutePath();
 	private static final Pattern FORWARDED_FOR_REMOTE_ADDRESS_DIRECTIVE = Pattern.compile(
 		"(?m)^[\\t ]*proxy_set_header X-Forwarded-For \\$remote_addr;[\\t ]*$");
+	private static final Pattern FORWARDED_REMOVAL_DIRECTIVE = Pattern.compile(
+		"(?m)^[\\t ]*proxy_set_header Forwarded \"\";[\\t ]*$");
 
 	@Test
 	void read_only_web은_tmp_렌더링_설정으로_healthz와_TLS를_기동한다() throws IOException {
@@ -68,6 +70,25 @@ class P1DeploymentContractTest {
 			.getProperty("server.forward-headers-strategy"));
 		assertNull(yamlProperties("src/main/resources/application.yml")
 			.getProperty("server.forward-headers-strategy"));
+	}
+
+	@Test
+	void 제거된_외부_Forwarded는_Spring_remote_addr와_제한_버킷을_바꾸지_못한다()
+		throws IOException, ServletException {
+		String nginxObservedAddress = "203.0.113.10";
+		String maliciousForwardedAddress = "198.51.100.10";
+		InMemoryAuthenticationRequestLimiter limiter = inMemoryLimiter();
+		String firstRemoteAddress = springRemoteAddress(nginxObservedAddress);
+		String secondRemoteAddress = springRemoteAddress(nginxObservedAddress);
+
+		assertEquals(
+			maliciousForwardedAddress,
+			springRemoteAddressWithForwarded("for=" + maliciousForwardedAddress, nginxObservedAddress));
+		assertEquals(nginxObservedAddress, firstRemoteAddress);
+		assertEquals(nginxObservedAddress, secondRemoteAddress);
+		assertTrue(limiter.checkAndRecordSignup(firstRemoteAddress).allowed());
+		assertTrue(limiter.checkAndRecordSignup(secondRemoteAddress).allowed());
+		assertEquals(1, limiter.ipBucketCount());
 	}
 
 	@Test
@@ -212,6 +233,7 @@ class P1DeploymentContractTest {
 			springProxyLocationCount++;
 			assertFalse(location.contains("$proxy_add_x_forwarded_for"));
 			assertEquals(1, countForwardedForRemoteAddressDirectives(location));
+			assertEquals(1, countForwardedRemovalDirectives(location));
 		}
 		assertEquals(2, springProxyLocationCount);
 	}
@@ -225,9 +247,35 @@ class P1DeploymentContractTest {
 		return count;
 	}
 
+	private int countForwardedRemovalDirectives(String contents) {
+		var directiveMatcher = FORWARDED_REMOVAL_DIRECTIVE.matcher(contents);
+		int count = 0;
+		while (directiveMatcher.find()) {
+			count++;
+		}
+		return count;
+	}
+
 	private String springRemoteAddress(String nginxObservedAddress) throws IOException, ServletException {
 		MockHttpServletRequest request = new MockHttpServletRequest();
 		request.setRemoteAddr("172.20.0.10");
+		request.addHeader("X-Forwarded-For", nginxObservedAddress);
+		AtomicReference<String> remoteAddress = new AtomicReference<>();
+
+		new ForwardedHeaderFilter().doFilter(
+			request,
+			new MockHttpServletResponse(),
+			(servletRequest, servletResponse) -> remoteAddress.set(
+				((HttpServletRequest)servletRequest).getRemoteAddr()));
+
+		return remoteAddress.get();
+	}
+
+	private String springRemoteAddressWithForwarded(String forwarded, String nginxObservedAddress)
+		throws IOException, ServletException {
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setRemoteAddr("172.20.0.10");
+		request.addHeader("Forwarded", forwarded);
 		request.addHeader("X-Forwarded-For", nginxObservedAddress);
 		AtomicReference<String> remoteAddress = new AtomicReference<>();
 
