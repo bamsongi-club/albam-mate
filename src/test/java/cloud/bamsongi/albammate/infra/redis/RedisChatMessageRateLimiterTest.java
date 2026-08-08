@@ -2,6 +2,8 @@ package cloud.bamsongi.albammate.infra.redis;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -16,6 +18,9 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -94,6 +99,28 @@ class RedisChatMessageRateLimiterTest {
 		assertEquals("11", args[1]);
 		assertEquals("4000", args[2]);
 	}
+
+	@Test
+	void T5_사용자_방_허용량과_창_크기가_최소값_미만이면_기동이_바인딩_실패로_끝난다() {
+		contextRunnerWith("app.chat.rate-limit.user-limit=0")
+			.run(context -> assertNotNull(context.getStartupFailure()));
+		contextRunnerWith("app.chat.rate-limit.room-limit=0")
+			.run(context -> assertNotNull(context.getStartupFailure()));
+		contextRunnerWith("app.chat.rate-limit.window=0s")
+			.run(context -> assertNotNull(context.getStartupFailure()));
+		contextRunnerWith()
+			.run(context -> assertNull(context.getStartupFailure()));
+	}
+
+	private ApplicationContextRunner contextRunnerWith(String... properties) {
+		return new ApplicationContextRunner()
+			.withUserConfiguration(ChatMessageRateLimitPropertiesConfiguration.class)
+			.withPropertyValues(properties);
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	@EnableConfigurationProperties(ChatMessageRateLimitProperties.class)
+	static class ChatMessageRateLimitPropertiesConfiguration {}
 
 	@SuppressWarnings({"unchecked", "rawtypes"})
 	private void stubExecute(Object result) {
