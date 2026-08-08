@@ -360,6 +360,20 @@ describe('T4 대표 메커니즘과 설명', () => {
     expect(hint.getAttribute('aria-expanded')).toBe('false');
   });
 
+  it('넘치지 않는 고정 말풍선은 겹친 자리를 눌러도 닫혀 아래 컨트롤이 클릭을 받을 수 있다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    const hint = screen.getByLabelText('셋 컬렉션 설명');
+
+    fireEvent.click(hint);
+    expect(hint.getAttribute('aria-expanded')).toBe('true');
+
+    const tooltip = document.getElementById(hint.getAttribute('aria-describedby'));
+    fireEvent.pointerDown(tooltip);
+
+    expect(hint.getAttribute('aria-expanded')).toBe('false');
+  });
+
   it('대표 8개 모두 API가 준 서로 다른 설명을 연결한다', async () => {
     await renderGamesView();
     openFilterPanel();

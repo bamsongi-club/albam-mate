@@ -892,6 +892,7 @@ function MechanismHint({ code, name, description }) {
   const [isHovered, setIsHovered] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [tooltipStyle, setTooltipStyle] = useState({ left: '0px', top: '0px', position: 'fixed', visibility: 'hidden' });
+  const [isScrollable, setIsScrollable] = useState(false);
   const buttonRef = useRef(null);
   const tooltipRef = useRef(null);
   const tooltipId = 'mechanism-hint-' + code;
@@ -918,6 +919,7 @@ function MechanismHint({ code, name, description }) {
       const maxTop = Math.max(viewportPadding, window.innerHeight - tooltipRect.height - viewportPadding);
       const top = Math.min(Math.max(viewportPadding, preferredTop), maxTop);
       setTooltipStyle({ left: left + 'px', top: top + 'px', position: 'fixed', visibility: 'visible' });
+      setIsScrollable(tooltipRef.current.scrollHeight > tooltipRef.current.clientHeight);
     };
 
     updatePosition();
@@ -933,9 +935,11 @@ function MechanismHint({ code, name, description }) {
     if (!isPinned) return undefined;
 
     // 고정된 툴팁은 fixed portal이라 다른 조건 위에 겹칠 수 있다.
-    // 바깥을 누르거나 Esc를 누르면 풀어 그 아래 컨트롤을 다시 누를 수 있게 한다.
+    // 내용이 넘쳐 스크롤이 필요한 경우가 아니면 툴팁 자체를 눌러도 풀어,
+    // 겹친 자리를 다시 누르면 그 아래 컨트롤이 클릭을 받을 수 있게 한다.
     const closeIfOutside = (event) => {
-      if (buttonRef.current?.contains(event.target) || tooltipRef.current?.contains(event.target)) return;
+      if (buttonRef.current?.contains(event.target)) return;
+      if (isScrollable && tooltipRef.current?.contains(event.target)) return;
       setIsPinned(false);
     };
     const closeOnEscape = (event) => {
@@ -948,7 +952,7 @@ function MechanismHint({ code, name, description }) {
       document.removeEventListener('pointerdown', closeIfOutside, true);
       document.removeEventListener('keydown', closeOnEscape);
     };
-  }, [isPinned]);
+  }, [isPinned, isScrollable]);
 
   return (
     <span
@@ -976,7 +980,13 @@ function MechanismHint({ code, name, description }) {
         <span aria-hidden="true">i</span>
       </button>
       {createPortal(
-        <span ref={tooltipRef} className="mechanism-hint-text" id={tooltipId} role="tooltip" style={tooltipStyle}>
+        <span
+          ref={tooltipRef}
+          className="mechanism-hint-text"
+          id={tooltipId}
+          role="tooltip"
+          style={isScrollable ? { ...tooltipStyle, pointerEvents: 'auto' } : tooltipStyle}
+        >
           {description}
         </span>,
         document.body,
