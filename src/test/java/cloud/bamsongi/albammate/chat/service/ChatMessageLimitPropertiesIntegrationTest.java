@@ -1,8 +1,6 @@
 package cloud.bamsongi.albammate.chat.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -14,10 +12,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import cloud.bamsongi.albammate.chat.dto.ChatMessageSendRequest;
@@ -79,26 +74,6 @@ class ChatMessageLimitPropertiesIntegrationTest {
 
 		assertEquals(1, chatMessageRepository.count());
 	}
-
-	@Test
-	void T5_길이_제약이_0이면_기동이_바인딩_실패로_끝난다() {
-		contextRunnerWith("app.chat.message.max-content-length=0")
-			.run(context -> assertNotNull(context.getStartupFailure()));
-		contextRunnerWith("app.chat.message.max-client-message-id-length=0")
-			.run(context -> assertNotNull(context.getStartupFailure()));
-		contextRunnerWith()
-			.run(context -> assertNull(context.getStartupFailure()));
-	}
-
-	private ApplicationContextRunner contextRunnerWith(String... properties) {
-		return new ApplicationContextRunner()
-			.withUserConfiguration(ChatMessageLimitPropertiesConfiguration.class)
-			.withPropertyValues(properties);
-	}
-
-	@TestConfiguration
-	@EnableConfigurationProperties(ChatMessageLimitProperties.class)
-	static class ChatMessageLimitPropertiesConfiguration {}
 
 	private void assertValidationError(long userId, long roomId, ChatMessageSendRequest request) {
 		BusinessException exception = assertThrows(

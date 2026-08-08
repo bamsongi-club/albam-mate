@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.chat.service;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 
 /**
@@ -15,8 +16,8 @@ import jakarta.validation.constraints.Min;
 @ConfigurationProperties(prefix = "app.chat.message")
 public class ChatMessageLimitProperties {
 
-	@Min(1) private int maxClientMessageIdLength = 100;
-	@Min(1) private int maxContentLength = 500;
+	@Min(1) @Max(100) private int maxClientMessageIdLength = 100;
+	@Min(1) @Max(500) private int maxContentLength = 500;
 
 	public int getMaxClientMessageIdLength() {
 		return maxClientMessageIdLength;

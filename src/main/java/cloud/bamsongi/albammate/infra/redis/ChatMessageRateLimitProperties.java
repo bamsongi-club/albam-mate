@@ -20,6 +20,6 @@ public record ChatMessageRateLimitProperties(
 	int userLimit,
 	@Min(1) @DefaultValue("30")
 	int roomLimit,
-	@NotNull @DurationMin(nanos = 1) @DefaultValue("10s")
+	@NotNull @DurationMin(millis = 1) @DefaultValue("10s")
 	Duration window) {
 }
