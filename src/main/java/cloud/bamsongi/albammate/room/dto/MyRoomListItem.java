@@ -56,10 +56,6 @@ public record MyRoomListItem(
 			availability.waitlistable(),
 			myRole,
 			participationStatus,
-			isChatAvailable(room.getStatus()));
-	}
-
-	private static boolean isChatAvailable(RoomStatus status) {
-		return status == RoomStatus.RECRUITING || status == RoomStatus.CLOSED;
+			room.getStatus().isChatAvailable());
 	}
 }
