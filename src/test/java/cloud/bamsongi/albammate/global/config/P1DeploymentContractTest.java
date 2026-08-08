@@ -13,6 +13,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -26,6 +27,8 @@ import jakarta.servlet.http.HttpServletRequest;
 class P1DeploymentContractTest {
 
 	private static final Path REPOSITORY_ROOT = Path.of("").toAbsolutePath();
+	private static final Pattern FORWARDED_FOR_REMOTE_ADDRESS_DIRECTIVE = Pattern.compile(
+		"(?m)^[\\t ]*proxy_set_header X-Forwarded-For \\$remote_addr;[\\t ]*$");
 
 	@Test
 	void read_only_web은_tmp_렌더링_설정으로_healthz와_TLS를_기동한다() throws IOException {
@@ -203,17 +206,16 @@ class P1DeploymentContractTest {
 
 			springProxyLocationCount++;
 			assertFalse(location.contains("$proxy_add_x_forwarded_for"));
-			assertEquals(1, countOccurrences(location, "proxy_set_header X-Forwarded-For $remote_addr;"));
+			assertEquals(1, countForwardedForRemoteAddressDirectives(location));
 		}
 		assertEquals(2, springProxyLocationCount);
 	}
 
-	private int countOccurrences(String contents, String expected) {
+	private int countForwardedForRemoteAddressDirectives(String contents) {
+		var directiveMatcher = FORWARDED_FOR_REMOTE_ADDRESS_DIRECTIVE.matcher(contents);
 		int count = 0;
-		int index = 0;
-		while ((index = contents.indexOf(expected, index)) >= 0) {
+		while (directiveMatcher.find()) {
 			count++;
-			index += expected.length();
 		}
 		return count;
 	}
