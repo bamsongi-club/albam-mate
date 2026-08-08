@@ -79,8 +79,8 @@ class RoomStatusCorrectionPropertiesTest {
 				"app.room.status-correction.lock-name=room-status-correction",
 				"app.room.status-correction.trigger-delay=15m",
 				"app.room.status-correction.trigger-jitter=3m",
-			"app.room.status-correction.lock-at-most-for=2m",
-			"app.room.status-correction.execution-warning-threshold=30s")
+				"app.room.status-correction.lock-at-most-for=2m",
+				"app.room.status-correction.execution-warning-threshold=30s")
 			.run(context -> assertTrue(context.getStartupFailure() != null));
 		contextRunner.withPropertyValues(
 			"app.room.status-correction.lock-at-most-for=2m",

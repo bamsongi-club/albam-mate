@@ -116,7 +116,8 @@ public class RoomStatusCorrectionCoordinator {
 		return new BoundedCorrectionResult(changedCount, false);
 	}
 
-	record BoundedCorrectionResult(int changedCount, boolean hasRemainingCandidates) {}
+	record BoundedCorrectionResult(int changedCount, boolean hasRemainingCandidates) {
+	}
 
 	private boolean correctRoom(Long roomId, Instant requestTime, IntConsumer beforeRetry) {
 		return retrier.execute(

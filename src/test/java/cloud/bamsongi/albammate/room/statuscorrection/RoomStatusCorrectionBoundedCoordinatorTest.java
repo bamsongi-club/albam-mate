@@ -1,11 +1,11 @@
 package cloud.bamsongi.albammate.room.statuscorrection;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -92,7 +92,8 @@ class RoomStatusCorrectionBoundedCoordinatorTest {
 		when(selector.select(afterSecond, 1)).thenReturn(List.of(candidate(30L)));
 		when(selector.select(nextClaim, 1)).thenReturn(List.of(candidate(30L)), List.of());
 		when(progressStore.advanceCursor(firstClaim, CUTOFF.minusSeconds(10), 10L)).thenReturn(Optional.of(afterFirst));
-		when(progressStore.advanceCursor(afterFirst, CUTOFF.minusSeconds(20), 20L)).thenReturn(Optional.of(afterSecond));
+		when(progressStore.advanceCursor(afterFirst, CUTOFF.minusSeconds(20), 20L))
+			.thenReturn(Optional.of(afterSecond));
 		when(progressStore.advanceCursor(nextClaim, CUTOFF.minusSeconds(30), 30L))
 			.thenReturn(Optional.of(snapshot(5L, CUTOFF.minusSeconds(30), 30L)));
 		when(progressStore.wrap(any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), any(Instant.class)))

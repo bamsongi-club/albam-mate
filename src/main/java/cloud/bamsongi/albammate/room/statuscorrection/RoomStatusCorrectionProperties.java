@@ -35,8 +35,7 @@ public class RoomStatusCorrectionProperties {
 	/** #390이 초기 운영값을 확정하기 전까지는 테스트·측정에서만 명시적으로 주입한다. */
 	@Min(1) private Integer candidateLimit;
 
-	@NotNull @Min(1)
-	private Integer maxBatchesPerRun;
+	@NotNull @Min(1) private Integer maxBatchesPerRun;
 
 	public String getLockName() {
 		return lockName;
