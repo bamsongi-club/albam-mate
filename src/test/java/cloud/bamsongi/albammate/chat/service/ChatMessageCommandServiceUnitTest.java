@@ -27,7 +27,8 @@ class ChatMessageCommandServiceUnitTest {
 			mock(UserQuery.class),
 			mock(ChatMessageRateLimiter.class),
 			mock(org.springframework.context.ApplicationEventPublisher.class),
-			Clock.systemUTC());
+			Clock.systemUTC(),
+			new ChatMessageLimitProperties());
 
 		Runnable releaseOnce = ReflectionTestUtils.invokeMethod(service, "releaseOnce", reservation);
 		releaseOnce.run();

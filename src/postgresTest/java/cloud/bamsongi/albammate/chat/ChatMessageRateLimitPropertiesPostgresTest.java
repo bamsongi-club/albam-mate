@@ -1,21 +1,18 @@
 package cloud.bamsongi.albammate.chat;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Timestamp;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
-import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +22,6 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
-import org.springframework.core.env.Environment;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -38,7 +34,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-import cloud.bamsongi.albammate.chat.contract.ChatMessageRateLimiter;
 import cloud.bamsongi.albammate.chat.contract.ChatRealtimePublisher;
 import cloud.bamsongi.albammate.chat.contract.MessageCommitted;
 import cloud.bamsongi.albammate.chat.dto.ChatMessageSendRequest;
@@ -46,33 +41,37 @@ import cloud.bamsongi.albammate.chat.entity.ChatRoom;
 import cloud.bamsongi.albammate.chat.repository.ChatMessageRepository;
 import cloud.bamsongi.albammate.chat.repository.ChatRoomRepository;
 import cloud.bamsongi.albammate.chat.service.ChatMessageCommandService;
+import cloud.bamsongi.albammate.chat.service.ChatMessageSendResult;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
-import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
-import cloud.bamsongi.albammate.infra.redis.ChatMessageRateLimitProperties;
-import cloud.bamsongi.albammate.infra.redis.RedisChatMessageRateLimiter;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
 
-/** T1~T3: production profile이 local과 분리된 namespace로 사용자·방 전송 제한을 등록하고 인스턴스 간 상태를 공유하는지 검증한다. */
+/** T4: 전송 제한 프로퍼티(사용자·방 허용량, 창 크기)를 기본값(5·30·10초)과 다르게 주입하면 그 값이 Lua 인자로 전달되고
+ * TTL도 창 크기를 따라간다. */
 @Testcontainers
-@ActiveProfiles("production")
-@SpringBootTest(properties = "app.notification.relay.enabled=false")
-@Import(ChatMessageRateLimitProductionPostgresTest.TestBeans.class)
-class ChatMessageRateLimitProductionPostgresTest {
+@ActiveProfiles("local")
+@SpringBootTest(properties = {
+	"app.notification.relay.enabled=false",
+	"app.chat.rate-limit.user-limit=2",
+	"app.chat.rate-limit.room-limit=3",
+	"app.chat.rate-limit.window=3s"
+})
+@Import(ChatMessageRateLimitPropertiesPostgresTest.TestBeans.class)
+class ChatMessageRateLimitPropertiesPostgresTest {
 
 	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final String REDIS_IMAGE = "redis:8.4-alpine";
-	private static final String PRODUCTION_RATE_LIMIT_PREFIX = "albam-mate:production:ratelimit";
-	private static final Instant NOW = Instant.parse("2026-08-05T00:00:00Z");
+	private static final String RATE_LIMIT_PREFIX = "albam-mate:local:ratelimit";
+	private static final Instant NOW = Instant.parse("2026-08-08T00:00:00Z");
 
 	@Container
 	@ServiceConnection
 	static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_chat_rate_limit_production_test");
+		.withDatabaseName("albam_mate_chat_rate_limit_properties_test");
 
 	@Container
 	static final GenericContainer REDIS = new GenericContainer(REDIS_IMAGE)
@@ -81,8 +80,6 @@ class ChatMessageRateLimitProductionPostgresTest {
 
 	@Autowired
 	private ChatMessageCommandService chatMessageCommandService;
-	@Autowired
-	private ChatMessageRateLimiter chatMessageRateLimiter;
 	@Autowired
 	private ChatMessageRepository chatMessageRepository;
 	@Autowired
@@ -95,15 +92,9 @@ class ChatMessageRateLimitProductionPostgresTest {
 	private JdbcTemplate jdbcTemplate;
 	@Autowired
 	private RedisConnectionFactory redisConnectionFactory;
-	@Autowired
-	private Environment environment;
-	@Autowired
-	private Flyway flyway;
-	@Autowired
-	private RecordingChatRealtimePublisher realtimePublisher;
 
 	@DynamicPropertySource
-	static void productionProperties(DynamicPropertyRegistry registry) {
+	static void localMultiProperties(DynamicPropertyRegistry registry) {
 		registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
 		registry.add("spring.datasource.username", POSTGRES::getUsername);
 		registry.add("spring.datasource.password", POSTGRES::getPassword);
@@ -114,98 +105,45 @@ class ChatMessageRateLimitProductionPostgresTest {
 	@AfterEach
 	void tearDown() {
 		redis().getConnectionFactory().getConnection().serverCommands().flushDb();
-		realtimePublisher.clear();
 		jdbcTemplate
 			.execute("truncate table chat_messages, chat_rooms, participations, rooms, users restart identity cascade");
 	}
 
 	@Test
-	void T1_사용자_bucket은_production_namespace로_모든_방의_신규_전송을_합산해_다섯_건만_허용한다() {
+	void 주입된_사용자_허용량과_창_크기가_Lua_인자로_반영돼_경계와_TTL이_달라진다() {
 		long userId = insertUser("사용자");
 		Room firstRoom = createChatRoom(userId, 2);
 		Room secondRoom = createChatRoom(userId, 2);
 
-		for (int index = 1; index <= 5; index++) {
-			send(userId, index % 2 == 0 ? secondRoom.getId() : firstRoom.getId(), "message-" + index);
-		}
+		send(userId, firstRoom.getId(), "first");
+		Long initialTtl = redis().getExpire(userKey(userId), TimeUnit.MILLISECONDS);
+		assertNotNull(initialTtl);
+		assertTrue(initialTtl > 0 && initialTtl <= 3_000, "initial TTL=" + initialTtl);
 
-		assertTrue(Boolean.TRUE.equals(redis().hasKey(userKey(PRODUCTION_RATE_LIMIT_PREFIX, userId))));
-		assertRateLimited(() -> send(userId, secondRoom.getId(), "sixth"));
-		assertEquals(5, chatMessageRepository.count());
+		send(userId, secondRoom.getId(), "second");
+
+		assertRateLimited(() -> send(userId, firstRoom.getId(), "third"));
+		assertEquals(2, chatMessageRepository.count());
 	}
 
 	@Test
-	void T2_방_bucket은_production_namespace로_모든_참여자의_신규_전송을_합산해_서른_건만_허용한다() {
+	void 주입된_방_허용량이_Lua_인자로_반영돼_경계가_달라진다() {
 		long hostUserId = insertUser("방장");
 		Room room = createChatRoom(hostUserId, 10);
-		List<Long> senders = new ArrayList<>(List.of(hostUserId));
-		for (int index = 1; index <= 6; index++) {
-			long participantUserId = insertUser("참가자" + index);
-			roomParticipationService.participate(participantUserId, room.getId());
-			senders.add(participantUserId);
-		}
+		long participantUserId = insertUser("참가자");
+		roomParticipationService.participate(participantUserId, room.getId());
 
-		int messageNumber = 1;
-		send(senders.getFirst(), room.getId(), "room-" + messageNumber++);
-		for (int senderIndex = 0; senderIndex < 6; senderIndex++) {
-			int sends = senderIndex == 0 ? 4 : 5;
-			for (int sendIndex = 0; sendIndex < sends; sendIndex++) {
-				send(senders.get(senderIndex), room.getId(), "room-" + messageNumber++);
-			}
-		}
+		send(hostUserId, room.getId(), "room-1");
+		send(participantUserId, room.getId(), "room-2");
+		send(hostUserId, room.getId(), "room-3");
 
-		assertTrue(Boolean.TRUE.equals(redis().hasKey(roomKey(PRODUCTION_RATE_LIMIT_PREFIX, room.getId()))));
-		assertRateLimited(() -> send(senders.get(6), room.getId(), "room-31"));
-		assertEquals(30, chatMessageRepository.count());
+		assertRateLimited(() -> send(participantUserId, room.getId(), "room-4"));
+		assertEquals(3, chatMessageRepository.count());
 	}
 
-	@Test
-	void T6_production_profile은_local_seed_없이_schema_only로_Flyway를_실행한다() {
-		assertTrue(Arrays.stream(flyway.getConfiguration().getLocations())
-			.noneMatch(location -> location.getDescriptor().contains("db/local")));
-		assertEquals(
-			0,
-			jdbcTemplate.queryForObject(
-				"select count(*) from users where email = 'local.seed.host@albammate.local'",
-				Integer.class));
-	}
-
-	@Test
-	void T3_같은_Redis를_공유하는_두_production_인스턴스가_사용자와_방_bucket_상태를_공유해_합산_한도를_넘기지_못한다() {
-		assertInstanceOf(RedisChatMessageRateLimiter.class, chatMessageRateLimiter);
-
-		ChatMessageRateLimitProperties rateLimitProperties = new ChatMessageRateLimitProperties(5, 30,
-			Duration.ofSeconds(10));
-		RedisChatMessageRateLimiter firstInstance = new RedisChatMessageRateLimiter(redisConnectionFactory,
-			environment, rateLimitProperties);
-		RedisChatMessageRateLimiter secondInstance = new RedisChatMessageRateLimiter(redisConnectionFactory,
-			environment, rateLimitProperties);
-
-		long sharedUserId = 9_100_001L;
-		long sharedRoomId = 9_200_001L;
-		for (int index = 1; index <= 5; index++) {
-			RedisChatMessageRateLimiter instance = index % 2 == 0 ? secondInstance : firstInstance;
-			instance.reserve(sharedUserId, sharedRoomId);
-		}
-		assertThrows(RateLimitExceededException.class, () -> firstInstance.reserve(sharedUserId, sharedRoomId));
-		assertThrows(RateLimitExceededException.class, () -> secondInstance.reserve(sharedUserId, sharedRoomId));
-
-		long sharedRoomForManyUsersId = 9_200_002L;
-		for (int index = 1; index <= 30; index++) {
-			RedisChatMessageRateLimiter instance = index % 2 == 0 ? secondInstance : firstInstance;
-			instance.reserve(9_100_100L + index, sharedRoomForManyUsersId);
-		}
-		assertThrows(
-			RateLimitExceededException.class,
-			() -> firstInstance.reserve(9_100_200L, sharedRoomForManyUsersId));
-		assertThrows(
-			RateLimitExceededException.class,
-			() -> secondInstance.reserve(9_100_201L, sharedRoomForManyUsersId));
-	}
-
-	private void send(long userId, long roomId, String clientMessageId) {
-		chatMessageCommandService.send(userId, roomId,
-			new ChatMessageSendRequest(clientMessageId, "본문 " + clientMessageId));
+	private ChatMessageSendResult send(long userId, long roomId, String clientMessageId) {
+		return chatMessageCommandService
+			.send(userId, roomId, new ChatMessageSendRequest(clientMessageId, "본문 " + clientMessageId));
 	}
 
 	private void assertRateLimited(org.junit.jupiter.api.function.Executable executable) {
@@ -218,7 +156,7 @@ class ChatMessageRateLimitProductionPostgresTest {
 			Room.create(
 				hostUserId,
 				RoomType.PERSON_FOCUSED,
-				"운영 전송 제한 방",
+				"전송 제한 프로퍼티 방",
 				null,
 				null,
 				ExperienceLevel.ALL_LEVELS,
@@ -231,7 +169,7 @@ class ChatMessageRateLimitProductionPostgresTest {
 	}
 
 	private long insertUser(String nickname) {
-		String email = "chat-rate-limit-production-" + UUID.randomUUID() + "@example.com";
+		String email = "chat-rate-limit-properties-" + UUID.randomUUID() + "@example.com";
 		jdbcTemplate.update(
 			"insert into users (email, password_hash, nickname, created_at, updated_at) values (?, 'hash', ?, ?, ?)",
 			email,
@@ -241,12 +179,8 @@ class ChatMessageRateLimitProductionPostgresTest {
 		return jdbcTemplate.queryForObject("select id from users where email = ?", Long.class, email);
 	}
 
-	private String userKey(String prefix, long userId) {
-		return prefix + ":user:" + userId;
-	}
-
-	private String roomKey(String prefix, long roomId) {
-		return prefix + ":room:" + roomId;
+	private String userKey(long userId) {
+		return RATE_LIMIT_PREFIX + ":user:" + userId;
 	}
 
 	private StringRedisTemplate redis() {
@@ -273,15 +207,11 @@ class ChatMessageRateLimitProductionPostgresTest {
 
 	static class RecordingChatRealtimePublisher implements ChatRealtimePublisher {
 
-		private final List<MessageCommitted> events = new ArrayList<>();
+		private final List<MessageCommitted> events = new java.util.ArrayList<>();
 
 		@Override
 		public void publish(MessageCommitted event) {
 			events.add(event);
-		}
-
-		void clear() {
-			events.clear();
 		}
 	}
 }
