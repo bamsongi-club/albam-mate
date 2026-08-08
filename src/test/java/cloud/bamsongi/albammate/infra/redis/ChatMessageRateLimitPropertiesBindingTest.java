@@ -23,11 +23,12 @@ class ChatMessageRateLimitPropertiesBindingTest {
 	}
 
 	@Test
-	void T5_실제_소비_단위보다_짧은_전송_제한_창은_바인딩_실패로_끝난다() {
+	void T5_잘못된_전송_제한_속성은_바인딩_실패로_끝난다() {
 		assertBindingFailure("app.chat.rate-limit.user-limit=0");
 		assertBindingFailure("app.chat.rate-limit.room-limit=0");
 		assertBindingFailure("app.chat.rate-limit.window=0s");
 		assertBindingFailure("app.chat.rate-limit.window=999us");
+		assertBindingFailure("app.chat.rate-limit.window=PT9223372036854776S");
 	}
 
 	private ApplicationContextRunner contextRunnerWith(String... properties) {

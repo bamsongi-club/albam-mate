@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.validation.annotation.Validated;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
@@ -22,4 +23,16 @@ public record ChatMessageRateLimitProperties(
 	int roomLimit,
 	@NotNull @DurationMin(millis = 1) @DefaultValue("10s")
 	Duration window) {
+
+	@AssertTrue(message = "must be convertible to milliseconds") public boolean isWindowConvertibleToMillis() {
+		if (window == null) {
+			return true;
+		}
+		try {
+			window.toMillis();
+			return true;
+		} catch (ArithmeticException exception) {
+			return false;
+		}
+	}
 }
