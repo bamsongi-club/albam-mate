@@ -8,8 +8,15 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.web.filter.ForwardedHeaderFilter;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
 
 class P1DeploymentContractTest {
 
@@ -35,20 +42,28 @@ class P1DeploymentContractTest {
 	}
 
 	@Test
-	void 위조한_XFF를_바꿔도_여섯번째_회원가입은_실제_연결_IP_제한을_사용한다() throws IOException {
-		assertSpringProxyOverwritesForwardedFor(file("frontend/nginx.production.conf"));
-	}
-
-	@Test
-	void 위조한_XFF를_바꿔도_로그인_IP_제한은_하나의_실제_연결_IP_버킷을_사용한다() throws IOException {
-		assertSpringProxyOverwritesForwardedFor(file("frontend/nginx.production.conf"));
-	}
-
-	@Test
-	void 서로_다른_실제_출발지_IP는_Nginx를_거쳐_서로_다른_인증_제한_버킷을_사용한다() throws IOException {
+	void 모든_Spring_proxy는_XFF를_직접_관찰_주소로_덮어쓴다() throws IOException {
 		assertSpringProxyOverwritesForwardedFor(file("frontend/nginx.production.conf"));
 		assertSpringProxyOverwritesForwardedFor(file("frontend/nginx.local.conf"));
 		assertSpringProxyOverwritesForwardedFor(file("frontend/nginx.conf"));
+	}
+
+	@Test
+	void 같은_Nginx_제공_주소는_Spring_remote_addr로_수렴한다() throws IOException, ServletException {
+		String nginxObservedAddress = "203.0.113.10";
+
+		assertEquals(nginxObservedAddress, springRemoteAddress(nginxObservedAddress));
+		assertEquals(nginxObservedAddress, springRemoteAddress(nginxObservedAddress));
+	}
+
+	@Test
+	void 다른_Nginx_제공_주소는_서로_다른_Spring_remote_addr로_유지된다() throws IOException, ServletException {
+		String firstAddress = springRemoteAddress("203.0.113.10");
+		String secondAddress = springRemoteAddress("203.0.113.11");
+
+		assertEquals("203.0.113.10", firstAddress);
+		assertEquals("203.0.113.11", secondAddress);
+		assertFalse(firstAddress.equals(secondAddress));
 	}
 
 	@Test
@@ -157,6 +172,21 @@ class P1DeploymentContractTest {
 			index += expected.length();
 		}
 		return count;
+	}
+
+	private String springRemoteAddress(String nginxObservedAddress) throws IOException, ServletException {
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setRemoteAddr("172.20.0.10");
+		request.addHeader("X-Forwarded-For", nginxObservedAddress);
+		AtomicReference<String> remoteAddress = new AtomicReference<>();
+
+		new ForwardedHeaderFilter().doFilter(
+			request,
+			new MockHttpServletResponse(),
+			(servletRequest, servletResponse) -> remoteAddress.set(
+				((HttpServletRequest)servletRequest).getRemoteAddr()));
+
+		return remoteAddress.get();
 	}
 
 	private String file(String relativePath) throws IOException {
