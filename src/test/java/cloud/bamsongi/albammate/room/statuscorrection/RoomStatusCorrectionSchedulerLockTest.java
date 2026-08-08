@@ -2,6 +2,7 @@ package cloud.bamsongi.albammate.room.statuscorrection;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -30,6 +31,9 @@ class RoomStatusCorrectionSchedulerLockTest {
 		RoomStatusCorrectionCoordinator coordinator = mock(RoomStatusCorrectionCoordinator.class);
 		RoomStatusCorrectionProgressStore progressStore = mock(RoomStatusCorrectionProgressStore.class);
 		RoomStatusCorrectionProperties properties = properties();
+		when(coordinator.correctBoundedDueRooms(
+			any(), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), anyInt(), anyInt(), any()))
+			.thenReturn(new RoomStatusCorrectionCoordinator.BoundedCorrectionResult(0, false));
 		when(progressStore.claimExecution(any())).thenReturn(
 			new RoomStatusCorrectionProgressStore.ProgressSnapshot(
 				Instant.parse("2026-08-05T00:00:00Z"), null, null, 1L, 1L));
@@ -49,7 +53,7 @@ class RoomStatusCorrectionSchedulerLockTest {
 		verify(taskLock).tryExecute(eq("room-status-correction"), eq(Duration.ofMinutes(2)), any());
 		verify(coordinator).correctBoundedDueRooms(
 			eq(Instant.parse("2026-08-05T00:00:00Z")),
-			any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), any());
+			any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), eq(2), any());
 		when(taskLock.tryExecute(eq("room-status-correction"), eq(Duration.ofMinutes(2)), any()))
 			.thenReturn(ScheduledTaskLock.LockExecution.skippedResult());
 
@@ -57,7 +61,7 @@ class RoomStatusCorrectionSchedulerLockTest {
 
 		verify(coordinator).correctBoundedDueRooms(
 			eq(Instant.parse("2026-08-05T00:00:00Z")),
-			any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), any());
+			any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), eq(2), any());
 	}
 
 	@Test
@@ -65,6 +69,9 @@ class RoomStatusCorrectionSchedulerLockTest {
 		ScheduledTaskLock taskLock = mock(ScheduledTaskLock.class);
 		RoomStatusCorrectionCoordinator coordinator = mock(RoomStatusCorrectionCoordinator.class);
 		RoomStatusCorrectionProperties properties = properties();
+		when(coordinator.correctBoundedDueRooms(
+			any(), any(), anyInt(), anyInt(), any()))
+			.thenReturn(new RoomStatusCorrectionCoordinator.BoundedCorrectionResult(0, false));
 		doAnswer(invocation -> {
 			invocation.getArgument(2, Runnable.class).run();
 			return ScheduledTaskLock.LockExecution.acquiredResult();
@@ -102,6 +109,7 @@ class RoomStatusCorrectionSchedulerLockTest {
 		properties.setLockAtMostFor(Duration.ofMinutes(2));
 		properties.setExecutionWarningThreshold(Duration.ofSeconds(30));
 		properties.setCandidateLimit(10);
+		properties.setMaxBatchesPerRun(2);
 		return properties;
 	}
 

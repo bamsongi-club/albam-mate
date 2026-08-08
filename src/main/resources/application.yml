@@ -35,13 +35,15 @@ app:
       # 100 -> 1000은 270회만 더 줄여, 100이 선별 오버헤드가 사실상 사라지는 지점이다.
       # 실패 파급 범위는 ROOM마다 독립 트랜잭션이고 커서도 ROOM마다 전진해 이 값과 무관하다.
       candidate-limit: 100
+      # max-batches-per-run: 한 실행은 최대 100 batch만 처리해 candidate-limit과 합쳐 최대 10,000 ROOM을 시도한다.
+      # 상한 뒤에도 같은 turn cutoff의 후보가 남으면 cursor를 보존해 다음 실행에서 재개하고 ROOM 전용 WARN을 남긴다.
+      max-batches-per-run: 100
       # execution-warning-threshold: candidate-limit 100의 관찰 최대 실행시간은 대형 108.1초다.
       # 쓰지 않는 제한 ID까지 포함한 관찰 최대 151.8초를 기준으로 보수적으로 잡는다.
       execution-warning-threshold: 180s
       # lock-at-most-for: 경고 기준과 고정 비율로 묶지 않는다. 잠금 보유 인스턴스가 죽었을 때 다른 인스턴스가
       # 이어받기까지 감수할 복구 지연으로 정하며, trigger-delay 15m 한 주기 안에 든다.
-      # 한 실행의 최장 시간을 보장하는 값은 아니다. 실행 총량에 상한이 없어 이 값을 넘길 수 있고, 그때는
-      # 다음 실행의 claim이 executionGeneration을 올려 기존 실행이 다음 ROOM 직후 커서 CAS 실패로 멈춘다.
+      # 한 실행의 최장 시간을 보장하는 값은 아니다. 다만 위 반복 상한으로 한 실행의 시도량은 제한한다.
       lock-at-most-for: 10m
   chat:
     retention:

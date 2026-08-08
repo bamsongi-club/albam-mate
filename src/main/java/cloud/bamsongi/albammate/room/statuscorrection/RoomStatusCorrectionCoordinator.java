@@ -54,18 +54,21 @@ public class RoomStatusCorrectionCoordinator {
 	}
 
 	/** 고정 cutoff를 유지하면서 제한된 후보를 처리하고, ROOM별 결과와 cursor를 분리한다. */
-	int correctBoundedDueRooms(
-		Instant requestTime,
-		RoomStatusCorrectionProgressStore.ProgressSnapshot claimedProgress,
-		int candidateLimit) {
-		return correctBoundedDueRooms(requestTime, claimedProgress, candidateLimit, ignoredAttempt -> {});
-	}
-
-	/** 스케줄러 경로의 ROOM 충돌 재시도 전에만 지연 hook을 적용한다. */
-	int correctBoundedDueRooms(
+	BoundedCorrectionResult correctBoundedDueRooms(
 		Instant requestTime,
 		RoomStatusCorrectionProgressStore.ProgressSnapshot claimedProgress,
 		int candidateLimit,
+		int maxBatchesPerRun) {
+		return correctBoundedDueRooms(
+			requestTime, claimedProgress, candidateLimit, maxBatchesPerRun, ignoredAttempt -> {});
+	}
+
+	/** 스케줄러 경로의 ROOM 충돌 재시도 전에만 지연 hook을 적용한다. */
+	BoundedCorrectionResult correctBoundedDueRooms(
+		Instant requestTime,
+		RoomStatusCorrectionProgressStore.ProgressSnapshot claimedProgress,
+		int candidateLimit,
+		int maxBatchesPerRun,
 		IntConsumer beforeRetry) {
 		Objects.requireNonNull(requestTime, "requestTime");
 		Objects.requireNonNull(claimedProgress, "claimedProgress");
@@ -73,15 +76,18 @@ public class RoomStatusCorrectionCoordinator {
 		if (candidateLimit < 1) {
 			throw new IllegalArgumentException("ROOM 상태 보정 후보 수는 양수여야 합니다.");
 		}
+		if (maxBatchesPerRun < 1) {
+			throw new IllegalArgumentException("ROOM 상태 보정 실행당 최대 배치 수는 양수여야 합니다.");
+		}
 
 		RoomStatusCorrectionProgressStore.ProgressSnapshot progress = claimedProgress;
 		int changedCount = 0;
-		while (true) {
+		for (int batchIndex = 0; batchIndex < maxBatchesPerRun; batchIndex++) {
 			List<RoomStatusCorrectionCandidateSelector.DueRoomCandidate> candidates = candidateSelector
 				.select(progress, candidateLimit);
 			if (candidates.isEmpty()) {
 				progressStore.wrap(progress, nextTurnCutoff(requestTime, progress.turnCutoff()));
-				return changedCount;
+				return new BoundedCorrectionResult(changedCount, false);
 			}
 
 			for (RoomStatusCorrectionCandidateSelector.DueRoomCandidate candidate : candidates) {
@@ -97,12 +103,20 @@ public class RoomStatusCorrectionCoordinator {
 				Optional<RoomStatusCorrectionProgressStore.ProgressSnapshot> advanced = progressStore.advanceCursor(
 					progress, candidate.dueAt(), candidate.roomId());
 				if (advanced.isEmpty()) {
-					return changedCount;
+					return new BoundedCorrectionResult(changedCount, false);
 				}
 				progress = advanced.get();
 			}
 		}
+
+		if (!candidateSelector.select(progress, 1).isEmpty()) {
+			return new BoundedCorrectionResult(changedCount, true);
+		}
+		progressStore.wrap(progress, nextTurnCutoff(requestTime, progress.turnCutoff()));
+		return new BoundedCorrectionResult(changedCount, false);
 	}
+
+	record BoundedCorrectionResult(int changedCount, boolean hasRemainingCandidates) {}
 
 	private boolean correctRoom(Long roomId, Instant requestTime, IntConsumer beforeRetry) {
 		return retrier.execute(

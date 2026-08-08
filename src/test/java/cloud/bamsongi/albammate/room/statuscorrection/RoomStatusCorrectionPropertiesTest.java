@@ -28,7 +28,8 @@ class RoomStatusCorrectionPropertiesTest {
 		.withPropertyValues(
 			"app.room.status-correction.lock-name=room-status-correction",
 			"app.room.status-correction.trigger-delay=15m",
-			"app.room.status-correction.trigger-jitter=3m");
+			"app.room.status-correction.trigger-jitter=3m",
+			"app.room.status-correction.max-batches-per-run=100");
 
 	@Test
 	void lockAtMostFor와_실행시간_경고_기준은_각각_없어도_기동에_실패하고_둘이_있으면_기동한다() {
@@ -70,6 +71,34 @@ class RoomStatusCorrectionPropertiesTest {
 			.run(context -> assertFalse(context.getStartupFailure() != null));
 	}
 
+	@Test
+	void 실행당_최대_배치_수는_누락과_0_이하를_거부하고_양수만_허용한다() {
+		new ApplicationContextRunner()
+			.withUserConfiguration(PropertiesConfiguration.class)
+			.withPropertyValues(
+				"app.room.status-correction.lock-name=room-status-correction",
+				"app.room.status-correction.trigger-delay=15m",
+				"app.room.status-correction.trigger-jitter=3m",
+			"app.room.status-correction.lock-at-most-for=2m",
+			"app.room.status-correction.execution-warning-threshold=30s")
+			.run(context -> assertTrue(context.getStartupFailure() != null));
+		contextRunner.withPropertyValues(
+			"app.room.status-correction.lock-at-most-for=2m",
+			"app.room.status-correction.execution-warning-threshold=30s",
+			"app.room.status-correction.max-batches-per-run=0")
+			.run(context -> assertTrue(context.getStartupFailure() != null));
+		contextRunner.withPropertyValues(
+			"app.room.status-correction.lock-at-most-for=2m",
+			"app.room.status-correction.execution-warning-threshold=30s",
+			"app.room.status-correction.max-batches-per-run=-1")
+			.run(context -> assertTrue(context.getStartupFailure() != null));
+		contextRunner.withPropertyValues(
+			"app.room.status-correction.lock-at-most-for=2m",
+			"app.room.status-correction.execution-warning-threshold=30s",
+			"app.room.status-correction.max-batches-per-run=100")
+			.run(context -> assertFalse(context.getStartupFailure() != null));
+	}
+
 	/**
 	 * ROOM-09d 후보 측정으로 확정한 초기 운영값이 생산 {@code application.yml}에 그대로 있고 같은 값으로 바인딩되는지
 	 * 확인한다. 테스트가 값을 직접 주입하면 설정과 어긋나도 통과하고, classpath의 {@code application.yml}은
@@ -80,6 +109,7 @@ class RoomStatusCorrectionPropertiesTest {
 		RoomStatusCorrectionProperties properties = bindProductionProperties();
 
 		assertEquals(100, properties.getCandidateLimit());
+		assertEquals(100, properties.getMaxBatchesPerRun());
 		assertEquals(Duration.ofSeconds(180), properties.getExecutionWarningThreshold());
 		assertEquals(Duration.ofMinutes(10), properties.getLockAtMostFor());
 		assertEquals(Duration.ofMinutes(15), properties.getTriggerDelay());

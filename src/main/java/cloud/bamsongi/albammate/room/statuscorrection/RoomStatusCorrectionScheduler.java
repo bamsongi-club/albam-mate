@@ -76,13 +76,18 @@ public class RoomStatusCorrectionScheduler implements Trigger {
 				log.warn("event=room_status_correction_skipped reason=candidate_limit_missing");
 				return;
 			}
+			Integer maxBatchesPerRun = properties.getMaxBatchesPerRun();
 			RoomStatusCorrectionProgressStore.ProgressSnapshot progress = progressStore.claimExecution(requestTime);
-			int changedCount = coordinator.correctBoundedDueRooms(
-				requestTime, progress, candidateLimit, this::waitBeforeRetry);
-			if (changedCount > 0) {
-				log.info("event=room_state_reconciliation_completed changedCount={}", changedCount);
+			RoomStatusCorrectionCoordinator.BoundedCorrectionResult result = coordinator.correctBoundedDueRooms(
+				requestTime, progress, candidateLimit, maxBatchesPerRun, this::waitBeforeRetry);
+			if (result.changedCount() > 0) {
+				log.info("event=room_state_reconciliation_completed changedCount={}", result.changedCount());
 			} else {
-				log.debug("event=room_state_reconciliation_completed changedCount={}", changedCount);
+				log.debug("event=room_state_reconciliation_completed changedCount={}", result.changedCount());
+			}
+			if (result.hasRemainingCandidates()) {
+				log.warn("event=room_status_correction_batch_limit_reached candidateLimit={} maxBatchesPerRun={}",
+					candidateLimit, maxBatchesPerRun);
 			}
 		} catch (BusinessException exception) {
 			if (exception.getErrorCode() != ErrorCode.ROOM_CONCURRENT_MODIFICATION) {

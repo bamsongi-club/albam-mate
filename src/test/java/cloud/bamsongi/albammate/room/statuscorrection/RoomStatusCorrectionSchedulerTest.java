@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -55,7 +56,7 @@ class RoomStatusCorrectionSchedulerTest {
 		scheduler.correctDueRooms();
 
 		verify(coordinator).correctBoundedDueRooms(
-			eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), any());
+			eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), eq(2), any());
 	}
 
 	@Test
@@ -63,7 +64,8 @@ class RoomStatusCorrectionSchedulerTest {
 		RoomStatusCorrectionCoordinator coordinator = mock(RoomStatusCorrectionCoordinator.class);
 		RoomStatusCorrectionScheduler scheduler = scheduler(coordinator, maxInclusive -> 0L, delay -> {});
 		when(coordinator.correctBoundedDueRooms(
-			eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), any())).thenReturn(2);
+			eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), eq(2), any()))
+			.thenReturn(new RoomStatusCorrectionCoordinator.BoundedCorrectionResult(2, false));
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 		try {
 			scheduler.correctDueRooms();
@@ -82,7 +84,8 @@ class RoomStatusCorrectionSchedulerTest {
 		RoomStatusCorrectionCoordinator coordinator = mock(RoomStatusCorrectionCoordinator.class);
 		RoomStatusCorrectionScheduler scheduler = scheduler(coordinator, maxInclusive -> 0L, delay -> {});
 		when(coordinator.correctBoundedDueRooms(
-			eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), any())).thenReturn(0);
+			eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), eq(2), any()))
+			.thenReturn(new RoomStatusCorrectionCoordinator.BoundedCorrectionResult(0, false));
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 		try {
 			scheduler.correctDueRooms();
@@ -91,6 +94,31 @@ class RoomStatusCorrectionSchedulerTest {
 			assertEquals(Level.DEBUG, appender.list.getFirst().getLevel());
 			assertEquals("event=room_state_reconciliation_completed changedCount=0",
 				appender.list.getFirst().getFormattedMessage());
+		} finally {
+			detachLogAppender(appender);
+		}
+	}
+
+	@Test
+	void 상한에_도달하고_실제_잔여_후보가_있을_때만_ROOM_전용_WARN을_한번_남긴다() {
+		RoomStatusCorrectionCoordinator coordinator = mock(RoomStatusCorrectionCoordinator.class);
+		RoomStatusCorrectionScheduler scheduler = scheduler(coordinator, maxInclusive -> 0L, delay -> {});
+		when(coordinator.correctBoundedDueRooms(
+			eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), eq(2), any()))
+			.thenReturn(new RoomStatusCorrectionCoordinator.BoundedCorrectionResult(2, true));
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			scheduler.correctDueRooms();
+
+			assertEquals(1L, warningCount(appender, "event=room_status_correction_batch_limit_reached"));
+			when(coordinator.correctBoundedDueRooms(
+				eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), eq(2), any()))
+				.thenReturn(new RoomStatusCorrectionCoordinator.BoundedCorrectionResult(2, false));
+			appender.list.clear();
+
+			scheduler.correctDueRooms();
+
+			assertEquals(0L, warningCount(appender, "event=room_status_correction_batch_limit_reached"));
 		} finally {
 			detachLogAppender(appender);
 		}
@@ -122,7 +150,7 @@ class RoomStatusCorrectionSchedulerTest {
 		RoomStatusCorrectionScheduler scheduler = scheduler(coordinator, maxInclusive -> 0L, delay -> {});
 		IllegalStateException expected = new IllegalStateException("unexpected");
 		doThrow(expected).when(coordinator).correctBoundedDueRooms(
-			eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), any());
+			eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), eq(2), any());
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 		try {
 			assertSame(expected, assertThrows(IllegalStateException.class, scheduler::correctDueRooms));
@@ -142,7 +170,7 @@ class RoomStatusCorrectionSchedulerTest {
 		RoomStatusCorrectionScheduler scheduler = scheduler(coordinator, maxInclusive -> 0L, delay -> {});
 		BusinessException expected = new BusinessException(ErrorCode.ROOM_CONCURRENT_MODIFICATION);
 		doThrow(expected).when(coordinator).correctBoundedDueRooms(
-			eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), any());
+			eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), eq(2), any());
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 		try {
 			assertSame(expected, assertThrows(BusinessException.class, scheduler::correctDueRooms));
@@ -166,13 +194,16 @@ class RoomStatusCorrectionSchedulerTest {
 	@Test
 	void progress_점유가_경고_기준을_초과하면_ROOM_전용_WARN을_한번_기록한다() {
 		RoomStatusCorrectionProgressStore progressStore = mock(RoomStatusCorrectionProgressStore.class);
+		RoomStatusCorrectionCoordinator coordinator = mock(RoomStatusCorrectionCoordinator.class);
+		when(coordinator.correctBoundedDueRooms(any(), any(), anyInt(), anyInt(), any()))
+			.thenReturn(new RoomStatusCorrectionCoordinator.BoundedCorrectionResult(0, false));
 		AtomicBoolean claimed = new AtomicBoolean();
 		doAnswer(invocation -> {
 			claimed.set(true);
 			return null;
 		}).when(progressStore).claimExecution(any());
 		RoomStatusCorrectionScheduler scheduler = new RoomStatusCorrectionScheduler(
-			lockAlwaysAcquired(), mock(RoomStatusCorrectionCoordinator.class), progressStore, schedulerProperties(),
+			lockAlwaysAcquired(), coordinator, progressStore, schedulerProperties(),
 			Clock.fixed(NOW, ZoneOffset.UTC)) {
 			@Override
 			long elapsedNanos() {
@@ -297,7 +328,7 @@ class RoomStatusCorrectionSchedulerTest {
 
 		ArgumentCaptor<IntConsumer> retryHook = ArgumentCaptor.forClass(IntConsumer.class);
 		verify(coordinator).correctBoundedDueRooms(
-			eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), retryHook.capture());
+			eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), eq(2), retryHook.capture());
 		retryHook.getValue().accept(2);
 		retryHook.getValue().accept(3);
 
@@ -338,6 +369,7 @@ class RoomStatusCorrectionSchedulerTest {
 		properties.setLockAtMostFor(Duration.ofMinutes(2));
 		properties.setExecutionWarningThreshold(Duration.ofSeconds(30));
 		properties.setCandidateLimit(10);
+		properties.setMaxBatchesPerRun(2);
 		return properties;
 	}
 
@@ -377,9 +409,12 @@ class RoomStatusCorrectionSchedulerTest {
 				return elapsedNanosCallCount++ == 0 ? 0L : elapsed.toNanos();
 			}
 		};
+		when(coordinator.correctBoundedDueRooms(
+			any(), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), anyInt(), anyInt(), any()))
+			.thenReturn(new RoomStatusCorrectionCoordinator.BoundedCorrectionResult(0, false));
 		if (exception != null) {
 			doThrow(exception).when(coordinator).correctBoundedDueRooms(
-				eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), any());
+				eq(NOW), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10), eq(2), any());
 		}
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 		try {
@@ -429,6 +464,9 @@ class RoomStatusCorrectionSchedulerTest {
 			JitterSource jitterSource,
 			Sleeper sleeper) {
 			super(lockAlwaysAcquired(), coordinator, progressStore(), properties, clock);
+			when(coordinator.correctBoundedDueRooms(
+				any(), any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), anyInt(), anyInt(), any()))
+				.thenReturn(new RoomStatusCorrectionCoordinator.BoundedCorrectionResult(0, false));
 			this.jitterSource = jitterSource;
 			this.sleeper = sleeper;
 		}

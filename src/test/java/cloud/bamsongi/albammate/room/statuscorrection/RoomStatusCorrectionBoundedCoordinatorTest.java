@@ -3,6 +3,9 @@ package cloud.bamsongi.albammate.room.statuscorrection;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -43,7 +46,7 @@ class RoomStatusCorrectionBoundedCoordinatorTest {
 			any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), any(Instant.class)))
 			.thenReturn(Optional.of(snapshot(5L, null, null)));
 
-		coordinator.correctBoundedDueRooms(CUTOFF, claimed, 10);
+		coordinator.correctBoundedDueRooms(CUTOFF, claimed, 10, 1001);
 
 		verify(executor).correctRoom(10L, CUTOFF);
 		verify(executor).correctRoom(20L, CUTOFF);
@@ -64,12 +67,55 @@ class RoomStatusCorrectionBoundedCoordinatorTest {
 		when(selector.select(claimed, 10)).thenReturn(List.of(candidate(10L), candidate(20L)));
 		when(progressStore.advanceCursor(claimed, CUTOFF.minusSeconds(1), 10L)).thenReturn(Optional.empty());
 
-		coordinator.correctBoundedDueRooms(CUTOFF, claimed, 10);
+		coordinator.correctBoundedDueRooms(CUTOFF, claimed, 10, 1001);
 
 		verify(executor).correctRoom(10L, CUTOFF);
 		verify(executor, never()).correctRoom(20L, CUTOFF);
 		verify(progressStore, never()).wrap(
 			any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), any(Instant.class));
+	}
+
+	@Test
+	void 실행당_배치_상한에_도달하고_잔여_후보가_있으면_cursor를_보존해_다음_claim이_같은_순회를_재개한다() {
+		RoomStatusCorrectionExecutor executor = mock(RoomStatusCorrectionExecutor.class);
+		RoomStatusCorrectionCandidateSelector selector = mock(RoomStatusCorrectionCandidateSelector.class);
+		RoomStatusCorrectionProgressStore progressStore = mock(RoomStatusCorrectionProgressStore.class);
+		RoomStatusCorrectionCoordinator coordinator = new RoomStatusCorrectionCoordinator(
+			executor, new RoomOptimisticLockRetrier(), selector, progressStore);
+		RoomStatusCorrectionProgressStore.ProgressSnapshot firstClaim = snapshot(1L, null, null);
+		RoomStatusCorrectionProgressStore.ProgressSnapshot afterFirst = snapshot(2L, CUTOFF.minusSeconds(10), 10L);
+		RoomStatusCorrectionProgressStore.ProgressSnapshot afterSecond = snapshot(3L, CUTOFF.minusSeconds(20), 20L);
+		RoomStatusCorrectionProgressStore.ProgressSnapshot nextClaim = snapshot(4L, CUTOFF.minusSeconds(20), 20L);
+		when(executor.correctRoom(anyLong(), eq(CUTOFF))).thenReturn(true);
+		when(selector.select(firstClaim, 1)).thenReturn(List.of(candidate(10L)));
+		when(selector.select(afterFirst, 1)).thenReturn(List.of(candidate(20L)));
+		when(selector.select(afterSecond, 1)).thenReturn(List.of(candidate(30L)));
+		when(selector.select(nextClaim, 1)).thenReturn(List.of(candidate(30L)), List.of());
+		when(progressStore.advanceCursor(firstClaim, CUTOFF.minusSeconds(10), 10L)).thenReturn(Optional.of(afterFirst));
+		when(progressStore.advanceCursor(afterFirst, CUTOFF.minusSeconds(20), 20L)).thenReturn(Optional.of(afterSecond));
+		when(progressStore.advanceCursor(nextClaim, CUTOFF.minusSeconds(30), 30L))
+			.thenReturn(Optional.of(snapshot(5L, CUTOFF.minusSeconds(30), 30L)));
+		when(progressStore.wrap(any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), any(Instant.class)))
+			.thenReturn(Optional.of(snapshot(6L, null, null)));
+
+		RoomStatusCorrectionCoordinator.BoundedCorrectionResult firstResult = coordinator.correctBoundedDueRooms(
+			CUTOFF, firstClaim, 1, 2);
+
+		assertEquals(2, firstResult.changedCount());
+		assertTrue(firstResult.hasRemainingCandidates());
+		verify(executor).correctRoom(10L, CUTOFF);
+		verify(executor).correctRoom(20L, CUTOFF);
+		verify(executor, never()).correctRoom(30L, CUTOFF);
+		verify(progressStore, never()).wrap(eq(afterSecond), eq(CUTOFF.plusNanos(1_000)));
+
+		RoomStatusCorrectionCoordinator.BoundedCorrectionResult secondResult = coordinator.correctBoundedDueRooms(
+			CUTOFF, nextClaim, 1, 2);
+
+		assertEquals(1, secondResult.changedCount());
+		assertFalse(secondResult.hasRemainingCandidates());
+		verify(executor).correctRoom(30L, CUTOFF);
+		verify(progressStore).wrap(any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class),
+			eq(CUTOFF.plusNanos(1_000)));
 	}
 
 	private RoomStatusCorrectionCandidateSelector.DueRoomCandidate candidate(long roomId) {
