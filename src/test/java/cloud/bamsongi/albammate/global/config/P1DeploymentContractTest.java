@@ -8,6 +8,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Test;
@@ -15,6 +19,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.web.filter.ForwardedHeaderFilter;
 
+import cloud.bamsongi.albammate.global.security.ratelimit.InMemoryAuthenticationRequestLimiter;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -49,21 +54,37 @@ class P1DeploymentContractTest {
 	}
 
 	@Test
-	void 같은_Nginx_제공_주소는_Spring_remote_addr로_수렴한다() throws IOException, ServletException {
+	void 같은_Nginx_제공_주소는_Spring_remote_addr와_인스턴스별_제한_버킷으로_수렴한다()
+		throws IOException, ServletException {
 		String nginxObservedAddress = "203.0.113.10";
+		InMemoryAuthenticationRequestLimiter limiter = inMemoryLimiter();
+		String signupRemoteAddress = springRemoteAddress(nginxObservedAddress);
+		String loginRemoteAddress = springRemoteAddress(nginxObservedAddress);
 
-		assertEquals(nginxObservedAddress, springRemoteAddress(nginxObservedAddress));
-		assertEquals(nginxObservedAddress, springRemoteAddress(nginxObservedAddress));
+		assertEquals(nginxObservedAddress, signupRemoteAddress);
+		assertEquals(nginxObservedAddress, loginRemoteAddress);
+		assertTrue(limiter.checkAndRecordSignup(signupRemoteAddress).allowed());
+		assertTrue(limiter.checkAndRecordSignup(signupRemoteAddress).allowed());
+		assertTrue(limiter.checkAndRecordLogin(loginRemoteAddress).allowed());
+		assertTrue(limiter.checkAndRecordLogin(loginRemoteAddress).allowed());
+		assertEquals(2, limiter.ipBucketCount());
 	}
 
 	@Test
-	void 다른_Nginx_제공_주소는_서로_다른_Spring_remote_addr로_유지된다() throws IOException, ServletException {
+	void 다른_Nginx_제공_주소는_서로_다른_Spring_remote_addr와_인스턴스별_제한_버킷으로_유지된다()
+		throws IOException, ServletException {
 		String firstAddress = springRemoteAddress("203.0.113.10");
 		String secondAddress = springRemoteAddress("203.0.113.11");
+		InMemoryAuthenticationRequestLimiter limiter = inMemoryLimiter();
 
 		assertEquals("203.0.113.10", firstAddress);
 		assertEquals("203.0.113.11", secondAddress);
 		assertFalse(firstAddress.equals(secondAddress));
+		assertTrue(limiter.checkAndRecordSignup(firstAddress).allowed());
+		assertTrue(limiter.checkAndRecordSignup(secondAddress).allowed());
+		assertTrue(limiter.checkAndRecordLogin(firstAddress).allowed());
+		assertTrue(limiter.checkAndRecordLogin(secondAddress).allowed());
+		assertEquals(4, limiter.ipBucketCount());
 	}
 
 	@Test
@@ -161,7 +182,21 @@ class P1DeploymentContractTest {
 
 	private void assertSpringProxyOverwritesForwardedFor(String nginx) {
 		assertFalse(nginx.contains("$proxy_add_x_forwarded_for"));
-		assertEquals(2, countOccurrences(nginx, "proxy_set_header X-Forwarded-For $remote_addr;"));
+		int springProxyLocationCount = 0;
+		java.util.regex.Matcher locationMatcher = java.util.regex.Pattern
+			.compile("(?s)location\\s+[^\\{]+\\{.*?\\n\\s*}")
+			.matcher(nginx);
+		while (locationMatcher.find()) {
+			String location = locationMatcher.group();
+			if (!location.contains("proxy_pass")) {
+				continue;
+			}
+
+			springProxyLocationCount++;
+			assertFalse(location.contains("$proxy_add_x_forwarded_for"));
+			assertEquals(1, countOccurrences(location, "proxy_set_header X-Forwarded-For $remote_addr;"));
+		}
+		assertEquals(2, springProxyLocationCount);
 	}
 
 	private int countOccurrences(String contents, String expected) {
@@ -187,6 +222,16 @@ class P1DeploymentContractTest {
 				((HttpServletRequest)servletRequest).getRemoteAddr()));
 
 		return remoteAddress.get();
+	}
+
+	private InMemoryAuthenticationRequestLimiter inMemoryLimiter() {
+		AuthenticationRequestProtectionProperties properties = new AuthenticationRequestProtectionProperties();
+		properties.setWindow(Duration.ofSeconds(10));
+		properties.setMaxIpKeys(5);
+		properties.setMaxFailureKeys(2);
+		return new InMemoryAuthenticationRequestLimiter(
+			properties,
+			Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
 	}
 
 	private String file(String relativePath) throws IOException {

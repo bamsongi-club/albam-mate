@@ -65,28 +65,6 @@ class InMemoryAuthenticationRequestLimiterTest {
 	}
 
 	@Test
-	void 같은_원격_IP의_회원가입과_로그인은_각각의_인스턴스별_IP_버킷을_공유한다() {
-		String remoteIp = "203.0.113.30";
-
-		assertTrue(limiter.checkAndRecordSignup(remoteIp).allowed());
-		assertTrue(limiter.checkAndRecordSignup(remoteIp).allowed());
-		assertTrue(limiter.checkAndRecordLogin(remoteIp).allowed());
-		assertTrue(limiter.checkAndRecordLogin(remoteIp).allowed());
-
-		assertEquals(2, limiter.ipBucketCount());
-	}
-
-	@Test
-	void 다른_원격_IP의_회원가입과_로그인은_서로_다른_인스턴스별_IP_버킷을_사용한다() {
-		assertTrue(limiter.checkAndRecordSignup("203.0.113.31").allowed());
-		assertTrue(limiter.checkAndRecordSignup("203.0.113.32").allowed());
-		assertTrue(limiter.checkAndRecordLogin("203.0.113.31").allowed());
-		assertTrue(limiter.checkAndRecordLogin("203.0.113.32").allowed());
-
-		assertEquals(4, limiter.ipBucketCount());
-	}
-
-	@Test
 	void 이동_창이_만료되면_같은_IP를_다시_허용한다() {
 		for (int i = 0; i < 5; i++) {
 			limiter.checkAndRecordSignup("203.0.113.11");
