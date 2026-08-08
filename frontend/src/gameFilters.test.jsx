@@ -374,6 +374,25 @@ describe('T4 대표 메커니즘과 설명', () => {
     expect(hint.getAttribute('aria-expanded')).toBe('false');
   });
 
+  it('내용이 넘쳐 스크롤이 필요한 고정 말풍선은 그 위를 눌러도 닫히지 않는다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    const hint = screen.getByLabelText('셋 컬렉션 설명');
+    const tooltip = document.getElementById(hint.getAttribute('aria-describedby'));
+
+    // jsdom은 레이아웃을 계산하지 않으므로 스크롤이 필요한 상태를 직접 만든다.
+    Object.defineProperty(tooltip, 'scrollHeight', { configurable: true, value: 400 });
+    Object.defineProperty(tooltip, 'clientHeight', { configurable: true, value: 200 });
+
+    fireEvent.click(hint);
+    expect(hint.getAttribute('aria-expanded')).toBe('true');
+    expect(tooltip.style.pointerEvents).toBe('auto');
+
+    fireEvent.pointerDown(tooltip);
+
+    expect(hint.getAttribute('aria-expanded')).toBe('true');
+  });
+
   it('대표 8개 모두 API가 준 서로 다른 설명을 연결한다', async () => {
     await renderGamesView();
     openFilterPanel();
