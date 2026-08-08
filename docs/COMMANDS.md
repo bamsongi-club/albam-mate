@@ -150,6 +150,20 @@ JAVA_TOOL_OPTIONS='-Dissue383.measurement=true' ./gradlew postgresTest --tests "
 
 성능 합격선이나 운영값은 이 측정에서 임의로 정하지 않는다. 실행 뒤 `build/reports/measurements/room-09c-{small|medium|large}.json`의 고정 시각·seed·data identifier·후보·결과·환경·`pg_stat_statements` 원자료와 문서의 재현 명령을 함께 확인한다.
 
+### ROOM-09d 측정 보고 단계
+
+ROOM-09d는 측정과 보고를 나눈다. 대형 한 조합이 수십 분이라, 재현 명령·대비 표·SHA-256 같은 파생물이 보존 원자료와 어긋날 때 측정을 다시 돌려 맞출 수 없기 때문이다. 파생물은 보존 원자료만 읽어 다시 만든다.
+
+```bash
+node scripts/room09-measurement-report.mjs --check
+```
+
+```bash
+node scripts/room09-measurement-report.mjs --write
+```
+
+`--check`는 아무것도 쓰지 않고 어긋남만 보고하며 CI가 같은 명령을 실행한다. `--write`는 원자료를 정본으로 파생물을 다시 만들고, 재현 메타데이터를 뺀 나머지 값이 모두 같은지 확인한 뒤에만 파일을 쓴다. 새로 측정했다면 `build/reports/measurements/`의 JSON을 `docs/measurements/results/room-09d/`로 복사한 뒤 `--write`를 실행한다. 측정 profile과 결과 해석은 [현행 일괄 처리 기준선 측정](measurements/room-09-bounded-processing-baseline.md#보고-단계)을 따른다.
+
 ## 분기 커버리지 확인
 
 H2 전용 빠른 게이트와 H2·PostgreSQL 합산 정본 게이트의 의미, 최소선 갱신과 CI 결과 해석은 [백엔드 테스트와 커버리지 검증](guides/TESTING.md#커버리지-게이트-실행)을 따른다.

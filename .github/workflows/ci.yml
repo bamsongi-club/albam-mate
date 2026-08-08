@@ -269,6 +269,12 @@ jobs:
           scripts/validate-packet.test.mjs
           scripts/validate-backend-test-manifest.test.mjs
           scripts/validate-coverage-ratchet.test.mjs
+          scripts/room09-measurement-report.test.mjs
+
+      # 대형 측정 한 조합이 수십 분이라 파생물이 어긋나도 다시 측정해 맞출 수 없다.
+      # 재현 명령·대비 표·SHA-256이 보존 원자료와 어긋나면 측정 없이 여기서 잡는다.
+      - name: Check ROOM-09d measurement report
+        run: node scripts/room09-measurement-report.mjs --check
 
   ci-gate:
     name: CI Gate
