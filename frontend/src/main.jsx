@@ -947,6 +947,9 @@ function MechanismHint({ code, name, description }) {
         onClick={() => {
           setIsPinned(!isPinned);
           setIsFocused(false);
+          // tap이 앞서 일으킨 mouseEnter는 실제 hover가 아니므로 클릭마다 초기화해
+          // 두 번째 tap에서도 aria-expanded와 표시 상태가 함께 닫히게 한다.
+          setIsHovered(false);
         }}
       >
         <span aria-hidden="true">i</span>

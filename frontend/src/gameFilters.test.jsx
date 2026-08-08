@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import React from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -315,6 +318,22 @@ describe('T4 대표 메커니즘과 설명', () => {
     expect(hint.getAttribute('aria-expanded')).toBe('true');
   });
 
+  it('터치로 같은 아이콘을 다시 눌러도 말풍선을 닫는다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    const hint = screen.getByLabelText('셋 컬렉션 설명');
+
+    // tap이 남긴 hover 상태가 두 번째 tap 이후에도 남아 있으면 안 된다.
+    fireEvent.mouseEnter(hint.parentElement);
+    fireEvent.focus(hint);
+    fireEvent.click(hint);
+    fireEvent.click(hint);
+
+    expect(hint.getAttribute('aria-expanded')).toBe('false');
+    const tooltip = document.getElementById(hint.getAttribute('aria-describedby'));
+    expect(tooltip.style.visibility).toBe('hidden');
+  });
+
   it('대표 8개 모두 API가 준 서로 다른 설명을 연결한다', async () => {
     await renderGamesView();
     openFilterPanel();
@@ -373,6 +392,15 @@ describe('T4 대표 메커니즘과 설명', () => {
     expect(tooltip.style.position).toBe('fixed');
     expect(tooltip.style.visibility).toBe('visible');
     expect(document.querySelector('.mechanism-advanced-list [role="tooltip"]')).toBeNull();
+  });
+
+  it('말풍선은 짧은 viewport에서도 세로로 잘리지 않도록 내부 스크롤을 허용한다', () => {
+    const stylesPath = join(dirname(fileURLToPath(import.meta.url)), 'styles.css');
+    const stylesCss = readFileSync(stylesPath, 'utf-8');
+    const rule = stylesCss.match(/\.mechanism-hint-text\s*\{[^}]*\}/)[0];
+
+    expect(rule).toMatch(/max-height:\s*calc\(100vh - 16px\)/);
+    expect(rule).toMatch(/overflow-y:\s*auto/);
   });
 
   it('설명이 없거나 공백인 선택지에는 빈 툴팁을 렌더링하지 않는다', async () => {
