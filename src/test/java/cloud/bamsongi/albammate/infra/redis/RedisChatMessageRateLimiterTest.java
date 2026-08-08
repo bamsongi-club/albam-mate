@@ -8,12 +8,14 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
 
 import java.time.Duration;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -25,6 +27,9 @@ import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
 
 class RedisChatMessageRateLimiterTest {
 
+	private static final ChatMessageRateLimitProperties INJECTED_PROPERTIES = new ChatMessageRateLimitProperties(7, 11,
+		Duration.ofSeconds(4));
+
 	private StringRedisTemplate redisTemplate;
 	private RedisChatMessageRateLimiter limiter;
 
@@ -33,8 +38,7 @@ class RedisChatMessageRateLimiterTest {
 		MockEnvironment environment = new MockEnvironment();
 		environment.setActiveProfiles("local");
 		limiter = new RedisChatMessageRateLimiter(
-			mock(RedisConnectionFactory.class), environment,
-			new ChatMessageRateLimitProperties(5, 30, Duration.ofSeconds(10)));
+			mock(RedisConnectionFactory.class), environment, INJECTED_PROPERTIES);
 		redisTemplate = mock(StringRedisTemplate.class);
 		ReflectionTestUtils.setField(limiter, "redisTemplate", redisTemplate);
 	}
@@ -74,6 +78,21 @@ class RedisChatMessageRateLimiterTest {
 		stubExecute(List.of(0L, Long.MAX_VALUE));
 
 		assertThrows(BusinessException.class, () -> limiter.reserve(42L, 7L));
+	}
+
+	@Test
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	void T4_주입된_사용자_방_창_크기가_Lua_ARGV로_전달된다() {
+		stubExecute(List.of(1L, 0L));
+
+		limiter.reserve(42L, 7L);
+
+		ArgumentCaptor<Object[]> argsCaptor = ArgumentCaptor.forClass(Object[].class);
+		verify(redisTemplate).execute(any(RedisScript.class), anyList(), argsCaptor.capture());
+		Object[] args = argsCaptor.getValue();
+		assertEquals("7", args[0]);
+		assertEquals("11", args[1]);
+		assertEquals("4000", args[2]);
 	}
 
 	@SuppressWarnings({"unchecked", "rawtypes"})
