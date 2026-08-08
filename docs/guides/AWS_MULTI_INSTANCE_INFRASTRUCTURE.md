@@ -220,6 +220,7 @@ web의 Nginx는 `ssl_certificate`와 `ssl_certificate_key` 파일이 없으면 �
 
 - App1 로컬 Spring은 같은 Compose 네트워크의 서비스 이름(`spring:8080`)으로 지정한다.
 - App2는 private DNS hostname(`app-b.<internal_zone_name>`)에 `:8080`을 붙인 endpoint로 지정한다. `internal_zone_name`은 인프라 저장소가 소유하는 Route 53 private hosted zone 이름이며, 설정 파일 주석의 예시도 실제 zone 이름 규칙과 일치시킨다.
+- App1 Nginx는 Spring의 유일한 신뢰 프록시다. HTTP와 WebSocket proxy는 외부 `X-Forwarded-For`를 이어 붙이지 않고 폐기한 뒤, Nginx가 직접 관찰한 `$remote_addr`로 `X-Forwarded-For`를 덮어쓴다. 인증 요청 제한은 이 주소만 원격 IP로 사용한다.
 - 루프백 주소는 upstream에 쓰지 않는다. web 컨테이너 안의 `127.0.0.1:8080`은 App1 Spring이 아니라 web 컨테이너 자신이고, 같은 포트를 듣는 healthz 서버 블록이 `/api/` 요청에 404를 반환한다.
 - 실제 응답한 upstream을 응답 헤더나 접근 로그로 확인할 수 있어야 한다.
 

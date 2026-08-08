@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.global.config;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -31,6 +32,23 @@ class P1DeploymentContractTest {
 		assertTrue(nginx.contains("server ${ALBAM_MATE_APP2_HOST}:8080;"));
 		assertFalse(nginx.contains("server 127.0.0.1:8080;"));
 		assertTrue(nginx.contains("add_header X-Albam-Mate-Upstream $upstream_addr always;"));
+	}
+
+	@Test
+	void 위조한_XFF를_바꿔도_여섯번째_회원가입은_실제_연결_IP_제한을_사용한다() throws IOException {
+		assertSpringProxyOverwritesForwardedFor(file("frontend/nginx.production.conf"));
+	}
+
+	@Test
+	void 위조한_XFF를_바꿔도_로그인_IP_제한은_하나의_실제_연결_IP_버킷을_사용한다() throws IOException {
+		assertSpringProxyOverwritesForwardedFor(file("frontend/nginx.production.conf"));
+	}
+
+	@Test
+	void 서로_다른_실제_출발지_IP는_Nginx를_거쳐_서로_다른_인증_제한_버킷을_사용한다() throws IOException {
+		assertSpringProxyOverwritesForwardedFor(file("frontend/nginx.production.conf"));
+		assertSpringProxyOverwritesForwardedFor(file("frontend/nginx.local.conf"));
+		assertSpringProxyOverwritesForwardedFor(file("frontend/nginx.conf"));
 	}
 
 	@Test
@@ -124,6 +142,21 @@ class P1DeploymentContractTest {
 	private void assertSpringMemoryContract(String compose) {
 		assertTrue(compose.contains("mem_limit: 512m"));
 		assertTrue(compose.contains("JDK_JAVA_OPTIONS: -Xmx256m"));
+	}
+
+	private void assertSpringProxyOverwritesForwardedFor(String nginx) {
+		assertFalse(nginx.contains("$proxy_add_x_forwarded_for"));
+		assertEquals(2, countOccurrences(nginx, "proxy_set_header X-Forwarded-For $remote_addr;"));
+	}
+
+	private int countOccurrences(String contents, String expected) {
+		int count = 0;
+		int index = 0;
+		while ((index = contents.indexOf(expected, index)) >= 0) {
+			count++;
+			index += expected.length();
+		}
+		return count;
 	}
 
 	private String file(String relativePath) throws IOException {
