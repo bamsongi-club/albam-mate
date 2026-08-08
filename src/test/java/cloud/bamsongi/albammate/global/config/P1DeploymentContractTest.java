@@ -2,6 +2,7 @@ package cloud.bamsongi.albammate.global.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -12,10 +13,13 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Properties;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.web.filter.ForwardedHeaderFilter;
@@ -58,11 +62,12 @@ class P1DeploymentContractTest {
 
 	@Test
 	void production과_local은_framework_전달_헤더를_사용하고_기본_설정은_비활성화한다() throws IOException {
-		assertTrue(file("src/main/resources/application-production.yml")
-			.contains("forward-headers-strategy: framework"));
-		assertTrue(file("src/main/resources/application-local.yml")
-			.contains("forward-headers-strategy: framework"));
-		assertFalse(file("src/main/resources/application.yml").contains("forward-headers-strategy"));
+		assertEquals("framework", yamlProperties("src/main/resources/application-production.yml")
+			.getProperty("server.forward-headers-strategy"));
+		assertEquals("framework", yamlProperties("src/main/resources/application-local.yml")
+			.getProperty("server.forward-headers-strategy"));
+		assertNull(yamlProperties("src/main/resources/application.yml")
+			.getProperty("server.forward-headers-strategy"));
 	}
 
 	@Test
@@ -247,6 +252,12 @@ class P1DeploymentContractTest {
 
 	private String file(String relativePath) throws IOException {
 		return Files.readString(REPOSITORY_ROOT.resolve(relativePath), StandardCharsets.UTF_8);
+	}
+
+	private Properties yamlProperties(String relativePath) {
+		YamlPropertiesFactoryBean factory = new YamlPropertiesFactoryBean();
+		factory.setResources(new FileSystemResource(REPOSITORY_ROOT.resolve(relativePath)));
+		return factory.getObject();
 	}
 
 	private void assertOptionalApplicationInputs(String section) {
