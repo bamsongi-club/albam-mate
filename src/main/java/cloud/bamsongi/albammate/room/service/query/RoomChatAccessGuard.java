@@ -13,7 +13,6 @@ import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.contract.ChatAccessGuard;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
-import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionCoordinator;
@@ -38,7 +37,7 @@ public class RoomChatAccessGuard implements ChatAccessGuard {
 		Room room = roomRepository
 			.findByIdForChatAccess(roomId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
-		if (!isChatAvailable(room)) {
+		if (!room.getStatus().isChatAvailable()) {
 			throw new BusinessException(ErrorCode.FORBIDDEN);
 		}
 		if (room.getHostUserId() != currentUserId && !isActiveParticipant(roomId, currentUserId)) {
@@ -54,7 +53,4 @@ public class RoomChatAccessGuard implements ChatAccessGuard {
 			.orElse(false);
 	}
 
-	private boolean isChatAvailable(Room room) {
-		return room.getStatus() == RoomStatus.RECRUITING || room.getStatus() == RoomStatus.CLOSED;
-	}
 }
