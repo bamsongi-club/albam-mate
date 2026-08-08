@@ -25,9 +25,6 @@ public class RedisChatMessageRateLimiter implements ChatMessageRateLimiter {
 	private static final String LOCAL_NAMESPACE = "albam-mate:local:ratelimit";
 	private static final String PRODUCTION_NAMESPACE = "albam-mate:production:ratelimit";
 	private static final String RESERVATION_SUFFIX = ":reservations";
-	private static final int USER_LIMIT = 5;
-	private static final int ROOM_LIMIT = 30;
-	private static final long WINDOW_MILLIS = 10_000L;
 
 	private static final DefaultRedisScript<List> RESERVE_SCRIPT = new DefaultRedisScript<>("""
 		local userValue = redis.call('GET', KEYS[1])
@@ -103,11 +100,15 @@ public class RedisChatMessageRateLimiter implements ChatMessageRateLimiter {
 
 	private final StringRedisTemplate redisTemplate;
 	private final String keyPrefix;
+	private final ChatMessageRateLimitProperties rateLimitProperties;
 
-	public RedisChatMessageRateLimiter(RedisConnectionFactory redisConnectionFactory, Environment environment) {
+	public RedisChatMessageRateLimiter(
+		RedisConnectionFactory redisConnectionFactory, Environment environment,
+		ChatMessageRateLimitProperties rateLimitProperties) {
 		redisTemplate = new StringRedisTemplate(redisConnectionFactory);
 		redisTemplate.afterPropertiesSet();
 		keyPrefix = namespaceFor(environment);
+		this.rateLimitProperties = rateLimitProperties;
 	}
 
 	static String namespaceFor(Environment environment) {
@@ -122,9 +123,9 @@ public class RedisChatMessageRateLimiter implements ChatMessageRateLimiter {
 			result = redisTemplate.execute(
 				RESERVE_SCRIPT,
 				List.of(userKey(userId), roomKey(roomId), userReservationsKey(userId), roomReservationsKey(roomId)),
-				Integer.toString(USER_LIMIT),
-				Integer.toString(ROOM_LIMIT),
-				Long.toString(WINDOW_MILLIS),
+				Integer.toString(rateLimitProperties.userLimit()),
+				Integer.toString(rateLimitProperties.roomLimit()),
+				Long.toString(rateLimitProperties.window().toMillis()),
 				reservationId);
 		} catch (RuntimeException exception) {
 			throw unavailable();

@@ -29,6 +29,13 @@ app:
       trigger-delay: 15m
       trigger-jitter: 3m
   chat:
+    message:
+      max-client-message-id-length: 100
+      max-content-length: 500
+    rate-limit:
+      user-limit: 5
+      room-limit: 30
+      window: 10s
     retention:
       enabled: true
       cron: "0 0 3 * * *"

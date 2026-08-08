@@ -9,6 +9,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 
+import java.time.Duration;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -31,7 +32,9 @@ class RedisChatMessageRateLimiterTest {
 	void setUp() {
 		MockEnvironment environment = new MockEnvironment();
 		environment.setActiveProfiles("local");
-		limiter = new RedisChatMessageRateLimiter(mock(RedisConnectionFactory.class), environment);
+		limiter = new RedisChatMessageRateLimiter(
+			mock(RedisConnectionFactory.class), environment,
+			new ChatMessageRateLimitProperties(5, 30, Duration.ofSeconds(10)));
 		redisTemplate = mock(StringRedisTemplate.class);
 		ReflectionTestUtils.setField(limiter, "redisTemplate", redisTemplate);
 	}
