@@ -123,8 +123,8 @@ class UserAccountServiceTest {
 	}
 
 	@Test
-	void 허용되지_않은_문자가_있는_가입_비밀번호는_해시하지_않고_거절한다() {
-		assertInvalidPasswordIsRejectedBeforeHashing("가".repeat(8));
+	void UTF8_바이트_한도를_넘는_가입_비밀번호는_해시하지_않고_거절한다() {
+		assertInvalidPasswordIsRejectedBeforeHashing("가".repeat(25));
 	}
 
 	@Test

@@ -7,10 +7,7 @@ public final class UserPasswordPolicy {
 
 	public static final int MAX_CODE_POINTS = 64;
 	public static final int MAX_UTF8_BYTES = 72;
-	public static final int SIGNUP_MIN_CODE_POINTS = 8;
-
-	private static final java.util.regex.Pattern ALLOWED_CHARACTERS = java.util.regex.Pattern
-		.compile("^[A-Za-z0-9\\p{Punct}]+$");
+	public static final int SIGNUP_MIN_CODE_POINTS = 15;
 
 	private UserPasswordPolicy() {}
 
@@ -26,6 +23,6 @@ public final class UserPasswordPolicy {
 	}
 
 	public static boolean isValidSignupPassword(String password) {
-		return isValid(password, SIGNUP_MIN_CODE_POINTS) && ALLOWED_CHARACTERS.matcher(password).matches();
+		return isValid(password, SIGNUP_MIN_CODE_POINTS);
 	}
 }

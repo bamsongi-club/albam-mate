@@ -16,7 +16,7 @@ class SignupRequestTest {
 
 	@Test
 	void 이메일과_닉네임은_정규화한다() {
-		String password = "password123!";
+		String password = " password 한글😀 ";
 
 		CreateUserAccountCommand normalized = new SignupRequest(" User@Example.COM ", password, " 닉네임 ").normalize();
 
@@ -26,26 +26,22 @@ class SignupRequestTest {
 	}
 
 	@Test
-	void 비밀번호는_길이와_허용문자를_컴포넌트_제약으로_검사한다() {
+	void 비밀번호는_15에서_64_code_point와_UTF8_72바이트_한도로_컴포넌트_제약을_검사한다() {
 		assertFalse(
 			validator
-				.validate(new SignupRequest("user@example.com", "1234567", "닉네임"))
+				.validate(new SignupRequest("user@example.com", "12345678901234", "닉네임"))
 				.isEmpty());
 		assertFalse(
 			validator
-				.validate(new SignupRequest("user@example.com", "password with space", "닉네임"))
+				.validate(new SignupRequest("user@example.com", "a".repeat(65), "닉네임"))
 				.isEmpty());
 		assertFalse(
 			validator
-				.validate(new SignupRequest("user@example.com", "한글비밀번호!", "닉네임"))
-				.isEmpty());
-		assertFalse(
-			validator
-				.validate(new SignupRequest("user@example.com", "a1!b2@c😀", "닉네임"))
+				.validate(new SignupRequest("user@example.com", "가".repeat(25), "닉네임"))
 				.isEmpty());
 		assertTrue(
 			validator
-				.validate(new SignupRequest("user@example.com", "Valid-Password123!", "닉네임"))
+				.validate(new SignupRequest("user@example.com", " 가😀라마바사아자차카타파하 ", "닉네임"))
 				.isEmpty());
 	}
 
