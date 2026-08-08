@@ -86,16 +86,18 @@ class RoomStatusCorrectionBoundedCoordinatorTest {
 		RoomStatusCorrectionProgressStore.ProgressSnapshot afterFirst = snapshot(2L, CUTOFF.minusSeconds(10), 10L);
 		RoomStatusCorrectionProgressStore.ProgressSnapshot afterSecond = snapshot(3L, CUTOFF.minusSeconds(20), 20L);
 		RoomStatusCorrectionProgressStore.ProgressSnapshot nextClaim = snapshot(4L, CUTOFF.minusSeconds(20), 20L);
+		RoomStatusCorrectionProgressStore.ProgressSnapshot afterThird = snapshot(5L, CUTOFF.minusSeconds(30), 30L);
 		when(executor.correctRoom(anyLong(), eq(CUTOFF))).thenReturn(true);
 		when(selector.select(firstClaim, 1)).thenReturn(List.of(candidate(10L)));
 		when(selector.select(afterFirst, 1)).thenReturn(List.of(candidate(20L)));
 		when(selector.select(afterSecond, 1)).thenReturn(List.of(candidate(30L)));
-		when(selector.select(nextClaim, 1)).thenReturn(List.of(candidate(30L)), List.of());
+		when(selector.select(nextClaim, 1)).thenReturn(List.of(candidate(30L)));
+		when(selector.select(afterThird, 1)).thenReturn(List.of());
 		when(progressStore.advanceCursor(firstClaim, CUTOFF.minusSeconds(10), 10L)).thenReturn(Optional.of(afterFirst));
 		when(progressStore.advanceCursor(afterFirst, CUTOFF.minusSeconds(20), 20L))
 			.thenReturn(Optional.of(afterSecond));
 		when(progressStore.advanceCursor(nextClaim, CUTOFF.minusSeconds(30), 30L))
-			.thenReturn(Optional.of(snapshot(5L, CUTOFF.minusSeconds(30), 30L)));
+			.thenReturn(Optional.of(afterThird));
 		when(progressStore.wrap(any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), any(Instant.class)))
 			.thenReturn(Optional.of(snapshot(6L, null, null)));
 
@@ -115,8 +117,9 @@ class RoomStatusCorrectionBoundedCoordinatorTest {
 		assertEquals(1, secondResult.changedCount());
 		assertFalse(secondResult.hasRemainingCandidates());
 		verify(executor).correctRoom(30L, CUTOFF);
-		verify(progressStore).wrap(any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class),
-			eq(CUTOFF.plusNanos(1_000)));
+		verify(selector).select(afterSecond, 1);
+		verify(selector).select(afterThird, 1);
+		verify(progressStore).wrap(afterThird, CUTOFF.plusNanos(1_000));
 	}
 
 	@Test
