@@ -54,6 +54,15 @@ class P1DeploymentContractTest {
 	}
 
 	@Test
+	void production과_local은_framework_전달_헤더를_사용하고_기본_설정은_비활성화한다() throws IOException {
+		assertTrue(file("src/main/resources/application-production.yml")
+			.contains("forward-headers-strategy: framework"));
+		assertTrue(file("src/main/resources/application-local.yml")
+			.contains("forward-headers-strategy: framework"));
+		assertFalse(file("src/main/resources/application.yml").contains("forward-headers-strategy"));
+	}
+
+	@Test
 	void 같은_Nginx_제공_주소는_Spring_remote_addr와_인스턴스별_제한_버킷으로_수렴한다()
 		throws IOException, ServletException {
 		String nginxObservedAddress = "203.0.113.10";
