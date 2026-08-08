@@ -16,7 +16,7 @@ class SignupRequestTest {
 
 	@Test
 	void 이메일과_닉네임은_정규화한다() {
-		String password = " password 한글😀 ";
+		String password = " password 한글😀! ";
 
 		CreateUserAccountCommand normalized = new SignupRequest(" User@Example.COM ", password, " 닉네임 ").normalize();
 
@@ -37,7 +37,7 @@ class SignupRequestTest {
 				.isEmpty());
 		assertFalse(
 			validator
-				.validate(new SignupRequest("user@example.com", "가".repeat(25), "닉네임"))
+				.validate(new SignupRequest("user@example.com", "가".repeat(24) + "a", "닉네임"))
 				.isEmpty());
 		assertTrue(
 			validator

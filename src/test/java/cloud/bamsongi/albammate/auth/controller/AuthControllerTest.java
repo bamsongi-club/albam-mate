@@ -184,8 +184,9 @@ class AuthControllerTest {
 	}
 
 	@Test
-	void UTF8_72바이트_한글_24자는_가입하고_73바이트_초과는_VALIDATION_ERROR로_거절한다() throws Exception {
+	void UTF8_72바이트_한글_24자는_가입하고_73바이트는_VALIDATION_ERROR로_거절한다() throws Exception {
 		String allowedPassword = "가".repeat(24);
+		String rejectedPassword = allowedPassword + "a";
 		when(userAccountService.createAccount(command("unicode@example.com", allowedPassword, "닉네임")))
 			.thenReturn(new UserAccount(8L, "닉네임"));
 		MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
@@ -203,6 +204,7 @@ class AuthControllerTest {
 						+ "\"nickname\":\"닉네임\"}"))
 			.andExpect(status().isCreated());
 
+		reset(requestLimiter, userAccountService);
 		mockMvc.perform(
 			post("/api/auth/signup")
 				.cookie(csrfCookie)
@@ -210,10 +212,12 @@ class AuthControllerTest {
 				.contentType("application/json")
 				.content(
 					"{\"email\":\"too-long@example.com\","
-						+ "\"password\":\"" + "가".repeat(25) + "\","
+						+ "\"password\":\"" + rejectedPassword + "\","
 						+ "\"nickname\":\"닉네임\"}"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+		verifyNoInteractions(requestLimiter, userAccountService);
 	}
 
 	@Test

@@ -86,10 +86,10 @@ describe('#387 T2·T3 회원가입 비밀번호 상한', () => {
     });
   });
 
-  it('UTF-8 72바이트를 넘는 한글 25자는 회원가입 요청 전에 거절한다', () => {
+  it('UTF-8 73바이트 비밀번호는 회원가입 요청 전에 거절한다', () => {
     const onSignup = vi.fn().mockResolvedValue(false);
     const passwordInput = renderSignup(onSignup);
-    const password = '가'.repeat(25);
+    const password = '가'.repeat(24) + 'a';
 
     fireEvent.change(passwordInput, { target: { value: password } });
     fireEvent.submit(passwordInput.closest('form'));
