@@ -929,6 +929,27 @@ function MechanismHint({ code, name, description }) {
     };
   }, [description, isOpen]);
 
+  useEffect(() => {
+    if (!isPinned) return undefined;
+
+    // 고정된 툴팁은 fixed portal이라 다른 조건 위에 겹칠 수 있다.
+    // 바깥을 누르거나 Esc를 누르면 풀어 그 아래 컨트롤을 다시 누를 수 있게 한다.
+    const closeIfOutside = (event) => {
+      if (buttonRef.current?.contains(event.target) || tooltipRef.current?.contains(event.target)) return;
+      setIsPinned(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setIsPinned(false);
+    };
+
+    document.addEventListener('pointerdown', closeIfOutside, true);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeIfOutside, true);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [isPinned]);
+
   return (
     <span
       className={'mechanism-hint' + (isPinned ? ' on' : '')}

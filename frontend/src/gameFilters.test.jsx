@@ -334,6 +334,32 @@ describe('T4 대표 메커니즘과 설명', () => {
     expect(tooltip.style.visibility).toBe('hidden');
   });
 
+  it('고정된 말풍선 바깥을 누르면 닫혀 그 아래 조건을 다시 누를 수 있다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    const hint = screen.getByLabelText('셋 컬렉션 설명');
+
+    fireEvent.click(hint);
+    expect(hint.getAttribute('aria-expanded')).toBe('true');
+
+    fireEvent.pointerDown(document.body);
+
+    expect(hint.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('고정된 말풍선은 Escape로 닫는다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    const hint = screen.getByLabelText('셋 컬렉션 설명');
+
+    fireEvent.click(hint);
+    expect(hint.getAttribute('aria-expanded')).toBe('true');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(hint.getAttribute('aria-expanded')).toBe('false');
+  });
+
   it('대표 8개 모두 API가 준 서로 다른 설명을 연결한다', async () => {
     await renderGamesView();
     openFilterPanel();
