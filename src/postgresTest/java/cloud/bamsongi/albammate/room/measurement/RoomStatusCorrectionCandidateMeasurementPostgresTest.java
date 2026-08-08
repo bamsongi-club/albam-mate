@@ -52,6 +52,7 @@ import tools.jackson.databind.ObjectMapper;
 	"app.room.status-correction.trigger-jitter=0s",
 	"app.room.status-correction.lock-at-most-for=2m",
 	"app.room.status-correction.execution-warning-threshold=30s",
+	"app.room.status-correction.max-batches-per-run=1001",
 	"app.notification.cleanup.interval=24h",
 	"app.notification.cleanup.jitter=0s"
 })
@@ -538,6 +539,8 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 					springEnvironment.getProperty("app.room.status-correction.lock-at-most-for", "2m")),
 				Map.entry("roomStatusCorrectionExecutionWarningThreshold",
 					springEnvironment.getProperty("app.room.status-correction.execution-warning-threshold", "30s")),
+				Map.entry("roomStatusCorrectionMaxBatchesPerRun",
+					springEnvironment.getProperty("app.room.status-correction.max-batches-per-run", "1001")),
 				Map.entry("notificationCleanupInterval",
 					springEnvironment.getProperty("app.notification.cleanup.interval", "1h")),
 				Map.entry("notificationCleanupJitter",
@@ -571,6 +574,7 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 		assertEquals("0s", environment.configuration().get("roomStatusCorrectionTriggerJitter"));
 		assertEquals("2m", environment.configuration().get("roomStatusCorrectionLockAtMostFor"));
 		assertEquals("30s", environment.configuration().get("roomStatusCorrectionExecutionWarningThreshold"));
+		assertEquals("1001", environment.configuration().get("roomStatusCorrectionMaxBatchesPerRun"));
 		assertEquals("24h", environment.configuration().get("notificationCleanupInterval"));
 		assertEquals("0s", environment.configuration().get("notificationCleanupJitter"));
 		assertTrue(environment.startUsedHeapBytes() >= 0);

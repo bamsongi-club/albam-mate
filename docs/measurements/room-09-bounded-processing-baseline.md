@@ -134,13 +134,14 @@ SHA-256 기준은 위 현행 원자료와 같다. 이 표도 생성물이며 `sc
 | 항목 | 값 | 근거 |
 | --- | --- | --- |
 | 제한 ID | `100` | 제한 ID가 규모별 우열을 뒤집지 못하므로 성능을 근거로 삼지 않는다. 대신 선별 오버헤드 곡선의 무릎을 택한다. 배치 하나가 DB 호출 `3`회를 쓰므로 총 호출은 `1/limit`로 준다. 대형에서 `10`→`100`이 `2,700`회를 줄이고 `100`→`1000`은 `270`회만 더 줄인다. |
+| 실행당 최대 batch | `100` | [#504](https://github.com/bamsongi-club/albam-mate/issues/504)에서 사용자 승인으로 확정했다. `candidate-limit` `100`과 결합해 한 실행은 최대 `10,000` ROOM을 시도하며, 상한 뒤 실제 잔여 후보가 있으면 cursor를 보존해 다음 실행에서 재개한다. |
 | 실행시간 경고 | `180s` | `candidate-limit` `100`의 관찰 최대 실행시간은 대형 `108,056 ms`다. 쓰지 않는 제한 ID까지 포함한 관찰 최대 `151,774 ms`를 기준으로 보수적으로 잡는다. `lockAtMostFor` `600s`의 `30%` 지점이라 조기 경보로 쓴다. |
 | `lockAtMostFor` | `10m` | 경고 기준과 고정 비율로 묶지 않는다. 잠금 보유 인스턴스가 죽었을 때 다른 인스턴스가 이어받기까지 감수할 복구 지연으로 정하며, `trigger-delay` `15m` 한 주기 안에 든다. **한 실행의 최장 시간이 보장된 값은 아니다.** 아래 한계를 함께 본다. |
 | 실행 주기 | `15m`(jitter `3m`) | 기존 값을 유지한다. 이 측정이 조정 근거를 만들지 않았다. |
 
 제한 ID의 **실패 파급 범위는 이 값과 무관하다.** ROOM마다 독립 트랜잭션에서 처리하고, 실패는 로그만 남기고 넘어가며, 커서도 ROOM마다 전진한다. 따라서 어떤 제한 ID에서도 한 번의 실패가 미치는 범위는 ROOM `1`건이다.
 
-`ROOM-09d-T4`에 따라 위 세 값(`100`, `180s`, `10m`)을 측정 결과와 함께 제시하고 사용자 승인으로 확정했다. 승인 기록은 [#390 코멘트](https://github.com/bamsongi-club/albam-mate/issues/390)에 남긴다.
+`ROOM-09d-T4`에 따라 제한 ID `100`, 실행시간 경고 `180s`, `lockAtMostFor` `10m`을 측정 결과와 함께 제시하고 사용자 승인으로 확정했다. 승인 기록은 [#390 코멘트](https://github.com/bamsongi-club/albam-mate/issues/390)에 남긴다. 실행당 최대 batch `100`은 [#504](https://github.com/bamsongi-club/albam-mate/issues/504)에서 추가로 승인했다.
 
 ### 측정 한계와 재검토 조건
 
@@ -150,7 +151,7 @@ SHA-256 기준은 위 현행 원자료와 같다. 이 표도 생성물이며 `sc
 - 중형·대형 직접 비교 원자료 6개의 `executionCommand`는 측정 당시(`gitSha` `a3adcaeabf0e2a60751978767a9a0f9b9202c038`) 보고서 생성 코드의 selector 오류로 후보 단독 메서드를 가리켰고, 측정을 다시 하지 않고 `scripts/room09-measurement-report.mjs`가 정정했다. 정정은 그 필드 한 줄만 바꾸며, 스크립트가 나머지 모든 값이 동일한지 확인한 뒤에만 파일을 쓴다. 측정값은 여전히 `a3adcae`에서 실행한 결과다.
 - 보존 원자료의 DB 비용에는 처리 직후의 사후 검증 `SELECT` 1회가 포함돼 있다. 실행시간은 처리 구간만 재므로 두 지표의 경계가 run당 쿼리 1개만큼 다르다. 측정 테스트는 이제 처리 반환 직후에 DB 통계를 먼저 확보해 경계를 맞추지만, 이 문서의 수치는 그 수정 이전에 얻은 값이다. 두 경로에 같은 1회가 더해져 조합 안의 변화율에는 영향이 거의 없다. 소형은 후보 `149`회 중 `0.7%`, 중형·대형은 `0.02%` 미만이다.
 - 소형·중형 열세의 원인을 ROOM당 트랜잭션 고정 비용으로 좁혔으나, 그 고정 비용의 내부 구성까지는 나누지 않았다. 확정하려면 트랜잭션 경계별 프로파일링이 따로 필요하다.
-- `candidate-limit`은 한 번에 선별할 ID 수일 뿐이고, `correctBoundedDueRooms`는 후보가 없어질 때까지 다음 배치를 계속 처리한다. 한 실행의 후보 총수·배치 수·시간에 상한이 없고 그런 설정도 없다. 따라서 대형에서 관찰한 `151,774 ms`는 상한이 아니라 이 fixture의 관찰값이며, backlog가 커져 한 실행이 `lockAtMostFor` `10m`을 넘으면 다른 인스턴스가 만료된 잠금을 얻는다. 다만 중첩 범위는 좁다. `advanceCursor`가 `progressVersion`과 `executionGeneration`을 함께 CAS하고 새 실행의 `claimExecution`이 `executionGeneration`을 올리므로, 기존 실행은 다음 ROOM 하나를 처리한 직후 CAS 실패로 멈춘다. 중첩 처리는 최대 ROOM `1`건이다. 반복 상한은 `#382`가 설정 타입을 소유했으나 전달하지 않아 `#390`에서 값을 정할 대상이 없었다. 상한 도입과 초기 운영값 확정은 [#504](https://github.com/bamsongi-club/albam-mate/issues/504)에서 다루고, [#376](https://github.com/bamsongi-club/albam-mate/issues/376)의 ROOM-09 완료 판정에서 확인한다. 그 결정이 나오면 위 `lockAtMostFor`와 실행시간 경고의 전제를 다시 적는다.
+- `candidate-limit`은 한 번에 선별할 ID 수이고, `max-batches-per-run`은 한 Scheduler 실행이 처리할 batch 수의 상한이다. 운영값 `100`과 `100`은 최대 `10,000` ROOM 시도를 뜻한다. 상한 뒤 마지막 cursor 뒤 후보를 한 건 확인해 실제 잔여 후보가 있으면 cursor를 보존하고 ROOM 전용 WARN을 한 번 남기며 다음 실행이 같은 turn cutoff를 재개한다. 후보가 비었을 때만 wrap한다. 대형 `10,000` due ROOM의 기존 측정 계약은 test-only `max-batches-per-run: 1001`로 보존해 `candidate-limit: 10`에서도 마지막 empty selector와 wrap까지 진행한다. 따라서 대형에서 관찰한 `151,774 ms`는 여전히 이 fixture의 관찰값이지 운영 실행 상한은 아니다. backlog가 커져 한 실행이 `lockAtMostFor` `10m`을 넘으면 다른 인스턴스가 만료된 잠금을 얻을 수 있고, `advanceCursor`가 `progressVersion`과 `executionGeneration`을 함께 CAS하며 새 실행의 `claimExecution`이 `executionGeneration`을 올리므로 기존 실행은 다음 ROOM 하나를 처리한 직후 CAS 실패로 멈춘다. 중첩 처리는 최대 ROOM `1`건이다.
 - 다음 조건 중 하나가 성립하면 제한 ID와 주기를 다시 측정한다. 운영 due ROOM 수가 이 fixture의 대형 규모(`10,000`)를 넘어설 때, 한 순회의 실행시간이 실행시간 경고 기준에 근접할 때, 또는 ROOM당 `WAITING` 수가 이 측정의 `10`명을 크게 넘어설 때다.
 
 ## PostgreSQL 관측 경계
