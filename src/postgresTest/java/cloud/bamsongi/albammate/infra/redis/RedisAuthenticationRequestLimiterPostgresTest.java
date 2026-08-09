@@ -152,6 +152,18 @@ class RedisAuthenticationRequestLimiterPostgresTest {
 	}
 
 	@Test
+	void T7_포화된_실패_슬롯에서_신규_실패_기록은_SERVICE_UNAVAILABLE로_거절한다() {
+		AuthenticationRequestLimiter limited = limiter(firstFactory, Duration.ofSeconds(10), 10, 1);
+		assertTrue(limited.recordLoginFailure("first@example.com", "203.0.113.151").allowed());
+
+		var rejected = limited.recordLoginFailure("second@example.com", "203.0.113.152");
+
+		assertFalse(rejected.allowed());
+		assertEquals(0, rejected.retryAfterSeconds());
+		assertThrowsServiceUnavailable(rejected::throwIfRejected);
+	}
+
+	@Test
 	void T8_gate를_먼저_해제해도_더_길게_남은_실패_TTL이_슬롯을_유지한다() throws InterruptedException {
 		AuthenticationRequestLimiter limited = limiter(firstFactory, Duration.ofMillis(500), 10, 1);
 		LoginVerificationPermit permit = limited.tryAcquireLoginVerification("first@example.com", "203.0.113.83")

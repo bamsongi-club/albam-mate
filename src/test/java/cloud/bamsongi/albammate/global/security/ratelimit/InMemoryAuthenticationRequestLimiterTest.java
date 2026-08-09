@@ -186,6 +186,21 @@ class InMemoryAuthenticationRequestLimiterTest {
 	}
 
 	@Test
+	void T7_포화된_실패_슬롯에서_신규_실패_기록은_SERVICE_UNAVAILABLE로_거절한다() {
+		AuthenticationRequestProtectionProperties properties = properties();
+		properties.setMaxFailureKeys(1);
+		InMemoryAuthenticationRequestLimiter saturated = new InMemoryAuthenticationRequestLimiter(properties, clock);
+		assertTrue(saturated.recordLoginFailure("first@example.com", "203.0.113.151").allowed());
+
+		RateLimitDecision rejected = saturated.recordLoginFailure("second@example.com", "203.0.113.152");
+
+		assertFalse(rejected.allowed());
+		assertEquals(0, rejected.retryAfterSeconds());
+		BusinessException exception = assertThrows(BusinessException.class, rejected::throwIfRejected);
+		assertEquals(ErrorCode.SERVICE_UNAVAILABLE, exception.getErrorCode());
+	}
+
+	@Test
 	void T8_실패와_gate가_모두_없어지면_논리_실패_슬롯을_즉시_반납한다() {
 		AuthenticationRequestProtectionProperties properties = properties();
 		properties.setMaxFailureKeys(1);
