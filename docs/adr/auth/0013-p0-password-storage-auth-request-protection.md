@@ -57,13 +57,13 @@ P0에서는 구현과 운영 자원 사용의 예측 가능성을 우선해 bcry
 
 요청 횟수 제한, 동일 키의 로그인 검증 진행 중 또는 해시 실행 슬롯 부족 시 외부 HTTP 상태, 오류 코드와 `Retry-After` 헤더 값은 [API 명세](../../API.md#인증-요청-남용-제한)를 따른다. 존재하지 않는 이메일에는 같은 bcrypt 설정으로 미리 만든 더미 해시를 사용해 계정 유무에 따른 빠른 실패 경로를 만들지 않는다. 실패 버킷도 계정 존재 여부와 무관하게 같은 기준으로 기록해 제한 상태로 계정 유무가 드러나지 않게 한다.
 
-P0 단일 인스턴스에서는 제한 상태를 애플리케이션 메모리에 둘 수 있다. 실패 버킷은 존재하지 않는 이메일도 기록하므로, 이동 창이 지난 항목을 제거하고 보관 항목 수의 상한에 도달하면 실패 횟수가 적은 항목부터 제거해 메모리 사용량을 한정한다. 오래된 순서로만 제거하면 대량의 새 항목으로 기록 중인 항목을 밀어낼 수 있다. 다중 인스턴스로 확장하기 전에는 모든 인스턴스가 공유하는 제한 저장소나 게이트웨이를 별도로 결정해야 한다.
+`test`·`postgresTest`에서는 제한 상태를 애플리케이션 메모리에 두고, `local`·`production`에서는 모든 인스턴스가 같은 Redis 상태를 공유한다. Redis 구현은 Redis 서버 시각을 기준으로 ZSET 이동 창을 원자적으로 정리·계수·기록하고, 로그인 검증 gate는 소유 토큰과 유한 TTL을 사용한다. gate 해제는 현재 소유 토큰이 일치할 때만 허용해 만료된 이전 소유자가 새 gate를 해제하지 못하게 한다. Redis 연결·명령 실패나 원자 실행 결과를 확인할 수 없는 경우에는 인메모리 상태로 대체하지 않고 해시·사용자 조회·생성 전에 `503 SERVICE_UNAVAILABLE`로 종료한다. 인스턴스별 비밀번호 해시 작업 슬롯 4개는 JVM 로컬로 유지한다.
 
 ## 결과
 
 - 얻는 것: P0의 비밀번호 저장과 공개 인증 엔드포인트의 계산 자원을 함께 보호하고, 알고리즘 식별자로 비용 상향과 이후 Argon2id 전환 경로를 남긴다. 제한 경계도 API와 테스트에서 재현할 수 있다.
-- 감수할 비용·위험: 신규 시스템 우선 권고인 Argon2id를 보류하므로 오프라인 추측 공격 방어에서 메모리 경도 이점을 얻지 못한다. bcrypt의 72바이트 입력 한도로 긴 Unicode 비밀번호가 제한된다. 인메모리 제한 상태는 프로세스 재시작 때 초기화되고 단일 인스턴스 밖에서는 전역 한도를 보장하지 않으며, 공유 IP 환경에서는 정상 사용자가 일시적으로 제한될 수 있다. 조합 키는 계정 단위 상한이 아니므로, 여러 원격 IP를 확보한 공격자는 한 계정에 대해 IP 수에 비례하는 추측을 계속할 수 있다. 이 위험은 P0에서 그대로 남는다.
-- 후속 작업: Spring Security와 bcrypt 설정, 요청 제한기와 동시 작업 제한을 추가한다. work factor와 동시 작업 한도를 운영 유사 환경에서 검증하고, 동일 키 동시 요청의 실패 한도와 이전 cost 로그인 성공의 재저장을 포함해 입력 바이트 경계·제한 경계·만료·초기화·더미 해시·`Retry-After`를 테스트한다.
+- 감수할 비용·위험: 신규 시스템 우선 권고인 Argon2id를 보류하므로 오프라인 추측 공격 방어에서 메모리 경도 이점을 얻지 못한다. bcrypt의 72바이트 입력 한도로 긴 Unicode 비밀번호가 제한된다. `local`·`production`의 요청 제한은 Redis 가용성에 의존하므로 Redis 상태를 안전하게 확인할 수 없으면 정상 인증 요청도 일시적으로 `503`이 될 수 있다. 공유 IP 환경에서는 정상 사용자가 일시적으로 제한될 수 있다. 조합 키는 계정 단위 상한이 아니므로, 여러 원격 IP를 확보한 공격자는 한 계정에 대해 IP 수에 비례하는 추측을 계속할 수 있다. 이 위험은 P0에서 그대로 남는다.
+- 후속 작업: 전체 HTTP·PostgreSQL 로그인 경로에서 work factor와 동시 작업 한도를 운영 유사 환경으로 재측정하고, 공격·오탐 지표를 바탕으로 계정 단독 실패 버킷과 Argon2id 전환을 재검토한다.
 
 ## 보류 및 재검토
 
@@ -74,7 +74,6 @@ P0 단일 인스턴스에서는 제한 상태를 애플리케이션 메모리에
   - CAPTCHA
   - 영구 계정 잠금
   - 계정 단독 실패 버킷으로 분산 로그인 추측을 제한하는 것
-  - 다중 인스턴스 공유 제한 저장소
   - 외부 WAF만을 신뢰하는 제한
 - 보류 이유:
   - P0는 단일 인스턴스의 이메일·비밀번호 로그인 범위이며, 현재 계약은 확인되지 않은 배포 메모리 위험을 기본값에 포함하지 않으면서 자동화 공격·자원 고갈을 줄이는 최소 경계다.
@@ -84,7 +83,6 @@ P0 단일 인스턴스에서는 제한 상태를 애플리케이션 메모리에
 - 다시 검토할 조건:
   - 실제 배포 CPU·RAM·JVM·컨테이너 한도가 확정되고 전체 Spring Boot 애플리케이션의 HTTP·데이터베이스 로그인 경로에서 1·5·10개 동시 요청을 반복 측정할 수 있을 때
   - Argon2id가 목표 지연과 메모리 여유를 충족할 때
-  - 다중 인스턴스로 확장할 때
   - 공격·오탐 지표가 누적될 때
   - 외부 인증 서비스나 MFA를 도입할 때
   - 차단당한 정상 사용자의 회복 경로와 버킷 축출 정책을 함께 정의할 수 있을 때
@@ -108,13 +106,15 @@ Argon2id를 채택하면 후속 ADR로 이 결정을 대체한다. 그 구현은
     - 구현:
         - [`UserPasswordPolicy`](../../../src/main/java/cloud/bamsongi/albammate/user/contract/UserPasswordPolicy.java)와 [`SignupRequest`](../../../src/main/java/cloud/bamsongi/albammate/auth/dto/SignupRequest.java)는 회원가입 비밀번호를 15~64 Unicode code point, 72 UTF-8 byte 이하로 제한한다. [`RawPassword`](../../../src/main/java/cloud/bamsongi/albammate/user/contract/RawPassword.java)는 이 정책을 통과한 Unicode와 공백을 정규화하거나 잘라내지 않고 원문 그대로 해시 경로에 전달한다.
         - [`SignupView`](../../../frontend/src/main.jsx)는 서버와 같은 code point·UTF-8 byte 경계를 적용해 회원가입 요청 전에 검증하고, Unicode와 공백을 허용한다.
-        - 현재 [`InMemoryAuthenticationRequestLimiter`](../../../src/main/java/cloud/bamsongi/albammate/global/security/ratelimit/InMemoryAuthenticationRequestLimiter.java)는 프로필 구분 없이 애플리케이션 인스턴스별 메모리에 인증 요청 제한 상태를 저장한다.
+        - `RedisAuthenticationRequestLimiter`는 `local`·`production`에서 Redis 서버 시각과 원자 Lua 연산으로 요청 제한 이동 창·실패 버킷·로그인 gate를 모든 인스턴스에 공유한다. [`InMemoryAuthenticationRequestLimiter`](../../../src/main/java/cloud/bamsongi/albammate/global/security/ratelimit/InMemoryAuthenticationRequestLimiter.java)는 `test`·`postgresTest`에서만 인스턴스별 메모리 상태를 사용한다.
     - 계약:
         - [`API.md`](../../API.md#auth-02-회원가입)는 회원가입 비밀번호의 15~64 Unicode code point, 72 UTF-8 byte 이하, Unicode·공백 허용과 원문 보존 계약을 명시한다.
+        - [`API.md`](../../API.md#인증-요청-남용-제한)는 프로필별 제한 저장소, Redis 장애 시 fallback 없는 `503`, `Retry-After` 미포함과 인증 처리 전 종료 계약을 명시한다.
     - 테스트:
         - [`AuthControllerTest`](../../../src/test/java/cloud/bamsongi/albammate/auth/controller/AuthControllerTest.java), [`SignupRequestTest`](../../../src/test/java/cloud/bamsongi/albammate/auth/dto/SignupRequestTest.java), [`RawPasswordTest`](../../../src/test/java/cloud/bamsongi/albammate/user/contract/RawPasswordTest.java)는 14/15·64/65 code point와 72/73 UTF-8 byte 경계, Unicode·공백 원문 보존을 검증한다.
         - [`SignupHttpIntegrationTest`](../../../src/test/java/cloud/bamsongi/albammate/auth/controller/SignupHttpIntegrationTest.java)는 결합 문자를 포함한 비밀번호가 정규화되지 않고 원문으로만 로그인되는 것을 검증하고, [`LoginLogoutHttpIntegrationTest`](../../../src/test/java/cloud/bamsongi/albammate/auth/controller/LoginLogoutHttpIntegrationTest.java)는 기존 8자 비밀번호 계정의 로그인 호환성을 검증한다.
         - [`AuthView.test.jsx`](../../../frontend/src/AuthView.test.jsx)는 14 code point·15 UTF-16 code unit 입력과 72/73 UTF-8 byte 경계를 포함해 프런트엔드 요청 전 검증이 서버 계약과 일치하는지 확인한다.
+        - `RedisAuthenticationRequestLimiterTest`와 `RedisAuthenticationRequestLimiterPostgresTest`는 Redis 실패의 fail closed 처리, 복구 뒤 공용 상태 재사용, 두 인스턴스의 이동 창·실패 버킷·로그인 gate 공유와 만료된 gate 소유권을 검증한다. 컨트롤러·회원가입·로그인 서비스 테스트는 Redis 상태를 확인할 수 없을 때 `Retry-After` 없는 `503`으로 해시·사용자 조회·생성을 시작하지 않는 경계를 검증한다.
         - 2026-07-27 AWS EC2 `t4g.small`의 Amazon Linux 2023 ARM64, Java `21.0.11`, `availableProcessors=2`, `maxHeapBytes=484442112`에서 bcrypt cost 10~14를 warmup 1회, cost·동시성별 3회와 해시 슬롯 4개 조건으로 측정했다.
         - 아래 값은 encode와 matches의 p95 지연(ms)이다.
 
@@ -130,7 +130,6 @@ Argon2id를 채택하면 후속 ADR로 이 결정을 대체한다. 그 구현은
     - CI:
         - [PR #519](https://github.com/bamsongi-club/albam-mate/pull/519)에서 회원가입 비밀번호 정책 변경과 서버·프런트엔드 경계 테스트에 대해 필수 CI 전체가 통과한 뒤 `develop`에 병합됐다.
 - 미검증:
-    - 다중 인스턴스 확장 전에 모든 인스턴스가 공유하는 인증 요청 제한 저장소나 게이트웨이를 별도로 결정하고 구현·검증해야 한다.
     - benchmark 경로만 측정했으므로 AUTH-02·AUTH-03 이후 전체 HTTP·PostgreSQL 로그인 경로에서 재측정해 운영 cost를 확정하고 Argon2id를 재검토한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.
