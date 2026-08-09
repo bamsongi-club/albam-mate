@@ -895,8 +895,27 @@ function MechanismHint({ code, name, description }) {
   const [isScrollable, setIsScrollable] = useState(false);
   const buttonRef = useRef(null);
   const tooltipRef = useRef(null);
+  const hoverCloseTimerRef = useRef(null);
   const tooltipId = 'mechanism-hint-' + code;
   const isOpen = isPinned || isHovered || isFocused;
+
+  const cancelHoverClose = useCallback(() => {
+    window.clearTimeout(hoverCloseTimerRef.current);
+    hoverCloseTimerRef.current = null;
+  }, []);
+  const openHovered = useCallback(() => {
+    cancelHoverClose();
+    setIsHovered(true);
+  }, [cancelHoverClose]);
+  const closeHoveredSoon = useCallback(() => {
+    cancelHoverClose();
+    hoverCloseTimerRef.current = window.setTimeout(() => {
+      setIsHovered(false);
+      hoverCloseTimerRef.current = null;
+    }, 80);
+  }, [cancelHoverClose]);
+
+  useEffect(() => () => cancelHoverClose(), [cancelHoverClose]);
 
   useLayoutEffect(() => {
     if (!isOpen || !buttonRef.current || !tooltipRef.current) {
@@ -953,6 +972,7 @@ function MechanismHint({ code, name, description }) {
 
     const closeOnEscape = (event) => {
       if (event.key !== 'Escape') return;
+      cancelHoverClose();
       setIsPinned(false);
       setIsHovered(false);
       setIsFocused(false);
@@ -960,13 +980,13 @@ function MechanismHint({ code, name, description }) {
 
     document.addEventListener('keydown', closeOnEscape);
     return () => document.removeEventListener('keydown', closeOnEscape);
-  }, [isOpen]);
+  }, [cancelHoverClose, isOpen]);
 
   return (
     <span
       className={'mechanism-hint' + (isPinned ? ' on' : '')}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={openHovered}
+      onMouseLeave={closeHoveredSoon}
     >
       <button
         type="button"
@@ -978,6 +998,7 @@ function MechanismHint({ code, name, description }) {
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
         onClick={() => {
+          cancelHoverClose();
           setIsPinned(!isPinned);
           setIsFocused(false);
           // tap이 앞서 일으킨 mouseEnter는 실제 hover가 아니므로 클릭마다 초기화해
@@ -994,6 +1015,8 @@ function MechanismHint({ code, name, description }) {
           id={tooltipId}
           role="tooltip"
           style={isScrollable ? { ...tooltipStyle, pointerEvents: 'auto' } : tooltipStyle}
+          onMouseEnter={openHovered}
+          onMouseLeave={closeHoveredSoon}
         >
           {description}
         </span>,

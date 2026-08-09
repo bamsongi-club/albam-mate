@@ -407,6 +407,28 @@ describe('T4 대표 메커니즘과 설명', () => {
     expect(hint.getAttribute('aria-expanded')).toBe('true');
   });
 
+  it('hover로 연 스크롤형 말풍선은 포인터를 옮겨도 닫히지 않는다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    const hint = screen.getByLabelText('셋 컬렉션 설명');
+    const trigger = hint.parentElement;
+    const tooltip = document.getElementById(hint.getAttribute('aria-describedby'));
+
+    Object.defineProperty(tooltip, 'scrollHeight', { configurable: true, value: 400 });
+    Object.defineProperty(tooltip, 'clientHeight', { configurable: true, value: 200 });
+
+    fireEvent.mouseEnter(trigger);
+    expect(tooltip.style.visibility).toBe('visible');
+    expect(tooltip.style.pointerEvents).toBe('auto');
+
+    fireEvent.mouseLeave(trigger);
+    expect(tooltip.style.visibility).toBe('visible');
+    fireEvent.mouseEnter(tooltip);
+    act(() => { vi.advanceTimersByTime(100); });
+
+    expect(tooltip.style.visibility).toBe('visible');
+  });
+
   it('대표 8개 모두 API가 준 서로 다른 설명을 연결한다', async () => {
     await renderGamesView();
     openFilterPanel();
