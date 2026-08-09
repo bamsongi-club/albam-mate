@@ -8,12 +8,14 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -114,8 +116,8 @@ class RoomWaitlistRegistrationConcurrencyPostgresTest {
 			roomVersionRaceGate.deactivate();
 		}
 
-		assertWaitingRegistration(firstResult);
-		assertWaitingRegistration(secondResult);
+		assertWaitingRegistration(room.getId(), firstResult);
+		assertWaitingRegistration(room.getId(), secondResult);
 
 		List<StoredWaitlist> storedWaitlists = findWaitingWaitlists(room.getId());
 		assertEquals(2, storedWaitlists.size());
@@ -166,9 +168,10 @@ class RoomWaitlistRegistrationConcurrencyPostgresTest {
 		return roomWaitlistCommandService.register(applicantId, roomId);
 	}
 
-	private void assertWaitingRegistration(RoomWaitlistCommandService.RegistrationResult result) {
+	private void assertWaitingRegistration(long roomId, RoomWaitlistCommandService.RegistrationResult result) {
 		assertTrue(result.created());
 		MyRoomWaitlistResponse response = result.response();
+		assertEquals(roomId, response.roomId());
 		assertEquals(RoomWaitlistStatus.WAITING, response.waitlistStatus());
 		assertNotNull(response.position());
 	}
@@ -274,11 +277,11 @@ class RoomWaitlistRegistrationConcurrencyPostgresTest {
 		String email = emailPrefix + "@example.com";
 		jdbcTemplate.update(
 			"insert into users (email, password_hash, nickname, created_at, updated_at) "
-				+ "values (?, 'fixture-password-hash', ?, "
-				+ "TIMESTAMP WITH TIME ZONE '2026-08-10T00:00:00Z', "
-				+ "TIMESTAMP WITH TIME ZONE '2026-08-10T00:00:00Z')",
+				+ "values (?, 'fixture-password-hash', ?, ?, ?)",
 			email,
-			nickname);
+			nickname,
+			Timestamp.from(REQUEST_TIME),
+			Timestamp.from(REQUEST_TIME));
 		Long userId = jdbcTemplate.queryForObject("select id from users where email = ?", Long.class, email);
 		assertNotNull(userId);
 		return userId;
@@ -432,7 +435,7 @@ class RoomWaitlistRegistrationConcurrencyPostgresTest {
 			private final CountDownLatch initialReads = new CountDownLatch(2);
 			private final AtomicInteger initialReadCount = new AtomicInteger();
 			private final AtomicInteger totalReadCount = new AtomicInteger();
-			private final Set<Long> observedVersions = java.util.concurrent.ConcurrentHashMap.newKeySet();
+			private final Set<Long> observedVersions = ConcurrentHashMap.newKeySet();
 			private final AtomicInteger versionClaimAttemptCount = new AtomicInteger();
 			private final AtomicInteger versionClaimConflictCount = new AtomicInteger();
 
