@@ -33,6 +33,7 @@ import cloud.bamsongi.albammate.room.service.query.RoomUpcomingRoomCountQuery;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({
 	GameQueryService.class,
+	GameDetailQueryService.class,
 	RoomUpcomingRoomCountQuery.class,
 	JpaConfig.class,
 	TimeConfig.class,
@@ -47,6 +48,9 @@ class GameQueryServiceDetailIntegrationTest {
 
 	@Autowired
 	private GameQueryService gameQueryService;
+
+	@Autowired
+	private GameDetailQueryService gameDetailQueryService;
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
@@ -85,7 +89,7 @@ class GameQueryServiceDetailIntegrationTest {
 			.findPage(null, PageRequest.of(0, 10, Sort.by("name", "id")))
 			.getContent()
 			.getFirst();
-		GameDetail detail = gameQueryService.findById(game.getId());
+		GameDetail detail = gameDetailQueryService.findById(game.getId());
 
 		assertEquals(listItem.id(), detail.id());
 		assertEquals(listItem.bggId(), detail.bggId());

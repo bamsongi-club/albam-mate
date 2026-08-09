@@ -2,13 +2,9 @@ package cloud.bamsongi.albammate.game.service;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -17,21 +13,15 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import cloud.bamsongi.albammate.game.contract.GameQuery;
-import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.game.contract.UpcomingRoomCountQuery;
-import cloud.bamsongi.albammate.game.dto.GameDetail;
 import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.PlayedFilter;
 import cloud.bamsongi.albammate.game.entity.Game;
-import cloud.bamsongi.albammate.game.repository.GameCategoryRelationRepository;
 import cloud.bamsongi.albammate.game.repository.GameCategoryRepository;
 import cloud.bamsongi.albammate.game.repository.GameListRow;
 import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
-import cloud.bamsongi.albammate.game.repository.GamePlayerPreferenceRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
-import cloud.bamsongi.albammate.game.repository.GameThemeRelationRepository;
 import cloud.bamsongi.albammate.game.repository.GameThemeRepository;
 import cloud.bamsongi.albammate.game.repository.UserPlayedGameRepository;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
@@ -40,21 +30,23 @@ import cloud.bamsongi.albammate.global.exception.UnauthenticatedException;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * 게임 목록 조회 유스케이스를 담당한다.
+ *
+ * <p>검색 조건 검증, 페이지네이션, 예정 모임 수 집계, 해 본 게임 표시를 하나의 저장소 동적 조회 경계로 조립한다.
+ */
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
-public class GameQueryService implements GameQuery {
+public class GameQueryService {
 
 	@NonNull private final GameRepository gameRepository;
 	@NonNull private final Clock clock;
 	@NonNull private final UpcomingRoomCountQuery upcomingRoomCountQuery;
 	@NonNull private final GameMechanismRepository gameMechanismRepository;
 	@NonNull private final UserPlayedGameRepository userPlayedGameRepository;
-	private final GameCategoryRepository gameCategoryRepository;
-	private final GameThemeRepository gameThemeRepository;
-	private final GameCategoryRelationRepository gameCategoryRelationRepository;
-	private final GameThemeRelationRepository gameThemeRelationRepository;
-	private final GamePlayerPreferenceRepository gamePlayerPreferenceRepository;
+	@NonNull private final GameCategoryRepository gameCategoryRepository;
+	@NonNull private final GameThemeRepository gameThemeRepository;
 
 	/**
 	 * 게임 이름 검색 결과를 페이지로 조회하고 조회 시각 기준 예정 모임 수를 결합한다.
@@ -189,58 +181,5 @@ public class GameQueryService implements GameQuery {
 			return criteria.getPlayedFilter() == PlayedFilter.PLAYED_ONLY;
 		}
 		return playedGameIds.contains(gameId);
-	}
-
-	/**
-	 * 게임 상세와 조회 시각 기준 예정 모임 수를 조회한다.
-	 *
-	 * @param gameId 알밤메이트 내부 게임 ID
-	 * @return 예정 모임 수가 포함된 게임 상세
-	 * @throws BusinessException 게임이 없으면 {@link ErrorCode#GAME_NOT_FOUND}
-	 */
-	public GameDetail findById(Long gameId) {
-		return findById(gameId, null);
-	}
-
-	public GameDetail findById(Long gameId, Long currentUserId) {
-		Game game = gameRepository
-			.findById(gameId)
-			.orElseThrow(() -> new BusinessException(ErrorCode.GAME_NOT_FOUND));
-		long upcomingRoomCount = upcomingRoomCountQuery
-			.findUpcomingRoomCounts(List.of(game.getId()), Instant.now(clock))
-			.getOrDefault(game.getId(), 0L);
-
-		Boolean playedByMe = playedByMe(currentUserId, gameId);
-		if (gameCategoryRelationRepository == null) {
-			return GameDetail.from(game, upcomingRoomCount, playedByMe);
-		}
-		var categories = gameCategoryRelationRepository.findSummariesByGameIdIn(List.of(gameId)).stream()
-			.map(cloud.bamsongi.albammate.game.dto.GameCategorySummary::from).toList();
-		var themes = gameThemeRelationRepository.findSummariesByGameIdIn(List.of(gameId)).stream()
-			.map(cloud.bamsongi.albammate.game.dto.GameThemeSummary::from).toList();
-		var preferences = gamePlayerPreferenceRepository.findByGameIdOrderByIdPlayerCountAsc(gameId);
-		return GameDetail.from(game, upcomingRoomCount, playedByMe, categories, themes,
-			preferences.stream().filter(p -> p.isRecommended()).map(p -> p.getPlayerCount()).toList(),
-			preferences.stream().filter(p -> p.isBest()).map(p -> p.getPlayerCount()).toList());
-	}
-
-	private Boolean playedByMe(Long currentUserId, Long gameId) {
-		return currentUserId == null
-			? null
-			: userPlayedGameRepository.existsByUserIdAndGameId(currentUserId, gameId);
-	}
-
-	@Override
-	public Optional<GameSummary> findSummaryById(Long gameId) {
-		return gameRepository.findSummaryById(gameId);
-	}
-
-	@Override
-	public Map<Long, GameSummary> findSummariesByIds(Collection<Long> gameIds) {
-		if (gameIds.isEmpty()) {
-			return Map.of();
-		}
-		return gameRepository.findSummariesByIds(gameIds).stream()
-			.collect(Collectors.toMap(GameSummary::id, Function.identity()));
 	}
 }

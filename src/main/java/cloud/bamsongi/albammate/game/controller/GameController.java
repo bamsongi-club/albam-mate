@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import cloud.bamsongi.albammate.game.dto.GameDetail;
 import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
+import cloud.bamsongi.albammate.game.service.GameDetailQueryService;
 import cloud.bamsongi.albammate.game.service.GameQueryService;
 import cloud.bamsongi.albammate.global.response.ApiResponse;
 import cloud.bamsongi.albammate.global.response.PageResponse;
@@ -25,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 public class GameController {
 
 	@NonNull private final GameQueryService gameQueryService;
+	@NonNull private final GameDetailQueryService gameDetailQueryService;
 	@NonNull private final CurrentUserAccessor currentUserAccessor;
 
 	@GetMapping
@@ -40,6 +42,6 @@ public class GameController {
 	public ApiResponse<GameDetail> getGameDetail(@PathVariable @Min(1) Long gameId) {
 		return ApiResponse.success(
 			HttpStatus.OK,
-			gameQueryService.findById(gameId, currentUserAccessor.currentUserId().orElse(null)));
+			gameDetailQueryService.findById(gameId, currentUserAccessor.currentUserId().orElse(null)));
 	}
 }

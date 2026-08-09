@@ -33,6 +33,7 @@ import cloud.bamsongi.albammate.game.dto.GameDetail;
 import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
+import cloud.bamsongi.albammate.game.service.GameDetailQueryService;
 import cloud.bamsongi.albammate.game.service.GameQueryService;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -48,6 +49,9 @@ class GameControllerTest {
 	private GameQueryService gameQueryService;
 
 	@Autowired
+	private GameDetailQueryService gameDetailQueryService;
+
+	@Autowired
 	private MockMvc mockMvc;
 
 	@Autowired
@@ -56,6 +60,7 @@ class GameControllerTest {
 	@BeforeEach
 	void setUp() {
 		reset(gameQueryService);
+		reset(gameDetailQueryService);
 		reset(currentUserAccessor);
 		when(currentUserAccessor.currentUserId()).thenReturn(Optional.empty());
 	}
@@ -262,7 +267,7 @@ class GameControllerTest {
 			"카탄 기본판",
 			"간단한 게임 설명",
 			"상세한 게임 설명");
-		when(gameQueryService.findById(1L, null)).thenReturn(detail);
+		when(gameDetailQueryService.findById(1L, null)).thenReturn(detail);
 
 		mockMvc.perform(get("/api/games/1"))
 			.andExpect(status().isOk())
@@ -282,12 +287,12 @@ class GameControllerTest {
 			.andExpect(jsonPath("$.data.description").value("간단한 게임 설명"))
 			.andExpect(jsonPath("$.data.detailDescription").value("상세한 게임 설명"));
 
-		verify(gameQueryService).findById(1L, null);
+		verify(gameDetailQueryService).findById(1L, null);
 	}
 
 	@Test
 	void 없는_게임_상세는_GAME_NOT_FOUND다() throws Exception {
-		when(gameQueryService.findById(999L, null))
+		when(gameDetailQueryService.findById(999L, null))
 			.thenThrow(new BusinessException(ErrorCode.GAME_NOT_FOUND));
 
 		mockMvc.perform(get("/api/games/999"))
@@ -316,6 +321,11 @@ class GameControllerTest {
 		@Bean
 		GameQueryService gameQueryService() {
 			return mock(GameQueryService.class);
+		}
+
+		@Bean
+		GameDetailQueryService gameDetailQueryService() {
+			return mock(GameDetailQueryService.class);
 		}
 
 		@Bean
