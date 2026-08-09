@@ -22,10 +22,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import cloud.bamsongi.albammate.chat.contract.ChatRealtimePublisher;
 import cloud.bamsongi.albammate.chat.contract.MessageCommitted;
@@ -74,6 +76,8 @@ class ChatMessageRateLimitUnavailableIntegrationTest {
 	private GlobalExceptionHandler globalExceptionHandler;
 	@Autowired
 	private LettuceConnectionFactory redisConnectionFactory;
+	@MockitoBean(name = "chatRealtimeMessageListenerContainer")
+	private RedisMessageListenerContainer chatRealtimeMessageListenerContainer;
 
 	private Long userId;
 	private Long roomId;
@@ -108,6 +112,16 @@ class ChatMessageRateLimitUnavailableIntegrationTest {
 		assertNull(response.getHeaders().getFirst(HttpHeaders.RETRY_AFTER));
 		assertEquals(0, chatMessageRepository.count());
 		assertTrue(realtimePublisher.events().isEmpty());
+		assertEquals(java.time.Duration.ofSeconds(2),
+			redisConnectionFactory.getClientConfiguration().getCommandTimeout());
+		ClientOptions clientOptions = redisConnectionFactory.getClientConfiguration().getClientOptions().orElseThrow();
+		assertEquals(ClientOptions.DisconnectedBehavior.REJECT_COMMANDS, clientOptions.getDisconnectedBehavior());
+		assertFalse(clientOptions.isAutoReconnect());
+	}
+
+	@Test
+	void T2_Redis_단절_뒤_별도_요청은_끊긴_공유_연결을_재사용하지_않는다() {
+		assertFalse(redisConnectionFactory.getShareNativeConnection());
 		assertEquals(java.time.Duration.ofSeconds(2),
 			redisConnectionFactory.getClientConfiguration().getCommandTimeout());
 		ClientOptions clientOptions = redisConnectionFactory.getClientConfiguration().getClientOptions().orElseThrow();

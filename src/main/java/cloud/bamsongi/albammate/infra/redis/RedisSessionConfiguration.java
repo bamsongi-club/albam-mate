@@ -47,8 +47,10 @@ public class RedisSessionConfiguration {
 			.clientOptions(clientOptions)
 			.commandTimeout(REDIS_COMMAND_TIMEOUT)
 			.build();
-		return new LettuceConnectionFactory(
+		LettuceConnectionFactory connectionFactory = new LettuceConnectionFactory(
 			new RedisStandaloneConfiguration(properties.host(), properties.port()), clientConfiguration);
+		connectionFactory.setShareNativeConnection(false);
+		return connectionFactory;
 	}
 
 	@Bean(name = "springSessionDefaultRedisSerializer")
