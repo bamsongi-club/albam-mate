@@ -25,8 +25,6 @@ public @interface ValidPassword{
 
 	int minCodePoints() default 1;
 
-	boolean signup() default false;
-
 	String message() default "유효한 비밀번호 길이가 아닙니다.";
 
 	Class<?>[] groups() default {};

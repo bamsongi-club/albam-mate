@@ -13,23 +13,24 @@ function renderSignup(onSignup) {
   return screen.getByLabelText('비밀번호');
 }
 
-describe('#387 T1 회원가입 비밀번호 Unicode 하한', () => {
-  it('영문 7자는 회원가입 요청 전에 거절한다', () => {
+describe('#517 T5 회원가입 비밀번호 Unicode 경계', () => {
+  it('14 code point·15 UTF-16 unit 비밀번호는 회원가입 요청 전에 거절한다', () => {
     const onSignup = vi.fn().mockResolvedValue(false);
     const passwordInput = renderSignup(onSignup);
+    const password = '😀' + 'a'.repeat(13);
 
-    fireEvent.change(passwordInput, { target: { value: 'a'.repeat(7) } });
+    fireEvent.change(passwordInput, { target: { value: password } });
     fireEvent.submit(passwordInput.closest('form'));
 
     expect(onSignup).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(passwordInput);
-    expect(screen.getByRole('alert').textContent).toContain('8자 이상');
+    expect(screen.getByRole('alert').textContent).toContain('15자 이상');
   });
 
-  it('영문, 숫자, 특수기호 8자는 다른 상한을 넘지 않으면 회원가입 요청으로 전달한다', () => {
+  it('공백과 Unicode를 포함한 15 code point·72바이트 이하 비밀번호는 원문 그대로 전달한다', () => {
     const onSignup = vi.fn().mockResolvedValue(false);
     const passwordInput = renderSignup(onSignup);
-    const password = 'a1!b2@c3';
+    const password = ' 가😀라마바사아자차카타파하 ';
 
     fireEvent.change(passwordInput, { target: { value: password } });
     fireEvent.submit(passwordInput.closest('form'));
@@ -71,35 +72,27 @@ describe('#387 T2·T3 회원가입 비밀번호 상한', () => {
     expect(screen.getByRole('alert').textContent).toContain('64자를 넘어');
   });
 
-  it('허용되지 않은 문자(한글) 8자는 회원가입 요청 전에 거절한다', () => {
+  it('한글 24자는 회원가입 요청으로 전달한다', () => {
     const onSignup = vi.fn().mockResolvedValue(false);
     const passwordInput = renderSignup(onSignup);
-    const password = '가'.repeat(8);
+    const password = '가'.repeat(24);
 
     fireEvent.change(passwordInput, { target: { value: password } });
     fireEvent.submit(passwordInput.closest('form'));
 
-    expect(onSignup).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert').textContent).toContain('영문 대소문자, 숫자, 특수기호만');
+    expect(onSignup).toHaveBeenCalledWith({
+      email: 'user@example.com',
+      nickname: '테스터',
+      password
+    });
   });
 
-  it('허용되지 않은 문자(이모지)가 포함된 8자는 회원가입 요청 전에 거절한다', () => {
+  it('UTF-8 73바이트 비밀번호는 회원가입 요청 전에 거절한다', () => {
     const onSignup = vi.fn().mockResolvedValue(false);
     const passwordInput = renderSignup(onSignup);
-    const password = 'a1!b2@c😀';
+    const password = '가'.repeat(24) + 'a';
 
     fireEvent.change(passwordInput, { target: { value: password } });
-    fireEvent.submit(passwordInput.closest('form'));
-
-    expect(onSignup).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert').textContent).toContain('영문 대소문자, 숫자, 특수기호만');
-  });
-
-  it('UTF-8 72바이트를 넘는 한글 25자는 회원가입 요청 전에 거절한다', () => {
-    const onSignup = vi.fn().mockResolvedValue(false);
-    const passwordInput = renderSignup(onSignup);
-
-    fireEvent.change(passwordInput, { target: { value: '가'.repeat(25) } });
     fireEvent.submit(passwordInput.closest('form'));
 
     expect(onSignup).not.toHaveBeenCalled();
@@ -116,7 +109,7 @@ describe('#387 T4·T5 회원가입 제출 경계 회귀', () => {
     }));
     const passwordInput = renderSignup(onSignup);
 
-    fireEvent.change(passwordInput, { target: { value: 'a'.repeat(8) } });
+    fireEvent.change(passwordInput, { target: { value: 'a'.repeat(15) } });
     fireEvent.submit(passwordInput.closest('form'));
 
     expect(await screen.findByText('서버 검증 오류')).toBeTruthy();

@@ -740,15 +740,15 @@ Set-Cookie: XSRF-TOKEN={token}; Path=/; HttpOnly; SameSite=Lax
 | 필드 | 타입 | 필수 | nullable | 정규화·검증 |
 |---|---|:---:|:---:|---|
 | `email` | string | Y | N | 앞뒤 공백 제거 후 소문자로 변환. 이메일 형식이어야 하며 정규화 뒤 255자 이하. 중복도 정규화된 값으로 판정 |
-| `password` | string | Y | N | Unicode code point 8개 이상 64개 이하이면서 UTF-8 인코딩 결과 72바이트 이하, 영문 대소문자·숫자·ASCII 특수기호만 허용 |
+| `password` | string | Y | N | Unicode code point 15개 이상 64개 이하이면서 UTF-8 인코딩 결과 72바이트 이하. Unicode와 공백을 허용하며 원문을 변경하지 않음 |
 | `nickname` | string | Y | N | 앞뒤 공백 제거 후 1~50자, 제어문자 금지 |
 
-- 비밀번호는 영문 대소문자(A-Z, a-z), 숫자(0-9), ASCII 특수기호만 허용하며, 한글·공백·이모지 등 이외의 문자가 포함되면 거절한다.
+- 비밀번호는 Unicode와 공백을 허용한다. 길이는 UTF-16 code unit이나 grapheme cluster가 아니라 Unicode code point로 계산한다.
 - 앞뒤 공백 제거·Unicode 정규화·자동 잘라내기를 하지 않는다.
 - UTF-8 인코딩 결과가 72바이트를 넘는 비밀번호는 `VALIDATION_ERROR`로 거절한다.
 - 비밀번호 원문은 응답에 포함하지 않는다. 저장 방식은 [ADR-0013](adr/auth/0013-p0-password-storage-auth-request-protection.md)을 따른다.
 
-> **승인 기준과 현재 구현의 차이:** [ADR-0013](adr/auth/0013-p0-password-storage-auth-request-protection.md)은 회원가입 비밀번호를 15~64 Unicode code point, UTF-8 72바이트 이하로 정하고 공백·Unicode를 허용한다. 위 요청 표는 아직 그 결정을 구현하지 않은 현재 8자·ASCII 계약이다. 또한 ADR-0013은 다중 인스턴스 확장 전에 공유 제한 저장소나 게이트웨이를 별도로 결정하도록 요구하지만, 현재 제한기는 인스턴스별 메모리에 상태를 저장한다.
+> [ADR-0013](adr/auth/0013-p0-password-storage-auth-request-protection.md)의 회원가입 비밀번호 15~64 Unicode code point, UTF-8 72바이트 이하와 공백·Unicode 원문 보존 계약을 적용한다. 다중 인스턴스 확장 전 공유 제한 저장소나 게이트웨이를 별도로 결정해야 하는 항목은 현재 제한기가 인스턴스별 메모리에 상태를 저장하므로 남아 있다.
 
 #### 오류
 
