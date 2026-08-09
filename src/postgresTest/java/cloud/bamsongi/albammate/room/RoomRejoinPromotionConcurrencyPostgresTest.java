@@ -99,6 +99,7 @@ class RoomRejoinPromotionConcurrencyPostgresTest {
 	void 직접_재참가가_먼저_만석을_판정하면_취소_뒤_기존_관계만_자동_승격된다() throws Exception {
 		RejoinPromotionFixture fixture = createFixture("rejoin-promotion-rejoin-first");
 		EventCounts before = eventCounts(fixture.roomId());
+		PromotionRecipientCounts promotionRecipientsBefore = promotionRecipientCounts(fixture);
 		participationLookupGate.activate(fixture.roomId(), fixture.rejoiningUserId());
 		ExecutorService executor = Executors.newSingleThreadExecutor();
 		try {
@@ -118,13 +119,14 @@ class RoomRejoinPromotionConcurrencyPostgresTest {
 			shutdown(executor);
 		}
 
-		assertPromotionResult(fixture, before);
+		assertPromotionResult(fixture, before, promotionRecipientsBefore);
 	}
 
 	@Test
 	void 취소와_자동_승격이_먼저_커밋되면_직접_재참가는_이미_참가_중으로_거절된다() throws Exception {
 		RejoinPromotionFixture fixture = createFixture("rejoin-promotion-cancel-first");
 		EventCounts before = eventCounts(fixture.roomId());
+		PromotionRecipientCounts promotionRecipientsBefore = promotionRecipientCounts(fixture);
 		participationLookupGate.activate(fixture.roomId(), fixture.rejoiningUserId());
 		ExecutorService executor = Executors.newSingleThreadExecutor();
 		try {
@@ -143,7 +145,7 @@ class RoomRejoinPromotionConcurrencyPostgresTest {
 			shutdown(executor);
 		}
 
-		assertPromotionResult(fixture, before);
+		assertPromotionResult(fixture, before, promotionRecipientsBefore);
 	}
 
 	private RejoinPromotionFixture createFixture(String emailPrefix) {
@@ -174,7 +176,10 @@ class RoomRejoinPromotionConcurrencyPostgresTest {
 		}
 	}
 
-	private void assertPromotionResult(RejoinPromotionFixture fixture, EventCounts before) {
+	private void assertPromotionResult(
+		RejoinPromotionFixture fixture,
+		EventCounts eventsBefore,
+		PromotionRecipientCounts promotionRecipientsBefore) {
 		Participation participation = participationRepository
 			.findByRoomIdAndUserId(fixture.roomId(), fixture.rejoiningUserId())
 			.orElseThrow();
@@ -212,8 +217,15 @@ class RoomRejoinPromotionConcurrencyPostgresTest {
 		assertTrue(room.getActiveParticipantCount() <= room.getCapacity());
 
 		EventCounts after = eventCounts(fixture.roomId());
-		assertEquals(before.waitlistPromoted() + 1, after.waitlistPromoted());
-		assertEquals(before.participationJoined(), after.participationJoined());
+		assertEquals(eventsBefore.waitlistPromoted() + 1, after.waitlistPromoted());
+		assertEquals(eventsBefore.participationJoined(), after.participationJoined());
+		PromotionRecipientCounts promotionRecipientsAfter = promotionRecipientCounts(fixture);
+		assertEquals(
+			promotionRecipientsBefore.totalRecipients() + 1,
+			promotionRecipientsAfter.totalRecipients());
+		assertEquals(
+			promotionRecipientsBefore.rejoiningUserRecipients() + 1,
+			promotionRecipientsAfter.rejoiningUserRecipients());
 	}
 
 	private EventCounts eventCounts(long roomId) {
@@ -228,6 +240,24 @@ class RoomRejoinPromotionConcurrencyPostgresTest {
 				from notification_outbox_events
 				where room_id = ? and event_type = 'PARTICIPATION_JOINED'
 				""", Integer.class, roomId));
+	}
+
+	private PromotionRecipientCounts promotionRecipientCounts(RejoinPromotionFixture fixture) {
+		int totalRecipients = jdbcTemplate.queryForObject("""
+			select count(*)
+			from notification_outbox_recipients recipient
+			join notification_outbox_events event on event.id = recipient.outbox_event_id
+			where event.room_id = ? and event.event_type = 'WAITLIST_PROMOTED'
+			""", Integer.class, fixture.roomId());
+		int rejoiningUserRecipients = jdbcTemplate.queryForObject("""
+			select count(*)
+			from notification_outbox_recipients recipient
+			join notification_outbox_events event on event.id = recipient.outbox_event_id
+			where event.room_id = ?
+			  and event.event_type = 'WAITLIST_PROMOTED'
+			  and recipient.recipient_user_id = ?
+			""", Integer.class, fixture.roomId(), fixture.rejoiningUserId());
+		return new PromotionRecipientCounts(totalRecipients, rejoiningUserRecipients);
 	}
 
 	private Room createRoom(long hostUserId) {
@@ -284,6 +314,9 @@ class RoomRejoinPromotionConcurrencyPostgresTest {
 	}
 
 	private record EventCounts(int waitlistPromoted, int participationJoined) {
+	}
+
+	private record PromotionRecipientCounts(int totalRecipients, int rejoiningUserRecipients) {
 	}
 
 	@TestConfiguration(proxyBeanMethods = false)
