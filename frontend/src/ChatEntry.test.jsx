@@ -320,7 +320,10 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     expect(send).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: '전송' }));
     await waitFor(() => expect(send).toHaveBeenCalledWith(
-      '7', expect.objectContaining({ content: '첫 줄\n둘째 줄' })
+      '7',
+      expect.objectContaining({ content: '첫 줄\n둘째 줄' }),
+      expect.any(AbortSignal),
+      expect.any(Function)
     ));
     fireEvent.change(input, { target: { value: '키보드 전송' } });
     fireEvent.keyDown(input, { key: 'Enter' });

@@ -2682,7 +2682,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
           {!error && <form className="chat-compose" onSubmit={submit}>
             <label className="sr-only" htmlFor="chat-message">메시지</label>
             <textarea id="chat-message" ref={composeInputRef} disabled={sending} maxLength="500" value={content} onChange={(event) => { setContent(event.target.value); setSendError(''); setSendResultUnknown(false); }} onKeyDown={handleComposeKeyDown} placeholder="메시지를 입력해주세요." />
-            <button className="chat-send-btn" disabled={sending} type="submit" aria-label={sending ? '전송 중' : sendResultUnknown ? '다시 시도' : '전송'}>
+            <button className="chat-send-btn" disabled={sending} type="submit" aria-label={sending ? '전송 중…' : sendResultUnknown ? '다시 시도' : '전송'}>
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12 20 4l-8 16-2-6z" /></svg>
             </button>
             <span className={'chat-count' + ([...content].length > 450 ? ' near' : '')}>{[...content].length}/500</span>
