@@ -307,7 +307,9 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     await waitFor(() => expect(sockets).toHaveLength(1));
     const input = await screen.findByLabelText('메시지');
     fireEvent.change(input, { target: { value: '첫 줄\n둘째 줄' } });
-    fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
+    const shiftEnter = new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true, cancelable: true });
+    fireEvent(input, shiftEnter);
+    expect(shiftEnter.defaultPrevented).toBe(false);
     expect(send).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: '전송' }));
     await waitFor(() => expect(send).toHaveBeenCalledWith(
