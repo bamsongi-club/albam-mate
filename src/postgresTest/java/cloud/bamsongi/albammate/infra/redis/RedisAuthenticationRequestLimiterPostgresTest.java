@@ -21,6 +21,7 @@ import org.springframework.core.env.StandardEnvironment;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
@@ -29,6 +30,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import cloud.bamsongi.albammate.global.config.AuthenticationRequestProtectionProperties;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.global.security.ratelimit.AuthenticationRequestLimiterMetrics;
 import cloud.bamsongi.albammate.global.security.ratelimit.AuthenticationRequestLimiter;
 import cloud.bamsongi.albammate.global.security.ratelimit.LoginVerificationPermit;
 
@@ -334,7 +336,13 @@ class RedisAuthenticationRequestLimiterPostgresTest {
 		properties.setMaxFailureKeys(maxFailureKeys);
 		StandardEnvironment environment = new StandardEnvironment();
 		environment.setActiveProfiles("local");
-		return RedisAuthenticationRequestLimiter.forTest(connectionFactory, environment, properties, testKeyPrefix);
+		RedisAuthenticationRequestLimiter limiter = new RedisAuthenticationRequestLimiter(
+			connectionFactory,
+			environment,
+			properties,
+			AuthenticationRequestLimiterMetrics.global());
+		ReflectionTestUtils.setField(limiter, "keyPrefix", testKeyPrefix);
+		return limiter;
 	}
 
 	private void assertThrowsServiceUnavailable(org.junit.jupiter.api.function.Executable executable) {

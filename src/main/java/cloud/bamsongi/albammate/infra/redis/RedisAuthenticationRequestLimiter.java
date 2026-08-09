@@ -114,39 +114,15 @@ public class RedisAuthenticationRequestLimiter implements AuthenticationRequestL
 	private final AuthenticationRequestProtectionProperties properties;
 	private final AuthenticationRequestLimiterMetrics metrics;
 
-	static RedisAuthenticationRequestLimiter forTest(
-		RedisConnectionFactory redisConnectionFactory,
-		Environment environment,
-		AuthenticationRequestProtectionProperties properties,
-		String testKeyPrefix) {
-		return new RedisAuthenticationRequestLimiter(
-			redisConnectionFactory,
-			environment,
-			properties,
-			AuthenticationRequestLimiterMetrics.global(),
-			testKeyPrefix);
-	}
-
 	public RedisAuthenticationRequestLimiter(
 		RedisConnectionFactory redisConnectionFactory,
 		Environment environment,
 		AuthenticationRequestProtectionProperties properties,
 		AuthenticationRequestLimiterMetrics metrics) {
-		this(redisConnectionFactory, environment, properties, metrics, null);
-	}
-
-	private RedisAuthenticationRequestLimiter(
-		RedisConnectionFactory redisConnectionFactory,
-		Environment environment,
-		AuthenticationRequestProtectionProperties properties,
-		AuthenticationRequestLimiterMetrics metrics,
-		String testKeyPrefix) {
 		redisTemplate = new StringRedisTemplate(
 			Objects.requireNonNull(redisConnectionFactory, "redisConnectionFactory"));
 		redisTemplate.afterPropertiesSet();
-		keyPrefix = testKeyPrefix == null
-			? namespaceFor(Objects.requireNonNull(environment, "environment")) + ":auth"
-			: testKeyPrefix;
+		keyPrefix = namespaceFor(Objects.requireNonNull(environment, "environment")) + ":auth";
 		this.properties = Objects.requireNonNull(properties, "properties");
 		this.metrics = Objects.requireNonNull(metrics, "metrics");
 	}
