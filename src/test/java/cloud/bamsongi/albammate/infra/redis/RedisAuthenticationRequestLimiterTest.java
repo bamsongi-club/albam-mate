@@ -26,6 +26,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import cloud.bamsongi.albammate.global.config.AuthenticationRequestProtectionProperties;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.global.security.ratelimit.AuthenticationRequestLimiterMetrics;
 import cloud.bamsongi.albammate.global.security.ratelimit.LoginVerificationPermit;
 import cloud.bamsongi.albammate.global.security.ratelimit.RateLimitDecision;
 import io.micrometer.core.instrument.Metrics;
@@ -43,7 +44,11 @@ class RedisAuthenticationRequestLimiterTest {
 		properties.setWindow(Duration.ofSeconds(10));
 		MockEnvironment environment = new MockEnvironment();
 		environment.setActiveProfiles("local");
-		limiter = new RedisAuthenticationRequestLimiter(mock(RedisConnectionFactory.class), environment, properties);
+		limiter = new RedisAuthenticationRequestLimiter(
+			mock(RedisConnectionFactory.class),
+			environment,
+			properties,
+			AuthenticationRequestLimiterMetrics.global());
 		redisTemplate = mock(StringRedisTemplate.class);
 		ReflectionTestUtils.setField(limiter, "redisTemplate", redisTemplate);
 	}

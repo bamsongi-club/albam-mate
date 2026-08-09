@@ -10,7 +10,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
@@ -115,23 +114,19 @@ public class RedisAuthenticationRequestLimiter implements AuthenticationRequestL
 	private final AuthenticationRequestProtectionProperties properties;
 	private final AuthenticationRequestLimiterMetrics metrics;
 
-	public RedisAuthenticationRequestLimiter(
-		RedisConnectionFactory redisConnectionFactory,
-		Environment environment,
-		AuthenticationRequestProtectionProperties properties) {
-		this(redisConnectionFactory, environment, properties, AuthenticationRequestLimiterMetrics.global(), null);
-	}
-
-	RedisAuthenticationRequestLimiter(
+	static RedisAuthenticationRequestLimiter forTest(
 		RedisConnectionFactory redisConnectionFactory,
 		Environment environment,
 		AuthenticationRequestProtectionProperties properties,
 		String testKeyPrefix) {
-		this(redisConnectionFactory, environment, properties, AuthenticationRequestLimiterMetrics.global(),
+		return new RedisAuthenticationRequestLimiter(
+			redisConnectionFactory,
+			environment,
+			properties,
+			AuthenticationRequestLimiterMetrics.global(),
 			testKeyPrefix);
 	}
 
-	@Autowired
 	public RedisAuthenticationRequestLimiter(
 		RedisConnectionFactory redisConnectionFactory,
 		Environment environment,

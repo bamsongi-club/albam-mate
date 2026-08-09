@@ -9,9 +9,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import cloud.bamsongi.albammate.global.security.ratelimit.AuthenticationRequestLimiterMetrics;
-import io.micrometer.core.instrument.MeterRegistry;
-
 /** P0 비밀번호 저장 계약과 인증 요청 보호 구성이다. */
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({
@@ -26,8 +23,4 @@ public class PasswordSecurityConfig {
 		return new DelegatingPasswordEncoder("bcrypt", Map.of("bcrypt", bcrypt));
 	}
 
-	@Bean
-	AuthenticationRequestLimiterMetrics authenticationRequestLimiterMetrics(MeterRegistry meterRegistry) {
-		return new AuthenticationRequestLimiterMetrics(meterRegistry);
-	}
 }

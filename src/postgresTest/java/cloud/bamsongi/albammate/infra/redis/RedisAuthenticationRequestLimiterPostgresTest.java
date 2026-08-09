@@ -150,6 +150,22 @@ class RedisAuthenticationRequestLimiterPostgresTest {
 	}
 
 	@Test
+	void T8_gate를_먼저_해제해도_더_길게_남은_실패_TTL이_슬롯을_유지한다() throws InterruptedException {
+		AuthenticationRequestLimiter limited = limiter(firstFactory, Duration.ofMillis(500), 10, 1);
+		LoginVerificationPermit permit = limited.tryAcquireLoginVerification("first@example.com", "203.0.113.83")
+			.orElseThrow();
+		TimeUnit.MILLISECONDS.sleep(200);
+		assertTrue(limited.recordLoginFailure("first@example.com", "203.0.113.83").allowed());
+
+		permit.close();
+		assertThrowsServiceUnavailable(
+			() -> limited.tryAcquireLoginVerification("second@example.com", "203.0.113.84"));
+		TimeUnit.MILLISECONDS.sleep(550);
+
+		assertTrue(limited.tryAcquireLoginVerification("second@example.com", "203.0.113.84").isPresent());
+	}
+
+	@Test
 	void T8_gate_해제와_실패_초기화는_남은_TTL을_갱신하고_비면_즉시_반납한다() {
 		AuthenticationRequestLimiter limited = limiter(firstFactory, Duration.ofSeconds(10), 10, 1);
 		assertTrue(limited.recordLoginFailure("first@example.com", "203.0.113.81").allowed());
@@ -318,7 +334,7 @@ class RedisAuthenticationRequestLimiterPostgresTest {
 		properties.setMaxFailureKeys(maxFailureKeys);
 		StandardEnvironment environment = new StandardEnvironment();
 		environment.setActiveProfiles("local");
-		return new RedisAuthenticationRequestLimiter(connectionFactory, environment, properties, testKeyPrefix);
+		return RedisAuthenticationRequestLimiter.forTest(connectionFactory, environment, properties, testKeyPrefix);
 	}
 
 	private void assertThrowsServiceUnavailable(org.junit.jupiter.api.function.Executable executable) {
