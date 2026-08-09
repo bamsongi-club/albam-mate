@@ -219,6 +219,7 @@ class RoomRejoinPromotionConcurrencyPostgresTest {
 		EventCounts after = eventCounts(fixture.roomId());
 		assertEquals(eventsBefore.waitlistPromoted() + 1, after.waitlistPromoted());
 		assertEquals(eventsBefore.participationJoined(), after.participationJoined());
+		assertEquals(eventsBefore.participationCanceled(), after.participationCanceled());
 		PromotionRecipientCounts promotionRecipientsAfter = promotionRecipientCounts(fixture);
 		assertEquals(
 			promotionRecipientsBefore.totalRecipients() + 1,
@@ -229,17 +230,22 @@ class RoomRejoinPromotionConcurrencyPostgresTest {
 	}
 
 	private EventCounts eventCounts(long roomId) {
-		return new EventCounts(
-			jdbcTemplate.queryForObject("""
-				select count(*)
-				from notification_outbox_events
-				where room_id = ? and event_type = 'WAITLIST_PROMOTED'
-				""", Integer.class, roomId),
-			jdbcTemplate.queryForObject("""
-				select count(*)
-				from notification_outbox_events
-				where room_id = ? and event_type = 'PARTICIPATION_JOINED'
-				""", Integer.class, roomId));
+		int waitlistPromoted = jdbcTemplate.queryForObject("""
+			select count(*)
+			from notification_outbox_events
+			where room_id = ? and event_type = 'WAITLIST_PROMOTED'
+			""", Integer.class, roomId);
+		int participationJoined = jdbcTemplate.queryForObject("""
+			select count(*)
+			from notification_outbox_events
+			where room_id = ? and event_type = 'PARTICIPATION_JOINED'
+			""", Integer.class, roomId);
+		int participationCanceled = jdbcTemplate.queryForObject("""
+			select count(*)
+			from notification_outbox_events
+			where room_id = ? and event_type = 'PARTICIPATION_CANCELED'
+			""", Integer.class, roomId);
+		return new EventCounts(waitlistPromoted, participationJoined, participationCanceled);
 	}
 
 	private PromotionRecipientCounts promotionRecipientCounts(RejoinPromotionFixture fixture) {
@@ -313,7 +319,7 @@ class RoomRejoinPromotionConcurrencyPostgresTest {
 		}
 	}
 
-	private record EventCounts(int waitlistPromoted, int participationJoined) {
+	private record EventCounts(int waitlistPromoted, int participationJoined, int participationCanceled) {
 	}
 
 	private record PromotionRecipientCounts(int totalRecipients, int rejoiningUserRecipients) {
