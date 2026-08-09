@@ -33,6 +33,7 @@ import cloud.bamsongi.albammate.chat.entity.ChatRoom;
 import cloud.bamsongi.albammate.chat.repository.ChatMessageRepository;
 import cloud.bamsongi.albammate.chat.repository.ChatRoomRepository;
 import cloud.bamsongi.albammate.room.contract.ChatAccessGuard;
+import cloud.bamsongi.albammate.room.contract.ChatWebSocketAccessChecker;
 import cloud.bamsongi.albammate.user.contract.UserQuery;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import tools.jackson.databind.json.JsonMapper;
@@ -49,6 +50,7 @@ class ChatWebSocketHandlerReconnectRecoveryTest {
 	private final MapSessionRepository sessionRepository = new MapSessionRepository(new HashMap<>());
 	private final TaskScheduler taskScheduler = mock(TaskScheduler.class);
 	private final ChatAccessGuard chatAccessGuard = mock(ChatAccessGuard.class);
+	private final ChatWebSocketAccessChecker chatWebSocketAccessChecker = mock(ChatWebSocketAccessChecker.class);
 	private final ChatWebSocketProperties properties = new ChatWebSocketProperties();
 	private final ChatRoomRepository chatRoomRepository = mock(ChatRoomRepository.class);
 	private final ChatMessageRepository chatMessageRepository = mock(ChatMessageRepository.class);
@@ -188,6 +190,7 @@ class ChatWebSocketHandlerReconnectRecoveryTest {
 			Clock.fixed(CREATED_AT.plusSeconds(1), ZoneOffset.UTC));
 		return new ChatWebSocketHandler(
 			chatAccessGuard,
+			chatWebSocketAccessChecker,
 			sessionRepository,
 			taskScheduler,
 			properties,
