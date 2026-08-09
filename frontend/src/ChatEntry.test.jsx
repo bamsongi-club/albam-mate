@@ -291,7 +291,7 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     await waitFor(() => expect(screen.getAllByText('중복 없는 메시지')).toHaveLength(1));
   });
 
-  it('Enter로 전송하고 Shift+Enter는 줄바꿈을 허용한다', async () => {
+  it('Enter로 전송하고 Shift+Enter의 LF payload를 그대로 전송한다', async () => {
     const sockets = useFakeWebSocket();
     vi.spyOn(api, 'getChatMessages').mockResolvedValue({ messages: [], nextBeforeMessageId: null, hasNext: false });
     const send = vi.spyOn(api, 'sendChatMessage').mockResolvedValue({
@@ -299,16 +299,22 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
       roomId: 7,
       sender: { nickname: '테스터' },
       isMine: true,
-      content: '키보드 전송',
+      content: '첫 줄\n둘째 줄',
       createdAt: '2026-09-01T19:02:00+09:00'
     });
 
     render(<ChatRoomView roomId="7" dataVersion={0} />);
     await waitFor(() => expect(sockets).toHaveLength(1));
     const input = await screen.findByLabelText('메시지');
-    fireEvent.change(input, { target: { value: '줄바꿈' } });
-    fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
+    fireEvent.change(input, { target: { value: '첫 줄\n둘째 줄' } });
+    const shiftEnter = new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true, cancelable: true });
+    fireEvent(input, shiftEnter);
+    expect(shiftEnter.defaultPrevented).toBe(false);
     expect(send).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '전송' }));
+    await waitFor(() => expect(send).toHaveBeenCalledWith(
+      '7', expect.objectContaining({ content: '첫 줄\n둘째 줄' })
+    ));
     fireEvent.change(input, { target: { value: '키보드 전송' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
