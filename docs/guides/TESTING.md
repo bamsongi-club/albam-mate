@@ -16,6 +16,7 @@
 | 외부 fixture PostgreSQL 성능 | `postgresTest` exact selector | 저장소 밖 17만 행 fixture의 대표 검색 조합·실행 계획·page·count 시간 |
 | 빠른 커버리지 | `jacocoTestCoverageVerification` | H2 `test` 결과만 사용하는 로컬 회귀 게이트 |
 | 정본 커버리지 | `jacocoAllTestCoverageVerification` | `test`와 `postgresTest` 결과를 합산하는 CI 판정 게이트 |
+| CI shard 커버리지 | `jacocoMergedTestCoverageVerification` | 독립 runner가 만든 H2·PostgreSQL execution data를 합산하는 CI 판정 게이트 |
 
 H2와 PostgreSQL을 나누는 근거는 [ADR-0010](../adr/platform/0010-h2-postgresql-test-boundary.md), 커버리지 방지선의 근거는 [ADR-0017](../adr/platform/0017-test-coverage-branch-ratchet.md)이 소유한다.
 
@@ -96,6 +97,18 @@ macOS·Linux:
 
 각 게이트는 담당 Test 태스크의 JaCoCo 실행 데이터만 사용한다. `build/jacoco`의 모든 `.exec`를 읽으면 이번에 실행하지 않은 suite의 과거 결과가 남아 테스트 변경·삭제 뒤에도 분기를 덮는 거짓 통과가 생길 수 있다.
 
+CI의 shard 병합 태스크는 다음 세 파일이 모두 존재하고 비어 있지 않을 때만 실행된다. 테스트를 직접 실행하지 않으며, 같은 SHA의 main class를 컴파일한 뒤 execution data를 합산한다.
+
+```text
+build/jacoco/merged/test.exec
+build/jacoco/merged/postgresTest-0.exec
+build/jacoco/merged/postgresTest-1.exec
+```
+
+```sh
+./gradlew jacocoMergedTestReport jacocoMergedTestCoverageVerification
+```
+
 ## 결과 해석과 최소선 갱신
 
 HTML 리포트에서 미커버 분기의 파일과 줄을 확인한다.
@@ -103,6 +116,7 @@ HTML 리포트에서 미커버 분기의 파일과 줄을 확인한다.
 ```text
 build/reports/jacoco/test/html/index.html
 build/reports/jacoco/jacocoAllTestReport/html/index.html
+build/reports/jacoco/jacocoMergedTestReport/html/index.html
 ```
 
 최소선은 목표치가 아니라 도입 시점의 실측값을 바닥으로 고정한 회귀 방지선이다. 올리는 변경은 그대로 반영하고, 내리는 변경은 이유를 PR에 남긴다. 패키지별 값과 전체 분기·라인 값은 [build.gradle](../../build.gradle)의 `gatedBranchCoverage`와 `applyCoverageRules`가 정본이다.
@@ -118,11 +132,12 @@ build/reports/jacoco/jacocoAllTestReport/html/index.html
 
 CI는 `Changes`에서 변경 경로를 먼저 분류하고, 모든 변경에서 `Docs`와 마지막 `CI Gate`를 실행한다. 문서만 바뀌면 조건부 검증 job은 실행하지 않고, 프론트엔드만 바뀌면 `Frontend`만 추가로 실행한다. 백엔드, Gradle, Compose, workflow처럼 그 밖의 경로가 바뀌면 다음 백엔드 job을 병렬로 실행한다.
 
-- `Backend Static`: 애플리케이션 조립, Spotless와 모든 Java source set의 Checkstyle
+- `Backend Fast`: 애플리케이션 조립, H2 `test`, Spotless와 모든 Java source set의 Checkstyle
 - `Local Multi Runtime`: 프록시, Spring 두 대, PostgreSQL과 Redis를 사용하는 교차 인스턴스 세션
-- `Backend Coverage`: H2 `test`, `postgresTest`, 합산 리포트와 정본 커버리지 게이트
+- `PostgreSQL 1/2`, `PostgreSQL 2/2`: source set의 테스트 클래스를 소스 크기 기준으로 균등 분할한 PostgreSQL 검증
+- `Coverage Gate`: H2와 두 PostgreSQL shard의 execution data를 합산하는 정본 커버리지 게이트
 
-`Backend Coverage`는 H2와 PostgreSQL 실행 데이터를 하나의 Gradle 태스크 그래프에서 한 번씩 생성한다. H2 게이트가 PostgreSQL 전용 분기를 먼저 미검증으로 판정해 정본 게이트를 가로막지 않으며, 서로 다른 runner 사이에서 JaCoCo execution data를 전달하지 않는다. 수동 실행과 변경 경로를 확정할 수 없는 실행은 전체 검증으로 안전하게 폴백한다.
+`Backend Fast`와 PostgreSQL shard는 execution data를 이름이 겹치지 않는 artifact로 전달한다. `Coverage Gate`는 세 입력 중 하나라도 없거나 비어 있으면 실패하고, 테스트를 다시 실행하지 않은 채 합산 리포트와 패키지 규칙 대상을 판정한다. shard별 JUnit XML과 HTML은 실행시간 재조정과 실패 분석을 위해 14일간 보관한다. 수동 실행과 변경 경로를 확정할 수 없는 실행은 전체 검증으로 안전하게 폴백한다.
 
 합산 리포트가 생성되면 전체 분기·라인 비율을 job summary에 남기고 HTML·XML을 `jacoco-coverage-<run attempt>` artifact로 14일간 보관한다. 게이트가 실패해도 리포트 생성 단계까지 진행됐다면 같은 artifact에서 미커버 위치를 확인한다.
 

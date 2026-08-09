@@ -97,6 +97,24 @@ tasks.register('postgresTest', Test) {
 // 함께 집계되고, 테스트를 바꾸거나 지워도 과거 실행 데이터가 분기를 덮어 거짓 통과한다.
 def testExecutionData = layout.buildDirectory.file('jacoco/test.exec')
 def postgresTestExecutionData = layout.buildDirectory.file('jacoco/postgresTest.exec')
+def mergedExecutionDataDirectory = layout.buildDirectory.dir('jacoco/merged')
+def mergedExecutionDataNames = ['test.exec', 'postgresTest-0.exec', 'postgresTest-1.exec']
+def mergedExecutionData = files(mergedExecutionDataNames.collect { fileName ->
+    mergedExecutionDataDirectory.map { directory -> directory.file(fileName) }
+})
+
+def verifyExecutionData = { executionData, expectedNames ->
+    def filesByName = executionData.files.collectEntries { executionDataFile ->
+        [(executionDataFile.name): executionDataFile]
+    }
+    def missing = expectedNames.findAll { fileName ->
+        def executionDataFile = filesByName[fileName]
+        executionDataFile == null || !executionDataFile.isFile() || executionDataFile.length() == 0
+    }
+    if (!missing.isEmpty()) {
+        throw new GradleException("합산할 JaCoCo execution data가 없거나 비어 있습니다: ${missing.join(', ')}")
+    }
+}
 
 // H2 test만 집계한다. Docker 없이 실행할 수 있는 빠른 리포트다.
 tasks.named('jacocoTestReport', JacocoReport) {
@@ -119,6 +137,23 @@ tasks.register('jacocoAllTestReport', JacocoReport) {
     reports {
         xml.required = true
         html.required = true
+    }
+}
+
+// CI의 독립 runner에서 생성한 H2와 PostgreSQL shard execution data를 합산한다.
+// Test 태스크에 의존하지 않아 coverage gate runner에서 테스트를 다시 실행하지 않는다.
+tasks.register('jacocoMergedTestReport', JacocoReport) {
+    description = 'Generates a coverage report from CI-sharded test execution data.'
+    group = 'verification'
+    dependsOn tasks.named('classes')
+    sourceSets sourceSets.main
+    executionData.setFrom(mergedExecutionData)
+    reports {
+        xml.required = true
+        html.required = true
+    }
+    doFirst {
+        verifyExecutionData(mergedExecutionData, mergedExecutionDataNames)
     }
 }
 
@@ -214,62 +249,86 @@ tasks.register('jacocoAllTestCoverageVerification', JacocoCoverageVerification) 
     applyCoverageRules(it)
 }
 
+// CI shard가 만든 execution data만 사용하는 정본 게이트다. shard 누락을 먼저 검사하고
+// 합산 리포트의 실제 패키지 구조와 커버리지 최소선을 함께 판정한다.
+tasks.register('jacocoMergedTestCoverageVerification', JacocoCoverageVerification) {
+    description = 'Verifies branch coverage from CI-sharded test execution data.'
+    group = 'verification'
+    dependsOn tasks.named('classes'), tasks.named('jacocoMergedTestReport'),
+            tasks.named('verifyMergedCoverageRuleTargets')
+    sourceSets sourceSets.main
+    executionData.setFrom(mergedExecutionData)
+    applyCoverageRules(it)
+    doFirst {
+        verifyExecutionData(mergedExecutionData, mergedExecutionDataNames)
+    }
+}
+
 // 패키지 규칙은 이름이 정확히 일치할 때만 적용되고, 규칙이 없는 패키지는 전체 최소선만
 // 적용된다. 전체 최소선은 새 분기가 분모를 함께 키우므로 새 모듈이 낮은 커버리지로
 // 들어와도 통과할 수 있다. 두 방향을 모두 실패로 만들어 대상 목록이 실제 패키지 구조와
 // 어긋난 채 검사가 약해지지 않게 한다.
 def coverageReportXmlFile = layout.buildDirectory.file('reports/jacoco/test/jacocoTestReport.xml')
+def mergedCoverageReportXmlFile =
+        layout.buildDirectory.file('reports/jacoco/jacocoMergedTestReport/jacocoMergedTestReport.xml')
 
-tasks.register('verifyCoverageRuleTargets') {
-    description = 'Fails when coverage rule targets and the reported packages disagree.'
-    group = 'verification'
-    dependsOn tasks.named('jacocoTestReport')
-    def ruleTargets = gatedBranchCoverage.keySet()
-    def minimumBranches = coveragePackageRuleMinimumBranches
-    def reportXml = coverageReportXmlFile
-    doLast {
-        def parser = new groovy.xml.XmlSlurper()
-        parser.setFeature('http://apache.org/xml/features/disallow-doctype-decl', false)
-        parser.setFeature('http://apache.org/xml/features/nonvalidating/load-external-dtd', false)
+def registerCoverageRuleTargetVerification = { taskName, reportTaskName, reportFile ->
+    tasks.register(taskName) {
+        description = 'Fails when coverage rule targets and the reported packages disagree.'
+        group = 'verification'
+        dependsOn tasks.named(reportTaskName)
+        inputs.file(reportFile)
+        def ruleTargets = gatedBranchCoverage.keySet()
+        def minimumBranches = coveragePackageRuleMinimumBranches
+        doLast {
+            def parser = new groovy.xml.XmlSlurper()
+            parser.setFeature('http://apache.org/xml/features/disallow-doctype-decl', false)
+            parser.setFeature('http://apache.org/xml/features/nonvalidating/load-external-dtd', false)
 
-        def branchesByPackage = [:]
-        parser.parse(reportXml.get().asFile).'package'.each { reportedPackage ->
-            def covered = 0
-            def missed = 0
-            reportedPackage.counter.each { counter ->
-                if (counter.@type.text() == 'BRANCH') {
-                    covered = counter.@covered.text() as int
-                    missed = counter.@missed.text() as int
+            def branchesByPackage = [:]
+            parser.parse(reportFile.get().asFile).'package'.each { reportedPackage ->
+                def covered = 0
+                def missed = 0
+                reportedPackage.counter.each { counter ->
+                    if (counter.@type.text() == 'BRANCH') {
+                        covered = counter.@covered.text() as int
+                        missed = counter.@missed.text() as int
+                    }
                 }
+                branchesByPackage[reportedPackage.@name.text().replace('/', '.')] =
+                        [covered: covered, total: covered + missed]
             }
-            branchesByPackage[reportedPackage.@name.text().replace('/', '.')] =
-                    [covered: covered, total: covered + missed]
-        }
 
-        def problems = []
-        ruleTargets.findAll { !branchesByPackage.containsKey(it) }.sort().each { target ->
-            problems << "규칙 대상 패키지가 리포트에 없습니다: ${target}"
-        }
-        branchesByPackage
-                .findAll { name, branches -> branches.total >= minimumBranches && !ruleTargets.contains(name) }
-                .keySet()
-                .sort()
-                .each { name ->
-                    def branches = branchesByPackage[name]
-                    problems << String.format(
-                            '최소선이 없는 패키지가 있습니다: %s (분기 %d개, 현재 %.1f%%)',
-                            name, branches.total, branches.covered * 100.0 / branches.total)
-                }
+            def problems = []
+            ruleTargets.findAll { !branchesByPackage.containsKey(it) }.sort().each { target ->
+                problems << "규칙 대상 패키지가 리포트에 없습니다: ${target}"
+            }
+            branchesByPackage
+                    .findAll { name, branches -> branches.total >= minimumBranches && !ruleTargets.contains(name) }
+                    .keySet()
+                    .sort()
+                    .each { name ->
+                        def branches = branchesByPackage[name]
+                        problems << String.format(
+                                '최소선이 없는 패키지가 있습니다: %s (분기 %d개, 현재 %.1f%%)',
+                                name, branches.total, branches.covered * 100.0 / branches.total)
+                    }
 
-        if (!problems.isEmpty()) {
-            throw new GradleException((['커버리지 규칙 대상이 현재 패키지 구조와 맞지 않습니다.']
-                    + problems
-                    + ["분기 ${minimumBranches}개 이상인 패키지는 build.gradle 의 gatedBranchCoverage 에"
-                             + ' 최소선을 두어야 합니다. 실측값을 0.01 단위로 내려 적으세요.'])
-                    .join('\n - '))
+            if (!problems.isEmpty()) {
+                throw new GradleException((['커버리지 규칙 대상이 현재 패키지 구조와 맞지 않습니다.']
+                        + problems
+                        + ["분기 ${minimumBranches}개 이상인 패키지는 build.gradle 의 gatedBranchCoverage 에"
+                                 + ' 최소선을 두어야 합니다. 실측값을 0.01 단위로 내려 적으세요.'])
+                        .join('\n - '))
+            }
         }
     }
 }
+
+registerCoverageRuleTargetVerification(
+        'verifyCoverageRuleTargets', 'jacocoTestReport', coverageReportXmlFile)
+registerCoverageRuleTargetVerification(
+        'verifyMergedCoverageRuleTargets', 'jacocoMergedTestReport', mergedCoverageReportXmlFile)
 
 tasks.named('check') {
     dependsOn tasks.named('jacocoTestCoverageVerification'), tasks.named('verifyCoverageRuleTargets')

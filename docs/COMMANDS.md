@@ -29,6 +29,7 @@ Gradle은 별도 설치본 대신 저장소의 Wrapper를 사용한다.
 | 커버리지 리포트 (통합 포함) | `.\gradlew.bat jacocoAllTestReport` | `./gradlew jacocoAllTestReport` |
 | 분기 커버리지 검사 | `.\gradlew.bat jacocoTestCoverageVerification` | `./gradlew jacocoTestCoverageVerification` |
 | 분기 커버리지 검사 (통합 포함) | `.\gradlew.bat jacocoAllTestCoverageVerification` | `./gradlew jacocoAllTestCoverageVerification` |
+| CI shard 커버리지 병합 | `.\gradlew.bat jacocoMergedTestReport jacocoMergedTestCoverageVerification` | `./gradlew jacocoMergedTestReport jacocoMergedTestCoverageVerification` |
 | 커버리지 규칙 대상 확인 | `.\gradlew.bat verifyCoverageRuleTargets` | `./gradlew verifyCoverageRuleTargets` |
 | 프론트엔드 회귀 테스트 (Vitest) | `Set-Location frontend; npm.cmd test` | `cd frontend && npm test` |
 
