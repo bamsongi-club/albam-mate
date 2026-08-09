@@ -1,18 +1,41 @@
 package cloud.bamsongi.albammate.global.config;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.Properties;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.web.filter.ForwardedHeaderFilter;
+
+import cloud.bamsongi.albammate.global.security.ratelimit.InMemoryAuthenticationRequestLimiter;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
 
 class P1DeploymentContractTest {
 
 	private static final Path REPOSITORY_ROOT = Path.of("").toAbsolutePath();
+	private static final Pattern FORWARDED_FOR_REMOTE_ADDRESS_DIRECTIVE = Pattern.compile(
+		"(?m)^[\\t ]*proxy_set_header X-Forwarded-For \\$remote_addr;[\\t ]*$");
+	private static final Pattern FORWARDED_REMOVAL_DIRECTIVE = Pattern.compile(
+		"(?m)^[\\t ]*proxy_set_header Forwarded \"\";[\\t ]*$");
 
 	@Test
 	void read_only_web은_tmp_렌더링_설정으로_healthz와_TLS를_기동한다() throws IOException {
@@ -31,6 +54,76 @@ class P1DeploymentContractTest {
 		assertTrue(nginx.contains("server ${ALBAM_MATE_APP2_HOST}:8080;"));
 		assertFalse(nginx.contains("server 127.0.0.1:8080;"));
 		assertTrue(nginx.contains("add_header X-Albam-Mate-Upstream $upstream_addr always;"));
+	}
+
+	@Test
+	void 모든_Spring_proxy는_XFF를_직접_관찰_주소로_덮어쓴다() throws IOException {
+		assertSpringProxyOverwritesForwardedFor(file("frontend/nginx.production.conf"));
+		assertSpringProxyOverwritesForwardedFor(file("frontend/nginx.local.conf"));
+		assertSpringProxyOverwritesForwardedFor(file("frontend/nginx.conf"));
+	}
+
+	@Test
+	void production과_local은_framework_전달_헤더를_사용하고_기본_설정은_비활성화한다() throws IOException {
+		assertEquals("framework", yamlProperties("src/main/resources/application-production.yml")
+			.getProperty("server.forward-headers-strategy"));
+		assertEquals("framework", yamlProperties("src/main/resources/application-local.yml")
+			.getProperty("server.forward-headers-strategy"));
+		assertNull(yamlProperties("src/main/resources/application.yml")
+			.getProperty("server.forward-headers-strategy"));
+	}
+
+	@Test
+	void 제거된_외부_Forwarded는_Spring_remote_addr와_제한_버킷을_바꾸지_못한다()
+		throws IOException, ServletException {
+		String nginxObservedAddress = "203.0.113.10";
+		String maliciousForwardedAddress = "198.51.100.10";
+		InMemoryAuthenticationRequestLimiter limiter = inMemoryLimiter();
+		String firstRemoteAddress = springRemoteAddress(nginxObservedAddress);
+		String secondRemoteAddress = springRemoteAddress(nginxObservedAddress);
+
+		assertEquals(
+			maliciousForwardedAddress,
+			springRemoteAddressWithForwarded("for=" + maliciousForwardedAddress, nginxObservedAddress));
+		assertEquals(nginxObservedAddress, firstRemoteAddress);
+		assertEquals(nginxObservedAddress, secondRemoteAddress);
+		assertTrue(limiter.checkAndRecordSignup(firstRemoteAddress).allowed());
+		assertTrue(limiter.checkAndRecordSignup(secondRemoteAddress).allowed());
+		assertEquals(1, limiter.ipBucketCount());
+	}
+
+	@Test
+	void 같은_Nginx_제공_주소는_Spring_remote_addr와_인스턴스별_제한_버킷으로_수렴한다()
+		throws IOException, ServletException {
+		String nginxObservedAddress = "203.0.113.10";
+		InMemoryAuthenticationRequestLimiter limiter = inMemoryLimiter();
+		String signupRemoteAddress = springRemoteAddress(nginxObservedAddress);
+		String loginRemoteAddress = springRemoteAddress(nginxObservedAddress);
+
+		assertEquals(nginxObservedAddress, signupRemoteAddress);
+		assertEquals(nginxObservedAddress, loginRemoteAddress);
+		assertTrue(limiter.checkAndRecordSignup(signupRemoteAddress).allowed());
+		assertTrue(limiter.checkAndRecordSignup(signupRemoteAddress).allowed());
+		assertTrue(limiter.checkAndRecordLogin(loginRemoteAddress).allowed());
+		assertTrue(limiter.checkAndRecordLogin(loginRemoteAddress).allowed());
+		assertEquals(2, limiter.ipBucketCount());
+	}
+
+	@Test
+	void 다른_Nginx_제공_주소는_서로_다른_Spring_remote_addr와_인스턴스별_제한_버킷으로_유지된다()
+		throws IOException, ServletException {
+		String firstAddress = springRemoteAddress("203.0.113.10");
+		String secondAddress = springRemoteAddress("203.0.113.11");
+		InMemoryAuthenticationRequestLimiter limiter = inMemoryLimiter();
+
+		assertEquals("203.0.113.10", firstAddress);
+		assertEquals("203.0.113.11", secondAddress);
+		assertFalse(firstAddress.equals(secondAddress));
+		assertTrue(limiter.checkAndRecordSignup(firstAddress).allowed());
+		assertTrue(limiter.checkAndRecordSignup(secondAddress).allowed());
+		assertTrue(limiter.checkAndRecordLogin(firstAddress).allowed());
+		assertTrue(limiter.checkAndRecordLogin(secondAddress).allowed());
+		assertEquals(4, limiter.ipBucketCount());
 	}
 
 	@Test
@@ -126,8 +219,94 @@ class P1DeploymentContractTest {
 		assertTrue(compose.contains("JDK_JAVA_OPTIONS: -Xmx256m"));
 	}
 
+	private void assertSpringProxyOverwritesForwardedFor(String nginx) {
+		assertFalse(nginx.contains("$proxy_add_x_forwarded_for"));
+		int springProxyLocationCount = 0;
+		Matcher locationMatcher = Pattern
+			.compile("(?s)location\\s+[^\\{]+\\{.*?\\n\\s*}")
+			.matcher(nginx);
+		while (locationMatcher.find()) {
+			String location = locationMatcher.group();
+			if (!location.contains("proxy_pass")) {
+				continue;
+			}
+
+			springProxyLocationCount++;
+			assertFalse(location.contains("$proxy_add_x_forwarded_for"));
+			assertEquals(1, countForwardedForRemoteAddressDirectives(location));
+			assertEquals(1, countForwardedRemovalDirectives(location));
+		}
+		assertEquals(2, springProxyLocationCount);
+	}
+
+	private int countForwardedForRemoteAddressDirectives(String contents) {
+		var directiveMatcher = FORWARDED_FOR_REMOTE_ADDRESS_DIRECTIVE.matcher(contents);
+		int count = 0;
+		while (directiveMatcher.find()) {
+			count++;
+		}
+		return count;
+	}
+
+	private int countForwardedRemovalDirectives(String contents) {
+		var directiveMatcher = FORWARDED_REMOVAL_DIRECTIVE.matcher(contents);
+		int count = 0;
+		while (directiveMatcher.find()) {
+			count++;
+		}
+		return count;
+	}
+
+	private String springRemoteAddress(String nginxObservedAddress) throws IOException, ServletException {
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setRemoteAddr("172.20.0.10");
+		request.addHeader("X-Forwarded-For", nginxObservedAddress);
+		AtomicReference<String> remoteAddress = new AtomicReference<>();
+
+		new ForwardedHeaderFilter().doFilter(
+			request,
+			new MockHttpServletResponse(),
+			(servletRequest, servletResponse) -> remoteAddress.set(
+				((HttpServletRequest)servletRequest).getRemoteAddr()));
+
+		return remoteAddress.get();
+	}
+
+	private String springRemoteAddressWithForwarded(String forwarded, String nginxObservedAddress)
+		throws IOException, ServletException {
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setRemoteAddr("172.20.0.10");
+		request.addHeader("Forwarded", forwarded);
+		request.addHeader("X-Forwarded-For", nginxObservedAddress);
+		AtomicReference<String> remoteAddress = new AtomicReference<>();
+
+		new ForwardedHeaderFilter().doFilter(
+			request,
+			new MockHttpServletResponse(),
+			(servletRequest, servletResponse) -> remoteAddress.set(
+				((HttpServletRequest)servletRequest).getRemoteAddr()));
+
+		return remoteAddress.get();
+	}
+
+	private InMemoryAuthenticationRequestLimiter inMemoryLimiter() {
+		AuthenticationRequestProtectionProperties properties = new AuthenticationRequestProtectionProperties();
+		properties.setWindow(Duration.ofSeconds(10));
+		properties.setMaxIpKeys(5);
+		properties.setMaxFailureKeys(2);
+		return new InMemoryAuthenticationRequestLimiter(
+			properties,
+			Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
+	}
+
 	private String file(String relativePath) throws IOException {
 		return Files.readString(REPOSITORY_ROOT.resolve(relativePath), StandardCharsets.UTF_8);
+	}
+
+	private Properties yamlProperties(String relativePath) {
+		YamlPropertiesFactoryBean factory = new YamlPropertiesFactoryBean();
+		factory.setResources(new FileSystemResource(REPOSITORY_ROOT.resolve(relativePath)));
+		return factory.getObject();
 	}
 
 	private void assertOptionalApplicationInputs(String section) {
