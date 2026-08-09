@@ -260,17 +260,23 @@ class ChatWebSocketHandlerRealtimeDeliveryTest {
 	}
 
 	private ChatWebSocketHandler handler() {
-		return new ChatWebSocketHandler(
-			chatAccessGuard,
-			sessionRepository,
-			taskScheduler,
-			properties,
-			chatRoomRepository,
+		ChatConnectionRegistry connectionRegistry = new ChatConnectionRegistry(chatRoomRepository,
+			chatMessageRepository, metrics);
+		ChatMessageDeliveryService deliveryService = new ChatMessageDeliveryService(
+			connectionRegistry,
 			chatMessageRepository,
 			userQuery,
 			metrics,
 			JsonMapper.builder().build(),
 			Clock.fixed(CREATED_AT.plusSeconds(1), ZoneOffset.UTC));
+		return new ChatWebSocketHandler(
+			chatAccessGuard,
+			sessionRepository,
+			taskScheduler,
+			properties,
+			connectionRegistry,
+			deliveryService,
+			metrics);
 	}
 
 	private WebSocketSession connectedSession() {
