@@ -1146,6 +1146,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | `nameKo` | string | N | 검수된 한국어 표시명 |
 | `nameEn` | string | N | BGG 영문명 |
 | `featuredOrder` | integer | Y | 대표 8개는 `1`~`8`, 나머지는 `null` |
+| `descriptionKo` | string | Y | 검수된 한국어 메커니즘 설명 |
 
 대표 8개는 아래 이름과 순서를 사용한다.
 

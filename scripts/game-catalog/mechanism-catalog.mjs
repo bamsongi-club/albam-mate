@@ -41,12 +41,21 @@ export function extractMechanismCatalog(games, manifest) {
 				});
 				continue;
 			}
+			if (!completedText(mechanism?.description_ko)) {
+				errors.push({ code: "INVALID_MECHANISM", message: "BGG 메커니즘 한글 설명이 필요합니다." });
+				continue;
+			}
+			if (mechanism.description_ko.length > 300) {
+				errors.push({ code: "INVALID_MECHANISM", message: "BGG 메커니즘 한글 설명은 300자를 넘을 수 없습니다." });
+				continue;
+			}
 			const override = FEATURED_OVERRIDES.get(bggMechanismId);
 			const row = {
 				bgg_mechanism_id: Number(bggMechanismId),
 				code,
 				name_ko: override?.nameKo ?? mechanism.name_ko,
 				name_en: mechanism.name,
+				description_ko: mechanism.description_ko,
 				featured_order: override?.featuredOrder ?? null,
 				is_public: true,
 				source_reference: metadata.sourceReference,
@@ -88,12 +97,41 @@ export function extractMechanismCatalog(games, manifest) {
 	return { catalog, relations, errors };
 }
 
-export function renderMechanismUpsertSql(catalog, relations) {
+function renderMechanismUpsertSqlWithoutDescription(catalog, relations) {
 	const mechanismValues = catalog.map(renderMechanismValue).join(",\n");
 	const relationValues = relations
 		.map(({ bgg_id, bgg_mechanism_id }) => `    (${bgg_id}, ${bgg_mechanism_id})`)
 		.join(",\n");
 	return `BEGIN;\nSET LOCAL standard_conforming_strings = on;\nSET LOCAL TIME ZONE 'UTC';\n\nCREATE TEMP TABLE mechanism_catalog_source (\n    bgg_mechanism_id BIGINT PRIMARY KEY,\n    code VARCHAR(64) NOT NULL,\n    name_ko VARCHAR(100) NOT NULL,\n    name_en VARCHAR(100) NOT NULL,\n    featured_order SMALLINT,\n    source_reference VARCHAR(500) NOT NULL,\n    reviewed_by VARCHAR(100) NOT NULL,\n    reviewed_at TIMESTAMP WITH TIME ZONE NOT NULL\n) ON COMMIT DROP;\n\nINSERT INTO mechanism_catalog_source (\n    bgg_mechanism_id, code, name_ko, name_en, featured_order,\n    source_reference, reviewed_by, reviewed_at\n) VALUES\n${mechanismValues}\n;\n\nUPDATE game_mechanisms mechanism\nSET is_public = false,\n    featured_order = NULL,\n    updated_at = CURRENT_TIMESTAMP\nWHERE mechanism.is_public\n  AND NOT EXISTS (\n      SELECT 1\n      FROM mechanism_catalog_source source\n      WHERE source.bgg_mechanism_id = mechanism.bgg_mechanism_id\n  );\n\nUPDATE game_mechanisms\nSET featured_order = NULL,\n    updated_at = CURRENT_TIMESTAMP\nWHERE is_public\n  AND featured_order IS NOT NULL;\n\nINSERT INTO game_mechanisms (\n    bgg_mechanism_id, code, name_ko, name_en, featured_order, is_public,\n    source_reference, reviewed_by, reviewed_at, created_at, updated_at\n)\nSELECT bgg_mechanism_id, code, name_ko, name_en, featured_order, true,\n       source_reference, reviewed_by, reviewed_at, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP\nFROM mechanism_catalog_source\nON CONFLICT (bgg_mechanism_id) DO UPDATE SET\n    code = EXCLUDED.code,\n    name_ko = EXCLUDED.name_ko,\n    name_en = EXCLUDED.name_en,\n    featured_order = EXCLUDED.featured_order,\n    is_public = EXCLUDED.is_public,\n    source_reference = EXCLUDED.source_reference,\n    reviewed_by = EXCLUDED.reviewed_by,\n    reviewed_at = EXCLUDED.reviewed_at,\n    updated_at = CURRENT_TIMESTAMP;\n\nCREATE TEMP TABLE game_mechanism_relation_source (\n    bgg_id BIGINT NOT NULL,\n    bgg_mechanism_id BIGINT NOT NULL,\n    PRIMARY KEY (bgg_id, bgg_mechanism_id)\n) ON COMMIT DROP;\n\nINSERT INTO game_mechanism_relation_source (bgg_id, bgg_mechanism_id) VALUES\n${relationValues}\n;\n\nDO $$\nBEGIN\n    IF EXISTS (\n        SELECT 1\n        FROM game_mechanism_relation_source source\n        LEFT JOIN games game ON game.bgg_id = source.bgg_id\n        LEFT JOIN game_mechanisms mechanism ON mechanism.bgg_mechanism_id = source.bgg_mechanism_id\n        WHERE game.id IS NULL OR mechanism.id IS NULL\n    ) THEN\n        RAISE EXCEPTION '승인 메커니즘 관계의 게임 또는 메커니즘을 해석할 수 없습니다.';\n    END IF;\nEND $$;\n\nINSERT INTO game_mechanism_relations (game_id, mechanism_id)\nSELECT game.id, mechanism.id\nFROM game_mechanism_relation_source source\nJOIN games game ON game.bgg_id = source.bgg_id\nJOIN game_mechanisms mechanism ON mechanism.bgg_mechanism_id = source.bgg_mechanism_id\nON CONFLICT (game_id, mechanism_id) DO NOTHING;\n\nDELETE FROM game_mechanism_relations relation\nWHERE NOT EXISTS (\n    SELECT 1\n    FROM game_mechanism_relation_source source\n    JOIN games game ON game.bgg_id = source.bgg_id\n    JOIN game_mechanisms mechanism ON mechanism.bgg_mechanism_id = source.bgg_mechanism_id\n    WHERE relation.game_id = game.id\n      AND relation.mechanism_id = mechanism.id\n);\n\nCOMMIT;\n`;
+}
+
+function replaceExactlyOnce(text, target, replacement) {
+	const occurrences = text.split(target).length - 1;
+	if (occurrences !== 1) {
+		throw new Error(`expected exactly one occurrence of ${JSON.stringify(target)}, found ${occurrences}`);
+	}
+	return text.replace(target, replacement);
+}
+
+export function renderMechanismUpsertSql(catalog, relations) {
+	let sql = renderMechanismUpsertSqlWithoutDescription(catalog, relations);
+	sql = replaceExactlyOnce(sql, "name_en VARCHAR(100) NOT NULL,\n    featured_order", "name_en VARCHAR(100) NOT NULL,\n    description_ko VARCHAR(300) NOT NULL,\n    featured_order");
+	sql = replaceExactlyOnce(sql, "name_ko, name_en, featured_order,\n    source_reference", "name_ko, name_en, description_ko, featured_order,\n    source_reference");
+	sql = replaceExactlyOnce(sql, "name_ko, name_en, featured_order, is_public,\n    source_reference", "name_ko, name_en, description_ko, featured_order, is_public,\n    source_reference");
+	sql = replaceExactlyOnce(sql, "name_ko, name_en, featured_order, true,", "name_ko, name_en, description_ko, featured_order, true,");
+	sql = replaceExactlyOnce(sql, "name_en = EXCLUDED.name_en,\n    featured_order", "name_en = EXCLUDED.name_en,\n    description_ko = EXCLUDED.description_ko,\n    featured_order");
+	sql = replaceExactlyOnce(sql, "INSERT INTO game_mechanisms (\n", `UPDATE game_mechanisms mechanism
+SET code = CONCAT('LEGACY_', mechanism.bgg_mechanism_id),
+    is_public = false,
+    featured_order = NULL,
+    updated_at = CURRENT_TIMESTAMP
+FROM mechanism_catalog_source source
+WHERE mechanism.code = source.code
+  AND mechanism.bgg_mechanism_id <> source.bgg_mechanism_id;
+
+INSERT INTO game_mechanisms (
+`);
+	return sql;
 }
 
 function validateMetadata(metadata) {
@@ -144,7 +182,7 @@ function approvedCodeMap(metadata, errors) {
 }
 
 function renderMechanismValue(row) {
-	return `    (${row.bgg_mechanism_id}, ${sql(row.code)}, ${sql(row.name_ko)}, ${sql(row.name_en)}, ${row.featured_order ?? "NULL"}, ${sql(row.source_reference)}, ${sql(row.reviewed_by)}, ${sql(row.reviewed_at)}::timestamptz)`;
+	return `    (${row.bgg_mechanism_id}, ${sql(row.code)}, ${sql(row.name_ko)}, ${sql(row.name_en)}, ${sql(row.description_ko)}, ${row.featured_order ?? "NULL"}, ${sql(row.source_reference)}, ${sql(row.reviewed_by)}, ${sql(row.reviewed_at)}::timestamptz)`;
 }
 
 function canonicalId(value) {

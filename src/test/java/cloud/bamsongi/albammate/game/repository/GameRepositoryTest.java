@@ -233,6 +233,7 @@ class GameRepositoryTest {
 				"ALL_FILTER",
 				"전체 필터",
 				"All Filter",
+				"전체 필터 방식을 활용해요.",
 				1,
 				true,
 				"test",

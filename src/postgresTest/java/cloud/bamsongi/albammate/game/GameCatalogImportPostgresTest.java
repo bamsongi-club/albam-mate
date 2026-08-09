@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.game;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -179,6 +180,52 @@ class GameCatalogImportPostgresTest {
 	}
 
 	@Test
+	void 마이그레이션은_설명이_없는_기존_공개_메커니즘을_비공개로_전환한다() throws Exception {
+		String schema = "v24_legacy_mechanism_" + System.nanoTime();
+		Path migration = Path.of(System.getProperty("user.dir"))
+			.resolve("src/main/resources/db/migration/V24__add_game_mechanism_description.sql");
+
+		try (Connection connection = dataSource.getConnection();
+			Statement statement = connection.createStatement()) {
+			connection.setAutoCommit(false);
+			statement.execute("create schema " + schema);
+			statement.execute("set local search_path to " + schema);
+			statement.execute("""
+				create table game_mechanisms (
+					id integer primary key,
+					name_ko varchar(100) not null,
+					featured_order smallint,
+					is_public boolean not null
+				)
+				""");
+			statement.execute("""
+				insert into game_mechanisms (id, name_ko, featured_order, is_public)
+				values (1, '핸드 관리', 1, true)
+				""");
+			for (String sql : Files.readString(migration, StandardCharsets.UTF_8).split(";")) {
+				if (!sql.isBlank()) {
+					statement.execute(sql);
+				}
+			}
+
+			try (var result = statement.executeQuery(
+				"select description_ko, featured_order, is_public from game_mechanisms where id = 1")) {
+				result.next();
+				assertNull(result.getString("description_ko"));
+				assertNull(result.getObject("featured_order"));
+				assertEquals(false, result.getBoolean("is_public"));
+			}
+			statement.execute("""
+				update game_mechanisms
+				set description_ko = '검수된 한글 설명입니다.', is_public = true
+				where id = 1
+				""");
+		} finally {
+			jdbcTemplate.execute("drop schema if exists " + schema + " cascade");
+		}
+	}
+
+	@Test
 	void 메커니즘_관계의_게임을_해석하지_못하면_적재_전체를_롤백한다() throws Exception {
 		executeSql(prepareSql(List.of(game(1, 10, "기존 게임", "Existing Game"))));
 
@@ -189,6 +236,19 @@ class GameCatalogImportPostgresTest {
 
 		assertEquals(0, mechanismCount());
 		assertEquals(0, mechanismRelationCount());
+	}
+
+	@Test
+	void 공개_메커니즘은_검수된_비공백_설명만_저장한다() throws Exception {
+		GameInput input = game(1, 10, "공개 설명 메커니즘 게임", "Public Description Mechanism Game");
+		input.mechanisms = List.of(mechanism(2040, "Hand Management", "핸드 관리"));
+		executeSql(prepareSql(List.of(input)));
+		executeSql(prepareMechanismSql(List.of(input)));
+
+		assertEquals("검수된 한글 설명입니다.", jdbcTemplate.queryForObject(
+			"select description_ko from game_mechanisms where bgg_mechanism_id = 2040", String.class));
+		assertConstraintViolation(
+			"update game_mechanisms set description_ko = ' ' where bgg_mechanism_id = 2040");
 	}
 
 	@Test
@@ -219,9 +279,28 @@ class GameCatalogImportPostgresTest {
 			"select is_public from game_mechanisms where bgg_mechanism_id = 2072", Boolean.class));
 		assertNull(jdbcTemplate.queryForObject(
 			"select featured_order from game_mechanisms where bgg_mechanism_id = 2072", Integer.class));
+		assertConstraintViolation(
+			"update game_mechanisms set description_ko = '' where bgg_mechanism_id = 2040");
+		jdbcTemplate.update("update game_mechanisms set description_ko = null where bgg_mechanism_id = 2072");
+		assertNull(jdbcTemplate.queryForObject(
+			"select description_ko from game_mechanisms where bgg_mechanism_id = 2072", String.class));
 
 		executeSql(prepareMechanismSql(List.of(approved)));
 		assertEquals(1, mechanismRelationCount());
+	}
+
+	@Test
+	void 설명이_없는_메커니즘_배치는_운영_SQL을_만들지_않는다() throws Exception {
+		GameInput input = game(1, 10, "설명 없는 메커니즘 게임", "Missing Description Mechanism Game");
+		input.mechanisms = List.of(mechanism(2040, "Hand Management", "핸드 관리", " "));
+
+		CatalogPreparation preparation = prepareMechanismCatalog(List.of(input));
+
+		assertEquals(1, preparation.exitCode(), preparation.output());
+		assertFalse(Files.exists(preparation.outputPath().resolve("service-catalog.json")));
+		assertFalse(Files.exists(preparation.outputPath().resolve("upsert-games.sql")));
+		assertFalse(Files.exists(preparation.outputPath().resolve("service-mechanism-catalog.json")));
+		assertFalse(Files.exists(preparation.outputPath().resolve("upsert-game-mechanisms.sql")));
 	}
 
 	private void assertConstraintViolation(String sql) {
@@ -263,6 +342,12 @@ class GameCatalogImportPostgresTest {
 	}
 
 	private String prepareMechanismSql(List<GameInput> games) throws Exception {
+		CatalogPreparation preparation = prepareMechanismCatalog(games);
+		assertEquals(0, preparation.exitCode(), preparation.output());
+		return Files.readString(preparation.outputPath().resolve("upsert-game-mechanisms.sql"), StandardCharsets.UTF_8);
+	}
+
+	private CatalogPreparation prepareMechanismCatalog(List<GameInput> games) throws Exception {
 		Path caseDirectory = Files.createTempDirectory(tempDirectory, "mechanism-catalog-");
 		Path gamesPath = caseDirectory.resolve("games.json");
 		Path ranksPath = caseDirectory.resolve("ranks.csv");
@@ -292,8 +377,7 @@ class GameCatalogImportPostgresTest {
 			.start();
 		String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
 		int exitCode = process.waitFor();
-		assertEquals(0, exitCode, output);
-		return Files.readString(outputPath.resolve("upsert-game-mechanisms.sql"), StandardCharsets.UTF_8);
+		return new CatalogPreparation(outputPath, exitCode, output);
 	}
 
 	private void executeSql(String sql) throws SQLException {
@@ -502,7 +586,11 @@ class GameCatalogImportPostgresTest {
 	}
 
 	private MechanismInput mechanism(long bggMechanismId, String nameEn, String nameKo) {
-		return new MechanismInput(bggMechanismId, nameEn, nameKo);
+		return mechanism(bggMechanismId, nameEn, nameKo, "검수된 한글 설명입니다.");
+	}
+
+	private MechanismInput mechanism(long bggMechanismId, String nameEn, String nameKo, String descriptionKo) {
+		return new MechanismInput(bggMechanismId, nameEn, nameKo, descriptionKo);
 	}
 
 	private String mechanismsJson(List<MechanismInput> mechanisms) {
@@ -510,8 +598,8 @@ class GameCatalogImportPostgresTest {
 			return "";
 		}
 		return ",\n  \"mechanisms\": [" + mechanisms.stream()
-			.map(mechanism -> "{\"bgg_id\":\"%d\",\"name\":\"%s\",\"name_ko\":\"%s\"}"
-				.formatted(mechanism.bggMechanismId, mechanism.nameEn, mechanism.nameKo))
+			.map(mechanism -> "{\"bgg_id\":\"%d\",\"name\":\"%s\",\"name_ko\":\"%s\",\"description_ko\":\"%s\"}"
+				.formatted(mechanism.bggMechanismId, mechanism.nameEn, mechanism.nameKo, mechanism.descriptionKo))
 			.collect(java.util.stream.Collectors.joining(",")) + "]";
 	}
 
@@ -531,7 +619,7 @@ class GameCatalogImportPostgresTest {
 		}
 	}
 
-	private record MechanismInput(long bggMechanismId, String nameEn, String nameKo) {
+	private record MechanismInput(long bggMechanismId, String nameEn, String nameKo, String descriptionKo) {
 		private String code() {
 			return switch ((int)bggMechanismId) {
 				case 2040 -> "HAND_MANAGEMENT";
@@ -539,5 +627,8 @@ class GameCatalogImportPostgresTest {
 				default -> throw new IllegalArgumentException("Unsupported test mechanism: " + bggMechanismId);
 			};
 		}
+	}
+
+	private record CatalogPreparation(Path outputPath, int exitCode, String output) {
 	}
 }

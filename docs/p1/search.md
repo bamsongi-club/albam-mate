@@ -4,7 +4,7 @@
 
 전체 범위·공통 검색 규칙은 [P1 명세](../P1-spec.md), 기존 동작은 [P0 완료 문서](../archive/p0/README.md), 요청·응답·오류는 [API 명세](../API.md), 저장 구조와 제약은 [ERD](../ERD.md)를 따른다. 메커니즘과 `SEARCH-03` 저장 계약은 ERD에 반영하며, 해당 저장 계약을 구현할 때는 전진 Flyway 마이그레이션과 PostgreSQL 검증을 함께 추가한다. 기존 `ROOMS` 필드만 사용하는 `SEARCH-02`에는 신규 저장 계약이나 마이그레이션을 요구하지 않는다.
 
-P1 필수 게임 데이터 적재·검증 대상은 승인된 BGG ID 170,000건이다. 170,000행 성능 fixture는 운영 적재 입력이 아니며, 운영 관계는 승인된 순위 CSV·BGG XML snapshot·한글 테마 사전에서 다시 만든다. 수치 검색은 [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md), 메커니즘은 [ADR-0048](../adr/game/0048-full-reviewed-game-mechanism-catalog.md), 카테고리·테마·추천/베스트 인원은 [ADR-0050](../adr/game/0050-game-metadata-catalog-and-filters.md), 사용자별 해 본 게임은 [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md)을 따른다.
+P1 필수 게임 데이터 적재·검증 대상은 승인된 BGG ID 170,000건이다. `games-170k.performance.json`은 게임 본문 170,000행을 적재하는 입력으로 사용할 수 있다. 다만 카테고리·테마·인원 선호·메커니즘 관계와 최소 연령은 이 파일의 합성 필드를 재사용하지 않고, 승인된 순위 CSV·BGG XML snapshot·한글 사전에서 다시 만든다. 수치 검색은 [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md), 메커니즘은 [ADR-0048](../adr/game/0048-full-reviewed-game-mechanism-catalog.md), 카테고리·테마·추천/베스트 인원은 [ADR-0050](../adr/game/0050-game-metadata-catalog-and-filters.md), 사용자별 해 본 게임은 [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md)을 따른다.
 
 `SEARCH-03`은 2026-08-04 P1 필수 범위로 채택됐다. 승인된 결정이 바뀌면 후속 ADR로 기존 결정을 대체하고 이 문서를 함께 갱신한다.
 

@@ -40,6 +40,9 @@ public class GameMechanism extends BaseEntity {
 	@Column(name = "name_en", nullable = false, length = 100)
 	private String nameEn;
 
+	@Column(name = "description_ko", length = 300)
+	private String descriptionKo;
+
 	@JdbcTypeCode(Types.SMALLINT)
 	@Column(name = "featured_order", unique = true)
 	private Integer featuredOrder;
@@ -75,5 +78,20 @@ public class GameMechanism extends BaseEntity {
 		this.sourceReference = sourceReference;
 		this.reviewedBy = reviewedBy;
 		this.reviewedAt = reviewedAt;
+	}
+
+	public GameMechanism(
+		Long bggMechanismId,
+		String code,
+		String nameKo,
+		String nameEn,
+		String descriptionKo,
+		Integer featuredOrder,
+		boolean isPublic,
+		String sourceReference,
+		String reviewedBy,
+		Instant reviewedAt) {
+		this(bggMechanismId, code, nameKo, nameEn, featuredOrder, isPublic, sourceReference, reviewedBy, reviewedAt);
+		this.descriptionKo = descriptionKo;
 	}
 }

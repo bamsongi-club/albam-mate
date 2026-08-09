@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { createPortal } from 'react-dom';
 import brandSymbol from '../assets/albam-mate-symbol.png';
 import poweredByBgg from '../assets/powered-by-bgg.svg';
 import { ApiError, api, clearCsrfToken, messageForError, setUnauthenticatedHandler, socialLoginUrl } from './api';
@@ -148,18 +149,6 @@ const PLAY_TIME_LABEL = {
   OVER_30_TO_60: '30~60분',
   OVER_60_UNDER_90: '60~90분',
   AT_LEAST_90: '90분 이상'
-};
-/*
- * 대표 메커니즘 설명은 계약이 고정한 `featuredOrder`에 맞춰 둔다.
- * 선택지 API는 코드·표시명·대표 순서만 반환하고 설명을 담지 않으므로 화면이 문구를 가진다.
- * `2` 주사위 굴림, `4` 협력 게임, `5` 타일 놓기는 표시명이 곧 동작이라 설명을 두지 않는다.
- */
-const MECHANISM_FEATURED_DESCRIPTIONS = {
-  1: '손에 든 패를 잘 활용해야 해요',
-  3: '같은 종류끼리 모으면 좋아요',
-  6: '할 때마다 판이 다르게 꾸며져요',
-  7: '혼자서도 즐길 수 있어요',
-  8: '자리를 먼저 차지하는 게 중요해요'
 };
 // 난이도 점대는 계약의 닫힌 구간 하한·상한으로 보낸다. 5점만 있는 마지막 칸은 상한도 5다.
 const COMPLEXITY_BANDS = [
@@ -893,26 +882,146 @@ function FilterNumberRangeGroup({ label, min, max, unit, onMinChange, onMaxChang
 /**
  * 대표 메커니즘의 설명을 여는 정보 아이콘이다.
  *
- * 데스크톱 hover와 키보드 focus는 CSS가 열고, 아이콘을 누르면 여기서 고정한다.
+ * 데스크톱 hover와 키보드 focus는 상태로 열고, 아이콘을 누르면 여기서 고정한다.
+ * 스크롤 목록의 overflow에 잘리지 않도록 설명은 body portal로 렌더링한다.
  * tap은 hover·focus를 함께 일으키므로 상태를 셋으로 나눠 두면 누를 때 도로 닫히는 순서가 생긴다.
  * 화면을 막는 모달을 쓰지 않으므로 다른 조건을 보면서 설명을 확인할 수 있다.
  */
 function MechanismHint({ code, name, description }) {
   const [isPinned, setIsPinned] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [tooltipStyle, setTooltipStyle] = useState({ left: '0px', top: '0px', position: 'fixed', visibility: 'hidden' });
+  const [isScrollable, setIsScrollable] = useState(false);
+  const buttonRef = useRef(null);
+  const tooltipRef = useRef(null);
+  const hoverCloseTimerRef = useRef(null);
   const tooltipId = 'mechanism-hint-' + code;
+  const isOpen = isPinned || isHovered || isFocused;
+
+  const cancelHoverClose = useCallback(() => {
+    window.clearTimeout(hoverCloseTimerRef.current);
+    hoverCloseTimerRef.current = null;
+  }, []);
+  const openHovered = useCallback(() => {
+    cancelHoverClose();
+    setIsHovered(true);
+  }, [cancelHoverClose]);
+  const closeHoveredSoon = useCallback(() => {
+    cancelHoverClose();
+    hoverCloseTimerRef.current = window.setTimeout(() => {
+      setIsHovered(false);
+      hoverCloseTimerRef.current = null;
+    }, 80);
+  }, [cancelHoverClose]);
+
+  useEffect(() => () => cancelHoverClose(), [cancelHoverClose]);
+
+  useLayoutEffect(() => {
+    if (!isOpen || !buttonRef.current || !tooltipRef.current) {
+      setTooltipStyle((current) => current.visibility === 'hidden' ? current : { ...current, visibility: 'hidden' });
+      return undefined;
+    }
+
+    const updatePosition = () => {
+      const buttonRect = buttonRef.current.getBoundingClientRect();
+      const tooltipRect = tooltipRef.current.getBoundingClientRect();
+      const gap = 7;
+      const viewportPadding = 8;
+      const maxLeft = Math.max(viewportPadding, window.innerWidth - tooltipRect.width - viewportPadding);
+      const centeredLeft = buttonRect.left + (buttonRect.width - tooltipRect.width) / 2;
+      const left = Math.min(Math.max(viewportPadding, centeredLeft), maxLeft);
+      const canPlaceBelow = buttonRect.bottom + gap + tooltipRect.height <= window.innerHeight - viewportPadding;
+      const preferredTop = canPlaceBelow
+        ? buttonRect.bottom + gap
+        : buttonRect.top - gap - tooltipRect.height;
+      const maxTop = Math.max(viewportPadding, window.innerHeight - tooltipRect.height - viewportPadding);
+      const top = Math.min(Math.max(viewportPadding, preferredTop), maxTop);
+      setTooltipStyle({ left: left + 'px', top: top + 'px', position: 'fixed', visibility: 'visible' });
+      setIsScrollable(tooltipRef.current.scrollHeight > tooltipRef.current.clientHeight);
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [description, isOpen]);
+
+  useEffect(() => {
+    if (!isPinned) return undefined;
+
+    // 고정된 툴팁은 fixed portal이라 다른 조건 위에 겹칠 수 있다.
+    // 내용이 넘쳐 스크롤이 필요한 경우가 아니면 툴팁 자체를 눌러도 풀어,
+    // 겹친 자리를 다시 누르면 그 아래 컨트롤이 클릭을 받을 수 있게 한다.
+    const closeIfOutside = (event) => {
+      if (buttonRef.current?.contains(event.target)) return;
+      if (isScrollable && tooltipRef.current?.contains(event.target)) return;
+      setIsPinned(false);
+    };
+    document.addEventListener('pointerdown', closeIfOutside, true);
+    return () => {
+      document.removeEventListener('pointerdown', closeIfOutside, true);
+    };
+  }, [isPinned, isScrollable]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const closeOnEscape = (event) => {
+      if (event.key !== 'Escape') return;
+      cancelHoverClose();
+      setIsPinned(false);
+      setIsHovered(false);
+      setIsFocused(false);
+    };
+
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [cancelHoverClose, isOpen]);
+
   return (
-    <span className={'mechanism-hint' + (isPinned ? ' on' : '')}>
+    <span
+      className={'mechanism-hint' + (isPinned ? ' on' : '')}
+      onMouseEnter={openHovered}
+      onMouseLeave={closeHoveredSoon}
+    >
       <button
         type="button"
         className="mechanism-hint-button"
+        ref={buttonRef}
         aria-label={name + ' 설명'}
         aria-describedby={tooltipId}
         aria-expanded={isPinned}
-        onClick={() => setIsPinned(!isPinned)}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        onClick={() => {
+          cancelHoverClose();
+          setIsPinned(!isPinned);
+          setIsFocused(false);
+          // tap이 앞서 일으킨 mouseEnter는 실제 hover가 아니므로 클릭마다 초기화해
+          // 두 번째 tap에서도 aria-expanded와 표시 상태가 함께 닫히게 한다.
+          setIsHovered(false);
+        }}
       >
         <span aria-hidden="true">i</span>
       </button>
-      <span className="mechanism-hint-text" id={tooltipId} role="tooltip">{description}</span>
+      {createPortal(
+        <span
+          ref={tooltipRef}
+          className="mechanism-hint-text"
+          id={tooltipId}
+          role="tooltip"
+          style={isScrollable ? { ...tooltipStyle, pointerEvents: 'auto' } : tooltipStyle}
+          onMouseEnter={openHovered}
+          onMouseLeave={closeHoveredSoon}
+        >
+          {description}
+        </span>,
+        document.body,
+      )}
     </span>
   );
 }
@@ -934,15 +1043,19 @@ function advancedMechanisms(options, keyword) {
 }
 
 function MechanismCheckOption({ option, selected, onToggle }) {
+  const description = typeof option.descriptionKo === 'string' ? option.descriptionKo.trim() : '';
   return (
-    <label className="filter-option">
-      <input
-        type="checkbox"
-        checked={selected.includes(option.code)}
-        onChange={(event) => onToggle(option.code, event.target.checked)}
-      />
-      {option.nameKo}
-    </label>
+    <div className="mechanism-option">
+      <label className="filter-option">
+        <input
+          type="checkbox"
+          checked={selected.includes(option.code)}
+          onChange={(event) => onToggle(option.code, event.target.checked)}
+        />
+        {option.nameKo}
+      </label>
+      {description && <MechanismHint code={option.code} name={option.nameKo} description={description} />}
+    </div>
   );
 }
 
@@ -957,9 +1070,6 @@ function MechanismFilterGroup({ options, selected, onToggle }) {
         {featuredMechanisms(options).map((option) => (
           <div className="mechanism-featured" key={option.code}>
             <MechanismCheckOption option={option} selected={selected} onToggle={onToggle} />
-            {MECHANISM_FEATURED_DESCRIPTIONS[option.featuredOrder] && (
-              <MechanismHint code={option.code} name={option.nameKo} description={MECHANISM_FEATURED_DESCRIPTIONS[option.featuredOrder]} />
-            )}
           </div>
         ))}
       </div>
