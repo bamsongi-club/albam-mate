@@ -2,7 +2,14 @@ import React from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, api } from './api';
-import { App, ChatRoomView, MyRoomsSection, SessionDetailView } from './main';
+import {
+  App,
+  CHAT_SEND_REQUEST_DEADLINE_MS,
+  CHAT_SEND_RESULT_UNKNOWN_MESSAGE,
+  ChatRoomView,
+  MyRoomsSection,
+  SessionDetailView
+} from './main';
 
 afterEach(() => {
   vi.useRealTimers();
@@ -318,7 +325,11 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     fireEvent.change(input, { target: { value: '키보드 전송' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    await waitFor(() => expect(send).toHaveBeenCalledWith('7', expect.objectContaining({ content: '키보드 전송' })));
+    await waitFor(() => expect(send).toHaveBeenCalledWith(
+      '7',
+      expect.objectContaining({ content: '키보드 전송' }),
+      expect.any(AbortSignal)
+    ));
   });
 
   it('전송을 마치면 입력에 포커스를 되돌려 이어서 칠 수 있다', async () => {
@@ -377,6 +388,79 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     expect(input.disabled).toBe(false);
     await waitFor(() => expect(document.activeElement).toBe(input));
     elsewhere.remove();
+  });
+
+  it('T3 deadline 뒤 결과 미확정 문구와 다시 시도 상태를 보여주고 같은 clientMessageId를 유지한다', async () => {
+    useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({ messages: [], nextBeforeMessageId: null, hasNext: false });
+    let attempt = 0;
+    const send = vi.spyOn(api, 'sendChatMessage').mockImplementation((_roomId, _message, signal) => {
+      attempt += 1;
+      if (attempt === 1) {
+        return new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(signal.reason));
+        });
+      }
+      return Promise.resolve({
+        messageId: 15,
+        roomId: 7,
+        sender: { nickname: '테스터' },
+        isMine: true,
+        content: '응답이 늦은 메시지',
+        createdAt: '2026-09-01T19:15:00+09:00'
+      });
+    });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(screen.getByLabelText('메시지')).toBeTruthy());
+    vi.useFakeTimers();
+    const input = screen.getByLabelText('메시지');
+    fireEvent.change(input, { target: { value: '응답이 늦은 메시지' } });
+    fireEvent.click(screen.getByRole('button', { name: '전송' }));
+    const firstMessageId = send.mock.calls[0][1].clientMessageId;
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(CHAT_SEND_REQUEST_DEADLINE_MS);
+    });
+
+    expect(screen.getByRole('alert').textContent).toContain(CHAT_SEND_RESULT_UNKNOWN_MESSAGE);
+    expect(input.disabled).toBe(false);
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.getByText('응답이 늦은 메시지')).toBeTruthy();
+    expect(send.mock.calls[1][1].clientMessageId).toBe(firstMessageId);
+  });
+
+  it('전송 계층 오류도 결과 미확정 문구와 같은 clientMessageId 수동 재시도를 제공한다', async () => {
+    useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({ messages: [], nextBeforeMessageId: null, hasNext: false });
+    let attempt = 0;
+    const send = vi.spyOn(api, 'sendChatMessage').mockImplementation((_roomId, _message) => {
+      attempt += 1;
+      if (attempt === 1) return Promise.reject(new TypeError('network failure'));
+      return Promise.resolve({
+        messageId: 16,
+        roomId: 7,
+        sender: { nickname: '테스터' },
+        isMine: true,
+        content: '네트워크 재시도 메시지',
+        createdAt: '2026-09-01T19:16:00+09:00'
+      });
+    });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(screen.getByLabelText('메시지')).toBeTruthy());
+    const input = screen.getByLabelText('메시지');
+    fireEvent.change(input, { target: { value: '네트워크 재시도 메시지' } });
+    fireEvent.click(screen.getByRole('button', { name: '전송' }));
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain(CHAT_SEND_RESULT_UNKNOWN_MESSAGE));
+
+    const firstMessageId = send.mock.calls[0][1].clientMessageId;
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    await waitFor(() => expect(screen.getByText('네트워크 재시도 메시지')).toBeTruthy());
+    expect(send.mock.calls[1][1].clientMessageId).toBe(firstMessageId);
   });
 
   it('메시지를 보내면 채팅 목록을 하단으로 이동한다', async () => {
@@ -552,7 +636,11 @@ describe('#427 T1~T4 메시지 전송·이력 추가 조회', () => {
     fireEvent.click(screen.getByRole('button', { name: '전송' }));
 
     await waitFor(() => expect(screen.getByText('저도 참여할게요')).toBeTruthy());
-    expect(api.sendChatMessage).toHaveBeenCalledWith('7', expect.objectContaining({ content: '저도 참여할게요', clientMessageId: expect.any(String) }));
+    expect(api.sendChatMessage).toHaveBeenCalledWith(
+      '7',
+      expect.objectContaining({ content: '저도 참여할게요', clientMessageId: expect.any(String) }),
+      expect.any(AbortSignal)
+    );
   });
 
   it('전송 실패 뒤 같은 본문은 같은 키로 재시도하고 본문을 바꾸면 새 키를 발급한다', async () => {

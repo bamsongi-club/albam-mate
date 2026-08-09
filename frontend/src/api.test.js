@@ -348,13 +348,16 @@ describe('채팅 API', () => {
       .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'csrf-token' }))
       .mockResolvedValueOnce(successfulResponse({ messageId: 8 }));
     vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
 
-    await api.sendChatMessage('7', { clientMessageId: 'retry-key', content: '안녕하세요' });
+    await api.sendChatMessage('7', { clientMessageId: 'retry-key', content: '안녕하세요' }, controller.signal);
 
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/auth/csrf', expect.objectContaining({ signal: controller.signal }));
     expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/rooms/7/chat/messages', expect.objectContaining({
       method: 'POST',
       headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'csrf-token' }),
-      body: JSON.stringify({ clientMessageId: 'retry-key', content: '안녕하세요' })
+      body: JSON.stringify({ clientMessageId: 'retry-key', content: '안녕하세요' }),
+      signal: controller.signal
     }));
   });
 });

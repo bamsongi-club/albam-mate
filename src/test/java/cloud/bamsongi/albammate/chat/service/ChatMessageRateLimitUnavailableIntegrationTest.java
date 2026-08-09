@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.chat.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -20,6 +21,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -38,6 +40,7 @@ import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import io.lettuce.core.ClientOptions;
 
 @ActiveProfiles("local")
 @SpringBootTest(properties = {
@@ -69,6 +72,8 @@ class ChatMessageRateLimitUnavailableIntegrationTest {
 	private RecordingChatRealtimePublisher realtimePublisher;
 	@Autowired
 	private GlobalExceptionHandler globalExceptionHandler;
+	@Autowired
+	private LettuceConnectionFactory redisConnectionFactory;
 
 	private Long userId;
 	private Long roomId;
@@ -90,7 +95,7 @@ class ChatMessageRateLimitUnavailableIntegrationTest {
 	}
 
 	@Test
-	void Redis_연결_확인에_실패하면_저장_전에_Retry_After_없는_503으로_fail_closed한다() {
+	void T1_Redis_명령_timeout_뒤_저장_전에_Retry_After_없는_503으로_fail_closed한다() {
 		long currentUserId = insertUser();
 		Room room = createChatRoom(currentUserId);
 
@@ -103,6 +108,11 @@ class ChatMessageRateLimitUnavailableIntegrationTest {
 		assertNull(response.getHeaders().getFirst(HttpHeaders.RETRY_AFTER));
 		assertEquals(0, chatMessageRepository.count());
 		assertTrue(realtimePublisher.events().isEmpty());
+		assertEquals(java.time.Duration.ofSeconds(2),
+			redisConnectionFactory.getClientConfiguration().getCommandTimeout());
+		ClientOptions clientOptions = redisConnectionFactory.getClientConfiguration().getClientOptions().orElseThrow();
+		assertEquals(ClientOptions.DisconnectedBehavior.REJECT_COMMANDS, clientOptions.getDisconnectedBehavior());
+		assertFalse(clientOptions.isAutoReconnect());
 	}
 
 	private long insertUser() {
