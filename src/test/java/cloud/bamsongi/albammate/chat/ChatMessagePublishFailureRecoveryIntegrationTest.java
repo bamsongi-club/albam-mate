@@ -119,6 +119,79 @@ class ChatMessagePublishFailureRecoveryIntegrationTest {
 	}
 
 	@Test
+	void T1_HTTP_두줄_메시지는_저장_이력_실시간_수신에_LF로_보존된다() throws Exception {
+		String email = "chat-line-break-" + UUID.randomUUID() + "@example.com";
+		long currentUserId = userAccountService.createAccount(command(email, "줄바꿈검증")).id();
+		userId = currentUserId;
+		Room room = createChatRoom(currentUserId);
+
+		CookieManager cookieManager = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+		HttpClient client = HttpClient.newBuilder().cookieHandler(cookieManager).build();
+		URI serverUri = URI.create("http://localhost:" + serverPort);
+		String csrfToken = csrfToken(get(client, serverUri.resolve("/api/auth/csrf")).body());
+		assertEquals(
+			200,
+			post(client, serverUri.resolve("/api/auth/login"), loginBody(email), csrfToken).statusCode());
+		csrfToken = csrfToken(get(client, serverUri.resolve("/api/auth/csrf")).body());
+
+		LinkedBlockingQueue<String> liveReceivedFrames = new LinkedBlockingQueue<>();
+		WebSocket liveWebSocket = connect(serverUri, room.getId(), null, cookieManager, liveReceivedFrames);
+		try {
+			awaitActiveWebSocketConnection();
+			HttpResponse<String> response = post(
+				client,
+				serverUri.resolve("/api/rooms/" + room.getId() + "/chat/messages"),
+				"{\"clientMessageId\":\"line-break-http\",\"content\":\"첫 줄\\n둘째 줄\"}",
+				csrfToken);
+
+			assertEquals(201, response.statusCode(), response.body());
+			assertEquals("첫 줄\n둘째 줄", chatMessageRepository.findAll().get(0).getContent());
+			ChatMessagePageResponse history = chatMessageHistoryQueryService.history(
+				currentUserId, room.getId(), null, 50);
+			assertEquals(List.of("첫 줄\n둘째 줄"),
+				history.messages().stream().map(message -> message.content()).toList());
+			String liveFrame = liveReceivedFrames.poll(10, TimeUnit.SECONDS);
+			assertTrue(liveFrame != null, "활성 WebSocket 연결이 두 줄 메시지 프레임을 받지 못했습니다.");
+			assertTrue(liveFrame.contains("\"content\":\"첫 줄\\n둘째 줄\""), liveFrame);
+		} finally {
+			liveWebSocket.abort();
+		}
+	}
+
+	@Test
+	void T3_LF_CRLF_외_제어문자는_HTTP_400이고_저장과_커밋_신호를_만들지_않는다() throws Exception {
+		String email = "chat-control-" + UUID.randomUUID() + "@example.com";
+		long currentUserId = userAccountService.createAccount(command(email, "제어문자검증")).id();
+		userId = currentUserId;
+		Room room = createChatRoom(currentUserId);
+
+		CookieManager cookieManager = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+		HttpClient client = HttpClient.newBuilder().cookieHandler(cookieManager).build();
+		URI serverUri = URI.create("http://localhost:" + serverPort);
+		String csrfToken = csrfToken(get(client, serverUri.resolve("/api/auth/csrf")).body());
+		assertEquals(
+			200,
+			post(client, serverUri.resolve("/api/auth/login"), loginBody(email), csrfToken).statusCode());
+		csrfToken = csrfToken(get(client, serverUri.resolve("/api/auth/csrf")).body());
+
+		assertHttpValidationError(post(
+			client,
+			serverUri.resolve("/api/rooms/" + room.getId() + "/chat/messages"),
+			"{\"clientMessageId\":\"lone-cr\",\"content\":\"첫 줄\\r둘째 줄\"}", csrfToken));
+		assertHttpValidationError(post(
+			client,
+			serverUri.resolve("/api/rooms/" + room.getId() + "/chat/messages"),
+			"{\"clientMessageId\":\"tab\",\"content\":\"첫 줄\\t둘째 줄\"}", csrfToken));
+		assertHttpValidationError(post(
+			client,
+			serverUri.resolve("/api/rooms/" + room.getId() + "/chat/messages"),
+			"{\"clientMessageId\":\"nul\",\"content\":\"첫 줄\\u0000둘째 줄\"}", csrfToken));
+
+		assertEquals(0, chatMessageRepository.count());
+		assertEquals(0, chatRealtimePublishControl.publishAttempts());
+	}
+
+	@Test
 	void T8_발행_실패_뒤_afterMessageId_WebSocket_재연결은_누락분을_ASC_한번만_수신한다() throws Exception {
 		chatRealtimePublishControl.reset();
 		String email = "chat-publish-failure-" + UUID.randomUUID() + "@example.com";
@@ -274,6 +347,11 @@ class ChatMessagePublishFailureRecoveryIntegrationTest {
 		Matcher matcher = EVENT_ID_PATTERN.matcher(frame);
 		assertTrue(matcher.find(), frame);
 		return Long.parseLong(matcher.group(1));
+	}
+
+	private void assertHttpValidationError(HttpResponse<String> response) {
+		assertEquals(400, response.statusCode(), response.body());
+		assertTrue(response.body().contains("\"code\":\"VALIDATION_ERROR\""), response.body());
 	}
 
 	private String loginBody(String email) {

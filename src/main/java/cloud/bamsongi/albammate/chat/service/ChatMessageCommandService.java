@@ -33,8 +33,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class ChatMessageCommandService {
 
-	/** room 도메인의 자유 텍스트 필드(title·description·place)와 같은 제어문자 거부 규칙이다. */
-	private static final Pattern NO_CONTROL_CHARACTER_PATTERN = Pattern.compile("^[^\\p{Cc}]*$");
+	/** LF만 줄바꿈으로 허용하고, 나머지 제어문자는 공백 제거 전에 거절한다. */
+	private static final Pattern DISALLOWED_CONTROL_CHARACTER_PATTERN = Pattern.compile("[\\p{Cc}&&[^\\n]]");
 
 	private final ChatAccessGuard chatAccessGuard;
 	private final ChatRoomRepository chatRoomRepository;
@@ -131,10 +131,13 @@ public class ChatMessageCommandService {
 		if (content == null) {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
 		}
-		String normalized = content.strip();
+		String normalized = content.replace("\r\n", "\n");
+		if (DISALLOWED_CONTROL_CHARACTER_PATTERN.matcher(normalized).find()) {
+			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+		}
+		normalized = normalized.strip();
 		if (normalized.isEmpty()
-			|| normalized.length() > chatMessageLimitProperties.getMaxContentLength()
-			|| !NO_CONTROL_CHARACTER_PATTERN.matcher(normalized).matches()) {
+			|| normalized.length() > chatMessageLimitProperties.getMaxContentLength()) {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
 		}
 		return normalized;

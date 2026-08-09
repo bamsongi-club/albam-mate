@@ -1866,9 +1866,11 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 | 필드 | 타입 | 필수 | 검증 |
 |---|---|:---:|---|
 | `clientMessageId` | string | Y | 1~100자. 같은 방·같은 사용자에서 재시도 멱등성의 기준 |
-| `content` | string | Y | 앞뒤 공백 제거 후 1~500자의 일반 텍스트 |
+| `content` | string | Y | CRLF(`\r\n`)를 LF(`\n`)로 정규화하고 LF 외 제어문자(단독 CR·탭·NUL 등)를 거절한 뒤, 앞뒤 공백 제거 후 1~500자의 일반 텍스트 |
 
-검증·권한 판정은 세션, 방 존재, 방 상태·현재 관계, 본문, 멱등성 순서로 수행한다. 같은 사용자가 같은 방에서 같은 `clientMessageId`로 다른 본문을 보내면 `400 VALIDATION_ERROR`다. 전송 제한은 아래 검증을 통과한 신규 전송에만 적용하며 PostgreSQL 저장 직전에 두 bucket을 함께 판정한다.
+LF는 본문에 그대로 보존하며, 저장·이력 조회·실시간 수신은 정규화된 LF 형태를 반환한다. 본문 길이와 같은 `clientMessageId` 재시도의 본문 비교도 정규화·공백 제거 뒤 본문을 기준으로 한다.
+
+검증·권한 판정은 세션, 방 존재, 방 상태·현재 관계, 본문, 멱등성 순서로 수행한다. 같은 사용자가 같은 방에서 같은 `clientMessageId`로 다른 정규화 본문을 보내면 `400 VALIDATION_ERROR`다. 전송 제한은 아래 검증을 통과한 신규 전송에만 적용하며 PostgreSQL 저장 직전에 두 bucket을 함께 판정한다.
 
 #### 전송 제한 계약
 
