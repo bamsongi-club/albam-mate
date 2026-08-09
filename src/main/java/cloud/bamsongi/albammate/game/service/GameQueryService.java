@@ -5,6 +5,8 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -110,22 +112,22 @@ public class GameQueryService {
 	}
 
 	private void validateCategoryCodes(List<String> requestedCodes) {
-		List<String> codes = requestedCodes == null ? List.of() : requestedCodes.stream().distinct().toList();
-		if (!codes.isEmpty() && gameCategoryRepository.countByCodeIn(codes) != codes.size()) {
-			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-		}
+		validateCodes(requestedCodes, gameCategoryRepository::countByCodeIn);
 	}
 
 	private void validateThemeCodes(List<String> requestedCodes) {
-		List<String> codes = requestedCodes == null ? List.of() : requestedCodes.stream().distinct().toList();
-		if (!codes.isEmpty() && gameThemeRepository.countByCodeIn(codes) != codes.size()) {
-			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-		}
+		validateCodes(requestedCodes, gameThemeRepository::countByCodeIn);
 	}
 
 	private void validatePublicMechanismCodes(List<String> requestedCodes) {
-		List<String> codes = requestedCodes == null ? List.of() : requestedCodes.stream().distinct().toList();
-		if (!codes.isEmpty() && gameMechanismRepository.countByCodeInAndIsPublicTrue(codes) != codes.size()) {
+		validateCodes(requestedCodes, gameMechanismRepository::countByCodeInAndIsPublicTrue);
+	}
+
+	private void validateCodes(List<String> requestedCodes, Function<List<String>, Long> countByCodes) {
+		List<String> codes = requestedCodes == null
+			? List.of()
+			: requestedCodes.stream().filter(Objects::nonNull).distinct().toList();
+		if (!codes.isEmpty() && countByCodes.apply(codes) != codes.size()) {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
 		}
 	}
