@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.infra.redis;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.env.StandardEnvironment;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
+import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -18,6 +20,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import cloud.bamsongi.albammate.global.config.AuthenticationRequestProtectionProperties;
+import cloud.bamsongi.albammate.global.exception.BusinessException;
+import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.security.ratelimit.AuthenticationRequestLimiter;
 import cloud.bamsongi.albammate.global.security.ratelimit.LoginVerificationPermit;
 
@@ -121,17 +125,61 @@ class RedisAuthenticationRequestLimiterPostgresTest {
 	}
 
 	@Test
-	void T7_Redis가_복구되면_기존_공유_제한_상태를_다시_판정한다() {
-		AuthenticationRequestLimiter longWindow = limiter(firstFactory, Duration.ofSeconds(5));
+	void T7_Redis_명령_불능_뒤_복구되면_같은_limiter가_기존_공유_제한_상태를_다시_판정한다() throws Exception {
+		AuthenticationRequestLimiter longWindow = limiter(firstFactory, Duration.ofSeconds(30));
 		for (int index = 0; index < 5; index++) {
 			assertTrue(longWindow.checkAndRecordSignup("203.0.113.17").allowed());
 		}
-		LettuceConnectionFactory recoveredFactory = connectionFactory();
+		pauseRedisCommands();
+		awaitServiceUnavailable(longWindow);
+		awaitSharedBucketRejection(longWindow);
+	}
+
+	private void pauseRedisCommands() throws Exception {
+		org.testcontainers.containers.Container.ExecResult result = REDIS.execInContainer(
+			"redis-cli", "CLIENT", "PAUSE", "1500", "ALL");
+		assertEquals(0, result.getExitCode(), result.getStderr());
+	}
+
+	private void awaitServiceUnavailable(AuthenticationRequestLimiter limiter) {
+		long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+		while (System.nanoTime() < deadlineNanos) {
+			try {
+				limiter.checkAndRecordSignup("203.0.113.17");
+			} catch (BusinessException exception) {
+				if (exception.getErrorCode() == ErrorCode.SERVICE_UNAVAILABLE) {
+					return;
+				}
+				throw exception;
+			}
+			awaitRetryInterval();
+		}
+		throw new AssertionError("Redis 중단 뒤 5초 안에 SERVICE_UNAVAILABLE이 발생하지 않았습니다");
+	}
+
+	private void awaitSharedBucketRejection(AuthenticationRequestLimiter limiter) {
+		long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+		while (System.nanoTime() < deadlineNanos) {
+			try {
+				if (!limiter.checkAndRecordSignup("203.0.113.17").allowed()) {
+					return;
+				}
+			} catch (BusinessException exception) {
+				if (exception.getErrorCode() != ErrorCode.SERVICE_UNAVAILABLE) {
+					throw exception;
+				}
+			}
+			awaitRetryInterval();
+		}
+		throw new AssertionError("Redis 복구 뒤 10초 안에 기존 공유 bucket 제한을 다시 판정하지 못했습니다");
+	}
+
+	private void awaitRetryInterval() {
 		try {
-			AuthenticationRequestLimiter recovered = limiter(recoveredFactory, Duration.ofSeconds(5));
-			assertFalse(recovered.checkAndRecordSignup("203.0.113.17").allowed());
-		} finally {
-			recoveredFactory.destroy();
+			TimeUnit.MILLISECONDS.sleep(100);
+		} catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			throw new AssertionError("Redis 상태 대기 중 인터럽트됐습니다", exception);
 		}
 	}
 
@@ -156,8 +204,13 @@ class RedisAuthenticationRequestLimiterPostgresTest {
 	}
 
 	private LettuceConnectionFactory connectionFactory() {
-		LettuceConnectionFactory factory = new LettuceConnectionFactory(new RedisStandaloneConfiguration(
-			REDIS.getHost(), REDIS.getMappedPort(6379)));
+		LettuceClientConfiguration clientConfiguration = LettuceClientConfiguration.builder()
+			.commandTimeout(Duration.ofMillis(250))
+			.build();
+		LettuceConnectionFactory factory = new LettuceConnectionFactory(
+			new RedisStandaloneConfiguration(REDIS.getHost(), REDIS.getMappedPort(6379)),
+			clientConfiguration);
+		factory.setShareNativeConnection(false);
 		factory.afterPropertiesSet();
 		factory.start();
 		return factory;
