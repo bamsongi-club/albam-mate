@@ -60,7 +60,7 @@ class RoomStatusChangeExecutor {
 		if (room.getStatus() == RoomStatus.FINISHED) {
 			if (statusBeforeReconciliation != RoomStatus.FINISHED) {
 				roomRepository.flush();
-				eventPublisher.publishEvent(new RoomTerminalStateReached(room.getId(), requestTime));
+				expireWaitingAndPublishTerminalEvent(room, requestTime);
 			}
 			return RoomStatusResponse.from(room);
 		}
@@ -68,8 +68,13 @@ class RoomStatusChangeExecutor {
 			throw new BusinessException(ErrorCode.INVALID_ROOM_STATUS_TRANSITION);
 		}
 		roomRepository.flush();
-		eventPublisher.publishEvent(new RoomTerminalStateReached(room.getId(), requestTime));
+		expireWaitingAndPublishTerminalEvent(room, requestTime);
 		return RoomStatusResponse.from(room);
+	}
+
+	private void expireWaitingAndPublishTerminalEvent(Room room, Instant requestTime) {
+		roomWaitlistRepository.expireAllWaiting(room.getId(), requestTime);
+		eventPublisher.publishEvent(new RoomTerminalStateReached(room.getId(), requestTime));
 	}
 
 	private Room findHostedRoom(long currentUserId, long roomId) {
