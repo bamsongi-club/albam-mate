@@ -1,23 +1,37 @@
 package cloud.bamsongi.albammate.room.statuscorrection;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
+import org.springframework.context.event.EventListener;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import cloud.bamsongi.albammate.chat.entity.ChatRoom;
+import cloud.bamsongi.albammate.chat.repository.ChatRoomRepository;
+import cloud.bamsongi.albammate.room.contract.RoomTerminalStateReached;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.entity.RoomWaitlist;
 import cloud.bamsongi.albammate.room.entity.RoomWaitlistId;
@@ -29,6 +43,7 @@ import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
 
 @SpringBootTest
+@Import(RoomStatusCorrectionExecutorTest.TerminalEventOrderTestConfiguration.class)
 class RoomStatusCorrectionExecutorTest {
 
 	private static final Instant REQUEST_TIME = Instant.parse("2026-07-27T00:00:00Z");
@@ -42,9 +57,15 @@ class RoomStatusCorrectionExecutorTest {
 	@Autowired
 	private RoomWaitlistRepository roomWaitlistRepository;
 	@Autowired
+	private ChatRoomRepository chatRoomRepository;
+	@Autowired
 	private JdbcTemplate jdbcTemplate;
 	@Autowired
 	private PlatformTransactionManager transactionManager;
+	@Autowired
+	private WaitlistExpireFailureGate waitlistExpireFailureGate;
+	@Autowired
+	private TerminalEventRecorder terminalEventRecorder;
 
 	private final List<Long> roomIds = new ArrayList<>();
 	private final List<RoomWaitlistId> waitlistIds = new ArrayList<>();
@@ -54,10 +75,14 @@ class RoomStatusCorrectionExecutorTest {
 	@BeforeEach
 	void setUp() {
 		hostUserId = insertUser();
+		terminalEventRecorder.reset();
 	}
 
 	@AfterEach
 	void tearDown() {
+		waitlistExpireFailureGate.deactivate();
+		terminalEventRecorder.deactivateFailure();
+		roomIds.forEach(roomId -> jdbcTemplate.update("delete from chat_rooms where room_id = ?", roomId));
 		waitlistIds.forEach(waitlistId -> roomWaitlistRepository.deleteById(waitlistId));
 		roomIds.forEach(roomId -> roomRepository.deleteById(roomId));
 		hostUserIds.forEach(
@@ -200,6 +225,131 @@ class RoomStatusCorrectionExecutorTest {
 	}
 
 	@Test
+	void FINISHED_보정은_ROOM과_WAITING을_DB에_반영한_뒤_terminal_event를_한번_발행한다()
+		throws ReflectiveOperationException {
+		Room room = saveClosedRoom(REQUEST_TIME.minus(Room.AUTOMATIC_FINISH_AFTER_START));
+		RoomWaitlist waitlist = saveWaiting(room.getId());
+		chatRoomRepository.saveAndFlush(ChatRoom.create(room.getId()));
+
+		coordinator.correctRoom(room.getId(), REQUEST_TIME);
+
+		assertEquals(RoomStatus.FINISHED, roomRepository.findById(room.getId()).orElseThrow().getStatus());
+		assertEquals(
+			RoomWaitlistStatus.EXPIRED,
+			roomWaitlistRepository.findById(waitlist.getId()).orElseThrow().getStatus());
+		assertEquals(1, terminalEventRecorder.count());
+		TerminalEventObservation observation = terminalEventRecorder.singleObservation();
+		assertEquals(room.getId(), observation.roomId());
+		assertEquals(RoomStatus.FINISHED, observation.roomStatus());
+		assertEquals(0, observation.waitingCount());
+		assertEquals(
+			REQUEST_TIME.plusSeconds(30L * 24 * 60 * 60),
+			chatRoomRepository.findByRoomId(room.getId()).orElseThrow().getPurgeAfter());
+	}
+
+	@Test
+	void WAITING_만료_UPDATE_뒤_실패하면_ROOM_대기열_채팅방과_terminal_event를_롤백한다()
+		throws ReflectiveOperationException {
+		Room room = saveClosedRoom(REQUEST_TIME.minus(Room.AUTOMATIC_FINISH_AFTER_START));
+		RoomWaitlist waitlist = saveWaiting(room.getId());
+		chatRoomRepository.saveAndFlush(ChatRoom.create(room.getId()));
+
+		waitlistExpireFailureGate.activate();
+		try {
+			assertThrows(
+				DataIntegrityViolationException.class,
+				() -> coordinator.correctRoom(room.getId(), REQUEST_TIME));
+		} finally {
+			waitlistExpireFailureGate.deactivate();
+		}
+
+		assertEquals(RoomStatus.CLOSED, roomRepository.findById(room.getId()).orElseThrow().getStatus());
+		assertEquals(
+			RoomWaitlistStatus.WAITING,
+			roomWaitlistRepository.findById(waitlist.getId()).orElseThrow().getStatus());
+		assertNull(chatRoomRepository.findByRoomId(room.getId()).orElseThrow().getPurgeAfter());
+		assertEquals(0, terminalEventRecorder.count());
+	}
+
+	@Test
+	void 시작_경계의_RECRUITING과_CLOSED는_WAITING만_만료하고_terminal_event를_발행하지_않는다()
+		throws ReflectiveOperationException {
+		Room recruitingRoom = saveRoom(REQUEST_TIME);
+		RoomWaitlist recruitingWaiting = saveWaiting(recruitingRoom.getId());
+		chatRoomRepository.saveAndFlush(ChatRoom.create(recruitingRoom.getId()));
+		Room closedRoom = saveRoom(REQUEST_TIME);
+		setStatus(closedRoom, RoomStatus.CLOSED);
+		roomRepository.saveAndFlush(closedRoom);
+		RoomWaitlist closedWaiting = saveWaiting(closedRoom.getId());
+		chatRoomRepository.saveAndFlush(ChatRoom.create(closedRoom.getId()));
+
+		coordinator.correctRoom(recruitingRoom.getId(), REQUEST_TIME);
+		coordinator.correctRoom(closedRoom.getId(), REQUEST_TIME);
+
+		assertEquals(RoomStatus.CLOSED, roomRepository.findById(recruitingRoom.getId()).orElseThrow().getStatus());
+		assertEquals(
+			RoomWaitlistStatus.EXPIRED,
+			roomWaitlistRepository.findById(recruitingWaiting.getId()).orElseThrow().getStatus());
+		assertNull(chatRoomRepository.findByRoomId(recruitingRoom.getId()).orElseThrow().getPurgeAfter());
+		assertEquals(RoomStatus.CLOSED, roomRepository.findById(closedRoom.getId()).orElseThrow().getStatus());
+		assertEquals(
+			RoomWaitlistStatus.EXPIRED,
+			roomWaitlistRepository.findById(closedWaiting.getId()).orElseThrow().getStatus());
+		assertNull(chatRoomRepository.findByRoomId(closedRoom.getId()).orElseThrow().getPurgeAfter());
+		assertEquals(0, terminalEventRecorder.count());
+	}
+
+	@Test
+	void FINISHED_보정을_반복해도_ROOM_대기열_채팅방과_terminal_event를_다시_변경하지_않는다()
+		throws ReflectiveOperationException {
+		Room room = saveClosedRoom(REQUEST_TIME.minus(Room.AUTOMATIC_FINISH_AFTER_START));
+		RoomWaitlist waitlist = saveWaiting(room.getId());
+		chatRoomRepository.saveAndFlush(ChatRoom.create(room.getId()));
+
+		coordinator.correctRoom(room.getId(), REQUEST_TIME);
+
+		Room firstFinishedRoom = roomRepository.findById(room.getId()).orElseThrow();
+		RoomWaitlist firstExpiredWaiting = roomWaitlistRepository.findById(waitlist.getId()).orElseThrow();
+		Instant firstPurgeAfter = chatRoomRepository.findByRoomId(room.getId()).orElseThrow().getPurgeAfter();
+		int firstEventCount = terminalEventRecorder.count();
+
+		coordinator.correctRoom(room.getId(), REQUEST_TIME);
+
+		Room repeatedFinishedRoom = roomRepository.findById(room.getId()).orElseThrow();
+		RoomWaitlist repeatedExpiredWaiting = roomWaitlistRepository.findById(waitlist.getId()).orElseThrow();
+		assertEquals(firstFinishedRoom.getVersion(), repeatedFinishedRoom.getVersion());
+		assertEquals(firstExpiredWaiting.getUpdatedAt(), repeatedExpiredWaiting.getUpdatedAt());
+		assertEquals(
+			firstPurgeAfter,
+			chatRoomRepository.findByRoomId(room.getId()).orElseThrow().getPurgeAfter());
+		assertEquals(firstEventCount, terminalEventRecorder.count());
+	}
+
+	@Test
+	void 동기_terminal_listener가_실패하면_ROOM_대기열과_채팅방을_롤백한다()
+		throws ReflectiveOperationException {
+		Room room = saveClosedRoom(REQUEST_TIME.minus(Room.AUTOMATIC_FINISH_AFTER_START));
+		RoomWaitlist waitlist = saveWaiting(room.getId());
+		chatRoomRepository.saveAndFlush(ChatRoom.create(room.getId()));
+
+		terminalEventRecorder.activateFailure();
+		try {
+			assertThrows(
+				DataIntegrityViolationException.class,
+				() -> coordinator.correctRoom(room.getId(), REQUEST_TIME));
+		} finally {
+			terminalEventRecorder.deactivateFailure();
+		}
+
+		assertEquals(1, terminalEventRecorder.count());
+		assertEquals(RoomStatus.CLOSED, roomRepository.findById(room.getId()).orElseThrow().getStatus());
+		assertEquals(
+			RoomWaitlistStatus.WAITING,
+			roomWaitlistRepository.findById(waitlist.getId()).orElseThrow().getStatus());
+		assertNull(chatRoomRepository.findByRoomId(room.getId()).orElseThrow().getPurgeAfter());
+	}
+
+	@Test
 	void 제한_후보_조회는_세_경계의_논리_due_순서와_cursor_조건을_적용한다() throws ReflectiveOperationException {
 		Room recruitingAtStart = saveRoom(REQUEST_TIME.minusSeconds(1));
 		Room closedWithWaiting = saveRoom(REQUEST_TIME.minusSeconds(1));
@@ -265,6 +415,12 @@ class RoomStatusCorrectionExecutorTest {
 		return waitlist;
 	}
 
+	private Room saveClosedRoom(Instant startAt) throws ReflectiveOperationException {
+		Room room = saveRoom(startAt);
+		setStatus(room, RoomStatus.CLOSED);
+		return roomRepository.saveAndFlush(room);
+	}
+
 	private Long insertUser() {
 		String email = "room-reconciliation-" + UUID.randomUUID() + "@example.com";
 		jdbcTemplate.update(
@@ -284,5 +440,107 @@ class RoomStatusCorrectionExecutorTest {
 		Field field = Room.class.getDeclaredField("status");
 		field.setAccessible(true);
 		field.set(room, status);
+	}
+
+	@TestConfiguration(proxyBeanMethods = false)
+	static class TerminalEventOrderTestConfiguration {
+
+		@Bean
+		WaitlistExpireFailureGate waitlistExpireFailureGate() {
+			return new WaitlistExpireFailureGate();
+		}
+
+		@Bean
+		TerminalEventRecorder terminalEventRecorder(JdbcTemplate jdbcTemplate) {
+			return new TerminalEventRecorder(jdbcTemplate);
+		}
+
+		@Bean
+		@Primary
+		RoomWaitlistRepository failingRoomWaitlistRepository(
+			@Qualifier("roomWaitlistRepository") RoomWaitlistRepository delegate,
+			WaitlistExpireFailureGate waitlistExpireFailureGate) {
+			return (RoomWaitlistRepository)java.lang.reflect.Proxy.newProxyInstance(
+				RoomWaitlistRepository.class.getClassLoader(),
+				new Class<?>[] {RoomWaitlistRepository.class},
+				(proxy, method, arguments) -> {
+					try {
+						Object result = method.invoke(delegate, arguments);
+						if (method.getName().equals("expireAllWaiting")
+							&& waitlistExpireFailureGate.consumeFailureAfterSuccessfulExpire()) {
+							throw new DataIntegrityViolationException("테스트 전용 대기 만료 실패");
+						}
+						return result;
+					} catch (InvocationTargetException exception) {
+						throw exception.getCause();
+					}
+				});
+		}
+	}
+
+	static final class WaitlistExpireFailureGate {
+
+		private final AtomicBoolean active = new AtomicBoolean();
+
+		void activate() {
+			assertTrue(active.compareAndSet(false, true));
+		}
+
+		boolean consumeFailureAfterSuccessfulExpire() {
+			return active.compareAndSet(true, false);
+		}
+
+		void deactivate() {
+			active.set(false);
+		}
+	}
+
+	static final class TerminalEventRecorder {
+
+		private final JdbcTemplate jdbcTemplate;
+		private final List<TerminalEventObservation> observations = new ArrayList<>();
+		private final AtomicBoolean failAfterReceivingEvent = new AtomicBoolean();
+
+		TerminalEventRecorder(JdbcTemplate jdbcTemplate) {
+			this.jdbcTemplate = jdbcTemplate;
+		}
+
+		@EventListener
+		void record(RoomTerminalStateReached event) {
+			String roomStatus = jdbcTemplate.queryForObject(
+				"select status from rooms where id = ?", String.class, event.roomId());
+			Integer waitingCount = jdbcTemplate.queryForObject(
+				"select count(*) from room_waitlists where room_id = ? and status = 'WAITING'",
+				Integer.class,
+				event.roomId());
+			observations.add(new TerminalEventObservation(
+				event.roomId(), RoomStatus.valueOf(roomStatus), waitingCount));
+			if (failAfterReceivingEvent.compareAndSet(true, false)) {
+				throw new DataIntegrityViolationException("테스트 전용 terminal listener 실패");
+			}
+		}
+
+		void reset() {
+			observations.clear();
+		}
+
+		void activateFailure() {
+			assertTrue(failAfterReceivingEvent.compareAndSet(false, true));
+		}
+
+		void deactivateFailure() {
+			failAfterReceivingEvent.set(false);
+		}
+
+		int count() {
+			return observations.size();
+		}
+
+		TerminalEventObservation singleObservation() {
+			return observations.getFirst();
+		}
+	}
+
+	private record TerminalEventObservation(long roomId, RoomStatus roomStatus, int waitingCount) {
 	}
 }

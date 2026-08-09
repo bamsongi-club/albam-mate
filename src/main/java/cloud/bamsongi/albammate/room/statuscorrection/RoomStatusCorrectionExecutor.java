@@ -66,11 +66,13 @@ class RoomStatusCorrectionExecutor {
 		if (stateChanged) {
 			roomRepository.save(room);
 			roomRepository.flush();
-			publishTerminalStateReachedIfFinished(room, requestTime);
 		}
 		int expiredWaitingCount = 0;
 		if (startBoundaryReached) {
 			expiredWaitingCount = roomWaitlistRepository.expireAllWaiting(room.getId(), requestTime);
+		}
+		if (stateChanged) {
+			publishTerminalStateReachedIfFinished(room, requestTime);
 		}
 		return stateChanged || expiredWaitingCount > 0;
 	}
