@@ -77,12 +77,10 @@ class RoomRejoinPromotionConcurrencyPostgresTest {
 	private ParticipationLookupGate participationLookupGate;
 
 	@Autowired
-	@Qualifier("roomRepository")
-	private RoomRepository roomRepository;
+	@Qualifier("roomRepository") private RoomRepository roomRepository;
 
 	@Autowired
-	@Qualifier("participationRepository")
-	private ParticipationRepository participationRepository;
+	@Qualifier("participationRepository") private ParticipationRepository participationRepository;
 
 	@Autowired
 	private RoomWaitlistRepository roomWaitlistRepository;
