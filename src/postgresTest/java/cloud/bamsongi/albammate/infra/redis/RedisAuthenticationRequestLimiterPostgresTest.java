@@ -30,8 +30,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import cloud.bamsongi.albammate.global.config.AuthenticationRequestProtectionProperties;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
-import cloud.bamsongi.albammate.global.security.ratelimit.AuthenticationRequestLimiterMetrics;
 import cloud.bamsongi.albammate.global.security.ratelimit.AuthenticationRequestLimiter;
+import cloud.bamsongi.albammate.global.security.ratelimit.AuthenticationRequestLimiterMetrics;
 import cloud.bamsongi.albammate.global.security.ratelimit.LoginVerificationPermit;
 
 @Testcontainers
