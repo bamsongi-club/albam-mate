@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.Test;
@@ -221,7 +222,7 @@ class P1DeploymentContractTest {
 	private void assertSpringProxyOverwritesForwardedFor(String nginx) {
 		assertFalse(nginx.contains("$proxy_add_x_forwarded_for"));
 		int springProxyLocationCount = 0;
-		java.util.regex.Matcher locationMatcher = java.util.regex.Pattern
+		Matcher locationMatcher = Pattern
 			.compile("(?s)location\\s+[^\\{]+\\{.*?\\n\\s*}")
 			.matcher(nginx);
 		while (locationMatcher.find()) {
