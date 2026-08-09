@@ -106,7 +106,7 @@ class P1DeploymentContractTest {
 		assertTrue(limiter.checkAndRecordSignup(signupRemoteAddress).allowed());
 		assertTrue(limiter.checkAndRecordLogin(loginRemoteAddress).allowed());
 		assertTrue(limiter.checkAndRecordLogin(loginRemoteAddress).allowed());
-		assertEquals(2, limiter.ipBucketCount());
+		assertEquals(1, limiter.ipBucketCount());
 	}
 
 	@Test
@@ -123,7 +123,7 @@ class P1DeploymentContractTest {
 		assertTrue(limiter.checkAndRecordSignup(secondAddress).allowed());
 		assertTrue(limiter.checkAndRecordLogin(firstAddress).allowed());
 		assertTrue(limiter.checkAndRecordLogin(secondAddress).allowed());
-		assertEquals(4, limiter.ipBucketCount());
+		assertEquals(2, limiter.ipBucketCount());
 	}
 
 	@Test

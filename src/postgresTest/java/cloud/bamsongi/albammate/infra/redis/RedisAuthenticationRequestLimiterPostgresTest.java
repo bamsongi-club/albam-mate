@@ -5,6 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
@@ -37,11 +44,13 @@ class RedisAuthenticationRequestLimiterPostgresTest {
 	private LettuceConnectionFactory secondFactory;
 	private AuthenticationRequestLimiter first;
 	private AuthenticationRequestLimiter second;
+	private String testKeyPrefix;
 
 	@BeforeEach
 	void setUp() {
 		firstFactory = connectionFactory();
 		secondFactory = connectionFactory();
+		testKeyPrefix = "albam-mate:test:" + UUID.randomUUID() + ":auth";
 		first = limiter(firstFactory, Duration.ofMillis(250));
 		second = limiter(secondFactory, Duration.ofMillis(250));
 	}
@@ -50,6 +59,108 @@ class RedisAuthenticationRequestLimiterPostgresTest {
 	void tearDown() {
 		firstFactory.destroy();
 		secondFactory.destroy();
+	}
+
+	@Test
+	void T1_같은_IP의_signup과_login은_Redis_논리_IP_슬롯_하나를_공유한다() {
+		AuthenticationRequestLimiter limited = limiter(firstFactory, Duration.ofSeconds(10), 1, 10);
+		assertTrue(limited.checkAndRecordSignup("203.0.113.30").allowed());
+
+		assertTrue(limited.checkAndRecordLogin("203.0.113.30").allowed());
+		assertThrowsServiceUnavailable(() -> limited.requireSignupAllowed("203.0.113.31"));
+	}
+
+	@Test
+	void T2_신규_IP는_Redis_용량_포화시_SERVICE_UNAVAILABLE로_거절된다() {
+		AuthenticationRequestLimiter limited = limiter(firstFactory, Duration.ofSeconds(10), 1, 10);
+		assertTrue(limited.checkAndRecordSignup("203.0.113.31").allowed());
+
+		assertThrowsServiceUnavailable(() -> limited.requireLoginAllowed("203.0.113.32"));
+	}
+
+	@Test
+	void T3_포화_뒤에도_기존_IP의_429_상태는_축출되지_않는다() {
+		AuthenticationRequestLimiter limited = limiter(firstFactory, Duration.ofSeconds(10), 1, 10);
+		for (int index = 0; index < 5; index++) {
+			assertTrue(limited.checkAndRecordSignup("203.0.113.33").allowed());
+		}
+
+		assertThrowsServiceUnavailable(() -> limited.requireSignupAllowed("203.0.113.34"));
+		assertFalse(limited.checkAndRecordSignup("203.0.113.33").allowed());
+	}
+
+	@Test
+	void T4_동시_신규_IP도_원자적으로_등록_상한을_지킨다() throws Exception {
+		AuthenticationRequestLimiter limited = limiter(firstFactory, Duration.ofSeconds(10), 2, 10);
+		ExecutorService executor = Executors.newFixedThreadPool(8);
+		CountDownLatch ready = new CountDownLatch(8);
+		CountDownLatch start = new CountDownLatch(1);
+		try {
+			List<Future<Boolean>> futures = new ArrayList<>();
+			for (int index = 0; index < 8; index++) {
+				int suffix = index;
+				futures.add(executor.submit(() -> {
+					ready.countDown();
+					start.await();
+					return limited.checkAndRecordSignup("203.0.113." + (40 + suffix)).allowed();
+				}));
+			}
+			assertTrue(ready.await(5, TimeUnit.SECONDS));
+			start.countDown();
+			assertEquals(2, futures.stream().filter(this::get).count());
+		} finally {
+			executor.shutdownNow();
+		}
+	}
+
+	@Test
+	void T5_만료된_Redis_IP_상태는_슬롯을_반납한다() throws InterruptedException {
+		AuthenticationRequestLimiter limited = limiter(firstFactory, Duration.ofMillis(250), 1, 10);
+		assertTrue(limited.checkAndRecordSignup("203.0.113.51").allowed());
+		assertThrowsServiceUnavailable(() -> limited.requireLoginAllowed("203.0.113.52"));
+		TimeUnit.MILLISECONDS.sleep(350);
+
+		assertTrue(limited.checkAndRecordLogin("203.0.113.52").allowed());
+	}
+
+	@Test
+	void T6_실패_버킷과_gate는_Redis_실패_슬롯_하나를_공유한다() {
+		AuthenticationRequestLimiter limited = limiter(firstFactory, Duration.ofSeconds(10), 10, 1);
+		assertTrue(limited.recordLoginFailure("first@example.com", "203.0.113.61").allowed());
+		LoginVerificationPermit permit = limited.tryAcquireLoginVerification("first@example.com", "203.0.113.61")
+			.orElseThrow();
+		try {
+			assertThrowsServiceUnavailable(
+				() -> limited.tryAcquireLoginVerification("second@example.com", "203.0.113.62"));
+		} finally {
+			permit.close();
+		}
+	}
+
+	@Test
+	void T7_실패_포화여도_확인과_반납은_허용하고_신규_gate만_거절한다() {
+		AuthenticationRequestLimiter limited = limiter(firstFactory, Duration.ofSeconds(10), 10, 1);
+		assertTrue(limited.recordLoginFailure("first@example.com", "203.0.113.71").allowed());
+
+		assertTrue(limited.checkLoginFailureAllowed("second@example.com", "203.0.113.72").allowed());
+		assertThrowsServiceUnavailable(
+			() -> limited.tryAcquireLoginVerification("second@example.com", "203.0.113.72"));
+		limited.resetLoginFailures("first@example.com", "203.0.113.71");
+		assertTrue(limited.tryAcquireLoginVerification("second@example.com", "203.0.113.72").isPresent());
+	}
+
+	@Test
+	void T8_gate_해제와_실패_초기화는_남은_TTL을_갱신하고_비면_즉시_반납한다() {
+		AuthenticationRequestLimiter limited = limiter(firstFactory, Duration.ofSeconds(10), 10, 1);
+		assertTrue(limited.recordLoginFailure("first@example.com", "203.0.113.81").allowed());
+		LoginVerificationPermit permit = limited.tryAcquireLoginVerification("first@example.com", "203.0.113.81")
+			.orElseThrow();
+		limited.resetLoginFailures("first@example.com", "203.0.113.81");
+		assertThrowsServiceUnavailable(
+			() -> limited.tryAcquireLoginVerification("second@example.com", "203.0.113.82"));
+
+		permit.close();
+		assertTrue(limited.tryAcquireLoginVerification("second@example.com", "203.0.113.82").isPresent());
 	}
 
 	@Test
@@ -196,11 +307,32 @@ class RedisAuthenticationRequestLimiterPostgresTest {
 	}
 
 	private AuthenticationRequestLimiter limiter(LettuceConnectionFactory connectionFactory, Duration window) {
+		return limiter(connectionFactory, window, 10_000, 10_000);
+	}
+
+	private AuthenticationRequestLimiter limiter(LettuceConnectionFactory connectionFactory, Duration window,
+		int maxIpKeys, int maxFailureKeys) {
 		AuthenticationRequestProtectionProperties properties = new AuthenticationRequestProtectionProperties();
 		properties.setWindow(window);
+		properties.setMaxIpKeys(maxIpKeys);
+		properties.setMaxFailureKeys(maxFailureKeys);
 		StandardEnvironment environment = new StandardEnvironment();
 		environment.setActiveProfiles("local");
-		return new RedisAuthenticationRequestLimiter(connectionFactory, environment, properties);
+		return new RedisAuthenticationRequestLimiter(connectionFactory, environment, properties, testKeyPrefix);
+	}
+
+	private void assertThrowsServiceUnavailable(org.junit.jupiter.api.function.Executable executable) {
+		BusinessException exception = org.junit.jupiter.api.Assertions.assertThrows(BusinessException.class,
+			executable);
+		assertEquals(ErrorCode.SERVICE_UNAVAILABLE, exception.getErrorCode());
+	}
+
+	private boolean get(Future<Boolean> future) {
+		try {
+			return future.get(5, TimeUnit.SECONDS);
+		} catch (Exception exception) {
+			throw new AssertionError(exception);
+		}
 	}
 
 	private LettuceConnectionFactory connectionFactory() {

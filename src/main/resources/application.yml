@@ -90,6 +90,8 @@ app:
       signup-limit: 5
       login-limit: 30
       login-failure-limit: 5
+      # signup·login 물리 bucket을 합친 원격 IP 논리 주체의 최대 등록 수
       max-ip-keys: 10000
+      # 실패 bucket과 로그인 gate를 합친 이메일·원격 IP 논리 주체의 최대 등록 수
       max-failure-keys: 10000
       hash-slots: 4

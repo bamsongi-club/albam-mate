@@ -49,6 +49,20 @@ class SignupServiceTest {
 	}
 
 	@Test
+	void T2_IP_용량_포화는_사용자_생성과_비밀번호_해시_전에_SERVICE_UNAVAILABLE로_끝난다() {
+		SignupService service = new SignupService(requestLimiter, userAccountService);
+		doThrow(new BusinessException(ErrorCode.SERVICE_UNAVAILABLE))
+			.when(requestLimiter)
+			.requireSignupAllowed("203.0.113.22");
+
+		BusinessException exception = assertThrows(BusinessException.class,
+			() -> service.signup(command("user@example.com", "123456789012345", "닉네임"), "203.0.113.22"));
+
+		assertEquals(ErrorCode.SERVICE_UNAVAILABLE, exception.getErrorCode());
+		verify(userAccountService, never()).createAccount(org.mockito.ArgumentMatchers.any());
+	}
+
+	@Test
 	void IP_제한을_초과하면_사용자_모듈을_호출하지_않는다() {
 		SignupService service = new SignupService(requestLimiter, userAccountService);
 		doThrow(new RateLimitExceededException(1))
