@@ -178,6 +178,42 @@ class GameQueryServiceListTest {
 		verify(upcomingRoomCountQuery).findUpcomingRoomCounts(List.of(1L), NOW);
 	}
 
+	@Test
+	void 문자열_키워드와_Pageable_목록_조회는_기준_시각을_재호출하지_않는다() {
+		RequestStartClock requestClock = new RequestStartClock(NOW);
+		gameQueryService = newGameQueryService(requestClock);
+		Pageable pageable = fixedPageRequest(0, 10);
+		Game game = game(1L, "카탄");
+		when(gameRepository.findAll(any(Specification.class), eq(pageable))).thenAnswer(invocation -> {
+			requestClock.closeRequestStart();
+			return new PageImpl<>(List.of(game), pageable, 1);
+		});
+		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW)).thenReturn(Map.of(1L, 2L));
+
+		Page<GameListItem> result = gameQueryService.findPage("카탄", pageable);
+
+		assertEquals(2L, result.getContent().getFirst().upcomingRoomCount());
+		verify(upcomingRoomCountQuery).findUpcomingRoomCounts(List.of(1L), NOW);
+	}
+
+	@Test
+	void 문자열_키워드_페이지_목록_조회는_기준_시각을_재호출하지_않는다() {
+		RequestStartClock requestClock = new RequestStartClock(NOW);
+		gameQueryService = newGameQueryService(requestClock);
+		Game game = game(1L, "카탄");
+		Pageable pageable = fixedPageRequest(0, 10);
+		when(gameRepository.findAll(any(Specification.class), eq(pageable))).thenAnswer(invocation -> {
+			requestClock.closeRequestStart();
+			return new PageImpl<>(List.of(game), pageable, 1);
+		});
+		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW)).thenReturn(Map.of(1L, 2L));
+
+		Page<GameListItem> result = gameQueryService.findPage("카탄", false, 0, 10);
+
+		assertEquals(2L, result.getContent().getFirst().upcomingRoomCount());
+		verify(upcomingRoomCountQuery).findUpcomingRoomCounts(List.of(1L), NOW);
+	}
+
 	private GameListRequest request(
 		String keyword,
 		boolean upcomingOnly,
