@@ -33,7 +33,9 @@ import cloud.bamsongi.albammate.room.repository.RoomRepository;
 })
 class ChatMessageLimitPropertiesIntegrationTest {
 
-	private static final Instant NOW = Instant.parse("2026-08-08T00:00:00Z");
+	private static final Instant CREATED_AT = Instant.parse("2026-08-08T00:00:00Z");
+	// 실제 Clock을 쓰는 통합 테스트라 모임 시각이 과거가 되면 방이 자동 종료돼 채팅이 막힌다. 실행 시각과 무관하게 미래인 값을 쓴다.
+	private static final Instant FUTURE_STARTS_AT = Instant.parse("2099-01-01T10:00:00Z");
 
 	@Autowired
 	private ChatMessageCommandService chatMessageCommandService;
@@ -87,8 +89,8 @@ class ChatMessageLimitPropertiesIntegrationTest {
 			"insert into users (email, password_hash, nickname, created_at, updated_at) values (?, 'hash', ?, ?, ?)",
 			email,
 			nickname,
-			NOW,
-			NOW);
+			CREATED_AT,
+			CREATED_AT);
 		Long userId = jdbcTemplate.queryForObject("select id from users where email = ?", Long.class, email);
 		userIds.add(userId);
 		return userId;
@@ -104,7 +106,7 @@ class ChatMessageLimitPropertiesIntegrationTest {
 				null,
 				ExperienceLevel.ALL_LEVELS,
 				false,
-				NOW.plusSeconds(3600),
+				FUTURE_STARTS_AT,
 				"홍대",
 				2));
 		roomIds.add(room.getId());
