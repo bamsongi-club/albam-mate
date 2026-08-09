@@ -2564,15 +2564,21 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     const requestedRoomId = roomId;
     const requestedGeneration = roomGenerationRef.current;
     const requestController = new AbortController();
-    const deadlineTimer = window.setTimeout(
-      () => requestController.abort(),
-      CHAT_SEND_REQUEST_DEADLINE_MS
-    );
+    let requestStarted = false;
+    let deadlineTimer;
+    const startRequestDeadline = () => {
+      requestStarted = true;
+      deadlineTimer = window.setTimeout(
+        () => requestController.abort(),
+        CHAT_SEND_REQUEST_DEADLINE_MS
+      );
+    };
     try {
       const saved = await api.sendChatMessage(
         roomId,
         { clientMessageId: messageId, content: trimmed },
-        requestController.signal
+        requestController.signal,
+        startRequestDeadline
       );
       if (roomIdRef.current !== requestedRoomId || roomGenerationRef.current !== requestedGeneration) return;
       if (requestController.signal.aborted) {
@@ -2587,7 +2593,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
       setClientMessageContent(null);
     } catch (cause) {
       if (roomIdRef.current !== requestedRoomId || roomGenerationRef.current !== requestedGeneration) return;
-      if (requestController.signal.aborted || !(cause instanceof ApiError)) {
+      if (requestStarted && !(cause instanceof ApiError)) {
         setSendError(CHAT_SEND_RESULT_UNKNOWN_MESSAGE);
         setSendResultUnknown(true);
       } else {

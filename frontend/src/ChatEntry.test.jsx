@@ -328,7 +328,8 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     await waitFor(() => expect(send).toHaveBeenCalledWith(
       '7',
       expect.objectContaining({ content: '키보드 전송' }),
-      expect.any(AbortSignal)
+      expect.any(AbortSignal),
+      expect.any(Function)
     ));
   });
 
@@ -390,13 +391,70 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     elsewhere.remove();
   });
 
+  it('CSRF 대기 중에는 deadline을 시작하지 않고 실제 POST 시작 뒤에만 결과 미확정으로 처리한다', async () => {
+    useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({ messages: [], nextBeforeMessageId: null, hasNext: false });
+    let startPost;
+    vi.spyOn(api, 'sendChatMessage').mockImplementation((_roomId, _message, signal, onRequestStarted) => new Promise((_resolve, reject) => {
+      signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+      startPost = () => onRequestStarted();
+    }));
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(screen.getByLabelText('메시지')).toBeTruthy());
+    vi.useFakeTimers();
+    fireEvent.change(screen.getByLabelText('메시지'), { target: { value: 'CSRF 대기 메시지' } });
+    fireEvent.click(screen.getByRole('button', { name: '전송' }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(CHAT_SEND_REQUEST_DEADLINE_MS);
+    });
+
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('button', { name: '전송 중…' })).toBeTruthy();
+
+    startPost();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(CHAT_SEND_REQUEST_DEADLINE_MS);
+    });
+
+    expect(screen.getByRole('alert').textContent).toContain(CHAT_SEND_RESULT_UNKNOWN_MESSAGE);
+  });
+
+  it('deadline 뒤 HTTP 503 ApiError가 도착해도 결과 미확정 대신 서버 오류를 보여준다', async () => {
+    useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({ messages: [], nextBeforeMessageId: null, hasNext: false });
+    let rejectSend;
+    vi.spyOn(api, 'sendChatMessage').mockImplementation((_roomId, _message, _signal, onRequestStarted) => new Promise((_resolve, reject) => {
+      onRequestStarted();
+      rejectSend = reject;
+    }));
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(screen.getByLabelText('메시지')).toBeTruthy());
+    vi.useFakeTimers();
+    fireEvent.change(screen.getByLabelText('메시지'), { target: { value: '503 응답 메시지' } });
+    fireEvent.click(screen.getByRole('button', { name: '전송' }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(CHAT_SEND_REQUEST_DEADLINE_MS);
+      rejectSend(new ApiError({ status: 503, code: 'SERVICE_UNAVAILABLE', message: '채팅 서버가 일시적으로 응답하지 않아요.' }));
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole('alert').textContent).toContain('채팅 서버가 일시적으로 응답하지 않아요.');
+    expect(screen.queryByText(CHAT_SEND_RESULT_UNKNOWN_MESSAGE)).toBeNull();
+    expect(screen.getByRole('button', { name: '전송' })).toBeTruthy();
+  });
+
   it('T3 deadline 뒤 결과 미확정 문구와 다시 시도 상태를 보여주고 같은 clientMessageId를 유지한다', async () => {
     useFakeWebSocket();
     vi.spyOn(api, 'getChatMessages').mockResolvedValue({ messages: [], nextBeforeMessageId: null, hasNext: false });
     let attempt = 0;
-    const send = vi.spyOn(api, 'sendChatMessage').mockImplementation((_roomId, _message, signal) => {
+    const send = vi.spyOn(api, 'sendChatMessage').mockImplementation((_roomId, _message, signal, onRequestStarted) => {
       attempt += 1;
       if (attempt === 1) {
+        onRequestStarted();
         return new Promise((_resolve, reject) => {
           signal.addEventListener('abort', () => reject(signal.reason));
         });
@@ -436,8 +494,9 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     useFakeWebSocket();
     vi.spyOn(api, 'getChatMessages').mockResolvedValue({ messages: [], nextBeforeMessageId: null, hasNext: false });
     let attempt = 0;
-    const send = vi.spyOn(api, 'sendChatMessage').mockImplementation((_roomId, _message) => {
+    const send = vi.spyOn(api, 'sendChatMessage').mockImplementation((_roomId, _message, _signal, onRequestStarted) => {
       attempt += 1;
+      onRequestStarted();
       if (attempt === 1) return Promise.reject(new TypeError('network failure'));
       return Promise.resolve({
         messageId: 16,
@@ -639,7 +698,8 @@ describe('#427 T1~T4 메시지 전송·이력 추가 조회', () => {
     expect(api.sendChatMessage).toHaveBeenCalledWith(
       '7',
       expect.objectContaining({ content: '저도 참여할게요', clientMessageId: expect.any(String) }),
-      expect.any(AbortSignal)
+      expect.any(AbortSignal),
+      expect.any(Function)
     );
   });
 

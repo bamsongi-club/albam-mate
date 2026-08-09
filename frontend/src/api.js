@@ -31,6 +31,51 @@ function staleAuthenticationError() {
   return error;
 }
 
+function failedResponseError(response, payload) {
+  const error = new ApiError({
+    status: response.status,
+    code: payload?.code || 'REQUEST_FAILED',
+    message: payload?.message || '요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.',
+    retryAfter: response.headers.get('retry-after')
+  });
+  if (response.status === 401) {
+    clearCsrfToken();
+    unauthenticatedHandler?.();
+  }
+  return error;
+}
+
+function abortedRequestError(signal) {
+  if (signal?.reason) return signal.reason;
+  const error = new Error('요청이 취소되었습니다.');
+  error.name = 'AbortError';
+  return error;
+}
+
+function waitForSharedCsrfToken(signal) {
+  const tokenRequest = getCsrfToken();
+  if (!signal) return tokenRequest;
+  if (signal.aborted) return Promise.reject(abortedRequestError(signal));
+
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      signal.removeEventListener('abort', onAbort);
+      reject(abortedRequestError(signal));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    tokenRequest.then(
+      (token) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(token);
+      },
+      (error) => {
+        signal.removeEventListener('abort', onAbort);
+        reject(error);
+      }
+    );
+  });
+}
+
 async function request(path, { method = 'GET', body, headers, signal } = {}) {
   const requestAuthenticationGeneration = authenticationGeneration;
   let response;
@@ -52,6 +97,9 @@ async function request(path, { method = 'GET', body, headers, signal } = {}) {
     if (requestAuthenticationGeneration !== authenticationGeneration) {
       throw staleAuthenticationError();
     }
+    if (response && !response.ok) {
+      throw failedResponseError(response, payload);
+    }
     throw error;
   }
 
@@ -60,17 +108,7 @@ async function request(path, { method = 'GET', body, headers, signal } = {}) {
   }
 
   if (!response.ok) {
-    const error = new ApiError({
-      status: response.status,
-      code: payload?.code || 'REQUEST_FAILED',
-      message: payload?.message || '요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.',
-      retryAfter: response.headers.get('retry-after')
-    });
-    if (response.status === 401) {
-      clearCsrfToken();
-      unauthenticatedHandler?.();
-    }
-    throw error;
+    throw failedResponseError(response, payload);
   }
 
   if (!payload || payload.status !== response.status || !Object.hasOwn(payload, 'data')) {
@@ -84,10 +122,10 @@ async function request(path, { method = 'GET', body, headers, signal } = {}) {
   return payload.data;
 }
 
-async function getCsrfToken(signal) {
+async function getCsrfToken() {
   if (csrfToken) return csrfToken;
   if (!csrfTokenRequest) {
-    csrfTokenRequest = request('/api/auth/csrf', { signal })
+    csrfTokenRequest = request('/api/auth/csrf')
       .then((token) => {
         csrfToken = token;
         return token;
@@ -100,7 +138,8 @@ async function getCsrfToken(signal) {
 }
 
 async function mutate(path, options = {}) {
-  const token = await getCsrfToken(options.signal);
+  const token = await waitForSharedCsrfToken(options.signal);
+  options.onRequestStarted?.();
   return request(path, {
     ...options,
     headers: {
@@ -296,9 +335,9 @@ export const api = {
     return request('/api/rooms/' + roomId + '/chat/messages' + query(options), { signal });
   },
   openChatWebSocket,
-  sendChatMessage: (roomId, message, signal) => mutate(
+  sendChatMessage: (roomId, message, signal, onRequestStarted) => mutate(
     '/api/rooms/' + roomId + '/chat/messages',
-    { method: 'POST', body: message, signal }
+    { method: 'POST', body: message, signal, onRequestStarted }
   ),
   getNotifications: ({ page = 0, size = 10 } = {}, signal) =>
     request('/api/users/me/notifications' + query({ page, size }), { signal }),
