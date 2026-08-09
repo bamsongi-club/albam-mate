@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -12,12 +14,14 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -102,6 +106,126 @@ class GameQueryServiceListTest {
 
 		BusinessException exception = assertThrows(BusinessException.class,
 			() -> gameQueryService.findPage(request));
+
+		assertEquals(ErrorCode.VALIDATION_ERROR, exception.getErrorCode());
+		verify(gameThemeRepository).countByCodeIn(List.of("UNKNOWN_THEME"));
+		verifyNoInteractions(gameRepository);
+	}
+
+	@Test
+	void 메커니즘_카테고리_테마_순서로_검증하고_앞단계_실패면_후속_저장소를_호출하지_않는다() {
+		GameListRequest validRequest = filterRequest(
+			Arrays.asList(null, "DICE"), Arrays.asList(null, "STRATEGY"), Arrays.asList(null, "ANIMALS"));
+		Pageable pageable = fixedPageRequest(0, 10);
+		when(gameMechanismRepository.countByCodeInAndIsPublicTrue(List.of("DICE"))).thenReturn(1L);
+		when(gameCategoryRepository.countByCodeIn(List.of("STRATEGY"))).thenReturn(1L);
+		when(gameThemeRepository.countByCodeIn(List.of("ANIMALS"))).thenReturn(1L);
+		when(gameRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(Page.empty(pageable));
+
+		gameQueryService.findPage(validRequest);
+
+		InOrder validationOrder = inOrder(
+			gameMechanismRepository, gameCategoryRepository, gameThemeRepository);
+		validationOrder.verify(gameMechanismRepository).countByCodeInAndIsPublicTrue(List.of("DICE"));
+		validationOrder.verify(gameCategoryRepository).countByCodeIn(List.of("STRATEGY"));
+		validationOrder.verify(gameThemeRepository).countByCodeIn(List.of("ANIMALS"));
+
+		clearInvocations(gameMechanismRepository, gameCategoryRepository, gameThemeRepository);
+		GameListRequest invalidMechanismRequest = filterRequest(
+			List.of("PRIVATE"), List.of("STRATEGY"), List.of("ANIMALS"));
+		when(gameMechanismRepository.countByCodeInAndIsPublicTrue(List.of("PRIVATE"))).thenReturn(0L);
+
+		assertThrows(BusinessException.class, () -> gameQueryService.findPage(invalidMechanismRequest));
+
+		verify(gameMechanismRepository).countByCodeInAndIsPublicTrue(List.of("PRIVATE"));
+		verifyNoInteractions(gameCategoryRepository, gameThemeRepository);
+
+		clearInvocations(gameMechanismRepository, gameCategoryRepository, gameThemeRepository);
+		GameListRequest invalidCategoryRequest = filterRequest(
+			List.of("DICE"), List.of("UNKNOWN_CATEGORY"), List.of("ANIMALS"));
+		when(gameMechanismRepository.countByCodeInAndIsPublicTrue(List.of("DICE"))).thenReturn(1L);
+		when(gameCategoryRepository.countByCodeIn(List.of("UNKNOWN_CATEGORY"))).thenReturn(0L);
+
+		assertThrows(BusinessException.class, () -> gameQueryService.findPage(invalidCategoryRequest));
+
+		verify(gameMechanismRepository).countByCodeInAndIsPublicTrue(List.of("DICE"));
+		verify(gameCategoryRepository).countByCodeIn(List.of("UNKNOWN_CATEGORY"));
+		verifyNoInteractions(gameThemeRepository);
+	}
+
+	@Test
+	void 필터_코드의_null_빈_목록_중복을_정규화해_저장소에_전달한다() {
+		GameListRequest request = filterRequest(
+			Arrays.asList(null, "DICE", "DICE"), List.of(), Arrays.asList(null, "ANIMALS", "ANIMALS"));
+		Pageable pageable = fixedPageRequest(0, 10);
+		when(gameMechanismRepository.countByCodeInAndIsPublicTrue(List.of("DICE"))).thenReturn(1L);
+		when(gameThemeRepository.countByCodeIn(List.of("ANIMALS"))).thenReturn(1L);
+		when(gameRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(Page.empty(pageable));
+
+		gameQueryService.findPage(request);
+
+		verify(gameMechanismRepository).countByCodeInAndIsPublicTrue(List.of("DICE"));
+		verifyNoInteractions(gameCategoryRepository);
+		verify(gameThemeRepository).countByCodeIn(List.of("ANIMALS"));
+	}
+
+	@Test
+	void 비공개_메커니즘과_미존재_카테고리_테마를_검증오류로_거절한다() {
+		GameListRequest mechanismRequest = filterRequest(Arrays.asList(null, "PRIVATE"), List.of(), List.of());
+		when(gameMechanismRepository.countByCodeInAndIsPublicTrue(List.of("PRIVATE"))).thenReturn(0L);
+
+		BusinessException mechanismException = assertThrows(BusinessException.class,
+			() -> gameQueryService.findPage(mechanismRequest));
+
+		assertEquals(ErrorCode.VALIDATION_ERROR, mechanismException.getErrorCode());
+		verify(gameMechanismRepository).countByCodeInAndIsPublicTrue(List.of("PRIVATE"));
+
+		clearInvocations(gameMechanismRepository, gameCategoryRepository, gameThemeRepository);
+		GameListRequest categoryRequest = filterRequest(List.of(), Arrays.asList(null, "UNKNOWN_CATEGORY"), List.of());
+		when(gameCategoryRepository.countByCodeIn(List.of("UNKNOWN_CATEGORY"))).thenReturn(0L);
+
+		BusinessException categoryException = assertThrows(BusinessException.class,
+			() -> gameQueryService.findPage(categoryRequest));
+
+		assertEquals(ErrorCode.VALIDATION_ERROR, categoryException.getErrorCode());
+		verify(gameCategoryRepository).countByCodeIn(List.of("UNKNOWN_CATEGORY"));
+
+		clearInvocations(gameMechanismRepository, gameCategoryRepository, gameThemeRepository);
+		GameListRequest themeRequest = filterRequest(List.of(), List.of(), Arrays.asList(null, "UNKNOWN_THEME"));
+		when(gameThemeRepository.countByCodeIn(List.of("UNKNOWN_THEME"))).thenReturn(0L);
+
+		BusinessException themeException = assertThrows(BusinessException.class,
+			() -> gameQueryService.findPage(themeRequest));
+
+		assertEquals(ErrorCode.VALIDATION_ERROR, themeException.getErrorCode());
+		verify(gameThemeRepository).countByCodeIn(List.of("UNKNOWN_THEME"));
+	}
+
+	@Test
+	void 유효한_필터의_검색결과와_검증오류_계약을_유지한다() {
+		GameListRequest validRequest = filterRequest(
+			Arrays.asList(null, "DICE", "DICE"), List.of("STRATEGY", "STRATEGY"), List.of("ANIMALS"));
+		Pageable pageable = fixedPageRequest(0, 10);
+		Game game = game(1L, "카탄");
+		when(gameMechanismRepository.countByCodeInAndIsPublicTrue(List.of("DICE"))).thenReturn(1L);
+		when(gameCategoryRepository.countByCodeIn(List.of("STRATEGY"))).thenReturn(1L);
+		when(gameThemeRepository.countByCodeIn(List.of("ANIMALS"))).thenReturn(1L);
+		when(gameRepository.findAll(any(Specification.class), eq(pageable)))
+			.thenReturn(new PageImpl<>(List.of(game), pageable, 1));
+		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW)).thenReturn(Map.of(1L, 2L));
+
+		Page<GameListItem> result = gameQueryService.findPage(validRequest);
+
+		assertEquals(1, result.getTotalElements());
+		assertEquals(2L, result.getContent().getFirst().upcomingRoomCount());
+		verify(gameRepository).findAll(any(Specification.class), eq(pageable));
+
+		clearInvocations(gameMechanismRepository, gameCategoryRepository, gameThemeRepository, gameRepository);
+		GameListRequest invalidRequest = filterRequest(List.of(), List.of(), Arrays.asList(null, "UNKNOWN_THEME"));
+		when(gameThemeRepository.countByCodeIn(List.of("UNKNOWN_THEME"))).thenReturn(0L);
+
+		BusinessException exception = assertThrows(BusinessException.class,
+			() -> gameQueryService.findPage(invalidRequest));
 
 		assertEquals(ErrorCode.VALIDATION_ERROR, exception.getErrorCode());
 		verify(gameThemeRepository).countByCodeIn(List.of("UNKNOWN_THEME"));
@@ -230,6 +354,14 @@ class GameQueryServiceListTest {
 			complexityMin == null ? null : new java.math.BigDecimal(complexityMin));
 		request.setComplexityMax(
 			complexityMax == null ? null : new java.math.BigDecimal(complexityMax));
+		return request;
+	}
+
+	private GameListRequest filterRequest(List<String> mechanism, List<String> category, List<String> theme) {
+		GameListRequest request = new GameListRequest();
+		request.setMechanism(mechanism);
+		request.setCategory(category);
+		request.setTheme(theme);
 		return request;
 	}
 
