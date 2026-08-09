@@ -12,12 +12,14 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import cloud.bamsongi.albammate.global.config.AuthenticationRequestProtectionProperties;
 
 /** 단일 애플리케이션 인스턴스에서 인증 요청을 이동 창으로 제한한다. */
 @Component
+@Profile("!local & !production")
 public class InMemoryAuthenticationRequestLimiter implements AuthenticationRequestLimiter {
 
 	private enum IpRequestType {
