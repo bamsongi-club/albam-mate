@@ -2,6 +2,7 @@ package cloud.bamsongi.albammate.room.service.query;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
@@ -20,6 +21,8 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.annotation.Transactional;
 
+import cloud.bamsongi.albammate.global.exception.BusinessException;
+import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.entity.Participation;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
@@ -64,5 +67,29 @@ class RoomChatAccessGuardTest {
 		verify(roomRepository, times(2)).findByIdForChatAccess(7L);
 		verify(roomRepository, never()).findById(7L);
 		verifyNoInteractions(statusCorrectionCoordinator);
+	}
+
+	@Test
+	void T2_경량_검증은_취소된_참가자와_채팅_불가_방을_거절한다() {
+		Room recruitingRoom = mock(Room.class);
+		when(recruitingRoom.getStatus()).thenReturn(RoomStatus.RECRUITING);
+		when(recruitingRoom.getHostUserId()).thenReturn(1L);
+		when(roomRepository.findByIdForChatAccess(7L)).thenReturn(Optional.of(recruitingRoom));
+		Participation canceledParticipation = mock(Participation.class);
+		when(canceledParticipation.getStatus()).thenReturn(ParticipationStatus.CANCELED);
+		when(participationRepository.findByRoomIdAndUserId(7L, 2L)).thenReturn(Optional.of(canceledParticipation));
+
+		Room canceledRoom = mock(Room.class);
+		when(canceledRoom.getStatus()).thenReturn(RoomStatus.CANCELED);
+		when(canceledRoom.getHostUserId()).thenReturn(1L);
+		when(roomRepository.findByIdForChatAccess(8L)).thenReturn(Optional.of(canceledRoom));
+
+		assertForbidden(() -> guard.verifyCurrentAccess(2L, 7L));
+		assertForbidden(() -> guard.verifyCurrentAccess(1L, 8L));
+	}
+
+	private void assertForbidden(Runnable action) {
+		BusinessException exception = assertThrows(BusinessException.class, action::run);
+		assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
 	}
 }
