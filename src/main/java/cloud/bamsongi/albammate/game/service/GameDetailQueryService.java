@@ -51,6 +51,17 @@ public class GameDetailQueryService {
 		return findById(gameId, null);
 	}
 
+	/**
+	 * 인증 사용자 기준 게임 상세와 조회 시각 기준 예정 모임 수를 조회한다.
+	 *
+	 * <p>비로그인 요청에서는 {@code currentUserId}가 {@code null}일 수 있으며, 이 경우 반환값의
+	 * {@code playedByMe}는 {@code null}이다. 값이 있으면 해당 사용자의 해 본 게임 상태를 조회한다.
+	 *
+	 * @param gameId 알밤메이트 내부 게임 ID
+	 * @param currentUserId 인증 사용자 ID. 비로그인 요청이면 {@code null}
+	 * @return 예정 모임 수와 본인의 해 본 게임 상태가 포함된 게임 상세
+	 * @throws BusinessException 게임이 없으면 {@link ErrorCode#GAME_NOT_FOUND}
+	 */
 	public GameDetail findById(Long gameId, Long currentUserId) {
 		Game game = gameRepository
 			.findById(gameId)
