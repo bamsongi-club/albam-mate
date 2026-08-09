@@ -483,6 +483,7 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
 
     expect(screen.getByRole('alert').textContent).toContain(CHAT_SEND_RESULT_UNKNOWN_MESSAGE);
     expect(input.disabled).toBe(false);
+    expect(input.value).toBe('응답이 늦은 메시지');
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
     await act(async () => { await Promise.resolve(); });
@@ -516,6 +517,7 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain(CHAT_SEND_RESULT_UNKNOWN_MESSAGE));
 
     const firstMessageId = send.mock.calls[0][1].clientMessageId;
+    expect(input.value).toBe('네트워크 재시도 메시지');
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
     await waitFor(() => expect(screen.getByText('네트워크 재시도 메시지')).toBeTruthy());
