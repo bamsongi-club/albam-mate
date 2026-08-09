@@ -12,6 +12,21 @@ export function GamePickerDialog({ isOpen, selectedGameId, allowClear, onSelect,
   const searchGenerationRef = useRef(0);
   const loadMoreControllerRef = useRef(null);
 
+  const invalidateSearch = () => {
+    searchGenerationRef.current += 1;
+    loadMoreControllerRef.current?.abort();
+    loadMoreControllerRef.current = null;
+    return searchGenerationRef.current;
+  };
+
+  const handleQueryChange = (event) => {
+    invalidateSearch();
+    setPageData({ content: [], page: 0, size: GAME_SEARCH_PAGE_SIZE, totalElements: 0, totalPages: 0, hasNext: false });
+    setError('');
+    setLoading(false);
+    setQuery(event.target.value);
+  };
+
   useEffect(() => {
     if (!isOpen) return;
     setQuery('');
@@ -20,10 +35,7 @@ export function GamePickerDialog({ isOpen, selectedGameId, allowClear, onSelect,
   }, [isOpen]);
 
   useEffect(() => {
-    const generation = searchGenerationRef.current + 1;
-    searchGenerationRef.current = generation;
-    loadMoreControllerRef.current?.abort();
-    loadMoreControllerRef.current = null;
+    const generation = invalidateSearch();
     if (!isOpen) return undefined;
     const keyword = query.trim();
     if (!keyword) {
@@ -105,7 +117,7 @@ export function GamePickerDialog({ isOpen, selectedGameId, allowClear, onSelect,
           <div><h3 id="game-picker-title">게임 검색</h3><p>게임 이름으로 검색한 결과를 10건씩 불러와요.</p></div>
           <button type="button" className="game-picker-close" aria-label="게임 검색 닫기" onClick={onClose}>×</button>
         </div>
-        <div className="game-picker-search"><span className="game-picker-search-label" aria-hidden="true">검색</span><input ref={searchInputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="예: 스플렌더, 테라포밍 마스" aria-label="게임 이름 검색" /></div>
+        <div className="game-picker-search"><span className="game-picker-search-label" aria-hidden="true">검색</span><input ref={searchInputRef} value={query} onChange={handleQueryChange} placeholder="예: 스플렌더, 테라포밍 마스" aria-label="게임 이름 검색" /></div>
         <div className="game-picker-body">
           {!hasQuery && <div className="game-search-empty">게임 이름을 입력하면 목록 API에서 검색 결과를 불러와요.</div>}
           {hasQuery && !error && <p className="game-search-count">{loading && !pageData.content.length ? '검색 중…' : '검색 결과 ' + pageData.totalElements + '개'}</p>}
