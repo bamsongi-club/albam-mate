@@ -32,12 +32,9 @@ import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
 import cloud.bamsongi.albammate.game.entity.Game;
-import cloud.bamsongi.albammate.game.repository.GameCategoryRelationRepository;
 import cloud.bamsongi.albammate.game.repository.GameCategoryRepository;
 import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
-import cloud.bamsongi.albammate.game.repository.GamePlayerPreferenceRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
-import cloud.bamsongi.albammate.game.repository.GameThemeRelationRepository;
 import cloud.bamsongi.albammate.game.repository.GameThemeRepository;
 import cloud.bamsongi.albammate.game.repository.UserPlayedGameRepository;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
@@ -66,15 +63,6 @@ class GameQueryServiceListTest {
 	@Mock
 	private GameThemeRepository gameThemeRepository;
 
-	@Mock
-	private GameCategoryRelationRepository gameCategoryRelationRepository;
-
-	@Mock
-	private GameThemeRelationRepository gameThemeRelationRepository;
-
-	@Mock
-	private GamePlayerPreferenceRepository gamePlayerPreferenceRepository;
-
 	private GameQueryService gameQueryService;
 
 	@BeforeEach
@@ -86,10 +74,7 @@ class GameQueryServiceListTest {
 			gameMechanismRepository,
 			userPlayedGameRepository,
 			gameCategoryRepository,
-			gameThemeRepository,
-			gameCategoryRelationRepository,
-			gameThemeRelationRepository,
-			gamePlayerPreferenceRepository);
+			gameThemeRepository);
 	}
 
 	@Test

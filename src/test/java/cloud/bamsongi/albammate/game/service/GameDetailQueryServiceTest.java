@@ -25,18 +25,15 @@ import cloud.bamsongi.albammate.game.contract.UpcomingRoomCountQuery;
 import cloud.bamsongi.albammate.game.dto.GameDetail;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.repository.GameCategoryRelationRepository;
-import cloud.bamsongi.albammate.game.repository.GameCategoryRepository;
-import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
 import cloud.bamsongi.albammate.game.repository.GamePlayerPreferenceRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 import cloud.bamsongi.albammate.game.repository.GameThemeRelationRepository;
-import cloud.bamsongi.albammate.game.repository.GameThemeRepository;
 import cloud.bamsongi.albammate.game.repository.UserPlayedGameRepository;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 
 @ExtendWith(MockitoExtension.class)
-class GameQueryServiceDetailTest {
+class GameDetailQueryServiceTest {
 
 	private static final Instant NOW = Instant.parse("2026-07-27T00:00:00Z");
 
@@ -47,16 +44,7 @@ class GameQueryServiceDetailTest {
 	private UpcomingRoomCountQuery upcomingRoomCountQuery;
 
 	@Mock
-	private GameMechanismRepository gameMechanismRepository;
-
-	@Mock
 	private UserPlayedGameRepository userPlayedGameRepository;
-
-	@Mock
-	private GameCategoryRepository gameCategoryRepository;
-
-	@Mock
-	private GameThemeRepository gameThemeRepository;
 
 	@Mock
 	private GameCategoryRelationRepository gameCategoryRelationRepository;
@@ -67,18 +55,15 @@ class GameQueryServiceDetailTest {
 	@Mock
 	private GamePlayerPreferenceRepository gamePlayerPreferenceRepository;
 
-	private GameQueryService gameQueryService;
+	private GameDetailQueryService gameDetailQueryService;
 
 	@BeforeEach
 	void setUp() {
-		gameQueryService = new GameQueryService(
+		gameDetailQueryService = new GameDetailQueryService(
 			gameRepository,
 			Clock.fixed(NOW, ZoneOffset.UTC),
 			upcomingRoomCountQuery,
-			gameMechanismRepository,
 			userPlayedGameRepository,
-			gameCategoryRepository,
-			gameThemeRepository,
 			gameCategoryRelationRepository,
 			gameThemeRelationRepository,
 			gamePlayerPreferenceRepository);
@@ -105,7 +90,7 @@ class GameQueryServiceDetailTest {
 		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW))
 			.thenReturn(Map.of(1L, 2L));
 
-		GameDetail result = gameQueryService.findById(1L);
+		GameDetail result = gameDetailQueryService.findById(1L);
 
 		assertEquals(
 			new GameDetail(
@@ -134,35 +119,9 @@ class GameQueryServiceDetailTest {
 		when(gameRepository.findById(999L)).thenReturn(Optional.empty());
 
 		BusinessException exception = assertThrows(BusinessException.class,
-			() -> gameQueryService.findById(999L));
+			() -> gameDetailQueryService.findById(999L));
 
 		assertEquals(ErrorCode.GAME_NOT_FOUND, exception.getErrorCode());
 		verifyNoInteractions(upcomingRoomCountQuery);
-	}
-
-	@Test
-	void 메타데이터_관계_저장소가_없으면_기존_상세_형식으로_반환한다() {
-		gameQueryService = new GameQueryService(
-			gameRepository,
-			Clock.fixed(NOW, ZoneOffset.UTC),
-			upcomingRoomCountQuery,
-			gameMechanismRepository,
-			userPlayedGameRepository,
-			null,
-			null,
-			null,
-			null,
-			null);
-		Game game = mock(Game.class);
-		when(game.getId()).thenReturn(1L);
-		when(gameRepository.findById(1L)).thenReturn(Optional.of(game));
-		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW)).thenReturn(Map.of());
-
-		GameDetail result = gameQueryService.findById(1L);
-
-		assertEquals(1L, result.id());
-		assertEquals(0L, result.upcomingRoomCount());
-		assertEquals(List.of(), result.categories());
-		assertEquals(List.of(), result.themes());
 	}
 }

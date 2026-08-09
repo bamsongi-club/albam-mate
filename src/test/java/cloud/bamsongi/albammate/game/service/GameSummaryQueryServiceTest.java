@@ -5,7 +5,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -16,32 +15,25 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import cloud.bamsongi.albammate.game.contract.GameQuery;
 import cloud.bamsongi.albammate.game.contract.GameSummary;
-import cloud.bamsongi.albammate.game.contract.UpcomingRoomCountQuery;
-import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
-import cloud.bamsongi.albammate.game.repository.UserPlayedGameRepository;
 
 @ExtendWith(MockitoExtension.class)
-class GameQueryServiceUnitTest {
+class GameSummaryQueryServiceTest {
 
 	@Mock
 	private GameRepository gameRepository;
 
-	@Mock
-	private Clock clock;
-
-	@Mock
-	private UpcomingRoomCountQuery upcomingRoomCountQuery;
-
-	@Mock
-	private GameMechanismRepository gameMechanismRepository;
-
-	@Mock
-	private UserPlayedGameRepository userPlayedGameRepository;
-
 	@InjectMocks
-	private GameQueryService gameQueryService;
+	private GameSummaryQueryService gameSummaryQueryService;
+
+	@Test
+	void GameQuery_공개_계약을_구현한다() {
+		GameQuery gameQuery = gameSummaryQueryService;
+
+		assertEquals(GameSummaryQueryService.class, gameQuery.getClass());
+	}
 
 	@Test
 	void 요약_조회는_전체_Game이_아닌_projection을_위임한다() {
@@ -49,7 +41,7 @@ class GameQueryServiceUnitTest {
 		GameSummary expected = new GameSummary(gameId, 1001L, "카탄");
 		when(gameRepository.findSummaryById(gameId)).thenReturn(Optional.of(expected));
 
-		assertEquals(Optional.of(expected), gameQueryService.findSummaryById(gameId));
+		assertEquals(Optional.of(expected), gameSummaryQueryService.findSummaryById(gameId));
 
 		verify(gameRepository).findSummaryById(gameId);
 		verify(gameRepository, never()).findById(gameId);
@@ -63,7 +55,7 @@ class GameQueryServiceUnitTest {
 
 		assertEquals(
 			Map.of(1L, summaries.getFirst(), 2L, summaries.getLast()),
-			gameQueryService.findSummariesByIds(gameIds));
+			gameSummaryQueryService.findSummariesByIds(gameIds));
 
 		verify(gameRepository).findSummariesByIds(gameIds);
 		verify(gameRepository, never()).findAllById(gameIds);
@@ -71,7 +63,7 @@ class GameQueryServiceUnitTest {
 
 	@Test
 	void 빈_ID_컬렉션은_저장소를_조회하지_않는다() {
-		assertEquals(Map.of(), gameQueryService.findSummariesByIds(List.of()));
+		assertEquals(Map.of(), gameSummaryQueryService.findSummariesByIds(List.of()));
 
 		verify(gameRepository, never()).findSummariesByIds(List.of());
 	}
