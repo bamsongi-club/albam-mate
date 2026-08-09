@@ -23,6 +23,7 @@ import org.springframework.scheduling.TaskScheduler;
 import org.springframework.session.MapSession;
 import org.springframework.session.MapSessionRepository;
 import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import cloud.bamsongi.albammate.chat.entity.ChatRoom;
@@ -97,18 +98,48 @@ class ChatWebSocketHandlerTest {
 		verify(webSocketSession).close(CloseStatus.POLICY_VIOLATION);
 	}
 
+	@Test
+	void T6_클라이언트가_보낸_메시지_프레임은_POLICY_VIOLATION으로_종료한다() throws Exception {
+		WebSocketSession webSocketSession = session(42L, 7L);
+		ChatWebSocketHandler handler = handler();
+
+		handler.handleMessage(webSocketSession, new TextMessage("hello"));
+
+		verify(webSocketSession).close(CloseStatus.POLICY_VIOLATION);
+	}
+
+	@Test
+	void T6_연결이_종료되면_스케줄된_접근_재검증을_취소한다() throws Exception {
+		WebSocketSession webSocketSession = session(42L, 7L);
+		ChatWebSocketHandler handler = handler();
+		@SuppressWarnings("rawtypes") ScheduledFuture scheduledFuture = mock(ScheduledFuture.class);
+		when(taskScheduler.scheduleAtFixedRate(any(Runnable.class), eq(Duration.ofSeconds(1))))
+			.thenReturn(scheduledFuture);
+
+		handler.afterConnectionEstablished(webSocketSession);
+		handler.afterConnectionClosed(webSocketSession, CloseStatus.NORMAL);
+
+		verify(scheduledFuture).cancel(false);
+	}
+
 	private ChatWebSocketHandler handler() {
-		return new ChatWebSocketHandler(
-			chatAccessGuard,
-			sessionRepository,
-			taskScheduler,
-			properties,
-			chatRoomRepository,
+		ChatConnectionRegistry connectionRegistry = new ChatConnectionRegistry(chatRoomRepository,
+			chatMessageRepository, metrics);
+		ChatMessageDeliveryService deliveryService = new ChatMessageDeliveryService(
+			connectionRegistry,
 			chatMessageRepository,
 			userQuery,
 			metrics,
 			JsonMapper.builder().build(),
 			Clock.fixed(Instant.parse("2026-08-05T00:00:00Z"), java.time.ZoneOffset.UTC));
+		return new ChatWebSocketHandler(
+			chatAccessGuard,
+			sessionRepository,
+			taskScheduler,
+			properties,
+			connectionRegistry,
+			deliveryService,
+			metrics);
 	}
 
 	private WebSocketSession session(long userId, long roomId) throws Exception {
