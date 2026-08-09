@@ -360,6 +360,20 @@ describe('T4 대표 메커니즘과 설명', () => {
     expect(hint.getAttribute('aria-expanded')).toBe('false');
   });
 
+  it('focus로 열린 말풍선은 Escape로 닫는다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    const hint = screen.getByLabelText('셋 컬렉션 설명');
+    const tooltip = document.getElementById(hint.getAttribute('aria-describedby'));
+
+    fireEvent.focus(hint);
+    expect(tooltip.style.visibility).toBe('visible');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(tooltip.style.visibility).toBe('hidden');
+  });
+
   it('넘치지 않는 고정 말풍선은 겹친 자리를 눌러도 닫혀 아래 컨트롤이 클릭을 받을 수 있다', async () => {
     await renderGamesView();
     openFilterPanel();

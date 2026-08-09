@@ -942,17 +942,25 @@ function MechanismHint({ code, name, description }) {
       if (isScrollable && tooltipRef.current?.contains(event.target)) return;
       setIsPinned(false);
     };
-    const closeOnEscape = (event) => {
-      if (event.key === 'Escape') setIsPinned(false);
-    };
-
     document.addEventListener('pointerdown', closeIfOutside, true);
-    document.addEventListener('keydown', closeOnEscape);
     return () => {
       document.removeEventListener('pointerdown', closeIfOutside, true);
-      document.removeEventListener('keydown', closeOnEscape);
     };
   }, [isPinned, isScrollable]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const closeOnEscape = (event) => {
+      if (event.key !== 'Escape') return;
+      setIsPinned(false);
+      setIsHovered(false);
+      setIsFocused(false);
+    };
+
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [isOpen]);
 
   return (
     <span
