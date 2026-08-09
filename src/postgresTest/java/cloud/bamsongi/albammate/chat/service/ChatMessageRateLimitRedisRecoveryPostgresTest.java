@@ -66,6 +66,7 @@ class ChatMessageRateLimitRedisRecoveryPostgresTest {
 	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final String REDIS_IMAGE = "redis:8.4-alpine";
 	private static final String PASSWORD = "123456789012345";
+	private static final int REDIS_STARTUP_MAX_ATTEMPTS = 50;
 	private static final Pattern CSRF_TOKEN_PATTERN = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"");
 
 	@Container
@@ -157,8 +158,12 @@ class ChatMessageRateLimitRedisRecoveryPostgresTest {
 
 	private void startRedisProcess() throws Exception {
 		assertEquals(0, REDIS.execInContainer("redis-server", "--save", "", "--daemonize", "yes").getExitCode());
-		assertEquals(0, REDIS.execInContainer(
-			"sh", "-c", "until redis-cli ping | grep -q PONG; do sleep 0.1; done").getExitCode());
+		String waitForPongCommand = "attempt=0; while [ \"$attempt\" -lt " + REDIS_STARTUP_MAX_ATTEMPTS
+			+ " ]; do if redis-cli ping | grep -qx PONG; then exit 0; fi; attempt=$((attempt + 1)); sleep 0.1; done; "
+			+ "echo 'Redis did not return PONG after " + REDIS_STARTUP_MAX_ATTEMPTS + " attempts.' >&2; exit 1";
+		org.testcontainers.containers.Container.ExecResult result = REDIS.execInContainer("sh", "-c",
+			waitForPongCommand);
+		assertEquals(0, result.getExitCode(), "Redis 시작 대기 실패: " + result.getStderr());
 	}
 
 	private HttpResponse<String> get(HttpClient client, URI uri) throws Exception {

@@ -45,6 +45,14 @@ function failedResponseError(response, payload) {
   return error;
 }
 
+function invalidResponseError(response) {
+  return new ApiError({
+    status: response.status,
+    code: 'INVALID_API_RESPONSE',
+    message: '서버 응답 형식을 확인하지 못했어요.'
+  });
+}
+
 function abortedRequestError(signal) {
   if (signal?.reason) return signal.reason;
   const error = new Error('요청이 취소되었습니다.');
@@ -100,6 +108,9 @@ async function request(path, { method = 'GET', body, headers, signal } = {}) {
     if (response && !response.ok) {
       throw failedResponseError(response, payload);
     }
+    if (response) {
+      throw invalidResponseError(response);
+    }
     throw error;
   }
 
@@ -112,11 +123,7 @@ async function request(path, { method = 'GET', body, headers, signal } = {}) {
   }
 
   if (!payload || payload.status !== response.status || !Object.hasOwn(payload, 'data')) {
-    throw new ApiError({
-      status: response.status,
-      code: 'INVALID_API_RESPONSE',
-      message: '서버 응답 형식을 확인하지 못했어요.'
-    });
+    throw invalidResponseError(response);
   }
 
   return payload.data;

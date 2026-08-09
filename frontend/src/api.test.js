@@ -435,4 +435,73 @@ describe('채팅 API', () => {
       retryAfter: '2'
     });
   });
+
+  it('HTTP 200 응답을 받은 뒤 본문 파싱이 deadline으로 중단되면 ApiError로 정규화한다', async () => {
+    let rejectBodyParsing;
+    let notifyBodyParsingStarted;
+    const bodyParsingStarted = new Promise((resolve) => {
+      notifyBodyParsingStarted = resolve;
+    });
+    const successfulResponseWithPendingBody = {
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: vi.fn(() => {
+        notifyBodyParsingStarted();
+        return new Promise((_resolve, reject) => {
+          rejectBodyParsing = reject;
+        });
+      })
+    };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'csrf-token' }))
+      .mockResolvedValueOnce(successfulResponseWithPendingBody);
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const send = api.sendChatMessage('7', { clientMessageId: 'retry-key', content: '안녕하세요' }, controller.signal);
+
+    await bodyParsingStarted;
+    controller.abort();
+    const aborted = new Error('response body aborted');
+    aborted.name = 'AbortError';
+    rejectBodyParsing(aborted);
+
+    await expect(send).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 200,
+      code: 'INVALID_API_RESPONSE'
+    });
+  });
+
+  it('HTTP 200 응답의 잘못된 JSON도 ApiError로 정규화한다', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'csrf-token' }))
+      .mockResolvedValueOnce(new Response('{invalid-json', {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(api.sendChatMessage('7', { clientMessageId: 'retry-key', content: '안녕하세요' })).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 200,
+      code: 'INVALID_API_RESPONSE'
+    });
+  });
+
+  it('HTTP 200 응답의 계약에 맞지 않는 payload도 ApiError로 유지한다', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'csrf-token' }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 200 }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(api.sendChatMessage('7', { clientMessageId: 'retry-key', content: '안녕하세요' })).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 200,
+      code: 'INVALID_API_RESPONSE'
+    });
+  });
 });
