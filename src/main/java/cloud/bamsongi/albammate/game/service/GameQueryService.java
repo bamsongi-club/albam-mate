@@ -59,7 +59,7 @@ public class GameQueryService {
 	 */
 	public Page<GameListItem> findPage(String keyword, Pageable pageable) {
 		return findPage(GameListSearchCriteria.keywordOnly(keyword), pageable.getPageNumber(), pageable.getPageSize(),
-			null);
+			null, Instant.now(clock));
 	}
 
 	/**
@@ -77,7 +77,7 @@ public class GameQueryService {
 		GameListRequest request = new GameListRequest();
 		request.setKeyword(keyword);
 		request.setUpcomingOnly(upcomingOnly);
-		return findPage(request, page, size, null);
+		return findPage(request, page, size, null, Instant.now(clock));
 	}
 
 	/**
@@ -91,10 +91,11 @@ public class GameQueryService {
 	}
 
 	public Page<GameListItem> findPage(GameListRequest request, Long currentUserId) {
-		return findPage(request, request.getPage(), request.getSize(), currentUserId);
+		return findPage(request, request.getPage(), request.getSize(), currentUserId, Instant.now(clock));
 	}
 
-	private Page<GameListItem> findPage(GameListRequest request, int page, int size, Long currentUserId) {
+	private Page<GameListItem> findPage(
+		GameListRequest request, int page, int size, Long currentUserId, Instant referenceTime) {
 		PlayedFilter playedFilter = request.getPlayedFilter();
 		if (playedFilter != null && currentUserId == null) {
 			throw new UnauthenticatedException();
@@ -106,7 +107,7 @@ public class GameQueryService {
 		if (playedFilter != null) {
 			criteria = criteria.withPlayedFilter(currentUserId);
 		}
-		return findPage(criteria, page, size, currentUserId);
+		return findPage(criteria, page, size, currentUserId, referenceTime);
 	}
 
 	private void validateCategoryCodes(List<String> requestedCodes) {
@@ -131,12 +132,12 @@ public class GameQueryService {
 	}
 
 	private Page<GameListItem> findPage(
-		GameListSearchCriteria criteria, int page, int size, Long currentUserId) {
+		GameListSearchCriteria criteria, int page, int size, Long currentUserId, Instant referenceTime) {
 		Pageable pageable = PageRequest.of(
 			page, size, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
 		Map<Long, Long> upcomingRoomCounts = Map.of();
 		if (criteria.isUpcomingOnly()) {
-			upcomingRoomCounts = upcomingRoomCountQuery.findUpcomingRoomCounts(Instant.now(clock));
+			upcomingRoomCounts = upcomingRoomCountQuery.findUpcomingRoomCounts(referenceTime);
 			if (upcomingRoomCounts.isEmpty()) {
 				return Page.empty(pageable);
 			}
@@ -155,7 +156,7 @@ public class GameQueryService {
 		if (!criteria.isUpcomingOnly()) {
 			upcomingRoomCounts = upcomingRoomCountQuery.findUpcomingRoomCounts(
 				games.getContent().stream().map(Game::getId).toList(),
-				Instant.now(clock));
+				referenceTime);
 		}
 
 		Map<Long, Long> counts = upcomingRoomCounts;

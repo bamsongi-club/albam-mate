@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
@@ -136,6 +137,47 @@ class GameQueryServiceListTest {
 		verifyNoInteractions(gameRepository);
 	}
 
+	@Test
+	void 예정_모임_필터와_페이지_결과_집계에_요청_시작_기준_시각을_사용한다() {
+		RequestStartClock requestClock = new RequestStartClock(NOW);
+		gameQueryService = newGameQueryService(requestClock);
+		GameListRequest request = request(null, true, null, null, null, null);
+		request.setCategory(List.of("STRATEGY"));
+		Game game = game(1L, "카탄");
+		Pageable pageable = fixedPageRequest(0, 10);
+		when(gameCategoryRepository.countByCodeIn(List.of("STRATEGY"))).thenAnswer(invocation -> {
+			requestClock.closeRequestStart();
+			return 1L;
+		});
+		when(upcomingRoomCountQuery.findUpcomingRoomCounts(NOW)).thenReturn(Map.of(1L, 2L));
+		when(gameRepository.findAll(any(Specification.class), eq(pageable)))
+			.thenReturn(new PageImpl<>(List.of(game), pageable, 1));
+
+		Page<GameListItem> result = gameQueryService.findPage(request);
+
+		assertEquals(2L, result.getContent().getFirst().upcomingRoomCount());
+		verify(upcomingRoomCountQuery).findUpcomingRoomCounts(NOW);
+	}
+
+	@Test
+	void 목록_조회는_기준_시각을_재호출하지_않는다() {
+		RequestStartClock requestClock = new RequestStartClock(NOW);
+		gameQueryService = newGameQueryService(requestClock);
+		GameListRequest request = request(null, false, null, null, null, null);
+		Game game = game(1L, "카탄");
+		Pageable pageable = fixedPageRequest(0, 10);
+		when(gameRepository.findAll(any(Specification.class), eq(pageable))).thenAnswer(invocation -> {
+			requestClock.closeRequestStart();
+			return new PageImpl<>(List.of(game), pageable, 1);
+		});
+		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW)).thenReturn(Map.of(1L, 2L));
+
+		Page<GameListItem> result = gameQueryService.findPage(request);
+
+		assertEquals(2L, result.getContent().getFirst().upcomingRoomCount());
+		verify(upcomingRoomCountQuery).findUpcomingRoomCounts(List.of(1L), NOW);
+	}
+
 	private GameListRequest request(
 		String keyword,
 		boolean upcomingOnly,
@@ -163,5 +205,50 @@ class GameQueryServiceListTest {
 
 	private Pageable fixedPageRequest(int page, int size) {
 		return PageRequest.of(page, size, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
+	}
+
+	private GameQueryService newGameQueryService(Clock clock) {
+		return new GameQueryService(
+			gameRepository,
+			clock,
+			upcomingRoomCountQuery,
+			gameMechanismRepository,
+			userPlayedGameRepository,
+			gameCategoryRepository,
+			gameThemeRepository);
+	}
+
+	private static final class RequestStartClock extends Clock {
+
+		private final Instant requestStart;
+		private boolean requestStartOpen = true;
+		private boolean read;
+
+		private RequestStartClock(Instant requestStart) {
+			this.requestStart = requestStart;
+		}
+
+		void closeRequestStart() {
+			requestStartOpen = false;
+		}
+
+		@Override
+		public ZoneId getZone() {
+			return ZoneOffset.UTC;
+		}
+
+		@Override
+		public Clock withZone(ZoneId zone) {
+			return this;
+		}
+
+		@Override
+		public Instant instant() {
+			if (!requestStartOpen || read) {
+				throw new AssertionError("목록 요청 시작 시각은 한 번만 읽어야 합니다.");
+			}
+			read = true;
+			return requestStart;
+		}
 	}
 }
