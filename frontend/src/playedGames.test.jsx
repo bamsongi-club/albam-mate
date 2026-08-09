@@ -24,6 +24,8 @@ vi.mock('./api', () => ({
     getGame: (...parameters) => getGame(...parameters),
     getRooms: (...parameters) => getRooms(...parameters),
     getGameMechanisms: vi.fn().mockResolvedValue([]),
+    getGameCategories: vi.fn().mockResolvedValue([]),
+    getGameThemes: vi.fn().mockResolvedValue([]),
     markGamePlayed: (...parameters) => markGamePlayed(...parameters),
     unmarkGamePlayed: (...parameters) => unmarkGamePlayed(...parameters),
     getMyProfile: vi.fn(),

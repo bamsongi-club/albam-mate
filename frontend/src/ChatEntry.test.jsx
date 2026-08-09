@@ -391,7 +391,7 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
 
     render(<ChatRoomView roomId="7" dataVersion={0} />);
     await waitFor(() => expect(sockets).toHaveLength(1));
-    const history = document.querySelector('.chat-history');
+    const history = document.querySelector('.chat-log');
     Object.defineProperties(history, {
       scrollHeight: { configurable: true, value: 100 },
       clientHeight: { configurable: true, value: 50 },
@@ -417,7 +417,7 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
 
     render(<ChatRoomView roomId="7" dataVersion={0} />);
     await waitFor(() => expect(sockets).toHaveLength(1));
-    const history = document.querySelector('.chat-history');
+    const history = document.querySelector('.chat-log');
     let currentScrollTop = 0;
     Object.defineProperties(history, {
       scrollHeight: { configurable: true, value: 100 },
@@ -700,9 +700,9 @@ describe('#427 T1~T4 메시지 전송·이력 추가 조회', () => {
 
     // 사용자가 위로 스크롤해 과거 이력을 보는 상태를 만든다.
     // jsdom은 layout을 계산하지 않으므로 렌더된 메시지 수에 비례하는 높이로 대신한다.
-    const history = document.querySelector('.chat-history');
+    const history = document.querySelector('.chat-log');
     Object.defineProperties(history, {
-      scrollHeight: { configurable: true, get: () => history.querySelectorAll('.chat-log > li').length * 200 },
+      scrollHeight: { configurable: true, get: () => history.querySelectorAll('.chat-message').length * 200 },
       clientHeight: { configurable: true, value: 100 },
       scrollTop: { configurable: true, writable: true, value: 40 }
     });

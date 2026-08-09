@@ -7,12 +7,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getGames = vi.fn();
 const getGameMechanisms = vi.fn();
+const getGameCategories = vi.fn();
+const getGameThemes = vi.fn();
 
 vi.mock('./api', () => ({
   ApiError: class ApiError extends Error {},
   api: {
     getGames: (...parameters) => getGames(...parameters),
     getGameMechanisms: (...parameters) => getGameMechanisms(...parameters),
+    getGameCategories: (...parameters) => getGameCategories(...parameters),
+    getGameThemes: (...parameters) => getGameThemes(...parameters),
     getMyProfile: vi.fn(),
     getNotifications: vi.fn(),
     getUnreadNotificationCount: vi.fn()
@@ -84,6 +88,10 @@ beforeEach(() => {
   getGames.mockResolvedValue(EMPTY_PAGE);
   getGameMechanisms.mockReset();
   getGameMechanisms.mockResolvedValue(MECHANISM_OPTIONS);
+  getGameCategories.mockReset();
+  getGameCategories.mockResolvedValue([]);
+  getGameThemes.mockReset();
+  getGameThemes.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -141,6 +149,25 @@ describe('T2·T3 게임 조건 필터 조회 시점', () => {
     fireEvent.click(screen.getByLabelText('90분 이상'));
 
     expect(lastQuery().playTime).toEqual(['UP_TO_10', 'AT_LEAST_90']);
+  });
+
+  it('연령대는 확정한 4구간만 제공한다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+
+    ['8세 이하', '9~12세', '13~15세', '16세 이상'].forEach((label) => {
+      expect(screen.getByLabelText(label)).toBeTruthy();
+    });
+  });
+
+  it('연령대 여러 구간을 함께 선택하면 선택한 값을 모두 전달한다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+
+    fireEvent.click(screen.getByLabelText('8세 이하'));
+    fireEvent.click(screen.getByLabelText('16세 이상'));
+
+    expect(lastQuery().ageBand).toEqual(['UP_TO_8', 'AT_LEAST_16']);
   });
 
   it('필터 영역을 닫았다 다시 열어도 입력과 선택을 유지한다', async () => {
@@ -664,8 +691,8 @@ describe('T10 조건 조합', () => {
     getGames.mockReturnValue(new Promise((resolve) => { resolvePage = resolve; }));
     await renderGamesView();
 
-    // 제목 옆 건수와 목록 자리 모두 불러오는 중임을 알린다.
-    expect(screen.getAllByText('불러오는 중…')).toHaveLength(2);
+    // 목록 자리에 불러오는 중임을 알린다.
+    expect(screen.getByText('불러오는 중…')).toBeTruthy();
 
     await act(async () => { resolvePage(EMPTY_PAGE); });
     expect(screen.getByText(/검색 결과가 없어요/)).toBeTruthy();

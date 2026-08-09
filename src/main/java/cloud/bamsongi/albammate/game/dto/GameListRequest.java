@@ -37,6 +37,8 @@ public class GameListRequest {
 
 	private List<GamePlayTimeFilter> playTime;
 
+	private List<GameAgeBandFilter> ageBand;
+
 	private List<PlayedFilter> playedFilter;
 
 	@DecimalMin("1.00") @DecimalMax("5.00") private BigDecimal complexityMin;
@@ -121,6 +123,14 @@ public class GameListRequest {
 
 	public void setPlayTime(List<GamePlayTimeFilter> playTime) {
 		this.playTime = playTime;
+	}
+
+	public List<GameAgeBandFilter> getAgeBand() {
+		return ageBand;
+	}
+
+	public void setAgeBand(List<GameAgeBandFilter> ageBand) {
+		this.ageBand = ageBand;
 	}
 
 	public PlayedFilter getPlayedFilter() {
