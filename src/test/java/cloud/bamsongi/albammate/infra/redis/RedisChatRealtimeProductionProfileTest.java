@@ -68,7 +68,7 @@ class RedisChatRealtimeProductionProfileTest {
 		assertTrue(
 			compose.contains("ALBAM_MATE_REDIS_HOST: ${ALBAM_MATE_REDIS_HOST:?ALBAM_MATE_REDIS_HOST must be set}"));
 		assertTrue(compose.contains("ALBAM_MATE_REDIS_PORT: ${ALBAM_MATE_REDIS_PORT:-6379}"));
-		assertTrue(environmentExample.contains("ALBAM_MATE_REDIS_HOST=replace-with-redis-endpoint"));
+		assertTrue(environmentExample.contains("ALBAM_MATE_REDIS_HOST=redis.albam-mate.internal"));
 		assertTrue(environmentExample.contains("ALBAM_MATE_REDIS_PORT=6379"));
 		assertTrue(deploymentVerifier.contains("ALBAM_MATE_REDIS_HOST: 'redis.example.internal'"));
 		assertTrue(deploymentVerifier.contains("ALBAM_MATE_REDIS_PORT: '6379'"));

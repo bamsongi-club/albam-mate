@@ -19,6 +19,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.sql.DataSource;
 
@@ -140,7 +142,7 @@ class RoomStatusCorrectionProgressLocalMultiPostgresTest {
 						RoomStatusCorrectionProgressStore.ProgressSnapshot claimed = secondProgress
 							.claimExecution(REQUEST_TIME);
 						setLockOwner(secondJdbcTemplate, "room-382-second-instance");
-						secondCoordinator.correctBoundedDueRooms(REQUEST_TIME, claimed, 10);
+						secondCoordinator.correctBoundedDueRooms(REQUEST_TIME, claimed, 10, 1001);
 					});
 
 				assertTrue(takeover.acquired());
@@ -152,6 +154,103 @@ class RoomStatusCorrectionProgressLocalMultiPostgresTest {
 			} finally {
 				releaseHolder.countDown();
 				stopWorkerIgnoringFailure(holderTask, holderExecutor);
+				cleanup(secondJdbcTemplate, roomIds, userIds);
+			}
+		}
+	}
+
+	@Test
+	void 유효한_lock_동안_두번째_인스턴스는_capped_cursor를_claim하지_못하고_해제_뒤_잔여_ROOM을_이어_처리한다()
+		throws Exception {
+		List<Long> roomIds = new ArrayList<>();
+		List<Long> userIds = new ArrayList<>();
+		ExecutorService firstExecutor = Executors.newSingleThreadExecutor();
+		CountDownLatch firstProcessed = new CountDownLatch(1);
+		CountDownLatch releaseFirst = new CountDownLatch(1);
+		AtomicReference<RoomStatusCorrectionCoordinator.BoundedCorrectionResult> firstResult = new AtomicReference<>();
+		AtomicBoolean secondClaimed = new AtomicBoolean();
+		Future<?> firstTask = null;
+
+		try (ConfigurableApplicationContext firstContext = applicationContext();
+			ConfigurableApplicationContext secondContext = applicationContext()) {
+			JdbcTemplate secondJdbcTemplate = secondContext.getBean(JdbcTemplate.class);
+			RoomRepository secondRoomRepository = secondContext.getBean(RoomRepository.class);
+			try {
+				Long hostUserId = insertUser(secondJdbcTemplate, "capped-lock");
+				userIds.add(hostUserId);
+				roomIds.add(saveRoom(secondRoomRepository, hostUserId, REQUEST_TIME.minusSeconds(3)).getId());
+				roomIds.add(saveRoom(secondRoomRepository, hostUserId, REQUEST_TIME.minusSeconds(2)).getId());
+				roomIds.add(saveRoom(secondRoomRepository, hostUserId, REQUEST_TIME.minusSeconds(1)).getId());
+				resetProgress(secondJdbcTemplate);
+				deleteLock(secondJdbcTemplate);
+
+				RoomStatusCorrectionProgressStore firstProgress = firstContext
+					.getBean(RoomStatusCorrectionProgressStore.class);
+				RoomStatusCorrectionCoordinator firstCoordinator = firstContext
+					.getBean(RoomStatusCorrectionCoordinator.class);
+				ScheduledTaskLock firstLock = firstContext.getBean(ScheduledTaskLock.class);
+				firstTask = firstExecutor.submit(() -> firstLock.tryExecute(
+					LOCK_NAME,
+					LOCK_AT_MOST_FOR,
+					() -> {
+						RoomStatusCorrectionProgressStore.ProgressSnapshot claimed = firstProgress
+							.claimExecution(REQUEST_TIME);
+						firstResult.set(firstCoordinator.correctBoundedDueRooms(REQUEST_TIME, claimed, 1, 2));
+						firstProcessed.countDown();
+						awaitLatch(releaseFirst);
+					}));
+
+				awaitLatch(firstProcessed);
+				assertEquals(2, firstResult.get().changedCount());
+				assertTrue(firstResult.get().hasRemainingCandidates());
+				assertEquals(RoomStatus.CLOSED,
+					secondRoomRepository.findById(roomIds.getFirst()).orElseThrow().getStatus());
+				assertEquals(RoomStatus.CLOSED,
+					secondRoomRepository.findById(roomIds.get(1)).orElseThrow().getStatus());
+				assertEquals(RoomStatus.RECRUITING,
+					secondRoomRepository.findById(roomIds.get(2)).orElseThrow().getStatus());
+				RoomStatusCorrectionProgressStore secondProgress = secondContext
+					.getBean(RoomStatusCorrectionProgressStore.class);
+				assertEquals(REQUEST_TIME, secondProgress.current().turnCutoff());
+				assertEquals(REQUEST_TIME.minusSeconds(2), secondProgress.current().cursorDueAt());
+				assertEquals(roomIds.get(1), secondProgress.current().cursorRoomId());
+
+				ScheduledTaskLock secondLock = secondContext.getBean(ScheduledTaskLock.class);
+				ScheduledTaskLock.LockExecution skipped = secondLock.tryExecute(
+					LOCK_NAME,
+					LOCK_AT_MOST_FOR,
+					() -> secondClaimed.set(true));
+
+				assertFalse(skipped.acquired());
+				assertFalse(secondClaimed.get());
+				assertEquals(1L, secondProgress.current().executionGeneration());
+				assertEquals(roomIds.get(1), secondProgress.current().cursorRoomId());
+
+				releaseFirst.countDown();
+				awaitWorker(firstTask, firstExecutor);
+
+				ScheduledTaskLock.LockExecution resumed = secondLock.tryExecute(
+					LOCK_NAME,
+					LOCK_AT_MOST_FOR,
+					() -> {
+						RoomStatusCorrectionProgressStore.ProgressSnapshot claimed = secondProgress
+							.claimExecution(REQUEST_TIME);
+						RoomStatusCorrectionCoordinator.BoundedCorrectionResult result = secondContext
+							.getBean(RoomStatusCorrectionCoordinator.class)
+							.correctBoundedDueRooms(REQUEST_TIME, claimed, 1, 2);
+						assertEquals(1, result.changedCount());
+						assertFalse(result.hasRemainingCandidates());
+					});
+
+				assertTrue(resumed.acquired());
+				roomIds.forEach(roomId -> assertEquals(
+					RoomStatus.CLOSED,
+					secondRoomRepository.findById(roomId).orElseThrow().getStatus()));
+				assertEquals(REQUEST_TIME.plusNanos(1_000), secondProgress.current().turnCutoff());
+				assertNullCursor(secondProgress.current());
+			} finally {
+				releaseFirst.countDown();
+				stopWorkerIgnoringFailure(firstTask, firstExecutor);
 				cleanup(secondJdbcTemplate, roomIds, userIds);
 			}
 		}
@@ -203,7 +302,7 @@ class RoomStatusCorrectionProgressLocalMultiPostgresTest {
 							.claimExecution(REQUEST_TIME);
 						setLockOwner(firstJdbcTemplate, "room-382-first-instance");
 						firstClaimed.countDown();
-						firstCoordinator.correctBoundedDueRooms(REQUEST_TIME, stale, 10);
+						firstCoordinator.correctBoundedDueRooms(REQUEST_TIME, stale, 10, 1001);
 					}));
 
 				awaitLatch(firstClaimed);
@@ -223,7 +322,7 @@ class RoomStatusCorrectionProgressLocalMultiPostgresTest {
 						setLockOwner(secondJdbcTemplate, "room-382-second-instance");
 						secondClaimed.countDown();
 						awaitLatch(allowSecond);
-						secondCoordinator.correctBoundedDueRooms(REQUEST_TIME, current, 10);
+						secondCoordinator.correctBoundedDueRooms(REQUEST_TIME, current, 10, 1001);
 					}));
 
 				awaitLatch(secondClaimed);

@@ -1,7 +1,7 @@
 # DB EC2 전용: PostgreSQL 컨테이너만 실행한다.
 # 보안 그룹(sg-postgres)에서 App1·App2 EC2(sg-app)에서 오는 TCP 5432만 허용한다.
 # 데이터는 호스트의 /srv/postgresql 에 마운트된 EBS 볼륨에 저장한다.
-# .env 에 ALBAM_MATE_DB_NAME, ALBAM_MATE_DB_USER, ALBAM_MATE_DB_PASSWORD 를 설정한다.
+# /etc/albam-mate/postgres.env 에 ALBAM_MATE_DB_NAME, ALBAM_MATE_DB_USER, ALBAM_MATE_DB_PASSWORD 를 설정한다.
 
 services:
   postgres:
@@ -19,7 +19,7 @@ services:
       # 보안 그룹에서 sg-app 만 허용하므로 0.0.0.0 바인딩이어도 인터넷에 노출되지 않는다.
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"${POSTGRES_USER}\" -d \"${POSTGRES_DB}\""]
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s
       timeout: 5s
       retries: 10

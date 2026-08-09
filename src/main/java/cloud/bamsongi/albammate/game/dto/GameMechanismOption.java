@@ -7,9 +7,11 @@ public record GameMechanismOption(
 	String code,
 	String nameKo,
 	String nameEn,
-	Integer featuredOrder) {
+	Integer featuredOrder,
+	String descriptionKo) {
 
 	public static GameMechanismOption from(GameMechanismOptionRow row) {
-		return new GameMechanismOption(row.code(), row.nameKo(), row.nameEn(), row.featuredOrder());
+		return new GameMechanismOption(row.code(), row.nameKo(), row.nameEn(), row.featuredOrder(),
+			row.descriptionKo());
 	}
 }

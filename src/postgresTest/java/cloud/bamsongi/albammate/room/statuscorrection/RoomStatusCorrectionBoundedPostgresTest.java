@@ -1,8 +1,10 @@
 package cloud.bamsongi.albammate.room.statuscorrection;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -40,6 +42,7 @@ class RoomStatusCorrectionBoundedPostgresTest {
 
 	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final Instant REQUEST_TIME = Instant.parse("2026-08-06T00:00:00Z");
+	private static final int MAX_BATCHES_FOR_TEST = 1001;
 
 	@Container
 	@ServiceConnection
@@ -91,7 +94,8 @@ class RoomStatusCorrectionBoundedPostgresTest {
 		installRoomFailureTrigger(failed.getId());
 
 		RoomStatusCorrectionProgressStore.ProgressSnapshot firstClaim = progressStore.claimExecution(REQUEST_TIME);
-		int firstChangedCount = coordinator.correctBoundedDueRooms(REQUEST_TIME, firstClaim, 2);
+		int firstChangedCount = coordinator.correctBoundedDueRooms(REQUEST_TIME, firstClaim, 2, MAX_BATCHES_FOR_TEST)
+			.changedCount();
 
 		assertEquals(2, firstChangedCount);
 		assertEquals(RoomStatus.CLOSED, currentRoom(first.getId()).getStatus());
@@ -104,12 +108,57 @@ class RoomStatusCorrectionBoundedPostgresTest {
 		Instant nextRequestTime = REQUEST_TIME.plusSeconds(2);
 		RoomStatusCorrectionProgressStore.ProgressSnapshot nextClaim = progressStore
 			.claimExecution(nextRequestTime);
-		int secondChangedCount = coordinator.correctBoundedDueRooms(nextRequestTime, nextClaim, 2);
+		int secondChangedCount = coordinator.correctBoundedDueRooms(nextRequestTime, nextClaim, 2, MAX_BATCHES_FOR_TEST)
+			.changedCount();
 
 		assertEquals(2, secondChangedCount);
 		assertEquals(RoomStatus.CLOSED, currentRoom(failed.getId()).getStatus());
 		assertEquals(RoomStatus.CLOSED, currentRoom(newlyDue.getId()).getStatus());
 		assertCursorWrapped(nextRequestTime.plusNanos(1_000));
+	}
+
+	@Test
+	void capped_backlog는_cursor를_보존하고_다음_claim에서_같은_cutoff를_이어_처리한_뒤_비었을_때만_wrap한다() {
+		Room first = saveRoom(REQUEST_TIME.minusSeconds(3));
+		Room second = saveRoom(REQUEST_TIME.minusSeconds(2));
+		Room third = saveRoom(REQUEST_TIME.minusSeconds(1));
+
+		RoomStatusCorrectionProgressStore.ProgressSnapshot firstClaim = progressStore.claimExecution(REQUEST_TIME);
+		RoomStatusCorrectionCoordinator.BoundedCorrectionResult firstResult = coordinator.correctBoundedDueRooms(
+			REQUEST_TIME, firstClaim, 1, 2);
+
+		assertEquals(2, firstResult.changedCount());
+		assertTrue(firstResult.hasRemainingCandidates());
+		assertEquals(RoomStatus.CLOSED, currentRoom(first.getId()).getStatus());
+		assertEquals(RoomStatus.CLOSED, currentRoom(second.getId()).getStatus());
+		assertEquals(RoomStatus.RECRUITING, currentRoom(third.getId()).getStatus());
+		assertEquals(REQUEST_TIME, progressStore.current().turnCutoff());
+		assertEquals(second.getId(), progressStore.current().cursorRoomId());
+
+		RoomStatusCorrectionProgressStore.ProgressSnapshot secondClaim = progressStore.claimExecution(REQUEST_TIME);
+		RoomStatusCorrectionCoordinator.BoundedCorrectionResult secondResult = coordinator.correctBoundedDueRooms(
+			REQUEST_TIME, secondClaim, 1, 2);
+
+		assertEquals(1, secondResult.changedCount());
+		assertFalse(secondResult.hasRemainingCandidates());
+		assertEquals(RoomStatus.CLOSED, currentRoom(third.getId()).getStatus());
+		assertCursorWrapped(REQUEST_TIME.plusNanos(1_000));
+	}
+
+	@Test
+	void 실행당_배치_상한을_정확히_소진하면_loop_뒤_빈_후보를_확인하고_cursor를_wrap한다() {
+		Room first = saveRoom(REQUEST_TIME.minusSeconds(2));
+		Room second = saveRoom(REQUEST_TIME.minusSeconds(1));
+
+		RoomStatusCorrectionProgressStore.ProgressSnapshot claim = progressStore.claimExecution(REQUEST_TIME);
+		RoomStatusCorrectionCoordinator.BoundedCorrectionResult result = coordinator.correctBoundedDueRooms(
+			REQUEST_TIME, claim, 1, 2);
+
+		assertEquals(2, result.changedCount());
+		assertFalse(result.hasRemainingCandidates());
+		assertEquals(RoomStatus.CLOSED, currentRoom(first.getId()).getStatus());
+		assertEquals(RoomStatus.CLOSED, currentRoom(second.getId()).getStatus());
+		assertCursorWrapped(REQUEST_TIME.plusNanos(1_000));
 	}
 
 	@Test
@@ -121,7 +170,7 @@ class RoomStatusCorrectionBoundedPostgresTest {
 		RoomStatusCorrectionProgressStore.ProgressSnapshot firstClaim = progressStore
 			.claimExecution(REQUEST_TIME);
 		assertThrows(RuntimeException.class,
-			() -> coordinator.correctBoundedDueRooms(REQUEST_TIME, firstClaim, 2));
+			() -> coordinator.correctBoundedDueRooms(REQUEST_TIME, firstClaim, 2, MAX_BATCHES_FOR_TEST));
 
 		assertEquals(RoomStatus.CLOSED, currentRoom(committedBeforeCursor.getId()).getStatus());
 		assertNull(progressStore.current().cursorRoomId());
@@ -140,7 +189,8 @@ class RoomStatusCorrectionBoundedPostgresTest {
 			RoomStatusCorrectionProgressStore.ProgressSnapshot restartedClaim = restartedProgress
 				.claimExecution(restartedRequestTime);
 
-			restartedCoordinator.correctBoundedDueRooms(restartedRequestTime, restartedClaim, 2);
+			restartedCoordinator.correctBoundedDueRooms(
+				restartedRequestTime, restartedClaim, 2, MAX_BATCHES_FOR_TEST);
 
 			assertEquals(RoomStatus.RECRUITING, currentRoom(repeatedFailure.getId()).getStatus());
 			assertEquals(RoomStatus.CLOSED, currentRoom(newlyDueFirst.getId()).getStatus());
@@ -150,7 +200,8 @@ class RoomStatusCorrectionBoundedPostgresTest {
 			Instant repeatedRequestTime = REQUEST_TIME.plusSeconds(6);
 			RoomStatusCorrectionProgressStore.ProgressSnapshot repeatedClaim = restartedProgress
 				.claimExecution(repeatedRequestTime);
-			restartedCoordinator.correctBoundedDueRooms(repeatedRequestTime, repeatedClaim, 2);
+			restartedCoordinator.correctBoundedDueRooms(
+				repeatedRequestTime, repeatedClaim, 2, MAX_BATCHES_FOR_TEST);
 
 			assertEquals(RoomStatus.RECRUITING, currentRoom(repeatedFailure.getId()).getStatus());
 			assertCursorWrapped(restartedProgress, repeatedRequestTime.plusNanos(1_000));
@@ -166,7 +217,7 @@ class RoomStatusCorrectionBoundedPostgresTest {
 			RoomStatusCorrectionProgressStore.ProgressSnapshot finalClaim = finalProgress
 				.claimExecution(finalRequestTime);
 
-			finalCoordinator.correctBoundedDueRooms(finalRequestTime, finalClaim, 2);
+			finalCoordinator.correctBoundedDueRooms(finalRequestTime, finalClaim, 2, MAX_BATCHES_FOR_TEST);
 
 			assertEquals(RoomStatus.CLOSED, currentRoom(repeatedFailure.getId()).getStatus());
 			assertCursorWrapped(finalProgress, finalRequestTime.plusNanos(1_000));

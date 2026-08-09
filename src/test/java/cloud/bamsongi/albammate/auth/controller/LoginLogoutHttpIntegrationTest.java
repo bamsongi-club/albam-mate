@@ -21,6 +21,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.test.web.servlet.MockMvc;
@@ -48,6 +49,28 @@ class LoginLogoutHttpIntegrationTest {
 	private UserAccountService userAccountService;
 	@Autowired
 	private UserRepository userRepository;
+	@Autowired
+	private PasswordEncoder passwordEncoder;
+
+	@Test
+	void 기존_8자_비밀번호_계정은_가입_정책_변경_뒤에도_로그인한다() throws Exception {
+		String email = "legacy-password@example.com";
+		String password = "legacy8!";
+		assertTrue(RawPassword.from(password).isEmpty());
+		userRepository.saveAndFlush(User.create(email, passwordEncoder.encode(password), "기존 사용자"));
+		MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
+		Cookie csrfCookie = csrfResult.getResponse().getCookie("XSRF-TOKEN");
+		assertNotNull(csrfCookie);
+
+		mockMvc.perform(
+			post("/api/auth/login")
+				.cookie(csrfCookie)
+				.header("X-XSRF-TOKEN", csrfCookie.getValue())
+				.contentType("application/json")
+				.content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.nickname").value("기존 사용자"));
+	}
 
 	@Test
 	void 로그인_성공은_사용자_요약을_반환한다() throws Exception {

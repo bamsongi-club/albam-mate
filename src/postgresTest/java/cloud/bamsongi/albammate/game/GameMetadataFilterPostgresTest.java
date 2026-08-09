@@ -39,7 +39,7 @@ class GameMetadataFilterPostgresTest {
 		jdbc.update(
 			"insert into game_themes(bgg_theme_id,code,name_ko,name_en,created_at,updated_at) values(1,'FANTASY','판타지','Fantasy',current_timestamp,current_timestamp)");
 		jdbc.update(
-			"insert into game_mechanisms(bgg_mechanism_id,code,name_ko,name_en,is_public,source_reference,reviewed_by,reviewed_at,created_at,updated_at) values(1,'DRAFTING','드래프팅','Drafting',true,'test','test',current_timestamp,current_timestamp,current_timestamp)");
+			"insert into game_mechanisms(bgg_mechanism_id,code,name_ko,name_en,description_ko,is_public,source_reference,reviewed_by,reviewed_at,created_at,updated_at) values(1,'DRAFTING','드래프팅','Drafting','드래프팅 방식을 활용해요.',true,'test','test',current_timestamp,current_timestamp,current_timestamp)");
 		jdbc.update(
 			"insert into game_category_relations select g.id,c.id from games g,game_categories c where g.bgg_id=1");
 		jdbc.update("insert into game_theme_relations select g.id,t.id from games g,game_themes t where g.bgg_id=1");

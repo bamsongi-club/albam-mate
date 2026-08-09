@@ -14,5 +14,7 @@ class NotificationOutboxEventTypeTest {
 			NotificationOutboxEventType.PARTICIPATION_CANCELED.toNotificationType());
 		assertEquals(NotificationType.ROOM_CANCELED,
 			NotificationOutboxEventType.ROOM_CANCELED.toNotificationType());
+		assertEquals(NotificationType.WAITLIST_PROMOTED,
+			NotificationOutboxEventType.WAITLIST_PROMOTED.toNotificationType());
 	}
 }

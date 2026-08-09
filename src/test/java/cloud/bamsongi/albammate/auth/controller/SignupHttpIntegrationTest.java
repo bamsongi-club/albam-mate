@@ -62,4 +62,47 @@ class SignupHttpIntegrationTest {
 		org.junit.jupiter.api.Assertions.assertTrue(user.getPasswordHash().startsWith("{bcrypt}"));
 		org.junit.jupiter.api.Assertions.assertNotEquals(rawPassword, user.getPasswordHash());
 	}
+
+	@Test
+	void 공백과_정규화하지_않은_Unicode_가입_비밀번호는_원문으로만_로그인된다() throws Exception {
+		String email = "unicode-signup@example.com";
+		String password = " e\u0301😀라마바사아자차카타파하 ";
+		String normalizedPassword = " é😀라마바사아자차카타파하 ";
+		MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
+		Cookie csrfCookie = csrfResult.getResponse().getCookie("XSRF-TOKEN");
+		assertNotNull(csrfCookie);
+
+		mockMvc.perform(
+			post("/api/auth/signup")
+				.cookie(csrfCookie)
+				.header("X-XSRF-TOKEN", csrfCookie.getValue())
+				.contentType("application/json")
+				.content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\",\"nickname\":\"원문 사용자\"}"))
+			.andExpect(status().isCreated());
+
+		MvcResult loginCsrf = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
+		Cookie loginCsrfCookie = loginCsrf.getResponse().getCookie("XSRF-TOKEN");
+		assertNotNull(loginCsrfCookie);
+
+		mockMvc.perform(
+			post("/api/auth/login")
+				.cookie(loginCsrfCookie)
+				.header("X-XSRF-TOKEN", loginCsrfCookie.getValue())
+				.contentType("application/json")
+				.content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}"))
+			.andExpect(status().isOk());
+
+		MvcResult normalizedLoginCsrf = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
+		Cookie normalizedLoginCsrfCookie = normalizedLoginCsrf.getResponse().getCookie("XSRF-TOKEN");
+		assertNotNull(normalizedLoginCsrfCookie);
+
+		mockMvc.perform(
+			post("/api/auth/login")
+				.cookie(normalizedLoginCsrfCookie)
+				.header("X-XSRF-TOKEN", normalizedLoginCsrfCookie.getValue())
+				.contentType("application/json")
+				.content("{\"email\":\"" + email + "\",\"password\":\"" + normalizedPassword + "\"}"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+	}
 }

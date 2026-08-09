@@ -33,8 +33,6 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class ChatMessageCommandService {
 
-	private static final int MAX_CLIENT_MESSAGE_ID_LENGTH = 100;
-	private static final int MAX_CONTENT_LENGTH = 500;
 	/** room 도메인의 자유 텍스트 필드(title·description·place)와 같은 제어문자 거부 규칙이다. */
 	private static final Pattern NO_CONTROL_CHARACTER_PATTERN = Pattern.compile("^[^\\p{Cc}]*$");
 
@@ -45,6 +43,7 @@ public class ChatMessageCommandService {
 	private final ChatMessageRateLimiter chatMessageRateLimiter;
 	private final ApplicationEventPublisher eventPublisher;
 	private final Clock clock;
+	private final ChatMessageLimitProperties chatMessageLimitProperties;
 
 	@Transactional
 	public ChatMessageSendResult send(long currentUserId, long roomId, ChatMessageSendRequest request) {
@@ -122,7 +121,7 @@ public class ChatMessageCommandService {
 	private String validateClientMessageId(String clientMessageId) {
 		if (clientMessageId == null
 			|| clientMessageId.isBlank()
-			|| clientMessageId.length() > MAX_CLIENT_MESSAGE_ID_LENGTH) {
+			|| clientMessageId.length() > chatMessageLimitProperties.getMaxClientMessageIdLength()) {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
 		}
 		return clientMessageId;
@@ -134,7 +133,7 @@ public class ChatMessageCommandService {
 		}
 		String normalized = content.strip();
 		if (normalized.isEmpty()
-			|| normalized.length() > MAX_CONTENT_LENGTH
+			|| normalized.length() > chatMessageLimitProperties.getMaxContentLength()
 			|| !NO_CONTROL_CHARACTER_PATTERN.matcher(normalized).matches()) {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
 		}

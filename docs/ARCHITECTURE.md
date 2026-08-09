@@ -2,7 +2,7 @@
 
 이 문서는 Albam Mate 백엔드 코드의 안정적인 구조 규칙을 설명하는 정본이다. 개별 파일·클래스·엔드포인트 목록은 관리하지 않으며, 같은 경계 안에서 기능을 추가하는 것만으로는 이 문서를 갱신하지 않는다.
 
-본문에서 `후속`, `P1 구현 시 생성` 또는 `필요 시 생성`으로 표시한 항목은 승인된 경계이지만 아직 생성되거나 자동 검증되지 않은 상태다. 그 밖의 내용은 현재 구현이 따라야 하는 구조다. 기능별 구현·검증 상태는 [README의 현재 개발 상태](../README.md#현재-개발-상태)에서 확인한다.
+본문에서 `후속` 또는 `필요 시 생성`으로 표시한 항목은 아직 만들지 않은 경계다. 모듈 관계 Mermaid와 모듈 책임 표는 현재 생산 코드 구조를 설명하지만, 기능별 절에는 구현된 계약과 남은 운영값이 함께 있을 수 있다. 정확한 구현·자동 검증·운영 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)에서 확인한다.
 
 - 모듈러 모놀리스 선택 근거: [ADR-0007](adr/platform/0007-domain-centered-modular-monolith.md)
 - 낙관 락·상태 보정 트랜잭션 근거: [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0012](adr/room/0012-room-request-boundary-state-reconciliation.md)
@@ -25,7 +25,7 @@
 현재 클래스와 파일을 찾을 때는 문서에 목록을 추가하지 않고 다음 소스 진입점을 사용한다.
 
 - 전체 업무 코드: [운영 코드 루트](../src/main/java/cloud/bamsongi/albammate/)
-- HTTP 진입점: [auth](../src/main/java/cloud/bamsongi/albammate/auth/controller/), [user](../src/main/java/cloud/bamsongi/albammate/user/controller/), [game](../src/main/java/cloud/bamsongi/albammate/game/controller/), [room](../src/main/java/cloud/bamsongi/albammate/room/controller/), `chat` (P1 구현 시 생성)
+- HTTP·WebSocket 진입점: [auth](../src/main/java/cloud/bamsongi/albammate/auth/controller/), [user](../src/main/java/cloud/bamsongi/albammate/user/controller/), [game](../src/main/java/cloud/bamsongi/albammate/game/controller/), [room](../src/main/java/cloud/bamsongi/albammate/room/controller/), [chat HTTP](../src/main/java/cloud/bamsongi/albammate/chat/controller/), [chat WebSocket](../src/main/java/cloud/bamsongi/albammate/chat/websocket/), [notification](../src/main/java/cloud/bamsongi/albammate/notification/controller/)
 - 복잡한 ROOM 흐름: [query](../src/main/java/cloud/bamsongi/albammate/room/service/query/), [command](../src/main/java/cloud/bamsongi/albammate/room/service/command/), [statuscorrection](../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/)
 - 정확한 HTTP 경로와 응답: [API 인덱스](API.md#2-api-인덱스)
 
@@ -52,9 +52,9 @@ flowchart LR
     auth["auth"] -->|"user.contract"| user["user"]
     room["room"] -->|"user.contract"| user
     room -->|"game.contract"| game["game"]
-    chat["chat<br/>(P1 구현 시 생성)"] -->|"room.contract"| room
+    chat["chat"] -->|"room.contract"| room
     chat -->|"user.contract"| user
-    notification["notification<br/>(P1 구현 시 생성)"] -->|"room.contract"| room
+    notification["notification"] -->|"room.contract"| room
 
     auth -.->|"기술 기반"| global["global"]
     user -.->|"기술 기반"| global
@@ -62,7 +62,7 @@ flowchart LR
     room -.->|"기술 기반"| global
     chat -.->|"기술 기반"| global
     notification -.->|"기술 기반"| global
-    infra["infra<br/>(P1 구현 시 생성)"] -.->|"기술 기반"| global
+    infra["infra"] -.->|"기술 기반"| global
     infra -->|"실시간 전달 port 구현"| chat
 ```
 
@@ -70,7 +70,7 @@ flowchart LR
 
 런타임 호출 방향과 컴파일 의존 방향이 다를 수 있다. 예를 들어 `game`이 예정 모임 수를 조회할 때는 [`game.contract.UpcomingRoomCountQuery`](../src/main/java/cloud/bamsongi/albammate/game/contract/UpcomingRoomCountQuery.java)를 [`room.service.query.RoomUpcomingRoomCountQuery`](../src/main/java/cloud/bamsongi/albammate/room/service/query/RoomUpcomingRoomCountQuery.java)가 구현한다. 런타임 호출은 game에서 room으로 이어지지만, 컴파일 의존은 `room → game.contract`로 유지된다.
 
-업무 모듈이 외부 시스템에 요청하는 포트는 이를 소유한 `<module>/contract`에 둔다. `infra`는 이 포트를 구현하고 필요한 업무 모듈의 `contract`와 `global`만 참조한다. P1은 Redis 실시간 전달 adapter와 PostgreSQL 스케줄 잠금 adapter를 위해 `infra`를 생성한다. 업무 모듈은 Redis·ShedLock의 구체 구현을 직접 참조하지 않는다.
+업무 모듈이 외부 시스템에 요청하는 포트는 이를 소유한 `<module>/contract`에 둔다. `infra`는 이 포트를 구현하고 필요한 업무 모듈의 `contract`와 `global`만 참조한다. 현재 `infra`는 Redis 세션·실시간 전달·전송 제한 adapter와 PostgreSQL 스케줄 잠금 adapter를 제공한다. 업무 모듈은 Redis·ShedLock의 구체 구현을 직접 참조하지 않는다.
 
 ### 모듈 책임
 
@@ -156,7 +156,8 @@ flowchart LR
 | 방 조회·생성·상태 변경·참가 | 방과 참가 불변식을 다루므로 `room`이 소유 | `RoomController`, `RoomParticipationController` |
 | 대기 등록·본인 상태 조회·대기 취소(P1) | 대기 리소스의 HTTP 경계를 분리하되 방·참가 불변식을 다루므로 `room`이 소유 | `RoomWaitlistController` |
 | `/api/users/me/rooms` 조회 | URL에 `users`가 있어도 방과 참가 관계를 조회하므로 `room`이 소유 | `MyRoomController` |
-| 방별 채팅 전송·이력·실시간 구독 | 메시지와 채팅 접근 경계를 다루므로 `chat`이 소유 | P1 구현 시 생성 |
+| 방별 채팅 전송·이력 | 메시지와 채팅 접근 경계를 다루므로 `chat`이 소유 | `ChatMessageController` |
+| 방별 실시간 구독 | WebSocket handshake와 현재 채팅 접근 경계를 다루므로 `chat`이 소유 | `ChatWebSocketHandshakeController` |
 
 기존 책임 안에서 Controller나 엔드포인트를 추가하는 것은 아키텍처 변경이 아니다. Controller의 분리 기준이나 모듈 소유권이 바뀔 때만 이 절을 갱신한다.
 
@@ -364,11 +365,13 @@ flowchart LR
 
 `local`은 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL과 Redis로 구성하는 기본 개발·데모·P1 검증 환경이다. 단일 서버 실행은 지원 범위에 두지 않는다. P1 AWS 검증 토폴로지에서는 App1 EC2의 Nginx가 고정 Spring EC2 두 대에 요청을 분산하고 모든 Spring이 자체 운영 PostgreSQL EC2와 Redis EC2를 공유한다. 네 EC2는 모두 public subnet의 `t4g.micro`에서 시작하며, 인터넷 인바운드는 App1의 TCP `80`만 기본 허용하고 인증서와 TLS 설정을 준비한 뒤 선택적으로 TCP `443`을 연다. ALB·ASG·NAT Gateway는 사용하지 않는다. Terraform은 AWS 리소스와 SSM inventory를 만들고, cloud-init은 최초 부팅 준비를, Ansible은 SSH 없이 Docker와 공통 호스트 설정을 맡는다. 상세 선택과 ADR-0038의 부분 대체 범위는 [승인된 ADR-0051](adr/platform/0051-p1-self-managed-aws-infrastructure.md)이 소유하며, 승인 사실은 운영 배포 완료를 뜻하지 않는다. 배포·실측 상태는 [P1 기능별 상태 정본](p1/README.md#기능별-현재-상태)의 `운영 배포·실측` 열을 따른다.
 
+App1과 `local` Nginx는 Spring의 유일한 신뢰 프록시다. HTTP와 WebSocket proxy는 외부 `Forwarded`를 upstream 전달 전에 제거하고, 외부 `X-Forwarded-For`를 이어 붙이거나 신뢰하지 않고 버린 뒤 Nginx가 직접 관찰한 `$remote_addr`로 덮어쓴다. 따라서 Spring의 인증 요청 제한은 클라이언트가 위조한 전달 헤더가 아니라 실제 Nginx 연결 주소를 사용한다.
+
 - `JSESSIONID`의 인증 상태는 Spring Session Redis에 저장한다. HTTP 요청과 WebSocket handshake가 다른 인스턴스에 도달해도 동일 세션을 사용하며 Nginx의 특정 upstream 고정에 정합성을 의존하지 않는다.
-- 하나의 Redis를 Spring Session, 채팅 Pub/Sub과 사용자·방 단위 rate limit에 사용하되 key prefix, TTL과 channel namespace를 분리한다.
-- 전송 제한의 사용자·방 bucket 값과 429·503 응답 경계는 [API 전송 제한 계약](API.md#전송-제한-계약)과 [CHAT-04 정본](p1/chatting.md#chat-04-채팅-안전운영)을 따른다. 공용 Redis의 Spring Session·채팅 Pub/Sub·전송 제한 간 key prefix·TTL·channel namespace는 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)과 [ADR-0052](adr/platform/0052-local-profile-multi-instance-default.md)에 따라 논리적으로 분리한다.
-- 세션 TTL은 30분이며, `local`과 `production` Redis 세션은 `SecurityJacksonModules`와 `CurrentUserPrincipal` mixin을 적용한 JSON으로 직렬화한다. namespace는 각각 `albam-mate:local:session`, `albam-mate:production:session`이다. rate limit key는 각각 `albam-mate:local:ratelimit`, `albam-mate:production:ratelimit`이고, 채팅 이벤트 channel은 `albam-mate:{env}:chat:events`다.
-- `test`·`postgresTest`는 같은 Spring Session 쿠키·필터 경계에서 인메모리 저장소를 사용한다. Redis 저장소는 `local`과 `production`에 적용하며, 해당 Redis가 필요할 때 인메모리 구현으로 자동 fallback하지 않는다. 세션·rate limit을 확인할 수 없을 때 `503 SERVICE_UNAVAILABLE`을 반환하는 현재 범위는 API 정본의 채팅 API 세 엔드포인트로 한정한다. 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트의 오류 계약은 적용 엔드포인트를 명시한 별도 계약 변경 전까지 확정하지 않는다.
+- 하나의 Redis를 Spring Session, 채팅 Pub/Sub, 인증 요청 제한과 사용자·방 단위 전송 제한에 사용하되 key prefix, TTL과 channel namespace를 분리한다.
+- 인증 요청 제한은 회원가입·로그인 IP 이동 창, 로그인 실패 이동 창과 동일 이메일·IP 로그인 검증 gate를 Lua 원자 연산으로 처리한다. gate에는 소유 토큰과 유한 TTL을 사용해 만료 뒤 이전 소유자가 새 gate를 해제하지 못하게 한다. 전송 제한의 사용자·방 bucket 값과 429·503 응답 경계는 [API 전송 제한 계약](API.md#전송-제한-계약)과 [CHAT-04 정본](p1/chatting.md#chat-04-채팅-안전운영)을 따른다.
+- 세션 TTL은 30분이며, `local`과 `production` Redis 세션은 `SecurityJacksonModules`와 `CurrentUserPrincipal` mixin을 적용한 JSON으로 직렬화한다. namespace는 각각 `albam-mate:local:session`, `albam-mate:production:session`이다. 인증·전송 rate limit key는 각각 `albam-mate:local:ratelimit`, `albam-mate:production:ratelimit` 아래에서 논리적으로 분리하고, 채팅 이벤트 channel은 `albam-mate:{env}:chat:events`다.
+- `test`·`postgresTest`는 같은 Spring Session 쿠키·필터 경계와 인증 요청 제한에서 인메모리 저장소를 사용한다. Redis 저장소는 `local`과 `production`에 적용하며, 해당 Redis가 필요할 때 인메모리 구현으로 자동 fallback하지 않는다. 인증 요청 제한 Redis를 확인할 수 없으면 회원가입·로그인은 사용자 조회·생성과 비밀번호 해시 전에 `503 SERVICE_UNAVAILABLE`을 반환하며 `Retry-After`를 포함하지 않는다. 채팅의 세션·전송 제한 503 경계는 API 정본을 따른다.
 - 각 인스턴스는 자신에게 연결된 WebSocket만 메모리에 보관한다. Redis subscriber는 `chat.contract`의 수신 port를 호출하고 구체 Redis 타입을 `chat`에 노출하지 않는다.
 - 참가 취소·방 최종 상태 신호는 해당 방의 로컬 연결이 현재 권한을 다시 확인하게 하고, 세션 만료 이벤트는 해당 연결을 종료하는 빠른 정리 경로로 사용한다. 신호와 이벤트는 권한 회수의 근거가 아니며, 메시지 전달 직전에 PostgreSQL의 현재 관계·상태와 공용 세션의 현재 유효성을 함께 확인한다. 관계·상태가 유효하지 않거나 세션이 만료됐거나 확인에 실패하면 메시지를 전달하지 않고 연결을 종료한다.
 - Redis Pub/Sub 누락·중복·순서 역전은 다음 신호 또는 PostgreSQL `messageId` catch-up으로 복구한다. 커밋 뒤 Redis 발행·구독 실패는 메시지 저장 결과를 롤백하거나 삭제하지 않는다.

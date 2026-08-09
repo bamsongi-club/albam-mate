@@ -6,7 +6,8 @@
 
 | 번호 | 제목 | 상태 | 결정일 | 검증 |
 | --- | --- | --- | --- | --- |
-| [0029](0029-room-integration-event-transactional-outbox.md) | 방 변경 통합 이벤트와 Transactional Outbox 기록 경계를 확정 | 승인됨 | 2026-07-31 | 미검증 |
+| [0029](0029-room-integration-event-transactional-outbox.md) | 방 변경 통합 이벤트와 Transactional Outbox 기록 경계를 확정 | 승인됨 | 2026-07-31 | 검증됨 |
 | [0030](0030-postgresql-notification-relay-processing-recovery.md) | PostgreSQL polling relay의 처리와 복구 정책을 확정 | 대체됨 | 2026-07-31 | 미검증 |
-| [0039](0039-notification-presentation-and-bulk-read-snapshot.md) | 알림 표시 투영과 PostgreSQL 조회·읽음 시각을 확정 | 승인됨 | 2026-08-01 | 미검증 |
+| [0039](0039-notification-presentation-and-bulk-read-snapshot.md) | 알림 표시 투영과 PostgreSQL 조회·읽음 시각을 확정 | 승인됨 | 2026-08-01 | 검증됨 |
 | [0040](0040-postgresql-notification-relay-recovery-retention.md) | PostgreSQL 알림 relay·복구·보존 정책을 대체 확정 | 승인됨 | 2026-08-01 | 미검증 |
+| [0053](0053-waitlist-promotion-notification.md) | 대기자 자동 승격 알림의 원인 이벤트와 수신자를 확정 | 승인됨 | 2026-08-07 | 검증됨 |

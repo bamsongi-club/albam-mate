@@ -124,7 +124,6 @@ function checkSummary(games, rankByBggId) {
     let missingFromBaselineRows = 0;
     let missingRequiredRows = 0;
     let baselineNameMismatchRows = 0;
-    let baselineRankMismatchRows = 0;
     let expansionRows = 0;
     let fieldLengthViolationRows = 0;
     let invalidComplexityRows = 0;
@@ -136,9 +135,6 @@ function checkSummary(games, rankByBggId) {
             matchedRows += 1;
             baselineNameMismatchRows += Number(
                 normalizeName(game.english_name) !== normalizeName(rank.name),
-            );
-            baselineRankMismatchRows += Number(
-                game.id != null && Number(game.id) !== Number(rank.rank),
             );
             expansionRows += Number(rank.is_expansion === "1");
         } else {
@@ -175,7 +171,6 @@ function checkSummary(games, rankByBggId) {
         ).length,
         missingRequiredRows,
         baselineNameMismatchRows,
-        baselineRankMismatchRows,
         expansionRows,
         fieldLengthViolationRows,
         invalidComplexityRows,
@@ -613,7 +608,6 @@ function validateData(games, rankRows) {
     const invalidBggIds = [];
     const missingFromBaseline = [];
     const nameMismatches = [];
-    const rankMismatches = [];
     const lengthViolations = [];
     const invalidComplexities = [];
     const invalidImageUrls = [];
@@ -663,14 +657,6 @@ function validateData(games, rankRows) {
                         bgg_id: bggId,
                         gamesName: game.english_name,
                         ranksName: rank.name,
-                    });
-                }
-                if (game.id != null && Number(game.id) !== Number(rank.rank)) {
-                    rankMismatches.push({
-                        row: rowNumber,
-                        bgg_id: bggId,
-                        gamesId: game.id,
-                        baselineRank: rank.rank,
                     });
                 }
             }
@@ -739,12 +725,6 @@ function validateData(games, rankRows) {
         "BASELINE_NAME_MISMATCH",
         "서비스 영문명과 BGG 기준 이름이 일치하지 않습니다.",
         nameMismatches,
-    );
-    addValidationError(
-        errors,
-        "BASELINE_RANK_MISMATCH",
-        "입력 id와 기준 스냅샷 rank가 일치하지 않습니다.",
-        rankMismatches,
     );
     addValidationError(errors, "FIELD_LENGTH_EXCEEDED", "DB 필드 길이를 초과했습니다.", lengthViolations);
     addValidationError(

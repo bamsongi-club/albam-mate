@@ -11,6 +11,12 @@ group = 'cloud.bamsongi'
 version = '0.0.1-SNAPSHOT'
 description = 'albam-mate'
 
+// Spring Boot 4.1.0 BOM보다 먼저 공개된 보안 패치 버전을 사용한다.
+// 이후 BOM이 아래 버전 이상을 관리하면 이 override를 제거한다.
+ext['postgresql.version'] = '42.7.12'
+ext['jackson-bom.version'] = '3.1.5'
+ext['netty.version'] = '4.2.16.Final'
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
@@ -143,6 +149,7 @@ def gatedBranchCoverage = [
     'cloud.bamsongi.albammate.notification.repository'     : 0.50,
     'cloud.bamsongi.albammate.notification.recovery'       : 0.70,
     'cloud.bamsongi.albammate.notification.relay'          : 0.84,
+    'cloud.bamsongi.albammate.room.enums'                  : 0.80,
     'cloud.bamsongi.albammate.room.entity'    : 0.91,
     'cloud.bamsongi.albammate.room.controller': 0.92,
     'cloud.bamsongi.albammate.room.dto'       : 0.92,

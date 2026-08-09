@@ -382,7 +382,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 ### SocialProvider
 
-> **단계: P1 계약 승인·구현 대기** · 현재 상태: [P1 기능 상태 정본의 `AUTH-05`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `AUTH-05`](p1/README.md#기능별-현재-상태)
 
 | 값 | 경로값 | 의미 |
 |---|---|---|
@@ -398,9 +398,10 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 |---|---|
 | `PARTICIPANT_JOINED` | 모임에 새 참가자가 있음 |
 | `PARTICIPANT_CANCELED` | 모임에 빈자리가 생김 |
+| `WAITLIST_PROMOTED` | 대기에서 참가자로 자동 확정됨 |
 | `ROOM_CANCELED` | 참가 중인 모임이 취소됨 |
 
-`PARTICIPANT_JOINED`는 최초 참가와 취소 뒤 재참가를 구분하지 않는다. 알림 응답은 참가자의 닉네임·사용자 ID·이메일을 포함하지 않으며, 클라이언트는 `type`으로 표시 문구·방식과 동작을 렌더링한다.
+`PARTICIPANT_JOINED`는 최초 참가와 취소 뒤 재참가를 구분하지 않는다. `WAITLIST_PROMOTED`는 실제 자동 승격된 사용자에게만 생성되며 주최자용 빈자리 알림과 함께 생성되지 않는다. 알림 응답은 참가자의 닉네임·사용자 ID·이메일을 포함하지 않으며, 클라이언트는 `type`으로 표시 문구·방식과 동작을 렌더링한다.
 
 `NotificationListItem`에는 `message` 필드가 없고 서버도 표시 문구를 생성하거나 저장하지 않는다. P1 웹 클라이언트는 `type`과 `roomTitle`로 문구를 만들며, 정확한 기본 문구와 텍스트 렌더링 규칙은 [알림 프론트엔드 UX 계약](p1/notification.md#프론트엔드-ux-계약)을 따른다. 이 규칙은 참가자 식별자를 문구에 복원하거나 추론하는 근거가 아니다.
 
@@ -685,12 +686,12 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 
 ### 인증 요청 남용 제한
 
-회원가입·로그인 요청에는 아래 요청 한도를 적용한다. 제한을 선택한 근거와 CSRF·요청 형식 검증, 횟수 제한, 동시 해시 실행 슬롯과 비밀번호 해시 작업의 내부 적용 순서는 [ADR-0013](adr/auth/0013-p0-password-storage-auth-request-protection.md)을 따른다.
+회원가입·로그인 요청에는 아래 요청 한도를 적용한다. 아래 표와 오류는 현재 구현의 공개 계약이다. 비밀번호 저장·인증 요청 제한의 승인 기준과 내부 적용 순서는 [ADR-0013](adr/auth/0013-p0-password-storage-auth-request-protection.md)을 따른다. ADR-0013의 미구현 항목은 구현과 같은 변경에서 이 API 계약에 반영하기 전까지 현재 동작으로 읽지 않는다.
 
 | 대상 | 제한 키 | 허용량 |
 |---|---|---|
-| 회원가입 | 원격 IP | 10분 이동 창당 5회. ADR-0013의 사전 검증을 통과한 요청은 성공·실패 모두 계산 |
-| 로그인 | 원격 IP | 10분 이동 창당 30회. ADR-0013의 사전 검증을 통과한 요청은 성공·실패 모두 계산 |
+| 회원가입 | 원격 IP | 10분 이동 창당 5회. 사전 검증을 통과한 요청은 성공·실패 모두 계산 |
+| 로그인 | 원격 IP | 10분 이동 창당 30회. 사전 검증을 통과한 요청은 성공·실패 모두 계산 |
 | 로그인 실패 | 정규화 이메일 + 원격 IP | 10분 이동 창당 5회. 로그인 성공 시 실패 횟수 초기화 |
 
 다음 경우 `429 RATE_LIMIT_EXCEEDED`를 반환한다.
@@ -701,8 +702,10 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 
 `Retry-After`에는 다시 요청할 수 있을 때까지의 초를 담는다. 실패 한도 초과 시 가장 오래된 실패가 이동 창을 벗어날 때까지 남은 초, 동일 키 검증 진행 중이나 슬롯 부족 시 `1`이다. 클라이언트는 이 값에 따라 재시도한다.
 
+`local`과 `production`의 인증 요청 제한 상태는 모든 애플리케이션 인스턴스가 같은 Redis namespace에서 원자적으로 확인·기록한다. Redis 연결·명령 또는 원자 연산 결과를 확인할 수 없으면 회원가입·로그인은 사용자 조회·생성이나 비밀번호 해시 전에 `503 SERVICE_UNAVAILABLE`을 반환하며, 인메모리 fallback과 `Retry-After` 헤더는 사용하지 않는다. `test`와 `postgresTest`는 격리된 인메모리 구현을 사용한다.
+
 - 존재하지 않는 이메일과 잘못된 비밀번호는 계정 유무를 구분하지 않고 같은 `INVALID_CREDENTIALS`로 응답한다.
-- 원격 IP를 바꿔 가며 같은 계정을 노리는 분산 추측은 P0 제한 범위 밖이다. 근거와 재검토 조건은 [ADR-0013](adr/auth/0013-p0-password-storage-auth-request-protection.md)을 따른다.
+- 원격 IP를 바꿔 가며 같은 계정을 노리는 분산 추측은 현재 제한 범위 밖이다. 수용한 위험과 재검토 조건은 [ADR-0013](adr/auth/0013-p0-password-storage-auth-request-protection.md)을 따른다.
 
 ### AUTH-01 CSRF 토큰 조회
 
@@ -739,13 +742,15 @@ Set-Cookie: XSRF-TOKEN={token}; Path=/; HttpOnly; SameSite=Lax
 | 필드 | 타입 | 필수 | nullable | 정규화·검증 |
 |---|---|:---:|:---:|---|
 | `email` | string | Y | N | 앞뒤 공백 제거 후 소문자로 변환. 이메일 형식이어야 하며 정규화 뒤 255자 이하. 중복도 정규화된 값으로 판정 |
-| `password` | string | Y | N | Unicode code point 8개 이상 64개 이하이면서 UTF-8 인코딩 결과 72바이트 이하, 영문 대소문자·숫자·ASCII 특수기호만 허용 |
+| `password` | string | Y | N | Unicode code point 15개 이상 64개 이하이면서 UTF-8 인코딩 결과 72바이트 이하. Unicode와 공백을 허용하며 원문을 변경하지 않음 |
 | `nickname` | string | Y | N | 앞뒤 공백 제거 후 1~50자, 제어문자 금지 |
 
-- 비밀번호는 영문 대소문자(A-Z, a-z), 숫자(0-9), ASCII 특수기호만 허용하며, 한글·공백·이모지 등 이외의 문자가 포함되면 거절한다.
+- 비밀번호는 Unicode와 공백을 허용한다. 길이는 UTF-16 code unit이나 grapheme cluster가 아니라 Unicode code point로 계산한다.
 - 앞뒤 공백 제거·Unicode 정규화·자동 잘라내기를 하지 않는다.
 - UTF-8 인코딩 결과가 72바이트를 넘는 비밀번호는 `VALIDATION_ERROR`로 거절한다.
 - 비밀번호 원문은 응답에 포함하지 않는다. 저장 방식은 [ADR-0013](adr/auth/0013-p0-password-storage-auth-request-protection.md)을 따른다.
+
+> [ADR-0013](adr/auth/0013-p0-password-storage-auth-request-protection.md)의 회원가입 비밀번호 15~64 Unicode code point, UTF-8 72바이트 이하와 공백·Unicode 원문 보존 계약을 적용한다. 다중 인스턴스 확장 전 공유 제한 저장소나 게이트웨이를 별도로 결정해야 하는 항목은 현재 제한기가 인스턴스별 메모리에 상태를 저장하므로 남아 있다.
 
 #### 오류
 
@@ -888,7 +893,7 @@ multipart/form-data 형식으로 `file` 파라미터에 이미지를 전송한�
 
 ### AUTH-05 소셜 로그인·계정 연결
 
-> **단계: P1 계약 승인·구현 대기** · 현재 상태: [P1 기능 상태 정본의 `AUTH-05`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `AUTH-05`](p1/README.md#기능별-현재-상태)
 
 이 절은 #328에서 승인된 계약이다. 제품 규칙은 [P1 소셜 로그인 명세](p1/social-login.md), 외부 식별자·세션 결정은 [ADR-0042](adr/auth/0042-p1-oauth-social-identity-and-session-integration.md)를 따른다. 경로의 `{provider}`는 [SocialProvider](#socialprovider)의 소문자 경로값만 허용한다.
 
@@ -972,7 +977,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 
 #### Query Parameters
 
-> `구현 예정` 파라미터는 현재 요청에 전송하면 안 된다. `필수`·기본값은 제공 전환 뒤의 목표 계약이다.
+> 아래 표의 파라미터는 모두 현재 `제공` 상태다. 이후 목표 항목을 추가하면 행의 `제공 상태`로 현재 사용 가능 여부를 구분한다.
 
 | 이름 | 타입 | 필수 | 기본값 | 도입 단계 | 제공 상태 | 의미 |
 |---|---|:---:|---|:---:|:---:|---|
@@ -1143,6 +1148,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | `nameKo` | string | N | 검수된 한국어 표시명 |
 | `nameEn` | string | N | BGG 영문명 |
 | `featuredOrder` | integer | Y | 대표 8개는 `1`~`8`, 나머지는 `null` |
+| `descriptionKo` | string | Y | 검수된 한국어 메커니즘 설명 |
 
 대표 8개는 아래 이름과 순서를 사용한다.
 
@@ -1204,7 +1210,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 
 #### Query Parameters
 
-> `구현 예정` 파라미터는 현재 요청에 전송하면 `VALIDATION_ERROR`가 발생한다. `필수`·적용 조건은 제공 전환 뒤의 목표 계약이다.
+> 아래 표의 파라미터는 모두 현재 `제공` 상태다. 이후 목표 항목을 추가하면 행의 `제공 상태`로 현재 사용 가능 여부를 구분한다.
 
 | 이름 | 타입 | 필수 | 적용 조건 | 도입 단계 | 제공 상태 | 의미 |
 |---|---|:---:|---|:---:|:---:|---|
@@ -1830,7 +1836,7 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 
 ### 채팅 공통 계약
 
-채팅의 제품 규칙은 [P1 방 채팅 기능 명세](p1/chatting.md)를 따른다. 아래 인터페이스는 구현 예정 계약이다. [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0049](adr/chat/0049-chat-message-retention-lock-section-boundary.md)가 승인됐지만, 구현과 검증이 끝나기 전에는 제공 기능을 뜻하지 않는다. 전송 제한·Redis 실패 처리의 공개 계약은 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)과 [#372 정본 반영 이슈](https://github.com/bamsongi-club/albam-mate/issues/372)에 따른다.
+채팅의 제품 규칙은 [P1 방 채팅 기능 명세](p1/chatting.md)를 따른다. 아래 HTTP·WebSocket 인터페이스는 현재 제공 중이며 기능별 구현·검증·운영 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)을 따른다. 메시지 ID cursor·실시간 전달·PostgreSQL 정본·보관 경계는 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0049](adr/chat/0049-chat-message-retention-lock-section-boundary.md), 전송 제한·Redis 실패 처리의 공개 계약은 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)과 [#372 정본 반영 이슈](https://github.com/bamsongi-club/albam-mate/issues/372)에 따른다.
 
 모든 채팅 요청은 요청 시점의 방 상태와 주최자·현재 `ACTIVE` 참가자 관계를 서버에서 다시 확인한다. `RECRUITING`·`CLOSED` 방만 일반 사용자 접근을 허용하며, 참가 취소·`CANCELED`·`FINISHED` 상태는 `FORBIDDEN`으로 거절한다. 메시지 본문은 로그와 메트릭에 기록하지 않는다.
 
@@ -1971,11 +1977,11 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 | `NOT_ACCEPTABLE` | 406 | 요청한 응답 미디어 타입을 제공할 수 없습니다. | `Accept` 헤더와 호환되는 응답 미디어 타입이 없음 |
 | `UNSUPPORTED_MEDIA_TYPE` | 415 | 지원하지 않는 요청 미디어 타입입니다. | `Content-Type`이 요청 본문에서 지원하는 미디어 타입과 호환되지 않음 |
 | `INTERNAL_SERVER_ERROR` | 500 | 서버 오류가 발생했습니다. | 처리하지 않은 예외로 요청을 완료하지 못함 |
-| `SERVICE_UNAVAILABLE` | 503 | 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요. | 요청 처리에 필수인 세션 또는 전송 제한 상태 저장소를 확인할 수 없음 |
+| `SERVICE_UNAVAILABLE` | 503 | 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요. | 요청 처리에 필수인 세션·인증 요청 제한 또는 전송 제한 상태 저장소를 확인할 수 없음 |
 
 `METHOD_NOT_ALLOWED`, `NOT_ACCEPTABLE`, `UNSUPPORTED_MEDIA_TYPE` 응답은 Spring MVC 예외가 제공하는 `Allow`, `Accept`, `Accept-Patch` 등의 프로토콜 헤더가 있으면 그대로 포함한다.
 
-`SERVICE_UNAVAILABLE`의 현재 적용 범위는 [채팅 API](#채팅-공통-계약)의 세 엔드포인트다. `local`과 `production`에서 채팅 요청이 Spring Session Redis의 세션 상태를 확인할 수 없으면 이 코드를 반환하며, 메시지 전송은 세션 저장소가 정상이더라도 전송 제한 상태 저장소를 확인할 수 없으면 저장 전에 같은 코드를 반환한다. 전송 제한 장애의 503에는 `Retry-After`를 포함하지 않는다. Redis 장애 시 인메모리 구현으로 자동 대체하지 않는 근거는 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)과 [ADR-0052](adr/platform/0052-local-profile-multi-instance-default.md), [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)을 따른다.
+`SERVICE_UNAVAILABLE`의 현재 적용 범위는 [채팅 API](#채팅-공통-계약)의 세 엔드포인트와 `POST /api/auth/signup`, `POST /api/auth/login`이다. `local`과 `production`에서 인증 요청 제한 Redis를 확인할 수 없으면 회원가입·로그인은 사용자 조회·생성과 비밀번호 해시 전에 이 코드를 반환한다. 채팅 요청이 Spring Session Redis의 세션 상태를 확인할 수 없으면 같은 코드를 반환하며, 메시지 전송은 세션 저장소가 정상이더라도 전송 제한 상태 저장소를 확인할 수 없으면 저장 전에 같은 코드를 반환한다. 이 503에는 `Retry-After`를 포함하지 않으며 Redis 장애 시 인메모리 구현으로 자동 대체하지 않는다.
 
 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트로 이 코드를 확장할지는 이 문서에서 아직 결정하지 않는다. 확장이 필요하면 적용 엔드포인트를 명시한 별도 계약 변경으로 승인받은 뒤 이 절과 [엔드포인트별 오류 매트릭스](#11-부록-엔드포인트별-오류-매트릭스)를 함께 갱신한다.
 
@@ -2044,8 +2050,8 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 | 모든 엔드포인트 | `METHOD_NOT_ALLOWED`, `NOT_ACCEPTABLE`, `UNSUPPORTED_MEDIA_TYPE`, `INTERNAL_SERVER_ERROR` |
 | 요청 경로에 대응하는 엔드포인트 또는 정적 리소스 없음 | `RESOURCE_NOT_FOUND` |
 | `GET /api/auth/csrf` | 없음 |
-| `POST /api/auth/signup` | `VALIDATION_ERROR`, `EMAIL_ALREADY_EXISTS`, `RATE_LIMIT_EXCEEDED`, `CSRF_TOKEN_INVALID` |
-| `POST /api/auth/login` | `VALIDATION_ERROR`, `INVALID_CREDENTIALS`, `RATE_LIMIT_EXCEEDED`, `CSRF_TOKEN_INVALID` |
+| `POST /api/auth/signup` | `VALIDATION_ERROR`, `EMAIL_ALREADY_EXISTS`, `RATE_LIMIT_EXCEEDED`, `SERVICE_UNAVAILABLE`, `CSRF_TOKEN_INVALID` |
+| `POST /api/auth/login` | `VALIDATION_ERROR`, `INVALID_CREDENTIALS`, `RATE_LIMIT_EXCEEDED`, `SERVICE_UNAVAILABLE`, `CSRF_TOKEN_INVALID` |
 | `POST /api/auth/logout` | `UNAUTHENTICATED`, `CSRF_TOKEN_INVALID` |
 | `GET /api/auth/social/providers` | 없음 |
 | `GET /api/auth/social/authorization/{provider}` | JSON 오류 대신 AUTH-05의 고정 `socialAuth` 리다이렉트 결과 |

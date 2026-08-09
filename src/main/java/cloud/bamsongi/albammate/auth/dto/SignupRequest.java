@@ -14,7 +14,7 @@ import jakarta.validation.constraints.NotNull;
 public record SignupRequest(
 	@NotNull @ValidEmail
 	String email,
-	@NotNull @ValidPassword(minCodePoints = UserPasswordPolicy.SIGNUP_MIN_CODE_POINTS, signup = true)
+	@NotNull @ValidPassword(minCodePoints = UserPasswordPolicy.SIGNUP_MIN_CODE_POINTS)
 	String password,
 	@NotNull @ValidNickname
 	String nickname) {

@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Timestamp;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -48,6 +49,7 @@ import cloud.bamsongi.albammate.chat.service.ChatMessageCommandService;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
+import cloud.bamsongi.albammate.infra.redis.ChatMessageRateLimitProperties;
 import cloud.bamsongi.albammate.infra.redis.RedisChatMessageRateLimiter;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
@@ -172,10 +174,12 @@ class ChatMessageRateLimitProductionPostgresTest {
 	void T3_같은_Redis를_공유하는_두_production_인스턴스가_사용자와_방_bucket_상태를_공유해_합산_한도를_넘기지_못한다() {
 		assertInstanceOf(RedisChatMessageRateLimiter.class, chatMessageRateLimiter);
 
+		ChatMessageRateLimitProperties rateLimitProperties = new ChatMessageRateLimitProperties(5, 30,
+			Duration.ofSeconds(10));
 		RedisChatMessageRateLimiter firstInstance = new RedisChatMessageRateLimiter(redisConnectionFactory,
-			environment);
+			environment, rateLimitProperties);
 		RedisChatMessageRateLimiter secondInstance = new RedisChatMessageRateLimiter(redisConnectionFactory,
-			environment);
+			environment, rateLimitProperties);
 
 		long sharedUserId = 9_100_001L;
 		long sharedRoomId = 9_200_001L;

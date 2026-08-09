@@ -74,32 +74,32 @@ JAVA_TOOL_OPTIONS='-Dissue471.localProxy=true' ./gradlew postgresTest --tests "c
 
 ## 운영 Compose
 
-호스트 준비, 이미지 게시, 배포·롤백 의미와 Docker 계약 검증은 [P0 AWS 운영 인프라 기준](guides/AWS_P0_INFRASTRUCTURE.md#운영-compose-준비와-실행)을 따른다. 아래 명령은 `/etc/albam-mate/production.env`, TLS 인증서와 RDS CA가 준비된 운영 호스트에서 반복해서 사용한다.
+호스트 준비, 이미지 게시, 배포·롤백 의미와 Docker 계약 검증은 [P1 AWS 다중 인스턴스 실행안](guides/AWS_MULTI_INSTANCE_INFRASTRUCTURE.md)을 따른다. 아래 명령은 App1의 `/etc/albam-mate/app1.env`와 TLS 인증서가 준비된 운영 호스트에서 반복해서 사용한다.
 
 비밀값을 출력하지 않고 설정을 검증한 뒤 두 이미지를 받고 health check가 통과할 때까지 기다린다.
 
 ```sh
-docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml config --quiet
-docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml up -d --wait
+docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml config --quiet
+docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml up -d --wait
 ```
 
 서비스 상태, 최근 로그와 실제 이미지 태그를 확인한다.
 
 ```sh
-docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml ps
-docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml logs --tail 200
-docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml images
+docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml ps
+docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml logs --tail 200
+docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml images
 ```
 
 컨테이너만 내린다. 외부 RDS의 데이터는 이 명령의 대상이 아니다.
 
 ```sh
-docker compose --env-file /etc/albam-mate/production.env -f compose.production.yml down
+docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml down
 ```
 
 ## PostgreSQL 마이그레이션 검증
 
-`postgresTest`는 Testcontainers가 관리하는 임시 PostgreSQL 18.4 컨테이너에서 Flyway 마이그레이션, Hibernate 스키마 검증과 PostgreSQL 전용 계약을 확인한다. 외부 fixture가 필요한 17만 행 성능 클래스도 이 task를 사용하며, `issue420.fixture` 시스템 속성이 없으면 JUnit 조건으로 건너뛴다. fixture를 준비한 정확한 성능 실행 명령과 측정 필드 의미는 [게임 카탈로그 적재 가이드](guides/GAME_CATALOG_IMPORT.md#17만-행-성능-fixture-계약)를 따른다. 데이터베이스 재생성 규칙과 실패 해석은 [백엔드 테스트와 커버리지 검증](guides/TESTING.md#postgresql-검증-실행)을 따른다.
+`postgresTest`는 Testcontainers가 관리하는 임시 PostgreSQL 18.4 컨테이너에서 Flyway 마이그레이션, Hibernate 스키마 검증과 PostgreSQL 전용 계약을 확인한다. 외부 fixture가 필요한 17만 행 성능 클래스도 이 task를 사용하며, `issue420.fixture` 시스템 속성이 없으면 JUnit 조건으로 건너뛴다. fixture를 준비한 정확한 성능 실행 명령과 측정 필드 의미는 [게임 카탈로그 적재 가이드](guides/GAME_CATALOG_IMPORT.md#17만-행-게임-기본-정보성능-fixture-계약)를 따른다. 데이터베이스 재생성 규칙과 실패 해석은 [백엔드 테스트와 커버리지 검증](guides/TESTING.md#postgresql-검증-실행)을 따른다.
 
 Windows PowerShell:
 
@@ -113,7 +113,7 @@ macOS·Linux:
 ./gradlew postgresTest --no-daemon --stacktrace
 ```
 
-외부 fixture를 사용하는 게임 메타데이터 성능 측정은 [게임 카탈로그 적재 가이드](guides/GAME_CATALOG_IMPORT.md#17만-행-성능-fixture-계약)의 경로·checksum 조건을 준비한 뒤 `postgresTest`의 exact selector로 실행한다. fixture가 없는 기본 `postgresTest`에서는 이 성능 클래스가 건너뛰며, CI 합산 커버리지의 입력을 만들지 않는다.
+외부 fixture를 사용하는 게임 메타데이터 성능 측정은 [게임 카탈로그 적재 가이드](guides/GAME_CATALOG_IMPORT.md#17만-행-게임-기본-정보성능-fixture-계약)의 경로·checksum 조건을 준비한 뒤 `postgresTest`의 exact selector로 실행한다. fixture가 없는 기본 `postgresTest`에서는 이 성능 클래스가 건너뛰며, CI 합산 커버리지의 입력을 만들지 않는다.
 
 ### ROOM-09c 현행 일괄 처리 기준선 측정
 
@@ -149,6 +149,20 @@ JAVA_TOOL_OPTIONS='-Dissue383.measurement=true' ./gradlew postgresTest --tests "
 ```
 
 성능 합격선이나 운영값은 이 측정에서 임의로 정하지 않는다. 실행 뒤 `build/reports/measurements/room-09c-{small|medium|large}.json`의 고정 시각·seed·data identifier·후보·결과·환경·`pg_stat_statements` 원자료와 문서의 재현 명령을 함께 확인한다.
+
+### ROOM-09d 측정 보고 단계
+
+ROOM-09d는 측정과 보고를 나눈다. 대형 한 조합이 수십 분이라, 재현 명령·대비 표·SHA-256 같은 파생물이 보존 원자료와 어긋날 때 측정을 다시 돌려 맞출 수 없기 때문이다. 파생물은 보존 원자료만 읽어 다시 만든다.
+
+```bash
+node scripts/room09-measurement-report.mjs --check
+```
+
+```bash
+node scripts/room09-measurement-report.mjs --write
+```
+
+`--check`는 아무것도 쓰지 않고 어긋남만 보고하며 CI가 같은 명령을 실행한다. `--write`는 원자료를 정본으로 파생물을 다시 만들고, 재현 메타데이터를 뺀 나머지 값이 모두 같은지 확인한 뒤에만 파일을 쓴다. 새로 측정했다면 `build/reports/measurements/`의 JSON을 `docs/measurements/results/room-09d/`로 복사한 뒤 `--write`를 실행한다. 측정 profile과 결과 해석은 [현행 일괄 처리 기준선 측정](measurements/room-09-bounded-processing-baseline.md#보고-단계)을 따른다.
 
 ## 분기 커버리지 확인
 

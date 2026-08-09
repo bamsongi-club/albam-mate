@@ -107,6 +107,18 @@ class NotificationControllerTest {
 	}
 
 	@Test
+	void 새_알림_유형도_기존_본인_목록_경계에서_그대로_노출한다() throws Exception {
+		when(notificationQueryService.findPage(42L, 0, 10)).thenReturn(new PageResponse<>(
+			List.of(new NotificationListItem(1L, NotificationType.WAITLIST_PROMOTED, 3L, "현재 방 제목", null,
+				Instant.parse("2026-08-01T00:00:00Z"))),
+			0, 10, 1, 1, false));
+
+		mockMvc.perform(get("/api/users/me/notifications").with(authenticationFor(42L)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.content[0].type").value("WAITLIST_PROMOTED"));
+	}
+
+	@Test
 	void page_size_경계와_미확인_응답을_검증한다() throws Exception {
 		when(notificationQueryService.findPage(42L, 0, 1)).thenReturn(page());
 		when(notificationQueryService.findPage(42L, 0, 100)).thenReturn(page());

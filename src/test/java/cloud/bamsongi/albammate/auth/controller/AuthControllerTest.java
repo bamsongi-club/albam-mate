@@ -29,6 +29,8 @@ import cloud.bamsongi.albammate.auth.security.AppSessionEstablisher;
 import cloud.bamsongi.albammate.auth.service.LoginService;
 import cloud.bamsongi.albammate.auth.service.SignupService;
 import cloud.bamsongi.albammate.global.config.SecurityConfig;
+import cloud.bamsongi.albammate.global.exception.BusinessException;
+import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.exception.GlobalExceptionHandler;
 import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
 import cloud.bamsongi.albammate.global.security.error.ApiAccessDeniedHandler;
@@ -164,6 +166,99 @@ class AuthControllerTest {
 	}
 
 	@Test
+	void 열네_code_point_회원가입_비밀번호는_해시와_사용자_생성_전에_VALIDATION_ERROR로_거절한다() throws Exception {
+		MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
+		Cookie csrfCookie = csrfResult.getResponse().getCookie("XSRF-TOKEN");
+
+		mockMvc.perform(
+			post("/api/auth/signup")
+				.cookie(csrfCookie)
+				.header("X-XSRF-TOKEN", csrfCookie.getValue())
+				.contentType("application/json")
+				.content(
+					"{\"email\":\"user@example.com\","
+						+ "\"password\":\"12345678901234\","
+						+ "\"nickname\":\"닉네임\"}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+		verifyNoInteractions(requestLimiter, userAccountService);
+	}
+
+	@Test
+	void UTF8_72바이트_한글_24자는_가입하고_73바이트는_VALIDATION_ERROR로_거절한다() throws Exception {
+		String allowedPassword = "가".repeat(24);
+		String rejectedPassword = allowedPassword + "a";
+		when(userAccountService.createAccount(command("unicode@example.com", allowedPassword, "닉네임")))
+			.thenReturn(new UserAccount(8L, "닉네임"));
+		MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
+		Cookie csrfCookie = csrfResult.getResponse().getCookie("XSRF-TOKEN");
+
+		mockMvc.perform(
+			post("/api/auth/signup")
+				.cookie(csrfCookie)
+				.header("X-XSRF-TOKEN", csrfCookie.getValue())
+				.with(remoteAddress("198.51.100.34"))
+				.contentType("application/json")
+				.content(
+					"{\"email\":\"unicode@example.com\","
+						+ "\"password\":\"" + allowedPassword + "\","
+						+ "\"nickname\":\"닉네임\"}"))
+			.andExpect(status().isCreated());
+
+		reset(requestLimiter, userAccountService);
+		mockMvc.perform(
+			post("/api/auth/signup")
+				.cookie(csrfCookie)
+				.header("X-XSRF-TOKEN", csrfCookie.getValue())
+				.contentType("application/json")
+				.content(
+					"{\"email\":\"too-long@example.com\","
+						+ "\"password\":\"" + rejectedPassword + "\","
+						+ "\"nickname\":\"닉네임\"}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+		verifyNoInteractions(requestLimiter, userAccountService);
+	}
+
+	@Test
+	void 예순네_ASCII_회원가입_비밀번호는_허용하고_예순다섯자는_서비스_호출_없이_VALIDATION_ERROR로_거절한다() throws Exception {
+		String allowedPassword = "a".repeat(64);
+		when(userAccountService.createAccount(command("ascii@example.com", allowedPassword, "닉네임")))
+			.thenReturn(new UserAccount(9L, "닉네임"));
+		MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
+		Cookie csrfCookie = csrfResult.getResponse().getCookie("XSRF-TOKEN");
+
+		mockMvc.perform(
+			post("/api/auth/signup")
+				.cookie(csrfCookie)
+				.header("X-XSRF-TOKEN", csrfCookie.getValue())
+				.with(remoteAddress("198.51.100.35"))
+				.contentType("application/json")
+				.content(
+					"{\"email\":\"ascii@example.com\","
+						+ "\"password\":\"" + allowedPassword + "\","
+						+ "\"nickname\":\"닉네임\"}"))
+			.andExpect(status().isCreated());
+
+		reset(requestLimiter, userAccountService);
+		mockMvc.perform(
+			post("/api/auth/signup")
+				.cookie(csrfCookie)
+				.header("X-XSRF-TOKEN", csrfCookie.getValue())
+				.contentType("application/json")
+				.content(
+					"{\"email\":\"too-long-ascii@example.com\","
+						+ "\"password\":\"" + "a".repeat(65) + "\","
+						+ "\"nickname\":\"닉네임\"}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+		verifyNoInteractions(requestLimiter, userAccountService);
+	}
+
+	@Test
 	void 회원가입_요청제한을_초과하면_사용자_생성_없이_429와_Retry_After를_반환한다() throws Exception {
 		doThrow(new RateLimitExceededException(12))
 			.when(requestLimiter)
@@ -186,6 +281,41 @@ class AuthControllerTest {
 			.andExpect(jsonPath("$.code").value("RATE_LIMIT_EXCEEDED"));
 
 		verifyNoInteractions(userAccountService);
+	}
+
+	@Test
+	void T6_인증_제한_Redis를_확인할_수_없으면_회원가입과_로그인은_503이고_Retry_After가_없다() throws Exception {
+		doThrow(new BusinessException(ErrorCode.SERVICE_UNAVAILABLE))
+			.when(requestLimiter)
+			.requireSignupAllowed("198.51.100.35");
+		doThrow(new BusinessException(ErrorCode.SERVICE_UNAVAILABLE))
+			.when(loginService)
+			.login(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("198.51.100.35"));
+		MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
+		Cookie csrfCookie = csrfResult.getResponse().getCookie("XSRF-TOKEN");
+
+		mockMvc.perform(
+			post("/api/auth/signup")
+				.cookie(csrfCookie)
+				.header("X-XSRF-TOKEN", csrfCookie.getValue())
+				.with(remoteAddress("198.51.100.35"))
+				.contentType("application/json")
+				.content(
+					"{\"email\":\"unavailable@example.com\",\"password\":\"123456789012345\",\"nickname\":\"닉네임\"}"))
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(header().doesNotExist("Retry-After"))
+			.andExpect(jsonPath("$.code").value("SERVICE_UNAVAILABLE"));
+
+		mockMvc.perform(
+			post("/api/auth/login")
+				.cookie(csrfCookie)
+				.header("X-XSRF-TOKEN", csrfCookie.getValue())
+				.with(remoteAddress("198.51.100.35"))
+				.contentType("application/json")
+				.content("{\"email\":\"unavailable@example.com\",\"password\":\"123456789012345\"}"))
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(header().doesNotExist("Retry-After"))
+			.andExpect(jsonPath("$.code").value("SERVICE_UNAVAILABLE"));
 	}
 
 	@Test

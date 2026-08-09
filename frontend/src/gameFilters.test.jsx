@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import React from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -37,21 +40,19 @@ const FEATURED_MECHANISM_NAMES = [
   '솔로/솔로테어 게임',
   '일꾼 놓기'
 ];
-// 표시명이 곧 동작인 항목은 설명을 두지 않는다. 나머지만 정보 아이콘을 가진다.
-const DESCRIBED_MECHANISM_NAMES = ['핸드 관리', '셋 컬렉션', '조립 보드', '솔로/솔로테어 게임', '일꾼 놓기'];
 const MECHANISM_OPTIONS = [
-  { code: 'HAND_MANAGEMENT', nameKo: '핸드 관리', nameEn: 'Hand Management', featuredOrder: 1 },
-  { code: 'DICE_ROLLING', nameKo: '주사위 굴림', nameEn: 'Dice Rolling', featuredOrder: 2 },
-  { code: 'SET_COLLECTION', nameKo: '셋 컬렉션', nameEn: 'Set Collection', featuredOrder: 3 },
-  { code: 'COOPERATIVE_GAME', nameKo: '협력 게임', nameEn: 'Cooperative Game', featuredOrder: 4 },
-  { code: 'TILE_PLACEMENT', nameKo: '타일 놓기', nameEn: 'Tile Placement', featuredOrder: 5 },
-  { code: 'MODULAR_BOARD', nameKo: '조립 보드', nameEn: 'Modular Board', featuredOrder: 6 },
-  { code: 'SOLO_GAME', nameKo: '솔로/솔로테어 게임', nameEn: 'Solo / Solitaire Game', featuredOrder: 7 },
-  { code: 'WORKER_PLACEMENT', nameKo: '일꾼 놓기', nameEn: 'Worker Placement', featuredOrder: 8 },
+  { code: 'HAND_MANAGEMENT', nameKo: '핸드 관리', nameEn: 'Hand Management', featuredOrder: 1, descriptionKo: '손에 든 패를 잘 활용해야 해요' },
+  { code: 'DICE_ROLLING', nameKo: '주사위 굴림', nameEn: 'Dice Rolling', featuredOrder: 2, descriptionKo: '주사위를 굴려 결과를 정해요' },
+  { code: 'SET_COLLECTION', nameKo: '셋 컬렉션', nameEn: 'Set Collection', featuredOrder: 3, descriptionKo: '같은 종류끼리 모으면 좋아요' },
+  { code: 'COOPERATIVE_GAME', nameKo: '협력 게임', nameEn: 'Cooperative Game', featuredOrder: 4, descriptionKo: '모두가 함께 목표를 이루어요' },
+  { code: 'TILE_PLACEMENT', nameKo: '타일 놓기', nameEn: 'Tile Placement', featuredOrder: 5, descriptionKo: '타일을 놓아 판을 만들어요' },
+  { code: 'MODULAR_BOARD', nameKo: '조립 보드', nameEn: 'Modular Board', featuredOrder: 6, descriptionKo: '할 때마다 판이 다르게 꾸며져요' },
+  { code: 'SOLO_GAME', nameKo: '솔로/솔로테어 게임', nameEn: 'Solo / Solitaire Game', featuredOrder: 7, descriptionKo: '혼자서도 즐길 수 있어요' },
+  { code: 'WORKER_PLACEMENT', nameKo: '일꾼 놓기', nameEn: 'Worker Placement', featuredOrder: 8, descriptionKo: '자리를 먼저 차지하는 게 중요해요' },
   // 고급 목록 정렬을 확인하려고 응답은 가나다순이 아닌 차례로 둔다.
-  { code: 'AREA_MAJORITY', nameKo: '영역 우세', nameEn: 'Area Majority', featuredOrder: null },
-  { code: 'DECK_BUILDING', nameKo: '덱 빌딩', nameEn: 'Deck Building', featuredOrder: null },
-  { code: 'AUCTION', nameKo: '경매', nameEn: 'Auction / Bidding', featuredOrder: null }
+  { code: 'AREA_MAJORITY', nameKo: '영역 우세', nameEn: 'Area Majority', featuredOrder: null, descriptionKo: '더 많은 영향력을 가진 사람이 이겨요' },
+  { code: 'DECK_BUILDING', nameKo: '덱 빌딩', nameEn: 'Deck Building', featuredOrder: null, descriptionKo: '게임 중 내 카드 덱을 더 강하게 만들어요' },
+  { code: 'AUCTION', nameKo: '경매', nameEn: 'Auction / Bidding', featuredOrder: null, descriptionKo: '입찰로 원하는 것을 가져가요' }
 ];
 
 function lastQuery() {
@@ -344,27 +345,140 @@ describe('T4 대표 메커니즘과 설명', () => {
     expect(hint.getAttribute('aria-expanded')).toBe('true');
   });
 
-  it('표시명만으로 알기 어려운 항목에만 서로 다른 설명을 연결한다', async () => {
+  it('터치로 같은 아이콘을 다시 눌러도 말풍선을 닫는다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    const hint = screen.getByLabelText('셋 컬렉션 설명');
+
+    // tap이 남긴 hover 상태가 두 번째 tap 이후에도 남아 있으면 안 된다.
+    fireEvent.mouseEnter(hint.parentElement);
+    fireEvent.focus(hint);
+    fireEvent.click(hint);
+    fireEvent.click(hint);
+
+    expect(hint.getAttribute('aria-expanded')).toBe('false');
+    const tooltip = document.getElementById(hint.getAttribute('aria-describedby'));
+    expect(tooltip.style.visibility).toBe('hidden');
+  });
+
+  it('고정된 말풍선 바깥을 누르면 닫혀 그 아래 조건을 다시 누를 수 있다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    const hint = screen.getByLabelText('셋 컬렉션 설명');
+
+    fireEvent.click(hint);
+    expect(hint.getAttribute('aria-expanded')).toBe('true');
+
+    fireEvent.pointerDown(document.body);
+
+    expect(hint.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('고정된 말풍선은 Escape로 닫는다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    const hint = screen.getByLabelText('셋 컬렉션 설명');
+
+    fireEvent.click(hint);
+    expect(hint.getAttribute('aria-expanded')).toBe('true');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(hint.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('focus로 열린 말풍선은 Escape로 닫는다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    const hint = screen.getByLabelText('셋 컬렉션 설명');
+    const tooltip = document.getElementById(hint.getAttribute('aria-describedby'));
+
+    fireEvent.focus(hint);
+    expect(tooltip.style.visibility).toBe('visible');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(tooltip.style.visibility).toBe('hidden');
+  });
+
+  it('넘치지 않는 고정 말풍선은 겹친 자리를 눌러도 닫혀 아래 컨트롤이 클릭을 받을 수 있다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    const hint = screen.getByLabelText('셋 컬렉션 설명');
+
+    fireEvent.click(hint);
+    expect(hint.getAttribute('aria-expanded')).toBe('true');
+
+    const tooltip = document.getElementById(hint.getAttribute('aria-describedby'));
+    fireEvent.pointerDown(tooltip);
+
+    expect(hint.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('내용이 넘쳐 스크롤이 필요한 고정 말풍선은 그 위를 눌러도 닫히지 않는다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    const hint = screen.getByLabelText('셋 컬렉션 설명');
+    const tooltip = document.getElementById(hint.getAttribute('aria-describedby'));
+
+    // jsdom은 레이아웃을 계산하지 않으므로 스크롤이 필요한 상태를 직접 만든다.
+    Object.defineProperty(tooltip, 'scrollHeight', { configurable: true, value: 400 });
+    Object.defineProperty(tooltip, 'clientHeight', { configurable: true, value: 200 });
+
+    fireEvent.click(hint);
+    expect(hint.getAttribute('aria-expanded')).toBe('true');
+    expect(tooltip.style.pointerEvents).toBe('auto');
+
+    fireEvent.pointerDown(tooltip);
+
+    expect(hint.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('hover로 연 스크롤형 말풍선은 포인터를 옮겨도 닫히지 않는다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    const hint = screen.getByLabelText('셋 컬렉션 설명');
+    const trigger = hint.parentElement;
+    const tooltip = document.getElementById(hint.getAttribute('aria-describedby'));
+
+    Object.defineProperty(tooltip, 'scrollHeight', { configurable: true, value: 400 });
+    Object.defineProperty(tooltip, 'clientHeight', { configurable: true, value: 200 });
+
+    fireEvent.mouseEnter(trigger);
+    expect(tooltip.style.visibility).toBe('visible');
+    expect(tooltip.style.pointerEvents).toBe('auto');
+
+    fireEvent.mouseLeave(trigger);
+    expect(tooltip.style.visibility).toBe('visible');
+    fireEvent.mouseEnter(tooltip);
+    act(() => { vi.advanceTimersByTime(100); });
+
+    expect(tooltip.style.visibility).toBe('visible');
+  });
+
+  it('대표 8개 모두 API가 준 서로 다른 설명을 연결한다', async () => {
     await renderGamesView();
     openFilterPanel();
 
-    const descriptions = DESCRIBED_MECHANISM_NAMES.map((name) => {
+    const descriptions = FEATURED_MECHANISM_NAMES.map((name) => {
       const hint = screen.getByLabelText(name + ' 설명');
       return document.getElementById(hint.getAttribute('aria-describedby')).textContent.trim();
     });
 
     expect(descriptions.every(Boolean)).toBe(true);
-    expect(new Set(descriptions).size).toBe(DESCRIBED_MECHANISM_NAMES.length);
+    expect(new Set(descriptions).size).toBe(FEATURED_MECHANISM_NAMES.length);
   });
 
-  // 사람이 검수·승인한 문구를 고정해 예고 없이 바뀌지 않도록 막는다.
-  it('대표 항목 설명 문구를 고정한다', async () => {
+  it('대표 항목은 화면 상수가 아닌 API 설명을 표시한다', async () => {
     await renderGamesView();
     openFilterPanel();
 
     const expectedByName = {
       '핸드 관리': '손에 든 패를 잘 활용해야 해요',
+      '주사위 굴림': '주사위를 굴려 결과를 정해요',
       '셋 컬렉션': '같은 종류끼리 모으면 좋아요',
+      '협력 게임': '모두가 함께 목표를 이루어요',
+      '타일 놓기': '타일을 놓아 판을 만들어요',
       '조립 보드': '할 때마다 판이 다르게 꾸며져요',
       '솔로/솔로테어 게임': '혼자서도 즐길 수 있어요',
       '일꾼 놓기': '자리를 먼저 차지하는 게 중요해요'
@@ -377,23 +491,49 @@ describe('T4 대표 메커니즘과 설명', () => {
     });
   });
 
-  it('표시명이 곧 동작인 대표 항목에는 정보 아이콘을 두지 않는다', async () => {
-    await renderGamesView();
-    openFilterPanel();
-
-    ['주사위 굴림', '협력 게임', '타일 놓기'].forEach((name) => {
-      expect(screen.getByLabelText(name)).toBeTruthy();
-      expect(screen.queryByLabelText(name + ' 설명')).toBeNull();
-    });
-  });
-
-  it('대표 8개 밖 항목에는 설명을 제공하지 않는다', async () => {
+  it('고급 목록의 항목도 API 설명을 키보드로 확인할 수 있다', async () => {
     await renderGamesView();
     openFilterPanel();
     fireEvent.click(screen.getByRole('button', { name: '메커니즘 더 보기' }));
 
-    expect(screen.getByLabelText('경매')).toBeTruthy();
-    expect(screen.queryByLabelText('경매 설명')).toBeNull();
+    const hint = screen.getByLabelText('경매 설명');
+    fireEvent.focus(hint);
+    expect(document.getElementById(hint.getAttribute('aria-describedby')).textContent.trim()).toBe('입찰로 원하는 것을 가져가요');
+  });
+
+  it('고급 목록 툴팁은 스크롤 영역 밖의 fixed portal로 렌더링한다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    fireEvent.click(screen.getByRole('button', { name: '메커니즘 더 보기' }));
+
+    const hint = screen.getByLabelText('경매 설명');
+    fireEvent.click(hint);
+
+    const tooltip = document.getElementById(hint.getAttribute('aria-describedby'));
+    expect(tooltip.parentElement).toBe(document.body);
+    expect(tooltip.style.position).toBe('fixed');
+    expect(tooltip.style.visibility).toBe('visible');
+    expect(document.querySelector('.mechanism-advanced-list [role="tooltip"]')).toBeNull();
+  });
+
+  it('말풍선은 짧은 viewport에서도 세로로 잘리지 않도록 내부 스크롤을 허용한다', () => {
+    const stylesPath = join(dirname(fileURLToPath(import.meta.url)), 'styles.css');
+    const stylesCss = readFileSync(stylesPath, 'utf-8');
+    const rule = stylesCss.match(/\.mechanism-hint-text\s*\{[^}]*\}/)[0];
+
+    expect(rule).toMatch(/max-height:\s*calc\(100vh - 16px\)/);
+    expect(rule).toMatch(/overflow-y:\s*auto/);
+  });
+
+  it('설명이 없거나 공백인 선택지에는 빈 툴팁을 렌더링하지 않는다', async () => {
+    getGameMechanisms.mockResolvedValueOnce(MECHANISM_OPTIONS.map((option) => (
+      option.code === 'DICE_ROLLING' ? { ...option, descriptionKo: '  ' } : option
+    )));
+    await renderGamesView();
+    openFilterPanel();
+
+    expect(screen.getByLabelText('주사위 굴림')).toBeTruthy();
+    expect(screen.queryByLabelText('주사위 굴림 설명')).toBeNull();
   });
 });
 

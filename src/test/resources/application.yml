@@ -31,3 +31,5 @@ app:
       trigger-jitter: 3m
       lock-at-most-for: 2m
       execution-warning-threshold: 30s
+      candidate-limit: 10
+      max-batches-per-run: 1001

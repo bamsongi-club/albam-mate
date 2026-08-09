@@ -83,7 +83,7 @@ P0의 사용자 흐름과 저장·보안 계약에 직접 영향을 주는 결�
 
 ## 로컬에서 확인하기
 
-애플리케이션과 백엔드 테스트에는 Java 21, 프론트엔드와 문서 링크 검사에는 Node.js 20 이상이 필요합니다. 별도의 Gradle 설치 대신 저장소의 Wrapper를 사용합니다.
+애플리케이션과 백엔드 테스트에는 Java 21이 필요합니다. 프론트엔드는 Vite 7 기준 Node.js 20.19 이상 또는 22.12 이상을 사용하고, 문서 링크 검사는 Node.js 20 이상에서 실행합니다. 별도의 Gradle 설치 대신 저장소의 Wrapper를 사용합니다.
 
 Windows PowerShell:
 
@@ -105,32 +105,29 @@ macOS·Linux:
 ./gradlew postgresTest
 ```
 
-P0 흐름을 화면으로 확인할 때는 로컬 PostgreSQL을 띄운 뒤 백엔드와 프론트엔드를 각각 실행합니다.
+화면과 P1 다중 인스턴스 경로를 확인하는 기본 로컬 환경은 `compose.local.yml`입니다. 프록시, Spring 애플리케이션 두 대, PostgreSQL과 Redis를 함께 실행합니다. 저장소 루트에 `.env`가 없으면 [.env.example](.env.example)을 복사한 뒤 다음 명령을 실행합니다.
 
 Windows PowerShell:
 
 ```powershell
-.\gradlew.bat bootRun --args='--spring.profiles.active=local'
-```
-
-```powershell
-Set-Location frontend
-npm.cmd run dev
+if (-not (Test-Path -LiteralPath .env)) {
+  Copy-Item -LiteralPath .env.example -Destination .env
+}
+docker compose --env-file .env -f compose.local.yml up -d --build --wait
+docker compose --env-file .env -f compose.local.yml ps
 ```
 
 macOS·Linux:
 
 ```sh
-./gradlew bootRun --args='--spring.profiles.active=local'
+cp -n .env.example .env
+docker compose --env-file .env -f compose.local.yml up -d --build --wait
+docker compose --env-file .env -f compose.local.yml ps
 ```
 
-```sh
-cd frontend && npm run dev
-```
+기본 웹 주소는 `http://localhost:5173`이고 `/api`와 WebSocket도 같은 프록시를 통과합니다. Spring 인스턴스는 프록시 뒤에서만 접근합니다. 전체 스택을 내릴 때는 `docker compose --env-file .env -f compose.local.yml down`을 사용합니다.
 
-백엔드는 `http://localhost:8080`, 프론트엔드는 `http://localhost:5173`에서 열리며 `/api`는 기본적으로 로컬 백엔드에 프록시되어 같은 PostgreSQL 데이터를 사용합니다.
-
-저장소에는 데이터소스 연결값을 두지 않습니다. `.env` 준비, Compose 기동과 운영체제별 실행 절차는 [로컬 개발 환경 실행](docs/guides/LOCAL_DEVELOPMENT.md), 짧은 반복 명령은 [프로젝트 명령](docs/COMMANDS.md)에서 확인할 수 있습니다.
+저장소에는 데이터소스 연결값을 두지 않습니다. `.env` 준비, 로그·종료와 데이터 초기화는 [로컬 개발 환경 실행](docs/guides/LOCAL_DEVELOPMENT.md), 프론트엔드 개발 서버 규칙은 [프론트엔드 작업 안내](frontend/AGENTS.md#실행과-산출물), 짧은 반복 명령은 [프로젝트 명령](docs/COMMANDS.md)에서 확인할 수 있습니다.
 
 ## 문서 찾기
 

@@ -144,7 +144,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 - 참가 실패 사용자의 자동 대기 등록
 - 대기 인원에 대한 고정 최대 상한
 - 주최자 승인, 우선순위·가중치·추첨 방식의 대기열
-- 대기 순번 변경·승격 알림과 실시간 전달
+- 대기 순번 변경 알림과 실시간 전달
 - 다른 사용자의 신원이나 전체 대기자 목록 공개
 - 본인이 대기 중인 ROOM 목록 조회와 `GET /api/users/me/rooms` 통합
 - 운영자용 대기 이력 조회 기능
@@ -170,7 +170,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 연결 기능 | [PART-04 선착순 대기열과 자동 승격](#part-04-선착순-대기열과-자동-승격) |
 | 진행 상태 저장 | [`ROOM_STATUS_CORRECTION_PROGRESS`](../ERD.md#room_status_correction_progress) 단일 행 |
 | 착수 전 확정 | 없음 |
-| 구현·측정 후 확정 | 한 번당 ID 수와 반복·재시도·실행 주기, 측정된 최대 실행시간을 반영한 `lockAtMostFor`와 실행시간 경고의 초기 운영값 |
+| 구현·측정 후 확정 | [ROOM-09d 후보 측정](../measurements/room-09-bounded-processing-baseline.md)으로 한 번당 ID 수 `100`, 실행시간 경고 `180s`, `lockAtMostFor` `10m`을 확정했고 실행 주기는 기존 `15m`(jitter `3m`)을 유지한다. [#504](https://github.com/bamsongi-club/albam-mate/issues/504)에서 실행당 최대 batch 수 `100`을 확정해 한 실행은 최대 `10,000` ROOM을 시도한다. 상한 뒤 같은 turn cutoff의 후보가 실제로 남으면 마지막 cursor를 보존해 다음 claim이 재개하고 ROOM 전용 WARN을 한 번 남긴다. 후보가 비었을 때만 cursor를 wrap한다. `lockAtMostFor`는 여전히 한 실행의 최장 시간을 보장하는 값이 아니며, 재시도는 공용 낙관적 잠금 재시도를 그대로 쓴다. |
 | 측정 후 사용자 결정 | 실패 backoff·격리 비교와 제한 범위의 조건부 DB 직접 갱신 비교 여부. 기준선 결과를 `DECISION_NEEDED`로 제시하고 승인 전에는 비교 구현에 착수하지 않음 |
 
 ### 실행·진행 상태 계약
@@ -178,12 +178,12 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 - ROOM Scheduler 전용 잠금 이름은 `room-status-correction`이다. 병합된 [PR #366](https://github.com/bamsongi-club/albam-mate/pull/366)이 제공하고 [#289](https://github.com/bamsongi-club/albam-mate/issues/289)가 소유하는 공용 `global/scheduling` port와 PostgreSQL ShedLock adapter를 읽기 전용으로 사용하며, ROOM은 공용 `SHEDLOCK` 스키마·adapter를 수정하지 않는다.
 - `lockAtMostFor`와 실행시간 경고 기준은 서로 독립된 ROOM 전용 명시 입력이다. 둘 중 하나라도 없으면 기동에 실패하며, 잠금을 얻은 ROOM 실행이 경고 기준을 초과할 때만 ROOM 전용 WARN 관측 신호를 한 번 남긴다.
 - `ROOM_STATUS_CORRECTION_PROGRESS`는 `job_name = 'room-status-correction'`인 행 하나만 가진다. `turn_cutoff`, 마지막으로 시도한 선별 키인 `cursor_due_at`·`cursor_room_id`, 모든 진행 상태 변경의 CAS 값인 `progress_version`, 실행 주체 fencing 값인 `execution_generation`, `updated_at`을 저장한다. cursor 두 컬럼은 함께 `NULL`이거나 함께 값이 있어야 하고, 값이 있으면 `cursor_due_at <= turn_cutoff`여야 한다.
-- 제한 후보 수는 운영 기본값을 이슈에서 정하지 않는 nullable 명시 입력이다. [#390](https://github.com/bamsongi-club/albam-mate/issues/390)이 초기 운영값을 확정하기 전에는 테스트·측정에서만 주입하며, 스케줄러는 값이 없을 때 전체 Entity 조회로 대체하지 않고 실행을 건너뛴다.
+- 제한 후보 수는 `application.yml`의 운영 기본값 `100`으로 설정한다. 실행당 최대 batch 수도 양수 필수 운영값 `100`으로 설정해 한 실행의 최대 시도량을 `10,000` ROOM으로 제한한다. `max-batches-per-run`이 없거나 0 이하이면 기동에 실패하고, `candidate-limit`이 없으면 스케줄러는 전체 Entity 조회로 대체하지 않고 실행을 건너뛴다.
 - 전진 Flyway 마이그레이션은 이 단일 행을 `turn_cutoff = NULL`, cursor 두 컬럼 `NULL`, `progress_version = 0`, `execution_generation = 0`으로 생성한다. 행이 없거나 둘 이상인 상태를 런타임에서 자동 복구하지 않고 설정 오류로 실패시킨다.
 - ShedLock을 얻은 Scheduler 실행은 후보를 읽기 전에 짧은 독립 트랜잭션에서 진행 행을 `FOR UPDATE`로 읽고 `execution_generation`과 `progress_version`을 각각 1 증가시켜 실행 세대를 점유한다. 최초 실행처럼 `turn_cutoff`이 `NULL`이면 이번 Scheduler의 고정 `requestTime`으로 초기화한다. cursor가 `NULL`인 완료된 순회를 새 실행이 이어받으면 `turn_cutoff`을 기존 값과 `requestTime` 중 뒤 시각으로 전진시킨다.
 - 후보 선별 뒤 cursor 전진과 wrap-around는 각각 별도의 짧은 독립 트랜잭션에서 `job_name`, 실행 세대와 기대 `progress_version`이 모두 일치할 때만 갱신하고 `progress_version`을 1 증가시킨다. 조건부 갱신이 0건이면 늦은 실행 주체로 판정해 이후 ROOM을 처리하지 않고 실행을 끝낸다.
 - cursor는 ROOM 처리 성공·무변경·격리된 실패와 관계없이 해당 후보를 시도한 뒤 선별에 사용한 `(논리적 처리 예정 시각, roomId)`로 전진한다. ROOM 트랜잭션이 커밋된 뒤 cursor 커밋 전에 프로세스가 종료되면 같은 ROOM을 다시 선별할 수 있는 at-least-once 방식이며, 최신 상태 재판정과 멱등 전이로 같은 결과에 수렴한다. cursor를 먼저 전진시켜 미처리 ROOM을 건너뛰는 방식은 허용하지 않는다.
-- cursor 뒤 후보가 없으면 같은 CAS 경계에서 cursor를 `NULL`로 회전한다. 이번 실행의 `requestTime`이 기존 `turn_cutoff`보다 뒤이고 실행당 반복 예산이 남았을 때만 새 cutoff로 다음 순회를 시작한다. 같은 cutoff를 다시 여는 즉시 반복은 금지하고 다음 Scheduler 실행에 맡긴다.
+- cursor 뒤 후보가 없으면 같은 CAS 경계에서 cursor를 `NULL`로 회전하고 이번 실행을 끝낸다. 같은 cutoff를 다시 여는 즉시 반복은 금지하고 다음 Scheduler 실행에 맡긴다. 한 실행은 최대 `100` batch만 처리한다. 상한에 도달하면 마지막 cursor 뒤 후보를 한 건만 다시 확인해, 실제 잔여 후보가 있으면 cursor를 보존하고 다음 Scheduler 실행에 맡기며 ROOM 전용 WARN을 한 번 남긴다. 남은 후보가 없을 때만 wrap한다.
 - Scheduler의 제한 선별·진행 상태는 API 요청 경계 상태 보정에 사용하지 않는다. 목록·상세·내 모임과 상태 의존 명령은 [ADR-0012](../adr/room/0012-room-request-boundary-state-reconciliation.md)의 현재 상태 보정·오류 계약을 유지하고, ShedLock 미획득이나 Scheduler cursor 때문에 현재 상태 판정을 생략하지 않는다.
 
 ### 기능 규칙
@@ -202,7 +202,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 - `startsAt`에 도달한 ROOM은 상태 전환과 함께 대기열을 종료한다. 정원 충족으로 이미 `CLOSED`였던 ROOM도 시작 경계에서 대기열 종료 대상이 된다.
 - ROOM 상태 전환만 반영되고 대기열이 활성 상태로 남거나, 대기열만 종료되고 P0 상태 판정이 어긋나는 부분 성공 상태를 허용하지 않는다.
 - 제한 처리의 후보 수, 성공·실패 수, 처리량, 실행시간과 데이터베이스 비용을 측정한다.
-- 한 번당 ID 수와 반복·재시도·실행 주기의 운영 고정값을 측정 전에 임의로 정하지 않는다. 현재 구현을 비교 기준선으로 남기고 제한 처리의 후보값을 같은 조건에서 측정한 뒤 초기 운영값을 확정한다.
+- 한 번당 ID 수와 반복·재시도·실행 주기의 운영 고정값은 측정과 사용자 승인으로 확정한다. 현재 구현을 비교 기준선으로 남기고 제한 처리의 후보값을 같은 조건에서 측정한 뒤 초기 운영값을 확정한다.
 - 제한된 ROOM별 처리가 측정된 병목으로 확인된 뒤에만 제한 범위의 조건부 DB 직접 갱신 비교 여부를 사용자에게 묻는다. 에이전트가 비교·채택을 자동으로 결정하지 않는다.
 - 직접 갱신 비교 또는 채택이 승인되면 상태 조건, 버전, 대기열 일관성, 변경 ROOM 식별과 실패 관측을 같은 수준으로 증명하고 ADR에 기록한다.
 - 실패 backoff·격리는 cursor 회전 기준선에서 영구 실패 ROOM의 반복 시도 비용이나 재시도 폭주가 측정된 경우에만 사용자에게 비교 여부를 묻는다. 승인 전에는 실패 상태·다음 시도 시각·격리 해제 정책을 구현하지 않는다.
@@ -245,9 +245,10 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 저장 불변식 | [ERD 필수 제약과 계산 규칙](../ERD.md#필수-제약과-계산-규칙) |
 | 오류 계약 | [`ROOM_CONCURRENT_MODIFICATION`](../API.md#104-방-오류) |
 | 검증 환경 | [ADR-0010 H2와 PostgreSQL 테스트 경계](../adr/platform/0010-h2-postgresql-test-boundary.md) |
+| 측정 계약·원자료 | [ROOM-10a·10b 동시성 기준선 측정 계약](../measurements/room-10-measurement-contract.md)과 그 문서가 연결하는 보존 JSON |
 | 연결 기능 | [PART-04 선착순 대기열과 자동 승격](#part-04-선착순-대기열과-자동-승격), [ROOM-09 시간 기반 상태 자동 전환](#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화) |
 | 착수 전 확정 | 기준선 측정의 데이터 규모, 동시 사용자 수, 반복 횟수, 측정 도구와 로그·메트릭 정의. 측정 전 임의의 성능 합격 수치를 만들지 않음 |
-| 측정 후 사용자 결정 | 비관적 락 비교 착수 여부. 낙관적 락 기준선 결과를 `DECISION_NEEDED`로 제시하고 승인 전에는 비교 구현에 착수하지 않음 |
+| 측정 후 사용자 결정 | 확정됨. [#495](https://github.com/bamsongi-club/albam-mate/issues/495)에서 낙관적 락 기준선 결과를 제시하고, 비관적 락 비교와 최종 잠금 전략 ADR을 배포 후 실사용 계측 확보 뒤로 이관하기로 결정했다. 재검토 조건은 참가 취소·자동 승격 경로에서 재시도 소진 `409`가 서로 다른 ROOM에서 반복 관측되는 경우다 |
 
 ### 기능 규칙
 
@@ -266,8 +267,8 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 - `ROOM-10-AC2` 시나리오별 충돌률, 재시도, 결과 분포, 응답시간과 데이터베이스 비용이 재현 가능한 결과로 기록된다.
 - `ROOM-10-AC3` 모든 실행 뒤 ROOM·참가·대기열 저장 불변식이 PostgreSQL에서 유지됨을 검증한다.
 - `ROOM-10-AC4` 재시도 소진과 업무 규칙 위반이 서로 구분되고 기존 오류 우선순위를 깨지 않는다.
-- `ROOM-10-AC5` 낙관적 락 기준선 결과를 먼저 제시하고 비관적 락 비교 착수 여부를 사용자에게 확인한다. 비교가 승인되면 동일 조건의 결과를 추가하고, 승인되지 않으면 비관적 락 구현에 착수하지 않는다.
-- `ROOM-10-AC6` 최종 잠금 전략의 유지·변경 판단과 다시 검토할 조건이 ADR에 기록된다.
+- `ROOM-10-AC5` 낙관적 락 기준선 결과를 먼저 제시하고 비관적 락 비교 착수 여부를 사용자에게 확인한다. 비교가 승인되면 동일 조건의 결과를 추가하고, 승인되지 않으면 비관적 락 구현에 착수하지 않는다. [#495](https://github.com/bamsongi-club/albam-mate/issues/495)에서 기준선 결과를 제시하고 비교를 승인하지 않는 것으로 확정해 이 기준을 충족했다.
+- `ROOM-10-AC6` 최종 잠금 전략의 유지·변경 판단과 다시 검토할 조건이 ADR에 기록된다. [#495](https://github.com/bamsongi-club/albam-mate/issues/495)의 결정에 따라 P1에서는 판단과 재검토 조건을 그 이슈에 기록하는 데까지 하고, ADR 작성은 배포 후 비교 착수 여부가 정해질 때 후속으로 진행한다.
 
 ### 제외 범위
 

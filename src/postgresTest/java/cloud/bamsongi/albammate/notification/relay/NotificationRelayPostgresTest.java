@@ -106,6 +106,25 @@ class NotificationRelayPostgresTest {
 	}
 
 	@Test
+	void WAITLIST_PROMOTED는_기존_알림이_있는_PENDING_재처리에도_수신자별_한건으로_수렴한다() {
+		Fixture fixture = createFixture();
+		long eventId = insertPendingEvent(fixture.roomId(), "WAITLIST_PROMOTED");
+		insertRecipient(eventId, fixture.firstRecipientUserId());
+		insertExistingNotification(
+			eventId, fixture.firstRecipientUserId(), fixture.roomId(), "WAITLIST_PROMOTED");
+
+		executor.processOne().orElseThrow();
+
+		assertEquals("WAITLIST_PROMOTED", jdbcTemplate.queryForObject(
+			"select type from notifications where source_event_id = ?", String.class, eventId));
+		assertEquals(1, jdbcTemplate.queryForObject(
+			"select count(*) from notifications where source_event_id = ? and recipient_user_id = ?",
+			Integer.class, eventId, fixture.firstRecipientUserId()));
+		assertEquals("PROCESSED", jdbcTemplate.queryForObject(
+			"select status from notification_outbox_events where id = ?", String.class, eventId));
+	}
+
+	@Test
 	void 성공_구조화_로그는_PostgreSQL_트랜잭션_커밋_뒤_한번만_남긴다() {
 		Fixture fixture = createFixture();
 		long eventId = insertPendingEvent(fixture.roomId());
@@ -317,7 +336,8 @@ class NotificationRelayPostgresTest {
 		long eventId = insertPendingEvent(fixture.roomId());
 		insertRecipient(eventId, fixture.firstRecipientUserId());
 		insertRecipient(eventId, fixture.secondRecipientUserId());
-		insertExistingNotification(eventId, fixture.firstRecipientUserId(), fixture.roomId());
+		insertExistingNotification(
+			eventId, fixture.firstRecipientUserId(), fixture.roomId(), "PARTICIPANT_JOINED");
 
 		executor.processOne().orElseThrow();
 
@@ -604,15 +624,15 @@ class NotificationRelayPostgresTest {
 			""");
 	}
 
-	private void insertExistingNotification(long eventId, long recipientUserId, long roomId) {
+	private void insertExistingNotification(long eventId, long recipientUserId, long roomId, String notificationType) {
 		jdbcTemplate.update("""
 			with operation as materialized (select clock_timestamp() as operation_time)
 			insert into notifications (
 				source_event_id, recipient_user_id, room_id, type, created_at, recorded_at, expires_at)
-			select ?, ?, ?, 'PARTICIPANT_JOINED', operation_time - interval '1 minute', operation_time,
+			select ?, ?, ?, ?, operation_time - interval '1 minute', operation_time,
 				operation_time - interval '1 minute' + interval '90 days'
 			from operation
-			""", eventId, recipientUserId, roomId);
+			""", eventId, recipientUserId, roomId, notificationType);
 	}
 
 	private Fixture createFixture() {
@@ -639,14 +659,17 @@ class NotificationRelayPostgresTest {
 	}
 
 	private long insertPendingEvent(long roomId) {
+		return insertPendingEvent(roomId, "PARTICIPATION_JOINED");
+	}
+
+	private long insertPendingEvent(long roomId, String eventType) {
 		return jdbcTemplate.queryForObject(
 			"with operation as materialized (select clock_timestamp() - interval '5 seconds' as operation_time) "
 				+ "insert into notification_outbox_events (event_type, room_id, occurred_at, recorded_at, status, available_at, "
 				+ "failure_count, total_failure_count, reprocess_count) "
-				+ "select 'PARTICIPATION_JOINED', ?, operation_time - interval '1 minute', operation_time, 'PENDING', "
+				+ "select ?, ?, operation_time - interval '1 minute', operation_time, 'PENDING', "
 				+ "operation_time, 0, 0, 0 from operation returning id",
-			Long.class,
-			roomId);
+			Long.class, eventType, roomId);
 	}
 
 	private long insertRetryWaitEvent(long roomId) {

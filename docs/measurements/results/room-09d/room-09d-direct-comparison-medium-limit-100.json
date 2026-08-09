@@ -1,0 +1,301 @@
+{
+  "outcome" : "SUCCESS",
+  "measurementStartEnvironment" : {
+    "gitSha" : "a3adcaeabf0e2a60751978767a9a0f9b9202c038",
+    "candidateImplementationSourceSha" : "8416d3254a3e9e2316bc14745959a2b42dab3c26",
+    "javaVersion" : "21.0.11",
+    "postgresqlVersion" : "18.4 (Debian 18.4-1.pgdg13+1)",
+    "operatingSystem" : "Windows 11",
+    "cpuCount" : 24,
+    "startUsedHeapBytes" : 146400160,
+    "maxHeapBytes" : 536870912,
+    "configuration" : {
+      "sharedPreloadLibraries" : "pg_stat_statements",
+      "candidateLimit" : "100",
+      "notificationCleanupInterval" : "24h",
+      "chatRetentionEnabled" : "false",
+      "notificationRelayEnabled" : "false",
+      "postgresImage" : "postgres:18.4",
+      "issue390.measurement" : "true",
+      "notificationCleanupJitter" : "0s",
+      "roomStatusCorrectionLockAtMostFor" : "2m",
+      "requestTime" : "2026-08-06T00:00:00Z",
+      "roomStatusCorrectionTriggerJitter" : "0s",
+      "fixtureSeed" : "ROOM-09c-baseline-v1",
+      "profile" : "medium",
+      "roomStatusCorrectionExecutionWarningThreshold" : "30s",
+      "springTaskSchedulingEnabled" : "false",
+      "fixtureType" : "NO_WAITING",
+      "measurementSystemProperty" : "issue390.measurement=true",
+      "dockerVersion" : "29.4.3",
+      "roomStatusCorrectionTriggerDelay" : "24h",
+      "executionCommand" : "$env:JAVA_TOOL_OPTIONS = '-Dissue390.measurement=true'; .\\gradlew.bat postgresTest --no-daemon --tests \"cloud.bamsongi.albammate.room.measurement.RoomStatusCorrectionCandidateMeasurementPostgresTest.승인_규모는_현행과_후보를_같은_세션에서_제한_ID별로_비교한다\" --rerun --fail-fast"
+    }
+  },
+  "fixture" : {
+    "profile" : {
+      "name" : "medium",
+      "roomCount" : 10000,
+      "dueRoomCount" : 2000
+    },
+    "roomCount" : 10000,
+    "dueRoomCount" : 2000,
+    "nonDueRoomCount" : 8000,
+    "nonDueClosedRoomCount" : 10,
+    "waitingPerClosedDueRoom" : 0,
+    "requestTime" : "2026-08-06T00:00:00Z",
+    "seed" : "ROOM-09c-baseline-v1",
+    "dataIdentifier" : "ROOM-09c-baseline-v1:medium:10000:2000"
+  },
+  "candidateLimit" : 100,
+  "baselineSourceSha" : "4688316415113b4457f03628d77bdcb7f594c294",
+  "candidateSourceSha" : "8416d3254a3e9e2316bc14745959a2b42dab3c26",
+  "baseline" : {
+    "path" : "current-baseline",
+    "candidateLimit" : null,
+    "warmUpRuns" : [ {
+      "phase" : "warm-up",
+      "iteration" : 1,
+      "candidateCount" : 2000,
+      "successCount" : 2000,
+      "failureCount" : 0,
+      "callElapsedNanos" : 15814101400,
+      "wholeTurnElapsedNanos" : 15814101400,
+      "throughputPerSecond" : 126.46940533718849,
+      "databaseCost" : {
+        "calls" : 5004,
+        "totalExecutionTimeMs" : 279.0922510000001,
+        "rows" : 4001,
+        "sharedBufferHits" : 26742,
+        "sharedBufferReads" : 0
+      }
+    } ],
+    "measuredRuns" : [ {
+      "phase" : "measured",
+      "iteration" : 1,
+      "candidateCount" : 2000,
+      "successCount" : 2000,
+      "failureCount" : 0,
+      "callElapsedNanos" : 11830134700,
+      "wholeTurnElapsedNanos" : 11830134700,
+      "throughputPerSecond" : 169.05978255682922,
+      "databaseCost" : {
+        "calls" : 5003,
+        "totalExecutionTimeMs" : 238.6900130000002,
+        "rows" : 4001,
+        "sharedBufferHits" : 26807,
+        "sharedBufferReads" : 0
+      }
+    }, {
+      "phase" : "measured",
+      "iteration" : 2,
+      "candidateCount" : 2000,
+      "successCount" : 2000,
+      "failureCount" : 0,
+      "callElapsedNanos" : 11501644400,
+      "wholeTurnElapsedNanos" : 11501644400,
+      "throughputPerSecond" : 173.88817898073773,
+      "databaseCost" : {
+        "calls" : 5003,
+        "totalExecutionTimeMs" : 243.9786740000001,
+        "rows" : 4001,
+        "sharedBufferHits" : 27056,
+        "sharedBufferReads" : 0
+      }
+    }, {
+      "phase" : "measured",
+      "iteration" : 3,
+      "candidateCount" : 2000,
+      "successCount" : 2000,
+      "failureCount" : 0,
+      "callElapsedNanos" : 10829085700,
+      "wholeTurnElapsedNanos" : 10829085700,
+      "throughputPerSecond" : 184.6877987123142,
+      "databaseCost" : {
+        "calls" : 5003,
+        "totalExecutionTimeMs" : 229.08665999999974,
+        "rows" : 4001,
+        "sharedBufferHits" : 27450,
+        "sharedBufferReads" : 0
+      }
+    }, {
+      "phase" : "measured",
+      "iteration" : 4,
+      "candidateCount" : 2000,
+      "successCount" : 2000,
+      "failureCount" : 0,
+      "callElapsedNanos" : 11660939500,
+      "wholeTurnElapsedNanos" : 11660939500,
+      "throughputPerSecond" : 171.51276704591427,
+      "databaseCost" : {
+        "calls" : 5003,
+        "totalExecutionTimeMs" : 278.83895999999976,
+        "rows" : 4001,
+        "sharedBufferHits" : 27277,
+        "sharedBufferReads" : 0
+      }
+    }, {
+      "phase" : "measured",
+      "iteration" : 5,
+      "candidateCount" : 2000,
+      "successCount" : 2000,
+      "failureCount" : 0,
+      "callElapsedNanos" : 11720037800,
+      "wholeTurnElapsedNanos" : 11720037800,
+      "throughputPerSecond" : 170.64791378061938,
+      "databaseCost" : {
+        "calls" : 5003,
+        "totalExecutionTimeMs" : 247.79894600000034,
+        "rows" : 4001,
+        "sharedBufferHits" : 27332,
+        "sharedBufferReads" : 0
+      }
+    } ],
+    "summary" : {
+      "minCallElapsedNanos" : 10829085700,
+      "medianCallElapsedNanos" : 11660939500,
+      "maxCallElapsedNanos" : 11830134700,
+      "minWholeTurnElapsedNanos" : 10829085700,
+      "medianWholeTurnElapsedNanos" : 11660939500,
+      "maxWholeTurnElapsedNanos" : 11830134700,
+      "minThroughputPerSecond" : 169.05978255682922,
+      "medianThroughputPerSecond" : 171.51276704591427,
+      "maxThroughputPerSecond" : 184.6877987123142,
+      "minDatabaseExecutionTimeMs" : 229.08665999999974,
+      "medianDatabaseExecutionTimeMs" : 243.9786740000001,
+      "maxDatabaseExecutionTimeMs" : 278.83895999999976
+    }
+  },
+  "candidate" : {
+    "path" : "bounded-candidate",
+    "candidateLimit" : 100,
+    "warmUpRuns" : [ {
+      "phase" : "warm-up",
+      "iteration" : 1,
+      "candidateCount" : 2000,
+      "successCount" : 2000,
+      "failureCount" : 0,
+      "callElapsedNanos" : 27554783500,
+      "wholeTurnElapsedNanos" : 27554783500,
+      "throughputPerSecond" : 72.58267879332095,
+      "databaseCost" : {
+        "calls" : 13073,
+        "totalExecutionTimeMs" : 498.74287399999986,
+        "rows" : 9906,
+        "sharedBufferHits" : 43485,
+        "sharedBufferReads" : 1
+      }
+    } ],
+    "measuredRuns" : [ {
+      "phase" : "measured",
+      "iteration" : 1,
+      "candidateCount" : 2000,
+      "successCount" : 2000,
+      "failureCount" : 0,
+      "callElapsedNanos" : 23646259500,
+      "wholeTurnElapsedNanos" : 23646259500,
+      "throughputPerSecond" : 84.57997342032046,
+      "databaseCost" : {
+        "calls" : 13073,
+        "totalExecutionTimeMs" : 446.6044100000001,
+        "rows" : 9906,
+        "sharedBufferHits" : 41006,
+        "sharedBufferReads" : 0
+      }
+    }, {
+      "phase" : "measured",
+      "iteration" : 2,
+      "candidateCount" : 2000,
+      "successCount" : 2000,
+      "failureCount" : 0,
+      "callElapsedNanos" : 23607552500,
+      "wholeTurnElapsedNanos" : 23607552500,
+      "throughputPerSecond" : 84.71865094867415,
+      "databaseCost" : {
+        "calls" : 13073,
+        "totalExecutionTimeMs" : 465.93424500000015,
+        "rows" : 9906,
+        "sharedBufferHits" : 40079,
+        "sharedBufferReads" : 0
+      }
+    }, {
+      "phase" : "measured",
+      "iteration" : 3,
+      "candidateCount" : 2000,
+      "successCount" : 2000,
+      "failureCount" : 0,
+      "callElapsedNanos" : 23994804200,
+      "wholeTurnElapsedNanos" : 23994804200,
+      "throughputPerSecond" : 83.35137821212145,
+      "databaseCost" : {
+        "calls" : 13073,
+        "totalExecutionTimeMs" : 472.44505100000003,
+        "rows" : 9906,
+        "sharedBufferHits" : 42919,
+        "sharedBufferReads" : 0
+      }
+    }, {
+      "phase" : "measured",
+      "iteration" : 4,
+      "candidateCount" : 2000,
+      "successCount" : 2000,
+      "failureCount" : 0,
+      "callElapsedNanos" : 24550722900,
+      "wholeTurnElapsedNanos" : 24550722900,
+      "throughputPerSecond" : 81.46399632085783,
+      "databaseCost" : {
+        "calls" : 13073,
+        "totalExecutionTimeMs" : 512.4825839999999,
+        "rows" : 9906,
+        "sharedBufferHits" : 42919,
+        "sharedBufferReads" : 0
+      }
+    }, {
+      "phase" : "measured",
+      "iteration" : 5,
+      "candidateCount" : 2000,
+      "successCount" : 2000,
+      "failureCount" : 0,
+      "callElapsedNanos" : 25223854900,
+      "wholeTurnElapsedNanos" : 25223854900,
+      "throughputPerSecond" : 79.29002160569834,
+      "databaseCost" : {
+        "calls" : 13073,
+        "totalExecutionTimeMs" : 505.09686499999975,
+        "rows" : 9906,
+        "sharedBufferHits" : 42252,
+        "sharedBufferReads" : 0
+      }
+    } ],
+    "summary" : {
+      "minCallElapsedNanos" : 23607552500,
+      "medianCallElapsedNanos" : 23994804200,
+      "maxCallElapsedNanos" : 25223854900,
+      "minWholeTurnElapsedNanos" : 23607552500,
+      "medianWholeTurnElapsedNanos" : 23994804200,
+      "maxWholeTurnElapsedNanos" : 25223854900,
+      "minThroughputPerSecond" : 79.29002160569834,
+      "medianThroughputPerSecond" : 83.35137821212145,
+      "maxThroughputPerSecond" : 84.71865094867415,
+      "minDatabaseExecutionTimeMs" : 446.6044100000001,
+      "medianDatabaseExecutionTimeMs" : 472.44505100000003,
+      "maxDatabaseExecutionTimeMs" : 512.4825839999999
+    }
+  },
+  "observedChanges" : [ {
+    "metric" : "medianCallElapsedNanos",
+    "baselineValue" : 1.16609395E10,
+    "candidateValue" : 2.39948042E10,
+    "percentChange" : 105.77076315334625
+  }, {
+    "metric" : "medianThroughputPerSecond",
+    "baselineValue" : 171.51276704591427,
+    "candidateValue" : 83.35137821212145,
+    "percentChange" : -51.40223107134169
+  }, {
+    "metric" : "medianDatabaseExecutionTimeMs",
+    "baselineValue" : 243.9786740000001,
+    "candidateValue" : 472.44505100000003,
+    "percentChange" : 93.64194552512399
+  } ]
+}

@@ -4,7 +4,7 @@
 
 전체 범위·공통 검색 규칙은 [P1 명세](../P1-spec.md), 기존 동작은 [P0 완료 문서](../archive/p0/README.md), 요청·응답·오류는 [API 명세](../API.md), 저장 구조와 제약은 [ERD](../ERD.md)를 따른다. 메커니즘과 `SEARCH-03` 저장 계약은 ERD에 반영하며, 해당 저장 계약을 구현할 때는 전진 Flyway 마이그레이션과 PostgreSQL 검증을 함께 추가한다. 기존 `ROOMS` 필드만 사용하는 `SEARCH-02`에는 신규 저장 계약이나 마이그레이션을 요구하지 않는다.
 
-P1 필수 게임 데이터 적재·검증 대상은 승인된 BGG ID 170,000건이다. 170,000행 성능 fixture는 운영 적재 입력이 아니며, 운영 관계는 승인된 순위 CSV·BGG XML snapshot·한글 테마 사전에서 다시 만든다. 수치 검색은 [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md), 메커니즘은 [ADR-0048](../adr/game/0048-full-reviewed-game-mechanism-catalog.md), 카테고리·테마·추천/베스트 인원은 [ADR-0050](../adr/game/0050-game-metadata-catalog-and-filters.md), 사용자별 해 본 게임은 [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md)을 따른다.
+P1 필수 게임 데이터 적재·검증 대상은 승인된 BGG ID 170,000건이다. `games-170k.performance.json`은 게임 본문 170,000행을 적재하는 입력으로 사용할 수 있다. 다만 카테고리·테마·인원 선호·메커니즘 관계와 최소 연령은 이 파일의 합성 필드를 재사용하지 않고, 승인된 순위 CSV·BGG XML snapshot·한글 사전에서 다시 만든다. 수치 검색은 [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md), 메커니즘은 [ADR-0048](../adr/game/0048-full-reviewed-game-mechanism-catalog.md), 카테고리·테마·추천/베스트 인원은 [ADR-0050](../adr/game/0050-game-metadata-catalog-and-filters.md), 사용자별 해 본 게임은 [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md)을 따른다.
 
 `SEARCH-03`은 2026-08-04 P1 필수 범위로 채택됐다. 승인된 결정이 바뀌면 후속 ADR로 기존 결정을 대체하고 이 문서를 함께 갱신한다.
 
@@ -242,13 +242,13 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 
 플레이 기록·통계 기능이 승인되면 별도 이력 모델을 추가한다. 현재 관계의 생성 시각을 실제 플레이 날짜나 과거 플레이 이력으로 변환하지 않는다.
 
-## 부록: 구현 준비 메모
+## 부록: 현재 구현 위치와 검증 경계
 
-이 부록은 구현 범위와 변경 지점을 확인하기 위한 작업 메모다. 최종 계약은 [P1 명세](../P1-spec.md), [API 명세](../API.md), [ERD](../ERD.md)와 승인된 ADR을 따른다.
+이 부록은 현재 구현 위치와 후속 변경의 검증 경계를 확인하기 위한 작업 메모다. 최종 계약은 [P1 명세](../P1-spec.md), [API 명세](../API.md), [ERD](../ERD.md)와 승인된 ADR을 따른다.
 
-### 정본별 반영 시점
+### 정본별 반영 결과
 
-현재 P1 필수 범위는 한 승인 시점에 정본에 반영한다.
+현재 P1 필수 검색 범위는 다음 정본과 구현에 반영돼 있다.
 
 | 정본 | P1 필수 범위 반영 |
 | --- | --- |
@@ -259,20 +259,20 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 | 카탈로그 manifest·가이드 | 인원·시간·카테고리·테마·인원 선호·메커니즘 필드의 출처, 정규화·검수 결과와 반복 적재 계약 |
 | [기반 작업](foundation.md) | 구현된 필수 검색의 대표 데이터·쿼리·측정 기준 |
 
-### 예상 변경 지점
+### 현재 구현 지점
 
-아래는 현재 존재하는 파일 기준의 변경 지점이다. `USER_PLAYED_GAMES` 물리 계약은 ERD가 정본이며 Java 타입·파일 배치는 구현 이슈에서 기존 구조와 컨벤션에 맞춘다. Java 경로는 `src/main/java/cloud/bamsongi/albammate/` 기준이고, 그 밖의 경로는 저장소 루트 기준이다.
+아래는 현재 존재하는 파일 기준의 구현 지점이다. `USER_PLAYED_GAMES`를 포함한 물리 계약은 ERD가 정본이다. Java 경로는 `src/main/java/cloud/bamsongi/albammate/` 기준이고, 그 밖의 경로는 저장소 루트 기준이다.
 
 | 영역 | 현재 파일 |
 | --- | --- |
-| 게임 메타데이터 저장 모델 | 신규 category·theme·player preference Entity·Repository와 V20 전진 마이그레이션 |
-| 게임 요청·응답 | `game/dto/GameListRequest.java`, `game/dto/GameDetail.java`, 신규 category/theme option·summary DTO |
-| 게임 HTTP·조회 | `game/controller/GameController.java`, 신규 category/theme Controller, `game/service/GameListSearchCriteria.java`, `game/service/GameQueryService.java` |
-| 해 본 게임 관계 | 신규 Entity·Repository·Service와 `USER_PLAYED_GAMES` 전진 마이그레이션 |
+| 게임 메타데이터 저장 모델 | `game/entity/GameCategory.java`, `GameTheme.java`, `GamePlayerPreference.java`와 각 relation·Repository, `V20__create_game_metadata_filter_schema.sql` |
+| 게임 요청·응답 | `game/dto/GameListRequest.java`, `game/dto/GameDetail.java`, category·theme option·summary DTO |
+| 게임 HTTP·조회 | `game/controller/GameController.java`, `GameCategoryController.java`, `GameThemeController.java`, `GameMechanismController.java`, `game/service/GameListSearchCriteria.java`, `GameQueryService.java` |
+| 해 본 게임 관계 | `game/entity/UserPlayedGame.java`, `UserPlayedGameRepository.java`, `UserPlayedGameService.java`, `UserPlayedGameController.java`, `V13__add_user_played_games.sql` |
 | 카탈로그 변환 | `scripts/game-catalog/`의 변환·분석 스크립트와 테스트 |
 | 방 요청·HTTP | `room/dto/RoomListRequest.java`, `room/controller/RoomController.java`, `room/controller/RoomQueryParameterAllowlistValidator.java` |
 | 방 조회 | `room/service/query/RoomListQueryService.java`, `room/service/query/RoomListReadService.java`, `room/repository/RoomRepository.java` |
-| DB 마이그레이션 | `src/main/resources/db/migration/`의 신규 전진 Flyway 파일 |
+| DB 마이그레이션 | `V8__add_p1_game_search_numeric_fields.sql`, `V12__create_game_mechanism_schema.sql`, `V13__add_user_played_games.sql`, `V17__add_game_release_year.sql`, `V20__create_game_metadata_filter_schema.sql`, `V21__add_game_min_age.sql` |
 | 단위·통합 테스트 | `src/test/java/cloud/bamsongi/albammate/game/`, 같은 경로의 `room/` |
 | PostgreSQL 테스트 | `src/postgresTest/`의 게임 카탈로그·방 목록 검증과 필요한 신규 테스트 |
 
@@ -286,6 +286,6 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 - PostgreSQL 전용 제약·마이그레이션·실행 계획은 H2 테스트만으로 검증했다고 보지 않는다.
 - 인덱스의 필요성과 효과는 기능 테스트 통과 뒤 `FND-09`에서 별도로 측정한다.
 
-### 구현 전 확인 필요
+### 후속 변경 시 확인
 
-Issue #420의 사람 승인으로 170,000개 ID, category/theme/인원 선호 관계, 한글 매핑, N+ 규칙과 성능 측정 경계가 확정됐다. 구현 중 선언되지 않은 공유 파일, 정본 충돌, 새 외부 권한이 필요해질 때만 이슈의 DECISION_NEEDED 절차로 다시 중단한다.
+Issue #420의 사람 승인으로 확정한 170,000개 ID, category/theme/인원 선호 관계, 한글 매핑, N+ 규칙과 성능 측정 경계는 [PR #424](https://github.com/bamsongi-club/albam-mate/pull/424)에 구현·검증됐다. 이후 선언되지 않은 공유 파일, 정본 충돌, 새 외부 권한이 필요해질 때만 새 작업의 DECISION_NEEDED 절차로 중단한다.

@@ -7,6 +7,7 @@ services:
     init: true
     environment:
       SPRING_PROFILES_ACTIVE: production
+      JDK_JAVA_OPTIONS: -Xmx256m
       ALBAM_MATE_RELEASE: ${ALBAM_MATE_RELEASE:?ALBAM_MATE_RELEASE must be set}
       ALBAM_MATE_DB_HOST: ${ALBAM_MATE_DB_HOST:?ALBAM_MATE_DB_HOST must be set}
       ALBAM_MATE_DB_PORT: ${ALBAM_MATE_DB_PORT:-5432}
@@ -51,7 +52,7 @@ services:
     cap_drop:
       - ALL
     pids_limit: 256
-    mem_limit: ${ALBAM_MATE_SPRING_MEMORY_LIMIT:-1024m}
+    mem_limit: 512m
     stop_grace_period: 30s
     logging:
       driver: json-file
@@ -70,8 +71,7 @@ services:
     environment:
       ALBAM_MATE_RELEASE: ${ALBAM_MATE_RELEASE:?ALBAM_MATE_RELEASE must be set}
       # App2 EC2의 private DNS. entrypoint에서 envsubst가 nginx.conf upstream에 치환한다.
-      # 설정하지 않으면 App1 자신(127.0.0.1)을 App2로도 사용한다.
-      ALBAM_MATE_APP2_HOST: ${ALBAM_MATE_APP2_HOST:-127.0.0.1}
+      ALBAM_MATE_APP2_HOST: ${ALBAM_MATE_APP2_HOST:?ALBAM_MATE_APP2_HOST must be set}
     depends_on:
       spring:
         condition: service_healthy

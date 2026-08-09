@@ -54,7 +54,8 @@ class ChatMessageCommandServiceTest {
 			userQuery,
 			mock(ChatMessageRateLimiter.class),
 			mock(ApplicationEventPublisher.class),
-			Clock.fixed(Instant.parse("2026-08-04T00:00:00Z"), ZoneOffset.UTC));
+			Clock.fixed(Instant.parse("2026-08-04T00:00:00Z"), ZoneOffset.UTC),
+			new ChatMessageLimitProperties());
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 
 		try {

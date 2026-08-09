@@ -5,7 +5,7 @@
 - 결정일: 2026-07-31
 - 관련: [P1 알림 구현 명세](../../p1/notification.md#noti-01-모임-변경-알림-생성), [P1 알림 생성과 조회](../../P1-spec.md#알림-생성과-조회), [아키텍처](../../ARCHITECTURE.md), [P1 알림 저장 계약](../../ERD.md#p1-알림-저장-계약), [ADR-0002](../platform/0002-postgresql-primary-database.md), [ADR-0005](../participation/0005-room-participation-optimistic-locking.md), [ADR-0007](../platform/0007-domain-centered-modular-monolith.md), [ADR-0009](../platform/0009-utc-time-standard.md), [ADR-0030](0030-postgresql-notification-relay-processing-recovery.md)
 - 대체 대상: 없음
-- 후속 ADR: 없음
+- 후속 ADR: [ADR-0053](0053-waitlist-promotion-notification.md)이 공개 이벤트 종류와 참가 취소 뒤 자동 승격 알림 부재 범위를 부분 대체
 
 ## 맥락
 
@@ -105,13 +105,9 @@ relay는 at-least-once 처리를 전제로 하고 Notification에 `(sourceEventI
 
 ## 검증
 
-- 상태: 미검증
+- 상태: 검증됨
 - 근거:
-    - 계약:
-        - P1 알림 구현 명세와 공통 명세는 원인 업무와 영속 이벤트의 동일 트랜잭션, 커밋 시점 수신자 고정과 수신자별 멱등 생성을 요구한다.
-- 미검증:
-    - `room.contract` 이벤트·기록 포트와 `notification` 구현 및 구조 테스트
-    - Outbox·수신자·Notification 마이그레이션과 PostgreSQL 제약 검증
-    - 원인 업무 롤백·낙관적 락 재시도·동시 방 취소의 수신자 스냅샷 통합 테스트
+    - 구현: [PR #297](https://github.com/bamsongi-club/albam-mate/pull/297)이 Outbox·수신자·Notification 스키마와 영속 모델을, [PR #447](https://github.com/bamsongi-club/albam-mate/pull/447)이 `room.contract` 기록 포트와 참가·취소 Command의 동일 트랜잭션 기록을 구현했다.
+    - 테스트: `ModuleArchitectureTest`가 `notification → room.contract` 의존만 허용하고, `NotificationSchemaPostgresTest`·`NotificationRoomChangeOutboxPostgresTest`가 수신자 스냅샷, 롤백, 동시 방 변경과 `(sourceEventId, recipientUserId)` 멱등 제약을 PostgreSQL에서 검증한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

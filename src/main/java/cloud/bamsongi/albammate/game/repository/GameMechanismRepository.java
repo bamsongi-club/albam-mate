@@ -14,7 +14,7 @@ public interface GameMechanismRepository extends JpaRepository<GameMechanism, Lo
 
 	@Query("""
 		select new cloud.bamsongi.albammate.game.repository.GameMechanismOptionRow(
-			m.code, m.nameKo, m.nameEn, m.featuredOrder)
+			m.code, m.nameKo, m.nameEn, m.featuredOrder, m.descriptionKo)
 		from GameMechanism m
 		where m.isPublic = true
 		order by case when m.featuredOrder is null then 1 else 0 end,

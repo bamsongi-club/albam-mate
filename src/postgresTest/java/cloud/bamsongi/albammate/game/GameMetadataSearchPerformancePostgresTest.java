@@ -183,7 +183,7 @@ class GameMetadataSearchPerformancePostgresTest {
 		jdbc.update(
 			"insert into game_player_preferences(game_id,player_count,is_recommended,is_best) select id,3,true,false from games where mod(bgg_id,5)=0 on conflict do nothing");
 		jdbc.update(
-			"insert into game_mechanisms(bgg_mechanism_id,code,name_ko,name_en,is_public,source_reference,reviewed_by,reviewed_at,created_at,updated_at) values(999999,'PERF_MECHANISM','성능 메커니즘','Performance Mechanism',true,'performance-only','test',current_timestamp,current_timestamp,current_timestamp)");
+			"insert into game_mechanisms(bgg_mechanism_id,code,name_ko,name_en,description_ko,is_public,source_reference,reviewed_by,reviewed_at,created_at,updated_at) values(999999,'PERF_MECHANISM','성능 메커니즘','Performance Mechanism','성능 메커니즘 방식을 활용해요.',true,'performance-only','test',current_timestamp,current_timestamp,current_timestamp)");
 		jdbc.update(
 			"insert into game_mechanism_relations(game_id,mechanism_id) select g.id,m.id from games g join game_mechanisms m on m.code='PERF_MECHANISM' where mod(g.bgg_id,3)=0");
 	}

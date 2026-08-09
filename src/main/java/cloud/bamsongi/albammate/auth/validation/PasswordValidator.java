@@ -8,12 +8,10 @@ import jakarta.validation.ConstraintValidatorContext;
 public final class PasswordValidator implements ConstraintValidator<ValidPassword, String> {
 
 	private int minCodePoints;
-	private boolean signup;
 
 	@Override
 	public void initialize(ValidPassword constraintAnnotation) {
 		minCodePoints = constraintAnnotation.minCodePoints();
-		signup = constraintAnnotation.signup();
 	}
 
 	@Override
@@ -21,12 +19,6 @@ public final class PasswordValidator implements ConstraintValidator<ValidPasswor
 		if (value == null) {
 			return true;
 		}
-		if (!UserPasswordPolicy.isValid(value, minCodePoints)) {
-			return false;
-		}
-		if (signup && !UserPasswordPolicy.isValidSignupPassword(value)) {
-			return false;
-		}
-		return true;
+		return UserPasswordPolicy.isValid(value, minCodePoints);
 	}
 }
