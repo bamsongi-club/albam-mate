@@ -16,6 +16,8 @@ import cloud.bamsongi.albammate.chat.dto.ChatMessageResponse;
 import cloud.bamsongi.albammate.chat.entity.ChatMessage;
 import cloud.bamsongi.albammate.chat.repository.ChatMessageRepository;
 import cloud.bamsongi.albammate.user.contract.UserQuery;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -26,24 +28,15 @@ import tools.jackson.databind.ObjectMapper;
  * 연결에 대한 전달과 스케줄 접근 재검증을 직렬화한다.
  */
 @Component
+@RequiredArgsConstructor
 class ChatMessageDeliveryService {
 
-	private final ChatConnectionRegistry connectionRegistry;
-	private final ChatMessageRepository chatMessageRepository;
-	private final UserQuery userQuery;
-	private final ChatWebSocketMetrics metrics;
-	private final ObjectMapper objectMapper;
-	private final Clock clock;
-
-	ChatMessageDeliveryService(ChatConnectionRegistry connectionRegistry, ChatMessageRepository chatMessageRepository,
-		UserQuery userQuery, ChatWebSocketMetrics metrics, ObjectMapper objectMapper, Clock clock) {
-		this.connectionRegistry = connectionRegistry;
-		this.chatMessageRepository = chatMessageRepository;
-		this.userQuery = userQuery;
-		this.metrics = metrics;
-		this.objectMapper = objectMapper;
-		this.clock = clock;
-	}
+	@NonNull private final ChatConnectionRegistry connectionRegistry;
+	@NonNull private final ChatMessageRepository chatMessageRepository;
+	@NonNull private final UserQuery userQuery;
+	@NonNull private final ChatWebSocketMetrics metrics;
+	@NonNull private final ObjectMapper objectMapper;
+	@NonNull private final Clock clock;
 
 	/**
 	 * 연결의 마지막 전달 ID 이후 메시지만 오름차순으로 보내고 전달한 만큼 기준을 갱신한다.

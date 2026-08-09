@@ -13,6 +13,8 @@ import cloud.bamsongi.albammate.chat.entity.ChatMessage;
 import cloud.bamsongi.albammate.chat.entity.ChatRoom;
 import cloud.bamsongi.albammate.chat.repository.ChatMessageRepository;
 import cloud.bamsongi.albammate.chat.repository.ChatRoomRepository;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 
 /**
  * 방별 WebSocket 연결의 등록·해제 상태와 종료 요청 여부를 이 인스턴스 메모리에서 관리한다.
@@ -21,22 +23,16 @@ import cloud.bamsongi.albammate.chat.repository.ChatRoomRepository;
  * 방 ID로 함께 조회하거나 세션별 종료 요청을 조율할 때 이 컴포넌트에 위임한다.
  */
 @Component
+@RequiredArgsConstructor
 class ChatConnectionRegistry {
 
-	private final ChatRoomRepository chatRoomRepository;
-	private final ChatMessageRepository chatMessageRepository;
-	private final ChatWebSocketMetrics metrics;
+	@NonNull private final ChatRoomRepository chatRoomRepository;
+	@NonNull private final ChatMessageRepository chatMessageRepository;
+	@NonNull private final ChatWebSocketMetrics metrics;
 
 	private final Set<WebSocketSession> closeRequestedSessions = ConcurrentHashMap.newKeySet();
 	private final Map<WebSocketSession, ChatRoomConnection> connectionsBySession = new ConcurrentHashMap<>();
 	private final Map<Long, Set<ChatRoomConnection>> connectionsByRoomId = new ConcurrentHashMap<>();
-
-	ChatConnectionRegistry(ChatRoomRepository chatRoomRepository, ChatMessageRepository chatMessageRepository,
-		ChatWebSocketMetrics metrics) {
-		this.chatRoomRepository = chatRoomRepository;
-		this.chatMessageRepository = chatMessageRepository;
-		this.metrics = metrics;
-	}
 
 	/** handshake 속성이 갖춰지고 그 roomId의 ChatRoom이 있는 세션만 등록하고, 그렇지 않으면 {@code null}을 돌려준다. */
 	ChatRoomConnection register(WebSocketSession session) {

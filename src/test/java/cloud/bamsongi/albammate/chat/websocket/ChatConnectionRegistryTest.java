@@ -124,8 +124,20 @@ class ChatConnectionRegistryTest {
 		stubChatRoom();
 		stubLatestMessageId(7L);
 		when(chatMessageRepository.existsByIdAndChatRoomId(3L, CHAT_ROOM_ID)).thenReturn(false);
-		when(chatMessageRepository.existsById(3L)).thenReturn(true);
 		WebSocketSession session = session(attributes(ROOM_ID, USER_ID, 3L));
+
+		ChatRoomConnection connection = registry.register(session);
+
+		assertEquals(0L, connection.lastDeliveredMessageId.get());
+	}
+
+	@Test
+	void T3_다른_방에_존재하지만_현재_방_최신_ID보다_큰_afterMessageId도_0으로_되돌린다() {
+		stubChatRoom();
+		stubLatestMessageId(7L);
+		when(chatMessageRepository.existsByIdAndChatRoomId(20L, CHAT_ROOM_ID)).thenReturn(false);
+		when(chatMessageRepository.existsById(20L)).thenReturn(true);
+		WebSocketSession session = session(attributes(ROOM_ID, USER_ID, 20L));
 
 		ChatRoomConnection connection = registry.register(session);
 

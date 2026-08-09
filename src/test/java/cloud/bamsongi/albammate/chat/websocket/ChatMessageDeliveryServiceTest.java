@@ -96,6 +96,25 @@ class ChatMessageDeliveryServiceTest {
 		assertEquals(1.0, meterRegistry.get("chat.websocket.delivery.failures").counter().count());
 	}
 
+	@Test
+	void T4_shouldStopDelivery가_true면_그_메시지에서_조용히_멈추고_이후_메시지를_전달하지_않는다() throws Exception {
+		WebSocketSession session = mock(WebSocketSession.class);
+		when(session.isOpen()).thenReturn(true);
+		when(connectionRegistry.shouldStopDelivery(session)).thenReturn(false, true);
+		ChatRoomConnection connection = new ChatRoomConnection(session, ROOM_ID, CHAT_ROOM_ID, USER_ID, 0L);
+		ChatMessage message1 = chatMessage(1L);
+		ChatMessage message2 = chatMessage(2L);
+		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
+			.thenReturn(List.of(message1, message2));
+		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+
+		deliveryService.deliverNewMessages(connection);
+
+		verify(session, times(1)).sendMessage(any());
+		assertEquals(1L, connection.lastDeliveredMessageId.get());
+		verify(connectionRegistry, never()).closeForTransportFailure(any());
+	}
+
 	private ChatMessage chatMessage(long messageId) {
 		ChatMessage message = mock(ChatMessage.class);
 		when(message.getId()).thenReturn(messageId);
