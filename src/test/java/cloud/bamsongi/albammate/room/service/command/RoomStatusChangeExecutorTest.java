@@ -132,6 +132,50 @@ class RoomStatusChangeExecutorTest {
 	}
 
 	@Test
+	void 수동_종료는_WAITING을_EXPIRED로_바꾼_뒤_terminal_event를_한번_발행한다() {
+		Room room = room(NOW);
+		setStatus(room, RoomStatus.CLOSED);
+		when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(room));
+
+		RoomStatusResponse response = executor.finishRoom(HOST_ID, ROOM_ID, NOW);
+
+		assertEquals(RoomStatus.FINISHED, response.roomStatus());
+		InOrder completionOrder = inOrder(roomWaitlistRepository, eventPublisher);
+		completionOrder.verify(roomWaitlistRepository).expireAllWaiting(ROOM_ID, NOW);
+		completionOrder.verify(eventPublisher).publishEvent(any(RoomTerminalStateReached.class));
+		verify(eventPublisher, times(1)).publishEvent(any(RoomTerminalStateReached.class));
+	}
+
+	@Test
+	void 자동_종료_보정의_RECRUITING_방은_WAITING을_EXPIRED로_바꾼_뒤_terminal_event를_한번_발행한다() {
+		Room room = room(NOW.minus(Room.AUTOMATIC_FINISH_AFTER_START));
+		when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(room));
+
+		RoomStatusResponse response = executor.finishRoom(HOST_ID, ROOM_ID, NOW);
+
+		assertEquals(RoomStatus.FINISHED, response.roomStatus());
+		InOrder completionOrder = inOrder(roomWaitlistRepository, eventPublisher);
+		completionOrder.verify(roomWaitlistRepository).expireAllWaiting(ROOM_ID, NOW);
+		completionOrder.verify(eventPublisher).publishEvent(any(RoomTerminalStateReached.class));
+		verify(eventPublisher, times(1)).publishEvent(any(RoomTerminalStateReached.class));
+	}
+
+	@Test
+	void 자동_종료_보정의_CLOSED_방은_WAITING을_EXPIRED로_바꾼_뒤_terminal_event를_한번_발행한다() {
+		Room room = room(NOW.minus(Room.AUTOMATIC_FINISH_AFTER_START));
+		setStatus(room, RoomStatus.CLOSED);
+		when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(room));
+
+		RoomStatusResponse response = executor.finishRoom(HOST_ID, ROOM_ID, NOW);
+
+		assertEquals(RoomStatus.FINISHED, response.roomStatus());
+		InOrder completionOrder = inOrder(roomWaitlistRepository, eventPublisher);
+		completionOrder.verify(roomWaitlistRepository).expireAllWaiting(ROOM_ID, NOW);
+		completionOrder.verify(eventPublisher).publishEvent(any(RoomTerminalStateReached.class));
+		verify(eventPublisher, times(1)).publishEvent(any(RoomTerminalStateReached.class));
+	}
+
+	@Test
 	void 이미_FINISHED인_방의_종료는_성공한다() {
 		Room room = room(NOW);
 		setStatus(room, RoomStatus.FINISHED);
