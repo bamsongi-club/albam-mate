@@ -84,10 +84,10 @@ async function request(path, { method = 'GET', body, headers, signal } = {}) {
   return payload.data;
 }
 
-async function getCsrfToken() {
+async function getCsrfToken(signal) {
   if (csrfToken) return csrfToken;
   if (!csrfTokenRequest) {
-    csrfTokenRequest = request('/api/auth/csrf')
+    csrfTokenRequest = request('/api/auth/csrf', { signal })
       .then((token) => {
         csrfToken = token;
         return token;
@@ -100,7 +100,7 @@ async function getCsrfToken() {
 }
 
 async function mutate(path, options = {}) {
-  const token = await getCsrfToken();
+  const token = await getCsrfToken(options.signal);
   return request(path, {
     ...options,
     headers: {
@@ -296,7 +296,10 @@ export const api = {
     return request('/api/rooms/' + roomId + '/chat/messages' + query(options), { signal });
   },
   openChatWebSocket,
-  sendChatMessage: (roomId, message) => mutate('/api/rooms/' + roomId + '/chat/messages', { method: 'POST', body: message }),
+  sendChatMessage: (roomId, message, signal) => mutate(
+    '/api/rooms/' + roomId + '/chat/messages',
+    { method: 'POST', body: message, signal }
+  ),
   getNotifications: ({ page = 0, size = 10 } = {}, signal) =>
     request('/api/users/me/notifications' + query({ page, size }), { signal }),
   getUnreadNotificationCount: (signal) =>
