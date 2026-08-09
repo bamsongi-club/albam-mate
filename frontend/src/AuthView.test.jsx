@@ -14,11 +14,12 @@ function renderSignup(onSignup) {
 }
 
 describe('#517 T5 회원가입 비밀번호 Unicode 경계', () => {
-  it('14 code point 비밀번호는 회원가입 요청 전에 거절하고 최소 15자 안내를 표시한다', () => {
+  it('14 code point·15 UTF-16 unit 비밀번호는 회원가입 요청 전에 거절한다', () => {
     const onSignup = vi.fn().mockResolvedValue(false);
     const passwordInput = renderSignup(onSignup);
+    const password = '😀' + 'a'.repeat(13);
 
-    fireEvent.change(passwordInput, { target: { value: 'a'.repeat(14) } });
+    fireEvent.change(passwordInput, { target: { value: password } });
     fireEvent.submit(passwordInput.closest('form'));
 
     expect(onSignup).not.toHaveBeenCalled();

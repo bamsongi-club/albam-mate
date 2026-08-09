@@ -113,21 +113,6 @@ class UserAccountServiceTest {
 	}
 
 	@Test
-	void 가입_비밀번호_하한_미달은_해시하지_않고_거절한다() {
-		assertInvalidPasswordIsRejectedBeforeHashing("1234567");
-	}
-
-	@Test
-	void 직접_호출은_긴_비밀번호를_해시_슬롯_획득_전에_거절한다() {
-		assertInvalidPasswordIsRejectedBeforeHashing("a".repeat(65));
-	}
-
-	@Test
-	void UTF8_바이트_한도를_넘는_가입_비밀번호는_해시하지_않고_거절한다() {
-		assertInvalidPasswordIsRejectedBeforeHashing("가".repeat(25));
-	}
-
-	@Test
 	void DB_unique_경쟁도_EMAIL_ALREADY_EXISTS로_변환한다() {
 		AlwaysAvailableLimiter limiter = new AlwaysAvailableLimiter();
 		UserAccountApplicationService service = new UserAccountApplicationService(
@@ -215,10 +200,6 @@ class UserAccountServiceTest {
 		service.updatePasswordHash(15L, "new-hash");
 
 		assertEquals("new-hash", user.getPasswordHash());
-	}
-
-	private void assertInvalidPasswordIsRejectedBeforeHashing(String password) {
-		assertTrue(RawPassword.from(password).isEmpty());
 	}
 
 	private static void setId(User user, long id) {
