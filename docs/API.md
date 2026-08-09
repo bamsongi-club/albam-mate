@@ -702,6 +702,8 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 
 `Retry-After`에는 다시 요청할 수 있을 때까지의 초를 담는다. 실패 한도 초과 시 가장 오래된 실패가 이동 창을 벗어날 때까지 남은 초, 동일 키 검증 진행 중이나 슬롯 부족 시 `1`이다. 클라이언트는 이 값에 따라 재시도한다.
 
+`local`과 `production`의 인증 요청 제한 상태는 모든 애플리케이션 인스턴스가 같은 Redis namespace에서 원자적으로 확인·기록한다. Redis 연결·명령 또는 원자 연산 결과를 확인할 수 없으면 회원가입·로그인은 사용자 조회·생성이나 비밀번호 해시 전에 `503 SERVICE_UNAVAILABLE`을 반환하며, 인메모리 fallback과 `Retry-After` 헤더는 사용하지 않는다. `test`와 `postgresTest`는 격리된 인메모리 구현을 사용한다.
+
 - 존재하지 않는 이메일과 잘못된 비밀번호는 계정 유무를 구분하지 않고 같은 `INVALID_CREDENTIALS`로 응답한다.
 - 원격 IP를 바꿔 가며 같은 계정을 노리는 분산 추측은 현재 제한 범위 밖이다. 수용한 위험과 재검토 조건은 [ADR-0013](adr/auth/0013-p0-password-storage-auth-request-protection.md)을 따른다.
 
@@ -1975,11 +1977,11 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 | `NOT_ACCEPTABLE` | 406 | 요청한 응답 미디어 타입을 제공할 수 없습니다. | `Accept` 헤더와 호환되는 응답 미디어 타입이 없음 |
 | `UNSUPPORTED_MEDIA_TYPE` | 415 | 지원하지 않는 요청 미디어 타입입니다. | `Content-Type`이 요청 본문에서 지원하는 미디어 타입과 호환되지 않음 |
 | `INTERNAL_SERVER_ERROR` | 500 | 서버 오류가 발생했습니다. | 처리하지 않은 예외로 요청을 완료하지 못함 |
-| `SERVICE_UNAVAILABLE` | 503 | 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요. | 요청 처리에 필수인 세션 또는 전송 제한 상태 저장소를 확인할 수 없음 |
+| `SERVICE_UNAVAILABLE` | 503 | 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요. | 요청 처리에 필수인 세션·인증 요청 제한 또는 전송 제한 상태 저장소를 확인할 수 없음 |
 
 `METHOD_NOT_ALLOWED`, `NOT_ACCEPTABLE`, `UNSUPPORTED_MEDIA_TYPE` 응답은 Spring MVC 예외가 제공하는 `Allow`, `Accept`, `Accept-Patch` 등의 프로토콜 헤더가 있으면 그대로 포함한다.
 
-`SERVICE_UNAVAILABLE`의 현재 적용 범위는 [채팅 API](#채팅-공통-계약)의 세 엔드포인트다. `local`과 `production`에서 채팅 요청이 Spring Session Redis의 세션 상태를 확인할 수 없으면 이 코드를 반환하며, 메시지 전송은 세션 저장소가 정상이더라도 전송 제한 상태 저장소를 확인할 수 없으면 저장 전에 같은 코드를 반환한다. 전송 제한 장애의 503에는 `Retry-After`를 포함하지 않는다. Redis 장애 시 인메모리 구현으로 자동 대체하지 않는 근거는 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)과 [ADR-0052](adr/platform/0052-local-profile-multi-instance-default.md), [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)을 따른다.
+`SERVICE_UNAVAILABLE`의 현재 적용 범위는 [채팅 API](#채팅-공통-계약)의 세 엔드포인트와 `POST /api/auth/signup`, `POST /api/auth/login`이다. `local`과 `production`에서 인증 요청 제한 Redis를 확인할 수 없으면 회원가입·로그인은 사용자 조회·생성과 비밀번호 해시 전에 이 코드를 반환한다. 채팅 요청이 Spring Session Redis의 세션 상태를 확인할 수 없으면 같은 코드를 반환하며, 메시지 전송은 세션 저장소가 정상이더라도 전송 제한 상태 저장소를 확인할 수 없으면 저장 전에 같은 코드를 반환한다. 이 503에는 `Retry-After`를 포함하지 않으며 Redis 장애 시 인메모리 구현으로 자동 대체하지 않는다.
 
 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트로 이 코드를 확장할지는 이 문서에서 아직 결정하지 않는다. 확장이 필요하면 적용 엔드포인트를 명시한 별도 계약 변경으로 승인받은 뒤 이 절과 [엔드포인트별 오류 매트릭스](#11-부록-엔드포인트별-오류-매트릭스)를 함께 갱신한다.
 
@@ -2048,8 +2050,8 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 | 모든 엔드포인트 | `METHOD_NOT_ALLOWED`, `NOT_ACCEPTABLE`, `UNSUPPORTED_MEDIA_TYPE`, `INTERNAL_SERVER_ERROR` |
 | 요청 경로에 대응하는 엔드포인트 또는 정적 리소스 없음 | `RESOURCE_NOT_FOUND` |
 | `GET /api/auth/csrf` | 없음 |
-| `POST /api/auth/signup` | `VALIDATION_ERROR`, `EMAIL_ALREADY_EXISTS`, `RATE_LIMIT_EXCEEDED`, `CSRF_TOKEN_INVALID` |
-| `POST /api/auth/login` | `VALIDATION_ERROR`, `INVALID_CREDENTIALS`, `RATE_LIMIT_EXCEEDED`, `CSRF_TOKEN_INVALID` |
+| `POST /api/auth/signup` | `VALIDATION_ERROR`, `EMAIL_ALREADY_EXISTS`, `RATE_LIMIT_EXCEEDED`, `SERVICE_UNAVAILABLE`, `CSRF_TOKEN_INVALID` |
+| `POST /api/auth/login` | `VALIDATION_ERROR`, `INVALID_CREDENTIALS`, `RATE_LIMIT_EXCEEDED`, `SERVICE_UNAVAILABLE`, `CSRF_TOKEN_INVALID` |
 | `POST /api/auth/logout` | `UNAUTHENTICATED`, `CSRF_TOKEN_INVALID` |
 | `GET /api/auth/social/providers` | 없음 |
 | `GET /api/auth/social/authorization/{provider}` | JSON 오류 대신 AUTH-05의 고정 `socialAuth` 리다이렉트 결과 |

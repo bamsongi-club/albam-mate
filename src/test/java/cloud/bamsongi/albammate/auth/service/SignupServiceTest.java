@@ -13,6 +13,8 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import cloud.bamsongi.albammate.global.exception.BusinessException;
+import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
 import cloud.bamsongi.albammate.global.security.ratelimit.AuthenticationRequestLimiter;
 import cloud.bamsongi.albammate.user.contract.CreateUserAccountCommand;
@@ -59,6 +61,20 @@ class SignupServiceTest {
 				command("user@example.com", "123456789012345", "닉네임"),
 				"203.0.113.22"));
 
+		verify(userAccountService, never()).createAccount(org.mockito.ArgumentMatchers.any());
+	}
+
+	@Test
+	void T6_Redis를_확인할_수_없으면_회원가입_사용자_생성을_시작하지_않는다() {
+		SignupService service = new SignupService(requestLimiter, userAccountService);
+		doThrow(new BusinessException(ErrorCode.SERVICE_UNAVAILABLE))
+			.when(requestLimiter)
+			.requireSignupAllowed("203.0.113.23");
+
+		BusinessException exception = assertThrows(BusinessException.class,
+			() -> service.signup(command("user@example.com", "123456789012345", "닉네임"), "203.0.113.23"));
+
+		assertEquals(ErrorCode.SERVICE_UNAVAILABLE, exception.getErrorCode());
 		verify(userAccountService, never()).createAccount(org.mockito.ArgumentMatchers.any());
 	}
 

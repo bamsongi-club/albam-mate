@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -28,6 +29,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import cloud.bamsongi.albammate.auth.exception.InvalidCredentialsException;
 import cloud.bamsongi.albammate.global.config.AuthenticationRequestProtectionProperties;
 import cloud.bamsongi.albammate.global.config.PasswordSecurityProperties;
+import cloud.bamsongi.albammate.global.exception.BusinessException;
+import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
 import cloud.bamsongi.albammate.global.security.password.PasswordHashConcurrencyLimiter;
 import cloud.bamsongi.albammate.global.security.password.PasswordHashExecutor;
@@ -165,6 +168,21 @@ class LoginServiceTest {
 
 		verify(userAccountService, never()).findCredentialsByEmail(any());
 		verify(requestLimiter, never()).recordLoginFailure(any(), any());
+	}
+
+	@Test
+	void T6_Redis를_확인할_수_없으면_로그인_조회와_비밀번호_해시를_시작하지_않는다() {
+		LoginService service = serviceWithAvailableHashSlot();
+		doThrow(new BusinessException(ErrorCode.SERVICE_UNAVAILABLE))
+			.when(requestLimiter)
+			.requireLoginAllowed("203.0.113.45");
+
+		BusinessException exception = assertThrows(BusinessException.class,
+			() -> service.login(normalized("user@example.com", "password"), "203.0.113.45"));
+
+		assertEquals(ErrorCode.SERVICE_UNAVAILABLE, exception.getErrorCode());
+		verify(userAccountService, never()).findCredentialsByEmail(any());
+		verify(passwordEncoder, never()).matches(any(), any());
 	}
 
 	@Test

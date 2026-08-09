@@ -29,6 +29,8 @@ import cloud.bamsongi.albammate.auth.security.AppSessionEstablisher;
 import cloud.bamsongi.albammate.auth.service.LoginService;
 import cloud.bamsongi.albammate.auth.service.SignupService;
 import cloud.bamsongi.albammate.global.config.SecurityConfig;
+import cloud.bamsongi.albammate.global.exception.BusinessException;
+import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.exception.GlobalExceptionHandler;
 import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
 import cloud.bamsongi.albammate.global.security.error.ApiAccessDeniedHandler;
@@ -279,6 +281,41 @@ class AuthControllerTest {
 			.andExpect(jsonPath("$.code").value("RATE_LIMIT_EXCEEDED"));
 
 		verifyNoInteractions(userAccountService);
+	}
+
+	@Test
+	void T6_인증_제한_Redis를_확인할_수_없으면_회원가입과_로그인은_503이고_Retry_After가_없다() throws Exception {
+		doThrow(new BusinessException(ErrorCode.SERVICE_UNAVAILABLE))
+			.when(requestLimiter)
+			.requireSignupAllowed("198.51.100.35");
+		doThrow(new BusinessException(ErrorCode.SERVICE_UNAVAILABLE))
+			.when(loginService)
+			.login(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("198.51.100.35"));
+		MvcResult csrfResult = mockMvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
+		Cookie csrfCookie = csrfResult.getResponse().getCookie("XSRF-TOKEN");
+
+		mockMvc.perform(
+			post("/api/auth/signup")
+				.cookie(csrfCookie)
+				.header("X-XSRF-TOKEN", csrfCookie.getValue())
+				.with(remoteAddress("198.51.100.35"))
+				.contentType("application/json")
+				.content(
+					"{\"email\":\"unavailable@example.com\",\"password\":\"123456789012345\",\"nickname\":\"닉네임\"}"))
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(header().doesNotExist("Retry-After"))
+			.andExpect(jsonPath("$.code").value("SERVICE_UNAVAILABLE"));
+
+		mockMvc.perform(
+			post("/api/auth/login")
+				.cookie(csrfCookie)
+				.header("X-XSRF-TOKEN", csrfCookie.getValue())
+				.with(remoteAddress("198.51.100.35"))
+				.contentType("application/json")
+				.content("{\"email\":\"unavailable@example.com\",\"password\":\"123456789012345\"}"))
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(header().doesNotExist("Retry-After"))
+			.andExpect(jsonPath("$.code").value("SERVICE_UNAVAILABLE"));
 	}
 
 	@Test
