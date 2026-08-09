@@ -19,8 +19,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.ApplicationContext;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.session.MapSessionRepository;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
  * T9: local에서 세션 저장소를 확인할 수 없으면 채팅 세 엔드포인트가 {@code Retry-After} 없는 503으로 실패하고
@@ -45,6 +47,8 @@ class ChatSessionStoreUnavailableIntegrationTest {
 
 	@Autowired
 	private ApplicationContext applicationContext;
+	@MockitoBean(name = "chatRealtimeMessageListenerContainer")
+	private RedisMessageListenerContainer chatRealtimeMessageListenerContainer;
 
 	@Test
 	void 세션_저장소를_확인할_수_없으면_메시지_전송이_Retry_After_없는_503으로_실패한다() throws Exception {
