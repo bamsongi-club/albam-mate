@@ -1884,6 +1884,8 @@ LF는 본문에 그대로 보존하며, 저장·이력 조회·실시간 수신�
 - 인증·관계·본문·멱등성 검증 실패, 권한 거부, 이미 저장된 동일 `clientMessageId`의 동일 payload 재전송은 quota를 소비하지 않는다.
 - 제한 초과는 `429 RATE_LIMIT_EXCEEDED`로 응답한다. `Retry-After`는 초과한 bucket의 남은 TTL을 밀리초에서 올림한 초 단위 값으로 계산하며, 두 bucket이 초과하면 더 큰 값을 사용한다. 이 헤더는 429에만 포함하고 성공 응답과 503에는 포함하지 않는다.
 - Redis 연결·명령·원자 연산·TTL 확인 실패 또는 결과 불명확은 fail closed로 처리한다. 메시지를 PostgreSQL에 저장하지 않고 `503 SERVICE_UNAVAILABLE`을 반환하며 인메모리 fallback은 허용하지 않는다.
+- P1 초기 실행값은 Redis 연결 timeout 1초, Redis 명령·Lua 실행 timeout 2초다. 서버는 Redis 재기동을 기다리기 위해 이 요청을 자동 재시도하지 않으며, timeout·연결 실패·결과 불명확은 위 fail-closed 503 계약으로 처리한다.
+- 프런트 채팅 POST는 3초 deadline을 사용한다. POST가 시작된 뒤 HTTP 응답 없이 deadline 또는 전송 계층 오류가 발생하면 저장 성공·실패를 단정하지 않고 입력을 유지한 채 `전송 여부를 확인하지 못했어요. 다시 시도해주세요.`를 표시한다. 같은 본문 수동 재시도는 기존 `clientMessageId`를 재사용하고, 본문을 수정하면 새 식별자를 발급한다. 명시적인 503·4xx 응답은 이 미확정 상태가 아니다.
 
 #### 오류
 

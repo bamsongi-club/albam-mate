@@ -114,6 +114,12 @@ class SessionConfigurationTest {
 	}
 
 	@Test
+	void T2_local과_production_연결_factory는_1초_연결과_2초_명령_timeout을_공유한다() {
+		assertRedisTimeouts("local");
+		assertRedisTimeouts("production");
+	}
+
+	@Test
 	void Redis_연결은_프로필_외부_설정값을_사용한다() {
 		try (AnnotationConfigApplicationContext context = redisSessionContext("local")) {
 			LettuceConnectionFactory connectionFactory = context.getBean(LettuceConnectionFactory.class);
@@ -176,6 +182,20 @@ class SessionConfigurationTest {
 		context.register(RedisSessionConfiguration.class);
 		context.refresh();
 		return context;
+	}
+
+	private void assertRedisTimeouts(String profile) {
+		try (AnnotationConfigApplicationContext context = redisSessionContext(profile)) {
+			LettuceConnectionFactory connectionFactory = context.getBean(LettuceConnectionFactory.class);
+
+			assertEquals(Duration.ofSeconds(2), connectionFactory.getClientConfiguration().getCommandTimeout());
+			assertEquals(Duration.ofSeconds(1), connectionFactory.getClientConfiguration()
+				.getClientOptions().orElseThrow().getSocketOptions().getConnectTimeout());
+			assertFalse(connectionFactory.getClientConfiguration().getClientOptions().orElseThrow().isAutoReconnect());
+			assertEquals(
+				io.lettuce.core.ClientOptions.DisconnectedBehavior.REJECT_COMMANDS,
+				connectionFactory.getClientConfiguration().getClientOptions().orElseThrow().getDisconnectedBehavior());
+		}
 	}
 
 	private Class<?> nestedRedisConfiguration(String simpleName) {

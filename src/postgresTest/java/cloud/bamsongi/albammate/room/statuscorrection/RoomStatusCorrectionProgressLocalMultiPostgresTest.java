@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import java.sql.Connection;
 import java.sql.Statement;
@@ -27,6 +28,7 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -377,6 +379,10 @@ class RoomStatusCorrectionProgressLocalMultiPostgresTest {
 		System.setProperty("spring.datasource.password", POSTGRES.getPassword());
 		try {
 			return new SpringApplicationBuilder(AlbamMateApplication.class)
+				.initializers(context -> context.addBeanFactoryPostProcessor(
+					beanFactory -> beanFactory.registerSingleton(
+						"chatRealtimeMessageListenerContainer",
+						mock(RedisMessageListenerContainer.class))))
 				.properties(
 					"spring.profiles.active=local",
 					"server.port=0",

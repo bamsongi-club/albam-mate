@@ -348,13 +348,160 @@ describe('채팅 API', () => {
       .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'csrf-token' }))
       .mockResolvedValueOnce(successfulResponse({ messageId: 8 }));
     vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
 
-    await api.sendChatMessage('7', { clientMessageId: 'retry-key', content: '안녕하세요' });
+    await api.sendChatMessage('7', { clientMessageId: 'retry-key', content: '안녕하세요' }, controller.signal);
 
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/auth/csrf', expect.objectContaining({ signal: undefined }));
     expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/rooms/7/chat/messages', expect.objectContaining({
       method: 'POST',
       headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'csrf-token' }),
-      body: JSON.stringify({ clientMessageId: 'retry-key', content: '안녕하세요' })
+      body: JSON.stringify({ clientMessageId: 'retry-key', content: '안녕하세요' }),
+      signal: controller.signal
     }));
+  });
+
+  it('공유 CSRF 대기 중 채팅 취소가 다른 mutation을 취소하지 않는다', async () => {
+    let resolveCsrf;
+    const pendingCsrf = new Promise((resolve) => {
+      resolveCsrf = resolve;
+    });
+    const fetchMock = vi.fn()
+      .mockImplementationOnce(() => pendingCsrf)
+      .mockImplementation((_path, options) => {
+        if (options.signal?.aborted) return Promise.reject(options.signal.reason);
+        return Promise.resolve(successfulResponse({}));
+      });
+    vi.stubGlobal('fetch', fetchMock);
+    const chatController = new AbortController();
+
+    const chatSend = api.sendChatMessage('7', { clientMessageId: 'chat-key', content: '안녕하세요' }, chatController.signal);
+    const otherMutation = api.markGamePlayed(42);
+    const settled = Promise.allSettled([chatSend, otherMutation]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    chatController.abort();
+    resolveCsrf(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'shared-csrf-token' }));
+
+    const [chatResult, otherMutationResult] = await settled;
+    expect(chatResult).toMatchObject({ status: 'rejected', reason: { name: 'AbortError' } });
+    expect(otherMutationResult).toMatchObject({ status: 'fulfilled', value: {} });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/auth/csrf',
+      expect.objectContaining({ signal: undefined })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/users/me/played-games/42',
+      expect.objectContaining({ method: 'PUT', signal: undefined })
+    );
+  });
+
+  it.each([503, 429])('HTTP %i 오류 응답의 본문 파싱이 deadline으로 중단돼도 ApiError를 유지한다', async (status) => {
+    let rejectBodyParsing;
+    let notifyBodyParsingStarted;
+    const bodyParsingStarted = new Promise((resolve) => {
+      notifyBodyParsingStarted = resolve;
+    });
+    const errorResponse = {
+      ok: false,
+      status,
+      headers: new Headers({ 'content-type': 'application/json', 'retry-after': '2' }),
+      json: vi.fn(() => {
+        notifyBodyParsingStarted();
+        return new Promise((_resolve, reject) => {
+          rejectBodyParsing = reject;
+        });
+      })
+    };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'csrf-token' }))
+      .mockResolvedValueOnce(errorResponse);
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const send = api.sendChatMessage('7', { clientMessageId: 'retry-key', content: '안녕하세요' }, controller.signal);
+
+    await bodyParsingStarted;
+    controller.abort();
+    const aborted = new Error('response body aborted');
+    aborted.name = 'AbortError';
+    rejectBodyParsing(aborted);
+
+    await expect(send).rejects.toMatchObject({
+      name: 'ApiError',
+      status,
+      code: 'REQUEST_FAILED',
+      retryAfter: '2'
+    });
+  });
+
+  it('HTTP 200 응답을 받은 뒤 본문 파싱이 deadline으로 중단되면 ApiError로 정규화한다', async () => {
+    let rejectBodyParsing;
+    let notifyBodyParsingStarted;
+    const bodyParsingStarted = new Promise((resolve) => {
+      notifyBodyParsingStarted = resolve;
+    });
+    const successfulResponseWithPendingBody = {
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: vi.fn(() => {
+        notifyBodyParsingStarted();
+        return new Promise((_resolve, reject) => {
+          rejectBodyParsing = reject;
+        });
+      })
+    };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'csrf-token' }))
+      .mockResolvedValueOnce(successfulResponseWithPendingBody);
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const send = api.sendChatMessage('7', { clientMessageId: 'retry-key', content: '안녕하세요' }, controller.signal);
+
+    await bodyParsingStarted;
+    controller.abort();
+    const aborted = new Error('response body aborted');
+    aborted.name = 'AbortError';
+    rejectBodyParsing(aborted);
+
+    await expect(send).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 200,
+      code: 'INVALID_API_RESPONSE'
+    });
+  });
+
+  it('HTTP 200 응답의 잘못된 JSON도 ApiError로 정규화한다', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'csrf-token' }))
+      .mockResolvedValueOnce(new Response('{invalid-json', {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(api.sendChatMessage('7', { clientMessageId: 'retry-key', content: '안녕하세요' })).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 200,
+      code: 'INVALID_API_RESPONSE'
+    });
+  });
+
+  it('HTTP 200 응답의 계약에 맞지 않는 payload도 ApiError로 유지한다', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(successfulResponse({ headerName: 'X-CSRF-TOKEN', token: 'csrf-token' }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: 200 }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(api.sendChatMessage('7', { clientMessageId: 'retry-key', content: '안녕하세요' })).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 200,
+      code: 'INVALID_API_RESPONSE'
+    });
   });
 });

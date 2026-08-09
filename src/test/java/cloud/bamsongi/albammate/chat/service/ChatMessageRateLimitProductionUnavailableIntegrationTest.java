@@ -14,10 +14,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import cloud.bamsongi.albammate.chat.dto.ChatMessageSendRequest;
 import cloud.bamsongi.albammate.chat.entity.ChatRoom;
@@ -62,6 +64,8 @@ class ChatMessageRateLimitProductionUnavailableIntegrationTest {
 	private ChatMessageRateLimitUnavailableIntegrationTest.RecordingChatRealtimePublisher realtimePublisher;
 	@Autowired
 	private GlobalExceptionHandler globalExceptionHandler;
+	@MockitoBean(name = "chatRealtimeMessageListenerContainer")
+	private RedisMessageListenerContainer chatRealtimeMessageListenerContainer;
 
 	private Long userId;
 	private Long roomId;

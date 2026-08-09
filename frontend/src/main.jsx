@@ -26,6 +26,8 @@ const loadFirstNotificationPage = (signal) => api.getNotifications({ page: 0, si
 const GAME_SEARCH_DEBOUNCE_MS = 250;
 // 인원 숫자 입력은 마지막 입력 뒤 이 시간이 지나면 조회한다. 체크박스는 기다리지 않는다.
 const GAME_NUMBER_FILTER_DEBOUNCE_MS = 400;
+export const CHAT_SEND_REQUEST_DEADLINE_MS = 3_000;
+export const CHAT_SEND_RESULT_UNKNOWN_MESSAGE = '전송 여부를 확인하지 못했어요. 다시 시도해주세요.';
 // 회원가입 비밀번호 한도는 서버 검증 규칙과 같은 값을 쓴다. 한쪽만 바뀌면 안내와 결과가 어긋난다.
 const PASSWORD_MIN_CODE_POINTS = 15;
 const PASSWORD_MAX_CODE_POINTS = 64;
@@ -2366,6 +2368,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
   const [clientMessageContent, setClientMessageContent] = useState(null);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
+  const [sendResultUnknown, setSendResultUnknown] = useState(false);
   const [streamStatus, setStreamStatus] = useState('connecting');
   const [streamError, setStreamError] = useState('');
   const lastEventIdRef = useRef(null);
@@ -2393,6 +2396,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     setContent('');
     setClientMessageContent(null);
     setSendError('');
+    setSendResultUnknown(false);
     setClientMessageId(createClientMessageId());
   }, [roomId]);
 
@@ -2551,6 +2555,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     scrollToBottomRef.current = true;
     setSending(true);
     setSendError('');
+    setSendResultUnknown(false);
     const messageId = clientMessageContent === null || clientMessageContent === trimmed
       ? clientMessageId
       : createClientMessageId();
@@ -2558,9 +2563,29 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     setClientMessageContent(trimmed);
     const requestedRoomId = roomId;
     const requestedGeneration = roomGenerationRef.current;
+    const requestController = new AbortController();
+    let requestStarted = false;
+    let deadlineTimer;
+    const startRequestDeadline = () => {
+      requestStarted = true;
+      deadlineTimer = window.setTimeout(
+        () => requestController.abort(),
+        CHAT_SEND_REQUEST_DEADLINE_MS
+      );
+    };
     try {
-      const saved = await api.sendChatMessage(roomId, { clientMessageId: messageId, content: trimmed });
+      const saved = await api.sendChatMessage(
+        roomId,
+        { clientMessageId: messageId, content: trimmed },
+        requestController.signal,
+        startRequestDeadline
+      );
       if (roomIdRef.current !== requestedRoomId || roomGenerationRef.current !== requestedGeneration) return;
+      if (requestController.signal.aborted) {
+        setSendError(CHAT_SEND_RESULT_UNKNOWN_MESSAGE);
+        setSendResultUnknown(true);
+        return;
+      }
       scrollToBottomRef.current = true;
       mergeMessages([saved]);
       setContent('');
@@ -2568,8 +2593,15 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
       setClientMessageContent(null);
     } catch (cause) {
       if (roomIdRef.current !== requestedRoomId || roomGenerationRef.current !== requestedGeneration) return;
-      setSendError(messageForError(cause, '메시지를 보내지 못했어요. 다시 시도해주세요.'));
+      if (requestStarted && !(cause instanceof ApiError)) {
+        setSendError(CHAT_SEND_RESULT_UNKNOWN_MESSAGE);
+        setSendResultUnknown(true);
+      } else {
+        setSendError(messageForError(cause, '메시지를 보내지 못했어요. 다시 시도해주세요.'));
+        setSendResultUnknown(false);
+      }
     } finally {
+      window.clearTimeout(deadlineTimer);
       if (roomIdRef.current === requestedRoomId && roomGenerationRef.current === requestedGeneration) setSending(false);
     }
   };
@@ -2649,8 +2681,8 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
 
           {!error && <form className="chat-compose" onSubmit={submit}>
             <label className="sr-only" htmlFor="chat-message">메시지</label>
-            <textarea id="chat-message" ref={composeInputRef} disabled={sending} maxLength="500" value={content} onChange={(event) => { setContent(event.target.value); setSendError(''); }} onKeyDown={handleComposeKeyDown} placeholder="메시지를 입력해주세요." />
-            <button className="chat-send-btn" disabled={sending} type="submit" aria-label={sending ? '전송 중' : '전송'}>
+            <textarea id="chat-message" ref={composeInputRef} disabled={sending} maxLength="500" value={content} onChange={(event) => { setContent(event.target.value); setSendError(''); setSendResultUnknown(false); }} onKeyDown={handleComposeKeyDown} placeholder="메시지를 입력해주세요." />
+            <button className="chat-send-btn" disabled={sending} type="submit" aria-label={sending ? '전송 중…' : sendResultUnknown ? '다시 시도' : '전송'}>
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12 20 4l-8 16-2-6z" /></svg>
             </button>
             <span className={'chat-count' + ([...content].length > 450 ? ' near' : '')}>{[...content].length}/500</span>
