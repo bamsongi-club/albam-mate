@@ -1709,7 +1709,6 @@ export function AuthView({ onLogin, socialProviders = [], onSocialLogin }) {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const submit = async (event) => {
     event.preventDefault();
@@ -1731,11 +1730,6 @@ export function AuthView({ onLogin, socialProviders = [], onSocialLogin }) {
           <div className="auth-email-header">
             <span className="auth-email-brand"><img src={brandSymbol} alt="" /></span>
             <span className="auth-email-title">알밤메이트로 로그인하기</span>
-            <label className="auth-remember">
-              <span>로그인 유지</span>
-              <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} />
-              <span className="auth-remember-track" aria-hidden="true"></span>
-            </label>
           </div>
           <div className="formrow single"><div><label className="sr-only" htmlFor="auth-email">이메일</label><input id="auth-email" type="email" autoComplete="email" placeholder="이메일" required value={email} onChange={(event) => setEmail(event.target.value)} /></div><div><label className="sr-only" htmlFor="auth-password">비밀번호</label><div className="auth-password-field"><input id="auth-password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="비밀번호" required value={password} onChange={(event) => setPassword(event.target.value)} /><button type="button" className="auth-password-toggle" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}>{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button></div></div></div>
           {error && <ErrorBox message={error} />}
