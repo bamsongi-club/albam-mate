@@ -184,7 +184,7 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .btn.pill { border-radius: 999px; }
 .btn.green { background: var(--green); }
 .btn.redline { background: #fff; border: 1.5px solid var(--red-soft); color: var(--red); }
-.btn:disabled { cursor: not-allowed; opacity: 0.55; pointer-events: none; }
+.btn:disabled { cursor: not-allowed; opacity: 0.55; }
 .hint { color: var(--sub); font-size: 12px; margin-top: 4px; }
 .hint.warn { color: var(--red); font-weight: 800; }
 .infobox { background: var(--soft); border-radius: 12px; font-size: 13.5px; padding: 14px 16px; }
@@ -254,7 +254,7 @@ img.profile-avatar { object-fit: cover; }
 .gart img { display: block; height: 100%; object-fit: contain; width: 100%; }
 .gtitle, .stitle { font-size: 15.5px; font-weight: 900; }
 .gen, .smeta { color: var(--sub); font-size: 12.5px; }
-.gmeta { color: var(--brown2); font-size: 12.5px; font-weight: 700; margin: 8px 0; }
+.gmeta { color: var(--brown2); font-size: 12.5px; font-weight: 700; margin: 6px 0 7px; }
 .gsess { color: var(--green); font-size: 12px; font-weight: 800; margin-top: 8px; }
 /* 0개는 알릴 것이 없는 상태라 초록 강조를 걷는다. */
 .gsess.none { color: var(--sub); font-weight: 700; }
