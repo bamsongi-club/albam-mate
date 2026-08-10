@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -254,6 +255,30 @@ class RoomDetailServiceTest {
 			() -> roomDetailService.findRoomDetail(7L, Optional.of(99L)));
 
 		assertEquals(ErrorCode.ROOM_NOT_FOUND, exception.getErrorCode());
+		verifyNoInteractions(gameQuery, userQuery);
+	}
+
+	@Test
+	void CANCELED와_FINISHED_방의_비로그인_비ACTIVE_요청은_GAME과_닉네임을_조회하지_않는다() {
+		assertFinalRoomIsHidden(RoomStatus.CANCELED, Optional.empty());
+		assertFinalRoomIsHidden(RoomStatus.CANCELED, Optional.of(99L));
+		assertFinalRoomIsHidden(RoomStatus.FINISHED, Optional.empty());
+		assertFinalRoomIsHidden(RoomStatus.FINISHED, Optional.of(99L));
+	}
+
+	private void assertFinalRoomIsHidden(RoomStatus status, Optional<Long> currentUserId) {
+		Room room = mock(Room.class);
+		when(room.getHostUserId()).thenReturn(42L);
+		when(room.getStatus()).thenReturn(status);
+		when(roomDetailReadService.findRoomDetail(7L, currentUserId.orElse(null)))
+			.thenReturn(readResult(room, List.of(), false));
+
+		BusinessException exception = assertThrows(
+			BusinessException.class, () -> roomDetailService.findRoomDetail(7L, currentUserId));
+
+		assertEquals(ErrorCode.ROOM_NOT_FOUND, exception.getErrorCode());
+		verifyNoInteractions(gameQuery, userQuery);
+		clearInvocations(gameQuery, userQuery);
 	}
 
 	private RoomDetailReadService.RoomDetailReadResult readResult(

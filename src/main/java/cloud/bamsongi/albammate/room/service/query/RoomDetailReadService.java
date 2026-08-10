@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.room.service.query;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -12,6 +13,7 @@ import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.entity.Participation;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
+import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
@@ -32,21 +34,51 @@ class RoomDetailReadService {
 		Room room = roomRepository
 			.findById(roomId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
-		List<Participation> activeParticipations = participationRepository.findByRoomIdAndStatusOrderByJoinedAtAscIdAsc(
-			roomId, ParticipationStatus.ACTIVE);
-		boolean currentUserWaiting = shouldReadCurrentUserWaiting(room, activeParticipations, currentUserId)
+		boolean currentUserIsHost = currentUserId != null && room.getHostUserId().equals(currentUserId);
+		Optional<Participation> currentUserParticipation = findCurrentUserParticipation(
+			roomId, currentUserId, currentUserIsHost);
+		boolean currentUserIsActiveParticipant = currentUserParticipation
+			.map(Participation::getStatus)
+			.filter(ParticipationStatus.ACTIVE::equals)
+			.isPresent();
+		List<Participation> activeParticipations = shouldReadActiveParticipations(
+			currentUserIsHost, currentUserIsActiveParticipant)
+				? participationRepository.findByRoomIdAndStatusOrderByJoinedAtAscIdAsc(roomId,
+					ParticipationStatus.ACTIVE)
+				: List.of();
+		boolean currentUserWaiting = shouldReadCurrentUserWaiting(
+			room, currentUserId, currentUserIsHost, currentUserIsActiveParticipant)
 			&& roomWaitlistRepository
 				.findWaitingRoomIdsByUserIdAndRoomIds(currentUserId, List.of(roomId))
 				.contains(roomId);
 		return new RoomDetailReadResult(room, List.copyOf(activeParticipations), currentUserWaiting);
 	}
 
+	private Optional<Participation> findCurrentUserParticipation(
+		Long roomId, Long currentUserId, boolean currentUserIsHost) {
+		if (currentUserId == null || currentUserIsHost) {
+			return Optional.empty();
+		}
+		return participationRepository.findByRoomIdAndUserId(roomId, currentUserId);
+	}
+
+	private boolean shouldReadActiveParticipations(boolean currentUserIsHost, boolean currentUserIsActiveParticipant) {
+		return currentUserIsHost || currentUserIsActiveParticipant;
+	}
+
 	private boolean shouldReadCurrentUserWaiting(
-		Room room, List<Participation> activeParticipations, Long currentUserId) {
+		Room room,
+		Long currentUserId,
+		boolean currentUserIsHost,
+		boolean currentUserIsActiveParticipant) {
 		return currentUserId != null
-			&& !room.getHostUserId().equals(currentUserId)
-			&& activeParticipations.stream()
-				.noneMatch(participation -> participation.getUserId().equals(currentUserId));
+			&& !currentUserIsHost
+			&& !currentUserIsActiveParticipant
+			&& !isFinal(room.getStatus());
+	}
+
+	private boolean isFinal(RoomStatus status) {
+		return status == RoomStatus.CANCELED || status == RoomStatus.FINISHED;
 	}
 
 	public record RoomDetailReadResult(

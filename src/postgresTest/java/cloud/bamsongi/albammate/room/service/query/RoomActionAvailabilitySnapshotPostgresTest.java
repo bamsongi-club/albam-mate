@@ -28,6 +28,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomType;
+import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
 
@@ -54,11 +55,41 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 	@Autowired
 	private WaitlistReadHook waitlistReadHook;
 	@Autowired
+	private ParticipationReadHook participationReadHook;
+	@Autowired
 	private PlatformTransactionManager transactionManager;
 
 	@AfterEach
 	void tearDown() {
 		jdbcTemplate.execute("truncate table room_waitlists, participations, rooms, users restart identity cascade");
+	}
+
+	@Test
+	void ACTIVE_요청자_관계_뒤_커밋도_조건부_ACTIVE_목록과_WAITING_사실_스냅샷에_섞지_않는다() {
+		long hostUserId = user("snapshot-active-host@example.com");
+		long requesterUserId = user("snapshot-active-requester@example.com");
+		long laterParticipantUserId = user("snapshot-active-later@example.com");
+		Room room = room(hostUserId);
+		commitActiveParticipation(room.getId(), requesterUserId);
+
+		participationReadHook.beforeDetailActiveListRead = () -> {
+			assertReadOnlyRepeatableRead();
+			commitActiveParticipation(room.getId(), laterParticipantUserId);
+			commitWaiting(room.getId(), requesterUserId);
+			assertNoRowReadLock();
+		};
+		RoomDetailReadService.RoomDetailReadResult result = readCommitted()
+			.execute(status -> roomDetailReadService.findRoomDetail(room.getId(), requesterUserId));
+
+		assertEquals(1, result.activeParticipations().size());
+		assertEquals(requesterUserId, result.activeParticipations().getFirst().getUserId());
+		assertFalse(result.currentUserWaiting());
+		assertTrue(jdbcTemplate.queryForObject(
+			"select exists(select 1 from participations where room_id = ? and user_id = ? and status = 'ACTIVE')",
+			Boolean.class, room.getId(), laterParticipantUserId));
+		assertTrue(jdbcTemplate.queryForObject(
+			"select exists(select 1 from room_waitlists where room_id = ? and user_id = ? and status = 'WAITING')",
+			Boolean.class, room.getId(), requesterUserId));
 	}
 
 	@Test
@@ -139,6 +170,16 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 			START_AT.atOffset(ZoneOffset.UTC)));
 	}
 
+	private void commitActiveParticipation(long roomId, long userId) {
+		requiresNew().executeWithoutResult(status -> jdbcTemplate.update(
+			"""
+				insert into participations (room_id, user_id, status, joined_at, canceled_at, created_at, updated_at)
+				values (?, ?, 'ACTIVE', ?, null, ?, ?)
+				""",
+			roomId, userId, START_AT.atOffset(ZoneOffset.UTC), START_AT.atOffset(ZoneOffset.UTC),
+			START_AT.atOffset(ZoneOffset.UTC)));
+	}
+
 	private TransactionTemplate requiresNew() {
 		TransactionTemplate template = new TransactionTemplate(transactionManager);
 		template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -174,6 +215,28 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 		}
 
 		@Bean
+		ParticipationReadHook participationReadHook() {
+			return new ParticipationReadHook();
+		}
+
+		@Bean
+		@Primary
+		ParticipationRepository hookedParticipationRepository(
+			@Qualifier("participationRepository") ParticipationRepository delegate,
+			ParticipationReadHook hook) {
+			return (ParticipationRepository)java.lang.reflect.Proxy.newProxyInstance(
+				ParticipationRepository.class.getClassLoader(), new Class<?>[] {ParticipationRepository.class},
+				(proxy, method, arguments) -> {
+					Object result = method.invoke(delegate, arguments);
+					if (method.getName().equals("findByRoomIdAndUserId") && hook.beforeDetailActiveListRead != null) {
+						hook.beforeDetailActiveListRead.run();
+						hook.beforeDetailActiveListRead = null;
+					}
+					return result;
+				});
+		}
+
+		@Bean
 		@Primary
 		RoomWaitlistRepository hookedRoomWaitlistRepository(
 			@Qualifier("roomWaitlistRepository") RoomWaitlistRepository delegate,
@@ -205,5 +268,10 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 
 		private Runnable beforeListWaitingRead;
 		private Runnable beforeDetailWaitingRead;
+	}
+
+	static class ParticipationReadHook {
+
+		private Runnable beforeDetailActiveListRead;
 	}
 }
