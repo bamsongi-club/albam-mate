@@ -1838,7 +1838,7 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 
 채팅의 제품 규칙은 [P1 방 채팅 기능 명세](p1/chatting.md)를 따른다. 아래 HTTP·WebSocket 인터페이스는 현재 제공 중이며 기능별 구현·검증·운영 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)을 따른다. 메시지 ID cursor·실시간 전달·PostgreSQL 정본·보관 경계는 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0049](adr/chat/0049-chat-message-retention-lock-section-boundary.md), 전송 제한·Redis 실패 처리의 공개 계약은 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)과 [#372 정본 반영 이슈](https://github.com/bamsongi-club/albam-mate/issues/372)에 따른다.
 
-모든 채팅 요청은 요청 시점의 방 상태와 주최자·현재 `ACTIVE` 참가자 관계를 서버에서 다시 확인한다. `RECRUITING`·`CLOSED` 방만 일반 사용자 접근을 허용하며, 참가 취소·`CANCELED`·`FINISHED` 상태는 `FORBIDDEN`으로 거절한다. 메시지 본문은 로그와 메트릭에 기록하지 않는다.
+모든 채팅 요청은 요청 시점의 방 상태와 주최자·현재 `ACTIVE` 참가자 관계를 서버에서 다시 확인한다. 접근 확인 전 대상 ROOM 보정의 낙관 락 재시도를 소진하면 `409 ROOM_CONCURRENT_MODIFICATION`을 반환한다. `RECRUITING`·`CLOSED` 방만 일반 사용자 접근을 허용하며, 참가 취소·`CANCELED`·`FINISHED` 상태는 `FORBIDDEN`으로 거절한다. 메시지 본문은 로그와 메트릭에 기록하지 않는다.
 
 ### CHAT-02 메시지 전송
 
@@ -1894,6 +1894,7 @@ LF는 본문에 그대로 보존하며, 저장·이력 조회·실시간 수신�
 | 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
 | 방이 없음 | 404 | `ROOM_NOT_FOUND` |
 | 주최자·현재 `ACTIVE` 참가자가 아니거나 방이 `CANCELED`·`FINISHED`임 | 403 | `FORBIDDEN` |
+| 대상 ROOM 보정의 낙관 락 재시도 소진 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
 | 본문·경로·멱등성 키 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 사용자·방 단위 전송 제한 초과 | 429 | `RATE_LIMIT_EXCEEDED` |
 | 세션 또는 전송 제한 상태 저장소를 확인할 수 없음 | 503 | `SERVICE_UNAVAILABLE` (전송 제한 장애는 저장 전, `Retry-After` 없음) |
@@ -1923,6 +1924,7 @@ LF는 본문에 그대로 보존하며, 저장·이력 조회·실시간 수신�
 | 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
 | 방이 없음 | 404 | `ROOM_NOT_FOUND` |
 | 주최자·현재 `ACTIVE` 참가자가 아니거나 방이 `CANCELED`·`FINISHED`임 | 403 | `FORBIDDEN` |
+| 대상 ROOM 보정의 낙관 락 재시도 소진 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
 | 경로·커서·크기 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 세션 상태 저장소를 확인할 수 없음 | 503 | `SERVICE_UNAVAILABLE` |
 
@@ -1952,6 +1954,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 | 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
 | 방이 없음 | 404 | `ROOM_NOT_FOUND` |
 | 주최자·현재 `ACTIVE` 참가자가 아니거나 방이 `CANCELED`·`FINISHED`임 | 403 | `FORBIDDEN` |
+| handshake 전 대상 ROOM 보정의 낙관 락 재시도 소진 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
 | 경로·커서 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 허용되지 않은 `Origin` | 403 | `FORBIDDEN` |
 | Upgrade 전에 세션 상태 저장소를 확인할 수 없음 | 503 | `SERVICE_UNAVAILABLE` |
@@ -2022,7 +2025,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 2. 새 시도에서 업무 규칙 위반을 확인하면 해당 업무 오류를 반환한다.
 3. 동시 변경으로 끝내 완료하지 못할 때만 `ROOM_CONCURRENT_MODIFICATION`을 반환한다.
 
-대상 ROOM의 저장 상태를 보정하는 `GET /api/rooms/{roomId}`에서 이 오류를 받으면 클라이언트는 조회 요청 전체를 다시 시도한다. 목록·내 모임 조회는 전역 저장 보정을 수행하지 않으므로 이 경로의 상태 보정 충돌을 반환하지 않는다. 알고리즘은 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)와 [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md)를 따른다.
+대상 ROOM의 저장 상태를 보정하는 `GET /api/rooms/{roomId}`와 채팅 세 엔드포인트에서 이 오류를 받으면 클라이언트는 요청 또는 WebSocket handshake 전체를 다시 시도한다. 목록·내 모임 조회는 전역 저장 보정을 수행하지 않으므로 이 경로의 상태 보정 충돌을 반환하지 않는다. 알고리즘은 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)와 [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md)를 따른다.
 
 ### 10.5 참가 오류
 
@@ -2083,9 +2086,9 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 | `GET /api/users/me/notifications/unread-count` | `UNAUTHENTICATED` |
 | `PATCH /api/users/me/notifications/{notificationId}` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `NOTIFICATION_NOT_FOUND`, `CSRF_TOKEN_INVALID` |
 | `PATCH /api/users/me/notifications` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `CSRF_TOKEN_INVALID` |
-| `POST /api/rooms/{roomId}/chat/messages` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `VALIDATION_ERROR`, `RATE_LIMIT_EXCEEDED`, `SERVICE_UNAVAILABLE`, `CSRF_TOKEN_INVALID` |
-| `GET /api/rooms/{roomId}/chat/messages` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `VALIDATION_ERROR`, `SERVICE_UNAVAILABLE` |
-| `GET /api/rooms/{roomId}/chat/ws` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `VALIDATION_ERROR`, `SERVICE_UNAVAILABLE` |
+| `POST /api/rooms/{roomId}/chat/messages` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `ROOM_CONCURRENT_MODIFICATION`, `VALIDATION_ERROR`, `RATE_LIMIT_EXCEEDED`, `SERVICE_UNAVAILABLE`, `CSRF_TOKEN_INVALID` |
+| `GET /api/rooms/{roomId}/chat/messages` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `ROOM_CONCURRENT_MODIFICATION`, `VALIDATION_ERROR`, `SERVICE_UNAVAILABLE` |
+| `GET /api/rooms/{roomId}/chat/ws` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `ROOM_CONCURRENT_MODIFICATION`, `VALIDATION_ERROR`, `SERVICE_UNAVAILABLE` |
 
 - `GET /api/rooms/{roomId}`에서만 취소·종료 방을 권한 없는 사용자가 조회할 때 존재 여부를 숨기기 위해 `ROOM_NOT_FOUND`를 반환한다. 그 외 주최자 전용 쓰기 API의 비주최자 요청은 `FORBIDDEN`을 반환한다.
 - `PATCH /api/rooms/{roomId}`의 `GAME_NOT_FOUND`는 요청에 `gameId`를 포함했을 때만 적용한다.
