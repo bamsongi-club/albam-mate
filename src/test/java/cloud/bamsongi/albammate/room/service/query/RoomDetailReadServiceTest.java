@@ -54,7 +54,10 @@ class RoomDetailReadServiceTest {
 		Room room = room(RoomStatus.RECRUITING);
 		when(roomRepository.findById(7L)).thenReturn(Optional.of(room));
 
-		assertFalse(roomDetailReadService.findRoomDetail(7L, null).currentUserWaiting());
+		RoomDetailReadService.RoomDetailReadResult publicResult = roomDetailReadService.findRoomDetail(7L, null);
+
+		assertFalse(publicResult.currentUserWaiting());
+		assertFalse(publicResult.currentUserIsActiveParticipant());
 		verifyNoInteractions(participationRepository, roomWaitlistRepository);
 
 		clearInvocations(participationRepository, roomWaitlistRepository);
@@ -85,7 +88,10 @@ class RoomDetailReadServiceTest {
 		when(roomWaitlistRepository.findWaitingRoomIdsByUserIdAndRoomIds(101L, List.of(7L)))
 			.thenReturn(List.of());
 
-		assertFalse(roomDetailReadService.findRoomDetail(7L, 101L).currentUserWaiting());
+		RoomDetailReadService.RoomDetailReadResult canceledResult = roomDetailReadService.findRoomDetail(7L, 101L);
+
+		assertFalse(canceledResult.currentUserWaiting());
+		assertFalse(canceledResult.currentUserIsActiveParticipant());
 		verify(participationRepository, never()).findByRoomIdAndStatusOrderByJoinedAtAscIdAsc(
 			7L, ParticipationStatus.ACTIVE);
 
@@ -155,6 +161,7 @@ class RoomDetailReadServiceTest {
 
 		assertSame(room, hostResult.room());
 		assertEquals(List.of(activeParticipation), hostResult.activeParticipations());
+		assertFalse(hostResult.currentUserIsActiveParticipant());
 		verify(participationRepository, never()).findByRoomIdAndUserId(7L, 42L);
 		verify(participationRepository).findByRoomIdAndStatusOrderByJoinedAtAscIdAsc(
 			7L, ParticipationStatus.ACTIVE);
@@ -168,6 +175,7 @@ class RoomDetailReadServiceTest {
 		RoomDetailReadService.RoomDetailReadResult participantResult = roomDetailReadService.findRoomDetail(7L, 77L);
 
 		assertEquals(List.of(activeParticipation), participantResult.activeParticipations());
+		assertTrue(participantResult.currentUserIsActiveParticipant());
 		verify(participationRepository).findByRoomIdAndUserId(7L, 77L);
 		verify(participationRepository).findByRoomIdAndStatusOrderByJoinedAtAscIdAsc(
 			7L, ParticipationStatus.ACTIVE);

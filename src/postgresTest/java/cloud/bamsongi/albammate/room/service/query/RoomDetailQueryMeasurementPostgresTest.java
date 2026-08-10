@@ -114,6 +114,18 @@ class RoomDetailQueryMeasurementPostgresTest {
 		assertEquals(11L, hostTenParticipantMeasurement.dataReadRows(), "주최자 10명 fixture 처리 행 수");
 		assertEquals(1L, hostTenParticipantMeasurement.fullActiveListCalls(), "주최자 10명 ACTIVE 전체 목록 조회 수");
 
+		long activeTenParticipantUserId = participationRepository
+			.findByRoomIdAndStatusOrderByJoinedAtAscIdAsc(tenParticipantRoom.getId(),
+				cloud.bamsongi.albammate.room.enums.ParticipationStatus.ACTIVE)
+			.getFirst()
+			.getUserId();
+		QueryMeasurement activeTenParticipantMeasurement = measure(
+			tenParticipantRoom.getId(), activeTenParticipantUserId);
+		assertEquals(activeParticipantMeasurement.dataReadCalls(), activeTenParticipantMeasurement.dataReadCalls(),
+			"ACTIVE 참가자 1명·10명 상세 SQL 왕복 수");
+		assertEquals(12L, activeTenParticipantMeasurement.dataReadRows(), "ACTIVE 참가자 10명 fixture 처리 행 수");
+		assertEquals(1L, activeTenParticipantMeasurement.fullActiveListCalls(), "ACTIVE 참가자 10명 전체 목록 조회 수");
+
 		long canceledFinalNonhostUserId = user("canceled-final-nonhost@example.com");
 		Room canceledRoom = roomWithActiveParticipants(0, "canceled-final");
 		canceledRoom.cancel();
@@ -139,6 +151,7 @@ class RoomDetailQueryMeasurementPostgresTest {
 		record("logged-unrelated", unrelatedMeasurement);
 		record("canceled-participation", canceledMeasurement);
 		record("host-active-10", hostTenParticipantMeasurement);
+		record("active-participant-10", activeTenParticipantMeasurement);
 		record("canceled-final-nonhost", canceledFinalMeasurement);
 		record("finished-final-nonhost", finishedFinalMeasurement);
 	}

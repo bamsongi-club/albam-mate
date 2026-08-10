@@ -20,7 +20,12 @@ import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
-/** 상태 보정이 커밋된 뒤 방과 현재 활성 참가 관계를 함께 읽는 독립 읽기 트랜잭션이다. */
+/**
+ * 상태 보정이 커밋된 뒤 방과 현재 활성 참가 관계를 함께 읽는 독립 {@code REQUIRES_NEW} 읽기 트랜잭션이다.
+ *
+ * <p>전체 {@code ACTIVE} 참가자 목록은 주최자와 현재 {@code ACTIVE} 참가자에게만 읽고,
+ * 그 밖의 요청자에게는 빈 목록을 반환한다.
+ */
 @Service
 @RequiredArgsConstructor
 class RoomDetailReadService {
@@ -51,7 +56,11 @@ class RoomDetailReadService {
 			&& roomWaitlistRepository
 				.findWaitingRoomIdsByUserIdAndRoomIds(currentUserId, List.of(roomId))
 				.contains(roomId);
-		return new RoomDetailReadResult(room, List.copyOf(activeParticipations), currentUserWaiting);
+		return new RoomDetailReadResult(
+			room,
+			List.copyOf(activeParticipations),
+			currentUserIsActiveParticipant,
+			currentUserWaiting);
 	}
 
 	private Optional<Participation> findCurrentUserParticipation(
@@ -81,7 +90,17 @@ class RoomDetailReadService {
 		return status == RoomStatus.CANCELED || status == RoomStatus.FINISHED;
 	}
 
+	/**
+	 * 상세 응답 조립에 필요한 같은 스냅샷의 ROOM 사실이다.
+	 *
+	 * <p>{@code activeParticipations}는 주최자 또는 현재 {@code ACTIVE} 참가자에게만 전체 목록을 담고,
+	 * 그 밖의 요청자에게는 빈 목록이다. {@code currentUserIsActiveParticipant}는 목록 포함 여부가 아니라
+	 * 요청자 단건 관계 조회로 판정한 현재 {@code ACTIVE} 사실이다.
+	 */
 	public record RoomDetailReadResult(
-		Room room, List<Participation> activeParticipations, boolean currentUserWaiting) {
+		Room room,
+		List<Participation> activeParticipations,
+		boolean currentUserIsActiveParticipant,
+		boolean currentUserWaiting) {
 	}
 }

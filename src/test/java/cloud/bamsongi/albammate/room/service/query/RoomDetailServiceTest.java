@@ -189,7 +189,7 @@ class RoomDetailServiceTest {
 		Room room = room(7L, 42L, null, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
 		Participation participation = participation(77L);
 		when(roomDetailReadService.findRoomDetail(7L, 77L))
-			.thenReturn(readResult(room, List.of(participation), false));
+			.thenReturn(readResult(room, List.of(participation), true, false));
 		when(userQuery.findNicknamesByIds(List.of(42L, 77L)))
 			.thenReturn(Map.of(42L, "방장", 77L, "참가자"));
 
@@ -204,11 +204,29 @@ class RoomDetailServiceTest {
 	}
 
 	@Test
+	void ReadResult의_현재_ACTIVE_사실로_참가자_상세를_판정한다() {
+		Room room = room(7L, 42L, null, RoomStatus.RECRUITING, 3, NOW.plusSeconds(60));
+		Participation activeParticipation = participation(88L);
+		when(roomDetailReadService.findRoomDetail(7L, 77L))
+			.thenReturn(readResult(room, List.of(activeParticipation), true, false));
+		when(userQuery.findNicknamesByIds(List.of(42L, 88L)))
+			.thenReturn(Map.of(42L, "방장", 88L, "다른 참가자"));
+
+		ParticipantRoomResponse response = assertInstanceOf(
+			ParticipantRoomResponse.class,
+			roomDetailService.findRoomDetail(7L, Optional.of(77L)));
+
+		assertEquals(MyRole.JOINED, response.myRole());
+		assertEquals(List.of("방장", "다른 참가자"),
+			response.participants().stream().map(participant -> participant.nickname()).toList());
+	}
+
+	@Test
 	void FINISHED_방의_ACTIVE_참가자는_관계자_상세를_받는다() {
 		Room room = room(7L, 42L, null, RoomStatus.FINISHED, 3, NOW.plusSeconds(60));
 		Participation participation = participation(77L);
 		when(roomDetailReadService.findRoomDetail(7L, 77L))
-			.thenReturn(readResult(room, List.of(participation), false));
+			.thenReturn(readResult(room, List.of(participation), true, false));
 		when(userQuery.findNicknamesByIds(List.of(42L, 77L)))
 			.thenReturn(Map.of(42L, "방장", 77L, "참가자"));
 
@@ -283,7 +301,16 @@ class RoomDetailServiceTest {
 
 	private RoomDetailReadService.RoomDetailReadResult readResult(
 		Room room, List<Participation> activeParticipations, boolean currentUserWaiting) {
-		return new RoomDetailReadService.RoomDetailReadResult(room, activeParticipations, currentUserWaiting);
+		return readResult(room, activeParticipations, false, currentUserWaiting);
+	}
+
+	private RoomDetailReadService.RoomDetailReadResult readResult(
+		Room room,
+		List<Participation> activeParticipations,
+		boolean currentUserIsActiveParticipant,
+		boolean currentUserWaiting) {
+		return new RoomDetailReadService.RoomDetailReadResult(
+			room, activeParticipations, currentUserIsActiveParticipant, currentUserWaiting);
 	}
 
 	private Participation participation(long userId) {

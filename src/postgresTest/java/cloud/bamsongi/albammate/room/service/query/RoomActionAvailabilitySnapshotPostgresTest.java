@@ -65,7 +65,7 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 	}
 
 	@Test
-	void ACTIVE_요청자_관계_뒤_커밋도_조건부_ACTIVE_목록과_WAITING_사실_스냅샷에_섞지_않는다() {
+	void ACTIVE_요청자_관계_뒤_커밋도_조건부_ACTIVE_목록_스냅샷에_섞지_않고_마지막_조회_뒤_락을_사용하지_않는다() {
 		long hostUserId = user("snapshot-active-host@example.com");
 		long requesterUserId = user("snapshot-active-requester@example.com");
 		long laterParticipantUserId = user("snapshot-active-later@example.com");
@@ -75,21 +75,16 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 		participationReadHook.beforeDetailActiveListRead = () -> {
 			assertReadOnlyRepeatableRead();
 			commitActiveParticipation(room.getId(), laterParticipantUserId);
-			commitWaiting(room.getId(), requesterUserId);
-			assertNoRowReadLock();
 		};
+		participationReadHook.afterDetailActiveListRead = this::assertNoRowReadLock;
 		RoomDetailReadService.RoomDetailReadResult result = readCommitted()
 			.execute(status -> roomDetailReadService.findRoomDetail(room.getId(), requesterUserId));
 
 		assertEquals(1, result.activeParticipations().size());
 		assertEquals(requesterUserId, result.activeParticipations().getFirst().getUserId());
-		assertFalse(result.currentUserWaiting());
 		assertTrue(jdbcTemplate.queryForObject(
 			"select exists(select 1 from participations where room_id = ? and user_id = ? and status = 'ACTIVE')",
 			Boolean.class, room.getId(), laterParticipantUserId));
-		assertTrue(jdbcTemplate.queryForObject(
-			"select exists(select 1 from room_waitlists where room_id = ? and user_id = ? and status = 'WAITING')",
-			Boolean.class, room.getId(), requesterUserId));
 	}
 
 	@Test
@@ -101,8 +96,8 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 		waitlistReadHook.beforeListWaitingRead = () -> {
 			assertReadOnlyRepeatableRead();
 			commitWaiting(room.getId(), requesterUserId);
-			assertNoRowReadLock();
 		};
+		waitlistReadHook.afterListWaitingRead = this::assertNoRowReadLock;
 		RoomListReadService.RoomListReadResult listResult = readCommitted().execute(status -> {
 			assertEquals("read committed", transactionIsolation());
 			return roomListReadService.findPublicRooms(
@@ -115,8 +110,8 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 		waitlistReadHook.beforeDetailWaitingRead = () -> {
 			assertReadOnlyRepeatableRead();
 			commitWaiting(room.getId(), detailRequesterUserId);
-			assertNoRowReadLock();
 		};
+		waitlistReadHook.afterDetailWaitingRead = this::assertNoRowReadLock;
 		RoomDetailReadService.RoomDetailReadResult detailResult = readCommitted().execute(status -> {
 			assertEquals("read committed", transactionIsolation());
 			return roomDetailReadService.findRoomDetail(room.getId(), detailRequesterUserId);
@@ -139,7 +134,7 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 				    select 1
 				    from pg_locks lock
 				    join pg_class relation on relation.oid = lock.relation
-				    where relation.relname = 'rooms'
+				    where relation.relname in ('rooms', 'participations', 'room_waitlists')
 				      and lock.mode in ('RowShareLock', 'ExclusiveLock', 'AccessExclusiveLock')
 				)
 				""",
@@ -227,12 +222,22 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 			return (ParticipationRepository)java.lang.reflect.Proxy.newProxyInstance(
 				ParticipationRepository.class.getClassLoader(), new Class<?>[] {ParticipationRepository.class},
 				(proxy, method, arguments) -> {
-					Object result = method.invoke(delegate, arguments);
-					if (method.getName().equals("findByRoomIdAndUserId") && hook.beforeDetailActiveListRead != null) {
-						hook.beforeDetailActiveListRead.run();
-						hook.beforeDetailActiveListRead = null;
+					try {
+						Object result = method.invoke(delegate, arguments);
+						if (method.getName().equals("findByRoomIdAndUserId")
+							&& hook.beforeDetailActiveListRead != null) {
+							hook.beforeDetailActiveListRead.run();
+							hook.beforeDetailActiveListRead = null;
+						}
+						if (method.getName().equals("findByRoomIdAndStatusOrderByJoinedAtAscIdAsc")
+							&& hook.afterDetailActiveListRead != null) {
+							hook.afterDetailActiveListRead.run();
+							hook.afterDetailActiveListRead = null;
+						}
+						return result;
+					} catch (java.lang.reflect.InvocationTargetException exception) {
+						throw exception.getCause();
 					}
-					return result;
 				});
 		}
 
@@ -256,7 +261,18 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 						}
 					}
 					try {
-						return method.invoke(delegate, arguments);
+						Object result = method.invoke(delegate, arguments);
+						if (method.getName().equals("findWaitingRoomIdsByUserIdAndRoomIds")) {
+							if (hook.afterListWaitingRead != null) {
+								hook.afterListWaitingRead.run();
+								hook.afterListWaitingRead = null;
+							}
+							if (hook.afterDetailWaitingRead != null) {
+								hook.afterDetailWaitingRead.run();
+								hook.afterDetailWaitingRead = null;
+							}
+						}
+						return result;
 					} catch (java.lang.reflect.InvocationTargetException exception) {
 						throw exception.getCause();
 					}
@@ -268,10 +284,13 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 
 		private Runnable beforeListWaitingRead;
 		private Runnable beforeDetailWaitingRead;
+		private Runnable afterListWaitingRead;
+		private Runnable afterDetailWaitingRead;
 	}
 
 	static class ParticipationReadHook {
 
 		private Runnable beforeDetailActiveListRead;
+		private Runnable afterDetailActiveListRead;
 	}
 }
