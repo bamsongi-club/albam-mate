@@ -204,8 +204,8 @@ P0와 P1은 서버 세션 인증을 사용한다. Bearer access token과 refresh
 | API | 고정 정렬 |
 |---|---|
 | `GET /api/games` | `name ASC, id ASC` |
-| `GET /api/rooms` | 상태 보정과 필터를 적용한 뒤 `startsAt ASC, id ASC` |
-| `GET /api/users/me/rooms` | 상태 보정, `role` 필터와 중복 제거를 적용한 뒤 `startsAt DESC, id DESC` |
+| `GET /api/rooms` | 고정된 `requestTime`의 유효 상태와 필터를 적용한 뒤 `startsAt ASC, id ASC` |
+| `GET /api/users/me/rooms` | 고정된 `requestTime`의 유효 상태, `role` 필터와 중복 제거를 적용한 뒤 `startsAt DESC, id DESC` |
 | `GET /api/users/me/notifications` | `createdAt DESC, id DESC` |
 
 P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용한다. `beforeMessageId`가 없으면 최신 메시지부터 반환하고, 값이 있으면 해당 ID보다 이전에 저장된 메시지를 반환한다. 한 번에 반환하는 `size`는 1 이상 100 이하이며, 다음 구간이 있으면 `nextBeforeMessageId`와 `hasNext`를 함께 반환한다.
@@ -287,7 +287,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | `CANCELED` | 주최자가 취소한 최종 상태 |
 | `FINISHED` | 종료된 최종 상태 |
 
-클라이언트가 관찰하는 상태 변화는 다음과 같다. 제품 규칙 정본은 [P0-spec 방 상태](archive/p0/P0-spec.md#방-상태roomstatus), 저장 반영 방식은 [ADR-0012](adr/room/0012-room-request-boundary-state-reconciliation.md)를 따른다.
+클라이언트가 관찰하는 상태 변화는 다음과 같다. 제품 규칙 정본은 [P0-spec 방 상태](archive/p0/P0-spec.md#방-상태roomstatus), 목록·내 모임의 조회 유효 상태와 저장 상태 보정 책임은 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)를 따른다.
 
 | 조건 또는 요청 | 이전 상태 | 이후 상태 | 단계 |
 |---|---|---|:---:|
@@ -492,18 +492,18 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 | `recruitmentCapacity` | integer | Y | N | P0 | 제공 | 주최자를 제외한 모집 인원, 1~10 |
 | `participantCount` | integer | Y | N | P0 | 제공 | 주최자 1명 + 현재 `ACTIVE` 참가 관계 수 |
 | `remainingRecruitmentSeats` | integer | Y | N | P0 | 제공 | `recruitmentCapacity − 현재 ACTIVE 참가 관계 수` |
-| `status` | RoomStatus | Y | N | P0 | 제공 | 현재 방 상태 |
+| `status` | RoomStatus | Y | N | P0 | 제공 | 목록·내 모임에서는 고정된 `requestTime`의 유효 상태, 상세에서는 대상 ROOM 보정 뒤 저장 상태 |
 | `joinable` | boolean | Y | N | P0 | 제공 | 현재 요청자의 참가 가능 여부. 판정 규칙은 아래 참고 |
 | `waitlistable` | boolean | Y | N | P1 | 제공 | 현재 요청자의 대기 신청 가능 여부. 판정 규칙은 아래 참고 |
 
-`joinable`과 `waitlistable`은 서버의 같은 행동 가능성 판정에서 계산하며 동시에 `true`일 수 없다.
+`joinable`과 `waitlistable`은 서버의 같은 행동 가능성 판정에서 계산하며 동시에 `true`일 수 없다. 목록·내 모임 조회의 `status`, `joinable`, `waitlistable`, `chatAvailable`은 하나의 고정된 `requestTime`과 같은 PostgreSQL snapshot의 관계 사실을 사용한다. DTO 조립 단계에서 현재 시각이나 ROOM·참가·대기 관계를 다시 읽어 다른 시점의 값을 섞지 않는다.
 
 `joinable`은 다음을 **모두** 만족할 때만 `true`이고, 그 외에는 `false`다.
 
 1. 요청자가 로그인했다.
 2. 요청자가 주최자도, 현재 `ACTIVE` 참가자도, 현재 `WAITING` 대기자도 아니다.
 3. 방 상태가 `RECRUITING`이다.
-4. 현재 시각이 `startsAt`보다 이르다(`now < startsAt`).
+4. 요청 기준 시각이 `startsAt`보다 이르다(`requestTime < startsAt`).
 5. `remainingRecruitmentSeats`가 1 이상이다.
 
 기존 `CANCELED` 참가 관계를 가진 사용자도 위 조건을 만족하면 재참가할 수 있어 `true`다.
@@ -513,7 +513,7 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 1. 요청자가 로그인했다.
 2. 요청자가 주최자도, 현재 `ACTIVE` 참가자도, 현재 `WAITING` 대기자도 아니다.
 3. 방 상태가 정원 충족으로 `CLOSED`다.
-4. 현재 시각이 `startsAt`보다 이르다(`now < startsAt`).
+4. 요청 기준 시각이 `startsAt`보다 이르다(`requestTime < startsAt`).
 5. `remainingRecruitmentSeats`가 `0`이다.
 
 직접 참가 또는 대기를 취소한 사용자는 현재 조건을 다시 충족하면 각각 참가하거나 대기할 수 있다. 직접 참가 요청이 좌석 경합으로 실패해도 서버는 해당 요청으로 대기 관계를 만들지 않는다.
@@ -561,9 +561,9 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 |---|---|:---:|:---:|:---:|:---:|---|
 | `myRole` | MyRole | Y | N | P0 | 제공 | `HOST` 또는 `JOINED` |
 | `participationStatus` | ParticipationStatus | Y | Y | P0 | 제공 | `myRole = JOINED`이면 항상 `ACTIVE`, `HOST`이면 `null` |
-| `chatAvailable` | boolean | Y | N | P1 | 제공 | 현재 요청자가 채팅 API에 접근할 수 있는지. `HOST` 또는 `ACTIVE` 참가자이고 방 상태가 `RECRUITING`·`CLOSED`일 때만 `true`. 프론트엔드의 직접 진입점은 모임 상세이며 내 모임 목록에서는 이 필드로 채팅 버튼을 표시하지 않는다 |
+| `chatAvailable` | boolean | Y | N | P1 | 제공 | 현재 요청자가 채팅 API에 접근할 수 있는지. `HOST` 또는 `ACTIVE` 참가자이고 응답 유효 상태가 `RECRUITING`·`CLOSED`일 때만 `true`. 프론트엔드의 직접 진입점은 모임 상세이며 내 모임 목록에서는 이 필드로 채팅 버튼을 표시하지 않는다 |
 
-`joinable`과 `waitlistable`은 `PublicRoomResponse`와 같은 요청자 기준 값이다. 내 모임은 주최·참가 ROOM만 반환하므로 두 값은 항상 `false`이고, 대기 중인 ROOM을 조회 대상에 추가하지 않는다. `chatAvailable`은 서버 접근 가능성의 계약 일치를 위한 값이며, 채팅 버튼은 모임 상세의 `myRole`·방 상태 기준으로 표시한다. 내 모임 목록에는 중복 채팅 진입을 표시하지 않으며, 직접 채팅 API를 호출해도 서버가 같은 관계·상태 규칙으로 거절한다.
+`joinable`과 `waitlistable`은 `PublicRoomResponse`와 같은 요청자 기준 값이다. 내 모임은 주최·참가 ROOM만 반환하므로 두 값은 항상 `false`이고, 대기 중인 ROOM을 조회 대상에 추가하지 않는다. `chatAvailable`은 서버 접근 가능성의 계약 일치를 위한 값이며, 채팅 버튼은 모임 상세의 `myRole`·응답 유효 상태 기준으로 표시한다. 내 모임 목록에는 중복 채팅 진입을 표시하지 않으며, 직접 채팅 API를 호출해도 서버가 같은 관계·상태 규칙으로 거절한다.
 
 ### 4.11 RoomStatusResponse
 
@@ -1208,7 +1208,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | 인증 / CSRF | 선택 / 불필요 |
 | 성공 | `200 OK`, `data`: `PageResponse<PublicRoomResponse>` |
 
-유효한 세션이 있으면 요청자 기준으로 `joinable`을 계산한다.
+유효한 세션이 있으면 같은 고정 `requestTime`과 snapshot 사실로 요청자 기준 `joinable`을 계산한다.
 
 #### Query Parameters
 
@@ -1230,10 +1230,10 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 `type`, `gameId`, `keyword`와 P1 조건은 서로 독립적인 선택 필터이며, 전달된 서로 다른 조건을 모두 만족하는 방을 반환한다. 반복한 `experienceLevels` 안에서만 OR로 결합하고 같은 값의 중복은 한 번 전달한 것과 같다. 모든 필터를 생략하면 두 유형의 공개 방 전체를 반환한다. `keyword`의 빈 문자열과 공백은 검색 조건 없음으로 처리하며, 제목 부분 일치는 대소문자를 구분하지 않는다.
 
 - 날짜 범위는 시작 경계를 포함하고 종료 경계를 제외하는 `[startsAtFrom, startsAtTo)`다. 한쪽 경계만 전달할 수 있으며 두 값을 함께 전달하면 시작 경계가 종료 경계보다 빨라야 한다.
-- 남은 모집 자리는 상태 정합화 뒤 `recruitmentCapacity - activeParticipantCount`로 계산하고 `minRemainingSeats` 이상인 방만 반환한다.
+- 남은 모집 자리는 같은 `requestTime`의 유효 상태와 현재 `ACTIVE` 참가 관계를 기준으로 `recruitmentCapacity - activeParticipantCount`를 계산하고 `minRemainingSeats` 이상인 방만 반환한다.
 - 경험 수준은 방의 권장 조건을 검색할 뿐 참가 자격 제한으로 바꾸지 않는다.
 - `rulemasterOnly=true`일 때만 룰마스터 진행 여부를 조건으로 적용한다. 생략하거나 `false`이면 해당 조건을 적용하지 않는다.
-- 공개 목록의 상태를 정합화한 뒤 모든 필터를 적용하고 전체 건수, `startsAt ASC, id ASC` 정렬과 페이지를 계산한다.
+- 공개 목록은 고정된 `requestTime`의 유효 상태를 적용한 뒤 모든 필터를 적용하고 전체 건수, `startsAt ASC, id ASC` 정렬과 페이지를 계산한다.
 
 - 잘못된 enum·날짜·boolean, 역전된 날짜 범위, `gameId` 0 이하, 숫자 범위·바인딩 실패, `page`·`size` 범위 위반 또는 허용하지 않는 parameter는 `VALIDATION_ERROR`다.
 - `keyword`는 방 제목 검색이며, P0에서 제외한 조건 필터가 아니다.
@@ -1245,7 +1245,6 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | 발생 조건 | HTTP | code |
 |---|---:|---|
 | query parameter 검증 실패 | 400 | `VALIDATION_ERROR` |
-| 동시 변경으로 방 상태를 확인할 수 없음 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
 
 ### ROOM-02 방 상세 조회
 
@@ -1596,7 +1595,6 @@ Request body는 없다.
 |---|---:|---|
 | 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
 | query parameter 검증 실패 | 400 | `VALIDATION_ERROR` |
-| 동시 변경으로 방 상태를 확인할 수 없음 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
 
 ### PART-04 대기 등록·재신청
 
@@ -2024,7 +2022,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 2. 새 시도에서 업무 규칙 위반을 확인하면 해당 업무 오류를 반환한다.
 3. 동시 변경으로 끝내 완료하지 못할 때만 `ROOM_CONCURRENT_MODIFICATION`을 반환한다.
 
-`GET /api/rooms`, `GET /api/rooms/{roomId}`, `GET /api/users/me/rooms`에서 이 오류를 받으면 클라이언트는 조회 요청 전체를 다시 시도한다. 알고리즘은 [ADR-0012](adr/room/0012-room-request-boundary-state-reconciliation.md)와 [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md)를 따른다.
+대상 ROOM의 저장 상태를 보정하는 `GET /api/rooms/{roomId}`에서 이 오류를 받으면 클라이언트는 조회 요청 전체를 다시 시도한다. 목록·내 모임 조회는 전역 저장 보정을 수행하지 않으므로 이 경로의 상태 보정 충돌을 반환하지 않는다. 알고리즘은 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)와 [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md)를 따른다.
 
 ### 10.5 참가 오류
 
@@ -2070,14 +2068,14 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 | `PUT /api/users/me/played-games/{gameId}` | `UNAUTHENTICATED`, `CSRF_TOKEN_INVALID`, `VALIDATION_ERROR`, `GAME_NOT_FOUND` |
 | `DELETE /api/users/me/played-games/{gameId}` | `UNAUTHENTICATED`, `CSRF_TOKEN_INVALID`, `VALIDATION_ERROR`, `GAME_NOT_FOUND` |
 | `POST /api/rooms` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `CSRF_TOKEN_INVALID` |
-| `GET /api/rooms` | `VALIDATION_ERROR`, `ROOM_CONCURRENT_MODIFICATION` |
+| `GET /api/rooms` | `VALIDATION_ERROR` |
 | `GET /api/rooms/{roomId}` | `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `ROOM_CONCURRENT_MODIFICATION` |
 | `PATCH /api/rooms/{roomId}` | `UNAUTHENTICATED`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `GAME_NOT_FOUND`, `VALIDATION_ERROR`, `ROOM_UPDATE_NOT_ALLOWED_WITH_ACTIVE_PARTICIPANTS`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
 | `DELETE /api/rooms/{roomId}` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
 | `PATCH /api/rooms/{roomId}/status` | `UNAUTHENTICATED`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `VALIDATION_ERROR`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
 | `POST /api/rooms/{roomId}/participants` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `ALREADY_PARTICIPATING`, `ROOM_NOT_RECRUITING`, `CAPACITY_EXCEEDED`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
 | `DELETE /api/rooms/{roomId}/participants/me` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `PARTICIPATION_NOT_FOUND`, `FORBIDDEN`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
-| `GET /api/users/me/rooms` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_CONCURRENT_MODIFICATION` |
+| `GET /api/users/me/rooms` | `UNAUTHENTICATED`, `VALIDATION_ERROR` |
 | `POST /api/rooms/{roomId}/waitlist` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `ALREADY_PARTICIPATING`, `WAITLIST_NOT_AVAILABLE`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
 | `GET /api/rooms/{roomId}/waitlist/me` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `WAITLIST_ENTRY_NOT_FOUND`, `ROOM_CONCURRENT_MODIFICATION` |
 | `DELETE /api/rooms/{roomId}/waitlist/me` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `WAITLIST_ENTRY_NOT_FOUND`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |

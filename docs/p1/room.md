@@ -27,7 +27,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 고도화 이유 | 정원 충족 전 `CLOSED`와 시작 시각 도달 후 `CLOSED`는 같은 상태지만, 전자는 대기를 신청할 수 있고 후자는 신청할 수 없다. |
 | 공통 규칙 | [P0 계약 상속](../P1-spec.md#p0-계약-상속), [RoomStatus](../API.md#roomstatus), [ROOMS](../ERD.md#rooms) |
 | 데이터 모델 | [ROOMS](../ERD.md#rooms), [PARTICIPATIONS](../ERD.md#participations) |
-| 선행 승인 | [ADR-0035 방 생명주기 상태와 요청자별 행동 가능성을 분리](../adr/room/0035-room-status-action-eligibility-separation.md), [ADR-0041 상태 보정 뒤 ROOM 조회를 PostgreSQL 일관 스냅샷으로 구성](../adr/room/0041-postgresql-room-query-consistent-snapshot.md) — `승인됨` |
+| 선행 승인 | [ADR-0035 방 생명주기 상태와 요청자별 행동 가능성을 분리](../adr/room/0035-room-status-action-eligibility-separation.md), [ADR-0055 ROOM 조회 유효 상태와 저장 상태 보정 책임 분리](../adr/room/0055-room-query-effective-status-and-persistence-correction.md), [ADR-0056 사전 전역 보정 없는 ROOM 조회의 PostgreSQL 일관 snapshot](../adr/room/0056-postgresql-room-query-snapshot-without-global-pre-correction.md) — `승인됨` |
 | 연결 기능 | [PART-04 선착순 대기열과 자동 승격](#part-04-선착순-대기열과-자동-승격) |
 | 선행 구현 | PART-04가 소유하는 현재 WAITING 저장·조회 기반([#302](https://github.com/bamsongi-club/albam-mate/issues/302))이 기준 브랜치에 병합된 뒤 ROOM-08 구현을 시작한다. |
 | 필수 테스트 계약 | [#303의 최신 전체 ROOM-08-T1~T8](https://github.com/bamsongi-club/albam-mate/issues/303#issuecomment-5177036311) |
@@ -43,7 +43,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 - 이미 현재 `WAITING`인 요청자는 같은 대기 조건에서 두 값이 모두 `false`이며, 현재 `WAITING`은 독립적인 `joinable=true` 조건이 아니다. 지원하지 않는 조합도 두 값이 모두 `false`이고 어떤 조합에서도 동시에 `true`일 수 없다.
 - WAITING 물리 저장·조회 기반은 PART-04가 소유한다. ROOM-08은 PART-04가 제공하는 ROOM·사용자 단건 및 여러 ROOM 일괄 현재 `WAITING` 조회 결과를 사용하며 저장 구조나 상태 전이를 소유하지 않는다.
 - 목록·상세 QueryService는 요청 기준 시각을 고정하고 필요한 요청자 사실을 수집해 같은 evaluator를 사용한다. 내 모임은 주최자 또는 현재 `ACTIVE`인 기존 조회 결과를 사용하고 불필요한 WAITING 조회를 추가하지 않으며, 주최자·현재 참가자 결과를 별도 상수 규칙으로 복제하지 않는다.
-- 상태 보정이 커밋된 뒤 목록·상세 ReadService는 `REQUIRES_NEW`, `readOnly = true`, `REPEATABLE_READ`인 짧고 락 없는 PostgreSQL 트랜잭션에서 ROOM과 필요한 현재 `ACTIVE`·`WAITING` 사실을 같은 스냅샷으로 읽는다. 스냅샷 뒤 커밋된 변경은 다음 조회에서 반영한다.
+- 공개 목록과 내 모임 ReadService는 전역 저장 보정 없이 고정된 `requestTime`의 유효 상태를 적용하고, `REQUIRES_NEW`, `readOnly = true`, `REPEATABLE_READ`인 짧고 락 없는 PostgreSQL 트랜잭션에서 ROOM과 필요한 현재 `ACTIVE`·`WAITING`·역할 사실을 같은 스냅샷으로 읽는다. 상세 ReadService는 대상 ROOM 보정이 커밋된 뒤 같은 스냅샷 경계를 사용한다. 스냅샷 뒤 커밋된 변경은 다음 조회에서 반영한다.
 - ROOM 스냅샷에는 ROOM과 현재 관계를 읽는 데이터베이스 작업만 둔다. Game·User 조회와 최종 DTO 조립은 스냅샷 밖에서 수행하며, 거대한 단일 projection이나 `FOR UPDATE`·`FOR SHARE` 조회 락을 사용하지 않는다.
 - `PublicRoomResponse`, `ParticipantRoomResponse`, `MyRoomListItem`의 기존 `static from(...)`은 Room 파생값과 하나의 공통 availability로 `participantCount`, `remainingRecruitmentSeats`, `joinable`, `waitlistable`을 조립한다. 의미 입력은 각각 `Room·GameSummary·availability`, `Room·GameSummary·availability·myRole·host·participants`, `Room·GameSummary·availability·role·participationStatus`다.
 - `ParticipantRoomResponse`의 기존 역할·주최자·참가자 표시 정보와 `MyRoomListItem`의 역할·참가 상태를 유지한다. 주최·참가 ROOM만 반환하는 내 모임의 두 행동 가능성 값과 주최자·현재 참가자의 상세 응답 값은 모두 `false`다.
@@ -57,7 +57,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 - `ROOM-08-AC2` 비인증·주최자·현재 `ACTIVE`·현재 `WAITING`·과거 취소 관계·RoomStatus·남은 좌석·시작 경계를 포함한 모든 판정 조합에서 하나의 evaluator가 정의된 `joinable/waitlistable`을 반환하고 `true/true`를 생성하지 않는다.
 - `ROOM-08-AC3` 목록·상세·내 모임 QueryService가 필요한 사실만 수집해 같은 evaluator를 사용하며, 내 모임에 불필요한 WAITING 조회를 추가하거나 주최자·현재 참가자 결과를 별도 규칙으로 복제하지 않는다.
 - `ROOM-08-AC4` `PublicRoomResponse`, `ParticipantRoomResponse`, `MyRoomListItem`은 기존 표시 정보를 유지하면서 Room 파생값과 공통 availability로 필수·non-null `waitlistable`을 포함한 응답을 조립하고, `RoomParticipationResponse`에는 행동 가능성 필드를 추가하지 않는다.
-- `ROOM-08-AC5` 상태 보정 커밋 뒤 목록·상세 조회가 독립 `REPEATABLE_READ` 읽기 트랜잭션에서 ROOM과 필요한 현재 `ACTIVE`·`WAITING` 사실을 같은 PostgreSQL 스냅샷으로 읽으며 조회 락·거대 projection 없이 Game·User 조회와 DTO 조립을 그 밖에 둔다.
+- `ROOM-08-AC5` 공개 목록·내 모임 조회는 전역 저장 보정 없이 고정된 `requestTime`의 유효 상태와 현재 `ACTIVE`·`WAITING`·역할 사실을, 상세 조회는 대상 ROOM 보정 뒤 필요한 현재 관계 사실을 독립 `REPEATABLE_READ` 읽기 트랜잭션에서 같은 PostgreSQL 스냅샷으로 읽는다. 조회 락·거대 projection 없이 Game·User 조회와 DTO 조립을 그 밖에 둔다.
 - `ROOM-08-AC6` 조회 행동 가능성을 참가 허가로 사용하지 않고 실제 참가 명령이 최신 상태를 다시 검증하며, 직접 참가 실패를 WAITING 생성으로 바꾸지 않고 생성·수정 응답에도 같은 공통 availability를 사용한다.
 - `ROOM-08-AC7` [최신 전체 ROOM-08-T1~T8](https://github.com/bamsongi-club/albam-mate/issues/303#issuecomment-5177036311)로 AC1~AC6의 성공·실패 경로, 무 I/O·금지 구조와 기존 생성·수정·참가·취소·Controller 회귀를 단위·HTTP·PostgreSQL 테스트와 전체 CI에서 검증한다.
 
@@ -161,10 +161,10 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 구분 | 정본 |
 | --- | --- |
 | 기능 ID | `ROOM-09` |
-| 현행 상태 보정 계약 | [방 변경 구조](../ARCHITECTURE.md#방-변경), [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md) |
+| 현행 상태 보정 계약 | [방 변경 구조](../ARCHITECTURE.md#방-변경), [ADR-0055 조회 유효 상태와 저장 상태 보정 책임 분리](../adr/room/0055-room-query-effective-status-and-persistence-correction.md) |
 | 고도화 이유 | 시간 경계를 지난 ROOM Entity 전체를 한 트랜잭션에서 처리해 대상 증가 시 메모리·트랜잭션 범위가 커지고, 한 ROOM의 실패가 전체 작업에 영향을 주며 실패 대상을 식별하기 어렵다. |
 | 상태·시간 규칙 | [P0 계약 상속](../P1-spec.md#p0-계약-상속), [RoomStatus](../API.md#roomstatus), [ROOMS](../ERD.md#rooms) |
-| 승인 ADR | [ADR-0012 요청 경계 방 상태 정합화](../adr/room/0012-room-request-boundary-state-reconciliation.md), [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0036 제한 ID·ROOM별 독립 처리](../adr/room/0036-bounded-room-state-transition-processing.md), [ADR-0038 다중 인스턴스 스케줄 실행 조정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md) |
+| 승인 ADR | [ADR-0055 조회 유효 상태와 저장 상태 보정 책임 분리](../adr/room/0055-room-query-effective-status-and-persistence-correction.md), [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0036 제한 ID·ROOM별 독립 처리](../adr/room/0036-bounded-room-state-transition-processing.md), [ADR-0038 다중 인스턴스 스케줄 실행 조정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md) |
 | 현재 구현 기준선 | [`RoomRepository.findDueRooms`](../../src/main/java/cloud/bamsongi/albammate/room/repository/RoomRepository.java), [`RoomStatusCorrectionExecutor`](../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionExecutor.java), [ROOM-09c 현행 일괄 처리 기준선 측정](../measurements/room-09-bounded-processing-baseline.md) |
 | 제한 처리 구현 | [`RoomStatusCorrectionCandidateSelector`](../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionCandidateSelector.java)가 ROOM ID projection을 논리적 due 순서로 합치고, [`RoomStatusCorrectionCoordinator`](../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionCoordinator.java)가 ROOM별 Executor·cursor CAS를 조정한다. |
 | 연결 기능 | [PART-04 선착순 대기열과 자동 승격](#part-04-선착순-대기열과-자동-승격) |
@@ -184,7 +184,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 - 후보 선별 뒤 cursor 전진과 wrap-around는 각각 별도의 짧은 독립 트랜잭션에서 `job_name`, 실행 세대와 기대 `progress_version`이 모두 일치할 때만 갱신하고 `progress_version`을 1 증가시킨다. 조건부 갱신이 0건이면 늦은 실행 주체로 판정해 이후 ROOM을 처리하지 않고 실행을 끝낸다.
 - cursor는 ROOM 처리 성공·무변경·격리된 실패와 관계없이 해당 후보를 시도한 뒤 선별에 사용한 `(논리적 처리 예정 시각, roomId)`로 전진한다. ROOM 트랜잭션이 커밋된 뒤 cursor 커밋 전에 프로세스가 종료되면 같은 ROOM을 다시 선별할 수 있는 at-least-once 방식이며, 최신 상태 재판정과 멱등 전이로 같은 결과에 수렴한다. cursor를 먼저 전진시켜 미처리 ROOM을 건너뛰는 방식은 허용하지 않는다.
 - cursor 뒤 후보가 없으면 같은 CAS 경계에서 cursor를 `NULL`로 회전하고 이번 실행을 끝낸다. 같은 cutoff를 다시 여는 즉시 반복은 금지하고 다음 Scheduler 실행에 맡긴다. 한 실행은 최대 `100` batch만 처리한다. 상한에 도달하면 마지막 cursor 뒤 후보를 한 건만 다시 확인해, 실제 잔여 후보가 있으면 cursor를 보존하고 다음 Scheduler 실행에 맡기며 ROOM 전용 WARN을 한 번 남긴다. 남은 후보가 없을 때만 wrap한다.
-- Scheduler의 제한 선별·진행 상태는 API 요청 경계 상태 보정에 사용하지 않는다. 목록·상세·내 모임과 상태 의존 명령은 [ADR-0012](../adr/room/0012-room-request-boundary-state-reconciliation.md)의 현재 상태 보정·오류 계약을 유지하고, ShedLock 미획득이나 Scheduler cursor 때문에 현재 상태 판정을 생략하지 않는다.
+- Scheduler의 제한 선별·진행 상태는 API 요청 경계 상태 보정에 사용하지 않는다. 공개 목록·내 모임은 [ADR-0055](../adr/room/0055-room-query-effective-status-and-persistence-correction.md)의 고정된 `requestTime` 유효 상태를 사용하고 전역 저장 보정을 수행하지 않는다. 상세·상태 의존 명령·대기·채팅 접근은 대상 ROOM 보정과 오류 계약을 유지하며, ShedLock 미획득이나 Scheduler cursor 때문에 현재 상태 판정을 생략하지 않는다.
 
 ### 기능 규칙
 

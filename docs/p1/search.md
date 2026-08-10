@@ -21,7 +21,7 @@ P1 필수 게임 데이터 적재·검증 대상은 승인된 BGG ID 170,000건�
 | 추천·베스트 인원 | suggested_numplayers 투표의 게임별 관계 | 가능. 가능 인원과 분리하고 BGG poll의 확정 판정식·N+ 확장·품질 게이트를 사용한다 |
 | 해 본 게임 포함·제외 | `USER_PLAYED_GAMES` 관계 | 가능. 사용자·게임 유일 관계와 본인 등록·취소 계약을 사용한다 |
 | 방 날짜 | `Room.startAt` | 가능. 기존 필드에 범위 조건만 추가한다 |
-| 방 남은 자리 | `Room.capacity`, `Room.activeParticipantCount` | 가능. 상태 정합화 뒤 두 값의 파생식으로 판정하고 별도 저장값을 추가하지 않는다 |
+| 방 남은 자리 | `Room.capacity`, `Room.activeParticipantCount` | 가능. 같은 `requestTime`의 유효 상태와 현재 관계 사실을 기준으로 두 값의 파생식으로 판정하고 별도 저장값을 추가하지 않는다 |
 | 방 경험 수준 | `Room.experienceLevel` | 가능. 기존 enum 목록 조건만 추가한다 |
 | 룰마스터 진행 | `Room.rulemasterLed` | 가능. 기존 boolean 조건만 추가한다 |
 
@@ -145,10 +145,10 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 | API 계약 | [방 목록 조회](../API.md#room-01-방-목록-조회) |
 | 공통 규칙 | [검색 조건과 결과](../P1-spec.md#검색-조건과-결과), [P0 방 상태](../archive/p0/P0-spec.md#방-상태roomstatus) |
 | 데이터 모델 | [ROOMS](../ERD.md#rooms) |
-| 상태 정합화 | [ROOM-06 방 상태 정합화](../archive/p0/room.md#room-06-방-상태-정합화) |
+| 조회 유효 상태 | [ADR-0055 ROOM 조회 유효 상태와 저장 상태 보정 책임 분리](../adr/room/0055-room-query-effective-status-and-persistence-correction.md) |
 | 성능 검증 | [FND-09 검색 성능과 인덱스 검증](foundation.md#fnd-09-검색-성능과-인덱스-검증) |
 | 현재 HTTP 경계 | `RoomController#listRooms`, `RoomListRequest`, `RoomQueryParameterAllowlistValidator`; 제공 조건은 `type`, `gameId`, `keyword`, `startsAtFrom`, `startsAtTo`, `minRemainingSeats`, `experienceLevels`, `rulemasterOnly`, `page`, `size` |
-| 현재 조회 경계 | `RoomListQueryService#findPage` → `RoomStatusCorrectionCoordinator#correctDueRooms` → `RoomListReadService#findPublicRooms` → `RoomRepository`; 모든 조건은 하나의 동적 조회에서 적용하고 정렬은 엔티티 필드 `startAt`, `id` 오름차순 고정 |
+| 현재 조회 경계 | `RoomListQueryService#findPage` → `RoomListReadService#findPublicRooms` → `RoomRepository`; 고정된 `requestTime`의 유효 상태와 모든 조건은 하나의 동적 조회에서 적용하고 정렬은 엔티티 필드 `startAt`, `id` 오름차순 고정 |
 | 현재 저장 필드 | `Room.startAt`, `Room.capacity`, `Room.activeParticipantCount`, `Room.experienceLevel`, `Room.rulemasterLed` |
 
 ### 기능 규칙
@@ -157,23 +157,23 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 - 방 목록은 P0와 같이 인증 없이 조회한다. 필터를 모두 생략하면 `RECRUITING`, `CLOSED` 공개 범위, 요청자 기준 `joinable`, `startsAt ASC, id ASC` 정렬과 페이지네이션을 유지한다.
 - 날짜 범위는 방 시작 시각이 시작 경계 이상이고 종료 경계 미만인 반열린 구간 `[from, to)`이다. 한쪽 경계만 전달할 수 있고, 둘 다 전달하면 시작 경계가 종료 경계보다 빨라야 한다.
 - 날짜 UI가 일 단위를 사용하면 `Asia/Seoul`의 해당 날짜 시작부터 다음 날짜 시작 전까지를 오프셋이 있는 시각으로 변환해 요청한다.
-- 필요한 최소 남은 모집 자리는 1 이상 10 이하이며, 상한은 [DB 제약](../ERD.md#db-제약)의 모집 정원 범위를 따른다. 상태 정합화 뒤 `Room.capacity - Room.activeParticipantCount`가 요청값 이상인 방을 반환한다. 응답과 요청의 정원 필드 이름은 `recruitmentCapacity`이고 저장 열은 `capacity`이며, 같은 값에 새 열이나 별도 남은 자리 저장값을 추가하지 않는다.
+- 필요한 최소 남은 모집 자리는 1 이상 10 이하이며, 상한은 [DB 제약](../ERD.md#db-제약)의 모집 정원 범위를 따른다. 같은 `requestTime`의 유효 상태와 현재 `ACTIVE` 참가 관계를 기준으로 `Room.capacity - Room.activeParticipantCount`가 요청값 이상인 방을 반환한다. 응답과 요청의 정원 필드 이름은 `recruitmentCapacity`이고 저장 열은 `capacity`이며, 같은 값에 새 열이나 별도 남은 자리 저장값을 추가하지 않는다.
 - 경험 수준은 기존 `ExperienceLevel` 중 하나 이상을 선택할 수 있고 목록 안에서는 OR로 결합한다. 경험 수준은 참가 자격이 아니라 권장 조건이라는 의미를 유지한다.
 - 룰마스터 진행만 보기를 선택하면 자기신고 값이 `true`인 방만 반환하며, 생략하면 룰마스터 여부를 조건으로 사용하지 않는다.
 - 기존 방 유형, 게임 ID, 제목 검색과 P1 필터는 서로 독립적인 선택 조건이며 종류 사이에는 AND를 적용한다.
-- 목록 필터와 페이지 계산 전에 현재 기준 시각으로 상태를 정합화한다. 모든 조건을 페이지네이션 전에 적용하고 내용 조회와 전체 건수 조회에 같은 조건을 사용한다.
+- 목록 필터와 페이지 계산 전에 고정된 `requestTime`의 유효 상태를 적용한다. 모든 조건을 페이지네이션 전에 적용하고 내용 조회와 전체 건수 조회에 같은 조건을 사용한다.
 - 유효한 세션이 있으면 필터 적용 여부와 관계없이 현재 사용자 기준 `joinable`을 계산한다. 검색 결과가 정확한 장소, 참가자 목록이나 사용자 식별자를 새로 노출하지 않는다.
 
 ### 권장 조회 구조
 
-- 현재 `상태 정합화 → 공개 방·필터 조회 → 응답 조립` 순서를 유지하고, 새 조건은 `RoomListReadService`와 `RoomRepository`까지 전달한다. 정합화보다 앞에서 필터를 판정하지 않는다.
+- 현재 `requestTime` 고정 → 유효 상태를 적용한 공개 방·필터 조회 → 응답 조립 순서를 사용하고, 새 조건은 `RoomListReadService`와 `RoomRepository`까지 전달한다. `RoomListReadService`와 `RoomRepository` 밖이나 DTO 조립 뒤에서 필터를 판정하지 않는다.
 - 현재 `RoomListReadService#findPublicRooms`는 `keyword` 유무로 저장소 메서드를 나눈다. P1 조건을 조합마다 메서드로 늘리지 않고 하나의 동적 조회 경계로 모은다.
 - 날짜, 경험 수준, 룰마스터와 `Room.capacity - Room.activeParticipantCount` 조건은 페이지네이션 전 SQL 조건으로 적용한다. 서비스에서 페이지 결과를 다시 걸러내지 않는다.
 
 ### 완료 기준
 
 - `SEARCH-02-AC1` 시작·종료 시각의 단독·조합 필터가 `[from, to)` 경계대로 동작한다.
-- `SEARCH-02-AC2` 필요한 남은 자리 필터는 상태 정합화 후 현재 `ACTIVE` 참가 관계를 반영한 파생값으로 판정한다.
+- `SEARCH-02-AC2` 필요한 남은 자리 필터는 같은 `requestTime`의 유효 상태와 현재 `ACTIVE` 참가 관계를 반영한 파생값으로 판정한다.
 - `SEARCH-02-AC3` 경험 수준 단일·다중 선택은 목록 안 OR로 동작하고 P0의 권장 조건 의미를 바꾸지 않는다.
 - `SEARCH-02-AC4` 룰마스터 진행만 선택하면 자기신고 값이 `true`인 방만 반환한다.
 - `SEARCH-02-AC5` 기존 방 유형, 게임 ID, 제목 검색과 모든 P1 조건을 조합하면 전달한 조건을 모두 만족하는 공개 방만 반환한다.
