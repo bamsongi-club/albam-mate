@@ -161,7 +161,7 @@ Flyway 마이그레이션 작업 규약의 정본은 [마이그레이션 작업 
 
 - 트랜잭션은 Service에서 시작한다.
 - 저장 상태를 변경하지 않는 읽기 전용 유스케이스에는 `readOnly = true`를 사용한다.
-- 목록·내 모임 조회는 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)의 고정된 `requestTime` 유효 상태를 사용하고 저장 상태를 보정하지 않는다. 대상 ROOM의 현재 저장 상태를 보정하는 상세·상태 의존 명령·대기·채팅 접근은 읽기 전용 트랜잭션의 더티 체킹에 의존하지 않고 [아키텍처의 방 조회 흐름](ARCHITECTURE.md#방-조회)과 ADR-0055를 따른다.
+- 목록·내 모임 조회의 현행 구현은 `correctDueRooms(requestTime)`으로 전역 저장 상태를 보정한 뒤 읽는다. [#557](https://github.com/bamsongi-club/albam-mate/issues/557) 반영 뒤에는 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)의 고정된 `requestTime` 유효 상태를 조회하고 전역 저장 보정을 수행하지 않으며, [ADR-0056](adr/room/0056-postgresql-room-query-snapshot-without-global-pre-correction.md)의 snapshot 경계를 따른다. 현재 구현·검증 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)을 따른다. 대상 ROOM의 현재 저장 상태를 보정하는 상세·상태 의존 명령·대기·채팅 접근은 읽기 전용 트랜잭션의 더티 체킹에 의존하지 않고 [아키텍처의 방 조회 흐름](ARCHITECTURE.md#방-조회)과 ADR-0055를 따른다.
 - 상태 변경 트랜잭션 안에서는 JPA 더티 체킹을 기본으로 사용한다.
 - 즉시 반영이 필요한 이유가 없으면 `saveAndFlush()`를 반복 호출하지 않는다.
 - 외부 API는 원칙적으로 데이터베이스 트랜잭션 밖에서 호출한다. 불가피하게 함께 조정해야 하면 트랜잭션 범위를 최소화하고 외부 성공 후 내부 실패 또는 내부 성공 후 외부 실패를 어떻게 처리할지 먼저 정한다.
