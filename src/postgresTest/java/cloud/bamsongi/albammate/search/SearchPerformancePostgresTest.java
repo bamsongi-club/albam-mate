@@ -270,6 +270,7 @@ class SearchPerformancePostgresTest {
 		List<CapturedQuery> queries = queryPlanCapture.capture(() -> roomRepository.findPublicRooms(
 			null,
 			null,
+			null,
 			false,
 			"",
 			false,

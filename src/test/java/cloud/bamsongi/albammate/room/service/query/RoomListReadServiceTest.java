@@ -51,14 +51,14 @@ class RoomListReadServiceTest {
 		PageRequest pageable = pageable();
 		Page<Room> rooms = Page.empty(pageable);
 		when(roomRepository.findPublicRooms(
-			null, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			null, null, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
 			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable))
 			.thenReturn(rooms);
 
 		roomListReadService.findPublicRooms(criteria(null, null, null), pageable, null);
 
 		verify(roomRepository).findPublicRooms(
-			null, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			null, null, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
 			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable);
 	}
 
@@ -67,7 +67,7 @@ class RoomListReadServiceTest {
 		PageRequest pageable = pageable();
 		Page<Room> rooms = new PageImpl<>(List.of(mock(Room.class)), pageable, 1);
 		when(roomRepository.findPublicRooms(
-			RoomType.PERSON_FOCUSED, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			RoomType.PERSON_FOCUSED, null, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
 			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable))
 			.thenReturn(rooms);
 
@@ -76,7 +76,7 @@ class RoomListReadServiceTest {
 
 		assertEquals(Set.of(), result.activeParticipationRoomIds());
 		verify(roomRepository).findPublicRooms(
-			RoomType.PERSON_FOCUSED, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			RoomType.PERSON_FOCUSED, null, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
 			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable);
 		verify(roomRepository, never()).findActiveParticipationRoomIds(anyLong(), any());
 	}
@@ -86,7 +86,7 @@ class RoomListReadServiceTest {
 		PageRequest pageable = pageable();
 		Page<Room> rooms = Page.empty(pageable);
 		when(roomRepository.findPublicRooms(
-			RoomType.PERSON_FOCUSED, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			RoomType.PERSON_FOCUSED, null, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
 			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable))
 			.thenReturn(rooms);
 
@@ -95,7 +95,7 @@ class RoomListReadServiceTest {
 
 		assertEquals(Set.of(), result.activeParticipationRoomIds());
 		verify(roomRepository).findPublicRooms(
-			RoomType.PERSON_FOCUSED, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			RoomType.PERSON_FOCUSED, null, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
 			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable);
 		verify(roomRepository, never()).findActiveParticipationRoomIds(anyLong(), any());
 	}
@@ -105,7 +105,7 @@ class RoomListReadServiceTest {
 		PageRequest pageable = pageable();
 		Page<Room> rooms = new PageImpl<>(List.of(room(10L), room(20L)), pageable, 2);
 		when(roomRepository.findPublicRooms(
-			RoomType.PERSON_FOCUSED, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			RoomType.PERSON_FOCUSED, null, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
 			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable))
 			.thenReturn(rooms);
 		when(roomRepository.findActiveParticipationRoomIds(42L, List.of(10L, 20L)))
@@ -116,7 +116,7 @@ class RoomListReadServiceTest {
 
 		assertEquals(Set.of(10L), result.activeParticipationRoomIds());
 		verify(roomRepository).findPublicRooms(
-			RoomType.PERSON_FOCUSED, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			RoomType.PERSON_FOCUSED, null, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
 			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable);
 		verify(roomRepository).findActiveParticipationRoomIds(42L, List.of(10L, 20L));
 	}
@@ -126,14 +126,30 @@ class RoomListReadServiceTest {
 		PageRequest pageable = pageable();
 		Page<Room> rooms = Page.empty(pageable);
 		when(roomRepository.findPublicRooms(
-			RoomType.PERSON_FOCUSED, null, true, "모임", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			RoomType.PERSON_FOCUSED, null, null, true, "모임", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
 			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable))
 			.thenReturn(rooms);
 
 		roomListReadService.findPublicRooms(criteria(RoomType.PERSON_FOCUSED, null, "모임"), pageable, null);
 
 		verify(roomRepository).findPublicRooms(
-			RoomType.PERSON_FOCUSED, null, true, "모임", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			RoomType.PERSON_FOCUSED, null, null, true, "모임", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable);
+	}
+
+	@Test
+	void 모집_상태_필터는_공개_상태_목록과_별개로_Repository에_그대로_전달한다() {
+		PageRequest pageable = pageable();
+		when(roomRepository.findPublicRooms(
+			null, RoomStatus.RECRUITING, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable))
+			.thenReturn(Page.empty(pageable));
+
+		roomListReadService.findPublicRooms(
+			criteria(null, RoomStatus.RECRUITING, null, null, null, null, null, Set.of(), false), pageable, null);
+
+		verify(roomRepository).findPublicRooms(
+			null, RoomStatus.RECRUITING, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
 			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable);
 	}
 
@@ -143,6 +159,7 @@ class RoomListReadServiceTest {
 		Set<ExperienceLevel> experienceLevels = Set.of(ExperienceLevel.BEGINNER_WELCOME);
 		when(roomRepository.findPublicRooms(
 			RoomType.PERSON_FOCUSED,
+			null,
 			null,
 			true,
 			"모임",
@@ -174,6 +191,7 @@ class RoomListReadServiceTest {
 		verify(roomRepository).findPublicRooms(
 			RoomType.PERSON_FOCUSED,
 			null,
+			null,
 			true,
 			"모임",
 			true,
@@ -193,6 +211,7 @@ class RoomListReadServiceTest {
 		PageRequest pageable = pageable();
 		Set<ExperienceLevel> allExperienceLevels = Set.of(ExperienceLevel.values());
 		when(roomRepository.findPublicRooms(
+			null,
 			null,
 			null,
 			false,
@@ -224,6 +243,7 @@ class RoomListReadServiceTest {
 		when(roomRepository.findPublicRooms(
 			RoomType.PERSON_FOCUSED,
 			null,
+			null,
 			false,
 			"",
 			false,
@@ -254,7 +274,7 @@ class RoomListReadServiceTest {
 		PageRequest pageable = pageable();
 		Page<Room> rooms = new PageImpl<>(List.of(room(10L), room(20L)), pageable, 2);
 		when(roomRepository.findPublicRooms(
-			null, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
+			null, null, null, false, "", false, Instant.EPOCH, false, Instant.EPOCH, false, 0,
 			Set.of(ExperienceLevel.values()), false, PUBLIC_STATUSES, pageable))
 			.thenReturn(rooms);
 		when(roomRepository.findActiveParticipationRoomIds(42L, List.of(10L, 20L))).thenReturn(List.of());
@@ -273,7 +293,7 @@ class RoomListReadServiceTest {
 	}
 
 	private RoomListSearchCriteria criteria(RoomType roomType, Long gameId, String keyword) {
-		return criteria(roomType, gameId, keyword, null, null, null, Set.of(), false);
+		return criteria(roomType, null, gameId, keyword, null, null, null, Set.of(), false);
 	}
 
 	private RoomListSearchCriteria criteria(
@@ -285,8 +305,24 @@ class RoomListReadServiceTest {
 		Integer minRemainingSeats,
 		Set<ExperienceLevel> experienceLevels,
 		boolean rulemasterOnly) {
+		return criteria(
+			roomType, null, gameId, keyword, startsAtFrom, startsAtTo, minRemainingSeats, experienceLevels,
+			rulemasterOnly);
+	}
+
+	private RoomListSearchCriteria criteria(
+		RoomType roomType,
+		RoomStatus status,
+		Long gameId,
+		String keyword,
+		Instant startsAtFrom,
+		Instant startsAtTo,
+		Integer minRemainingSeats,
+		Set<ExperienceLevel> experienceLevels,
+		boolean rulemasterOnly) {
 		return new RoomListSearchCriteria(
-			roomType, gameId, keyword, startsAtFrom, startsAtTo, minRemainingSeats, experienceLevels, rulemasterOnly);
+			roomType, status, gameId, keyword, startsAtFrom, startsAtTo, minRemainingSeats, experienceLevels,
+			rulemasterOnly);
 	}
 
 	private Room room(Long id) {

@@ -101,7 +101,7 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 		RoomListReadService.RoomListReadResult listResult = readCommitted().execute(status -> {
 			assertEquals("read committed", transactionIsolation());
 			return roomListReadService.findPublicRooms(
-				new RoomListSearchCriteria(null, null, null, null, null, null, java.util.Set.of(), false),
+				new RoomListSearchCriteria(null, null, null, null, null, null, null, java.util.Set.of(), false),
 				PageRequest.of(0, 10), requesterUserId);
 		});
 		assertEquals(java.util.Set.of(), listResult.waitingRoomIds());

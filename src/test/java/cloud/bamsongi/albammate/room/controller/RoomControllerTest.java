@@ -179,11 +179,25 @@ class RoomControllerTest {
 	}
 
 	@Test
+	void 방_목록의_status는_요청에_그대로_바인딩된다() throws Exception {
+		when(roomListQueryService.findPage(any(RoomListRequest.class), eq(Optional.empty())))
+			.thenReturn(pageResponse(false));
+
+		mockMvc.perform(get("/api/rooms?status=RECRUITING"))
+			.andExpect(status().isOk());
+
+		ArgumentCaptor<RoomListRequest> requestCaptor = ArgumentCaptor.forClass(RoomListRequest.class);
+		verify(roomListQueryService).findPage(requestCaptor.capture(), eq(Optional.empty()));
+		assertEquals(RoomStatus.RECRUITING, requestCaptor.getValue().getStatus());
+	}
+
+	@Test
 	void 방_목록의_잘못된_파라미터와_범위는_VALIDATION_ERROR다() throws Exception {
 		clearInvocations(roomListQueryService);
 
 		for (String query : List.of(
 			"type=INVALID",
+			"status=INVALID",
 			"gameId=0",
 			"gameId=not-a-number",
 			"startsAtFrom=not-a-date",

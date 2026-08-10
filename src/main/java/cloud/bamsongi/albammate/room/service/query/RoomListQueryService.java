@@ -49,7 +49,7 @@ public class RoomListQueryService {
 
 	public PageResponse<PublicRoomResponse> findPage(
 		RoomType roomType, Long gameId, String keyword, int page, int size, Optional<Long> currentUserId) {
-		return findPage(new RoomListSearchCriteria(roomType, gameId, normalizeKeyword(keyword), null, null,
+		return findPage(new RoomListSearchCriteria(roomType, null, gameId, normalizeKeyword(keyword), null, null,
 			null, Set.of(), false), page, size, currentUserId);
 	}
 

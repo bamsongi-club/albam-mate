@@ -324,7 +324,8 @@ class RoomListQueryServiceTest {
 		Set<ExperienceLevel> experienceLevels,
 		boolean rulemasterOnly) {
 		return new RoomListSearchCriteria(
-			roomType, gameId, keyword, startsAtFrom, startsAtTo, minRemainingSeats, experienceLevels, rulemasterOnly);
+			roomType, null, gameId, keyword, startsAtFrom, startsAtTo, minRemainingSeats, experienceLevels,
+			rulemasterOnly);
 	}
 
 	private RoomListRequest request(

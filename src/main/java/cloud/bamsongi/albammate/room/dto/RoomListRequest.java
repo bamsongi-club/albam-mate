@@ -6,6 +6,7 @@ import java.util.Set;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
+import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
@@ -18,6 +19,8 @@ import lombok.Getter;
 public class RoomListRequest {
 
 	private RoomType type;
+
+	private RoomStatus status;
 
 	@Positive private Long gameId;
 
@@ -41,6 +44,10 @@ public class RoomListRequest {
 
 	public void setType(RoomType type) {
 		this.type = type;
+	}
+
+	public void setStatus(RoomStatus status) {
+		this.status = status;
 	}
 
 	public void setGameId(Long gameId) {

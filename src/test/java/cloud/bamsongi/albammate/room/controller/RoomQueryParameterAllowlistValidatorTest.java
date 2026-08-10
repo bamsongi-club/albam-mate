@@ -18,6 +18,7 @@ class RoomQueryParameterAllowlistValidatorTest {
 	void 방_목록과_내_모임_목록의_허용_parameter_이름을_통과시킨다() {
 		MockHttpServletRequest roomRequest = new MockHttpServletRequest();
 		roomRequest.addParameter("type", "GAME_FOCUSED");
+		roomRequest.addParameter("status", "RECRUITING");
 		roomRequest.addParameter("gameId", "1");
 		roomRequest.addParameter("keyword", "카탄");
 		roomRequest.addParameter("startsAtFrom", "2099-01-01T00:00:00Z");

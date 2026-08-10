@@ -1217,6 +1217,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | 이름 | 타입 | 필수 | 적용 조건 | 도입 단계 | 제공 상태 | 의미 |
 |---|---|:---:|---|:---:|:---:|---|
 | `type` | RoomType | N | 전달 시 | P0 | 제공 | 방 유형 |
+| `status` | RoomStatus | N | 전달 시 | P1 | 제공 | 모집 상태. 공개 목록 범위(`RECRUITING`, `CLOSED`) 밖의 값을 전달하면 빈 결과를 반환한다 |
 | `gameId` | integer | N | 전달 시 | P0 | 제공 | 1 이상의 알밤메이트 내부 게임 ID |
 | `keyword` | string | N | 전달 시 | P0 | 제공 | 방 제목 부분 일치 |
 | `startsAtFrom` | string(date-time) | N | 전달 시 | P1 | 제공 | `startsAt >= startsAtFrom` |
@@ -1227,7 +1228,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | `page` | integer | N | 항상 | P0 | 제공 | 기본값 `0` |
 | `size` | integer | N | 항상 | P0 | 제공 | 기본값 `10`, 1~100 |
 
-`type`, `gameId`, `keyword`와 P1 조건은 서로 독립적인 선택 필터이며, 전달된 서로 다른 조건을 모두 만족하는 방을 반환한다. 반복한 `experienceLevels` 안에서만 OR로 결합하고 같은 값의 중복은 한 번 전달한 것과 같다. 모든 필터를 생략하면 두 유형의 공개 방 전체를 반환한다. `keyword`의 빈 문자열과 공백은 검색 조건 없음으로 처리하며, 제목 부분 일치는 대소문자를 구분하지 않는다.
+`type`, `status`, `gameId`, `keyword`와 P1 조건은 서로 독립적인 선택 필터이며, 전달된 서로 다른 조건을 모두 만족하는 방을 반환한다. 반복한 `experienceLevels` 안에서만 OR로 결합하고 같은 값의 중복은 한 번 전달한 것과 같다. 모든 필터를 생략하면 두 유형의 공개 방 전체를 반환한다. `keyword`의 빈 문자열과 공백은 검색 조건 없음으로 처리하며, 제목 부분 일치는 대소문자를 구분하지 않는다.
 
 - 날짜 범위는 시작 경계를 포함하고 종료 경계를 제외하는 `[startsAtFrom, startsAtTo)`다. 한쪽 경계만 전달할 수 있으며 두 값을 함께 전달하면 시작 경계가 종료 경계보다 빨라야 한다.
 - 남은 모집 자리는 같은 `requestTime`의 유효 상태와 현재 `ACTIVE` 참가 관계를 기준으로 `recruitmentCapacity - activeParticipantCount`를 계산하고 `minRemainingSeats` 이상인 방만 반환한다.
