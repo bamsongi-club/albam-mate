@@ -5,7 +5,7 @@
 - 결정일: 2026-08-10
 - 관련: [결정 이슈 #561](https://github.com/bamsongi-club/albam-mate/issues/561), [구현 이슈 #557](https://github.com/bamsongi-club/albam-mate/issues/557), [ADR-0012](0012-room-request-boundary-state-reconciliation.md), [ADR-0041](0041-postgresql-room-query-consistent-snapshot.md)
 - 대체 대상: ADR-0041
-- 후속 ADR: 없음
+- 후속 ADR: ADR-0057(목록·내 모임 ReadService 유효 상태 반환 범위)
 
 ## 맥락
 

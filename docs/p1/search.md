@@ -166,7 +166,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 
 ### 권장 조회 구조
 
-- ADR-0055·0056의 후속 #557 구현은 `requestTime` 고정 → 유효 상태를 적용한 공개 방·필터 조회 → 응답 조립 순서를 사용하고, 새 조건은 `RoomListReadService`와 `RoomRepository`까지 전달한다. `RoomListReadService`와 `RoomRepository` 밖이나 DTO 조립 뒤에서 필터를 판정하지 않는다.
+- ADR-0055·0056·0057의 후속 #557 구현은 `requestTime` 고정 → 유효 상태를 적용한 공개 방·필터 조회 → 응답 조립 순서를 사용하고, 새 조건은 `RoomListReadService`와 `RoomRepository`까지 전달한다. `RoomListReadService`와 `RoomRepository` 밖이나 DTO 조립 뒤에서 필터를 판정하지 않는다.
 - 현재 `RoomListReadService#findPublicRooms`는 `keyword` 유무로 저장소 메서드를 나눈다. P1 조건을 조합마다 메서드로 늘리지 않고 하나의 동적 조회 경계로 모은다.
 - 날짜, 경험 수준, 룰마스터와 `Room.capacity - Room.activeParticipantCount` 조건은 페이지네이션 전 SQL 조건으로 적용한다. 서비스에서 페이지 결과를 다시 걸러내지 않는다.
 

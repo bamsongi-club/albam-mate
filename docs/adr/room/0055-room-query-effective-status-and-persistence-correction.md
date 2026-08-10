@@ -5,7 +5,7 @@
 - 결정일: 2026-08-10
 - 관련: [결정 이슈 #561](https://github.com/bamsongi-club/albam-mate/issues/561), [구현 이슈 #557](https://github.com/bamsongi-club/albam-mate/issues/557), [ADR-0012](0012-room-request-boundary-state-reconciliation.md), [ADR-0035](0035-room-status-action-eligibility-separation.md), [ADR-0036](0036-bounded-room-state-transition-processing.md), [ADR-0041](0041-postgresql-room-query-consistent-snapshot.md)
 - 대체 대상: ADR-0012
-- 후속 ADR: 없음
+- 후속 ADR: ADR-0057(목록·내 모임 응답 조립, 대상 ROOM 보정·오류 계약 범위)
 
 ## 맥락
 
