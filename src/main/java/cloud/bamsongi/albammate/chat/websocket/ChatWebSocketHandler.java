@@ -3,7 +3,7 @@ package cloud.bamsongi.albammate.chat.websocket;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.session.Session;
@@ -17,6 +17,7 @@ import org.springframework.web.socket.WebSocketSession;
 import cloud.bamsongi.albammate.chat.contract.ChatRealtimeSignalGateway;
 import cloud.bamsongi.albammate.chat.contract.MessageCommitted;
 import cloud.bamsongi.albammate.room.contract.ChatAccessGuard;
+import cloud.bamsongi.albammate.room.contract.ChatWebSocketAccessChecker;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -41,9 +42,8 @@ public class ChatWebSocketHandler implements WebSocketHandler, ChatRealtimeSigna
 	static final String SESSION_ID_ATTRIBUTE = "chat.session.id";
 	static final String AFTER_MESSAGE_ID_ATTRIBUTE = "chat.after.message.id";
 
-	private static final String SCHEDULED_VALIDATION_ATTRIBUTE = "chat.access.validation";
-
 	private final ChatAccessGuard chatAccessGuard;
+	private final ChatWebSocketAccessChecker chatWebSocketAccessChecker;
 	private final SessionRepository<? extends Session> sessionRepository;
 	// Redis 프로필이 구독 재시도용 TaskScheduler를 함께 등록하므로 빈 이름과 같은 필드명으로 대상을 고정한다.
 	private final TaskScheduler chatWebSocketTaskScheduler;
@@ -51,6 +51,7 @@ public class ChatWebSocketHandler implements WebSocketHandler, ChatRealtimeSigna
 	private final ChatConnectionRegistry connectionRegistry;
 	private final ChatMessageDeliveryService messageDeliveryService;
 	private final ChatWebSocketMetrics metrics;
+	private final AtomicBoolean accessValidationScheduled = new AtomicBoolean();
 
 	@Override
 	public void afterConnectionEstablished(WebSocketSession session) {
@@ -60,11 +61,7 @@ public class ChatWebSocketHandler implements WebSocketHandler, ChatRealtimeSigna
 			return;
 		}
 
-		Duration interval = properties.getAccessValidationInterval();
-		ScheduledFuture<?> validation = chatWebSocketTaskScheduler.scheduleAtFixedRate(
-			() -> validateAccess(session), interval);
-		session.getAttributes().put(SCHEDULED_VALIDATION_ATTRIBUTE, validation);
-
+		scheduleAccessValidation();
 		deliver(connection);
 	}
 
@@ -82,11 +79,7 @@ public class ChatWebSocketHandler implements WebSocketHandler, ChatRealtimeSigna
 
 	@Override
 	public void afterConnectionClosed(WebSocketSession session, CloseStatus closeStatus) {
-		Object validation = session.getAttributes().remove(SCHEDULED_VALIDATION_ATTRIBUTE);
 		connectionRegistry.unregister(session);
-		if (validation instanceof ScheduledFuture<?> future) {
-			future.cancel(false);
-		}
 	}
 
 	@Override
@@ -115,7 +108,7 @@ public class ChatWebSocketHandler implements WebSocketHandler, ChatRealtimeSigna
 			if (connectionRegistry.shouldStopDelivery(connection.session)) {
 				return;
 			}
-			if (!isAccessValid(connection.session)) {
+			if (!isDeliveryAccessValid(connection.session)) {
 				connectionRegistry.closeForPolicyViolation(connection.session);
 				return;
 			}
@@ -127,17 +120,33 @@ public class ChatWebSocketHandler implements WebSocketHandler, ChatRealtimeSigna
 		}
 	}
 
-	private void validateAccess(WebSocketSession session) {
-		ChatRoomConnection connection = connectionRegistry.find(session);
-		if (connection == null) {
-			return;
+	private void scheduleAccessValidation() {
+		if (accessValidationScheduled.compareAndSet(false, true)) {
+			Duration interval = properties.getAccessValidationInterval();
+			chatWebSocketTaskScheduler.scheduleAtFixedRate(this::validateAccess, interval);
 		}
+	}
+
+	private void validateAccess() {
+		connectionRegistry.snapshotByRoomId().forEach((roomId, connections) -> {
+			try {
+				chatWebSocketAccessChecker.correctRoomState(roomId);
+			} catch (RuntimeException exception) {
+				connections.forEach(this::closeForPolicyViolation);
+				return;
+			}
+			connections.forEach(this::validateCurrentAccess);
+		});
+	}
+
+	private void validateCurrentAccess(ChatRoomConnection connection) {
+		WebSocketSession session = connection.session;
 		connection.lock.lock();
 		try {
 			if (connectionRegistry.shouldStopDelivery(session)) {
 				return;
 			}
-			if (!isAccessValid(session)) {
+			if (!isCurrentAccessValid(session)) {
 				connectionRegistry.closeForPolicyViolation(session);
 			}
 		} finally {
@@ -145,8 +154,17 @@ public class ChatWebSocketHandler implements WebSocketHandler, ChatRealtimeSigna
 		}
 	}
 
+	private void closeForPolicyViolation(ChatRoomConnection connection) {
+		connection.lock.lock();
+		try {
+			connectionRegistry.closeForPolicyViolation(connection.session);
+		} finally {
+			connection.lock.unlock();
+		}
+	}
+
 	/** 참가 취소·방 최종 상태 전이·세션 만료 신호가 유실돼도 전달 직전마다 다시 확인하는 유일한 판정이다. */
-	private boolean isAccessValid(WebSocketSession session) {
+	private boolean isDeliveryAccessValid(WebSocketSession session) {
 		Map<String, Object> attributes = session.getAttributes();
 		Long roomId = attribute(attributes, ROOM_ID_ATTRIBUTE, Long.class);
 		Long userId = attribute(attributes, USER_ID_ATTRIBUTE, Long.class);
@@ -157,6 +175,23 @@ public class ChatWebSocketHandler implements WebSocketHandler, ChatRealtimeSigna
 				return false;
 			}
 			chatAccessGuard.executeWithAccess(userId, roomId, () -> null);
+			return true;
+		} catch (RuntimeException exception) {
+			return false;
+		}
+	}
+
+	private boolean isCurrentAccessValid(WebSocketSession session) {
+		Map<String, Object> attributes = session.getAttributes();
+		Long roomId = attribute(attributes, ROOM_ID_ATTRIBUTE, Long.class);
+		Long userId = attribute(attributes, USER_ID_ATTRIBUTE, Long.class);
+		String sessionId = attribute(attributes, SESSION_ID_ATTRIBUTE, String.class);
+		try {
+			if (roomId == null || userId == null || sessionId == null
+				|| sessionRepository.findById(sessionId) == null) {
+				return false;
+			}
+			chatWebSocketAccessChecker.verifyCurrentAccess(userId, roomId);
 			return true;
 		} catch (RuntimeException exception) {
 			return false;

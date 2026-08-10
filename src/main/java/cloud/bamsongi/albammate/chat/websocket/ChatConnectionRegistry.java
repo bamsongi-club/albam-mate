@@ -33,6 +33,7 @@ class ChatConnectionRegistry {
 	private final Set<WebSocketSession> closeRequestedSessions = ConcurrentHashMap.newKeySet();
 	private final Map<WebSocketSession, ChatRoomConnection> connectionsBySession = new ConcurrentHashMap<>();
 	private final Map<Long, Set<ChatRoomConnection>> connectionsByRoomId = new ConcurrentHashMap<>();
+	private final Object connectionIndexLock = new Object();
 
 	/** handshake 속성이 갖춰지고 그 roomId의 ChatRoom이 있는 세션만 등록하고, 그렇지 않으면 {@code null}을 돌려준다. */
 	ChatRoomConnection register(WebSocketSession session) {
@@ -50,34 +51,53 @@ class ChatConnectionRegistry {
 		Long afterMessageId = attribute(attributes, ChatWebSocketHandler.AFTER_MESSAGE_ID_ATTRIBUTE, Long.class);
 		long baseline = initialBaseline(chatRoomId, afterMessageId);
 		ChatRoomConnection connection = new ChatRoomConnection(session, roomId, chatRoomId, userId, baseline);
-		connectionsBySession.put(session, connection);
-		connectionsByRoomId.computeIfAbsent(roomId, key -> ConcurrentHashMap.newKeySet()).add(connection);
-		metrics.connectionOpened();
+		synchronized (connectionIndexLock) {
+			connectionsBySession.put(session, connection);
+			connectionsByRoomId.compute(roomId, (key, connections) -> {
+				Set<ChatRoomConnection> updated = connections == null ? ConcurrentHashMap.newKeySet() : connections;
+				updated.add(connection);
+				return updated;
+			});
+			metrics.connectionOpened();
+		}
 		return connection;
 	}
 
 	void unregister(WebSocketSession session) {
 		closeRequestedSessions.remove(session);
-		ChatRoomConnection connection = connectionsBySession.remove(session);
-		if (connection == null) {
-			return;
+		synchronized (connectionIndexLock) {
+			ChatRoomConnection connection = connectionsBySession.remove(session);
+			if (connection == null) {
+				return;
+			}
+			connectionsByRoomId.computeIfPresent(connection.roomId, (key, connections) -> {
+				connections.remove(connection);
+				return connections.isEmpty() ? null : connections;
+			});
+			metrics.connectionClosed();
 		}
-		Set<ChatRoomConnection> connections = connectionsByRoomId.get(connection.roomId);
-		if (connections != null) {
-			connections.remove(connection);
-			connectionsByRoomId.computeIfPresent(
-				connection.roomId, (key, existing) -> existing.isEmpty() ? null : existing);
-		}
-		metrics.connectionClosed();
 	}
 
 	ChatRoomConnection find(WebSocketSession session) {
-		return connectionsBySession.get(session);
+		synchronized (connectionIndexLock) {
+			return connectionsBySession.get(session);
+		}
 	}
 
 	Set<ChatRoomConnection> findByRoomId(long roomId) {
-		Set<ChatRoomConnection> connections = connectionsByRoomId.get(roomId);
-		return connections == null ? Set.of() : Set.copyOf(connections);
+		synchronized (connectionIndexLock) {
+			Set<ChatRoomConnection> connections = connectionsByRoomId.get(roomId);
+			return connections == null ? Set.of() : Set.copyOf(connections);
+		}
+	}
+
+	/** 주기 재검증이 한 번의 순회에 사용할 방별 로컬 연결 스냅샷을 만든다. */
+	Map<Long, Set<ChatRoomConnection>> snapshotByRoomId() {
+		synchronized (connectionIndexLock) {
+			Map<Long, Set<ChatRoomConnection>> snapshot = new ConcurrentHashMap<>();
+			connectionsByRoomId.forEach((roomId, connections) -> snapshot.put(roomId, Set.copyOf(connections)));
+			return Map.copyOf(snapshot);
+		}
 	}
 
 	/** 이미 종료를 요청했거나 세션이 닫혀 더 이상 전달·재검증을 이어갈 필요가 없는지 본다. */

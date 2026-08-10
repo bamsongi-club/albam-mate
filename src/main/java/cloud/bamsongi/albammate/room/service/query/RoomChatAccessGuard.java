@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.contract.ChatAccessGuard;
+import cloud.bamsongi.albammate.room.contract.ChatWebSocketAccessChecker;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
 import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
@@ -21,7 +22,7 @@ import lombok.RequiredArgsConstructor;
 /** 채팅 모듈이 현재 ROOM 관계를 확인할 때 사용하는 room 쪽 공개 계약 구현이다. */
 @Service
 @RequiredArgsConstructor
-public class RoomChatAccessGuard implements ChatAccessGuard {
+public class RoomChatAccessGuard implements ChatAccessGuard, ChatWebSocketAccessChecker {
 
 	private final RoomRepository roomRepository;
 	private final ParticipationRepository participationRepository;
@@ -44,6 +45,25 @@ public class RoomChatAccessGuard implements ChatAccessGuard {
 			throw new BusinessException(ErrorCode.FORBIDDEN);
 		}
 		return chatOperation.get();
+	}
+
+	@Override
+	public void correctRoomState(long roomId) {
+		statusCorrectionCoordinator.correctRoom(roomId, Instant.now(clock));
+	}
+
+	@Override
+	@Transactional
+	public void verifyCurrentAccess(long currentUserId, long roomId) {
+		Room room = roomRepository
+			.findByIdForChatAccess(roomId)
+			.orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
+		if (!room.getStatus().isChatAvailable()) {
+			throw new BusinessException(ErrorCode.FORBIDDEN);
+		}
+		if (room.getHostUserId() != currentUserId && !isActiveParticipant(roomId, currentUserId)) {
+			throw new BusinessException(ErrorCode.FORBIDDEN);
+		}
 	}
 
 	private boolean isActiveParticipant(long roomId, long currentUserId) {

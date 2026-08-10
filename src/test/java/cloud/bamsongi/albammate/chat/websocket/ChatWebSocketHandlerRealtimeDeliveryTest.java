@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -39,6 +40,7 @@ import cloud.bamsongi.albammate.chat.repository.ChatRoomRepository;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.contract.ChatAccessGuard;
+import cloud.bamsongi.albammate.room.contract.ChatWebSocketAccessChecker;
 import cloud.bamsongi.albammate.user.contract.UserQuery;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import tools.jackson.databind.json.JsonMapper;
@@ -55,6 +57,7 @@ class ChatWebSocketHandlerRealtimeDeliveryTest {
 	private final MapSessionRepository sessionRepository = new MapSessionRepository(new HashMap<>());
 	private final TaskScheduler taskScheduler = mock(TaskScheduler.class);
 	private final ChatAccessGuard chatAccessGuard = mock(ChatAccessGuard.class);
+	private final ChatWebSocketAccessChecker chatWebSocketAccessChecker = mock(ChatWebSocketAccessChecker.class);
 	private final ChatWebSocketProperties properties = new ChatWebSocketProperties();
 	private final ChatRoomRepository chatRoomRepository = mock(ChatRoomRepository.class);
 	private final ChatMessageRepository chatMessageRepository = mock(ChatMessageRepository.class);
@@ -190,7 +193,7 @@ class ChatWebSocketHandlerRealtimeDeliveryTest {
 		handler.afterConnectionEstablished(session);
 		ArgumentCaptor<Runnable> validation = ArgumentCaptor.forClass(Runnable.class);
 		verify(taskScheduler).scheduleAtFixedRate(validation.capture(), any());
-		clearInvocations(session, chatMessageRepository, chatAccessGuard);
+		clearInvocations(session, chatMessageRepository, chatAccessGuard, chatWebSocketAccessChecker);
 
 		ChatMessage message10 = chatMessage(10L);
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
@@ -198,15 +201,14 @@ class ChatWebSocketHandlerRealtimeDeliveryTest {
 		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
 		CountDownLatch validationAccessChecked = new CountDownLatch(1);
 		CountDownLatch allowValidationClose = new CountDownLatch(1);
-		when(chatAccessGuard.executeWithAccess(eq(USER_ID), eq(ROOM_ID), any()))
-			.thenAnswer(invocation -> {
-				if ("chat-access-validation".equals(Thread.currentThread().getName())) {
-					validationAccessChecked.countDown();
-					assertTrue(allowValidationClose.await(5, TimeUnit.SECONDS), "validation release timed out");
-					throw new BusinessException(ErrorCode.FORBIDDEN);
-				}
-				return null;
-			});
+		doAnswer(invocation -> {
+			if ("chat-access-validation".equals(Thread.currentThread().getName())) {
+				validationAccessChecked.countDown();
+				assertTrue(allowValidationClose.await(5, TimeUnit.SECONDS), "validation release timed out");
+				throw new BusinessException(ErrorCode.FORBIDDEN);
+			}
+			return null;
+		}).when(chatWebSocketAccessChecker).verifyCurrentAccess(USER_ID, ROOM_ID);
 
 		Thread validationThread = new Thread(validation.getValue(), "chat-access-validation");
 		Thread deliveryThread = new Thread(
@@ -271,6 +273,7 @@ class ChatWebSocketHandlerRealtimeDeliveryTest {
 			Clock.fixed(CREATED_AT.plusSeconds(1), ZoneOffset.UTC));
 		return new ChatWebSocketHandler(
 			chatAccessGuard,
+			chatWebSocketAccessChecker,
 			sessionRepository,
 			taskScheduler,
 			properties,
