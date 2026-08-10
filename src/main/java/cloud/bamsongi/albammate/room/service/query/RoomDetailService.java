@@ -50,14 +50,7 @@ public class RoomDetailService {
 		Room room = readResult.room();
 		List<Participation> activeParticipations = readResult.activeParticipations();
 		boolean isHost = currentUserId.filter(room.getHostUserId()::equals).isPresent();
-		boolean isActiveParticipant = currentUserId
-			.map(
-				userId -> activeParticipations.stream()
-					.anyMatch(
-						participation -> participation
-							.getUserId()
-							.equals(userId)))
-			.orElse(false);
+		boolean isActiveParticipant = readResult.currentUserIsActiveParticipant();
 
 		if (isFinal(room.getStatus()) && !isHost && !isActiveParticipant) {
 			throw new BusinessException(ErrorCode.ROOM_NOT_FOUND);
