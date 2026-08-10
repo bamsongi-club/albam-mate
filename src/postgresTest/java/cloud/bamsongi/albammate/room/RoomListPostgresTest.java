@@ -266,6 +266,62 @@ class RoomListPostgresTest {
 	}
 
 	@Test
+	void status_필터는_공개_범위_안에서만_페이지네이션_전에_적용된다() throws Exception {
+		saveRoom(RoomType.PERSON_FOCUSED, "모집 중인 방", null, START_AT, RoomStatus.RECRUITING);
+		saveRoom(
+			RoomType.PERSON_FOCUSED, "마감된 방", null, START_AT.plusSeconds(60), RoomStatus.CLOSED);
+		saveRoom(
+			RoomType.PERSON_FOCUSED, "취소된 방", null, START_AT.plusSeconds(120), RoomStatus.CANCELED);
+		saveRoom(
+			RoomType.PERSON_FOCUSED, "종료된 방", null, START_AT.plusSeconds(180), RoomStatus.FINISHED);
+
+		assertTitles(
+			getRooms("?status=RECRUITING").body(),
+			List.of("모집 중인 방"),
+			List.of("마감된 방", "취소된 방", "종료된 방"));
+		assertTitles(
+			getRooms("?status=CLOSED").body(),
+			List.of("마감된 방"),
+			List.of("모집 중인 방", "취소된 방", "종료된 방"));
+
+		HttpResponse<String> canceledFilter = getRooms("?status=CANCELED");
+		HttpResponse<String> finishedFilter = getRooms("?status=FINISHED");
+
+		assertEquals(200, canceledFilter.statusCode());
+		assertTrue(canceledFilter.body().contains("\"totalElements\":0"));
+		assertEquals(200, finishedFilter.statusCode());
+		assertTrue(finishedFilter.body().contains("\"totalElements\":0"));
+	}
+
+	@Test
+	void status_필터는_다른_조건과_함께_페이지_경계에서도_전체_건수와_content를_일치시킨다() throws Exception {
+		Long firstRoomId = saveRoom(
+			RoomType.PERSON_FOCUSED, "첫 번째 모집 중인 방", null, START_AT, RoomStatus.RECRUITING);
+		Long secondRoomId = saveRoom(
+			RoomType.PERSON_FOCUSED,
+			"두 번째 모집 중인 방",
+			null,
+			START_AT.plusSeconds(60),
+			RoomStatus.RECRUITING);
+		saveRoom(
+			RoomType.PERSON_FOCUSED, "마감된 방", null, START_AT.plusSeconds(120), RoomStatus.CLOSED);
+
+		HttpResponse<String> firstPage = getRooms("?status=RECRUITING&size=1");
+		HttpResponse<String> secondPage = getRooms("?status=RECRUITING&page=1&size=1");
+
+		assertEquals(200, firstPage.statusCode());
+		assertTitlePresent(firstPage.body(), "첫 번째 모집 중인 방");
+		assertTitleAbsent(firstPage.body(), "두 번째 모집 중인 방");
+		assertTitleAbsent(firstPage.body(), "마감된 방");
+		assertTrue(firstPage.body().contains("\"totalElements\":2"));
+		assertTrue(firstPage.body().indexOf("\"id\":" + firstRoomId) >= 0);
+		assertEquals(200, secondPage.statusCode());
+		assertTitlePresent(secondPage.body(), "두 번째 모집 중인 방");
+		assertTitleAbsent(secondPage.body(), "첫 번째 모집 중인 방");
+		assertTrue(secondPage.body().indexOf("\"id\":" + secondRoomId) >= 0);
+	}
+
+	@Test
 	void 빈_검색어는_검색어_미지정과_같고_제목_부분_일치는_대소문자를_구분하지_않는다() throws Exception {
 		saveRoom(RoomType.PERSON_FOCUSED, "Party Night", null, START_AT, RoomStatus.RECRUITING);
 		saveRoom(
