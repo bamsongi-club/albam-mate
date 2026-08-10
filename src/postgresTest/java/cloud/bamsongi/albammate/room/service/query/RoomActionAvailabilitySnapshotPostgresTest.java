@@ -141,24 +141,37 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 	@Test
 	void Scheduler_커밋과_동시에_목록과_내_모임은_각각_전후_하나의_REPEATABLE_READ_snapshot만_반환하고_조회_락을_사용하지_않는다() {
 		long hostUserId = user("scheduler-snapshot-host@example.com");
+		long waitingUserId = user("scheduler-snapshot-waiting@example.com");
 		Room room = room(hostUserId);
+		commitWaiting(room.getId(), waitingUserId);
 
-		roomRepositoryReadHook.beforeActiveParticipationRead = this::runScheduler;
+		roomRepositoryReadHook.beforeActiveParticipationRead = () -> {
+			assertReadOnlyRepeatableRead();
+			runScheduler();
+		};
+		roomRepositoryReadHook.afterActiveParticipationRead = this::assertNoRowReadLock;
 		RoomListReadService.RoomListReadResult publicResult = roomListReadService.findPublicRoomsAt(
 			new RoomListSearchCriteria(null, null, null, null, null, null, null, java.util.Set.of(), false),
-			PageRequest.of(0, 10), hostUserId, START_AT);
+			PageRequest.of(0, 10), waitingUserId, START_AT);
 
 		assertEquals(RoomStatus.RECRUITING, publicResult.rooms().getContent().getFirst().getStatus());
 		assertEquals(RoomStatus.CLOSED, publicResult.effectiveStatusFor(publicResult.rooms().getContent().getFirst()));
+		assertEquals(java.util.Set.of(room.getId()), publicResult.waitingRoomIds());
 		assertEquals(RoomStatus.CLOSED, roomRepository.findById(room.getId()).orElseThrow().getStatus());
+		assertEquals("EXPIRED", jdbcTemplate.queryForObject(
+			"select status from room_waitlists where room_id = ? and user_id = ?", String.class, room.getId(),
+			waitingUserId));
 
-		roomRepositoryReadHook.beforeMyRoomPageRead = this::runScheduler;
+		roomRepositoryReadHook.beforeMyRoomPageRead = () -> {
+			assertReadOnlyRepeatableRead();
+			runScheduler();
+		};
+		roomRepositoryReadHook.afterMyRoomPageRead = this::assertNoRowReadLock;
 		MyRoomReadService.MyRoomReadResult myResult = myRoomReadService.findMyRoomsAt(
 			hostUserId, MyRoomRole.HOSTED, PageRequest.of(0, 10), START_AT);
 
 		assertEquals(RoomStatus.CLOSED, myResult.rooms().getContent().getFirst().getStatus());
 		assertEquals(RoomStatus.CLOSED, myResult.effectiveStatusFor(myResult.rooms().getContent().getFirst()));
-		assertNoRowReadLock();
 	}
 
 	private void runScheduler() {
@@ -281,7 +294,17 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 						hook.beforeMyRoomPageRead = null;
 					}
 					try {
-						return method.invoke(delegate, arguments);
+						Object result = method.invoke(delegate, arguments);
+						if (method.getName().equals("findActiveParticipationRoomIds")
+							&& hook.afterActiveParticipationRead != null) {
+							hook.afterActiveParticipationRead.run();
+							hook.afterActiveParticipationRead = null;
+						}
+						if (method.getName().equals("findMyRoomsAt") && hook.afterMyRoomPageRead != null) {
+							hook.afterMyRoomPageRead.run();
+							hook.afterMyRoomPageRead = null;
+						}
+						return result;
 					} catch (java.lang.reflect.InvocationTargetException exception) {
 						throw exception.getCause();
 					}
@@ -365,7 +388,9 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 	static class RoomRepositoryReadHook {
 
 		private Runnable beforeActiveParticipationRead;
+		private Runnable afterActiveParticipationRead;
 		private Runnable beforeMyRoomPageRead;
+		private Runnable afterMyRoomPageRead;
 	}
 
 	static class ParticipationReadHook {

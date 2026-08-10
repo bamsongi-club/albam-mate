@@ -30,9 +30,11 @@ import cloud.bamsongi.albammate.room.dto.MyRoomListItem;
 import cloud.bamsongi.albammate.room.dto.PublicRoomResponse;
 import cloud.bamsongi.albammate.room.dto.RoomDetailResponse;
 import cloud.bamsongi.albammate.room.dto.RoomListRequest;
+import cloud.bamsongi.albammate.room.entity.Participation;
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.MyRoomRole;
+import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
@@ -190,14 +192,21 @@ class Room06RequestBoundaryQueryIntegrationTest {
 	@Test
 	void 내_모임은_자동_종료_경계의_방을_FINISHED로_반환하지만_저장_상태와_참여_이력은_유지한다() {
 		User host = saveUser("내 모임 호스트");
+		User participant = saveUser("내 모임 참가자");
 		Room room = saveRoom(host, NOW.minus(Room.AUTOMATIC_FINISH_AFTER_START), "내 모임 종료 방");
+		Participation participation = participationRepository.saveAndFlush(
+			Participation.createActive(room, participant.getId(), NOW.minusSeconds(1)));
+		participationIds.add(participation.getId());
 
 		PageResponse<MyRoomListItem> response = myRoomQueryService.findPage(host.getId(), MyRoomRole.HOSTED, 0, 10);
 
 		assertEquals(1, response.totalElements());
 		assertEquals(room.getId(), response.content().getFirst().id());
 		assertEquals(RoomStatus.FINISHED, response.content().getFirst().status());
+		assertFalse(response.content().getFirst().chatAvailable());
 		assertEquals(RoomStatus.RECRUITING, findRoom(room).getStatus());
+		assertEquals(ParticipationStatus.ACTIVE,
+			participationRepository.findById(participation.getId()).orElseThrow().getStatus());
 	}
 
 	private User saveUser(String nickname) {

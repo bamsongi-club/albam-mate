@@ -40,15 +40,12 @@ import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.service.RoomActionAvailabilityEvaluator;
-import cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionCoordinator;
 
 @ExtendWith(MockitoExtension.class)
 class RoomListQueryServiceTest {
 
 	private static final Instant NOW = Instant.parse("2026-07-28T00:00:00Z");
 
-	@Mock
-	private RoomStatusCorrectionCoordinator statusCorrectionCoordinator;
 	@Mock
 	private RoomListReadService roomListReadService;
 	@Mock
@@ -75,7 +72,6 @@ class RoomListQueryServiceTest {
 		roomListQueryService.findPage(null, null, null, 0, 10, Optional.empty());
 
 		verify(roomListReadService).findPublicRoomsAt(criteria(null, null, null), pageable, null, NOW);
-		verify(statusCorrectionCoordinator, never()).correctDueRooms(NOW);
 	}
 
 	@Test
@@ -93,7 +89,6 @@ class RoomListQueryServiceTest {
 			RoomType.PERSON_FOCUSED, 7L, "모임", startsAtFrom, startsAtTo, 2, experienceLevels, true), Optional.of(42L));
 
 		verify(roomListReadService).findPublicRoomsAt(criteria, pageable, 42L, NOW);
-		verify(statusCorrectionCoordinator, never()).correctDueRooms(NOW);
 	}
 
 	@Test
@@ -153,7 +148,6 @@ class RoomListQueryServiceTest {
 		verify(gameQuery).findSummariesByIds(Set.of(7L));
 		verify(roomListReadService)
 			.findPublicRoomsAt(criteria(RoomType.GAME_FOCUSED, 7L, null), pageable, 99L, NOW);
-		verify(statusCorrectionCoordinator, never()).correctDueRooms(NOW);
 	}
 
 	@Test
