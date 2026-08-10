@@ -177,6 +177,10 @@ public class RedisAuthenticationRequestLimiter implements AuthenticationRequestL
 			Long.toString(properties.getWindow().toMillis()), "unused", member,
 			Integer.toString(properties.getMaxFailureKeys()));
 		long status = status("failure", result);
+		long ttlMillis = numberAt("failure", result, 1);
+		if (ttlMillis != 0L || (status != 0L && status != 1L && status != 2L)) {
+			throw unavailable("failure");
+		}
 		metrics.recordUsage("failure", (int)numberAt("failure", result, 2), properties.getMaxFailureKeys(),
 			properties.getWindow());
 		if (status == 1L) {
