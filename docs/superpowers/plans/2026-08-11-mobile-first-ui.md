@@ -29,7 +29,7 @@
 - Consumes: `route: string`, `authenticated: boolean`
 - Produces: `mobileTabForRoute(route): 'home' | 'game' | 'my' | 'profile'` and `MobileBottomNavigation` React component
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```jsx
 import { render, screen } from '@testing-library/react';
@@ -53,13 +53,13 @@ it('비로그인 사용자의 내 모임과 내정보 탭을 로그인 진입점
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd frontend && npm test -- src/mobile/MobileNavigation.test.jsx --maxWorkers=1`
 
 Expected: FAIL because `MobileNavigation.jsx` does not exist.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```jsx
 export const mobileTabForRoute = (route) => {
@@ -93,13 +93,13 @@ export function MobileBottomNavigation({ route, authenticated }) {
 
 각 링크의 접근 가능한 이름은 레이블만 남긴다. 실제 아이콘은 구현 시 기존 `SectionIcon`과 동일한 선형 SVG로 바꿔도 되지만, 탭의 key·label·href·접근성 계약은 위 코드와 같아야 한다.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd frontend && npm test -- src/mobile/MobileNavigation.test.jsx --maxWorkers=1`
 
 Expected: PASS, 2 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/mobile/MobileNavigation.jsx frontend/src/mobile/MobileNavigation.test.jsx
@@ -116,7 +116,7 @@ git commit -m "feat: 모바일 하단 탭 추가"
 - Consumes: `dataVersion: number`, `api.getMyRooms({ role, page, size }, signal)`
 - Produces: `nextUpcomingRoom(rooms, now): Room | null` and `MobileHomePanel` React component
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```jsx
 it('참가·개설 모임 중 미래 시작 시각이 가장 이른 모임을 홈에 표시한다', async () => {
@@ -142,13 +142,13 @@ it('예정된 내 모임이 없으면 탐색과 만들기 CTA를 보인다', asy
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd frontend && npm test -- src/mobile/MobileHomePanel.test.jsx --maxWorkers=1`
 
 Expected: FAIL because `MobileHomePanel.jsx` does not exist.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```jsx
 export function nextUpcomingRoom(rooms, now = Date.now()) {
@@ -182,13 +182,13 @@ export function MobileHomePanel({ dataVersion }) {
 
 위 코드에 쓰는 `formatUpcomingStartsAt(startsAt)`는 `startsAt`을 `오늘 HH:MM` 또는 `M/D(요일) HH:MM`으로 변환하는 이 파일 내부 helper로 둔다. 로딩 중에는 짧은 상태 문구만 보이고, API 오류는 탐색 홈을 가리지 않도록 패널만 숨긴다.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd frontend && npm test -- src/mobile/MobileHomePanel.test.jsx --maxWorkers=1`
 
 Expected: PASS, 2 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/mobile/MobileHomePanel.jsx frontend/src/mobile/MobileHomePanel.test.jsx
@@ -208,7 +208,7 @@ git commit -m "feat: 모바일 홈 내 모임 요약 추가"
 - Consumes: `App`, `Header`, `HomeView`, `MobileBottomNavigation`, `MobileHomePanel`
 - Produces: 모바일 viewport에서 사용할 별도 DOM 훅 `mobile-page-title`, `mobile-bottom-nav`, `mobile-home-panel`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```jsx
 it('로그인한 홈에서 모바일 내 모임 패널과 네 개 탭을 함께 배선한다', async () => {
@@ -225,13 +225,13 @@ it('로그인한 홈에서 모바일 내 모임 패널과 네 개 탭을 함께 
 
 모든 `App` 의존 API(`getMyProfile`, `getSocialProviders`, `getNotifications`, `getUnreadNotificationCount`, `getRooms`, `getGames`, `getMyRooms`)는 이 테스트에서 성공 응답으로 mock한다.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd frontend && npm test -- src/mobile/MobileAppIntegration.test.jsx --maxWorkers=1`
 
 Expected: FAIL because `App`은 아직 모바일 컴포넌트를 렌더링하지 않는다.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```jsx
 // HomeView는 me를 받아 로그인 상태에서만 기존 hero보다 앞에 요약 패널을 렌더링한다.
@@ -277,13 +277,13 @@ content = <HomeView me={me} onBrowsePeople={handleBrowsePeople} onSearchGame={ha
 
 `Header`에는 `mobilePageTitle(route)` helper(`home: 홈`, `find: 모임 찾기`, `game/game-list: 게임`, `session: 모임`, `create: 모임 만들기`, `edit: 모임 수정`, `my: 내 모임`, `chat/chats: 채팅`, `profile: 내정보`, `auth: 로그인`, `signup: 회원가입`) 결과를 넣는 `<span className="mobile-page-title">`를 추가한다. 현재 로그인 사용자에게만 보이는 `#/chats` 링크는 모바일에서도 상단 우측의 전체 채팅 진입점으로 유지한다. 기존 데스크톱 GNB, 알림 패널, 채팅·프로필 해시 링크 및 모든 route 분기는 삭제하거나 이름을 바꾸지 않는다.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd frontend && npm test -- src/mobile/MobileAppIntegration.test.jsx --maxWorkers=1`
 
 Expected: PASS, 1 test.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/main.jsx frontend/src/mobile/MobileAppIntegration.test.jsx
@@ -300,13 +300,13 @@ git commit -m "feat: 모바일 셸을 앱에 연결"
 - Consumes: `mobile-page-title`, `mobile-bottom-nav`, `mobile-home-panel`, 기존 `.chat-*`, `.filter-*`, `.game-picker-*` 클래스
 - Produces: 767px 이하의 고정 하단 탭, safe-area 여백, 한 열 카드, 모바일 채팅·필터 레이아웃
 
-- [ ] **Step 1: Confirm the DOM contract is already green**
+- [x] **Step 1: Confirm the DOM contract is already green**
 
 Run: `cd frontend && npm test -- src/mobile/MobileAppIntegration.test.jsx --maxWorkers=1`
 
 Expected: PASS. Task 3의 실패-통과 루프가 `.mobile-bottom-nav`, `.mobile-home-panel`, `.mobile-page-title` DOM 계약을 이미 고정했으므로 CSS는 이 계약만 소비한다.
 
-- [ ] **Step 2: Write minimal implementation**
+- [x] **Step 2: Write minimal implementation**
 
 ```css
 :root {
@@ -328,7 +328,7 @@ Expected: PASS. Task 3의 실패-통과 루프가 `.mobile-bottom-nav`, `.mobile
 
 나머지 규칙은 모바일 상단 앱바, 한 열 모임 카드, 두 열 게임 카드, 44px 조작, full-width 필터, bottom-sheet 게임 선택, 카드·말풍선·입력창의 시안 색상과 radius를 맞춘다. 기존 560px 규칙 중 상충하는 값을 767px 블록 안에서 명시적으로 덮어쓴다.
 
-- [ ] **Step 3: Run automated and visual verification**
+- [x] **Step 3: Run automated and visual verification**
 
 Run:
 
@@ -340,7 +340,7 @@ npm run build
 
 그 뒤 Vite preview에서 390px, 767px, 1180px 폭을 확인한다. 390px에서는 하단 탭이 가려지지 않고, 홈·게임·내 모임·내정보·채팅의 조작이 44px 이상이며, 1180px에서는 기존 헤더와 목록 구조가 유지되어야 한다.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/src/styles.css
@@ -359,7 +359,7 @@ git commit -m "feat: 모바일 우선 화면 스타일 적용"
 - Consumes: 앞선 모든 모바일 컴포넌트와 기존 채팅 route
 - Produces: 모바일 새 동작과 기존 채팅 진입이 공존한다는 검증 결과
 
-- [ ] **Step 1: Run targeted regression tests**
+- [x] **Step 1: Run targeted regression tests**
 
 Run:
 
@@ -370,12 +370,12 @@ npm test -- src/mobile/MobileNavigation.test.jsx src/mobile/MobileHomePanel.test
 
 Expected: PASS. 채팅 테스트가 기준 병렬 실패와 무관하게 단일 worker에서 통과해야 한다.
 
-- [ ] **Step 2: Inspect the final diff**
+- [x] **Step 2: Inspect the final diff**
 
 Run: `git diff --check origin/develop...HEAD && git diff --check && git status --short`
 
 Expected: 공백 오류 없음, 모바일 파일·`main.jsx`·`styles.css`·문서만 변경됨.
 
-- [ ] **Step 3: Return defects to the owning task**
+- [x] **Step 3: Return defects to the owning task**
 
 최종 검증에서 결함이 보이면 이 단계에서 임시로 고치지 않는다. 결함이 발생한 Task의 실패 테스트를 먼저 재현하고, 해당 Task의 최소 구현·통과 검증을 다시 수행한다.
