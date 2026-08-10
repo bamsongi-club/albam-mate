@@ -184,6 +184,7 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .btn.pill { border-radius: 999px; }
 .btn.green { background: var(--green); }
 .btn.redline { background: #fff; border: 1.5px solid var(--red-soft); color: var(--red); }
+.btn:disabled { cursor: not-allowed; opacity: 0.55; }
 .hint { color: var(--sub); font-size: 12px; margin-top: 4px; }
 .hint.warn { color: var(--red); font-weight: 800; }
 .infobox { background: var(--soft); border-radius: 12px; font-size: 13.5px; padding: 14px 16px; }
@@ -248,7 +249,7 @@ img.profile-avatar { object-fit: cover; }
 
 .gcard, .scard { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); display: block; padding: 16px; transition: transform 0.15s, border-color 0.15s; }
 .gcard:hover, .scard:hover { border-color: var(--accent); transform: translateY(-2px); }
-.gart { align-items: center; aspect-ratio: 1 / 1; background: var(--soft); border-radius: 12px; display: flex; font-size: 42px; justify-content: center; margin-bottom: 11px; overflow: hidden; }
+.gart { align-items: center; aspect-ratio: 1 / 1; background: var(--soft); border-radius: 12px; display: flex; font-size: 42px; justify-content: center; margin-bottom: 12px; overflow: hidden; }
 /* BGG 이미지는 가로세로 비율이 제각각이라 자르지 않고 안에 맞춰 넣는다. */
 .gart img { display: block; height: 100%; object-fit: contain; width: 100%; }
 .gtitle, .stitle { font-size: 15.5px; font-weight: 900; }
@@ -267,8 +268,8 @@ img.profile-avatar { object-fit: cover; }
 .gcard-shell .gname { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
 .gcard-shell .gtitle .gen { flex: 0 1 auto; font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
 /* 최대 두 줄까지 줄바꿈해서 보여주고, 높이를 고정해 카드 정렬이 어긋나지 않게 한다. */
-.gcard-shell .gmeta { margin: 7px 0 0; line-height: 1.35; min-height: 2.7em; }
-.gcard-shell .gsess { margin-top: auto; padding-top: 9px; }
+.gcard-shell .gmeta { margin: 8px 0 0; line-height: 1.35; min-height: 2.7em; }
+.gcard-shell .gsess { margin-top: auto; padding-top: 8px; }
 .played-toggle { background: var(--card); border: 1px solid var(--line); border-radius: 999px; color: var(--brown2); font-size: 12.5px; font-weight: 800; padding: 7px 13px; }
 .played-toggle:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-dark); }
 .played-toggle.on { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -587,6 +588,9 @@ img.profile-avatar { object-fit: cover; }
   .checkline { min-height: 44px; }
   .checkline input { height: 20px; width: 20px; }
   .date-picker-popover { width: min(340px, calc(100vw - 40px)); }
+  /* 60px/36px 패딩은 좁은 화면에서 내용을 밀어내므로 줄이고, 넘치면 모달 안에서 스크롤한다. */
+  .auth-modal-backdrop { padding: 12px; }
+  .auth-modal { max-height: calc(100vh - 24px); overflow-y: auto; padding: 32px 20px; }
   .game-picker-backdrop { align-items: end; padding: 0; }
   .game-picker { border-bottom-left-radius: 0; border-bottom-right-radius: 0; max-height: 88vh; }
   .game-picker-head, .game-picker-actions { padding-left: 16px; padding-right: 16px; }
