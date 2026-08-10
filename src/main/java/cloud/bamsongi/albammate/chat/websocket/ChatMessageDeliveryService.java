@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -30,6 +32,8 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 @RequiredArgsConstructor
 class ChatMessageDeliveryService {
+
+	private static final Logger log = LoggerFactory.getLogger(ChatMessageDeliveryService.class);
 
 	@NonNull private final ChatConnectionRegistry connectionRegistry;
 	@NonNull private final ChatMessageRepository chatMessageRepository;
@@ -57,10 +61,17 @@ class ChatMessageDeliveryService {
 			if (connectionRegistry.shouldStopDelivery(connection.session)) {
 				break;
 			}
+			String nickname = nicknames.get(message.getSenderUserId());
+			if (nickname == null) {
+				log.error("event=chat_message_sender_nickname_missing roomId={}", connection.roomId);
+				metrics.recordDeliveryFailure();
+				connectionRegistry.closeForTransportFailure(connection.session);
+				break;
+			}
 			ChatMessageResponse response = ChatMessageResponse.from(
 				message,
 				connection.roomId,
-				nicknames.getOrDefault(message.getSenderUserId(), ""),
+				nickname,
 				message.getSenderUserId().equals(connection.userId));
 			if (!send(connection.session, ChatMessageEvent.messageCreated(response))) {
 				metrics.recordDeliveryFailure();

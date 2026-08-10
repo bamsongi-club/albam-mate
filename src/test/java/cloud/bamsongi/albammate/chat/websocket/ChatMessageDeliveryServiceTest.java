@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.chat.websocket;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
@@ -23,6 +24,10 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.chat.entity.ChatMessage;
 import cloud.bamsongi.albammate.chat.repository.ChatMessageRepository;
 import cloud.bamsongi.albammate.user.contract.UserQuery;
@@ -45,6 +50,59 @@ class ChatMessageDeliveryServiceTest {
 	private final ChatMessageDeliveryService deliveryService = new ChatMessageDeliveryService(
 		connectionRegistry, chatMessageRepository, userQuery, metrics,
 		JsonMapper.builder().build(), Clock.fixed(CREATED_AT.plusSeconds(1), ZoneOffset.UTC));
+
+	@Test
+	void T1_발신자_닉네임이_누락되면_전송하지_않고_기준을_유지한_채_종료한다() throws Exception {
+		WebSocketSession session = mock(WebSocketSession.class);
+		when(session.isOpen()).thenReturn(true);
+		when(connectionRegistry.shouldStopDelivery(session)).thenReturn(false);
+		ChatRoomConnection connection = new ChatRoomConnection(session, ROOM_ID, CHAT_ROOM_ID, USER_ID, 0L);
+		ChatMessage message = chatMessage(1L, 77L);
+		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
+			.thenReturn(List.of(message));
+		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of());
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+
+		try {
+			deliveryService.deliverNewMessages(connection);
+
+			verify(session, never()).sendMessage(any());
+			assertEquals(0L, connection.lastDeliveredMessageId.get());
+			verify(connectionRegistry).closeForTransportFailure(session);
+			assertEquals(1.0, meterRegistry.get("chat.websocket.delivery.failures").counter().count());
+			assertEquals(1, appender.list.size());
+			ILoggingEvent event = appender.list.getFirst();
+			assertEquals(Level.ERROR, event.getLevel());
+			assertEquals("event=chat_message_sender_nickname_missing roomId=7", event.getFormattedMessage());
+			assertFalse(event.getFormattedMessage().contains("42"));
+			assertFalse(event.getFormattedMessage().contains("77"));
+		} finally {
+			detachLogAppender(appender);
+		}
+	}
+
+	@Test
+	void T2_정상_메시지_뒤_닉네임_누락_메시지가_있으면_정상_접두사만_전달한다() throws Exception {
+		WebSocketSession session = mock(WebSocketSession.class);
+		when(session.isOpen()).thenReturn(true);
+		when(connectionRegistry.shouldStopDelivery(session)).thenReturn(false);
+		ChatRoomConnection connection = new ChatRoomConnection(session, ROOM_ID, CHAT_ROOM_ID, USER_ID, 0L);
+		ChatMessage message1 = chatMessage(1L, USER_ID);
+		ChatMessage message2 = chatMessage(2L, 77L);
+		ChatMessage message3 = chatMessage(3L, USER_ID);
+		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
+			.thenReturn(List.of(message1, message2, message3));
+		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+
+		deliveryService.deliverNewMessages(connection);
+
+		ArgumentCaptor<TextMessage> captor = ArgumentCaptor.forClass(TextMessage.class);
+		verify(session).sendMessage(captor.capture());
+		assertTrue(captor.getValue().getPayload().contains("\"eventId\":1"));
+		assertEquals(1L, connection.lastDeliveredMessageId.get());
+		verify(connectionRegistry).closeForTransportFailure(session);
+		assertEquals(1.0, meterRegistry.get("chat.websocket.delivery.failures").counter().count());
+	}
 
 	@Test
 	void T4_마지막_전달_ID_이후_메시지만_ASC로_전달하고_기준을_갱신해_중복_전달하지_않는다() throws Exception {
@@ -115,10 +173,28 @@ class ChatMessageDeliveryServiceTest {
 		verify(connectionRegistry, never()).closeForTransportFailure(any());
 	}
 
+	private ListAppender<ILoggingEvent> attachLogAppender() {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(ChatMessageDeliveryService.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		return appender;
+	}
+
+	private void detachLogAppender(ListAppender<ILoggingEvent> appender) {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(ChatMessageDeliveryService.class);
+		logger.detachAppender(appender);
+		appender.stop();
+	}
+
 	private ChatMessage chatMessage(long messageId) {
+		return chatMessage(messageId, USER_ID);
+	}
+
+	private ChatMessage chatMessage(long messageId, long senderUserId) {
 		ChatMessage message = mock(ChatMessage.class);
 		when(message.getId()).thenReturn(messageId);
-		when(message.getSenderUserId()).thenReturn(USER_ID);
+		when(message.getSenderUserId()).thenReturn(senderUserId);
 		when(message.getClientMessageId()).thenReturn("client-" + messageId);
 		when(message.getContent()).thenReturn("내용 " + messageId);
 		when(message.getCreatedAt()).thenReturn(CREATED_AT);
