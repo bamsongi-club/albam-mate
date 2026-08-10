@@ -25,6 +25,7 @@ import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.entity.GameMechanism;
 import cloud.bamsongi.albammate.game.entity.GameMechanismRelation;
+import cloud.bamsongi.albammate.game.repository.GameListSpecification;
 import cloud.bamsongi.albammate.game.repository.GameMechanismRelationRepository;
 import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
@@ -76,6 +77,8 @@ class GameListFilterPostgresTest {
 		Game second = saveGame(1002L, "Alpha", 2, 10, 20, new BigDecimal("2.00"));
 		saveGame(1003L, "Beta", 2, 10, 61, new BigDecimal("2.00"));
 		saveGame(1004L, "Missing", null, null, null, null);
+		saveGame(1005L, "BelowComplexity", 2, 10, 20, new BigDecimal("1.00"));
+		saveGame(1006L, "AboveComplexity", 2, 10, 20, new BigDecimal("3.00"));
 
 		GameListSearchCriteria criteria = criteria(request -> {
 			request.setPlayerCount(10);
@@ -85,10 +88,10 @@ class GameListFilterPostgresTest {
 		});
 
 		var firstPage = gameRepository.findAll(
-			criteria.toSpecification(),
+			GameListSpecification.from(criteria),
 			PageRequest.of(0, 1, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id"))));
 		var secondPage = gameRepository.findAll(
-			criteria.toSpecification(),
+			GameListSpecification.from(criteria),
 			PageRequest.of(1, 1, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id"))));
 
 		assertEquals(1, firstPage.getTotalElements());
@@ -102,9 +105,10 @@ class GameListFilterPostgresTest {
 		Game twoToFour = saveGame(1002L, "TwoToFour", 2, 4, 89, new BigDecimal("2.00"));
 		Game twoToTwo = saveGame(1003L, "TwoToTwo", 2, 2, 90, new BigDecimal("2.00"));
 		saveGame(1004L, "Missing", null, null, null, null);
+		Game oneToFour = saveGame(1005L, "OneToFour", 1, 4, 20, new BigDecimal("2.00"));
 
 		assertEquals(
-			List.of(twoToFour.getId()),
+			List.of(oneToFour.getId(), twoToFour.getId()),
 			ids(request -> {
 				request.setPlayerCountMin(2);
 				request.setPlayerCountMax(4);
@@ -156,7 +160,7 @@ class GameListFilterPostgresTest {
 	private List<Long> ids(Consumer<GameListRequest> customizer) {
 		return gameRepository
 			.findAll(
-				criteria(customizer).toSpecification(),
+				GameListSpecification.from(criteria(customizer)),
 				PageRequest.of(0, 10, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id"))))
 			.getContent().stream().map(Game::getId).toList();
 	}

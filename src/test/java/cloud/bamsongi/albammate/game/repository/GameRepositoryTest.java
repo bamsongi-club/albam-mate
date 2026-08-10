@@ -204,6 +204,23 @@ class GameRepositoryTest {
 		}).withUpcomingGameIds(List.of(match.getId(), match.getId(), wrongTime.getId()));
 
 		assertEquals(List.of(match.getId()), ids(criteria));
+
+		Game percentLiteral = saveGame(1004L, "Percent%Game", 2, 4, 30, new BigDecimal("2.50"));
+		saveGame(1005L, "PercentXGame", 2, 4, 30, new BigDecimal("2.50"));
+		Game underscoreLiteral = saveGame(1006L, "Under_Game", 2, 4, 30, new BigDecimal("2.50"));
+		saveGame(1007L, "UnderXGame", 2, 4, 30, new BigDecimal("2.50"));
+		Game backslashLiteral = saveGame(1008L, "Slash\\Game", 2, 4, 30, new BigDecimal("2.50"));
+		saveGame(1009L, "SlashXGame", 2, 4, 30, new BigDecimal("2.50"));
+
+		assertEquals(
+			List.of(percentLiteral.getId()),
+			ids(criteria(request -> request.setKeyword("Percent%Game"))));
+		assertEquals(
+			List.of(underscoreLiteral.getId()),
+			ids(criteria(request -> request.setKeyword("Under_Game"))));
+		assertEquals(
+			List.of(backslashLiteral.getId()),
+			ids(criteria(request -> request.setKeyword("Slash\\Game"))));
 	}
 
 	@Test
@@ -307,7 +324,7 @@ class GameRepositoryTest {
 
 	private Page<Game> find(GameListSearchCriteria criteria, int page, int size) {
 		return gameRepository.findAll(
-			criteria.toSpecification(),
+			GameListSpecification.from(criteria),
 			PageRequest.of(page, size, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id"))));
 	}
 
