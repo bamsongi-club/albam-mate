@@ -4,15 +4,25 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
+
+import javax.sql.DataSource;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -67,6 +77,8 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 	private ParticipationReadHook participationReadHook;
 	@Autowired
 	private RoomRepositoryReadHook roomRepositoryReadHook;
+	@Autowired
+	private MyRoomPageSqlHook myRoomPageSqlHook;
 	@Autowired
 	private PlatformTransactionManager transactionManager;
 
@@ -139,7 +151,7 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 	}
 
 	@Test
-	void Scheduler_커밋과_동시에_목록과_내_모임은_각각_전후_하나의_REPEATABLE_READ_snapshot만_반환하고_조회_락을_사용하지_않는다() {
+	void Scheduler_커밋과_동시에_공개_목록은_전후_하나의_REPEATABLE_READ_snapshot만_반환하고_조회_락을_사용하지_않는다() {
 		long hostUserId = user("scheduler-snapshot-host@example.com");
 		long waitingUserId = user("scheduler-snapshot-waiting@example.com");
 		Room room = room(hostUserId);
@@ -162,16 +174,43 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 			"select status from room_waitlists where room_id = ? and user_id = ?", String.class, room.getId(),
 			waitingUserId));
 
-		roomRepositoryReadHook.beforeMyRoomPageRead = () -> {
-			assertReadOnlyRepeatableRead();
-			runScheduler();
-		};
-		roomRepositoryReadHook.afterMyRoomPageRead = this::assertNoRowReadLock;
-		MyRoomReadService.MyRoomReadResult myResult = myRoomReadService.findMyRoomsAt(
-			hostUserId, MyRoomRole.HOSTED, PageRequest.of(0, 10), START_AT);
+	}
 
-		assertEquals(RoomStatus.CLOSED, myResult.rooms().getContent().getFirst().getStatus());
-		assertEquals(RoomStatus.CLOSED, myResult.effectiveStatusFor(myResult.rooms().getContent().getFirst()));
+	@Test
+	void Scheduler와_참여_변경_커밋이_내_모임_content와_count_사이에_발생해도_REPEATABLE_READ_snapshot은_고정된다() {
+		long currentUserId = user("scheduler-my-room-host@example.com");
+		long futureRoomHostUserId = user("scheduler-my-room-future-host@example.com");
+		Room dueRoom = room(currentUserId);
+		Room futureJoinedRoom = room(futureRoomHostUserId, START_AT.plusSeconds(86_400));
+		commitActiveParticipation(futureJoinedRoom.getId(), currentUserId);
+		roomRepositoryReadHook.beforeMyRoomPageRead = this::assertReadOnlyRepeatableRead;
+
+		MyRoomPageSqlHook.Session session = myRoomPageSqlHook.begin(() -> {
+			runScheduler();
+			commitCanceledParticipation(futureJoinedRoom.getId(), currentUserId);
+			assertNoRowReadLock();
+		});
+		MyRoomReadService.MyRoomReadResult result;
+		try {
+			result = myRoomReadService.findMyRoomsAt(currentUserId, MyRoomRole.ALL, PageRequest.of(0, 2), START_AT);
+		} finally {
+			myRoomPageSqlHook.end();
+		}
+
+		assertTrue(session.contentSqlObserved());
+		assertTrue(session.countSqlObserved());
+		assertEquals(2, result.rooms().getContent().size());
+		assertEquals(2, result.rooms().getTotalElements());
+		Room snapshotDueRoom = result.rooms().getContent().stream()
+			.filter(room -> room.getId().equals(dueRoom.getId()))
+			.findFirst()
+			.orElseThrow();
+		assertEquals(RoomStatus.RECRUITING, snapshotDueRoom.getStatus());
+		assertEquals(RoomStatus.CLOSED, result.effectiveStatusFor(snapshotDueRoom));
+		assertEquals(RoomStatus.CLOSED, roomRepository.findById(dueRoom.getId()).orElseThrow().getStatus());
+		assertEquals("CANCELED", jdbcTemplate.queryForObject(
+			"select status from participations where room_id = ? and user_id = ?", String.class,
+			futureJoinedRoom.getId(), currentUserId));
 	}
 
 	private void runScheduler() {
@@ -226,6 +265,19 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 			START_AT.atOffset(ZoneOffset.UTC)));
 	}
 
+	private void commitCanceledParticipation(long roomId, long userId) {
+		requiresNew().executeWithoutResult(status -> jdbcTemplate.update(
+			"""
+				update participations
+				set status = 'CANCELED', canceled_at = ?, updated_at = ?
+				where room_id = ? and user_id = ? and status = 'ACTIVE'
+				""",
+			START_AT.atOffset(ZoneOffset.UTC),
+			START_AT.atOffset(ZoneOffset.UTC),
+			roomId,
+			userId));
+	}
+
 	private TransactionTemplate requiresNew() {
 		TransactionTemplate template = new TransactionTemplate(transactionManager);
 		template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -248,8 +300,12 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 	}
 
 	private Room room(long hostUserId) {
+		return room(hostUserId, START_AT);
+	}
+
+	private Room room(long hostUserId, Instant startAt) {
 		return roomRepository.saveAndFlush(Room.create(hostUserId, RoomType.PERSON_FOCUSED, "스냅샷 방", null, null,
-			ExperienceLevel.ALL_LEVELS, false, START_AT, "서울", 2));
+			ExperienceLevel.ALL_LEVELS, false, startAt, "서울", 2));
 	}
 
 	@TestConfiguration(proxyBeanMethods = false)
@@ -274,6 +330,25 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 		@Bean
 		RoomRepositoryReadHook roomRepositoryReadHook() {
 			return new RoomRepositoryReadHook();
+		}
+
+		@Bean
+		MyRoomPageSqlHook myRoomPageSqlHook() {
+			return new MyRoomPageSqlHook();
+		}
+
+		@Bean
+		static BeanPostProcessor myRoomPageSqlHookDataSourcePostProcessor(MyRoomPageSqlHook hook) {
+			return new BeanPostProcessor() {
+
+				@Override
+				public Object postProcessAfterInitialization(Object bean, String beanName) {
+					if ("dataSource".equals(beanName) && bean instanceof DataSource dataSource) {
+						return hook.wrap(dataSource);
+					}
+					return bean;
+				}
+			};
 		}
 
 		@Bean
@@ -397,5 +472,185 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 
 		private Runnable beforeDetailActiveListRead;
 		private Runnable afterDetailActiveListRead;
+	}
+
+	static class MyRoomPageSqlHook {
+
+		private final ThreadLocal<Session> currentSession = new ThreadLocal<>();
+
+		Session begin(Runnable beforeCountSql) {
+			Session session = new Session(beforeCountSql);
+			currentSession.set(session);
+			return session;
+		}
+
+		void end() {
+			currentSession.remove();
+		}
+
+		DataSource wrap(DataSource dataSource) {
+			return (DataSource)Proxy.newProxyInstance(
+				DataSource.class.getClassLoader(),
+				new Class<?>[] {DataSource.class},
+				new MyRoomDataSourceInvocationHandler(dataSource, this));
+		}
+
+		private Connection wrap(Connection connection) {
+			return (Connection)Proxy.newProxyInstance(
+				Connection.class.getClassLoader(),
+				new Class<?>[] {Connection.class},
+				new MyRoomConnectionInvocationHandler(connection, this));
+		}
+
+		private PreparedStatement wrap(PreparedStatement statement, String sql) {
+			return (PreparedStatement)Proxy.newProxyInstance(
+				PreparedStatement.class.getClassLoader(),
+				new Class<?>[] {PreparedStatement.class},
+				new MyRoomPreparedStatementInvocationHandler(statement, sql, this));
+		}
+
+		private void contentSqlExecuted(String sql) {
+			Session session = currentSession.get();
+			if (session != null && isMyRoomContentSql(sql)) {
+				session.contentSqlObserved = true;
+			}
+		}
+
+		private void beforeCountSql(String sql) {
+			Session session = currentSession.get();
+			if (session == null || !isMyRoomCountSql(sql)) {
+				return;
+			}
+			if (!session.contentSqlObserved) {
+				throw new AssertionError("MyRoom count SQL executed before the content SQL delegate returned");
+			}
+			session.countSqlObserved = true;
+			if (session.beforeCountSql != null) {
+				Runnable callback = session.beforeCountSql;
+				session.beforeCountSql = null;
+				callback.run();
+			}
+		}
+
+		private boolean isMyRoomContentSql(String sql) {
+			return isMyRoomSql(sql) && !normalizedSql(sql).contains("count(");
+		}
+
+		private boolean isMyRoomCountSql(String sql) {
+			return isMyRoomSql(sql) && normalizedSql(sql).contains("count(");
+		}
+
+		private boolean isMyRoomSql(String sql) {
+			String normalized = normalizedSql(sql);
+			return normalized.contains("from rooms") && normalized.contains("host_user_id");
+		}
+
+		private String normalizedSql(String sql) {
+			return sql.toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
+		}
+
+		static class Session {
+
+			private Runnable beforeCountSql;
+			private boolean contentSqlObserved;
+			private boolean countSqlObserved;
+
+			private Session(Runnable beforeCountSql) {
+				this.beforeCountSql = beforeCountSql;
+			}
+
+			boolean contentSqlObserved() {
+				return contentSqlObserved;
+			}
+
+			boolean countSqlObserved() {
+				return countSqlObserved;
+			}
+		}
+	}
+
+	private static Object invokeTarget(Object target, Method method, Object[] arguments) throws Throwable {
+		try {
+			return method.invoke(target, arguments);
+		} catch (InvocationTargetException exception) {
+			throw exception.getCause();
+		}
+	}
+
+	private static final class MyRoomDataSourceInvocationHandler implements InvocationHandler {
+
+		private final DataSource delegate;
+		private final MyRoomPageSqlHook hook;
+
+		private MyRoomDataSourceInvocationHandler(DataSource delegate, MyRoomPageSqlHook hook) {
+			this.delegate = delegate;
+			this.hook = hook;
+		}
+
+		@Override
+		public Object invoke(Object proxy, Method method, Object[] arguments) throws Throwable {
+			Object result = invokeTarget(delegate, method, arguments);
+			return method.getName().equals("getConnection") && result instanceof Connection connection
+				? hook.wrap(connection)
+				: result;
+		}
+	}
+
+	private static final class MyRoomConnectionInvocationHandler implements InvocationHandler {
+
+		private final Connection delegate;
+		private final MyRoomPageSqlHook hook;
+
+		private MyRoomConnectionInvocationHandler(Connection delegate, MyRoomPageSqlHook hook) {
+			this.delegate = delegate;
+			this.hook = hook;
+		}
+
+		@Override
+		public Object invoke(Object proxy, Method method, Object[] arguments) throws Throwable {
+			Object result = invokeTarget(delegate, method, arguments);
+			if (method.getName().equals("prepareStatement")
+				&& arguments != null
+				&& arguments.length > 0
+				&& arguments[0] instanceof String sql
+				&& result instanceof PreparedStatement statement) {
+				return hook.wrap(statement, sql);
+			}
+			return result;
+		}
+	}
+
+	private static final class MyRoomPreparedStatementInvocationHandler implements InvocationHandler {
+
+		private final PreparedStatement delegate;
+		private final String sql;
+		private final MyRoomPageSqlHook hook;
+
+		private MyRoomPreparedStatementInvocationHandler(
+			PreparedStatement delegate, String sql, MyRoomPageSqlHook hook) {
+			this.delegate = delegate;
+			this.sql = sql;
+			this.hook = hook;
+		}
+
+		@Override
+		public Object invoke(Object proxy, Method method, Object[] arguments) throws Throwable {
+			if (isQueryExecution(method, arguments)) {
+				if (hook.isMyRoomCountSql(sql)) {
+					hook.beforeCountSql(sql);
+				}
+				Object result = invokeTarget(delegate, method, arguments);
+				if (hook.isMyRoomContentSql(sql)) {
+					hook.contentSqlExecuted(sql);
+				}
+				return result;
+			}
+			return invokeTarget(delegate, method, arguments);
+		}
+
+		private boolean isQueryExecution(Method method, Object[] arguments) {
+			return (method.getName().equals("executeQuery") || method.getName().equals("execute"))
+				&& (arguments == null || arguments.length == 0);
+		}
 	}
 }
