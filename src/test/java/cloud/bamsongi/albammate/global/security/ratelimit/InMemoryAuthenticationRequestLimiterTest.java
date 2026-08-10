@@ -22,6 +22,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import cloud.bamsongi.albammate.global.config.AuthenticationRequestProtectionProperties;
+import cloud.bamsongi.albammate.global.exception.BusinessException;
+import cloud.bamsongi.albammate.global.exception.ErrorCode;
 
 class InMemoryAuthenticationRequestLimiterTest {
 
@@ -47,7 +49,7 @@ class InMemoryAuthenticationRequestLimiterTest {
 	}
 
 	@Test
-	void 로그인_IP_한도와_RetryAfter는_회원가입_IP_버킷과_독립적이다() {
+	void T1_같은_IP의_signup과_login은_논리_IP_슬롯_하나를_공유한다() {
 		String remoteIp = "203.0.113.19";
 		for (int i = 0; i < 30; i++) {
 			assertTrue(limiter.checkAndRecordLogin(remoteIp).allowed());
@@ -61,7 +63,72 @@ class InMemoryAuthenticationRequestLimiterTest {
 			assertTrue(limiter.checkAndRecordSignup(remoteIp).allowed());
 		}
 		assertFalse(limiter.checkAndRecordSignup(remoteIp).allowed());
-		assertEquals(2, limiter.ipBucketCount());
+		assertEquals(1, limiter.ipBucketCount());
+	}
+
+	@Test
+	void T2_IP_슬롯이_포화되면_신규_IP는_SERVICE_UNAVAILABLE로_거절한다() {
+		AuthenticationRequestProtectionProperties properties = properties();
+		properties.setMaxIpKeys(1);
+		InMemoryAuthenticationRequestLimiter saturated = new InMemoryAuthenticationRequestLimiter(properties, clock);
+		assertTrue(saturated.checkAndRecordSignup("203.0.113.30").allowed());
+
+		BusinessException exception = assertThrows(BusinessException.class,
+			() -> saturated.requireSignupAllowed("203.0.113.31"));
+
+		assertEquals(ErrorCode.SERVICE_UNAVAILABLE, exception.getErrorCode());
+		assertEquals(1, saturated.ipBucketCount());
+	}
+
+	@Test
+	void T3_IP_슬롯_포화_뒤에도_기존_IP는_축출되지_않고_429_규칙을_계속_적용한다() {
+		AuthenticationRequestProtectionProperties properties = properties();
+		properties.setMaxIpKeys(1);
+		InMemoryAuthenticationRequestLimiter saturated = new InMemoryAuthenticationRequestLimiter(properties, clock);
+		for (int index = 0; index < 5; index++) {
+			assertTrue(saturated.checkAndRecordSignup("203.0.113.32").allowed());
+		}
+
+		assertThrows(BusinessException.class, () -> saturated.requireSignupAllowed("203.0.113.33"));
+		RateLimitDecision existing = saturated.checkAndRecordSignup("203.0.113.32");
+
+		assertFalse(existing.allowed());
+		assertEquals(10, existing.retryAfterSeconds());
+		assertEquals(1, saturated.ipBucketCount());
+	}
+
+	@Test
+	void T4_동시_신규_IP_요청도_논리_IP_등록_상한을_넘지_않는다() throws Exception {
+		AuthenticationRequestProtectionProperties properties = properties();
+		properties.setMaxIpKeys(2);
+		InMemoryAuthenticationRequestLimiter saturated = new InMemoryAuthenticationRequestLimiter(properties, clock);
+		ExecutorService executor = Executors.newFixedThreadPool(10);
+		try {
+			List<Future<RateLimitDecision>> futures = new ArrayList<>();
+			for (int index = 0; index < 10; index++) {
+				int suffix = index;
+				futures.add(executor.submit(() -> saturated.checkAndRecordSignup("203.0.113." + (40 + suffix))));
+			}
+			long allowed = futures.stream().filter(future -> get(future).allowed()).count();
+
+			assertEquals(2, allowed);
+			assertEquals(2, saturated.ipBucketCount());
+		} finally {
+			executor.shutdownNow();
+		}
+	}
+
+	@Test
+	void T5_만료된_IP_상태는_논리_슬롯을_반납한다() {
+		AuthenticationRequestProtectionProperties properties = properties();
+		properties.setMaxIpKeys(1);
+		InMemoryAuthenticationRequestLimiter saturated = new InMemoryAuthenticationRequestLimiter(properties, clock);
+		assertTrue(saturated.checkAndRecordSignup("203.0.113.51").allowed());
+		assertThrows(BusinessException.class, () -> saturated.requireLoginAllowed("203.0.113.52"));
+		clock.advance(Duration.ofSeconds(10));
+
+		assertTrue(saturated.checkAndRecordLogin("203.0.113.52").allowed());
+		assertEquals(1, saturated.ipBucketCount());
 	}
 
 	@Test
@@ -89,17 +156,78 @@ class InMemoryAuthenticationRequestLimiterTest {
 	}
 
 	@Test
-	void 실패_버킷은_낮은_빈도부터_축출되고_상한을_넘지_않는다() {
-		limiter.recordLoginFailure("low@example.com", "203.0.113.13");
-		for (int i = 0; i < 3; i++) {
-			limiter.recordLoginFailure("hot@example.com", "203.0.113.14");
-		}
-		limiter.recordLoginFailure("new@example.com", "203.0.113.15");
+	void T6_동일_이메일_IP의_실패_버킷과_gate는_하나의_실패_슬롯을_공유한다() {
+		AuthenticationRequestProtectionProperties properties = properties();
+		properties.setMaxFailureKeys(1);
+		InMemoryAuthenticationRequestLimiter saturated = new InMemoryAuthenticationRequestLimiter(properties, clock);
+		assertTrue(saturated.recordLoginFailure("user@example.com", "203.0.113.13").allowed());
+		LoginVerificationPermit permit = saturated.tryAcquireLoginVerification("user@example.com", "203.0.113.13")
+			.orElseThrow();
 
-		assertEquals(2, limiter.loginFailureBucketCount());
-		assertTrue(limiter.checkLoginFailureAllowed("hot@example.com", "203.0.113.14").allowed());
-		assertTrue(limiter.checkLoginFailureAllowed("new@example.com", "203.0.113.15").allowed());
-		assertTrue(limiter.checkLoginFailureAllowed("low@example.com", "203.0.113.13").allowed());
+		assertThrows(BusinessException.class,
+			() -> saturated.tryAcquireLoginVerification("other@example.com", "203.0.113.14"));
+		assertEquals(1, saturated.loginFailureBucketCount());
+		assertEquals(1, saturated.activeLoginVerificationCount());
+		permit.close();
+	}
+
+	@Test
+	void T7_실패_슬롯_포화여도_확인과_반납은_허용하고_새_gate만_거절한다() {
+		AuthenticationRequestProtectionProperties properties = properties();
+		properties.setMaxFailureKeys(1);
+		InMemoryAuthenticationRequestLimiter saturated = new InMemoryAuthenticationRequestLimiter(properties, clock);
+		assertTrue(saturated.recordLoginFailure("first@example.com", "203.0.113.14").allowed());
+
+		assertTrue(saturated.checkLoginFailureAllowed("second@example.com", "203.0.113.15").allowed());
+		assertThrows(BusinessException.class,
+			() -> saturated.tryAcquireLoginVerification("second@example.com", "203.0.113.15"));
+		saturated.resetLoginFailures("first@example.com", "203.0.113.14");
+		assertTrue(saturated.tryAcquireLoginVerification("second@example.com", "203.0.113.15").isPresent());
+	}
+
+	@Test
+	void T7_포화된_실패_슬롯에서_신규_실패_기록은_SERVICE_UNAVAILABLE로_거절한다() {
+		AuthenticationRequestProtectionProperties properties = properties();
+		properties.setMaxFailureKeys(1);
+		InMemoryAuthenticationRequestLimiter saturated = new InMemoryAuthenticationRequestLimiter(properties, clock);
+		assertTrue(saturated.recordLoginFailure("first@example.com", "203.0.113.151").allowed());
+
+		RateLimitDecision rejected = saturated.recordLoginFailure("second@example.com", "203.0.113.152");
+
+		assertFalse(rejected.allowed());
+		assertEquals(0, rejected.retryAfterSeconds());
+		BusinessException exception = assertThrows(BusinessException.class, rejected::throwIfRejected);
+		assertEquals(ErrorCode.SERVICE_UNAVAILABLE, exception.getErrorCode());
+	}
+
+	@Test
+	void T8_실패와_gate가_모두_없어지면_논리_실패_슬롯을_즉시_반납한다() {
+		AuthenticationRequestProtectionProperties properties = properties();
+		properties.setMaxFailureKeys(1);
+		InMemoryAuthenticationRequestLimiter saturated = new InMemoryAuthenticationRequestLimiter(properties, clock);
+		assertTrue(saturated.recordLoginFailure("first@example.com", "203.0.113.16").allowed());
+		LoginVerificationPermit permit = saturated.tryAcquireLoginVerification("first@example.com", "203.0.113.16")
+			.orElseThrow();
+
+		saturated.resetLoginFailures("first@example.com", "203.0.113.16");
+		assertThrows(BusinessException.class,
+			() -> saturated.tryAcquireLoginVerification("second@example.com", "203.0.113.17"));
+		permit.close();
+
+		assertTrue(saturated.tryAcquireLoginVerification("second@example.com", "203.0.113.17").isPresent());
+	}
+
+	@Test
+	void T9_인메모리_구현은_유효_상태를_축출하지_않는다() {
+		AuthenticationRequestProtectionProperties properties = properties();
+		properties.setMaxIpKeys(1);
+		InMemoryAuthenticationRequestLimiter saturated = new InMemoryAuthenticationRequestLimiter(properties, clock);
+		for (int index = 0; index < 5; index++) {
+			assertTrue(saturated.checkAndRecordSignup("203.0.113.18").allowed());
+		}
+
+		assertThrows(BusinessException.class, () -> saturated.requireLoginAllowed("203.0.113.19"));
+		assertFalse(saturated.checkAndRecordSignup("203.0.113.18").allowed());
 	}
 
 	@Test

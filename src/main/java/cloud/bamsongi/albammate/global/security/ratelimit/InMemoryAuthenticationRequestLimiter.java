@@ -4,7 +4,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -120,8 +119,20 @@ public class InMemoryAuthenticationRequestLimiter implements AuthenticationReque
 		LoginKey key = loginKey(normalizedEmail, remoteIp);
 		Instant now = now();
 		synchronized (monitor) {
-			return checkAndRecord(
-				loginFailureBuckets, key, loginFailureLimit, maxFailureKeys, now);
+			purgeBuckets(loginFailureBuckets, now);
+			Bucket bucket = loginFailureBuckets.get(key);
+			if (bucket == null && !hasFailureSubject(key) && failureSubjectCount() >= maxFailureKeys) {
+				return RateLimitDecision.capacitySaturated();
+			}
+			if (bucket == null) {
+				bucket = new Bucket();
+				loginFailureBuckets.put(key, bucket);
+			}
+			if (bucket.size() >= loginFailureLimit) {
+				return RateLimitDecision.rejected(retryAfterSeconds(bucket.oldest(), now));
+			}
+			bucket.record(now);
+			return RateLimitDecision.permitted();
 		}
 	}
 
@@ -141,6 +152,10 @@ public class InMemoryAuthenticationRequestLimiter implements AuthenticationReque
 			if (activeLoginVerifications.containsKey(key)) {
 				return Optional.empty();
 			}
+			purgeBuckets(loginFailureBuckets, now());
+			if (!hasFailureSubject(key) && failureSubjectCount() >= maxFailureKeys) {
+				RateLimitDecision.capacitySaturated().throwIfRejected();
+			}
 			GatePermit permit = new GatePermit(key);
 			activeLoginVerifications.put(key, permit);
 			return Optional.of(permit);
@@ -151,7 +166,7 @@ public class InMemoryAuthenticationRequestLimiter implements AuthenticationReque
 	public int ipBucketCount() {
 		synchronized (monitor) {
 			purgeBuckets(ipBuckets, now());
-			return ipBuckets.size();
+			return (int)ipBuckets.keySet().stream().map(IpKey::remoteIp).distinct().count();
 		}
 	}
 
@@ -159,7 +174,7 @@ public class InMemoryAuthenticationRequestLimiter implements AuthenticationReque
 	public int loginFailureBucketCount() {
 		synchronized (monitor) {
 			purgeBuckets(loginFailureBuckets, now());
-			return loginFailureBuckets.size();
+			return failureSubjectCount();
 		}
 	}
 
@@ -174,24 +189,21 @@ public class InMemoryAuthenticationRequestLimiter implements AuthenticationReque
 		IpKey key = new IpKey(type, requireKeyPart(remoteIp, "remoteIp"));
 		Instant now = now();
 		synchronized (monitor) {
-			return checkAndRecord(ipBuckets, key, limit, maxIpKeys, now);
+			purgeBuckets(ipBuckets, now);
+			Bucket bucket = ipBuckets.get(key);
+			if (bucket == null && !hasIpSubject(key.remoteIp()) && ipBucketCount() >= maxIpKeys) {
+				return RateLimitDecision.capacitySaturated();
+			}
+			if (bucket == null) {
+				bucket = new Bucket();
+				ipBuckets.put(key, bucket);
+			}
+			if (bucket.size() >= limit) {
+				return RateLimitDecision.rejected(retryAfterSeconds(bucket.oldest(), now));
+			}
+			bucket.record(now);
+			return RateLimitDecision.permitted();
 		}
-	}
-
-	private <K> RateLimitDecision checkAndRecord(
-		Map<K, Bucket> buckets, K key, int limit, int maxKeys, Instant now) {
-		purgeBuckets(buckets, now);
-		Bucket bucket = buckets.get(key);
-		if (bucket != null && bucket.size() >= limit) {
-			return RateLimitDecision.rejected(retryAfterSeconds(bucket.oldest(), now));
-		}
-		if (bucket == null) {
-			evictIfNeeded(buckets, maxKeys);
-			bucket = new Bucket();
-			buckets.put(key, bucket);
-		}
-		bucket.record(now);
-		return RateLimitDecision.permitted();
 	}
 
 	private void purgeBuckets(Map<?, Bucket> buckets, Instant now) {
@@ -205,28 +217,19 @@ public class InMemoryAuthenticationRequestLimiter implements AuthenticationReque
 		}
 	}
 
-	/**
-	 * 키 상한에 도달하면 이벤트가 가장 적은 버킷을, 동수면 가장 오래 쓰이지 않은 버킷을 버린다.
-	 *
-	 * <p>LRU를 쓰지 않는다. 많이 쌓인 버킷이 곧 제한해야 할 대상이므로, 최근 사용을 기준으로 버리면 공격자가 새 키를 흘려
-	 * 자기 버킷을 밀어내고 제한을 우회할 수 있다.
-	 */
-	private void evictIfNeeded(Map<?, Bucket> buckets, int maxKeys) {
-		if (buckets.size() < maxKeys) {
-			return;
-		}
-		Map.Entry<?, Bucket> candidate = buckets.entrySet().stream()
-			.min(
-				Comparator.comparingInt(
-					(Map.Entry<?, Bucket> entry) -> entry.getValue().size())
-					.thenComparing(
-						entry -> Optional.ofNullable(
-							entry.getValue().lastTouched())
-							.orElse(Instant.MIN)))
-			.orElse(null);
-		if (candidate != null) {
-			buckets.remove(candidate.getKey());
-		}
+	private boolean hasIpSubject(String remoteIp) {
+		return ipBuckets.keySet().stream().anyMatch(key -> key.remoteIp().equals(remoteIp));
+	}
+
+	private boolean hasFailureSubject(LoginKey key) {
+		return loginFailureBuckets.containsKey(key) || activeLoginVerifications.containsKey(key);
+	}
+
+	private int failureSubjectCount() {
+		return (int)java.util.stream.Stream.concat(
+			loginFailureBuckets.keySet().stream(), activeLoginVerifications.keySet().stream())
+			.distinct()
+			.count();
 	}
 
 	private int retryAfterSeconds(Instant oldest, Instant now) {

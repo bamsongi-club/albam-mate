@@ -22,4 +22,5 @@ public class PasswordSecurityConfig {
 		BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder(properties.getBcryptCost());
 		return new DelegatingPasswordEncoder("bcrypt", Map.of("bcrypt", bcrypt));
 	}
+
 }
