@@ -10,3 +10,4 @@
 | [0013](0013-p0-password-storage-auth-request-protection.md) | P0 비밀번호를 bcrypt로 저장하고 인증 요청을 제한 | 승인됨 | 2026-07-25 | 미검증 |
 | [0020](0020-api-endpoint-authorization-policy-registry.md) | API 엔드포인트 인가 정책을 등록하고 미분류 경로를 CI에서 거절 | 승인됨 | 2026-07-28 | 검증됨 |
 | [0042](0042-p1-oauth-social-identity-and-session-integration.md) | P1 소셜 로그인에 OAuth2/OIDC와 별도 외부 식별자를 사용 | 승인됨 | 2026-08-03 | 검증됨 |
+| [0054](0054-auth-request-logical-subject-capacity.md) | 인증 요청 제한 용량을 논리 주체 단위로 관리 | 승인됨 | 2026-08-09 | 검증됨 |
