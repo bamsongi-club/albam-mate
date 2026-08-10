@@ -38,6 +38,16 @@ public record MyRoomListItem(
 		RoomActionAvailability availability,
 		MyRole myRole,
 		ParticipationStatus participationStatus) {
+		return from(room, room.getStatus(), game, availability, myRole, participationStatus);
+	}
+
+	public static MyRoomListItem from(
+		Room room,
+		RoomStatus effectiveStatus,
+		GameSummary game,
+		RoomActionAvailability availability,
+		MyRole myRole,
+		ParticipationStatus participationStatus) {
 		return new MyRoomListItem(
 			room.getId(),
 			room.getRoomType(),
@@ -51,11 +61,11 @@ public record MyRoomListItem(
 			room.getCapacity(),
 			room.getTotalParticipantCount(),
 			room.getRemainingRecruitmentSeats(),
-			room.getStatus(),
+			effectiveStatus,
 			availability.joinable(),
 			availability.waitlistable(),
 			myRole,
 			participationStatus,
-			room.getStatus().isChatAvailable());
+			effectiveStatus.isChatAvailable());
 	}
 }

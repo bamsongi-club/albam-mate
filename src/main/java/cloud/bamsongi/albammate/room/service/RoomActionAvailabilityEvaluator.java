@@ -16,11 +16,11 @@ public class RoomActionAvailabilityEvaluator {
 			return RoomActionAvailability.UNAVAILABLE;
 		}
 
-		if (facts.room().getStatus() == RoomStatus.RECRUITING
+		if (facts.effectiveStatus() == RoomStatus.RECRUITING
 			&& facts.room().getRemainingRecruitmentSeats() >= 1) {
 			return new RoomActionAvailability(true, false);
 		}
-		if (facts.room().getStatus() == RoomStatus.CLOSED
+		if (facts.effectiveStatus() == RoomStatus.CLOSED
 			&& facts.room().getRemainingRecruitmentSeats() == 0) {
 			return new RoomActionAvailability(false, true);
 		}

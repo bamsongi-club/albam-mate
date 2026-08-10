@@ -26,7 +26,6 @@ import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.service.RoomActionAvailability;
 import cloud.bamsongi.albammate.room.service.RoomActionAvailabilityEvaluator;
 import cloud.bamsongi.albammate.room.service.RoomActionAvailabilityFacts;
-import cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionCoordinator;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
@@ -34,13 +33,12 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class RoomListQueryService {
 
-	@NonNull private final RoomStatusCorrectionCoordinator statusCorrectionCoordinator;
 	@NonNull private final RoomListReadService roomListReadService;
 	@NonNull private final GameQuery gameQuery;
 	@NonNull private final Clock clock;
 	@NonNull private final RoomActionAvailabilityEvaluator roomActionAvailabilityEvaluator;
 
-	/** 상태 보정이 끝난 시점의 공개 방을 고정 정렬과 요청자 기준 참가 가능 여부로 반환한다. */
+	/** 고정 요청 시각의 유효 상태로 공개 방을 고정 정렬과 요청자 기준 참가 가능 여부로 반환한다. */
 	public PageResponse<PublicRoomResponse> findPage(
 		RoomListRequest request, Optional<Long> currentUserId) {
 		return findPage(RoomListSearchCriteria.from(request, normalizeKeyword(request.getKeyword())),
@@ -56,18 +54,16 @@ public class RoomListQueryService {
 	private PageResponse<PublicRoomResponse> findPage(
 		RoomListSearchCriteria criteria, int page, int size, Optional<Long> currentUserId) {
 		Instant requestTime = Instant.now(clock);
-		statusCorrectionCoordinator.correctDueRooms(requestTime);
 
 		PageRequest pageable = PageRequest.of(
 			page, size, Sort.by(Sort.Order.asc("startAt"), Sort.Order.asc("id")));
-		RoomListReadService.RoomListReadResult readResult = roomListReadService.findPublicRooms(
-			criteria, pageable, currentUserId.orElse(null));
-		return toPageResponse(readResult, requestTime, currentUserId);
+		RoomListReadService.RoomListReadResult readResult = roomListReadService.findPublicRoomsAt(
+			criteria, pageable, currentUserId.orElse(null), requestTime);
+		return toPageResponse(readResult, currentUserId);
 	}
 
 	private PageResponse<PublicRoomResponse> toPageResponse(
 		RoomListReadService.RoomListReadResult readResult,
-		Instant requestTime,
 		Optional<Long> currentUserId) {
 		Map<Long, GameSummary> gameSummaries = findGameSummaries(readResult.rooms().getContent());
 		Page<PublicRoomResponse> response = readResult
@@ -75,8 +71,9 @@ public class RoomListQueryService {
 			.map(
 				room -> PublicRoomResponse.from(
 					room,
+					readResult.effectiveStatusFor(room),
 					getGameSummary(room, gameSummaries),
-					availabilityFor(room, requestTime, currentUserId, readResult)));
+					availabilityFor(room, currentUserId, readResult)));
 		return PageResponse.from(response);
 	}
 
@@ -108,12 +105,12 @@ public class RoomListQueryService {
 
 	private RoomActionAvailability availabilityFor(
 		Room room,
-		Instant requestTime,
 		Optional<Long> currentUserId,
 		RoomListReadService.RoomListReadResult readResult) {
 		return roomActionAvailabilityEvaluator.evaluate(new RoomActionAvailabilityFacts(
 			room,
-			requestTime,
+			readResult.effectiveStatusFor(room),
+			readResult.requestTime(),
 			currentUserId.isPresent(),
 			currentUserId.filter(room.getHostUserId()::equals).isPresent(),
 			readResult.activeParticipationRoomIds().contains(room.getId()),

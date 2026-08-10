@@ -4,8 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.concurrent.CompletableFuture;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -27,10 +29,13 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
+import cloud.bamsongi.albammate.room.enums.MyRoomRole;
+import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
+import cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionScheduler;
 
 @Testcontainers
 @SpringBootTest
@@ -53,9 +58,15 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 	@Autowired
 	private RoomDetailReadService roomDetailReadService;
 	@Autowired
+	private MyRoomReadService myRoomReadService;
+	@Autowired
+	private RoomStatusCorrectionScheduler roomStatusCorrectionScheduler;
+	@Autowired
 	private WaitlistReadHook waitlistReadHook;
 	@Autowired
 	private ParticipationReadHook participationReadHook;
+	@Autowired
+	private RoomRepositoryReadHook roomRepositoryReadHook;
 	@Autowired
 	private PlatformTransactionManager transactionManager;
 
@@ -100,9 +111,9 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 		waitlistReadHook.afterListWaitingRead = this::assertNoRowReadLock;
 		RoomListReadService.RoomListReadResult listResult = readCommitted().execute(status -> {
 			assertEquals("read committed", transactionIsolation());
-			return roomListReadService.findPublicRooms(
+			return roomListReadService.findPublicRoomsAt(
 				new RoomListSearchCriteria(null, null, null, null, null, null, null, java.util.Set.of(), false),
-				PageRequest.of(0, 10), requesterUserId);
+				PageRequest.of(0, 10), requesterUserId, START_AT);
 		});
 		assertEquals(java.util.Set.of(), listResult.waitingRoomIds());
 
@@ -125,6 +136,33 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 			"select exists(select 1 from room_waitlists where room_id = ? and user_id = ? and status = 'WAITING')",
 			Boolean.class,
 			room.getId(), detailRequesterUserId));
+	}
+
+	@Test
+	void Scheduler_커밋과_동시에_목록과_내_모임은_각각_전후_하나의_REPEATABLE_READ_snapshot만_반환하고_조회_락을_사용하지_않는다() {
+		long hostUserId = user("scheduler-snapshot-host@example.com");
+		Room room = room(hostUserId);
+
+		roomRepositoryReadHook.beforeActiveParticipationRead = this::runScheduler;
+		RoomListReadService.RoomListReadResult publicResult = roomListReadService.findPublicRoomsAt(
+			new RoomListSearchCriteria(null, null, null, null, null, null, null, java.util.Set.of(), false),
+			PageRequest.of(0, 10), hostUserId, START_AT);
+
+		assertEquals(RoomStatus.RECRUITING, publicResult.rooms().getContent().getFirst().getStatus());
+		assertEquals(RoomStatus.CLOSED, publicResult.effectiveStatusFor(publicResult.rooms().getContent().getFirst()));
+		assertEquals(RoomStatus.CLOSED, roomRepository.findById(room.getId()).orElseThrow().getStatus());
+
+		roomRepositoryReadHook.beforeMyRoomPageRead = this::runScheduler;
+		MyRoomReadService.MyRoomReadResult myResult = myRoomReadService.findMyRoomsAt(
+			hostUserId, MyRoomRole.HOSTED, PageRequest.of(0, 10), START_AT);
+
+		assertEquals(RoomStatus.CLOSED, myResult.rooms().getContent().getFirst().getStatus());
+		assertEquals(RoomStatus.CLOSED, myResult.effectiveStatusFor(myResult.rooms().getContent().getFirst()));
+		assertNoRowReadLock();
+	}
+
+	private void runScheduler() {
+		CompletableFuture.runAsync(roomStatusCorrectionScheduler::correctDueRooms).join();
 	}
 
 	private void assertNoRowReadLock() {
@@ -205,6 +243,12 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 	static class WaitlistHookConfiguration {
 
 		@Bean
+		@Primary
+		Clock fixedClock() {
+			return Clock.fixed(START_AT, ZoneOffset.UTC);
+		}
+
+		@Bean
 		WaitlistReadHook waitlistReadHook() {
 			return new WaitlistReadHook();
 		}
@@ -212,6 +256,36 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 		@Bean
 		ParticipationReadHook participationReadHook() {
 			return new ParticipationReadHook();
+		}
+
+		@Bean
+		RoomRepositoryReadHook roomRepositoryReadHook() {
+			return new RoomRepositoryReadHook();
+		}
+
+		@Bean
+		@Primary
+		RoomRepository hookedRoomRepository(
+			@Qualifier("roomRepository") RoomRepository delegate,
+			RoomRepositoryReadHook hook) {
+			return (RoomRepository)java.lang.reflect.Proxy.newProxyInstance(
+				RoomRepository.class.getClassLoader(), new Class<?>[] {RoomRepository.class},
+				(proxy, method, arguments) -> {
+					if (method.getName().equals("findActiveParticipationRoomIds")
+						&& hook.beforeActiveParticipationRead != null) {
+						hook.beforeActiveParticipationRead.run();
+						hook.beforeActiveParticipationRead = null;
+					}
+					if (method.getName().equals("findMyRoomsAt") && hook.beforeMyRoomPageRead != null) {
+						hook.beforeMyRoomPageRead.run();
+						hook.beforeMyRoomPageRead = null;
+					}
+					try {
+						return method.invoke(delegate, arguments);
+					} catch (java.lang.reflect.InvocationTargetException exception) {
+						throw exception.getCause();
+					}
+				});
 		}
 
 		@Bean
@@ -286,6 +360,12 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 		private Runnable beforeDetailWaitingRead;
 		private Runnable afterListWaitingRead;
 		private Runnable afterDetailWaitingRead;
+	}
+
+	static class RoomRepositoryReadHook {
+
+		private Runnable beforeActiveParticipationRead;
+		private Runnable beforeMyRoomPageRead;
 	}
 
 	static class ParticipationReadHook {

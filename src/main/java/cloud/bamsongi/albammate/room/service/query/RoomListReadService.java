@@ -1,6 +1,9 @@
 package cloud.bamsongi.albammate.room.service.query;
 
+import java.time.Instant;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,16 +30,20 @@ class RoomListReadService {
 	@NonNull private final RoomWaitlistRepository roomWaitlistRepository;
 
 	@Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW, isolation = Isolation.REPEATABLE_READ)
-	public RoomListReadResult findPublicRooms(
-		RoomListSearchCriteria criteria, Pageable pageable, Long currentUserId) {
-		Page<Room> rooms = findFilteredPublicRooms(criteria, pageable);
+	public RoomListReadResult findPublicRoomsAt(
+		RoomListSearchCriteria criteria, Pageable pageable, Long currentUserId, Instant requestTime) {
+		Page<Room> rooms = findFilteredPublicRooms(criteria, pageable, requestTime);
 		Set<Long> activeParticipationRoomIds = findActiveParticipationRoomIds(currentUserId, rooms);
 		Set<Long> waitingRoomIds = findWaitingRoomIds(currentUserId, rooms);
-		return new RoomListReadResult(rooms, activeParticipationRoomIds, waitingRoomIds);
+		Map<Long, RoomStatus> effectiveStatuses = rooms.getContent().stream().collect(Collectors.toUnmodifiableMap(
+			Room::getId, room -> RoomEffectiveStatus.resolve(room, requestTime)));
+		return new RoomListReadResult(
+			rooms, effectiveStatuses, activeParticipationRoomIds, waitingRoomIds, requestTime);
 	}
 
-	private Page<Room> findFilteredPublicRooms(RoomListSearchCriteria criteria, Pageable pageable) {
-		return roomRepository.findPublicRooms(
+	private Page<Room> findFilteredPublicRooms(
+		RoomListSearchCriteria criteria, Pageable pageable, Instant requestTime) {
+		return roomRepository.findPublicRoomsAt(
 			criteria.roomType(),
 			criteria.status(),
 			criteria.gameId(),
@@ -51,6 +58,7 @@ class RoomListReadService {
 			criteria.appliedExperienceLevels(),
 			criteria.rulemasterOnly(),
 			PUBLIC_STATUSES,
+			requestTime.minus(Room.AUTOMATIC_FINISH_AFTER_START),
 			pageable);
 	}
 
@@ -71,6 +79,41 @@ class RoomListReadService {
 	}
 
 	public record RoomListReadResult(
-		Page<Room> rooms, Set<Long> activeParticipationRoomIds, Set<Long> waitingRoomIds) {
+		Page<Room> rooms,
+		Map<Long, RoomStatus> effectiveStatuses,
+		Set<Long> activeParticipationRoomIds,
+		Set<Long> waitingRoomIds,
+		Instant requestTime) {
+
+		public RoomListReadResult(
+			Page<Room> rooms, Set<Long> activeParticipationRoomIds, Set<Long> waitingRoomIds) {
+			this(rooms, Map.of(), activeParticipationRoomIds, waitingRoomIds, Instant.EPOCH);
+		}
+
+		public RoomStatus effectiveStatusFor(Room room) {
+			return effectiveStatuses.getOrDefault(room.getId(), room.getStatus());
+		}
+	}
+
+	@Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW, isolation = Isolation.REPEATABLE_READ)
+	public RoomListReadResult findPublicRooms(
+		RoomListSearchCriteria criteria, Pageable pageable, Long currentUserId) {
+		Page<Room> rooms = roomRepository.findPublicRooms(
+			criteria.roomType(),
+			criteria.gameId(),
+			criteria.hasKeyword(),
+			criteria.keywordOrEmpty(),
+			criteria.hasStartsAtFrom(),
+			criteria.startsAtFromOrEpoch(),
+			criteria.hasStartsAtTo(),
+			criteria.startsAtToOrEpoch(),
+			criteria.hasMinRemainingSeats(),
+			criteria.minRemainingSeatsOrZero(),
+			criteria.appliedExperienceLevels(),
+			criteria.rulemasterOnly(),
+			PUBLIC_STATUSES,
+			pageable);
+		return new RoomListReadResult(
+			rooms, findActiveParticipationRoomIds(currentUserId, rooms), findWaitingRoomIds(currentUserId, rooms));
 	}
 }

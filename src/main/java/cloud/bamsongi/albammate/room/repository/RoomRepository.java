@@ -179,8 +179,9 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		select room
 		from Room room
 		where (:roomType is null or room.roomType = :roomType)
-		  and room.status in :publicStatuses
+		  and room.status in :storedPublicStatuses
 		  and (:status is null or room.status = :status)
+		  and room.startAt > :effectiveFinishedAt
 		  and (:gameId is null or room.gameId = :gameId)
 		  and (:keywordFilterEnabled = false
 		       or lower(room.title) like concat('%', lower(:keyword), '%') escape '!')
@@ -191,7 +192,7 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		  and room.experienceLevel in :experienceLevels
 		  and (:rulemasterOnly = false or room.rulemasterLed = true)
 		""")
-	Page<Room> findPublicRooms(
+	Page<Room> findPublicRoomsAt(
 		@Param("roomType")
 		RoomType roomType,
 		@Param("status")
@@ -209,6 +210,45 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		@Param("startsAtToFilterEnabled")
 		boolean startsAtToFilterEnabled,
 		@Param("startsAtTo")
+		Instant startsAtTo,
+		@Param("minRemainingSeatsFilterEnabled")
+		boolean minRemainingSeatsFilterEnabled,
+		@Param("minRemainingSeats")
+		int minRemainingSeats,
+		@Param("experienceLevels")
+		Collection<ExperienceLevel> experienceLevels,
+		@Param("rulemasterOnly")
+		boolean rulemasterOnly,
+		@Param("storedPublicStatuses")
+		Collection<RoomStatus> storedPublicStatuses,
+		@Param("effectiveFinishedAt")
+		Instant effectiveFinishedAt,
+		Pageable pageable);
+
+	@Query("""
+		select room from Room room
+		where (:roomType is null or room.roomType = :roomType)
+		  and room.status in :publicStatuses
+		  and (:gameId is null or room.gameId = :gameId)
+		  and (:keywordFilterEnabled = false or lower(room.title) like concat('%', lower(:keyword), '%') escape '!')
+		  and (:startsAtFromFilterEnabled = false or room.startAt >= :startsAtFrom)
+		  and (:startsAtToFilterEnabled = false or room.startAt < :startsAtTo)
+		  and (:minRemainingSeatsFilterEnabled = false or room.capacity - room.activeParticipantCount >= :minRemainingSeats)
+		  and room.experienceLevel in :experienceLevels
+		  and (:rulemasterOnly = false or room.rulemasterLed = true)
+		""")
+	Page<Room> findPublicRooms(
+		@Param("roomType")
+		RoomType roomType, @Param("gameId")
+		Long gameId,
+		@Param("keywordFilterEnabled")
+		boolean keywordFilterEnabled, @Param("keyword")
+		String keyword,
+		@Param("startsAtFromFilterEnabled")
+		boolean startsAtFromFilterEnabled, @Param("startsAtFrom")
+		Instant startsAtFrom,
+		@Param("startsAtToFilterEnabled")
+		boolean startsAtToFilterEnabled, @Param("startsAtTo")
 		Instant startsAtTo,
 		@Param("minRemainingSeatsFilterEnabled")
 		boolean minRemainingSeatsFilterEnabled,
@@ -284,7 +324,7 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		             and participation.status = cloud.bamsongi.albammate.room.enums.ParticipationStatus.ACTIVE
 		       ))
 		""")
-	Page<Room> findMyRooms(
+	Page<Room> findMyRoomsAt(
 		@Param("userId")
 		Long userId,
 		@Param("includeHosted")
@@ -292,6 +332,21 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		@Param("includeJoined")
 		boolean includeJoined,
 		Pageable pageable);
+
+	@Query("""
+		select room from Room room
+		where (:includeHosted = true and room.hostUserId = :userId)
+		   or (:includeJoined = true and room.status <> cloud.bamsongi.albammate.room.enums.RoomStatus.CANCELED
+		       and exists (select participation.id from Participation participation
+		                   where participation.room = room and participation.userId = :userId
+		                     and participation.status = cloud.bamsongi.albammate.room.enums.ParticipationStatus.ACTIVE))
+		""")
+	Page<Room> findMyRooms(
+		@Param("userId")
+		Long userId, @Param("includeHosted")
+		boolean includeHosted,
+		@Param("includeJoined")
+		boolean includeJoined, Pageable pageable);
 
 	interface UpcomingRoomCount {
 
