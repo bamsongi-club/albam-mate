@@ -11,6 +11,8 @@ import { NotificationPanel } from './notification/NotificationPanel';
 import { selectNotificationAndNavigate } from './notification/notificationNavigation';
 import { useNotificationPolling } from './notification/useNotificationPolling';
 import { useNotificationReadSync } from './notification/useNotificationReadSync';
+import { MobileBottomNavigation } from './mobile/MobileNavigation';
+import { MobileHomePanel } from './mobile/MobileHomePanel';
 import './styles.css';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -398,6 +400,25 @@ function validateRoomForm(form, roomType) {
   return { room };
 }
 
+function mobilePageTitle(route) {
+  const titles = {
+    home: '홈',
+    find: '모임 찾기',
+    game: '게임',
+    'game-list': '게임',
+    session: '모임',
+    create: '모임 만들기',
+    edit: '모임 수정',
+    my: '내 모임',
+    chat: '채팅',
+    chats: '채팅',
+    profile: '내정보',
+    auth: '로그인',
+    signup: '회원가입'
+  };
+  return titles[route] || '알밤메이트';
+}
+
 function Header({ route, me, notificationMenu }) {
   const rootRoute = { find: 'find', game: 'game-list', 'game-list': 'game-list', create: 'profile', edit: 'profile', my: 'profile', chat: 'chats', chats: 'chats', profile: 'profile' };
   const visibleUnreadCount = notificationMenu.unreadCount > 99 ? '99+' : notificationMenu.unreadCount;
@@ -411,11 +432,12 @@ function Header({ route, me, notificationMenu }) {
           <span className="brand-mark" aria-hidden="true"><img src={brandSymbol} alt="" /></span>
           <span className="brand-wordmark"><span className="brand-name">알밤</span><span className="brand-mate">메이트</span></span>
         </a>
+        <span className="mobile-page-title">{mobilePageTitle(route)}</span>
         <nav id="gnb" aria-label="주요 메뉴">
           <a href="#/game-list" className={rootRoute[route] === 'game-list' ? 'on' : ''}>게임 찾기</a>
           <a href="#/find" className={rootRoute[route] === 'find' ? 'on' : ''}>모임 찾기</a>
           {me && (
-            <a href="#/chats" className={'nav-icon-btn' + (rootRoute[route] === 'chats' ? ' on' : '')} aria-label="채팅">
+            <a href="#/chats" className={'nav-icon-btn' + (rootRoute[route] === 'chats' ? ' on' : '')} aria-label="전체 채팅">
               <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></svg>
             </a>
           )}
@@ -560,7 +582,7 @@ function LoginRequiredView({ message = '이 기능은 로그인 후 이용할 �
   return <div className="card"><h2>로그인이 필요해요</h2><p className="hint" style={{ marginBottom: 16 }}>{message}</p><a className="btn" href="#/auth">로그인 또는 회원가입</a></div>;
 }
 
-function HomeView({ onBrowsePeople, onSearchGame, dataVersion }) {
+function HomeView({ me, onBrowsePeople, onSearchGame, dataVersion }) {
   // 지금은 게임 이름 검색으로 동작한다. 통합 검색으로 확장할 자리다.
   const [input, setInput] = useState('');
   const { data, loading, error } = useRequest(
@@ -574,20 +596,23 @@ function HomeView({ onBrowsePeople, onSearchGame, dataVersion }) {
   const personCount = data?.totalElements ?? 0;
   const gameCount = gameData?.totalElements ?? 0;
   return (
-    <section className="card hero">
-      <h1>오늘, 보드게임 한 판 어때요? 🎲</h1>
-      <p>게임을 먼저 고르거나, 함께할 사람부터 찾아 모임을 만들 수 있어요.</p>
-      <form className="inline-search hero-search" onSubmit={(event) => { event.preventDefault(); onSearchGame(input.trim()); }}>
-        <label className="hint" htmlFor="home-q" style={{ position: 'absolute', left: -9999 }}>게임 이름 검색</label>
-        <input id="home-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임 이름으로 검색" />
-        <button type="submit" aria-label="검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><line x1="21.5" y1="21.5" x2="15.3" y2="15.3" /></svg></button>
-      </form>
-      <div className="dual">
-        <a className="entry gamefirst" href="#/game-list"><span className="big">🎲</span><h3>게임부터 찾기</h3><p>하고 싶은 게임을 검색하고, 그 게임의 공개 모임을 찾아보세요.</p><span className="sub">{gameLoading ? '게임 불러오는 중…' : '게임 ' + gameCount + '개 둘러보기 →'}</span></a>
-        <a className="entry peoplefirst" href="#/find" onClick={onBrowsePeople}><span className="big">🙌</span><h3>사람부터 만나기</h3><p>게임이 아직 정해지지 않아도 괜찮아요. 제목으로 원하는 모임을 찾아보세요.</p><span className="sub">{loading ? '공개 모임 불러오는 중…' : '공개 모임 ' + personCount + '개 →'}</span></a>
-      </div>
-      {error && <p className="hint" style={{ marginTop: 16 }}>공개 모임 수를 불러오지 못했어요: {error}</p>}
-    </section>
+    <>
+      {me && <MobileHomePanel dataVersion={dataVersion} />}
+      <section className="card hero">
+        <h1>오늘, 보드게임 한 판 어때요? 🎲</h1>
+        <p>게임을 먼저 고르거나, 함께할 사람부터 찾아 모임을 만들 수 있어요.</p>
+        <form className="inline-search hero-search" onSubmit={(event) => { event.preventDefault(); onSearchGame(input.trim()); }}>
+          <label className="hint" htmlFor="home-q" style={{ position: 'absolute', left: -9999 }}>게임 이름 검색</label>
+          <input id="home-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임 이름으로 검색" />
+          <button type="submit" aria-label="검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><line x1="21.5" y1="21.5" x2="15.3" y2="15.3" /></svg></button>
+        </form>
+        <div className="dual">
+          <a className="entry gamefirst" href="#/game-list"><span className="big">🎲</span><h3>게임부터 찾기</h3><p>하고 싶은 게임을 검색하고, 그 게임의 공개 모임을 찾아보세요.</p><span className="sub">{gameLoading ? '게임 불러오는 중…' : '게임 ' + gameCount + '개 둘러보기 →'}</span></a>
+          <a className="entry peoplefirst" href="#/find" onClick={onBrowsePeople}><span className="big">🙌</span><h3>사람부터 만나기</h3><p>게임이 아직 정해지지 않아도 괜찮아요. 제목으로 원하는 모임을 찾아보세요.</p><span className="sub">{loading ? '공개 모임 불러오는 중…' : '공개 모임 ' + personCount + '개 →'}</span></a>
+        </div>
+        {error && <p className="hint" style={{ marginTop: 16 }}>공개 모임 수를 불러오지 못했어요: {error}</p>}
+      </section>
+    </>
   );
 }
 
@@ -2163,7 +2188,7 @@ export function App() {
   else if (route === 'profile') content = me ? <ProfileView me={me} onSave={handleSaveProfile} onLogout={handleLogout} socialProviders={socialProviders} onSocialLink={handleSocialLink} onUploadImage={handleUploadProfileImage} onDeleteImage={handleDeleteProfileImage} /> : <LoginRequiredView message="마이페이지를 보려면 로그인해주세요." />;
   else if (route === 'auth') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <AuthView onLogin={handleLogin} socialProviders={socialProviders} onSocialLogin={handleSocialLogin} />;
   else if (route === 'signup') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <SignupView onSignup={handleSignup} />;
-  else content = <HomeView onBrowsePeople={handleBrowsePeople} onSearchGame={handleSearchGame} dataVersion={dataVersion} />;
+  else content = <HomeView me={me} onBrowsePeople={handleBrowsePeople} onSearchGame={handleSearchGame} dataVersion={dataVersion} />;
 
   return (
     <>
@@ -2187,6 +2212,7 @@ export function App() {
         }}
       />
       <main>{content}</main>
+      <MobileBottomNavigation route={route} authenticated={authenticated} />
       <SiteFooter />
       <ScrollToTopButton />
       <div id="toast" role="status" aria-live="polite" className={(toast.message ? 'show ' : '') + (toast.type === 'err' ? 'err' : '')}>{toast.message}</div>
