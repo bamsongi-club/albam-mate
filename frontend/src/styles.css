@@ -83,6 +83,9 @@ header {
 .notification-menu { align-items: center; display: flex; position: relative; }
 /* 헤더의 채팅·알림·프로필 원형 아이콘 버튼이 공유하는 규격. */
 .nav-icon-btn { align-items: center; background: transparent; border: none; border-radius: 50%; color: var(--brown2); display: flex; height: 40px; justify-content: center; position: relative; width: 40px; }
+/* #gnb a의 텍스트 메뉴용 좌우 12px 패딩이 채팅 아이콘(<a>)에도 적용돼 40px 박스 안에서 아이콘이
+   좌우로만 눌려 있었다. 아이콘 버튼은 패딩 없이 40px 정사각형을 그대로 쓴다. */
+#gnb .nav-icon-btn { padding: 0; }
 .nav-icon-btn:hover, .nav-icon-btn.on { color: var(--brown); }
 .nav-icon-btn:active { background: var(--soft); color: var(--brown); }
 .notification-badge { align-items: center; background: var(--red); border: 2px solid var(--bg); border-radius: 999px; color: #fff; display: inline-flex; font-size: 9px; font-weight: 900; justify-content: center; line-height: 1; min-height: 18px; min-width: 18px; padding: 2px 4px; position: absolute; right: -7px; top: -7px; }

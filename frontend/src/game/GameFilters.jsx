@@ -247,6 +247,83 @@ function MechanismFilterGroup({ options, selected, onToggle }) {
   );
 }
 
+// 테마는 메커니즘과 달리 대표 목록을 서버가 정해 주지 않는다. 가나다순으로 앞쪽 일부를 대표로 보여 주고
+// 나머지는 메커니즘과 같은 방식(검색 가능한 접힌 목록)으로 둔다.
+const THEME_FEATURED_COUNT = 10;
+
+function sortedThemeOptions(options) {
+  return [...options].sort((left, right) => left.label.localeCompare(right.label, 'ko'));
+}
+
+function featuredThemeOptions(options) {
+  return sortedThemeOptions(options).slice(0, THEME_FEATURED_COUNT);
+}
+
+function advancedThemeOptions(options, keyword) {
+  const needle = keyword.trim().toLowerCase();
+  return sortedThemeOptions(options)
+    .slice(THEME_FEATURED_COUNT)
+    .filter((option) => !needle || option.label.toLowerCase().includes(needle));
+}
+
+// 대표 10개는 항상 보여 주고 나머지는 접힌 목록에 둔다. 모바일에서는 메커니즘처럼 전체 화면으로 열린다.
+function ThemeFilterGroup({ options, selected, onToggle, children }) {
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const [keyword, setKeyword] = useState('');
+  const moreButtonRef = useRef(null);
+  // 목록을 닫으면 트리거와 고급 목록이 조건부로 사라진다. 포커스를 되돌려 주지 않으면 키보드
+  // 사용자의 포커스가 body로 튀어 다음 조작 위치를 잃는다.
+  const closeAdvanced = () => {
+    setIsAdvancedOpen(false);
+    moreButtonRef.current?.focus();
+  };
+  return (
+    <fieldset className="filter-group filter-group-wide mechanism-group">
+      <legend>테마</legend>
+      <div className="mechanism-featured-list">
+        {featuredThemeOptions(options).map((option) => (
+          <label className="filter-option" key={option.value}>
+            <input type="checkbox" checked={selected.includes(option.value)} onChange={(event) => onToggle(option.value, event.target.checked)} />
+            {option.label}
+          </label>
+        ))}
+      </div>
+      <button
+        ref={moreButtonRef}
+        type="button"
+        className="mechanism-more"
+        aria-expanded={isAdvancedOpen}
+        aria-controls="theme-advanced"
+        onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
+      >
+        테마 더 보기
+      </button>
+      {isAdvancedOpen && (
+        <div className="mechanism-advanced" id="theme-advanced">
+          <input
+            type="search"
+            className="mechanism-search"
+            aria-label="테마 검색"
+            placeholder="테마 이름으로 찾기"
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+          />
+          <div className="mechanism-advanced-list">
+            {advancedThemeOptions(options, keyword).map((option) => (
+              <label className="filter-option" key={option.value}>
+                <input type="checkbox" checked={selected.includes(option.value)} onChange={(event) => onToggle(option.value, event.target.checked)} />
+                {option.label}
+              </label>
+            ))}
+          </div>
+          <button type="button" className="filter-close" onClick={closeAdvanced}>테마 목록 닫기</button>
+        </div>
+      )}
+      {children}
+    </fieldset>
+  );
+}
+
 export function GameFilters({ filters, onChange, searchSlot }) {
   const mechanismOptions = useGameMechanisms();
   const categoryOptions = useGameOptions(api.getGameCategories);
@@ -324,8 +401,8 @@ export function GameFilters({ filters, onChange, searchSlot }) {
           onAdd={(value) => update({ bestPlayerCount: [...filters.bestPlayerCount, value] })} />
       </FilterMultiCheckGroup>
       {/* 테마를 하나만 고르면 포함 방식이 결과를 바꾸지 않으므로 둘 이상일 때만 보여 준다. */}
-      <FilterMultiCheckGroup wide label="테마" values={filters.theme} onToggle={toggleIn('theme')}
-        options={themeOptions.map((option) => ({ value: option.code, label: option.nameKo }))}>
+      <ThemeFilterGroup options={themeOptions.map((option) => ({ value: option.code, label: option.nameKo }))}
+        selected={filters.theme} onToggle={toggleIn('theme')}>
         {filters.theme.length > 1 && (
           <>
             <hr className="filter-group-divider" />
@@ -342,7 +419,7 @@ export function GameFilters({ filters, onChange, searchSlot }) {
             ))}
           </>
         )}
-      </FilterMultiCheckGroup>
+      </ThemeFilterGroup>
       <MechanismFilterGroup options={mechanismOptions} selected={filters.mechanism} onToggle={toggleMechanism} />
     </FilterPanel>
   );

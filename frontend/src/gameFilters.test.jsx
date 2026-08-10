@@ -573,6 +573,134 @@ describe('T5 메커니즘 고급 목록', () => {
   });
 });
 
+// 대표 10개·고급 목록 정렬을 함께 확인하려고 API 응답 순서는 가나다순이 아니게 둔다.
+const THEME_OPTIONS = [
+  { code: 'ZOMBIES', nameKo: '좀비', nameEn: 'Zombies' },
+  { code: 'FANTASY', nameKo: '판타지', nameEn: 'Fantasy' },
+  { code: 'HORROR', nameKo: '공포', nameEn: 'Horror' },
+  { code: 'ANCIENT', nameKo: '고대', nameEn: 'Ancient' },
+  { code: 'ECONOMIC', nameKo: '경제', nameEn: 'Economic' },
+  { code: 'MYTHOLOGY', nameKo: '신화', nameEn: 'Mythology' },
+  { code: 'TRAVEL', nameKo: '여행', nameEn: 'Travel' },
+  { code: 'HUMOR', nameKo: '유머', nameEn: 'Humor' },
+  { code: 'MUSIC', nameKo: '음악', nameEn: 'Music' },
+  { code: 'MEDIEVAL', nameKo: '중세', nameEn: 'Medieval' },
+  // 가나다순 11번째 이후만 고급 목록에 남는다.
+  { code: 'PIRATES', nameKo: '해적', nameEn: 'Pirates' },
+  { code: 'RACING', nameKo: '레이싱', nameEn: 'Racing' }
+];
+// 가나다순 대표 10개: 경제 고대 공포 레이싱 신화 여행 유머 음악 좀비 중세 (판타지·해적은 고급 목록)
+const FEATURED_THEME_NAMES = ['경제', '고대', '공포', '레이싱', '신화', '여행', '유머', '음악', '좀비', '중세'];
+
+function themeGroup() {
+  return screen.getByRole('group', { name: '테마' });
+}
+
+function shownThemeNames() {
+  return within(themeGroup())
+    .getAllByRole('checkbox')
+    .map((input) => input.closest('label').textContent.trim());
+}
+
+describe('T7 테마 대표·고급 목록', () => {
+  beforeEach(() => {
+    getGameThemes.mockResolvedValue(THEME_OPTIONS);
+  });
+
+  it('가나다순 대표 10개만 상시 노출하고 나머지는 접어 둔다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+
+    expect(shownThemeNames()).toEqual(FEATURED_THEME_NAMES);
+    expect(screen.getByRole('button', { name: '테마 더 보기' }).getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByLabelText('해적')).toBeNull();
+    expect(screen.queryByLabelText('판타지')).toBeNull();
+  });
+
+  it('테마 더 보기를 열면 대표 10개 밖 항목을 가나다순으로 이어 보여 준다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+
+    fireEvent.click(screen.getByRole('button', { name: '테마 더 보기' }));
+
+    expect(shownThemeNames()).toEqual([...FEATURED_THEME_NAMES, '판타지', '해적']);
+  });
+
+  it('고급 목록 검색은 이름 일부로 걸러낸다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    fireEvent.click(screen.getByRole('button', { name: '테마 더 보기' }));
+
+    fireEvent.change(screen.getByLabelText('테마 검색'), { target: { value: '레이' } });
+
+    expect(screen.getByLabelText('레이싱')).toBeTruthy();
+    expect(screen.queryByLabelText('해적')).toBeNull();
+  });
+
+  it('테마 목록 닫기를 누르면 목록을 접고 더 보기 버튼으로 포커스를 되돌린다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    fireEvent.click(screen.getByRole('button', { name: '테마 더 보기' }));
+
+    fireEvent.click(screen.getByText('테마 목록 닫기'));
+
+    const moreButton = screen.getByRole('button', { name: '테마 더 보기' });
+    expect(moreButton.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(moreButton);
+  });
+});
+
+describe('T8 테마 선택과 조회', () => {
+  beforeEach(() => {
+    getGameThemes.mockResolvedValue(THEME_OPTIONS);
+  });
+
+  it('대표 목록에서 선택하면 기다리지 않고 반복 theme 파라미터로 조회한다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    const callsBeforeToggle = getGames.mock.calls.length;
+
+    fireEvent.click(screen.getByLabelText('공포'));
+    expect(getGames.mock.calls.length).toBe(callsBeforeToggle + 1);
+    expect(lastQuery().theme).toEqual(['HORROR']);
+
+    fireEvent.click(screen.getByLabelText('경제'));
+    expect(lastQuery().theme).toEqual(['HORROR', 'ECONOMIC']);
+  });
+
+  it('고급 목록에서 검색해 고른 항목도 조회 조건에 반영한다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    fireEvent.click(screen.getByRole('button', { name: '테마 더 보기' }));
+    fireEvent.change(screen.getByLabelText('테마 검색'), { target: { value: '해적' } });
+
+    fireEvent.click(screen.getByLabelText('해적'));
+
+    expect(lastQuery().theme).toEqual(['PIRATES']);
+  });
+
+  it('테마를 둘 이상 고르면 모두 포함 선택이 조회에 반영된다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    fireEvent.click(screen.getByLabelText('공포'));
+    fireEvent.click(screen.getByLabelText('경제'));
+
+    fireEvent.click(screen.getByLabelText('모두 포함'));
+
+    expect(lastQuery().theme).toEqual(['HORROR', 'ECONOMIC']);
+    expect(lastQuery().themeMatch).toBe('ALL');
+  });
+
+  it('테마를 하나만 고르면 모두 포함 선택지를 보여 주지 않는다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+
+    fireEvent.click(screen.getByLabelText('공포'));
+
+    expect(screen.queryByLabelText('모두 포함')).toBeNull();
+  });
+});
+
 describe('T6 메커니즘 선택과 조회', () => {
   it('선택·해제하면 기다리지 않고 반복 mechanism 파라미터로 조회한다', async () => {
     await renderGamesView();
