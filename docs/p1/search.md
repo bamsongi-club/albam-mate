@@ -148,7 +148,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 | 조회 유효 상태 | [ADR-0055 ROOM 조회 유효 상태와 저장 상태 보정 책임 분리](../adr/room/0055-room-query-effective-status-and-persistence-correction.md) |
 | 성능 검증 | [FND-09 검색 성능과 인덱스 검증](foundation.md#fnd-09-검색-성능과-인덱스-검증) |
 | 현재 HTTP 경계 | `RoomController#listRooms`, `RoomListRequest`, `RoomQueryParameterAllowlistValidator`; 제공 조건은 `type`, `gameId`, `keyword`, `startsAtFrom`, `startsAtTo`, `minRemainingSeats`, `experienceLevels`, `rulemasterOnly`, `page`, `size` |
-| 현재 조회 경계 | `RoomListQueryService#findPage` → `RoomListReadService#findPublicRooms` → `RoomRepository`; 고정된 `requestTime`의 유효 상태와 모든 조건은 하나의 동적 조회에서 적용하고 정렬은 엔티티 필드 `startAt`, `id` 오름차순 고정 |
+| 현재 조회 경계 | `RoomListQueryService#findPage` → `RoomStatusCorrectionCoordinator#correctDueRooms` → `RoomListReadService#findPublicRooms` → `RoomRepository`; 보정 뒤 저장 상태와 모든 조건은 하나의 동적 조회에 적용하고 정렬은 엔티티 필드 `startAt`, `id` 오름차순 고정 |
 | 현재 저장 필드 | `Room.startAt`, `Room.capacity`, `Room.activeParticipantCount`, `Room.experienceLevel`, `Room.rulemasterLed` |
 
 ### 기능 규칙
@@ -166,7 +166,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 
 ### 권장 조회 구조
 
-- 현재 `requestTime` 고정 → 유효 상태를 적용한 공개 방·필터 조회 → 응답 조립 순서를 사용하고, 새 조건은 `RoomListReadService`와 `RoomRepository`까지 전달한다. `RoomListReadService`와 `RoomRepository` 밖이나 DTO 조립 뒤에서 필터를 판정하지 않는다.
+- ADR-0055·0056의 후속 #557 구현은 `requestTime` 고정 → 유효 상태를 적용한 공개 방·필터 조회 → 응답 조립 순서를 사용하고, 새 조건은 `RoomListReadService`와 `RoomRepository`까지 전달한다. `RoomListReadService`와 `RoomRepository` 밖이나 DTO 조립 뒤에서 필터를 판정하지 않는다.
 - 현재 `RoomListReadService#findPublicRooms`는 `keyword` 유무로 저장소 메서드를 나눈다. P1 조건을 조합마다 메서드로 늘리지 않고 하나의 동적 조회 경계로 모은다.
 - 날짜, 경험 수준, 룰마스터와 `Room.capacity - Room.activeParticipantCount` 조건은 페이지네이션 전 SQL 조건으로 적용한다. 서비스에서 페이지 결과를 다시 걸러내지 않는다.
 

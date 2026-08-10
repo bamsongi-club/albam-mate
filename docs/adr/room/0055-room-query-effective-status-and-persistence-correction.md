@@ -37,7 +37,7 @@ ADR-0012는 Scheduler 실행 지연 중에도 현재 시각에 맞는 ROOM 상�
 
 목록·내 모임 GET은 전역 `correctDueRooms(requestTime)`을 호출하지 않는다. 이 조회는 `rooms` 또는 `room_waitlists` DML, `RoomTerminalStateReached` 발행과 그 동기 부수효과, 전역 due backlog의 ROOM Entity 적재를 수행하지 않는다.
 
-상세·상태 의존 명령·대기·채팅 접근은 계속 대상 ROOM 한 건의 `correctRoom(roomId, requestTime)` 보정과 검증을 수행한다. Scheduler는 ADR-0036의 제한 후보와 ROOM별 독립 트랜잭션으로 저장 상태, 대기열 만료와 종료 이벤트를 최종 정리한다. 이 ADR은 Scheduler의 처리 경계, 명령의 재검증, ROOM 상태 열거형 또는 HTTP·JSON 계약을 변경하지 않는다.
+상세·상태 의존 명령·대기·채팅 접근은 계속 대상 ROOM 한 건의 `correctRoom(roomId, requestTime)` 보정과 검증을 수행한다. Scheduler는 ADR-0036의 제한 후보와 ROOM별 독립 트랜잭션으로 저장 상태, 대기열 만료와 종료 이벤트를 최종 정리한다. 이 ADR은 Scheduler의 처리 경계, 명령의 재검증, ROOM 상태 열거형, 엔드포인트 경로 또는 성공 응답 JSON 필드 구조를 변경하지 않는다. 목록·내 모임에서 전역 보정 충돌 오류를 더 이상 반환하지 않는 오류 계약은 이 결정에 따라 #557에서 구현·검증한다.
 
 ## 결과
 

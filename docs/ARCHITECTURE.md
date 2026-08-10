@@ -190,6 +190,8 @@ Service, ReadService, Executor와 Coordinator를 이름이나 클래스 수만 �
 
 #### 방 조회
 
+> 목록·내 모임의 아래 유효 상태·snapshot 경계는 [#557](https://github.com/bamsongi-club/albam-mate/issues/557)에서 생산 코드와 PostgreSQL 회귀로 반영할 승인된 후속 계약이다. 현재 구현·검증 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)을 따른다.
+
 방 조회는 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)의 조회 유효 상태·저장 상태 보정 책임과 [ADR-0056](adr/room/0056-postgresql-room-query-snapshot-without-global-pre-correction.md)의 snapshot 경계를 따른다.
 
 ```mermaid
