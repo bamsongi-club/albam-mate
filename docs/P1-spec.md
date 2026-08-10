@@ -432,7 +432,7 @@ P1 필수 구현은 다음 여덟 가지 흐름을 처음부터 끝까지 연결
 - `ROOM_STATUS_CORRECTION_PROGRESS` 단일 행은 순회 기준 시각, 마지막 시도 cursor, progress version과 실행 generation을 저장한다. 실행 주체는 잠금 획득 뒤 generation을 점유하고 모든 cursor 전진·회전을 기대 generation·version의 조건부 갱신으로 확정한다. 늦은 실행 주체의 갱신은 거절하고 이후 처리를 중단한다.
 - ROOM 처리 커밋 뒤 cursor 커밋 전 장애에서는 같은 ROOM을 다시 선별할 수 있다. cursor를 먼저 전진해 미처리 ROOM을 건너뛰지 않으며, 최신 상태 재판정과 멱등 전이로 at-least-once 재실행을 수렴시킨다.
 - ShedLock, 진행 상태, 후보 선별, 각 ROOM 처리와 cursor 갱신은 하나의 트랜잭션으로 묶지 않는다. 스케줄 잠금 임대가 만료되어 실행이 겹쳐도 각 ROOM은 최신 상태와 `Room.version`을 다시 확인하고 같은 결과로 수렴하며, 다중 인스턴스라는 이유로 Redis 분산 락을 도입하지 않는다.
-- API 요청 경계 상태 보정은 Scheduler 잠금·cursor를 사용하지 않고 [ADR-0012](adr/room/0012-room-request-boundary-state-reconciliation.md)의 현재 상태 계약을 유지한다.
+- 공개 목록·내 모임은 Scheduler 잠금·cursor를 사용하지 않고 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)의 고정된 `requestTime` 유효 상태를 조회하며 전역 저장 보정을 수행하지 않는다. 상세·상태 의존 명령·대기·채팅 접근의 대상 ROOM 보정은 Scheduler 잠금·cursor를 사용하지 않고 현재 상태 계약을 유지한다.
 - 현재 구현을 비교 기준선으로 남기고 제한 처리의 ID 수 후보를 같은 데이터·반복 조건에서 측정한다. 한 번당 ID 수와 반복·재시도·실행 주기의 운영 고정값은 측정 전에 임의로 정하지 않고 결과를 근거로 확정한다.
 - 제한된 ROOM별 처리에서 병목이 측정된 뒤에만 조건부 DB 직접 갱신 비교 여부를 사용자에게 확인한다. Quartz 클러스터는 동적 Trigger·Misfire·영속 Job 복구 요구가 생기기 전에는 도입하지 않는다.
 
