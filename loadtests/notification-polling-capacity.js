@@ -146,7 +146,7 @@ export default function () {
     // 세션에 처음 들어온 순간에는 모든 사용자가 목록 첫 페이지를 조회한다. 이후에는 알림함을 열어 둔
     // 비율만 계속 조회한다.
     const openPanelUsers = Math.ceil(POLLING_VUS * PANEL_OPEN_PERCENT / 100);
-    if (firstPoll || exec.vu.idInTest <= openPanelUsers) {
+    if (exec.vu.idInTest <= openPanelUsers) {
       recordPolling(
         listNotifications(client, 0, 10, { test_kind: 'capacity', phase }),
         'notification-list',

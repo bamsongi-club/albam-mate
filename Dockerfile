@@ -17,6 +17,9 @@ RUN --mount=type=cache,target=/root/.gradle \
 
 FROM eclipse-temurin:21-jre-alpine@sha256:3f08b13888f595cc49edabea7250ba69499ba25602b267da591720769400e08c
 
+ARG ALBAM_MATE_REVISION=unknown
+LABEL org.opencontainers.image.revision=$ALBAM_MATE_REVISION
+
 RUN apk add --upgrade --no-cache \
         'p11-kit>=0.26.2-r0' \
         'libexpat>=2.8.2-r0' \

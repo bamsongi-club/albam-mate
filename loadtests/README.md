@@ -39,8 +39,8 @@ ADR-0051은 성공 기준에서 "세션을 유지한 채 WebSocket을 열고 채
 | 인증 계약 | `auth-login-contract.js` | 단일 로그인 성공·실패 응답이 맞는가 | 없음 |
 | 인증 제한 계약 | `auth-rate-limit-contract.js` | IP·실패·XFF 제한이 맞는가 | 계약 불일치 0건 |
 | 알림 전달 계약 | `notification-delivery-contract.js` | 실제 참가·취소 Outbox가 유실·중복 없이 알림이 되는가 | 없음 |
-| **혼합 부하** | `mixed-load-capacity.js` | 기준선 배수를 올릴 때 **어느 역할이 먼저 무너지는가** | 없음 |
-| 인증 용량 | `auth-capacity.js` | 로그인 도착률의 무릎이 어디인가 (단독 진단) | 없음 |
+| **알림 혼합 부하** | `mixed-load-capacity.js` | 기준선 배수를 올릴 때 **어느 역할이 먼저 무너지는가** | 측정 구간 API 오류율·p95·drop |
+| 인증 용량 | `auth-capacity.js` | 로그인 도착률의 무릎이 어디인가 | 오류·1초 거절 1% 미만, p95 1초 이하, drop 0 |
 | 알림 polling 용량 | `notification-polling-capacity.js` | 읽기 경로만 격리했을 때 한계 (단독 진단) | 없음 |
 | 알림 fan-out 용량 | `notification-fanout-capacity.js` | 이벤트당·수신자당 relay 처리 비용 (외삽용 단가) | 없음 |
 
@@ -56,7 +56,7 @@ ADR-0051은 성공 기준에서 "세션을 유지한 채 WebSocket을 열고 채
 
 `fixtures/notification-backlog.sql`은 각 fixture 사용자에게 보존 기간 안쪽 89일에 고르게 퍼진 알림을 심는다. `users.sql` 다음에 적용하며 psql 변수 `run_id`, `user_count`, `room_count`, `notifications_per_user`, `unread_percent`가 필요하다.
 
-AWS 실행기는 `mixed-load-capacity`와 `notification-polling-capacity`에서 이 fixture를 자동으로 적용한다. 기본값은 방 10개, 사용자당 알림 300건, 미확인 5%이며 필요하면 아래 환경 변수로 조정한다. 적용 여부와 실제 값은 `manifest.json`의 `notificationBacklog`에 남는다.
+AWS 실행기는 `mixed-load-capacity`와 `notification-polling-capacity`에서 이 fixture를 자동으로 적용한다. 공식 campaign은 사용자당 알림 300건·미확인 5%를 모든 배수에서 고정한다. 단일 진단 Run은 아래 환경 변수를 지원하며 적용 여부와 실제 값은 `manifest.json`의 `notificationBacklog`에 남는다.
 
 | 환경 변수 | 기본값 | 범위 |
 | --- | --- | --- |
@@ -68,7 +68,7 @@ AWS 실행기는 `mixed-load-capacity`와 `notification-polling-capacity`에서 
 
 미확인 개수 조회는 `db/vendor-migration/postgresql/V5__create_p1_notification_partial_indexes.sql`의 부분 인덱스 `idx_notifications_recipient_unread (recipient_user_id, id) WHERE read_at IS NULL`를 타므로 비용이 누적 전체가 아니라 미확인 수에 비례한다. 그래서 이 fixture는 `unread_percent`로 **미확인 비율**을 조절하는 것이 핵심이다. 반면 목록 조회는 `(recipient_user_id, created_at DESC, id DESC)`로 페이지를 넘기므로 누적 전체 깊이가 그대로 비용이 된다. 두 경로가 서로 다른 축에 반응하므로 `notifications_per_user`와 `unread_percent`를 함께 조절한다.
 
-`notifications.room_id`가 `rooms` 외래 키이므로 이 fixture는 참조용 방 `room_count`개도 함께 만든다. 이 방들은 방 목록 조회 부하에도 실제 행으로 쓰인다.
+`notifications.room_id`가 `rooms` 외래 키이므로 이 fixture는 참조용 방 `room_count`개도 함께 만든다. 혼합 시나리오는 이 방을 조회하지 않으며, 방 목록 성능은 이번 결론에서 제외한다.
 
 | Run | 백로그 적용 |
 | --- | --- |
@@ -128,7 +128,7 @@ docker compose --env-file .env -f compose.local.yml exec -T postgres \
 | 대상 | 로컬 실행 조건 |
 | --- | --- |
 | 계약 3종 | 그대로 실행한다. `login-ip` case는 31회 로그인으로 제한을 일부러 건드리므로 Run 사이에 Redis를 비운다 |
-| `mixed-load-capacity` | `MIXED_LOAD_SMOKE=1`로 실행한다. 세션 5개·이벤트 6건/분으로 고정되고 제한 상향 없이 돈다. 모든 VU가 미확인 개수·알림 목록·방 목록을 모두 조회해 경로가 빠지지 않는다 |
+| `mixed-load-capacity` | `MIXED_LOAD_SMOKE=1`로 실행한다. 세션 5개·알림 이벤트 6건/분으로 고정되고 제한 상향 없이 돈다. 모든 VU가 미확인 개수와 알림 목록을 조회한다 |
 | `notification-polling-capacity`, `notification-fanout-capacity` | 기본값의 로그인 수가 제한 안에 들어가므로 아래 제한 상향만 적용하면 그대로 돈다 |
 | `auth-capacity` | 로그인 수가 제한을 크게 넘으므로 반드시 제한 상향이 필요하다 |
 
@@ -166,35 +166,34 @@ NOTIFICATION_CONTRACT_EVENT_COUNT=10 ./run.sh loadtest notification-delivery-con
 
 ## 용량 측정 공통 가드
 
-용량 측정은 로그인 IP 제한 30회/10분을 넘거나 반복 Run에서 이전 버킷의 영향을 받을 수 있다. 아직 저장소에 성능 전용 제한 상향 프로파일을 구현하지 않았으므로 세 용량 스크립트의 기본 실행은 모두 차단된다.
+용량 측정은 로그인 IP 제한 30회/10분을 넘거나 반복 Run에서 이전 버킷의 영향을 받을 수 있다. 실행기는 App 두 대에 고정 성능 프로파일을 배포하고 실제 컨테이너 환경이 아래 값과 일치하는지 검사하며, 검사 전에는 용량 Run을 시작하지 않는다.
 
 팀이 다음을 결정하고 실제 배포 설정을 확인한 뒤에만 명시적으로 승인 문자열을 전달한다.
 
-- 로그인 IP·로그인 실패 제한은 측정률보다 충분히 높인다.
-- bcrypt `hash-slots`, 인스턴스 수와 bcrypt cost는 운영 후보값 그대로 유지한다.
-- 적용한 설정값을 Run manifest와 측정 보고서에 남긴다.
+- 로그인·로그인 실패 제한 `20000`, 회원가입 제한 `5`
+- bcrypt cost `10`, 전역 hash slots `4`
+- relay poll `5초`, batch `50`, JVM `-Xmx256m`, DB pool `8`
 
 ```bash
-CAPACITY_PROFILE_ACK=rate-limits-raised-v1 ... ./run.sh loadtest <capacity-scenario>
+CAPACITY_PROFILE_ACK=auth-notification-perf-v1 ... ./run.sh loadtest <capacity-scenario>
 ```
 
-이 문자열은 서버 설정을 자동 검증하지 않는다. 사람이 배포 설정을 확인했다는 실행 가드이며, 제한 상향 프로파일이 확정되기 전에는 사용하면 안 된다.
+이 문자열만으로는 실행할 수 없다. 인프라 실행기가 두 App 컨테이너의 실효 설정을 검증해 같은 결과 bundle에 남겨야 한다.
 
-## 혼합 부하 (1차 측정)
+## 알림 혼합 부하 (1차 측정)
 
-실제 사용 흐름을 한 Run에 함께 태운다. 동시 온라인 세션이 `unread-count`를 주기 조회하고, 일부는 알림함 목록과 방 목록도 조회하며, 별도 도착률로 참가·취소 이벤트가 유입된다. `MIXED_LOAD_MULTIPLIER`만 올려 같은 흐름을 확대한다.
+인증 용량과 분리해 알림 사용 흐름만 한 Run에 태운다. 동시 온라인 세션은 10초마다 `unread-count`를 조회하고, 고정 10%는 알림 목록도 조회한다. 참가·취소 API는 알림 이벤트의 자극원일 뿐 방·참가 도메인의 성능 결론에는 포함하지 않는다.
 
 ```bash
-CAPACITY_PROFILE_ACK=rate-limits-raised-v1 \
+CAPACITY_PROFILE_ACK=auth-notification-perf-v1 \
 MIXED_LOAD_MULTIPLIER=1 \
-MIXED_LOAD_DURATION_SECONDS=300 \
 LOAD_TEST_USER_COUNT=640 \
 ./run.sh loadtest mixed-load-capacity
 ```
 
-`MIXED_LOAD_MULTIPLIER=1|2|5|10`을 Run ID를 나눠 순서대로 올린다. 1×는 온라인 세션 300명과 알림 이벤트 25건/분이고, 배수를 곱한 값이 그대로 부하가 된다. 필요한 fixture 사용자 수는 `(온라인 세션 + MIXED_EVENT_MAX_VUS) × 2`이며 부족하면 스크립트가 시작 전에 실패한다.
+공식 campaign은 `1×→2×→5×→10×` 순서로 진행하고 최초 실패 뒤 상승을 멈춘다. 정상·실패 사이의 정수 배수를 추가로 측정하며, 1×부터 실패했을 때만 `MIXED_HALF_SCALE_ACK=one-x-failed`와 함께 `0.5×`를 사용한다. 1×는 온라인 세션 300명과 알림 이벤트 25건/분이고 배수를 곱한 값이 그대로 부하가 된다. 필요한 fixture 사용자 수는 `(온라인 세션 + MIXED_EVENT_MAX_VUS) × 2`이며 부족하면 시작 전에 실패한다.
 
-`MIXED_PANEL_OPEN_PERCENT`(기본 10)는 알림함을 열어 둔 비율, `MIXED_ROOM_BROWSE_PERCENT`(기본 20)는 방 목록을 함께 조회하는 비율이다. 두 역할은 VU 번호로 결정론적으로 나뉘어 Run을 재현할 수 있다.
+공식 Run은 워밍업 2분, 측정 10분, 이벤트 유입 중단 후 수렴 관찰 3분이다. `phase=measurement` 지표만 성능 판정에 사용하고 워밍업·관찰 지표는 진단 근거로 보존한다. 알림함 사용자 10%는 첫 polling 주기부터 VU 번호로 결정론적으로 고정된다.
 
 참가 이벤트 VU는 각자 주최자·참가자 두 사용자와 정원 1인 전용 방을 만들고, 한 iteration에서 참가와 취소를 한 번씩 수행한다. VU끼리 정원을 다투지 않으며 iteration당 알림 이벤트 두 건이 생긴다.
 
@@ -208,7 +207,7 @@ LOAD_TEST_USER_COUNT=640 \
 | relay | `claimedCount`, `durationMs`, `oldestProcessableAgeMs` |
 | k6 | 요청 오류율(`mixed_request_errors`), 조회별 p50·p95·p99, `dropped_iterations` |
 
-`mixed_request_errors`에는 임계가 없다. 오류가 나기 시작한 배수와 그때 먼저 포화된 자원이 찾으려는 결과다. 유일한 실패 임계는 `mixed_setup_failures`로, 세션이나 방 fixture를 만들지 못해 **측정 자체가 성립하지 않은 Run**만 걸러 낸다.
+측정 구간의 대상 API별 오류율 1% 미만, p95 1초 이하와 `dropped_iterations=0`을 요구한다. 1× 대비 p95 2배 조건, 서버 전달 지연, backlog 수렴과 필수 관측 누락은 campaign 판정기가 결과 bundle을 함께 읽어 판정한다. 세션·fixture 준비 실패는 성능 실패가 아니라 Run 무효다.
 
 k6 호스트 자원도 확인 대상이다. 10×는 VU 3천 개를 띄우므로, 부하 발생기가 먼저 포화하면 측정값이 아니라 발생기 한계를 기록하게 된다.
 
@@ -216,13 +215,13 @@ k6 호스트 자원도 확인 대상이다. 10×는 VU 3천 개를 띄우므로,
 
 혼합 부하에서 인증 경로가 먼저 무너졌을 때 원인을 좁히는 용도다. 실제 사용에서 로그인은 세션당 한 번뿐이므로 이 Run의 도착률을 지배 부하로 해석하지 않는다.
 
-한 Run은 하나의 고정 도착률만 측정한다. Run ID를 나눠 `AUTH_CAPACITY_RATE`를 단계적으로 올려 곡선을 만든다.
+한 Run은 하나의 고정 도착률만 측정한다. 탐색은 정상 로그인 `1→2→4→8→16 req/s`를 3분씩 올리다가 최초 실패에서 멈추고, 정상·실패 사이를 정수 단위로 좁힌다. 확정한 정상 경계와 실패 경계는 15분씩 각각 3회 반복한다. 정상 경계에서 `wrong`과 `missing`도 3회씩 실행해 실패 응답 비용의 대칭성을 비교하되 timing-attack 안전성의 정밀 증명으로 표현하지 않는다.
 
 ```bash
-CAPACITY_PROFILE_ACK=rate-limits-raised-v1 \
+CAPACITY_PROFILE_ACK=auth-notification-perf-v1 \
 AUTH_CAPACITY_CASE=correct \
 AUTH_CAPACITY_RATE=4 \
-AUTH_CAPACITY_DURATION_SECONDS=120 \
+AUTH_CAPACITY_DURATION_SECONDS=180 \
 AUTH_CAPACITY_PRE_ALLOCATED_VUS=20 \
 AUTH_CAPACITY_MAX_VUS=100 \
 LOAD_TEST_USER_COUNT=100 \
@@ -236,8 +235,8 @@ LOAD_TEST_USER_COUNT=100 \
 응답은 세 갈래로 분류한다.
 
 - 완료 응답과 `Retry-After: 1`인 429는 측정 대상이다. 후자는 `auth_capacity_one_second_rejections`에 **원인을 단정하지 않은 채** 쌓인다.
-- `Retry-After`가 1보다 큰 429는 인증 요청 제한이 상향되지 않았다는 뜻이다. `auth_capacity_profile_violations`가 유일한 실패 임계이며, 이 Run의 측정값은 버린다.
-- 그 밖의 응답은 `auth_capacity_unexpected_responses`에 status별로 기록만 한다. 무릎을 넘긴 구간의 timeout·5xx는 찾으려는 결과이지 Run 실패가 아니다.
+- `Retry-After`가 1보다 큰 429는 인증 요청 제한이 상향되지 않았다는 뜻이다. `auth_capacity_profile_violations`가 발생한 Run은 무효다.
+- 1초 429와 그 밖의 예상 밖 응답이 각각 1% 이상이거나 완료 응답 p95가 1초를 넘거나 `dropped_iterations`가 발생하면 성능 실패다. 이 경계의 앞뒤를 campaign이 좁힌다.
 
 슬롯 거절과 이동창 제한은 status도 응답 코드도 같고 `Retry-After`만 다르다. 슬롯 거절은 항상 1초이고 이동창 제한은 남은 창을 올림한 값이라, **1보다 큰 값은 제한 미상향의 확실한 증거**다. 반대로 1초는 창의 마지막 1초에서 이동창 제한도 낼 수 있어 **응답만으로는 원인을 구분할 수 없다**. 서버가 원인을 구분해 주기 전까지 스크립트는 이를 "1초 거절"로만 기록하며, 지표 이름도 슬롯을 단정하지 않는다.
 
@@ -257,7 +256,7 @@ LOAD_TEST_USER_COUNT=100 \
 로그인한 모든 VU가 `unread-count`를 주기 조회하고, `NOTIFICATION_PANEL_OPEN_PERCENT` 비율의 VU만 목록 첫 페이지도 조회한다. 이는 보이는 로그인 문서에서 미확인 수를 10초마다, 열린 알림함에서는 목록도 함께 조회하는 제품 계약을 반영한다.
 
 ```bash
-CAPACITY_PROFILE_ACK=rate-limits-raised-v1 \
+CAPACITY_PROFILE_ACK=auth-notification-perf-v1 \
 NOTIFICATION_POLLING_VUS=100 \
 NOTIFICATION_PANEL_OPEN_PERCENT=10 \
 NOTIFICATION_POLLING_INTERVAL_SECONDS=10 \
@@ -279,14 +278,14 @@ VU마다 서로 다른 사용자와 Redis 세션을 사용한다. unread-count·
 실제 API로 방과 참가 관계를 만든다. 준비 과정의 참가 알림 backlog가 비워진 뒤 주최자가 방들을 취소해, 취소 이벤트 하나가 활성 참가자 N명에게 전달되는 fan-out을 측정한다.
 
 ```bash
-CAPACITY_PROFILE_ACK=rate-limits-raised-v1 \
+CAPACITY_PROFILE_ACK=auth-notification-perf-v1 \
 NOTIFICATION_FANOUT_RECIPIENTS=5 \
-NOTIFICATION_FANOUT_EVENT_COUNT=10 \
+NOTIFICATION_FANOUT_EVENT_COUNT=100 \
 LOAD_TEST_USER_COUNT=12 \
 ./run.sh loadtest notification-fanout-capacity
 ```
 
-`NOTIFICATION_FANOUT_RECIPIENTS=1..10`, `NOTIFICATION_FANOUT_EVENT_COUNT=1..100`을 지원한다. `fanout_delivery_observed_delay`는 사용자 목록에서 관찰한 지연이고, 서버 정본은 App 로그의 `deliveryDelayMs`, `recipientCount`, `oldestProcessableAgeMs`다.
+스크립트는 `NOTIFICATION_FANOUT_RECIPIENTS=1..10`, `NOTIFICATION_FANOUT_EVENT_COUNT=1..100`을 지원하지만 공식 campaign은 수신자 `1·5·10명 × 취소 이벤트 100건 × 3회`로 고정한다. `fanout_delivery_observed_delay`는 사용자 목록에서 관찰한 지연이고, 서버 정본은 App 로그의 `deliveryDelayMs`, `recipientCount`, `oldestProcessableAgeMs`다.
 
 한 VU가 수신자를 차례로 조회하므로 뒤에 조회하는 수신자일수록 관찰 지연에 폴링 순서만큼의 값이 더 붙는다. 라운드마다 시작 수신자를 옮겨 이 편향을 특정 수신자에 고정하지 않고 흩는다. 따라서 `fanout_delivery_observed_delay`는 전체 분포로만 읽고, `fanout_recipient` 태그는 편향이 남았는지 확인하는 용도다. 수신자 사이 지연 비교는 App 로그로 판정한다.
 
@@ -295,8 +294,9 @@ fan-out 용량 Run에는 고정 p95 성공 임계가 없다. 입력 이벤트 �
 ## 결과 판정
 
 - 계약 Run: 계약 불일치 0건이어야 한다.
-- 용량 Run: 입력 조건별 곡선을 먼저 수집한다. 첫 측정에서 임의 p95를 합격선으로 고정하지 않는다.
-- 혼합 부하: 배수를 올리며 **가장 먼저 무너진 역할과 그 배수**를 결론으로 남긴다. ADR-0051에 따라 해당 역할만 한 단계 확장하고 같은 시나리오를 재실행한다.
-- 알림 전달 지연은 최소 100개 유효 표본이 있을 때만 p95를 비교한다.
+- Run 무효: 설정 불일치, fixture·세션 준비 실패, 필수 지표 누락, 부하 발생기 지속 포화 또는 공식 반복의 역할별 시작 CPU credit 차이 5 초과다.
+- 성능 실패: 대상 API 오류율 1% 이상, 측정 구간 p95 1초 초과 또는 1× 대비 2배 이상, `dropped_iterations` 발생, 100개 이상 서버 표본의 알림 전달 p95 30초 초과, `oldestProcessableAgeMs` 60초 초과 후 관찰 구간 미수렴 중 하나다.
+- 알림 혼합 부하는 배수를 올리며 최초 실패에서 멈추고 정상·실패 사이를 정수로 좁힌다. 유효한 결과만 경계 계산에 사용한다.
+- 알림 전달 지연은 최소 100개 유효한 서버 표본이 있을 때만 p95를 비교한다.
 - 모든 Run은 release SHA, 이미지 digest, fixture 사용자 수와 시나리오 환경 변수가 담긴 `manifest.json` 및 App1·App2 로그를 함께 보관한다.
 - 배수별 결과가 모이면 ADR-0030의 broker 대안 판단 근거와 ADR-0051의 확장 대상을 각각 정리한다. 부하로 답할 수 있는 것은 용량뿐이며, 소비자 증식 같은 구조 변화는 별도 판단이다.

@@ -10,7 +10,6 @@ import {
   integerEnv,
   joinRoom,
   listNotifications,
-  listRooms,
   loginFixture,
   requireCapacityProfile,
   responseCode,
@@ -37,18 +36,24 @@ const BASELINE_EVENTS_PER_MINUTE = 25;
 // bcrypt 슬롯은 대기 없이 거절하므로 시작 시점의 로그인 몰림은 다음 주기에 다시 시도해 해소한다.
 const LOGIN_MAX_ATTEMPTS = 5;
 
-const MULTIPLIER = integerEnv('MIXED_LOAD_MULTIPLIER', 1, 1, 10);
-const DURATION_SECONDS = integerEnv('MIXED_LOAD_DURATION_SECONDS', SMOKE ? 60 : 300, 60, 3600);
-const POLLING_INTERVAL_SECONDS = integerEnv('MIXED_POLLING_INTERVAL_SECONDS', 10, 1, 60);
-// 스모크는 VU가 적어 비율로 나누면 조회 경로 일부가 아예 실행되지 않는다. 모든 VU가 모든 경로를 타게 해
-// 동작 확인의 목적을 지킨다.
-const PANEL_OPEN_PERCENT = SMOKE ? 100 : integerEnv('MIXED_PANEL_OPEN_PERCENT', 10, 0, 100);
-const ROOM_BROWSE_PERCENT = SMOKE ? 100 : integerEnv('MIXED_ROOM_BROWSE_PERCENT', 20, 0, 100);
+const MULTIPLIER = capacityMultiplier();
+const POLLING_INTERVAL_SECONDS = 10;
+// 공식 Run은 조건 비교가 목적이므로 구간과 사용자 행동 비율을 환경 변수로 바꾸지 않는다.
+const WARMUP_SECONDS = SMOKE ? 0 : 120;
+const MEASUREMENT_SECONDS = SMOKE ? 60 : 600;
+const OBSERVATION_SECONDS = SMOKE ? 0 : 180;
+const ACTIVE_LOAD_SECONDS = WARMUP_SECONDS + MEASUREMENT_SECONDS;
+const TOTAL_RUN_SECONDS = ACTIVE_LOAD_SECONDS + OBSERVATION_SECONDS;
+// 스모크는 VU가 적어 10%로 나누면 목록 조회가 아예 실행되지 않을 수 있어 모든 VU가 두 알림 경로를 탄다.
+const PANEL_OPEN_PERCENT = SMOKE ? 100 : 10;
 const EVENT_MAX_VUS = SMOKE ? SMOKE_EVENT_MAX_VUS : integerEnv('MIXED_EVENT_MAX_VUS', 20, 1, 200);
 const FIXTURE_USER_COUNT = integerEnv('LOAD_TEST_USER_COUNT', SMOKE ? 20 : 1000, 2, 20000);
 
 const ONLINE_SESSIONS = SMOKE ? SMOKE_ONLINE_SESSIONS : BASELINE_ONLINE_SESSIONS * MULTIPLIER;
-const EVENTS_PER_MINUTE = SMOKE ? SMOKE_EVENTS_PER_MINUTE : BASELINE_EVENTS_PER_MINUTE * MULTIPLIER;
+// 한 iteration이 참가·취소 알림 이벤트를 두 건 만든다. k6 arrival-rate의 rate는 정수여야 하므로
+// timeUnit을 조절해 0.5×를 포함한 목표 알림 이벤트 유입률을 정확히 맞춘다.
+const EVENT_ITERATION_RATE = SMOKE ? SMOKE_EVENTS_PER_MINUTE : BASELINE_EVENTS_PER_MINUTE * Math.max(1, MULTIPLIER);
+const EVENT_TIME_UNIT = SMOKE ? '2m' : MULTIPLIER === 0.5 ? '4m' : '2m';
 const RUN_KIND = SMOKE ? 'smoke' : 'capacity';
 
 if (SMOKE) {
@@ -60,49 +65,46 @@ if (SMOKE) {
 const VU_ID_SPACE = ONLINE_SESSIONS + EVENT_MAX_VUS;
 const REQUIRED_USER_COUNT = VU_ID_SPACE * 2;
 
-// 두 비율은 VU 번호 구간의 앞뒤를 나눠 쓰므로 합이 100을 넘으면 구간이 겹친다.
-if (!SMOKE && PANEL_OPEN_PERCENT + ROOM_BROWSE_PERCENT > 100) {
-  throw new Error('MIXED_PANEL_OPEN_PERCENT와 MIXED_ROOM_BROWSE_PERCENT의 합은 100 이하여야 합니다.');
-}
 if (FIXTURE_USER_COUNT < REQUIRED_USER_COUNT) {
   throw new Error(
     `LOAD_TEST_USER_COUNT(${FIXTURE_USER_COUNT})는 ${MULTIPLIER}× 부하에 필요한 ${REQUIRED_USER_COUNT} 이상이어야 합니다.`,
   );
 }
-// stagger는 마지막 VU를 최대 한 주기 뒤까지 미루고, 그 뒤에 로그인 재시도 backoff가 더 붙는다. Run이 짧으면
-// 일부 VU가 세션을 확정하기도 전에 끝나 성공도 실패도 남기지 않으므로, 남은 VU 표본만으로 임계가 통과한다.
-if (DURATION_SECONDS < POLLING_INTERVAL_SECONDS * 2) {
-  throw new Error(
-    `MIXED_LOAD_DURATION_SECONDS(${DURATION_SECONDS})는 polling 주기(${POLLING_INTERVAL_SECONDS}초)의 2배 이상이어야 합니다.`,
-  );
-}
-
 export const options = {
   scenarios: {
     browsing: {
       executor: 'constant-vus',
       exec: 'browsingSession',
       vus: ONLINE_SESSIONS,
-      duration: `${DURATION_SECONDS}s`,
+      duration: `${TOTAL_RUN_SECONDS}s`,
       gracefulStop: '30s',
     },
     participation: {
       executor: 'constant-arrival-rate',
       exec: 'participationEvent',
-      rate: EVENTS_PER_MINUTE,
-      timeUnit: '1m',
-      duration: `${DURATION_SECONDS}s`,
+      rate: EVENT_ITERATION_RATE,
+      timeUnit: EVENT_TIME_UNIT,
+      duration: `${ACTIVE_LOAD_SECONDS}s`,
       preAllocatedVUs: Math.min(EVENT_MAX_VUS, 5),
       maxVUs: EVENT_MAX_VUS,
       gracefulStop: '30s',
     },
   },
-  // 부하를 견디는지는 임계로 판정하지 않는다. 측정을 시작조차 못 한 Run만 실패시킨다.
-  // 실패율만 보면 세션을 확정조차 못 한 VU가 분모에서 빠지므로, 모든 browsing VU가 결론을 남겼는지
-  // 함께 요구해 실제로 설정한 만큼의 세션으로 측정했음을 보장한다.
+  // 측정 구간의 작업별 오류율·p95와 이벤트 유실을 성능 임계로 판정한다. 실패율만 보면 세션을 확정조차
+  // 못 한 VU가 분모에서 빠지므로, 모든 browsing VU가 결론을 남겼는지도 함께 요구해 실제로 설정한 만큼의
+  // 세션으로 측정했음을 보장한다.
   thresholds: {
     mixed_setup_failures: ['rate==0'],
     mixed_resolved_browsing_vus: [`count==${ONLINE_SESSIONS}`],
+    'mixed_request_errors{phase:measurement,operation:unread-count}': ['rate<0.01'],
+    'mixed_request_errors{phase:measurement,operation:notification-list}': ['rate<0.01'],
+    'mixed_request_errors{phase:measurement,operation:room-join}': ['rate<0.01'],
+    'mixed_request_errors{phase:measurement,operation:room-cancel}': ['rate<0.01'],
+    'mixed_unread_count_duration{phase:measurement}': ['p(95)<=1000'],
+    'mixed_notification_list_duration{phase:measurement}': ['p(95)<=1000'],
+    'mixed_participation_request_duration{phase:measurement,operation:room-join}': ['p(95)<=1000'],
+    'mixed_participation_request_duration{phase:measurement,operation:room-cancel}': ['p(95)<=1000'],
+    'dropped_iterations{scenario:participation}': ['count==0'],
   },
   summaryTrendStats: ['min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
 };
@@ -113,17 +115,15 @@ const loginRetries = new Counter('mixed_login_retries');
 const requestErrors = new Rate('mixed_request_errors');
 const unreadDuration = new Trend('mixed_unread_count_duration', true);
 const notificationListDuration = new Trend('mixed_notification_list_duration', true);
-const roomListDuration = new Trend('mixed_room_list_duration', true);
 const participationEvents = new Counter('mixed_participation_events');
 const participationDuration = new Trend('mixed_participation_event_duration', true);
+const participationRequestDuration = new Trend('mixed_participation_request_duration', true);
 
 let staggered = false;
 
 let browsingClient;
 let browsingReady = false;
 let browsingGaveUp = false;
-let firstPoll = true;
-
 let eventHost;
 let eventParticipant;
 let eventRoomId = null;
@@ -145,6 +145,34 @@ function recordResponse(response, operation, expectedStatus, trend, tags) {
     console.warn(`${operation} 오류: status=${response.status} code=${responseCode(response) || 'none'}`);
   }
   return accepted;
+}
+
+function capacityMultiplier() {
+  const value = (__ENV.MIXED_LOAD_MULTIPLIER || '1').trim();
+  if (value === '0.5') {
+    if ((__ENV.MIXED_HALF_SCALE_ACK || '').trim() !== 'one-x-failed') {
+      throw new Error('0.5×는 1× 실패 뒤 MIXED_HALF_SCALE_ACK=one-x-failed로만 실행할 수 있습니다.');
+    }
+    return 0.5;
+  }
+  if (/^(?:[1-9]|10)$/.test(value)) {
+    return Number(value);
+  }
+  throw new Error('MIXED_LOAD_MULTIPLIER는 0.5 또는 1부터 10까지의 정수여야 합니다.');
+}
+
+function currentPhase() {
+  if (SMOKE) {
+    return 'measurement';
+  }
+  const elapsedSeconds = exec.instance.currentTestRunDuration / 1000;
+  if (elapsedSeconds < WARMUP_SECONDS) {
+    return 'warmup';
+  }
+  if (elapsedSeconds < ACTIVE_LOAD_SECONDS) {
+    return 'measurement';
+  }
+  return 'observation';
 }
 
 function tryLogin(fixtureIndex, role) {
@@ -266,24 +294,17 @@ export function browsingSession() {
 
   const iterationStartedAt = Date.now();
   if (ensureBrowsingSession()) {
-    const phase = firstPoll ? 'initial' : 'steady';
+    const phase = currentPhase();
     const tags = { test_kind: 'mixed', run_kind: RUN_KIND, role: 'browsing', phase };
     // VU 번호로 역할을 결정론적으로 나눠 같은 Run 조건을 재현할 수 있게 한다.
     const bucket = exec.vu.idInTest % 100;
 
     recordResponse(
       unreadNotificationCount(browsingClient, tags), 'unread-count', 200, unreadDuration, tags);
-    // 세션에 처음 들어온 순간에는 모든 사용자가 목록 첫 페이지를 조회한다. 이후에는 알림함을 열어 둔
-    // 비율만 계속 조회한다.
-    if (firstPoll || bucket < PANEL_OPEN_PERCENT) {
+    if (bucket < PANEL_OPEN_PERCENT) {
       recordResponse(
         listNotifications(browsingClient, 0, 10, tags), 'notification-list', 200, notificationListDuration, tags);
     }
-    if (bucket >= 100 - ROOM_BROWSE_PERCENT) {
-      recordResponse(
-        listRooms(browsingClient, 0, 10, tags), 'room-list', 200, roomListDuration, tags);
-    }
-    firstPoll = false;
   }
 
   const elapsedSeconds = (Date.now() - iterationStartedAt) / 1000;
@@ -295,14 +316,19 @@ export function participationEvent() {
     return;
   }
 
-  const tags = { test_kind: 'mixed', run_kind: RUN_KIND, role: 'participation' };
+  const tags = {
+    test_kind: 'mixed',
+    run_kind: RUN_KIND,
+    role: 'participation',
+    phase: currentPhase(),
+  };
   const startedAt = Date.now();
   const join = joinRoom(eventParticipant, eventRoomId, { ...tags, event_type: 'PARTICIPANT_JOINED' });
-  if (!recordResponse(join, 'room-join', 201, null, tags)) {
+  if (!recordResponse(join, 'room-join', 201, participationRequestDuration, tags)) {
     return;
   }
   const cancel = cancelParticipation(eventParticipant, eventRoomId, { ...tags, event_type: 'PARTICIPANT_CANCELED' });
-  if (!recordResponse(cancel, 'room-cancel', 200, null, tags)) {
+  if (!recordResponse(cancel, 'room-cancel', 200, participationRequestDuration, tags)) {
     return;
   }
 

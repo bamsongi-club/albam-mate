@@ -20,7 +20,7 @@ requireCapacityProfile();
 
 const AUTH_CASE = (__ENV.AUTH_CAPACITY_CASE || 'correct').trim();
 const RATE = integerEnv('AUTH_CAPACITY_RATE', 1, 1, 1000);
-const DURATION_SECONDS = integerEnv('AUTH_CAPACITY_DURATION_SECONDS', 120, 30, 3600);
+const DURATION_SECONDS = integerEnv('AUTH_CAPACITY_DURATION_SECONDS', 180, 30, 3600);
 const PRE_ALLOCATED_VUS = integerEnv('AUTH_CAPACITY_PRE_ALLOCATED_VUS', 20, 1, 500);
 const MAX_VUS = integerEnv('AUTH_CAPACITY_MAX_VUS', 100, PRE_ALLOCATED_VUS, 500);
 const FIXTURE_USER_COUNT = integerEnv('LOAD_TEST_USER_COUNT', 100, 1, 500);
@@ -45,9 +45,12 @@ export const options = {
       gracefulStop: '15s',
     },
   },
-  // 측정 조건이 깨진 Run만 실패시킨다. 무릎을 넘긴 뒤의 오류 응답은 측정 대상이므로 임계를 두지 않는다.
   thresholds: {
     auth_capacity_profile_violations: ['rate==0'],
+    auth_capacity_unexpected_responses: ['rate<0.01'],
+    auth_capacity_one_second_rejection_rate: ['rate<0.01'],
+    auth_capacity_completed_duration: ['p(95)<=1000'],
+    dropped_iterations: ['count==0'],
   },
   summaryTrendStats: ['min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
 };

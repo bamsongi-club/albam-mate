@@ -17,7 +17,7 @@ function normalizeTargetUrl(value) {
 export const TARGET_URL = normalizeTargetUrl(requiredEnv('ALBAM_MATE_TARGET_URL'));
 export const RUN_ID = requiredEnv('ALBAM_MATE_RUN_ID').toLowerCase();
 export const FIXTURE_PASSWORD = 'LoadTest-Password-2026!';
-export const CAPACITY_PROFILE_ACK = 'rate-limits-raised-v1';
+export const CAPACITY_PROFILE_ACK = 'auth-notification-perf-v1';
 
 if (!RUN_ID_PATTERN.test(RUN_ID)) {
   throw new Error('ALBAM_MATE_RUN_ID는 영문 소문자 또는 숫자로 시작하는 80자 이하의 안전한 값이어야 합니다.');
@@ -36,7 +36,7 @@ export function requireCapacityProfile() {
   const actual = (__ENV.CAPACITY_PROFILE_ACK || '').trim();
   if (actual !== CAPACITY_PROFILE_ACK) {
     throw new Error(
-      `용량 측정은 성능 환경의 인증 IP·실패 제한 상향을 확인한 뒤 CAPACITY_PROFILE_ACK=${CAPACITY_PROFILE_ACK}로 실행해야 합니다.`,
+      `용량 측정은 고정 성능 프로파일과 실제 컨테이너 설정 검증을 통과한 뒤 CAPACITY_PROFILE_ACK=${CAPACITY_PROFILE_ACK}로 실행해야 합니다.`,
     );
   }
 }
