@@ -565,7 +565,12 @@ function HomeView({ onBrowsePeople, onSearchGame, dataVersion }) {
     (signal) => api.getRooms({ type: 'PERSON_FOCUSED', page: 0, size: 1 }, signal),
     [dataVersion]
   );
+  const { data: gameData, loading: gameLoading } = useRequest(
+    (signal) => api.getGames({ page: 0, size: 1 }, signal),
+    [dataVersion]
+  );
   const personCount = data?.totalElements ?? 0;
+  const gameCount = gameData?.totalElements ?? 0;
   return (
     <section className="card hero">
       <h1>오늘, 보드게임 한 판 어때요? 🎲</h1>
@@ -576,7 +581,7 @@ function HomeView({ onBrowsePeople, onSearchGame, dataVersion }) {
         <button type="submit" aria-label="검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><line x1="21.5" y1="21.5" x2="15.3" y2="15.3" /></svg></button>
       </form>
       <div className="dual">
-        <a className="entry gamefirst" href="#/game-list"><span className="big">🎲</span><h3>게임부터 찾기</h3><p>하고 싶은 게임을 검색하고, 그 게임의 공개 모임을 찾아보세요.</p><span className="sub">게임 2000개 둘러보기 →</span></a>
+        <a className="entry gamefirst" href="#/game-list"><span className="big">🎲</span><h3>게임부터 찾기</h3><p>하고 싶은 게임을 검색하고, 그 게임의 공개 모임을 찾아보세요.</p><span className="sub">{gameLoading ? '게임 불러오는 중…' : '게임 ' + gameCount + '개 둘러보기 →'}</span></a>
         <a className="entry peoplefirst" href="#/find" onClick={onBrowsePeople}><span className="big">🙌</span><h3>사람부터 만나기</h3><p>게임이 아직 정해지지 않아도 괜찮아요. 제목으로 원하는 모임을 찾아보세요.</p><span className="sub">{loading ? '공개 모임 불러오는 중…' : '공개 모임 ' + personCount + '개 →'}</span></a>
       </div>
       {error && <p className="hint" style={{ marginTop: 16 }}>공개 모임 수를 불러오지 못했어요: {error}</p>}
