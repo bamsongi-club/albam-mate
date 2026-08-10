@@ -26,7 +26,7 @@ vi.mock('./api', () => ({
   setUnauthenticatedHandler: vi.fn()
 }));
 
-const { GamesView } = await import('./main.jsx');
+const { GamesView } = await import('./game/index.js');
 
 const EMPTY_PAGE = { content: [], page: 0, size: 24, totalElements: 0, totalPages: 0 };
 // 계약이 정한 대표 8개 이름·순서와, 대표 밖 고급 목록을 확인할 나머지 항목이다.

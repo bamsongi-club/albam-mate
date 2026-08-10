@@ -37,7 +37,7 @@ vi.mock('./api', () => ({
   setUnauthenticatedHandler: vi.fn()
 }));
 
-const { GamesView, GameDetailView } = await import('./main.jsx');
+const { GamesView, GameDetailView } = await import('./game/index.js');
 
 const GAME = {
   id: 7,
