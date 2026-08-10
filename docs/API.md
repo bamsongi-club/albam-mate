@@ -496,7 +496,7 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 | `joinable` | boolean | Y | N | P0 | 제공 | 현재 요청자의 참가 가능 여부. 판정 규칙은 아래 참고 |
 | `waitlistable` | boolean | Y | N | P1 | 제공 | 현재 요청자의 대기 신청 가능 여부. 판정 규칙은 아래 참고 |
 
-`joinable`과 `waitlistable`은 서버의 같은 행동 가능성 판정에서 계산하며 동시에 `true`일 수 없다. 목록·내 모임 조회의 `status`, `joinable`, `waitlistable`과 내 모임의 `chatAvailable`은 [ADR-0057](adr/room/0057-room-query-effective-status-projection-and-target-correction.md)의 하나의 고정된 `requestTime`과 같은 PostgreSQL snapshot의 관계 사실을 사용한다. DTO 조립 단계에서 현재 시각이나 ROOM·참가·대기 관계를 다시 읽어 다른 시점의 값을 섞지 않는다.
+`joinable`과 `waitlistable`은 서버의 같은 행동 가능성 판정에서 계산하며 동시에 `true`일 수 없다. 목록·내 모임 조회의 `status`, `joinable`, `waitlistable`과 내 모임의 `chatAvailable`은 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)의 하나의 고정된 `requestTime`과 [ADR-0056](adr/room/0056-postgresql-room-query-snapshot-without-global-pre-correction.md)의 같은 PostgreSQL snapshot 관계 사실을 사용한다. DTO 조립 단계에서 현재 시각이나 ROOM·참가·대기 관계를 다시 읽어 다른 시점의 값을 섞지 않는다.
 
 `joinable`은 다음을 **모두** 만족할 때만 `true`이고, 그 외에는 `false`다.
 
