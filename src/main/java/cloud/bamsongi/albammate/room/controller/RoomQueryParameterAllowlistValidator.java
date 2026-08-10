@@ -11,6 +11,7 @@ final class RoomQueryParameterAllowlistValidator {
 
 	private static final Set<String> ROOM_LIST_PARAMETERS = Set.of(
 		"type",
+		"status",
 		"gameId",
 		"keyword",
 		"startsAtFrom",

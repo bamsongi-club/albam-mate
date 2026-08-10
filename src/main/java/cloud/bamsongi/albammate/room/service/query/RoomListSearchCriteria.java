@@ -6,11 +6,13 @@ import java.util.Set;
 
 import cloud.bamsongi.albammate.room.dto.RoomListRequest;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
+import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 
 /** 공개 방 목록의 동적 조회 조건을 불변으로 전달한다. */
 record RoomListSearchCriteria(
 	RoomType roomType,
+	RoomStatus status,
 	Long gameId,
 	String keyword,
 	Instant startsAtFrom,
@@ -26,6 +28,7 @@ record RoomListSearchCriteria(
 	static RoomListSearchCriteria from(RoomListRequest request, String keyword) {
 		return new RoomListSearchCriteria(
 			request.getType(),
+			request.getStatus(),
 			request.getGameId(),
 			keyword,
 			request.getStartsAtFrom(),

@@ -38,6 +38,7 @@ class RoomListReadService {
 	private Page<Room> findFilteredPublicRooms(RoomListSearchCriteria criteria, Pageable pageable) {
 		return roomRepository.findPublicRooms(
 			criteria.roomType(),
+			criteria.status(),
 			criteria.gameId(),
 			criteria.hasKeyword(),
 			criteria.keywordOrEmpty(),

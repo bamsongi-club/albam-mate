@@ -99,6 +99,7 @@ const ROOM_TYPE_FILTERS = [
   { value: 'GAME_FOCUSED', label: '게임 중심' },
   { value: 'PERSON_FOCUSED', label: '사람 중심' }
 ];
+const ROOM_STATUS_FILTER_LABEL = { RECRUITING: '모집 중', CLOSED: '모집 마감' };
 // Asia/Seoul은 일광절약시간을 쓰지 않아 오프셋이 항상 같다.
 const SEOUL_OFFSET = '+09:00';
 // 라디오 그룹이 실제 조건을 그대로 나타내도록, 특정 날짜를 고른 상태도 선택지 하나로 둔다.
@@ -110,6 +111,7 @@ const DATE_PRESET_LABEL = {
 };
 // 프리셋과 지정 날짜는 함께 쓰지 않는다. 한쪽을 고르면 다른 쪽은 비운다.
 const EMPTY_ROOM_FILTERS = {
+  status: '',
   datePreset: '',
   date: '',
   minRemainingSeats: '',
@@ -592,6 +594,7 @@ function HomeView({ onBrowsePeople, onSearchGame, dataVersion }) {
 function roomFilterParameters(filters, today) {
   const range = datePresetRange(filters.datePreset, today) || { from: filters.date, to: nextIsoDate(filters.date) };
   return {
+    status: filters.status,
     startsAtFrom: seoulDayStart(range.from),
     startsAtTo: seoulDayStart(range.to),
     minRemainingSeats: filters.minRemainingSeats,
@@ -613,6 +616,7 @@ function roomFilterChips(filters, onChange, roomType, onRoomTypeChange) {
   const chips = [];
   const type = ROOM_TYPE_FILTERS.find((filter) => filter.value === roomType);
   if (roomType) chips.push({ key: 'type', label: type.label, onClear: () => onRoomTypeChange('') });
+  if (filters.status) chips.push({ key: 'status', label: ROOM_STATUS_FILTER_LABEL[filters.status], onClear: () => update({ status: '' }) });
   if (filters.datePreset) chips.push({ key: 'datePreset', label: DATE_PRESET_LABEL[filters.datePreset], onClear: () => update({ datePreset: '' }) });
   if (filters.date) chips.push({ key: 'date', label: formatRoomDate(filters.date), onClear: () => update({ date: '' }) });
   if (filters.minRemainingSeats) chips.push({ key: 'seats', label: filters.minRemainingSeats + '자리 이상', onClear: () => update({ minRemainingSeats: '' }) });
@@ -632,6 +636,8 @@ function RoomFilters({ filters, onChange, today, roomType, onRoomTypeChange, cou
     >
       <FilterRadioGroup name="room-filter-type" label="유형" value={roomType} onChange={onRoomTypeChange}
         options={ROOM_TYPE_FILTERS.map((filter) => ({ value: filter.value, label: withCount(filter) }))} />
+      <FilterRadioGroup name="room-filter-status" label="모집 상태" value={filters.status} onChange={(status) => update({ status })}
+        options={[{ value: '', label: '전체' }, ...Object.entries(ROOM_STATUS_FILTER_LABEL).map(([code, label]) => ({ value: code, label }))]} />
       <FilterRadioGroup name="room-filter-date" label="날짜" value={filters.date ? DATE_EXACT : filters.datePreset}
         onChange={(value) => update(value === DATE_EXACT ? { datePreset: '', date: defaultRoomDate(today) } : { datePreset: value, date: '' })}
         options={[
@@ -689,8 +695,8 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
     (page, signal) => api.getRooms({ type: roomType, keyword, ...roomFilterParameters(roomFilters, today), page, size: ROOM_LIST_PAGE_SIZE }, signal),
     [roomType, keyword, filterKey, dataVersion]
   );
-  // 서버가 페이지네이션 전에 상태를 걸러주지 않아, 프런트에서 상태로 거르면 페이지당 건수·전체 건수가 어긋나고
-  // 모집 마감이라도 대기 신청이 가능한 방의 진입점이 사라진다. 서버가 주는 공개 방을 그대로 보여준다.
+  // status는 서버가 페이지네이션 전에 거른다(roomFilterParameters). 기본값(전체)에서는 프런트가 상태로 다시 거르지 않아
+  // 모집 마감이라도 대기 신청이 가능한 방의 진입점이 유지된다. 사용자가 상태 필터를 고르면 그 상태만 노출된다.
   const rooms = (data?.content || []).map(normalizeRoom);
   useEffect(() => setInput(roomQuery), [roomQuery]);
   return (
