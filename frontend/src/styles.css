@@ -184,6 +184,7 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .btn.pill { border-radius: 999px; }
 .btn.green { background: var(--green); }
 .btn.redline { background: #fff; border: 1.5px solid var(--red-soft); color: var(--red); }
+.btn:disabled { cursor: not-allowed; opacity: 0.55; pointer-events: none; }
 .hint { color: var(--sub); font-size: 12px; margin-top: 4px; }
 .hint.warn { color: var(--red); font-weight: 800; }
 .infobox { background: var(--soft); border-radius: 12px; font-size: 13.5px; padding: 14px 16px; }
