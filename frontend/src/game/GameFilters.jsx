@@ -270,6 +270,13 @@ function advancedThemeOptions(options, keyword) {
 function ThemeFilterGroup({ options, selected, onToggle, children }) {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [keyword, setKeyword] = useState('');
+  const moreButtonRef = useRef(null);
+  // 목록을 닫으면 트리거와 고급 목록이 조건부로 사라진다. 포커스를 되돌려 주지 않으면 키보드
+  // 사용자의 포커스가 body로 튀어 다음 조작 위치를 잃는다.
+  const closeAdvanced = () => {
+    setIsAdvancedOpen(false);
+    moreButtonRef.current?.focus();
+  };
   return (
     <fieldset className="filter-group filter-group-wide mechanism-group">
       <legend>테마</legend>
@@ -282,6 +289,7 @@ function ThemeFilterGroup({ options, selected, onToggle, children }) {
         ))}
       </div>
       <button
+        ref={moreButtonRef}
         type="button"
         className="mechanism-more"
         aria-expanded={isAdvancedOpen}
@@ -308,7 +316,7 @@ function ThemeFilterGroup({ options, selected, onToggle, children }) {
               </label>
             ))}
           </div>
-          <button type="button" className="filter-close" onClick={() => setIsAdvancedOpen(false)}>테마 목록 닫기</button>
+          <button type="button" className="filter-close" onClick={closeAdvanced}>테마 목록 닫기</button>
         </div>
       )}
       {children}
