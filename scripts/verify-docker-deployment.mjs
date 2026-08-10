@@ -900,6 +900,7 @@ function verifyT7() {
         MANAGEMENT_SERVER_PORT: '9090',
         MANAGEMENT_SERVER_ADDRESS: '127.0.0.1',
         MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: 'health,metrics',
+        SERVER_TOMCAT_MBEANREGISTRY_ENABLED: 'true',
     };
     const env = { ...productionEnvironment(certificateDirectory), ...performanceEnvironment };
     try {
