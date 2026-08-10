@@ -3,7 +3,10 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NotificationPanel } from './NotificationPanel';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 function renderPanel(overrides = {}) {
   const properties = {
@@ -112,5 +115,55 @@ describe('#272 T8 동기화 오류', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
     expect(properties.onRetrySynchronization).toHaveBeenCalledOnce();
+  });
+});
+
+describe('모바일 알림 목록 구조', () => {
+  it('상단 뒤로가기로 알림함을 닫는다', () => {
+    const { properties } = renderPanel();
+
+    fireEvent.click(screen.getByRole('button', { name: '알림함 닫기' }));
+
+    expect(properties.onClose).toHaveBeenCalledOnce();
+  });
+
+  it('생성 시각과 읽음 상태를 날짜별 카드 흐름으로 구분한다', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-11T12:00:00+09:00'));
+
+    const { container } = renderPanel({
+      notifications: [
+        {
+          id: 11,
+          type: 'PARTICIPANT_JOINED',
+          roomId: 1,
+          roomTitle: '오늘의 윙스팬',
+          readAt: null,
+          createdAt: '2026-08-11T18:05:00+09:00'
+        },
+        {
+          id: 12,
+          type: 'WAITLIST_PROMOTED',
+          roomId: 2,
+          roomTitle: '지난 주말 카탄',
+          readAt: null,
+          createdAt: '2026-08-08T18:31:00+09:00'
+        },
+        {
+          id: 13,
+          type: 'ROOM_CANCELED',
+          roomId: 3,
+          roomTitle: '이전 모임',
+          readAt: '2026-08-03T19:00:00+09:00',
+          createdAt: '2026-08-03T18:00:00+09:00'
+        }
+      ]
+    });
+
+    expect([...container.querySelectorAll('.notification-section-title')].map((heading) => heading.textContent))
+      .toEqual(['오늘', '지난 7일', '이전 알림']);
+    expect(container.querySelector('.notification-item-icon.green')).toBeTruthy();
+    expect(container.querySelector('.notification-item.unread .notification-unread-dot')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /이전 모임/ }).classList.contains('read')).toBe(true);
   });
 });

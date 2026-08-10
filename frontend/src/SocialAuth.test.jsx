@@ -28,6 +28,12 @@ function renderProfile(socialProviders, onSocialLink = vi.fn()) {
   return onSocialLink;
 }
 
+function openSocialLinkPanel() {
+  const toggle = screen.getByRole('button', { name: '소셜 계정 연결' });
+  fireEvent.click(toggle);
+  return toggle;
+}
+
 afterEach(() => {
   cleanup();
   clearCsrfToken();
@@ -121,8 +127,25 @@ describe('#334 T2 callback 고정 결과 해석과 URL 제거', () => {
 });
 
 describe('#334 T3 마이페이지 연결 상태와 연결 시작', () => {
+  it('소셜 계정 연결 목록을 제목 행에서 열고 닫는다', () => {
+    renderProfile([GOOGLE_NOT_LINKED]);
+
+    const toggle = screen.getByRole('button', { name: '소셜 계정 연결' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('Google')).toBeNull();
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText('Google')).toBeTruthy();
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('Google')).toBeNull();
+  });
+
   it('연결된 제공자는 상태만 표시하고 교체·해제를 제공하지 않는다', () => {
     renderProfile([NAVER_LINKED]);
+    openSocialLinkPanel();
 
     expect(screen.getByText('Naver')).toBeTruthy();
     expect(screen.getByText('연결됨')).toBeTruthy();
@@ -131,6 +154,7 @@ describe('#334 T3 마이페이지 연결 상태와 연결 시작', () => {
 
   it('미연결 제공자만 연결을 시작할 수 있다', () => {
     const onSocialLink = renderProfile([GOOGLE_NOT_LINKED, NAVER_LINKED]);
+    openSocialLinkPanel();
 
     fireEvent.click(screen.getByRole('button', { name: 'Google 연결' }));
 

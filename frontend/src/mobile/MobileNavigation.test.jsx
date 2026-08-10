@@ -11,21 +11,22 @@ describe('MobileBottomNavigation', () => {
 
     expect(screen.getByRole('navigation', { name: '모바일 주요 메뉴' })).toBeTruthy();
     expect(screen.getByRole('link', { name: '게임' }).getAttribute('aria-current')).toBe('page');
-    expect(screen.getByRole('link', { name: '내 모임' }).getAttribute('href')).toBe('#/my');
+    expect(screen.getByRole('link', { name: '모임 찾기' }).getAttribute('href')).toBe('#/find');
     expect(screen.getByRole('link', { name: '내정보' }).getAttribute('href')).toBe('#/profile');
     expect(screen.getAllByRole('link')).toHaveLength(4);
   });
 
-  it('비로그인 사용자의 내 모임과 내정보 탭을 로그인 화면으로 보낸다', () => {
+  it('비로그인 사용자도 모임 찾기는 이용하고 내정보만 로그인 화면으로 보낸다', () => {
     render(<MobileBottomNavigation route="home" authenticated={false} />);
 
-    expect(screen.getByRole('link', { name: '내 모임' }).getAttribute('href')).toBe('#/auth');
+    expect(screen.getByRole('link', { name: '모임 찾기' }).getAttribute('href')).toBe('#/find');
     expect(screen.getByRole('link', { name: '내정보' }).getAttribute('href')).toBe('#/auth');
   });
 
-  it('모임과 채팅의 세부 route를 내 모임 탭으로 묶는다', () => {
-    expect(mobileTabForRoute('session')).toBe('my');
-    expect(mobileTabForRoute('chat')).toBe('my');
-    expect(mobileTabForRoute('chats')).toBe('my');
+  it('모임 탐색·내 모임·채팅 route를 맞는 하단 탭 상태로 묶는다', () => {
+    expect(mobileTabForRoute('session')).toBe('find');
+    expect(mobileTabForRoute('my')).toBe('profile');
+    expect(mobileTabForRoute('chat')).toBeNull();
+    expect(mobileTabForRoute('chats')).toBeNull();
   });
 });

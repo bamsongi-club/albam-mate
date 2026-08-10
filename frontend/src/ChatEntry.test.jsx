@@ -184,6 +184,7 @@ describe('#427 T4 채팅 라우트 진입', () => {
 
     await waitFor(() => expect(screen.getByText('7시에 만나요')).toBeTruthy());
     expect(getChatMessages).toHaveBeenCalledWith('7', expect.anything());
+    expect(screen.queryByRole('navigation', { name: '모바일 주요 메뉴' })).toBeNull();
   });
 
   it('로그인하지 않은 채로 채팅 주소에 들어오면 이력을 요청하지 않고 로그인을 안내한다', async () => {
@@ -199,6 +200,22 @@ describe('#427 T4 채팅 라우트 진입', () => {
 });
 
 describe('#427 T5 채팅 화면 이력 표시', () => {
+  it('모바일 채팅 헤더에 전체 채팅과 모임 상세 동선을 제공한다', async () => {
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [{ messageId: 1, roomId: 7, clientMessageId: 'c1', sender: { nickname: '주최자' }, isMine: false, content: '7시에 만나요', createdAt: '2026-09-01T19:00:00+09:00' }],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+    vi.spyOn(api, 'getRoom').mockResolvedValue(myRoom({ participantCount: 3 }));
+
+    const { container } = render(<ChatRoomView roomId="7" dataVersion={0} />);
+
+    await waitFor(() => expect(container.querySelector('.chat-mobile-header')).toBeTruthy());
+    expect(container.querySelector('.chat-mobile-title')?.textContent).toBe('홍대 보드게임 모임');
+    expect(screen.getByRole('link', { name: '전체 채팅으로 돌아가기' }).getAttribute('href')).toBe('#/chats');
+    expect(screen.getByRole('link', { name: '모임 상세 보기' }).getAttribute('href')).toBe('#/session/7');
+  });
+
   it('허용된 방의 이력을 오래된 순서로 일반 텍스트로 보여준다', async () => {
     vi.spyOn(api, 'getChatMessages').mockResolvedValue({
       messages: [
@@ -262,7 +279,8 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     });
 
     await waitFor(() => expect(screen.getByText('방금 도착한 메시지')).toBeTruthy());
-    expect(screen.getByRole('status').textContent).toContain('실시간 연결됨');
+    expect(screen.queryByText('실시간 연결됨')).toBeNull();
+    expect(screen.queryByText(/실시간 연결.*중/)).toBeNull();
     sockets[0].message({
       eventId: 99,
       type: 'MESSAGE_CREATED',
@@ -629,6 +647,7 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     expect(sockets).toHaveLength(1);
     sockets[0].open();
     sockets[0].drop();
+    expect(screen.queryByText('실시간 연결이 끊겨 다시 연결하는 중…')).toBeNull();
     await act(async () => {
       vi.advanceTimersByTime(500);
       await Promise.resolve();
@@ -653,7 +672,7 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     vi.useRealTimers();
   });
 
-  it('정책 위반 종료는 접근 종료로 표시하고 재연결하지 않는다', async () => {
+  it('정책 위반 종료는 재연결하지 않고 연결 상태를 표시하지 않는다', async () => {
     vi.useFakeTimers();
     const sockets = useFakeWebSocket();
     vi.spyOn(api, 'getChatMessages').mockResolvedValue({
@@ -676,7 +695,7 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     });
 
     expect(sockets).toHaveLength(1);
-    expect(screen.getByRole('status').textContent).toContain('채팅 접근 권한이 종료되어');
+    expect(screen.queryByRole('status')).toBeNull();
     vi.useRealTimers();
   });
 });

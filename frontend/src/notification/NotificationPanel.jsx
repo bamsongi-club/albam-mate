@@ -3,16 +3,84 @@ import { notificationMessage } from './notificationMessages';
 import { NOTIFICATION_SYNC_ERROR_MESSAGE } from './useNotificationReadSync';
 
 const EMPTY_READ_IDS = new Set();
+const SEOUL_TIME_ZONE = 'Asia/Seoul';
 
 function formatCreatedAt(createdAt) {
   const date = new Date(createdAt);
   if (Number.isNaN(date.getTime())) return '';
   return new Intl.DateTimeFormat('ko-KR', {
+    timeZone: SEOUL_TIME_ZONE,
     month: 'numeric',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
   }).format(date);
+}
+
+function formatCreatedTime(createdAt) {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('ko-KR', {
+    timeZone: SEOUL_TIME_ZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(date);
+}
+
+function seoulCalendarDay(createdAt) {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const values = new Intl.DateTimeFormat('en-US', {
+    timeZone: SEOUL_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(date).reduce((parts, part) => ({ ...parts, [part.type]: part.value }), {});
+
+  return Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day));
+}
+
+function notificationSectionLabel(createdAt) {
+  const createdDay = seoulCalendarDay(createdAt);
+  const today = seoulCalendarDay(new Date());
+  if (createdDay === null || today === null) return '이전 알림';
+
+  const daysAgo = Math.round((today - createdDay) / 86_400_000);
+  if (daysAgo <= 0) return '오늘';
+  if (daysAgo <= 7) return '지난 7일';
+  return '이전 알림';
+}
+
+function groupNotifications(notifications) {
+  return notifications.reduce((sections, notification) => {
+    const label = notificationSectionLabel(notification.createdAt);
+    const lastSection = sections.at(-1);
+    if (lastSection?.label === label) {
+      lastSection.notifications.push(notification);
+      return sections;
+    }
+    return [...sections, { label, notifications: [notification] }];
+  }, []);
+}
+
+function notificationIconTone(type) {
+  if (type === 'PARTICIPANT_JOINED') return 'green';
+  if (type === 'WAITLIST_PROMOTED') return 'gold';
+  if (type === 'PARTICIPANT_CANCELED') return 'clay';
+  return 'muted';
+}
+
+function NotificationPersonIcon({ tone }) {
+  return (
+    <span className={'notification-item-icon ' + tone} aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4.5 21a7.5 7.5 0 0 1 15 0Z" />
+      </svg>
+    </span>
+  );
 }
 
 export function NotificationPanel({
@@ -30,10 +98,14 @@ export function NotificationPanel({
   onRetrySynchronization
 }) {
   if (!open) return null;
+  const sections = groupNotifications(notifications);
 
   return (
     <section className="notification-panel" aria-label="알림함">
       <div className="notification-panel-header">
+        <button type="button" className="notification-close" aria-label="알림함 닫기" onClick={onClose}>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+        </button>
         <h2>알림</h2>
         <div className="notification-panel-actions">
           <button
@@ -44,7 +116,6 @@ export function NotificationPanel({
           >
             {bulkReadPending ? '처리 중…' : '모두 읽음'}
           </button>
-          <button type="button" className="notification-close" aria-label="알림함 닫기" onClick={onClose}>×</button>
         </div>
       </div>
       <div className="notification-panel-body" aria-live="polite" aria-busy={bulkReadPending}>
@@ -65,22 +136,34 @@ export function NotificationPanel({
           <p className="notification-state">새로운 알림이 없습니다.</p>
         )}
         {listStatus === 'ready' && notifications.length > 0 && (
-          <ul className="notification-list">
-            {notifications.map((notification) => (
-              <li key={notification.id}>
-                <button
-                  type="button"
-                  className={'notification-item ' + (
-                    notification.readAt || optimisticReadIds.has(notification.id) ? 'read' : 'unread'
-                  )}
-                  onClick={() => onSelectNotification(notification)}
-                >
-                  <span className="notification-item-message">{notificationMessage(notification)}</span>
-                  <time dateTime={notification.createdAt}>{formatCreatedAt(notification.createdAt)}</time>
-                </button>
-              </li>
+          <div className="notification-sections">
+            {sections.map((section, sectionIndex) => (
+              <section className="notification-section" key={section.label} aria-labelledby={'notification-section-' + sectionIndex}>
+                <h3 className="notification-section-title" id={'notification-section-' + sectionIndex}>{section.label}</h3>
+                <ul className="notification-list">
+                  {section.notifications.map((notification) => {
+                    const read = Boolean(notification.readAt || optimisticReadIds.has(notification.id));
+                    return (
+                      <li key={notification.id}>
+                        <button
+                          type="button"
+                          className={'notification-item ' + (read ? 'read' : 'unread')}
+                          onClick={() => onSelectNotification(notification)}
+                        >
+                          <NotificationPersonIcon tone={notificationIconTone(notification.type)} />
+                          <span className="notification-item-copy">
+                            <span className="notification-item-message">{notificationMessage(notification)}</span>
+                            <time dateTime={notification.createdAt} title={formatCreatedAt(notification.createdAt)}>{formatCreatedTime(notification.createdAt)}</time>
+                          </span>
+                          {!read && <span className="notification-unread-dot" aria-hidden="true" />}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
             ))}
-          </ul>
+          </div>
         )}
       </div>
     </section>
