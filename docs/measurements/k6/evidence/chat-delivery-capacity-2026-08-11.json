@@ -1,0 +1,971 @@
+{
+  "schemaVersion": 1,
+  "campaignId": "chat-delivery-20260811T172123KST",
+  "campaignStatus": "completed",
+  "documentStatus": "current",
+  "measurementWindow": {
+    "kind": "sequential-run-window",
+    "startedAt": "2026-08-11T17:18:50+09:00",
+    "finishedAt": "2026-08-11T18:36:49+09:00",
+    "displayKst": "2026-08-11 17:18:50~18:36:49 KST"
+  },
+  "documents": {
+    "index": "../README.md",
+    "report": "../chat-delivery-capacity-2026-08-11.md"
+  },
+  "lineage": {
+    "supersedes": [],
+    "supersededBy": null,
+    "nextCampaign": null
+  },
+  "sources": {
+    "application": {
+      "repository": "https://github.com/bamsongi-club/albam-mate.git",
+      "releaseSha": "1db046c0acdde59737411303a5547f3d8fed1422",
+      "releaseShaReachable": false,
+      "loadTestTreePath": "load-tests/k6/chat",
+      "loadTestTreeGitObject": "b54fd9357232b96212b3e9e8bfbd5e186d1f203e",
+      "scenarioBlobGitObject": "f76357087346fe871b7681553618f3e07164f860",
+      "seedGeneratorBlobGitObject": "547fccf5d84e66ebf97fdc844d2bf1c2a7f87e6d",
+      "releaseTag": "measurement/chat-delivery-2026-08-11"
+    },
+    "images": {
+      "note": "ECR digests are immutable and identify the exact bytes under test.",
+      "backend": "sha256:f8c7a71e58f30d26c73d65213ac254634f5b365cca37a09668af223de035c61b",
+      "web": "sha256:52b23434c167c4fe583a13b291e6aea16f790952c7fef68b43cbf12e429e347a",
+      "postgres": "sha256:0826e5f2996099babb925e09fb72bf2c6eb5d187cfcae20aa9291af1612307e4",
+      "redis": "sha256:78b83aee0bf6781ca973ee5022de73dd16fe93f53593c3a31f079c8c3fa08921"
+    },
+    "infrastructure": {
+      "repository": "https://github.com/bamsongi-club/albam-mate-infra.git",
+      "headShaAfterCampaign": "8aa05b741b37572ec97d566103367b824b253939",
+      "dirtyDuringCampaign": true
+    },
+    "tooling": {
+      "k6": "1.3.0"
+    }
+  },
+  "environment": {
+    "applicationNodes": {
+      "count": 2,
+      "instanceType": "t4g.micro"
+    },
+    "postgresNodes": {
+      "count": 1,
+      "instanceType": "t4g.micro"
+    },
+    "redisNodes": {
+      "count": 1,
+      "instanceType": "t4g.micro"
+    },
+    "loadGenerator": {
+      "count": 1,
+      "instanceType": "c7g.large"
+    },
+    "databaseConnectionPoolMax": 8,
+    "loginLimitPerTenMinutes": 300,
+    "fixture": {
+      "rooms": 8,
+      "accounts": 72,
+      "messagesPerRoom": 150,
+      "lifecycle": "created and deleted per run"
+    }
+  },
+  "artifacts": {
+    "availability": "local-only",
+    "siblingRepository": "albam-mate-infra",
+    "repositoryRelativePath": ".run/results/",
+    "note": "Raw bundles stay outside Git; the SHA-256 values identify local copies.",
+    "runCount": 6,
+    "includedRunCount": 6,
+    "excludedRunCount": 0
+  },
+  "serverObservations": {
+    "chatSendStatusCounts": {
+      "note": "Counted from the Nginx access log on the application node, split by UTC hour.",
+      "runs1to3": {
+        "201": 1589,
+        "429": 52,
+        "500": 17,
+        "503": 13
+      },
+      "runs4to6": {
+        "201": 3283,
+        "429": 0,
+        "500": 689,
+        "503": 520
+      }
+    },
+    "redis": {
+      "connectedClients": 3,
+      "maxClients": 10000,
+      "rejectedConnections": 0,
+      "totalConnectionsReceived": 99907,
+      "usedMemoryBytesPeak": 2443673,
+      "failure": "RedisConnectionFailureException on session read and TTL refresh"
+    }
+  },
+  "knownLimitations": [
+    "The release commit was rebased after the campaign, so 1db046c0 is no longer reachable from the branch; it is pinned by the tag measurement/chat-delivery-2026-08-11 and identified by the ECR image digests and the recorded Git object hashes.",
+    "load-throughput stages 4 and 5 mix a scenario defect: the sender rotation aliases to three senders per room and trips the per-user send limit. Only stages 1 to 3 read as server capacity.",
+    "Stage boundaries are shifted early by the setup login duration, about 14 seconds against a 120 second stage.",
+    "CPU credit balance was not collected for this campaign.",
+    "Values are bound to t4g.micro nodes with a database connection pool of 8 and must not be quoted as absolute throughput."
+  ],
+  "runs": [
+    {
+      "runId": "20260811T082209Z",
+      "scenario": "load-throughput",
+      "reportDisposition": "included",
+      "startedAt": "2026-08-11T17:21:23+09:00",
+      "finishedAt": "2026-08-11T17:35:19+09:00",
+      "stageAxis": "sendRatePerSecond",
+      "stageTargets": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "stages": [
+        {
+          "stage": 1,
+          "sendRatePerSecond": 1,
+          "httpMs": {
+            "medianMs": 69.4,
+            "p95Ms": 94.9,
+            "maxMs": 252.1,
+            "avgMs": 74.0
+          },
+          "deliveryMs": {
+            "medianMs": 57,
+            "p95Ms": 114,
+            "maxMs": 361,
+            "avgMs": 65.3
+          },
+          "connectMs": null,
+          "requestSuccess": {
+            "passed": 121,
+            "total": 121,
+            "rate": 1
+          },
+          "connectionOpened": null
+        },
+        {
+          "stage": 2,
+          "sendRatePerSecond": 2,
+          "httpMs": {
+            "medianMs": 78.9,
+            "p95Ms": 89.9,
+            "maxMs": 128.3,
+            "avgMs": 68.5
+          },
+          "deliveryMs": {
+            "medianMs": 51,
+            "p95Ms": 100,
+            "maxMs": 149,
+            "avgMs": 57.0
+          },
+          "connectMs": null,
+          "requestSuccess": {
+            "passed": 166,
+            "total": 166,
+            "rate": 1
+          },
+          "connectionOpened": null
+        },
+        {
+          "stage": 3,
+          "sendRatePerSecond": 3,
+          "httpMs": {
+            "medianMs": 75.1,
+            "p95Ms": 83.5,
+            "maxMs": 102.3,
+            "avgMs": 63.8
+          },
+          "deliveryMs": {
+            "medianMs": 47,
+            "p95Ms": 95,
+            "maxMs": 155,
+            "avgMs": 53.0
+          },
+          "connectMs": null,
+          "requestSuccess": {
+            "passed": 286,
+            "total": 286,
+            "rate": 1
+          },
+          "connectionOpened": null
+        },
+        {
+          "stage": 4,
+          "sendRatePerSecond": 4,
+          "httpMs": {
+            "medianMs": 76.5,
+            "p95Ms": 1061.8,
+            "maxMs": 5151.3,
+            "avgMs": 189.5
+          },
+          "deliveryMs": {
+            "medianMs": 44,
+            "p95Ms": 94.5,
+            "maxMs": 2648,
+            "avgMs": 58.5
+          },
+          "connectMs": null,
+          "requestSuccess": {
+            "passed": 371,
+            "total": 406,
+            "rate": 0.9138
+          },
+          "connectionOpened": null
+        },
+        {
+          "stage": 5,
+          "sendRatePerSecond": 5,
+          "httpMs": {
+            "medianMs": 67.6,
+            "p95Ms": 82.5,
+            "maxMs": 411.4,
+            "avgMs": 62.0
+          },
+          "deliveryMs": null,
+          "connectMs": null,
+          "requestSuccess": {
+            "passed": 619,
+            "total": 671,
+            "rate": 0.9225
+          },
+          "connectionOpened": null
+        }
+      ],
+      "totals": {
+        "iterations": 1668,
+        "droppedIterations": 0,
+        "deliverySamples": 5148,
+        "websocketSessionHealthyRate": 0
+      },
+      "artifactSha256": {
+        "summary-20260811T082209Z.json": "a2cab78a272cae6e37db35453a5d2edb70d79add1bd96e01e547a748ae96d0e5",
+        "console-20260811T082209Z.log": "ac6bf0842d05a73370130de1c225314d5fd94780df84d68c184fc85a7d45b4d5"
+      },
+      "status": "PASS",
+      "statusNote": "3단계까지 유효. 4·5단계는 발신자 회전 앨리어싱이 섞여 서버 용량으로 읽지 않는다."
+    },
+    {
+      "runId": "20260811T083600Z",
+      "scenario": "load-connections",
+      "reportDisposition": "included",
+      "startedAt": "2026-08-11T17:35:19+09:00",
+      "finishedAt": "2026-08-11T17:48:59+09:00",
+      "stageAxis": "concurrentConnections",
+      "stageTargets": [
+        5,
+        10,
+        20,
+        40,
+        80
+      ],
+      "stages": [
+        {
+          "stage": 1,
+          "concurrentConnections": 5,
+          "httpMs": null,
+          "deliveryMs": null,
+          "connectMs": {
+            "medianMs": 44,
+            "p95Ms": 58.7,
+            "maxMs": 59,
+            "avgMs": 46.1
+          },
+          "requestSuccess": null,
+          "connectionOpened": {
+            "passed": 7,
+            "total": 7,
+            "rate": 1
+          }
+        },
+        {
+          "stage": 2,
+          "concurrentConnections": 10,
+          "httpMs": null,
+          "deliveryMs": null,
+          "connectMs": {
+            "medianMs": 38,
+            "p95Ms": 54.6,
+            "maxMs": 55,
+            "avgMs": 44.4
+          },
+          "requestSuccess": null,
+          "connectionOpened": {
+            "passed": 9,
+            "total": 9,
+            "rate": 1
+          }
+        },
+        {
+          "stage": 3,
+          "concurrentConnections": 20,
+          "httpMs": null,
+          "deliveryMs": null,
+          "connectMs": {
+            "medianMs": 52.5,
+            "p95Ms": 59.7,
+            "maxMs": 64,
+            "avgMs": 47.7
+          },
+          "requestSuccess": null,
+          "connectionOpened": {
+            "passed": 18,
+            "total": 18,
+            "rate": 1
+          }
+        },
+        {
+          "stage": 4,
+          "concurrentConnections": 40,
+          "httpMs": null,
+          "deliveryMs": null,
+          "connectMs": {
+            "medianMs": 45,
+            "p95Ms": 58.4,
+            "maxMs": 61,
+            "avgMs": 46.6
+          },
+          "requestSuccess": null,
+          "connectionOpened": {
+            "passed": 37,
+            "total": 37,
+            "rate": 1
+          }
+        },
+        {
+          "stage": 5,
+          "concurrentConnections": 80,
+          "httpMs": null,
+          "deliveryMs": null,
+          "connectMs": {
+            "medianMs": 51,
+            "p95Ms": 59.2,
+            "maxMs": 63,
+            "avgMs": 47.2
+          },
+          "requestSuccess": null,
+          "connectionOpened": {
+            "passed": 26,
+            "total": 26,
+            "rate": 1
+          }
+        }
+      ],
+      "totals": {
+        "iterations": 97,
+        "droppedIterations": 0,
+        "deliverySamples": null,
+        "websocketSessionHealthyRate": 0
+      },
+      "artifactSha256": {
+        "summary-20260811T083600Z.json": "89da62c005bf5bc899d86e179b50e7a3410ea4fa3a1e78381710492cd48da5f2",
+        "console-20260811T083600Z.log": "65bf30aab1fbec247af8e88f9442c77dd027df91f654d1608145431f75b09e99"
+      },
+      "status": "PASS"
+    },
+    {
+      "runId": "20260811T085059Z",
+      "scenario": "load-history",
+      "reportDisposition": "included",
+      "startedAt": "2026-08-11T17:48:59+09:00",
+      "finishedAt": "2026-08-11T18:01:24+09:00",
+      "stageAxis": "historyReadsPerSecond",
+      "stageTargets": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "stages": [
+        {
+          "stage": 1,
+          "historyReadsPerSecond": 1,
+          "httpMs": {
+            "medianMs": 57.7,
+            "p95Ms": 68.5,
+            "maxMs": 81.8,
+            "avgMs": 52.2
+          },
+          "deliveryMs": null,
+          "connectMs": null,
+          "requestSuccess": {
+            "passed": 122,
+            "total": 122,
+            "rate": 1
+          },
+          "connectionOpened": null
+        },
+        {
+          "stage": 2,
+          "historyReadsPerSecond": 2,
+          "httpMs": {
+            "medianMs": 59.8,
+            "p95Ms": 69.6,
+            "maxMs": 137.1,
+            "avgMs": 51.7
+          },
+          "deliveryMs": null,
+          "connectMs": null,
+          "requestSuccess": {
+            "passed": 169,
+            "total": 169,
+            "rate": 1
+          },
+          "connectionOpened": null
+        },
+        {
+          "stage": 3,
+          "historyReadsPerSecond": 4,
+          "httpMs": {
+            "medianMs": 59.4,
+            "p95Ms": 66.3,
+            "maxMs": 78.4,
+            "avgMs": 50.5
+          },
+          "deliveryMs": null,
+          "connectMs": null,
+          "requestSuccess": {
+            "passed": 336,
+            "total": 336,
+            "rate": 1
+          },
+          "connectionOpened": null
+        },
+        {
+          "stage": 4,
+          "historyReadsPerSecond": 8,
+          "httpMs": {
+            "medianMs": 58.5,
+            "p95Ms": 65.5,
+            "maxMs": 509.9,
+            "avgMs": 51.1
+          },
+          "deliveryMs": null,
+          "connectMs": null,
+          "requestSuccess": {
+            "passed": 888,
+            "total": 888,
+            "rate": 1
+          },
+          "connectionOpened": null
+        }
+      ],
+      "totals": {
+        "iterations": 1515,
+        "droppedIterations": 0,
+        "deliverySamples": null,
+        "websocketSessionHealthyRate": 0
+      },
+      "artifactSha256": {
+        "summary-20260811T085059Z.json": "224626225b2a7a61c08b165569d94412e2904dd12747b6750c50982ec28934cc",
+        "console-20260811T085059Z.log": "f860f51824ab1f691e679298cac4b4181ac0d4ec7bbacf029f41e8cd243b6869"
+      },
+      "status": "PASS"
+    },
+    {
+      "runId": "20260811T090210Z",
+      "scenario": "load-fanout",
+      "reportDisposition": "included",
+      "startedAt": "2026-08-11T18:01:24+09:00",
+      "finishedAt": "2026-08-11T18:14:28+09:00",
+      "stageAxis": "subscribersInOneRoom",
+      "stageTargets": [
+        2,
+        4,
+        8,
+        16,
+        24
+      ],
+      "stages": [
+        {
+          "stage": 1,
+          "subscribersInOneRoom": 2,
+          "httpMs": {
+            "medianMs": 72.1,
+            "p95Ms": 80.1,
+            "maxMs": 171.4,
+            "avgMs": 61.1
+          },
+          "deliveryMs": {
+            "medianMs": 29,
+            "p95Ms": 43,
+            "maxMs": 97,
+            "avgMs": 32.2
+          },
+          "connectMs": {
+            "medianMs": 49,
+            "p95Ms": 50.8,
+            "maxMs": 51,
+            "avgMs": 45.7
+          },
+          "requestSuccess": {
+            "passed": 276,
+            "total": 276,
+            "rate": 1
+          },
+          "connectionOpened": {
+            "passed": 3,
+            "total": 3,
+            "rate": 1
+          }
+        },
+        {
+          "stage": 2,
+          "subscribersInOneRoom": 4,
+          "httpMs": {
+            "medianMs": 72.4,
+            "p95Ms": 79.2,
+            "maxMs": 139.0,
+            "avgMs": 60.2
+          },
+          "deliveryMs": {
+            "medianMs": 28,
+            "p95Ms": 69,
+            "maxMs": 127,
+            "avgMs": 38.1
+          },
+          "connectMs": {
+            "medianMs": 34,
+            "p95Ms": 48.4,
+            "maxMs": 50,
+            "avgMs": 39
+          },
+          "requestSuccess": {
+            "passed": 240,
+            "total": 240,
+            "rate": 1
+          },
+          "connectionOpened": {
+            "passed": 3,
+            "total": 3,
+            "rate": 1
+          }
+        },
+        {
+          "stage": 3,
+          "subscribersInOneRoom": 8,
+          "httpMs": {
+            "medianMs": 71.3,
+            "p95Ms": 80.3,
+            "maxMs": 126.2,
+            "avgMs": 60.1
+          },
+          "deliveryMs": {
+            "medianMs": 42,
+            "p95Ms": 75,
+            "maxMs": 110,
+            "avgMs": 45.4
+          },
+          "connectMs": {
+            "medianMs": 47,
+            "p95Ms": 50.4,
+            "maxMs": 51,
+            "avgMs": 41.1
+          },
+          "requestSuccess": {
+            "passed": 240,
+            "total": 240,
+            "rate": 1
+          },
+          "connectionOpened": {
+            "passed": 7,
+            "total": 7,
+            "rate": 1
+          }
+        },
+        {
+          "stage": 4,
+          "subscribersInOneRoom": 16,
+          "httpMs": {
+            "medianMs": 70.6,
+            "p95Ms": 79.1,
+            "maxMs": 94.5,
+            "avgMs": 59.5
+          },
+          "deliveryMs": {
+            "medianMs": 73,
+            "p95Ms": 147,
+            "maxMs": 3124,
+            "avgMs": 81.3
+          },
+          "connectMs": {
+            "medianMs": 34,
+            "p95Ms": 51.3,
+            "maxMs": 52,
+            "avgMs": 39.2
+          },
+          "requestSuccess": {
+            "passed": 237,
+            "total": 240,
+            "rate": 0.9875
+          },
+          "connectionOpened": {
+            "passed": 15,
+            "total": 15,
+            "rate": 1
+          }
+        },
+        {
+          "stage": 5,
+          "subscribersInOneRoom": 24,
+          "httpMs": {
+            "medianMs": 72.5,
+            "p95Ms": 82.1,
+            "maxMs": 2055.6,
+            "avgMs": 99.3
+          },
+          "deliveryMs": {
+            "medianMs": 72,
+            "p95Ms": 138,
+            "maxMs": 3109,
+            "avgMs": 83.2
+          },
+          "connectMs": {
+            "medianMs": 38,
+            "p95Ms": 54.6,
+            "maxMs": 56,
+            "avgMs": 41.4
+          },
+          "requestSuccess": {
+            "passed": 256,
+            "total": 265,
+            "rate": 0.966
+          },
+          "connectionOpened": {
+            "passed": 8,
+            "total": 8,
+            "rate": 1
+          }
+        }
+      ],
+      "totals": {
+        "iterations": 1297,
+        "droppedIterations": 0,
+        "deliverySamples": 9536,
+        "websocketSessionHealthyRate": 0.7778
+      },
+      "artifactSha256": {
+        "summary-20260811T090210Z.json": "45b8efe6b87f7a9154070b11ee857d38c8939baf1acd960e5cb4a3e71a282eab",
+        "console-20260811T090210Z.log": "7aa3bf7ddc799f08566a3153f1adcafb7a05547198d594e7d04e5bd8bb80f5c3"
+      },
+      "status": "PASS"
+    },
+    {
+      "runId": "20260811T091508Z",
+      "scenario": "load-rooms",
+      "reportDisposition": "included",
+      "startedAt": "2026-08-11T18:14:28+09:00",
+      "finishedAt": "2026-08-11T18:25:39+09:00",
+      "stageAxis": "activeRooms",
+      "stageTargets": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "stages": [
+        {
+          "stage": 1,
+          "activeRooms": 1,
+          "httpMs": {
+            "medianMs": 68.3,
+            "p95Ms": 83.1,
+            "maxMs": 126.2,
+            "avgMs": 63.1
+          },
+          "deliveryMs": {
+            "medianMs": 29,
+            "p95Ms": 46,
+            "maxMs": 88,
+            "avgMs": 32.9
+          },
+          "connectMs": {
+            "medianMs": 45,
+            "p95Ms": 54.4,
+            "maxMs": 55,
+            "avgMs": 44.5
+          },
+          "requestSuccess": {
+            "passed": 121,
+            "total": 122,
+            "rate": 0.9918
+          },
+          "connectionOpened": {
+            "passed": 4,
+            "total": 4,
+            "rate": 1
+          }
+        },
+        {
+          "stage": 2,
+          "activeRooms": 2,
+          "httpMs": {
+            "medianMs": 68.5,
+            "p95Ms": 80.5,
+            "maxMs": 160.1,
+            "avgMs": 60.9
+          },
+          "deliveryMs": {
+            "medianMs": 27,
+            "p95Ms": 45.3,
+            "maxMs": 63,
+            "avgMs": 32.2
+          },
+          "connectMs": {
+            "medianMs": 51,
+            "p95Ms": 51.8,
+            "maxMs": 52,
+            "avgMs": 43.6
+          },
+          "requestSuccess": {
+            "passed": 168,
+            "total": 169,
+            "rate": 0.9941
+          },
+          "connectionOpened": {
+            "passed": 5,
+            "total": 5,
+            "rate": 1
+          }
+        },
+        {
+          "stage": 3,
+          "activeRooms": 4,
+          "httpMs": {
+            "medianMs": 72.4,
+            "p95Ms": 80.2,
+            "maxMs": 118.6,
+            "avgMs": 60.1
+          },
+          "deliveryMs": {
+            "medianMs": 28,
+            "p95Ms": 57,
+            "maxMs": 97,
+            "avgMs": 33.4
+          },
+          "connectMs": {
+            "medianMs": 50,
+            "p95Ms": 63.5,
+            "maxMs": 68,
+            "avgMs": 46.4
+          },
+          "requestSuccess": {
+            "passed": 337,
+            "total": 337,
+            "rate": 1
+          },
+          "connectionOpened": {
+            "passed": 11,
+            "total": 11,
+            "rate": 1
+          }
+        },
+        {
+          "stage": 4,
+          "activeRooms": 8,
+          "httpMs": {
+            "medianMs": 75.0,
+            "p95Ms": 3119.3,
+            "maxMs": 7101.8,
+            "avgMs": 639.4
+          },
+          "deliveryMs": {
+            "medianMs": 39,
+            "p95Ms": 72,
+            "maxMs": 1080,
+            "avgMs": 42.1
+          },
+          "connectMs": {
+            "medianMs": 49,
+            "p95Ms": 54,
+            "maxMs": 60,
+            "avgMs": 43.2
+          },
+          "requestSuccess": {
+            "passed": 621,
+            "total": 881,
+            "rate": 0.7049
+          },
+          "connectionOpened": {
+            "passed": 8,
+            "total": 8,
+            "rate": 1
+          }
+        }
+      ],
+      "totals": {
+        "iterations": 1537,
+        "droppedIterations": 6,
+        "deliverySamples": 1738,
+        "websocketSessionHealthyRate": 0.4286
+      },
+      "artifactSha256": {
+        "summary-20260811T091508Z.json": "c7eb3d02051ad73ae7cfc25bb8409d2ef6e8cf437475bf726a122514312ef24c",
+        "console-20260811T091508Z.log": "a24ac134b1d9a9647f40604a19bd241869d6d86c47179ae2ddae1d73d2f9af82"
+      },
+      "status": "PASS"
+    },
+    {
+      "runId": "20260811T092617Z",
+      "scenario": "load-mixed",
+      "reportDisposition": "included",
+      "startedAt": "2026-08-11T18:25:39+09:00",
+      "finishedAt": "2026-08-11T18:36:49+09:00",
+      "stageAxis": "mixScale",
+      "stageTargets": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "stages": [
+        {
+          "stage": 1,
+          "mixScale": 1,
+          "httpMs": {
+            "medianMs": 59.0,
+            "p95Ms": 76.8,
+            "maxMs": 103.6,
+            "avgMs": 53.5
+          },
+          "deliveryMs": {
+            "medianMs": 26,
+            "p95Ms": 33.5,
+            "maxMs": 36,
+            "avgMs": 27.0
+          },
+          "connectMs": {
+            "medianMs": 47.5,
+            "p95Ms": 54.6,
+            "maxMs": 55,
+            "avgMs": 46.2
+          },
+          "requestSuccess": {
+            "passed": 369,
+            "total": 369,
+            "rate": 1
+          },
+          "connectionOpened": {
+            "passed": 8,
+            "total": 8,
+            "rate": 1
+          }
+        },
+        {
+          "stage": 2,
+          "mixScale": 2,
+          "httpMs": {
+            "medianMs": 59.1,
+            "p95Ms": 77.8,
+            "maxMs": 206.3,
+            "avgMs": 54.2
+          },
+          "deliveryMs": {
+            "medianMs": 27,
+            "p95Ms": 43,
+            "maxMs": 58,
+            "avgMs": 29.4
+          },
+          "connectMs": {
+            "medianMs": 35,
+            "p95Ms": 50.2,
+            "maxMs": 51,
+            "avgMs": 37.1
+          },
+          "requestSuccess": {
+            "passed": 505,
+            "total": 505,
+            "rate": 1
+          },
+          "connectionOpened": {
+            "passed": 9,
+            "total": 9,
+            "rate": 1
+          }
+        },
+        {
+          "stage": 3,
+          "mixScale": 3,
+          "httpMs": {
+            "medianMs": 60.7,
+            "p95Ms": 2046.5,
+            "maxMs": 8071.8,
+            "avgMs": 356.9
+          },
+          "deliveryMs": {
+            "medianMs": 27,
+            "p95Ms": 42,
+            "maxMs": 3154,
+            "avgMs": 42.0
+          },
+          "connectMs": {
+            "medianMs": 49,
+            "p95Ms": 52.4,
+            "maxMs": 53,
+            "avgMs": 45.2
+          },
+          "requestSuccess": {
+            "passed": 721,
+            "total": 863,
+            "rate": 0.8355
+          },
+          "connectionOpened": {
+            "passed": 13,
+            "total": 14,
+            "rate": 0.9286
+          }
+        },
+        {
+          "stage": 4,
+          "mixScale": 4,
+          "httpMs": {
+            "medianMs": 1003.3,
+            "p95Ms": 5148.8,
+            "maxMs": 8599.7,
+            "avgMs": 1285.8
+          },
+          "deliveryMs": {
+            "medianMs": 26.5,
+            "p95Ms": 30,
+            "maxMs": 4477,
+            "avgMs": 119.1
+          },
+          "connectMs": {
+            "medianMs": 42,
+            "p95Ms": 55.2,
+            "maxMs": 66,
+            "avgMs": 42.2
+          },
+          "requestSuccess": {
+            "passed": 640,
+            "total": 1533,
+            "rate": 0.4175
+          },
+          "connectionOpened": {
+            "passed": 5,
+            "total": 6,
+            "rate": 0.8333
+          }
+        }
+      ],
+      "totals": {
+        "iterations": 3307,
+        "droppedIterations": 15,
+        "deliverySamples": 617,
+        "websocketSessionHealthyRate": 0.4595
+      },
+      "artifactSha256": {
+        "summary-20260811T092617Z.json": "58bba9b56752ffce5e609debc82175a63c62a91079255e1418c65a106acbcfa1",
+        "console-20260811T092617Z.log": "07714945900da4eb56dfbc542647a75cbd90a76a2cd6ad5fb0e67ec037bf4c72"
+      },
+      "status": "PASS"
+    }
+  ]
+}
