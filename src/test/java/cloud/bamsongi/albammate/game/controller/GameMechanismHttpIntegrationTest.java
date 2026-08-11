@@ -53,22 +53,25 @@ class GameMechanismHttpIntegrationTest {
 	void 게임_상세는_연결된_공개_메커니즘만_이름과_코드순으로_요약해_반환한다() throws Exception {
 		Game target = saveGame(100000L, "Detail target");
 		Game unrelated = saveGame(100001L, "Detail unrelated");
-		GameMechanism first = saveMechanism(2040L, "ALPHA", "가나다", "Alpha", 2, true);
-		GameMechanism second = saveMechanism(2072L, "BETA", "가나다", "Beta", 1, true);
+		GameMechanism nameFirst = saveMechanism(2040L, "ZETA", "가나다", "Zeta", 3, true);
+		GameMechanism codeSecond = saveMechanism(2072L, "BETA", "나다라", "Beta", 1, true);
+		GameMechanism codeFirst = saveMechanism(2073L, "ALPHA", "나다라", "Alpha", 2, true);
 		GameMechanism privateMechanism = saveMechanism(9991L, "PRIVATE", "비공개", "Private", null, false);
 		GameMechanism unrelatedMechanism = saveMechanism(9992L, "UNRELATED", "다라마바사", "Unrelated", null, true);
-		link(target, second);
+		link(target, codeSecond);
 		link(target, privateMechanism);
-		link(target, first);
+		link(target, nameFirst);
+		link(target, codeFirst);
 		link(unrelated, unrelatedMechanism);
 
 		mockMvc.perform(get("/api/games/{gameId}", target.getId()))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.mechanisms.length()").value(2))
-			.andExpect(jsonPath("$.data.mechanisms[0].code").value("ALPHA"))
+			.andExpect(jsonPath("$.data.mechanisms.length()").value(3))
+			.andExpect(jsonPath("$.data.mechanisms[0].code").value("ZETA"))
 			.andExpect(jsonPath("$.data.mechanisms[0].nameKo").value("가나다"))
-			.andExpect(jsonPath("$.data.mechanisms[0].nameEn").value("Alpha"))
-			.andExpect(jsonPath("$.data.mechanisms[1].code").value("BETA"))
+			.andExpect(jsonPath("$.data.mechanisms[0].nameEn").value("Zeta"))
+			.andExpect(jsonPath("$.data.mechanisms[1].code").value("ALPHA"))
+			.andExpect(jsonPath("$.data.mechanisms[2].code").value("BETA"))
 			.andExpect(jsonPath("$.data.mechanisms[?(@.code == 'PRIVATE')]").isEmpty())
 			.andExpect(jsonPath("$.data.mechanisms[?(@.code == 'UNRELATED')]").isEmpty())
 			.andExpect(jsonPath("$.data.mechanisms[0].id").doesNotExist())
