@@ -157,12 +157,13 @@ relay와 cleanup은 처리 수·지연·실패와 PostgreSQL에서 고정한 기
 
 ## 검증
 
-- 상태: 미검증
+- 상태: 검증됨
 - 근거:
     - 구현: [PR #314](https://github.com/bamsongi-club/albam-mate/pull/314)·[PR #329](https://github.com/bamsongi-club/albam-mate/pull/329)이 선점·멱등 처리와 실패 격리를, [PR #340](https://github.com/bamsongi-club/albam-mate/pull/340)이 `notification-ops` one-shot 복구를, [PR #365](https://github.com/bamsongi-club/albam-mate/pull/365)이 bounded cleanup을 구현했다. [PR #463](https://github.com/bamsongi-club/albam-mate/pull/463)·[PR #466](https://github.com/bamsongi-club/albam-mate/pull/466)·[PR #477](https://github.com/bamsongi-club/albam-mate/pull/477)이 PostgreSQL 시각과 보존·만료 실패 정책을 현재 계약으로 통일했다.
     - 계약: 운영 런북의 `현재 운영 파라미터 정본`이 relay·복구·cleanup 수치와 실행 증거 형식을 소유한다.
-    - 테스트: `NotificationRelayPostgresTest`·`NotificationOutboxRecoveryPostgresTest`·`NotificationCleanupPostgresTest`가 `FOR UPDATE SKIP LOCKED`, 실패 격리, dry-run·전체 원자성·오름차순 잠금, 89일·90일 경계와 DB 시각 기반 삭제를 검증한다.
-- 미검증:
-    - 운영 파라미터의 실제 배포값, 전달 지연·oldest age·DB 부하 측정
+    - 테스트:
+        - `NotificationRelayPostgresTest`·`NotificationOutboxRecoveryPostgresTest`·`NotificationCleanupPostgresTest`가 `FOR UPDATE SKIP LOCKED`, 실패 격리, dry-run·전체 원자성·오름차순 잠금, 89일·90일 경계와 DB 시각 기반 삭제를 검증한다.
+        - [2026-08-11 인증·알림 AWS 용량 측정](../../measurements/k6/auth-notification-capacity-2026-08-11.md)에서 App 2대에 poll 5초·인스턴스당 batch 50을 실제 배포했다. 알림 전달 계약은 10표본 p95 2.948초, 처리 10·실패 0·최종 backlog 0으로 PASS했다. 수신자 1·5·10명·취소 이벤트 100개를 각 3회 실행한 fan-out 9회도 모두 PASS했고, server-side p95 4.210~4.968초·p99 최대 5.676초·oldest processable age 최대 4.982초, retry·failed·최종 backlog 0건과 PostgreSQL waiting lock 0을 확인했다.
+        - [알림 broker 판단서](../../measurements/k6/notification-broker-decision-2026-08-11.md)는 이 유효 범위에서 p95 30초·oldest age 60초 목표를 충족하고 DB lock·미수렴 backlog 문제가 없었음을 확인한다. 0.5×·1× 혼합 부하는 App cgroup OOM으로 `INVALID`이므로 relay의 지속 처리 용량 경계나 broker 전환 근거로 사용하지 않는다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

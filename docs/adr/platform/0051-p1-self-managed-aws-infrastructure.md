@@ -131,13 +131,15 @@ EC2 네 대의 역할·초기 사양, App1 Nginx 진입점, ALB·자동 확장 �
 - 상태: 미검증
 - 근거:
     - 구현: 인프라 저장소의 [커밋 `126ee87`](https://github.com/bamsongi-club/albam-mate-infra/commit/126ee878aa30dbb2e532886f9276f056ff66d7cb)에 고정 EC2 4대, App1 Elastic IP, public subnet, 보안 그룹, 별도 데이터 EBS, private DNS, SSM inventory와 Ansible 호스트 준비를 구현했다.
-    - 테스트: 2026-08-06에 bootstrap과 P1 root module의 `terraform validate`, 전체 `terraform fmt -check`를 통과했다.
+    - 테스트:
+        - 2026-08-06에 bootstrap과 P1 root module의 `terraform validate`, 전체 `terraform fmt -check`를 통과했다.
+        - [2026-08-11 인증·알림 AWS 용량 측정](../../measurements/k6/auth-notification-capacity-2026-08-11.md)은 서울 리전의 임시 스택에 App 2대·PostgreSQL 1대·Redis 1대를 모두 `t4g.micro`로 배포하고 외부 web 진입점으로 인증·알림 계약과 fan-out을 실행했다. App은 CPU credit `standard`, JVM `-Xmx256m`, container 512MiB로 고정했고 image digest·release SHA·실효 설정을 Run별로 확인했다.
+        - 같은 측정의 알림 0.5×·1× 혼합 부하에서 App container memory 95.94~99.55%, host available memory 32.2~45.4MiB와 Java cgroup OOM을 관측했다. PostgreSQL CPU는 최대 12.20%, Redis는 5.43%였고 waiting lock과 최종 처리 가능 backlog는 0이어서, 네 역할을 같은 초기 사양에서 시작해 먼저 드러나는 병목을 측정한다는 경계에서 App memory를 최초 직접 병목으로 확인했다. 두 혼합 Run은 측정 완결성 조건을 충족하지 못한 `INVALID`이므로 P1 용량 경계로 읽지 않는다.
 - 미검증:
-    - Terraform은 정적 검증 단계이며 실제 AWS 계정의 `plan`·`apply` 근거가 없다.
+    - 2026-08-11 측정은 실제 AWS 스택 생성과 실행을 확인했지만, 해당 인프라 worktree가 dirty 상태였으므로 정확한 runner 변경은 Run별 `infra-dirty.patch` 지문에 의존한다. 계정·리전·fixture·image digest를 다른 팀원 AWS 계정에서 독립 재현하지는 않았다.
     - Ansible `--syntax-check`·`--check`와 실제 SSM 연결·playbook 실행을 확인하지 않았다.
     - 자체 운영 PostgreSQL TLS·백업 복구와 Redis AOF 복구를 실행하지 않았다.
-    - 실제 AWS 환경에서 두 Spring 인스턴스의 교차 세션·WebSocket·Scheduler·relay 동작을 확인하지 않았다.
-    - AWS 계정·리전·EBS 용량, 역할별 확장 기준과 전체 비용을 확정하지 않았다.
-    - `t4g.micro` 한 대에서 web·Spring 컨테이너를 함께 실행할 때의 메모리 여유를 측정하지 않았다. `-Xmx256m`는 측정 결과가 아니라 초기값이다.
+    - 실제 AWS 환경의 두 Spring 인스턴스에서 교차 세션·WebSocket·Scheduler, App2 장애 시 실패 대상 제외와 기존 연결 영향을 확인하지 않았다. relay는 정상 fan-out 범위만 실제 AWS에서 검증했고 지속 혼합 부하 용량 경계는 미확정이다.
+    - 이번 Run의 AWS 계정·서울 리전은 고정했지만 재현 대상 계정·EBS 용량, 역할별 확장 기준과 전체 비용을 확정하지 않았다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.
