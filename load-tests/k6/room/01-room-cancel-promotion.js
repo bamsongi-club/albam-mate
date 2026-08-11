@@ -45,6 +45,8 @@ export function cancelPromotion(data) {
       phase,
       operation: 'cancel-promotion',
       load_shape: configuration.mode,
+      load_profile: configuration.loadProfile,
+      test_classification: runtime.manifest.classification.category,
       concurrency: String(configuration.vus),
     };
     const response = http.del(
@@ -54,6 +56,6 @@ export function cancelPromotion(data) {
     );
     recordResponse(response, phase, 200, tags, true);
     checkMutationResponse(response, phase, 200, (body) => Number(body?.data?.roomId) === target.roomId
-      && body?.data?.participationStatus === 'CANCELED');
+      && body?.data?.participationStatus === 'CANCELED', tags);
   }
 }

@@ -18,11 +18,14 @@ const SCRIPT_DIRECTORY = resolve(REPOSITORY_ROOT, 'load-tests/k6/room');
 const BUNDLE_MARKER = '.room-k6-fixture-bundle';
 const DEFAULT_LEVELS = [2, 4, 8];
 const DEFAULT_MODES = ['hot', 'spread'];
+const STANDARD_DUE_ROOM_COUNTS = [0, 20, 2_000, 10_000];
+const STANDARD_WAITLIST_QUEUE_LENGTHS = [10, 100, 1_000, 10_000];
 const WAVE_PROFILE_COMPLETION_GRACE_SECONDS = 30;
 const ROOM_09_WAITERS_PER_CLOSED_DUE_ROOM = 10;
 const DUE_BACKLOG_CONTROL_ROOM_COUNT = 10;
 const ROOM_STATUS_CORRECTION_LOCK_NAME = 'room-status-correction';
 const ROOM_STATUS_CORRECTION_LOCK_DURATION_SECONDS = 300;
+const SPIKE_RAMP_SECONDS = 1;
 const DURATION_PATTERN = /^[1-9]\d*(ms|s|m|h)$/;
 const SCENARIO_SCRIPTS = {
   'cancel-promotion': '01-room-cancel-promotion.js',
@@ -57,6 +60,37 @@ function parseChoice(value, name, choices) {
   return value;
 }
 
+function parseDuration(value) {
+  assert(DURATION_PATTERN.test(value), `duration 형식이 올바르지 않습니다: ${value}`);
+  return value;
+}
+
+function scenarioClassification(scenario) {
+  if (scenario === 'room-detail') {
+    return {
+      category: 'read-load',
+      loadProfiles: { stress: 'required', spike: 'recommended', soak: 'future-recommended' },
+    };
+  }
+  if (scenario === 'waitlist-position') {
+    return {
+      category: 'data-scale-low-contention-comparison',
+      appliedLoadType: 'constant-vus-1',
+      loadProfiles: { stress: 'not-applicable', spike: 'not-applicable', soak: 'not-applicable' },
+    };
+  }
+  if (scenario === 'due-backlog-read') {
+    return {
+      category: 'read-write-contention',
+      loadProfiles: { stress: 'required', spike: 'recommended', soak: 'excluded' },
+    };
+  }
+  return {
+    category: 'write-contention',
+    loadProfiles: { stress: 'required', spike: 'recommended', soak: 'excluded' },
+  };
+}
+
 export function parseArguments(argv) {
   const [scenario, ...tokens] = argv;
   assert(SCENARIO_SCRIPTS[scenario], `지원하지 않는 scenario입니다: ${scenario || '<없음>'}`);
@@ -75,19 +109,20 @@ export function parseArguments(argv) {
 
   const common = {
     scenario,
+    classification: scenarioClassification(scenario),
     output: raw.output || resolve(REPOSITORY_ROOT, `build/k6/room/${scenario}`),
     seed: raw.seed || `${scenario}-${new Date().toISOString()}`,
   };
 
   const allowedByScenario = {
     'cancel-promotion': ['output', 'seed', 'levels', 'modes', 'warmup-waves', 'measured-waves',
-      'wave-interval-seconds', 'start-delay-seconds'],
+      'wave-interval-seconds', 'start-delay-seconds', 'load-profile'],
     'waitlist-registration': ['output', 'seed', 'levels', 'modes', 'warmup-waves', 'measured-waves',
-      'wave-interval-seconds', 'start-delay-seconds'],
+      'wave-interval-seconds', 'start-delay-seconds', 'load-profile'],
     'due-backlog-read': ['output', 'seed', 'endpoint', 'due-room-count', 'vus',
-      'start-delay-seconds'],
+      'start-delay-seconds', 'load-profile', 'duration', 'think-time-seconds'],
     'room-detail': ['output', 'seed', 'role', 'active-participant-count', 'vus', 'duration',
-      'think-time-seconds'],
+      'think-time-seconds', 'load-profile'],
     'waitlist-position': ['output', 'seed', 'queue-length', 'position', 'vus', 'duration',
       'think-time-seconds'],
   };
@@ -96,6 +131,11 @@ export function parseArguments(argv) {
   }
 
   if (scenario === 'cancel-promotion' || scenario === 'waitlist-registration') {
+    const loadProfile = parseChoice(raw['load-profile'] || 'stress', 'load-profile',
+      ['stress', 'spike']);
+    assert(loadProfile !== 'spike'
+      || (raw['warmup-waves'] === undefined && raw['measured-waves'] === undefined),
+    'spike profile은 warmup 0, measure 1회의 단일 동시 burst로 고정됩니다.');
     const levels = parseIntegerList(raw.levels || DEFAULT_LEVELS.join(','), 'levels', 1,
       scenario === 'cancel-promotion' ? 10 : 32);
     const modes = String(raw.modes || DEFAULT_MODES.join(','))
@@ -107,10 +147,15 @@ export function parseArguments(argv) {
       `한 bundle의 최대 로그인 수(${maximumLoginAttempts})가 기본 10분 제한(30)을 넘습니다. levels 또는 modes를 나눠 실행하세요.`);
     return {
       ...common,
+      loadProfile,
       levels,
       modes,
-      warmupWaves: parseInteger(raw['warmup-waves'] || 1, 'warmup-waves', 0, 10),
-      measuredWaves: parseInteger(raw['measured-waves'] || 10, 'measured-waves', 1, 100),
+      warmupWaves: loadProfile === 'spike'
+        ? 0
+        : parseInteger(raw['warmup-waves'] || 1, 'warmup-waves', 0, 10),
+      measuredWaves: loadProfile === 'spike'
+        ? 1
+        : parseInteger(raw['measured-waves'] || 10, 'measured-waves', 1, 100),
       waveIntervalSeconds: parseInteger(raw['wave-interval-seconds'] || 3,
         'wave-interval-seconds', 1, 60),
       startDelaySeconds: parseInteger(raw['start-delay-seconds'] || 10,
@@ -119,37 +164,50 @@ export function parseArguments(argv) {
   }
 
   if (scenario === 'due-backlog-read') {
+    const dueRoomCount = parseInteger(raw['due-room-count'] || 20, 'due-room-count', 0, 10_000);
+    assert(STANDARD_DUE_ROOM_COUNTS.includes(dueRoomCount),
+      `due-room-count는 ${STANDARD_DUE_ROOM_COUNTS.join(', ')} 중 하나여야 합니다: ${dueRoomCount}`);
     return {
       ...common,
       endpoint: parseChoice(raw.endpoint || 'room-list', 'endpoint', ['room-list', 'my-rooms']),
-      dueRoomCount: parseInteger(raw['due-room-count'] || 20, 'due-room-count', 1, 50_000),
+      loadProfile: parseChoice(raw['load-profile'] || 'stress', 'load-profile', ['stress', 'spike']),
+      dueRoomCount,
       vus: parseInteger(raw.vus || 2, 'vus', 1, 32),
+      duration: parseDuration(raw.duration || '1m'),
+      thinkTimeSeconds: parseInteger(raw['think-time-seconds'] || 1, 'think-time-seconds', 0, 60),
       startDelaySeconds: parseInteger(raw['start-delay-seconds'] || 10,
         'start-delay-seconds', 1, 60),
     };
   }
 
   if (scenario === 'room-detail') {
-    const duration = raw.duration || '1m';
-    assert(DURATION_PATTERN.test(duration), `duration 형식이 올바르지 않습니다: ${duration}`);
+    const loadProfile = parseChoice(raw['load-profile'] || 'stress', 'load-profile',
+      ['stress', 'spike', 'soak']);
+    assert(loadProfile !== 'soak' || raw.duration !== undefined,
+      'soak profile은 측정 기간을 --duration으로 명시해야 합니다.');
+    const duration = parseDuration(raw.duration || '1m');
     return {
       ...common,
+      loadProfile,
       role: parseChoice(raw.role || 'public', 'role', ['public', 'host', 'participant']),
       activeParticipantCount: parseInteger(raw['active-participant-count'] || 1,
         'active-participant-count', 1, 10),
       vus: parseInteger(raw.vus || 10, 'vus', 1, 100),
+      durationExplicit: raw.duration !== undefined,
       duration,
       thinkTimeSeconds: parseInteger(raw['think-time-seconds'] || 1, 'think-time-seconds', 0, 60),
     };
   }
 
-  const duration = raw.duration || '1m';
-  assert(DURATION_PATTERN.test(duration), `duration 형식이 올바르지 않습니다: ${duration}`);
+  const duration = parseDuration(raw.duration || '1m');
+  const queueLength = parseInteger(raw['queue-length'] || 10, 'queue-length', 10, 10_000);
+  assert(STANDARD_WAITLIST_QUEUE_LENGTHS.includes(queueLength),
+    `queue-length는 ${STANDARD_WAITLIST_QUEUE_LENGTHS.join(', ')} 중 하나여야 합니다: ${queueLength}`);
   return {
     ...common,
-    queueLength: parseInteger(raw['queue-length'] || 10, 'queue-length', 1, 10_000),
-    position: parseChoice(raw.position || 'head', 'position', ['head', 'tail']),
-    vus: parseInteger(raw.vus || 10, 'vus', 1, 100),
+    queueLength,
+    position: parseChoice(raw.position || 'head', 'position', ['head', 'middle', 'tail']),
+    vus: parseInteger(raw.vus || 1, 'vus', 1, 1),
     duration,
     thinkTimeSeconds: parseInteger(raw['think-time-seconds'] || 1, 'think-time-seconds', 0, 60),
   };
@@ -259,7 +317,7 @@ function buildWaveFixture(options, model) {
 
   for (const level of options.levels) {
     for (const mode of options.modes) {
-      const id = `${mode}-${level}`;
+      const id = `${options.loadProfile}-${mode}-${level}`;
       const targets = [];
       for (let wave = 0; wave < waveCount; wave += 1) {
         const phase = wave < options.warmupWaves ? 'warmup' : 'measure';
@@ -303,6 +361,7 @@ function buildWaveFixture(options, model) {
         + WAVE_PROFILE_COMPLETION_GRACE_SECONDS;
       configurations.push({
         id,
+        loadProfile: options.loadProfile,
         mode,
         vus: level,
         startOffsetSeconds,
@@ -322,6 +381,7 @@ function buildWaveFixture(options, model) {
     schemaVersion: 1,
     scenario: options.scenario,
     fixtureId: model.fixtureId,
+    classification: options.classification,
     globalStartDelaySeconds: 0,
     loginUserKeys: [...loginUserKeys],
     configurations,
@@ -389,6 +449,7 @@ function buildDueBacklogFixture(options, model) {
     schemaVersion: 1,
     scenario: options.scenario,
     fixtureId: model.fixtureId,
+    classification: options.classification,
     globalStartDelaySeconds: options.startDelaySeconds,
     loginUserKeys: userKey ? [userKey] : [],
     configuration: {
@@ -403,9 +464,11 @@ function buildDueBacklogFixture(options, model) {
       schedulerLockName: ROOM_STATUS_CORRECTION_LOCK_NAME,
       schedulerLockDurationSeconds: ROOM_STATUS_CORRECTION_LOCK_DURATION_SECONDS,
       schedulerLockOwner: `ROOM-K6:${model.fixtureId}:due-backlog-read`,
+      loadProfile: options.loadProfile,
+      spikeRampSeconds: options.loadProfile === 'spike' ? SPIKE_RAMP_SECONDS : null,
       vus: options.vus,
-      duration: '1m',
-      thinkTimeSeconds: 1,
+      duration: options.duration,
+      thinkTimeSeconds: options.thinkTimeSeconds,
       userKey,
       readerUserId: reader.id,
     },
@@ -425,18 +488,35 @@ function buildRoomDetailFixture(options, model) {
     model.participation(currentRoom, `participant-${index}`);
   }
 
-  const userKey = options.role === 'public'
-    ? null
-    : options.role === 'host' ? 'host' : 'participant-0';
+  let userKey = null;
+  let expectedMyRole = null;
+  let expectedParticipantsLength = null;
+  if (options.role === 'host') {
+    userKey = 'host';
+    expectedMyRole = 'HOST';
+    expectedParticipantsLength = options.activeParticipantCount + 1;
+  } else if (options.role === 'participant') {
+    userKey = 'participant-0';
+    expectedMyRole = 'JOINED';
+    expectedParticipantsLength = options.activeParticipantCount + 1;
+  }
   return {
     schemaVersion: 1,
     scenario: options.scenario,
     fixtureId: model.fixtureId,
+    classification: options.classification,
     loginUserKeys: userKey ? [userKey] : [],
     configuration: {
       role: options.role,
       activeParticipantCount: options.activeParticipantCount,
+      expectedParticipantCount: options.activeParticipantCount + 1,
+      expectedRemainingRecruitmentSeats: 10 - options.activeParticipantCount,
+      expectedMyRole,
+      expectedParticipantsLength,
+      loadProfile: options.loadProfile,
+      spikeRampSeconds: options.loadProfile === 'spike' ? SPIKE_RAMP_SECONDS : null,
       vus: options.vus,
+      durationExplicit: options.durationExplicit,
       duration: options.duration,
       thinkTimeSeconds: options.thinkTimeSeconds,
       roomId: currentRoom.id,
@@ -459,18 +539,26 @@ function buildWaitlistPositionFixture(options, model) {
   for (let index = 0; index < options.queueLength; index += 1) {
     waiters.push(model.waitlist(currentRoom, `waiter-${index}`));
   }
-  const targetIndex = options.position === 'head' ? 0 : waiters.length - 1;
+  let targetIndex = waiters.length - 1;
+  if (options.position === 'head') {
+    targetIndex = 0;
+  } else if (options.position === 'middle') {
+    targetIndex = Math.ceil(waiters.length / 2) - 1;
+  }
   const userKey = `waiter-${targetIndex}`;
 
   return {
     schemaVersion: 1,
     scenario: options.scenario,
     fixtureId: model.fixtureId,
+    classification: options.classification,
     loginUserKeys: [userKey],
     configuration: {
       queueLength: options.queueLength,
       position: options.position,
       expectedPosition: targetIndex + 1,
+      loadProfile: 'data-scale',
+      appliedLoadType: 'constant-vus-1',
       vus: options.vus,
       duration: options.duration,
       thinkTimeSeconds: options.thinkTimeSeconds,
@@ -956,6 +1044,8 @@ DECLARE
     recruiting_room_count BIGINT;
     closed_room_count BIGINT;
     unexpected_room_status_count BIGINT;
+    effective_closed_count BIGINT;
+    effective_finished_count BIGINT;
     changed_room_version_count BIGINT;
     changed_room_timestamp_count BIGINT;
     total_waitlist_count BIGINT;
@@ -1011,6 +1101,21 @@ BEGIN
             recruiting_room_count, ${configuration.recruitingDueRoomCount},
             closed_room_count, ${configuration.closedDueRoomCount},
             unexpected_room_status_count;
+    END IF;
+
+    SELECT
+        count(*) FILTER (WHERE status = 'RECRUITING' AND start_at <= CURRENT_TIMESTAMP),
+        count(*) FILTER (WHERE status = 'CLOSED'
+          AND start_at <= CURRENT_TIMESTAMP - INTERVAL '24 hours')
+    INTO effective_closed_count, effective_finished_count
+    FROM rooms
+    WHERE title LIKE ${sqlString(prefix)};
+    IF effective_closed_count <> ${configuration.recruitingDueRoomCount}
+        OR effective_finished_count <> ${configuration.closedDueRoomCount} THEN
+        RAISE EXCEPTION
+            'ROOM_K6_DUE_EFFECTIVE_STATUS_MISMATCH closed=%/% finished=%/%',
+            effective_closed_count, ${configuration.recruitingDueRoomCount},
+            effective_finished_count, ${configuration.closedDueRoomCount};
     END IF;
 
     SELECT count(*) INTO changed_room_version_count
@@ -1089,6 +1194,16 @@ SELECT json_build_object(
     ),
     'closedRooms', (
         SELECT count(*) FROM rooms WHERE title LIKE ${sqlString(prefix)} AND status = 'CLOSED'
+    ),
+    'effectiveClosedRooms', (
+        SELECT count(*) FROM rooms
+        WHERE title LIKE ${sqlString(prefix)}
+          AND status = 'RECRUITING' AND start_at <= CURRENT_TIMESTAMP
+    ),
+    'effectiveFinishedRooms', (
+        SELECT count(*) FROM rooms
+        WHERE title LIKE ${sqlString(prefix)}
+          AND status = 'CLOSED' AND start_at <= CURRENT_TIMESTAMP - INTERVAL '24 hours'
     ),
     'finishedRooms', (
         SELECT count(*) FROM rooms WHERE title LIKE ${sqlString(prefix)} AND status = 'FINISHED'
@@ -1169,6 +1284,22 @@ function renderReadOnlyVerify(fixture) {
         RAISE EXCEPTION 'ROOM_K6_QUEUE_POSITION_CHANGED expected=%, actual=%', ${expectedPosition}, actual_position;
     END IF;`
     : '';
+  const positionExplain = fixture.manifest.scenario === 'waitlist-position'
+    ? `
+
+EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+SELECT count(*) + 1 AS position
+FROM room_waitlists preceding
+WHERE preceding.room_id = ${roomId}
+  AND preceding.status = 'WAITING'
+  AND preceding.queue_order < (
+      SELECT target.queue_order
+      FROM room_waitlists target
+      WHERE target.room_id = ${roomId}
+        AND target.user_id = ${targetUser.id}
+        AND target.status = 'WAITING'
+  );`
+    : '';
   return `${verifyPreamble(fixture.model.fixtureId)}
 ${verifyCommonInvariants(fixture.model.fixtureId)}
 
@@ -1188,7 +1319,7 @@ SELECT json_build_object(
     'fixtureId', ${sqlString(fixture.model.fixtureId)},
     'roomId', ${roomId},
     'activeParticipantCount', (SELECT active_participant_count FROM rooms WHERE id = ${roomId})
-) AS room_k6_verification;
+) AS room_k6_verification;${positionExplain}
 COMMIT;
 `;
 }

@@ -18,11 +18,13 @@ export const conflictResponses = new Counter('room_conflict_responses');
 export const unexpected4xxResponses = new Counter('room_unexpected_4xx_responses');
 export const serverErrorResponses = new Counter('room_5xx_responses');
 export const unexpectedResponseRate = new Rate('room_unexpected_response_rate');
+export const measurementCheckRate = new Rate('room_measurement_check_rate');
 
 const sessions = {};
+const vuWarmups = {};
 
 export const correctnessThresholds = {
-  'checks{phase:measure}': ['rate==1'],
+  room_measurement_check_rate: ['rate==1'],
   room_unexpected_response_rate: ['rate==0'],
 };
 
@@ -51,6 +53,52 @@ function requireManifest(condition, message) {
 
 function isIntegerBetween(value, minimum, maximum) {
   return Number.isInteger(value) && value >= minimum && value <= maximum;
+}
+
+function validateClassification(manifest, expectedScenario) {
+  const classification = manifest.classification;
+  requireManifest(classification && typeof classification === 'object',
+    'classification 객체가 필요합니다.');
+  requireManifest(classification.loadProfiles && typeof classification.loadProfiles === 'object',
+    'classification.loadProfiles 객체가 필요합니다.');
+
+  if (expectedScenario === 'waitlist-position') {
+    requireManifest(classification.category === 'data-scale-low-contention-comparison',
+      '대기 순번은 data-scale-low-contention-comparison 분류여야 합니다.');
+    requireManifest(classification.appliedLoadType === 'constant-vus-1',
+      '대기 순번은 constant-vus-1 부하만 허용합니다.');
+    requireManifest(classification.loadProfiles.stress === 'not-applicable'
+      && classification.loadProfiles.spike === 'not-applicable'
+      && classification.loadProfiles.soak === 'not-applicable',
+    '대기 순번에는 stress/spike/soak profile을 적용하지 않습니다.');
+    return;
+  }
+
+  let expectedCategory = 'write-contention';
+  if (expectedScenario === 'due-backlog-read') {
+    expectedCategory = 'read-write-contention';
+  } else if (expectedScenario === 'room-detail') {
+    expectedCategory = 'read-load';
+  }
+  requireManifest(classification.category === expectedCategory,
+    `시나리오 분류가 올바르지 않습니다: ${expectedScenario}`);
+  requireManifest(classification.loadProfiles.stress === 'required',
+    'stress는 필수 profile이어야 합니다.');
+  requireManifest(classification.loadProfiles.spike === 'recommended',
+    'spike는 권장 profile이어야 합니다.');
+  const expectedSoak = expectedScenario === 'room-detail' ? 'future-recommended' : 'excluded';
+  requireManifest(classification.loadProfiles.soak === expectedSoak,
+    `soak 분류가 올바르지 않습니다: ${expectedScenario}`);
+}
+
+function validateSpikeRamp(configuration) {
+  if (configuration.loadProfile !== 'spike') {
+    requireManifest(configuration.spikeRampSeconds === null,
+      'stress/soak profile에는 spikeRampSeconds가 없어야 합니다.');
+    return;
+  }
+  requireManifest(isIntegerBetween(configuration.spikeRampSeconds, 1, 10),
+    'spikeRampSeconds는 1~10 정수여야 합니다.');
 }
 
 function validateLoginConfiguration(manifest, users) {
@@ -92,6 +140,8 @@ function validateWaveManifest(manifest, expectedScenario) {
     requireManifest(!configurationIds.has(configuration.id),
       `configuration.id가 중복되었습니다: ${configuration.id}`);
     configurationIds.add(configuration.id);
+    requireManifest(configuration.loadProfile === 'stress' || configuration.loadProfile === 'spike',
+      `지원하지 않는 loadProfile입니다: ${configuration.loadProfile}`);
     requireManifest(configuration.mode === 'hot' || configuration.mode === 'spread',
       `지원하지 않는 mode입니다: ${configuration.mode}`);
     requireManifest(isIntegerBetween(configuration.vus, 1, maximumVus),
@@ -112,6 +162,10 @@ function validateWaveManifest(manifest, expectedScenario) {
     requireManifest(configuration.waveCount
       === configuration.warmupWaves + configuration.measuredWaves,
       'waveCount는 warmupWaves와 measuredWaves의 합이어야 합니다.');
+    if (configuration.loadProfile === 'spike') {
+      requireManifest(configuration.warmupWaves === 0 && configuration.measuredWaves === 1,
+        'spike는 warmup 0, measure 1회의 단일 동시 burst여야 합니다.');
+    }
     const expectedMaxDurationSeconds = configuration.startDelaySeconds
       + configuration.waveCount * configuration.waveIntervalSeconds
       + WAVE_PROFILE_COMPLETION_GRACE_SECONDS;
@@ -144,8 +198,11 @@ function validateDueBacklogManifest(manifest) {
     'configuration 객체가 필요합니다.');
   requireManifest(configuration.endpoint === 'room-list' || configuration.endpoint === 'my-rooms',
     `지원하지 않는 endpoint입니다: ${configuration.endpoint}`);
-  requireManifest(isIntegerBetween(configuration.dueRoomCount, 1, 50000),
-    'dueRoomCount는 1~50000 정수여야 합니다.');
+  requireManifest([0, 20, 2_000, 10_000].includes(configuration.dueRoomCount),
+    'dueRoomCount는 0, 20, 2000, 10000 중 하나여야 합니다.');
+  requireManifest(configuration.loadProfile === 'stress' || configuration.loadProfile === 'spike',
+    `지원하지 않는 loadProfile입니다: ${configuration.loadProfile}`);
+  validateSpikeRamp(configuration);
   requireManifest(isIntegerBetween(configuration.vus, 1, 32),
     'vus는 1~32 정수여야 합니다.');
   requireManifest(DURATION_PATTERN.test(configuration.duration),
@@ -154,8 +211,8 @@ function validateDueBacklogManifest(manifest) {
     'thinkTimeSeconds는 0~60 정수여야 합니다.');
   requireManifest(isIntegerBetween(manifest.globalStartDelaySeconds, 1, 60),
     'globalStartDelaySeconds는 1~60 정수여야 합니다.');
-  requireManifest(isIntegerBetween(configuration.recruitingDueRoomCount, 1, 50000)
-      && isIntegerBetween(configuration.closedDueRoomCount, 0, 50000)
+  requireManifest(isIntegerBetween(configuration.recruitingDueRoomCount, 0, 10_000)
+      && isIntegerBetween(configuration.closedDueRoomCount, 0, 10_000)
       && configuration.recruitingDueRoomCount + configuration.closedDueRoomCount
         === configuration.dueRoomCount,
     'RECRUITING/CLOSED due ROOM 수가 dueRoomCount와 일치해야 합니다.');
@@ -190,6 +247,16 @@ function validateRoomDetailManifest(manifest) {
     `지원하지 않는 role입니다: ${configuration.role}`);
   requireManifest(isIntegerBetween(configuration.activeParticipantCount, 1, 10),
     'activeParticipantCount는 1~10 정수여야 합니다.');
+  requireManifest(['stress', 'spike', 'soak'].includes(configuration.loadProfile),
+    `지원하지 않는 loadProfile입니다: ${configuration.loadProfile}`);
+  validateSpikeRamp(configuration);
+  requireManifest(configuration.loadProfile !== 'soak' || configuration.durationExplicit === true,
+    'soak profile은 명시한 duration이 필요합니다.');
+  requireManifest(configuration.expectedParticipantCount === configuration.activeParticipantCount + 1,
+    'expectedParticipantCount는 주최자를 포함한 참가자 수여야 합니다.');
+  requireManifest(configuration.expectedRemainingRecruitmentSeats
+      === 10 - configuration.activeParticipantCount,
+    'expectedRemainingRecruitmentSeats는 모집 정원과 일치해야 합니다.');
   requireManifest(isIntegerBetween(configuration.vus, 1, 100), 'vus는 1~100 정수여야 합니다.');
   requireManifest(DURATION_PATTERN.test(configuration.duration),
     `duration 형식이 올바르지 않습니다: ${configuration.duration}`);
@@ -199,25 +266,48 @@ function validateRoomDetailManifest(manifest) {
     'roomId는 양의 safe integer여야 합니다.');
   if (configuration.role === 'public') {
     requireManifest(configuration.userKey === null, '공개 상세 조회는 userKey를 사용하지 않습니다.');
+    requireManifest(configuration.expectedMyRole === null
+      && configuration.expectedParticipantsLength === null,
+    '공개 상세 조회에는 관계자 응답 필드가 없어야 합니다.');
   } else {
     requireManifest(typeof configuration.userKey === 'string'
       && manifest.loginUserKeys.includes(configuration.userKey),
       `${configuration.role} 상세 조회용 userKey가 필요합니다.`);
+    const expectedMyRole = configuration.role === 'host' ? 'HOST' : 'JOINED';
+    requireManifest(configuration.expectedMyRole === expectedMyRole,
+      `${configuration.role} 상세 조회의 myRole이 올바르지 않습니다.`);
+    requireManifest(configuration.expectedParticipantsLength
+        === configuration.expectedParticipantCount,
+      '관계자 상세 조회의 participants 길이가 participantCount와 일치해야 합니다.');
   }
+}
+
+function expectedQueuePosition(configuration) {
+  if (configuration.position === 'head') {
+    return 1;
+  }
+  if (configuration.position === 'middle') {
+    return Math.ceil(configuration.queueLength / 2);
+  }
+  return configuration.queueLength;
 }
 
 function validateWaitlistPositionManifest(manifest) {
   const configuration = manifest.configuration;
   requireManifest(configuration && typeof configuration === 'object',
     'configuration 객체가 필요합니다.');
-  requireManifest(isIntegerBetween(configuration.queueLength, 1, 10000),
-    'queueLength는 1~10000 정수여야 합니다.');
-  requireManifest(configuration.position === 'head' || configuration.position === 'tail',
+  requireManifest([10, 100, 1_000, 10_000].includes(configuration.queueLength),
+    'queueLength는 10, 100, 1000, 10000 중 하나여야 합니다.');
+  requireManifest(['head', 'middle', 'tail'].includes(configuration.position),
     `지원하지 않는 position입니다: ${configuration.position}`);
-  const expectedPosition = configuration.position === 'head' ? 1 : configuration.queueLength;
+  const expectedPosition = expectedQueuePosition(configuration);
   requireManifest(configuration.expectedPosition === expectedPosition,
     'expectedPosition이 position과 queueLength에 맞지 않습니다.');
-  requireManifest(isIntegerBetween(configuration.vus, 1, 100), 'vus는 1~100 정수여야 합니다.');
+  requireManifest(configuration.loadProfile === 'data-scale',
+    '대기 순번은 data-scale profile이어야 합니다.');
+  requireManifest(configuration.appliedLoadType === 'constant-vus-1',
+    '대기 순번은 constant-vus-1 부하만 허용합니다.');
+  requireManifest(configuration.vus === 1, '대기 순번 VU는 1로 고정해야 합니다.');
   requireManifest(DURATION_PATTERN.test(configuration.duration),
     `duration 형식이 올바르지 않습니다: ${configuration.duration}`);
   requireManifest(isIntegerBetween(configuration.thinkTimeSeconds, 0, 60),
@@ -255,6 +345,7 @@ export function loadRuntime(expectedScenario) {
   requireManifest(typeof manifest.fixtureId === 'string' && manifest.fixtureId.length > 0,
     'fixtureId가 필요합니다.');
   requireManifest(users && typeof users === 'object', 'users.json은 객체여야 합니다.');
+  validateClassification(manifest, expectedScenario);
   validateLoginConfiguration(manifest, users);
   validateScenarioManifest(manifest, expectedScenario);
 
@@ -330,6 +421,17 @@ export function sessionFor(runtime, userKey) {
   return sessions[userKey];
 }
 
+export function runVuLocalWarmup(warmupKey, warmup) {
+  const key = `${exec.scenario.name}:${exec.vu.idInTest}:${warmupKey}`;
+  if (vuWarmups[key]) {
+    return false;
+  }
+
+  warmup();
+  vuWarmups[key] = true;
+  return true;
+}
+
 export function readParams(phase, operation, session = null) {
   return {
     ...(session ? { jar: session.jar } : {}),
@@ -362,11 +464,47 @@ export function waveScenarioOptions(manifest, executionFunction) {
       gracefulStop: '0s',
       tags: {
         load_shape: configuration.mode,
+        load_profile: configuration.loadProfile,
+        test_classification: manifest.classification.category,
         concurrency: String(configuration.vus),
       },
     };
   }
   return scenarios;
+}
+
+export function readScenarioOptions(manifest, executionFunction, scenarioTags) {
+  const configuration = manifest.configuration;
+  const tags = {
+    ...scenarioTags,
+    load_profile: configuration.loadProfile,
+    test_classification: manifest.classification.category,
+  };
+  if (configuration.loadProfile === 'spike') {
+    const rampDuration = `${configuration.spikeRampSeconds}s`;
+    return {
+      executor: 'ramping-vus',
+      exec: executionFunction,
+      startVUs: 0,
+      stages: [
+        { duration: rampDuration, target: configuration.vus },
+        { duration: configuration.duration, target: configuration.vus },
+        { duration: rampDuration, target: 0 },
+      ],
+      gracefulRampDown: '0s',
+      gracefulStop: '5s',
+      tags,
+    };
+  }
+
+  return {
+    executor: 'constant-vus',
+    exec: executionFunction,
+    vus: configuration.vus,
+    duration: configuration.duration,
+    gracefulStop: '5s',
+    tags,
+  };
 }
 
 export function currentConfiguration(manifest) {
@@ -431,8 +569,15 @@ export function recordResponse(
   unexpectedResponseRate.add(true, tags);
 }
 
-export function checkMutationResponse(response, phase, successStatus, successPredicate) {
+function recordMeasurementCheck(valid, phase, tags) {
+  if (phase === 'measure') {
+    measurementCheckRate.add(valid, tags);
+  }
+}
+
+export function checkMutationResponse(response, phase, successStatus, successPredicate, tags = { phase }) {
   const body = responseJson(response);
+  const checkTags = { ...tags, phase };
   const valid = check(response, {
     '성공 또는 동시 수정 409 응답': (res) => {
       if (res.status === successStatus) {
@@ -440,75 +585,91 @@ export function checkMutationResponse(response, phase, successStatus, successPre
       }
       return res.status === 409 && body?.code === 'ROOM_CONCURRENT_MODIFICATION';
     },
-  }, { phase });
+  }, checkTags);
+  recordMeasurementCheck(valid, phase, checkTags);
   if (phase !== 'measure' && !valid) {
     abortTest(`warm-up 명령 응답 계약 위반: status=${response.status}`);
   }
   return valid;
 }
 
-export function checkPageResponse(response, phase) {
+export function checkPageResponse(response, phase, tags = { phase }) {
   const body = responseJson(response);
+  const checkTags = { ...tags, phase };
   const valid = check(response, {
     'ROOM 목록 조회 계약 충족': (res) => res.status === 200
       && body?.status === 200
       && Array.isArray(body?.data?.content),
-  }, { phase });
+  }, checkTags);
+  recordMeasurementCheck(valid, phase, checkTags);
   if (phase !== 'measure' && !valid) {
     abortTest(`ROOM 목록 warm-up 응답 계약 위반: status=${response.status}`);
   }
   return valid;
 }
 
-export function checkDueBacklogProbeResponse(
-  response,
-  phase,
-  expectedStatus,
-  expectedTotalElements,
-  expectedChatAvailable = null,
-) {
-  const body = responseJson(response);
-  const content = body?.data?.content;
-  const valid = check(response, {
-    'due backlog 유효 상태 조회 계약 충족': (res) => res.status === 200
-      && body?.status === 200
-      && Number(body?.data?.totalElements) === expectedTotalElements
-      && Array.isArray(content)
-      && content.length > 0
-      && content.every((room) => room?.status === expectedStatus)
-      && (expectedChatAvailable === null
-        || content.every((room) => room?.chatAvailable === expectedChatAvailable)),
-  }, { phase, expected_status: expectedStatus });
-  if (!valid) {
-    abortTest(
-      `due backlog 유효 상태 probe 실패: expectedStatus=${expectedStatus}, status=${response.status}`,
-    );
-  }
-  return valid;
+function hasNoRelationshipFields(detail) {
+  return ['myRole', 'place', 'host', 'participants'].every(
+    (field) => !Object.prototype.hasOwnProperty.call(detail, field),
+  );
 }
 
-export function checkRoomDetailResponse(response, phase, roomId) {
+function matchesExpectedInteger(value, expected) {
+  return Number.isSafeInteger(value) && value === expected;
+}
+
+function matchesRoomDetailContract(detail, configuration) {
+  if (!matchesExpectedInteger(detail?.id, configuration.roomId)
+    || !matchesExpectedInteger(detail?.participantCount, configuration.expectedParticipantCount)
+    || !matchesExpectedInteger(
+      detail?.remainingRecruitmentSeats,
+      configuration.expectedRemainingRecruitmentSeats,
+    )) {
+    return false;
+  }
+
+  if (configuration.role === 'public') {
+    return hasNoRelationshipFields(detail);
+  }
+
+  return detail?.myRole === configuration.expectedMyRole
+    && Array.isArray(detail?.participants)
+    && detail.participants.length === configuration.expectedParticipantsLength;
+}
+
+export function checkRoomDetailResponse(response, phase, configuration, tags = { phase }) {
   const body = responseJson(response);
+  const detail = body?.data;
+  const checkTags = { ...tags, phase };
   const valid = check(response, {
     'ROOM 상세 조회 계약 충족': (res) => res.status === 200
       && body?.status === 200
-      && Number(body?.data?.id) === Number(roomId),
-  }, { phase });
+      && matchesRoomDetailContract(detail, configuration),
+  }, checkTags);
+  recordMeasurementCheck(valid, phase, checkTags);
   if (phase !== 'measure' && !valid) {
     abortTest(`ROOM 상세 warm-up 응답 계약 위반: status=${response.status}`);
   }
   return valid;
 }
 
-export function checkWaitlistPositionResponse(response, phase, roomId, expectedPosition) {
+export function checkWaitlistPositionResponse(
+  response,
+  phase,
+  roomId,
+  expectedPosition,
+  tags = { phase },
+) {
   const body = responseJson(response);
+  const checkTags = { ...tags, phase };
   const valid = check(response, {
     '대기 순번 조회 계약 충족': (res) => res.status === 200
       && body?.status === 200
       && Number(body?.data?.roomId) === Number(roomId)
       && body?.data?.waitlistStatus === 'WAITING'
       && Number(body?.data?.position) === Number(expectedPosition),
-  }, { phase });
+  }, checkTags);
+  recordMeasurementCheck(valid, phase, checkTags);
   if (phase !== 'measure' && !valid) {
     abortTest(`대기 순번 warm-up 응답 계약 위반: status=${response.status}`);
   }

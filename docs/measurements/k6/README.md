@@ -23,14 +23,14 @@ docs/
 - Markdown 결과 문서는 `<test-content>-<YYYY-MM-DD>.md` 형식을 사용한다. `<test-content>`는 영문 소문자 kebab-case로 쓰며, 도메인명이 아니라 실제로 측정하거나 판단한 업무 흐름을 표현한다. 예: `auth-notification-delivery-2026-08-11.md`
 - 문서에는 시나리오, 실행 환경·명령, fixture 전제, 주요 지표, 결과 해석과 한계를 적는다. 여러 도메인이 섞인 경우에는 문서 본문에 관련 도메인을 적고, 파일이나 폴더를 도메인별로 나누지 않는다.
 - `evidence/`에는 Markdown 문서의 수치를 뒷받침해야 할 때만 같은 `<test-content>-<YYYY-MM-DD>.json` 이름으로 검증·비식별화한 JSON 증거를 둔다. 여러 Run을 묶은 campaign manifest도 이 경계를 따른다.
+- 새 캠페인 ID는 `<domain>-<YYYYMMDDTHHmmssKST>` 형식을 쓴다. ROOM HTTP k6는 `room-k6-<시작시각 KST>`로 시작하며, 보고서 제목과 `measurementWindow.displayKst`에는 날짜뿐 아니라 시작·종료 시각을 함께 적는다.
+- ROOM HTTP k6 결과는 적어도 하나의 manifest-backed Run이 생긴 뒤에만 새 보고서·campaign manifest를 만든다. 시나리오 매트릭스, 각 Run의 `included|excluded` 처리, k6 지표와 DB·CloudWatch 관측 상태는 [ROOM 보고서 템플릿](../../../load-tests/k6/room/REPORT_TEMPLATE.md)을 따른다.
 
 ## 캠페인 인덱스
 
 | Campaign ID | 측정 구간 | 상태 | 보고서 | 판단서 | 근거 manifest | 대체 관계 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `auth-notification-20260811T021040KST` | 2026-08-11 02:10:40~10:36:50 KST | `completed-with-limitations` | [인증·알림 AWS 용량 측정](auth-notification-capacity-2026-08-11.md) | [알림 broker 판단](notification-broker-decision-2026-08-11.md) | [campaign manifest](evidence/auth-notification-capacity-2026-08-11.json) | 최초 캠페인, 후속 없음 |
-| `room-k6-20260811T142439Z` | 2026-08-11 23:24~2026-08-12 02:47 KST (첫 포함 Run ID 시작~마지막 검증 산출물 기록 시각) | `completed-with-limitations` | [ROOM 핵심 HTTP k6 실행 결과](room-core-scenarios-partial-2026-08-11.md) | - | [campaign manifest](evidence/room-core-scenarios-partial-2026-08-11.json) | [AWS 관측 보강](room-capacity-observation-2026-08-12.md)이 이 캠페인을 `supplements`하며 원본을 대체하지 않음 |
-| `room-capacity-20260812T032259KST` | 2026-08-11 23:24~2026-08-12 02:48 KST (원본 ROOM k6 구간을 덮는 CloudWatch Query window) | `completed-with-limitations` | [ROOM AWS 관측 보강](room-capacity-observation-2026-08-12.md) | - | [campaign manifest](evidence/room-capacity-observation-2026-08-12.json) | `supplements room-k6-20260811T142439Z`; 새 k6 실행이나 원본 대체가 아닌 읽기 전용 사후 관측 |
 
 `completed-with-limitations`는 실행과 보고가 끝났지만 유효한 정상·실패 경계를 모두 확정하지 못했거나 원자료 접근 범위가 제한된 상태다. `current` 판단서는 후속 문서가 `supersedes`로 대체하기 전까지 현재 판단으로 읽는다.
 
@@ -38,7 +38,7 @@ docs/
 
 1. 보고서의 `결론`과 `측정 조건`에서 무엇을 측정했고 무엇을 확정하지 못했는지 확인한다.
 2. 세부 표에서는 각 Run의 `판정`과 `reportDisposition`을 함께 본다.
-3. 판단서에서 측정 결과가 현재 아키텍처 선택에 미치는 범위와 재검토 조건을 확인한다.
+3. 판단서가 있는 경우, 측정 결과가 현재 아키텍처 선택에 미치는 범위와 재검토 조건을 확인한다.
 4. 수치를 재검증할 때는 campaign manifest의 source revision과 Run bundle fingerprint를 사용한다.
 
 ## 근거와 정본 경계

@@ -1,114 +1,127 @@
 # ROOM k6 부하테스트
 
-이 디렉터리는 [#578](https://github.com/bamsongi-club/albam-mate/issues/578)의 ROOM 핵심 HTTP 부하 시나리오와 재현 가능한 fixture 생성기를 제공한다. 공식 측정은 고객 데이터가 없는 Terraform 부하테스트 환경에서 `albam-mate-infra`의 runner로 수행한다. 로컬 실행은 스크립트·인증·fixture smoke 확인용이며 운영 성능 수치로 사용하지 않는다.
+이 디렉터리는 ROOM 핵심 HTTP 시나리오의 fixture bundle과 k6 소스를 제공한다. 실제 공식 측정은 고객 데이터가 없는 Terraform 부하테스트 환경에서만 수행한다. 여기의 로컬 검증은 fixture, manifest, 인증, 문법 계약 확인용이며 성능 수치나 운영 SLO 증거가 아니다.
 
-## 시나리오
+## 최종 분류와 적용 부하
 
-| 파일 | 주제 | 기본 profile | 핵심 판정 |
-| --- | --- | --- | --- |
-| `01-room-cancel-promotion.js` | 참가 취소와 자동 승격의 동시성 | hot/spread, VU 2/4/8, warm-up 1 wave + 실측 10 waves | 성공 취소 수와 승격 수 일치, 정원, FIFO, 중복 ACTIVE 없음 |
-| `02-room-waitlist-registration.js` | 최초 대기 등록의 동시성 | hot/spread, VU 2/4/8, warm-up 1 wave + 실측 10 waves | 성공 수와 WAITING 수 일치, 사용자 중복 없음, queue order 중복 없음 |
-| `03-room-read-due-backlog.js` | due backlog와 목록 조회의 격리 | endpoint별 due 20/2,000, VU 2/4/8, 1분 | 유효 상태 응답과 HTTP 지연, ROOM 저장 상태·version과 WAITING·채팅 종료 부수효과 불변 |
-| `04-room-detail-by-role.js` | 공개·주최자·참가자 상세 조회 | 역할별 활성 참가자 1/10, 10 VU, 1분 | 역할별 end-to-end 지연과 응답 계약, 조회 중 저장 상태 불변 |
-| `05-room-waitlist-position.js` | 대기열 길이에 따른 순번 조회 | 10/100/1,000명, head/tail, 10 VU, 1분 | 지연 증가 기울기, 정확한 순번, 대기열 불변 |
+### Scenario 01
 
-`hot`은 여러 사용자가 같은 ROOM을 변경하고 `spread`는 같은 요청 수를 서로 다른 ROOM에 분산한다. 두 결과의 차이로 ROOM version 경합과 DB·connection pool 같은 공용 병목을 구분한다. 각 profile은 이전 profile의 `maxDuration`이 끝난 뒤 시작하므로 느린 요청이 남아 있어도 다음 조건과 겹치지 않는다.
+`01-room-cancel-promotion.js`의 최종 분류는 `write-contention`이다. Stress는 필수이고 Spike는 권장하며 Soak은 제외한다. hot/spread와 VU 2/4/8 wave를 적용한다.
 
-## 409와 재요청 계약
+### Scenario 02
 
-동시 명령의 `409 ROOM_CONCURRENT_MODIFICATION`은 서버가 내부 낙관 락 재시도 3회를 소진한 관찰 결과다. k6는 같은 요청을 다시 보내지 않는다. 재요청하면 한 사용자의 업무 요청이 여러 번 실행되어 원래 경합 강도와 성공 수를 해석하기 어려워지기 때문이다.
+`02-room-waitlist-registration.js`의 최종 분류는 `write-contention`이다. Stress는 필수이고 Spike는 권장하며 Soak은 제외한다. hot/spread와 VU 2/4/8 wave를 적용한다.
 
-측정 응답은 `2xx`, 위 계약의 `409`, 그 밖의 `4xx`, `5xx`로 분리한다. `409` 비율 자체에는 초기 합격선을 두지 않고 기록한다. `5xx`, 예상하지 않은 `4xx`, 응답 계약 위반, 실행 후 DB 불변식 위반은 테스트 실패다.
+### Scenario 03
+
+`03-room-read-due-backlog.js`의 최종 분류는 `read-write-contention`이다. Stress는 필수이고 Spike는 권장하며 Soak은 제외한다. endpoint별 지속 VU 또는 급격 ramp를 적용한다.
+
+### Scenario 04
+
+`04-room-detail-by-role.js`의 최종 분류는 `read-load`다. Stress는 필수이고 Spike는 권장하며 Soak은 추후 권장한다. role별 지속 VU 또는 급격 ramp를 적용한다.
+
+### Scenario 05
+
+`05-room-waitlist-position.js`의 최종 분류는 `data-scale-low-contention-comparison`(데이터 증가·저경합 비교)이다. Stress, Spike, Soak은 적용하지 않고 constant VU 1만 사용한다.
+
+01~04의 manifest에는 `classification.category`, `classification.loadProfiles`, 실제 `configuration.loadProfile`이 함께 기록된다. k6 scenario와 custom metric에는 `test_classification`, `load_profile` 태그가 붙는다. 05는 `data-scale-low-contention-comparison`과 `constant-vus-1`을 기록하므로 동시성 부하 결과처럼 해석하지 않는다.
+
+Stress는 01~04의 필수 비교 조건이다. Spike는 01~04에서 권장하는 선택 조건이다. 01/02는 warm-up 0회와 measure 1회의 단일 동시 burst이고, 03/04는 1초 ramp-up과 1초 ramp-down을 명시한다. Soak은 01~03에 적용하지 않는다. 04에서만 추후 권장하며 `--duration`을 반드시 명시해야 한다. 임의의 장시간 기본값은 제공하지 않는다.
 
 ## fixture bundle 만들기
 
-Node.js 20 이상에서 저장소 루트를 기준으로 실행한다. 출력은 반드시 Git이 무시하는 `build/k6/room/` 아래에 생성된다.
+Node.js 20 이상에서 저장소 루트를 기준으로 실행한다. bundle 출력은 Git이 무시하는 `build/k6/room/` 아래만 허용한다. bundle에는 `scenario.js`, `common.js`, `manifest.json`, `users.json`, `prepare.sql`, `verify.sql`, `k6-vars.json`, `source-metadata.json`이 생긴다.
+
+공식 정본은 01/02의 mode × VU × load profile마다 **별도 bundle**을 만드는 것이다. 한 bundle에 여러 mode/VU를 넣는 기능은 개발 편의용이며 공식 비교 결과로 합산하지 않는다.
 
 ```sh
 node load-tests/k6/room/tools/prepare-fixture.mjs cancel-promotion \
-  --seed room-cancel-20260811 \
-  --output build/k6/room/cancel-promotion
+  --seed room-cancel-stress-hot-vu2 \
+  --load-profile stress --modes hot --levels 2 \
+  --output build/k6/room/cancel-stress-hot-vu2
 
-node load-tests/k6/room/tools/prepare-fixture.mjs waitlist-registration \
-  --seed room-waitlist-register-20260811 \
-  --output build/k6/room/waitlist-registration
+node load-tests/k6/room/tools/prepare-fixture.mjs cancel-promotion \
+  --seed room-cancel-spike-hot-vu2 \
+  --load-profile spike --modes hot --levels 2 \
+  --output build/k6/room/cancel-spike-hot-vu2
 ```
 
-위 두 bundle은 기본값으로 hot/spread와 VU 2/4/8 전체를 순차 실행한다. 취소 시나리오는 ROOM 정원 상한 때문에 VU 10을 넘길 수 없다. 대기 등록의 VU 16 탐색은 기본 로그인 제한(부하 발생기 IP당 10분에 30회)을 넘지 않도록 `--levels 16 --modes hot`처럼 한 mode씩 분리한다. VU 32는 로그인 제한 조정이나 세션 준비 계약이 먼저 필요하므로 현재 runner의 지원 profile에서 제외한다.
+`--load-profile stress`의 01/02 기본값은 warm-up 1 wave와 measure 10 waves다. `--load-profile spike`는 warm-up 0 wave와 measure 1 wave의 단일 burst로 고정된다. hot은 같은 ROOM에 요청을 모으고, spread는 같은 요청 수를 서로 다른 ROOM에 분산한다.
 
-조회 시나리오는 비교 조건마다 별도 bundle을 만든다.
+03은 endpoint마다 새 fixture를 만든다. `room-list`와 `my-rooms`는 같은 bundle이나 실행 결과를 공유하지 않는다.
 
 ```sh
 node load-tests/k6/room/tools/prepare-fixture.mjs due-backlog-read \
-  --endpoint room-list --due-room-count 20 --vus 2 \
-  --seed due-room-list-20-vu2 \
-  --output build/k6/room/due-room-list-20-vu2
+  --seed due-room-list-clean-vu2 \
+  --endpoint room-list --due-room-count 0 --vus 2 \
+  --load-profile stress --duration 1m --think-time-seconds 1 \
+  --output build/k6/room/due-room-list-clean-vu2
 
-node load-tests/k6/room/tools/prepare-fixture.mjs room-detail \
-  --role participant --active-participant-count 10 \
-  --seed detail-participant-10 \
-  --output build/k6/room/detail-participant-10
-
-node load-tests/k6/room/tools/prepare-fixture.mjs waitlist-position \
-  --queue-length 1000 --position tail \
-  --seed waitlist-position-1000-tail \
-  --output build/k6/room/waitlist-position-1000-tail
+node load-tests/k6/room/tools/prepare-fixture.mjs due-backlog-read \
+  --seed due-my-rooms-2000-vu8 \
+  --endpoint my-rooms --due-room-count 2000 --vus 8 \
+  --load-profile spike --duration 1m --think-time-seconds 1 \
+  --output build/k6/room/due-my-rooms-2000-vu8
 ```
 
-due backlog의 `/api/rooms`와 `/api/users/me/rooms`는 반드시 각각 새 fixture로 실행한다. 두 endpoint와 due 20/2,000, VU 2/4/8 조합을 분리해야 조건별 지연과 DB 불변식을 독립적으로 해석할 수 있다. fixture는 ROOM-09d와 같이 due ROOM을 저장 상태 `RECRUITING`/`CLOSED`로 반씩 만들고, 각 `CLOSED` ROOM에 `WAITING` 10명을 둔다. 따라서 due 20개는 `CLOSED` 10개와 WAITING 총 100건을 포함한다.
+03의 공식 matrix는 endpoint × VU 2/4/8 × due ROOM 0(clean)/20/2,000이다. 10,000은 기본 비교가 아니라 사전 조건이 충족된 뒤에만 선택 실행한다. target endpoint의 사전 warm-up과 pre-measure probe는 due backlog를 먼저 보정할 수 있으므로 금지한다. my-rooms는 VU-local 첫 loop에서 로그인 session만 준비하고, public은 HTTP 없이 warm-up marker만 처리한다. 유효 상태 확인은 post-run `verify.sql`의 effective-status 검증에 맡긴다.
 
-최신 목록·내 모임 조회는 due ROOM의 유효 상태를 응답하되 전역 저장 보정을 수행하지 않는다. 각 VU는 1분 동안 1초 간격으로 같은 목록을 반복 조회하며, 실측 전 probe가 `RECRUITING`·`CLOSED`·`FINISHED` 유효 상태와 내 모임의 채팅 가능 여부를 확인한다. 준비 단계는 `room-status-correction` ShedLock을 5분 동안 조건부로 확보해 Scheduler가 측정에 개입하지 못하게 한다. 이미 Scheduler가 실행 중이면 fixture 준비를 실패시키며 기존 lock을 덮어쓰지 않는다. 실행 뒤에는 due 대상 수, 저장 상태, ROOM version, WAITING과 채팅 종료 보존 값이 모두 그대로인지 검증하고 성공 시 lock을 즉시 해제한다. 검증 전에 5분 lock이 만료되면 결과를 애플리케이션 회귀로 해석하지 않고 실행 실패로 남긴다. 조회의 `409`는 더 이상 정상 결과가 아니므로 예상하지 않은 `4xx`로 실패한다. 10,000 due ROOM은 기본 측정이 아니라 선택 stress profile이다.
+04는 role public/host/participant와 active participant 1/10을 각각 따로 만든다.
 
-bundle에는 다음 파일이 생긴다.
+```sh
+node load-tests/k6/room/tools/prepare-fixture.mjs room-detail \
+  --seed detail-host-active10-stress \
+  --role host --active-participant-count 10 \
+  --load-profile stress --duration 1m \
+  --output build/k6/room/detail-host-active10-stress
 
-| 파일 | 역할 |
-| --- | --- |
-| `scenario.js`, `common.js` | 실행 시점의 k6 소스 복사본 |
-| `manifest.json` | ROOM·사용자 대상과 부하 profile |
-| `users.json` | 로그인 계정과 실행 전용 임의 비밀번호 |
-| `prepare.sql` | 이전 `ROOM-K6:` fixture 정리와 현재 fixture 적재 |
-| `verify.sql` | HTTP 성공 수와 DB 결과·도메인 불변식 대조 |
-| `k6-vars.json` | runner가 허용한 k6 환경 변수 |
-| `source-metadata.json` | source commit·SHA-256·fixture 건수 |
+node load-tests/k6/room/tools/prepare-fixture.mjs room-detail \
+  --seed detail-participant-active10-soak \
+  --role participant --active-participant-count 10 \
+  --load-profile soak --duration 30m \
+  --output build/k6/room/detail-participant-active10-soak
+```
 
-`users.json`과 `prepare.sql`에는 실행 전용 비밀번호가 있으므로 Git에 추가하거나 결과물에 복사하지 않는다. 생성기는 POSIX 환경에서 두 파일을 mode `0600`으로 만들고 runner도 원격 파일을 `0600`으로 강제한다. Windows 로컬 bundle은 현재 사용자만 접근할 수 있는 작업 경로에 둔다. marker가 없는 기존 디렉터리는 삭제하지 않는다. fixture 정리는 `ROOM-K6:` 제목과 `room-k6-*@example.invalid` 계정으로 식별한 데이터만 대상으로 한다. 이 작업은 별도 부하테스트 환경을 독점해서 실행한다.
+상세 checker는 공개 응답에 `myRole`, `place`, `host`, `participants`가 없는지 확인한다. 관계자 응답은 host=`HOST`, participant=`JOINED`, `participantCount=active+1`, `remainingRecruitmentSeats=10-active`, `participants.length=active+1`을 확인한다.
+
+05는 큐 길이만 비교하기 위해 `vus`를 1로 고정한다.
+
+```sh
+node load-tests/k6/room/tools/prepare-fixture.mjs waitlist-position \
+  --seed queue-100-middle \
+  --queue-length 100 --position middle \
+  --output build/k6/room/queue-100-middle
+```
+
+05의 표준 큐 길이는 10/100/1,000이며 10,000은 선택 조건이다. position은 `head`, `middle`, `tail`을 지원한다. middle의 기대 순번은 `ceil(N/2)`이므로 N=10이면 5다. 각 05 `verify.log`의 같은 순번 조회 `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)`에서 planning time, execution time, actual rows, shared hit blocks, shared read blocks를 추출해 데이터 규모별로 비교한다.
 
 ## Terraform 부하테스트 환경에서 실행
 
-이 절의 bundle 실행은 `albam-mate-infra`의 [ROOM bundle runner PR #9](https://github.com/bamsongi-club/albam-mate-infra/pull/9)가 반영된 버전을 전제로 한다. 단일 JavaScript와 `--fixture`만 지원하는 이전 runner에서는 실행할 수 없다. 먼저 Terraform 배포와 inventory 준비를 끝낸 뒤, infra 저장소 루트에서 app 저장소의 bundle 디렉터리를 넘긴다.
+`albam-mate-infra`의 ROOM bundle runner가 반영된 상태에서 bundle 하나를 실행한다.
 
 ```sh
-./run.sh loadtest ../albam-mate/build/k6/room/cancel-promotion
+./run.sh loadtest ../albam-mate/build/k6/room/cancel-stress-hot-vu2
 ```
 
-runner는 다음 순서를 지킨다.
+runner는 fixture 적재, k6 실행, `verify.sql` 불변식 대조, artifact 회수 순서로 동작한다. fixture 적재 시간은 k6 측정 구간에 포함하지 않는다. `users.json`과 `prepare.sql`에는 실행 전용 비밀번호가 있으므로 Git이나 결과 artifact에 복사하지 않는다.
 
-1. PostgreSQL에 `prepare.sql`을 적용한다.
-2. 별도 c7g.large load generator에서 `scenario.js`를 실행한다.
-3. k6의 실측 성공 수를 PostgreSQL `verify.sql`에 넘겨 불변식을 검사한다.
-4. k6 summary·stdout/stderr와 SQL 로그를 로컬 `.run/results/<run-id>/`로 회수한 뒤 원격 임시 파일을 지운다.
+각 실행 artifact는 `run-metadata.json`의 Campaign ID `room-k6-YYYYMMDDTHHmmssKST`, `measurementWindow`, Run 상태 `PASS`/`FAIL`/`INVALID`, `reportDisposition` `included`/`excluded`으로 서로 연결한다. 인프라 관측물은 같은 결과 디렉터리의 `cloudwatch-capacity.json`, `database-lock-samples.ndjson`, `observation-status.json`으로 보관한다.
 
-각 bundle 실행 전에 fixture가 다시 적재되며 적재 시간은 k6 측정 구간에 포함되지 않는다. 마지막에는 Terraform 환경을 내리면 테스트 계정과 데이터도 함께 폐기된다.
+## 결과 지표와 gate
 
-## 결과 읽기
+`room_request_duration_ms`는 measure ROOM 요청의 지연 분포이며 관찰 지표다. `room_measured_requests`는 measure 요청 수와 처리량이며 관찰 지표다. `room_success_responses`와 `room_conflict_responses`는 기대 성공과 계약된 동시 수정 409의 관찰 지표다. `room_unexpected_4xx_responses`와 `room_5xx_responses`는 예상 밖 오류 분포의 관찰 지표다.
 
-| 지표 | 의미 |
-| --- | --- |
-| `room_request_duration_ms` | 로그인과 warm-up을 제외한 ROOM 요청의 p50(`med`)·p95·p99·max |
-| `room_measured_requests` | 실측 요청 수와 초당 요청 수 |
-| `room_success_responses` | 시나리오가 기대한 `200` 또는 `201` |
-| `room_conflict_responses` | `409 ROOM_CONCURRENT_MODIFICATION` |
-| `room_unexpected_4xx_responses` | 계약에 없는 `4xx` |
-| `room_5xx_responses` | 서버 오류 |
-| `room_unexpected_response_rate` | 예상하지 않은 응답 비율. 반드시 0이어야 함 |
+`room_unexpected_response_rate`는 예상하지 않은 HTTP 응답 비율이며 `rate==0`이어야 한다. `room_measurement_check_rate`는 measure 응답 payload 계약 충족률이며 `rate==1`이어야 한다.
 
-매 실행의 bundle·로그·k6 원시 결과는 Git이 무시하는 `build/k6/room/`과 infra runner의 `.run/results/`에만 둔다. 재현 또는 의사결정 근거로 보존하기로 승인한 결과만 비밀값과 실제 환경 식별자를 제거하고 검증한 뒤 [`docs/measurements/k6/`](../../../docs/measurements/k6/README.md)의 Markdown과 선택적 JSON 증거로 승격한다.
+builtin `checks{phase:measure}` threshold는 사용하지 않는다. 이전 실제 실행에서 해당 tag 표본이 0인 상태로 threshold가 실패한 이력이 있으므로 모든 measure-response checker는 명시적으로 `room_measurement_check_rate`에 기록한다. 03~05는 VU별 첫 iteration을 warm-up으로 처리해 `sessionFor` 로그인과 첫 요청이 measure 표본에 섞이지 않게 한다.
 
-k6만으로 Hikari connection, JVM heap·GC, DB CPU·lock을 수집할 수는 없다. 같은 실행 시간대의 CloudWatch·애플리케이션 로그와 PostgreSQL 관측 자료를 함께 보존한다. ROOM-09/10의 PostgreSQL 측정값은 fixture와 경합 profile을 설계하는 참고선이며 HTTP RPS나 운영 SLO로 환산하지 않는다.
+## 보고서와 증거 경계
 
-## 로컬 검증
+실제 실행 뒤에는 [REPORT_TEMPLATE.md](REPORT_TEMPLATE.md)를 채워 artifact와 관측 시각을 묶은 뒤 승인된 결과만 [k6 결과 문서 정본](../../../docs/measurements/k6/README.md)으로 승격한다. 이 README는 과거의 원시 실행 로그나 미승인 성능 숫자를 재사용하지 않는다.
 
-fixture 생성기와 모든 JavaScript 문법을 확인한다.
+k6 결과만으로 Hikari pending, JVM GC, DB CPU, DB lock을 추정하지 않는다. 같은 campaign 시간대의 `cloudwatch-capacity.json`, `database-lock-samples.ndjson`, `observation-status.json`을 함께 보관한다. 승인된 애플리케이션 관측 endpoint가 없으면 `observation-status.json`에 Hikari pending을 `unavailable`과 그 사유로 남긴다.
+
+## 로컬 정적 검증
 
 ```sh
 node --test load-tests/k6/room/tools/fixture.test.mjs
@@ -118,13 +131,4 @@ node --check load-tests/k6/room/02-room-waitlist-registration.js
 node --check load-tests/k6/room/03-room-read-due-backlog.js
 node --check load-tests/k6/room/04-room-detail-by-role.js
 node --check load-tests/k6/room/05-room-waitlist-position.js
-```
-
-로컬에 k6가 있다면 생성한 bundle에서 init 단계 계약도 확인한다.
-
-```sh
-k6 inspect \
-  -e K6_MANIFEST_FILE=build/k6/room/cancel-promotion/manifest.json \
-  -e K6_USERS_FILE=build/k6/room/cancel-promotion/users.json \
-  build/k6/room/cancel-promotion/scenario.js
 ```

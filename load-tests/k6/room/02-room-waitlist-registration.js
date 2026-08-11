@@ -45,6 +45,8 @@ export function registerWaitlist(data) {
       phase,
       operation: 'waitlist-registration',
       load_shape: configuration.mode,
+      load_profile: configuration.loadProfile,
+      test_classification: runtime.manifest.classification.category,
       concurrency: String(configuration.vus),
     };
     const response = http.post(
@@ -55,6 +57,6 @@ export function registerWaitlist(data) {
     recordResponse(response, phase, 201, tags, true);
     checkMutationResponse(response, phase, 201, (body) => Number(body?.data?.roomId) === target.roomId
       && body?.data?.waitlistStatus === 'WAITING'
-      && Number(body?.data?.position) > 0);
+      && Number(body?.data?.position) > 0, tags);
   }
 }

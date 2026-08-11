@@ -32,9 +32,11 @@ test('취소-자동 승격은 hot/spread와 VU 2/4/8을 같은 wave 수로 만�
 
   assert.deepEqual(
     fixture.manifest.configurations.map((configuration) => configuration.id),
-    ['hot-2', 'spread-2', 'hot-4', 'spread-4', 'hot-8', 'spread-8'],
+    ['stress-hot-2', 'stress-spread-2', 'stress-hot-4', 'stress-spread-4',
+      'stress-hot-8', 'stress-spread-8'],
   );
   for (const configuration of fixture.manifest.configurations) {
+    assert.equal(configuration.loadProfile, 'stress');
     assert.equal(configuration.waveCount, 11);
     assert.equal(configuration.maxDurationSeconds, 73);
     assert.equal(configuration.targets.length, 11);
@@ -49,8 +51,12 @@ test('취소-자동 승격은 hot/spread와 VU 2/4/8을 같은 wave 수로 만�
     );
   }
 
-  const hotEight = fixture.manifest.configurations.find((configuration) => configuration.id === 'hot-8');
-  const spreadEight = fixture.manifest.configurations.find((configuration) => configuration.id === 'spread-8');
+  const hotEight = fixture.manifest.configurations.find(
+    (configuration) => configuration.id === 'stress-hot-8',
+  );
+  const spreadEight = fixture.manifest.configurations.find(
+    (configuration) => configuration.id === 'stress-spread-8',
+  );
   assert.equal(new Set(hotEight.targets[0].map((target) => target.roomId)).size, 1);
   assert.equal(new Set(spreadEight.targets[0].map((target) => target.roomId)).size, 8);
   assert.equal(Math.max(...fixture.model.rooms.map((room) => room.capacity)), 8);
@@ -73,6 +79,36 @@ test('대기 등록은 새 사용자만 대상으로 하고 초기 WAITING 행�
   assert.equal(fixture.model.waitlists.length, 0);
   assert.ok(fixture.model.rooms.every((room) => room.activeParticipantCount === room.capacity));
   assert.match(renderVerifySql(fixture), /ROOM_K6_WAITLIST_SUCCESS_MISMATCH/);
+});
+
+test('01/02는 stress 필수와 spike 단일 burst를 profile별 manifest에 기록한다', () => {
+  const cases = [
+    { loadProfile: 'stress', warmupWaves: 1, measuredWaves: 10 },
+    { loadProfile: 'spike', warmupWaves: 0, measuredWaves: 1 },
+  ];
+
+  for (const scenario of ['cancel-promotion', 'waitlist-registration']) {
+    for (const expected of cases) {
+      const fixture = buildFixture(options(
+        scenario,
+        '--seed', `${scenario}-${expected.loadProfile}`,
+        '--levels', '2',
+        '--modes', 'hot',
+        '--load-profile', expected.loadProfile,
+      ));
+      const [configuration] = fixture.manifest.configurations;
+
+      assert.equal(fixture.manifest.classification.category, 'write-contention');
+      assert.equal(fixture.manifest.classification.loadProfiles.stress, 'required');
+      assert.equal(fixture.manifest.classification.loadProfiles.spike, 'recommended');
+      assert.equal(fixture.manifest.classification.loadProfiles.soak, 'excluded');
+      assert.equal(configuration.loadProfile, expected.loadProfile);
+      assert.equal(configuration.warmupWaves, expected.warmupWaves);
+      assert.equal(configuration.measuredWaves, expected.measuredWaves);
+      assert.equal(configuration.waveCount, expected.warmupWaves + expected.measuredWaves);
+      assert.equal(configuration.id, `${expected.loadProfile}-hot-2`);
+    }
+  }
 });
 
 test('due backlog 조회는 저장 상태 보존과 Scheduler 격리 계약을 만든다', () => {
@@ -108,6 +144,7 @@ test('due backlog 조회는 저장 상태 보존과 Scheduler 격리 계약을 �
   assert.match(verifySql, /ROOM_K6_DUE_BACKLOG_CHANGED/);
   assert.match(verifySql, /ROOM_K6_DUE_STORED_STATUS_CHANGED/);
   assert.match(verifySql, /ROOM_K6_DUE_ROOM_VERSION_CHANGED/);
+  assert.match(verifySql, /ROOM_K6_DUE_EFFECTIVE_STATUS_MISMATCH/);
   assert.match(verifySql, /ROOM_K6_DUE_ROOM_TIMESTAMP_CHANGED/);
   assert.match(verifySql, /ROOM_K6_DUE_WAITLIST_CHANGED/);
   assert.match(verifySql, /ROOM_K6_DUE_WAITLIST_TIMESTAMP_CHANGED/);
@@ -116,38 +153,135 @@ test('due backlog 조회는 저장 상태 보존과 Scheduler 격리 계약을 �
   assert.match(verifySql, /ROOM_K6_STATUS_CORRECTION_LOCK_RELEASE_FAILED/);
 });
 
-test('상세 조회 역할에 따라 인증 사용자를 정확히 선택한다', () => {
-  const publicFixture = buildFixture(options(
-    'room-detail', '--seed', 'detail-public', '--role', 'public',
-  ));
-  const hostFixture = buildFixture(options(
-    'room-detail', '--seed', 'detail-host', '--role', 'host',
-  ));
-  const participantFixture = buildFixture(options(
-    'room-detail', '--seed', 'detail-participant',
-    '--role', 'participant', '--active-participant-count', '10',
-  ));
+test('03은 endpoint × due 규모 × VU matrix와 stress/spike 실행 계약을 만든다', () => {
+  const endpoints = ['room-list', 'my-rooms'];
+  const dueRoomCounts = [0, 20, 2_000];
+  const vusLevels = [2, 4, 8];
+  const loadProfiles = ['stress', 'spike'];
 
-  assert.deepEqual(publicFixture.manifest.loginUserKeys, []);
-  assert.deepEqual(hostFixture.manifest.loginUserKeys, ['host']);
-  assert.deepEqual(participantFixture.manifest.loginUserKeys, ['participant-0']);
-  assert.equal(participantFixture.model.participations.length, 10);
+  for (const endpoint of endpoints) {
+    for (const dueRoomCount of dueRoomCounts) {
+      for (const vus of vusLevels) {
+        for (const loadProfile of loadProfiles) {
+          const fixture = buildFixture(options(
+            'due-backlog-read',
+            '--seed', `due-${endpoint}-${dueRoomCount}-${vus}-${loadProfile}`,
+            '--endpoint', endpoint,
+            '--due-room-count', String(dueRoomCount),
+            '--vus', String(vus),
+            '--load-profile', loadProfile,
+            '--duration', '45s',
+            '--think-time-seconds', '2',
+          ));
+          const configuration = fixture.manifest.configuration;
+
+          assert.equal(fixture.manifest.classification.loadProfiles.stress, 'required');
+          assert.equal(fixture.manifest.classification.category, 'read-write-contention');
+          assert.equal(fixture.manifest.classification.loadProfiles.spike, 'recommended');
+          assert.equal(configuration.endpoint, endpoint);
+          assert.equal(configuration.dueRoomCount, dueRoomCount);
+          assert.equal(configuration.vus, vus);
+          assert.equal(configuration.loadProfile, loadProfile);
+          assert.equal(configuration.duration, '45s');
+          assert.equal(configuration.thinkTimeSeconds, 2);
+          assert.equal(configuration.spikeRampSeconds, loadProfile === 'spike' ? 1 : null);
+          assert.equal(fixture.model.rooms.filter((room) => room.phase === 'measure').length, dueRoomCount);
+          assert.equal(fixture.model.waitlists.length, configuration.expectedWaitingWaitlistCount);
+          assert.deepEqual(fixture.manifest.loginUserKeys, endpoint === 'my-rooms' ? ['reader'] : []);
+        }
+      }
+    }
+  }
+
+  const cleanFixture = buildFixture(options(
+    'due-backlog-read', '--seed', 'due-clean-verify',
+    '--endpoint', 'room-list', '--due-room-count', '0',
+  ));
+  assert.equal(cleanFixture.manifest.configuration.recruitingDueRoomCount, 0);
+  assert.equal(cleanFixture.manifest.configuration.closedDueRoomCount, 0);
+  assert.equal(cleanFixture.manifest.configuration.expectedWaitingWaitlistCount, 0);
+  assert.match(renderPrepareSql(cleanFixture), /ROOM_K6_PREPARE_DUE_COUNT_MISMATCH/);
+  assert.match(renderVerifySql(cleanFixture), /ROOM_K6_DUE_ROOM_COUNT_CHANGED/);
 });
 
-test('대기 순번 head/tail fixture의 기대 순번이 큐 길이와 일치한다', () => {
-  const head = buildFixture(options(
-    'waitlist-position', '--seed', 'position-head',
-    '--queue-length', '1000', '--position', 'head',
-  ));
-  const tail = buildFixture(options(
-    'waitlist-position', '--seed', 'position-tail',
-    '--queue-length', '1000', '--position', 'tail',
-  ));
+test('04는 role × active participants × load profile 응답 계약을 manifest에 만든다', () => {
+  const roles = [
+    { role: 'public', userKey: null, myRole: null },
+    { role: 'host', userKey: 'host', myRole: 'HOST' },
+    { role: 'participant', userKey: 'participant-0', myRole: 'JOINED' },
+  ];
+  const activeParticipantCounts = [1, 10];
+  const loadProfiles = ['stress', 'spike', 'soak'];
 
-  assert.equal(head.manifest.configuration.expectedPosition, 1);
-  assert.equal(tail.manifest.configuration.expectedPosition, 1000);
-  assert.equal(head.model.waitlists.length, 1000);
-  assert.match(renderVerifySql(tail), /ROOM_K6_QUEUE_POSITION_CHANGED/);
+  for (const expectedRole of roles) {
+    for (const activeParticipantCount of activeParticipantCounts) {
+      for (const loadProfile of loadProfiles) {
+        const args = [
+          'room-detail',
+          '--seed', `detail-${expectedRole.role}-${activeParticipantCount}-${loadProfile}`,
+          '--role', expectedRole.role,
+          '--active-participant-count', String(activeParticipantCount),
+          '--load-profile', loadProfile,
+        ];
+        if (loadProfile === 'soak') {
+          args.push('--duration', '15m');
+        }
+        const fixture = buildFixture(options(...args));
+        const configuration = fixture.manifest.configuration;
+
+        assert.equal(fixture.manifest.classification.loadProfiles.stress, 'required');
+        assert.equal(fixture.manifest.classification.category, 'read-load');
+        assert.equal(fixture.manifest.classification.loadProfiles.spike, 'recommended');
+        assert.equal(fixture.manifest.classification.loadProfiles.soak, 'future-recommended');
+        assert.equal(configuration.expectedParticipantCount, activeParticipantCount + 1);
+        assert.equal(configuration.expectedRemainingRecruitmentSeats, 10 - activeParticipantCount);
+        assert.equal(configuration.expectedMyRole, expectedRole.myRole);
+        assert.equal(configuration.expectedParticipantsLength, expectedRole.myRole
+          ? activeParticipantCount + 1
+          : null);
+        assert.equal(configuration.loadProfile, loadProfile);
+        assert.equal(configuration.spikeRampSeconds, loadProfile === 'spike' ? 1 : null);
+        assert.equal(configuration.durationExplicit, loadProfile === 'soak');
+        assert.deepEqual(fixture.manifest.loginUserKeys, expectedRole.userKey
+          ? [expectedRole.userKey]
+          : []);
+        assert.equal(fixture.model.participations.length, activeParticipantCount);
+      }
+    }
+  }
+});
+
+test('05는 data-scale 저경합 조건에서 head/middle/tail 순번과 VU 1을 고정한다', () => {
+  const queueLengths = [10, 100, 1_000, 10_000];
+  const positions = ['head', 'middle', 'tail'];
+
+  for (const queueLength of queueLengths) {
+    for (const position of positions) {
+      const fixture = buildFixture(options(
+        'waitlist-position',
+        '--seed', `position-${queueLength}-${position}`,
+        '--queue-length', String(queueLength),
+        '--position', position,
+      ));
+      const configuration = fixture.manifest.configuration;
+      const expectedPosition = position === 'head'
+        ? 1
+        : position === 'middle' ? Math.ceil(queueLength / 2) : queueLength;
+
+      assert.equal(fixture.manifest.classification.category, 'data-scale-low-contention-comparison');
+      assert.equal(fixture.manifest.classification.appliedLoadType, 'constant-vus-1');
+      assert.equal(configuration.appliedLoadType, 'constant-vus-1');
+      assert.equal(configuration.loadProfile, 'data-scale');
+      assert.equal(configuration.vus, 1);
+      assert.equal(configuration.expectedPosition, expectedPosition);
+      assert.equal(fixture.model.waitlists.length, queueLength);
+      const verifySql = renderVerifySql(fixture);
+      assert.match(verifySql, /ROOM_K6_QUEUE_POSITION_CHANGED/);
+      assert.match(verifySql, /EXPLAIN \(ANALYZE, BUFFERS, FORMAT JSON\)/);
+      assert.match(verifySql, /WHERE preceding\.room_id = \d+/);
+      assert.match(verifySql, /target\.user_id = \d+/);
+    }
+  }
 });
 
 test('bundle은 marker가 있는 ignored output만 교체하고 metadata에 비밀번호를 남기지 않는다', () => {
@@ -168,6 +302,12 @@ test('bundle은 marker가 있는 ignored output만 교체하고 metadata에 비�
     assert.ok(existsSync(resolve(output, '.room-k6-fixture-bundle')));
     assert.ok(existsSync(resolve(output, 'scenario.js')));
     assert.match(readFileSync(resolve(output, 'users.json'), 'utf8'), /do-not-copy-this-password/);
+    const manifest = JSON.parse(readFileSync(resolve(output, 'manifest.json'), 'utf8'));
+    assert.equal(manifest.scenario, 'room-detail');
+    assert.equal(manifest.classification.loadProfiles.soak, 'future-recommended');
+    assert.equal(manifest.configuration.loadProfile, 'stress');
+    assert.match(readFileSync(resolve(output, 'common.js'), 'utf8'),
+      /room_measurement_check_rate/);
     assert.doesNotMatch(readFileSync(resolve(output, 'source-metadata.json'), 'utf8'),
       /do-not-copy-this-password/);
 
@@ -189,8 +329,16 @@ test('위험하거나 잘못된 입력을 거부한다', () => {
   assert.throws(() => options('waitlist-registration', '--levels', '16', '--modes', 'hot,spread'),
     /최대 로그인 수\(32\).*제한\(30\)/);
   assert.doesNotThrow(() => options('waitlist-registration', '--levels', '16', '--modes', 'hot'));
+  assert.throws(() => options(
+    'cancel-promotion', '--load-profile', 'spike', '--measured-waves', '2',
+  ), /단일 동시 burst/);
+  assert.throws(() => options('room-detail', '--load-profile', 'soak'), /--duration/);
   assert.throws(() => options('room-detail', '--duration', 'one-minute'), /duration 형식/);
   assert.throws(() => options('room-detail', '--duration', '0m'), /duration 형식/);
+  assert.throws(() => options('due-backlog-read', '--due-room-count', '1'), /0, 20, 2000, 10000/);
+  assert.doesNotThrow(() => options('due-backlog-read', '--due-room-count', '10000'));
   assert.throws(() => options('waitlist-position', '--queue-length', '10001'), /10000 이하여야/);
+  assert.throws(() => options('waitlist-position', '--queue-length', '20'), /10, 100, 1000, 10000/);
+  assert.throws(() => options('waitlist-position', '--vus', '2'), /1 이하여야/);
   assert.throws(() => options('due-backlog-read', '--unknown', 'value'), /지원하지 않는 옵션/);
 });
