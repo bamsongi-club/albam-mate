@@ -50,4 +50,5 @@ out/
 *.env
 !.env.example
 !.env.production.example
+/load-tests/k6/*/fixtures/*.json
 /src/test/http/http-client.private.env.json
