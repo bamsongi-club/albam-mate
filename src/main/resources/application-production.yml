@@ -36,6 +36,10 @@ app:
   security:
     cookie:
       secure: true
+    auth-request:
+      # 부하 측정은 계정 수만큼 로그인을 반복하므로 기본 30회/10분에 먼저 걸린다.
+      # 측정 창에서만 올리고 끝나면 되돌린다. 지정하지 않으면 기본값을 그대로 쓴다.
+      login-limit: ${ALBAM_MATE_LOGIN_LIMIT:30}
   redis:
     host: ${ALBAM_MATE_REDIS_HOST}
     port: ${ALBAM_MATE_REDIS_PORT:6379}
