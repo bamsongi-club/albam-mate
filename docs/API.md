@@ -473,6 +473,15 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 | `alias` | string | Y | Y | P0 | 제공 | 게임 별칭 |
 | `description` | string | Y | N | P0 | 제공 | 간단 설명 |
 | `detailDescription` | string | Y | N | P0 | 제공 | 상세 설명 |
+| `mechanisms` | GameMechanismSummary[] | Y | N | P1 | 제공 | 연결된 공개 메커니즘의 `nameKo ASC, code ASC` 배열. 관계가 없으면 빈 배열 |
+
+#### GameMechanismSummary
+
+| 필드 | 타입 | null | 설명 |
+|---|---|:---:|---|
+| `code` | string | N | 표시명과 분리된 안정적인 내부 코드 |
+| `nameKo` | string | N | 검수된 한국어 표시명 |
+| `nameEn` | string | N | BGG 영문명 |
 
 ### 4.7 PublicRoomResponse
 
@@ -1066,6 +1075,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 |---|---|:---:|---|
 | `categories` | GameCategorySummary[] | N | displayOrder ASC의 `code`, `nameKo`, `nameEn` 배열 |
 | `themes` | GameThemeSummary[] | N | `nameKo ASC, code ASC`의 `code`, `nameKo`, `nameEn` 배열 |
+| `mechanisms` | GameMechanismSummary[] | N | 연결된 공개 메커니즘의 `nameKo ASC, code ASC` `code`, `nameKo`, `nameEn` 배열. 관계가 없으면 빈 배열 |
 | `recommendedPlayerCounts` | integer[] | N | 오름차순 추천 인원. 관계가 없으면 빈 배열 |
 | `bestPlayerCounts` | integer[] | N | 오름차순 베스트 인원. 관계가 없으면 빈 배열 |
 

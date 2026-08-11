@@ -25,7 +25,8 @@ public record GameDetail(
 	List<GameCategorySummary> categories,
 	List<GameThemeSummary> themes,
 	List<Integer> recommendedPlayerCounts,
-	List<Integer> bestPlayerCounts) {
+	List<Integer> bestPlayerCounts,
+	List<GameMechanismSummary> mechanisms) {
 
 	public GameDetail(
 		Long id,
@@ -45,7 +46,7 @@ public record GameDetail(
 		Boolean playedByMe) {
 		this(id, bggId, name, englishName, imageUrl, supportedPlayerCount, tag, estimatedPlayTime,
 			complexity, releaseYear, null, upcomingRoomCount, alias, description, detailDescription, playedByMe,
-			List.of(), List.of(), List.of(), List.of());
+			List.of(), List.of(), List.of(), List.of(), List.of());
 	}
 
 	public GameDetail(
@@ -82,7 +83,34 @@ public record GameDetail(
 			List.of(),
 			List.of(),
 			List.of(),
+			List.of(),
 			List.of());
+	}
+
+	public GameDetail(
+		Long id,
+		Long bggId,
+		String name,
+		String englishName,
+		String imageUrl,
+		String supportedPlayerCount,
+		String tag,
+		String estimatedPlayTime,
+		BigDecimal complexity,
+		Integer releaseYear,
+		Integer minAge,
+		long upcomingRoomCount,
+		String alias,
+		String description,
+		String detailDescription,
+		Boolean playedByMe,
+		List<GameCategorySummary> categories,
+		List<GameThemeSummary> themes,
+		List<Integer> recommendedPlayerCounts,
+		List<Integer> bestPlayerCounts) {
+		this(id, bggId, name, englishName, imageUrl, supportedPlayerCount, tag, estimatedPlayTime, complexity,
+			releaseYear, minAge, upcomingRoomCount, alias, description, detailDescription, playedByMe, categories,
+			themes, recommendedPlayerCounts, bestPlayerCounts, List.of());
 	}
 
 	public static GameDetail from(Game game, long upcomingRoomCount) {
@@ -90,7 +118,7 @@ public record GameDetail(
 	}
 
 	public static GameDetail from(Game game, long upcomingRoomCount, Boolean playedByMe) {
-		return from(game, upcomingRoomCount, playedByMe, List.of(), List.of(), List.of(), List.of());
+		return from(game, upcomingRoomCount, playedByMe, List.of(), List.of(), List.of(), List.of(), List.of());
 	}
 
 	public static GameDetail from(
@@ -101,6 +129,19 @@ public record GameDetail(
 		List<GameThemeSummary> themes,
 		List<Integer> recommendedPlayerCounts,
 		List<Integer> bestPlayerCounts) {
+		return from(game, upcomingRoomCount, playedByMe, categories, themes, recommendedPlayerCounts,
+			bestPlayerCounts, List.of());
+	}
+
+	public static GameDetail from(
+		Game game,
+		long upcomingRoomCount,
+		Boolean playedByMe,
+		List<GameCategorySummary> categories,
+		List<GameThemeSummary> themes,
+		List<Integer> recommendedPlayerCounts,
+		List<Integer> bestPlayerCounts,
+		List<GameMechanismSummary> mechanisms) {
 		return new GameDetail(
 			game.getId(),
 			game.getBggId(),
@@ -121,6 +162,7 @@ public record GameDetail(
 			List.copyOf(categories),
 			List.copyOf(themes),
 			List.copyOf(recommendedPlayerCounts),
-			List.copyOf(bestPlayerCounts));
+			List.copyOf(bestPlayerCounts),
+			List.copyOf(mechanisms));
 	}
 }

@@ -126,7 +126,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 - `SEARCH-01-AC14` 순위 CSV의 양수 subdomain rank만 고정 8개 카테고리 관계로 적재하고, category 단일·다중 OR와 존재하지 않는 code·중복 code의 검증을 지킨다.
 - `SEARCH-01-AC15` 테마 선택지는 한글명·영문명·안정 code를 반환하고, theme ANY·ALL과 themeMatch 기본값·중복·형식 오류를 정확히 판정한다.
 - `SEARCH-01-AC16` 추천·베스트 인원은 BGG 투표의 판정식과 N+ 확장을 지키며, 단일·다중 OR와 다른 게임 조건의 AND, 목록·전체 건수 정합성을 지킨다.
-- `SEARCH-01-AC17` 게임 상세는 카테고리·테마·추천/베스트 인원 배열을 정해진 순서로 반환하고, 관계가 없으면 빈 배열을 반환한다.
+- `SEARCH-01-AC17` 게임 상세는 카테고리·테마·공개 메커니즘·추천/베스트 인원 배열을 정해진 순서로 반환하고, 관계가 없으면 빈 배열을 반환한다. 공개 메커니즘은 `nameKo ASC, code ASC`의 `code`, `nameKo`, `nameEn`만 반환한다.
 - `SEARCH-01-AC18` 170,000행 PostgreSQL fixture에서 대표 category·theme ANY·ALL·추천/베스트·복합 조합의 결과·전체 건수·실행 계획·응답 시간을 cache 없이 재현한다.
 
 ### 제외 범위

@@ -50,6 +50,52 @@ class GameMechanismHttpIntegrationTest {
 	private JdbcTemplate jdbcTemplate;
 
 	@Test
+	void 게임_상세는_연결된_공개_메커니즘만_이름과_코드순으로_요약해_반환한다() throws Exception {
+		Game target = saveGame(100000L, "Detail target");
+		Game unrelated = saveGame(100001L, "Detail unrelated");
+		GameMechanism first = saveMechanism(2040L, "ALPHA", "가나다", "Alpha", 2, true);
+		GameMechanism second = saveMechanism(2072L, "BETA", "가나다", "Beta", 1, true);
+		GameMechanism privateMechanism = saveMechanism(9991L, "PRIVATE", "비공개", "Private", null, false);
+		GameMechanism unrelatedMechanism = saveMechanism(9992L, "UNRELATED", "다라마바사", "Unrelated", null, true);
+		link(target, second);
+		link(target, privateMechanism);
+		link(target, first);
+		link(unrelated, unrelatedMechanism);
+
+		mockMvc.perform(get("/api/games/{gameId}", target.getId()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.mechanisms.length()").value(2))
+			.andExpect(jsonPath("$.data.mechanisms[0].code").value("ALPHA"))
+			.andExpect(jsonPath("$.data.mechanisms[0].nameKo").value("가나다"))
+			.andExpect(jsonPath("$.data.mechanisms[0].nameEn").value("Alpha"))
+			.andExpect(jsonPath("$.data.mechanisms[1].code").value("BETA"))
+			.andExpect(jsonPath("$.data.mechanisms[?(@.code == 'PRIVATE')]").isEmpty())
+			.andExpect(jsonPath("$.data.mechanisms[?(@.code == 'UNRELATED')]").isEmpty())
+			.andExpect(jsonPath("$.data.mechanisms[0].id").doesNotExist())
+			.andExpect(jsonPath("$.data.mechanisms[0].bggMechanismId").doesNotExist())
+			.andExpect(jsonPath("$.data.mechanisms[0].featuredOrder").doesNotExist())
+			.andExpect(jsonPath("$.data.mechanisms[0].descriptionKo").doesNotExist())
+			.andExpect(jsonPath("$.data.mechanisms[0].isPublic").doesNotExist())
+			.andExpect(jsonPath("$.data.mechanisms[0].sourceReference").doesNotExist())
+			.andExpect(jsonPath("$.data.mechanisms[0].reviewedBy").doesNotExist())
+			.andExpect(jsonPath("$.data.mechanisms[0].reviewedAt").doesNotExist());
+	}
+
+	@Test
+	void 게임_상세는_비공개_메커니즘_관계만_있으면_빈_배열과_기존_식별_필드를_반환한다() throws Exception {
+		Game target = saveGame(100003L, "Detail private only");
+		GameMechanism privateMechanism = saveMechanism(9993L, "PRIVATE", "비공개", "Private", null, false);
+		link(target, privateMechanism);
+
+		mockMvc.perform(get("/api/games/{gameId}", target.getId()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.id").value(target.getId()))
+			.andExpect(jsonPath("$.data.bggId").value(100003L))
+			.andExpect(jsonPath("$.data.mechanisms").isArray())
+			.andExpect(jsonPath("$.data.mechanisms").isEmpty());
+	}
+
+	@Test
 	void 검수후_공개된_선택지만_대표_순서와_결정적_이름순으로_반환한다() throws Exception {
 		saveMechanism(2040L, "HAND_MANAGEMENT", "핸드 관리", "Hand Management", 1, true);
 		saveMechanism(2072L, "DICE_ROLLING", "주사위 굴림", "Dice Rolling", 2, true);
