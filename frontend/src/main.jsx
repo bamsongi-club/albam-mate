@@ -722,24 +722,28 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
   );
 }
 
-function SessionActions({ room, me, onApply, onCancelApply, onHostCancel, onFinish, onJoinWaitlist, onCancelWaitlist }) {
+function SessionActions({ room, me, onApply, onCancelApply, onHostCancel, onFinish, onJoinWaitlist, onCancelWaitlist, onPromoted }) {
   const [pending, setPending] = useState(false);
   const [waitlistVersion, setWaitlistVersion] = useState(0);
   const status = sessionStatus(room);
   const eligibleForWaitlist = Boolean(me) && !isHost(room) && !isJoined(room);
-  const { data: waitlist, loading: waitlistLoading } = useRequest(
+  const { data: waitlist, loading: waitlistLoading, error: waitlistError } = useRequest(
     async (signal) => {
       if (!eligibleForWaitlist) return null;
       try {
         return await api.getMyWaitlist(room.id, signal);
       } catch (error) {
-        if (error instanceof ApiError && error.status === 404) return null;
+        if (error instanceof ApiError && error.status === 404 && error.code === 'WAITLIST_ENTRY_NOT_FOUND') return null;
         throw error;
       }
     },
     [room.id, eligibleForWaitlist, waitlistVersion]
   );
   const waiting = waitlist?.waitlistStatus === 'WAITING';
+  const promoted = waitlist?.waitlistStatus === 'PROMOTED';
+  useEffect(() => {
+    if (promoted) onPromoted?.();
+  }, [promoted]);
   const run = (action) => async () => {
     setPending(true);
     try {
@@ -777,6 +781,15 @@ function SessionActions({ room, me, onApply, onCancelApply, onHostCancel, onFini
       : <div className="infobox green">🎉 참가 중입니다.</div>;
   }
   if (room.joinable) return <button className="btn big" disabled={pending} type="button" onClick={run(onApply)}>{pending ? '처리 중…' : '🙋 참가 신청하기'}</button>;
+  if (promoted) return <div className="infobox green">🎉 대기가 자리로 승격되어 참가가 확정됐어요! 화면을 새로고침하고 있어요…</div>;
+  if (waitlistError) {
+    return (
+      <>
+        <div className="infobox amber">대기 상태를 확인하지 못했어요: {waitlistError}</div>
+        <button className="btn ghost big" style={{ marginTop: 9 }} type="button" onClick={() => setWaitlistVersion((version) => version + 1)}>다시 시도</button>
+      </>
+    );
+  }
   if (waiting) {
     return (
       <>
@@ -798,7 +811,7 @@ function SessionActions({ room, me, onApply, onCancelApply, onHostCancel, onFini
   return <div className="infobox amber">모집이 마감되었거나 지금은 참가할 수 없어요.</div>;
 }
 
-export function SessionDetailView({ sessionId, me, onApply, onCancelApply, onHostCancel, onFinish, onJoinWaitlist, onCancelWaitlist, dataVersion }) {
+export function SessionDetailView({ sessionId, me, onApply, onCancelApply, onHostCancel, onFinish, onJoinWaitlist, onCancelWaitlist, onPromoted, dataVersion }) {
   const { data, loading, error } = useRequest(
     async (signal) => normalizeRoom(await api.getRoom(sessionId, signal)),
     [sessionId, dataVersion]
@@ -847,7 +860,7 @@ export function SessionDetailView({ sessionId, me, onApply, onCancelApply, onHos
             ? <section><h2><SectionIcon name="rooms" />참가자 <span className="cnt">총 {participantCount(room)}/{room.recruitmentCapacity + 1}명</span></h2><div className="card"><div className="srow" style={{ marginTop: 0 }}><SeatIcons room={room} /></div><div>{room.participants.map((participant, index) => <span className="pchip" key={participant.nickname + '-' + index}>🙂 {participant.nickname}</span>)}{!room.participants.length && <span className="hint">아직 참가자가 없어요.</span>}</div></div></section>
             : <section><h2><SectionIcon name="rooms" />참가자</h2><div className="infobox">정확한 장소와 참가자 목록은 주최자 또는 현재 참가자만 확인할 수 있어요.</div></section>}
         </div>
-        <aside><div className="card"><SessionActions room={room} me={me} onApply={onApply} onCancelApply={onCancelApply} onHostCancel={onHostCancel} onFinish={onFinish} onJoinWaitlist={onJoinWaitlist} onCancelWaitlist={onCancelWaitlist} /></div></aside>
+        <aside><div className="card"><SessionActions room={room} me={me} onApply={onApply} onCancelApply={onCancelApply} onHostCancel={onHostCancel} onFinish={onFinish} onJoinWaitlist={onJoinWaitlist} onCancelWaitlist={onCancelWaitlist} onPromoted={onPromoted} /></div></aside>
       </div>
     </>
   );
@@ -2218,7 +2231,7 @@ export function App() {
   }
   else if (route === 'game-list') content = <GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} onPlayedError={handleProtectedError} />;
   else if (route === 'game') content = <GameDetailView gameId={arg} onCreateGame={handleCreateGame} dataVersion={dataVersion} onPlayedError={handleProtectedError} renderRoom={(room) => <SessionCard key={room.id} room={room} />} />;
-  else if (route === 'session') content = <SessionDetailView sessionId={arg} me={me} onApply={handleApply} onCancelApply={handleCancelApply} onHostCancel={handleHostCancel} onFinish={handleFinish} onJoinWaitlist={handleJoinWaitlist} onCancelWaitlist={handleCancelWaitlist} dataVersion={dataVersion} />;
+  else if (route === 'session') content = <SessionDetailView sessionId={arg} me={me} onApply={handleApply} onCancelApply={handleCancelApply} onHostCancel={handleHostCancel} onFinish={handleFinish} onJoinWaitlist={handleJoinWaitlist} onCancelWaitlist={handleCancelWaitlist} onPromoted={refreshData} dataVersion={dataVersion} />;
   else if (route === 'create') content = me ? <CreateView createMode={createMode} onCreateModeChange={setCreateMode} initialGame={createGame} onCreate={handleCreate} today={today} /> : <LoginRequiredView message="모임을 만들려면 로그인해주세요." />;
   else if (route === 'edit') content = me ? <EditView sessionId={arg} onSave={handleSave} dataVersion={dataVersion} today={today} /> : <LoginRequiredView message="모임을 수정하려면 로그인해주세요." />;
   else if (route === 'my') content = me ? <MyRoomsSection myTab={myTab} onMyTabChange={setMyTab} dataVersion={dataVersion} onCancelApply={handleCancelApply} /> : <LoginRequiredView message="내 모임을 보려면 로그인해주세요." />;
