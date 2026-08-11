@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "campaignId": "tomcat64-20260811",
+  "generatedAt": "2026-08-11T22:20:24.4567193+09:00",
+  "campaignStatus": "INVALID",
+  "documentStatus": "current",
+  "measurementWindow": {
+    "startedAt": "2026-08-11T12:50:40+00:00",
+    "finishedAt": "2026-08-11T13:06:03+00:00",
+    "displayKst": "2026-08-11 21:50:40~22:06:03 KST"
+  },
+  "documents": {
+    "index": "../README.md",
+    "report": "../notification-tomcat64-capacity-2026-08-11.md",
+    "predecessor": "../auth-notification-capacity-2026-08-11.md"
+  },
+  "lineage": {
+    "follows": "auth-notification-20260811T021040KST",
+    "supersedes": [],
+    "supersededBy": null,
+    "reason": "The follow-up campaign was INVALID and does not replace the predecessor conclusions."
+  },
+  "sources": {
+    "application": {
+      "repository": "https://github.com/bamsongi-club/albam-mate.git",
+      "releaseSha": "1e8427328064ca4f8594d377f27272172aaa0a24",
+      "scenarioPath": "load-tests/k6/auth-notification/mixed-load-capacity.js",
+      "scenarioSha256": "cd73bba55a5c18df402752049efbabaaa162290d32122db1ee818c93bd1c35c1",
+      "usersFixtureSha256": "52e99eec1a6da697666f572e046e89517303cf4574dc32fba554a009b8b55180",
+      "notificationBacklogFixtureSha256": "a385ccb42c27efcd1b5038626a6813f8f540b596ab632d52d7d44e9820a319ec"
+    },
+    "infrastructure": {
+      "repository": "https://github.com/bamsongi-club/albam-mate-infra.git",
+      "headSha": "85ad96b7306e630dbeca4e742b4eea4c44f9fc45",
+      "dirty": false
+    }
+  },
+  "configuration": {
+    "stackId": "perf-jiho",
+    "tomcatThreadsMax": 64,
+    "containerMemoryBytes": 536870912,
+    "jvmXmx": "256m",
+    "hikariMaximumPoolSize": 8,
+    "k6Version": "1.3.0",
+    "multiplier": 0.5,
+    "fixtureUsers": 340
+  },
+  "images": {
+    "backend": "sha256:d352c3e69461b18a75e5873dde0554f4f1b08c74588e28c07e38c0c17aaad957",
+    "web": "sha256:af6821438f427094c351e979e326c91145ffe14c9f1fffc1762bffbfcdd28585",
+    "postgres": "sha256:a02db8cac496f15b094798a38254f14d6e00741f709360e5e00bb6668ea31636",
+    "redis": "sha256:bd4a0d37e7cd830117ffec9329052b4a1887afa060c265e1768f82b177ff6f43"
+  },
+  "artifacts": {
+    "availability": "local-only",
+    "siblingRepository": "albam-mate-infra",
+    "resultPath": ".run/results/tomcat64-20260811-tomcat64-x05-n1/",
+    "campaignSummaryPath": ".run/campaigns/tomcat64-20260811/summary.json",
+    "bundleFingerprintSha256": "219db9de3f18fe50c36f1eb7339138a8e906273a36e49c65ff41165ff9d65575",
+    "manifestSha256": "03fef79d44abb368a867ac4cfc20f767956a68da7922166154884874b647028d",
+    "judgmentSha256": "c25c7b97b0d30137e42e703121187ce456474b814ede29c687663b37940a5d02",
+    "k6SummarySha256": "0d73190e87e13f5502cd6639885ecdcca21101c32668dcdd9db253ea460024a4",
+    "cloudwatchSummarySha256": "1c156c367588e5ca2ad218105196dce8a1f947ef631219801bf17963731b9e5b",
+    "metricsApp1Sha256": "404fa580917bd69a59eeff425a3b9e88a957f9ca42ad2a9cbbb8620c43282d99",
+    "metricsApp2Sha256": "68a9f837b96344eecb22a8c5eaccbbec51d76fae1b1702daf1f20d58ea18872c",
+    "infraSourceSha256": "475377b3d10d8e830381207147007596cc5667cd2b930ce056c3ba4ad4ace7d2",
+    "runSummarySha256": "8463ab83b40feb68e5296709bbdd846237df8c42aa503add31abc82e5b1bd663",
+    "campaignSummarySha256": "21846c16907c7dcdf40453249f374f2748ec717e9f9f71cdf0398ad4a2637557"
+  },
+  "run": {
+    "runId": "tomcat64-20260811-tomcat64-x05-n1",
+    "status": "INVALID",
+    "reportDisposition": "excluded-from-capacity-boundary",
+    "k6ExitCode": 99,
+    "httpFailureRate": 0.5238278247501922,
+    "mixedRequestErrorRate": 0.5427237669981734,
+    "setupFailureRate": 0.006369426751592357,
+    "droppedParticipationIterations": 2,
+    "relayDeliverySamples": 0,
+    "measurementP95Ms": {
+      "unreadCount": 26315.89523705,
+      "notificationList": 26070.9154725,
+      "roomJoin": 22658.39157315,
+      "roomCancel": 23845.59825155
+    },
+    "app1": {
+      "maxContainerMemoryBytes": 505203916,
+      "minHostAvailableMemoryBytes": 51290112,
+      "maxTomcatBusy": 64,
+      "tomcatMax": 64,
+      "maxHikariPending": 42
+    },
+    "app2": {
+      "maxContainerMemoryBytes": 535298048,
+      "minHostAvailableMemoryBytes": 40730624,
+      "maxTomcatBusy": 64,
+      "tomcatMax": 64,
+      "maxHikariPending": 52,
+      "postRunRestartCount": 1
+    }
+  },
+  "postRunKernelEvidence": {
+    "source": "Read-only journalctl -k query over Ansible SSM before teardown",
+    "observedAt": "2026-08-11T13:05:13+00:00",
+    "role": "app2",
+    "classification": "memory-cgroup-oom",
+    "task": "java",
+    "anonRssKb": 512372
+  },
+  "teardown": {
+    "terraformDestroyedResources": 94,
+    "terraformStateResourcesAfter": 0,
+    "activeEc2After": [],
+    "ebsVolumesAfter": [],
+    "vpcsAfter": [],
+    "elasticIpsAfter": [],
+    "loadTestAccessEnabledLocalAfter": false,
+    "rawResultsPreserved": true
+  },
+  "knownLimitations": [
+    "The only attempted run was INVALID, so no normal or failure boundary was established.",
+    "The predecessor and follow-up use different release SHAs, so numeric differences cannot be attributed only to the Tomcat thread limit.",
+    "Both App CPU credit balances were already low at run start and were nearly depleted by run end.",
+    "Raw artifacts are local-only; hashes identify the preserved bundle but do not make it independently accessible from this repository."
+  ]
+}
