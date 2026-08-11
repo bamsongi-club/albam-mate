@@ -26,6 +26,7 @@ import com.jayway.jsonpath.JsonPath;
 import cloud.bamsongi.albammate.game.contract.UpcomingRoomCountQuery;
 import cloud.bamsongi.albammate.game.dto.GameDetail;
 import cloud.bamsongi.albammate.game.entity.Game;
+import cloud.bamsongi.albammate.game.fixture.GameDetailFixture;
 import cloud.bamsongi.albammate.game.repository.GameCategoryRelationRepository;
 import cloud.bamsongi.albammate.game.repository.GameMechanismRelationRepository;
 import cloud.bamsongi.albammate.game.repository.GamePlayerPreferenceRepository;
@@ -101,7 +102,7 @@ class GameDetailQueryServiceTest {
 		GameDetail result = gameDetailQueryService.findById(1L);
 
 		assertEquals(
-			new GameDetail(
+			GameDetailFixture.of(
 				1L,
 				1001L,
 				"카탄",
