@@ -127,9 +127,10 @@ Argon2id를 채택하면 후속 ADR로 이 결정을 대체한다. 그 구현은
           | 14 | 1579.24 | 1579.43 |
 
         - cost 10·슬롯 4개로 동시성 5개 요청을 세 번 실행해 12개 허용·3개 즉시 거절과 슬롯 전량 반환을 확인했다. cost 10~13은 약 1초 기준 이내이고 cost 14는 초과해, 현재 설정과 FND-05-AC5의 work factor·동시 작업 한도를 뒷받침한다.
+        - [2026-08-11 인증·알림 AWS 용량 측정](../../measurements/k6/auth-notification-capacity-2026-08-11.md)에서 고정 release의 정상 로그인·잘못된 비밀번호·없는 사용자 계약 3종과 회원가입·로그인 요청 제한 계약 4종이 실제 `t4g.micro` App 2대·PostgreSQL·Redis 구성에서 모두 PASS했다. 전체 HTTP·PostgreSQL 로그인 경로의 1 req/s 3분 탐색은 p95 169.2ms였지만, 같은 1 req/s 15분 실행은 p95 4.779초와 1초 거절 3.11%로 FAIL해 재현 가능한 정상 경계를 확정하지 않았다.
     - CI:
         - [PR #519](https://github.com/bamsongi-club/albam-mate/pull/519)에서 회원가입 비밀번호 정책 변경과 서버·프런트엔드 경계 테스트에 대해 필수 CI 전체가 통과한 뒤 `develop`에 병합됐다.
 - 미검증:
-    - benchmark 경로만 측정했으므로 AUTH-02·AUTH-03 이후 전체 HTTP·PostgreSQL 로그인 경로에서 재측정해 운영 cost를 확정하고 Argon2id를 재검토한다.
+    - 전체 HTTP·PostgreSQL 로그인 경로는 AWS에서 측정했지만 1 req/s의 3분·15분 결과가 App CPU credit 조건에 따라 불일치했다. 동일한 CPU credit 시작 조건에서 반복 측정해 운영 cost와 정상 경계를 확정하고 Argon2id를 재검토한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.
