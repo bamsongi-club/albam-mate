@@ -6,7 +6,7 @@ import { ApiError, api, clearCsrfToken, messageForError, setUnauthenticatedHandl
 import { isUnauthenticated, usePaginatedRequest, useRequest } from './shared/async';
 import { FilterCheckGroup, FilterPanel, FilterRadioGroup } from './shared/filters';
 import { ErrorBox, LoadingBox, Pagination, SearchHeader, SectionIcon } from './shared/ui';
-import { GameDetailView, GamePickerDialog, GamesView, EMPTY_GAME_FILTERS, ROOM_LIST_PAGE_SIZE, normalizeGameSummary, normalizeRoom } from './game';
+import { GameDetailView, GamePickerDialog, GameRankingView, GamesView, EMPTY_GAME_FILTERS, ROOM_LIST_PAGE_SIZE, normalizeGameSummary, normalizeRoom } from './game';
 import { NotificationPanel } from './notification/NotificationPanel';
 import { selectNotificationAndNavigate } from './notification/notificationNavigation';
 import { useNotificationPolling } from './notification/useNotificationPolling';
@@ -408,6 +408,7 @@ function mobilePageTitle(route) {
     find: '모임 찾기',
     game: '게임',
     'game-list': '게임',
+    'game-rankings': '인기 랭킹',
     session: '모임',
     create: '모임 만들기',
     edit: '모임 수정',
@@ -422,7 +423,7 @@ function mobilePageTitle(route) {
 }
 
 function Header({ route, me, notificationMenu, isMobile }) {
-  const rootRoute = { find: 'find', game: 'game-list', 'game-list': 'game-list', create: 'profile', edit: 'profile', my: 'profile', chat: 'chats', chats: 'chats', profile: 'profile' };
+  const rootRoute = { find: 'find', game: 'game-list', 'game-list': 'game-list', 'game-rankings': 'game-list', create: 'profile', edit: 'profile', my: 'profile', chat: 'chats', chats: 'chats', profile: 'profile' };
   const visibleUnreadCount = notificationMenu.unreadCount > 99 ? '99+' : notificationMenu.unreadCount;
   const notificationLabel = notificationMenu.unreadCount > 0
     ? '알림함, 읽지 않은 알림 ' + notificationMenu.unreadCount + '개'
@@ -619,6 +620,7 @@ function HomeView({ me, onBrowsePeople, onSearchGame, dataVersion, isMobile }) {
           <a className="entry peoplefirst" href="#/find" onClick={onBrowsePeople}><span className="big">🙌</span><h3>사람부터 만나기</h3><p>게임이 아직 정해지지 않아도 괜찮아요. 제목으로 원하는 모임을 찾아보세요.</p><span className="sub">{loading ? '공개 모임 불러오는 중…' : '공개 모임 ' + personCount + '개 →'}</span></a>
         </div>
         {error && <p className="hint" style={{ marginTop: 16 }}>공개 모임 수를 불러오지 못했어요: {error}</p>}
+        <a className="entry ranking-entry" href="#/game-rankings"><span className="big">🏆</span><h3>인기 게임 랭킹</h3><p>밤송이에서 모임이 많이 열린 게임을 전체와 앞으로 7일로 나눠 보여줘요.</p><span className="sub">인기 랭킹 보기 →</span></a>
       </section>
     </>
   );
@@ -2417,6 +2419,7 @@ export function App() {
       : <LoginRequiredView message="해 본 게임을 보려면 로그인해주세요." />;
   }
   else if (route === 'game-list') content = <GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} onPlayedError={handleProtectedError} />;
+  else if (route === 'game-rankings') content = <GameRankingView dataVersion={dataVersion} />;
   else if (route === 'game') content = <GameDetailView gameId={arg} onCreateGame={handleCreateGame} dataVersion={dataVersion} onPlayedError={handleProtectedError} renderRoom={(room) => <SessionCard key={room.id} room={room} />} />;
   else if (route === 'session') content = <SessionDetailView sessionId={arg} me={me} onApply={handleApply} onCancelApply={handleCancelApply} onHostCancel={handleHostCancel} onFinish={handleFinish} onJoinWaitlist={handleJoinWaitlist} onCancelWaitlist={handleCancelWaitlist} onWaitlistSettled={refreshData} dataVersion={dataVersion} />;
   else if (route === 'create') content = me ? <CreateView createMode={createMode} onCreateModeChange={setCreateMode} initialGame={createGame} onCreate={handleCreate} today={today} /> : <LoginRequiredView message="모임을 만들려면 로그인해주세요." />;

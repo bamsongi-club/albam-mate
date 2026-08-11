@@ -8,7 +8,7 @@ const TABS = [
 ];
 
 export function mobileTabForRoute(route) {
-  if (route === 'game' || route === 'game-list') return 'game';
+  if (route === 'game' || route === 'game-list' || route === 'game-rankings') return 'game';
   if (['find', 'create', 'session'].includes(route)) return 'find';
   if (['my', 'edit', 'profile', 'auth', 'signup'].includes(route)) return 'profile';
   if (['chat', 'chats'].includes(route)) return null;

@@ -313,6 +313,7 @@ export const api = {
       page,
       size
     }), { signal }),
+  getGameRankings: (signal) => request('/api/game-rankings', { signal }),
   getGameMechanisms: (signal) => request('/api/game-mechanisms', { signal }),
   getGameCategories: (signal) => request('/api/game-categories', { signal }),
   getGameThemes: (signal) => request('/api/game-themes', { signal }),
