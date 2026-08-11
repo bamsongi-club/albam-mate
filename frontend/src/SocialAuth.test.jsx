@@ -1,5 +1,5 @@
 import React from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, clearCsrfToken, socialLoginUrl } from './api';
 import { AuthView, ProfileView, consumeSocialAuthResult, readSocialAuthResult } from './main';
@@ -38,6 +38,42 @@ afterEach(() => {
   cleanup();
   clearCsrfToken();
   vi.unstubAllGlobals();
+});
+
+describe('프로필 수정 흐름', () => {
+  it('아바타 수정에서 닉네임과 사진 관리를 함께 열고 내 정보 메뉴는 표시하지 않는다', async () => {
+    const onSave = vi.fn().mockResolvedValue(true);
+    const onUploadImage = vi.fn().mockResolvedValue();
+    render(
+      <ProfileView
+        me={{ nickname: '테스터' }}
+        onSave={onSave}
+        onLogout={vi.fn()}
+        onUploadImage={onUploadImage}
+      />
+    );
+
+    const editButton = screen.getByRole('button', { name: '프로필 수정' });
+    expect(editButton.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('button', { name: '내 정보' })).toBeNull();
+
+    fireEvent.click(editButton);
+
+    const editor = screen.getByRole('form', { name: '프로필 수정' });
+    expect(editButton.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByLabelText('닉네임').value).toBe('테스터');
+    expect(screen.getByRole('button', { name: '사진 변경' })).toBeTruthy();
+
+    const image = new File(['profile'], 'profile.png', { type: 'image/png' });
+    fireEvent.change(screen.getByLabelText('프로필 사진 파일'), { target: { files: [image] } });
+    await waitFor(() => expect(onUploadImage).toHaveBeenCalledWith(image));
+
+    fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: '새 닉네임' } });
+    fireEvent.submit(editor);
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith('새 닉네임'));
+    await waitFor(() => expect(screen.queryByRole('form', { name: '프로필 수정' })).toBeNull());
+  });
 });
 
 describe('#334 T1 로그인 화면의 제공자 표시와 authorization 경로', () => {

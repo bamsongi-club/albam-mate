@@ -202,8 +202,22 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .infobox.amber { background: var(--amber-soft); }
 .infobox.red { background: var(--red-soft); color: var(--red); }
 .infobox.gray { background: var(--gray-soft); color: var(--gray); }
-.profile-head { align-items: center; display: flex; gap: 14px; margin-bottom: 30px; }
+.profile-head { align-items: center; display: flex; gap: 14px; margin-bottom: 18px; }
 .profile-head h2 { margin-bottom: 0; }
+.profile-edit-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); display: grid; gap: 16px; margin: 0 0 30px; max-width: 560px; padding: 18px; }
+.profile-edit-card-heading { display: grid; gap: 3px; }
+.profile-edit-card-heading strong { font-size: 16px; }
+.profile-edit-card-heading span, .profile-edit-field .hint { color: var(--sub); font-size: 12px; }
+.profile-edit-photo { align-items: center; border-bottom: 1px solid var(--line); display: flex; gap: 16px; justify-content: space-between; padding-bottom: 16px; }
+.profile-edit-label { color: var(--ink); font-size: 14px; font-weight: 800; }
+.profile-edit-photo-actions, .profile-edit-actions { align-items: center; display: flex; gap: 8px; }
+.profile-edit-photo-actions .btn, .profile-edit-actions .btn { min-height: 40px; padding: 8px 14px; }
+.profile-photo-delete { color: var(--sub); font-size: 13px; font-weight: 800; min-height: 40px; padding: 0 6px; }
+.profile-photo-delete:hover { color: var(--red); }
+.profile-edit-field { display: grid; gap: 7px; }
+.profile-edit-field input { width: 100%; }
+.profile-edit-field .hint { margin-top: -2px; }
+.profile-edit-actions { justify-content: flex-end; }
 .profile-played-games { margin: 0 0 28px; max-width: 560px; }
 .profile-played-games-heading { align-items: center; display: flex; justify-content: space-between; margin-bottom: 12px; }
 .profile-played-games-heading h3 { font-size: 19px; letter-spacing: -0.04em; }
@@ -222,10 +236,9 @@ h2 .cnt { color: var(--sub); font-size: 13px; font-weight: 600; }
 .profile-avatar-wrap { flex: 0 0 auto; position: relative; }
 .profile-avatar { align-items: center; background: var(--soft); border-radius: 999px; color: var(--brown); display: inline-flex; flex: 0 0 auto; font-size: 24px; font-weight: 900; height: 56px; justify-content: center; width: 56px; }
 img.profile-avatar { object-fit: cover; }
-.profile-avatar-edit { align-items: center; background: var(--brown); border: 2px solid #fff; border-radius: 999px; bottom: -2px; color: #fff; display: inline-flex; font-size: 11px; height: 24px; justify-content: center; position: absolute; right: -2px; width: 24px; cursor: pointer; transition: background 0.15s; }
+.profile-avatar-edit { align-items: center; background: var(--brown); border: 2px solid #fff; border-radius: 999px; bottom: -2px; color: #fff; display: inline-flex; font-size: 11px; height: 28px; justify-content: center; position: absolute; right: -2px; width: 28px; cursor: pointer; transition: background 0.15s; }
 .profile-avatar-edit:hover { background: var(--brown2); }
 .profile-avatar-edit:disabled { opacity: 0.6; cursor: wait; }
-.btn.ghost.sm { font-size: 12px; padding: 3px 8px; margin-top: 4px; }
 .menu-list { overflow: hidden; padding: 0; }
 .menu-list > * + * { border-top: 1px solid var(--line); }
 .menu-row { align-items: center; display: flex; gap: 14px; min-height: 56px; padding: 14px 18px; text-align: left; width: 100%; }
@@ -235,7 +248,6 @@ img.profile-avatar { object-fit: cover; }
 .menu-label { flex: 1; font-size: 15px; font-weight: 700; }
 .menu-arrow { color: var(--gray); flex: 0 0 auto; font-size: 17px; line-height: 1; }
 .menu-panel { border-top: 1px solid var(--line); padding: 16px 18px; }
-.menu-panel input { flex: 1; min-width: 140px; }
 .social-link-panel { padding: 8px 18px 16px; }
 .social-link-row { align-items: center; display: flex; gap: 12px; min-height: 70px; padding: 10px 0; }
 .social-link-row + .social-link-row { border-top: 1px solid var(--line); }
@@ -745,7 +757,10 @@ img.profile-avatar { object-fit: cover; }
   main > .mobile-home-panel + .hero { margin-top: 16px; }
 
   .card { border-radius: var(--radius); padding: 20px; }
-  .profile-head { margin-bottom: 24px; }
+  .profile-head { margin-bottom: 16px; }
+  .profile-edit-card { border-radius: 16px; gap: 14px; margin-bottom: 24px; padding: 16px; }
+  .profile-edit-photo { gap: 10px; }
+  .profile-edit-actions .btn { flex: 1; }
   .profile-played-games { margin-bottom: 24px; }
   .profile-played-games-heading h3 { font-size: 20px; }
   .profile-played-games-grid { gap: 10px; }

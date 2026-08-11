@@ -1710,6 +1710,14 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onSoci
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
   useEffect(() => setNickname(me.nickname), [me.nickname]);
+  const openProfileEditor = () => {
+    setNickname(me.nickname);
+    setEditing(true);
+  };
+  const closeProfileEditor = () => {
+    setNickname(me.nickname);
+    setEditing(false);
+  };
   const logout = async () => {
     setLoggingOut(true);
     try {
@@ -1767,16 +1775,39 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onSoci
           {me.profileImageUrl
             ? <img className="profile-avatar" src={me.profileImageUrl} alt={me.nickname + ' 프로필 이미지'} />
             : <span className="profile-avatar" aria-hidden="true">{me.nickname.slice(0, 1)}</span>}
-          <button className="profile-avatar-edit" type="button" disabled={uploadingImage} onClick={() => fileInputRef.current?.click()} aria-label="프로필 이미지 변경">
+          <button className="profile-avatar-edit" type="button" disabled={uploadingImage} onClick={openProfileEditor} aria-label="프로필 수정" aria-expanded={editing} aria-controls="profile-edit-panel">
             {uploadingImage ? '…' : <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>}
           </button>
-          <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleImageSelect} />
+          <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleImageSelect} aria-label="프로필 사진 파일" />
         </div>
         <div>
           <h2>{me.nickname}</h2>
-          {me.profileImageUrl && <button className="btn ghost sm" type="button" disabled={uploadingImage} onClick={handleDeleteImage}>이미지 삭제</button>}
         </div>
       </div>
+      {editing && (
+        <form className="profile-edit-card" id="profile-edit-panel" onSubmit={submit} aria-label="프로필 수정">
+          <div className="profile-edit-card-heading">
+            <strong>프로필 수정</strong>
+            <span>사진과 닉네임을 한 곳에서 관리하세요.</span>
+          </div>
+          <div className="profile-edit-photo">
+            <span className="profile-edit-label">프로필 사진</span>
+            <div className="profile-edit-photo-actions">
+              <button className="btn ghost" type="button" disabled={uploadingImage} onClick={() => fileInputRef.current?.click()}>{uploadingImage ? '사진 변경 중…' : '사진 변경'}</button>
+              {me.profileImageUrl && <button className="profile-photo-delete" type="button" disabled={uploadingImage} onClick={handleDeleteImage}>사진 삭제</button>}
+            </div>
+          </div>
+          <div className="profile-edit-field">
+            <label className="profile-edit-label" htmlFor="profile-nickname">닉네임</label>
+            <input id="profile-nickname" maxLength="50" autoFocus value={nickname} onChange={(event) => setNickname(event.target.value)} />
+            <p className="hint">알밤메이트에서 표시되는 내 닉네임입니다.</p>
+          </div>
+          <div className="profile-edit-actions">
+            <button className="btn" disabled={saving} type="submit">{saving ? '저장 중…' : '저장'}</button>
+            <button className="btn ghost" disabled={saving} type="button" onClick={closeProfileEditor}>취소</button>
+          </div>
+        </form>
+      )}
       <ProfilePlayedGames dataVersion={dataVersion} />
       <div className="card menu-list" style={{ maxWidth: 560 }}>
           <a className="menu-row" href="#/my">
@@ -1789,24 +1820,6 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onSoci
             <span className="menu-label">해 본 게임</span>
             <span className="menu-arrow" aria-hidden="true">›</span>
           </a>
-          <div>
-            <button className="menu-row" type="button" aria-expanded={editing} onClick={() => { setNickname(me.nickname); setEditing(!editing); }}>
-              <span className="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></svg></span>
-              <span className="menu-label">내 정보</span>
-              <span className="menu-arrow" aria-hidden="true">{editing ? '▾' : '›'}</span>
-            </button>
-            {editing && (
-              <form className="menu-panel" onSubmit={submit}>
-                <label htmlFor="profile-nickname">닉네임</label>
-                <div className="page-actions">
-                  <input id="profile-nickname" maxLength="50" autoFocus value={nickname} onChange={(event) => setNickname(event.target.value)} />
-                  <button className="btn" disabled={saving} type="submit">{saving ? '저장 중…' : '저장'}</button>
-                  <button className="btn ghost" disabled={saving} type="button" onClick={() => setEditing(false)}>취소</button>
-                </div>
-                <p className="hint">알밤메이트에서 표시되는 내 닉네임입니다.</p>
-              </form>
-            )}
-          </div>
           {socialProviders.length > 0 && (
             <div>
               <button className="menu-row" type="button" aria-expanded={socialLinkOpen} onClick={() => setSocialLinkOpen(!socialLinkOpen)}>
