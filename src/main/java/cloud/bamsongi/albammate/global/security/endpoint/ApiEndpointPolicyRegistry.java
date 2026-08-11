@@ -192,6 +192,8 @@ public final class ApiEndpointPolicyRegistry {
 			policy(HttpMethod.GET, "/api/game-mechanisms", OPTIONAL_AUTHENTICATION, false),
 			policy(HttpMethod.GET, "/api/game-categories", OPTIONAL_AUTHENTICATION, false),
 			policy(HttpMethod.GET, "/api/game-themes", OPTIONAL_AUTHENTICATION, false),
+			// 랭킹은 요청자에 따라 결과가 달라지지 않아 세션을 읽지 않는다.
+			policy(HttpMethod.GET, "/api/game-rankings", PUBLIC, false),
 			policy(HttpMethod.GET, "/api/rooms", OPTIONAL_AUTHENTICATION, false),
 			policy(HttpMethod.GET, "/api/rooms/{roomId}", OPTIONAL_AUTHENTICATION, false),
 			policy(HttpMethod.POST, "/api/rooms", AUTHENTICATED, true),
