@@ -78,7 +78,7 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 	@Autowired
 	private RoomRepositoryReadHook roomRepositoryReadHook;
 	@Autowired
-	private MyRoomPageSqlHook myRoomPageSqlHook;
+	private RoomPageSqlHook roomPageSqlHook;
 	@Autowired
 	private PlatformTransactionManager transactionManager;
 
@@ -155,17 +155,27 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 		long hostUserId = user("scheduler-snapshot-host@example.com");
 		long waitingUserId = user("scheduler-snapshot-waiting@example.com");
 		Room room = room(hostUserId);
+		room(hostUserId, START_AT.plusSeconds(60));
 		commitWaiting(room.getId(), waitingUserId);
 
-		roomRepositoryReadHook.beforeActiveParticipationRead = () -> {
+		RoomPageSqlHook.Session session = roomPageSqlHook.beginPublic(() -> {
 			assertReadOnlyRepeatableRead();
 			runScheduler();
-		};
-		roomRepositoryReadHook.afterActiveParticipationRead = this::assertNoRowReadLock;
-		RoomListReadService.RoomListReadResult publicResult = roomListReadService.findPublicRoomsAt(
-			new RoomListSearchCriteria(null, null, null, null, null, null, null, java.util.Set.of(), false),
-			PageRequest.of(0, 10), waitingUserId, START_AT);
+			assertNoRowReadLock();
+		});
+		RoomListReadService.RoomListReadResult publicResult;
+		try {
+			publicResult = roomListReadService.findPublicRoomsAt(
+				new RoomListSearchCriteria(null, null, null, null, null, null, null, java.util.Set.of(), false),
+				PageRequest.of(0, 1), waitingUserId, START_AT);
+		} finally {
+			roomPageSqlHook.end();
+		}
 
+		assertTrue(session.contentSqlObserved());
+		assertTrue(session.countSqlObserved());
+		assertEquals(1, publicResult.rooms().getContent().size());
+		assertEquals(2, publicResult.rooms().getTotalElements());
 		assertEquals(RoomStatus.RECRUITING, publicResult.rooms().getContent().getFirst().getStatus());
 		assertEquals(RoomStatus.CLOSED, publicResult.effectiveStatusFor(publicResult.rooms().getContent().getFirst()));
 		assertEquals(java.util.Set.of(room.getId()), publicResult.waitingRoomIds());
@@ -185,7 +195,7 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 		commitActiveParticipation(futureJoinedRoom.getId(), currentUserId);
 		roomRepositoryReadHook.beforeMyRoomPageRead = this::assertReadOnlyRepeatableRead;
 
-		MyRoomPageSqlHook.Session session = myRoomPageSqlHook.begin(() -> {
+		RoomPageSqlHook.Session session = roomPageSqlHook.beginMyRoom(() -> {
 			runScheduler();
 			commitCanceledParticipation(futureJoinedRoom.getId(), currentUserId);
 			assertNoRowReadLock();
@@ -194,7 +204,7 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 		try {
 			result = myRoomReadService.findMyRoomsAt(currentUserId, MyRoomRole.ALL, PageRequest.of(0, 2), START_AT);
 		} finally {
-			myRoomPageSqlHook.end();
+			roomPageSqlHook.end();
 		}
 
 		assertTrue(session.contentSqlObserved());
@@ -333,12 +343,12 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 		}
 
 		@Bean
-		MyRoomPageSqlHook myRoomPageSqlHook() {
-			return new MyRoomPageSqlHook();
+		RoomPageSqlHook roomPageSqlHook() {
+			return new RoomPageSqlHook();
 		}
 
 		@Bean
-		static BeanPostProcessor myRoomPageSqlHookDataSourcePostProcessor(MyRoomPageSqlHook hook) {
+		static BeanPostProcessor roomPageSqlHookDataSourcePostProcessor(RoomPageSqlHook hook) {
 			return new BeanPostProcessor() {
 
 				@Override
@@ -359,22 +369,12 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 			return (RoomRepository)java.lang.reflect.Proxy.newProxyInstance(
 				RoomRepository.class.getClassLoader(), new Class<?>[] {RoomRepository.class},
 				(proxy, method, arguments) -> {
-					if (method.getName().equals("findActiveParticipationRoomIds")
-						&& hook.beforeActiveParticipationRead != null) {
-						hook.beforeActiveParticipationRead.run();
-						hook.beforeActiveParticipationRead = null;
-					}
 					if (method.getName().equals("findMyRoomsAt") && hook.beforeMyRoomPageRead != null) {
 						hook.beforeMyRoomPageRead.run();
 						hook.beforeMyRoomPageRead = null;
 					}
 					try {
 						Object result = method.invoke(delegate, arguments);
-						if (method.getName().equals("findActiveParticipationRoomIds")
-							&& hook.afterActiveParticipationRead != null) {
-							hook.afterActiveParticipationRead.run();
-							hook.afterActiveParticipationRead = null;
-						}
 						if (method.getName().equals("findMyRoomsAt") && hook.afterMyRoomPageRead != null) {
 							hook.afterMyRoomPageRead.run();
 							hook.afterMyRoomPageRead = null;
@@ -462,8 +462,6 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 
 	static class RoomRepositoryReadHook {
 
-		private Runnable beforeActiveParticipationRead;
-		private Runnable afterActiveParticipationRead;
 		private Runnable beforeMyRoomPageRead;
 		private Runnable afterMyRoomPageRead;
 	}
@@ -474,12 +472,18 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 		private Runnable afterDetailActiveListRead;
 	}
 
-	static class MyRoomPageSqlHook {
+	static class RoomPageSqlHook {
 
 		private final ThreadLocal<Session> currentSession = new ThreadLocal<>();
 
-		Session begin(Runnable beforeCountSql) {
-			Session session = new Session(beforeCountSql);
+		Session beginPublic(Runnable beforeCountSql) {
+			Session session = new Session(true, beforeCountSql);
+			currentSession.set(session);
+			return session;
+		}
+
+		Session beginMyRoom(Runnable beforeCountSql) {
+			Session session = new Session(false, beforeCountSql);
 			currentSession.set(session);
 			return session;
 		}
@@ -492,37 +496,37 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 			return (DataSource)Proxy.newProxyInstance(
 				DataSource.class.getClassLoader(),
 				new Class<?>[] {DataSource.class},
-				new MyRoomDataSourceInvocationHandler(dataSource, this));
+				new RoomPageDataSourceInvocationHandler(dataSource, this));
 		}
 
 		private Connection wrap(Connection connection) {
 			return (Connection)Proxy.newProxyInstance(
 				Connection.class.getClassLoader(),
 				new Class<?>[] {Connection.class},
-				new MyRoomConnectionInvocationHandler(connection, this));
+				new RoomPageConnectionInvocationHandler(connection, this));
 		}
 
 		private PreparedStatement wrap(PreparedStatement statement, String sql) {
 			return (PreparedStatement)Proxy.newProxyInstance(
 				PreparedStatement.class.getClassLoader(),
 				new Class<?>[] {PreparedStatement.class},
-				new MyRoomPreparedStatementInvocationHandler(statement, sql, this));
+				new RoomPagePreparedStatementInvocationHandler(statement, sql, this));
 		}
 
 		private void contentSqlExecuted(String sql) {
 			Session session = currentSession.get();
-			if (session != null && isMyRoomContentSql(sql)) {
+			if (session != null && session.isContentSql(sql)) {
 				session.contentSqlObserved = true;
 			}
 		}
 
 		private void beforeCountSql(String sql) {
 			Session session = currentSession.get();
-			if (session == null || !isMyRoomCountSql(sql)) {
+			if (session == null || !session.isCountSql(sql)) {
 				return;
 			}
 			if (!session.contentSqlObserved) {
-				throw new AssertionError("MyRoom count SQL executed before the content SQL delegate returned");
+				throw new AssertionError("Page count SQL executed before the content SQL delegate returned");
 			}
 			session.countSqlObserved = true;
 			if (session.beforeCountSql != null) {
@@ -540,23 +544,48 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 			return isMyRoomSql(sql) && normalizedSql(sql).contains("count(");
 		}
 
+		private boolean isPublicRoomContentSql(String sql) {
+			return isPublicRoomSql(sql) && !normalizedSql(sql).contains("count(");
+		}
+
+		private boolean isPublicRoomCountSql(String sql) {
+			return isPublicRoomSql(sql) && normalizedSql(sql).contains("count(");
+		}
+
 		private boolean isMyRoomSql(String sql) {
 			String normalized = normalizedSql(sql);
 			return normalized.contains("from rooms") && normalized.contains("host_user_id");
+		}
+
+		private boolean isPublicRoomSql(String sql) {
+			String normalized = normalizedSql(sql);
+			return normalized.contains("from rooms")
+				&& normalized.contains("status in")
+				&& normalized.contains("start_at>");
 		}
 
 		private String normalizedSql(String sql) {
 			return sql.toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
 		}
 
-		static class Session {
+		class Session {
 
+			private final boolean publicRoom;
 			private Runnable beforeCountSql;
 			private boolean contentSqlObserved;
 			private boolean countSqlObserved;
 
-			private Session(Runnable beforeCountSql) {
+			private Session(boolean publicRoom, Runnable beforeCountSql) {
+				this.publicRoom = publicRoom;
 				this.beforeCountSql = beforeCountSql;
+			}
+
+			private boolean isContentSql(String sql) {
+				return publicRoom ? isPublicRoomContentSql(sql) : isMyRoomContentSql(sql);
+			}
+
+			private boolean isCountSql(String sql) {
+				return publicRoom ? isPublicRoomCountSql(sql) : isMyRoomCountSql(sql);
 			}
 
 			boolean contentSqlObserved() {
@@ -577,12 +606,12 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 		}
 	}
 
-	private static final class MyRoomDataSourceInvocationHandler implements InvocationHandler {
+	private static final class RoomPageDataSourceInvocationHandler implements InvocationHandler {
 
 		private final DataSource delegate;
-		private final MyRoomPageSqlHook hook;
+		private final RoomPageSqlHook hook;
 
-		private MyRoomDataSourceInvocationHandler(DataSource delegate, MyRoomPageSqlHook hook) {
+		private RoomPageDataSourceInvocationHandler(DataSource delegate, RoomPageSqlHook hook) {
 			this.delegate = delegate;
 			this.hook = hook;
 		}
@@ -596,12 +625,12 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 		}
 	}
 
-	private static final class MyRoomConnectionInvocationHandler implements InvocationHandler {
+	private static final class RoomPageConnectionInvocationHandler implements InvocationHandler {
 
 		private final Connection delegate;
-		private final MyRoomPageSqlHook hook;
+		private final RoomPageSqlHook hook;
 
-		private MyRoomConnectionInvocationHandler(Connection delegate, MyRoomPageSqlHook hook) {
+		private RoomPageConnectionInvocationHandler(Connection delegate, RoomPageSqlHook hook) {
 			this.delegate = delegate;
 			this.hook = hook;
 		}
@@ -620,14 +649,14 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 		}
 	}
 
-	private static final class MyRoomPreparedStatementInvocationHandler implements InvocationHandler {
+	private static final class RoomPagePreparedStatementInvocationHandler implements InvocationHandler {
 
 		private final PreparedStatement delegate;
 		private final String sql;
-		private final MyRoomPageSqlHook hook;
+		private final RoomPageSqlHook hook;
 
-		private MyRoomPreparedStatementInvocationHandler(
-			PreparedStatement delegate, String sql, MyRoomPageSqlHook hook) {
+		private RoomPagePreparedStatementInvocationHandler(
+			PreparedStatement delegate, String sql, RoomPageSqlHook hook) {
 			this.delegate = delegate;
 			this.sql = sql;
 			this.hook = hook;
@@ -636,13 +665,9 @@ class RoomActionAvailabilitySnapshotPostgresTest {
 		@Override
 		public Object invoke(Object proxy, Method method, Object[] arguments) throws Throwable {
 			if (isQueryExecution(method, arguments)) {
-				if (hook.isMyRoomCountSql(sql)) {
-					hook.beforeCountSql(sql);
-				}
+				hook.beforeCountSql(sql);
 				Object result = invokeTarget(delegate, method, arguments);
-				if (hook.isMyRoomContentSql(sql)) {
-					hook.contentSqlExecuted(sql);
-				}
+				hook.contentSqlExecuted(sql);
 				return result;
 			}
 			return invokeTarget(delegate, method, arguments);

@@ -17,7 +17,7 @@ import cloud.bamsongi.albammate.room.enums.MyRoomRole;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 
-/** 상태 보정이 커밋된 뒤 내 모임 목록을 독립 읽기 트랜잭션으로 읽는다. */
+/** 고정 요청시각의 유효 상태로 내 모임 목록을 읽는 독립 읽기 트랜잭션이다. */
 @Service
 class MyRoomReadService {
 
@@ -51,8 +51,4 @@ class MyRoomReadService {
 		}
 	}
 
-	public Page<Room> findMyRooms(Long currentUserId, MyRoomRole role, Pageable pageable) {
-		return roomRepository.findMyRooms(currentUserId, role != MyRoomRole.JOINED, role != MyRoomRole.HOSTED,
-			pageable);
-	}
 }

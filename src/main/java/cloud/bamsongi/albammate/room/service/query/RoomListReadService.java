@@ -19,7 +19,7 @@ import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
-/** 요청 경계 상태 보정 후 최신 공개 목록을 읽는 독립 읽기 트랜잭션이다. */
+/** 고정 요청시각의 유효 상태로 공개 목록을 읽는 독립 읽기 트랜잭션이다. */
 @Service
 @RequiredArgsConstructor
 class RoomListReadService {
@@ -88,36 +88,9 @@ class RoomListReadService {
 		Set<Long> waitingRoomIds,
 		Instant requestTime) {
 
-		public RoomListReadResult(
-			Page<Room> rooms, Set<Long> activeParticipationRoomIds, Set<Long> waitingRoomIds) {
-			this(rooms, Map.of(), activeParticipationRoomIds, waitingRoomIds, Instant.EPOCH);
-		}
-
 		public RoomStatus effectiveStatusFor(Room room) {
-			return effectiveStatuses.getOrDefault(room.getId(), room.getStatus());
+			return effectiveStatuses.get(room.getId());
 		}
 	}
 
-	@Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW, isolation = Isolation.REPEATABLE_READ)
-	public RoomListReadResult findPublicRooms(
-		RoomListSearchCriteria criteria, Pageable pageable, Long currentUserId) {
-		Page<Room> rooms = roomRepository.findPublicRooms(
-			criteria.roomType(),
-			criteria.status(),
-			criteria.gameId(),
-			criteria.hasKeyword(),
-			criteria.keywordOrEmpty(),
-			criteria.hasStartsAtFrom(),
-			criteria.startsAtFromOrEpoch(),
-			criteria.hasStartsAtTo(),
-			criteria.startsAtToOrEpoch(),
-			criteria.hasMinRemainingSeats(),
-			criteria.minRemainingSeatsOrZero(),
-			criteria.appliedExperienceLevels(),
-			criteria.rulemasterOnly(),
-			PUBLIC_STATUSES,
-			pageable);
-		return new RoomListReadResult(
-			rooms, findActiveParticipationRoomIds(currentUserId, rooms), findWaitingRoomIds(currentUserId, rooms));
-	}
 }

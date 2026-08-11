@@ -15,6 +15,7 @@ import static org.mockito.Mockito.when;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -51,6 +52,7 @@ class RoomListQueryServiceTest {
 	@Mock
 	private GameQuery gameQuery;
 	private final RoomActionAvailabilityEvaluator roomActionAvailabilityEvaluator = new RoomActionAvailabilityEvaluator();
+	private final Map<Long, RoomStatus> roomStatuses = new HashMap<>();
 
 	private RoomListQueryService roomListQueryService;
 
@@ -110,6 +112,23 @@ class RoomListQueryServiceTest {
 			Optional.of(99L));
 
 		assertFalse(response.content().getFirst().joinable());
+	}
+
+	@Test
+	void 저장_모집중과_유효_종료가_다르면_응답_상태와_행동_가능_여부는_유효_상태를_따른다() {
+		PageRequest pageable = pageable();
+		Room recruitingRoom = room(1L, null, 42L, RoomStatus.RECRUITING, 3, 3, NOW.plusSeconds(60));
+		when(roomListReadService.findPublicRoomsAt(
+			criteria(RoomType.PERSON_FOCUSED, null, null), pageable, 99L, NOW))
+			.thenReturn(readResult(
+				List.of(recruitingRoom), pageable, Map.of(1L, RoomStatus.CLOSED), Set.of(), Set.of()));
+
+		var response = roomListQueryService.findPage(
+			RoomType.PERSON_FOCUSED, null, null, 0, 10, Optional.of(99L));
+
+		assertEquals(RoomStatus.CLOSED, response.content().getFirst().status());
+		assertFalse(response.content().getFirst().joinable());
+		assertTrue(response.content().getFirst().waitlistable());
 	}
 
 	@Test
@@ -353,9 +372,18 @@ class RoomListQueryServiceTest {
 		PageRequest pageable,
 		Set<Long> activeParticipationRoomIds,
 		Set<Long> waitingRoomIds) {
+		return readResult(rooms, pageable, Map.copyOf(roomStatuses), activeParticipationRoomIds, waitingRoomIds);
+	}
+
+	private RoomListReadService.RoomListReadResult readResult(
+		List<Room> rooms,
+		PageRequest pageable,
+		Map<Long, RoomStatus> effectiveStatuses,
+		Set<Long> activeParticipationRoomIds,
+		Set<Long> waitingRoomIds) {
 		return new RoomListReadService.RoomListReadResult(
 			new PageImpl<>(rooms, pageable, rooms.size()),
-			Map.of(),
+			effectiveStatuses,
 			activeParticipationRoomIds,
 			waitingRoomIds,
 			NOW);
@@ -370,6 +398,7 @@ class RoomListQueryServiceTest {
 		int capacity,
 		Instant startsAt) {
 		Room room = mock(Room.class);
+		roomStatuses.put(id, status);
 		when(room.getId()).thenReturn(id);
 		when(room.getGameId()).thenReturn(gameId);
 		when(room.getHostUserId()).thenReturn(hostUserId);
@@ -385,7 +414,7 @@ class RoomListQueryServiceTest {
 		lenient().when(room.getActiveParticipantCount()).thenReturn(activeParticipantCount);
 		when(room.getTotalParticipantCount()).thenReturn(activeParticipantCount + 1);
 		when(room.getRemainingRecruitmentSeats()).thenReturn(capacity - activeParticipantCount);
-		when(room.getStatus()).thenReturn(status);
+		lenient().when(room.getStatus()).thenReturn(status);
 		return room;
 	}
 }
