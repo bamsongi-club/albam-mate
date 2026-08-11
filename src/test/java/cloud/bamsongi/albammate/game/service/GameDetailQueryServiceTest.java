@@ -21,16 +21,20 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.jayway.jsonpath.JsonPath;
+
 import cloud.bamsongi.albammate.game.contract.UpcomingRoomCountQuery;
 import cloud.bamsongi.albammate.game.dto.GameDetail;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.repository.GameCategoryRelationRepository;
+import cloud.bamsongi.albammate.game.repository.GameMechanismRelationRepository;
 import cloud.bamsongi.albammate.game.repository.GamePlayerPreferenceRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 import cloud.bamsongi.albammate.game.repository.GameThemeRelationRepository;
 import cloud.bamsongi.albammate.game.repository.UserPlayedGameRepository;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import tools.jackson.databind.ObjectMapper;
 
 @ExtendWith(MockitoExtension.class)
 class GameDetailQueryServiceTest {
@@ -50,6 +54,9 @@ class GameDetailQueryServiceTest {
 	private GameCategoryRelationRepository gameCategoryRelationRepository;
 
 	@Mock
+	private GameMechanismRelationRepository gameMechanismRelationRepository;
+
+	@Mock
 	private GameThemeRelationRepository gameThemeRelationRepository;
 
 	@Mock
@@ -65,12 +72,13 @@ class GameDetailQueryServiceTest {
 			upcomingRoomCountQuery,
 			userPlayedGameRepository,
 			gameCategoryRelationRepository,
+			gameMechanismRelationRepository,
 			gameThemeRelationRepository,
 			gamePlayerPreferenceRepository);
 	}
 
 	@Test
-	void 게임_상세는_전체_게임_필드와_예정_모임_수를_매핑한다() {
+	void 게임_상세는_메커니즘_관계가_없으면_빈_배열을_반환하며_기존_필드를_유지한다() throws Exception {
 		Game game = mock(Game.class);
 		when(game.getId()).thenReturn(1L);
 		when(game.getBggId()).thenReturn(1001L);
@@ -112,6 +120,7 @@ class GameDetailQueryServiceTest {
 			result);
 		verify(gameRepository).findById(1L);
 		verify(upcomingRoomCountQuery).findUpcomingRoomCounts(List.of(1L), NOW);
+		assertEquals(List.of(), JsonPath.read(new ObjectMapper().writeValueAsString(result), "$.mechanisms"));
 	}
 
 	@Test
