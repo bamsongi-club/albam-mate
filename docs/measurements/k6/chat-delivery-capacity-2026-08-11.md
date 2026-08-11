@@ -15,7 +15,7 @@
 - 읽기 경로는 측정 범위에서 여유가 있었다. 이력 조회는 초당 8건까지 p95 65~70ms로 평평했고 실패가 없었다.
 - 동시 접속도 80개까지 연결 시간 55~60ms로 평평했다. 이 범위에서 연결 수는 비용을 만들지 않았다.
 - 쓰기 경로는 무너진다. 활성 방 8개(초당 8건)에서 응답 p95가 3,119ms, 성공률 70%였고, 혼합 4배에서는 p95 5,149ms, 성공률 42%였다.
-- 첫 병목은 성능이 아니라 설정 결함이다. 부하 구간의 채팅 전송 경로에서 HTTP 500이 706건 나왔고 원인은 전부 `RedisConnectionFailureException`이다. Redis는 거부 0건·메모리 2MB로 여유가 있었으나 누적 수신 연결이 99,907건이었다. Lettuce 커넥션 풀이 구성되지 않아 작업마다 새 연결을 연다.
+- 첫 병목은 성능이 아니라 설정 결함이다. 부하 구간의 채팅 전송 경로에서 HTTP 500이 706건 나왔고 원인은 전부 `RedisConnectionFailureException`이다. Redis는 거부 0건·메모리 2MB로 여유가 있었으나 누적 수신 연결이 99,907건이었다. 연결 팩토리가 네이티브 연결 공유를 끈 채 커넥션 풀이 없어 작업마다 새 연결을 연다.
 - 팬아웃 비용은 전달 쪽에만 쌓인다. 구독자 2→16명에서 전달 p95가 43→147ms로 3.4배가 되는 동안 전송 응답은 79~82ms로 변하지 않았다.
 - 유휴 WebSocket이 60초에 끊긴다. Nginx `location /api/`가 WebSocket을 함께 처리하면서 `proxy_read_timeout 60s`를 적용한다.
 - 이 결과는 인스턴스 사양에 묶인다. 절대 처리량으로 인용하지 않는다.
@@ -193,7 +193,20 @@ Redis 자체는 멀쩡했다.
 
 거부는 0인데 누적 연결이 10만 건이다. 앱 가동 약 69분 기준 초당 24건씩 새 연결을 연 셈이다. 스택의 `doGetAsyncDedicatedConnection`이 이를 뒷받침한다.
 
-저장소에 `commons-pool2` 의존성이 없고 `spring.data.redis.lettuce.pool` 설정도 없다. **Lettuce 커넥션 풀이 구성되지 않았다.**
+원인은 [RedisSessionConfiguration](../../../src/main/java/cloud/bamsongi/albammate/infra/redis/RedisSessionConfiguration.java)의 연결 팩토리 설정 조합이다.
+
+| 설정 | 값 | 부하에서의 효과 |
+| --- | --- | --- |
+| `setShareNativeConnection` | `false` | 네이티브 연결을 공유하지 않고 **작업마다 전용 연결을 연다** |
+| `commons-pool2` 의존성 | 없음 | 전용 연결을 재사용할 풀이 없다 |
+| `spring.data.redis.lettuce.pool` | 없음 | 위와 같다 |
+| `autoReconnect` | `false` | 끊긴 연결을 스스로 되살리지 않는다 |
+| `disconnectedBehavior` | `REJECT_COMMANDS` | 연결이 없으면 명령을 즉시 거절한다 |
+| `connectTimeout` | 1초 | 부하로 수립이 1초를 넘기면 실패한다 |
+
+연결 공유를 끄면 보통 풀을 함께 붙인다. **풀 없이 공유만 끈 조합**이라 요청마다 TCP 연결을 새로 맺고 버린다. 여기에 재연결이 꺼져 있고 끊기면 명령을 거절하므로 완충 구간이 없다.
+
+각 설정은 격리와 빠른 실패라는 의도로 읽히며 평상시 트래픽에서는 드러나지 않는다. 부하에서만 조합이 무너진다.
 
 이 결함은 세 가지를 동시에 설명한다.
 
@@ -231,11 +244,10 @@ Redis 자체는 멀쩡했다.
 
 ## 최소 개선 후보와 재측정 계획
 
-1. **Lettuce 커넥션 풀 구성** — 500 706건의 원인이고 세 가지 증상을 동시에 만든다. 가장 우선한다.
-2. **Redis 예외를 500이 아닌 503으로 변환** — 풀을 붙여도 연결 실패는 남을 수 있다. `GlobalExceptionHandler`가 이 예외를 알아야 한다.
-3. **WebSocket 전용 `location` 분리** — 타임아웃을 늘리거나 서버가 주기적으로 ping을 보낸다.
-4. **`load-throughput` 발신자 회전 수정** — 방 수와 참가자 수가 서로소가 아닐 때도 모든 참가자를 쓰도록 고친다.
-5. **1~3번 수정 후 재측정** — 이번 결과를 before로 삼는다. 새 Campaign ID와 manifest를 만들고 이 캠페인의 `후속 없음`을 `superseded by <Campaign ID>`로 바꾼다.
+1. **Redis 연결 수립·실패 처리 교정** — 500 706건의 원인이고 세 가지 증상을 동시에 만든다. 가장 우선한다. 연결 공유를 되살리거나 풀을 붙여 매 작업 연결을 없애고, 남는 연결 실패는 `GlobalExceptionHandler`가 503으로 변환한다. 원인 제거와 실패 응답 교정을 함께 해야 증상이 사라지므로 한 수정으로 다룬다.
+2. **WebSocket 전용 `location` 분리** — 타임아웃을 늘리거나 서버가 주기적으로 ping을 보낸다.
+3. **`load-throughput` 발신자 회전 수정** — 방 수와 참가자 수가 서로소가 아닐 때도 모든 참가자를 쓰도록 고친다.
+4. **1~2번 수정 후 재측정** — 이번 결과를 before로 삼는다. 새 Campaign ID와 manifest를 만들고 이 캠페인의 `후속 없음`을 `superseded by <Campaign ID>`로 바꾼다.
 
 ## 재현
 
