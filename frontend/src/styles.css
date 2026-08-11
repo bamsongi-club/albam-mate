@@ -344,9 +344,10 @@ img.profile-avatar { object-fit: cover; }
 /* 최대 두 줄까지 줄바꿈해서 보여주고, 높이를 고정해 카드 정렬이 어긋나지 않게 한다. */
 .gcard-shell .gmeta { margin: 8px 0 0; line-height: 1.35; min-height: 2.7em; }
 .gcard-shell .gsess { margin-top: auto; padding-top: 8px; }
-.played-toggle { background: var(--card); border: 1px solid var(--line); border-radius: 999px; color: var(--brown2); font-size: 12.5px; font-weight: 800; padding: 7px 13px; }
+.played-toggle { background: var(--card); border: 1px solid var(--line); border-radius: 999px; color: var(--brown2); font-size: 12.5px; font-weight: 800; padding: 7px 13px; transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.15s ease; }
 .played-toggle:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-dark); }
 .played-toggle.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.played-toggle:active:not(:disabled) { transform: scale(0.97); }
 .played-toggle:disabled { opacity: 0.55; }
 /* 목록 카드에서는 표지 오른쪽 위 점 하나로 둔다. 어떤 표지 위에서도 보이게 흰 테두리를 준다. */
 /* 표지 위에 얹는 점 변형. 빈 원은 무엇을 하는 조작인지 알 수 없어 체크 표시를 넣는다. */
@@ -442,8 +443,7 @@ img.profile-avatar { object-fit: cover; }
 .game-detail-stats > div + div { border-left: 1px solid var(--line); }
 .game-detail-stats dt { color: var(--sub); font-size: 12px; font-weight: 700; }
 .game-detail-stats dd { font-size: 17px; font-weight: 900; line-height: 1.25; }
-.game-detail-features { align-items: flex-start; border-top: 1px solid var(--line); display: flex; gap: 12px; padding: 12px 14px; }
-.game-detail-feature-label { color: var(--brown2); flex: 0 0 auto; font-size: 12px; font-weight: 900; padding-top: 5px; }
+.game-detail-features { border-top: 1px solid var(--line); padding: 12px 14px; }
 .game-detail-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .game-detail-tags .chip { border-radius: 999px; font-size: 12.5px; padding: 6px 11px; }
 .game-detail-description { color: var(--brown2); font-size: 14px; line-height: 1.75; margin-top: 16px; }
@@ -817,10 +817,10 @@ img.profile-avatar { object-fit: cover; }
   .game-detail-stats > div { min-height: 66px; padding: 8px 5px; }
   .game-detail-stats dt { font-size: 11.5px; }
   .game-detail-stats dd { font-size: 16px; }
-  .game-detail-features { gap: 10px; padding: 11px 12px; text-align: left; }
+  .game-detail-features { padding: 11px 12px; text-align: left; }
   .game-detail-tags { justify-content: flex-start; }
   .game-detail-description { color: var(--brown2); font-size: 15px; line-height: 1.75; margin-top: 17px; text-align: left; }
-  .game-detail-utility .played-toggle { background: transparent; border-color: var(--line); color: var(--brown2); }
+  .game-detail-utility .played-toggle:not(.on) { background: transparent; border-color: var(--line); color: var(--brown2); }
   .game-detail-rooms { margin-top: 38px; }
   .game-detail-rooms h2 { font-size: 22px; margin-bottom: 14px; }
   .game-detail-rooms .grid { gap: 10px; }

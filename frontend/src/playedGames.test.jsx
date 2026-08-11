@@ -74,7 +74,7 @@ async function renderGameDetailView(props = {}) {
 }
 
 function playedToggle() {
-  return screen.getByRole('button', { name: '해봤어요' });
+  return screen.getByRole('button', { name: /해봤어요|저장 중…/ });
 }
 
 function openFilterPanel() {
@@ -113,6 +113,7 @@ describe('T7 해 본 게임 표시와 취소', () => {
 
     expect(markGamePlayed).toHaveBeenCalledWith('7');
     expect(playedToggle().getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: '해봤어요 ✓' })).toBeTruthy();
   });
 
   it('이미 표시한 게임을 다시 누르면 취소를 요청하고 결과를 반영한다', async () => {
@@ -134,6 +135,7 @@ describe('T7 해 본 게임 표시와 취소', () => {
 
     await act(async () => { fireEvent.click(playedToggle()); });
     expect(playedToggle().disabled).toBe(true);
+    expect(screen.getByRole('button', { name: '저장 중…' })).toBeTruthy();
 
     await act(async () => { resolveMark({ gameId: 7, playedByMe: true }); });
     expect(playedToggle().disabled).toBe(false);
@@ -160,6 +162,7 @@ describe('T7 해 본 게임 표시와 취소', () => {
 
     expect(markGamePlayed).toHaveBeenCalledWith('7');
     expect(playedToggle().getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: '해봤어요 ✓' })).toBeTruthy();
   });
 
   it('상세 화면의 게임 모임 만들기 버튼은 선택한 게임을 생성 화면으로 넘긴다', async () => {
@@ -180,7 +183,7 @@ describe('T7 해 본 게임 표시와 취소', () => {
     await renderGameDetailView();
 
     expect(screen.getByLabelText('게임 정보')).toBeTruthy();
-    expect(screen.getByText('특징')).toBeTruthy();
+    expect(screen.queryByText('특징')).toBeNull();
     expect(screen.getByText('판타지')).toBeTruthy();
     expect(screen.getByText('전쟁')).toBeTruthy();
     expect(screen.getByText('주사위 굴리기')).toBeTruthy();

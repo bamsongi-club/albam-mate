@@ -28,20 +28,21 @@ function LoginRequiredView({ message = '이 기능은 로그인 후 이용할 �
  * 다른 사용자의 관계는 응답에 없으므로 화면에도 없다.
  */
 function PlayedGameToggle({ played, pending, onToggle, compact = false }) {
+  const label = pending ? '저장 중…' : played ? '해봤어요 ✓' : '해봤어요';
   return (
     <button
       type="button"
       className={'played-toggle' + (compact ? ' dot' : '') + (played ? ' on' : '')}
       // 점만 두는 목록 카드에서도 조작 이름은 화면 낭독과 hover 안내로 남긴다.
-      aria-label={compact ? '해봤어요' : undefined}
-      title={compact ? '해봤어요' : undefined}
+      aria-label={compact ? label : undefined}
+      title={compact ? label : undefined}
       aria-pressed={played === true}
       disabled={pending}
       onClick={onToggle}
     >
       {compact
         ? <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
-        : '해봤어요'}
+        : label}
     </button>
   );
 }
@@ -177,7 +178,6 @@ export function GameDetailView({ gameId, onCreateGame, dataVersion, onPlayedErro
                 )}
                 {features.length > 0 && (
                   <div className="game-detail-features">
-                    <span className="game-detail-feature-label">특징</span>
                     <div className="game-detail-tags" aria-label="게임 테마와 메커니즘">
                       {features.map((feature) => <span className="chip" key={feature.type + '-' + feature.value}>{feature.value}</span>)}
                     </div>
