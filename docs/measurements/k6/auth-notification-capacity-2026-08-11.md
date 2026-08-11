@@ -38,6 +38,20 @@
 
 App 실효 설정, image digest·OCI revision, release SHA가 다르면 초기화 전에 중단하도록 했다. 모든 유효 Run은 manifest, k6 summary/console, App 로그, 역할별 15초 CSV, CloudWatch 원시/요약, PostgreSQL·Redis 진단과 evaluator 판정을 갖는다.
 
+## 테스트 데이터
+
+실행기는 release SHA `b3c3bc95b77547047cae7a279f3658c39070795d`의 `loadtests/fixtures/users.sql`을 모든 Run에 적용했고, 알림 혼합 부하에는 같은 release의 `loadtests/fixtures/notification-backlog.sql`도 적용했다. 용량 Run은 App을 중지한 뒤 PostgreSQL `public` schema와 Redis DB를 초기화하고 Flyway와 해당 fixture를 다시 적용했다. 각 fixture 사용자는 Run ID가 포함된 이메일로 분리했다.
+
+| 구간 | 적용한 테스트 데이터 |
+| --- | --- |
+| 계약 검증 | 사용자 100명, 사전 알림 backlog 없음. 알림 전달 계약은 실제 API로 알림 이벤트 10건을 생성 |
+| 인증 용량 | 사용자 100명, 사전 알림 backlog 없음 |
+| 알림 혼합 1× | 사용자 640명, 참조 방 10개, 사용자당 사전 알림 300건, 미확인 5%. 초기 backlog 설정상 192,000건이며 측정 중 참가 이벤트가 추가로 생성됨 |
+| 알림 혼합 0.5× | 사용자 340명, 참조 방 10개, 사용자당 사전 알림 300건, 미확인 5%. 초기 backlog 설정상 102,000건이며 측정 중 참가 이벤트가 추가로 생성됨 |
+| fan-out | 수신자 1·5·10명 조건별 사용자 2·6·11명, 사전 알림 backlog 없음. 각 Run에서 실제 API로 취소 이벤트 100건을 만들고 조건별 3회 반복 |
+
+Run별 `manifest.json`은 사용자 수, backlog 적용 여부·매개변수와 시나리오 환경을 보존한다. 위 192,000건과 102,000건은 고정 release의 fixture와 실행 매개변수로 계산되는 **초기 사전 적재 예상 건수**다. 당시 bundle에는 fixture 적용 직후 실제 테이블 행 수를 별도로 집계한 결과나 fixture 파일 SHA-256이 없으므로, 이를 사후 검증된 행 수로 해석하지 않는다.
+
 ## 계약 검증
 
 다음 최종 Run은 모두 `PASS`, 잘못된 응답 0건, release SHA 일치였다.
