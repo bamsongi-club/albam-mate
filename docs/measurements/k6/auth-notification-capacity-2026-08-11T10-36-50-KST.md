@@ -1,4 +1,4 @@
-# 인증·알림 AWS 용량 측정 보고서 (2026-08-11)
+# 인증·알림 AWS 용량 측정 보고서 (2026-08-11 02:10:40~10:36:50 KST)
 
 ## 결론
 
@@ -9,13 +9,13 @@
 - 알림 혼합 부하는 1×와 하한 0.5×가 모두 측정 무효였다. 두 실행 모두 강한 과부하 신호를 남겼지만 유효 정상점과 유효 최초 실패점을 확보하지 못했다.
 - 첫 재현 병목은 PostgreSQL relay가 아니라 App 컨테이너 메모리다. 두 App의 512MiB cgroup 사용량이 95.9~99.6%에 도달했고 EC2 console에서 Java cgroup OOM kill이 반복됐다.
 - fan-out 단가 측정은 수신자 1·5·10명 × 100개 취소 이벤트 × 3회, 총 9회가 모두 통과했다. 서버 전달 p95는 4.210~4.968초, p99는 4.692~5.676초였고 모든 Run이 실패 0건과 최종 처리 가능 backlog 0건으로 끝났다.
-- 이 결과만으로 Kafka 도입 필요성을 뒷받침하지 않는다. broker 판단은 [별도 판단서](notification-broker-decision-2026-08-11.md)에 기록한다.
+- 이 결과만으로 Kafka 도입 필요성을 뒷받침하지 않는다. broker 판단은 [별도 판단서](notification-broker-decision-2026-08-11T10-47-24-KST.md)에 기록한다.
 
 ## 측정 조건
 
 | 항목 | 고정 값 |
 | --- | --- |
-| 실행 시각 | 2026-08-11 KST (원자료 UTC 2026-08-10~11) |
+| 실행 구간 | 2026-08-11 02:10:40~10:36:50 KST (UTC 2026-08-10 17:10:40~2026-08-11 01:36:50) |
 | AWS | account `001606112268`, region `ap-northeast-2`, stack `perf-jiho`, `Environment=perf` |
 | App | `t4g.micro` 2대, CPU credit `standard`, JVM `-Xmx256m`, container memory 512MiB, Tomcat max thread 200, Hikari max 8 |
 | PostgreSQL / Redis | 각각 `t4g.micro` 1대 |
