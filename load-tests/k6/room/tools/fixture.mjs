@@ -18,7 +18,11 @@ const SCRIPT_DIRECTORY = resolve(REPOSITORY_ROOT, 'load-tests/k6/room');
 const BUNDLE_MARKER = '.room-k6-fixture-bundle';
 const DEFAULT_LEVELS = [2, 4, 8];
 const DEFAULT_MODES = ['hot', 'spread'];
+const WAVE_PROFILE_COMPLETION_GRACE_SECONDS = 30;
 const ROOM_09_WAITERS_PER_CLOSED_DUE_ROOM = 10;
+const DUE_BACKLOG_CONTROL_ROOM_COUNT = 10;
+const ROOM_STATUS_CORRECTION_LOCK_NAME = 'room-status-correction';
+const ROOM_STATUS_CORRECTION_LOCK_DURATION_SECONDS = 300;
 const DURATION_PATTERN = /^[1-9]\d*(ms|s|m|h)$/;
 const SCENARIO_SCRIPTS = {
   'cancel-promotion': '01-room-cancel-promotion.js',
@@ -294,6 +298,9 @@ function buildWaveFixture(options, model) {
         targets.push(waveTargets);
       }
 
+      const maxDurationSeconds = options.startDelaySeconds
+        + waveCount * options.waveIntervalSeconds
+        + WAVE_PROFILE_COMPLETION_GRACE_SECONDS;
       configurations.push({
         id,
         mode,
@@ -304,11 +311,10 @@ function buildWaveFixture(options, model) {
         warmupWaves: options.warmupWaves,
         measuredWaves: options.measuredWaves,
         waveCount,
+        maxDurationSeconds,
         targets,
       });
-      startOffsetSeconds += options.startDelaySeconds
-        + waveCount * options.waveIntervalSeconds
-        + 5;
+      startOffsetSeconds += maxDurationSeconds;
     }
   }
 
@@ -367,7 +373,7 @@ function buildDueBacklogFixture(options, model) {
       model.waitlist(currentRoom, `due-waiter-${index}-${waitingIndex}`);
     }
   }
-  for (let index = 0; index < 10; index += 1) {
+  for (let index = 0; index < DUE_BACKLOG_CONTROL_ROOM_COUNT; index += 1) {
     model.room({
       key: `control-${index}`,
       hostKey: 'reader',
@@ -391,9 +397,15 @@ function buildDueBacklogFixture(options, model) {
       recruitingDueRoomCount,
       closedDueRoomCount,
       waitingPerClosedDueRoom: ROOM_09_WAITERS_PER_CLOSED_DUE_ROOM,
-      expectedExpiredWaitlistCount:
+      controlRoomCount: DUE_BACKLOG_CONTROL_ROOM_COUNT,
+      expectedWaitingWaitlistCount:
         closedDueRoomCount * ROOM_09_WAITERS_PER_CLOSED_DUE_ROOM,
+      schedulerLockName: ROOM_STATUS_CORRECTION_LOCK_NAME,
+      schedulerLockDurationSeconds: ROOM_STATUS_CORRECTION_LOCK_DURATION_SECONDS,
+      schedulerLockOwner: `ROOM-K6:${model.fixtureId}:due-backlog-read`,
       vus: options.vus,
+      duration: '1m',
+      thinkTimeSeconds: 1,
       userKey,
       readerUserId: reader.id,
     },
@@ -567,6 +579,7 @@ function renderPrepareAssertions(fixture) {
 DECLARE
     due_room_count BIGINT;
     waiting_count BIGINT;
+    lock_row_count BIGINT;
 BEGIN
     SELECT count(*) INTO due_room_count
     FROM rooms
@@ -586,9 +599,27 @@ BEGIN
     WHERE room.title LIKE ${sqlString(prefix)}
       AND room.status = 'CLOSED'
       AND waitlist.status = 'WAITING';
-    IF waiting_count <> ${configuration.expectedExpiredWaitlistCount} THEN
+    IF waiting_count <> ${configuration.expectedWaitingWaitlistCount} THEN
         RAISE EXCEPTION 'ROOM_K6_PREPARE_WAITING_COUNT_MISMATCH expected=%, actual=%',
-            ${configuration.expectedExpiredWaitlistCount}, waiting_count;
+            ${configuration.expectedWaitingWaitlistCount}, waiting_count;
+    END IF;
+
+    INSERT INTO shedlock AS current_lock (name, lock_until, locked_at, locked_by)
+    VALUES (
+        ${sqlString(configuration.schedulerLockName)},
+        clock_timestamp() + INTERVAL '${configuration.schedulerLockDurationSeconds} seconds',
+        clock_timestamp(),
+        ${sqlString(configuration.schedulerLockOwner)}
+    )
+    ON CONFLICT (name) DO UPDATE
+    SET lock_until = EXCLUDED.lock_until,
+        locked_at = EXCLUDED.locked_at,
+        locked_by = EXCLUDED.locked_by
+    WHERE current_lock.lock_until <= clock_timestamp();
+    GET DIAGNOSTICS lock_row_count = ROW_COUNT;
+    IF lock_row_count <> 1 THEN
+        RAISE EXCEPTION 'ROOM_K6_STATUS_CORRECTION_LOCK_NOT_ACQUIRED name=%',
+            ${sqlString(configuration.schedulerLockName)};
     END IF;
 END
 $$;`;
@@ -683,12 +714,12 @@ ${insertStatement('chat_rooms', [
     'id', 'room_id', 'purge_after', 'messages_purged_at', 'created_at', 'updated_at',
   ], chatRoomRows)}
 
-${renderPrepareAssertions(fixture)}
-
 ANALYZE users;
 ANALYZE rooms;
 ANALYZE participations;
 ANALYZE room_waitlists;
+
+${renderPrepareAssertions(fixture)}
 COMMIT;
 
 SELECT json_build_object(
@@ -922,13 +953,29 @@ DO $$
 DECLARE
     measured_room_count BIGINT;
     remaining_due BIGINT;
+    recruiting_room_count BIGINT;
     closed_room_count BIGINT;
-    finished_room_count BIGINT;
     unexpected_room_status_count BIGINT;
+    changed_room_version_count BIGINT;
+    changed_room_timestamp_count BIGINT;
     total_waitlist_count BIGINT;
-    expired_waitlist_count BIGINT;
     waiting_count BIGINT;
+    changed_waitlist_timestamp_count BIGINT;
+    chat_room_count BIGINT;
+    changed_chat_retention_count BIGINT;
+    scheduler_lock_count BIGINT;
 BEGIN
+    SELECT count(*) INTO scheduler_lock_count
+    FROM shedlock
+    WHERE name = ${sqlString(configuration.schedulerLockName)}
+      AND locked_by = ${sqlString(configuration.schedulerLockOwner)}
+      AND lock_until > clock_timestamp();
+    IF scheduler_lock_count <> 1 THEN
+        RAISE EXCEPTION 'ROOM_K6_STATUS_CORRECTION_LOCK_LOST name=% owner=%',
+            ${sqlString(configuration.schedulerLockName)},
+            ${sqlString(configuration.schedulerLockOwner)};
+    END IF;
+
     SELECT count(*) INTO measured_room_count
     FROM rooms
     WHERE title LIKE ${sqlString(prefix)};
@@ -944,42 +991,86 @@ BEGIN
           (status = 'RECRUITING' AND start_at <= CURRENT_TIMESTAMP)
           OR (status = 'CLOSED' AND start_at <= CURRENT_TIMESTAMP - INTERVAL '24 hours')
       );
-    IF remaining_due <> 0 THEN
-        RAISE EXCEPTION 'ROOM_K6_DUE_BACKLOG_REMAINS count=%', remaining_due;
+    IF remaining_due <> ${configuration.dueRoomCount} THEN
+        RAISE EXCEPTION 'ROOM_K6_DUE_BACKLOG_CHANGED expected=%, actual=%',
+            ${configuration.dueRoomCount}, remaining_due;
     END IF;
 
     SELECT
+        count(*) FILTER (WHERE status = 'RECRUITING'),
         count(*) FILTER (WHERE status = 'CLOSED'),
-        count(*) FILTER (WHERE status = 'FINISHED'),
-        count(*) FILTER (WHERE status NOT IN ('CLOSED', 'FINISHED'))
-    INTO closed_room_count, finished_room_count, unexpected_room_status_count
+        count(*) FILTER (WHERE status NOT IN ('RECRUITING', 'CLOSED'))
+    INTO recruiting_room_count, closed_room_count, unexpected_room_status_count
     FROM rooms
     WHERE title LIKE ${sqlString(prefix)};
-    IF closed_room_count <> ${configuration.recruitingDueRoomCount}
-        OR finished_room_count <> ${configuration.closedDueRoomCount}
+    IF recruiting_room_count <> ${configuration.recruitingDueRoomCount}
+        OR closed_room_count <> ${configuration.closedDueRoomCount}
         OR unexpected_room_status_count <> 0 THEN
         RAISE EXCEPTION
-            'ROOM_K6_DUE_FINAL_STATUS_MISMATCH closed=%/% finished=%/% unexpected=%',
-            closed_room_count, ${configuration.recruitingDueRoomCount},
-            finished_room_count, ${configuration.closedDueRoomCount},
+            'ROOM_K6_DUE_STORED_STATUS_CHANGED recruiting=%/% closed=%/% unexpected=%',
+            recruiting_room_count, ${configuration.recruitingDueRoomCount},
+            closed_room_count, ${configuration.closedDueRoomCount},
             unexpected_room_status_count;
+    END IF;
+
+    SELECT count(*) INTO changed_room_version_count
+    FROM rooms
+    WHERE title LIKE ${sqlString(prefix)}
+      AND version <> 0;
+    IF changed_room_version_count <> 0 THEN
+        RAISE EXCEPTION 'ROOM_K6_DUE_ROOM_VERSION_CHANGED count=%', changed_room_version_count;
+    END IF;
+
+    SELECT count(*) INTO changed_room_timestamp_count
+    FROM rooms
+    WHERE title LIKE ${sqlString(prefix)}
+      AND updated_at IS DISTINCT FROM created_at;
+    IF changed_room_timestamp_count <> 0 THEN
+        RAISE EXCEPTION 'ROOM_K6_DUE_ROOM_TIMESTAMP_CHANGED count=%', changed_room_timestamp_count;
     END IF;
 
     SELECT
         count(*),
-        count(*) FILTER (WHERE waitlist.status = 'EXPIRED'),
         count(*) FILTER (WHERE waitlist.status = 'WAITING')
-    INTO total_waitlist_count, expired_waitlist_count, waiting_count
+    INTO total_waitlist_count, waiting_count
     FROM room_waitlists waitlist
     JOIN rooms room ON room.id = waitlist.room_id
     WHERE room.title LIKE ${sqlString(prefix)};
-    IF total_waitlist_count <> ${configuration.expectedExpiredWaitlistCount}
-        OR expired_waitlist_count <> ${configuration.expectedExpiredWaitlistCount}
-        OR waiting_count <> 0 THEN
+    IF total_waitlist_count <> ${configuration.expectedWaitingWaitlistCount}
+        OR waiting_count <> ${configuration.expectedWaitingWaitlistCount} THEN
         RAISE EXCEPTION
-            'ROOM_K6_DUE_WAITLIST_STATUS_MISMATCH total=%/% expired=%/% waiting=%',
-            total_waitlist_count, ${configuration.expectedExpiredWaitlistCount},
-            expired_waitlist_count, ${configuration.expectedExpiredWaitlistCount}, waiting_count;
+            'ROOM_K6_DUE_WAITLIST_CHANGED total=%/% waiting=%/%',
+            total_waitlist_count, ${configuration.expectedWaitingWaitlistCount},
+            waiting_count, ${configuration.expectedWaitingWaitlistCount};
+    END IF;
+
+    SELECT count(*) INTO changed_waitlist_timestamp_count
+    FROM room_waitlists waitlist
+    JOIN rooms room ON room.id = waitlist.room_id
+    WHERE room.title LIKE ${sqlString(prefix)}
+      AND waitlist.updated_at IS DISTINCT FROM waitlist.created_at;
+    IF changed_waitlist_timestamp_count <> 0 THEN
+        RAISE EXCEPTION 'ROOM_K6_DUE_WAITLIST_TIMESTAMP_CHANGED count=%', changed_waitlist_timestamp_count;
+    END IF;
+
+    SELECT count(*) INTO chat_room_count
+    FROM chat_rooms chat_room
+    JOIN rooms room ON room.id = chat_room.room_id
+    WHERE room.title LIKE ${sqlString(prefix)};
+    IF chat_room_count <> ${configuration.dueRoomCount} THEN
+        RAISE EXCEPTION 'ROOM_K6_DUE_CHAT_ROOM_COUNT_CHANGED expected=%, actual=%',
+            ${configuration.dueRoomCount}, chat_room_count;
+    END IF;
+
+    SELECT count(*) INTO changed_chat_retention_count
+    FROM chat_rooms chat_room
+    JOIN rooms room ON room.id = chat_room.room_id
+    WHERE room.title LIKE ${sqlString(prefix)}
+      AND (chat_room.purge_after IS NOT NULL
+        OR chat_room.messages_purged_at IS NOT NULL
+        OR chat_room.updated_at IS DISTINCT FROM chat_room.created_at);
+    IF changed_chat_retention_count <> 0 THEN
+        RAISE EXCEPTION 'ROOM_K6_DUE_CHAT_RETENTION_CHANGED count=%', changed_chat_retention_count;
     END IF;
 END
 $$;
@@ -993,19 +1084,50 @@ SELECT json_build_object(
           AND ((status = 'RECRUITING' AND start_at <= CURRENT_TIMESTAMP)
             OR (status = 'CLOSED' AND start_at <= CURRENT_TIMESTAMP - INTERVAL '24 hours'))
     ),
+    'recruitingRooms', (
+        SELECT count(*) FROM rooms WHERE title LIKE ${sqlString(prefix)} AND status = 'RECRUITING'
+    ),
     'closedRooms', (
         SELECT count(*) FROM rooms WHERE title LIKE ${sqlString(prefix)} AND status = 'CLOSED'
     ),
     'finishedRooms', (
         SELECT count(*) FROM rooms WHERE title LIKE ${sqlString(prefix)} AND status = 'FINISHED'
     ),
+    'waitingWaitlists', (
+        SELECT count(*) FROM room_waitlists waitlist
+        JOIN rooms room ON room.id = waitlist.room_id
+        WHERE room.title LIKE ${sqlString(prefix)} AND waitlist.status = 'WAITING'
+    ),
     'expiredWaitlists', (
         SELECT count(*) FROM room_waitlists waitlist
         JOIN rooms room ON room.id = waitlist.room_id
         WHERE room.title LIKE ${sqlString(prefix)} AND waitlist.status = 'EXPIRED'
+    ),
+    'schedulerLockHeld', (
+        SELECT count(*) FROM shedlock
+        WHERE name = ${sqlString(configuration.schedulerLockName)}
+          AND locked_by = ${sqlString(configuration.schedulerLockOwner)}
+          AND lock_until > clock_timestamp()
     )
 ) AS room_k6_verification;
 COMMIT;
+
+DO $$
+DECLARE
+    released_lock_count BIGINT;
+BEGIN
+    UPDATE shedlock
+    SET lock_until = clock_timestamp()
+    WHERE name = ${sqlString(configuration.schedulerLockName)}
+      AND locked_by = ${sqlString(configuration.schedulerLockOwner)};
+    GET DIAGNOSTICS released_lock_count = ROW_COUNT;
+    IF released_lock_count <> 1 THEN
+        RAISE EXCEPTION 'ROOM_K6_STATUS_CORRECTION_LOCK_RELEASE_FAILED name=% owner=%',
+            ${sqlString(configuration.schedulerLockName)},
+            ${sqlString(configuration.schedulerLockOwner)};
+    END IF;
+END
+$$;
 `;
 }
 

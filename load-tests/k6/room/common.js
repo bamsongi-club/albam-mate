@@ -6,9 +6,9 @@ import { Counter, Rate, Trend } from 'k6/metrics';
 const BASE_URL = (__ENV.ALBAM_MATE_TARGET_URL || __ENV.K6_BASE_URL || 'http://localhost:8080')
   .replace(/\/$/, '');
 const EXPECTED_200 = http.expectedStatuses(200);
-const EXPECTED_READ_WITH_CONFLICT = http.expectedStatuses(200, 409);
 const EXPECTED_MUTATION_200 = http.expectedStatuses(200, 409);
 const EXPECTED_MUTATION_201 = http.expectedStatuses(201, 409);
+const WAVE_PROFILE_COMPLETION_GRACE_SECONDS = 30;
 const DURATION_PATTERN = /^[1-9]\d*(ms|s|m|h)$/;
 
 export const requestDuration = new Trend('room_request_duration_ms', true);
@@ -83,6 +83,7 @@ function validateWaveManifest(manifest, expectedScenario) {
     'configurations가 비어 있습니다.');
 
   const configurationIds = new Set();
+  let earliestNextProfileStartSeconds = 0;
   for (const configuration of manifest.configurations) {
     requireManifest(configuration && typeof configuration === 'object',
       'configuration은 객체여야 합니다.');
@@ -98,6 +99,8 @@ function validateWaveManifest(manifest, expectedScenario) {
     requireManifest(Number.isInteger(configuration.startOffsetSeconds)
       && configuration.startOffsetSeconds >= 0,
       'startOffsetSeconds는 0 이상의 정수여야 합니다.');
+    requireManifest(configuration.startOffsetSeconds >= earliestNextProfileStartSeconds,
+      `이전 profile의 maxDuration과 겹칩니다: ${configuration.id}`);
     requireManifest(isIntegerBetween(configuration.startDelaySeconds, 1, 60),
       'startDelaySeconds는 1~60 정수여야 합니다.');
     requireManifest(isIntegerBetween(configuration.waveIntervalSeconds, 1, 60),
@@ -109,6 +112,13 @@ function validateWaveManifest(manifest, expectedScenario) {
     requireManifest(configuration.waveCount
       === configuration.warmupWaves + configuration.measuredWaves,
       'waveCount는 warmupWaves와 measuredWaves의 합이어야 합니다.');
+    const expectedMaxDurationSeconds = configuration.startDelaySeconds
+      + configuration.waveCount * configuration.waveIntervalSeconds
+      + WAVE_PROFILE_COMPLETION_GRACE_SECONDS;
+    requireManifest(configuration.maxDurationSeconds === expectedMaxDurationSeconds,
+      `maxDurationSeconds가 wave 실행 구간과 일치하지 않습니다: ${configuration.id}`);
+    earliestNextProfileStartSeconds = configuration.startOffsetSeconds
+      + configuration.maxDurationSeconds;
     requireManifest(Array.isArray(configuration.targets)
       && configuration.targets.length === configuration.waveCount,
     `targets 수가 waveCount와 다릅니다: ${configuration.id}`);
@@ -138,6 +148,10 @@ function validateDueBacklogManifest(manifest) {
     'dueRoomCount는 1~50000 정수여야 합니다.');
   requireManifest(isIntegerBetween(configuration.vus, 1, 32),
     'vus는 1~32 정수여야 합니다.');
+  requireManifest(DURATION_PATTERN.test(configuration.duration),
+    `duration 형식이 올바르지 않습니다: ${configuration.duration}`);
+  requireManifest(isIntegerBetween(configuration.thinkTimeSeconds, 0, 60),
+    'thinkTimeSeconds는 0~60 정수여야 합니다.');
   requireManifest(isIntegerBetween(manifest.globalStartDelaySeconds, 1, 60),
     'globalStartDelaySeconds는 1~60 정수여야 합니다.');
   requireManifest(isIntegerBetween(configuration.recruitingDueRoomCount, 1, 50000)
@@ -147,9 +161,18 @@ function validateDueBacklogManifest(manifest) {
     'RECRUITING/CLOSED due ROOM 수가 dueRoomCount와 일치해야 합니다.');
   requireManifest(configuration.waitingPerClosedDueRoom === 10,
     'waitingPerClosedDueRoom은 ROOM-09d 기준값 10이어야 합니다.');
-  requireManifest(configuration.expectedExpiredWaitlistCount
+  requireManifest(configuration.controlRoomCount === 10,
+    'controlRoomCount는 10이어야 합니다.');
+  requireManifest(configuration.expectedWaitingWaitlistCount
       === configuration.closedDueRoomCount * configuration.waitingPerClosedDueRoom,
-    'expectedExpiredWaitlistCount가 CLOSED due ROOM 수와 일치해야 합니다.');
+    'expectedWaitingWaitlistCount가 CLOSED due ROOM 수와 일치해야 합니다.');
+  requireManifest(configuration.schedulerLockName === 'room-status-correction',
+    'schedulerLockName은 room-status-correction이어야 합니다.');
+  requireManifest(configuration.schedulerLockDurationSeconds === 300,
+    'schedulerLockDurationSeconds는 300이어야 합니다.');
+  requireManifest(configuration.schedulerLockOwner
+      === `ROOM-K6:${manifest.fixtureId}:due-backlog-read`,
+    'schedulerLockOwner가 fixtureId와 일치해야 합니다.');
   if (configuration.endpoint === 'my-rooms') {
     requireManifest(typeof configuration.userKey === 'string'
       && manifest.loginUserKeys.includes(configuration.userKey),
@@ -307,11 +330,11 @@ export function sessionFor(runtime, userKey) {
   return sessions[userKey];
 }
 
-export function readParams(phase, operation, session = null, allowConcurrentConflict = false) {
+export function readParams(phase, operation, session = null) {
   return {
     ...(session ? { jar: session.jar } : {}),
     tags: { phase, operation },
-    responseCallback: allowConcurrentConflict ? EXPECTED_READ_WITH_CONFLICT : EXPECTED_200,
+    responseCallback: EXPECTED_200,
   };
 }
 
@@ -329,16 +352,13 @@ export function mutationParams(session, phase, operation, successStatus) {
 export function waveScenarioOptions(manifest, executionFunction) {
   const scenarios = {};
   for (const configuration of manifest.configurations) {
-    const maxDurationSeconds = configuration.startDelaySeconds
-      + configuration.waveCount * configuration.waveIntervalSeconds
-      + 30;
     scenarios[configuration.id] = {
       executor: 'per-vu-iterations',
       exec: executionFunction,
       vus: configuration.vus,
       iterations: 1,
       startTime: `${configuration.startOffsetSeconds}s`,
-      maxDuration: `${maxDurationSeconds}s`,
+      maxDuration: `${configuration.maxDurationSeconds}s`,
       gracefulStop: '0s',
       tags: {
         load_shape: configuration.mode,
@@ -429,14 +449,42 @@ export function checkMutationResponse(response, phase, successStatus, successPre
 
 export function checkPageResponse(response, phase) {
   const body = responseJson(response);
-  return check(response, {
-    '목록 조회 또는 동시 수정 409 계약 충족': (res) => {
-      if (res.status === 200) {
-        return body?.status === 200 && Array.isArray(body?.data?.content);
-      }
-      return res.status === 409 && body?.code === 'ROOM_CONCURRENT_MODIFICATION';
-    },
+  const valid = check(response, {
+    'ROOM 목록 조회 계약 충족': (res) => res.status === 200
+      && body?.status === 200
+      && Array.isArray(body?.data?.content),
   }, { phase });
+  if (phase !== 'measure' && !valid) {
+    abortTest(`ROOM 목록 warm-up 응답 계약 위반: status=${response.status}`);
+  }
+  return valid;
+}
+
+export function checkDueBacklogProbeResponse(
+  response,
+  phase,
+  expectedStatus,
+  expectedTotalElements,
+  expectedChatAvailable = null,
+) {
+  const body = responseJson(response);
+  const content = body?.data?.content;
+  const valid = check(response, {
+    'due backlog 유효 상태 조회 계약 충족': (res) => res.status === 200
+      && body?.status === 200
+      && Number(body?.data?.totalElements) === expectedTotalElements
+      && Array.isArray(content)
+      && content.length > 0
+      && content.every((room) => room?.status === expectedStatus)
+      && (expectedChatAvailable === null
+        || content.every((room) => room?.chatAvailable === expectedChatAvailable)),
+  }, { phase, expected_status: expectedStatus });
+  if (!valid) {
+    abortTest(
+      `due backlog 유효 상태 probe 실패: expectedStatus=${expectedStatus}, status=${response.status}`,
+    );
+  }
+  return valid;
 }
 
 export function checkRoomDetailResponse(response, phase, roomId) {

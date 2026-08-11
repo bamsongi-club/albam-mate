@@ -36,8 +36,17 @@ test('취소-자동 승격은 hot/spread와 VU 2/4/8을 같은 wave 수로 만�
   );
   for (const configuration of fixture.manifest.configurations) {
     assert.equal(configuration.waveCount, 11);
+    assert.equal(configuration.maxDurationSeconds, 73);
     assert.equal(configuration.targets.length, 11);
     assert.ok(configuration.targets.every((targets) => targets.length === configuration.vus));
+  }
+  const configurations = fixture.manifest.configurations;
+  for (let index = 1; index < configurations.length; index += 1) {
+    const previous = configurations[index - 1];
+    assert.equal(
+      configurations[index].startOffsetSeconds,
+      previous.startOffsetSeconds + previous.maxDurationSeconds,
+    );
   }
 
   const hotEight = fixture.manifest.configurations.find((configuration) => configuration.id === 'hot-8');
@@ -66,7 +75,7 @@ test('대기 등록은 새 사용자만 대상으로 하고 초기 WAITING 행�
   assert.match(renderVerifySql(fixture), /ROOM_K6_WAITLIST_SUCCESS_MISMATCH/);
 });
 
-test('due backlog는 ROOM-09d의 CLOSED ROOM당 WAITING 10명을 재현한다', () => {
+test('due backlog 조회는 저장 상태 보존과 Scheduler 격리 계약을 만든다', () => {
   const fixture = buildFixture(options(
     'due-backlog-read', '--seed', 'due-test',
     '--endpoint', 'my-rooms', '--due-room-count', '20', '--vus', '8',
@@ -82,10 +91,29 @@ test('due backlog는 ROOM-09d의 CLOSED ROOM당 WAITING 10명을 재현한다', 
   assert.equal(fixture.manifest.configuration.recruitingDueRoomCount, 10);
   assert.equal(fixture.manifest.configuration.closedDueRoomCount, 10);
   assert.equal(fixture.manifest.configuration.waitingPerClosedDueRoom, 10);
-  assert.equal(fixture.manifest.configuration.expectedExpiredWaitlistCount, 100);
+  assert.equal(fixture.manifest.configuration.controlRoomCount, 10);
+  assert.equal(fixture.manifest.configuration.expectedWaitingWaitlistCount, 100);
+  assert.equal(fixture.manifest.configuration.duration, '1m');
+  assert.equal(fixture.manifest.configuration.thinkTimeSeconds, 1);
+  assert.equal(fixture.manifest.configuration.schedulerLockName, 'room-status-correction');
+  assert.equal(fixture.manifest.configuration.schedulerLockDurationSeconds, 300);
   assert.deepEqual(fixture.manifest.loginUserKeys, ['reader']);
-  assert.match(renderPrepareSql(fixture), /ROOM_K6_PREPARE_WAITING_COUNT_MISMATCH/);
-  assert.match(renderVerifySql(fixture), /ROOM_K6_DUE_WAITLIST_STATUS_MISMATCH/);
+  const prepareSql = renderPrepareSql(fixture);
+  const verifySql = renderVerifySql(fixture);
+  assert.match(prepareSql, /ROOM_K6_PREPARE_WAITING_COUNT_MISMATCH/);
+  assert.match(prepareSql, /ROOM_K6_STATUS_CORRECTION_LOCK_NOT_ACQUIRED/);
+  assert.ok(prepareSql.indexOf('ANALYZE room_waitlists;')
+    < prepareSql.indexOf('ROOM_K6_STATUS_CORRECTION_LOCK_NOT_ACQUIRED'));
+  assert.match(verifySql, /ROOM_K6_STATUS_CORRECTION_LOCK_LOST/);
+  assert.match(verifySql, /ROOM_K6_DUE_BACKLOG_CHANGED/);
+  assert.match(verifySql, /ROOM_K6_DUE_STORED_STATUS_CHANGED/);
+  assert.match(verifySql, /ROOM_K6_DUE_ROOM_VERSION_CHANGED/);
+  assert.match(verifySql, /ROOM_K6_DUE_ROOM_TIMESTAMP_CHANGED/);
+  assert.match(verifySql, /ROOM_K6_DUE_WAITLIST_CHANGED/);
+  assert.match(verifySql, /ROOM_K6_DUE_WAITLIST_TIMESTAMP_CHANGED/);
+  assert.match(verifySql, /ROOM_K6_DUE_CHAT_ROOM_COUNT_CHANGED/);
+  assert.match(verifySql, /ROOM_K6_DUE_CHAT_RETENTION_CHANGED/);
+  assert.match(verifySql, /ROOM_K6_STATUS_CORRECTION_LOCK_RELEASE_FAILED/);
 });
 
 test('상세 조회 역할에 따라 인증 사용자를 정확히 선택한다', () => {
