@@ -358,14 +358,22 @@ img.profile-avatar { object-fit: cover; }
 .played-toggle.dot.on { background: var(--accent); border-color: #fff; color: #fff; }
 .scard-top { align-items: flex-start; display: flex; gap: 12px; }
 .session-list { display: flex; flex-direction: column; gap: 14px; }
-.ranking-list { display: flex; flex-direction: column; gap: 10px; }
-.ranking-item { align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); display: flex; gap: 12px; padding: 12px 16px; transition: border-color 0.15s; }
-.ranking-item:hover { border-color: var(--accent); }
-.ranking-rank { color: var(--brown); flex: 0 0 auto; font-size: 18px; font-weight: 900; min-width: 24px; text-align: center; }
-.ranking-art { align-items: center; background: var(--soft); border-radius: 10px; display: flex; flex: 0 0 auto; font-size: 20px; height: 48px; justify-content: center; overflow: hidden; width: 48px; }
-.ranking-art img { display: block; height: 100%; object-fit: contain; width: 100%; }
-.ranking-name { flex: 1 1 auto; font-size: 15px; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ranking-count { color: var(--green); flex: 0 0 auto; font-size: 12.5px; font-weight: 800; }
+.ranking-table { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.ranking-head, .ranking-row { align-items: center; display: flex; gap: 14px; padding: 12px 18px; }
+.ranking-head { border-bottom: 1px solid var(--line); color: var(--sub); font-size: 12.5px; font-weight: 800; }
+.ranking-row { border-top: 1px solid var(--line); transition: background-color 0.15s; }
+.ranking-row:first-of-type { border-top: 0; }
+.ranking-row:hover { background: var(--soft); }
+.ranking-rank { flex: 0 0 auto; text-align: center; width: 34px; }
+.ranking-row .ranking-rank { color: var(--brown); font-size: 20px; font-weight: 900; }
+.ranking-art { align-items: center; background: var(--soft); border-radius: 8px; display: flex; flex: 0 0 auto; font-size: 24px; height: 64px; justify-content: center; overflow: hidden; width: 64px; }
+.ranking-art img { display: block; height: 100%; object-fit: cover; width: 100%; }
+/* 표 머리글은 썸네일 칸을 비워 두고 게임 이름 칸부터 시작한다. */
+.ranking-head .ranking-name { margin-left: 78px; }
+.ranking-name { flex: 1 1 auto; font-size: 15.5px; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ranking-count { flex: 0 0 auto; text-align: right; width: 62px; }
+.ranking-row .ranking-count { color: var(--sub); font-size: 12.5px; font-weight: 800; }
+.ranking-row .ranking-count b { color: var(--brown); font-size: 19px; margin-right: 2px; }
 .infobox.red .infobox-action { color: var(--red); margin-left: 10px; text-decoration: underline; }
 .scard-shell { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; transition: transform 0.15s, border-color 0.15s; }
 .scard-shell:hover { border-color: var(--accent); }

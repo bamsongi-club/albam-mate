@@ -13,6 +13,11 @@ vi.mock('../api', () => ({
 
 const { GameRankingView } = await import('./GameRankingView.jsx');
 
+// 순위·이름·집계 수가 한 항목 안에 나뉘어 있어 행 전체 텍스트로 확인한다.
+function rowText(name) {
+  return screen.getByRole('link', { name: new RegExp(name) }).textContent;
+}
+
 const RANKINGS = {
   overall: [
     { rank: 1, gameId: 7, bggId: 13, name: '카탄', imageUrl: null, roomCount: 12 },
@@ -36,14 +41,14 @@ describe('인기 게임 랭킹 화면', () => {
     await act(async () => {});
 
     expect(screen.getByRole('button', { name: '전체' }).getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByText('모임 12개')).toBeTruthy();
-    expect(screen.getByText('모임 5개')).toBeTruthy();
+    expect(rowText('카탄')).toContain('모임 12개');
+    expect(rowText('카르카손')).toContain('모임 5개');
 
     fireEvent.click(screen.getByRole('button', { name: '앞으로 7일' }));
 
     expect(screen.getByRole('button', { name: '앞으로 7일' }).getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByText('모임 3개')).toBeTruthy();
-    expect(screen.queryByText('모임 12개')).toBeNull();
+    expect(rowText('카르카손')).toContain('모임 3개');
+    expect(screen.queryByRole('link', { name: /카탄/ })).toBeNull();
     expect(getGameRankings.mock.calls.length).toBe(1);
   });
 
@@ -79,7 +84,7 @@ describe('인기 게임 랭킹 화면', () => {
 
     expect(getGameRankings.mock.calls.length).toBe(2);
     expect(screen.queryByRole('alert')).toBeNull();
-    expect(screen.getByText('모임 12개')).toBeTruthy();
+    expect(rowText('카탄')).toContain('모임 12개');
   });
 
   it('랭킹 항목은 해당 게임 상세로 이동한다', async () => {

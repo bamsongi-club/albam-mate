@@ -11,11 +11,12 @@ const RANKING_TABS = [
 
 function GameRankingItem({ item }) {
   return (
-    <a className="ranking-item" href={'#/game/' + item.gameId}>
+    <a className="ranking-row" href={'#/game/' + item.gameId}>
       <span className="ranking-rank">{item.rank}</span>
       <span className="ranking-art">{item.imageUrl ? <img src={item.imageUrl} alt="" loading="lazy" /> : '🎲'}</span>
       <span className="ranking-name">{item.name}</span>
-      <span className="ranking-count">모임 {item.roomCount}개</span>
+      {/* 표 머리글을 낭독에서 뺀 대신 숫자의 뜻을 항목 안에 남긴다. */}
+      <span className="ranking-count"><span className="sr-only">모임 </span><b>{item.roomCount}</b>개</span>
     </a>
   );
 }
@@ -58,7 +59,12 @@ export function GameRankingView({ dataVersion }) {
       )}
       {!error && loading && !data && <LoadingBox />}
       {!error && !!items.length && (
-        <div className="ranking-list">
+        <div className="ranking-table">
+          <div className="ranking-head" aria-hidden="true">
+            <span className="ranking-rank">순위</span>
+            <span className="ranking-name">게임</span>
+            <span className="ranking-count">모임 수</span>
+          </div>
           {items.map((item) => <GameRankingItem key={item.gameId} item={item} />)}
         </div>
       )}
