@@ -1234,7 +1234,10 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | `gameId` | integer | N | 알밤메이트 내부 게임 ID. `/api/games/{gameId}` 조회에 사용한다 |
 | `bggId` | integer | N | BoardGameGeek 식별자 |
 | `name` | string | N | 게임명 |
+| `englishName` | string | N | 영문 게임명 |
+| `releaseYear` | integer | Y | 출시 연도 |
 | `imageUrl` | string | Y | 대표 이미지 URL |
+| `description` | string | N | 게임 한 줄 설명. `GET /api/games/{gameId}`가 반환하는 값과 같다 |
 | `roomCount` | integer | N | 집계 대상 방 수. 내림차순 정렬 기준이며 같은 수에서는 `gameId` 오름차순이다 |
 
 방 제목·장소·시각, 주최자·참가자와 사용자 식별 정보는 반환하지 않는다.
