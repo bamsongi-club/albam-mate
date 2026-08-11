@@ -1389,30 +1389,39 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
 
     const connect = () => {
       if (!active) return;
+      let currentSocket;
+      let acceptingMessages = true;
       try {
-        socket = api.openChatWebSocket(roomId, { afterMessageId: lastEventIdRef.current });
+        currentSocket = api.openChatWebSocket(roomId, { afterMessageId: lastEventIdRef.current });
+        socket = currentSocket;
       } catch {
         setConnectionStatus('failed');
         return;
       }
-      socket.onopen = () => {
-        if (!active) return;
+      currentSocket.onopen = () => {
+        if (!active || !acceptingMessages) return;
         setConnectionStatus('');
         stableConnectionTimer = setTimeout(() => { reconnectAttempts = 0; }, 10000);
       };
-      socket.onmessage = (event) => {
-        if (!active) return;
+      currentSocket.onmessage = (event) => {
+        if (!active || !acceptingMessages) return;
+        let payload;
         try {
-          const payload = JSON.parse(event.data);
-          const message = chatStreamMessage(payload, roomId);
-          if (!message) return;
-          const eventId = Number(payload.eventId);
-          lastEventIdRef.current = Math.max(lastEventIdRef.current || 0, eventId);
-          mergeMessages([message]);
-        } catch { /* 다음 신호 또는 재연결 이력으로 복구한다. */ }
+          payload = JSON.parse(event.data);
+        } catch {
+          acceptingMessages = false;
+          currentSocket.close();
+          return;
+        }
+        const message = chatStreamMessage(payload, roomId);
+        if (!message) return;
+        const eventId = Number(payload.eventId);
+        lastEventIdRef.current = Math.max(lastEventIdRef.current || 0, eventId);
+        mergeMessages([message]);
       };
-      socket.onclose = (event) => {
+      currentSocket.onclose = (event) => {
         if (!active) return;
+        acceptingMessages = false;
         clearTimeout(stableConnectionTimer);
         if (event?.code === 1008) {
           setConnectionStatus('restricted');

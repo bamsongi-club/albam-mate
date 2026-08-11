@@ -35,6 +35,10 @@ class FakeWebSocket {
     this.onmessage?.({ data: JSON.stringify(payload) });
   }
 
+  rawMessage(data) {
+    this.onmessage?.({ data });
+  }
+
   drop(code = 1006) {
     this.onclose?.({ code });
   }
@@ -672,6 +676,61 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     });
     expect(Array.from(document.querySelectorAll('.chat-content')).map((node) => node.textContent)).toEqual(['마지막 이력', '복구 첫 메시지', '복구 다음 메시지']);
     vi.useRealTimers();
+  });
+
+  it('파싱할 수 없는 프레임 뒤 마지막 정상 이벤트 ID부터 다시 연결한다', async () => {
+    vi.useFakeTimers();
+    const sockets = useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [{ messageId: 20, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '마지막 이력', createdAt: '2026-09-01T19:00:00+09:00' }],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(sockets).toHaveLength(1);
+    sockets[0].open();
+
+    await act(async () => {
+      sockets[0].rawMessage('{malformed');
+      sockets[0].message({
+        eventId: 22,
+        type: 'MESSAGE_CREATED',
+        message: { messageId: 22, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '기존 연결의 후속 메시지', createdAt: '2026-09-01T19:02:00+09:00' }
+      });
+    });
+
+    expect(screen.queryByText('기존 연결의 후속 메시지')).toBeNull();
+    expect(screen.getByRole('status').textContent).toContain('실시간 채팅을 다시 연결하고 있어요.');
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+      await Promise.resolve();
+    });
+
+    expect(sockets).toHaveLength(2);
+    expect(sockets[1].url).toContain('/api/rooms/7/chat/ws?afterMessageId=20');
+    await act(async () => {
+      sockets[1].message({
+        eventId: 21,
+        type: 'MESSAGE_CREATED',
+        message: { messageId: 21, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '복구된 누락 메시지', createdAt: '2026-09-01T19:01:00+09:00' }
+      });
+      sockets[1].message({
+        eventId: 22,
+        type: 'MESSAGE_CREATED',
+        message: { messageId: 22, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '복구된 후속 메시지', createdAt: '2026-09-01T19:02:00+09:00' }
+      });
+    });
+
+    expect(Array.from(document.querySelectorAll('.chat-content')).map((node) => node.textContent)).toEqual([
+      '마지막 이력',
+      '복구된 누락 메시지',
+      '복구된 후속 메시지'
+    ]);
   });
 
   it('정책 위반 종료는 재연결하지 않고 재진입 동선을 제공한다', async () => {
