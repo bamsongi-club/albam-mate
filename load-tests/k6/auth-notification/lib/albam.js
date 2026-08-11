@@ -15,7 +15,7 @@ function normalizeTargetUrl(value) {
 }
 
 export const TARGET_URL = normalizeTargetUrl(requiredEnv('ALBAM_MATE_TARGET_URL'));
-export const RUN_ID = requiredEnv('ALBAM_MATE_RUN_ID').toLowerCase();
+export const RUN_ID = requiredEnv('ALBAM_MATE_RUN_ID');
 export const FIXTURE_PASSWORD = 'LoadTest-Password-2026!';
 export const CAPACITY_PROFILE_ACK = 'auth-notification-perf-v1';
 

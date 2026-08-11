@@ -105,7 +105,7 @@ Git Bash에서는 셸이 `/scripts` 경로를 Windows 경로로 바꿔 버리므
 
 ### fixture 적용
 
-fixture는 로컬 PostgreSQL 컨테이너에 psql로 직접 적용한다. `run_id`는 `ALBAM_MATE_RUN_ID`와 반드시 같아야 한다.
+fixture는 로컬 PostgreSQL 컨테이너에 psql로 직접 적용한다. `run_id`는 `ALBAM_MATE_RUN_ID`와 반드시 같은 소문자 안전 문자열이어야 한다.
 
 ```bash
 docker compose --env-file .env -f compose.local.yml cp load-tests/k6/auth-notification/fixtures/users.sql postgres:/tmp/users.sql

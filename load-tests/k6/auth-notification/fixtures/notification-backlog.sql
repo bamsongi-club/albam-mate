@@ -13,7 +13,9 @@ BEGIN;
 -- 실행기가 보장하는 입력 계약을 SQL에서도 다시 확인한다. 범위를 벗어난 값이 조용히 0건을 만들거나
 -- 지나치게 큰 fixture를 적재하지 못하도록 제약 위반으로 즉시 중단한다.
 CREATE TEMP TABLE notification_backlog_parameters (
-    run_id text NOT NULL CONSTRAINT notification_backlog_run_id_not_empty CHECK (run_id <> ''),
+    run_id text NOT NULL
+        CONSTRAINT notification_backlog_run_id_format
+        CHECK (run_id ~ '^[a-z0-9][a-z0-9._-]{0,79}$'),
     user_count integer NOT NULL CONSTRAINT notification_backlog_user_count_range CHECK (user_count BETWEEN 1 AND 20000),
     room_count integer NOT NULL CONSTRAINT notification_backlog_room_count_range CHECK (room_count BETWEEN 1 AND 1000),
     notifications_per_user integer NOT NULL
