@@ -100,7 +100,7 @@ docker compose --env-file /etc/albam-mate/app1.env -f compose.production.yml dow
 
 ## 인증·알림 계약 검증과 용량 측정
 
-시나리오와 fixture는 [loadtests README](../loadtests/README.md), AWS 실행·로그 수집은 `albam-mate-infra` 저장소의 `run.sh loadtest`를 따른다. 팀이 합의한 하나의 `RELEASE_SHA`에 앱 이미지와 이 디렉터리를 함께 고정한 뒤 실행한다.
+시나리오와 fixture는 [인증·알림 k6 README](../load-tests/k6/auth-notification/README.md), AWS 실행·로그 수집은 `albam-mate-infra` 저장소의 `run.sh loadtest`를 따른다. 팀이 합의한 하나의 `RELEASE_SHA`에 앱 이미지와 이 디렉터리를 함께 고정한 뒤 실행한다.
 
 아래는 계약 검증이며 모두 VU 1로 고정된다.
 
@@ -110,7 +110,7 @@ RATE_LIMIT_CASE=signup ./run.sh loadtest auth-rate-limit-contract
 NOTIFICATION_CONTRACT_EVENT_COUNT=10 ./run.sh loadtest notification-delivery-contract
 ```
 
-용량 측정 시나리오는 인증 요청 제한 상향이 필요해 별도 실행 가드를 둔다. 대상 시나리오와 실행 조건은 [loadtests README의 용량 측정 공통 가드](../loadtests/README.md#용량-측정-공통-가드)를 따른다.
+용량 측정 시나리오는 인증 요청 제한 상향이 필요해 별도 실행 가드를 둔다. 대상 시나리오와 실행 조건은 [인증·알림 k6 README의 용량 측정 공통 가드](../load-tests/k6/auth-notification/README.md#용량-측정-공통-가드)를 따른다.
 
 이 명령은 `albam-mate-infra` 저장소에서 실행한다. 실제 실행 전에 인프라 생성·배포 승인이 별도로 필요하며, 소셜 OAuth 부하는 1단계 범위에 포함하지 않는다.
 

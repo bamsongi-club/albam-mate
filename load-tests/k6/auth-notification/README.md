@@ -8,8 +8,8 @@
 
 이 측정은 승인된 두 ADR이 비워둔 입력을 채운다.
 
-- [ADR-0051](../docs/adr/platform/0051-p1-self-managed-aws-infrastructure.md)은 네 역할을 모두 `t4g.micro`로 두고 **어느 역할이 먼저 한계에 닿는지** 보기로 했다. 성공 기준도 단일 처리량 숫자가 아니라 실제 사용 흐름에서 먼저 실패하는 역할과 그 시점의 지표다.
-- [ADR-0030](../docs/adr/notification/0030-postgresql-notification-relay-processing-recovery.md)은 외부 broker consumer 대안을 "선택을 뒷받침하는 부하 측정이 없다"는 이유로 제외했다. 이 측정이 그 근거를 만든다.
+- [ADR-0051](../../../docs/adr/platform/0051-p1-self-managed-aws-infrastructure.md)은 네 역할을 모두 `t4g.micro`로 두고 **어느 역할이 먼저 한계에 닿는지** 보기로 했다. 성공 기준도 단일 처리량 숫자가 아니라 실제 사용 흐름에서 먼저 실패하는 역할과 그 시점의 지표다.
+- [ADR-0030](../../../docs/adr/notification/0030-postgresql-notification-relay-processing-recovery.md)은 외부 broker consumer 대안을 "선택을 뒷받침하는 부하 측정이 없다"는 이유로 제외했다. 이 측정이 그 근거를 만든다.
 
 따라서 산출물은 합격·불합격이 아니라 **먼저 무너지는 역할과 그 시점의 조건**이다. "현재 규모에서 broker가 필요 없다"도 ADR-0030 재검토의 유효한 결론이다.
 
@@ -86,7 +86,7 @@ Run ID는 DB fixture만 분리한다. 인증 IP 제한은 Run ID와 무관하게
 
 ## 로컬 예행
 
-운영 실행 전에 로컬에서 스크립트가 도는지 먼저 확인한다. `compose.local.yml`은 프록시·Spring 두 대·PostgreSQL·Redis를 함께 띄우고 프록시가 `X-Albam-Mate-Upstream`을 붙이므로, **다중 인스턴스·공용 Redis·upstream 구분까지 그대로 재현된다.** 로컬 실행 명령은 [docs/COMMANDS.md](../docs/COMMANDS.md)를 따른다.
+운영 실행 전에 로컬에서 스크립트가 도는지 먼저 확인한다. `compose.local.yml`은 프록시·Spring 두 대·PostgreSQL·Redis를 함께 띄우고 프록시가 `X-Albam-Mate-Upstream`을 붙이므로, **다중 인스턴스·공용 Redis·upstream 구분까지 그대로 재현된다.** 로컬 실행 명령은 [docs/COMMANDS.md](../../../docs/COMMANDS.md)를 따른다.
 
 **로컬은 동작 확인용이며 용량 근거가 아니다.** 로컬 Spring에는 `-Xmx256m`도 CPU credit도 인스턴스 간 네트워크도 없다. 여기서 나온 지연·처리량은 `t4g.micro` 결과를 대신하지 못한다.
 
@@ -94,7 +94,7 @@ k6는 컨테이너로 실행할 수 있고 대상은 프록시 포트(`ALBAM_MAT
 
 ```bash
 docker run --rm -i --add-host=host.docker.internal:host-gateway \
-  -v "$PWD/loadtests:/scripts" \
+  -v "$PWD/load-tests/k6/auth-notification:/scripts" \
   -e ALBAM_MATE_TARGET_URL=http://host.docker.internal:5173 \
   -e ALBAM_MATE_RUN_ID=local-smoke-1 \
   -e AUTH_CASE=correct \
@@ -108,7 +108,7 @@ Git Bash에서는 셸이 `/scripts` 경로를 Windows 경로로 바꿔 버리므
 fixture는 로컬 PostgreSQL 컨테이너에 psql로 직접 적용한다. `run_id`는 `ALBAM_MATE_RUN_ID`와 반드시 같아야 한다.
 
 ```bash
-docker compose --env-file .env -f compose.local.yml cp loadtests/fixtures/users.sql postgres:/tmp/users.sql
+docker compose --env-file .env -f compose.local.yml cp load-tests/k6/auth-notification/fixtures/users.sql postgres:/tmp/users.sql
 docker compose --env-file .env -f compose.local.yml exec -T postgres \
   bash -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -v run_id=local-smoke-1 -v user_count=50 -f /tmp/users.sql'
 ```
@@ -116,7 +116,7 @@ docker compose --env-file .env -f compose.local.yml exec -T postgres \
 읽기 경로 Run에는 알림 백로그도 적용한다. `user_count`는 위와 같은 값을 쓴다.
 
 ```bash
-docker compose --env-file .env -f compose.local.yml cp loadtests/fixtures/notification-backlog.sql postgres:/tmp/notification-backlog.sql
+docker compose --env-file .env -f compose.local.yml cp load-tests/k6/auth-notification/fixtures/notification-backlog.sql postgres:/tmp/notification-backlog.sql
 docker compose --env-file .env -f compose.local.yml exec -T postgres \
   bash -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -v run_id=local-smoke-1 -v user_count=50 -v room_count=10 -v notifications_per_user=300 -v unread_percent=5 -f /tmp/notification-backlog.sql'
 ```
