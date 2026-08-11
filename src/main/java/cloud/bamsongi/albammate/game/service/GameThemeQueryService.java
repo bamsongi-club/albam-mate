@@ -10,6 +10,7 @@ import cloud.bamsongi.albammate.game.repository.GameThemeRepository;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
+/** 게임 테마 선택지를 조회한다. */
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
