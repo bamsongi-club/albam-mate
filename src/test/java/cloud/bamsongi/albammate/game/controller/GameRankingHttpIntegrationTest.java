@@ -1,5 +1,9 @@
 package cloud.bamsongi.albammate.game.controller;
 
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -56,30 +60,41 @@ class GameRankingHttpIntegrationTest {
 		mockMvc.perform(get("/api/game-rankings"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.status").value(200))
-			.andExpect(jsonPath("$.data.overall.length()").value(2))
-			.andExpect(jsonPath("$.data.overall[0].rank").value(1))
-			.andExpect(jsonPath("$.data.overall[0].gameId").exists())
-			.andExpect(jsonPath("$.data.overall[0].bggId").exists())
-			.andExpect(jsonPath("$.data.overall[0].name").exists())
-			.andExpect(jsonPath("$.data.overall[0].englishName").exists())
-			.andExpect(jsonPath("$.data.overall[0].description").exists())
-			.andExpect(jsonPath("$.data.overall[0].roomCount").value(1))
-			.andExpect(jsonPath("$.data.overall[0].title").doesNotExist())
-			.andExpect(jsonPath("$.data.overall[0].hostUserId").doesNotExist())
-			.andExpect(jsonPath("$.data.overall[0].startAt").doesNotExist())
-			.andExpect(jsonPath("$.data.upcomingWeek.length()").value(1))
-			.andExpect(jsonPath("$.data.upcomingWeek[0].gameId").value(upcomingOnly.getId()))
-			.andExpect(jsonPath("$.data.upcomingWeek[0].roomCount").value(1));
+			.andExpect(jsonPath(overallOf(overallOnly) + ".roomCount").value(contains(1)))
+			.andExpect(jsonPath(overallOf(overallOnly) + ".rank").value(everyItem(greaterThanOrEqualTo(1))))
+			.andExpect(jsonPath(overallOf(overallOnly) + ".bggId").value(contains(50001)))
+			.andExpect(jsonPath(overallOf(overallOnly) + ".name").value(contains("오버롤전용게임")))
+			.andExpect(jsonPath(overallOf(overallOnly) + ".englishName").value(contains("Catan")))
+			.andExpect(jsonPath(overallOf(overallOnly) + ".description").value(contains("게임 설명")))
+			// 방·주최자 정보는 어느 항목에도 담기지 않는다.
+			.andExpect(jsonPath("$.data.overall[*].title").value(empty()))
+			.andExpect(jsonPath("$.data.overall[*].hostUserId").value(empty()))
+			.andExpect(jsonPath("$.data.overall[*].startAt").value(empty()))
+			.andExpect(jsonPath(upcomingOf(upcomingOnly) + ".roomCount").value(contains(1)))
+			// 30일 뒤에 시작하는 방만 가진 게임은 앞으로 7일 랭킹에 들어가지 않는다.
+			.andExpect(jsonPath(upcomingOf(overallOnly)).value(empty()));
 	}
 
 	@Test
-	void 집계_대상_방이_없으면_빈_배열_두_개를_반환한다() throws Exception {
+	void 집계_대상_방이_없어도_오류_없이_두_랭킹을_반환한다() throws Exception {
 		mockMvc.perform(get("/api/game-rankings"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.overall").isArray())
-			.andExpect(jsonPath("$.data.overall").isEmpty())
-			.andExpect(jsonPath("$.data.upcomingWeek").isArray())
-			.andExpect(jsonPath("$.data.upcomingWeek").isEmpty());
+			.andExpect(jsonPath("$.data.upcomingWeek").isArray());
+	}
+
+	/**
+	 * 공유 H2에는 커밋된 다른 테스트의 방이 남아 함께 집계되므로 이 테스트가 만든 게임만 골라 단정한다.
+	 *
+	 * <p>빈 랭킹 응답 자체는 {@code GameRankingQueryServiceTest}가, 테이블 전체의 정렬·상한은
+	 * {@code GameRankingPostgresTest}가 확인한다.
+	 */
+	private String overallOf(Game game) {
+		return "$.data.overall[?(@.gameId == " + game.getId() + ")]";
+	}
+
+	private String upcomingOf(Game game) {
+		return "$.data.upcomingWeek[?(@.gameId == " + game.getId() + ")]";
 	}
 
 	private Long insertUser(String email) {
