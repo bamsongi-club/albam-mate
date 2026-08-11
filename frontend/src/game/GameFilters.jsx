@@ -195,7 +195,7 @@ function MatchModeSwitch({ label, value, onChange }) {
           type="button"
           className={'filter-match-switch' + (isAny ? ' any' : '')}
           role="switch"
-          aria-label={label + ' 포함 방식'}
+          aria-label={label + ' 포함 방식: ' + (isAny ? '하나라도 포함' : '모두 포함')}
           aria-checked={isAny}
           onClick={() => onChange(isAny ? 'ALL' : '')}
         >
