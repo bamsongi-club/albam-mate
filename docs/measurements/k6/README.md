@@ -29,7 +29,7 @@ docs/
 | Campaign ID | 측정 구간 | 상태 | 보고서 | 판단서 | 근거 manifest | 대체 관계 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `auth-notification-20260811T021040KST` | 2026-08-11 02:10:40~10:36:50 KST | `completed-with-limitations` | [인증·알림 AWS 용량 측정](auth-notification-capacity-2026-08-11.md) | [알림 broker 판단](notification-broker-decision-2026-08-11.md) | [campaign manifest](evidence/auth-notification-capacity-2026-08-11.json) | 최초 캠페인, 후속 없음 |
-| `room-k6-20260811T142439Z` | 2026-08-11 23:24~23:57 KST (첫 포함 Run ID 시작~마지막 검증 산출물 기록 시각) | `partial` | [ROOM 핵심 HTTP k6 부분 측정](room-core-scenarios-partial-2026-08-11.md) | - | [campaign manifest](evidence/room-core-scenarios-partial-2026-08-11.json) | 첫 부분 측정, 전체 매트릭스 재측정 필요 |
+| `room-k6-20260811T142439Z` | 2026-08-11 23:24~2026-08-12 02:47 KST (첫 포함 Run ID 시작~마지막 검증 산출물 기록 시각) | `completed-with-limitations` | [ROOM 핵심 HTTP k6 실행 결과](room-core-scenarios-partial-2026-08-11.md) | - | [campaign manifest](evidence/room-core-scenarios-partial-2026-08-11.json) | 논리 시나리오 5개를 모두 시도했으며, 대기 순번 6개 조건은 k6 threshold 실패 |
 
 `completed-with-limitations`는 실행과 보고가 끝났지만 유효한 정상·실패 경계를 모두 확정하지 못했거나 원자료 접근 범위가 제한된 상태다. `current` 판단서는 후속 문서가 `supersedes`로 대체하기 전까지 현재 판단으로 읽는다.
 
