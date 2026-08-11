@@ -99,6 +99,8 @@ CloudWatch에서 1,280 VU 구간의 앱·DB CPU가 단순히 지속 포화된 �
 
 원본 k6 summary JSON은 측정용 인프라 작업 폴더의 `.run/results`에 보존했다. 아래 SHA-256은 그 원본 파일 바이트 기준이다.
 
+이 측정은 version 1 비교 manifest 도입 전에 수행되어 release·fixture·시나리오·effective config를 하나의 파일로 대조한 기록이 없다. 따라서 아래 결과는 당시 보존한 summary와 운영 기록에 근거한 과거 관측값이며, 현재 `run-index-comparison.sh`의 재현 가능한 OFF·ON 비교 결과로 간주하지 않는다.
+
 | 결과 | 파일 | SHA-256 |
 | --- | --- | --- |
 | 인덱스 없음 1 VU | `summary-20260811T023817Z.json` | `6ac6a21be356f68c38645943ad79673786828337bd950ff80b3a288e0774d9f9` |

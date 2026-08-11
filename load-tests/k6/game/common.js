@@ -5,6 +5,7 @@ export const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
 export const SESSION_COOKIE =
   __ENV.SESSION_COOKIE ||
   (__ENV.JSESSIONID ? `JSESSIONID=${__ENV.JSESSIONID}` : '');
+export const FIXED_KEYWORD = (__ENV.KEYWORD || '').trim();
 
 export function authHeaders() {
   if (!SESSION_COOKIE) {
@@ -89,17 +90,23 @@ function fetchCodes(path) {
   );
 
   if (res.status !== 200) {
-    return [];
+    throw new Error(`setup ${path} failed: status=${res.status}, body=${res.body}`);
   }
 
   const data = res.json()?.data || [];
   if (!Array.isArray(data)) {
-    return [];
+    throw new Error(`setup ${path} failed: data must be an array`);
   }
 
-  return data
+  const codes = data
     .map((item) => item?.code)
     .filter((code) => typeof code === 'string' && code.length > 0);
+
+  if (codes.length === 0) {
+    throw new Error(`setup ${path} failed: at least one code is required`);
+  }
+
+  return codes;
 }
 
 export function fetchMetadataCodes() {
@@ -120,7 +127,12 @@ export function keywordFromGame(game) {
   return cleaned.substring(start, Math.min(cleaned.length, start + 2));
 }
 
+export function scenarioKeyword(game) {
+  return FIXED_KEYWORD || keywordFromGame(game);
+}
+
 export const thresholds = {
+  checks: ['rate==1'],
   http_req_failed: ['rate<0.01'],
   http_req_duration: ['p(95)<500', 'p(99)<1000'],
 };

@@ -1,0 +1,149 @@
+{
+  "version": 1,
+  "benchmarkId": "pr591-20260811-v1",
+  "invariants": {
+    "releaseSha": "6a19713e053235b28fc075f1c1e7ad6351fda538",
+    "fixtureId": "catalog-170k-base-pre-full-localization",
+    "fixtureSha256": "9b216fc3dddb60af78c338552c9f85d0764a5899380d968351e43fed32f2dcff",
+    "scenarioSha256": "e3e3c02f0c7f726c959b213aab8be5c3225891a39a8d093d25aaae8cd23944b1",
+    "keyword": "누스피요르드",
+    "profile": "load",
+    "authMode": "anonymous",
+    "k6Version": "k6 v1.3.0 (commit/5870e99ae8, go1.25.1, linux/arm64)"
+  },
+  "fixtureCounts": {
+    "games": 170000,
+    "categories": 8,
+    "themes": 85,
+    "mechanisms": 196,
+    "categoryRelations": 17337,
+    "themeRelations": 445781,
+    "mechanismRelations": 413965,
+    "gamePlayerPreferences": 259580,
+    "flywaySchemaHistory": 23,
+    "distinctGameBggIds": 170000
+  },
+  "environment": {
+    "region": "ap-northeast-2",
+    "infraHead": "185713cd9bfd5f6437e5e1a8b11742a57138977a",
+    "infraDiffSha256": "6005dcb0e5ad5a96ed3bd3943fd9742ae1f753477e277648ae9838ecdc832118",
+    "terraformTfvarsSha256": "b0fc80731371b9cade8575ccf4b9c0353dc5df9277eb09c4a0ef8dcb75be3589",
+    "postgresCreditMode": "unlimited",
+    "appInstanceType": "t4g.micro",
+    "postgresInstanceType": "t4g.micro",
+    "redisInstanceType": "t4g.micro",
+    "loadGeneratorInstanceType": "c7g.large",
+    "backendImageDigest": "sha256:a03d51fa09b7ec81a3ce55ffde34b44e7361b7e1cf3b85d6ce326ccd612a1532",
+    "webImageDigest": "sha256:76f73f2d1c4f0d1b38bbae957a710f854e0dae37e16173c236c1737f379fc5e5"
+  },
+  "queryPlans": {
+    "noPgTrgm": {
+      "plan": "Parallel Seq Scan",
+      "matches": 1,
+      "pageExecutionMs": 125.413,
+      "countExecutionMs": 108.746
+    },
+    "pgTrgmGin": {
+      "plan": "Bitmap Index Scan -> Bitmap Heap Scan",
+      "indexName": "ix_perf_games_name_lower_trgm",
+      "indexSizeMb": 17,
+      "matches": 1,
+      "pageExecutionMs": 0.228,
+      "countExecutionMs": 0.174
+    }
+  },
+  "runs": {
+    "keywordOnly": {
+      "noPgTrgm": {
+        "requests": 2637,
+        "rps": 8.77031181484848,
+        "averageMs": 1728.7335309461491,
+        "p95Ms": 3034.1054082,
+        "p99Ms": 3350,
+        "httpFailureRate": 0,
+        "checksPassed": 2637,
+        "checksFailed": 0,
+        "thresholdsPassed": false
+      },
+      "pgTrgmGin": {
+        "requests": 7096,
+        "rps": 23.65051352825085,
+        "averageMs": 6.693472828776794,
+        "p95Ms": 9.7362845,
+        "p99Ms": 10.82,
+        "httpFailureRate": 0,
+        "checksPassed": 7096,
+        "checksFailed": 0,
+        "thresholdsPassed": true
+      }
+    },
+    "realistic": {
+      "noPgTrgm": {
+        "requests": 7482,
+        "rps": 9.571281155789215,
+        "overallAverageMs": 5514.25080687395,
+        "overallP95Ms": 12477.849620049998,
+        "overallP99Ms": 14530,
+        "keywordP95Ms": 12405.173176,
+        "httpFailureRate": 0,
+        "checksPassed": 7478,
+        "checksFailed": 0,
+        "thresholdsPassed": false
+      },
+      "pgTrgmGin": {
+        "requests": 8699,
+        "rps": 11.139535917770894,
+        "overallAverageMs": 4577.637669704093,
+        "overallP95Ms": 12748.699054199998,
+        "overallP99Ms": 14480,
+        "keywordP95Ms": 11284.210141799998,
+        "httpFailureRate": 0,
+        "checksPassed": 8695,
+        "checksFailed": 0,
+        "thresholdsPassed": false
+      }
+    }
+  },
+  "postgresCloudWatch": {
+    "noPgTrgmWindowUtc": "2026-08-11T12:20:00Z/2026-08-11T12:45:00Z",
+    "noPgTrgm": {
+      "cpuAveragePercent": 68.93563436070507,
+      "cpuMaximumPercent": 99.42665711095185,
+      "creditBalanceMinimum": 0,
+      "surplusCreditBalanceMaximum": 20.0102035
+    },
+    "pgTrgmGinWindowUtc": "2026-08-11T12:45:00Z/2026-08-11T13:07:00Z",
+    "pgTrgmGin": {
+      "cpuAveragePercent": 57.94993411965577,
+      "cpuMaximumPercent": 99.29166666666666,
+      "creditBalanceMinimum": 0,
+      "surplusCreditBalanceMaximum": 46.3592695
+    }
+  },
+  "artifacts": {
+    "manifestSha256": "7b56c8386624ed1dafcd8d5cf949ae72c58e70bf4fe1ac3b772ee4784a13210e",
+    "noPgTrgmCloudWatchSha256": "d08b90644a9d9981311698bb4447d554d975d8a1b3e6c975555f51f3bf1f3042",
+    "pgTrgmGinCloudWatchSha256": "efe8e85b240bd833a010418a734f9b53f776b263ab75ad94514f31c0dc484fb4",
+    "noPgTrgmKeywordSummarySha256": "3f867b54b5b5e62e3ef0c24510d023ab613fcc770562f995a69daca2403f637b",
+    "noPgTrgmKeywordLogSha256": "fa1bbee5b7911c10d87fa67d6138d7b2b4d854927729729c2ed30076c534267b",
+    "noPgTrgmRealisticSummarySha256": "96fe78962d73d87791e1dbf596533441bb6f4f8ae04e9ff49e04232a6a75f6bd",
+    "noPgTrgmRealisticLogSha256": "8288b991ab0555a0fe9fbbbb810e99dd795af0a54885b365848ee11d17cc04b2",
+    "pgTrgmGinKeywordSummarySha256": "13587bb306e0ed7c11fb401d99d27d7cc7a11826088d7130baab73c816b4d652",
+    "pgTrgmGinKeywordLogSha256": "4aa74d87cfe5654c9c6fc09b66d959ad2bf7e9705e238dfa53c7d7e9e6878f6f",
+    "pgTrgmGinRealisticSummarySha256": "19b18afa2dff9a1e6bdb531faf220f0c9d999469afa400f665b1aca7d7564b78",
+    "pgTrgmGinRealisticLogSha256": "d5f7860f92855b5df623c9bbe14920c9ea4b52355ddfc1ed15716df4d124fca1"
+  },
+  "cleanup": {
+    "temporaryIndexRemoved": true,
+    "terraformDestroyedResources": 94,
+    "terraformStateResourcesAfterDestroy": 0,
+    "activeInstancesAfterDestroy": 0,
+    "volumesAfterDestroy": 0,
+    "elasticIpsAfterDestroy": 0,
+    "vpcsAfterDestroy": 0,
+    "securityGroupsAfterDestroy": 0,
+    "subnetsAfterDestroy": 0,
+    "transferBucketsAfterDestroy": 0,
+    "stackSsmParametersAfterDestroy": 0
+  }
+}

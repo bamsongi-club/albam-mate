@@ -5,11 +5,12 @@ import {
   assertOk,
   fetchGameFixture,
   fetchMetadataCodes,
-  keywordFromGame,
   pick,
   query,
   requestParams,
+  scenarioKeyword,
   think,
+  thresholds,
 } from './common.js';
 
 const PROFILE = __ENV.PROFILE || 'load';
@@ -67,8 +68,7 @@ if (!PROFILES[PROFILE]) {
 export const options = {
   ...PROFILES[PROFILE],
   thresholds: {
-    http_req_failed: ['rate<0.01'],
-    http_req_duration: ['p(95)<500', 'p(99)<1000'],
+    ...thresholds,
 
     'http_req_duration{name:game-list}': ['p(95)<500'],
     'http_req_duration{name:game-keyword}': ['p(95)<500'],
@@ -98,7 +98,7 @@ function keyword(data) {
   const game = pick(data.games);
   const res = http.get(
     `${BASE_URL}/api/games${query({
-      keyword: keywordFromGame(game),
+      keyword: scenarioKeyword(game),
       size: 20,
     })}`,
     requestParams('game-keyword')
@@ -139,8 +139,7 @@ function relation(data) {
   }
 
   if (!candidates.length) {
-    list();
-    return;
+    throw new Error('관계형 필터 후보가 없어 시나리오를 실행할 수 없습니다.');
   }
 
   const res = http.get(
