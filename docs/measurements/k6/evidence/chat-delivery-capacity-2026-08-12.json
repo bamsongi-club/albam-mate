@@ -1,0 +1,462 @@
+{
+  "campaignId": "chat-delivery-20260812T042245KST",
+  "campaignStatus": "completed-with-limitations",
+  "documentStatus": "current",
+  "supersedes": "chat-delivery-20260811T172123KST",
+  "window": {
+    "startedAt": "2026-08-11T19:22:45Z",
+    "endedAt": "2026-08-11T20:37:34Z"
+  },
+  "release": {
+    "sha": "1db046c0acdde59737411303a5547f3d8fed1422",
+    "tag": "measurement/chat-delivery-2026-08-11",
+    "backendImage": "sha256:f8c7a71e58f30d26c73d65213ac254634f5b365cca37a09668af223de035c61b",
+    "webImage": "sha256:52b23434c167c4fe583a13b291e6aea16f790952c7fef68b43cbf12e429e347a",
+    "postgresImage": "sha256:0826e5f2996099babb925e09fb72bf2c6eb5d187cfcae20aa9291af1612307e4",
+    "redisImage": "sha256:78b83aee0bf6781ca973ee5022de73dd16fe93f53593c3a31f079c8c3fa08921",
+    "note": "src/main 과 frontend/nginx.production.conf 는 이 release 와 동일하다. 차이는 이미지 revision 라벨뿐이다."
+  },
+  "fixture": {
+    "source": "load-tests/k6/chat/fixtures/rooms.sql",
+    "cleanup": "load-tests/k6/chat/fixtures/cleanup.sql",
+    "roomCount": 8,
+    "accountsPerRoom": 9,
+    "messagesPerRoom": 150
+  },
+  "observations": {
+    "redis": {
+      "connectedClients": 3,
+      "maxclients": 10000,
+      "rejectedConnections": 0,
+      "totalConnectionsReceived": 120838,
+      "usedMemoryHuman": "2.06M",
+      "usedMemoryPeakHuman": "2.27M"
+    },
+    "redisConnectionFailureException": {
+      "app1": 1508,
+      "app2": 1420,
+      "total": 2928
+    },
+    "chatHttpStatus": {
+      "postMessages": {
+        "2xx": 4718,
+        "429": 47,
+        "500": 395,
+        "503": 343
+      },
+      "getMessages": {
+        "2xx": 3059,
+        "500": 365,
+        "503": 272
+      }
+    },
+    "cpuCreditBalanceMinimum": {
+      "app1": 0.666,
+      "app2": 0.489,
+      "postgres": 1.536,
+      "redis": 1.81
+    }
+  },
+  "artifacts": {
+    "location": "local-only",
+    "directory": "albam-mate-infra/.run/results/",
+    "runCount": 6,
+    "includedRunCount": 6,
+    "excludedRunCount": 0
+  },
+  "runs": [
+    {
+      "scenario": "load-throughput",
+      "endedAt": "2026-08-11T19:36:58Z",
+      "exit": 2,
+      "summary": "summary-20260811T192325Z.json",
+      "console": "console-20260811T192325Z.log",
+      "startedAt": "2026-08-11T19:22:45Z",
+      "stages": [
+        {
+          "stage": 1,
+          "httpP95": 111.47945324999999,
+          "sendOkRate": 1,
+          "sendTotal": 134,
+          "deliveryP95": 82,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        },
+        {
+          "stage": 2,
+          "httpP95": 91.80313229999999,
+          "sendOkRate": 1,
+          "sendTotal": 180,
+          "deliveryP95": 68,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        },
+        {
+          "stage": 3,
+          "httpP95": 92.57046739999998,
+          "sendOkRate": 1,
+          "sendTotal": 300,
+          "deliveryP95": 64,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        },
+        {
+          "stage": 4,
+          "httpP95": 85.4010155,
+          "sendOkRate": 0.9976190476190476,
+          "sendTotal": 420,
+          "deliveryP95": 62,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        },
+        {
+          "stage": 5,
+          "httpP95": 1005.8188758,
+          "sendOkRate": 0.8599348534201955,
+          "sendTotal": 614,
+          "deliveryP95": 62.94999999999996,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        }
+      ],
+      "droppedIterations": 2,
+      "httpReqFailed": null,
+      "summarySha256": "7d84357b5387f82d6a5254f5777074190b2b15af73ead823b242edabc5d5b3c2",
+      "consoleSha256": "ee6cdb3e52b945a0cbbd9dda04165dad30ccc6b57b9d9ff7539fd49759b230e4",
+      "status": "PASS",
+      "reportDisposition": "included"
+    },
+    {
+      "scenario": "load-connections",
+      "endedAt": "2026-08-11T19:50:16Z",
+      "exit": 2,
+      "summary": "summary-20260811T193737Z.json",
+      "console": "console-20260811T193737Z.log",
+      "startedAt": "2026-08-11T19:36:58Z",
+      "stages": [
+        {
+          "stage": 1,
+          "httpP95": null,
+          "sendOkRate": null,
+          "sendTotal": null,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": 54.6,
+          "openedRate": 1,
+          "openedTotal": 9
+        },
+        {
+          "stage": 2,
+          "httpP95": null,
+          "sendOkRate": null,
+          "sendTotal": null,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": 52.6,
+          "openedRate": 1,
+          "openedTotal": 9
+        },
+        {
+          "stage": 3,
+          "httpP95": null,
+          "sendOkRate": null,
+          "sendTotal": null,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": 55.1,
+          "openedRate": 1,
+          "openedTotal": 19
+        },
+        {
+          "stage": 4,
+          "httpP95": null,
+          "sendOkRate": null,
+          "sendTotal": null,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": 54.199999999999996,
+          "openedRate": 1,
+          "openedTotal": 39
+        },
+        {
+          "stage": 5,
+          "httpP95": null,
+          "sendOkRate": null,
+          "sendTotal": null,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": 58,
+          "openedRate": 1,
+          "openedTotal": 21
+        }
+      ],
+      "droppedIterations": 0,
+      "httpReqFailed": null,
+      "summarySha256": "427ce2a86dac0f631231b572574315ccbfa45e412c37172444071ad5ed28963a",
+      "consoleSha256": "b3b6f59679dc3f61ff23a93b913dd1d2285a82cd5f92c6e43eafe1c2bdb46571",
+      "status": "PASS",
+      "reportDisposition": "included"
+    },
+    {
+      "scenario": "load-history",
+      "endedAt": "2026-08-11T20:01:18Z",
+      "exit": 0,
+      "summary": "summary-20260811T195055Z.json",
+      "console": "console-20260811T195055Z.log",
+      "startedAt": "2026-08-11T19:50:16Z",
+      "stages": [
+        {
+          "stage": 1,
+          "httpP95": 84.9824118,
+          "sendOkRate": 1,
+          "sendTotal": 134,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        },
+        {
+          "stage": 2,
+          "httpP95": 120.7793183,
+          "sendOkRate": 1,
+          "sendTotal": 180,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        },
+        {
+          "stage": 3,
+          "httpP95": 85.23845695,
+          "sendOkRate": 1,
+          "sendTotal": 360,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        },
+        {
+          "stage": 4,
+          "httpP95": 77.550407,
+          "sendOkRate": 1,
+          "sendTotal": 841,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        }
+      ],
+      "droppedIterations": 0,
+      "httpReqFailed": null,
+      "summarySha256": "fdc5e8c776b0761ceb4c65add6a26a4091c3105f3417bea736300539350dc906",
+      "consoleSha256": "c1041f283356a4b5d425f1ef4ca4aa3c75aba2338b5a3d9e8f5bd985ab8fd6e2",
+      "status": "PASS",
+      "reportDisposition": "included"
+    },
+    {
+      "scenario": "load-fanout",
+      "endedAt": "2026-08-11T20:14:33Z",
+      "exit": 2,
+      "summary": "summary-20260811T200156Z.json",
+      "console": "console-20260811T200156Z.log",
+      "startedAt": "2026-08-11T20:01:18Z",
+      "stages": [
+        {
+          "stage": 1,
+          "httpP95": 101.67860835,
+          "sendOkRate": 1,
+          "sendTotal": 300,
+          "deliveryP95": 45,
+          "deliverySamples": null,
+          "connectP95": 113.19999999999999,
+          "openedRate": 1,
+          "openedTotal": 3
+        },
+        {
+          "stage": 2,
+          "httpP95": 92.73430894999998,
+          "sendOkRate": 1,
+          "sendTotal": 240,
+          "deliveryP95": 55.399999999999935,
+          "deliverySamples": null,
+          "connectP95": 57.1,
+          "openedRate": 1,
+          "openedTotal": 3
+        },
+        {
+          "stage": 3,
+          "httpP95": 90.89124685,
+          "sendOkRate": 0.9958333333333333,
+          "sendTotal": 240,
+          "deliveryP95": 107,
+          "deliverySamples": null,
+          "connectP95": 60.7,
+          "openedRate": 1,
+          "openedTotal": 7
+        },
+        {
+          "stage": 4,
+          "httpP95": 88.50162279999998,
+          "sendOkRate": 0.9916666666666667,
+          "sendTotal": 240,
+          "deliveryP95": 161,
+          "deliverySamples": null,
+          "connectP95": 62.9,
+          "openedRate": 1,
+          "openedTotal": 15
+        },
+        {
+          "stage": 5,
+          "httpP95": 1008.8081027999997,
+          "sendOkRate": 0.9121338912133892,
+          "sendTotal": 239,
+          "deliveryP95": 178,
+          "deliverySamples": null,
+          "connectP95": 62,
+          "openedRate": 1,
+          "openedTotal": 8
+        }
+      ],
+      "droppedIterations": 2,
+      "httpReqFailed": null,
+      "summarySha256": "1f9b09aeacd2649338592dce1e6572dc8e2a22d18a51084194510e3b605e8b79",
+      "consoleSha256": "aa2dcd7f499bf8256b2d2b5779babfe2a3cc3f9e076ba430091dd01641fc8feb",
+      "status": "PASS",
+      "reportDisposition": "included"
+    },
+    {
+      "scenario": "load-rooms",
+      "endedAt": "2026-08-11T20:26:04Z",
+      "exit": 2,
+      "summary": "summary-20260811T201512Z.json",
+      "console": "console-20260811T201512Z.log",
+      "startedAt": "2026-08-11T20:14:33Z",
+      "stages": [
+        {
+          "stage": 1,
+          "httpP95": 80.96943904999998,
+          "sendOkRate": 0.9925373134328358,
+          "sendTotal": 134,
+          "deliveryP95": 35.84999999999999,
+          "deliverySamples": null,
+          "connectP95": 52.8,
+          "openedRate": 1,
+          "openedTotal": 5
+        },
+        {
+          "stage": 2,
+          "httpP95": 80.66315475,
+          "sendOkRate": 1,
+          "sendTotal": 180,
+          "deliveryP95": 31,
+          "deliverySamples": null,
+          "connectP95": 50.8,
+          "openedRate": 1,
+          "openedTotal": 5
+        },
+        {
+          "stage": 3,
+          "httpP95": 80.492077,
+          "sendOkRate": 0.9972222222222222,
+          "sendTotal": 360,
+          "deliveryP95": 77,
+          "deliverySamples": null,
+          "connectP95": 50.5,
+          "openedRate": 1,
+          "openedTotal": 11
+        },
+        {
+          "stage": 4,
+          "httpP95": 5105.298778599999,
+          "sendOkRate": 0.5714285714285714,
+          "sendTotal": 833,
+          "deliveryP95": 59,
+          "deliverySamples": null,
+          "connectP95": 52,
+          "openedRate": 1,
+          "openedTotal": 7
+        }
+      ],
+      "droppedIterations": 8,
+      "httpReqFailed": null,
+      "summarySha256": "83fcae38519c39aa0fd3a3d06ace134f4ac53faf9a2fd5328812bfab86bca30f",
+      "consoleSha256": "242b838baa0c11ba3e7c6f8a4ae47d54d65df68bfb83855879e20257061283c7",
+      "status": "PASS",
+      "reportDisposition": "included"
+    },
+    {
+      "scenario": "load-mixed",
+      "endedAt": "2026-08-11T20:37:34Z",
+      "exit": 2,
+      "summary": "summary-20260811T202642Z.json",
+      "console": "console-20260811T202642Z.log",
+      "startedAt": "2026-08-11T20:26:04Z",
+      "stages": [
+        {
+          "stage": 1,
+          "httpP95": 77.5462524,
+          "sendOkRate": 1,
+          "sendTotal": 403,
+          "deliveryP95": 44,
+          "deliverySamples": null,
+          "connectP95": 52.2,
+          "openedRate": 1,
+          "openedTotal": 9
+        },
+        {
+          "stage": 2,
+          "httpP95": 75.64397849999999,
+          "sendOkRate": 1,
+          "sendTotal": 540,
+          "deliveryP95": 32,
+          "deliverySamples": null,
+          "connectP95": 50,
+          "openedRate": 1,
+          "openedTotal": 9
+        },
+        {
+          "stage": 3,
+          "httpP95": 3069.9349214999997,
+          "sendOkRate": 0.6941964285714286,
+          "sendTotal": 896,
+          "deliveryP95": 42,
+          "deliverySamples": null,
+          "connectP95": 51.599999999999994,
+          "openedRate": 0.9285714285714286,
+          "openedTotal": 14
+        },
+        {
+          "stage": 4,
+          "httpP95": 4639.363105999948,
+          "sendOkRate": 0.4472396925227114,
+          "sendTotal": 1431,
+          "deliveryP95": 27.4,
+          "deliverySamples": null,
+          "connectP95": 50,
+          "openedRate": 0.2,
+          "openedTotal": 5
+        }
+      ],
+      "droppedIterations": 15,
+      "httpReqFailed": null,
+      "summarySha256": "0ebf359c51f7b7b9cf37f345fe383acd24d1311b843455c6b8923e814b072a93",
+      "consoleSha256": "697ada0772b9a396b94706793930636c46951682ff32dc9f61b621d03c562b6d",
+      "status": "PASS",
+      "reportDisposition": "included"
+    }
+  ]
+}

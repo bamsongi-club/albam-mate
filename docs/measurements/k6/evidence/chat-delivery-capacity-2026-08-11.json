@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "campaignId": "chat-delivery-20260811T172123KST",
   "campaignStatus": "completed",
-  "documentStatus": "current",
+  "documentStatus": "superseded",
   "measurementWindow": {
     "kind": "sequential-run-window",
     "startedAt": "2026-08-11T17:18:50+09:00",
@@ -967,5 +967,6 @@
       },
       "status": "PASS"
     }
-  ]
+  ],
+  "supersededBy": "chat-delivery-20260812T042245KST"
 }

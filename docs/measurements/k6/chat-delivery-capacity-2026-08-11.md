@@ -6,10 +6,10 @@
 
 - Campaign ID: `chat-delivery-20260811T172123KST`
 - 캠페인 상태: `completed`
-- 문서 상태: `current`
+- 문서 상태: `superseded`
 - 문서 인덱스: [k6 측정 문서](README.md)
 - 근거 식별자: [campaign manifest](evidence/chat-delivery-capacity-2026-08-11.json)
-- 대체 관계: 최초 캠페인, 후속 없음
+- 대체 관계: [`chat-delivery-20260812T042245KST`](chat-delivery-capacity-2026-08-12.md)가 대체한다. 아래 수치는 그 캠페인의 before 로만 읽는다
 
 - 부하 시나리오 6종이 모두 완주해 축별 한계점을 얻었다. 6종 전부 `reportDisposition=included`이며 무효 Run은 없다.
 - 읽기 경로는 측정 범위에서 여유가 있었다. 이력 조회는 초당 8건까지 p95 65~70ms로 평평했고 실패가 없었다.
@@ -244,8 +244,8 @@ Redis 자체는 멀쩡했다.
 
 ## 최소 개선 후보와 재측정 계획
 
-1. **Redis 연결 수립·실패 처리 교정** — 500 706건의 원인이고 세 가지 증상을 동시에 만든다. 가장 우선한다. 연결 공유를 되살리거나 풀을 붙여 매 작업 연결을 없애고, 남는 연결 실패는 `GlobalExceptionHandler`가 503으로 변환한다. 원인 제거와 실패 응답 교정을 함께 해야 증상이 사라지므로 한 수정으로 다룬다.
-2. **WebSocket 전용 `location` 분리** — 타임아웃을 늘리거나 서버가 주기적으로 ping을 보낸다.
+1. **Redis 연결 수립·실패 처리 교정** ([#607](https://github.com/bamsongi-club/albam-mate/issues/607)) — 500 706건의 원인이고 세 가지 증상을 동시에 만든다. 가장 우선한다. 연결 공유를 되살리거나 풀을 붙여 매 작업 연결을 없애고, 남는 연결 실패는 `GlobalExceptionHandler`가 503으로 변환한다. 원인 제거와 실패 응답 교정을 함께 해야 증상이 사라지므로 한 수정으로 다룬다.
+2. **WebSocket 전용 `location` 분리** ([#608](https://github.com/bamsongi-club/albam-mate/issues/608)) — 타임아웃을 늘리거나 서버가 주기적으로 ping을 보낸다.
 3. **`load-throughput` 발신자 회전 수정** — 방 수와 참가자 수가 서로소가 아닐 때도 모든 참가자를 쓰도록 고친다.
 4. **1~2번 수정 후 재측정** — 이번 결과를 before로 삼는다. 새 Campaign ID와 manifest를 만들고 이 캠페인의 `후속 없음`을 `superseded by <Campaign ID>`로 바꾼다.
 
