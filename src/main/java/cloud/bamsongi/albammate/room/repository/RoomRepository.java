@@ -180,8 +180,17 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		from Room room
 		where (:roomType is null or room.roomType = :roomType)
 		  and room.status in :storedPublicStatuses
-		  and (:status is null or room.status = :status)
 		  and room.startAt > :effectiveFinishedAt
+		  and (
+		      :statusFilterEnabled = false
+		      or (:recruitingStatusFilter = true
+		          and room.status = cloud.bamsongi.albammate.room.enums.RoomStatus.RECRUITING
+		          and room.startAt > :requestTime)
+		      or (:closedStatusFilter = true
+		          and (room.status = cloud.bamsongi.albammate.room.enums.RoomStatus.CLOSED
+		               or (room.status = cloud.bamsongi.albammate.room.enums.RoomStatus.RECRUITING
+		                   and room.startAt <= :requestTime)))
+		  )
 		  and (:gameId is null or room.gameId = :gameId)
 		  and (:keywordFilterEnabled = false
 		       or lower(room.title) like concat('%', lower(:keyword), '%') escape '!')
@@ -195,8 +204,14 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 	Page<Room> findPublicRoomsAt(
 		@Param("roomType")
 		RoomType roomType,
-		@Param("status")
-		RoomStatus status,
+		@Param("statusFilterEnabled")
+		boolean statusFilterEnabled,
+		@Param("recruitingStatusFilter")
+		boolean recruitingStatusFilter,
+		@Param("closedStatusFilter")
+		boolean closedStatusFilter,
+		@Param("requestTime")
+		Instant requestTime,
 		@Param("gameId")
 		Long gameId,
 		@Param("keywordFilterEnabled")
@@ -229,6 +244,7 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		select room from Room room
 		where (:roomType is null or room.roomType = :roomType)
 		  and room.status in :publicStatuses
+		  and (:status is null or room.status = :status)
 		  and (:gameId is null or room.gameId = :gameId)
 		  and (:keywordFilterEnabled = false or lower(room.title) like concat('%', lower(:keyword), '%') escape '!')
 		  and (:startsAtFromFilterEnabled = false or room.startAt >= :startsAtFrom)
@@ -239,7 +255,10 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		""")
 	Page<Room> findPublicRooms(
 		@Param("roomType")
-		RoomType roomType, @Param("gameId")
+		RoomType roomType,
+		@Param("status")
+		RoomStatus status,
+		@Param("gameId")
 		Long gameId,
 		@Param("keywordFilterEnabled")
 		boolean keywordFilterEnabled, @Param("keyword")

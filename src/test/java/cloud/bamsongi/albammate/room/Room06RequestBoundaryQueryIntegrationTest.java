@@ -130,7 +130,8 @@ class Room06RequestBoundaryQueryIntegrationTest {
 		RoomListRequest firstRecruitingRequest = roomListRequest(RoomStatus.RECRUITING, 0, 1);
 		RoomListRequest secondRecruitingRequest = roomListRequest(RoomStatus.RECRUITING, 1, 1);
 
-		PageResponse<PublicRoomResponse> closedResponse = roomListQueryService.findPage(closedRequest, Optional.empty());
+		PageResponse<PublicRoomResponse> closedResponse = roomListQueryService.findPage(closedRequest,
+			Optional.empty());
 		PageResponse<PublicRoomResponse> firstRecruitingResponse = roomListQueryService.findPage(
 			firstRecruitingRequest, Optional.empty());
 		PageResponse<PublicRoomResponse> secondRecruitingResponse = roomListQueryService.findPage(

@@ -269,7 +269,10 @@ class SearchPerformancePostgresTest {
 		assertFalse(indexExists(GAME_INDEX));
 		List<CapturedQuery> queries = queryPlanCapture.capture(() -> roomRepository.findPublicRoomsAt(
 			null,
-			null,
+			false,
+			false,
+			false,
+			ROOM_START,
 			null,
 			false,
 			"",

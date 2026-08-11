@@ -45,7 +45,10 @@ class RoomListReadService {
 		RoomListSearchCriteria criteria, Pageable pageable, Instant requestTime) {
 		return roomRepository.findPublicRoomsAt(
 			criteria.roomType(),
-			criteria.status(),
+			criteria.status() != null,
+			criteria.status() == RoomStatus.RECRUITING,
+			criteria.status() == RoomStatus.CLOSED,
+			requestTime,
 			criteria.gameId(),
 			criteria.hasKeyword(),
 			criteria.keywordOrEmpty(),
@@ -100,6 +103,7 @@ class RoomListReadService {
 		RoomListSearchCriteria criteria, Pageable pageable, Long currentUserId) {
 		Page<Room> rooms = roomRepository.findPublicRooms(
 			criteria.roomType(),
+			criteria.status(),
 			criteria.gameId(),
 			criteria.hasKeyword(),
 			criteria.keywordOrEmpty(),
