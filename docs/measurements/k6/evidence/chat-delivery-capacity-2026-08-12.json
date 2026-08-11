@@ -50,11 +50,26 @@
         "503": 272
       }
     },
-    "cpuCreditBalanceMinimum": {
-      "app1": 0.666,
-      "app2": 0.489,
-      "postgres": 1.536,
-      "redis": 1.81
+    "cpu": {
+      "note": "크레딧 잔고는 신규 생성 22분 뒤 부하를 걸어 낮게 시작했고, 측정 내내 줄지 않고 올랐다. CPU 는 병목이 아니다.",
+      "app1": {
+        "creditStart": 0.9,
+        "creditEnd": 6.54,
+        "utilizationAvgPercent": 6.3,
+        "utilizationMaxPercent": 37.0
+      },
+      "app2": {
+        "creditStart": 0.49,
+        "creditEnd": 9.29,
+        "utilizationAvgPercent": 3.6,
+        "utilizationMaxPercent": 8.8
+      },
+      "previousCampaignComparison": {
+        "campaignId": "chat-delivery-20260811T172123KST",
+        "creditAtLoadStart": "약 12",
+        "utilizationAvgPercentRange": "1.8~5.3",
+        "instanceAgeAtLoadStart": "약 2시간"
+      }
     }
   },
   "artifacts": {
