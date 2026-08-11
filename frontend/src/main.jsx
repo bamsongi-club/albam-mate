@@ -29,6 +29,7 @@ const loadFirstNotificationPage = (signal) => api.getNotifications({ page: 0, si
 // 인원 숫자 입력은 마지막 입력 뒤 이 시간이 지나면 조회한다. 체크박스는 기다리지 않는다.
 const GAME_NUMBER_FILTER_DEBOUNCE_MS = 400;
 export const CHAT_SEND_REQUEST_DEADLINE_MS = 3_000;
+export const WAITLIST_POLL_INTERVAL_MS = 10_000;
 export const CHAT_SEND_RESULT_UNKNOWN_MESSAGE = '전송 여부를 확인하지 못했어요. 다시 시도해주세요.';
 // 회원가입 비밀번호 한도는 서버 검증 규칙과 같은 값을 쓴다. 한쪽만 바뀌면 안내와 결과가 어긋난다.
 const PASSWORD_MIN_CODE_POINTS = 15;
@@ -806,14 +807,53 @@ export function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQue
   );
 }
 
-function SessionActions({ room, me, onApply, onCancelApply, onHostCancel, onFinish }) {
+function SessionActions({ room, roomRefreshing, me, onApply, onCancelApply, onHostCancel, onFinish, onJoinWaitlist, onCancelWaitlist, onWaitlistSettled }) {
   const [pending, setPending] = useState(false);
+  const [waitlistVersion, setWaitlistVersion] = useState(0);
   const status = sessionStatus(room);
+  const eligibleForWaitlist = Boolean(me) && !isHost(room) && !isJoined(room);
+  const { data: waitlist, loading: waitlistLoading, error: waitlistError } = useRequest(
+    async (signal) => {
+      if (!eligibleForWaitlist) return null;
+      try {
+        return await api.getMyWaitlist(room.id, signal);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404 && error.code === 'WAITLIST_ENTRY_NOT_FOUND') return null;
+        throw error;
+      }
+    },
+    [room.id, eligibleForWaitlist, waitlistVersion]
+  );
+  const waitlistStatus = waitlist?.waitlistStatus ?? null;
+  const waiting = waitlistStatus === 'WAITING';
+  const promoted = waitlistStatus === 'PROMOTED';
+  // EXPIRED·ROOM_CANCELED는 재활성화하지 않는 종료 상태라 재신청 대상이 아니다(PART-04).
+  const waitlistEnded = waitlistStatus === 'EXPIRED' || waitlistStatus === 'ROOM_CANCELED';
+  // 승격·만료·방 취소는 이 화면 밖에서 일어나므로 WAITING 동안 대기 상태를 다시 읽는다.
+  useEffect(() => {
+    if (!waiting) return undefined;
+    const timer = window.setInterval(() => setWaitlistVersion((version) => version + 1), WAITLIST_POLL_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [waiting]);
+  // WAITING을 벗어나면 상세의 역할·행동 가능 여부도 함께 바뀌므로 상세를 한 번 다시 읽는다.
+  useEffect(() => {
+    if (waitlistStatus && !waiting) onWaitlistSettled?.();
+  }, [waitlistStatus]);
   const run = (action) => async () => {
     setPending(true);
     try {
       await action(room.id);
     } finally {
+      setPending(false);
+    }
+  };
+  const runWaitlist = (action) => async () => {
+    setPending(true);
+    try {
+      await action(room.id);
+    } finally {
+      // 실패도 경합으로 대기 상태가 이미 바뀐 결과일 수 있어 성공·실패 모두 다시 읽는다.
+      setWaitlistVersion((version) => version + 1);
       setPending(false);
     }
   };
@@ -837,10 +877,39 @@ function SessionActions({ room, me, onApply, onCancelApply, onHostCancel, onFini
       : <div className="infobox green">🎉 참가 중입니다.</div>;
   }
   if (room.joinable) return <button className="btn big" disabled={pending} type="button" onClick={run(onApply)}>{pending ? '처리 중…' : '🙋 참가 신청하기'}</button>;
+  if (promoted) return <div className="infobox green">🎉 대기가 자리로 승격되어 참가가 확정됐어요! 화면을 새로고침하고 있어요…</div>;
+  if (waitlistError) {
+    return (
+      <>
+        <div className="infobox amber">대기 상태를 확인하지 못했어요: {waitlistError}</div>
+        <button className="btn ghost big" style={{ marginTop: 9 }} type="button" onClick={() => setWaitlistVersion((version) => version + 1)}>다시 시도</button>
+      </>
+    );
+  }
+  if (waiting) {
+    return (
+      <>
+        <div className="infobox amber">⏳ 대기 {waitlist.position}번째입니다.</div>
+        <button className="btn ghost big" disabled={pending} style={{ marginTop: 9 }} type="button" onClick={runWaitlist(onCancelWaitlist)}>{pending ? '처리 중…' : '대기 취소'}</button>
+        <p className="hint">자리가 나면 자동으로 참가돼요. 취소하면 대기 순번이 사라져요.</p>
+      </>
+    );
+  }
+  if (waitlistEnded) return <div className="infobox gray">{waitlistStatus === 'ROOM_CANCELED' ? '모임이 취소되어 대기가 종료됐어요.' : '모임이 시작되어 대기가 종료됐어요.'}</div>;
+  // 상세를 다시 읽는 동안에는 이전 응답의 waitlistable로 대기 신청을 안내하지 않는다.
+  if (room.waitlistable && !waitlistLoading && !roomRefreshing) {
+    return (
+      <>
+        <button className="btn ghost big" disabled={pending} type="button" onClick={runWaitlist(onJoinWaitlist)}>{pending ? '처리 중…' : '⏳ 대기 신청하기'}</button>
+        <p className="hint">지금은 정원이 가득 찼어요. 대기 신청하면 자리가 났을 때 자동으로 참가돼요.</p>
+      </>
+    );
+  }
+  if (eligibleForWaitlist && (waitlistLoading || roomRefreshing)) return <div className="infobox gray">참가 가능 여부를 확인하는 중…</div>;
   return <div className="infobox amber">모집이 마감되었거나 지금은 참가할 수 없어요.</div>;
 }
 
-export function SessionDetailView({ sessionId, me, onApply, onCancelApply, onHostCancel, onFinish, dataVersion }) {
+export function SessionDetailView({ sessionId, me, onApply, onCancelApply, onHostCancel, onFinish, onJoinWaitlist, onCancelWaitlist, onWaitlistSettled, dataVersion }) {
   const { data, loading, error } = useRequest(
     async (signal) => normalizeRoom(await api.getRoom(sessionId, signal)),
     [sessionId, dataVersion]
@@ -889,7 +958,7 @@ export function SessionDetailView({ sessionId, me, onApply, onCancelApply, onHos
             ? <section><h2><SectionIcon name="rooms" />참가자 <span className="cnt">총 {participantCount(room)}/{room.recruitmentCapacity + 1}명</span></h2><div className="card"><div className="srow" style={{ marginTop: 0 }}><SeatIcons room={room} /></div><div>{room.participants.map((participant, index) => <span className="pchip" key={participant.nickname + '-' + index}>🙂 {participant.nickname}</span>)}{!room.participants.length && <span className="hint">아직 참가자가 없어요.</span>}</div></div></section>
             : <section><h2><SectionIcon name="rooms" />참가자</h2><div className="infobox">정확한 장소와 참가자 목록은 주최자 또는 현재 참가자만 확인할 수 있어요.</div></section>}
         </div>
-        <aside><div className="card"><SessionActions room={room} me={me} onApply={onApply} onCancelApply={onCancelApply} onHostCancel={onHostCancel} onFinish={onFinish} /></div></aside>
+        <aside><div className="card"><SessionActions room={room} roomRefreshing={loading} me={me} onApply={onApply} onCancelApply={onCancelApply} onHostCancel={onHostCancel} onFinish={onFinish} onJoinWaitlist={onJoinWaitlist} onCancelWaitlist={onCancelWaitlist} onWaitlistSettled={onWaitlistSettled} /></div></aside>
       </div>
     </>
   );
@@ -2247,6 +2316,33 @@ export function App() {
     }
   };
 
+  // 대기 명령은 성공·실패 모두 방의 행동 가능 여부를 바꾸므로 상세를 다시 읽어야 CTA가 서버 상태로 수렴한다.
+  const handleJoinWaitlist = async (roomId) => {
+    try {
+      const result = await api.joinWaitlist(roomId);
+      showToast(result?.position ? '대기 신청했어요. 현재 ' + result.position + '번째예요.' : '대기 신청했어요.');
+      return true;
+    } catch (error) {
+      handleProtectedError(error, '대기 신청하지 못했어요.');
+      return false;
+    } finally {
+      refreshData();
+    }
+  };
+
+  const handleCancelWaitlist = async (roomId) => {
+    try {
+      await api.cancelWaitlist(roomId);
+      showToast('대기를 취소했어요.');
+      return true;
+    } catch (error) {
+      handleProtectedError(error, '대기를 취소하지 못했어요.');
+      return false;
+    } finally {
+      refreshData();
+    }
+  };
+
   const handleHostCancel = async (roomId) => {
     try {
       await api.cancelRoom(roomId);
@@ -2322,7 +2418,7 @@ export function App() {
   }
   else if (route === 'game-list') content = <GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} onPlayedError={handleProtectedError} />;
   else if (route === 'game') content = <GameDetailView gameId={arg} onCreateGame={handleCreateGame} dataVersion={dataVersion} onPlayedError={handleProtectedError} renderRoom={(room) => <SessionCard key={room.id} room={room} />} />;
-  else if (route === 'session') content = <SessionDetailView sessionId={arg} me={me} onApply={handleApply} onCancelApply={handleCancelApply} onHostCancel={handleHostCancel} onFinish={handleFinish} dataVersion={dataVersion} />;
+  else if (route === 'session') content = <SessionDetailView sessionId={arg} me={me} onApply={handleApply} onCancelApply={handleCancelApply} onHostCancel={handleHostCancel} onFinish={handleFinish} onJoinWaitlist={handleJoinWaitlist} onCancelWaitlist={handleCancelWaitlist} onWaitlistSettled={refreshData} dataVersion={dataVersion} />;
   else if (route === 'create') content = me ? <CreateView createMode={createMode} onCreateModeChange={setCreateMode} initialGame={createGame} onCreate={handleCreate} today={today} /> : <LoginRequiredView message="모임을 만들려면 로그인해주세요." />;
   else if (route === 'edit') content = me ? <EditView sessionId={arg} onSave={handleSave} dataVersion={dataVersion} today={today} /> : <LoginRequiredView message="모임을 수정하려면 로그인해주세요." />;
   else if (route === 'my') content = me ? <MyRoomsSection myTab={myTab} onMyTabChange={setMyTab} dataVersion={dataVersion} onCancelApply={handleCancelApply} /> : <LoginRequiredView message="내 모임을 보려면 로그인해주세요." />;
