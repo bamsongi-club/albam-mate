@@ -9,6 +9,7 @@ import org.springframework.data.jpa.domain.Specification;
 
 import cloud.bamsongi.albammate.game.dto.GameAgeBandFilter;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
+import cloud.bamsongi.albammate.game.dto.MechanismMatch;
 import cloud.bamsongi.albammate.game.dto.PlayedFilter;
 import cloud.bamsongi.albammate.game.dto.ThemeMatch;
 import cloud.bamsongi.albammate.game.entity.Game;
@@ -54,7 +55,8 @@ public final class GameListSpecification {
 			if (complexityMax != null) {
 				predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("complexity"), complexityMax));
 			}
-			addMechanismPredicate(root, query, criteriaBuilder, predicates, criteria.getMechanisms());
+			addMechanismPredicate(
+				root, query, criteriaBuilder, predicates, criteria.getMechanisms(), criteria.getMechanismMatch());
 			addCategoryPredicate(root, query, criteriaBuilder, predicates, criteria.getCategories());
 			addThemePredicate(root, query, criteriaBuilder, predicates, criteria.getThemes(), criteria.getThemeMatch());
 			addPlayerPreferencePredicate(
@@ -154,13 +156,23 @@ public final class GameListSpecification {
 		jakarta.persistence.criteria.CriteriaQuery<?> query,
 		CriteriaBuilder criteriaBuilder,
 		List<Predicate> predicates,
-		List<String> mechanisms) {
+		List<String> mechanisms,
+		MechanismMatch mechanismMatch) {
 		if (mechanisms.isEmpty()) {
 			return;
 		}
 		var subquery = query.subquery(Long.class);
 		Root<GameMechanismRelation> relation = subquery.from(GameMechanismRelation.class);
 		var mechanism = relation.join("mechanism");
+		if (mechanismMatch == MechanismMatch.ALL) {
+			subquery.select(criteriaBuilder.countDistinct(mechanism.get("code")));
+			subquery.where(
+				criteriaBuilder.equal(relation.get("game"), root),
+				mechanism.get("code").in(mechanisms),
+				criteriaBuilder.isTrue(mechanism.get("isPublic")));
+			predicates.add(criteriaBuilder.equal(subquery, (long)mechanisms.size()));
+			return;
+		}
 		subquery.select(criteriaBuilder.literal(1L));
 		subquery.where(
 			criteriaBuilder.equal(relation.get("game"), root),

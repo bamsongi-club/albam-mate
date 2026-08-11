@@ -16,9 +16,10 @@ export const EMPTY_GAME_FILTERS = {
   complexityMin: '',
   complexityMax: '',
   mechanism: [],
+  mechanismMatch: '',
   category: [],
   theme: [],
-  // 테마를 둘 이상 고를 때만 의미가 있다. 빈 값이 `아무거나`이며 요청에서 빠진다.
+  // 포함 방식의 빈 값은 API 기본값 ANY이며 요청에서 빠진다.
   themeMatch: '',
   recommendedPlayerCount: [],
   bestPlayerCount: [],
@@ -33,11 +34,6 @@ export const PREFERRED_PLAYER_COUNT_OPTIONS = Array.from({ length: 6 }, (_, inde
   value: String(index + 1),
   label: index + 1 + '명'
 }));
-
-export const THEME_MATCH_OPTIONS = [
-  { value: '', label: '아무거나' },
-  { value: 'ALL', label: '모두 포함' }
-];
 
 export const EMPTY_GAME_FILTER_KEY = JSON.stringify(EMPTY_GAME_FILTERS);
 export const EMPTY_PLAYER_COUNT_RANGE = { playerCountMin: '', playerCountMax: '', playerCountExact: false };

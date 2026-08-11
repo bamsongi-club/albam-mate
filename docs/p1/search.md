@@ -43,7 +43,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 | 출처·적재 | [ADR-0015](../adr/game/0015-bgg-baseline-team-collected-game-list.md), [입력 검수 기록](../game-catalog/2026-07-24-input-review.md), [적재 절차](../guides/GAME_CATALOG_IMPORT.md) |
 | 입력 데이터 | 입력 CSV와 변환 산출물은 저장소에 커밋하지 않는다. 적재 작업은 [입력 검수 기록](../game-catalog/2026-07-24-input-review.md)의 SHA-256과 일치하는 팀 공유 입력을 먼저 확보해야 하며, 입력을 새로 수집하거나 생성하지 않는다 |
 | 성능 검증 | [FND-09 검색 성능과 인덱스 검증](foundation.md#fnd-09-검색-성능과-인덱스-검증) |
-| HTTP 경계 | `GameController#listGames`, `GameListRequest`의 기존 조건과 반복 `category`, `theme`, `recommendedPlayerCount`, `bestPlayerCount`, `mechanism`; 선택지는 `GET /api/game-categories`, `GET /api/game-themes`, `GET /api/game-mechanisms` |
+| HTTP 경계 | `GameController#listGames`, `GameListRequest`의 기존 조건과 반복 `category`, `theme`, `recommendedPlayerCount`, `bestPlayerCount`, `mechanism`, 단일 `themeMatch`, `mechanismMatch`; 선택지는 `GET /api/game-categories`, `GET /api/game-themes`, `GET /api/game-mechanisms` |
 | 현재 조회 경계 | `GameQueryService#findPage`, 불변 `GameListSearchCriteria`, `GameRepository#findAll(Specification, Pageable)`, `GameListRow`, `UpcomingRoomCountQuery`; 모든 조건은 단일 동적 조회에 전달하고 정렬은 엔티티 필드 `name`, `id` 오름차순 고정 |
 | 저장 계약 | 기존 게임 표시·검색 필드, 카테고리·테마·인원 선호·메커니즘 관계. `Game.tag` 의미는 유지하고 새 관계의 정본으로 재사용하지 않음 |
 
@@ -72,7 +72,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 | `OVER_60_UNDER_90` | 검증된 최대 플레이 시간이 60분 초과 90분 미만 |
 | `AT_LEAST_90` | 검증된 최대 플레이 시간이 90분 이상 |
 | 복잡도 | 사용자가 지정한 최소·최대 닫힌 구간에 포함됨 |
-| 메커니즘 | 선택한 공개 코드 중 하나 이상과 관계가 있음. 선택 목록 안 OR, 다른 필터와 AND |
+| 메커니즘 | `mechanismMatch=ANY`면 선택한 공개 코드 중 하나 이상, `ALL`이면 선택한 모든 고유 코드와 관계가 있음. 다른 필터와 AND |
 
 - 인원은 보드라이프 방식의 `최소 ~ 최대`, `인원 정확히 일치`, `1인 전용`, `2인 전용`을 제공한다.
 - 인원 최소·최대는 양의 정수이며 한쪽만 입력해도 된다. 두 계열의 조건을 함께 전달하거나 최소가 최대보다 크면 검증 오류다.
@@ -82,9 +82,10 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 - 이전 플레이 시간 값 `SHORT`, `MEDIUM`, `LONG`은 제거했다. 단독으로 전달하거나 새 값과 섞어 전달하면 검증 오류이며 조용히 무시하지 않는다.
 - 기존 `playerCount` 조건은 그대로 유지한다.
 - 복잡도 최소값과 최대값은 각각 생략할 수 있지만 둘 다 전달하면 최소값이 최대값보다 크지 않아야 한다.
-- 메커니즘은 안정적인 내부 코드를 반복 전달한다. 같은 코드를 반복해도 한 번 전달한 것과 같고, 존재하지 않거나 비공개인 코드는 검증 오류다.
+- 메커니즘은 안정적인 내부 코드를 반복 전달한다. `mechanismMatch`를 생략하면 ANY이며 하나라도 관계가 있으면 되고, ALL이면 선택한 모든 고유 메커니즘과 관계가 있어야 한다. 메커니즘을 보내지 않고 `mechanismMatch`만 보내는 것은 유효하지만, 잘못되거나 중복된 `mechanismMatch`는 검증 오류다. 같은 코드를 반복해도 한 번 전달한 것과 같고, 존재하지 않거나 비공개인 코드는 검증 오류다.
 - 카테고리는 고정 8개 안정 code를 반복 전달한다. 같은 category 안에서는 OR이고, 존재하지 않는 code는 일부 유효 code가 함께 있어도 검증 오류다.
 - 테마는 안정 code를 반복 전달한다. `themeMatch`를 생략하면 ANY이며 하나라도 관계가 있으면 되고, ALL이면 선택한 모든 고유 테마와 관계가 있어야 한다. 테마를 보내지 않고 `themeMatch`만 보내는 것은 유효하지만, 잘못되거나 중복된 `themeMatch`는 검증 오류다.
+- `themeMatch`와 `mechanismMatch`는 독립적으로 선택하고, 테마 그룹과 메커니즘 그룹 사이는 AND로 결합한다.
 - 추천 인원은 BGG 투표의 Best 또는 Recommended 우세, 베스트 인원은 Best 단독 우세로 저장한 양의 정수 관계를 반복 전달한다. 각 목록 안에서는 OR이고 다른 필터와는 AND다. `4+`는 가능 인원의 검증된 최대값까지 펼친 관계를 사용한다.
 - 특정 필터를 적용하면 그 조건을 판정할 검증값이 있는 게임만 결과에 포함한다. 필터를 생략한 조회는 해당 값이 없다는 이유만으로 게임을 제외하지 않는다.
 - 서로 다른 필터 종류와 기존 `keyword`, `upcomingOnly`는 AND로 결합한다. 같은 식별자를 반복 전달해도 한 번 전달한 것과 같은 결과여야 한다.
@@ -105,7 +106,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 ### 권장 조회 구조
 
 - 현재 `GameQueryService#findPage`는 `keyword`, `upcomingOnly` 조합마다 `GameRepository`의 파생 조회 메서드를 골라 쓴다. P1 조건을 같은 방식으로 늘리면 조합 수만큼 메서드가 증가하므로, 새 조건은 불변 검색 조건 하나로 묶어 단일 동적 조회 경계에 전달한다.
-- 170,000건 범위에서도 `upcomingOnly`의 예정 모임 게임 ID 집합을 다른 조건과 함께 전달한다. 카테고리·테마·추천·베스트·메커니즘은 관계별 상관 `EXISTS`로, 테마 ALL은 선택한 고유 code 수와 일치 관계 수 비교로 판정한다.
+- 170,000건 범위에서도 `upcomingOnly`의 예정 모임 게임 ID 집합을 다른 조건과 함께 전달한다. 카테고리·추천·베스트와 ANY 테마·메커니즘은 관계별 상관 `EXISTS`로, 테마·메커니즘 ALL은 각 그룹에서 선택한 고유 code 수와 일치 관계 수 비교로 판정한다.
 - 메커니즘과 `PLAYED_ONLY`는 `EXISTS`, `EXCLUDE_PLAYED`는 `NOT EXISTS`로 판정해 관계 조인으로 게임 행이 중복되지 않게 한다. 새 관계 역방향 인덱스와 cache는 170,000건 실행 계획에서 필요성이 재현될 때만 추가한다.
 
 ### 완료 기준
@@ -120,8 +121,8 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 - `SEARCH-01-AC8` 표시용 인원·시간 문자열을 유지하면서 검색용 값의 유효·누락·제외 건수와 출처를 재현 가능한 품질 보고서로 검증한다.
 - `SEARCH-01-AC9` 인원 범위·경계 정확 일치·전용 인원이 확정한 판정대로 동작하고, 범위 조건과 전용 인원을 함께 전달하거나 최소가 최대보다 크면 검증 오류로 거절한다.
 - `SEARCH-01-AC10` 공개 선택지 API가 검수된 189개만 안정적인 코드·한글명·영문명·대표 순서와 함께 반환한다.
-- `SEARCH-01-AC11` 단일·다중 메커니즘이 각각 관계 게임과 선택 목록 OR를 중복 없이 반환하고 존재하지 않거나 비공개인 코드는 검증 오류다.
-- `SEARCH-01-AC12` 메커니즘과 기존 조건을 조합하면 모든 조건을 만족한 결과 기준 정렬·페이지 메타데이터를 유지한다.
+- `SEARCH-01-AC11` 단일·다중 메커니즘이 기본 ANY와 선택 가능한 ALL을 중복 없이 판정하고, `mechanismMatch` 기본값·중복·형식 오류와 존재하지 않거나 비공개인 코드를 정확히 검증한다.
+- `SEARCH-01-AC12` 테마와 메커니즘의 ANY·ALL을 독립적으로 선택하고 기존 조건과 조합하면 모든 그룹을 AND로 만족한 결과 기준 정렬·페이지 메타데이터를 유지한다.
 - `SEARCH-01-AC13` 메커니즘을 생략하면 관계가 없는 게임도 유지하고 적재를 반복해도 같은 게임·메커니즘 관계를 중복 저장하지 않는다.
 - `SEARCH-01-AC14` 순위 CSV의 양수 subdomain rank만 고정 8개 카테고리 관계로 적재하고, category 단일·다중 OR와 존재하지 않는 code·중복 code의 검증을 지킨다.
 - `SEARCH-01-AC15` 테마 선택지는 한글명·영문명·안정 code를 반환하고, theme ANY·ALL과 themeMatch 기본값·중복·형식 오류를 정확히 판정한다.

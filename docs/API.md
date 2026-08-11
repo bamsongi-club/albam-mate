@@ -380,6 +380,17 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | `ANY` | 전달한 테마 중 하나라도 포함한 게임 |
 | `ALL` | 전달한 테마를 모두 포함한 게임 |
 
+### MechanismMatch
+
+> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `SEARCH-01`](p1/README.md#기능별-현재-상태)
+
+`GET /api/games`의 반복 `mechanism` 조건 결합 방식이다. `mechanism`을 생략하면 두 값 모두 결과에 영향을 주지 않는다.
+
+| 값 | 의미 |
+|---|---|
+| `ANY` | 전달한 공개 메커니즘 중 하나라도 포함한 게임 |
+| `ALL` | 전달한 공개 메커니즘을 모두 포함한 게임 |
+
 ### SocialProvider
 
 > **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `AUTH-05`](p1/README.md#기능별-현재-상태)
@@ -1003,7 +1014,8 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | `complexityMin` | number | N | 검색 없음 | P1 | 제공 | `1.00`~`5.00`, 난이도 닫힌 구간의 하한 |
 | `complexityMax` | number | N | 검색 없음 | P1 | 제공 | `1.00`~`5.00`, 난이도 닫힌 구간의 상한 |
 | `playedFilter` | PlayedFilter | N | 검색 없음 | P1 | 제공 | 단일 값. `PLAYED_ONLY` 또는 `EXCLUDE_PLAYED`; 사용 시 로그인 필요 |
-| `mechanism` | string | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 공개 메커니즘 내부 코드. 목록 안 OR |
+| `mechanism` | string | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 공개 메커니즘 내부 코드. mechanismMatch에 따라 ANY 또는 ALL |
+| `mechanismMatch` | MechanismMatch | N | `ANY` | P1 | 제공 | 단일 값. `ANY` 또는 `ALL`; mechanism이 없어도 유효 |
 | `category` | string | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 고정 카테고리 code. 목록 안 OR |
 | `theme` | string | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 테마 code. themeMatch에 따라 ANY 또는 ALL |
 | `themeMatch` | ThemeMatch | N | `ANY` | P1 | 제공 | 단일 값. `ANY` 또는 `ALL`; theme이 없어도 유효 |
@@ -1040,11 +1052,11 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 - 복잡도는 전달한 하한 이상·상한 이하의 닫힌 구간으로 판정한다. 두 값을 함께 전달할 때 하한이 상한보다 크면 검증 오류다.
 - `PLAYED_ONLY`는 현재 사용자의 표시 관계가 있는 게임만, `EXCLUDE_PLAYED`는 그 관계가 없는 게임만 반환한다. 관계가 없다는 사실을 실제 미플레이로 해석하지 않는다.
 - `playedFilter`를 생략하면 관계 필터를 적용하지 않는다. 잘못된 값이나 중복 전달은 로그인 여부와 관계없이 먼저 `400 VALIDATION_ERROR`, 유효한 값을 비로그인으로 전달하면 `401 UNAUTHENTICATED`다.
-- `mechanism`은 [GAME-03](#game-03-게임-메커니즘-선택지-조회)의 공개 `code`를 정확히 전달한다. 여러 코드는 OR로 결합하고 다른 필터와는 AND로 결합하며, 같은 코드를 반복해도 결과를 중복하지 않는다.
+- `mechanism`은 [GAME-03](#game-03-게임-메커니즘-선택지-조회)의 공개 `code`를 정확히 전달한다. `mechanismMatch=ANY`는 하나 이상, `mechanismMatch=ALL`은 모든 고유 code 관계를 요구한다. 같은 코드를 반복해도 결과를 중복하지 않는다.
 - 존재하지 않거나 비공개인 메커니즘 코드는 전체 요청을 `VALIDATION_ERROR`로 거절한다. 일부 유효 코드가 함께 있어도 잘못된 코드를 조용히 무시하지 않는다.
 - `category`는 [GAME-04](#game-04-게임-카테고리-선택지-조회)의 code를 반복 전달하고 같은 목록 안에서 OR다. `theme`은 [GAME-05](#game-05-게임-테마-선택지-조회)의 code를 반복 전달하며, `themeMatch=ANY`는 하나 이상, `themeMatch=ALL`은 모든 고유 code 관계를 요구한다.
 - `recommendedPlayerCount`와 `bestPlayerCount`는 각각 BGG 투표에서 정규화한 양의 인원을 반복 전달하며 같은 목록 안에서 OR다. 가능 인원과 다른 의미이며 `4+` 결과는 해당 게임의 검증된 최대 가능 인원까지 확장된 관계로 판정한다.
-- `themeMatch`는 생략하면 `ANY`이고 theme 없이 보내도 유효하다. 중복된 themeMatch, 존재하지 않는 category/theme code, 0 이하 인원은 일부 유효 값이 함께 있어도 전체 요청을 `VALIDATION_ERROR`로 거절한다.
+- `themeMatch`와 `mechanismMatch`는 각각 생략하면 `ANY`이고 대응하는 선택 코드 없이 보내도 유효하다. 두 모드는 독립적이며 테마·메커니즘 그룹과 다른 필터 종류 사이는 `AND`로 결합한다. 중복되거나 잘못된 match 값, 존재하지 않는 category/theme code, 0 이하 인원은 일부 유효 값이 함께 있어도 전체 요청을 `VALIDATION_ERROR`로 거절한다.
 - 인원·시간·복잡도·카테고리·테마·추천/베스트·메커니즘 필터를 적용하면 해당 조건을 판정할 검증값이나 관계가 없는 게임은 제외한다. 필터를 생략하면 누락값이나 관계 부재만으로 제외하지 않는다.
 - 모든 필터를 적용한 뒤 전체 건수, `name ASC, id ASC` 정렬과 페이지를 계산한다.
 
@@ -1057,7 +1069,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | query parameter 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 유효한 `playedFilter`를 인증 없이 사용 | 401 | `UNAUTHENTICATED` |
 | 존재하지 않거나 비공개인 `mechanism` 코드 | 400 | `VALIDATION_ERROR` |
-| 존재하지 않는 `category` 또는 `theme` code, 중복·잘못된 `themeMatch`, 0 이하 추천·베스트 인원 | 400 | `VALIDATION_ERROR` |
+| 존재하지 않는 `category` 또는 `theme` code, 중복·잘못된 `themeMatch` 또는 `mechanismMatch`, 0 이하 추천·베스트 인원 | 400 | `VALIDATION_ERROR` |
 
 ### GAME-02 게임 상세 조회
 
