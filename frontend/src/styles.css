@@ -81,6 +81,7 @@ header {
 #gnb { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 #gnb a { border-radius: 999px; color: var(--brown2); font-size: 15.5px; font-weight: 800; padding: 8px 12px; }
 #gnb a:hover, #gnb a.on { color: var(--brown); }
+#gnb a.btn { color: #fff; }
 .notification-menu { align-items: center; display: flex; position: relative; }
 /* 헤더의 채팅·알림·프로필 원형 아이콘 버튼이 공유하는 규격. */
 .nav-icon-btn { align-items: center; background: transparent; border: none; border-radius: 50%; color: var(--brown2); display: flex; height: 40px; justify-content: center; position: relative; width: 40px; }
@@ -390,6 +391,9 @@ img.profile-avatar { object-fit: cover; }
 .chat-message.mine .chat-content { background: var(--amber-soft); border-color: transparent; }
 .chat-time { color: var(--gray); flex: 0 0 auto; font-size: 10.5px; font-variant-numeric: tabular-nums; padding-bottom: 2px; }
 .chat-empty { color: var(--sub); font-size: 13.5px; padding: 34px 0; text-align: center; }
+.chat-connection-notice { align-items: center; background: var(--red-soft); border-bottom: 1px solid #efc7b8; color: #994629; display: flex; font-size: 13px; gap: 12px; justify-content: space-between; padding: 10px 16px; }
+.chat-connection-notice p { margin: 0; }
+.chat-connection-notice a { color: inherit; flex: 0 0 auto; font-weight: 900; text-decoration: underline; }
 
 .chat-compose { align-items: center; border-top: 1px solid var(--line); display: flex; gap: 8px; padding: 11px 13px; position: relative; }
 .chat-compose textarea { background: var(--bg); border-radius: 20px; max-height: 110px; min-height: 42px; padding: 10px 15px; resize: none; }

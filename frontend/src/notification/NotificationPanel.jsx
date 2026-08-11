@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { notificationMessage } from './notificationMessages';
 import { NOTIFICATION_SYNC_ERROR_MESSAGE } from './useNotificationReadSync';
 
@@ -83,6 +83,26 @@ function NotificationPersonIcon({ tone }) {
   );
 }
 
+const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function focusableElements(container) {
+  return [...container.querySelectorAll(FOCUSABLE_SELECTOR)];
+}
+
+function makeBackgroundInert() {
+  const elements = [
+    document.querySelector('main'),
+    document.querySelector('.site-footer'),
+    document.querySelector('.mobile-bottom-nav'),
+    document.querySelector('#toast')
+  ].filter(Boolean);
+  const previous = elements.map((element) => ({ element, inert: element.hasAttribute('inert') }));
+  elements.forEach((element) => element.setAttribute('inert', ''));
+  return () => previous.forEach(({ element, inert }) => {
+    if (!inert) element.removeAttribute('inert');
+  });
+}
+
 export function NotificationPanel({
   open,
   notifications,
@@ -95,15 +115,58 @@ export function NotificationPanel({
   onRetry,
   onSelectNotification,
   onMarkAllAsRead,
-  onRetrySynchronization
+  onRetrySynchronization,
+  isModal = false
 }) {
+  const panelRef = useRef(null);
+  const closeButtonRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!open || !isModal) return undefined;
+
+    const focusedBeforeOpen = document.activeElement;
+    const restoreBackground = makeBackgroundInert();
+    closeButtonRef.current?.focus();
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+
+      const focusable = focusableElements(panelRef.current);
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      restoreBackground();
+      if (focusedBeforeOpen instanceof HTMLElement && focusedBeforeOpen.isConnected) focusedBeforeOpen.focus();
+    };
+  }, [open, isModal]);
+
   if (!open) return null;
   const sections = groupNotifications(notifications);
 
   return (
-    <section className="notification-panel" aria-label="알림함">
+    <section ref={panelRef} className="notification-panel" aria-label="알림함" role={isModal ? 'dialog' : undefined} aria-modal={isModal || undefined} tabIndex={isModal ? -1 : undefined}>
       <div className="notification-panel-header">
-        <button type="button" className="notification-close" aria-label="알림함 닫기" onClick={onClose}>
+        <button ref={closeButtonRef} type="button" className="notification-close" aria-label="알림함 닫기" onClick={onClose}>
           <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
         </button>
         <h2>알림</h2>

@@ -13,6 +13,7 @@ import { useNotificationPolling } from './notification/useNotificationPolling';
 import { useNotificationReadSync } from './notification/useNotificationReadSync';
 import { MobileBottomNavigation } from './mobile/MobileNavigation';
 import { MobileHomePanel } from './mobile/MobileHomePanel';
+import { useMobileViewport } from './mobile/useMobileViewport';
 import './styles.css';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -419,7 +420,7 @@ function mobilePageTitle(route) {
   return titles[route] || '알밤메이트';
 }
 
-function Header({ route, me, notificationMenu }) {
+function Header({ route, me, notificationMenu, isMobile }) {
   const rootRoute = { find: 'find', game: 'game-list', 'game-list': 'game-list', create: 'profile', edit: 'profile', my: 'profile', chat: 'chats', chats: 'chats', profile: 'profile' };
   const visibleUnreadCount = notificationMenu.unreadCount > 99 ? '99+' : notificationMenu.unreadCount;
   const notificationLabel = notificationMenu.unreadCount > 0
@@ -473,6 +474,7 @@ function Header({ route, me, notificationMenu }) {
                 onSelectNotification={notificationMenu.onSelectNotification}
                 onMarkAllAsRead={notificationMenu.onMarkAllAsRead}
                 onRetrySynchronization={notificationMenu.onRetrySynchronization}
+                isModal={isMobile}
               />
             </div>
           )}
@@ -587,7 +589,7 @@ function LoginRequiredView({ message = '이 기능은 로그인 후 이용할 �
   return <div className="card"><h2>로그인이 필요해요</h2><p className="hint" style={{ marginBottom: 16 }}>{message}</p><a className="btn" href="#/auth">로그인 또는 회원가입</a></div>;
 }
 
-function HomeView({ me, onBrowsePeople, onSearchGame, dataVersion }) {
+function HomeView({ me, onBrowsePeople, onSearchGame, dataVersion, isMobile }) {
   // 지금은 게임 이름 검색으로 동작한다. 통합 검색으로 확장할 자리다.
   const [input, setInput] = useState('');
   const { data, loading, error } = useRequest(
@@ -602,7 +604,7 @@ function HomeView({ me, onBrowsePeople, onSearchGame, dataVersion }) {
   const gameCount = gameData?.totalElements ?? 0;
   return (
     <>
-      {me && <MobileHomePanel dataVersion={dataVersion} />}
+      {me && isMobile && <MobileHomePanel dataVersion={dataVersion} />}
       <section className="card hero">
         <h1>오늘, 보드게임 한 판 어때요? 🎲</h1>
         <p>게임을 먼저 고르거나, 함께할 사람부터 찾아 모임을 만들 수 있어요.</p>
@@ -1287,6 +1289,12 @@ function chatAccessError(error) {
 
 const CHAT_RECONNECT_LIMIT = 5;
 const CHAT_RECONNECT_DELAYS = [500, 1000, 2000, 4000, 8000];
+const CHAT_CONNECTION_STATUS = {
+  reconnecting: '실시간 채팅을 다시 연결하고 있어요.',
+  failed: '실시간 채팅 연결을 시작하지 못했어요. 채팅 목록에서 다시 들어가 주세요.',
+  exhausted: '실시간 채팅을 다시 연결하지 못했어요. 채팅 목록에서 다시 들어가 주세요.',
+  restricted: '이 채팅의 실시간 연결이 종료됐어요. 채팅 목록에서 다시 들어가 주세요.'
+};
 
 function chatStreamMessage(payload, roomId) {
   if (!payload || payload.type !== 'MESSAGE_CREATED' || !payload.message) return null;
@@ -1327,6 +1335,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
   const [sendResultUnknown, setSendResultUnknown] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState('');
   const lastEventIdRef = useRef(null);
   const chatHistoryRef = useRef(null);
   const loadMoreSentinelRef = useRef(null);
@@ -1353,6 +1362,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     setClientMessageContent(null);
     setSendError('');
     setSendResultUnknown(false);
+    setConnectionStatus('');
     setClientMessageId(createClientMessageId());
   }, [roomId]);
 
@@ -1382,10 +1392,12 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
       try {
         socket = api.openChatWebSocket(roomId, { afterMessageId: lastEventIdRef.current });
       } catch {
+        setConnectionStatus('failed');
         return;
       }
       socket.onopen = () => {
         if (!active) return;
+        setConnectionStatus('');
         stableConnectionTimer = setTimeout(() => { reconnectAttempts = 0; }, 10000);
       };
       socket.onmessage = (event) => {
@@ -1403,13 +1415,16 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
         if (!active) return;
         clearTimeout(stableConnectionTimer);
         if (event?.code === 1008) {
+          setConnectionStatus('restricted');
           return;
         }
         if (reconnectAttempts >= CHAT_RECONNECT_LIMIT) {
+          setConnectionStatus('exhausted');
           return;
         }
         const delay = CHAT_RECONNECT_DELAYS[reconnectAttempts] || CHAT_RECONNECT_DELAYS.at(-1);
         reconnectAttempts += 1;
+        setConnectionStatus('reconnecting');
         reconnectTimer = setTimeout(connect, delay);
       };
     };
@@ -1595,6 +1610,13 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
               <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="12" cy="19" r="1.7" /></svg>
             </a>
           </div>
+          {connectionStatus === 'reconnecting' && <p className="sr-only" role="status">{CHAT_CONNECTION_STATUS.reconnecting}</p>}
+          {['failed', 'exhausted', 'restricted'].includes(connectionStatus) && (
+            <div className="chat-connection-notice" role="status">
+              <p>{CHAT_CONNECTION_STATUS[connectionStatus]}</p>
+              <a href="#/chats">채팅 목록으로 이동</a>
+            </div>
+          )}
           <div className="chat-log" ref={chatHistoryRef} onScroll={handleChatScroll}>
             {!error && !!displayedMessages.length && <div className="chat-load-sentinel" ref={loadMoreSentinelRef} aria-hidden="true" />}
             {error && <ErrorBox message={error} />}
@@ -1934,6 +1956,7 @@ export function SignupView({ onSignup }) {
 export function App() {
   const [{ route, arg }, navigate] = useHashRoute();
   const today = useSeoulToday();
+  const isMobile = useMobileViewport();
   const [me, setMe] = useState(null);
   const [gameQuery, setGameQuery] = useState('');
   const [roomQuery, setRoomQuery] = useState('');
@@ -2286,13 +2309,14 @@ export function App() {
   else if (route === 'profile') content = me ? <ProfileView me={me} onSave={handleSaveProfile} onLogout={handleLogout} socialProviders={socialProviders} onSocialLink={handleSocialLink} onUploadImage={handleUploadProfileImage} onDeleteImage={handleDeleteProfileImage} dataVersion={dataVersion} /> : <LoginRequiredView message="마이페이지를 보려면 로그인해주세요." />;
   else if (route === 'auth') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <AuthView onLogin={handleLogin} socialProviders={socialProviders} onSocialLogin={handleSocialLogin} />;
   else if (route === 'signup') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <SignupView onSignup={handleSignup} />;
-  else content = <HomeView me={me} onBrowsePeople={handleBrowsePeople} onSearchGame={handleSearchGame} dataVersion={dataVersion} />;
+  else content = <HomeView me={me} onBrowsePeople={handleBrowsePeople} onSearchGame={handleSearchGame} dataVersion={dataVersion} isMobile={isMobile} />;
 
   return (
     <>
       <Header
         route={route}
         me={me}
+        isMobile={isMobile}
         notificationMenu={{
           open: notificationOpen,
           unreadCount: notificationReadSync.visibleUnreadCount,
