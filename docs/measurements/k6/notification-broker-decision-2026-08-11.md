@@ -4,8 +4,8 @@
 - 근거 측정 구간: 2026-08-11 02:10:40~10:36:50 KST
 - Campaign ID: `auth-notification-20260811T021040KST`
 - 문서 상태: `current`
-- 근거 보고서: [인증·알림 AWS 용량 측정](auth-notification-capacity-2026-08-11T10-36-50-KST.md)
-- 근거 식별자: [campaign manifest](manifests/auth-notification-20260811T021040KST.json)
+- 근거 보고서: [인증·알림 AWS 용량 측정](auth-notification-capacity-2026-08-11.md)
+- 근거 식별자: [campaign manifest](evidence/auth-notification-capacity-2026-08-11.json)
 - 대체 관계: 최초 판단, 후속 없음
 
 ## 결정
@@ -43,7 +43,7 @@ fan-out 공식 9회는 모두 다음 계약을 만족했다.
 
 ## 최소 튜닝 후 확인할 경계
 
-첫 후속 변경은 broker가 아니라 App Tomcat 최대 thread 200→64다. 변경 이유와 재측정 순서는 [성능 보고서](auth-notification-capacity-2026-08-11T10-36-50-KST.md#최소-개선-후보와-재측정-계획)를 따른다.
+첫 후속 변경은 broker가 아니라 App Tomcat 최대 thread 200→64다. 변경 이유와 재측정 순서는 [성능 보고서](auth-notification-capacity-2026-08-11.md#최소-개선-후보와-재측정-계획)를 따른다.
 
 튜닝 뒤 다음이 모두 유효한 결과로 반복될 때 PostgreSQL relay의 지속 사용 범위를 다시 적는다.
 

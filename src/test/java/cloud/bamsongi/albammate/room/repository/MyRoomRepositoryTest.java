@@ -56,7 +56,7 @@ class MyRoomRepositoryTest {
 		setRoomStatus(canceledRoom, RoomStatus.CANCELED);
 
 		List<String> titles = roomRepository
-			.findMyRooms(currentUserId, false, true, pageable())
+			.findMyRoomsAt(currentUserId, false, true, pageable())
 			.map(Room::getTitle)
 			.getContent();
 
@@ -74,11 +74,11 @@ class MyRoomRepositoryTest {
 		setRoomStatus(joinedFinished, RoomStatus.FINISHED);
 
 		List<String> hostedTitles = roomRepository
-			.findMyRooms(currentUserId, true, false, pageable())
+			.findMyRoomsAt(currentUserId, true, false, pageable())
 			.map(Room::getTitle)
 			.getContent();
 		List<String> allTitles = roomRepository
-			.findMyRooms(currentUserId, true, true, pageable())
+			.findMyRoomsAt(currentUserId, true, true, pageable())
 			.map(Room::getTitle)
 			.getContent();
 

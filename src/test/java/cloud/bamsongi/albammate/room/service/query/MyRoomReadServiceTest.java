@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.room.service.query;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -33,20 +34,21 @@ class MyRoomReadServiceTest {
 	}
 
 	@Test
-	void 역할별로_주최와_ACTIVE_참가_범위를_저장소에_전달한다() {
+	void 역할별로_주최와_ACTIVE_참가_범위를_요청시각_조회에_전달한다() {
 		PageRequest pageable = pageable();
 		Page<Room> result = new PageImpl<>(List.of(), pageable, 0);
-		when(roomRepository.findMyRooms(42L, true, true, pageable)).thenReturn(result);
-		when(roomRepository.findMyRooms(42L, false, true, pageable)).thenReturn(result);
-		when(roomRepository.findMyRooms(42L, true, false, pageable)).thenReturn(result);
+		Instant requestTime = Instant.parse("2026-07-28T00:00:00Z");
+		when(roomRepository.findMyRoomsAt(42L, true, true, pageable)).thenReturn(result);
+		when(roomRepository.findMyRoomsAt(42L, false, true, pageable)).thenReturn(result);
+		when(roomRepository.findMyRoomsAt(42L, true, false, pageable)).thenReturn(result);
 
-		myRoomReadService.findMyRooms(42L, MyRoomRole.ALL, pageable);
-		myRoomReadService.findMyRooms(42L, MyRoomRole.JOINED, pageable);
-		myRoomReadService.findMyRooms(42L, MyRoomRole.HOSTED, pageable);
+		myRoomReadService.findMyRoomsAt(42L, MyRoomRole.ALL, pageable, requestTime);
+		myRoomReadService.findMyRoomsAt(42L, MyRoomRole.JOINED, pageable, requestTime);
+		myRoomReadService.findMyRoomsAt(42L, MyRoomRole.HOSTED, pageable, requestTime);
 
-		verify(roomRepository).findMyRooms(42L, true, true, pageable);
-		verify(roomRepository).findMyRooms(42L, false, true, pageable);
-		verify(roomRepository).findMyRooms(42L, true, false, pageable);
+		verify(roomRepository).findMyRoomsAt(42L, true, true, pageable);
+		verify(roomRepository).findMyRoomsAt(42L, false, true, pageable);
+		verify(roomRepository).findMyRoomsAt(42L, true, false, pageable);
 	}
 
 	private PageRequest pageable() {

@@ -31,6 +31,11 @@ public record PublicRoomResponse(
 
 	public static PublicRoomResponse from(
 		Room room, GameSummary game, RoomActionAvailability availability) {
+		return from(room, room.getStatus(), game, availability);
+	}
+
+	public static PublicRoomResponse from(
+		Room room, RoomStatus effectiveStatus, GameSummary game, RoomActionAvailability availability) {
 		return new PublicRoomResponse(
 			room.getId(),
 			room.getRoomType(),
@@ -44,7 +49,7 @@ public record PublicRoomResponse(
 			room.getCapacity(),
 			room.getTotalParticipantCount(),
 			room.getRemainingRecruitmentSeats(),
-			room.getStatus(),
+			effectiveStatus,
 			availability.joinable(),
 			availability.waitlistable());
 	}

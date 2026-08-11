@@ -8,7 +8,7 @@
 - 캠페인 상태: `completed-with-limitations`
 - 문서 상태: `current`
 - 문서 인덱스: [k6 측정 문서](README.md)
-- 근거 식별자: [campaign manifest](manifests/auth-notification-20260811T021040KST.json)
+- 근거 식별자: [campaign manifest](evidence/auth-notification-capacity-2026-08-11.json)
 - 대체 관계: 최초 캠페인, 후속 없음
 
 - 인증 계약 3종, 알림 전달 계약, 인증 제한 계약 4종은 고정 release에서 모두 통과했다.
@@ -16,7 +16,7 @@
 - 알림 혼합 부하는 1×와 하한 0.5×가 모두 측정 무효였다. 두 실행 모두 강한 과부하 신호를 남겼지만 유효 정상점과 유효 최초 실패점을 확보하지 못했다.
 - 첫 재현 병목은 PostgreSQL relay가 아니라 App 컨테이너 메모리다. 두 App의 512MiB cgroup 사용량이 95.9~99.6%에 도달했고 EC2 console에서 Java cgroup OOM kill이 반복됐다.
 - fan-out 단가 측정은 수신자 1·5·10명 × 100개 취소 이벤트 × 3회, 총 9회가 모두 통과했다. 서버 전달 p95는 4.210~4.968초, p99는 4.692~5.676초였고 모든 Run이 실패 0건과 최종 처리 가능 backlog 0건으로 끝났다.
-- 이 결과만으로 Kafka 도입 필요성을 뒷받침하지 않는다. broker 판단은 [별도 판단서](notification-broker-decision-2026-08-11T10-47-24-KST.md)에 기록한다.
+- 이 결과만으로 Kafka 도입 필요성을 뒷받침하지 않는다. broker 판단은 [별도 판단서](notification-broker-decision-2026-08-11.md)에 기록한다.
 
 ## 측정 조건
 
@@ -34,7 +34,7 @@
 | PostgreSQL image | `sha256:a02db8cac496f15b094798a38254f14d6e00741f709360e5e00bb6668ea31636` |
 | Redis image | `sha256:bd4a0d37e7cd830117ffec9329052b4a1887afa060c265e1768f82b177ff6f43` |
 | 상태 격리 | 각 용량 Run 전에 App 중지, PostgreSQL `public` schema와 Redis DB 초기화, Flyway·fixture 재적용 |
-| 원자료 | `albam-mate-infra/.run/results/<Run-ID>/`; teardown 뒤에도 로컬에 보존, Run별 지문은 [campaign manifest](manifests/auth-notification-20260811T021040KST.json)에 기록 |
+| 원자료 | `albam-mate-infra/.run/results/<Run-ID>/`; teardown 뒤에도 로컬에 보존, Run별 지문은 [campaign manifest](evidence/auth-notification-capacity-2026-08-11.json)에 기록 |
 
 App 실효 설정, image digest·OCI revision, release SHA가 다르면 초기화 전에 중단하도록 했다. 모든 유효 Run은 manifest, k6 summary/console, App 로그, 역할별 15초 CSV, CloudWatch 원시/요약, PostgreSQL·Redis 진단과 evaluator 판정을 갖는다.
 

@@ -15,6 +15,7 @@ import static org.mockito.Mockito.when;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -40,7 +41,6 @@ import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.service.RoomActionAvailabilityEvaluator;
-import cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionCoordinator;
 
 @ExtendWith(MockitoExtension.class)
 class RoomListQueryServiceTest {
@@ -48,19 +48,17 @@ class RoomListQueryServiceTest {
 	private static final Instant NOW = Instant.parse("2026-07-28T00:00:00Z");
 
 	@Mock
-	private RoomStatusCorrectionCoordinator statusCorrectionCoordinator;
-	@Mock
 	private RoomListReadService roomListReadService;
 	@Mock
 	private GameQuery gameQuery;
 	private final RoomActionAvailabilityEvaluator roomActionAvailabilityEvaluator = new RoomActionAvailabilityEvaluator();
+	private final Map<Long, RoomStatus> roomStatuses = new HashMap<>();
 
 	private RoomListQueryService roomListQueryService;
 
 	@BeforeEach
 	void setUp() {
 		roomListQueryService = new RoomListQueryService(
-			statusCorrectionCoordinator,
 			roomListReadService,
 			gameQuery,
 			Clock.fixed(NOW, ZoneOffset.UTC),
@@ -70,12 +68,12 @@ class RoomListQueryServiceTest {
 	@Test
 	void 필터를_생략하면_두_유형의_공개_방을_조회한다() {
 		PageRequest pageable = pageable();
-		when(roomListReadService.findPublicRooms(criteria(null, null, null), pageable, null))
+		when(roomListReadService.findPublicRoomsAt(criteria(null, null, null), pageable, null, NOW))
 			.thenReturn(readResult(List.of(), pageable, Set.of()));
 
 		roomListQueryService.findPage(null, null, null, 0, 10, Optional.empty());
 
-		verify(roomListReadService).findPublicRooms(criteria(null, null, null), pageable, null);
+		verify(roomListReadService).findPublicRoomsAt(criteria(null, null, null), pageable, null, NOW);
 	}
 
 	@Test
@@ -86,15 +84,13 @@ class RoomListQueryServiceTest {
 		Set<ExperienceLevel> experienceLevels = Set.of(ExperienceLevel.BEGINNER_WELCOME);
 		RoomListSearchCriteria criteria = criteria(
 			RoomType.PERSON_FOCUSED, 7L, "모임", startsAtFrom, startsAtTo, 2, experienceLevels, true);
-		when(roomListReadService.findPublicRooms(criteria, pageable, 42L))
+		when(roomListReadService.findPublicRoomsAt(criteria, pageable, 42L, NOW))
 			.thenReturn(readResult(List.of(), pageable, Set.of()));
 
 		roomListQueryService.findPage(request(
 			RoomType.PERSON_FOCUSED, 7L, "모임", startsAtFrom, startsAtTo, 2, experienceLevels, true), Optional.of(42L));
 
-		InOrder inOrder = inOrder(statusCorrectionCoordinator, roomListReadService);
-		inOrder.verify(statusCorrectionCoordinator).correctDueRooms(NOW);
-		inOrder.verify(roomListReadService).findPublicRooms(criteria, pageable, 42L);
+		verify(roomListReadService).findPublicRoomsAt(criteria, pageable, 42L, NOW);
 	}
 
 	@Test
@@ -104,10 +100,11 @@ class RoomListQueryServiceTest {
 		Instant startsAtTo = NOW.plusSeconds(120);
 		Set<ExperienceLevel> experienceLevels = Set.of(ExperienceLevel.ALL_LEVELS);
 		Room closedRoom = room(1L, null, 42L, RoomStatus.CLOSED, 0, 3, NOW.plusSeconds(90));
-		when(roomListReadService.findPublicRooms(
+		when(roomListReadService.findPublicRoomsAt(
 			criteria(RoomType.PERSON_FOCUSED, null, null, startsAtFrom, startsAtTo, 1, experienceLevels, false),
 			pageable,
-			99L))
+			99L,
+			NOW))
 			.thenReturn(readResult(List.of(closedRoom), pageable, Set.of()));
 
 		var response = roomListQueryService.findPage(request(
@@ -118,11 +115,28 @@ class RoomListQueryServiceTest {
 	}
 
 	@Test
+	void 저장_모집중과_유효_종료가_다르면_응답_상태와_행동_가능_여부는_유효_상태를_따른다() {
+		PageRequest pageable = pageable();
+		Room recruitingRoom = room(1L, null, 42L, RoomStatus.RECRUITING, 3, 3, NOW.plusSeconds(60));
+		when(roomListReadService.findPublicRoomsAt(
+			criteria(RoomType.PERSON_FOCUSED, null, null), pageable, 99L, NOW))
+			.thenReturn(readResult(
+				List.of(recruitingRoom), pageable, Map.of(1L, RoomStatus.CLOSED), Set.of(), Set.of()));
+
+		var response = roomListQueryService.findPage(
+			RoomType.PERSON_FOCUSED, null, null, 0, 10, Optional.of(99L));
+
+		assertEquals(RoomStatus.CLOSED, response.content().getFirst().status());
+		assertFalse(response.content().getFirst().joinable());
+		assertTrue(response.content().getFirst().waitlistable());
+	}
+
+	@Test
 	void 현재_대기중이_아닌_로그인_사용자는_닫힌_만석_방에_대기_신청할_수_있다() {
 		PageRequest pageable = pageable();
 		Room room = room(1L, null, 42L, RoomStatus.CLOSED, 3, 3, NOW.plusSeconds(60));
-		when(roomListReadService.findPublicRooms(
-			criteria(RoomType.PERSON_FOCUSED, null, null), pageable, 99L))
+		when(roomListReadService.findPublicRoomsAt(
+			criteria(RoomType.PERSON_FOCUSED, null, null), pageable, 99L, NOW))
 			.thenReturn(readResult(List.of(room), pageable, Set.of(), Set.of()));
 
 		var response = roomListQueryService.findPage(
@@ -136,7 +150,7 @@ class RoomListQueryServiceTest {
 	void 상태_보정_후_같은_요청시각으로_공개_게임방을_페이지_응답으로_조립한다() {
 		Room room = room(1L, 7L, 42L, RoomStatus.RECRUITING, 1, 3, NOW.plusSeconds(60));
 		PageRequest pageable = pageable();
-		when(roomListReadService.findPublicRooms(criteria(RoomType.GAME_FOCUSED, 7L, null), pageable, 99L))
+		when(roomListReadService.findPublicRoomsAt(criteria(RoomType.GAME_FOCUSED, 7L, null), pageable, 99L, NOW))
 			.thenReturn(readResult(List.of(room), pageable, Set.of()));
 		GameSummary game = new GameSummary(7L, 1007L, "카탄");
 		when(gameQuery.findSummariesByIds(Set.of(7L))).thenReturn(Map.of(7L, game));
@@ -151,17 +165,15 @@ class RoomListQueryServiceTest {
 		assertTrue(response.content().getFirst().joinable());
 		assertEquals(1, response.totalElements());
 		verify(gameQuery).findSummariesByIds(Set.of(7L));
-		InOrder inOrder = inOrder(statusCorrectionCoordinator, roomListReadService);
-		inOrder.verify(statusCorrectionCoordinator).correctDueRooms(NOW);
-		inOrder.verify(roomListReadService)
-			.findPublicRooms(criteria(RoomType.GAME_FOCUSED, 7L, null), pageable, 99L);
+		verify(roomListReadService)
+			.findPublicRoomsAt(criteria(RoomType.GAME_FOCUSED, 7L, null), pageable, 99L, NOW);
 	}
 
 	@Test
 	void 목록의_Game_조회와_DTO_조립은_ReadService_반환_뒤에_수행한다() {
 		PageRequest pageable = pageable();
 		Room room = room(1L, 7L, 42L, RoomStatus.RECRUITING, 0, 3, NOW.plusSeconds(60));
-		when(roomListReadService.findPublicRooms(criteria(RoomType.GAME_FOCUSED, 7L, null), pageable, 99L))
+		when(roomListReadService.findPublicRoomsAt(criteria(RoomType.GAME_FOCUSED, 7L, null), pageable, 99L, NOW))
 			.thenReturn(readResult(List.of(room), pageable, Set.of()));
 		when(gameQuery.findSummariesByIds(Set.of(7L)))
 			.thenReturn(Map.of(7L, new GameSummary(7L, 1007L, "카탄")));
@@ -169,18 +181,19 @@ class RoomListQueryServiceTest {
 		roomListQueryService.findPage(RoomType.GAME_FOCUSED, 7L, null, 0, 10, Optional.of(99L));
 
 		InOrder inOrder = inOrder(roomListReadService, gameQuery);
-		inOrder.verify(roomListReadService).findPublicRooms(criteria(RoomType.GAME_FOCUSED, 7L, null), pageable, 99L);
+		inOrder.verify(roomListReadService).findPublicRoomsAt(criteria(RoomType.GAME_FOCUSED, 7L, null), pageable, 99L,
+			NOW);
 		inOrder.verify(gameQuery).findSummariesByIds(Set.of(7L));
 	}
 
 	@Test
 	void 사람_중심_검색어는_strip하고_빈_검색어는_검색하지_않는다() {
 		PageRequest pageable = pageable();
-		when(roomListReadService.findPublicRooms(
-			criteria(RoomType.PERSON_FOCUSED, null, "모임"), pageable, null))
+		when(roomListReadService.findPublicRoomsAt(
+			criteria(RoomType.PERSON_FOCUSED, null, "모임"), pageable, null, NOW))
 			.thenReturn(readResult(List.of(), pageable, Set.of()));
-		when(roomListReadService.findPublicRooms(
-			criteria(RoomType.PERSON_FOCUSED, null, null), pageable, null))
+		when(roomListReadService.findPublicRoomsAt(
+			criteria(RoomType.PERSON_FOCUSED, null, null), pageable, null, NOW))
 			.thenReturn(readResult(List.of(), pageable, Set.of()));
 
 		roomListQueryService.findPage(
@@ -189,23 +202,23 @@ class RoomListQueryServiceTest {
 			RoomType.PERSON_FOCUSED, null, "   ", 0, 10, Optional.empty());
 
 		verify(roomListReadService)
-			.findPublicRooms(criteria(RoomType.PERSON_FOCUSED, null, "모임"), pageable, null);
+			.findPublicRoomsAt(criteria(RoomType.PERSON_FOCUSED, null, "모임"), pageable, null, NOW);
 		verify(roomListReadService)
-			.findPublicRooms(criteria(RoomType.PERSON_FOCUSED, null, null), pageable, null);
+			.findPublicRoomsAt(criteria(RoomType.PERSON_FOCUSED, null, null), pageable, null, NOW);
 	}
 
 	@Test
 	void 사람_중심_검색어의_LIKE_예약문자를_리터럴_문자로_이스케이프한다() {
 		PageRequest pageable = pageable();
-		when(roomListReadService.findPublicRooms(
-			criteria(RoomType.PERSON_FOCUSED, null, "!%!!!_"), pageable, null))
+		when(roomListReadService.findPublicRoomsAt(
+			criteria(RoomType.PERSON_FOCUSED, null, "!%!!!_"), pageable, null, NOW))
 			.thenReturn(readResult(List.of(), pageable, Set.of()));
 
 		roomListQueryService.findPage(
 			RoomType.PERSON_FOCUSED, null, "%!_", 0, 10, Optional.empty());
 
 		verify(roomListReadService)
-			.findPublicRooms(criteria(RoomType.PERSON_FOCUSED, null, "!%!!!_"), pageable, null);
+			.findPublicRoomsAt(criteria(RoomType.PERSON_FOCUSED, null, "!%!!!_"), pageable, null, NOW);
 	}
 
 	@Test
@@ -214,7 +227,7 @@ class RoomListQueryServiceTest {
 		Room first = room(1L, 7L, 42L, RoomStatus.RECRUITING, 0, 3, NOW.plusSeconds(60));
 		Room second = room(2L, 7L, 43L, RoomStatus.RECRUITING, 0, 3, NOW.plusSeconds(120));
 		Room third = room(3L, 8L, 44L, RoomStatus.RECRUITING, 0, 3, NOW.plusSeconds(180));
-		when(roomListReadService.findPublicRooms(criteria(RoomType.GAME_FOCUSED, 7L, null), pageable, 99L))
+		when(roomListReadService.findPublicRoomsAt(criteria(RoomType.GAME_FOCUSED, 7L, null), pageable, 99L, NOW))
 			.thenReturn(readResult(List.of(first, second, third), pageable, Set.of()));
 		when(gameQuery.findSummariesByIds(Set.of(7L, 8L)))
 			.thenReturn(
@@ -232,7 +245,7 @@ class RoomListQueryServiceTest {
 		PageRequest pageable = pageable();
 		Room room = mock(Room.class);
 		when(room.getGameId()).thenReturn(999L);
-		when(roomListReadService.findPublicRooms(criteria(RoomType.GAME_FOCUSED, 999L, null), pageable, null))
+		when(roomListReadService.findPublicRoomsAt(criteria(RoomType.GAME_FOCUSED, 999L, null), pageable, null, NOW))
 			.thenReturn(readResult(List.of(room), pageable, Set.of()));
 		when(gameQuery.findSummariesByIds(Set.of(999L))).thenReturn(Map.of());
 
@@ -253,13 +266,13 @@ class RoomListQueryServiceTest {
 	void 익명_주최자_ACTIVE_참가자는_참가할_수_없고_CANCELED_참가자는_다시_참가할_수_있다() {
 		Room room = room(1L, null, 42L, RoomStatus.RECRUITING, 0, 3, NOW.plusSeconds(60));
 		PageRequest pageable = pageable();
-		when(roomListReadService.findPublicRooms(criteria(RoomType.PERSON_FOCUSED, null, null), pageable, null))
+		when(roomListReadService.findPublicRoomsAt(criteria(RoomType.PERSON_FOCUSED, null, null), pageable, null, NOW))
 			.thenReturn(readResult(List.of(room), pageable, Set.of()));
-		when(roomListReadService.findPublicRooms(criteria(RoomType.PERSON_FOCUSED, null, null), pageable, 42L))
+		when(roomListReadService.findPublicRoomsAt(criteria(RoomType.PERSON_FOCUSED, null, null), pageable, 42L, NOW))
 			.thenReturn(readResult(List.of(room), pageable, Set.of()));
-		when(roomListReadService.findPublicRooms(criteria(RoomType.PERSON_FOCUSED, null, null), pageable, 99L))
+		when(roomListReadService.findPublicRoomsAt(criteria(RoomType.PERSON_FOCUSED, null, null), pageable, 99L, NOW))
 			.thenReturn(readResult(List.of(room), pageable, Set.of(1L)));
-		when(roomListReadService.findPublicRooms(criteria(RoomType.PERSON_FOCUSED, null, null), pageable, 100L))
+		when(roomListReadService.findPublicRoomsAt(criteria(RoomType.PERSON_FOCUSED, null, null), pageable, 100L, NOW))
 			.thenReturn(readResult(List.of(room), pageable, Set.of()));
 
 		assertFalse(
@@ -294,8 +307,8 @@ class RoomListQueryServiceTest {
 		PageRequest pageable = pageable();
 		Room full = room(1L, null, 42L, RoomStatus.RECRUITING, 3, 3, NOW.plusSeconds(1));
 		Room started = room(2L, null, 42L, RoomStatus.RECRUITING, 0, 3, NOW);
-		when(roomListReadService.findPublicRooms(
-			criteria(RoomType.PERSON_FOCUSED, null, null), pageable, 99L))
+		when(roomListReadService.findPublicRoomsAt(
+			criteria(RoomType.PERSON_FOCUSED, null, null), pageable, 99L, NOW))
 			.thenReturn(readResult(List.of(full, started), pageable, Set.of()));
 
 		var content = roomListQueryService
@@ -359,8 +372,21 @@ class RoomListQueryServiceTest {
 		PageRequest pageable,
 		Set<Long> activeParticipationRoomIds,
 		Set<Long> waitingRoomIds) {
+		return readResult(rooms, pageable, Map.copyOf(roomStatuses), activeParticipationRoomIds, waitingRoomIds);
+	}
+
+	private RoomListReadService.RoomListReadResult readResult(
+		List<Room> rooms,
+		PageRequest pageable,
+		Map<Long, RoomStatus> effectiveStatuses,
+		Set<Long> activeParticipationRoomIds,
+		Set<Long> waitingRoomIds) {
 		return new RoomListReadService.RoomListReadResult(
-			new PageImpl<>(rooms, pageable, rooms.size()), activeParticipationRoomIds, waitingRoomIds);
+			new PageImpl<>(rooms, pageable, rooms.size()),
+			effectiveStatuses,
+			activeParticipationRoomIds,
+			waitingRoomIds,
+			NOW);
 	}
 
 	private Room room(
@@ -372,6 +398,7 @@ class RoomListQueryServiceTest {
 		int capacity,
 		Instant startsAt) {
 		Room room = mock(Room.class);
+		roomStatuses.put(id, status);
 		when(room.getId()).thenReturn(id);
 		when(room.getGameId()).thenReturn(gameId);
 		when(room.getHostUserId()).thenReturn(hostUserId);
@@ -387,7 +414,7 @@ class RoomListQueryServiceTest {
 		lenient().when(room.getActiveParticipantCount()).thenReturn(activeParticipantCount);
 		when(room.getTotalParticipantCount()).thenReturn(activeParticipantCount + 1);
 		when(room.getRemainingRecruitmentSeats()).thenReturn(capacity - activeParticipantCount);
-		when(room.getStatus()).thenReturn(status);
+		lenient().when(room.getStatus()).thenReturn(status);
 		return room;
 	}
 }
