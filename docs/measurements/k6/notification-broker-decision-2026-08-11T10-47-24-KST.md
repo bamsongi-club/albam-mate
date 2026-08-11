@@ -2,6 +2,11 @@
 
 - 판단 기록 시각: 2026-08-11 10:47:24 KST
 - 근거 측정 구간: 2026-08-11 02:10:40~10:36:50 KST
+- Campaign ID: `auth-notification-20260811T021040KST`
+- 문서 상태: `current`
+- 근거 보고서: [인증·알림 AWS 용량 측정](auth-notification-capacity-2026-08-11T10-36-50-KST.md)
+- 근거 식별자: [campaign manifest](manifests/auth-notification-20260811T021040KST.json)
+- 대체 관계: 최초 판단, 후속 없음
 
 ## 결정
 

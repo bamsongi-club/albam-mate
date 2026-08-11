@@ -4,6 +4,13 @@
 
 이 문서는 `t4g.micro` App 2대·PostgreSQL 1대·Redis 1대와 `c7g.large` k6 발생기로 인증·알림 경계를 측정한 실행 결과다. 운영 트래픽 통계나 운영 SLO가 아니라 팀이 정한 1× 목표 규모를 임시 AWS 스택에서 검증한 결과다.
 
+- Campaign ID: `auth-notification-20260811T021040KST`
+- 캠페인 상태: `completed-with-limitations`
+- 문서 상태: `current`
+- 문서 인덱스: [k6 측정 문서](README.md)
+- 근거 식별자: [campaign manifest](manifests/auth-notification-20260811T021040KST.json)
+- 대체 관계: 최초 캠페인, 후속 없음
+
 - 인증 계약 3종, 알림 전달 계약, 인증 제한 계약 4종은 고정 release에서 모두 통과했다.
 - 인증은 1 req/s 3분 탐색은 통과했지만 같은 1 req/s 15분 실행이 실패했다. 재현 가능한 정상 경계가 없으므로 `normal=1, failure=2`를 확정하지 않는다.
 - 알림 혼합 부하는 1×와 하한 0.5×가 모두 측정 무효였다. 두 실행 모두 강한 과부하 신호를 남겼지만 유효 정상점과 유효 최초 실패점을 확보하지 못했다.
@@ -27,7 +34,7 @@
 | PostgreSQL image | `sha256:a02db8cac496f15b094798a38254f14d6e00741f709360e5e00bb6668ea31636` |
 | Redis image | `sha256:bd4a0d37e7cd830117ffec9329052b4a1887afa060c265e1768f82b177ff6f43` |
 | 상태 격리 | 각 용량 Run 전에 App 중지, PostgreSQL `public` schema와 Redis DB 초기화, Flyway·fixture 재적용 |
-| 원자료 | `albam-mate-infra/.run/results/<Run-ID>/`; teardown 뒤에도 로컬에 보존 |
+| 원자료 | `albam-mate-infra/.run/results/<Run-ID>/`; teardown 뒤에도 로컬에 보존, Run별 지문은 [campaign manifest](manifests/auth-notification-20260811T021040KST.json)에 기록 |
 
 App 실효 설정, image digest·OCI revision, release SHA가 다르면 초기화 전에 중단하도록 했다. 모든 유효 Run은 manifest, k6 summary/console, App 로그, 역할별 15초 CSV, CloudWatch 원시/요약, PostgreSQL·Redis 진단과 evaluator 판정을 갖는다.
 
@@ -35,16 +42,16 @@ App 실효 설정, image digest·OCI revision, release SHA가 다르면 초기�
 
 다음 최종 Run은 모두 `PASS`, 잘못된 응답 0건, release SHA 일치였다.
 
-| 계약 | Run ID | 핵심 결과 |
-| --- | --- | --- |
-| 정상 로그인 | `contract-20260811-auth-correct-final-r2` | PASS |
-| 잘못된 비밀번호 | `contract-20260811-auth-wrong-final` | PASS |
-| 없는 사용자 | `contract-20260811-auth-missing-final` | PASS |
-| 알림 전달 | `contract-20260811-notification-final` | 10표본, p50 2.741초, p95/p99 2.948초, 처리 10·실패 0·최종 backlog 0 |
-| 회원가입 제한 | `contract-20260811-rate-signup-final` | PASS |
-| 로그인 실패 제한 초기화 | `contract-20260811-rate-failure-reset-final` | PASS |
-| X-Forwarded-For 계약 | `contract-20260811-rate-xff-final` | PASS |
-| 로그인 IP 제한 | `contract-20260811-rate-login-ip-final` | PASS; 다른 제한 Run 뒤 비어 있는 10분 창에서 마지막 실행 |
+| 계약 | Run ID | 판정 | 핵심 결과 |
+| --- | --- | --- | --- |
+| 정상 로그인 | `contract-20260811-auth-correct-final-r2` | PASS | 잘못된 응답 0건 |
+| 잘못된 비밀번호 | `contract-20260811-auth-wrong-final` | PASS | 잘못된 응답 0건 |
+| 없는 사용자 | `contract-20260811-auth-missing-final` | PASS | 잘못된 응답 0건 |
+| 알림 전달 | `contract-20260811-notification-final` | PASS | 10표본, p50 2.741초, p95/p99 2.948초, 처리 10·실패 0·최종 backlog 0 |
+| 회원가입 제한 | `contract-20260811-rate-signup-final` | PASS | 잘못된 응답 0건 |
+| 로그인 실패 제한 초기화 | `contract-20260811-rate-failure-reset-final` | PASS | 잘못된 응답 0건 |
+| X-Forwarded-For 계약 | `contract-20260811-rate-xff-final` | PASS | 잘못된 응답 0건 |
+| 로그인 IP 제한 | `contract-20260811-rate-login-ip-final` | PASS | 다른 제한 Run 뒤 비어 있는 10분 창에서 마지막 실행 |
 
 초기 배포·계측 보강 과정의 `contract-20260811-auth-correct`, `contract-20260811-auth-correct-r2`, `contract-20260811-auth-correct-r3`, `contract-20260811-auth-correct-final`은 최종 고정 release 전 또는 불완전 bundle이므로 용량·계약 결론에서 제외한다.
 
