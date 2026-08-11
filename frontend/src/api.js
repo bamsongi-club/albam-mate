@@ -318,11 +318,12 @@ export const api = {
   unmarkGamePlayed: (gameId) => mutate('/api/users/me/played-games/' + gameId, { method: 'DELETE' }),
   getRoom: (roomId, signal) => request('/api/rooms/' + roomId, { signal }),
   getRooms: (
-    { type, gameId, keyword, startsAtFrom, startsAtTo, minRemainingSeats, experienceLevels, rulemasterOnly, page = 0, size = 10 },
+    { type, status, gameId, keyword, startsAtFrom, startsAtTo, minRemainingSeats, experienceLevels, rulemasterOnly, page = 0, size = 10 },
     signal
   ) =>
     request('/api/rooms' + query({
       type,
+      status,
       gameId,
       keyword,
       startsAtFrom,

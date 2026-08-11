@@ -10,9 +10,11 @@ import org.springframework.transaction.annotation.Transactional;
 import cloud.bamsongi.albammate.game.contract.UpcomingRoomCountQuery;
 import cloud.bamsongi.albammate.game.dto.GameCategorySummary;
 import cloud.bamsongi.albammate.game.dto.GameDetail;
+import cloud.bamsongi.albammate.game.dto.GameMechanismSummary;
 import cloud.bamsongi.albammate.game.dto.GameThemeSummary;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.repository.GameCategoryRelationRepository;
+import cloud.bamsongi.albammate.game.repository.GameMechanismRelationRepository;
 import cloud.bamsongi.albammate.game.repository.GamePlayerPreferenceRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 import cloud.bamsongi.albammate.game.repository.GameThemeRelationRepository;
@@ -25,7 +27,7 @@ import lombok.RequiredArgsConstructor;
 /**
  * 게임 상세 조회 유스케이스를 담당한다.
  *
- * <p>게임 상세 조립, 카테고리·테마 메타데이터, 인원 선호도, 해 본 게임 상태와 예정 모임 수를 조립한다.
+ * <p>게임 상세 조립, 카테고리·테마·메커니즘 메타데이터, 인원 선호도, 해 본 게임 상태와 예정 모임 수를 조립한다.
  */
 @Service
 @Transactional(readOnly = true)
@@ -37,6 +39,7 @@ public class GameDetailQueryService {
 	@NonNull private final UpcomingRoomCountQuery upcomingRoomCountQuery;
 	@NonNull private final UserPlayedGameRepository userPlayedGameRepository;
 	@NonNull private final GameCategoryRelationRepository gameCategoryRelationRepository;
+	@NonNull private final GameMechanismRelationRepository gameMechanismRelationRepository;
 	@NonNull private final GameThemeRelationRepository gameThemeRelationRepository;
 	@NonNull private final GamePlayerPreferenceRepository gamePlayerPreferenceRepository;
 
@@ -73,12 +76,14 @@ public class GameDetailQueryService {
 		Boolean playedByMe = playedByMe(currentUserId, gameId);
 		var categories = gameCategoryRelationRepository.findSummariesByGameIdIn(List.of(gameId)).stream()
 			.map(GameCategorySummary::from).toList();
+		var mechanisms = gameMechanismRelationRepository.findPublicSummariesByGameId(gameId).stream()
+			.map(GameMechanismSummary::from).toList();
 		var themes = gameThemeRelationRepository.findSummariesByGameIdIn(List.of(gameId)).stream()
 			.map(GameThemeSummary::from).toList();
 		var preferences = gamePlayerPreferenceRepository.findByGameIdOrderByIdPlayerCountAsc(gameId);
 		return GameDetail.from(game, upcomingRoomCount, playedByMe, categories, themes,
 			preferences.stream().filter(p -> p.isRecommended()).map(p -> p.getPlayerCount()).toList(),
-			preferences.stream().filter(p -> p.isBest()).map(p -> p.getPlayerCount()).toList());
+			preferences.stream().filter(p -> p.isBest()).map(p -> p.getPlayerCount()).toList(), mechanisms);
 	}
 
 	private Boolean playedByMe(Long currentUserId, Long gameId) {

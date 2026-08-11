@@ -5,7 +5,7 @@
 본문에서 `후속` 또는 `필요 시 생성`으로 표시한 항목은 아직 만들지 않은 경계다. 모듈 관계 Mermaid와 모듈 책임 표는 현재 생산 코드 구조를 설명하지만, 기능별 절에는 구현된 계약과 남은 운영값이 함께 있을 수 있다. 정확한 구현·자동 검증·운영 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)에서 확인한다.
 
 - 모듈러 모놀리스 선택 근거: [ADR-0007](adr/platform/0007-domain-centered-modular-monolith.md)
-- 낙관 락·상태 보정 트랜잭션 근거: [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0012](adr/room/0012-room-request-boundary-state-reconciliation.md)
+- 낙관 락·저장 상태 보정·조회 snapshot 근거: [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md), [ADR-0056](adr/room/0056-postgresql-room-query-snapshot-without-global-pre-correction.md)
 - 알림 통합 이벤트·Outbox·relay 근거: [ADR-0029](adr/notification/0029-room-integration-event-transactional-outbox.md), [ADR-0040](adr/notification/0040-postgresql-notification-relay-recovery-retention.md)
 - 알림 표시 투영·조회·읽음 시각 근거: [ADR-0039](adr/notification/0039-notification-presentation-and-bulk-read-snapshot.md)
 - 코드 배치·네이밍·트랜잭션 규칙: [CONVENTIONS](CONVENTIONS.md)
@@ -168,15 +168,15 @@ flowchart LR
 | 역할 | 책임과 경계 |
 | --- | --- |
 | Controller-facing Service | 하나의 유스케이스를 조정하고 Controller가 호출하는 진입점을 제공한다. |
-| QueryService | 기준 시각을 고정하고 필요하면 상태 보정을 완료한 뒤 최신 상태를 읽어 응답을 조립한다. |
-| ReadService | 상태 보정 커밋 뒤 별도의 읽기 전용 트랜잭션에서 최신 상태를 조회한다. |
+| QueryService | 기준 시각을 고정하고 목록·내 모임에는 조회 유효 상태를 적용하며, 대상 ROOM 보정이 필요한 유스케이스는 보정 뒤 최신 상태를 읽어 응답을 조립한다. |
+| ReadService | 목록·내 모임은 고정된 요청 시각의 유효 상태와 현재 관계 사실을, 대상 ROOM 보정 경로는 보정 뒤 최신 상태를 별도의 읽기 전용 트랜잭션에서 조회한다. |
 | CommandService | 변경 유스케이스 입력을 받고 기준 시각·재시도 실행을 조정한다. |
 | Command Executor | 독립 트랜잭션에서 최신 Entity 조회, 규칙 검증과 상태 변경을 수행한다. |
 | Coordinator | 트랜잭션 밖에서 기준 시각, 실행 순서와 재시도를 조정한다. |
 | Retrier | 낙관 락 충돌의 재시도·로그·오류 변환만 담당한다. |
 | PART-04 대기 Query·Read·Command Service | `RoomWaitlistController`의 전용 진입점이다. Query는 트랜잭션 밖에서 상태 보정을 조정하고, Read는 보정 커밋 뒤 짧은 읽기 트랜잭션에서 본인의 최신 상태·동적 순번을 조회하며, Command는 등록·재신청과 취소 유스케이스를 조정한다. |
 | PART-04 대기 등록 Coordinator | 트랜잭션 밖에서 고정 request time과 ROOM 충돌·정확한 대기 순번 UNIQUE 충돌의 단일 3회 예산을 관리한다. |
-| 요청 경계 StatusCorrection Coordinator·Executor | Query가 현재 상태를 보정하도록 트랜잭션 밖 재시도 조정과 독립 트랜잭션 실행으로 나눈다. Scheduler 진행 상태나 ShedLock을 사용하지 않는다. |
+| 요청 경계 StatusCorrection Coordinator·Executor | 상세·상태 의존 명령·대기·채팅 접근이 대상 ROOM의 현재 저장 상태를 보정하도록 트랜잭션 밖 재시도 조정과 독립 트랜잭션 실행으로 나눈다. Scheduler 진행 상태나 ShedLock을 사용하지 않는다. |
 | StatusCorrection Scheduler Coordinator | 공용 스케줄 잠금, 실행 세대 점유, 제한 후보 선별, ROOM별 실행과 cursor CAS를 장기 트랜잭션 없이 조정한다. |
 | Integration Event Recorder | `room.contract`의 기록 포트를 구현하고 호출한 Room Command Executor의 트랜잭션에 참여해 Outbox 이벤트와 수신자 스냅샷만 저장한다. |
 | Notification Relay Coordinator·Executor | polling과 최대 처리 수는 트랜잭션 밖에서 조정하고, 선점·Notification 생성·완료 전환은 이벤트별 독립 트랜잭션에서 수행한다. |
@@ -190,19 +190,23 @@ Service, ReadService, Executor와 Coordinator를 이름이나 클래스 수만 �
 
 #### 방 조회
 
-방 조회는 [ADR-0012](adr/room/0012-room-request-boundary-state-reconciliation.md)의 요청 경계 상태 보정 규칙을 따른다.
+> 목록·내 모임의 아래 유효 상태·snapshot 경계는 [#557](https://github.com/bamsongi-club/albam-mate/issues/557)에서 생산 코드와 PostgreSQL 회귀로 반영할 승인된 후속 계약이다. 현재 구현·검증 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)을 따른다.
+
+방 조회는 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)의 조회 유효 상태·응답 조립·저장 상태 보정 책임과 [ADR-0056](adr/room/0056-postgresql-room-query-snapshot-without-global-pre-correction.md)의 snapshot 경계·유효 상태 반환 계약을 따른다.
 
 ```mermaid
 flowchart LR
     controller["Room·MyRoom Controller"] --> query["각 QueryService<br/>기준 시각 고정"]
-    query --> coordinator["RoomStatusCorrectionCoordinator"]
+    query --> listRead["목록·내 모임 ReadService<br/>유효 상태 조회<br/>REQUIRES_NEW readOnly REPEATABLE_READ"]
+    query --> coordinator["상세·대기·채팅·상태 의존 명령<br/>RoomStatusCorrectionCoordinator"]
     coordinator --> retrier["RoomOptimisticLockRetrier"]
     retrier --> correctionExecutor["RoomStatusCorrectionExecutor<br/>REQUIRES_NEW"]
     correctionExecutor --> correctionRepositories["RoomRepository·RoomWaitlistRepository"]
-    correctionExecutor --> committed["상태 보정 커밋"]
-    committed --> read["대응 ReadService<br/>REQUIRES_NEW readOnly<br/>목록·상세 REPEATABLE_READ"]
-    read --> readRepositories["RoomRepository·ParticipationRepository"]
-    read --> facts["ROOM·현재 ACTIVE·WAITING 사실"]
+    correctionExecutor --> committed["대상 ROOM 상태 보정 커밋"]
+    committed --> detailRead["상세 ReadService<br/>REQUIRES_NEW readOnly REPEATABLE_READ"]
+    listRead --> readRepositories["RoomRepository·ParticipationRepository"]
+    detailRead --> readRepositories
+    readRepositories --> facts["ROOM·현재 ACTIVE·WAITING·역할 사실"]
     facts --> evaluator["RoomActionAvailabilityEvaluator"]
     query --> evaluator
     query --> contracts["game·user contract"]
@@ -212,9 +216,9 @@ flowchart LR
 
 `RoomStatusCorrectionExecutor`는 같은 `REQUIRES_NEW` 트랜잭션에서 ROOM 상태 전환과 시작 경계의 `WAITING → EXPIRED` 조건부 갱신을 수행한다. 둘 중 하나가 실패하면 같은 ROOM의 변경을 함께 롤백하며, 스케줄러 경로는 이 단건 Executor를 ROOM별로 호출한다.
 
-QueryService는 기준 시각을 고정하고 상태 보정 커밋을 기다린 뒤 ReadService로 최신 상태를 읽는다. ReadService는 별도의 `REQUIRES_NEW`, `readOnly = true` 트랜잭션을 사용한다.
+공개 목록과 내 모임 QueryService는 기준 시각을 고정하고 전역 상태 보정 없이 ReadService로 유효 상태를 읽는다. 상세·상태 의존 명령·대기·채팅 접근은 대상 ROOM 상태 보정이 커밋된 뒤 ReadService로 최신 저장 상태를 읽는다. ReadService는 별도의 `REQUIRES_NEW`, `readOnly = true` 트랜잭션을 사용한다.
 
-ROOM-08의 목록·상세 ReadService는 [ADR-0041](adr/room/0041-postgresql-room-query-consistent-snapshot.md)에 따라 `REPEATABLE_READ`를 추가하고, ROOM과 행동 가능성 판정에 필요한 현재 `ACTIVE`·`WAITING` 사실만 같은 PostgreSQL 스냅샷에서 읽는다. 이 트랜잭션은 짧게 유지하며 `FOR UPDATE`·`FOR SHARE` 조회 락을 사용하지 않는다. 내 모임 조회는 이미 조회한 주최자·현재 `ACTIVE` 관계를 사용하고 ROOM-08만을 위한 WAITING 조회를 추가하지 않는다.
+공개 목록·내 모임·상세 ReadService는 [ADR-0056](adr/room/0056-postgresql-room-query-snapshot-without-global-pre-correction.md)에 따라 `REPEATABLE_READ`에서 ROOM과 행동 가능성 판정에 필요한 현재 `ACTIVE`·`WAITING`·역할 사실을 같은 PostgreSQL 스냅샷으로 읽는다. 이 트랜잭션은 짧게 유지하며 `FOR UPDATE`·`FOR SHARE` 조회 락을 사용하지 않는다. 내 모임은 이미 조회한 주최자·현재 `ACTIVE` 관계를 사용하고 불필요한 WAITING 조회를 추가하지 않는다.
 
 ROOM QueryService는 인증·주최자 관계와 ReadService가 반환한 사실을 하나의 `RoomActionAvailabilityEvaluator`에 전달한다. Game·User 조회와 최종 DTO 조립은 ROOM 스냅샷 트랜잭션 밖에서 수행하며, ROOM·참가·대기·Game·User를 하나의 거대한 projection으로 합치지 않는다.
 
@@ -317,7 +321,7 @@ flowchart LR
 
 cursor는 후보를 시도한 뒤에만 전진하며, ROOM 커밋과 cursor 커밋 사이의 장애는 재선별을 허용하는 at-least-once 경계다. 진행 상태 조회·CAS 자체의 장애나 CAS 거절 뒤에는 후속 ROOM을 처리하지 않는다. 제한 후보 선별과 각 ROOM 트랜잭션의 상태 전이·시작 경계 대기열 종료는 [ROOM-09](p1/room.md#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화)의 기능 규칙을 따르며 이 문서에서 별도 계약을 만들지 않는다.
 
-목록·상세·내 모임과 상태 의존 명령의 요청 경계 보정은 이 Scheduler Coordinator, `SHEDLOCK`, `ROOM_STATUS_CORRECTION_PROGRESS`를 호출하지 않는다. 요청 경로는 [ADR-0012](adr/room/0012-room-request-boundary-state-reconciliation.md)의 현재 상태·오류 계약을 독립적으로 유지하면서 같은 Entity 전이 규칙과 ROOM별 Executor 정책을 재사용한다.
+상세·상태 의존 명령·대기·채팅 접근의 대상 ROOM 보정은 이 Scheduler Coordinator, `SHEDLOCK`, `ROOM_STATUS_CORRECTION_PROGRESS`를 호출하지 않는다. 공개 목록과 내 모임은 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)의 고정된 `requestTime` 유효 상태를 조회하며 전역 저장 보정을 수행하지 않는다. 대상 ROOM 보정 경로는 현재 상태·오류 계약을 독립적으로 유지하면서 같은 Entity 전이 규칙과 ROOM별 Executor 정책을 재사용한다.
 
 #### 채팅 흐름
 
@@ -443,7 +447,7 @@ flowchart LR
 
 - 기존 ROOM 명령의 낙관 락 재시도 정책
 - Command의 기준 시각 고정과 재시도 실행 순서. 서로 다른 실패 원인이 같은 예산을 공유해야 하는 PART-04 대기 등록은 승인 ADR의 전용 Coordinator 경계를 따른다.
-- 조회와 Scheduler가 공유하는 자동 상태 보정
+- 대상 ROOM 보정 경로와 Scheduler가 공유하는 자동 상태 보정
 - 여러 유스케이스에 동일하게 적용되는 Entity 불변식
 
 다음 책임은 클래스 수를 줄이기 위해 합치지 않는다.
