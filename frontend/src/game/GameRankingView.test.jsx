@@ -18,14 +18,32 @@ function rowText(name) {
   return screen.getByRole('link', { name: new RegExp(name) }).textContent;
 }
 
+const CATAN = {
+  rank: 1,
+  gameId: 7,
+  bggId: 13,
+  name: '카탄',
+  englishName: 'Catan',
+  releaseYear: 1995,
+  imageUrl: null,
+  description: '자원을 모아 섬을 개척하세요.',
+  roomCount: 12
+};
+// 출시 연도가 없는 게임도 함께 둬 표기 분기를 확인한다.
+const CARCASSONNE = {
+  rank: 2,
+  gameId: 9,
+  bggId: 822,
+  name: '카르카손',
+  englishName: 'Carcassonne',
+  releaseYear: null,
+  imageUrl: null,
+  description: '타일을 이어 도시를 넓히세요.',
+  roomCount: 5
+};
 const RANKINGS = {
-  overall: [
-    { rank: 1, gameId: 7, bggId: 13, name: '카탄', imageUrl: null, roomCount: 12 },
-    { rank: 2, gameId: 9, bggId: 822, name: '카르카손', imageUrl: null, roomCount: 5 }
-  ],
-  upcomingWeek: [
-    { rank: 1, gameId: 9, bggId: 822, name: '카르카손', imageUrl: null, roomCount: 3 }
-  ]
+  overall: [CATAN, CARCASSONNE],
+  upcomingWeek: [{ ...CARCASSONNE, rank: 1, roomCount: 3 }]
 };
 
 beforeEach(() => {
@@ -50,6 +68,16 @@ describe('인기 게임 랭킹 화면', () => {
     expect(rowText('카르카손')).toContain('모임 3개');
     expect(screen.queryByRole('link', { name: /카탄/ })).toBeNull();
     expect(getGameRankings.mock.calls.length).toBe(1);
+  });
+
+  it('게임명과 함께 영문명·출시 연도와 한 줄 설명을 표시한다', async () => {
+    render(<GameRankingView dataVersion={0} />);
+    await act(async () => {});
+
+    expect(screen.getByText('Catan (1995)')).toBeTruthy();
+    expect(screen.getByText('자원을 모아 섬을 개척하세요.')).toBeTruthy();
+    // 출시 연도가 없으면 괄호 없이 영문명만 남는다.
+    expect(screen.getByText('Carcassonne')).toBeTruthy();
   });
 
   it('첫 조회 중에는 로딩 상태를 표시한다', () => {

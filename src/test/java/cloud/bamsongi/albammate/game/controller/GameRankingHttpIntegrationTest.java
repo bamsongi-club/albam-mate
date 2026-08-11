@@ -61,6 +61,8 @@ class GameRankingHttpIntegrationTest {
 			.andExpect(jsonPath("$.data.overall[0].gameId").exists())
 			.andExpect(jsonPath("$.data.overall[0].bggId").exists())
 			.andExpect(jsonPath("$.data.overall[0].name").exists())
+			.andExpect(jsonPath("$.data.overall[0].englishName").exists())
+			.andExpect(jsonPath("$.data.overall[0].description").exists())
 			.andExpect(jsonPath("$.data.overall[0].roomCount").value(1))
 			.andExpect(jsonPath("$.data.overall[0].title").doesNotExist())
 			.andExpect(jsonPath("$.data.overall[0].hostUserId").doesNotExist())

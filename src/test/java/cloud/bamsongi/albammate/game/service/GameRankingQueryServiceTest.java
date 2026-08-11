@@ -87,10 +87,12 @@ class GameRankingQueryServiceTest {
 
 		assertEquals(
 			List.of(
-				new GameRankingItem(1, 1L, 1001L, "게임A", "urlA", 5L),
-				new GameRankingItem(2, 2L, 1002L, "게임B", null, 5L)),
+				new GameRankingItem(1, 1L, 1001L, "게임A", "Catan", null, "urlA", "게임 설명", 5L),
+				new GameRankingItem(2, 2L, 1002L, "게임B", "Catan", null, null, "게임 설명", 5L)),
 			response.overall());
-		assertEquals(List.of(new GameRankingItem(1, 2L, 1002L, "게임B", null, 3L)), response.upcomingWeek());
+		assertEquals(
+			List.of(new GameRankingItem(1, 2L, 1002L, "게임B", "Catan", null, null, "게임 설명", 3L)),
+			response.upcomingWeek());
 		verify(gameRepository).findAllById(Set.of(1L, 2L));
 	}
 
@@ -104,7 +106,9 @@ class GameRankingQueryServiceTest {
 
 		GameRankingResponse response = gameRankingQueryService.findRankings();
 
-		assertEquals(List.of(new GameRankingItem(1, 1L, 1001L, "게임A", null, 5L)), response.overall());
+		assertEquals(
+			List.of(new GameRankingItem(1, 1L, 1001L, "게임A", "Catan", null, null, "게임 설명", 5L)),
+			response.overall());
 	}
 
 	private Game gameWithId(long id, long bggId, String name, String imageUrl) {

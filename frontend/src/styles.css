@@ -368,9 +368,13 @@ img.profile-avatar { object-fit: cover; }
 .ranking-row .ranking-rank { color: var(--brown); font-size: 20px; font-weight: 900; }
 .ranking-art { align-items: center; background: var(--soft); border-radius: 8px; display: flex; flex: 0 0 auto; font-size: 24px; height: 64px; justify-content: center; overflow: hidden; width: 64px; }
 .ranking-art img { display: block; height: 100%; object-fit: cover; width: 100%; }
-/* 표 머리글은 썸네일 칸을 비워 두고 게임 이름 칸부터 시작한다. */
-.ranking-head .ranking-name { margin-left: 78px; }
-.ranking-name { flex: 1 1 auto; font-size: 15.5px; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 표 머리글은 썸네일 칸을 비워 두고 게임 칸부터 시작한다. */
+.ranking-head .ranking-game { margin-left: 78px; }
+.ranking-game { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-width: 0; }
+.ranking-game > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ranking-name { font-size: 15.5px; font-weight: 900; }
+.ranking-origin { color: var(--sub); font-size: 13px; font-weight: 700; }
+.ranking-desc { color: var(--brown2); font-size: 13px; }
 .ranking-count { flex: 0 0 auto; text-align: right; width: 62px; }
 .ranking-row .ranking-count { color: var(--sub); font-size: 12.5px; font-weight: 800; }
 .ranking-row .ranking-count b { color: var(--brown); font-size: 19px; margin-right: 2px; }
@@ -714,6 +718,14 @@ img.profile-avatar { object-fit: cover; }
   .pagination { gap: 8px; }
   .checkline { min-height: 44px; }
   .checkline input { height: 20px; width: 20px; }
+  /* 좁은 폭에서 한 줄 설명은 몇 글자 만에 잘려 뜻을 잃으므로 접고 게임명 칸을 넓힌다. */
+  .ranking-desc { display: none; }
+  .ranking-head, .ranking-row { gap: 10px; padding: 12px 14px; }
+  .ranking-head .ranking-game { margin-left: 62px; }
+  .ranking-art { height: 52px; width: 52px; }
+  .ranking-rank { width: 22px; }
+  .ranking-row .ranking-rank { font-size: 18px; }
+  .ranking-count { width: 50px; }
   .date-picker-popover { width: min(340px, calc(100vw - 40px)); }
   /* 60px/36px 패딩은 좁은 화면에서 내용을 밀어내므로 줄이고, 넘치면 모달 안에서 스크롤한다. */
   .auth-modal-backdrop { padding: 12px; }
