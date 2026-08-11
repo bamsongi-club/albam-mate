@@ -6,9 +6,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -52,53 +54,16 @@ public class GameQueryService {
 	@NonNull private final GameThemeRepository gameThemeRepository;
 
 	/**
-	 * 게임 이름 검색 결과를 페이지로 조회하고 조회 시각 기준 예정 모임 수를 결합한다.
-	 *
-	 * <p>{@code keyword}가 {@code null}이거나 공백이면 전체 게임을 조회한다.
-	 *
-	 * @param keyword 게임 이름 검색어
-	 * @param pageable 페이지 번호와 크기(정렬은 서비스의 이름, ID 오름차순으로 고정)
-	 * @return 예정 모임 수가 포함된 게임 목록 페이지
-	 */
-	public Page<GameListItem> findPage(String keyword, Pageable pageable) {
-		return findPage(GameListSearchCriteria.keywordOnly(keyword), pageable.getPageNumber(), pageable.getPageSize(),
-			null, Instant.now(clock));
-	}
-
-	/**
-	 * 게임 이름 검색과 예정 모임 존재 여부를 적용해 이름, ID 오름차순으로 게임 목록을 페이지로 조회한다.
-	 *
-	 * <p>{@code upcomingOnly}가 참이면 전체 예정 모임 집계를 먼저 조회해 해당 게임만 페이징한다.
-	 *
-	 * @param keyword 게임 이름 검색어
-	 * @param upcomingOnly 예정 모임이 있는 게임만 조회할지 여부
-	 * @param page 페이지 번호
-	 * @param size 페이지 크기
-	 * @return 예정 모임 수가 포함된 게임 목록 페이지
-	 */
-	public Page<GameListItem> findPage(String keyword, boolean upcomingOnly, int page, int size) {
-		GameListRequest request = new GameListRequest();
-		request.setKeyword(keyword);
-		request.setUpcomingOnly(upcomingOnly);
-		return findPage(request, page, size, null, Instant.now(clock));
-	}
-
-	/**
 	 * 게임 목록 조건을 하나의 저장소 동적 조회에 적용하고 예정 모임 수를 조립한다.
 	 *
+	 * <p>{@code playedFilter}가 있으면 인증 사용자가 필요하므로 {@code currentUserId}가 {@code null}이면 거절한다.
+	 *
 	 * @param request HTTP 목록 요청
+	 * @param currentUserId 인증 사용자 ID. 비로그인 요청이면 {@code null}
 	 * @return 예정 모임 수가 포함된 게임 목록 페이지
 	 */
-	public Page<GameListItem> findPage(GameListRequest request) {
-		return findPage(request, null);
-	}
-
 	public Page<GameListItem> findPage(GameListRequest request, Long currentUserId) {
-		return findPage(request, request.getPage(), request.getSize(), currentUserId, Instant.now(clock));
-	}
-
-	private Page<GameListItem> findPage(
-		GameListRequest request, int page, int size, Long currentUserId, Instant referenceTime) {
+		Instant referenceTime = Instant.now(clock);
 		PlayedFilter playedFilter = request.getPlayedFilter();
 		if (playedFilter != null && currentUserId == null) {
 			throw new UnauthenticatedException();
@@ -110,7 +75,7 @@ public class GameQueryService {
 		if (playedFilter != null) {
 			criteria = criteria.withPlayedFilter(currentUserId);
 		}
-		return findPage(criteria, page, size, currentUserId, referenceTime);
+		return findPage(criteria, request.getPage(), request.getSize(), currentUserId, referenceTime);
 	}
 
 	private void validateCategoryCodes(List<String> requestedCodes) {
@@ -150,10 +115,8 @@ public class GameQueryService {
 		GameListSearchCriteria pageCriteria = criteria;
 		Page<Game> games = gameRepository.findAll(GameListSpecification.from(pageCriteria), pageable);
 		if (games.isEmpty()) {
-			return games
-				.map(game -> GameListItem.from(GameListRow.from(game), 0L,
-					playedByMe(pageCriteria, currentUserId, game.getId(),
-						java.util.Set.of())));
+			// 조립할 게임이 없으므로 예정 모임 수와 해 본 게임 조회를 건너뛰고 페이지 메타데이터만 그대로 전달한다.
+			return new PageImpl<>(List.of(), pageable, games.getTotalElements());
 		}
 
 		if (!criteria.isUpcomingOnly()) {
@@ -163,8 +126,8 @@ public class GameQueryService {
 		}
 
 		Map<Long, Long> counts = upcomingRoomCounts;
-		var playedGameIds = currentUserId == null || pageCriteria.getPlayedFilter() != null
-			? java.util.Set.<Long>of()
+		Set<Long> playedGameIds = currentUserId == null || pageCriteria.getPlayedFilter() != null
+			? Set.of()
 			: new HashSet<>(
 				userPlayedGameRepository.findGameIdsByUserIdAndGameIdIn(
 					currentUserId,
@@ -177,7 +140,7 @@ public class GameQueryService {
 	}
 
 	private Boolean playedByMe(
-		GameListSearchCriteria criteria, Long currentUserId, Long gameId, java.util.Set<Long> playedGameIds) {
+		GameListSearchCriteria criteria, Long currentUserId, Long gameId, Set<Long> playedGameIds) {
 		if (currentUserId == null) {
 			return null;
 		}

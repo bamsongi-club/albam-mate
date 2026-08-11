@@ -14,12 +14,11 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import cloud.bamsongi.albammate.game.dto.GameDetail;
 import cloud.bamsongi.albammate.game.dto.GameListItem;
+import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.fixture.GameFixture;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
@@ -86,10 +85,10 @@ class GameQueryServiceDetailIntegrationTest {
 			RoomStatus.RECRUITING);
 
 		GameListItem listItem = gameQueryService
-			.findPage(null, PageRequest.of(0, 10, Sort.by("name", "id")))
+			.findPage(new GameListRequest(), null)
 			.getContent()
 			.getFirst();
-		GameDetail detail = gameDetailQueryService.findById(game.getId());
+		GameDetail detail = gameDetailQueryService.findById(game.getId(), null);
 
 		assertEquals(listItem.id(), detail.id());
 		assertEquals(listItem.bggId(), detail.bggId());

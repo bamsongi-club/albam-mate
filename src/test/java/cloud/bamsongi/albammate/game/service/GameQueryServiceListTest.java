@@ -92,7 +92,7 @@ class GameQueryServiceListTest {
 			.thenReturn(new PageImpl<>(List.of(game), pageable, 1));
 		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW)).thenReturn(Map.of(1L, 2L));
 
-		Page<GameListItem> result = gameQueryService.findPage(request);
+		Page<GameListItem> result = gameQueryService.findPage(request, null);
 
 		verify(gameRepository).findAll(any(Specification.class), eq(pageable));
 		assertEquals(2L, result.getContent().getFirst().upcomingRoomCount());
@@ -105,7 +105,7 @@ class GameQueryServiceListTest {
 		when(gameThemeRepository.countByCodeIn(List.of("UNKNOWN_THEME"))).thenReturn(0L);
 
 		BusinessException exception = assertThrows(BusinessException.class,
-			() -> gameQueryService.findPage(request));
+			() -> gameQueryService.findPage(request, null));
 
 		assertEquals(ErrorCode.VALIDATION_ERROR, exception.getErrorCode());
 		verify(gameThemeRepository).countByCodeIn(List.of("UNKNOWN_THEME"));
@@ -122,7 +122,7 @@ class GameQueryServiceListTest {
 		when(gameThemeRepository.countByCodeIn(List.of("ANIMALS"))).thenReturn(1L);
 		when(gameRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(Page.empty(pageable));
 
-		gameQueryService.findPage(validRequest);
+		gameQueryService.findPage(validRequest, null);
 
 		InOrder validationOrder = inOrder(
 			gameMechanismRepository, gameCategoryRepository, gameThemeRepository);
@@ -135,7 +135,7 @@ class GameQueryServiceListTest {
 			List.of("PRIVATE"), List.of("STRATEGY"), List.of("ANIMALS"));
 		when(gameMechanismRepository.countByCodeInAndIsPublicTrue(List.of("PRIVATE"))).thenReturn(0L);
 
-		assertThrows(BusinessException.class, () -> gameQueryService.findPage(invalidMechanismRequest));
+		assertThrows(BusinessException.class, () -> gameQueryService.findPage(invalidMechanismRequest, null));
 
 		verify(gameMechanismRepository).countByCodeInAndIsPublicTrue(List.of("PRIVATE"));
 		verifyNoInteractions(gameCategoryRepository, gameThemeRepository);
@@ -146,7 +146,7 @@ class GameQueryServiceListTest {
 		when(gameMechanismRepository.countByCodeInAndIsPublicTrue(List.of("DICE"))).thenReturn(1L);
 		when(gameCategoryRepository.countByCodeIn(List.of("UNKNOWN_CATEGORY"))).thenReturn(0L);
 
-		assertThrows(BusinessException.class, () -> gameQueryService.findPage(invalidCategoryRequest));
+		assertThrows(BusinessException.class, () -> gameQueryService.findPage(invalidCategoryRequest, null));
 
 		verify(gameMechanismRepository).countByCodeInAndIsPublicTrue(List.of("DICE"));
 		verify(gameCategoryRepository).countByCodeIn(List.of("UNKNOWN_CATEGORY"));
@@ -162,7 +162,7 @@ class GameQueryServiceListTest {
 		when(gameThemeRepository.countByCodeIn(List.of("ANIMALS"))).thenReturn(1L);
 		when(gameRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(Page.empty(pageable));
 
-		gameQueryService.findPage(request);
+		gameQueryService.findPage(request, null);
 
 		verify(gameMechanismRepository).countByCodeInAndIsPublicTrue(List.of("DICE"));
 		verifyNoInteractions(gameCategoryRepository);
@@ -175,7 +175,7 @@ class GameQueryServiceListTest {
 		when(gameMechanismRepository.countByCodeInAndIsPublicTrue(List.of("PRIVATE"))).thenReturn(0L);
 
 		BusinessException mechanismException = assertThrows(BusinessException.class,
-			() -> gameQueryService.findPage(mechanismRequest));
+			() -> gameQueryService.findPage(mechanismRequest, null));
 
 		assertEquals(ErrorCode.VALIDATION_ERROR, mechanismException.getErrorCode());
 		verify(gameMechanismRepository).countByCodeInAndIsPublicTrue(List.of("PRIVATE"));
@@ -185,7 +185,7 @@ class GameQueryServiceListTest {
 		when(gameCategoryRepository.countByCodeIn(List.of("UNKNOWN_CATEGORY"))).thenReturn(0L);
 
 		BusinessException categoryException = assertThrows(BusinessException.class,
-			() -> gameQueryService.findPage(categoryRequest));
+			() -> gameQueryService.findPage(categoryRequest, null));
 
 		assertEquals(ErrorCode.VALIDATION_ERROR, categoryException.getErrorCode());
 		verify(gameCategoryRepository).countByCodeIn(List.of("UNKNOWN_CATEGORY"));
@@ -195,7 +195,7 @@ class GameQueryServiceListTest {
 		when(gameThemeRepository.countByCodeIn(List.of("UNKNOWN_THEME"))).thenReturn(0L);
 
 		BusinessException themeException = assertThrows(BusinessException.class,
-			() -> gameQueryService.findPage(themeRequest));
+			() -> gameQueryService.findPage(themeRequest, null));
 
 		assertEquals(ErrorCode.VALIDATION_ERROR, themeException.getErrorCode());
 		verify(gameThemeRepository).countByCodeIn(List.of("UNKNOWN_THEME"));
@@ -214,7 +214,7 @@ class GameQueryServiceListTest {
 			.thenReturn(new PageImpl<>(List.of(game), pageable, 1));
 		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW)).thenReturn(Map.of(1L, 2L));
 
-		Page<GameListItem> result = gameQueryService.findPage(validRequest);
+		Page<GameListItem> result = gameQueryService.findPage(validRequest, null);
 
 		assertEquals(1, result.getTotalElements());
 		assertEquals(2L, result.getContent().getFirst().upcomingRoomCount());
@@ -225,7 +225,7 @@ class GameQueryServiceListTest {
 		when(gameThemeRepository.countByCodeIn(List.of("UNKNOWN_THEME"))).thenReturn(0L);
 
 		BusinessException exception = assertThrows(BusinessException.class,
-			() -> gameQueryService.findPage(invalidRequest));
+			() -> gameQueryService.findPage(invalidRequest, null));
 
 		assertEquals(ErrorCode.VALIDATION_ERROR, exception.getErrorCode());
 		verify(gameThemeRepository).countByCodeIn(List.of("UNKNOWN_THEME"));
@@ -241,7 +241,7 @@ class GameQueryServiceListTest {
 		when(gameRepository.findAll(any(Specification.class), eq(pageable)))
 			.thenReturn(new PageImpl<>(List.of(game), pageable, 2));
 
-		Page<GameListItem> result = gameQueryService.findPage(request);
+		Page<GameListItem> result = gameQueryService.findPage(request, null);
 
 		verify(gameRepository).findAll(any(Specification.class), eq(pageable));
 		assertEquals(2L, result.getContent().getFirst().upcomingRoomCount());
@@ -253,7 +253,7 @@ class GameQueryServiceListTest {
 		request.setPage(2);
 		when(upcomingRoomCountQuery.findUpcomingRoomCounts(NOW)).thenReturn(Map.of());
 
-		Page<GameListItem> result = gameQueryService.findPage(request);
+		Page<GameListItem> result = gameQueryService.findPage(request, null);
 
 		assertEquals(0, result.getTotalElements());
 		assertEquals(2, result.getNumber());
@@ -277,7 +277,7 @@ class GameQueryServiceListTest {
 		when(gameRepository.findAll(any(Specification.class), eq(pageable)))
 			.thenReturn(new PageImpl<>(List.of(game), pageable, 1));
 
-		Page<GameListItem> result = gameQueryService.findPage(request);
+		Page<GameListItem> result = gameQueryService.findPage(request, null);
 
 		assertEquals(2L, result.getContent().getFirst().upcomingRoomCount());
 		verify(upcomingRoomCountQuery).findUpcomingRoomCounts(NOW);
@@ -296,43 +296,7 @@ class GameQueryServiceListTest {
 		});
 		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW)).thenReturn(Map.of(1L, 2L));
 
-		Page<GameListItem> result = gameQueryService.findPage(request);
-
-		assertEquals(2L, result.getContent().getFirst().upcomingRoomCount());
-		verify(upcomingRoomCountQuery).findUpcomingRoomCounts(List.of(1L), NOW);
-	}
-
-	@Test
-	void 문자열_키워드와_Pageable_목록_조회는_기준_시각을_재호출하지_않는다() {
-		RequestStartClock requestClock = new RequestStartClock(NOW);
-		gameQueryService = newGameQueryService(requestClock);
-		Pageable pageable = fixedPageRequest(0, 10);
-		Game game = game(1L, "카탄");
-		when(gameRepository.findAll(any(Specification.class), eq(pageable))).thenAnswer(invocation -> {
-			requestClock.closeRequestStart();
-			return new PageImpl<>(List.of(game), pageable, 1);
-		});
-		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW)).thenReturn(Map.of(1L, 2L));
-
-		Page<GameListItem> result = gameQueryService.findPage("카탄", pageable);
-
-		assertEquals(2L, result.getContent().getFirst().upcomingRoomCount());
-		verify(upcomingRoomCountQuery).findUpcomingRoomCounts(List.of(1L), NOW);
-	}
-
-	@Test
-	void 문자열_키워드_페이지_목록_조회는_기준_시각을_재호출하지_않는다() {
-		RequestStartClock requestClock = new RequestStartClock(NOW);
-		gameQueryService = newGameQueryService(requestClock);
-		Game game = game(1L, "카탄");
-		Pageable pageable = fixedPageRequest(0, 10);
-		when(gameRepository.findAll(any(Specification.class), eq(pageable))).thenAnswer(invocation -> {
-			requestClock.closeRequestStart();
-			return new PageImpl<>(List.of(game), pageable, 1);
-		});
-		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW)).thenReturn(Map.of(1L, 2L));
-
-		Page<GameListItem> result = gameQueryService.findPage("카탄", false, 0, 10);
+		Page<GameListItem> result = gameQueryService.findPage(request, null);
 
 		assertEquals(2L, result.getContent().getFirst().upcomingRoomCount());
 		verify(upcomingRoomCountQuery).findUpcomingRoomCounts(List.of(1L), NOW);

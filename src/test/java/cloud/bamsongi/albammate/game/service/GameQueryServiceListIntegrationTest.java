@@ -20,6 +20,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import cloud.bamsongi.albammate.game.dto.GameListItem;
+import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.fixture.GameFixture;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
@@ -107,7 +108,7 @@ class GameQueryServiceListIntegrationTest {
 			NOW.plusSeconds(6),
 			RoomStatus.RECRUITING);
 
-		Page<GameListItem> result = gameQueryService.findPage(null, false, 0, 10);
+		Page<GameListItem> result = gameQueryService.findPage(listRequest(false, 10), null);
 
 		Map<Long, Long> upcomingRoomCounts = result.getContent().stream()
 			.collect(
@@ -121,13 +122,20 @@ class GameQueryServiceListIntegrationTest {
 				gameWithoutUpcomingRoom.getId(), 0L),
 			upcomingRoomCounts);
 
-		Page<GameListItem> upcomingOnlyResult = gameQueryService.findPage(null, true, 0, 1);
+		Page<GameListItem> upcomingOnlyResult = gameQueryService.findPage(listRequest(true, 1), null);
 
 		assertEquals(2, upcomingOnlyResult.getTotalElements());
 		assertEquals(2, upcomingOnlyResult.getTotalPages());
 		assertTrue(upcomingOnlyResult.hasNext());
 		assertEquals(1L, upcomingOnlyResult.getContent().getFirst().upcomingRoomCount());
 		assertEquals(gameWithOneRoom.getId(), upcomingOnlyResult.getContent().getFirst().id());
+	}
+
+	private GameListRequest listRequest(boolean upcomingOnly, int size) {
+		GameListRequest request = new GameListRequest();
+		request.setUpcomingOnly(upcomingOnly);
+		request.setSize(size);
+		return request;
 	}
 
 	private long insertHostUser() {
