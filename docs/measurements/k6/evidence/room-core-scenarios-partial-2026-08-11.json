@@ -1,0 +1,384 @@
+{
+  "schemaVersion": 1,
+  "campaignId": "room-k6-20260811T142439Z",
+  "generatedAt": "2026-08-12T01:50:49+09:00",
+  "campaignStatus": "partial",
+  "documentStatus": "current",
+  "measurementWindow": {
+    "kind": "included-run-id-start-to-last-verify-artifact",
+    "startedAt": "2026-08-11T23:24:39+09:00",
+    "finishedAt": "2026-08-11T23:57:31+09:00",
+    "displayKst": "2026-08-11 23:24~23:57 KST (첫 포함 Run ID 시작~마지막 verify.log 기록 시각)"
+  },
+  "documents": {
+    "report": "docs/measurements/k6/room-core-scenarios-partial-2026-08-11.md"
+  },
+  "lineage": {
+    "supersedes": null,
+    "supersededBy": null
+  },
+  "sources": {
+    "application": {
+      "repository": "https://github.com/bamsongi-club/albam-mate.git",
+      "sourceGitSha": "1d549673e30723999892f737783c53a27b3e70c3",
+      "roomLoadTestTreePath": "load-tests/k6/room",
+      "roomLoadTestTreeGitObject": "8583a57eab18c0c16e2344d7a8274de0d911ea52"
+    },
+    "infrastructure": {
+      "repository": "https://github.com/bamsongi-club/albam-mate-infra.git",
+      "revisionAtExecution": "not-recorded",
+      "dirtyStateAtExecution": "not-recorded"
+    }
+  },
+  "artifacts": {
+    "availability": "local-only",
+    "siblingRepository": "albam-mate-infra",
+    "repositoryRelativePathTemplate": ".run/results/{runId}/",
+    "includedRunCount": 5,
+    "excludedRunCount": 0,
+    "excludedArtifactsNote": "이 보고서 작성 뒤 생성된 재실행 산출물은 이 campaign에 포함하지 않는다."
+  },
+  "coverage": {
+    "plannedBundleCount": 26,
+    "includedBundleCount": 5,
+    "completedScenarios": [
+      "cancel-promotion",
+      "waitlist-registration"
+    ],
+    "partiallyCompletedScenario": {
+      "scenario": "due-backlog-read",
+      "includedConditions": [
+        "room-list / due 20 / VU 2",
+        "room-list / due 20 / VU 4",
+        "room-list / due 20 / VU 8"
+      ],
+      "notIncludedConditions": [
+        "room-list / due 2,000 / VU 2, 4, 8",
+        "my-rooms / due 20 / VU 2, 4, 8",
+        "my-rooms / due 2,000 / VU 2, 4, 8"
+      ]
+    },
+    "notMeasuredScenarios": [
+      "room-detail-by-role",
+      "waitlist-position"
+    ]
+  },
+  "knownLimitations": [
+    "cancel-promotion 및 waitlist-registration summary는 hot/spread와 VU 2/4/8을 bundle 전체로 합산하므로 profile별 비교에 사용할 수 없다.",
+    "CloudWatch, JVM, Hikari, PostgreSQL 진단과 반복 실행이 이 campaign 근거에 포함되지 않았다.",
+    "이 결과는 고객 데이터가 없는 전용 Terraform 부하테스트 환경의 부분 결과이며 운영 SLO, 용량 경계 또는 병목 원인 결론에 사용하지 않는다.",
+    "원시 artifacts는 local-only이며 users.json, prepare.sql, 실제 식별자와 원시 로그를 이 저장소에 복사하지 않았다."
+  ],
+  "runs": [
+    {
+      "runId": "20260811T142439Z-1095",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "scenario": "cancel-promotion",
+      "condition": {
+        "modes": ["hot", "spread"],
+        "vus": [2, 4, 8],
+        "warmupWaves": 1,
+        "measuredWaves": 10,
+        "waveIntervalSeconds": 3,
+        "profiles": ["hot-2", "spread-2", "hot-4", "spread-4", "hot-8", "spread-8"]
+      },
+      "fixture": {
+        "fixtureId": "41f9dfbf743f",
+        "counts": {
+          "users": 504,
+          "rooms": 187,
+          "participations": 308,
+          "waitlists": 495
+        }
+      },
+      "source": {
+        "gitSha": "1d549673e30723999892f737783c53a27b3e70c3",
+        "scenario": {
+          "path": "load-tests/k6/room/01-room-cancel-promotion.js",
+          "sha256": "47920092f5462325e3f54670e5eb67bedd51b460a4c0f04b82a47a4c53c81637"
+        },
+        "common": {
+          "path": "load-tests/k6/room/common.js",
+          "sha256": "71a848b2925798cea2ad5a67fd25a3a706537740b705f1fc59fe800f7d4a9692"
+        }
+      },
+      "metrics": {
+        "measuredRequests": 280,
+        "measuredRequestRate": 0.6911552561733328,
+        "successResponses": 221,
+        "conflictResponses": 59,
+        "unexpectedResponseRate": 0,
+        "medianMs": 108.22423549999999,
+        "p95Ms": 193.00767144999998,
+        "p99Ms": 222.06613381999995,
+        "maxMs": 415.556153
+      },
+      "verification": {
+        "k6ExitCode": 0,
+        "checkFailures": 0,
+        "sql": {
+          "httpSuccess": 221,
+          "dbCanceled": 221,
+          "dbPromoted": 221
+        }
+      },
+      "artifactSha256": {
+        "summary.json": "370a3e2fecc7e19f5c4ff672303e84f9e4461d9f2020cfa209db722779561da2",
+        "manifest.json": "5cc4c65169dfe1d083c61c908f0589955063337d59cdb422402761bfc5f67276",
+        "source-metadata.json": "0bceb93087aa305cd3d7cdb5e3b43a43060afb69d8b2f35ab9517a174de061d0",
+        "verify.log": "1c0541e9561b5726a150f6f97fea8826c465f50abd409f1c7fc63ba283aeced4",
+        "k6-exit-code.txt": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+      }
+    },
+    {
+      "runId": "20260811T143655Z-14",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "scenario": "waitlist-registration",
+      "condition": {
+        "modes": ["hot", "spread"],
+        "vus": [2, 4, 8],
+        "warmupWaves": 1,
+        "measuredWaves": 10,
+        "waveIntervalSeconds": 3,
+        "profiles": ["hot-2", "spread-2", "hot-4", "spread-4", "hot-8", "spread-8"]
+      },
+      "fixture": {
+        "fixtureId": "72e2da3450a7",
+        "counts": {
+          "users": 196,
+          "rooms": 187,
+          "participations": 187,
+          "waitlists": 0
+        }
+      },
+      "source": {
+        "gitSha": "1d549673e30723999892f737783c53a27b3e70c3",
+        "scenario": {
+          "path": "load-tests/k6/room/02-room-waitlist-registration.js",
+          "sha256": "4831badffcefe05b0eed898f4c03fb982725667838980f8aacf8546a0d3a35c0"
+        },
+        "common": {
+          "path": "load-tests/k6/room/common.js",
+          "sha256": "71a848b2925798cea2ad5a67fd25a3a706537740b705f1fc59fe800f7d4a9692"
+        }
+      },
+      "metrics": {
+        "measuredRequests": 280,
+        "measuredRequestRate": 0.6912082605292816,
+        "successResponses": 221,
+        "conflictResponses": 59,
+        "unexpectedResponseRate": 0,
+        "medianMs": 70.51217199999999,
+        "p95Ms": 102.14625264999997,
+        "p99Ms": 116.23216409999999,
+        "maxMs": 119.518185
+      },
+      "verification": {
+        "k6ExitCode": 0,
+        "checkFailures": 0,
+        "sql": {
+          "httpSuccess": 221,
+          "dbWaiting": 221
+        }
+      },
+      "artifactSha256": {
+        "summary.json": "4e3b4d707f54b116e2b6a02c26ac0d2469e345be9eb5045b8145e5afba1ad0f2",
+        "manifest.json": "3efe97a8088b84eff93ee75cbbe29792bf01dd8aebd43f70f03d2b49fb4c6196",
+        "source-metadata.json": "2838594c4bf35010e5a2cfb87a1ea3da1f8f15416396513813b48fa9bf6bca37",
+        "verify.log": "3bc21beae698440e1baea3d77d499e66ef51cb003612d0e1e5380881856572d1",
+        "k6-exit-code.txt": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+      }
+    },
+    {
+      "runId": "20260811T144707Z-398",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "scenario": "due-backlog-read",
+      "condition": {
+        "endpoint": "room-list",
+        "dueRoomCount": 20,
+        "vus": 2,
+        "duration": "1m",
+        "thinkTimeSeconds": 1
+      },
+      "fixture": {
+        "fixtureId": "c28cf87a0d97",
+        "recruitingDueRoomCount": 10,
+        "closedDueRoomCount": 10,
+        "waitingPerClosedDueRoom": 10,
+        "controlRoomCount": 10,
+        "expectedWaitingWaitlistCount": 100,
+        "schedulerLockDurationSeconds": 300
+      },
+      "source": {
+        "gitSha": "1d549673e30723999892f737783c53a27b3e70c3",
+        "scenario": {
+          "path": "load-tests/k6/room/03-room-read-due-backlog.js",
+          "sha256": "36c0422a7b8891c2bb24e2e46e08e2e9709ffa3bbca7a8007d7f05ee376a5e29"
+        },
+        "common": {
+          "path": "load-tests/k6/room/common.js",
+          "sha256": "71a848b2925798cea2ad5a67fd25a3a706537740b705f1fc59fe800f7d4a9692"
+        }
+      },
+      "metrics": {
+        "measuredRequests": 118,
+        "measuredRequestRate": 1.6727588493161707,
+        "successResponses": 118,
+        "conflictResponses": 0,
+        "unexpectedResponseRate": 0,
+        "medianMs": 20.964926,
+        "p95Ms": 30.523371799999996,
+        "p99Ms": 51.60251323999999,
+        "maxMs": 70.738576
+      },
+      "verification": {
+        "k6ExitCode": 0,
+        "checkFailures": 0,
+        "sql": {
+          "measuredRooms": 20,
+          "remainingDue": 20,
+          "recruitingRooms": 10,
+          "closedRooms": 10,
+          "waitingWaitlists": 100,
+          "schedulerLockHeld": true
+        }
+      },
+      "artifactSha256": {
+        "summary.json": "63dc7f29ea81e8abd3d0939a1ca627a2b4b9071917b334d8c4196dbeb1e4b848",
+        "manifest.json": "d29f95b5826782be1b674d97e5d5ad2f17bb5a3c9eb57818ee7f4e6ca424a3f1",
+        "source-metadata.json": "42f1c3f502e93c3fee41e0829a262803359ed87f44f05690a1fe9a9582467a21",
+        "verify.log": "7da127452ddd1f2b3c1b79f4f2093b57ca3a18ffe1e438324541fd021ca02383",
+        "k6-exit-code.txt": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+      }
+    },
+    {
+      "runId": "20260811T145132Z-1442",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "scenario": "due-backlog-read",
+      "condition": {
+        "endpoint": "room-list",
+        "dueRoomCount": 20,
+        "vus": 4,
+        "duration": "1m",
+        "thinkTimeSeconds": 1
+      },
+      "fixture": {
+        "fixtureId": "f495a2ddbbdb",
+        "recruitingDueRoomCount": 10,
+        "closedDueRoomCount": 10,
+        "waitingPerClosedDueRoom": 10,
+        "controlRoomCount": 10,
+        "expectedWaitingWaitlistCount": 100,
+        "schedulerLockDurationSeconds": 300
+      },
+      "source": {
+        "gitSha": "1d549673e30723999892f737783c53a27b3e70c3",
+        "scenario": {
+          "path": "load-tests/k6/room/03-room-read-due-backlog.js",
+          "sha256": "36c0422a7b8891c2bb24e2e46e08e2e9709ffa3bbca7a8007d7f05ee376a5e29"
+        },
+        "common": {
+          "path": "load-tests/k6/room/common.js",
+          "sha256": "71a848b2925798cea2ad5a67fd25a3a706537740b705f1fc59fe800f7d4a9692"
+        }
+      },
+      "metrics": {
+        "measuredRequests": 237,
+        "measuredRequestRate": 3.3409665706174736,
+        "successResponses": 237,
+        "conflictResponses": 0,
+        "unexpectedResponseRate": 0,
+        "medianMs": 17.25162,
+        "p95Ms": 20.584189799999994,
+        "p99Ms": 25.06843012,
+        "maxMs": 39.417054
+      },
+      "verification": {
+        "k6ExitCode": 0,
+        "checkFailures": 0,
+        "sql": {
+          "measuredRooms": 20,
+          "remainingDue": 20,
+          "recruitingRooms": 10,
+          "closedRooms": 10,
+          "waitingWaitlists": 100,
+          "schedulerLockHeld": true
+        }
+      },
+      "artifactSha256": {
+        "summary.json": "021d54af58398f518f3e0b1e6f14cc893e7050fe9d1f7373a3a5d6d8a2cda329",
+        "manifest.json": "fdb0b2e1fa4dc7be65ee828c41f340d7a633a29af5251a1e6b1b64532dc0218b",
+        "source-metadata.json": "43e9cc9ef08199339e8d795f928e2422cf992dbe9c0ab468def69058f3ab9464",
+        "verify.log": "90c05e60a20b0e2b20b655f4c1f5c8852b5ddfbabdfdf620959b6a45eee6d90c",
+        "k6-exit-code.txt": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+      }
+    },
+    {
+      "runId": "20260811T145435Z-1521",
+      "reportDisposition": "included",
+      "status": "PASS",
+      "scenario": "due-backlog-read",
+      "condition": {
+        "endpoint": "room-list",
+        "dueRoomCount": 20,
+        "vus": 8,
+        "duration": "1m",
+        "thinkTimeSeconds": 1
+      },
+      "fixture": {
+        "fixtureId": "e858a0ba2897",
+        "recruitingDueRoomCount": 10,
+        "closedDueRoomCount": 10,
+        "waitingPerClosedDueRoom": 10,
+        "controlRoomCount": 10,
+        "expectedWaitingWaitlistCount": 100,
+        "schedulerLockDurationSeconds": 300
+      },
+      "source": {
+        "gitSha": "1d549673e30723999892f737783c53a27b3e70c3",
+        "scenario": {
+          "path": "load-tests/k6/room/03-room-read-due-backlog.js",
+          "sha256": "36c0422a7b8891c2bb24e2e46e08e2e9709ffa3bbca7a8007d7f05ee376a5e29"
+        },
+        "common": {
+          "path": "load-tests/k6/room/common.js",
+          "sha256": "71a848b2925798cea2ad5a67fd25a3a706537740b705f1fc59fe800f7d4a9692"
+        }
+      },
+      "metrics": {
+        "measuredRequests": 479,
+        "measuredRequestRate": 6.743564644342838,
+        "successResponses": 479,
+        "conflictResponses": 0,
+        "unexpectedResponseRate": 0,
+        "medianMs": 15.444255,
+        "p95Ms": 20.5917769,
+        "p99Ms": 38.3929189,
+        "maxMs": 87.064139
+      },
+      "verification": {
+        "k6ExitCode": 0,
+        "checkFailures": 0,
+        "sql": {
+          "measuredRooms": 20,
+          "remainingDue": 20,
+          "recruitingRooms": 10,
+          "closedRooms": 10,
+          "waitingWaitlists": 100,
+          "schedulerLockHeld": true
+        }
+      },
+      "artifactSha256": {
+        "summary.json": "aab2a173f529f0d51012a8db18c1aab655879db88c45a8914220d453ff3883f3",
+        "manifest.json": "e44259530b945efca04a2ebbb10bd90e5320521f0ce74ef2783970fc13d75ae2",
+        "source-metadata.json": "d7d09a678a2a49b9af316477b9463a8d128de915021bd72d6c716aa75569c14b",
+        "verify.log": "1e68e27d1e4fc44243c12f3590f9c42f7b16d629760f0e4c14ed350691912ea0",
+        "k6-exit-code.txt": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+      }
+    }
+  ]
+}
