@@ -15,6 +15,7 @@ vi.mock('./api', () => ({
 const { FindRoomsView } = await import('./main.jsx');
 
 const EMPTY_FILTERS = {
+  status: '',
   datePreset: '',
   date: '',
   minRemainingSeats: '',
