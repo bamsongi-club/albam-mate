@@ -267,9 +267,12 @@ class SearchPerformancePostgresTest {
 		assertIndexExists(ROOM_INDEX);
 		assertRoomIndexDefinition();
 		assertFalse(indexExists(GAME_INDEX));
-		List<CapturedQuery> queries = queryPlanCapture.capture(() -> roomRepository.findPublicRooms(
+		List<CapturedQuery> queries = queryPlanCapture.capture(() -> roomRepository.findPublicRoomsAt(
 			null,
-			null,
+			false,
+			false,
+			false,
+			ROOM_START,
 			null,
 			false,
 			"",
@@ -282,6 +285,7 @@ class SearchPerformancePostgresTest {
 			Set.of(ExperienceLevel.ALL_LEVELS, ExperienceLevel.BEGINNER_WELCOME, ExperienceLevel.EXPERIENCED_PREFERRED),
 			false,
 			Set.of(RoomStatus.RECRUITING, RoomStatus.CLOSED),
+			ROOM_START.minusSeconds(86_400),
 			PageRequest.of(0, 25, Sort.by(Sort.Order.asc("startAt"), Sort.Order.asc("id")))));
 		CapturedQuery contentQuery = queries.stream()
 			.filter(query -> !query.countQuery())
@@ -291,10 +295,25 @@ class SearchPerformancePostgresTest {
 			.filter(CapturedQuery::countQuery)
 			.findFirst()
 			.orElseThrow(() -> new AssertionError("RoomRepository count SQL plan was not captured"));
+		List<CapturedQuery> myRoomQueries = queryPlanCapture.capture(() -> roomRepository.findMyRoomsAt(
+			USER_ID,
+			true,
+			true,
+			PageRequest.of(0, 25, Sort.by(Sort.Order.desc("startAt"), Sort.Order.desc("id")))));
+		CapturedQuery myRoomContentQuery = myRoomQueries.stream()
+			.filter(query -> !query.countQuery())
+			.findFirst()
+			.orElseThrow(() -> new AssertionError("My room content SQL plan was not captured"));
+		CapturedQuery myRoomCountQuery = myRoomQueries.stream()
+			.filter(CapturedQuery::countQuery)
+			.findFirst()
+			.orElseThrow(() -> new AssertionError("My room count SQL plan was not captured"));
 		assertTrue(contentQuery.sql().toLowerCase(Locale.ROOT).contains(" from rooms "), contentQuery.sql());
 		assertTrue(contentQuery.plan().contains(ROOM_INDEX), contentQuery.plan());
 		assertPlanFields(contentQuery.plan());
 		assertPlanFields(countQuery.plan());
+		assertPlanFields(myRoomContentQuery.plan());
+		assertPlanFields(myRoomCountQuery.plan());
 	}
 
 	@Test

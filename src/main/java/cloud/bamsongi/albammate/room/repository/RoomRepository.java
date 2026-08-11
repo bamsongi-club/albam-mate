@@ -179,8 +179,18 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		select room
 		from Room room
 		where (:roomType is null or room.roomType = :roomType)
-		  and room.status in :publicStatuses
-		  and (:status is null or room.status = :status)
+		  and room.status in :storedPublicStatuses
+		  and room.startAt > :effectiveFinishedAt
+		  and (
+		      :statusFilterEnabled = false
+		      or (:recruitingStatusFilter = true
+		          and room.status = cloud.bamsongi.albammate.room.enums.RoomStatus.RECRUITING
+		          and room.startAt > :requestTime)
+		      or (:closedStatusFilter = true
+		          and (room.status = cloud.bamsongi.albammate.room.enums.RoomStatus.CLOSED
+		               or (room.status = cloud.bamsongi.albammate.room.enums.RoomStatus.RECRUITING
+		                   and room.startAt <= :requestTime)))
+		  )
 		  and (:gameId is null or room.gameId = :gameId)
 		  and (:keywordFilterEnabled = false
 		       or lower(room.title) like concat('%', lower(:keyword), '%') escape '!')
@@ -191,11 +201,17 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		  and room.experienceLevel in :experienceLevels
 		  and (:rulemasterOnly = false or room.rulemasterLed = true)
 		""")
-	Page<Room> findPublicRooms(
+	Page<Room> findPublicRoomsAt(
 		@Param("roomType")
 		RoomType roomType,
-		@Param("status")
-		RoomStatus status,
+		@Param("statusFilterEnabled")
+		boolean statusFilterEnabled,
+		@Param("recruitingStatusFilter")
+		boolean recruitingStatusFilter,
+		@Param("closedStatusFilter")
+		boolean closedStatusFilter,
+		@Param("requestTime")
+		Instant requestTime,
 		@Param("gameId")
 		Long gameId,
 		@Param("keywordFilterEnabled")
@@ -218,8 +234,10 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		Collection<ExperienceLevel> experienceLevels,
 		@Param("rulemasterOnly")
 		boolean rulemasterOnly,
-		@Param("publicStatuses")
-		Collection<RoomStatus> publicStatuses,
+		@Param("storedPublicStatuses")
+		Collection<RoomStatus> storedPublicStatuses,
+		@Param("effectiveFinishedAt")
+		Instant effectiveFinishedAt,
 		Pageable pageable);
 
 	@Query("""
@@ -284,7 +302,7 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		             and participation.status = cloud.bamsongi.albammate.room.enums.ParticipationStatus.ACTIVE
 		       ))
 		""")
-	Page<Room> findMyRooms(
+	Page<Room> findMyRoomsAt(
 		@Param("userId")
 		Long userId,
 		@Param("includeHosted")

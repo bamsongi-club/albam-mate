@@ -3,7 +3,6 @@ package cloud.bamsongi.albammate.room.service.query;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -17,7 +16,6 @@ import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
@@ -34,15 +32,12 @@ import cloud.bamsongi.albammate.room.enums.ParticipationStatus;
 import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.service.RoomActionAvailabilityEvaluator;
-import cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionCoordinator;
 
 @ExtendWith(MockitoExtension.class)
 class MyRoomQueryServiceTest {
 
 	private static final Instant NOW = Instant.parse("2026-07-28T00:00:00Z");
 
-	@Mock
-	private RoomStatusCorrectionCoordinator statusCorrectionCoordinator;
 	@Mock
 	private MyRoomReadService myRoomReadService;
 	@Mock
@@ -53,7 +48,6 @@ class MyRoomQueryServiceTest {
 	@BeforeEach
 	void setUp() {
 		myRoomQueryService = new MyRoomQueryService(
-			statusCorrectionCoordinator,
 			myRoomReadService,
 			gameQuery,
 			Clock.fixed(NOW, ZoneOffset.UTC),
@@ -61,12 +55,14 @@ class MyRoomQueryServiceTest {
 	}
 
 	@Test
-	void 상태_보정_커밋_후_내림차순_페이지와_게임_요약을_조립한다() {
+	void 전역_상태_보정_없이_내림차순_페이지와_게임_요약을_조립한다() {
 		PageRequest pageable = pageable();
 		Room hosted = room(1L, 7L, 42L, 1, 3);
 		Room joined = room(2L, 8L, 99L, 2, 3);
-		when(myRoomReadService.findMyRooms(42L, MyRoomRole.ALL, pageable))
-			.thenReturn(new PageImpl<>(List.of(hosted, joined), pageable, 2));
+		when(myRoomReadService.findMyRoomsAt(42L, MyRoomRole.ALL, pageable, NOW))
+			.thenReturn(new MyRoomReadService.MyRoomReadResult(
+				new PageImpl<>(List.of(hosted, joined), pageable, 2),
+				Map.of(1L, RoomStatus.RECRUITING, 2L, RoomStatus.RECRUITING), NOW));
 		when(gameQuery.findSummariesByIds(Set.of(7L, 8L)))
 			.thenReturn(
 				Map.of(
@@ -84,9 +80,7 @@ class MyRoomQueryServiceTest {
 		assertEquals(3, response.content().get(1).participantCount());
 		assertEquals(1, response.content().get(1).remainingRecruitmentSeats());
 		verify(gameQuery).findSummariesByIds(Set.of(7L, 8L));
-		InOrder inOrder = inOrder(statusCorrectionCoordinator, myRoomReadService);
-		inOrder.verify(statusCorrectionCoordinator).correctDueRooms(NOW);
-		inOrder.verify(myRoomReadService).findMyRooms(42L, MyRoomRole.ALL, pageable);
+		verify(myRoomReadService).findMyRoomsAt(42L, MyRoomRole.ALL, pageable, NOW);
 	}
 
 	private PageRequest pageable() {
@@ -109,7 +103,6 @@ class MyRoomQueryServiceTest {
 		when(room.getCapacity()).thenReturn(capacity);
 		when(room.getTotalParticipantCount()).thenReturn(activeParticipantCount + 1);
 		when(room.getRemainingRecruitmentSeats()).thenReturn(capacity - activeParticipantCount);
-		when(room.getStatus()).thenReturn(RoomStatus.RECRUITING);
 		return room;
 	}
 }
