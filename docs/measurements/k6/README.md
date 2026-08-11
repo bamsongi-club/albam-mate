@@ -29,7 +29,8 @@ docs/
 | Campaign ID | 측정 구간 | 상태 | 보고서 | 판단서 | 근거 manifest | 대체 관계 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `auth-notification-20260811T021040KST` | 2026-08-11 02:10:40~10:36:50 KST | `completed-with-limitations` | [인증·알림 AWS 용량 측정](auth-notification-capacity-2026-08-11.md) | [알림 broker 판단](notification-broker-decision-2026-08-11.md) | [campaign manifest](evidence/auth-notification-capacity-2026-08-11.json) | 최초 캠페인, 후속 없음 |
-| `room-k6-20260811T142439Z` | 2026-08-11 23:24~2026-08-12 02:47 KST (첫 포함 Run ID 시작~마지막 검증 산출물 기록 시각) | `completed-with-limitations` | [ROOM 핵심 HTTP k6 실행 결과](room-core-scenarios-partial-2026-08-11.md) | - | [campaign manifest](evidence/room-core-scenarios-partial-2026-08-11.json) | 논리 시나리오 5개를 모두 시도했으며, 대기 순번 6개 조건은 k6 threshold 실패 |
+| `room-k6-20260811T142439Z` | 2026-08-11 23:24~2026-08-12 02:47 KST (첫 포함 Run ID 시작~마지막 검증 산출물 기록 시각) | `completed-with-limitations` | [ROOM 핵심 HTTP k6 실행 결과](room-core-scenarios-partial-2026-08-11.md) | - | [campaign manifest](evidence/room-core-scenarios-partial-2026-08-11.json) | [AWS 관측 보강](room-capacity-observation-2026-08-12.md)이 이 캠페인을 `supplements`하며 원본을 대체하지 않음 |
+| `room-capacity-20260812T032259KST` | 2026-08-11 23:24~2026-08-12 02:48 KST (원본 ROOM k6 구간을 덮는 CloudWatch Query window) | `completed-with-limitations` | [ROOM AWS 관측 보강](room-capacity-observation-2026-08-12.md) | - | [campaign manifest](evidence/room-capacity-observation-2026-08-12.json) | `supplements room-k6-20260811T142439Z`; 새 k6 실행이나 원본 대체가 아닌 읽기 전용 사후 관측 |
 
 `completed-with-limitations`는 실행과 보고가 끝났지만 유효한 정상·실패 경계를 모두 확정하지 못했거나 원자료 접근 범위가 제한된 상태다. `current` 판단서는 후속 문서가 `supersedes`로 대체하기 전까지 현재 판단으로 읽는다.
 
