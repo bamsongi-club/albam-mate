@@ -76,8 +76,8 @@ private DB subnet group / 외부 공개 없음
 
 ```sh
 export ALBAM_MATE_RELEASE="$(git rev-parse HEAD)"
-docker buildx build --platform linux/arm64 --tag "${ALBAM_MATE_IMAGE_NAMESPACE}/backend:${ALBAM_MATE_RELEASE}" --push .
-docker buildx build --platform linux/arm64 --file frontend/Dockerfile.production --tag "${ALBAM_MATE_IMAGE_NAMESPACE}/web:${ALBAM_MATE_RELEASE}" --push frontend
+docker buildx build --platform linux/arm64 --build-arg "ALBAM_MATE_REVISION=${ALBAM_MATE_RELEASE}" --tag "${ALBAM_MATE_IMAGE_NAMESPACE}/backend:${ALBAM_MATE_RELEASE}" --push .
+docker buildx build --platform linux/arm64 --build-arg "ALBAM_MATE_REVISION=${ALBAM_MATE_RELEASE}" --file frontend/Dockerfile.production --tag "${ALBAM_MATE_IMAGE_NAMESPACE}/web:${ALBAM_MATE_RELEASE}" --push frontend
 ```
 
 `ALBAM_MATE_RELEASE`에는 40자리 소문자 Git SHA만 허용된다. `latest`, 축약 SHA 또는 길이가 다른 값은 두 이미지의 진입점이 거부하므로 운영 Compose의 health check도 실패한다.

@@ -247,7 +247,7 @@ web의 Nginx는 `ssl_certificate`와 `ssl_certificate_key` 파일이 없으면 �
 최초 배포는 CI 자동 게시가 아니라 수동 릴리스로 수행하며 다음 계약을 따른다.
 
 - 기준은 병합된 하나의 40자리 Git SHA다. backend와 web이 서로 다른 SHA를 쓰지 않는다.
-- backend·web 모두 `docker buildx build --platform linux/arm64 --push`로 게시한다.
+- backend·web 모두 `docker buildx build --platform linux/arm64 --build-arg ALBAM_MATE_REVISION=<40자리 SHA> --push`로 게시하고 OCI `org.opencontainers.image.revision` label을 같은 SHA로 고정한다.
 - 게시 후 두 이미지의 manifest와 digest를 기록한다.
 - 배포 노드에서는 태그뿐 아니라 실제 pull된 digest와 컨테이너의 release SHA를 함께 확인한다.
 - 게시가 실패하면 같은 SHA를 재게시하지 않고 새 커밋 SHA로 다시 만든다.

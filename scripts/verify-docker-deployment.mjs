@@ -889,12 +889,30 @@ function verifyDatabaseHealthcheck() {
 
 function verifyT7() {
     const certificateDirectory = createTempDirectory('albam-mate-contract-t7');
-    const env = productionEnvironment(certificateDirectory);
+    const performanceEnvironment = {
+        APP_SECURITY_AUTHREQUEST_LOGINLIMIT: '20000',
+        APP_SECURITY_AUTHREQUEST_LOGINFAILURELIMIT: '20000',
+        APP_SECURITY_AUTHREQUEST_SIGNUPLIMIT: '5',
+        APP_SECURITY_AUTHREQUEST_HASHSLOTS: '4',
+        APP_SECURITY_PASSWORD_BCRYPTCOST: '10',
+        APP_NOTIFICATION_RELAY_POLLINTERVAL: '5s',
+        APP_NOTIFICATION_RELAY_MAXEVENTSPERRUN: '50',
+        MANAGEMENT_SERVER_PORT: '9090',
+        MANAGEMENT_SERVER_ADDRESS: '127.0.0.1',
+        MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: 'health,metrics',
+        SERVER_TOMCAT_MBEANREGISTRY_ENABLED: 'true',
+    };
+    const env = { ...productionEnvironment(certificateDirectory), ...performanceEnvironment };
     try {
         docker(['compose', '-f', 'compose.production.yml', 'config', '--quiet'], { env });
         docker(['compose', '-f', 'compose.app2.yml', 'config', '--quiet'], { env });
         docker(['compose', '-f', 'compose.db.yml', 'config', '--quiet'], { env });
         const app2Config = loadComposeConfig('compose.app2.yml', env);
+        const app1Config = loadProductionConfig(env);
+        for (const [name, value] of Object.entries(performanceEnvironment)) {
+            assert(app1Config.services.spring.environment[name] === value, `App1 Spring does not receive ${name}`);
+            assert(app2Config.services.spring.environment[name] === value, `App2 Spring does not receive ${name}`);
+        }
         assert(
             String(app2Config.services.spring.mem_limit) === String(512 * 1024 * 1024) || app2Config.services.spring.mem_limit === '512m',
             `App2 Spring memory limit is ${app2Config.services.spring.mem_limit}`,
