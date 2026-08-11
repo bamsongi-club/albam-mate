@@ -6,11 +6,14 @@ import { ApiError, api, clearCsrfToken, messageForError, setUnauthenticatedHandl
 import { isUnauthenticated, usePaginatedRequest, useRequest } from './shared/async';
 import { FilterCheckGroup, FilterPanel, FilterRadioGroup } from './shared/filters';
 import { ErrorBox, LoadingBox, Pagination, SearchHeader, SectionIcon } from './shared/ui';
-import { GameDetailView, GamePickerDialog, GamesView, EMPTY_GAME_FILTERS, ROOM_LIST_PAGE_SIZE, normalizeRoom } from './game';
+import { GameDetailView, GamePickerDialog, GamesView, EMPTY_GAME_FILTERS, ROOM_LIST_PAGE_SIZE, normalizeGameSummary, normalizeRoom } from './game';
 import { NotificationPanel } from './notification/NotificationPanel';
 import { selectNotificationAndNavigate } from './notification/notificationNavigation';
 import { useNotificationPolling } from './notification/useNotificationPolling';
 import { useNotificationReadSync } from './notification/useNotificationReadSync';
+import { MobileBottomNavigation } from './mobile/MobileNavigation';
+import { MobileHomePanel } from './mobile/MobileHomePanel';
+import { useMobileViewport } from './mobile/useMobileViewport';
 import './styles.css';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -398,24 +401,49 @@ function validateRoomForm(form, roomType) {
   return { room };
 }
 
-function Header({ route, me, notificationMenu }) {
+function mobilePageTitle(route) {
+  const titles = {
+    home: '홈',
+    find: '모임 찾기',
+    game: '게임',
+    'game-list': '게임',
+    session: '모임',
+    create: '모임 만들기',
+    edit: '모임 수정',
+    my: '내 모임',
+    chat: '채팅',
+    chats: '채팅',
+    profile: '내정보',
+    auth: '로그인',
+    signup: '회원가입'
+  };
+  return titles[route] || '알밤메이트';
+}
+
+function Header({ route, me, notificationMenu, isMobile }) {
   const rootRoute = { find: 'find', game: 'game-list', 'game-list': 'game-list', create: 'profile', edit: 'profile', my: 'profile', chat: 'chats', chats: 'chats', profile: 'profile' };
   const visibleUnreadCount = notificationMenu.unreadCount > 99 ? '99+' : notificationMenu.unreadCount;
   const notificationLabel = notificationMenu.unreadCount > 0
     ? '알림함, 읽지 않은 알림 ' + notificationMenu.unreadCount + '개'
     : '알림함';
+  const headerClassName = [
+    route === 'chat' && 'chat-route-header',
+    route === 'game' && 'game-detail-route-header',
+    notificationMenu.open && 'notification-panel-open'
+  ].filter(Boolean).join(' ');
   return (
-    <header>
+    <header className={headerClassName || undefined}>
       <div className="hwrap">
         <a className="logo" href="#/home" aria-label="알밤메이트 홈">
           <span className="brand-mark" aria-hidden="true"><img src={brandSymbol} alt="" /></span>
           <span className="brand-wordmark"><span className="brand-name">알밤</span><span className="brand-mate">메이트</span></span>
         </a>
+        <span className="mobile-page-title">{mobilePageTitle(route)}</span>
         <nav id="gnb" aria-label="주요 메뉴">
           <a href="#/game-list" className={rootRoute[route] === 'game-list' ? 'on' : ''}>게임 찾기</a>
           <a href="#/find" className={rootRoute[route] === 'find' ? 'on' : ''}>모임 찾기</a>
           {me && (
-            <a href="#/chats" className={'nav-icon-btn' + (rootRoute[route] === 'chats' ? ' on' : '')} aria-label="채팅">
+            <a href="#/chats" className={'nav-icon-btn' + (rootRoute[route] === 'chats' ? ' on' : '')} aria-label="전체 채팅">
               <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></svg>
             </a>
           )}
@@ -446,6 +474,7 @@ function Header({ route, me, notificationMenu }) {
                 onSelectNotification={notificationMenu.onSelectNotification}
                 onMarkAllAsRead={notificationMenu.onMarkAllAsRead}
                 onRetrySynchronization={notificationMenu.onRetrySynchronization}
+                isModal={isMobile}
               />
             </div>
           )}
@@ -560,7 +589,7 @@ function LoginRequiredView({ message = '이 기능은 로그인 후 이용할 �
   return <div className="card"><h2>로그인이 필요해요</h2><p className="hint" style={{ marginBottom: 16 }}>{message}</p><a className="btn" href="#/auth">로그인 또는 회원가입</a></div>;
 }
 
-function HomeView({ onBrowsePeople, onSearchGame, dataVersion }) {
+function HomeView({ me, onBrowsePeople, onSearchGame, dataVersion, isMobile }) {
   // 지금은 게임 이름 검색으로 동작한다. 통합 검색으로 확장할 자리다.
   const [input, setInput] = useState('');
   const { data, loading, error } = useRequest(
@@ -574,20 +603,23 @@ function HomeView({ onBrowsePeople, onSearchGame, dataVersion }) {
   const personCount = data?.totalElements ?? 0;
   const gameCount = gameData?.totalElements ?? 0;
   return (
-    <section className="card hero">
-      <h1>오늘, 보드게임 한 판 어때요? 🎲</h1>
-      <p>게임을 먼저 고르거나, 함께할 사람부터 찾아 모임을 만들 수 있어요.</p>
-      <form className="inline-search hero-search" onSubmit={(event) => { event.preventDefault(); onSearchGame(input.trim()); }}>
-        <label className="hint" htmlFor="home-q" style={{ position: 'absolute', left: -9999 }}>게임 이름 검색</label>
-        <input id="home-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임 이름으로 검색" />
-        <button type="submit" aria-label="검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><line x1="21.5" y1="21.5" x2="15.3" y2="15.3" /></svg></button>
-      </form>
-      <div className="dual">
-        <a className="entry gamefirst" href="#/game-list"><span className="big">🎲</span><h3>게임부터 찾기</h3><p>하고 싶은 게임을 검색하고, 그 게임의 공개 모임을 찾아보세요.</p><span className="sub">{gameLoading ? '게임 불러오는 중…' : '게임 ' + gameCount + '개 둘러보기 →'}</span></a>
-        <a className="entry peoplefirst" href="#/find" onClick={onBrowsePeople}><span className="big">🙌</span><h3>사람부터 만나기</h3><p>게임이 아직 정해지지 않아도 괜찮아요. 제목으로 원하는 모임을 찾아보세요.</p><span className="sub">{loading ? '공개 모임 불러오는 중…' : '공개 모임 ' + personCount + '개 →'}</span></a>
-      </div>
-      {error && <p className="hint" style={{ marginTop: 16 }}>공개 모임 수를 불러오지 못했어요: {error}</p>}
-    </section>
+    <>
+      {me && isMobile && <MobileHomePanel dataVersion={dataVersion} />}
+      <section className="card hero">
+        <h1>오늘, 보드게임 한 판 어때요? 🎲</h1>
+        <p>게임을 먼저 고르거나, 함께할 사람부터 찾아 모임을 만들 수 있어요.</p>
+        <form className="inline-search hero-search" onSubmit={(event) => { event.preventDefault(); onSearchGame(input.trim()); }}>
+          <label className="hint" htmlFor="home-q" style={{ position: 'absolute', left: -9999 }}>게임 이름 검색</label>
+          <input id="home-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임 이름으로 검색" />
+          <button type="submit" aria-label="검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><line x1="21.5" y1="21.5" x2="15.3" y2="15.3" /></svg></button>
+        </form>
+        <div className="dual">
+          <a className="entry gamefirst" href="#/game-list"><span className="big">🎲</span><h3>게임부터 찾기</h3><p>하고 싶은 게임을 검색하고, 그 게임의 공개 모임을 찾아보세요.</p><span className="sub">{gameLoading ? '게임 불러오는 중…' : '게임 ' + gameCount + '개 둘러보기 →'}</span></a>
+          <a className="entry peoplefirst" href="#/find" onClick={onBrowsePeople}><span className="big">🙌</span><h3>사람부터 만나기</h3><p>게임이 아직 정해지지 않아도 괜찮아요. 제목으로 원하는 모임을 찾아보세요.</p><span className="sub">{loading ? '공개 모임 불러오는 중…' : '공개 모임 ' + personCount + '개 →'}</span></a>
+        </div>
+        {error && <p className="hint" style={{ marginTop: 16 }}>공개 모임 수를 불러오지 못했어요: {error}</p>}
+      </section>
+    </>
   );
 }
 
@@ -684,13 +716,60 @@ function useRoomTypeCounts(keyword, filters, today, dataVersion) {
   return counts;
 }
 
-function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChange, roomFilters, onRoomFiltersChange, dataVersion }) {
+function RoomListPeopleIcon() {
+  return <svg viewBox="0 0 56 38" width="56" height="38" fill="currentColor" aria-hidden="true"><circle cx="12" cy="10" r="6" /><circle cx="28" cy="7" r="7" /><circle cx="44" cy="10" r="6" /><path d="M1 35c0-8 5-13 11-13s11 5 11 13Z" /><path d="M14 35c0-10 6-16 14-16s14 6 14 16Z" /><path d="M33 35c0-8 5-13 11-13s11 5 11 13Z" /></svg>;
+}
+
+function RoomListDiceIcon() {
+  return <svg viewBox="0 0 48 48" width="48" height="48" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="8" y="8" width="32" height="32" rx="9" transform="rotate(-12 24 24)" /><circle cx="18" cy="19" r="2.5" fill="currentColor" stroke="none" /><circle cx="30" cy="29" r="2.5" fill="currentColor" stroke="none" /></svg>;
+}
+
+function RoomListEmptyState({ onReset }) {
+  return (
+    <section className="room-list-state room-list-empty" aria-labelledby="room-list-empty-title">
+      <RoomListPeopleIcon />
+      <h2 id="room-list-empty-title">조건에 맞는 모임이 없어요</h2>
+      <p>필터를 하나만 풀어도 더 많은 모임을 볼 수 있어요.</p>
+      <div className="room-list-state-actions">
+        <button className="btn ghost" type="button" onClick={onReset}>필터 초기화</button>
+        <a className="btn" href="#/create">모임 만들기</a>
+      </div>
+    </section>
+  );
+}
+
+function RoomListLoadingState() {
+  return (
+    <section className="room-list-loading" role="status" aria-label="모임 목록을 불러오는 중">
+      <div className="room-list-skeletons" aria-hidden="true">
+        {[0, 1, 2, 3].map((index) => <div className="room-list-skeleton" key={index}><span /><div><i /><b /><em /></div></div>)}
+      </div>
+      <div className="room-list-loading-caption"><RoomListPeopleIcon /><span>모임을 불러오는 중</span></div>
+    </section>
+  );
+}
+
+function RoomListErrorState({ message, onRetry }) {
+  return (
+    <section className="room-list-error" role="alert" aria-labelledby="room-list-error-title">
+      <div className="room-list-error-banner"><span aria-hidden="true" /> <strong>{message || '모임 목록을 불러오지 못했어요.'}</strong><button type="button" onClick={onRetry}>다시</button></div>
+      <div className="room-list-state">
+        <RoomListDiceIcon />
+        <h2 id="room-list-error-title">목록을 불러오지 못했어요</h2>
+        <p>네트워크 연결을 확인하고 다시 시도해주세요.</p>
+        <button className="btn" type="button" onClick={onRetry}><span aria-hidden="true">↻</span> 다시 시도</button>
+      </div>
+    </section>
+  );
+}
+
+export function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChange, roomFilters, onRoomFiltersChange, dataVersion }) {
   const [input, setInput] = useState(roomQuery);
   const keyword = roomQuery.trim();
   const today = useSeoulToday();
   const filterKey = roomFilterKey(roomFilters, today);
   const counts = useRoomTypeCounts(keyword, roomFilters, today, dataVersion);
-  const { data, loading, error, setPage } = usePaginatedRequest(
+  const { data, loading, error, setPage, retry } = usePaginatedRequest(
     // 유형을 비우면 두 유형의 공개 방을 함께 받는다.
     (page, signal) => api.getRooms({ type: roomType, keyword, ...roomFilterParameters(roomFilters, today), page, size: ROOM_LIST_PAGE_SIZE }, signal),
     [roomType, keyword, filterKey, dataVersion]
@@ -698,6 +777,11 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
   // status는 서버가 페이지네이션 전에 거른다(roomFilterParameters). 기본값(전체)에서는 프런트가 상태로 다시 거르지 않아
   // 모집 마감이라도 대기 신청이 가능한 방의 진입점이 유지된다. 사용자가 상태 필터를 고르면 그 상태만 노출된다.
   const rooms = (data?.content || []).map(normalizeRoom);
+  const resetFilters = () => {
+    onRoomTypeChange('');
+    onRoomQueryChange('');
+    onRoomFiltersChange(EMPTY_ROOM_FILTERS);
+  };
   useEffect(() => setInput(roomQuery), [roomQuery]);
   return (
     <>
@@ -710,13 +794,13 @@ function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChang
         onInputChange={(event) => setInput(event.target.value)}
         onSubmit={(event) => { event.preventDefault(); onRoomQueryChange(input.trim()); }}
         placeholder="모임 제목으로 검색"
-        actionSlot={<a className="btn ghost" href="#/create">모임 만들기<SectionIcon name="pencil" /></a>}
+        actionSlot={rooms.length > 0 ? <a className="btn ghost" href="#/create">모임 만들기<SectionIcon name="pencil" /></a> : null}
         filtersSlot={(searchSlot) => <RoomFilters searchSlot={searchSlot} filters={roomFilters} onChange={onRoomFiltersChange} today={today} roomType={roomType} onRoomTypeChange={onRoomTypeChange} counts={counts} />}
       />
-      {error && <ErrorBox message={error} />}
-      {!error && loading && !data && <LoadingBox />}
+      {error && <RoomListErrorState message={error} onRetry={retry} />}
+      {!error && loading && !data && <RoomListLoadingState />}
       {!error && !!rooms.length && <div className="grid cols2 list-swappable" style={{ opacity: loading ? 0.6 : 1 }}>{rooms.map((room) => <SessionCard key={room.id} room={room} />)}</div>}
-      {!error && !loading && !rooms.length && <div className="infobox">조건에 맞는 공개 모임이 없어요. 직접 모임을 열어보세요.</div>}
+      {!error && !loading && !rooms.length && <RoomListEmptyState onReset={resetFilters} />}
       {!error && !!rooms.length && <Pagination page={data?.page ?? 0} totalPages={data?.totalPages ?? 0} loading={loading} onChange={setPage} />}
     </>
   );
@@ -1003,7 +1087,7 @@ function CreateView({ createMode, onCreateModeChange, initialGame, onCreate, tod
             <button type="button" className={'modecard ' + (!gameFocused ? 'on' : '')} onClick={() => onCreateModeChange('PERSON_FOCUSED')}><b>🙌 사람 중심</b><span>함께할 사람부터 모아요. 게임 선택은 선택이에요.</span></button>
           </div>
           <RoomFormFields form={form} onChange={setForm} roomType={createMode} onOpenGamePicker={() => setGamePickerOpen(true)} today={today} />
-          <button className="btn big create-submit" style={{ marginTop: 14 }} disabled={submitting} type="submit">{submitting ? '모임을 여는 중…' : '모임 열기'}</button>
+          <button className="btn big create-submit" style={{ marginTop: 14 }} disabled={submitting} type="submit">{submitting ? '모임을 만드는 중…' : '모임 만들기'}</button>
         </form>
         <aside>
           <div className="card infobox create-note">
@@ -1167,6 +1251,11 @@ function formatChatTime(createdAt) {
   return time ? formatRoomTime(time) : '';
 }
 
+function chatParticipantTone(nickname = '') {
+  const tone = [...nickname].reduce((total, letter) => total + (letter.codePointAt(0) || 0), 0) % 3;
+  return ['green', 'clay', 'gold'][tone];
+}
+
 // 같은 사람이 3분 안에 이어 보낸 메시지는 한 덩어리로 본다. 이름은 덩어리 첫 줄, 시각은 마지막 줄에만 붙는다.
 function groupChatMessages(messages) {
   const sameGroup = (left, right) => Boolean(left) && Boolean(right)
@@ -1200,6 +1289,12 @@ function chatAccessError(error) {
 
 const CHAT_RECONNECT_LIMIT = 5;
 const CHAT_RECONNECT_DELAYS = [500, 1000, 2000, 4000, 8000];
+const CHAT_CONNECTION_STATUS = {
+  reconnecting: '실시간 채팅을 다시 연결하고 있어요.',
+  failed: '실시간 채팅 연결을 시작하지 못했어요. 채팅 목록에서 다시 들어가 주세요.',
+  exhausted: '실시간 채팅을 다시 연결하지 못했어요. 채팅 목록에서 다시 들어가 주세요.',
+  restricted: '이 채팅의 실시간 연결이 종료됐어요. 채팅 목록에서 다시 들어가 주세요.'
+};
 
 function chatStreamMessage(payload, roomId) {
   if (!payload || payload.type !== 'MESSAGE_CREATED' || !payload.message) return null;
@@ -1240,8 +1335,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
   const [sendResultUnknown, setSendResultUnknown] = useState(false);
-  const [streamStatus, setStreamStatus] = useState('connecting');
-  const [streamError, setStreamError] = useState('');
+  const [connectionStatus, setConnectionStatus] = useState('');
   const lastEventIdRef = useRef(null);
   const chatHistoryRef = useRef(null);
   const loadMoreSentinelRef = useRef(null);
@@ -1268,6 +1362,7 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     setClientMessageContent(null);
     setSendError('');
     setSendResultUnknown(false);
+    setConnectionStatus('');
     setClientMessageId(createClientMessageId());
   }, [roomId]);
 
@@ -1294,54 +1389,51 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
 
     const connect = () => {
       if (!active) return;
-      setStreamStatus(reconnectAttempts === 0 ? 'connecting' : 'reconnecting');
+      let currentSocket;
+      let acceptingMessages = true;
       try {
-        socket = api.openChatWebSocket(roomId, { afterMessageId: lastEventIdRef.current });
-      } catch (cause) {
-        if (!active) return;
-        setStreamStatus('closed');
-        setStreamError(messageForError(cause, '실시간 채팅을 연결하지 못했어요.'));
+        currentSocket = api.openChatWebSocket(roomId, { afterMessageId: lastEventIdRef.current });
+        socket = currentSocket;
+      } catch {
+        setConnectionStatus('failed');
         return;
       }
-      socket.onopen = () => {
-        if (!active) return;
-        setStreamStatus('connected');
-        setStreamError('');
+      currentSocket.onopen = () => {
+        if (!active || !acceptingMessages) return;
+        setConnectionStatus('');
         stableConnectionTimer = setTimeout(() => { reconnectAttempts = 0; }, 10000);
       };
-      socket.onmessage = (event) => {
-        if (!active) return;
+      currentSocket.onmessage = (event) => {
+        if (!active || !acceptingMessages) return;
+        let payload;
         try {
-          const payload = JSON.parse(event.data);
-          const message = chatStreamMessage(payload, roomId);
-          if (!message) return;
-          const eventId = Number(payload.eventId);
-          lastEventIdRef.current = Math.max(lastEventIdRef.current || 0, eventId);
-          mergeMessages([message]);
+          payload = JSON.parse(event.data);
         } catch {
-          setStreamError('실시간 메시지 형식을 확인하지 못했어요.');
+          acceptingMessages = false;
+          currentSocket.close();
+          return;
         }
+        const message = chatStreamMessage(payload, roomId);
+        if (!message) return;
+        const eventId = Number(payload.eventId);
+        lastEventIdRef.current = Math.max(lastEventIdRef.current || 0, eventId);
+        mergeMessages([message]);
       };
-      socket.onerror = () => {
-        if (active) setStreamError('실시간 연결이 불안정해요. 다시 연결하는 중…');
-      };
-      socket.onclose = (event) => {
+      currentSocket.onclose = (event) => {
         if (!active) return;
+        acceptingMessages = false;
         clearTimeout(stableConnectionTimer);
         if (event?.code === 1008) {
-          setStreamStatus('closed');
-          setStreamError('채팅 접근 권한이 종료되어 실시간 연결을 닫았어요.');
+          setConnectionStatus('restricted');
           return;
         }
         if (reconnectAttempts >= CHAT_RECONNECT_LIMIT) {
-          setStreamStatus('closed');
-          setStreamError('실시간 연결을 복구하지 못했어요. 새로고침 후 다시 시도해주세요.');
+          setConnectionStatus('exhausted');
           return;
         }
-        setStreamStatus('reconnecting');
-        setStreamError('실시간 연결이 끊겨 다시 연결하는 중…');
         const delay = CHAT_RECONNECT_DELAYS[reconnectAttempts] || CHAT_RECONNECT_DELAYS.at(-1);
         reconnectAttempts += 1;
+        setConnectionStatus('reconnecting');
         reconnectTimer = setTimeout(connect, delay);
       };
     };
@@ -1515,10 +1607,25 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
         </aside>
 
         <section className="chat-main">
-          {!error && data && streamStatus !== 'connected' && (
-            <p className="hint warn" role="status">{streamError || (streamStatus === 'connecting' ? '실시간 채팅에 연결하는 중…' : '실시간 연결을 복구하는 중…')}</p>
+          <div className="chat-mobile-header">
+            <a className="chat-mobile-nav" href="#/chats" aria-label="전체 채팅으로 돌아가기">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+            </a>
+            <div className="chat-mobile-room">
+              <h1 className="chat-mobile-title">{roomInfo.data?.title || '모임 채팅'}</h1>
+              <p className="chat-mobile-meta">{roomInfo.data ? participantCount(roomInfo.data) + '명 · ' + formatStartsAt(roomInfo.data.startsAt) : '참가자와 대화 중'}</p>
+            </div>
+            <a className="chat-mobile-nav" href={'#/session/' + roomId} aria-label="모임 상세 보기">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="12" cy="19" r="1.7" /></svg>
+            </a>
+          </div>
+          {connectionStatus === 'reconnecting' && <p className="sr-only" role="status">{CHAT_CONNECTION_STATUS.reconnecting}</p>}
+          {['failed', 'exhausted', 'restricted'].includes(connectionStatus) && (
+            <div className="chat-connection-notice" role="status">
+              <p>{CHAT_CONNECTION_STATUS[connectionStatus]}</p>
+              <a href="#/chats">채팅 목록으로 이동</a>
+            </div>
           )}
-          {!error && data && streamStatus === 'connected' && <p className="hint" role="status">실시간 연결됨</p>}
           <div className="chat-log" ref={chatHistoryRef} onScroll={handleChatScroll}>
             {!error && !!displayedMessages.length && <div className="chat-load-sentinel" ref={loadMoreSentinelRef} aria-hidden="true" />}
             {error && <ErrorBox message={error} />}
@@ -1538,6 +1645,11 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
                       key={message.messageId}
                     >
                       {/* 내 이름은 화면에서는 군더더기라 숨기고, 화면 낭독기에는 남긴다. */}
+                      {isGroupStart && !isMine && (
+                        <span className={'chat-person-mark ' + chatParticipantTone(message.sender?.nickname)} aria-hidden="true">
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="12" cy="8" r="4" /><path d="M4.5 21a7.5 7.5 0 0 1 15 0Z" /></svg>
+                        </span>
+                      )}
                       {isGroupStart && <b className={'chat-sender' + (isMine ? ' sr-only' : '')}>{isMine ? '나' : message.sender?.nickname}</b>}
                       <span className="chat-line">
                         <span className="chat-content">{message.content}</span>
@@ -1552,9 +1664,12 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
 
           {!error && <form className="chat-compose" onSubmit={submit}>
             <label className="sr-only" htmlFor="chat-message">메시지</label>
-            <textarea id="chat-message" ref={composeInputRef} disabled={sending} maxLength="500" value={content} onChange={(event) => { setContent(event.target.value); setSendError(''); setSendResultUnknown(false); }} onKeyDown={handleComposeKeyDown} placeholder="메시지를 입력해주세요." />
+            <button className="chat-attachment-btn" type="button" disabled aria-label="첨부 기능은 아직 제공하지 않습니다">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            </button>
+            <textarea id="chat-message" ref={composeInputRef} disabled={sending} maxLength="500" value={content} onChange={(event) => { setContent(event.target.value); setSendError(''); setSendResultUnknown(false); }} onKeyDown={handleComposeKeyDown} placeholder="메시지 입력" />
             <button className="chat-send-btn" disabled={sending} type="submit" aria-label={sending ? '전송 중…' : sendResultUnknown ? '다시 시도' : '전송'}>
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12 20 4l-8 16-2-6z" /></svg>
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></svg>
             </button>
             <span className={'chat-count' + ([...content].length > 450 ? ' near' : '')}>{[...content].length}/500</span>
             {sendError && <p className="hint warn chat-senderror" role="alert">{sendError}</p>}
@@ -1565,15 +1680,53 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
   );
 }
 
-export function ProfileView({ me, onSave, onLogout, socialProviders = [], onSocialLink, onUploadImage, onDeleteImage }) {
+function ProfilePlayedGames({ dataVersion }) {
+  const { data, loading } = useRequest(
+    (signal) => api.getGames({ playedFilter: 'PLAYED_ONLY', page: 0, size: 3 }, signal),
+    [dataVersion]
+  );
+  const games = (data?.content || []).map(normalizeGameSummary);
+  const total = data ? Number(data.totalElements || 0) : null;
+  const allGamesLabel = total === null ? '플레이한 게임 전체 보기' : '플레이한 게임 전체 ' + total + '개 보기';
+  return (
+    <section className="profile-played-games" aria-labelledby="profile-played-games-title">
+      <div className="profile-played-games-heading">
+        <h3 id="profile-played-games-title">플레이한 게임</h3>
+        <a href="#/game-list/played" aria-label={allGamesLabel}>{total === null ? '전체 보기' : '전체 ' + total}</a>
+      </div>
+      <div className="profile-played-games-grid">
+        {loading && !data
+          ? [0, 1, 2].map((index) => <div className="profile-played-game profile-played-game-skeleton" key={index} aria-hidden="true"><span /><b /></div>)
+          : games.map((game) => (
+            <a className="profile-played-game" href={'#/game/' + game.id} key={game.id} aria-label={game.title + ' 게임 상세'}>
+              <span className="profile-played-game-cover">{game.imageUrl ? <img src={game.imageUrl} alt="" /> : '🎲'}</span>
+              <strong>{game.title}</strong>
+            </a>
+          ))}
+        <a className="profile-played-game profile-played-game-add" href="#/game-list" aria-label="게임 추가"><span className="profile-played-game-add-box" aria-hidden="true">+</span><strong>추가</strong></a>
+      </div>
+    </section>
+  );
+}
+
+export function ProfileView({ me, onSave, onLogout, socialProviders = [], onSocialLink, onUploadImage, onDeleteImage, dataVersion = 0 }) {
   const [nickname, setNickname] = useState(me.nickname);
   const [editing, setEditing] = useState(false);
+  const [socialLinkOpen, setSocialLinkOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [linking, setLinking] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
   useEffect(() => setNickname(me.nickname), [me.nickname]);
+  const openProfileEditor = () => {
+    setNickname(me.nickname);
+    setEditing(true);
+  };
+  const closeProfileEditor = () => {
+    setNickname(me.nickname);
+    setEditing(false);
+  };
   const logout = async () => {
     setLoggingOut(true);
     try {
@@ -1631,16 +1784,40 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onSoci
           {me.profileImageUrl
             ? <img className="profile-avatar" src={me.profileImageUrl} alt={me.nickname + ' 프로필 이미지'} />
             : <span className="profile-avatar" aria-hidden="true">{me.nickname.slice(0, 1)}</span>}
-          <button className="profile-avatar-edit" type="button" disabled={uploadingImage} onClick={() => fileInputRef.current?.click()} aria-label="프로필 이미지 변경">
+          <button className="profile-avatar-edit" type="button" disabled={uploadingImage} onClick={openProfileEditor} aria-label="프로필 수정" aria-expanded={editing} aria-controls="profile-edit-panel">
             {uploadingImage ? '…' : <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>}
           </button>
-          <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleImageSelect} />
+          <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleImageSelect} aria-label="프로필 사진 파일" />
         </div>
         <div>
           <h2>{me.nickname}</h2>
-          {me.profileImageUrl && <button className="btn ghost sm" type="button" disabled={uploadingImage} onClick={handleDeleteImage}>이미지 삭제</button>}
         </div>
       </div>
+      {editing && (
+        <form className="profile-edit-card" id="profile-edit-panel" onSubmit={submit} aria-label="프로필 수정">
+          <div className="profile-edit-card-heading">
+            <strong>프로필 수정</strong>
+            <span>사진과 닉네임을 한 곳에서 관리하세요.</span>
+          </div>
+          <div className="profile-edit-photo">
+            <span className="profile-edit-label">프로필 사진</span>
+            <div className="profile-edit-photo-actions">
+              <button className="btn ghost" type="button" disabled={uploadingImage} onClick={() => fileInputRef.current?.click()}>{uploadingImage ? '사진 변경 중…' : '사진 변경'}</button>
+              {me.profileImageUrl && <button className="profile-photo-delete" type="button" disabled={uploadingImage} onClick={handleDeleteImage}>사진 삭제</button>}
+            </div>
+          </div>
+          <div className="profile-edit-field">
+            <label className="profile-edit-label" htmlFor="profile-nickname">닉네임</label>
+            <input id="profile-nickname" maxLength="50" autoFocus value={nickname} onChange={(event) => setNickname(event.target.value)} />
+            <p className="hint">알밤메이트에서 표시되는 내 닉네임입니다.</p>
+          </div>
+          <div className="profile-edit-actions">
+            <button className="btn" disabled={saving} type="submit">{saving ? '저장 중…' : '저장'}</button>
+            <button className="btn ghost" disabled={saving} type="button" onClick={closeProfileEditor}>취소</button>
+          </div>
+        </form>
+      )}
+      <ProfilePlayedGames dataVersion={dataVersion} />
       <div className="card menu-list" style={{ maxWidth: 560 }}>
           <a className="menu-row" href="#/my">
             <span className="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3.5 6h.01" /><path d="M3.5 12h.01" /><path d="M3.5 18h.01" /></svg></span>
@@ -1652,41 +1829,31 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onSoci
             <span className="menu-label">해 본 게임</span>
             <span className="menu-arrow" aria-hidden="true">›</span>
           </a>
-          <div>
-            <button className="menu-row" type="button" aria-expanded={editing} onClick={() => { setNickname(me.nickname); setEditing(!editing); }}>
-              <span className="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></svg></span>
-              <span className="menu-label">내 정보</span>
-              <span className="menu-arrow" aria-hidden="true">{editing ? '▾' : '›'}</span>
-            </button>
-            {editing && (
-              <form className="menu-panel" onSubmit={submit}>
-                <label htmlFor="profile-nickname">닉네임</label>
-                <div className="page-actions">
-                  <input id="profile-nickname" maxLength="50" autoFocus value={nickname} onChange={(event) => setNickname(event.target.value)} />
-                  <button className="btn" disabled={saving} type="submit">{saving ? '저장 중…' : '저장'}</button>
-                  <button className="btn ghost" disabled={saving} type="button" onClick={() => setEditing(false)}>취소</button>
-                </div>
-                <p className="hint">알밤메이트에서 표시되는 내 닉네임입니다.</p>
-              </form>
-            )}
-          </div>
           {socialProviders.length > 0 && (
             <div>
-              <div className="menu-row static">
+              <button className="menu-row" type="button" aria-expanded={socialLinkOpen} onClick={() => setSocialLinkOpen(!socialLinkOpen)}>
                 <span className="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5" /><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5" /></svg></span>
                 <span className="menu-label">소셜 계정 연결</span>
-              </div>
-              <div className="menu-panel social-link-list">
-                {socialProviders.map((item) => (
-                  <div className="social-link-row" key={item.provider}>
-                    <span>{SOCIAL_PROVIDER_LABEL[item.provider]}</span>
-                    {item.linked
-                      ? <span className="social-link-state">연결됨</span>
-                      : <button className="btn ghost pill" type="button" disabled={Boolean(linking)} onClick={() => startLink(item.provider)}>{linking === item.provider ? '이동 중…' : SOCIAL_PROVIDER_LABEL[item.provider] + ' 연결'}</button>}
-                  </div>
-                ))}
-                <p className="hint">연결한 계정으로도 로그인할 수 있어요. 연결 해제와 교체는 아직 제공하지 않아요.</p>
-              </div>
+                <span className="menu-arrow" aria-hidden="true">{socialLinkOpen ? '▾' : '›'}</span>
+              </button>
+              {socialLinkOpen && (
+                <div className="menu-panel social-link-panel">
+                  {socialProviders.map((item) => {
+                    const providerLabel = SOCIAL_PROVIDER_LABEL[item.provider];
+                    const providerDetails = <>
+                      <span className={'social-provider-icon ' + item.provider.toLowerCase()} aria-hidden="true">{SOCIAL_PROVIDER_ICON[item.provider]}</span>
+                      <span className="social-link-copy">
+                        <strong>{providerLabel}</strong>
+                        <span>{item.linked ? '연결된 계정' : '로그인 수단으로 추가'}</span>
+                      </span>
+                    </>;
+                    return item.linked
+                      ? <div className="social-link-row" key={item.provider}>{providerDetails}<span className="social-link-state" role="status">연결됨</span></div>
+                      : <button className="social-link-row social-link-row-action" key={item.provider} type="button" disabled={Boolean(linking)} onClick={() => startLink(item.provider)} aria-label={providerLabel + ' 연결'}>{providerDetails}<span className="social-link-arrow" aria-hidden="true">{linking === item.provider ? '…' : '›'}</span></button>;
+                  })}
+                  <p className="social-link-note">연결한 계정으로도 로그인할 수 있어요. 연결 해제와 교체는 아직 제공하지 않아요.</p>
+                </div>
+              )}
             </div>
           )}
           <button className="menu-row" type="button" disabled={loggingOut} onClick={logout}>
@@ -1811,6 +1978,7 @@ export function SignupView({ onSignup }) {
 export function App() {
   const [{ route, arg }, navigate] = useHashRoute();
   const today = useSeoulToday();
+  const isMobile = useMobileViewport();
   const [me, setMe] = useState(null);
   const [gameQuery, setGameQuery] = useState('');
   const [roomQuery, setRoomQuery] = useState('');
@@ -2160,16 +2328,17 @@ export function App() {
   else if (route === 'my') content = me ? <MyRoomsSection myTab={myTab} onMyTabChange={setMyTab} dataVersion={dataVersion} onCancelApply={handleCancelApply} /> : <LoginRequiredView message="내 모임을 보려면 로그인해주세요." />;
   else if (route === 'chat') content = me ? <ChatRoomView roomId={arg} dataVersion={dataVersion} me={me} /> : <LoginRequiredView message="모임 채팅을 보려면 로그인해주세요." />;
   else if (route === 'chats') content = me ? <ChatListView dataVersion={dataVersion} /> : <LoginRequiredView message="채팅 목록을 보려면 로그인해주세요." />;
-  else if (route === 'profile') content = me ? <ProfileView me={me} onSave={handleSaveProfile} onLogout={handleLogout} socialProviders={socialProviders} onSocialLink={handleSocialLink} onUploadImage={handleUploadProfileImage} onDeleteImage={handleDeleteProfileImage} /> : <LoginRequiredView message="마이페이지를 보려면 로그인해주세요." />;
+  else if (route === 'profile') content = me ? <ProfileView me={me} onSave={handleSaveProfile} onLogout={handleLogout} socialProviders={socialProviders} onSocialLink={handleSocialLink} onUploadImage={handleUploadProfileImage} onDeleteImage={handleDeleteProfileImage} dataVersion={dataVersion} /> : <LoginRequiredView message="마이페이지를 보려면 로그인해주세요." />;
   else if (route === 'auth') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <AuthView onLogin={handleLogin} socialProviders={socialProviders} onSocialLogin={handleSocialLogin} />;
   else if (route === 'signup') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <SignupView onSignup={handleSignup} />;
-  else content = <HomeView onBrowsePeople={handleBrowsePeople} onSearchGame={handleSearchGame} dataVersion={dataVersion} />;
+  else content = <HomeView me={me} onBrowsePeople={handleBrowsePeople} onSearchGame={handleSearchGame} dataVersion={dataVersion} isMobile={isMobile} />;
 
   return (
     <>
       <Header
         route={route}
         me={me}
+        isMobile={isMobile}
         notificationMenu={{
           open: notificationOpen,
           unreadCount: notificationReadSync.visibleUnreadCount,
@@ -2186,7 +2355,8 @@ export function App() {
           onRetrySynchronization: notificationReadSync.retrySynchronization
         }}
       />
-      <main>{content}</main>
+      <main className={route === 'chat' ? 'chat-route-main' : route === 'game' ? 'game-detail-route-main' : undefined}>{content}</main>
+      {route !== 'chat' && route !== 'game' && <MobileBottomNavigation route={route} authenticated={authenticated} />}
       <SiteFooter />
       <ScrollToTopButton />
       <div id="toast" role="status" aria-live="polite" className={(toast.message ? 'show ' : '') + (toast.type === 'err' ? 'err' : '')}>{toast.message}</div>

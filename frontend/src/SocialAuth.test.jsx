@@ -1,5 +1,5 @@
 import React from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, clearCsrfToken, socialLoginUrl } from './api';
 import { AuthView, ProfileView, consumeSocialAuthResult, readSocialAuthResult } from './main';
@@ -28,10 +28,52 @@ function renderProfile(socialProviders, onSocialLink = vi.fn()) {
   return onSocialLink;
 }
 
+function openSocialLinkPanel() {
+  const toggle = screen.getByRole('button', { name: '소셜 계정 연결' });
+  fireEvent.click(toggle);
+  return toggle;
+}
+
 afterEach(() => {
   cleanup();
   clearCsrfToken();
   vi.unstubAllGlobals();
+});
+
+describe('프로필 수정 흐름', () => {
+  it('아바타 수정에서 닉네임과 사진 관리를 함께 열고 내 정보 메뉴는 표시하지 않는다', async () => {
+    const onSave = vi.fn().mockResolvedValue(true);
+    const onUploadImage = vi.fn().mockResolvedValue();
+    render(
+      <ProfileView
+        me={{ nickname: '테스터' }}
+        onSave={onSave}
+        onLogout={vi.fn()}
+        onUploadImage={onUploadImage}
+      />
+    );
+
+    const editButton = screen.getByRole('button', { name: '프로필 수정' });
+    expect(editButton.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('button', { name: '내 정보' })).toBeNull();
+
+    fireEvent.click(editButton);
+
+    const editor = screen.getByRole('form', { name: '프로필 수정' });
+    expect(editButton.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByLabelText('닉네임').value).toBe('테스터');
+    expect(screen.getByRole('button', { name: '사진 변경' })).toBeTruthy();
+
+    const image = new File(['profile'], 'profile.png', { type: 'image/png' });
+    fireEvent.change(screen.getByLabelText('프로필 사진 파일'), { target: { files: [image] } });
+    await waitFor(() => expect(onUploadImage).toHaveBeenCalledWith(image));
+
+    fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: '새 닉네임' } });
+    fireEvent.submit(editor);
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith('새 닉네임'));
+    await waitFor(() => expect(screen.queryByRole('form', { name: '프로필 수정' })).toBeNull());
+  });
 });
 
 describe('#334 T1 로그인 화면의 제공자 표시와 authorization 경로', () => {
@@ -121,8 +163,25 @@ describe('#334 T2 callback 고정 결과 해석과 URL 제거', () => {
 });
 
 describe('#334 T3 마이페이지 연결 상태와 연결 시작', () => {
+  it('소셜 계정 연결 목록을 제목 행에서 열고 닫는다', () => {
+    renderProfile([GOOGLE_NOT_LINKED]);
+
+    const toggle = screen.getByRole('button', { name: '소셜 계정 연결' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('Google')).toBeNull();
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText('Google')).toBeTruthy();
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('Google')).toBeNull();
+  });
+
   it('연결된 제공자는 상태만 표시하고 교체·해제를 제공하지 않는다', () => {
     renderProfile([NAVER_LINKED]);
+    openSocialLinkPanel();
 
     expect(screen.getByText('Naver')).toBeTruthy();
     expect(screen.getByText('연결됨')).toBeTruthy();
@@ -131,6 +190,7 @@ describe('#334 T3 마이페이지 연결 상태와 연결 시작', () => {
 
   it('미연결 제공자만 연결을 시작할 수 있다', () => {
     const onSocialLink = renderProfile([GOOGLE_NOT_LINKED, NAVER_LINKED]);
+    openSocialLinkPanel();
 
     fireEvent.click(screen.getByRole('button', { name: 'Google 연결' }));
 

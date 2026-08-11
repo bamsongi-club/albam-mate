@@ -38,6 +38,7 @@ vi.mock('./api', () => ({
 }));
 
 const { GamesView, GameDetailView } = await import('./game/index.js');
+const { ProfileView } = await import('./main.jsx');
 
 const GAME = {
   id: 7,
@@ -73,7 +74,7 @@ async function renderGameDetailView(props = {}) {
 }
 
 function playedToggle() {
-  return screen.getByRole('button', { name: '해봤어요' });
+  return screen.getByRole('button', { name: /해봤어요|저장 중…/ });
 }
 
 function openFilterPanel() {
@@ -112,6 +113,7 @@ describe('T7 해 본 게임 표시와 취소', () => {
 
     expect(markGamePlayed).toHaveBeenCalledWith('7');
     expect(playedToggle().getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: '해봤어요 ✓' })).toBeTruthy();
   });
 
   it('이미 표시한 게임을 다시 누르면 취소를 요청하고 결과를 반영한다', async () => {
@@ -133,6 +135,7 @@ describe('T7 해 본 게임 표시와 취소', () => {
 
     await act(async () => { fireEvent.click(playedToggle()); });
     expect(playedToggle().disabled).toBe(true);
+    expect(screen.getByRole('button', { name: '저장 중…' })).toBeTruthy();
 
     await act(async () => { resolveMark({ gameId: 7, playedByMe: true }); });
     expect(playedToggle().disabled).toBe(false);
@@ -159,6 +162,68 @@ describe('T7 해 본 게임 표시와 취소', () => {
 
     expect(markGamePlayed).toHaveBeenCalledWith('7');
     expect(playedToggle().getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: '해봤어요 ✓' })).toBeTruthy();
+  });
+
+  it('상세 화면의 게임 모임 만들기 버튼은 선택한 게임을 생성 화면으로 넘긴다', async () => {
+    const onCreateGame = vi.fn();
+    await renderGameDetailView({ onCreateGame });
+
+    fireEvent.click(screen.getByRole('button', { name: '게임 모임 만들기' }));
+
+    expect(onCreateGame).toHaveBeenCalledWith(expect.objectContaining({ id: '7', title: '루미큐브' }));
+  });
+
+  it('상세 응답의 테마와 메커니즘을 빠짐없이 표시한다', async () => {
+    getGame.mockResolvedValue({
+      ...GAME,
+      themes: [{ code: 'FANTASY', nameKo: '판타지' }, { code: 'WAR', nameKo: '전쟁' }],
+      mechanisms: [{ code: 'DICE_ROLLING', nameKo: '주사위 굴리기' }, { code: 'HAND_MANAGEMENT', nameKo: '핸드 관리' }]
+    });
+    await renderGameDetailView();
+
+    expect(screen.getByLabelText('게임 정보')).toBeTruthy();
+    expect(screen.queryByText('특징')).toBeNull();
+    expect(screen.getByText('판타지')).toBeTruthy();
+    expect(screen.getByText('전쟁')).toBeTruthy();
+    expect(screen.getByText('주사위 굴리기')).toBeTruthy();
+    expect(screen.getByText('핸드 관리')).toBeTruthy();
+  });
+
+  it('상세 상단에 영어명·출시 연도·권장 나이와 해 본 게임 조작을 함께 표시한다', async () => {
+    getGame.mockResolvedValue({ ...GAME, releaseYear: 1990, minAge: 8 });
+    await renderGameDetailView();
+
+    expect(screen.getByText('Rummikub · 1990 · 8세+')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '해봤어요' })).toBeTruthy();
+  });
+});
+
+describe('프로필의 플레이한 게임 미리보기', () => {
+  it('최근 플레이한 게임 세 개와 전체 목록 진입점을 표시한다', async () => {
+    getGames.mockResolvedValue({
+      content: [
+        { ...GAME, id: 7, name: '루미큐브' },
+        { ...GAME, id: 8, name: '윙스팬' },
+        { ...GAME, id: 9, name: '스플렌더' }
+      ],
+      page: 0,
+      size: 3,
+      totalElements: 19,
+      totalPages: 7
+    });
+
+    render(<ProfileView me={{ nickname: '테스터' }} onSave={vi.fn()} onLogout={vi.fn()} />);
+    await act(async () => {});
+
+    expect(getGames).toHaveBeenCalledWith(
+      expect.objectContaining({ playedFilter: 'PLAYED_ONLY', page: 0, size: 3 }),
+      expect.any(AbortSignal)
+    );
+    expect(screen.getByRole('heading', { name: '플레이한 게임' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: '플레이한 게임 전체 19개 보기' }).getAttribute('href')).toBe('#/game-list/played');
+    expect(screen.getByRole('link', { name: '루미큐브 게임 상세' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: '게임 추가' }).getAttribute('href')).toBe('#/game-list');
   });
 });
 

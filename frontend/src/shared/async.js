@@ -33,6 +33,7 @@ export function useRequest(load, dependencies) {
 
 export function usePaginatedRequest(loadPage, dependencies) {
   const [page, setPage] = useState(0);
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const [state, setState] = useState({ data: null, loading: true, error: '' });
   const loadPageRef = useRef(loadPage);
   loadPageRef.current = loadPage;
@@ -52,7 +53,7 @@ export function usePaginatedRequest(loadPage, dependencies) {
         setState({ data: null, loading: false, error: messageForError(error), unauthenticated: isUnauthenticated(error) });
       });
     return () => { active = false; controller.abort(); };
-  }, [page, ...dependencies]);
+  }, [page, refreshVersion, ...dependencies]);
 
-  return { ...state, page, setPage };
+  return { ...state, page, setPage, retry: () => setRefreshVersion((version) => version + 1) };
 }

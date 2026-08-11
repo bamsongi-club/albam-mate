@@ -35,6 +35,10 @@ class FakeWebSocket {
     this.onmessage?.({ data: JSON.stringify(payload) });
   }
 
+  rawMessage(data) {
+    this.onmessage?.({ data });
+  }
+
   drop(code = 1006) {
     this.onclose?.({ code });
   }
@@ -184,6 +188,7 @@ describe('#427 T4 채팅 라우트 진입', () => {
 
     await waitFor(() => expect(screen.getByText('7시에 만나요')).toBeTruthy());
     expect(getChatMessages).toHaveBeenCalledWith('7', expect.anything());
+    expect(screen.queryByRole('navigation', { name: '모바일 주요 메뉴' })).toBeNull();
   });
 
   it('로그인하지 않은 채로 채팅 주소에 들어오면 이력을 요청하지 않고 로그인을 안내한다', async () => {
@@ -199,6 +204,22 @@ describe('#427 T4 채팅 라우트 진입', () => {
 });
 
 describe('#427 T5 채팅 화면 이력 표시', () => {
+  it('모바일 채팅 헤더에 전체 채팅과 모임 상세 동선을 제공한다', async () => {
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [{ messageId: 1, roomId: 7, clientMessageId: 'c1', sender: { nickname: '주최자' }, isMine: false, content: '7시에 만나요', createdAt: '2026-09-01T19:00:00+09:00' }],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+    vi.spyOn(api, 'getRoom').mockResolvedValue(myRoom({ participantCount: 3 }));
+
+    const { container } = render(<ChatRoomView roomId="7" dataVersion={0} />);
+
+    await waitFor(() => expect(container.querySelector('.chat-mobile-header')).toBeTruthy());
+    expect(container.querySelector('.chat-mobile-title')?.textContent).toBe('홍대 보드게임 모임');
+    expect(screen.getByRole('link', { name: '전체 채팅으로 돌아가기' }).getAttribute('href')).toBe('#/chats');
+    expect(screen.getByRole('link', { name: '모임 상세 보기' }).getAttribute('href')).toBe('#/session/7');
+  });
+
   it('허용된 방의 이력을 오래된 순서로 일반 텍스트로 보여준다', async () => {
     vi.spyOn(api, 'getChatMessages').mockResolvedValue({
       messages: [
@@ -262,7 +283,8 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     });
 
     await waitFor(() => expect(screen.getByText('방금 도착한 메시지')).toBeTruthy());
-    expect(screen.getByRole('status').textContent).toContain('실시간 연결됨');
+    expect(screen.queryByText('실시간 연결됨')).toBeNull();
+    expect(screen.queryByText(/실시간 연결.*중/)).toBeNull();
     sockets[0].message({
       eventId: 99,
       type: 'MESSAGE_CREATED',
@@ -628,7 +650,10 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     });
     expect(sockets).toHaveLength(1);
     sockets[0].open();
-    sockets[0].drop();
+    await act(async () => {
+      sockets[0].drop();
+    });
+    expect(screen.getByRole('status').textContent).toContain('실시간 채팅을 다시 연결하고 있어요.');
     await act(async () => {
       vi.advanceTimersByTime(500);
       await Promise.resolve();
@@ -653,7 +678,62 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     vi.useRealTimers();
   });
 
-  it('정책 위반 종료는 접근 종료로 표시하고 재연결하지 않는다', async () => {
+  it('파싱할 수 없는 프레임 뒤 마지막 정상 이벤트 ID부터 다시 연결한다', async () => {
+    vi.useFakeTimers();
+    const sockets = useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [{ messageId: 20, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '마지막 이력', createdAt: '2026-09-01T19:00:00+09:00' }],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(sockets).toHaveLength(1);
+    sockets[0].open();
+
+    await act(async () => {
+      sockets[0].rawMessage('{malformed');
+      sockets[0].message({
+        eventId: 22,
+        type: 'MESSAGE_CREATED',
+        message: { messageId: 22, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '기존 연결의 후속 메시지', createdAt: '2026-09-01T19:02:00+09:00' }
+      });
+    });
+
+    expect(screen.queryByText('기존 연결의 후속 메시지')).toBeNull();
+    expect(screen.getByRole('status').textContent).toContain('실시간 채팅을 다시 연결하고 있어요.');
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+      await Promise.resolve();
+    });
+
+    expect(sockets).toHaveLength(2);
+    expect(sockets[1].url).toContain('/api/rooms/7/chat/ws?afterMessageId=20');
+    await act(async () => {
+      sockets[1].message({
+        eventId: 21,
+        type: 'MESSAGE_CREATED',
+        message: { messageId: 21, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '복구된 누락 메시지', createdAt: '2026-09-01T19:01:00+09:00' }
+      });
+      sockets[1].message({
+        eventId: 22,
+        type: 'MESSAGE_CREATED',
+        message: { messageId: 22, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '복구된 후속 메시지', createdAt: '2026-09-01T19:02:00+09:00' }
+      });
+    });
+
+    expect(Array.from(document.querySelectorAll('.chat-content')).map((node) => node.textContent)).toEqual([
+      '마지막 이력',
+      '복구된 누락 메시지',
+      '복구된 후속 메시지'
+    ]);
+  });
+
+  it('정책 위반 종료는 재연결하지 않고 재진입 동선을 제공한다', async () => {
     vi.useFakeTimers();
     const sockets = useFakeWebSocket();
     vi.spyOn(api, 'getChatMessages').mockResolvedValue({
@@ -676,7 +756,54 @@ describe('#431 CHAT-03 실시간 수신·재연결', () => {
     });
 
     expect(sockets).toHaveLength(1);
-    expect(screen.getByRole('status').textContent).toContain('채팅 접근 권한이 종료되어');
+    expect(screen.getByRole('status').textContent).toContain('이 채팅의 실시간 연결이 종료됐어요.');
+    expect(screen.getByRole('link', { name: '채팅 목록으로 이동' }).getAttribute('href')).toBe('#/chats');
+    vi.useRealTimers();
+  });
+
+  it('초기 실시간 연결 실패에는 상태와 채팅 목록 재진입 동선을 제공한다', async () => {
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+    vi.spyOn(api, 'openChatWebSocket').mockImplementation(() => { throw new Error('연결 실패'); });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+
+    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('실시간 채팅 연결을 시작하지 못했어요.'));
+    expect(screen.getByRole('link', { name: '채팅 목록으로 이동' }).getAttribute('href')).toBe('#/chats');
+  });
+
+  it('재연결 한도를 모두 쓰면 종료 상태와 채팅 목록 재진입 동선을 제공한다', async () => {
+    vi.useFakeTimers();
+    const sockets = useFakeWebSocket();
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    sockets[0].open();
+    for (const delay of [500, 1000, 2000, 4000, 8000]) {
+      sockets.at(-1).drop();
+      await act(async () => {
+        vi.advanceTimersByTime(delay);
+        await Promise.resolve();
+      });
+    }
+    await act(async () => {
+      sockets.at(-1).drop();
+    });
+
+    expect(sockets).toHaveLength(6);
+    expect(screen.getByRole('status').textContent).toContain('실시간 채팅을 다시 연결하지 못했어요.');
+    expect(screen.getByRole('link', { name: '채팅 목록으로 이동' }).getAttribute('href')).toBe('#/chats');
     vi.useRealTimers();
   });
 });
