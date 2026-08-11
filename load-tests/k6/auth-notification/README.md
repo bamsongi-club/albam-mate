@@ -128,7 +128,7 @@ docker compose --env-file .env -f compose.local.yml exec -T postgres \
 | 대상 | 로컬 실행 조건 |
 | --- | --- |
 | 계약 3종 | 그대로 실행한다. `login-ip` case는 31회 로그인으로 제한을 일부러 건드리므로 Run 사이에 Redis를 비운다 |
-| `mixed-load-capacity` | `MIXED_LOAD_SMOKE=1`로 실행한다. 세션 5개·알림 이벤트 6건/분으로 고정되고 제한 상향 없이 돈다. 모든 VU가 미확인 개수와 알림 목록을 조회한다 |
+| `mixed-load-capacity` | `MIXED_LOAD_SMOKE=1`로 실행한다. `1`만 스모크를 활성화하며 빈 값·`0`·`false`는 공식 용량 Run으로 취급한다. 세션 5개·알림 이벤트 6건/분으로 고정되고 제한 상향 없이 돈다. 모든 VU가 미확인 개수와 알림 목록을 조회한다 |
 | `notification-polling-capacity`, `notification-fanout-capacity` | 기본값의 로그인 수가 제한 안에 들어가므로 아래 제한 상향만 적용하면 그대로 돈다 |
 | `auth-capacity` | 로그인 수가 제한을 크게 넘으므로 반드시 제한 상향이 필요하다 |
 

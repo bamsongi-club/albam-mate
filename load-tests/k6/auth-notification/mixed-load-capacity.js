@@ -20,7 +20,11 @@ import {
 
 // 로컬 예행용 스모크 모드다. 크기를 상수로 고정해 측정값으로 오인할 수 없게 하고, 로그인 수가 기본 인증
 // 제한 안에 들어가므로 제한 상향 없이 돌 수 있다. 결과는 동작 확인용일 뿐 용량 근거가 아니다.
-const SMOKE = (__ENV.MIXED_LOAD_SMOKE || '').trim() !== '';
+const SMOKE_FLAG = (__ENV.MIXED_LOAD_SMOKE || '').trim().toLowerCase();
+if (!['', '0', '1', 'false'].includes(SMOKE_FLAG)) {
+  throw new Error('MIXED_LOAD_SMOKE는 스모크 실행일 때만 1을 사용하고, 비활성화할 때는 비우거나 0 또는 false를 사용해야 합니다.');
+}
+const SMOKE = SMOKE_FLAG === '1';
 const SMOKE_ONLINE_SESSIONS = 5;
 const SMOKE_EVENTS_PER_MINUTE = 6;
 const SMOKE_EVENT_MAX_VUS = 2;

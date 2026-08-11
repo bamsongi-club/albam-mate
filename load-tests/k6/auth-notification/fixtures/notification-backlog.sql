@@ -10,6 +10,24 @@
 -- 그 사실이 결과 어디에도 드러나지 않는다. 오류가 나면 ON_ERROR_STOP이 psql을 끝내고 전체가 되돌아간다.
 BEGIN;
 
+-- 실행기가 보장하는 입력 계약을 SQL에서도 다시 확인한다. 범위를 벗어난 값이 조용히 0건을 만들거나
+-- 지나치게 큰 fixture를 적재하지 못하도록 제약 위반으로 즉시 중단한다.
+CREATE TEMP TABLE notification_backlog_parameters (
+    run_id text NOT NULL CONSTRAINT notification_backlog_run_id_not_empty CHECK (run_id <> ''),
+    user_count integer NOT NULL CONSTRAINT notification_backlog_user_count_range CHECK (user_count BETWEEN 1 AND 20000),
+    room_count integer NOT NULL CONSTRAINT notification_backlog_room_count_range CHECK (room_count BETWEEN 1 AND 1000),
+    notifications_per_user integer NOT NULL
+        CONSTRAINT notification_backlog_per_user_range CHECK (notifications_per_user BETWEEN 1 AND 10000),
+    unread_percent integer NOT NULL
+        CONSTRAINT notification_backlog_unread_percent_range CHECK (unread_percent BETWEEN 0 AND 100)
+) ON COMMIT DROP;
+
+INSERT INTO notification_backlog_parameters (
+    run_id, user_count, room_count, notifications_per_user, unread_percent)
+VALUES (
+    :'run_id', :user_count::integer, :room_count::integer,
+    :notifications_per_user::integer, :unread_percent::integer);
+
 -- Run ID 단위 직렬화. 두 번째 실행은 여기서 기다렸다가 중복 적용 검사에서 멈춘다. 트랜잭션 종료와 함께
 -- 자동으로 풀리므로 별도 해제가 필요 없다.
 SELECT pg_advisory_xact_lock(hashtext('albam-mate-notification-backlog'), hashtext(:'run_id'));
@@ -103,21 +121,37 @@ backlog AS (
     CROSS JOIN event_id_base
     CROSS JOIN generate_series(0, :notifications_per_user::integer - 1) AS item(item_index)
     JOIN backlog_room ON backlog_room.room_offset = item.item_index % backlog_room.room_total
+),
+inserted_notifications AS (
+    INSERT INTO notifications (
+        source_event_id, recipient_user_id, room_id, type, read_at, created_at, recorded_at, expires_at)
+    SELECT
+        backlog.source_event_id,
+        backlog.recipient_user_id,
+        backlog.room_id,
+        backlog.type,
+        CASE
+            WHEN backlog.unread THEN NULL
+            ELSE LEAST(backlog.created_at + INTERVAL '1 hour', clock_timestamp())
+        END,
+        backlog.created_at,
+        backlog.created_at,
+        backlog.created_at + INTERVAL '90 day'
+    FROM backlog
+    RETURNING 1
 )
-INSERT INTO notifications (
-    source_event_id, recipient_user_id, room_id, type, read_at, created_at, recorded_at, expires_at)
+-- 입력 범위가 유효해도 조인 조건이 달라져 예상보다 적게 적재되면 빈 데이터 측정을 막기 위해 실패한다.
+-- 분모가 실제 INSERT 결과에 의존하므로 유효한 경우 플래너가 0 나눗셈을 미리 평가하지 않는다.
 SELECT
-    backlog.source_event_id,
-    backlog.recipient_user_id,
-    backlog.room_id,
-    backlog.type,
-    CASE
-        WHEN backlog.unread THEN NULL
-        ELSE LEAST(backlog.created_at + INTERVAL '1 hour', clock_timestamp())
-    END,
-    backlog.created_at,
-    backlog.created_at,
-    backlog.created_at + INTERVAL '90 day'
-FROM backlog;
+    count(*) AS inserted_notifications,
+    :user_count::bigint * :notifications_per_user::bigint AS expected_notifications,
+    1 / (
+        CASE
+            WHEN count(*) = :user_count::bigint * :notifications_per_user::bigint
+                AND count(*) > 0 THEN 1
+            ELSE 0
+        END
+    ) AS notification_backlog_verified
+FROM inserted_notifications;
 
 COMMIT;
