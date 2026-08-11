@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 기존 기능과 해시 라우트를 유지한 채, 모바일에서 독립적인 탐색·내 모임·채팅 경험을 제공한다.
+**Goal:** 기존 기능과 해시 라우트를 유지한 채, 모바일에서 독립적인 탐색·내 모임 확인·채팅 경험을 제공한다.
 
 **Architecture:** 새 `mobile` 컴포넌트는 모바일의 정보 구조만 담당하고 기존 `api.js`, 해시 라우팅, 권한 검사는 재사용한다. `main.jsx`는 컴포넌트를 배선하고, `styles.css`는 767px 이하에서 모바일 전용 셸을 활성화한다. 데스크톱 구조는 유지하되 공용 토큰만 공유한다.
 
@@ -12,7 +12,7 @@
 
 - 모든 API 호출은 `frontend/src/api.js`의 `api` 객체를 통한다.
 - 모바일 breakpoint는 `max-width: 767px`이며, 주요 터치 대상은 최소 44px이다.
-- 하단 탭은 `홈`, `게임`, `내 모임`, `내정보` 네 개이며 전체 채팅은 상단 아이콘에 남긴다.
+- 하단 탭은 `홈`, `게임`, `모임 찾기`, `내정보` 네 개이며 전체 채팅은 상단 아이콘에 남긴다. `내 모임`은 `내정보`의 목록 항목에서 연다.
 - 모바일 홈의 내 모임 요약은 `joined`와 `hosted`의 기존 `getMyRooms` 결과만 사용한다. 새 서버 API·정렬 계약은 만들지 않는다.
 - 전체 Vitest 병렬 실행은 기준 `develop`에서도 worker timeout으로 실패한다. 이번 변경의 TDD 명령에는 `--maxWorkers=1`을 붙인다.
 - 새로운 생산 코드마다 먼저 실패하는 테스트를 관찰하고, 해당 테스트가 통과한 뒤에만 다음 동작으로 간다.
@@ -27,7 +27,7 @@
 
 **Interfaces:**
 - Consumes: `route: string`, `authenticated: boolean`
-- Produces: `mobileTabForRoute(route): 'home' | 'game' | 'my' | 'profile'` and `MobileBottomNavigation` React component
+- Produces: `mobileTabForRoute(route): 'home' | 'game' | 'find' | 'profile' | null` and `MobileBottomNavigation` React component
 
 - [x] **Step 1: Write the failing test**
 
@@ -41,14 +41,14 @@ it('로그인 사용자의 현재 게임 화면을 활성화하고 네 개의 �
 
   expect(screen.getByRole('navigation', { name: '모바일 주요 메뉴' })).toBeTruthy();
   expect(screen.getByRole('link', { name: '게임' }).getAttribute('aria-current')).toBe('page');
-  expect(screen.getByRole('link', { name: '내 모임' }).getAttribute('href')).toBe('#/my');
+  expect(screen.getByRole('link', { name: '모임 찾기' }).getAttribute('href')).toBe('#/find');
   expect(screen.getAllByRole('link')).toHaveLength(4);
 });
 
-it('비로그인 사용자의 내 모임과 내정보 탭을 로그인 진입점으로 보낸다', () => {
+it('비로그인 사용자도 모임 찾기는 이용하고 내정보만 로그인 화면으로 보낸다', () => {
   render(<MobileBottomNavigation route="home" authenticated={false} />);
 
-  expect(screen.getByRole('link', { name: '내 모임' }).getAttribute('href')).toBe('#/auth');
+  expect(screen.getByRole('link', { name: '모임 찾기' }).getAttribute('href')).toBe('#/find');
   expect(screen.getByRole('link', { name: '내정보' }).getAttribute('href')).toBe('#/auth');
 });
 ```
@@ -64,8 +64,9 @@ Expected: FAIL because `MobileNavigation.jsx` does not exist.
 ```jsx
 export const mobileTabForRoute = (route) => {
   if (route === 'game' || route === 'game-list') return 'game';
-  if (route === 'my' || route === 'create' || route === 'edit' || route === 'session' || route === 'chat' || route === 'chats') return 'my';
-  if (route === 'profile' || route === 'auth' || route === 'signup') return 'profile';
+  if (route === 'find' || route === 'create' || route === 'session') return 'find';
+  if (route === 'my' || route === 'edit' || route === 'profile' || route === 'auth' || route === 'signup') return 'profile';
+  if (route === 'chat' || route === 'chats') return null;
   return 'home';
 };
 
@@ -74,7 +75,7 @@ export function MobileBottomNavigation({ route, authenticated }) {
   const tabs = [
     { key: 'home', label: '홈', href: '#/home', icon: '⌂' },
     { key: 'game', label: '게임', href: '#/game-list', icon: '🎲' },
-    { key: 'my', label: '내 모임', href: authenticated ? '#/my' : '#/auth', icon: '♟' },
+    { key: 'find', label: '모임 찾기', href: '#/find', icon: '♟' },
     { key: 'profile', label: '내정보', href: authenticated ? '#/profile' : '#/auth', icon: '♙' }
   ];
 
@@ -91,7 +92,7 @@ export function MobileBottomNavigation({ route, authenticated }) {
 }
 ```
 
-각 링크의 접근 가능한 이름은 레이블만 남긴다. 실제 아이콘은 구현 시 기존 `SectionIcon`과 동일한 선형 SVG로 바꿔도 되지만, 탭의 key·label·href·접근성 계약은 위 코드와 같아야 한다.
+각 링크의 접근 가능한 이름은 레이블만 남긴다. 실제 아이콘은 구현 시 선형 SVG로 바꿔도 되지만, 탭의 key·label·href·접근성 계약은 위 코드와 같아야 한다. `#/my`는 `내정보`에서 진입하는 화면이므로 `profile` 탭을 활성화한다.
 
 - [x] **Step 4: Run test to verify it passes**
 
@@ -338,7 +339,7 @@ npm test -- src/mobile/MobileNavigation.test.jsx src/mobile/MobileHomePanel.test
 npm run build
 ```
 
-그 뒤 Vite preview에서 390px, 767px, 1180px 폭을 확인한다. 390px에서는 하단 탭이 가려지지 않고, 홈·게임·내 모임·내정보·채팅의 조작이 44px 이상이며, 1180px에서는 기존 헤더와 목록 구조가 유지되어야 한다.
+그 뒤 Vite preview에서 390px, 767px, 1180px 폭을 확인한다. 390px에서는 하단 탭이 가려지지 않고, 홈·게임·모임 찾기·내정보·채팅의 조작이 44px 이상이며, 1180px에서는 기존 헤더와 목록 구조가 유지되어야 한다.
 
 - [x] **Step 4: Commit**
 
