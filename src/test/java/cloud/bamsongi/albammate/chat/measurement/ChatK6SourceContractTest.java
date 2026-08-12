@@ -43,6 +43,7 @@ class ChatK6SourceContractTest {
 		assertThat(library).contains("stage: deliveryStage(),");
 		assertThat(library).contains("loadSubscriberReceivedMessages");
 		assertThat(library).contains("loadSubscriberDeliveryComplete.add(receivedMessageCount > 0");
+		assertThat(library).contains("const warmupDuration = `${warmupMilliseconds}ms`;");
 		assertThat(fanout).contains("thresholds: loadThresholds(stepCount, true)");
 		assertThat(rooms).contains("thresholds: loadThresholds(stepCount, true)");
 		assertThat(mixed).contains("thresholds: loadThresholds(stepCount, true)");
