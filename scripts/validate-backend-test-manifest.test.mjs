@@ -450,6 +450,84 @@ test('JUnit이 아닌 같은 이름의 Test 어노테이션은 selector evidence
     );
 });
 
+test('JUnit import를 가리는 중첩 동명 Test 어노테이션을 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(
+        path.join(worktree, source),
+        'package cloud.bamsongi;\n\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    @interface Test {\n    }\n\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        'utf8',
+    );
+
+    assert.ok(
+        keywords(validate(validPacket(), validManifest(), worktree)).includes('selectorMethod'),
+    );
+});
+
+test('JUnit이 발견하지 않는 test method modifier를 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+
+    for (const modifier of ['private', 'static', 'abstract']) {
+        const terminator = modifier === 'abstract' ? ';' : ' {\n    }';
+        fs.writeFileSync(
+            path.join(worktree, source),
+            `package cloud.bamsongi;\n\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    @Test\n    ${modifier} void 알림을_읽음_처리한다()${terminator}\n}\n`,
+            'utf8',
+        );
+
+        assert.ok(
+            keywords(validate(validPacket(), validManifest(), worktree)).includes(
+                'selectorMethod',
+            ),
+            modifier,
+        );
+    }
+});
+
+test('abstract 최상위 테스트 클래스의 selector를 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(
+        path.join(worktree, source),
+        'package cloud.bamsongi;\n\nimport org.junit.jupiter.api.Test;\n\nabstract class NotificationReadServiceTest {\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        'utf8',
+    );
+
+    assert.ok(
+        keywords(validate(validPacket(), validManifest(), worktree)).includes('selectorClass'),
+    );
+});
+
+test('text block의 escaped delimiter 뒤 가짜 테스트 선언을 허용하지 않는다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(
+        path.join(worktree, source),
+        'package cloud.bamsongi;\n\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    String value = """\n        \\"""\n        @Test\n        void 가짜_테스트() {\n        }\n        \\"""\n        """;\n}\n',
+        'utf8',
+    );
+    const manifest = validManifest();
+    manifest.tests[0].evidence[0].selector =
+        'cloud.bamsongi.NotificationReadServiceTest.가짜_테스트';
+
+    assert.ok(keywords(validate(validPacket(), manifest, worktree)).includes('selectorMethod'));
+});
+
+test('Java Unicode escape 전처리가 필요한 source는 fail-closed 한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(
+        path.join(worktree, source),
+        'package cloud.bamsongi;\n\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    String marker = "\\u0022";\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        'utf8',
+    );
+
+    assert.ok(
+        keywords(validate(validPacket(), validManifest(), worktree)).includes('sourceSyntax'),
+    );
+});
+
 test('중첩 클래스에만 선언된 테스트 메서드를 바깥 클래스 selector로 허용하지 않는다', (t) => {
     const worktree = createWorktree(t);
     const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';

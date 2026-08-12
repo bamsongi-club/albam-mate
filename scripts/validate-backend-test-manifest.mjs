@@ -240,7 +240,10 @@ function sanitizeJavaSource(contents) {
                 result += blank;
             }
         } else if (state === 'textBlock') {
-            if (current === '"' && next === '"' && third === '"') {
+            if (current === '\\' && next !== undefined) {
+                result += ` ${next === '\r' || next === '\n' ? next : ' '}`;
+                index += 1;
+            } else if (current === '"' && next === '"' && third === '"') {
                 result += '   ';
                 index += 2;
                 state = 'code';
@@ -276,8 +279,9 @@ function braceDepthAt(contents, endIndex) {
 function findTopLevelType(contents, className) {
     const escaped = className.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
     const declaration = new RegExp(
-        `\\b(?:class|record|interface|enum)\\s+${escaped}\\b[^{}]*\\{`,
-        'gu',
+        `^[\\t ]*((?:(?:public|protected|private|abstract|static|final|strictfp|sealed|non-sealed)\\s+)*)` +
+            `(?:class|record|interface|enum)\\s+${escaped}\\b[^{}]*\\{`,
+        'gmu',
     );
 
     for (const match of contents.matchAll(declaration)) {
@@ -287,13 +291,19 @@ function findTopLevelType(contents, className) {
         for (let index = open + 1; index < contents.length; index += 1) {
             if (contents[index] === '{') depth += 1;
             if (contents[index] === '}') depth -= 1;
-            if (depth === 0) return { open, close: index };
+            if (depth === 0) {
+                const modifiers = new Set(match[1].trim().split(/\s+/u).filter(Boolean));
+                return { open, close: index, isAbstract: modifiers.has('abstract') };
+            }
         }
     }
     return null;
 }
 
 function parseTestSource(contents, source) {
+    if (/\\u+[0-9a-f]{4}/iu.test(contents)) {
+        return { unsupportedSyntax: 'Java Unicode escape' };
+    }
     const sanitized = sanitizeJavaSource(contents);
     const packageMatch = sanitized.match(
         /^\s*package\s+([$_\p{ID_Start}][$_\u200c\u200d\p{ID_Continue}]*(?:\.[$_\p{ID_Start}][$_\u200c\u200d\p{ID_Continue}]*)*)\s*;/u,
@@ -302,7 +312,7 @@ function parseTestSource(contents, source) {
     const className = path.posix.basename(source, '.java');
     const classRange = findTopLevelType(sanitized, className);
     const fqcn = packageName === '' ? className : `${packageName}.${className}`;
-    return { sanitized, fqcn, classRange };
+    return { sanitized, fqcn, classRange, unsupportedSyntax: null };
 }
 
 function hasImport(contents, importedType) {
@@ -316,14 +326,18 @@ function hasSupportedTestAnnotation(contents, annotationBlock) {
     );
     if (annotationNames.includes('org.junit.jupiter.api.Test')) return true;
     if (annotationNames.includes('org.junit.jupiter.params.ParameterizedTest')) return true;
+    const declaresTest = /@interface\s+Test\b/u.test(contents);
+    const declaresParameterizedTest = /@interface\s+ParameterizedTest\b/u.test(contents);
     if (
         annotationNames.includes('Test') &&
+        !declaresTest &&
         hasImport(contents, 'org.junit.jupiter.api.Test')
     ) {
         return true;
     }
     return (
         annotationNames.includes('ParameterizedTest') &&
+        !declaresParameterizedTest &&
         hasImport(contents, 'org.junit.jupiter.params.ParameterizedTest')
     );
 }
@@ -333,7 +347,9 @@ function hasTestMethodDeclaration(sourceInfo, methodName) {
     if (!sourceInfo.classRange) return false;
     const escaped = methodName.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
     const declaration = new RegExp(
-        `((?:^[\\t ]*@[^\\r\\n]+\\r?\\n)+)^[\\t ]*(?:(?:public|protected|private|static|final|synchronized|abstract|native|strictfp)\\s+)*void\\s+${escaped}\\s*\\(`,
+        `((?:^[\\t ]*@[^\\r\\n]+\\r?\\n)+)^[\\t ]*` +
+            `((?:(?:public|protected|private|static|final|synchronized|abstract|native|strictfp)\\s+)*)` +
+            `void\\s+${escaped}\\s*\\(`,
         'gmu',
     );
 
@@ -342,6 +358,10 @@ function hasTestMethodDeclaration(sourceInfo, methodName) {
             continue;
         }
         if (braceDepthAt(sourceInfo.sanitized, match.index) !== 1) continue;
+        const modifiers = new Set(match[2].trim().split(/\s+/u).filter(Boolean));
+        if (['private', 'static', 'abstract', 'native'].some((modifier) => modifiers.has(modifier))) {
+            continue;
+        }
         if (hasSupportedTestAnnotation(sourceInfo.sanitized, match[1])) return true;
     }
     return false;
@@ -484,8 +504,21 @@ function validateManifestRelations(packet, manifest, worktree) {
             }
 
             const sourceInfo = parseTestSource(contents, normalizedSource);
+            if (sourceInfo.unsupportedSyntax) {
+                addError(
+                    errors,
+                    `${evidencePath}.source`,
+                    'sourceSyntax',
+                    `${sourceInfo.unsupportedSyntax}가 있는 source는 selector를 안전하게 정적 검증할 수 없습니다.`,
+                );
+                return;
+            }
             const selectorClass = selector.slice(0, selector.lastIndexOf('.'));
-            if (!sourceInfo.classRange || selectorClass !== sourceInfo.fqcn) {
+            if (
+                !sourceInfo.classRange ||
+                sourceInfo.classRange.isAbstract ||
+                selectorClass !== sourceInfo.fqcn
+            ) {
                 addError(
                     errors,
                     `${evidencePath}.selector`,
