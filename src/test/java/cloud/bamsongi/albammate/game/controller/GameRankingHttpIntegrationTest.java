@@ -24,9 +24,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
-
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.fixture.GameFixture;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
@@ -34,6 +31,8 @@ import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.fixture.RoomFixture;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest
 @AutoConfigureMockMvc
