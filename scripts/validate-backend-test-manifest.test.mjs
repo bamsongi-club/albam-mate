@@ -334,6 +334,19 @@ test('task와 source set이 다르면 거부한다', (t) => {
     assert.ok(keywords(validate(validPacket(), manifest, worktree)).includes('sourceSet'));
 });
 
+test('상위 경로로 다른 source set에 진입하는 source를 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const packet = validPacket();
+    const manifest = validManifest();
+    requirePostgres(packet, manifest);
+    manifest.tests[1].evidence[0].source =
+        'src/postgresTest/java/../../test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    manifest.tests[1].evidence[0].selector =
+        'cloud.bamsongi.NotificationReadServiceTest.알림을_읽음_처리한다';
+
+    assert.ok(keywords(validate(packet, manifest, worktree)).includes('sourcePath'));
+});
+
 test('test와 postgresTest 이외의 task를 거부한다', (t) => {
     const worktree = createWorktree(t);
     const manifest = validManifest();
@@ -351,7 +364,7 @@ test('미존재 source와 worktree 밖 source를 거부한다', (t) => {
 
     const outside = validManifest();
     outside.tests[0].evidence[0].source = '../OutsideTest.java';
-    assert.ok(keywords(validate(validPacket(), outside, worktree)).includes('worktreePath'));
+    assert.ok(keywords(validate(validPacket(), outside, worktree)).includes('sourcePath'));
 });
 
 test('같은 T-ID 안의 중복 task와 selector를 거부한다', (t) => {
@@ -381,13 +394,13 @@ test('메서드명이 다른 선언의 접미사여도 거부한다', (t) => {
     assert.ok(keywords(validate(validPacket(), manifest, worktree)).includes('selectorMethod'));
 });
 
-test('중첩 클래스 selector는 클래스 일치까지만 확인한다', (t) => {
+test('검증하지 않는 중첩 클래스 selector를 거부한다', (t) => {
     const worktree = createWorktree(t);
     const manifest = validManifest();
     manifest.tests[0].evidence[0].selector =
         'cloud.bamsongi.NotificationReadServiceTest$읽음.아직_없는_메서드';
 
-    assert.deepEqual(validate(validPacket(), manifest, worktree), []);
+    assert.ok(keywords(validate(validPacket(), manifest, worktree)).includes('exactSelector'));
 });
 
 test('Red 상태, 명령과 실행 결과 필드를 schema에서 거부한다', (t) => {

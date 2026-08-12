@@ -185,7 +185,15 @@ function isExactSelector(selector, source) {
     }
     const sourceClass = path.posix.basename(source.replaceAll('\\', '/'), '.java');
     const selectorClass = segments.at(-2);
-    return selectorClass === sourceClass || selectorClass.startsWith(`${sourceClass}$`);
+    return !selectorClass.includes('$') && selectorClass === sourceClass;
+}
+
+function normalizeEvidenceSource(source) {
+    const portableSource = source.replaceAll('\\', '/');
+    const normalizedSource = path.posix.normalize(portableSource);
+    const hasParentTraversal = portableSource.split('/').includes('..');
+    const isAbsolute = path.posix.isAbsolute(portableSource) || path.win32.isAbsolute(source);
+    return { normalizedSource, hasParentTraversal, isAbsolute };
 }
 
 // selector가 가리키는 메서드가 source에 실제로 선언됐는지 본다. review-fast는 구현자의 targeted
@@ -262,7 +270,18 @@ function validateManifestRelations(packet, manifest, worktree) {
                 return;
             }
 
-            const normalizedSource = source.replaceAll('\\', '/');
+            const { normalizedSource, hasParentTraversal, isAbsolute } =
+                normalizeEvidenceSource(source);
+            if (hasParentTraversal || isAbsolute) {
+                addError(
+                    errors,
+                    `${evidencePath}.source`,
+                    'sourcePath',
+                    'source는 절대 경로나 .. 구간이 없는 worktree 상대 경로여야 합니다.',
+                );
+                return;
+            }
+
             const expectedPrefix = SOURCE_SET_PREFIXES[task];
             if (expectedPrefix && !normalizedSource.startsWith(expectedPrefix)) {
                 addError(
@@ -273,7 +292,7 @@ function validateManifestRelations(packet, manifest, worktree) {
                 );
             }
 
-            const resolvedSource = path.resolve(worktree, source);
+            const resolvedSource = path.resolve(worktree, normalizedSource);
             if (!isInsideWorktree(worktree, resolvedSource)) {
                 addError(
                     errors,
@@ -308,12 +327,6 @@ function validateManifestRelations(packet, manifest, worktree) {
                 return;
             }
 
-            const segments = selector.split('.');
-            // 중첩 클래스 selector는 바깥 클래스 파일만으로 선언 위치를 특정할 수 없어 클래스 일치까지만 본다.
-            if (segments.at(-2).includes('$')) {
-                return;
-            }
-
             let contents;
             try {
                 contents = fs.readFileSync(canonicalSource, 'utf8');
@@ -327,7 +340,7 @@ function validateManifestRelations(packet, manifest, worktree) {
                 return;
             }
 
-            const methodName = segments.at(-1);
+            const methodName = selector.split('.').at(-1);
             if (!hasTestMethodDeclaration(contents, methodName)) {
                 addError(
                     errors,
