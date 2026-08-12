@@ -83,7 +83,8 @@ class RoomStatusCorrectionBoundedCoordinatorTest {
 		when(progressStore.advanceCursor(
 			any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), any(Instant.class), anyLong()))
 			.thenAnswer(invocation -> Optional.of(snapshot(
-				invocation.getArgument(0, RoomStatusCorrectionProgressStore.ProgressSnapshot.class).progressVersion() + 1,
+				invocation.getArgument(0, RoomStatusCorrectionProgressStore.ProgressSnapshot.class).progressVersion()
+					+ 1,
 				invocation.getArgument(1, Instant.class), invocation.getArgument(2, Long.class))));
 		when(progressStore.wrap(
 			any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), any(Instant.class)))

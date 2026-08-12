@@ -382,7 +382,8 @@ class RoomStartBoundaryConcurrencyBaselinePostgresTest {
 		assertEquals(measurement.totalRetryCount(), measurement.retryAttemptLogCount());
 		assertEquals(measurement.concurrencyFailureCount(), measurement.exhaustedCount());
 		assertTrue(measurement.retryLogRecords().stream().allMatch(log -> isAllowedUseCase(log.useCase())));
-		assertTrue(measurement.retryLogRecords().stream().allMatch(log -> expectedReasonCode(log).equals(log.reasonCode())));
+		assertTrue(
+			measurement.retryLogRecords().stream().allMatch(log -> expectedReasonCode(log).equals(log.reasonCode())));
 		assertTrue(measurement.requestDurationsNanos().stream().allMatch(duration -> duration > 0));
 		assertTrue(measurement.postgresCost().statementCalls() > 0);
 		assertTrue(measurement.rawRecord().startsWith("ROOM10A_RAW scenario=" + scenario + " concurrencyLevel=2 "));
