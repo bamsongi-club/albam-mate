@@ -5,7 +5,7 @@
 이 문서는 [#607](https://github.com/bamsongi-club/albam-mate/issues/607) 수정이 들어간 release로 채팅 전송·전달 경계를 측정한 결과다. **이전 캠페인을 대체하지 않는다.** 재는 대상 코드가 달라졌으므로 이전 캠페인은 before 기준선으로 그대로 유효하다.
 
 - Campaign ID: `chat-delivery-20260812T213324KST`
-- 캠페인 상태: `completed`
+- 캠페인 상태: `completed-with-limitations`
 - 문서 상태: `current`
 - 문서 인덱스: [k6 측정 문서](README.md)
 - 근거 식별자: [campaign manifest](evidence/chat-delivery-capacity-2026-08-12-after-607.json)
@@ -15,7 +15,7 @@
 - **[#607](https://github.com/bamsongi-club/albam-mate/issues/607)이 해결됐다.** 채팅 경로의 HTTP 500이 **0건**이다. before 3회는 700~760건이었다. `RedisConnectionFailureException`도 앱 두 대 모두 0건이며 before는 2,812~2,928건이었다.
 - **Redis 연결 폭주가 사라졌다.** 누적 수신 연결이 **14,211건**으로 before(99,907~125,678건)의 약 1/9다.
 - **가장 심하게 무너지던 경계가 없어졌다.** 활성 방 8개 구간의 전송 성공률이 **100%**, 응답 p95가 **36ms**다. before 3회는 57.1~70%·3,119~5,105ms였다.
-- **모든 축에서 응답 시간이 절반 이하로 떨어졌다.** 세션 조회가 모든 인증 요청에 붙으므로 읽기 경로도 함께 개선됐다.
+- **개선이 확인된 축은 이력 조회와 활성 방 8개 구간이다.** 이력 조회 p95는 before 56~60ms에서 after 23~26ms로, 활성 방 8개 응답 p95는 3,119~5,105ms에서 36ms로 내려갔다. 동시 접속 p95는 27~70ms로 before 49~56ms와 겹쳐 개선을 판정할 수 없다.
 - 6종 중 **3종이 `exit=0`**이다. before는 `load-history` 하나뿐이었다.
 - **남은 게이트 위반은 전부 [#608](https://github.com/bamsongi-club/albam-mate/issues/608)이다.** `exit=2`인 3종의 위반 지표가 모두 WebSocket 세션 관련이며 성능 임계는 하나도 걸리지 않았다.
 - 이 캠페인은 1회 실행이다. 성공률의 절대값이 아니라 **500이 0이 된 사실**이 판정 근거다.
@@ -37,7 +37,9 @@
 | 상태 격리 | Run마다 fixture를 새로 만들고 끝나면 지운다 |
 | 원자료 | `albam-mate-infra/.run/results/`; teardown 뒤에도 로컬에 보존 |
 
-**before 3회는 모두 release `1db046c0`으로 측정했다.** 계단·fixture 규모·발생기·인스턴스 사양은 같고 **애플리케이션 코드만 다르다.**
+**before 3회는 모두 release `1db046c0`으로 측정했다.** 계단·fixture 규모·발생기·인스턴스 사양은 같고 **애플리케이션 코드만 다르다.** after의 각 Run 명령·runner/k6 버전·해석된 환경·배포값과 시나리오/fixture blob SHA는 [campaign manifest](evidence/chat-delivery-capacity-2026-08-12-after-607.json)에 보존했다.
+
+측정 당시 release `b6c32e22`의 시나리오·fixture 경로는 `load-tests/k6/chat/`이었다. 이후 `894d74de`에서 내용 변경 없이 `load-tests/k6/eungi/`로 100% rename되었고 blob SHA는 유지됐다. 보고서의 현재 경로 링크와 manifest의 측정 시점 경로를 함께 기록해 이름 변경을 동일 소스로 추적할 수 있게 했다.
 
 배포 전에 실행 중인 컨테이너의 image digest가 새 빌드와 일치하는지, jar에 `RedisSessionFailureFilter` 클래스가 있는지 확인했다. `run.sh up`은 이미지를 빌드하지 않으므로 `run.sh publish`를 먼저 실행해야 한다.
 
@@ -56,7 +58,7 @@
 
 ## 테스트 데이터
 
-Run마다 방 8개·계정 72개·방당 메시지 150건을 [`fixtures/rooms.sql`](../../../../load-tests/k6/eungi/fixtures/rooms.sql)로 만들고 [`fixtures/cleanup.sql`](../../../../load-tests/k6/eungi/fixtures/cleanup.sql)로 지웠다. before와 같은 규모다.
+Run마다 방 8개·계정 72개·방당 메시지 150건을 측정 당시 release의 `load-tests/k6/chat/fixtures/rooms.sql`로 만들고 `load-tests/k6/chat/fixtures/cleanup.sql`로 지웠다. 현재 저장소에서는 동일 blob이 `load-tests/k6/eungi/fixtures/`로 rename되었으며, 현재 경로는 [fixtures/rooms.sql](../../../../load-tests/k6/eungi/fixtures/rooms.sql)과 [fixtures/cleanup.sql](../../../../load-tests/k6/eungi/fixtures/cleanup.sql)에서 확인할 수 있다. before와 같은 규모다.
 
 ## 부하 campaign
 

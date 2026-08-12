@@ -1,6 +1,6 @@
 {
   "campaignId": "chat-delivery-20260812T213324KST",
-  "campaignStatus": "completed",
+  "campaignStatus": "completed-with-limitations",
   "documentStatus": "current",
   "supersedes": null,
   "purpose": "#607 수정이 들어간 release 로 측정한다. release 가 달라 이전 캠페인을 대체하지 않는다.",
@@ -32,10 +32,22 @@
   "fixture": {
     "source": "load-tests/k6/eungi/fixtures/rooms.sql",
     "cleanup": "load-tests/k6/eungi/fixtures/cleanup.sql",
+    "measuredSource": "load-tests/k6/chat/fixtures/rooms.sql",
+    "measuredCleanup": "load-tests/k6/chat/fixtures/cleanup.sql",
+    "sourceBlobSha": "bc946bc14adb007708598ccbd6212c305ebb73c1",
+    "cleanupBlobSha": "32074cdd19c43cd580386f2f10f26c9cb0337895",
+    "renameCommit": "894d74de77d702e5af8bd68c54615fc9b796fd4b",
+    "renameNote": "측정 release의 chat 경로에서 eungi 경로로 내용 변경 없이 100% rename되었으며 blob SHA가 같다.",
     "roomCount": 8,
     "accountsPerRoom": 9,
     "messagesPerRoom": 150
   },
+  "knownLimitations": [
+    "after campaign은 1회 실행이며 성공률·p95의 절대값은 실행 간 편차를 포함한다.",
+    "load-mixed는 4배가 마지막 계단이라 새 혼합 부하 경계를 찾지 못했다.",
+    "load-throughput의 발신자 회전 결함은 남아 있어 이번 측정에서 429가 없었던 사실만으로 해결을 의미하지 않는다.",
+    "원자료 bundle은 local-only라 저장소만으로 원자료 내용을 독립 재검증할 수 없다."
+  ],
   "observations": {
     "redis": {
       "rejectedConnections": 0,
@@ -132,6 +144,46 @@
   "runs": [
     {
       "scenario": "load-throughput",
+      "execution": {
+        "runner": {
+          "entrypoint": "albam-mate-infra/run.sh loadtest",
+          "k6Version": "1.3.0"
+        },
+        "command": "K6_LOGIN_LIMIT=300 ./run.sh loadtest load-tests/k6/chat/load-throughput.js --seed-sql load-tests/k6/chat/fixtures/rooms.sql --cleanup-sql load-tests/k6/chat/fixtures/cleanup.sql --sql-var run_id=<unique-run-id> --sql-var room_count=8 --sql-var accounts_per_room=9 --sql-var messages_per_room=150 --sql-var password_hash='{bcrypt}<hash>' --sql-var password='<password>'",
+        "source": {
+          "scenarioPath": "load-tests/k6/chat/load-throughput.js",
+          "scenarioBlobSha": "d2fe35cbfda1fe3d8185a0bee231d8058c426374",
+          "fixturePath": "load-tests/k6/chat/fixtures/rooms.sql",
+          "fixtureBlobSha": "bc946bc14adb007708598ccbd6212c305ebb73c1",
+          "cleanupPath": "load-tests/k6/chat/fixtures/cleanup.sql",
+          "cleanupBlobSha": "32074cdd19c43cd580386f2f10f26c9cb0337895",
+          "currentScenarioPath": "load-tests/k6/eungi/load-throughput.js",
+          "renameCommit": "894d74de77d702e5af8bd68c54615fc9b796fd4b"
+        },
+        "deployment": {
+          "applicationNodes": 2,
+          "applicationInstanceType": "t4g.micro",
+          "postgresNodes": 1,
+          "postgresInstanceType": "t4g.micro",
+          "redisNodes": 1,
+          "redisInstanceType": "t4g.micro",
+          "loadGenerator": "c7g.large",
+          "databaseConnectionPoolMax": 8,
+          "loginLimitPerTenMinutes": 300,
+          "releaseSha": "b6c32e2214dddb8f0368a84751a46f0bd25e647f"
+        },
+        "resolvedScenarioEnvironment": {
+          "K6_CHAT_PROFILE": "hot-room",
+          "K6_LOGIN_LIMIT": 300,
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
+          "K6_ROOM_WS_READY_DELAY": "30s",
+          "K6_ROOM_WS_GRACE_DURATION": "30s",
+          "K6_LOAD_SEND_RATES": "1,2,3,4,5",
+          "K6_LOAD_SUBSCRIBERS_PER_ROOM": 6,
+          "K6_LOAD_THROUGHPUT_ROOMS": 3
+        }
+      },
       "endedAt": "2026-08-12T12:47:44Z",
       "exit": 2,
       "summary": "summary-20260812T123413Z.json",
@@ -209,6 +261,42 @@
     },
     {
       "scenario": "load-connections",
+      "execution": {
+        "runner": {
+          "entrypoint": "albam-mate-infra/run.sh loadtest",
+          "k6Version": "1.3.0"
+        },
+        "command": "K6_LOGIN_LIMIT=300 ./run.sh loadtest load-tests/k6/chat/load-connections.js --seed-sql load-tests/k6/chat/fixtures/rooms.sql --cleanup-sql load-tests/k6/chat/fixtures/cleanup.sql --sql-var run_id=<unique-run-id> --sql-var room_count=8 --sql-var accounts_per_room=9 --sql-var messages_per_room=150 --sql-var password_hash='{bcrypt}<hash>' --sql-var password='<password>'",
+        "source": {
+          "scenarioPath": "load-tests/k6/chat/load-connections.js",
+          "scenarioBlobSha": "20d0a1a125219cd0c6639873dc9e590f6ba34c16",
+          "fixturePath": "load-tests/k6/chat/fixtures/rooms.sql",
+          "fixtureBlobSha": "bc946bc14adb007708598ccbd6212c305ebb73c1",
+          "cleanupPath": "load-tests/k6/chat/fixtures/cleanup.sql",
+          "cleanupBlobSha": "32074cdd19c43cd580386f2f10f26c9cb0337895",
+          "currentScenarioPath": "load-tests/k6/eungi/load-connections.js",
+          "renameCommit": "894d74de77d702e5af8bd68c54615fc9b796fd4b"
+        },
+        "deployment": {
+          "applicationNodes": 2,
+          "applicationInstanceType": "t4g.micro",
+          "postgresNodes": 1,
+          "postgresInstanceType": "t4g.micro",
+          "redisNodes": 1,
+          "redisInstanceType": "t4g.micro",
+          "loadGenerator": "c7g.large",
+          "databaseConnectionPoolMax": 8,
+          "loginLimitPerTenMinutes": 300,
+          "releaseSha": "b6c32e2214dddb8f0368a84751a46f0bd25e647f"
+        },
+        "resolvedScenarioEnvironment": {
+          "K6_CHAT_PROFILE": "hot-room",
+          "K6_LOGIN_LIMIT": 300,
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
+          "K6_LOAD_CONNECTION_STEPS": "5,10,20,40,80"
+        }
+      },
       "endedAt": "2026-08-12T13:01:15Z",
       "exit": 2,
       "summary": "summary-20260812T124827Z.json",
@@ -285,6 +373,41 @@
     },
     {
       "scenario": "load-history",
+      "execution": {
+        "runner": {
+          "entrypoint": "albam-mate-infra/run.sh loadtest",
+          "k6Version": "1.3.0"
+        },
+        "command": "K6_LOGIN_LIMIT=300 ./run.sh loadtest load-tests/k6/chat/load-history.js --seed-sql load-tests/k6/chat/fixtures/rooms.sql --cleanup-sql load-tests/k6/chat/fixtures/cleanup.sql --sql-var run_id=<unique-run-id> --sql-var room_count=8 --sql-var accounts_per_room=9 --sql-var messages_per_room=150 --sql-var password_hash='{bcrypt}<hash>' --sql-var password='<password>'",
+        "source": {
+          "scenarioPath": "load-tests/k6/chat/load-history.js",
+          "scenarioBlobSha": "561a0a15d6d9b33aa69381abf3d6c8877e5f56d2",
+          "fixturePath": "load-tests/k6/chat/fixtures/rooms.sql",
+          "fixtureBlobSha": "bc946bc14adb007708598ccbd6212c305ebb73c1",
+          "cleanupPath": "load-tests/k6/chat/fixtures/cleanup.sql",
+          "cleanupBlobSha": "32074cdd19c43cd580386f2f10f26c9cb0337895",
+          "currentScenarioPath": "load-tests/k6/eungi/load-history.js",
+          "renameCommit": "894d74de77d702e5af8bd68c54615fc9b796fd4b"
+        },
+        "deployment": {
+          "applicationNodes": 2,
+          "applicationInstanceType": "t4g.micro",
+          "postgresNodes": 1,
+          "postgresInstanceType": "t4g.micro",
+          "redisNodes": 1,
+          "redisInstanceType": "t4g.micro",
+          "loadGenerator": "c7g.large",
+          "databaseConnectionPoolMax": 8,
+          "loginLimitPerTenMinutes": 300,
+          "releaseSha": "b6c32e2214dddb8f0368a84751a46f0bd25e647f"
+        },
+        "resolvedScenarioEnvironment": {
+          "K6_CHAT_PROFILE": "hot-room",
+          "K6_LOGIN_LIMIT": 300,
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_HISTORY_RATES": "1,2,4,8"
+        }
+      },
       "endedAt": "2026-08-12T13:13:15Z",
       "exit": 0,
       "summary": "summary-20260812T130238Z.json",
@@ -348,6 +471,42 @@
     },
     {
       "scenario": "load-fanout",
+      "execution": {
+        "runner": {
+          "entrypoint": "albam-mate-infra/run.sh loadtest",
+          "k6Version": "1.3.0"
+        },
+        "command": "K6_LOGIN_LIMIT=300 ./run.sh loadtest load-tests/k6/chat/load-fanout.js --seed-sql load-tests/k6/chat/fixtures/rooms.sql --cleanup-sql load-tests/k6/chat/fixtures/cleanup.sql --sql-var run_id=<unique-run-id> --sql-var room_count=8 --sql-var accounts_per_room=9 --sql-var messages_per_room=150 --sql-var password_hash='{bcrypt}<hash>' --sql-var password='<password>'",
+        "source": {
+          "scenarioPath": "load-tests/k6/chat/load-fanout.js",
+          "scenarioBlobSha": "b8f8585cc8bdeb86f5f055c754b3dd920bc23ae2",
+          "fixturePath": "load-tests/k6/chat/fixtures/rooms.sql",
+          "fixtureBlobSha": "bc946bc14adb007708598ccbd6212c305ebb73c1",
+          "cleanupPath": "load-tests/k6/chat/fixtures/cleanup.sql",
+          "cleanupBlobSha": "32074cdd19c43cd580386f2f10f26c9cb0337895",
+          "currentScenarioPath": "load-tests/k6/eungi/load-fanout.js",
+          "renameCommit": "894d74de77d702e5af8bd68c54615fc9b796fd4b"
+        },
+        "deployment": {
+          "applicationNodes": 2,
+          "applicationInstanceType": "t4g.micro",
+          "postgresNodes": 1,
+          "postgresInstanceType": "t4g.micro",
+          "redisNodes": 1,
+          "redisInstanceType": "t4g.micro",
+          "loadGenerator": "c7g.large",
+          "databaseConnectionPoolMax": 8,
+          "loginLimitPerTenMinutes": 300,
+          "releaseSha": "b6c32e2214dddb8f0368a84751a46f0bd25e647f"
+        },
+        "resolvedScenarioEnvironment": {
+          "K6_CHAT_PROFILE": "hot-room",
+          "K6_LOGIN_LIMIT": 300,
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_FANOUT_SUBSCRIBER_STEPS": "2,4,8,16,24",
+          "K6_LOAD_FANOUT_SEND_RATE": 2
+        }
+      },
       "endedAt": "2026-08-12T13:27:10Z",
       "exit": 0,
       "summary": "summary-20260812T131358Z.json",
@@ -422,6 +581,43 @@
     },
     {
       "scenario": "load-rooms",
+      "execution": {
+        "runner": {
+          "entrypoint": "albam-mate-infra/run.sh loadtest",
+          "k6Version": "1.3.0"
+        },
+        "command": "K6_LOGIN_LIMIT=300 ./run.sh loadtest load-tests/k6/chat/load-rooms.js --seed-sql load-tests/k6/chat/fixtures/rooms.sql --cleanup-sql load-tests/k6/chat/fixtures/cleanup.sql --sql-var run_id=<unique-run-id> --sql-var room_count=8 --sql-var accounts_per_room=9 --sql-var messages_per_room=150 --sql-var password_hash='{bcrypt}<hash>' --sql-var password='<password>'",
+        "source": {
+          "scenarioPath": "load-tests/k6/chat/load-rooms.js",
+          "scenarioBlobSha": "1d0b302bde64924044592d855b11de124eb6e746",
+          "fixturePath": "load-tests/k6/chat/fixtures/rooms.sql",
+          "fixtureBlobSha": "bc946bc14adb007708598ccbd6212c305ebb73c1",
+          "cleanupPath": "load-tests/k6/chat/fixtures/cleanup.sql",
+          "cleanupBlobSha": "32074cdd19c43cd580386f2f10f26c9cb0337895",
+          "currentScenarioPath": "load-tests/k6/eungi/load-rooms.js",
+          "renameCommit": "894d74de77d702e5af8bd68c54615fc9b796fd4b"
+        },
+        "deployment": {
+          "applicationNodes": 2,
+          "applicationInstanceType": "t4g.micro",
+          "postgresNodes": 1,
+          "postgresInstanceType": "t4g.micro",
+          "redisNodes": 1,
+          "redisInstanceType": "t4g.micro",
+          "loadGenerator": "c7g.large",
+          "databaseConnectionPoolMax": 8,
+          "loginLimitPerTenMinutes": 300,
+          "releaseSha": "b6c32e2214dddb8f0368a84751a46f0bd25e647f"
+        },
+        "resolvedScenarioEnvironment": {
+          "K6_CHAT_PROFILE": "hot-room",
+          "K6_LOGIN_LIMIT": 300,
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_ROOM_STEPS": "1,2,4,8",
+          "K6_LOAD_ROOM_SUBSCRIBERS": 3,
+          "K6_LOAD_ROOM_SEND_RATE": 1
+        }
+      },
       "endedAt": "2026-08-12T13:39:05Z",
       "exit": 2,
       "summary": "summary-20260812T132759Z.json",
@@ -488,6 +684,44 @@
     },
     {
       "scenario": "load-mixed",
+      "execution": {
+        "runner": {
+          "entrypoint": "albam-mate-infra/run.sh loadtest",
+          "k6Version": "1.3.0"
+        },
+        "command": "K6_LOGIN_LIMIT=300 ./run.sh loadtest load-tests/k6/chat/load-mixed.js --seed-sql load-tests/k6/chat/fixtures/rooms.sql --cleanup-sql load-tests/k6/chat/fixtures/cleanup.sql --sql-var run_id=<unique-run-id> --sql-var room_count=8 --sql-var accounts_per_room=9 --sql-var messages_per_room=150 --sql-var password_hash='{bcrypt}<hash>' --sql-var password='<password>'",
+        "source": {
+          "scenarioPath": "load-tests/k6/chat/load-mixed.js",
+          "scenarioBlobSha": "04dd0afd281def5005c1d6921bac13e2cb33a953",
+          "fixturePath": "load-tests/k6/chat/fixtures/rooms.sql",
+          "fixtureBlobSha": "bc946bc14adb007708598ccbd6212c305ebb73c1",
+          "cleanupPath": "load-tests/k6/chat/fixtures/cleanup.sql",
+          "cleanupBlobSha": "32074cdd19c43cd580386f2f10f26c9cb0337895",
+          "currentScenarioPath": "load-tests/k6/eungi/load-mixed.js",
+          "renameCommit": "894d74de77d702e5af8bd68c54615fc9b796fd4b"
+        },
+        "deployment": {
+          "applicationNodes": 2,
+          "applicationInstanceType": "t4g.micro",
+          "postgresNodes": 1,
+          "postgresInstanceType": "t4g.micro",
+          "redisNodes": 1,
+          "redisInstanceType": "t4g.micro",
+          "loadGenerator": "c7g.large",
+          "databaseConnectionPoolMax": 8,
+          "loginLimitPerTenMinutes": 300,
+          "releaseSha": "b6c32e2214dddb8f0368a84751a46f0bd25e647f"
+        },
+        "resolvedScenarioEnvironment": {
+          "K6_CHAT_PROFILE": "hot-room",
+          "K6_LOGIN_LIMIT": 300,
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_MIXED_SCALES": "1,2,3,4",
+          "K6_LOAD_MIXED_SEND_RATE": 1,
+          "K6_LOAD_MIXED_HISTORY_RATE": 2,
+          "K6_LOAD_MIXED_CONNECTIONS": 5
+        }
+      },
       "endedAt": "2026-08-12T13:50:58Z",
       "exit": 0,
       "summary": "summary-20260812T133947Z.json",
