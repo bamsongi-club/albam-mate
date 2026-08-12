@@ -678,6 +678,10 @@ test('skip되거나 provider가 없는 JUnit selector evidence를 거부한다',
             'import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    @Disabled\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
         ],
         [
+            'same-line method Disabled',
+            'import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    @Test @Disabled\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        ],
+        [
             'class Disabled',
             'import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;\n\n@Disabled\nclass NotificationReadServiceTest {\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
         ],
@@ -699,6 +703,13 @@ test('skip되거나 provider가 없는 JUnit selector evidence를 거부한다',
         );
         assert.notDeepEqual(validate(validPacket(), validManifest(), worktree), [], label);
     }
+
+    fs.writeFileSync(
+        path.join(worktree, source),
+        'package cloud.bamsongi;\n\nimport org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n\n    @Disabled\n    @Test\n    void 다른_테스트() {\n    }\n}\n',
+        'utf8',
+    );
+    assert.deepEqual(validate(validPacket(), validManifest(), worktree), []);
 });
 
 test('ParameterizedTest 메서드는 실행 가능한 selector로 허용한다', (t) => {

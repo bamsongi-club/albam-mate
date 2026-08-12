@@ -314,7 +314,8 @@ function translateJavaUnicodeEscapes(contents) {
 function findTopLevelType(contents, className) {
     const escaped = className.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
     const declaration = new RegExp(
-        `^[\\t ]*((?:(?:public|protected|private|abstract|static|final|strictfp|sealed|non-sealed)\\s+)*)` +
+        `((?:^[\\t ]*@[^\\r\\n]+\\r?\\n)*)^[\\t ]*` +
+            `((?:(?:public|protected|private|abstract|static|final|strictfp|sealed|non-sealed)\\s+)*)` +
             `(class|record|interface|enum)\\s+${escaped}\\b[^{}]*\\{`,
         'gmu',
     );
@@ -327,11 +328,12 @@ function findTopLevelType(contents, className) {
             if (contents[index] === '{') depth += 1;
             if (contents[index] === '}') depth -= 1;
             if (depth === 0) {
-                const modifiers = new Set(match[1].trim().split(/\s+/u).filter(Boolean));
+                const modifiers = new Set(match[2].trim().split(/\s+/u).filter(Boolean));
                 return {
                     open,
                     close: index,
-                    kind: match[2],
+                    annotations: match[1],
+                    kind: match[3],
                     isAbstract: modifiers.has('abstract'),
                 };
             }
@@ -374,7 +376,7 @@ function hasTypeNameShadow(contents, typeName) {
 }
 
 function annotationNames(annotationBlock) {
-    return [...annotationBlock.matchAll(/^\s*@([.$_\p{ID_Start}\u200c\u200d\p{ID_Continue}]+)/gmu)].map(
+    return [...annotationBlock.matchAll(/@([.$_\p{ID_Start}\u200c\u200d\p{ID_Continue}]+)/gu)].map(
         (match) => match[1],
     );
 }
@@ -467,6 +469,7 @@ function hasTestMethodDeclaration(sourceInfo, methodName) {
         if (['private', 'static', 'abstract', 'native'].some((modifier) => modifiers.has(modifier))) {
             continue;
         }
+        if (hasSkipAnnotation(sourceInfo.sanitized, match[1])) continue;
         const testKind = supportedTestKind(sourceInfo.sanitized, match[1]);
         if (testKind === 'test') return true;
         if (
@@ -630,7 +633,7 @@ function validateManifestRelations(packet, manifest, worktree) {
                 !sourceInfo.classRange ||
                 sourceInfo.classRange.kind !== 'class' ||
                 sourceInfo.classRange.isAbstract ||
-                hasSkipAnnotation(sourceInfo.sanitized, sourceInfo.sanitized) ||
+                hasSkipAnnotation(sourceInfo.sanitized, sourceInfo.classRange.annotations) ||
                 selectorClass !== sourceInfo.fqcn
             ) {
                 addError(
