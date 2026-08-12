@@ -373,32 +373,78 @@ function hasTypeNameShadow(contents, typeName) {
     return declaration.test(contents) || importedType.test(contents) || typeParameter.test(contents);
 }
 
-function hasSupportedTestAnnotation(contents, annotationBlock) {
-    const annotationNames = [...annotationBlock.matchAll(/^\s*@([.$_\p{ID_Start}\u200c\u200d\p{ID_Continue}]+)/gmu)].map(
+function annotationNames(annotationBlock) {
+    return [...annotationBlock.matchAll(/^\s*@([.$_\p{ID_Start}\u200c\u200d\p{ID_Continue}]+)/gmu)].map(
         (match) => match[1],
     );
+}
+
+function hasResolvedAnnotation(contents, annotationBlock, importedType) {
+    const names = annotationNames(annotationBlock);
+    const simpleName = importedType.split('.').at(-1);
     const orgIsShadowed = hasTypeNameShadow(contents, 'org');
-    if (!orgIsShadowed && annotationNames.includes('org.junit.jupiter.api.Test')) return true;
-    if (
-        !orgIsShadowed &&
-        annotationNames.includes('org.junit.jupiter.params.ParameterizedTest')
-    ) {
+    if (!orgIsShadowed && names.includes(importedType)) return true;
+    const declaresAnnotation = new RegExp(`@interface\\s+${simpleName}\\b`, 'u').test(contents);
+    return names.includes(simpleName) && !declaresAnnotation && hasImport(contents, importedType);
+}
+
+function hasSkipAnnotation(contents, annotationBlock) {
+    if (hasResolvedAnnotation(contents, annotationBlock, 'org.junit.jupiter.api.Disabled')) {
         return true;
     }
-    const declaresTest = /@interface\s+Test\b/u.test(contents);
-    const declaresParameterizedTest = /@interface\s+ParameterizedTest\b/u.test(contents);
-    if (
-        annotationNames.includes('Test') &&
-        !declaresTest &&
-        hasImport(contents, 'org.junit.jupiter.api.Test')
-    ) {
-        return true;
+
+    const orgIsShadowed = hasTypeNameShadow(contents, 'org');
+    return annotationNames(annotationBlock).some((name) => {
+        if (
+            !orgIsShadowed &&
+            /^org\.junit\.jupiter\.api\.condition\.(?:Disabled|Enabled)/u.test(name)
+        ) {
+            return true;
+        }
+        return (
+            /^(?:Disabled|Enabled)/u.test(name) &&
+            hasImport(contents, `org.junit.jupiter.api.condition.${name}`)
+        );
+    });
+}
+
+function supportedTestKind(contents, annotationBlock) {
+    if (hasResolvedAnnotation(contents, annotationBlock, 'org.junit.jupiter.api.Test')) {
+        return 'test';
     }
-    return (
-        annotationNames.includes('ParameterizedTest') &&
-        !declaresParameterizedTest &&
-        hasImport(contents, 'org.junit.jupiter.params.ParameterizedTest')
+    if (
+        hasResolvedAnnotation(
+            contents,
+            annotationBlock,
+            'org.junit.jupiter.params.ParameterizedTest',
+        )
+    ) {
+        return 'parameterized';
+    }
+    return null;
+}
+
+function hasSupportedEnumSource(contents, annotationBlock, parameters) {
+    const providerType = 'org.junit.jupiter.params.provider.EnumSource';
+    if (!hasResolvedAnnotation(contents, annotationBlock, providerType)) return false;
+
+    const parameter = parameters.trim().match(
+        /^(?:final\s+)?([.$_\p{ID_Start}\u200c\u200d\p{ID_Continue}]+)\s+[$_\p{ID_Start}][$_\u200c\u200d\p{ID_Continue}]*$/u,
     );
+    if (!parameter) return false;
+    const parameterType = parameter[1].split('.').at(-1);
+    const providerName = annotationNames(annotationBlock).find(
+        (name) => name === 'EnumSource' || name === providerType,
+    );
+    if (!providerName) return false;
+    const escapedProvider = providerName.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+    const invocation = annotationBlock.match(
+        new RegExp(`^\\s*@${escapedProvider}\\s*\\(([^\\r\\n]*)\\)`, 'mu'),
+    );
+    const enumType = invocation?.[1].match(
+        /(?:\bvalue\s*=\s*)?([.$_\p{ID_Start}\u200c\u200d\p{ID_Continue}]*)\.class\b/u,
+    )?.[1];
+    return enumType?.split('.').at(-1) === parameterType;
 }
 
 // selector가 가리키는 메서드가 실제 최상위 JUnit 테스트 클래스에 선언됐는지 본다.
@@ -408,7 +454,7 @@ function hasTestMethodDeclaration(sourceInfo, methodName) {
     const declaration = new RegExp(
         `((?:^[\\t ]*@[^\\r\\n]+\\r?\\n)+)^[\\t ]*` +
             `((?:(?:public|protected|private|static|final|synchronized|abstract|native|strictfp)\\s+)*)` +
-            `void\\s+${escaped}\\s*\\(`,
+            `void\\s+${escaped}\\s*\\(([^()]*)\\)`,
         'gmu',
     );
 
@@ -421,7 +467,14 @@ function hasTestMethodDeclaration(sourceInfo, methodName) {
         if (['private', 'static', 'abstract', 'native'].some((modifier) => modifiers.has(modifier))) {
             continue;
         }
-        if (hasSupportedTestAnnotation(sourceInfo.sanitized, match[1])) return true;
+        const testKind = supportedTestKind(sourceInfo.sanitized, match[1]);
+        if (testKind === 'test') return true;
+        if (
+            testKind === 'parameterized' &&
+            hasSupportedEnumSource(sourceInfo.sanitized, match[1], match[3])
+        ) {
+            return true;
+        }
     }
     return false;
 }
@@ -577,6 +630,7 @@ function validateManifestRelations(packet, manifest, worktree) {
                 !sourceInfo.classRange ||
                 sourceInfo.classRange.kind !== 'class' ||
                 sourceInfo.classRange.isAbstract ||
+                hasSkipAnnotation(sourceInfo.sanitized, sourceInfo.sanitized) ||
                 selectorClass !== sourceInfo.fqcn
             ) {
                 addError(

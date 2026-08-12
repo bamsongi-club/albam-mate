@@ -611,13 +611,18 @@ test('가려지지 않은 완전 수식 JUnit test annotation을 허용한다', 
     const worktree = createWorktree(t);
     const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
 
-    for (const annotation of [
-        'org.junit.jupiter.api.Test',
-        'org.junit.jupiter.params.ParameterizedTest',
+    for (const [annotation, provider, parameter, nestedType] of [
+        ['org.junit.jupiter.api.Test', '', '', ''],
+        [
+            'org.junit.jupiter.params.ParameterizedTest',
+            '    @org.junit.jupiter.params.provider.EnumSource(Fixture.class)\n',
+            'Fixture value',
+            '\n    enum Fixture { VALUE }\n',
+        ],
     ]) {
         fs.writeFileSync(
             path.join(worktree, source),
-            `package cloud.bamsongi;\n\nclass NotificationReadServiceTest {\n    @${annotation}\n    void 알림을_읽음_처리한다() {\n    }\n}\n`,
+            `package cloud.bamsongi;\n\nclass NotificationReadServiceTest {\n    @${annotation}\n${provider}    void 알림을_읽음_처리한다(${parameter}) {\n    }\n${nestedType}}\n`,
             'utf8',
         );
 
@@ -664,16 +669,60 @@ test('중첩 클래스에만 선언된 테스트 메서드를 바깥 클래스 s
     assert.ok(keywords(validate(validPacket(), manifest, worktree)).includes('selectorMethod'));
 });
 
+test('skip되거나 provider가 없는 JUnit selector evidence를 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    const invalidSources = [
+        [
+            'method Disabled',
+            'import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    @Disabled\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        ],
+        [
+            'class Disabled',
+            'import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;\n\n@Disabled\nclass NotificationReadServiceTest {\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        ],
+        [
+            'conditional class',
+            'import org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.condition.EnabledIfSystemProperty;\n\n@EnabledIfSystemProperty(named = "postgres", matches = "true")\nclass NotificationReadServiceTest {\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        ],
+        [
+            'missing provider',
+            'import org.junit.jupiter.params.ParameterizedTest;\n\nclass NotificationReadServiceTest {\n    @ParameterizedTest\n    void 알림을_읽음_처리한다(String value) {\n    }\n}\n',
+        ],
+    ];
+
+    for (const [label, body] of invalidSources) {
+        fs.writeFileSync(
+            path.join(worktree, source),
+            `package cloud.bamsongi;\n\n${body}`,
+            'utf8',
+        );
+        assert.notDeepEqual(validate(validPacket(), validManifest(), worktree), [], label);
+    }
+});
+
 test('ParameterizedTest 메서드는 실행 가능한 selector로 허용한다', (t) => {
     const worktree = createWorktree(t);
     const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
     fs.writeFileSync(
         path.join(worktree, source),
-        'package cloud.bamsongi;\n\nimport org.junit.jupiter.params.ParameterizedTest;\n\nclass NotificationReadServiceTest {\n    @ParameterizedTest\n    @EnumSource\n    void 알림을_읽음_처리한다(String value) {\n    }\n}\n',
+        'package cloud.bamsongi;\n\nimport org.junit.jupiter.params.ParameterizedTest;\nimport org.junit.jupiter.params.provider.EnumSource;\n\nclass NotificationReadServiceTest {\n    @ParameterizedTest\n    @EnumSource(Fixture.class)\n    void 알림을_읽음_처리한다(Fixture value) {\n    }\n\n    enum Fixture { VALUE }\n}\n',
         'utf8',
     );
 
     assert.deepEqual(validate(validPacket(), validManifest(), worktree), []);
+
+    const actualSource =
+        'src/test/java/cloud/bamsongi/albammate/chat/MyRoomChatAvailabilityConsistencyIntegrationTest.java';
+    copyRepositorySource(worktree, actualSource);
+    const manifest = validManifest();
+    manifest.tests[0].evidence[0] = {
+        task: 'test',
+        source: actualSource,
+        selector:
+            'cloud.bamsongi.albammate.chat.MyRoomChatAvailabilityConsistencyIntegrationTest.RECRUITING_CLOSED_상태와_관계_조합별로_내_모임_표시와_직접_접근_결과가_일치한다',
+    };
+    assert.deepEqual(validate(validPacket(), manifest, worktree), []);
 });
 
 test('메서드명이 다른 선언의 접미사여도 거부한다', (t) => {
