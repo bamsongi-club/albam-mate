@@ -7,7 +7,7 @@
 - Campaign ID: `auth-notification-20260811T021040KST`
 - 캠페인 상태: `completed-with-limitations`
 - 문서 상태: `current`
-- 문서 인덱스: [k6 측정 문서](README.md)
+- 문서 인덱스: [k6 측정 문서](../README.md)
 - 근거 식별자: [campaign manifest](evidence/auth-notification-capacity-2026-08-11.json)
 - 대체 관계: 후속 `tomcat64-20260811`은 `INVALID`로 끝나 이 문서의 결론을 대체하지 않는다. 후속 결과는 [Tomcat 64 알림 혼합 부하 재측정](notification-tomcat64-capacity-2026-08-11.md)에 기록한다.
 

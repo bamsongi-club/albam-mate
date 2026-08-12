@@ -10,7 +10,7 @@
     "displayKst": "2026-08-11 21:50:40~22:06:03 KST"
   },
   "documents": {
-    "index": "../README.md",
+    "index": "../../README.md",
     "report": "../notification-tomcat64-capacity-2026-08-11.md",
     "predecessor": "../auth-notification-capacity-2026-08-11.md"
   },

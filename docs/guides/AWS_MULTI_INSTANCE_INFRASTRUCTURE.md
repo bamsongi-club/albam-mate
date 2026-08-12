@@ -2,7 +2,7 @@
 
 이 문서는 Albam Mate P1 검증 환경을 Terraform으로 반복 생성하고 Ansible로 호스트 설정을 적용한 뒤, 실제 사용 흐름을 재현한 부하에서 역할별 병목을 찾기 위한 실행안이다.
 
-기술 선택과 ADR-0038의 부분 대체 범위는 [승인된 ADR-0051](../adr/platform/0051-p1-self-managed-aws-infrastructure.md)이 소유한다. Terraform·Ansible 1차 코드는 별도 `albam-mate-infra` 저장소에 있다. 2026-08-11 임시 서울 리전 스택에서 App 두 대·PostgreSQL·Redis를 모두 `t4g.micro`로 배포하고 외부 web 진입점으로 인증·알림 계약과 fan-out·혼합 부하를 실행했다. 정확한 실행 근거와 한계는 [ADR-0051 검증](../adr/platform/0051-p1-self-managed-aws-infrastructure.md#검증)과 [인증·알림 AWS 용량 측정](../measurements/k6/auth-notification-capacity-2026-08-11.md)을 따른다. 다른 팀원 계정의 독립 재현, Ansible `--syntax-check`·`--check`와 SSM 실행, 데이터 복구, 교차 인스턴스 WebSocket·Scheduler, App2 장애 처리와 지속 혼합 부하의 유효한 용량 경계는 아직 확인하지 않았다.
+기술 선택과 ADR-0038의 부분 대체 범위는 [승인된 ADR-0051](../adr/platform/0051-p1-self-managed-aws-infrastructure.md)이 소유한다. Terraform·Ansible 1차 코드는 별도 `albam-mate-infra` 저장소에 있다. 2026-08-11 임시 서울 리전 스택에서 App 두 대·PostgreSQL·Redis를 모두 `t4g.micro`로 배포하고 외부 web 진입점으로 인증·알림 계약과 fan-out·혼합 부하를 실행했다. 정확한 실행 근거와 한계는 [ADR-0051 검증](../adr/platform/0051-p1-self-managed-aws-infrastructure.md#검증)과 [인증·알림 AWS 용량 측정](../measurements/k6/jiho/auth-notification-capacity-2026-08-11.md)을 따른다. 다른 팀원 계정의 독립 재현, Ansible `--syntax-check`·`--check`와 SSM 실행, 데이터 복구, 교차 인스턴스 WebSocket·Scheduler, App2 장애 처리와 지속 혼합 부하의 유효한 용량 경계는 아직 확인하지 않았다.
 
 > - 문서 상태: **승인·부분 검증 실행안**
 > - 확인한 P1 방향: **App1 Nginx 단일 진입점, 고정 EC2 4대, 전부 `t4g.micro`, ALB·ASG·NAT Gateway 없음**
