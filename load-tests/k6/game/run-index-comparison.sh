@@ -17,7 +17,7 @@ case "$index_state" in
     ;;
 esac
 
-for required_name in KEYWORD BENCHMARK_ID RELEASE_SHA FIXTURE_ID FIXTURE_SHA256; do
+for required_name in KEYWORD EXPECTED_TOTAL_ELEMENTS BENCHMARK_ID RELEASE_SHA FIXTURE_ID FIXTURE_SHA256; do
   if [[ -z "${!required_name:-}" ]]; then
     echo "$required_name is required" >&2
     exit 2
@@ -25,6 +25,7 @@ for required_name in KEYWORD BENCHMARK_ID RELEASE_SHA FIXTURE_ID FIXTURE_SHA256;
 done
 
 keyword="$KEYWORD"
+expected_total_elements="$EXPECTED_TOTAL_ELEMENTS"
 benchmark_id="$BENCHMARK_ID"
 release_sha="$RELEASE_SHA"
 fixture_id="$FIXTURE_ID"
@@ -51,6 +52,10 @@ if [[ ! "$fixture_sha256" =~ ^[0-9a-fA-F]{64}$ ]]; then
   echo 'FIXTURE_SHA256 must be a 64-character SHA-256' >&2
   exit 2
 fi
+if [[ ! "$expected_total_elements" =~ ^[0-9]+$ ]]; then
+  echo 'EXPECTED_TOTAL_ELEMENTS must be a non-negative integer' >&2
+  exit 2
+fi
 
 mkdir -p "$result_directory"
 
@@ -63,24 +68,37 @@ scenario_sha256="$(
     shasum -a 256 |
     awk '{print $1}'
 )"
+contract_sha256="$(shasum -a 256 "$script_directory/00-game-keyword-contract.js" | awk '{print $1}')"
 k6_version="$(k6 version | head -n 1)"
 manifest="$result_directory/${benchmark_id}.manifest.json"
 
 node "$script_directory/index-comparison-manifest.mjs" prepare \
   "$manifest" \
   "$benchmark_id" \
+  "$index_state" \
   "$release_sha" \
   "$fixture_id" \
   "$fixture_sha256" \
   "$scenario_sha256" \
+  "$contract_sha256" \
   "$keyword" \
+  "$expected_total_elements" \
   "$base_url" \
   "$profile" \
   "$soak_duration" \
   "$auth_mode" \
   "$k6_version"
 
-artifacts=()
+contract_summary="$result_directory/${index_state}-${benchmark_id}-00-game-keyword-contract.summary.json"
+contract_log="$result_directory/${index_state}-${benchmark_id}-00-game-keyword-contract.log"
+k6 run \
+  --summary-export "$contract_summary" \
+  -e BASE_URL="$base_url" \
+  -e KEYWORD="$keyword" \
+  -e EXPECTED_TOTAL_ELEMENTS="$expected_total_elements" \
+  "$script_directory/00-game-keyword-contract.js" 2>&1 | tee "$contract_log"
+
+artifacts=("$contract_summary" "$contract_log")
 overall_status=0
 
 for scenario in 02-game-keyword.js 08-game-realistic.js; do

@@ -54,13 +54,36 @@ const server = http.createServer((request, response) => {
     return;
   }
 
+  if (
+    url.pathname === '/api/games' &&
+    url.searchParams.has('keyword') &&
+    mode === 'keyword-wrong-total'
+  ) {
+    json(response, 200, { data: { content: [], totalElements: 0 } });
+    return;
+  }
+
+  if (
+    url.pathname === '/api/games' &&
+    url.searchParams.has('keyword') &&
+    mode === 'keyword-malformed'
+  ) {
+    json(response, 200, { data: { content: {}, totalElements: 1 } });
+    return;
+  }
+
   if (mode === 'workload-204') {
     response.writeHead(204);
     response.end();
     return;
   }
 
-  json(response, 200, { data: { content: [] } });
+  json(response, 200, {
+    data: {
+      content: [{ id: 1, name: '누스피요르드' }],
+      totalElements: 1,
+    },
+  });
 });
 
 server.listen(0, '127.0.0.1', () => {

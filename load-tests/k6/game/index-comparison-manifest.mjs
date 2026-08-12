@@ -30,11 +30,14 @@ function sha256(file) {
 if (command === 'prepare') {
   const [
     benchmarkId,
+    indexState,
     releaseSha,
     fixtureId,
     fixtureSha256,
     scenarioSha256,
+    contractSha256,
     keyword,
+    expectedTotalElements,
     baseUrl,
     profile,
     soakDuration,
@@ -46,7 +49,9 @@ if (command === 'prepare') {
     fixtureId,
     fixtureSha256,
     scenarioSha256,
+    contractSha256,
     keyword,
+    expectedTotalElements,
     baseUrl,
     profile,
     soakDuration,
@@ -59,12 +64,12 @@ if (command === 'prepare') {
     manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   } catch (error) {
     if (error.code !== 'ENOENT') fail(`manifest read failed: ${error.message}`);
-    manifest = { version: 1, benchmarkId, invariants, runs: {} };
+    manifest = { version: 2, benchmarkId, invariants, runs: {} };
     writeManifest(manifest);
     process.exit(0);
   }
 
-  if (manifest.version !== 1) fail('manifest version does not match: expected 1');
+  if (manifest.version !== 2) fail('manifest version does not match: expected 2');
   if (manifest.benchmarkId !== benchmarkId) {
     fail('benchmarkId does not match manifest');
   }
@@ -73,13 +78,21 @@ if (command === 'prepare') {
       fail(`${key} does not match manifest`);
     }
   }
+  if (manifest.runs?.[indexState]) {
+    fail(`${indexState} is already recorded for benchmark ${benchmarkId}`);
+  }
   process.exit(0);
 }
 
 if (command === 'record') {
   const [indexState, ...files] = args;
-  if (files.length !== 4) fail('record requires two summary/log file pairs');
+  if (files.length === 0 || files.length % 2 !== 0) {
+    fail('record requires summary/log file pairs');
+  }
   const manifest = readManifest();
+  if (manifest.runs?.[indexState]) {
+    fail(`${indexState} is already recorded for benchmark ${manifest.benchmarkId}`);
+  }
   const directory = path.dirname(manifestPath);
   const scenarios = [];
 

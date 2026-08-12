@@ -97,16 +97,21 @@ if [[ "\${1:-}" == version ]]; then
   exit 0
 fi
 summary=''
+script=''
 while (($#)); do
   if [[ "$1" == --summary-export ]]; then
     summary="$2"
     shift 2
     continue
   fi
+  script="$1"
   shift
 done
-printf '{"metrics":{}}' > "$summary"
-echo 'fake k6 run'
+printf '{"marker":"%s","metrics":{}}' "\${FAKE_K6_MARKER:-default}" > "$summary"
+echo "fake k6 run \${FAKE_K6_MARKER:-default}"
+if [[ "$script" == *00-game-keyword-contract.js ]]; then
+  exit 0
+fi
 exit "\${FAKE_K6_EXIT:-0}"
 `
   );
@@ -158,10 +163,31 @@ test('a non-200 realistic workload response fails the k6 run', async () => {
 test('the keyword scenario sends the configured fixed keyword', async () => {
   const result = await runScenario('02-game-keyword.js', 'success', {
     KEYWORD: '누스피요르드',
+    EXPECTED_TOTAL_ELEMENTS: '1',
   });
 
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.requests, /keyword=%EB%88%84%EC%8A%A4%ED%94%BC%EC%9A%94%EB%A5%B4%EB%93%9C/);
+});
+
+test('an unexpected fixed keyword total fails the contract preflight', async () => {
+  const result = await runScenario('00-game-keyword-contract.js', 'keyword-wrong-total', {
+    KEYWORD: '누스피요르드',
+    EXPECTED_TOTAL_ELEMENTS: '1',
+  });
+
+  assert.notEqual(result.status, 0, result.stderr || result.stdout);
+  assert.match(`${result.stdout}\n${result.stderr}`, /totalElements/);
+});
+
+test('a malformed keyword content fails the contract preflight', async () => {
+  const result = await runScenario('00-game-keyword-contract.js', 'keyword-malformed', {
+    KEYWORD: '누스피요르드',
+    EXPECTED_TOTAL_ELEMENTS: '1',
+  });
+
+  assert.notEqual(result.status, 0, result.stderr || result.stdout);
+  assert.match(`${result.stdout}\n${result.stderr}`, /data.content array/);
 });
 
 test('metadata API failure aborts realistic scenario setup', async () => {
@@ -199,6 +225,7 @@ test('index comparison runner requires reproducibility inputs', () => {
         INDEX_STATE: 'no-pg-trgm',
         RESULT_DIR: temporaryDirectory,
         KEYWORD: '누스피요르드',
+        EXPECTED_TOTAL_ELEMENTS: '1',
         BENCHMARK_ID: 'review-591-inputs',
         RELEASE_SHA: 'a'.repeat(40),
         FIXTURE_SHA256: 'b'.repeat(64),
@@ -207,6 +234,34 @@ test('index comparison runner requires reproducibility inputs', () => {
 
     assert.equal(result.status, 2, result.stderr || result.stdout);
     assert.match(result.stderr, /FIXTURE_ID is required/);
+  } finally {
+    rmSync(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test('index comparison runner requires the expected keyword total', () => {
+  const temporaryDirectory = mkdtempSync(path.join(os.tmpdir(), 'game-k6-runner-'));
+  createFakeK6(temporaryDirectory);
+
+  try {
+    const runner = path.join(gameDirectory, 'run-index-comparison.sh');
+    const result = spawnSync('bash', [runner], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PATH: `${temporaryDirectory}:${process.env.PATH}`,
+        INDEX_STATE: 'no-pg-trgm',
+        RESULT_DIR: temporaryDirectory,
+        KEYWORD: '누스피요르드',
+        BENCHMARK_ID: 'review-591-expected-total',
+        RELEASE_SHA: 'a'.repeat(40),
+        FIXTURE_ID: 'catalog-170k-v1',
+        FIXTURE_SHA256: 'b'.repeat(64),
+      },
+    });
+
+    assert.equal(result.status, 2, result.stderr || result.stdout);
+    assert.match(result.stderr, /EXPECTED_TOTAL_ELEMENTS is required/);
   } finally {
     rmSync(temporaryDirectory, { recursive: true, force: true });
   }
@@ -225,6 +280,7 @@ test('paired index runs share a manifest and preserve logs', () => {
     RESULT_DIR: resultDirectory,
     BENCHMARK_ID: 'review-591-pair',
     KEYWORD: '누스피요르드',
+    EXPECTED_TOTAL_ELEMENTS: '1',
     RELEASE_SHA: 'a'.repeat(40),
     FIXTURE_ID: 'catalog-170k-v1',
     FIXTURE_SHA256: 'b'.repeat(64),
@@ -242,8 +298,10 @@ test('paired index runs share a manifest and preserve logs', () => {
     const manifest = JSON.parse(
       readFileSync(path.join(resultDirectory, 'review-591-pair.manifest.json'), 'utf8')
     );
-    assert.equal(manifest.version, 1);
+    assert.equal(manifest.version, 2);
     assert.equal(manifest.invariants.keyword, '누스피요르드');
+    assert.equal(manifest.invariants.expectedTotalElements, '1');
+    assert.match(manifest.invariants.contractSha256, /^[0-9a-f]{64}$/);
     assert.equal(manifest.invariants.fixtureId, 'catalog-170k-v1');
     assert.deepEqual(Object.keys(manifest.runs).sort(), [
       'no-pg-trgm',
@@ -259,6 +317,52 @@ test('paired index runs share a manifest and preserve logs', () => {
         assert.match(readFileSync(log, 'utf8'), /fake k6 run/);
       }
     }
+  } finally {
+    rmSync(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test('an existing benchmark index state rejects rerun without overwriting artifacts', () => {
+  const temporaryDirectory = mkdtempSync(path.join(os.tmpdir(), 'game-k6-rerun-'));
+  const binDirectory = path.join(temporaryDirectory, 'bin');
+  const resultDirectory = path.join(temporaryDirectory, 'results');
+  mkdirSync(binDirectory, { recursive: true });
+  createFakeK6(binDirectory);
+  const runner = path.join(gameDirectory, 'run-index-comparison.sh');
+  const environment = {
+    ...process.env,
+    PATH: `${binDirectory}:${process.env.PATH}`,
+    RESULT_DIR: resultDirectory,
+    INDEX_STATE: 'no-pg-trgm',
+    BENCHMARK_ID: 'review-591-rerun',
+    KEYWORD: '누스피요르드',
+    EXPECTED_TOTAL_ELEMENTS: '1',
+    RELEASE_SHA: 'a'.repeat(40),
+    FIXTURE_ID: 'catalog-170k-v1',
+    FIXTURE_SHA256: 'b'.repeat(64),
+  };
+
+  try {
+    const first = spawnSync('bash', [runner], {
+      encoding: 'utf8',
+      env: { ...environment, FAKE_K6_MARKER: 'first' },
+    });
+    assert.equal(first.status, 0, first.stderr || first.stdout);
+
+    const summary = path.join(
+      resultDirectory,
+      'no-pg-trgm-review-591-rerun-02-game-keyword-load.summary.json'
+    );
+    const before = readFileSync(summary, 'utf8');
+
+    const rerun = spawnSync('bash', [runner], {
+      encoding: 'utf8',
+      env: { ...environment, FAKE_K6_MARKER: 'second' },
+    });
+    assert.equal(rerun.status, 2, rerun.stderr || rerun.stdout);
+    assert.match(rerun.stderr, /no-pg-trgm is already recorded/);
+    assert.equal(readFileSync(summary, 'utf8'), before);
+    assert.match(before, /first/);
   } finally {
     rmSync(temporaryDirectory, { recursive: true, force: true });
   }
@@ -282,6 +386,7 @@ test('threshold failures are recorded before the runner returns non-zero', () =>
         INDEX_STATE: 'no-pg-trgm',
         BENCHMARK_ID: 'review-591-threshold-failure',
         KEYWORD: '누스피요르드',
+        EXPECTED_TOTAL_ELEMENTS: '1',
         RELEASE_SHA: 'a'.repeat(40),
         FIXTURE_ID: 'catalog-170k-v1',
         FIXTURE_SHA256: 'b'.repeat(64),
@@ -296,7 +401,7 @@ test('threshold failures are recorded before the runner returns non-zero', () =>
         'utf8'
       )
     );
-    assert.equal(manifest.runs['no-pg-trgm'].scenarios.length, 2);
+    assert.equal(manifest.runs['no-pg-trgm'].scenarios.length, 3);
   } finally {
     rmSync(temporaryDirectory, { recursive: true, force: true });
   }
@@ -315,6 +420,7 @@ test('paired index runs reject changed fixture provenance', () => {
     RESULT_DIR: resultDirectory,
     BENCHMARK_ID: 'review-591-mismatch',
     KEYWORD: '누스피요르드',
+    EXPECTED_TOTAL_ELEMENTS: '1',
     RELEASE_SHA: 'a'.repeat(40),
     FIXTURE_ID: 'catalog-170k-v1',
   };
