@@ -71,12 +71,11 @@ Scheduler는 ADR-0036의 제한 후보와 ROOM별 독립 트랜잭션으로 저�
 
 ## 검증
 
-- 상태: 미검증
-- 근거: 없음
-- 미검증:
-    - #557의 승인된 T1~T7과 기존 ROOM-08·09·10 회귀를 구현·테스트·CI로 확인해야 한다.
-    - 목록·내 모임 GET이 전역 저장 보정, ROOM·대기열 DML, 종료 이벤트와 무관함을 PostgreSQL 회귀로 확인해야 한다.
-    - SQL의 유효 상태 식이 ReadService 결과·행동 가능성 판정·응답 `status`와 내 모임 `chatAvailable`까지 재계산 없이 전달되고, 공개 목록에 `chatAvailable`이 추가되지 않음을 확인해야 한다.
-    - 대상 ROOM 보정의 시간 전이·대기열 만료·종료 이벤트·낙관 락 재시도와 `409 ROOM_CONCURRENT_MODIFICATION` 기존 회귀를 확인해야 한다.
+- 상태: 검증됨
+- 근거:
+    - 구현: [#557](https://github.com/bamsongi-club/albam-mate/issues/557)의 [PR #574](https://github.com/bamsongi-club/albam-mate/pull/574)가 목록·내 모임의 전역 `correctDueRooms(requestTime)` 호출을 제거하고, 고정 요청 시각의 `effectiveStatus`와 관계 사실을 ReadService 결과로 전달했다.
+    - 계약: [#557의 승인된 T1~T7](https://github.com/bamsongi-club/albam-mate/issues/557#issuecomment-5237025713)이 목록·내 모임의 유효 상태, 전역 DML을 수행하지 않는 경계, 대상 ROOM 보정 유지와 Scheduler 병행 snapshot을 고정했다.
+    - 테스트: PR #574에서 `Room06RequestBoundaryQueryIntegrationTest`, `MyRoomChatAvailabilityConsistencyIntegrationTest`, `RoomActionAvailabilitySnapshotPostgresTest`와 `SearchPerformancePostgresTest`로 H2 유효 상태와 PostgreSQL snapshot·조회 락 부재·실행 계획을 확인했다.
+    - CI: PR #574의 Docs, Backend Fast, PostgreSQL 1/2·2/2, Coverage Gate와 CI Gate가 성공했다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

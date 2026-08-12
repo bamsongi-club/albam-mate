@@ -1264,7 +1264,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | 인증 / CSRF | 선택 / 불필요 |
 | 성공 | `200 OK`, `data`: `PageResponse<PublicRoomResponse>` |
 
-유효한 세션이 있으면 같은 고정 `requestTime`과 snapshot 사실로 요청자 기준 `joinable`을 계산한다.
+공개 목록은 전역 저장 상태 보정 없이 같은 고정 `requestTime`과 snapshot 사실로 유효 상태·필터·content·count·응답을 구성한다. 유효한 세션이 있으면 이 사실로 요청자 기준 `joinable`을 계산하며, 목록은 대상 ROOM 보정 충돌의 `ROOM_CONCURRENT_MODIFICATION`을 반환하지 않는다.
 
 #### Query Parameters
 
@@ -1302,7 +1302,6 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | 발생 조건 | HTTP | code |
 |---|---:|---|
 | query parameter 검증 실패 | 400 | `VALIDATION_ERROR` |
-| 목록 대상 ROOM 보정의 낙관 락 재시도 소진 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
 
 ### ROOM-02 방 상세 조회
 
@@ -1631,6 +1630,8 @@ Request body는 없다.
 | 인증 / CSRF | 필요 / 불필요 |
 | 성공 | `200 OK`, `data`: `PageResponse<MyRoomListItem>` |
 
+내 모임 목록은 전역 저장 상태 보정 없이 같은 고정 `requestTime`의 유효 상태와 snapshot 사실로 응답을 구성하므로, 목록 대상 ROOM 보정 충돌의 `ROOM_CONCURRENT_MODIFICATION`을 반환하지 않는다.
+
 #### Query Parameters
 
 | 이름 | 타입 | 필수 | 기본값 | 의미 |
@@ -1653,7 +1654,6 @@ Request body는 없다.
 |---|---:|---|
 | 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
 | query parameter 검증 실패 | 400 | `VALIDATION_ERROR` |
-| 목록 대상 ROOM 보정의 낙관 락 재시도 소진 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
 
 ### PART-04 대기 등록·재신청
 
@@ -2084,7 +2084,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 2. 새 시도에서 업무 규칙 위반을 확인하면 해당 업무 오류를 반환한다.
 3. 동시 변경으로 끝내 완료하지 못할 때만 `ROOM_CONCURRENT_MODIFICATION`을 반환한다.
 
-대상 ROOM의 저장 상태를 보정하는 `GET /api/rooms/{roomId}`, `GET /api/rooms`, `GET /api/users/me/rooms`와 채팅 세 엔드포인트에서 이 오류를 받으면 클라이언트는 요청 또는 WebSocket handshake 전체를 다시 시도한다. 목록·내 모임 조회는 현재 구현에서 전역 저장 보정을 수행하므로 이 오류를 반환할 수 있으며, [#557](https://github.com/bamsongi-club/albam-mate/issues/557)의 전역 보정 제거 구현이 반영되면 목록·내 모임의 이 오류 계약도 함께 제거한다. 알고리즘은 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)와 [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md)를 따른다.
+대상 ROOM의 저장 상태를 보정하는 `GET /api/rooms/{roomId}`, `GET /api/rooms/{roomId}/waitlist/me`와 채팅 세 엔드포인트에서 이 오류를 받으면 클라이언트는 요청 또는 WebSocket handshake 전체를 다시 시도한다. `GET /api/rooms`와 `GET /api/users/me/rooms`는 고정 `requestTime`의 유효 상태를 읽는 무보정 snapshot 조회이므로 이 오류를 반환하지 않는다. 알고리즘은 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)와 [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md)를 따른다.
 
 ### 10.5 참가 오류
 
@@ -2130,14 +2130,14 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 | `PUT /api/users/me/played-games/{gameId}` | `UNAUTHENTICATED`, `CSRF_TOKEN_INVALID`, `VALIDATION_ERROR`, `GAME_NOT_FOUND` |
 | `DELETE /api/users/me/played-games/{gameId}` | `UNAUTHENTICATED`, `CSRF_TOKEN_INVALID`, `VALIDATION_ERROR`, `GAME_NOT_FOUND` |
 | `POST /api/rooms` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `CSRF_TOKEN_INVALID` |
-| `GET /api/rooms` | `VALIDATION_ERROR`, `ROOM_CONCURRENT_MODIFICATION` |
+| `GET /api/rooms` | `VALIDATION_ERROR` |
 | `GET /api/rooms/{roomId}` | `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `ROOM_CONCURRENT_MODIFICATION` |
 | `PATCH /api/rooms/{roomId}` | `UNAUTHENTICATED`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `GAME_NOT_FOUND`, `VALIDATION_ERROR`, `ROOM_UPDATE_NOT_ALLOWED_WITH_ACTIVE_PARTICIPANTS`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
 | `DELETE /api/rooms/{roomId}` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
 | `PATCH /api/rooms/{roomId}/status` | `UNAUTHENTICATED`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `VALIDATION_ERROR`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
 | `POST /api/rooms/{roomId}/participants` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `ALREADY_PARTICIPATING`, `ROOM_NOT_RECRUITING`, `CAPACITY_EXCEEDED`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
 | `DELETE /api/rooms/{roomId}/participants/me` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `PARTICIPATION_NOT_FOUND`, `FORBIDDEN`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
-| `GET /api/users/me/rooms` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_CONCURRENT_MODIFICATION` |
+| `GET /api/users/me/rooms` | `UNAUTHENTICATED`, `VALIDATION_ERROR` |
 | `POST /api/rooms/{roomId}/waitlist` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `ALREADY_PARTICIPATING`, `WAITLIST_NOT_AVAILABLE`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
 | `GET /api/rooms/{roomId}/waitlist/me` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `WAITLIST_ENTRY_NOT_FOUND`, `ROOM_CONCURRENT_MODIFICATION` |
 | `DELETE /api/rooms/{roomId}/waitlist/me` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `WAITLIST_ENTRY_NOT_FOUND`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
