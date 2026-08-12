@@ -21,8 +21,8 @@ import java.util.concurrent.TimeUnit;
 import javax.sql.DataSource;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.aop.support.AopUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -858,5 +858,6 @@ class NotificationRelayPostgresTest {
 	private record Fixture(long roomId, long firstRecipientUserId, long secondRecipientUserId) {
 	}
 
-	private record RelayMeterSnapshot(String stage, String result, long count, double durationNanos) {}
+	private record RelayMeterSnapshot(String stage, String result, long count, double durationNanos) {
+	}
 }
