@@ -30,7 +30,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 선행 승인 | [ADR-0035 방 생명주기 상태와 요청자별 행동 가능성을 분리](../adr/room/0035-room-status-action-eligibility-separation.md), [ADR-0055 ROOM 조회 유효 상태와 저장 상태 보정 책임 분리](../adr/room/0055-room-query-effective-status-and-persistence-correction.md), [ADR-0056 사전 전역 보정 없는 ROOM 조회의 PostgreSQL 일관 snapshot](../adr/room/0056-postgresql-room-query-snapshot-without-global-pre-correction.md) — `승인됨` |
 | 연결 기능 | [PART-04 선착순 대기열과 자동 승격](#part-04-선착순-대기열과-자동-승격) |
 | 선행 구현 | PART-04가 소유하는 현재 WAITING 저장·조회 기반([#302](https://github.com/bamsongi-club/albam-mate/issues/302))이 기준 브랜치에 병합된 뒤 ROOM-08 구현을 시작한다. |
-| 후속 구현 | [#557](https://github.com/bamsongi-club/albam-mate/issues/557)에서 ADR-0055·0056의 목록·내 모임 유효 상태·snapshot 경계를 생산 코드와 PostgreSQL 회귀로 반영한다. |
+| 반영·검증 | [#557](https://github.com/bamsongi-club/albam-mate/issues/557)의 [PR #574](https://github.com/bamsongi-club/albam-mate/pull/574)에서 ADR-0055·0056의 목록·내 모임 유효 상태·snapshot 경계를 생산 코드와 PostgreSQL 회귀로 반영·검증했다. |
 | 필수 테스트 계약 | [#303의 최신 전체 ROOM-08-T1~T8](https://github.com/bamsongi-club/albam-mate/issues/303#issuecomment-5177036311) |
 | 착수 전 확정 | 없음 |
 

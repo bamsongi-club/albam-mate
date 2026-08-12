@@ -153,7 +153,7 @@ launchctl setenv BAMSONGI_BRAIN_ROOT "$HOME/Workspace/bamsongi-brain"
 
 ### `bamsongi-brain을 찾을 수 없습니다` 경고가 표시됨
 
-두 저장소가 형제 폴더인지 확인한다. 다른 위치에 있다면 `BAMSONGI_BRAIN_ROOT`를 설정한다.
+두 저장소가 형제 폴더인지 확인한다. 다른 위치에 있다면 `BAMSONGI_BRAIN_ROOT`를 설정한다. git worktree에서 실행 중이라면 기준 경로가 워크트리 폴더로 잡혀 형제 폴더 탐색이 항상 실패하므로, `BAMSONGI_BRAIN_ROOT`에 `bamsongi-brain`의 절대 경로를 설정한다.
 
 ### `Node.js 20 이상이 필요합니다` 경고가 표시됨
 

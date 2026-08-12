@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.lang.reflect.Field;
 import java.time.Instant;
 
 import org.junit.jupiter.api.Test;
@@ -32,31 +31,34 @@ class RoomStatusCorrectionTest {
 	void 자동_종료_경계_직전에는_닫힘이고_정확히_도달하면_종료된다() {
 		Room room = room(START_AT);
 		room.reconcileStateAt(START_AT);
+		Instant automaticFinishAt = START_AT.plus(Room.AUTOMATIC_FINISH_AFTER_START);
 
-		assertFalse(room.reconcileStateAt(START_AT.plusSeconds(24 * 60 * 60).minusNanos(1)));
+		assertFalse(room.reconcileStateAt(automaticFinishAt.minusNanos(1)));
 		assertEquals(RoomStatus.CLOSED, room.getStatus());
 
-		assertTrue(room.reconcileStateAt(START_AT.plusSeconds(24 * 60 * 60)));
+		assertTrue(room.reconcileStateAt(automaticFinishAt));
 		assertEquals(RoomStatus.FINISHED, room.getStatus());
 	}
 
 	@Test
-	void 오래_지난_모집중_방은_한_번에_종료까지_전이한다() {
+	void 시작과_자동_종료_경계를_지난_모집중_방은_한_번에_종료까지_전이한다() {
 		Room room = room(START_AT);
+		Instant afterAutomaticFinish = START_AT.plus(Room.AUTOMATIC_FINISH_AFTER_START).plusNanos(1);
 
-		assertTrue(room.reconcileStateAt(START_AT.plusSeconds(24 * 60 * 60)));
+		assertTrue(room.reconcileStateAt(afterAutomaticFinish));
 		assertEquals(RoomStatus.FINISHED, room.getStatus());
 	}
 
 	@Test
-	void 취소와_종료_상태는_보정하지_않는다() throws ReflectiveOperationException {
+	void 취소와_종료_상태는_시간_보정으로_되돌아가지_않는다() {
 		Room canceledRoom = room(START_AT);
-		setStatus(canceledRoom, RoomStatus.CANCELED);
+		assertTrue(canceledRoom.cancel());
 		Room finishedRoom = room(START_AT);
-		setStatus(finishedRoom, RoomStatus.FINISHED);
+		assertTrue(finishedRoom.reconcileStateAt(START_AT.plus(Room.AUTOMATIC_FINISH_AFTER_START)));
+		Instant correctionTime = START_AT.plus(Room.AUTOMATIC_FINISH_AFTER_START).plusNanos(1);
 
-		assertFalse(canceledRoom.reconcileStateAt(START_AT.plusSeconds(48 * 60 * 60)));
-		assertFalse(finishedRoom.reconcileStateAt(START_AT.plusSeconds(48 * 60 * 60)));
+		assertFalse(canceledRoom.reconcileStateAt(correctionTime));
+		assertFalse(finishedRoom.reconcileStateAt(correctionTime));
 		assertEquals(RoomStatus.CANCELED, canceledRoom.getStatus());
 		assertEquals(RoomStatus.FINISHED, finishedRoom.getStatus());
 	}
@@ -75,9 +77,4 @@ class RoomStatusCorrectionTest {
 			3);
 	}
 
-	private void setStatus(Room room, RoomStatus status) throws ReflectiveOperationException {
-		Field field = Room.class.getDeclaredField("status");
-		field.setAccessible(true);
-		field.set(room, status);
-	}
 }

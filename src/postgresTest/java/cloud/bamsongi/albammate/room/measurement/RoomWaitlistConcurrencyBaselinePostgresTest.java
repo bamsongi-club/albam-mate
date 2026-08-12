@@ -691,10 +691,28 @@ class RoomWaitlistConcurrencyBaselinePostgresTest {
 		assertTrue(retryLogs.stream().allMatch(log -> List.of(expectedEvents).contains(log.event())));
 		assertTrue(retryLogs.stream().allMatch(log -> Long.valueOf(roomId).equals(log.roomId())));
 		assertTrue(retryLogs.stream().allMatch(log -> log.attempt() >= 2 && log.attempt() <= 3));
+		assertTrue(retryLogs.stream().allMatch(log -> expectedUseCase(log.event()).equals(log.useCase())));
+		assertTrue(retryLogs.stream().allMatch(log -> expectedReasonCode(log).equals(log.reasonCode())));
 		assertTrue(retryLogs.stream().allMatch(log -> log.retryAttempt() || log.exhaustedAttempt()));
 		assertTrue(retryLogs.stream()
 			.filter(RoomConcurrencyBaselineSupport.RetryLogRecord::exhaustedAttempt)
 			.allMatch(log -> log.attempt() == 3));
+	}
+
+	private String expectedUseCase(String event) {
+		return switch (event) {
+			case PARTICIPATION_RETRY_EVENT -> "ROOM_PARTICIPATION";
+			case PARTICIPATION_CANCEL_RETRY_EVENT -> "ROOM_PARTICIPATION_CANCEL";
+			case WAITLIST_CANCEL_RETRY_EVENT -> "ROOM_WAITLIST_CANCEL";
+			default -> throw new AssertionError("예상하지 않은 재시도 event: " + event);
+		};
+	}
+
+	private String expectedReasonCode(RoomConcurrencyBaselineSupport.RetryLogRecord retryLog) {
+		if (retryLog.retryAttempt()) {
+			return "OPTIMISTIC_LOCK_CONFLICT";
+		}
+		return "OPTIMISTIC_LOCK_EXHAUSTED";
 	}
 
 	/**

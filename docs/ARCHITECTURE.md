@@ -190,7 +190,7 @@ Service, ReadService, Executor와 Coordinator를 이름이나 클래스 수만 �
 
 #### 방 조회
 
-> 목록·내 모임의 아래 유효 상태·snapshot 경계는 [#557](https://github.com/bamsongi-club/albam-mate/issues/557)에서 생산 코드와 PostgreSQL 회귀로 반영할 승인된 후속 계약이다. 현재 구현·검증 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)을 따른다.
+> 목록·내 모임의 아래 유효 상태·snapshot 경계는 [#557](https://github.com/bamsongi-club/albam-mate/issues/557)의 [PR #574](https://github.com/bamsongi-club/albam-mate/pull/574)에서 생산 코드와 PostgreSQL 회귀로 반영됐다. 현재 구현·검증 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)을 따른다.
 
 방 조회는 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)의 조회 유효 상태·응답 조립·저장 상태 보정 책임과 [ADR-0056](adr/room/0056-postgresql-room-query-snapshot-without-global-pre-correction.md)의 snapshot 경계·유효 상태 반환 계약을 따른다.
 
@@ -204,7 +204,7 @@ flowchart LR
     correctionExecutor --> correctionRepositories["RoomRepository·RoomWaitlistRepository"]
     correctionExecutor --> committed["대상 ROOM 상태 보정 커밋"]
     committed --> detailRead["상세 ReadService<br/>REQUIRES_NEW readOnly REPEATABLE_READ"]
-    listRead --> readRepositories["RoomRepository·ParticipationRepository"]
+    listRead --> readRepositories["RoomRepository·ParticipationRepository·RoomWaitlistRepository"]
     detailRead --> readRepositories
     readRepositories --> facts["ROOM·현재 ACTIVE·WAITING·역할 사실"]
     facts --> evaluator["RoomActionAvailabilityEvaluator"]
@@ -518,3 +518,5 @@ Repository Projection은 쿼리가 선택한 열을 담는 저장소 계층 타�
 | 구조 규칙의 자동 검증 상태 변경 | 필요 | ModuleArchitectureTest, CI |
 
 중요한 구조 선택의 근거나 대안이 바뀌면 ADR을 추가하거나 기존 ADR을 대체한다. 코드 작성 규칙은 [CONVENTIONS](CONVENTIONS.md), HTTP 계약은 [API 명세](API.md), 저장 계약은 [ERD](ERD.md)가 각각 소유한다.
+
+> 문서 관리: 소유자 `밤송이클럽 백엔드 팀` · 최종 검증일 `2026-08-12` · 폐기 조건 `모듈러 모놀리스 구조를 더 이상 사용하지 않거나 후속 아키텍처 정본이 승인될 때`

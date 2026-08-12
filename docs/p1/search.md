@@ -148,8 +148,8 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 | 데이터 모델 | [ROOMS](../ERD.md#rooms) |
 | 조회 유효 상태 | [ADR-0055 ROOM 조회 유효 상태와 저장 상태 보정 책임 분리](../adr/room/0055-room-query-effective-status-and-persistence-correction.md) |
 | 성능 검증 | [FND-09 검색 성능과 인덱스 검증](foundation.md#fnd-09-검색-성능과-인덱스-검증) |
-| 현재 HTTP 경계 | `RoomController#listRooms`, `RoomListRequest`, `RoomQueryParameterAllowlistValidator`; 제공 조건은 `type`, `gameId`, `keyword`, `startsAtFrom`, `startsAtTo`, `minRemainingSeats`, `experienceLevels`, `rulemasterOnly`, `page`, `size` |
-| 현재 조회 경계 | `RoomListQueryService#findPage` → `RoomStatusCorrectionCoordinator#correctDueRooms` → `RoomListReadService#findPublicRooms` → `RoomRepository`; 보정 뒤 저장 상태와 모든 조건은 하나의 동적 조회에 적용하고 정렬은 엔티티 필드 `startAt`, `id` 오름차순 고정 |
+| 현재 HTTP 경계 | `RoomController#listRooms`, `RoomListRequest`, `RoomQueryParameterAllowlistValidator`; 제공 조건은 `type`, `status`, `gameId`, `keyword`, `startsAtFrom`, `startsAtTo`, `minRemainingSeats`, `experienceLevels`, `rulemasterOnly`, `page`, `size` |
+| 현재 조회 경계 | `RoomListQueryService#findPage` → `RoomListReadService#findPublicRoomsAt` → `RoomRepository#findPublicRoomsAt`; QueryService가 고정한 `requestTime`의 유효 상태와 모든 조건을 `REQUIRES_NEW`, `readOnly = true`, `REPEATABLE_READ` 읽기 snapshot의 하나의 동적 조회에 적용하고 정렬은 엔티티 필드 `startAt`, `id` 오름차순 고정 |
 | 현재 저장 필드 | `Room.startAt`, `Room.capacity`, `Room.activeParticipantCount`, `Room.experienceLevel`, `Room.rulemasterLed` |
 
 ### 기능 규칙
@@ -167,8 +167,8 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 
 ### 권장 조회 구조
 
-- ADR-0055·0056의 후속 #557 구현은 `requestTime` 고정 → 유효 상태를 적용한 공개 방·필터 조회 → 응답 조립 순서를 사용하고, 새 조건은 `RoomListReadService`와 `RoomRepository`까지 전달한다. `RoomListReadService`와 `RoomRepository` 밖이나 DTO 조립 뒤에서 필터를 판정하지 않는다.
-- 현재 `RoomListReadService#findPublicRooms`는 `keyword` 유무로 저장소 메서드를 나눈다. P1 조건을 조합마다 메서드로 늘리지 않고 하나의 동적 조회 경계로 모은다.
+- [#557](https://github.com/bamsongi-club/albam-mate/issues/557)의 [PR #574](https://github.com/bamsongi-club/albam-mate/pull/574)는 `requestTime` 고정 → 유효 상태를 적용한 공개 방·필터 조회 → 응답 조립 순서를 반영했다. 제공 조건은 `RoomListReadService`와 `RoomRepository`까지 전달하며, 그 밖이나 DTO 조립 뒤에서 필터를 판정하지 않는다.
+- 현재 `RoomListReadService#findPublicRoomsAt`와 `RoomRepository#findPublicRoomsAt`는 제공 조건을 하나의 동적 조회 경계에 모은다. 조건 조합이나 `keyword` 유무마다 Repository 메서드를 늘리지 않는다.
 - 날짜, 경험 수준, 룰마스터와 `Room.capacity - Room.activeParticipantCount` 조건은 페이지네이션 전 SQL 조건으로 적용한다. 서비스에서 페이지 결과를 다시 걸러내지 않는다.
 
 ### 완료 기준
@@ -202,8 +202,8 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 | 인증·공개 범위 | [P1 P0 계약 상속](../P1-spec.md#p0-계약-상속) |
 | 저장 계약 | [USER_PLAYED_GAMES](../ERD.md#user_played_games), [ADR-0006](../adr/platform/0006-p0-bigint-identity-ids.md) |
 | 필수 ADR | [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md), [ADR-0047](../adr/platform/0047-http-method-and-target-state-idempotency.md) |
-| 백엔드 구현·개발 검증 | [#356](https://github.com/bamsongi-club/albam-mate/issues/356) (구현 완료; H2·PostgreSQL 대상 테스트 통과) |
-| 프론트엔드 구현 | [#357](https://github.com/bamsongi-club/albam-mate/issues/357) |
+| 백엔드 구현·개발 검증 근거 | [#356](https://github.com/bamsongi-club/albam-mate/issues/356) |
+| 프론트엔드 구현·검증 근거 | [#357](https://github.com/bamsongi-club/albam-mate/issues/357) |
 
 ### 기능 규칙
 
@@ -243,28 +243,28 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 
 플레이 기록·통계 기능이 승인되면 별도 이력 모델을 추가한다. 현재 관계의 생성 시각을 실제 플레이 날짜나 과거 플레이 이력으로 변환하지 않는다.
 
-## 부록: 현재 구현 위치와 검증 경계
+## 부록: 소스 탐색 위치와 검증 경계
 
-이 부록은 현재 구현 위치와 후속 변경의 검증 경계를 확인하기 위한 작업 메모다. 최종 계약은 [P1 명세](../P1-spec.md), [API 명세](../API.md), [ERD](../ERD.md)와 승인된 ADR을 따른다.
+이 부록은 소스 탐색 시작점과 후속 변경의 검증 경계를 확인하기 위한 작업 메모다. 기능의 현재 구현·검증 상태는 [P1 기능 상태 정본](README.md#기능별-현재-상태)만 따르며, 최종 계약은 [P1 명세](../P1-spec.md), [API 명세](../API.md), [ERD](../ERD.md)와 승인된 ADR을 따른다.
 
-### 정본별 반영 결과
+### 정본별 소유 범위
 
-현재 P1 필수 검색 범위는 다음 정본과 구현에 반영돼 있다.
+검색 계약과 탐색 경계는 다음 정본이 나누어 소유한다.
 
-| 정본 | P1 필수 범위 반영 |
+| 정본 | 소유 범위·탐색 지점 |
 | --- | --- |
 | [P1 명세](../P1-spec.md) | 카테고리·테마·추천/베스트·메커니즘을 포함한 `SEARCH-01`~`SEARCH-03` 기능 목록·완료 기준 |
 | [API 명세](../API.md) | 게임·방 검색, 카테고리·테마·메커니즘 선택지, 해 본 게임 파라미터·등록·취소·본인 표시 상태 |
 | [ERD](../ERD.md) | 인원·시간 수치 열, 카테고리·테마·인원 선호·메커니즘·해 본 게임 관계와 제약 |
 | ADR | [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md), [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md), [ADR-0048](../adr/game/0048-full-reviewed-game-mechanism-catalog.md), [ADR-0050](../adr/game/0050-game-metadata-catalog-and-filters.md) 승인 |
 | 카탈로그 manifest·가이드 | 인원·시간·카테고리·테마·인원 선호·메커니즘 필드의 출처, 정규화·검수 결과와 반복 적재 계약 |
-| [기반 작업](foundation.md) | 구현된 필수 검색의 대표 데이터·쿼리·측정 기준 |
+| [기반 작업](foundation.md) | 필수 검색의 대표 데이터·쿼리·측정 기준 |
 
-### 현재 구현 지점
+### 소스 탐색 시작점
 
-아래는 현재 존재하는 파일 기준의 구현 지점이다. `USER_PLAYED_GAMES`를 포함한 물리 계약은 ERD가 정본이다. Java 경로는 `src/main/java/cloud/bamsongi/albammate/` 기준이고, 그 밖의 경로는 저장소 루트 기준이다.
+아래 경로는 구현 상태 판정이 아니라 관련 소스를 찾기 위한 시작점이다. 파일의 존재만으로 기능 완료를 판단하지 않으며, `USER_PLAYED_GAMES`를 포함한 물리 계약은 ERD가 정본이다. Java 경로는 `src/main/java/cloud/bamsongi/albammate/` 기준이고, 그 밖의 경로는 저장소 루트 기준이다.
 
-| 영역 | 현재 파일 |
+| 영역 | 탐색 시작 파일 |
 | --- | --- |
 | 게임 메타데이터 저장 모델 | `game/entity/GameCategory.java`, `GameTheme.java`, `GamePlayerPreference.java`와 각 relation·Repository, `V20__create_game_metadata_filter_schema.sql` |
 | 게임 요청·응답 | `game/dto/GameListRequest.java`, `game/dto/GameDetail.java`, category·theme option·summary DTO |

@@ -212,31 +212,31 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 ## 2. API 인덱스
 
-기능 ID는 엔드포인트가 아니라 기능 단위다. 로그인·로그아웃은 함께 `AUTH-03`, 프로필 조회·수정은 함께 `AUTH-04`, 방 취소·종료는 함께 `ROOM-05`, 알림 목록·미확인 개수는 함께 `NOTI-02`, 단건·일괄 읽음은 함께 `NOTI-03`, 채팅 전송·이력 조회는 함께 `CHAT-02`에 속한다. 각 기능의 제품 규칙 정본은 인덱스에서 링크한다.
+기능 ID는 엔드포인트가 아니라 기능 단위다. 로그인·로그아웃은 함께 `AUTH-03`, 프로필 조회·수정은 함께 `AUTH-04`, 방 취소·종료는 함께 `ROOM-05`, 알림 목록·미확인 개수는 함께 `NOTI-02`, 단건·일괄 읽음은 함께 `NOTI-03`, 채팅 전송·이력 조회는 함께 `CHAT-02`에 속한다. P1 기능의 제품 규칙 정본과 P0 도입 당시의 완료 기록을 인덱스에서 구분해 링크한다. P0 완료 기록은 현재 HTTP 계약이나 새 구현 범위의 정본이 아니다.
 
 `단계`는 API 도입 제품 단계다(→ [PRD 로드맵](PRD.md#6-단계별-로드맵)). `P0·P1`은 P0에 도입한 경로를 P1에서 확장한다는 뜻이다. 단계가 늘어도 HTTP 계약인 이 파일을 나누지 않고 표에 행·단계 값을 더한다. 단계 표시는 구현 여부에 따라 바꾸지 않으며, P1 기능의 현재 제공 여부는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)으로 판정한다.
 
 | # | 단계 | 기능 ID | Method | Path | 인증 | CSRF | 성공 |
 |---:|:---:|---|---|---|:---:|:---:|:---:|
-| 1 | P0 | [AUTH-01](#auth-01-csrf-토큰-조회) · [정본](archive/p0/auth-profile.md#auth-01-csrf-토큰-조회) | GET | `/api/auth/csrf` | N | N | 200 |
-| 2 | P0 | [AUTH-02](#auth-02-회원가입) · [정본](archive/p0/auth-profile.md#auth-02-회원가입) | POST | `/api/auth/signup` | N | Y | 201 |
-| 3 | P0 | [AUTH-03](#auth-03-로그인) · [정본](archive/p0/auth-profile.md#auth-03-로그인로그아웃) | POST | `/api/auth/login` | N | Y | 200 |
-| 4 | P0 | [AUTH-03](#auth-03-로그아웃) · [정본](archive/p0/auth-profile.md#auth-03-로그인로그아웃) | POST | `/api/auth/logout` | Y | Y | 200 |
-| 5 | P0 | [AUTH-04](#auth-04-내-프로필-조회) · [정본](archive/p0/auth-profile.md#auth-04-내-프로필-조회수정) | GET | `/api/users/me` | Y | N | 200 |
-| 6 | P0 | [AUTH-04](#auth-04-내-프로필-수정) · [정본](archive/p0/auth-profile.md#auth-04-내-프로필-조회수정) | PATCH | `/api/users/me` | Y | Y | 200 |
+| 1 | P0 | [AUTH-01](#auth-01-csrf-토큰-조회) · [P0 완료 기록](archive/p0/auth-profile.md#auth-01-csrf-토큰-조회) | GET | `/api/auth/csrf` | N | N | 200 |
+| 2 | P0 | [AUTH-02](#auth-02-회원가입) · [P0 완료 기록](archive/p0/auth-profile.md#auth-02-회원가입) | POST | `/api/auth/signup` | N | Y | 201 |
+| 3 | P0 | [AUTH-03](#auth-03-로그인) · [P0 완료 기록](archive/p0/auth-profile.md#auth-03-로그인로그아웃) | POST | `/api/auth/login` | N | Y | 200 |
+| 4 | P0 | [AUTH-03](#auth-03-로그아웃) · [P0 완료 기록](archive/p0/auth-profile.md#auth-03-로그인로그아웃) | POST | `/api/auth/logout` | Y | Y | 200 |
+| 5 | P0 | [AUTH-04](#auth-04-내-프로필-조회) · [P0 완료 기록](archive/p0/auth-profile.md#auth-04-내-프로필-조회수정) | GET | `/api/users/me` | Y | N | 200 |
+| 6 | P0 | [AUTH-04](#auth-04-내-프로필-수정) · [P0 완료 기록](archive/p0/auth-profile.md#auth-04-내-프로필-조회수정) | PATCH | `/api/users/me` | Y | Y | 200 |
 | 6.1 | P1 | [AUTH-04](#auth-04-프로필-이미지-업로드) · [정본](p1/social-login.md) | POST | `/api/users/me/profile-image` | Y | Y | 200 |
 | 6.2 | P1 | [AUTH-04](#auth-04-프로필-이미지-삭제) · [정본](p1/social-login.md) | DELETE | `/api/users/me/profile-image` | Y | Y | 200 |
-| 7 | P0·P1 | [GAME-01](#game-01-게임-목록검색) · [P0 정본](archive/p0/game-catalog.md#game-01-게임-목록검색) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games` | 선택 | N | 200 |
-| 8 | P0·P1 | [GAME-02](#game-02-게임-상세-조회) · [P0 정본](archive/p0/game-catalog.md#game-02-게임-상세-조회) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games/{gameId}` | 선택 | N | 200 |
-| 9 | P0 | [ROOM-03](#room-03-방-생성) · [정본](archive/p0/room.md#room-03-방-생성) | POST | `/api/rooms` | Y | Y | 201 |
-| 10 | P0·P1 | [ROOM-01](#room-01-방-목록-조회) · [P0 정본](archive/p0/room.md#room-01-방-탐색) · [SEARCH-02 정본](p1/search.md#search-02-방-조건-검색) · [ROOM-08 정본](p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | GET | `/api/rooms` | 선택 | N | 200 |
-| 11 | P0·P1 | [ROOM-02](#room-02-방-상세-조회) · [P0 정본](archive/p0/room.md#room-02-방-상세) · [ROOM-08 정본](p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | GET | `/api/rooms/{roomId}` | 선택 | N | 200 |
-| 12 | P0 | [ROOM-04](#room-04-방-수정) · [정본](archive/p0/room.md#room-04-방-수정) | PATCH | `/api/rooms/{roomId}` | Y | Y | 200 |
-| 13 | P0 | [ROOM-05](#room-05-방-취소) · [정본](archive/p0/room.md#room-05-방-취소종료) | DELETE | `/api/rooms/{roomId}` | Y | Y | 200 |
-| 14 | P0 | [ROOM-05](#room-05-방-종료) · [정본](archive/p0/room.md#room-05-방-취소종료) | PATCH | `/api/rooms/{roomId}/status` | Y | Y | 200 |
-| 15 | P0 | [PART-01](#part-01-방-참가재참가) · [정본](archive/p0/participation.md#part-01-방-참가재참가) | POST | `/api/rooms/{roomId}/participants` | Y | Y | 201 |
-| 16 | P0·P1 | [PART-02](#part-02-참가-취소) · [P0 정본](archive/p0/participation.md#part-02-참가-취소) · [PART-04 정본](p1/room.md#part-04-선착순-대기열과-자동-승격) | DELETE | `/api/rooms/{roomId}/participants/me` | Y | Y | 200 |
-| 17 | P0·P1 | [PART-03](#part-03-내-모임-조회) · [P0 정본](archive/p0/participation.md#part-03-내-모임-조회) · [ROOM-08 정본](p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) · [CHAT-05 정본](p1/chatting.md#chat-05-내-모임-채팅-진입) | GET | `/api/users/me/rooms` | Y | N | 200 |
+| 7 | P0·P1 | [GAME-01](#game-01-게임-목록검색) · [P0 완료 기록](archive/p0/game-catalog.md#game-01-게임-목록검색) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games` | 선택 | N | 200 |
+| 8 | P0·P1 | [GAME-02](#game-02-게임-상세-조회) · [P0 완료 기록](archive/p0/game-catalog.md#game-02-게임-상세-조회) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games/{gameId}` | 선택 | N | 200 |
+| 9 | P0 | [ROOM-03](#room-03-방-생성) · [P0 완료 기록](archive/p0/room.md#room-03-방-생성) | POST | `/api/rooms` | Y | Y | 201 |
+| 10 | P0·P1 | [ROOM-01](#room-01-방-목록-조회) · [P0 완료 기록](archive/p0/room.md#room-01-방-탐색) · [SEARCH-02 정본](p1/search.md#search-02-방-조건-검색) · [ROOM-08 정본](p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | GET | `/api/rooms` | 선택 | N | 200 |
+| 11 | P0·P1 | [ROOM-02](#room-02-방-상세-조회) · [P0 완료 기록](archive/p0/room.md#room-02-방-상세) · [ROOM-08 정본](p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | GET | `/api/rooms/{roomId}` | 선택 | N | 200 |
+| 12 | P0 | [ROOM-04](#room-04-방-수정) · [P0 완료 기록](archive/p0/room.md#room-04-방-수정) | PATCH | `/api/rooms/{roomId}` | Y | Y | 200 |
+| 13 | P0 | [ROOM-05](#room-05-방-취소) · [P0 완료 기록](archive/p0/room.md#room-05-방-취소종료) | DELETE | `/api/rooms/{roomId}` | Y | Y | 200 |
+| 14 | P0 | [ROOM-05](#room-05-방-종료) · [P0 완료 기록](archive/p0/room.md#room-05-방-취소종료) | PATCH | `/api/rooms/{roomId}/status` | Y | Y | 200 |
+| 15 | P0 | [PART-01](#part-01-방-참가재참가) · [P0 완료 기록](archive/p0/participation.md#part-01-방-참가재참가) | POST | `/api/rooms/{roomId}/participants` | Y | Y | 201 |
+| 16 | P0·P1 | [PART-02](#part-02-참가-취소) · [P0 완료 기록](archive/p0/participation.md#part-02-참가-취소) · [PART-04 정본](p1/room.md#part-04-선착순-대기열과-자동-승격) | DELETE | `/api/rooms/{roomId}/participants/me` | Y | Y | 200 |
+| 17 | P0·P1 | [PART-03](#part-03-내-모임-조회) · [P0 완료 기록](archive/p0/participation.md#part-03-내-모임-조회) · [ROOM-08 정본](p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) · [CHAT-05 정본](p1/chatting.md#chat-05-내-모임-채팅-진입) | GET | `/api/users/me/rooms` | Y | N | 200 |
 | 18 | P1 | [PART-04](#part-04-대기-등록재신청) · [정본](p1/room.md#part-04-선착순-대기열과-자동-승격) | POST | `/api/rooms/{roomId}/waitlist` | Y | Y | 201·200 |
 | 19 | P1 | [PART-04](#part-04-본인-대기-상태-조회) · [정본](p1/room.md#part-04-선착순-대기열과-자동-승격) | GET | `/api/rooms/{roomId}/waitlist/me` | Y | N | 200 |
 | 20 | P1 | [PART-04](#part-04-대기-취소) · [정본](p1/room.md#part-04-선착순-대기열과-자동-승격) | DELETE | `/api/rooms/{roomId}/waitlist/me` | Y | Y | 200 |
@@ -288,7 +288,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | `CANCELED` | 주최자가 취소한 최종 상태 |
 | `FINISHED` | 종료된 최종 상태 |
 
-클라이언트가 관찰하는 상태 변화는 다음과 같다. 제품 규칙 정본은 [P0-spec 방 상태](archive/p0/P0-spec.md#방-상태roomstatus), 목록·내 모임의 조회 유효 상태와 저장 상태 보정 책임은 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)를 따른다.
+클라이언트가 관찰하는 현재 상태 변화 계약은 이 절이 소유한다. P0 도입 당시의 규칙은 [P0 완료 기록](archive/p0/P0-spec.md#방-상태roomstatus)으로만 참조하고, 목록·내 모임의 조회 유효 상태와 저장 상태 보정 책임은 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)를 따른다.
 
 | 조건 또는 요청 | 이전 상태 | 이후 상태 | 단계 |
 |---|---|---|:---:|
@@ -988,7 +988,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 
 ## 6. 게임 API
 
-게임 데이터는 운영자가 준비한다. 사용자용 게임 생성·수정·삭제 API는 제공하지 않는다(→ [GAME-01 정본](archive/p0/game-catalog.md#game-01-게임-목록검색), 게임 목록 출처 [ADR-0015](adr/game/0015-bgg-baseline-team-collected-game-list.md)).
+게임 데이터는 운영자가 준비한다. 사용자용 게임 생성·수정·삭제 API는 제공하지 않는다(→ [GAME-01 P0 완료 기록](archive/p0/game-catalog.md#game-01-게임-목록검색), 게임 목록 출처 [ADR-0015](adr/game/0015-bgg-baseline-team-collected-game-list.md)).
 
 ### GAME-01 게임 목록·검색
 
@@ -1264,7 +1264,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | 인증 / CSRF | 선택 / 불필요 |
 | 성공 | `200 OK`, `data`: `PageResponse<PublicRoomResponse>` |
 
-유효한 세션이 있으면 같은 고정 `requestTime`과 snapshot 사실로 요청자 기준 `joinable`을 계산한다.
+공개 목록은 전역 저장 상태 보정 없이 같은 고정 `requestTime`과 snapshot 사실로 유효 상태·필터·content·count·응답을 구성한다. 유효한 세션이 있으면 이 사실로 요청자 기준 `joinable`을 계산하며, 목록은 대상 ROOM 보정 충돌의 `ROOM_CONCURRENT_MODIFICATION`을 반환하지 않는다.
 
 #### Query Parameters
 
@@ -1302,7 +1302,6 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | 발생 조건 | HTTP | code |
 |---|---:|---|
 | query parameter 검증 실패 | 400 | `VALIDATION_ERROR` |
-| 목록 대상 ROOM 보정의 낙관 락 재시도 소진 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
 
 ### ROOM-02 방 상세 조회
 
@@ -1631,6 +1630,8 @@ Request body는 없다.
 | 인증 / CSRF | 필요 / 불필요 |
 | 성공 | `200 OK`, `data`: `PageResponse<MyRoomListItem>` |
 
+내 모임 목록은 전역 저장 상태 보정 없이 같은 고정 `requestTime`의 유효 상태와 snapshot 사실로 응답을 구성하므로, 목록 대상 ROOM 보정 충돌의 `ROOM_CONCURRENT_MODIFICATION`을 반환하지 않는다.
+
 #### Query Parameters
 
 | 이름 | 타입 | 필수 | 기본값 | 의미 |
@@ -1653,7 +1654,6 @@ Request body는 없다.
 |---|---:|---|
 | 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
 | query parameter 검증 실패 | 400 | `VALIDATION_ERROR` |
-| 목록 대상 ROOM 보정의 낙관 락 재시도 소진 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
 
 ### PART-04 대기 등록·재신청
 
@@ -2084,7 +2084,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 2. 새 시도에서 업무 규칙 위반을 확인하면 해당 업무 오류를 반환한다.
 3. 동시 변경으로 끝내 완료하지 못할 때만 `ROOM_CONCURRENT_MODIFICATION`을 반환한다.
 
-대상 ROOM의 저장 상태를 보정하는 `GET /api/rooms/{roomId}`, `GET /api/rooms`, `GET /api/users/me/rooms`와 채팅 세 엔드포인트에서 이 오류를 받으면 클라이언트는 요청 또는 WebSocket handshake 전체를 다시 시도한다. 목록·내 모임 조회는 현재 구현에서 전역 저장 보정을 수행하므로 이 오류를 반환할 수 있으며, [#557](https://github.com/bamsongi-club/albam-mate/issues/557)의 전역 보정 제거 구현이 반영되면 목록·내 모임의 이 오류 계약도 함께 제거한다. 알고리즘은 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)와 [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md)를 따른다.
+대상 ROOM의 저장 상태를 보정하는 `GET /api/rooms/{roomId}`, `GET /api/rooms/{roomId}/waitlist/me`와 채팅 세 엔드포인트에서 이 오류를 받으면 클라이언트는 요청 또는 WebSocket handshake 전체를 다시 시도한다. `GET /api/rooms`와 `GET /api/users/me/rooms`는 고정 `requestTime`의 유효 상태를 읽는 무보정 snapshot 조회이므로 이 오류를 반환하지 않는다. 알고리즘은 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)와 [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md)를 따른다.
 
 ### 10.5 참가 오류
 
@@ -2130,14 +2130,14 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 | `PUT /api/users/me/played-games/{gameId}` | `UNAUTHENTICATED`, `CSRF_TOKEN_INVALID`, `VALIDATION_ERROR`, `GAME_NOT_FOUND` |
 | `DELETE /api/users/me/played-games/{gameId}` | `UNAUTHENTICATED`, `CSRF_TOKEN_INVALID`, `VALIDATION_ERROR`, `GAME_NOT_FOUND` |
 | `POST /api/rooms` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `CSRF_TOKEN_INVALID` |
-| `GET /api/rooms` | `VALIDATION_ERROR`, `ROOM_CONCURRENT_MODIFICATION` |
+| `GET /api/rooms` | `VALIDATION_ERROR` |
 | `GET /api/rooms/{roomId}` | `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `ROOM_CONCURRENT_MODIFICATION` |
 | `PATCH /api/rooms/{roomId}` | `UNAUTHENTICATED`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `GAME_NOT_FOUND`, `VALIDATION_ERROR`, `ROOM_UPDATE_NOT_ALLOWED_WITH_ACTIVE_PARTICIPANTS`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
 | `DELETE /api/rooms/{roomId}` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
 | `PATCH /api/rooms/{roomId}/status` | `UNAUTHENTICATED`, `FORBIDDEN`, `ROOM_NOT_FOUND`, `VALIDATION_ERROR`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
 | `POST /api/rooms/{roomId}/participants` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `ALREADY_PARTICIPATING`, `ROOM_NOT_RECRUITING`, `CAPACITY_EXCEEDED`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
 | `DELETE /api/rooms/{roomId}/participants/me` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `PARTICIPATION_NOT_FOUND`, `FORBIDDEN`, `INVALID_ROOM_STATUS_TRANSITION`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
-| `GET /api/users/me/rooms` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_CONCURRENT_MODIFICATION` |
+| `GET /api/users/me/rooms` | `UNAUTHENTICATED`, `VALIDATION_ERROR` |
 | `POST /api/rooms/{roomId}/waitlist` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `ALREADY_PARTICIPATING`, `WAITLIST_NOT_AVAILABLE`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
 | `GET /api/rooms/{roomId}/waitlist/me` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `WAITLIST_ENTRY_NOT_FOUND`, `ROOM_CONCURRENT_MODIFICATION` |
 | `DELETE /api/rooms/{roomId}/waitlist/me` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ROOM_NOT_FOUND`, `WAITLIST_ENTRY_NOT_FOUND`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
@@ -2151,3 +2151,5 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 
 - `GET /api/rooms/{roomId}`에서만 취소·종료 방을 권한 없는 사용자가 조회할 때 존재 여부를 숨기기 위해 `ROOM_NOT_FOUND`를 반환한다. 그 외 주최자 전용 쓰기 API의 비주최자 요청은 `FORBIDDEN`을 반환한다.
 - `PATCH /api/rooms/{roomId}`의 `GAME_NOT_FOUND`는 요청에 `gameId`를 포함했을 때만 적용한다.
+
+> 문서 관리: 소유자 `밤송이클럽 백엔드·프런트엔드 팀` · 최종 검증일 `2026-08-12` · 폐기 조건 `HTTP·WebSocket 계약이 승인된 다른 정본에서 생성되고 이 문서가 그 정본으로 대체될 때`

@@ -2,147 +2,106 @@
 
 > 원하는 게임과 모임 조건을 확인하고 함께할 사람을 찾아, 실제 보드게임 플레이까지 이어지도록 돕는 모임 매칭 서비스입니다.
 
-[제품 목표](docs/PRD.md) · [P0 완료 명세](docs/archive/p0/P0-spec.md) · [P1 명세](docs/P1-spec.md) · [P1 AWS 인프라](docs/guides/AWS_MULTI_INSTANCE_INFRASTRUCTURE.md) · [API 계약](docs/API.md) · [아키텍처](docs/ARCHITECTURE.md)
+[현재 제공 상태](#현재-제공-상태) · [대표 검증과 실측](#대표-검증과-실측) · [10분 안에 첫 Green](#10분-안에-첫-green) · [아키텍처](docs/ARCHITECTURE.md) · [문서 지도](#문서-지도)
 
-P0 백엔드 17개 API와 프론트엔드 연동을 완료했고, P1 2차 MVP는 기능별 계약·구현·검증을 진행 중입니다. P1 AWS 검증 환경은 App1 Nginx 단일 진입점과 고정 `t4g.micro` EC2 4대 구성을 채택하고 Terraform·Ansible 1차 코드를 마련했지만, 실제 AWS 배포는 아직 시작하지 않았습니다. 상세 상태는 [현재 개발 상태](#현재-개발-상태)를 따릅니다.
+P0 1차 MVP의 백엔드 17개 API와 프론트엔드 연동을 완료했습니다. P1 2차 MVP는 소셜 로그인, 검색, 대기열, 알림과 채팅을 기능별로 구현·검증하고 있으며, 정확한 현재 상태는 [P1 기능 상태 정본](docs/p1/README.md#기능별-현재-상태)에서 관리합니다.
 
 ## 해결하려는 문제
 
 보드게임을 하고 싶어도 함께할 사람, 플레이할 게임, 시간과 장소, 규칙을 설명할 사람을 한 번에 맞추기 어렵습니다. 모집 정보가 여러 곳에 흩어지면 초보·라이트 사용자는 자신에게 맞는 모임인지 판단하기도 어렵습니다.
 
-알밤메이트는 게임, 사람 기준 탐색부터 조건 확인과 실제 참여까지 연결합니다. P0에서는 홍대 오프라인 보드게임 모임의 안전한 성립을 먼저 검증합니다.
+알밤메이트는 게임이나 사람을 기준으로 모임을 찾고, 조건을 확인한 뒤 실제 참여까지 이어지는 한 흐름을 제공합니다. P0에서는 홍대 오프라인 보드게임 모임이 안전하게 성립하는 경험을 먼저 검증했습니다.
 
-## P0 핵심 경험
+## 핵심 경험
 
-### 게임부터 찾기
+| 시작점 | 사용자 흐름 |
+| --- | --- |
+| 게임부터 찾기 | 게임 탐색 → 게임 상세 → 해당 게임의 방 → 참가 → 내 모임 |
+| 사람부터 만나기 | 사람 중심 방 탐색 → 방 상세 → 참가 → 내 모임 |
+| 방 만들기 | 게임 중심·사람 중심 선택 → 모임 정보 입력 → 방 생성 → 참가자 확인 → 종료 |
 
-~~~text
-게임 목록·검색 → 게임 상세 → 해당 게임의 방 탐색 → 방 상세 → 로그인 → 참가 → 내 모임 확인
-~~~
+P0는 홍대 오프라인 모임을 대상으로 하며 완료 시점의 범위와 규칙은 [P0 아카이브](docs/archive/p0/P0-spec.md)에 보존합니다. 현재 개발은 [P1 2차 MVP](docs/P1-spec.md)를 기준으로 진행합니다.
 
-### 사람부터 만나기
+## 현재 제공 상태
 
-~~~text
-사람 중심 방 탐색 → 방 상세 → 로그인 → 참가 → 내 모임 확인
-~~~
+문서가 존재하거나 기술 결정이 승인됐다는 사실을 구현·검증·배포 완료와 같은 의미로 사용하지 않습니다.
 
-### 방 만들기
+| 구분 | 현재 상태 | 상세 근거 |
+| --- | --- | --- |
+| P0 1차 MVP | `v0.1.0` 범위의 백엔드 17개 API와 React 연동 완료 | [P0 완료 명세](docs/archive/p0/P0-spec.md), [API 계약](docs/API.md) |
+| P1 2차 MVP | 기능별 계약·생산 코드·자동 검증 상태가 서로 다르며 계속 진행 중 | [P1 기능 상태 정본](docs/p1/README.md#기능별-현재-상태) |
+| 로컬 검증 환경 | 프록시, Spring 2대, PostgreSQL과 Redis를 `compose.local.yml`로 실행 가능 | [로컬 개발 환경 실행](docs/guides/LOCAL_DEVELOPMENT.md) |
+| 배포와 실측 | 운영 서비스 배포는 완료하지 않았습니다. 고정 릴리스의 AWS·로컬 측정 결과는 운영 용량 보장이 아니라 별도 검증 증거로 관리합니다. | [k6 측정 인덱스](docs/measurements/k6/README.md), [ROOM 측정](docs/measurements/room-09-bounded-processing-baseline.md) |
 
-~~~text
-로그인 → 게임 중심·사람 중심 선택 → 모임 정보 입력 → 방 생성 → 참가자 확인 → 모임 종료
-~~~
+## 설계에서 지키는 핵심 불변식
 
-P0는 홍대 오프라인 모임만 다루며 운영 제재·결제·알림·대규모 동시 요청 성능 목표는 제외합니다. 범위·공통 규칙은 [P0 명세](docs/archive/p0/P0-spec.md), 기능별 완료 조건은 [P0 기능 문서](docs/archive/p0/P0-spec.md#관련-문서)를 따릅니다.
+- 인증·인가·CSRF와 현재 참가 관계는 서버의 요청 경계에서 다시 확인합니다. [API 계약](docs/API.md), [ADR-0003](docs/adr/auth/0003-p0-server-session-spring-security.md)
+- 참가 정원, 중복 참가, 대기열과 상태 전이는 애플리케이션 검사만이 아니라 트랜잭션과 PostgreSQL 제약으로 함께 방어합니다. [ERD](docs/ERD.md), [ADR-0005](docs/adr/participation/0005-room-participation-optimistic-locking.md)
+- 모임 변경과 알림 전달은 같은 트랜잭션 안에서 Outbox 이벤트를 기록하고 commit 이후 relay가 전달합니다. [아키텍처](docs/ARCHITECTURE.md#알림-relay복구정리), [ADR-0029](docs/adr/notification/0029-room-integration-event-transactional-outbox.md)
+- 저장·비교 시각은 UTC로 통일하고, 스키마 변경은 전진 Flyway 마이그레이션과 PostgreSQL 검증을 함께 둡니다. [ADR-0008](docs/adr/platform/0008-flyway-database-migrations.md), [ADR-0009](docs/adr/platform/0009-utc-time-standard.md)
 
-## 현재 개발 상태
+## 기술적 선택
 
-문서가 존재하거나 기술 결정이 승인됐다는 사실을 구현·검증 완료와 같은 의미로 사용하지 않습니다.
+| 문제 | 선택 | 검증 방식 |
+| --- | --- | --- |
+| 코드 구조 | 도메인 중심 모듈러 모놀리스 | 모듈 책임과 의존 방향을 [아키텍처](docs/ARCHITECTURE.md)에 고정하고 `ModuleArchitectureTest`로 검사합니다. |
+| 업무 데이터 | PostgreSQL, Spring Data JPA, Flyway | H2 빠른 테스트와 PostgreSQL 18 Testcontainers 검증의 책임을 분리합니다. |
+| 인증 | Spring Security 서버 세션 | 세션 쿠키·CSRF·로그아웃과 다중 인스턴스 공유 경계를 HTTP·로컬 통합 테스트로 검증합니다. |
+| 실시간·비동기 전달 | WebSocket, Redis Pub/Sub, Transactional Outbox | 영속 이력을 정본으로 두고 전달 실패·재연결·relay 복구 경계를 독립적으로 검증합니다. |
 
-기능 ID와 API 개수는 [P0 API 인벤토리](docs/archive/p0/P0-spec.md#기능별-문서와-api-목록)의 17개 API를 기준으로 셉니다.
+전체 선택 근거와 상태는 [ADR 인덱스](docs/adr/README.md)를 따릅니다.
 
-| 영역 | 문서화 | 구현 | 검증 |
-| --- | --- | --- | --- |
-| 백엔드 기반 | [기반 작업](docs/archive/p0/foundation.md) 있음 | `FND-01`~`FND-08` 범위의 도메인별 패키지, Flyway `V1`~`V3`, 세션 보안, UTC 시각 기준, 로컬 모임 60개 초기 데이터 | H2 `test`와 PostgreSQL 18 `postgresTest`, 분기 커버리지 게이트를 CI에서 실행 |
-| 인증·프로필 | [기능 명세](docs/archive/p0/auth-profile.md) 있음 | `AUTH-01`~`AUTH-04`의 6개 API | 단위·HTTP 통합 테스트와 PostgreSQL 가입 경합 테스트 |
-| 게임 카탈로그 | [기능 명세](docs/archive/p0/game-catalog.md) 있음 | `GAME-01`·`GAME-02`의 2개 API, 예정 모임 필터와 2,000건 검수·적재 도구 | 목록·검색·예정 모임 필터·상세 테스트와 PostgreSQL 재적재·롤백 테스트 |
-| 방 | [기능 명세](docs/archive/p0/room.md) 있음 | `ROOM-01`~`ROOM-05`의 6개 API와 전체 공개 방 필터, 상태 보정·스케줄러 | 목록·필터, 상태 경계·보정, 취소·종료와 권한 테스트 |
-| 참가·내 모임 | [기능 명세](docs/archive/p0/participation.md) 있음 | `PART-01`~`PART-03`의 3개 API | PostgreSQL 낙관 락 동시성 테스트 |
-| 프론트엔드 | [프론트엔드 README](frontend/README.md) 있음 | React 화면과 세션 쿠키·CSRF를 포함한 P0 API 연동, 게임·방 조건 필터와 웹 알림함 | Vitest API·알림 회귀 테스트와 Vite 운영 빌드를 CI에서 실행 |
-| P0 운영 배포 기준 | [P0 운영 가이드](docs/guides/AWS_P0_INFRASTRUCTURE.md)와 [ADR-0021](docs/adr/platform/0021-p0-aws-ec2-rds-deployment-baseline.md) 있음 | 백엔드·웹 이미지, 로컬·운영 Compose, production 프로파일과 롤백 명령 구현. 실제 AWS 배포는 미수행 | production 설정 자동 테스트와 Docker 배포 계약 검증기 있음. 공개 HTTPS·RDS 복구·경보 수신 검증은 남음 |
-| P1 AWS 검증 인프라 | [ADR-0051](docs/adr/platform/0051-p1-self-managed-aws-infrastructure.md) 승인, [실행안](docs/guides/AWS_MULTI_INSTANCE_INFRASTRUCTURE.md) 있음 | 별도 [인프라 저장소](https://github.com/bamsongi-club/albam-mate-infra)의 Terraform·cloud-init·SSM 기반 Ansible 1차 구현. App1 Nginx 진입점과 고정 EC2 4대를 선언하지만 서비스 컨테이너 배포는 아직 구현하지 않음 | Terraform `fmt`·`validate` 통과. 실제 AWS `plan`·`apply`, Ansible 실행, 복구와 부하 검증은 미수행 |
-| P1 2차 MVP | [P1 공통 명세](docs/P1-spec.md)와 [기능별 상태 정본](docs/p1/README.md#기능별-현재-상태) | [기능별 상태 정본](docs/p1/README.md#기능별-현재-상태)의 `생산 코드` 열 | 같은 표의 `자동 검증`·`운영 배포·실측` 열 |
+## 대표 검증과 실측
 
-P0 기능 행은 `v0.1.0` 완료 시점 기록을 요약하고, 프론트엔드·운영 배포·P1 행은 2026-08-07 기준입니다. P1 기능별 계약·구현·자동 검증·운영 상태는 [P1 기능별 상태 정본](docs/p1/README.md#기능별-현재-상태)을 따릅니다.
+아래 수치는 고정한 검증 릴리스와 fixture에서 얻은 결과입니다. 운영 SLO나 현재 서비스 전체의 용량으로 일반화하지 않습니다.
+
+- 17만 행 게임 fixture의 검색 실험에서 임시 `pg_trgm` GIN 인덱스는 동일한 1 VU 조건의 p95를 `343.8ms`에서 `23.8ms`로 낮췄습니다. 이 수치는 후보 인덱스의 비교 근거이며 운영 스키마 반영 완료를 뜻하지 않습니다. [측정 보고서](docs/measurements/k6/keyword-search-capacity-2026-08-11.md)
+- 시간 기반 방 상태 보정은 최대 10,000개 due ROOM fixture를 고정 시각·seed와 5회 실측으로 비교했고, 결과를 바탕으로 초기 후보 제한 100과 실행당 최대 batch 100을 정했습니다. 로컬 Testcontainers 기준선이며 운영 용량은 아닙니다. [ROOM-09 기준선](docs/measurements/room-09-bounded-processing-baseline.md)
 
 ## 팀 — 밤송이클럽
 
-| 팀원 | 담당 영역 |
+| 팀원 | 주요 역할 |
 | --- | --- |
-| [@vanilalatte03](https://github.com/vanilalatte03) | 인증·사용자, AI 협업 기반 |
-| [@beyejin](https://github.com/beyejin) | 스키마, 게임 카탈로그, 방 탐색, 프론트엔드 |
-| [@gone09-sketch](https://github.com/gone09-sketch) | 방 생명주기·상세 |
-| [@silverThunder09](https://github.com/silverThunder09) | 참가·정원과 동시성 검증 |
+| [@vanilalatte03](https://github.com/vanilalatte03) | 인증·사용자 / 알림·Outbox / CI·AI 협업 체계 |
+| [@beyejin](https://github.com/beyejin) | 게임 카탈로그·검색 / 소셜 로그인·계정 연결 / 인기 게임 랭킹 |
+| [@gone09-sketch](https://github.com/gone09-sketch) | ROOM 생명주기·상태 보정 / 대기열·동시성 검증 |
+| [@silverThunder09](https://github.com/silverThunder09) | 채팅·WebSocket / 방 참가 |
 
 통합 테스트는 네 명이 함께 진행합니다.
 
-## 기술 기준과 선택 근거
+## 10분 안에 첫 Green
 
-P0의 사용자 흐름과 저장·보안 계약에 직접 영향을 주는 결정만 싣습니다. 나머지 결정과 전체 목록, 각 결정의 검증 상태는 [ADR 인덱스](docs/adr/README.md)에서 확인합니다.
-
-| 문제 | 선택 | 이유와 현재 근거 |
-| --- | --- | --- |
-| 백엔드 기준선 | Java 21, Spring Boot 4.1 | 현재 빌드와 지원 범위를 맞추고 가까운 시기의 기준선 재변경을 줄입니다. 빌드 설정과 기본 테스트에 반영됐습니다. [ADR-0001](docs/adr/platform/0001-java-21-spring-boot-4-baseline.md) |
-| 업무 데이터 정합성 | PostgreSQL, Spring Data JPA | 관계와 트랜잭션, 데이터베이스 제약을 함께 사용합니다. Flyway 마이그레이션과 PostgreSQL 18 통합 테스트로 확인했습니다. [ADR-0002](docs/adr/platform/0002-postgresql-primary-database.md) |
-| 코드 구조 | 도메인 중심 모듈러 모놀리스 | 하나의 배포·트랜잭션 단위를 유지하면서 도메인별 책임과 의존 경계를 드러냅니다. [아키텍처](docs/ARCHITECTURE.md)를 따르며, 선택 근거는 [ADR-0007](docs/adr/platform/0007-domain-centered-modular-monolith.md)에 기록합니다. |
-| P0 인증 | 서버 세션, Spring Security | 현재 범위에 필요하지 않은 JWT 만료·갱신·폐기 정책을 먼저 만들지 않고 서버가 보호 경로를 통제합니다. 세션 쿠키·CSRF·로그아웃 계약을 HTTP 통합 테스트로 고정했습니다. [ADR-0003](docs/adr/auth/0003-p0-server-session-spring-security.md) |
-| API 인가 경계 | 엔드포인트 정책 등록부 | 인증·CSRF 정책을 한 목록에 모으고 Spring MVC 매핑과 자동 대조해 등록 누락을 CI에서 막습니다. [ADR-0020](docs/adr/auth/0020-api-endpoint-authorization-policy-registry.md) |
-| 방 참가 동시성 | 낙관 락과 제한된 재시도 | 충돌이 드물다는 현재 가정 아래 평상시 잠금 대기를 피합니다. 정원 초과·중복 참가 방지와 재시도 상한을 PostgreSQL 동시성 테스트로 확인했습니다. [ADR-0005](docs/adr/participation/0005-room-participation-optimistic-locking.md) |
-| 게임 목록 데이터 | BGG 기준 스냅샷과 팀 수집 자료 | 외부 식별자를 보존하면서 서비스 표시 필드의 출처를 추적하고, 검증을 통과한 데이터셋만 하나의 트랜잭션으로 반영합니다. [ADR-0015](docs/adr/game/0015-bgg-baseline-team-collected-game-list.md) |
-| P0 운영 배포 | EC2 `t4g.small`과 private RDS PostgreSQL | 애플리케이션과 운영 데이터를 분리하고, RDS는 EC2 애플리케이션만 접근하게 합니다. 운영 Docker 이미지·Compose·production 프로파일은 구현했지만, 실제 HTTPS·전용 DB 사용자·재시작·RDS 복구·경보 수신 검증이 남아 있습니다. [ADR-0021](docs/adr/platform/0021-p0-aws-ec2-rds-deployment-baseline.md) |
-| P1 AWS 검증 인프라 | App1 Nginx와 고정 `t4g.micro` EC2 4대 | ALB·ASG·NAT Gateway 비용을 제외하고 Spring 2대·자체 운영 PostgreSQL·Redis의 역할별 병목을 같은 초기 조건에서 측정합니다. 네 EC2는 public subnet을 사용하지만 공개 인바운드는 App1의 TCP 80과 TLS 준비 후 선택하는 443으로 제한합니다. 승인된 결정이지만 실제 배포·복구·부하 검증은 남아 있습니다. [ADR-0051](docs/adr/platform/0051-p1-self-managed-aws-infrastructure.md) |
-
-## 로컬에서 확인하기
-
-애플리케이션과 백엔드 테스트에는 Java 21이 필요합니다. 프론트엔드는 Vite 7 기준 Node.js 20.19 이상 또는 22.12 이상을 사용하고, 문서 링크 검사는 Node.js 20 이상에서 실행합니다. 별도의 Gradle 설치 대신 저장소의 Wrapper를 사용합니다.
+Java 21과 저장소의 Gradle Wrapper만 사용합니다. 이 첫 테스트에는 Docker와 별도 PostgreSQL이 필요하지 않습니다.
 
 Windows PowerShell:
 
 ```powershell
+java --version
 .\gradlew.bat test
-.\gradlew.bat conventionCheck
 ```
 
 macOS·Linux:
 
 ```sh
+java --version
 ./gradlew test
-./gradlew conventionCheck
 ```
 
-`test`는 H2 인메모리 데이터베이스를 사용하므로 Docker 없이 실행됩니다. Testcontainers로 PostgreSQL 18.4를 띄우는 `postgresTest`는 Docker가 필요하고, `bootRun`은 PostgreSQL 연결이 필요하며 로컬 표준 절차는 Docker Compose를 사용합니다.
+`BUILD SUCCESSFUL` 또는 명령의 성공 종료를 확인하면 첫 검증이 끝납니다. 전체 화면을 실행하려면 [.env 준비와 로컬 Compose 실행](docs/guides/LOCAL_DEVELOPMENT.md)을, 반복 명령은 [프로젝트 명령](docs/COMMANDS.md)을 따릅니다.
 
-```sh
-./gradlew postgresTest
-```
+## 문서 지도
 
-화면과 P1 다중 인스턴스 경로를 확인하는 기본 로컬 환경은 `compose.local.yml`입니다. 프록시, Spring 애플리케이션 두 대, PostgreSQL과 Redis를 함께 실행합니다. 저장소 루트에 `.env`가 없으면 [.env.example](.env.example)을 복사한 뒤 다음 명령을 실행합니다.
+| 알고 싶은 것 | 시작 문서 |
+| --- | --- |
+| 현재 구현·검증·배포 상태 | [이 README의 현재 제공 상태](#현재-제공-상태), [P1 기능 상태 정본](docs/p1/README.md#기능별-현재-상태) |
+| 제품 목표와 단계별 범위 | [PRD](docs/PRD.md), [P1 명세](docs/P1-spec.md) |
+| 백엔드 구조와 코드 위치 | [아키텍처](docs/ARCHITECTURE.md) |
+| 실행·테스트·포맷 명령 | [프로젝트 명령](docs/COMMANDS.md) |
+| HTTP·WebSocket과 저장 계약 | [API](docs/API.md), [ERD](docs/ERD.md) |
+| 기술 선택과 변경 이유 | [ADR](docs/adr/README.md) |
+| 최초 설정·운영·적재·문제 해결 | [프로젝트 가이드](docs/guides/README.md) |
+| 코드 작성과 협업 방식 | [컨벤션](docs/CONVENTIONS.md) |
 
-Windows PowerShell:
+P0 구현 기록은 [문서 아카이브](docs/archive/README.md)에 동결했습니다. 새 구현 작업은 [AGENTS.md](AGENTS.md)의 라우팅과 현재 P1 정본에서 시작합니다.
 
-```powershell
-if (-not (Test-Path -LiteralPath .env)) {
-  Copy-Item -LiteralPath .env.example -Destination .env
-}
-docker compose --env-file .env -f compose.local.yml up -d --build --wait
-docker compose --env-file .env -f compose.local.yml ps
-```
-
-macOS·Linux:
-
-```sh
-cp -n .env.example .env
-docker compose --env-file .env -f compose.local.yml up -d --build --wait
-docker compose --env-file .env -f compose.local.yml ps
-```
-
-기본 웹 주소는 `http://localhost:5173`이고 `/api`와 WebSocket도 같은 프록시를 통과합니다. Spring 인스턴스는 프록시 뒤에서만 접근합니다. 전체 스택을 내릴 때는 `docker compose --env-file .env -f compose.local.yml down`을 사용합니다.
-
-저장소에는 데이터소스 연결값을 두지 않습니다. `.env` 준비, 로그·종료와 데이터 초기화는 [로컬 개발 환경 실행](docs/guides/LOCAL_DEVELOPMENT.md), 프론트엔드 개발 서버 규칙은 [프론트엔드 작업 안내](frontend/AGENTS.md#실행과-산출물), 짧은 반복 명령은 [프로젝트 명령](docs/COMMANDS.md)에서 확인할 수 있습니다.
-
-## 문서 찾기
-
-- 제품의 전체 목표와 후속 후보: [PRD](docs/PRD.md)
-- P0 범위와 핵심 흐름: [P0 명세](docs/archive/p0/P0-spec.md)
-- P1 2차 MVP 범위와 기능별 기준: [P1 명세](docs/P1-spec.md), [P1 기능 문서](docs/p1/README.md)
-- 개발 작업의 시작점: [AGENTS.md](AGENTS.md)
-- 백엔드 구조·모듈 책임과 의존 흐름: [아키텍처](docs/ARCHITECTURE.md)
-- 요청·응답과 오류 계약: [API 명세](docs/API.md)
-- 테이블과 데이터 제약: [ERD](docs/ERD.md)
-- 기술 선택과 트레이드오프, 결정별 검증 상태: [ADR](docs/adr/README.md)
-- 운영·설정·데이터 적재와 문제 해결 절차: [프로젝트 가이드](docs/guides/README.md)
-- P1 AWS 인프라 생성·호스트 준비·검증 절차: [P1 AWS 저비용 4 EC2 인프라 실행안](docs/guides/AWS_MULTI_INSTANCE_INFRASTRUCTURE.md)
-- 코드 작성·구현 규칙: [컨벤션](docs/CONVENTIONS.md)
-- 실행·테스트·포맷 명령: [프로젝트 명령](docs/COMMANDS.md)
-- 프론트엔드 화면과 실행: [프론트엔드 README](frontend/README.md)
-
-P0 구현 기록은 [문서 아카이브](docs/archive/README.md)에 동결했습니다. P1 문서는 계획·구현 기준이며, 실제 제공 상태는 현재 코드·API·ERD와 [현재 개발 상태](#현재-개발-상태)를 기준으로 판단합니다.
+> 문서 관리: 소유자 `밤송이클럽` · 최종 검증일 `2026-08-12` · 폐기 조건 `저장소가 아카이브되거나 별도 공개 제품 페이지가 대표 진입점으로 대체될 때`

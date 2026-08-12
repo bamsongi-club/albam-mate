@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.room.service.command;
 import java.time.Clock;
 import java.time.Instant;
 
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,10 @@ class RoomWaitlistRegistrationCoordinator {
 
 	private static final int MAX_ATTEMPTS = 3;
 	private static final String WAITING_QUEUE_ORDER_CONSTRAINT = "uq_room_waitlists_waiting_room_queue_order";
+	private static final String USE_CASE = "ROOM_WAITLIST_REGISTRATION";
+	private static final String WAITING_QUEUE_ORDER_CONFLICT = "WAITING_QUEUE_ORDER_CONFLICT";
+	private static final String WAITING_QUEUE_ORDER_CONFLICT_EXHAUSTED = "WAITING_QUEUE_ORDER_CONFLICT_EXHAUSTED";
+	private static final String UNEXPECTED_INTEGRITY_FAILURE = "UNEXPECTED_INTEGRITY_FAILURE";
 
 	@NonNull private final Clock clock;
 	@NonNull private final RoomWaitlistRegistrationExecutor executor;
@@ -36,24 +41,28 @@ class RoomWaitlistRegistrationCoordinator {
 				lastRetryableFailure = exception;
 			} catch (DataIntegrityViolationException exception) {
 				if (!isWaitingQueueOrderConflict(exception)) {
-					logInternalFailure(roomId, currentUserId, exception);
+					logUnexpectedIntegrityFailure(roomId, attempt);
 					throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, exception);
 				}
 				lastRetryableFailure = exception;
+				if (attempt < MAX_ATTEMPTS) {
+					logWaitingQueueOrderRetry(roomId, attempt + 1);
+				}
 			}
 		}
 
 		if (lastRetryableFailure instanceof ObjectOptimisticLockingFailureException) {
 			throw new BusinessException(ErrorCode.ROOM_CONCURRENT_MODIFICATION, lastRetryableFailure);
 		}
-		logInternalFailure(roomId, currentUserId, lastRetryableFailure);
+		logWaitingQueueOrderConflictExhausted(roomId, MAX_ATTEMPTS);
 		throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, lastRetryableFailure);
 	}
 
 	private boolean isWaitingQueueOrderConflict(DataIntegrityViolationException exception) {
 		Throwable cause = exception;
 		while (cause != null) {
-			if (cause.getMessage() != null && cause.getMessage().contains(WAITING_QUEUE_ORDER_CONSTRAINT)) {
+			if (cause instanceof ConstraintViolationException constraintViolationException
+				&& WAITING_QUEUE_ORDER_CONSTRAINT.equals(constraintViolationException.getConstraintName())) {
 				return true;
 			}
 			cause = cause.getCause();
@@ -61,8 +70,18 @@ class RoomWaitlistRegistrationCoordinator {
 		return false;
 	}
 
-	private void logInternalFailure(long roomId, long currentUserId, RuntimeException exception) {
-		log.error("event=room_waitlist_registration_failed roomId={} actorUserId={} failureType={}",
-			roomId, currentUserId, exception.getClass().getSimpleName());
+	private void logWaitingQueueOrderRetry(long roomId, int nextAttempt) {
+		log.warn("roomId={} useCase={} attempt={} reasonCode={}",
+			roomId, USE_CASE, nextAttempt, WAITING_QUEUE_ORDER_CONFLICT);
+	}
+
+	private void logWaitingQueueOrderConflictExhausted(long roomId, int attempt) {
+		log.error("roomId={} useCase={} attempt={} reasonCode={}",
+			roomId, USE_CASE, attempt, WAITING_QUEUE_ORDER_CONFLICT_EXHAUSTED);
+	}
+
+	private void logUnexpectedIntegrityFailure(long roomId, int attempt) {
+		log.error("roomId={} useCase={} attempt={} reasonCode={}",
+			roomId, USE_CASE, attempt, UNEXPECTED_INTEGRITY_FAILURE);
 	}
 }
