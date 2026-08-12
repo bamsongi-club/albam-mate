@@ -82,10 +82,9 @@ async function processNames() {
     // 3. 신규 candidate CSV 작성
     console.log('3. bgg-game-name-ko-candidates-7001-15000.csv 생성 중...');
     const csvHeader = 'bggRank,bggId,nameEn,nameKo,출처,검수완료(Y/N)\n';
+    const escapeCsvField = (value) => `"${String(value).replace(/"/g, '""')}"`;
     const csvRows = newCandidates.map(c => {
-        const safeEn = c.nameEn.includes(',') ? `"${c.nameEn.replace(/"/g, '""')}"` : c.nameEn;
-        const safeKo = c.nameKo.includes(',') ? `"${c.nameKo.replace(/"/g, '""')}"` : c.nameKo;
-        return `${c.bggRank},${c.bggId},${safeEn},${safeKo},${c.source},${c.reviewed}`;
+        return `${c.bggRank},${c.bggId},${escapeCsvField(c.nameEn)},${escapeCsvField(c.nameKo)},${escapeCsvField(c.source)},${c.reviewed}`;
     }).join('\n');
 
     fs.writeFileSync(CANDIDATES_OUTPUT_CSV, csvHeader + csvRows, 'utf-8');

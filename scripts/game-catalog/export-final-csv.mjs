@@ -78,24 +78,19 @@ async function exportCleanCsv() {
     console.log('3. 04 한글명 SQL 수집 중...');
     const nameMap = new Map();
     const namesContent = fs.readFileSync(NAMES_SQL_PATH, 'utf-8');
-    for (const line of namesContent.split('\n')) {
-        const m = line.match(/UPDATE games SET name = '((?:''|[^'])*)' WHERE bgg_id = (\d+);/);
-        if (m) {
-            nameMap.set(Number(m[2]), m[1].replace(/''/g, "'"));
-        }
+    // 값에 개행이 섞인 UPDATE 문은 줄 단위 split으로는 매칭되지 않아 통째로 누락되므로 전체 텍스트에서 매칭한다.
+    for (const m of namesContent.matchAll(/UPDATE games SET name = '((?:''|[^'])*)' WHERE bgg_id = (\d+);/gs)) {
+        nameMap.set(Number(m[2]), m[1].replace(/''/g, "'"));
     }
 
     console.log('4. 05 한글 설명 SQL 수집 중...');
     const descMap = new Map();
     const descContent = fs.readFileSync(DESC_SQL_PATH, 'utf-8');
-    for (const line of descContent.split('\n')) {
-        const m = line.match(/UPDATE games SET description = '((?:''|[^'])*)', detail_description = '((?:''|[^'])*)' WHERE bgg_id = (\d+);/);
-        if (m) {
-            descMap.set(Number(m[3]), {
-                description: m[1].replace(/''/g, "'"),
-                detail_description: m[2].replace(/''/g, "'")
-            });
-        }
+    for (const m of descContent.matchAll(/UPDATE games SET description = '((?:''|[^'])*)', detail_description = '((?:''|[^'])*)' WHERE bgg_id = (\d+);/gs)) {
+        descMap.set(Number(m[3]), {
+            description: m[1].replace(/''/g, "'"),
+            detail_description: m[2].replace(/''/g, "'")
+        });
     }
 
     console.log('5. 17만 건 전체 18종 완벽 메타데이터 CSV 이스케이프 처리 생성 중...');

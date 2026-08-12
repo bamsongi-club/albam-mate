@@ -1,7 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const DOWNLOAD_DIR = '/Users/han-yejin/Downloads/albam-mate-170k';
+const DOWNLOAD_DIR = process.argv[2] ?? process.env.ALBAM_MATE_170K_DIR;
+if (!DOWNLOAD_DIR) {
+    console.error('사용법: node validate-full-localization.mjs <170k 인계 디렉터리> (또는 ALBAM_MATE_170K_DIR 환경변수)');
+    process.exit(2);
+}
 const NAMES_SQL_PATH = path.join(DOWNLOAD_DIR, 'reference/02-localization/04-upsert-korean-names-supplement.sql');
 const DESC_SQL_PATH = path.join(DOWNLOAD_DIR, 'reference/02-localization/05-upsert-korean-descriptions-supplement.sql');
 
@@ -78,6 +82,15 @@ async function validateAll() {
     if (bugSamples.length > 0) {
         console.log('\n[잔여 이슈 샘플]:', JSON.stringify(bugSamples, null, 2));
     }
+
+    const issueCount = alphabetMixedCount + knownBugPhoneticCount + rawJosaErrorCount;
+    if (issueCount > 0) {
+        console.error(`\n검수 실패: 잔여 이슈 ${issueCount}건`);
+        process.exitCode = 1;
+    }
 }
 
-validateAll().catch(console.error);
+validateAll().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});

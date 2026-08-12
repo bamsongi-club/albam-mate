@@ -72,11 +72,18 @@ function build({
     let sourceMissingBaseRows = 0;
     let sourceOnlyRows = 0;
     let summaryLongerThanDetail = 0;
+    let duplicateBaseIdRows = 0;
     const baseFieldNulls = Object.fromEntries(CATALOG_FIELDS.map((field) => [field, 0]));
     const sourceFieldNulls = Object.fromEntries(CATALOG_FIELDS.map((field) => [field, 0]));
 
     for (const baseRow of baseRows) {
         const bggId = Number(baseRow.bgg_id);
+        if (baseIds.has(bggId)) {
+            // 같은 bgg_id가 두 번 나오면 같은 청크의 UPSERT VALUES에도 중복으로 들어가
+            // "ON CONFLICT DO UPDATE command cannot affect row a second time"로 청크 전체가 실패한다.
+            duplicateBaseIdRows += 1;
+            continue;
+        }
         baseIds.add(bggId);
         const sourceRow = sourceById.get(bggId);
         if (!sourceRow) {
@@ -137,7 +144,10 @@ function build({
         datasetKind: 'production-local-import-with-bgg-xml-descriptions',
         grain: '1 row per bgg_id',
         batchId: 'complete-local-import-170k-bgg-descriptions-2026-08-10',
-        status: baseRequiredNullRows === 0 && sourceOnlyRows === 0
+        status: baseRequiredNullRows === 0
+            && sourceOnlyRows === 0
+            && duplicateBaseIdRows === 0
+            && baseReport.status === 'ready'
             ? 'ready_for_local_import'
             : 'blocked_for_local_import',
         generatedAt,
@@ -182,7 +192,9 @@ function build({
             idMismatchRows,
             sourceMissingBaseRows,
             sourceOnlyRows,
+            duplicateBaseIdRows,
             requiredNullRows: baseRequiredNullRows,
+            approvedBaseStatus: baseReport.status ?? null,
             outputFieldNulls: Object.fromEntries(
                 CATALOG_FIELDS.map((field) => [
                     field,
@@ -306,6 +318,8 @@ function build({
                 status: report.status,
                 rows: rows.length,
                 requiredNullRows: baseRequiredNullRows,
+                duplicateBaseIdRows,
+                approvedBaseStatus: baseReport.status ?? null,
                 idMismatchRows,
                 descriptionFromBgg,
                 descriptionFallback,

@@ -18,6 +18,12 @@ export function validateDescription(bggId, description, detailDescription) {
     if (description && /&(amp|lt|gt|quot|#39);/.test(description)) {
         errors.push(`Unescaped HTML entity in description for bgg_id ${bggId}`);
     }
+    if (description && description.trim().length > 0 && !/[가-힣]/.test(description)) {
+        errors.push(`Untranslated (no Hangul) description for bgg_id ${bggId}`);
+    }
+    if (detailDescription && detailDescription.trim().length > 0 && !/[가-힣]/.test(detailDescription)) {
+        errors.push(`Untranslated (no Hangul) detail_description for bgg_id ${bggId}`);
+    }
     return {
         valid: errors.length === 0,
         errors
