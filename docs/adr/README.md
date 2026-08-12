@@ -13,7 +13,6 @@
 | [Participation](participation/README.md) | 참가·대기 불변식, 정원과 동시성 |
 | [Notification](notification/README.md) | 서비스 내 웹 알림 생성, 전달 신뢰성과 실패 복구 |
 | [Chat](chat/README.md) | 방별 채팅 이력, 실시간 전달, 저장 트랜잭션과 보관 정책 |
-| [Frontend](frontend/README.md) | 도메인에 매이지 않는 프론트엔드 전역 UI·접근성 결정 |
 
 ## 작성 규칙
 
