@@ -14,6 +14,7 @@ import {
     matchesPathPattern,
     validateBackendTestManifest,
 } from './validate-backend-test-manifest.mjs';
+import { POSTGRES_DECISIONS } from './classify-postgres-requirement.mjs';
 import { DEFAULT_SCHEMA_PATH as DEFAULT_PACKET_SCHEMA_PATH } from './validate-packet.mjs';
 
 const packetSchema = JSON.parse(fs.readFileSync(DEFAULT_PACKET_SCHEMA_PATH, 'utf8'));
@@ -23,7 +24,7 @@ const approvedComment = 'https://github.com/bamsongi-club/albam-mate/issues/14#i
 
 function validPacket() {
     return {
-        schemaVersion: 3,
+        schemaVersion: 4,
         workItem: {
             kind: 'issue',
             id: '#14',
@@ -33,9 +34,11 @@ function validPacket() {
         allowedPaths: ['src/main/java/cloud/bamsongi/albammate/notification/'],
         forbiddenPaths: ['frontend/'],
         completionCriteria: ['승인된 알림만 읽음 처리한다'],
+        postgresRequired: false,
+        postgresRequirementReasons: ['DTO와 일반 서비스 계약만 변경해 H2 경계로 검증한다'],
         requiredTests: [
             { id: 'T1', intent: '알림을 읽음 처리한다', sourceRef: approvedComment },
-            { id: 'T2', intent: 'PostgreSQL에서 읽음 시각을 보존한다', sourceRef: approvedComment },
+            { id: 'T2', intent: '소유자만 알림을 읽을 수 있다', sourceRef: approvedComment },
         ],
         testContractApproval: { issueNumber: 14, commentUrl: approvedComment },
         confirmedDecisions: ['이슈 코멘트의 전체 T-ID를 사용한다'],
@@ -44,7 +47,9 @@ function validPacket() {
 
 function validManifest() {
     return {
-        schemaVersion: 1,
+        schemaVersion: 2,
+        postgresRequired: false,
+        postgresRequirementReasons: ['DTO와 일반 서비스 계약만 변경해 H2 경계로 검증한다'],
         tests: [
             {
                 id: 'T1',
@@ -65,9 +70,9 @@ function validManifest() {
                 id: 'T2',
                 evidence: [
                     {
-                        task: 'postgresTest',
-                        source: 'src/postgresTest/java/cloud/bamsongi/NotificationReadPostgresTest.java',
-                        selector: 'cloud.bamsongi.NotificationReadPostgresTest.읽음_시각을_보존한다',
+                        task: 'test',
+                        source: 'src/test/java/cloud/bamsongi/NotificationPolicyTest.java',
+                        selector: 'cloud.bamsongi.NotificationPolicyTest.소유자만_읽을_수_있다',
                     },
                 ],
             },
@@ -84,8 +89,12 @@ const sourceMethods = {
 
 function javaSource(source, methods) {
     const className = path.basename(source, '.java');
+    const normalizedSource = source.replaceAll('\\', '/');
+    const packageName = path.posix
+        .dirname(normalizedSource.split('/java/').at(-1))
+        .replaceAll('/', '.');
     const body = methods.map((method) => `    @Test\n    void ${method}() {\n    }\n`).join('\n');
-    return `class ${className} {\n${body}}\n`;
+    return `package ${packageName};\n\nimport org.junit.jupiter.api.Test;\n\nclass ${className} {\n${body}}\n`;
 }
 
 function createWorktree(t) {
@@ -99,8 +108,50 @@ function createWorktree(t) {
     return worktree;
 }
 
-function validate(packet, manifest, worktree) {
-    return validateBackendTestManifest(packet, manifest, worktree, packetSchema, manifestSchema);
+function copyRepositorySource(worktree, source) {
+    const sourcePath = fileURLToPath(new URL(`../${source}`, import.meta.url));
+    const targetPath = path.join(worktree, source);
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.copyFileSync(sourcePath, targetPath);
+}
+
+function classification(decision) {
+    return {
+        decision,
+        reasons: [{ code: 'test-fixture', path: 'fixture', message: '테스트 분류 fixture' }],
+    };
+}
+
+function validate(
+    packet,
+    manifest,
+    worktree,
+    postgresClassification = classification(POSTGRES_DECISIONS.NOT_REQUIRED),
+) {
+    return validateBackendTestManifest(
+        packet,
+        manifest,
+        worktree,
+        packetSchema,
+        manifestSchema,
+        null,
+        postgresClassification,
+    );
+}
+
+function requirePostgres(packet, manifest) {
+    const reasons = ['Flyway 또는 데이터베이스 의미 변경으로 실제 PostgreSQL 검증이 필요하다'];
+    packet.postgresRequired = true;
+    packet.postgresRequirementReasons = reasons;
+    manifest.postgresRequired = true;
+    manifest.postgresRequirementReasons = reasons;
+    manifest.tests[1].evidence = [
+        {
+            task: 'postgresTest',
+            source: 'src/postgresTest/java/cloud/bamsongi/NotificationReadPostgresTest.java',
+            selector: 'cloud.bamsongi.NotificationReadPostgresTest.읽음_시각을_보존한다',
+        },
+    ];
 }
 
 // 실제 게이트는 git worktree에서 돌고 packet·manifest는 저장소 밖에 둔다. CLI 검증도 같은
@@ -122,6 +173,15 @@ function initGitRepo(worktree) {
     );
 }
 
+function writeSafeDtoChange(worktree) {
+    const source = path.join(
+        worktree,
+        'src/main/java/cloud/bamsongi/albammate/notification/dto/NotificationSummary.java',
+    );
+    fs.mkdirSync(path.dirname(source), { recursive: true });
+    fs.writeFileSync(source, 'public record NotificationSummary(long id) {}\n', 'utf8');
+}
+
 function createOutsideDirectory(t) {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'backend-test-manifest-outside-'));
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
@@ -130,10 +190,112 @@ function createOutsideDirectory(t) {
 
 const keywords = (errors) => errors.map((error) => error.keyword);
 
-test('H2와 PostgreSQL 및 T-ID별 복수 evidence를 검증한다', (t) => {
+test('PostgreSQL 불필요 변경의 H2 및 T-ID별 복수 evidence를 검증한다', (t) => {
     const worktree = createWorktree(t);
 
     assert.deepEqual(validate(validPacket(), validManifest(), worktree), []);
+});
+
+test('PostgreSQL 필수 변경은 postgresTest exact selector가 있으면 통과한다', (t) => {
+    const worktree = createWorktree(t);
+    const packet = validPacket();
+    const manifest = validManifest();
+    requirePostgres(packet, manifest);
+
+    assert.deepEqual(
+        validate(packet, manifest, worktree, classification(POSTGRES_DECISIONS.REQUIRED)),
+        [],
+    );
+});
+
+test('required와 needs-review를 postgresRequired false로 제출하면 거부한다', (t) => {
+    const worktree = createWorktree(t);
+
+    assert.ok(
+        keywords(
+            validate(
+                validPacket(),
+                validManifest(),
+                worktree,
+                classification(POSTGRES_DECISIONS.REQUIRED),
+            ),
+        ).includes('postgresRequired'),
+    );
+    assert.ok(
+        keywords(
+            validate(
+                validPacket(),
+                validManifest(),
+                worktree,
+                classification(POSTGRES_DECISIONS.NEEDS_REVIEW),
+            ),
+        ).includes('postgresNeedsReview'),
+    );
+});
+
+test('needs-review는 PostgreSQL evidence를 포함한 안전한 true 결정으로만 해소한다', (t) => {
+    const worktree = createWorktree(t);
+    const packet = validPacket();
+    const manifest = validManifest();
+    requirePostgres(packet, manifest);
+
+    assert.deepEqual(
+        validate(packet, manifest, worktree, classification(POSTGRES_DECISIONS.NEEDS_REVIEW)),
+        [],
+    );
+});
+
+test('postgresRequired와 selector evidence의 모순을 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const missingEvidencePacket = validPacket();
+    const missingEvidenceManifest = validManifest();
+    requirePostgres(missingEvidencePacket, missingEvidenceManifest);
+    missingEvidenceManifest.tests[1].evidence = [
+        { ...missingEvidenceManifest.tests[0].evidence[0] },
+    ];
+    assert.ok(
+        keywords(
+            validate(
+                missingEvidencePacket,
+                missingEvidenceManifest,
+                worktree,
+                classification(POSTGRES_DECISIONS.REQUIRED),
+            ),
+        ).includes('postgresEvidence'),
+    );
+
+    const unexpectedEvidence = validManifest();
+    unexpectedEvidence.tests[1].evidence = [
+        {
+            task: 'postgresTest',
+            source: 'src/postgresTest/java/cloud/bamsongi/NotificationReadPostgresTest.java',
+            selector: 'cloud.bamsongi.NotificationReadPostgresTest.읽음_시각을_보존한다',
+        },
+    ];
+    assert.ok(
+        keywords(validate(validPacket(), unexpectedEvidence, worktree)).includes(
+            'unexpectedPostgresEvidence',
+        ),
+    );
+});
+
+test('packet과 manifest의 PostgreSQL 결정 및 근거가 다르면 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const decisionMismatch = validManifest();
+    decisionMismatch.postgresRequired = true;
+    assert.ok(
+        keywords(validate(validPacket(), decisionMismatch, worktree)).includes(
+            'postgresDecisionMismatch',
+        ),
+    );
+
+    const reasonMismatch = validManifest();
+    reasonMismatch.postgresRequirementReasons = ['서로 다른 근거'];
+    assert.ok(
+        keywords(validate(validPacket(), reasonMismatch, worktree)).includes(
+            'postgresReasonMismatch',
+        ),
+    );
 });
 
 test('서로 다른 T-ID가 같은 evidence를 공유할 수 있다', (t) => {
@@ -183,6 +345,42 @@ test('task와 source set이 다르면 거부한다', (t) => {
     assert.ok(keywords(validate(validPacket(), manifest, worktree)).includes('sourceSet'));
 });
 
+test('worktree 밖 파일을 가리키는 source symlink를 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const outside = createOutsideDirectory(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    const sourcePath = path.join(worktree, source);
+    const outsideSource = path.join(outside, 'NotificationReadServiceTest.java');
+    fs.writeFileSync(outsideSource, javaSource(source, ['알림을_읽음_처리한다']), 'utf8');
+    fs.rmSync(sourcePath);
+    try {
+        fs.symlinkSync(outsideSource, sourcePath, 'file');
+    } catch (error) {
+        if (error.code === 'EPERM' || error.code === 'EACCES') {
+            t.skip(`현재 Windows 환경에서 file symlink를 만들 수 없습니다: ${error.code}`);
+            return;
+        }
+        throw error;
+    }
+
+    assert.ok(
+        keywords(validate(validPacket(), validManifest(), worktree)).includes('worktreePath'),
+    );
+});
+
+test('상위 경로로 다른 source set에 진입하는 source를 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const packet = validPacket();
+    const manifest = validManifest();
+    requirePostgres(packet, manifest);
+    manifest.tests[1].evidence[0].source =
+        'src/postgresTest/java/../../test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    manifest.tests[1].evidence[0].selector =
+        'cloud.bamsongi.NotificationReadServiceTest.알림을_읽음_처리한다';
+
+    assert.ok(keywords(validate(packet, manifest, worktree)).includes('sourcePath'));
+});
+
 test('test와 postgresTest 이외의 task를 거부한다', (t) => {
     const worktree = createWorktree(t);
     const manifest = validManifest();
@@ -200,7 +398,7 @@ test('미존재 source와 worktree 밖 source를 거부한다', (t) => {
 
     const outside = validManifest();
     outside.tests[0].evidence[0].source = '../OutsideTest.java';
-    assert.ok(keywords(validate(validPacket(), outside, worktree)).includes('worktreePath'));
+    assert.ok(keywords(validate(validPacket(), outside, worktree)).includes('sourcePath'));
 });
 
 test('같은 T-ID 안의 중복 task와 selector를 거부한다', (t) => {
@@ -222,6 +420,374 @@ test('source에 선언되지 않은 selector 메서드를 거부한다', (t) => 
     assert.ok(keywords(validate(validPacket(), manifest, worktree)).includes('selectorMethod'));
 });
 
+test('source package와 다른 selector 클래스 FQCN을 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(
+        path.join(worktree, source),
+        javaSource(source, ['알림을_읽음_처리한다']).replace(
+            'package cloud.bamsongi;',
+            'package cloud.other;',
+        ),
+        'utf8',
+    );
+
+    assert.ok(
+        keywords(validate(validPacket(), validManifest(), worktree)).includes('selectorClass'),
+    );
+});
+
+test('source에 selector의 최상위 클래스 선언이 없으면 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(
+        path.join(worktree, source),
+        'package cloud.bamsongi;\n\nimport org.junit.jupiter.api.Test;\n\nclass OtherTest {\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        'utf8',
+    );
+
+    assert.ok(
+        keywords(validate(validPacket(), validManifest(), worktree)).includes('selectorClass'),
+    );
+});
+
+test('테스트 어노테이션이 없는 void helper selector를 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(
+        path.join(worktree, source),
+        'package cloud.bamsongi;\n\nclass NotificationReadServiceTest {\n    void 보조_메서드() {\n    }\n}\n',
+        'utf8',
+    );
+    const manifest = validManifest();
+    manifest.tests[0].evidence[0].selector =
+        'cloud.bamsongi.NotificationReadServiceTest.보조_메서드';
+
+    assert.ok(keywords(validate(validPacket(), manifest, worktree)).includes('selectorMethod'));
+});
+
+test('JUnit이 아닌 같은 이름의 Test 어노테이션은 selector evidence로 허용하지 않는다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(
+        path.join(worktree, source),
+        'package cloud.bamsongi;\n\n@interface Test {\n}\n\nclass NotificationReadServiceTest {\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        'utf8',
+    );
+
+    assert.ok(
+        keywords(validate(validPacket(), validManifest(), worktree)).includes('selectorMethod'),
+    );
+});
+
+test('JUnit import를 가리는 중첩 동명 Test 어노테이션을 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(
+        path.join(worktree, source),
+        'package cloud.bamsongi;\n\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    @interface Test {\n    }\n\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        'utf8',
+    );
+
+    assert.ok(
+        keywords(validate(validPacket(), validManifest(), worktree)).includes('selectorMethod'),
+    );
+});
+
+test('JUnit이 발견하지 않는 test method modifier를 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+
+    for (const modifier of ['private', 'static', 'abstract']) {
+        const terminator = modifier === 'abstract' ? ';' : ' {\n    }';
+        fs.writeFileSync(
+            path.join(worktree, source),
+            `package cloud.bamsongi;\n\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    @Test\n    ${modifier} void 알림을_읽음_처리한다()${terminator}\n}\n`,
+            'utf8',
+        );
+
+        assert.ok(
+            keywords(validate(validPacket(), validManifest(), worktree)).includes(
+                'selectorMethod',
+            ),
+            modifier,
+        );
+    }
+});
+
+test('abstract 최상위 테스트 클래스의 selector를 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(
+        path.join(worktree, source),
+        'package cloud.bamsongi;\n\nimport org.junit.jupiter.api.Test;\n\nabstract class NotificationReadServiceTest {\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        'utf8',
+    );
+
+    assert.ok(
+        keywords(validate(validPacket(), validManifest(), worktree)).includes('selectorClass'),
+    );
+});
+
+test('text block의 escaped delimiter 뒤 가짜 테스트 선언을 허용하지 않는다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(
+        path.join(worktree, source),
+        'package cloud.bamsongi;\n\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    String value = """\n        \\"""\n        @Test\n        void 가짜_테스트() {\n        }\n        \\"""\n        """;\n}\n',
+        'utf8',
+    );
+    const manifest = validManifest();
+    manifest.tests[0].evidence[0].selector =
+        'cloud.bamsongi.NotificationReadServiceTest.가짜_테스트';
+
+    assert.ok(keywords(validate(validPacket(), manifest, worktree)).includes('selectorMethod'));
+});
+
+test('Java Unicode escape로 주석 처리된 가짜 테스트 선언을 허용하지 않는다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(
+        path.join(worktree, source),
+        'package cloud.bamsongi;\n\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    \\u002f\\u002a\n    @Test\n    void 가짜_테스트() {\n    }\n    \\u002a\\u002f\n}\n',
+        'utf8',
+    );
+    const manifest = validManifest();
+    manifest.tests[0].evidence[0].selector =
+        'cloud.bamsongi.NotificationReadServiceTest.가짜_테스트';
+
+    assert.ok(
+        keywords(validate(validPacket(), manifest, worktree)).includes('selectorMethod'),
+    );
+});
+
+test('escaped Unicode 문자열을 쓰는 실제 테스트 source를 허용한다', (t) => {
+    const worktree = createWorktree(t);
+    const source =
+        'src/test/java/cloud/bamsongi/albammate/chat/ChatMessagePublishFailureRecoveryIntegrationTest.java';
+    copyRepositorySource(worktree, source);
+    const manifest = validManifest();
+    manifest.tests[0].evidence[0] = {
+        task: 'test',
+        source,
+        selector:
+            'cloud.bamsongi.albammate.chat.ChatMessagePublishFailureRecoveryIntegrationTest.T3_LF_CRLF_외_제어문자는_HTTP_400이고_저장과_커밋_신호를_만들지_않는다',
+    };
+
+    assert.deepEqual(validate(validPacket(), manifest, worktree), []);
+});
+
+test('eligible Java Unicode escape를 쓰는 실제 테스트 source를 허용한다', (t) => {
+    const worktree = createWorktree(t);
+    const source =
+        'src/test/java/cloud/bamsongi/albammate/auth/controller/SignupHttpIntegrationTest.java';
+    copyRepositorySource(worktree, source);
+    const manifest = validManifest();
+    manifest.tests[0].evidence[0] = {
+        task: 'test',
+        source,
+        selector:
+            'cloud.bamsongi.albammate.auth.controller.SignupHttpIntegrationTest.공백과_정규화하지_않은_Unicode_가입_비밀번호는_원문으로만_로그인된다',
+    };
+
+    assert.deepEqual(validate(validPacket(), manifest, worktree), []);
+});
+
+test('완전 수식 이름을 가리는 사용자 정의 Test 어노테이션을 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(
+        path.join(worktree, source),
+        'package cloud.bamsongi;\n\nclass org {\n    static class junit {\n        static class jupiter {\n            static class api {\n                @interface Test {\n                }\n            }\n        }\n    }\n}\n\nclass NotificationReadServiceTest {\n    @org.junit.jupiter.api.Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        'utf8',
+    );
+
+    assert.ok(
+        keywords(validate(validPacket(), validManifest(), worktree)).includes('selectorMethod'),
+    );
+});
+
+test('가려지지 않은 완전 수식 JUnit test annotation을 허용한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+
+    for (const [annotation, provider, parameter, nestedType] of [
+        ['org.junit.jupiter.api.Test', '', '', ''],
+        [
+            'org.junit.jupiter.params.ParameterizedTest',
+            '    @org.junit.jupiter.params.provider.EnumSource(Fixture.class)\n',
+            'Fixture value',
+            '\n    enum Fixture { VALUE }\n',
+        ],
+    ]) {
+        fs.writeFileSync(
+            path.join(worktree, source),
+            `package cloud.bamsongi;\n\nclass NotificationReadServiceTest {\n    @${annotation}\n${provider}    void 알림을_읽음_처리한다(${parameter}) {\n    }\n${nestedType}}\n`,
+            'utf8',
+        );
+
+        assert.deepEqual(validate(validPacket(), validManifest(), worktree), [], annotation);
+    }
+});
+
+test('직접 실행할 수 없는 최상위 interface와 enum selector를 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+
+    for (const type of ['interface', 'enum']) {
+        const method =
+            type === 'interface'
+                ? '    @Test\n    void 알림을_읽음_처리한다();\n'
+                : '    VALUE;\n\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n';
+        fs.writeFileSync(
+            path.join(worktree, source),
+            `package cloud.bamsongi;\n\nimport org.junit.jupiter.api.Test;\n\n${type} NotificationReadServiceTest {\n${method}}\n`,
+            'utf8',
+        );
+
+        assert.ok(
+            keywords(validate(validPacket(), validManifest(), worktree)).includes(
+                'selectorClass',
+            ),
+            type,
+        );
+    }
+});
+
+test('중첩 클래스에만 선언된 테스트 메서드를 바깥 클래스 selector로 허용하지 않는다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(
+        path.join(worktree, source),
+        'package cloud.bamsongi;\n\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    class Inner {\n        @Test\n        void 내부_테스트() {\n        }\n    }\n}\n',
+        'utf8',
+    );
+    const manifest = validManifest();
+    manifest.tests[0].evidence[0].selector =
+        'cloud.bamsongi.NotificationReadServiceTest.내부_테스트';
+
+    assert.ok(keywords(validate(validPacket(), manifest, worktree)).includes('selectorMethod'));
+});
+
+test('skip되거나 provider가 없는 JUnit selector evidence를 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    const invalidSources = [
+        [
+            'method Disabled',
+            'import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    @Disabled\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        ],
+        [
+            'same-line method Disabled',
+            'import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    @Test @Disabled\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        ],
+        [
+            'multiline method Disabled',
+            'import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    @Disabled(\n        "reason"\n    )\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        ],
+        [
+            'comment-separated method Disabled',
+            'import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    @Disabled\n    // reason\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        ],
+        [
+            'class Disabled',
+            'import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;\n\n@Disabled\nclass NotificationReadServiceTest {\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        ],
+        [
+            'conditional class',
+            'import org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.condition.EnabledIfSystemProperty;\n\n@EnabledIfSystemProperty(named = "postgres", matches = "true")\nclass NotificationReadServiceTest {\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        ],
+        [
+            'multiline conditional class',
+            'import org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.condition.EnabledIfSystemProperty;\n\n@EnabledIfSystemProperty(\n    named = "postgres",\n    matches = "true"\n)\nclass NotificationReadServiceTest {\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        ],
+        [
+            'comment-separated class Disabled',
+            'import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;\n\n@Disabled\n/* reason */\n\nclass NotificationReadServiceTest {\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        ],
+        [
+            'missing provider',
+            'import org.junit.jupiter.params.ParameterizedTest;\n\nclass NotificationReadServiceTest {\n    @ParameterizedTest\n    void 알림을_읽음_처리한다(String value) {\n    }\n}\n',
+        ],
+        [
+            'unresolved Test parameter',
+            'import org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    @Test\n    void 알림을_읽음_처리한다(String value) {\n    }\n}\n',
+        ],
+    ];
+
+    for (const [label, body] of invalidSources) {
+        fs.writeFileSync(
+            path.join(worktree, source),
+            `package cloud.bamsongi;\n\n${body}`,
+            'utf8',
+        );
+        assert.notDeepEqual(validate(validPacket(), validManifest(), worktree), [], label);
+    }
+
+    fs.writeFileSync(
+        path.join(worktree, source),
+        'package cloud.bamsongi;\n\nimport org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n\n    @Disabled\n    @Test\n    void 다른_테스트() {\n    }\n}\n',
+        'utf8',
+    );
+    assert.deepEqual(validate(validPacket(), validManifest(), worktree), []);
+});
+
+test('표준 provider가 있는 ParameterizedTest selector를 허용한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    const sources = [
+        [
+            'EnumSource',
+            'import org.junit.jupiter.params.provider.EnumSource;\n',
+            '@EnumSource(Fixture.class)',
+            'Fixture value',
+            '\n    enum Fixture { VALUE }\n',
+        ],
+        [
+            'ValueSource',
+            'import org.junit.jupiter.params.provider.ValueSource;\n',
+            '@ValueSource(strings = {"read"})',
+            'String value',
+            '',
+        ],
+        [
+            'CsvSource',
+            'import org.junit.jupiter.params.provider.CsvSource;\n',
+            '@CsvSource({"read, 1"})',
+            'String value, int count',
+            '',
+        ],
+        [
+            'MethodSource',
+            'import java.util.stream.Stream;\nimport org.junit.jupiter.params.provider.MethodSource;\n',
+            '@MethodSource("fixtures")',
+            'String value',
+            '\n    static Stream<String> fixtures() {\n        return Stream.of("read");\n    }\n',
+        ],
+    ];
+
+    for (const [label, providerImport, provider, parameters, support] of sources) {
+        fs.writeFileSync(
+            path.join(worktree, source),
+            `package cloud.bamsongi;\n\nimport org.junit.jupiter.params.ParameterizedTest;\n${providerImport}\nclass NotificationReadServiceTest {\n    @ParameterizedTest\n    ${provider}\n    void 알림을_읽음_처리한다(${parameters}) {\n    }\n${support}}\n`,
+            'utf8',
+        );
+        assert.deepEqual(validate(validPacket(), validManifest(), worktree), [], label);
+    }
+
+    const actualSource =
+        'src/test/java/cloud/bamsongi/albammate/chat/MyRoomChatAvailabilityConsistencyIntegrationTest.java';
+    copyRepositorySource(worktree, actualSource);
+    const manifest = validManifest();
+    manifest.tests[0].evidence[0] = {
+        task: 'test',
+        source: actualSource,
+        selector:
+            'cloud.bamsongi.albammate.chat.MyRoomChatAvailabilityConsistencyIntegrationTest.RECRUITING_CLOSED_상태와_관계_조합별로_내_모임_표시와_직접_접근_결과가_일치한다',
+    };
+    assert.deepEqual(validate(validPacket(), manifest, worktree), []);
+});
+
 test('메서드명이 다른 선언의 접미사여도 거부한다', (t) => {
     const worktree = createWorktree(t);
     const manifest = validManifest();
@@ -230,13 +796,13 @@ test('메서드명이 다른 선언의 접미사여도 거부한다', (t) => {
     assert.ok(keywords(validate(validPacket(), manifest, worktree)).includes('selectorMethod'));
 });
 
-test('중첩 클래스 selector는 클래스 일치까지만 확인한다', (t) => {
+test('검증하지 않는 중첩 클래스 selector를 거부한다', (t) => {
     const worktree = createWorktree(t);
     const manifest = validManifest();
     manifest.tests[0].evidence[0].selector =
         'cloud.bamsongi.NotificationReadServiceTest$읽음.아직_없는_메서드';
 
-    assert.deepEqual(validate(validPacket(), manifest, worktree), []);
+    assert.ok(keywords(validate(validPacket(), manifest, worktree)).includes('exactSelector'));
 });
 
 test('Red 상태, 명령과 실행 결과 필드를 schema에서 거부한다', (t) => {
@@ -253,6 +819,7 @@ test('Red 상태, 명령과 실행 결과 필드를 schema에서 거부한다', 
 test('CLI는 유효 manifest는 0, 무효 manifest는 1로 종료한다', (t) => {
     const worktree = createWorktree(t);
     initGitRepo(worktree);
+    writeSafeDtoChange(worktree);
     const outside = createOutsideDirectory(t);
     const packetPath = path.join(outside, 'packet.json');
     const manifestPath = path.join(outside, 'manifest.json');
@@ -277,6 +844,36 @@ test('CLI는 유효 manifest는 0, 무효 manifest는 1로 종료한다', (t) =>
     );
     assert.equal(invalid.status, 1);
     assert.match(invalid.stderr, /exactSelector/);
+});
+
+test('CLI는 Flyway 변경의 PostgreSQL selector 누락을 차단한다', (t) => {
+    const worktree = createWorktree(t);
+    initGitRepo(worktree);
+    const migration = path.join(worktree, 'src/main/resources/db/migration/V42__notification.sql');
+    fs.mkdirSync(path.dirname(migration), { recursive: true });
+    fs.writeFileSync(migration, 'alter table notifications add column memo text;\n', 'utf8');
+
+    const outside = createOutsideDirectory(t);
+    const packetPath = path.join(outside, 'packet.json');
+    const manifestPath = path.join(outside, 'manifest.json');
+    const packet = validPacket();
+    const manifest = validManifest();
+    packet.allowedPaths = ['src/main/resources/db/migration/'];
+    fs.writeFileSync(packetPath, JSON.stringify(packet), 'utf8');
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf8');
+
+    const args = [scriptPath, '--packet', packetPath, '--manifest', manifestPath, '--worktree', worktree];
+    const missing = spawnSync(process.execPath, args, { encoding: 'utf8' });
+    assert.equal(missing.status, 1);
+    assert.match(missing.stderr, /postgresRequired/);
+    assert.match(missing.stderr, /flyway-or-sql/);
+
+    requirePostgres(packet, manifest);
+    fs.writeFileSync(packetPath, JSON.stringify(packet), 'utf8');
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf8');
+    const covered = spawnSync(process.execPath, args, { encoding: 'utf8' });
+    assert.equal(covered.status, 0, covered.stderr);
+    assert.match(covered.stdout, /PostgreSQL required/);
 });
 
 test('지원하는 경로 패턴만 매칭한다', () => {
@@ -408,7 +1005,7 @@ test('커밋된 head의 범위 밖 변경을 base 비교로 감사한다', (t) =
     git('add', '--all');
     git('-c', 'user.name=t', '-c', 'user.email=t@e.com', 'commit', '--quiet', '-m', 'ADR 변경');
 
-    // 커밋 뒤 worktree가 깨끗하면 base 없이는 감사 대상이 비어 통과한다.
+    // 커밋 뒤 worktree가 깨끗하면 base 없이는 감사 대상이 비어 분류도 needs-review가 된다.
     assert.deepEqual(changedPathsIn(worktree), []);
 
     const withBase = changedPathsIn(worktree, 'HEAD~1');
@@ -433,7 +1030,8 @@ test('CLI가 --base로 커밋된 범위 밖 변경을 차단한다', (t) => {
 
     const args = [scriptPath, '--packet', packetPath, '--manifest', manifestPath, '--worktree', worktree];
     const withoutBase = spawnSync(process.execPath, args, { encoding: 'utf8' });
-    assert.equal(withoutBase.status, 0, withoutBase.stderr);
+    assert.equal(withoutBase.status, 1);
+    assert.match(withoutBase.stderr, /postgresNeedsReview/);
 
     const withBase = spawnSync(process.execPath, [...args, '--base', 'HEAD~1'], { encoding: 'utf8' });
     assert.equal(withBase.status, 1);

@@ -1,13 +1,20 @@
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import {
+    POSTGRES_DECISIONS,
+    changedPathsIn,
+    classifyPostgresRequirementIn,
+} from './classify-postgres-requirement.mjs';
 import {
     DEFAULT_SCHEMA_PATH as DEFAULT_PACKET_SCHEMA_PATH,
     validateAgainstSchema,
     validatePacket,
 } from './validate-packet.mjs';
+
+export { changedPathsIn } from './classify-postgres-requirement.mjs';
 
 export const DEFAULT_MANIFEST_SCHEMA_PATH = fileURLToPath(
     new URL('../.codex/contracts/backend-test-manifest.schema.json', import.meta.url),
@@ -100,28 +107,6 @@ function isUnsupportedPattern(pattern) {
     return pattern.includes('*');
 }
 
-// worktree에서 HEAD 대비 변경된 경로와 추적되지 않은 새 파일을 모은다. 새 파일을 빠뜨리면
-// 경계를 벗어난 신규 파일이 감사를 그대로 통과한다.
-//
-// `--no-renames`가 필요하다. rename을 감지하면 git이 새 경로만 보고하므로, 항상 read-only인
-// 파일을 허용 경로로 옮기면 보호된 원본 경로가 감사에서 빠진다. rename을 삭제와 추가로
-// 나눠 받아 원본과 대상 경로를 모두 감사한다.
-// base를 주지 않으면 HEAD와 worktree를 비교한다. 커밋을 만든 뒤에는 그 diff가 비므로 고정한
-// Draft head를 검증할 때는 base를 함께 넘겨야 앞선 커밋의 범위 밖 변경까지 감사한다.
-// base를 주면 base와 worktree를 비교해 커밋된 변경과 미커밋 변경을 모두 담는다.
-export function changedPathsIn(worktree, base = null) {
-    const run = (args) =>
-        execFileSync('git', args, { cwd: worktree, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 })
-            .split('\0')
-            .filter(Boolean);
-    return [
-        ...new Set([
-            ...run(['diff', '--name-only', '--no-renames', '-z', base ?? 'HEAD']),
-            ...run(['ls-files', '--others', '--exclude-standard', '-z']),
-        ]),
-    ].sort();
-}
-
 // 구현자가 실제로 바꾼 경로가 packet이 고정한 소유 경계 안인지 판정한다. 지금까지 사람이
 // 눈으로 확인했던 범위 밖 변경 확인을 대체한다.
 export function auditChangedPaths(packet, changedPaths) {
@@ -200,15 +185,304 @@ function isExactSelector(selector, source) {
     }
     const sourceClass = path.posix.basename(source.replaceAll('\\', '/'), '.java');
     const selectorClass = segments.at(-2);
-    return selectorClass === sourceClass || selectorClass.startsWith(`${sourceClass}$`);
+    return !selectorClass.includes('$') && selectorClass === sourceClass;
 }
 
-// selector가 가리키는 메서드가 source에 실제로 선언됐는지 본다. review-fast는 구현자의 targeted
-// 실행을 다시 하지 않으므로, 여기서 거르지 못한 selector 오타는 PR 본문의 T-ID 매핑에 그대로 남는다.
-// JUnit 5 테스트 메서드는 void이며 이 저장소에는 중첩 클래스 테스트가 없다.
-function hasTestMethodDeclaration(contents, methodName) {
+function normalizeEvidenceSource(source) {
+    const portableSource = source.replaceAll('\\', '/');
+    const normalizedSource = path.posix.normalize(portableSource);
+    const hasParentTraversal = portableSource.split('/').includes('..');
+    const isAbsolute = path.posix.isAbsolute(portableSource) || path.win32.isAbsolute(source);
+    return { normalizedSource, hasParentTraversal, isAbsolute };
+}
+
+function sanitizeJavaSource(contents) {
+    let result = '';
+    let state = 'code';
+
+    for (let index = 0; index < contents.length; index += 1) {
+        const current = contents[index];
+        const next = contents[index + 1];
+        const third = contents[index + 2];
+        const blank = current === '\r' || current === '\n' ? current : ' ';
+
+        if (state === 'code') {
+            if (current === '/' && next === '/') {
+                result += '  ';
+                index += 1;
+                state = 'lineComment';
+            } else if (current === '/' && next === '*') {
+                result += '  ';
+                index += 1;
+                state = 'blockComment';
+            } else if (current === '"' && next === '"' && third === '"') {
+                result += '   ';
+                index += 2;
+                state = 'textBlock';
+            } else if (current === '"') {
+                result += ' ';
+                state = 'string';
+            } else if (current === "'") {
+                result += ' ';
+                state = 'character';
+            } else {
+                result += current;
+            }
+        } else if (state === 'lineComment') {
+            result += blank;
+            if (current === '\n') state = 'code';
+        } else if (state === 'blockComment') {
+            if (current === '*' && next === '/') {
+                result += '  ';
+                index += 1;
+                state = 'code';
+            } else {
+                result += blank;
+            }
+        } else if (state === 'textBlock') {
+            if (current === '\\' && next !== undefined) {
+                result += ` ${next === '\r' || next === '\n' ? next : ' '}`;
+                index += 1;
+            } else if (current === '"' && next === '"' && third === '"') {
+                result += '   ';
+                index += 2;
+                state = 'code';
+            } else {
+                result += blank;
+            }
+        } else if (current === '\\' && next !== undefined) {
+            result += ` ${next === '\r' || next === '\n' ? next : ' '}`;
+            index += 1;
+        } else if (
+            (state === 'string' && current === '"') ||
+            (state === 'character' && current === "'")
+        ) {
+            result += ' ';
+            state = 'code';
+        } else {
+            result += blank;
+        }
+    }
+
+    return result;
+}
+
+function braceDepthAt(contents, endIndex) {
+    let depth = 0;
+    for (let index = 0; index < endIndex; index += 1) {
+        if (contents[index] === '{') depth += 1;
+        if (contents[index] === '}') depth -= 1;
+    }
+    return depth;
+}
+
+function translateJavaUnicodeEscapes(contents) {
+    let translated = '';
+    let trailingBackslashes = 0;
+
+    for (let index = 0; index < contents.length; index += 1) {
+        const current = contents[index];
+        if (current !== '\\') {
+            translated += current;
+            trailingBackslashes = 0;
+            continue;
+        }
+
+        const eligible = trailingBackslashes % 2 === 0;
+        if (eligible && contents[index + 1] === 'u') {
+            let cursor = index + 1;
+            while (contents[cursor] === 'u') cursor += 1;
+            const hexadecimal = contents.slice(cursor, cursor + 4);
+            if (!/^[0-9a-f]{4}$/iu.test(hexadecimal)) {
+                return { error: '잘못된 Java Unicode escape' };
+            }
+
+            const character = String.fromCharCode(Number.parseInt(hexadecimal, 16));
+            translated += character;
+            trailingBackslashes = character === '\\' ? trailingBackslashes + 1 : 0;
+            index = cursor + 3;
+            continue;
+        }
+
+        translated += current;
+        trailingBackslashes += 1;
+    }
+
+    return { contents: translated, error: null };
+}
+
+const JAVA_ANNOTATION =
+    '@[.$_\\p{ID_Start}\\u200c\\u200d\\p{ID_Continue}]+' +
+    '(?:[\\t ]*\\((?:[^()]|\\([^()]*\\))*\\))?';
+const JAVA_ANNOTATION_LINES =
+    `(?:^[\\t ]*(?:${JAVA_ANNOTATION}[\\t ]*)+\\r?\\n(?:^[\\t ]*\\r?\\n)*)`;
+
+function findTopLevelType(contents, className) {
+    const escaped = className.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+    const declaration = new RegExp(
+        `((?:${JAVA_ANNOTATION_LINES})*)^[\\t ]*` +
+            `((?:(?:public|protected|private|abstract|static|final|strictfp|sealed|non-sealed)\\s+)*)` +
+            `(class|record|interface|enum)\\s+${escaped}\\b[^{}]*\\{`,
+        'gmu',
+    );
+
+    for (const match of contents.matchAll(declaration)) {
+        if (braceDepthAt(contents, match.index) !== 0) continue;
+        const open = match.index + match[0].lastIndexOf('{');
+        let depth = 1;
+        for (let index = open + 1; index < contents.length; index += 1) {
+            if (contents[index] === '{') depth += 1;
+            if (contents[index] === '}') depth -= 1;
+            if (depth === 0) {
+                const modifiers = new Set(match[2].trim().split(/\s+/u).filter(Boolean));
+                return {
+                    open,
+                    close: index,
+                    annotations: match[1],
+                    kind: match[3],
+                    isAbstract: modifiers.has('abstract'),
+                };
+            }
+        }
+    }
+    return null;
+}
+
+function parseTestSource(contents, source) {
+    const unicodeTranslation = translateJavaUnicodeEscapes(contents);
+    if (unicodeTranslation.error) return { unsupportedSyntax: unicodeTranslation.error };
+    const sanitized = sanitizeJavaSource(unicodeTranslation.contents);
+    const packageMatch = sanitized.match(
+        /^\s*package\s+([$_\p{ID_Start}][$_\u200c\u200d\p{ID_Continue}]*(?:\.[$_\p{ID_Start}][$_\u200c\u200d\p{ID_Continue}]*)*)\s*;/u,
+    );
+    const packageName = packageMatch?.[1] ?? '';
+    const className = path.posix.basename(source, '.java');
+    const classRange = findTopLevelType(sanitized, className);
+    const fqcn = packageName === '' ? className : `${packageName}.${className}`;
+    return { sanitized, fqcn, classRange, unsupportedSyntax: null };
+}
+
+function hasImport(contents, importedType) {
+    const escaped = importedType.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+    return new RegExp(`^\\s*import\\s+${escaped}\\s*;`, 'mu').test(contents);
+}
+
+function hasTypeNameShadow(contents, typeName) {
+    const escaped = typeName.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+    const declaration = new RegExp(
+        `(?:\\b(?:class|record|interface|enum)\\s+|@interface\\s+)${escaped}\\b`,
+        'u',
+    );
+    const importedType = new RegExp(
+        `^\\s*import\\s+(?:static\\s+)?[$_\\p{ID_Start}][.$_\\u200c\\u200d\\p{ID_Continue}]*\\.${escaped}\\s*;`,
+        'mu',
+    );
+    const typeParameter = new RegExp(`<[^<>]*\\b${escaped}\\b[^<>]*>`, 'u');
+    return declaration.test(contents) || importedType.test(contents) || typeParameter.test(contents);
+}
+
+function annotationNames(annotationBlock) {
+    return [...annotationBlock.matchAll(/@([.$_\p{ID_Start}\u200c\u200d\p{ID_Continue}]+)/gu)].map(
+        (match) => match[1],
+    );
+}
+
+function hasResolvedAnnotation(contents, annotationBlock, importedType) {
+    const names = annotationNames(annotationBlock);
+    const simpleName = importedType.split('.').at(-1);
+    const orgIsShadowed = hasTypeNameShadow(contents, 'org');
+    if (!orgIsShadowed && names.includes(importedType)) return true;
+    const declaresAnnotation = new RegExp(`@interface\\s+${simpleName}\\b`, 'u').test(contents);
+    return names.includes(simpleName) && !declaresAnnotation && hasImport(contents, importedType);
+}
+
+function hasSkipAnnotation(contents, annotationBlock) {
+    if (hasResolvedAnnotation(contents, annotationBlock, 'org.junit.jupiter.api.Disabled')) {
+        return true;
+    }
+
+    const orgIsShadowed = hasTypeNameShadow(contents, 'org');
+    return annotationNames(annotationBlock).some((name) => {
+        if (
+            !orgIsShadowed &&
+            /^org\.junit\.jupiter\.api\.condition\.(?:Disabled|Enabled)/u.test(name)
+        ) {
+            return true;
+        }
+        return (
+            /^(?:Disabled|Enabled)/u.test(name) &&
+            hasImport(contents, `org.junit.jupiter.api.condition.${name}`)
+        );
+    });
+}
+
+function supportedTestKind(contents, annotationBlock) {
+    if (hasResolvedAnnotation(contents, annotationBlock, 'org.junit.jupiter.api.Test')) {
+        return 'test';
+    }
+    if (
+        hasResolvedAnnotation(
+            contents,
+            annotationBlock,
+            'org.junit.jupiter.params.ParameterizedTest',
+        )
+    ) {
+        return 'parameterized';
+    }
+    return null;
+}
+
+function hasSupportedArgumentsSource(contents, annotationBlock, parameters) {
+    if (parameters.trim() === '') return false;
+    const providerPackage = 'org.junit.jupiter.params.provider';
+    const providerNames = [
+        'ArgumentsSource',
+        'CsvFileSource',
+        'CsvSource',
+        'EmptySource',
+        'EnumSource',
+        'FieldSource',
+        'MethodSource',
+        'NullAndEmptySource',
+        'NullSource',
+        'ValueSource',
+    ];
+    return providerNames.some((providerName) =>
+        hasResolvedAnnotation(contents, annotationBlock, `${providerPackage}.${providerName}`),
+    );
+}
+
+// selector가 가리키는 메서드가 실제 최상위 JUnit 테스트 클래스에 선언됐는지 본다.
+function hasTestMethodDeclaration(sourceInfo, methodName) {
+    if (!sourceInfo.classRange) return false;
     const escaped = methodName.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-    return new RegExp(`\\bvoid\\s+${escaped}\\s*\\(`, 'u').test(contents);
+    const declaration = new RegExp(
+        `((?:${JAVA_ANNOTATION_LINES})+)^[\\t ]*` +
+            `((?:(?:public|protected|private|static|final|synchronized|abstract|native|strictfp)\\s+)*)` +
+            `void\\s+${escaped}\\s*\\(([^()]*)\\)`,
+        'gmu',
+    );
+
+    for (const match of sourceInfo.sanitized.matchAll(declaration)) {
+        if (match.index <= sourceInfo.classRange.open || match.index >= sourceInfo.classRange.close) {
+            continue;
+        }
+        if (braceDepthAt(sourceInfo.sanitized, match.index) !== 1) continue;
+        const modifiers = new Set(match[2].trim().split(/\s+/u).filter(Boolean));
+        if (['private', 'static', 'abstract', 'native'].some((modifier) => modifiers.has(modifier))) {
+            continue;
+        }
+        if (hasSkipAnnotation(sourceInfo.sanitized, match[1])) continue;
+        const testKind = supportedTestKind(sourceInfo.sanitized, match[1]);
+        if (testKind === 'test' && match[3].trim() === '') return true;
+        if (
+            testKind === 'parameterized' &&
+            hasSupportedArgumentsSource(sourceInfo.sanitized, match[1], match[3])
+        ) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function validateManifestRelations(packet, manifest, worktree) {
@@ -277,7 +551,18 @@ function validateManifestRelations(packet, manifest, worktree) {
                 return;
             }
 
-            const normalizedSource = source.replaceAll('\\', '/');
+            const { normalizedSource, hasParentTraversal, isAbsolute } =
+                normalizeEvidenceSource(source);
+            if (hasParentTraversal || isAbsolute) {
+                addError(
+                    errors,
+                    `${evidencePath}.source`,
+                    'sourcePath',
+                    'source는 절대 경로나 .. 구간이 없는 worktree 상대 경로여야 합니다.',
+                );
+                return;
+            }
+
             const expectedPrefix = SOURCE_SET_PREFIXES[task];
             if (expectedPrefix && !normalizedSource.startsWith(expectedPrefix)) {
                 addError(
@@ -288,7 +573,7 @@ function validateManifestRelations(packet, manifest, worktree) {
                 );
             }
 
-            const resolvedSource = path.resolve(worktree, source);
+            const resolvedSource = path.resolve(worktree, normalizedSource);
             if (!isInsideWorktree(worktree, resolvedSource)) {
                 addError(
                     errors,
@@ -323,12 +608,6 @@ function validateManifestRelations(packet, manifest, worktree) {
                 return;
             }
 
-            const segments = selector.split('.');
-            // 중첩 클래스 selector는 바깥 클래스 파일만으로 선언 위치를 특정할 수 없어 클래스 일치까지만 본다.
-            if (segments.at(-2).includes('$')) {
-                return;
-            }
-
             let contents;
             try {
                 contents = fs.readFileSync(canonicalSource, 'utf8');
@@ -342,17 +621,119 @@ function validateManifestRelations(packet, manifest, worktree) {
                 return;
             }
 
-            const methodName = segments.at(-1);
-            if (!hasTestMethodDeclaration(contents, methodName)) {
+            const sourceInfo = parseTestSource(contents, normalizedSource);
+            if (sourceInfo.unsupportedSyntax) {
+                addError(
+                    errors,
+                    `${evidencePath}.source`,
+                    'sourceSyntax',
+                    `${sourceInfo.unsupportedSyntax}가 있는 source는 selector를 안전하게 정적 검증할 수 없습니다.`,
+                );
+                return;
+            }
+            const selectorClass = selector.slice(0, selector.lastIndexOf('.'));
+            if (
+                !sourceInfo.classRange ||
+                sourceInfo.classRange.kind !== 'class' ||
+                sourceInfo.classRange.isAbstract ||
+                hasSkipAnnotation(sourceInfo.sanitized, sourceInfo.classRange.annotations) ||
+                selectorClass !== sourceInfo.fqcn
+            ) {
+                addError(
+                    errors,
+                    `${evidencePath}.selector`,
+                    'selectorClass',
+                    'selector 클래스가 source의 package와 최상위 클래스 선언에 일치하지 않습니다.',
+                );
+                return;
+            }
+
+            const methodName = selector.split('.').at(-1);
+            if (!hasTestMethodDeclaration(sourceInfo, methodName)) {
                 addError(
                     errors,
                     `${evidencePath}.selector`,
                     'selectorMethod',
-                    `source에서 void ${methodName}(...) 선언을 찾을 수 없습니다.`,
+                    `source의 최상위 클래스에서 JUnit 테스트 ${methodName}(...) 선언을 찾을 수 없습니다.`,
                 );
             }
         });
     });
+
+    return errors;
+}
+
+function validatePostgresRequirement(packet, manifest, classification) {
+    const errors = [];
+    const packetRequired = packet?.postgresRequired;
+    const manifestRequired = manifest?.postgresRequired;
+    const packetReasons = packet?.postgresRequirementReasons;
+    const manifestReasons = manifest?.postgresRequirementReasons;
+    const postgresEvidence = (Array.isArray(manifest?.tests) ? manifest.tests : []).flatMap(
+        (manifestTest) =>
+            (Array.isArray(manifestTest?.evidence) ? manifestTest.evidence : []).filter(
+                (evidence) => evidence?.task === 'postgresTest',
+            ),
+    );
+
+    if (
+        typeof packetRequired === 'boolean' &&
+        typeof manifestRequired === 'boolean' &&
+        packetRequired !== manifestRequired
+    ) {
+        addError(
+            errors,
+            '$manifest.postgresRequired',
+            'postgresDecisionMismatch',
+            'manifest의 postgresRequired가 packet의 결정과 다릅니다.',
+        );
+    }
+    if (
+        Array.isArray(packetReasons) &&
+        Array.isArray(manifestReasons) &&
+        !isDeepStrictEqual(packetReasons, manifestReasons)
+    ) {
+        addError(
+            errors,
+            '$manifest.postgresRequirementReasons',
+            'postgresReasonMismatch',
+            'manifest의 PostgreSQL 판단 근거가 packet과 다릅니다.',
+        );
+    }
+
+    if (manifestRequired === true && postgresEvidence.length === 0) {
+        addError(
+            errors,
+            '$manifest.tests',
+            'postgresEvidence',
+            'postgresRequired가 true이면 postgresTest exact selector evidence가 하나 이상 필요합니다.',
+        );
+    }
+    if (manifestRequired === false && postgresEvidence.length > 0) {
+        addError(
+            errors,
+            '$manifest.tests',
+            'unexpectedPostgresEvidence',
+            'postgresRequired가 false인데 postgresTest evidence가 포함되었습니다.',
+        );
+    }
+
+    if (classification?.decision === POSTGRES_DECISIONS.REQUIRED && manifestRequired !== true) {
+        addError(
+            errors,
+            '$manifest.postgresRequired',
+            'postgresRequired',
+            '실제 변경이 PostgreSQL 검증 필수로 분류되어 postgresRequired: true가 필요합니다.',
+        );
+    }
+    if (classification?.decision === POSTGRES_DECISIONS.NEEDS_REVIEW && manifestRequired !== true) {
+        addError(
+            errors,
+            '$manifest.postgresRequired',
+            'postgresNeedsReview',
+            '변경이 needs-review입니다. false로 생략할 수 없으며 PostgreSQL evidence를 포함해 안전하게 검증해야 합니다.',
+        );
+    }
 
     return errors;
 }
@@ -366,6 +747,7 @@ export function validateBackendTestManifest(
     packetSchema,
     manifestSchema,
     changedPaths = null,
+    postgresClassification = null,
 ) {
     const worktree = resolveWorktree(worktreePath);
     const packetErrors = prefixErrors(validatePacket(packet, packetSchema), '$packet');
@@ -375,6 +757,7 @@ export function validateBackendTestManifest(
         ...packetErrors,
         ...manifestErrors,
         ...validateManifestRelations(packet, manifest, worktree),
+        ...validatePostgresRequirement(packet, manifest, postgresClassification),
         ...pathErrors,
     ];
 }
@@ -396,6 +779,10 @@ export function validateBackendTestManifestFiles({
     const packetSchema = readJson(resolvedPacketSchemaPath, '패킷 스키마');
     const manifestSchema = readJson(resolvedManifestSchemaPath, 'manifest 스키마');
     const changedPaths = changedPathsIn(path.resolve(worktreePath), base);
+    const postgresClassification = classifyPostgresRequirementIn(worktreePath, {
+        base,
+        changedPaths,
+    });
     const errors = validateBackendTestManifest(
         packet,
         manifest,
@@ -403,6 +790,7 @@ export function validateBackendTestManifestFiles({
         packetSchema,
         manifestSchema,
         changedPaths,
+        postgresClassification,
     );
 
     return {
@@ -412,6 +800,7 @@ export function validateBackendTestManifestFiles({
         manifestPath: resolvedManifestPath,
         worktreePath: path.resolve(worktreePath),
         changedPaths,
+        postgresClassification,
         errors,
     };
 }
@@ -449,6 +838,10 @@ function runCli() {
         });
         if (result.errors.length > 0) {
             console.error(`backend test manifest 검증 실패: ${result.manifestPath}`);
+            console.error(`- PostgreSQL 분류: ${result.postgresClassification.decision}`);
+            for (const reason of result.postgresClassification.reasons) {
+                console.error(`  - ${reason.code} (${reason.path}): ${reason.message}`);
+            }
             for (const error of result.errors) {
                 console.error(`- ${error.instancePath}: ${error.message} [${error.keyword}]`);
             }
@@ -457,7 +850,7 @@ function runCli() {
         }
 
         console.log(
-            `backend test manifest 검증 통과: ${result.manifestPath} (T-ID ${result.manifest.tests.length}개, 감사한 변경 경로 ${result.changedPaths.length}개)`,
+            `backend test manifest 검증 통과: ${result.manifestPath} (PostgreSQL ${result.postgresClassification.decision}, T-ID ${result.manifest.tests.length}개, 감사한 변경 경로 ${result.changedPaths.length}개)`,
         );
     } catch (error) {
         console.error(`backend test manifest 검증 실패: ${error.message}`);

@@ -18,6 +18,11 @@ INVALID_IMPLEMENTATION_PACKET
 - 구현을 시작할 수 없는 이유:
 
 - `allowedPaths` 안에서만 최소 변경하고 `forbiddenPaths`와 범위 밖 리팩터링은 건드리지 않는다.
+- packet의 `postgresRequired`와 `postgresRequirementReasons`를 테스트 배치 계약으로 사용한다.
+  `true`이면 T-ID 하나 이상을 `postgresTest` exact selector로 직접 검증하고, `false`이면 Docker와
+  `postgresTest`를 실행하지 않는다. 구현 중 JPA/repository/native SQL, Flyway·스키마·제약,
+  트랜잭션 격리·잠금·동시성 또는 PostgreSQL 전용 의미가 새로 드러나면 임의로 `false`를 유지하지
+  말고 `DECISION_NEEDED`로 반환한다.
 - `allowedPaths`에 있어도 항상 read-only인 경로는 `scripts/validate-backend-test-manifest.mjs`의
   `ALWAYS_READ_ONLY_PATTERNS`가 정본이고, 전달 게이트가 실제 변경 경로를 그 목록으로 감사한다.
   `docs/API.md`, `docs/ERD.md`, `docs/COMMANDS.md`만 패킷 `allowedPaths`에 명시되고 확정 계약과
@@ -41,7 +46,8 @@ INVALID_IMPLEMENTATION_PACKET
 - 일반 TDD 루프에서 `--no-daemon`, `--rerun-tasks`, 전체 build와 전체 coverage를 사용하지 않는다.
 - 최종 응답에는 packet의 T-ID 순서대로 실제 `task`·`source`·exact `selector`만 담은
   `.codex/contracts/backend-test-manifest.schema.json` 형식의 manifest JSON을 포함한다.
-  존재하지 않는 source나 실행하지 않은 PostgreSQL 검증을 완료로 표현하지 않는다.
+  packet과 동일한 `postgresRequired`·`postgresRequirementReasons`도 포함하고, 존재하지 않는 source나
+  실행하지 않은 PostgreSQL 검증을 완료로 표현하지 않는다.
 - 구현 중 새 생산 패키지 또는 `gatedBranchCoverage`에 없는 변경 생산 패키지를 발견하면 패키지명을 보고한다.
   `build.gradle`이 packet에 조건부 허용되지 않았다면 임의로 수정하지 않는다.
 - 전체 build·coverage를 실행하거나 별도 최종 runner·명령 hash wrapper를 만들지 않는다.

@@ -63,6 +63,36 @@ macOS·Linux:
 - 공유·RDS 환경은 정확한 대상을 확인한 뒤 별도로 재생성한다.
 - 기존 테이블을 남기고 `flyway_schema_history`만 삭제하지 않는다.
 
+## PostgreSQL 필요 변경 분류
+
+`scripts/classify-postgres-requirement.mjs`는 실제 변경 경로와 diff 신호를 읽고 `required`, `not-required`, `needs-review` 중 하나와 근거를 반환한다. 이 판정은 H2를 PostgreSQL 대체물로 만드는 규칙이 아니라, Docker 검증을 안전하게 선택하는 규칙이다.
+
+| 변경 유형 | 판정 | 대표 신호 |
+| --- | --- | --- |
+| Flyway·운영 SQL·스키마·제약 | `required` | `src/main/resources/db/**`, SQL 파일, JPA table·column·relation·index·unique mapping |
+| JPA 매핑·repository·native query·정렬·대소문자 | `required` | entity/model·repository 경로, `@Query`, `nativeQuery`, `OrderBy`, `IgnoreCase`, `collate`, `ilike` |
+| 트랜잭션 격리·락·재시도·동시성 | `required` | `Isolation`, `@Lock`, `LockModeType`, `REQUIRES_NEW`, `@Retryable`, 동시 실행 제어 |
+| PostgreSQL 전용 문법·인덱스·실행 계획 | `required` | JSONB, `ON CONFLICT`, `RETURNING`, `SKIP LOCKED`, `CREATE INDEX`, `EXPLAIN` |
+| 시간대·timestamp·JSON의 DB 의미 | `required` | `clock_timestamp`, `AT TIME ZONE`, timezone datasource/JPA 설정, JSONB mapping |
+| DTO·순수 계산·일반 단위 테스트·문서 | `not-required` | 데이터 접근·트랜잭션·런타임 신호가 없는 Java와 `src/test`, 문서·도구 경로 |
+| DB 접근 문맥은 있으나 위 신호가 없거나 build·workflow·Compose·세션·Redis 경로 | `needs-review` | repository import, 기본 `@Transactional`, 런타임·빌드 변경, 빈 변경 집합 |
+
+직접 확인할 때는 다음 명령을 사용한다. 커밋된 head는 `--base`를 반드시 넘긴다.
+
+```sh
+node scripts/classify-postgres-requirement.mjs --worktree .
+node scripts/classify-postgres-requirement.mjs --worktree . --base origin/develop
+```
+
+backend-delivery packet v4와 manifest v2는 동일한 `postgresRequired`와 비어 있지 않은 `postgresRequirementReasons`를 기록한다. 실제 diff가 `required`인데 `false`이거나 `needs-review`를 `false`로 생략하면 manifest 검증이 실패한다. `true`는 `postgresTest` exact selector evidence를 하나 이상 요구한다. `not-required`에도 보수적으로 `true`를 선택할 수 있지만, 그 경우 PostgreSQL evidence를 실제로 실행해야 한다.
+
+대표 회귀 경로는 새 분류기 테스트와 별개로 계속 유지한다.
+
+- Flyway와 전체 schema: `SchemaValidationPostgresTest`
+- 제약과 PostgreSQL index: `NotificationSchemaPostgresTest`
+- 잠금·경합·동시성: `RoomParticipationConcurrencyPostgresTest`
+- native SQL·index·실행 계획: `SearchPerformancePostgresTest`
+
 ## 커버리지 게이트 실행
 
 커버리지는 조건식의 한쪽만 실행해도 올라가는 라인 수치가 아니라 분기를 주 기준으로 판정한다. 조건문이 없는 코드의 회귀를 놓치지 않도록 전체 라인 최소선을 보조로 함께 둔다.
@@ -81,7 +111,9 @@ macOS·Linux:
 ./gradlew jacocoTestReport jacocoTestCoverageVerification
 ```
 
-제출 전에는 Docker 환경에서 H2와 PostgreSQL 결과를 합산하는 정본 게이트를 실행한다.
+`required` 또는 `needs-review` 변경을 제출하기 전에는 Docker 환경에서 H2와 PostgreSQL 결과를 합산하는 정본 게이트를 실행한다. 확실한 `not-required` 변경은 CI의 `Backend Fast`에서 전체 H2 테스트·컨벤션과 변경 패키지 H2 커버리지를 확인한다.
+
+`not-required`의 H2 커버리지 게이트는 전체 BRANCH·LINE 최소선과 실제 변경한 생산 Java 패키지의 `gatedBranchCoverage` 최소선을 적용한다. PostgreSQL 테스트가 커버하는 변경하지 않은 패키지의 H2 비율은 이 경로를 가로막지 않는다. `verifyCoverageRuleTargets`는 전체 리포트의 패키지 구조와 최소선 목록이 어긋나지 않았는지 별도로 확인한다.
 
 Windows PowerShell:
 
@@ -130,18 +162,20 @@ build/reports/jacoco/jacocoMergedTestReport/html/index.html
 
 ## CI 판정
 
-CI는 `Changes`에서 변경 경로를 먼저 분류하고, 모든 변경에서 `Docs`와 마지막 `CI Gate`를 실행한다. 문서만 바뀌면 조건부 검증 job은 실행하지 않고, 프론트엔드만 바뀌면 `Frontend`만 추가로 실행한다. 백엔드, Gradle, Compose, workflow처럼 그 밖의 경로가 바뀌면 다음 백엔드 job을 병렬로 실행한다.
+CI는 `Changes`에서 변경 경로를 먼저 나눈 뒤 PostgreSQL 필요 여부와 근거를 job summary에 남긴다. 모든 변경에서 `Docs`와 마지막 `CI Gate`를 실행한다. 문서만 바뀌면 조건부 검증 job은 실행하지 않고, 프론트엔드만 바뀌면 `Frontend`만 추가로 실행한다.
 
-- `Backend Fast`: 애플리케이션 조립, H2 `test`, Spotless와 모든 Java source set의 Checkstyle
-- `Local Multi Runtime`: 프록시, Spring 두 대, PostgreSQL과 Redis를 사용하는 교차 인스턴스 세션
-- `PostgreSQL 1/2`, `PostgreSQL 2/2`: source set의 테스트 클래스를 소스 크기 기준으로 균등 분할한 PostgreSQL 검증
-- `Coverage Gate`: H2와 두 PostgreSQL shard의 execution data를 합산하는 정본 커버리지 게이트
+- 모든 백엔드 변경의 `Backend Fast`: 애플리케이션 조립, H2 `test`, Spotless와 모든 Java source set의 Checkstyle. `not-required`에는 전체 및 변경 패키지 H2 커버리지 게이트도 적용
+- `required`·`needs-review`의 `Local Multi Runtime`: 프록시, Spring 두 대, PostgreSQL과 Redis를 사용하는 교차 인스턴스 세션
+- `required`·`needs-review`의 `PostgreSQL 1/2`, `PostgreSQL 2/2`: source set의 테스트 클래스를 소스 크기 기준으로 균등 분할한 PostgreSQL 검증
+- `required`·`needs-review`의 `Coverage Gate`: H2와 두 PostgreSQL shard의 execution data를 합산하는 정본 커버리지 게이트
 
-`Backend Fast`와 PostgreSQL shard는 execution data를 이름이 겹치지 않는 artifact로 전달한다. `Coverage Gate`는 세 입력 중 하나라도 없거나 비어 있으면 실패하고, 테스트를 다시 실행하지 않은 채 합산 리포트와 패키지 규칙 대상을 판정한다. shard별 JUnit XML과 HTML은 실행시간 재조정과 실패 분석을 위해 14일간 보관한다. 수동 실행과 변경 경로를 확정할 수 없는 실행은 전체 검증으로 안전하게 폴백한다.
+확실한 `not-required`에서는 `Local Multi Runtime`, PostgreSQL shard와 합산 `Coverage Gate`를 생략한다. 이 경로는 PostgreSQL 의미를 바꾸지 않는 것으로 확정된 변경에만 허용하고, H2 전체 테스트·컨벤션·전체 및 변경 패키지 커버리지 최소선은 그대로 적용한다. `Backend Fast`와 실행된 PostgreSQL shard는 execution data를 이름이 겹치지 않는 artifact로 전달한다. `Coverage Gate`는 필요한 세 입력 중 하나라도 없거나 비어 있으면 실패하고, 테스트를 다시 실행하지 않은 채 합산 리포트와 패키지 규칙 대상을 판정한다. shard별 JUnit XML과 HTML은 실행시간 재조정과 실패 분석을 위해 14일간 보관한다.
+
+수동 실행, 빈 변경 집합, build·workflow·런타임 변경, 분류기 오류처럼 생략을 확정할 수 없는 경우는 `needs-review`로 기록하고 기존 전체 Docker 검증을 실행한다. 분류 실패가 검증 생략으로 이어지지 않는다.
 
 합산 리포트가 생성되면 전체 분기·라인 비율을 job summary에 남기고 HTML·XML을 `jacoco-coverage-<run attempt>` artifact로 14일간 보관한다. 게이트가 실패해도 리포트 생성 단계까지 진행됐다면 같은 artifact에서 미커버 위치를 확인한다.
 
-마지막 `CI Gate`는 경로 분류상 필요한 job과 항상 실행되는 `Docs`가 모두 성공했는지 집계한다. 보호 규칙에 required status check를 지정할 때는 조건부로 건너뛰는 개별 job 대신 이 고정 이름을 사용한다.
+마지막 `CI Gate`는 분류상 필요한 job이 성공했는지, 불필요한 Docker job이 실제로 `skipped`인지와 항상 실행되는 `Docs` 성공을 함께 집계한다. 보호 규칙에 required status check를 지정할 때는 조건부로 건너뛰는 개별 job 대신 이 고정 이름을 사용한다.
 
 ## 문제 해결
 

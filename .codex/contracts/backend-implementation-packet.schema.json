@@ -12,13 +12,15 @@
     "allowedPaths",
     "forbiddenPaths",
     "completionCriteria",
+    "postgresRequired",
+    "postgresRequirementReasons",
     "requiredTests",
     "testContractApproval",
     "confirmedDecisions"
   ],
   "properties": {
     "schemaVersion": {
-      "const": 3
+      "const": 4
     },
     "workItem": {
       "type": "object",
@@ -77,6 +79,21 @@
     },
     "completionCriteria": {
       "$ref": "#/$defs/nonEmptyStringArray"
+    },
+    "postgresRequired": {
+      "description": "계획한 변경 범위가 실제 PostgreSQL 검증을 요구하는지 나타낸다. needs-review는 false로 확정하지 않고 true로 안전하게 처리한다.",
+      "type": "boolean"
+    },
+    "postgresRequirementReasons": {
+      "description": "PostgreSQL 검증 필요 여부를 판단한 변경 유형과 근거. 실제 diff 분류 결과는 manifest 검증에서 다시 대조한다.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "\\S"
+      }
     },
     "requiredTests": {
       "description": "사람이 이슈 코멘트에서 승인한 최신 전체 자연어 테스트 계약. 각 sourceRef는 전체 T-ID를 담은 정본 코멘트이며 testContractApproval.commentUrl과 같아야 한다.",
