@@ -108,6 +108,13 @@ function createWorktree(t) {
     return worktree;
 }
 
+function copyRepositorySource(worktree, source) {
+    const sourcePath = fileURLToPath(new URL(`../${source}`, import.meta.url));
+    const targetPath = path.join(worktree, source);
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.copyFileSync(sourcePath, targetPath);
+}
+
 function classification(decision) {
     return {
         decision,
@@ -514,18 +521,91 @@ test('text block의 escaped delimiter 뒤 가짜 테스트 선언을 허용하�
     assert.ok(keywords(validate(validPacket(), manifest, worktree)).includes('selectorMethod'));
 });
 
-test('Java Unicode escape 전처리가 필요한 source는 fail-closed 한다', (t) => {
+test('Java Unicode escape로 주석 처리된 가짜 테스트 선언을 허용하지 않는다', (t) => {
     const worktree = createWorktree(t);
     const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
     fs.writeFileSync(
         path.join(worktree, source),
-        'package cloud.bamsongi;\n\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    String marker = "\\u0022";\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        'package cloud.bamsongi;\n\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    \\u002f\\u002a\n    @Test\n    void 가짜_테스트() {\n    }\n    \\u002a\\u002f\n}\n',
+        'utf8',
+    );
+    const manifest = validManifest();
+    manifest.tests[0].evidence[0].selector =
+        'cloud.bamsongi.NotificationReadServiceTest.가짜_테스트';
+
+    assert.ok(
+        keywords(validate(validPacket(), manifest, worktree)).includes('selectorMethod'),
+    );
+});
+
+test('escaped Unicode 문자열을 쓰는 실제 테스트 source를 허용한다', (t) => {
+    const worktree = createWorktree(t);
+    const source =
+        'src/test/java/cloud/bamsongi/albammate/chat/ChatMessagePublishFailureRecoveryIntegrationTest.java';
+    copyRepositorySource(worktree, source);
+    const manifest = validManifest();
+    manifest.tests[0].evidence[0] = {
+        task: 'test',
+        source,
+        selector:
+            'cloud.bamsongi.albammate.chat.ChatMessagePublishFailureRecoveryIntegrationTest.T3_LF_CRLF_외_제어문자는_HTTP_400이고_저장과_커밋_신호를_만들지_않는다',
+    };
+
+    assert.deepEqual(validate(validPacket(), manifest, worktree), []);
+});
+
+test('eligible Java Unicode escape를 쓰는 실제 테스트 source를 허용한다', (t) => {
+    const worktree = createWorktree(t);
+    const source =
+        'src/test/java/cloud/bamsongi/albammate/auth/controller/SignupHttpIntegrationTest.java';
+    copyRepositorySource(worktree, source);
+    const manifest = validManifest();
+    manifest.tests[0].evidence[0] = {
+        task: 'test',
+        source,
+        selector:
+            'cloud.bamsongi.albammate.auth.controller.SignupHttpIntegrationTest.공백과_정규화하지_않은_Unicode_가입_비밀번호는_원문으로만_로그인된다',
+    };
+
+    assert.deepEqual(validate(validPacket(), manifest, worktree), []);
+});
+
+test('완전 수식 이름을 가리는 사용자 정의 Test 어노테이션을 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(
+        path.join(worktree, source),
+        'package cloud.bamsongi;\n\nclass org {\n    static class junit {\n        static class jupiter {\n            static class api {\n                @interface Test {\n                }\n            }\n        }\n    }\n}\n\nclass NotificationReadServiceTest {\n    @org.junit.jupiter.api.Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
         'utf8',
     );
 
     assert.ok(
-        keywords(validate(validPacket(), validManifest(), worktree)).includes('sourceSyntax'),
+        keywords(validate(validPacket(), validManifest(), worktree)).includes('selectorMethod'),
     );
+});
+
+test('직접 실행할 수 없는 최상위 interface와 enum selector를 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+
+    for (const type of ['interface', 'enum']) {
+        const method =
+            type === 'interface'
+                ? '    @Test\n    void 알림을_읽음_처리한다();\n'
+                : '    VALUE;\n\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n';
+        fs.writeFileSync(
+            path.join(worktree, source),
+            `package cloud.bamsongi;\n\nimport org.junit.jupiter.api.Test;\n\n${type} NotificationReadServiceTest {\n${method}}\n`,
+            'utf8',
+        );
+
+        assert.ok(
+            keywords(validate(validPacket(), validManifest(), worktree)).includes(
+                'selectorClass',
+            ),
+            type,
+        );
+    }
 });
 
 test('중첩 클래스에만 선언된 테스트 메서드를 바깥 클래스 selector로 허용하지 않는다', (t) => {

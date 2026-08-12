@@ -276,11 +276,46 @@ function braceDepthAt(contents, endIndex) {
     return depth;
 }
 
+function translateJavaUnicodeEscapes(contents) {
+    let translated = '';
+    let trailingBackslashes = 0;
+
+    for (let index = 0; index < contents.length; index += 1) {
+        const current = contents[index];
+        if (current !== '\\') {
+            translated += current;
+            trailingBackslashes = 0;
+            continue;
+        }
+
+        const eligible = trailingBackslashes % 2 === 0;
+        if (eligible && contents[index + 1] === 'u') {
+            let cursor = index + 1;
+            while (contents[cursor] === 'u') cursor += 1;
+            const hexadecimal = contents.slice(cursor, cursor + 4);
+            if (!/^[0-9a-f]{4}$/iu.test(hexadecimal)) {
+                return { error: '잘못된 Java Unicode escape' };
+            }
+
+            const character = String.fromCharCode(Number.parseInt(hexadecimal, 16));
+            translated += character;
+            trailingBackslashes = character === '\\' ? trailingBackslashes + 1 : 0;
+            index = cursor + 3;
+            continue;
+        }
+
+        translated += current;
+        trailingBackslashes += 1;
+    }
+
+    return { contents: translated, error: null };
+}
+
 function findTopLevelType(contents, className) {
     const escaped = className.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
     const declaration = new RegExp(
         `^[\\t ]*((?:(?:public|protected|private|abstract|static|final|strictfp|sealed|non-sealed)\\s+)*)` +
-            `(?:class|record|interface|enum)\\s+${escaped}\\b[^{}]*\\{`,
+            `(class|record|interface|enum)\\s+${escaped}\\b[^{}]*\\{`,
         'gmu',
     );
 
@@ -293,7 +328,12 @@ function findTopLevelType(contents, className) {
             if (contents[index] === '}') depth -= 1;
             if (depth === 0) {
                 const modifiers = new Set(match[1].trim().split(/\s+/u).filter(Boolean));
-                return { open, close: index, isAbstract: modifiers.has('abstract') };
+                return {
+                    open,
+                    close: index,
+                    kind: match[2],
+                    isAbstract: modifiers.has('abstract'),
+                };
             }
         }
     }
@@ -301,10 +341,9 @@ function findTopLevelType(contents, className) {
 }
 
 function parseTestSource(contents, source) {
-    if (/\\u+[0-9a-f]{4}/iu.test(contents)) {
-        return { unsupportedSyntax: 'Java Unicode escape' };
-    }
-    const sanitized = sanitizeJavaSource(contents);
+    const unicodeTranslation = translateJavaUnicodeEscapes(contents);
+    if (unicodeTranslation.error) return { unsupportedSyntax: unicodeTranslation.error };
+    const sanitized = sanitizeJavaSource(unicodeTranslation.contents);
     const packageMatch = sanitized.match(
         /^\s*package\s+([$_\p{ID_Start}][$_\u200c\u200d\p{ID_Continue}]*(?:\.[$_\p{ID_Start}][$_\u200c\u200d\p{ID_Continue}]*)*)\s*;/u,
     );
@@ -324,8 +363,6 @@ function hasSupportedTestAnnotation(contents, annotationBlock) {
     const annotationNames = [...annotationBlock.matchAll(/^\s*@([.$_\p{ID_Start}\u200c\u200d\p{ID_Continue}]+)/gmu)].map(
         (match) => match[1],
     );
-    if (annotationNames.includes('org.junit.jupiter.api.Test')) return true;
-    if (annotationNames.includes('org.junit.jupiter.params.ParameterizedTest')) return true;
     const declaresTest = /@interface\s+Test\b/u.test(contents);
     const declaresParameterizedTest = /@interface\s+ParameterizedTest\b/u.test(contents);
     if (
@@ -516,6 +553,7 @@ function validateManifestRelations(packet, manifest, worktree) {
             const selectorClass = selector.slice(0, selector.lastIndexOf('.'));
             if (
                 !sourceInfo.classRange ||
+                sourceInfo.classRange.kind !== 'class' ||
                 sourceInfo.classRange.isAbstract ||
                 selectorClass !== sourceInfo.fqcn
             ) {
