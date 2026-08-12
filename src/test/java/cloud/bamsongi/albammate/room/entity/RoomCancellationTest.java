@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.room.entity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -19,6 +20,10 @@ class RoomCancellationTest {
 	@Test
 	void 정원_충족_후_시작_전_활성_참가자가_취소하면_모집중으로_복귀한다() {
 		Room room = room(1, START_AT.plusSeconds(1));
+
+		assertFalse(room.reconcileStateAt(START_AT));
+		assertEquals(RoomStatus.RECRUITING, room.getStatus());
+
 		room.addActiveParticipant();
 		assertEquals(RoomStatus.CLOSED, room.getStatus());
 
