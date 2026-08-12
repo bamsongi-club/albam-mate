@@ -1,7 +1,31 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { classifyCiPaths } from "./classify-ci-paths.mjs";
+import { POSTGRES_DECISIONS } from "./classify-postgres-requirement.mjs";
+
+const scriptPath = fileURLToPath(new URL("./classify-ci-paths.mjs", import.meta.url));
+
+const noBackend = (frontend) => ({
+  backend: false,
+  frontend,
+  postgresDecision: POSTGRES_DECISIONS.NOT_REQUIRED,
+  postgresRequired: false,
+  dockerRequired: false,
+});
+
+const fullBackend = (frontend = false) => ({
+  backend: true,
+  frontend,
+  postgresDecision: POSTGRES_DECISIONS.NEEDS_REVIEW,
+  postgresRequired: true,
+  dockerRequired: true,
+});
 
 test("문서 변경은 backend와 frontend를 실행하지 않는다", () => {
   assert.deepEqual(
@@ -11,51 +35,155 @@ test("문서 변경은 backend와 frontend를 실행하지 않는다", () => {
       "src/test/AGENTS.md",
       ".github/ISSUE_TEMPLATE/docs.yml",
       "scripts/check-doc-links.test.mjs",
+      "scripts/classify-postgres-requirement.test.mjs",
+      "scripts/verify-changed-h2-coverage.test.mjs",
     ]),
-    { backend: false, frontend: false },
+    noBackend(false),
   );
 });
 
 test("frontend 변경은 frontend만 실행한다", () => {
   assert.deepEqual(
     classifyCiPaths(["frontend/src/App.tsx", "frontend/README.md"]),
-    { backend: false, frontend: true },
+    noBackend(true),
   );
 });
 
 test("backend와 빌드 변경은 backend를 실행한다", () => {
-  assert.deepEqual(classifyCiPaths(["src/main/java/example/App.java"]), {
-    backend: true,
-    frontend: false,
-  });
-  assert.deepEqual(classifyCiPaths(["build.gradle"]), {
-    backend: true,
-    frontend: false,
-  });
-  assert.deepEqual(classifyCiPaths([".github/workflows/ci.yml"]), {
-    backend: true,
-    frontend: false,
-  });
+  assert.deepEqual(classifyCiPaths(["src/main/java/example/App.java"]), fullBackend());
+  assert.deepEqual(classifyCiPaths(["build.gradle"]), fullBackend());
+  assert.deepEqual(classifyCiPaths([".github/workflows/ci.yml"]), fullBackend());
+});
+
+test("확실한 not-required 백엔드 변경만 PostgreSQL과 Docker를 생략한다", () => {
+  assert.deepEqual(
+    classifyCiPaths(["src/main/java/example/dto/Response.java"], {
+      postgresClassification: { decision: POSTGRES_DECISIONS.NOT_REQUIRED },
+    }),
+    {
+      backend: true,
+      frontend: false,
+      postgresDecision: POSTGRES_DECISIONS.NOT_REQUIRED,
+      postgresRequired: false,
+      dockerRequired: false,
+    },
+  );
+
+  assert.deepEqual(
+    classifyCiPaths(["src/main/resources/db/migration/V2__change.sql"], {
+      postgresClassification: { decision: POSTGRES_DECISIONS.REQUIRED },
+    }),
+    {
+      backend: true,
+      frontend: false,
+      postgresDecision: POSTGRES_DECISIONS.REQUIRED,
+      postgresRequired: true,
+      dockerRequired: true,
+    },
+  );
 });
 
 test("혼합 변경은 필요한 검증을 모두 실행한다", () => {
   assert.deepEqual(
     classifyCiPaths(["frontend/src/App.tsx", "src/main/java/example/App.java"]),
-    { backend: true, frontend: true },
+    fullBackend(true),
   );
 });
 
 test("빈 목록과 수동 실행은 전체 검증으로 안전하게 폴백한다", () => {
-  assert.deepEqual(classifyCiPaths([]), { backend: true, frontend: true });
-  assert.deepEqual(classifyCiPaths(["docs/README.md"], { forceAll: true }), {
-    backend: true,
-    frontend: true,
-  });
+  assert.deepEqual(classifyCiPaths([]), fullBackend(true));
+  assert.deepEqual(classifyCiPaths(["docs/README.md"], { forceAll: true }), fullBackend(true));
 });
 
 test("Windows 경로 구분자를 정규화한다", () => {
-  assert.deepEqual(classifyCiPaths(["frontend\\src\\App.tsx"]), {
-    backend: false,
-    frontend: true,
+  assert.deepEqual(classifyCiPaths(["frontend\\src\\App.tsx"]), noBackend(true));
+});
+
+function createGitWorktree(t) {
+  const worktree = fs.mkdtempSync(path.join(os.tmpdir(), "ci-path-classifier-"));
+  t.after(() => fs.rmSync(worktree, { recursive: true, force: true }));
+  const git = (...args) =>
+    spawnSync("git", ["-C", worktree, ...args], { encoding: "utf8", windowsHide: true });
+  git("init", "--quiet");
+  const dtoPath = "src/main/java/example/dto/Response.java";
+  fs.mkdirSync(path.dirname(path.join(worktree, dtoPath)), { recursive: true });
+  fs.writeFileSync(path.join(worktree, dtoPath), "public record Response(long id) {}\n", "utf8");
+  git("add", "--all");
+  git(
+    "-c",
+    "user.name=test",
+    "-c",
+    "user.email=test@example.com",
+    "commit",
+    "--quiet",
+    "--message=baseline",
+  );
+  fs.writeFileSync(
+    path.join(worktree, dtoPath),
+    "public record Response(long id, String name) {}\n",
+    "utf8",
+  );
+  const pathsFile = path.join(worktree, "changed-paths.txt");
+  fs.writeFileSync(pathsFile, `${dtoPath}\n`, "utf8");
+  return { worktree, pathsFile };
+}
+
+function parseOutputs(stdout) {
+  return Object.fromEntries(
+    stdout
+      .trim()
+      .split(/\r?\n/)
+      .map((line) => line.split(/=(.*)/s).slice(0, 2)),
+  );
+}
+
+test("CLI는 실제 diff의 safe 변경에서 PostgreSQL과 Docker를 생략한다", (t) => {
+  const { worktree, pathsFile } = createGitWorktree(t);
+  const result = spawnSync(
+    process.execPath,
+    [
+      scriptPath,
+      "--paths-file",
+      pathsFile,
+      "--base",
+      "HEAD",
+      "--worktree",
+      worktree,
+    ],
+    { encoding: "utf8" },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(parseOutputs(result.stdout), {
+    backend: "true",
+    frontend: "false",
+    postgres_decision: "not-required",
+    postgres_required: "false",
+    docker_required: "false",
+    postgres_reasons: "pure-java-change",
   });
+});
+
+test("CLI 분류기가 실패하면 성공 상태로 needs-review 전체 검증에 폴백한다", (t) => {
+  const { worktree, pathsFile } = createGitWorktree(t);
+  const result = spawnSync(
+    process.execPath,
+    [
+      scriptPath,
+      "--paths-file",
+      pathsFile,
+      "--base",
+      "missing-base",
+      "--worktree",
+      worktree,
+    ],
+    { encoding: "utf8" },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  const outputs = parseOutputs(result.stdout);
+  assert.equal(outputs.postgres_decision, "needs-review");
+  assert.equal(outputs.postgres_required, "true");
+  assert.equal(outputs.docker_required, "true");
+  assert.equal(outputs.postgres_reasons, "classifier-error");
 });

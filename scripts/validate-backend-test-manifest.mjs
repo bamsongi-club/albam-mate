@@ -1,13 +1,20 @@
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import {
+    POSTGRES_DECISIONS,
+    changedPathsIn,
+    classifyPostgresRequirementIn,
+} from './classify-postgres-requirement.mjs';
 import {
     DEFAULT_SCHEMA_PATH as DEFAULT_PACKET_SCHEMA_PATH,
     validateAgainstSchema,
     validatePacket,
 } from './validate-packet.mjs';
+
+export { changedPathsIn } from './classify-postgres-requirement.mjs';
 
 export const DEFAULT_MANIFEST_SCHEMA_PATH = fileURLToPath(
     new URL('../.codex/contracts/backend-test-manifest.schema.json', import.meta.url),
@@ -98,28 +105,6 @@ function isUnsupportedPattern(pattern) {
     if (pattern.startsWith('**/')) return pattern.slice(3).includes('*');
     if (pattern.endsWith('/**')) return pattern.slice(0, -3).includes('*');
     return pattern.includes('*');
-}
-
-// worktree에서 HEAD 대비 변경된 경로와 추적되지 않은 새 파일을 모은다. 새 파일을 빠뜨리면
-// 경계를 벗어난 신규 파일이 감사를 그대로 통과한다.
-//
-// `--no-renames`가 필요하다. rename을 감지하면 git이 새 경로만 보고하므로, 항상 read-only인
-// 파일을 허용 경로로 옮기면 보호된 원본 경로가 감사에서 빠진다. rename을 삭제와 추가로
-// 나눠 받아 원본과 대상 경로를 모두 감사한다.
-// base를 주지 않으면 HEAD와 worktree를 비교한다. 커밋을 만든 뒤에는 그 diff가 비므로 고정한
-// Draft head를 검증할 때는 base를 함께 넘겨야 앞선 커밋의 범위 밖 변경까지 감사한다.
-// base를 주면 base와 worktree를 비교해 커밋된 변경과 미커밋 변경을 모두 담는다.
-export function changedPathsIn(worktree, base = null) {
-    const run = (args) =>
-        execFileSync('git', args, { cwd: worktree, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 })
-            .split('\0')
-            .filter(Boolean);
-    return [
-        ...new Set([
-            ...run(['diff', '--name-only', '--no-renames', '-z', base ?? 'HEAD']),
-            ...run(['ls-files', '--others', '--exclude-standard', '-z']),
-        ]),
-    ].sort();
 }
 
 // 구현자가 실제로 바꾼 경로가 packet이 고정한 소유 경계 안인지 판정한다. 지금까지 사람이
@@ -357,6 +342,81 @@ function validateManifestRelations(packet, manifest, worktree) {
     return errors;
 }
 
+function validatePostgresRequirement(packet, manifest, classification) {
+    const errors = [];
+    const packetRequired = packet?.postgresRequired;
+    const manifestRequired = manifest?.postgresRequired;
+    const packetReasons = packet?.postgresRequirementReasons;
+    const manifestReasons = manifest?.postgresRequirementReasons;
+    const postgresEvidence = (Array.isArray(manifest?.tests) ? manifest.tests : []).flatMap(
+        (manifestTest) =>
+            (Array.isArray(manifestTest?.evidence) ? manifestTest.evidence : []).filter(
+                (evidence) => evidence?.task === 'postgresTest',
+            ),
+    );
+
+    if (
+        typeof packetRequired === 'boolean' &&
+        typeof manifestRequired === 'boolean' &&
+        packetRequired !== manifestRequired
+    ) {
+        addError(
+            errors,
+            '$manifest.postgresRequired',
+            'postgresDecisionMismatch',
+            'manifest의 postgresRequired가 packet의 결정과 다릅니다.',
+        );
+    }
+    if (
+        Array.isArray(packetReasons) &&
+        Array.isArray(manifestReasons) &&
+        !isDeepStrictEqual(packetReasons, manifestReasons)
+    ) {
+        addError(
+            errors,
+            '$manifest.postgresRequirementReasons',
+            'postgresReasonMismatch',
+            'manifest의 PostgreSQL 판단 근거가 packet과 다릅니다.',
+        );
+    }
+
+    if (manifestRequired === true && postgresEvidence.length === 0) {
+        addError(
+            errors,
+            '$manifest.tests',
+            'postgresEvidence',
+            'postgresRequired가 true이면 postgresTest exact selector evidence가 하나 이상 필요합니다.',
+        );
+    }
+    if (manifestRequired === false && postgresEvidence.length > 0) {
+        addError(
+            errors,
+            '$manifest.tests',
+            'unexpectedPostgresEvidence',
+            'postgresRequired가 false인데 postgresTest evidence가 포함되었습니다.',
+        );
+    }
+
+    if (classification?.decision === POSTGRES_DECISIONS.REQUIRED && manifestRequired !== true) {
+        addError(
+            errors,
+            '$manifest.postgresRequired',
+            'postgresRequired',
+            '실제 변경이 PostgreSQL 검증 필수로 분류되어 postgresRequired: true가 필요합니다.',
+        );
+    }
+    if (classification?.decision === POSTGRES_DECISIONS.NEEDS_REVIEW && manifestRequired !== true) {
+        addError(
+            errors,
+            '$manifest.postgresRequired',
+            'postgresNeedsReview',
+            '변경이 needs-review입니다. false로 생략할 수 없으며 PostgreSQL evidence를 포함해 안전하게 검증해야 합니다.',
+        );
+    }
+
+    return errors;
+}
+
 // changedPaths가 null이면 경로 감사를 건너뛴다. CLI는 항상 실제 변경 경로를 넘기므로
 // 전달 게이트에서는 감사가 생략되지 않는다.
 export function validateBackendTestManifest(
@@ -366,6 +426,7 @@ export function validateBackendTestManifest(
     packetSchema,
     manifestSchema,
     changedPaths = null,
+    postgresClassification = null,
 ) {
     const worktree = resolveWorktree(worktreePath);
     const packetErrors = prefixErrors(validatePacket(packet, packetSchema), '$packet');
@@ -375,6 +436,7 @@ export function validateBackendTestManifest(
         ...packetErrors,
         ...manifestErrors,
         ...validateManifestRelations(packet, manifest, worktree),
+        ...validatePostgresRequirement(packet, manifest, postgresClassification),
         ...pathErrors,
     ];
 }
@@ -396,6 +458,10 @@ export function validateBackendTestManifestFiles({
     const packetSchema = readJson(resolvedPacketSchemaPath, '패킷 스키마');
     const manifestSchema = readJson(resolvedManifestSchemaPath, 'manifest 스키마');
     const changedPaths = changedPathsIn(path.resolve(worktreePath), base);
+    const postgresClassification = classifyPostgresRequirementIn(worktreePath, {
+        base,
+        changedPaths,
+    });
     const errors = validateBackendTestManifest(
         packet,
         manifest,
@@ -403,6 +469,7 @@ export function validateBackendTestManifestFiles({
         packetSchema,
         manifestSchema,
         changedPaths,
+        postgresClassification,
     );
 
     return {
@@ -412,6 +479,7 @@ export function validateBackendTestManifestFiles({
         manifestPath: resolvedManifestPath,
         worktreePath: path.resolve(worktreePath),
         changedPaths,
+        postgresClassification,
         errors,
     };
 }
@@ -449,6 +517,10 @@ function runCli() {
         });
         if (result.errors.length > 0) {
             console.error(`backend test manifest 검증 실패: ${result.manifestPath}`);
+            console.error(`- PostgreSQL 분류: ${result.postgresClassification.decision}`);
+            for (const reason of result.postgresClassification.reasons) {
+                console.error(`  - ${reason.code} (${reason.path}): ${reason.message}`);
+            }
             for (const error of result.errors) {
                 console.error(`- ${error.instancePath}: ${error.message} [${error.keyword}]`);
             }
@@ -457,7 +529,7 @@ function runCli() {
         }
 
         console.log(
-            `backend test manifest 검증 통과: ${result.manifestPath} (T-ID ${result.manifest.tests.length}개, 감사한 변경 경로 ${result.changedPaths.length}개)`,
+            `backend test manifest 검증 통과: ${result.manifestPath} (PostgreSQL ${result.postgresClassification.decision}, T-ID ${result.manifest.tests.length}개, 감사한 변경 경로 ${result.changedPaths.length}개)`,
         );
     } catch (error) {
         console.error(`backend test manifest 검증 실패: ${error.message}`);

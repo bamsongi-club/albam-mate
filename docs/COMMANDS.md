@@ -226,14 +226,17 @@ node --test scripts/check-doc-links.test.mjs
 
 ## 백엔드 전달 테스트 계약
 
-구현 packet과 test manifest는 작업 트리 밖의 임시 JSON으로 유지한다. packet v3는 승인된 자연어 T-ID를 보존하고, manifest는 각 T-ID를 실제 source·Gradle task·wildcard 없는 exact selector에만 연결한다. manifest 검증은 source 존재와 source set 일치에 더해 selector가 가리키는 메서드가 그 source에 실제로 선언됐는지까지 확인한다. Red 상태와 실행 결과는 manifest가 아니라 구현자의 텍스트 보고로 확인한다.
+구현 packet과 test manifest는 작업 트리 밖의 임시 JSON으로 유지한다. packet v4는 승인된 자연어 T-ID와 `postgresRequired`·판단 근거를 보존하고, manifest v2는 같은 PostgreSQL 결정과 각 T-ID를 실제 source·Gradle task·wildcard 없는 exact selector에 연결한다. manifest 검증은 실제 diff를 [PostgreSQL 필요 변경 유형](guides/TESTING.md#postgresql-필요-변경-분류)으로 다시 분류하고 source set·selector 메서드·변경 경로 소유를 함께 확인한다. Red 상태와 실행 결과는 manifest가 아니라 구현자의 텍스트 보고로 확인한다.
 
 ```sh
 node scripts/validate-packet.mjs <packet.json>
+node scripts/classify-postgres-requirement.mjs --worktree <worktree>
 node scripts/validate-backend-test-manifest.mjs --packet <packet.json> --manifest <manifest.json> --worktree <worktree>
 ```
 
-Red에서는 선택한 모든 실패를 관찰할 수 있도록 `--fail-fast`를 쓰지 않는다. Green과 full-delivery의 고정 head 최종 재실행에서만 `--fail-fast`를 사용한다. H2와 PostgreSQL selector는 task별 한 명령에 묶고 `--rerun`으로 정확히 실행한다. `--rerun`이 없으면 소스가 그대로일 때 Gradle이 Test task를 `UP-TO-DATE`로 건너뛰고 종료 코드 0을 내므로, 테스트를 한 건도 돌리지 않은 실행이 통과처럼 보인다. PostgreSQL 실행 전에는 `docker version`으로 daemon 접근을 확인한다.
+`required`는 `postgresRequired: true`와 `postgresTest` evidence를 요구한다. `not-required`만 `false`로 제출할 수 있고, `needs-review`는 `false`로 생략할 수 없어 PostgreSQL evidence를 포함한 `true`로 안전하게 처리한다. packet과 manifest의 결정·근거가 다르거나 `true`인데 PostgreSQL selector가 없으면 검증이 실패한다.
+
+Red에서는 선택한 모든 실패를 관찰할 수 있도록 `--fail-fast`를 쓰지 않는다. Green과 full-delivery의 고정 head 최종 재실행에서만 `--fail-fast`를 사용한다. H2와 PostgreSQL selector는 task별 한 명령에 묶고 `--rerun`으로 정확히 실행한다. `--rerun`이 없으면 소스가 그대로일 때 Gradle이 Test task를 `UP-TO-DATE`로 건너뛰고 종료 코드 0을 내므로, 테스트를 한 건도 돌리지 않은 실행이 통과처럼 보인다. `postgresRequired: true`일 때만 PostgreSQL 실행 전 `docker version`으로 daemon 접근을 확인한다.
 
 selector 문법은 [Gradle 테스트 필터링](https://docs.gradle.org/current/userguide/java_testing.html)과 [TestFilter](https://docs.gradle.org/current/javadoc/org/gradle/api/tasks/testing/TestFilter.html)를 따른다.
 
@@ -262,7 +265,13 @@ selector 문법은 [Gradle 테스트 필터링](https://docs.gradle.org/current/
 .\gradlew.bat jacocoTestReport verifyCoverageRuleTargets
 ```
 
-이 명령은 `jacocoTestReport`가 `test`에 의존하므로 전체 H2 test 1회와 커버리지 구조 검사를 포함한다. 기준 실측은 약 70초이며 머신 상태에 따라 더 걸릴 수 있으므로 짧은 정적 검사로 취급하지 않는다. 로컬은 targeted 테스트와 이 조건부 전체 H2 게이트까지 책임지고, 기존 래칫 비율 회귀·PostgreSQL 합산 coverage·전체 회귀는 GitHub CI가 판정한다.
+이 명령은 `jacocoTestReport`가 `test`에 의존하므로 전체 H2 test 1회와 커버리지 구조 검사를 포함한다. 기준 실측은 약 70초이며 머신 상태에 따라 더 걸릴 수 있으므로 짧은 정적 검사로 취급하지 않는다. 로컬은 targeted 테스트와 이 조건부 전체 H2 게이트까지 책임진다. GitHub CI는 `not-required`에 H2 전체 테스트·컨벤션과 전체 및 변경 패키지 커버리지 최소선을 적용하고, `required`·`needs-review`에는 PostgreSQL 합산 coverage와 전체 Docker 회귀를 추가한다.
+
+커밋된 `not-required` 변경의 CI와 같은 H2 커버리지 판정은 리포트를 만든 뒤 다음 명령으로 확인한다.
+
+```sh
+node scripts/verify-changed-h2-coverage.mjs --report build/reports/jacoco/test/jacocoTestReport.xml --worktree . --base <고정한-base-sha>
+```
 
 `build.gradle`의 `gatedBranchCoverage`를 바꿨다면 다음 검사를 통과시킨다. 아직 커밋하지 않은 변경은 인자 없이, 커밋한 뒤 고정한 head를 검증할 때는 `--base`로 고정한 base를 넘긴다. 인자 없이 실행하면 커밋된 변경이 빈 diff가 되어 검사가 아무것도 보지 못한다.
 
@@ -271,10 +280,11 @@ node scripts/validate-coverage-ratchet.mjs
 node scripts/validate-coverage-ratchet.mjs --base <고정한-base-sha>
 ```
 
-manifest 검증도 같다. 커밋 뒤 고정한 head를 검증할 때는 `--base`를 넘긴다. 깨끗한 worktree에서 `--base` 없이 실행하면 감사할 변경 경로가 비어 앞선 커밋의 범위 밖 변경을 놓친다.
+manifest 검증과 PostgreSQL 분류도 같다. 커밋 뒤 고정한 head를 검증할 때는 `--base`를 넘긴다. 깨끗한 worktree에서 `--base` 없이 실행하면 감사할 변경 경로가 비어 `needs-review`로 실패하며, 앞선 커밋의 범위 밖 변경을 확인할 수 없다.
 
 ```sh
 node scripts/validate-backend-test-manifest.mjs --packet <packet.json> --manifest <manifest.json> --worktree <worktree> --base <고정한-base-sha>
+node scripts/classify-postgres-requirement.mjs --worktree <worktree> --base <고정한-base-sha>
 ```
 
 전달 종료 시 임시 packet과 manifest는 삭제하지 않고 Private Brain의 전달 아카이브로 옮긴다. 아카이브 경로는 Private Brain 정본을 따르고 공개 파일에 적지 않으며, 이관 결과는 `archiveId`와 receipt의 packet·manifest SHA-256으로 확인한다.

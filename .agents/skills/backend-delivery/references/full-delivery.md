@@ -4,15 +4,15 @@
 
 - 사람이 작업 GitHub 이슈의 한 코멘트에서 승인한 최신 전체 `T1`…`Tn`만 순서대로 재사용한다. 이슈가 없으면 feature·bug 이슈 생성과 승인을, 관찰 가능한 동작·테스트 의도가 달라지면 원래 이슈의 새 전체 승인을 먼저 요청한다.
 - 모든 `sourceRef`와 승인 URL은 승인 코멘트를 가리키며, PR 리뷰 코멘트 자체는 정본이나 승인이 아니다.
-- `.codex/contracts/backend-implementation-packet.schema.json`과 [패킷 템플릿](packet-template.json)에 따라 `allowedPaths`·`forbiddenPaths`를 포함한 v3 패킷을 만든다. 미선언 공유 파일이 필요하면 결정을 요청한다.
+- `.codex/contracts/backend-implementation-packet.schema.json`과 [패킷 템플릿](packet-template.json)에 따라 `allowedPaths`·`forbiddenPaths`, `postgresRequired`와 판단 근거를 포함한 v4 패킷을 만든다. [테스트 가이드의 변경 유형 표](../../../../docs/guides/TESTING.md#postgresql-필요-변경-분류)를 따르며 `needs-review`는 `false`로 줄이지 않고 `true`로 안전하게 처리한다. 미선언 공유 파일이 필요하면 결정을 요청한다.
 - HTTP 경계 작업은 [HTTP 기능 테스트 매트릭스](../../../references/http-feature-test-matrix.md)를 적용하고 제외 근거를 패킷에 남긴다.
 
 ## 구현 위임
 
 - 완성한 JSON을 저장소 밖의 고유한 임시 파일에 저장하고 `node scripts/validate-packet.mjs <임시-패킷.json>`을 통과시킨다. `<...>` placeholder 부재와 인용한 정본·사람 승인 사실도 직접 확인한다.
-- `postgresTest`가 필요하면 위임 전에 `docker version`으로 daemon 접근을 확인한다.
+- packet의 `postgresRequired`가 `true`이면 위임 전에 `docker version`으로 daemon 접근을 확인한다. `false`이면 Docker preflight를 요구하지 않는다.
 - 검증된 JSON만 `backend-developer`에 전달해 소유·대상 테스트·금지 경계를 고정한다. 구현자는 T-ID별 테스트를 먼저 Red로 확인하고 최소 구현으로 Green을 만든 뒤, task별 최종 Green과 실제 source·exact selector manifest를 보고한다.
-- 구현자가 반환한 T-ID별 Red 보고와 최종 Green을 확인하고, manifest를 저장소 밖 임시 JSON으로 만들어 `node scripts/validate-backend-test-manifest.mjs --packet <packet.json> --manifest <manifest.json> --worktree <worktree>`를 통과시킨다. 이 검사는 manifest와 함께 실제 변경 경로가 packet의 소유 경계와 항상 read-only 목록 안인지 감사하므로 범위 밖 변경을 따로 눈으로 확인하지 않는다.
+- 구현자가 반환한 T-ID별 Red 보고와 최종 Green을 확인하고, manifest를 저장소 밖 임시 JSON으로 만들어 `node scripts/validate-backend-test-manifest.mjs --packet <packet.json> --manifest <manifest.json> --worktree <worktree>`를 통과시킨다. 이 검사는 실제 diff를 `required`·`not-required`·`needs-review`로 다시 분류하고, packet·manifest의 PostgreSQL 결정·근거·selector와 변경 경로 소유 및 항상 read-only 목록을 함께 감사한다. `postgresRequired: false`가 `required` 또는 `needs-review`로 거부되면 패킷을 `true`로 다시 고정하고 PostgreSQL T-ID evidence를 보강한 뒤 같은 구현자에게 후속 전달한다.
 - 구현 중 정본 충돌·선행 공개 계약 부재·미선언 공유 파일이 드러나면 구현을 멈추고 `DECISION_NEEDED`를 반환한다.
 - 새 생산 패키지 또는 `gatedBranchCoverage`에 없는 변경 패키지가 구현 중 확인되면 사용자 결정을 기다리지 않는다. `build.gradle` 조건부 허용 경로와 `.\gradlew.bat jacocoTestReport verifyCoverageRuleTargets` 완료 기준을 packet에 추가해 다시 검증하고, 같은 구현자에게 필요한 map 변경만 후속 전달한다.
 - map을 바꾸면 `node scripts/validate-coverage-ratchet.mjs`를 통과시킨다. 이 검사가 실패한 build 변경은 래칫 예외로 허용하지 않고 별도 고위험 범위로 packet에 명시한다. coverage 명령은 전체 H2 test 1회를 포함하며 약 70초가 걸릴 수 있지만 Docker와 `postgresTest`는 요구하지 않는다. 분기 10개 미만이면 map을 바꾸지 않고, 10개 이상이면 H2 실측값을 0.01 단위로 내린 최소선만 추가한다. 기존 비율 회귀와 PostgreSQL 합산 coverage는 CI에 맡긴다.
@@ -21,7 +21,7 @@
 
 1. 구현자는 T-ID를 직접 검증하는 exact selector 테스트를 생산 코드보다 먼저 작성하고 `--rerun` Red와 기대 실패를 보고한다.
 2. 최소 생산 코드로 같은 selector를 `--rerun --fail-fast` Green으로 만든다.
-3. 리팩터링 뒤 task별 모든 selector를 묶어 최종 Green과 test manifest를 보고한다.
+3. 리팩터링 뒤 task별 모든 selector를 묶어 최종 Green과 PostgreSQL 결정·근거를 포함한 test manifest v2를 보고한다.
 
 ## Draft PR과 snapshot 고정
 

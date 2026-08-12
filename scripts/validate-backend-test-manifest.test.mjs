@@ -14,6 +14,7 @@ import {
     matchesPathPattern,
     validateBackendTestManifest,
 } from './validate-backend-test-manifest.mjs';
+import { POSTGRES_DECISIONS } from './classify-postgres-requirement.mjs';
 import { DEFAULT_SCHEMA_PATH as DEFAULT_PACKET_SCHEMA_PATH } from './validate-packet.mjs';
 
 const packetSchema = JSON.parse(fs.readFileSync(DEFAULT_PACKET_SCHEMA_PATH, 'utf8'));
@@ -23,7 +24,7 @@ const approvedComment = 'https://github.com/bamsongi-club/albam-mate/issues/14#i
 
 function validPacket() {
     return {
-        schemaVersion: 3,
+        schemaVersion: 4,
         workItem: {
             kind: 'issue',
             id: '#14',
@@ -33,9 +34,11 @@ function validPacket() {
         allowedPaths: ['src/main/java/cloud/bamsongi/albammate/notification/'],
         forbiddenPaths: ['frontend/'],
         completionCriteria: ['승인된 알림만 읽음 처리한다'],
+        postgresRequired: false,
+        postgresRequirementReasons: ['DTO와 일반 서비스 계약만 변경해 H2 경계로 검증한다'],
         requiredTests: [
             { id: 'T1', intent: '알림을 읽음 처리한다', sourceRef: approvedComment },
-            { id: 'T2', intent: 'PostgreSQL에서 읽음 시각을 보존한다', sourceRef: approvedComment },
+            { id: 'T2', intent: '소유자만 알림을 읽을 수 있다', sourceRef: approvedComment },
         ],
         testContractApproval: { issueNumber: 14, commentUrl: approvedComment },
         confirmedDecisions: ['이슈 코멘트의 전체 T-ID를 사용한다'],
@@ -44,7 +47,9 @@ function validPacket() {
 
 function validManifest() {
     return {
-        schemaVersion: 1,
+        schemaVersion: 2,
+        postgresRequired: false,
+        postgresRequirementReasons: ['DTO와 일반 서비스 계약만 변경해 H2 경계로 검증한다'],
         tests: [
             {
                 id: 'T1',
@@ -65,9 +70,9 @@ function validManifest() {
                 id: 'T2',
                 evidence: [
                     {
-                        task: 'postgresTest',
-                        source: 'src/postgresTest/java/cloud/bamsongi/NotificationReadPostgresTest.java',
-                        selector: 'cloud.bamsongi.NotificationReadPostgresTest.읽음_시각을_보존한다',
+                        task: 'test',
+                        source: 'src/test/java/cloud/bamsongi/NotificationPolicyTest.java',
+                        selector: 'cloud.bamsongi.NotificationPolicyTest.소유자만_읽을_수_있다',
                     },
                 ],
             },
@@ -99,8 +104,43 @@ function createWorktree(t) {
     return worktree;
 }
 
-function validate(packet, manifest, worktree) {
-    return validateBackendTestManifest(packet, manifest, worktree, packetSchema, manifestSchema);
+function classification(decision) {
+    return {
+        decision,
+        reasons: [{ code: 'test-fixture', path: 'fixture', message: '테스트 분류 fixture' }],
+    };
+}
+
+function validate(
+    packet,
+    manifest,
+    worktree,
+    postgresClassification = classification(POSTGRES_DECISIONS.NOT_REQUIRED),
+) {
+    return validateBackendTestManifest(
+        packet,
+        manifest,
+        worktree,
+        packetSchema,
+        manifestSchema,
+        null,
+        postgresClassification,
+    );
+}
+
+function requirePostgres(packet, manifest) {
+    const reasons = ['Flyway 또는 데이터베이스 의미 변경으로 실제 PostgreSQL 검증이 필요하다'];
+    packet.postgresRequired = true;
+    packet.postgresRequirementReasons = reasons;
+    manifest.postgresRequired = true;
+    manifest.postgresRequirementReasons = reasons;
+    manifest.tests[1].evidence = [
+        {
+            task: 'postgresTest',
+            source: 'src/postgresTest/java/cloud/bamsongi/NotificationReadPostgresTest.java',
+            selector: 'cloud.bamsongi.NotificationReadPostgresTest.읽음_시각을_보존한다',
+        },
+    ];
 }
 
 // 실제 게이트는 git worktree에서 돌고 packet·manifest는 저장소 밖에 둔다. CLI 검증도 같은
@@ -122,6 +162,15 @@ function initGitRepo(worktree) {
     );
 }
 
+function writeSafeDtoChange(worktree) {
+    const source = path.join(
+        worktree,
+        'src/main/java/cloud/bamsongi/albammate/notification/dto/NotificationSummary.java',
+    );
+    fs.mkdirSync(path.dirname(source), { recursive: true });
+    fs.writeFileSync(source, 'public record NotificationSummary(long id) {}\n', 'utf8');
+}
+
 function createOutsideDirectory(t) {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'backend-test-manifest-outside-'));
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
@@ -130,10 +179,112 @@ function createOutsideDirectory(t) {
 
 const keywords = (errors) => errors.map((error) => error.keyword);
 
-test('H2와 PostgreSQL 및 T-ID별 복수 evidence를 검증한다', (t) => {
+test('PostgreSQL 불필요 변경의 H2 및 T-ID별 복수 evidence를 검증한다', (t) => {
     const worktree = createWorktree(t);
 
     assert.deepEqual(validate(validPacket(), validManifest(), worktree), []);
+});
+
+test('PostgreSQL 필수 변경은 postgresTest exact selector가 있으면 통과한다', (t) => {
+    const worktree = createWorktree(t);
+    const packet = validPacket();
+    const manifest = validManifest();
+    requirePostgres(packet, manifest);
+
+    assert.deepEqual(
+        validate(packet, manifest, worktree, classification(POSTGRES_DECISIONS.REQUIRED)),
+        [],
+    );
+});
+
+test('required와 needs-review를 postgresRequired false로 제출하면 거부한다', (t) => {
+    const worktree = createWorktree(t);
+
+    assert.ok(
+        keywords(
+            validate(
+                validPacket(),
+                validManifest(),
+                worktree,
+                classification(POSTGRES_DECISIONS.REQUIRED),
+            ),
+        ).includes('postgresRequired'),
+    );
+    assert.ok(
+        keywords(
+            validate(
+                validPacket(),
+                validManifest(),
+                worktree,
+                classification(POSTGRES_DECISIONS.NEEDS_REVIEW),
+            ),
+        ).includes('postgresNeedsReview'),
+    );
+});
+
+test('needs-review는 PostgreSQL evidence를 포함한 안전한 true 결정으로만 해소한다', (t) => {
+    const worktree = createWorktree(t);
+    const packet = validPacket();
+    const manifest = validManifest();
+    requirePostgres(packet, manifest);
+
+    assert.deepEqual(
+        validate(packet, manifest, worktree, classification(POSTGRES_DECISIONS.NEEDS_REVIEW)),
+        [],
+    );
+});
+
+test('postgresRequired와 selector evidence의 모순을 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const missingEvidencePacket = validPacket();
+    const missingEvidenceManifest = validManifest();
+    requirePostgres(missingEvidencePacket, missingEvidenceManifest);
+    missingEvidenceManifest.tests[1].evidence = [
+        { ...missingEvidenceManifest.tests[0].evidence[0] },
+    ];
+    assert.ok(
+        keywords(
+            validate(
+                missingEvidencePacket,
+                missingEvidenceManifest,
+                worktree,
+                classification(POSTGRES_DECISIONS.REQUIRED),
+            ),
+        ).includes('postgresEvidence'),
+    );
+
+    const unexpectedEvidence = validManifest();
+    unexpectedEvidence.tests[1].evidence = [
+        {
+            task: 'postgresTest',
+            source: 'src/postgresTest/java/cloud/bamsongi/NotificationReadPostgresTest.java',
+            selector: 'cloud.bamsongi.NotificationReadPostgresTest.읽음_시각을_보존한다',
+        },
+    ];
+    assert.ok(
+        keywords(validate(validPacket(), unexpectedEvidence, worktree)).includes(
+            'unexpectedPostgresEvidence',
+        ),
+    );
+});
+
+test('packet과 manifest의 PostgreSQL 결정 및 근거가 다르면 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const decisionMismatch = validManifest();
+    decisionMismatch.postgresRequired = true;
+    assert.ok(
+        keywords(validate(validPacket(), decisionMismatch, worktree)).includes(
+            'postgresDecisionMismatch',
+        ),
+    );
+
+    const reasonMismatch = validManifest();
+    reasonMismatch.postgresRequirementReasons = ['서로 다른 근거'];
+    assert.ok(
+        keywords(validate(validPacket(), reasonMismatch, worktree)).includes(
+            'postgresReasonMismatch',
+        ),
+    );
 });
 
 test('서로 다른 T-ID가 같은 evidence를 공유할 수 있다', (t) => {
@@ -253,6 +404,7 @@ test('Red 상태, 명령과 실행 결과 필드를 schema에서 거부한다', 
 test('CLI는 유효 manifest는 0, 무효 manifest는 1로 종료한다', (t) => {
     const worktree = createWorktree(t);
     initGitRepo(worktree);
+    writeSafeDtoChange(worktree);
     const outside = createOutsideDirectory(t);
     const packetPath = path.join(outside, 'packet.json');
     const manifestPath = path.join(outside, 'manifest.json');
@@ -277,6 +429,36 @@ test('CLI는 유효 manifest는 0, 무효 manifest는 1로 종료한다', (t) =>
     );
     assert.equal(invalid.status, 1);
     assert.match(invalid.stderr, /exactSelector/);
+});
+
+test('CLI는 Flyway 변경의 PostgreSQL selector 누락을 차단한다', (t) => {
+    const worktree = createWorktree(t);
+    initGitRepo(worktree);
+    const migration = path.join(worktree, 'src/main/resources/db/migration/V42__notification.sql');
+    fs.mkdirSync(path.dirname(migration), { recursive: true });
+    fs.writeFileSync(migration, 'alter table notifications add column memo text;\n', 'utf8');
+
+    const outside = createOutsideDirectory(t);
+    const packetPath = path.join(outside, 'packet.json');
+    const manifestPath = path.join(outside, 'manifest.json');
+    const packet = validPacket();
+    const manifest = validManifest();
+    packet.allowedPaths = ['src/main/resources/db/migration/'];
+    fs.writeFileSync(packetPath, JSON.stringify(packet), 'utf8');
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf8');
+
+    const args = [scriptPath, '--packet', packetPath, '--manifest', manifestPath, '--worktree', worktree];
+    const missing = spawnSync(process.execPath, args, { encoding: 'utf8' });
+    assert.equal(missing.status, 1);
+    assert.match(missing.stderr, /postgresRequired/);
+    assert.match(missing.stderr, /flyway-or-sql/);
+
+    requirePostgres(packet, manifest);
+    fs.writeFileSync(packetPath, JSON.stringify(packet), 'utf8');
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf8');
+    const covered = spawnSync(process.execPath, args, { encoding: 'utf8' });
+    assert.equal(covered.status, 0, covered.stderr);
+    assert.match(covered.stdout, /PostgreSQL required/);
 });
 
 test('지원하는 경로 패턴만 매칭한다', () => {
@@ -408,7 +590,7 @@ test('커밋된 head의 범위 밖 변경을 base 비교로 감사한다', (t) =
     git('add', '--all');
     git('-c', 'user.name=t', '-c', 'user.email=t@e.com', 'commit', '--quiet', '-m', 'ADR 변경');
 
-    // 커밋 뒤 worktree가 깨끗하면 base 없이는 감사 대상이 비어 통과한다.
+    // 커밋 뒤 worktree가 깨끗하면 base 없이는 감사 대상이 비어 분류도 needs-review가 된다.
     assert.deepEqual(changedPathsIn(worktree), []);
 
     const withBase = changedPathsIn(worktree, 'HEAD~1');
@@ -433,7 +615,8 @@ test('CLI가 --base로 커밋된 범위 밖 변경을 차단한다', (t) => {
 
     const args = [scriptPath, '--packet', packetPath, '--manifest', manifestPath, '--worktree', worktree];
     const withoutBase = spawnSync(process.execPath, args, { encoding: 'utf8' });
-    assert.equal(withoutBase.status, 0, withoutBase.stderr);
+    assert.equal(withoutBase.status, 1);
+    assert.match(withoutBase.stderr, /postgresNeedsReview/);
 
     const withBase = spawnSync(process.execPath, [...args, '--base', 'HEAD~1'], { encoding: 'utf8' });
     assert.equal(withBase.status, 1);

@@ -22,6 +22,10 @@ jobs:
     outputs:
       backend: ${{ steps.paths.outputs.backend }}
       frontend: ${{ steps.paths.outputs.frontend }}
+      postgres_decision: ${{ steps.paths.outputs.postgres_decision }}
+      postgres_required: ${{ steps.paths.outputs.postgres_required }}
+      docker_required: ${{ steps.paths.outputs.docker_required }}
+      base_sha: ${{ steps.paths.outputs.base_sha }}
 
     steps:
       - name: Checkout
@@ -59,10 +63,36 @@ jobs:
             exit 0
           fi
 
+          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
           git diff --name-only --no-renames "$base_sha" "$GITHUB_SHA" \
             > "$RUNNER_TEMP/changed-paths.txt"
           node scripts/classify-ci-paths.mjs \
-            --paths-file "$RUNNER_TEMP/changed-paths.txt" >> "$GITHUB_OUTPUT"
+            --paths-file "$RUNNER_TEMP/changed-paths.txt" \
+            --base "$base_sha" \
+            --worktree "$GITHUB_WORKSPACE" >> "$GITHUB_OUTPUT"
+
+      - name: Summarize verification selection
+        shell: bash
+        env:
+          BACKEND: ${{ steps.paths.outputs.backend }}
+          FRONTEND: ${{ steps.paths.outputs.frontend }}
+          POSTGRES_DECISION: ${{ steps.paths.outputs.postgres_decision }}
+          POSTGRES_REQUIRED: ${{ steps.paths.outputs.postgres_required }}
+          DOCKER_REQUIRED: ${{ steps.paths.outputs.docker_required }}
+          POSTGRES_REASONS: ${{ steps.paths.outputs.postgres_reasons }}
+        run: |
+          {
+            echo "## Verification selection"
+            echo ""
+            echo "| Scope | Result |"
+            echo "| --- | --- |"
+            echo "| Backend | $BACKEND |"
+            echo "| Frontend | $FRONTEND |"
+            echo "| PostgreSQL decision | $POSTGRES_DECISION |"
+            echo "| PostgreSQL jobs | $POSTGRES_REQUIRED |"
+            echo "| Docker runtime | $DOCKER_REQUIRED |"
+            echo "| Reasons | $POSTGRES_REASONS |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   backend-fast:
     name: Backend Fast
@@ -77,6 +107,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Java
@@ -93,7 +124,25 @@ jobs:
           validate-wrappers: true
 
       - name: Assemble, test, and check conventions
-        run: ./gradlew assemble test conventionCheck --no-daemon --stacktrace
+        shell: bash
+        env:
+          POSTGRES_DECISION: ${{ needs.changes.outputs.postgres_decision }}
+        run: |
+          tasks=(assemble test conventionCheck)
+          if [[ "$POSTGRES_DECISION" == "not-required" ]]; then
+            tasks+=(jacocoTestReport verifyCoverageRuleTargets)
+          fi
+          ./gradlew "${tasks[@]}" --no-daemon --stacktrace
+
+      - name: Verify changed-package H2 coverage
+        if: ${{ needs.changes.outputs.postgres_decision == 'not-required' }}
+        env:
+          BASE_SHA: ${{ needs.changes.outputs.base_sha }}
+        run: >-
+          node scripts/verify-changed-h2-coverage.mjs
+          --report build/reports/jacoco/test/jacocoTestReport.xml
+          --worktree "$GITHUB_WORKSPACE"
+          --base "$BASE_SHA"
 
       - name: Stage H2 coverage execution data
         shell: bash
@@ -125,7 +174,7 @@ jobs:
   local-runtime:
     name: Local Runtime
     needs: changes
-    if: ${{ needs.changes.outputs.backend == 'true' }}
+    if: ${{ needs.changes.outputs.docker_required == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -163,7 +212,7 @@ jobs:
   backend-postgres:
     name: PostgreSQL ${{ matrix.label }}
     needs: changes
-    if: ${{ needs.changes.outputs.backend == 'true' }}
+    if: ${{ needs.changes.outputs.postgres_required == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -258,7 +307,7 @@ jobs:
       - changes
       - backend-fast
       - backend-postgres
-    if: ${{ always() && needs.changes.outputs.backend == 'true' }}
+    if: ${{ always() && needs.changes.outputs.postgres_required == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
@@ -408,7 +457,9 @@ jobs:
         run: >-
           node --test
           scripts/classify-ci-paths.test.mjs
+          scripts/classify-postgres-requirement.test.mjs
           scripts/partition-postgres-tests.test.mjs
+          scripts/verify-changed-h2-coverage.test.mjs
           scripts/validate-packet.test.mjs
           scripts/validate-backend-test-manifest.test.mjs
           scripts/validate-coverage-ratchet.test.mjs
@@ -440,6 +491,9 @@ jobs:
           CHANGES_RESULT: ${{ needs.changes.result }}
           DOCS_RESULT: ${{ needs.docs.result }}
           BACKEND_REQUIRED: ${{ needs.changes.outputs.backend }}
+          POSTGRES_DECISION: ${{ needs.changes.outputs.postgres_decision }}
+          POSTGRES_REQUIRED: ${{ needs.changes.outputs.postgres_required }}
+          DOCKER_REQUIRED: ${{ needs.changes.outputs.docker_required }}
           BACKEND_FAST_RESULT: ${{ needs.backend-fast.result }}
           LOCAL_RESULT: ${{ needs.local-runtime.result }}
           POSTGRES_RESULT: ${{ needs.backend-postgres.result }}
@@ -462,12 +516,33 @@ jobs:
           if [[ "$FRONTEND_REQUIRED" != "true" && "$FRONTEND_REQUIRED" != "false" ]]; then
             fail "frontend 경로 분류 결과가 없습니다."
           fi
+          if [[ "$POSTGRES_REQUIRED" != "true" && "$POSTGRES_REQUIRED" != "false" ]]; then
+            fail "PostgreSQL 필요 여부 분류 결과가 없습니다."
+          fi
+          if [[ "$DOCKER_REQUIRED" != "true" && "$DOCKER_REQUIRED" != "false" ]]; then
+            fail "Docker 필요 여부 분류 결과가 없습니다."
+          fi
+          if [[ "$POSTGRES_DECISION" != "required" && "$POSTGRES_DECISION" != "not-required" && "$POSTGRES_DECISION" != "needs-review" ]]; then
+            fail "PostgreSQL 분류 결정이 올바르지 않습니다."
+          fi
+          if [[ "$POSTGRES_REQUIRED" == "true" && "$DOCKER_REQUIRED" != "true" ]]; then
+            fail "PostgreSQL 검증이 필요한데 Docker runtime이 생략되었습니다."
+          fi
 
           if [[ "$BACKEND_REQUIRED" == "true" ]]; then
             [[ "$BACKEND_FAST_RESULT" == "success" ]] || fail "Backend Fast가 실패했습니다."
-            [[ "$LOCAL_RESULT" == "success" ]] || fail "Local Runtime이 실패했습니다."
-            [[ "$POSTGRES_RESULT" == "success" ]] || fail "PostgreSQL shard가 실패했습니다."
-            [[ "$COVERAGE_RESULT" == "success" ]] || fail "Coverage Gate가 실패했습니다."
+            if [[ "$DOCKER_REQUIRED" == "true" ]]; then
+              [[ "$LOCAL_RESULT" == "success" ]] || fail "Local Runtime이 실패했습니다."
+            else
+              [[ "$LOCAL_RESULT" == "skipped" ]] || fail "불필요한 Local Runtime이 실행되었습니다."
+            fi
+            if [[ "$POSTGRES_REQUIRED" == "true" ]]; then
+              [[ "$POSTGRES_RESULT" == "success" ]] || fail "PostgreSQL shard가 실패했습니다."
+              [[ "$COVERAGE_RESULT" == "success" ]] || fail "Coverage Gate가 실패했습니다."
+            else
+              [[ "$POSTGRES_RESULT" == "skipped" ]] || fail "불필요한 PostgreSQL shard가 실행되었습니다."
+              [[ "$COVERAGE_RESULT" == "skipped" ]] || fail "불필요한 합산 Coverage Gate가 실행되었습니다."
+            fi
           fi
 
           if [[ "$FRONTEND_REQUIRED" == "true" ]]; then
