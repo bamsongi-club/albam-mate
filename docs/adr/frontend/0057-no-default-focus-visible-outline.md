@@ -1,6 +1,6 @@
 # ADR-0057: 기본 `:focus-visible` 아웃라인을 전역에서 제거
 
-- 상태: 승인됨
+- 상태: 폐기됨
 - 작성일: 2026-08-12
 - 결정일: 2026-08-09
 - 관련: `frontend/src/styles.css`의 전역 `a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; }` 규칙, [PR #635](https://github.com/bamsongi-club/albam-mate/pull/635) 리뷰 스레드
