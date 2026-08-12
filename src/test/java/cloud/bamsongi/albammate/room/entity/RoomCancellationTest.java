@@ -1,9 +1,10 @@
 package cloud.bamsongi.albammate.room.entity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.lang.reflect.Field;
 import java.time.Instant;
 
 import org.junit.jupiter.api.Test;
@@ -14,10 +15,17 @@ import cloud.bamsongi.albammate.room.enums.RoomType;
 
 class RoomCancellationTest {
 
+	private static final Instant START_AT = Instant.parse("2026-07-29T00:00:00Z");
+
 	@Test
-	void 시작_전_마지막_참가자가_취소하면_닫힌_방이_모집중으로_복귀한다() {
-		Room room = room(1);
+	void 정원_충족_후_시작_전_활성_참가자가_취소하면_모집중으로_복귀한다() {
+		Room room = room(1, START_AT.plusSeconds(1));
+
+		assertFalse(room.reconcileStateAt(START_AT));
+		assertEquals(RoomStatus.RECRUITING, room.getStatus());
+
 		room.addActiveParticipant();
+		assertEquals(RoomStatus.CLOSED, room.getStatus());
 
 		room.removeActiveParticipant();
 
@@ -41,20 +49,29 @@ class RoomCancellationTest {
 	}
 
 	@Test
-	void 최종_상태는_참가_취소로_모집중으로_바뀌지_않는다() throws ReflectiveOperationException {
-		for (RoomStatus finalStatus : new RoomStatus[] {RoomStatus.CANCELED, RoomStatus.FINISHED}) {
-			Room room = room(2);
-			room.addActiveParticipant();
-			setStatus(room, finalStatus);
+	void 최종_상태는_활성_참가_취소로_모집중으로_바뀌지_않는다() {
+		Room canceledRoom = room(2);
+		canceledRoom.addActiveParticipant();
+		assertTrue(canceledRoom.cancel());
 
-			room.removeActiveParticipant();
+		Room finishedRoom = room(2);
+		finishedRoom.addActiveParticipant();
+		assertTrue(finishedRoom.reconcileStateAt(START_AT.plus(Room.AUTOMATIC_FINISH_AFTER_START)));
 
-			assertEquals(0, room.getActiveParticipantCount());
-			assertEquals(finalStatus, room.getStatus());
-		}
+		canceledRoom.removeActiveParticipant();
+		finishedRoom.removeActiveParticipant();
+
+		assertEquals(0, canceledRoom.getActiveParticipantCount());
+		assertEquals(RoomStatus.CANCELED, canceledRoom.getStatus());
+		assertEquals(0, finishedRoom.getActiveParticipantCount());
+		assertEquals(RoomStatus.FINISHED, finishedRoom.getStatus());
 	}
 
 	private Room room(int capacity) {
+		return room(capacity, START_AT);
+	}
+
+	private Room room(int capacity, Instant startAt) {
 		return Room.create(
 			1L,
 			RoomType.PERSON_FOCUSED,
@@ -63,14 +80,8 @@ class RoomCancellationTest {
 			null,
 			ExperienceLevel.ALL_LEVELS,
 			false,
-			Instant.parse("2026-07-29T00:00:00Z"),
+			startAt,
 			"홍대",
 			capacity);
-	}
-
-	private void setStatus(Room room, RoomStatus status) throws ReflectiveOperationException {
-		Field field = Room.class.getDeclaredField("status");
-		field.setAccessible(true);
-		field.set(room, status);
 	}
 }

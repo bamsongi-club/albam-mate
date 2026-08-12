@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.room.entity;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -16,6 +17,13 @@ class RoomStatusTransitionTest {
 	private static final Instant START_AT = Instant.parse("2026-07-28T00:00:00Z");
 
 	@Test
+	void 방을_생성하면_모집중_상태가_된다() {
+		Room room = room(START_AT.plusSeconds(3600));
+
+		assertEquals(RoomStatus.RECRUITING, room.getStatus());
+	}
+
+	@Test
 	void 모집중과_마감_방만_취소할_수_있다() {
 		Room recruitingRoom = room(START_AT.plusSeconds(3600));
 		Room closedRoom = room(START_AT);
@@ -23,8 +31,8 @@ class RoomStatusTransitionTest {
 
 		assertTrue(recruitingRoom.cancel());
 		assertTrue(closedRoom.cancel());
-		assertTrue(recruitingRoom.getStatus() == RoomStatus.CANCELED);
-		assertTrue(closedRoom.getStatus() == RoomStatus.CANCELED);
+		assertEquals(RoomStatus.CANCELED, recruitingRoom.getStatus());
+		assertEquals(RoomStatus.CANCELED, closedRoom.getStatus());
 	}
 
 	@Test
@@ -35,7 +43,7 @@ class RoomStatusTransitionTest {
 		assertTrue(room.finishAt(START_AT));
 		assertFalse(room.cancel());
 		assertFalse(room.finishAt(START_AT));
-		assertTrue(room.getStatus() == RoomStatus.FINISHED);
+		assertEquals(RoomStatus.FINISHED, room.getStatus());
 	}
 
 	@Test
@@ -44,7 +52,7 @@ class RoomStatusTransitionTest {
 		room.reconcileStateAt(START_AT.plusSeconds(1));
 
 		assertFalse(room.finishAt(START_AT));
-		assertTrue(room.getStatus() == RoomStatus.CLOSED);
+		assertEquals(RoomStatus.CLOSED, room.getStatus());
 	}
 
 	@Test
@@ -54,7 +62,7 @@ class RoomStatusTransitionTest {
 
 		assertFalse(room.reconcileStateAt(START_AT));
 		assertFalse(room.reconcileStateAt(START_AT.plus(Room.AUTOMATIC_FINISH_AFTER_START)));
-		assertTrue(room.getStatus() == RoomStatus.CANCELED);
+		assertEquals(RoomStatus.CANCELED, room.getStatus());
 	}
 
 	private Room room(Instant startsAt) {
