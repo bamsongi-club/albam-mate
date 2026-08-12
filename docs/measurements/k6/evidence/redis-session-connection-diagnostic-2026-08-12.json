@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "campaignId": "redis-session-diagnostic-20260812",
+  "campaignStatus": "completed-with-limitations",
+  "conclusion": "The current authenticated session path creates short-lived Redis connections at a rate that saturates conntrack and causes connect timeouts. Candidate A/B was not run because Issue #607 is owned by another contributor.",
+  "sources": {
+    "application": {
+      "releaseSha": "47fc7eca5d9c46b6ad742f036444ff6c934c7f11",
+      "backendImageDigest": "sha256:1f6f0646c5bfee54affdb0107799e42390a6ad74466253d4167820534021aa0b",
+      "webImageDigest": "sha256:abbe6e852f28a3ba62ab6d58dba5075bd66f08b279925ac9f5ce6b552030519e"
+    },
+    "infrastructure": {
+      "headAtRuns": "a563661008e224b8ca7ef9201a2b80a35d694e70",
+      "postRunCollectorFix": "f893dd970ec8694f13dde04cd0fc124d720f0b06",
+      "dirtyAtRuns": false
+    },
+    "images": {
+      "postgres": "sha256:a02db8cac496f15b094798a38254f14d6e00741f709360e5e00bb6668ea31636",
+      "redis": "sha256:bd4a0d37e7cd830117ffec9329052b4a1887afa060c265e1768f82b177ff6f43"
+    }
+  },
+  "environment": {
+    "appInstances": 2,
+    "appInstanceType": "t4g.small",
+    "springContainerMemoryBytes": 1073741824,
+    "jvmMaxHeap": "256m",
+    "tomcatMaxThreads": 64,
+    "postgresInstanceType": "t4g.micro",
+    "redisInstanceType": "t4g.micro",
+    "loadGeneratorInstanceType": "c7g.large",
+    "k6Version": "1.3.0"
+  },
+  "fixture": {
+    "users": 150,
+    "notificationBacklogRooms": 10,
+    "notificationsPerUser": 300,
+    "unreadPercent": 5
+  },
+  "runs": [
+    {
+      "runId": "redisdiag-20260812-public-current-n1",
+      "mode": "public-control",
+      "status": "PASS",
+      "startedAt": "2026-08-12T02:42:54Z",
+      "finishedAt": "2026-08-12T02:50:12Z",
+      "measurementRequests": 4500,
+      "measurementFailures": 0,
+      "measurementErrorRate": 0.0,
+      "measurementP95Ms": 8.678325150000001,
+      "acceptedConnectionDelta": 164,
+      "errorReplyDelta": 0,
+      "rejectedConnectionDelta": 0,
+      "connectTimeoutStackTraceOccurrences": 0,
+      "maxAppConntrackCount": 262,
+      "maxRedisConntrackCount": 138,
+      "manifestSha256": "29665f1e2ca2001c1ebcac5fb7b453e0bc3889513126780b02a3e8bb2bc1d2f0",
+      "k6SummarySha256": "b226467392123575bd7745ce54ca5ce76f29ffb1436df8a978c8c09ba7ce13ab",
+      "judgmentSha256": "140bde2db4147209133281f65c21fc3bdbf632975fc8596b6697c9b69e954f66",
+      "failureClassificationSha256": "ba2e2a39baaf168695bac3e958e72deec01e8ef4f6c63cc8f3fae60725fb9fa8"
+    },
+    {
+      "runId": "redisdiag-20260812-auth-current-n1",
+      "mode": "authenticated-session",
+      "status": "FAIL",
+      "startedAt": "2026-08-12T02:57:17Z",
+      "finishedAt": "2026-08-12T03:04:36Z",
+      "resolvedAuthenticatedVus": 150,
+      "measurementRequests": 4500,
+      "measurementFailures": 3012,
+      "measurementErrorRate": 0.6693333333333333,
+      "measurementP95Ms": 6040.00421785,
+      "acceptedConnectionDelta": 30555,
+      "errorReplyDelta": 30401,
+      "rejectedConnectionDelta": 0,
+      "connectTimeoutStackTraceOccurrences": 2171,
+      "redisConnectionFailureStackTraceOccurrences": 3418,
+      "operationStackTraceOccurrences": {
+        "sessionRead": 1136,
+        "sessionSave": 1549,
+        "authLua": 0,
+        "chatLua": 0,
+        "pubsub": 0
+      },
+      "maxRedisConnectedClients": 6,
+      "maxAppConntrackCount": 9156,
+      "maxRedisConntrackCount": 7680,
+      "redisConntrackMax": 7680,
+      "redisListenOverflows": 0,
+      "redisListenDrops": 0,
+      "manifestSha256": "b60363b18949da336899f4ef7913ccbfad02a9bacd1ac9d552a987528715dbea",
+      "k6SummarySha256": "5f1c1080300fbbddadef40007a50fd24a317fe7b2a29efe99987ed78d1a39e62",
+      "judgmentSha256": "5a4e8046d6da9bd8ef68a9bef51d69a411ff2276f07d567f9b6338c5ecaca78e",
+      "failureClassificationSha256": "deacc479433cff3062316422183addbe7fc0d9b0193aa4b953f1f682e6459f3f"
+    }
+  ],
+  "redisErrorStats": {
+    "errFinalCount": 30398,
+    "helloFinalCalls": 30398,
+    "clientSetinfoFinalCalls": 60796,
+    "interpretation": "The exact ERR-to-HELLO correlation strongly suggests connection initialization traffic. The response text was not captured, so the specific Redis error remains unconfirmed."
+  },
+  "notExecuted": [
+    "shareNativeConnection candidate implementation",
+    "candidate authenticated-session A/B",
+    "Redis stop/restart recovery test",
+    "mixed-load-capacity 0.5x"
+  ],
+  "rawArtifacts": {
+    "availability": "local-only",
+    "pathTemplate": "albam-mate-infra diagnostic worktree/.run/results/{runId}/"
+  }
+}
