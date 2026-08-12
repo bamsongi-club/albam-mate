@@ -6,4 +6,4 @@
 
 | 번호 | 제목 | 상태 | 결정일 | 검증 |
 | --- | --- | --- | --- | --- |
-| [0057](0057-no-default-focus-visible-outline.md) | 기본 `:focus-visible` 아웃라인을 전역에서 제거 | 폐기됨 | 2026-08-09 | 검증됨 |
+| [0057](0057-no-default-focus-visible-outline.md) | 기본 `:focus-visible` 아웃라인을 전역에서 제거 | 승인됨 | 2026-08-09 | 검증됨 |
