@@ -40,7 +40,8 @@ const REQUIRED_JAVA_SIGNALS = [
     },
     {
         code: 'ordering-or-case',
-        pattern: /\b(?:IgnoreCase|OrderBy|Collation)\b|\b(?:lower|upper|collate|ilike)\s*\(/iu,
+        pattern:
+            /\bSort\.(?:by|Order|Direction|NullHandling)\b|\b(?:nullsFirst|nullsLast|nullsNative)\s*\(|\b(?:IgnoreCase|OrderBy|Collation)\b|\b(?:lower|upper|collate|ilike)\s*\(/iu,
         message: '정렬 또는 대소문자 비교의 데이터베이스 의미 변경 신호가 있습니다.',
     },
     {
@@ -63,7 +64,7 @@ const REQUIRED_JAVA_SIGNALS = [
 ];
 
 const REVIEW_JAVA_CONTEXT =
-    /(?:\.repository\.|JpaRepository\b|CrudRepository\b|EntityManager\b|JdbcTemplate\b|DataSource\b|@Transactional\b|TransactionTemplate\b|org\.springframework\.(?:session|data\.redis)|RedisTemplate\b|WebSocket\b|SimpMessagingTemplate\b)/u;
+    /(?:\.repository\.|JpaRepository\b|CrudRepository\b|EntityManager\b|JdbcTemplate\b|DataSource\b|@Transactional\b|TransactionTemplate\b|org\.springframework\.data\.domain\.(?:PageRequest|Pageable|Sort)\b|org\.springframework\.(?:session|data\.redis)|RedisTemplate\b|WebSocket\b|SimpMessagingTemplate\b)/u;
 
 function normalizePath(filePath) {
     return filePath.trim().replaceAll('\\', '/').replace(/^\.\//u, '');

@@ -14,6 +14,14 @@ import {
 } from './classify-postgres-requirement.mjs';
 
 const scriptPath = fileURLToPath(new URL('./classify-postgres-requirement.mjs', import.meta.url));
+const myRoomQuerySourcePath = fileURLToPath(
+    new URL(
+        '../src/main/java/cloud/bamsongi/albammate/room/service/query/MyRoomQueryService.java',
+        import.meta.url,
+    ),
+);
+const myRoomQueryRepositoryPath =
+    'src/main/java/cloud/bamsongi/albammate/room/service/query/MyRoomQueryService.java';
 
 function change(filePath, changedLine = '', contents = '') {
     return {
@@ -99,6 +107,22 @@ test('native query, 정렬과 대소문자 변경을 required로 분류한다', 
         ]),
         POSTGRES_DECISIONS.REQUIRED,
     );
+    for (const changedLine of [
+        'return Sort.by(Sort.Order.desc("startAt"), Sort.Order.desc("id"));',
+        'return order.nullsLast();',
+        'return order.with(Sort.NullHandling.NULLS_FIRST);',
+    ]) {
+        assert.equal(
+            decisionFor([
+                change(
+                    'src/main/java/cloud/bamsongi/albammate/room/service/query/MyRoomQueryService.java',
+                    changedLine,
+                ),
+            ]),
+            POSTGRES_DECISIONS.REQUIRED,
+            changedLine,
+        );
+    }
 });
 
 test('격리, 잠금, 재시도와 동시성 변경을 required로 분류한다', () => {
@@ -170,6 +194,22 @@ test('데이터 접근 문맥과 런타임 경로가 애매하면 needs-review�
         ]),
         POSTGRES_DECISIONS.NEEDS_REVIEW,
     );
+    for (const springDataContext of [
+        'import org.springframework.data.domain.PageRequest;\nclass RoomService {}',
+        'import org.springframework.data.domain.Pageable;\nclass RoomService {}',
+    ]) {
+        assert.equal(
+            decisionFor([
+                change(
+                    'src/main/java/cloud/bamsongi/albammate/room/service/RoomService.java',
+                    'return room.title();',
+                    springDataContext,
+                ),
+            ]),
+            POSTGRES_DECISIONS.NEEDS_REVIEW,
+            springDataContext,
+        );
+    }
     assert.equal(
         decisionFor([change('.github/workflows/ci.yml', 'jobs:')]),
         POSTGRES_DECISIONS.NEEDS_REVIEW,
@@ -206,6 +246,40 @@ function createGitWorktree(t) {
     );
     return { worktree, git };
 }
+
+test('실제 MyRoomQueryService의 Spring Data 정렬 방향 변경을 required로 분류한다', (t) => {
+    const { worktree, git } = createGitWorktree(t);
+    const sourceContents = fs.readFileSync(myRoomQuerySourcePath, 'utf8');
+    const descendingOrder = 'Sort.Order.desc("startAt")';
+    const ascendingOrder = 'Sort.Order.asc("startAt")';
+    assert.match(sourceContents, /Sort\.Order\.desc\("startAt"\)/u);
+
+    const temporarySourcePath = path.join(worktree, myRoomQueryRepositoryPath);
+    fs.mkdirSync(path.dirname(temporarySourcePath), { recursive: true });
+    fs.writeFileSync(temporarySourcePath, sourceContents, 'utf8');
+    git('add', '--all');
+    const baseline = git(
+        '-c',
+        'user.name=test',
+        '-c',
+        'user.email=test@example.com',
+        'commit',
+        '--quiet',
+        '--message=add-my-room-query-service',
+    );
+    assert.equal(baseline.status, 0, baseline.stderr);
+
+    fs.writeFileSync(
+        temporarySourcePath,
+        sourceContents.replace(descendingOrder, ascendingOrder),
+        'utf8',
+    );
+
+    const result = classifyPostgresRequirementIn(worktree);
+    assert.equal(result.decision, POSTGRES_DECISIONS.REQUIRED);
+    assert.deepEqual(result.reasons.map((entry) => entry.code), ['ordering-or-case']);
+    assert.deepEqual(result.changedPaths, [myRoomQueryRepositoryPath]);
+});
 
 test('실제 worktree의 추적·미추적 변경을 모아 분류한다', (t) => {
     const { worktree } = createGitWorktree(t);
