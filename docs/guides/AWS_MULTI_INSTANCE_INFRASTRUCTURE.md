@@ -2,13 +2,13 @@
 
 이 문서는 Albam Mate P1 검증 환경을 Terraform으로 반복 생성하고 Ansible로 호스트 설정을 적용한 뒤, 실제 사용 흐름을 재현한 부하에서 역할별 병목을 찾기 위한 실행안이다.
 
-기술 선택과 ADR-0038의 부분 대체 범위는 [승인된 ADR-0051](../adr/platform/0051-p1-self-managed-aws-infrastructure.md)이 소유한다. Terraform·Ansible 1차 코드는 별도 `albam-mate-infra` 저장소에 있다. Terraform `fmt`·`validate`는 통과했지만 실제 AWS `plan`·`apply`, Ansible `--syntax-check`·SSM 접속, 애플리케이션 배포, 복구와 부하 검증은 아직 하지 않았다.
+기술 선택과 ADR-0038의 부분 대체 범위는 [승인된 ADR-0051](../adr/platform/0051-p1-self-managed-aws-infrastructure.md)이 소유한다. Terraform·Ansible 1차 코드는 별도 `albam-mate-infra` 저장소에 있다. 2026-08-11 임시 서울 리전 스택에서 App 두 대·PostgreSQL·Redis를 모두 `t4g.micro`로 배포하고 외부 web 진입점으로 인증·알림 계약과 fan-out·혼합 부하를 실행했다. 정확한 실행 근거와 한계는 [ADR-0051 검증](../adr/platform/0051-p1-self-managed-aws-infrastructure.md#검증)과 [인증·알림 AWS 용량 측정](../measurements/k6/auth-notification-capacity-2026-08-11.md)을 따른다. 다른 팀원 계정의 독립 재현, Ansible `--syntax-check`·`--check`와 SSM 실행, 데이터 복구, 교차 인스턴스 WebSocket·Scheduler, App2 장애 처리와 지속 혼합 부하의 유효한 용량 경계는 아직 확인하지 않았다.
 
-> - 문서 상태: **승인·배포 전 실행안**
+> - 문서 상태: **승인·부분 검증 실행안**
 > - 확인한 P1 방향: **App1 Nginx 단일 진입점, 고정 EC2 4대, 전부 `t4g.micro`, ALB·ASG·NAT Gateway 없음**
 > - ADR 상태: **승인됨·미검증**
 > - 최초 배포 접근: **외부 공개 없이 SSM 포트 포워딩으로만 접근**
-> - 배포·복구·부하 검증: **미검증**
+> - 배포·복구·부하 검증: **임시 AWS 배포와 인증·알림 측정 일부 확인, 독립 재현·복구·교차 인스턴스·지속 용량 경계 미검증**
 
 ## 먼저 구분할 것
 
@@ -18,7 +18,7 @@
 | 2026-08-06 승인된 P1 방향 | App1 Nginx가 App1·App2 Spring에 요청 분산, EC2 4대 전부 `t4g.micro`, public subnet 사용, ALB·자동 확장·NAT Gateway 제외 | 결정 채택 |
 | 현재 애플리케이션 계약 | 공용 PostgreSQL·Redis, Spring Session, Redis Pub/Sub, PostgreSQL ShedLock과 Flyway migration | 코드·정본별 상태 확인 필요 |
 | Terraform·Ansible 1차 코드 | VPC, 역할별 public subnet, 보안 그룹, 고정 EC2 4대, 데이터 EBS, IAM, private DNS, state S3·ECR과 SSM 기반 Docker 설치·호스트 검증 | Terraform 정적 검증 통과·Ansible 실행 미검증 |
-| 아직 구현하지 않은 운영 범위 | 서비스 컨테이너 배포, 비밀값 주입, TLS 인증서 갱신, 백업, CloudWatch 대시보드·경보, 부하 실행 자동화 | 후속 작업 |
+| 아직 검증하지 않은 운영 범위 | 정본 인프라 코드만으로 독립 재현, Ansible·SSM 실행, 비밀값 주입, TLS 인증서 갱신, 백업·복구, CloudWatch 대시보드·경보, 교차 인스턴스·장애 처리와 부하 실행 자동화 | 후속 작업 |
 
 이 구성은 최종 용량이나 고가용성 운영 구성이 아니다. 작은 사양에서 먼저 실패하는 역할과 원인을 확인한 뒤 근거가 있는 자원만 수동으로 바꾸는 P1 기준선이다.
 

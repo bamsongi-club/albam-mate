@@ -202,8 +202,8 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 | 인증·공개 범위 | [P1 P0 계약 상속](../P1-spec.md#p0-계약-상속) |
 | 저장 계약 | [USER_PLAYED_GAMES](../ERD.md#user_played_games), [ADR-0006](../adr/platform/0006-p0-bigint-identity-ids.md) |
 | 필수 ADR | [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md), [ADR-0047](../adr/platform/0047-http-method-and-target-state-idempotency.md) |
-| 백엔드 구현·개발 검증 | [#356](https://github.com/bamsongi-club/albam-mate/issues/356) (구현 완료; H2·PostgreSQL 대상 테스트 통과) |
-| 프론트엔드 구현 | [#357](https://github.com/bamsongi-club/albam-mate/issues/357) |
+| 백엔드 구현·개발 검증 근거 | [#356](https://github.com/bamsongi-club/albam-mate/issues/356) |
+| 프론트엔드 구현·검증 근거 | [#357](https://github.com/bamsongi-club/albam-mate/issues/357) |
 
 ### 기능 규칙
 
@@ -243,28 +243,28 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 
 플레이 기록·통계 기능이 승인되면 별도 이력 모델을 추가한다. 현재 관계의 생성 시각을 실제 플레이 날짜나 과거 플레이 이력으로 변환하지 않는다.
 
-## 부록: 현재 구현 위치와 검증 경계
+## 부록: 소스 탐색 위치와 검증 경계
 
-이 부록은 현재 구현 위치와 후속 변경의 검증 경계를 확인하기 위한 작업 메모다. 최종 계약은 [P1 명세](../P1-spec.md), [API 명세](../API.md), [ERD](../ERD.md)와 승인된 ADR을 따른다.
+이 부록은 소스 탐색 시작점과 후속 변경의 검증 경계를 확인하기 위한 작업 메모다. 기능의 현재 구현·검증 상태는 [P1 기능 상태 정본](README.md#기능별-현재-상태)만 따르며, 최종 계약은 [P1 명세](../P1-spec.md), [API 명세](../API.md), [ERD](../ERD.md)와 승인된 ADR을 따른다.
 
-### 정본별 반영 결과
+### 정본별 소유 범위
 
-현재 P1 필수 검색 범위는 다음 정본과 구현에 반영돼 있다.
+검색 계약과 탐색 경계는 다음 정본이 나누어 소유한다.
 
-| 정본 | P1 필수 범위 반영 |
+| 정본 | 소유 범위·탐색 지점 |
 | --- | --- |
 | [P1 명세](../P1-spec.md) | 카테고리·테마·추천/베스트·메커니즘을 포함한 `SEARCH-01`~`SEARCH-03` 기능 목록·완료 기준 |
 | [API 명세](../API.md) | 게임·방 검색, 카테고리·테마·메커니즘 선택지, 해 본 게임 파라미터·등록·취소·본인 표시 상태 |
 | [ERD](../ERD.md) | 인원·시간 수치 열, 카테고리·테마·인원 선호·메커니즘·해 본 게임 관계와 제약 |
 | ADR | [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md), [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md), [ADR-0048](../adr/game/0048-full-reviewed-game-mechanism-catalog.md), [ADR-0050](../adr/game/0050-game-metadata-catalog-and-filters.md) 승인 |
 | 카탈로그 manifest·가이드 | 인원·시간·카테고리·테마·인원 선호·메커니즘 필드의 출처, 정규화·검수 결과와 반복 적재 계약 |
-| [기반 작업](foundation.md) | 구현된 필수 검색의 대표 데이터·쿼리·측정 기준 |
+| [기반 작업](foundation.md) | 필수 검색의 대표 데이터·쿼리·측정 기준 |
 
-### 현재 구현 지점
+### 소스 탐색 시작점
 
-아래는 현재 존재하는 파일 기준의 구현 지점이다. `USER_PLAYED_GAMES`를 포함한 물리 계약은 ERD가 정본이다. Java 경로는 `src/main/java/cloud/bamsongi/albammate/` 기준이고, 그 밖의 경로는 저장소 루트 기준이다.
+아래 경로는 구현 상태 판정이 아니라 관련 소스를 찾기 위한 시작점이다. 파일의 존재만으로 기능 완료를 판단하지 않으며, `USER_PLAYED_GAMES`를 포함한 물리 계약은 ERD가 정본이다. Java 경로는 `src/main/java/cloud/bamsongi/albammate/` 기준이고, 그 밖의 경로는 저장소 루트 기준이다.
 
-| 영역 | 현재 파일 |
+| 영역 | 탐색 시작 파일 |
 | --- | --- |
 | 게임 메타데이터 저장 모델 | `game/entity/GameCategory.java`, `GameTheme.java`, `GamePlayerPreference.java`와 각 relation·Repository, `V20__create_game_metadata_filter_schema.sql` |
 | 게임 요청·응답 | `game/dto/GameListRequest.java`, `game/dto/GameDetail.java`, category·theme option·summary DTO |
