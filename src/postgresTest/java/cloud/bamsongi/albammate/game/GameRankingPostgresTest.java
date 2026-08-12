@@ -75,8 +75,9 @@ class GameRankingPostgresTest {
 	@Test
 	void 대표_분포에서_전체_집계가_정렬과_상위_10개_상한으로_재현된다() {
 		List<Long> gameIds = insertGames(8_100_000L, 12);
+		int[] roomCounts = {1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 10, 12};
 		for (int index = 0; index < gameIds.size(); index++) {
-			int roomCountForGame = index + 1;
+			int roomCountForGame = roomCounts[index];
 			for (int roomIndex = 0; roomIndex < roomCountForGame; roomIndex++) {
 				saveRoom(RoomType.GAME_FOCUSED, gameIds.get(index), BASE_TIME.plusSeconds(index * 100L + roomIndex));
 			}
@@ -101,6 +102,14 @@ class GameRankingPostgresTest {
 					|| (currentCount == nextCount && result.get(index).getGameId() < result.get(index + 1).getGameId()),
 				"내림차순(동률이면 게임ID 오름차순)이 아님: " + result);
 		}
+		List<Long> tiedGameIds = result.stream()
+			.filter(item -> item.getRoomCount() == 9L)
+			.map(RoomRepository.GameRankingCount::getGameId)
+			.toList();
+		assertEquals(
+			List.of(gameIds.get(8), gameIds.get(9)),
+			tiedGameIds,
+			"동률 보조 정렬(게임ID 오름차순)이 PostgreSQL에서 재현되지 않음: " + result);
 	}
 
 	@Test
