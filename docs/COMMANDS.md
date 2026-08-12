@@ -119,7 +119,8 @@ node --test scripts/check-doc-links.test.mjs
 | PostgreSQL 실패·커버리지 최소선 해석 | [백엔드 테스트와 커버리지 검증](guides/TESTING.md) |
 | 운영 Compose와 P1 AWS 검증 환경 | [P1 AWS 다중 인스턴스 실행안](guides/AWS_MULTI_INSTANCE_INFRASTRUCTURE.md) |
 | 인증·알림 k6 계약과 용량 측정 | [인증·알림 k6 README](../load-tests/k6/auth-notification/README.md), [k6 결과 인덱스](measurements/k6/README.md) |
-| ROOM-09 기준선 실행과 보고서 재생성 | [ROOM-09 일괄 처리 기준선](measurements/room-09-bounded-processing-baseline.md#재현-명령) |
+| ROOM-09c/09d 기준선 실행과 보고서 재생성 | [ROOM-09c/09d 일괄 처리 기준선](measurements/room-09-bounded-processing-baseline.md#재현-명령) |
+| ROOM-10a/10b/10c 동시성 기준선 실행과 결과 | [ROOM-10a/10b 측정 계약](measurements/room-10-measurement-contract.md#재현-명령), [ROOM-10c 기준선](measurements/room-10-optimistic-lock-baseline.md#재현-명령) |
 | ROOM k6 부하테스트 | [ROOM k6 부하테스트](../load-tests/k6/room/README.md) |
 | 게임 카탈로그 fixture·검수·적재 | [게임 카탈로그 검수·적재](guides/GAME_CATALOG_IMPORT.md) |
 | 팀 프롬프트 기록 환경 | [팀 프롬프트 기록 환경 설정](guides/PROMPT_LOGGING.md) |
