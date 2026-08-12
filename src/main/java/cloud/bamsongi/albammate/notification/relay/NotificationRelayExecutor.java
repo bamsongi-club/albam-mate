@@ -125,11 +125,18 @@ public class NotificationRelayExecutor {
 
 			@Override
 			public void afterCompletion(int status) {
-				String result = status == STATUS_COMMITTED ? "committed" : "rolled-back";
-				recordDuration("tx-total", result, startedAtNanos);
-				record("afterCompletion", result);
+				if (status == STATUS_COMMITTED) {
+					recordTransactionCompletion("committed", startedAtNanos);
+				} else if (status == STATUS_ROLLED_BACK) {
+					recordTransactionCompletion("rolled-back", startedAtNanos);
+				}
 			}
 		});
+	}
+
+	private void recordTransactionCompletion(String result, long startedAtNanos) {
+		recordDuration("tx-total", result, startedAtNanos);
+		record("afterCompletion", result);
 	}
 
 	private <T> T measure(String stage, String result, java.util.function.Supplier<T> work) {

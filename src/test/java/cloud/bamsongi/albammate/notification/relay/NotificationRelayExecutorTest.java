@@ -161,6 +161,30 @@ class NotificationRelayExecutorTest {
 	}
 
 	@Test
+	void STATUS_UNKNOWN은_승인되지_않은_rollback_metric으로_오분류하지_않는다() {
+		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
+		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);
+		NotificationRepository notificationRepository = mock(NotificationRepository.class);
+		SimpleMeterRegistry registry = new SimpleMeterRegistry();
+		NotificationOutboxEvent event = pendingEvent(10L);
+		NotificationOutboxEventRepository.RelayClaim relayClaim = claim(10L);
+		when(eventRepository.claimEarliestProcessableEvent()).thenReturn(Optional.of(relayClaim));
+		when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
+		when(recipientRepository.findRecipientUserIdsByOutboxEventId(10L)).thenReturn(List.of(2L));
+		NotificationRelayExecutor executor = new NotificationRelayExecutor(eventRepository, recipientRepository,
+			notificationRepository, new AuthNotificationMeasurementRecorder(registry));
+
+		executor.processOne();
+		TransactionSynchronizationManager.getSynchronizations()
+			.forEach(sync -> sync.afterCompletion(TransactionSynchronization.STATUS_UNKNOWN));
+
+		assertEquals(0, registry.find("notification.relay.stage.duration")
+			.tags("stage", "tx-total", "result", "rolled-back").timer().count());
+		assertEquals(0, registry.find("notification.relay.stage.duration")
+			.tags("stage", "afterCompletion", "result", "rolled-back").timer().count());
+	}
+
+	@Test
 	void 빈_수신자_스냅샷은_처리_완료로_전환하지_않고_상위_실패_경계로_전달한다() {
 		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
 		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);
