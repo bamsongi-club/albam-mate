@@ -6,18 +6,36 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import cloud.bamsongi.albammate.global.response.PageResponse;
+import cloud.bamsongi.albammate.measurement.AuthNotificationMeasurementRecorder;
 import cloud.bamsongi.albammate.notification.dto.NotificationListItem;
 import cloud.bamsongi.albammate.notification.dto.UnreadNotificationCountResponse;
 import cloud.bamsongi.albammate.notification.repository.NotificationQueryRepository;
 import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
 
 /** 로그인 사용자의 알림 목록과 미확인 개수를 조회하는 유스케이스다. */
 @Service
-@RequiredArgsConstructor
 public class NotificationQueryService {
 
 	@NonNull private final NotificationQueryRepository notificationQueryRepository;
+	private final AuthNotificationMeasurementRecorder measurementRecorder;
+
+	public NotificationQueryService(NotificationQueryRepository notificationQueryRepository) {
+		this(notificationQueryRepository, (AuthNotificationMeasurementRecorder)null);
+	}
+
+	public NotificationQueryService(
+		NotificationQueryRepository notificationQueryRepository,
+		AuthNotificationMeasurementRecorder measurementRecorder) {
+		this.notificationQueryRepository = notificationQueryRepository;
+		this.measurementRecorder = measurementRecorder;
+	}
+
+	@org.springframework.beans.factory.annotation.Autowired
+	public NotificationQueryService(
+		NotificationQueryRepository notificationQueryRepository,
+		org.springframework.beans.factory.ObjectProvider<AuthNotificationMeasurementRecorder> measurementRecorder) {
+		this(notificationQueryRepository, measurementRecorder.getIfAvailable());
+	}
 
 	/**
 	 * 한 목록 요청의 content와 count를 하나의 짧은 읽기 트랜잭션에서 조회한다.
@@ -28,9 +46,9 @@ public class NotificationQueryService {
 	public PageResponse<NotificationListItem> findPage(long recipientUserId, int page, int size) {
 		PageRequest pageable = PageRequest.of(page, size);
 		return PageResponse.from(new PageImpl<>(
-			notificationQueryRepository.findPage(recipientUserId, page, size),
+			measure("content", () -> notificationQueryRepository.findPage(recipientUserId, page, size)),
 			pageable,
-			notificationQueryRepository.countUnexpired(recipientUserId)));
+			measure("total-count", () -> notificationQueryRepository.countUnexpired(recipientUserId))));
 	}
 
 	/**
@@ -41,6 +59,10 @@ public class NotificationQueryService {
 	@Transactional(readOnly = true)
 	public UnreadNotificationCountResponse countUnread(long recipientUserId) {
 		return new UnreadNotificationCountResponse(
-			notificationQueryRepository.countUnreadUnexpired(recipientUserId));
+			measure("unread-count", () -> notificationQueryRepository.countUnreadUnexpired(recipientUserId)));
+	}
+
+	private <T> T measure(String stage, java.util.function.Supplier<T> work) {
+		return measurementRecorder == null ? work.get() : measurementRecorder.queryStage(stage, work);
 	}
 }

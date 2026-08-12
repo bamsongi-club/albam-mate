@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import cloud.bamsongi.albammate.measurement.AuthNotificationMeasurementRecorder;
 import cloud.bamsongi.albammate.notification.entity.Notification;
 import cloud.bamsongi.albammate.notification.entity.NotificationOutboxEvent;
 import cloud.bamsongi.albammate.notification.enums.NotificationType;
@@ -18,24 +20,52 @@ import cloud.bamsongi.albammate.notification.repository.NotificationOutboxEventR
 import cloud.bamsongi.albammate.notification.repository.NotificationOutboxRecipientRepository;
 import cloud.bamsongi.albammate.notification.repository.NotificationRepository;
 import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /** 한 Outbox 이벤트의 PostgreSQL 선점, 멱등 Notification 저장과 완료 전환을 함께 처리한다. */
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class NotificationRelayExecutor {
 
 	@NonNull private final NotificationOutboxEventRepository eventRepository;
 	@NonNull private final NotificationOutboxRecipientRepository recipientRepository;
 	@NonNull private final NotificationRepository notificationRepository;
+	private final AuthNotificationMeasurementRecorder measurementRecorder;
+
+	public NotificationRelayExecutor(
+		NotificationOutboxEventRepository eventRepository,
+		NotificationOutboxRecipientRepository recipientRepository,
+		NotificationRepository notificationRepository) {
+		this(eventRepository, recipientRepository, notificationRepository, (AuthNotificationMeasurementRecorder)null);
+	}
+
+	public NotificationRelayExecutor(
+		NotificationOutboxEventRepository eventRepository,
+		NotificationOutboxRecipientRepository recipientRepository,
+		NotificationRepository notificationRepository,
+		AuthNotificationMeasurementRecorder measurementRecorder) {
+		this.eventRepository = eventRepository;
+		this.recipientRepository = recipientRepository;
+		this.notificationRepository = notificationRepository;
+		this.measurementRecorder = measurementRecorder;
+	}
+
+	@org.springframework.beans.factory.annotation.Autowired
+	public NotificationRelayExecutor(
+		NotificationOutboxEventRepository eventRepository,
+		NotificationOutboxRecipientRepository recipientRepository,
+		NotificationRepository notificationRepository,
+		org.springframework.beans.factory.ObjectProvider<AuthNotificationMeasurementRecorder> measurementRecorder) {
+		this(eventRepository, recipientRepository, notificationRepository, measurementRecorder.getIfAvailable());
+	}
 
 	/** 처리 가능한 가장 이른 이벤트 하나만 독립 트랜잭션에서 처리한다. */
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public Optional<ProcessedEvent> processOne() {
 		long startedAtNanos = System.nanoTime();
-		Optional<NotificationOutboxEventRepository.RelayClaim> claim = eventRepository.claimEarliestProcessableEvent();
+		registerTransactionMeasurement(startedAtNanos);
+		Optional<NotificationOutboxEventRepository.RelayClaim> claim = measure("claim", "success",
+			() -> eventRepository.claimEarliestProcessableEvent());
 		if (claim.isEmpty()) {
 			return Optional.empty();
 		}
@@ -53,7 +83,8 @@ public class NotificationRelayExecutor {
 	private ProcessedEvent processClaimedEvent(
 		NotificationOutboxEventRepository.RelayClaim relayClaim,
 		long startedAtNanos) {
-		NotificationOutboxEvent event = eventRepository.findById(relayClaim.getId())
+		NotificationOutboxEvent event = measure("event-fetch", "success",
+			() -> eventRepository.findById(relayClaim.getId()))
 			.orElseThrow(() -> new IllegalStateException("claimed notification outbox event is missing"));
 		Instant operationTime = relayClaim.getOperationTime();
 		Instant notificationCreatedAt = event.getOccurredAt();
@@ -62,7 +93,8 @@ public class NotificationRelayExecutor {
 			throw NotificationRelayProcessingException.expired(event.getId());
 		}
 		NotificationType notificationType = event.getEventType().toNotificationType();
-		List<Long> recipientUserIds = recipientRepository.findRecipientUserIdsByOutboxEventId(event.getId());
+		List<Long> recipientUserIds = measure("recipient-lookup", "success",
+			() -> recipientRepository.findRecipientUserIdsByOutboxEventId(event.getId()));
 		if (recipientUserIds.isEmpty()) {
 			throw NotificationRelayProcessingException.missingRecipientSnapshot(event.getId());
 		}
@@ -71,11 +103,11 @@ public class NotificationRelayExecutor {
 			Notification notification = Notification.createUnread(
 				event.getId(), recipientUserId, event.getRoomId(), notificationType, notificationCreatedAt,
 				operationTime);
-			notificationRepository.insertIfAbsent(notification);
+			measure("recipient-insert-loop", "success", () -> notificationRepository.insertIfAbsent(notification));
 		}
 
 		event.markProcessed(operationTime);
-		eventRepository.flush();
+		measure("event-flush", "success", eventRepository::flush);
 		ProcessedEvent processedEvent = ProcessedEvent.completed(
 			event, recipientUserIds.size(), operationTime, elapsedMillis(startedAtNanos));
 		registerAfterCommitLog(processedEvent);
@@ -89,6 +121,54 @@ public class NotificationRelayExecutor {
 				logProcessedEvent(processedEvent);
 			}
 		});
+	}
+
+	private void registerTransactionMeasurement(long startedAtNanos) {
+		if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+			return;
+		}
+		AtomicLong beforeCommitNanos = new AtomicLong();
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void beforeCommit(boolean readOnly) {
+				beforeCommitNanos.set(System.nanoTime());
+			}
+
+			@Override
+			public void afterCommit() {
+				recordDuration("tx-commit", "committed", beforeCommitNanos.get());
+			}
+
+			@Override
+			public void afterCompletion(int status) {
+				String result = status == STATUS_COMMITTED ? "committed" : "rolled-back";
+				recordDuration("tx-total", result, startedAtNanos);
+				record("afterCompletion", result);
+			}
+		});
+	}
+
+	private <T> T measure(String stage, String result, java.util.function.Supplier<T> work) {
+		return measurementRecorder == null ? work.get() : measurementRecorder.relayStage(stage, result, work);
+	}
+
+	private void measure(String stage, String result, Runnable work) {
+		if (measurementRecorder == null) {
+			work.run();
+		} else {
+			measurementRecorder.relayStage(stage, result, work);
+		}
+	}
+
+	private void record(String stage, String result) {
+		measure(stage, result, () -> {});
+	}
+
+	private void recordDuration(String stage, String result, long startedAtNanos) {
+		if (measurementRecorder != null && startedAtNanos > 0) {
+			measurementRecorder.recordRelayDuration(
+				stage, result, Duration.ofNanos(System.nanoTime() - startedAtNanos));
+		}
 	}
 
 	private static void logProcessedEvent(ProcessedEvent processedEvent) {

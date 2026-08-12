@@ -10,9 +10,11 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import cloud.bamsongi.albammate.measurement.AuthNotificationMeasurementRecorder;
 import cloud.bamsongi.albammate.notification.dto.NotificationListItem;
 import cloud.bamsongi.albammate.notification.enums.NotificationType;
 import cloud.bamsongi.albammate.notification.repository.NotificationQueryRepository;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 class NotificationQueryServiceTest {
 
@@ -38,5 +40,24 @@ class NotificationQueryServiceTest {
 
 		assertEquals(0, new NotificationQueryService(repository).countUnread(7L).unreadCount());
 		verify(repository).countUnreadUnexpired(7L);
+	}
+
+	@Test
+	void T7_목록_content_total_count와_별도_unread_count를_요청별로_분리_기록한다() {
+		NotificationQueryRepository repository = mock(NotificationQueryRepository.class);
+		SimpleMeterRegistry registry = new SimpleMeterRegistry();
+		when(repository.findPage(7L, 0, 10)).thenReturn(List.of());
+		when(repository.countUnexpired(7L)).thenReturn(0L);
+		when(repository.countUnreadUnexpired(7L)).thenReturn(0L);
+		NotificationQueryService service = new NotificationQueryService(repository,
+			new AuthNotificationMeasurementRecorder(registry));
+
+		service.findPage(7L, 0, 10);
+		service.countUnread(7L);
+
+		assertEquals(1, registry.find("notification.query.stage.duration").tag("stage", "content").timer().count());
+		assertEquals(1, registry.find("notification.query.stage.duration").tag("stage", "total-count").timer().count());
+		assertEquals(1,
+			registry.find("notification.query.stage.duration").tag("stage", "unread-count").timer().count());
 	}
 }
