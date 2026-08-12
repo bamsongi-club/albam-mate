@@ -29,5 +29,3 @@ P0 문서는 완료 시점의 기록으로 [archive](docs/archive/README.md)에 
 - 현재 `albam-mate` 저장소의 코드, 정본 문서와 승인 ADR이 구현·운영 규칙의 정본이다.
 - 구현 변경으로 정본 문서가 부정확해지면 함께 갱신하고, 정책·범위·ADR 결정 변경은 사용자 확인 후 진행한다.
 - 범위와 관련 정본이 확정된 백엔드 기능 구현·버그 수정은 메인 에이전트만 [backend-delivery](.agents/skills/backend-delivery/SKILL.md) 절차로 `backend-developer`에 위임한다. 절차 정본은 `.agents/skills/**`, 구현자 지시 정본은 `.codex/agents/backend-developer.toml`이며 `.claude/**`의 같은 이름 파일은 정본을 가리키는 실행 어댑터다.
-
-> 문서 관리: 소유자 `밤송이클럽 AI 협업 담당` · 최종 검증일 `2026-08-12` · 폐기 조건 `저장소 작업 진입점이 다른 승인된 라우터로 대체될 때`
