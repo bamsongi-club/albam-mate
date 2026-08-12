@@ -262,6 +262,24 @@ class GameQueryServiceListTest {
 	}
 
 	@Test
+	void 요청_페이지가_범위를_넘어_content만_비면_페이지_메타데이터를_보존하고_보조_조회를_건너뛴다() {
+		GameListRequest request = request(null, false, null, null, null, null);
+		request.setPage(3);
+		request.setSize(20);
+		Pageable pageable = fixedPageRequest(3, 20);
+		when(gameRepository.findAll(any(Specification.class), eq(pageable)))
+			.thenReturn(new PageImpl<>(List.of(), pageable, 7));
+
+		Page<GameListItem> result = gameQueryService.findPage(request, 42L);
+
+		assertEquals(List.of(), result.getContent());
+		assertEquals(3, result.getNumber());
+		assertEquals(20, result.getSize());
+		assertEquals(7, result.getTotalElements());
+		verifyNoInteractions(upcomingRoomCountQuery, userPlayedGameRepository);
+	}
+
+	@Test
 	void 예정_모임_필터와_페이지_결과_집계에_요청_시작_기준_시각을_사용한다() {
 		RequestStartClock requestClock = new RequestStartClock(NOW);
 		gameQueryService = newGameQueryService(requestClock);
