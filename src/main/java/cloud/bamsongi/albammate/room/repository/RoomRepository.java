@@ -74,6 +74,33 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		@Param("excludedStatuses")
 		Collection<RoomStatus> excludedStatuses);
 
+	/**
+	 * 기간 파라미터를 {@code null} 판정 대신 {@code periodFilterEnabled} 값으로 켜고 끈다. PostgreSQL은
+	 * {@code IS NULL} 비교에만 쓰이는 바인드 파라미터의 타입을 추론하지 못해 오류를 내므로, 기간을 적용하지 않을 때도
+	 * {@code fromInclusive}·{@code toExclusive}에 유효한 값을 전달해야 한다.
+	 */
+	@Query("""
+		select r.gameId as gameId, count(r.id) as roomCount
+		from Room r
+		where r.roomType = :roomType
+		  and r.status not in :excludedStatuses
+		  and (:periodFilterEnabled = false or (r.startAt >= :fromInclusive and r.startAt < :toExclusive))
+		group by r.gameId
+		order by count(r.id) desc, r.gameId asc
+		""")
+	List<GameRankingCount> findGameRankingCounts(
+		@Param("roomType")
+		RoomType roomType,
+		@Param("excludedStatuses")
+		Collection<RoomStatus> excludedStatuses,
+		@Param("periodFilterEnabled")
+		boolean periodFilterEnabled,
+		@Param("fromInclusive")
+		Instant fromInclusive,
+		@Param("toExclusive")
+		Instant toExclusive,
+		Pageable pageable);
+
 	/** 상태와 시간 경계를 만족하는 방만 읽어 일괄 보정 대상 범위를 제한한다. */
 	@Query("""
 		select room
@@ -312,6 +339,13 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		Pageable pageable);
 
 	interface UpcomingRoomCount {
+
+		Long getGameId();
+
+		Long getRoomCount();
+	}
+
+	interface GameRankingCount {
 
 		Long getGameId();
 

@@ -108,6 +108,16 @@ class ApiEndpointPolicyRegistryTest {
 	}
 
 	@Test
+	void 랭킹_미등록_하위_경로는_인증_대상으로_처리된다() {
+		String path = "/api/game-rankings/1";
+		MockHttpServletRequest request = new MockHttpServletRequest(HttpMethod.GET.name(), path);
+		request.setServletPath(path);
+
+		assertFalse(endpointPolicyRegistry.knownEndpointPathMatcher().matches(request));
+		assertTrue(endpointPolicyRegistry.protectedFutureSubpathMatcher().matches(request));
+	}
+
+	@Test
 	void 미등록_MVC_API를_검출한다() {
 		ApiEndpointPolicyRegistry registry = ApiEndpointPolicyRegistry.forPolicies(
 			List.of(
