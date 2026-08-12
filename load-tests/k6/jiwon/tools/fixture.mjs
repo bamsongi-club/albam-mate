@@ -21,7 +21,7 @@ import {
 } from './fixture-model.mjs';
 
 const toolDirectory = path.dirname(fileURLToPath(import.meta.url));
-const repositoryRoot = path.resolve(toolDirectory, '../../../../..');
+const repositoryRoot = path.resolve(toolDirectory, '../../../..');
 const buildRoot = path.join(repositoryRoot, 'build', 'k6', 'room');
 const COMMAND_OPTION_KEYS = {
   prepare: new Set([
@@ -33,9 +33,9 @@ const COMMAND_OPTION_KEYS = {
 
 function usage() {
   return `사용법:
-  node load-tests/k6/jiwon/room/tools/fixture.mjs prepare --scenario t1 --run-id <run-id> [옵션]
-  node load-tests/k6/jiwon/room/tools/fixture.mjs verify --fixture <fixture.json> --stage before|after [--summary <summary.json>]
-  node load-tests/k6/jiwon/room/tools/fixture.mjs cleanup --fixture <fixture.json>
+  node load-tests/k6/jiwon/tools/fixture.mjs prepare --scenario t1 --run-id <run-id> [옵션]
+  node load-tests/k6/jiwon/tools/fixture.mjs verify --fixture <fixture.json> --stage before|after [--summary <summary.json>]
+  node load-tests/k6/jiwon/tools/fixture.mjs cleanup --fixture <fixture.json>
 
 prepare 공통 옵션: --profile stress|spike --rounds <1..20>
 T1/T2: --mode hot|spread --concurrency 2|4|8
