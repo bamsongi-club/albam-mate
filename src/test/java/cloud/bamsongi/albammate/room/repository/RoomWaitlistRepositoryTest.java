@@ -91,7 +91,7 @@ class RoomWaitlistRepositoryTest {
 	void 대기자_상태와_순번은_WAITING_앞선_행만_세어_반환한다() {
 		saveWaiting(firstUserId, 10L, FIRST_REQUEST_TIME);
 		saveWaiting(secondUserId, 20L, SECOND_REQUEST_TIME);
-		roomWaitlistRepository.cancelWaiting(roomId, firstUserId, SECOND_REQUEST_TIME);
+		roomWaitlistRepository.cancelWaiting(roomId, firstUserId, 10L, SECOND_REQUEST_TIME);
 		entityManager.clear();
 
 		RoomWaitlistStateProjection firstState = roomWaitlistRepository
@@ -126,7 +126,7 @@ class RoomWaitlistRepositoryTest {
 
 		assertEquals(0, roomWaitlistRepository.promoteWaiting(roomId, firstUserId, 9L, SECOND_REQUEST_TIME));
 		assertEquals(1, roomWaitlistRepository.promoteWaiting(roomId, firstUserId, 10L, SECOND_REQUEST_TIME));
-		assertEquals(0, roomWaitlistRepository.cancelWaiting(roomId, firstUserId, SECOND_REQUEST_TIME));
+		assertEquals(0, roomWaitlistRepository.cancelWaiting(roomId, firstUserId, 10L, SECOND_REQUEST_TIME));
 		assertEquals(1, roomWaitlistRepository.reactivateWaiting(roomId, firstUserId, 30L, SECOND_REQUEST_TIME));
 
 		entityManager.clear();
@@ -163,7 +163,7 @@ class RoomWaitlistRepositoryTest {
 	@Test
 	void 취소와_승격_대기행만_재신청할_수_있다() {
 		saveWaiting(firstUserId, 10L, FIRST_REQUEST_TIME);
-		assertEquals(1, roomWaitlistRepository.cancelWaiting(roomId, firstUserId, SECOND_REQUEST_TIME));
+		assertEquals(1, roomWaitlistRepository.cancelWaiting(roomId, firstUserId, 10L, SECOND_REQUEST_TIME));
 		assertEquals(1, roomWaitlistRepository.reactivateWaiting(roomId, firstUserId, 20L, SECOND_REQUEST_TIME));
 		assertEquals(1, roomWaitlistRepository.cancelAllWaiting(roomId, SECOND_REQUEST_TIME));
 		assertEquals(0, roomWaitlistRepository.reactivateWaiting(roomId, firstUserId, 30L, SECOND_REQUEST_TIME));
@@ -173,6 +173,22 @@ class RoomWaitlistRepositoryTest {
 		assertEquals(1, roomWaitlistRepository.reactivateWaiting(roomId, secondUserId, 50L, SECOND_REQUEST_TIME));
 		assertEquals(1, roomWaitlistRepository.expireAllWaiting(roomId, SECOND_REQUEST_TIME));
 		assertEquals(0, roomWaitlistRepository.reactivateWaiting(roomId, secondUserId, 60L, SECOND_REQUEST_TIME));
+	}
+
+	@Test
+	void T2_이전_순번의_취소와_승격은_재신청된_WAITING을_전이하지_못한다() {
+		saveWaiting(firstUserId, 10L, FIRST_REQUEST_TIME);
+		assertEquals(1, roomWaitlistRepository.cancelWaiting(roomId, firstUserId, 10L, SECOND_REQUEST_TIME));
+		assertEquals(1, roomWaitlistRepository.reactivateWaiting(roomId, firstUserId, 20L, SECOND_REQUEST_TIME));
+
+		assertEquals(0, roomWaitlistRepository.cancelWaiting(roomId, firstUserId, 10L, SECOND_REQUEST_TIME));
+		assertEquals(0, roomWaitlistRepository.promoteWaiting(roomId, firstUserId, 10L, SECOND_REQUEST_TIME));
+
+		entityManager.clear();
+		RoomWaitlist stored = roomWaitlistRepository.findById(new RoomWaitlistId(roomId, firstUserId))
+			.orElseThrow();
+		assertEquals(RoomWaitlistStatus.WAITING, stored.getStatus());
+		assertEquals(20L, stored.getQueueOrder());
 	}
 
 	@Test
