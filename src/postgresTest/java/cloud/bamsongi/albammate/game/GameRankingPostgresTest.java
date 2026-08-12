@@ -124,7 +124,14 @@ class GameRankingPostgresTest {
 
 	@Test
 	void 대표_쿼리의_실행_계획을_확인한다() {
-		insertGames(8_300_000L, 3).forEach(gameId -> saveRoom(RoomType.GAME_FOCUSED, gameId, BASE_TIME));
+		List<Long> gameIds = insertGames(8_300_000L, 12);
+		for (int index = 0; index < gameIds.size(); index++) {
+			int roomCountForGame = index + 1;
+			for (int roomIndex = 0; roomIndex < roomCountForGame; roomIndex++) {
+				saveRoom(RoomType.GAME_FOCUSED, gameIds.get(index), BASE_TIME.plusSeconds(index * 100L + roomIndex));
+			}
+		}
+		jdbcTemplate.execute("analyze rooms");
 
 		String plan = jdbcTemplate.queryForObject(
 			"""
@@ -138,8 +145,19 @@ class GameRankingPostgresTest {
 				""",
 			String.class);
 
-		assertTrue(plan.contains("Planning Time"), plan);
-		assertTrue(plan.contains("Execution Time"), plan);
+		assertTrue(plan.contains("\"Node Type\": \"Limit\""), plan);
+		assertEquals(10, planNumber(plan, "Actual Rows").intValue(), plan);
+		assertTrue(planNumber(plan, "Planning Time") > 0, plan);
+		assertTrue(planNumber(plan, "Execution Time") > 0, plan);
+	}
+
+	/** 대표 분포(12게임·78방)의 EXPLAIN ANALYZE 결과에서 최상위 Limit 노드의 수치를 읽는다. */
+	private Double planNumber(String plan, String field) {
+		java.util.regex.Matcher matcher = java.util.regex.Pattern
+			.compile("\"" + java.util.regex.Pattern.quote(field) + "\"\\s*:\\s*([0-9.]+)")
+			.matcher(plan);
+		assertTrue(matcher.find(), field + " 필드를 실행 계획에서 찾지 못함: " + plan);
+		return Double.parseDouble(matcher.group(1));
 	}
 
 	private List<Long> insertGames(long baseBggId, int count) {
