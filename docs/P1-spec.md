@@ -516,6 +516,8 @@ P1은 P0의 17개 API를 유지하고, 소셜 로그인·계정 연결과 대기
 | 26 | 신규 API | 게임 카테고리 선택지 조회 | `GET /api/game-categories` | `SEARCH-01` |
 | 27 | 신규 API | 게임 테마 선택지 조회 | `GET /api/game-themes` | `SEARCH-01` |
 | 28 | 신규 API | 전체·앞으로 7일 인기 게임 랭킹 조회 | `GET /api/game-rankings` | `RANK-01` |
+| 29 | 신규 API | 프로필 이미지 업로드 | `POST /api/users/me/profile-image` | `AUTH-05` |
+| 30 | 신규 API | 프로필 이미지 삭제 | `DELETE /api/users/me/profile-image` | `AUTH-05` |
 
 - `PublicRoomResponse`, `ParticipantRoomResponse`, `MyRoomListItem`은 필수·non-null boolean `waitlistable`을 포함한다. `GET /api/users/me/rooms`는 주최·참가 ROOM만 계속 반환하므로 각 `MyRoomListItem`의 값은 `false`이고, 대기 중인 ROOM을 조회 대상에 추가하지 않는다.
 - 참가 취소 응답은 자동 승격까지 끝난 최종 `roomStatus`, `participantCount`, `remainingRecruitmentSeats`를 기존 `RoomParticipationResponse`로 반환한다. 승격 여부 필드와 승격된 사용자 신원은 추가하지 않는다.
