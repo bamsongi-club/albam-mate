@@ -89,8 +89,12 @@ const sourceMethods = {
 
 function javaSource(source, methods) {
     const className = path.basename(source, '.java');
+    const normalizedSource = source.replaceAll('\\', '/');
+    const packageName = path.posix
+        .dirname(normalizedSource.split('/java/').at(-1))
+        .replaceAll('/', '.');
     const body = methods.map((method) => `    @Test\n    void ${method}() {\n    }\n`).join('\n');
-    return `class ${className} {\n${body}}\n`;
+    return `package ${packageName};\n\nimport org.junit.jupiter.api.Test;\n\nclass ${className} {\n${body}}\n`;
 }
 
 function createWorktree(t) {
@@ -384,6 +388,93 @@ test('source에 선언되지 않은 selector 메서드를 거부한다', (t) => 
     manifest.tests[0].evidence[0].selector = 'cloud.bamsongi.NotificationReadServiceTest.없는_메서드';
 
     assert.ok(keywords(validate(validPacket(), manifest, worktree)).includes('selectorMethod'));
+});
+
+test('source package와 다른 selector 클래스 FQCN을 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(
+        path.join(worktree, source),
+        javaSource(source, ['알림을_읽음_처리한다']).replace(
+            'package cloud.bamsongi;',
+            'package cloud.other;',
+        ),
+        'utf8',
+    );
+
+    assert.ok(
+        keywords(validate(validPacket(), validManifest(), worktree)).includes('selectorClass'),
+    );
+});
+
+test('source에 selector의 최상위 클래스 선언이 없으면 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(
+        path.join(worktree, source),
+        'package cloud.bamsongi;\n\nimport org.junit.jupiter.api.Test;\n\nclass OtherTest {\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        'utf8',
+    );
+
+    assert.ok(
+        keywords(validate(validPacket(), validManifest(), worktree)).includes('selectorClass'),
+    );
+});
+
+test('테스트 어노테이션이 없는 void helper selector를 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(
+        path.join(worktree, source),
+        'package cloud.bamsongi;\n\nclass NotificationReadServiceTest {\n    void 보조_메서드() {\n    }\n}\n',
+        'utf8',
+    );
+    const manifest = validManifest();
+    manifest.tests[0].evidence[0].selector =
+        'cloud.bamsongi.NotificationReadServiceTest.보조_메서드';
+
+    assert.ok(keywords(validate(validPacket(), manifest, worktree)).includes('selectorMethod'));
+});
+
+test('JUnit이 아닌 같은 이름의 Test 어노테이션은 selector evidence로 허용하지 않는다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(
+        path.join(worktree, source),
+        'package cloud.bamsongi;\n\n@interface Test {\n}\n\nclass NotificationReadServiceTest {\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        'utf8',
+    );
+
+    assert.ok(
+        keywords(validate(validPacket(), validManifest(), worktree)).includes('selectorMethod'),
+    );
+});
+
+test('중첩 클래스에만 선언된 테스트 메서드를 바깥 클래스 selector로 허용하지 않는다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(
+        path.join(worktree, source),
+        'package cloud.bamsongi;\n\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    class Inner {\n        @Test\n        void 내부_테스트() {\n        }\n    }\n}\n',
+        'utf8',
+    );
+    const manifest = validManifest();
+    manifest.tests[0].evidence[0].selector =
+        'cloud.bamsongi.NotificationReadServiceTest.내부_테스트';
+
+    assert.ok(keywords(validate(validPacket(), manifest, worktree)).includes('selectorMethod'));
+});
+
+test('ParameterizedTest 메서드는 실행 가능한 selector로 허용한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    fs.writeFileSync(
+        path.join(worktree, source),
+        'package cloud.bamsongi;\n\nimport org.junit.jupiter.params.ParameterizedTest;\n\nclass NotificationReadServiceTest {\n    @ParameterizedTest\n    @EnumSource\n    void 알림을_읽음_처리한다(String value) {\n    }\n}\n',
+        'utf8',
+    );
+
+    assert.deepEqual(validate(validPacket(), validManifest(), worktree), []);
 });
 
 test('메서드명이 다른 선언의 접미사여도 거부한다', (t) => {

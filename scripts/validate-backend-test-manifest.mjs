@@ -196,12 +196,155 @@ function normalizeEvidenceSource(source) {
     return { normalizedSource, hasParentTraversal, isAbsolute };
 }
 
-// selector가 가리키는 메서드가 source에 실제로 선언됐는지 본다. review-fast는 구현자의 targeted
-// 실행을 다시 하지 않으므로, 여기서 거르지 못한 selector 오타는 PR 본문의 T-ID 매핑에 그대로 남는다.
-// JUnit 5 테스트 메서드는 void이며 이 저장소에는 중첩 클래스 테스트가 없다.
-function hasTestMethodDeclaration(contents, methodName) {
+function sanitizeJavaSource(contents) {
+    let result = '';
+    let state = 'code';
+
+    for (let index = 0; index < contents.length; index += 1) {
+        const current = contents[index];
+        const next = contents[index + 1];
+        const third = contents[index + 2];
+        const blank = current === '\r' || current === '\n' ? current : ' ';
+
+        if (state === 'code') {
+            if (current === '/' && next === '/') {
+                result += '  ';
+                index += 1;
+                state = 'lineComment';
+            } else if (current === '/' && next === '*') {
+                result += '  ';
+                index += 1;
+                state = 'blockComment';
+            } else if (current === '"' && next === '"' && third === '"') {
+                result += '   ';
+                index += 2;
+                state = 'textBlock';
+            } else if (current === '"') {
+                result += ' ';
+                state = 'string';
+            } else if (current === "'") {
+                result += ' ';
+                state = 'character';
+            } else {
+                result += current;
+            }
+        } else if (state === 'lineComment') {
+            result += blank;
+            if (current === '\n') state = 'code';
+        } else if (state === 'blockComment') {
+            if (current === '*' && next === '/') {
+                result += '  ';
+                index += 1;
+                state = 'code';
+            } else {
+                result += blank;
+            }
+        } else if (state === 'textBlock') {
+            if (current === '"' && next === '"' && third === '"') {
+                result += '   ';
+                index += 2;
+                state = 'code';
+            } else {
+                result += blank;
+            }
+        } else if (current === '\\' && next !== undefined) {
+            result += ` ${next === '\r' || next === '\n' ? next : ' '}`;
+            index += 1;
+        } else if (
+            (state === 'string' && current === '"') ||
+            (state === 'character' && current === "'")
+        ) {
+            result += ' ';
+            state = 'code';
+        } else {
+            result += blank;
+        }
+    }
+
+    return result;
+}
+
+function braceDepthAt(contents, endIndex) {
+    let depth = 0;
+    for (let index = 0; index < endIndex; index += 1) {
+        if (contents[index] === '{') depth += 1;
+        if (contents[index] === '}') depth -= 1;
+    }
+    return depth;
+}
+
+function findTopLevelType(contents, className) {
+    const escaped = className.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+    const declaration = new RegExp(
+        `\\b(?:class|record|interface|enum)\\s+${escaped}\\b[^{}]*\\{`,
+        'gu',
+    );
+
+    for (const match of contents.matchAll(declaration)) {
+        if (braceDepthAt(contents, match.index) !== 0) continue;
+        const open = match.index + match[0].lastIndexOf('{');
+        let depth = 1;
+        for (let index = open + 1; index < contents.length; index += 1) {
+            if (contents[index] === '{') depth += 1;
+            if (contents[index] === '}') depth -= 1;
+            if (depth === 0) return { open, close: index };
+        }
+    }
+    return null;
+}
+
+function parseTestSource(contents, source) {
+    const sanitized = sanitizeJavaSource(contents);
+    const packageMatch = sanitized.match(
+        /^\s*package\s+([$_\p{ID_Start}][$_\u200c\u200d\p{ID_Continue}]*(?:\.[$_\p{ID_Start}][$_\u200c\u200d\p{ID_Continue}]*)*)\s*;/u,
+    );
+    const packageName = packageMatch?.[1] ?? '';
+    const className = path.posix.basename(source, '.java');
+    const classRange = findTopLevelType(sanitized, className);
+    const fqcn = packageName === '' ? className : `${packageName}.${className}`;
+    return { sanitized, fqcn, classRange };
+}
+
+function hasImport(contents, importedType) {
+    const escaped = importedType.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+    return new RegExp(`^\\s*import\\s+${escaped}\\s*;`, 'mu').test(contents);
+}
+
+function hasSupportedTestAnnotation(contents, annotationBlock) {
+    const annotationNames = [...annotationBlock.matchAll(/^\s*@([.$_\p{ID_Start}\u200c\u200d\p{ID_Continue}]+)/gmu)].map(
+        (match) => match[1],
+    );
+    if (annotationNames.includes('org.junit.jupiter.api.Test')) return true;
+    if (annotationNames.includes('org.junit.jupiter.params.ParameterizedTest')) return true;
+    if (
+        annotationNames.includes('Test') &&
+        hasImport(contents, 'org.junit.jupiter.api.Test')
+    ) {
+        return true;
+    }
+    return (
+        annotationNames.includes('ParameterizedTest') &&
+        hasImport(contents, 'org.junit.jupiter.params.ParameterizedTest')
+    );
+}
+
+// selector가 가리키는 메서드가 실제 최상위 JUnit 테스트 클래스에 선언됐는지 본다.
+function hasTestMethodDeclaration(sourceInfo, methodName) {
+    if (!sourceInfo.classRange) return false;
     const escaped = methodName.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-    return new RegExp(`\\bvoid\\s+${escaped}\\s*\\(`, 'u').test(contents);
+    const declaration = new RegExp(
+        `((?:^[\\t ]*@[^\\r\\n]+\\r?\\n)+)^[\\t ]*(?:(?:public|protected|private|static|final|synchronized|abstract|native|strictfp)\\s+)*void\\s+${escaped}\\s*\\(`,
+        'gmu',
+    );
+
+    for (const match of sourceInfo.sanitized.matchAll(declaration)) {
+        if (match.index <= sourceInfo.classRange.open || match.index >= sourceInfo.classRange.close) {
+            continue;
+        }
+        if (braceDepthAt(sourceInfo.sanitized, match.index) !== 1) continue;
+        if (hasSupportedTestAnnotation(sourceInfo.sanitized, match[1])) return true;
+    }
+    return false;
 }
 
 function validateManifestRelations(packet, manifest, worktree) {
@@ -340,13 +483,25 @@ function validateManifestRelations(packet, manifest, worktree) {
                 return;
             }
 
+            const sourceInfo = parseTestSource(contents, normalizedSource);
+            const selectorClass = selector.slice(0, selector.lastIndexOf('.'));
+            if (!sourceInfo.classRange || selectorClass !== sourceInfo.fqcn) {
+                addError(
+                    errors,
+                    `${evidencePath}.selector`,
+                    'selectorClass',
+                    'selector 클래스가 source의 package와 최상위 클래스 선언에 일치하지 않습니다.',
+                );
+                return;
+            }
+
             const methodName = selector.split('.').at(-1);
-            if (!hasTestMethodDeclaration(contents, methodName)) {
+            if (!hasTestMethodDeclaration(sourceInfo, methodName)) {
                 addError(
                     errors,
                     `${evidencePath}.selector`,
                     'selectorMethod',
-                    `source에서 void ${methodName}(...) 선언을 찾을 수 없습니다.`,
+                    `source의 최상위 클래스에서 JUnit 테스트 ${methodName}(...) 선언을 찾을 수 없습니다.`,
                 );
             }
         });
