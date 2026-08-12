@@ -13,8 +13,8 @@ import {
 	durationForMilliseconds,
 	durationMilliseconds,
 	holdLoadSubscriber,
-	loadCountStages,
 	loadThresholds,
+	loadSubscriberStages,
 	postNewMessage,
 	readPositiveInteger,
 	readRateSteps,
@@ -40,12 +40,12 @@ export function loadFanoutSubscriber(data) {
 	const roomId = PROFILE_ROOM_IDS[0];
 	const user = roomUserForVu(data.users, roomId, execution.vu.idInTest);
 	holdLoadSubscriber(
-		user,
-		roomId,
-		currentStage(data, LOAD_FANOUT_SUBSCRIBER_STEPS.length, 0),
-		() => currentStage(data, LOAD_FANOUT_SUBSCRIBER_STEPS.length, 0),
-		'load-fanout',
-	);
+			user,
+			roomId,
+			currentStage(data, LOAD_FANOUT_SUBSCRIBER_STEPS.length, durationMilliseconds(WS_READY_DELAY)),
+			() => currentStage(data, LOAD_FANOUT_SUBSCRIBER_STEPS.length, durationMilliseconds(WS_READY_DELAY)),
+			'load-fanout',
+		);
 }
 
 /** 팬아웃 측정용 발신자. 구독자 수만 변수로 남기려고 전송률을 고정한다. */
@@ -72,7 +72,7 @@ function loadFanoutOptions() {
 				executor: 'ramping-vus',
 				exec: 'loadFanoutSubscriber',
 				startVUs: 0,
-				stages: loadCountStages(LOAD_FANOUT_SUBSCRIBER_STEPS),
+				stages: loadSubscriberStages(LOAD_FANOUT_SUBSCRIBER_STEPS),
 				gracefulRampDown: '15s',
 				gracefulStop: '30s',
 			},

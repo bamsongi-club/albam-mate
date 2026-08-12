@@ -9,8 +9,9 @@ import {
 	currentStage,
 	durationMilliseconds,
 	holdLoadSubscriber,
-	loadCountStages,
 	loadThresholds,
+	loadCountStages,
+	loadSubscriberStages,
 	maxOf,
 	postNewMessage,
 	profileUserForVu,
@@ -55,12 +56,12 @@ export function loadMixedConnection(data) {
 	const roomId = PROFILE_ROOM_IDS[roomIndex];
 	const user = roomUserForVu(data.users, roomId, execution.vu.idInTest);
 	holdLoadSubscriber(
-		user,
-		roomId,
-		currentStage(data, LOAD_MIXED_SCALES.length, 0),
-		() => currentStage(data, LOAD_MIXED_SCALES.length, 0),
-		'load-mixed',
-	);
+			user,
+			roomId,
+			currentStage(data, LOAD_MIXED_SCALES.length, durationMilliseconds(WS_READY_DELAY)),
+			() => currentStage(data, LOAD_MIXED_SCALES.length, durationMilliseconds(WS_READY_DELAY)),
+			'load-mixed',
+		);
 }
 
 /** 혼합. 전송·조회·연결을 같은 배수로 함께 올려 실사용에 가까운 형태로 민다. */
@@ -77,7 +78,7 @@ function loadMixedOptions() {
 				executor: 'ramping-vus',
 				exec: 'loadMixedConnection',
 				startVUs: 0,
-				stages: loadCountStages(LOAD_MIXED_SCALES.map((scale) => scale * LOAD_MIXED_CONNECTIONS)),
+				stages: loadSubscriberStages(LOAD_MIXED_SCALES.map((scale) => scale * LOAD_MIXED_CONNECTIONS)),
 				gracefulRampDown: '15s',
 				gracefulStop: '30s',
 			},

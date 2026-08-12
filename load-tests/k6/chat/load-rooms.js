@@ -10,8 +10,9 @@ import {
 	currentStage,
 	durationMilliseconds,
 	holdLoadSubscriber,
-	loadCountStages,
 	loadThresholds,
+	loadCountStages,
+	loadSubscriberStages,
 	maxOf,
 	postNewMessage,
 	readPositiveInteger,
@@ -42,12 +43,12 @@ export function loadRoomsSubscriber(data) {
 	const roomId = PROFILE_ROOM_IDS[roomIndex % PROFILE_ROOM_IDS.length];
 	const user = roomUserForVu(data.users, roomId, execution.vu.idInTest);
 	holdLoadSubscriber(
-		user,
-		roomId,
-		currentStage(data, LOAD_ROOM_STEPS.length, 0),
-		() => currentStage(data, LOAD_ROOM_STEPS.length, 0),
-		'load-rooms',
-	);
+			user,
+			roomId,
+			currentStage(data, LOAD_ROOM_STEPS.length, durationMilliseconds(WS_READY_DELAY)),
+			() => currentStage(data, LOAD_ROOM_STEPS.length, durationMilliseconds(WS_READY_DELAY)),
+			'load-rooms',
+		);
 }
 
 /** 활성 방 수 발신자. 그 단계에서 켜져 있는 방에만 돌아가며 보낸다. */
@@ -72,7 +73,7 @@ function loadRoomsOptions() {
 				executor: 'ramping-vus',
 				exec: 'loadRoomsSubscriber',
 				startVUs: 0,
-				stages: loadCountStages(LOAD_ROOM_STEPS.map((rooms) => rooms * LOAD_ROOM_SUBSCRIBERS)),
+				stages: loadSubscriberStages(LOAD_ROOM_STEPS.map((rooms) => rooms * LOAD_ROOM_SUBSCRIBERS)),
 				gracefulRampDown: '15s',
 				gracefulStop: '30s',
 			},

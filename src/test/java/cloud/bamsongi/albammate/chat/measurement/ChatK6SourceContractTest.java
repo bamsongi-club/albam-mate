@@ -46,9 +46,14 @@ class ChatK6SourceContractTest {
 		assertThat(fanout).contains("thresholds: loadThresholds(stepCount, true)");
 		assertThat(rooms).contains("thresholds: loadThresholds(stepCount, true)");
 		assertThat(mixed).contains("thresholds: loadThresholds(stepCount, true)");
-		assertSubscriberUsesDynamicDeliveryStage(fanout, "LOAD_FANOUT_SUBSCRIBER_STEPS");
-		assertSubscriberUsesDynamicDeliveryStage(rooms, "LOAD_ROOM_STEPS");
-		assertSubscriberUsesDynamicDeliveryStage(mixed, "LOAD_MIXED_SCALES");
+		assertThat(fanout).contains("stages: loadSubscriberStages(LOAD_FANOUT_SUBSCRIBER_STEPS)");
+		assertThat(rooms)
+			.contains("stages: loadSubscriberStages(LOAD_ROOM_STEPS.map((rooms) => rooms * LOAD_ROOM_SUBSCRIBERS))");
+		assertThat(mixed)
+			.contains("stages: loadSubscriberStages(LOAD_MIXED_SCALES.map((scale) => scale * LOAD_MIXED_CONNECTIONS))");
+		assertSubscriberUsesAlignedDeliveryStage(fanout, "LOAD_FANOUT_SUBSCRIBER_STEPS");
+		assertSubscriberUsesAlignedDeliveryStage(rooms, "LOAD_ROOM_STEPS");
+		assertSubscriberUsesAlignedDeliveryStage(mixed, "LOAD_MIXED_SCALES");
 	}
 
 	@Test
@@ -75,10 +80,11 @@ class ChatK6SourceContractTest {
 		assertThat(crossInstanceContract).contains("fanoutParticipants(data.users, PRIMARY_ROOM_ID)");
 	}
 
-	private void assertSubscriberUsesDynamicDeliveryStage(String scenario, String stepVariable) {
+	private void assertSubscriberUsesAlignedDeliveryStage(String scenario, String stepVariable) {
 		assertThat(scenario).containsPattern(
 			"(?s)holdLoadSubscriber\\(\\s*user,\\s*roomId,\\s*currentStage\\(data, " + stepVariable
-				+ "\\.length, 0\\),\\s*\\(\\) => currentStage\\(data, " + stepVariable + "\\.length, 0\\),");
+				+ "\\.length, durationMilliseconds\\(WS_READY_DELAY\\)\\),\\s*\\(\\) => currentStage\\(data, "
+				+ stepVariable + "\\.length, durationMilliseconds\\(WS_READY_DELAY\\)\\),");
 	}
 
 	private String file(String path) throws IOException {

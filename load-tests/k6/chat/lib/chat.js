@@ -231,6 +231,18 @@ export function loadCountStages(steps) {
 	return stages;
 }
 
+/** 전송·조회가 시작되기 전 WebSocket 준비 시간을 구독자 워밍업에 포함한다. */
+export function loadSubscriberStages(steps) {
+	const warmupMilliseconds = durationMilliseconds(WS_READY_DELAY) + durationMilliseconds(LOAD_WARMUP_DURATION);
+	const warmupDuration = durationForMilliseconds(warmupMilliseconds);
+	const stages = [{ duration: warmupDuration, target: Math.round(steps[0]) }];
+	for (let index = 0; index < steps.length; index++) {
+		stages.push({ duration: LOAD_STEP_DURATION, target: Math.round(steps[index]) });
+	}
+	stages.push({ duration: '30s', target: 0 });
+	return stages;
+}
+
 /** 방의 참가자를 번호로 돌려 고른다. 계단이 참가자 수를 넘어도 계정을 재사용한다. */
 export function roomUserForVu(users, roomId, number) {
 	const participants = usersForRoom(users, roomId);
