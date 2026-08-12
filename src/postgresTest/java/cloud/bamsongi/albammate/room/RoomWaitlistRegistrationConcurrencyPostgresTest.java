@@ -2,12 +2,14 @@ package cloud.bamsongi.albammate.room;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
@@ -34,6 +36,7 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -54,9 +57,10 @@ import cloud.bamsongi.albammate.room.service.command.RoomWaitlistCommandService;
 @Import(RoomWaitlistRegistrationConcurrencyPostgresTest.WaitlistRegistrationConcurrencyConfiguration.class)
 class RoomWaitlistRegistrationConcurrencyPostgresTest {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final String POSTGRES_IMAGE = "postgres:15.15";
 	private static final Instant REQUEST_TIME = Instant.parse("2026-08-10T00:00:00Z");
 	private static final long WAIT_SECONDS = 10;
+	private static final String WAITING_QUEUE_ORDER_CONSTRAINT = "uq_room_waitlists_waiting_room_queue_order";
 
 	@Container
 	@ServiceConnection
@@ -132,6 +136,26 @@ class RoomWaitlistRegistrationConcurrencyPostgresTest {
 		assertEquals(0, activeApplicantParticipationCount(room.getId(), firstApplicantId, secondApplicantId));
 		assertEquals(1, waitingRowCount(room.getId(), firstApplicantId));
 		assertEquals(1, waitingRowCount(room.getId(), secondApplicantId));
+	}
+
+	@Test
+	void T1_실제_PostgreSQL_부분_UNIQUE_위반은_대상_constraint_identifier를_제공한다() throws Exception {
+		long hostUserId = insertUser("waitlist-constraint-host", "방장");
+		long firstApplicantId = insertUser("waitlist-constraint-first", "신청자1");
+		long secondApplicantId = insertUser("waitlist-constraint-second", "신청자2");
+		Room room = createRoom(hostUserId, 2);
+
+		insertWaitingWaitlist(room.getId(), firstApplicantId, 1L);
+		DataIntegrityViolationException exception = assertThrows(DataIntegrityViolationException.class,
+			() -> insertWaitingWaitlist(room.getId(), secondApplicantId, 1L));
+
+		SQLException postgresException = findPostgresException(exception);
+		Object serverErrorMessage = postgresException.getClass().getMethod("getServerErrorMessage")
+			.invoke(postgresException);
+		String constraintName = (String)serverErrorMessage.getClass().getMethod("getConstraint")
+			.invoke(serverErrorMessage);
+
+		assertEquals(WAITING_QUEUE_ORDER_CONSTRAINT, constraintName);
 	}
 
 	private List<RoomWaitlistCommandService.RegistrationResult> registerConcurrently(
@@ -256,6 +280,30 @@ class RoomWaitlistRegistrationConcurrencyPostgresTest {
 			Integer.class,
 			roomId,
 			userId);
+	}
+
+	private void insertWaitingWaitlist(long roomId, long userId, long queueOrder) {
+		jdbcTemplate.update(
+			"insert into room_waitlists (room_id, user_id, status, queue_order, queued_at, created_at, updated_at) "
+				+ "values (?, ?, 'WAITING', ?, ?, ?, ?)",
+			roomId,
+			userId,
+			queueOrder,
+			Timestamp.from(REQUEST_TIME),
+			Timestamp.from(REQUEST_TIME),
+			Timestamp.from(REQUEST_TIME));
+	}
+
+	private SQLException findPostgresException(Throwable exception) {
+		Throwable cause = exception;
+		while (cause != null) {
+			if (cause.getClass().getName().equals("org.postgresql.util.PSQLException")
+				&& cause instanceof SQLException postgresException) {
+				return postgresException;
+			}
+			cause = cause.getCause();
+		}
+		throw new AssertionError("PostgreSQL PSQLException 원인을 찾지 못했습니다.", exception);
 	}
 
 	private Room createRoom(long hostUserId, int capacity) {
