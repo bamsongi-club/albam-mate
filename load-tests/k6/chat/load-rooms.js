@@ -37,11 +37,16 @@ const LOAD_ROOM_SEND_RATE = readPositiveInteger('K6_LOAD_ROOM_SEND_RATE', 1);
  * VU 번호를 구독자 수로 나눠 방을 정하므로 VU가 늘면 새 방이 켜진다.
  */
 export function loadRoomsSubscriber(data) {
-	const stage = currentStage(data, LOAD_ROOM_STEPS.length, 0);
 	const roomIndex = Math.floor((execution.vu.idInTest - 1) / LOAD_ROOM_SUBSCRIBERS);
 	const roomId = PROFILE_ROOM_IDS[roomIndex % PROFILE_ROOM_IDS.length];
 	const user = roomUserForVu(data.users, roomId, execution.vu.idInTest);
-	holdLoadSubscriber(user, roomId, stage, 'load-rooms');
+	holdLoadSubscriber(
+		user,
+		roomId,
+		currentStage(data, LOAD_ROOM_STEPS.length, 0),
+		() => currentStage(data, LOAD_ROOM_STEPS.length, 0),
+		'load-rooms',
+	);
 }
 
 /** 활성 방 수 발신자. 그 단계에서 켜져 있는 방에만 돌아가며 보낸다. */

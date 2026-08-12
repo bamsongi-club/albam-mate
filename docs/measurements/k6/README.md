@@ -52,6 +52,10 @@ docs/
 - 원자료는 현재 `local-only`다. manifest의 SHA-256은 로컬 bundle이 바뀌었는지 확인하지만, 이 저장소만으로 원자료 내용을 독립 재검증할 수 있다는 뜻은 아니다.
 - 후속 측정은 새 Campaign ID와 manifest를 만들고, 기존 행의 `후속 없음`을 `superseded by <Campaign ID>`로 바꾼다. 기존 보고서와 manifest는 덮어쓰지 않는다.
 
+### 지표 수준 limitation
+
+캠페인이 `completed-with-limitations`이거나 Run이 `PASS`여도 특정 지표만 해석 불가할 수 있다. 이때 campaign 상태, Run의 원시 수치, `reportDisposition=included`와 `PASS`는 보존하고 해당 지표의 limitation·영향 범위·재측정 조건을 보고서와 manifest에 함께 적는다. 제한된 지표는 정상·실패 경계나 단계 간 비교에 쓰지 않으며, 다른 독립 지표의 유효성까지 소급해 바꾸지 않는다.
+
 ## 상태 어휘
 
 | 필드 | 값 | 의미 |

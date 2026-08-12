@@ -30,6 +30,28 @@ class ChatK6SourceContractTest {
 		assertThat(rateLimitContract).contains("readEnum('K6_CHAT_CASE'");
 	}
 
+	@Test
+	void 장기_구독자의_전달_지연은_수신_시점의_단계로_기록한다() throws IOException {
+		String library = file("load-tests/k6/chat/lib/chat.js");
+		String fanout = file("load-tests/k6/chat/load-fanout.js");
+		String rooms = file("load-tests/k6/chat/load-rooms.js");
+		String mixed = file("load-tests/k6/chat/load-mixed.js");
+
+		assertThat(library).contains("function holdLoadSubscriber(user, roomId, connectionStage, deliveryStage, mode)");
+		assertThat(library).contains("loadStageConnectMs.add(Date.now() - startedAt, { stage: connectionStage });");
+		assertThat(library).contains("loadStageDeliveryMs.add(");
+		assertThat(library).contains("stage: deliveryStage(),");
+		assertSubscriberUsesDynamicDeliveryStage(fanout, "LOAD_FANOUT_SUBSCRIBER_STEPS");
+		assertSubscriberUsesDynamicDeliveryStage(rooms, "LOAD_ROOM_STEPS");
+		assertSubscriberUsesDynamicDeliveryStage(mixed, "LOAD_MIXED_SCALES");
+	}
+
+	private void assertSubscriberUsesDynamicDeliveryStage(String scenario, String stepVariable) {
+		assertThat(scenario).containsPattern(
+			"(?s)holdLoadSubscriber\\(\\s*user,\\s*roomId,\\s*currentStage\\(data, " + stepVariable
+				+ "\\.length, 0\\),\\s*\\(\\) => currentStage\\(data, " + stepVariable + "\\.length, 0\\),");
+	}
+
 	private String file(String path) throws IOException {
 		return Files.readString(REPOSITORY_ROOT.resolve(path));
 	}

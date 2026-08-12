@@ -51,11 +51,16 @@ export function loadMixedHistory(data) {
 
 /** 혼합 부하의 구독. 전송·조회가 도는 동안 연결을 유지한다. */
 export function loadMixedConnection(data) {
-	const stage = currentStage(data, LOAD_MIXED_SCALES.length, 0);
 	const roomIndex = (execution.vu.idInTest - 1) % PROFILE_ROOM_IDS.length;
 	const roomId = PROFILE_ROOM_IDS[roomIndex];
 	const user = roomUserForVu(data.users, roomId, execution.vu.idInTest);
-	holdLoadSubscriber(user, roomId, stage, 'load-mixed');
+	holdLoadSubscriber(
+		user,
+		roomId,
+		currentStage(data, LOAD_MIXED_SCALES.length, 0),
+		() => currentStage(data, LOAD_MIXED_SCALES.length, 0),
+		'load-mixed',
+	);
 }
 
 /** 혼합. 전송·조회·연결을 같은 배수로 함께 올려 실사용에 가까운 형태로 민다. */

@@ -79,6 +79,19 @@
     "includedRunCount": 6,
     "excludedRunCount": 0
   },
+  "metricLimitations": [
+    {
+      "metric": "stages[].deliveryP95",
+      "scenarios": [
+        "load-fanout",
+        "load-rooms",
+        "load-mixed"
+      ],
+      "reason": "장기 WebSocket 수신 표본이 연결 시작 단계로 태그되어 계단 경계를 지난 전달도 이전 단계에 섞였다.",
+      "impact": "원시값과 PASS/included 상태는 보존하지만 이 지표로 단계 간 비교 또는 전달 지연 결론을 내릴 수 없다.",
+      "rerunRequired": "수신 시점의 stage 태그를 쓰는 수정본으로 같은 조건에서 재측정"
+    }
+  ],
   "runs": [
     {
       "scenario": "load-throughput",

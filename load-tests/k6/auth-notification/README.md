@@ -140,7 +140,7 @@ docker compose --env-file .env -f compose.local.yml exec redis redis-cli --scan 
 
 ### 제한 상향 프로파일 예행
 
-용량 시나리오가 기다리고 있는 제한 상향은 별도 코드 없이 환경 변수로 만든다. `app.security.auth-request.*`는 상한 제약이 없어 `@Min(1)`만 지키면 된다. `compose.local.yml`의 Spring 환경에 아래를 추가하고 재기동한 뒤 `CAPACITY_PROFILE_ACK`를 넘긴다.
+용량 시나리오가 기다리고 있는 제한 상향은 별도 코드 없이 환경 변수로 만든다. `app.security.auth-request.*`는 상한 제약이 없어 `@Min(1)`만 지키면 된다. `.env` 또는 셸에서 아래 변수를 설정하고 local Compose를 재기동한 뒤 `CAPACITY_PROFILE_ACK`를 넘긴다. `compose.local.yml`을 직접 수정하지 않는다.
 
 | 환경 변수 | 대응 설정 |
 | --- | --- |

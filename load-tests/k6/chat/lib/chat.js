@@ -247,14 +247,14 @@ export function readHistoryPage(user, stage) {
 }
 
 /**
- * 부하 mode의 수신자를 한 단계 길이만큼 붙여 둔다. 연결 시각과 전달 지연을 그 단계의
- * 태그로 남기므로, 계단마다 따로 읽을 수 있다.
+ * 부하 mode의 수신자를 한 단계 길이만큼 붙여 둔다. 연결·open 지표는 연결 시작 단계를
+ * 유지하고, 장기 연결로 받은 전달 지연은 수신 시점의 단계로 태그를 남긴다.
  */
-export function holdLoadSubscriber(user, roomId, stage, mode) {
+export function holdLoadSubscriber(user, roomId, connectionStage, deliveryStage, mode) {
 	const startedAt = Date.now();
 	const connection = createWebSocket(user, mode);
 	connection.socket.addEventListener('open', () => {
-		loadStageConnectMs.add(Date.now() - startedAt, { stage });
+		loadStageConnectMs.add(Date.now() - startedAt, { stage: connectionStage });
 	});
 	connection.socket.addEventListener('message', (event) => {
 		const message = parseWebSocketEvent(event.data);
@@ -265,12 +265,14 @@ export function holdLoadSubscriber(user, roomId, stage, mode) {
 			return;
 		}
 		recordDeliveryFromCreatedAt(message.message.createdAt);
-		loadStageDeliveryMs.add(Date.now() - Date.parse(message.message.createdAt), { stage });
+		loadStageDeliveryMs.add(Date.now() - Date.parse(message.message.createdAt), {
+			stage: deliveryStage(),
+		});
 	});
 	setTimeout(() => {
 		recordMissingWebSocketOpen(connection);
 		websocketSessionHealthy.add(isHealthyWebSocket(connection));
-		loadStageOpened.add(connection.opened, { stage });
+		loadStageOpened.add(connection.opened, { stage: connectionStage });
 		closeWebSocket(connection);
 	}, durationMilliseconds(LOAD_STEP_DURATION));
 }

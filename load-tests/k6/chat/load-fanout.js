@@ -37,10 +37,15 @@ const LOAD_FANOUT_SEND_RATE = readPositiveInteger('K6_LOAD_FANOUT_SEND_RATE', 2)
  * 단계마다 달라지는 전달 지연은 구독자 수 때문이라고 읽을 수 있다.
  */
 export function loadFanoutSubscriber(data) {
-	const stage = currentStage(data, LOAD_FANOUT_SUBSCRIBER_STEPS.length, 0);
 	const roomId = PROFILE_ROOM_IDS[0];
 	const user = roomUserForVu(data.users, roomId, execution.vu.idInTest);
-	holdLoadSubscriber(user, roomId, stage, 'load-fanout');
+	holdLoadSubscriber(
+		user,
+		roomId,
+		currentStage(data, LOAD_FANOUT_SUBSCRIBER_STEPS.length, 0),
+		() => currentStage(data, LOAD_FANOUT_SUBSCRIBER_STEPS.length, 0),
+		'load-fanout',
+	);
 }
 
 /** 팬아웃 측정용 발신자. 구독자 수만 변수로 남기려고 전송률을 고정한다. */

@@ -38,12 +38,21 @@ class P1DeploymentContractTest {
 		"(?m)^[\\t ]*proxy_set_header Forwarded \"\";[\\t ]*$");
 
 	@Test
-	void 운영_Compose와_검증기와_부하_문서는_ALBAM_MATE_LOGIN_LIMIT만_쓴다() throws IOException {
+	void 모든_Compose와_검증기와_부하_문서는_ALBAM_MATE_LOGIN_LIMIT만_쓴다() throws IOException {
 		for (String composePath : new String[] {"compose.production.yml", "compose.app2.yml"}) {
 			String compose = file(composePath);
 			assertTrue(compose.contains("ALBAM_MATE_LOGIN_LIMIT: ${ALBAM_MATE_LOGIN_LIMIT:-30}"));
 			assertFalse(compose.contains("APP_SECURITY_AUTHREQUEST_LOGINLIMIT"));
 		}
+		String localCompose = file("compose.local.yml");
+		String localSpringOne = section(localCompose, "  spring-1:", "  spring-2:");
+		String localSpringTwo = section(localCompose, "  spring-2:", "  proxy:");
+		assertTrue(localSpringOne.contains("environment: &spring_environment"));
+		assertTrue(localSpringOne.contains("ALBAM_MATE_LOGIN_LIMIT: ${ALBAM_MATE_LOGIN_LIMIT:-30}"));
+		assertTrue(localSpringTwo.contains("environment: *spring_environment"));
+		assertFalse(localCompose.contains("APP_SECURITY_AUTHREQUEST_LOGINLIMIT"));
+		assertEquals("${ALBAM_MATE_LOGIN_LIMIT:30}", yamlProperties("src/main/resources/application-local.yml")
+			.getProperty("app.security.auth-request.login-limit"));
 		assertTrue(file("scripts/verify-docker-deployment.mjs").contains("ALBAM_MATE_LOGIN_LIMIT: '20000'"));
 		assertFalse(file("scripts/verify-docker-deployment.mjs").contains("APP_SECURITY_AUTHREQUEST_LOGINLIMIT"));
 		assertTrue(file("load-tests/k6/auth-notification/README.md").contains("ALBAM_MATE_LOGIN_LIMIT"));

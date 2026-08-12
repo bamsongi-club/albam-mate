@@ -23,23 +23,27 @@ import org.springframework.core.io.ClassPathResource;
 class ProductionLoginLimitDefaultTest {
 
 	@Test
-	void 로그인_제한_환경변수를_주지_않으면_기존_기본값_30을_유지한다() throws IOException {
-		StandardEnvironment environment = 운영_프로파일_환경();
+	void production과_local은_로그인_제한_환경변수가_없어도_기본값_30을_유지한다() throws IOException {
+		for (String profile : List.of("production", "local")) {
+			AuthenticationRequestProtectionProperties properties = 인증_요청_설정을_바인딩한다(프로파일_환경(profile));
 
-		AuthenticationRequestProtectionProperties properties = 인증_요청_설정을_바인딩한다(environment);
-
-		assertThat(properties.getLoginLimit()).isEqualTo(30);
+			assertThat(properties.getLoginLimit()).isEqualTo(30);
+		}
+		assertThat(yaml을_읽는다("application-local.yml").get("app.security.auth-request.login-limit"))
+			.isEqualTo("${ALBAM_MATE_LOGIN_LIMIT:30}");
 	}
 
 	@Test
-	void 로그인_제한_환경변수를_주면_그_값을_따른다() throws IOException {
-		StandardEnvironment environment = 운영_프로파일_환경();
-		environment.getPropertySources()
-			.addFirst(new SystemEnvironmentPropertySource("override", Map.of("ALBAM_MATE_LOGIN_LIMIT", "300")));
+	void production과_local은_로그인_제한_환경변수를_주면_그_값을_따른다() throws IOException {
+		for (String profile : List.of("production", "local")) {
+			StandardEnvironment environment = 프로파일_환경(profile);
+			environment.getPropertySources()
+				.addFirst(new SystemEnvironmentPropertySource("override", Map.of("ALBAM_MATE_LOGIN_LIMIT", "300")));
 
-		AuthenticationRequestProtectionProperties properties = 인증_요청_설정을_바인딩한다(environment);
+			AuthenticationRequestProtectionProperties properties = 인증_요청_설정을_바인딩한다(environment);
 
-		assertThat(properties.getLoginLimit()).isEqualTo(300);
+			assertThat(properties.getLoginLimit()).isEqualTo(300);
+		}
 	}
 
 	private AuthenticationRequestProtectionProperties 인증_요청_설정을_바인딩한다(StandardEnvironment environment) {
@@ -49,14 +53,14 @@ class ProductionLoginLimitDefaultTest {
 	}
 
 	/**
-	 * 운영 프로파일을 먼저 얹어 기본 설정보다 우선하게 만든다. 실제 OS 환경 변수는 제거해
+	 * 지정 프로파일을 먼저 얹어 기본 설정보다 우선하게 만든다. 실제 OS 환경 변수는 제거해
 	 * 실행 환경에 남은 값이 결과를 바꾸지 못하게 한다.
 	 */
-	private StandardEnvironment 운영_프로파일_환경() throws IOException {
+	private StandardEnvironment 프로파일_환경(String profile) throws IOException {
 		StandardEnvironment environment = new StandardEnvironment();
 		environment.getPropertySources()
 			.remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
-		for (String name : List.of("application-production.yml", "application.yml")) {
+		for (String name : List.of("application-" + profile + ".yml", "application.yml")) {
 			environment.getPropertySources().addLast(new MapPropertySource(name, yaml을_읽는다(name)));
 		}
 		return environment;
