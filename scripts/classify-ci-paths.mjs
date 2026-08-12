@@ -12,8 +12,7 @@ const DOCUMENTATION_ONLY_PATTERNS = [
   /^docs\//,
   /^\.github\/ISSUE_TEMPLATE\//,
   /^scripts\/check-doc-links(?:\.test)?\.mjs$/,
-  /^scripts\/classify-postgres-requirement(?:\.test)?\.mjs$/,
-  /^scripts\/verify-changed-h2-coverage(?:\.test)?\.mjs$/,
+  /^scripts\/(?:classify-postgres-requirement|verify-changed-h2-coverage)\.test\.mjs$/,
   /^scripts\/validate-(?:packet|backend-test-manifest|coverage-ratchet)(?:\.test)?\.mjs$/,
 ];
 

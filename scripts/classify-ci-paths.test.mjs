@@ -184,55 +184,64 @@ test("CLI는 실제 diff의 safe 변경에서 PostgreSQL과 Docker를 생략한�
   });
 });
 
-test("CLI는 PostgreSQL 실행 대상 제어 스크립트 단독 변경에서 PostgreSQL과 Docker를 실행한다", (t) => {
-  const worktree = fs.mkdtempSync(path.join(os.tmpdir(), "ci-postgres-control-"));
-  t.after(() => fs.rmSync(worktree, { recursive: true, force: true }));
-  const git = (...args) =>
-    spawnSync("git", ["-C", worktree, ...args], { encoding: "utf8", windowsHide: true });
-  const changedPath = "scripts/partition-postgres-tests.mjs";
-  const sourcePath = path.join(worktree, changedPath);
-  const initialized = git("init", "--quiet");
-  assert.equal(initialized.status, 0, initialized.stderr);
-  fs.mkdirSync(path.dirname(sourcePath), { recursive: true });
-  fs.writeFileSync(sourcePath, "export const shardCount = 2;\n", "utf8");
-  git("add", "--all");
-  const baseline = git(
-    "-c",
-    "user.name=test",
-    "-c",
-    "user.email=test@example.com",
-    "commit",
-    "--quiet",
-    "--message=baseline",
-  );
-  assert.equal(baseline.status, 0, baseline.stderr);
-  fs.writeFileSync(sourcePath, "export const shardCount = 3;\n", "utf8");
-  const pathsFile = path.join(worktree, "changed-paths.txt");
-  fs.writeFileSync(pathsFile, `${changedPath}\0`, "utf8");
+test("CLI는 PostgreSQL 실행 대상과 선택 검증 제어 스크립트 단독 변경에서 PostgreSQL과 Docker를 실행한다", (t) => {
+  for (const changedPath of [
+    "scripts/partition-postgres-tests.mjs",
+    "scripts/classify-postgres-requirement.mjs",
+    "scripts/verify-changed-h2-coverage.mjs",
+  ]) {
+    const worktree = fs.mkdtempSync(path.join(os.tmpdir(), "ci-postgres-control-"));
+    t.after(() => fs.rmSync(worktree, { recursive: true, force: true }));
+    const git = (...args) =>
+      spawnSync("git", ["-C", worktree, ...args], { encoding: "utf8", windowsHide: true });
+    const sourcePath = path.join(worktree, changedPath);
+    const initialized = git("init", "--quiet");
+    assert.equal(initialized.status, 0, initialized.stderr);
+    fs.mkdirSync(path.dirname(sourcePath), { recursive: true });
+    fs.writeFileSync(sourcePath, "export const gate = 2;\n", "utf8");
+    git("add", "--all");
+    const baseline = git(
+      "-c",
+      "user.name=test",
+      "-c",
+      "user.email=test@example.com",
+      "commit",
+      "--quiet",
+      "--message=baseline",
+    );
+    assert.equal(baseline.status, 0, baseline.stderr);
+    fs.writeFileSync(sourcePath, "export const gate = 3;\n", "utf8");
+    const pathsFile = path.join(worktree, "changed-paths.txt");
+    fs.writeFileSync(pathsFile, `${changedPath}\0`, "utf8");
 
-  const result = spawnSync(
-    process.execPath,
-    [
-      scriptPath,
-      "--paths-file",
-      pathsFile,
-      "--base",
-      "HEAD",
-      "--worktree",
-      worktree,
-    ],
-    { encoding: "utf8" },
-  );
+    const result = spawnSync(
+      process.execPath,
+      [
+        scriptPath,
+        "--paths-file",
+        pathsFile,
+        "--base",
+        "HEAD",
+        "--worktree",
+        worktree,
+      ],
+      { encoding: "utf8" },
+    );
 
-  assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(parseOutputs(result.stdout), {
-    backend: "true",
-    frontend: "false",
-    postgres_decision: "needs-review",
-    postgres_required: "true",
-    docker_required: "true",
-    postgres_reasons: "postgres-execution-control",
-  });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(
+      parseOutputs(result.stdout),
+      {
+        backend: "true",
+        frontend: "false",
+        postgres_decision: "needs-review",
+        postgres_required: "true",
+        docker_required: "true",
+        postgres_reasons: "postgres-execution-control",
+      },
+      changedPath,
+    );
+  }
 });
 
 test("CLI 분류기가 실패하면 성공 상태로 needs-review 전체 검증에 폴백한다", (t) => {
