@@ -359,6 +359,11 @@ class RoomParticipationConcurrencyPostgresTest {
 			.orElseThrow()
 			.getStatus());
 		assertTrue(participationRepository.findByRoomIdAndUserId(room.getId(), waitingUserId).isEmpty());
+		assertEquals(0, jdbcTemplate.queryForObject(
+			"select count(*) from notification_outbox_events where room_id = ? and event_type = 'WAITLIST_PROMOTED'",
+			Integer.class,
+			room.getId()));
+		assertRoomInvariant(room.getId());
 	}
 
 	@Test
@@ -584,6 +589,74 @@ class RoomParticipationConcurrencyPostgresTest {
 			"select count(*) from participations where room_id = ? and status = 'ACTIVE'",
 			Integer.class,
 			room.getId()) <= 1);
+	}
+
+	@Test
+	void CANCELED와_FINISHED_ROOM의_동시_참가는_최종_상태와_참가_카운터를_바꾸지_않는다() throws Exception {
+		assertTerminalRoomRejectsConcurrentParticipation(createCanceledRoom(), RoomStatus.CANCELED);
+		assertTerminalRoomRejectsConcurrentParticipation(createFinishedRoom(), RoomStatus.FINISHED);
+	}
+
+	private Room createCanceledRoom() {
+		long hostUserId = insertUser("terminal-canceled-host", "방장");
+		long participantUserId = insertUser("terminal-canceled-participant", "참가자");
+		Room room = createRoom(hostUserId, 1);
+		roomParticipationService.participate(participantUserId, room.getId());
+		roomStatusChangeService.cancelRoom(hostUserId, room.getId());
+		return roomRepository.findById(room.getId()).orElseThrow();
+	}
+
+	private Room createFinishedRoom() {
+		long hostUserId = insertUser("terminal-finished-host", "방장");
+		long participantUserId = insertUser("terminal-finished-participant", "참가자");
+		Room room = roomRepository.saveAndFlush(
+			Room.create(
+				hostUserId,
+				RoomType.PERSON_FOCUSED,
+				"종료 상태 동시성 테스트 방",
+				null,
+				null,
+				ExperienceLevel.ALL_LEVELS,
+				false,
+				NOW,
+				"홍대 테스트 장소",
+				1));
+		participationRepository.saveAndFlush(
+			Participation.createActive(room, participantUserId, NOW.minusSeconds(60)));
+		room.addActiveParticipant();
+		roomRepository.saveAndFlush(room);
+		roomStatusChangeService.finishRoom(hostUserId, room.getId());
+		return roomRepository.findById(room.getId()).orElseThrow();
+	}
+
+	private void assertTerminalRoomRejectsConcurrentParticipation(Room terminalRoom, RoomStatus expectedStatus)
+		throws Exception {
+		long firstUserId = insertUser("terminal-first-" + terminalRoom.getId(), "참가자1");
+		long secondUserId = insertUser("terminal-second-" + terminalRoom.getId(), "참가자2");
+
+		roomReadGate.activate(terminalRoom.getId());
+		List<CommandResult> results;
+		try {
+			results = executeConcurrently(
+				() -> roomParticipationService.participate(firstUserId, terminalRoom.getId()),
+				() -> roomParticipationService.participate(secondUserId, terminalRoom.getId()));
+			roomReadGate.assertExactlyTwoReadsOfOneVersion();
+		} finally {
+			roomReadGate.deactivate();
+		}
+
+		assertEquals(
+			List.of(ErrorCode.ROOM_NOT_RECRUITING, ErrorCode.ROOM_NOT_RECRUITING),
+			results.stream().map(CommandResult::errorCode).toList());
+		Room storedRoom = roomRepository.findById(terminalRoom.getId()).orElseThrow();
+		assertEquals(expectedStatus, storedRoom.getStatus());
+		int activeParticipationCount = jdbcTemplate.queryForObject(
+			"select count(*) from participations where room_id = ? and status = 'ACTIVE'",
+			Integer.class,
+			terminalRoom.getId());
+		assertEquals(activeParticipationCount, storedRoom.getActiveParticipantCount());
+		assertTrue(storedRoom.getActiveParticipantCount() >= 0);
+		assertTrue(storedRoom.getActiveParticipantCount() <= storedRoom.getCapacity());
 	}
 
 	private RoomWaitlistStatus waitlistStatus(long roomId, long userId) {
