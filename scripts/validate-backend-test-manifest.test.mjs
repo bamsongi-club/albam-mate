@@ -682,12 +682,20 @@ test('skip되거나 provider가 없는 JUnit selector evidence를 거부한다',
             'import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    @Test @Disabled\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
         ],
         [
+            'multiline method Disabled',
+            'import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    @Disabled(\n        "reason"\n    )\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        ],
+        [
             'class Disabled',
             'import org.junit.jupiter.api.Disabled;\nimport org.junit.jupiter.api.Test;\n\n@Disabled\nclass NotificationReadServiceTest {\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
         ],
         [
             'conditional class',
             'import org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.condition.EnabledIfSystemProperty;\n\n@EnabledIfSystemProperty(named = "postgres", matches = "true")\nclass NotificationReadServiceTest {\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
+        ],
+        [
+            'multiline conditional class',
+            'import org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.condition.EnabledIfSystemProperty;\n\n@EnabledIfSystemProperty(\n    named = "postgres",\n    matches = "true"\n)\nclass NotificationReadServiceTest {\n    @Test\n    void 알림을_읽음_처리한다() {\n    }\n}\n',
         ],
         [
             'missing provider',

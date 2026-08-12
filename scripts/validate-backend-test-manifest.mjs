@@ -311,10 +311,16 @@ function translateJavaUnicodeEscapes(contents) {
     return { contents: translated, error: null };
 }
 
+const JAVA_ANNOTATION =
+    '@[.$_\\p{ID_Start}\\u200c\\u200d\\p{ID_Continue}]+' +
+    '(?:[\\t ]*\\((?:[^()]|\\([^()]*\\))*\\))?';
+const JAVA_ANNOTATION_LINES =
+    `(?:^[\\t ]*(?:${JAVA_ANNOTATION}[\\t ]*)+\\r?\\n)`;
+
 function findTopLevelType(contents, className) {
     const escaped = className.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
     const declaration = new RegExp(
-        `((?:^[\\t ]*@[^\\r\\n]+\\r?\\n)*)^[\\t ]*` +
+        `((?:${JAVA_ANNOTATION_LINES})*)^[\\t ]*` +
             `((?:(?:public|protected|private|abstract|static|final|strictfp|sealed|non-sealed)\\s+)*)` +
             `(class|record|interface|enum)\\s+${escaped}\\b[^{}]*\\{`,
         'gmu',
@@ -454,7 +460,7 @@ function hasTestMethodDeclaration(sourceInfo, methodName) {
     if (!sourceInfo.classRange) return false;
     const escaped = methodName.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
     const declaration = new RegExp(
-        `((?:^[\\t ]*@[^\\r\\n]+\\r?\\n)+)^[\\t ]*` +
+        `((?:${JAVA_ANNOTATION_LINES})+)^[\\t ]*` +
             `((?:(?:public|protected|private|static|final|synchronized|abstract|native|strictfp)\\s+)*)` +
             `void\\s+${escaped}\\s*\\(([^()]*)\\)`,
         'gmu',
