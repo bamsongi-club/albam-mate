@@ -315,7 +315,7 @@ const JAVA_ANNOTATION =
     '@[.$_\\p{ID_Start}\\u200c\\u200d\\p{ID_Continue}]+' +
     '(?:[\\t ]*\\((?:[^()]|\\([^()]*\\))*\\))?';
 const JAVA_ANNOTATION_LINES =
-    `(?:^[\\t ]*(?:${JAVA_ANNOTATION}[\\t ]*)+\\r?\\n)`;
+    `(?:^[\\t ]*(?:${JAVA_ANNOTATION}[\\t ]*)+\\r?\\n(?:^[\\t ]*\\r?\\n)*)`;
 
 function findTopLevelType(contents, className) {
     const escaped = className.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
