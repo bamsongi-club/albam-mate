@@ -30,7 +30,8 @@ docs/
 | --- | --- | --- | --- | --- | --- | --- |
 | `auth-notification-20260811T021040KST` | 2026-08-11 02:10:40~10:36:50 KST | `completed-with-limitations` | [인증·알림 AWS 용량 측정](auth-notification-capacity-2026-08-11.md) | [알림 broker 판단](notification-broker-decision-2026-08-11.md) | [campaign manifest](evidence/auth-notification-capacity-2026-08-11.json) | 최초 캠페인, 후속 없음 |
 | `chat-delivery-20260811T172123KST` | 2026-08-11 17:18:50~18:36:49 KST | `completed-with-limitations` | [채팅 전송·전달 AWS 용량 측정](chat-delivery-capacity-2026-08-11.md) | 없음 | [campaign manifest](evidence/chat-delivery-capacity-2026-08-11.json) | superseded by `chat-delivery-20260812T042245KST` |
-| `chat-delivery-20260812T042245KST` | 2026-08-12 04:22:45~05:37:34 KST | `completed-with-limitations` | [채팅 전송·전달 AWS 용량 재측정](chat-delivery-capacity-2026-08-12.md) | 없음 | [campaign manifest](evidence/chat-delivery-capacity-2026-08-12.json) | `chat-delivery-20260811T172123KST`를 대체, 후속 없음 |
+| `chat-delivery-20260812T042245KST` | 2026-08-12 04:22:45~05:37:34 KST | `completed-with-limitations` | [채팅 전송·전달 AWS 용량 재측정](chat-delivery-capacity-2026-08-12.md) | 없음 | [campaign manifest](evidence/chat-delivery-capacity-2026-08-12.json) | superseded by `chat-delivery-20260812T090111KST` |
+| `chat-delivery-20260812T090111KST` | 2026-08-12 09:01:11~10:35:38 KST | `completed` | [채팅 전송·전달 AWS 용량 반복 측정](chat-delivery-capacity-2026-08-12-repeat.md) | 없음 | [campaign manifest](evidence/chat-delivery-capacity-2026-08-12-repeat.json) | `chat-delivery-20260812T042245KST`를 대체, 후속 없음 |
 
 `completed-with-limitations`는 실행과 보고가 끝났지만 유효한 정상·실패 경계를 모두 확정하지 못했거나 원자료 접근 범위가 제한된 상태다. `completed`는 계획한 Run이 모두 유효하게 끝나 축별 경계를 확정한 상태다. `current` 판단서는 후속 문서가 `supersedes`로 대체하기 전까지 현재 판단으로 읽는다.
 
@@ -51,6 +52,7 @@ docs/
 - `reportDisposition=excluded`인 Run은 실패한 준비·계측 과정의 이력이며 정상·실패 경계 계산에 사용하지 않는다.
 - 원자료는 현재 `local-only`다. manifest의 SHA-256은 로컬 bundle이 바뀌었는지 확인하지만, 이 저장소만으로 원자료 내용을 독립 재검증할 수 있다는 뜻은 아니다.
 - 후속 측정은 새 Campaign ID와 manifest를 만들고, 기존 행의 `후속 없음`을 `superseded by <Campaign ID>`로 바꾼다. 기존 보고서와 manifest는 덮어쓰지 않는다.
+- 성공률·지연 같은 수치는 실행 간 편차가 크다. **두 캠페인을 비교해 개선·악화를 판정하지 않는다.** 판정에는 같은 조건 반복 측정으로 얻은 범위끼리 비교한다. 재현되는 것은 경계 위치와 축 사이의 상대 관계다.
 
 ### 지표 수준 limitation
 

@@ -1,11 +1,13 @@
 {
-  "campaignId": "chat-delivery-20260812T042245KST",
-  "campaignStatus": "completed-with-limitations",
-  "documentStatus": "superseded",
-  "supersedes": "chat-delivery-20260811T172123KST",
+  "campaignId": "chat-delivery-20260812T090111KST",
+  "campaignStatus": "completed",
+  "documentStatus": "current",
+  "supersedes": "chat-delivery-20260812T042245KST",
+  "purpose": "새 경계 탐색이 아니라 직전 캠페인 수치가 실행 간 편차인지 확인한다.",
   "window": {
-    "startedAt": "2026-08-11T19:22:45Z",
-    "endedAt": "2026-08-11T20:37:34Z"
+    "startedAtKst": "2026-08-12T09:01:11+09:00",
+    "endedAtKst": "2026-08-12T10:35:38+09:00",
+    "durationSeconds": 5667
   },
   "release": {
     "sha": "1db046c0acdde59737411303a5547f3d8fed1422",
@@ -14,7 +16,7 @@
     "webImage": "sha256:52b23434c167c4fe583a13b291e6aea16f790952c7fef68b43cbf12e429e347a",
     "postgresImage": "sha256:0826e5f2996099babb925e09fb72bf2c6eb5d187cfcae20aa9291af1612307e4",
     "redisImage": "sha256:78b83aee0bf6781ca973ee5022de73dd16fe93f53593c3a31f079c8c3fa08921",
-    "note": "src/main 과 frontend/nginx.production.conf 는 이 release 와 동일하다. 차이는 이미지 revision 라벨뿐이다."
+    "note": "직전 캠페인과 release·image·계단·fixture 규모가 모두 같다. 바뀐 것은 실행 시각뿐이다."
   },
   "fixture": {
     "source": "load-tests/k6/chat/fixtures/rooms.sql",
@@ -25,51 +27,76 @@
   },
   "observations": {
     "redis": {
-      "connectedClients": 3,
-      "maxclients": 10000,
       "rejectedConnections": 0,
-      "totalConnectionsReceived": 120838,
-      "usedMemoryHuman": "2.06M",
-      "usedMemoryPeakHuman": "2.27M"
+      "totalConnectionsReceived": 125678,
+      "usedMemoryHuman": "2.05M"
     },
     "redisConnectionFailureException": {
-      "app1": 1508,
-      "app2": 1420,
-      "total": 2928
+      "app1": 1354,
+      "app2": 1458,
+      "total": 2812
     },
     "chatHttpStatus": {
       "postMessages": {
-        "2xx": 4718,
-        "429": 47,
-        "500": 395,
-        "503": 343
+        "2xx": 4867,
+        "500": 331,
+        "503": 305
       },
       "getMessages": {
-        "2xx": 3059,
-        "500": 365,
-        "503": 272
+        "2xx": 3063,
+        "500": 369,
+        "503": 259
       }
     },
     "cpu": {
-      "note": "크레딧 잔고는 신규 생성 22분 뒤 부하를 걸어 낮게 시작했고, 측정 내내 줄지 않고 올랐다. CPU 는 병목이 아니다.",
+      "note": "CPU 는 병목이 아니다. 3회 연속 크레딧이 오르고 사용률이 낮았다.",
       "app1": {
-        "creditStart": 0.9,
-        "creditEnd": 6.54,
-        "utilizationAvgPercent": 6.3,
-        "utilizationMaxPercent": 37.0
+        "creditStart": 3.1,
+        "creditEnd": 14.22,
+        "utilizationAvgPercent": 4.1,
+        "utilizationMaxPercent": 14.5
       },
       "app2": {
-        "creditStart": 0.49,
-        "creditEnd": 9.29,
-        "utilizationAvgPercent": 3.6,
-        "utilizationMaxPercent": 8.8
-      },
-      "previousCampaignComparison": {
-        "campaignId": "chat-delivery-20260811T172123KST",
-        "creditAtLoadStart": "약 12",
-        "utilizationAvgPercentRange": "1.8~5.3",
-        "instanceAgeAtLoadStart": "약 2시간"
+        "creditStart": 3.27,
+        "creditEnd": 14.79,
+        "utilizationAvgPercent": 3.8,
+        "utilizationMaxPercent": 13.6
       }
+    }
+  },
+  "runToRunVariance": {
+    "note": "같은 release·계단·fixture 로 3회 측정한 전송 성공률. 경계 위치는 같고 깊이만 흔들린다.",
+    "campaigns": [
+      "chat-delivery-20260811T172123KST",
+      "chat-delivery-20260812T042245KST",
+      "chat-delivery-20260812T090111KST"
+    ],
+    "sendOkRatePercent": {
+      "load-rooms.stage4": [
+        70.0,
+        57.1,
+        65.9
+      ],
+      "load-mixed.stage3": [
+        84.0,
+        69.4,
+        71.8
+      ],
+      "load-mixed.stage4": [
+        42.0,
+        44.7,
+        44.9
+      ],
+      "load-fanout.stage5": [
+        97.0,
+        91.2,
+        95.0
+      ],
+      "load-throughput.stage5": [
+        92.3,
+        86.0,
+        100.0
+      ]
     }
   },
   "artifacts": {
@@ -79,34 +106,21 @@
     "includedRunCount": 6,
     "excludedRunCount": 0
   },
-  "metricLimitations": [
-    {
-      "metric": "stages[].deliveryP95",
-      "scenarios": [
-        "load-fanout",
-        "load-rooms",
-        "load-mixed"
-      ],
-      "reason": "장기 WebSocket 수신 표본이 연결 시작 단계로 태그되어 계단 경계를 지난 전달도 이전 단계에 섞였다.",
-      "impact": "원시값과 PASS/included 상태는 보존하지만 이 지표로 단계 간 비교 또는 전달 지연 결론을 내릴 수 없다.",
-      "rerunRequired": "수신 시점의 stage 태그를 쓰는 수정본으로 같은 조건에서 재측정"
-    }
-  ],
   "runs": [
     {
       "scenario": "load-throughput",
-      "endedAt": "2026-08-11T19:36:58Z",
+      "endedAt": "2026-08-12T00:15:56Z",
       "exit": 2,
-      "summary": "summary-20260811T192325Z.json",
-      "console": "console-20260811T192325Z.log",
-      "startedAt": "2026-08-11T19:22:45Z",
+      "summary": "summary-20260812T000209Z.json",
+      "console": "console-20260812T000209Z.log",
+      "startedAt": "2026-08-12T00:01:11Z",
       "stages": [
         {
           "stage": 1,
-          "httpP95": 111.47945324999999,
+          "httpP95": 91.68191829999999,
           "sendOkRate": 1,
           "sendTotal": 134,
-          "deliveryP95": 82,
+          "deliveryP95": 84,
           "deliverySamples": null,
           "connectP95": null,
           "openedRate": null,
@@ -114,10 +128,10 @@
         },
         {
           "stage": 2,
-          "httpP95": 91.80313229999999,
+          "httpP95": 80.1943375,
           "sendOkRate": 1,
           "sendTotal": 180,
-          "deliveryP95": 68,
+          "deliveryP95": 66,
           "deliverySamples": null,
           "connectP95": null,
           "openedRate": null,
@@ -125,10 +139,10 @@
         },
         {
           "stage": 3,
-          "httpP95": 92.57046739999998,
-          "sendOkRate": 1,
+          "httpP95": 74.450479,
+          "sendOkRate": 0.9966666666666667,
           "sendTotal": 300,
-          "deliveryP95": 64,
+          "deliveryP95": 58,
           "deliverySamples": null,
           "connectP95": null,
           "openedRate": null,
@@ -136,10 +150,10 @@
         },
         {
           "stage": 4,
-          "httpP95": 85.4010155,
-          "sendOkRate": 0.9976190476190476,
+          "httpP95": 1022.6898902500001,
+          "sendOkRate": 0.9357142857142857,
           "sendTotal": 420,
-          "deliveryP95": 62,
+          "deliveryP95": 57,
           "deliverySamples": null,
           "connectP95": null,
           "openedRate": null,
@@ -147,30 +161,32 @@
         },
         {
           "stage": 5,
-          "httpP95": 1005.8188758,
-          "sendOkRate": 0.8599348534201955,
-          "sendTotal": 614,
-          "deliveryP95": 62.94999999999996,
+          "httpP95": 69.74367849999999,
+          "sendOkRate": 1,
+          "sendTotal": 616,
+          "deliveryP95": 29,
           "deliverySamples": null,
           "connectP95": null,
           "openedRate": null,
           "openedTotal": null
         }
       ],
-      "droppedIterations": 2,
+      "droppedIterations": 0,
       "httpReqFailed": null,
-      "summarySha256": "7d84357b5387f82d6a5254f5777074190b2b15af73ead823b242edabc5d5b3c2",
-      "consoleSha256": "ee6cdb3e52b945a0cbbd9dda04165dad30ccc6b57b9d9ff7539fd49759b230e4",
+      "summarySha256": "c942acdabe5d5fe4ef493ae0bad104415d1e920226d8f65d8ef7066acfb10416",
+      "consoleSha256": "fdda83a0e38135a6783c92906998b771e3f2d286fe5c514b7b07f6e8a520b21c",
+      "startedAtKst": "2026-08-12T09:01:11+09:00",
+      "endedAtKst": "2026-08-12T09:15:56+09:00",
       "status": "PASS",
       "reportDisposition": "included"
     },
     {
       "scenario": "load-connections",
-      "endedAt": "2026-08-11T19:50:16Z",
+      "endedAt": "2026-08-12T00:32:08Z",
       "exit": 2,
-      "summary": "summary-20260811T193737Z.json",
-      "console": "console-20260811T193737Z.log",
-      "startedAt": "2026-08-11T19:36:58Z",
+      "summary": "summary-20260812T001737Z.json",
+      "console": "console-20260812T001737Z.log",
+      "startedAt": "2026-08-12T00:15:56Z",
       "stages": [
         {
           "stage": 1,
@@ -179,7 +195,7 @@
           "sendTotal": null,
           "deliveryP95": null,
           "deliverySamples": null,
-          "connectP95": 54.6,
+          "connectP95": 48.8,
           "openedRate": 1,
           "openedTotal": 9
         },
@@ -190,7 +206,7 @@
           "sendTotal": null,
           "deliveryP95": null,
           "deliverySamples": null,
-          "connectP95": 52.6,
+          "connectP95": 51,
           "openedRate": 1,
           "openedTotal": 9
         },
@@ -201,7 +217,7 @@
           "sendTotal": null,
           "deliveryP95": null,
           "deliverySamples": null,
-          "connectP95": 55.1,
+          "connectP95": 54.3,
           "openedRate": 1,
           "openedTotal": 19
         },
@@ -212,7 +228,7 @@
           "sendTotal": null,
           "deliveryP95": null,
           "deliverySamples": null,
-          "connectP95": 54.199999999999996,
+          "connectP95": 56,
           "openedRate": 1,
           "openedTotal": 39
         },
@@ -223,29 +239,31 @@
           "sendTotal": null,
           "deliveryP95": null,
           "deliverySamples": null,
-          "connectP95": 58,
+          "connectP95": 54.349999999999994,
           "openedRate": 1,
           "openedTotal": 21
         }
       ],
       "droppedIterations": 0,
       "httpReqFailed": null,
-      "summarySha256": "427ce2a86dac0f631231b572574315ccbfa45e412c37172444071ad5ed28963a",
-      "consoleSha256": "b3b6f59679dc3f61ff23a93b913dd1d2285a82cd5f92c6e43eafe1c2bdb46571",
+      "summarySha256": "3f871fc7350b797fae1b963134e44a5cd31f5d96df86aeaf8451fe9549c92dad",
+      "consoleSha256": "dea5ca6c2cc50eb66653ef878786b53bd6847d8b30998bb3ebcdff7039d4ebdb",
+      "startedAtKst": "2026-08-12T09:15:56+09:00",
+      "endedAtKst": "2026-08-12T09:32:08+09:00",
       "status": "PASS",
       "reportDisposition": "included"
     },
     {
       "scenario": "load-history",
-      "endedAt": "2026-08-11T20:01:18Z",
+      "endedAt": "2026-08-12T00:47:56Z",
       "exit": 0,
-      "summary": "summary-20260811T195055Z.json",
-      "console": "console-20260811T195055Z.log",
-      "startedAt": "2026-08-11T19:50:16Z",
+      "summary": "summary-20260812T003536Z.json",
+      "console": "console-20260812T003536Z.log",
+      "startedAt": "2026-08-12T00:32:08Z",
       "stages": [
         {
           "stage": 1,
-          "httpP95": 84.9824118,
+          "httpP95": 60.415661099999994,
           "sendOkRate": 1,
           "sendTotal": 134,
           "deliveryP95": null,
@@ -256,7 +274,7 @@
         },
         {
           "stage": 2,
-          "httpP95": 120.7793183,
+          "httpP95": 57.36945535,
           "sendOkRate": 1,
           "sendTotal": 180,
           "deliveryP95": null,
@@ -267,7 +285,7 @@
         },
         {
           "stage": 3,
-          "httpP95": 85.23845695,
+          "httpP95": 57.00005665,
           "sendOkRate": 1,
           "sendTotal": 360,
           "deliveryP95": null,
@@ -278,9 +296,9 @@
         },
         {
           "stage": 4,
-          "httpP95": 77.550407,
+          "httpP95": 55.512395549999994,
           "sendOkRate": 1,
-          "sendTotal": 841,
+          "sendTotal": 840,
           "deliveryP95": null,
           "deliverySamples": null,
           "connectP95": null,
@@ -290,202 +308,209 @@
       ],
       "droppedIterations": 0,
       "httpReqFailed": null,
-      "summarySha256": "fdc5e8c776b0761ceb4c65add6a26a4091c3105f3417bea736300539350dc906",
-      "consoleSha256": "c1041f283356a4b5d425f1ef4ca4aa3c75aba2338b5a3d9e8f5bd985ab8fd6e2",
+      "summarySha256": "5c586d6ad6fb8b561a03cc996fc7d0787a444ab0562e3d5ba2caa8633c9ac49c",
+      "consoleSha256": "2183b6f0a883cbfa277122d10fae42ca7cb206acb79a2fa4b6dc5c09afb27093",
+      "startedAtKst": "2026-08-12T09:32:08+09:00",
+      "endedAtKst": "2026-08-12T09:47:56+09:00",
       "status": "PASS",
       "reportDisposition": "included"
     },
     {
       "scenario": "load-fanout",
-      "endedAt": "2026-08-11T20:14:33Z",
+      "endedAt": "2026-08-12T01:02:59Z",
       "exit": 2,
-      "summary": "summary-20260811T200156Z.json",
-      "console": "console-20260811T200156Z.log",
-      "startedAt": "2026-08-11T20:01:18Z",
+      "summary": "summary-20260812T004924Z.json",
+      "console": "console-20260812T004924Z.log",
+      "startedAt": "2026-08-12T00:47:56Z",
       "stages": [
         {
           "stage": 1,
-          "httpP95": 101.67860835,
+          "httpP95": 71.09692804999999,
           "sendOkRate": 1,
           "sendTotal": 300,
-          "deliveryP95": 45,
+          "deliveryP95": 28,
           "deliverySamples": null,
-          "connectP95": 113.19999999999999,
+          "connectP95": 54.3,
           "openedRate": 1,
           "openedTotal": 3
         },
         {
           "stage": 2,
-          "httpP95": 92.73430894999998,
+          "httpP95": 69.12658525,
           "sendOkRate": 1,
           "sendTotal": 240,
-          "deliveryP95": 55.399999999999935,
+          "deliveryP95": 39,
           "deliverySamples": null,
-          "connectP95": 57.1,
+          "connectP95": 43.7,
           "openedRate": 1,
           "openedTotal": 3
         },
         {
           "stage": 3,
-          "httpP95": 90.89124685,
+          "httpP95": 70.4782329,
           "sendOkRate": 0.9958333333333333,
           "sendTotal": 240,
-          "deliveryP95": 107,
+          "deliveryP95": 67.39999999999995,
           "deliverySamples": null,
-          "connectP95": 60.7,
+          "connectP95": 44.7,
           "openedRate": 1,
           "openedTotal": 7
         },
         {
           "stage": 4,
-          "httpP95": 88.50162279999998,
-          "sendOkRate": 0.9916666666666667,
+          "httpP95": 68.46757125,
+          "sendOkRate": 0.9958333333333333,
           "sendTotal": 240,
-          "deliveryP95": 161,
+          "deliveryP95": 110,
           "deliverySamples": null,
-          "connectP95": 62.9,
+          "connectP95": 49,
           "openedRate": 1,
           "openedTotal": 15
         },
         {
           "stage": 5,
-          "httpP95": 1008.8081027999997,
-          "sendOkRate": 0.9121338912133892,
-          "sendTotal": 239,
-          "deliveryP95": 178,
+          "httpP95": 202.36791604999107,
+          "sendOkRate": 0.95,
+          "sendTotal": 240,
+          "deliveryP95": 133,
           "deliverySamples": null,
-          "connectP95": 62,
+          "connectP95": 49.8,
           "openedRate": 1,
           "openedTotal": 8
         }
       ],
-      "droppedIterations": 2,
+      "droppedIterations": 1,
       "httpReqFailed": null,
-      "summarySha256": "1f9b09aeacd2649338592dce1e6572dc8e2a22d18a51084194510e3b605e8b79",
-      "consoleSha256": "aa2dcd7f499bf8256b2d2b5779babfe2a3cc3f9e076ba430091dd01641fc8feb",
+      "summarySha256": "5b3c2205c1e2c0b48bc81c117d4ff4c00d9b5f27298b22816721a2204aece4d7",
+      "consoleSha256": "35bdf94bc9292a329f9854b95690faf0d7d1d155bf675c2b4907a6491972fafd",
+      "startedAtKst": "2026-08-12T09:47:56+09:00",
+      "endedAtKst": "2026-08-12T10:02:59+09:00",
       "status": "PASS",
       "reportDisposition": "included"
     },
     {
       "scenario": "load-rooms",
-      "endedAt": "2026-08-11T20:26:04Z",
+      "endedAt": "2026-08-12T01:17:29Z",
       "exit": 2,
-      "summary": "summary-20260811T201512Z.json",
-      "console": "console-20260811T201512Z.log",
-      "startedAt": "2026-08-11T20:14:33Z",
+      "summary": "summary-20260812T010452Z.json",
+      "console": "console-20260812T010452Z.log",
+      "startedAt": "2026-08-12T01:02:59Z",
       "stages": [
         {
           "stage": 1,
-          "httpP95": 80.96943904999998,
-          "sendOkRate": 0.9925373134328358,
+          "httpP95": 70.5210176,
+          "sendOkRate": 1,
           "sendTotal": 134,
-          "deliveryP95": 35.84999999999999,
+          "deliveryP95": 42,
           "deliverySamples": null,
-          "connectP95": 52.8,
+          "connectP95": 55.4,
           "openedRate": 1,
           "openedTotal": 5
         },
         {
           "stage": 2,
-          "httpP95": 80.66315475,
+          "httpP95": 69.53322,
           "sendOkRate": 1,
           "sendTotal": 180,
-          "deliveryP95": 31,
+          "deliveryP95": 37.29999999999999,
           "deliverySamples": null,
-          "connectP95": 50.8,
+          "connectP95": 44.8,
           "openedRate": 1,
           "openedTotal": 5
         },
         {
           "stage": 3,
-          "httpP95": 80.492077,
-          "sendOkRate": 0.9972222222222222,
+          "httpP95": 68.57876135,
+          "sendOkRate": 1,
           "sendTotal": 360,
-          "deliveryP95": 77,
+          "deliveryP95": 46,
           "deliverySamples": null,
-          "connectP95": 50.5,
+          "connectP95": 45,
           "openedRate": 1,
           "openedTotal": 11
         },
         {
           "stage": 4,
-          "httpP95": 5105.298778599999,
-          "sendOkRate": 0.5714285714285714,
-          "sendTotal": 833,
-          "deliveryP95": 59,
+          "httpP95": 4047.19215525,
+          "sendOkRate": 0.6590361445783133,
+          "sendTotal": 830,
+          "deliveryP95": 52,
           "deliverySamples": null,
-          "connectP95": 52,
+          "connectP95": 46,
           "openedRate": 1,
           "openedTotal": 7
         }
       ],
-      "droppedIterations": 8,
+      "droppedIterations": 10,
       "httpReqFailed": null,
-      "summarySha256": "83fcae38519c39aa0fd3a3d06ace134f4ac53faf9a2fd5328812bfab86bca30f",
-      "consoleSha256": "242b838baa0c11ba3e7c6f8a4ae47d54d65df68bfb83855879e20257061283c7",
+      "summarySha256": "b233c3e67532f52ab137146607030d9fe919067990276fb1eba725b48e68be48",
+      "consoleSha256": "286c5b4649e6092b0fe73974f779a3aec8e5e61ed0b1a859b8ef8c7899c2d730",
+      "startedAtKst": "2026-08-12T10:02:59+09:00",
+      "endedAtKst": "2026-08-12T10:17:29+09:00",
       "status": "PASS",
       "reportDisposition": "included"
     },
     {
       "scenario": "load-mixed",
-      "endedAt": "2026-08-11T20:37:34Z",
+      "endedAt": "2026-08-12T01:35:38Z",
       "exit": 2,
-      "summary": "summary-20260811T202642Z.json",
-      "console": "console-20260811T202642Z.log",
-      "startedAt": "2026-08-11T20:26:04Z",
+      "summary": "summary-20260812T012113Z.json",
+      "console": "console-20260812T012113Z.log",
+      "startedAt": "2026-08-12T01:17:29Z",
       "stages": [
         {
           "stage": 1,
-          "httpP95": 77.5462524,
+          "httpP95": 67.3212836,
           "sendOkRate": 1,
           "sendTotal": 403,
-          "deliveryP95": 44,
+          "deliveryP95": 27,
           "deliverySamples": null,
-          "connectP95": 52.2,
+          "connectP95": 47.6,
           "openedRate": 1,
           "openedTotal": 9
         },
         {
           "stage": 2,
-          "httpP95": 75.64397849999999,
+          "httpP95": 66.5860756,
           "sendOkRate": 1,
           "sendTotal": 540,
-          "deliveryP95": 32,
+          "deliveryP95": 37,
           "deliverySamples": null,
-          "connectP95": 50,
+          "connectP95": 46,
           "openedRate": 1,
           "openedTotal": 9
         },
         {
           "stage": 3,
-          "httpP95": 3069.9349214999997,
-          "sendOkRate": 0.6941964285714286,
-          "sendTotal": 896,
-          "deliveryP95": 42,
+          "httpP95": 4024.31245085,
+          "sendOkRate": 0.7181208053691275,
+          "sendTotal": 894,
+          "deliveryP95": 36,
           "deliverySamples": null,
-          "connectP95": 51.599999999999994,
-          "openedRate": 0.9285714285714286,
+          "connectP95": 53.49999999999999,
+          "openedRate": 1,
           "openedTotal": 14
         },
         {
           "stage": 4,
-          "httpP95": 4639.363105999948,
-          "sendOkRate": 0.4472396925227114,
-          "sendTotal": 1431,
-          "deliveryP95": 27.4,
+          "httpP95": 5130.607911599998,
+          "sendOkRate": 0.44856543037088875,
+          "sendTotal": 1429,
+          "deliveryP95": 33.09999999999998,
           "deliverySamples": null,
-          "connectP95": 50,
-          "openedRate": 0.2,
+          "connectP95": 56.54999999999998,
+          "openedRate": 1,
           "openedTotal": 5
         }
       ],
-      "droppedIterations": 15,
+      "droppedIterations": 18,
       "httpReqFailed": null,
-      "summarySha256": "0ebf359c51f7b7b9cf37f345fe383acd24d1311b843455c6b8923e814b072a93",
-      "consoleSha256": "697ada0772b9a396b94706793930636c46951682ff32dc9f61b621d03c562b6d",
+      "summarySha256": "9a94a716d0abdacdd987beedba0b106848e4e1b41f576dba19a78041fa930242",
+      "consoleSha256": "d42269025117d913ccbae87490212abbb1f66147680bfb8b57423908267cab37",
+      "startedAtKst": "2026-08-12T10:17:29+09:00",
+      "endedAtKst": "2026-08-12T10:35:38+09:00",
       "status": "PASS",
       "reportDisposition": "included"
     }
-  ],
-  "supersededBy": "chat-delivery-20260812T090111KST"
+  ]
 }

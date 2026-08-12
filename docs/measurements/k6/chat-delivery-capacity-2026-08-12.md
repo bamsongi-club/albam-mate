@@ -6,10 +6,11 @@
 
 - Campaign ID: `chat-delivery-20260812T042245KST`
 - 캠페인 상태: `completed-with-limitations`
-- 문서 상태: `current`
+- 문서 상태: `superseded`
 - 문서 인덱스: [k6 측정 문서](README.md)
 - 근거 식별자: [campaign manifest](evidence/chat-delivery-capacity-2026-08-12.json)
-- 대체 관계: [`chat-delivery-20260811T172123KST`](chat-delivery-capacity-2026-08-11.md)를 대체한다
+- 대체 관계: [`chat-delivery-20260811T172123KST`](chat-delivery-capacity-2026-08-11.md)를 대체하고, [`chat-delivery-20260812T090111KST`](chat-delivery-capacity-2026-08-12-repeat.md)가 이 문서를 대체한다
+- **이 문서가 이전 캠페인보다 낮게 나온 것을 실제 저하로 서술한 부분은 후속 반복 측정에서 편차로 확인됐다.** 성공률 수치는 범위의 한 점으로만 읽는다
 
 - 부하 시나리오 6종이 모두 완주했다. 6종 전부 `reportDisposition=included`이며 무효 Run은 없다.
 - **CPU는 병목이 아니었다.** App 두 대의 CPU 사용률이 평균 3.6%·6.3%였고 CPU 크레딧은 측정 내내 줄지 않고 올랐다(0.49→9.29). 크레딧 잔고는 인스턴스를 만든 지 22분 만에 부하를 건 탓에 낮게 시작했을 뿐이며, 이 부하에서 CPU 여유는 소진되지 않았다.
