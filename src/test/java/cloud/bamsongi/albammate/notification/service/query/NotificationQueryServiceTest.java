@@ -25,7 +25,7 @@ class NotificationQueryServiceTest {
 			NotificationType.ROOM_CANCELED, 9L, "현재 제목", null, Instant.EPOCH)));
 		when(repository.countUnexpired(7L)).thenReturn(11L);
 
-		var result = new NotificationQueryService(repository).findPage(7L, 1, 10);
+		var result = new NotificationQueryService(repository, null).findPage(7L, 1, 10);
 
 		assertEquals(11, result.totalElements());
 		assertEquals(2, result.content().getFirst().id());
@@ -38,7 +38,7 @@ class NotificationQueryServiceTest {
 		NotificationQueryRepository repository = mock(NotificationQueryRepository.class);
 		when(repository.countUnreadUnexpired(7L)).thenReturn(0L);
 
-		assertEquals(0, new NotificationQueryService(repository).countUnread(7L).unreadCount());
+		assertEquals(0, new NotificationQueryService(repository, null).countUnread(7L).unreadCount());
 		verify(repository).countUnreadUnexpired(7L);
 	}
 

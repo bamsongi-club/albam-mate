@@ -1,6 +1,6 @@
 package cloud.bamsongi.albammate.auth.security;
 
-import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.lang.Nullable;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContext;
@@ -26,22 +26,11 @@ public final class AppSessionEstablisher {
 	@NonNull private final SecurityContextRepository securityContextRepository;
 	private final AuthNotificationMeasurementRecorder measurementRecorder;
 
-	public AppSessionEstablisher(SecurityContextRepository securityContextRepository) {
-		this(securityContextRepository, (AuthNotificationMeasurementRecorder)null);
-	}
-
 	public AppSessionEstablisher(
 		SecurityContextRepository securityContextRepository,
-		AuthNotificationMeasurementRecorder measurementRecorder) {
+		@Nullable AuthNotificationMeasurementRecorder measurementRecorder) {
 		this.securityContextRepository = securityContextRepository;
 		this.measurementRecorder = measurementRecorder;
-	}
-
-	@org.springframework.beans.factory.annotation.Autowired
-	public AppSessionEstablisher(
-		SecurityContextRepository securityContextRepository,
-		ObjectProvider<AuthNotificationMeasurementRecorder> measurementRecorder) {
-		this(securityContextRepository, measurementRecorder.getIfAvailable());
 	}
 
 	/** 세션 ID를 교체해 세션 고정 공격을 막고 현재 사용자 인증을 저장한다. */

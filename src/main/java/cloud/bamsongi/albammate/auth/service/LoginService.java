@@ -3,8 +3,7 @@ package cloud.bamsongi.albammate.auth.service;
 import java.util.Objects;
 import java.util.Optional;
 
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.lang.Nullable;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -38,36 +37,14 @@ public class LoginService {
 		UserAccountService userAccountService,
 		PasswordEncoder passwordEncoder,
 		PasswordHashExecutor passwordHashExecutor,
-		PasswordSecurityProperties properties) {
-		this(requestLimiter, userAccountService, passwordEncoder, passwordHashExecutor, properties,
-			(AuthNotificationMeasurementRecorder)null);
-	}
-
-	public LoginService(
-		AuthenticationRequestLimiter requestLimiter,
-		UserAccountService userAccountService,
-		PasswordEncoder passwordEncoder,
-		PasswordHashExecutor passwordHashExecutor,
 		PasswordSecurityProperties properties,
-		AuthNotificationMeasurementRecorder measurementRecorder) {
+		@Nullable AuthNotificationMeasurementRecorder measurementRecorder) {
 		this.requestLimiter = Objects.requireNonNull(requestLimiter, "requestLimiter");
 		this.userAccountService = Objects.requireNonNull(userAccountService, "userAccountService");
 		this.passwordEncoder = Objects.requireNonNull(passwordEncoder, "passwordEncoder");
 		this.passwordHashExecutor = Objects.requireNonNull(passwordHashExecutor, "passwordHashExecutor");
 		this.dummyPasswordHash = createDummyPasswordHash(properties);
 		this.measurementRecorder = measurementRecorder;
-	}
-
-	@Autowired
-	public LoginService(
-		AuthenticationRequestLimiter requestLimiter,
-		UserAccountService userAccountService,
-		PasswordEncoder passwordEncoder,
-		PasswordHashExecutor passwordHashExecutor,
-		PasswordSecurityProperties properties,
-		ObjectProvider<AuthNotificationMeasurementRecorder> measurementRecorder) {
-		this(requestLimiter, userAccountService, passwordEncoder, passwordHashExecutor, properties,
-			measurementRecorder.getIfAvailable());
 	}
 
 	/**

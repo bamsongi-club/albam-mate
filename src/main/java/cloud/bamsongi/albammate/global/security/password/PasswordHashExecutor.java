@@ -3,8 +3,7 @@ package cloud.bamsongi.albammate.global.security.password;
 import java.util.Objects;
 import java.util.function.Supplier;
 
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 
 import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
@@ -18,21 +17,10 @@ public class PasswordHashExecutor {
 	@NonNull private final PasswordHashConcurrencyLimiter limiter;
 	private final AuthNotificationMeasurementRecorder measurementRecorder;
 
-	public PasswordHashExecutor(PasswordHashConcurrencyLimiter limiter) {
-		this(limiter, (AuthNotificationMeasurementRecorder)null);
-	}
-
 	public PasswordHashExecutor(
-		PasswordHashConcurrencyLimiter limiter, AuthNotificationMeasurementRecorder measurementRecorder) {
+		PasswordHashConcurrencyLimiter limiter, @Nullable AuthNotificationMeasurementRecorder measurementRecorder) {
 		this.limiter = Objects.requireNonNull(limiter, "limiter");
 		this.measurementRecorder = measurementRecorder;
-	}
-
-	@Autowired
-	public PasswordHashExecutor(
-		PasswordHashConcurrencyLimiter limiter,
-		ObjectProvider<AuthNotificationMeasurementRecorder> measurementRecorder) {
-		this(limiter, measurementRecorder.getIfAvailable());
 	}
 
 	public <T> T execute(Supplier<T> hashWork) {

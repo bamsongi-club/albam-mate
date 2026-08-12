@@ -19,22 +19,11 @@ public class NotificationQueryService {
 	@NonNull private final NotificationQueryRepository notificationQueryRepository;
 	private final AuthNotificationMeasurementRecorder measurementRecorder;
 
-	public NotificationQueryService(NotificationQueryRepository notificationQueryRepository) {
-		this(notificationQueryRepository, (AuthNotificationMeasurementRecorder)null);
-	}
-
 	public NotificationQueryService(
 		NotificationQueryRepository notificationQueryRepository,
-		AuthNotificationMeasurementRecorder measurementRecorder) {
+		@org.springframework.lang.Nullable AuthNotificationMeasurementRecorder measurementRecorder) {
 		this.notificationQueryRepository = notificationQueryRepository;
 		this.measurementRecorder = measurementRecorder;
-	}
-
-	@org.springframework.beans.factory.annotation.Autowired
-	public NotificationQueryService(
-		NotificationQueryRepository notificationQueryRepository,
-		org.springframework.beans.factory.ObjectProvider<AuthNotificationMeasurementRecorder> measurementRecorder) {
-		this(notificationQueryRepository, measurementRecorder.getIfAvailable());
 	}
 
 	/**

@@ -217,8 +217,8 @@ class LoginServiceTest {
 			requestLimiter,
 			userAccountService,
 			passwordEncoder,
-			new PasswordHashExecutor(noSlotLimiter),
-			passwordSecurityProperties());
+			new PasswordHashExecutor(noSlotLimiter, null),
+			passwordSecurityProperties(), null);
 
 		configureLimiter();
 
@@ -276,8 +276,8 @@ class LoginServiceTest {
 			limiter,
 			userAccountService,
 			blockingPasswordEncoder,
-			new PasswordHashExecutor(hashLimiter),
-			passwordSecurityProperties());
+			new PasswordHashExecutor(hashLimiter, null),
+			passwordSecurityProperties(), null);
 		String remoteIp = "203.0.113.45";
 
 		ExecutorService executor = Executors.newSingleThreadExecutor();

@@ -65,7 +65,7 @@ class NotificationRelayExecutorTest {
 		when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
 		when(recipientRepository.findRecipientUserIdsByOutboxEventId(10L)).thenReturn(List.of(2L, 3L));
 		NotificationRelayExecutor executor = new NotificationRelayExecutor(
-			eventRepository, recipientRepository, notificationRepository);
+			eventRepository, recipientRepository, notificationRepository, null);
 
 		NotificationRelayExecutor.ProcessedEvent processedEvent = executor.processOne().orElseThrow();
 
@@ -93,7 +93,7 @@ class NotificationRelayExecutorTest {
 		when(notificationRepository.insertIfAbsent(any(Notification.class)))
 			.thenThrow(new DataIntegrityViolationException("insert failed"));
 		NotificationRelayExecutor executor = new NotificationRelayExecutor(
-			eventRepository, recipientRepository, notificationRepository);
+			eventRepository, recipientRepository, notificationRepository, null);
 
 		NotificationRelayProcessingException exception = assertThrows(
 			NotificationRelayProcessingException.class, executor::processOne);
@@ -171,7 +171,7 @@ class NotificationRelayExecutorTest {
 		when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
 		when(recipientRepository.findRecipientUserIdsByOutboxEventId(10L)).thenReturn(List.of());
 		NotificationRelayExecutor executor = new NotificationRelayExecutor(
-			eventRepository, recipientRepository, notificationRepository);
+			eventRepository, recipientRepository, notificationRepository, null);
 
 		NotificationRelayProcessingException exception = assertThrows(
 			NotificationRelayProcessingException.class, executor::processOne);
@@ -195,7 +195,7 @@ class NotificationRelayExecutorTest {
 		when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
 		when(recipientRepository.findRecipientUserIdsByOutboxEventId(10L)).thenReturn(List.of(987_654_321L));
 		NotificationRelayExecutor executor = new NotificationRelayExecutor(
-			eventRepository, recipientRepository, notificationRepository);
+			eventRepository, recipientRepository, notificationRepository, null);
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 		try {
 			executor.processOne();
@@ -225,7 +225,7 @@ class NotificationRelayExecutorTest {
 		NotificationRepository notificationRepository = mock(NotificationRepository.class);
 		when(eventRepository.claimEarliestProcessableEvent()).thenReturn(Optional.empty());
 		NotificationRelayExecutor executor = new NotificationRelayExecutor(
-			eventRepository, recipientRepository, notificationRepository);
+			eventRepository, recipientRepository, notificationRepository, null);
 
 		Optional<NotificationRelayExecutor.ProcessedEvent> processedEvent = executor.processOne();
 
@@ -246,7 +246,7 @@ class NotificationRelayExecutorTest {
 		when(eventRepository.claimEarliestProcessableEvent()).thenReturn(Optional.of(relayClaim));
 		when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
 		NotificationRelayExecutor executor = new NotificationRelayExecutor(
-			eventRepository, recipientRepository, notificationRepository);
+			eventRepository, recipientRepository, notificationRepository, null);
 
 		NotificationRelayProcessingException exception = assertThrows(
 			NotificationRelayProcessingException.class, executor::processOne);

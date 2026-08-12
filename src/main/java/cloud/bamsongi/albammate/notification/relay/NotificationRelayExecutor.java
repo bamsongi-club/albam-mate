@@ -35,28 +35,12 @@ public class NotificationRelayExecutor {
 	public NotificationRelayExecutor(
 		NotificationOutboxEventRepository eventRepository,
 		NotificationOutboxRecipientRepository recipientRepository,
-		NotificationRepository notificationRepository) {
-		this(eventRepository, recipientRepository, notificationRepository, (AuthNotificationMeasurementRecorder)null);
-	}
-
-	public NotificationRelayExecutor(
-		NotificationOutboxEventRepository eventRepository,
-		NotificationOutboxRecipientRepository recipientRepository,
 		NotificationRepository notificationRepository,
-		AuthNotificationMeasurementRecorder measurementRecorder) {
+		@org.springframework.lang.Nullable AuthNotificationMeasurementRecorder measurementRecorder) {
 		this.eventRepository = eventRepository;
 		this.recipientRepository = recipientRepository;
 		this.notificationRepository = notificationRepository;
 		this.measurementRecorder = measurementRecorder;
-	}
-
-	@org.springframework.beans.factory.annotation.Autowired
-	public NotificationRelayExecutor(
-		NotificationOutboxEventRepository eventRepository,
-		NotificationOutboxRecipientRepository recipientRepository,
-		NotificationRepository notificationRepository,
-		org.springframework.beans.factory.ObjectProvider<AuthNotificationMeasurementRecorder> measurementRecorder) {
-		this(eventRepository, recipientRepository, notificationRepository, measurementRecorder.getIfAvailable());
 	}
 
 	/** 처리 가능한 가장 이른 이벤트 하나만 독립 트랜잭션에서 처리한다. */

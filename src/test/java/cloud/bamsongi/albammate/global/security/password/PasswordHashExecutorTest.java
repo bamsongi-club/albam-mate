@@ -17,7 +17,7 @@ class PasswordHashExecutorTest {
 	@Test
 	void 해시_작업이_예외를_던져도_슬롯을_반환한다() {
 		StubLimiter limiter = new StubLimiter();
-		PasswordHashExecutor executor = new PasswordHashExecutor(limiter);
+		PasswordHashExecutor executor = new PasswordHashExecutor(limiter, null);
 
 		assertThrows(
 			IllegalStateException.class,
@@ -37,7 +37,7 @@ class PasswordHashExecutorTest {
 				public Optional<PasswordHashPermit> tryAcquire() {
 					return Optional.empty();
 				}
-			});
+			}, null);
 
 		RateLimitExceededException exception = assertThrows(
 			RateLimitExceededException.class,
