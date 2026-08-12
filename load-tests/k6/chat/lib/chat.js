@@ -124,6 +124,10 @@ export const websocketExpectedEvent = new Rate('chat_websocket_expected_event');
 
 export const websocketSessionHealthy = new Rate('chat_websocket_session_healthy');
 
+export const loadSubscriberReceivedMessages = new Counter('load_subscriber_received_messages');
+
+export const loadSubscriberDeliveryComplete = new Rate('load_subscriber_delivery_complete');
+
 export const fanoutDeliveredToEachSubscriber = new Rate('chat_websocket_fanout_delivered');
 
 export const historyExpectedStatus = new Rate('chat_history_expected_status');
@@ -144,7 +148,7 @@ export const loadStageOpened = new Rate('load_stage_opened');
  * 그만큼 앞당겨지므로 로그인을 끝낸 뒤에 정한다.
  */
 export function setup() {
-	const users = FIXTURE_USERS.map(authenticateFixtureUser);
+	const users = FIXTURE_USERS.map(prepareFixtureUser);
 	return { runId: String(Date.now()), users };
 }
 
@@ -170,7 +174,7 @@ export function perVuOptions(name, exec, vus, iterations, maxDuration, threshold
  * 단계별 하위 지표는 k6가 threshold를 선언한 태그 조합만 요약에 남기므로, 항상
  * 통과하는 조건을 붙여 값만 확보한다.
  */
-export function loadThresholds(stepCount) {
+export function loadThresholds(stepCount, includeSubscriberDelivery = false) {
 	const thresholds = {
 		chat_http_request_duration_ms: [
 			observationGate(`p(95)<${HTTP_P95_MS}`),
@@ -193,6 +197,13 @@ export function loadThresholds(stepCount) {
 		thresholds[`load_stage_delivery_ms{stage:${step}}`] = [observationGate('p(95)>=0')];
 		thresholds[`load_stage_connect_ms{stage:${step}}`] = [observationGate('p(95)>=0')];
 		thresholds[`load_stage_opened{stage:${step}}`] = [observationGate('rate>=0')];
+		if (includeSubscriberDelivery) {
+			thresholds[`load_subscriber_delivery_complete{stage:${step}}`] = [observationGate('rate==1')];
+			thresholds[`load_subscriber_received_messages{stage:${step}}`] = [observationGate('count>0')];
+		}
+	}
+	if (includeSubscriberDelivery) {
+		thresholds.load_subscriber_delivery_complete = [observationGate('rate==1')];
 	}
 	return thresholds;
 }
@@ -257,6 +268,7 @@ export function readHistoryPage(user, stage) {
  */
 export function holdLoadSubscriber(user, roomId, connectionStage, deliveryStage, mode) {
 	const startedAt = Date.now();
+	const receivedClientMessageIds = {};
 	const connection = createWebSocket(user, mode);
 	connection.socket.addEventListener('open', () => {
 		loadStageConnectMs.add(Date.now() - startedAt, { stage: connectionStage });
@@ -269,6 +281,10 @@ export function holdLoadSubscriber(user, roomId, connectionStage, deliveryStage,
 		if (!expected) {
 			return;
 		}
+		const clientMessageId = message.message.clientMessageId;
+		if (typeof clientMessageId === 'string' && clientMessageId !== '') {
+			receivedClientMessageIds[clientMessageId] = true;
+		}
 		recordDeliveryFromCreatedAt(message.message.createdAt);
 		loadStageDeliveryMs.add(Date.now() - Date.parse(message.message.createdAt), {
 			stage: deliveryStage(),
@@ -278,6 +294,9 @@ export function holdLoadSubscriber(user, roomId, connectionStage, deliveryStage,
 		recordMissingWebSocketOpen(connection);
 		websocketSessionHealthy.add(isHealthyWebSocket(connection));
 		loadStageOpened.add(connection.opened, { stage: connectionStage });
+		const receivedMessageCount = Object.keys(receivedClientMessageIds).length;
+		loadSubscriberReceivedMessages.add(receivedMessageCount, { stage: connectionStage });
+		loadSubscriberDeliveryComplete.add(receivedMessageCount > 0, { stage: connectionStage });
 		closeWebSocket(connection);
 	}, durationMilliseconds(LOAD_STEP_DURATION));
 }
@@ -390,6 +409,13 @@ export function authenticateFixtureUser(user) {
 		csrfHeaderName: authenticatedCsrf.headerName,
 		csrfToken: authenticatedCsrf.token,
 	};
+}
+
+export function prepareFixtureUser(user) {
+	if (isPreparedSessionFixtureUser(user)) {
+		return user;
+	}
+	return authenticateFixtureUser(user);
 }
 
 export function requestCsrfToken(jar = http.cookieJar()) {
@@ -756,10 +782,7 @@ export function validateFixtureUser(user, index) {
 		|| !Number.isInteger(user.roomId) || user.roomId < 1) {
 		throw new Error(`K6_CHAT_FIXTURE user ${index} needs label and positive roomId`);
 	}
-	const hasPreparedSession = Number.isInteger(user.userId) && user.userId > 0
-		&& typeof user.sessionId === 'string' && user.sessionId !== ''
-		&& typeof user.csrfHeaderName === 'string' && user.csrfHeaderName !== ''
-		&& typeof user.csrfToken === 'string' && user.csrfToken !== '';
+	const hasPreparedSession = isPreparedSessionFixtureUser(user);
 	const hasCredentials = typeof user.email === 'string' && user.email !== ''
 		&& typeof user.password === 'string' && user.password !== '';
 	if (!hasPreparedSession && !hasCredentials) {
@@ -775,6 +798,13 @@ export function validateFixtureUser(user, index) {
 		email: hasCredentials ? user.email : null,
 		password: hasCredentials ? user.password : null,
 	};
+}
+
+export function isPreparedSessionFixtureUser(user) {
+	return Number.isInteger(user.userId) && user.userId > 0
+		&& typeof user.sessionId === 'string' && user.sessionId !== ''
+		&& typeof user.csrfHeaderName === 'string' && user.csrfHeaderName !== ''
+		&& typeof user.csrfToken === 'string' && user.csrfToken !== '';
 }
 
 export function parseProfiles(rawProfiles, users) {

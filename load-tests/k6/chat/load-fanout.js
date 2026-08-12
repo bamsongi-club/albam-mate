@@ -66,7 +66,7 @@ function loadFanoutOptions() {
 	const stepCount = LOAD_FANOUT_SUBSCRIBER_STEPS.length;
 	const senderVus = requiredArrivalVus(LOAD_FANOUT_SEND_RATE, HTTP_P99_MS);
 	return {
-		thresholds: loadThresholds(stepCount),
+		thresholds: loadThresholds(stepCount, true),
 		scenarios: {
 			load_fanout_subscribers: {
 				executor: 'ramping-vus',

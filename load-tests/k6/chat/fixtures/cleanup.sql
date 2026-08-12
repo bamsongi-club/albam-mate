@@ -25,6 +25,20 @@ CREATE TABLE IF NOT EXISTS chat_k6_fixture_registry (
         UNIQUE (resource_type, resource_id)
 );
 
+CREATE TABLE IF NOT EXISTS chat_k6_fixture_run_parameters (
+    run_id text NOT NULL
+        CONSTRAINT chat_k6_fixture_run_parameters_run_id_format
+        CHECK (run_id ~ '^[a-z0-9][a-z0-9._-]{0,63}$'),
+    room_count integer NOT NULL
+        CONSTRAINT chat_k6_fixture_run_parameters_room_count_range CHECK (room_count BETWEEN 1 AND 100),
+    accounts_per_room integer NOT NULL
+        CONSTRAINT chat_k6_fixture_run_parameters_accounts_range CHECK (accounts_per_room BETWEEN 7 AND 11),
+    messages_per_room integer NOT NULL
+        CONSTRAINT chat_k6_fixture_run_parameters_messages_range CHECK (messages_per_room BETWEEN 2 AND 5000),
+    created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+    CONSTRAINT pk_chat_k6_fixture_run_parameters PRIMARY KEY (run_id)
+);
+
 BEGIN;
 
 CREATE TEMP TABLE chat_fixture_parameters (
@@ -73,6 +87,8 @@ DELETE FROM social_accounts WHERE user_id IN (SELECT id FROM chat_fixture_users)
 DELETE FROM rooms WHERE id IN (SELECT id FROM chat_fixture_rooms);
 DELETE FROM users WHERE id IN (SELECT id FROM chat_fixture_users);
 DELETE FROM chat_k6_fixture_registry
+WHERE run_id = (SELECT run_id FROM chat_fixture_parameters);
+DELETE FROM chat_k6_fixture_run_parameters
 WHERE run_id = (SELECT run_id FROM chat_fixture_parameters);
 
 COMMIT;

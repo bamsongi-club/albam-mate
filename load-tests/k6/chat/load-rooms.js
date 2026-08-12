@@ -66,7 +66,7 @@ function loadRoomsOptions() {
 	const sendRates = LOAD_ROOM_STEPS.map((rooms) => rooms * LOAD_ROOM_SEND_RATE);
 	const peak = requiredArrivalVus(maxOf(sendRates), HTTP_P99_MS);
 	return {
-		thresholds: loadThresholds(stepCount),
+		thresholds: loadThresholds(stepCount, true),
 		scenarios: {
 			load_rooms_subscribers: {
 				executor: 'ramping-vus',

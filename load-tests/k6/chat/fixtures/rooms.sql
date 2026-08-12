@@ -32,6 +32,20 @@ CREATE TABLE IF NOT EXISTS chat_k6_fixture_registry (
         UNIQUE (resource_type, resource_id)
 );
 
+CREATE TABLE IF NOT EXISTS chat_k6_fixture_run_parameters (
+    run_id text NOT NULL
+        CONSTRAINT chat_k6_fixture_run_parameters_run_id_format
+        CHECK (run_id ~ '^[a-z0-9][a-z0-9._-]{0,63}$'),
+    room_count integer NOT NULL
+        CONSTRAINT chat_k6_fixture_run_parameters_room_count_range CHECK (room_count BETWEEN 1 AND 100),
+    accounts_per_room integer NOT NULL
+        CONSTRAINT chat_k6_fixture_run_parameters_accounts_range CHECK (accounts_per_room BETWEEN 7 AND 11),
+    messages_per_room integer NOT NULL
+        CONSTRAINT chat_k6_fixture_run_parameters_messages_range CHECK (messages_per_room BETWEEN 2 AND 5000),
+    created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+    CONSTRAINT pk_chat_k6_fixture_run_parameters PRIMARY KEY (run_id)
+);
+
 BEGIN;
 
 CREATE TEMP TABLE chat_fixture_parameters (
@@ -53,12 +67,35 @@ CREATE TEMP TABLE chat_fixture_parameters (
 INSERT INTO chat_fixture_parameters (
     run_id, room_count, accounts_per_room, messages_per_room, password_hash)
 VALUES (
-    :'run_id', :room_count::integer, :accounts_per_room::integer,
-    :messages_per_room::integer, :'password_hash');
+    :'run_id', :'room_count'::integer, :'accounts_per_room'::integer,
+    :'messages_per_room'::integer, :'password_hash');
 
 -- 같은 run_id의 seed와 cleanup이 서로의 중간 상태를 보지 않도록 트랜잭션 동안 직렬화한다.
 SELECT pg_advisory_xact_lock(hashtext(run_id)::bigint)
 FROM chat_fixture_parameters;
+
+INSERT INTO chat_k6_fixture_run_parameters (run_id, room_count, accounts_per_room, messages_per_room)
+SELECT run_id, room_count, accounts_per_room, messages_per_room
+FROM chat_fixture_parameters
+ON CONFLICT (run_id) DO NOTHING;
+
+DO $validate_fixture_parameters$
+DECLARE
+    parameters chat_fixture_parameters%ROWTYPE;
+BEGIN
+    SELECT * INTO parameters FROM chat_fixture_parameters;
+    IF EXISTS (
+        SELECT 1
+        FROM chat_k6_fixture_run_parameters existing
+        WHERE existing.run_id = parameters.run_id
+          AND (existing.room_count <> parameters.room_count
+              OR existing.accounts_per_room <> parameters.accounts_per_room
+              OR existing.messages_per_room <> parameters.messages_per_room)
+    ) THEN
+        RAISE EXCEPTION 'fixture run % already exists with different seed parameters', parameters.run_id;
+    END IF;
+END
+$validate_fixture_parameters$;
 
 DO $seed$
 DECLARE

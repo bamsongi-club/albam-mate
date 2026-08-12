@@ -50,7 +50,7 @@ class ChatFixtureSqlPostgresTest {
 	@AfterEach
 	void fixture_테스트_데이터를_정리한다() {
 		for (String runId : List.of("t1-fixture", "t2-fixture", "t3-valid", "t4-isolated_a", "t4-isolatedxa",
-			"t5-derived", "t6-title-collision")) {
+			"t5-derived", "t6-title-collision", "t7-rerun")) {
 			cleanup(runId);
 		}
 	}
@@ -188,6 +188,20 @@ class ChatFixtureSqlPostgresTest {
 		assertThat(count("select count(*) from notifications where source_event_id = " + eventId)).isZero();
 		assertThat(count("select count(*) from room_waitlists where room_id = " + roomId)).isZero();
 		assertThat(count("select count(*) from participations where room_id = " + roomId)).isZero();
+	}
+
+	@Test
+	void 같은_run_id를_다른_규모로_재시드하면_기존_fixture를_조용히_변경하지_않고_중단한다() {
+		runRooms("t7-rerun", 1, 7, 2);
+
+		assertThatThrownBy(() -> runRooms("t7-rerun", 1, 9, 2))
+			.hasMessageContaining("rooms.sql failed")
+			.hasMessageContaining("fixture run t7-rerun already exists with different seed parameters");
+		assertThat(count("select count(*) from rooms where title = 'k6-t7-rerun-room-1' "
+			+ "and active_participant_count = 6")).isEqualTo(1);
+		assertThat(count("select count(*) from participations participation join rooms room "
+			+ "on room.id = participation.room_id where room.title = 'k6-t7-rerun-room-1' "
+			+ "and participation.status = 'ACTIVE'")).isEqualTo(6);
 	}
 
 	private String runRooms(String runId, int roomCount, int accountsPerRoom, int messagesPerRoom) {

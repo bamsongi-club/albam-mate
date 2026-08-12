@@ -71,7 +71,7 @@ function loadMixedOptions() {
 	const sendVus = requiredArrivalVus(maxOf(sendRates), HTTP_P99_MS);
 	const historyVus = requiredArrivalVus(maxOf(historyRates), HTTP_P99_MS);
 	return {
-		thresholds: loadThresholds(stepCount),
+		thresholds: loadThresholds(stepCount, true),
 		scenarios: {
 			load_mixed_connections: {
 				executor: 'ramping-vus',

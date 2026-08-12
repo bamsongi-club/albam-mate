@@ -41,9 +41,23 @@ class ChatK6SourceContractTest {
 		assertThat(library).contains("loadStageConnectMs.add(Date.now() - startedAt, { stage: connectionStage });");
 		assertThat(library).contains("loadStageDeliveryMs.add(");
 		assertThat(library).contains("stage: deliveryStage(),");
+		assertThat(library).contains("loadSubscriberReceivedMessages");
+		assertThat(library).contains("loadSubscriberDeliveryComplete.add(receivedMessageCount > 0");
+		assertThat(fanout).contains("thresholds: loadThresholds(stepCount, true)");
+		assertThat(rooms).contains("thresholds: loadThresholds(stepCount, true)");
+		assertThat(mixed).contains("thresholds: loadThresholds(stepCount, true)");
 		assertSubscriberUsesDynamicDeliveryStage(fanout, "LOAD_FANOUT_SUBSCRIBER_STEPS");
 		assertSubscriberUsesDynamicDeliveryStage(rooms, "LOAD_ROOM_STEPS");
 		assertSubscriberUsesDynamicDeliveryStage(mixed, "LOAD_MIXED_SCALES");
+	}
+
+	@Test
+	void 준비된_세션_fixture는_로그인하지_않고_사용한다() throws IOException {
+		String library = file("load-tests/k6/chat/lib/chat.js");
+
+		assertThat(library).contains("const users = FIXTURE_USERS.map(prepareFixtureUser);");
+		assertThat(library).contains("if (isPreparedSessionFixtureUser(user))");
+		assertThat(library).contains("needs a prepared session or login credentials");
 	}
 
 	@Test

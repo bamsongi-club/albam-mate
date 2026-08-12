@@ -128,7 +128,7 @@ docker compose --env-file .env -f compose.local.yml exec -T postgres \
 
 마지막 `SELECT` 출력을 `build/k6/chat/local-smoke/credentials.json`에 저장해 `K6_CHAT_FIXTURE`에 넘긴다. 다른 Run도 같은 `build/k6/chat/<run-id>/credentials.json` 규칙을 쓴다. 끝나면 같은 `run_id`로 `cleanup.sql`을 적용한다.
 
-`rooms.sql`은 멱등하다. 같은 `run_id`로 다시 적용하면 계정 비밀번호만 갱신하고 방·참가 관계·메시지는 중복 생성하지 않는다.
+`rooms.sql`은 같은 seed 파라미터에서 멱등하다. 같은 `run_id`로 다시 적용하면 계정 비밀번호만 갱신하고 방·참가 관계·메시지는 중복 생성하지 않는다. 방 수·계정 수·메시지 수를 바꿔 재실행하면 기존 측정 조건을 조용히 바꾸지 않고 중단한다.
 
 ### 무엇을 어떤 조건으로 예행하는가
 
@@ -147,7 +147,7 @@ docker compose --env-file .env -f compose.local.yml exec -T postgres \
 | `K6_CHAT_CASE` | 파일마다 다름 | 한 파일이 여러 case 를 담을 때 고른다 |
 | `K6_BASE_URL` | — | 대상 서버 주소. 기존 실행기 호환 별칭 `ALBAM_MATE_TARGET_URL` 중 하나는 반드시 필요하며, 둘 다 없으면 요청 전에 중단한다 |
 | `K6_ORIGIN` | `K6_BASE_URL` | CSRF·WebSocket Origin 헤더 |
-| `K6_CHAT_FIXTURE` | — | `rooms.sql`이 내보낸 credential fixture 경로. **필수** |
+| `K6_CHAT_FIXTURE` | — | `rooms.sql`이 내보낸 credential fixture 경로. 사용자는 로그인 credential 또는 준비된 session 필드를 가져야 하며 **필수** |
 | `K6_LOGIN_LIMIT` | `30` | 스크립트 쪽 로그인 횟수 가드. 서버 한도와 같게 준다 |
 
 계단 조정용 변수다. 기본값이 공식 계단이며 바꾸면 결과를 다른 Run과 비교할 수 없다.
@@ -209,6 +209,8 @@ K6_LOGIN_LIMIT=300 \
 | `load_stage_delivery_ms{stage:N}` | N단계의 메시지 전달 지연 |
 | `load_stage_connect_ms{stage:N}` | N단계의 WebSocket 연결 시간 |
 | `load_stage_opened{stage:N}` | N단계의 연결 성립률 |
+| `load_subscriber_received_messages` | 각 장기 구독자가 받은 고유 `clientMessageId` 수 |
+| `load_subscriber_delivery_complete` | 각 장기 구독자가 유효한 메시지를 한 건 이상 받은 세션 비율 |
 
 k6는 threshold를 선언한 태그 조합만 요약에 남기므로, 항상 통과하는 조건을 붙여 값만 확보한다. 표본이 없는 단계는 0으로 나오므로 **0과 "측정 안 됨"을 구분해서 읽는다.**
 
