@@ -186,4 +186,32 @@ class GameListRequestTest {
 
 		assertFalse(validator.validate(request).isEmpty());
 	}
+
+	@Test
+	void mechanismMatch는_누락_빈값_null_중복_단일_ANY_ALL을_구분해_검증한다() {
+		GameListRequest missing = new GameListRequest();
+		GameListRequest empty = new GameListRequest();
+		empty.setMechanismMatch(List.of());
+		GameListRequest nullValue = new GameListRequest();
+		nullValue.setMechanismMatch(Collections.singletonList(null));
+		GameListRequest duplicate = new GameListRequest();
+		duplicate.setMechanismMatch(List.of(MechanismMatch.ANY, MechanismMatch.ALL));
+		GameListRequest singleAny = new GameListRequest();
+		singleAny.setMechanismMatch(List.of(MechanismMatch.ANY));
+		GameListRequest singleAll = new GameListRequest();
+		singleAll.setMechanismMatch(List.of(MechanismMatch.ALL));
+
+		assertEquals(MechanismMatch.ANY, missing.getMechanismMatch());
+		assertEquals(MechanismMatch.ANY, empty.getMechanismMatch());
+		assertNull(nullValue.getMechanismMatch());
+		assertEquals(MechanismMatch.ANY, duplicate.getMechanismMatch());
+		assertEquals(MechanismMatch.ANY, singleAny.getMechanismMatch());
+		assertEquals(MechanismMatch.ALL, singleAll.getMechanismMatch());
+		assertTrue(validator.validate(missing).isEmpty());
+		assertFalse(validator.validate(empty).isEmpty());
+		assertFalse(validator.validate(nullValue).isEmpty());
+		assertFalse(validator.validate(duplicate).isEmpty());
+		assertTrue(validator.validate(singleAny).isEmpty());
+		assertTrue(validator.validate(singleAll).isEmpty());
+	}
 }

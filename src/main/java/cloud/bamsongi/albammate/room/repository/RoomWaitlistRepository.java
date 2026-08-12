@@ -60,13 +60,16 @@ public interface RoomWaitlistRepository extends JpaRepository<RoomWaitlist, Room
 	@Query(value = """
 		update room_waitlists
 		set status = 'CANCELED', updated_at = :requestTime
-		where room_id = :roomId and user_id = :userId and status = 'WAITING'
+		where room_id = :roomId and user_id = :userId
+		  and status = 'WAITING' and queue_order = :expectedQueueOrder
 		""", nativeQuery = true)
 	int cancelWaiting(
 		@Param("roomId")
 		Long roomId,
 		@Param("userId")
 		Long userId,
+		@Param("expectedQueueOrder")
+		long expectedQueueOrder,
 		@Param("requestTime")
 		Instant requestTime);
 

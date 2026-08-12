@@ -279,6 +279,7 @@ export const api = {
       complexityMin,
       complexityMax,
       mechanism,
+      mechanismMatch,
       category,
       theme,
       themeMatch,
@@ -302,6 +303,7 @@ export const api = {
       complexityMin,
       complexityMax,
       mechanism,
+      mechanismMatch,
       category,
       theme,
       themeMatch,
@@ -386,7 +388,10 @@ export const api = {
   cancelRoom: (roomId) => mutate('/api/rooms/' + roomId, { method: 'DELETE' }),
   finishRoom: (roomId) => mutate('/api/rooms/' + roomId + '/status', { method: 'PATCH', body: { status: 'FINISHED' } }),
   participate: (roomId) => mutate('/api/rooms/' + roomId + '/participants', { method: 'POST' }),
-  cancelParticipation: (roomId) => mutate('/api/rooms/' + roomId + '/participants/me', { method: 'DELETE' })
+  cancelParticipation: (roomId) => mutate('/api/rooms/' + roomId + '/participants/me', { method: 'DELETE' }),
+  joinWaitlist: (roomId) => mutate('/api/rooms/' + roomId + '/waitlist', { method: 'POST' }),
+  getMyWaitlist: (roomId, signal) => request('/api/rooms/' + roomId + '/waitlist/me', { signal }),
+  cancelWaitlist: (roomId) => mutate('/api/rooms/' + roomId + '/waitlist/me', { method: 'DELETE' })
 };
 
 export function messageForError(error, fallback = '요청을 처리하지 못했어요.') {

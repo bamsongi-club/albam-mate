@@ -73,11 +73,11 @@ ADR-0041은 전역 저장 상태 보정이 커밋된 뒤 목록·상세 조회�
 
 ## 검증
 
-- 상태: 미검증
-- 근거: 없음
-- 미검증:
-    - #557의 승인된 T1~T7과 기존 ROOM-08·09·10 회귀를 구현·테스트·CI로 확인해야 한다.
-    - 공개 목록과 내 모임의 content/count 실행계획 및 snapshot·조회 락 부재를 PostgreSQL에서 확인해야 한다.
-    - ReadService가 `effectiveStatus`와 관계 사실을 같은 `REPEATABLE_READ` snapshot에서 반환하고, DTO 조립이 ROOM·참가·대기 관계를 다시 읽지 않음을 확인해야 한다.
+- 상태: 검증됨
+- 근거:
+    - 구현: [#557](https://github.com/bamsongi-club/albam-mate/issues/557)의 [PR #574](https://github.com/bamsongi-club/albam-mate/pull/574)가 목록·내 모임 ReadService를 고정 `requestTime`의 `REQUIRES_NEW`, `readOnly = true`, `REPEATABLE_READ` snapshot 조회로 반영했다.
+    - 계약: [#557의 승인된 T1~T7](https://github.com/bamsongi-club/albam-mate/issues/557#issuecomment-5237025713)이 content·count·현재 관계 사실의 단일 snapshot과 조회 락 부재를 고정했다.
+    - 테스트: PR #574의 `RoomActionAvailabilitySnapshotPostgresTest`가 Scheduler·참가 변경 커밋과 목록·내 모임 content/count 사이의 snapshot 고정을, `SearchPerformancePostgresTest`가 공개 목록 실행 계획을 확인했다.
+    - CI: PR #574의 PostgreSQL 1/2·2/2와 CI Gate가 성공했다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

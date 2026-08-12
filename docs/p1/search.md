@@ -43,7 +43,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 | 출처·적재 | [ADR-0015](../adr/game/0015-bgg-baseline-team-collected-game-list.md), [입력 검수 기록](../game-catalog/2026-07-24-input-review.md), [적재 절차](../guides/GAME_CATALOG_IMPORT.md) |
 | 입력 데이터 | 입력 CSV와 변환 산출물은 저장소에 커밋하지 않는다. 적재 작업은 [입력 검수 기록](../game-catalog/2026-07-24-input-review.md)의 SHA-256과 일치하는 팀 공유 입력을 먼저 확보해야 하며, 입력을 새로 수집하거나 생성하지 않는다 |
 | 성능 검증 | [FND-09 검색 성능과 인덱스 검증](foundation.md#fnd-09-검색-성능과-인덱스-검증) |
-| HTTP 경계 | `GameController#listGames`, `GameListRequest`의 기존 조건과 반복 `category`, `theme`, `recommendedPlayerCount`, `bestPlayerCount`, `mechanism`; 선택지는 `GET /api/game-categories`, `GET /api/game-themes`, `GET /api/game-mechanisms` |
+| HTTP 경계 | `GameController#listGames`, `GameListRequest`의 기존 조건과 반복 `category`, `theme`, `recommendedPlayerCount`, `bestPlayerCount`, `mechanism`, 단일 `themeMatch`, `mechanismMatch`; 선택지는 `GET /api/game-categories`, `GET /api/game-themes`, `GET /api/game-mechanisms` |
 | 현재 조회 경계 | `GameQueryService#findPage`, 불변 `GameListSearchCriteria`, `GameRepository#findAll(Specification, Pageable)`, `GameListRow`, `UpcomingRoomCountQuery`; 모든 조건은 단일 동적 조회에 전달하고 정렬은 엔티티 필드 `name`, `id` 오름차순 고정 |
 | 저장 계약 | 기존 게임 표시·검색 필드, 카테고리·테마·인원 선호·메커니즘 관계. `Game.tag` 의미는 유지하고 새 관계의 정본으로 재사용하지 않음 |
 
@@ -72,7 +72,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 | `OVER_60_UNDER_90` | 검증된 최대 플레이 시간이 60분 초과 90분 미만 |
 | `AT_LEAST_90` | 검증된 최대 플레이 시간이 90분 이상 |
 | 복잡도 | 사용자가 지정한 최소·최대 닫힌 구간에 포함됨 |
-| 메커니즘 | 선택한 공개 코드 중 하나 이상과 관계가 있음. 선택 목록 안 OR, 다른 필터와 AND |
+| 메커니즘 | `mechanismMatch=ANY`면 선택한 공개 코드 중 하나 이상, `ALL`이면 선택한 모든 고유 코드와 관계가 있음. 다른 필터와 AND |
 
 - 인원은 보드라이프 방식의 `최소 ~ 최대`, `인원 정확히 일치`, `1인 전용`, `2인 전용`을 제공한다.
 - 인원 최소·최대는 양의 정수이며 한쪽만 입력해도 된다. 두 계열의 조건을 함께 전달하거나 최소가 최대보다 크면 검증 오류다.
@@ -82,9 +82,10 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 - 이전 플레이 시간 값 `SHORT`, `MEDIUM`, `LONG`은 제거했다. 단독으로 전달하거나 새 값과 섞어 전달하면 검증 오류이며 조용히 무시하지 않는다.
 - 기존 `playerCount` 조건은 그대로 유지한다.
 - 복잡도 최소값과 최대값은 각각 생략할 수 있지만 둘 다 전달하면 최소값이 최대값보다 크지 않아야 한다.
-- 메커니즘은 안정적인 내부 코드를 반복 전달한다. 같은 코드를 반복해도 한 번 전달한 것과 같고, 존재하지 않거나 비공개인 코드는 검증 오류다.
+- 메커니즘은 안정적인 내부 코드를 반복 전달한다. `mechanismMatch`를 생략하면 ANY이며 하나라도 관계가 있으면 되고, ALL이면 선택한 모든 고유 메커니즘과 관계가 있어야 한다. 메커니즘을 보내지 않고 `mechanismMatch`만 보내는 것은 유효하지만, 잘못되거나 중복된 `mechanismMatch`는 검증 오류다. 같은 코드를 반복해도 한 번 전달한 것과 같고, 존재하지 않거나 비공개인 코드는 검증 오류다.
 - 카테고리는 고정 8개 안정 code를 반복 전달한다. 같은 category 안에서는 OR이고, 존재하지 않는 code는 일부 유효 code가 함께 있어도 검증 오류다.
 - 테마는 안정 code를 반복 전달한다. `themeMatch`를 생략하면 ANY이며 하나라도 관계가 있으면 되고, ALL이면 선택한 모든 고유 테마와 관계가 있어야 한다. 테마를 보내지 않고 `themeMatch`만 보내는 것은 유효하지만, 잘못되거나 중복된 `themeMatch`는 검증 오류다.
+- `themeMatch`와 `mechanismMatch`는 독립적으로 선택하고, 테마 그룹과 메커니즘 그룹 사이는 AND로 결합한다.
 - 추천 인원은 BGG 투표의 Best 또는 Recommended 우세, 베스트 인원은 Best 단독 우세로 저장한 양의 정수 관계를 반복 전달한다. 각 목록 안에서는 OR이고 다른 필터와는 AND다. `4+`는 가능 인원의 검증된 최대값까지 펼친 관계를 사용한다.
 - 특정 필터를 적용하면 그 조건을 판정할 검증값이 있는 게임만 결과에 포함한다. 필터를 생략한 조회는 해당 값이 없다는 이유만으로 게임을 제외하지 않는다.
 - 서로 다른 필터 종류와 기존 `keyword`, `upcomingOnly`는 AND로 결합한다. 같은 식별자를 반복 전달해도 한 번 전달한 것과 같은 결과여야 한다.
@@ -105,7 +106,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 ### 권장 조회 구조
 
 - 현재 `GameQueryService#findPage`는 `keyword`, `upcomingOnly` 조합마다 `GameRepository`의 파생 조회 메서드를 골라 쓴다. P1 조건을 같은 방식으로 늘리면 조합 수만큼 메서드가 증가하므로, 새 조건은 불변 검색 조건 하나로 묶어 단일 동적 조회 경계에 전달한다.
-- 170,000건 범위에서도 `upcomingOnly`의 예정 모임 게임 ID 집합을 다른 조건과 함께 전달한다. 카테고리·테마·추천·베스트·메커니즘은 관계별 상관 `EXISTS`로, 테마 ALL은 선택한 고유 code 수와 일치 관계 수 비교로 판정한다.
+- 170,000건 범위에서도 `upcomingOnly`의 예정 모임 게임 ID 집합을 다른 조건과 함께 전달한다. 카테고리·추천·베스트와 ANY 테마·메커니즘은 관계별 상관 `EXISTS`로, 테마·메커니즘 ALL은 각 그룹에서 선택한 고유 code 수와 일치 관계 수 비교로 판정한다.
 - 메커니즘과 `PLAYED_ONLY`는 `EXISTS`, `EXCLUDE_PLAYED`는 `NOT EXISTS`로 판정해 관계 조인으로 게임 행이 중복되지 않게 한다. 새 관계 역방향 인덱스와 cache는 170,000건 실행 계획에서 필요성이 재현될 때만 추가한다.
 
 ### 완료 기준
@@ -120,8 +121,8 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 - `SEARCH-01-AC8` 표시용 인원·시간 문자열을 유지하면서 검색용 값의 유효·누락·제외 건수와 출처를 재현 가능한 품질 보고서로 검증한다.
 - `SEARCH-01-AC9` 인원 범위·경계 정확 일치·전용 인원이 확정한 판정대로 동작하고, 범위 조건과 전용 인원을 함께 전달하거나 최소가 최대보다 크면 검증 오류로 거절한다.
 - `SEARCH-01-AC10` 공개 선택지 API가 검수된 189개만 안정적인 코드·한글명·영문명·대표 순서와 함께 반환한다.
-- `SEARCH-01-AC11` 단일·다중 메커니즘이 각각 관계 게임과 선택 목록 OR를 중복 없이 반환하고 존재하지 않거나 비공개인 코드는 검증 오류다.
-- `SEARCH-01-AC12` 메커니즘과 기존 조건을 조합하면 모든 조건을 만족한 결과 기준 정렬·페이지 메타데이터를 유지한다.
+- `SEARCH-01-AC11` 단일·다중 메커니즘이 기본 ANY와 선택 가능한 ALL을 중복 없이 판정하고, `mechanismMatch` 기본값·중복·형식 오류와 존재하지 않거나 비공개인 코드를 정확히 검증한다.
+- `SEARCH-01-AC12` 테마와 메커니즘의 ANY·ALL을 독립적으로 선택하고 기존 조건과 조합하면 모든 그룹을 AND로 만족한 결과 기준 정렬·페이지 메타데이터를 유지한다.
 - `SEARCH-01-AC13` 메커니즘을 생략하면 관계가 없는 게임도 유지하고 적재를 반복해도 같은 게임·메커니즘 관계를 중복 저장하지 않는다.
 - `SEARCH-01-AC14` 순위 CSV의 양수 subdomain rank만 고정 8개 카테고리 관계로 적재하고, category 단일·다중 OR와 존재하지 않는 code·중복 code의 검증을 지킨다.
 - `SEARCH-01-AC15` 테마 선택지는 한글명·영문명·안정 code를 반환하고, theme ANY·ALL과 themeMatch 기본값·중복·형식 오류를 정확히 판정한다.
@@ -147,8 +148,8 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 | 데이터 모델 | [ROOMS](../ERD.md#rooms) |
 | 조회 유효 상태 | [ADR-0055 ROOM 조회 유효 상태와 저장 상태 보정 책임 분리](../adr/room/0055-room-query-effective-status-and-persistence-correction.md) |
 | 성능 검증 | [FND-09 검색 성능과 인덱스 검증](foundation.md#fnd-09-검색-성능과-인덱스-검증) |
-| 현재 HTTP 경계 | `RoomController#listRooms`, `RoomListRequest`, `RoomQueryParameterAllowlistValidator`; 제공 조건은 `type`, `gameId`, `keyword`, `startsAtFrom`, `startsAtTo`, `minRemainingSeats`, `experienceLevels`, `rulemasterOnly`, `page`, `size` |
-| 현재 조회 경계 | `RoomListQueryService#findPage` → `RoomStatusCorrectionCoordinator#correctDueRooms` → `RoomListReadService#findPublicRooms` → `RoomRepository`; 보정 뒤 저장 상태와 모든 조건은 하나의 동적 조회에 적용하고 정렬은 엔티티 필드 `startAt`, `id` 오름차순 고정 |
+| 현재 HTTP 경계 | `RoomController#listRooms`, `RoomListRequest`, `RoomQueryParameterAllowlistValidator`; 제공 조건은 `type`, `status`, `gameId`, `keyword`, `startsAtFrom`, `startsAtTo`, `minRemainingSeats`, `experienceLevels`, `rulemasterOnly`, `page`, `size` |
+| 현재 조회 경계 | `RoomListQueryService#findPage` → `RoomListReadService#findPublicRoomsAt` → `RoomRepository#findPublicRoomsAt`; QueryService가 고정한 `requestTime`의 유효 상태와 모든 조건을 `REQUIRES_NEW`, `readOnly = true`, `REPEATABLE_READ` 읽기 snapshot의 하나의 동적 조회에 적용하고 정렬은 엔티티 필드 `startAt`, `id` 오름차순 고정 |
 | 현재 저장 필드 | `Room.startAt`, `Room.capacity`, `Room.activeParticipantCount`, `Room.experienceLevel`, `Room.rulemasterLed` |
 
 ### 기능 규칙
@@ -166,8 +167,8 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 
 ### 권장 조회 구조
 
-- ADR-0055·0056의 후속 #557 구현은 `requestTime` 고정 → 유효 상태를 적용한 공개 방·필터 조회 → 응답 조립 순서를 사용하고, 새 조건은 `RoomListReadService`와 `RoomRepository`까지 전달한다. `RoomListReadService`와 `RoomRepository` 밖이나 DTO 조립 뒤에서 필터를 판정하지 않는다.
-- 현재 `RoomListReadService#findPublicRooms`는 `keyword` 유무로 저장소 메서드를 나눈다. P1 조건을 조합마다 메서드로 늘리지 않고 하나의 동적 조회 경계로 모은다.
+- [#557](https://github.com/bamsongi-club/albam-mate/issues/557)의 [PR #574](https://github.com/bamsongi-club/albam-mate/pull/574)는 `requestTime` 고정 → 유효 상태를 적용한 공개 방·필터 조회 → 응답 조립 순서를 반영했다. 제공 조건은 `RoomListReadService`와 `RoomRepository`까지 전달하며, 그 밖이나 DTO 조립 뒤에서 필터를 판정하지 않는다.
+- 현재 `RoomListReadService#findPublicRoomsAt`와 `RoomRepository#findPublicRoomsAt`는 제공 조건을 하나의 동적 조회 경계에 모은다. 조건 조합이나 `keyword` 유무마다 Repository 메서드를 늘리지 않는다.
 - 날짜, 경험 수준, 룰마스터와 `Room.capacity - Room.activeParticipantCount` 조건은 페이지네이션 전 SQL 조건으로 적용한다. 서비스에서 페이지 결과를 다시 걸러내지 않는다.
 
 ### 완료 기준
@@ -201,8 +202,8 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 | 인증·공개 범위 | [P1 P0 계약 상속](../P1-spec.md#p0-계약-상속) |
 | 저장 계약 | [USER_PLAYED_GAMES](../ERD.md#user_played_games), [ADR-0006](../adr/platform/0006-p0-bigint-identity-ids.md) |
 | 필수 ADR | [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md), [ADR-0047](../adr/platform/0047-http-method-and-target-state-idempotency.md) |
-| 백엔드 구현·개발 검증 | [#356](https://github.com/bamsongi-club/albam-mate/issues/356) (구현 완료; H2·PostgreSQL 대상 테스트 통과) |
-| 프론트엔드 구현 | [#357](https://github.com/bamsongi-club/albam-mate/issues/357) |
+| 백엔드 구현·개발 검증 근거 | [#356](https://github.com/bamsongi-club/albam-mate/issues/356) |
+| 프론트엔드 구현·검증 근거 | [#357](https://github.com/bamsongi-club/albam-mate/issues/357) |
 
 ### 기능 규칙
 
@@ -242,28 +243,28 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 
 플레이 기록·통계 기능이 승인되면 별도 이력 모델을 추가한다. 현재 관계의 생성 시각을 실제 플레이 날짜나 과거 플레이 이력으로 변환하지 않는다.
 
-## 부록: 현재 구현 위치와 검증 경계
+## 부록: 소스 탐색 위치와 검증 경계
 
-이 부록은 현재 구현 위치와 후속 변경의 검증 경계를 확인하기 위한 작업 메모다. 최종 계약은 [P1 명세](../P1-spec.md), [API 명세](../API.md), [ERD](../ERD.md)와 승인된 ADR을 따른다.
+이 부록은 소스 탐색 시작점과 후속 변경의 검증 경계를 확인하기 위한 작업 메모다. 기능의 현재 구현·검증 상태는 [P1 기능 상태 정본](README.md#기능별-현재-상태)만 따르며, 최종 계약은 [P1 명세](../P1-spec.md), [API 명세](../API.md), [ERD](../ERD.md)와 승인된 ADR을 따른다.
 
-### 정본별 반영 결과
+### 정본별 소유 범위
 
-현재 P1 필수 검색 범위는 다음 정본과 구현에 반영돼 있다.
+검색 계약과 탐색 경계는 다음 정본이 나누어 소유한다.
 
-| 정본 | P1 필수 범위 반영 |
+| 정본 | 소유 범위·탐색 지점 |
 | --- | --- |
 | [P1 명세](../P1-spec.md) | 카테고리·테마·추천/베스트·메커니즘을 포함한 `SEARCH-01`~`SEARCH-03` 기능 목록·완료 기준 |
 | [API 명세](../API.md) | 게임·방 검색, 카테고리·테마·메커니즘 선택지, 해 본 게임 파라미터·등록·취소·본인 표시 상태 |
 | [ERD](../ERD.md) | 인원·시간 수치 열, 카테고리·테마·인원 선호·메커니즘·해 본 게임 관계와 제약 |
 | ADR | [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md), [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md), [ADR-0048](../adr/game/0048-full-reviewed-game-mechanism-catalog.md), [ADR-0050](../adr/game/0050-game-metadata-catalog-and-filters.md) 승인 |
 | 카탈로그 manifest·가이드 | 인원·시간·카테고리·테마·인원 선호·메커니즘 필드의 출처, 정규화·검수 결과와 반복 적재 계약 |
-| [기반 작업](foundation.md) | 구현된 필수 검색의 대표 데이터·쿼리·측정 기준 |
+| [기반 작업](foundation.md) | 필수 검색의 대표 데이터·쿼리·측정 기준 |
 
-### 현재 구현 지점
+### 소스 탐색 시작점
 
-아래는 현재 존재하는 파일 기준의 구현 지점이다. `USER_PLAYED_GAMES`를 포함한 물리 계약은 ERD가 정본이다. Java 경로는 `src/main/java/cloud/bamsongi/albammate/` 기준이고, 그 밖의 경로는 저장소 루트 기준이다.
+아래 경로는 구현 상태 판정이 아니라 관련 소스를 찾기 위한 시작점이다. 파일의 존재만으로 기능 완료를 판단하지 않으며, `USER_PLAYED_GAMES`를 포함한 물리 계약은 ERD가 정본이다. Java 경로는 `src/main/java/cloud/bamsongi/albammate/` 기준이고, 그 밖의 경로는 저장소 루트 기준이다.
 
-| 영역 | 현재 파일 |
+| 영역 | 탐색 시작 파일 |
 | --- | --- |
 | 게임 메타데이터 저장 모델 | `game/entity/GameCategory.java`, `GameTheme.java`, `GamePlayerPreference.java`와 각 relation·Repository, `V20__create_game_metadata_filter_schema.sql` |
 | 게임 요청·응답 | `game/dto/GameListRequest.java`, `game/dto/GameDetail.java`, category·theme option·summary DTO |

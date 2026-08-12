@@ -229,6 +229,21 @@ describe('게임 목록 검색 API', () => {
       '/api/games?mechanism=HAND_MANAGEMENT&mechanism=DICE_ROLLING&page=0&size=24'
     );
   });
+
+  it('테마와 메커니즘 포함 방식을 독립된 단일 파라미터로 전달한다', async () => {
+    const fetchMock = stubFetch();
+
+    await api.getGames({
+      exclusivePlayerCount: [],
+      playTime: [],
+      themeMatch: 'ALL',
+      mechanismMatch: 'ANY',
+      page: 0,
+      size: 24
+    });
+
+    expect(requestedUrl(fetchMock)).toBe('/api/games?mechanismMatch=ANY&themeMatch=ALL&page=0&size=24');
+  });
 });
 
 describe('해 본 게임 API', () => {

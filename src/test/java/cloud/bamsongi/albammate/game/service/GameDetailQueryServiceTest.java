@@ -26,6 +26,7 @@ import com.jayway.jsonpath.JsonPath;
 import cloud.bamsongi.albammate.game.contract.UpcomingRoomCountQuery;
 import cloud.bamsongi.albammate.game.dto.GameDetail;
 import cloud.bamsongi.albammate.game.entity.Game;
+import cloud.bamsongi.albammate.game.fixture.GameDetailFixture;
 import cloud.bamsongi.albammate.game.repository.GameCategoryRelationRepository;
 import cloud.bamsongi.albammate.game.repository.GameMechanismRelationRepository;
 import cloud.bamsongi.albammate.game.repository.GamePlayerPreferenceRepository;
@@ -98,10 +99,10 @@ class GameDetailQueryServiceTest {
 		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW))
 			.thenReturn(Map.of(1L, 2L));
 
-		GameDetail result = gameDetailQueryService.findById(1L);
+		GameDetail result = gameDetailQueryService.findById(1L, null);
 
 		assertEquals(
-			new GameDetail(
+			GameDetailFixture.of(
 				1L,
 				1001L,
 				"카탄",
@@ -128,7 +129,7 @@ class GameDetailQueryServiceTest {
 		when(gameRepository.findById(999L)).thenReturn(Optional.empty());
 
 		BusinessException exception = assertThrows(BusinessException.class,
-			() -> gameDetailQueryService.findById(999L));
+			() -> gameDetailQueryService.findById(999L, null));
 
 		assertEquals(ErrorCode.GAME_NOT_FOUND, exception.getErrorCode());
 		verifyNoInteractions(upcomingRoomCountQuery);

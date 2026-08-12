@@ -751,6 +751,8 @@ final class RoomConcurrencyBaselineSupport {
 		String event,
 		Long roomId,
 		int attempt,
+		String useCase,
+		String reasonCode,
 		Level level) {
 
 		boolean retryAttempt() {
@@ -845,7 +847,7 @@ final class RoomConcurrencyBaselineSupport {
 	private static final class RetryLogCapture {
 
 		private static final Pattern RETRY_LOG_PATTERN = Pattern.compile(
-			"^event=(\\S+)(?: roomId=(\\d+))? attempt=(\\d+)$");
+			"^event=(\\S+)(?: roomId=(\\d+))? attempt=(\\d+) useCase=(\\S+) reasonCode=(\\S+)$");
 
 		private final Logger logger;
 		private final Level previousLevel;
@@ -884,6 +886,8 @@ final class RoomConcurrencyBaselineSupport {
 				matcher.group(1),
 				roomId,
 				Integer.parseInt(matcher.group(3)),
+				matcher.group(4),
+				matcher.group(5),
 				event.getLevel());
 		}
 

@@ -8,6 +8,7 @@ import java.util.function.IntConsumer;
 
 import org.springframework.stereotype.Service;
 
+import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier;
 import lombok.extern.slf4j.Slf4j;
 
@@ -95,9 +96,11 @@ public class RoomStatusCorrectionCoordinator {
 					if (correctRoom(candidate.roomId(), requestTime, beforeRetry)) {
 						changedCount++;
 					}
+				} catch (BusinessException exception) {
+					// 계약된 업무 거절과 낙관 락 소진은 호출자 오류 계약으로만 전달한다.
 				} catch (RuntimeException exception) {
-					log.warn("event=room_status_reconciliation_room_failed roomId={} reason={}",
-						candidate.roomId(), exception.getClass().getSimpleName());
+					log.warn("event=room_status_reconciliation_room_failed roomId={} useCase={} reasonCode={}",
+						candidate.roomId(), "ROOM_STATUS_CORRECTION", "UNEXPECTED_FAILURE");
 				}
 
 				Optional<RoomStatusCorrectionProgressStore.ProgressSnapshot> advanced = progressStore.advanceCursor(

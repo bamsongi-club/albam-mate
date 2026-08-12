@@ -19,37 +19,6 @@ public record GameListItem(
 	long upcomingRoomCount,
 	Boolean playedByMe) {
 
-	public GameListItem(
-		Long id,
-		Long bggId,
-		String name,
-		String englishName,
-		String imageUrl,
-		String supportedPlayerCount,
-		String tag,
-		String estimatedPlayTime,
-		BigDecimal complexity,
-		long upcomingRoomCount) {
-		this(
-			id,
-			bggId,
-			name,
-			englishName,
-			imageUrl,
-			supportedPlayerCount,
-			tag,
-			estimatedPlayTime,
-			complexity,
-			null,
-			null,
-			upcomingRoomCount,
-			null);
-	}
-
-	public static GameListItem from(GameListRow game, long upcomingRoomCount) {
-		return from(game, upcomingRoomCount, null);
-	}
-
 	public static GameListItem from(GameListRow game, long upcomingRoomCount, Boolean playedByMe) {
 		return new GameListItem(
 			game.id(),

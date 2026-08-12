@@ -10,6 +10,7 @@ import org.springframework.util.StringUtils;
 import cloud.bamsongi.albammate.game.dto.GameAgeBandFilter;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
+import cloud.bamsongi.albammate.game.dto.MechanismMatch;
 import cloud.bamsongi.albammate.game.dto.PlayedFilter;
 import cloud.bamsongi.albammate.game.dto.ThemeMatch;
 import lombok.Getter;
@@ -35,6 +36,7 @@ public final class GameListSearchCriteria {
 	private final PlayedFilter playedFilter;
 	private final Long currentUserId;
 	private final List<String> mechanisms;
+	private final MechanismMatch mechanismMatch;
 	private final List<String> categories;
 	private final List<String> themes;
 	private final ThemeMatch themeMatch;
@@ -58,6 +60,7 @@ public final class GameListSearchCriteria {
 		this.playedFilter = request.getPlayedFilter();
 		this.currentUserId = null;
 		this.mechanisms = distinctValues(request.getMechanism());
+		this.mechanismMatch = request.getMechanismMatch();
 		this.categories = distinctValues(request.getCategory());
 		this.themes = distinctValues(request.getTheme());
 		this.themeMatch = request.getThemeMatch();
@@ -82,6 +85,7 @@ public final class GameListSearchCriteria {
 		this.playedFilter = source.playedFilter;
 		this.currentUserId = currentUserId;
 		this.mechanisms = source.mechanisms;
+		this.mechanismMatch = source.mechanismMatch;
 		this.categories = source.categories;
 		this.themes = source.themes;
 		this.themeMatch = source.themeMatch;
@@ -99,12 +103,6 @@ public final class GameListSearchCriteria {
 
 	public static GameListSearchCriteria from(GameListRequest request) {
 		return new GameListSearchCriteria(request);
-	}
-
-	public static GameListSearchCriteria keywordOnly(String keyword) {
-		GameListRequest request = new GameListRequest();
-		request.setKeyword(keyword);
-		return from(request);
 	}
 
 	public GameListSearchCriteria withUpcomingGameIds(Collection<Long> upcomingGameIds) {

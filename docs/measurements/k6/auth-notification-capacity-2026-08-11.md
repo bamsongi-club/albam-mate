@@ -23,7 +23,7 @@
 | 항목 | 고정 값 |
 | --- | --- |
 | 실행 구간 | 2026-08-11 02:10:40~10:36:50 KST (UTC 2026-08-10 17:10:40~2026-08-11 01:36:50) |
-| AWS | account `001606112268`, region `ap-northeast-2`, stack `perf-jiho`, `Environment=perf` |
+| AWS | account `<redacted>`, region `ap-northeast-2`, stack `<redacted>`, `Environment=perf` |
 | App | `t4g.micro` 2대, CPU credit `standard`, JVM `-Xmx256m`, container memory 512MiB, Tomcat max thread 200, Hikari max 8 |
 | PostgreSQL / Redis | 각각 `t4g.micro` 1대 |
 | 발생기 | `c7g.large` 1대, k6 `1.3.0` |

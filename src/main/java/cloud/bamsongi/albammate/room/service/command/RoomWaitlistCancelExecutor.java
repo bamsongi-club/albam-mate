@@ -10,8 +10,10 @@ import org.springframework.transaction.annotation.Transactional;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.entity.Room;
+import cloud.bamsongi.albammate.room.enums.RoomWaitlistStatus;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
+import cloud.bamsongi.albammate.room.repository.RoomWaitlistStateProjection;
 import lombok.AccessLevel;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +32,12 @@ class RoomWaitlistCancelExecutor {
 		Room room = roomRepository.findById(roomId)
 			.orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
 		room.reconcileStateAt(requestTime);
-		if (roomWaitlistRepository.cancelWaiting(roomId, currentUserId, requestTime) == 0) {
+		RoomWaitlistStateProjection waiting = roomWaitlistRepository
+			.findStateWithPositionByRoomIdAndUserId(roomId, currentUserId)
+			.filter(state -> state.getStatus() == RoomWaitlistStatus.WAITING)
+			.orElseThrow(() -> new BusinessException(ErrorCode.WAITLIST_ENTRY_NOT_FOUND));
+		if (roomWaitlistRepository.cancelWaiting(
+			roomId, currentUserId, waiting.getQueueOrder(), requestTime) == 0) {
 			throw new BusinessException(ErrorCode.WAITLIST_ENTRY_NOT_FOUND);
 		}
 	}

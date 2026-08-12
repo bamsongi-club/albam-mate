@@ -44,9 +44,7 @@ export function clearedExclusivePlayerCount(filters, value) {
  * 전용 인원을 함께 담은 요청을 검증 오류로 거절하므로 이때 범위 파라미터를 뺀다.
  */
 export function gameFilterParameters(filters) {
-  const applied = filters.exclusivePlayerCount.length ? { ...filters, ...EMPTY_PLAYER_COUNT_RANGE } : filters;
-  // 테마가 하나 이하면 포함 방식이 결과를 바꾸지 않으므로 요청에서 뺀다.
-  return applied.theme.length > 1 ? applied : { ...applied, themeMatch: '' };
+  return filters.exclusivePlayerCount.length ? { ...filters, ...EMPTY_PLAYER_COUNT_RANGE } : filters;
 }
 
 export function playerCountRangeLabel(filters) {
@@ -102,28 +100,33 @@ export function gameFilterChips(filters, onChange, mechanismOptions, categoryOpt
   filters.mechanism.forEach((code) => {
     const option = mechanismOptions.find((candidate) => candidate.code === code);
     if (option) {
+      const nextMechanisms = filters.mechanism.filter((selected) => selected !== code);
       chips.push({
         key: 'mechanism-' + code,
         label: option.nameKo,
-        onClear: () => update({ mechanism: filters.mechanism.filter((selected) => selected !== code) })
+        onClear: () => update({ mechanism: nextMechanisms, ...(nextMechanisms.length ? null : { mechanismMatch: '' }) })
       });
     }
   });
-  const pushOptionChips = (key, options, prefix = '') => {
+  const pushOptionChips = (key, options, prefix = '', matchKey) => {
     filters[key].forEach((code) => {
       const option = options.find((candidate) => candidate.code === code);
       if (!option) return;
+      const nextValues = filters[key].filter((selected) => selected !== code);
       chips.push({
         key: key + '-' + code,
         label: prefix + option.nameKo,
-        onClear: () => update({ [key]: filters[key].filter((selected) => selected !== code) })
+        onClear: () => update({ [key]: nextValues, ...(matchKey && !nextValues.length ? { [matchKey]: '' } : null) })
       });
     });
   };
   pushOptionChips('category', categoryOptions);
-  pushOptionChips('theme', themeOptions);
+  pushOptionChips('theme', themeOptions, '', 'themeMatch');
   if (filters.theme.length > 1 && filters.themeMatch === 'ALL') {
     chips.push({ key: 'themeMatch', label: '테마 모두 포함', onClear: () => update({ themeMatch: '' }) });
+  }
+  if (filters.mechanism.length > 1 && filters.mechanismMatch === 'ALL') {
+    chips.push({ key: 'mechanismMatch', label: '메커니즘 모두 포함', onClear: () => update({ mechanismMatch: '' }) });
   }
   [['recommendedPlayerCount', '추천'], ['bestPlayerCount', '베스트']].forEach(([key, prefix]) => {
     filters[key].forEach((value) => {

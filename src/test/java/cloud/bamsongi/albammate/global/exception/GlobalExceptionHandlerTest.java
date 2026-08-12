@@ -20,6 +20,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -216,6 +218,26 @@ class GlobalExceptionHandlerTest {
 	}
 
 	@Test
+	void T2_Redis_연결_실패는_Retry_After_없는_503_공통_봉투로_변환한다() throws Exception {
+		MvcResult result = mockMvc.perform(get("/redis-failure"))
+			.andExpect(status().isServiceUnavailable())
+			.andReturn();
+
+		assertNull(result.getResponse().getHeader(HttpHeaders.RETRY_AFTER));
+		assertErrorJson(result, ErrorCode.SERVICE_UNAVAILABLE);
+	}
+
+	@Test
+	void T2_Redis_시스템_실패도_Retry_After_없는_503_공통_봉투로_변환한다() throws Exception {
+		MvcResult result = mockMvc.perform(get("/redis-system-failure"))
+			.andExpect(status().isServiceUnavailable())
+			.andReturn();
+
+		assertNull(result.getResponse().getHeader(HttpHeaders.RETRY_AFTER));
+		assertErrorJson(result, ErrorCode.SERVICE_UNAVAILABLE);
+	}
+
+	@Test
 	void 처리하지_않은_예외는_원인_메시지_없이_서버_오류로_변환한다() throws Exception {
 		ResponseEntity<ApiResponse<Void>> response = handler.handleUnhandledException(
 			new IllegalStateException("password=secret, userId=42"));
@@ -335,6 +357,16 @@ class GlobalExceptionHandlerTest {
 		@GetMapping(path = "/unexpected", produces = MediaType.APPLICATION_JSON_VALUE)
 		Map<String, String> unexpected() {
 			throw new IllegalStateException("password=secret, userId=42, database-token=hidden");
+		}
+
+		@GetMapping(path = "/redis-failure", produces = MediaType.APPLICATION_JSON_VALUE)
+		Map<String, String> redisFailure() {
+			throw new RedisConnectionFailureException("redis unavailable");
+		}
+
+		@GetMapping(path = "/redis-system-failure", produces = MediaType.APPLICATION_JSON_VALUE)
+		Map<String, String> redisSystemFailure() {
+			throw new RedisSystemException("redis unavailable", new RuntimeException("connection refused"));
 		}
 	}
 

@@ -1,0 +1,688 @@
+{
+  "campaignId": "chat-delivery-20260812T090111KST",
+  "campaignStatus": "completed-with-limitations",
+  "documentStatus": "current",
+  "supersedes": "chat-delivery-20260812T042245KST",
+  "purpose": "새 경계 탐색이 아니라 직전 캠페인 수치가 실행 간 편차인지 확인한다.",
+  "window": {
+    "startedAtKst": "2026-08-12T09:01:11+09:00",
+    "endedAtKst": "2026-08-12T10:35:38+09:00",
+    "durationSeconds": 5667
+  },
+  "release": {
+    "sha": "1db046c0acdde59737411303a5547f3d8fed1422",
+    "tag": "measurement/chat-delivery-2026-08-11",
+    "backendImage": "sha256:f8c7a71e58f30d26c73d65213ac254634f5b365cca37a09668af223de035c61b",
+    "webImage": "sha256:52b23434c167c4fe583a13b291e6aea16f790952c7fef68b43cbf12e429e347a",
+    "postgresImage": "sha256:0826e5f2996099babb925e09fb72bf2c6eb5d187cfcae20aa9291af1612307e4",
+    "redisImage": "sha256:78b83aee0bf6781ca973ee5022de73dd16fe93f53593c3a31f079c8c3fa08921",
+    "note": "직전 캠페인과 release·image·계단·fixture·배포·runner 조건이 모두 같다. 각 Run의 execution에 해석된 환경 변수와 실행 명령을 보존했으며, 바뀐 것은 실행 시각뿐이다."
+  },
+  "fixture": {
+    "source": "load-tests/k6/chat/fixtures/rooms.sql",
+    "cleanup": "load-tests/k6/chat/fixtures/cleanup.sql",
+    "roomCount": 8,
+    "accountsPerRoom": 9,
+    "messagesPerRoom": 150
+  },
+  "knownLimitations": [
+    "The 2026-08-11 first campaign tagged stages before setup login completed, so it is excluded from equivalent stage comparison with the two 2026-08-12 campaigns.",
+    "load-throughput still has a sender-rotation defect, so its stage values are not server-capacity evidence.",
+    "load-rooms droppedIterations=10 and load-mixed droppedIterations=18, so p95 values at their failing stages are lower bounds under incomplete target load.",
+    "CPU credit data was not collected for the 2026-08-11 first campaign, so the CPU conclusion is limited to the two 2026-08-12 campaigns."
+  ],
+  "observations": {
+    "redis": {
+      "rejectedConnections": 0,
+      "totalConnectionsReceived": 125678,
+      "usedMemoryHuman": "2.05M"
+    },
+    "redisConnectionFailureException": {
+      "app1": 1354,
+      "app2": 1458,
+      "total": 2812
+    },
+    "chatHttpStatus": {
+      "postMessages": {
+        "2xx": 4867,
+        "500": 331,
+        "503": 305
+      },
+      "getMessages": {
+        "2xx": 3063,
+        "500": 369,
+        "503": 259
+      }
+    },
+    "cpu": {
+      "note": "08-12 2회 캠페인에서는 CPU가 병목이 아니었다. 08-11 1차는 CPU 크레딧을 수집하지 않았다.",
+      "app1": {
+        "creditStart": 3.1,
+        "creditEnd": 14.22,
+        "utilizationAvgPercent": 4.1,
+        "utilizationMaxPercent": 14.5
+      },
+      "app2": {
+        "creditStart": 3.27,
+        "creditEnd": 14.79,
+        "utilizationAvgPercent": 3.8,
+        "utilizationMaxPercent": 13.6
+      }
+    }
+  },
+  "runToRunVariance": {
+    "note": "같은 release·계단·fixture·배포·runner 조건으로 3회 측정한 원자료다. 각 Run.execution이 해석된 환경과 명령을 보존한다. 08-11 1차는 단계 태그 편향으로 제외하고 08-12 2차·3차만 동등 비교한다.",
+    "campaigns": [
+      "chat-delivery-20260812T042245KST",
+      "chat-delivery-20260812T090111KST"
+    ],
+    "excludedCampaigns": [
+      {
+        "campaignId": "chat-delivery-20260811T172123KST",
+        "reason": "setup login completed after the stage tag reference point was recorded"
+      }
+    ],
+    "sendOkRatePercent": {
+      "load-rooms.stage4": [
+        57.1,
+        65.9
+      ],
+      "load-mixed.stage3": [
+        69.4,
+        71.8
+      ],
+      "load-mixed.stage4": [
+        44.7,
+        44.9
+      ],
+      "load-fanout.stage5": [
+        91.2,
+        95.0
+      ],
+      "load-throughput.stage5": [
+        86.0,
+        100.0
+      ]
+    }
+  },
+  "artifacts": {
+    "location": "local-only",
+    "directory": "albam-mate-infra/.run/results/",
+    "runCount": 6,
+    "includedRunCount": 6,
+    "excludedRunCount": 0
+  },
+  "runs": [
+    {
+      "scenario": "load-throughput",
+      "execution": {
+        "runner": {
+          "entrypoint": "albam-mate-infra/run.sh loadtest",
+          "k6Version": "1.3.0"
+        },
+        "command": "K6_LOGIN_LIMIT=300 ./run.sh loadtest load-tests/k6/chat/load-throughput.js --seed-sql load-tests/k6/chat/fixtures/rooms.sql --cleanup-sql load-tests/k6/chat/fixtures/cleanup.sql --sql-var run_id=<unique-run-id> --sql-var room_count=8 --sql-var accounts_per_room=9 --sql-var messages_per_room=150 --sql-var password_hash='{bcrypt}<hash>' --sql-var password='<password>'",
+        "deployment": {
+          "applicationNodes": 2,
+          "applicationInstanceType": "t4g.micro",
+          "postgresNodes": 1,
+          "postgresInstanceType": "t4g.micro",
+          "redisNodes": 1,
+          "redisInstanceType": "t4g.micro",
+          "loadGenerator": "c7g.large",
+          "databaseConnectionPoolMax": 8,
+          "loginLimitPerTenMinutes": 300,
+          "releaseSha": "1db046c0acdde59737411303a5547f3d8fed1422"
+        },
+        "resolvedScenarioEnvironment": {
+          "K6_CHAT_PROFILE": "hot-room",
+          "K6_LOGIN_LIMIT": 300,
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
+          "K6_ROOM_WS_READY_DELAY": "30s",
+          "K6_ROOM_WS_GRACE_DURATION": "30s",
+          "K6_LOAD_SEND_RATES": "1,2,3,4,5",
+          "K6_LOAD_SUBSCRIBERS_PER_ROOM": 6,
+          "K6_LOAD_THROUGHPUT_ROOMS": 3
+        }
+      },
+      "endedAt": "2026-08-12T00:15:56Z",
+      "exit": 2,
+      "summary": "summary-20260812T000209Z.json",
+      "console": "console-20260812T000209Z.log",
+      "startedAt": "2026-08-12T00:01:11Z",
+      "stages": [
+        {
+          "stage": 1,
+          "httpP95": 91.68191829999999,
+          "sendOkRate": 1,
+          "sendTotal": 134,
+          "deliveryP95": 84,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        },
+        {
+          "stage": 2,
+          "httpP95": 80.1943375,
+          "sendOkRate": 1,
+          "sendTotal": 180,
+          "deliveryP95": 66,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        },
+        {
+          "stage": 3,
+          "httpP95": 74.450479,
+          "sendOkRate": 0.9966666666666667,
+          "sendTotal": 300,
+          "deliveryP95": 58,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        },
+        {
+          "stage": 4,
+          "httpP95": 1022.6898902500001,
+          "sendOkRate": 0.9357142857142857,
+          "sendTotal": 420,
+          "deliveryP95": 57,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        },
+        {
+          "stage": 5,
+          "httpP95": 69.74367849999999,
+          "sendOkRate": 1,
+          "sendTotal": 616,
+          "deliveryP95": 29,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        }
+      ],
+      "droppedIterations": 0,
+      "httpReqFailed": null,
+      "summarySha256": "c942acdabe5d5fe4ef493ae0bad104415d1e920226d8f65d8ef7066acfb10416",
+      "consoleSha256": "fdda83a0e38135a6783c92906998b771e3f2d286fe5c514b7b07f6e8a520b21c",
+      "startedAtKst": "2026-08-12T09:01:11+09:00",
+      "endedAtKst": "2026-08-12T09:15:56+09:00",
+      "status": "PASS",
+      "reportDisposition": "included"
+    },
+    {
+      "scenario": "load-connections",
+      "execution": {
+        "runner": {
+          "entrypoint": "albam-mate-infra/run.sh loadtest",
+          "k6Version": "1.3.0"
+        },
+        "command": "K6_LOGIN_LIMIT=300 ./run.sh loadtest load-tests/k6/chat/load-connections.js --seed-sql load-tests/k6/chat/fixtures/rooms.sql --cleanup-sql load-tests/k6/chat/fixtures/cleanup.sql --sql-var run_id=<unique-run-id> --sql-var room_count=8 --sql-var accounts_per_room=9 --sql-var messages_per_room=150 --sql-var password_hash='{bcrypt}<hash>' --sql-var password='<password>'",
+        "deployment": {
+          "applicationNodes": 2,
+          "applicationInstanceType": "t4g.micro",
+          "postgresNodes": 1,
+          "postgresInstanceType": "t4g.micro",
+          "redisNodes": 1,
+          "redisInstanceType": "t4g.micro",
+          "loadGenerator": "c7g.large",
+          "databaseConnectionPoolMax": 8,
+          "loginLimitPerTenMinutes": 300,
+          "releaseSha": "1db046c0acdde59737411303a5547f3d8fed1422"
+        },
+        "resolvedScenarioEnvironment": {
+          "K6_CHAT_PROFILE": "hot-room",
+          "K6_LOGIN_LIMIT": 300,
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
+          "K6_LOAD_CONNECTION_STEPS": "5,10,20,40,80"
+        }
+      },
+      "endedAt": "2026-08-12T00:32:08Z",
+      "exit": 2,
+      "summary": "summary-20260812T001737Z.json",
+      "console": "console-20260812T001737Z.log",
+      "startedAt": "2026-08-12T00:15:56Z",
+      "stages": [
+        {
+          "stage": 1,
+          "httpP95": null,
+          "sendOkRate": null,
+          "sendTotal": null,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": 48.8,
+          "openedRate": 1,
+          "openedTotal": 9
+        },
+        {
+          "stage": 2,
+          "httpP95": null,
+          "sendOkRate": null,
+          "sendTotal": null,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": 51,
+          "openedRate": 1,
+          "openedTotal": 9
+        },
+        {
+          "stage": 3,
+          "httpP95": null,
+          "sendOkRate": null,
+          "sendTotal": null,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": 54.3,
+          "openedRate": 1,
+          "openedTotal": 19
+        },
+        {
+          "stage": 4,
+          "httpP95": null,
+          "sendOkRate": null,
+          "sendTotal": null,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": 56,
+          "openedRate": 1,
+          "openedTotal": 39
+        },
+        {
+          "stage": 5,
+          "httpP95": null,
+          "sendOkRate": null,
+          "sendTotal": null,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": 54.349999999999994,
+          "openedRate": 1,
+          "openedTotal": 21
+        }
+      ],
+      "droppedIterations": 0,
+      "httpReqFailed": null,
+      "summarySha256": "3f871fc7350b797fae1b963134e44a5cd31f5d96df86aeaf8451fe9549c92dad",
+      "consoleSha256": "dea5ca6c2cc50eb66653ef878786b53bd6847d8b30998bb3ebcdff7039d4ebdb",
+      "startedAtKst": "2026-08-12T09:15:56+09:00",
+      "endedAtKst": "2026-08-12T09:32:08+09:00",
+      "status": "PASS",
+      "reportDisposition": "included"
+    },
+    {
+      "scenario": "load-history",
+      "execution": {
+        "runner": {
+          "entrypoint": "albam-mate-infra/run.sh loadtest",
+          "k6Version": "1.3.0"
+        },
+        "command": "K6_LOGIN_LIMIT=300 ./run.sh loadtest load-tests/k6/chat/load-history.js --seed-sql load-tests/k6/chat/fixtures/rooms.sql --cleanup-sql load-tests/k6/chat/fixtures/cleanup.sql --sql-var run_id=<unique-run-id> --sql-var room_count=8 --sql-var accounts_per_room=9 --sql-var messages_per_room=150 --sql-var password_hash='{bcrypt}<hash>' --sql-var password='<password>'",
+        "deployment": {
+          "applicationNodes": 2,
+          "applicationInstanceType": "t4g.micro",
+          "postgresNodes": 1,
+          "postgresInstanceType": "t4g.micro",
+          "redisNodes": 1,
+          "redisInstanceType": "t4g.micro",
+          "loadGenerator": "c7g.large",
+          "databaseConnectionPoolMax": 8,
+          "loginLimitPerTenMinutes": 300,
+          "releaseSha": "1db046c0acdde59737411303a5547f3d8fed1422"
+        },
+        "resolvedScenarioEnvironment": {
+          "K6_CHAT_PROFILE": "hot-room",
+          "K6_LOGIN_LIMIT": 300,
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
+          "K6_LOAD_HISTORY_RATES": "1,2,4,8"
+        }
+      },
+      "endedAt": "2026-08-12T00:47:56Z",
+      "exit": 0,
+      "summary": "summary-20260812T003536Z.json",
+      "console": "console-20260812T003536Z.log",
+      "startedAt": "2026-08-12T00:32:08Z",
+      "stages": [
+        {
+          "stage": 1,
+          "httpP95": 60.415661099999994,
+          "sendOkRate": 1,
+          "sendTotal": 134,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        },
+        {
+          "stage": 2,
+          "httpP95": 57.36945535,
+          "sendOkRate": 1,
+          "sendTotal": 180,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        },
+        {
+          "stage": 3,
+          "httpP95": 57.00005665,
+          "sendOkRate": 1,
+          "sendTotal": 360,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        },
+        {
+          "stage": 4,
+          "httpP95": 55.512395549999994,
+          "sendOkRate": 1,
+          "sendTotal": 840,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        }
+      ],
+      "droppedIterations": 0,
+      "httpReqFailed": null,
+      "summarySha256": "5c586d6ad6fb8b561a03cc996fc7d0787a444ab0562e3d5ba2caa8633c9ac49c",
+      "consoleSha256": "2183b6f0a883cbfa277122d10fae42ca7cb206acb79a2fa4b6dc5c09afb27093",
+      "startedAtKst": "2026-08-12T09:32:08+09:00",
+      "endedAtKst": "2026-08-12T09:47:56+09:00",
+      "status": "PASS",
+      "reportDisposition": "included"
+    },
+    {
+      "scenario": "load-fanout",
+      "execution": {
+        "runner": {
+          "entrypoint": "albam-mate-infra/run.sh loadtest",
+          "k6Version": "1.3.0"
+        },
+        "command": "K6_LOGIN_LIMIT=300 ./run.sh loadtest load-tests/k6/chat/load-fanout.js --seed-sql load-tests/k6/chat/fixtures/rooms.sql --cleanup-sql load-tests/k6/chat/fixtures/cleanup.sql --sql-var run_id=<unique-run-id> --sql-var room_count=8 --sql-var accounts_per_room=9 --sql-var messages_per_room=150 --sql-var password_hash='{bcrypt}<hash>' --sql-var password='<password>'",
+        "deployment": {
+          "applicationNodes": 2,
+          "applicationInstanceType": "t4g.micro",
+          "postgresNodes": 1,
+          "postgresInstanceType": "t4g.micro",
+          "redisNodes": 1,
+          "redisInstanceType": "t4g.micro",
+          "loadGenerator": "c7g.large",
+          "databaseConnectionPoolMax": 8,
+          "loginLimitPerTenMinutes": 300,
+          "releaseSha": "1db046c0acdde59737411303a5547f3d8fed1422"
+        },
+        "resolvedScenarioEnvironment": {
+          "K6_CHAT_PROFILE": "hot-room",
+          "K6_LOGIN_LIMIT": 300,
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
+          "K6_LOAD_FANOUT_SUBSCRIBER_STEPS": "2,4,8,16,24",
+          "K6_LOAD_FANOUT_SEND_RATE": 2
+        }
+      },
+      "endedAt": "2026-08-12T01:02:59Z",
+      "exit": 2,
+      "summary": "summary-20260812T004924Z.json",
+      "console": "console-20260812T004924Z.log",
+      "startedAt": "2026-08-12T00:47:56Z",
+      "stages": [
+        {
+          "stage": 1,
+          "httpP95": 71.09692804999999,
+          "sendOkRate": 1,
+          "sendTotal": 300,
+          "deliveryP95": 28,
+          "deliverySamples": null,
+          "connectP95": 54.3,
+          "openedRate": 1,
+          "openedTotal": 3
+        },
+        {
+          "stage": 2,
+          "httpP95": 69.12658525,
+          "sendOkRate": 1,
+          "sendTotal": 240,
+          "deliveryP95": 39,
+          "deliverySamples": null,
+          "connectP95": 43.7,
+          "openedRate": 1,
+          "openedTotal": 3
+        },
+        {
+          "stage": 3,
+          "httpP95": 70.4782329,
+          "sendOkRate": 0.9958333333333333,
+          "sendTotal": 240,
+          "deliveryP95": 67.39999999999995,
+          "deliverySamples": null,
+          "connectP95": 44.7,
+          "openedRate": 1,
+          "openedTotal": 7
+        },
+        {
+          "stage": 4,
+          "httpP95": 68.46757125,
+          "sendOkRate": 0.9958333333333333,
+          "sendTotal": 240,
+          "deliveryP95": 110,
+          "deliverySamples": null,
+          "connectP95": 49,
+          "openedRate": 1,
+          "openedTotal": 15
+        },
+        {
+          "stage": 5,
+          "httpP95": 202.36791604999107,
+          "sendOkRate": 0.95,
+          "sendTotal": 240,
+          "deliveryP95": 133,
+          "deliverySamples": null,
+          "connectP95": 49.8,
+          "openedRate": 1,
+          "openedTotal": 8
+        }
+      ],
+      "droppedIterations": 1,
+      "httpReqFailed": null,
+      "summarySha256": "5b3c2205c1e2c0b48bc81c117d4ff4c00d9b5f27298b22816721a2204aece4d7",
+      "consoleSha256": "35bdf94bc9292a329f9854b95690faf0d7d1d155bf675c2b4907a6491972fafd",
+      "startedAtKst": "2026-08-12T09:47:56+09:00",
+      "endedAtKst": "2026-08-12T10:02:59+09:00",
+      "status": "PASS",
+      "reportDisposition": "included"
+    },
+    {
+      "scenario": "load-rooms",
+      "execution": {
+        "runner": {
+          "entrypoint": "albam-mate-infra/run.sh loadtest",
+          "k6Version": "1.3.0"
+        },
+        "command": "K6_LOGIN_LIMIT=300 ./run.sh loadtest load-tests/k6/chat/load-rooms.js --seed-sql load-tests/k6/chat/fixtures/rooms.sql --cleanup-sql load-tests/k6/chat/fixtures/cleanup.sql --sql-var run_id=<unique-run-id> --sql-var room_count=8 --sql-var accounts_per_room=9 --sql-var messages_per_room=150 --sql-var password_hash='{bcrypt}<hash>' --sql-var password='<password>'",
+        "deployment": {
+          "applicationNodes": 2,
+          "applicationInstanceType": "t4g.micro",
+          "postgresNodes": 1,
+          "postgresInstanceType": "t4g.micro",
+          "redisNodes": 1,
+          "redisInstanceType": "t4g.micro",
+          "loadGenerator": "c7g.large",
+          "databaseConnectionPoolMax": 8,
+          "loginLimitPerTenMinutes": 300,
+          "releaseSha": "1db046c0acdde59737411303a5547f3d8fed1422"
+        },
+        "resolvedScenarioEnvironment": {
+          "K6_CHAT_PROFILE": "hot-room",
+          "K6_LOGIN_LIMIT": 300,
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
+          "K6_LOAD_ROOM_STEPS": "1,2,4,8",
+          "K6_LOAD_ROOM_SUBSCRIBERS": 3,
+          "K6_LOAD_ROOM_SEND_RATE": 1
+        }
+      },
+      "endedAt": "2026-08-12T01:17:29Z",
+      "exit": 2,
+      "summary": "summary-20260812T010452Z.json",
+      "console": "console-20260812T010452Z.log",
+      "startedAt": "2026-08-12T01:02:59Z",
+      "stages": [
+        {
+          "stage": 1,
+          "httpP95": 70.5210176,
+          "sendOkRate": 1,
+          "sendTotal": 134,
+          "deliveryP95": 42,
+          "deliverySamples": null,
+          "connectP95": 55.4,
+          "openedRate": 1,
+          "openedTotal": 5
+        },
+        {
+          "stage": 2,
+          "httpP95": 69.53322,
+          "sendOkRate": 1,
+          "sendTotal": 180,
+          "deliveryP95": 37.29999999999999,
+          "deliverySamples": null,
+          "connectP95": 44.8,
+          "openedRate": 1,
+          "openedTotal": 5
+        },
+        {
+          "stage": 3,
+          "httpP95": 68.57876135,
+          "sendOkRate": 1,
+          "sendTotal": 360,
+          "deliveryP95": 46,
+          "deliverySamples": null,
+          "connectP95": 45,
+          "openedRate": 1,
+          "openedTotal": 11
+        },
+        {
+          "stage": 4,
+          "httpP95": 4047.19215525,
+          "sendOkRate": 0.6590361445783133,
+          "sendTotal": 830,
+          "deliveryP95": 52,
+          "deliverySamples": null,
+          "connectP95": 46,
+          "openedRate": 1,
+          "openedTotal": 7
+        }
+      ],
+      "droppedIterations": 10,
+      "httpReqFailed": null,
+      "summarySha256": "b233c3e67532f52ab137146607030d9fe919067990276fb1eba725b48e68be48",
+      "consoleSha256": "286c5b4649e6092b0fe73974f779a3aec8e5e61ed0b1a859b8ef8c7899c2d730",
+      "startedAtKst": "2026-08-12T10:02:59+09:00",
+      "endedAtKst": "2026-08-12T10:17:29+09:00",
+      "status": "PASS",
+      "reportDisposition": "included"
+    },
+    {
+      "scenario": "load-mixed",
+      "execution": {
+        "runner": {
+          "entrypoint": "albam-mate-infra/run.sh loadtest",
+          "k6Version": "1.3.0"
+        },
+        "command": "K6_LOGIN_LIMIT=300 ./run.sh loadtest load-tests/k6/chat/load-mixed.js --seed-sql load-tests/k6/chat/fixtures/rooms.sql --cleanup-sql load-tests/k6/chat/fixtures/cleanup.sql --sql-var run_id=<unique-run-id> --sql-var room_count=8 --sql-var accounts_per_room=9 --sql-var messages_per_room=150 --sql-var password_hash='{bcrypt}<hash>' --sql-var password='<password>'",
+        "deployment": {
+          "applicationNodes": 2,
+          "applicationInstanceType": "t4g.micro",
+          "postgresNodes": 1,
+          "postgresInstanceType": "t4g.micro",
+          "redisNodes": 1,
+          "redisInstanceType": "t4g.micro",
+          "loadGenerator": "c7g.large",
+          "databaseConnectionPoolMax": 8,
+          "loginLimitPerTenMinutes": 300,
+          "releaseSha": "1db046c0acdde59737411303a5547f3d8fed1422"
+        },
+        "resolvedScenarioEnvironment": {
+          "K6_CHAT_PROFILE": "hot-room",
+          "K6_LOGIN_LIMIT": 300,
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
+          "K6_LOAD_MIXED_SCALES": "1,2,3,4",
+          "K6_LOAD_MIXED_SEND_RATE": 1,
+          "K6_LOAD_MIXED_HISTORY_RATE": 2,
+          "K6_LOAD_MIXED_CONNECTIONS": 5
+        }
+      },
+      "endedAt": "2026-08-12T01:35:38Z",
+      "exit": 2,
+      "summary": "summary-20260812T012113Z.json",
+      "console": "console-20260812T012113Z.log",
+      "startedAt": "2026-08-12T01:17:29Z",
+      "stages": [
+        {
+          "stage": 1,
+          "httpP95": 67.3212836,
+          "sendOkRate": 1,
+          "sendTotal": 403,
+          "deliveryP95": 27,
+          "deliverySamples": null,
+          "connectP95": 47.6,
+          "openedRate": 1,
+          "openedTotal": 9
+        },
+        {
+          "stage": 2,
+          "httpP95": 66.5860756,
+          "sendOkRate": 1,
+          "sendTotal": 540,
+          "deliveryP95": 37,
+          "deliverySamples": null,
+          "connectP95": 46,
+          "openedRate": 1,
+          "openedTotal": 9
+        },
+        {
+          "stage": 3,
+          "httpP95": 4024.31245085,
+          "sendOkRate": 0.7181208053691275,
+          "sendTotal": 894,
+          "deliveryP95": 36,
+          "deliverySamples": null,
+          "connectP95": 53.49999999999999,
+          "openedRate": 1,
+          "openedTotal": 14
+        },
+        {
+          "stage": 4,
+          "httpP95": 5130.607911599998,
+          "sendOkRate": 0.44856543037088875,
+          "sendTotal": 1429,
+          "deliveryP95": 33.09999999999998,
+          "deliverySamples": null,
+          "connectP95": 56.54999999999998,
+          "openedRate": 1,
+          "openedTotal": 5
+        }
+      ],
+      "droppedIterations": 18,
+      "httpReqFailed": null,
+      "summarySha256": "9a94a716d0abdacdd987beedba0b106848e4e1b41f576dba19a78041fa930242",
+      "consoleSha256": "d42269025117d913ccbae87490212abbb1f66147680bfb8b57423908267cab37",
+      "startedAtKst": "2026-08-12T10:17:29+09:00",
+      "endedAtKst": "2026-08-12T10:35:38+09:00",
+      "status": "PASS",
+      "reportDisposition": "included"
+    }
+  ]
+}

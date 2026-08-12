@@ -49,18 +49,35 @@ public class RoomOptimisticLockRetrier {
 	}
 
 	private void logRetry(String event, Long roomId, int attempt, boolean exhausted) {
+		String useCase = resolveUseCase(event);
+		String reasonCode = exhausted ? "OPTIMISTIC_LOCK_EXHAUSTED" : "OPTIMISTIC_LOCK_CONFLICT";
 		if (roomId == null) {
 			if (exhausted) {
-				log.warn("event={} attempt={}", event, attempt);
+				log.warn("event={} attempt={} useCase={} reasonCode={}", event, attempt, useCase, reasonCode);
 			} else {
-				log.debug("event={} attempt={}", event, attempt);
+				log.debug("event={} attempt={} useCase={} reasonCode={}", event, attempt, useCase, reasonCode);
 			}
 			return;
 		}
 		if (exhausted) {
-			log.warn("event={} roomId={} attempt={}", event, roomId, attempt);
+			log.warn("event={} roomId={} attempt={} useCase={} reasonCode={}", event, roomId, attempt, useCase,
+				reasonCode);
 		} else {
-			log.debug("event={} roomId={} attempt={}", event, roomId, attempt);
+			log.debug("event={} roomId={} attempt={} useCase={} reasonCode={}", event, roomId, attempt, useCase,
+				reasonCode);
 		}
+	}
+
+	private String resolveUseCase(String event) {
+		return switch (event) {
+			case "room_update_retry" -> "ROOM_UPDATE";
+			case "room_cancel_retry" -> "ROOM_CANCEL";
+			case "room_finish_retry" -> "ROOM_FINISH";
+			case "room_participation_retry" -> "ROOM_PARTICIPATION";
+			case "room_participation_cancel_retry" -> "ROOM_PARTICIPATION_CANCEL";
+			case "room_waitlist_cancel_retry" -> "ROOM_WAITLIST_CANCEL";
+			case "room_state_reconciliation_retry" -> "ROOM_STATUS_CORRECTION";
+			default -> "ROOM_STATUS_CORRECTION";
+		};
 	}
 }

@@ -31,8 +31,13 @@ docs/
 | Campaign ID | 측정 구간 | 상태 | 보고서 | 판단서 | 근거 manifest | 대체 관계 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `auth-notification-20260811T021040KST` | 2026-08-11 02:10:40~10:36:50 KST | `completed-with-limitations` | [인증·알림 AWS 용량 측정](auth-notification-capacity-2026-08-11.md) | [알림 broker 판단](notification-broker-decision-2026-08-11.md) | [campaign manifest](evidence/auth-notification-capacity-2026-08-11.json) | 최초 캠페인, 후속 없음 |
+| `chat-delivery-20260811T172123KST` | 2026-08-11 17:18:50~18:36:49 KST | `completed-with-limitations` | [채팅 전송·전달 AWS 용량 측정](chat-delivery-capacity-2026-08-11.md) | 없음 | [campaign manifest](evidence/chat-delivery-capacity-2026-08-11.json) | superseded by `chat-delivery-20260812T042245KST` |
+| `chat-delivery-20260812T042245KST` | 2026-08-12 04:22:45~05:37:34 KST | `completed-with-limitations` | [채팅 전송·전달 AWS 용량 재측정](chat-delivery-capacity-2026-08-12.md) | 없음 | [campaign manifest](evidence/chat-delivery-capacity-2026-08-12.json) | superseded by `chat-delivery-20260812T090111KST` |
+| `chat-delivery-20260812T090111KST` | 2026-08-12 09:01:11~10:35:38 KST | `completed-with-limitations` | [채팅 전송·전달 AWS 용량 반복 측정](chat-delivery-capacity-2026-08-12-repeat.md) | 없음 | [campaign manifest](evidence/chat-delivery-capacity-2026-08-12-repeat.json) | `chat-delivery-20260812T042245KST`를 대체, 08-11 1차는 단계 태그 편향으로 비교 제외 |
 
-`completed-with-limitations`는 실행과 보고가 끝났지만 유효한 정상·실패 경계를 모두 확정하지 못했거나 원자료 접근 범위가 제한된 상태다. `current` 판단서는 후속 문서가 `supersedes`로 대체하기 전까지 현재 판단으로 읽는다.
+`completed-with-limitations`는 실행과 보고가 끝났지만 유효한 정상·실패 경계를 모두 확정하지 못했거나 원자료 접근 범위가 제한된 상태다. `completed`는 계획한 Run이 모두 유효하게 끝나 축별 경계를 확정한 상태다. `current` 판단서는 후속 문서가 `supersedes`로 대체하기 전까지 현재 판단으로 읽는다.
+
+판단서는 측정 결과가 아키텍처 선택을 바꿀 때만 만든다. 원인이 설정·구현 결함이어서 수정 대상이 분명하면 판단서 대신 이슈로 넘긴다.
 
 ## 읽는 순서
 
@@ -49,6 +54,11 @@ docs/
 - `reportDisposition=excluded`인 Run은 실패한 준비·계측 과정의 이력이며 정상·실패 경계 계산에 사용하지 않는다.
 - 원자료는 현재 `local-only`다. manifest의 SHA-256은 로컬 bundle이 바뀌었는지 확인하지만, 이 저장소만으로 원자료 내용을 독립 재검증할 수 있다는 뜻은 아니다.
 - 후속 측정은 새 Campaign ID와 manifest를 만들고, 기존 행의 `후속 없음`을 `superseded by <Campaign ID>`로 바꾼다. 기존 보고서와 manifest는 덮어쓰지 않는다.
+- 성공률·지연 같은 수치는 실행 간 편차가 크다. **두 캠페인을 비교해 개선·악화를 판정하지 않는다.** 판정에는 같은 조건 반복 측정으로 얻은 범위끼리 비교한다. 재현되는 것은 경계 위치와 축 사이의 상대 관계다.
+
+### 지표 수준 limitation
+
+캠페인이 `completed-with-limitations`이거나 Run이 `PASS`여도 특정 지표만 해석 불가할 수 있다. 이때 campaign 상태, Run의 원시 수치, `reportDisposition=included`와 `PASS`는 보존하고 해당 지표의 limitation·영향 범위·재측정 조건을 보고서와 manifest에 함께 적는다. 제한된 지표는 정상·실패 경계나 단계 간 비교에 쓰지 않으며, 다른 독립 지표의 유효성까지 소급해 바꾸지 않는다.
 
 ## 상태 어휘
 
@@ -56,7 +66,8 @@ docs/
 | --- | --- | --- |
 | 캠페인 상태 | `completed-with-limitations` | 캠페인은 끝났지만 일부 경계나 근거 접근성이 제한됨 |
 | 캠페인 상태 | `partial` | 유효 Run 일부만 보존했으며, 계획한 측정 조건 전체나 성능 경계는 확정하지 않음 |
-| 문서 상태 | `current` | 아직 후속 판단서로 대체되지 않은 현재 판단 |
+| 문서 상태 | `current` | 아직 후속 문서로 대체되지 않은 현재 판단 |
+| 문서 상태 | `superseded` | 후속 캠페인이 대체했으며 before 근거로만 읽는다 |
 | Run 판정 | `PASS` | 계약 또는 성능 임계를 유효하게 통과 |
 | Run 판정 | `FAIL` | Run은 유효하지만 성능 임계를 통과하지 못함 |
 | Run 판정 | `INVALID` | 준비·계측·필수 근거 조건을 만족하지 못해 경계 계산에서 제외 |
