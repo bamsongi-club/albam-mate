@@ -381,12 +381,32 @@ class RoomStartBoundaryConcurrencyBaselinePostgresTest {
 			+ measurement.retryCount(2));
 		assertEquals(measurement.totalRetryCount(), measurement.retryAttemptLogCount());
 		assertEquals(measurement.concurrencyFailureCount(), measurement.exhaustedCount());
+		assertTrue(measurement.retryLogRecords().stream().allMatch(log -> isAllowedUseCase(log.useCase())));
+		assertTrue(measurement.retryLogRecords().stream().allMatch(log -> expectedReasonCode(log).equals(log.reasonCode())));
 		assertTrue(measurement.requestDurationsNanos().stream().allMatch(duration -> duration > 0));
 		assertTrue(measurement.postgresCost().statementCalls() > 0);
 		assertTrue(measurement.rawRecord().startsWith("ROOM10A_RAW scenario=" + scenario + " concurrencyLevel=2 "));
 		assertTrue(measurement.rawRecord().contains(" conflictRate="));
 		assertTrue(measurement.rawRecord().contains(" responseNanos="));
 		assertTrue(measurement.rawRecord().contains(" totalExecMs="));
+	}
+
+	private boolean isAllowedUseCase(String useCase) {
+		return List.of(
+			"ROOM_UPDATE",
+			"ROOM_CANCEL",
+			"ROOM_FINISH",
+			"ROOM_PARTICIPATION",
+			"ROOM_PARTICIPATION_CANCEL",
+			"ROOM_WAITLIST_CANCEL",
+			"ROOM_STATUS_CORRECTION").contains(useCase);
+	}
+
+	private String expectedReasonCode(RoomConcurrencyBaselineSupport.RetryLogRecord retryLog) {
+		if (retryLog.retryAttempt()) {
+			return "OPTIMISTIC_LOCK_CONFLICT";
+		}
+		return "OPTIMISTIC_LOCK_EXHAUSTED";
 	}
 
 	private void assertStartBoundaryInvariant(StartBoundaryFixture fixture) {

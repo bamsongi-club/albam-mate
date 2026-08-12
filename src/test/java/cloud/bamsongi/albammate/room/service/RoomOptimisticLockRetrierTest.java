@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.IntConsumer;
 
@@ -118,13 +120,59 @@ class RoomOptimisticLockRetrierTest {
 						throw new OptimisticLockException();
 					}, "room_state_reconciliation_retry", null));
 
-			assertEquals("event=room_state_reconciliation_retry attempt=2",
+			assertEquals("event=room_state_reconciliation_retry attempt=2 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_CONFLICT",
 				appender.list.get(0).getFormattedMessage());
-			assertEquals("event=room_state_reconciliation_retry attempt=3",
+			assertEquals("event=room_state_reconciliation_retry attempt=3 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_CONFLICT",
 				appender.list.get(1).getFormattedMessage());
-			assertEquals("event=room_state_reconciliation_retry attempt=3",
+			assertEquals("event=room_state_reconciliation_retry attempt=3 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_EXHAUSTED",
 				appender.list.get(2).getFormattedMessage());
 			assertTrue(appender.list.stream().noneMatch(event -> event.getFormattedMessage().contains("roomId=")));
+		} finally {
+			detachLogAppender(appender);
+		}
+	}
+
+	@Test
+	void 모든_허용_유스케이스는_고정_필드와_민감하지_않은_재시도_로그를_남긴다() {
+		Map<String, String> useCasesByEvent = new LinkedHashMap<>();
+		useCasesByEvent.put("room_update_retry", "ROOM_UPDATE");
+		useCasesByEvent.put("room_cancel_retry", "ROOM_CANCEL");
+		useCasesByEvent.put("room_finish_retry", "ROOM_FINISH");
+		useCasesByEvent.put("room_participation_retry", "ROOM_PARTICIPATION");
+		useCasesByEvent.put("room_participation_cancel_retry", "ROOM_PARTICIPATION_CANCEL");
+		useCasesByEvent.put("room_waitlist_cancel_retry", "ROOM_WAITLIST_CANCEL");
+		useCasesByEvent.put("room_state_reconciliation_retry", "ROOM_STATUS_CORRECTION");
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			for (String event : useCasesByEvent.keySet()) {
+				assertThrows(BusinessException.class, () -> retrier.execute(
+					() -> {
+						throw new OptimisticLockException("민감한 예외 메시지");
+					}, event, 7L));
+			}
+
+			assertEquals(useCasesByEvent.size() * 3, appender.list.size());
+			int useCaseIndex = 0;
+			for (Map.Entry<String, String> entry : useCasesByEvent.entrySet()) {
+				String event = entry.getKey();
+				String useCase = entry.getValue();
+				int firstLogIndex = useCaseIndex * 3;
+				assertEquals(
+					"event=" + event + " roomId=7 attempt=2 useCase=" + useCase
+						+ " reasonCode=OPTIMISTIC_LOCK_CONFLICT",
+					appender.list.get(firstLogIndex).getFormattedMessage());
+				assertEquals(
+					"event=" + event + " roomId=7 attempt=3 useCase=" + useCase
+						+ " reasonCode=OPTIMISTIC_LOCK_CONFLICT",
+					appender.list.get(firstLogIndex + 1).getFormattedMessage());
+				assertEquals(
+					"event=" + event + " roomId=7 attempt=3 useCase=" + useCase
+						+ " reasonCode=OPTIMISTIC_LOCK_EXHAUSTED",
+					appender.list.get(firstLogIndex + 2).getFormattedMessage());
+				useCaseIndex++;
+			}
+			assertTrue(appender.list.stream().allMatch(event -> event.getThrowableProxy() == null));
+			assertTrue(appender.list.stream().noneMatch(event -> event.getFormattedMessage().contains("민감한 예외 메시지")));
 		} finally {
 			detachLogAppender(appender);
 		}
@@ -151,10 +199,12 @@ class RoomOptimisticLockRetrierTest {
 		assertEquals(Level.DEBUG, appender.list.get(0).getLevel());
 		assertEquals(Level.DEBUG, appender.list.get(1).getLevel());
 		assertEquals(Level.WARN, appender.list.get(2).getLevel());
-		assertTrue(appender.list.stream().allMatch(event -> event.getFormattedMessage().contains(eventWithRoomId)));
-		assertTrue(appender.list.get(0).getFormattedMessage().contains("attempt=2"));
-		assertTrue(appender.list.get(1).getFormattedMessage().contains("attempt=3"));
-		assertTrue(appender.list.get(2).getFormattedMessage().contains("attempt=3"));
+		assertEquals(eventWithRoomId + " attempt=2 useCase=ROOM_CANCEL reasonCode=OPTIMISTIC_LOCK_CONFLICT",
+			appender.list.get(0).getFormattedMessage());
+		assertEquals(eventWithRoomId + " attempt=3 useCase=ROOM_CANCEL reasonCode=OPTIMISTIC_LOCK_CONFLICT",
+			appender.list.get(1).getFormattedMessage());
+		assertEquals(eventWithRoomId + " attempt=3 useCase=ROOM_CANCEL reasonCode=OPTIMISTIC_LOCK_EXHAUSTED",
+			appender.list.get(2).getFormattedMessage());
 		assertTrue(appender.list.stream().allMatch(event -> event.getThrowableProxy() == null));
 	}
 }

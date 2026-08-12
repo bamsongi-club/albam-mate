@@ -71,11 +71,15 @@ class RoomStatusCorrectionCoordinatorTest {
 			assertEquals(Level.DEBUG, appender.list.get(0).getLevel());
 			assertEquals(Level.DEBUG, appender.list.get(1).getLevel());
 			assertEquals(Level.WARN, appender.list.get(2).getLevel());
-			assertTrue(appender.list.stream().allMatch(event -> event.getFormattedMessage()
-				.contains("event=room_state_reconciliation_retry roomId=10")));
-			assertTrue(appender.list.get(0).getFormattedMessage().contains("attempt=2"));
-			assertTrue(appender.list.get(1).getFormattedMessage().contains("attempt=3"));
-			assertTrue(appender.list.get(2).getFormattedMessage().contains("attempt=3"));
+			assertEquals(
+				"event=room_state_reconciliation_retry roomId=10 attempt=2 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_CONFLICT",
+				appender.list.get(0).getFormattedMessage());
+			assertEquals(
+				"event=room_state_reconciliation_retry roomId=10 attempt=3 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_CONFLICT",
+				appender.list.get(1).getFormattedMessage());
+			assertEquals(
+				"event=room_state_reconciliation_retry roomId=10 attempt=3 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_EXHAUSTED",
+				appender.list.get(2).getFormattedMessage());
 		} finally {
 			detachLogAppender(appender);
 		}
@@ -191,11 +195,11 @@ class RoomStatusCorrectionCoordinatorTest {
 			assertEquals(Level.DEBUG, appender.list.get(0).getLevel());
 			assertEquals(Level.DEBUG, appender.list.get(1).getLevel());
 			assertEquals(Level.WARN, appender.list.get(2).getLevel());
-			assertEquals("event=room_state_reconciliation_retry attempt=2",
+			assertEquals("event=room_state_reconciliation_retry attempt=2 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_CONFLICT",
 				appender.list.get(0).getFormattedMessage());
-			assertEquals("event=room_state_reconciliation_retry attempt=3",
+			assertEquals("event=room_state_reconciliation_retry attempt=3 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_CONFLICT",
 				appender.list.get(1).getFormattedMessage());
-			assertEquals("event=room_state_reconciliation_retry attempt=3",
+			assertEquals("event=room_state_reconciliation_retry attempt=3 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_EXHAUSTED",
 				appender.list.get(2).getFormattedMessage());
 			assertTrue(appender.list.stream().noneMatch(event -> event.getFormattedMessage().contains("roomId=")));
 		} finally {

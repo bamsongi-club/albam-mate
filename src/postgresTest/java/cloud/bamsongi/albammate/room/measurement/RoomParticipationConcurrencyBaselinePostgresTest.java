@@ -365,10 +365,19 @@ class RoomParticipationConcurrencyBaselinePostgresTest {
 		assertTrue(retryLogs.stream().allMatch(log -> PARTICIPATION_RETRY_EVENT.equals(log.event())));
 		assertTrue(retryLogs.stream().allMatch(log -> Long.valueOf(roomId).equals(log.roomId())));
 		assertTrue(retryLogs.stream().allMatch(log -> log.attempt() >= 2 && log.attempt() <= 3));
+		assertTrue(retryLogs.stream().allMatch(log -> "ROOM_PARTICIPATION".equals(log.useCase())));
+		assertTrue(retryLogs.stream().allMatch(log -> expectedReasonCode(log).equals(log.reasonCode())));
 		assertTrue(retryLogs.stream().allMatch(log -> log.retryAttempt() || log.exhaustedAttempt()));
 		assertTrue(retryLogs.stream()
 			.filter(RoomConcurrencyBaselineSupport.RetryLogRecord::exhaustedAttempt)
 			.allMatch(log -> log.attempt() == 3));
+	}
+
+	private String expectedReasonCode(RoomConcurrencyBaselineSupport.RetryLogRecord retryLog) {
+		if (retryLog.retryAttempt()) {
+			return "OPTIMISTIC_LOCK_CONFLICT";
+		}
+		return "OPTIMISTIC_LOCK_EXHAUSTED";
 	}
 
 	private void assertRawRecordValues(

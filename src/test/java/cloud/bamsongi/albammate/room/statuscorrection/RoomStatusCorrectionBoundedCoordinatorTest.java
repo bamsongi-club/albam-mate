@@ -19,7 +19,14 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import cloud.bamsongi.albammate.global.exception.BusinessException;
+import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier;
+import jakarta.persistence.OptimisticLockException;
 
 class RoomStatusCorrectionBoundedCoordinatorTest {
 
@@ -54,6 +61,67 @@ class RoomStatusCorrectionBoundedCoordinatorTest {
 		verify(progressStore, times(3)).advanceCursor(
 			any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), any(Instant.class), anyLong());
 		verify(progressStore).wrap(any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), any(Instant.class));
+	}
+
+	@Test
+	void bounded_상태_보정은_실패_종류별_로그_계약을_지키고_다음_ROOM과_cursor를_계속_처리한다() {
+		RoomStatusCorrectionExecutor executor = mock(RoomStatusCorrectionExecutor.class);
+		RoomStatusCorrectionCandidateSelector selector = mock(RoomStatusCorrectionCandidateSelector.class);
+		RoomStatusCorrectionProgressStore progressStore = mock(RoomStatusCorrectionProgressStore.class);
+		RoomStatusCorrectionCoordinator coordinator = new RoomStatusCorrectionCoordinator(
+			executor, new RoomOptimisticLockRetrier(), selector, progressStore);
+		RoomStatusCorrectionProgressStore.ProgressSnapshot claimed = snapshot(1L, null, null);
+		when(selector.select(any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), eq(10)))
+			.thenReturn(List.of(candidate(10L), candidate(20L), candidate(30L), candidate(40L)), List.of());
+		doThrow(new OptimisticLockException())
+			.doThrow(new OptimisticLockException())
+			.doThrow(new OptimisticLockException())
+			.when(executor).correctRoom(10L, CUTOFF);
+		doThrow(new BusinessException(ErrorCode.ROOM_NOT_FOUND)).when(executor).correctRoom(20L, CUTOFF);
+		doThrow(new IllegalStateException("로그에 남기면 안 되는 예외 메시지")).when(executor).correctRoom(30L, CUTOFF);
+		when(executor.correctRoom(40L, CUTOFF)).thenReturn(true);
+		when(progressStore.advanceCursor(
+			any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), any(Instant.class), anyLong()))
+			.thenAnswer(invocation -> Optional.of(snapshot(
+				invocation.getArgument(0, RoomStatusCorrectionProgressStore.ProgressSnapshot.class).progressVersion() + 1,
+				invocation.getArgument(1, Instant.class), invocation.getArgument(2, Long.class))));
+		when(progressStore.wrap(
+			any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), any(Instant.class)))
+			.thenReturn(Optional.of(snapshot(6L, null, null)));
+		ListAppender<ILoggingEvent> coordinatorAppender = attachLogAppender(RoomStatusCorrectionCoordinator.class);
+		ListAppender<ILoggingEvent> retrierAppender = attachLogAppender(RoomOptimisticLockRetrier.class);
+		try {
+			RoomStatusCorrectionCoordinator.BoundedCorrectionResult result = coordinator.correctBoundedDueRooms(
+				CUTOFF, claimed, 10, 1001);
+
+			assertEquals(1, result.changedCount());
+			assertFalse(result.hasRemainingCandidates());
+			verify(executor, times(3)).correctRoom(10L, CUTOFF);
+			verify(executor).correctRoom(20L, CUTOFF);
+			verify(executor).correctRoom(30L, CUTOFF);
+			verify(executor).correctRoom(40L, CUTOFF);
+			verify(progressStore, times(4)).advanceCursor(
+				any(RoomStatusCorrectionProgressStore.ProgressSnapshot.class), any(Instant.class), anyLong());
+			assertEquals(3, retrierAppender.list.size());
+			assertEquals(
+				"event=room_state_reconciliation_retry roomId=10 attempt=2 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_CONFLICT",
+				retrierAppender.list.get(0).getFormattedMessage());
+			assertEquals(
+				"event=room_state_reconciliation_retry roomId=10 attempt=3 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_CONFLICT",
+				retrierAppender.list.get(1).getFormattedMessage());
+			assertEquals(
+				"event=room_state_reconciliation_retry roomId=10 attempt=3 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_EXHAUSTED",
+				retrierAppender.list.get(2).getFormattedMessage());
+			assertEquals(1, coordinatorAppender.list.size());
+			assertEquals(
+				"event=room_status_reconciliation_room_failed roomId=30 useCase=ROOM_STATUS_CORRECTION reasonCode=UNEXPECTED_FAILURE",
+				coordinatorAppender.list.get(0).getFormattedMessage());
+			assertTrue(coordinatorAppender.list.stream().noneMatch(event -> event.getFormattedMessage()
+				.contains("로그에 남기면 안 되는 예외 메시지")));
+		} finally {
+			detachLogAppender(RoomStatusCorrectionCoordinator.class, coordinatorAppender);
+			detachLogAppender(RoomOptimisticLockRetrier.class, retrierAppender);
+		}
 	}
 
 	@Test
@@ -161,5 +229,21 @@ class RoomStatusCorrectionBoundedCoordinatorTest {
 		long version, Instant cursorDueAt, Long cursorRoomId) {
 		return new RoomStatusCorrectionProgressStore.ProgressSnapshot(
 			CUTOFF, cursorDueAt, cursorRoomId, version, 1L);
+	}
+
+	private ListAppender<ILoggingEvent> attachLogAppender(Class<?> loggerType) {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(loggerType);
+		logger.setLevel(Level.DEBUG);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		return appender;
+	}
+
+	private void detachLogAppender(Class<?> loggerType, ListAppender<ILoggingEvent> appender) {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(loggerType);
+		logger.detachAppender(appender);
+		logger.setLevel(null);
+		appender.stop();
 	}
 }
