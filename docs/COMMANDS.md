@@ -118,7 +118,7 @@ node --test scripts/check-doc-links.test.mjs
 | 로컬 `.env`, 로그, 종료와 데이터 초기화 | [로컬 개발 환경 실행](guides/LOCAL_DEVELOPMENT.md) |
 | PostgreSQL 실패·커버리지 최소선 해석 | [백엔드 테스트와 커버리지 검증](guides/TESTING.md) |
 | 운영 Compose와 P1 AWS 검증 환경 | [P1 AWS 다중 인스턴스 실행안](guides/AWS_MULTI_INSTANCE_INFRASTRUCTURE.md) |
-| 인증·알림 k6 계약과 용량 측정 | [인증·알림 k6 README](../load-tests/k6/jiho/README.md), [k6 결과 인덱스](measurements/k6/README.md) |
+| 인증·알림 k6 계약과 용량 측정 | [인증·알림 k6 README](../load-tests/k6/jiho/README.md), [Jiho 측정 문서](measurements/k6/jiho/README.md) |
 | ROOM-09 기준선 실행과 보고서 재생성 | [ROOM-09 일괄 처리 기준선](measurements/room-09-bounded-processing-baseline.md#재현-명령) |
 | 게임 카탈로그 fixture·검수·적재 | [게임 카탈로그 검수·적재](guides/GAME_CATALOG_IMPORT.md) |
 | 팀 프롬프트 기록 환경 | [팀 프롬프트 기록 환경 설정](guides/PROMPT_LOGGING.md) |

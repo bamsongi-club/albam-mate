@@ -44,7 +44,7 @@ release SHA는 이전 캠페인과 같다. 이후 브랜치가 진행됐지만 `
 
 Run마다 방 8개·계정 72개·방당 메시지 150건을 만들고 측정이 끝나면 지웠다. 계정은 방마다 호스트 1명과 참가자 8명이며, 호스트는 `participations` 행을 갖지 않고 `active_participant_count`에도 들어가지 않는다.
 
-이전 캠페인과 달리 이번에는 [`fixtures/rooms.sql`](../../../load-tests/k6/chat/fixtures/rooms.sql)과 [`fixtures/cleanup.sql`](../../../load-tests/k6/chat/fixtures/cleanup.sql)을 그대로 사용했다. Run마다 `run_id`를 달리해 서로의 데이터를 건드리지 않았다.
+이전 캠페인과 달리 이번에는 [`fixtures/rooms.sql`](../../../../load-tests/k6/eungi/fixtures/rooms.sql)과 [`fixtures/cleanup.sql`](../../../../load-tests/k6/eungi/fixtures/cleanup.sql)을 그대로 사용했다. Run마다 `run_id`를 달리해 서로의 데이터를 건드리지 않았다.
 
 시나리오도 시나리오별 파일을 그대로 사용했다. 이전 캠페인은 단일 `chat.js`의 mode 분기로 실행했다.
 
@@ -170,7 +170,7 @@ Redis 자체는 이번에도 멀쩡했다.
 | 사용 메모리 | 2.06MB (최대 2.27MB) | 2.06MB |
 | **누적 수신 연결** | **120,838** | 99,907 |
 
-원인은 이전 캠페인과 같다. [RedisSessionConfiguration](../../../src/main/java/cloud/bamsongi/albammate/infra/redis/RedisSessionConfiguration.java)이 `setShareNativeConnection(false)`로 연결 공유를 끈 채 커넥션 풀이 없어 작업마다 전용 연결을 연다. `autoReconnect(false)`와 `REJECT_COMMANDS`가 완충 구간도 없앤다. 상세는 [이전 보고서](chat-delivery-capacity-2026-08-11.md#원인은-커넥션-재사용이-없다는-것이다)와 [#607](https://github.com/bamsongi-club/albam-mate/issues/607)에 있다.
+원인은 이전 캠페인과 같다. [RedisSessionConfiguration](../../../../src/main/java/cloud/bamsongi/albammate/infra/redis/RedisSessionConfiguration.java)이 `setShareNativeConnection(false)`로 연결 공유를 끈 채 커넥션 풀이 없어 작업마다 전용 연결을 연다. `autoReconnect(false)`와 `REJECT_COMMANDS`가 완충 구간도 없앤다. 상세는 [이전 보고서](chat-delivery-capacity-2026-08-11.md#원인은-커넥션-재사용이-없다는-것이다)와 [#607](https://github.com/bamsongi-club/albam-mate/issues/607)에 있다.
 
 **읽기 경로에서도 500이 365건 나왔다.** 세션 조회가 모든 인증 요청에 붙으므로 채팅 전송만의 문제가 아니라는 점이 이번에 더 분명해졌다.
 
@@ -220,9 +220,9 @@ Redis 자체는 이번에도 멀쩡했다.
 
 ```sh
 K6_LOGIN_LIMIT=300 \
-  bash run.sh loadtest load-tests/k6/chat/load-throughput.js \
-  --seed-sql load-tests/k6/chat/fixtures/rooms.sql \
-  --cleanup-sql load-tests/k6/chat/fixtures/cleanup.sql \
+  bash run.sh loadtest load-tests/k6/eungi/load-throughput.js \
+  --seed-sql load-tests/k6/eungi/fixtures/rooms.sql \
+  --cleanup-sql load-tests/k6/eungi/fixtures/cleanup.sql \
   --sql-var run_id=<실행 키> --sql-var room_count=8 --sql-var accounts_per_room=9 \
   --sql-var messages_per_room=150 \
   --sql-var password_hash='{bcrypt}<해시>' --sql-var password='<평문>'

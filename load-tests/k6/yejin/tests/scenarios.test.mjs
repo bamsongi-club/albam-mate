@@ -17,6 +17,16 @@ const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const gameDirectory = path.resolve(testDirectory, '..');
 const fakeApi = path.join(testDirectory, 'fake-game-api.mjs');
 
+function bashPath(value) {
+  if (process.platform !== 'win32') {
+    return value;
+  }
+
+  return value
+    .replaceAll('\\', '/')
+    .replace(/^([A-Za-z]):/, (_, drive) => `/${drive.toLowerCase()}`);
+}
+
 async function startFakeApi(mode, requestLog) {
   const child = spawn(process.execPath, [fakeApi, mode, requestLog], {
     encoding: 'utf8',
@@ -221,9 +231,9 @@ test('index comparison runner requires reproducibility inputs', () => {
       encoding: 'utf8',
       env: {
         ...process.env,
-        PATH: `${temporaryDirectory}:${process.env.PATH}`,
+        PATH: `${temporaryDirectory}${path.delimiter}${process.env.PATH}`,
         INDEX_STATE: 'no-pg-trgm',
-        RESULT_DIR: temporaryDirectory,
+        RESULT_DIR: bashPath(temporaryDirectory),
         KEYWORD: '누스피요르드',
         EXPECTED_TOTAL_ELEMENTS: '1',
         BENCHMARK_ID: 'review-591-inputs',
@@ -249,9 +259,9 @@ test('index comparison runner requires the expected keyword total', () => {
       encoding: 'utf8',
       env: {
         ...process.env,
-        PATH: `${temporaryDirectory}:${process.env.PATH}`,
+        PATH: `${temporaryDirectory}${path.delimiter}${process.env.PATH}`,
         INDEX_STATE: 'no-pg-trgm',
-        RESULT_DIR: temporaryDirectory,
+        RESULT_DIR: bashPath(temporaryDirectory),
         KEYWORD: '누스피요르드',
         BENCHMARK_ID: 'review-591-expected-total',
         RELEASE_SHA: 'a'.repeat(40),
@@ -276,8 +286,8 @@ test('paired index runs share a manifest and preserve logs', () => {
   const runner = path.join(gameDirectory, 'run-index-comparison.sh');
   const environment = {
     ...process.env,
-    PATH: `${binDirectory}:${process.env.PATH}`,
-    RESULT_DIR: resultDirectory,
+    PATH: `${binDirectory}${path.delimiter}${process.env.PATH}`,
+    RESULT_DIR: bashPath(resultDirectory),
     BENCHMARK_ID: 'review-591-pair',
     KEYWORD: '누스피요르드',
     EXPECTED_TOTAL_ELEMENTS: '1',
@@ -331,8 +341,8 @@ test('an existing benchmark index state rejects rerun without overwriting artifa
   const runner = path.join(gameDirectory, 'run-index-comparison.sh');
   const environment = {
     ...process.env,
-    PATH: `${binDirectory}:${process.env.PATH}`,
-    RESULT_DIR: resultDirectory,
+    PATH: `${binDirectory}${path.delimiter}${process.env.PATH}`,
+    RESULT_DIR: bashPath(resultDirectory),
     INDEX_STATE: 'no-pg-trgm',
     BENCHMARK_ID: 'review-591-rerun',
     KEYWORD: '누스피요르드',
@@ -381,8 +391,8 @@ test('threshold failures are recorded before the runner returns non-zero', () =>
       encoding: 'utf8',
       env: {
         ...process.env,
-        PATH: `${binDirectory}:${process.env.PATH}`,
-        RESULT_DIR: resultDirectory,
+        PATH: `${binDirectory}${path.delimiter}${process.env.PATH}`,
+        RESULT_DIR: bashPath(resultDirectory),
         INDEX_STATE: 'no-pg-trgm',
         BENCHMARK_ID: 'review-591-threshold-failure',
         KEYWORD: '누스피요르드',
@@ -416,8 +426,8 @@ test('paired index runs reject changed fixture provenance', () => {
   const runner = path.join(gameDirectory, 'run-index-comparison.sh');
   const environment = {
     ...process.env,
-    PATH: `${binDirectory}:${process.env.PATH}`,
-    RESULT_DIR: resultDirectory,
+    PATH: `${binDirectory}${path.delimiter}${process.env.PATH}`,
+    RESULT_DIR: bashPath(resultDirectory),
     BENCHMARK_ID: 'review-591-mismatch',
     KEYWORD: '누스피요르드',
     EXPECTED_TOTAL_ELEMENTS: '1',

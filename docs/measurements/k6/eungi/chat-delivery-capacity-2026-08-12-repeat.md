@@ -43,7 +43,7 @@ release·image·계단·fixture·배포·runner 조건이 직전 캠페인과 �
 
 ## 테스트 데이터
 
-Run마다 방 8개·계정 72개·방당 메시지 150건을 [`fixtures/rooms.sql`](../../../load-tests/k6/chat/fixtures/rooms.sql)로 만들고, 생성된 ID registry를 기준으로 [`fixtures/cleanup.sql`](../../../load-tests/k6/chat/fixtures/cleanup.sql)로 지웠다. Run마다 `run_id`를 달리해 서로의 데이터를 건드리지 않았다.
+Run마다 방 8개·계정 72개·방당 메시지 150건을 [`fixtures/rooms.sql`](../../../../load-tests/k6/eungi/fixtures/rooms.sql)로 만들고, 생성된 ID registry를 기준으로 [`fixtures/cleanup.sql`](../../../../load-tests/k6/eungi/fixtures/cleanup.sql)로 지웠다. Run마다 `run_id`를 달리해 서로의 데이터를 건드리지 않았다.
 
 ## 부하 campaign
 
@@ -173,7 +173,7 @@ Run마다 방 8개·계정 72개·방당 메시지 150건을 [`fixtures/rooms.sq
 
 **성공률이 크게 흔들리는 동안에도 이 수치들은 좁은 범위를 유지한다.** 편차가 아니라 구조적 결함이라는 근거다.
 
-원인은 [RedisSessionConfiguration](../../../src/main/java/cloud/bamsongi/albammate/infra/redis/RedisSessionConfiguration.java)이 `setShareNativeConnection(false)`로 연결 공유를 끈 채 커넥션 풀이 없어 작업마다 전용 연결을 여는 것이다. 상세는 [#607](https://github.com/bamsongi-club/albam-mate/issues/607)에 있다.
+원인은 [RedisSessionConfiguration](../../../../src/main/java/cloud/bamsongi/albammate/infra/redis/RedisSessionConfiguration.java)이 `setShareNativeConnection(false)`로 연결 공유를 끈 채 커넥션 풀이 없어 작업마다 전용 연결을 여는 것이다. 상세는 [#607](https://github.com/bamsongi-club/albam-mate/issues/607)에 있다.
 
 읽기 경로의 500이 369건으로 쓰기 경로(331건)보다 많다. 세션 조회가 모든 인증 요청에 붙으므로 채팅 전송만의 문제가 아니다.
 
@@ -212,9 +212,9 @@ Run마다 방 8개·계정 72개·방당 메시지 150건을 [`fixtures/rooms.sq
 
 ```sh
 K6_LOGIN_LIMIT=300 \
-  bash run.sh loadtest load-tests/k6/chat/load-throughput.js \
-  --seed-sql load-tests/k6/chat/fixtures/rooms.sql \
-  --cleanup-sql load-tests/k6/chat/fixtures/cleanup.sql \
+  bash run.sh loadtest load-tests/k6/eungi/load-throughput.js \
+  --seed-sql load-tests/k6/eungi/fixtures/rooms.sql \
+  --cleanup-sql load-tests/k6/eungi/fixtures/cleanup.sql \
   --sql-var run_id=<실행 키> --sql-var room_count=8 --sql-var accounts_per_room=9 \
   --sql-var messages_per_room=150 \
   --sql-var password_hash='{bcrypt}<해시>' --sql-var password='<평문>'

@@ -31,7 +31,7 @@ P0는 홍대 오프라인 모임을 대상으로 하며 완료 시점의 범위�
 | P0 1차 MVP | `v0.1.0` 범위의 백엔드 17개 API와 React 연동 완료 | [P0 완료 명세](docs/archive/p0/P0-spec.md), [API 계약](docs/API.md) |
 | P1 2차 MVP | 기능별 계약·생산 코드·자동 검증 상태가 서로 다르며 계속 진행 중 | [P1 기능 상태 정본](docs/p1/README.md#기능별-현재-상태) |
 | 로컬 검증 환경 | 프록시, Spring 2대, PostgreSQL과 Redis를 `compose.local.yml`로 실행 가능 | [로컬 개발 환경 실행](docs/guides/LOCAL_DEVELOPMENT.md) |
-| 배포와 실측 | 운영 서비스 배포는 완료하지 않았습니다. 고정 릴리스의 AWS·로컬 측정 결과는 운영 용량 보장이 아니라 별도 검증 증거로 관리합니다. | [k6 측정 인덱스](docs/measurements/k6/README.md), [ROOM 측정](docs/measurements/room-09-bounded-processing-baseline.md) |
+| 배포와 실측 | 운영 서비스 배포는 완료하지 않았습니다. 고정 릴리스의 AWS·로컬 측정 결과는 운영 용량 보장이 아니라 별도 검증 증거로 관리합니다. | [k6 측정 문서 규칙](docs/measurements/k6/README.md), [ROOM 측정](docs/measurements/room-09-bounded-processing-baseline.md) |
 
 ## 설계에서 지키는 핵심 불변식
 
@@ -55,7 +55,7 @@ P0는 홍대 오프라인 모임을 대상으로 하며 완료 시점의 범위�
 
 아래 수치는 고정한 검증 릴리스와 fixture에서 얻은 결과입니다. 운영 SLO나 현재 서비스 전체의 용량으로 일반화하지 않습니다.
 
-- 17만 행 게임 fixture의 검색 실험에서 임시 `pg_trgm` GIN 인덱스는 동일한 1 VU 조건의 p95를 `343.8ms`에서 `23.8ms`로 낮췄습니다. 이 수치는 후보 인덱스의 비교 근거이며 운영 스키마 반영 완료를 뜻하지 않습니다. [측정 보고서](docs/measurements/k6/keyword-search-capacity-2026-08-11.md)
+- 17만 행 게임 fixture의 검색 실험에서 임시 `pg_trgm` GIN 인덱스는 동일한 1 VU 조건의 p95를 `343.8ms`에서 `23.8ms`로 낮췄습니다. 이 수치는 후보 인덱스의 비교 근거이며 운영 스키마 반영 완료를 뜻하지 않습니다. [측정 보고서](docs/measurements/k6/yejin/keyword-search-capacity-2026-08-11.md)
 - 시간 기반 방 상태 보정은 최대 10,000개 due ROOM fixture를 고정 시각·seed와 5회 실측으로 비교했고, 결과를 바탕으로 초기 후보 제한 100과 실행당 최대 batch 100을 정했습니다. 로컬 Testcontainers 기준선이며 운영 용량은 아닙니다. [ROOM-09 기준선](docs/measurements/room-09-bounded-processing-baseline.md)
 
 ## 팀 — 밤송이클럽
