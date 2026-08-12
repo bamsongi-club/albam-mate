@@ -1,6 +1,6 @@
 {
   "campaignId": "chat-delivery-20260812T090111KST",
-  "campaignStatus": "completed",
+  "campaignStatus": "completed-with-limitations",
   "documentStatus": "current",
   "supersedes": "chat-delivery-20260812T042245KST",
   "purpose": "새 경계 탐색이 아니라 직전 캠페인 수치가 실행 간 편차인지 확인한다.",
@@ -25,6 +25,11 @@
     "accountsPerRoom": 9,
     "messagesPerRoom": 150
   },
+  "knownLimitations": [
+    "The 2026-08-11 first campaign tagged stages before setup login completed, so it is excluded from equivalent stage comparison with the two 2026-08-12 campaigns.",
+    "load-throughput still has a sender-rotation defect, so its stage values are not server-capacity evidence.",
+    "load-rooms droppedIterations=10 and load-mixed droppedIterations=18, so p95 values at their failing stages are lower bounds under incomplete target load."
+  ],
   "observations": {
     "redis": {
       "rejectedConnections": 0,
@@ -65,35 +70,35 @@
     }
   },
   "runToRunVariance": {
-    "note": "같은 release·계단·fixture 로 3회 측정한 전송 성공률. 경계 위치는 같고 깊이만 흔들린다.",
+    "note": "같은 release·계단·fixture 로 3회 측정한 원자료다. 08-11 1차는 단계 태그 편향으로 제외하고 08-12 2차·3차만 동등 비교한다.",
     "campaigns": [
-      "chat-delivery-20260811T172123KST",
       "chat-delivery-20260812T042245KST",
       "chat-delivery-20260812T090111KST"
     ],
+    "excludedCampaigns": [
+      {
+        "campaignId": "chat-delivery-20260811T172123KST",
+        "reason": "setup login completed after the stage tag reference point was recorded"
+      }
+    ],
     "sendOkRatePercent": {
       "load-rooms.stage4": [
-        70.0,
         57.1,
         65.9
       ],
       "load-mixed.stage3": [
-        84.0,
         69.4,
         71.8
       ],
       "load-mixed.stage4": [
-        42.0,
         44.7,
         44.9
       ],
       "load-fanout.stage5": [
-        97.0,
         91.2,
         95.0
       ],
       "load-throughput.stage5": [
-        92.3,
         86.0,
         100.0
       ]

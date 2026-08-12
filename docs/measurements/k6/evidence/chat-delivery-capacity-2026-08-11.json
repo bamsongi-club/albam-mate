@@ -108,6 +108,7 @@
   "knownLimitations": [
     "The release commit was rebased after the campaign, so 1db046c0 is no longer reachable from the branch; it is pinned by the tag measurement/chat-delivery-2026-08-11 and identified by the ECR image digests and the recorded Git object hashes.",
     "load-throughput stages 4 and 5 mix a scenario defect: the sender rotation aliases to three senders per room and trips the per-user send limit. Only stages 1 to 3 read as server capacity.",
+    "load-rooms droppedIterations=6 and load-mixed droppedIterations=15, so the p95 values at their failing stages are lower bounds under incomplete target load rather than confirmed capacity boundaries.",
     "Stage boundaries are shifted early by the setup login duration, about 14 seconds against a 120 second stage.",
     "CPU credit balance was not collected for this campaign.",
     "Values are bound to t4g.micro nodes with a database connection pool of 8 and must not be quoted as absolute throughput."
