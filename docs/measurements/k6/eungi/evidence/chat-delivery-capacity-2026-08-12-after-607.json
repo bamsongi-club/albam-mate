@@ -1,0 +1,553 @@
+{
+  "campaignId": "chat-delivery-20260812T213324KST",
+  "campaignStatus": "completed",
+  "documentStatus": "current",
+  "supersedes": null,
+  "purpose": "#607 수정이 들어간 release 로 측정한다. release 가 달라 이전 캠페인을 대체하지 않는다.",
+  "beforeBaseline": {
+    "campaignIds": [
+      "chat-delivery-20260811T172123KST",
+      "chat-delivery-20260812T042245KST",
+      "chat-delivery-20260812T090111KST"
+    ],
+    "releaseSha": "1db046c0acdde59737411303a5547f3d8fed1422"
+  },
+  "window": {
+    "startedAtKst": "2026-08-12T21:33:24+09:00",
+    "endedAtKst": "2026-08-12T22:50:58+09:00",
+    "durationSeconds": 4654
+  },
+  "release": {
+    "sha": "b6c32e2214dddb8f0368a84751a46f0bd25e647f",
+    "branch": "develop",
+    "fixes": [
+      "#607"
+    ],
+    "backendImage": "sha256:450438e6f66a3f3718cf5ed57562e370e7846535a347e329deb772d770fb9e4f",
+    "webImage": "sha256:407cea553150135402294a378e70b602ac25ee369a29262fd42ca86e4a075bfe",
+    "postgresImage": "sha256:0826e5f2996099babb925e09fb72bf2c6eb5d187cfcae20aa9291af1612307e4",
+    "redisImage": "sha256:78b83aee0bf6781ca973ee5022de73dd16fe93f53593c3a31f079c8c3fa08921",
+    "verification": "실행 중 컨테이너 digest 와 jar 내 RedisSessionFailureFilter 존재를 배포 후 확인했다."
+  },
+  "fixture": {
+    "source": "load-tests/k6/eungi/fixtures/rooms.sql",
+    "cleanup": "load-tests/k6/eungi/fixtures/cleanup.sql",
+    "roomCount": 8,
+    "accountsPerRoom": 9,
+    "messagesPerRoom": 150
+  },
+  "observations": {
+    "redis": {
+      "rejectedConnections": 0,
+      "totalConnectionsReceived": 14211,
+      "usedMemoryHuman": "2.08M"
+    },
+    "redisConnectionFailureException": {
+      "app1": 0,
+      "app2": 0,
+      "total": 0
+    },
+    "chatHttpStatus": {
+      "postMessages": {
+        "2xx": 5504,
+        "500": 0,
+        "503": 17
+      },
+      "getMessages": {
+        "2xx": 3707,
+        "500": 0,
+        "503": 0,
+        "404": 1
+      }
+    },
+    "cpu": {
+      "app1": {
+        "creditStart": 0.77,
+        "creditEnd": 10.09,
+        "utilizationAvgPercent": 3.8,
+        "utilizationMaxPercent": 12.2
+      },
+      "app2": {
+        "creditStart": 15.01,
+        "creditEnd": 15.01,
+        "utilizationAvgPercent": 2.9,
+        "utilizationMaxPercent": 6.7
+      }
+    }
+  },
+  "beforeAfter": {
+    "note": "before 는 release 1db046c0 3회, after 는 b6c32e22 1회다.",
+    "chatHttp500": {
+      "before": [
+        706,
+        760,
+        700
+      ],
+      "after": 0
+    },
+    "redisConnectionFailureException": {
+      "before": [
+        null,
+        2928,
+        2812
+      ],
+      "after": 0
+    },
+    "redisTotalConnectionsReceived": {
+      "before": [
+        99907,
+        120838,
+        125678
+      ],
+      "after": 14211
+    },
+    "loadRoomsStage4SendOkPercent": {
+      "before": [
+        70.0,
+        57.1,
+        65.9
+      ],
+      "after": 100.0
+    },
+    "loadRoomsStage4HttpP95Ms": {
+      "before": [
+        3119,
+        5105,
+        4047
+      ],
+      "after": 36
+    }
+  },
+  "remainingGateViolations": {
+    "note": "exit=2 인 3종의 위반 지표는 전부 WebSocket 세션 관련이며 성능 임계는 걸리지 않았다.",
+    "issue": "#608"
+  },
+  "artifacts": {
+    "location": "local-only",
+    "directory": "albam-mate-infra/.run/results/",
+    "runCount": 6,
+    "includedRunCount": 6,
+    "excludedRunCount": 0
+  },
+  "runs": [
+    {
+      "scenario": "load-throughput",
+      "endedAt": "2026-08-12T12:47:44Z",
+      "exit": 2,
+      "summary": "summary-20260812T123413Z.json",
+      "console": "console-20260812T123413Z.log",
+      "startedAt": "2026-08-12T12:33:24Z",
+      "stages": [
+        {
+          "stage": 1,
+          "httpP95": 60.22199875,
+          "sendOkRate": 1,
+          "sendTotal": 120,
+          "deliveryP95": 74,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        },
+        {
+          "stage": 2,
+          "httpP95": 46.425485599999995,
+          "sendOkRate": 1,
+          "sendTotal": 180,
+          "deliveryP95": 58,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        },
+        {
+          "stage": 3,
+          "httpP95": 43.198931949999995,
+          "sendOkRate": 1,
+          "sendTotal": 300,
+          "deliveryP95": 53,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        },
+        {
+          "stage": 4,
+          "httpP95": 40.237368399999994,
+          "sendOkRate": 0.9976190476190476,
+          "sendTotal": 420,
+          "deliveryP95": 51,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        },
+        {
+          "stage": 5,
+          "httpP95": 38.26127725,
+          "sendOkRate": 1,
+          "sendTotal": 616,
+          "deliveryP95": 49,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        }
+      ],
+      "droppedIterations": 0,
+      "httpReqFailed": null,
+      "summarySha256": "33956aeaf08ef1ba5d86da062bec5bfb2aa42e5f839e2ec5b1d2657d9f54bee6",
+      "consoleSha256": "2382074af3832bd22b276a8e1bfe39cc56b23c9fcd4b9218b01339581ba10fec",
+      "startedAtKst": "2026-08-12T21:33:24+09:00",
+      "endedAtKst": "2026-08-12T21:47:44+09:00",
+      "status": "PASS",
+      "reportDisposition": "included",
+      "crossedThresholds": [
+        "chat_websocket_opened",
+        "chat_websocket_session_healthy"
+      ]
+    },
+    {
+      "scenario": "load-connections",
+      "endedAt": "2026-08-12T13:01:15Z",
+      "exit": 2,
+      "summary": "summary-20260812T124827Z.json",
+      "console": "console-20260812T124827Z.log",
+      "startedAt": "2026-08-12T12:47:44Z",
+      "stages": [
+        {
+          "stage": 1,
+          "httpP95": null,
+          "sendOkRate": null,
+          "sendTotal": null,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": 26.8,
+          "openedRate": 1,
+          "openedTotal": 5
+        },
+        {
+          "stage": 2,
+          "httpP95": null,
+          "sendOkRate": null,
+          "sendTotal": null,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": 36.599999999999994,
+          "openedRate": 1,
+          "openedTotal": 9
+        },
+        {
+          "stage": 3,
+          "httpP95": null,
+          "sendOkRate": null,
+          "sendTotal": null,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": 68.1,
+          "openedRate": 1,
+          "openedTotal": 19
+        },
+        {
+          "stage": 4,
+          "httpP95": null,
+          "sendOkRate": null,
+          "sendTotal": null,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": 69.79999999999998,
+          "openedRate": 1,
+          "openedTotal": 39
+        },
+        {
+          "stage": 5,
+          "httpP95": null,
+          "sendOkRate": null,
+          "sendTotal": null,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": 52,
+          "openedRate": 1,
+          "openedTotal": 21
+        }
+      ],
+      "droppedIterations": 0,
+      "httpReqFailed": null,
+      "summarySha256": "ee9d666c47e0d7c25d7d93af601a405c7bca68ef7131d5f7329d50033acab170",
+      "consoleSha256": "8fc6aa47f635cea848204497326bcd51a6b95ca3bc2499f943c57176d6e442ef",
+      "startedAtKst": "2026-08-12T21:47:44+09:00",
+      "endedAtKst": "2026-08-12T22:01:15+09:00",
+      "status": "PASS",
+      "reportDisposition": "included",
+      "crossedThresholds": [
+        "chat_websocket_session_healthy"
+      ]
+    },
+    {
+      "scenario": "load-history",
+      "endedAt": "2026-08-12T13:13:15Z",
+      "exit": 0,
+      "summary": "summary-20260812T130238Z.json",
+      "console": "console-20260812T130238Z.log",
+      "startedAt": "2026-08-12T13:01:15Z",
+      "stages": [
+        {
+          "stage": 1,
+          "httpP95": 26.189593650000003,
+          "sendOkRate": 1,
+          "sendTotal": 120,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        },
+        {
+          "stage": 2,
+          "httpP95": 24.31793655,
+          "sendOkRate": 1,
+          "sendTotal": 180,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        },
+        {
+          "stage": 3,
+          "httpP95": 23.853859099999998,
+          "sendOkRate": 1,
+          "sendTotal": 360,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        },
+        {
+          "stage": 4,
+          "httpP95": 22.652867,
+          "sendOkRate": 1,
+          "sendTotal": 841,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null
+        }
+      ],
+      "droppedIterations": 0,
+      "httpReqFailed": null,
+      "summarySha256": "7eec1891ac46b1474781eb6f8b5901abb67e9b09e8abd805fc1f1798396c03eb",
+      "consoleSha256": "d55b4fa9c8d07b533e209b40ba141206cbcaef4f8b47d6ec028529cb2c7858d2",
+      "startedAtKst": "2026-08-12T22:01:15+09:00",
+      "endedAtKst": "2026-08-12T22:13:15+09:00",
+      "status": "PASS",
+      "reportDisposition": "included",
+      "crossedThresholds": []
+    },
+    {
+      "scenario": "load-fanout",
+      "endedAt": "2026-08-12T13:27:10Z",
+      "exit": 0,
+      "summary": "summary-20260812T131358Z.json",
+      "console": "console-20260812T131358Z.log",
+      "startedAt": "2026-08-12T13:13:15Z",
+      "stages": [
+        {
+          "stage": 1,
+          "httpP95": 42.36483445,
+          "sendOkRate": 0.9833333333333333,
+          "sendTotal": 240,
+          "deliveryP95": 29,
+          "deliverySamples": null,
+          "connectP95": 22.9,
+          "openedRate": 1,
+          "openedTotal": 2
+        },
+        {
+          "stage": 2,
+          "httpP95": 39.0384931,
+          "sendOkRate": 0.9875,
+          "sendTotal": 240,
+          "deliveryP95": 35,
+          "deliverySamples": null,
+          "connectP95": 20.9,
+          "openedRate": 1,
+          "openedTotal": 3
+        },
+        {
+          "stage": 3,
+          "httpP95": 38.9654354,
+          "sendOkRate": 0.9916666666666667,
+          "sendTotal": 240,
+          "deliveryP95": 47,
+          "deliverySamples": null,
+          "connectP95": 26.7,
+          "openedRate": 1,
+          "openedTotal": 7
+        },
+        {
+          "stage": 4,
+          "httpP95": 38.670375150000005,
+          "sendOkRate": 0.9916666666666667,
+          "sendTotal": 240,
+          "deliveryP95": 91,
+          "deliverySamples": null,
+          "connectP95": 23.9,
+          "openedRate": 1,
+          "openedTotal": 15
+        },
+        {
+          "stage": 5,
+          "httpP95": 39.638748,
+          "sendOkRate": 0.995850622406639,
+          "sendTotal": 241,
+          "deliveryP95": 121,
+          "deliverySamples": null,
+          "connectP95": 26,
+          "openedRate": 1,
+          "openedTotal": 8
+        }
+      ],
+      "droppedIterations": 0,
+      "httpReqFailed": null,
+      "summarySha256": "6a39541253d5525f36c49aaea7b90e627d12323e6106ea51939c971942e46734",
+      "consoleSha256": "450fb8923dd7dbee6f8f71098c51b0c81a20fd4473ddce607835b0b683913ee3",
+      "startedAtKst": "2026-08-12T22:13:15+09:00",
+      "endedAtKst": "2026-08-12T22:27:10+09:00",
+      "status": "PASS",
+      "reportDisposition": "included",
+      "crossedThresholds": []
+    },
+    {
+      "scenario": "load-rooms",
+      "endedAt": "2026-08-12T13:39:05Z",
+      "exit": 2,
+      "summary": "summary-20260812T132759Z.json",
+      "console": "console-20260812T132759Z.log",
+      "startedAt": "2026-08-12T13:27:10Z",
+      "stages": [
+        {
+          "stage": 1,
+          "httpP95": 41.5575182,
+          "sendOkRate": 0.975,
+          "sendTotal": 120,
+          "deliveryP95": 38,
+          "deliverySamples": null,
+          "connectP95": 22,
+          "openedRate": 1,
+          "openedTotal": 3
+        },
+        {
+          "stage": 2,
+          "httpP95": 39.17798945,
+          "sendOkRate": 1,
+          "sendTotal": 180,
+          "deliveryP95": 39,
+          "deliverySamples": null,
+          "connectP95": 23.8,
+          "openedRate": 1,
+          "openedTotal": 5
+        },
+        {
+          "stage": 3,
+          "httpP95": 37.8333899,
+          "sendOkRate": 0.9972222222222222,
+          "sendTotal": 360,
+          "deliveryP95": 39.55,
+          "deliverySamples": null,
+          "connectP95": 25,
+          "openedRate": 1,
+          "openedTotal": 11
+        },
+        {
+          "stage": 4,
+          "httpP95": 36.387634,
+          "sendOkRate": 1,
+          "sendTotal": 841,
+          "deliveryP95": 47,
+          "deliverySamples": null,
+          "connectP95": 24.599999999999998,
+          "openedRate": 1,
+          "openedTotal": 7
+        }
+      ],
+      "droppedIterations": 0,
+      "httpReqFailed": null,
+      "summarySha256": "8f9f17e451249f0aecd80bef199255bdedc853e8fb34dedc014a71509a481ef0",
+      "consoleSha256": "b5a8fb835a500719a38d1d05c14a38bf58ae8bb112027ee150d9f8e32844820b",
+      "startedAtKst": "2026-08-12T22:27:10+09:00",
+      "endedAtKst": "2026-08-12T22:39:05+09:00",
+      "status": "PASS",
+      "reportDisposition": "included",
+      "crossedThresholds": [
+        "chat_websocket_session_healthy",
+        "load_subscriber_delivery_complete"
+      ]
+    },
+    {
+      "scenario": "load-mixed",
+      "endedAt": "2026-08-12T13:50:58Z",
+      "exit": 0,
+      "summary": "summary-20260812T133947Z.json",
+      "console": "console-20260812T133947Z.log",
+      "startedAt": "2026-08-12T13:39:05Z",
+      "stages": [
+        {
+          "stage": 1,
+          "httpP95": 36.57887985,
+          "sendOkRate": 1,
+          "sendTotal": 360,
+          "deliveryP95": 37.349999999999994,
+          "deliverySamples": null,
+          "connectP95": 22.6,
+          "openedRate": 1,
+          "openedTotal": 5
+        },
+        {
+          "stage": 2,
+          "httpP95": 35.718338700000004,
+          "sendOkRate": 1,
+          "sendTotal": 540,
+          "deliveryP95": 31,
+          "deliverySamples": null,
+          "connectP95": 24.4,
+          "openedRate": 1,
+          "openedTotal": 9
+        },
+        {
+          "stage": 3,
+          "httpP95": 34.863671749999995,
+          "sendOkRate": 1,
+          "sendTotal": 900,
+          "deliveryP95": 32,
+          "deliverySamples": null,
+          "connectP95": 27.7,
+          "openedRate": 1,
+          "openedTotal": 14
+        },
+        {
+          "stage": 4,
+          "httpP95": 34.74489815,
+          "sendOkRate": 1,
+          "sendTotal": 1442,
+          "deliveryP95": 34,
+          "deliverySamples": null,
+          "connectP95": 24,
+          "openedRate": 1,
+          "openedTotal": 5
+        }
+      ],
+      "droppedIterations": 0,
+      "httpReqFailed": null,
+      "summarySha256": "6330415334b46caec3b24828154eb8730818307fe58a35445dced5b7e00d0cd9",
+      "consoleSha256": "c528c93545ce92f377e350a37bfc00600a5051f62f55274664bf8319fc06998f",
+      "startedAtKst": "2026-08-12T22:39:05+09:00",
+      "endedAtKst": "2026-08-12T22:50:58+09:00",
+      "status": "PASS",
+      "reportDisposition": "included",
+      "crossedThresholds": []
+    }
+  ]
+}
