@@ -1,6 +1,6 @@
 {
   "campaignId": "chat-delivery-20260813T020049KST",
-  "campaignStatus": "completed",
+  "campaignStatus": "completed-with-limitations",
   "documentStatus": "current",
   "supersedes": null,
   "purpose": "#607 수정 효과가 실행·release 를 바꿔도 재현되는지 확인한다. 직전 after 캠페인의 1회 실행 한계를 메운다.",

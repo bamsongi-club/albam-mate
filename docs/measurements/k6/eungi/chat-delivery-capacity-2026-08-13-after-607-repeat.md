@@ -5,7 +5,7 @@
 이 문서는 [#607](https://github.com/bamsongi-club/albam-mate/issues/607) 수정이 들어간 상태를 **더 나중의 develop release로 한 번 더** 측정한 결과다. 목적은 새 경계를 찾는 것이 아니라 [직전 after 캠페인](chat-delivery-capacity-2026-08-12-after-607.md)이 1회 실행이었다는 한계를 메우는 것이다.
 
 - Campaign ID: `chat-delivery-20260813T020049KST`
-- 캠페인 상태: `completed`
+- 캠페인 상태: `completed-with-limitations`
 - 문서 상태: `current`
 - 문서 인덱스: [Eungi k6 측정 문서](README.md)
 - 근거 식별자: [campaign manifest](evidence/chat-delivery-capacity-2026-08-13-after-607-repeat.json)
