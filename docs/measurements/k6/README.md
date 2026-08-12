@@ -32,7 +32,7 @@ docs/
 | `chat-delivery-20260811T172123KST` | 2026-08-11 17:18:50~18:36:49 KST | `completed-with-limitations` | [채팅 전송·전달 AWS 용량 측정](chat-delivery-capacity-2026-08-11.md) | 없음 | [campaign manifest](evidence/chat-delivery-capacity-2026-08-11.json) | superseded by `chat-delivery-20260812T042245KST` |
 | `chat-delivery-20260812T042245KST` | 2026-08-12 04:22:45~05:37:34 KST | `completed-with-limitations` | [채팅 전송·전달 AWS 용량 재측정](chat-delivery-capacity-2026-08-12.md) | 없음 | [campaign manifest](evidence/chat-delivery-capacity-2026-08-12.json) | superseded by `chat-delivery-20260812T090111KST` |
 | `chat-delivery-20260812T090111KST` | 2026-08-12 09:01:11~10:35:38 KST | `completed-with-limitations` | [채팅 전송·전달 AWS 용량 반복 측정](chat-delivery-capacity-2026-08-12-repeat.md) | 없음 | [campaign manifest](evidence/chat-delivery-capacity-2026-08-12-repeat.json) | `chat-delivery-20260812T042245KST`를 대체, 08-11 1차는 단계 태그 편향으로 비교 제외 |
-| `redis-session-diagnostic-20260812` | 2026-08-12 11:42:54~12:04:36 KST | `completed-with-limitations` | [Redis 세션 연결 진단](redis-session-connection-diagnostic-2026-08-12.md) | 해당 없음 | [진단 evidence](evidence/redis-session-connection-diagnostic-2026-08-12.json) | 현행 기준 원인 진단, 후보 A/B 미실행 |
+| `redis-session-diagnostic-20260812` | 2026-08-12 11:42:54~21:33:05 KST | `completed` | [Redis 세션 연결 진단·A/B](redis-session-connection-diagnostic-2026-08-12.md) | 해당 없음 | [진단 evidence](evidence/redis-session-connection-diagnostic-2026-08-12.json) | Issue #607 후보 A/B와 mixed 0.5× 검증 완료 |
 
 `completed-with-limitations`는 실행과 보고가 끝났지만 유효한 정상·실패 경계를 모두 확정하지 못했거나 원자료 접근 범위가 제한된 상태다. `completed`는 계획한 Run이 모두 유효하게 끝나 축별 경계를 확정한 상태다. `current` 판단서는 후속 문서가 `supersedes`로 대체하기 전까지 현재 판단으로 읽는다.
 
