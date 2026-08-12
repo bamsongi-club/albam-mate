@@ -518,3 +518,5 @@ Repository Projection은 쿼리가 선택한 열을 담는 저장소 계층 타�
 | 구조 규칙의 자동 검증 상태 변경 | 필요 | ModuleArchitectureTest, CI |
 
 중요한 구조 선택의 근거나 대안이 바뀌면 ADR을 추가하거나 기존 ADR을 대체한다. 코드 작성 규칙은 [CONVENTIONS](CONVENTIONS.md), HTTP 계약은 [API 명세](API.md), 저장 계약은 [ERD](ERD.md)가 각각 소유한다.
+
+> 문서 관리: 소유자 `밤송이클럽 백엔드 팀` · 최종 검증일 `2026-08-12` · 폐기 조건 `모듈러 모놀리스 구조를 더 이상 사용하지 않거나 후속 아키텍처 정본이 승인될 때`
