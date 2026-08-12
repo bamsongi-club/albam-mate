@@ -25,17 +25,17 @@ load-tests/
 | 생성기·설정 검증 테스트 | 생성기와 부하테스트 설정의 입력·출력 계약을 검증하는 테스트 소스 | 추적한다 |
 | 가짜 예시 파일 | 입력 형식 설명이 필요할 때만 제공하는 비실행용 예시 | 실제 정보가 없을 때만 추적한다 |
 | 실제 fixture | 부하테스트 환경에 적재하거나 로그인에 사용하는 계정·비밀번호·도메인 데이터 | 추적하지 않는다 |
-| 생성 결과 | 생성된 fixture, 실행 bundle, 원시 로그와 원시 측정 결과 | 추적하지 않는다 |
+| 원시 생성·실행 산출물 | 생성된 fixture와 실행 bundle, 인프라 runner의 원시 로그·원시 측정 결과 | 추적하지 않는다 |
 
 fixture 생성기와 그 테스트는 재현 가능한 부하테스트를 위한 소스 코드다. 생성기가 실행하면서 만든 파일과 데이터를 실제 fixture 또는 생성 결과로 구분한다.
 
 ## Git 비추적 규칙
 
-실제 fixture, 자격 증명과 생성 결과는 파일 확장자와 관계없이 Git에 커밋하지 않는다. JSON뿐 아니라 SQL, CSV, `.env`, 로그와 결과 파일에도 실제 계정·비밀번호·토큰·도메인 데이터가 포함될 수 있다.
+실제 fixture, 자격 증명과 원시 생성·실행 산출물은 파일 확장자와 관계없이 Git에 커밋하지 않는다. JSON뿐 아니라 SQL, CSV, `.env`, 로그와 결과 파일에도 실제 계정·비밀번호·토큰·도메인 데이터가 포함될 수 있다.
 
-생성 결과의 기본 경로는 `build/k6/<domain>/`이다. 저장소의 `.gitignore`가 `build/`를 제외하므로, 생성기와 실행기는 이 경로 안에서 도메인별 결과를 관리한다.
+fixture generator가 만드는 **실행 bundle의 기본 경로**는 `build/k6/<domain>/`이다. 저장소의 `.gitignore`가 `build/`를 제외하므로, 이 경로는 Git 비추적 fixture·bundle staging에만 쓴다. 인프라 runner가 회수한 원시 실행 산출물도 Git 비추적 `albam-mate-infra/.run/results/<run-id>/`에 남긴다.
 
-비밀값과 실제 환경의 리소스 식별자를 제거해 정본으로 보존할 측정 증거는 `build/`의 원시 결과를 그대로 커밋하지 않는다. 별도로 승인된 측정 문서의 형식과 검증 절차를 마친 뒤, [k6 부하테스트 결과 문서](../docs/measurements/k6/README.md) 아래의 Markdown 문서로 보존한다. 필요한 경우 같은 검증을 마친 JSON 증거는 `docs/measurements/k6/evidence/<test-content>-<YYYY-MM-DD>.json`으로 함께 보존할 수 있다. 모든 실행 결과를 문서로 승격하지 않으며, 탐색·반복 실행의 원시 산출물은 `build/`에 남긴다.
+비밀값과 실제 환경의 리소스 식별자를 제거해 정본으로 보존할 측정 결과는 raw bundle·원시 실행 산출물을 그대로 커밋하지 않는다. 별도로 승인된 측정 문서의 형식과 검증 절차를 마친 뒤, [k6 부하테스트 결과 문서](../docs/measurements/k6/README.md) 아래의 Markdown 보고서(`docs/measurements/k6/<test-content>-<YYYY-MM-DD>.md`)와 검증·비식별화한 JSON evidence(`docs/measurements/k6/evidence/<test-content>-<YYYY-MM-DD>.json`)로 보존한다. 모든 실행 결과를 문서로 승격하지 않으며, 탐색·반복 실행의 원시 산출물은 Git 비추적 경로에만 남긴다.
 
 가짜 예시 파일은 형식 설명에 필요할 때만 추가한다. 실제 서비스 계정, 접근 가능한 연락처, 재사용 가능한 비밀번호·토큰 또는 실제 환경의 리소스 식별자를 넣지 않는다.
 
@@ -48,7 +48,7 @@ fixture 생성기와 그 테스트는 재현 가능한 부하테스트를 위한
 - 필수 환경 변수와 사전 조건
 - fixture 준비·정리 방법
 - 결과 확인·검증 방법
-- `build/k6/<domain>/` 아래에 생성되는 원시 결과
+- `build/k6/<domain>/` 아래에 생성되는 Git 비추적 fixture·실행 bundle과 인프라 `.run/results/`의 원시 실행 산출물
 - 정본으로 보존한 측정 문서와 증거 파일의 `docs/measurements/k6/` 경로
 
 문서의 제목 순서와 내부 구현 구조는 도메인 특성에 맞게 정한다.

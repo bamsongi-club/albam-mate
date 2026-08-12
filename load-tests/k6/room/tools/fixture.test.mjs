@@ -153,9 +153,9 @@ test('due backlog 조회는 저장 상태 보존과 Scheduler 격리 계약을 �
   assert.match(verifySql, /ROOM_K6_STATUS_CORRECTION_LOCK_RELEASE_FAILED/);
 });
 
-test('03은 endpoint × due 규모 × VU matrix와 stress/spike 실행 계약을 만든다', () => {
+test('03은 10,000을 포함한 endpoint × due 규모 × VU matrix와 stress/spike 실행 계약을 만든다', () => {
   const endpoints = ['room-list', 'my-rooms'];
-  const dueRoomCounts = [0, 20, 2_000];
+  const dueRoomCounts = [0, 20, 2_000, 10_000];
   const vusLevels = [2, 4, 8];
   const loadProfiles = ['stress', 'spike'];
 
@@ -177,7 +177,8 @@ test('03은 endpoint × due 규모 × VU matrix와 stress/spike 실행 계약을
 
           assert.equal(fixture.manifest.classification.loadProfiles.stress, 'required');
           assert.equal(fixture.manifest.classification.category, 'read-write-contention');
-          assert.equal(fixture.manifest.classification.loadProfiles.spike, 'recommended');
+          assert.equal(fixture.manifest.classification.loadProfiles.spike, 'optional');
+          assert.equal(fixture.manifest.classification.loadProfiles.soak, 'excluded');
           assert.equal(configuration.endpoint, endpoint);
           assert.equal(configuration.dueRoomCount, dueRoomCount);
           assert.equal(configuration.vus, vus);
@@ -204,7 +205,7 @@ test('03은 endpoint × due 규모 × VU matrix와 stress/spike 실행 계약을
   assert.match(renderVerifySql(cleanFixture), /ROOM_K6_DUE_ROOM_COUNT_CHANGED/);
 });
 
-test('04는 role × active participants × load profile 응답 계약을 manifest에 만든다', () => {
+test('04는 role × active participants × profile 응답 계약을 manifest에 만든다', () => {
   const roles = [
     { role: 'public', userKey: null, myRole: null },
     { role: 'host', userKey: 'host', myRole: 'HOST' },
@@ -231,7 +232,7 @@ test('04는 role × active participants × load profile 응답 계약을 manifes
 
         assert.equal(fixture.manifest.classification.loadProfiles.stress, 'required');
         assert.equal(fixture.manifest.classification.category, 'read-load');
-        assert.equal(fixture.manifest.classification.loadProfiles.spike, 'recommended');
+        assert.equal(fixture.manifest.classification.loadProfiles.spike, 'optional');
         assert.equal(fixture.manifest.classification.loadProfiles.soak, 'future-recommended');
         assert.equal(configuration.expectedParticipantCount, activeParticipantCount + 1);
         assert.equal(configuration.expectedRemainingRecruitmentSeats, 10 - activeParticipantCount);
@@ -251,7 +252,7 @@ test('04는 role × active participants × load profile 응답 계약을 manifes
   }
 });
 
-test('05는 data-scale 저경합 조건에서 head/middle/tail 순번과 VU 1을 고정한다', () => {
+test('05는 stress-only data-scale 저경합 조건에서 head/middle/tail 순번과 VU 1을 고정한다', () => {
   const queueLengths = [10, 100, 1_000, 10_000];
   const positions = ['head', 'middle', 'tail'];
 
@@ -270,8 +271,11 @@ test('05는 data-scale 저경합 조건에서 head/middle/tail 순번과 VU 1을
 
       assert.equal(fixture.manifest.classification.category, 'data-scale-low-contention-comparison');
       assert.equal(fixture.manifest.classification.appliedLoadType, 'constant-vus-1');
+      assert.equal(fixture.manifest.classification.loadProfiles.stress, 'optional');
+      assert.equal(fixture.manifest.classification.loadProfiles.spike, 'unnecessary');
+      assert.equal(fixture.manifest.classification.loadProfiles.soak, 'low-priority');
       assert.equal(configuration.appliedLoadType, 'constant-vus-1');
-      assert.equal(configuration.loadProfile, 'data-scale');
+      assert.equal(configuration.loadProfile, 'stress');
       assert.equal(configuration.vus, 1);
       assert.equal(configuration.expectedPosition, expectedPosition);
       assert.equal(fixture.model.waitlists.length, queueLength);
@@ -340,5 +344,6 @@ test('위험하거나 잘못된 입력을 거부한다', () => {
   assert.throws(() => options('waitlist-position', '--queue-length', '10001'), /10000 이하여야/);
   assert.throws(() => options('waitlist-position', '--queue-length', '20'), /10, 100, 1000, 10000/);
   assert.throws(() => options('waitlist-position', '--vus', '2'), /1 이하여야/);
+  assert.throws(() => options('waitlist-position', '--load-profile', 'spike'), /stress 중 하나/);
   assert.throws(() => options('due-backlog-read', '--unknown', 'value'), /지원하지 않는 옵션/);
 });

@@ -69,20 +69,20 @@ function scenarioClassification(scenario) {
   if (scenario === 'room-detail') {
     return {
       category: 'read-load',
-      loadProfiles: { stress: 'required', spike: 'recommended', soak: 'future-recommended' },
+      loadProfiles: { stress: 'required', spike: 'optional', soak: 'future-recommended' },
     };
   }
   if (scenario === 'waitlist-position') {
     return {
       category: 'data-scale-low-contention-comparison',
       appliedLoadType: 'constant-vus-1',
-      loadProfiles: { stress: 'not-applicable', spike: 'not-applicable', soak: 'not-applicable' },
+      loadProfiles: { stress: 'optional', spike: 'unnecessary', soak: 'low-priority' },
     };
   }
   if (scenario === 'due-backlog-read') {
     return {
       category: 'read-write-contention',
-      loadProfiles: { stress: 'required', spike: 'recommended', soak: 'excluded' },
+      loadProfiles: { stress: 'required', spike: 'optional', soak: 'excluded' },
     };
   }
   return {
@@ -124,7 +124,7 @@ export function parseArguments(argv) {
     'room-detail': ['output', 'seed', 'role', 'active-participant-count', 'vus', 'duration',
       'think-time-seconds', 'load-profile'],
     'waitlist-position': ['output', 'seed', 'queue-length', 'position', 'vus', 'duration',
-      'think-time-seconds'],
+      'think-time-seconds', 'load-profile'],
   };
   for (const name of Object.keys(raw)) {
     assert(allowedByScenario[scenario].includes(name), `${scenario}에서 지원하지 않는 옵션입니다: --${name}`);
@@ -199,12 +199,14 @@ export function parseArguments(argv) {
     };
   }
 
+  const loadProfile = parseChoice(raw['load-profile'] || 'stress', 'load-profile', ['stress']);
   const duration = parseDuration(raw.duration || '1m');
   const queueLength = parseInteger(raw['queue-length'] || 10, 'queue-length', 10, 10_000);
   assert(STANDARD_WAITLIST_QUEUE_LENGTHS.includes(queueLength),
     `queue-length는 ${STANDARD_WAITLIST_QUEUE_LENGTHS.join(', ')} 중 하나여야 합니다: ${queueLength}`);
   return {
     ...common,
+    loadProfile,
     queueLength,
     position: parseChoice(raw.position || 'head', 'position', ['head', 'middle', 'tail']),
     vus: parseInteger(raw.vus || 1, 'vus', 1, 1),
@@ -557,7 +559,7 @@ function buildWaitlistPositionFixture(options, model) {
       queueLength: options.queueLength,
       position: options.position,
       expectedPosition: targetIndex + 1,
-      loadProfile: 'data-scale',
+      loadProfile: options.loadProfile,
       appliedLoadType: 'constant-vus-1',
       vus: options.vus,
       duration: options.duration,

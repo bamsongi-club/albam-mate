@@ -18,19 +18,23 @@
 | --- | --- | --- | --- | --- | --- |
 | 01 취소·자동 승격 | `write-contention` (쓰기 경합) | 필수 | 권장 | 제외 | hot/spread, VU 2/4/8 wave |
 | 02 대기 등록 | `write-contention` (쓰기 경합) | 필수 | 권장 | 제외 | hot/spread, VU 2/4/8 wave |
-| 03 due backlog 조회 | `read-write-contention` (조회+쓰기 충돌) | 필수 | 권장 | 제외 | endpoint × VU 2/4/8 × due 0/20/2,000 |
-| 04 역할별 상세 | `read-load` (읽기 부하) | 필수 | 권장 | 추후 권장 | role public/host/participant × active 1/10 |
-| 05 대기 순번 | `data-scale-low-contention-comparison` (데이터 증가·저경합 비교) | 적용 안 함 | 적용 안 함 | 적용 안 함 | VU 1, queue 10/100/1,000 |
+| 03 due backlog 조회 | `read-write-contention` (조회+쓰기 충돌) | 필수 | 선택 | 제외 | endpoint × VU 2/4/8 × due 0/20/2,000/10,000 |
+| 04 역할별 상세 | `read-load` (읽기 부하) | 필수 | 선택 | 추후 권장 | role public/host/participant × active 1/10 |
+| 05 대기 순번 | `data-scale-low-contention-comparison` (데이터 증가·저경합 비교) | 선택 (VU 1) | 불필요 | 후순위 | constant VU 1, queue 10/100/1,000/10,000 |
 
-10,000 due ROOM 또는 queue는 기본 matrix가 아니라 사전 조건과 비용을 확인한 뒤에만 선택 행으로 추가한다. 04 Soak은 `--duration`이 명시된 경우에만 기록한다.
+03의 due 10,000과 05의 queue 10,000은 공식 matrix에 포함한다. 05는 stress profile이어도 constant VU 1만 사용하므로 동시성 부하 결과로 해석하지 않는다.
+
+### 이번 campaign 적용 범위
+
+01/02는 Stress+Spike, 03은 Stress+Spike, 04는 Stress+Spike를 실행한다. 04 Soak은 `추후 권장` 분류를 보존하지만 이번 campaign에서는 제외한다. 05는 Stress만 VU 1로 실행하고, Spike는 불필요하며 Soak은 `후순위` 분류를 보존한 채 이번 campaign에서 제외한다.
 
 ## 실행 행과 재현 artifact
 
-| 실행 행 | Campaign ID | scenario/profile | fixture manifest | source metadata | run metadata | k6/verify artifact | measurementWindow | Run 상태 | reportDisposition |
+| 실행 행 | Campaign ID | scenario/profile | fixture manifest | source metadata | run metadata / result | k6/verify artifact | measurementWindow | Run 상태 | reportDisposition |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `[행 추가]` | `[기록]` | `[기록]` | `manifest.json 경로와 SHA-256` | `source-metadata.json 경로와 SHA-256` | `run-metadata.json 경로와 SHA-256` | `summary.json`, `verify.log` | `{ startedAtUtc, endedAtUtc }` | `PASS`/`FAIL`/`INVALID` | `included`/`excluded` |
+| `[행 추가]` | `[기록]` | `[기록]` | `manifest.json 경로와 SHA-256` | `source-metadata.json 경로와 SHA-256` | `run-metadata.json`, `run-result.json` 경로와 SHA-256 | `summary.json`, `verify.log` | `{ startedAtUtc, endedAtUtc }` | `PASS`/`FAIL`/`INVALID` | `included`/`excluded` |
 
-각 행은 하나의 bundle 실행만 나타낸다. 01/02는 mode × VU × profile별 bundle, 03은 endpoint × due 규모 × VU × profile별 bundle을 별도 행으로 남긴다. `run-metadata.json`의 Campaign ID와 measurementWindow가 fixture, k6, 관측 artifact를 연결해야 한다. `reportDisposition=included`인 Run만 보고서 결론 계산에 사용하며 `excluded` Run은 이력으로만 남긴다. bundle의 `users.json`, `prepare.sql`과 비밀값은 artifact 또는 보고서에 넣지 않는다.
+각 행은 하나의 bundle 실행만 나타낸다. 01/02는 mode × VU × profile별 bundle, 03은 endpoint × due 규모 × VU × profile별 bundle, 04는 role × active participants × profile별 bundle, 05는 queue 규모 × position의 stress bundle을 별도 행으로 남긴다. `run-metadata.json`은 Campaign ID와 k6 실행 구간을, `run-result.json`은 measurementWindow·Run 상태·reportDisposition을 제공해 fixture, k6, 관측 artifact를 연결한다. `reportDisposition=included`인 Run만 보고서 결론 계산에 사용하며 `excluded` Run은 이력으로만 남긴다. bundle의 `users.json`, `prepare.sql`과 비밀값은 artifact 또는 보고서에 넣지 않는다.
 
 ## k6 관측
 
@@ -87,10 +91,10 @@ raw SQL, query text, session ID, 사용자 fixture, 비밀번호는 이 보고�
 
 다음이 모두 충족될 때만 `docs/measurements/k6/` 승격을 제안한다. 판단서 링크 또는 작성은 실제 아키텍처 결론이 있을 때만 별도로 기록한다.
 
-1. 해당 시나리오의 필수 Stress 행과 필요한 fixture `verify.sql`이 통과했다.
+1. 해당 시나리오의 이번 campaign 적용 행과 필요한 fixture `verify.sql`이 통과했다.
 2. `room_unexpected_response_rate=0`과 `room_measurement_check_rate=1`이 각 실행 행에서 확인됐다.
-3. manifest, source metadata, `run-metadata.json`, k6 summary, verify artifact, measurementWindow가 서로 연결된다.
+3. manifest, source metadata, `run-metadata.json`, `run-result.json`, k6 summary, verify artifact, measurementWindow가 서로 연결된다.
 4. DB와 AWS 관측은 complete/partial/unavailable 상태와 이유를 함께 남겼다.
 5. Hikari pending이 unavailable이면 그 한계를 결론에 명시했고, 관측하지 않은 정상성을 주장하지 않았다.
 
-Campaign 상태는 템플릿 기본값으로 정하지 않고 실제 결과에 따라 `completed`, `completed-with-limitations`, `partial` 중에서 선택한다. 하나라도 충족하지 않으면 결과는 `FAIL` 또는 `INVALID`와 적절한 `reportDisposition`으로 기록하고, 성능 개선·회귀·용량 판단을 발행하지 않는다.
+Campaign 상태는 템플릿 기본값으로 정하지 않고 실제 결과에 따라 `completed`, `completed-with-limitations`, `partial` 중에서 선택한다. `run-result.json`이 `PASS/included`을 기록한 행만 정상 결론 계산에 쓰며, k6 correctness 또는 DB 검증 실패는 `FAIL/excluded`, fixture 준비 또는 필수 결과 artifact가 없으면 `INVALID/excluded`으로 기록한다. 성능 개선·회귀·용량 판단은 `excluded` Run으로 발행하지 않는다.

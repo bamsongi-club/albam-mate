@@ -14,19 +14,23 @@
 
 ### Scenario 03
 
-`03-room-read-due-backlog.js`의 최종 분류는 `read-write-contention`이다. Stress는 필수이고 Spike는 권장하며 Soak은 제외한다. endpoint별 지속 VU 또는 급격 ramp를 적용한다.
+`03-room-read-due-backlog.js`의 최종 분류는 `read-write-contention`이다. Stress는 필수이고 Spike는 선택이며 Soak은 제외한다. endpoint별 지속 VU 또는 급격 ramp를 적용한다.
 
 ### Scenario 04
 
-`04-room-detail-by-role.js`의 최종 분류는 `read-load`다. Stress는 필수이고 Spike는 권장하며 Soak은 추후 권장한다. role별 지속 VU 또는 급격 ramp를 적용한다.
+`04-room-detail-by-role.js`의 최종 분류는 `read-load`다. Stress는 필수이고 Spike는 선택이며 Soak은 추후 권장한다. role별 지속 VU 또는 급격 ramp를 적용한다.
 
 ### Scenario 05
 
-`05-room-waitlist-position.js`의 최종 분류는 `data-scale-low-contention-comparison`(데이터 증가·저경합 비교)이다. Stress, Spike, Soak은 적용하지 않고 constant VU 1만 사용한다.
+`05-room-waitlist-position.js`의 최종 분류는 `data-scale-low-contention-comparison`(데이터 증가·저경합 비교)이다. Stress는 선택이고 Spike는 불필요하며 Soak은 후순위다. Stress를 실행할 때는 constant VU 1만 사용한다.
 
-01~04의 manifest에는 `classification.category`, `classification.loadProfiles`, 실제 `configuration.loadProfile`이 함께 기록된다. k6 scenario와 custom metric에는 `test_classification`, `load_profile` 태그가 붙는다. 05는 `data-scale-low-contention-comparison`과 `constant-vus-1`을 기록하므로 동시성 부하 결과처럼 해석하지 않는다.
+01~05의 manifest에는 `classification.category`, `classification.loadProfiles`, 실제 `configuration.loadProfile`이 함께 기록된다. k6 scenario와 custom metric에는 `test_classification`, `load_profile` 태그가 붙는다. 05는 `stress`를 기록하되 `data-scale-low-contention-comparison`과 `constant-vus-1`을 유지하므로 동시성 부하 결과처럼 해석하지 않는다.
 
-Stress는 01~04의 필수 비교 조건이다. Spike는 01~04에서 권장하는 선택 조건이다. 01/02는 warm-up 0회와 measure 1회의 단일 동시 burst이고, 03/04는 1초 ramp-up과 1초 ramp-down을 명시한다. Soak은 01~03에 적용하지 않는다. 04에서만 추후 권장하며 `--duration`을 반드시 명시해야 한다. 임의의 장시간 기본값은 제공하지 않는다.
+### 이번 campaign 적용 범위
+
+이번 campaign은 01/02의 Stress+Spike, 03의 Stress+Spike, 04의 Stress+Spike만 실행한다. 04의 Soak은 `future-recommended` 분류를 보존하되 이번 campaign에서는 실행하지 않는다. 05는 Stress만 VU 1로 실행하며 Spike는 불필요하고 Soak은 `low-priority` 분류를 보존한 채 이번 campaign에서 제외한다.
+
+01/02의 Spike는 warm-up 0회와 measure 1회의 단일 동시 burst이고, 03/04의 Spike는 1초 ramp-up과 1초 ramp-down을 명시한다. 05는 profile에 따라 VU를 늘리지 않으며 언제나 constant VU 1로 데이터 규모만 비교한다.
 
 ## fixture bundle 만들기
 
@@ -58,13 +62,13 @@ node load-tests/k6/room/tools/prepare-fixture.mjs due-backlog-read \
   --output build/k6/room/due-room-list-clean-vu2
 
 node load-tests/k6/room/tools/prepare-fixture.mjs due-backlog-read \
-  --seed due-my-rooms-2000-vu8 \
-  --endpoint my-rooms --due-room-count 2000 --vus 8 \
+  --seed due-my-rooms-10000-vu8 \
+  --endpoint my-rooms --due-room-count 10000 --vus 8 \
   --load-profile spike --duration 1m --think-time-seconds 1 \
-  --output build/k6/room/due-my-rooms-2000-vu8
+  --output build/k6/room/due-my-rooms-10000-vu8
 ```
 
-03의 공식 matrix는 endpoint × VU 2/4/8 × due ROOM 0(clean)/20/2,000이다. 10,000은 기본 비교가 아니라 사전 조건이 충족된 뒤에만 선택 실행한다. target endpoint의 사전 warm-up과 pre-measure probe는 due backlog를 먼저 보정할 수 있으므로 금지한다. my-rooms는 VU-local 첫 loop에서 로그인 session만 준비하고, public은 HTTP 없이 warm-up marker만 처리한다. 유효 상태 확인은 post-run `verify.sql`의 effective-status 검증에 맡긴다.
+03의 공식 matrix는 endpoint × VU 2/4/8 × due ROOM 0(clean)/20/2,000/10,000이다. target endpoint의 사전 warm-up과 pre-measure probe는 due backlog를 먼저 보정할 수 있으므로 금지한다. my-rooms는 VU-local 첫 loop에서 로그인 session만 준비하고, public은 HTTP 없이 warm-up marker만 처리한다. 유효 상태 확인은 post-run `verify.sql`의 effective-status 검증에 맡긴다.
 
 04는 role public/host/participant와 active participant 1/10을 각각 따로 만든다.
 
@@ -76,10 +80,10 @@ node load-tests/k6/room/tools/prepare-fixture.mjs room-detail \
   --output build/k6/room/detail-host-active10-stress
 
 node load-tests/k6/room/tools/prepare-fixture.mjs room-detail \
-  --seed detail-participant-active10-soak \
+  --seed detail-participant-active10-spike \
   --role participant --active-participant-count 10 \
-  --load-profile soak --duration 30m \
-  --output build/k6/room/detail-participant-active10-soak
+  --load-profile spike --duration 1m \
+  --output build/k6/room/detail-participant-active10-spike
 ```
 
 상세 checker는 공개 응답에 `myRole`, `place`, `host`, `participants`가 없는지 확인한다. 관계자 응답은 host=`HOST`, participant=`JOINED`, `participantCount=active+1`, `remainingRecruitmentSeats=10-active`, `participants.length=active+1`을 확인한다.
@@ -88,12 +92,13 @@ node load-tests/k6/room/tools/prepare-fixture.mjs room-detail \
 
 ```sh
 node load-tests/k6/room/tools/prepare-fixture.mjs waitlist-position \
-  --seed queue-100-middle \
-  --queue-length 100 --position middle \
-  --output build/k6/room/queue-100-middle
+  --seed queue-10000-middle-stress \
+  --queue-length 10000 --position middle \
+  --load-profile stress \
+  --output build/k6/room/queue-10000-middle-stress
 ```
 
-05의 표준 큐 길이는 10/100/1,000이며 10,000은 선택 조건이다. position은 `head`, `middle`, `tail`을 지원한다. middle의 기대 순번은 `ceil(N/2)`이므로 N=10이면 5다. 각 05 `verify.log`의 같은 순번 조회 `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)`에서 planning time, execution time, actual rows, shared hit blocks, shared read blocks를 추출해 데이터 규모별로 비교한다.
+05의 표준 큐 길이는 10/100/1,000/10,000이다. position은 `head`, `middle`, `tail`을 지원한다. middle의 기대 순번은 `ceil(N/2)`이므로 N=10이면 5다. 이 시나리오는 stress profile이라도 VU 1을 고정하며, profile별 동시 VU 증가는 만들지 않는다. 각 05 `verify.log`의 같은 순번 조회 `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)`에서 planning time, execution time, actual rows, shared hit blocks, shared read blocks를 추출해 데이터 규모별로 비교한다.
 
 ## Terraform 부하테스트 환경에서 실행
 
@@ -105,7 +110,7 @@ node load-tests/k6/room/tools/prepare-fixture.mjs waitlist-position \
 
 runner는 fixture 적재, k6 실행, `verify.sql` 불변식 대조, artifact 회수 순서로 동작한다. fixture 적재 시간은 k6 측정 구간에 포함하지 않는다. `users.json`과 `prepare.sql`에는 실행 전용 비밀번호가 있으므로 Git이나 결과 artifact에 복사하지 않는다.
 
-각 실행 artifact는 `run-metadata.json`의 Campaign ID `room-k6-YYYYMMDDTHHmmssKST`, `measurementWindow`, Run 상태 `PASS`/`FAIL`/`INVALID`, `reportDisposition` `included`/`excluded`으로 서로 연결한다. 인프라 관측물은 같은 결과 디렉터리의 `cloudwatch-capacity.json`, `database-lock-samples.ndjson`, `observation-status.json`으로 보관한다.
+각 실행 artifact는 `run-metadata.json`의 `runId`·Campaign ID `room-k6-YYYYMMDDTHHmmssKST`·k6 실행 구간과 `run-result.json`의 `measurementWindow`·Run 상태 `PASS`/`FAIL`/`INVALID`·`reportDisposition` `included`/`excluded`으로 서로 연결한다. `run-result.json`은 runner가 회수한 prepare/k6/verify exit code만으로 최종 판정을 기록하며, 원시 로그나 비밀값을 복사하지 않는다. 인프라 관측물은 같은 결과 디렉터리의 `cloudwatch-capacity.json`, `database-lock-samples.ndjson`, `observation-status.json`으로 보관한다.
 
 ## 결과 지표와 gate
 

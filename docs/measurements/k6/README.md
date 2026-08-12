@@ -4,7 +4,7 @@
 
 이 디렉터리는 k6 부하테스트에서 재현 또는 의사결정 근거로 보존하기로 승인한 결과 문서와 선택적 증거 파일을 관리한다. k6 시나리오·fixture 생성기와 매 실행 원시 산출물의 관리 규칙은 [Load Tests](../../../load-tests/README.md)를 따른다.
 
-`build/k6/<domain>/`에는 매 실행의 fixture, 실행 bundle, 원시 로그와 원시 k6 결과를 두며 Git에 커밋하지 않는다. 이 디렉터리에는 비밀값과 실제 환경의 리소스 식별자를 제거하고 검증 절차를 마친 결과만 보존한다. 탐색·반복 실행 결과를 모두 문서로 옮기지 않는다.
+`build/k6/<domain>/`에는 매 실행의 fixture와 실행 bundle을 두며 Git에 커밋하지 않는다. 인프라 runner가 회수한 원시 로그와 원시 k6 결과는 `albam-mate-infra/.run/results/<run-id>/`에 Git 비추적으로 남긴다. 이 디렉터리에는 비밀값과 실제 환경의 리소스 식별자를 제거하고 검증 절차를 마친 결과만 보존한다. 탐색·반복 실행 결과를 모두 문서로 옮기지 않는다.
 
 ## 디렉터리 배치
 
@@ -22,7 +22,7 @@ docs/
 
 - Markdown 결과 문서는 `<test-content>-<YYYY-MM-DD>.md` 형식을 사용한다. `<test-content>`는 영문 소문자 kebab-case로 쓰며, 도메인명이 아니라 실제로 측정하거나 판단한 업무 흐름을 표현한다. 예: `auth-notification-delivery-2026-08-11.md`
 - 문서에는 시나리오, 실행 환경·명령, fixture 전제, 주요 지표, 결과 해석과 한계를 적는다. 여러 도메인이 섞인 경우에는 문서 본문에 관련 도메인을 적고, 파일이나 폴더를 도메인별로 나누지 않는다.
-- `evidence/`에는 Markdown 문서의 수치를 뒷받침해야 할 때만 같은 `<test-content>-<YYYY-MM-DD>.json` 이름으로 검증·비식별화한 JSON 증거를 둔다. 여러 Run을 묶은 campaign manifest도 이 경계를 따른다.
+- `evidence/`에는 Markdown 문서의 수치를 뒷받침해야 할 때만 같은 `<test-content>-<YYYY-MM-DD>.json` 이름으로 검증·비식별화한 JSON 증거를 둔다. 여러 Run을 묶은 campaign manifest도 이 경계를 따른다. ROOM HTTP k6의 Run 상태와 `reportDisposition`은 원시 결과 디렉터리의 `run-result.json`을 확인한 뒤 이 evidence에 옮긴다.
 - 새 캠페인 ID는 `<domain>-<YYYYMMDDTHHmmssKST>` 형식을 쓴다. ROOM HTTP k6는 `room-k6-<시작시각 KST>`로 시작하며, 보고서 제목과 `measurementWindow.displayKst`에는 날짜뿐 아니라 시작·종료 시각을 함께 적는다.
 - ROOM HTTP k6 결과는 적어도 하나의 manifest-backed Run이 생긴 뒤에만 새 보고서·campaign manifest를 만든다. 시나리오 매트릭스, 각 Run의 `included|excluded` 처리, k6 지표와 DB·CloudWatch 관측 상태는 [ROOM 보고서 템플릿](../../../load-tests/k6/room/REPORT_TEMPLATE.md)을 따른다.
 

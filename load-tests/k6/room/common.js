@@ -67,10 +67,10 @@ function validateClassification(manifest, expectedScenario) {
       '대기 순번은 data-scale-low-contention-comparison 분류여야 합니다.');
     requireManifest(classification.appliedLoadType === 'constant-vus-1',
       '대기 순번은 constant-vus-1 부하만 허용합니다.');
-    requireManifest(classification.loadProfiles.stress === 'not-applicable'
-      && classification.loadProfiles.spike === 'not-applicable'
-      && classification.loadProfiles.soak === 'not-applicable',
-    '대기 순번에는 stress/spike/soak profile을 적용하지 않습니다.');
+    requireManifest(classification.loadProfiles.stress === 'optional'
+      && classification.loadProfiles.spike === 'unnecessary'
+      && classification.loadProfiles.soak === 'low-priority',
+    '대기 순번은 stress 선택, spike 불필요, soak 후순위 분류여야 합니다.');
     return;
   }
 
@@ -84,9 +84,12 @@ function validateClassification(manifest, expectedScenario) {
     `시나리오 분류가 올바르지 않습니다: ${expectedScenario}`);
   requireManifest(classification.loadProfiles.stress === 'required',
     'stress는 필수 profile이어야 합니다.');
-  requireManifest(classification.loadProfiles.spike === 'recommended',
-    'spike는 권장 profile이어야 합니다.');
+  const expectedSpike = expectedScenario === 'due-backlog-read' || expectedScenario === 'room-detail'
+    ? 'optional'
+    : 'recommended';
   const expectedSoak = expectedScenario === 'room-detail' ? 'future-recommended' : 'excluded';
+  requireManifest(classification.loadProfiles.spike === expectedSpike,
+    `spike 분류가 올바르지 않습니다: ${expectedScenario}`);
   requireManifest(classification.loadProfiles.soak === expectedSoak,
     `soak 분류가 올바르지 않습니다: ${expectedScenario}`);
 }
@@ -303,8 +306,8 @@ function validateWaitlistPositionManifest(manifest) {
   const expectedPosition = expectedQueuePosition(configuration);
   requireManifest(configuration.expectedPosition === expectedPosition,
     'expectedPosition이 position과 queueLength에 맞지 않습니다.');
-  requireManifest(configuration.loadProfile === 'data-scale',
-    '대기 순번은 data-scale profile이어야 합니다.');
+  requireManifest(configuration.loadProfile === 'stress',
+    '대기 순번은 stress profile이어야 합니다.');
   requireManifest(configuration.appliedLoadType === 'constant-vus-1',
     '대기 순번은 constant-vus-1 부하만 허용합니다.');
   requireManifest(configuration.vus === 1, '대기 순번 VU는 1로 고정해야 합니다.');
