@@ -18,23 +18,23 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
 import cloud.bamsongi.albammate.game.dto.GameMechanismOption;
-import cloud.bamsongi.albammate.game.service.GameMechanismQueryService;
+import cloud.bamsongi.albammate.game.service.GameMetadataQueryService;
 import cloud.bamsongi.albammate.global.exception.GlobalExceptionHandler;
 
-@WebMvcTest(controllers = GameMechanismController.class)
+@WebMvcTest(controllers = GameMetadataController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import({GlobalExceptionHandler.class, GameMechanismControllerTest.FixtureConfiguration.class})
-class GameMechanismControllerTest {
+@Import({GlobalExceptionHandler.class, GameMetadataControllerTest.FixtureConfiguration.class})
+class GameMetadataControllerTest {
 
 	@Autowired
 	private MockMvc mockMvc;
 
 	@Autowired
-	private GameMechanismQueryService gameMechanismQueryService;
+	private GameMetadataQueryService gameMetadataQueryService;
 
 	@Test
 	void 공개_메커니즘_선택지는_응답_계약_필드만_반환한다() throws Exception {
-		when(gameMechanismQueryService.findPublicOptions()).thenReturn(
+		when(gameMetadataQueryService.findPublicMechanismOptions()).thenReturn(
 			List.of(
 				new GameMechanismOption("HAND_MANAGEMENT", "핸드 관리", "Hand Management", 1, "손에 든 카드를 관리하는 메커니즘입니다.")));
 
@@ -55,8 +55,8 @@ class GameMechanismControllerTest {
 	static class FixtureConfiguration {
 
 		@Bean
-		GameMechanismQueryService gameMechanismQueryService() {
-			return mock(GameMechanismQueryService.class);
+		GameMetadataQueryService gameMetadataQueryService() {
+			return mock(GameMetadataQueryService.class);
 		}
 	}
 }
