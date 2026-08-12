@@ -52,7 +52,7 @@ Semantic search는 제품명이 아니라 의미 기반 검색 방식의 범주�
 
 PostgreSQL `pg_trgm`은 문자열을 trigram으로 비교하고 GiST/GIN 인덱스로 similarity와 `LIKE`/`ILIKE`를 지원한다. 이름 일부와 철자가 비슷한 제목을 찾는 데 알맞지만, “협상 게임”과 “거래가 핵심인 게임”의 개념적 관계를 이해하지는 않는다. 또한 공식 문서는 검색 문자열에서 추출할 trigram이 많을수록 인덱스가 효과적이며, 추출 가능한 trigram이 없으면 전체 인덱스 스캔으로 퇴화할 수 있다고 설명한다.
 
-현재 프로젝트의 [게임명 키워드 측정](../measurements/game-keyword-search-capacity-2026-08-11.md)은 `lower(name) LIKE '%keyword%'` 경로에서 임시 GIN 후보 효과를 확인했다. 이는 게임명 탐색 경로의 근거이지, semantic/vector 검색 필요성의 근거는 아니다.
+현재 프로젝트의 게임명 키워드 측정(별도 측정 문서 미작성)은 `lower(name) LIKE '%keyword%'` 경로에서 임시 GIN 후보 효과를 확인했다. 이는 게임명 탐색 경로의 근거이지, semantic/vector 검색 필요성의 근거는 아니다.
 
 ### 3. PostgreSQL Full Text Search와 도메인 사전
 
