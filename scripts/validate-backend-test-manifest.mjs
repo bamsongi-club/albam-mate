@@ -359,10 +359,32 @@ function hasImport(contents, importedType) {
     return new RegExp(`^\\s*import\\s+${escaped}\\s*;`, 'mu').test(contents);
 }
 
+function hasTypeNameShadow(contents, typeName) {
+    const escaped = typeName.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+    const declaration = new RegExp(
+        `(?:\\b(?:class|record|interface|enum)\\s+|@interface\\s+)${escaped}\\b`,
+        'u',
+    );
+    const importedType = new RegExp(
+        `^\\s*import\\s+(?:static\\s+)?[$_\\p{ID_Start}][.$_\\u200c\\u200d\\p{ID_Continue}]*\\.${escaped}\\s*;`,
+        'mu',
+    );
+    const typeParameter = new RegExp(`<[^<>]*\\b${escaped}\\b[^<>]*>`, 'u');
+    return declaration.test(contents) || importedType.test(contents) || typeParameter.test(contents);
+}
+
 function hasSupportedTestAnnotation(contents, annotationBlock) {
     const annotationNames = [...annotationBlock.matchAll(/^\s*@([.$_\p{ID_Start}\u200c\u200d\p{ID_Continue}]+)/gmu)].map(
         (match) => match[1],
     );
+    const orgIsShadowed = hasTypeNameShadow(contents, 'org');
+    if (!orgIsShadowed && annotationNames.includes('org.junit.jupiter.api.Test')) return true;
+    if (
+        !orgIsShadowed &&
+        annotationNames.includes('org.junit.jupiter.params.ParameterizedTest')
+    ) {
+        return true;
+    }
     const declaresTest = /@interface\s+Test\b/u.test(contents);
     const declaresParameterizedTest = /@interface\s+ParameterizedTest\b/u.test(contents);
     if (

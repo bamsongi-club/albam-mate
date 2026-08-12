@@ -345,6 +345,29 @@ test('task와 source set이 다르면 거부한다', (t) => {
     assert.ok(keywords(validate(validPacket(), manifest, worktree)).includes('sourceSet'));
 });
 
+test('worktree 밖 파일을 가리키는 source symlink를 거부한다', (t) => {
+    const worktree = createWorktree(t);
+    const outside = createOutsideDirectory(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+    const sourcePath = path.join(worktree, source);
+    const outsideSource = path.join(outside, 'NotificationReadServiceTest.java');
+    fs.writeFileSync(outsideSource, javaSource(source, ['알림을_읽음_처리한다']), 'utf8');
+    fs.rmSync(sourcePath);
+    try {
+        fs.symlinkSync(outsideSource, sourcePath, 'file');
+    } catch (error) {
+        if (error.code === 'EPERM' || error.code === 'EACCES') {
+            t.skip(`현재 Windows 환경에서 file symlink를 만들 수 없습니다: ${error.code}`);
+            return;
+        }
+        throw error;
+    }
+
+    assert.ok(
+        keywords(validate(validPacket(), validManifest(), worktree)).includes('worktreePath'),
+    );
+});
+
 test('상위 경로로 다른 source set에 진입하는 source를 거부한다', (t) => {
     const worktree = createWorktree(t);
     const packet = validPacket();
@@ -582,6 +605,24 @@ test('완전 수식 이름을 가리는 사용자 정의 Test 어노테이션을
     assert.ok(
         keywords(validate(validPacket(), validManifest(), worktree)).includes('selectorMethod'),
     );
+});
+
+test('가려지지 않은 완전 수식 JUnit test annotation을 허용한다', (t) => {
+    const worktree = createWorktree(t);
+    const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
+
+    for (const annotation of [
+        'org.junit.jupiter.api.Test',
+        'org.junit.jupiter.params.ParameterizedTest',
+    ]) {
+        fs.writeFileSync(
+            path.join(worktree, source),
+            `package cloud.bamsongi;\n\nclass NotificationReadServiceTest {\n    @${annotation}\n    void 알림을_읽음_처리한다() {\n    }\n}\n`,
+            'utf8',
+        );
+
+        assert.deepEqual(validate(validPacket(), validManifest(), worktree), [], annotation);
+    }
 });
 
 test('직접 실행할 수 없는 최상위 interface와 enum selector를 거부한다', (t) => {
