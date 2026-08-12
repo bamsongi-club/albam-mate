@@ -155,17 +155,17 @@ erDiagram
         BIGINT id PK
         BIGINT game_id FK
         BIGINT host_user_id FK
-        ENUM room_type
+        VARCHAR(20) room_type
         VARCHAR title
         VARCHAR description
-        ENUM experience_level
+        VARCHAR(30) experience_level
         BOOLEAN is_rulemaster_led
         VARCHAR region
         INT capacity
         INT active_participant_count
         TIMESTAMPTZ start_at
         VARCHAR place
-        ENUM status
+        VARCHAR(20) status
         BIGINT version
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
@@ -175,7 +175,7 @@ erDiagram
         BIGINT id PK
         BIGINT room_id FK
         BIGINT user_id FK
-        ENUM status
+        VARCHAR(20) status
         TIMESTAMPTZ joined_at
         TIMESTAMPTZ canceled_at
         TIMESTAMPTZ created_at
@@ -242,7 +242,7 @@ erDiagram
 | notification_outbox_status | `PENDING`, `RETRY_WAIT`, `PROCESSED`, `FAILED`, `DISCARDED` | 최초 대기, 자동·수동 재처리 대기, 처리 완료, 운영 조치 대기 실패, 운영 폐기 |
 | notification_type | `PARTICIPANT_JOINED`, `PARTICIPANT_CANCELED`, `WAITLIST_PROMOTED`, `ROOM_CANCELED` | 사용자에게 표시하는 새 참가자, 빈자리, 대기자 자동 승격, 방 취소 알림 유형 |
 
-P1 소셜 제공자·대기 상태와 알림의 제한 값은 PostgreSQL 네이티브 enum이 아니라 `VARCHAR`와 이름 있는 `CHECK` 제약으로 저장한다. 이는 기존 P0 Flyway 상태 컬럼의 물리 저장 방식과 같다.
+이 절의 값 집합은 Java enum과 업무상 허용 값을 설명하는 논리 enum이다. Java의 `@Enumerated(EnumType.STRING)` 매핑은 PostgreSQL 네이티브 enum type을 만들지 않는다. `ROOMS.room_type`, `ROOMS.experience_level`, `ROOMS.status`, `PARTICIPATIONS.status`는 V1에서 각각 `VARCHAR(20)`, `VARCHAR(30)`, `VARCHAR(20)`, `VARCHAR(20)`과 이름 있는 `CHECK` 제약으로 저장한다. P1 소셜 제공자·대기 상태와 알림의 제한 값도 PostgreSQL 네이티브 enum이 아니라 `VARCHAR`와 이름 있는 `CHECK` 제약으로 저장한다.
 
 ## 테이블 명세
 
@@ -420,17 +420,17 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 | id | BIGINT | PK, NN, AI | 방 식별자 |
 | game_id | BIGINT | FK → GAMES.id, NULL | 선택 게임. GAMES.id와 같은 BIGINT여야 함 |
 | host_user_id | BIGINT | FK → USERS.id, NN | 개설자 사용자 식별자 |
-| room_type | ENUM | NN | `GAME_FOCUSED` 또는 `PERSON_FOCUSED` |
+| room_type | VARCHAR(20) | NN, `ck_rooms_room_type`: `CHECK (room_type IN ('GAME_FOCUSED', 'PERSON_FOCUSED'))` | `GAME_FOCUSED` 또는 `PERSON_FOCUSED` |
 | title | VARCHAR(100) | NN | 모임 제목 |
 | description | VARCHAR(255) | NULL | 선택 모임 소개 |
-| experience_level | ENUM | NN | `ALL_LEVELS`, `BEGINNER_WELCOME`, `EXPERIENCED_PREFERRED` |
+| experience_level | VARCHAR(30) | NN, `ck_rooms_experience_level`: `CHECK (experience_level IN ('ALL_LEVELS', 'BEGINNER_WELCOME', 'EXPERIENCED_PREFERRED'))` | `ALL_LEVELS`, `BEGINNER_WELCOME`, `EXPERIENCED_PREFERRED` |
 | is_rulemaster_led | BOOLEAN | NN | 개설자의 룰마스터 진행 자기신고 |
 | region | VARCHAR(50) | NN, DEFAULT `홍대` | 모임 지역 |
 | capacity | INT | NN | 방 생성 시 입력하는 개설자 제외 모집 정원 |
 | active_participant_count | INT | NN, DEFAULT 0 | 개설자를 제외한 현재 `ACTIVE` 참가 관계 수 |
 | start_at | TIMESTAMPTZ | NN | 실제 모임 시작 시각 |
 | place | VARCHAR(100) | NN | 모임 장소 |
-| status | ENUM | NN | `RECRUITING`, `CLOSED`, `CANCELED`, `FINISHED` |
+| status | VARCHAR(20) | NN, `ck_rooms_status`: `CHECK (status IN ('RECRUITING', 'CLOSED', 'CANCELED', 'FINISHED'))` | `RECRUITING`, `CLOSED`, `CANCELED`, `FINISHED` |
 | version | BIGINT | NN, DEFAULT 0 | `ROOMS`의 동시 변경을 감지하는 낙관 락 버전 |
 | created_at | TIMESTAMPTZ | NN | 생성 시각 |
 | updated_at | TIMESTAMPTZ | NN | 수정 시각 |
@@ -446,7 +446,7 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 | id | BIGINT | PK, NN, AI | 참가 관계 식별자 |
 | room_id | BIGINT | FK → ROOMS.id, NN | 대상 방 |
 | user_id | BIGINT | FK → USERS.id, NN | 참가 사용자 |
-| status | ENUM | NN | `ACTIVE` 또는 `CANCELED` |
+| status | VARCHAR(20) | NN, `ck_participations_status`: `CHECK (status IN ('ACTIVE', 'CANCELED'))` | `ACTIVE` 또는 `CANCELED` |
 | joined_at | TIMESTAMPTZ | NN | 최근 참가 확정 시각 |
 | canceled_at | TIMESTAMPTZ | NULL | 참가 취소 시각 |
 | created_at | TIMESTAMPTZ | NN | 참가 관계 생성 시각 |
@@ -454,9 +454,9 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 
 ### ROOM_WAITLISTS
 
-> 이 절은 [ADR-0046](adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)과 [PART-04a 최신 전체 테스트 계약](https://github.com/bamsongi-club/albam-mate/issues/302#issuecomment-5177035904)이 승인한 저장 기반 계약이다. PART-04 전체의 제공·검증 상태는 후속 이슈가 남아 있으므로 [P1 기능 상태 정본의 `PART-04`](p1/README.md#기능별-현재-상태)을 따른다.
+> 이 절은 [ADR-0046](adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)과 [PART-04a 최신 전체 테스트 계약](https://github.com/bamsongi-club/albam-mate/issues/302#issuecomment-5177035904)이 승인한 저장 기반 계약이다. `PART-04`의 현재 구현·자동 검증 상태는 [P1 기능 상태 정본의 `PART-04`](p1/README.md#기능별-현재-상태)에 기록된 `구현 완료`·`검증 완료`를 따른다.
 
-같은 ROOM과 사용자의 최신 대기 결과를 한 행으로 저장한다. 상태 변경별 이력 행, 별도 단일 `id`와 대기 행의 `version`은 두지 않는다.
+`V14__create_room_waitlist_schema.sql`은 같은 ROOM과 사용자의 최신 대기 결과를 한 행으로 저장하고, PostgreSQL 전용 `V15__create_room_waitlist_partial_indexes.sql`은 현재 `WAITING` 행만 대상으로 하는 부분 인덱스를 만든다. 상태 변경별 이력 행, 별도 단일 `id`와 대기 행의 `version`은 두지 않는다.
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
@@ -533,7 +533,7 @@ P1 CHAT-02의 V9 전진 Flyway가 생성하는 메시지 저장의 최종 정본
 
 ### ROOM_STATUS_CORRECTION_PROGRESS
 
-P1 ROOM-09 전진 Flyway가 생성하는 Scheduler 전용 영속 진행 상태다. `SHEDLOCK`이 현재 실행 주체만 조정하는 것과 달리, 이 행은 인스턴스 재시작·실행 주체 변경 뒤 이어갈 순회 경계와 마지막 시도 위치를 저장한다. API 요청 경계 상태 보정과 채팅 만료 삭제는 이 테이블을 사용하지 않는다.
+`V22__create_room_status_correction_progress.sql`이 생성하는 ROOM-09 Scheduler 전용 영속 진행 상태다. `SHEDLOCK`이 현재 실행 주체만 조정하는 것과 달리, 이 행은 인스턴스 재시작·실행 주체 변경 뒤 이어갈 순회 경계와 마지막 시도 위치를 저장한다. API 요청 경계 상태 보정과 채팅 만료 삭제는 이 테이블을 사용하지 않는다.
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
