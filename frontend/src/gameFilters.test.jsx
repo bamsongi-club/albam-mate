@@ -682,8 +682,9 @@ describe('T8 테마 선택과 조회', () => {
   it('테마 포함 방식 스위치는 항상 보이고 ALL 선택이 조회에 반영된다', async () => {
     await renderGamesView();
     openFilterPanel();
-    const matchSwitch = within(themeGroup()).getByRole('switch', { name: '테마 포함 방식: 하나라도 포함' });
+    const matchSwitch = within(themeGroup()).getByRole('switch', { name: '테마 포함 방식' });
     expect(matchSwitch.getAttribute('aria-checked')).toBe('true');
+    expect(matchSwitch.getAttribute('aria-describedby')).toBe('테마-match-description');
 
     fireEvent.click(screen.getByLabelText('공포'));
     fireEvent.click(screen.getByLabelText('경제'));
@@ -692,17 +693,18 @@ describe('T8 테마 선택과 조회', () => {
     expect(lastQuery().theme).toEqual(['HORROR', 'ECONOMIC']);
     expect(lastQuery().themeMatch).toBe('ALL');
     expect(matchSwitch.getAttribute('aria-checked')).toBe('false');
-    expect(matchSwitch.getAttribute('aria-label')).toBe('테마 포함 방식: 모두 포함');
+    expect(matchSwitch.getAttribute('aria-label')).toBe('테마 포함 방식');
+    expect(document.getElementById('테마-match-description').textContent).toBe('켜짐은 하나라도 포함, 꺼짐은 모두 포함');
   });
 
   it('테마를 선택하지 않거나 하나만 골라도 포함 방식 스위치를 보여 준다', async () => {
     await renderGamesView();
     openFilterPanel();
-    expect(within(themeGroup()).getByRole('switch', { name: '테마 포함 방식: 하나라도 포함' })).toBeTruthy();
+    expect(within(themeGroup()).getByRole('switch', { name: '테마 포함 방식' })).toBeTruthy();
 
     fireEvent.click(screen.getByLabelText('공포'));
 
-    expect(within(themeGroup()).getByRole('switch', { name: '테마 포함 방식: 하나라도 포함' })).toBeTruthy();
+    expect(within(themeGroup()).getByRole('switch', { name: '테마 포함 방식' })).toBeTruthy();
   });
 });
 
@@ -710,8 +712,8 @@ describe('T6 메커니즘 선택과 조회', () => {
   it('테마와 메커니즘 포함 방식을 항상 표시하고 서로 독립적으로 바꾼다', async () => {
     await renderGamesView();
     openFilterPanel();
-    const themeMatch = within(themeGroup()).getByRole('switch', { name: '테마 포함 방식: 하나라도 포함' });
-    const mechanismMatch = within(mechanismGroup()).getByRole('switch', { name: '메커니즘 포함 방식: 하나라도 포함' });
+    const themeMatch = within(themeGroup()).getByRole('switch', { name: '테마 포함 방식' });
+    const mechanismMatch = within(mechanismGroup()).getByRole('switch', { name: '메커니즘 포함 방식' });
 
     expect(themeMatch.getAttribute('aria-checked')).toBe('true');
     expect(mechanismMatch.getAttribute('aria-checked')).toBe('true');
@@ -729,8 +731,8 @@ describe('T6 메커니즘 선택과 조회', () => {
     getGameThemes.mockResolvedValue(THEME_OPTIONS);
     await renderGamesView();
     openFilterPanel();
-    const themeMatch = within(themeGroup()).getByRole('switch', { name: '테마 포함 방식: 하나라도 포함' });
-    const mechanismMatch = within(mechanismGroup()).getByRole('switch', { name: '메커니즘 포함 방식: 하나라도 포함' });
+    const themeMatch = within(themeGroup()).getByRole('switch', { name: '테마 포함 방식' });
+    const mechanismMatch = within(mechanismGroup()).getByRole('switch', { name: '메커니즘 포함 방식' });
 
     fireEvent.click(screen.getByLabelText('공포'));
     fireEvent.click(screen.getByLabelText('핸드 관리'));

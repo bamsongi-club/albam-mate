@@ -186,6 +186,7 @@ function advancedMechanisms(options, keyword) {
 
 function MatchModeSwitch({ label, value, onChange }) {
   const isAny = value !== 'ALL';
+  const descriptionId = label + '-match-description';
   return (
     <div className="filter-match-heading">
       <span className="filter-match-title" aria-hidden="true">{label}</span>
@@ -195,7 +196,8 @@ function MatchModeSwitch({ label, value, onChange }) {
           type="button"
           className={'filter-match-switch' + (isAny ? ' any' : '')}
           role="switch"
-          aria-label={label + ' 포함 방식: ' + (isAny ? '하나라도 포함' : '모두 포함')}
+          aria-label={label + ' 포함 방식'}
+          aria-describedby={descriptionId}
           aria-checked={isAny}
           onClick={() => onChange(isAny ? 'ALL' : '')}
         >
@@ -203,6 +205,7 @@ function MatchModeSwitch({ label, value, onChange }) {
         </button>
         <span>하나라도 포함</span>
       </span>
+      <span id={descriptionId} className="sr-only">켜짐은 하나라도 포함, 꺼짐은 모두 포함</span>
     </div>
   );
 }
