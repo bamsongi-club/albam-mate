@@ -26,6 +26,8 @@ app:
   security:
     cookie:
       secure: false
+    auth-request:
+      login-limit: ${ALBAM_MATE_LOGIN_LIMIT:30}
   chat:
     websocket:
       allowed-origin: ${ALBAM_MATE_CHAT_WEBSOCKET_ALLOWED_ORIGIN:http://localhost:5173}

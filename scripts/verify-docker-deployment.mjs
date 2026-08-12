@@ -890,7 +890,7 @@ function verifyDatabaseHealthcheck() {
 function verifyT7() {
     const certificateDirectory = createTempDirectory('albam-mate-contract-t7');
     const performanceEnvironment = {
-        APP_SECURITY_AUTHREQUEST_LOGINLIMIT: '20000',
+        ALBAM_MATE_LOGIN_LIMIT: '20000',
         APP_SECURITY_AUTHREQUEST_LOGINFAILURELIMIT: '20000',
         APP_SECURITY_AUTHREQUEST_SIGNUPLIMIT: '5',
         APP_SECURITY_AUTHREQUEST_HASHSLOTS: '4',
@@ -926,13 +926,15 @@ function verifyT7() {
                 '/d',
                 '/s',
                 '/c',
-                'gradlew.bat test --tests cloud.bamsongi.albammate.global.config.ProductionProfileConfigurationTest --rerun --fail-fast',
+                'gradlew.bat test --tests cloud.bamsongi.albammate.global.config.ProductionProfileConfigurationTest --tests cloud.bamsongi.albammate.global.config.ProductionLoginLimitDefaultTest --rerun --fail-fast',
             ]);
         } else {
             run('./gradlew', [
                 'test',
                 '--tests',
                 'cloud.bamsongi.albammate.global.config.ProductionProfileConfigurationTest',
+                '--tests',
+                'cloud.bamsongi.albammate.global.config.ProductionLoginLimitDefaultTest',
                 '--rerun',
                 '--fail-fast',
             ]);
