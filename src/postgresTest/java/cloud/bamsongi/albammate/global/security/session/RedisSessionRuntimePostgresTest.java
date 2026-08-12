@@ -2,11 +2,9 @@ package cloud.bamsongi.albammate.global.security.session;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
 import java.net.HttpCookie;
@@ -21,6 +19,7 @@ import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -28,6 +27,7 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
@@ -59,6 +59,7 @@ class RedisSessionRuntimePostgresTest {
 	private static final String REDIS_IMAGE = "redis:8.4-alpine";
 	private static final String SESSION_KEY_PREFIX = "albam-mate:local:session:sessions:";
 	private static final long SESSION_TTL_SECONDS = 30 * 60;
+	private static final long SESSION_TTL_TOLERANCE_SECONDS = 60;
 	private static final Pattern CSRF_TOKEN_PATTERN = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"");
 
 	@Container
@@ -78,7 +79,7 @@ class RedisSessionRuntimePostgresTest {
 	private ApplicationContext applicationContext;
 
 	@Autowired
-	private RedisConnectionFactory redisConnectionFactory;
+	@Qualifier("redisSessionConnectionFactory") private RedisConnectionFactory redisConnectionFactory;
 
 	@Autowired
 	private UserAccountService userAccountService;
@@ -99,6 +100,8 @@ class RedisSessionRuntimePostgresTest {
 		var account = userAccountService.createAccount(command(email, password, "Redis 세션 사용자"));
 
 		try (ConfigurableApplicationContext secondContext = secondApplicationContext()) {
+			assertRedisSessionConnectionPolicy(applicationContext);
+			assertRedisSessionConnectionPolicy(secondContext);
 			HttpClient client = HttpClient.newBuilder()
 				.cookieHandler(new CookieManager(null, CookiePolicy.ACCEPT_ALL))
 				.build();
@@ -133,7 +136,9 @@ class RedisSessionRuntimePostgresTest {
 			assertEquals(SESSION_KEY_PREFIX + sessionCookie.getValue(), sessionKey);
 			Long ttl = redis.getExpire(sessionKey, TimeUnit.SECONDS);
 			assertNotNull(ttl);
-			assertTrue(ttl > 0 && ttl <= SESSION_TTL_SECONDS, "actual TTL=" + ttl);
+			assertTrue(
+				ttl >= SESSION_TTL_SECONDS - SESSION_TTL_TOLERANCE_SECONDS && ttl <= SESSION_TTL_SECONDS,
+				"actual TTL=" + ttl);
 
 			assertTrue(redis.expire(sessionKey, 1, TimeUnit.SECONDS));
 			awaitSessionExpiry(redis, sessionKey);
@@ -158,14 +163,19 @@ class RedisSessionRuntimePostgresTest {
 			assertTrue(redis.hasKey(activeSessionKey));
 
 			REDIS.stop();
-			try {
-				HttpResponse<String> unavailable = getWithSession(secondUri.resolve("/api/users/me"),
-					activeSessionCookie);
-				assertNotEquals(200, unavailable.statusCode());
-			} catch (IOException expected) {
-				assertTrue(expected.getMessage() != null);
-			}
+			HttpResponse<String> unavailable = getWithSession(secondUri.resolve("/api/users/me"), activeSessionCookie);
+			assertEquals(503, unavailable.statusCode());
+			assertTrue(unavailable.body().contains("SERVICE_UNAVAILABLE"), unavailable.body());
+			assertTrue(unavailable.headers().firstValue("Retry-After").isEmpty());
 		}
+	}
+
+	private void assertRedisSessionConnectionPolicy(ApplicationContext context) {
+		LettuceConnectionFactory connectionFactory = context.getBean(
+			"redisSessionConnectionFactory", LettuceConnectionFactory.class);
+
+		assertTrue(connectionFactory.getShareNativeConnection());
+		assertTrue(connectionFactory.getClientConfiguration().getClientOptions().orElseThrow().isAutoReconnect());
 	}
 
 	private ConfigurableApplicationContext secondApplicationContext() {

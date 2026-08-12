@@ -2,6 +2,8 @@ package cloud.bamsongi.albammate.global.exception;
 
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +33,11 @@ import lombok.extern.slf4j.Slf4j;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @Slf4j
 public class GlobalExceptionHandler {
+
+	@ExceptionHandler({RedisConnectionFailureException.class, RedisSystemException.class})
+	public ResponseEntity<ApiResponse<Void>> handleRedisFailure(Exception exception) {
+		return error(ErrorCode.SERVICE_UNAVAILABLE);
+	}
 
 	@ExceptionHandler(BusinessException.class)
 	public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException exception) {
