@@ -1,8 +1,8 @@
 # 채팅 계약 검증과 용량 측정
 
-이 디렉터리는 애플리케이션 릴리스 SHA와 함께 고정되는 k6 시나리오와 fixture의 정본이다. 실행과 AWS 로그 수집은 `albam-mate-infra`의 `run.sh loadtest`가 담당한다.
+이 디렉터리는 Eungi가 소유하는 채팅 k6 시나리오와 fixture의 정본이며, 애플리케이션 릴리스 SHA와 함께 고정된다. 소스와 결과의 공통 배치 규칙은 [Load Tests](../../README.md)를 따른다. 실행과 AWS 로그 수집은 `albam-mate-infra`의 `run.sh loadtest`가 담당한다.
 
-시나리오는 파일 하나에 하나씩 두고, 공유 상수·지표·헬퍼는 `lib/chat.js`에 모은다. 실행기가 도메인 폴더째 옮기므로 시나리오는 같은 폴더의 lib 를 import 한다.
+시나리오는 파일 하나에 하나씩 두고, 공유 상수·지표·헬퍼는 `lib/chat.js`에 모은다. 실행기가 소유자 폴더째 옮기므로 시나리오는 같은 폴더의 lib 를 import 한다.
 
 계약 시나리오 일부는 한 파일이 여러 case 를 담고 `K6_CHAT_CASE`로 고른다.
 
@@ -118,7 +118,7 @@
 ### fixture 적용
 
 ```bash
-docker compose --env-file .env -f compose.local.yml cp load-tests/k6/chat/fixtures/rooms.sql postgres:/tmp/rooms.sql
+docker compose --env-file .env -f compose.local.yml cp load-tests/k6/eungi/fixtures/rooms.sql postgres:/tmp/rooms.sql
 ```
 
 ```bash
@@ -186,9 +186,9 @@ ALBAM_MATE_LOGIN_LIMIT=300 bash run.sh deploy
 
 ```bash
 K6_LOGIN_LIMIT=300 \
-  bash run.sh loadtest <경로>/load-tests/k6/chat/load-throughput.js \
-  --seed-sql <경로>/load-tests/k6/chat/fixtures/rooms.sql \
-  --cleanup-sql <경로>/load-tests/k6/chat/fixtures/cleanup.sql \
+  bash run.sh loadtest <경로>/load-tests/k6/eungi/load-throughput.js \
+  --seed-sql <경로>/load-tests/k6/eungi/fixtures/rooms.sql \
+  --cleanup-sql <경로>/load-tests/k6/eungi/fixtures/cleanup.sql \
   --sql-var run_id=<실행 키> --sql-var room_count=8 --sql-var accounts_per_room=9 \
   --sql-var messages_per_room=150 \
   --sql-var password_hash='{bcrypt}<해시>' --sql-var password='<평문>'
@@ -227,12 +227,6 @@ k6는 threshold를 선언한 태그 조합만 요약에 남기므로, 항상 통
 - 축별로 따로 잰 상한을 합쳐 "견딘다"를 판정하지 않는다. `load-mixed`가 각 축의 상한보다 일찍 무너지는 것이 그 근거다.
 - 모든 Run은 release SHA, 이미지 digest, fixture 규모와 시나리오 환경 변수를 결과와 함께 보관한다.
 
-## 측정 문서
+## 측정 결과 위치
 
-비밀값과 실제 환경의 리소스 식별자를 지우고 검증을 마친 결과만 [k6 부하테스트 결과 문서](../../../docs/measurements/k6/README.md) 아래에 보존한다. 탐색·반복 실행의 원시 산출물은 `build/k6/chat/`에 둔다.
-
-| 캠페인 | 문서 |
-| --- | --- |
-| `chat-delivery-20260811T172123KST` | [채팅 전송·전달 AWS 용량 측정](../../../docs/measurements/k6/chat-delivery-capacity-2026-08-11.md) · [campaign manifest](../../../docs/measurements/k6/evidence/chat-delivery-capacity-2026-08-11.json) |
-| `chat-delivery-20260812T042245KST` | [채팅 전송·전달 AWS 용량 재측정](../../../docs/measurements/k6/chat-delivery-capacity-2026-08-12.md) · [campaign manifest](../../../docs/measurements/k6/evidence/chat-delivery-capacity-2026-08-12.json) |
-| `chat-delivery-20260812T090111KST` (current) | [채팅 전송·전달 AWS 용량 반복 측정](../../../docs/measurements/k6/chat-delivery-capacity-2026-08-12-repeat.md) · [campaign manifest](../../../docs/measurements/k6/evidence/chat-delivery-capacity-2026-08-12-repeat.json) |
+비밀값과 실제 환경의 리소스 식별자를 지우고 검증을 마친 결과만 [Eungi k6 측정 문서](../../../docs/measurements/k6/eungi/README.md)에 보존한다. Campaign ID, 상태와 대체 관계는 해당 측정 문서 README를 단일 인덱스로 사용한다. 탐색·반복 실행의 원시 산출물은 `build/k6/chat/`에 둔다.

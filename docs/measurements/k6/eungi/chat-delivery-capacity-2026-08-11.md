@@ -50,7 +50,7 @@ Run마다 방 8개·계정 72개·방당 메시지 150건을 만들고 측정이
 | 배포 확인 | 방 8개·계정 72개·메시지 1,200건 |
 | 부하 6종 | 각 Run마다 같은 규모를 새로 생성 후 삭제 |
 
-이 캠페인은 Node 생성기가 만든 SQL로 실행했다. 그 생성기는 이후 `load-tests/k6/chat/fixtures/rooms.sql`로 대체됐으며 만들어지는 데이터는 같다. 시나리오도 이후 `chat.js` 한 파일에서 시나리오별 파일로 나뉘었고, 분리 전후 scenario 구성과 threshold 가 같은 것을 확인했다.
+이 캠페인은 Node 생성기가 만든 SQL로 실행했다. 그 생성기는 이후 `load-tests/k6/eungi/fixtures/rooms.sql`로 대체됐으며 만들어지는 데이터는 같다. 시나리오도 이후 `chat.js` 한 파일에서 시나리오별 파일로 나뉘었고, 분리 전후 scenario 구성과 threshold 가 같은 것을 확인했다.
 
 ## 계약 검증
 
@@ -197,7 +197,7 @@ Redis 자체는 멀쩡했다.
 
 거부는 0인데 누적 연결이 10만 건이다. 앱 가동 약 69분 기준 초당 24건씩 새 연결을 연 셈이다. 스택의 `doGetAsyncDedicatedConnection`이 이를 뒷받침한다.
 
-원인은 [RedisSessionConfiguration](../../../src/main/java/cloud/bamsongi/albammate/infra/redis/RedisSessionConfiguration.java)의 연결 팩토리 설정 조합이다.
+원인은 [RedisSessionConfiguration](../../../../src/main/java/cloud/bamsongi/albammate/infra/redis/RedisSessionConfiguration.java)의 연결 팩토리 설정 조합이다.
 
 | 설정 | 값 | 부하에서의 효과 |
 | --- | --- | --- |
@@ -224,7 +224,7 @@ Redis 자체는 멀쩡했다.
 
 `chat_websocket_session_healthy`가 시나리오 1~3에서 0%였다. 연결은 100% 성립하지만 종료 시점 판정에서 전부 "서버가 먼저 끊음"으로 나온다.
 
-원인은 [nginx.production.conf](../../../frontend/nginx.production.conf)의 `location /api/` 블록이다. 이 블록이 `Upgrade` 헤더를 넘겨 WebSocket을 처리하면서 `proxy_read_timeout 60s`를 함께 적용한다. 서버가 60초 동안 보낼 데이터가 없으면 프록시가 연결을 끊는다. 접근 로그에서 전송 바이트 0인 WebSocket 요청이 다수 확인된다.
+원인은 [nginx.production.conf](../../../../frontend/nginx.production.conf)의 `location /api/` 블록이다. 이 블록이 `Upgrade` 헤더를 넘겨 WebSocket을 처리하면서 `proxy_read_timeout 60s`를 함께 적용한다. 서버가 60초 동안 보낼 데이터가 없으면 프록시가 연결을 끊는다. 접근 로그에서 전송 바이트 0인 WebSocket 요청이 다수 확인된다.
 
 조용한 채팅방을 1분 열어두면 재현된다. 사용자는 재연결 전까지 새 메시지를 받지 못한다. 트래픽이 있는 시나리오 4~6에서는 세션 정상률이 45.9~77.8%로 올라간다. **메시지가 흐르는 방은 살아남고 조용한 방만 끊긴다.**
 
@@ -260,9 +260,9 @@ Redis 자체는 멀쩡했다.
 
 ```sh
 K6_LOGIN_LIMIT=300 \
-  bash run.sh loadtest load-tests/k6/chat/load-throughput.js \
-  --seed-sql load-tests/k6/chat/fixtures/rooms.sql \
-  --cleanup-sql load-tests/k6/chat/fixtures/cleanup.sql \
+  bash run.sh loadtest load-tests/k6/eungi/load-throughput.js \
+  --seed-sql load-tests/k6/eungi/fixtures/rooms.sql \
+  --cleanup-sql load-tests/k6/eungi/fixtures/cleanup.sql \
   --sql-var run_id=<실행 키> --sql-var room_count=8 --sql-var accounts_per_room=9 \
   --sql-var messages_per_room=150 \
   --sql-var password_hash='{bcrypt}<해시>' --sql-var password='<평문>'
@@ -274,4 +274,4 @@ K6_LOGIN_LIMIT=300 \
 
 이 문서의 수치는 [campaign manifest](evidence/chat-delivery-capacity-2026-08-11.json)에 Run별·단계별로 그대로 담겨 있다. k6 summary에서 기계로 뽑았으며 손으로 옮긴 값이 아니다.
 
-측정에 쓴 릴리스 `1db046c0`은 캠페인 뒤 리베이스로 브랜치에서 떨어져 나갔다. 태그 `measurement/chat-delivery-2026-08-11`로 고정했고, ECR 이미지 digest와 측정 시점 `load-tests/k6/chat` 트리·스크립트 blob 해시를 manifest에 함께 기록했다.
+측정에 쓴 릴리스 `1db046c0`은 캠페인 뒤 리베이스로 브랜치에서 떨어져 나갔다. 태그 `measurement/chat-delivery-2026-08-11`로 고정했고, ECR 이미지 digest와 측정 시점 `load-tests/k6/chat` 트리·스크립트 blob 해시를 manifest에 함께 기록했다. 이 마지막 경로는 실행 당시의 이력이며 현재 소스 위치는 `load-tests/k6/eungi`다.

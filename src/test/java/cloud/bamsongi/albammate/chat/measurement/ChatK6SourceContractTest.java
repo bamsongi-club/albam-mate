@@ -14,11 +14,11 @@ class ChatK6SourceContractTest {
 
 	@Test
 	void 필수_대상과_시나리오_입력을_요청_전에_검증한다() throws IOException {
-		String library = file("load-tests/k6/chat/lib/chat.js");
-		String throughput = file("load-tests/k6/chat/load-throughput.js");
-		String sendContract = file("load-tests/k6/chat/send-contract.js");
-		String websocketContract = file("load-tests/k6/chat/websocket-contract.js");
-		String rateLimitContract = file("load-tests/k6/chat/rate-limit-contract.js");
+		String library = file("load-tests/k6/eungi/lib/chat.js");
+		String throughput = file("load-tests/k6/eungi/load-throughput.js");
+		String sendContract = file("load-tests/k6/eungi/send-contract.js");
+		String websocketContract = file("load-tests/k6/eungi/websocket-contract.js");
+		String rateLimitContract = file("load-tests/k6/eungi/rate-limit-contract.js");
 
 		assertThat(library).contains("K6_BASE_URL or ALBAM_MATE_TARGET_URL is required");
 		assertThat(library).doesNotContain("http://localhost:5173");
@@ -32,10 +32,10 @@ class ChatK6SourceContractTest {
 
 	@Test
 	void 장기_구독자의_전달_지연은_수신_시점의_단계로_기록한다() throws IOException {
-		String library = file("load-tests/k6/chat/lib/chat.js");
-		String fanout = file("load-tests/k6/chat/load-fanout.js");
-		String rooms = file("load-tests/k6/chat/load-rooms.js");
-		String mixed = file("load-tests/k6/chat/load-mixed.js");
+		String library = file("load-tests/k6/eungi/lib/chat.js");
+		String fanout = file("load-tests/k6/eungi/load-fanout.js");
+		String rooms = file("load-tests/k6/eungi/load-rooms.js");
+		String mixed = file("load-tests/k6/eungi/load-mixed.js");
 
 		assertThat(library).contains("function holdLoadSubscriber(user, roomId, connectionStage, deliveryStage, mode)");
 		assertThat(library).contains("loadStageConnectMs.add(Date.now() - startedAt, { stage: connectionStage });");
@@ -59,7 +59,7 @@ class ChatK6SourceContractTest {
 
 	@Test
 	void 준비된_세션_fixture는_로그인하지_않고_사용한다() throws IOException {
-		String library = file("load-tests/k6/chat/lib/chat.js");
+		String library = file("load-tests/k6/eungi/lib/chat.js");
 
 		assertThat(library).contains("const users = FIXTURE_USERS.map(prepareFixtureUser);");
 		assertThat(library).contains("if (isPreparedSessionFixtureUser(user))");
@@ -68,10 +68,10 @@ class ChatK6SourceContractTest {
 
 	@Test
 	void 워밍업과_팬아웃_설정은_정식_측정_단계와_연결_수에_반영한다() throws IOException {
-		String library = file("load-tests/k6/chat/lib/chat.js");
-		String rooms = file("load-tests/k6/chat/load-rooms.js");
-		String websocketContract = file("load-tests/k6/chat/websocket-contract.js");
-		String crossInstanceContract = file("load-tests/k6/chat/cross-instance-contract.js");
+		String library = file("load-tests/k6/eungi/lib/chat.js");
+		String rooms = file("load-tests/k6/eungi/load-rooms.js");
+		String websocketContract = file("load-tests/k6/eungi/websocket-contract.js");
+		String crossInstanceContract = file("load-tests/k6/eungi/cross-instance-contract.js");
 
 		assertThat(library).contains("export const LOAD_WARMUP_STAGE = 'warmup';");
 		assertThat(library).contains("if (elapsed < 0) {");

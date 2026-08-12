@@ -30,8 +30,8 @@ class ChatFixtureSqlPostgresTest {
 	private static final String POSTGRES_USER = "test";
 	private static final String PASSWORD_HASH = "{bcrypt}$2a$10$fixturePasswordHashOnlyForK6";
 	private static final String PASSWORD = "fixture-password";
-	private static final Path ROOMS_SQL = Path.of("load-tests/k6/chat/fixtures/rooms.sql").toAbsolutePath();
-	private static final Path CLEANUP_SQL = Path.of("load-tests/k6/chat/fixtures/cleanup.sql").toAbsolutePath();
+	private static final Path ROOMS_SQL = Path.of("load-tests/k6/eungi/fixtures/rooms.sql").toAbsolutePath();
+	private static final Path CLEANUP_SQL = Path.of("load-tests/k6/eungi/fixtures/cleanup.sql").toAbsolutePath();
 
 	@Container
 	@ServiceConnection

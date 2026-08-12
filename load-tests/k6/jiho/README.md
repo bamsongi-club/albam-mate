@@ -1,8 +1,14 @@
 # 인증·알림 계약 검증과 용량 측정
 
-이 디렉터리는 애플리케이션 릴리스 SHA와 함께 고정되는 k6 시나리오와 fixture의 정본이다. 실행과 AWS 로그 수집은 `albam-mate-infra`의 `run.sh loadtest`가 담당한다.
+이 디렉터리는 Jiho가 소유하는 인증·알림 k6 시나리오와 fixture의 정본이며, 애플리케이션 릴리스 SHA와 함께 고정된다. 소스와 결과의 공통 배치 규칙은 [Load Tests](../../README.md)를 따른다. 실행과 AWS 로그 수집은 `albam-mate-infra`의 `run.sh loadtest`가 담당한다.
 
 소셜 OAuth 제공자에는 부하를 주지 않는다. 소셜 로그인은 공급자별 callback smoke test로 별도 확인한다.
+
+## 소유 범위와 보존 위치
+
+- 이 폴더는 인증 계약·용량, 알림 전달·polling·fan-out·혼합 부하와 Redis 세션 진단 시나리오 및 fixture를 소유한다.
+- 승인해 보존한 결과는 [Jiho k6 측정 문서](../../../docs/measurements/k6/jiho/README.md)에서 찾으며, 보고서와 증거는 `docs/measurements/k6/jiho/` 아래에 둔다.
+- 실제 fixture, 원시 로그와 실행 bundle은 Git에 추적하지 않는 `build/k6/<test-content>/` 또는 인프라 실행기의 `.run/`에 둔다.
 
 ## 무엇에 답하려는 측정인가
 
@@ -43,8 +49,11 @@ ADR-0051은 성공 기준에서 "세션을 유지한 채 WebSocket을 열고 채
 | 인증 용량 | `auth-capacity.js` | 로그인 도착률의 무릎이 어디인가 | 오류·1초 거절 1% 미만, p95 1초 이하, drop 0 |
 | 알림 polling 용량 | `notification-polling-capacity.js` | 읽기 경로만 격리했을 때 한계 (단독 진단) | 없음 |
 | 알림 fan-out 용량 | `notification-fanout-capacity.js` | 이벤트당·수신자당 relay 처리 비용 (외삽용 단가) | 없음 |
+| Redis 세션 진단 | `redis-session-diagnostic.js` | 공개 요청과 인증 세션 요청의 Redis 연결 churn 차이 | 오류율 1% 미만, p95 1초 이하 |
 
 **혼합 부하가 1차 측정이다.** 나머지 용량 3종은 혼합 부하에서 특정 역할이 먼저 무너졌을 때 그 역할만 격리해 원인을 좁히는 진단 도구다. 축별로 따로 잰 상한을 합쳐 "견딘다"를 판정하지 않는다.
+
+`redis-session-diagnostic`은 혼합 부하에서 Redis 연결 timeout이 관측됐을 때만 쓰는 A/B 진단 도구다. `public-control`과 `authenticated-session`을 같은 150 VU·10초 주기로 비교하며, 결과를 알림 용량 경계로 사용하지 않는다.
 
 계약 검증과 용량 측정을 한 결과로 합치지 않는다. 계약 검증은 작은 입력의 정확성을 판정하고, 용량 측정은 입력 조건과 결과 곡선을 기록한다.
 
@@ -94,7 +103,7 @@ k6는 컨테이너로 실행할 수 있고 대상은 프록시 포트(`ALBAM_MAT
 
 ```bash
 docker run --rm -i --add-host=host.docker.internal:host-gateway \
-  -v "$PWD/load-tests/k6/auth-notification:/scripts" \
+  -v "$PWD/load-tests/k6/jiho:/scripts" \
   -e ALBAM_MATE_TARGET_URL=http://host.docker.internal:5173 \
   -e ALBAM_MATE_RUN_ID=local-smoke-1 \
   -e AUTH_CASE=correct \
@@ -108,7 +117,7 @@ Git Bash에서는 셸이 `/scripts` 경로를 Windows 경로로 바꿔 버리므
 fixture는 로컬 PostgreSQL 컨테이너에 psql로 직접 적용한다. `run_id`는 `ALBAM_MATE_RUN_ID`와 반드시 같은 소문자 안전 문자열이어야 한다.
 
 ```bash
-docker compose --env-file .env -f compose.local.yml cp load-tests/k6/auth-notification/fixtures/users.sql postgres:/tmp/users.sql
+docker compose --env-file .env -f compose.local.yml cp load-tests/k6/jiho/fixtures/users.sql postgres:/tmp/users.sql
 docker compose --env-file .env -f compose.local.yml exec -T postgres \
   bash -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -v run_id=local-smoke-1 -v user_count=50 -f /tmp/users.sql'
 ```
@@ -116,7 +125,7 @@ docker compose --env-file .env -f compose.local.yml exec -T postgres \
 읽기 경로 Run에는 알림 백로그도 적용한다. `user_count`는 위와 같은 값을 쓴다.
 
 ```bash
-docker compose --env-file .env -f compose.local.yml cp load-tests/k6/auth-notification/fixtures/notification-backlog.sql postgres:/tmp/notification-backlog.sql
+docker compose --env-file .env -f compose.local.yml cp load-tests/k6/jiho/fixtures/notification-backlog.sql postgres:/tmp/notification-backlog.sql
 docker compose --env-file .env -f compose.local.yml exec -T postgres \
   bash -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -v run_id=local-smoke-1 -v user_count=50 -v room_count=10 -v notifications_per_user=300 -v unread_percent=5 -f /tmp/notification-backlog.sql'
 ```
@@ -179,6 +188,24 @@ CAPACITY_PROFILE_ACK=auth-notification-perf-v1 ... ./run.sh loadtest <capacity-s
 ```
 
 이 문자열만으로는 실행할 수 없다. 인프라 실행기가 두 App 컨테이너의 실효 설정을 검증해 같은 결과 bundle에 남겨야 한다.
+
+## Redis 세션 연결 진단
+
+두 모드는 60초 워밍업, 300초 측정, 60초 관찰과 150 VU를 고정한다. `public-control`은 세션 없는 공개 조회를, `authenticated-session`은 로그인 뒤 `unread-count`를 10초마다 호출한다. 실행기는 두 모드 모두 같은 fixture와 성능 프로파일을 적용하며 Redis 연결·오류·TCP 상태를 함께 수집한다.
+
+```bash
+CAPACITY_PROFILE_ACK=auth-notification-perf-v1 \
+REDIS_DIAGNOSTIC_MODE=public-control \
+LOAD_TEST_USER_COUNT=150 \
+./run.sh loadtest redis-session-diagnostic
+
+CAPACITY_PROFILE_ACK=auth-notification-perf-v1 \
+REDIS_DIAGNOSTIC_MODE=authenticated-session \
+LOAD_TEST_USER_COUNT=150 \
+./run.sh loadtest redis-session-diagnostic
+```
+
+후보 Run은 인증 세션 기준 Run의 ID를 `BASELINE_RUN_ID`로 전달한다. evaluator는 Redis 수락 연결 증가량이 90% 이상 줄었는지와 connect timeout stack trace가 0건인지 추가로 판정한다. stack trace 집계는 HTTP 요청 수가 아니라 로그 발생 횟수다.
 
 ## 알림 혼합 부하 (1차 측정)
 
