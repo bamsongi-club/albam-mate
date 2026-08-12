@@ -46,6 +46,21 @@ class ChatK6SourceContractTest {
 		assertSubscriberUsesDynamicDeliveryStage(mixed, "LOAD_MIXED_SCALES");
 	}
 
+	@Test
+	void 워밍업과_팬아웃_설정은_정식_측정_단계와_연결_수에_반영한다() throws IOException {
+		String library = file("load-tests/k6/chat/lib/chat.js");
+		String rooms = file("load-tests/k6/chat/load-rooms.js");
+		String websocketContract = file("load-tests/k6/chat/websocket-contract.js");
+		String crossInstanceContract = file("load-tests/k6/chat/cross-instance-contract.js");
+
+		assertThat(library).contains("export const LOAD_WARMUP_STAGE = 'warmup';");
+		assertThat(library).contains("if (elapsed < 0) {");
+		assertThat(library).contains("return LOAD_WARMUP_STAGE;");
+		assertThat(rooms).contains("stage === LOAD_WARMUP_STAGE ? 0 : Number(stage) - 1");
+		assertThat(websocketContract).contains("fanoutParticipants(data.users, PRIMARY_ROOM_ID)");
+		assertThat(crossInstanceContract).contains("fanoutParticipants(data.users, PRIMARY_ROOM_ID)");
+	}
+
 	private void assertSubscriberUsesDynamicDeliveryStage(String scenario, String stepVariable) {
 		assertThat(scenario).containsPattern(
 			"(?s)holdLoadSubscriber\\(\\s*user,\\s*roomId,\\s*currentStage\\(data, " + stepVariable

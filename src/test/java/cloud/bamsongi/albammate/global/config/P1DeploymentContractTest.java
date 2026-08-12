@@ -54,6 +54,7 @@ class P1DeploymentContractTest {
 		assertEquals("${ALBAM_MATE_LOGIN_LIMIT:30}", yamlProperties("src/main/resources/application-local.yml")
 			.getProperty("app.security.auth-request.login-limit"));
 		assertTrue(file("scripts/verify-docker-deployment.mjs").contains("ALBAM_MATE_LOGIN_LIMIT: '20000'"));
+		assertTrue(file("scripts/verify-docker-deployment.mjs").contains("ProductionLoginLimitDefaultTest"));
 		assertFalse(file("scripts/verify-docker-deployment.mjs").contains("APP_SECURITY_AUTHREQUEST_LOGINLIMIT"));
 		assertTrue(file("load-tests/k6/auth-notification/README.md").contains("ALBAM_MATE_LOGIN_LIMIT"));
 		assertFalse(file("load-tests/k6/auth-notification/README.md").contains("APP_SECURITY_AUTHREQUEST_LOGINLIMIT"));

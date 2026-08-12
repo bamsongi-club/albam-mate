@@ -232,3 +232,5 @@ k6는 threshold를 선언한 태그 조합만 요약에 남기므로, 항상 통
 | 캠페인 | 문서 |
 | --- | --- |
 | `chat-delivery-20260811T172123KST` | [채팅 전송·전달 AWS 용량 측정](../../../docs/measurements/k6/chat-delivery-capacity-2026-08-11.md) · [campaign manifest](../../../docs/measurements/k6/evidence/chat-delivery-capacity-2026-08-11.json) |
+| `chat-delivery-20260812T042245KST` | [채팅 전송·전달 AWS 용량 재측정](../../../docs/measurements/k6/chat-delivery-capacity-2026-08-12.md) · [campaign manifest](../../../docs/measurements/k6/evidence/chat-delivery-capacity-2026-08-12.json) |
+| `chat-delivery-20260812T090111KST` (current) | [채팅 전송·전달 AWS 용량 반복 측정](../../../docs/measurements/k6/chat-delivery-capacity-2026-08-12-repeat.md) · [campaign manifest](../../../docs/measurements/k6/evidence/chat-delivery-capacity-2026-08-12-repeat.json) |

@@ -4,6 +4,7 @@ import execution from 'k6/execution';
 
 import {
 	HTTP_P99_MS,
+	LOAD_WARMUP_STAGE,
 	PROFILE_ROOM_IDS,
 	WS_READY_DELAY,
 	currentStage,
@@ -92,7 +93,8 @@ function loadRoomsOptions() {
 
 /** 그 단계에서 켜져 있는 방 수. fixture가 가진 방 수를 넘지 않는다. */
 function activeRoomCount(stage) {
-	const target = Math.round(LOAD_ROOM_STEPS[Number(stage) - 1]);
+	const stageIndex = stage === LOAD_WARMUP_STAGE ? 0 : Number(stage) - 1;
+	const target = Math.round(LOAD_ROOM_STEPS[stageIndex]);
 	return Math.max(1, Math.min(target, PROFILE_ROOM_IDS.length));
 }
 

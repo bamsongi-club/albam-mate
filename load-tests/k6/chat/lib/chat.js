@@ -47,6 +47,8 @@ export const LOAD_STEP_DURATION = readDuration('K6_LOAD_STEP_DURATION', '2m');
 
 export const LOAD_WARMUP_DURATION = readDuration('K6_LOAD_WARMUP_DURATION', '30s');
 
+export const LOAD_WARMUP_STAGE = 'warmup';
+
 // 부하 시나리오가 쓰는 방당 수신자 수.
 export const LOAD_SUBSCRIBERS_PER_ROOM = readPositiveInteger('K6_LOAD_SUBSCRIBERS_PER_ROOM', 6);
 
@@ -201,6 +203,9 @@ export function loadThresholds(stepCount) {
  */
 export function currentStage(data, stepCount, offsetMs) {
 	const elapsed = Date.now() - Number(data.runId) - offsetMs - durationMilliseconds(LOAD_WARMUP_DURATION);
+	if (elapsed < 0) {
+		return LOAD_WARMUP_STAGE;
+	}
 	const index = Math.floor(elapsed / durationMilliseconds(LOAD_STEP_DURATION));
 	return String(Math.min(Math.max(index, 0), stepCount - 1) + 1);
 }
@@ -709,6 +714,10 @@ export function roomParticipants(users, roomId) {
 		throw new Error(`Room ${roomId} has fewer than ${ROOM_PARTICIPANT_COUNT} fixture participants`);
 	}
 	return roomUsers.slice(0, ROOM_PARTICIPANT_COUNT);
+}
+
+export function fanoutParticipants(users, roomId) {
+	return roomParticipants(users, roomId).slice(0, FANOUT_SUBSCRIBER_COUNT);
 }
 
 export function profileUserForVu(users) {

@@ -926,13 +926,15 @@ function verifyT7() {
                 '/d',
                 '/s',
                 '/c',
-                'gradlew.bat test --tests cloud.bamsongi.albammate.global.config.ProductionProfileConfigurationTest --rerun --fail-fast',
+                'gradlew.bat test --tests cloud.bamsongi.albammate.global.config.ProductionProfileConfigurationTest --tests cloud.bamsongi.albammate.global.config.ProductionLoginLimitDefaultTest --rerun --fail-fast',
             ]);
         } else {
             run('./gradlew', [
                 'test',
                 '--tests',
                 'cloud.bamsongi.albammate.global.config.ProductionProfileConfigurationTest',
+                '--tests',
+                'cloud.bamsongi.albammate.global.config.ProductionLoginLimitDefaultTest',
                 '--rerun',
                 '--fail-fast',
             ]);

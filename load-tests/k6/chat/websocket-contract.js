@@ -14,6 +14,7 @@ import {
 	durationMilliseconds,
 	durationWithGrace,
 	equalNumberArrays,
+	fanoutParticipants,
 	fanoutThresholds,
 	immediateStopGate,
 	isHealthyWebSocket,
@@ -27,7 +28,6 @@ import {
 	readPositiveInteger,
 	readVus,
 	recordMissingWebSocketOpen,
-	roomParticipants,
 	setOf,
 	validateCommonPrerequisites,
 	validateFanoutProfile,
@@ -52,7 +52,7 @@ export function wsIdle(data) {
 }
 
 export function wsFanout(data) {
-	openFanoutWebSockets(roomParticipants(data.users, PRIMARY_ROOM_ID), data.runId);
+	openFanoutWebSockets(fanoutParticipants(data.users, PRIMARY_ROOM_ID), data.runId);
 }
 
 export function reconnect(data) {

@@ -6,11 +6,11 @@ import {
 	PRIMARY_ROOM_ID,
 	WS_EVENT_TIMEOUT_MS,
 	durationForMilliseconds,
+	fanoutParticipants,
 	fanoutThresholds,
 	openFanoutWebSockets,
 	perVuOptions,
 	removeTrailingSlash,
-	roomParticipants,
 	validateCommonPrerequisites,
 	validateFanoutProfile,
 } from './lib/chat.js';
@@ -27,7 +27,7 @@ const CROSS_INSTANCE_RECEIVE_ROUTE = readOptionalCrossInstanceRoute('K6_CROSS_IN
 
 export function crossInstance(data) {
 	openFanoutWebSockets(
-		roomParticipants(data.users, PRIMARY_ROOM_ID),
+		fanoutParticipants(data.users, PRIMARY_ROOM_ID),
 		data.runId,
 		CROSS_INSTANCE_SEND_BASE_URL,
 		CROSS_INSTANCE_RECEIVE_BASE_URL,
