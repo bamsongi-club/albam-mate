@@ -432,27 +432,24 @@ function supportedTestKind(contents, annotationBlock) {
     return null;
 }
 
-function hasSupportedEnumSource(contents, annotationBlock, parameters) {
-    const providerType = 'org.junit.jupiter.params.provider.EnumSource';
-    if (!hasResolvedAnnotation(contents, annotationBlock, providerType)) return false;
-
-    const parameter = parameters.trim().match(
-        /^(?:final\s+)?([.$_\p{ID_Start}\u200c\u200d\p{ID_Continue}]+)\s+[$_\p{ID_Start}][$_\u200c\u200d\p{ID_Continue}]*$/u,
+function hasSupportedArgumentsSource(contents, annotationBlock, parameters) {
+    if (parameters.trim() === '') return false;
+    const providerPackage = 'org.junit.jupiter.params.provider';
+    const providerNames = [
+        'ArgumentsSource',
+        'CsvFileSource',
+        'CsvSource',
+        'EmptySource',
+        'EnumSource',
+        'FieldSource',
+        'MethodSource',
+        'NullAndEmptySource',
+        'NullSource',
+        'ValueSource',
+    ];
+    return providerNames.some((providerName) =>
+        hasResolvedAnnotation(contents, annotationBlock, `${providerPackage}.${providerName}`),
     );
-    if (!parameter) return false;
-    const parameterType = parameter[1].split('.').at(-1);
-    const providerName = annotationNames(annotationBlock).find(
-        (name) => name === 'EnumSource' || name === providerType,
-    );
-    if (!providerName) return false;
-    const escapedProvider = providerName.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-    const invocation = annotationBlock.match(
-        new RegExp(`^\\s*@${escapedProvider}\\s*\\(([^\\r\\n]*)\\)`, 'mu'),
-    );
-    const enumType = invocation?.[1].match(
-        /(?:\bvalue\s*=\s*)?([.$_\p{ID_Start}\u200c\u200d\p{ID_Continue}]*)\.class\b/u,
-    )?.[1];
-    return enumType?.split('.').at(-1) === parameterType;
 }
 
 // selector가 가리키는 메서드가 실제 최상위 JUnit 테스트 클래스에 선언됐는지 본다.
@@ -480,7 +477,7 @@ function hasTestMethodDeclaration(sourceInfo, methodName) {
         if (testKind === 'test' && match[3].trim() === '') return true;
         if (
             testKind === 'parameterized' &&
-            hasSupportedEnumSource(sourceInfo.sanitized, match[1], match[3])
+            hasSupportedArgumentsSource(sourceInfo.sanitized, match[1], match[3])
         ) {
             return true;
         }

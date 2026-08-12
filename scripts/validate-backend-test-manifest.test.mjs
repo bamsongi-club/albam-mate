@@ -732,16 +732,48 @@ test('skip되거나 provider가 없는 JUnit selector evidence를 거부한다',
     assert.deepEqual(validate(validPacket(), validManifest(), worktree), []);
 });
 
-test('ParameterizedTest 메서드는 실행 가능한 selector로 허용한다', (t) => {
+test('표준 provider가 있는 ParameterizedTest selector를 허용한다', (t) => {
     const worktree = createWorktree(t);
     const source = 'src/test/java/cloud/bamsongi/NotificationReadServiceTest.java';
-    fs.writeFileSync(
-        path.join(worktree, source),
-        'package cloud.bamsongi;\n\nimport org.junit.jupiter.params.ParameterizedTest;\nimport org.junit.jupiter.params.provider.EnumSource;\n\nclass NotificationReadServiceTest {\n    @ParameterizedTest\n    @EnumSource(Fixture.class)\n    void 알림을_읽음_처리한다(Fixture value) {\n    }\n\n    enum Fixture { VALUE }\n}\n',
-        'utf8',
-    );
+    const sources = [
+        [
+            'EnumSource',
+            'import org.junit.jupiter.params.provider.EnumSource;\n',
+            '@EnumSource(Fixture.class)',
+            'Fixture value',
+            '\n    enum Fixture { VALUE }\n',
+        ],
+        [
+            'ValueSource',
+            'import org.junit.jupiter.params.provider.ValueSource;\n',
+            '@ValueSource(strings = {"read"})',
+            'String value',
+            '',
+        ],
+        [
+            'CsvSource',
+            'import org.junit.jupiter.params.provider.CsvSource;\n',
+            '@CsvSource({"read, 1"})',
+            'String value, int count',
+            '',
+        ],
+        [
+            'MethodSource',
+            'import java.util.stream.Stream;\nimport org.junit.jupiter.params.provider.MethodSource;\n',
+            '@MethodSource("fixtures")',
+            'String value',
+            '\n    static Stream<String> fixtures() {\n        return Stream.of("read");\n    }\n',
+        ],
+    ];
 
-    assert.deepEqual(validate(validPacket(), validManifest(), worktree), []);
+    for (const [label, providerImport, provider, parameters, support] of sources) {
+        fs.writeFileSync(
+            path.join(worktree, source),
+            `package cloud.bamsongi;\n\nimport org.junit.jupiter.params.ParameterizedTest;\n${providerImport}\nclass NotificationReadServiceTest {\n    @ParameterizedTest\n    ${provider}\n    void 알림을_읽음_처리한다(${parameters}) {\n    }\n${support}}\n`,
+            'utf8',
+        );
+        assert.deepEqual(validate(validPacket(), validManifest(), worktree), [], label);
+    }
 
     const actualSource =
         'src/test/java/cloud/bamsongi/albammate/chat/MyRoomChatAvailabilityConsistencyIntegrationTest.java';
