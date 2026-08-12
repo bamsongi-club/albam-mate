@@ -217,6 +217,23 @@ test('데이터 접근 문맥과 런타임 경로가 애매하면 needs-review�
     assert.equal(decisionFor([]), POSTGRES_DECISIONS.NEEDS_REVIEW);
 });
 
+test('PostgreSQL 실행 대상과 선택 검증 제어 스크립트 변경은 needs-review로 분류한다', () => {
+    const paths = [
+        'scripts/classify-ci-paths.mjs',
+        'scripts/classify-postgres-requirement.mjs',
+        'scripts/partition-postgres-tests.mjs',
+        'scripts/validate-backend-test-manifest.mjs',
+        'scripts/verify-changed-h2-coverage.mjs',
+    ];
+
+    for (const script of paths) {
+        const result = classifyPostgresChanges([change(script, 'const changed = true;')]);
+
+        assert.equal(result.decision, POSTGRES_DECISIONS.NEEDS_REVIEW, script);
+        assert.equal(result.reasons[0].code, 'postgres-execution-control', script);
+    }
+});
+
 test('required 변경이 하나라도 있으면 안전한 변경과 섞여도 required가 우선한다', () => {
     const result = classifyPostgresChanges([
         change('src/main/java/cloud/bamsongi/albammate/room/dto/RoomSummary.java', 'record RoomSummary() {}'),

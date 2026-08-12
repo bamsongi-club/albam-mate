@@ -24,6 +24,13 @@ const RUNTIME_REVIEW_PATHS = [
     /\/infra\/redis\//u,
     /\/chat\/websocket\//u,
 ];
+const POSTGRES_EXECUTION_CONTROL_PATHS = new Set([
+    'scripts/classify-ci-paths.mjs',
+    'scripts/classify-postgres-requirement.mjs',
+    'scripts/partition-postgres-tests.mjs',
+    'scripts/validate-backend-test-manifest.mjs',
+    'scripts/verify-changed-h2-coverage.mjs',
+]);
 
 const REQUIRED_JAVA_SIGNALS = [
     {
@@ -165,6 +172,16 @@ function classifyChange(change) {
     const filePath = normalizePath(change.path);
     const normalized = { ...change, path: filePath };
 
+    if (POSTGRES_EXECUTION_CONTROL_PATHS.has(filePath)) {
+        return {
+            decision: POSTGRES_DECISIONS.NEEDS_REVIEW,
+            reason: reason(
+                'postgres-execution-control',
+                filePath,
+                'PostgreSQL 실행 대상 또는 선택 검증을 제어하는 스크립트 변경은 Docker 검증을 생략할 수 없습니다.',
+            ),
+        };
+    }
     if (POSTGRES_TEST_PATH.test(filePath)) {
         return {
             decision: POSTGRES_DECISIONS.REQUIRED,
