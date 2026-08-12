@@ -256,6 +256,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 34 | P1 | [GAME-03](#game-03-게임-메커니즘-선택지-조회) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) | GET | `/api/game-mechanisms` | N | N | 200 |
 | 35 | P1 | [GAME-04](#game-04-게임-카테고리-선택지-조회) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) | GET | `/api/game-categories` | N | N | 200 |
 | 36 | P1 | [GAME-05](#game-05-게임-테마-선택지-조회) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) | GET | `/api/game-themes` | N | N | 200 |
+| 37 | P1 | [RANK-01](#rank-01-인기-게임-랭킹-조회) · [정본](p1/ranking.md#rank-01-인기-게임-랭킹) | GET | `/api/game-rankings` | N | N | 200 |
 
 `GET /api/games`, `GET /api/games/{gameId}`, `GET /api/rooms`, `GET /api/rooms/{roomId}`와 `GET /api/auth/social/providers`의 인증은 "선택"이다. 비로그인도 호출할 수 있고, 유효한 세션이 있으면 요청자 기준 값을 계산한다. 단, `GET /api/games`의 유효한 `playedFilter`는 로그인을 요구한다.
 
@@ -1219,6 +1220,39 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | `code` | string | N | 표시명과 분리된 안정적인 내부 theme code |
 | `nameKo` | string | N | 검수된 화면 표시 한글명 |
 | `nameEn` | string | N | BGG boardgamecategory 영문명 |
+
+### RANK-01 인기 게임 랭킹 조회
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `GET /api/game-rankings` |
+| 인증 / CSRF | 불필요 / 불필요 |
+| 성공 | `200 OK`, `data`: `GameRankingResponse` |
+
+밤송이 내부 방만으로 게임별 모임 수를 세어 `전체`와 `앞으로 7일` 랭킹을 함께 반환한다. 집계 대상은 `roomType`이 `GAME_FOCUSED`이고 `status`가 `CANCELED`가 아닌 방이다. 두 랭킹은 한 요청에서 고정한 같은 기준 시각을 사용한다. 요청 파라미터가 없고 요청자에 따라 결과가 달라지지 않는다. 집계 대상이 없으면 오류가 아니라 빈 배열을 반환한다.
+
+#### GameRankingResponse
+
+| 필드 | 타입 | null | 설명 |
+|---|---|:---:|---|
+| `overall` | GameRankingItem[] | N | 기간 조건 없는 전체 랭킹. 최대 10개 |
+| `upcomingWeek` | GameRankingItem[] | N | 시작 시각이 `[기준 시각, 기준 시각 + 7일)`인 방만 센 랭킹. 최대 10개 |
+
+#### GameRankingItem
+
+| 필드 | 타입 | null | 설명 |
+|---|---|:---:|---|
+| `rank` | integer | N | 같은 랭킹 안의 순위. `1`부터 순서대로 부여하며 집계 수가 같아도 공유하지 않는다 |
+| `gameId` | integer | N | 알밤메이트 내부 게임 ID. `/api/games/{gameId}` 조회에 사용한다 |
+| `bggId` | integer | N | BoardGameGeek 식별자 |
+| `name` | string | N | 게임명 |
+| `englishName` | string | N | 영문 게임명 |
+| `releaseYear` | integer | Y | 출시 연도 |
+| `imageUrl` | string | Y | 대표 이미지 URL |
+| `description` | string | N | 게임 한 줄 설명. `GET /api/games/{gameId}`가 반환하는 값과 같다 |
+| `roomCount` | integer | N | 집계 대상 방 수. 내림차순 정렬 기준이며 같은 수에서는 `gameId` 오름차순이다 |
+
+방 제목·장소·시각, 주최자·참가자와 사용자 식별 정보는 반환하지 않는다.
 
 ## 7. 방 API
 

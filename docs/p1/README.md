@@ -13,6 +13,7 @@ P1 2차 MVP의 현재 계획·구현 기준 문서 묶음이다. 문서가 존�
 | [알림](notification.md) | `NOTI-01`~`NOTI-03`의 알림 생성, 본인 목록·미확인 개수와 읽음 처리 |
 | [방 채팅](chatting.md) | `CHAT-01`~`CHAT-05`의 채팅방 접근, 영속 이력, 실시간 전달·복구와 안전·운영 |
 | [기반 작업](foundation.md) | `FND-09`, `FND-10`의 검색 성능·인덱스 검증과 실시간 전달 기반 |
+| [인기 랭킹](ranking.md) | `RANK-01`의 내부 방 데이터 기반 전체·앞으로 7일 인기 게임 랭킹 |
 
 기능 구현은 해당 기능 문서의 완료 기준과 현재 [API](../API.md), [ERD](../ERD.md), 관련 승인 ADR을 함께 충족해야 한다. API의 `제공 상태`는 현재 요청·응답에 사용할 수 있는지를 나타내고, 기능 전체의 생산 코드·자동 검증·운영 상태는 아래 표만 정본으로 사용한다.
 
@@ -41,6 +42,7 @@ P1 저장 계약의 준비 상태는 기능별로 다르다. 현재 알림, PART
 | [`CHAT-04`](chatting.md#chat-04-채팅-안전운영) | 계약 준비 완료 | 구현 완료 ([PR #366](https://github.com/bamsongi-club/albam-mate/pull/366), [PR #405](https://github.com/bamsongi-club/albam-mate/pull/405), [PR #423](https://github.com/bamsongi-club/albam-mate/pull/423), [PR #444](https://github.com/bamsongi-club/albam-mate/pull/444)) | 검증 완료 (보존·ShedLock, 사용자·방 전송 제한, 입력 안전과 민감 정보 비노출의 H2·PostgreSQL 검증) | 미배포·미측정 |
 | [`CHAT-05`](chatting.md#chat-05-내-모임-채팅-진입) | 계약 준비 완료 | 구현 완료 ([#290](https://github.com/bamsongi-club/albam-mate/issues/290), [#427](https://github.com/bamsongi-club/albam-mate/issues/427)) | 검증 완료 ([#290](https://github.com/bamsongi-club/albam-mate/issues/290), [#427](https://github.com/bamsongi-club/albam-mate/issues/427)) | 미배포·미측정 |
 | [`FND-09`](foundation.md#fnd-09-검색-성능과-인덱스-검증) | 계약 준비 완료 | 구현 완료 (#307) | 검증 완료 (#307: PostgreSQL 검색 성능·인덱스 검증) | 미배포·미측정 |
+| [`RANK-01`](ranking.md#rank-01-인기-게임-랭킹) | 계약 준비 완료 ([#596](https://github.com/bamsongi-club/albam-mate/issues/596)) | 미구현 | 미검증 | 미배포·미측정 |
 | [`FND-10`](foundation.md#fnd-10-실시간-전달과-재연결-기반) | 계약 준비 완료 | 구현 완료 ([#360](https://github.com/bamsongi-club/albam-mate/issues/360), [#286](https://github.com/bamsongi-club/albam-mate/issues/286)) | 검증 완료 ([#286](https://github.com/bamsongi-club/albam-mate/issues/286): H2·PostgreSQL T1~T12 대상 테스트, [#445](https://github.com/bamsongi-club/albam-mate/issues/445): `local` 프록시 경유 WebSocket Upgrade·교차 인스턴스 실시간 전달·재연결 복구 검증) | 미배포·미측정 |
 
 - `계약 준비 완료`: 기능 구현에 필요한 제품·API·저장·아키텍처 계약과 필수 ADR이 모두 반영·승인됐다. 생산 코드나 검증 완료를 뜻하지 않는다.
