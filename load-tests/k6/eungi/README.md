@@ -227,12 +227,6 @@ k6는 threshold를 선언한 태그 조합만 요약에 남기므로, 항상 통
 - 축별로 따로 잰 상한을 합쳐 "견딘다"를 판정하지 않는다. `load-mixed`가 각 축의 상한보다 일찍 무너지는 것이 그 근거다.
 - 모든 Run은 release SHA, 이미지 digest, fixture 규모와 시나리오 환경 변수를 결과와 함께 보관한다.
 
-## 측정 문서
+## 측정 결과 위치
 
-비밀값과 실제 환경의 리소스 식별자를 지우고 검증을 마친 결과만 [Eungi k6 측정 문서](../../../docs/measurements/k6/eungi/README.md) 아래에 보존한다. 탐색·반복 실행의 원시 산출물은 `build/k6/chat/`에 둔다.
-
-| 캠페인 | 문서 |
-| --- | --- |
-| `chat-delivery-20260811T172123KST` | [채팅 전송·전달 AWS 용량 측정](../../../docs/measurements/k6/eungi/chat-delivery-capacity-2026-08-11.md) · [campaign manifest](../../../docs/measurements/k6/eungi/evidence/chat-delivery-capacity-2026-08-11.json) |
-| `chat-delivery-20260812T042245KST` | [채팅 전송·전달 AWS 용량 재측정](../../../docs/measurements/k6/eungi/chat-delivery-capacity-2026-08-12.md) · [campaign manifest](../../../docs/measurements/k6/eungi/evidence/chat-delivery-capacity-2026-08-12.json) |
-| `chat-delivery-20260812T090111KST` (current) | [채팅 전송·전달 AWS 용량 반복 측정](../../../docs/measurements/k6/eungi/chat-delivery-capacity-2026-08-12-repeat.md) · [campaign manifest](../../../docs/measurements/k6/eungi/evidence/chat-delivery-capacity-2026-08-12-repeat.json) |
+비밀값과 실제 환경의 리소스 식별자를 지우고 검증을 마친 결과만 [Eungi k6 측정 문서](../../../docs/measurements/k6/eungi/README.md)에 보존한다. Campaign ID, 상태와 대체 관계는 해당 측정 문서 README를 단일 인덱스로 사용한다. 탐색·반복 실행의 원시 산출물은 `build/k6/chat/`에 둔다.

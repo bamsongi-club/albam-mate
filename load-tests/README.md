@@ -2,6 +2,16 @@
 
 이 디렉터리는 k6 부하테스트에 필요한 시나리오와 지원 소스를 소유자별로 관리한다. 소유자마다 담당하는 업무 흐름, fixture 준비 방식과 자동화 수준이 다를 수 있으므로 공통 경계만 정하고, 소유자 폴더 내부 구조는 담당자가 결정한다.
 
+## 어디서 시작하는가
+
+실행하려는 업무 흐름의 소유자 README에서 시나리오, 환경 변수, fixture와 검증 방법을 확인한다. 측정 결과와 Campaign ID는 대응하는 측정 문서 README에서 찾는다.
+
+| 소유자 | 담당 흐름 | 실행 안내 | 측정 문서 |
+| --- | --- | --- | --- |
+| Jiho | 인증·알림, Redis 세션 진단 | [Jiho k6 README](k6/jiho/README.md) | [Jiho 측정 문서](../docs/measurements/k6/jiho/README.md) |
+| Eungi | 채팅·WebSocket | [Eungi k6 README](k6/eungi/README.md) | [Eungi 측정 문서](../docs/measurements/k6/eungi/README.md) |
+| Yejin | 게임 키워드 검색·혼합 조회 | [Yejin k6 README](k6/yejin/README.md) | [Yejin 측정 문서](../docs/measurements/k6/yejin/README.md) |
+
 ## 디렉터리 배치
 
 각 소유자는 `load-tests/k6/<owner>/` 아래에 전용 폴더를 만든다. `<owner>`에는 팀에서 합의한 영문 소문자 식별자를 사용한다. 예: `jiho`.

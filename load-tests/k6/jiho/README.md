@@ -8,7 +8,6 @@
 
 - 이 폴더는 인증 계약·용량, 알림 전달·polling·fan-out·혼합 부하와 Redis 세션 진단 시나리오 및 fixture를 소유한다.
 - 승인해 보존한 결과는 [Jiho k6 측정 문서](../../../docs/measurements/k6/jiho/README.md)에서 찾으며, 보고서와 증거는 `docs/measurements/k6/jiho/` 아래에 둔다.
-- 현재 보존한 보고서는 [인증·알림 AWS 용량 측정](../../../docs/measurements/k6/jiho/auth-notification-capacity-2026-08-11.md), [알림 broker 판단](../../../docs/measurements/k6/jiho/notification-broker-decision-2026-08-11.md), [Tomcat 64 재측정](../../../docs/measurements/k6/jiho/notification-tomcat64-capacity-2026-08-11.md), [t4g.small 재측정](../../../docs/measurements/k6/jiho/notification-t4gsmall-capacity-2026-08-12.md), [Redis 세션 연결 진단·A/B](../../../docs/measurements/k6/jiho/redis-session-connection-diagnostic-2026-08-12.md)이다.
 - 실제 fixture, 원시 로그와 실행 bundle은 Git에 추적하지 않는 `build/k6/<test-content>/` 또는 인프라 실행기의 `.run/`에 둔다.
 
 ## 무엇에 답하려는 측정인가

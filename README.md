@@ -97,6 +97,7 @@ java --version
 | 제품 목표와 단계별 범위 | [PRD](docs/PRD.md), [P1 명세](docs/P1-spec.md) |
 | 백엔드 구조와 코드 위치 | [아키텍처](docs/ARCHITECTURE.md) |
 | 실행·테스트·포맷 명령 | [프로젝트 명령](docs/COMMANDS.md) |
+| k6 부하테스트 시나리오와 실행 안내 | [Load Tests](load-tests/README.md) |
 | HTTP·WebSocket과 저장 계약 | [API](docs/API.md), [ERD](docs/ERD.md) |
 | 기술 선택과 변경 이유 | [ADR](docs/adr/README.md) |
 | 최초 설정·운영·적재·문제 해결 | [프로젝트 가이드](docs/guides/README.md) |
