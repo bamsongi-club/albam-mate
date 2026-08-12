@@ -33,6 +33,8 @@ import cloud.bamsongi.albammate.game.dto.GameDetail;
 import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
+import cloud.bamsongi.albammate.game.fixture.GameDetailFixture;
+import cloud.bamsongi.albammate.game.fixture.GameListItemFixture;
 import cloud.bamsongi.albammate.game.service.GameDetailQueryService;
 import cloud.bamsongi.albammate.game.service.GameQueryService;
 import cloud.bamsongi.albammate.global.exception.BusinessException;
@@ -67,7 +69,7 @@ class GameControllerTest {
 
 	@Test
 	void 공개_게임_목록은_페이지와_게임_카드_필드를_반환한다() throws Exception {
-		GameListItem item = new GameListItem(
+		GameListItem item = GameListItemFixture.of(
 			1L,
 			1001L,
 			"카탄",
@@ -253,7 +255,7 @@ class GameControllerTest {
 
 	@Test
 	void 공개_게임_상세는_게임_목록_필드와_상세_필드를_반환한다() throws Exception {
-		GameDetail detail = new GameDetail(
+		GameDetail detail = GameDetailFixture.of(
 			1L,
 			1001L,
 			"카탄",

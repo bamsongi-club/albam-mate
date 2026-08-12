@@ -17,9 +17,9 @@ import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabas
 import org.springframework.context.annotation.Import;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import cloud.bamsongi.albammate.game.dto.GameDetail;
-import cloud.bamsongi.albammate.game.dto.GameListItem;
+import cloud.bamsongi.albammate.game.fixture.GameDetailFixture;
 import cloud.bamsongi.albammate.game.fixture.GameFixture;
+import cloud.bamsongi.albammate.game.fixture.GameListItemFixture;
 import cloud.bamsongi.albammate.game.repository.GameListRow;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 import cloud.bamsongi.albammate.global.config.JpaConfig;
@@ -48,10 +48,10 @@ class GameMinAgeContractTest {
 		Game unknown = gameRepository.findById(unknownAge.getId()).orElseThrow();
 		assertEquals(8, known.getMinAge());
 		assertNull(unknown.getMinAge());
-		assertEquals(8, GameListItem.from(GameListRow.from(known), 0L).minAge());
-		assertNull(GameListItem.from(GameListRow.from(unknown), 0L).minAge());
-		assertEquals(8, GameDetail.from(known, 0L).minAge());
-		assertNull(GameDetail.from(unknown, 0L).minAge());
+		assertEquals(8, GameListItemFixture.from(GameListRow.from(known), 0L).minAge());
+		assertNull(GameListItemFixture.from(GameListRow.from(unknown), 0L).minAge());
+		assertEquals(8, GameDetailFixture.from(known, 0L).minAge());
+		assertNull(GameDetailFixture.from(unknown, 0L).minAge());
 
 		try (Connection connection = dataSource.getConnection();
 			ResultSet columns = connection.getMetaData().getColumns(null, null, "games", "min_age")) {
