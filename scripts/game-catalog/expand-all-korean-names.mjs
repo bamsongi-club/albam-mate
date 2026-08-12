@@ -3,8 +3,9 @@ import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { convertTitleToKorean, OFFICIAL_NAME_MAP } from './korean-name-collector.mjs';
 import { validateKoreanName } from './korean-name-validator.mjs';
+import { commitZipArtifacts, resolveInputRoot } from './catalog-pipeline-utils.mjs';
 
-const DOWNLOAD_DIR = '/Users/han-yejin/Downloads/albam-mate-170k';
+const DOWNLOAD_DIR = resolveInputRoot(process.argv.slice(2));
 const ZIP_PATH = path.join(DOWNLOAD_DIR, '01-team-handoff-local.zip');
 const SUPPLEMENT_SQL_PATH = path.join(DOWNLOAD_DIR, 'reference/02-localization/04-upsert-korean-names-supplement.sql');
 const NEEDS_REVIEW_PATH = path.join(DOWNLOAD_DIR, 'reference/02-localization/04-upsert-korean-names-supplement.needs-review.json');
@@ -75,15 +76,16 @@ async function processAllNames() {
     sqlStatements.push('COMMIT;');
 
     console.log(`4. 04-upsert-korean-names-supplement.sql 전면 갱신 중 (${successCount - needsReview.length}건, 검수 대기 ${needsReview.length}건)...`);
-    fs.writeFileSync(SUPPLEMENT_SQL_PATH, sqlStatements.join('\n') + '\n', 'utf-8');
-    fs.writeFileSync(NEEDS_REVIEW_PATH, JSON.stringify(needsReview, null, 2) + '\n', 'utf-8');
-
-    console.log('5. zip 파일 내 04-upsert-korean-names-supplement.sql 업데이트 중...');
-    const zipTmpDir = path.join(process.cwd(), '.tmp/name_zip_update/06-complete-local-import');
-    fs.mkdirSync(zipTmpDir, { recursive: true });
-    fs.copyFileSync(SUPPLEMENT_SQL_PATH, path.join(zipTmpDir, '04-upsert-korean-names-supplement.sql'));
-    execSync(`cd "${path.join(process.cwd(), '.tmp/name_zip_update')}" && zip -u "${ZIP_PATH}" 06-complete-local-import/04-upsert-korean-names-supplement.sql`);
-    fs.rmSync(path.join(process.cwd(), '.tmp/name_zip_update'), { recursive: true, force: true });
+    console.log('5. SQL·검수 대기 목록·ZIP을 함께 검증한 뒤 원자적으로 갱신 중...');
+    commitZipArtifacts({
+        zipPath: ZIP_PATH,
+        zipEntry: '06-complete-local-import/04-upsert-korean-names-supplement.sql',
+        zipFileTarget: SUPPLEMENT_SQL_PATH,
+        files: [
+            { target: SUPPLEMENT_SQL_PATH, contents: sqlStatements.join('\n') + '\n' },
+            { target: NEEDS_REVIEW_PATH, contents: JSON.stringify(needsReview, null, 2) + '\n' },
+        ],
+    });
 
     console.log(`17만 건 전체 게임명 한글화 전면 확충 완수! (적용 ${successCount - needsReview.length}건, 검수 대기 ${needsReview.length}건)`);
 }

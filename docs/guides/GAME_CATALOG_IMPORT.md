@@ -189,6 +189,25 @@ metadata 품질 게이트는 아래를 모두 만족해야 한다.
 
 어느 게이트라도 실패하거나 manifest가 승인되지 않으면 quality report만 생성하고 service JSON·UPSERT SQL을 만들지 않는다.
 
+## 6-1. 한글화·BoardLife 보조 생성기 입력 계약
+
+`scripts/game-catalog`의 인계 보조 생성기는 입력 루트를 첫 번째 positional argument, `--input-root <path>` 또는 `ALBAM_MATE_170K_DIR`로 받는다. 개인 컴퓨터의 고정 경로를 사용하지 않으며, ZIP을 갱신하는 생성기는 기존 ZIP·입력 파일·임시 ZIP을 모두 준비하고 검증한 뒤 성공할 때만 SQL과 ZIP을 함께 교체한다.
+
+`build-complete-local-import-catalog.mjs`의 base/source quality report는 `status: "ready"`, 정확한 `datasetKind`·`grain`, 입력별 `sha256`·`rows`를 선언해야 하며 실제 JSON과 일치해야 한다. 하나라도 어긋나면 이전 산출물을 제거하고 `quality-report.json`만 남긴다.
+
+자동 음차 결과는 `bgg-game-name-ko-candidates-*.csv`의 `검수완료(Y/N)=N` 후보로만 생성한다. 사람이 검수한 별도 승인 입력 없이 `04-upsert-korean-names-supplement.sql`을 갱신하지 않는다. 설명 생성기도 번역 후 한글 비율, 영어 잔존 문장, 빈 값과 인코딩 오류를 검사하며 실패한 행은 실행 SQL에 넣지 않는다.
+
+전량 검수는 다음처럼 실제 산출 행 수를 명시해 실행한다.
+
+```sh
+node scripts/game-catalog/validate-full-localization.mjs \
+  --input-root /path/to/albam-mate-170k \
+  --expected-names 170000 \
+  --expected-descriptions 170000
+```
+
+BoardLife 신규 행은 `--input-manifest`가 필요하다. manifest는 `approved: true`, `datasetKind: "boardlife-new-games"`, `grain: "1 row per bgg_id"`, `rows`, `bggIds`, `sourceSha256`를 포함하고, 하드코딩된 입력 행과 ID·checksum이 일치해야 한다. 불일치하면 SQL과 ZIP을 생성하지 않는다.
+
 `testOnly: true`는 PostgreSQL 검증 fixture에만 허용한다. 생성된 service JSON과 quality report에도 `testOnly: true`가 보존되고, 생성 SQL은 기본 세션에서 `albam_mate.allow_test_only_metadata_import`가 설정되지 않으면 즉시 실패한다. 따라서 운영 배치는 반드시 `testOnly: false`(또는 생략)인 승인 산출물만 위 운영 명령으로 실행한다.
 
 테스트 전용 SQL을 PostgreSQL 검증에서 실행할 때만 아래처럼 명시적으로 허가한다.

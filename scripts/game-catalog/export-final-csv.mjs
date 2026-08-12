@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
+import { resolveInputRoot } from './catalog-pipeline-utils.mjs';
 
-const DOWNLOAD_DIR = '/Users/han-yejin/Downloads/albam-mate-170k';
+const DOWNLOAD_DIR = resolveInputRoot(process.argv.slice(2));
 const ZIP_PATH = path.join(DOWNLOAD_DIR, '01-team-handoff-local.zip');
 const LOCALIZATION_DIR = path.join(DOWNLOAD_DIR, 'reference/02-localization');
 

@@ -3,8 +3,9 @@ import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { translateDescription } from './korean-description-translator.mjs';
 import { validateDescription } from './korean-description-validator.mjs';
+import { commitZipArtifacts, resolveInputRoot } from './catalog-pipeline-utils.mjs';
 
-const DOWNLOAD_DIR = '/Users/han-yejin/Downloads/albam-mate-170k';
+const DOWNLOAD_DIR = resolveInputRoot(process.argv.slice(2));
 const ZIP_PATH = path.join(DOWNLOAD_DIR, '01-team-handoff-local.zip');
 const SUPPLEMENT_DESC_SQL_PATH = path.join(DOWNLOAD_DIR, 'reference/02-localization/05-upsert-korean-descriptions-supplement.sql');
 
@@ -51,14 +52,13 @@ async function processAllDescriptions() {
     sqlStatements.push('COMMIT;');
 
     console.log(`3. 05-upsert-korean-descriptions-supplement.sql 갱신 중 (${successCount}건)...`);
-    fs.writeFileSync(SUPPLEMENT_DESC_SQL_PATH, sqlStatements.join('\n') + '\n', 'utf-8');
-
-    console.log('4. zip 파일 내 05-upsert-korean-descriptions-supplement.sql 업데이트 중...');
-    const zipTmpDir = path.join(process.cwd(), '.tmp/desc_full_zip_update/06-complete-local-import');
-    fs.mkdirSync(zipTmpDir, { recursive: true });
-    fs.copyFileSync(SUPPLEMENT_DESC_SQL_PATH, path.join(zipTmpDir, '05-upsert-korean-descriptions-supplement.sql'));
-    execSync(`cd "${path.join(process.cwd(), '.tmp/desc_full_zip_update')}" && zip -u "${ZIP_PATH}" 06-complete-local-import/05-upsert-korean-descriptions-supplement.sql`);
-    fs.rmSync(path.join(process.cwd(), '.tmp/desc_full_zip_update'), { recursive: true, force: true });
+    console.log('4. 설명 SQL과 ZIP을 함께 검증한 뒤 원자적으로 갱신 중...');
+    commitZipArtifacts({
+        zipPath: ZIP_PATH,
+        zipEntry: '06-complete-local-import/05-upsert-korean-descriptions-supplement.sql',
+        zipFileTarget: SUPPLEMENT_DESC_SQL_PATH,
+        files: [{ target: SUPPLEMENT_DESC_SQL_PATH, contents: sqlStatements.join('\n') + '\n' }],
+    });
 
     console.log(`17만 건 전체 게임 설명 한글화 전면 확충 완수! (총 ${successCount}건)`);
 }

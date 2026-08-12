@@ -1,8 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
+import {
+    commitZipArtifacts,
+    resolveInputRoot,
+    sha256,
+    validatePositiveUniqueIds,
+} from './catalog-pipeline-utils.mjs';
 
-const DOWNLOAD_DIR = '/Users/han-yejin/Downloads/albam-mate-170k';
+const CLI_ARGS = process.argv.slice(2);
+const DOWNLOAD_DIR = resolveInputRoot(CLI_ARGS);
+const MANIFEST_INDEX = CLI_ARGS.indexOf('--input-manifest');
+const INPUT_MANIFEST_PATH = MANIFEST_INDEX >= 0 ? CLI_ARGS[MANIFEST_INDEX + 1] : null;
 const LOCALIZATION_DIR = path.join(DOWNLOAD_DIR, 'reference/02-localization');
 const NEW_GAMES_SQL_PATH = path.join(LOCALIZATION_DIR, '06-upsert-boardlife-new-games.sql');
 
@@ -91,6 +99,13 @@ const BOARDLIFE_NEW_GAMES = [
 ];
 
 async function collectBoardlifeData() {
+    if (!INPUT_MANIFEST_PATH) {
+        throw new Error('BoardLife 승인 manifest가 필요합니다: --input-manifest <path>');
+    }
+    const manifest = JSON.parse(fs.readFileSync(INPUT_MANIFEST_PATH, 'utf-8'));
+    const bggIds = validatePositiveUniqueIds(BOARDLIFE_NEW_GAMES, 'boardlife');
+    validateBoardlifeManifest(manifest, bggIds);
+
     console.log('1. 보드라이프 수집 정보 파이프라인 분석 중...');
     
     // candidate CSV들에서 boardlife 출처 항목 파악
@@ -126,17 +141,42 @@ async function collectBoardlifeData() {
 
     sqlStatements.push('COMMIT;');
 
-    fs.writeFileSync(NEW_GAMES_SQL_PATH, sqlStatements.join('\n') + '\n', 'utf-8');
-    console.log(`신규 게임 SQL 작성 완료: ${NEW_GAMES_SQL_PATH}`);
-
-    console.log('3. team handoff zip 파일에 06-upsert-boardlife-new-games.sql 추가 중...');
     const zipPath = path.join(DOWNLOAD_DIR, '01-team-handoff-local.zip');
-    const tmpDir = path.join(process.cwd(), '.tmp/bl_zip_update/06-complete-local-import');
-    fs.mkdirSync(tmpDir, { recursive: true });
-    fs.copyFileSync(NEW_GAMES_SQL_PATH, path.join(tmpDir, '06-upsert-boardlife-new-games.sql'));
-    execSync(`cd "${path.join(process.cwd(), '.tmp/bl_zip_update')}" && zip -u "${zipPath}" 06-complete-local-import/06-upsert-boardlife-new-games.sql`);
-    fs.rmSync(path.join(process.cwd(), '.tmp/bl_zip_update'), { recursive: true, force: true });
+    console.log('3. 승인 manifest 검증 후 SQL과 ZIP을 원자적으로 갱신 중...');
+    commitZipArtifacts({
+        zipPath,
+        zipEntry: '06-complete-local-import/06-upsert-boardlife-new-games.sql',
+        zipFileTarget: NEW_GAMES_SQL_PATH,
+        files: [{ target: NEW_GAMES_SQL_PATH, contents: sqlStatements.join('\n') + '\n' }],
+    });
     console.log('ZIP 파일에 06-upsert-boardlife-new-games.sql 반영 완료!');
+}
+
+function validateBoardlifeManifest(manifest, bggIds) {
+    const requiredFields = [
+        'name', 'english_name', 'supported_player_count', 'tag', 'estimated_play_time',
+        'description', 'detail_description',
+    ];
+    for (const game of BOARDLIFE_NEW_GAMES) {
+        for (const field of requiredFields) {
+            if (typeof game[field] !== 'string' || game[field].trim().length === 0) {
+                throw new Error(`BoardLife 필수 필드 누락: ${field} (${game.bgg_id})`);
+            }
+        }
+        if (!Number.isSafeInteger(game.bgg_id) || game.bgg_id <= 0) {
+            throw new Error(`BoardLife bgg_id가 유효하지 않습니다: ${game.bgg_id}`);
+        }
+    }
+    const expectedHash = sha256(Buffer.from(JSON.stringify(BOARDLIFE_NEW_GAMES)));
+    const expectedIds = [...bggIds].sort((left, right) => left - right);
+    if (manifest?.approved !== true
+        || manifest.datasetKind !== 'boardlife-new-games'
+        || manifest.grain !== '1 row per bgg_id'
+        || manifest.rows !== BOARDLIFE_NEW_GAMES.length
+        || manifest.sourceSha256 !== expectedHash
+        || JSON.stringify(manifest.bggIds ?? []) !== JSON.stringify(expectedIds)) {
+        throw new Error('BoardLife 승인 manifest가 입력 데이터와 일치하지 않습니다');
+    }
 }
 
 collectBoardlifeData().catch(err => {

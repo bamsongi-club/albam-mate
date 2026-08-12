@@ -3,12 +3,12 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { convertTitleToKorean } from './korean-name-collector.mjs';
 import { validateKoreanName } from './korean-name-validator.mjs';
+import { escapeCsvField, resolveInputRoot } from './catalog-pipeline-utils.mjs';
 
-const DOWNLOAD_DIR = '/Users/han-yejin/Downloads/albam-mate-170k';
+const DOWNLOAD_DIR = resolveInputRoot(process.argv.slice(2));
 const RANKS_CSV_PATH = path.join(DOWNLOAD_DIR, 'reference/04-inputs/boardgames_ranks07-24.csv');
 const SUPPLEMENT_SQL_PATH = path.join(DOWNLOAD_DIR, 'reference/02-localization/04-upsert-korean-names-supplement.sql');
 const CANDIDATES_OUTPUT_CSV = path.join(DOWNLOAD_DIR, 'reference/02-localization/bgg-game-name-ko-candidates-7001-15000.csv');
-const MAIN_README_PATH = path.join(DOWNLOAD_DIR, 'README.md');
 
 async function processNames() {
     console.log('1. 기존 SQL의 이미 보강된 bgg_id 수집 중...');
@@ -29,7 +29,6 @@ async function processNames() {
 
     let isHeader = true;
     const newCandidates = [];
-    const newSqlStatements = [];
     let processedCount = 0;
     let validCount = 0;
 
@@ -69,10 +68,6 @@ async function processNames() {
                     reviewed: 'N'
                 });
 
-                // SQL UPDATE 구문 작성 (작은 따옴표 escape)
-                const safeNameKo = nameKo.replace(/'/g, "''");
-                newSqlStatements.push(`UPDATE games SET name = '${safeNameKo}' WHERE bgg_id = ${bggId};`);
-                existingBggIds.add(bggId);
             }
         }
     }
@@ -82,7 +77,6 @@ async function processNames() {
     // 3. 신규 candidate CSV 작성
     console.log('3. bgg-game-name-ko-candidates-7001-15000.csv 생성 중...');
     const csvHeader = 'bggRank,bggId,nameEn,nameKo,출처,검수완료(Y/N)\n';
-    const escapeCsvField = (value) => `"${String(value).replace(/"/g, '""')}"`;
     const csvRows = newCandidates.map(c => {
         return `${c.bggRank},${c.bggId},${escapeCsvField(c.nameEn)},${escapeCsvField(c.nameKo)},${escapeCsvField(c.source)},${c.reviewed}`;
     }).join('\n');
@@ -90,26 +84,7 @@ async function processNames() {
     fs.writeFileSync(CANDIDATES_OUTPUT_CSV, csvHeader + csvRows, 'utf-8');
     console.log(`CSV 작성 완료: ${CANDIDATES_OUTPUT_CSV}`);
 
-    // 4. 04-upsert-korean-names-supplement.sql 갱신
-    console.log('4. 04-upsert-korean-names-supplement.sql 갱신 중...');
-    let updatedSqlContent = existingSqlContent.trim();
-    if (updatedSqlContent.endsWith('COMMIT;')) {
-        updatedSqlContent = updatedSqlContent.slice(0, -7).trim();
-    }
-    
-    const appendSql = '\n-- 추가 확충분 (bggRank 7001~15000위 음차 보완 ' + newSqlStatements.length + '건)\n' +
-        newSqlStatements.join('\n') + '\nCOMMIT;\n';
-
-    fs.writeFileSync(SUPPLEMENT_SQL_PATH, updatedSqlContent + appendSql, 'utf-8');
-    console.log(`SQL 갱신 완료: 총 ${existingBggIds.size}건으로 확충됨.`);
-
-    // 5. README.md 업데이트
-    console.log('5. README.md 통계업데이트 중...');
-    let readmeText = fs.readFileSync(MAIN_README_PATH, 'utf-8');
-    const newTotalFormatted = existingBggIds.size.toLocaleString();
-    readmeText = readmeText.replace(/게임명 한국어 표시명 \d+(,\d+)*건/, `게임명 한국어 표시명 ${newTotalFormatted}건`);
-    fs.writeFileSync(MAIN_README_PATH, readmeText, 'utf-8');
-    console.log('README.md 업데이트 완료.');
+    console.log('4. 자동 음차는 검수 후보 CSV에만 기록하고 승인 SQL은 변경하지 않습니다.');
 }
 
 processNames().catch(err => {

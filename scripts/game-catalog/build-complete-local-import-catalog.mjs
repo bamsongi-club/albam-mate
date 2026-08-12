@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
-import { closeSync, mkdirSync, openSync, readFileSync, writeFileSync, writeSync } from 'node:fs';
+import { closeSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync, writeSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
+import {
+    validateApprovedInputReport,
+    validatePositiveUniqueIds,
+} from './catalog-pipeline-utils.mjs';
 
 const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
 const CATALOG_FIELDS = [
@@ -38,7 +42,26 @@ const INSERT_CHUNK_SIZE = 5000;
 
 const options = parseOptions(process.argv.slice(2));
 mkdirSync(options.out, { recursive: true });
-build(options);
+try {
+    build(options);
+} catch (error) {
+    removeGeneratedOutputs(options.out);
+    writeFile(
+        resolve(options.out, 'quality-report.json'),
+        JSON.stringify({
+            schemaVersion: 1,
+            status: 'blocked_for_local_import',
+            inputs: {
+                base: { path: options.base, reportPath: options.baseReport },
+                source: { path: options.source, reportPath: options.sourceReport },
+            },
+            errors: [{ code: 'INPUT_QUALITY_GATE_FAILED', message: error.message }],
+            outputs: null,
+        }, null, 2) + '\n',
+    );
+    console.error(error.message);
+    process.exitCode = 1;
+}
 
 function build({
     base: basePath,
@@ -58,9 +81,27 @@ function build({
     const fixtureReport = fixtureReportBytes ? parseJson(fixtureReportBytes, fixtureReportPath) : null;
     const sourceRows = parseJson(sourceBytes, sourcePath);
     const sourceReport = parseJson(sourceReportBytes, sourceReportPath);
-    const sourceById = new Map(sourceRows.map((row) => [Number(row.bgg_id), row]));
-    const baseIds = new Set();
-    const sourceIds = new Set(sourceRows.map((row) => Number(row.bgg_id)));
+    const baseIdValues = validatePositiveUniqueIds(baseRows, 'base');
+    const sourceIdValues = validatePositiveUniqueIds(sourceRows, 'source');
+    validateApprovedInputReport({
+        report: baseReport,
+        inputBytes: baseBytes,
+        inputRows: baseRows.length,
+        inputKeys: ['approvedBase', 'games'],
+        datasetKind: 'approved-local-import-base',
+        grain: '1 row per bgg_id',
+    });
+    validateApprovedInputReport({
+        report: sourceReport,
+        inputBytes: sourceBytes,
+        inputRows: sourceRows.length,
+        inputKeys: ['bggXmlCatalog', 'source'],
+        datasetKind: 'bgg-xml-description-catalog',
+        grain: '1 row per bgg_id',
+    });
+    const sourceById = new Map(sourceRows.map((row, index) => [sourceIdValues[index], row]));
+    const baseIds = new Set(baseIdValues);
+    const sourceIds = new Set(sourceIdValues);
     const rows = [];
     let descriptionFromBgg = 0;
     let descriptionFallback = 0;
@@ -72,19 +113,12 @@ function build({
     let sourceMissingBaseRows = 0;
     let sourceOnlyRows = 0;
     let summaryLongerThanDetail = 0;
-    let duplicateBaseIdRows = 0;
+    const duplicateBaseIdRows = 0;
     const baseFieldNulls = Object.fromEntries(CATALOG_FIELDS.map((field) => [field, 0]));
     const sourceFieldNulls = Object.fromEntries(CATALOG_FIELDS.map((field) => [field, 0]));
 
     for (const baseRow of baseRows) {
         const bggId = Number(baseRow.bgg_id);
-        if (baseIds.has(bggId)) {
-            // 같은 bgg_id가 두 번 나오면 같은 청크의 UPSERT VALUES에도 중복으로 들어가
-            // "ON CONFLICT DO UPDATE command cannot affect row a second time"로 청크 전체가 실패한다.
-            duplicateBaseIdRows += 1;
-            continue;
-        }
-        baseIds.add(bggId);
         const sourceRow = sourceById.get(bggId);
         if (!sourceRow) {
             idMismatchRows += 1;
@@ -136,20 +170,26 @@ function build({
     const sqlPath = resolve(out, 'upsert-games.local-import-with-bgg-descriptions.sql');
     const reportPath = resolve(out, 'quality-report.json');
     const manifestPath = resolve(out, 'source-manifest.local-import.json');
-    const catalogSha256 = writeJsonArray(catalogPath, rows);
-    const sqlSha256 = writeUpsertSql(sqlPath, rows);
+    const status = baseRequiredNullRows === 0
+        && sourceOnlyRows === 0
+        && duplicateBaseIdRows === 0
+        ? 'ready_for_local_import'
+        : 'blocked_for_local_import';
+    let catalogSha256 = null;
+    let sqlSha256 = null;
+    if (status === 'ready_for_local_import') {
+        catalogSha256 = writeJsonArray(catalogPath, rows);
+        sqlSha256 = writeUpsertSql(sqlPath, rows);
+    } else {
+        removeGeneratedOutputs(out);
+    }
     const generatedAt = new Date().toISOString();
     const report = {
         schemaVersion: 1,
         datasetKind: 'production-local-import-with-bgg-xml-descriptions',
         grain: '1 row per bgg_id',
         batchId: 'complete-local-import-170k-bgg-descriptions-2026-08-10',
-        status: baseRequiredNullRows === 0
-            && sourceOnlyRows === 0
-            && duplicateBaseIdRows === 0
-            && baseReport.status === 'ready'
-            ? 'ready_for_local_import'
-            : 'blocked_for_local_import',
+        status,
         generatedAt,
         generator: {
             fileName: basename(process.argv[1]),
@@ -290,6 +330,12 @@ function build({
             },
         },
     };
+    if (status !== 'ready_for_local_import') {
+        report.outputs = null;
+        writeFile(reportPath, JSON.stringify(report, null, 2) + '\n');
+        process.exitCode = 1;
+        return;
+    }
     const manifest = {
         schemaVersion: 1,
         batchId: report.batchId,
@@ -453,4 +499,14 @@ function sha256(value) {
 
 function writeFile(path, value) {
     writeFileSync(path, value, 'utf8');
+}
+
+function removeGeneratedOutputs(out) {
+    for (const fileName of [
+        'service-catalog.local-import-with-bgg-descriptions.json',
+        'upsert-games.local-import-with-bgg-descriptions.sql',
+        'source-manifest.local-import.json',
+    ]) {
+        rmSync(resolve(out, fileName), { force: true });
+    }
 }

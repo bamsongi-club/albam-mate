@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
+import { escapeCsvField, parseCsvLine, resolveInputRoot } from './catalog-pipeline-utils.mjs';
 
-const DOWNLOAD_DIR = '/Users/han-yejin/Downloads/albam-mate-170k';
+const DOWNLOAD_DIR = resolveInputRoot(process.argv.slice(2));
 const ZIP_PATH = path.join(DOWNLOAD_DIR, '01-team-handoff-local.zip');
 const LOCALIZATION_DIR = path.join(DOWNLOAD_DIR, 'reference/02-localization');
 
@@ -81,29 +82,33 @@ async function processCategoriesAndThemes() {
     const originalCsvLines = fs.readFileSync(FINAL_CSV_PATH, 'utf-8').split('\n');
     if (originalCsvLines.length === 0) return;
 
-    const oldHeader = originalCsvLines[0];
-    const newHeader = `${oldHeader},categories_ko,themes_ko`;
-    const newCsvLines = [newHeader];
-
-    const escapeCsv = (val) => {
-        if (!val) return '""';
-        const str = String(val).replace(/"/g, '""');
-        return `"${str}"`;
-    };
+    const columns = parseCsvLine(originalCsvLines[0]);
+    let categoriesIndex = columns.indexOf('categories_ko');
+    let themesIndex = columns.indexOf('themes_ko');
+    if (categoriesIndex === -1) {
+        categoriesIndex = columns.length;
+        columns.push('categories_ko');
+    }
+    if (themesIndex === -1) {
+        themesIndex = columns.length;
+        columns.push('themes_ko');
+    }
+    const newCsvLines = [columns.join(',')];
 
     for (let i = 1; i < originalCsvLines.length; i++) {
-        const line = originalCsvLines[i].trim();
+        const line = originalCsvLines[i];
         if (!line) continue;
 
-        // bgg_id는 첫 번째 컬럼 (comma split전 첫 번째 토큰)
-        const firstCommaIndex = line.indexOf(',');
-        const gameIdStr = firstCommaIndex !== -1 ? line.substring(0, firstCommaIndex) : line;
-        const gameId = Number(gameIdStr);
+        const values = parseCsvLine(line);
+        const gameId = Number(values[0]);
 
         const mechs = gameMechMap.get(gameId) ? gameMechMap.get(gameId).join('; ') : '';
         const themes = gameThemeMap.get(gameId) ? gameThemeMap.get(gameId).join('; ') : '';
 
-        newCsvLines.push(`${line},${escapeCsv(mechs)},${escapeCsv(themes)}`);
+        while (values.length < columns.length) values.push('');
+        values[categoriesIndex] = mechs;
+        values[themesIndex] = themes;
+        newCsvLines.push(values.slice(0, columns.length).map(escapeCsvField).join(','));
     }
 
     fs.writeFileSync(FINAL_CSV_PATH, newCsvLines.join('\n'), 'utf-8');
@@ -115,14 +120,14 @@ async function processCategoriesAndThemes() {
     // 4-1. mechanisms_ko.csv
     const mechRows = ['bgg_id,name_en,name_ko'];
     for (const [id, info] of mechDict.entries()) {
-        mechRows.push(`${id},${escapeCsv(info.nameEn)},${escapeCsv(info.nameKo)}`);
+        mechRows.push(`${id},${escapeCsvField(info.nameEn)},${escapeCsvField(info.nameKo)}`);
     }
     fs.writeFileSync(path.join(DOWNLOAD_DIR, 'mechanisms_ko.csv'), mechRows.join('\n'), 'utf-8');
 
     // 4-2. themes_ko.csv
     const themeRows = ['bgg_id,name_en,name_ko'];
     for (const [id, info] of themeDict.entries()) {
-        themeRows.push(`${id},${escapeCsv(info.nameEn)},${escapeCsv(info.nameKo)}`);
+        themeRows.push(`${id},${escapeCsvField(info.nameEn)},${escapeCsvField(info.nameKo)}`);
     }
     fs.writeFileSync(path.join(DOWNLOAD_DIR, 'themes_ko.csv'), themeRows.join('\n'), 'utf-8');
 
@@ -145,4 +150,7 @@ async function processCategoriesAndThemes() {
     console.log('모든 메커니즘/테마 한글 데이터 추출 및 CSV 생성이 완료되었습니다!');
 }
 
-processCategoriesAndThemes().catch(console.error);
+processCategoriesAndThemes().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});

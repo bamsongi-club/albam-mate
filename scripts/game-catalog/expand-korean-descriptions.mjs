@@ -3,8 +3,9 @@ import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { translateDescription } from './korean-description-translator.mjs';
 import { validateDescription } from './korean-description-validator.mjs';
+import { commitZipArtifacts, resolveInputRoot } from './catalog-pipeline-utils.mjs';
 
-const DOWNLOAD_DIR = '/Users/han-yejin/Downloads/albam-mate-170k';
+const DOWNLOAD_DIR = resolveInputRoot(process.argv.slice(2));
 const ZIP_PATH = path.join(DOWNLOAD_DIR, '01-team-handoff-local.zip');
 const LOCALIZATION_DIR = path.join(DOWNLOAD_DIR, 'reference/02-localization');
 const SUPPLEMENT_DESC_SQL_PATH = path.join(LOCALIZATION_DIR, '05-upsert-korean-descriptions-supplement.sql');
@@ -48,17 +49,13 @@ async function processDescriptions() {
     sqlStatements.push('COMMIT;');
 
     console.log(`3. 한글 설명 보완 SQL 작성 중 (${successCount}건)...`);
-    fs.writeFileSync(SUPPLEMENT_DESC_SQL_PATH, sqlStatements.join('\n') + '\n', 'utf-8');
-    console.log(`SQL 저장 완료: ${SUPPLEMENT_DESC_SQL_PATH}`);
-
-    // 4. zip 파일에 05-upsert-korean-descriptions-supplement.sql 추가
-    console.log('4. team handoff zip 파일 갱신 중...');
-    const tmpDir = '/tmp/desc_zip_update/06-complete-local-import';
-    fs.mkdirSync(tmpDir, { recursive: true });
-    fs.copyFileSync(SUPPLEMENT_DESC_SQL_PATH, path.join(tmpDir, '05-upsert-korean-descriptions-supplement.sql'));
-
-    execSync(`cd /tmp/desc_zip_update && zip -u "${ZIP_PATH}" 06-complete-local-import/05-upsert-korean-descriptions-supplement.sql`);
-    fs.rmSync('/tmp/desc_zip_update', { recursive: true, force: true });
+    console.log('4. 설명 SQL과 ZIP을 함께 검증한 뒤 원자적으로 갱신 중...');
+    commitZipArtifacts({
+        zipPath: ZIP_PATH,
+        zipEntry: '06-complete-local-import/05-upsert-korean-descriptions-supplement.sql',
+        zipFileTarget: SUPPLEMENT_DESC_SQL_PATH,
+        files: [{ target: SUPPLEMENT_DESC_SQL_PATH, contents: sqlStatements.join('\n') + '\n' }],
+    });
     console.log('ZIP 파일 내 05-upsert-korean-descriptions-supplement.sql 반영 완료!');
 
     console.log('5. README.md 업데이트...');
