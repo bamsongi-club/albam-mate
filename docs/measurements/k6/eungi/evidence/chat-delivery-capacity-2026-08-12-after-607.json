@@ -405,6 +405,7 @@
           "K6_CHAT_PROFILE": "hot-room",
           "K6_LOGIN_LIMIT": 300,
           "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
           "K6_LOAD_HISTORY_RATES": "1,2,4,8"
         }
       },
@@ -503,6 +504,7 @@
           "K6_CHAT_PROFILE": "hot-room",
           "K6_LOGIN_LIMIT": 300,
           "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
           "K6_LOAD_FANOUT_SUBSCRIBER_STEPS": "2,4,8,16,24",
           "K6_LOAD_FANOUT_SEND_RATE": 2
         }
@@ -613,6 +615,7 @@
           "K6_CHAT_PROFILE": "hot-room",
           "K6_LOGIN_LIMIT": 300,
           "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
           "K6_LOAD_ROOM_STEPS": "1,2,4,8",
           "K6_LOAD_ROOM_SUBSCRIBERS": 3,
           "K6_LOAD_ROOM_SEND_RATE": 1
@@ -716,6 +719,7 @@
           "K6_CHAT_PROFILE": "hot-room",
           "K6_LOGIN_LIMIT": 300,
           "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
           "K6_LOAD_MIXED_SCALES": "1,2,3,4",
           "K6_LOAD_MIXED_SEND_RATE": 1,
           "K6_LOAD_MIXED_HISTORY_RATE": 2,
