@@ -281,6 +281,49 @@ test('실제 MyRoomQueryService의 Spring Data 정렬 방향 변경을 required�
     assert.deepEqual(result.changedPaths, [myRoomQueryRepositoryPath]);
 });
 
+test('import가 바뀌지 않은 JPA Converter autoApply 변경을 required로 분류한다', (t) => {
+    const { worktree, git } = createGitWorktree(t);
+    const converterPath =
+        'src/main/java/cloud/bamsongi/albammate/game/persistence/GameStatusConverter.java';
+    const sourcePath = path.join(worktree, converterPath);
+    const baseline = [
+        'package cloud.bamsongi.albammate.game.persistence;',
+        '',
+        'import jakarta.persistence.AttributeConverter;',
+        'import jakarta.persistence.Converter;',
+        '',
+        '@Converter(autoApply = false)',
+        'final class GameStatusConverter implements AttributeConverter<String, String> {',
+        '    public String convertToDatabaseColumn(String value) { return value; }',
+        '    public String convertToEntityAttribute(String value) { return value; }',
+        '}',
+        '',
+    ].join('\n');
+    fs.mkdirSync(path.dirname(sourcePath), { recursive: true });
+    fs.writeFileSync(sourcePath, baseline, 'utf8');
+    git('add', '--all');
+    const commit = git(
+        '-c',
+        'user.name=test',
+        '-c',
+        'user.email=test@example.com',
+        'commit',
+        '--quiet',
+        '--message=add-converter',
+    );
+    assert.equal(commit.status, 0, commit.stderr);
+
+    fs.writeFileSync(sourcePath, baseline.replace('autoApply = false', 'autoApply = true'), 'utf8');
+    const patch = git('diff', '--unified=0', 'HEAD', '--', converterPath);
+    assert.equal(patch.status, 0, patch.stderr);
+    assert.doesNotMatch(patch.stdout, /^[+-]import jakarta\.persistence/mu);
+
+    const result = classifyPostgresRequirementIn(worktree);
+    assert.equal(result.decision, POSTGRES_DECISIONS.REQUIRED);
+    assert.deepEqual(result.reasons.map((entry) => entry.code), ['jpa-converter']);
+    assert.deepEqual(result.changedPaths, [converterPath]);
+});
+
 test('실제 worktree의 추적·미추적 변경을 모아 분류한다', (t) => {
     const { worktree } = createGitWorktree(t);
     const dtoPath = 'src/main/java/cloud/bamsongi/albammate/room/dto/RoomSummary.java';

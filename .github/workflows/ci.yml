@@ -64,7 +64,7 @@ jobs:
           fi
 
           echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
-          git diff --name-only --no-renames "$base_sha" "$GITHUB_SHA" \
+          git diff --name-only --no-renames -z "$base_sha" "$GITHUB_SHA" \
             > "$RUNNER_TEMP/changed-paths.txt"
           node scripts/classify-ci-paths.mjs \
             --paths-file "$RUNNER_TEMP/changed-paths.txt" \

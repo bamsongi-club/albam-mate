@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -115,15 +116,36 @@ export function changedProductionPackagesIn(worktreePath, base = null) {
             continue;
         }
         const absolutePath = path.resolve(worktree, normalizedPath);
-        if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) {
-            continue;
+        const sources = [];
+        if (fs.existsSync(absolutePath) && fs.statSync(absolutePath).isFile()) {
+            sources.push({ location: 'working tree', contents: fs.readFileSync(absolutePath, 'utf8') });
         }
-        const contents = fs.readFileSync(absolutePath, 'utf8');
-        const declaration = PACKAGE_DECLARATION.exec(contents);
-        if (!declaration) {
-            throw new Error(`변경 Java 파일에서 package 선언을 찾을 수 없습니다: ${normalizedPath}`);
+
+        const baseRef = base ?? 'HEAD';
+        const baseBlob = spawnSync('git', ['-C', worktree, 'show', `${baseRef}:${normalizedPath}`], {
+            encoding: 'utf8',
+            maxBuffer: 32 * 1024 * 1024,
+            windowsHide: true,
+        });
+        if (baseBlob.error) {
+            throw baseBlob.error;
         }
-        packageNames.add(declaration[1]);
+        if (baseBlob.status === 0) {
+            sources.push({ location: baseRef, contents: baseBlob.stdout });
+        }
+        if (sources.length === 0) {
+            throw new Error(`변경 Java 파일을 working tree와 ${baseRef}에서 찾을 수 없습니다: ${normalizedPath}`);
+        }
+
+        for (const source of sources) {
+            const declaration = PACKAGE_DECLARATION.exec(source.contents);
+            if (!declaration) {
+                throw new Error(
+                    `변경 Java 파일의 ${source.location} 내용에서 package 선언을 찾을 수 없습니다: ${normalizedPath}`,
+                );
+            }
+            packageNames.add(declaration[1]);
+        }
     }
     return [...packageNames].sort();
 }

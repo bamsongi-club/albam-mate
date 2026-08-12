@@ -29,7 +29,7 @@ const REQUIRED_JAVA_SIGNALS = [
     {
         code: 'jpa-mapping',
         pattern:
-            /@(?:Entity|Table|Column|JoinColumn|JoinTable|ManyToOne|OneToMany|OneToOne|ManyToMany|Embedded|Embeddable|Enumerated|Convert|GeneratedValue|Version|Index|UniqueConstraint)\b|jakarta\.persistence\./u,
+            /@(?:Entity|Table|Column|JoinColumn|JoinTable|ManyToOne|OneToMany|OneToOne|ManyToMany|Embedded|Embeddable|Enumerated|Convert|Converter|GeneratedValue|Version|Index|UniqueConstraint)\b|jakarta\.persistence\./u,
         message: 'JPA 매핑 또는 데이터베이스 제약 변경 신호가 있습니다.',
     },
     {
@@ -63,11 +63,14 @@ const REQUIRED_JAVA_SIGNALS = [
     },
 ];
 
+const JPA_CONVERTER_CONTEXT =
+    /@Converter\b|jakarta\.persistence\.AttributeConverter\b|implements\s+AttributeConverter\s*</u;
+
 const REVIEW_JAVA_CONTEXT =
     /(?:\.repository\.|JpaRepository\b|CrudRepository\b|EntityManager\b|JdbcTemplate\b|DataSource\b|@Transactional\b|TransactionTemplate\b|org\.springframework\.data\.domain\.(?:PageRequest|Pageable|Sort)\b|org\.springframework\.(?:session|data\.redis)|RedisTemplate\b|WebSocket\b|SimpMessagingTemplate\b)/u;
 
 function normalizePath(filePath) {
-    return filePath.trim().replaceAll('\\', '/').replace(/^\.\//u, '');
+    return filePath.replaceAll('\\', '/').replace(/^\.\//u, '');
 }
 
 function reason(code, filePath, message) {
@@ -107,6 +110,16 @@ function classifyProductionJava(change) {
     }
 
     const diffText = changedText(change.patch) || (change.untracked ? change.contents : '');
+    if (JPA_CONVERTER_CONTEXT.test(change.contents)) {
+        return {
+            decision: POSTGRES_DECISIONS.REQUIRED,
+            reason: reason(
+                'jpa-converter',
+                filePath,
+                'JPA AttributeConverter 변경은 저장 값 변환 의미를 포함합니다.',
+            ),
+        };
+    }
     for (const signal of REQUIRED_JAVA_SIGNALS) {
         if (signal.pattern.test(diffText)) {
             return {

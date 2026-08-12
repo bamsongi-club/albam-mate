@@ -7,6 +7,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
+    changedProductionPackagesIn,
     coverageFromJacocoXml,
     coverageRulesFromBuildFile,
     verifyChangedH2Coverage,
@@ -109,6 +110,57 @@ test('전체 branch 또는 line 최소선 미달은 변경 패키지와 무관�
     assert.equal(result.problems.length, 2);
     assert.match(result.problems[0], /전체 BRANCH/u);
     assert.match(result.problems[1], /전체 LINE/u);
+});
+
+function createGitWorktree(t) {
+    const worktree = fs.mkdtempSync(path.join(os.tmpdir(), 'changed-h2-packages-'));
+    t.after(() => fs.rmSync(worktree, { recursive: true, force: true }));
+    const git = (...args) =>
+        spawnSync('git', ['-C', worktree, ...args], { encoding: 'utf8', windowsHide: true });
+    git('init', '--quiet');
+    return { worktree, git };
+}
+
+function commitAll(git, message) {
+    git('add', '--all');
+    const result = git(
+        '-c',
+        'user.name=test',
+        '-c',
+        'user.email=test@example.com',
+        'commit',
+        '--quiet',
+        '--message',
+        message,
+    );
+    assert.equal(result.status, 0, result.stderr);
+}
+
+test('삭제된 생산 Java 파일은 base blob의 패키지를 게이트한다', (t) => {
+    const { worktree, git } = createGitWorktree(t);
+    const sourcePath = path.join(worktree, 'src/main/java/example/database/LegacyEntity.java');
+    fs.mkdirSync(path.dirname(sourcePath), { recursive: true });
+    fs.writeFileSync(sourcePath, 'package example.database;\nfinal class LegacyEntity {}\n', 'utf8');
+    commitAll(git, 'baseline');
+
+    fs.rmSync(sourcePath);
+
+    assert.deepEqual(changedProductionPackagesIn(worktree, 'HEAD'), ['example.database']);
+});
+
+test('package 선언 이동은 base와 working tree 패키지를 모두 게이트한다', (t) => {
+    const { worktree, git } = createGitWorktree(t);
+    const sourcePath = path.join(worktree, 'src/main/java/example/Feature.java');
+    fs.mkdirSync(path.dirname(sourcePath), { recursive: true });
+    fs.writeFileSync(sourcePath, 'package example.legacy;\nfinal class Feature {}\n', 'utf8');
+    commitAll(git, 'baseline');
+
+    fs.writeFileSync(sourcePath, 'package example.current;\nfinal class Feature {}\n', 'utf8');
+
+    assert.deepEqual(changedProductionPackagesIn(worktree, 'HEAD'), [
+        'example.current',
+        'example.legacy',
+    ]);
 });
 
 test('CLI는 git diff에서 변경 Java 패키지를 읽어 H2 게이트를 적용한다', (t) => {

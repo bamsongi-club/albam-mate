@@ -6,10 +6,11 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { classifyCiPaths } from "./classify-ci-paths.mjs";
+import { classifyCiPaths, readNulDelimitedPaths } from "./classify-ci-paths.mjs";
 import { POSTGRES_DECISIONS } from "./classify-postgres-requirement.mjs";
 
 const scriptPath = fileURLToPath(new URL("./classify-ci-paths.mjs", import.meta.url));
+const workflowPath = fileURLToPath(new URL("../.github/workflows/ci.yml", import.meta.url));
 
 const noBackend = (frontend) => ({
   backend: false,
@@ -124,9 +125,28 @@ function createGitWorktree(t) {
     "utf8",
   );
   const pathsFile = path.join(worktree, "changed-paths.txt");
-  fs.writeFileSync(pathsFile, `${dtoPath}\n`, "utf8");
+  fs.writeFileSync(pathsFile, `${dtoPath}\0`, "utf8");
   return { worktree, pathsFile };
 }
+
+test("NUL 경로 파일은 비ASCII와 개행을 포함한 경로를 원문 그대로 읽는다", (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "ci-nul-paths-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const pathsFile = path.join(directory, "changed-paths.bin");
+  const paths = [
+    "src/main/java/example/한글.java",
+    "src/main/java/example/줄바꿈\n경로.java",
+  ];
+  fs.writeFileSync(pathsFile, `${paths.join("\0")}\0`, "utf8");
+
+  assert.deepEqual(readNulDelimitedPaths(pathsFile), paths);
+});
+
+test("workflow는 git diff 경로를 NUL 구분으로 전달한다", () => {
+  const workflow = fs.readFileSync(workflowPath, "utf8");
+
+  assert.match(workflow, /git diff --name-only --no-renames -z /u);
+});
 
 function parseOutputs(stdout) {
   return Object.fromEntries(

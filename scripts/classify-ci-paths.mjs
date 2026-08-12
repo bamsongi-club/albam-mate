@@ -18,7 +18,15 @@ const DOCUMENTATION_ONLY_PATTERNS = [
 ];
 
 function normalizePath(filePath) {
-  return filePath.trim().replaceAll("\\", "/").replace(/^\.\//, "");
+  return filePath.replaceAll("\\", "/").replace(/^\.\//, "");
+}
+
+export function readNulDelimitedPaths(pathsFile) {
+  const contents = fs.readFileSync(pathsFile, "utf8");
+  if (contents !== "" && !contents.endsWith("\0")) {
+    throw new Error("--paths-file은 NUL로 끝나는 git diff -z 출력이어야 합니다.");
+  }
+  return contents.split("\0").filter(Boolean);
 }
 
 function isDocumentationOnly(filePath) {
@@ -104,7 +112,7 @@ function parseArguments(args) {
 
 function main() {
   const { forceAll, pathsFile, base, worktree } = parseArguments(process.argv.slice(2));
-  const paths = pathsFile ? fs.readFileSync(pathsFile, "utf8").split(/\r?\n/) : [];
+  const paths = pathsFile ? readNulDelimitedPaths(pathsFile) : [];
   const preliminary = classifyCiPaths(paths, { forceAll });
   let postgresClassification = fallbackClassification(
     "classifier-not-run",
