@@ -11,6 +11,7 @@
 | Jiho | 인증·알림, Redis 세션 진단 | [Jiho k6 README](k6/jiho/README.md) | [Jiho 측정 문서](../docs/measurements/k6/jiho/README.md) |
 | Eungi | 채팅·WebSocket | [Eungi k6 README](k6/eungi/README.md) | [Eungi 측정 문서](../docs/measurements/k6/eungi/README.md) |
 | Yejin | 게임 키워드 검색·혼합 조회 | [Yejin k6 README](k6/yejin/README.md) | [Yejin 측정 문서](../docs/measurements/k6/yejin/README.md) |
+| Jiwon | ROOM 핵심 HTTP 동시성·상세 조회 | [Jiwon k6 README](k6/jiwon/README.md) | 아직 결과 문서 없음 |
 
 ## 디렉터리 배치
 
