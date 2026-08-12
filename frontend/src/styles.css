@@ -574,6 +574,13 @@ img.profile-avatar { object-fit: cover; }
 .filter-close:hover { background: var(--line); }
 /* 선택지가 많아 한 칼럼에 세우면 조건 목록이 길어진다. 패널 전체 너비를 쓰고 가로로 흘린다. */
 .mechanism-group { grid-column: 1 / -1; }
+.filter-match-heading { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 9px; }
+.filter-match-title { color: var(--brown2); font-size: 12.5px; font-weight: 800; }
+.filter-match-control { align-items: center; color: var(--sub); display: inline-flex; font-size: 12.5px; font-weight: 700; gap: 8px; }
+.filter-match-switch { background: var(--line); border-radius: 999px; flex: none; height: 24px; padding: 2px; width: 42px; }
+.filter-match-switch > span { background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(40, 25, 10, 0.2); display: block; height: 20px; transition: transform 0.15s ease; width: 20px; }
+.filter-match-switch.any > span { transform: translateX(18px); }
+.filter-match-switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .mechanism-featured-list { display: flex; flex-wrap: wrap; gap: 2px 20px; }
 .mechanism-featured, .mechanism-option { align-items: center; display: flex; gap: 5px; }
 /* 말풍선은 body portal로 띄워 스크롤 목록의 overflow에 잘리지 않게 한다. */

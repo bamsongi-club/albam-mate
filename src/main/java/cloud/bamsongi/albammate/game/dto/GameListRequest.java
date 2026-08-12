@@ -53,6 +53,8 @@ public class GameListRequest {
 
 	private List<ThemeMatch> themeMatch;
 
+	private List<MechanismMatch> mechanismMatch;
+
 	private List<@Min(1) Integer> recommendedPlayerCount;
 
 	private List<@Min(1) Integer> bestPlayerCount;
@@ -192,6 +194,14 @@ public class GameListRequest {
 		this.themeMatch = themeMatch;
 	}
 
+	public MechanismMatch getMechanismMatch() {
+		return mechanismMatch == null || mechanismMatch.isEmpty() ? MechanismMatch.ANY : mechanismMatch.getFirst();
+	}
+
+	public void setMechanismMatch(List<MechanismMatch> mechanismMatch) {
+		this.mechanismMatch = mechanismMatch;
+	}
+
 	public List<Integer> getRecommendedPlayerCount() {
 		return recommendedPlayerCount;
 	}
@@ -229,6 +239,10 @@ public class GameListRequest {
 
 	@AssertTrue(message = "themeMatch는 한 번만 전달할 수 있습니다.") public boolean isThemeMatchSingleValue() {
 		return themeMatch == null || (themeMatch.size() == 1 && themeMatch.getFirst() != null);
+	}
+
+	@AssertTrue(message = "mechanismMatch는 한 번만 전달할 수 있습니다.") public boolean isMechanismMatchSingleValue() {
+		return mechanismMatch == null || (mechanismMatch.size() == 1 && mechanismMatch.getFirst() != null);
 	}
 
 	public int getPage() {

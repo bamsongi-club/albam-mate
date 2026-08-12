@@ -8,8 +8,7 @@ import {
   EXCLUSIVE_PLAYER_COUNT_OPTIONS,
   PLAYED_FILTER_OPTIONS,
   PLAY_TIME_LABEL,
-  PREFERRED_PLAYER_COUNT_OPTIONS,
-  THEME_MATCH_OPTIONS
+  PREFERRED_PLAYER_COUNT_OPTIONS
 } from './constants';
 import { complexityBandOf, exclusivePlayerCountPatch, gameFilterChips } from './filterLogic';
 import { useGameMechanisms, useGameOptions } from './hooks';
@@ -185,6 +184,32 @@ function advancedMechanisms(options, keyword) {
     .sort((left, right) => left.nameKo.localeCompare(right.nameKo, 'ko'));
 }
 
+function MatchModeSwitch({ label, value, onChange }) {
+  const isAny = value !== 'ALL';
+  const descriptionId = label + '-match-description';
+  return (
+    <div className="filter-match-heading">
+      <span className="filter-match-title" aria-hidden="true">{label}</span>
+      <span className="filter-match-control">
+        <span>모두 포함</span>
+        <button
+          type="button"
+          className={'filter-match-switch' + (isAny ? ' any' : '')}
+          role="switch"
+          aria-label={label + ' 포함 방식'}
+          aria-describedby={descriptionId}
+          aria-checked={isAny}
+          onClick={() => onChange(isAny ? 'ALL' : '')}
+        >
+          <span aria-hidden="true" />
+        </button>
+        <span>하나라도 포함</span>
+      </span>
+      <span id={descriptionId} className="sr-only">켜짐은 하나라도 포함, 꺼짐은 모두 포함</span>
+    </div>
+  );
+}
+
 function MechanismCheckOption({ option, selected, onToggle }) {
   const description = typeof option.descriptionKo === 'string' ? option.descriptionKo.trim() : '';
   return (
@@ -203,12 +228,13 @@ function MechanismCheckOption({ option, selected, onToggle }) {
 }
 
 // 대표 8개는 항상 보여 주고 나머지는 접힌 고급 목록에 둔다. 고급 목록은 모바일에서 전체 화면으로 열린다.
-function MechanismFilterGroup({ options, selected, onToggle }) {
+function MechanismFilterGroup({ options, selected, onToggle, match, onMatchChange }) {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [keyword, setKeyword] = useState('');
   return (
     <fieldset className="filter-group mechanism-group">
-      <legend>메커니즘</legend>
+      <legend className="sr-only">메커니즘</legend>
+      <MatchModeSwitch label="메커니즘" value={match} onChange={onMatchChange} />
       <div className="mechanism-featured-list">
         {featuredMechanisms(options).map((option) => (
           <div className="mechanism-featured" key={option.code}>
@@ -267,7 +293,7 @@ function advancedThemeOptions(options, keyword) {
 }
 
 // 대표 10개는 항상 보여 주고 나머지는 접힌 목록에 둔다. 모바일에서는 메커니즘처럼 전체 화면으로 열린다.
-function ThemeFilterGroup({ options, selected, onToggle, children }) {
+function ThemeFilterGroup({ options, selected, onToggle, match, onMatchChange }) {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [keyword, setKeyword] = useState('');
   const moreButtonRef = useRef(null);
@@ -279,7 +305,8 @@ function ThemeFilterGroup({ options, selected, onToggle, children }) {
   };
   return (
     <fieldset className="filter-group filter-group-wide mechanism-group">
-      <legend>테마</legend>
+      <legend className="sr-only">테마</legend>
+      <MatchModeSwitch label="테마" value={match} onChange={onMatchChange} />
       <div className="mechanism-featured-list">
         {featuredThemeOptions(options).map((option) => (
           <label className="filter-option" key={option.value}>
@@ -319,7 +346,6 @@ function ThemeFilterGroup({ options, selected, onToggle, children }) {
           <button type="button" className="filter-close" onClick={closeAdvanced}>테마 목록 닫기</button>
         </div>
       )}
-      {children}
     </fieldset>
   );
 }
@@ -355,9 +381,10 @@ export function GameFilters({ filters, onChange, searchSlot }) {
   const toggleAgeBand = (value, checked) => update({
     ageBand: checked ? [...filters.ageBand, value] : filters.ageBand.filter((selected) => selected !== value)
   });
-  const toggleMechanism = (code, checked) => update({
-    mechanism: checked ? [...filters.mechanism, code] : filters.mechanism.filter((selected) => selected !== code)
-  });
+  const toggleMatchable = (key, matchKey) => (value, checked) => {
+    const selected = checked ? [...filters[key], value] : filters[key].filter((candidate) => candidate !== value);
+    update({ [key]: selected, ...(selected.length ? null : { [matchKey]: '' }) });
+  };
   return (
     <FilterPanel chips={gameFilterChips(filters, onChange, mechanismOptions, categoryOptions, themeOptions)} onReset={() => onChange(EMPTY_GAME_FILTERS)} searchSlot={searchSlot}>
       <FilterRadioGroup name="game-filter-played" label="해 본 게임" value={filters.playedFilter}
@@ -400,27 +427,12 @@ export function GameFilters({ filters, onChange, searchSlot }) {
         <CustomPlayerCountInput label="베스트 인원" values={filters.bestPlayerCount}
           onAdd={(value) => update({ bestPlayerCount: [...filters.bestPlayerCount, value] })} />
       </FilterMultiCheckGroup>
-      {/* 테마를 하나만 고르면 포함 방식이 결과를 바꾸지 않으므로 둘 이상일 때만 보여 준다. */}
       <ThemeFilterGroup options={themeOptions.map((option) => ({ value: option.code, label: option.nameKo }))}
-        selected={filters.theme} onToggle={toggleIn('theme')}>
-        {filters.theme.length > 1 && (
-          <>
-            <hr className="filter-group-divider" />
-            {THEME_MATCH_OPTIONS.map((option) => (
-              <label className="filter-option" key={option.value || 'any'}>
-                <input
-                  type="radio"
-                  name="game-filter-theme-match"
-                  checked={(filters.themeMatch || '') === option.value}
-                  onChange={() => update({ themeMatch: option.value })}
-                />
-                {option.label}
-              </label>
-            ))}
-          </>
-        )}
-      </ThemeFilterGroup>
-      <MechanismFilterGroup options={mechanismOptions} selected={filters.mechanism} onToggle={toggleMechanism} />
+        selected={filters.theme} onToggle={toggleMatchable('theme', 'themeMatch')}
+        match={filters.themeMatch} onMatchChange={(themeMatch) => update({ themeMatch })} />
+      <MechanismFilterGroup options={mechanismOptions} selected={filters.mechanism}
+        onToggle={toggleMatchable('mechanism', 'mechanismMatch')}
+        match={filters.mechanismMatch} onMatchChange={(mechanismMatch) => update({ mechanismMatch })} />
     </FilterPanel>
   );
 }
