@@ -91,7 +91,7 @@ BGG 값과 수집 자료의 값을 모두 출처가 없는 팀 작성값으로 �
 
 ## 검증
 
-- 상태: 미검증
+- 상태: 검증됨
 - 근거:
     - 구현:
         - `scripts/game-catalog/prepare-game-catalog.mjs`는 검증을 통과한 입력만 트랜잭션 단위 `UPSERT` SQL로 변환한다.
@@ -102,7 +102,6 @@ BGG 값과 수집 자료의 값을 모두 출처가 없는 팀 작성값으로 �
         - [입력 검수 기록](../../game-catalog/2026-07-24-input-review.md)은 2026-07-28 승인·검수자, 입력 2,000행·BGG 기준 179,329행·산출물 3개의 SHA-256, `bgg_id`·영문명 2,000/2,000 일치, 중복·필수값 누락·확장 포함 0건과 수용한 품질 경고 3건을 남긴다.
         - `prepare-game-catalog.test.mjs`는 manifest 미승인, `TODO` 출처, 배치 내부 `bgg_id` 중복, 필수값·선택 규칙 누락과 미승인 품질 경고에서 적재 산출물을 만들지 않음을 확인한다.
         - `GameCatalogImportPostgresTest`는 PostgreSQL에서 재적재 시 내부 `id` 유지, 입력에서 빠진 게임 보존과 한 행 실패 시 배치 전체 롤백을 확인한다.
-- 미검증:
-    - 반복 설명과 판본 후보 22그룹은 승인된 품질 한계이며 BGG 상세 데이터 연동 시 재검수한다.
+        - [2026-08-03 검색 수치 품질 보고서](../../game-catalog/2026-08-03-p1-search-numeric-fields-quality-report.md)는 [2026-08-01 BGG 상세 데이터 연동](../../game-catalog/2026-08-01-bgg-detail-acquisition.md) 뒤 재검수에서 `bgg_id`·영문명 일치와 중복·필수값 위반 0건을 다시 확인하고, 판본 충돌 후보를 33그룹으로 재집계해 승인된 품질 한계로 유지한다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.
