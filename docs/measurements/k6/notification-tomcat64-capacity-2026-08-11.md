@@ -8,6 +8,7 @@ Tomcat 최대 thread를 App1·App2 모두 `200`에서 `64`로 제한한 뒤 알�
 - Campaign 상태: `INVALID`
 - 문서 상태: `current`
 - 선행 기준선: [인증·알림 AWS 용량 측정](auth-notification-capacity-2026-08-11.md)
+- 후속 실험: [t4g.small 알림 혼합 부하 단일 측정](notification-t4gsmall-capacity-2026-08-12.md)
 - 근거 식별자: [campaign evidence](evidence/notification-tomcat64-capacity-2026-08-11.json)
 - 대체 관계: 선행 기준선의 후속 실험이지만, 유효 Run을 얻지 못해 기존 결론을 대체하지 않는다.
 

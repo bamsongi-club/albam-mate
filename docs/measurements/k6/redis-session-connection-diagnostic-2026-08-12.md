@@ -7,6 +7,7 @@
 - Campaign ID: `redis-session-diagnostic-20260812`
 - 캠페인 상태: `completed`
 - 완료 범위: 수정 전 공개·인증 진단, Issue #607 후보 인증 A/B, mixed 0.5× 후속 검증
+- 선행 실험: [t4g.small 알림 혼합 부하 단일 측정](notification-t4gsmall-capacity-2026-08-12.md)
 - 제품 변경: [PR #638](https://github.com/bamsongi-club/albam-mate/pull/638) 머지 결과를 사용했으며 이번 측정 작업에서 제품 코드를 추가 수정하지 않았다.
 - 근거 식별자: [비식별 evidence](evidence/redis-session-connection-diagnostic-2026-08-12.json)
 
@@ -36,7 +37,7 @@
 | PostgreSQL image | `sha256:a02db8cac496f15b094798a38254f14d6e00741f709360e5e00bb6668ea31636` |
 | Redis image | `sha256:bd4a0d37e7cd830117ffec9329052b4a1887afa060c265e1768f82b177ff6f43` (Redis 8.4.5) |
 
-두 Run 모두 시작 전에 App을 중지하고 PostgreSQL `public` schema와 Redis DB를 초기화한 뒤 Flyway와 같은 fixture를 다시 적용했다. App1·App2의 release SHA, image digest, OCI revision과 실제 1GiB memory limit가 일치하지 않으면 초기화 전에 중단하도록 했다.
+각 반영 Run은 시작 전에 App을 중지하고 PostgreSQL `public` schema와 Redis DB를 초기화한 뒤 Flyway와 같은 fixture를 다시 적용했다. App1·App2의 release SHA, image digest, OCI revision과 실제 1GiB memory limit가 일치하지 않으면 초기화 전에 중단하도록 했다.
 
 ## 진단 결과
 
