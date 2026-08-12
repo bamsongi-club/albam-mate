@@ -5,7 +5,7 @@
 이 문서는 `t4g.micro` App 2대·PostgreSQL 1대·Redis 1대와 `c7g.large` k6 발생기로 채팅 전송·전달 경계를 측정한 실행 결과다. 운영 트래픽 통계나 운영 SLO가 아니라 임시 AWS 스택에서 축별 한계점을 찾은 결과다.
 
 - Campaign ID: `chat-delivery-20260811T172123KST`
-- 캠페인 상태: `completed`
+- 캠페인 상태: `completed-with-limitations`
 - 문서 상태: `superseded`
 - 문서 인덱스: [k6 측정 문서](README.md)
 - 근거 식별자: [campaign manifest](evidence/chat-delivery-capacity-2026-08-11.json)

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "campaignId": "chat-delivery-20260811T172123KST",
-  "campaignStatus": "completed",
+  "campaignStatus": "completed-with-limitations",
   "documentStatus": "superseded",
   "measurementWindow": {
     "kind": "sequential-run-window",
@@ -15,8 +15,8 @@
   },
   "lineage": {
     "supersedes": [],
-    "supersededBy": null,
-    "nextCampaign": null
+    "supersededBy": "chat-delivery-20260812T042245KST",
+    "nextCampaign": "chat-delivery-20260812T042245KST"
   },
   "sources": {
     "application": {

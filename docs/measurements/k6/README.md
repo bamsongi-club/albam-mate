@@ -29,7 +29,7 @@ docs/
 | Campaign ID | 측정 구간 | 상태 | 보고서 | 판단서 | 근거 manifest | 대체 관계 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `auth-notification-20260811T021040KST` | 2026-08-11 02:10:40~10:36:50 KST | `completed-with-limitations` | [인증·알림 AWS 용량 측정](auth-notification-capacity-2026-08-11.md) | [알림 broker 판단](notification-broker-decision-2026-08-11.md) | [campaign manifest](evidence/auth-notification-capacity-2026-08-11.json) | 최초 캠페인, 후속 없음 |
-| `chat-delivery-20260811T172123KST` | 2026-08-11 17:18:50~18:36:49 KST | `completed` | [채팅 전송·전달 AWS 용량 측정](chat-delivery-capacity-2026-08-11.md) | 없음 | [campaign manifest](evidence/chat-delivery-capacity-2026-08-11.json) | superseded by `chat-delivery-20260812T042245KST` |
+| `chat-delivery-20260811T172123KST` | 2026-08-11 17:18:50~18:36:49 KST | `completed-with-limitations` | [채팅 전송·전달 AWS 용량 측정](chat-delivery-capacity-2026-08-11.md) | 없음 | [campaign manifest](evidence/chat-delivery-capacity-2026-08-11.json) | superseded by `chat-delivery-20260812T042245KST` |
 | `chat-delivery-20260812T042245KST` | 2026-08-12 04:22:45~05:37:34 KST | `completed-with-limitations` | [채팅 전송·전달 AWS 용량 재측정](chat-delivery-capacity-2026-08-12.md) | 없음 | [campaign manifest](evidence/chat-delivery-capacity-2026-08-12.json) | `chat-delivery-20260811T172123KST`를 대체, 후속 없음 |
 
 `completed-with-limitations`는 실행과 보고가 끝났지만 유효한 정상·실패 경계를 모두 확정하지 못했거나 원자료 접근 범위가 제한된 상태다. `completed`는 계획한 Run이 모두 유효하게 끝나 축별 경계를 확정한 상태다. `current` 판단서는 후속 문서가 `supersedes`로 대체하기 전까지 현재 판단으로 읽는다.

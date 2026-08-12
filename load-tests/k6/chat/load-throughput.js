@@ -55,7 +55,7 @@ export function loadThroughputSend(data) {
 	const sequence = execution.scenario.iterationInTest;
 	const roomIds = throughputRoomIds();
 	const roomId = roomIds[sequence % roomIds.length];
-	const user = roomUserForVu(data.users, roomId, sequence + 1);
+	const user = roomUserForVu(data.users, roomId, throughputSenderForSequence(sequence, roomIds.length));
 	recordLoadSend(postNewMessage(user, data.runId, 'load-throughput', sequence), stage);
 }
 
@@ -123,9 +123,32 @@ function loadSubscriberHoldMilliseconds(stepCount = LOAD_SEND_RATES.length) {
 
 /** 전송 처리량이 쓰는 방. fixture 방이 더 많아도 고정 수만 쓴다. */
 function throughputRoomIds() {
-	return PROFILE_ROOM_IDS.slice(0, Math.min(LOAD_THROUGHPUT_ROOMS, PROFILE_ROOM_IDS.length));
+	return PROFILE_ROOM_IDS.slice(0, LOAD_THROUGHPUT_ROOMS);
+}
+
+/** 방 순환 횟수마다 발신자만 한 칸 이동해 각 방의 계정을 고르게 쓴다. */
+export function throughputSenderForSequence(sequence, roomCount) {
+	return Math.floor(sequence / roomCount) + 1;
+}
+
+/** fixture가 작으면 처리량 축 자체가 바뀌므로 시작 전에 거부한다. */
+export function validateThroughputFixture() {
+	if (PROFILE_ROOM_IDS.length < LOAD_THROUGHPUT_ROOMS) {
+		throw new Error(
+			`load-throughput needs at least ${LOAD_THROUGHPUT_ROOMS} rooms in the fixture but the profile has ${PROFILE_ROOM_IDS.length}`,
+		);
+	}
+	for (const roomId of throughputRoomIds()) {
+		const users = usersForRoom(FIXTURE_USERS, roomId);
+		if (users.length < LOAD_SUBSCRIBERS_PER_ROOM) {
+			throw new Error(
+				`load-throughput needs at least ${LOAD_SUBSCRIBERS_PER_ROOM} users in room ${roomId} but the fixture has ${users.length}`,
+			);
+		}
+	}
 }
 
 validateCommonPrerequisites();
+validateThroughputFixture();
 
 export const options = loadThroughputOptions();

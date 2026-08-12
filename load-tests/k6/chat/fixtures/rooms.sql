@@ -26,7 +26,7 @@ CREATE TEMP TABLE chat_fixture_parameters (
     accounts_per_room integer NOT NULL
         CONSTRAINT chat_fixture_accounts_range CHECK (accounts_per_room BETWEEN 7 AND 11),
     messages_per_room integer NOT NULL
-        CONSTRAINT chat_fixture_messages_range CHECK (messages_per_room BETWEEN 0 AND 5000),
+        CONSTRAINT chat_fixture_messages_range CHECK (messages_per_room BETWEEN 2 AND 5000),
     password_hash text NOT NULL
         CONSTRAINT chat_fixture_password_hash_prefix CHECK (password_hash LIKE '{bcrypt}$%')
 ) ON COMMIT DROP;
@@ -129,7 +129,10 @@ COMMIT;
 WITH seeded_rooms AS (
     SELECT id AS room_id, host_user_id, dense_rank() OVER (ORDER BY id) AS room_number
     FROM rooms
-    WHERE title LIKE format('k6-%s-room-%%', :'run_id')
+    WHERE title LIKE format(
+        'k6-%s-room-%%',
+        replace(replace(replace(:'run_id', E'\\', E'\\\\'), '%', E'\\%'), '_', E'\\_')
+    ) ESCAPE E'\\'
 ), members AS (
     SELECT room.room_id, room.room_number, 0 AS ordinal, account.email
     FROM seeded_rooms room

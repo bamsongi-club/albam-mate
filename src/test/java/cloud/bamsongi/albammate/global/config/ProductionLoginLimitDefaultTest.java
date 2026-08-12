@@ -13,6 +13,7 @@ import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.StandardEnvironment;
+import org.springframework.core.env.SystemEnvironmentPropertySource;
 import org.springframework.core.io.ClassPathResource;
 
 /**
@@ -34,7 +35,7 @@ class ProductionLoginLimitDefaultTest {
 	void 로그인_제한_환경변수를_주면_그_값을_따른다() throws IOException {
 		StandardEnvironment environment = 운영_프로파일_환경();
 		environment.getPropertySources()
-			.addFirst(new MapPropertySource("override", Map.of("ALBAM_MATE_LOGIN_LIMIT", "300")));
+			.addFirst(new SystemEnvironmentPropertySource("override", Map.of("ALBAM_MATE_LOGIN_LIMIT", "300")));
 
 		AuthenticationRequestProtectionProperties properties = 인증_요청_설정을_바인딩한다(environment);
 

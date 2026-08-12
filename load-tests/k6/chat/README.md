@@ -85,7 +85,7 @@
 | `run_id` | 둘 다 | 실행 격리 키. 소문자·숫자·`._-`만 쓴다 |
 | `room_count` | rooms | 만들 방 수 (1~100) |
 | `accounts_per_room` | rooms | 방마다 만들 계정 수 (7~11). 1명은 호스트, 나머지는 참가자 |
-| `messages_per_room` | rooms | 방마다 넣을 채팅 메시지 수 (0~5000) |
+| `messages_per_room` | rooms | 방마다 넣을 채팅 메시지 수 (2~5000) |
 | `password_hash` | rooms | 계정 비밀번호의 bcrypt 해시. `{bcrypt}` 접두사가 필요하다 |
 | `password` | rooms | 위 해시의 평문. 마지막 `SELECT`가 내보내는 fixture에만 쓴다 |
 
@@ -97,7 +97,7 @@
 
 호스트는 `participations` 행을 갖지 않고 `active_participant_count`에도 들어가지 않는다. `Room.create`가 0에서 시작해 참가자마다 증가시키는 규칙과 같다.
 
-`rooms.sql`의 마지막 `SELECT`가 k6 credential fixture(JSON)를 내보낸다. **실제 비밀번호가 담기므로 저장소에 커밋하지 않는다.** 실행기는 이 출력을 파일로 받아 `K6_CHAT_FIXTURE`에 넘긴다.
+`rooms.sql`의 마지막 `SELECT`가 k6 credential fixture(JSON)를 내보낸다. **실제 비밀번호가 담기므로 저장소에 커밋하지 않는다.** 실행기는 이 출력을 `build/k6/chat/<run-id>/credentials.json`에만 저장하고 `K6_CHAT_FIXTURE`에 넘긴다. `build/`는 Git 비추적 경로라 fixture 소스와 실제 credential을 섞지 않는다.
 
 | Run | fixture 규모 |
 | --- | --- |
@@ -126,7 +126,7 @@ docker compose --env-file .env -f compose.local.yml exec -T postgres \
   bash -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -v run_id=local-smoke -v room_count=3 -v accounts_per_room=9 -v messages_per_room=150 -v password_hash="{bcrypt}<해시>" -v password="<평문>" -f /tmp/rooms.sql'
 ```
 
-마지막 `SELECT` 출력을 파일로 받아 `K6_CHAT_FIXTURE`에 넘긴다. 끝나면 같은 `run_id`로 `cleanup.sql`을 적용한다.
+마지막 `SELECT` 출력을 `build/k6/chat/local-smoke/credentials.json`에 저장해 `K6_CHAT_FIXTURE`에 넘긴다. 다른 Run도 같은 `build/k6/chat/<run-id>/credentials.json` 규칙을 쓴다. 끝나면 같은 `run_id`로 `cleanup.sql`을 적용한다.
 
 `rooms.sql`은 멱등하다. 같은 `run_id`로 다시 적용하면 계정 비밀번호만 갱신하고 방·참가 관계·메시지는 중복 생성하지 않는다.
 
@@ -145,7 +145,7 @@ docker compose --env-file .env -f compose.local.yml exec -T postgres \
 | 변수 | 기본값 | 뜻 |
 | --- | --- | --- |
 | `K6_CHAT_CASE` | 파일마다 다름 | 한 파일이 여러 case 를 담을 때 고른다 |
-| `K6_BASE_URL` | — | 대상 서버 주소 |
+| `K6_BASE_URL` | — | 대상 서버 주소. 기존 실행기 호환 별칭 `ALBAM_MATE_TARGET_URL` 중 하나는 반드시 필요하며, 둘 다 없으면 요청 전에 중단한다 |
 | `K6_ORIGIN` | `K6_BASE_URL` | CSRF·WebSocket Origin 헤더 |
 | `K6_CHAT_FIXTURE` | — | `rooms.sql`이 내보낸 credential fixture 경로. **필수** |
 | `K6_LOGIN_LIMIT` | `30` | 스크립트 쪽 로그인 횟수 가드. 서버 한도와 같게 준다 |

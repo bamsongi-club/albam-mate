@@ -7,9 +7,7 @@ import { check, sleep } from 'k6';
 import { Counter, Rate, Trend } from 'k6/metrics';
 import { WebSocket } from 'k6/experimental/websockets';
 
-export const BASE_URL = removeTrailingSlash(
-	__ENV.K6_BASE_URL || __ENV.ALBAM_MATE_TARGET_URL || 'http://localhost:5173',
-);
+export const BASE_URL = readRequiredTargetUrl();
 
 export const WS_BASE_URL = toWebSocketBaseUrl(BASE_URL);
 
@@ -1114,6 +1112,15 @@ export function readRequiredString(name) {
 		throw new Error(`${name} is required`);
 	}
 	return raw;
+}
+
+/** 외부 runner의 기존 별칭을 유지하되 대상 없이 localhost로 요청하지 않는다. */
+export function readRequiredTargetUrl() {
+	const value = __ENV.K6_BASE_URL || __ENV.ALBAM_MATE_TARGET_URL;
+	if (typeof value !== 'string' || value.trim() === '') {
+		throw new Error('K6_BASE_URL or ALBAM_MATE_TARGET_URL is required');
+	}
+	return removeTrailingSlash(value.trim());
 }
 
 export function readNonEmptyString(name, defaultValue) {

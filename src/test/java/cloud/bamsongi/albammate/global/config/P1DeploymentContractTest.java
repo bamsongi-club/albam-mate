@@ -38,6 +38,19 @@ class P1DeploymentContractTest {
 		"(?m)^[\\t ]*proxy_set_header Forwarded \"\";[\\t ]*$");
 
 	@Test
+	void 운영_Compose와_검증기와_부하_문서는_ALBAM_MATE_LOGIN_LIMIT만_쓴다() throws IOException {
+		for (String composePath : new String[] {"compose.production.yml", "compose.app2.yml"}) {
+			String compose = file(composePath);
+			assertTrue(compose.contains("ALBAM_MATE_LOGIN_LIMIT: ${ALBAM_MATE_LOGIN_LIMIT:-30}"));
+			assertFalse(compose.contains("APP_SECURITY_AUTHREQUEST_LOGINLIMIT"));
+		}
+		assertTrue(file("scripts/verify-docker-deployment.mjs").contains("ALBAM_MATE_LOGIN_LIMIT: '20000'"));
+		assertFalse(file("scripts/verify-docker-deployment.mjs").contains("APP_SECURITY_AUTHREQUEST_LOGINLIMIT"));
+		assertTrue(file("load-tests/k6/auth-notification/README.md").contains("ALBAM_MATE_LOGIN_LIMIT"));
+		assertFalse(file("load-tests/k6/auth-notification/README.md").contains("APP_SECURITY_AUTHREQUEST_LOGINLIMIT"));
+	}
+
+	@Test
 	void read_only_web은_tmp_렌더링_설정으로_healthz와_TLS를_기동한다() throws IOException {
 		String entrypoint = file("frontend/docker-entrypoint.production.sh");
 

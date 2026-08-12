@@ -144,7 +144,7 @@ docker compose --env-file .env -f compose.local.yml exec redis redis-cli --scan 
 
 | 환경 변수 | 대응 설정 |
 | --- | --- |
-| `APP_SECURITY_AUTHREQUEST_LOGINLIMIT` | `login-limit` (기본 30) |
+| `ALBAM_MATE_LOGIN_LIMIT` | `login-limit` (기본 30) |
 | `APP_SECURITY_AUTHREQUEST_LOGINFAILURELIMIT` | `login-failure-limit` (기본 5) |
 | `APP_SECURITY_AUTHREQUEST_SIGNUPLIMIT` | `signup-limit` (기본 5) |
 

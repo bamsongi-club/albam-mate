@@ -11,10 +11,30 @@
 
 BEGIN;
 
+CREATE TEMP TABLE chat_fixture_parameters (
+    run_id text NOT NULL
+        CONSTRAINT chat_fixture_cleanup_run_id_format
+        CHECK (run_id ~ '^[a-z0-9][a-z0-9._-]{0,63}$')
+) ON COMMIT DROP;
+
+INSERT INTO chat_fixture_parameters (run_id) VALUES (:'run_id');
+
 CREATE TEMP TABLE chat_fixture_rooms ON COMMIT DROP AS
-    SELECT id FROM rooms WHERE title LIKE format('k6-%s-room-%%', :'run_id');
+    SELECT id
+    FROM rooms
+    WHERE title LIKE format(
+        'k6-%s-room-%%',
+        replace(replace(replace(
+            (SELECT run_id FROM chat_fixture_parameters), E'\\', E'\\\\'), '%', E'\\%'), '_', E'\\_')
+    ) ESCAPE E'\\';
 CREATE TEMP TABLE chat_fixture_users ON COMMIT DROP AS
-    SELECT id FROM users WHERE email LIKE format('k6.%s.chat.%%@example.com', :'run_id');
+    SELECT id
+    FROM users
+    WHERE email LIKE format(
+        'k6.%s.chat.%%@example.com',
+        replace(replace(replace(
+            (SELECT run_id FROM chat_fixture_parameters), E'\\', E'\\\\'), '%', E'\\%'), '_', E'\\_')
+    ) ESCAPE E'\\';
 CREATE TEMP TABLE chat_fixture_chat_rooms ON COMMIT DROP AS
     SELECT id FROM chat_rooms WHERE room_id IN (SELECT id FROM chat_fixture_rooms);
 
