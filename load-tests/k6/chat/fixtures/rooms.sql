@@ -13,6 +13,25 @@
 -- 마지막 SELECT 가 k6 credential fixture(JSON)를 내보낸다. 실제 비밀번호가 담기므로
 -- 출력을 저장소에 커밋하지 않는다.
 
+-- cleanup.sql 이 제목·이메일 같은 사용자 입력 가능한 값으로 대상을 추측하지 않도록,
+-- 이 SQL 이 실제로 만든 방·계정의 ID를 run_id별로 기록한다. fixture 데이터와 registry
+-- 행은 아래 BEGIN 안에서 함께 커밋되므로 중간 실패 시 registry만 남지 않는다.
+CREATE TABLE IF NOT EXISTS chat_k6_fixture_registry (
+    run_id text NOT NULL
+        CONSTRAINT chat_k6_fixture_registry_run_id_format
+        CHECK (run_id ~ '^[a-z0-9][a-z0-9._-]{0,63}$'),
+    resource_type text NOT NULL
+        CONSTRAINT chat_k6_fixture_registry_resource_type
+        CHECK (resource_type IN ('ROOM', 'USER')),
+    resource_key text NOT NULL,
+    resource_id bigint NOT NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+    CONSTRAINT pk_chat_k6_fixture_registry
+        PRIMARY KEY (run_id, resource_type, resource_key),
+    CONSTRAINT uq_chat_k6_fixture_registry_resource
+        UNIQUE (resource_type, resource_id)
+);
+
 BEGIN;
 
 CREATE TEMP TABLE chat_fixture_parameters (
@@ -37,6 +56,10 @@ VALUES (
     :'run_id', :room_count::integer, :accounts_per_room::integer,
     :messages_per_room::integer, :'password_hash');
 
+-- 같은 run_id의 seed와 cleanup이 서로의 중간 상태를 보지 않도록 트랜잭션 동안 직렬화한다.
+SELECT pg_advisory_xact_lock(hashtext(run_id)::bigint)
+FROM chat_fixture_parameters;
+
 DO $seed$
 DECLARE
     parameters chat_fixture_parameters%ROWTYPE;
@@ -47,7 +70,10 @@ DECLARE
     member_id bigint;
     seeded_room_id bigint;
     seeded_chat_room_id bigint;
+    registered_id bigint;
     room_title text;
+    registry_key text;
+    user_email text;
 BEGIN
     SELECT * INTO parameters FROM chat_fixture_parameters;
 
@@ -55,22 +81,58 @@ BEGIN
         room_title := format('k6-%s-room-%s', parameters.run_id, room_index);
 
         FOR account_index IN 1..parameters.accounts_per_room LOOP
-            INSERT INTO users (email, password_hash, nickname, created_at, updated_at)
-            VALUES (
-                format('k6.%s.chat.r%s.u%s@example.com',
-                       parameters.run_id, room_index, account_index),
-                parameters.password_hash,
-                format('k6-%s-r%s-u%s', left(parameters.run_id, 20), room_index, account_index),
-                now(), now())
-            ON CONFLICT ON CONSTRAINT uq_users_email
-                DO UPDATE SET password_hash = EXCLUDED.password_hash, updated_at = now();
+            user_email := format('k6.%s.chat.r%s.u%s@example.com',
+                                 parameters.run_id, room_index, account_index);
+            registry_key := format('room-%s-user-%s', room_index, account_index);
+            SELECT registry.resource_id INTO registered_id
+            FROM chat_k6_fixture_registry registry
+            WHERE registry.run_id = parameters.run_id
+              AND registry.resource_type = 'USER'
+              AND registry.resource_key = registry_key;
+
+            IF registered_id IS NULL THEN
+                SELECT id INTO member_id FROM users WHERE email = user_email;
+                IF member_id IS NOT NULL THEN
+                    RAISE EXCEPTION 'fixture user email is already used by an unregistered user: %', user_email;
+                END IF;
+
+                INSERT INTO users (email, password_hash, nickname, created_at, updated_at)
+                VALUES (
+                    user_email,
+                    parameters.password_hash,
+                    format('k6-%s-r%s-u%s', left(parameters.run_id, 20), room_index, account_index),
+                    now(), now())
+                RETURNING id INTO member_id;
+
+                INSERT INTO chat_k6_fixture_registry (run_id, resource_type, resource_key, resource_id)
+                VALUES (parameters.run_id, 'USER', registry_key, member_id);
+            ELSE
+                member_id := registered_id;
+                IF NOT EXISTS (SELECT 1 FROM users WHERE id = member_id AND email = user_email) THEN
+                    RAISE EXCEPTION 'fixture user registry is stale for %', user_email;
+                END IF;
+                UPDATE users SET password_hash = parameters.password_hash, updated_at = now()
+                WHERE id = member_id;
+            END IF;
+
+            IF account_index = 1 THEN
+                host_id := member_id;
+            END IF;
         END LOOP;
 
-        SELECT id INTO host_id FROM users
-            WHERE email = format('k6.%s.chat.r%s.u1@example.com', parameters.run_id, room_index);
+        registry_key := format('room-%s', room_index);
+        SELECT registry.resource_id INTO registered_id
+        FROM chat_k6_fixture_registry registry
+        WHERE registry.run_id = parameters.run_id
+          AND registry.resource_type = 'ROOM'
+          AND registry.resource_key = registry_key;
 
-        SELECT id INTO seeded_room_id FROM rooms WHERE title = room_title;
-        IF seeded_room_id IS NULL THEN
+        IF registered_id IS NULL THEN
+            SELECT id INTO seeded_room_id FROM rooms WHERE title = room_title;
+            IF seeded_room_id IS NOT NULL THEN
+                RAISE EXCEPTION 'fixture room title is already used by an unregistered room: %', room_title;
+            END IF;
+
             -- host 는 participations 행을 갖지 않고 active_participant_count 에도 들어가지
             -- 않는다. Room.create 가 0 에서 시작해 참가자마다 증가시키는 규칙과 같다.
             --
@@ -86,12 +148,25 @@ BEGIN
                 parameters.accounts_per_room - 1,
                 now() + interval '30 days', 'k6', 'RECRUITING', 0, now(), now())
             RETURNING id INTO seeded_room_id;
+            INSERT INTO chat_k6_fixture_registry (run_id, resource_type, resource_key, resource_id)
+            VALUES (parameters.run_id, 'ROOM', registry_key, seeded_room_id);
+        ELSE
+            seeded_room_id := registered_id;
+            IF NOT EXISTS (SELECT 1 FROM rooms WHERE id = seeded_room_id AND title = room_title) THEN
+                RAISE EXCEPTION 'fixture room registry is stale for %', room_title;
+            END IF;
         END IF;
 
         FOR account_index IN 2..parameters.accounts_per_room LOOP
-            SELECT id INTO member_id FROM users
-                WHERE email = format('k6.%s.chat.r%s.u%s@example.com',
-                                     parameters.run_id, room_index, account_index);
+            registry_key := format('room-%s-user-%s', room_index, account_index);
+            SELECT registry.resource_id INTO member_id
+            FROM chat_k6_fixture_registry registry
+            WHERE registry.run_id = parameters.run_id
+              AND registry.resource_type = 'USER'
+              AND registry.resource_key = registry_key;
+            IF member_id IS NULL THEN
+                RAISE EXCEPTION 'fixture user registry is missing for room % account %', room_index, account_index;
+            END IF;
             INSERT INTO participations (room_id, user_id, status, joined_at, created_at, updated_at)
             VALUES (seeded_room_id, member_id, 'ACTIVE', now(), now(), now())
             ON CONFLICT ON CONSTRAINT uq_participations_room_user DO NOTHING;
@@ -127,12 +202,12 @@ COMMIT;
 -- 참가자는 participations 에서 각각 모은다. 방 제목을 잘라 쓰지 않아 run_id 길이에
 -- 영향받지 않는다.
 WITH seeded_rooms AS (
-    SELECT id AS room_id, host_user_id, dense_rank() OVER (ORDER BY id) AS room_number
-    FROM rooms
-    WHERE title LIKE format(
-        'k6-%s-room-%%',
-        replace(replace(replace(:'run_id', E'\\', E'\\\\'), '%', E'\\%'), '_', E'\\_')
-    ) ESCAPE E'\\'
+    SELECT fixture.resource_id AS room_id, room.host_user_id,
+           dense_rank() OVER (ORDER BY fixture.resource_id) AS room_number
+    FROM chat_k6_fixture_registry fixture
+    JOIN rooms room ON room.id = fixture.resource_id
+    WHERE fixture.run_id = :'run_id'
+      AND fixture.resource_type = 'ROOM'
 ), members AS (
     SELECT room.room_id, room.room_number, 0 AS ordinal, account.email
     FROM seeded_rooms room

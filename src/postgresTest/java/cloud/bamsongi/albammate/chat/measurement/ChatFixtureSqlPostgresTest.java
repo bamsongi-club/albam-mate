@@ -50,7 +50,7 @@ class ChatFixtureSqlPostgresTest {
 	@AfterEach
 	void fixture_테스트_데이터를_정리한다() {
 		for (String runId : List.of("t1-fixture", "t2-fixture", "t3-valid", "t4-isolated_a", "t4-isolatedxa",
-			"t5-derived")) {
+			"t5-derived", "t6-title-collision")) {
 			cleanup(runId);
 		}
 	}
@@ -116,6 +116,40 @@ class ChatFixtureSqlPostgresTest {
 
 		assertThat(count("select count(*) from rooms where title = 'k6-t4-isolated_a-room-1'")).isZero();
 		assertThat(count("select count(*) from rooms where title = 'k6-t4-isolatedxa-room-1'")).isEqualTo(1);
+	}
+
+	@Test
+	void cleanup_SQL은_같은_제목의_일반_방을_지우지_않는다() {
+		runRooms("t6-title-collision", 1, 7, 2);
+		long fixtureRoomId = jdbcTemplate.queryForObject(
+			"select id from rooms where title = 'k6-t6-title-collision-room-1'", Long.class);
+		long ordinaryUserId = jdbcTemplate.queryForObject(
+			"insert into users (email, password_hash, nickname, created_at, updated_at) "
+				+ "values ('ordinary.same-title@example.com', 'hash', 'ordinary', current_timestamp, current_timestamp) "
+				+ "returning id",
+			Long.class);
+		long ordinaryRoomId = jdbcTemplate.queryForObject(
+			"insert into rooms (game_id, host_user_id, room_type, title, description, experience_level, "
+				+ "is_rulemaster_led, capacity, active_participant_count, start_at, place, status, version, "
+				+ "created_at, updated_at) values (null, ?, 'PERSON_FOCUSED', 'k6-t6-title-collision-room-1', "
+				+ "'ordinary room', 'ALL_LEVELS', false, 10, 0, current_timestamp + interval '30 days', 'test', "
+				+ "'RECRUITING', 0, current_timestamp, current_timestamp) returning id",
+			Long.class, ordinaryUserId);
+
+		try {
+			cleanup("t6-title-collision");
+
+			assertThat(count("select count(*) from rooms where id = " + fixtureRoomId)).isZero();
+			assertThat(count("select count(*) from rooms where id = " + ordinaryRoomId)).isEqualTo(1);
+			assertThat(count("select count(*) from rooms where title = 'k6-t6-title-collision-room-1'"))
+				.isEqualTo(1);
+			assertThat(count("select count(*) from users where id = " + ordinaryUserId)).isEqualTo(1);
+			assertThat(count("select count(*) from chat_k6_fixture_registry "
+				+ "where run_id = 't6-title-collision'")).isZero();
+		} finally {
+			jdbcTemplate.update("delete from rooms where id = ?", ordinaryRoomId);
+			jdbcTemplate.update("delete from users where id = ?", ordinaryUserId);
+		}
 	}
 
 	@Test
