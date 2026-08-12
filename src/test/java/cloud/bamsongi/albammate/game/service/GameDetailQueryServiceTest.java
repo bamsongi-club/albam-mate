@@ -99,7 +99,7 @@ class GameDetailQueryServiceTest {
 		when(upcomingRoomCountQuery.findUpcomingRoomCounts(List.of(1L), NOW))
 			.thenReturn(Map.of(1L, 2L));
 
-		GameDetail result = gameDetailQueryService.findById(1L);
+		GameDetail result = gameDetailQueryService.findById(1L, null);
 
 		assertEquals(
 			GameDetailFixture.of(
@@ -129,7 +129,7 @@ class GameDetailQueryServiceTest {
 		when(gameRepository.findById(999L)).thenReturn(Optional.empty());
 
 		BusinessException exception = assertThrows(BusinessException.class,
-			() -> gameDetailQueryService.findById(999L));
+			() -> gameDetailQueryService.findById(999L, null));
 
 		assertEquals(ErrorCode.GAME_NOT_FOUND, exception.getErrorCode());
 		verifyNoInteractions(upcomingRoomCountQuery);

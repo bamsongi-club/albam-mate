@@ -105,12 +105,6 @@ public final class GameListSearchCriteria {
 		return new GameListSearchCriteria(request);
 	}
 
-	public static GameListSearchCriteria keywordOnly(String keyword) {
-		GameListRequest request = new GameListRequest();
-		request.setKeyword(keyword);
-		return from(request);
-	}
-
 	public GameListSearchCriteria withUpcomingGameIds(Collection<Long> upcomingGameIds) {
 		return new GameListSearchCriteria(this, upcomingGameIds, currentUserId);
 	}
