@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.measurement;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -22,14 +23,18 @@ public class AuthNotificationMeasurementConfiguration {
 	}
 
 	@Bean
-	BeanPostProcessor sessionRepositoryMeasurementPostProcessor(
-		AuthNotificationMeasurementRecorder measurementRecorder) {
+	static BeanPostProcessor sessionRepositoryMeasurementPostProcessor(
+		ObjectProvider<AuthNotificationMeasurementRecorder> measurementRecorderProvider) {
 		return new BeanPostProcessor() {
 			@Override
 			@SuppressWarnings({"rawtypes", "unchecked"})
 			public Object postProcessAfterInitialization(Object bean, String beanName) {
 				if (bean instanceof SessionRepository repository) {
-					return new MeasurementSessionRepository<Session>(repository, measurementRecorder);
+					AuthNotificationMeasurementRecorder measurementRecorder = measurementRecorderProvider
+						.getIfAvailable();
+					if (measurementRecorder != null) {
+						return new MeasurementSessionRepository<Session>(repository, measurementRecorder);
+					}
 				}
 				return bean;
 			}
