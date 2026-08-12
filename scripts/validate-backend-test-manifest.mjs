@@ -477,7 +477,7 @@ function hasTestMethodDeclaration(sourceInfo, methodName) {
         }
         if (hasSkipAnnotation(sourceInfo.sanitized, match[1])) continue;
         const testKind = supportedTestKind(sourceInfo.sanitized, match[1]);
-        if (testKind === 'test') return true;
+        if (testKind === 'test' && match[3].trim() === '') return true;
         if (
             testKind === 'parameterized' &&
             hasSupportedEnumSource(sourceInfo.sanitized, match[1], match[3])

@@ -701,6 +701,10 @@ test('skip되거나 provider가 없는 JUnit selector evidence를 거부한다',
             'missing provider',
             'import org.junit.jupiter.params.ParameterizedTest;\n\nclass NotificationReadServiceTest {\n    @ParameterizedTest\n    void 알림을_읽음_처리한다(String value) {\n    }\n}\n',
         ],
+        [
+            'unresolved Test parameter',
+            'import org.junit.jupiter.api.Test;\n\nclass NotificationReadServiceTest {\n    @Test\n    void 알림을_읽음_처리한다(String value) {\n    }\n}\n',
+        ],
     ];
 
     for (const [label, body] of invalidSources) {
