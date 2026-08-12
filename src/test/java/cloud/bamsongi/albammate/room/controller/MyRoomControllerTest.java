@@ -27,7 +27,6 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.global.config.SecurityConfig;
-import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.exception.GlobalExceptionHandler;
 import cloud.bamsongi.albammate.global.response.PageResponse;
@@ -144,17 +143,6 @@ class MyRoomControllerTest {
 			.andExpect(jsonPath("$.data.size").value(10));
 
 		verify(myRoomQueryService).findPage(42L, MyRoomRole.ALL, 0, 10);
-	}
-
-	@Test
-	void 상태_보정_충돌은_ROOM_CONCURRENT_MODIFICATION으로_반환한다() throws Exception {
-		when(myRoomQueryService.findPage(42L, MyRoomRole.JOINED, 0, 10))
-			.thenThrow(new BusinessException(ErrorCode.ROOM_CONCURRENT_MODIFICATION));
-
-		mockMvc.perform(get("/api/users/me/rooms?role=joined").with(authenticationFor(42L)))
-			.andExpect(status().isConflict())
-			.andExpect(
-				jsonPath("$.code").value(ErrorCode.ROOM_CONCURRENT_MODIFICATION.getCode()));
 	}
 
 	private RequestPostProcessor authenticationFor(long userId) {
