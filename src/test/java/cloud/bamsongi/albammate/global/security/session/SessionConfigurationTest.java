@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
@@ -19,6 +20,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -28,6 +30,7 @@ import org.springframework.security.core.context.SecurityContextImpl;
 import org.springframework.session.MapSession;
 import org.springframework.session.MapSessionRepository;
 import org.springframework.session.config.annotation.web.http.EnableSpringHttpSession;
+import org.springframework.session.data.redis.RedisSessionRepository;
 import org.springframework.session.data.redis.config.annotation.web.http.EnableRedisHttpSession;
 import org.springframework.session.web.http.CookieSerializer;
 
@@ -55,7 +58,7 @@ class SessionConfigurationTest {
 	}
 
 	@Test
-	void T2_local과_production은_Redis_세션만_선택하고_인메모리_fallback을_등록하지_않는다() {
+	void T5_local과_production은_namespace_JSON_직렬화_30분_TTL과_Redis_장애_정책을_유지한다() {
 		Profile redisProfile = AnnotatedElementUtils.findMergedAnnotation(
 			RedisSessionConfiguration.class, Profile.class);
 		Profile inMemoryProfile = AnnotatedElementUtils.findMergedAnnotation(
@@ -79,6 +82,8 @@ class SessionConfigurationTest {
 			nestedRedisConfiguration("LocalSessionRepositoryConfiguration"), EnableSpringHttpSession.class));
 		assertFalse(AnnotatedElementUtils.hasAnnotation(
 			nestedRedisConfiguration("ProductionSessionRepositoryConfiguration"), EnableSpringHttpSession.class));
+		assertRedisConnectionPolicy("local");
+		assertRedisConnectionPolicy("production");
 	}
 
 	@Test
@@ -114,15 +119,15 @@ class SessionConfigurationTest {
 	}
 
 	@Test
-	void T2_local과_production_연결_factory는_1초_연결과_2초_명령_timeout을_공유한다() {
-		assertRedisTimeouts("local");
-		assertRedisTimeouts("production");
+	void T1_local과_production_연결_factory는_native_connection을_공유하고_자동_재연결한다() {
+		assertRedisConnectionPolicy("local");
+		assertRedisConnectionPolicy("production");
 	}
 
 	@Test
 	void Redis_연결은_프로필_외부_설정값을_사용한다() {
 		try (AnnotationConfigApplicationContext context = redisSessionContext("local")) {
-			LettuceConnectionFactory connectionFactory = context.getBean(LettuceConnectionFactory.class);
+			LettuceConnectionFactory connectionFactory = sessionConnectionFactory(context);
 
 			assertEquals("redis", connectionFactory.getHostName());
 			assertEquals(6379, connectionFactory.getPort());
@@ -132,7 +137,7 @@ class SessionConfigurationTest {
 	@Test
 	void production은_Redis_세션_연결을_등록한다() {
 		try (AnnotationConfigApplicationContext context = redisSessionContext("production")) {
-			LettuceConnectionFactory connectionFactory = context.getBean(LettuceConnectionFactory.class);
+			LettuceConnectionFactory connectionFactory = sessionConnectionFactory(context);
 
 			assertEquals("redis", connectionFactory.getHostName());
 			assertEquals(6379, connectionFactory.getPort());
@@ -184,18 +189,49 @@ class SessionConfigurationTest {
 		return context;
 	}
 
-	private void assertRedisTimeouts(String profile) {
+	private void assertRedisConnectionPolicy(String profile) {
 		try (AnnotationConfigApplicationContext context = redisSessionContext(profile)) {
-			LettuceConnectionFactory connectionFactory = context.getBean(LettuceConnectionFactory.class);
+			LettuceConnectionFactory connectionFactory = sessionConnectionFactory(context);
 
+			assertTrue(connectionFactory.getShareNativeConnection());
 			assertEquals(Duration.ofSeconds(2), connectionFactory.getClientConfiguration().getCommandTimeout());
 			assertEquals(Duration.ofSeconds(1), connectionFactory.getClientConfiguration()
 				.getClientOptions().orElseThrow().getSocketOptions().getConnectTimeout());
-			assertFalse(connectionFactory.getClientConfiguration().getClientOptions().orElseThrow().isAutoReconnect());
+			assertTrue(connectionFactory.getClientConfiguration().getClientOptions().orElseThrow().isAutoReconnect());
 			assertEquals(
 				io.lettuce.core.ClientOptions.DisconnectedBehavior.REJECT_COMMANDS,
 				connectionFactory.getClientConfiguration().getClientOptions().orElseThrow().getDisconnectedBehavior());
+			assertSessionRepositoryUsesDedicatedFactory(context, connectionFactory);
+			assertRedisSessionJsonSerialization(context);
 		}
+	}
+
+	private void assertSessionRepositoryUsesDedicatedFactory(
+		AnnotationConfigApplicationContext context, LettuceConnectionFactory connectionFactory) {
+		RedisSessionRepository repository = context.getBean(RedisSessionRepository.class);
+		RedisTemplate<?, ?> sessionOperations = assertInstanceOf(
+			RedisTemplate.class, repository.getSessionRedisOperations());
+
+		assertSame(connectionFactory, sessionOperations.getConnectionFactory());
+	}
+
+	private void assertRedisSessionJsonSerialization(AnnotationConfigApplicationContext context) {
+		RedisSerializer<Object> serializer = context.getBean(
+			"springSessionDefaultRedisSerializer", RedisSerializer.class);
+		CurrentUserPrincipal principal = new CurrentUserPrincipal(42L);
+		SecurityContextImpl securityContext = new SecurityContextImpl(
+			new UsernamePasswordAuthenticationToken(principal, null, AuthorityUtils.NO_AUTHORITIES));
+
+		SecurityContextImpl restored = assertInstanceOf(
+			SecurityContextImpl.class, serializer.deserialize(serializer.serialize(securityContext)));
+
+		UsernamePasswordAuthenticationToken authentication = assertInstanceOf(
+			UsernamePasswordAuthenticationToken.class, restored.getAuthentication());
+		assertEquals(principal, authentication.getPrincipal());
+	}
+
+	private LettuceConnectionFactory sessionConnectionFactory(AnnotationConfigApplicationContext context) {
+		return context.getBean("redisSessionConnectionFactory", LettuceConnectionFactory.class);
 	}
 
 	private Class<?> nestedRedisConfiguration(String simpleName) {
