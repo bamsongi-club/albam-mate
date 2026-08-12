@@ -8,7 +8,7 @@
 | --- | --- | --- | --- | --- |
 | [0011](0011-bgg-manual-catalog-snapshot.md) | P0 게임 카탈로그를 검수된 BGG 수동 스냅샷으로 관리 | 대체됨 | 2026-07-24 | 미검증 |
 | [0014](0014-bgg-curated-service-catalog.md) | BGG 수집 데이터를 팀 검수 서비스 카탈로그로 재가공 | 대체됨 | 2026-07-24 | 미검증 |
-| [0015](0015-bgg-baseline-team-collected-game-list.md) | BGG 기준 스냅샷과 팀 수집 자료로 서비스 게임 목록 구성 | 승인됨 | 2026-07-26 | 미검증 |
+| [0015](0015-bgg-baseline-team-collected-game-list.md) | BGG 기준 스냅샷과 팀 수집 자료로 서비스 게임 목록 구성 | 승인됨 | 2026-07-26 | 검증됨 |
 | [0018](0018-expansion-type-and-relations.md) | P0 이후 단독 플레이 가능 여부와 확장 관계를 분리해 관리 | 승인됨 | 2026-08-03 | 미검증 |
 | [0019](0019-bgg-full-catalog-staged-enrichment.md) | 전체 보드게임 카탈로그는 BASIC으로 확장하고 상세 정보는 단계적으로 보강 | 승인됨 | 2026-08-03 | 미검증 |
 | [0025](0025-game-catalog-public-source-attribution.md) | 게임 카탈로그 출처를 전역 푸터와 공개 출처 페이지에 표시 | 승인됨 | 2026-07-31 | 미검증 |
