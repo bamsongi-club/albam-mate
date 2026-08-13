@@ -1,8 +1,10 @@
 {
   "campaignId": "chat-access-invalidation-20260813T150606KST",
+  "campaignType": "contract-validation",
   "campaignStatus": "completed-with-limitations",
   "documentStatus": "current",
-  "purpose": "PR #679의 CHAT-03 접근 회수 계약을 app-a 제어 HTTP와 app-b WebSocket의 교차 인스턴스 경로에서 검증한다.",
+  "supersedes": null,
+  "purpose": "PR #679의 CHAT-03 접근 회수 계약이 교차 인스턴스 경로에서 성립하는지 검증한다.",
   "window": {
     "executedAtUtc": "2026-08-13T06:06:06Z",
     "executedAtKst": "2026-08-13T15:06:06+09:00"
@@ -22,7 +24,7 @@
       "routePinning": {
         "controlHttp": "app-a",
         "webSocket": "app-b",
-        "defaultRouting": "existing round-robin when the performance route header is absent"
+        "defaultRouting": "명시 route 헤더가 없으면 기존 round-robin을 유지한다."
       },
       "loginLimitPerTenMinutes": 300
     },
@@ -35,24 +37,86 @@
     "rooms": 2,
     "accountsPerRoom": 9,
     "messagesPerRoom": 2,
-    "credentials": "generated for the run and removed after completion"
+    "credentials": "실행용으로 생성했고 cleanup 뒤 제거했다.",
+    "cleanup": {
+      "sharesRunIdWithSeed": true,
+      "completed": true
+    }
   },
   "result": {
+    "verdict": "PASS",
     "k6ExitCode": 0,
     "checks": {
       "passed": 14,
       "failed": 0
     },
-    "thresholds": {
-      "routePinned": "1/1",
-      "webSocketOpened": "2/2",
-      "policyViolationClose": "2/2",
-      "noMessageAfterInvalidation": "2/2",
-      "roomIsolation": "1/1",
-      "participantMessageCreated": "1/1",
-      "terminalMessageRejected": "1/1",
-      "droppedIterations": 0
-    },
+    "contractChecks": [
+      {
+        "id": "routePinned",
+        "name": "교차 인스턴스 route 고정",
+        "observed": "제어 HTTP는 app-a, WebSocket은 app-b에 고정됐다.",
+        "passed": 1,
+        "total": 1,
+        "status": "PASS"
+      },
+      {
+        "id": "webSocketOpened",
+        "name": "WebSocket 연결 수립",
+        "observed": "두 연결이 모두 수립됐다.",
+        "passed": 2,
+        "total": 2,
+        "status": "PASS"
+      },
+      {
+        "id": "participantPolicyViolationClose",
+        "name": "참가 취소 뒤 연결 회수",
+        "observed": "POLICY_VIOLATION 종료를 확인했다.",
+        "passed": 1,
+        "total": 1,
+        "status": "PASS"
+      },
+      {
+        "id": "roomPolicyViolationClose",
+        "name": "방 취소 뒤 연결 회수",
+        "observed": "POLICY_VIOLATION 종료를 확인했다.",
+        "passed": 1,
+        "total": 1,
+        "status": "PASS"
+      },
+      {
+        "id": "noMessageAfterInvalidation",
+        "name": "무효화 뒤 메시지 차단",
+        "observed": "참가 취소와 방 취소 뒤 모두 메시지를 받지 않았다.",
+        "passed": 2,
+        "total": 2,
+        "status": "PASS"
+      },
+      {
+        "id": "roomIsolation",
+        "name": "방 간 연결 격리",
+        "observed": "다른 방 연결에 영향이 없었다.",
+        "passed": 1,
+        "total": 1,
+        "status": "PASS"
+      },
+      {
+        "id": "participantMessageCreated",
+        "name": "참가 취소 뒤 호스트 전송",
+        "observed": "호스트 메시지가 생성됐다.",
+        "passed": 1,
+        "total": 1,
+        "status": "PASS"
+      },
+      {
+        "id": "terminalMessageRejected",
+        "name": "종료 방 메시지",
+        "observed": "전송이 거절됐다.",
+        "passed": 1,
+        "total": 1,
+        "status": "PASS"
+      }
+    ],
+    "droppedIterations": 0,
     "observedMetrics": {
       "chatHttpRequestDurationP95Ms": 56.85,
       "chatWebSocketConnectP95Ms": 49.7,
@@ -72,8 +136,8 @@
     }
   },
   "limitations": [
-    "The route pinning and k6 1.5.0 settings were temporary to the validation stack.",
-    "The six existing chat scenarios retained default routing and were not run in this campaign.",
-    "The raw summary and console are local-only; their SHA-256 values identify retained artifacts but do not make them independently accessible from this repository."
+    "route pinning과 k6 1.5.0 설정은 검증 스택에만 임시 적용했다.",
+    "기존 6개 채팅 시나리오는 실행하지 않았다.",
+    "원시 결과는 local-only이며 SHA-256만으로 이 저장소에서 독립 재검증할 수 없다."
   ]
 }
