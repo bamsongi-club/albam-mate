@@ -68,7 +68,7 @@ P0는 `게임부터 찾기`, `사람부터 만나기`, `방 만들기` 세 흐�
 | 항목 | 계약 |
 |---|---|
 | API prefix | `/api` |
-| 요청·응답 본문 | HTTP API는 `application/json`; WebSocket은 Upgrade 뒤 서버 발신 JSON 텍스트 프레임 |
+| 요청·응답 본문 | 본문이 있는 HTTP API는 `application/json`; 본문이 없는 API의 `Content-Type` 계약은 각 엔드포인트 명세를 따른다. WebSocket은 Upgrade 뒤 서버 발신 JSON 텍스트 프레임 |
 | JSON 필드명 | camelCase |
 | 식별자 | JSON에서는 integer, 경로에서는 1 이상의 10진 정수. 형식·범위를 벗어난 경로 값은 대상을 조회하기 전에 `400 VALIDATION_ERROR`로 거절한다. 생성 전략은 [ADR-0006](adr/platform/0006-p0-bigint-identity-ids.md)과 [ERD](ERD.md#테이블-명세)를 따른다 |
 | 요청 시각 | RFC 3339 기반 서비스 프로필의 `date-time`. `T`/`t` 구분자와 `Z`/`z` UTC 표기를 허용하며, `±HH:MM` 오프셋도 허용한다. 초는 필수이고 `00`~`59` 또는 윤초 `60`을 허용한다. 윤초 `60`은 Java 21 `Instant`가 표현할 수 있는 직전 `:59` 시각의 `Instant`로 정규화한다 |
@@ -1661,6 +1661,8 @@ Request body는 없다.
 
 > **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `PART-04`](archive/p1/README.md#기능별-종료-상태)
 
+> **빈 요청 계약:** 이 절의 대기 등록·본인 대기 상태 조회·대기 취소 API는 모두 request body가 없으며, `Content-Type`과 `Transfer-Encoding` 헤더도 보내지 않는다. `Content-Length: 0`은 허용한다. 인증·CSRF·path 검증 뒤 handler에 진입한 요청에서 `Content-Type`·`Transfer-Encoding`·실제 본문 중 하나라도 있으면 ROOM·대기 관계를 조회하기 전에 `415 UNSUPPORTED_MEDIA_TYPE`을 반환한다.
+
 | 항목 | 값 |
 |---|---|
 | Method / Path | `POST /api/rooms/{roomId}/waitlist` |
@@ -1682,7 +1684,7 @@ Request body는 없다.
 
 #### 오류 판정 순서
 
-인증·CSRF·path와 방 존재 확인 뒤 현재 시각 기준 상태를 반영하고 아래 순서로 판정한다.
+인증·CSRF·path와 빈 요청 계약을 확인한 뒤 방 존재를 확인하고, 현재 시각 기준 상태를 반영해 아래 순서로 판정한다.
 
 1. `now >= startsAt`이거나 방이 `CANCELED`·`FINISHED`: `WAITLIST_NOT_AVAILABLE`
 2. 요청자가 주최자 또는 현재 `ACTIVE` 참가자: `ALREADY_PARTICIPATING`
@@ -1700,6 +1702,7 @@ Request body는 없다.
 | path ID 형식·범위 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
 | CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
+| 빈 요청 계약 위반(`Content-Type`, `Transfer-Encoding` 또는 실제 본문) | 415 | `UNSUPPORTED_MEDIA_TYPE` |
 | 방이 없음 | 404 | `ROOM_NOT_FOUND` |
 | 요청자가 주최자 또는 현재 참가자 | 409 | `ALREADY_PARTICIPATING` |
 | 현재 방·시각·좌석 조건에서 대기할 수 없음 | 409 | `WAITLIST_NOT_AVAILABLE` |
@@ -1734,6 +1737,7 @@ Request body는 없다.
 |---|---:|---|
 | path ID 형식·범위 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
+| 빈 요청 계약 위반(`Content-Type`, `Transfer-Encoding` 또는 실제 본문) | 415 | `UNSUPPORTED_MEDIA_TYPE` |
 | 방이 없음 | 404 | `ROOM_NOT_FOUND` |
 | 본인 대기 이력이 없음 | 404 | `WAITLIST_ENTRY_NOT_FOUND` |
 | 동시 변경으로 최신 상태를 확인할 수 없음 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
@@ -1765,6 +1769,7 @@ Request body는 없다.
 | path ID 형식·범위 검증 실패 | 400 | `VALIDATION_ERROR` |
 | 세션이 없거나 유효하지 않음 | 401 | `UNAUTHENTICATED` |
 | CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
+| 빈 요청 계약 위반(`Content-Type`, `Transfer-Encoding` 또는 실제 본문) | 415 | `UNSUPPORTED_MEDIA_TYPE` |
 | 방이 없음 | 404 | `ROOM_NOT_FOUND` |
 | 취소할 본인 `WAITING` 관계가 없음 | 404 | `WAITLIST_ENTRY_NOT_FOUND` |
 | 동시 변경 충돌 | 409 | `ROOM_CONCURRENT_MODIFICATION` |
@@ -2043,7 +2048,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 | `RESOURCE_NOT_FOUND` | 404 | 요청한 리소스를 찾을 수 없습니다. | 요청 경로에 대응하는 핸들러 또는 정적 리소스가 없음 |
 | `METHOD_NOT_ALLOWED` | 405 | 허용되지 않은 HTTP 메서드입니다. | 요청 경로는 존재하지만 HTTP 메서드를 지원하지 않음 |
 | `NOT_ACCEPTABLE` | 406 | 요청한 응답 미디어 타입을 제공할 수 없습니다. | `Accept` 헤더와 호환되는 응답 미디어 타입이 없음 |
-| `UNSUPPORTED_MEDIA_TYPE` | 415 | 지원하지 않는 요청 미디어 타입입니다. | `Content-Type`이 요청 본문에서 지원하는 미디어 타입과 호환되지 않음 |
+| `UNSUPPORTED_MEDIA_TYPE` | 415 | 지원하지 않는 요청 미디어 타입입니다. | `Content-Type`이 요청 본문 계약과 호환되지 않거나, PART-04 대기 API에 금지된 `Content-Type`·`Transfer-Encoding`·실제 본문이 포함됨 |
 | `INTERNAL_SERVER_ERROR` | 500 | 서버 오류가 발생했습니다. | 처리하지 않은 예외로 요청을 완료하지 못함 |
 | `SERVICE_UNAVAILABLE` | 503 | 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요. | 요청 처리에 필수인 세션·인증 요청 제한 또는 전송 제한 상태 저장소를 확인할 수 없음 |
 

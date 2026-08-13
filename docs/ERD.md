@@ -38,7 +38,7 @@ erDiagram
     ROOMS ||--o{ PARTICIPATIONS : "참가 관계 보유"
     USERS ||--o{ ROOM_WAITLISTS : "대기"
     ROOMS ||--o{ ROOM_WAITLISTS : "대기열 보유"
-    ROOMS ||--|| CHAT_ROOMS : "채팅방 하나"
+    ROOMS ||--o| CHAT_ROOMS : "채팅방 0 또는 하나"
     CHAT_ROOMS ||--o{ CHAT_MESSAGES : "메시지 보유"
     USERS ||--o{ CHAT_MESSAGES : "메시지 작성"
 
@@ -510,7 +510,7 @@ P1 채팅방을 저장하는 구현된 테이블이다. `V6__create_p1_chat_room
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | id | BIGINT | PK, NN, AI | 채팅방 식별자 |
-| room_id | BIGINT | FK → ROOMS.id, UQ, NN | 방 하나에 정확히 하나의 채팅방 |
+| room_id | BIGINT | FK → ROOMS.id, UQ, NN | 연결된 ROOM. 채팅방은 ROOM 없이 존재할 수 없고, ROOM당 채팅방은 최대 하나 |
 | purge_after | TIMESTAMPTZ | NULL | 방이 최종 상태로 전환된 시각부터 30일 뒤의 메시지 삭제 기준 시각 |
 | messages_purged_at | TIMESTAMPTZ | NULL | 만료 메시지 일괄 삭제 완료 시각 |
 | created_at | TIMESTAMPTZ | NN | 채팅방 생성 시각 |
@@ -543,7 +543,7 @@ P1 CHAT-02의 V9 전진 Flyway가 생성하는 메시지 저장의 최종 정본
 | cursor_room_id | BIGINT | NULL | 같은 시각의 동률을 해소하는 마지막 시도 ROOM ID. 위치 표식이므로 FK가 아님 |
 | progress_version | BIGINT | NN | 모든 실행 세대 점유·cursor 전진·순회 회전마다 증가하는 CAS 값. 초깃값 `0` |
 | execution_generation | BIGINT | NN | ShedLock 획득 뒤 새 실행 주체가 증가시키는 fencing 값. 초깃값 `0` |
-| updated_at | TIMESTAMPTZ | NN | 마지막 진행 상태 변경의 PostgreSQL 기준 시각 |
+| updated_at | TIMESTAMPTZ | NN, DEFAULT `CURRENT_TIMESTAMP` | 마지막 진행 상태 변경의 PostgreSQL 기준 시각 |
 
 전진 마이그레이션은 위 고정 `job_name` 행 하나를 `turn_cutoff`·cursor `NULL`, 두 카운터 `0`으로 함께 생성한다. 런타임은 행 누락을 자동 삽입하거나 임의 값으로 복구하지 않는다.
 
@@ -742,7 +742,7 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 | ROOMS | CHECK (active_participant_count BETWEEN 0 AND capacity) | 현재 점유 인원은 음수이거나 모집 정원을 초과할 수 없다. |
 | PARTICIPATIONS | UNIQUE (room_id, user_id) | 한 사용자와 한 방의 참가 관계는 한 행만 가진다. |
 | PARTICIPATIONS | CHECK ((status = 'ACTIVE' AND canceled_at IS NULL) OR (status = 'CANCELED' AND canceled_at IS NOT NULL)) | 참가 상태와 취소 시각이 일치해야 한다. |
-| CHAT_ROOMS | UNIQUE (room_id) | 하나의 방에는 채팅방을 하나만 둔다. |
+| CHAT_ROOMS | UNIQUE (room_id) | ROOM당 채팅방은 최대 하나만 둔다. |
 | CHAT_ROOMS | CHECK (messages_purged_at IS NULL OR purge_after IS NOT NULL) | 삭제 완료 시각은 삭제 기준 시각이 설정된 채팅방에만 기록한다. |
 | CHAT_MESSAGES | UNIQUE (chat_room_id, sender_user_id, client_message_id) | 같은 사용자의 같은 방·멱등성 키는 하나의 메시지만 저장한다. |
 | ROOM_STATUS_CORRECTION_PROGRESS | CHECK (job_name = 'room-status-correction') | ROOM Scheduler 진행 상태는 고정된 단일 작업만 저장한다. |
