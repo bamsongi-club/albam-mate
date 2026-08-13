@@ -19,6 +19,25 @@ test('승인되지 않았거나 test-only인 manifest는 차단한다', () => {
     );
 });
 
+test('releaseId는 Windows 예약 장치명과 확장자 변형을 차단한다', () => {
+    for (const releaseId of ['con', 'aux.zip', 'com1.release', 'lpt9.v1']) {
+        assert.throws(
+            () => validateApprovedReleaseManifest({ ...validManifest(), releaseId }),
+            /Windows reserved/u,
+        );
+    }
+});
+
+test('approval reviewedAt은 실제 UTC instant만 허용한다', () => {
+    const manifest = validManifest();
+    manifest.approval.reviewedAt = '2026-02-29T00:00:00Z';
+
+    assert.throws(
+        () => validateApprovedReleaseManifest(manifest),
+        /reviewedAt/u,
+    );
+});
+
 test('입력 artifact 하나라도 승인 상태가 아니면 차단한다', () => {
     const manifest = validManifest();
     manifest.inputs.themeDictionary.status = 'review-draft';

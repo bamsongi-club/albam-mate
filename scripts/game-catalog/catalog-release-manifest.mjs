@@ -16,6 +16,8 @@ const REQUIRED_COVERAGE = [
 
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 const RELEASE_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{2,63}$/u;
+const WINDOWS_RESERVED_RELEASE_ID_PATTERN = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/u;
+const UTC_INSTANT_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
 
 export function validateApprovedReleaseManifest(manifest) {
     assertObject(manifest, 'release manifest');
@@ -23,6 +25,9 @@ export function validateApprovedReleaseManifest(manifest) {
     assertString(manifest.releaseId, 'releaseId');
     if (!RELEASE_ID_PATTERN.test(manifest.releaseId)) {
         throw new Error('releaseId must be a safe release directory name');
+    }
+    if (WINDOWS_RESERVED_RELEASE_ID_PATTERN.test(manifest.releaseId)) {
+        throw new Error('releaseId must not be a Windows reserved device name');
     }
     if (manifest.approved !== true) {
         throw new Error('release manifest must be approved');
@@ -95,8 +100,11 @@ function assertString(value, field) {
 
 function assertInstant(value, field) {
     assertString(value, field);
-    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u.test(value)
-        || Number.isNaN(Date.parse(value))) {
+    const parsedTime = Date.parse(value);
+    const canonicalValue = value.includes('.') ? value : value.replace(/Z$/u, '.000Z');
+    if (!UTC_INSTANT_PATTERN.test(value)
+        || Number.isNaN(parsedTime)
+        || new Date(parsedTime).toISOString() !== canonicalValue) {
         throw new Error(`${field} must be a UTC ISO-8601 instant`);
     }
 }
