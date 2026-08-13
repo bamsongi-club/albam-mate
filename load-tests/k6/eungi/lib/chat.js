@@ -5,7 +5,7 @@ import http from 'k6/http';
 import execution from 'k6/execution';
 import { check, sleep } from 'k6';
 import { Counter, Rate, Trend } from 'k6/metrics';
-import { WebSocket } from 'k6/websockets';
+import { WebSocket } from 'k6/experimental/websockets';
 
 export const BASE_URL = readRequiredTargetUrl();
 
