@@ -151,23 +151,26 @@ describe('T2·T3 게임 조건 필터 조회 시점', () => {
     expect(lastQuery().playTime).toEqual(['UP_TO_10', 'AT_LEAST_90']);
   });
 
-  it('연령대는 확정한 4구간만 제공한다', async () => {
+  it('최연소 참여자 나이는 양의 정수 하나를 보내고 비우면 조건과 칩을 제거한다', async () => {
     await renderGamesView();
     openFilterPanel();
 
     ['8세 이하', '9~12세', '13~15세', '16세 이상'].forEach((label) => {
-      expect(screen.getByLabelText(label)).toBeTruthy();
+      expect(screen.queryByLabelText(label)).toBeNull();
     });
-  });
+    const input = screen.getByLabelText('최연소 참여자 나이');
 
-  it('연령대 여러 구간을 함께 선택하면 선택한 값을 모두 전달한다', async () => {
-    await renderGamesView();
-    openFilterPanel();
+    fireEvent.change(input, { target: { value: '0' } });
+    expect(input.value).toBe('');
 
-    fireEvent.click(screen.getByLabelText('8세 이하'));
-    fireEvent.click(screen.getByLabelText('16세 이상'));
+    fireEvent.change(input, { target: { value: '10' } });
+    expect(lastQuery().youngestPlayerAge).toBe('10');
+    expect(lastQuery()).not.toHaveProperty('ageBand');
+    expect(screen.getByRole('button', { name: '최연소 10세 조건 해제' })).toBeTruthy();
 
-    expect(lastQuery().ageBand).toEqual(['UP_TO_8', 'AT_LEAST_16']);
+    fireEvent.change(input, { target: { value: '' } });
+    expect(lastQuery().youngestPlayerAge).toBe('');
+    expect(screen.queryByRole('button', { name: '최연소 10세 조건 해제' })).toBeNull();
   });
 
   it('필터 영역을 닫았다 다시 열어도 입력과 선택을 유지한다', async () => {

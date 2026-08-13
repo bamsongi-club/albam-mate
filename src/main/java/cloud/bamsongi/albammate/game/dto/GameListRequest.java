@@ -37,7 +37,7 @@ public class GameListRequest {
 
 	private List<GamePlayTimeFilter> playTime;
 
-	private List<GameAgeBandFilter> ageBand;
+	@Min(1) private Integer youngestPlayerAge;
 
 	private List<PlayedFilter> playedFilter;
 
@@ -127,12 +127,12 @@ public class GameListRequest {
 		this.playTime = playTime;
 	}
 
-	public List<GameAgeBandFilter> getAgeBand() {
-		return ageBand;
+	public Integer getYoungestPlayerAge() {
+		return youngestPlayerAge;
 	}
 
-	public void setAgeBand(List<GameAgeBandFilter> ageBand) {
-		this.ageBand = ageBand;
+	public void setYoungestPlayerAge(Integer youngestPlayerAge) {
+		this.youngestPlayerAge = youngestPlayerAge;
 	}
 
 	public PlayedFilter getPlayedFilter() {

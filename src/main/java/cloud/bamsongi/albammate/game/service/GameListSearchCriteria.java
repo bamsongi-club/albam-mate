@@ -7,7 +7,6 @@ import java.util.Objects;
 
 import org.springframework.util.StringUtils;
 
-import cloud.bamsongi.albammate.game.dto.GameAgeBandFilter;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
 import cloud.bamsongi.albammate.game.dto.MechanismMatch;
@@ -30,7 +29,7 @@ public final class GameListSearchCriteria {
 	private final boolean playerCountExact;
 	private final List<Integer> exclusivePlayerCounts;
 	private final List<GamePlayTimeFilter> playTimes;
-	private final List<GameAgeBandFilter> ageBands;
+	private final Integer youngestPlayerAge;
 	private final BigDecimal complexityMin;
 	private final BigDecimal complexityMax;
 	private final PlayedFilter playedFilter;
@@ -54,7 +53,7 @@ public final class GameListSearchCriteria {
 		this.playerCountExact = request.isPlayerCountExact();
 		this.exclusivePlayerCounts = distinctValues(request.getExclusivePlayerCount());
 		this.playTimes = distinctValues(request.getPlayTime());
-		this.ageBands = distinctValues(request.getAgeBand());
+		this.youngestPlayerAge = request.getYoungestPlayerAge();
 		this.complexityMin = request.getComplexityMin();
 		this.complexityMax = request.getComplexityMax();
 		this.playedFilter = request.getPlayedFilter();
@@ -79,7 +78,7 @@ public final class GameListSearchCriteria {
 		this.playerCountExact = source.playerCountExact;
 		this.exclusivePlayerCounts = source.exclusivePlayerCounts;
 		this.playTimes = source.playTimes;
-		this.ageBands = source.ageBands;
+		this.youngestPlayerAge = source.youngestPlayerAge;
 		this.complexityMin = source.complexityMin;
 		this.complexityMax = source.complexityMax;
 		this.playedFilter = source.playedFilter;

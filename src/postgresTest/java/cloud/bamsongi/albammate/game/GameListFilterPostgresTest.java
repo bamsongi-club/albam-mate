@@ -19,12 +19,15 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-import cloud.bamsongi.albammate.game.dto.GameAgeBandFilter;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
 import cloud.bamsongi.albammate.game.entity.Game;
+import cloud.bamsongi.albammate.game.entity.GameCategory;
+import cloud.bamsongi.albammate.game.entity.GameCategoryRelation;
 import cloud.bamsongi.albammate.game.entity.GameMechanism;
 import cloud.bamsongi.albammate.game.entity.GameMechanismRelation;
+import cloud.bamsongi.albammate.game.repository.GameCategoryRelationRepository;
+import cloud.bamsongi.albammate.game.repository.GameCategoryRepository;
 import cloud.bamsongi.albammate.game.repository.GameListSpecification;
 import cloud.bamsongi.albammate.game.repository.GameMechanismRelationRepository;
 import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
@@ -51,6 +54,12 @@ class GameListFilterPostgresTest {
 
 	@Autowired
 	private GameMechanismRelationRepository gameMechanismRelationRepository;
+
+	@Autowired
+	private GameCategoryRepository gameCategoryRepository;
+
+	@Autowired
+	private GameCategoryRelationRepository gameCategoryRelationRepository;
 
 	@Test
 	void PostgreSQL에서_메커니즘_EXISTS_조건은_OR와_다른_조건_AND를_중복없이_적용한다() {
@@ -133,22 +142,32 @@ class GameListFilterPostgresTest {
 	}
 
 	@Test
-	void PostgreSQL에서_연령대_구간_경계를_minAge로_판정한다() {
-		Game young = saveGameWithAge(1201L, "Young", 8);
-		Game middle = saveGameWithAge(1202L, "Middle", 12);
-		Game old = saveGameWithAge(1203L, "Old", 16);
-		saveGameWithAge(1204L, "Missing", null);
+	void PostgreSQL에서_최연소_참여자_나이와_카테고리를_AND로_결합한_뒤_정렬_페이지_전체건수를_계산한다() {
+		GameCategory strategy = gameCategoryRepository.saveAndFlush(
+			new GameCategory("STRATEGY", "전략", "Strategy", "strategygames", 1));
+		Game alpha = saveGameWithAge(1201L, "Alpha", 10);
+		Game beta = saveGameWithAge(1202L, "Beta", 8);
+		Game tooOld = saveGameWithAge(1203L, "TooOld", 11);
+		Game missingAge = saveGameWithAge(1204L, "MissingAge", null);
+		Game wrongCategory = saveGameWithAge(1205L, "WrongCategory", 10);
+		gameCategoryRelationRepository.saveAndFlush(new GameCategoryRelation(alpha, strategy));
+		gameCategoryRelationRepository.saveAndFlush(new GameCategoryRelation(beta, strategy));
+		gameCategoryRelationRepository.saveAndFlush(new GameCategoryRelation(tooOld, strategy));
+		gameCategoryRelationRepository.saveAndFlush(new GameCategoryRelation(missingAge, strategy));
 
-		assertEquals(
-			List.of(young.getId()),
-			ids(request -> request.setAgeBand(List.of(GameAgeBandFilter.UP_TO_8))));
-		assertEquals(
-			List.of(old.getId(), young.getId()),
-			ids(request -> request.setAgeBand(
-				List.of(GameAgeBandFilter.UP_TO_8, GameAgeBandFilter.AT_LEAST_16))));
-		assertEquals(
-			List.of(middle.getId()),
-			ids(request -> request.setAgeBand(List.of(GameAgeBandFilter.FROM_9_TO_12))));
+		GameListRequest request = new GameListRequest();
+		request.setYoungestPlayerAge(10);
+		request.setCategory(List.of("STRATEGY"));
+		var firstPage = gameRepository.findAll(
+			GameListSpecification.from(GameListSearchCriteria.from(request)),
+			PageRequest.of(0, 1, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id"))));
+		var secondPage = gameRepository.findAll(
+			GameListSpecification.from(GameListSearchCriteria.from(request)),
+			PageRequest.of(1, 1, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id"))));
+
+		assertEquals(2, firstPage.getTotalElements());
+		assertEquals(List.of(alpha.getId()), firstPage.getContent().stream().map(Game::getId).toList());
+		assertEquals(List.of(beta.getId()), secondPage.getContent().stream().map(Game::getId).toList());
 	}
 
 	private Game saveGameWithAge(long bggId, String name, Integer minAge) {

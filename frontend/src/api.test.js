@@ -166,7 +166,7 @@ function requestedUrl(fetchMock) {
 }
 
 describe('게임 목록 검색 API', () => {
-  it('인원 범위·시간·복잡도 필터를 계약된 이름과 값으로 전달한다', async () => {
+  it('인원 범위·시간·최연소 참여자 나이·복잡도 필터를 계약된 이름과 값으로 전달한다', async () => {
     const fetchMock = stubFetch();
 
     await api.getGames({
@@ -177,6 +177,7 @@ describe('게임 목록 검색 API', () => {
       playerCountExact: true,
       exclusivePlayerCount: [],
       playTime: ['UP_TO_10', 'AT_LEAST_90'],
+      youngestPlayerAge: '10',
       complexityMin: '2',
       complexityMax: '4',
       page: 0,
@@ -186,7 +187,7 @@ describe('게임 목록 검색 API', () => {
     expect(requestedUrl(fetchMock)).toBe(
       '/api/games?keyword=%EB%A3%A8%EB%AF%B8&upcomingOnly=true&playerCountMin=2&playerCountMax=4'
         + '&playerCountExact=true&playTime=UP_TO_10&playTime=AT_LEAST_90'
-        + '&complexityMin=2&complexityMax=4&page=0&size=24'
+        + '&youngestPlayerAge=10&complexityMin=2&complexityMax=4&page=0&size=24'
     );
   });
 

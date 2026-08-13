@@ -1,5 +1,4 @@
 import {
-  AGE_BAND_LABEL,
   COMPLEXITY_BANDS,
   EMPTY_PLAYER_COUNT_RANGE,
   EXCLUSIVE_PLAYER_COUNT_OPTIONS,
@@ -88,15 +87,13 @@ export function gameFilterChips(filters, onChange, mechanismOptions, categoryOpt
       });
     }
   });
-  filters.ageBand.forEach((value) => {
-    if (AGE_BAND_LABEL[value]) {
-      chips.push({
-        key: 'ageBand-' + value,
-        label: AGE_BAND_LABEL[value],
-        onClear: () => update({ ageBand: filters.ageBand.filter((selected) => selected !== value) })
-      });
-    }
-  });
+  if (filters.youngestPlayerAge) {
+    chips.push({
+      key: 'youngestPlayerAge',
+      label: '최연소 ' + filters.youngestPlayerAge + '세',
+      onClear: () => update({ youngestPlayerAge: '' })
+    });
+  }
   filters.mechanism.forEach((code) => {
     const option = mechanismOptions.find((candidate) => candidate.code === code);
     if (option) {
