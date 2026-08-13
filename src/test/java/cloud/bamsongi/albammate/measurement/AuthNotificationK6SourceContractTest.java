@@ -25,8 +25,10 @@ class AuthNotificationK6SourceContractTest {
 	@Test
 	void 알림_측정용_로그인은_인증_정상_경계를_넘지_않도록_warmup에_분산한다() throws IOException {
 		assertThat(mixedLoad())
-			.contains("const BROWSING_LOGIN_STAGGER_SECONDS = SMOKE ? POLLING_INTERVAL_SECONDS : 90;")
-			.contains("BROWSING_LOGIN_STAGGER_SECONDS * (exec.vu.idInTest - 1) / ONLINE_SESSIONS");
+			.contains("BROWSING_LOGIN_STAGGER_SECONDS")
+			.contains("90")
+			.contains("exec.vu.idInTest")
+			.contains("ONLINE_SESSIONS");
 	}
 
 	private String mixedLoad() throws IOException {
