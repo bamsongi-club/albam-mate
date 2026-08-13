@@ -732,6 +732,7 @@ test('T5 비교는 여섯 역할·규모 실행의 read profile 불일치를 거
     const mismatchedManifest = JSON.parse(readFileSync(mismatchedManifestPath, 'utf8'));
     mismatchedManifest.t5ReadOptions.vus = 8;
     writeFileSync(mismatchedManifestPath, `${JSON.stringify(mismatchedManifest, null, 2)}\n`, 'utf8');
+    writeBoundSummary(path.dirname(participantFixturePath), t5Summary(8));
     const comparison = compareT5(runId);
     assert.equal(comparison.status, 1, comparison.stderr || comparison.stdout);
     const result = JSON.parse(readFileSync(path.join(comparisonDirectory, 't5-comparison-verification.json'), 'utf8'));
