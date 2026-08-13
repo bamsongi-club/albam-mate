@@ -1,5 +1,7 @@
 package cloud.bamsongi.albammate.notification.service.query;
 
+import java.util.Objects;
+
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -10,19 +12,19 @@ import cloud.bamsongi.albammate.measurement.AuthNotificationMeasurementRecorder;
 import cloud.bamsongi.albammate.notification.dto.NotificationListItem;
 import cloud.bamsongi.albammate.notification.dto.UnreadNotificationCountResponse;
 import cloud.bamsongi.albammate.notification.repository.NotificationQueryRepository;
-import lombok.NonNull;
 
 /** 로그인 사용자의 알림 목록과 미확인 개수를 조회하는 유스케이스다. */
 @Service
 public class NotificationQueryService {
 
-	@NonNull private final NotificationQueryRepository notificationQueryRepository;
+	private final NotificationQueryRepository notificationQueryRepository;
 	private final AuthNotificationMeasurementRecorder measurementRecorder;
 
 	public NotificationQueryService(
 		NotificationQueryRepository notificationQueryRepository,
 		@org.springframework.lang.Nullable AuthNotificationMeasurementRecorder measurementRecorder) {
-		this.notificationQueryRepository = notificationQueryRepository;
+		this.notificationQueryRepository = Objects.requireNonNull(notificationQueryRepository,
+			"notificationQueryRepository");
 		this.measurementRecorder = measurementRecorder;
 	}
 

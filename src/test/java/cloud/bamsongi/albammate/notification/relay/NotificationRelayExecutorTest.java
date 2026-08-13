@@ -55,6 +55,20 @@ class NotificationRelayExecutorTest {
 	}
 
 	@Test
+	void T12_필수_relay_저장소가_null이면_생성_즉시_실패한다() {
+		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
+		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);
+		NotificationRepository notificationRepository = mock(NotificationRepository.class);
+
+		assertThrows(NullPointerException.class,
+			() -> new NotificationRelayExecutor(null, recipientRepository, notificationRepository, null));
+		assertThrows(NullPointerException.class,
+			() -> new NotificationRelayExecutor(eventRepository, null, notificationRepository, null));
+		assertThrows(NullPointerException.class,
+			() -> new NotificationRelayExecutor(eventRepository, recipientRepository, null, null));
+	}
+
+	@Test
 	void 수신자_스냅샷으로_누락_알림을_멱등_저장하고_같은_시각으로_처리_완료한다() {
 		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
 		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);

@@ -1,5 +1,7 @@
 package cloud.bamsongi.albammate.auth.security;
 
+import java.util.Objects;
+
 import org.springframework.lang.Nullable;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
@@ -12,7 +14,6 @@ import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal
 import cloud.bamsongi.albammate.measurement.AuthNotificationMeasurementRecorder;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.NonNull;
 
 /**
  * 로그인 성공 사용자를 서버 세션 인증으로 등록한다.
@@ -23,13 +24,13 @@ import lombok.NonNull;
 @Component
 public final class AppSessionEstablisher {
 
-	@NonNull private final SecurityContextRepository securityContextRepository;
+	private final SecurityContextRepository securityContextRepository;
 	private final AuthNotificationMeasurementRecorder measurementRecorder;
 
 	public AppSessionEstablisher(
 		SecurityContextRepository securityContextRepository,
 		@Nullable AuthNotificationMeasurementRecorder measurementRecorder) {
-		this.securityContextRepository = securityContextRepository;
+		this.securityContextRepository = Objects.requireNonNull(securityContextRepository, "securityContextRepository");
 		this.measurementRecorder = measurementRecorder;
 	}
 

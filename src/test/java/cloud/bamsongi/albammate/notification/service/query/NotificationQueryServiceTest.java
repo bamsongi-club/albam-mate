@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.notification.service.query;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -17,6 +18,11 @@ import cloud.bamsongi.albammate.notification.repository.NotificationQueryReposit
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 class NotificationQueryServiceTest {
+
+	@Test
+	void T12_필수_알림_조회_저장소가_null이면_생성_즉시_실패한다() {
+		assertThrows(NullPointerException.class, () -> new NotificationQueryService(null, null));
+	}
 
 	@Test
 	void 본인_조회결과와_같은_저장소_count로_페이지를_조립한다() {

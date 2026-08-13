@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.notification.relay;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -19,7 +20,6 @@ import cloud.bamsongi.albammate.notification.enums.NotificationType;
 import cloud.bamsongi.albammate.notification.repository.NotificationOutboxEventRepository;
 import cloud.bamsongi.albammate.notification.repository.NotificationOutboxRecipientRepository;
 import cloud.bamsongi.albammate.notification.repository.NotificationRepository;
-import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 /** 한 Outbox 이벤트의 PostgreSQL 선점, 멱등 Notification 저장과 완료 전환을 함께 처리한다. */
@@ -27,9 +27,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class NotificationRelayExecutor {
 
-	@NonNull private final NotificationOutboxEventRepository eventRepository;
-	@NonNull private final NotificationOutboxRecipientRepository recipientRepository;
-	@NonNull private final NotificationRepository notificationRepository;
+	private final NotificationOutboxEventRepository eventRepository;
+	private final NotificationOutboxRecipientRepository recipientRepository;
+	private final NotificationRepository notificationRepository;
 	private final AuthNotificationMeasurementRecorder measurementRecorder;
 
 	public NotificationRelayExecutor(
@@ -37,9 +37,9 @@ public class NotificationRelayExecutor {
 		NotificationOutboxRecipientRepository recipientRepository,
 		NotificationRepository notificationRepository,
 		@org.springframework.lang.Nullable AuthNotificationMeasurementRecorder measurementRecorder) {
-		this.eventRepository = eventRepository;
-		this.recipientRepository = recipientRepository;
-		this.notificationRepository = notificationRepository;
+		this.eventRepository = Objects.requireNonNull(eventRepository, "eventRepository");
+		this.recipientRepository = Objects.requireNonNull(recipientRepository, "recipientRepository");
+		this.notificationRepository = Objects.requireNonNull(notificationRepository, "notificationRepository");
 		this.measurementRecorder = measurementRecorder;
 	}
 
