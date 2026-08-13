@@ -81,9 +81,9 @@ class P1DeploymentContractTest {
 
 	@Test
 	void 모든_Spring_proxy는_XFF를_직접_관찰_주소로_덮어쓴다() throws IOException {
-		assertSpringProxyOverwritesForwardedFor(file("frontend/nginx.production.conf"));
-		assertSpringProxyOverwritesForwardedFor(file("frontend/nginx.local.conf"));
-		assertSpringProxyOverwritesForwardedFor(file("frontend/nginx.conf"));
+		assertSpringProxyOverwritesForwardedFor(file("frontend/nginx.production.conf"), 3);
+		assertSpringProxyOverwritesForwardedFor(file("frontend/nginx.local.conf"), 2);
+		assertSpringProxyOverwritesForwardedFor(file("frontend/nginx.conf"), 2);
 	}
 
 	@Test
@@ -242,7 +242,7 @@ class P1DeploymentContractTest {
 		assertTrue(compose.contains("JDK_JAVA_OPTIONS: -Xmx256m"));
 	}
 
-	private void assertSpringProxyOverwritesForwardedFor(String nginx) {
+	private void assertSpringProxyOverwritesForwardedFor(String nginx, int expectedSpringProxyLocationCount) {
 		assertFalse(nginx.contains("$proxy_add_x_forwarded_for"));
 		int springProxyLocationCount = 0;
 		Matcher locationMatcher = Pattern
@@ -259,7 +259,7 @@ class P1DeploymentContractTest {
 			assertEquals(1, countForwardedForRemoteAddressDirectives(location));
 			assertEquals(1, countForwardedRemovalDirectives(location));
 		}
-		assertEquals(2, springProxyLocationCount);
+		assertEquals(expectedSpringProxyLocationCount, springProxyLocationCount);
 	}
 
 	private int countForwardedForRemoteAddressDirectives(String contents) {
