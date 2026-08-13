@@ -4,14 +4,14 @@
 
 - 현재 이슈 또는 선택한 코멘트, 직접 관련된 정본 절, 변경 대상과 대상 테스트까지만 확인한다. 후속 이슈 전체나 관련 없는 ADR·문서를 탐색하지 않는다.
 - 생산 코드 변경이 없는 경우 메인 에이전트가 코멘트의 테스트 경로만 직접 최소 수정한다.
-- 생산 코드를 바꾸는 경우 현재 이슈의 승인된 테스트 계약을 유지하고 `.codex/contracts/backend-implementation-packet.schema.json`과 [패킷 템플릿](packet-template.json)에 따라 좁은 v3 패킷을 만든다. 저장소 밖 임시 파일을 `node scripts/validate-packet.mjs <packet.json>`으로 검증한 뒤 `backend-developer`에 전달한다.
+- 생산 코드를 바꾸는 경우 현재 이슈의 승인된 테스트 계약을 유지하고 `.codex/contracts/backend-implementation-packet.schema.json`과 [패킷 템플릿](packet-template.json)에 따라 PostgreSQL 판단을 포함한 좁은 v4 패킷을 만든다. 이 경로의 진입 조건상 `postgresRequired: false`를 사용하되 실제 diff 분류가 `required` 또는 `needs-review`이면 manifest 검증에서 차단하고 `full-delivery`로 재분류한다. 저장소 밖 임시 파일을 `node scripts/validate-packet.mjs <packet.json>`으로 검증한 뒤 `backend-developer`에 전달한다.
 - 정본 충돌·선행 계약 부재·미선언 공유 파일이 드러나면 구현을 멈춘다.
 
 ## TDD 사이클
 
 1. 구현자는 T-ID를 직접 검증하는 exact selector 테스트를 생산 코드보다 먼저 작성하고 `--rerun` Red와 기대 실패를 보고한다.
 2. 최소 생산 코드로 같은 selector를 `--rerun --fail-fast` Green으로 만든다.
-3. 리팩터링 뒤 task별 모든 selector를 묶어 최종 Green과 test manifest를 보고한다.
+3. 리팩터링 뒤 task별 모든 selector를 묶어 최종 Green과 PostgreSQL 결정·근거를 포함한 test manifest v2를 보고한다.
 
 ## PR 리뷰 수정 배치
 
@@ -29,7 +29,7 @@
 
 ## 검증
 
-- 구현자의 T-ID별 Red 보고, 최종 Green과 manifest를 확인한다. manifest는 저장소 밖 임시 파일로 만들고 `node scripts/validate-backend-test-manifest.mjs --packet <packet.json> --manifest <manifest.json> --worktree <worktree>`를 통과시킨다. 이 검사는 manifest와 함께 실제 변경 경로가 packet의 소유 경계와 항상 read-only 목록 안인지 감사하므로 범위 밖 변경을 따로 눈으로 확인하지 않는다.
+- 구현자의 T-ID별 Red 보고, 최종 Green과 manifest를 확인한다. manifest는 저장소 밖 임시 파일로 만들고 `node scripts/validate-backend-test-manifest.mjs --packet <packet.json> --manifest <manifest.json> --worktree <worktree>`를 통과시킨다. 이 검사는 PostgreSQL 필요 여부와 manifest selector를 실제 diff에서 다시 확인하고, 변경 경로가 packet의 소유 경계와 항상 read-only 목록 안인지 함께 감사한다.
 - 구현자가 성공시킨 targeted 테스트를 메인 에이전트가 반복하지 않는다. `git diff --check`와 커밋 훅의 `conventionCheck`를 추가 게이트로 사용하고 전체 회귀는 GitHub CI에 맡긴다. 훅이 성공한 검사는 반복하지 않는다.
 - 직접 테스트 부재, 대상 테스트 실패, 정본 충돌, 범위 확대 또는 고위험 변경이 드러나면 `SKILL.md`로 돌아가 `full-delivery`로 재분류한다.
 

@@ -63,10 +63,11 @@
   모두 거절된다.
 - `CHAT-01-AC7` #279의 V6 적용은 기존 ROOM을 조회하거나 backfill하지 않고 `CHAT_ROOMS`
   스키마·제약만 생성한다.
-- `CHAT-01-AC8` (보류) #281의 PostgreSQL 통합 테스트는 기존 방 backfill과 방 생성·상태 전환을
+- `CHAT-01-AC8` (보류) [#281의 보류 결정](https://github.com/bamsongi-club/albam-mate/issues/281#issuecomment-5166483912)에 따른 조건부 기준이다. #281의 PostgreSQL 통합 테스트는 기존 방 backfill과 방 생성·상태 전환을
   경쟁시켜도 완료 뒤 모든 방에 채팅방이 정확히 하나 있고, backfill 행의 보관 값이 선택한
   초기화 경계의 ROOM 상태와 일치함을 검증한다. 첫 운영 배포에 채팅을 포함하는 현재 계획에서는
-  backfill 대상이 없어 이 기준을 보류하며, 채팅 없이 먼저 배포하는 계획으로 바뀌면 재도입한다.
+  backfill 대상이 없어 이 기준을 보류하며, P0를 먼저 채팅 없이 운영 배포하거나 채팅방이 없는 운영 ROOM이
+  생기면 재도입한다. 이 보류는 현재 `CHAT-01` 구현·검증 완료를 막지 않는다.
 
 ### 제외 범위
 

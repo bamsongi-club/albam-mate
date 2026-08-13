@@ -63,11 +63,11 @@
 
 ## 검증
 
-- 상태: 검증됨
+- 상태: 미검증
 - 근거:
-    - 구현·테스트: #366의 V16 schema-only와 local callback의 멱등 초기화·기존 행 보존·상태별 보관 값을 Testcontainers PostgreSQL 테스트로 확인했다.
+    - 구현·테스트: [PR #300](https://github.com/bamsongi-club/albam-mate/pull/300)의 V6 schema-only와 `ChatRoomSchemaPostgresTest`를, [PR #366](https://github.com/bamsongi-club/albam-mate/pull/366)의 local callback 멱등 초기화·기존 행 보존·상태별 보관 값과 V16 retention schema를 확인했다.
     - 정적 검사: 문서 링크와 diff 검사를 통과했다.
 - 미검증:
-    - 범위: #281의 live 운영 backfill·ROOM 쓰기 경계·최종 보정·배포 절체는 이 ADR이 승인하지 않은 별도 운영 범위로 남긴다.
+    - [#281](https://github.com/bamsongi-club/albam-mate/issues/281)이 소유한 live 운영 backfill·ROOM 쓰기 경계·최종 보정·배포 절체는 구현·PostgreSQL 경합 테스트·운영 절체 증거가 없다. 현재는 P0를 먼저 배포하지 않고 P1 채팅을 첫 운영 배포에 포함하는 계획이라 기존 ROOM 대상 0건으로 보류했지만, 보류는 검증 완료를 뜻하지 않는다. 채팅 없이 P0를 먼저 배포하거나 `CHAT_ROOMS`가 없는 운영 ROOM이 생기면 #281을 재활성화해야 한다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

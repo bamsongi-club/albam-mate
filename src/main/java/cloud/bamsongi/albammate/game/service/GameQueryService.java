@@ -23,7 +23,6 @@ import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.PlayedFilter;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.repository.GameCategoryRepository;
-import cloud.bamsongi.albammate.game.repository.GameListRow;
 import cloud.bamsongi.albammate.game.repository.GameListSpecification;
 import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
@@ -134,7 +133,7 @@ public class GameQueryService {
 					games.getContent().stream().map(Game::getId).toList()));
 		return games.map(
 			game -> GameListItem.from(
-				GameListRow.from(game),
+				game,
 				counts.getOrDefault(game.getId(), 0L),
 				playedByMe(pageCriteria, currentUserId, game.getId(), playedGameIds)));
 	}

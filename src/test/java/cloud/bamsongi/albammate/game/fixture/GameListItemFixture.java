@@ -3,7 +3,7 @@ package cloud.bamsongi.albammate.game.fixture;
 import java.math.BigDecimal;
 
 import cloud.bamsongi.albammate.game.dto.GameListItem;
-import cloud.bamsongi.albammate.game.repository.GameListRow;
+import cloud.bamsongi.albammate.game.entity.Game;
 
 public final class GameListItemFixture {
 
@@ -36,7 +36,7 @@ public final class GameListItemFixture {
 			null);
 	}
 
-	public static GameListItem from(GameListRow row, long upcomingRoomCount) {
-		return GameListItem.from(row, upcomingRoomCount, null);
+	public static GameListItem from(Game game, long upcomingRoomCount) {
+		return GameListItem.from(game, upcomingRoomCount, null);
 	}
 }

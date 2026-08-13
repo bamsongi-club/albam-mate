@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.domain.Page;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
@@ -129,6 +131,40 @@ class GameQueryServiceListIntegrationTest {
 		assertTrue(upcomingOnlyResult.hasNext());
 		assertEquals(1L, upcomingOnlyResult.getContent().getFirst().upcomingRoomCount());
 		assertEquals(gameWithOneRoom.getId(), upcomingOnlyResult.getContent().getFirst().id());
+	}
+
+	@Test
+	void 최연소_참여자_나이는_입력값_이하의_minAge만_반환하고_NULL을_제외한다() {
+		Game included = saveGameWithMinAge(2001L, "AgeTen", 10);
+		saveGameWithMinAge(2002L, "AgeEleven", 11);
+		saveGameWithMinAge(2003L, "AgeMissing", null);
+		GameListRequest request = listRequest(false, 10);
+		request.setYoungestPlayerAge(10);
+
+		Page<GameListItem> result = gameQueryService.findPage(request, null);
+
+		assertEquals(1, result.getTotalElements());
+		assertEquals(List.of(included.getId()), result.getContent().stream().map(GameListItem::id).toList());
+	}
+
+	@Test
+	void 최연소_참여자_나이를_생략하면_minAge_NULL을_포함해_기본_정렬과_페이지를_유지한다() {
+		saveGameWithMinAge(2011L, "Alpha", null);
+		Game beta = saveGameWithMinAge(2012L, "Beta", 12);
+		GameListRequest request = listRequest(false, 1);
+		request.setPage(1);
+
+		Page<GameListItem> result = gameQueryService.findPage(request, null);
+
+		assertEquals(2, result.getTotalElements());
+		assertEquals(2, result.getTotalPages());
+		assertEquals(List.of(beta.getId()), result.getContent().stream().map(GameListItem::id).toList());
+	}
+
+	private Game saveGameWithMinAge(long bggId, String name, Integer minAge) {
+		Game game = gameRepository.saveAndFlush(GameFixture.valid(bggId, name));
+		ReflectionTestUtils.setField(game, "minAge", minAge);
+		return gameRepository.saveAndFlush(game);
 	}
 
 	private GameListRequest listRequest(boolean upcomingOnly, int size) {

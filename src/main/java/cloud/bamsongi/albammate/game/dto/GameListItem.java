@@ -2,7 +2,7 @@ package cloud.bamsongi.albammate.game.dto;
 
 import java.math.BigDecimal;
 
-import cloud.bamsongi.albammate.game.repository.GameListRow;
+import cloud.bamsongi.albammate.game.entity.Game;
 
 public record GameListItem(
 	Long id,
@@ -19,19 +19,19 @@ public record GameListItem(
 	long upcomingRoomCount,
 	Boolean playedByMe) {
 
-	public static GameListItem from(GameListRow game, long upcomingRoomCount, Boolean playedByMe) {
+	public static GameListItem from(Game game, long upcomingRoomCount, Boolean playedByMe) {
 		return new GameListItem(
-			game.id(),
-			game.bggId(),
-			game.name(),
-			game.englishName(),
-			game.imageUrl(),
-			game.supportedPlayerCount(),
-			game.tag(),
-			game.estimatedPlayTime(),
-			game.complexity(),
-			game.releaseYear(),
-			game.minAge(),
+			game.getId(),
+			game.getBggId(),
+			game.getName(),
+			game.getEnglishName(),
+			game.getImageUrl(),
+			game.getSupportedPlayerCount(),
+			game.getTag(),
+			game.getEstimatedPlayTime(),
+			game.getComplexity(),
+			game.getReleaseYear(),
+			game.getMinAge(),
 			upcomingRoomCount,
 			playedByMe);
 	}

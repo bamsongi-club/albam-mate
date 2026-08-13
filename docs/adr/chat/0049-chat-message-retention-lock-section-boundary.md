@@ -70,11 +70,10 @@
 
 ## 검증
 
-- 상태: 미검증
+- 상태: 검증됨
 - 근거:
     - 구현: [PR #366](https://github.com/bamsongi-club/albam-mate/pull/366)이 `V16__create_p1_chat_retention_schema.sql`, `chat-message-retention` ShedLock, 다구간 재획득, 실행·질의 상한, 30일 보관과 묶음별 독립 트랜잭션을 구현했다. 현재 실행값은 [CHAT-04](../../p1/chatting.md#현재-만료-삭제-실행값)에 기록한다.
     - 테스트: `ChatMessageRetentionPropertiesTest`·`ChatMessageRetentionSchedulerTest`·`ChatMessageRetentionCoordinatorTest`와 `ChatMessageRetentionPostgresTest`가 임대 가드, 구간 재획득, 부분 실패 격리, 지연된 경쟁 실행과 삭제 수렴을 검증한다.
-- 미검증:
-    - 실제 운영 적체에서 구간 수 상한 소진, 삭제 지연·구간 중단 metric과 잠금 보유 인스턴스 종료 뒤 복구를 확인하지 않았다.
+    - 범위: 실제 운영 적체·인스턴스 종료 복구·운영 metric 실측은 상태표의 `운영 배포·실측` 축에서 관리하며, P1 구현 완료 기준이 요구하는 코드·H2·PostgreSQL 결정 검증과 분리한다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

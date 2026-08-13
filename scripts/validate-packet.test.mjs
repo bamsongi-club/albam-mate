@@ -14,7 +14,7 @@ const approvedComment = 'https://github.com/bamsongi-club/albam-mate/issues/14#i
 
 function validPacket() {
     return {
-        schemaVersion: 3,
+        schemaVersion: 4,
         workItem: {
             kind: 'issue',
             id: '#14',
@@ -30,6 +30,8 @@ function validPacket() {
         allowedPaths: ['src/main/java/cloud/bamsongi/albammate/auth/'],
         forbiddenPaths: ['frontend/'],
         completionCriteria: ['승인된 회원가입 요청은 201을 반환한다'],
+        postgresRequired: false,
+        postgresRequirementReasons: ['DTO와 HTTP 경계만 변경하며 데이터 접근 의미는 바꾸지 않는다'],
         requiredTests: [
             {
                 id: 'T1',
@@ -52,7 +54,7 @@ function validPacket() {
 
 const keywords = (errors) => errors.map((error) => error.keyword);
 
-test('schemaVersion 3 패킷과 승인된 연속 T-ID는 실제 스키마를 통과한다', () => {
+test('schemaVersion 4 패킷과 PostgreSQL 판단 근거 및 승인된 연속 T-ID는 실제 스키마를 통과한다', () => {
     assert.deepEqual(validatePacket(validPacket(), schema), []);
 });
 
@@ -77,18 +79,27 @@ test('PR 피드백이 기존 T-ID 범위 안이면 원래 이슈 승인 참조�
 
 test('이전 스키마 버전과 새 필수 필드 누락을 거부한다', () => {
     const packet = validPacket();
-    packet.schemaVersion = 2;
+    packet.schemaVersion = 3;
+    delete packet.postgresRequired;
+    delete packet.postgresRequirementReasons;
     delete packet.requiredTests;
     delete packet.testContractApproval;
 
     const errors = validatePacket(packet, schema);
 
     assert.ok(errors.some((error) => error.instancePath === '$.schemaVersion' && error.keyword === 'const'));
+    assert.ok(errors.some((error) => error.instancePath === '$.postgresRequired' && error.keyword === 'required'));
+    assert.ok(
+        errors.some(
+            (error) =>
+                error.instancePath === '$.postgresRequirementReasons' && error.keyword === 'required',
+        ),
+    );
     assert.ok(errors.some((error) => error.instancePath === '$.requiredTests' && error.keyword === 'required'));
     assert.ok(errors.some((error) => error.instancePath === '$.testContractApproval' && error.keyword === 'required'));
 });
 
-test('v3에서 제거된 validation 필드를 거부한다', () => {
+test('v4에서 제거된 validation 필드를 거부한다', () => {
     const packet = validPacket();
     packet.validation = {
         targetedTests: ['./gradlew.bat test --tests "*Signup*"'],
@@ -98,6 +109,26 @@ test('v3에서 제거된 validation 필드를 거부한다', () => {
     const errors = validatePacket(packet, schema);
 
     assert.ok(errors.some((error) => error.instancePath === '$.validation' && error.keyword === 'additionalProperties'));
+});
+
+test('PostgreSQL 판단 근거가 비었거나 공백뿐이면 거부한다', () => {
+    const empty = validPacket();
+    empty.postgresRequirementReasons = [];
+    assert.ok(
+        validatePacket(empty, schema).some(
+            (error) =>
+                error.instancePath === '$.postgresRequirementReasons' && error.keyword === 'minItems',
+        ),
+    );
+
+    const blank = validPacket();
+    blank.postgresRequirementReasons = ['   '];
+    assert.ok(
+        validatePacket(blank, schema).some(
+            (error) =>
+                error.instancePath === '$.postgresRequirementReasons[0]' && error.keyword === 'pattern',
+        ),
+    );
 });
 
 test('스키마에 없는 패킷 속성을 거부한다', () => {

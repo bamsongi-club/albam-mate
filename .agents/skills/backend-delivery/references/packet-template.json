@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "workItem": {
     "kind": "issue",
     "id": "<이슈-번호>",
@@ -20,6 +20,10 @@
   "completionCriteria": [
     "<관찰-가능한-완료-기준>",
     "<적용되는-실패-또는-경계-기준>"
+  ],
+  "postgresRequired": true,
+  "postgresRequirementReasons": [
+    "<변경-유형과-PostgreSQL-검증-필요-근거>"
   ],
   "requiredTests": [
     {
