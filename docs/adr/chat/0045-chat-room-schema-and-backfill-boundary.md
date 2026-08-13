@@ -67,7 +67,5 @@
 - 근거:
     - 구현·테스트: #366의 V16 schema-only와 local callback의 멱등 초기화·기존 행 보존·상태별 보관 값을 Testcontainers PostgreSQL 테스트로 확인했다.
     - 정적 검사: 문서 링크와 diff 검사를 통과했다.
-- 미검증:
-    - 범위: #281의 live 운영 backfill·ROOM 쓰기 경계·최종 보정·배포 절체는 이 ADR이 승인하지 않은 별도 운영 범위로 남긴다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

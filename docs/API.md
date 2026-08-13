@@ -212,7 +212,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 ## 2. API 인덱스
 
-기능 ID는 엔드포인트가 아니라 기능 단위다. 로그인·로그아웃은 함께 `AUTH-03`, 프로필 조회·수정은 함께 `AUTH-04`, 방 취소·종료는 함께 `ROOM-05`, 알림 목록·미확인 개수는 함께 `NOTI-02`, 단건·일괄 읽음은 함께 `NOTI-03`, 채팅 전송·이력 조회는 함께 `CHAT-02`에 속한다. P1 기능의 제품 규칙 정본과 P0 도입 당시의 완료 기록을 인덱스에서 구분해 링크한다. P0 완료 기록은 현재 HTTP 계약이나 새 구현 범위의 정본이 아니다.
+기능 ID는 엔드포인트가 아니라 기능 단위다. 로그인·로그아웃은 함께 `AUTH-03`, 프로필 조회·수정은 함께 `AUTH-04`, 프로필 이미지 업로드·삭제는 P1 `AUTH-05`, 방 취소·종료는 함께 `ROOM-05`, 알림 목록·미확인 개수는 함께 `NOTI-02`, 단건·일괄 읽음은 함께 `NOTI-03`, 채팅 전송·이력 조회는 함께 `CHAT-02`에 속한다. P1 기능의 제품 규칙 정본과 P0 도입 당시의 완료 기록을 인덱스에서 구분해 링크한다. P0 완료 기록은 현재 HTTP 계약이나 새 구현 범위의 정본이 아니다.
 
 `단계`는 API 도입 제품 단계다(→ [PRD 로드맵](PRD.md#6-단계별-로드맵)). `P0·P1`은 P0에 도입한 경로를 P1에서 확장한다는 뜻이다. 단계가 늘어도 HTTP 계약인 이 파일을 나누지 않고 표에 행·단계 값을 더한다. 단계 표시는 구현 여부에 따라 바꾸지 않으며, P1 기능의 현재 제공 여부는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)으로 판정한다.
 
@@ -224,8 +224,8 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 4 | P0 | [AUTH-03](#auth-03-로그아웃) · [P0 완료 기록](archive/p0/auth-profile.md#auth-03-로그인로그아웃) | POST | `/api/auth/logout` | Y | Y | 200 |
 | 5 | P0 | [AUTH-04](#auth-04-내-프로필-조회) · [P0 완료 기록](archive/p0/auth-profile.md#auth-04-내-프로필-조회수정) | GET | `/api/users/me` | Y | N | 200 |
 | 6 | P0 | [AUTH-04](#auth-04-내-프로필-수정) · [P0 완료 기록](archive/p0/auth-profile.md#auth-04-내-프로필-조회수정) | PATCH | `/api/users/me` | Y | Y | 200 |
-| 6.1 | P1 | [AUTH-04](#auth-04-프로필-이미지-업로드) · [정본](p1/social-login.md) | POST | `/api/users/me/profile-image` | Y | Y | 200 |
-| 6.2 | P1 | [AUTH-04](#auth-04-프로필-이미지-삭제) · [정본](p1/social-login.md) | DELETE | `/api/users/me/profile-image` | Y | Y | 200 |
+| 6.1 | P1 | [AUTH-05](#auth-05-프로필-이미지-업로드) · [정본](p1/social-login.md) | POST | `/api/users/me/profile-image` | Y | Y | 200 |
+| 6.2 | P1 | [AUTH-05](#auth-05-프로필-이미지-삭제) · [정본](p1/social-login.md) | DELETE | `/api/users/me/profile-image` | Y | Y | 200 |
 | 7 | P0·P1 | [GAME-01](#game-01-게임-목록검색) · [P0 완료 기록](archive/p0/game-catalog.md#game-01-게임-목록검색) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games` | 선택 | N | 200 |
 | 8 | P0·P1 | [GAME-02](#game-02-게임-상세-조회) · [P0 완료 기록](archive/p0/game-catalog.md#game-02-게임-상세-조회) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games/{gameId}` | 선택 | N | 200 |
 | 9 | P0 | [ROOM-03](#room-03-방-생성) · [P0 완료 기록](archive/p0/room.md#room-03-방-생성) | POST | `/api/rooms` | Y | Y | 201 |
@@ -879,7 +879,7 @@ P0에서는 닉네임만 수정한다.
 | 요청값 검증 실패 | 400 | `VALIDATION_ERROR` |
 | CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
 
-### AUTH-04 프로필 이미지 업로드
+### AUTH-05 프로필 이미지 업로드
 
 | 항목 | 값 |
 |---|---|
@@ -897,7 +897,7 @@ multipart/form-data 형식으로 `file` 파라미터에 이미지를 전송한�
 | 파일 누락, 크기 초과(5MB), 지원하지 않는 형식 | 400 | `VALIDATION_ERROR` |
 | CSRF 토큰 오류 | 403 | `CSRF_TOKEN_INVALID` |
 
-### AUTH-04 프로필 이미지 삭제
+### AUTH-05 프로필 이미지 삭제
 
 | 항목 | 값 |
 |---|---|
