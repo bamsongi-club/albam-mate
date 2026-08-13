@@ -32,7 +32,7 @@
 | --- | --- | --- |
 | `fixture.json` | `build/k6/room/<run-id>/<fixture-id>/` | 실제 ID와 k6 실행 입력 |
 | `prepare.sql` | 동일 경로 | fixture 생성 SQL. bcrypt hash가 포함될 수 있어 Git 비추적 |
-| `prepare-recovery.json` | 동일 경로 | `prepare` commit 뒤 artifact 생성이 실패했을 때 결정적 fixture를 다시 찾아 안전한 cleanup에 쓰는 비밀 없는 복구 입력 |
+| `prepare-recovery.json` | 동일 경로 | `prepare` commit 뒤 artifact 생성이 실패했을 때 실행별 ownership marker를 대조해 안전한 cleanup에 쓰는 비밀 없는 복구 입력 |
 | `before-verification.json` | 동일 경로 | 실행 전 DB 불변식 |
 | `after-verification.json` | 동일 경로 | 실행 뒤 HTTP·DB 불변식 판정. T5 비교는 같은 fixture의 `PASS` artifact만 허용 |
 | `run-manifest.json` | 동일 경로 | 대상 배포 SHA·환경·fixture·k6 버전·시작/종료 UTC와 `runState`·`completed`를 묶은 실행 기록 |
@@ -40,7 +40,7 @@
 | `t5-comparison-verification.json` | `build/k6/room/<run-id>/` | T5 role×scale 6개 실행의 공통 read profile 검증 결과 |
 | `cleanup.sql` | 동일 경로 | 정확한 생성 ID만 정리하는 SQL |
 
-cleanup은 broad prefix 삭제나 `TRUNCATE`를 쓰지 않는다. SQL 실행 전 fixture 경로·결정적 plan·사용자/ROOM 식별자를 다시 대조하고, fixture ROOM에 비-fixture 사용자의 파생 행이 섞였으면 삭제하지 않고 중단한다.
+cleanup은 broad prefix 삭제나 `TRUNCATE`를 쓰지 않는다. SQL 실행 전 fixture 경로·결정적 plan·실행별 ownership marker·사용자/ROOM 식별자를 다시 대조하고, fixture ROOM에 비-fixture 사용자의 파생 행이 섞였으면 삭제하지 않고 중단한다.
 
 ## 전제와 환경 변수
 
@@ -136,7 +136,7 @@ node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id $runId
 node load-tests/k6/jiwon/tools/fixture.mjs cleanup --fixture $prepared.fixturePath
 ```
 
-`prepare`가 DB commit 뒤 resource 조회·artifact 기록 단계에서 중단되면 출력된 `prepare-recovery.json` 경로를 사용한다. 이 명령은 run ID·fixture ID를 다시 계산하고 현재 DB의 정확한 사용자·ROOM identity를 조회한 뒤, 일반 cleanup과 같은 비-fixture 관계 검사를 통과할 때만 삭제한다.
+`prepare`가 DB commit 뒤 resource 조회·artifact 기록 단계에서 중단되면 출력된 `prepare-recovery.json` 경로를 사용한다. 이 명령은 run ID·fixture ID와 실행별 ownership marker를 다시 대조하고, 현재 DB의 정확한 사용자·ROOM identity를 조회한 뒤 일반 cleanup과 같은 비-fixture 관계 검사를 통과할 때만 삭제한다. 같은 결정적 fixture라도 다른 실행이 commit한 ROOM이면 marker 불일치로 삭제하지 않는다.
 
 ```powershell
 node load-tests/k6/jiwon/tools/fixture.mjs recover-cleanup `

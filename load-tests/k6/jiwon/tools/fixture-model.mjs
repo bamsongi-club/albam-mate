@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 export const RUN_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,79}$/;
 export const CONCURRENCY_LEVELS = new Set([2, 4, 8]);
+export const PREPARE_OWNERSHIP_PATTERN = /^[0-9a-f]{32}$/;
 
 const SCENARIOS = new Set(['t1', 't2', 't3', 't4', 't5']);
 const PROFILES = new Set(['stress', 'spike']);
@@ -69,6 +70,18 @@ function sqlIds(values) {
     return 'NULL';
   }
   return values.join(', ');
+}
+
+export function normalizePrepareOwnership(value) {
+  const ownership = String(value ?? '').toLowerCase();
+  if (!PREPARE_OWNERSHIP_PATTERN.test(ownership)) {
+    fail('prepare ownership은 32자리 16진수여야 합니다.');
+  }
+  return ownership;
+}
+
+function prepareOwnershipDescription(value) {
+  return `ROOM k6 fixture ${normalizePrepareOwnership(value)}`;
 }
 
 function roomTitle(fixtureId, roomKey) {
@@ -373,7 +386,7 @@ export function createFixturePlan(input) {
   }
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     fixtureId: options.fixtureId,
     options,
     users: planner.users,
@@ -390,11 +403,12 @@ function userIdSql(user) {
   return `(SELECT id FROM users WHERE email = ${sqlLiteral(user.email)})`;
 }
 
-export function buildPrepareSql(plan, passwordHash) {
+export function buildPrepareSql(plan, passwordHash, prepareOwnership) {
   if (!String(passwordHash).startsWith('{bcrypt}$')) {
     fail('ROOM_K6_FIXTURE_PASSWORD_HASH는 {bcrypt}$로 시작해야 합니다.');
   }
 
+  const ownershipDescription = prepareOwnershipDescription(prepareOwnership);
   const usersByKey = new Map(plan.users.map((user) => [user.key, user]));
   const roomsByKey = new Map(plan.rooms.map((room) => [room.key, room]));
   const userRows = plan.users.map((user) => [user.email, passwordHash, user.nickname]);
@@ -465,7 +479,7 @@ VALUES
         (SELECT id FROM users WHERE email = ${sqlLiteral(hostEmail)}),
         'PERSON_FOCUSED',
         ${sqlLiteral(title)},
-        'ROOM k6 fixture',
+        ${sqlLiteral(ownershipDescription)},
         'ALL_LEVELS',
         false,
         'ROOM-K6',
@@ -487,9 +501,10 @@ COMMIT;
 `;
 }
 
-export function buildResourceQuery(plan) {
+export function buildResourceQuery(plan, prepareOwnership) {
   const emails = plan.users.map((user) => sqlLiteral(user.email)).join(', ');
   const titles = plan.rooms.map((room) => sqlLiteral(room.title)).join(', ');
+  const ownershipDescription = prepareOwnershipDescription(prepareOwnership);
   return `SELECT jsonb_build_object(
   'users', COALESCE((
     SELECT jsonb_object_agg(email, id)
@@ -500,11 +515,13 @@ export function buildResourceQuery(plan) {
     SELECT jsonb_object_agg(title, id)
     FROM rooms
     WHERE title IN (${titles})
+      AND description = ${sqlLiteral(ownershipDescription)}
   ), '{}'::jsonb)
 );`;
 }
 
-export function hydrateFixture(plan, resources) {
+export function hydrateFixture(plan, resources, prepareOwnership) {
+  const normalizedPrepareOwnership = normalizePrepareOwnership(prepareOwnership);
   const users = {};
   const rooms = {};
   for (const user of plan.users) {
@@ -536,6 +553,7 @@ export function hydrateFixture(plan, resources) {
     schemaVersion: plan.schemaVersion,
     fixtureId: plan.fixtureId,
     options: plan.options,
+    prepareOwnership: normalizedPrepareOwnership,
     users,
     rooms,
     targets: plan.targets,
@@ -581,7 +599,8 @@ function fixtureIdentityRows(fixture, type) {
   if (type === 'users') {
     return Object.values(fixture.users).map((user) => [user.id, user.email]);
   }
-  return Object.values(fixture.rooms).map((room) => [room.id, room.title]);
+  const ownershipDescription = prepareOwnershipDescription(fixture.prepareOwnership);
+  return Object.values(fixture.rooms).map((room) => [room.id, room.title, ownershipDescription]);
 }
 
 export function buildCleanupSql(fixture) {
@@ -604,10 +623,11 @@ INSERT INTO room_k6_cleanup_users (id, email) VALUES
 
 CREATE TEMP TABLE room_k6_cleanup_rooms (
     id bigint PRIMARY KEY,
-    title text NOT NULL
+    title text NOT NULL,
+    description text NOT NULL
 ) ON COMMIT DROP;
-INSERT INTO room_k6_cleanup_rooms (id, title) VALUES
-    ${roomRows.map(([id, title]) => `(${id}, ${sqlLiteral(title)})`).join(',\n    ')};
+INSERT INTO room_k6_cleanup_rooms (id, title, description) VALUES
+    ${roomRows.map(([id, title, description]) => `(${id}, ${sqlLiteral(title)}, ${sqlLiteral(description)})`).join(',\n    ')};
 
 DO $$
 BEGIN
@@ -632,7 +652,8 @@ BEGIN
         <> (SELECT count(*) FROM room_k6_cleanup_users) THEN
         RAISE EXCEPTION 'ROOM k6 fixture user identity mismatch';
     END IF;
-    IF (SELECT count(*) FROM rooms r JOIN room_k6_cleanup_rooms f ON f.id = r.id AND f.title = r.title)
+    IF (SELECT count(*) FROM rooms r JOIN room_k6_cleanup_rooms f
+        ON f.id = r.id AND f.title = r.title AND f.description = r.description)
         <> (SELECT count(*) FROM room_k6_cleanup_rooms) THEN
         RAISE EXCEPTION 'ROOM k6 fixture ROOM identity mismatch';
     END IF;

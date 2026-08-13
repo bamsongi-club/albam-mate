@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   chmodSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -23,6 +24,7 @@ const fixtureTool = path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon', 'tool
 const fixtureBuildRoot = path.join(repositoryRoot, 'build', 'k6', 'room');
 const roomK6Library = path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon', 'lib', 'room-k6.js');
 const t5Script = path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon', 't5-room-detail-by-role.js');
+const PREPARE_OWNERSHIP = 'a'.repeat(32);
 
 function createFakeK6(binDirectory) {
   if (process.platform === 'win32') {
@@ -159,12 +161,133 @@ if (fileIndex >= 0 && args[fileIndex + 1] === '-') {
   chmodSync(executablePath, 0o755);
 }
 
+function createOwnershipFakePsql(binDirectory) {
+  const programPath = path.join(binDirectory, 'ownership-fake-psql.mjs');
+  writeFileSync(programPath, `import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+
+const args = process.argv.slice(2);
+const statePath = process.env.FAKE_PSQL_STATE_PATH;
+
+function readState() {
+  return existsSync(statePath) ? JSON.parse(readFileSync(statePath, 'utf8')) : {};
+}
+
+function writeState(state) {
+  writeFileSync(statePath, JSON.stringify(state), 'utf8');
+}
+
+function waitFor(predicate, onReady) {
+  if (predicate()) {
+    onReady();
+    return;
+  }
+  setTimeout(() => waitFor(predicate, onReady), 10);
+}
+
+function ownershipFromSql(sql) {
+  return sql.match(/ROOM k6 fixture ([0-9a-f]{32})/)?.[1] || null;
+}
+
+const queryIndex = args.indexOf('-c');
+if (queryIndex >= 0) {
+  const sql = args[queryIndex + 1];
+  if (sql.includes('jsonb_object_agg(email, id)')) {
+    const ownership = ownershipFromSql(sql);
+    const state = readState();
+    state.resourceOwnershipRequests = [...(state.resourceOwnershipRequests || []), ownership];
+    writeState(state);
+    if (state.committedOwnership !== ownership) {
+      process.stdout.write(JSON.stringify({ users: state.resources.users, rooms: {} }));
+      process.exit(0);
+    }
+    process.stdout.write(process.env.FAKE_PSQL_RESOURCE_RESULT);
+    process.exit(0);
+  }
+  process.stdout.write(process.env.FAKE_PSQL_SNAPSHOT_RESULT);
+  process.exit(0);
+}
+
+const fileIndex = args.indexOf('-f');
+if (fileIndex >= 0 && args[fileIndex + 1] !== '-') {
+  const ownership = ownershipFromSql(readFileSync(args[fileIndex + 1], 'utf8'));
+  const state = readState();
+  if (!state.firstOwnership) {
+    writeState({ ...state, firstOwnership: ownership });
+    writeFileSync(process.env.FAKE_PSQL_OWNER_ENTERED_PATH, 'entered\\n', 'utf8');
+    waitFor(
+      () => existsSync(process.env.FAKE_PSQL_RELEASE_OWNER_PATH),
+      () => {
+        const committed = readState();
+        writeState({ ...committed, committedOwnership: ownership });
+        process.exit(0);
+      },
+    );
+  } else {
+    writeFileSync(process.env.FAKE_PSQL_LOSER_ENTERED_PATH, 'entered\\n', 'utf8');
+    waitFor(
+      () => Boolean(readState().committedOwnership),
+      () => {
+        process.stderr.write('duplicate key value violates unique constraint\\n');
+        process.exit(1);
+      },
+    );
+  }
+} else if (fileIndex >= 0 && args[fileIndex + 1] === '-') {
+  let input = '';
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', (chunk) => {
+    input += chunk;
+  });
+  process.stdin.on('end', () => {
+    const state = readState();
+    state.cleanupAttempts = (state.cleanupAttempts || 0) + 1;
+    writeState(state);
+    if (ownershipFromSql(input) !== state.committedOwnership) {
+      process.stderr.write('prepare ownership marker mismatch\\n');
+      process.exit(1);
+    }
+    if (process.env.FAKE_PSQL_CAPTURE_PATH) {
+      writeFileSync(process.env.FAKE_PSQL_CAPTURE_PATH, input, 'utf8');
+    }
+    process.exit(0);
+  });
+} else {
+  process.exit(0);
+}
+`, 'utf8');
+
+  const executablePath = path.join(binDirectory, 'psql');
+  writeFileSync(executablePath, `#!/usr/bin/env node\nimport ${JSON.stringify(pathToFileURL(programPath).href)};\n`, 'utf8');
+  chmodSync(executablePath, 0o755);
+}
+
+function createIsolatedFixtureTool() {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-fixture-root-'));
+  const copySource = (relativePath) => {
+    const sourcePath = path.join(repositoryRoot, relativePath);
+    const destinationPath = path.join(root, relativePath);
+    mkdirSync(path.dirname(destinationPath), { recursive: true });
+    copyFileSync(sourcePath, destinationPath);
+  };
+
+  copySource(path.join('load-tests', 'k6', 'jiwon', 'tools', 'fixture.mjs'));
+  copySource(path.join('load-tests', 'k6', 'jiwon', 'tools', 'fixture-model.mjs'));
+  copySource(path.join('load-tests', 'k6', 'jiwon', 'lib', 'read-execution-options.mjs'));
+
+  return {
+    root,
+    fixtureTool: path.join(root, 'load-tests', 'k6', 'jiwon', 'tools', 'fixture.mjs'),
+    buildRoot: path.join(root, 'build', 'k6', 'room'),
+  };
+}
+
 function writeFixture(directory, runId) {
   const fixturePath = path.join(directory, 'fixture.json');
   writeFileSync(fixturePath, `${JSON.stringify({
-    schemaVersion: 1,
+    schemaVersion: 2,
     fixtureId: `room-k6-${runId}-t1`,
     options: { scenario: 't1', runId, profile: 'stress', rounds: 1 },
+    prepareOwnership: PREPARE_OWNERSHIP,
     users: {},
     rooms: {},
   }, null, 2)}\n`, 'utf8');
@@ -174,11 +297,12 @@ function writeFixture(directory, runId) {
 function writeT5Fixture(directory, runId, role, scale) {
   const fixturePath = path.join(directory, 'fixture.json');
   writeFileSync(fixturePath, `${JSON.stringify({
-    schemaVersion: 1,
+    schemaVersion: 2,
     fixtureId: `room-k6-${runId}-t5-${role}-${scale}`,
     options: {
       scenario: 't5', runId, profile: 'stress', rounds: 1, t5Role: role, t5Scale: scale,
     },
+    prepareOwnership: PREPARE_OWNERSHIP,
     users: {},
     rooms: {},
     baselineSnapshot: { rooms: [], participations: [], waitlists: [] },
@@ -224,7 +348,7 @@ function writeCleanupFixture(runId, idOffset) {
     users: Object.fromEntries(plan.users.map((user, index) => [user.email, idOffset + index])),
     rooms: Object.fromEntries(plan.rooms.map((room, index) => [room.title, idOffset + 100 + index])),
   };
-  const fixture = hydrateFixture(plan, resources);
+  const fixture = hydrateFixture(plan, resources, PREPARE_OWNERSHIP);
   fixture.baselineSnapshot = { rooms: [], participations: [], waitlists: [] };
   const fixturePath = path.join(fixtureDirectory, 'fixture.json');
   mkdirSync(fixtureDirectory, { recursive: true });
@@ -352,9 +476,42 @@ function runPrepare(runId, binDirectory, extraEnvironment = {}) {
   });
 }
 
+function startPrepareFromTool(tool, runId, binDirectory, extraEnvironment = {}) {
+  return spawn(process.execPath, [
+    tool,
+    'prepare',
+    '--scenario', 't1',
+    '--run-id', runId,
+    '--profile', 'spike',
+    '--mode', 'hot',
+    '--concurrency', '2',
+  ], {
+    cwd: path.dirname(tool),
+    env: {
+      ...process.env,
+      PATH: `${binDirectory}${path.delimiter}${process.env.PATH || ''}`,
+      ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$test-hash',
+      ...extraEnvironment,
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+}
+
 function recoverCleanup(recoveryPath, binDirectory, extraEnvironment = {}) {
   return spawnSync(process.execPath, [fixtureTool, 'recover-cleanup', '--recovery', recoveryPath], {
     cwd: repositoryRoot,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      PATH: `${binDirectory}${path.delimiter}${process.env.PATH || ''}`,
+      ...extraEnvironment,
+    },
+  });
+}
+
+function recoverCleanupFromTool(tool, recoveryPath, binDirectory, extraEnvironment = {}) {
+  return spawnSync(process.execPath, [tool, 'recover-cleanup', '--recovery', recoveryPath], {
+    cwd: path.dirname(tool),
     encoding: 'utf8',
     env: {
       ...process.env,
@@ -455,6 +612,32 @@ test('T5 read 옵션은 시작 편차 count가 포함된 Trend summary를 요청
     source,
     /summaryTrendStats:\s*\[\s*'avg',\s*'min',\s*'med',\s*'max',\s*'p\(90\)',\s*'p\(95\)',\s*'count',?\s*\]/,
   );
+});
+
+test('k6 runtime은 ownership marker가 있는 fixture schema 2만 실행한다', () => {
+  const source = readFileSync(roomK6Library, 'utf8');
+
+  assert.match(source, /const FIXTURE_SCHEMA_VERSION = 2;/);
+  assert.match(source, /fixture\.schemaVersion !== FIXTURE_SCHEMA_VERSION/);
+  assert.match(source, /PREPARE_OWNERSHIP_PATTERN\.test\(fixture\.prepareOwnership\)/);
+});
+
+test('fixture tool은 ownership marker가 없는 legacy fixture를 k6 실행 전에 거절한다', () => {
+  const fixtureDirectory = createTestDirectory();
+
+  try {
+    const fixturePath = writeFixture(fixtureDirectory, 'runner-legacy-fixture');
+    const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'));
+    fixture.schemaVersion = 1;
+    delete fixture.prepareOwnership;
+    writeFileSync(fixturePath, `${JSON.stringify(fixture)}\n`, 'utf8');
+
+    const result = runFixture(fixturePath, fixtureDirectory);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /현재 schemaVersion=2/);
+  } finally {
+    rmSync(fixtureDirectory, { recursive: true, force: true });
+  }
 });
 
 test('run은 성공한 k6 실행의 provenance manifest와 summary를 같은 fixture에 남긴다', { skip: fakeK6Skip }, () => {
@@ -895,6 +1078,124 @@ test('prepare 후 조회 실패에도 recovery artifact로 동일 fixture cleanu
     assert.match(cleanupSql, /DELETE FROM users WHERE id IN/);
   } finally {
     rmSync(path.join(fixtureBuildRoot, runId), { recursive: true, force: true });
+    rmSync(binDirectory, { recursive: true, force: true });
+  }
+});
+
+test('다른 작업 디렉터리의 실패한 prepare recovery는 commit한 fixture를 정리하지 못한다', {
+  skip: process.platform === 'win32'
+    ? 'psql은 셸을 사용하지 않으므로 Windows에서는 Unix fake 실행을 사용하지 않는다.'
+    : false,
+}, async () => {
+  const runId = `runner-prepare-ownership-${process.pid}`;
+  const plan = createFixturePlan({
+    scenario: 't1',
+    runId,
+    profile: 'spike',
+    mode: 'hot',
+    concurrency: 2,
+  });
+  const resources = {
+    users: Object.fromEntries(plan.users.map((user, index) => [user.email, index + 1])),
+    rooms: Object.fromEntries(plan.rooms.map((room, index) => [room.title, index + 101])),
+  };
+  const snapshot = {
+    rooms: plan.rooms.map((room, index) => ({
+      id: index + 101,
+      hostUserId: resources.users[plan.users.find((user) => user.key === room.hostKey).email],
+      title: room.title,
+      capacity: room.capacity,
+      activeParticipantCount: room.activeKeys.length,
+      status: room.status,
+      version: 0,
+      startAt: '2030-01-01T00:00:00Z',
+      updatedAt: '2030-01-01T00:00:00Z',
+    })),
+    participations: plan.rooms.flatMap((room, roomIndex) => room.activeKeys.map((userKey, index) => ({
+      roomId: roomIndex + 101,
+      userId: resources.users[plan.users.find((user) => user.key === userKey).email],
+      status: 'ACTIVE',
+      joinedAt: `2030-01-01T00:00:0${index}Z`,
+      canceledAt: null,
+    }))),
+    waitlists: plan.rooms.flatMap((room, roomIndex) => room.waiterKeys.map((userKey, index) => ({
+      roomId: roomIndex + 101,
+      userId: resources.users[plan.users.find((user) => user.key === userKey).email],
+      status: 'WAITING',
+      queueOrder: roomIndex + index + 1,
+      queuedAt: '2030-01-01T00:00:00Z',
+    }))),
+  };
+  const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-psql-bin-'));
+  const statePath = path.join(binDirectory, 'state.json');
+  const ownerEnteredPath = path.join(binDirectory, 'owner-entered');
+  const loserEnteredPath = path.join(binDirectory, 'loser-entered');
+  const releaseOwnerPath = path.join(binDirectory, 'release-owner');
+  const owner = createIsolatedFixtureTool();
+  const loser = createIsolatedFixtureTool();
+  mkdirSync(binDirectory, { recursive: true });
+  createOwnershipFakePsql(binDirectory);
+  writeFileSync(
+    statePath,
+    JSON.stringify({ resources, snapshot, cleanupAttempts: 0, resourceOwnershipRequests: [] }),
+    'utf8',
+  );
+
+  const environment = {
+    FAKE_PSQL_STATE_PATH: statePath,
+    FAKE_PSQL_RESOURCE_RESULT: JSON.stringify(resources),
+    FAKE_PSQL_SNAPSHOT_RESULT: JSON.stringify(snapshot),
+    FAKE_PSQL_OWNER_ENTERED_PATH: ownerEnteredPath,
+    FAKE_PSQL_LOSER_ENTERED_PATH: loserEnteredPath,
+    FAKE_PSQL_RELEASE_OWNER_PATH: releaseOwnerPath,
+  };
+  const recoveryPath = (tool) => path.join(tool.buildRoot, runId, plan.fixtureId, 'prepare-recovery.json');
+  let ownerPrepare = null;
+  let loserPrepare = null;
+
+  try {
+    ownerPrepare = startPrepareFromTool(owner.fixtureTool, runId, binDirectory, environment);
+    const ownerExit = waitForFixtureExit(ownerPrepare);
+    await waitForFile(ownerEnteredPath);
+
+    loserPrepare = startPrepareFromTool(loser.fixtureTool, runId, binDirectory, environment);
+    const loserExit = waitForFixtureExit(loserPrepare);
+    await waitForFile(loserEnteredPath);
+    writeFileSync(releaseOwnerPath, 'release\n', 'utf8');
+
+    const ownerResult = await ownerExit;
+    const loserResult = await loserExit;
+    assert.equal(ownerResult.status, 0, ownerResult.stderr || ownerResult.stdout);
+    assert.notEqual(loserResult.status, 0);
+    assert.match(loserResult.stderr, /recover-cleanup/);
+
+    const ownerRecovery = JSON.parse(readFileSync(recoveryPath(owner), 'utf8'));
+    const loserRecovery = JSON.parse(readFileSync(recoveryPath(loser), 'utf8'));
+    assert.equal(ownerRecovery.fixtureId, loserRecovery.fixtureId);
+    assert.deepEqual(ownerRecovery.options, loserRecovery.options);
+    assert.match(ownerRecovery.prepareOwnership, /^[0-9a-f]{32}$/);
+    assert.match(loserRecovery.prepareOwnership, /^[0-9a-f]{32}$/);
+    assert.notEqual(ownerRecovery.prepareOwnership, loserRecovery.prepareOwnership);
+
+    const recovered = recoverCleanupFromTool(loser.fixtureTool, recoveryPath(loser), binDirectory, environment);
+    assert.notEqual(recovered.status, 0);
+    assert.match(recovered.stderr, /fixture ROOM ID를 찾지 못했습니다/);
+
+    const state = JSON.parse(readFileSync(statePath, 'utf8'));
+    assert.equal(state.committedOwnership, ownerRecovery.prepareOwnership);
+    assert.deepEqual(state.resourceOwnershipRequests, [
+      ownerRecovery.prepareOwnership,
+      loserRecovery.prepareOwnership,
+    ]);
+    assert.equal(state.cleanupAttempts, 0);
+  } finally {
+    if (!existsSync(releaseOwnerPath)) {
+      writeFileSync(releaseOwnerPath, 'release\n', 'utf8');
+    }
+    ownerPrepare?.kill('SIGKILL');
+    loserPrepare?.kill('SIGKILL');
+    rmSync(owner.root, { recursive: true, force: true });
+    rmSync(loser.root, { recursive: true, force: true });
     rmSync(binDirectory, { recursive: true, force: true });
   }
 });

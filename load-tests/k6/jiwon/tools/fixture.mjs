@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn, spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   existsSync,
   mkdirSync,
@@ -21,6 +21,7 @@ import {
   createFixturePlan,
   evaluateFixture,
   hydrateFixture,
+  normalizePrepareOwnership,
   RUN_ID_PATTERN,
 } from './fixture-model.mjs';
 import { readExecutionOptions } from '../lib/read-execution-options.mjs';
@@ -160,16 +161,31 @@ function queryJson(sql) {
   }
 }
 
+function assertCurrentFixtureSchema(fixture) {
+  try {
+    if (!fixture || typeof fixture !== 'object' || Array.isArray(fixture)
+      || fixture.schemaVersion !== 2) {
+      throw new Error('fixture schema mismatch');
+    }
+    normalizePrepareOwnership(fixture.prepareOwnership);
+  } catch (_) {
+    fail('fixture JSON 형식이 현재 schemaVersion=2와 맞지 않습니다. 새로 prepare한 fixture를 사용하세요.');
+  }
+}
+
 function readFixture(rawPath) {
   const fixturePath = assertInsideBuild(rawPath);
   if (!existsSync(fixturePath)) {
     fail(`fixture 파일을 찾지 못했습니다: ${fixturePath}`);
   }
+  let fixture;
   try {
-    return { fixturePath, fixture: JSON.parse(readFileSync(fixturePath, 'utf8')) };
+    fixture = JSON.parse(readFileSync(fixturePath, 'utf8'));
   } catch (_) {
     fail(`fixture JSON을 읽을 수 없습니다: ${fixturePath}`);
   }
+  assertCurrentFixtureSchema(fixture);
+  return { fixturePath, fixture };
 }
 
 function hasExactKeys(value, expectedKeys) {
@@ -194,6 +210,7 @@ function assertCleanupFixtureMatchesPlan(fixturePath, fixture) {
     if (typeof fixtureId !== 'string') {
       cleanupFixtureMismatch();
     }
+    normalizePrepareOwnership(fixture.prepareOwnership);
     plan = createFixturePlan(options);
   } catch (_) {
     cleanupFixtureMismatch();
@@ -205,7 +222,7 @@ function assertCleanupFixtureMatchesPlan(fixturePath, fixture) {
     || fixture.fixtureId !== plan.fixtureId
     || !isDeepStrictEqual(fixture.options, plan.options)
     || !hasExactKeys(fixture, [
-      'schemaVersion', 'fixtureId', 'options', 'users', 'rooms', 'targets', 'sessionUserKeys', 'baselineSnapshot',
+      'schemaVersion', 'fixtureId', 'options', 'prepareOwnership', 'users', 'rooms', 'targets', 'sessionUserKeys', 'baselineSnapshot',
     ])
     || !fixture.baselineSnapshot || typeof fixture.baselineSnapshot !== 'object' || Array.isArray(fixture.baselineSnapshot)
     || !isDeepStrictEqual(fixture.targets, plan.targets)
@@ -254,12 +271,13 @@ function recoveryOptions(plan) {
   return options;
 }
 
-function writePrepareRecovery(outputDirectory, plan) {
+function writePrepareRecovery(outputDirectory, plan, prepareOwnership) {
   const recoveryPath = path.join(outputDirectory, PREPARE_RECOVERY_FILE);
   writeNewJson(recoveryPath, {
-    schemaVersion: 1,
+    schemaVersion: 2,
     fixtureId: plan.fixtureId,
     options: recoveryOptions(plan),
+    prepareOwnership: normalizePrepareOwnership(prepareOwnership),
   });
   return recoveryPath;
 }
@@ -277,12 +295,14 @@ function readPrepareRecovery(rawPath) {
     fail(`prepare 복구 JSON을 읽을 수 없습니다: ${recoveryPath}`);
   }
 
-  if (!recovery || recovery.schemaVersion !== 1 || typeof recovery.fixtureId !== 'string'
-    || !recovery.options || typeof recovery.options !== 'object') {
+  if (!recovery || recovery.schemaVersion !== 2 || typeof recovery.fixtureId !== 'string'
+    || !recovery.options || typeof recovery.options !== 'object'
+    || typeof recovery.prepareOwnership !== 'string') {
     fail('prepare 복구 파일 형식이 맞지 않습니다.');
   }
 
   const plan = createFixturePlan(recovery.options);
+  const prepareOwnership = normalizePrepareOwnership(recovery.prepareOwnership);
   const expectedPath = path.join(
     buildRoot,
     plan.options.runId,
@@ -292,7 +312,7 @@ function readPrepareRecovery(rawPath) {
   if (recovery.fixtureId !== plan.fixtureId || recoveryPath !== expectedPath) {
     fail('prepare 복구 파일이 결정적 fixture 식별자와 맞지 않습니다.');
   }
-  return { recoveryPath, plan };
+  return { recoveryPath, plan, prepareOwnership };
 }
 
 function writeJson(filePath, value) {
@@ -626,6 +646,7 @@ function compareT5(values) {
 function prepare(values) {
   const passwordHash = requireEnvironment('ROOM_K6_FIXTURE_PASSWORD_HASH');
   const plan = createFixturePlan(values);
+  const prepareOwnership = randomUUID().replaceAll('-', '');
   const outputDirectory = assertInsideBuild(path.join(buildRoot, plan.options.runId, plan.fixtureId));
   if (existsSync(outputDirectory)) {
     fail(`같은 run ID·scenario fixture가 이미 있습니다: ${outputDirectory}. 기존 fixture를 교체하지 말고 새 run ID를 사용하거나 명시적으로 cleanup하세요.`);
@@ -635,12 +656,16 @@ function prepare(values) {
   mkdirSync(outputDirectory);
 
   const preparePath = path.join(outputDirectory, 'prepare.sql');
-  writeFileSync(preparePath, buildPrepareSql(plan, passwordHash), 'utf8');
-  const recoveryPath = writePrepareRecovery(outputDirectory, plan);
+  writeFileSync(preparePath, buildPrepareSql(plan, passwordHash, prepareOwnership), 'utf8');
+  const recoveryPath = writePrepareRecovery(outputDirectory, plan, prepareOwnership);
 
   try {
     psql(['-q', '-f', preparePath]);
-    const fixture = hydrateFixture(plan, queryJson(buildResourceQuery(plan)));
+    const fixture = hydrateFixture(
+      plan,
+      queryJson(buildResourceQuery(plan, prepareOwnership)),
+      prepareOwnership,
+    );
     fixture.baselineSnapshot = queryJson(buildSnapshotQuery(fixture));
     const fixturePath = path.join(outputDirectory, 'fixture.json');
     writeJson(fixturePath, fixture);
@@ -844,8 +869,12 @@ function cleanup(values) {
 }
 
 function recoverCleanup(values) {
-  const { recoveryPath, plan } = readPrepareRecovery(values.recovery);
-  const fixture = hydrateFixture(plan, queryJson(buildResourceQuery(plan)));
+  const { recoveryPath, plan, prepareOwnership } = readPrepareRecovery(values.recovery);
+  const fixture = hydrateFixture(
+    plan,
+    queryJson(buildResourceQuery(plan, prepareOwnership)),
+    prepareOwnership,
+  );
   psql(['-q', '-f', '-'], buildCleanupSql(fixture));
   process.stdout.write(`${JSON.stringify({
     fixtureId: fixture.fixtureId,

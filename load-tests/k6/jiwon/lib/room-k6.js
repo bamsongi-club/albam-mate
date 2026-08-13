@@ -13,6 +13,8 @@ import { writeOptions } from './write-options.mjs';
 export { writeOptions };
 
 const RUN_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,79}$/;
+const FIXTURE_SCHEMA_VERSION = 2;
+const PREPARE_OWNERSHIP_PATTERN = /^[0-9a-f]{32}$/;
 
 export const roomRequestDuration = new Trend('room_request_duration', true);
 export const roomStartSkewMilliseconds = new Trend('room_start_skew_ms', true);
@@ -173,8 +175,11 @@ function fixtureFromEnvironment() {
   } catch (_) {
     fail(`ROOM_K6_FIXTURE를 읽을 수 없습니다: ${fixturePath}`);
   }
-  if (!fixture || fixture.schemaVersion !== 1 || !fixture.options || !fixture.users || !fixture.rooms) {
-    fail('ROOM_K6_FIXTURE 형식이 #649 fixture schemaVersion=1과 다릅니다.');
+  if (!fixture || fixture.schemaVersion !== FIXTURE_SCHEMA_VERSION
+    || typeof fixture.prepareOwnership !== 'string'
+    || !PREPARE_OWNERSHIP_PATTERN.test(fixture.prepareOwnership)
+    || !fixture.options || !fixture.users || !fixture.rooms) {
+    fail('ROOM_K6_FIXTURE 형식이 #649 fixture schemaVersion=2와 다릅니다. 새로 prepare한 fixture를 사용하세요.');
   }
   return fixture;
 }

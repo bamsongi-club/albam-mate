@@ -4,10 +4,13 @@ import test from 'node:test';
 import {
   buildCleanupSql,
   buildPrepareSql,
+  buildResourceQuery,
   createFixturePlan,
   evaluateFixture,
   hydrateFixture,
 } from '../tools/fixture-model.mjs';
+
+const PREPARE_OWNERSHIP = 'a'.repeat(32);
 
 function resourcesFor(plan) {
   const users = {};
@@ -69,7 +72,7 @@ function initialSnapshot(fixture) {
 
 function fixtureFor(input) {
   const plan = createFixturePlan(input);
-  return { plan, fixture: hydrateFixture(plan, resourcesFor(plan)) };
+  return { plan, fixture: hydrateFixture(plan, resourcesFor(plan), PREPARE_OWNERSHIP) };
 }
 
 function summaryWith(counts = {}) {
@@ -206,11 +209,22 @@ test('fixture SQL은 정확한 ID 기반 cleanup을 만들고 prefix 전체 삭�
     concurrency: 2,
   });
 
-  const prepareSql = buildPrepareSql(plan, '{bcrypt}$2y$10$PzJpRRDVEB/jtl2uSy8vZuLyskdxt1Jg6BZ23PQqlQLvm7kB0EAem');
+  const prepareSql = buildPrepareSql(
+    plan,
+    '{bcrypt}$2y$10$PzJpRRDVEB/jtl2uSy8vZuLyskdxt1Jg6BZ23PQqlQLvm7kB0EAem',
+    PREPARE_OWNERSHIP,
+  );
+  const resourceQuery = buildResourceQuery(plan, PREPARE_OWNERSHIP);
   const cleanupSql = buildCleanupSql(fixture);
+  assert.equal(plan.schemaVersion, 2);
+  assert.equal(fixture.schemaVersion, 2);
   assert.match(prepareSql, /pg_advisory_xact_lock/);
   assert.match(cleanupSql, /room_k6_cleanup_users/);
   assert.match(cleanupSql, /room_k6_cleanup_rooms/);
+  assert.match(prepareSql, /ROOM k6 fixture a{32}/);
+  assert.match(resourceQuery, /description = 'ROOM k6 fixture a{32}'/);
+  assert.match(cleanupSql, /description text NOT NULL/);
+  assert.match(cleanupSql, /f\.description = r\.description/);
   assert.match(cleanupSql, /FOR UPDATE OF room/);
   assert.match(cleanupSql, /FOR UPDATE OF event/);
   assert.match(cleanupSql, /FOR UPDATE OF chat_room/);

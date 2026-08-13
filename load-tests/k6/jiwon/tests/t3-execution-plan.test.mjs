@@ -9,6 +9,8 @@ import {
 } from '../lib/t3-execution-plan.mjs';
 import { writeOptions } from '../lib/write-options.mjs';
 
+const PREPARE_OWNERSHIP = 'a'.repeat(32);
+
 function resourcesFor(plan) {
   const users = {};
   const rooms = {};
@@ -27,7 +29,7 @@ function resourcesFor(plan) {
 
 function fixtureFor(values) {
   const plan = createFixturePlan(values);
-  return hydrateFixture(plan, resourcesFor(plan));
+  return hydrateFixture(plan, resourcesFor(plan), PREPARE_OWNERSHIP);
 }
 
 test('T3 race는 각 독립 ROOM pair를 같은 barrier에 한 번씩 배치한다', () => {
