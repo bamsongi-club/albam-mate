@@ -89,9 +89,16 @@ class GameNameSearchIndexPostgresTest {
 				"explain (format text) select id from games where lower(name) like lower(?)",
 				String.class,
 				"%보드게%"));
+		String countPlan = String.join(
+			"\n",
+			jdbc.queryForList(
+				"explain (format text) select count(*) from games where lower(name) like lower(?)",
+				String.class,
+				"%보드게%"));
 
 		assertNotNull(plan);
 		assertTrue(plan.contains(GAME_NAME_TRIGRAM_INDEX));
+		assertTrue(countPlan.contains(GAME_NAME_TRIGRAM_INDEX));
 	}
 
 	@Test
