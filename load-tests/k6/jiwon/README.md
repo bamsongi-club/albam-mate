@@ -31,6 +31,8 @@
 | `fixture.json` | `build/k6/room/<run-id>/<fixture-id>/` | 실제 ID와 k6 실행 입력 |
 | `prepare.sql` | 동일 경로 | fixture 생성 SQL. bcrypt hash가 포함될 수 있어 Git 비추적 |
 | `before-verification.json` | 동일 경로 | 실행 전 DB 불변식 |
+| `run-manifest.json` | 동일 경로 | 대상 배포 SHA·환경·fixture·k6 버전·시작/종료 UTC를 묶은 실행 기록 |
+| `k6-summary.json` | 동일 경로 | `run`이 같은 manifest와 함께 생성한 k6 summary |
 | `cleanup.sql` | 동일 경로 | 정확한 생성 ID만 정리하는 SQL |
 
 cleanup은 broad prefix 삭제나 `TRUNCATE`를 쓰지 않는다. fixture ROOM에 비-fixture 사용자의 파생 행이 섞였으면 삭제하지 않고 중단한다.
@@ -44,6 +46,8 @@ cleanup은 broad prefix 삭제나 `TRUNCATE`를 쓰지 않는다. fixture ROOM�
 | 변수 | 기본값 | 용도 |
 | --- | --- | --- |
 | `ALBAM_MATE_TARGET_URL` | 없음 | 대상 서버 URL |
+| `ALBAM_MATE_TARGET_ENVIRONMENT` | 없음 | 결과에 남길 대상 환경 식별자. URL·비밀값은 기록하지 않음 |
+| `ALBAM_MATE_SOURCE_SHA` | 없음 | 대상 환경에 배포된 40자리 Git SHA |
 | `ALBAM_MATE_RUN_ID` | 없음 | fixture `--run-id`와 같은 실행 식별자 |
 | `ROOM_K6_FIXTURE_PASSWORD` | 없음 | fixture 계정 로그인 비밀번호 |
 | `ROOM_K6_FIXTURE_PASSWORD_HASH` | 없음 | 같은 비밀번호의 `{bcrypt}$` hash. `prepare`에서만 사용 |
@@ -65,6 +69,8 @@ cleanup은 broad prefix 삭제나 `TRUNCATE`를 쓰지 않는다. fixture ROOM�
 $runId = 'room-t1-hot-8-01'
 $env:ALBAM_MATE_RUN_ID = $runId
 $env:ALBAM_MATE_TARGET_URL = 'https://<private-target>'
+$env:ALBAM_MATE_TARGET_ENVIRONMENT = 'private-loadtest'
+$env:ALBAM_MATE_SOURCE_SHA = '<40-character-deployed-git-sha>'
 $env:ROOM_K6_FIXTURE_PASSWORD = '<private-password>'
 $env:ROOM_K6_FIXTURE_PASSWORD_HASH = '<private-bcrypt-hash>'
 
@@ -73,12 +79,13 @@ $prepared = node load-tests/k6/jiwon/tools/fixture.mjs prepare `
   ConvertFrom-Json
 $env:ROOM_K6_FIXTURE = $prepared.fixturePath
 
-$summary = Join-Path $prepared.outputDirectory 'k6-summary.json'
-k6 run --summary-export $summary load-tests/k6/jiwon/t1-cancel-promotion.js
+node load-tests/k6/jiwon/tools/fixture.mjs run --fixture $prepared.fixturePath
 
 node load-tests/k6/jiwon/tools/fixture.mjs verify `
-  --fixture $prepared.fixturePath --stage after --summary $summary
+  --fixture $prepared.fixturePath --stage after
 ```
+
+`run`은 fixture가 가리키는 scenario 스크립트만 실행하고, 실행 직전·직후에 같은 `run-manifest.json`을 갱신한다. `after` 검증은 이 manifest와 같은 경로의 `k6-summary.json`만 사용하므로 수동으로 다른 실행 summary를 섞을 수 없다. `ALBAM_MATE_SOURCE_SHA`에는 로컬 스크립트 checkout이 아니라 **대상 환경에 배포된** SHA를 넣는다.
 
 시나리오별 fixture 입력은 아래처럼 바꾼다.
 
@@ -92,11 +99,13 @@ node load-tests/k6/jiwon/tools/fixture.mjs verify `
 | T4 | `--scenario t4 --profile stress --concurrency 2|4|8` |
 | T5 | `--scenario t5 --t5-role public|host|participant --t5-scale 1|10` |
 
-`stress`의 기본값은 독립 ROOM 5개를 같은 동시성으로 연속 wave 실행하는 것이다. `spike`의 기본값은 독립 ROOM 1개에 즉시 한 wave를 보낸다. T5는 VU마다 측정 창 전체를 한 번 실행한다.
+`stress`의 기본값은 독립 ROOM 5개를 같은 동시성으로 연속 wave 실행하는 것이다. 단, T3 `race`는 각 독립 ROOM의 wait/cancel 한 쌍을 같은 barrier에 병렬 배치한다. `spike`의 기본값은 독립 ROOM 1개에 즉시 한 wave를 보낸다. T5는 VU마다 측정 창 전체를 한 번 실행한다.
 
 ## 결과 확인
 
 사후 검증은 HTTP 응답 분류와 DB snapshot을 함께 판정한다.
+
+실행 결과를 비교하거나 정본으로 승격할 때는 `run-manifest.json`의 `sourceSha`, `targetEnvironment`, `fixtureId`, `startedAtUtc`, `finishedAtUtc`, `k6Version`을 함께 보존한다.
 
 | 상태 | 의미 |
 | --- | --- |
@@ -118,6 +127,8 @@ node load-tests/k6/jiwon/tools/fixture.mjs cleanup --fixture $prepared.fixturePa
 
 ```powershell
 node --test load-tests/k6/jiwon/tests/fixture-model.test.mjs
+node --test load-tests/k6/jiwon/tests/t3-execution-plan.test.mjs
+node --test load-tests/k6/jiwon/tests/fixture-runner.test.mjs
 
 Get-ChildItem load-tests/k6/jiwon -Recurse -File |
   Where-Object { $_.Extension -in '.js', '.mjs' } |

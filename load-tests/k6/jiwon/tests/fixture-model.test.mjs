@@ -150,6 +150,8 @@ test('T3는 round별 독립 ROOM에 취소자와 신청자 한 명씩을 만든�
 
   assert.equal(plan.rooms.length, 5);
   assert.equal(plan.users.length, 3);
+  assert.deepEqual(plan.targets.map((target) => target.round), [0, 1, 2, 3, 4]);
+  assert.equal(new Set(plan.targets.map((target) => target.roomKey)).size, 5);
   assert.ok(plan.rooms.every((room) => room.capacity === 1 && room.status === 'CLOSED'));
   assert.ok(plan.rooms.every((room) => room.activeKeys.length === 1 && room.waiterKeys.length === 0));
   assert.deepEqual(evaluateFixture(fixture, initialSnapshot(fixture), 'before'), {
@@ -209,6 +211,29 @@ test('fixture SQL은 정확한 ID 기반 cleanup을 만들고 prefix 전체 삭�
   assert.match(prepareSql, /pg_advisory_xact_lock/);
   assert.match(cleanupSql, /room_k6_cleanup_users/);
   assert.match(cleanupSql, /room_k6_cleanup_rooms/);
+  assert.match(cleanupSql, /FOR UPDATE OF room/);
+  assert.match(cleanupSql, /FOR UPDATE OF event/);
+  assert.match(cleanupSql, /FOR UPDATE OF chat_room/);
+  assert.ok(
+    cleanupSql.indexOf('FOR UPDATE OF room')
+      < cleanupSql.indexOf('fixture ROOM has participation by non-fixture user'),
+  );
+  assert.ok(
+    cleanupSql.indexOf('FOR UPDATE OF room')
+      < cleanupSql.indexOf('fixture ROOM has waitlist by non-fixture user'),
+  );
+  assert.ok(
+    cleanupSql.indexOf('FOR UPDATE OF room')
+      < cleanupSql.indexOf('fixture ROOM has notification for non-fixture user'),
+  );
+  assert.ok(
+    cleanupSql.indexOf('FOR UPDATE OF event')
+      < cleanupSql.indexOf('fixture ROOM has outbox recipient outside fixture users'),
+  );
+  assert.ok(
+    cleanupSql.indexOf('FOR UPDATE OF chat_room')
+      < cleanupSql.indexOf('fixture ROOM has chat message by non-fixture user'),
+  );
   assert.match(cleanupSql, /fixture ROOM has participation by non-fixture user/);
   assert.match(cleanupSql, /fixture ROOM has waitlist by non-fixture user/);
   assert.match(cleanupSql, /fixture ROOM has notification for non-fixture user/);

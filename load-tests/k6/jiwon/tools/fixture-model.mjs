@@ -611,6 +611,23 @@ INSERT INTO room_k6_cleanup_rooms (id, title) VALUES
 
 DO $$
 BEGIN
+    -- 검증 뒤 새 파생 행이 삽입되어 삭제되지 않도록 FK 부모 행을 먼저 잠근다.
+    PERFORM 1
+    FROM rooms room
+    JOIN room_k6_cleanup_rooms fixture ON fixture.id = room.id
+    ORDER BY room.id
+    FOR UPDATE OF room;
+    PERFORM 1
+    FROM notification_outbox_events event
+    JOIN room_k6_cleanup_rooms fixture ON fixture.id = event.room_id
+    ORDER BY event.id
+    FOR UPDATE OF event;
+    PERFORM 1
+    FROM chat_rooms chat_room
+    JOIN room_k6_cleanup_rooms fixture ON fixture.id = chat_room.room_id
+    ORDER BY chat_room.id
+    FOR UPDATE OF chat_room;
+
     IF (SELECT count(*) FROM users u JOIN room_k6_cleanup_users f ON f.id = u.id AND f.email = u.email)
         <> (SELECT count(*) FROM room_k6_cleanup_users) THEN
         RAISE EXCEPTION 'ROOM k6 fixture user identity mismatch';
