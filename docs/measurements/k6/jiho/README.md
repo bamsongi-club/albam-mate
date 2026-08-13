@@ -4,6 +4,7 @@
 
 | Campaign ID | 상태 | 보고서 | 판단서·근거 | 대체 관계 |
 | --- | --- | --- | --- | --- |
+| `auth-noti-662-20260813h-auth` / `a662-h-notify-v4` | `completed-with-limitations` | [인증·알림 병목 진단 캠페인](auth-notification-bottleneck-campaign-2026-08-13.md) | App #662·PR #663, Infra PR #11 | 2026-08-11 결과를 대체하지 않는 내부 병목 진단 |
 | `auth-notification-20260811T021040KST` | `completed-with-limitations` | [인증·알림 AWS 용량 측정](auth-notification-capacity-2026-08-11.md) | [알림 broker 판단](notification-broker-decision-2026-08-11.md) · [manifest](evidence/auth-notification-capacity-2026-08-11.json) | 후속 측정이 기존 결론을 대체하지 않음 |
 | `tomcat64-20260811` | `INVALID` | [Tomcat 64 알림 혼합 부하 재측정](notification-tomcat64-capacity-2026-08-11.md) | [evidence](evidence/notification-tomcat64-capacity-2026-08-11.json) | 앞선 캠페인의 후속, 대체하지 않음 |
 | `t4gsmall-20260812` | `INVALID` | [t4g.small 알림 혼합 부하 단일 측정](notification-t4gsmall-capacity-2026-08-12.md) | [evidence](evidence/notification-t4gsmall-capacity-2026-08-12.json) | OOM 제거만 확인, 용량 경계를 대체하지 않음 |
