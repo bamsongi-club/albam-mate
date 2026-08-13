@@ -128,7 +128,7 @@ function validateArtifacts(artifacts) {
 
 function normalizeWindowsArtifactName(name) {
     if (typeof name !== 'string' || name === '.' || name === '..'
-        || name.includes('/') || name.includes('\\')) {
+        || /[\u0000-\u001f\u007f<>:"/\\|?*]/u.test(name)) {
         throw new Error(`invalid release artifact name for Windows: ${name}`);
     }
     const withoutTrailingWindowsSpace = name.replace(/[ .]+$/u, '');

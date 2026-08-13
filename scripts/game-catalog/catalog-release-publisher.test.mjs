@@ -76,6 +76,43 @@ test('release 승격 직후 중단되어도 같은 승인 입력으로 publish�
     }
 });
 
+test('손상된 중단 release는 artifact 삭제·변조 후 pointer 복구를 거부한다', () => {
+    for (const [suffix, corrupt] of [
+        ['deleted', (root) => rmSync(join(root, 'releases', 'release-001', 'games.csv'))],
+        ['tampered', (root) => writeFileSync(join(root, 'releases', 'release-001', 'games.csv'), 'tampered')],
+    ]) {
+        const root = mkdtempSync(join(tmpdir(), `albam-catalog-release-corrupt-${suffix}-`));
+        try {
+            const manifest = validManifest('release-001');
+            assert.throws(
+                () => publishCatalogRelease({
+                    outputRoot: root,
+                    manifest,
+                    artifacts: { 'games.csv': { contents: 'original', rows: 1 } },
+                    rename(source, target) {
+                        renameSync(source, target);
+                        if (target.endsWith('release-001')) throw new Error('simulated interruption');
+                    },
+                }),
+                /simulated interruption/u,
+            );
+            corrupt(root);
+
+            assert.throws(
+                () => publishCatalogRelease({
+                    outputRoot: root,
+                    manifest,
+                    artifacts: { 'games.csv': { contents: 'original', rows: 1 } },
+                }),
+                /checksum mismatch|ENOENT/u,
+            );
+            assert.equal(existsSync(join(root, 'current-release.json')), false);
+        } finally {
+            rmSync(root, { recursive: true, force: true });
+        }
+    }
+});
+
 test('Windows 파일명 정규화 충돌과 예약 장치명을 차단한다', () => {
     const root = mkdtempSync(join(tmpdir(), 'albam-catalog-release-names-'));
     try {
@@ -106,6 +143,16 @@ test('Windows 파일명 정규화 충돌과 예약 장치명을 차단한다', (
             }),
             /Windows|trailing/u,
         );
+        assert.throws(
+            () => publishCatalogRelease({
+                outputRoot: root,
+                manifest: validManifest('release-004'),
+                artifacts: { 'games.csv:payload': { contents: 'ads', rows: 1 } },
+            }),
+            /Windows|forbidden/u,
+        );
+        assert.equal(existsSync(join(root, 'releases', 'release-004')), false);
+        assert.equal(existsSync(join(root, 'current-release.json')), false);
     } finally {
         rmSync(root, { recursive: true, force: true });
     }
