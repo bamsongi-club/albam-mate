@@ -103,6 +103,51 @@ test('자동 음차 후보 생성기는 승인 SQL을 변경하지 않는다', (
     assert.match(readFileSync(candidatePath, 'utf8'), /추정번역\(자동음차\)/);
 });
 
+test('BoardLife UPSERT는 충돌 시 승인된 업무 필드 전체를 갱신한다', () => {
+    const source = readFileSync('scripts/game-catalog/boardlife-collector.mjs', 'utf8');
+    const approvedFields = [
+        'name', 'english_name', 'supported_player_count', 'tag', 'estimated_play_time',
+        'min_players', 'max_players', 'min_play_time_minutes', 'max_play_time_minutes',
+        'complexity', 'release_year', 'description', 'detail_description',
+    ];
+    for (const field of approvedFields) {
+        assert.match(source, new RegExp(`${field} = EXCLUDED\\.${field}`));
+    }
+});
+
+test('자동 설명 생성기는 검수 후보만 만들고 승인 SQL과 ZIP을 변경하지 않는다', () => {
+    for (const script of ['expand-korean-descriptions.mjs', 'expand-all-korean-descriptions.mjs']) {
+        const root = createDescriptionGeneratorFixture();
+        const localization = join(root, 'reference/02-localization');
+        const sqlPath = join(localization, '05-upsert-korean-descriptions-supplement.sql');
+        const candidatePath = join(localization, '05-upsert-korean-descriptions-supplement.needs-review.json');
+        const zipPath = join(root, '01-team-handoff-local.zip');
+        const approvedSql = 'BEGIN;\n-- 사람이 승인한 기존 SQL\nCOMMIT;\n';
+
+        execFileSync(process.execPath, [`scripts/game-catalog/${script}`, root], { cwd: process.cwd() });
+
+        assert.equal(readFileSync(sqlPath, 'utf8'), approvedSql);
+        assert.equal(
+            execFileSync('unzip', ['-p', zipPath, '06-complete-local-import/05-upsert-korean-descriptions-supplement.sql'], { encoding: 'utf8' }),
+            approvedSql,
+        );
+        assert.deepEqual(JSON.parse(readFileSync(candidatePath, 'utf8')), [{
+            bgg_id: 10,
+            source_description: '카드를 사용해 승점을 얻습니다.',
+            source_detail_description: '플레이어는 카드를 뽑고 승리 조건을 확인합니다.',
+            description_ko: '카드를 사용해 승점을 얻습니다.',
+            detail_description_ko: '플레이어는 카드를 뽑고 승리 조건을 확인합니다.',
+            reviewed: false,
+        }]);
+    }
+});
+
+test('설명 생성기는 운영체제 임시 디렉터리 기반 추출기를 사용한다', () => {
+    const source = readFileSync('scripts/game-catalog/expand-korean-descriptions.mjs', 'utf8');
+    assert.doesNotMatch(source, /['"]\/tmp\//);
+    assert.match(source, /readZipJsonEntry/);
+});
+
 test('카탈로그 build가 source 중복이면 품질 report만 남긴다', () => {
     const root = mkdtempSync(join(tmpdir(), 'albam-build-gate-'));
     const inputs = join(root, 'inputs');
@@ -217,6 +262,30 @@ function mkdirSyncForTest(path) {
 
 function writeJsonForTest(path, value) {
     writeFileSync(path, JSON.stringify(value));
+}
+
+function createDescriptionGeneratorFixture() {
+    const root = mkdtempSync(join(tmpdir(), 'albam-description-candidate-'));
+    const localization = join(root, 'reference/02-localization');
+    const zipRoot = join(root, 'zip-root/06-complete-local-import');
+    const approvedSql = 'BEGIN;\n-- 사람이 승인한 기존 SQL\nCOMMIT;\n';
+    mkdirSyncForTest(localization);
+    mkdirSyncForTest(zipRoot);
+    writeFileSync(join(root, 'README.md'), '# 테스트\n');
+    writeFileSync(join(localization, '05-upsert-korean-descriptions-supplement.sql'), approvedSql);
+    writeJsonForTest(join(zipRoot, 'service-catalog.local-import-with-bgg-descriptions.json'), [{
+        bgg_id: 10,
+        description: '카드를 사용해 승점을 얻습니다.',
+        detail_description: '플레이어는 카드를 뽑고 승리 조건을 확인합니다.',
+    }]);
+    writeFileSync(join(zipRoot, '05-upsert-korean-descriptions-supplement.sql'), approvedSql);
+    execFileSync('zip', [
+        '-q',
+        join(root, '01-team-handoff-local.zip'),
+        '06-complete-local-import/service-catalog.local-import-with-bgg-descriptions.json',
+        '06-complete-local-import/05-upsert-korean-descriptions-supplement.sql',
+    ], { cwd: join(root, 'zip-root') });
+    return root;
 }
 
 function buildReportForTest(path, rows, datasetKind) {

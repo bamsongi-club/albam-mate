@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, copyFileSync, mkdtempSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, copyFileSync, mkdtempSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -120,6 +120,18 @@ export function parseDescriptionUpdates(sql) {
             description: match[1].replaceAll("''", "'"),
             detailDescription: match[2].replaceAll("''", "'"),
         }));
+}
+
+export function readZipJsonEntry(zipPath, zipEntry) {
+    const workRoot = mkdtempSync(join(tmpdir(), 'albam-zip-entry-'));
+    const extractedPath = join(workRoot, 'entry.json');
+    try {
+        const contents = execFileSync('unzip', ['-p', zipPath, zipEntry]);
+        writeFileSync(extractedPath, contents);
+        return JSON.parse(readFileSync(extractedPath, 'utf8'));
+    } finally {
+        rmSync(workRoot, { recursive: true, force: true });
+    }
 }
 
 export function commitZipArtifacts({ zipPath, zipEntry, zipFileTarget, files }) {

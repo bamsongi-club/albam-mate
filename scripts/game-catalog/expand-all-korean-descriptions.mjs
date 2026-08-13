@@ -1,31 +1,22 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
 import { translateDescription } from './korean-description-translator.mjs';
 import { validateDescription } from './korean-description-validator.mjs';
-import { commitZipArtifacts, resolveInputRoot } from './catalog-pipeline-utils.mjs';
+import { readZipJsonEntry, resolveInputRoot } from './catalog-pipeline-utils.mjs';
 
 const DOWNLOAD_DIR = resolveInputRoot(process.argv.slice(2));
 const ZIP_PATH = path.join(DOWNLOAD_DIR, '01-team-handoff-local.zip');
-const SUPPLEMENT_DESC_SQL_PATH = path.join(DOWNLOAD_DIR, 'reference/02-localization/05-upsert-korean-descriptions-supplement.sql');
+const NEEDS_REVIEW_PATH = path.join(DOWNLOAD_DIR, 'reference/02-localization/05-upsert-korean-descriptions-supplement.needs-review.json');
+const CATALOG_ZIP_ENTRY = '06-complete-local-import/service-catalog.local-import-with-bgg-descriptions.json';
 
 async function processAllDescriptions() {
     console.log('1. zip 내 service-catalog JSON 임시 추출 중...');
-    const tmpDir = path.join(process.cwd(), '.tmp');
-    fs.mkdirSync(tmpDir, { recursive: true });
-    const tmpJsonPath = path.join(tmpDir, 'temp_service_catalog_desc.json');
-    execSync(`unzip -p "${ZIP_PATH}" 06-complete-local-import/service-catalog.local-import-with-bgg-descriptions.json > "${tmpJsonPath}"`);
-
-    console.log('JSON 파싱 중...');
-    const rawContent = fs.readFileSync(tmpJsonPath, 'utf-8');
-    const catalogData = JSON.parse(rawContent);
-    fs.unlinkSync(tmpJsonPath);
+    const catalogData = readZipJsonEntry(ZIP_PATH, CATALOG_ZIP_ENTRY);
 
     console.log(`전체 카탈로그 행 수: ${catalogData.length}건`);
 
     console.log('2. 17만 건 전체 게임 설명 번역 및 검증 처리 중...');
-    const sqlStatements = ['BEGIN;'];
-    let successCount = 0;
+    const needsReview = [];
 
     for (let i = 0; i < catalogData.length; i++) {
         const game = catalogData[i];
@@ -38,10 +29,14 @@ async function processAllDescriptions() {
 
         const validation = validateDescription(bggId, koDesc, koDetail);
         if (validation.valid) {
-            successCount++;
-            const safeDesc = koDesc.replace(/'/g, "''");
-            const safeDetail = koDetail.replace(/'/g, "''");
-            sqlStatements.push(`UPDATE games SET description = '${safeDesc}', detail_description = '${safeDetail}' WHERE bgg_id = ${bggId};`);
+            needsReview.push({
+                bgg_id: bggId,
+                source_description: origDesc,
+                source_detail_description: origDetail,
+                description_ko: koDesc,
+                detail_description_ko: koDetail,
+                reviewed: false,
+            });
         }
 
         if ((i + 1) % 50000 === 0) {
@@ -49,18 +44,9 @@ async function processAllDescriptions() {
         }
     }
 
-    sqlStatements.push('COMMIT;');
-
-    console.log(`3. 05-upsert-korean-descriptions-supplement.sql 갱신 중 (${successCount}건)...`);
-    console.log('4. 설명 SQL과 ZIP을 함께 검증한 뒤 원자적으로 갱신 중...');
-    commitZipArtifacts({
-        zipPath: ZIP_PATH,
-        zipEntry: '06-complete-local-import/05-upsert-korean-descriptions-supplement.sql',
-        zipFileTarget: SUPPLEMENT_DESC_SQL_PATH,
-        files: [{ target: SUPPLEMENT_DESC_SQL_PATH, contents: sqlStatements.join('\n') + '\n' }],
-    });
-
-    console.log(`17만 건 전체 게임 설명 한글화 전면 확충 완수! (총 ${successCount}건)`);
+    fs.writeFileSync(NEEDS_REVIEW_PATH, JSON.stringify(needsReview, null, 2) + '\n', 'utf-8');
+    console.log(`3. 자동 번역 ${needsReview.length}건을 검수 대기 목록에 기록했습니다.`);
+    console.log('사람이 승인하기 전에는 설명 SQL과 ZIP을 변경하지 않습니다.');
 }
 
 processAllDescriptions().catch(err => {

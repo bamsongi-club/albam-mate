@@ -136,7 +136,21 @@ async function collectBoardlifeData() {
         const safeDetail = game.detail_description.replace(/'/g, "''");
         const safeTag = game.tag.replace(/'/g, "''");
 
-        sqlStatements.push(`INSERT INTO games (bgg_id, name, english_name, supported_player_count, tag, estimated_play_time, min_players, max_players, min_play_time_minutes, max_play_time_minutes, complexity, release_year, description, detail_description, created_at, updated_at) VALUES (${game.bgg_id}, '${safeName}', '${safeEn}', '${game.supported_player_count}', '${safeTag}', '${game.estimated_play_time}', ${game.min_players}, ${game.max_players}, ${game.min_play_time_minutes}, ${game.max_play_time_minutes}, ${game.complexity}, ${game.release_year}, '${safeDesc}', '${safeDetail}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT (bgg_id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description, detail_description = EXCLUDED.detail_description, updated_at = CURRENT_TIMESTAMP;`);
+        sqlStatements.push(`INSERT INTO games (bgg_id, name, english_name, supported_player_count, tag, estimated_play_time, min_players, max_players, min_play_time_minutes, max_play_time_minutes, complexity, release_year, description, detail_description, created_at, updated_at) VALUES (${game.bgg_id}, '${safeName}', '${safeEn}', '${game.supported_player_count}', '${safeTag}', '${game.estimated_play_time}', ${game.min_players}, ${game.max_players}, ${game.min_play_time_minutes}, ${game.max_play_time_minutes}, ${game.complexity}, ${game.release_year}, '${safeDesc}', '${safeDetail}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT (bgg_id) DO UPDATE SET
+            name = EXCLUDED.name,
+            english_name = EXCLUDED.english_name,
+            supported_player_count = EXCLUDED.supported_player_count,
+            tag = EXCLUDED.tag,
+            estimated_play_time = EXCLUDED.estimated_play_time,
+            min_players = EXCLUDED.min_players,
+            max_players = EXCLUDED.max_players,
+            min_play_time_minutes = EXCLUDED.min_play_time_minutes,
+            max_play_time_minutes = EXCLUDED.max_play_time_minutes,
+            complexity = EXCLUDED.complexity,
+            release_year = EXCLUDED.release_year,
+            description = EXCLUDED.description,
+            detail_description = EXCLUDED.detail_description,
+            updated_at = CURRENT_TIMESTAMP;`);
     }
 
     sqlStatements.push('COMMIT;');
