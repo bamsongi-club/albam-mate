@@ -39,7 +39,12 @@ function waitlistRequest(sessions, target, room, round, barrierAt = null) {
     recordStartSkew(barrierAt, tags);
   }
   const response = requestEmpty(client, runtime, 'POST', `/api/rooms/${room.id}/waitlist`, tags);
-  evaluateResponse(response, classifyT3Waitlist, tags, 'T3 waitlist registration');
+  evaluateResponse(
+    response,
+    (actual, value) => classifyT3Waitlist(actual, value, room.id),
+    tags,
+    'T3 waitlist registration',
+  );
 }
 
 function cancelRequest(sessions, target, room, round, barrierAt = null) {
@@ -53,7 +58,12 @@ function cancelRequest(sessions, target, room, round, barrierAt = null) {
     recordStartSkew(barrierAt, tags);
   }
   const response = requestEmpty(client, runtime, 'DELETE', `/api/rooms/${room.id}/participants/me`, tags);
-  evaluateResponse(response, classifyT3Cancel, tags, 'T3 cancel participation');
+  evaluateResponse(
+    response,
+    (actual, value) => classifyT3Cancel(actual, value, room, runtime.fixture.options.t3Mode),
+    tags,
+    'T3 cancel participation',
+  );
 }
 
 export default function (barrier) {

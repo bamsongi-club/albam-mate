@@ -16,6 +16,7 @@ import execution from 'k6/execution';
 
 const runtime = loadRuntime('t2');
 const allowExisting = runtime.fixture.options.subcase === 'duplicate';
+const expectedPosition = allowExisting ? 1 : null;
 
 export const options = writeOptions(runtime, runtime.fixture.options.concurrency);
 
@@ -40,7 +41,7 @@ export default function (barrier) {
   const response = requestEmpty(client, runtime, 'POST', `/api/rooms/${room.id}/waitlist`, tags);
   const outcome = evaluateResponse(
     response,
-    (actual, value) => classifyT2Waitlist(actual, value, allowExisting),
+    (actual, value) => classifyT2Waitlist(actual, value, room.id, allowExisting, expectedPosition),
     tags,
     'T2 waitlist registration',
   );

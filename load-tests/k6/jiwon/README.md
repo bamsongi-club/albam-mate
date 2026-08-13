@@ -34,12 +34,13 @@
 | `prepare.sql` | 동일 경로 | fixture 생성 SQL. bcrypt hash가 포함될 수 있어 Git 비추적 |
 | `prepare-recovery.json` | 동일 경로 | `prepare` commit 뒤 artifact 생성이 실패했을 때 결정적 fixture를 다시 찾아 안전한 cleanup에 쓰는 비밀 없는 복구 입력 |
 | `before-verification.json` | 동일 경로 | 실행 전 DB 불변식 |
+| `after-verification.json` | 동일 경로 | 실행 뒤 HTTP·DB 불변식 판정. T5 비교는 같은 fixture의 `PASS` artifact만 허용 |
 | `run-manifest.json` | 동일 경로 | 대상 배포 SHA·환경·fixture·k6 버전·시작/종료 UTC와 `runState`·`completed`를 묶은 실행 기록 |
 | `k6-summary.json` | 동일 경로 | `run`이 같은 manifest와 함께 생성한 k6 summary |
 | `t5-comparison-verification.json` | `build/k6/room/<run-id>/` | T5 role×scale 6개 실행의 공통 read profile 검증 결과 |
 | `cleanup.sql` | 동일 경로 | 정확한 생성 ID만 정리하는 SQL |
 
-cleanup은 broad prefix 삭제나 `TRUNCATE`를 쓰지 않는다. fixture ROOM에 비-fixture 사용자의 파생 행이 섞였으면 삭제하지 않고 중단한다.
+cleanup은 broad prefix 삭제나 `TRUNCATE`를 쓰지 않는다. SQL 실행 전 fixture 경로·결정적 plan·사용자/ROOM 식별자를 다시 대조하고, fixture ROOM에 비-fixture 사용자의 파생 행이 섞였으면 삭제하지 않고 중단한다.
 
 ## 전제와 환경 변수
 
@@ -109,7 +110,7 @@ node load-tests/k6/jiwon/tools/fixture.mjs verify `
 node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id $runId
 ```
 
-`compare-t5`는 public/host/participant × ACTIVE 1/10 fixture가 모두 있고 각 완료 manifest의 `t5ReadOptions`가 같은지 확인한다. 비교 결과로 사용할 T5 묶음은 이 명령이 `PASS`일 때만 유효하다.
+`compare-t5`는 public/host/participant × ACTIVE 1/10 fixture가 모두 있고, 각 완료 manifest의 `t5ReadOptions`가 같으며 각 fixture의 `after-verification.json`이 같은 fixture의 `stage: "after"`, `status: "PASS"`인지 확인한다. 각 `after` 검증은 `room_start_skew_ms` 관측 수가 해당 실행의 VU 수와 같은지도 확인한다. 비교 결과로 사용할 T5 묶음은 이 명령이 `PASS`일 때만 유효하다.
 
 ## 결과 확인
 
@@ -154,6 +155,7 @@ node load-tests/k6/jiwon/tools/fixture.mjs recover-cleanup `
 node --test load-tests/k6/jiwon/tests/fixture-model.test.mjs
 node --test load-tests/k6/jiwon/tests/t3-execution-plan.test.mjs
 node --test load-tests/k6/jiwon/tests/fixture-runner.test.mjs
+node --test load-tests/k6/jiwon/tests/write-response-contract.test.mjs
 
 Get-ChildItem load-tests/k6/jiwon -Recurse -File |
   Where-Object { $_.Extension -in '.js', '.mjs' } |

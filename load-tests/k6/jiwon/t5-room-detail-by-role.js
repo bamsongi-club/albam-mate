@@ -5,6 +5,7 @@ import {
   loadRuntime,
   readOptions,
   readSetup,
+  recordStartSkew,
   scenarioTags,
   sessionFor,
   waitFor,
@@ -35,11 +36,12 @@ export default function (window) {
   }
 
   waitFor(window.firstBarrierAt);
+  const tags = scenarioTags(runtime, target, { phase: 'measurement', operation: 'room-detail' });
+  recordStartSkew(window.firstBarrierAt, tags);
   if (Date.now() >= window.measurementEndsAt) {
     throw new Error('T5 측정 시작 전에 측정 창이 끝났습니다. runner 부하와 시간 설정을 확인하세요.');
   }
   while (Date.now() < window.measurementEndsAt) {
-    const tags = scenarioTags(runtime, target, { phase: 'measurement', operation: 'room-detail' });
     const response = getRoomDetail(client, runtime, room.id, tags);
     evaluateResponse(
       response,

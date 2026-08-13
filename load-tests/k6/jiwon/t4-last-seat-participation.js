@@ -36,5 +36,10 @@ export default function (barrier) {
   });
   recordStartSkew(barrierAt, tags);
   const response = requestEmpty(client, runtime, 'POST', `/api/rooms/${room.id}/participants`, tags);
-  evaluateResponse(response, classifyT4Join, tags, 'T4 last-seat participation');
+  evaluateResponse(
+    response,
+    (actual, value) => classifyT4Join(actual, value, room.id),
+    tags,
+    'T4 last-seat participation',
+  );
 }

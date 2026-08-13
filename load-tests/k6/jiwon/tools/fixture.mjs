@@ -11,6 +11,7 @@ import {
 } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 
 import {
   buildCleanupSql,
@@ -168,6 +169,83 @@ function readFixture(rawPath) {
     return { fixturePath, fixture: JSON.parse(readFileSync(fixturePath, 'utf8')) };
   } catch (_) {
     fail(`fixture JSON을 읽을 수 없습니다: ${fixturePath}`);
+  }
+}
+
+function hasExactKeys(value, expectedKeys) {
+  return value
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    && isDeepStrictEqual(Object.keys(value).sort(), [...expectedKeys].sort());
+}
+
+function cleanupFixtureMismatch() {
+  fail('cleanup fixture가 결정적 fixture plan과 맞지 않습니다. 새 run ID로 prepare한 fixture만 사용하세요.');
+}
+
+function assertCleanupFixtureMatchesPlan(fixturePath, fixture) {
+  let plan;
+  try {
+    if (!fixture || typeof fixture !== 'object' || Array.isArray(fixture)
+      || !fixture.options || typeof fixture.options !== 'object' || Array.isArray(fixture.options)) {
+      cleanupFixtureMismatch();
+    }
+    const { fixtureId, ...options } = fixture.options;
+    if (typeof fixtureId !== 'string') {
+      cleanupFixtureMismatch();
+    }
+    plan = createFixturePlan(options);
+  } catch (_) {
+    cleanupFixtureMismatch();
+  }
+
+  const expectedPath = path.join(buildRoot, plan.options.runId, plan.fixtureId, 'fixture.json');
+  if (fixturePath !== expectedPath
+    || fixture.schemaVersion !== plan.schemaVersion
+    || fixture.fixtureId !== plan.fixtureId
+    || !isDeepStrictEqual(fixture.options, plan.options)
+    || !hasExactKeys(fixture, [
+      'schemaVersion', 'fixtureId', 'options', 'users', 'rooms', 'targets', 'sessionUserKeys', 'baselineSnapshot',
+    ])
+    || !fixture.baselineSnapshot || typeof fixture.baselineSnapshot !== 'object' || Array.isArray(fixture.baselineSnapshot)
+    || !isDeepStrictEqual(fixture.targets, plan.targets)
+    || !isDeepStrictEqual(fixture.sessionUserKeys, [...new Set(plan.sessionUserKeys)])) {
+    cleanupFixtureMismatch();
+  }
+
+  if (!hasExactKeys(fixture.users, plan.users.map((user) => user.key))
+    || !hasExactKeys(fixture.rooms, plan.rooms.map((room) => room.key))) {
+    cleanupFixtureMismatch();
+  }
+
+  for (const user of plan.users) {
+    const actual = fixture.users[user.key];
+    if (!hasExactKeys(actual, ['id', 'email', 'nickname'])
+      || !Number.isSafeInteger(actual.id) || actual.id <= 0
+      || actual.email !== user.email
+      || actual.nickname !== user.nickname) {
+      cleanupFixtureMismatch();
+    }
+  }
+
+  for (const room of plan.rooms) {
+    const actual = fixture.rooms[room.key];
+    if (!hasExactKeys(actual, [
+      'id', 'title', 'hostKey', 'capacity', 'status', 'activeKeys', 'waiterKeys',
+      'cancelKeys', 'candidateKeys', 'raceWaitKey',
+    ])
+      || !Number.isSafeInteger(actual.id) || actual.id <= 0
+      || actual.title !== room.title
+      || actual.hostKey !== room.hostKey
+      || actual.capacity !== room.capacity
+      || actual.status !== room.status
+      || !isDeepStrictEqual(actual.activeKeys, room.activeKeys)
+      || !isDeepStrictEqual(actual.waiterKeys, room.waiterKeys)
+      || !isDeepStrictEqual(actual.cancelKeys, room.cancelKeys || [])
+      || !isDeepStrictEqual(actual.candidateKeys, room.candidateKeys || [])
+      || actual.raceWaitKey !== (room.raceWaitKey || null)) {
+      cleanupFixtureMismatch();
+    }
   }
 }
 
@@ -352,14 +430,8 @@ function completedRunArtifact(fixturePath, fixture) {
   if (manifest.runState === 'INTERRUPTED') {
     return { failure: interruptedRunMessage(manifest, fixturePath) };
   }
-  if (manifest.runState === 'RUNNING') {
-    return { failure: 'run-manifest.json이 종료 상태로 기록되지 않은 실행을 가리킵니다.' };
-  }
-  if (manifest.runState && manifest.runState !== 'COMPLETED') {
-    return { failure: 'run-manifest.json이 완료되지 않은 실행을 가리킵니다.' };
-  }
-  if (manifest.completed === false) {
-    return { failure: 'run-manifest.json이 완료되지 않은 실행을 가리킵니다.' };
+  if (manifest.runState !== 'COMPLETED' || manifest.completed !== true) {
+    return { failure: 'run-manifest.json에 완료 lifecycle 기록이 없습니다.' };
   }
 
   if (manifest.schemaVersion !== 1
@@ -414,6 +486,50 @@ function sameT5ReadOptions(left, right) {
     && left.thinkTimeMilliseconds === right.thinkTimeMilliseconds;
 }
 
+function t5StartSkewMetricFailure(summary, manifest) {
+  const observedCount = summary?.metrics?.room_start_skew_ms?.values?.count;
+  const expectedCount = manifest.t5ReadOptions.vus;
+  if (!Number.isInteger(observedCount)) {
+    return 'T5 room_start_skew_ms metric이 부족합니다.';
+  }
+  if (observedCount !== expectedCount) {
+    return `T5 room_start_skew_ms 관측 수 ${observedCount}가 VU 수 ${expectedCount}와 다릅니다.`;
+  }
+  return null;
+}
+
+function t5AfterVerificationArtifact(fixturePath, fixture) {
+  const verificationPath = path.join(path.dirname(fixturePath), 'after-verification.json');
+  if (!existsSync(verificationPath)) {
+    return { invalid: 'T5 비교에는 after-verification.json이 필요합니다.' };
+  }
+
+  let verification;
+  try {
+    verification = JSON.parse(readFileSync(verificationPath, 'utf8'));
+  } catch (_) {
+    return { invalid: 'after-verification.json을 읽을 수 없습니다.' };
+  }
+
+  if (!verification || typeof verification !== 'object'
+    || verification.fixtureId !== fixture.fixtureId
+    || verification.scenario !== 't5'
+    || verification.stage !== 'after'
+    || !Array.isArray(verification.failures)) {
+    return { invalid: 'after-verification.json이 현재 T5 fixture와 맞지 않습니다.' };
+  }
+  if (verification.status === 'PASS') {
+    if (verification.failures.length !== 0) {
+      return { invalid: 'after-verification.json이 PASS인데 failures가 비어 있지 않습니다.' };
+    }
+    return { verification };
+  }
+  if (verification.status === 'FAIL') {
+    return { verification, failed: 'after 검증이 FAIL로 끝났습니다.' };
+  }
+  return { invalid: 'after-verification.json의 status가 PASS 또는 FAIL이 아닙니다.' };
+}
+
 function compareT5(values) {
   const runId = String(values.runId || '').trim();
   const outputDirectory = t5ComparisonDirectory(runId);
@@ -450,6 +566,20 @@ function compareT5(values) {
     }
     if (runArtifact.manifest.k6ExitCode !== 0) {
       failures.push(`T5 ${caseKey}: k6 run이 exit=${runArtifact.manifest.k6ExitCode}로 종료되었습니다.`);
+    }
+    const startSkewFailure = t5StartSkewMetricFailure(runArtifact.summary, runArtifact.manifest);
+    if (startSkewFailure) {
+      failures.push(`T5 ${caseKey}: ${startSkewFailure}`);
+      continue;
+    }
+    const afterArtifact = t5AfterVerificationArtifact(fixturePath, fixture);
+    if (afterArtifact.invalid) {
+      invalidArtifact = true;
+      failures.push(`T5 ${caseKey}: ${afterArtifact.invalid}`);
+      continue;
+    }
+    if (afterArtifact.failed) {
+      failures.push(`T5 ${caseKey}: ${afterArtifact.failed}`);
     }
     fixturesByCase.set(caseKey, { fixture, manifest: runArtifact.manifest });
   }
@@ -569,18 +699,6 @@ async function run(values) {
   if (t5ReadOptions) {
     manifest.t5ReadOptions = t5ReadOptions;
   }
-  writeNewJson(manifestPath, manifest);
-
-  const k6Environment = {
-    ...process.env,
-    ALBAM_MATE_RUN_ID: fixture.options.runId,
-    ROOM_K6_FIXTURE: fixturePath,
-  };
-  if (t5ReadOptions) {
-    k6Environment.ROOM_K6_READ_VUS = String(t5ReadOptions.vus);
-    k6Environment.ROOM_K6_READ_DURATION_SECONDS = String(t5ReadOptions.durationSeconds);
-    k6Environment.ROOM_K6_READ_THINK_TIME_MS = String(t5ReadOptions.thinkTimeMilliseconds);
-  }
   let k6Process = null;
   let interruptedSignal = null;
   const interruptK6 = (signal) => {
@@ -592,10 +710,23 @@ async function run(values) {
       k6Process.kill(signal);
     }
   };
-  process.on('SIGINT', interruptK6);
-  process.on('SIGTERM', interruptK6);
 
   try {
+    process.on('SIGINT', interruptK6);
+    process.on('SIGTERM', interruptK6);
+    writeNewJson(manifestPath, manifest);
+
+    const k6Environment = {
+      ...process.env,
+      ALBAM_MATE_RUN_ID: fixture.options.runId,
+      ROOM_K6_FIXTURE: fixturePath,
+    };
+    if (t5ReadOptions) {
+      k6Environment.ROOM_K6_READ_VUS = String(t5ReadOptions.vus);
+      k6Environment.ROOM_K6_READ_DURATION_SECONDS = String(t5ReadOptions.durationSeconds);
+      k6Environment.ROOM_K6_READ_THINK_TIME_MS = String(t5ReadOptions.thinkTimeMilliseconds);
+    }
+
     k6Process = runK6(['run', '--summary-export', summaryPath, scriptPath], {
       cwd: repositoryRoot,
       env: k6Environment,
@@ -683,6 +814,12 @@ function verify(values) {
   if (runManifest && runManifest.k6ExitCode !== 0) {
     failures.push(`k6 run이 exit=${runManifest.k6ExitCode}로 종료되었습니다.`);
   }
+  if (runManifest && fixture.options.scenario === 't5') {
+    const startSkewFailure = t5StartSkewMetricFailure(summary, runManifest);
+    if (startSkewFailure) {
+      failures.push(startSkewFailure);
+    }
+  }
   const result = {
     fixtureId: fixture.fixtureId,
     scenario: fixture.options.scenario,
@@ -700,7 +837,8 @@ function verify(values) {
 }
 
 function cleanup(values) {
-  const { fixture } = readFixture(values.fixture);
+  const { fixturePath, fixture } = readFixture(values.fixture);
+  assertCleanupFixtureMatchesPlan(fixturePath, fixture);
   psql(['-q', '-f', '-'], buildCleanupSql(fixture));
   process.stdout.write(`${JSON.stringify({ fixtureId: fixture.fixtureId, status: 'CLEANED' })}\n`);
 }

@@ -2,6 +2,12 @@ import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
 import { readExecutionOptions } from './read-execution-options.mjs';
+import {
+  hasNicknameOnlySet,
+  hasParticipationPayload,
+  hasT3CancelPayload,
+  hasWaitlistPayload,
+} from './write-response-contract.mjs';
 import { writeOptions } from './write-options.mjs';
 
 export { writeOptions };
@@ -278,6 +284,7 @@ export function sessionFor(runtime, sessions, userKey) {
 export function readOptions(runtime) {
   const maxDuration = runtime.sessionWarmupSeconds + runtime.readDurationSeconds + 30;
   return {
+    summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'count'],
     scenarios: {
       room_read: {
         executor: 'per-vu-iterations',
@@ -389,20 +396,12 @@ function unexpected() {
   return { category: 'unexpected', contract: false };
 }
 
-function participationPayload(value, status, expectedRoomStatus, expectedParticipantCount, expectedRemainingSeats) {
-  const data = value && value.data;
-  return data && data.participationStatus === status
-    && data.roomStatus === expectedRoomStatus
-    && data.participantCount === expectedParticipantCount
-    && data.remainingRecruitmentSeats === expectedRemainingSeats;
-}
-
 export function classifyT1Cancel(response, value, room) {
   if (response.status === 200) {
     return success(
       response,
       value,
-      participationPayload(value, 'CANCELED', 'CLOSED', room.capacity + 1, 0),
+      hasParticipationPayload(value && value.data, room.id, 'CANCELED', 'CLOSED', room.capacity + 1, 0),
     );
   }
   if (response.status === 409 && responseCode(value) === 'ROOM_CONCURRENT_MODIFICATION') {
@@ -411,10 +410,9 @@ export function classifyT1Cancel(response, value, room) {
   return unexpected();
 }
 
-export function classifyT2Waitlist(response, value, allowExisting) {
+export function classifyT2Waitlist(response, value, expectedRoomId, allowExisting, expectedPosition = null) {
   const data = value && value.data;
-  const validData = data && data.waitlistStatus === 'WAITING'
-    && Number.isInteger(data.position) && data.position > 0;
+  const validData = hasWaitlistPayload(data, expectedRoomId, expectedPosition);
   if (response.status === 201) {
     return success(response, value, validData);
   }
@@ -427,13 +425,13 @@ export function classifyT2Waitlist(response, value, allowExisting) {
   return unexpected();
 }
 
-export function classifyT3Waitlist(response, value) {
+export function classifyT3Waitlist(response, value, expectedRoomId) {
   const data = value && value.data;
   if (response.status === 201) {
     return success(
       response,
       value,
-      data && data.waitlistStatus === 'WAITING' && Number.isInteger(data.position) && data.position > 0,
+      hasWaitlistPayload(data, expectedRoomId, 1),
     );
   }
   if (response.status === 409 && responseCode(value) === 'WAITLIST_NOT_AVAILABLE') {
@@ -445,10 +443,10 @@ export function classifyT3Waitlist(response, value) {
   return unexpected();
 }
 
-export function classifyT3Cancel(response, value) {
+export function classifyT3Cancel(response, value, room, t3Mode) {
   if (response.status === 200) {
     const data = value && value.data;
-    return success(response, value, data && data.participationStatus === 'CANCELED');
+    return success(response, value, hasT3CancelPayload(data, room, t3Mode));
   }
   if (response.status === 409 && responseCode(value) === 'ROOM_CONCURRENT_MODIFICATION') {
     return concurrent(response, value, value.data === null);
@@ -456,9 +454,13 @@ export function classifyT3Cancel(response, value) {
   return unexpected();
 }
 
-export function classifyT4Join(response, value) {
+export function classifyT4Join(response, value, expectedRoomId) {
   if (response.status === 201) {
-    return success(response, value, participationPayload(value, 'ACTIVE', 'CLOSED', 2, 0));
+    return success(
+      response,
+      value,
+      hasParticipationPayload(value && value.data, expectedRoomId, 'ACTIVE', 'CLOSED', 2, 0),
+    );
   }
   if (response.status === 409 && responseCode(value) === 'CAPACITY_EXCEEDED') {
     return business(response, value, value.data === null);
@@ -508,11 +510,7 @@ export function classifyT5Detail(response, value, fixture, target) {
 
   const expectedRole = target.role === 'host' ? 'HOST' : 'JOINED';
   const expectedParticipants = participantNicknames(fixture, room);
-  const validParticipants = Array.isArray(data.participants)
-    && data.participants.length === expectedParticipants.length
-    && data.participants.every((participant, index) => (
-      nicknameOnly(participant) && participant.nickname === expectedParticipants[index]
-    ));
+  const validParticipants = hasNicknameOnlySet(data.participants, expectedParticipants);
   const valid = data.waitlistable === false
     && data.myRole === expectedRole
     && typeof data.place === 'string'
