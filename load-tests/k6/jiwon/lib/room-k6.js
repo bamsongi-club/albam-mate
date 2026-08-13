@@ -1,6 +1,7 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
+import { readExecutionOptions } from './read-execution-options.mjs';
 import { writeOptions } from './write-options.mjs';
 
 export { writeOptions };
@@ -187,6 +188,7 @@ export function loadRuntime(expectedScenario) {
   if (!fixture.fixtureId || !fixture.fixtureId.startsWith('room-k6-')) {
     fail('fixtureId가 ROOM k6 fixture 형식이 아닙니다.');
   }
+  const readExecution = readExecutionOptions(__ENV);
   return {
     fixture,
     runId,
@@ -194,9 +196,9 @@ export function loadRuntime(expectedScenario) {
     password: requiredEnvironment('ROOM_K6_FIXTURE_PASSWORD'),
     sessionWarmupSeconds: integerEnvironment('ROOM_K6_SESSION_WARMUP_SECONDS', 15, 5, 120),
     roundIntervalSeconds: integerEnvironment('ROOM_K6_ROUND_INTERVAL_SECONDS', 20, 5, 300),
-    readVus: integerEnvironment('ROOM_K6_READ_VUS', 10, 1, 500),
-    readDurationSeconds: integerEnvironment('ROOM_K6_READ_DURATION_SECONDS', 60, 5, 3600),
-    readThinkTimeMilliseconds: integerEnvironment('ROOM_K6_READ_THINK_TIME_MS', 0, 0, 10000),
+    readVus: readExecution.vus,
+    readDurationSeconds: readExecution.durationSeconds,
+    readThinkTimeMilliseconds: readExecution.thinkTimeMilliseconds,
   };
 }
 
