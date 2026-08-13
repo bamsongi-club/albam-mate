@@ -6,7 +6,7 @@ import { useRequest } from '../shared/async';
 // 두 랭킹은 한 응답으로 함께 오므로 탭을 바꿀 때 다시 조회하지 않는다.
 const RANKING_TABS = [
   { key: 'overall', label: '전체', emptyMessage: '아직 집계할 모임이 없어요. 첫 모임을 열어보세요.' },
-  { key: 'upcomingWeek', label: '앞으로 7일', emptyMessage: '앞으로 7일 안에 시작하는 모임이 없어요.' }
+  { key: 'pastWeek', label: '지난 7일', emptyMessage: '지난 7일 동안 시작한 모임이 없어요.' }
 ];
 
 // 출시 연도는 없을 수 있어 영문명 뒤에 있을 때만 괄호로 덧붙인다.

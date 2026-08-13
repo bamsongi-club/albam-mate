@@ -35,29 +35,29 @@ import lombok.RequiredArgsConstructor;
 public class GameRankingQueryService {
 
 	private static final int RANKING_SIZE = 10;
-	private static final Duration UPCOMING_WEEK_WINDOW = Duration.ofDays(7);
+	private static final Duration PAST_WEEK_WINDOW = Duration.ofDays(7);
 
 	@NonNull private final GameRankingQuery gameRankingQuery;
 	@NonNull private final GameRepository gameRepository;
 	@NonNull private final Clock clock;
 
 	/**
-	 * 한 요청에서 고정한 기준 시각으로 전체 랭킹과 앞으로 7일 랭킹을 함께 조회한다.
+	 * 한 요청에서 고정한 기준 시각으로 전체 랭킹과 지난 7일 랭킹을 함께 조회한다.
 	 *
-	 * @return 각각 최대 {@value #RANKING_SIZE}개인 전체·앞으로 7일 랭킹
+	 * @return 각각 최대 {@value #RANKING_SIZE}개인 전체·지난 7일 랭킹
 	 */
 	public GameRankingResponse findRankings() {
 		Instant requestTime = Instant.now(clock);
 		List<GameRoomCount> overallCounts = gameRankingQuery.findOverallRanking(RANKING_SIZE);
-		List<GameRoomCount> upcomingWeekCounts = gameRankingQuery.findRankingByPeriod(
-			requestTime, requestTime.plus(UPCOMING_WEEK_WINDOW), RANKING_SIZE);
+		List<GameRoomCount> pastWeekCounts = gameRankingQuery.findRankingByPeriod(
+			requestTime.minus(PAST_WEEK_WINDOW), requestTime, RANKING_SIZE);
 
-		Map<Long, Game> gamesById = findGamesByIds(overallCounts, upcomingWeekCounts);
-		return new GameRankingResponse(toItems(overallCounts, gamesById), toItems(upcomingWeekCounts, gamesById));
+		Map<Long, Game> gamesById = findGamesByIds(overallCounts, pastWeekCounts);
+		return new GameRankingResponse(toItems(overallCounts, gamesById), toItems(pastWeekCounts, gamesById));
 	}
 
-	private Map<Long, Game> findGamesByIds(List<GameRoomCount> overallCounts, List<GameRoomCount> upcomingWeekCounts) {
-		Set<Long> gameIds = Stream.concat(overallCounts.stream(), upcomingWeekCounts.stream())
+	private Map<Long, Game> findGamesByIds(List<GameRoomCount> overallCounts, List<GameRoomCount> pastWeekCounts) {
+		Set<Long> gameIds = Stream.concat(overallCounts.stream(), pastWeekCounts.stream())
 			.map(GameRoomCount::gameId)
 			.collect(Collectors.toSet());
 		if (gameIds.isEmpty()) {

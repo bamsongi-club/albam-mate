@@ -1231,14 +1231,14 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | 인증 / CSRF | 불필요 / 불필요 |
 | 성공 | `200 OK`, `data`: `GameRankingResponse` |
 
-밤송이 내부 방만으로 게임별 모임 수를 세어 `전체`와 `앞으로 7일` 랭킹을 함께 반환한다. 집계 대상은 `roomType`이 `GAME_FOCUSED`이고 `status`가 `CANCELED`가 아닌 방이다. 두 랭킹은 한 요청에서 고정한 같은 기준 시각을 사용한다. 요청 파라미터가 없고 요청자에 따라 결과가 달라지지 않는다. 집계 대상이 없으면 오류가 아니라 빈 배열을 반환한다.
+밤송이 내부 방만으로 게임별 모임 수를 세어 `전체`와 `지난 7일` 랭킹을 함께 반환한다. 집계 대상은 `roomType`이 `GAME_FOCUSED`이고 `status`가 `CANCELED`가 아닌 방이다. 두 랭킹은 한 요청에서 고정한 같은 기준 시각을 사용한다. 요청 파라미터가 없고 요청자에 따라 결과가 달라지지 않는다. 집계 대상이 없으면 오류가 아니라 빈 배열을 반환한다.
 
 #### GameRankingResponse
 
 | 필드 | 타입 | null | 설명 |
 |---|---|:---:|---|
 | `overall` | GameRankingItem[] | N | 기간 조건 없는 전체 랭킹. 최대 10개 |
-| `upcomingWeek` | GameRankingItem[] | N | 시작 시각이 `[기준 시각, 기준 시각 + 7일)`인 방만 센 랭킹. 최대 10개 |
+| `pastWeek` | GameRankingItem[] | N | 시작 시각이 `[기준 시각 - 7일, 기준 시각)`인 방만 센 랭킹. 최대 10개 |
 
 #### GameRankingItem
 
