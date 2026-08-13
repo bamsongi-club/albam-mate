@@ -58,7 +58,10 @@ describe('모임 찾기 예외 화면', () => {
     await act(async () => {});
 
     expect(screen.getByRole('heading', { name: '조건에 맞는 모임이 없어요' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: '모임 만들기' }).getAttribute('href')).toBe('#/create');
+    // 타이틀 줄의 + 버튼과 빈 결과 안내가 같은 곳으로 간다.
+    screen.getAllByRole('link', { name: '모임 만들기' }).forEach((link) => {
+      expect(link.getAttribute('href')).toBe('#/create');
+    });
 
     fireEvent.click(screen.getByRole('button', { name: '필터 초기화' }));
     expect(onRoomTypeChange).toHaveBeenCalledWith('');

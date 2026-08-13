@@ -204,7 +204,7 @@ describe('#427 T4 채팅 라우트 진입', () => {
 });
 
 describe('#427 T5 채팅 화면 이력 표시', () => {
-  it('모바일 채팅 헤더에 전체 채팅과 모임 상세 동선을 제공한다', async () => {
+  it('채팅 상단에 뒤로 가기와 모임 상세 동선을 제공한다', async () => {
     vi.spyOn(api, 'getChatMessages').mockResolvedValue({
       messages: [{ messageId: 1, roomId: 7, clientMessageId: 'c1', sender: { nickname: '주최자' }, isMine: false, content: '7시에 만나요', createdAt: '2026-09-01T19:00:00+09:00' }],
       nextBeforeMessageId: null,
@@ -214,9 +214,9 @@ describe('#427 T5 채팅 화면 이력 표시', () => {
 
     const { container } = render(<ChatRoomView roomId="7" dataVersion={0} />);
 
-    await waitFor(() => expect(container.querySelector('.chat-mobile-header')).toBeTruthy());
-    expect(container.querySelector('.chat-mobile-title')?.textContent).toBe('홍대 보드게임 모임');
-    expect(screen.getByRole('link', { name: '전체 채팅으로 돌아가기' }).getAttribute('href')).toBe('#/chats');
+    await waitFor(() => expect(container.querySelector('.chat-topbar')).toBeTruthy());
+    expect(container.querySelector('.chat-topbar-copy strong')?.textContent).toBe('홍대 보드게임 모임');
+    expect(screen.getByRole('button', { name: '뒤로 가기' })).toBeTruthy();
     expect(screen.getByRole('link', { name: '모임 상세 보기' }).getAttribute('href')).toBe('#/session/7');
   });
 
@@ -1046,14 +1046,14 @@ describe('#427 T5~T6 모임 상세 채팅 진입', () => {
     vi.spyOn(api, 'getRoom').mockResolvedValue(detailRoom(roomType));
     render(<SessionDetailView sessionId="7" me={{ id: 1, nickname: '테스터' }} onApply={vi.fn()} onCancelApply={vi.fn()} onHostCancel={vi.fn()} onFinish={vi.fn()} dataVersion={0} />);
 
-    await waitFor(() => expect(screen.getByRole('link', { name: '💬 모임 채팅' }).getAttribute('href')).toBe('#/chat/7'));
+    await waitFor(() => expect(screen.getByRole('link', { name: '모임 채팅' }).getAttribute('href')).toBe('#/chat/7'));
   });
 
   it('취소된 모임에서 서버가 거절한 채팅 진입을 표시하지 않는다', async () => {
     vi.spyOn(api, 'getRoom').mockResolvedValue(detailRoom('PERSON_FOCUSED', 'CANCELED'));
     render(<SessionDetailView sessionId="7" me={{ id: 1, nickname: '테스터' }} onApply={vi.fn()} onCancelApply={vi.fn()} onHostCancel={vi.fn()} onFinish={vi.fn()} dataVersion={0} />);
 
-    await waitFor(() => expect(screen.getByText('취소된 모임입니다.')).toBeTruthy());
-    expect(screen.queryByRole('link', { name: '💬 모임 채팅' })).toBeNull();
+    await waitFor(() => expect(screen.getByText('취소된 모임이에요')).toBeTruthy());
+    expect(screen.queryByRole('link', { name: '모임 채팅' })).toBeNull();
   });
 });

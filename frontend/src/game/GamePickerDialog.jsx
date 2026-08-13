@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { api, messageForError } from '../api';
 import { GAME_SEARCH_DEBOUNCE_MS, GAME_SEARCH_PAGE_SIZE } from './constants';
 import { normalizeGameSummary } from './data';
+import { CheckIcon, Cover, SearchIcon } from '../shared/ui';
 
 export function GamePickerDialog({ isOpen, selectedGameId, allowClear, onSelect, onClear, onClose }) {
   const [query, setQuery] = useState('');
@@ -135,24 +136,39 @@ export function GamePickerDialog({ isOpen, selectedGameId, allowClear, onSelect,
   };
 
   return (
-    <div className="game-picker-backdrop" role="presentation" onMouseDown={handleClose}>
-      <section className="game-picker" role="dialog" aria-modal="true" aria-labelledby="game-picker-title" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="game-picker-head">
-          <div><h3 id="game-picker-title">게임 검색</h3><p>게임 이름으로 검색한 결과를 10건씩 불러와요.</p></div>
-          <button type="button" className="game-picker-close" aria-label="게임 검색 닫기" onClick={handleClose}>×</button>
+    <div className="sheet-backdrop" role="presentation" onMouseDown={handleClose}>
+      <section className="sheet tall" role="dialog" aria-modal="true" aria-labelledby="game-picker-title" onMouseDown={(event) => event.stopPropagation()}>
+        <span className="sheet-handle" aria-hidden="true" />
+        <div className="sheet-head">
+          <h2 id="game-picker-title">게임 선택</h2>
+          <button type="button" className="sheet-reset" aria-label="게임 검색 닫기" onClick={handleClose}>닫기</button>
         </div>
-        <div className="game-picker-search"><span className="game-picker-search-label" aria-hidden="true">검색</span><input ref={searchInputRef} value={query} onChange={handleQueryChange} placeholder="예: 스플렌더, 테라포밍 마스" aria-label="게임 이름 검색" /></div>
-        <div className="game-picker-body">
-          {!hasQuery && <div className="game-search-empty">게임 이름을 입력하면 목록 API에서 검색 결과를 불러와요.</div>}
-          {hasQuery && !error && <p className="game-search-count">{loading && !pageData.content.length ? '검색 중…' : '검색 결과 ' + pageData.totalElements + '개'}</p>}
-          {error && <div className="game-search-error">{error}</div>}
-          {!loading && hasQuery && !error && !pageData.content.length && <div className="game-search-empty">일치하는 게임이 없어요. 다른 이름으로 검색해보세요.</div>}
-          {!!pageData.content.length && <div className="game-search-results">{pageData.content.map((game) => <button type="button" className={'game-search-result ' + (String(game.id) === String(selectedGameId) ? 'selected' : '')} key={game.id} onClick={() => { onSelect(game); handleClose(); }}><span className="game-result-mark" aria-hidden="true">{game.imageUrl ? <img src={game.imageUrl} alt="" loading="lazy" /> : game.title.slice(0, 1)}</span><span className="game-result-copy"><strong>{game.title}</strong><span>{[game.englishName, game.players, game.time].filter(Boolean).join(' · ')}</span></span><span className="game-result-action">{String(game.id) === String(selectedGameId) ? '선택됨' : '선택'}</span></button>)}</div>}
-          {pageData.hasNext && <button type="button" className="game-load-more" disabled={loading} onClick={loadMore}>{loading ? '불러오는 중…' : '검색 결과 더 보기'}</button>}
+        <div className="searchbox" style={{ flex: 'none', marginTop: 14 }}>
+          <SearchIcon />
+          <input ref={searchInputRef} value={query} onChange={handleQueryChange} placeholder="게임 이름으로 검색" aria-label="게임 이름 검색" />
         </div>
-        <div className="game-picker-actions">
-          {allowClear && <button type="button" className="game-picker-clear" onClick={() => { onClear(); handleClose(); }}>게임 선택 안 함</button>}
-          <button type="button" className="btn ghost" onClick={handleClose}>닫기</button>
+        {allowClear && (
+          <button type="button" className="btn fill sm" style={{ flex: 'none', marginTop: 10 }} onClick={() => { onClear(); handleClose(); }}>게임 선택 안 함</button>
+        )}
+        <div className="picker-list nos">
+          {!hasQuery && <p className="picker-state">게임 이름을 입력하면 검색 결과를 불러와요.</p>}
+          {hasQuery && !error && <p className="section-label">{loading && !pageData.content.length ? '검색 중…' : '검색 결과 ' + pageData.totalElements + '개'}</p>}
+          {error && <p className="picker-state error" role="alert">{error}</p>}
+          {!loading && hasQuery && !error && !pageData.content.length && <p className="picker-state">일치하는 게임이 없어요. 다른 이름으로 검색해보세요.</p>}
+          {pageData.content.map((game) => {
+            const selected = String(game.id) === String(selectedGameId);
+            return (
+              <button type="button" className="picker-row" key={game.id} aria-pressed={selected} onClick={() => { onSelect(game); handleClose(); }}>
+                <Cover src={game.imageUrl} />
+                <span className="picker-row-copy">
+                  <strong>{game.title}</strong>
+                  <span>{[game.englishName, game.players, game.time].filter(Boolean).join(' · ')}</span>
+                </span>
+                {selected && <span className="picker-check"><CheckIcon /></span>}
+              </button>
+            );
+          })}
+          {pageData.hasNext && <button type="button" className="more-btn" disabled={loading} onClick={loadMore}>{loading ? '불러오는 중…' : '검색 결과 더 보기'}</button>}
         </div>
       </section>
     </div>
