@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -11,8 +12,10 @@ import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
+
+import { createFixturePlan } from '../tools/fixture-model.mjs';
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(testDirectory, '../../../..');
@@ -29,6 +32,7 @@ if (command === 'version') {
   process.stdout.write('k6 v0.0.0-test\\n');
   process.exit(0);
 }
+
 if (command !== 'run') {
   process.exit(2);
 }
@@ -87,6 +91,52 @@ process.exit(Number.parseInt(process.env.FAKE_K6_EXIT || '0', 10));
   chmodSync(executablePath, 0o755);
 }
 
+function createFakePsql(binDirectory) {
+  const programPath = path.join(binDirectory, 'fake-psql.mjs');
+  writeFileSync(programPath, `import { writeFileSync } from 'node:fs';
+
+const args = process.argv.slice(2);
+const queryIndex = args.indexOf('-c');
+if (queryIndex >= 0) {
+  if (process.env.FAKE_PSQL_FAIL_QUERY === 'true') {
+    process.stderr.write('simulated query failure\\n');
+    process.exit(1);
+  }
+  process.stdout.write(process.env.FAKE_PSQL_QUERY_RESULT || '{}');
+  process.exit(0);
+}
+
+const fileIndex = args.indexOf('-f');
+if (fileIndex >= 0 && args[fileIndex + 1] !== '-') {
+  if (process.env.FAKE_PSQL_FAIL_PREPARE === 'true') {
+    process.stderr.write('simulated prepare failure\\n');
+    process.exit(1);
+  }
+  process.exit(0);
+}
+
+if (fileIndex >= 0 && args[fileIndex + 1] === '-') {
+  let input = '';
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', (chunk) => {
+    input += chunk;
+  });
+  process.stdin.on('end', () => {
+    if (process.env.FAKE_PSQL_CAPTURE_PATH) {
+      writeFileSync(process.env.FAKE_PSQL_CAPTURE_PATH, input, 'utf8');
+    }
+    process.exit(0);
+  });
+} else {
+  process.exit(0);
+}
+`, 'utf8');
+
+  const executablePath = path.join(binDirectory, 'psql');
+  writeFileSync(executablePath, `#!/usr/bin/env node\nimport ${JSON.stringify(pathToFileURL(programPath).href)};\n`, 'utf8');
+  chmodSync(executablePath, 0o755);
+}
+
 function writeFixture(directory, runId) {
   const fixturePath = path.join(directory, 'fixture.json');
   writeFileSync(fixturePath, `${JSON.stringify({
@@ -127,6 +177,39 @@ function runFixture(fixturePath, binDirectory, extraEnvironment = {}) {
   });
 }
 
+function runPrepare(runId, binDirectory, extraEnvironment = {}) {
+  return spawnSync(process.execPath, [
+    fixtureTool,
+    'prepare',
+    '--scenario', 't1',
+    '--run-id', runId,
+    '--profile', 'spike',
+    '--mode', 'hot',
+    '--concurrency', '2',
+  ], {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      PATH: `${binDirectory}${path.delimiter}${process.env.PATH || ''}`,
+      ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$test-hash',
+      ...extraEnvironment,
+    },
+  });
+}
+
+function recoverCleanup(recoveryPath, binDirectory, extraEnvironment = {}) {
+  return spawnSync(process.execPath, [fixtureTool, 'recover-cleanup', '--recovery', recoveryPath], {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      PATH: `${binDirectory}${path.delimiter}${process.env.PATH || ''}`,
+      ...extraEnvironment,
+    },
+  });
+}
+
 function verifyAfter(fixturePath) {
   return spawnSync(process.execPath, [fixtureTool, 'verify', '--fixture', fixturePath, '--stage', 'after'], {
     cwd: repositoryRoot,
@@ -152,7 +235,19 @@ function createTestDirectory() {
   return mkdtempSync(path.join(fixtureBuildRoot, 'fixture-runner-test-'));
 }
 
-test('run은 성공한 k6 실행의 provenance manifest와 summary를 같은 fixture에 남긴다', () => {
+const fakeK6Skip = process.platform === 'win32'
+  ? 'Windows에서는 k6.cmd fake를 셸 없이 실행할 수 없어 직접 실행 보안 계약만 검증한다.'
+  : false;
+
+test('k6 실행은 Windows 셸을 사용하지 않는다', () => {
+  const source = readFileSync(fixtureTool, 'utf8');
+  const runK6 = source.slice(source.indexOf('function runK6('), source.indexOf('function k6Version('));
+
+  assert.match(runK6, /shell:\s*false/);
+  assert.doesNotMatch(runK6, /process\.platform\s*===\s*['"]win32['"]/);
+});
+
+test('run은 성공한 k6 실행의 provenance manifest와 summary를 같은 fixture에 남긴다', { skip: fakeK6Skip }, () => {
   const fixtureDirectory = createTestDirectory();
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
   mkdirSync(binDirectory, { recursive: true });
@@ -189,7 +284,7 @@ test('run은 성공한 k6 실행의 provenance manifest와 summary를 같은 fix
   }
 });
 
-test('T5 run은 유효 VU·duration·think time을 manifest에 기록한다', () => {
+test('T5 run은 유효 VU·duration·think time을 manifest에 기록한다', { skip: fakeK6Skip }, () => {
   const fixtureDirectory = createTestDirectory();
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
   mkdirSync(binDirectory, { recursive: true });
@@ -231,7 +326,7 @@ test('T5 run은 유효 VU·duration·think time을 manifest에 기록한다', ()
   }
 });
 
-test('T5 비교는 여섯 역할·규모 실행의 read profile 불일치를 거절한다', () => {
+test('T5 비교는 여섯 역할·규모 실행의 read profile 불일치를 거절한다', { skip: fakeK6Skip }, () => {
   const runId = `runner-t5-compare-${process.pid}`;
   const comparisonDirectory = path.join(fixtureBuildRoot, runId);
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
@@ -293,7 +388,7 @@ test('T5 비교는 여섯 역할·규모 실행의 read profile 불일치를 거
   }
 });
 
-test('after 검증은 manifest와 다른 k6 summary를 INVALID로 거절한다', () => {
+test('after 검증은 manifest와 다른 k6 summary를 INVALID로 거절한다', { skip: fakeK6Skip }, () => {
   const fixtureDirectory = createTestDirectory();
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
   mkdirSync(binDirectory, { recursive: true });
@@ -316,7 +411,7 @@ test('after 검증은 manifest와 다른 k6 summary를 INVALID로 거절한다',
   }
 });
 
-test('run은 k6 비정상 종료에도 종료 시각과 exit code를 보존한다', () => {
+test('run은 k6 비정상 종료에도 종료 시각과 exit code를 보존한다', { skip: fakeK6Skip }, () => {
   const fixtureDirectory = createTestDirectory();
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
   mkdirSync(binDirectory, { recursive: true });
@@ -335,6 +430,85 @@ test('run은 k6 비정상 종료에도 종료 시각과 exit code를 보존한�
     });
   } finally {
     rmSync(fixtureDirectory, { recursive: true, force: true });
+    rmSync(binDirectory, { recursive: true, force: true });
+  }
+});
+
+test('prepare 후 조회 실패에도 recovery artifact로 동일 fixture cleanup을 재개한다', {
+  skip: process.platform === 'win32'
+    ? 'psql은 셸을 사용하지 않으므로 Windows에서는 Unix fake 실행을 사용하지 않는다.'
+    : false,
+}, () => {
+  const runId = `runner-recovery-${process.pid}`;
+  const plan = createFixturePlan({
+    scenario: 't1',
+    runId,
+    profile: 'spike',
+    mode: 'hot',
+    concurrency: '2',
+  });
+  const fixtureDirectory = path.join(fixtureBuildRoot, runId, plan.fixtureId);
+  const recoveryPath = path.join(fixtureDirectory, 'prepare-recovery.json');
+  const capturePath = path.join(fixtureDirectory, 'recovered-cleanup.sql');
+  const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-psql-bin-'));
+  mkdirSync(binDirectory, { recursive: true });
+  createFakePsql(binDirectory);
+
+  try {
+    const prepare = runPrepare(runId, binDirectory, { FAKE_PSQL_FAIL_QUERY: 'true' });
+    assert.notEqual(prepare.status, 0);
+    assert.match(prepare.stderr, /recover-cleanup/);
+    assert.ok(existsSync(recoveryPath));
+    assert.equal(existsSync(path.join(fixtureDirectory, 'fixture.json')), false);
+
+    const resources = {
+      users: Object.fromEntries(plan.users.map((user, index) => [user.email, index + 1])),
+      rooms: Object.fromEntries(plan.rooms.map((room, index) => [room.title, index + 101])),
+    };
+    const recovery = recoverCleanup(recoveryPath, binDirectory, {
+      FAKE_PSQL_QUERY_RESULT: JSON.stringify(resources),
+      FAKE_PSQL_CAPTURE_PATH: capturePath,
+    });
+    assert.equal(recovery.status, 0, recovery.stderr || recovery.stdout);
+    assert.match(recovery.stdout, /"status":"RECOVERED"/);
+
+    const cleanupSql = readFileSync(capturePath, 'utf8');
+    assert.match(cleanupSql, /fixture user identity mismatch/);
+    assert.match(cleanupSql, /DELETE FROM users WHERE id IN/);
+  } finally {
+    rmSync(path.join(fixtureBuildRoot, runId), { recursive: true, force: true });
+    rmSync(binDirectory, { recursive: true, force: true });
+  }
+});
+
+test('prepare SQL 실행 실패도 recovery artifact 경로를 안내한다', {
+  skip: process.platform === 'win32'
+    ? 'psql은 셸을 사용하지 않으므로 Windows에서는 Unix fake 실행을 사용하지 않는다.'
+    : false,
+}, () => {
+  const runId = `runner-prepare-failure-${process.pid}`;
+  const plan = createFixturePlan({
+    scenario: 't1',
+    runId,
+    profile: 'spike',
+    mode: 'hot',
+    concurrency: '2',
+  });
+  const fixtureDirectory = path.join(fixtureBuildRoot, runId, plan.fixtureId);
+  const recoveryPath = path.join(fixtureDirectory, 'prepare-recovery.json');
+  const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-psql-bin-'));
+  mkdirSync(binDirectory, { recursive: true });
+  createFakePsql(binDirectory);
+
+  try {
+    const prepare = runPrepare(runId, binDirectory, { FAKE_PSQL_FAIL_PREPARE: 'true' });
+    assert.notEqual(prepare.status, 0);
+    assert.match(prepare.stderr, /recover-cleanup --recovery/);
+    assert.ok(prepare.stderr.includes(recoveryPath));
+    assert.ok(existsSync(recoveryPath));
+    assert.equal(existsSync(path.join(fixtureDirectory, 'fixture.json')), false);
+  } finally {
+    rmSync(path.join(fixtureBuildRoot, runId), { recursive: true, force: true });
     rmSync(binDirectory, { recursive: true, force: true });
   }
 });

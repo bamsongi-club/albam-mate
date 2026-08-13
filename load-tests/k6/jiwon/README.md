@@ -32,6 +32,7 @@
 | --- | --- | --- |
 | `fixture.json` | `build/k6/room/<run-id>/<fixture-id>/` | 실제 ID와 k6 실행 입력 |
 | `prepare.sql` | 동일 경로 | fixture 생성 SQL. bcrypt hash가 포함될 수 있어 Git 비추적 |
+| `prepare-recovery.json` | 동일 경로 | `prepare` commit 뒤 artifact 생성이 실패했을 때 결정적 fixture를 다시 찾아 안전한 cleanup에 쓰는 비밀 없는 복구 입력 |
 | `before-verification.json` | 동일 경로 | 실행 전 DB 불변식 |
 | `run-manifest.json` | 동일 경로 | 대상 배포 SHA·환경·fixture·k6 버전·시작/종료 UTC를 묶은 실행 기록 |
 | `k6-summary.json` | 동일 경로 | `run`이 같은 manifest와 함께 생성한 k6 summary |
@@ -132,6 +133,13 @@ node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id $runId
 
 ```powershell
 node load-tests/k6/jiwon/tools/fixture.mjs cleanup --fixture $prepared.fixturePath
+```
+
+`prepare`가 DB commit 뒤 resource 조회·artifact 기록 단계에서 중단되면 출력된 `prepare-recovery.json` 경로를 사용한다. 이 명령은 run ID·fixture ID를 다시 계산하고 현재 DB의 정확한 사용자·ROOM identity를 조회한 뒤, 일반 cleanup과 같은 비-fixture 관계 검사를 통과할 때만 삭제한다.
+
+```powershell
+node load-tests/k6/jiwon/tools/fixture.mjs recover-cleanup `
+  --recovery build/k6/room/<run-id>/<fixture-id>/prepare-recovery.json
 ```
 
 ## 측정 결과 위치

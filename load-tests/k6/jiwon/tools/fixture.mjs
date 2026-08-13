@@ -30,6 +30,7 @@ const buildRoot = path.join(repositoryRoot, 'build', 'k6', 'room');
 const RUN_MANIFEST_FILE = 'run-manifest.json';
 const RUN_SUMMARY_FILE = 'k6-summary.json';
 const T5_COMPARISON_FILE = 't5-comparison-verification.json';
+const PREPARE_RECOVERY_FILE = 'prepare-recovery.json';
 const SOURCE_SHA_PATTERN = /^[0-9a-f]{40}$/i;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/i;
 const TARGET_ENVIRONMENT_PATTERN = /^[a-z0-9][a-z0-9._-]{0,79}$/;
@@ -50,6 +51,7 @@ const COMMAND_OPTION_KEYS = {
   verify: new Set(['fixture', 'stage']),
   'compare-t5': new Set(['runId']),
   cleanup: new Set(['fixture']),
+  'recover-cleanup': new Set(['recovery']),
 };
 
 function usage() {
@@ -59,6 +61,7 @@ function usage() {
   node load-tests/k6/jiwon/tools/fixture.mjs verify --fixture <fixture.json> --stage before|after
   node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id <run-id>
   node load-tests/k6/jiwon/tools/fixture.mjs cleanup --fixture <fixture.json>
+  node load-tests/k6/jiwon/tools/fixture.mjs recover-cleanup --recovery <prepare-recovery.json>
 
 prepare 공통 옵션: --profile stress|spike --rounds <1..20>
 T1/T2: --mode hot|spread --concurrency 2|4|8
@@ -168,6 +171,52 @@ function readFixture(rawPath) {
   }
 }
 
+function recoveryOptions(plan) {
+  const { fixtureId, ...options } = plan.options;
+  return options;
+}
+
+function writePrepareRecovery(outputDirectory, plan) {
+  const recoveryPath = path.join(outputDirectory, PREPARE_RECOVERY_FILE);
+  writeNewJson(recoveryPath, {
+    schemaVersion: 1,
+    fixtureId: plan.fixtureId,
+    options: recoveryOptions(plan),
+  });
+  return recoveryPath;
+}
+
+function readPrepareRecovery(rawPath) {
+  const recoveryPath = assertInsideBuild(rawPath);
+  if (!existsSync(recoveryPath)) {
+    fail(`prepare 복구 파일을 찾지 못했습니다: ${recoveryPath}`);
+  }
+
+  let recovery;
+  try {
+    recovery = JSON.parse(readFileSync(recoveryPath, 'utf8'));
+  } catch (_) {
+    fail(`prepare 복구 JSON을 읽을 수 없습니다: ${recoveryPath}`);
+  }
+
+  if (!recovery || recovery.schemaVersion !== 1 || typeof recovery.fixtureId !== 'string'
+    || !recovery.options || typeof recovery.options !== 'object') {
+    fail('prepare 복구 파일 형식이 맞지 않습니다.');
+  }
+
+  const plan = createFixturePlan(recovery.options);
+  const expectedPath = path.join(
+    buildRoot,
+    plan.options.runId,
+    plan.fixtureId,
+    PREPARE_RECOVERY_FILE,
+  );
+  if (recovery.fixtureId !== plan.fixtureId || recoveryPath !== expectedPath) {
+    fail('prepare 복구 파일이 결정적 fixture 식별자와 맞지 않습니다.');
+  }
+  return { recoveryPath, plan };
+}
+
 function writeJson(filePath, value) {
   writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 }
@@ -199,7 +248,7 @@ function requireTargetEnvironment() {
 function runK6(k6Arguments, options = {}) {
   return spawnSync('k6', k6Arguments, {
     ...options,
-    shell: process.platform === 'win32',
+    shell: false,
   });
 }
 
@@ -407,27 +456,33 @@ function prepare(values) {
 
   const preparePath = path.join(outputDirectory, 'prepare.sql');
   writeFileSync(preparePath, buildPrepareSql(plan, passwordHash), 'utf8');
-  psql(['-q', '-f', preparePath]);
+  const recoveryPath = writePrepareRecovery(outputDirectory, plan);
 
-  const fixture = hydrateFixture(plan, queryJson(buildResourceQuery(plan)));
-  fixture.baselineSnapshot = queryJson(buildSnapshotQuery(fixture));
-  const fixturePath = path.join(outputDirectory, 'fixture.json');
-  writeJson(fixturePath, fixture);
-  writeFileSync(path.join(outputDirectory, 'cleanup.sql'), buildCleanupSql(fixture), 'utf8');
+  try {
+    psql(['-q', '-f', preparePath]);
+    const fixture = hydrateFixture(plan, queryJson(buildResourceQuery(plan)));
+    fixture.baselineSnapshot = queryJson(buildSnapshotQuery(fixture));
+    const fixturePath = path.join(outputDirectory, 'fixture.json');
+    writeJson(fixturePath, fixture);
+    writeFileSync(path.join(outputDirectory, 'cleanup.sql'), buildCleanupSql(fixture), 'utf8');
 
-  const before = evaluateFixture(fixture, fixture.baselineSnapshot, 'before');
-  writeJson(path.join(outputDirectory, 'before-verification.json'), before);
-  if (before.status !== 'PASS') {
-    fail(`fixture 사전 검증이 실패했습니다: ${before.failures.join(' | ')}. 정리가 필요하면 ${fixturePath}를 사용하세요.`);
+    const before = evaluateFixture(fixture, fixture.baselineSnapshot, 'before');
+    writeJson(path.join(outputDirectory, 'before-verification.json'), before);
+    if (before.status !== 'PASS') {
+      fail(`fixture 사전 검증이 실패했습니다: ${before.failures.join(' | ')}. 정리가 필요하면 ${fixturePath}를 사용하세요.`);
+    }
+
+    process.stdout.write(`${JSON.stringify({
+      fixturePath,
+      fixtureId: fixture.fixtureId,
+      scenario: fixture.options.scenario,
+      options: fixture.options,
+      outputDirectory,
+    })}\n`);
+  } catch (error) {
+    fail(`${error.message}\nfixture 준비가 DB commit 뒤에 중단되었을 수 있습니다. `
+      + `recover-cleanup --recovery ${recoveryPath}로 안전한 정리를 시도하세요.`);
   }
-
-  process.stdout.write(`${JSON.stringify({
-    fixturePath,
-    fixtureId: fixture.fixtureId,
-    scenario: fixture.options.scenario,
-    options: fixture.options,
-    outputDirectory,
-  })}\n`);
 }
 
 function run(values) {
@@ -566,6 +621,17 @@ function cleanup(values) {
   process.stdout.write(`${JSON.stringify({ fixtureId: fixture.fixtureId, status: 'CLEANED' })}\n`);
 }
 
+function recoverCleanup(values) {
+  const { recoveryPath, plan } = readPrepareRecovery(values.recovery);
+  const fixture = hydrateFixture(plan, queryJson(buildResourceQuery(plan)));
+  psql(['-q', '-f', '-'], buildCleanupSql(fixture));
+  process.stdout.write(`${JSON.stringify({
+    fixtureId: fixture.fixtureId,
+    recoveryPath,
+    status: 'RECOVERED',
+  })}\n`);
+}
+
 function main() {
   const { command, values } = parseArguments(process.argv.slice(2));
   switch (command) {
@@ -586,6 +652,9 @@ function main() {
       return;
     case 'cleanup':
       cleanup(values);
+      return;
+    case 'recover-cleanup':
+      recoverCleanup(values);
       return;
     default:
       fail(`지원하지 않는 명령: ${command}\n\n${usage()}`);
