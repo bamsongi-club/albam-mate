@@ -301,16 +301,21 @@ test('T2 distinct 사후 검증은 201 수와 새 WAITING 행 수를 대조한�
     });
   });
 
-  assert.deepEqual(evaluateFixture(fixture, snapshot, 'after', summaryWith({
+  const summary = summaryWith({
     room_requests: 2,
     room_success: 2,
     room_created: 2,
     room_waitlist_position_1: 1,
     room_waitlist_position_2: 1,
-  })), {
+  });
+
+  assert.deepEqual(evaluateFixture(fixture, snapshot, 'after', summary), {
     status: 'PASS',
     failures: [],
   });
+
+  delete summary.metrics.room_created;
+  assert.equal(evaluateFixture(fixture, snapshot, 'after', summary).status, 'FAIL');
 });
 
 test('T3 wait-first 사후 검증은 PROMOTED + ACTIVE 종단만 통과시킨다', () => {
