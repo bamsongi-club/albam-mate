@@ -686,6 +686,15 @@ BEGIN
     END IF;
     IF EXISTS (
         SELECT 1
+        FROM notifications n
+        JOIN room_k6_cleanup_rooms fixture_room ON fixture_room.id = n.room_id
+        JOIN notification_outbox_events source_event ON source_event.id = n.source_event_id
+        WHERE source_event.room_id <> n.room_id
+    ) THEN
+        RAISE EXCEPTION 'fixture ROOM has notification from another ROOM outbox event';
+    END IF;
+    IF EXISTS (
+        SELECT 1
         FROM notification_outbox_recipients recipient
         JOIN notification_outbox_events event ON event.id = recipient.outbox_event_id
         JOIN room_k6_cleanup_rooms r ON r.id = event.room_id

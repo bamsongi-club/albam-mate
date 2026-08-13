@@ -9,6 +9,7 @@ import {
   hasWaitlistPayload,
 } from './write-response-contract.mjs';
 import { writeOptions } from './write-options.mjs';
+import { START_SKEW_THRESHOLD } from './start-skew.mjs';
 
 export { writeOptions };
 
@@ -302,6 +303,7 @@ export function readOptions(runtime) {
       room_contract_failures: ['count==0'],
       room_unexpected_4xx: ['count==0'],
       room_server_failures: ['count==0'],
+      room_start_skew_ms: [START_SKEW_THRESHOLD],
     },
   };
 }

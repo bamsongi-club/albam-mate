@@ -195,25 +195,25 @@ function hasExactKeys(value, expectedKeys) {
     && isDeepStrictEqual(Object.keys(value).sort(), [...expectedKeys].sort());
 }
 
-function cleanupFixtureMismatch() {
-  fail('cleanup fixture가 결정적 fixture plan과 맞지 않습니다. 새 run ID로 prepare한 fixture만 사용하세요.');
+function fixturePlanMismatch() {
+  fail('fixture가 결정적 fixture plan과 맞지 않습니다. 새 run ID로 prepare한 fixture만 사용하세요.');
 }
 
-function assertCleanupFixtureMatchesPlan(fixturePath, fixture) {
+function assertFixtureMatchesPlan(fixturePath, fixture) {
   let plan;
   try {
     if (!fixture || typeof fixture !== 'object' || Array.isArray(fixture)
       || !fixture.options || typeof fixture.options !== 'object' || Array.isArray(fixture.options)) {
-      cleanupFixtureMismatch();
+      fixturePlanMismatch();
     }
     const { fixtureId, ...options } = fixture.options;
     if (typeof fixtureId !== 'string') {
-      cleanupFixtureMismatch();
+      fixturePlanMismatch();
     }
     normalizePrepareOwnership(fixture.prepareOwnership);
     plan = createFixturePlan(options);
   } catch (_) {
-    cleanupFixtureMismatch();
+    fixturePlanMismatch();
   }
 
   const expectedPath = path.join(buildRoot, plan.options.runId, plan.fixtureId, 'fixture.json');
@@ -227,12 +227,12 @@ function assertCleanupFixtureMatchesPlan(fixturePath, fixture) {
     || !fixture.baselineSnapshot || typeof fixture.baselineSnapshot !== 'object' || Array.isArray(fixture.baselineSnapshot)
     || !isDeepStrictEqual(fixture.targets, plan.targets)
     || !isDeepStrictEqual(fixture.sessionUserKeys, [...new Set(plan.sessionUserKeys)])) {
-    cleanupFixtureMismatch();
+    fixturePlanMismatch();
   }
 
   if (!hasExactKeys(fixture.users, plan.users.map((user) => user.key))
     || !hasExactKeys(fixture.rooms, plan.rooms.map((room) => room.key))) {
-    cleanupFixtureMismatch();
+    fixturePlanMismatch();
   }
 
   for (const user of plan.users) {
@@ -241,7 +241,7 @@ function assertCleanupFixtureMatchesPlan(fixturePath, fixture) {
       || !Number.isSafeInteger(actual.id) || actual.id <= 0
       || actual.email !== user.email
       || actual.nickname !== user.nickname) {
-      cleanupFixtureMismatch();
+      fixturePlanMismatch();
     }
   }
 
@@ -261,8 +261,24 @@ function assertCleanupFixtureMatchesPlan(fixturePath, fixture) {
       || !isDeepStrictEqual(actual.cancelKeys, room.cancelKeys || [])
       || !isDeepStrictEqual(actual.candidateKeys, room.candidateKeys || [])
       || actual.raceWaitKey !== (room.raceWaitKey || null)) {
-      cleanupFixtureMismatch();
+      fixturePlanMismatch();
     }
+  }
+
+  return plan;
+}
+
+function assertFixtureMatchesCurrentResources(fixturePath, fixture) {
+  const plan = assertFixtureMatchesPlan(fixturePath, fixture);
+  const currentFixture = hydrateFixture(
+    plan,
+    queryJson(buildResourceQuery(plan, fixture.prepareOwnership)),
+    fixture.prepareOwnership,
+  );
+
+  if (!isDeepStrictEqual(fixture.users, currentFixture.users)
+    || !isDeepStrictEqual(fixture.rooms, currentFixture.rooms)) {
+    fail('fixture가 현재 DB resource identity와 맞지 않습니다. 새 run ID로 prepare한 fixture만 사용하세요.');
   }
 }
 
@@ -454,7 +470,7 @@ function completedRunArtifact(fixturePath, fixture) {
     return { failure: 'run-manifest.json에 완료 lifecycle 기록이 없습니다.' };
   }
 
-  if (manifest.schemaVersion !== 1
+  if (manifest.schemaVersion !== 2
     || manifest.fixtureId !== fixture.fixtureId
     || manifest.runId !== fixture.options.runId
     || manifest.scenario !== fixture.options.scenario
@@ -465,6 +481,7 @@ function completedRunArtifact(fixturePath, fixture) {
     || !isUtcTimestamp(manifest.finishedAtUtc)
     || Date.parse(manifest.finishedAtUtc) < Date.parse(manifest.startedAtUtc)
     || !Number.isInteger(manifest.k6ExitCode)
+    || !SHA256_PATTERN.test(manifest.fixtureSha256 || '')
     || !SHA256_PATTERN.test(manifest.summarySha256 || '')
     || manifest.summaryFile !== RUN_SUMMARY_FILE
     || (fixture.options.scenario === 't5' && !isT5ReadOptions(manifest.t5ReadOptions))) {
@@ -476,6 +493,9 @@ function completedRunArtifact(fixturePath, fixture) {
     return { failure: 'run-manifest.json이 가리키는 k6-summary.json을 찾지 못했습니다.' };
   }
   try {
+    if (sha256(fixturePath) !== manifest.fixtureSha256) {
+      return { failure: 'fixture.json의 SHA-256이 run-manifest.json과 다릅니다.' };
+    }
     if (sha256(summaryPath) !== manifest.summarySha256) {
       return { failure: 'k6-summary.json의 SHA-256이 run-manifest.json과 다릅니다.' };
     }
@@ -698,6 +718,11 @@ async function run(values) {
     fail(existingRunArtifactMessage(manifestPath, fixturePath));
   }
 
+  const fixtureSha256 = sha256(fixturePath);
+  assertFixtureMatchesCurrentResources(fixturePath, fixture);
+  if (sha256(fixturePath) !== fixtureSha256) {
+    fail('fixture.json이 실행 전 검증 중 바뀌었습니다. 새 run ID로 prepare한 fixture만 사용하세요.');
+  }
   const sourceSha = requireSourceSha();
   const targetEnvironment = requireTargetEnvironment();
   const t5ReadOptions = fixture.options.scenario === 't5'
@@ -706,7 +731,7 @@ async function run(values) {
   const version = k6Version();
   const scriptPath = scenarioScriptPath(fixture);
   const manifest = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     fixtureId: fixture.fixtureId,
     runId: fixture.options.runId,
     scenario: fixture.options.scenario,
@@ -718,6 +743,7 @@ async function run(values) {
     runState: 'RUNNING',
     completed: false,
     k6ExitCode: null,
+    fixtureSha256,
     summaryFile: RUN_SUMMARY_FILE,
     summarySha256: null,
   };
@@ -833,6 +859,7 @@ function verify(values) {
     runManifest = runArtifact.manifest;
   }
 
+  assertFixtureMatchesCurrentResources(fixturePath, fixture);
   const snapshot = queryJson(buildSnapshotQuery(fixture));
   const evaluation = evaluateFixture(fixture, snapshot, stage, summary);
   const failures = [...evaluation.failures];
@@ -863,7 +890,7 @@ function verify(values) {
 
 function cleanup(values) {
   const { fixturePath, fixture } = readFixture(values.fixture);
-  assertCleanupFixtureMatchesPlan(fixturePath, fixture);
+  assertFixtureMatchesPlan(fixturePath, fixture);
   psql(['-q', '-f', '-'], buildCleanupSql(fixture));
   process.stdout.write(`${JSON.stringify({ fixtureId: fixture.fixtureId, status: 'CLEANED' })}\n`);
 }

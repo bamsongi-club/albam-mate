@@ -129,3 +129,20 @@ test('T3 실행 계획은 병렬과 순차 mode별 maxDuration을 충분히 계�
     maxDuration: '145s',
   });
 });
+
+test('쓰기 실행은 barrier 시작 편차가 1초를 넘으면 실패한다', () => {
+  const fixture = fixtureFor({
+    scenario: 't1',
+    runId: 't1-start-skew-threshold',
+    profile: 'spike',
+    mode: 'hot',
+    concurrency: 2,
+  });
+  const options = writeOptions({
+    fixture,
+    sessionWarmupSeconds: 15,
+    roundIntervalSeconds: 20,
+  }, 2, 1);
+
+  assert.deepEqual(options.thresholds.room_start_skew_ms, ['max<1000']);
+});

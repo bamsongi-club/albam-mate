@@ -251,6 +251,14 @@ test('fixture SQL은 정확한 ID 기반 cleanup을 만들고 prefix 전체 삭�
   assert.match(cleanupSql, /fixture ROOM has participation by non-fixture user/);
   assert.match(cleanupSql, /fixture ROOM has waitlist by non-fixture user/);
   assert.match(cleanupSql, /fixture ROOM has notification for non-fixture user/);
+  assert.match(cleanupSql, /JOIN notification_outbox_events source_event ON source_event.id = n.source_event_id/);
+  assert.match(cleanupSql, /WHERE source_event.room_id <> n.room_id/);
+  assert.match(cleanupSql, /fixture ROOM has notification from another ROOM outbox event/);
+  assert.ok(
+    cleanupSql.indexOf('fixture ROOM has notification from another ROOM outbox event')
+      < cleanupSql.indexOf('DELETE FROM notifications'),
+  );
+  assert.doesNotMatch(cleanupSql, /LEFT JOIN notification_outbox_events source_event/);
   assert.match(cleanupSql, /fixture ROOM has outbox recipient outside fixture users/);
   assert.match(cleanupSql, /fixture ROOM has chat message by non-fixture user/);
   assert.doesNotMatch(cleanupSql, /\bLIKE\b/i);

@@ -70,6 +70,7 @@ if (process.env.FAKE_K6_WAIT_FOR_SIGNAL === 'true') {
       `@echo off\r\n"${process.execPath}" "${programPath}" %*\r\n`,
       'utf8',
     );
+    createFakePsql(binDirectory);
     return;
   }
 
@@ -113,6 +114,7 @@ if (process.env.FAKE_K6_WAIT_FOR_SIGNAL === 'true') {
   const executablePath = path.join(binDirectory, 'k6');
   writeFileSync(executablePath, `#!/usr/bin/env node\nimport '${programPath.replaceAll('\\\\', '\\\\\\')}';\n`, 'utf8');
   chmodSync(executablePath, 0o755);
+  createFakePsql(binDirectory);
 }
 
 function createFakePsql(binDirectory) {
@@ -126,7 +128,11 @@ if (queryIndex >= 0) {
     process.stderr.write('simulated query failure\\n');
     process.exit(1);
   }
-  process.stdout.write(process.env.FAKE_PSQL_QUERY_RESULT || '{}');
+  const sql = args[queryIndex + 1];
+  const result = sql.includes('jsonb_object_agg(email, id)')
+    ? (process.env.FAKE_PSQL_RESOURCE_RESULT || process.env.FAKE_PSQL_QUERY_RESULT || '{}')
+    : (process.env.FAKE_PSQL_SNAPSHOT_RESULT || process.env.FAKE_PSQL_QUERY_RESULT || '{}');
+  process.stdout.write(result);
   process.exit(0);
 }
 
@@ -281,33 +287,85 @@ function createIsolatedFixtureTool() {
   };
 }
 
-function writeFixture(directory, runId) {
-  const fixturePath = path.join(directory, 'fixture.json');
-  writeFileSync(fixturePath, `${JSON.stringify({
-    schemaVersion: 2,
-    fixtureId: `room-k6-${runId}-t1`,
-    options: { scenario: 't1', runId, profile: 'stress', rounds: 1 },
-    prepareOwnership: PREPARE_OWNERSHIP,
-    users: {},
-    rooms: {},
-  }, null, 2)}\n`, 'utf8');
-  return fixturePath;
+function fixtureResources(plan, idOffset = 100) {
+  return {
+    users: Object.fromEntries(plan.users.map((user, index) => [user.email, idOffset + index])),
+    rooms: Object.fromEntries(plan.rooms.map((room, index) => [room.title, idOffset + 100 + index])),
+  };
 }
 
-function writeT5Fixture(directory, runId, role, scale) {
-  const fixturePath = path.join(directory, 'fixture.json');
-  writeFileSync(fixturePath, `${JSON.stringify({
-    schemaVersion: 2,
-    fixtureId: `room-k6-${runId}-t5-${role}-${scale}`,
-    options: {
-      scenario: 't5', runId, profile: 'stress', rounds: 1, t5Role: role, t5Scale: scale,
-    },
-    prepareOwnership: PREPARE_OWNERSHIP,
-    users: {},
-    rooms: {},
-    baselineSnapshot: { rooms: [], participations: [], waitlists: [] },
-  }, null, 2)}\n`, 'utf8');
-  return fixturePath;
+function fixtureSnapshot(fixture) {
+  const rooms = [];
+  const participations = [];
+  const waitlists = [];
+  let queueOrder = 1;
+
+  for (const room of Object.values(fixture.rooms)) {
+    rooms.push({
+      id: room.id,
+      hostUserId: fixture.users[room.hostKey].id,
+      title: room.title,
+      capacity: room.capacity,
+      activeParticipantCount: room.activeKeys.length,
+      status: room.status,
+      version: 0,
+      startAt: '2030-01-01T00:00:00Z',
+      updatedAt: '2030-01-01T00:00:00Z',
+    });
+    room.activeKeys.forEach((userKey) => {
+      participations.push({
+        roomId: room.id,
+        userId: fixture.users[userKey].id,
+        status: 'ACTIVE',
+        joinedAt: '2030-01-01T00:00:00Z',
+        canceledAt: null,
+      });
+    });
+    room.waiterKeys.forEach((userKey) => {
+      waitlists.push({
+        roomId: room.id,
+        userId: fixture.users[userKey].id,
+        status: 'WAITING',
+        queueOrder,
+        queuedAt: '2030-01-01T00:00:00Z',
+      });
+      queueOrder += 1;
+    });
+  }
+
+  return { rooms, participations, waitlists };
+}
+
+function writeFixturePlan(plan, idOffset = 100) {
+  const fixtureDirectory = path.join(fixtureBuildRoot, plan.options.runId, plan.fixtureId);
+  const fixture = hydrateFixture(plan, fixtureResources(plan, idOffset), PREPARE_OWNERSHIP);
+  fixture.baselineSnapshot = { rooms: [], participations: [], waitlists: [] };
+  const fixturePath = path.join(fixtureDirectory, 'fixture.json');
+  mkdirSync(fixtureDirectory, { recursive: true });
+  writeFileSync(fixturePath, `${JSON.stringify(fixture, null, 2)}\n`, 'utf8');
+  return { fixtureDirectory, fixturePath, fixture };
+}
+
+function writeFixture(runId) {
+  const plan = createFixturePlan({
+    scenario: 't1',
+    runId,
+    profile: 'stress',
+    mode: 'hot',
+    concurrency: 2,
+  });
+  return writeFixturePlan(plan);
+}
+
+function writeT5Fixture(runId, role, scale) {
+  const plan = createFixturePlan({
+    scenario: 't5',
+    runId,
+    profile: 'stress',
+    t5Role: role,
+    t5Scale: scale,
+  });
+  return writeFixturePlan(plan);
 }
 
 function writeBoundSummary(fixtureDirectory, summary) {
@@ -343,17 +401,7 @@ function writeCleanupFixture(runId, idOffset) {
     mode: 'hot',
     concurrency: 2,
   });
-  const fixtureDirectory = path.join(fixtureBuildRoot, plan.options.runId, plan.fixtureId);
-  const resources = {
-    users: Object.fromEntries(plan.users.map((user, index) => [user.email, idOffset + index])),
-    rooms: Object.fromEntries(plan.rooms.map((room, index) => [room.title, idOffset + 100 + index])),
-  };
-  const fixture = hydrateFixture(plan, resources, PREPARE_OWNERSHIP);
-  fixture.baselineSnapshot = { rooms: [], participations: [], waitlists: [] };
-  const fixturePath = path.join(fixtureDirectory, 'fixture.json');
-  mkdirSync(fixtureDirectory, { recursive: true });
-  writeFileSync(fixturePath, `${JSON.stringify(fixture, null, 2)}\n`, 'utf8');
-  return { fixtureDirectory, fixturePath, fixture };
+  return writeFixturePlan(plan, idOffset);
 }
 
 function writeT5AfterVerification(fixturePath, status = 'PASS', overrides = {}) {
@@ -373,6 +421,14 @@ function writeT5AfterVerification(fixturePath, status = 'PASS', overrides = {}) 
   );
 }
 
+function fixtureResourceQueryResult(fixturePath) {
+  const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'));
+  return JSON.stringify({
+    users: Object.fromEntries(Object.values(fixture.users).map((user) => [user.email, user.id])),
+    rooms: Object.fromEntries(Object.values(fixture.rooms).map((room) => [room.title, room.id])),
+  });
+}
+
 function runFixture(fixturePath, binDirectory, extraEnvironment = {}) {
   return spawnSync(process.execPath, [fixtureTool, 'run', '--fixture', fixturePath], {
     cwd: repositoryRoot,
@@ -382,6 +438,7 @@ function runFixture(fixturePath, binDirectory, extraEnvironment = {}) {
       PATH: `${binDirectory}${path.delimiter}${process.env.PATH || ''}`,
       ALBAM_MATE_SOURCE_SHA: 'a'.repeat(40),
       ALBAM_MATE_TARGET_ENVIRONMENT: 'private-loadtest',
+      FAKE_PSQL_RESOURCE_RESULT: fixtureResourceQueryResult(fixturePath),
       ...extraEnvironment,
     },
   });
@@ -395,6 +452,7 @@ function startFixture(fixturePath, binDirectory, extraEnvironment = {}) {
       PATH: `${binDirectory}${path.delimiter}${process.env.PATH || ''}`,
       ALBAM_MATE_SOURCE_SHA: 'a'.repeat(40),
       ALBAM_MATE_TARGET_ENVIRONMENT: 'private-loadtest',
+      FAKE_PSQL_RESOURCE_RESULT: fixtureResourceQueryResult(fixturePath),
       ...extraEnvironment,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -524,6 +582,7 @@ function recoverCleanupFromTool(tool, recoveryPath, binDirectory, extraEnvironme
 function verifyAfter(fixturePath, binDirectory = null, extraEnvironment = {}) {
   const environment = {
     ...process.env,
+    FAKE_PSQL_RESOURCE_RESULT: fixtureResourceQueryResult(fixturePath),
     ...extraEnvironment,
   };
   if (binDirectory) {
@@ -560,11 +619,6 @@ function sha256(filePath) {
   return createHash('sha256').update(readFileSync(filePath)).digest('hex');
 }
 
-function createTestDirectory() {
-  mkdirSync(fixtureBuildRoot, { recursive: true });
-  return mkdtempSync(path.join(fixtureBuildRoot, 'fixture-runner-test-'));
-}
-
 const fakeK6Skip = process.platform === 'win32'
   ? 'Windows에서는 k6.cmd fake를 셸 없이 실행할 수 없어 직접 실행 보안 계약만 검증한다.'
   : false;
@@ -594,6 +648,29 @@ test('run은 RUNNING manifest 기록 전에 중단 처리기를 설치하고 항
   assert.match(run.slice(finallyIndex), /process\.off\('SIGTERM', interruptK6\);/);
 });
 
+test('run은 k6 시작 전에 현재 DB resource identity를 검증한다', () => {
+  const source = readFileSync(fixtureTool, 'utf8');
+  const run = source.slice(source.indexOf('async function run('), source.indexOf('function verify('));
+  const identityCheckIndex = run.indexOf('assertFixtureMatchesCurrentResources(fixturePath, fixture);');
+  const k6VersionIndex = run.indexOf('const version = k6Version();');
+
+  assert.ok(identityCheckIndex >= 0);
+  assert.ok(identityCheckIndex < k6VersionIndex);
+});
+
+test('run manifest는 fixture SHA-256을 기록하고 after 검증에서 다시 대조한다', () => {
+  const source = readFileSync(fixtureTool, 'utf8');
+  const run = source.slice(source.indexOf('async function run('), source.indexOf('function verify('));
+  const completedArtifact = source.slice(
+    source.indexOf('function completedRunArtifact('),
+    source.indexOf('function t5ComparisonDirectory('),
+  );
+
+  assert.match(run, /const fixtureSha256 = sha256\(fixturePath\);/);
+  assert.match(run, /fixtureSha256,/);
+  assert.match(completedArtifact, /sha256\(fixturePath\) !== manifest\.fixtureSha256/);
+});
+
 test('T5는 barrier 직후 VU별 측정 시작 편차를 기록한다', () => {
   const source = readFileSync(t5Script, 'utf8');
   const barrierIndex = source.indexOf('waitFor(window.firstBarrierAt);');
@@ -605,13 +682,14 @@ test('T5는 barrier 직후 VU별 측정 시작 편차를 기록한다', () => {
   assert.ok(startSkewIndex >= 0 && startSkewIndex < measurementLoopIndex);
 });
 
-test('T5 read 옵션은 시작 편차 count가 포함된 Trend summary를 요청한다', () => {
+test('T5 read 옵션은 시작 편차를 summary에 남기고 1초를 넘으면 실패한다', () => {
   const source = readFileSync(roomK6Library, 'utf8');
 
   assert.match(
     source,
     /summaryTrendStats:\s*\[\s*'avg',\s*'min',\s*'med',\s*'max',\s*'p\(90\)',\s*'p\(95\)',\s*'count',?\s*\]/,
   );
+  assert.match(source, /room_start_skew_ms:\s*\[\s*START_SKEW_THRESHOLD\s*\]/);
 });
 
 test('k6 runtime은 ownership marker가 있는 fixture schema 2만 실행한다', () => {
@@ -623,37 +701,70 @@ test('k6 runtime은 ownership marker가 있는 fixture schema 2만 실행한다'
 });
 
 test('fixture tool은 ownership marker가 없는 legacy fixture를 k6 실행 전에 거절한다', () => {
-  const fixtureDirectory = createTestDirectory();
+  const prepared = writeFixture(`runner-legacy-fixture-${process.pid}`);
 
   try {
-    const fixturePath = writeFixture(fixtureDirectory, 'runner-legacy-fixture');
+    const fixturePath = prepared.fixturePath;
     const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'));
     fixture.schemaVersion = 1;
     delete fixture.prepareOwnership;
     writeFileSync(fixturePath, `${JSON.stringify(fixture)}\n`, 'utf8');
 
-    const result = runFixture(fixturePath, fixtureDirectory);
+    const result = runFixture(fixturePath, prepared.fixtureDirectory);
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /현재 schemaVersion=2/);
   } finally {
-    rmSync(fixtureDirectory, { recursive: true, force: true });
+    rmSync(prepared.fixtureDirectory, { recursive: true, force: true });
+  }
+});
+
+test('run은 현재 DB resource ID와 다른 fixture를 k6 시작 전에 거절한다', {
+  skip: fakeK6Skip,
+}, () => {
+  const runId = `runner-resource-identity-${process.pid}`;
+  const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
+  mkdirSync(binDirectory, { recursive: true });
+  createFakeK6(binDirectory);
+  createFakePsql(binDirectory);
+
+  try {
+    const prepared = writeCleanupFixture(runId, 100);
+    const alteredFixture = structuredClone(prepared.fixture);
+    const firstRoomKey = Object.keys(alteredFixture.rooms)[0];
+    alteredFixture.rooms[firstRoomKey].id += 10_000;
+    writeFileSync(prepared.fixturePath, `${JSON.stringify(alteredFixture, null, 2)}\n`, 'utf8');
+
+    const result = runFixture(prepared.fixturePath, binDirectory, {
+      FAKE_PSQL_RESOURCE_RESULT: JSON.stringify({
+        users: Object.fromEntries(Object.values(prepared.fixture.users).map((user) => [user.email, user.id])),
+        rooms: Object.fromEntries(Object.values(prepared.fixture.rooms).map((room) => [room.title, room.id])),
+      }),
+    });
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /DB resource identity/);
+    assert.equal(existsSync(path.join(prepared.fixtureDirectory, 'run-manifest.json')), false);
+  } finally {
+    rmSync(path.join(fixtureBuildRoot, runId), { recursive: true, force: true });
+    rmSync(binDirectory, { recursive: true, force: true });
   }
 });
 
 test('run은 성공한 k6 실행의 provenance manifest와 summary를 같은 fixture에 남긴다', { skip: fakeK6Skip }, () => {
-  const fixtureDirectory = createTestDirectory();
+  const runId = `runner-success-${process.pid}`;
+  const prepared = writeFixture(runId);
+  const { fixtureDirectory, fixturePath } = prepared;
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
   mkdirSync(binDirectory, { recursive: true });
   createFakeK6(binDirectory);
 
   try {
-    const fixturePath = writeFixture(fixtureDirectory, 'runner-success');
     const result = runFixture(fixturePath, binDirectory);
     assert.equal(result.status, 0, result.stderr || result.stdout);
 
     const manifest = JSON.parse(readFileSync(path.join(fixtureDirectory, 'run-manifest.json'), 'utf8'));
-    assert.equal(manifest.fixtureId, 'room-k6-runner-success-t1');
-    assert.equal(manifest.runId, 'runner-success');
+    assert.equal(manifest.fixtureId, `room-k6-${runId}-t1`);
+    assert.equal(manifest.runId, runId);
     assert.equal(manifest.scenario, 't1');
     assert.equal(manifest.sourceSha, 'a'.repeat(40));
     assert.equal(manifest.targetEnvironment, 'private-loadtest');
@@ -661,6 +772,7 @@ test('run은 성공한 k6 실행의 provenance manifest와 summary를 같은 fix
     assert.equal(manifest.runState, 'COMPLETED');
     assert.equal(manifest.completed, true);
     assert.equal(manifest.k6ExitCode, 0);
+    assert.equal(manifest.fixtureSha256, sha256(fixturePath));
     assert.equal(manifest.summaryFile, 'k6-summary.json');
     assert.equal(manifest.summarySha256, sha256(path.join(fixtureDirectory, 'k6-summary.json')));
     assert.ok(Date.parse(manifest.startedAtUtc));
@@ -683,7 +795,9 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   test('run은 ' + signal + ' 중단도 종료된 manifest로 보존하고 새 run ID 재시도를 안내한다', {
     skip: fakeK6Skip,
   }, async () => {
-    const fixtureDirectory = createTestDirectory();
+    const runId = `runner-interrupted-${signal.toLowerCase()}-${process.pid}`;
+    const prepared = writeFixture(runId);
+    const { fixtureDirectory, fixturePath } = prepared;
     const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
     const startedPath = path.join(fixtureDirectory, 'fake-k6-started');
     const fakeK6PidPath = path.join(fixtureDirectory, 'fake-k6.pid');
@@ -692,7 +806,6 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     createFakeK6(binDirectory);
 
     try {
-      const fixturePath = writeFixture(fixtureDirectory, 'runner-interrupted-' + signal.toLowerCase());
       runner = startFixture(fixturePath, binDirectory, {
         FAKE_K6_WAIT_FOR_SIGNAL: 'true',
         FAKE_K6_STARTED_FILE: startedPath,
@@ -735,13 +848,13 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 }
 
 test('T5 run은 유효 VU·duration·think time을 manifest에 기록한다', { skip: fakeK6Skip }, () => {
-  const fixtureDirectory = createTestDirectory();
+  const prepared = writeT5Fixture(`runner-t5-options-${process.pid}`, 'public', 1);
+  const { fixtureDirectory, fixturePath } = prepared;
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
   mkdirSync(binDirectory, { recursive: true });
   createFakeK6(binDirectory);
 
   try {
-    const fixturePath = writeT5Fixture(fixtureDirectory, 'runner-t5-options', 'public', 1);
     const result = runFixture(fixturePath, binDirectory, {
       ROOM_K6_READ_VUS: '7',
       ROOM_K6_READ_DURATION_SECONDS: '75',
@@ -777,14 +890,14 @@ test('T5 run은 유효 VU·duration·think time을 manifest에 기록한다', { 
 });
 
 test('T5 after 검증은 VU별 시작 편차 metric을 요구한다', { skip: fakeK6Skip }, () => {
-  const fixtureDirectory = createTestDirectory();
+  const prepared = writeT5Fixture(`runner-t5-start-skew-${process.pid}`, 'public', 1);
+  const { fixtureDirectory, fixturePath } = prepared;
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
   mkdirSync(binDirectory, { recursive: true });
   createFakeK6(binDirectory);
   createFakePsql(binDirectory);
 
   try {
-    const fixturePath = writeT5Fixture(fixtureDirectory, 'runner-t5-start-skew', 'public', 1);
     const run = runFixture(fixturePath, binDirectory, {
       ROOM_K6_READ_VUS: '3',
       ROOM_K6_READ_DURATION_SECONDS: '75',
@@ -809,6 +922,38 @@ test('T5 after 검증은 VU별 시작 편차 metric을 요구한다', { skip: fa
   }
 });
 
+test('after 검증은 run 뒤 fixture baselineSnapshot 변조를 INVALID로 거절한다', {
+  skip: fakeK6Skip,
+}, () => {
+  const prepared = writeT5Fixture(`runner-baseline-tamper-${process.pid}`, 'public', 1);
+  const { fixtureDirectory, fixturePath } = prepared;
+  const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
+  mkdirSync(binDirectory, { recursive: true });
+  createFakeK6(binDirectory);
+
+  try {
+    const run = runFixture(fixturePath, binDirectory);
+    assert.equal(run.status, 0, run.stderr || run.stdout);
+
+    const currentSnapshot = fixtureSnapshot(prepared.fixture);
+    writeBoundSummary(fixtureDirectory, t5Summary(10));
+    const tamperedFixture = JSON.parse(readFileSync(fixturePath, 'utf8'));
+    tamperedFixture.baselineSnapshot = currentSnapshot;
+    writeFileSync(fixturePath, `${JSON.stringify(tamperedFixture, null, 2)}\n`, 'utf8');
+
+    const verify = verifyAfter(fixturePath, binDirectory, {
+      FAKE_PSQL_SNAPSHOT_RESULT: JSON.stringify(currentSnapshot),
+    });
+    assert.equal(verify.status, 2, verify.stderr || verify.stdout);
+    const verification = JSON.parse(readFileSync(path.join(fixtureDirectory, 'after-verification.json'), 'utf8'));
+    assert.equal(verification.status, 'INVALID');
+    assert.match(verification.failures[0], /fixture\.json의 SHA-256/);
+  } finally {
+    rmSync(fixtureDirectory, { recursive: true, force: true });
+    rmSync(binDirectory, { recursive: true, force: true });
+  }
+});
+
 test('T5 비교는 여섯 역할·규모 실행의 read profile 불일치를 거절한다', { skip: fakeK6Skip }, () => {
   const runId = `runner-t5-compare-${process.pid}`;
   const comparisonDirectory = path.join(fixtureBuildRoot, runId);
@@ -821,9 +966,8 @@ test('T5 비교는 여섯 역할·규모 실행의 read profile 불일치를 거
   try {
     for (const role of ['public', 'host', 'participant']) {
       for (const scale of [1, 10]) {
-        const fixtureDirectory = path.join(comparisonDirectory, `${role}-${scale}`);
-        mkdirSync(fixtureDirectory, { recursive: true });
-        const fixturePath = writeT5Fixture(fixtureDirectory, runId, role, scale);
+        const prepared = writeT5Fixture(runId, role, scale);
+        const { fixtureDirectory, fixturePath } = prepared;
         const run = runFixture(fixturePath, binDirectory, {
           ROOM_K6_READ_VUS: '7',
           ROOM_K6_READ_DURATION_SECONDS: '75',
@@ -891,7 +1035,7 @@ test('T5 비교는 여섯 역할·규모 실행의 read profile 불일치를 거
 
     writeT5AfterVerification(participantFixturePath);
 
-    const lifecycleManifestPath = path.join(comparisonDirectory, 'public-1', 'run-manifest.json');
+    const lifecycleManifestPath = path.join(path.dirname(publicFixturePath), 'run-manifest.json');
     const completedManifest = JSON.parse(readFileSync(lifecycleManifestPath, 'utf8'));
     for (const lifecycleField of ['runState', 'completed']) {
       const incompleteLifecycleManifest = structuredClone(completedManifest);
@@ -911,7 +1055,7 @@ test('T5 비교는 여섯 역할·규모 실행의 read profile 불일치를 거
     }
     writeFileSync(lifecycleManifestPath, `${JSON.stringify(completedManifest, null, 2)}\n`, 'utf8');
 
-    const mismatchedManifestPath = path.join(comparisonDirectory, 'participant-10', 'run-manifest.json');
+    const mismatchedManifestPath = path.join(path.dirname(participantFixturePath), 'run-manifest.json');
     const mismatchedManifest = JSON.parse(readFileSync(mismatchedManifestPath, 'utf8'));
     mismatchedManifest.t5ReadOptions.vus = 8;
     writeFileSync(mismatchedManifestPath, `${JSON.stringify(mismatchedManifest, null, 2)}\n`, 'utf8');
@@ -929,7 +1073,7 @@ test('T5 비교는 여섯 역할·규모 실행의 read profile 불일치를 거
     assert.equal(incompleteArtifactResult.status, 'INVALID');
     assert.match(incompleteArtifactResult.failures[0], /run-manifest/);
 
-    rmSync(path.join(comparisonDirectory, 'participant-10'), { recursive: true, force: true });
+    rmSync(path.dirname(participantFixturePath), { recursive: true, force: true });
     const incompleteSet = compareT5(runId);
     assert.equal(incompleteSet.status, 1, incompleteSet.stderr || incompleteSet.stdout);
     const incompleteSetResult = JSON.parse(readFileSync(path.join(comparisonDirectory, 't5-comparison-verification.json'), 'utf8'));
@@ -990,13 +1134,13 @@ test('cleanup은 다른 run fixture와 결정적 식별자 변조를 psql 전에
 });
 
 test('after 검증은 manifest와 다른 k6 summary를 INVALID로 거절한다', { skip: fakeK6Skip }, () => {
-  const fixtureDirectory = createTestDirectory();
+  const prepared = writeFixture(`runner-summary-mismatch-${process.pid}`);
+  const { fixtureDirectory, fixturePath } = prepared;
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
   mkdirSync(binDirectory, { recursive: true });
   createFakeK6(binDirectory);
 
   try {
-    const fixturePath = writeFixture(fixtureDirectory, 'runner-summary-mismatch');
     const run = runFixture(fixturePath, binDirectory);
     assert.equal(run.status, 0, run.stderr || run.stdout);
 
@@ -1013,13 +1157,13 @@ test('after 검증은 manifest와 다른 k6 summary를 INVALID로 거절한다',
 });
 
 test('run은 k6 비정상 종료에도 종료 시각과 exit code를 보존한다', { skip: fakeK6Skip }, () => {
-  const fixtureDirectory = createTestDirectory();
+  const prepared = writeFixture(`runner-failure-${process.pid}`);
+  const { fixtureDirectory, fixturePath } = prepared;
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
   mkdirSync(binDirectory, { recursive: true });
   createFakeK6(binDirectory);
 
   try {
-    const fixturePath = writeFixture(fixtureDirectory, 'runner-failure');
     const result = runFixture(fixturePath, binDirectory, { FAKE_K6_EXIT: '23' });
     assert.equal(result.status, 23, result.stderr || result.stdout);
 

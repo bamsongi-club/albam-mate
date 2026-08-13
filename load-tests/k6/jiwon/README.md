@@ -35,12 +35,12 @@
 | `prepare-recovery.json` | 동일 경로 | `prepare` commit 뒤 artifact 생성이 실패했을 때 실행별 ownership marker를 대조해 안전한 cleanup에 쓰는 비밀 없는 복구 입력 |
 | `before-verification.json` | 동일 경로 | 실행 전 DB 불변식 |
 | `after-verification.json` | 동일 경로 | 실행 뒤 HTTP·DB 불변식 판정. T5 비교는 같은 fixture의 `PASS` artifact만 허용 |
-| `run-manifest.json` | 동일 경로 | 대상 배포 SHA·환경·fixture·k6 버전·시작/종료 UTC와 `runState`·`completed`를 묶은 실행 기록 |
+| `run-manifest.json` | 동일 경로 | 대상 배포 SHA·환경·fixture SHA-256·k6 버전·시작/종료 UTC와 `runState`·`completed`를 묶은 실행 기록 |
 | `k6-summary.json` | 동일 경로 | `run`이 같은 manifest와 함께 생성한 k6 summary |
 | `t5-comparison-verification.json` | `build/k6/room/<run-id>/` | T5 role×scale 6개 실행의 공통 read profile 검증 결과 |
 | `cleanup.sql` | 동일 경로 | 정확한 생성 ID만 정리하는 SQL |
 
-cleanup은 broad prefix 삭제나 `TRUNCATE`를 쓰지 않는다. SQL 실행 전 fixture 경로·결정적 plan·실행별 ownership marker·사용자/ROOM 식별자를 다시 대조하고, fixture ROOM에 비-fixture 사용자의 파생 행이 섞였으면 삭제하지 않고 중단한다.
+cleanup은 broad prefix 삭제나 `TRUNCATE`를 쓰지 않는다. SQL 실행 전 fixture 경로·결정적 plan·실행별 ownership marker·사용자/ROOM 식별자를 다시 대조하고, fixture ROOM에 비-fixture 사용자의 파생 행이나 아직 남아 있는 다른 ROOM outbox event를 source로 한 notification이 섞였으면 삭제하지 않고 중단한다.
 
 ## 전제와 환경 변수
 
@@ -62,7 +62,7 @@ cleanup은 broad prefix 삭제나 `TRUNCATE`를 쓰지 않는다. SQL 실행 전
 | `ROOM_K6_READ_VUS` | `10` | T5 동시 VU 수 |
 | `ROOM_K6_READ_DURATION_SECONDS` | `60` | T5 측정 창 |
 | `ROOM_K6_READ_THINK_TIME_MS` | `0` | T5 요청 사이 think time |
-| `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` | runner 설정 | fixture 생성·검증·정리용 psql 연결 |
+| `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` | runner 설정 | fixture 생성·실행 전 identity 검증·사후 검증·정리용 psql 연결 |
 
 `ROOM_K6_FIXTURE_PASSWORD`와 `ROOM_K6_FIXTURE_PASSWORD_HASH`는 같은 private test password여야 하며 Git에 저장하지 않는다.
 
@@ -90,7 +90,7 @@ node load-tests/k6/jiwon/tools/fixture.mjs verify `
   --fixture $prepared.fixturePath --stage after
 ```
 
-`run`은 fixture가 가리키는 scenario 스크립트만 실행하고, 실행 직전·종료 뒤에 같은 `run-manifest.json`을 갱신한다. `after` 검증은 이 manifest와 같은 경로의 `k6-summary.json`만 사용하므로 수동으로 다른 실행 summary를 섞을 수 없다. T5 manifest에는 실제 적용한 `t5ReadOptions`(VU·duration·think time)를 남기고, 같은 정규화 값으로 k6 child process를 실행한다. `ALBAM_MATE_SOURCE_SHA`에는 로컬 스크립트 checkout이 아니라 **대상 환경에 배포된** SHA를 넣는다.
+`run`은 k6 시작 전에 fixture의 결정적 plan과 현재 DB resource identity를 다시 대조한 뒤, fixture의 SHA-256을 같은 `run-manifest.json`에 기록하고 fixture가 가리키는 scenario 스크립트만 실행한다. `after` 검증은 현재 fixture SHA-256과 manifest를 다시 대조한 뒤 같은 경로의 `k6-summary.json`만 사용하므로, 실행 뒤 손상된 fixture나 수동으로 섞은 다른 실행 summary를 성능 근거로 쓰지 않는다. T5 manifest에는 실제 적용한 `t5ReadOptions`(VU·duration·think time)를 남기고, 같은 정규화 값으로 k6 child process를 실행한다. `ALBAM_MATE_SOURCE_SHA`에는 로컬 스크립트 checkout이 아니라 **대상 환경에 배포된** SHA를 넣는다. T1~T5는 `room_start_skew_ms`의 최댓값이 `1,000ms` 미만이어야 한다. 이는 응답 성능 SLO가 아니라 같은 barrier에 둔 VU가 실제로 함께 시작했는지 판정하는 실행 유효성 gate다.
 
 시나리오별 fixture 입력은 아래처럼 바꾼다.
 
@@ -124,8 +124,8 @@ node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id $runId
 
 | 상태 | 의미 |
 | --- | --- |
-| `PASS` | HTTP 응답 분류, 시나리오별 DB 불변식, hard correctness gate를 통과 |
-| `FAIL` | 예상 밖 응답·5xx·payload 불일치·FIFO/정원/중복/무변경 gate 위반 |
+| `PASS` | HTTP 응답 분류, 시나리오별 DB 불변식, hard correctness·시작 편차 gate를 통과 |
+| `FAIL` | 예상 밖 응답·5xx·payload 불일치·FIFO/정원/중복/무변경·동시 시작 편차 gate 위반 |
 | `INVALID` | fixture 사전 조건 또는 필수 artifact가 부족해 결과를 성능 근거로 쓸 수 없음 |
 
 첫 기준선의 p50/p95/p99/RPS/409 비율은 관찰값이다. DB CPU·connection·lock wait·query call/time과 application retry log는 같은 측정 창의 승인된 관측 source에서 별도로 수집한다. production 락 전략은 이 스크립트가 바꾸지 않는다.
