@@ -826,13 +826,14 @@ export function SessionDetailView({ sessionId, me, onBack, onApply, onCancelAppl
   const privateView = Boolean(room.myRole);
   const game = room.game;
   const metaLine = [STATUS_LABEL[sessionStatus(room)], TYPE_LABEL[room.roomType], EXP_LABEL[room.experienceLevel]].filter(Boolean).join(' · ');
+  // 호스트 닉네임은 참가자에게만 내려온다. 값이 없는 줄을 자리만 차지하게 두지 않는다.
   const facts = [
     { key: '일시', value: formatStartsAt(room.startsAt) },
     { key: '장소', value: privateView ? room.place : '참가 확정 후 확인할 수 있어요' },
     { key: '지역', value: room.region || '홍대' },
-    { key: '호스트', value: (room.host?.nickname || '—') + (isHost(room) ? ' (나)' : '') },
+    room.host?.nickname && { key: '호스트', value: room.host.nickname + (isHost(room) ? ' (나)' : '') },
     { key: '진행', value: room.isRulemasterLed ? '룰마스터 진행' : '참가자끼리 진행' }
-  ];
+  ].filter(Boolean);
 
   return (
     <div className="screen sub">
@@ -844,16 +845,20 @@ export function SessionDetailView({ sessionId, me, onBack, onApply, onCancelAppl
         <p className="room-meta">{metaLine}</p>
         <h1 className="room-title">{room.title}</h1>
 
-        {game && (
-          <a className="room-game" href={'#/game/' + game.id}>
-            <Cover src={game.imageUrl} />
-            <span className="room-game-copy">
-              <strong>{game.title}</strong>
-              <span>{[game.players, game.time, game.complexity && '난이도 ' + game.complexity].filter(Boolean).join(' · ')}</span>
-            </span>
-            <span className="rowarrow"><ArrowIcon /></span>
-          </a>
-        )}
+        {game && (() => {
+          // 모임 상세의 game은 요약이라 인원·시간이 없을 수 있다. 없으면 부제 줄을 만들지 않는다.
+          const gameMetaLine = [game.players, game.time, game.complexity && '난이도 ' + game.complexity].filter(Boolean).join(' · ');
+          return (
+            <a className="room-game" href={'#/game/' + game.id}>
+              <Cover src={game.imageUrl} />
+              <span className="room-game-copy">
+                <strong>{game.title}</strong>
+                {gameMetaLine && <span>{gameMetaLine}</span>}
+              </span>
+              <span className="rowarrow"><ArrowIcon /></span>
+            </a>
+          );
+        })()}
 
         <dl className="room-facts">
           {facts.map((fact) => <div key={fact.key}><dt>{fact.key}</dt><dd>{fact.value}</dd></div>)}
@@ -1590,6 +1595,10 @@ export function ChatRoomView({ roomId, dataVersion, onBack }) {
   };
 
   const room = roomInfo.data;
+  // 이름 색은 참가자 순서를 따른다. 모임 정보를 아직 못 읽었거나 목록에 없는 사람만 이름으로 색을 정한다.
+  const participantOrder = new Map((room?.participants || []).map((participant, index) => [participant.nickname, index]));
+  const senderColor = (nickname) => (participantOrder.has(nickname) ? playerColor(participantOrder.get(nickname)) : nameColor(nickname));
+
   return (
     <div className="chat-screen">
       <div className="chat-topbar">
@@ -1624,7 +1633,7 @@ export function ChatRoomView({ roomId, dataVersion, onBack }) {
             {day.rows.map(({ message, isGroupStart, isGroupEnd }) => {
               const isMine = Boolean(message.isMine);
               const nickname = message.sender?.nickname || '';
-              const tone = nameColor(nickname);
+              const tone = senderColor(nickname);
               return (
                 <div className={'chat-message ' + (isMine ? 'mine' : 'theirs')} data-message-owner={isMine ? 'mine' : 'theirs'} key={message.messageId}>
                   {isGroupStart && !isMine && (
@@ -1781,7 +1790,8 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onUplo
           </div>
           <div className="profile-name">
             <strong>{me.nickname}</strong>
-            <span>{me.email}</span>
+            {/* 내 정보 응답에 이메일이 없으면 빈 줄을 만들지 않는다. */}
+            {me.email && <span>{me.email}</span>}
           </div>
           <button type="button" className="profile-edit-btn" aria-expanded={editing} onClick={() => { setNickname(me.nickname); setEditing(!editing); }}>수정</button>
         </div>

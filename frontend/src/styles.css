@@ -520,7 +520,6 @@ textarea.field-input { height: 112px; line-height: 1.6; padding: 14px 16px; resi
 .menu-row-label { flex: 1; font-size: 15.5px; font-weight: 600; }
 .menu-row-value { color: var(--muted); font-size: 14px; }
 .menu-row:disabled .menu-row-label { color: var(--muted); }
-.profile-danger { color: var(--muted); display: block; font-size: 13.5px; margin: 16px auto 0; text-align: center; }
 
 /* ── 소셜 계정 연결 ─────────────────────────────────────── */
 
