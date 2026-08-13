@@ -7,11 +7,13 @@ import { FilterCheckGroup, FilterPanel, FilterRadioGroup } from './shared/filter
 import {
   ArrowIcon,
   Avatar,
+  BackIcon,
   BellIcon,
   BggAttribution,
   BrandMark,
   CameraIcon,
   ChatIcon,
+  CloseIcon,
   Cover,
   ErrorBox,
   EyeIcon,
@@ -1034,7 +1036,7 @@ function CreateView({ createMode, onCreateModeChange, initialGame, onCreate, onB
     <form className="screen sub" onSubmit={submit}>
       <div className="topbar">
         <button type="button" className="icon-btn" aria-label="닫기" onClick={onBack}>
-          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          <CloseIcon />
         </button>
       </div>
       <div className="screen-body" style={{ paddingBottom: 28 }}>
@@ -1603,7 +1605,7 @@ export function ChatRoomView({ roomId, dataVersion, onBack }) {
     <div className="chat-screen">
       <div className="chat-topbar">
         <button type="button" className="icon-btn" aria-label="뒤로 가기" onClick={onBack}>
-          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg>
+          <BackIcon />
         </button>
         <div className="chat-topbar-copy">
           <strong>{room?.title || '모임 채팅'}</strong>

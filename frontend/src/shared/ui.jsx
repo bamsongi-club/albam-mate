@@ -31,7 +31,6 @@ export const FilterIcon = ({ size = 14 }) => <Stroke size={size} width={2.2}><pa
 export const InfoIcon = ({ size = 19 }) => <Stroke size={size}><circle cx="12" cy="12" r="9" /><path d="M12 16v-4M12 8h.01" /></Stroke>;
 export const SendIcon = ({ size = 19 }) => <Stroke size={size} width={2.2}><path d="M4 12 20 4l-7 16-2-7z" /></Stroke>;
 export const CameraIcon = ({ size = 12 }) => <Stroke size={size} width={2.2}><path d="M4 8.5h3l1.4-2h7.2L17 8.5h3v10H4zM12 16a3.2 3.2 0 1 1 0-6.4 3.2 3.2 0 0 1 0 6.4" /></Stroke>;
-export const ScreenIcon = ({ size = 21 }) => <Stroke size={size} width={1.9}><path d="M4 6h16v10H4zM9 20h6M12 16v4" /></Stroke>;
 export const EyeIcon = ({ size = 18 }) => <Stroke size={size}><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" /><circle cx="12" cy="12" r="3" /></Stroke>;
 export const EyeOffIcon = ({ size = 18 }) => <Stroke size={size}><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a18.6 18.6 0 0 1 4.22-5.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a18.6 18.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><path d="M1 1l22 22" /></Stroke>;
 
@@ -145,10 +144,6 @@ export function RankSkeletons({ count = 3 }) {
       ))}
     </div>
   );
-}
-
-export function LoadingBox({ label = '불러오는 중…' }) {
-  return <p className="notification-state" role="status">{label}</p>;
 }
 
 export function Pagination({ page, totalPages, loading, onChange }) {

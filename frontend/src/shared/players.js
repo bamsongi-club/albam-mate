@@ -1,5 +1,5 @@
 // 참가자 색은 순서로 고정한다. 미플·아바타·채팅 이름에 같은 색을 쓴다.
-export const PLAYER_COLORS = ['#C2402D', '#2C6E9B', '#D9A02B', '#3F7D53', '#7B4F9D', '#D2723A', '#4A5C8C', '#8A6A3C'];
+const PLAYER_COLORS = ['#C2402D', '#2C6E9B', '#D9A02B', '#3F7D53', '#7B4F9D', '#D2723A', '#4A5C8C', '#8A6A3C'];
 
 // 밝은 색 위에서만 글자를 먹색으로 둔다.
 const LIGHT_COLORS = new Set(['#D9A02B']);
