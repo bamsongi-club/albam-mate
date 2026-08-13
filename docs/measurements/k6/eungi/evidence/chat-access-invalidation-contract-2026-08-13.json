@@ -1,0 +1,79 @@
+{
+  "campaignId": "chat-access-invalidation-20260813T150606KST",
+  "campaignStatus": "completed-with-limitations",
+  "documentStatus": "current",
+  "purpose": "PR #679의 CHAT-03 접근 회수 계약을 app-a 제어 HTTP와 app-b WebSocket의 교차 인스턴스 경로에서 검증한다.",
+  "window": {
+    "executedAtUtc": "2026-08-13T06:06:06Z",
+    "executedAtKst": "2026-08-13T15:06:06+09:00"
+  },
+  "source": {
+    "scenario": "load-tests/k6/eungi/room-access-invalidation-contract.js",
+    "scenarioHeadSha": "2019764ebc4c759181d2b7a850988ef5c5c15a92",
+    "pullRequest": 679,
+    "pullRequestMergeSha": "afa6cdd7a8436aebdd2b1f2145522fa622a16de8"
+  },
+  "runtime": {
+    "stackId": "perf-eungi-20260810",
+    "applicationReleaseSha": "69438fd3a30150623e5801ff6bff5f4705b6a795",
+    "temporaryInfrastructure": {
+      "branch": "codex/route-pinning-pr679",
+      "commit": "1d0ddaea32de9e15dd114f6f8a1cb9767f964d0c",
+      "routePinning": {
+        "controlHttp": "app-a",
+        "webSocket": "app-b",
+        "defaultRouting": "existing round-robin when the performance route header is absent"
+      },
+      "loginLimitPerTenMinutes": 300
+    },
+    "runner": {
+      "k6Version": "1.5.0",
+      "k6Arm64ArchiveSha256": "c8166d774ce2de960605552e2115442f4b7a9521914dc421916b4b5c1c2abb54"
+    }
+  },
+  "fixture": {
+    "rooms": 2,
+    "accountsPerRoom": 9,
+    "messagesPerRoom": 2,
+    "credentials": "generated for the run and removed after completion"
+  },
+  "result": {
+    "k6ExitCode": 0,
+    "checks": {
+      "passed": 14,
+      "failed": 0
+    },
+    "thresholds": {
+      "routePinned": "1/1",
+      "webSocketOpened": "2/2",
+      "policyViolationClose": "2/2",
+      "noMessageAfterInvalidation": "2/2",
+      "roomIsolation": "1/1",
+      "participantMessageCreated": "1/1",
+      "terminalMessageRejected": "1/1",
+      "droppedIterations": 0
+    },
+    "observedMetrics": {
+      "chatHttpRequestDurationP95Ms": 56.85,
+      "chatWebSocketConnectP95Ms": 49.7,
+      "webSocketSessionDurationP95Ms": 1602.93
+    }
+  },
+  "artifacts": {
+    "location": "local-only",
+    "directory": "albam-mate-infra/.run/results/",
+    "summary": {
+      "file": "summary-20260813T060606Z.json",
+      "sha256": "f38f93b574fcf1205f98839a7ed6294665012a95ab80d3a866322ddeecd917e0"
+    },
+    "console": {
+      "file": "console-20260813T060606Z.log",
+      "sha256": "0f9471487207c140724c256ec061f51973fdba8ed4fbc875cd544a3f64f3523b"
+    }
+  },
+  "limitations": [
+    "The route pinning and k6 1.5.0 settings were temporary to the validation stack.",
+    "The six existing chat scenarios retained default routing and were not run in this campaign.",
+    "The raw summary and console are local-only; their SHA-256 values identify retained artifacts but do not make them independently accessible from this repository."
+  ]
+}
