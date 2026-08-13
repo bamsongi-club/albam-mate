@@ -42,6 +42,13 @@
 - 의미 검색 contract는 `query`, `page`, `size`와 P1에서 이미 확정한 hard filter만 받는다. 기존 `GET /api/games`의 `keyword` 동작과 응답 호환성을 변경하지 않는다.
 - 결과 카드의 기본 필드는 기존 `GameListItem`을 재사용할 수 있지만, 관련도 점수·embedding·내부 검색어를 사용자 응답에 노출하지 않는다. fallback 여부를 표시해야 한다면 별도 명시적 상태 필드로 계약하고 임의의 점수로 대신하지 않는다.
 
+### 자연어 조건 해석 규칙
+
+- `4인`, `3인 이상`, `30분 이하`, 연령·난이도처럼 수치와 범위가 분명한 표현은 P1 hard filter로 변환하고, 후보 생성 뒤에도 같은 조건을 다시 검증한다.
+- `트릭테이킹`, `일꾼 놓기`, `협력`처럼 사용자가 메커니즘·카테고리·테마를 명시하면 검수된 관계와 Sparse 신호를 우선한다. Dense 유사도만으로 명시 조건을 대체하지 않는다.
+- `가볍게 웃으면서`, `초보자와 즐기기 좋은`, `서로 눈치 보는`처럼 플레이 경험을 표현하면 semantic 후보·순위 신호로 사용한다. 이 경우에도 공개 데이터와 평가 fixture에 근거하지 않은 경험을 사실처럼 만들지 않는다.
+- 조건이 서로 충돌하거나 “재미있는 게임”처럼 제품 기준이 없는 표현만 남으면 임의의 기본값으로 검색하지 않고 [DISCOVERY-01 게임 탐색 도우미](game-discovery-assistant.md#discovery-01)가 clarification을 요청한다.
+
 ## 범위
 
 ### 포함 범위
@@ -50,6 +57,7 @@
 - lexical·semantic·hybrid 후보 생성 방식의 평가와 선택. 특정 모델·검색 엔진·vector DB는 이 문서에서 확정하지 않는다.
 - 후보 생성 뒤 `SEARCH-01`~`SEARCH-03`의 hard filter, 공개 게임 범위, `playedFilter` 권한과 페이지 경계를 적용하는 규칙.
 - 의미 검색 결과의 결정적 관련도 정렬, 동일 결과 중복 제거, 빈 결과와 fallback 상태 표시.
+- 기존 필터·Sparse·Dense·Hybrid 후보를 같은 질의와 fixture로 비교하는 단계별 평가 게이트.
 - 평가 fixture·기대 결과·판정자·산식·최소 표본을 고정하고 P1 이름 검색 baseline과 비교하는 품질 검증.
 - 인덱스 버전·생성·활성화·rollback과 query latency·fallback·zero-result·hard-filter 위반 관측.
 
@@ -68,6 +76,28 @@
   - 데이터 필드별 출처·공개·가공 이용 근거와 catalog release 갱신 절차가 승인될 때
   - zero-result, fallback, hard-filter 위반과 p95 비용을 고정 release에서 측정할 수 있을 때
   - 사용자 검색 이력·개인화·외부 데이터 결합은 별도 제품 범위와 개인정보·ADR 검토가 승인될 때
+
+### 대표 평가 질의
+
+아래 세 질의는 의미 검색과 게임 탐색 도우미의 공통 anchor fixture다. 기대 게임은 문서에서 임의로 만들지 않고, 구현 전에 팀이 공개 catalog의 game ID 10~30개와 관련성 이유·허용되지 않는 결과를 직접 라벨링한다.
+
+| 질의 | 반드시 지킬 조건 | 의미적으로 평가할 부분 | 기대 결과 고정 방법 |
+| --- | --- | --- | --- |
+| 트릭테이킹 방식의 협력 게임 중 3인 이상 플레이 가능한 게임 | 3인 이상, 명시된 트릭테이킹·협력 | 메커니즘·협력 관계 | 팀 검수 game ID 10~30개와 관련성 이유를 manifest에 기록 |
+| 4명이 모두 초보여도 쉽게 즐길 수 있는 재미있는 파티 게임 | 4인 가능, 제품이 승인한 쉬움의 해석 | 초보자 친화성·파티 분위기 | 팀 검수 game ID 10~30개와 허용되지 않는 결과를 manifest에 기록 |
+| 일꾼 놓기 게임 중 4인 플레이가 가능하고 플레이타임이 30분 이하인 게임 | 4인 가능, 최대 플레이타임 30분 이하 | 일꾼 놓기 메커니즘 | 팀 검수 game ID 10~30개와 관련성 이유를 manifest에 기록 |
+
+대표 질의는 `exact/name variant`, `intent/description`, `intent+hard filter` cohort에 포함하고, 기준선은 기존 필터·키워드 검색, Sparse, Dense, Hybrid를 같은 release·fixture에서 비교한다.
+
+### 단계별 고도화 게이트
+
+1. 대표 질의와 기대 결과·필수 조건을 먼저 고정하고, 성공을 hard-filter 정확도·검색 품질·지연·비용으로 나눈다.
+2. `Game`의 출처가 확인된 필드로 deterministic한 `search_text`를 만들고 누락·중복·변경 감지 기준을 확인한다. 이 단계에서는 운영 migration이나 전체 backfill을 하지 않는다.
+3. 기존 구조화·이름 검색을 baseline으로 저장한 뒤 Sparse/FTS와 `pg_trgm`을 비교한다. `pg_trgm` 결과를 의미 검색 품질로 표현하지 않는다.
+4. 기준선 개선이 확인될 때만 Dense offline PoC에서 모델·차원·비용·지연·재생성 부담을 비교한다. Word2Vec·SBERT·BGE-M3·pgvector는 평가 전 채택하지 않는다.
+5. Dense가 채택되면 별도 semantic mode/endpoint로 최소 구현하고, 명시 조건은 hard filter와 Sparse로 계속 보호한다. 기존 P1 목록 API의 정렬 의미는 바꾸지 않는다.
+6. Dense·Sparse 후보를 결합할 때 RRF는 순위 결합으로만 사용하며 hard filter를 대체하지 않는다. reranker는 상위 후보의 품질 개선 근거가 있을 때만 후속 검토한다.
+7. 운영 반영·API·ADR·Issue 갱신은 대표 질의와 확장 fixture에서 baseline 대비 개선이 재현된 뒤 진행한다. 그 다음 단계에서만 대화형 게임 탐색 도우미를 연결한다.
 
 ## 기능 규칙
 
@@ -123,7 +153,7 @@
 - `SEARCH-04-AC2`: 기존 `GET /api/games?keyword=...`가 P1의 부분일치·공개 범위·`name ASC, id ASC`·페이지 메타데이터를 그대로 반환하고, 의미 검색 도입만으로 기존 응답이 의미 검색 결과로 바뀌지 않는다. 판정은 기존 P1 회귀 테스트와 before/after 계약 비교로 한다.
 - `SEARCH-04-AC3`: 빈 query·길이·필터·페이지 검증 오류와 비로그인 `playedFilter` 요청이 확정한 `400`·`401` 오류로 거절되고, 잘못된 요청이 index 조회나 사용자 데이터 조회를 실행하지 않는다. 판정은 HTTP 계약 테스트와 보안 로그 검증으로 한다.
 - `SEARCH-04-AC4`: 의미 검색 결과의 hard-filter 위반률이 0이고, 동일 query·동일 index version의 반복 요청이 동일한 결과 순서와 페이지 경계를 반환한다. 판정은 최소 60개 평가 query와 동시 반복 요청 결과 비교로 한다.
-- `SEARCH-04-AC5`: 의미 검색 평가 fixture가 구현 전에 query, 필수 조건, 기대 게임 ID, 제외 게임 ID, 기대 이유, 출처·버전을 고정하고, 최소 60개 query를 `exact/name variant` 15개 이상, `intent/description` 25개 이상, `intent+hard filter` 20개 이상으로 분포시킨다. 각 cohort와 전체 집합에서 2명의 독립 판정자·Recall@10·MRR@10·nDCG@10 산식을 재현하며, fixture manifest에 cohort별 각 지표의 `min_delta_vs_baseline`과 `hard_filter_violation_rate=0`을 기록한다. `exact/name variant`는 baseline 비회귀, 의미 cohort는 담당자·리뷰어가 승인한 baseline 대비 최소 개선값을 각각 통과해야 하며, 값이 없거나 승인되지 않은 cohort는 품질 합격으로 판정하지 않는다.
+- `SEARCH-04-AC5`: 의미 검색 평가 fixture가 구현 전에 대표 평가 질의 3개를 포함한 query, 필수 조건, 기대 게임 ID 10~30개, 제외 게임 ID, 기대 이유, 출처·버전을 고정하고, 최소 60개 query를 `exact/name variant` 15개 이상, `intent/description` 25개 이상, `intent+hard filter` 20개 이상으로 분포시킨다. 각 cohort와 전체 집합에서 2명의 독립 판정자·Recall@10·MRR@10·nDCG@10 산식을 재현하며, fixture manifest에 cohort별 각 지표의 `min_delta_vs_baseline`과 `hard_filter_violation_rate=0`을 기록한다. `exact/name variant`는 baseline 비회귀, 의미 cohort는 담당자·리뷰어가 승인한 baseline 대비 최소 개선값을 각각 통과해야 하며, 값이 없거나 승인되지 않은 cohort는 품질 합격으로 판정하지 않는다.
 - `SEARCH-04-AC6`: no-result는 조건을 완화하지 않은 빈 `200` 결과이고, index/provider timeout과 semantic index 부재는 승인된 lexical fallback이 있으면 명시적 fallback 상태의 `200 OK`, fallback도 없으면 `503 SEARCH_UNAVAILABLE`로 수렴한다. 판정은 no-result·timeout·index 없음·fallback 불가 장애 주입 테스트와 사용자 표시 상태 확인으로 한다.
 - `SEARCH-04-AC7`: source release가 바뀌거나 index build가 실패해도 `BUILDING`·실패 버전이 사용자에게 노출되지 않고, 이전 `READY` 버전 유지 또는 승인된 fallback으로 처리되며 rollback 후 결과가 이전 버전으로 복구된다. 판정은 두 release의 순서 역전·중복 build·cutover 중단 PostgreSQL/통합 검증으로 한다.
 - `SEARCH-04-AC8`: 검색 query 원문, 설명 원문, 사용자 ID·이메일·세션·토큰이 metric label과 중앙 로그에 없고, index·query 데이터의 보존·삭제가 승인된 source release 경계를 따른다. 판정은 구조화 로그·metric payload·보존/삭제 점검으로 한다.
@@ -136,7 +166,7 @@
 | 단위·통합 테스트 | query 정규화, 허용 필드, hard filter 재적용, deterministic ranking, no-result, fallback DTO. Spring/H2 또는 mock은 규칙 조립에 사용 | P1 필터 의미를 바꾸지 않고 경계·중복·페이지 계산이 통과한다. |
 | PostgreSQL·외부 의존성 검증 | 현재 지원 PostgreSQL, 승인된 catalog release, 최소 50 query fixture, `ANALYZE`와 index version 고정. 외부 provider를 쓰면 provider/model·timeout·응답 fixture를 pin | 실제 저장 제약·검색 계획·index cutover·provider timeout·재시도가 재현되고, H2만으로 완료 판정하지 않는다. |
 | 프론트엔드·계약 검증 | 의미 query 입력, 결과 관련도 순서, P1 필터 조합, 빈 결과, fallback/서비스 오류와 기존 게임 카드 회귀 | 사용자는 성공 결과와 degraded/fallback 상태를 구분해 확인하고, 실패 시 이전 결과를 새 결과로 오인하지 않는다. |
-| 품질 평가 | `docs/p2` 하위 평가 fixture에 최소 60개 query를 보존하고 `exact/name variant` 15개 이상, `intent/description` 25개 이상, `intent+hard filter` 20개 이상의 고정 분포와 cohort별 기대·제외 game ID·출처를 기록한다. 2인 독립 판정, 불일치 제3 판정과 cohort별 baseline manifest를 사용한다. | 모든 cohort와 전체 집합에서 hard-filter violation rate `0`, cohort별·전체 Recall@10·MRR@10·nDCG@10이 manifest의 baseline 대비 승인 임계값을 각각 통과한다. 표본·분포·임계값 미승인 상태는 품질 합격으로 표시하지 않는다. |
+| 품질 평가 | `docs/p2` 하위 평가 fixture에 대표 질의 3개와 최소 60개 query를 보존하고 `exact/name variant` 15개 이상, `intent/description` 25개 이상, `intent+hard filter` 20개 이상의 고정 분포와 cohort별 기대·제외 game ID·출처를 기록한다. 2인 독립 판정, 불일치 제3 판정과 cohort별 baseline manifest를 사용한다. | 모든 cohort와 전체 집합에서 hard-filter violation rate `0`, cohort별·전체 Recall@10·MRR@10·nDCG@10이 manifest의 baseline 대비 승인 임계값을 각각 통과한다. 대표 질의의 기대 결과·필수 조건·관련성 이유가 없거나 표본·분포·임계값이 승인되지 않은 상태는 품질 합격으로 표시하지 않는다. |
 | 실패·복구 검증 | index `BUILDING`/`FAILED`, provider timeout·5xx, stale release, cutover 중단, retry 중복, 이전 `READY` rollback | 부분 결과·잘못된 release·필터 우회가 없고 fallback 또는 `503`으로 결정적으로 수렴한다. 기존 P1 검색과 catalog 원본은 영향받지 않는다. |
 
 ## 배포와 실측
