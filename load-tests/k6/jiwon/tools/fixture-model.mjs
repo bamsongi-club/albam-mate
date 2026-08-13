@@ -870,6 +870,7 @@ function evaluateT2(fixture, snapshot, failures, summary) {
   }
 
   const created = metricCount(summary, 'room_created');
+  addFailure(failures, created !== null, 'T2 room_created metric이 부족합니다.');
   if (fixture.options.subcase === 'distinct') {
     if (created !== null) {
       addFailure(failures, created === waitingByActor.length, 'T2 201 신규 성공 수와 WAITING 행 수가 다릅니다.');
