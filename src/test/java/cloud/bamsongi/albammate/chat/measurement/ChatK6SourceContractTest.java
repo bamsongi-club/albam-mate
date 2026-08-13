@@ -81,6 +81,35 @@ class ChatK6SourceContractTest {
 		assertThat(crossInstanceContract).contains("fanoutParticipants(data.users, PRIMARY_ROOM_ID)");
 	}
 
+	@Test
+	void 접근_무효화_시나리오는_제어와_WebSocket_route를_분리하고_기존_시나리오와_분리한다() throws IOException {
+		String accessInvalidation = file("load-tests/k6/eungi/room-access-invalidation-contract.js");
+		String readme = file("load-tests/k6/eungi/README.md");
+
+		assertThat(accessInvalidation).contains("const CONTROL_ROUTE = 'app-a'");
+		assertThat(accessInvalidation).contains("const WEBSOCKET_ROUTE = 'app-b'");
+		assertThat(accessInvalidation).contains("const CONTROL_BASE_URL = BASE_URL;");
+		assertThat(accessInvalidation).contains("const WEBSOCKET_BASE_URL = BASE_URL;");
+		assertThat(accessInvalidation)
+			.contains("verifyCrossInstanceRoute(participant, CONTROL_BASE_URL, CONTROL_ROUTE)");
+		assertThat(accessInvalidation)
+			.contains("verifyCrossInstanceRoute(participant, WEBSOCKET_BASE_URL, WEBSOCKET_ROUTE)");
+		assertThat(accessInvalidation).contains("headers: performanceRouteHeader(CONTROL_ROUTE)");
+		assertThat(accessInvalidation)
+			.contains("headers: { ...jsonHeaders(user), ...performanceRouteHeader(CONTROL_ROUTE) }");
+		assertThat(accessInvalidation)
+			.contains("WEBSOCKET_BASE_URL,\n\t\tperformanceRouteHeader(WEBSOCKET_ROUTE),");
+		assertThat(accessInvalidation).contains("routePreflightExpected.add(routesExpected);");
+		assertThat(accessInvalidation).contains("throw new Error('access invalidation route preflight failed');");
+		assertThat(accessInvalidation).contains("/participants/me");
+		assertThat(accessInvalidation).contains("POLICY_VIOLATION");
+		assertThat(accessInvalidation).contains("closeCode === 1008");
+		assertThat(accessInvalidation).contains("/api/rooms/${user.roomId}");
+		assertThat(accessInvalidation).contains("chat_access_invalidation_participant_message_created");
+		assertThat(accessInvalidation).contains("chat_access_invalidation_terminal_message_rejected");
+		assertThat(readme).contains("room-access-invalidation-contract.js");
+	}
+
 	private void assertSubscriberUsesAlignedDeliveryStage(String scenario, String stepVariable) {
 		assertThat(scenario).containsPattern(
 			"(?s)holdLoadSubscriber\\(\\s*user,\\s*roomId,\\s*currentStage\\(data, " + stepVariable

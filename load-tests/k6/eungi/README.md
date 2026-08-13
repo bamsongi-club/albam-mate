@@ -72,6 +72,7 @@
 | `websocket-contract.js` (`reconnect`) | 재연결 후 누락 복구 |
 | `websocket-contract.js` (`idle`) | 유휴 WebSocket 유지 |
 | `cross-instance-contract.js` | 인스턴스 간 전달 (route 고정 설정 필요) |
+| `room-access-invalidation-contract.js` | 참가 취소·방 취소 뒤 다른 인스턴스 WebSocket 접근 회수 (app-a/app-b 고정) |
 | `redis-recovery.js` | Redis 재기동 후 복구 (수동 개입 필요) |
 
 계약 검증과 용량 측정을 한 결과로 합치지 않는다. 계약 검증은 작은 입력의 정확성을 판정하고, 용량 측정은 입력 조건과 결과 곡선을 기록한다.
@@ -150,6 +151,8 @@ docker compose --env-file .env -f compose.local.yml exec -T postgres \
 | `K6_CHAT_FIXTURE` | — | `rooms.sql`이 내보낸 credential fixture 경로. 사용자는 로그인 credential 또는 준비된 session 필드를 가져야 하며 **필수** |
 | `K6_LOGIN_LIMIT` | `30` | 스크립트 쪽 로그인 횟수 가드. 서버 한도와 같게 준다 |
 
+`room-access-invalidation-contract.js`는 runner가 전달하는 `K6_BASE_URL`을 사용하며, 제어 HTTP는 `app-a`, WebSocket은 `app-b` route로 고정한다. 별도 base URL·route 환경 변수는 받지 않는다.
+
 계단 조정용 변수다. 기본값이 공식 계단이며 바꾸면 결과를 다른 Run과 비교할 수 없다.
 
 | 변수 | 기본값 |
@@ -183,6 +186,20 @@ ALBAM_MATE_LOGIN_LIMIT=300 bash run.sh deploy
 ## 실행
 
 인프라 저장소에서 실행한다. 시드·측정·정리가 한 사이클로 돈다.
+
+이번 CHAT-03 접근 회수 검증은 아래 전용 계약 시나리오 하나만 실행한다. 기존 용량·계약 시나리오는 이 실행에 포함하지 않는다.
+
+```bash
+K6_LOGIN_LIMIT=300 \
+  bash run.sh loadtest <경로>/load-tests/k6/eungi/room-access-invalidation-contract.js \
+  --seed-sql <경로>/load-tests/k6/eungi/fixtures/rooms.sql \
+  --cleanup-sql <경로>/load-tests/k6/eungi/fixtures/cleanup.sql \
+  --sql-var run_id=<실행 키> --sql-var room_count=2 --sql-var accounts_per_room=9 \
+  --sql-var messages_per_room=2 \
+  --sql-var password_hash='{bcrypt}<해시>' --sql-var password='<평문>'
+```
+
+일반 용량 측정은 계단 규모에 맞는 fixture와 해당 용량 시나리오를 선택해 실행한다.
 
 ```bash
 K6_LOGIN_LIMIT=300 \
