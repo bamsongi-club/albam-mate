@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-31
 - 결정일: 2026-08-01
-- 관련: [P1 방 채팅 명세](../../p1/chatting.md), [채팅 API](../../API.md#채팅-공통-계약), [아키텍처](../../ARCHITECTURE.md#채팅-흐름), [ADR-0003 서버 세션](../auth/0003-p0-server-session-spring-security.md), [ADR-0020 API 인가 정책](../auth/0020-api-endpoint-authorization-policy-registry.md), [ADR-0031 커서 조회](0031-chat-history-cursor-pagination.md), [ADR-0033 메시지 정본과 전달](0033-postgresql-source-after-commit-delivery.md), [ADR-0038 공용 세션·스케줄 조정](../platform/0038-multi-instance-session-and-scheduler-coordination.md), [ADR-0051 P1 AWS 토폴로지](../platform/0051-p1-self-managed-aws-infrastructure.md)
+- 관련: [P1 방 채팅 명세](../../archive/p1/chatting.md), [채팅 API](../../API.md#채팅-공통-계약), [아키텍처](../../ARCHITECTURE.md#채팅-흐름), [ADR-0003 서버 세션](../auth/0003-p0-server-session-spring-security.md), [ADR-0020 API 인가 정책](../auth/0020-api-endpoint-authorization-policy-registry.md), [ADR-0031 커서 조회](0031-chat-history-cursor-pagination.md), [ADR-0033 메시지 정본과 전달](0033-postgresql-source-after-commit-delivery.md), [ADR-0038 공용 세션·스케줄 조정](../platform/0038-multi-instance-session-and-scheduler-coordination.md), [ADR-0051 P1 AWS 토폴로지](../platform/0051-p1-self-managed-aws-infrastructure.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
@@ -70,6 +70,6 @@
 - 근거:
     - 구현: [PR #415](https://github.com/bamsongi-club/albam-mate/pull/415)이 세션·Origin·방 관계를 검증하는 방별 WebSocket endpoint를, [PR #432](https://github.com/bamsongi-club/albam-mate/pull/432)이 브라우저 실시간 수신·재연결을 구현했다.
     - 테스트: handshake·권한 상실·정책 위반·재연결·실시간 전달 단위·통합 테스트와 `ChatWebSocketCrossInstanceDeliveryPostgresTest`·`ChatWebSocketCrossInstanceSessionPostgresTest`·`ChatWebSocketRestartRecoveryPostgresTest`가 공용 세션과 교차 인스턴스 복구를 검증한다. [PR #457](https://github.com/bamsongi-club/albam-mate/pull/457)은 실제 `local-multi` 프록시 경유 연결도 검증했다.
-    - 범위: [P1 구현 완료 기준](../../P1-spec.md#구현-완료-기준)이 제외한 실제 AWS App1 Nginx·App2 장애·운영 배포 검증은 이 ADR의 구현 결정 검증이 아니라 상태표의 `운영 배포·실측` 축에서 관리한다.
+    - 범위: [P1 구현 완료 기준](../../archive/p1/P1-spec.md#구현-완료-기준)이 제외한 실제 AWS App1 Nginx·App2 장애·운영 배포 검증은 이 ADR의 구현 결정 검증이 아니라 상태표의 배포·실측 축에서 관리한다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

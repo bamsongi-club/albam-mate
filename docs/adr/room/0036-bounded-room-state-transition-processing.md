@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-31
 - 결정일: 2026-08-01
-- 관련: [P1 ROOM-09](../../p1/room.md#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화), [P0 ROOM-06](../../archive/p0/room.md#room-06-방-상태-정합화), [ADR-0012](0012-room-request-boundary-state-reconciliation.md), [ADR-0005](../participation/0005-room-participation-optimistic-locking.md), [ADR-0037](../participation/0037-room-waitlist-latest-state-atomic-promotion.md), [ADR-0038 다중 인스턴스 스케줄 실행 조정](../platform/0038-multi-instance-session-and-scheduler-coordination.md), [`RoomRepository.findDueRooms`](../../../src/main/java/cloud/bamsongi/albammate/room/repository/RoomRepository.java), [`RoomStatusCorrectionExecutor`](../../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionExecutor.java)
+- 관련: [P1 ROOM-09](../../archive/p1/room.md#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화), [P0 ROOM-06](../../archive/p0/room.md#room-06-방-상태-정합화), [ADR-0012](0012-room-request-boundary-state-reconciliation.md), [ADR-0005](../participation/0005-room-participation-optimistic-locking.md), [ADR-0037](../participation/0037-room-waitlist-latest-state-atomic-promotion.md), [ADR-0038 다중 인스턴스 스케줄 실행 조정](../platform/0038-multi-instance-session-and-scheduler-coordination.md), [`RoomRepository.findDueRooms`](../../../src/main/java/cloud/bamsongi/albammate/room/repository/RoomRepository.java), [`RoomStatusCorrectionExecutor`](../../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionExecutor.java)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
@@ -61,7 +61,7 @@ API 요청 경계의 현재 상태 판정과 요청이 없는 ROOM을 정리하�
 
 한 번에 선별할 ID 수와 한 실행에서의 반복 상한, 재시도 횟수와 실행 주기의 운영 고정값은 이 ADR에서 임의로 정하지 않는다. 현재 구현을 비교 기준선으로 남기고 제한 처리의 후보값을 같은 조건에서 측정한 뒤 초기 운영값을 확정한다. 이 값들은 측정으로 조정할 운영값이며, 제한된 ID 선별과 ROOM별 독립 처리라는 결정 자체를 바꾸지 않는 조정에는 새 ADR을 요구하지 않는다.
 
-측정 데이터 규모와 후보값, 논리적 처리 예정 시각과 `roomId` 정렬, 영속 cursor와 순회 기준 시각의 저장 위치·갱신 시점·wrap-around·장애 재선별과 복구 방식, 임대 만료 중첩 실행의 진척성 동시성 제어, 구체적인 트랜잭션 전파 방식과 관측 항목은 [P1 ROOM 명세](../../p1/room.md)의 `구현 전 결정`에 명시한다. cursor와 순회 경계의 구현 방식은 이 ADR의 진척성 불변식과 ADR-0038의 실행 주체 계약을 약화하지 않아야 한다. 에이전트는 측정 전에 성능 합격 수치나 운영 고정값을 임의로 만들지 않는다.
+측정 데이터 규모와 후보값, 논리적 처리 예정 시각과 `roomId` 정렬, 영속 cursor와 순회 기준 시각의 저장 위치·갱신 시점·wrap-around·장애 재선별과 복구 방식, 임대 만료 중첩 실행의 진척성 동시성 제어, 구체적인 트랜잭션 전파 방식과 관측 항목은 [P1 ROOM 명세](../../archive/p1/room.md)의 `구현 전 결정`에 명시한다. cursor와 순회 경계의 구현 방식은 이 ADR의 진척성 불변식과 ADR-0038의 실행 주체 계약을 약화하지 않아야 한다. 에이전트는 측정 전에 성능 합격 수치나 운영 고정값을 임의로 만들지 않는다.
 
 실패 backoff·격리는 현재 기준선에 추가하지 않는다. cursor 회전 기준선의 측정에서 영구 실패 ROOM의 반복 시도 비용이나 재시도 폭주가 실제 문제로 확인되면, 실패 상태의 저장·복구·해제 정책과 backoff 후보값을 제시하고 사용자 승인 뒤 비교한다. backoff를 추가하더라도 다른 due ROOM의 진척성 불변식은 유지한다.
 

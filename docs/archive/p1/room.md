@@ -1,8 +1,8 @@
 # P1 ROOM·참가 고도화 명세
 
-이 문서는 P1의 `ROOM-08`~`ROOM-10`, `PART-04`를 독립적으로 구현·검증하기 위한 규칙과 완료 기준을 정의한다. 현재 계약·생산 코드·자동 검증·운영 상태는 [P1 기능 상태 정본](README.md#기능별-현재-상태)을 따른다. P1 공통 규칙은 [P1 명세](../P1-spec.md)를 따르며, P1에서 별도로 변경하지 않은 정원·상태·권한·공개 범위·시간 규칙은 현재 [API](../API.md)·[ERD](../ERD.md)·관련 승인 ADR을 따른다. [P0 완료 문서](../archive/p0/README.md)는 완료 시점의 제품 배경으로만 참조하고 현재 구현 정본으로 사용하지 않는다.
+이 문서는 P1의 `ROOM-08`~`ROOM-10`, `PART-04`를 독립적으로 구현·검증하기 위한 규칙과 완료 기준을 정의한다. 현재 계약·생산 코드·자동 검증·운영 상태는 [P1 기능 종료 상태](README.md#기능별-종료-상태)을 따른다. P1 공통 규칙은 [P1 명세](P1-spec.md)를 따르며, P1에서 별도로 변경하지 않은 정원·상태·권한·공개 범위·시간 규칙은 현재 [API](../../API.md)·[ERD](../../ERD.md)·관련 승인 ADR을 따른다. [P0 완료 문서](../p0/README.md)는 완료 시점의 제품 배경으로만 참조하고 현재 구현 정본으로 사용하지 않는다.
 
-요청·응답·오류는 [API 명세](../API.md), 저장 구조와 제약은 [ERD](../ERD.md), 되돌리기 어렵거나 논쟁적인 기술 선택과 측정 근거는 [ADR](../adr/README.md)에서 관리한다. 기능 규칙은 구현해야 하는 필수 동작이고, 완료 기준은 이슈 완료를 판정하는 필수 검증 계약이며, 제외 범위는 이 문서에서 생성하는 이슈와 PR에 포함하지 않는다.
+요청·응답·오류는 [API 명세](../../API.md), 저장 구조와 제약은 [ERD](../../ERD.md), 되돌리기 어렵거나 논쟁적인 기술 선택과 측정 근거는 [ADR](../../adr/README.md)에서 관리한다. 기능 규칙은 구현해야 하는 필수 동작이고, 완료 기준은 이슈 완료를 판정하는 필수 검증 계약이며, 제외 범위는 이 문서에서 생성하는 이슈와 PR에 포함하지 않는다.
 
 구현 컨텍스트의 결정 행은 시점을 다음과 같이 구분한다.
 
@@ -22,12 +22,12 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 구분 | 정본 |
 | --- | --- |
 | 기능 ID | `ROOM-08` |
-| 현행 기준 | [RoomStatus](../API.md#roomstatus), [`joinable` 판정](../API.md#47-publicroomresponse) |
-| API 계약 | [PublicRoomResponse](../API.md#47-publicroomresponse), [ROOM 목록 조회](../API.md#room-01-방-목록-조회), [ROOM 상세 조회](../API.md#room-02-방-상세-조회), [내 모임 조회](../API.md#part-03-내-모임-조회) |
+| 현행 기준 | [RoomStatus](../../API.md#roomstatus), [`joinable` 판정](../../API.md#47-publicroomresponse) |
+| API 계약 | [PublicRoomResponse](../../API.md#47-publicroomresponse), [ROOM 목록 조회](../../API.md#room-01-방-목록-조회), [ROOM 상세 조회](../../API.md#room-02-방-상세-조회), [내 모임 조회](../../API.md#part-03-내-모임-조회) |
 | 고도화 이유 | 정원 충족 전 `CLOSED`와 시작 시각 도달 후 `CLOSED`는 같은 상태지만, 전자는 대기를 신청할 수 있고 후자는 신청할 수 없다. |
-| 공통 규칙 | [P0 계약 상속](../P1-spec.md#p0-계약-상속), [RoomStatus](../API.md#roomstatus), [ROOMS](../ERD.md#rooms) |
-| 데이터 모델 | [ROOMS](../ERD.md#rooms), [PARTICIPATIONS](../ERD.md#participations) |
-| 선행 승인 | [ADR-0035 방 생명주기 상태와 요청자별 행동 가능성을 분리](../adr/room/0035-room-status-action-eligibility-separation.md), [ADR-0055 ROOM 조회 유효 상태와 저장 상태 보정 책임 분리](../adr/room/0055-room-query-effective-status-and-persistence-correction.md), [ADR-0056 사전 전역 보정 없는 ROOM 조회의 PostgreSQL 일관 snapshot](../adr/room/0056-postgresql-room-query-snapshot-without-global-pre-correction.md) — `승인됨` |
+| 공통 규칙 | [P0 계약 상속](P1-spec.md#p0-계약-상속), [RoomStatus](../../API.md#roomstatus), [ROOMS](../../ERD.md#rooms) |
+| 데이터 모델 | [ROOMS](../../ERD.md#rooms), [PARTICIPATIONS](../../ERD.md#participations) |
+| 선행 승인 | [ADR-0035 방 생명주기 상태와 요청자별 행동 가능성을 분리](../../adr/room/0035-room-status-action-eligibility-separation.md), [ADR-0055 ROOM 조회 유효 상태와 저장 상태 보정 책임 분리](../../adr/room/0055-room-query-effective-status-and-persistence-correction.md), [ADR-0056 사전 전역 보정 없는 ROOM 조회의 PostgreSQL 일관 snapshot](../../adr/room/0056-postgresql-room-query-snapshot-without-global-pre-correction.md) — `승인됨` |
 | 연결 기능 | [PART-04 선착순 대기열과 자동 승격](#part-04-선착순-대기열과-자동-승격) |
 | 선행 구현 | PART-04가 소유하는 현재 WAITING 저장·조회 기반([#302](https://github.com/bamsongi-club/albam-mate/issues/302))이 기준 브랜치에 병합된 뒤 ROOM-08 구현을 시작한다. |
 | 반영·검증 | [#557](https://github.com/bamsongi-club/albam-mate/issues/557)의 [PR #574](https://github.com/bamsongi-club/albam-mate/pull/574)에서 ADR-0055·0056의 목록·내 모임 유효 상태·snapshot 경계를 생산 코드와 PostgreSQL 회귀로 반영·검증했다. |
@@ -95,19 +95,19 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 구분 | 정본 |
 | --- | --- |
 | 기능 ID | `PART-04` |
-| 현행 참가 계약 | [PART-01 방 참가·재참가](../API.md#part-01-방-참가재참가), [PART-02 참가 취소](../API.md#part-02-참가-취소) |
-| API 계약 | [대기 등록·재신청](../API.md#part-04-대기-등록재신청), [본인 대기 상태 조회](../API.md#part-04-본인-대기-상태-조회), [대기 취소](../API.md#part-04-대기-취소), [참가 취소](../API.md#part-02-참가-취소) |
+| 현행 참가 계약 | [PART-01 방 참가·재참가](../../API.md#part-01-방-참가재참가), [PART-02 참가 취소](../../API.md#part-02-참가-취소) |
+| API 계약 | [대기 등록·재신청](../../API.md#part-04-대기-등록재신청), [본인 대기 상태 조회](../../API.md#part-04-본인-대기-상태-조회), [대기 취소](../../API.md#part-04-대기-취소), [참가 취소](../../API.md#part-02-참가-취소) |
 | 고도화 이유 | 정원이 찬 인기 모임을 기다릴 방법과 참가 취소로 생긴 빈자리의 배정 순서가 없다. |
 | 가능 여부 | [ROOM-08 방 상태와 직접 참가·대기 가능 여부 분리](#room-08-방-상태와-직접-참가대기-가능-여부-분리) |
-| 공통 규칙 | [P0 계약 상속](../P1-spec.md#p0-계약-상속), [RoomStatus](../API.md#roomstatus), [ROOMS](../ERD.md#rooms), [PARTICIPATIONS](../ERD.md#participations) |
-| 저장 계약 | [ROOM_WAITLISTS 목표 저장 계약](../ERD.md#room_waitlists) |
-| 필수 ADR | [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0046 ROOM 대기열 단일 최신 상태·조건부 전이·등록 재시도](../adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md) |
+| 공통 규칙 | [P0 계약 상속](P1-spec.md#p0-계약-상속), [RoomStatus](../../API.md#roomstatus), [ROOMS](../../ERD.md#rooms), [PARTICIPATIONS](../../ERD.md#participations) |
+| 저장 계약 | [ROOM_WAITLISTS 목표 저장 계약](../../ERD.md#room_waitlists) |
+| 필수 ADR | [ADR-0005 방 참가 동시성 제어](../../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0046 ROOM 대기열 단일 최신 상태·조건부 전이·등록 재시도](../../adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md) |
 
 ### 기능 규칙
 
 - 대기 신청은 직접 참가와 분리된 명시적 요청이다. 직접 참가 실패를 대기 신청 성공으로 바꾸지 않는다.
 - 대기 순서는 서버가 대기 신청을 성공으로 확정한 순서를 기준으로 하는 FIFO다.
-- 전역 sequence 순번, 유스케이스 최초 고정 request time과 PART-04 전용 총 3회 재시도 경계는 [ADR-0046](../adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)을 따른다.
+- 전역 sequence 순번, 유스케이스 최초 고정 request time과 PART-04 전용 총 3회 재시도 경계는 [ADR-0046](../../adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)을 따른다.
 - 대기열에는 제품 정책상 최대 인원 상한을 두지 않는다. 이는 무제한 규모의 성능을 보장한다는 뜻이 아니다.
 - 같은 ROOM과 사용자 조합의 대기는 하나의 레코드로 관리한다. 신청·취소·승격·만료·ROOM 취소는 같은 레코드의 최신 상태를 변경하며, ROOM 데이터가 유지되는 동안 최신 결과를 보존한다. 신청과 취소가 반복될 때마다 별도 이력 레코드를 추가하지 않는다.
 - 같은 사용자는 같은 방에 하나의 `WAITING` 관계만 가질 수 있다. 중복 신청은 새 관계를 만들지 않고 기존 순서를 유지한 채 최신 순번을 정상 응답으로 반환한다.
@@ -135,7 +135,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 - `PART-04-AC6` 참가 취소·대기 취소·자동 승격이 동시에 실행돼도 정원을 초과하지 않고, 사용자별 활성 참가·활성 대기 관계와 FIFO 순서가 일관된다.
 - `PART-04-AC7` 시작 시각에 도달하면 남은 대기가 `EXPIRED`, ROOM이 취소되면 남은 대기가 `ROOM_CANCELED`가 되고 이후 승격이 발생하지 않는다.
 - `PART-04-AC8` 신규 대기·재신청과 참가 취소의 두 커밋 순서, 대기 취소·승격과 시작·ROOM 취소 경계의 저장 불변식은 PostgreSQL 기반 통합 테스트로 검증된다.
-- `PART-04-AC9` 신규·중복·재신청, 상태 조회와 취소의 HTTP 상태·응답·오류가 [API 명세의 PART-04 계약](../API.md#part-04-대기-등록재신청)과 일치한다.
+- `PART-04-AC9` 신규·중복·재신청, 상태 조회와 취소의 HTTP 상태·응답·오류가 [API 명세의 PART-04 계약](../../API.md#part-04-대기-등록재신청)과 일치한다.
 - `PART-04-AC10` 신규 대기·재신청과 참가 취소가 동시에 실행되면 먼저 커밋된 결과에 따라 다른 요청이 전체 재시도한다. 어느 커밋 순서에서도 활성 대기가 있는 `RECRUITING` ROOM이 남지 않는다.
 
 `PART-04-AC7`의 시작 경계 `EXPIRED`는 ROOM-09의 실행·검증 책임이다. 따라서 #302·#325·#326이 모두 병합되더라도 PART-04 전체 구현·검증·배포를 완료로 표시하지 않으며, ROOM-09가 시작 경계 종료와 사용자 조회 결과를 검증한 뒤 전체 완료를 판정한다.
@@ -162,16 +162,16 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 구분 | 정본 |
 | --- | --- |
 | 기능 ID | `ROOM-09` |
-| 현행 상태 보정 계약 | [방 변경 구조](../ARCHITECTURE.md#방-변경), [ADR-0055 조회 유효 상태와 저장 상태 보정 책임 분리](../adr/room/0055-room-query-effective-status-and-persistence-correction.md) |
+| 현행 상태 보정 계약 | [방 변경 구조](../../ARCHITECTURE.md#방-변경), [ADR-0055 조회 유효 상태와 저장 상태 보정 책임 분리](../../adr/room/0055-room-query-effective-status-and-persistence-correction.md) |
 | 고도화 이유 | 시간 경계를 지난 ROOM Entity 전체를 한 트랜잭션에서 처리해 대상 증가 시 메모리·트랜잭션 범위가 커지고, 한 ROOM의 실패가 전체 작업에 영향을 주며 실패 대상을 식별하기 어렵다. |
-| 상태·시간 규칙 | [P0 계약 상속](../P1-spec.md#p0-계약-상속), [RoomStatus](../API.md#roomstatus), [ROOMS](../ERD.md#rooms) |
-| 승인 ADR | [ADR-0055 조회 유효 상태와 저장 상태 보정 책임 분리](../adr/room/0055-room-query-effective-status-and-persistence-correction.md), [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0036 제한 ID·ROOM별 독립 처리](../adr/room/0036-bounded-room-state-transition-processing.md), [ADR-0038 다중 인스턴스 스케줄 실행 조정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md) |
-| 현재 구현 기준선 | [`RoomRepository.findDueRooms`](../../src/main/java/cloud/bamsongi/albammate/room/repository/RoomRepository.java), [`RoomStatusCorrectionExecutor`](../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionExecutor.java), [ROOM-09c 현행 일괄 처리 기준선 측정](../measurements/room-09-bounded-processing-baseline.md) |
-| 제한 처리 구현 | [`RoomStatusCorrectionCandidateSelector`](../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionCandidateSelector.java)가 ROOM ID projection을 논리적 due 순서로 합치고, [`RoomStatusCorrectionCoordinator`](../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionCoordinator.java)가 ROOM별 Executor·cursor CAS를 조정한다. |
+| 상태·시간 규칙 | [P0 계약 상속](P1-spec.md#p0-계약-상속), [RoomStatus](../../API.md#roomstatus), [ROOMS](../../ERD.md#rooms) |
+| 승인 ADR | [ADR-0055 조회 유효 상태와 저장 상태 보정 책임 분리](../../adr/room/0055-room-query-effective-status-and-persistence-correction.md), [ADR-0005 방 참가 동시성 제어](../../adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0036 제한 ID·ROOM별 독립 처리](../../adr/room/0036-bounded-room-state-transition-processing.md), [ADR-0038 다중 인스턴스 스케줄 실행 조정](../../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md) |
+| 현재 구현 기준선 | [`RoomRepository.findDueRooms`](../../../src/main/java/cloud/bamsongi/albammate/room/repository/RoomRepository.java), [`RoomStatusCorrectionExecutor`](../../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionExecutor.java), [ROOM-09c 현행 일괄 처리 기준선 측정](../../measurements/room-09-bounded-processing-baseline.md) |
+| 제한 처리 구현 | [`RoomStatusCorrectionCandidateSelector`](../../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionCandidateSelector.java)가 ROOM ID projection을 논리적 due 순서로 합치고, [`RoomStatusCorrectionCoordinator`](../../../src/main/java/cloud/bamsongi/albammate/room/statuscorrection/RoomStatusCorrectionCoordinator.java)가 ROOM별 Executor·cursor CAS를 조정한다. |
 | 연결 기능 | [PART-04 선착순 대기열과 자동 승격](#part-04-선착순-대기열과-자동-승격) |
-| 진행 상태 저장 | [`ROOM_STATUS_CORRECTION_PROGRESS`](../ERD.md#room_status_correction_progress) 단일 행 |
+| 진행 상태 저장 | [`ROOM_STATUS_CORRECTION_PROGRESS`](../../ERD.md#room_status_correction_progress) 단일 행 |
 | 착수 전 확정 | 없음 |
-| 구현·측정 후 확정 | [ROOM-09d 후보 측정](../measurements/room-09-bounded-processing-baseline.md)으로 한 번당 ID 수 `100`, 실행시간 경고 `180s`, `lockAtMostFor` `10m`을 확정했고 실행 주기는 기존 `15m`(jitter `3m`)을 유지한다. [#504](https://github.com/bamsongi-club/albam-mate/issues/504)에서 실행당 최대 batch 수 `100`을 확정해 한 실행은 최대 `10,000` ROOM을 시도한다. 상한 뒤 같은 turn cutoff의 후보가 실제로 남으면 마지막 cursor를 보존해 다음 claim이 재개하고 ROOM 전용 WARN을 한 번 남긴다. 후보가 비었을 때만 cursor를 wrap한다. `lockAtMostFor`는 여전히 한 실행의 최장 시간을 보장하는 값이 아니며, 재시도는 공용 낙관적 잠금 재시도를 그대로 쓴다. |
+| 구현·측정 후 확정 | [ROOM-09d 후보 측정](../../measurements/room-09-bounded-processing-baseline.md)으로 한 번당 ID 수 `100`, 실행시간 경고 `180s`, `lockAtMostFor` `10m`을 확정했고 실행 주기는 기존 `15m`(jitter `3m`)을 유지한다. [#504](https://github.com/bamsongi-club/albam-mate/issues/504)에서 실행당 최대 batch 수 `100`을 확정해 한 실행은 최대 `10,000` ROOM을 시도한다. 상한 뒤 같은 turn cutoff의 후보가 실제로 남으면 마지막 cursor를 보존해 다음 claim이 재개하고 ROOM 전용 WARN을 한 번 남긴다. 후보가 비었을 때만 cursor를 wrap한다. `lockAtMostFor`는 여전히 한 실행의 최장 시간을 보장하는 값이 아니며, 재시도는 공용 낙관적 잠금 재시도를 그대로 쓴다. |
 | 측정 후 사용자 결정 | 실패 backoff·격리 비교와 제한 범위의 조건부 DB 직접 갱신 비교 여부. 기준선 결과를 `DECISION_NEEDED`로 제시하고 승인 전에는 비교 구현에 착수하지 않음 |
 
 ### 실행·진행 상태 계약
@@ -185,7 +185,7 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 - 후보 선별 뒤 cursor 전진과 wrap-around는 각각 별도의 짧은 독립 트랜잭션에서 `job_name`, 실행 세대와 기대 `progress_version`이 모두 일치할 때만 갱신하고 `progress_version`을 1 증가시킨다. 조건부 갱신이 0건이면 늦은 실행 주체로 판정해 이후 ROOM을 처리하지 않고 실행을 끝낸다.
 - cursor는 ROOM 처리 성공·무변경·격리된 실패와 관계없이 해당 후보를 시도한 뒤 선별에 사용한 `(논리적 처리 예정 시각, roomId)`로 전진한다. ROOM 트랜잭션이 커밋된 뒤 cursor 커밋 전에 프로세스가 종료되면 같은 ROOM을 다시 선별할 수 있는 at-least-once 방식이며, 최신 상태 재판정과 멱등 전이로 같은 결과에 수렴한다. cursor를 먼저 전진시켜 미처리 ROOM을 건너뛰는 방식은 허용하지 않는다.
 - cursor 뒤 후보가 없으면 같은 CAS 경계에서 cursor를 `NULL`로 회전하고 이번 실행을 끝낸다. 같은 cutoff를 다시 여는 즉시 반복은 금지하고 다음 Scheduler 실행에 맡긴다. 한 실행은 최대 `100` batch만 처리한다. 상한에 도달하면 마지막 cursor 뒤 후보를 한 건만 다시 확인해, 실제 잔여 후보가 있으면 cursor를 보존하고 다음 Scheduler 실행에 맡기며 ROOM 전용 WARN을 한 번 남긴다. 남은 후보가 없을 때만 wrap한다.
-- Scheduler의 제한 선별·진행 상태는 API 요청 경계 상태 보정에 사용하지 않는다. 공개 목록·내 모임은 [ADR-0055](../adr/room/0055-room-query-effective-status-and-persistence-correction.md)의 고정된 `requestTime` 유효 상태를 사용하고 전역 저장 보정을 수행하지 않는다. 상세·상태 의존 명령·대기·채팅 접근은 대상 ROOM 보정과 오류 계약을 유지하며, ShedLock 미획득이나 Scheduler cursor 때문에 현재 상태 판정을 생략하지 않는다.
+- Scheduler의 제한 선별·진행 상태는 API 요청 경계 상태 보정에 사용하지 않는다. 공개 목록·내 모임은 [ADR-0055](../../adr/room/0055-room-query-effective-status-and-persistence-correction.md)의 고정된 `requestTime` 유효 상태를 사용하고 전역 저장 보정을 수행하지 않는다. 상세·상태 의존 명령·대기·채팅 접근은 대상 ROOM 보정과 오류 계약을 유지하며, ShedLock 미획득이나 Scheduler cursor 때문에 현재 상태 판정을 생략하지 않는다.
 
 ### 기능 규칙
 
@@ -241,12 +241,12 @@ P0 문서와 코드의 `상태 정합화`는 저장된 상태를 현재 시각�
 | 구분 | 정본 |
 | --- | --- |
 | 기능 ID | `ROOM-10` |
-| 현행 기준 | [ADR-0005 방 참가 동시성 제어](../adr/participation/0005-room-participation-optimistic-locking.md) |
+| 현행 기준 | [ADR-0005 방 참가 동시성 제어](../../adr/participation/0005-room-participation-optimistic-locking.md) |
 | 고도화 이유 | 낮은 충돌 빈도는 P0의 가정이며, 대기 신청·취소·승격까지 명령이 늘어난 뒤의 충돌률·재시도·응답시간은 측정되지 않았다. |
-| 저장 불변식 | [ERD 필수 제약과 계산 규칙](../ERD.md#필수-제약과-계산-규칙) |
-| 오류 계약 | [`ROOM_CONCURRENT_MODIFICATION`](../API.md#104-방-오류) |
-| 검증 환경 | [ADR-0010 H2와 PostgreSQL 테스트 경계](../adr/platform/0010-h2-postgresql-test-boundary.md) |
-| 측정 계약·원자료 | [ROOM-10a·10b 동시성 기준선 측정 계약](../measurements/room-10-measurement-contract.md)과 그 문서가 연결하는 보존 JSON |
+| 저장 불변식 | [ERD 필수 제약과 계산 규칙](../../ERD.md#필수-제약과-계산-규칙) |
+| 오류 계약 | [`ROOM_CONCURRENT_MODIFICATION`](../../API.md#104-방-오류) |
+| 검증 환경 | [ADR-0010 H2와 PostgreSQL 테스트 경계](../../adr/platform/0010-h2-postgresql-test-boundary.md) |
+| 측정 계약·원자료 | [ROOM-10a·10b 동시성 기준선 측정 계약](../../measurements/room-10-measurement-contract.md)과 그 문서가 연결하는 보존 JSON |
 | 연결 기능 | [PART-04 선착순 대기열과 자동 승격](#part-04-선착순-대기열과-자동-승격), [ROOM-09 시간 기반 상태 자동 전환](#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화) |
 | 착수 전 확정 | 기준선 측정의 데이터 규모, 동시 사용자 수, 반복 횟수, 측정 도구와 로그·메트릭 정의. 측정 전 임의의 성능 합격 수치를 만들지 않음 |
 | 측정 후 사용자 결정 | 확정됨. [#495](https://github.com/bamsongi-club/albam-mate/issues/495)에서 낙관적 락 기준선 결과를 제시하고, 비관적 락 비교와 최종 잠금 전략 ADR을 배포 후로 이관하기로 결정했다. 재검토 조건은 참가 취소·자동 승격 경로에서 재시도 소진 `409`가 서로 다른 ROOM에서 반복 관측되는 경우이며, 현재 관측 근거는 `RoomOptimisticLockRetrier`의 기존 WARN 로그에 남는 `event`·`roomId`·`attempt`다. 별도 운영 metric은 대시보드·알림·집계 자동화 같은 구체적인 요구가 생길 때 별도 이슈로 재검토한다. |

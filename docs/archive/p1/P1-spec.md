@@ -1,34 +1,36 @@
 # 알밤메이트 P1 2차 MVP 명세
 
-> 이 문서는 알밤메이트 P1의 범위, 핵심 사용자 흐름, 여러 기능이 함께 사용하는 공통 규칙과 구현 완료 기준을 정의한다.
+> **문서 상태: archived · 단계 종료일: 2026-08-13**
 >
-> 기능별 상세 규칙은 `docs/p1/` 아래 문서로 분리한다. 검색 조건, 방 접근 권한, 이벤트 전달처럼 여러 기능이 함께 사용하는 규칙은 이 문서에 한 번만 두고 기능 문서에서는 링크로 참조한다.
+> 이 문서는 알밤메이트 P1의 범위, 핵심 사용자 흐름, 여러 기능이 함께 사용하는 공통 규칙과 구현 완료 기준을 보존한 종료 스냅샷이다. 현재 구현 범위는 [P2 공통 명세](../../P2-spec.md)를 따른다.
 >
-> 요청·응답 필드와 오류 코드는 API 명세서, 데이터 구조와 제약은 ERD, 되돌리기 어렵거나 논쟁적인 기술 선택과 근거는 ADR에서 관리한다. API·ERD에 반영된 `P1` 항목은 목표 계약의 도입 단계를 뜻하며, 현재 제공 여부는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)으로 판정한다.
+> 기능별 상세 규칙은 이 디렉터리의 문서로 분리했다. 검색 조건, 방 접근 권한, 이벤트 전달처럼 여러 기능이 함께 사용하는 규칙은 이 문서에 한 번만 두고 기능 문서에서는 링크로 참조한다.
+>
+> 요청·응답 필드와 오류 코드는 API 명세서, 데이터 구조와 제약은 ERD, 되돌리기 어렵거나 논쟁적인 기술 선택과 근거는 ADR에서 관리한다. P1 종료 상태는 [P1 기능별 종료 상태](README.md#기능별-종료-상태)로 판정한다.
 
 ## 관련 문서
 
 | 문서 | 책임 |
 | --- | --- |
 | 본 문서 | P1 범위, 핵심 흐름, 공통 규칙, 구현 완료 기준 |
-| [소셜 로그인](p1/social-login.md) | Google·Naver·Kakao 로그인과 기존 계정의 명시적 연결 |
-| [검색](p1/search.md) | 게임·방 조건 검색과 검색 데이터 범위 |
-| [P1 ROOM·참가 고도화 명세](p1/room.md) | ROOM 행동 가능성, 선착순 대기열·자동 승격, 동시성 실증과 시간 기반 상태 자동 전환 |
-| [알림](p1/notification.md) | 모임 변경 알림 생성, 본인 목록·미확인 개수와 읽음 처리 |
-| [방 채팅](p1/chatting.md) | 채팅방 접근, 영속 이력, 실시간 전달·복구와 안전·운영 |
-| [기반 작업](p1/foundation.md) | 검색 성능·인덱스 검증과 실시간 전달 기반 |
-| [인기 랭킹](p1/ranking.md) | 내부 방 데이터로 집계한 전체·앞으로 7일 인기 게임 랭킹 |
-| [P0 완료 문서](archive/p0/P0-spec.md) | P1이 이어받는 P0 완료 시점의 제품 배경과 규칙 |
-| [API 명세서](API.md) | P0·P1 요청·응답의 현재 제공 상태, 페이지네이션, HTTP·WebSocket 상태와 오류 계약 |
-| [ERD](ERD.md) | 현재 제공 테이블과 승인된 P1 알림·채팅·스케줄 잠금 저장 계약, 데이터 제약과 계산식 |
-| [ADR](adr/README.md) | 기술 선택, 비교 근거와 검증 방법 |
-| [PRD](PRD.md) | 전체 제품 목표와 P1 이후 기능 후보 |
+| [소셜 로그인](social-login.md) | Google·Naver·Kakao 로그인과 기존 계정의 명시적 연결 |
+| [검색](search.md) | 게임·방 조건 검색과 검색 데이터 범위 |
+| [P1 ROOM·참가 고도화 명세](room.md) | ROOM 행동 가능성, 선착순 대기열·자동 승격, 동시성 실증과 시간 기반 상태 자동 전환 |
+| [알림](notification.md) | 모임 변경 알림 생성, 본인 목록·미확인 개수와 읽음 처리 |
+| [방 채팅](chatting.md) | 채팅방 접근, 영속 이력, 실시간 전달·복구와 안전·운영 |
+| [기반 작업](foundation.md) | 검색 성능·인덱스 검증과 실시간 전달 기반 |
+| [인기 랭킹](ranking.md) | 내부 방 데이터로 집계한 전체·앞으로 7일 인기 게임 랭킹 |
+| [P0 완료 문서](../p0/P0-spec.md) | P1이 이어받는 P0 완료 시점의 제품 배경과 규칙 |
+| [API 명세서](../../API.md) | P0·P1 요청·응답의 현재 제공 상태, 페이지네이션, HTTP·WebSocket 상태와 오류 계약 |
+| [ERD](../../ERD.md) | 현재 제공 테이블과 승인된 P1 알림·채팅·스케줄 잠금 저장 계약, 데이터 제약과 계산식 |
+| [ADR](../../adr/README.md) | 기술 선택, 비교 근거와 검증 방법 |
+| [PRD](../../PRD.md) | 전체 제품 목표와 P1 이후 기능 후보 |
 
-문서 내용이 겹칠 때 HTTP·실시간 인터페이스 계약은 [API 명세서](API.md), 저장 계약은 [ERD](ERD.md), 기술 결정은 승인 ADR이 소유한다. P1에서 추가·변경하는 제품 규칙은 본 문서와 [P1 기능별 상세 명세](p1/README.md)를 따르고, 현재 제공 여부는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)과 현재 코드·검증 증거로 판정한다. [P0 완료 문서](archive/p0/README.md)는 완료 시점 기록이며 새 구현 작업의 진입점으로 사용하지 않는다.
+문서 내용이 겹칠 때 HTTP·실시간 인터페이스 계약은 [API 명세서](../../API.md), 저장 계약은 [ERD](../../ERD.md), 기술 결정은 승인 ADR이 소유한다. P1에서 추가·변경하는 제품 규칙은 본 문서와 [P1 기능별 상세 명세](README.md)를 따르고, 현재 제공 여부는 [P1 기능 종료 상태](README.md#기능별-종료-상태)과 현재 코드·검증 증거로 판정한다. [P0 완료 문서](../p0/README.md)는 완료 시점 기록이며 새 구현 작업의 진입점으로 사용하지 않는다.
 
 ### 완료 기준 ID
 
-P1 기능 문서와 [기반 작업 문서](p1/foundation.md)는 P0와 같은 규칙을 사용한다.
+P1 기능 문서와 [기반 작업 문서](foundation.md)는 P0와 같은 규칙을 사용한다.
 
 - 형식은 `{기능 또는 기반 작업 ID}-AC{번호}`이며 각 ID 안에서 `AC1`부터 시작한다.
 - 기능별 상세 문서가 하나의 기능을 여러 구현 완료 단위로 나눌 때는 상위 기능 ID 뒤에 소문자 알파벳을 붙인 하위 ID를 사용한다. 예를 들어 `NOTI-01a`의 완료 기준은 `NOTI-01a-AC1`부터 시작한다. 상위 기능 ID는 하위 단위를 묶는 제품 기능과 통합 완료 기준을 유지하며, 필수 하위 단위와 상위 완료 기준을 모두 충족해야 완료된다.
@@ -113,18 +115,18 @@ P1 필수 구현은 다음 아홉 가지 흐름을 처음부터 끝까지 연결
 - ROOM 잠금 전략은 `ROOM-10`에서 현재 낙관적 락을 먼저 측정하고, 교체 필요성이 확인된 경우에만 사용자 승인과 별도 ADR을 거쳐 변경한다.
 - `ROOM-10`의 완료 여부는 임의의 응답시간·충돌률 합격선이 아니라 현재 낙관적 락의 성능과 저장 불변식을 재현 가능하게 측정했는지로 판정한다.
 - 시간 기반 상태 자동 전환은 현재 구현과 제한된 ROOM ID 후보를 같은 조건에서 측정한 뒤 한 번당 ID 수와 반복·재시도·실행 주기의 초기 운영값을 확정한다. 조건부 DB 직접 갱신은 병목 근거와 사용자 승인 없이 비교하거나 채택하지 않는다.
-- 채팅 메시지 저장 명령은 HTTP, 커밋된 메시지의 실시간 수신은 방별 WebSocket을 사용한다. 세션은 Redis로 공유하고, PostgreSQL 커밋 뒤 Redis Pub/Sub 신호로 인스턴스 간 fan-out한다. 공통 실행 경계는 승인된 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), 채팅 전달 경계는 [ADR-0032](adr/chat/0032-http-send-websocket-receive.md)와 [ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)을 따른다.
-- P1 알림은 PostgreSQL에 업무 변경과 전달할 이벤트를 같은 트랜잭션으로 기록하고, DB를 주기적으로 조회하는 relay(중계 작업)로 처리한다. 트랜잭션 경계, relay의 선점·재시도·복구와 보존 정책은 [ADR-0029](adr/notification/0029-room-integration-event-transactional-outbox.md)·[ADR-0039](adr/notification/0039-notification-presentation-and-bulk-read-snapshot.md)·[ADR-0040](adr/notification/0040-postgresql-notification-relay-recovery-retention.md)과 [ERD](ERD.md#p1-알림-저장-계약)를 따른다.
+- 채팅 메시지 저장 명령은 HTTP, 커밋된 메시지의 실시간 수신은 방별 WebSocket을 사용한다. 세션은 Redis로 공유하고, PostgreSQL 커밋 뒤 Redis Pub/Sub 신호로 인스턴스 간 fan-out한다. 공통 실행 경계는 승인된 [ADR-0038](../../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), 채팅 전달 경계는 [ADR-0032](../../adr/chat/0032-http-send-websocket-receive.md)와 [ADR-0033](../../adr/chat/0033-postgresql-source-after-commit-delivery.md)을 따른다.
+- P1 알림은 PostgreSQL에 업무 변경과 전달할 이벤트를 같은 트랜잭션으로 기록하고, DB를 주기적으로 조회하는 relay(중계 작업)로 처리한다. 트랜잭션 경계, relay의 선점·재시도·복구와 보존 정책은 [ADR-0029](../../adr/notification/0029-room-integration-event-transactional-outbox.md)·[ADR-0039](../../adr/notification/0039-notification-presentation-and-bulk-read-snapshot.md)·[ADR-0040](../../adr/notification/0040-postgresql-notification-relay-recovery-retention.md)과 [ERD](../../ERD.md#p1-알림-저장-계약)를 따른다.
 - 검색 결과 캐시와 외부 검색 엔진은 측정 근거 없이 도입하지 않는다. Redis는 승인된 공용 세션·채팅 Pub/Sub·전송 제한에만 사용하며 메시지 정본, ROOM 분산 락이나 영속 작업 큐로 사용하지 않는다.
 
 ### 문서별 단일 책임
 
 - 본 문서는 기능 둘 이상이 함께 사용하는 P1 공통 규칙의 정본이다.
-- 기능별 동작과 제외 범위는 [P1 기능별 상세 명세](p1/README.md)에서 관리한다.
-- ROOM 행동 가능성, 대기열·자동 승격, ROOM 동시성 실증과 상태 자동 전환의 상세 규칙은 [P1 ROOM·참가 고도화 명세](p1/room.md)에서 관리한다.
-- 요청·응답, 쿼리 파라미터, 실시간 연결·구독·전송, HTTP 상태와 오류 우선순위는 [API 명세서](API.md)에서 관리한다.
-- 테이블, 컬럼, DB 제약과 저장 계산식은 [ERD](ERD.md)에서 관리한다.
-- 검색 인덱스, 이벤트 전달, 잠금 전략과 실시간 통신 방식 중 되돌리기 어렵거나 논쟁적인 선택은 [ADR](adr/README.md)에서 관리한다.
+- 기능별 동작과 제외 범위는 [P1 기능별 상세 명세](README.md)에서 관리한다.
+- ROOM 행동 가능성, 대기열·자동 승격, ROOM 동시성 실증과 상태 자동 전환의 상세 규칙은 [P1 ROOM·참가 고도화 명세](room.md)에서 관리한다.
+- 요청·응답, 쿼리 파라미터, 실시간 연결·구독·전송, HTTP 상태와 오류 우선순위는 [API 명세서](../../API.md)에서 관리한다.
+- 테이블, 컬럼, DB 제약과 저장 계산식은 [ERD](../../ERD.md)에서 관리한다.
+- 검색 인덱스, 이벤트 전달, 잠금 전략과 실시간 통신 방식 중 되돌리기 어렵거나 논쟁적인 선택은 [ADR](../../adr/README.md)에서 관리한다.
 
 ### P1 밖의 정책
 
@@ -138,21 +140,21 @@ P1 필수 구현은 다음 아홉 가지 흐름을 처음부터 끝까지 연결
 
 | 영역 | 기능 ID | 필수 범위 | 상세 문서 |
 | --- | --- | --- | --- |
-| 인증 | `AUTH-05` | Google·Naver·Kakao 로그인, provider subject 기반 사용자 식별과 기존 계정의 명시적 연결 | [소셜 로그인](p1/social-login.md#auth-05-소셜-로그인계정-연결) |
-| 게임 탐색 | `SEARCH-01` | 170,000개 게임의 카테고리·테마·추천/베스트 인원 관계와 기존 인원·시간·최연소 참여자 나이·난이도·메커니즘의 복합 필터 제공 | [게임 조건 검색](p1/search.md#search-01-게임-조건-검색) |
-| 해 본 게임 | `SEARCH-03` | 사용자별 해 본 게임 표시·취소, 본인 표시 상태와 포함·제외 검색 제공 | [사용자별 해 본 게임](p1/search.md#search-03-사용자별-해-본-게임) |
-| 방 탐색 | `SEARCH-02` | 날짜, 남은 자리, 경험 수준과 룰마스터 진행 여부 필터 제공 | [방 조건 검색](p1/search.md#search-02-방-조건-검색) |
-| ROOM 행동 가능성 | `ROOM-08` | P0 방 상태와 직접 참가·대기 신청 가능 여부를 분리하고 요청자별 `waitlistable` 제공 | [ROOM 상태·행동 가능성](p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) |
-| 참가 대기열 | `PART-04` | ROOM·사용자별 단일 최신 상태 레코드로 FIFO 대기 신청·조회·취소, 빈자리 자동 승격과 종료 결과 제공 | [선착순 대기열·자동 승격](p1/room.md#part-04-선착순-대기열과-자동-승격) |
-| 검색 기반 | `FND-09` | 게임·방 대표 조회의 실행 계획과 응답시간 측정, 필요한 PostgreSQL 인덱스 검증 | [검색 성능·인덱스 검증](p1/foundation.md#fnd-09-검색-성능과-인덱스-검증) |
-| ROOM 상태 자동 전환 | `ROOM-09` | 현재 구현과 제한 ID 후보를 측정해 초기 운영값을 정하고 ROOM별 실패 식별·재처리 | [ROOM 상태 자동 전환](p1/room.md#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화) |
-| ROOM 동시성 실증 | `ROOM-10` | 참가·대기·자동 승격·상태 자동 전환의 낙관적 락 비용과 저장 불변식을 재현 가능하게 측정 | [ROOM 동시성과 락 전략 실증](p1/room.md#room-10-동시성과-락-전략-실증) |
-| 알림 생성 | `NOTI-01` | 최종 성공한 핵심 방·참가 변경을 유실·중복 없이 앱 내 알림으로 생성 | [알림 생성](p1/notification.md#noti-01-모임-변경-알림-생성) |
-| 알림 조회 | `NOTI-02` | 본인 알림 목록과 미확인 개수 조회 | [알림 조회](p1/notification.md#noti-02-내-알림-목록미확인-개수) |
-| 알림 읽음 | `NOTI-03` | 본인 알림의 단건·일괄 읽음 처리 | [알림 읽음](p1/notification.md#noti-03-알림-읽음-처리) |
-| 실시간 기반 | `FND-10` | 공용 세션, 방별 연결·권한 검사, Redis 인스턴스 간 fan-out, 재접속과 PostgreSQL 누락 복구 기반 | [실시간 전달 기반](p1/foundation.md#fnd-10-실시간-전달과-재연결-기반) |
-| 방 채팅 | `CHAT-01`~`CHAT-05` | 채팅방 생성·접근, 텍스트 이력·다중 인스턴스 전달, 안전·운영과 내 모임 진입 | [P1 방 채팅](p1/chatting.md) |
-| 인기 탐색 | `RANK-01` | 내부 방 데이터로 집계한 전체·앞으로 7일 인기 게임 랭킹 조회 | [인기 랭킹](p1/ranking.md#rank-01-인기-게임-랭킹) |
+| 인증 | `AUTH-05` | Google·Naver·Kakao 로그인, provider subject 기반 사용자 식별과 기존 계정의 명시적 연결 | [소셜 로그인](social-login.md#auth-05-소셜-로그인계정-연결) |
+| 게임 탐색 | `SEARCH-01` | 170,000개 게임의 카테고리·테마·추천/베스트 인원 관계와 기존 인원·시간·최연소 참여자 나이·난이도·메커니즘의 복합 필터 제공 | [게임 조건 검색](search.md#search-01-게임-조건-검색) |
+| 해 본 게임 | `SEARCH-03` | 사용자별 해 본 게임 표시·취소, 본인 표시 상태와 포함·제외 검색 제공 | [사용자별 해 본 게임](search.md#search-03-사용자별-해-본-게임) |
+| 방 탐색 | `SEARCH-02` | 날짜, 남은 자리, 경험 수준과 룰마스터 진행 여부 필터 제공 | [방 조건 검색](search.md#search-02-방-조건-검색) |
+| ROOM 행동 가능성 | `ROOM-08` | P0 방 상태와 직접 참가·대기 신청 가능 여부를 분리하고 요청자별 `waitlistable` 제공 | [ROOM 상태·행동 가능성](room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) |
+| 참가 대기열 | `PART-04` | ROOM·사용자별 단일 최신 상태 레코드로 FIFO 대기 신청·조회·취소, 빈자리 자동 승격과 종료 결과 제공 | [선착순 대기열·자동 승격](room.md#part-04-선착순-대기열과-자동-승격) |
+| 검색 기반 | `FND-09` | 게임·방 대표 조회의 실행 계획과 응답시간 측정, 필요한 PostgreSQL 인덱스 검증 | [검색 성능·인덱스 검증](foundation.md#fnd-09-검색-성능과-인덱스-검증) |
+| ROOM 상태 자동 전환 | `ROOM-09` | 현재 구현과 제한 ID 후보를 측정해 초기 운영값을 정하고 ROOM별 실패 식별·재처리 | [ROOM 상태 자동 전환](room.md#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화) |
+| ROOM 동시성 실증 | `ROOM-10` | 참가·대기·자동 승격·상태 자동 전환의 낙관적 락 비용과 저장 불변식을 재현 가능하게 측정 | [ROOM 동시성과 락 전략 실증](room.md#room-10-동시성과-락-전략-실증) |
+| 알림 생성 | `NOTI-01` | 최종 성공한 핵심 방·참가 변경을 유실·중복 없이 앱 내 알림으로 생성 | [알림 생성](notification.md#noti-01-모임-변경-알림-생성) |
+| 알림 조회 | `NOTI-02` | 본인 알림 목록과 미확인 개수 조회 | [알림 조회](notification.md#noti-02-내-알림-목록미확인-개수) |
+| 알림 읽음 | `NOTI-03` | 본인 알림의 단건·일괄 읽음 처리 | [알림 읽음](notification.md#noti-03-알림-읽음-처리) |
+| 실시간 기반 | `FND-10` | 공용 세션, 방별 연결·권한 검사, Redis 인스턴스 간 fan-out, 재접속과 PostgreSQL 누락 복구 기반 | [실시간 전달 기반](foundation.md#fnd-10-실시간-전달과-재연결-기반) |
+| 방 채팅 | `CHAT-01`~`CHAT-05` | 채팅방 생성·접근, 텍스트 이력·다중 인스턴스 전달, 안전·운영과 내 모임 진입 | [P1 방 채팅](chatting.md) |
+| 인기 탐색 | `RANK-01` | 내부 방 데이터로 집계한 전체·앞으로 7일 인기 게임 랭킹 조회 | [인기 랭킹](ranking.md#rank-01-인기-게임-랭킹) |
 
 ### 제외·후속 범위
 
@@ -164,7 +166,7 @@ P1 필수 구현은 다음 아홉 가지 흐름을 처음부터 끝까지 연결
 | 경계 보안 | P1 `SEC-01` | 신뢰 프록시를 기준으로 실제 사용자 IP를 안전하게 판별 |
 | 배포·복구 | P2 `OPS-06` | 배포·롤백·백업 복구 절차 검증과 반복 작업 자동화 |
 
-P2 ID는 P1 조건부 후보의 후속 소유 위치만 기록한다. [P2 공통 명세](P2-spec.md)와 [P2 운영 관측 명세](p2/monitoring.md)는 여전히 `proposed`이며, 이 승계 기록이 P2 활성화나 운영 계약 승인을 뜻하지 않는다. `SEC-01`은 별도 범위 채택 전까지 P1 조건부 후속으로 유지한다.
+P2 ID는 P1 조건부 후보의 후속 소유 위치만 기록한다. [P2 공통 명세](../../P2-spec.md)와 [P2 운영 관측 명세](../../p2/monitoring.md)는 여전히 `proposed`이며, 이 승계 기록이 P2 활성화나 운영 계약 승인을 뜻하지 않는다. `SEC-01`은 별도 범위 채택 전까지 P1 조건부 후속으로 유지한다.
 
 `ROOM-10`은 P1 필수 범위에 그대로 두되, 그 안의 비관적 락 비교와 최종 잠금 전략 ADR은 후속으로 이관한다. P1은 현행 낙관적 락의 기준선 측정과 저장 불변식 검증까지로 완료를 판정한다. 기준선은 경합을 강제한 fixture 결과라 잠금 전략 교체 여부를 단독으로 판단할 입력이 되지 못하고, 그 판단에 필요한 실사용 동시성 계측은 배포 후에 확보하기 때문이다. 배포 후 참가 취소·자동 승격 경로에서 재시도 소진 `409`가 서로 다른 ROOM에서 반복되면 `RoomOptimisticLockRetrier`의 기존 WARN 로그에 남는 `event`·`roomId`·`attempt`를 관측 근거로 별도 비교를 재검토한다. 별도 운영 metric은 대시보드·알림·집계 자동화 같은 구체적인 요구가 생길 때 별도 이슈로 재검토한다. 이 결정과 재검토 조건은 [#495](https://github.com/bamsongi-club/albam-mate/issues/495)에 기록했다.
 
@@ -195,7 +197,7 @@ P2 ID는 P1 조건부 후보의 후속 소유 위치만 기록한다. [P2 공통
 
 > `AUTH-05`는 #328과 PR #337에서 승인된 P1 필수 범위다. 하위 구현은 `AUTH-05a` → `AUTH-05b` → `AUTH-05c` → `AUTH-05d` 순서와 각 이슈에서 승인한 최신 테스트 계약을 따른다.
 
-세부 기능 규칙과 완료 기준은 [AUTH-05](p1/social-login.md#auth-05-소셜-로그인계정-연결), 브라우저 리다이렉트와 API 계약은 [API 명세서](API.md#auth-05-소셜-로그인계정-연결)를 따른다.
+세부 기능 규칙과 완료 기준은 [AUTH-05](social-login.md#auth-05-소셜-로그인계정-연결), 브라우저 리다이렉트와 API 계약은 [API 명세서](../../API.md#auth-05-소셜-로그인계정-연결)를 따른다.
 
 ~~~text
 사용자가 설정된 Google·Naver·Kakao 중 하나를 선택
@@ -209,7 +211,7 @@ P2 ID는 P1 조건부 후보의 후속 소유 위치만 기록한다. [P2 공통
 
 ### 조건으로 게임과 방 찾기
 
-세부 검색 조건과 해 본 게임 규칙은 [P1 검색 기능 명세](p1/search.md), 요청 계약은 [API 명세서](API.md)를 따른다.
+세부 검색 조건과 해 본 게임 규칙은 [P1 검색 기능 명세](search.md), 요청 계약은 [API 명세서](../../API.md)를 따른다.
 
 ~~~text
 사용자가 원하는 조건 설정
@@ -225,7 +227,7 @@ P2 ID는 P1 조건부 후보의 후속 소유 위치만 기록한다. [P2 공통
 
 ### 정원 마감 방을 대기하고 자동 승격받기
 
-세부 기능 규칙과 완료 기준은 [ROOM-08](p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리), [PART-04](p1/room.md#part-04-선착순-대기열과-자동-승격)를 따른다.
+세부 기능 규칙과 완료 기준은 [ROOM-08](room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리), [PART-04](room.md#part-04-선착순-대기열과-자동-승격)를 따른다.
 
 ~~~text
 사용자가 시작 전 정원이 찬 방 확인
@@ -240,7 +242,7 @@ P2 ID는 P1 조건부 후보의 후속 소유 위치만 기록한다. [P2 공통
 
 ### 중요한 변경 알림 확인
 
-알림 이벤트와 수신자 공통 규칙은 [알림 생성과 조회](#알림-생성과-조회), 상세 완료 기준은 [P1 알림 구현 명세](p1/notification.md)를 따른다.
+알림 이벤트와 수신자 공통 규칙은 [알림 생성과 조회](#알림-생성과-조회), 상세 완료 기준은 [P1 알림 구현 명세](notification.md)를 따른다.
 
 ~~~text
 참가·재참가, 참가 취소 또는 방 취소 성공
@@ -266,7 +268,7 @@ P2 ID는 P1 조건부 후보의 후속 소유 위치만 기록한다. [P2 공통
 
 ### 시간 경계 ROOM을 제한 단위로 자동 전환하기
 
-상세 기능 규칙과 완료 기준은 [ROOM-09](p1/room.md#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화)를 따른다.
+상세 기능 규칙과 완료 기준은 [ROOM-09](room.md#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화)를 따른다.
 
 ~~~text
 모든 인스턴스의 내부 스케줄러 중 PostgreSQL ShedLock을 얻은 하나가 실행
@@ -280,7 +282,7 @@ P2 ID는 P1 조건부 후보의 후속 소유 위치만 기록한다. [P2 공통
 
 ### ROOM 동시성·정합성 측정
 
-상세 측정 규칙과 완료 기준은 [ROOM-10](p1/room.md#room-10-동시성과-락-전략-실증)을 따른다.
+상세 측정 규칙과 완료 기준은 [ROOM-10](room.md#room-10-동시성과-락-전략-실증)을 따른다.
 
 ~~~text
 대표 방 데이터와 동시 요청 시나리오 준비
@@ -294,7 +296,7 @@ P2 ID는 P1 조건부 후보의 후속 소유 위치만 기록한다. [P2 공통
 
 ### 인기 게임 랭킹 조회하고 게임 상세로 이동하기
 
-세부 집계 규칙과 완료 기준은 [RANK-01](p1/ranking.md#rank-01-인기-게임-랭킹), 요청·응답 계약은 [API 명세서](API.md#rank-01-인기-게임-랭킹-조회)를 따른다.
+세부 집계 규칙과 완료 기준은 [RANK-01](ranking.md#rank-01-인기-게임-랭킹), 요청·응답 계약은 [API 명세서](../../API.md#rank-01-인기-게임-랭킹-조회)를 따른다.
 
 ~~~text
 사용자가 인기 게임 랭킹 화면 진입
@@ -310,7 +312,7 @@ P2 ID는 P1 조건부 후보의 후속 소유 위치만 기록한다. [P2 공통
 
 ### P0 계약 상속
 
-- P1에서 별도로 변경하지 않은 정원, 방 상태, 권한, 공개 범위, 시간 경계와 동시 변경 규칙은 현재 [API](API.md)·[ERD](ERD.md)·승인 ADR을 따른다. [P0 공통 규칙](archive/p0/P0-spec.md#공통-규칙)은 완료 시점의 제품 배경으로 참조한다.
+- P1에서 별도로 변경하지 않은 정원, 방 상태, 권한, 공개 범위, 시간 경계와 동시 변경 규칙은 현재 [API](../../API.md)·[ERD](../../ERD.md)·승인 ADR을 따른다. [P0 공통 규칙](../p0/P0-spec.md#공통-규칙)은 완료 시점의 제품 배경으로 참조한다.
 - PostgreSQL을 게임·방·참가·대기·알림·채팅 메시지 데이터의 정본으로 사용한다.
 - 검색, 대기, 알림, 채팅 연결 정보와 로그에는 P0에서 공개하지 않는 정확한 장소, 다른 사용자의 식별자, 세션과 인증 정보를 새로 노출하지 않는다.
 
@@ -324,17 +326,17 @@ P2 ID는 P1 조건부 후보의 후속 소유 위치만 기록한다. [P2 공통
 
 ### 실행 환경과 공용 인프라
 
-다중 인스턴스 실행, 공용 세션과 스케줄 실행 조정의 기술 결정은 승인된 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)과 실행 프로필·로컬 검증 경계를 확정한 [ADR-0052](adr/platform/0052-local-profile-multi-instance-default.md)를 따른다.
+다중 인스턴스 실행, 공용 세션과 스케줄 실행 조정의 기술 결정은 승인된 [ADR-0038](../../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)과 실행 프로필·로컬 검증 경계를 확정한 [ADR-0052](../../adr/platform/0052-local-profile-multi-instance-default.md)를 따른다.
 
 - `local`은 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL과 Redis로 구성하는 기본 개발·데모·P1 검증 환경이다. HTTP 저장 요청과 WebSocket 연결이 다른 인스턴스에 도달하는 세션·전달·재연결 경로를 검증하며 단일 서버 실행은 지원 범위에 두지 않는다.
-- 승인된 P1 AWS 검증 토폴로지는 App1 Nginx 단일 진입점, 고정 Spring EC2 2대, 자체 운영 PostgreSQL EC2 1대와 Redis EC2 1대로 구성한다. 네 EC2는 모두 `t4g.micro`와 public subnet에서 시작하고 ALB·ASG·NAT Gateway는 사용하지 않는다. 인터넷 인바운드는 App1의 TCP `80`만 기본 허용하고 인증서와 TLS 설정을 준비한 뒤 선택적으로 TCP `443`을 열며, 데이터 서비스는 애플리케이션 보안 그룹에서만 접근한다. 상세 선택과 ADR-0038의 부분 대체 범위는 [ADR-0051](adr/platform/0051-p1-self-managed-aws-infrastructure.md)이 소유하고, 배포·실측 상태는 [P1 기능별 상태 정본](p1/README.md#기능별-현재-상태)의 `운영 배포·실측` 열을 따른다. 실제 AWS WebSocket Upgrade, Nginx 분산·장애 처리, 수동 교체와 부하 검증은 후속 OPS이며 P1 채팅 구현 완료를 막지 않는다.
-- `local`과 `production`은 Redis 세션을 필수 의존성으로 사용하고 인메모리 구현으로 자동 fallback하지 않는다. 세션 또는 전송 제한을 확인할 수 없을 때 `503 SERVICE_UNAVAILABLE`을 반환하는 현재 범위는 [API 정본](API.md#101-공통-오류)의 채팅 API 세 엔드포인트로 한정한다. 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트의 오류 계약은 적용 엔드포인트를 명시한 별도 계약 변경 전까지 확정하지 않는다.
+- 승인된 P1 AWS 검증 토폴로지는 App1 Nginx 단일 진입점, 고정 Spring EC2 2대, 자체 운영 PostgreSQL EC2 1대와 Redis EC2 1대로 구성한다. 네 EC2는 모두 `t4g.micro`와 public subnet에서 시작하고 ALB·ASG·NAT Gateway는 사용하지 않는다. 인터넷 인바운드는 App1의 TCP `80`만 기본 허용하고 인증서와 TLS 설정을 준비한 뒤 선택적으로 TCP `443`을 열며, 데이터 서비스는 애플리케이션 보안 그룹에서만 접근한다. 상세 선택과 ADR-0038의 부분 대체 범위는 [ADR-0051](../../adr/platform/0051-p1-self-managed-aws-infrastructure.md)이 소유하고, 배포·실측 상태는 [P1 기능별 종료 상태](README.md#기능별-종료-상태)의 `배포 상태`와 `실측 상태` 열을 따른다. 실제 AWS WebSocket Upgrade, Nginx 분산·장애 처리, 수동 교체와 부하 검증은 후속 OPS이며 P1 채팅 구현 완료를 막지 않는다.
+- `local`과 `production`은 Redis 세션을 필수 의존성으로 사용하고 인메모리 구현으로 자동 fallback하지 않는다. 세션 또는 전송 제한을 확인할 수 없을 때 `503 SERVICE_UNAVAILABLE`을 반환하는 현재 범위는 [API 정본](../../API.md#101-공통-오류)의 채팅 API 세 엔드포인트로 한정한다. 로그인·로그아웃과 그 밖의 세션 사용 엔드포인트의 오류 계약은 적용 엔드포인트를 명시한 별도 계약 변경 전까지 확정하지 않는다.
 - Spring Session은 모든 프로필에서 같은 쿠키·직렬화·필터 경로를 사용하고 저장소만 분기한다. `local`과 `production`은 30분 TTL의 Redis 저장소, `test`·`postgresTest`는 인메모리 저장소를 사용한다. Redis 세션은 `SecurityJacksonModules`와 `CurrentUserPrincipal` mixin을 적용한 JSON serializer를 사용하고 namespace는 각각 `albam-mate:local:session`, `albam-mate:production:session`으로 둔다. rate limit namespace는 각각 `albam-mate:local:ratelimit`, `albam-mate:production:ratelimit`으로, 환경별 채팅 이벤트 channel은 `albam-mate:{env}:chat:events`로 분리한다.
 - 하나의 공용 Redis를 Spring Session, 채팅 Pub/Sub, 사용자·방 단위 전송 제한에 사용하되 key prefix, TTL과 channel namespace를 분리한다.
 - Redis Pub/Sub은 `eventType`, `roomId`, `messageId`만 담은 best-effort 신호다. 메시지 본문·사용자·세션 정보와 영속 제품 상태는 저장하지 않는다.
 - Redis Pub/Sub 또는 WebSocket 실패는 이미 커밋된 PostgreSQL 메시지를 롤백하거나 삭제하지 않는다. 신호 누락·중복·순서 역전은 다음 신호나 `afterMessageId` 재연결에서 `messageId ASC` PostgreSQL 조회로 복구한다.
 - 운영 Redis 제품, HA, TLS, 접근 제어, 비밀 주입과 비용은 후속 OPS에서 확정한다.
-- `local` 세션 TTL 30분, JSON 직렬화 방식과 정확한 session·rate limit·chat event namespace는 [ADR-0052](adr/platform/0052-local-profile-multi-instance-default.md)에서 `production`과 분리해 확정했다. 채팅 만료 삭제의 잠금 이름·임대·실행·질의·구간 상한과 실행시간 경고 기준은 [CHAT-04 현재 실행값](p1/chatting.md#현재-만료-삭제-실행값)을 따른다.
+- `local` 세션 TTL 30분, JSON 직렬화 방식과 정확한 session·rate limit·chat event namespace는 [ADR-0052](../../adr/platform/0052-local-profile-multi-instance-default.md)에서 `production`과 분리해 확정했다. 채팅 만료 삭제의 잠금 이름·임대·실행·질의·구간 상한과 실행시간 경고 기준은 [CHAT-04 현재 실행값](chatting.md#현재-만료-삭제-실행값)을 따른다.
 
 ### ROOM 상태와 행동 가능성
 
@@ -347,7 +349,7 @@ P2 ID는 P1 조건부 후보의 후속 소유 위치만 기록한다. [P2 공통
 ### 선착순 대기열과 자동 승격
 
 - 대기 순서는 서버가 신청을 성공으로 확정한 순서를 기준으로 하는 FIFO이며, ROOM·사용자 조합마다 단일 최신 상태 레코드를 유지한다.
-- 복합 PK 단일 최신 상태, 전역 sequence 순번, 조건부 전이와 등록 재시도 계약은 [ADR-0046](adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)에서 승인했고 [ERD](ERD.md#room_waitlists)와 `V14__create_room_waitlist_schema.sql`·JPA·Repository에 구현됐다. 현재 기능·검증 상태는 [PART-04 상태 정본](p1/README.md#기능별-현재-상태)을 따른다.
+- 복합 PK 단일 최신 상태, 전역 sequence 순번, 조건부 전이와 등록 재시도 계약은 [ADR-0046](../../adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)에서 승인했고 [ERD](../../ERD.md#room_waitlists)와 `V14__create_room_waitlist_schema.sql`·JPA·Repository에 구현됐다. 현재 기능·검증 상태는 [PART-04 상태 정본](README.md#기능별-종료-상태)을 따른다.
 - 중복 신청은 레코드나 순서를 바꾸지 않고 최신 `WAITING` 상태와 현재 순번을 반환한다. 허용된 `CANCELED`·`PROMOTED` 재신청은 같은 레코드에 새 순번·신청 시각을 기록하되 최초 생성 시각을 보존해 대기열 맨 뒤로 이동하며, `EXPIRED`·`ROOM_CANCELED`는 재활성화하지 않는다.
 - 본인은 ROOM별 `WAITING`, `PROMOTED`, `CANCELED`, `EXPIRED`, `ROOM_CANCELED` 상태를 조회할 수 있고, 현재 순번은 `WAITING`일 때만 반환한다.
 - 시작 전 참가 취소로 빈자리가 생기면 참가 취소와 첫 `WAITING` 대기자 한 명의 `PROMOTED`·`ACTIVE` 전이를 같은 ROOM 일관성 경계에서 처리한다. 활성 대기자가 없을 때만 ROOM을 `RECRUITING`으로 되돌린다.
@@ -358,7 +360,7 @@ P2 ID는 P1 조건부 후보의 후속 소유 위치만 기록한다. [P2 공통
 - 기존 인원·시간 표시 문자열과 난이도 표시값은 화면 표시와 원본 추적을 위해 유지한다.
 - 승인된 170,000개 게임 ID에 가능 인원·플레이 시간·권장 최소 연령·난이도 수치와 카테고리·테마·추천/베스트 인원 관계를 적재한다. 수치와 관계 메타데이터는 원본·한글 매핑·품질 게이트를 통과한 값만 사용한다.
 - 조회 요청마다 표시 문자열을 해석하지 않고, 적재·마이그레이션 단계에서 검증한 수치 데이터를 검색에 사용한다.
-- 수치 데이터의 단위, 경계 포함 여부, 누락값 처리와 DB 제약은 [P1 검색 기능 명세](p1/search.md)와 [ERD](ERD.md#games)에 확정돼 있으며, 검색·적재 구현은 그 계약을 따른다.
+- 수치 데이터의 단위, 경계 포함 여부, 누락값 처리와 DB 제약은 [P1 검색 기능 명세](search.md)와 [ERD](../../ERD.md#games)에 확정돼 있으며, 검색·적재 구현은 그 계약을 따른다.
 
 ### 검색 조건과 결과
 
@@ -383,11 +385,11 @@ P2 ID는 P1 조건부 후보의 후속 소유 위치만 기록한다. [P2 공통
 - 방 검색에서 게임 조건을 함께 제공하는 경우 정규화된 게임 수치 컬럼을 조인해 재사용할 수 있다.
 - 물리 인덱스는 테이블과 대표 쿼리의 조건·조인·정렬 순서가 다르므로 게임과 방에 각각 설계한다. 하나의 인덱스를 두 테이블이 공유한다고 가정하지 않는다.
 - 인덱스 추가 여부와 컬럼 순서는 대표 데이터와 쿼리의 실행 계획, 스캔 행 수와 응답시간을 측정해 결정한다.
-- 채택한 인기 랭킹 `RANK-01`은 게임 식별자와 공개 조회 응답 구조를 재사용하지만, 모임 수 집계는 검색 필터와 다른 집계 조회로 분리한다. 집계 기준과 완료 기준은 [인기 랭킹](p1/ranking.md#rank-01-인기-게임-랭킹)을 따른다.
+- 채택한 인기 랭킹 `RANK-01`은 게임 식별자와 공개 조회 응답 구조를 재사용하지만, 모임 수 집계는 검색 필터와 다른 집계 조회로 분리한다. 집계 기준과 완료 기준은 [인기 랭킹](ranking.md#rank-01-인기-게임-랭킹)을 따른다.
 
 ### 알림 생성과 조회
 
-이 절은 ROOM·참가 변경과 알림 기능이 함께 지켜야 하는 원인·수신자·트랜잭션·조회 권한의 공통 불변식을 소유한다. 알림 유형 변환, 기능별 HTTP·화면 동작과 완료 기준은 [P1 알림 구현 명세](p1/notification.md), 테이블·제약·인덱스는 [ERD의 P1 알림 저장 계약](ERD.md#p1-알림-저장-계약)이 소유한다.
+이 절은 ROOM·참가 변경과 알림 기능이 함께 지켜야 하는 원인·수신자·트랜잭션·조회 권한의 공통 불변식을 소유한다. 알림 유형 변환, 기능별 HTTP·화면 동작과 완료 기준은 [P1 알림 구현 명세](notification.md), 테이블·제약·인덱스는 [ERD의 P1 알림 저장 계약](../../ERD.md#p1-알림-저장-계약)이 소유한다.
 
 | 원인 | 수신자 | 목적 |
 | --- | --- | --- |
@@ -410,12 +412,12 @@ P2 ID는 P1 조건부 후보의 후속 소유 위치만 기록한다. [P2 공통
 ### 채팅 접근과 생명주기
 
 - 기존 오프라인 방 하나를 채팅 채널 하나로 사용하며, 온라인 방이나 별도 플레이룸 도메인을 추가하지 않는다.
-- `V6__create_p1_chat_room_schema.sql`은 `CHAT_ROOMS` 스키마와 제약만 생성하며 기존 `ROOMS`를 조회하거나 `CHAT_ROOMS` 행을 삽입·갱신하지 않는다. [#279의 최신 승인 테스트 계약](https://github.com/bamsongi-club/albam-mate/issues/279#issuecomment-5161788285)은 live 운영 기존 ROOM backfill·상태별 초기화·ROOM 쓰기 경합·최종 보정·배포 절체를 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 후속 범위로 분리한다. [ADR-0045](adr/chat/0045-chat-room-schema-and-backfill-boundary.md)은 production 스키마 기동과 local profile의 `db/local/afterMigrate.sql` 초기화 callback을 분리한다. production 일반 애플리케이션 기동과 Flyway 자동 실행에는 기존 ROOM 데이터 작업이 없고, local profile에서만 개발·검증용 초기화를 수행한다.
+- `V6__create_p1_chat_room_schema.sql`은 `CHAT_ROOMS` 스키마와 제약만 생성하며 기존 `ROOMS`를 조회하거나 `CHAT_ROOMS` 행을 삽입·갱신하지 않는다. [#279의 최신 승인 테스트 계약](https://github.com/bamsongi-club/albam-mate/issues/279#issuecomment-5161788285)은 live 운영 기존 ROOM backfill·상태별 초기화·ROOM 쓰기 경합·최종 보정·배포 절체를 [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 후속 범위로 분리한다. [ADR-0045](../../adr/chat/0045-chat-room-schema-and-backfill-boundary.md)은 production 스키마 기동과 local profile의 `db/local/afterMigrate.sql` 초기화 callback을 분리한다. production 일반 애플리케이션 기동과 Flyway 자동 실행에는 기존 ROOM 데이터 작업이 없고, local profile에서만 개발·검증용 초기화를 수행한다.
 - 주최자는 방 생성 직후, 참가자는 참가 또는 재참가 트랜잭션이 최종 성공한 직후부터 채팅을 이용할 수 있다.
 - `RECRUITING`, `CLOSED` 방의 주최자와 현재 `ACTIVE` 참가자는 이력 조회, 구독과 메시지 전송을 할 수 있다.
 - 참가 취소가 성공하면 해당 사용자는 즉시 채팅 이력 조회, 구독과 전송 권한을 잃는다.
 - `CANCELED`, `FINISHED` 방은 주최자와 참가자 모두에게 이력 조회, 구독과 메시지 전송을 제공하지 않는다.
-- 최종 상태 전환 시점부터 메시지를 30일 보관한 뒤 일일 정리 작업에서 소량 묶음으로 완전 삭제한다. 보관·삭제 규칙은 승인된 [ADR-0049](adr/chat/0049-chat-message-retention-lock-section-boundary.md), 다중 인스턴스 실행 조정은 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)을 따른다.
+- 최종 상태 전환 시점부터 메시지를 30일 보관한 뒤 일일 정리 작업에서 소량 묶음으로 완전 삭제한다. 보관·삭제 규칙은 승인된 [ADR-0049](../../adr/chat/0049-chat-message-retention-lock-section-boundary.md), 다중 인스턴스 실행 조정은 [ADR-0038](../../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)을 따른다.
 - 연결 성공 여부만 신뢰하지 않고 이력 조회, 구독과 메시지 전송마다 현재 방 관계와 상태를 검사한다.
 - 권한 없는 요청에는 방·메시지 존재 여부를 불필요하게 노출하지 않도록 P0의 존재 여부 은닉 원칙을 적용한다.
 
@@ -426,13 +428,13 @@ P2 ID는 P1 조건부 후보의 후속 소유 위치만 기록한다. [P2 공통
 - 클라이언트가 같은 메시지를 재전송해도 수신자에게 중복 저장·전달되지 않도록 사용자와 클라이언트 메시지 식별자의 조합을 사용한다.
 - 메시지 순서는 클라이언트 시각이 아니라 서버가 확정한 안정적인 cursor 기준을 사용한다.
 - 이력은 cursor 페이지네이션으로 조회하며 재접속 시 마지막 확인 지점 이후의 누락 메시지를 가져올 수 있어야 한다.
-- 메시지 길이, 사용자·방 전송 빈도와 방별 이력 조회 크기의 현재 값과 초과 오류는 [채팅 기능 명세](p1/chatting.md)와 [API 명세](API.md#채팅-공통-계약)를 따른다.
+- 메시지 길이, 사용자·방 전송 빈도와 방별 이력 조회 크기의 현재 값과 초과 오류는 [채팅 기능 명세](chatting.md)와 [API 명세](../../API.md#채팅-공통-계약)를 따른다.
 - 사용자 입력은 HTML로 실행하지 않고 안전한 텍스트로 표시한다. URL은 텍스트로 보낼 수 있지만 P1에서는 링크 미리보기나 외부 콘텐츠를 자동으로 불러오지 않는다.
 
 ### 실시간 전달 기반
 
 - `FND-10`은 HTTP 메시지 전송과 WebSocket 실시간 수신 사이의 공용 세션, 방별 권한 검사, Redis 인스턴스 간 fan-out, 재연결과 누락 이력 복구 기반을 담당한다.
-- 공용 세션은 승인된 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), HTTP 전송·방별 WebSocket 수신은 [ADR-0032](adr/chat/0032-http-send-websocket-receive.md), PostgreSQL 정본·커밋 후 Redis 신호와 실패 경계는 [ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)을 따른다.
+- 공용 세션은 승인된 [ADR-0038](../../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), HTTP 전송·방별 WebSocket 수신은 [ADR-0032](../../adr/chat/0032-http-send-websocket-receive.md), PostgreSQL 정본·커밋 후 Redis 신호와 실패 경계는 [ADR-0033](../../adr/chat/0033-postgresql-source-after-commit-delivery.md)을 따른다.
 - 실시간 연결은 Spring Session Redis의 현재 HTTP 세션 인증을 이어받되 연결, 복구와 전달 경계마다 권한을 확인한다. Nginx의 특정 upstream 고정은 정합성 전제가 아니다.
 - 각 인스턴스는 자신이 보유한 WebSocket 연결만 메모리에서 관리한다. Redis 신호를 받으면 연결별 마지막 ID 이후의 PostgreSQL 메시지를 `messageId ASC`로 조회해 전달한다.
 - 참가 취소·방 최종 상태 신호와 세션 만료 이벤트는 기존 연결의 권한 회수를 촉진하는 수단이며 근거가 아니다. 실제 전달 직전에는 PostgreSQL의 현재 관계·상태와 공용 세션의 현재 유효성을 함께 확인하고, 관계·상태가 유효하지 않거나 세션이 만료됐거나 확인에 실패하면 전달하지 않고 연결을 종료한다.
@@ -445,11 +447,11 @@ P2 ID는 P1 조건부 후보의 후속 소유 위치만 기록한다. [P2 공통
 - Scheduler 자동 전환 대상은 상한 없는 ROOM Entity 전체가 아니라 고정한 순회 기준 시각과 영속 cursor 뒤의 제한된 ROOM ID로 선별하고, 각 ROOM은 독립 처리 단위에서 최신 상태와 버전을 다시 읽어 판정한다.
 - 한 ROOM의 실패가 이미 성공한 다른 ROOM의 결과를 롤백하지 않으며, 실패 ROOM ID와 원인을 식별해 해당 ROOM만 재처리할 수 있어야 한다.
 - 시작 시각에 도달한 ROOM은 정원 충족으로 이미 `CLOSED`였는지와 관계없이 상태 판정과 남은 대기열 종료를 같은 ROOM 일관성 경계에서 수행한다.
-- 모든 인스턴스가 Spring Scheduler를 등록하되 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)에 따라 공용 PostgreSQL ShedLock adapter의 `room-status-correction` 잠금을 얻은 하나만 실행을 조정한다. 공용 `SHEDLOCK` 테이블·adapter는 병합된 [PR #366](https://github.com/bamsongi-club/albam-mate/pull/366)이 제공하고 [#289](https://github.com/bamsongi-club/albam-mate/issues/289)가 소유하며 ROOM은 이를 읽기 전용으로 사용한다.
+- 모든 인스턴스가 Spring Scheduler를 등록하되 [ADR-0038](../../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)에 따라 공용 PostgreSQL ShedLock adapter의 `room-status-correction` 잠금을 얻은 하나만 실행을 조정한다. 공용 `SHEDLOCK` 테이블·adapter는 병합된 [PR #366](https://github.com/bamsongi-club/albam-mate/pull/366)이 제공하고 [#289](https://github.com/bamsongi-club/albam-mate/issues/289)가 소유하며 ROOM은 이를 읽기 전용으로 사용한다.
 - `ROOM_STATUS_CORRECTION_PROGRESS` 단일 행은 순회 기준 시각, 마지막 시도 cursor, progress version과 실행 generation을 저장한다. 실행 주체는 잠금 획득 뒤 generation을 점유하고 모든 cursor 전진·회전을 기대 generation·version의 조건부 갱신으로 확정한다. 늦은 실행 주체의 갱신은 거절하고 이후 처리를 중단한다.
 - ROOM 처리 커밋 뒤 cursor 커밋 전 장애에서는 같은 ROOM을 다시 선별할 수 있다. cursor를 먼저 전진해 미처리 ROOM을 건너뛰지 않으며, 최신 상태 재판정과 멱등 전이로 at-least-once 재실행을 수렴시킨다.
 - ShedLock, 진행 상태, 후보 선별, 각 ROOM 처리와 cursor 갱신은 하나의 트랜잭션으로 묶지 않는다. 스케줄 잠금 임대가 만료되어 실행이 겹쳐도 각 ROOM은 최신 상태와 `Room.version`을 다시 확인하고 같은 결과로 수렴하며, 다중 인스턴스라는 이유로 Redis 분산 락을 도입하지 않는다.
-- 공개 목록·내 모임은 Scheduler 잠금·cursor를 사용하지 않고 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)의 고정된 `requestTime` 유효 상태를 조회하며 전역 저장 보정을 수행하지 않는다. 상세·상태 의존 명령·대기·채팅 접근의 대상 ROOM 보정은 Scheduler 잠금·cursor를 사용하지 않고 현재 상태 계약을 유지한다.
+- 공개 목록·내 모임은 Scheduler 잠금·cursor를 사용하지 않고 [ADR-0055](../../adr/room/0055-room-query-effective-status-and-persistence-correction.md)의 고정된 `requestTime` 유효 상태를 조회하며 전역 저장 보정을 수행하지 않는다. 상세·상태 의존 명령·대기·채팅 접근의 대상 ROOM 보정은 Scheduler 잠금·cursor를 사용하지 않고 현재 상태 계약을 유지한다.
 - 현재 구현을 비교 기준선으로 남기고 제한 처리의 ID 수 후보를 같은 데이터·반복 조건에서 측정한다. 한 번당 ID 수와 반복·재시도·실행 주기의 운영 고정값은 측정 전에 임의로 정하지 않고 결과를 근거로 확정한다.
 - 제한된 ROOM별 처리에서 병목이 측정된 뒤에만 조건부 DB 직접 갱신 비교 여부를 사용자에게 확인한다. Quartz 클러스터는 동적 Trigger·Misfire·영속 Job 복구 요구가 생기기 전에는 도입하지 않는다.
 
@@ -472,7 +474,7 @@ P2 ID는 P1 조건부 후보의 후속 소유 위치만 기록한다. [P2 공통
 | 게임 | 기존 표시 필드와 인원·시간 검색용 수치를 유지하고, 카테고리·테마·추천/베스트 인원·검수된 메커니즘·사용자별 해 본 게임을 각각 의미가 분리된 관계로 저장한다. |
 | 방 | 새 상태를 추가하지 않는다. `waitlistable`은 저장 상태가 아니라 기준 시각·정원·요청자 관계로 계산하며, 검색·상태 자동 전환 인덱스는 측정 근거에 따라 추가한다. |
 | 참가 | 상태와 정원 계산식을 변경하지 않는다. 자동 승격은 기존 `ACTIVE` 참가 관계를 사용하고, 알림·채팅 권한과 측정은 최종 성공한 참가 결과를 따른다. |
-| 대기 | ROOM·사용자 조합마다 단일 최신 상태 레코드를 두고 FIFO 순서와 `WAITING`, `PROMOTED`, `CANCELED`, `EXPIRED`, `ROOM_CANCELED` 결과를 보존한다. 상태 변경별 이력 레코드는 추가하지 않는다. 복합 PK·전역 sequence·제약·인덱스의 물리 선택은 [ADR-0046](adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)에서 승인돼 [ERD](ERD.md#room_waitlists), `V14__create_room_waitlist_schema.sql`과 현재 JPA·Repository에 구현됐다. |
+| 대기 | ROOM·사용자 조합마다 단일 최신 상태 레코드를 두고 FIFO 순서와 `WAITING`, `PROMOTED`, `CANCELED`, `EXPIRED`, `ROOM_CANCELED` 결과를 보존한다. 상태 변경별 이력 레코드는 추가하지 않는다. 복합 PK·전역 sequence·제약·인덱스의 물리 선택은 [ADR-0046](../../adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)에서 승인돼 [ERD](../../ERD.md#room_waitlists), `V14__create_room_waitlist_schema.sql`과 현재 JPA·Repository에 구현됐다. |
 | 이벤트 | 원인 이벤트 식별자, 유형, Aggregate, 수신자 고정 목록, 발생·처리 가능 시각, 처리·재시도 상태를 가진 영속 계약을 추가한다. |
 | 알림 | 수신자, 원인 이벤트, 유형, 관련 대상, 원인 이벤트 시각을 사용하는 `createdAt`, 읽은 시각과 중복 방지에 필요한 저장 계약을 추가한다. |
 | 채팅 | 방별 `CHAT_ROOMS`와 작성자, 본문, 클라이언트 메시지 식별자, 서버 생성 시각을 가진 `CHAT_MESSAGES` 저장 계약을 추가한다. 최종 상태의 삭제 기준과 완료 시각을 저장한다. |
@@ -486,7 +488,7 @@ P2 ID는 P1 조건부 후보의 후속 소유 위치만 기록한다. [P2 공통
 
 ## 기능별 문서와 API 목록
 
-P1은 P0의 17개 API를 유지하고, 소셜 로그인·계정 연결과 대기·앱 내 알림·방 채팅 인터페이스, 인기 게임 랭킹 조회를 추가하며 게임·방·내 모임 조회와 참가 취소 API를 확장한다. 아래 표는 P1 필수 범위의 변경 인벤토리이며 현재 제공 API 목록이 아니다. 정확한 쿼리 파라미터, 요청·응답 모델, 인증, CSRF, 실시간 연결·구독·전송 경로, HTTP 상태와 오류 코드는 [API 명세서](API.md)의 P1 계약을 따르고, 현재 제공 여부는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)을 따른다.
+P1은 P0의 17개 API를 유지하고, 소셜 로그인·계정 연결과 대기·앱 내 알림·방 채팅 인터페이스, 인기 게임 랭킹 조회를 추가하며 게임·방·내 모임 조회와 참가 취소 API를 확장한다. 아래 표는 P1 필수 범위의 변경 인벤토리이며 현재 제공 API 목록이 아니다. 정확한 쿼리 파라미터, 요청·응답 모델, 인증, CSRF, 실시간 연결·구독·전송 경로, HTTP 상태와 오류 코드는 [API 명세서](../../API.md)의 P1 계약을 따르고, 현재 제공 여부는 [P1 기능 종료 상태](README.md#기능별-종료-상태)을 따른다.
 
 | # | 구분 | API·인터페이스 | 메서드·경로 | 기능 ID |
 | ---: | --- | --- | --- | --- |
@@ -540,8 +542,8 @@ P1은 P0의 17개 API를 유지하고, 소셜 로그인·계정 연결과 대기
 - 아홉 가지 [핵심 사용자 흐름](#핵심-사용자-흐름)이 처음부터 끝까지 연결된다.
 - P0의 세 가지 핵심 사용자 흐름과 17개 API가 기존 계약대로 재현된다.
 - 모든 P1 필수 기능 ID별 상세 문서의 완료 기준을 만족한다.
-- 소셜 로그인·계정 연결, 게임·방 검색, ROOM 행동 가능성, 대기·자동 승격, 알림과 채팅 인터페이스가 [API 명세서](API.md)의 요청·응답·리다이렉트·실시간 메시지·HTTP 상태·오류 계약대로 재현된다.
-- `AUTH-05`는 세 제공자의 신규·재로그인과 명시적 연결, state 실패·취소, 중복·동시 요청, 기존 세션·CSRF와 이메일 인증 회귀를 [소셜 로그인 완료 기준](p1/social-login.md#상위-통합-완료-기준)대로 검증한다.
+- 소셜 로그인·계정 연결, 게임·방 검색, ROOM 행동 가능성, 대기·자동 승격, 알림과 채팅 인터페이스가 [API 명세서](../../API.md)의 요청·응답·리다이렉트·실시간 메시지·HTTP 상태·오류 계약대로 재현된다.
+- `AUTH-05`는 세 제공자의 신규·재로그인과 명시적 연결, state 실패·취소, 중복·동시 요청, 기존 세션·CSRF와 이메일 인증 회귀를 [소셜 로그인 완료 기준](social-login.md#상위-통합-완료-기준)대로 검증한다.
 - 170,000개 게임의 카테고리·테마·추천/베스트 인원 관계와 기존 인원·시간·권장 최소 연령·난이도·메커니즘이 승인된 원본·한글 매핑·품질 게이트를 통과해 반복 적재되고 기존 표시 데이터가 유지된다.
 - 게임·방 단독 필터와 복합 필터가 공개 범위, `youngestPlayerAge`, category·recommended/best·mechanism 내부 OR, theme ANY·ALL, 다른 조건과 AND, 기본 정렬과 페이지네이션 규칙을 일관되게 따른다.
 - 해 본 게임 관계는 사용자·게임 조합마다 하나만 존재하고 두 FK를 암묵 삭제하지 않는다. 본인만 멱등 등록·취소할 수 있으며 방 이력 자동 표시와 다른 사용자 관계 공개가 발생하지 않는다.
@@ -551,7 +553,7 @@ P1은 P0의 17개 API를 유지하고, 소셜 로그인·계정 연결과 대기
 - 명시적 대기 신청·본인 상태와 순번 조회·대기 취소가 ROOM·사용자별 단일 최신 상태 레코드와 FIFO를 유지한다. 중복 신청은 레코드·순서를 바꾸지 않고 정상 응답하며, 허용된 `CANCELED`·`PROMOTED` 재신청은 새 순번·신청 시각과 보존된 최초 생성 시각으로 마지막 순번을 받는다. `EXPIRED`·`ROOM_CANCELED`는 재활성화하지 않는다.
 - 시작 전 참가 취소 시 첫 `WAITING` 대기자 한 명만 같은 일관성 경계에서 `PROMOTED`와 `ACTIVE` 참가자가 되고, 대기자가 없을 때만 ROOM이 `RECRUITING`으로 돌아간다.
 - 시작 시각에 도달하면 남은 `WAITING`은 `EXPIRED`, ROOM이 취소되면 `ROOM_CANCELED`가 되고 이후 자동 승격이 발생하지 않는다.
-- 신규·중복·재신청, 상태 조회와 취소의 HTTP 상태·응답·오류가 [API 명세의 PART-04 계약](API.md#part-04-대기-등록재신청)과 일치한다.
+- 신규·중복·재신청, 상태 조회와 취소의 HTTP 상태·응답·오류가 [API 명세의 PART-04 계약](../../API.md#part-04-대기-등록재신청)과 일치한다.
 - 시간 기반 상태 자동 전환은 상한 없는 ROOM Entity 전체를 적재하지 않고 제한된 ID와 ROOM별 독립 처리로 수행되며, 한 ROOM의 실패가 다른 ROOM의 성공을 롤백하지 않는다. 다중 인스턴스에서는 PostgreSQL ShedLock으로 한 실행만 조정하고, 현재 구현과 제한 처리 후보를 같은 조건에서 측정해 초기 운영값을 확정한다.
 - `ROOM-10`은 참가·대기·자동 승격·상태 자동 전환의 동시 요청에서 저장 불변식을 유지하며 낙관적 락 충돌률, 재시도, 응답시간과 데이터베이스 비용을 재현 가능한 방식으로 측정한다. 임의 성능 합격선 통과 여부를 완료 기준으로 사용하지 않는다.
 - 조건부 DB 직접 갱신 비교는 해당 기준선 결과를 제시하고 사용자 승인을 받은 경우에만 착수한다. 비관적 락 비교는 [#495](https://github.com/bamsongi-club/albam-mate/issues/495)의 결정에 따라 P1에서 착수하지 않으며, 배포 후 참가 취소·자동 승격 경로의 재시도 소진 `409`가 서로 다른 ROOM에서 반복될 때 기존 WARN 로그의 `event`·`roomId`·`attempt`를 근거로 별도 재검토한다.
@@ -568,7 +570,7 @@ P1은 P0의 17개 API를 유지하고, 소셜 로그인·계정 연결과 대기
 - 실제 AWS App1 Nginx의 다중 upstream·WebSocket·장애 처리, 고정 EC2 수동 교체와 운영 Redis의 HA·TLS·비밀·비용 검증은 후속 OPS이며, 그 미검증은 P1 채팅 구현 완료를 막지 않는다.
 - 인기 게임 랭킹은 `GAME_FOCUSED`이고 `CANCELED`가 아닌 내부 방만으로 전체·앞으로 7일 집계를 만들고, 한 요청의 고정 기준 시각, 안정 정렬과 상위 10개 상한, 공개 필드 경계를 지킨다. 화면은 두 랭킹을 구분해 로딩·빈 결과·재시도 가능한 오류 상태를 제공하고 각 항목에서 게임 상세로 이동한다.
 - P1 조건부 후속 범위인 `SEC-01`과 P2로 승계한 운영 관측 `OPS-01`~`OPS-03`, 배포·복구 `OPS-06`의 미구현은 P1 필수 범위 완료를 막지 않는다.
-- 데이터 제약은 [ERD](ERD.md), 되돌리기 어렵거나 논쟁적인 기술 구현과 검증 근거는 승인된 ADR에 반영한다.
+- 데이터 제약은 [ERD](../../ERD.md), 되돌리기 어렵거나 논쟁적인 기술 구현과 검증 근거는 승인된 ADR에 반영한다.
 - 검색, 대기, 알림, 채팅과 로그가 P0의 권한·개인정보 공개 범위를 넓히지 않는다.
 
 > 문서 관리: 소유자 `밤송이클럽 제품·개발 팀` · 최종 검증일 `2026-08-12` · 폐기 조건 `P1이 완료되어 아카이브되고 다음 단계 명세가 활성 정본이 될 때`

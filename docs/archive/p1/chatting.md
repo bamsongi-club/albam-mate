@@ -1,19 +1,19 @@
 # P1 방 채팅 기능 명세
 
-이 문서는 P1에서 기존 방의 주최자와 현재 `ACTIVE` 참가자가 모임을 조율하는 `CHAT-01`~`CHAT-05`의 구현 규칙과 완료 기준을 정의한다. 현재 계약 준비·생산 코드·자동 검증·운영 배포와 실측 상태는 [P1 기능별 상태 정본](README.md#기능별-현재-상태)을 따른다. 이 문서에서 **채팅 관계자**는 방의 주최자 또는 현재 `ACTIVE` 참가자를 뜻한다.
+이 문서는 P1에서 기존 방의 주최자와 현재 `ACTIVE` 참가자가 모임을 조율하는 `CHAT-01`~`CHAT-05`의 구현 규칙과 완료 기준을 정의한다. 현재 계약 준비·생산 코드·자동 검증·운영 배포와 실측 상태는 [P1 기능별 종료 상태](README.md#기능별-종료-상태)을 따른다. 이 문서에서 **채팅 관계자**는 방의 주최자 또는 현재 `ACTIVE` 참가자를 뜻한다.
 
-채팅 접근·생명주기와 메시지 공통 규칙은 [P1 명세](../P1-spec.md#채팅-접근과-생명주기), 요청·응답·오류와 실시간 연결은 [API 명세](../API.md#채팅-공통-계약), 저장 계약은 [ERD](../ERD.md)를 따른다. 현재 채팅 API와 저장 구조가 구현돼 있으며 기능별 완료·운영 상태는 [P1 기능별 상태 정본](README.md#기능별-현재-상태)만 따른다. 메시지 ID cursor·실시간·저장·보관 방식은 승인된 [ADR-0031](../adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](../adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](../adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0049](../adr/chat/0049-chat-message-retention-lock-section-boundary.md), 공용 세션·스케줄 실행은 [ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), P1 AWS 토폴로지는 [ADR-0051](../adr/platform/0051-p1-self-managed-aws-infrastructure.md), 실행 프로필·로컬 검증 경계는 [ADR-0052](../adr/platform/0052-local-profile-multi-instance-default.md), 모듈·인프라 경계는 [아키텍처](../ARCHITECTURE.md)를 따른다. 채팅방 스키마와 기존 ROOM backfill의 실행 경계는 승인된 [ADR-0045](../adr/chat/0045-chat-room-schema-and-backfill-boundary.md)의 production schema-only 및 local callback 결정을 따른다. 실시간 공통 기반은 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반)이 소유한다.
+채팅 접근·생명주기와 메시지 공통 규칙은 [P1 명세](P1-spec.md#채팅-접근과-생명주기), 요청·응답·오류와 실시간 연결은 [API 명세](../../API.md#채팅-공통-계약), 저장 계약은 [ERD](../../ERD.md)를 따른다. 현재 채팅 API와 저장 구조가 구현돼 있으며 기능별 완료·운영 상태는 [P1 기능별 종료 상태](README.md#기능별-종료-상태)만 따른다. 메시지 ID cursor·실시간·저장·보관 방식은 승인된 [ADR-0031](../../adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](../../adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](../../adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0049](../../adr/chat/0049-chat-message-retention-lock-section-boundary.md), 공용 세션·스케줄 실행은 [ADR-0038](../../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), P1 AWS 토폴로지는 [ADR-0051](../../adr/platform/0051-p1-self-managed-aws-infrastructure.md), 실행 프로필·로컬 검증 경계는 [ADR-0052](../../adr/platform/0052-local-profile-multi-instance-default.md), 모듈·인프라 경계는 [아키텍처](../../ARCHITECTURE.md)를 따른다. 채팅방 스키마와 기존 ROOM backfill의 실행 경계는 승인된 [ADR-0045](../../adr/chat/0045-chat-room-schema-and-backfill-boundary.md)의 production schema-only 및 local callback 결정을 따른다. 실시간 공통 기반은 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반)이 소유한다.
 
 본 명세는 기존 오프라인 방 흐름에 방별 그룹 채팅을 추가하며 새로운 온라인 방 유형이나 실시간 자동 매칭을 도입하지 않는다. 메시지의 정본은 실시간 연결이 아니라 PostgreSQL 이력이다.
 
 ## 실행 환경과 실패 경계
 
 - `local`은 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL과 Redis로 구성하는 기본 개발·데모·P1 검증 환경이다. 단일 서버 실행은 지원 범위에 두지 않는다.
-- `production`의 AWS 검증 토폴로지는 App1 Nginx 단일 진입점, 고정 Spring EC2 두 대와 자체 운영 PostgreSQL·Redis EC2로 구성한다. 이 결정은 현재 운영 배포 완료를 뜻하지 않으며, 배포·실측 상태는 [P1 기능별 상태 정본](README.md#기능별-현재-상태)의 `운영 배포·실측` 열을 따른다. 실제 AWS WebSocket Upgrade, Nginx 분산·장애 처리와 부하 검증은 후속 OPS이며 채팅 구현 완료를 막지 않는다.
+- `production`의 AWS 검증 토폴로지는 App1 Nginx 단일 진입점, 고정 Spring EC2 두 대와 자체 운영 PostgreSQL·Redis EC2로 구성한다. 이 결정은 현재 운영 배포 완료를 뜻하지 않으며, 배포·실측 상태는 [P1 기능별 종료 상태](README.md#기능별-종료-상태)의 `배포 상태`와 `실측 상태` 열을 따른다. 실제 AWS WebSocket Upgrade, Nginx 분산·장애 처리와 부하 검증은 후속 OPS이며 채팅 구현 완료를 막지 않는다.
 - `local`과 `production`은 Spring Session, Pub/Sub과 사용자·방 단위 전송 제한에 각자 공용 Redis 하나를 사용하되 key prefix, TTL과 channel namespace를 프로필별로 분리한다. Redis가 없을 때 인메모리 구현으로 자동 fallback하지 않는다.
 - 세션 또는 전송 제한을 확인할 수 없으면 API 정본의 `503 SERVICE_UNAVAILABLE`로 실패한다. PostgreSQL 커밋 뒤 Redis Pub/Sub 발행·구독이 실패하면 저장 성공은 유지하고 이력 조회·다음 신호·재연결로 복구한다.
 - 운영 Redis 제품, HA, TLS, 접근 제어, 비밀 주입과 비용은 후속 OPS에서 확정한다.
-- 채팅 전송 제한의 사용자·방 임계값, 고정 창·TTL, 원자 판정, `Retry-After`와 Redis 장애 시 503 경계는 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)에서 승인했고 이 문서와 [API 정본](../API.md#전송-제한-계약)에 반영한다. 공용 Redis namespace의 분리와 `local` session namespace는 [ADR-0052](../adr/platform/0052-local-profile-multi-instance-default.md)와 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반)을 따른다.
+- 채팅 전송 제한의 사용자·방 임계값, 고정 창·TTL, 원자 판정, `Retry-After`와 Redis 장애 시 503 경계는 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)에서 승인했고 이 문서와 [API 정본](../../API.md#전송-제한-계약)에 반영한다. 공용 Redis namespace의 분리와 `local` session namespace는 [ADR-0052](../../adr/platform/0052-local-profile-multi-instance-default.md)와 [FND-10](foundation.md#fnd-10-실시간-전달과-재연결-기반)을 따른다.
 - `local`과 `production`의 세션 TTL은 30분이며 JSON 직렬화에 `SecurityJacksonModules`와 `CurrentUserPrincipal` mixin을 사용한다. session namespace는 각각 `albam-mate:local:session`, `albam-mate:production:session`이다.
 
 ## CHAT-01 채팅방 생성·접근
@@ -22,12 +22,12 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| 기존 권한 계약 | [ParticipantRoomResponse](../API.md#48-participantroomresponse), [방 상세 조회](../API.md#room-02-방-상세-조회) |
-| 기존 상태 계약 | [RoomStatus](../API.md#roomstatus), [ParticipationStatus](../API.md#participationstatus) |
-| 기존 데이터 모델 | [ROOMS](../ERD.md#rooms), [PARTICIPATIONS](../ERD.md#participations) |
-| 인증·인가 | [ADR-0003 서버 세션](../adr/auth/0003-p0-server-session-spring-security.md), [ADR-0020 엔드포인트 인가 정책](../adr/auth/0020-api-endpoint-authorization-policy-registry.md) |
-| 동시성 | [ADR-0005 방 참가 낙관 락](../adr/participation/0005-room-participation-optimistic-locking.md) |
-| 관련 정본 | [채팅 API](../API.md#채팅-공통-계약), [ERD](../ERD.md#chat_rooms), [아키텍처](../ARCHITECTURE.md#모듈-관계), [채팅 ADR](../adr/chat/README.md) |
+| 기존 권한 계약 | [ParticipantRoomResponse](../../API.md#48-participantroomresponse), [방 상세 조회](../../API.md#room-02-방-상세-조회) |
+| 기존 상태 계약 | [RoomStatus](../../API.md#roomstatus), [ParticipationStatus](../../API.md#participationstatus) |
+| 기존 데이터 모델 | [ROOMS](../../ERD.md#rooms), [PARTICIPATIONS](../../ERD.md#participations) |
+| 인증·인가 | [ADR-0003 서버 세션](../../adr/auth/0003-p0-server-session-spring-security.md), [ADR-0020 엔드포인트 인가 정책](../../adr/auth/0020-api-endpoint-authorization-policy-registry.md) |
+| 동시성 | [ADR-0005 방 참가 낙관 락](../../adr/participation/0005-room-participation-optimistic-locking.md) |
+| 관련 정본 | [채팅 API](../../API.md#채팅-공통-계약), [ERD](../../ERD.md#chat_rooms), [아키텍처](../../ARCHITECTURE.md#모듈-관계), [채팅 ADR](../../adr/chat/README.md) |
 
 ### 기능 규칙
 
@@ -36,7 +36,7 @@
 - [#279의 최신 승인 테스트 계약](https://github.com/bamsongi-club/albam-mate/issues/279#issuecomment-5161788285)은
   기존 ROOM backfill·상태별 초기화·ROOM 생성·상태 전환과의 경합·최종 보정·배포 절체를
   [#281](https://github.com/bamsongi-club/albam-mate/issues/281)의 후속 범위로 분리한다.
-  [ADR-0045](../adr/chat/0045-chat-room-schema-and-backfill-boundary.md)은 production
+  [ADR-0045](../../adr/chat/0045-chat-room-schema-and-backfill-boundary.md)은 production
   스키마 기동과 local callback 초기화의 경계를 승인한다. production Flyway 자동 실행에는
   기존 ROOM 데이터 작업이 없고, local profile에서만 `db/local/afterMigrate.sql` callback이
   개발·검증용 초기화를 수행한다.
@@ -82,12 +82,12 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| HTTP 계약 | [CHAT-02 메시지 전송](../API.md#chat-02-메시지-전송), [CHAT-02 메시지 이력 조회](../API.md#chat-02-메시지-이력-조회) |
-| 저장 계약 | [CHAT_ROOMS](../ERD.md#chat_rooms), [CHAT_MESSAGES](../ERD.md#chat_messages)의 유일성·조회 인덱스·보관 규칙 |
-| 공통 응답·오류 | [API 공통 계약](../API.md#1-공통-계약), [오류 코드](../API.md#10-오류-코드) |
-| 시간 기준 | [ADR-0009 UTC 저장과 서비스 시간대 변환](../adr/platform/0009-utc-time-standard.md) |
-| 검증 환경 | [ADR-0010 H2와 PostgreSQL 테스트 경계](../adr/platform/0010-h2-postgresql-test-boundary.md) |
-| 기술 결정 | [ADR-0031 메시지 ID 커서](../adr/chat/0031-chat-history-cursor-pagination.md) — 승인됨, [ADR-0033 PostgreSQL 정본·커밋 후 전달](../adr/chat/0033-postgresql-source-after-commit-delivery.md) — 승인됨, [#288 전송 제한 계약 승인](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930) |
+| HTTP 계약 | [CHAT-02 메시지 전송](../../API.md#chat-02-메시지-전송), [CHAT-02 메시지 이력 조회](../../API.md#chat-02-메시지-이력-조회) |
+| 저장 계약 | [CHAT_ROOMS](../../ERD.md#chat_rooms), [CHAT_MESSAGES](../../ERD.md#chat_messages)의 유일성·조회 인덱스·보관 규칙 |
+| 공통 응답·오류 | [API 공통 계약](../../API.md#1-공통-계약), [오류 코드](../../API.md#10-오류-코드) |
+| 시간 기준 | [ADR-0009 UTC 저장과 서비스 시간대 변환](../../adr/platform/0009-utc-time-standard.md) |
+| 검증 환경 | [ADR-0010 H2와 PostgreSQL 테스트 경계](../../adr/platform/0010-h2-postgresql-test-boundary.md) |
+| 기술 결정 | [ADR-0031 메시지 ID 커서](../../adr/chat/0031-chat-history-cursor-pagination.md) — 승인됨, [ADR-0033 PostgreSQL 정본·커밋 후 전달](../../adr/chat/0033-postgresql-source-after-commit-delivery.md) — 승인됨, [#288 전송 제한 계약 승인](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930) |
 
 ### 기능 규칙
 
@@ -141,10 +141,10 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| 전달 계약 | [CHAT-03 실시간 메시지 구독](../API.md#chat-03-실시간-메시지-구독)의 인증, 이벤트 식별자와 재연결 계약 |
+| 전달 계약 | [CHAT-03 실시간 메시지 구독](../../API.md#chat-03-실시간-메시지-구독)의 인증, 이벤트 식별자와 재연결 계약 |
 | 공유 기반 | [FND-10 실시간 전달과 재연결 기반](foundation.md#fnd-10-실시간-전달과-재연결-기반) |
-| 기술 결정 | [ADR-0038 공용 세션](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), [ADR-0032 HTTP 저장·WebSocket 수신](../adr/chat/0032-http-send-websocket-receive.md), [ADR-0033 PostgreSQL 정본·커밋 후 전달](../adr/chat/0033-postgresql-source-after-commit-delivery.md) |
-| 인증·인가 | [ADR-0003 서버 세션](../adr/auth/0003-p0-server-session-spring-security.md), [ADR-0020 엔드포인트 인가 정책](../adr/auth/0020-api-endpoint-authorization-policy-registry.md) |
+| 기술 결정 | [ADR-0038 공용 세션](../../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), [ADR-0032 HTTP 저장·WebSocket 수신](../../adr/chat/0032-http-send-websocket-receive.md), [ADR-0033 PostgreSQL 정본·커밋 후 전달](../../adr/chat/0033-postgresql-source-after-commit-delivery.md) |
+| 인증·인가 | [ADR-0003 서버 세션](../../adr/auth/0003-p0-server-session-spring-security.md), [ADR-0020 엔드포인트 인가 정책](../../adr/auth/0020-api-endpoint-authorization-policy-registry.md) |
 | 운영 기준 | 연결 수, 저장 후 전달 지연, 전달 실패와 재연결 복구 결과를 계측 |
 
 ### 기능 규칙
@@ -213,10 +213,10 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| 입력·오류 | [API 공통 계약](../API.md#1-공통-계약), [채팅 API 오류 계약](../API.md#채팅-공통-계약) |
-| 로그 | [Logging 규칙](../CONVENTIONS.md#logging) |
+| 입력·오류 | [API 공통 계약](../../API.md#1-공통-계약), [채팅 API 오류 계약](../../API.md#채팅-공통-계약) |
+| 로그 | [Logging 규칙](../../CONVENTIONS.md#logging) |
 | 보안 | 세션 인증, CSRF, 출력 인코딩과 Redis 사용자·방 단위 전송 제한 |
-| 관련 정본 | [ADR-0049 메시지 보관·삭제와 잠금 구간 경계](../adr/chat/0049-chat-message-retention-lock-section-boundary.md), [ADR-0038 스케줄 실행 조정](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), [#288 전송 제한 계약 승인](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930), [CHAT_ROOMS](../ERD.md#chat_rooms), [SHEDLOCK](../ERD.md#shedlock) |
+| 관련 정본 | [ADR-0049 메시지 보관·삭제와 잠금 구간 경계](../../adr/chat/0049-chat-message-retention-lock-section-boundary.md), [ADR-0038 스케줄 실행 조정](../../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), [#288 전송 제한 계약 승인](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930), [CHAT_ROOMS](../../ERD.md#chat_rooms), [SHEDLOCK](../../ERD.md#shedlock) |
 
 ### 기능 규칙
 
@@ -287,11 +287,11 @@
 
 | 구분 | 정본 |
 | --- | --- |
-| 모임 상세 계약 | [ParticipantRoomResponse](../API.md#48-participantroomresponse), [ROOM-02 방 상세 조회](../API.md#room-02-방-상세-조회) |
-| 관계·상태 | [MyRole](../API.md#myrole), [RoomStatus](../API.md#roomstatus), [ParticipationStatus](../API.md#participationstatus) |
+| 모임 상세 계약 | [ParticipantRoomResponse](../../API.md#48-participantroomresponse), [ROOM-02 방 상세 조회](../../API.md#room-02-방-상세-조회) |
+| 관계·상태 | [MyRole](../../API.md#myrole), [RoomStatus](../../API.md#roomstatus), [ParticipationStatus](../../API.md#participationstatus) |
 | 접근 검증 | 화면 표시와 별개로 모든 채팅 요청에서 서버가 현재 관계·상태를 다시 검증 |
-| 목록 보조 계약 | [MyRoomListItem.chatAvailable](../API.md#410-myroomlistitem)은 접근 가능성 일치 검증용이며, 내 모임의 직접 진입 버튼을 결정하지 않는다 |
-| 관련 정본 | [ChatMessage.isMine](../API.md#415-chatmessage), 프론트엔드 라우팅 |
+| 목록 보조 계약 | [MyRoomListItem.chatAvailable](../../API.md#410-myroomlistitem)은 접근 가능성 일치 검증용이며, 내 모임의 직접 진입 버튼을 결정하지 않는다 |
+| 관련 정본 | [ChatMessage.isMine](../../API.md#415-chatmessage), 프론트엔드 라우팅 |
 
 ### 기능 규칙
 

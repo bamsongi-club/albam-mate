@@ -1,6 +1,6 @@
 # 프론트엔드 작업 안내
 
-이 파일은 `frontend/**`에만 적용된다. P1 신규·변경 작업의 제품 범위는 [P1 공통 명세](../docs/P1-spec.md)와 해당 [P1 기능 문서](../docs/p1/README.md)를 따른다. [P0 완료 문서](../docs/archive/p0/README.md)는 기존 동작의 배경·회귀 확인에만 사용하고 새 구현 범위의 정본으로 사용하지 않는다. P1 기능의 현재 제공 여부는 [P1 기능 상태 정본](../docs/p1/README.md#기능별-현재-상태), 요청·응답·인증·CSRF는 [API 명세](../docs/API.md)를 따른다.
+이 파일은 `frontend/**`에만 적용된다. P2 신규·변경 작업의 제품 범위는 [P2 공통 명세](../docs/P2-spec.md)와 해당 [P2 기능 문서](../docs/p2/README.md)를 따른다. [P0·P1 아카이브](../docs/archive/README.md)는 기존 동작의 배경·회귀 확인에만 사용하고 새 구현 범위의 정본으로 사용하지 않는다. 기능의 현재 제공 여부는 [P2 기능 상태](../docs/p2/README.md#기능별-현재-상태), 요청·응답·인증·CSRF는 [API 명세](../docs/API.md)를 따른다.
 
 ## API 호출
 

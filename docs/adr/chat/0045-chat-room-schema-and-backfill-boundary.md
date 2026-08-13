@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-08-03
 - 결정일: 2026-08-04
-- 관련: [CHAT-01 P1 방 채팅 명세](../../p1/chatting.md), [CHAT_ROOMS 저장 계약](../../ERD.md#chat_rooms), [#279 스키마 생성](https://github.com/bamsongi-club/albam-mate/issues/279), [#281 backfill·경합 검증](https://github.com/bamsongi-club/albam-mate/issues/281), [ADR-0049](0049-chat-message-retention-lock-section-boundary.md)
+- 관련: [CHAT-01 P1 방 채팅 명세](../../archive/p1/chatting.md), [CHAT_ROOMS 저장 계약](../../ERD.md#chat_rooms), [#279 스키마 생성](https://github.com/bamsongi-club/albam-mate/issues/279), [#281 backfill·경합 검증](https://github.com/bamsongi-club/albam-mate/issues/281), [ADR-0049](0049-chat-message-retention-lock-section-boundary.md)
 - 대체 대상: [ADR-0034](0034-chat-message-retention-and-deletion.md)의 기존 ROOM 초기화 실행 경계
 - 후속 ADR: 없음
 

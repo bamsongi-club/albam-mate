@@ -2,7 +2,7 @@
 
 이 문서는 P1 서비스 내 웹 알림의 PostgreSQL Outbox relay를 관측하고, `FAILED` 이벤트를 안전하게 재처리·폐기하며, 보존 기간이 지난 데이터를 정리하는 절차를 정의한다. 현재 적용할 운영 수치는 이 문서의 [현재 운영 파라미터 정본](#현재-운영-파라미터-정본), 기술 선택과 결정 이유는 [ADR-0040](../adr/notification/0040-postgresql-notification-relay-recovery-retention.md), 저장 필드와 제약은 [ERD의 P1 알림 저장 계약](../ERD.md#p1-알림-저장-계약)이 각각 소유한다.
 
-> **단계: P1 운영 계약** · 현재 생산 코드·자동 검증·운영 상태는 [P1 기능 상태 정본의 `NOTI-01`](../p1/README.md#기능별-현재-상태)을 따른다. 생산 코드와 운영 배포가 완료되기 전에는 아래 one-shot 명령을 실행하거나 직접 SQL로 우회하지 않는다.
+> **단계: P1 운영 계약** · 현재 생산 코드·자동 검증·운영 상태는 [P1 기능 종료 상태의 `NOTI-01`](../archive/p1/README.md#기능별-종료-상태)을 따른다. 생산 코드와 운영 배포가 완료되기 전에는 아래 one-shot 명령을 실행하거나 직접 SQL로 우회하지 않는다.
 
 ## 문서 소유권과 변경 규칙
 
@@ -10,7 +10,7 @@
 - ADR-0030과 ADR-0040 결정 본문의 숫자는 각 결정 당시 기준을 보존하는 역사 기록이다. 현행 정책은 ADR-0040, 현재 구현·테스트·운영 판정에 적용할 수치는 아래 표를 사용한다.
 - 아래 값을 바꾸는 것은 ADR-0040의 승인 결정을 바꾸는 일이므로 후속 ADR 승인 없이 이 표만 수정하지 않는다. 승인된 후속 ADR, 이 표, 구현 설정·테스트와 운영 증거 양식을 같은 변경에서 맞춘다.
 - 다른 문서나 구현값이 이 표와 다르면 임의로 절충하지 않고 문서·구현 drift로 판정한다. 운영 배포의 effective value도 표와 일치해야 한다.
-- 브라우저 알림 조회 주기는 relay 운영 수치가 아니라 [P1 알림 프론트엔드 UX 계약](../p1/notification.md#조회와-polling)이 소유한다. API 페이지 크기처럼 다른 경계의 수치도 이 표에 섞지 않는다.
+- 브라우저 알림 조회 주기는 relay 운영 수치가 아니라 [P1 알림 프론트엔드 UX 계약](../archive/p1/notification.md#조회와-polling)이 소유한다. API 페이지 크기처럼 다른 경계의 수치도 이 표에 섞지 않는다.
 
 ## 현재 운영 파라미터 정본
 
@@ -54,7 +54,7 @@ deliveryDelayMs = Notification.recordedAt - Outbox.recordedAt
 - `Outbox.recordedAt`: 원인 업무의 최종 성공 트랜잭션이 PostgreSQL에서 한 번 고정한 Outbox 기록 `operationTime`
 - `Notification.recordedAt`: relay 트랜잭션이 PostgreSQL에서 한 번 고정한 Notification 기록 `operationTime`
 - 두 값은 같은 PostgreSQL 시계에서 생성한 작업 시각이지만 실제 commit timestamp는 아니다.
-- 브라우저의 조회 polling과 화면 렌더링 시간은 포함하지 않는다. polling 값의 정본은 [프론트엔드 UX 계약](../p1/notification.md#조회와-polling)이다.
+- 브라우저의 조회 polling과 화면 렌더링 시간은 포함하지 않는다. polling 값의 정본은 [프론트엔드 UX 계약](../archive/p1/notification.md#조회와-polling)이다.
 - 결과가 음수이면 0으로 보정하거나 표본에서 제외하지 않는다. PostgreSQL 호스트 시계의 역방향 보정 또는 저장 시각 생성 계약 위반으로 기록하고 해당 측정 구간을 유효한 p95 근거로 사용하지 않는다.
 
 ### p95 표본과 산식
@@ -188,7 +188,7 @@ relay가 PostgreSQL에서 고정한 `operationTime`이 `occurredAt + NOTIFICATIO
 
 ### 명령 예시의 상태
 
-아래 형태는 P1 알림 운영 CLI 계약이다. 실행 가능 여부는 [P1 기능 상태 정본의 `NOTI-01`](../p1/README.md#기능별-현재-상태)을 따르며, 생산 코드와 운영 배포가 완료되기 전에는 실행하지 않는다. 실행할 때는 `<배포 JAR 절대 경로>`와 실행자·사유·이벤트 ID를 실제 값으로 바꾼다.
+아래 형태는 P1 알림 운영 CLI 계약이다. 실행 가능 여부는 [P1 기능 종료 상태의 `NOTI-01`](../archive/p1/README.md#기능별-종료-상태)을 따르며, 생산 코드와 운영 배포가 완료되기 전에는 실행하지 않는다. 실행할 때는 `<배포 JAR 절대 경로>`와 실행자·사유·이벤트 ID를 실제 값으로 바꾼다.
 
 #### 상태 확인
 
@@ -289,7 +289,7 @@ java -jar $notificationArtifact `
 
 운영 가능 판정에는 다음 근거가 모두 필요하다.
 
-1. [P1 알림 명세의 검증 증거 매핑](../p1/notification.md#검증-증거-매핑)에 연결된 단위·MVC·PostgreSQL 테스트가 통과한다.
+1. [P1 알림 명세의 검증 증거 매핑](../archive/p1/notification.md#검증-증거-매핑)에 연결된 단위·MVC·PostgreSQL 테스트가 통과한다.
 2. `notification-ops`의 inspect·dry-run·재처리·폐기 확인·일괄 원자성·종료 코드, `sourceEventIds` 오름차순 정규화와 preview·completed 대상 목록 일치, `reasonReference` 형식 거절과 `NOTIFICATION_EXPIRED` 재처리 거절 테스트가 통과한다.
 3. PostgreSQL에서 다중 worker `SKIP LOCKED`, poison event 격리, cleanup 다중 인스턴스 선점과 서로 겹치는 역순 복구 ID 변경 명령이 교착 없이 한 명령의 성공 또는 계약된 전체 부적격 결과로 끝나는지 검증한다.
 4. 고정된 commit·환경에서 `DELIVERY_MIN_SAMPLE_COUNT` 이상 전달 지연 표본을 만들고 산식과 환경을 기록한다.
@@ -321,7 +321,7 @@ reasonReference / 실행자:
 
 ## 관련 문서
 
-- [P1 알림 구현 명세](../p1/notification.md)
+- [P1 알림 구현 명세](../archive/p1/notification.md)
 - [ADR-0029: 방 변경 통합 이벤트와 Transactional Outbox](../adr/notification/0029-room-integration-event-transactional-outbox.md)
 - [ADR-0030: PostgreSQL polling relay 처리와 복구 — 대체됨](../adr/notification/0030-postgresql-notification-relay-processing-recovery.md)
 - [ADR-0040: PostgreSQL 알림 relay·복구·보존 정책](../adr/notification/0040-postgresql-notification-relay-recovery-retention.md)

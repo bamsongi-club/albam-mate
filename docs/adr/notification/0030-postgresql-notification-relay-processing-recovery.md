@@ -3,7 +3,7 @@
 - 상태: 대체됨
 - 작성일: 2026-07-31
 - 결정일: 2026-07-31
-- 관련: [P1 알림 구현 명세](../../p1/notification.md#noti-01-모임-변경-알림-생성), [P1 알림 생성과 조회](../../P1-spec.md#알림-생성과-조회), [ERD](../../ERD.md), [ADR-0002](../platform/0002-postgresql-primary-database.md), [ADR-0009](../platform/0009-utc-time-standard.md), [ADR-0029](0029-room-integration-event-transactional-outbox.md)
+- 관련: [P1 알림 구현 명세](../../archive/p1/notification.md#noti-01-모임-변경-알림-생성), [P1 알림 생성과 조회](../../archive/p1/P1-spec.md#알림-생성과-조회), [ERD](../../ERD.md), [ADR-0002](../platform/0002-postgresql-primary-database.md), [ADR-0009](../platform/0009-utc-time-standard.md), [ADR-0029](0029-room-integration-event-transactional-outbox.md)
 - 대체 대상: 없음
 - 후속 ADR: [ADR-0040](0040-postgresql-notification-relay-recovery-retention.md)
 
@@ -137,8 +137,8 @@ relay는 전역 순서와 방별 처리 순서를 보장하지 않는다. 앞선
 
 ## 참고 자료
 
-- [P1 알림 구현 명세](../../p1/notification.md)
-- [P1 공통 명세](../../P1-spec.md)
+- [P1 알림 구현 명세](../../archive/p1/notification.md)
+- [P1 공통 명세](../../archive/p1/P1-spec.md)
 - [ADR-0002](../platform/0002-postgresql-primary-database.md)
 - [ADR-0029](0029-room-integration-event-transactional-outbox.md)
 

@@ -1,17 +1,17 @@
 # 알밤메이트 API 명세서
 
-- 문서 상태: **P0 현행 + 승인되어 반영된 P1 목표 HTTP·WebSocket 인터페이스 계약 (정본)**
-- 기준 문서: [PRD](PRD.md), [P1 공통 명세](P1-spec.md), [P1 기능별 명세](p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md), [ERD](ERD.md)
+- 문서 상태: **현재 제공하는 P0·P1 HTTP·WebSocket 인터페이스 계약 (정본) · P2 변경 미반영**
+- 기준 문서: [PRD](PRD.md), [P2 공통 명세](P2-spec.md), [P2 기능 상태](p2/README.md), [P1 종료 명세](archive/p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md), [ERD](ERD.md)
 
 ### 이 문서의 범위
 
 | 구분 | 내용 |
 |---|---|
 | 이 문서가 정본인 것 | 클라이언트와 서버 사이 HTTP·WebSocket 계약 — 경로, 인증·CSRF, handshake, 요청·응답·이벤트 스키마, 쿼리 파라미터, 상태, 오류 코드와 판정 순서 |
-| 이 문서가 담지 않는 것 | 제품 규칙의 배경(→ [P1-spec](P1-spec.md), [p1/](p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md)), 저장 구조·계산식(→ [ERD](ERD.md)), 되돌리기 어려운 기술 결정과 근거(→ [ADR](adr/README.md)) |
-| 변경 시 함께 갱신 | API 계약을 바꾸면 같은 변경에서 이 문서와 [엔드포인트별 오류 매트릭스](#11-부록-엔드포인트별-오류-매트릭스)를 함께 갱신하고, 관련 정본([P1-spec](P1-spec.md)·[P1 기능 문서](p1/README.md)·[ERD](ERD.md)·[ADR](adr/README.md))과의 정합을 확인한다. 상세 규칙은 [CONVENTIONS](CONVENTIONS.md#api-응답)를 따른다. |
+| 이 문서가 담지 않는 것 | 제품 규칙의 배경(→ [P2-spec](P2-spec.md), [P2 기능 문서](p2/README.md), [P1 종료 명세](archive/p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md)), 저장 구조·계산식(→ [ERD](ERD.md)), 되돌리기 어려운 기술 결정과 근거(→ [ADR](adr/README.md)) |
+| 변경 시 함께 갱신 | API 계약을 바꾸면 같은 변경에서 이 문서와 [엔드포인트별 오류 매트릭스](#11-부록-엔드포인트별-오류-매트릭스)를 함께 갱신하고, 관련 P2 기능 명세·[ERD](ERD.md)·[ADR](adr/README.md)과의 정합을 확인한다. 상세 규칙은 [CONVENTIONS](CONVENTIONS.md#api-응답)를 따른다. |
 
-> `P0`, `P1`은 API가 도입되는 제품 단계이며 현재 구현 상태값이 아니다. P0 현행과 승인되어 이 문서에 반영된 P1 목표 계약을 함께 관리하고, P1 기능의 현재 계약 준비·생산 코드·자동 검증·운영 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)만 따른다.
+> `P0`, `P1`, `P2`는 API가 도입되는 제품 단계이며 현재 구현 상태값이 아니다. P0·P1 계약은 현재 제공 인터페이스로 유지하고, 새 P2 계약은 상세 명세와 필요한 ADR을 확정한 뒤 이 문서에 반영한다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), P2 진행 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
 
 ### 도입 단계와 제공 상태
 
@@ -19,7 +19,7 @@
 
 | 구분·값 | 의미 |
 |---|---|
-| `도입 단계` | 해당 필드·파라미터가 최초로 속한 제품 단계. `P0`, `P1`처럼 기록하며 제공 상태가 바뀌어도 유지한다. |
+| `도입 단계` | 해당 필드·파라미터가 최초로 속한 제품 단계. `P0`, `P1`, `P2`처럼 기록하며 제공 상태가 바뀌어도 유지한다. |
 | `제공` | `develop`에 구현이 반영되고 해당 API 계약 검증을 통과해 현재 요청에 사용하거나 현재 응답에서 기대할 수 있다. |
 | `구현 예정` | 승인된 목표 계약이지만 아직 현재 요청에 사용하거나 현재 응답에서 기대하면 안 된다. |
 | `검토 예정` | 후속 후보로 검토 중이며 목표 계약도 확정되지 않았다. 현재 요청·응답 계약으로 사용하지 않는다. |
@@ -28,7 +28,7 @@
 
 `구현 예정`·`검토 예정` 행의 `필수`·`nullable`·기본값은 `제공`으로 전환된 뒤의 목표 스키마를 뜻한다. 구현과 계약 검증을 완료하면 `도입 단계`는 유지하고 `제공 상태`만 `구현 예정`에서 `제공`으로 바꾼다. 하나의 도입 단계와 제공 상태만 담는 절은 필요한 경우 절 설명에서 기본값을 선언하고 두 열을 생략할 수 있다.
 
-이 표의 `제공 상태`는 HTTP·WebSocket 요청·응답에 해당 항목을 현재 적용할 수 있는지만 나타낸다. 기능 전체의 계약 준비·생산 코드·자동 검증·운영 배포·측정 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)에서 별도로 관리한다.
+이 표의 `제공 상태`는 HTTP·WebSocket 요청·응답에 해당 항목을 현재 적용할 수 있는지만 나타낸다. 기능 전체의 계약 준비·생산 코드·자동 검증·배포·실측 상태는 P1 항목은 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), P2 항목은 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서 별도로 관리한다.
 
 ### 대표 흐름으로 읽기
 
@@ -214,7 +214,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 기능 ID는 엔드포인트가 아니라 기능 단위다. 로그인·로그아웃은 함께 `AUTH-03`, 프로필 조회·수정은 함께 `AUTH-04`, 방 취소·종료는 함께 `ROOM-05`, 알림 목록·미확인 개수는 함께 `NOTI-02`, 단건·일괄 읽음은 함께 `NOTI-03`, 채팅 전송·이력 조회는 함께 `CHAT-02`에 속한다. P1 기능의 제품 규칙 정본과 P0 도입 당시의 완료 기록을 인덱스에서 구분해 링크한다. P0 완료 기록은 현재 HTTP 계약이나 새 구현 범위의 정본이 아니다.
 
-`단계`는 API 도입 제품 단계다(→ [PRD 로드맵](PRD.md#6-단계별-로드맵)). `P0·P1`은 P0에 도입한 경로를 P1에서 확장한다는 뜻이다. 단계가 늘어도 HTTP 계약인 이 파일을 나누지 않고 표에 행·단계 값을 더한다. 단계 표시는 구현 여부에 따라 바꾸지 않으며, P1 기능의 현재 제공 여부는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)으로 판정한다.
+`단계`는 API 도입 제품 단계다(→ [PRD 로드맵](PRD.md#6-단계별-로드맵)). `P0·P1`은 P0에 도입한 경로를 P1에서 확장한다는 뜻이다. 단계가 늘어도 HTTP 계약인 이 파일을 나누지 않고 표에 행·단계 값을 더한다. 단계 표시는 구현 여부에 따라 바꾸지 않으며, P1 기능은 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), P2 기능은 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서 현재 제공 여부를 판정한다.
 
 | # | 단계 | 기능 ID | Method | Path | 인증 | CSRF | 성공 |
 |---:|:---:|---|---|---|:---:|:---:|:---:|
@@ -224,39 +224,39 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 4 | P0 | [AUTH-03](#auth-03-로그아웃) · [P0 완료 기록](archive/p0/auth-profile.md#auth-03-로그인로그아웃) | POST | `/api/auth/logout` | Y | Y | 200 |
 | 5 | P0 | [AUTH-04](#auth-04-내-프로필-조회) · [P0 완료 기록](archive/p0/auth-profile.md#auth-04-내-프로필-조회수정) | GET | `/api/users/me` | Y | N | 200 |
 | 6 | P0 | [AUTH-04](#auth-04-내-프로필-수정) · [P0 완료 기록](archive/p0/auth-profile.md#auth-04-내-프로필-조회수정) | PATCH | `/api/users/me` | Y | Y | 200 |
-| 6.1 | P1 | [AUTH-04](#auth-04-프로필-이미지-업로드) · [정본](p1/social-login.md) | POST | `/api/users/me/profile-image` | Y | Y | 200 |
-| 6.2 | P1 | [AUTH-04](#auth-04-프로필-이미지-삭제) · [정본](p1/social-login.md) | DELETE | `/api/users/me/profile-image` | Y | Y | 200 |
-| 7 | P0·P1 | [GAME-01](#game-01-게임-목록검색) · [P0 완료 기록](archive/p0/game-catalog.md#game-01-게임-목록검색) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games` | 선택 | N | 200 |
-| 8 | P0·P1 | [GAME-02](#game-02-게임-상세-조회) · [P0 완료 기록](archive/p0/game-catalog.md#game-02-게임-상세-조회) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games/{gameId}` | 선택 | N | 200 |
+| 6.1 | P1 | [AUTH-04](#auth-04-프로필-이미지-업로드) · [정본](archive/p1/social-login.md) | POST | `/api/users/me/profile-image` | Y | Y | 200 |
+| 6.2 | P1 | [AUTH-04](#auth-04-프로필-이미지-삭제) · [정본](archive/p1/social-login.md) | DELETE | `/api/users/me/profile-image` | Y | Y | 200 |
+| 7 | P0·P1 | [GAME-01](#game-01-게임-목록검색) · [P0 완료 기록](archive/p0/game-catalog.md#game-01-게임-목록검색) · [SEARCH-01 정본](archive/p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](archive/p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games` | 선택 | N | 200 |
+| 8 | P0·P1 | [GAME-02](#game-02-게임-상세-조회) · [P0 완료 기록](archive/p0/game-catalog.md#game-02-게임-상세-조회) · [SEARCH-01 정본](archive/p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](archive/p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games/{gameId}` | 선택 | N | 200 |
 | 9 | P0 | [ROOM-03](#room-03-방-생성) · [P0 완료 기록](archive/p0/room.md#room-03-방-생성) | POST | `/api/rooms` | Y | Y | 201 |
-| 10 | P0·P1 | [ROOM-01](#room-01-방-목록-조회) · [P0 완료 기록](archive/p0/room.md#room-01-방-탐색) · [SEARCH-02 정본](p1/search.md#search-02-방-조건-검색) · [ROOM-08 정본](p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | GET | `/api/rooms` | 선택 | N | 200 |
-| 11 | P0·P1 | [ROOM-02](#room-02-방-상세-조회) · [P0 완료 기록](archive/p0/room.md#room-02-방-상세) · [ROOM-08 정본](p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | GET | `/api/rooms/{roomId}` | 선택 | N | 200 |
+| 10 | P0·P1 | [ROOM-01](#room-01-방-목록-조회) · [P0 완료 기록](archive/p0/room.md#room-01-방-탐색) · [SEARCH-02 정본](archive/p1/search.md#search-02-방-조건-검색) · [ROOM-08 정본](archive/p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | GET | `/api/rooms` | 선택 | N | 200 |
+| 11 | P0·P1 | [ROOM-02](#room-02-방-상세-조회) · [P0 완료 기록](archive/p0/room.md#room-02-방-상세) · [ROOM-08 정본](archive/p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | GET | `/api/rooms/{roomId}` | 선택 | N | 200 |
 | 12 | P0 | [ROOM-04](#room-04-방-수정) · [P0 완료 기록](archive/p0/room.md#room-04-방-수정) | PATCH | `/api/rooms/{roomId}` | Y | Y | 200 |
 | 13 | P0 | [ROOM-05](#room-05-방-취소) · [P0 완료 기록](archive/p0/room.md#room-05-방-취소종료) | DELETE | `/api/rooms/{roomId}` | Y | Y | 200 |
 | 14 | P0 | [ROOM-05](#room-05-방-종료) · [P0 완료 기록](archive/p0/room.md#room-05-방-취소종료) | PATCH | `/api/rooms/{roomId}/status` | Y | Y | 200 |
 | 15 | P0 | [PART-01](#part-01-방-참가재참가) · [P0 완료 기록](archive/p0/participation.md#part-01-방-참가재참가) | POST | `/api/rooms/{roomId}/participants` | Y | Y | 201 |
-| 16 | P0·P1 | [PART-02](#part-02-참가-취소) · [P0 완료 기록](archive/p0/participation.md#part-02-참가-취소) · [PART-04 정본](p1/room.md#part-04-선착순-대기열과-자동-승격) | DELETE | `/api/rooms/{roomId}/participants/me` | Y | Y | 200 |
-| 17 | P0·P1 | [PART-03](#part-03-내-모임-조회) · [P0 완료 기록](archive/p0/participation.md#part-03-내-모임-조회) · [ROOM-08 정본](p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) · [CHAT-05 정본](p1/chatting.md#chat-05-내-모임-채팅-진입) | GET | `/api/users/me/rooms` | Y | N | 200 |
-| 18 | P1 | [PART-04](#part-04-대기-등록재신청) · [정본](p1/room.md#part-04-선착순-대기열과-자동-승격) | POST | `/api/rooms/{roomId}/waitlist` | Y | Y | 201·200 |
-| 19 | P1 | [PART-04](#part-04-본인-대기-상태-조회) · [정본](p1/room.md#part-04-선착순-대기열과-자동-승격) | GET | `/api/rooms/{roomId}/waitlist/me` | Y | N | 200 |
-| 20 | P1 | [PART-04](#part-04-대기-취소) · [정본](p1/room.md#part-04-선착순-대기열과-자동-승격) | DELETE | `/api/rooms/{roomId}/waitlist/me` | Y | Y | 200 |
-| 21 | P1 | [NOTI-02](#noti-02-내-알림-목록) · [정본](p1/notification.md#noti-02-내-알림-목록미확인-개수) | GET | `/api/users/me/notifications` | Y | N | 200 |
-| 22 | P1 | [NOTI-02](#noti-02-내-미확인-알림-수) · [정본](p1/notification.md#noti-02-내-알림-목록미확인-개수) | GET | `/api/users/me/notifications/unread-count` | Y | N | 200 |
-| 23 | P1 | [NOTI-03](#noti-03-내-알림-단건-읽음) · [정본](p1/notification.md#noti-03-알림-읽음-처리) | PATCH | `/api/users/me/notifications/{notificationId}` | Y | Y | 200 |
-| 24 | P1 | [NOTI-03](#noti-03-내-알림-일괄-읽음) · [정본](p1/notification.md#noti-03-알림-읽음-처리) | PATCH | `/api/users/me/notifications` | Y | Y | 200 |
-| 25 | P1 | [CHAT-02](#chat-02-메시지-전송) · [정본](p1/chatting.md#chat-02-메시지-전송이력-조회) | POST | `/api/rooms/{roomId}/chat/messages` | Y | Y | 201·200 |
-| 26 | P1 | [CHAT-02](#chat-02-메시지-이력-조회) · [정본](p1/chatting.md#chat-02-메시지-전송이력-조회) | GET | `/api/rooms/{roomId}/chat/messages` | Y | N | 200 |
-| 27 | P1 | [CHAT-03](#chat-03-실시간-메시지-구독) · [정본](p1/chatting.md#chat-03-실시간-전달재연결-복구) | GET (Upgrade) | `/api/rooms/{roomId}/chat/ws` | Y | N | 101 |
-| 28 | P1 | [AUTH-05](#auth-05-소셜-로그인계정-연결) · [정본](p1/social-login.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/providers` | 선택 | N | 200 |
-| 29 | P1 | [AUTH-05](#소셜-로그인-authorization-시작) · [정본](p1/social-login.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/authorization/{provider}` | N | N | 302 |
-| 30 | P1 | [AUTH-05](#소셜-callback과-고정-결과) · [정본](p1/social-login.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/callback/{provider}` | N | N | 302 |
-| 31 | P1 | [AUTH-05](#소셜-계정-연결-시작) · [정본](p1/social-login.md#auth-05-소셜-로그인계정-연결) | POST | `/api/users/me/social-accounts/{provider}/link` | Y | Y | 200 |
-| 32 | P1 | [SEARCH-03](#search-03-해-본-게임-표시) · [정본](p1/search.md#search-03-사용자별-해-본-게임) | PUT | `/api/users/me/played-games/{gameId}` | Y | Y | 200 |
-| 33 | P1 | [SEARCH-03](#search-03-해-본-게임-표시-취소) · [정본](p1/search.md#search-03-사용자별-해-본-게임) | DELETE | `/api/users/me/played-games/{gameId}` | Y | Y | 200 |
-| 34 | P1 | [GAME-03](#game-03-게임-메커니즘-선택지-조회) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) | GET | `/api/game-mechanisms` | N | N | 200 |
-| 35 | P1 | [GAME-04](#game-04-게임-카테고리-선택지-조회) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) | GET | `/api/game-categories` | N | N | 200 |
-| 36 | P1 | [GAME-05](#game-05-게임-테마-선택지-조회) · [SEARCH-01 정본](p1/search.md#search-01-게임-조건-검색) | GET | `/api/game-themes` | N | N | 200 |
-| 37 | P1 | [RANK-01](#rank-01-인기-게임-랭킹-조회) · [정본](p1/ranking.md#rank-01-인기-게임-랭킹) | GET | `/api/game-rankings` | N | N | 200 |
+| 16 | P0·P1 | [PART-02](#part-02-참가-취소) · [P0 완료 기록](archive/p0/participation.md#part-02-참가-취소) · [PART-04 정본](archive/p1/room.md#part-04-선착순-대기열과-자동-승격) | DELETE | `/api/rooms/{roomId}/participants/me` | Y | Y | 200 |
+| 17 | P0·P1 | [PART-03](#part-03-내-모임-조회) · [P0 완료 기록](archive/p0/participation.md#part-03-내-모임-조회) · [ROOM-08 정본](archive/p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) · [CHAT-05 정본](archive/p1/chatting.md#chat-05-내-모임-채팅-진입) | GET | `/api/users/me/rooms` | Y | N | 200 |
+| 18 | P1 | [PART-04](#part-04-대기-등록재신청) · [정본](archive/p1/room.md#part-04-선착순-대기열과-자동-승격) | POST | `/api/rooms/{roomId}/waitlist` | Y | Y | 201·200 |
+| 19 | P1 | [PART-04](#part-04-본인-대기-상태-조회) · [정본](archive/p1/room.md#part-04-선착순-대기열과-자동-승격) | GET | `/api/rooms/{roomId}/waitlist/me` | Y | N | 200 |
+| 20 | P1 | [PART-04](#part-04-대기-취소) · [정본](archive/p1/room.md#part-04-선착순-대기열과-자동-승격) | DELETE | `/api/rooms/{roomId}/waitlist/me` | Y | Y | 200 |
+| 21 | P1 | [NOTI-02](#noti-02-내-알림-목록) · [정본](archive/p1/notification.md#noti-02-내-알림-목록미확인-개수) | GET | `/api/users/me/notifications` | Y | N | 200 |
+| 22 | P1 | [NOTI-02](#noti-02-내-미확인-알림-수) · [정본](archive/p1/notification.md#noti-02-내-알림-목록미확인-개수) | GET | `/api/users/me/notifications/unread-count` | Y | N | 200 |
+| 23 | P1 | [NOTI-03](#noti-03-내-알림-단건-읽음) · [정본](archive/p1/notification.md#noti-03-알림-읽음-처리) | PATCH | `/api/users/me/notifications/{notificationId}` | Y | Y | 200 |
+| 24 | P1 | [NOTI-03](#noti-03-내-알림-일괄-읽음) · [정본](archive/p1/notification.md#noti-03-알림-읽음-처리) | PATCH | `/api/users/me/notifications` | Y | Y | 200 |
+| 25 | P1 | [CHAT-02](#chat-02-메시지-전송) · [정본](archive/p1/chatting.md#chat-02-메시지-전송이력-조회) | POST | `/api/rooms/{roomId}/chat/messages` | Y | Y | 201·200 |
+| 26 | P1 | [CHAT-02](#chat-02-메시지-이력-조회) · [정본](archive/p1/chatting.md#chat-02-메시지-전송이력-조회) | GET | `/api/rooms/{roomId}/chat/messages` | Y | N | 200 |
+| 27 | P1 | [CHAT-03](#chat-03-실시간-메시지-구독) · [정본](archive/p1/chatting.md#chat-03-실시간-전달재연결-복구) | GET (Upgrade) | `/api/rooms/{roomId}/chat/ws` | Y | N | 101 |
+| 28 | P1 | [AUTH-05](#auth-05-소셜-로그인계정-연결) · [정본](archive/p1/social-login.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/providers` | 선택 | N | 200 |
+| 29 | P1 | [AUTH-05](#소셜-로그인-authorization-시작) · [정본](archive/p1/social-login.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/authorization/{provider}` | N | N | 302 |
+| 30 | P1 | [AUTH-05](#소셜-callback과-고정-결과) · [정본](archive/p1/social-login.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/callback/{provider}` | N | N | 302 |
+| 31 | P1 | [AUTH-05](#소셜-계정-연결-시작) · [정본](archive/p1/social-login.md#auth-05-소셜-로그인계정-연결) | POST | `/api/users/me/social-accounts/{provider}/link` | Y | Y | 200 |
+| 32 | P1 | [SEARCH-03](#search-03-해-본-게임-표시) · [정본](archive/p1/search.md#search-03-사용자별-해-본-게임) | PUT | `/api/users/me/played-games/{gameId}` | Y | Y | 200 |
+| 33 | P1 | [SEARCH-03](#search-03-해-본-게임-표시-취소) · [정본](archive/p1/search.md#search-03-사용자별-해-본-게임) | DELETE | `/api/users/me/played-games/{gameId}` | Y | Y | 200 |
+| 34 | P1 | [GAME-03](#game-03-게임-메커니즘-선택지-조회) · [SEARCH-01 정본](archive/p1/search.md#search-01-게임-조건-검색) | GET | `/api/game-mechanisms` | N | N | 200 |
+| 35 | P1 | [GAME-04](#game-04-게임-카테고리-선택지-조회) · [SEARCH-01 정본](archive/p1/search.md#search-01-게임-조건-검색) | GET | `/api/game-categories` | N | N | 200 |
+| 36 | P1 | [GAME-05](#game-05-게임-테마-선택지-조회) · [SEARCH-01 정본](archive/p1/search.md#search-01-게임-조건-검색) | GET | `/api/game-themes` | N | N | 200 |
+| 37 | P1 | [RANK-01](#rank-01-인기-게임-랭킹-조회) · [정본](archive/p1/ranking.md#rank-01-인기-게임-랭킹) | GET | `/api/game-rankings` | N | N | 200 |
 
 `GET /api/games`, `GET /api/games/{gameId}`, `GET /api/rooms`, `GET /api/rooms/{roomId}`와 `GET /api/auth/social/providers`의 인증은 "선택"이다. 비로그인도 호출할 수 있고, 유효한 세션이 있으면 요청자 기준 값을 계산한다. 단, `GET /api/games`의 유효한 `playedFilter`는 로그인을 요구한다.
 
@@ -331,7 +331,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 ### WaitlistStatus
 
-> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `PART-04`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `PART-04`](archive/p1/README.md#기능별-종료-상태)
 
 본인의 ROOM별 최신 대기 결과다.
 
@@ -347,7 +347,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 ### GamePlayTimeFilter
 
-> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `SEARCH-01`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `SEARCH-01`](archive/p1/README.md#기능별-종료-상태)
 
 `GET /api/games`의 플레이 시간 구간 값이다. 검증된 최대 플레이 시간을 기준으로 판정한다.
 
@@ -359,7 +359,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 ### PlayedFilter
 
-> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `SEARCH-03`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `SEARCH-03`](archive/p1/README.md#기능별-종료-상태)
 
 `GET /api/games`의 사용자별 해 본 게임 관계 필터다.
 
@@ -372,7 +372,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 ### ThemeMatch
 
-> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `SEARCH-01`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `SEARCH-01`](archive/p1/README.md#기능별-종료-상태)
 
 `GET /api/games`의 반복 `theme` 조건 결합 방식이다. `theme`을 생략하면 두 값 모두 결과에 영향을 주지 않는다.
 
@@ -383,7 +383,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 ### MechanismMatch
 
-> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `SEARCH-01`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `SEARCH-01`](archive/p1/README.md#기능별-종료-상태)
 
 `GET /api/games`의 반복 `mechanism` 조건 결합 방식이다. `mechanism`을 생략하면 두 값 모두 결과에 영향을 주지 않는다.
 
@@ -394,7 +394,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 ### SocialProvider
 
-> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `AUTH-05`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `AUTH-05`](archive/p1/README.md#기능별-종료-상태)
 
 | 값 | 경로값 | 의미 |
 |---|---|---|
@@ -404,7 +404,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 ### NotificationType
 
-> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `NOTI-01`~`NOTI-03`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `NOTI-01`~`NOTI-03`](archive/p1/README.md#기능별-종료-상태)
 
 | 값 | 수신자에게 표시하는 의미 |
 |---|---|
@@ -415,7 +415,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 `PARTICIPANT_JOINED`는 최초 참가와 취소 뒤 재참가를 구분하지 않는다. `WAITLIST_PROMOTED`는 실제 자동 승격된 사용자에게만 생성되며 주최자용 빈자리 알림과 함께 생성되지 않는다. 알림 응답은 참가자의 닉네임·사용자 ID·이메일을 포함하지 않으며, 클라이언트는 `type`으로 표시 문구·방식과 동작을 렌더링한다.
 
-`NotificationListItem`에는 `message` 필드가 없고 서버도 표시 문구를 생성하거나 저장하지 않는다. P1 웹 클라이언트는 `type`과 `roomTitle`로 문구를 만들며, 정확한 기본 문구와 텍스트 렌더링 규칙은 [알림 프론트엔드 UX 계약](p1/notification.md#프론트엔드-ux-계약)을 따른다. 이 규칙은 참가자 식별자를 문구에 복원하거나 추론하는 근거가 아니다.
+`NotificationListItem`에는 `message` 필드가 없고 서버도 표시 문구를 생성하거나 저장하지 않는다. P1 웹 클라이언트는 `type`과 `roomTitle`로 문구를 만들며, 정확한 기본 문구와 텍스트 렌더링 규칙은 [알림 프론트엔드 UX 계약](archive/p1/notification.md#프론트엔드-ux-계약)을 따른다. 이 규칙은 참가자 식별자를 문구에 복원하거나 추론하는 근거가 아니다.
 
 ## 4. 공통 스키마
 
@@ -560,7 +560,7 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 
 참가·참가 취소 요청의 응답이다. 모든 값은 참가 관계 변경과 모집 상태 전이가 끝난 뒤의 값이다.
 
-> 필드 구조는 P0 계약이고, 활성 대기자 자동 승격 뒤 최종 값을 반환하는 동작은 [P1 `PART-04` 계약](p1/room.md#part-04-선착순-대기열과-자동-승격)이다. 현재 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)을 따른다.
+> 필드 구조는 P0 계약이고, 활성 대기자 자동 승격 뒤 최종 값을 반환하는 동작은 [P1 `PART-04` 계약](archive/p1/room.md#part-04-선착순-대기열과-자동-승격)이다. 현재 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태)을 따른다.
 
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
@@ -597,7 +597,7 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 
 ### 4.12 NotificationListItem
 
-> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `NOTI-02`·`NOTI-03`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `NOTI-02`·`NOTI-03`](archive/p1/README.md#기능별-종료-상태)
 
 본인 알림 목록과 단건 읽음 응답에 사용한다. 물리 필드와 조회·읽음 제약은 [ERD의 NOTIFICATIONS](ERD.md#notifications)를 따른다. 저장된 알림은 관련 방에 대한 접근 권한이 아니며, 클라이언트가 `roomId`로 이동할 때 `GET /api/rooms/{roomId}`의 현재 권한과 존재 여부 은닉 계약을 다시 적용한다. 원인 이벤트 시각에 [운영 정본의 `NOTIFICATION_RETENTION`](guides/NOTIFICATION_OPERATIONS.md#현재-운영-파라미터-정본)을 더한 시각이 지난 알림은 물리 삭제 전에도 이 응답 대상이 아니다.
 
@@ -612,7 +612,7 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 
 ### 4.13 UnreadNotificationCountResponse
 
-> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `NOTI-02`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `NOTI-02`](archive/p1/README.md#기능별-종료-상태)
 
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
@@ -620,7 +620,7 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 
 ### 4.14 NotificationBulkReadResponse
 
-> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `NOTI-03`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `NOTI-03`](archive/p1/README.md#기능별-종료-상태)
 
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
@@ -630,7 +630,7 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 
 ### 4.15 ChatMessage
 
-> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `CHAT-02`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `CHAT-02`](archive/p1/README.md#기능별-종료-상태)
 
 채팅 이력과 메시지 전송 성공 응답에 사용한다. 메시지 본문은 일반 텍스트로만 반환하며 HTML·스크립트로 해석하지 않는다.
 
@@ -646,7 +646,7 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 
 ### 4.16 ChatMessagePage
 
-> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `CHAT-02`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `CHAT-02`](archive/p1/README.md#기능별-종료-상태)
 
 `GET /api/rooms/{roomId}/chat/messages`의 응답이다.
 
@@ -658,7 +658,7 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 
 ### 4.17 ChatMessageEvent
 
-> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `CHAT-03`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `CHAT-03`](archive/p1/README.md#기능별-종료-상태)
 
 `GET /api/rooms/{roomId}/chat/ws`로 Upgrade한 WebSocket이 보내는 서버 발신 텍스트 이벤트다.
 
@@ -670,7 +670,7 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 
 ### 4.18 MyRoomWaitlistResponse
 
-> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `PART-04`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `PART-04`](archive/p1/README.md#기능별-종료-상태)
 
 `PART-04` 대기 등록·조회 응답이다. 서버는 상태 조회에 필요한 ROOM·사용자별 최신 대기 결과를 보존한다.
 
@@ -696,7 +696,7 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 
 ### 4.21 PlayedGameStateResponse
 
-> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `SEARCH-03`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `SEARCH-03`](archive/p1/README.md#기능별-종료-상태)
 
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
@@ -916,9 +916,9 @@ multipart/form-data 형식으로 `file` 파라미터에 이미지를 전송한�
 
 ### AUTH-05 소셜 로그인·계정 연결
 
-> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `AUTH-05`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `AUTH-05`](archive/p1/README.md#기능별-종료-상태)
 
-이 절은 #328에서 승인된 계약이다. 제품 규칙은 [P1 소셜 로그인 명세](p1/social-login.md), 외부 식별자·세션 결정은 [ADR-0042](adr/auth/0042-p1-oauth-social-identity-and-session-integration.md)를 따른다. 경로의 `{provider}`는 [SocialProvider](#socialprovider)의 소문자 경로값만 허용한다.
+이 절은 #328에서 승인된 계약이다. 제품 규칙은 [P1 소셜 로그인 명세](archive/p1/social-login.md), 외부 식별자·세션 결정은 [ADR-0042](adr/auth/0042-p1-oauth-social-identity-and-session-integration.md)를 따른다. 경로의 `{provider}`는 [SocialProvider](#socialprovider)의 소문자 경로값만 허용한다.
 
 #### 설정된 소셜 제공자 조회
 
@@ -965,7 +965,7 @@ Spring Security filter가 OAuth2 Authorization Code 요청과 추측하기 어�
 
 로그인 성공은 `/?socialAuth=login-success#/home`, 연결 성공은 `/?socialAuth=link-success#/profile`처럼 query 뒤에 hash route를 붙인다. 로그인 성공은 새 `CurrentUserPrincipal`을 저장하고, 연결 성공은 기존 사용자를 유지한다. 두 성공 모두 세션 ID를 교체하고 기존 CSRF 토큰을 무효화한다. 로그인 실패·취소는 사용자를 만들거나 인증하지 않고, 연결 실패·취소는 기존 로그인 상태를 복구·유지하며 일회성 연결 의도를 폐기한다.
 
-`link-required`는 비로그인 첫 로그인에서만 반환한다. 인증된 명시적 연결 callback은 제공자 이메일의 일치·중복과 무관하게 현재 세션 사용자를 연결 대상으로 유지하며, 외부 식별자 또는 사용자·제공자 유일 제약이 충돌할 때만 `link-conflict`로 돌아간다. 제공자별 이메일 신뢰 조건과 `null` 매핑은 [P1 소셜 로그인 명세](p1/social-login.md#제공자-이메일-매핑)를 따른다.
+`link-required`는 비로그인 첫 로그인에서만 반환한다. 인증된 명시적 연결 callback은 제공자 이메일의 일치·중복과 무관하게 현재 세션 사용자를 연결 대상으로 유지하며, 외부 식별자 또는 사용자·제공자 유일 제약이 충돌할 때만 `link-conflict`로 돌아간다. 제공자별 이메일 신뢰 조건과 `null` 매핑은 [P1 소셜 로그인 명세](archive/p1/social-login.md#제공자-이메일-매핑)를 따른다.
 
 #### 소셜 계정 연결 시작
 
@@ -1583,7 +1583,7 @@ Request body는 없다.
 
 ### PART-02 참가 취소
 
-> **단계: P0 현행 + P1 `PART-04` 확장 계약** · 현재 P1 상태: [기능 상태 정본](p1/README.md#기능별-현재-상태)
+> **단계: P0 현행 + P1 `PART-04` 확장 계약** · 현재 P1 상태: [기능 상태 정본](archive/p1/README.md#기능별-종료-상태)
 
 | 항목 | 값 |
 |---|---|
@@ -1624,7 +1624,7 @@ Request body는 없다.
 
 ### PART-03 내 모임 조회
 
-> **단계: P0 현행 + P1 `ROOM-08`·`CHAT-05` 확장 계약** · 현재 P1 상태: [기능 상태 정본](p1/README.md#기능별-현재-상태)
+> **단계: P0 현행 + P1 `ROOM-08`·`CHAT-05` 확장 계약** · 현재 P1 상태: [기능 상태 정본](archive/p1/README.md#기능별-종료-상태)
 
 | 항목 | 값 |
 |---|---|
@@ -1659,7 +1659,7 @@ Request body는 없다.
 
 ### PART-04 대기 등록·재신청
 
-> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `PART-04`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `PART-04`](archive/p1/README.md#기능별-종료-상태)
 
 | 항목 | 값 |
 |---|---|
@@ -1707,7 +1707,7 @@ Request body는 없다.
 
 ### PART-04 본인 대기 상태 조회
 
-> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `PART-04`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `PART-04`](archive/p1/README.md#기능별-종료-상태)
 
 | 항목 | 값 |
 |---|---|
@@ -1740,7 +1740,7 @@ Request body는 없다.
 
 ### PART-04 대기 취소
 
-> **단계: P1 계약** · 현재 상태: [P1 기능 상태 정본의 `PART-04`](p1/README.md#기능별-현재-상태)
+> **단계: P1 계약** · 현재 상태: [P1 기능 종료 상태의 `PART-04`](archive/p1/README.md#기능별-종료-상태)
 
 | 항목 | 값 |
 |---|---|
@@ -1773,9 +1773,9 @@ Request body는 없다.
 
 > **단계: P1 계약**
 >
-> `NOTI-02`·`NOTI-03`의 현재 제공·검증·운영 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)을 따른다. 이 절은 상태가 바뀌어도 P1 HTTP 계약으로 유지한다.
+> `NOTI-02`·`NOTI-03`의 현재 제공·검증·운영 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태)을 따른다. 이 절은 상태가 바뀌어도 P1 HTTP 계약으로 유지한다.
 
-P1 알림 API는 로그인한 사용자의 앱 내 알림만 제공하도록 계약한다. 알림 생성은 방·참가 업무와 내부 Outbox relay가 담당하므로 공개 생성 API는 없다. 제품 범위·수신자·중복 방지 규칙은 [P1 알림 구현 명세](p1/notification.md), 물리 저장 구조는 [ERD의 P1 알림 저장 계약](ERD.md#p1-알림-저장-계약)을 따른다.
+P1 알림 API는 로그인한 사용자의 앱 내 알림만 제공하도록 계약한다. 알림 생성은 방·참가 업무와 내부 Outbox relay가 담당하므로 공개 생성 API는 없다. 제품 범위·수신자·중복 방지 규칙은 [P1 알림 구현 명세](archive/p1/notification.md), 물리 저장 구조는 [ERD의 P1 알림 저장 계약](ERD.md#p1-알림-저장-계약)을 따른다.
 
 ### NOTI-02 내 알림 목록
 
@@ -1892,12 +1892,12 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 
 - 미확인 배지의 정본은 `GET /api/users/me/notifications/unread-count` 응답이다. 현재 불러온 목록 한 페이지의 `readAt`만 세어 전체 미확인 개수를 만들지 않는다.
 - 단건 읽음 성공 시 같은 `id`의 목록 항목을 응답 `NotificationListItem`으로 갱신하고 미확인 개수를 즉시 다시 조회한다. 이미 읽은 알림의 반복 요청도 응답에 담긴 최초 `readAt`을 그대로 적용한다.
-- 일괄 읽음 성공 시 `boundaryNotificationId`를 실제 갱신 ID 집합이나 클라이언트 읽음 경계로 해석해 현재 목록을 직접 변경하지 않는다. 목록 첫 페이지와 미확인 개수를 즉시 다시 조회해 서버 응답으로 교체하며, polling 중단·이전 응답 폐기와 요청 세대 규칙은 [알림 프론트엔드 UX 계약](p1/notification.md#읽음-상태-동기화)을 따른다. `updatedCount`만으로 배지를 영구히 `0`으로 고정하지 않는다.
-- 낙관적으로 화면을 먼저 바꾼 읽음 요청이 실패하면 그 상태를 확정하지 않는다. 목록과 미확인 개수를 다시 조회해 서버 상태로 복구하며, 상세 사용자 동작은 [알림 프론트엔드 UX 계약](p1/notification.md#프론트엔드-ux-계약)을 따른다.
+- 일괄 읽음 성공 시 `boundaryNotificationId`를 실제 갱신 ID 집합이나 클라이언트 읽음 경계로 해석해 현재 목록을 직접 변경하지 않는다. 목록 첫 페이지와 미확인 개수를 즉시 다시 조회해 서버 응답으로 교체하며, polling 중단·이전 응답 폐기와 요청 세대 규칙은 [알림 프론트엔드 UX 계약](archive/p1/notification.md#읽음-상태-동기화)을 따른다. `updatedCount`만으로 배지를 영구히 `0`으로 고정하지 않는다.
+- 낙관적으로 화면을 먼저 바꾼 읽음 요청이 실패하면 그 상태를 확정하지 않는다. 목록과 미확인 개수를 다시 조회해 서버 상태로 복구하며, 상세 사용자 동작은 [알림 프론트엔드 UX 계약](archive/p1/notification.md#프론트엔드-ux-계약)을 따른다.
 
 ### 채팅 공통 계약
 
-채팅의 제품 규칙은 [P1 방 채팅 기능 명세](p1/chatting.md)를 따른다. 아래 HTTP·WebSocket 인터페이스는 현재 제공 중이며 기능별 구현·검증·운영 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)을 따른다. 메시지 ID cursor·실시간 전달·PostgreSQL 정본·보관 경계는 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0049](adr/chat/0049-chat-message-retention-lock-section-boundary.md), 전송 제한·Redis 실패 처리의 공개 계약은 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)과 [#372 정본 반영 이슈](https://github.com/bamsongi-club/albam-mate/issues/372)에 따른다.
+채팅의 제품 규칙은 [P1 방 채팅 기능 명세](archive/p1/chatting.md)를 따른다. 아래 HTTP·WebSocket 인터페이스는 현재 제공 중이며 기능별 구현·검증·운영 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태)을 따른다. 메시지 ID cursor·실시간 전달·PostgreSQL 정본·보관 경계는 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0049](adr/chat/0049-chat-message-retention-lock-section-boundary.md), 전송 제한·Redis 실패 처리의 공개 계약은 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)과 [#372 정본 반영 이슈](https://github.com/bamsongi-club/albam-mate/issues/372)에 따른다.
 
 모든 채팅 요청은 요청 시점의 방 상태와 주최자·현재 `ACTIVE` 참가자 관계를 서버에서 다시 확인한다. 접근 확인 전 대상 ROOM 보정의 낙관 락 재시도를 소진하면 `409 ROOM_CONCURRENT_MODIFICATION`을 반환한다. `RECRUITING`·`CLOSED` 방만 일반 사용자 접근을 허용하며, 참가 취소·`CANCELED`·`FINISHED` 상태는 `FORBIDDEN`으로 거절한다. 메시지 본문은 로그와 메트릭에 기록하지 않는다.
 

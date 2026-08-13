@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-31
 - 결정일: 2026-08-03
-- 관련: [결정 이슈 #301](https://github.com/bamsongi-club/albam-mate/issues/301), [정본화 이슈 #304](https://github.com/bamsongi-club/albam-mate/issues/304), [후속 정본 동기화 #305](https://github.com/bamsongi-club/albam-mate/issues/305), [P1 ROOM-08](../../p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리), [P0 방 상태 계약](../../archive/p0/P0-spec.md#방-상태roomstatus), [API RoomStatus](../../API.md#roomstatus), [API PublicRoomResponse](../../API.md#47-publicroomresponse), [ADR-0012](0012-room-request-boundary-state-reconciliation.md), [ADR-0037](../participation/0037-room-waitlist-latest-state-atomic-promotion.md), [ADR-0041](0041-postgresql-room-query-consistent-snapshot.md)
+- 관련: [결정 이슈 #301](https://github.com/bamsongi-club/albam-mate/issues/301), [정본화 이슈 #304](https://github.com/bamsongi-club/albam-mate/issues/304), [후속 정본 동기화 #305](https://github.com/bamsongi-club/albam-mate/issues/305), [P1 ROOM-08](../../archive/p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리), [P0 방 상태 계약](../../archive/p0/P0-spec.md#방-상태roomstatus), [API RoomStatus](../../API.md#roomstatus), [API PublicRoomResponse](../../API.md#47-publicroomresponse), [ADR-0012](0012-room-request-boundary-state-reconciliation.md), [ADR-0037](../participation/0037-room-waitlist-latest-state-atomic-promotion.md), [ADR-0041](0041-postgresql-room-query-consistent-snapshot.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 

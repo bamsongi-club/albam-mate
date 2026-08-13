@@ -1,19 +1,19 @@
 # P1 기반 작업 명세
 
-이 문서는 P1 기능 구현에 앞서 필요한 검색 성능 검증과 실시간 전달 기반을 독립적으로 착수·검증할 단위로 정의한다. 현재 계약 준비·생산 코드·자동 검증·운영 배포와 실측 상태는 [P1 기능별 상태 정본](README.md#기능별-현재-상태)을 따른다. 두 기반 작업은 승인된 제품·HTTP·저장·아키텍처 계약의 후속 작업만 다루며, 새 제품 정책이나 ADR 수준의 기술 결정을 이 문서에서 만들지 않는다. 승인 ADR이 구현 이슈에 위임한 구성값은 [계약·구현 단일 이슈·PR 규칙](README.md#계약과-구현을-같은-이슈pr에서-처리할-때)에 따라 해당 기반 작업에서 확정할 수 있다.
+이 문서는 P1 기능 구현에 앞서 필요한 검색 성능 검증과 실시간 전달 기반을 독립적으로 착수·검증할 단위로 정의한다. 현재 계약 준비·생산 코드·자동 검증·운영 배포와 실측 상태는 [P1 기능별 종료 상태](README.md#기능별-종료-상태)을 따른다. 두 기반 작업은 승인된 제품·HTTP·저장·아키텍처 계약의 후속 작업만 다루며, 새 제품 정책이나 ADR 수준의 기술 결정을 이 문서에서 만들지 않는다. 승인 ADR이 구현 이슈에 위임한 구성값은 [계약·구현 단일 이슈·PR 규칙](README.md#계약과-구현을-같은-이슈pr에서-처리할-때)에 따라 해당 기반 작업에서 확정할 수 있다.
 
 정본은 다음과 같다.
 
-- P1 범위와 공통 규칙: [P1 명세](../P1-spec.md)
+- P1 범위와 공통 규칙: [P1 명세](P1-spec.md)
 - 기능 규칙: [검색](search.md), [방 채팅](chatting.md)
-- HTTP·WebSocket 계약: [API 명세](../API.md)
-- 저장 계약: [ERD](../ERD.md)
-- 구조와 구현 규칙: [아키텍처](../ARCHITECTURE.md), [컨벤션](../CONVENTIONS.md)
+- HTTP·WebSocket 계약: [API 명세](../../API.md)
+- 저장 계약: [ERD](../../ERD.md)
+- 구조와 구현 규칙: [아키텍처](../../ARCHITECTURE.md), [컨벤션](../../CONVENTIONS.md)
 - 기술 결정: 각 항목이 연결한 ADR
 
 ERD의 P1 알림·채팅·ShedLock 저장 계약은 현재 전진 Flyway 마이그레이션과 생산 코드에 구현돼 있다. 그 밖의 P1 저장 변경은 [계약·구현 단일 이슈·PR 규칙](README.md#계약과-구현을-같은-이슈pr에서-처리할-때)을 따른다. 같은 기능 이슈·PR 안에서 관련 생산 코드나 스키마를 작성하기 전에 선택한 물리 저장 계약을 ERD에 반영하고, 전진 Flyway 마이그레이션과 JPA Entity를 같은 변경에서 일치시킨다. 별도 계약 PR은 요구하지 않으며 문서 반영만으로 구현 완료로 보지 않는다.
 
-완료 기준 ID 규칙은 [P1 명세](../P1-spec.md#완료-기준-id)를 따른다. 기반 작업은 제품 기능을 직접 추가하지 않으므로 완료 기준은 산출물과 재현 가능한 검증 근거로 적는다.
+완료 기준 ID 규칙은 [P1 명세](P1-spec.md#완료-기준-id)를 따른다. 기반 작업은 제품 기능을 직접 추가하지 않으므로 완료 기준은 산출물과 재현 가능한 검증 근거로 적는다.
 
 ## 의존 순서와 영향 범위
 
@@ -23,7 +23,7 @@ ERD의 P1 알림·채팅·ShedLock 저장 계약은 현재 전진 Flyway 마이�
 | [FND-10](#fnd-10-실시간-전달과-재연결-기반) | 실시간 전달과 재연결 기반 | 채팅 ADR 승인, API·ERD·아키텍처 계약 반영 | `CHAT-03`, 채팅 연결 보안·누락 복구 검증 |
 
 - `FND-09`는 검색 결과의 정확성을 바꾸지 않고 대표 조회의 실행 계획과 비용을 측정한다. 검색 기능 구현과 함께 착수할 수 있지만 인덱스 결론은 측정 뒤 확정한다.
-- `FND-10`은 [ADR-0031](../adr/chat/0031-chat-history-cursor-pagination.md)부터 [ADR-0033](../adr/chat/0033-postgresql-source-after-commit-delivery.md)까지와 공통 실행 기반 [ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)이 승인되고 저장·모듈 경계가 정본에 반영된 뒤 구현한다.
+- `FND-10`은 [ADR-0031](../../adr/chat/0031-chat-history-cursor-pagination.md)부터 [ADR-0033](../../adr/chat/0033-postgresql-source-after-commit-delivery.md)까지와 공통 실행 기반 [ADR-0038](../../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)이 승인되고 저장·모듈 경계가 정본에 반영된 뒤 구현한다.
 - 두 항목의 PostgreSQL 전용 검증은 H2 테스트만으로 완료했다고 보지 않는다.
 
 ## FND-09 검색 성능과 인덱스 검증
@@ -33,10 +33,10 @@ ERD의 P1 알림·채팅·ShedLock 저장 계약은 현재 전진 Flyway 마이�
 | 구분 | 정본 |
 | --- | --- |
 | 기능 규칙 | [SEARCH-01 게임 조건 검색](search.md#search-01-게임-조건-검색), [SEARCH-02 방 조건 검색](search.md#search-02-방-조건-검색) |
-| 공통 규칙 | [검색 조건과 결과](../P1-spec.md#검색-조건과-결과), [검색 조회 구조와 인덱스](../P1-spec.md#검색-조회-구조와-인덱스) |
-| API 계약 | [게임 목록·검색](../API.md#game-01-게임-목록검색), [방 목록 조회](../API.md#room-01-방-목록-조회) |
-| 데이터·검증 경계 | [ADR-0010](../adr/platform/0010-h2-postgresql-test-boundary.md), [PostgreSQL 테스트 규약](../../src/postgresTest/AGENTS.md) |
-| 선행 결정 | [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md) 승인과 P1 검색 저장 계약 반영 |
+| 공통 규칙 | [검색 조건과 결과](P1-spec.md#검색-조건과-결과), [검색 조회 구조와 인덱스](P1-spec.md#검색-조회-구조와-인덱스) |
+| API 계약 | [게임 목록·검색](../../API.md#game-01-게임-목록검색), [방 목록 조회](../../API.md#room-01-방-목록-조회) |
+| 데이터·검증 경계 | [ADR-0010](../../adr/platform/0010-h2-postgresql-test-boundary.md), [PostgreSQL 테스트 규약](../../../src/postgresTest/AGENTS.md) |
+| 선행 결정 | [ADR-0026](../../adr/game/0026-p1-game-search-normalized-numeric-fields.md) 승인과 P1 검색 저장 계약 반영 |
 
 ### 산출물
 
@@ -72,17 +72,17 @@ ERD의 P1 알림·채팅·ShedLock 저장 계약은 현재 전진 Flyway 마이�
 | 구분 | 정본 |
 | --- | --- |
 | 기능 규칙 | [CHAT-03 실시간 전달·재연결 복구](chatting.md#chat-03-실시간-전달재연결-복구) |
-| API 계약 | [채팅 공통 계약](../API.md#채팅-공통-계약), [실시간 메시지 구독](../API.md#chat-03-실시간-메시지-구독) |
-| 인증·인가 | [ADR-0003](../adr/auth/0003-p0-server-session-spring-security.md), [ADR-0020](../adr/auth/0020-api-endpoint-authorization-policy-registry.md) |
-| ADR | [ADR-0031](../adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](../adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](../adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)·[ADR-0052](../adr/platform/0052-local-profile-multi-instance-default.md) — 승인됨 |
-| 저장·구조 계약 | [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md) |
+| API 계약 | [채팅 공통 계약](../../API.md#채팅-공통-계약), [실시간 메시지 구독](../../API.md#chat-03-실시간-메시지-구독) |
+| 인증·인가 | [ADR-0003](../../adr/auth/0003-p0-server-session-spring-security.md), [ADR-0020](../../adr/auth/0020-api-endpoint-authorization-policy-registry.md) |
+| ADR | [ADR-0031](../../adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](../../adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](../../adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0038](../../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)·[ADR-0052](../../adr/platform/0052-local-profile-multi-instance-default.md) — 승인됨 |
+| 저장·구조 계약 | [ERD](../../ERD.md), [아키텍처](../../ARCHITECTURE.md) |
 | 필수 검증 환경 | 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL·Redis로 구성한 `local` |
-| 착수 전 확정 | [ADR-0052](../adr/platform/0052-local-profile-multi-instance-default.md)가 확정한 `local` 세션 TTL 30분·JSON 직렬화(`SecurityJacksonModules`와 `CurrentUserPrincipal` mixin)와 `albam-mate:local:session\|ratelimit\|chat:events` namespace를 따른다. `production`은 같은 세션 계약을 적용해 `albam-mate:production:session\|chat:events`를 사용한다. `test`·`postgresTest`는 인메모리 저장소를 사용하며 Redis profile은 fallback하지 않는다. |
+| 착수 전 확정 | [ADR-0052](../../adr/platform/0052-local-profile-multi-instance-default.md)가 확정한 `local` 세션 TTL 30분·JSON 직렬화(`SecurityJacksonModules`와 `CurrentUserPrincipal` mixin)와 `albam-mate:local:session\|ratelimit\|chat:events` namespace를 따른다. `production`은 같은 세션 계약을 적용해 `albam-mate:production:session\|chat:events`를 사용한다. `test`·`postgresTest`는 인메모리 저장소를 사용하며 Redis profile은 fallback하지 않는다. |
 
 ### 산출물
 
 - 기존 `JSESSIONID`와 허용 `Origin`을 검증하는 방별 WebSocket handshake 경계
-- [ADR-0038](../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)에 따라 Spring Session Redis로 공유해 HTTP와 WebSocket이 서로 다른 인스턴스에 도달해도 유지되는 인증 경계
+- [ADR-0038](../../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)에 따라 Spring Session Redis로 공유해 HTTP와 WebSocket이 서로 다른 인스턴스에 도달해도 유지되는 인증 경계
 - 현재 방 상태와 주최자·`ACTIVE` 참가 관계를 확인하는 `room` 공개 계약과 채팅 접근 검사
 - `afterMessageId` 이후 누락 이력을 ID 오름차순으로 전달하고 복구 중 새 이벤트를 버퍼링·중복 제거하는 재연결 흐름
 - PostgreSQL 메시지 커밋 뒤 `eventType`·`roomId`·`messageId`만 Redis로 발행하고 각 인스턴스가 DB catch-up하는 fan-out 경로

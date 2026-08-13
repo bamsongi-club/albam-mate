@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-08-01
 - 결정일: 2026-08-01
-- 관련: [현재 알림 운영 파라미터 정본](../../guides/NOTIFICATION_OPERATIONS.md#현재-운영-파라미터-정본), [P1 알림 구현 명세](../../p1/notification.md#noti-01-모임-변경-알림-생성), [P1 알림 생성과 조회](../../P1-spec.md#알림-생성과-조회), [P1 알림 저장 계약](../../ERD.md#p1-알림-저장-계약), [ADR-0029](0029-room-integration-event-transactional-outbox.md), [ADR-0030](0030-postgresql-notification-relay-processing-recovery.md), [ADR-0039](0039-notification-presentation-and-bulk-read-snapshot.md)
+- 관련: [현재 알림 운영 파라미터 정본](../../guides/NOTIFICATION_OPERATIONS.md#현재-운영-파라미터-정본), [P1 알림 구현 명세](../../archive/p1/notification.md#noti-01-모임-변경-알림-생성), [P1 알림 생성과 조회](../../archive/p1/P1-spec.md#알림-생성과-조회), [P1 알림 저장 계약](../../ERD.md#p1-알림-저장-계약), [ADR-0029](0029-room-integration-event-transactional-outbox.md), [ADR-0030](0030-postgresql-notification-relay-processing-recovery.md), [ADR-0039](0039-notification-presentation-and-bulk-read-snapshot.md)
 - 대체 대상: [ADR-0030](0030-postgresql-notification-relay-processing-recovery.md)
 - 후속 ADR: 없음
 
@@ -148,8 +148,8 @@ relay와 cleanup은 처리 수·지연·실패와 PostgreSQL에서 고정한 기
 
 ## 참고 자료
 
-- [P1 알림 구현 명세](../../p1/notification.md)
-- [P1 공통 명세](../../P1-spec.md)
+- [P1 알림 구현 명세](../../archive/p1/notification.md)
+- [P1 공통 명세](../../archive/p1/P1-spec.md)
 - [ADR-0029](0029-room-integration-event-transactional-outbox.md)
 - [ADR-0030 — 대체된 이전 결정](0030-postgresql-notification-relay-processing-recovery.md)
 - [ADR-0039](0039-notification-presentation-and-bulk-read-snapshot.md)

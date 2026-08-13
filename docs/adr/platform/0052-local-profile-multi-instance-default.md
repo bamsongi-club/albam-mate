@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-08-07
 - 결정일: 2026-08-07
-- 관련: [P1 실행 환경과 공용 인프라](../../P1-spec.md#실행-환경과-공용-인프라), [아키텍처의 다중 인스턴스 실행](../../ARCHITECTURE.md#다중-인스턴스-실행), [FND-10 실시간 전달과 재연결 기반](../../p1/foundation.md#fnd-10-실시간-전달과-재연결-기반), [ADR-0038 공용 세션·스케줄 조정](0038-multi-instance-session-and-scheduler-coordination.md), [ADR-0045 채팅방 스키마와 기존 ROOM 초기화 경계](../chat/0045-chat-room-schema-and-backfill-boundary.md), [GitHub Issue #471](https://github.com/bamsongi-club/albam-mate/issues/471)
+- 관련: [P1 실행 환경과 공용 인프라](../../archive/p1/P1-spec.md#실행-환경과-공용-인프라), [아키텍처의 다중 인스턴스 실행](../../ARCHITECTURE.md#다중-인스턴스-실행), [FND-10 실시간 전달과 재연결 기반](../../archive/p1/foundation.md#fnd-10-실시간-전달과-재연결-기반), [ADR-0038 공용 세션·스케줄 조정](0038-multi-instance-session-and-scheduler-coordination.md), [ADR-0045 채팅방 스키마와 기존 ROOM 초기화 경계](../chat/0045-chat-room-schema-and-backfill-boundary.md), [GitHub Issue #471](https://github.com/bamsongi-club/albam-mate/issues/471)
 - 대체 대상: [ADR-0038](0038-multi-instance-session-and-scheduler-coordination.md) 중 실행 프로필·로컬 검증 경계
 - 후속 ADR: 없음
 

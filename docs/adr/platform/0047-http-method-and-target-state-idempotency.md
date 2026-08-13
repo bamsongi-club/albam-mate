@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-08-04
 - 결정일: 2026-08-04
-- 관련: [API 명세](../../API.md), [P1 명세](../../P1-spec.md), [SEARCH-03 정본](../../p1/search.md#search-03-사용자별-해-본-게임), [ADR-0012](../room/0012-room-request-boundary-state-reconciliation.md), [ADR-0028](../game/0028-explicit-user-played-game-state.md), [결정 이슈 #308](https://github.com/bamsongi-club/albam-mate/issues/308), [PR #363](https://github.com/bamsongi-club/albam-mate/pull/363)
+- 관련: [API 명세](../../API.md), [P1 명세](../../archive/p1/P1-spec.md), [SEARCH-03 정본](../../archive/p1/search.md#search-03-사용자별-해-본-게임), [ADR-0012](../room/0012-room-request-boundary-state-reconciliation.md), [ADR-0028](../game/0028-explicit-user-played-game-state.md), [결정 이슈 #308](https://github.com/bamsongi-club/albam-mate/issues/308), [PR #363](https://github.com/bamsongi-club/albam-mate/pull/363)
 - 대체 대상: [ADR-0022](0022-p0-update-api-http-method-and-finish-idempotency.md)
 - 후속 ADR: 없음
 

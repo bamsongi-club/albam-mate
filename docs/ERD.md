@@ -1,18 +1,18 @@
 # 알밤메이트 ERD
 
-이 문서는 현재 P0·P1 데이터 모델과 데이터 제약을 정의한다. 이 문서에 적은 P1 알림·채팅·다중 인스턴스 스케줄 잠금·소셜 계정·대기열·게임 검색 수치·메타데이터·메커니즘·사용자별 해 본 게임 관계는 전진 Flyway 마이그레이션과 생산 코드에 반영돼 있다. 기능 전체의 제공·검증·배포 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)을 따른다.
+이 문서는 현재 P0·P1 데이터 모델과 데이터 제약을 정의한다. 이 문서에 적은 P1 알림·채팅·다중 인스턴스 스케줄 잠금·소셜 계정·대기열·게임 검색 수치·메타데이터·메커니즘·사용자별 해 본 게임 관계는 전진 Flyway 마이그레이션과 생산 코드에 반영돼 있다. P2 저장 변경은 아직 반영하지 않았으며, P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), P2 진행 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
 
 ### 이 문서의 범위
 
 | 구분 | 내용 |
 |---|---|
 | 이 문서가 정본인 것 | 테이블·컬럼·타입·DB 제약, 저장 계산식과 저장 불변식 |
-| 이 문서가 담지 않는 것 | 제품 규칙(상태 전이·권한·시간·정원)은 [P0-spec](archive/p0/P0-spec.md#공통-규칙)과 [P1 명세](P1-spec.md), 요청·응답 계약은 [API](API.md), 기술 결정 이유는 [ADR](adr/README.md) |
+| 이 문서가 담지 않는 것 | 제품 규칙(상태 전이·권한·시간·정원)은 [P2 명세](P2-spec.md), [P1 종료 명세](archive/p1/README.md)와 [P0-spec](archive/p0/P0-spec.md#공통-규칙), 요청·응답 계약은 [API](API.md), 기술 결정 이유는 [ADR](adr/README.md) |
 | 변경 시 함께 갱신 | 스키마를 바꾸면 Flyway 마이그레이션과 JPA 엔티티를 같은 변경에서 일치시킨다(→ [마이그레이션 작업 안내](../src/main/resources/db/migration/AGENTS.md), [ADR-0008](adr/platform/0008-flyway-database-migrations.md)) |
 
 ## 기준과 범위
 
-- 기준: P0 제품 규칙은 [P0 공통 명세](archive/p0/P0-spec.md), P1 규칙은 [P1 명세](P1-spec.md)와 [관련 ADR](adr/README.md)을 따른다. 소셜 로그인 저장 계약은 #328과 승인된 ADR-0042를 따른다.
+- 기준: 새 P2 저장 계약은 [P2 기능 명세](p2/README.md)와 필요한 ADR을 먼저 확정하고 같은 변경에서 이 문서에 반영한다. 기존 P0·P1 규칙은 [P0 공통 명세](archive/p0/P0-spec.md), [P1 종료 명세](archive/p1/README.md)와 [관련 ADR](adr/README.md)을 따른다.
 - 범위: 현재 P0의 오프라인 방·게임 목록·사용자·방 참가, P1의 소셜 계정·대기열과 게임 검색 수치·메커니즘 목록·관계·사용자별 해 본 게임 관계·서비스 내 알림·방별 채팅·공용 스케줄 잠금
 - 제외: 온라인 방, 온라인 자동 매칭, 후기, 룰마스터 가능 게임, 결제·포인트
 - P0 검색: 게임 목록은 게임명 `keyword`, 사람 중심 방 목록은 방 제목 `keyword` 검색을 지원한다. 게임 태그는 표시값이며 필터가 아니다.
@@ -261,11 +261,11 @@ erDiagram
 | created_at | TIMESTAMPTZ | NN | 가입 시각 |
 | updated_at | TIMESTAMPTZ | NN | 프로필 수정 시각 |
 
-이메일 회원가입은 `email`과 `password_hash`를 모두 저장한다. 소셜 전용 사용자는 둘 다 `NULL`이거나 [AUTH-05의 제공자별 신뢰 조건](p1/social-login.md#제공자-이메일-매핑)을 통과하고 기존 사용자와 겹치지 않는 이메일과 `NULL` 비밀번호를 가질 수 있다. 신뢰 상태가 없거나 조건을 통과하지 못한 제공자 이메일은 `NULL`로 저장한다. `password_hash`가 있으면 `email`도 반드시 있어야 한다. 반대로 `password_hash`가 `NULL`이면 값이 있는 이메일도 로그인 자격증명이 아니며, 이메일 자격증명 조회는 해당 행을 미존재와 동일하게 처리한다.
+이메일 회원가입은 `email`과 `password_hash`를 모두 저장한다. 소셜 전용 사용자는 둘 다 `NULL`이거나 [AUTH-05의 제공자별 신뢰 조건](archive/p1/social-login.md#제공자-이메일-매핑)을 통과하고 기존 사용자와 겹치지 않는 이메일과 `NULL` 비밀번호를 가질 수 있다. 신뢰 상태가 없거나 조건을 통과하지 못한 제공자 이메일은 `NULL`로 저장한다. `password_hash`가 있으면 `email`도 반드시 있어야 한다. 반대로 `password_hash`가 `NULL`이면 값이 있는 이메일도 로그인 자격증명이 아니며, 이메일 자격증명 조회는 해당 행을 미존재와 동일하게 처리한다.
 
 ### SOCIAL_ACCOUNTS
 
-[AUTH-05](p1/social-login.md#auth-05-소셜-로그인계정-연결)의 외부 신원 연결 정본이다. 이메일·닉네임·token은 저장하지 않고 제공자와 그 제공자가 보장하는 subject만 저장한다.
+[AUTH-05](archive/p1/social-login.md#auth-05-소셜-로그인계정-연결)의 외부 신원 연결 정본이다. 이메일·닉네임·token은 저장하지 않고 제공자와 그 제공자가 보장하는 subject만 저장한다.
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
@@ -454,7 +454,7 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 
 ### ROOM_WAITLISTS
 
-> 이 절은 [ADR-0046](adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)과 [PART-04a 최신 전체 테스트 계약](https://github.com/bamsongi-club/albam-mate/issues/302#issuecomment-5177035904)이 승인한 저장 기반 계약이다. `PART-04`의 현재 구현·자동 검증 상태는 [P1 기능 상태 정본의 `PART-04`](p1/README.md#기능별-현재-상태)에 기록된 `구현 완료`·`검증 완료`를 따른다.
+> 이 절은 [ADR-0046](adr/participation/0046-room-waitlist-persistence-conditional-transition-retry.md)과 [PART-04a 최신 전체 테스트 계약](https://github.com/bamsongi-club/albam-mate/issues/302#issuecomment-5177035904)이 승인한 저장 기반 계약이다. `PART-04`의 현재 구현·자동 검증 상태는 [P1 기능 종료 상태의 `PART-04`](archive/p1/README.md#기능별-종료-상태)에 기록된 `구현 완료`·`검증 완료`를 따른다.
 
 `V14__create_room_waitlist_schema.sql`은 같은 ROOM과 사용자의 최신 대기 결과를 한 행으로 저장하고, PostgreSQL 전용 `V15__create_room_waitlist_partial_indexes.sql`은 현재 `WAITING` 행만 대상으로 하는 부분 인덱스를 만든다. 상태 변경별 이력 행, 별도 단일 `id`와 대기 행의 `version`은 두지 않는다.
 
@@ -573,7 +573,7 @@ P1 CHAT-02의 V9 전진 Flyway가 생성하는 메시지 저장의 최종 정본
 
 ## P1 알림 저장 계약
 
-> 이 절의 저장 계약은 `V4__create_p1_notification_schema.sql`과 현재 알림 생산 코드에 구현돼 있다. 기능·자동 검증·운영 상태는 [P1 기능 상태 정본의 `NOTI-01`~`NOTI-03`](p1/README.md#기능별-현재-상태)을 따른다.
+> 이 절의 저장 계약은 `V4__create_p1_notification_schema.sql`과 현재 알림 생산 코드에 구현돼 있다. 기능·자동 검증·운영 상태는 [P1 기능 종료 상태의 `NOTI-01`~`NOTI-03`](archive/p1/README.md#기능별-종료-상태)을 따른다.
 
 ### 알림 관계도
 
@@ -769,7 +769,7 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 ### 해 본 게임 관계 인덱스
 
 - `UNIQUE (user_id, game_id)`가 만드는 유일 인덱스로 본인 관계 확인과 `PLAYED_ONLY`·`EXCLUDE_PLAYED`의 사용자 선두 `EXISTS`·`NOT EXISTS` 조회를 지원한다. 같은 선두 열의 중복 인덱스는 만들지 않는다.
-- `game_id` 선두 인덱스나 다른 복합 인덱스는 미리 확정하지 않는다. [FND-09](p1/foundation.md#fnd-09-검색-성능과-인덱스-검증)에서 관계 수·선택도·실행 계획을 측정한 뒤 채택 여부를 정하고, 채택하면 이 문서와 전진 마이그레이션을 함께 갱신한다.
+- `game_id` 선두 인덱스나 다른 복합 인덱스는 미리 확정하지 않는다. [FND-09](archive/p1/foundation.md#fnd-09-검색-성능과-인덱스-검증)에서 관계 수·선택도·실행 계획을 측정한 뒤 채택 여부를 정하고, 채택하면 이 문서와 전진 마이그레이션을 함께 갱신한다.
 
 ### 채팅·스케줄 제약과 인덱스
 
@@ -787,7 +787,7 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 
 ### 서비스 규칙
 
-현행 제품 규칙의 소유 경계는 [P1 명세의 P0 계약 상속](P1-spec.md#p0-계약-상속)과 관련 [P1 기능 문서](p1/README.md)를 따른다. [P0 공통 명세](archive/p0/P0-spec.md#공통-규칙)는 `v0.1.0` 완료 시점의 제품 배경으로만 참조한다. 아래는 저장 계층이 지켜야 하는 불변식과 현행 제품 규칙을 저장에 반영하는 방식만 정의한다.
+현행 제품 규칙의 소유 경계는 [P1 명세의 P0 계약 상속](archive/p1/P1-spec.md#p0-계약-상속)과 관련 [P1 기능 문서](archive/p1/README.md)를 따른다. [P0 공통 명세](archive/p0/P0-spec.md#공통-규칙)는 `v0.1.0` 완료 시점의 제품 배경으로만 참조한다. 아래는 저장 계층이 지켜야 하는 불변식과 현행 제품 규칙을 저장에 반영하는 방식만 정의한다.
 
 - 개설자는 `PARTICIPATIONS`에 참가 행을 만들지 않는다. 현재 총 인원과 참가자 목록 계산은 [정원·참가자 표시 규칙](#정원참가자-표시-규칙)을 따른다.
 - `active_participant_count = ACTIVE 상태의 PARTICIPATIONS 수`는 서비스가 유지하는 불변식이며, `ROOMS`의 CHECK 제약은 카운터의 범위(`0`~`capacity`)만 보장한다.

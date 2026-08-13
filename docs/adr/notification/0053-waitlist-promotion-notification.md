@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-08-07
 - 결정일: 2026-08-07
-- 관련: [NOTI-01 모임 변경 알림 생성](../../p1/notification.md#noti-01-모임-변경-알림-생성), [P1 알림 생성과 조회](../../P1-spec.md#알림-생성과-조회), [PART-04 선착순 대기열과 자동 승격](../../p1/room.md#part-04-선착순-대기열과-자동-승격), [API NotificationType](../../API.md#notificationtype), [이슈 #499](https://github.com/bamsongi-club/albam-mate/issues/499)
+- 관련: [NOTI-01 모임 변경 알림 생성](../../archive/p1/notification.md#noti-01-모임-변경-알림-생성), [P1 알림 생성과 조회](../../archive/p1/P1-spec.md#알림-생성과-조회), [PART-04 선착순 대기열과 자동 승격](../../archive/p1/room.md#part-04-선착순-대기열과-자동-승격), [API NotificationType](../../API.md#notificationtype), [이슈 #499](https://github.com/bamsongi-club/albam-mate/issues/499)
 - 대체 대상: [ADR-0029](0029-room-integration-event-transactional-outbox.md)의 공개 이벤트 종류와 참가 취소 뒤 자동 승격 알림 부재 범위
 - 후속 ADR: 없음
 

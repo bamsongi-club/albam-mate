@@ -3,7 +3,7 @@
 - 상태: 대체됨
 - 작성일: 2026-08-03
 - 결정일: 2026-08-03
-- 관련: [P1 PART-04](../../p1/room.md#part-04-선착순-대기열과-자동-승격), [P1 대기 API 계약](../../API.md#part-04-대기-등록재신청), [ERD](../../ERD.md), [ROOM 명령 아키텍처](../../ARCHITECTURE.md#방-변경), [GitHub Issue #344](https://github.com/bamsongi-club/albam-mate/issues/344), [ADR-0005](0005-room-participation-optimistic-locking.md), [ADR-0035](../room/0035-room-status-action-eligibility-separation.md), [ADR-0036](../room/0036-bounded-room-state-transition-processing.md)
+- 관련: [P1 PART-04](../../archive/p1/room.md#part-04-선착순-대기열과-자동-승격), [P1 대기 API 계약](../../API.md#part-04-대기-등록재신청), [ERD](../../ERD.md), [ROOM 명령 아키텍처](../../ARCHITECTURE.md#방-변경), [GitHub Issue #344](https://github.com/bamsongi-club/albam-mate/issues/344), [ADR-0005](0005-room-participation-optimistic-locking.md), [ADR-0035](../room/0035-room-status-action-eligibility-separation.md), [ADR-0036](../room/0036-bounded-room-state-transition-processing.md)
 - 대체 대상: [ADR-0037](0037-room-waitlist-latest-state-atomic-promotion.md)
 - 후속 ADR: [ADR-0046](0046-room-waitlist-persistence-conditional-transition-retry.md)
 
@@ -141,7 +141,7 @@ PK·FK·CHECK·그 밖의 UNIQUE 위반, 교착, 직렬화 실패와 분류할 �
 
 - [ADR-0037: ROOM 대기열을 단일 최신 상태로 저장하고 자동 승격을 원자적으로 처리](0037-room-waitlist-latest-state-atomic-promotion.md)
 - [ADR-0005: 방 참가 동시성 제어에 낙관 락을 사용](0005-room-participation-optimistic-locking.md)
-- [P1 PART-04 기능 계약](../../p1/room.md#part-04-선착순-대기열과-자동-승격)
+- [P1 PART-04 기능 계약](../../archive/p1/room.md#part-04-선착순-대기열과-자동-승격)
 - [P1 대기 API 계약](../../API.md#part-04-대기-등록재신청)
 - [GitHub Issue #344](https://github.com/bamsongi-club/albam-mate/issues/344)
 

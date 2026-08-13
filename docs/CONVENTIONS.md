@@ -3,7 +3,7 @@
 이 문서는 Albam Mate 백엔드 코드의 작성·리뷰 규칙이다. 다음 정본이 이 문서보다 우선한다.
 
 - 백엔드 구조·모듈 책임·의존 흐름: [아키텍처 문서](ARCHITECTURE.md)
-- 제품 동작: [P1 공통 명세](P1-spec.md)와 [P1 기능별 명세](p1/README.md). P0 완료 범위는 [P0 아카이브](archive/p0/README.md)
+- 제품 동작: [P2 공통 명세](P2-spec.md)와 [P2 기능별 명세](p2/README.md). P1·P0 완료 범위는 [문서 아카이브](archive/README.md)
 - 요청·응답: [API 명세](API.md)
 - 데이터 구조: [ERD](ERD.md)
 - 되돌리기 어렵거나 논쟁적인 기술 선택: [ADR](adr/README.md)
@@ -161,7 +161,7 @@ Flyway 마이그레이션 작업 규약의 정본은 [마이그레이션 작업 
 
 - 트랜잭션은 Service에서 시작한다.
 - 저장 상태를 변경하지 않는 읽기 전용 유스케이스에는 `readOnly = true`를 사용한다.
-- 목록·내 모임 조회는 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)의 고정된 `requestTime` 유효 상태를 [ADR-0056](adr/room/0056-postgresql-room-query-snapshot-without-global-pre-correction.md)의 `REQUIRES_NEW`, `readOnly = true`, `REPEATABLE_READ` snapshot에서 읽고 전역 저장 보정을 수행하지 않는다. 이 조회는 대상 ROOM 보정 충돌의 `ROOM_CONCURRENT_MODIFICATION`을 반환하지 않는다. 현재 구현·검증 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)을 따른다. 대상 ROOM의 현재 저장 상태를 보정하는 상세·상태 의존 명령·대기·채팅 접근은 읽기 전용 트랜잭션의 더티 체킹에 의존하지 않고 [아키텍처의 방 조회 흐름](ARCHITECTURE.md#방-조회)과 ADR-0055를 따른다.
+- 목록·내 모임 조회는 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)의 고정된 `requestTime` 유효 상태를 [ADR-0056](adr/room/0056-postgresql-room-query-snapshot-without-global-pre-correction.md)의 `REQUIRES_NEW`, `readOnly = true`, `REPEATABLE_READ` snapshot에서 읽고 전역 저장 보정을 수행하지 않는다. 이 조회는 대상 ROOM 보정 충돌의 `ROOM_CONCURRENT_MODIFICATION`을 반환하지 않는다. 현재 구현·검증 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태)을 따른다. 대상 ROOM의 현재 저장 상태를 보정하는 상세·상태 의존 명령·대기·채팅 접근은 읽기 전용 트랜잭션의 더티 체킹에 의존하지 않고 [아키텍처의 방 조회 흐름](ARCHITECTURE.md#방-조회)과 ADR-0055를 따른다.
 - 상태 변경 트랜잭션 안에서는 JPA 더티 체킹을 기본으로 사용한다.
 - 즉시 반영이 필요한 이유가 없으면 `saveAndFlush()`를 반복 호출하지 않는다.
 - 외부 API는 원칙적으로 데이터베이스 트랜잭션 밖에서 호출한다. 불가피하게 함께 조정해야 하면 트랜잭션 범위를 최소화하고 외부 성공 후 내부 실패 또는 내부 성공 후 외부 실패를 어떻게 처리할지 먼저 정한다.
@@ -258,7 +258,7 @@ getter, setter, 자명한 위임과 Controller 매핑에는 기계적인 Javadoc
 - `소유자`는 문서가 선언한 책임 범위를 검토하고 변경을 승인할 팀 또는 역할이다.
 - `최종 검증일`은 매일 갱신하는 날짜나 마지막 편집일이 아니다. 소유 범위 전체를 연결된 정본과 현재 코드·설정·증거에 대조하고 알려진 충돌을 해소한 날에만 갱신한다.
 - 링크·형식 검사나 일부 절만 확인한 경우에는 날짜를 바꾸지 않고 해당 변경의 검증 기록에 범위를 남긴다.
-- 이 날짜는 생산 코드 구현, 운영 배포 또는 용량 측정 완료를 뜻하지 않는다. 해당 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)과 연결된 측정·운영 증거로 별도 판정한다.
+- 이 날짜는 생산 코드 구현, 운영 배포 또는 용량 측정 완료를 뜻하지 않는다. 해당 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태)과 연결된 측정·운영 증거로 별도 판정한다.
 - `폐기 조건`이 충족되면 새 정본을 먼저 연결하고 기존 문서를 아카이브하거나 제거한다.
 
 README·COMMANDS 같은 첫 진입 경로를 크게 바꿀 때는 구두 안내 없이 README에서 시작하는 신규 독자 2명으로 확인하고, 변경 PR이나 이슈에 `첫 Green까지 걸린 시간`·`잘못 연 문서 수`·`실패한 명령 수`·`현재 상태/아키텍처/실행 명령까지의 링크 이동 수`를 기록한다. 첫 Green은 10분 이내, 세 정보는 각각 최대 두 번의 링크 이동을 목표로 한다. 사람 검증을 하지 않았다면 자동 링크 검사로 대신했다고 쓰지 말고 `사람 검증 미수행`으로 남긴다.
