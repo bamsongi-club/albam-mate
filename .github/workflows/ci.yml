@@ -451,6 +451,22 @@ jobs:
       - name: Check document links
         run: node scripts/check-doc-links.mjs
 
+      # ROOM k6 fixture·응답 계약은 의존성이 없는 Node 테스트로 CI에서도 반드시 검증한다.
+      - name: Test ROOM k6 contracts
+        run: >-
+          node --test
+          load-tests/k6/jiwon/tests/fixture-model.test.mjs
+          load-tests/k6/jiwon/tests/t3-execution-plan.test.mjs
+          load-tests/k6/jiwon/tests/fixture-runner.test.mjs
+          load-tests/k6/jiwon/tests/write-response-contract.test.mjs
+
+      # 계약 테스트가 import하지 않는 T1~T5 실행 스크립트도 병합 전 파싱한다.
+      - name: Check ROOM k6 script syntax
+        shell: bash
+        run: |
+          find load-tests/k6/jiwon -type f \( -name '*.js' -o -name '*.mjs' \) -print0 |
+            xargs -0 -n 1 node --check
+
       # 전달 게이트를 강제하는 검사기가 조용히 깨지면 게이트 없이 통과한 전달을 통과로 본다.
       # 검사기 자체의 회귀 테스트를 링크 검사와 같은 급으로 다룬다.
       - name: Test delivery gate validators

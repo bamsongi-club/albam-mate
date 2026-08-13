@@ -59,6 +59,7 @@ class LocalMultiProxyRuntimePostgresTest {
 	 * 긴 시간 재시도해야 관측된다.
 	 */
 	private static final long CROSS_INSTANCE_TIMEOUT_MILLIS = 60_000;
+	private static final long PROXY_UPSTREAM_RETRY_INTERVAL_MILLIS = 1_000;
 	/**
 	 * 채팅 전송은 사용자당 {@code RedisChatMessageRateLimiter.USER_LIMIT}건 / {@code WINDOW_MILLIS}로 제한된다.
 	 * 재시도가 제한에 걸려 429로 실패하지 않도록 한 창에서 보내는 개수를 제한 아래로 두고, 더 필요하면
@@ -102,13 +103,22 @@ class LocalMultiProxyRuntimePostgresTest {
 
 		HttpCookie sessionCookie = cookieNamed(client, "JSESSIONID");
 		Set<String> upstreams = new HashSet<>();
-		for (int requestNumber = 0; requestNumber < 8; requestNumber++) {
+		long deadline = System.currentTimeMillis() + CROSS_INSTANCE_TIMEOUT_MILLIS;
+		int requestNumber = 0;
+		while (upstreams.size() < 2 && System.currentTimeMillis() < deadline) {
 			HttpResponse<String> profile = getWithSession(
 				proxyUri.resolve("/api/users/me"), sessionCookie);
 			assertEquals(200, profile.statusCode(), "proxy request " + requestNumber + " lost the shared session");
 			upstreams.add(profile.headers().firstValue("X-Albam-Mate-Upstream").orElseThrow());
+			requestNumber++;
+
+			if (upstreams.size() < 2) {
+				Thread.sleep(PROXY_UPSTREAM_RETRY_INTERVAL_MILLIS);
+			}
 		}
-		assertEquals(2, upstreams.size(), "proxy did not route requests to both Spring instances: " + upstreams);
+		assertEquals(2, upstreams.size(),
+			"proxy did not route requests to both Spring instances within "
+				+ CROSS_INSTANCE_TIMEOUT_MILLIS + "ms: " + upstreams);
 	}
 
 	/** T1: 프록시 주소로 보낸 WebSocket Upgrade 요청이 실제 Spring 인스턴스까지 라우팅되어 101로 전환된다. */
