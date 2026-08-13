@@ -3,7 +3,10 @@ import path from 'node:path';
 import {
     parseDescriptionUpdates,
     parseNameUpdates,
+    readZipTextEntry,
     resolveInputRoot,
+    sha256,
+    validatePositiveUniqueIds,
 } from './catalog-pipeline-utils.mjs';
 import { validateDescription } from './korean-description-validator.mjs';
 
@@ -14,9 +17,14 @@ const expectedDescriptions = readOptionalCount('--expected-descriptions');
 const NAMES_SQL_PATH = path.join(DOWNLOAD_DIR, 'reference/02-localization/04-upsert-korean-names-supplement.sql');
 const DESC_SQL_PATH = path.join(DOWNLOAD_DIR, 'reference/02-localization/05-upsert-korean-descriptions-supplement.sql');
 const REPORT_PATH = path.join(DOWNLOAD_DIR, 'reference/02-localization/validation-full-localization.report.json');
+const CATALOG_ZIP_PATH = path.join(DOWNLOAD_DIR, '01-team-handoff-local.zip');
+const CATALOG_ZIP_ENTRY = '06-complete-local-import/service-catalog.local-import-with-bgg-descriptions.json';
 
 async function validateAll() {
     console.log('=== 17만 건 전체 한글화 데이터 전수 검수 시작 ===\n');
+    const catalogContents = await readZipTextEntry(CATALOG_ZIP_PATH, CATALOG_ZIP_ENTRY);
+    const catalogRows = JSON.parse(catalogContents);
+    const catalogIds = new Set(validatePositiveUniqueIds(catalogRows, 'catalog'));
 
     // 1. 04-upsert-korean-names-supplement.sql 검수
     console.log('1. [게임명] 04-upsert-korean-names-supplement.sql 검수 중...');
@@ -27,6 +35,7 @@ async function validateAll() {
     let alphabetMixedCount = 0;
     let knownBugPhoneticCount = 0;
     let duplicateNameCount = 0;
+    let blankNameCount = 0;
     const bugSamples = [];
 
     const KNOWN_BUG_PATTERNS = [
@@ -38,6 +47,10 @@ async function validateAll() {
     for (const update of nameUpdates) {
             totalNames++;
             const name = update.value;
+            if (typeof name !== 'string' || name.trim() === '') {
+                blankNameCount++;
+                if (bugSamples.length < 5) bugSamples.push({ bggId: update.bggId, name, issue: '빈 게임명' });
+            }
             if (nameIds.has(update.bggId)) {
                 duplicateNameCount++;
                 bugSamples.push({ bggId: update.bggId, name, issue: '중복 bgg_id' });
@@ -61,7 +74,9 @@ async function validateAll() {
     }
 
     let nameParseErrors = nameUpdates.length === 0 ? 1 : 0;
+    if (totalNames !== catalogRows.length) nameParseErrors++;
     if (expectedNames !== null && totalNames !== expectedNames) nameParseErrors++;
+    const nameCoverageErrorCount = exactIdCoverage(nameIds, catalogIds) ? 0 : 1;
 
     console.log(`- 전체 게임명 레코드 수: ${totalNames}건`);
     console.log(`- 무분별한 한영 알파벳 혼재 건수: ${alphabetMixedCount}건`);
@@ -93,7 +108,9 @@ async function validateAll() {
         }
     }
     let descParseErrors = descUpdates.length === 0 ? 1 : 0;
+    if (totalDescs !== catalogRows.length) descParseErrors++;
     if (expectedDescriptions !== null && totalDescs !== expectedDescriptions) descParseErrors++;
+    const descriptionCoverageErrorCount = exactIdCoverage(descIds, catalogIds) ? 0 : 1;
 
     console.log(`- 전체 게임 설명 레코드 수: ${totalDescs}건`);
     console.log(`- 괄호 표기 조사 은(는)/이(가) 미정제 건수: ${rawJosaErrorCount}건`);
@@ -106,10 +123,19 @@ async function validateAll() {
         console.log('\n[잔여 이슈 샘플]:', JSON.stringify(bugSamples, null, 2));
     }
 
-    const issueCount = alphabetMixedCount + knownBugPhoneticCount + duplicateNameCount + rawJosaErrorCount
-        + descriptionValidationErrorCount + duplicateDescriptionCount + nameParseErrors + descParseErrors;
+    const issueCount = alphabetMixedCount + knownBugPhoneticCount + duplicateNameCount + blankNameCount
+        + rawJosaErrorCount + descriptionValidationErrorCount + duplicateDescriptionCount
+        + nameParseErrors + descParseErrors + nameCoverageErrorCount + descriptionCoverageErrorCount;
     fs.writeFileSync(REPORT_PATH, JSON.stringify({
+        schemaVersion: 1,
+        datasetKind: 'approved-full-localization',
+        grain: '1 row per bgg_id',
         status: issueCount === 0 ? 'ready' : 'blocked',
+        inputs: {
+            catalog: { sha256: sha256(catalogContents), rows: catalogRows.length },
+            namesSql: { sha256: sha256(namesContent), rows: totalNames },
+            descriptionsSql: { sha256: sha256(descContent), rows: totalDescs },
+        },
         checks: {
             totalNames,
             totalDescs,
@@ -118,9 +144,12 @@ async function validateAll() {
             alphabetMixedCount,
             knownBugPhoneticCount,
             duplicateNameCount,
+            blankNameCount,
+            nameCoverageErrorCount,
             rawJosaErrorCount,
             descriptionValidationErrorCount,
             duplicateDescriptionCount,
+            descriptionCoverageErrorCount,
             nameParseErrors,
             descParseErrors,
         },
@@ -136,6 +165,9 @@ validateAll().catch((error) => {
     console.error(error);
     fs.mkdirSync(path.dirname(REPORT_PATH), { recursive: true });
     fs.writeFileSync(REPORT_PATH, JSON.stringify({
+        schemaVersion: 1,
+        datasetKind: 'approved-full-localization',
+        grain: '1 row per bgg_id',
         status: 'blocked',
         errors: [{ message: error.message }],
     }, null, 2) + '\n', 'utf-8');
@@ -148,4 +180,9 @@ function readOptionalCount(flag) {
     const value = Number(CLI_ARGS[index + 1]);
     if (!Number.isInteger(value) || value < 1) throw new Error(`${flag}는 양의 정수여야 합니다`);
     return value;
+}
+
+function exactIdCoverage(actualIds, expectedIds) {
+    return actualIds.size === expectedIds.size
+        && [...expectedIds].every((bggId) => actualIds.has(bggId));
 }

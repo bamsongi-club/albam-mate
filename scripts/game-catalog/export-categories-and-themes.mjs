@@ -1,88 +1,71 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
-import { escapeCsvField, parseCsvLine, resolveInputRoot } from './catalog-pipeline-utils.mjs';
+
+import {
+    escapeCsvField,
+    parseApprovedRelationTuples,
+    parseCsvLine,
+    readZipTextEntry,
+    resolveInputRoot,
+} from './catalog-pipeline-utils.mjs';
 
 const DOWNLOAD_DIR = resolveInputRoot(process.argv.slice(2));
 const ZIP_PATH = path.join(DOWNLOAD_DIR, '01-team-handoff-local.zip');
 const LOCALIZATION_DIR = path.join(DOWNLOAD_DIR, 'reference/02-localization');
-
 const MECHANISM_MAP_JSON = path.join(LOCALIZATION_DIR, 'bgg-mechanism-ko-map.review-draft.json');
 const THEME_MAP_JSON = path.join(LOCALIZATION_DIR, 'bgg-theme-ko-map.review-draft.json');
-
 const FINAL_CSV_PATH = path.join(DOWNLOAD_DIR, 'albam-mate-games-170k-final.csv');
 
 async function processCategoriesAndThemes() {
-    console.log('1. 한글 메커니즘(카테고리) 및 테마 사전 파싱 중...');
-    const mechDict = new Map();
-    const mechJson = JSON.parse(fs.readFileSync(MECHANISM_MAP_JSON, 'utf-8'));
-    for (const entry of mechJson.entries) {
-        const id = Number(entry.bgg_id || entry.bggId || entry.id);
-        mechDict.set(id, { nameEn: entry.name || entry.nameEn, nameKo: entry.name_ko || entry.nameKo });
-    }
+    const mechanismDictionary = readDictionary(MECHANISM_MAP_JSON, {
+        id: (entry) => entry.bgg_id ?? entry.bggId ?? entry.id,
+        nameEn: (entry) => entry.name ?? entry.nameEn,
+        nameKo: (entry) => entry.name_ko ?? entry.nameKo,
+        role: 'mechanism',
+    });
+    const themeDictionary = readDictionary(THEME_MAP_JSON, {
+        id: (entry) => entry.bggThemeId ?? entry.bgg_id ?? entry.id,
+        nameEn: (entry) => entry.nameEn ?? entry.name,
+        nameKo: (entry) => entry.nameKo ?? entry.name_ko,
+        role: 'theme',
+    });
+    const [mechanismSql, themeSql] = await Promise.all([
+        readZipTextEntry(ZIP_PATH, '06-complete-local-import/02-upsert-game-mechanisms.sql'),
+        readZipTextEntry(ZIP_PATH, '06-complete-local-import/03-upsert-game-metadata.sql'),
+    ]);
+    const mechanismRelations = parseApprovedRelationTuples(
+        mechanismSql,
+        'mechanism',
+        new Set(mechanismDictionary.keys()),
+    );
+    const themeRelations = parseApprovedRelationTuples(
+        themeSql,
+        'theme',
+        new Set(themeDictionary.keys()),
+    );
+    const gameMechanisms = relationNames(mechanismRelations, mechanismDictionary);
+    const gameThemes = relationNames(themeRelations, themeDictionary);
 
-    const themeDict = new Map();
-    const themeJson = JSON.parse(fs.readFileSync(THEME_MAP_JSON, 'utf-8'));
-    for (const entry of themeJson.entries) {
-        const id = Number(entry.bggThemeId || entry.bgg_id || entry.id);
-        themeDict.set(id, { nameEn: entry.nameEn || entry.name, nameKo: entry.nameKo || entry.name_ko });
-    }
+    updateFinalCsv(gameMechanisms, gameThemes);
+    writeDictionaryCsv(path.join(DOWNLOAD_DIR, 'mechanisms_ko.csv'), mechanismDictionary);
+    writeDictionaryCsv(path.join(DOWNLOAD_DIR, 'themes_ko.csv'), themeDictionary);
+    writeRelationCsv(
+        path.join(DOWNLOAD_DIR, 'game_mechanism_mappings.csv'),
+        'game_bgg_id,mechanism_bgg_id',
+        mechanismRelations,
+    );
+    writeRelationCsv(
+        path.join(DOWNLOAD_DIR, 'game_theme_mappings.csv'),
+        'game_bgg_id,theme_bgg_id',
+        themeRelations,
+    );
+    console.log('승인 relation source만 사용해 카테고리·테마 CSV를 생성했습니다.');
+}
 
-    console.log(`- 한글 메커니즘 수: ${mechDict.size}개`);
-    console.log(`- 한글 테마 수: ${themeDict.size}개`);
-
-    console.log('2. zip 내 02-upsert-game-mechanisms.sql 및 03-upsert-game-metadata.sql 추출 중...');
-    const tmpDir = path.join(process.cwd(), '.tmp');
-    fs.mkdirSync(tmpDir, { recursive: true });
-
-    const mechSqlTmp = path.join(tmpDir, '02-upsert-game-mechanisms.sql');
-    const themeSqlTmp = path.join(tmpDir, '03-upsert-game-metadata.sql');
-
-    execSync(`unzip -p "${ZIP_PATH}" 06-complete-local-import/02-upsert-game-mechanisms.sql > "${mechSqlTmp}"`);
-    execSync(`unzip -p "${ZIP_PATH}" 06-complete-local-import/03-upsert-game-metadata.sql > "${themeSqlTmp}"`);
-
-    // 게임 ID -> 메커니즘 한글명 배열 파싱
-    const gameMechMap = new Map();
-    const mechSqlText = fs.readFileSync(mechSqlTmp, 'utf-8');
-    fs.unlinkSync(mechSqlTmp);
-
-    const tupleRegex = /\(\s*(\d+)\s*,\s*(\d+)\s*\)/g;
-    let match;
-
-    while ((match = tupleRegex.exec(mechSqlText)) !== null) {
-        const gameId = Number(match[1]);
-        const mechId = Number(match[2]);
-        const mechInfo = mechDict.get(mechId);
-        if (mechInfo && mechInfo.nameKo) {
-            if (!gameMechMap.has(gameId)) gameMechMap.set(gameId, []);
-            gameMechMap.get(gameId).push(mechInfo.nameKo);
-        }
-    }
-
-    // 게임 ID -> 테마 한글명 배열 파싱
-    const gameThemeMap = new Map();
-    const themeSqlText = fs.readFileSync(themeSqlTmp, 'utf-8');
-    fs.unlinkSync(themeSqlTmp);
-
-    tupleRegex.lastIndex = 0;
-    while ((match = tupleRegex.exec(themeSqlText)) !== null) {
-        const gameId = Number(match[1]);
-        const themeId = Number(match[2]);
-        const themeInfo = themeDict.get(themeId);
-        if (themeInfo && themeInfo.nameKo) {
-            if (!gameThemeMap.has(gameId)) gameThemeMap.set(gameId, []);
-            gameThemeMap.get(gameId).push(themeInfo.nameKo);
-        }
-    }
-
-    console.log(`- 카테고리/메커니즘 매핑된 게임 수: ${gameMechMap.size}건`);
-    console.log(`- 테마 매핑된 게임 수: ${gameThemeMap.size}건`);
-
-    console.log('3. albam-mate-games-170k-final.csv에 categories_ko 및 themes_ko 컬럼 통합 갱신 중...');
-    const originalCsvLines = fs.readFileSync(FINAL_CSV_PATH, 'utf-8').split('\n');
-    if (originalCsvLines.length === 0) return;
-
-    const columns = parseCsvLine(originalCsvLines[0]);
+function updateFinalCsv(gameMechanisms, gameThemes) {
+    const lines = fs.readFileSync(FINAL_CSV_PATH, 'utf8').split('\n').filter(Boolean);
+    if (lines.length === 0) throw new Error('final CSV is empty');
+    const columns = parseCsvLine(lines[0]);
     let categoriesIndex = columns.indexOf('categories_ko');
     let themesIndex = columns.indexOf('themes_ko');
     if (categoriesIndex === -1) {
@@ -93,61 +76,57 @@ async function processCategoriesAndThemes() {
         themesIndex = columns.length;
         columns.push('themes_ko');
     }
-    const newCsvLines = [columns.join(',')];
-
-    for (let i = 1; i < originalCsvLines.length; i++) {
-        const line = originalCsvLines[i];
-        if (!line) continue;
-
+    const output = [columns.join(',')];
+    for (const line of lines.slice(1)) {
         const values = parseCsvLine(line);
-        const gameId = Number(values[0]);
-
-        const mechs = gameMechMap.get(gameId) ? gameMechMap.get(gameId).join('; ') : '';
-        const themes = gameThemeMap.get(gameId) ? gameThemeMap.get(gameId).join('; ') : '';
-
+        const gameBggId = Number(values[0]);
         while (values.length < columns.length) values.push('');
-        values[categoriesIndex] = mechs;
-        values[themesIndex] = themes;
-        newCsvLines.push(values.slice(0, columns.length).map(escapeCsvField).join(','));
+        values[categoriesIndex] = (gameMechanisms.get(gameBggId) ?? []).join('; ');
+        values[themesIndex] = (gameThemes.get(gameBggId) ?? []).join('; ');
+        output.push(values.slice(0, columns.length).map(escapeCsvField).join(','));
     }
+    fs.writeFileSync(FINAL_CSV_PATH, output.join('\n'), 'utf8');
+}
 
-    fs.writeFileSync(FINAL_CSV_PATH, newCsvLines.join('\n'), 'utf-8');
-    console.log(`통합 CSV 갱신 완료 (새 헤더 포함): ${FINAL_CSV_PATH}`);
-
-    // 4. 별도 독립 릴레이션 CSV 4종 생성
-    console.log('4. 별도 카테고리/테마 릴레이션 CSV 4종 생성 중...');
-
-    // 4-1. mechanisms_ko.csv
-    const mechRows = ['bgg_id,name_en,name_ko'];
-    for (const [id, info] of mechDict.entries()) {
-        mechRows.push(`${id},${escapeCsvField(info.nameEn)},${escapeCsvField(info.nameKo)}`);
+function readDictionary(filePath, { id, nameEn, nameKo, role }) {
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    const dictionary = new Map();
+    for (const entry of parsed.entries ?? []) {
+        const bggId = Number(id(entry));
+        const englishName = nameEn(entry);
+        const koreanName = nameKo(entry);
+        if (!Number.isSafeInteger(bggId) || bggId <= 0
+            || typeof englishName !== 'string' || englishName.trim() === ''
+            || typeof koreanName !== 'string' || koreanName.trim() === '') {
+            throw new Error(`invalid ${role} dictionary entry`);
+        }
+        if (dictionary.has(bggId)) throw new Error(`duplicate ${role} dictionary ID: ${bggId}`);
+        dictionary.set(bggId, { nameEn: englishName, nameKo: koreanName });
     }
-    fs.writeFileSync(path.join(DOWNLOAD_DIR, 'mechanisms_ko.csv'), mechRows.join('\n'), 'utf-8');
+    return dictionary;
+}
 
-    // 4-2. themes_ko.csv
-    const themeRows = ['bgg_id,name_en,name_ko'];
-    for (const [id, info] of themeDict.entries()) {
-        themeRows.push(`${id},${escapeCsvField(info.nameEn)},${escapeCsvField(info.nameKo)}`);
+function relationNames(relations, dictionary) {
+    const result = new Map();
+    for (const { gameBggId, relatedBggId } of relations) {
+        const values = result.get(gameBggId) ?? [];
+        values.push(dictionary.get(relatedBggId).nameKo);
+        result.set(gameBggId, values);
     }
-    fs.writeFileSync(path.join(DOWNLOAD_DIR, 'themes_ko.csv'), themeRows.join('\n'), 'utf-8');
+    return result;
+}
 
-    // 4-3. game_mechanism_mappings.csv
-    const gameMechRows = ['game_bgg_id,mechanism_bgg_id'];
-    tupleRegex.lastIndex = 0;
-    while ((match = tupleRegex.exec(mechSqlText)) !== null) {
-        gameMechRows.push(`${match[1]},${match[2]}`);
+function writeDictionaryCsv(filePath, dictionary) {
+    const rows = ['bgg_id,name_en,name_ko'];
+    for (const [bggId, value] of dictionary) {
+        rows.push(`${bggId},${escapeCsvField(value.nameEn)},${escapeCsvField(value.nameKo)}`);
     }
-    fs.writeFileSync(path.join(DOWNLOAD_DIR, 'game_mechanism_mappings.csv'), gameMechRows.join('\n'), 'utf-8');
+    fs.writeFileSync(filePath, rows.join('\n'), 'utf8');
+}
 
-    // 4-4. game_theme_mappings.csv
-    const gameThemeRows = ['game_bgg_id,theme_bgg_id'];
-    tupleRegex.lastIndex = 0;
-    while ((match = tupleRegex.exec(themeSqlText)) !== null) {
-        gameThemeRows.push(`${match[1]},${match[2]}`);
-    }
-    fs.writeFileSync(path.join(DOWNLOAD_DIR, 'game_theme_mappings.csv'), gameThemeRows.join('\n'), 'utf-8');
-
-    console.log('모든 메커니즘/테마 한글 데이터 추출 및 CSV 생성이 완료되었습니다!');
+function writeRelationCsv(filePath, header, relations) {
+    const rows = [header, ...relations.map(({ gameBggId, relatedBggId }) => `${gameBggId},${relatedBggId}`)];
+    fs.writeFileSync(filePath, rows.join('\n'), 'utf8');
 }
 
 processCategoriesAndThemes().catch((error) => {

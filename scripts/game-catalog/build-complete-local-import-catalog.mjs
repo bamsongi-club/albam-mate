@@ -4,6 +4,9 @@ import { createHash } from 'node:crypto';
 import { closeSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync, writeSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import {
+    validateCatalogRowsForDatabase,
+} from './catalog-analysis.mjs';
+import {
     validateApprovedInputReport,
     validatePositiveUniqueIds,
 } from './catalog-pipeline-utils.mjs';
@@ -165,6 +168,10 @@ function build({
         (row) => row.description !== null && row.description !== undefined && row.description !== '',
     ).length;
     rows.sort((left, right) => Number(left.bgg_id) - Number(right.bgg_id));
+    const databaseRowErrors = validateCatalogRowsForDatabase(rows);
+    if (databaseRowErrors.length > 0) {
+        throw new Error(`database row schema validation failed: ${JSON.stringify(databaseRowErrors)}`);
+    }
 
     const catalogPath = resolve(out, 'service-catalog.local-import-with-bgg-descriptions.json');
     const sqlPath = resolve(out, 'upsert-games.local-import-with-bgg-descriptions.sql');

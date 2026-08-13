@@ -11,7 +11,7 @@ const CATALOG_ZIP_ENTRY = '06-complete-local-import/service-catalog.local-import
 
 async function processAllDescriptions() {
     console.log('1. zip 내 service-catalog JSON 임시 추출 중...');
-    const catalogData = readZipJsonEntry(ZIP_PATH, CATALOG_ZIP_ENTRY);
+    const catalogData = await readZipJsonEntry(ZIP_PATH, CATALOG_ZIP_ENTRY);
 
     console.log(`전체 카탈로그 행 수: ${catalogData.length}건`);
 

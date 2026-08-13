@@ -1,101 +1,76 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
-import { resolveInputRoot } from './catalog-pipeline-utils.mjs';
+
+import {
+    escapeCsvField,
+    parseApprovedRelationTuples,
+    parseDescriptionUpdates,
+    parseNameUpdates,
+    readZipTextEntry,
+    resolveInputRoot,
+    validateApprovedLocalizationReport,
+} from './catalog-pipeline-utils.mjs';
 
 const DOWNLOAD_DIR = resolveInputRoot(process.argv.slice(2));
 const ZIP_PATH = path.join(DOWNLOAD_DIR, '01-team-handoff-local.zip');
 const LOCALIZATION_DIR = path.join(DOWNLOAD_DIR, 'reference/02-localization');
-
 const NAMES_SQL_PATH = path.join(LOCALIZATION_DIR, '04-upsert-korean-names-supplement.sql');
 const DESC_SQL_PATH = path.join(LOCALIZATION_DIR, '05-upsert-korean-descriptions-supplement.sql');
+const VALIDATION_REPORT_PATH = path.join(LOCALIZATION_DIR, 'validation-full-localization.report.json');
 const MECHANISM_MAP_JSON = path.join(LOCALIZATION_DIR, 'bgg-mechanism-ko-map.review-draft.json');
 const THEME_MAP_JSON = path.join(LOCALIZATION_DIR, 'bgg-theme-ko-map.review-draft.json');
-
 const OUTPUT_CSV_PATH = path.join(DOWNLOAD_DIR, 'albam-mate-games-170k-final.csv');
 
 async function exportCleanCsv() {
-    console.log('1. 한글 메커니즘(카테고리) 및 테마 사전 파싱 중...');
-    const mechDict = new Map();
-    const mechJson = JSON.parse(fs.readFileSync(MECHANISM_MAP_JSON, 'utf-8'));
-    for (const entry of mechJson.entries) {
-        const id = Number(entry.bgg_id || entry.bggId || entry.id);
-        mechDict.set(id, entry.name_ko || entry.nameKo);
-    }
+    const mechanismDictionary = readDictionary(MECHANISM_MAP_JSON, {
+        id: (entry) => entry.bgg_id ?? entry.bggId ?? entry.id,
+        value: (entry) => entry.name_ko ?? entry.nameKo,
+        role: 'mechanism',
+    });
+    const themeDictionary = readDictionary(THEME_MAP_JSON, {
+        id: (entry) => entry.bggThemeId ?? entry.bgg_id ?? entry.id,
+        value: (entry) => entry.nameKo ?? entry.name_ko,
+        role: 'theme',
+    });
 
-    const themeDict = new Map();
-    const themeJson = JSON.parse(fs.readFileSync(THEME_MAP_JSON, 'utf-8'));
-    for (const entry of themeJson.entries) {
-        const id = Number(entry.bggThemeId || entry.bgg_id || entry.id);
-        themeDict.set(id, entry.nameKo || entry.name_ko);
-    }
+    const catalogEntry = '06-complete-local-import/service-catalog.local-import-with-bgg-descriptions.json';
+    const mechanismEntry = '06-complete-local-import/02-upsert-game-mechanisms.sql';
+    const themeEntry = '06-complete-local-import/03-upsert-game-metadata.sql';
+    const catalogContents = await readZipTextEntry(ZIP_PATH, catalogEntry);
+    const rawCatalog = JSON.parse(catalogContents);
+    const mechanismSql = await readZipTextEntry(ZIP_PATH, mechanismEntry);
+    const themeSql = await readZipTextEntry(ZIP_PATH, themeEntry);
+    const mechanismRelations = parseApprovedRelationTuples(
+        mechanismSql,
+        'mechanism',
+        new Set(mechanismDictionary.keys()),
+    );
+    const themeRelations = parseApprovedRelationTuples(
+        themeSql,
+        'theme',
+        new Set(themeDictionary.keys()),
+    );
+    const gameMechanisms = relationNames(mechanismRelations, mechanismDictionary);
+    const gameThemes = relationNames(themeRelations, themeDictionary);
 
-    console.log('2. zip 내 catalog JSON, 02 메커니즘 SQL, 03 테마 SQL 추출 중...');
-    const tmpDir = path.join(process.cwd(), '.tmp');
-    fs.mkdirSync(tmpDir, { recursive: true });
+    const namesSql = fs.readFileSync(NAMES_SQL_PATH, 'utf8');
+    const descriptionsSql = fs.readFileSync(DESC_SQL_PATH, 'utf8');
+    const nameUpdates = parseNameUpdates(namesSql);
+    const descriptionUpdates = parseDescriptionUpdates(descriptionsSql);
+    const validationReport = JSON.parse(fs.readFileSync(VALIDATION_REPORT_PATH, 'utf8'));
+    validateApprovedLocalizationReport({
+        report: validationReport,
+        namesSql,
+        descriptionsSql,
+        catalogContents,
+        catalogRows: rawCatalog,
+        nameUpdates,
+        descriptionUpdates,
+    });
+    const nameMap = new Map(nameUpdates.map(({ bggId, value }) => [bggId, value]));
+    const descriptionMap = new Map(descriptionUpdates.map((update) => [update.bggId, update]));
 
-    const tmpJsonPath = path.join(tmpDir, 'temp_catalog_clean.json');
-    const mechSqlTmp = path.join(tmpDir, '02-upsert-game-mechanisms.sql');
-    const themeSqlTmp = path.join(tmpDir, '03-upsert-game-metadata.sql');
-
-    execSync(`unzip -p "${ZIP_PATH}" 06-complete-local-import/service-catalog.local-import-with-bgg-descriptions.json > "${tmpJsonPath}"`);
-    execSync(`unzip -p "${ZIP_PATH}" 06-complete-local-import/02-upsert-game-mechanisms.sql > "${mechSqlTmp}"`);
-    execSync(`unzip -p "${ZIP_PATH}" 06-complete-local-import/03-upsert-game-metadata.sql > "${themeSqlTmp}"`);
-
-    const rawCatalog = JSON.parse(fs.readFileSync(tmpJsonPath, 'utf-8'));
-    fs.unlinkSync(tmpJsonPath);
-
-    // 게임 ID -> 메커니즘 한글명 배열 매핑
-    const gameMechMap = new Map();
-    const mechSqlText = fs.readFileSync(mechSqlTmp, 'utf-8');
-    fs.unlinkSync(mechSqlTmp);
-    const tupleRegex = /\(\s*(\d+)\s*,\s*(\d+)\s*\)/g;
-    let match;
-    while ((match = tupleRegex.exec(mechSqlText)) !== null) {
-        const gameId = Number(match[1]);
-        const mechId = Number(match[2]);
-        const mechKo = mechDict.get(mechId);
-        if (mechKo) {
-            if (!gameMechMap.has(gameId)) gameMechMap.set(gameId, new Set());
-            gameMechMap.get(gameId).add(mechKo);
-        }
-    }
-
-    // 게임 ID -> 테마 한글명 배열 매핑
-    const gameThemeMap = new Map();
-    const themeSqlText = fs.readFileSync(themeSqlTmp, 'utf-8');
-    fs.unlinkSync(themeSqlTmp);
-    tupleRegex.lastIndex = 0;
-    while ((match = tupleRegex.exec(themeSqlText)) !== null) {
-        const gameId = Number(match[1]);
-        const themeId = Number(match[2]);
-        const themeKo = themeDict.get(themeId);
-        if (themeKo) {
-            if (!gameThemeMap.has(gameId)) gameThemeMap.set(gameId, new Set());
-            gameThemeMap.get(gameId).add(themeKo);
-        }
-    }
-
-    console.log('3. 04 한글명 SQL 수집 중...');
-    const nameMap = new Map();
-    const namesContent = fs.readFileSync(NAMES_SQL_PATH, 'utf-8');
-    // 값에 개행이 섞인 UPDATE 문은 줄 단위 split으로는 매칭되지 않아 통째로 누락되므로 전체 텍스트에서 매칭한다.
-    for (const m of namesContent.matchAll(/UPDATE games SET name = '((?:''|[^'])*)' WHERE bgg_id = (\d+);/gs)) {
-        nameMap.set(Number(m[2]), m[1].replace(/''/g, "'"));
-    }
-
-    console.log('4. 05 한글 설명 SQL 수집 중...');
-    const descMap = new Map();
-    const descContent = fs.readFileSync(DESC_SQL_PATH, 'utf-8');
-    for (const m of descContent.matchAll(/UPDATE games SET description = '((?:''|[^'])*)', detail_description = '((?:''|[^'])*)' WHERE bgg_id = (\d+);/gs)) {
-        descMap.set(Number(m[3]), {
-            description: m[1].replace(/''/g, "'"),
-            detail_description: m[2].replace(/''/g, "'")
-        });
-    }
-
-    console.log('5. 17만 건 전체 18종 완벽 메타데이터 CSV 이스케이프 처리 생성 중...');
-    const csvHeader = [
+    const csvRows = [[
         'bgg_id',
         'name_ko',
         'english_name',
@@ -113,68 +88,68 @@ async function exportCleanCsv() {
         'description_ko',
         'detail_description_ko',
         'mechanisms_ko',
-        'themes_ko'
-    ].join(',');
-
-    const csvRows = [csvHeader];
-
-    // CSV 안전 이스케이프 (개행문자 \\n \\r 제거하여 1행=1레코드 완벽 유지)
-    const escapeCsv = (val) => {
-        if (val === null || val === undefined) return '""';
-        const str = String(val).replace(/[\r\n]+/g, ' ').replace(/"/g, '""');
-        return `"${str}"`;
-    };
+        'themes_ko',
+    ].join(',')];
 
     for (const game of rawCatalog) {
-        const bggId = game.bgg_id;
-        const nameKo = nameMap.get(bggId) || game.name || game.english_name;
-        const englishName = game.english_name || game.name || '';
-        const alias = game.alias || `${nameKo}, ${englishName}`;
-        const imageUrl = game.image_url || '';
-        const supportedPlayerCount = game.supported_player_count || (game.min_players ? `${game.min_players}~${game.max_players}명` : '');
-        const tag = game.tag || '전략';
-        const estimatedPlayTime = game.estimated_play_time || (game.max_play_time_minutes ? `${game.max_play_time_minutes}분` : '');
-        const minPlayers = game.min_players || '';
-        const maxPlayers = game.max_players || '';
-        const minPlayTime = game.min_play_time_minutes || '';
-        const maxPlayTime = game.max_play_time_minutes || '';
-        const complexity = game.complexity || '';
-        const releaseYear = game.release_year || '';
-
-        const descObj = descMap.get(bggId) || {};
-        const descKo = descObj.description || game.description || '';
-        const detailKo = descObj.detail_description || game.detail_description || '';
-
-        const mechs = gameMechMap.has(bggId) ? Array.from(gameMechMap.get(bggId)).join('; ') : '';
-        const themes = gameThemeMap.has(bggId) ? Array.from(gameThemeMap.get(bggId)).join('; ') : '';
-
+        const bggId = Number(game.bgg_id);
+        const nameKo = nameMap.get(bggId);
+        const descriptions = descriptionMap.get(bggId);
+        const englishName = game.english_name ?? game.name ?? '';
         const row = [
             bggId,
-            escapeCsv(nameKo),
-            escapeCsv(englishName),
-            escapeCsv(alias),
-            escapeCsv(imageUrl),
-            escapeCsv(supportedPlayerCount),
-            escapeCsv(tag),
-            escapeCsv(estimatedPlayTime),
-            minPlayers,
-            maxPlayers,
-            minPlayTime,
-            maxPlayTime,
-            complexity,
-            releaseYear,
-            escapeCsv(descKo),
-            escapeCsv(detailKo),
-            escapeCsv(mechs),
-            escapeCsv(themes)
-        ].join(',');
-
-        csvRows.push(row);
+            escapeCsvField(nameKo),
+            escapeCsvField(englishName),
+            escapeCsvField(game.alias ?? `${nameKo}, ${englishName}`),
+            escapeCsvField(game.image_url ?? ''),
+            escapeCsvField(game.supported_player_count ?? ''),
+            escapeCsvField(game.tag ?? ''),
+            escapeCsvField(game.estimated_play_time ?? ''),
+            game.min_players ?? '',
+            game.max_players ?? '',
+            game.min_play_time_minutes ?? '',
+            game.max_play_time_minutes ?? '',
+            game.complexity ?? '',
+            game.release_year ?? '',
+            escapeCsvField(descriptions.description),
+            escapeCsvField(descriptions.detailDescription),
+            escapeCsvField((gameMechanisms.get(bggId) ?? []).join('; ')),
+            escapeCsvField((gameThemes.get(bggId) ?? []).join('; ')),
+        ];
+        csvRows.push(row.join(','));
     }
 
-    console.log(`6. albam-mate-games-170k-final.csv 파일 출력 중 (${csvRows.length - 1}행)...`);
-    fs.writeFileSync(OUTPUT_CSV_PATH, csvRows.join('\n'), 'utf-8');
-    console.log(`🎉 개행문자 및 18종 전 컬럼 완벽 통합 CSV 생성 완수! ${OUTPUT_CSV_PATH}`);
+    fs.writeFileSync(OUTPUT_CSV_PATH, csvRows.join('\n'), 'utf8');
+    console.log(`승인된 한글화 ${rawCatalog.length}행을 ${OUTPUT_CSV_PATH}에 생성했습니다.`);
 }
 
-exportCleanCsv().catch(console.error);
+function readDictionary(filePath, { id, value, role }) {
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    const dictionary = new Map();
+    for (const entry of parsed.entries ?? []) {
+        const bggId = Number(id(entry));
+        const localizedName = value(entry);
+        if (!Number.isSafeInteger(bggId) || bggId <= 0 || typeof localizedName !== 'string' || localizedName.trim() === '') {
+            throw new Error(`invalid ${role} dictionary entry`);
+        }
+        if (dictionary.has(bggId)) throw new Error(`duplicate ${role} dictionary ID: ${bggId}`);
+        dictionary.set(bggId, localizedName);
+    }
+    return dictionary;
+}
+
+function relationNames(relations, dictionary) {
+    const result = new Map();
+    for (const { gameBggId, relatedBggId } of relations) {
+        const values = result.get(gameBggId) ?? [];
+        values.push(dictionary.get(relatedBggId));
+        result.set(gameBggId, values);
+    }
+    return result;
+}
+
+exportCleanCsv().catch((error) => {
+    fs.rmSync(OUTPUT_CSV_PATH, { force: true });
+    console.error(error);
+    process.exitCode = 1;
+});

@@ -191,9 +191,9 @@ metadata 품질 게이트는 아래를 모두 만족해야 한다.
 
 ## 6-1. 한글화·BoardLife 보조 생성기 입력 계약
 
-`scripts/game-catalog`의 인계 보조 생성기는 입력 루트를 첫 번째 positional argument, `--input-root <path>` 또는 `ALBAM_MATE_170K_DIR`로 받는다. 개인 컴퓨터의 고정 경로를 사용하지 않으며, ZIP을 갱신하는 생성기는 기존 ZIP·입력 파일·임시 ZIP을 모두 준비하고 검증한 뒤 성공할 때만 SQL과 ZIP을 함께 교체한다.
+`scripts/game-catalog`의 인계 보조 생성기는 입력 루트를 첫 번째 positional argument, `--input-root <path>` 또는 `ALBAM_MATE_170K_DIR`로 받는다. 개인 컴퓨터의 고정 경로를 사용하지 않는다. ZIP entry는 Node stream으로 읽고 교체하므로 운영체제의 `zip`·`unzip` 명령에 의존하지 않으며, 기존 ZIP·입력 파일·임시 ZIP을 모두 준비하고 검증한 뒤 성공할 때만 SQL과 ZIP을 함께 교체한다. 같은 ZIP의 동시 갱신은 heartbeat lease가 있는 경로별 lock으로 직렬화하고, 비정상 종료로 남은 lock은 lease 만료 후 회수한다. 기존 ZIP archive comment는 교체 후에도 보존한다. ZIP64가 필요한 4GiB 이상 entry·archive는 묵시적으로 손상시키지 않고 지원 불가 오류로 중단한다.
 
-`build-complete-local-import-catalog.mjs`의 base/source quality report는 `status: "ready"`, 정확한 `datasetKind`·`grain`, 입력별 `sha256`·`rows`를 선언해야 하며 실제 JSON과 일치해야 한다. 하나라도 어긋나면 이전 산출물을 제거하고 `quality-report.json`만 남긴다.
+`build-complete-local-import-catalog.mjs`의 base/source quality report는 `status: "ready"`, 정확한 `datasetKind`·`grain`, 입력별 `sha256`·`rows`를 선언해야 하며 실제 JSON과 일치해야 한다. 병합된 모든 행은 SQL 생성 전에 텍스트 타입·DB 길이·NUL·HTTPS URL, 수치 타입·범위와 인원/시간 쌍 제약을 다시 통과해야 한다. 하나라도 어긋나면 이전 산출물을 제거하고 `quality-report.json`만 남긴다.
 
 자동 음차 결과는 `bgg-game-name-ko-candidates-*.csv`의 `검수완료(Y/N)=N` 후보로만 생성한다. 사람이 검수한 별도 승인 입력 없이 `04-upsert-korean-names-supplement.sql`을 갱신하지 않는다. 자동 설명 결과도 번역 후 한글 비율, 영어 잔존 문장, 빈 값과 인코딩 오류를 검사한 뒤 `05-upsert-korean-descriptions-supplement.needs-review.json`에만 기록한다. 사람이 검수·승인하기 전에는 `05-upsert-korean-descriptions-supplement.sql`과 handoff ZIP을 갱신하지 않는다.
 
@@ -206,9 +206,22 @@ node scripts/game-catalog/validate-full-localization.mjs \
   --expected-descriptions 170000
 ```
 
-BoardLife 신규 행은 `--input-manifest`가 필요하다. manifest는 `approved: true`, `datasetKind: "boardlife-new-games"`, `grain: "1 row per bgg_id"`, `rows`, `bggIds`, `sourceSha256`를 포함하고, 하드코딩된 입력 행과 ID·checksum이 일치해야 한다. 불일치하면 SQL과 ZIP을 생성하지 않는다.
+검수 report는 catalog ZIP entry와 이름·설명 SQL 각각의 `sha256`·행 수를 기록한다. `export-final-csv.mjs`는 report가 `ready`이고 세 입력 checksum·행 수가 현재 파일과 일치하며 모든 catalog `bgg_id`가 빈 값 없는 승인 이름·요약 설명·상세 설명에 정확히 한 번 존재할 때만 `_ko` 열을 생성한다. 누락된 한글 값을 원문으로 대체하지 않으며 실패 시 non-zero로 종료하고 이전 최종 CSV를 제거한다.
+
+BoardLife 보완 행은 별도 입력 JSON과 그 ID를 확인할 BGG snapshot이 필요하다.
+
+```sh
+node scripts/game-catalog/boardlife-collector.mjs /path/to/albam-mate-170k \
+  --input /path/to/boardlife-approved.json \
+  --input-manifest /path/to/boardlife-approved-manifest.json \
+  --bgg-source /path/to/bgg-id-snapshot.json
+```
+
+manifest는 `approved: true`, `datasetKind: "boardlife-bgg-overlays"`, `grain: "1 row per bgg_id"`, `rows`, `bggIds`, `inputSha256`, `bggSourceSha256`를 포함한다. BoardLife·BGG 양쪽의 `*SourceReference`, `*SourceAcquiredAt`, `*SourceUsageTerms`도 기록한다. 각 입력 `bgg_id`와 영문명이 승인 BGG snapshot에 실제로 존재할 때만 SQL과 ZIP을 생성한다. BGG에 없는 게임을 현재 `games.bgg_id`에 합성 번호로 넣지 않으며, 이런 게임은 별도 source/id 모델의 ADR과 스키마가 승인되기 전까지 적재 대상에서 제외한다.
 
 BoardLife 행이 기존 `bgg_id`와 충돌하면 내부 `id`와 `created_at`만 유지하고, manifest checksum이 승인한 나머지 업무 필드는 모두 `EXCLUDED` 값으로 갱신한다. 따라서 반복 실행 결과가 기존 DB 값에 따라 달라지지 않는다.
+
+카테고리·테마 CSV는 metadata SQL 전체의 숫자 튜플을 훑지 않는다. 메커니즘 relation source INSERT와 테마 relation INSERT의 `desired(bgg_id,bgg_theme_id)`만 각각 한 번 파싱하고, 관계 중복과 승인 사전 membership을 확인한 뒤 내보낸다.
 
 `testOnly: true`는 PostgreSQL 검증 fixture에만 허용한다. 생성된 service JSON과 quality report에도 `testOnly: true`가 보존되고, 생성 SQL은 기본 세션에서 `albam_mate.allow_test_only_metadata_import`가 설정되지 않으면 즉시 실패한다. 따라서 운영 배치는 반드시 `testOnly: false`(또는 생략)인 승인 산출물만 위 운영 명령으로 실행한다.
 

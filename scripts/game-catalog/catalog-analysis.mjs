@@ -89,6 +89,7 @@ export function analyzeCatalog({
     const normalizedGames = validGameRows.map((game) => normalizeGame(game, rankByBggId));
     const catalog = normalizedGames
         .sort((left, right) => left.bgg_id - right.bgg_id);
+    errors.push(...validateCatalogRowsForDatabase(catalog));
     errors.push(...validateSelectionCounts(manifest, gameRows.length, catalog.length, catalog));
     const warnings = qualityWarnings(validGameRows, rankByBggId);
     const checks = checkSummary(validGameRows, rankByBggId);
@@ -117,6 +118,127 @@ export function analyzeCatalog({
         releaseYears: releaseYearSummary(validGameRows, rankByBggId),
         searchNumericFields: searchNumericFieldSummary(validGameRows),
     };
+}
+
+export function validateCatalogRowsForDatabase(rows) {
+    const errors = [];
+    if (!Array.isArray(rows)) {
+        return [{
+            code: "INVALID_DATABASE_ROWS",
+            message: "적재 직전 카탈로그는 JSON 배열이어야 합니다.",
+        }];
+    }
+
+    const invalidRows = [];
+    const invalidTypes = [];
+    const missingRequired = [];
+    const lengthViolations = [];
+    const nulValues = [];
+    const invalidImageUrls = [];
+    const invalidPlayerRanges = [];
+    const invalidPlayTimeRanges = [];
+    const invalidComplexities = [];
+    const invalidReleaseYears = [];
+
+    for (const [index, row] of rows.entries()) {
+        const rowNumber = index + 1;
+        if (!isRecord(row)) {
+            invalidRows.push({ row: rowNumber, type: valueType(row) });
+            continue;
+        }
+
+        const bggId = row.bgg_id;
+        if (!Number.isSafeInteger(bggId) || bggId <= 0) {
+            invalidTypes.push({ row: rowNumber, field: "bgg_id", expected: "positive safe integer", actual: valueType(bggId) });
+        }
+        const missingFields = REQUIRED_FIELDS.filter((field) => blank(row[field]));
+        if (missingFields.length > 0) {
+            missingRequired.push({ row: rowNumber, fields: missingFields });
+        }
+        for (const field of TEXT_FIELDS) {
+            const value = row[field];
+            if (containsNul(value)) {
+                nulValues.push({ row: rowNumber, field });
+            }
+            if (value !== undefined && !(value === null && OPTIONAL_TEXT_FIELDS.has(field)) && typeof value !== "string") {
+                invalidTypes.push({
+                    row: rowNumber,
+                    field,
+                    expected: OPTIONAL_TEXT_FIELDS.has(field) ? "string|null" : "string",
+                    actual: valueType(value),
+                });
+            }
+        }
+        for (const [field, limit] of Object.entries(FIELD_LENGTHS)) {
+            if (!blank(row[field]) && String(row[field]).length > limit) {
+                lengthViolations.push({ row: rowNumber, field, length: String(row[field]).length, limit });
+            }
+        }
+        for (const field of [
+            "min_players",
+            "max_players",
+            "min_play_time_minutes",
+            "max_play_time_minutes",
+            "complexity",
+            "release_year",
+        ]) {
+            if (row[field] !== null && row[field] !== undefined && typeof row[field] !== "number") {
+                invalidTypes.push({ row: rowNumber, field, expected: "number|null", actual: valueType(row[field]) });
+            }
+        }
+        if (!blank(row.image_url)) {
+            try {
+                if (new URL(row.image_url).protocol !== "https:") {
+                    invalidImageUrls.push({ row: rowNumber, value: row.image_url });
+                }
+            } catch {
+                invalidImageUrls.push({ row: rowNumber, value: row.image_url });
+            }
+        }
+        if (!validDatabaseRange(row.min_players, row.max_players)) {
+            invalidPlayerRanges.push({ row: rowNumber, min: row.min_players ?? null, max: row.max_players ?? null });
+        }
+        if (!validDatabaseRange(row.min_play_time_minutes, row.max_play_time_minutes)) {
+            invalidPlayTimeRanges.push({
+                row: rowNumber,
+                min: row.min_play_time_minutes ?? null,
+                max: row.max_play_time_minutes ?? null,
+            });
+        }
+        if (row.complexity !== null && row.complexity !== undefined && !isValidComplexity(row.complexity)) {
+            invalidComplexities.push({ row: rowNumber, value: row.complexity });
+        }
+        if (row.release_year !== null && row.release_year !== undefined && !validPostgresInteger(row.release_year)) {
+            invalidReleaseYears.push({ row: rowNumber, value: row.release_year });
+        }
+    }
+
+    addValidationError(errors, "INVALID_DATABASE_ROW", "적재 직전 행은 JSON 객체여야 합니다.", invalidRows);
+    addValidationError(errors, "INVALID_DATABASE_FIELD_TYPE", "적재 필드의 JSON 타입이 DB 계약과 다릅니다.", invalidTypes);
+    addValidationError(errors, "MISSING_DATABASE_REQUIRED_VALUE", "적재 필수값이 비어 있습니다.", missingRequired);
+    addValidationError(errors, "DATABASE_FIELD_LENGTH_EXCEEDED", "DB 문자열 길이를 초과했습니다.", lengthViolations);
+    addValidationError(errors, "NUL_CHARACTER_IN_DATABASE_TEXT", "DB 텍스트에 U+0000이 있습니다.", nulValues);
+    addValidationError(errors, "INVALID_DATABASE_IMAGE_URL", "image_url은 유효한 HTTPS URL이어야 합니다.", invalidImageUrls);
+    addValidationError(errors, "INVALID_DATABASE_PLAYER_RANGE", "인원 범위는 함께 비어 있거나 양의 오름차순 INTEGER여야 합니다.", invalidPlayerRanges);
+    addValidationError(errors, "INVALID_DATABASE_PLAY_TIME_RANGE", "시간 범위는 함께 비어 있거나 양의 오름차순 INTEGER여야 합니다.", invalidPlayTimeRanges);
+    addValidationError(errors, "INVALID_DATABASE_COMPLEXITY", "complexity는 NULL 또는 1.00~5.00 범위의 소수 둘째 자리 값이어야 합니다.", invalidComplexities);
+    addValidationError(errors, "INVALID_DATABASE_RELEASE_YEAR", "release_year는 NULL 또는 PostgreSQL INTEGER여야 합니다.", invalidReleaseYears);
+    return errors;
+}
+
+function validDatabaseRange(min, max) {
+    if (min == null && max == null) return true;
+    return validPostgresInteger(min)
+        && validPostgresInteger(max)
+        && min > 0
+        && max > 0
+        && min <= max;
+}
+
+function validPostgresInteger(value) {
+    return Number.isInteger(value)
+        && value >= POSTGRES_INTEGER_MIN
+        && value <= POSTGRES_INTEGER_MAX;
 }
 
 function checkSummary(games, rankByBggId) {

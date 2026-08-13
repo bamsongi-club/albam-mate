@@ -1,9 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
 import { convertTitleToKorean, OFFICIAL_NAME_MAP } from './korean-name-collector.mjs';
 import { validateKoreanName } from './korean-name-validator.mjs';
-import { commitZipArtifacts, resolveInputRoot } from './catalog-pipeline-utils.mjs';
+import {
+    commitZipArtifacts,
+    parseNameUpdates,
+    readZipJsonEntry,
+    resolveInputRoot,
+} from './catalog-pipeline-utils.mjs';
 
 const DOWNLOAD_DIR = resolveInputRoot(process.argv.slice(2));
 const ZIP_PATH = path.join(DOWNLOAD_DIR, '01-team-handoff-local.zip');
@@ -12,28 +16,17 @@ const NEEDS_REVIEW_PATH = path.join(DOWNLOAD_DIR, 'reference/02-localization/04-
 
 async function processAllNames() {
     console.log('1. zip 내 service-catalog JSON 임시 추출 중...');
-    const tmpDir = path.join(process.cwd(), '.tmp');
-    fs.mkdirSync(tmpDir, { recursive: true });
-    const tmpJsonPath = path.join(tmpDir, 'temp_service_catalog_names.json');
-    execSync(`unzip -p "${ZIP_PATH}" 06-complete-local-import/service-catalog.local-import-with-bgg-descriptions.json > "${tmpJsonPath}"`);
-
     console.log('JSON 데이터 파싱 중...');
-    const rawContent = fs.readFileSync(tmpJsonPath, 'utf-8');
-    const catalogData = JSON.parse(rawContent);
-    fs.unlinkSync(tmpJsonPath);
+    const catalogData = await readZipJsonEntry(
+        ZIP_PATH,
+        '06-complete-local-import/service-catalog.local-import-with-bgg-descriptions.json',
+    );
 
     console.log(`전체 카탈로그 행 수: ${catalogData.length}건`);
 
     console.log('2. 기존 04-upsert-korean-names-supplement.sql 수집 중...');
     const existingSql = fs.readFileSync(SUPPLEMENT_SQL_PATH, 'utf-8');
-    const existingMap = new Map();
-    const sqlLines = existingSql.split('\n');
-    for (const line of sqlLines) {
-        const match = line.match(/UPDATE games SET name = '((?:''|[^'])*)' WHERE bgg_id = (\d+);/);
-        if (match) {
-            existingMap.set(Number(match[2]), match[1].replace(/''/g, "'"));
-        }
-    }
+    const existingMap = new Map(parseNameUpdates(existingSql).map(({ bggId, value }) => [bggId, value]));
     console.log(`기존 한글명 개수: ${existingMap.size}건`);
 
     console.log('3. 17만 건 전체 게임명 웹 검증 정식 명칭 최우선 반영 및 보완 중...');
@@ -41,22 +34,14 @@ async function processAllNames() {
     const needsReview = [];
     let successCount = 0;
 
-    const BUGGY_PHONETIC_REGEX = /스앰어에|름아에|아크우어에|엔크아우엔트어|르이엘엠|로브오알르이|드어|스에|트어|크아우|프아|르이|그흐/;
-
     for (const game of catalogData) {
         const bggId = game.bgg_id;
-        let nameKo = OFFICIAL_NAME_MAP[bggId];
+        let nameKo = OFFICIAL_NAME_MAP[bggId] ?? existingMap.get(bggId);
         let isAutoTransliterated = false;
 
         if (!nameKo) {
-            nameKo = existingMap.get(bggId);
-            const isMixedAlphabet = /[a-zA-Z]/.test(nameKo) && !/\((1|2|3|4|5)판\)/.test(nameKo) && !/\b(3D|2D|HD|VR)\b/i.test(nameKo);
-            const isBuggyPhonetic = BUGGY_PHONETIC_REGEX.test(nameKo);
-
-            if (!nameKo || nameKo === game.english_name || isMixedAlphabet || isBuggyPhonetic) {
-                nameKo = convertTitleToKorean(game.english_name || game.name);
-                isAutoTransliterated = true;
-            }
+            nameKo = convertTitleToKorean(game.english_name || game.name);
+            isAutoTransliterated = true;
         }
 
         const validation = validateKoreanName(bggId, nameKo, game.english_name);
@@ -74,15 +59,21 @@ async function processAllNames() {
     }
 
     sqlStatements.push('COMMIT;');
+    const nextSql = sqlStatements.join('\n') + '\n';
+    const nextApprovedIds = new Set(parseNameUpdates(nextSql).map(({ bggId }) => bggId));
+    const missingApprovedIds = [...existingMap.keys()].filter((bggId) => !nextApprovedIds.has(bggId));
+    if (missingApprovedIds.length > 0) {
+        throw new Error(`기존 승인 이름이 새 SQL에서 누락됐습니다: ${missingApprovedIds.slice(0, 10).join(', ')}`);
+    }
 
     console.log(`4. 04-upsert-korean-names-supplement.sql 전면 갱신 중 (${successCount - needsReview.length}건, 검수 대기 ${needsReview.length}건)...`);
     console.log('5. SQL·검수 대기 목록·ZIP을 함께 검증한 뒤 원자적으로 갱신 중...');
-    commitZipArtifacts({
+    await commitZipArtifacts({
         zipPath: ZIP_PATH,
         zipEntry: '06-complete-local-import/04-upsert-korean-names-supplement.sql',
         zipFileTarget: SUPPLEMENT_SQL_PATH,
         files: [
-            { target: SUPPLEMENT_SQL_PATH, contents: sqlStatements.join('\n') + '\n' },
+            { target: SUPPLEMENT_SQL_PATH, contents: nextSql },
             { target: NEEDS_REVIEW_PATH, contents: JSON.stringify(needsReview, null, 2) + '\n' },
         ],
     });
