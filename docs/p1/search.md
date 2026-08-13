@@ -1,6 +1,6 @@
 # P1 검색 기능 명세
 
-이 문서는 P1 필수 범위인 카테고리·테마·추천/베스트 인원·메커니즘을 포함한 `SEARCH-01`~`SEARCH-03`의 구현 규칙과 완료 기준을 정의한다. 현재 계약·생산 코드·자동 검증·운영 상태는 [P1 기능 상태 정본](README.md#기능별-현재-상태)을 따른다.
+이 문서는 P1 필수 범위인 권장 최소 연령·카테고리·테마·추천/베스트 인원·메커니즘을 포함한 `SEARCH-01`~`SEARCH-03`의 구현 규칙과 완료 기준을 정의한다. 현재 계약·생산 코드·자동 검증·운영 상태는 [P1 기능 상태 정본](README.md#기능별-현재-상태)을 따른다.
 
 전체 범위·공통 검색 규칙은 [P1 명세](../P1-spec.md), 기존 동작은 [P0 완료 문서](../archive/p0/README.md), 요청·응답·오류는 [API 명세](../API.md), 저장 구조와 제약은 [ERD](../ERD.md)를 따른다. 메커니즘과 `SEARCH-03` 저장 계약은 ERD에 반영하며, 해당 저장 계약을 구현할 때는 전진 Flyway 마이그레이션과 PostgreSQL 검증을 함께 추가한다. 기존 `ROOMS` 필드만 사용하는 `SEARCH-02`에는 신규 저장 계약이나 마이그레이션을 요구하지 않는다.
 
@@ -14,6 +14,7 @@ P1 필수 게임 데이터 적재·검증 대상은 승인된 BGG ID 170,000건�
 | --- | --- | --- |
 | 플레이어 수 | `Game.supportedPlayerCount` 표시 문자열 | 가능. 적재 단계에서 최소·최대 수치로 변환하고 전수 검증해야 한다 |
 | 플레이 시간 | `Game.estimatedPlayTime` 표시 문자열 | 가능. 현재 입력을 분 단위로 수치화한다. BGG 상세 `minplaytime`·`maxplaytime` 신규 취득은 이용 범위를 확인한 뒤 별도로 보강한다 |
+| 권장 최소 연령 | nullable `Game.minAge` | 가능. BGG XML snapshot의 `minage`를 검증해 적재하고, 값이 없으면 추정하지 않고 `NULL`로 둔다 |
 | 복잡도 | nullable `Game.complexity` | 가능. 입력 `0.00`을 `NULL`로 정규화하고 `1.00`~`5.00`만 필터에 사용한다 |
 | 메커니즘 | 검수된 내부 목록과 게임 다대다 관계 계약 | 가능. 정확한 승인 입력·manifest·검수 증거가 일치한 공개 항목만 사용한다 |
 | 카테고리 | 고정 8개 내부 목록과 게임 다대다 관계 | 가능. 순위 CSV의 양수 BGG subdomain rank만 관계로 만들고 누락·0·음수는 추정하지 않는다 |
@@ -43,8 +44,8 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 | 출처·적재 | [ADR-0015](../adr/game/0015-bgg-baseline-team-collected-game-list.md), [입력 검수 기록](../game-catalog/2026-07-24-input-review.md), [적재 절차](../guides/GAME_CATALOG_IMPORT.md) |
 | 입력 데이터 | 입력 CSV와 변환 산출물은 저장소에 커밋하지 않는다. 적재 작업은 [입력 검수 기록](../game-catalog/2026-07-24-input-review.md)의 SHA-256과 일치하는 팀 공유 입력을 먼저 확보해야 하며, 입력을 새로 수집하거나 생성하지 않는다 |
 | 성능 검증 | [FND-09 검색 성능과 인덱스 검증](foundation.md#fnd-09-검색-성능과-인덱스-검증) |
-| HTTP 경계 | `GameController#listGames`, `GameListRequest`의 기존 조건과 반복 `category`, `theme`, `recommendedPlayerCount`, `bestPlayerCount`, `mechanism`, 단일 `themeMatch`, `mechanismMatch`; 선택지는 `GET /api/game-categories`, `GET /api/game-themes`, `GET /api/game-mechanisms` |
-| 현재 조회 경계 | `GameQueryService#findPage`, 불변 `GameListSearchCriteria`, `GameRepository#findAll(Specification, Pageable)`, `GameListRow`, `UpcomingRoomCountQuery`; 모든 조건은 단일 동적 조회에 전달하고 정렬은 엔티티 필드 `name`, `id` 오름차순 고정 |
+| HTTP 경계 | `GameController#listGames`, `GameListRequest`의 기존 조건과 반복 `ageBand`, `category`, `theme`, `recommendedPlayerCount`, `bestPlayerCount`, `mechanism`, 단일 `themeMatch`, `mechanismMatch`; 선택지는 `GET /api/game-categories`, `GET /api/game-themes`, `GET /api/game-mechanisms` |
+| 현재 조회 경계 | `GameQueryService#findPage`, 불변 `GameListSearchCriteria`, `GameRepository#findAll(Specification, Pageable)`, `UpcomingRoomCountQuery`; 모든 조건은 단일 동적 조회에 전달하고 정렬은 엔티티 필드 `name`, `id` 오름차순 고정 |
 | 저장 계약 | 기존 게임 표시·검색 필드, 카테고리·테마·인원 선호·메커니즘 관계. `Game.tag` 의미는 유지하고 새 관계의 정본으로 재사용하지 않음 |
 
 ### 기능 규칙
@@ -52,7 +53,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 - 쿼리 파라미터 이름·타입·허용값·기본값은 [게임 목록·검색 API](../API.md#game-01-게임-목록검색)가 정본이다. 이 절은 필터의 의미와 판정 규칙만 정의하며 파라미터 이름을 새로 만들지 않는다.
 - 게임 목록은 P0와 같이 비로그인도 조회한다. 필터를 모두 생략하면 P0의 공개 범위와 기존 응답 필드, `name ASC, id ASC` 정렬과 페이지네이션을 유지하되 `SEARCH-03`의 `playedByMe`만 추가한다.
 - 기존 표시 문자열은 화면 표시와 입력 추적을 위해 유지하고, 조회 요청마다 문자열을 해석하지 않는다. 적재·마이그레이션 단계에서 검증한 수치만 필터에 사용한다.
-- 아래 인원·시간 이름은 검색용 논리 필드이며, 실제 열 이름·타입·제약은 [GAMES](../ERD.md#games)에서 확정한다.
+- 아래 인원·시간·권장 최소 연령 이름은 검색용 논리 필드이며, 실제 열 이름·타입·제약은 [GAMES](../ERD.md#games)에서 확정한다.
 - 검색용 가능 인원은 양의 정수 `min_players`, `max_players`로 표현하고 두 값은 함께 존재하며 `min_players <= max_players`여야 한다.
 - 검색용 플레이 시간은 분 단위 양의 정수 `min_play_time_minutes`, `max_play_time_minutes`로 표현하고 두 값은 함께 존재하며 `min <= max`여야 한다. 구간 판정은 최대값만 사용하고 최소값은 표시·검증용으로 저장한다.
 - 복잡도는 `NULL` 또는 `1.00`~`5.00`이다. 입력 `0.00`은 난이도 0이 아니라 평가 없음으로 `NULL` 정규화한다.
@@ -71,6 +72,10 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 | `OVER_30_TO_60` | 검증된 최대 플레이 시간이 30분 초과 60분 이하 |
 | `OVER_60_UNDER_90` | 검증된 최대 플레이 시간이 60분 초과 90분 미만 |
 | `AT_LEAST_90` | 검증된 최대 플레이 시간이 90분 이상 |
+| `UP_TO_8` | 검증된 권장 최소 연령이 8세 이하 |
+| `FROM_9_TO_12` | 검증된 권장 최소 연령이 9세 이상 12세 이하 |
+| `FROM_13_TO_15` | 검증된 권장 최소 연령이 13세 이상 15세 이하 |
+| `AT_LEAST_16` | 검증된 권장 최소 연령이 16세 이상 |
 | 복잡도 | 사용자가 지정한 최소·최대 닫힌 구간에 포함됨 |
 | 메커니즘 | `mechanismMatch=ANY`면 선택한 공개 코드 중 하나 이상, `ALL`이면 선택한 모든 고유 코드와 관계가 있음. 다른 필터와 AND |
 
@@ -79,6 +84,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 - `인원 정확히 일치`는 범위 경계에 붙는 수정자다. 맞출 경계가 없으면, 즉 최소·최대를 모두 생략하면 인원 조건을 적용하지 않는다.
 - 전용 인원의 허용값은 `1`, `2`이며 둘을 함께 선택하면 OR로 결합한다.
 - 플레이 시간은 6구간을 제공하고 여러 구간을 함께 선택하면 OR로 결합한다. 구간 경계값은 정확히 한 구간에만 속하고 `0분`과 음수는 어떤 구간에도 포함하지 않는다.
+- 권장 최소 연령은 4구간을 제공하고 여러 구간을 함께 선택하면 OR로 결합한다. 구간 경계값은 정확히 한 구간에만 속하며 `min_age`가 `NULL`인 게임은 연령 구간 필터를 적용할 때 제외한다.
 - 이전 플레이 시간 값 `SHORT`, `MEDIUM`, `LONG`은 제거했다. 단독으로 전달하거나 새 값과 섞어 전달하면 검증 오류이며 조용히 무시하지 않는다.
 - 기존 `playerCount` 조건은 그대로 유지한다.
 - 복잡도 최소값과 최대값은 각각 생략할 수 있지만 둘 다 전달하면 최소값이 최대값보다 크지 않아야 한다.
@@ -87,7 +93,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 - 테마는 안정 code를 반복 전달한다. `themeMatch`를 생략하면 ANY이며 하나라도 관계가 있으면 되고, ALL이면 선택한 모든 고유 테마와 관계가 있어야 한다. 테마를 보내지 않고 `themeMatch`만 보내는 것은 유효하지만, 잘못되거나 중복된 `themeMatch`는 검증 오류다.
 - `themeMatch`와 `mechanismMatch`는 독립적으로 선택하고, 테마 그룹과 메커니즘 그룹 사이는 AND로 결합한다.
 - 추천 인원은 BGG 투표의 Best 또는 Recommended 우세, 베스트 인원은 Best 단독 우세로 저장한 양의 정수 관계를 반복 전달한다. 각 목록 안에서는 OR이고 다른 필터와는 AND다. `4+`는 가능 인원의 검증된 최대값까지 펼친 관계를 사용한다.
-- 특정 필터를 적용하면 그 조건을 판정할 검증값이 있는 게임만 결과에 포함한다. 필터를 생략한 조회는 해당 값이 없다는 이유만으로 게임을 제외하지 않는다.
+- 특정 필터를 적용하면 그 조건을 판정할 검증값이 있는 게임만 결과에 포함한다. 권장 최소 연령을 포함해 필터를 생략한 조회는 해당 값이 없다는 이유만으로 게임을 제외하지 않는다.
 - 서로 다른 필터 종류와 기존 `keyword`, `upcomingOnly`는 AND로 결합한다. 같은 식별자를 반복 전달해도 한 번 전달한 것과 같은 결과여야 한다.
 - 모든 필터를 적용한 뒤 전체 건수를 계산하고 `name ASC, id ASC` 정렬과 페이지네이션을 적용한다. 내용 조회와 전체 건수 조회는 같은 조건을 사용한다.
 - 필터링 전에 페이지를 자르거나 이미 잘린 페이지를 다시 걸러 빈 페이지와 잘못된 전체 건수를 만들지 않는다.
@@ -105,7 +111,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 
 ### 권장 조회 구조
 
-- 현재 `GameQueryService#findPage`는 `keyword`, `upcomingOnly` 조합마다 `GameRepository`의 파생 조회 메서드를 골라 쓴다. P1 조건을 같은 방식으로 늘리면 조합 수만큼 메서드가 증가하므로, 새 조건은 불변 검색 조건 하나로 묶어 단일 동적 조회 경계에 전달한다.
+- 현재 `GameQueryService#findPage`는 요청 조건을 불변 `GameListSearchCriteria`로 묶고 `GameListSpecification.from(criteria)`를 통해 하나의 `GameRepository#findAll` 동적 조회 경계에 전달한다. 새 조건도 이 경계에서 페이지네이션 전에 판정한다.
 - 170,000건 범위에서도 `upcomingOnly`의 예정 모임 게임 ID 집합을 다른 조건과 함께 전달한다. 카테고리·추천·베스트와 ANY 테마·메커니즘은 관계별 상관 `EXISTS`로, 테마·메커니즘 ALL은 각 그룹에서 선택한 고유 code 수와 일치 관계 수 비교로 판정한다.
 - 메커니즘과 `PLAYED_ONLY`는 `EXISTS`, `EXCLUDE_PLAYED`는 `NOT EXISTS`로 판정해 관계 조인으로 게임 행이 중복되지 않게 한다. 새 관계 역방향 인덱스와 cache는 170,000건 실행 계획에서 필요성이 재현될 때만 추가한다.
 
@@ -129,6 +135,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 - `SEARCH-01-AC16` 추천·베스트 인원은 BGG 투표의 판정식과 N+ 확장을 지키며, 단일·다중 OR와 다른 게임 조건의 AND, 목록·전체 건수 정합성을 지킨다.
 - `SEARCH-01-AC17` 게임 상세는 카테고리·테마·공개 메커니즘·추천/베스트 인원 배열을 정해진 순서로 반환하고, 관계가 없으면 빈 배열을 반환한다. 공개 메커니즘은 `nameKo ASC, code ASC`의 `code`, `nameKo`, `nameEn`만 반환한다.
 - `SEARCH-01-AC18` 170,000행 PostgreSQL fixture에서 대표 category·theme ANY·ALL·추천/베스트·복합 조합의 결과·전체 건수·실행 계획·응답 시간을 cache 없이 재현한다.
+- `SEARCH-01-AC19` 권장 최소 연령 4구간이 8·9·12·13·15·16세 경계를 각각 정확히 한 구간에만 넣고, 여러 구간을 함께 전달하면 OR로 결합하며 `min_age`가 없는 게임은 연령 구간 필터 결과에서 제외한다.
 
 ### 제외 범위
 
@@ -243,45 +250,28 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 
 플레이 기록·통계 기능이 승인되면 별도 이력 모델을 추가한다. 현재 관계의 생성 시각을 실제 플레이 날짜나 과거 플레이 이력으로 변환하지 않는다.
 
-## 부록: 소스 탐색 위치와 검증 경계
+## 부록: 정본 소유와 검증 경계
 
-이 부록은 소스 탐색 시작점과 후속 변경의 검증 경계를 확인하기 위한 작업 메모다. 기능의 현재 구현·검증 상태는 [P1 기능 상태 정본](README.md#기능별-현재-상태)만 따르며, 최종 계약은 [P1 명세](../P1-spec.md), [API 명세](../API.md), [ERD](../ERD.md)와 승인된 ADR을 따른다.
+이 부록은 검색 정본의 소유와 후속 변경의 검증 경계를 정리한다. 기능의 현재 구현·검증 상태는 [P1 기능 상태 정본](README.md#기능별-현재-상태)만 따르며, 최종 계약은 [P1 명세](../P1-spec.md), [API 명세](../API.md), [ERD](../ERD.md)와 승인된 ADR을 따른다.
 
 ### 정본별 소유 범위
 
 검색 계약과 탐색 경계는 다음 정본이 나누어 소유한다.
 
-| 정본 | 소유 범위·탐색 지점 |
+| 정본 | 소유 범위 |
 | --- | --- |
-| [P1 명세](../P1-spec.md) | 카테고리·테마·추천/베스트·메커니즘을 포함한 `SEARCH-01`~`SEARCH-03` 기능 목록·완료 기준 |
-| [API 명세](../API.md) | 게임·방 검색, 카테고리·테마·메커니즘 선택지, 해 본 게임 파라미터·등록·취소·본인 표시 상태 |
+| [P1 명세](../P1-spec.md) | 권장 최소 연령·카테고리·테마·추천/베스트·메커니즘을 포함한 `SEARCH-01`~`SEARCH-03` 기능 목록·완료 기준 |
+| [API 명세](../API.md) | 연령 구간을 포함한 게임·방 검색, 카테고리·테마·메커니즘 선택지, 해 본 게임 파라미터·등록·취소·본인 표시 상태 |
 | [ERD](../ERD.md) | 인원·시간 수치 열, 카테고리·테마·인원 선호·메커니즘·해 본 게임 관계와 제약 |
 | ADR | [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md), [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md), [ADR-0048](../adr/game/0048-full-reviewed-game-mechanism-catalog.md), [ADR-0050](../adr/game/0050-game-metadata-catalog-and-filters.md) 승인 |
-| 카탈로그 manifest·가이드 | 인원·시간·카테고리·테마·인원 선호·메커니즘 필드의 출처, 정규화·검수 결과와 반복 적재 계약 |
+| 카탈로그 manifest·가이드 | 인원·시간·권장 최소 연령·카테고리·테마·인원 선호·메커니즘 필드의 출처, 정규화·검수 결과와 반복 적재 계약 |
 | [기반 작업](foundation.md) | 필수 검색의 대표 데이터·쿼리·측정 기준 |
-
-### 소스 탐색 시작점
-
-아래 경로는 구현 상태 판정이 아니라 관련 소스를 찾기 위한 시작점이다. 파일의 존재만으로 기능 완료를 판단하지 않으며, `USER_PLAYED_GAMES`를 포함한 물리 계약은 ERD가 정본이다. Java 경로는 `src/main/java/cloud/bamsongi/albammate/` 기준이고, 그 밖의 경로는 저장소 루트 기준이다.
-
-| 영역 | 탐색 시작 파일 |
-| --- | --- |
-| 게임 메타데이터 저장 모델 | `game/entity/GameCategory.java`, `GameTheme.java`, `GamePlayerPreference.java`와 각 relation·Repository, `V20__create_game_metadata_filter_schema.sql` |
-| 게임 요청·응답 | `game/dto/GameListRequest.java`, `game/dto/GameDetail.java`, category·theme option·summary DTO |
-| 게임 HTTP·조회 | `game/controller/GameController.java`, `GameCategoryController.java`, `GameThemeController.java`, `GameMechanismController.java`, `game/service/GameListSearchCriteria.java`, `GameQueryService.java` |
-| 해 본 게임 관계 | `game/entity/UserPlayedGame.java`, `UserPlayedGameRepository.java`, `UserPlayedGameService.java`, `UserPlayedGameController.java`, `V13__add_user_played_games.sql` |
-| 카탈로그 변환 | `scripts/game-catalog/`의 변환·분석 스크립트와 테스트 |
-| 방 요청·HTTP | `room/dto/RoomListRequest.java`, `room/controller/RoomController.java`, `room/controller/RoomQueryParameterAllowlistValidator.java` |
-| 방 조회 | `room/service/query/RoomListQueryService.java`, `room/service/query/RoomListReadService.java`, `room/repository/RoomRepository.java` |
-| DB 마이그레이션 | `V8__add_p1_game_search_numeric_fields.sql`, `V12__create_game_mechanism_schema.sql`, `V13__add_user_played_games.sql`, `V17__add_game_release_year.sql`, `V20__create_game_metadata_filter_schema.sql`, `V21__add_game_min_age.sql` |
-| 단위·통합 테스트 | `src/test/java/cloud/bamsongi/albammate/game/`, 같은 경로의 `room/` |
-| PostgreSQL 테스트 | `src/postgresTest/`의 게임 카탈로그·방 목록 검증과 필요한 신규 테스트 |
 
 ### 구현·테스트 경계
 
 - 게임 데이터 정규화는 전진 Flyway 마이그레이션, JPA 매핑과 PostgreSQL 검증을 함께 포함한다.
-- 카탈로그 변환 테스트는 category rank, theme code·한글명, suggested_numplayers의 N+·동률·poll 누락·잘못된 label, 적재 차단과 수렴·롤백을 검증한다.
-- 게임·방 조회 테스트는 단독 필터, category/recommended/best OR, theme ANY·ALL, 종류 사이 AND, 모든 필수 조건 조합과 필터 후 페이지 계산을 검증한다.
+- 카탈로그 변환 테스트는 minage, category rank, theme code·한글명, suggested_numplayers의 N+·동률·poll 누락·잘못된 label, 적재 차단과 수렴·롤백을 검증한다.
+- 게임·방 조회 테스트는 단독 필터, ageBand/category/recommended/best OR, theme ANY·ALL, 종류 사이 AND, 모든 필수 조건 조합과 필터 후 페이지 계산을 검증한다.
 - 해 본 게임 테스트는 사용자 격리, 등록·취소 멱등성, 오류 우선순위, 목록·상세 표시값과 관계 필터의 검증·인증·복합 검색을 HTTP와 PostgreSQL 경계에서 검증한다.
 - 필터가 없는 게임·방 요청은 `SEARCH-03`의 `playedByMe` 추가를 제외한 기존 P0 동작의 회귀 테스트를 유지한다.
 - PostgreSQL 전용 제약·마이그레이션·실행 계획은 H2 테스트만으로 검증했다고 보지 않는다.

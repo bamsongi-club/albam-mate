@@ -754,7 +754,7 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 - 사람 중심 방의 `game_id`는 NULL일 수 있으며, 게임을 선택한 사람 중심 방도 허용한다.
 - `GAME_MECHANISMS`의 공개 상태는 애플리케이션 enum이 아니다. 선택지와 검색은 `is_public = true`인 항목만 사용하고, 새 항목은 검수 전 공개하지 않는다.
 - `GAME_MECHANISM_RELATIONS(mechanism_id, game_id)` 인덱스로 공개 코드의 관계 존재 여부를 조회하며 관계 조인으로 게임 행을 중복시키지 않는다.
-- GAME_CATEGORY_RELATIONS(category_id, game_id)와 GAME_THEME_RELATIONS(theme_id, game_id) 인덱스는 category/theme FK의 삭제 비용을 막고, 목록 필터는 관계별 EXISTS로 판정해 게임 행을 중복시키지 않는다.
+- `GAME_CATEGORY_RELATIONS(category_id)`와 `GAME_THEME_RELATIONS(theme_id)` 단일 컬럼 인덱스는 category/theme FK의 삭제 비용과 역방향 조회를 지원한다. 각 복합 기본 키는 `game_id`가 선두이며, 목록 필터는 관계별 `EXISTS`로 판정해 게임 행을 중복시키지 않는다.
 - GAME_PLAYER_PREFERENCES는 복합 기본 키의 game_id 선두 인덱스로 상세 인원 배열을 조회한다. player_count 선두의 검색 인덱스와 다른 역방향 인덱스는 170,000건 실행 계획에서 병목이 재현될 때만 추가한다.
 - `SOCIAL_ACCOUNTS.user_id`는 `ON DELETE NO ACTION`이다. 계정 삭제는 AUTH-05 범위에 없으며 도입 시 외부 연결 처리 순서를 별도로 결정한다.
 - `USER_PLAYED_GAMES.user_id`와 `game_id`는 모두 `ON DELETE NO ACTION`이다. 사용자·게임 삭제로 관계를 암묵적으로 연쇄 삭제하지 않으며, 삭제 기능을 도입할 때 정리 순서를 별도로 결정한다.
