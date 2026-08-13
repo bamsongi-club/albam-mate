@@ -1012,7 +1012,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | `playerCountExact` | boolean | N | `false` | P1 | 제공 | `true`이면 전달한 인원 경계를 정확히 일치시킨다 |
 | `exclusivePlayerCount` | integer | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 전용 인원. 허용값은 `1`, `2`. 목록 안 OR |
 | `playTime` | GamePlayTimeFilter | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 검증된 최대 플레이 시간 구간. 목록 안 OR |
-| `ageBand` | GameAgeBandFilter | N | 검색 없음 | P1 | 제공 | 반복 전달 가능한 권장 최소 연령 구간. 목록 안 OR |
+| `youngestPlayerAge` | integer | N | 검색 없음 | P1 | 제공 | 1 이상. 최연소 참여자의 나이가 게임의 권장 최소 연령 이상인 게임만 반환 |
 | `complexityMin` | number | N | 검색 없음 | P1 | 제공 | `1.00`~`5.00`, 난이도 닫힌 구간의 하한 |
 | `complexityMax` | number | N | 검색 없음 | P1 | 제공 | `1.00`~`5.00`, 난이도 닫힌 구간의 상한 |
 | `playedFilter` | PlayedFilter | N | 검색 없음 | P1 | 제공 | 단일 값. `PLAYED_ONLY` 또는 `EXCLUDE_PLAYED`; 사용 시 로그인 필요 |
@@ -1050,15 +1050,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 | `OVER_60_UNDER_90` | `> 60 AND < 90` |
 | `AT_LEAST_90` | `>= 90` |
 
-- `ageBand`는 검증된 `min_age`로 아래 4구간을 판정한다. 경계값은 정확히 한 구간에만 속하고 여러 값을 전달하면 OR로 결합한다. `min_age`가 `NULL`인 게임은 연령 구간 필터를 적용할 때 제외한다.
-
-| 값 | 판정 |
-|---|---|
-| `UP_TO_8` | `<= 8` |
-| `FROM_9_TO_12` | `>= 9 AND <= 12` |
-| `FROM_13_TO_15` | `>= 13 AND <= 15` |
-| `AT_LEAST_16` | `>= 16` |
-
+- `youngestPlayerAge`는 양의 정수로 전달한다. 게임의 `min_age <= youngestPlayerAge`일 때 포함하며 `min_age`가 `NULL`인 게임은 이 필터를 적용할 때 제외한다. 생략하면 권장 최소 연령이 없다는 이유로 게임을 제외하지 않는다.
 - 이전 `playTime` 값 `SHORT`, `MEDIUM`, `LONG`은 제거했다. 단독으로 전달하거나 새 값과 섞어 전달하면 검증 오류이며 조용히 무시하지 않는다.
 - 복잡도는 전달한 하한 이상·상한 이하의 닫힌 구간으로 판정한다. 두 값을 함께 전달할 때 하한이 상한보다 크면 검증 오류다.
 - `PLAYED_ONLY`는 현재 사용자의 표시 관계가 있는 게임만, `EXCLUDE_PLAYED`는 그 관계가 없는 게임만 반환한다. 관계가 없다는 사실을 실제 미플레이로 해석하지 않는다.
@@ -1068,7 +1060,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 - `category`는 [GAME-04](#game-04-게임-카테고리-선택지-조회)의 code를 반복 전달하고 같은 목록 안에서 OR다. `theme`은 [GAME-05](#game-05-게임-테마-선택지-조회)의 code를 반복 전달하며, `themeMatch=ANY`는 하나 이상, `themeMatch=ALL`은 모든 고유 code 관계를 요구한다.
 - `recommendedPlayerCount`와 `bestPlayerCount`는 각각 BGG 투표에서 정규화한 양의 인원을 반복 전달하며 같은 목록 안에서 OR다. 가능 인원과 다른 의미이며 `4+` 결과는 해당 게임의 검증된 최대 가능 인원까지 확장된 관계로 판정한다.
 - `themeMatch`와 `mechanismMatch`는 각각 생략하면 `ANY`이고 대응하는 선택 코드 없이 보내도 유효하다. 두 모드는 독립적이며 테마·메커니즘 그룹과 다른 필터 종류 사이는 `AND`로 결합한다. 중복되거나 잘못된 match 값, 존재하지 않는 category/theme code, 0 이하 인원은 일부 유효 값이 함께 있어도 전체 요청을 `VALIDATION_ERROR`로 거절한다.
-- 인원·시간·연령·복잡도·카테고리·테마·추천/베스트·메커니즘 필터를 적용하면 해당 조건을 판정할 검증값이나 관계가 없는 게임은 제외한다. 필터를 생략하면 누락값이나 관계 부재만으로 제외하지 않는다.
+- 인원·시간·최연소 참여자 나이·복잡도·카테고리·테마·추천/베스트·메커니즘 필터를 적용하면 해당 조건을 판정할 검증값이나 관계가 없는 게임은 제외한다. 필터를 생략하면 누락값이나 관계 부재만으로 제외하지 않는다.
 - 모든 필터를 적용한 뒤 전체 건수, `name ASC, id ASC` 정렬과 페이지를 계산한다.
 
 `tag` 필터와 클라이언트 지정 `sort`는 지원하지 않는다.

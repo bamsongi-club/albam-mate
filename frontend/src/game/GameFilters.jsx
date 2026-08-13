@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { createPortal } from 'react-dom';
 import { api } from '../api';
 import {
-  AGE_BAND_LABEL,
   COMPLEXITY_BANDS,
   EMPTY_GAME_FILTERS,
   EXCLUSIVE_PLAYER_COUNT_OPTIONS,
@@ -378,9 +377,6 @@ export function GameFilters({ filters, onChange, searchSlot }) {
   const togglePlayTime = (value, checked) => update({
     playTime: checked ? [...filters.playTime, value] : filters.playTime.filter((selected) => selected !== value)
   });
-  const toggleAgeBand = (value, checked) => update({
-    ageBand: checked ? [...filters.ageBand, value] : filters.ageBand.filter((selected) => selected !== value)
-  });
   const toggleMatchable = (key, matchKey) => (value, checked) => {
     const selected = checked ? [...filters[key], value] : filters[key].filter((candidate) => candidate !== value);
     update({ [key]: selected, ...(selected.length ? null : { [matchKey]: '' }) });
@@ -392,8 +388,25 @@ export function GameFilters({ filters, onChange, searchSlot }) {
       <FilterCheckGroup label="모임" checked={filters.upcomingOnly} onChange={(upcomingOnly) => update({ upcomingOnly })} text="예정 모임 있는 게임만" />
       <FilterMultiCheckGroup label="카테고리" values={filters.category} onToggle={toggleIn('category')}
         options={categoryOptions.map((option) => ({ value: option.code, label: option.nameKo }))} />
-      <FilterMultiCheckGroup label="연령대" values={filters.ageBand} onToggle={toggleAgeBand}
-        options={Object.entries(AGE_BAND_LABEL).map(([code, label]) => ({ value: code, label }))} />
+      <fieldset className="filter-group">
+        <legend>최연소 참여자 나이</legend>
+        <div className="filter-range">
+          <input
+            type="number"
+            inputMode="numeric"
+            min="1"
+            step="1"
+            aria-label="최연소 참여자 나이"
+            placeholder="나이"
+            value={filters.youngestPlayerAge}
+            onChange={(event) => {
+              const value = event.target.value;
+              update({ youngestPlayerAge: value === '' || /^[1-9]\d*$/.test(value) ? value : '' });
+            }}
+          />
+          <span className="filter-range-unit">세</span>
+        </div>
+      </fieldset>
       <FilterRadioGroup name="game-filter-complexity" label="게임 난이도" value={complexityBandOf(filters)?.value || ''} onChange={selectBand}
         options={[{ value: '', label: '전체' }, ...COMPLEXITY_BANDS.map((band) => ({ value: band.value, label: band.label }))]} />
       <FilterMultiCheckGroup label="플레이 시간" values={filters.playTime} onToggle={togglePlayTime}

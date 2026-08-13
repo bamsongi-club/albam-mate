@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -216,6 +217,28 @@ class GameControllerTest {
 			request.getPlayTime());
 		org.junit.jupiter.api.Assertions.assertEquals(new BigDecimal("2.00"), request.getComplexityMin());
 		org.junit.jupiter.api.Assertions.assertEquals(new BigDecimal("3.00"), request.getComplexityMax());
+	}
+
+	@Test
+	void 최연소_참여자_나이를_서비스에_전달한다() throws Exception {
+		when(gameQueryService.findPage(any(GameListRequest.class), any()))
+			.thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+
+		mockMvc.perform(get("/api/games?youngestPlayerAge=10"))
+			.andExpect(status().isOk());
+
+		org.junit.jupiter.api.Assertions.assertEquals(10, capturedListRequest().getYoungestPlayerAge());
+	}
+
+	@Test
+	void 최연소_참여자_나이가_0_음수_정수가_아니면_조회_없이_VALIDATION_ERROR다() throws Exception {
+		for (String value : List.of("0", "-1", "not-a-number")) {
+			mockMvc.perform(get("/api/games?youngestPlayerAge=" + value))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+			verifyNoInteractions(gameQueryService);
+			reset(gameQueryService);
+		}
 	}
 
 	@Test

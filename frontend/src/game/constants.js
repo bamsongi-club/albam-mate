@@ -12,7 +12,7 @@ export const EMPTY_GAME_FILTERS = {
   playerCountExact: false,
   exclusivePlayerCount: [],
   playTime: [],
-  ageBand: [],
+  youngestPlayerAge: '',
   complexityMin: '',
   complexityMax: '',
   mechanism: [],
@@ -58,13 +58,6 @@ export const PLAY_TIME_LABEL = {
   OVER_30_TO_60: '30~60분',
   OVER_60_UNDER_90: '60~90분',
   AT_LEAST_90: '90분 이상'
-};
-
-export const AGE_BAND_LABEL = {
-  UP_TO_8: '8세 이하',
-  FROM_9_TO_12: '9~12세',
-  FROM_13_TO_15: '13~15세',
-  AT_LEAST_16: '16세 이상'
 };
 
 // 난이도 점대는 계약의 닫힌 구간 하한·상한으로 보낸다. 5점만 있는 마지막 칸은 상한도 5다.

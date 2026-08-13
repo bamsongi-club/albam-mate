@@ -7,7 +7,6 @@ import java.util.Locale;
 
 import org.springframework.data.jpa.domain.Specification;
 
-import cloud.bamsongi.albammate.game.dto.GameAgeBandFilter;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
 import cloud.bamsongi.albammate.game.dto.MechanismMatch;
 import cloud.bamsongi.albammate.game.dto.PlayedFilter;
@@ -46,7 +45,7 @@ public final class GameListSpecification {
 			}
 			addPlayerCountPredicates(root, criteriaBuilder, predicates, criteria);
 			addPlayTimePredicate(root, criteriaBuilder, predicates, criteria.getPlayTimes());
-			addAgeBandPredicate(root, criteriaBuilder, predicates, criteria.getAgeBands());
+			addYoungestPlayerAgePredicate(root, criteriaBuilder, predicates, criteria.getYoungestPlayerAge());
 			BigDecimal complexityMin = criteria.getComplexityMin();
 			if (complexityMin != null) {
 				predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("complexity"), complexityMin));
@@ -259,31 +258,15 @@ public final class GameListSpecification {
 		return criteriaBuilder.and(bounds.toArray(Predicate[]::new));
 	}
 
-	private static void addAgeBandPredicate(
+	private static void addYoungestPlayerAgePredicate(
 		Root<Game> root,
 		CriteriaBuilder criteriaBuilder,
 		List<Predicate> predicates,
-		List<GameAgeBandFilter> ageBands) {
-		if (ageBands.isEmpty()) {
+		Integer youngestPlayerAge) {
+		if (youngestPlayerAge == null) {
 			return;
 		}
-		predicates.add(
-			criteriaBuilder.or(
-				ageBands.stream()
-					.map(ageBand -> ageBandPredicate(root, criteriaBuilder, ageBand))
-					.toArray(Predicate[]::new)));
-	}
-
-	private static Predicate ageBandPredicate(
-		Root<Game> root, CriteriaBuilder criteriaBuilder, GameAgeBandFilter ageBand) {
-		List<Predicate> bounds = new ArrayList<>();
-		if (ageBand.getMinInclusive() != null) {
-			bounds.add(criteriaBuilder.greaterThanOrEqualTo(root.get("minAge"), ageBand.getMinInclusive()));
-		}
-		if (ageBand.getMaxInclusive() != null) {
-			bounds.add(criteriaBuilder.lessThanOrEqualTo(root.get("minAge"), ageBand.getMaxInclusive()));
-		}
-		return criteriaBuilder.and(bounds.toArray(Predicate[]::new));
+		predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("minAge"), youngestPlayerAge));
 	}
 
 	private static String escapeLikePattern(String value) {

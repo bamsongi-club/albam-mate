@@ -1,6 +1,6 @@
 # P1 검색 기능 명세
 
-이 문서는 P1 필수 범위인 권장 최소 연령·카테고리·테마·추천/베스트 인원·메커니즘을 포함한 `SEARCH-01`~`SEARCH-03`의 구현 규칙과 완료 기준을 정의한다. 현재 계약·생산 코드·자동 검증·운영 상태는 [P1 기능 상태 정본](README.md#기능별-현재-상태)을 따른다.
+이 문서는 P1 필수 범위인 최연소 참여자 나이·카테고리·테마·추천/베스트 인원·메커니즘을 포함한 `SEARCH-01`~`SEARCH-03`의 구현 규칙과 완료 기준을 정의한다. 현재 계약·생산 코드·자동 검증·운영 상태는 [P1 기능 상태 정본](README.md#기능별-현재-상태)을 따른다.
 
 전체 범위·공통 검색 규칙은 [P1 명세](../P1-spec.md), 기존 동작은 [P0 완료 문서](../archive/p0/README.md), 요청·응답·오류는 [API 명세](../API.md), 저장 구조와 제약은 [ERD](../ERD.md)를 따른다. 메커니즘과 `SEARCH-03` 저장 계약은 ERD에 반영하며, 해당 저장 계약을 구현할 때는 전진 Flyway 마이그레이션과 PostgreSQL 검증을 함께 추가한다. 기존 `ROOMS` 필드만 사용하는 `SEARCH-02`에는 신규 저장 계약이나 마이그레이션을 요구하지 않는다.
 
@@ -44,7 +44,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 | 출처·적재 | [ADR-0015](../adr/game/0015-bgg-baseline-team-collected-game-list.md), [입력 검수 기록](../game-catalog/2026-07-24-input-review.md), [적재 절차](../guides/GAME_CATALOG_IMPORT.md) |
 | 입력 데이터 | 입력 CSV와 변환 산출물은 저장소에 커밋하지 않는다. 적재 작업은 [입력 검수 기록](../game-catalog/2026-07-24-input-review.md)의 SHA-256과 일치하는 팀 공유 입력을 먼저 확보해야 하며, 입력을 새로 수집하거나 생성하지 않는다 |
 | 성능 검증 | [FND-09 검색 성능과 인덱스 검증](foundation.md#fnd-09-검색-성능과-인덱스-검증) |
-| HTTP 경계 | `GameController#listGames`, `GameListRequest`의 기존 조건과 반복 `ageBand`, `category`, `theme`, `recommendedPlayerCount`, `bestPlayerCount`, `mechanism`, 단일 `themeMatch`, `mechanismMatch`; 선택지는 `GET /api/game-categories`, `GET /api/game-themes`, `GET /api/game-mechanisms` |
+| HTTP 경계 | `GameController#listGames`, `GameListRequest`의 기존 조건과 단일 `youngestPlayerAge`, 반복 `category`, `theme`, `recommendedPlayerCount`, `bestPlayerCount`, `mechanism`, 단일 `themeMatch`, `mechanismMatch`; 선택지는 `GET /api/game-categories`, `GET /api/game-themes`, `GET /api/game-mechanisms` |
 | 현재 조회 경계 | `GameQueryService#findPage`, 불변 `GameListSearchCriteria`, `GameRepository#findAll(Specification, Pageable)`, `UpcomingRoomCountQuery`; 모든 조건은 단일 동적 조회에 전달하고 정렬은 엔티티 필드 `name`, `id` 오름차순 고정 |
 | 저장 계약 | 기존 게임 표시·검색 필드, 카테고리·테마·인원 선호·메커니즘 관계. `Game.tag` 의미는 유지하고 새 관계의 정본으로 재사용하지 않음 |
 
@@ -72,10 +72,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 | `OVER_30_TO_60` | 검증된 최대 플레이 시간이 30분 초과 60분 이하 |
 | `OVER_60_UNDER_90` | 검증된 최대 플레이 시간이 60분 초과 90분 미만 |
 | `AT_LEAST_90` | 검증된 최대 플레이 시간이 90분 이상 |
-| `UP_TO_8` | 검증된 권장 최소 연령이 8세 이하 |
-| `FROM_9_TO_12` | 검증된 권장 최소 연령이 9세 이상 12세 이하 |
-| `FROM_13_TO_15` | 검증된 권장 최소 연령이 13세 이상 15세 이하 |
-| `AT_LEAST_16` | 검증된 권장 최소 연령이 16세 이상 |
+| 최연소 참여자 나이 | 검증된 권장 최소 연령이 입력한 양의 정수 이하 |
 | 복잡도 | 사용자가 지정한 최소·최대 닫힌 구간에 포함됨 |
 | 메커니즘 | `mechanismMatch=ANY`면 선택한 공개 코드 중 하나 이상, `ALL`이면 선택한 모든 고유 코드와 관계가 있음. 다른 필터와 AND |
 
@@ -84,7 +81,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 - `인원 정확히 일치`는 범위 경계에 붙는 수정자다. 맞출 경계가 없으면, 즉 최소·최대를 모두 생략하면 인원 조건을 적용하지 않는다.
 - 전용 인원의 허용값은 `1`, `2`이며 둘을 함께 선택하면 OR로 결합한다.
 - 플레이 시간은 6구간을 제공하고 여러 구간을 함께 선택하면 OR로 결합한다. 구간 경계값은 정확히 한 구간에만 속하고 `0분`과 음수는 어떤 구간에도 포함하지 않는다.
-- 권장 최소 연령은 4구간을 제공하고 여러 구간을 함께 선택하면 OR로 결합한다. 구간 경계값은 정확히 한 구간에만 속하며 `min_age`가 `NULL`인 게임은 연령 구간 필터를 적용할 때 제외한다.
+- 최연소 참여자 나이는 양의 정수 하나를 입력하며 `min_age <= youngestPlayerAge`인 게임만 반환한다. `min_age`가 `NULL`인 게임은 이 필터를 적용할 때 제외하고, 필터를 생략하면 누락만으로 제외하지 않는다.
 - 이전 플레이 시간 값 `SHORT`, `MEDIUM`, `LONG`은 제거했다. 단독으로 전달하거나 새 값과 섞어 전달하면 검증 오류이며 조용히 무시하지 않는다.
 - 기존 `playerCount` 조건은 그대로 유지한다.
 - 복잡도 최소값과 최대값은 각각 생략할 수 있지만 둘 다 전달하면 최소값이 최대값보다 크지 않아야 한다.
@@ -135,7 +132,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 - `SEARCH-01-AC16` 추천·베스트 인원은 BGG 투표의 판정식과 N+ 확장을 지키며, 단일·다중 OR와 다른 게임 조건의 AND, 목록·전체 건수 정합성을 지킨다.
 - `SEARCH-01-AC17` 게임 상세는 카테고리·테마·공개 메커니즘·추천/베스트 인원 배열을 정해진 순서로 반환하고, 관계가 없으면 빈 배열을 반환한다. 공개 메커니즘은 `nameKo ASC, code ASC`의 `code`, `nameKo`, `nameEn`만 반환한다.
 - `SEARCH-01-AC18` 170,000행 PostgreSQL fixture에서 대표 category·theme ANY·ALL·추천/베스트·복합 조합의 결과·전체 건수·실행 계획·응답 시간을 cache 없이 재현한다.
-- `SEARCH-01-AC19` 권장 최소 연령 4구간이 8·9·12·13·15·16세 경계를 각각 정확히 한 구간에만 넣고, 여러 구간을 함께 전달하면 OR로 결합하며 `min_age`가 없는 게임은 연령 구간 필터 결과에서 제외한다.
+- `SEARCH-01-AC19` 최연소 참여자 나이는 1 이상의 단일 정수이며 `min_age`가 입력값 이하인 게임만 반환한다. `min_age`가 없거나 입력값보다 크면 제외하고, 다른 조건과 AND로 결합한 결과 기준 정렬·페이지·전체 건수를 유지한다.
 
 ### 제외 범위
 
@@ -261,7 +258,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 | 정본 | 소유 범위 |
 | --- | --- |
 | [P1 명세](../P1-spec.md) | 권장 최소 연령·카테고리·테마·추천/베스트·메커니즘을 포함한 `SEARCH-01`~`SEARCH-03` 기능 목록·완료 기준 |
-| [API 명세](../API.md) | 연령 구간을 포함한 게임·방 검색, 카테고리·테마·메커니즘 선택지, 해 본 게임 파라미터·등록·취소·본인 표시 상태 |
+| [API 명세](../API.md) | 최연소 참여자 나이 조건을 포함한 게임·방 검색, 카테고리·테마·메커니즘 선택지, 해 본 게임 파라미터·등록·취소·본인 표시 상태 |
 | [ERD](../ERD.md) | 인원·시간 수치 열, 카테고리·테마·인원 선호·메커니즘·해 본 게임 관계와 제약 |
 | ADR | [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md), [ADR-0028](../adr/game/0028-explicit-user-played-game-state.md), [ADR-0048](../adr/game/0048-full-reviewed-game-mechanism-catalog.md), [ADR-0050](../adr/game/0050-game-metadata-catalog-and-filters.md) 승인 |
 | 카탈로그 manifest·가이드 | 인원·시간·권장 최소 연령·카테고리·테마·인원 선호·메커니즘 필드의 출처, 정규화·검수 결과와 반복 적재 계약 |
@@ -271,7 +268,7 @@ BGG 기준 순위 CSV에는 플레이 시간과 poll 열이 없다. 170,000개 �
 
 - 게임 데이터 정규화는 전진 Flyway 마이그레이션, JPA 매핑과 PostgreSQL 검증을 함께 포함한다.
 - 카탈로그 변환 테스트는 minage, category rank, theme code·한글명, suggested_numplayers의 N+·동률·poll 누락·잘못된 label, 적재 차단과 수렴·롤백을 검증한다.
-- 게임·방 조회 테스트는 단독 필터, ageBand/category/recommended/best OR, theme ANY·ALL, 종류 사이 AND, 모든 필수 조건 조합과 필터 후 페이지 계산을 검증한다.
+- 게임·방 조회 테스트는 단독 필터, `youngestPlayerAge`, category/recommended/best OR, theme ANY·ALL, 종류 사이 AND, 모든 필수 조건 조합과 필터 후 페이지 계산을 검증한다.
 - 해 본 게임 테스트는 사용자 격리, 등록·취소 멱등성, 오류 우선순위, 목록·상세 표시값과 관계 필터의 검증·인증·복합 검색을 HTTP와 PostgreSQL 경계에서 검증한다.
 - 필터가 없는 게임·방 요청은 `SEARCH-03`의 `playedByMe` 추가를 제외한 기존 P0 동작의 회귀 테스트를 유지한다.
 - PostgreSQL 전용 제약·마이그레이션·실행 계획은 H2 테스트만으로 검증했다고 보지 않는다.
