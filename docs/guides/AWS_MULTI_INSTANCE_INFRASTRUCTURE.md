@@ -18,7 +18,7 @@
 | 2026-08-06 승인된 P1 방향 | App1 Nginx가 App1·App2 Spring에 요청 분산, EC2 4대 전부 `t4g.micro`, public subnet 사용, ALB·자동 확장·NAT Gateway 제외 | 결정 채택 |
 | 현재 애플리케이션 계약 | 공용 PostgreSQL·Redis, Spring Session, Redis Pub/Sub, PostgreSQL ShedLock과 Flyway migration | 코드·정본별 상태 확인 필요 |
 | Terraform·Ansible 1차 코드 | VPC, 역할별 public subnet, 보안 그룹, 고정 EC2 4대, 데이터 EBS, IAM, private DNS, state S3·ECR과 SSM 기반 Docker 설치·호스트 검증 | Terraform 정적 검증 통과·Ansible 실행 미검증 |
-| 아직 검증하지 않은 운영 범위 | 정본 인프라 코드만으로 독립 재현, Ansible·SSM 실행, 비밀값 주입, TLS 인증서 갱신, 백업·복구, CloudWatch 대시보드·경보, 교차 인스턴스·장애 처리와 부하 실행 자동화 | 후속 작업 |
+| 아직 검증하지 않은 운영 범위 | 정본 인프라 코드만으로 독립 재현, Ansible·SSM 실행, 비밀값 주입, TLS 인증서 갱신, 백업·복구, P2 애플리케이션 metric·log·대시보드·경고, 교차 인스턴스·장애 처리와 부하 실행 자동화 | 후속 작업 |
 
 이 구성은 최종 용량이나 고가용성 운영 구성이 아니다. 작은 사양에서 먼저 실패하는 역할과 원인을 확인한 뒤 근거가 있는 자원만 수동으로 바꾸는 P1 기준선이다.
 
@@ -29,6 +29,7 @@
 | 승인된 ADR-0051 | Nginx 진입점, 자체 운영 데이터 서비스, EC2 수와 트레이드오프 |
 | 이 가이드 | 생성·배포·측정·확장·철거 순서, 검증 체크리스트와 P1 최소 배포 목표 상태 |
 | `docs/archive/p1/P1-spec.md`, `docs/ARCHITECTURE.md` | P1 애플리케이션 실행 계약과 다중 인스턴스 동작 |
+| `docs/p2/monitoring.md`, ADR-0058·ADR-0059 | P2 운영 질문·완료 기준과 애플리케이션 metric·구조화 log 전송 경계. 이 P1 실행안은 해당 구현·검증 상태를 소유하지 않는다. |
 | 애플리케이션 실행 파일 | Docker 이미지, Compose, Nginx upstream, Flyway와 환경변수 계약 |
 | 별도 인프라 저장소 | 실제 Terraform, cloud-init, Ansible과 AWS 리소스 경계 |
 
