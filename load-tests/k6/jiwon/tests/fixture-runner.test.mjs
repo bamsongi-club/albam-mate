@@ -339,7 +339,9 @@ function fixtureSnapshot(fixture) {
 function writeFixturePlan(plan, idOffset = 100) {
   const fixtureDirectory = path.join(fixtureBuildRoot, plan.options.runId, plan.fixtureId);
   const fixture = hydrateFixture(plan, fixtureResources(plan, idOffset), PREPARE_OWNERSHIP);
-  fixture.baselineSnapshot = { rooms: [], participations: [], waitlists: [] };
+  fixture.baselineSnapshot = plan.options.scenario === 't5'
+    ? fixtureSnapshot(fixture)
+    : { rooms: [], participations: [], waitlists: [] };
   const fixturePath = path.join(fixtureDirectory, 'fixture.json');
   mkdirSync(fixtureDirectory, { recursive: true });
   writeFileSync(fixturePath, `${JSON.stringify(fixture, null, 2)}\n`, 'utf8');
@@ -763,7 +765,7 @@ test('run은 성공한 k6 실행의 provenance manifest와 summary를 같은 fix
     assert.equal(result.status, 0, result.stderr || result.stdout);
 
     const manifest = JSON.parse(readFileSync(path.join(fixtureDirectory, 'run-manifest.json'), 'utf8'));
-    assert.equal(manifest.fixtureId, `room-k6-${runId}-t1`);
+    assert.equal(manifest.fixtureId, prepared.fixture.fixtureId);
     assert.equal(manifest.runId, runId);
     assert.equal(manifest.scenario, 't1');
     assert.equal(manifest.sourceSha, 'a'.repeat(40));
@@ -905,7 +907,7 @@ test('T5 after 검증은 VU별 시작 편차 metric을 요구한다', { skip: fa
     });
     assert.equal(run.status, 0, run.stderr || run.stdout);
 
-    const queryResult = JSON.stringify({ rooms: [], participations: [], waitlists: [] });
+    const queryResult = JSON.stringify(fixtureSnapshot(prepared.fixture));
     writeBoundSummary(fixtureDirectory, t5Summary(3));
     const matched = verifyAfter(fixturePath, binDirectory, { FAKE_PSQL_QUERY_RESULT: queryResult });
     assert.equal(matched.status, 0, matched.stderr || matched.stdout);
