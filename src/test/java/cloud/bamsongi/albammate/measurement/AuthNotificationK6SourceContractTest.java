@@ -14,12 +14,23 @@ class AuthNotificationK6SourceContractTest {
 
 	@Test
 	void 알림_캠페인은_계획된_고정_순서대로_0점5배부터_실행할_수_있다() throws IOException {
-		String mixedLoad = Files.readString(
-			REPOSITORY_ROOT.resolve("load-tests/k6/jiho/mixed-load-capacity.js"));
+		String mixedLoad = mixedLoad();
 
 		assertThat(mixedLoad)
 			.contains("if (value === '0.5')")
 			.doesNotContain("MIXED_HALF_SCALE_ACK")
 			.doesNotContain("one-x-failed");
+	}
+
+	@Test
+	void 알림_측정용_로그인은_인증_정상_경계를_넘지_않도록_warmup에_분산한다() throws IOException {
+		assertThat(mixedLoad())
+			.contains("const BROWSING_LOGIN_STAGGER_SECONDS = SMOKE ? POLLING_INTERVAL_SECONDS : 90;")
+			.contains("BROWSING_LOGIN_STAGGER_SECONDS * (exec.vu.idInTest - 1) / ONLINE_SESSIONS");
+	}
+
+	private String mixedLoad() throws IOException {
+		return Files.readString(
+			REPOSITORY_ROOT.resolve("load-tests/k6/jiho/mixed-load-capacity.js"));
 	}
 }

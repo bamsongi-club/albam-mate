@@ -42,6 +42,9 @@ const LOGIN_MAX_ATTEMPTS = 5;
 
 const MULTIPLIER = capacityMultiplier();
 const POLLING_INTERVAL_SECONDS = 10;
+// 인증 캠페인에서 확인한 정상 경계(8 req/s) 아래로 setup 로그인을 제한한다. 2×의 600개 세션도
+// 90초에 분산하면 6.67 req/s이고, 마지막 VU에도 재시도와 측정 전 안정화 시간을 남긴다.
+const BROWSING_LOGIN_STAGGER_SECONDS = SMOKE ? POLLING_INTERVAL_SECONDS : 90;
 // 공식 Run은 조건 비교가 목적이므로 구간과 사용자 행동 비율을 환경 변수로 바꾸지 않는다.
 const WARMUP_SECONDS = SMOKE ? 0 : 120;
 const MEASUREMENT_SECONDS = SMOKE ? 60 : 600;
@@ -288,10 +291,10 @@ function ensureEventFixture() {
 export function browsingSession() {
   // 주기 안에서 VU를 균등하게 흩어 로그인 몰림을 없애고, 실제 브라우저처럼 polling 위상을 분산한다.
   // 이 대기는 주기 보정 밖에서 한 번만 수행해야 위상 차이가 Run 내내 유지된다.
-  if (!staggered) {
-    staggered = true;
-    sleep(POLLING_INTERVAL_SECONDS * (exec.vu.idInTest % ONLINE_SESSIONS) / ONLINE_SESSIONS);
-  }
+	if (!staggered) {
+		staggered = true;
+		sleep(BROWSING_LOGIN_STAGGER_SECONDS * (exec.vu.idInTest - 1) / ONLINE_SESSIONS);
+	}
 
   const iterationStartedAt = Date.now();
   if (ensureBrowsingSession()) {
