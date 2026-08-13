@@ -90,13 +90,13 @@ class GameRankingHttpIntegrationTest {
 	}
 
 	@Test
-	void 비로그인_요청은_실제_보안_필터를_통과해_전체와_앞으로_7일_랭킹을_반환한다() throws Exception {
+	void 비로그인_요청은_실제_보안_필터를_통과해_전체와_지난_7일_랭킹을_반환한다() throws Exception {
 		Instant referenceTime = Instant.now(clock);
 		Long hostUserId = insertUser("game-ranking-http-basic@example.com");
 		Game overallOnly = saveGame(50001L, "오버롤전용게임");
-		Game upcomingOnly = saveGame(50002L, "예정전용게임");
-		saveRoom(hostUserId, RoomType.GAME_FOCUSED, overallOnly.getId(), referenceTime.plus(Duration.ofDays(30)));
-		saveRoom(hostUserId, RoomType.GAME_FOCUSED, upcomingOnly.getId(), referenceTime.plus(Duration.ofHours(1)));
+		Game pastWeekOnly = saveGame(50002L, "지난주전용게임");
+		saveRoom(hostUserId, RoomType.GAME_FOCUSED, overallOnly.getId(), referenceTime.minus(Duration.ofDays(30)));
+		saveRoom(hostUserId, RoomType.GAME_FOCUSED, pastWeekOnly.getId(), referenceTime.minus(Duration.ofHours(1)));
 
 		mockMvc.perform(get("/api/game-rankings"))
 			.andExpect(status().isOk())
@@ -111,9 +111,9 @@ class GameRankingHttpIntegrationTest {
 			.andExpect(jsonPath("$.data.overall[*].title").value(empty()))
 			.andExpect(jsonPath("$.data.overall[*].hostUserId").value(empty()))
 			.andExpect(jsonPath("$.data.overall[*].startAt").value(empty()))
-			.andExpect(jsonPath(upcomingOf(upcomingOnly) + ".roomCount").value(contains(1)))
-			// 30일 뒤에 시작하는 방만 가진 게임은 앞으로 7일 랭킹에 들어가지 않는다.
-			.andExpect(jsonPath(upcomingOf(overallOnly)).value(empty()));
+			.andExpect(jsonPath(pastWeekOf(pastWeekOnly) + ".roomCount").value(contains(1)))
+			// 30일 전에 시작한 방만 가진 게임은 지난 7일 랭킹에 들어가지 않는다.
+			.andExpect(jsonPath(pastWeekOf(overallOnly)).value(empty()));
 	}
 
 	@Test
@@ -121,7 +121,7 @@ class GameRankingHttpIntegrationTest {
 		mockMvc.perform(get("/api/game-rankings"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.overall").isArray())
-			.andExpect(jsonPath("$.data.upcomingWeek").isArray());
+			.andExpect(jsonPath("$.data.pastWeek").isArray());
 	}
 
 	/**
@@ -134,8 +134,8 @@ class GameRankingHttpIntegrationTest {
 		return "$.data.overall[?(@.gameId == " + game.getId() + ")]";
 	}
 
-	private String upcomingOf(Game game) {
-		return "$.data.upcomingWeek[?(@.gameId == " + game.getId() + ")]";
+	private String pastWeekOf(Game game) {
+		return "$.data.pastWeek[?(@.gameId == " + game.getId() + ")]";
 	}
 
 	private Long insertUser(String email) {

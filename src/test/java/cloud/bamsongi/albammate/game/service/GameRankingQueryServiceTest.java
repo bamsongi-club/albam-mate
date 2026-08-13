@@ -50,15 +50,15 @@ class GameRankingQueryServiceTest {
 	}
 
 	@Test
-	void 앞으로_7일_랭킹_조회는_고정된_기준_시각과_7일_뒤_경계를_계약에_전달한다() {
-		Instant expectedTo = FIXED_NOW.plus(Duration.ofDays(7));
+	void 지난_7일_랭킹_조회는_7일_전_경계와_고정된_기준_시각을_계약에_전달한다() {
+		Instant expectedFrom = FIXED_NOW.minus(Duration.ofDays(7));
 		when(gameRankingQuery.findOverallRanking(10)).thenReturn(List.of());
-		when(gameRankingQuery.findRankingByPeriod(FIXED_NOW, expectedTo, 10)).thenReturn(List.of());
+		when(gameRankingQuery.findRankingByPeriod(expectedFrom, FIXED_NOW, 10)).thenReturn(List.of());
 
 		gameRankingQueryService.findRankings();
 
 		verify(gameRankingQuery).findOverallRanking(10);
-		verify(gameRankingQuery).findRankingByPeriod(FIXED_NOW, expectedTo, 10);
+		verify(gameRankingQuery).findRankingByPeriod(expectedFrom, FIXED_NOW, 10);
 	}
 
 	@Test
@@ -69,7 +69,7 @@ class GameRankingQueryServiceTest {
 		GameRankingResponse response = gameRankingQueryService.findRankings();
 
 		assertEquals(List.of(), response.overall());
-		assertEquals(List.of(), response.upcomingWeek());
+		assertEquals(List.of(), response.pastWeek());
 		verify(gameRepository, never()).findAllById(anyCollection());
 	}
 
@@ -92,7 +92,7 @@ class GameRankingQueryServiceTest {
 			response.overall());
 		assertEquals(
 			List.of(new GameRankingItem(1, 2L, 1002L, "게임B", "Catan", null, null, "게임 설명", 3L)),
-			response.upcomingWeek());
+			response.pastWeek());
 		verify(gameRepository).findAllById(Set.of(1L, 2L));
 	}
 
