@@ -43,7 +43,7 @@ const CARCASSONNE = {
 };
 const RANKINGS = {
   overall: [CATAN, CARCASSONNE],
-  upcomingWeek: [{ ...CARCASSONNE, rank: 1, roomCount: 3 }]
+  pastWeek: [{ ...CARCASSONNE, rank: 1, roomCount: 3 }]
 };
 
 beforeEach(() => {
@@ -54,7 +54,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('인기 게임 랭킹 화면', () => {
-  it('전체와 앞으로 7일을 탭으로 구분해 표시하고 전환에 다시 조회하지 않는다', async () => {
+  it('전체와 지난 7일을 탭으로 구분해 표시하고 전환에 다시 조회하지 않는다', async () => {
     render(<GameRankingView dataVersion={0} />);
     await act(async () => {});
 
@@ -62,9 +62,9 @@ describe('인기 게임 랭킹 화면', () => {
     expect(rowText('카탄')).toContain('모임 12개');
     expect(rowText('카르카손')).toContain('모임 5개');
 
-    fireEvent.click(screen.getByRole('button', { name: '앞으로 7일' }));
+    fireEvent.click(screen.getByRole('button', { name: '지난 7일' }));
 
-    expect(screen.getByRole('button', { name: '앞으로 7일' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: '지난 7일' }).getAttribute('aria-pressed')).toBe('true');
     expect(rowText('카르카손')).toContain('모임 3개');
     expect(screen.queryByRole('link', { name: /카탄/ })).toBeNull();
     expect(getGameRankings.mock.calls.length).toBe(1);
@@ -88,15 +88,15 @@ describe('인기 게임 랭킹 화면', () => {
   });
 
   it('랭킹이 비어 있으면 탭마다 다른 안내를 표시한다', async () => {
-    getGameRankings.mockResolvedValue({ overall: [], upcomingWeek: [] });
+    getGameRankings.mockResolvedValue({ overall: [], pastWeek: [] });
     render(<GameRankingView dataVersion={0} />);
     await act(async () => {});
 
     expect(screen.getByText('아직 집계할 모임이 없어요. 첫 모임을 열어보세요.')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: '앞으로 7일' }));
+    fireEvent.click(screen.getByRole('button', { name: '지난 7일' }));
 
-    expect(screen.getByText('앞으로 7일 안에 시작하는 모임이 없어요.')).toBeTruthy();
+    expect(screen.getByText('지난 7일 동안 시작한 모임이 없어요.')).toBeTruthy();
   });
 
   it('조회가 실패하면 오류를 알리고 다시 시도할 수 있다', async () => {
