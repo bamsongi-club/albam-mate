@@ -1,6 +1,9 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
+import { writeOptions } from './write-options.mjs';
+
+export { writeOptions };
 
 const RUN_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,79}$/;
 
@@ -268,26 +271,6 @@ export function sessionFor(runtime, sessions, userKey) {
   };
   clientsByUserKey[userKey] = client;
   return client;
-}
-
-export function writeOptions(runtime, vus) {
-  const rounds = runtime.fixture.options.rounds;
-  const maxDuration = runtime.sessionWarmupSeconds + (runtime.roundIntervalSeconds * rounds) + 30;
-  return {
-    scenarios: {
-      room_write: {
-        executor: 'per-vu-iterations',
-        vus,
-        iterations: rounds,
-        maxDuration: `${maxDuration}s`,
-      },
-    },
-    thresholds: {
-      room_contract_failures: ['count==0'],
-      room_unexpected_4xx: ['count==0'],
-      room_server_failures: ['count==0'],
-    },
-  };
 }
 
 export function readOptions(runtime) {

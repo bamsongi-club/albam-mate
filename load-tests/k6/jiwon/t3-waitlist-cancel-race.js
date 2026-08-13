@@ -7,17 +7,22 @@ import {
   requestEmpty,
   scenarioTags,
   sessionFor,
-  targetForRound,
   waitFor,
   writeOptions,
   writeSetup,
 } from './lib/room-k6.js';
 import execution from 'k6/execution';
+import {
+  t3ExecutionAssignment,
+  t3ExecutionPlan,
+  t3SequentialRequestOrder,
+} from './lib/t3-execution-plan.mjs';
 
 const runtime = loadRuntime('t3');
-const t3Mode = runtime.fixture.options.t3Mode;
+const executionPlan = t3ExecutionPlan(runtime.fixture);
+const sequentialRequestOrder = t3SequentialRequestOrder(runtime.fixture);
 
-export const options = writeOptions(runtime, t3Mode === 'race' ? 2 : 1);
+export const options = writeOptions(runtime, executionPlan.vus, executionPlan.iterations);
 
 export function setup() {
   return writeSetup(runtime);
@@ -52,37 +57,42 @@ function cancelRequest(sessions, target, room, round, barrierAt = null) {
 }
 
 export default function (barrier) {
-  const round = execution.vu.iterationInScenario;
-  const target = targetForRound(runtime.fixture, round);
+  const assignment = t3ExecutionAssignment(
+    runtime.fixture,
+    execution.vu.idInTest,
+    execution.vu.iterationInScenario,
+  );
+  const target = assignment.target;
   const room = runtime.fixture.rooms[target.roomKey];
 
-  if (t3Mode === 'wait-first') {
-    sessionFor(runtime, barrier.sessions, target.waitKey);
-    sessionFor(runtime, barrier.sessions, target.cancelKey);
-    waitFor(barrier.firstBarrierAt + (round * barrier.roundIntervalMilliseconds));
-    waitlistRequest(barrier.sessions, target, room, round, barrier.firstBarrierAt + (round * barrier.roundIntervalMilliseconds));
-    cancelRequest(barrier.sessions, target, room, round);
+  if (sequentialRequestOrder) {
+    for (const operation of sequentialRequestOrder) {
+      const userKey = operation === 'wait' ? target.waitKey : target.cancelKey;
+      sessionFor(runtime, barrier.sessions, userKey);
+    }
+    const barrierAt = barrier.firstBarrierAt + (assignment.barrierRound * barrier.roundIntervalMilliseconds);
+    waitFor(barrierAt);
+    for (let index = 0; index < sequentialRequestOrder.length; index += 1) {
+      const operation = sequentialRequestOrder[index];
+      const requestBarrierAt = index === 0 ? barrierAt : null;
+      if (operation === 'wait') {
+        waitlistRequest(barrier.sessions, target, room, target.round, requestBarrierAt);
+      } else {
+        cancelRequest(barrier.sessions, target, room, target.round, requestBarrierAt);
+      }
+    }
     return;
   }
 
-  if (t3Mode === 'cancel-first') {
-    sessionFor(runtime, barrier.sessions, target.cancelKey);
-    sessionFor(runtime, barrier.sessions, target.waitKey);
-    waitFor(barrier.firstBarrierAt + (round * barrier.roundIntervalMilliseconds));
-    cancelRequest(barrier.sessions, target, room, round, barrier.firstBarrierAt + (round * barrier.roundIntervalMilliseconds));
-    waitlistRequest(barrier.sessions, target, room, round);
-    return;
-  }
-
-  const barrierAt = barrier.firstBarrierAt + (round * barrier.roundIntervalMilliseconds);
-  if (execution.vu.idInTest === 1) {
+  const barrierAt = barrier.firstBarrierAt + (assignment.barrierRound * barrier.roundIntervalMilliseconds);
+  if (assignment.role === 'wait') {
     sessionFor(runtime, barrier.sessions, target.waitKey);
     waitFor(barrierAt);
-    waitlistRequest(barrier.sessions, target, room, round, barrierAt);
+    waitlistRequest(barrier.sessions, target, room, target.round, barrierAt);
     return;
   }
 
   sessionFor(runtime, barrier.sessions, target.cancelKey);
   waitFor(barrierAt);
-  cancelRequest(barrier.sessions, target, room, round, barrierAt);
+  cancelRequest(barrier.sessions, target, room, target.round, barrierAt);
 }
