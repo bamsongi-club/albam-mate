@@ -172,13 +172,11 @@ PK·FK·CHECK·그 밖의 UNIQUE 위반, 교착, 직렬화 실패와 분류할 �
 
 ## 검증
 
-- 상태: 미검증
+- 상태: 검증됨
 - 근거:
     - 저장: `V14__create_room_waitlist_schema.sql`과 PostgreSQL 전용 `V15__create_room_waitlist_partial_indexes.sql`, `RoomWaitlistId`·`RoomWaitlist`가 복합 PK, sequence, 상태 제약과 현재 `WAITING` 부분 인덱스를 구현한다. `RoomWaitlistSchemaPostgresTest`가 실제 PostgreSQL 구조와 JPA 매핑을 검증한다.
     - 조회·전이: `RoomWaitlistRepository`·`RoomWaitlistReadService`가 상태와 동적 순번을 한 스냅샷에서 읽고, 등록·취소·참가 취소·ROOM 취소·상태 보정 Executor가 목적별 조건부 전이를 같은 ROOM 일관성 경계에서 수행한다.
     - 재시도: `RoomWaitlistRegistrationCoordinator`가 ROOM 충돌과 정확한 순번 UNIQUE 충돌을 최초 포함 총 3회의 단일 예산으로 분류한다. 단위 테스트는 대상 제약 식별자 분류·공유 예산·최종 409/500과 허용된 로그 필드를 고정하고, `RoomWaitlistConcurrencyPostgresTest`의 T5는 실제 순번 UNIQUE 충돌의 독립 세 번 시도에서 ROOM·대기행이 롤백됨을 검증한다.
     - PostgreSQL: `RoomWaitlistRepositoryPostgresTest`, `RoomWaitlistConcurrencyPostgresTest`, `RoomParticipationConcurrencyPostgresTest`, `RoomStatusCorrectionPostgresTest`가 신규·중복·재신청, 두 커밋 순서, FIFO·동시 취소·자동 승격·일괄 종료와 저장 불변식을 검증한다. [ROOM-10b 보존 결과](../../measurements/results/room-10b/room-10b.json)는 다섯 경합 시나리오의 기준선 원자료를 남긴다.
-- 미검증:
-    - PK·FK·CHECK·그 밖의 UNIQUE, 교착·직렬화 실패와 분류할 수 없는 DB 오류의 공통 500·정제된 `ERROR` 로그 경계가 결정 전체를 충족하지 않는다. 현재 `RoomWaitlistRegistrationCoordinator`는 `DataIntegrityViolationException`만 ROOM ID와 함께 처리하고, 교착·직렬화 같은 예외는 전역 처리기로 넘어가 ROOM ID 없이 기록된다. 원인과 ROOM을 추적하는 요청당 한 번의 로그 및 그 테스트가 필요하다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.
