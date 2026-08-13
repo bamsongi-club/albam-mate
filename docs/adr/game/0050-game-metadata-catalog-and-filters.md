@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-08-05
 - 결정일: 2026-08-05
-- 관련: [Issue #420](https://github.com/bamsongi-club/albam-mate/issues/420), [SEARCH-01](../../p1/search.md#search-01-게임-조건-검색), [게임 목록·검색 API](../../API.md#game-01-게임-목록검색), [ERD](../../ERD.md), [ADR-0019](0019-bgg-full-catalog-staged-enrichment.md), [ADR-0048](0048-full-reviewed-game-mechanism-catalog.md)
+- 관련: [Issue #420](https://github.com/bamsongi-club/albam-mate/issues/420), [SEARCH-01](../../archive/p1/search.md#search-01-게임-조건-검색), [게임 목록·검색 API](../../API.md#game-01-게임-목록검색), [ERD](../../ERD.md), [ADR-0019](0019-bgg-full-catalog-staged-enrichment.md), [ADR-0048](0048-full-reviewed-game-mechanism-catalog.md)
 - 대체 대상: ADR-0019의 2,000건 한정과 다중 카테고리·테마·추천/베스트 인원 보류 범위
 - 후속 ADR: 없음
 

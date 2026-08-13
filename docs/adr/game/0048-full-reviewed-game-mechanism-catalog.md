@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-08-04
 - 결정일: 2026-08-04
-- 관련: [Issue #351](https://github.com/bamsongi-club/albam-mate/issues/351), [SEARCH-01](../../p1/search.md#search-01-게임-조건-검색), [게임 카탈로그 취득 기록](../../game-catalog/2026-08-01-bgg-detail-acquisition.md)
+- 관련: [Issue #351](https://github.com/bamsongi-club/albam-mate/issues/351), [SEARCH-01](../../archive/p1/search.md#search-01-게임-조건-검색), [게임 카탈로그 취득 기록](../../game-catalog/2026-08-01-bgg-detail-acquisition.md)
 - 대체 대상: [ADR-0027](0027-controlled-game-mechanism-taxonomy-and-provenance.md)
 - 후속 ADR: 없음
 
@@ -58,7 +58,7 @@
 - 상태: 검증됨
 - 근거:
     - 구현: `V12__create_game_mechanism_schema.sql`, `GameMechanismController`, `GameMechanismQueryService`, `GameListSearchCriteria`, `mechanism-catalog.mjs`
-    - 계약: `docs/API.md`, `docs/ERD.md`, `docs/P1-spec.md`, `docs/p1/search.md`, 메커니즘 source manifest·품질 보고서
+    - 계약: `docs/API.md`, `docs/ERD.md`, `docs/archive/p1/P1-spec.md`, `docs/archive/p1/search.md`, 메커니즘 source manifest·품질 보고서
     - 테스트: `prepare-game-catalog.test.mjs`, `GameMechanismHttpIntegrationTest`, `GameListFilterPostgresTest`, `GameCatalogImportPostgresTest`
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

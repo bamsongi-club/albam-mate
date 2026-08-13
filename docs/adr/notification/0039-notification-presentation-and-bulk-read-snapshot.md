@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-31
 - 결정일: 2026-08-01
-- 관련: [P1 알림 구현 명세](../../p1/notification.md), [API 알림 목록](../../API.md#noti-02-내-알림-목록), [API 알림 일괄 읽음](../../API.md#noti-03-내-알림-일괄-읽음), [ERD 사용자별 알림](../../ERD.md#notifications), [ADR-0002](../platform/0002-postgresql-primary-database.md), [ADR-0010](../platform/0010-h2-postgresql-test-boundary.md), [ADR-0029](0029-room-integration-event-transactional-outbox.md), [ADR-0030](0030-postgresql-notification-relay-processing-recovery.md)
+- 관련: [P1 알림 구현 명세](../../archive/p1/notification.md), [API 알림 목록](../../API.md#noti-02-내-알림-목록), [API 알림 일괄 읽음](../../API.md#noti-03-내-알림-일괄-읽음), [ERD 사용자별 알림](../../ERD.md#notifications), [ADR-0002](../platform/0002-postgresql-primary-database.md), [ADR-0010](../platform/0010-h2-postgresql-test-boundary.md), [ADR-0029](0029-room-integration-event-transactional-outbox.md), [ADR-0030](0030-postgresql-notification-relay-processing-recovery.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 

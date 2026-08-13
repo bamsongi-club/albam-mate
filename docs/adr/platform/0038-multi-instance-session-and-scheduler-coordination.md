@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-08-01
 - 결정일: 2026-08-01
-- 관련: [P1 실행 환경과 공용 인프라](../../P1-spec.md#실행-환경과-공용-인프라), [아키텍처의 다중 인스턴스 실행](../../ARCHITECTURE.md#다중-인스턴스-실행), [ERD의 SHEDLOCK](../../ERD.md#shedlock), [ADR-0003 서버 세션](../auth/0003-p0-server-session-spring-security.md), [ADR-0021 AWS 배포 기준선](0021-p0-aws-ec2-rds-deployment-baseline.md), [ADR-0051 P1 저비용 4 EC2 인프라](0051-p1-self-managed-aws-infrastructure.md), [ADR-0030 알림 relay](../notification/0030-postgresql-notification-relay-processing-recovery.md), [ADR-0032 채팅 실시간 전달](../chat/0032-http-send-websocket-receive.md), [ADR-0034 채팅 보관·삭제](../chat/0034-chat-message-retention-and-deletion.md), [ADR-0036 ROOM 상태 자동 전환](../room/0036-bounded-room-state-transition-processing.md), [GitHub Issue #244](https://github.com/bamsongi-club/albam-mate/issues/244)
+- 관련: [P1 실행 환경과 공용 인프라](../../archive/p1/P1-spec.md#실행-환경과-공용-인프라), [아키텍처의 다중 인스턴스 실행](../../ARCHITECTURE.md#다중-인스턴스-실행), [ERD의 SHEDLOCK](../../ERD.md#shedlock), [ADR-0003 서버 세션](../auth/0003-p0-server-session-spring-security.md), [ADR-0021 AWS 배포 기준선](0021-p0-aws-ec2-rds-deployment-baseline.md), [ADR-0051 P1 저비용 4 EC2 인프라](0051-p1-self-managed-aws-infrastructure.md), [ADR-0030 알림 relay](../notification/0030-postgresql-notification-relay-processing-recovery.md), [ADR-0032 채팅 실시간 전달](../chat/0032-http-send-websocket-receive.md), [ADR-0034 채팅 보관·삭제](../chat/0034-chat-message-retention-and-deletion.md), [ADR-0036 ROOM 상태 자동 전환](../room/0036-bounded-room-state-transition-processing.md), [GitHub Issue #244](https://github.com/bamsongi-club/albam-mate/issues/244)
 - 대체 대상: 없음
 - 후속 ADR: [ADR-0051](0051-p1-self-managed-aws-infrastructure.md) (`production`의 AWS 배포 토폴로지와 운영 리소스 선택만 부분 대체), [ADR-0052](0052-local-profile-multi-instance-default.md) (실행 프로필·로컬 검증 경계)
 

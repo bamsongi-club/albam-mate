@@ -3,7 +3,7 @@
 - 상태: 대체됨
 - 작성일: 2026-07-31
 - 결정일: 2026-08-03
-- 관련: [SEARCH-01 메커니즘 필터 후보](../../p1/search.md#search-01-게임-조건-검색), [ERD GAMES](../../ERD.md#games), [ADR-0015](0015-bgg-baseline-team-collected-game-list.md), [ADR-0019](0019-bgg-full-catalog-staged-enrichment.md), [출처 manifest](../../game-catalog/2026-07-24-source-manifest.draft.json)
+- 관련: [SEARCH-01 메커니즘 필터 후보](../../archive/p1/search.md#search-01-게임-조건-검색), [ERD GAMES](../../ERD.md#games), [ADR-0015](0015-bgg-baseline-team-collected-game-list.md), [ADR-0019](0019-bgg-full-catalog-staged-enrichment.md), [출처 manifest](../../game-catalog/2026-07-24-source-manifest.draft.json)
 - 대체 대상: 없음
 - 후속 ADR: [ADR-0048](0048-full-reviewed-game-mechanism-catalog.md)
 
@@ -61,7 +61,7 @@ P1의 초기 공개 목록은 사용자에게 익숙하고 비교적 넓은 메�
 ## 참고 자료
 
 - [게임 카탈로그 출처 manifest](../../game-catalog/2026-07-24-source-manifest.draft.json)
-- [P1 검색 명세](../../p1/search.md)
+- [P1 검색 명세](../../archive/p1/search.md)
 
 ## 검증
 

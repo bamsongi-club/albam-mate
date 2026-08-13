@@ -3,7 +3,7 @@
 - 상태: 대체됨
 - 작성일: 2026-07-31
 - 결정일: 2026-08-01
-- 관련: [P1 방 채팅 명세](../../p1/chatting.md), [채팅 저장 계약](../../ERD.md#chat_rooms), [아키텍처](../../ARCHITECTURE.md#채팅-흐름), [ADR-0009 UTC 시간 기준](../platform/0009-utc-time-standard.md), [ADR-0021 AWS 배포 기준선](../platform/0021-p0-aws-ec2-rds-deployment-baseline.md), [ADR-0036 ROOM 상태 자동 전환](../room/0036-bounded-room-state-transition-processing.md), [ADR-0038 공용 세션·스케줄 조정](../platform/0038-multi-instance-session-and-scheduler-coordination.md)
+- 관련: [P1 방 채팅 명세](../../archive/p1/chatting.md), [채팅 저장 계약](../../ERD.md#chat_rooms), [아키텍처](../../ARCHITECTURE.md#채팅-흐름), [ADR-0009 UTC 시간 기준](../platform/0009-utc-time-standard.md), [ADR-0021 AWS 배포 기준선](../platform/0021-p0-aws-ec2-rds-deployment-baseline.md), [ADR-0036 ROOM 상태 자동 전환](../room/0036-bounded-room-state-transition-processing.md), [ADR-0038 공용 세션·스케줄 조정](../platform/0038-multi-instance-session-and-scheduler-coordination.md)
 - 대체 대상: 없음
 - 후속 ADR: [ADR-0045](0045-chat-room-schema-and-backfill-boundary.md) — 기존 ROOM 초기화 실행 경계, [ADR-0049](0049-chat-message-retention-lock-section-boundary.md) — 보관·삭제 결정과 잠금 구간 실행 경계
 

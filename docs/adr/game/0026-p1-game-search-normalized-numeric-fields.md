@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-31
 - 결정일: 2026-08-03
-- 관련: [SEARCH-01 게임 조건 검색](../../p1/search.md#search-01-게임-조건-검색), [P1 게임 데이터 정규화](../../P1-spec.md#게임-데이터-정규화), [게임 목록·검색 API](../../API.md#game-01-게임-목록검색), [ERD GAMES](../../ERD.md#games), [ADR-0015](0015-bgg-baseline-team-collected-game-list.md), [ADR-0008](../platform/0008-flyway-database-migrations.md), [ADR-0023](../platform/0023-p0-flyway-baseline-reset-player-count-stages.md)
+- 관련: [SEARCH-01 게임 조건 검색](../../archive/p1/search.md#search-01-게임-조건-검색), [P1 게임 데이터 정규화](../../archive/p1/P1-spec.md#게임-데이터-정규화), [게임 목록·검색 API](../../API.md#game-01-게임-목록검색), [ERD GAMES](../../ERD.md#games), [ADR-0015](0015-bgg-baseline-team-collected-game-list.md), [ADR-0008](../platform/0008-flyway-database-migrations.md), [ADR-0023](../platform/0023-p0-flyway-baseline-reset-player-count-stages.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
@@ -40,7 +40,7 @@
 정본의 책임은 다음처럼 나눈다.
 
 - 실제 열 이름·타입·DB 제약: `ERD.md`
-- 필터 구간·누락값의 검색 결과·요청 파라미터: [P1 검색 명세](../../p1/search.md)와 `API.md`
+- 필터 구간·누락값의 검색 결과·요청 파라미터: [P1 검색 명세](../../archive/p1/search.md)와 `API.md`
 - 입력별 변환 규칙·체크섬·품질 보고: 카탈로그 manifest와 적재 가이드
 - 이 ADR: 표시값과 검색 수치를 분리하고 적재 단계에서 정합성을 보장하는 이유
 
@@ -63,7 +63,7 @@
 ## 참고 자료
 
 - [게임 카탈로그 적재 절차](../../guides/GAME_CATALOG_IMPORT.md)
-- [P1 검색 명세](../../p1/search.md)
+- [P1 검색 명세](../../archive/p1/search.md)
 
 ## 검증
 

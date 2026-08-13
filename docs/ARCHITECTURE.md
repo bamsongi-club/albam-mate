@@ -2,14 +2,14 @@
 
 이 문서는 Albam Mate 백엔드 코드의 안정적인 구조 규칙을 설명하는 정본이다. 개별 파일·클래스·엔드포인트 목록은 관리하지 않으며, 같은 경계 안에서 기능을 추가하는 것만으로는 이 문서를 갱신하지 않는다.
 
-본문에서 `후속` 또는 `필요 시 생성`으로 표시한 항목은 아직 만들지 않은 경계다. 모듈 관계 Mermaid와 모듈 책임 표는 현재 생산 코드 구조를 설명하지만, 기능별 절에는 구현된 계약과 남은 운영값이 함께 있을 수 있다. 정확한 구현·자동 검증·운영 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)에서 확인한다.
+본문에서 `후속` 또는 `필요 시 생성`으로 표시한 항목은 아직 만들지 않은 경계다. 모듈 관계 Mermaid와 모듈 책임 표는 현재 생산 코드 구조를 설명하지만, 기능별 절에는 구현된 P1 계약과 남은 운영값이 함께 있을 수 있다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), 새 P2 기능의 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서 확인한다.
 
 - 모듈러 모놀리스 선택 근거: [ADR-0007](adr/platform/0007-domain-centered-modular-monolith.md)
 - 낙관 락·저장 상태 보정·조회 snapshot 근거: [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md), [ADR-0056](adr/room/0056-postgresql-room-query-snapshot-without-global-pre-correction.md)
 - 알림 통합 이벤트·Outbox·relay 근거: [ADR-0029](adr/notification/0029-room-integration-event-transactional-outbox.md), [ADR-0040](adr/notification/0040-postgresql-notification-relay-recovery-retention.md)
 - 알림 표시 투영·조회·읽음 시각 근거: [ADR-0039](adr/notification/0039-notification-presentation-and-bulk-read-snapshot.md)
 - 코드 배치·네이밍·트랜잭션 규칙: [CONVENTIONS](CONVENTIONS.md)
-- 제품·HTTP·저장 계약: [P1 명세](P1-spec.md), [P1 기능 문서](p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md), [API 명세](API.md), [ERD](ERD.md)
+- 제품·HTTP·저장 계약: [P2 명세](P2-spec.md), [P2 기능 문서](p2/README.md), [P1 종료 명세](archive/p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md), [API 명세](API.md), [ERD](ERD.md)
 
 ## 이 문서를 읽는 법
 
@@ -89,7 +89,7 @@ flowchart LR
 
 ### P1 소셜 로그인 모듈 계약
 
-> 아래 경계는 #328에서 승인됐으며 ADR-0042와 함께 구현 정본으로 사용한다. 구현·검증 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)을 따른다.
+> 아래 경계는 #328에서 승인됐으며 ADR-0042와 함께 구현 정본으로 사용한다. 구현·검증 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태)을 따른다.
 
 `auth`는 설정된 OAuth client 등록, authorization·callback filter 경계, 제공자 응답의 공통 외부 신원·신뢰 가능한 선택 이메일 변환과 `CurrentUserPrincipal` 세션 전환을 소유한다. `user.contract`에 provider·subject·신뢰 조건을 통과한 선택 이메일·닉네임을 전달해 첫 로그인 또는 명시적 연결 결과를 받고 `user`의 Entity·Repository를 직접 참조하지 않는다.
 
@@ -98,7 +98,7 @@ flowchart LR
 `/api/auth/social/authorization/**`와 `/api/auth/social/callback/**`는 Spring Security filter가 소유하는 브라우저 리다이렉트 경로다. MVC 정책 대조 대상이 아니며 `SecurityConfig`의 정확한 matcher와 OAuth 흐름 테스트로 고정한다. 제공자 목록과 `/api/users/me/social-accounts/{provider}/link`는 Controller가 소유하므로 `ApiEndpointPolicyRegistry`에 등록한다.
 ### P1 알림 모듈 계약
 
-> 현재 생산 코드·자동 검증·운영 상태는 [P1 기능 상태 정본의 `NOTI-01`~`NOTI-03`](p1/README.md#기능별-현재-상태)을 따른다.
+> 현재 생산 코드·자동 검증·운영 상태는 [P1 기능 종료 상태의 `NOTI-01`~`NOTI-03`](archive/p1/README.md#기능별-종료-상태)을 따른다.
 
 `notification`은 서비스 내 웹 알림 조회·읽음, Outbox·수신자 스냅샷·Notification 저장, relay·재시도·운영 복구·보존 정리를 소유한다. 방 상태 전이와 수신자 재계산, 이메일·모바일 푸시·Web Push·SMS 전달은 소유하지 않는다.
 
@@ -190,7 +190,7 @@ Service, ReadService, Executor와 Coordinator를 이름이나 클래스 수만 �
 
 #### 방 조회
 
-> 목록·내 모임의 아래 유효 상태·snapshot 경계는 [#557](https://github.com/bamsongi-club/albam-mate/issues/557)의 [PR #574](https://github.com/bamsongi-club/albam-mate/pull/574)에서 생산 코드와 PostgreSQL 회귀로 반영됐다. 현재 구현·검증 상태는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)을 따른다.
+> 목록·내 모임의 아래 유효 상태·snapshot 경계는 [#557](https://github.com/bamsongi-club/albam-mate/issues/557)의 [PR #574](https://github.com/bamsongi-club/albam-mate/pull/574)에서 생산 코드와 PostgreSQL 회귀로 반영됐다. 현재 구현·검증 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태)을 따른다.
 
 방 조회는 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)의 조회 유효 상태·응답 조립·저장 상태 보정 책임과 [ADR-0056](adr/room/0056-postgresql-room-query-snapshot-without-global-pre-correction.md)의 snapshot 경계·유효 상태 반환 계약을 따른다.
 
@@ -287,7 +287,7 @@ flowchart LR
 - `RoomStatusChangeExecutor`가 ROOM 취소와 남은 현재 `WAITING → ROOM_CANCELED`를 같은 트랜잭션에서 직접 조정한다.
 - 두 Executor는 #302의 단일 `RoomWaitlistRepository`를 직접 사용한다. 공용 승격 Service, 별도 자동 승격 collaborator와 중첩 재시도기를 추가하지 않으며 필요한 private helper만 둔다.
 - 필요한 명시적 flush로 참가 취소 경로의 데이터베이스 변경 순서를 `ROOM → 기존 참가 취소 → 대기 승격 → 승격 참가 생성·재활성화`, ROOM 취소 경로를 `ROOM → 남은 WAITING 종료`로 고정한다. 어느 단계의 실패도 ROOM·Participation·Waitlist 변경을 함께 롤백한다.
-- 시작 시각 경계의 `WAITING → EXPIRED` 실행은 [ROOM-09](p1/room.md#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화)가 소유한다. PART-04c Executor는 `now >= startsAt`이면 자동 승격이나 시작 경계 종료 쓰기를 남기지 않는다.
+- 시작 시각 경계의 `WAITING → EXPIRED` 실행은 [ROOM-09](archive/p1/room.md#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화)가 소유한다. PART-04c Executor는 `now >= startsAt`이면 자동 승격이나 시작 경계 종료 쓰기를 남기지 않는다.
 
 상태 의존 Command는 같은 트랜잭션에서 시간 기반 상태를 먼저 보정한 뒤 유스케이스 규칙을 적용한다. Query·Scheduler용 상태 보정 Coordinator는 호출하지 않는다.
 
@@ -319,7 +319,7 @@ flowchart LR
 
 실행 세대 점유는 진행 행을 잠근 짧은 트랜잭션에서 `execution_generation`과 `progress_version`을 증가시킨다. 이후 후보별 cursor 전진과 순회 회전은 그 실행 세대와 기대 version이 모두 일치할 때만 별도 짧은 트랜잭션으로 커밋한다. 임대가 만료된 이전 실행은 ROOM 하나를 중복 처리할 수 있지만 첫 CAS 거절 뒤 즉시 중단하므로 새 실행의 진척을 덮어쓰지 않는다.
 
-cursor는 후보를 시도한 뒤에만 전진하며, ROOM 커밋과 cursor 커밋 사이의 장애는 재선별을 허용하는 at-least-once 경계다. 진행 상태 조회·CAS 자체의 장애나 CAS 거절 뒤에는 후속 ROOM을 처리하지 않는다. 제한 후보 선별과 각 ROOM 트랜잭션의 상태 전이·시작 경계 대기열 종료는 [ROOM-09](p1/room.md#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화)의 기능 규칙을 따르며 이 문서에서 별도 계약을 만들지 않는다.
+cursor는 후보를 시도한 뒤에만 전진하며, ROOM 커밋과 cursor 커밋 사이의 장애는 재선별을 허용하는 at-least-once 경계다. 진행 상태 조회·CAS 자체의 장애나 CAS 거절 뒤에는 후속 ROOM을 처리하지 않는다. 제한 후보 선별과 각 ROOM 트랜잭션의 상태 전이·시작 경계 대기열 종료는 [ROOM-09](archive/p1/room.md#room-09-시간-기반-room-상태-자동-전환의-대량-처리-고도화)의 기능 규칙을 따르며 이 문서에서 별도 계약을 만들지 않는다.
 
 상세·상태 의존 명령·대기·채팅 접근의 대상 ROOM 보정은 이 Scheduler Coordinator, `SHEDLOCK`, `ROOM_STATUS_CORRECTION_PROGRESS`를 호출하지 않는다. 공개 목록과 내 모임은 [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md)의 고정된 `requestTime` 유효 상태를 조회하며 전역 저장 보정을 수행하지 않는다. 대상 ROOM 보정 경로는 현재 상태·오류 계약을 독립적으로 유지하면서 같은 Entity 전이 규칙과 ROOM별 Executor 정책을 재사용한다.
 
@@ -367,13 +367,13 @@ flowchart LR
 
 공용 세션과 스케줄 실행 조정의 기술 결정은 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)이 소유하고, 실행 프로필·로컬 검증 경계는 [ADR-0052](adr/platform/0052-local-profile-multi-instance-default.md)가 소유한다.
 
-`local`은 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL과 Redis로 구성하는 기본 개발·데모·P1 검증 환경이다. 단일 서버 실행은 지원 범위에 두지 않는다. P1 AWS 검증 토폴로지에서는 App1 EC2의 Nginx가 고정 Spring EC2 두 대에 요청을 분산하고 모든 Spring이 자체 운영 PostgreSQL EC2와 Redis EC2를 공유한다. 네 EC2는 모두 public subnet의 `t4g.micro`에서 시작하며, 인터넷 인바운드는 App1의 TCP `80`만 기본 허용하고 인증서와 TLS 설정을 준비한 뒤 선택적으로 TCP `443`을 연다. ALB·ASG·NAT Gateway는 사용하지 않는다. Terraform은 AWS 리소스와 SSM inventory를 만들고, cloud-init은 최초 부팅 준비를, Ansible은 SSH 없이 Docker와 공통 호스트 설정을 맡는다. 상세 선택과 ADR-0038의 부분 대체 범위는 [승인된 ADR-0051](adr/platform/0051-p1-self-managed-aws-infrastructure.md)이 소유하며, 승인 사실은 운영 배포 완료를 뜻하지 않는다. 배포·실측 상태는 [P1 기능별 상태 정본](p1/README.md#기능별-현재-상태)의 `운영 배포·실측` 열을 따른다.
+`local`은 로컬 프록시, Spring 애플리케이션 두 대, 공용 PostgreSQL과 Redis로 구성하는 기본 개발·데모·P1 검증 환경이다. 단일 서버 실행은 지원 범위에 두지 않는다. P1 AWS 검증 토폴로지에서는 App1 EC2의 Nginx가 고정 Spring EC2 두 대에 요청을 분산하고 모든 Spring이 자체 운영 PostgreSQL EC2와 Redis EC2를 공유한다. 네 EC2는 모두 public subnet의 `t4g.micro`에서 시작하며, 인터넷 인바운드는 App1의 TCP `80`만 기본 허용하고 인증서와 TLS 설정을 준비한 뒤 선택적으로 TCP `443`을 연다. ALB·ASG·NAT Gateway는 사용하지 않는다. Terraform은 AWS 리소스와 SSM inventory를 만들고, cloud-init은 최초 부팅 준비를, Ansible은 SSH 없이 Docker와 공통 호스트 설정을 맡는다. 상세 선택과 ADR-0038의 부분 대체 범위는 [승인된 ADR-0051](adr/platform/0051-p1-self-managed-aws-infrastructure.md)이 소유하며, 승인 사실은 운영 배포 완료를 뜻하지 않는다. 배포·실측 상태는 [P1 기능별 종료 상태](archive/p1/README.md#기능별-종료-상태)의 `배포 상태`와 `실측 상태` 열을 따른다.
 
 App1과 `local` Nginx는 Spring의 유일한 신뢰 프록시다. HTTP와 WebSocket proxy는 외부 `Forwarded`를 upstream 전달 전에 제거하고, 외부 `X-Forwarded-For`를 이어 붙이거나 신뢰하지 않고 버린 뒤 Nginx가 직접 관찰한 `$remote_addr`로 덮어쓴다. 따라서 Spring의 인증 요청 제한은 클라이언트가 위조한 전달 헤더가 아니라 실제 Nginx 연결 주소를 사용한다.
 
 - `JSESSIONID`의 인증 상태는 Spring Session Redis에 저장한다. HTTP 요청과 WebSocket handshake가 다른 인스턴스에 도달해도 동일 세션을 사용하며 Nginx의 특정 upstream 고정에 정합성을 의존하지 않는다.
 - 하나의 Redis를 Spring Session, 채팅 Pub/Sub, 인증 요청 제한과 사용자·방 단위 전송 제한에 사용하되 key prefix, TTL과 channel namespace를 분리한다.
-- 인증 요청 제한은 회원가입·로그인 IP 이동 창, 로그인 실패 이동 창과 동일 이메일·IP 로그인 검증 gate를 Lua 원자 연산으로 처리한다. Redis 등록부는 signup·login을 원격 IP 하나로, 실패 bucket·gate를 이메일·IP 하나로 합쳐 논리 주체별 최대 10000개를 관리한다. Lua는 Redis 서버 시각으로 만료된 등록을 회수하고 기존 member 확인·상한 판정·물리 상태 처리·남은 TTL score 갱신을 한 번에 수행한다. 포화 시 기존 주체는 429 규칙을 유지하고 새 주체만 503으로 거절한다. gauge는 family별 등록부 수/상한을 기록하며 다중 인스턴스 관측값은 `max`로 집계하고, 새 관측이 한 window 동안 없으면 `0`으로 복귀한다. counter는 고정 family·reason(`capacity_saturated`, `redis_unavailable`)만 기록한다. gate에는 소유 토큰과 유한 TTL을 사용해 만료 뒤 이전 소유자가 새 gate를 해제하지 못하게 한다. 전송 제한의 사용자·방 bucket 값과 429·503 응답 경계는 [API 전송 제한 계약](API.md#전송-제한-계약)과 [CHAT-04 정본](p1/chatting.md#chat-04-채팅-안전운영)을 따른다.
+- 인증 요청 제한은 회원가입·로그인 IP 이동 창, 로그인 실패 이동 창과 동일 이메일·IP 로그인 검증 gate를 Lua 원자 연산으로 처리한다. Redis 등록부는 signup·login을 원격 IP 하나로, 실패 bucket·gate를 이메일·IP 하나로 합쳐 논리 주체별 최대 10000개를 관리한다. Lua는 Redis 서버 시각으로 만료된 등록을 회수하고 기존 member 확인·상한 판정·물리 상태 처리·남은 TTL score 갱신을 한 번에 수행한다. 포화 시 기존 주체는 429 규칙을 유지하고 새 주체만 503으로 거절한다. gauge는 family별 등록부 수/상한을 기록하며 다중 인스턴스 관측값은 `max`로 집계하고, 새 관측이 한 window 동안 없으면 `0`으로 복귀한다. counter는 고정 family·reason(`capacity_saturated`, `redis_unavailable`)만 기록한다. gate에는 소유 토큰과 유한 TTL을 사용해 만료 뒤 이전 소유자가 새 gate를 해제하지 못하게 한다. 전송 제한의 사용자·방 bucket 값과 429·503 응답 경계는 [API 전송 제한 계약](API.md#전송-제한-계약)과 [CHAT-04 정본](archive/p1/chatting.md#chat-04-채팅-안전운영)을 따른다.
 - 세션 TTL은 30분이며, `local`과 `production` Redis 세션은 `SecurityJacksonModules`와 `CurrentUserPrincipal` mixin을 적용한 JSON으로 직렬화한다. namespace는 각각 `albam-mate:local:session`, `albam-mate:production:session`이다. 인증·전송 rate limit key는 각각 `albam-mate:local:ratelimit`, `albam-mate:production:ratelimit` 아래에서 논리적으로 분리하고, 채팅 이벤트 channel은 `albam-mate:{env}:chat:events`다.
 - `test`·`postgresTest`는 같은 Spring Session 쿠키·필터 경계와 인증 요청 제한에서 인메모리 저장소를 사용한다. Redis 저장소는 `local`과 `production`에 적용하며, 해당 Redis가 필요할 때 인메모리 구현으로 자동 fallback하지 않는다. 인증 요청 제한 Redis를 확인할 수 없으면 회원가입·로그인은 사용자 조회·생성과 비밀번호 해시 전에 `503 SERVICE_UNAVAILABLE`을 반환하며 `Retry-After`를 포함하지 않는다. 채팅의 세션·전송 제한 503 경계는 API 정본을 따른다.
 - 각 인스턴스는 자신에게 연결된 WebSocket만 메모리에 보관한다. Redis subscriber는 `chat.contract`의 수신 port를 호출하고 구체 Redis 타입을 `chat`에 노출하지 않는다.
@@ -411,7 +411,7 @@ App1과 `local` Nginx는 Spring의 유일한 신뢰 프록시다. HTTP와 WebSoc
 
 #### 알림 relay·복구·정리
 
-> 이 절은 P1 아키텍처 계약이다. 현재 생산 코드·자동 검증·운영 상태는 [P1 기능 상태 정본의 `NOTI-01`~`NOTI-03`](p1/README.md#기능별-현재-상태)을 따른다.
+> 이 절은 P1 아키텍처 계약이다. 현재 생산 코드·자동 검증·운영 상태는 [P1 기능 종료 상태의 `NOTI-01`~`NOTI-03`](archive/p1/README.md#기능별-종료-상태)을 따른다.
 
 알림 생성은 원인 업무 커밋 뒤 모든 애플리케이션 인스턴스가 실행하는 PostgreSQL polling relay가 담당한다.
 
@@ -482,7 +482,7 @@ Repository Projection은 쿼리가 선택한 열을 담는 저장소 계층 타�
 - `infra`가 업무 모듈의 `contract` 밖 내부 구현에 의존하지 않는다.
 - 업무 모듈이 `infra`의 구체 구현을 참조하지 않는다.
 
-`notification` 모듈의 현재 구현·검증 여부는 [P1 기능 상태 정본](p1/README.md#기능별-현재-상태)으로 판정한다. 구조 테스트에 모듈·허용 의존·패키지 규칙을 먼저 등록하거나 빈 패키지를 추가한 사실만으로 생산 코드·자동 검증 상태를 완료로 바꾸지 않는다. ADR-0029·ADR-0039·ADR-0040의 트랜잭션·잠금·복구·정리·표시·읽음 결정은 요구된 생산 코드와 PostgreSQL 검증 증거를 모두 갖춰야 한다.
+`notification` 모듈의 현재 구현·검증 여부는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태)으로 판정한다. 구조 테스트에 모듈·허용 의존·패키지 규칙을 먼저 등록하거나 빈 패키지를 추가한 사실만으로 생산 코드·자동 검증 상태를 완료로 바꾸지 않는다. ADR-0029·ADR-0039·ADR-0040의 트랜잭션·잠금·복구·정리·표시·읽음 결정은 요구된 생산 코드와 PostgreSQL 검증 증거를 모두 갖춰야 한다.
 
 트랜잭션과 상태 보정은 다음 테스트에서 구현 규칙을 확인할 수 있다.
 

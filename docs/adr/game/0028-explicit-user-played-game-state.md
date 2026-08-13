@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-07-31
 - 결정일: 2026-08-03
-- 관련: [SEARCH-03 사용자별 해 본 게임](../../p1/search.md#search-03-사용자별-해-본-게임), [P0 권한과 공개 범위](../../archive/p0/P0-spec.md#권한과-공개-범위), [게임 API](../../API.md#6-게임-api), [ERD GAMES](../../ERD.md#games), [ADR-0003](../auth/0003-p0-server-session-spring-security.md), [ADR-0006](../platform/0006-p0-bigint-identity-ids.md), [ADR-0008](../platform/0008-flyway-database-migrations.md), [ADR-0020](../auth/0020-api-endpoint-authorization-policy-registry.md)
+- 관련: [SEARCH-03 사용자별 해 본 게임](../../archive/p1/search.md#search-03-사용자별-해-본-게임), [P0 권한과 공개 범위](../../archive/p0/P0-spec.md#권한과-공개-범위), [게임 API](../../API.md#6-게임-api), [ERD GAMES](../../ERD.md#games), [ADR-0003](../auth/0003-p0-server-session-spring-security.md), [ADR-0006](../platform/0006-p0-bigint-identity-ids.md), [ADR-0008](../platform/0008-flyway-database-migrations.md), [ADR-0020](../auth/0020-api-endpoint-authorization-policy-registry.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
@@ -58,7 +58,7 @@
 
 ## 참고 자료
 
-- [P1 검색 명세](../../p1/search.md)
+- [P1 검색 명세](../../archive/p1/search.md)
 - [P0 방·참가 규칙](../../archive/p0/room.md)
 
 ## 검증

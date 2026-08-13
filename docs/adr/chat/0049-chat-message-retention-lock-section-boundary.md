@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-08-04
 - 결정일: 2026-08-04
-- 관련: [CHAT-04 P1 방 채팅 명세](../../p1/chatting.md#chat-04-채팅-안전운영), [채팅 저장 계약](../../ERD.md#chat_rooms), [SHEDLOCK](../../ERD.md#shedlock), [아키텍처](../../ARCHITECTURE.md#채팅-흐름), [ADR-0009 UTC 시간 기준](../platform/0009-utc-time-standard.md), [ADR-0021 AWS 배포 기준선](../platform/0021-p0-aws-ec2-rds-deployment-baseline.md), [ADR-0038 공용 세션·스케줄 조정](../platform/0038-multi-instance-session-and-scheduler-coordination.md), [ADR-0045 채팅방 스키마와 기존 ROOM 초기화 경계](0045-chat-room-schema-and-backfill-boundary.md), [#289 만료 삭제 구현](https://github.com/bamsongi-club/albam-mate/issues/289), [#396 대체 표기 결정](https://github.com/bamsongi-club/albam-mate/issues/396)
+- 관련: [CHAT-04 P1 방 채팅 명세](../../archive/p1/chatting.md#chat-04-채팅-안전운영), [채팅 저장 계약](../../ERD.md#chat_rooms), [SHEDLOCK](../../ERD.md#shedlock), [아키텍처](../../ARCHITECTURE.md#채팅-흐름), [ADR-0009 UTC 시간 기준](../platform/0009-utc-time-standard.md), [ADR-0021 AWS 배포 기준선](../platform/0021-p0-aws-ec2-rds-deployment-baseline.md), [ADR-0038 공용 세션·스케줄 조정](../platform/0038-multi-instance-session-and-scheduler-coordination.md), [ADR-0045 채팅방 스키마와 기존 ROOM 초기화 경계](0045-chat-room-schema-and-backfill-boundary.md), [#289 만료 삭제 구현](https://github.com/bamsongi-club/albam-mate/issues/289), [#396 대체 표기 결정](https://github.com/bamsongi-club/albam-mate/issues/396)
 - 대체 대상: [ADR-0034](0034-chat-message-retention-and-deletion.md)
 - 후속 ADR: 없음
 
@@ -72,8 +72,8 @@
 
 - 상태: 검증됨
 - 근거:
-    - 구현: [PR #366](https://github.com/bamsongi-club/albam-mate/pull/366)이 `V16__create_p1_chat_retention_schema.sql`, `chat-message-retention` ShedLock, 다구간 재획득, 실행·질의 상한, 30일 보관과 묶음별 독립 트랜잭션을 구현했다. 현재 실행값은 [CHAT-04](../../p1/chatting.md#현재-만료-삭제-실행값)에 기록한다.
+    - 구현: [PR #366](https://github.com/bamsongi-club/albam-mate/pull/366)이 `V16__create_p1_chat_retention_schema.sql`, `chat-message-retention` ShedLock, 다구간 재획득, 실행·질의 상한, 30일 보관과 묶음별 독립 트랜잭션을 구현했다. 현재 실행값은 [CHAT-04](../../archive/p1/chatting.md#현재-만료-삭제-실행값)에 기록한다.
     - 테스트: `ChatMessageRetentionPropertiesTest`·`ChatMessageRetentionSchedulerTest`·`ChatMessageRetentionCoordinatorTest`와 `ChatMessageRetentionPostgresTest`가 임대 가드, 구간 재획득, 부분 실패 격리, 지연된 경쟁 실행과 삭제 수렴을 검증한다.
-    - 범위: 실제 운영 적체·인스턴스 종료 복구·운영 metric 실측은 상태표의 `운영 배포·실측` 축에서 관리하며, P1 구현 완료 기준이 요구하는 코드·H2·PostgreSQL 결정 검증과 분리한다.
+    - 범위: 실제 운영 적체·인스턴스 종료 복구·운영 metric 실측은 상태표의 배포·실측 축에서 관리하며, P1 구현 완료 기준이 요구하는 코드·H2·PostgreSQL 결정 검증과 분리한다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.

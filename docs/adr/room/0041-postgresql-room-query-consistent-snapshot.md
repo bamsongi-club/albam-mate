@@ -3,7 +3,7 @@
 - 상태: 대체됨
 - 작성일: 2026-08-03
 - 결정일: 2026-08-03
-- 관련: [결정 이슈 #301](https://github.com/bamsongi-club/albam-mate/issues/301), [정본화 이슈 #304](https://github.com/bamsongi-club/albam-mate/issues/304), [후속 정본 동기화 #305](https://github.com/bamsongi-club/albam-mate/issues/305), [P1 ROOM-08](../../p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리), [트랜잭션 컨벤션](../../CONVENTIONS.md#transaction), [ADR-0012](0012-room-request-boundary-state-reconciliation.md), [ADR-0035](0035-room-status-action-eligibility-separation.md), [ADR-0037](../participation/0037-room-waitlist-latest-state-atomic-promotion.md)
+- 관련: [결정 이슈 #301](https://github.com/bamsongi-club/albam-mate/issues/301), [정본화 이슈 #304](https://github.com/bamsongi-club/albam-mate/issues/304), [후속 정본 동기화 #305](https://github.com/bamsongi-club/albam-mate/issues/305), [P1 ROOM-08](../../archive/p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리), [트랜잭션 컨벤션](../../CONVENTIONS.md#transaction), [ADR-0012](0012-room-request-boundary-state-reconciliation.md), [ADR-0035](0035-room-status-action-eligibility-separation.md), [ADR-0037](../participation/0037-room-waitlist-latest-state-atomic-promotion.md)
 - 대체 대상: 없음
 - 후속 ADR: ADR-0056
 

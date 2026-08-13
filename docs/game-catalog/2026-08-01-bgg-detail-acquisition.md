@@ -3,7 +3,7 @@
 - 조사·취득일: 2026-08-01
 - 상태: 로컬 검증 완료, 공개 목록·서비스 적재 미승인
 - 범위: 현재 팀 입력 2,000건의 BGG XML API2 상세 데이터 — 가능 인원, 복잡도, 메커니즘과 한국어 편집 라벨
-- 관련 정본: [SEARCH-01 게임 조건 검색](../p1/search.md#search-01-게임-조건-검색), [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md), [ADR-0027](../adr/game/0027-controlled-game-mechanism-taxonomy-and-provenance.md), [카탈로그 적재 절차](../guides/GAME_CATALOG_IMPORT.md)
+- 관련 정본: [SEARCH-01 게임 조건 검색](../archive/p1/search.md#search-01-게임-조건-검색), [ADR-0026](../adr/game/0026-p1-game-search-normalized-numeric-fields.md), [ADR-0027](../adr/game/0027-controlled-game-mechanism-taxonomy-and-provenance.md), [카탈로그 적재 절차](../guides/GAME_CATALOG_IMPORT.md)
 
 ## 결론
 

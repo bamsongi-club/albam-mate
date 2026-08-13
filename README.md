@@ -4,7 +4,7 @@
 
 [현재 제공 상태](#현재-제공-상태) · [대표 검증과 실측](#대표-검증과-실측) · [10분 안에 첫 Green](#10분-안에-첫-green) · [아키텍처](docs/ARCHITECTURE.md) · [문서 지도](#문서-지도)
 
-P0 1차 MVP의 백엔드 17개 API와 프론트엔드 연동을 완료했습니다. P1 2차 MVP는 소셜 로그인, 검색, 대기열, 알림과 채팅을 기능별로 구현·검증하고 있으며, 정확한 현재 상태는 [P1 기능 상태 정본](docs/p1/README.md#기능별-현재-상태)에서 관리합니다.
+P0 1차 MVP의 백엔드 17개 API와 프론트엔드 연동을 완료했고, P1 2차 MVP는 필수 기능의 계약·구현·자동 검증을 마친 뒤 운영 제한사항과 함께 [아카이브](docs/archive/p1/README.md)했습니다. 현재 개발 단계는 P2 3차 MVP이며, 기능별 계약·구현·배포·실측 상태는 [P2 기능 상태 정본](docs/p2/README.md#기능별-현재-상태)에서 관리합니다.
 
 ## 해결하려는 문제
 
@@ -20,7 +20,7 @@ P0 1차 MVP의 백엔드 17개 API와 프론트엔드 연동을 완료했습니�
 | 사람부터 만나기 | 사람 중심 방 탐색 → 방 상세 → 참가 → 내 모임 |
 | 방 만들기 | 게임 중심·사람 중심 선택 → 모임 정보 입력 → 방 생성 → 참가자 확인 → 종료 |
 
-P0는 홍대 오프라인 모임을 대상으로 하며 완료 시점의 범위와 규칙은 [P0 아카이브](docs/archive/p0/P0-spec.md)에 보존합니다. 현재 개발은 [P1 2차 MVP](docs/P1-spec.md)를 기준으로 진행합니다.
+P0는 홍대 오프라인 모임을 대상으로 하며 완료 시점의 범위와 규칙은 [P0 아카이브](docs/archive/p0/P0-spec.md)에 보존합니다. P1 종료 상태는 [P1 아카이브](docs/archive/p1/README.md)에 보존하고, 현재 개발은 [P2 3차 MVP](docs/P2-spec.md)를 기준으로 진행합니다.
 
 ## 현재 제공 상태
 
@@ -29,9 +29,11 @@ P0는 홍대 오프라인 모임을 대상으로 하며 완료 시점의 범위�
 | 구분 | 현재 상태 | 상세 근거 |
 | --- | --- | --- |
 | P0 1차 MVP | `v0.1.0` 범위의 백엔드 17개 API와 React 연동 완료 | [P0 완료 명세](docs/archive/p0/P0-spec.md), [API 계약](docs/API.md) |
-| P1 2차 MVP | 기능별 계약·생산 코드·자동 검증 상태가 서로 다르며 계속 진행 중 | [P1 기능 상태 정본](docs/p1/README.md#기능별-현재-상태) |
+| P1 2차 MVP | 필수 기능 계약·생산 코드·자동 검증 완료, 상시 운영 배포와 일부 실측은 미완료 | [P1 기능별 종료 상태](docs/archive/p1/README.md#기능별-종료-상태) |
+| P2 3차 MVP | 공통 명세와 운영 관측 정책을 정본으로 승격했으며, 팀원별 상세 기능 명세·ADR과 구현은 준비 중 | [P2 기능 상태 정본](docs/p2/README.md#기능별-현재-상태) |
 | 로컬 검증 환경 | 프록시, Spring 2대, PostgreSQL과 Redis를 `compose.local.yml`로 실행 가능 | [로컬 개발 환경 실행](docs/guides/LOCAL_DEVELOPMENT.md) |
-| 배포와 실측 | 운영 서비스 배포는 완료하지 않았습니다. 고정 릴리스의 AWS·로컬 측정 결과는 운영 용량 보장이 아니라 별도 검증 증거로 관리합니다. | [k6 측정 문서 규칙](docs/measurements/k6/README.md), [ROOM 측정](docs/measurements/room-09-bounded-processing-baseline.md) |
+| 운영 배포 | 상시 운영 서비스 배포는 완료하지 않았습니다. 임시 AWS 검증 스택은 측정 뒤 철거했습니다. | [P1 기능별 종료 상태](docs/archive/p1/README.md#기능별-종료-상태) |
+| 검증 실측 | 검색·알림은 임시 AWS의 제한된 실측, ROOM-09·10은 로컬 PostgreSQL 기준선을 보존했습니다. `INVALID` 실행과 미측정 기능은 분리합니다. | [k6 측정 문서 규칙](docs/measurements/k6/README.md), [인증·알림 측정](docs/measurements/k6/jiho/README.md), [ROOM-09 측정](docs/measurements/room-09-bounded-processing-baseline.md) |
 
 ## 설계에서 지키는 핵심 불변식
 
@@ -93,8 +95,8 @@ java --version
 
 | 알고 싶은 것 | 시작 문서 |
 | --- | --- |
-| 현재 구현·검증·배포 상태 | [이 README의 현재 제공 상태](#현재-제공-상태), [P1 기능 상태 정본](docs/p1/README.md#기능별-현재-상태) |
-| 제품 목표와 단계별 범위 | [PRD](docs/PRD.md), [P1 명세](docs/P1-spec.md) |
+| 현재 구현·검증·배포·실측 상태 | [이 README의 현재 제공 상태](#현재-제공-상태), [P2 기능 상태 정본](docs/p2/README.md#기능별-현재-상태) |
+| 제품 목표와 단계별 범위 | [PRD](docs/PRD.md), [P2 명세](docs/P2-spec.md) |
 | 백엔드 구조와 코드 위치 | [아키텍처](docs/ARCHITECTURE.md) |
 | 실행·테스트·포맷 명령 | [프로젝트 명령](docs/COMMANDS.md) |
 | k6 부하테스트 시나리오와 실행 안내 | [Load Tests](load-tests/README.md) |
@@ -103,6 +105,6 @@ java --version
 | 최초 설정·운영·적재·문제 해결 | [프로젝트 가이드](docs/guides/README.md) |
 | 코드 작성과 협업 방식 | [컨벤션](docs/CONVENTIONS.md) |
 
-P0 구현 기록은 [문서 아카이브](docs/archive/README.md)에 동결했습니다. 새 구현 작업은 [AGENTS.md](AGENTS.md)의 라우팅과 현재 P1 정본에서 시작합니다.
+P0·P1 구현 기록은 [문서 아카이브](docs/archive/README.md)에 동결했습니다. 새 구현 작업은 [AGENTS.md](AGENTS.md)의 라우팅과 현재 P2 정본에서 시작합니다.
 
-> 문서 관리: 소유자 `밤송이클럽` · 최종 검증일 `2026-08-12` · 폐기 조건 `저장소가 아카이브되거나 별도 공개 제품 페이지가 대표 진입점으로 대체될 때`
+> 문서 관리: 소유자 `밤송이클럽` · 최종 검증일 `2026-08-13` · 폐기 조건 `저장소가 아카이브되거나 별도 공개 제품 페이지가 대표 진입점으로 대체될 때`
