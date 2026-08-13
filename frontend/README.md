@@ -14,12 +14,20 @@ frontend/
 ├─ src/
 │  ├─ api.js           # 공통 응답 봉투, 세션·CSRF와 현재 API 호출
 │  ├─ main.jsx         # 화면, 해시 라우팅과 P0·P1 사용자 흐름
+│  ├─ game/            # 게임 목록·상세·랭킹·조건 필터
+│  ├─ mobile/          # 홈 패널과 하단 탭바
 │  ├─ notification/    # 알림 조회·읽음 동기화·이동
+│  ├─ shared/          # 공통 UI 요소, 조건 필터 컴포넌트, 참가자 색
 │  ├─ *.test.{js,jsx}  # API와 화면 회귀 테스트
-│  └─ styles.css       # 공통 스타일
+│  └─ styles.css       # 디자인 토큰과 공통 스타일
 ├─ vite.config.js      # 개발 시 /api → Spring Boot 프록시
-└─ assets/             # 로고 심볼, 폰트(Cafe24Ssurround)
+└─ assets/             # 로고 심볼, BGG 출처 로고
 ```
+
+## 화면 규격
+
+모바일 웹 한 벌로 동작합니다. 넓은 화면에서는 같은 레이아웃을 가운데 한 칼럼(`--app-width`)으로 둡니다.
+색·타이포·radius·모션은 `src/styles.css` 상단의 CSS 변수와 keyframes가 정본입니다.
 
 ## 현재 화면과 기능
 
