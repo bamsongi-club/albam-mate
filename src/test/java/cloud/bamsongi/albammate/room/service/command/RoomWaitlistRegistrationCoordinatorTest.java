@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.CannotSerializeTransactionException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
@@ -40,117 +41,160 @@ class RoomWaitlistRegistrationCoordinatorTest {
 	private RoomWaitlistRegistrationExecutor executor;
 
 	@Test
-	void T5_ROOM_충돌은_같은_기준시각으로_세번까지만_재시도하고_409로_끝난다() {
+	void T1_직렬화_실패는_재시도하지_않고_정제_오류를_한번만_남긴다() {
 		RoomWaitlistRegistrationCoordinator coordinator = new RoomWaitlistRegistrationCoordinator(
 			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor);
+		String sensitiveMessage = "SQL=insert constraint=unexpected session-token actorUserId=7";
+		CannotSerializeTransactionException databaseFailure = new CannotSerializeTransactionException(sensitiveMessage);
 		when(executor.register(eq(7L), eq(1L), any(Instant.class)))
-			.thenThrow(new ObjectOptimisticLockingFailureException(Room.class, 1L));
+			.thenThrow(databaseFailure);
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			BusinessException exception = assertThrows(BusinessException.class, () -> coordinator.register(7L, 1L));
 
-		BusinessException exception = assertThrows(BusinessException.class, () -> coordinator.register(7L, 1L));
-
-		assertEquals(ErrorCode.ROOM_CONCURRENT_MODIFICATION, exception.getErrorCode());
-		verify(executor, times(3)).register(7L, 1L, REQUEST_TIME);
+			assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, exception.getErrorCode());
+			assertEquals(databaseFailure, exception.getCause());
+			verify(executor).register(7L, 1L, REQUEST_TIME);
+			assertEquals(1, appender.list.size());
+			assertEquals(Level.ERROR, appender.list.get(0).getLevel());
+			assertEquals("roomId=1 useCase=ROOM_WAITLIST_REGISTRATION "
+				+ "reasonCode=UNEXPECTED_DATABASE_FAILURE", appender.list.get(0).getFormattedMessage());
+			assertTrue(appender.list.stream()
+				.noneMatch(event -> event.getFormattedMessage().contains(sensitiveMessage)));
+		} finally {
+			detachLogAppender(appender);
+		}
 	}
 
 	@Test
-	void T1_Hibernate가_제공한_constraint_identifier가_정확히_일치하면_세번_재시도하고_500으로_끝난다() {
+	void T2_비대상_무결성_위반은_기존_정제_오류를_유지한다() {
 		RoomWaitlistRegistrationCoordinator coordinator = new RoomWaitlistRegistrationCoordinator(
 			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor);
+		DataIntegrityViolationException integrityFailure = waitingQueueOrderConflict(
+			"other_constraint", "constraint=other_constraint SQL=session-token actorUserId=7");
 		when(executor.register(eq(7L), eq(1L), any(Instant.class)))
-			.thenThrow(waitingQueueOrderConflict("database detail without constraint name"));
+			.thenThrow(integrityFailure);
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+		try {
+			BusinessException exception = assertThrows(BusinessException.class, () -> coordinator.register(7L, 1L));
 
-		BusinessException exception = assertThrows(BusinessException.class, () -> coordinator.register(7L, 1L));
+			assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, exception.getErrorCode());
+			assertEquals(integrityFailure, exception.getCause());
+			verify(executor).register(7L, 1L, REQUEST_TIME);
+			assertEquals(1, appender.list.size());
+			assertEquals(Level.ERROR, appender.list.get(0).getLevel());
+			assertEquals("roomId=1 useCase=ROOM_WAITLIST_REGISTRATION "
+				+ "attempt=1 reasonCode=UNEXPECTED_INTEGRITY_FAILURE", appender.list.get(0).getFormattedMessage());
+			assertTrue(appender.list.stream().noneMatch(event -> event.getFormattedMessage().contains("SQL=")));
+			assertTrue(
+				appender.list.stream().noneMatch(event -> event.getFormattedMessage().contains("session-token")));
+		} finally {
+			detachLogAppender(appender);
+		}
 
-		assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, exception.getErrorCode());
-		verify(executor, times(3)).register(7L, 1L, REQUEST_TIME);
+		RoomWaitlistRegistrationCoordinator identifierlessCoordinator = new RoomWaitlistRegistrationCoordinator(
+			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor);
+		DataIntegrityViolationException identifierlessFailure = new DataIntegrityViolationException(
+			"SQL=session-token actorUserId=8");
+		when(executor.register(eq(8L), eq(1L), any(Instant.class)))
+			.thenThrow(identifierlessFailure);
+		ListAppender<ILoggingEvent> identifierlessAppender = attachLogAppender();
+		try {
+			BusinessException exception = assertThrows(BusinessException.class,
+				() -> identifierlessCoordinator.register(8L, 1L));
+
+			assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, exception.getErrorCode());
+			assertEquals(identifierlessFailure, exception.getCause());
+			verify(executor).register(8L, 1L, REQUEST_TIME);
+			assertEquals(1, identifierlessAppender.list.size());
+			assertEquals(Level.ERROR, identifierlessAppender.list.get(0).getLevel());
+			assertEquals("roomId=1 useCase=ROOM_WAITLIST_REGISTRATION "
+				+ "attempt=1 reasonCode=UNEXPECTED_INTEGRITY_FAILURE",
+				identifierlessAppender.list.get(0).getFormattedMessage());
+		} finally {
+			detachLogAppender(identifierlessAppender);
+		}
 	}
 
 	@Test
-	void T2_다른_실제_constraint_identifier는_재시도하지_않는다() {
-		RoomWaitlistRegistrationCoordinator coordinator = new RoomWaitlistRegistrationCoordinator(
-			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor);
-		when(executor.register(eq(7L), eq(1L), any(Instant.class)))
-			.thenThrow(waitingQueueOrderConflict("other_constraint", "uq_room_waitlists_waiting_room_queue_order"));
-
-		BusinessException exception = assertThrows(BusinessException.class, () -> coordinator.register(7L, 1L));
-
-		assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, exception.getErrorCode());
-		verify(executor).register(7L, 1L, REQUEST_TIME);
-	}
-
-	@Test
-	void T3_메시지에_대상_문자열이_있어도_실제_constraint_identifier가_없으면_재시도하지_않는다() {
-		RoomWaitlistRegistrationCoordinator coordinator = new RoomWaitlistRegistrationCoordinator(
-			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor);
-		when(executor.register(eq(7L), eq(1L), any(Instant.class)))
-			.thenThrow(new DataIntegrityViolationException("uq_room_waitlists_waiting_room_queue_order"));
-
-		BusinessException exception = assertThrows(BusinessException.class, () -> coordinator.register(7L, 1L));
-
-		assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, exception.getErrorCode());
-		verify(executor).register(7L, 1L, REQUEST_TIME);
-	}
-
-	@Test
-	void T4_ROOM_충돌과_대상_대기_순번_충돌은_하나의_세번_예산을_공유하고_마지막_대기_순번_충돌이면_500으로_끝난다() {
+	void T3_대상_대기_순번_충돌은_ROOM_충돌과_세번_예산과_기존_로그_계약을_공유한다() {
 		RoomWaitlistRegistrationCoordinator coordinator = new RoomWaitlistRegistrationCoordinator(
 			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor);
 		when(executor.register(eq(7L), eq(1L), any(Instant.class)))
 			.thenThrow(new ObjectOptimisticLockingFailureException(Room.class, 1L))
-			.thenThrow(waitingQueueOrderConflict("unique conflict"));
+			.thenThrow(waitingQueueOrderConflict("SQL=session-token actorUserId=7"));
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 		try {
 			BusinessException exception = assertThrows(BusinessException.class, () -> coordinator.register(7L, 1L));
 
 			assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, exception.getErrorCode());
 			verify(executor, times(3)).register(7L, 1L, REQUEST_TIME);
+			assertEquals(2, appender.list.size());
+			assertEquals(Level.WARN, appender.list.get(0).getLevel());
 			assertEquals("roomId=1 useCase=ROOM_WAITLIST_REGISTRATION "
 				+ "attempt=3 reasonCode=WAITING_QUEUE_ORDER_CONFLICT", appender.list.get(0).getFormattedMessage());
+			assertEquals(Level.ERROR, appender.list.get(1).getLevel());
+			assertEquals("roomId=1 useCase=ROOM_WAITLIST_REGISTRATION "
+				+ "attempt=3 reasonCode=WAITING_QUEUE_ORDER_CONFLICT_EXHAUSTED",
+				appender.list.get(1).getFormattedMessage());
+			assertTrue(appender.list.stream().noneMatch(event -> event.getFormattedMessage().contains("SQL=")));
+			assertTrue(
+				appender.list.stream().noneMatch(event -> event.getFormattedMessage().contains("session-token")));
+			assertTrue(appender.list.stream().noneMatch(event -> event.getFormattedMessage().contains("actorUserId")));
 		} finally {
 			detachLogAppender(appender);
 		}
 
-		RoomWaitlistRegistrationCoordinator finalRoomConflictCoordinator = new RoomWaitlistRegistrationCoordinator(
+		RoomWaitlistRegistrationCoordinator pureUniqueCoordinator = new RoomWaitlistRegistrationCoordinator(
 			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor);
 		when(executor.register(eq(8L), eq(1L), any(Instant.class)))
-			.thenThrow(waitingQueueOrderConflict("unique conflict"))
-			.thenThrow(new ObjectOptimisticLockingFailureException(Room.class, 1L));
+			.thenThrow(waitingQueueOrderConflict("SQL=session-token actorUserId=8"));
+		ListAppender<ILoggingEvent> pureUniqueAppender = attachLogAppender();
+		try {
+			BusinessException exception = assertThrows(BusinessException.class,
+				() -> pureUniqueCoordinator.register(8L, 1L));
 
-		BusinessException finalRoomConflict = assertThrows(BusinessException.class,
-			() -> finalRoomConflictCoordinator.register(8L, 1L));
-
-		assertEquals(ErrorCode.ROOM_CONCURRENT_MODIFICATION, finalRoomConflict.getErrorCode());
-		verify(executor, times(3)).register(8L, 1L, REQUEST_TIME);
+			assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, exception.getErrorCode());
+			verify(executor, times(3)).register(8L, 1L, REQUEST_TIME);
+			assertEquals(3, pureUniqueAppender.list.size());
+			assertEquals(Level.WARN, pureUniqueAppender.list.get(0).getLevel());
+			assertEquals("roomId=1 useCase=ROOM_WAITLIST_REGISTRATION "
+				+ "attempt=2 reasonCode=WAITING_QUEUE_ORDER_CONFLICT",
+				pureUniqueAppender.list.get(0).getFormattedMessage());
+			assertEquals(Level.WARN, pureUniqueAppender.list.get(1).getLevel());
+			assertEquals("roomId=1 useCase=ROOM_WAITLIST_REGISTRATION "
+				+ "attempt=3 reasonCode=WAITING_QUEUE_ORDER_CONFLICT",
+				pureUniqueAppender.list.get(1).getFormattedMessage());
+			assertEquals(Level.ERROR, pureUniqueAppender.list.get(2).getLevel());
+			assertEquals("roomId=1 useCase=ROOM_WAITLIST_REGISTRATION "
+				+ "attempt=3 reasonCode=WAITING_QUEUE_ORDER_CONFLICT_EXHAUSTED",
+				pureUniqueAppender.list.get(2).getFormattedMessage());
+			assertTrue(
+				pureUniqueAppender.list.stream().noneMatch(event -> event.getFormattedMessage().contains("SQL=")));
+			assertTrue(
+				pureUniqueAppender.list.stream()
+					.noneMatch(event -> event.getFormattedMessage().contains("session-token")));
+			assertTrue(
+				pureUniqueAppender.list.stream()
+					.noneMatch(event -> event.getFormattedMessage().contains("actorUserId")));
+		} finally {
+			detachLogAppender(pureUniqueAppender);
+		}
 	}
 
 	@Test
-	void T5_재시도와_소진_로그에는_허용된_식별자와_이유만_남긴다() {
+	void T4_ROOM_낙관_락은_세번_후_409로_끝나고_일반_DB_오류를_기록하지_않는다() {
 		RoomWaitlistRegistrationCoordinator coordinator = new RoomWaitlistRegistrationCoordinator(
 			Clock.fixed(REQUEST_TIME, ZoneOffset.UTC), executor);
-		String sensitiveMessage = "uq_room_waitlists_waiting_room_queue_order SQL=session-token actorUserId=7";
 		when(executor.register(eq(7L), eq(1L), any(Instant.class)))
-			.thenThrow(waitingQueueOrderConflict(sensitiveMessage));
+			.thenThrow(new ObjectOptimisticLockingFailureException(Room.class, 1L));
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 		try {
-			assertThrows(BusinessException.class, () -> coordinator.register(7L, 1L));
+			BusinessException exception = assertThrows(BusinessException.class, () -> coordinator.register(7L, 1L));
 
-			assertEquals(3, appender.list.size());
-			assertEquals(Level.WARN, appender.list.get(0).getLevel());
-			assertEquals("roomId=1 useCase=ROOM_WAITLIST_REGISTRATION "
-				+ "attempt=2 reasonCode=WAITING_QUEUE_ORDER_CONFLICT", appender.list.get(0).getFormattedMessage());
-			assertEquals("roomId=1 useCase=ROOM_WAITLIST_REGISTRATION "
-				+ "attempt=3 reasonCode=WAITING_QUEUE_ORDER_CONFLICT", appender.list.get(1).getFormattedMessage());
-			assertEquals(Level.ERROR, appender.list.get(2).getLevel());
-			assertEquals("roomId=1 useCase=ROOM_WAITLIST_REGISTRATION "
-				+ "attempt=3 reasonCode=WAITING_QUEUE_ORDER_CONFLICT_EXHAUSTED",
-				appender.list.get(2).getFormattedMessage());
-			assertTrue(appender.list.stream()
-				.noneMatch(event -> event.getFormattedMessage().contains("actorUserId")));
-			assertTrue(appender.list.stream().noneMatch(event -> event.getFormattedMessage().contains("SQL=")));
-			assertTrue(
-				appender.list.stream().noneMatch(event -> event.getFormattedMessage().contains("session-token")));
-			assertTrue(
-				appender.list.stream().noneMatch(event -> event.getFormattedMessage().contains(sensitiveMessage)));
+			assertEquals(ErrorCode.ROOM_CONCURRENT_MODIFICATION, exception.getErrorCode());
+			verify(executor, times(3)).register(7L, 1L, REQUEST_TIME);
+			assertTrue(appender.list.isEmpty());
 		} finally {
 			detachLogAppender(appender);
 		}

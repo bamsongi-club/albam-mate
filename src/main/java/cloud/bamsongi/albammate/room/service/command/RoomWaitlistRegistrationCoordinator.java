@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Instant;
 
 import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ class RoomWaitlistRegistrationCoordinator {
 	private static final String WAITING_QUEUE_ORDER_CONFLICT = "WAITING_QUEUE_ORDER_CONFLICT";
 	private static final String WAITING_QUEUE_ORDER_CONFLICT_EXHAUSTED = "WAITING_QUEUE_ORDER_CONFLICT_EXHAUSTED";
 	private static final String UNEXPECTED_INTEGRITY_FAILURE = "UNEXPECTED_INTEGRITY_FAILURE";
+	private static final String UNEXPECTED_DATABASE_FAILURE = "UNEXPECTED_DATABASE_FAILURE";
 
 	@NonNull private final Clock clock;
 	@NonNull private final RoomWaitlistRegistrationExecutor executor;
@@ -48,6 +50,9 @@ class RoomWaitlistRegistrationCoordinator {
 				if (attempt < MAX_ATTEMPTS) {
 					logWaitingQueueOrderRetry(roomId, attempt + 1);
 				}
+			} catch (DataAccessException exception) {
+				logUnexpectedDatabaseFailure(roomId);
+				throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, exception);
 			}
 		}
 
@@ -83,5 +88,9 @@ class RoomWaitlistRegistrationCoordinator {
 	private void logUnexpectedIntegrityFailure(long roomId, int attempt) {
 		log.error("roomId={} useCase={} attempt={} reasonCode={}",
 			roomId, USE_CASE, attempt, UNEXPECTED_INTEGRITY_FAILURE);
+	}
+
+	private void logUnexpectedDatabaseFailure(long roomId) {
+		log.error("roomId={} useCase={} reasonCode={}", roomId, USE_CASE, UNEXPECTED_DATABASE_FAILURE);
 	}
 }
