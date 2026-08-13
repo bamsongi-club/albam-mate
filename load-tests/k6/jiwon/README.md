@@ -33,6 +33,7 @@
 | `before-verification.json` | 동일 경로 | 실행 전 DB 불변식 |
 | `run-manifest.json` | 동일 경로 | 대상 배포 SHA·환경·fixture·k6 버전·시작/종료 UTC를 묶은 실행 기록 |
 | `k6-summary.json` | 동일 경로 | `run`이 같은 manifest와 함께 생성한 k6 summary |
+| `t5-comparison-verification.json` | `build/k6/room/<run-id>/` | T5 role×scale 6개 실행의 공통 read profile 검증 결과 |
 | `cleanup.sql` | 동일 경로 | 정확한 생성 ID만 정리하는 SQL |
 
 cleanup은 broad prefix 삭제나 `TRUNCATE`를 쓰지 않는다. fixture ROOM에 비-fixture 사용자의 파생 행이 섞였으면 삭제하지 않고 중단한다.
@@ -85,7 +86,7 @@ node load-tests/k6/jiwon/tools/fixture.mjs verify `
   --fixture $prepared.fixturePath --stage after
 ```
 
-`run`은 fixture가 가리키는 scenario 스크립트만 실행하고, 실행 직전·직후에 같은 `run-manifest.json`을 갱신한다. `after` 검증은 이 manifest와 같은 경로의 `k6-summary.json`만 사용하므로 수동으로 다른 실행 summary를 섞을 수 없다. `ALBAM_MATE_SOURCE_SHA`에는 로컬 스크립트 checkout이 아니라 **대상 환경에 배포된** SHA를 넣는다.
+`run`은 fixture가 가리키는 scenario 스크립트만 실행하고, 실행 직전·직후에 같은 `run-manifest.json`을 갱신한다. `after` 검증은 이 manifest와 같은 경로의 `k6-summary.json`만 사용하므로 수동으로 다른 실행 summary를 섞을 수 없다. T5 manifest에는 실제 적용한 `t5ReadOptions`(VU·duration·think time)를 남기고, 같은 정규화 값으로 k6 child process를 실행한다. `ALBAM_MATE_SOURCE_SHA`에는 로컬 스크립트 checkout이 아니라 **대상 환경에 배포된** SHA를 넣는다.
 
 시나리오별 fixture 입력은 아래처럼 바꾼다.
 
@@ -99,13 +100,19 @@ node load-tests/k6/jiwon/tools/fixture.mjs verify `
 | T4 | `--scenario t4 --profile stress --concurrency 2|4|8` |
 | T5 | `--scenario t5 --t5-role public|host|participant --t5-scale 1|10` |
 
-`stress`의 기본값은 독립 ROOM 5개를 같은 동시성으로 연속 wave 실행하는 것이다. 단, T3 `race`는 각 독립 ROOM의 wait/cancel 한 쌍을 같은 barrier에 병렬 배치한다. `spike`의 기본값은 독립 ROOM 1개에 즉시 한 wave를 보낸다. T5는 VU마다 측정 창 전체를 한 번 실행한다.
+`stress`의 기본값은 독립 ROOM 5개를 같은 동시성으로 연속 wave 실행하는 것이다. 단, T3 `race`는 각 독립 ROOM의 wait/cancel 한 쌍을 같은 barrier에 병렬 배치한다. `spike`의 기본값은 독립 ROOM 1개에 즉시 한 wave를 보낸다. T5는 VU마다 측정 창 전체를 한 번 실행한다. T5 role×scale 여섯 실행은 같은 run ID 아래에 만들고, 각 fixture의 `after` 검증 뒤에 아래 비교 검증을 실행한다.
+
+```powershell
+node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id $runId
+```
+
+`compare-t5`는 public/host/participant × ACTIVE 1/10 fixture가 모두 있고 각 완료 manifest의 `t5ReadOptions`가 같은지 확인한다. 비교 결과로 사용할 T5 묶음은 이 명령이 `PASS`일 때만 유효하다.
 
 ## 결과 확인
 
 사후 검증은 HTTP 응답 분류와 DB snapshot을 함께 판정한다.
 
-실행 결과를 비교하거나 정본으로 승격할 때는 `run-manifest.json`의 `sourceSha`, `targetEnvironment`, `fixtureId`, `startedAtUtc`, `finishedAtUtc`, `k6Version`을 함께 보존한다.
+실행 결과를 비교하거나 정본으로 승격할 때는 `run-manifest.json`의 `sourceSha`, `targetEnvironment`, `fixtureId`, `startedAtUtc`, `finishedAtUtc`, `k6Version`을 함께 보존한다. T5는 `t5ReadOptions`와 `t5-comparison-verification.json`도 함께 보존한다.
 
 | 상태 | 의미 |
 | --- | --- |
