@@ -13,6 +13,7 @@ import { validateApprovedReleaseManifest } from './catalog-release-manifest.mjs'
 
 const CURRENT_RELEASE_FILE = 'current-release.json';
 const RELEASE_MANIFEST_FILE = 'release-manifest.json';
+const PUBLISH_INTENT_FILE = '.catalog-publish-intent.json';
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 
 export function publishCatalogRelease({
@@ -29,25 +30,34 @@ export function publishCatalogRelease({
     validateArtifacts(artifacts);
     const outputManifest = buildOutputManifest(manifest, artifacts);
     const manifestContents = `${JSON.stringify(outputManifest, null, 2)}\n`;
+    const manifestSha256 = sha256(manifestContents);
 
     mkdirSync(releaseParent, { recursive: true });
+    const currentPointer = readCurrentReleasePointer(root);
     if (existsSync(releaseDirectory)) {
         const existingManifestPath = join(releaseDirectory, RELEASE_MANIFEST_FILE);
         if (!existsSync(existingManifestPath)
             || readFileSync(existingManifestPath, 'utf8') !== manifestContents) {
             throw new Error(`release already exists with different contents: ${manifest.releaseId}`);
         }
-        const currentPointer = readCurrentReleasePointer(root);
-        if (currentPointer && currentPointer.releaseId !== manifest.releaseId) {
-            throw new Error(
-                `cannot republish ${manifest.releaseId} while current release is ${currentPointer.releaseId}`,
-            );
-        }
-        if (currentPointer && currentPointer.manifestSha256 !== sha256(manifestContents)) {
+        if (currentPointer && currentPointer.releaseId === manifest.releaseId
+            && currentPointer.manifestSha256 !== manifestSha256) {
             throw new Error(`current release pointer does not match release: ${manifest.releaseId}`);
         }
+        const canResume = currentPointer?.releaseId === manifest.releaseId
+            || matchesPublishIntent(
+                readPublishIntent(root),
+                manifest.releaseId,
+                manifestSha256,
+                currentPointer,
+            );
+        if (!canResume) {
+            throw new Error(
+                `cannot republish ${manifest.releaseId} while current release is ${currentPointer?.releaseId ?? 'none'}`,
+            );
+        }
         verifyPublishedRelease(releaseDirectory, outputManifest);
-        if (!currentPointer) {
+        if (currentPointer?.releaseId !== manifest.releaseId) {
             publishCurrentRelease({
                 root,
                 releaseId: manifest.releaseId,
@@ -56,11 +66,33 @@ export function publishCatalogRelease({
                 rename,
             });
         }
+        removePublishIntent(root);
         return {
             releaseId: manifest.releaseId,
             releaseDirectory,
             pointerPath: join(root, CURRENT_RELEASE_FILE),
         };
+    }
+
+    const existingIntent = readPublishIntent(root);
+    const intentOwnedByCall = existingIntent === null;
+    if (existingIntent !== null && !matchesPublishIntent(
+        existingIntent,
+        manifest.releaseId,
+        manifestSha256,
+        currentPointer,
+    )) {
+        throw new Error(`publish intent does not match release: ${manifest.releaseId}`);
+    }
+    if (intentOwnedByCall) {
+        writePublishIntent({
+            root,
+            releaseId: manifest.releaseId,
+            manifestSha256,
+            currentPointer,
+            writeFile,
+            rename,
+        });
     }
 
     const stagingDirectory = mkdtempSync(join(releaseParent, `.${manifest.releaseId}-staging-`));
@@ -81,6 +113,7 @@ export function publishCatalogRelease({
             writeFile,
             rename,
         });
+        removePublishIntent(root);
 
         return {
             releaseId: manifest.releaseId,
@@ -91,6 +124,7 @@ export function publishCatalogRelease({
         if (publishedDirectory && existsSync(releaseDirectory)) {
             rmSync(releaseDirectory, { recursive: true, force: true });
         }
+        if (intentOwnedByCall && !existsSync(releaseDirectory)) removePublishIntent(root);
         throw error;
     } finally {
         if (existsSync(stagingDirectory)) {
@@ -196,6 +230,80 @@ function readCurrentReleasePointer(root) {
         throw new Error('current release pointer is invalid');
     }
     return pointer;
+}
+
+function readPublishIntent(root) {
+    const intentPath = join(root, PUBLISH_INTENT_FILE);
+    if (!existsSync(intentPath)) return null;
+
+    let intent;
+    try {
+        intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+    } catch {
+        throw new Error('publish intent is invalid JSON');
+    }
+    if (intent === null || typeof intent !== 'object' || Array.isArray(intent)
+        || intent.schemaVersion !== 1
+        || typeof intent.releaseId !== 'string'
+        || typeof intent.manifestSha256 !== 'string'
+        || !SHA256_PATTERN.test(intent.manifestSha256)
+        || !isCurrentReleaseIdentity(intent.previousCurrent)) {
+        throw new Error('publish intent is invalid');
+    }
+    return intent;
+}
+
+function isCurrentReleaseIdentity(value) {
+    return value === null || (value !== null
+        && typeof value === 'object'
+        && !Array.isArray(value)
+        && typeof value.releaseId === 'string'
+        && typeof value.manifestSha256 === 'string'
+        && SHA256_PATTERN.test(value.manifestSha256));
+}
+
+function currentReleaseIdentity(pointer) {
+    return pointer === null ? null : {
+        releaseId: pointer.releaseId,
+        manifestSha256: pointer.manifestSha256,
+    };
+}
+
+function matchesPublishIntent(intent, releaseId, manifestSha256, currentPointer) {
+    return intent !== null
+        && intent.releaseId === releaseId
+        && intent.manifestSha256 === manifestSha256
+        && JSON.stringify(intent.previousCurrent) === JSON.stringify(currentReleaseIdentity(currentPointer));
+}
+
+function writePublishIntent({
+    root,
+    releaseId,
+    manifestSha256,
+    currentPointer,
+    writeFile,
+    rename,
+}) {
+    const intentDirectory = mkdtempSync(join(root, '.catalog-publish-intent-'));
+    try {
+        const intentContents = `${JSON.stringify({
+            schemaVersion: 1,
+            releaseId,
+            manifestSha256,
+            previousCurrent: currentReleaseIdentity(currentPointer),
+        }, null, 2)}\n`;
+        const intentSource = join(intentDirectory, PUBLISH_INTENT_FILE);
+        writeFile(intentSource, intentContents, 'utf8');
+        rename(intentSource, join(root, PUBLISH_INTENT_FILE));
+    } finally {
+        if (existsSync(intentDirectory)) {
+            rmSync(intentDirectory, { recursive: true, force: true });
+        }
+    }
+}
+
+function removePublishIntent(root) {
+    rmSync(join(root, PUBLISH_INTENT_FILE), { force: true });
 }
 
 function publishCurrentRelease({

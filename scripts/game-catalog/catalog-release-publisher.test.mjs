@@ -113,6 +113,80 @@ test('완료된 current release는 멱등 재실행하고 과거 release는 poin
     }
 });
 
+test('이전 current가 있는 중단 release는 publish intent로 복구한다', () => {
+    const root = mkdtempSync(join(tmpdir(), 'albam-catalog-release-intent-resume-'));
+    try {
+        publishCatalogRelease({
+            outputRoot: root,
+            manifest: validManifest('release-001'),
+            artifacts: { 'games.csv': { contents: 'first', rows: 1 } },
+        });
+        const nextManifest = validManifest('release-002');
+        assert.throws(
+            () => publishCatalogRelease({
+                outputRoot: root,
+                manifest: nextManifest,
+                artifacts: { 'games.csv': { contents: 'second', rows: 1 } },
+                rename(source, target) {
+                    renameSync(source, target);
+                    if (target.endsWith('release-002')) throw new Error('simulated interruption');
+                },
+            }),
+            /simulated interruption/u,
+        );
+
+        assert.equal(JSON.parse(readFileSync(join(root, 'current-release.json'), 'utf8')).releaseId, 'release-001');
+        assert.equal(existsSync(join(root, '.catalog-publish-intent.json')), true);
+        publishCatalogRelease({
+            outputRoot: root,
+            manifest: nextManifest,
+            artifacts: { 'games.csv': { contents: 'second', rows: 1 } },
+        });
+        assert.equal(JSON.parse(readFileSync(join(root, 'current-release.json'), 'utf8')).releaseId, 'release-002');
+        assert.equal(existsSync(join(root, '.catalog-publish-intent.json')), false);
+    } finally {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
+test('손상된 current pointer는 release와 pointer를 변경하지 않는다', () => {
+    const root = mkdtempSync(join(tmpdir(), 'albam-catalog-release-pointer-invalid-'));
+    try {
+        const manifest = validManifest('release-001');
+        publishCatalogRelease({
+            outputRoot: root,
+            manifest,
+            artifacts: { 'games.csv': { contents: 'original', rows: 1 } },
+        });
+        const validPointer = JSON.parse(readFileSync(join(root, 'current-release.json'), 'utf8'));
+        const cases = [
+            ['invalid JSON', '{'],
+            ['schema', JSON.stringify({ ...validPointer, schemaVersion: 2 })],
+            ['release path', JSON.stringify({ ...validPointer, releasePath: 'releases/wrong' })],
+            ['manifest path', JSON.stringify({ ...validPointer, manifestPath: 'releases/release-001/wrong.json' })],
+            ['invalid hash', JSON.stringify({ ...validPointer, manifestSha256: 'invalid' })],
+            ['mismatched hash', JSON.stringify({ ...validPointer, manifestSha256: 'b'.repeat(64) })],
+        ];
+
+        for (const [label, contents] of cases) {
+            writeFileSync(join(root, 'current-release.json'), contents);
+            assert.throws(
+                () => publishCatalogRelease({
+                    outputRoot: root,
+                    manifest,
+                    artifacts: { 'games.csv': { contents: 'original', rows: 1 } },
+                }),
+                /current release pointer|does not match release/u,
+                label,
+            );
+            assert.equal(readFileSync(join(root, 'current-release.json'), 'utf8'), contents, label);
+            assert.equal(readFileSync(join(root, 'releases', 'release-001', 'games.csv'), 'utf8'), 'original', label);
+        }
+    } finally {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
 test('손상된 중단 release는 artifact 삭제·변조 후 pointer 복구를 거부한다', () => {
     for (const [suffix, corrupt] of [
         ['deleted', (root) => rmSync(join(root, 'releases', 'release-001', 'games.csv'))],
