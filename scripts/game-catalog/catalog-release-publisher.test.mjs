@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import {
     existsSync,
     readFileSync,
@@ -31,8 +32,102 @@ test('모든 artifact와 output manifest를 versioned release로 publish한다',
         assert.equal(readFileSync(join(root, 'current-release.json'), 'utf8').includes('release-001'), true);
         const outputManifest = JSON.parse(readFileSync(join(releaseRoot, 'release-manifest.json'), 'utf8'));
         assert.deepEqual(outputManifest.outputs['games.csv'].rows, 1);
-        assert.match(outputManifest.outputs['games.csv'].sha256, /^[a-f0-9]{64}$/u);
+        assert.equal(
+            outputManifest.outputs['games.csv'].sha256,
+            createHash('sha256').update('bgg_id\n1\n').digest('hex'),
+        );
+        assert.equal(outputManifest.outputs['games.csv'].bytes, Buffer.byteLength('bgg_id\n1\n'));
+        assert.equal(outputManifest.inputs.catalog.sha256, manifestSha256());
+        assert.equal(outputManifest.inputs.catalog.rows, 1);
         assert.deepEqual(readdirSync(join(root, 'releases')), ['release-001']);
+    } finally {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
+test('release 승격 직후 중단되어도 같은 승인 입력으로 publish를 재개한다', () => {
+    const root = mkdtempSync(join(tmpdir(), 'albam-catalog-release-resume-'));
+    try {
+        const manifest = validManifest('release-001');
+        assert.throws(
+            () => publishCatalogRelease({
+                outputRoot: root,
+                manifest,
+                artifacts: { 'games.csv': { contents: 'interrupted', rows: 1 } },
+                rename(source, target) {
+                    renameSync(source, target);
+                    if (target.endsWith('release-001')) throw new Error('simulated interruption');
+                },
+            }),
+            /simulated interruption/u,
+        );
+
+        assert.equal(existsSync(join(root, 'releases', 'release-001')), true);
+        const result = publishCatalogRelease({
+            outputRoot: root,
+            manifest,
+            artifacts: { 'games.csv': { contents: 'interrupted', rows: 1 } },
+        });
+
+        assert.equal(result.releaseId, 'release-001');
+        assert.equal(JSON.parse(readFileSync(join(root, 'current-release.json'), 'utf8')).releaseId, 'release-001');
+    } finally {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
+test('Windows 파일명 정규화 충돌과 예약 장치명을 차단한다', () => {
+    const root = mkdtempSync(join(tmpdir(), 'albam-catalog-release-names-'));
+    try {
+        assert.throws(
+            () => publishCatalogRelease({
+                outputRoot: root,
+                manifest: validManifest('release-001'),
+                artifacts: {
+                    'games.csv': { contents: 'first', rows: 1 },
+                    'GAMES.CSV': { contents: 'second', rows: 1 },
+                },
+            }),
+            /collide/u,
+        );
+        assert.throws(
+            () => publishCatalogRelease({
+                outputRoot: root,
+                manifest: validManifest('release-002'),
+                artifacts: { 'CON.txt': { contents: 'reserved', rows: 1 } },
+            }),
+            /Windows|reserved/u,
+        );
+        assert.throws(
+            () => publishCatalogRelease({
+                outputRoot: root,
+                manifest: validManifest('release-003'),
+                artifacts: { 'games.csv ': { contents: 'trailing', rows: 1 } },
+            }),
+            /Windows|trailing/u,
+        );
+    } finally {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
+test('__proto__ artifact도 output manifest에 무결성 정보가 기록된다', () => {
+    const root = mkdtempSync(join(tmpdir(), 'albam-catalog-release-prototype-'));
+    try {
+        const artifacts = Object.create(null);
+        artifacts.__proto__ = { contents: 'prototype', rows: 1 };
+        publishCatalogRelease({
+            outputRoot: root,
+            manifest: validManifest('release-001'),
+            artifacts,
+        });
+
+        const outputManifest = JSON.parse(readFileSync(
+            join(root, 'releases', 'release-001', 'release-manifest.json'),
+            'utf8',
+        ));
+        assert.equal(outputManifest.outputs.__proto__.bytes, Buffer.byteLength('prototype'));
+        assert.equal(existsSync(join(root, 'releases', 'release-001', '__proto__')), true);
     } finally {
         rmSync(root, { recursive: true, force: true });
     }
@@ -132,6 +227,55 @@ test('pointer 교체가 실패하면 새 release도 제거하고 기존 pointer�
     }
 });
 
+test('pointer 임시 파일 쓰기가 실패하면 새 release와 임시 디렉터리를 제거한다', () => {
+    const root = mkdtempSync(join(tmpdir(), 'albam-catalog-release-pointer-write-failure-'));
+    try {
+        publishCatalogRelease({
+            outputRoot: root,
+            manifest: validManifest('release-001'),
+            artifacts: { 'games.csv': { contents: 'original', rows: 1 } },
+        });
+        const currentBefore = readFileSync(join(root, 'current-release.json'), 'utf8');
+
+        assert.throws(
+            () => publishCatalogRelease({
+                outputRoot: root,
+                manifest: validManifest('release-002'),
+                artifacts: { 'games.csv': { contents: 'new', rows: 1 } },
+                writeFile(path, contents, options) {
+                    if (path.endsWith('current-release.json')) throw new Error('simulated pointer write failure');
+                    return writeFileSync(path, contents, options);
+                },
+            }),
+            /simulated pointer write failure/u,
+        );
+
+        assert.equal(readFileSync(join(root, 'current-release.json'), 'utf8'), currentBefore);
+        assert.equal(existsSync(join(root, 'releases', 'release-002')), false);
+        assert.equal(readdirSync(root).some((name) => name.startsWith('.current-release-')), false);
+    } finally {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
+test('미승인 manifest는 release와 current pointer를 만들지 않는다', () => {
+    const root = mkdtempSync(join(tmpdir(), 'albam-catalog-release-unapproved-'));
+    try {
+        assert.throws(
+            () => publishCatalogRelease({
+                outputRoot: root,
+                manifest: { ...validManifest('release-001'), approved: false },
+                artifacts: { 'games.csv': { contents: 'blocked', rows: 1 } },
+            }),
+            /approved/u,
+        );
+        assert.equal(existsSync(join(root, 'releases')), false);
+        assert.equal(existsSync(join(root, 'current-release.json')), false);
+    } finally {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
 function validManifest(releaseId) {
     const artifact = { status: 'approved', path: 'input.json', sha256: 'a'.repeat(64), rows: 1 };
     const coverage = { rows: 1, sha256: 'b'.repeat(64) };
@@ -160,4 +304,8 @@ function validManifest(releaseId) {
             themeIds: coverage,
         },
     };
+}
+
+function manifestSha256() {
+    return 'a'.repeat(64);
 }

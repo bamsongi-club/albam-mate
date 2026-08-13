@@ -3,11 +3,12 @@ import {
     existsSync,
     mkdirSync,
     mkdtempSync,
+    readFileSync,
     renameSync,
     rmSync,
     writeFileSync,
 } from 'node:fs';
-import { basename, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { validateApprovedReleaseManifest } from './catalog-release-manifest.mjs';
 
 const CURRENT_RELEASE_FILE = 'current-release.json';
@@ -26,49 +27,49 @@ export function publishCatalogRelease({
     const releaseParent = join(root, 'releases');
     const releaseDirectory = join(releaseParent, manifest.releaseId);
     validateArtifacts(artifacts);
+    const outputManifest = buildOutputManifest(manifest, artifacts);
+    const manifestContents = `${JSON.stringify(outputManifest, null, 2)}\n`;
 
     mkdirSync(releaseParent, { recursive: true });
     if (existsSync(releaseDirectory)) {
-        throw new Error(`release already exists: ${manifest.releaseId}`);
+        const existingManifestPath = join(releaseDirectory, RELEASE_MANIFEST_FILE);
+        if (!existsSync(existingManifestPath)
+            || readFileSync(existingManifestPath, 'utf8') !== manifestContents) {
+            throw new Error(`release already exists with different contents: ${manifest.releaseId}`);
+        }
+        verifyPublishedRelease(releaseDirectory, outputManifest);
+        publishCurrentRelease({
+            root,
+            releaseId: manifest.releaseId,
+            manifestContents,
+            writeFile,
+            rename,
+        });
+        return {
+            releaseId: manifest.releaseId,
+            releaseDirectory,
+            pointerPath: join(root, CURRENT_RELEASE_FILE),
+        };
     }
 
     const stagingDirectory = mkdtempSync(join(releaseParent, `.${manifest.releaseId}-staging-`));
     let publishedDirectory = false;
-    let pointerDirectory;
     try {
-        const outputs = {};
         for (const [name, artifact] of Object.entries(artifacts)) {
             const contents = artifact.contents;
             writeFile(join(stagingDirectory, name), contents, 'utf8');
-            outputs[name] = {
-                path: name,
-                sha256: sha256(contents),
-                rows: artifact.rows,
-                bytes: byteLength(contents),
-            };
         }
-
-        const outputManifest = {
-            ...manifest,
-            outputs,
-        };
-        const manifestContents = `${JSON.stringify(outputManifest, null, 2)}\n`;
         writeFile(join(stagingDirectory, RELEASE_MANIFEST_FILE), manifestContents, 'utf8');
 
         rename(stagingDirectory, releaseDirectory);
         publishedDirectory = true;
-
-        pointerDirectory = mkdtempSync(join(root, '.current-release-'));
-        const pointerContents = `${JSON.stringify({
-            schemaVersion: 1,
+        publishCurrentRelease({
+            root,
             releaseId: manifest.releaseId,
-            releasePath: `releases/${manifest.releaseId}`,
-            manifestPath: `releases/${manifest.releaseId}/${RELEASE_MANIFEST_FILE}`,
-            manifestSha256: sha256(manifestContents),
-        }, null, 2)}\n`;
-        const pointerSource = join(pointerDirectory, CURRENT_RELEASE_FILE);
-        writeFile(pointerSource, pointerContents, 'utf8');
-        rename(pointerSource, join(root, CURRENT_RELEASE_FILE));
+            manifestContents,
+            writeFile,
+            rename,
+        });
 
         return {
             releaseId: manifest.releaseId,
@@ -83,9 +84,6 @@ export function publishCatalogRelease({
     } finally {
         if (existsSync(stagingDirectory)) {
             rmSync(stagingDirectory, { recursive: true, force: true });
-        }
-        if (pointerDirectory && existsSync(pointerDirectory)) {
-            rmSync(pointerDirectory, { recursive: true, force: true });
         }
     }
 }
@@ -103,9 +101,16 @@ function validateArtifacts(artifacts) {
     }
     const names = Object.keys(artifacts);
     if (names.length === 0) throw new Error('artifacts must not be empty');
+    const normalizedNames = new Map();
     for (const name of names) {
-        if (name === CURRENT_RELEASE_FILE || name === RELEASE_MANIFEST_FILE
-            || basename(name) !== name || name === '.' || name === '..') {
+        const normalizedName = normalizeWindowsArtifactName(name);
+        const previousName = normalizedNames.get(normalizedName);
+        if (previousName) {
+            throw new Error(`release artifact names collide on Windows: ${previousName}, ${name}`);
+        }
+        normalizedNames.set(normalizedName, name);
+        if (normalizedName === normalizeWindowsArtifactName(CURRENT_RELEASE_FILE)
+            || normalizedName === normalizeWindowsArtifactName(RELEASE_MANIFEST_FILE)) {
             throw new Error(`invalid release artifact name: ${name}`);
         }
         const artifact = artifacts[name];
@@ -117,6 +122,71 @@ function validateArtifacts(artifacts) {
         }
         if (!Number.isSafeInteger(artifact.rows) || artifact.rows < 0) {
             throw new Error(`release artifact rows must be a non-negative safe integer: ${name}`);
+        }
+    }
+}
+
+function normalizeWindowsArtifactName(name) {
+    if (typeof name !== 'string' || name === '.' || name === '..'
+        || name.includes('/') || name.includes('\\')) {
+        throw new Error(`invalid release artifact name for Windows: ${name}`);
+    }
+    const withoutTrailingWindowsSpace = name.replace(/[ .]+$/u, '');
+    if (withoutTrailingWindowsSpace !== name || withoutTrailingWindowsSpace === '') {
+        throw new Error(`release artifact name has Windows-trimmed suffix: ${name}`);
+    }
+    const normalizedName = withoutTrailingWindowsSpace.normalize('NFC').toLowerCase();
+    const deviceName = normalizedName.split('.')[0];
+    if (/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])$/u.test(deviceName)) {
+        throw new Error(`release artifact name is a Windows reserved device name: ${name}`);
+    }
+    return normalizedName;
+}
+
+function buildOutputManifest(manifest, artifacts) {
+    const outputs = Object.create(null);
+    for (const [name, artifact] of Object.entries(artifacts)) {
+        outputs[name] = {
+            path: name,
+            sha256: sha256(artifact.contents),
+            rows: artifact.rows,
+            bytes: byteLength(artifact.contents),
+        };
+    }
+    return { ...manifest, outputs };
+}
+
+function verifyPublishedRelease(releaseDirectory, outputManifest) {
+    for (const [name, expected] of Object.entries(outputManifest.outputs)) {
+        const contents = readFileSync(join(releaseDirectory, name));
+        if (sha256(contents) !== expected.sha256 || byteLength(contents) !== expected.bytes) {
+            throw new Error(`existing release artifact checksum mismatch: ${name}`);
+        }
+    }
+}
+
+function publishCurrentRelease({
+    root,
+    releaseId,
+    manifestContents,
+    writeFile,
+    rename,
+}) {
+    const pointerDirectory = mkdtempSync(join(root, '.current-release-'));
+    try {
+        const pointerContents = `${JSON.stringify({
+            schemaVersion: 1,
+            releaseId,
+            releasePath: `releases/${releaseId}`,
+            manifestPath: `releases/${releaseId}/${RELEASE_MANIFEST_FILE}`,
+            manifestSha256: sha256(manifestContents),
+        }, null, 2)}\n`;
+        const pointerSource = join(pointerDirectory, CURRENT_RELEASE_FILE);
+        writeFile(pointerSource, pointerContents, 'utf8');
+        rename(pointerSource, join(root, CURRENT_RELEASE_FILE));
+    } finally {
+        if (existsSync(pointerDirectory)) {
+            rmSync(pointerDirectory, { recursive: true, force: true });
         }
     }
 }
