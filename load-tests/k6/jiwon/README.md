@@ -1,14 +1,16 @@
 # ROOM k6 부하테스트
 
-이 디렉터리는 Jiwon이 소유하며, [#649](https://github.com/bamsongi-club/albam-mate/issues/649)의 ROOM 핵심 HTTP k6 시나리오 5종을 관리한다. 소스와 결과의 공통 배치 규칙은 [Load Tests](../../README.md)를 따른다.
+이 디렉터리는 Jiwon이 소유하며, [#649](https://github.com/bamsongi-club/albam-mate/issues/649)의 ROOM 핵심 HTTP k6 시나리오 5종, fixture 생성기와 사전·사후 DB 검증을 관리한다. 소스와 결과의 공통 배치 규칙은 [Load Tests](../../README.md)를 따른다.
 
-테스트의 우선 목적은 동시성 오류·불변식 위반·공통 병목을 찾고, 개선 전후를 같은 조건으로 비교하는 것이다. `ROOM_CONCURRENT_MODIFICATION`은 계약된 재시도 소진 결과로 별도 기록하며, 그 비율 하나만으로 락 전략을 바꾸지 않는다.
+실제 fixture, 비밀번호·세션·CSRF, 원시 summary와 실행 bundle은 Git에 추적하지 않는 `build/k6/room/<run-id>/` 아래에 둔다.
 
-## 소유 범위와 보존 위치
+## 무엇에 답하려는 측정인가
 
-- 이 디렉터리는 ROOM 참가·취소·대기 등록·상세 조회 k6 시나리오, fixture 생성기, 사전·사후 DB 검증을 소유한다.
-- 실제 fixture, 비밀번호·세션·CSRF, 원시 summary와 실행 bundle은 Git에 추적하지 않는 `build/k6/room/<run-id>/` 아래에 둔다.
-- 현재 승인해 보존한 ROOM k6 측정 문서는 없다. 실행 결과를 정본으로 승격할 때만 `docs/measurements/k6/jiwon/` 아래에 추가한다.
+테스트의 우선 목적은 동시성 오류·불변식 위반·공통 병목을 찾고, 개선 전후를 같은 조건으로 비교하는 것이다. 시나리오별 HTTP 응답, DB 불변식과 실행 조건을 함께 기록한다.
+
+### 이 측정이 답하지 않는 것
+
+이 측정은 production 락 전략을 결정하지 않는다. `ROOM_CONCURRENT_MODIFICATION` 비율은 재시도 소진 결과를 관찰하는 지표이며, 락 전략 변경은 별도 측정·승인으로 판단한다.
 
 ## 제공 시나리오
 
@@ -22,7 +24,7 @@
 
 `public`은 익명이 아니라 로그인한 비관계 사용자다. T5는 `ACTIVE 1/정원 1`, `ACTIVE 10/정원 10`의 future-start `CLOSED` 만석 ROOM을 사용한다.
 
-## Fixture와 격리
+## fixture와 격리
 
 `tools/fixture.mjs`가 각 실행의 ROOM·사용자·참가·대기 행을 만들고, 같은 fixture의 사전·사후 DB 불변식을 판정한다. run ID·scenario·입력 조합마다 새 fixture를 만들며, 같은 조건의 bundle은 덮어쓰지 않는다.
 
@@ -114,13 +116,15 @@ node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id $runId
 
 실행 결과를 비교하거나 정본으로 승격할 때는 `run-manifest.json`의 `sourceSha`, `targetEnvironment`, `fixtureId`, `startedAtUtc`, `finishedAtUtc`, `k6Version`을 함께 보존한다. T5는 `t5ReadOptions`와 `t5-comparison-verification.json`도 함께 보존한다.
 
+`room_success`, `room_created`, `room_business_failures`, `room_concurrent_failures`, `room_unexpected_4xx`, `room_server_failures`, `room_contract_failures`, `room_request_duration`, `room_start_skew_ms`를 k6 summary에서 확인한다.
+
+## 결과 판정
+
 | 상태 | 의미 |
 | --- | --- |
 | `PASS` | HTTP 응답 분류, 시나리오별 DB 불변식, hard correctness gate를 통과 |
 | `FAIL` | 예상 밖 응답·5xx·payload 불일치·FIFO/정원/중복/무변경 gate 위반 |
 | `INVALID` | fixture 사전 조건 또는 필수 artifact가 부족해 결과를 성능 근거로 쓸 수 없음 |
-
-`room_success`, `room_created`, `room_business_failures`, `room_concurrent_failures`, `room_unexpected_4xx`, `room_server_failures`, `room_contract_failures`, `room_request_duration`, `room_start_skew_ms`를 k6 summary에서 확인한다.
 
 첫 기준선의 p50/p95/p99/RPS/409 비율은 관찰값이다. DB CPU·connection·lock wait·query call/time과 application retry log는 같은 측정 창의 승인된 관측 source에서 별도로 수집한다. production 락 전략은 이 스크립트가 바꾸지 않는다.
 
@@ -129,6 +133,10 @@ node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id $runId
 ```powershell
 node load-tests/k6/jiwon/tools/fixture.mjs cleanup --fixture $prepared.fixturePath
 ```
+
+## 측정 결과 위치
+
+현재 승인해 보존한 ROOM k6 측정 문서는 없다. 실행 결과를 정본으로 승격할 때만 `docs/measurements/k6/jiwon/` 아래에 추가한다. 탐색·반복 실행의 원시 fixture, summary와 bundle은 `build/k6/room/<run-id>/`에만 둔다.
 
 ## 검증
 
