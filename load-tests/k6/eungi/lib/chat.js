@@ -444,7 +444,8 @@ export function requestCsrfToken(jar = http.cookieJar()) {
 }
 
 export function installSession(user, targetBaseUrl = BASE_URL) {
-	const jar = http.cookieJar();
+	// 한 VU가 여러 사용자의 WebSocket handshake를 동시에 시작할 수 있으므로 기본 jar를 공유하지 않는다.
+	const jar = new http.CookieJar();
 	jar.set(targetBaseUrl, 'JSESSIONID', user.sessionId);
 	jar.set(targetBaseUrl, 'XSRF-TOKEN', user.csrfToken);
 	return jar;
