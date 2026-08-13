@@ -940,7 +940,10 @@ test('after 검증은 run 뒤 fixture baselineSnapshot 변조를 INVALID로 거�
     const currentSnapshot = fixtureSnapshot(prepared.fixture);
     writeBoundSummary(fixtureDirectory, t5Summary(10));
     const tamperedFixture = JSON.parse(readFileSync(fixturePath, 'utf8'));
-    tamperedFixture.baselineSnapshot = currentSnapshot;
+    tamperedFixture.baselineSnapshot = {
+      ...currentSnapshot,
+      rooms: [],
+    };
     writeFileSync(fixturePath, `${JSON.stringify(tamperedFixture, null, 2)}\n`, 'utf8');
 
     const verify = verifyAfter(fixturePath, binDirectory, {
