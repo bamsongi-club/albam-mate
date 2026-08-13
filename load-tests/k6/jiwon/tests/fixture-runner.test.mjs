@@ -11,7 +11,7 @@ import {
 import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 
@@ -48,8 +48,18 @@ if (process.env.FAKE_K6_CAPTURE_READ_OPTIONS === 'true') {
     thinkTimeMilliseconds: process.env.ROOM_K6_READ_THINK_TIME_MS,
   };
 }
-writeFileSync(args[summaryIndex + 1], JSON.stringify(summary) + '\\n', 'utf8');
-process.exit(Number.parseInt(process.env.FAKE_K6_EXIT || '0', 10));
+if (process.env.FAKE_K6_WAIT_FOR_SIGNAL === 'true') {
+  if (process.env.FAKE_K6_STARTED_FILE) {
+    writeFileSync(process.env.FAKE_K6_STARTED_FILE, 'started\\n', 'utf8');
+  }
+  if (process.env.FAKE_K6_PID_FILE) {
+    writeFileSync(process.env.FAKE_K6_PID_FILE, String(process.pid), 'utf8');
+  }
+  setInterval(() => {}, 1_000);
+} else {
+  writeFileSync(args[summaryIndex + 1], JSON.stringify(summary) + '\\n', 'utf8');
+  process.exit(Number.parseInt(process.env.FAKE_K6_EXIT || '0', 10));
+}
 `, 'utf8');
     writeFileSync(
       path.join(binDirectory, 'k6.cmd'),
@@ -82,8 +92,18 @@ if (process.env.FAKE_K6_CAPTURE_READ_OPTIONS === 'true') {
     thinkTimeMilliseconds: process.env.ROOM_K6_READ_THINK_TIME_MS,
   };
 }
-writeFileSync(args[summaryIndex + 1], JSON.stringify(summary) + '\\n', 'utf8');
-process.exit(Number.parseInt(process.env.FAKE_K6_EXIT || '0', 10));
+if (process.env.FAKE_K6_WAIT_FOR_SIGNAL === 'true') {
+  if (process.env.FAKE_K6_STARTED_FILE) {
+    writeFileSync(process.env.FAKE_K6_STARTED_FILE, 'started\\n', 'utf8');
+  }
+  if (process.env.FAKE_K6_PID_FILE) {
+    writeFileSync(process.env.FAKE_K6_PID_FILE, String(process.pid), 'utf8');
+  }
+  setInterval(() => {}, 1_000);
+} else {
+  writeFileSync(args[summaryIndex + 1], JSON.stringify(summary) + '\\n', 'utf8');
+  process.exit(Number.parseInt(process.env.FAKE_K6_EXIT || '0', 10));
+}
 `, 'utf8');
 
   const executablePath = path.join(binDirectory, 'k6');
@@ -177,6 +197,74 @@ function runFixture(fixturePath, binDirectory, extraEnvironment = {}) {
   });
 }
 
+function startFixture(fixturePath, binDirectory, extraEnvironment = {}) {
+  return spawn(process.execPath, [fixtureTool, 'run', '--fixture', fixturePath], {
+    cwd: repositoryRoot,
+    env: {
+      ...process.env,
+      PATH: `${binDirectory}${path.delimiter}${process.env.PATH || ''}`,
+      ALBAM_MATE_SOURCE_SHA: 'a'.repeat(40),
+      ALBAM_MATE_TARGET_ENVIRONMENT: 'private-loadtest',
+      ...extraEnvironment,
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+}
+
+function waitForFixtureExit(child) {
+  return new Promise((resolve, reject) => {
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+    child.once('error', reject);
+    child.once('close', (status, signal) => {
+      resolve({ status, signal, stdout, stderr });
+    });
+  });
+}
+
+function waitForFile(filePath, timeoutMillis = 3_000) {
+  return new Promise((resolve, reject) => {
+    const deadline = Date.now() + timeoutMillis;
+    const wait = () => {
+      if (existsSync(filePath)) {
+        resolve();
+        return;
+      }
+      if (Date.now() >= deadline) {
+        reject(new Error(`파일 생성 대기 시간이 초과되었습니다: ${filePath}`));
+        return;
+      }
+      setTimeout(wait, 20);
+    };
+    wait();
+  });
+}
+
+function stopFakeK6(pidPath) {
+  if (!existsSync(pidPath)) {
+    return;
+  }
+  const pid = Number.parseInt(readFileSync(pidPath, 'utf8'), 10);
+  if (!Number.isInteger(pid)) {
+    return;
+  }
+  try {
+    process.kill(pid, 'SIGKILL');
+  } catch (error) {
+    if (error.code !== 'ESRCH') {
+      throw error;
+    }
+  }
+}
+
 function runPrepare(runId, binDirectory, extraEnvironment = {}) {
   return spawnSync(process.execPath, [
     fixtureTool,
@@ -265,6 +353,8 @@ test('run은 성공한 k6 실행의 provenance manifest와 summary를 같은 fix
     assert.equal(manifest.sourceSha, 'a'.repeat(40));
     assert.equal(manifest.targetEnvironment, 'private-loadtest');
     assert.equal(manifest.k6Version, 'k6 v0.0.0-test');
+    assert.equal(manifest.runState, 'COMPLETED');
+    assert.equal(manifest.completed, true);
     assert.equal(manifest.k6ExitCode, 0);
     assert.equal(manifest.summaryFile, 'k6-summary.json');
     assert.equal(manifest.summarySha256, sha256(path.join(fixtureDirectory, 'k6-summary.json')));
@@ -283,6 +373,61 @@ test('run은 성공한 k6 실행의 provenance manifest와 summary를 같은 fix
     rmSync(binDirectory, { recursive: true, force: true });
   }
 });
+
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  test('run은 ' + signal + ' 중단도 종료된 manifest로 보존하고 새 run ID 재시도를 안내한다', {
+    skip: fakeK6Skip,
+  }, async () => {
+    const fixtureDirectory = createTestDirectory();
+    const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
+    const startedPath = path.join(fixtureDirectory, 'fake-k6-started');
+    const fakeK6PidPath = path.join(fixtureDirectory, 'fake-k6.pid');
+    let runner;
+    mkdirSync(binDirectory, { recursive: true });
+    createFakeK6(binDirectory);
+
+    try {
+      const fixturePath = writeFixture(fixtureDirectory, 'runner-interrupted-' + signal.toLowerCase());
+      runner = startFixture(fixturePath, binDirectory, {
+        FAKE_K6_WAIT_FOR_SIGNAL: 'true',
+        FAKE_K6_STARTED_FILE: startedPath,
+        FAKE_K6_PID_FILE: fakeK6PidPath,
+      });
+      const exit = waitForFixtureExit(runner);
+      await waitForFile(startedPath);
+      assert.equal(runner.kill(signal), true);
+
+      const result = await exit;
+      assert.notEqual(result.status, 0, result.stderr || result.stdout);
+
+      const manifestPath = path.join(fixtureDirectory, 'run-manifest.json');
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+      assert.equal(manifest.runState, 'INTERRUPTED');
+      assert.equal(manifest.completed, false);
+      assert.equal(manifest.k6Signal, signal);
+      assert.equal(manifest.k6ExitCode, null);
+      assert.equal(manifest.summarySha256, null);
+      assert.ok(Date.parse(manifest.finishedAtUtc));
+
+      const verification = verifyAfter(fixturePath);
+      assert.equal(verification.status, 2, verification.stderr || verification.stdout);
+      const afterVerification = JSON.parse(readFileSync(path.join(fixtureDirectory, 'after-verification.json'), 'utf8'));
+      assert.equal(afterVerification.status, 'INVALID');
+      assert.match(afterVerification.failures[0], /중단된 실행/);
+
+      const rerun = runFixture(fixturePath, binDirectory);
+      assert.notEqual(rerun.status, 0);
+      assert.match(rerun.stderr, /중단.*새 run ID/);
+    } finally {
+      if (runner && runner.exitCode === null && runner.signalCode === null) {
+        runner.kill('SIGKILL');
+      }
+      stopFakeK6(fakeK6PidPath);
+      rmSync(fixtureDirectory, { recursive: true, force: true });
+      rmSync(binDirectory, { recursive: true, force: true });
+    }
+  });
+}
 
 test('T5 run은 유효 VU·duration·think time을 manifest에 기록한다', { skip: fakeK6Skip }, () => {
   const fixtureDirectory = createTestDirectory();

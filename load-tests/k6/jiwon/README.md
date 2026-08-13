@@ -34,7 +34,7 @@
 | `prepare.sql` | 동일 경로 | fixture 생성 SQL. bcrypt hash가 포함될 수 있어 Git 비추적 |
 | `prepare-recovery.json` | 동일 경로 | `prepare` commit 뒤 artifact 생성이 실패했을 때 결정적 fixture를 다시 찾아 안전한 cleanup에 쓰는 비밀 없는 복구 입력 |
 | `before-verification.json` | 동일 경로 | 실행 전 DB 불변식 |
-| `run-manifest.json` | 동일 경로 | 대상 배포 SHA·환경·fixture·k6 버전·시작/종료 UTC를 묶은 실행 기록 |
+| `run-manifest.json` | 동일 경로 | 대상 배포 SHA·환경·fixture·k6 버전·시작/종료 UTC와 `runState`·`completed`를 묶은 실행 기록 |
 | `k6-summary.json` | 동일 경로 | `run`이 같은 manifest와 함께 생성한 k6 summary |
 | `t5-comparison-verification.json` | `build/k6/room/<run-id>/` | T5 role×scale 6개 실행의 공통 read profile 검증 결과 |
 | `cleanup.sql` | 동일 경로 | 정확한 생성 ID만 정리하는 SQL |
@@ -89,7 +89,7 @@ node load-tests/k6/jiwon/tools/fixture.mjs verify `
   --fixture $prepared.fixturePath --stage after
 ```
 
-`run`은 fixture가 가리키는 scenario 스크립트만 실행하고, 실행 직전·직후에 같은 `run-manifest.json`을 갱신한다. `after` 검증은 이 manifest와 같은 경로의 `k6-summary.json`만 사용하므로 수동으로 다른 실행 summary를 섞을 수 없다. T5 manifest에는 실제 적용한 `t5ReadOptions`(VU·duration·think time)를 남기고, 같은 정규화 값으로 k6 child process를 실행한다. `ALBAM_MATE_SOURCE_SHA`에는 로컬 스크립트 checkout이 아니라 **대상 환경에 배포된** SHA를 넣는다.
+`run`은 fixture가 가리키는 scenario 스크립트만 실행하고, 실행 직전·종료 뒤에 같은 `run-manifest.json`을 갱신한다. `after` 검증은 이 manifest와 같은 경로의 `k6-summary.json`만 사용하므로 수동으로 다른 실행 summary를 섞을 수 없다. T5 manifest에는 실제 적용한 `t5ReadOptions`(VU·duration·think time)를 남기고, 같은 정규화 값으로 k6 child process를 실행한다. `ALBAM_MATE_SOURCE_SHA`에는 로컬 스크립트 checkout이 아니라 **대상 환경에 배포된** SHA를 넣는다.
 
 시나리오별 fixture 입력은 아래처럼 바꾼다.
 
@@ -115,7 +115,7 @@ node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id $runId
 
 사후 검증은 HTTP 응답 분류와 DB snapshot을 함께 판정한다.
 
-실행 결과를 비교하거나 정본으로 승격할 때는 `run-manifest.json`의 `sourceSha`, `targetEnvironment`, `fixtureId`, `startedAtUtc`, `finishedAtUtc`, `k6Version`을 함께 보존한다. T5는 `t5ReadOptions`와 `t5-comparison-verification.json`도 함께 보존한다.
+실행 결과를 비교하거나 정본으로 승격할 때는 `run-manifest.json`의 `sourceSha`, `targetEnvironment`, `fixtureId`, `startedAtUtc`, `finishedAtUtc`, `k6Version`, `runState`, `completed`를 함께 보존한다. T5는 `t5ReadOptions`와 `t5-comparison-verification.json`도 함께 보존한다.
 
 `room_success`, `room_created`, `room_business_failures`, `room_concurrent_failures`, `room_unexpected_4xx`, `room_server_failures`, `room_contract_failures`, `room_request_duration`, `room_start_skew_ms`를 k6 summary에서 확인한다.
 
@@ -141,6 +141,8 @@ node load-tests/k6/jiwon/tools/fixture.mjs cleanup --fixture $prepared.fixturePa
 node load-tests/k6/jiwon/tools/fixture.mjs recover-cleanup `
   --recovery build/k6/room/<run-id>/<fixture-id>/prepare-recovery.json
 ```
+
+`run` 도중 `SIGINT` 또는 `SIGTERM`을 받으면 `run-manifest.json`은 `runState: "INTERRUPTED"`, `completed: false`, 종료 시각·수신 signal을 남긴다. 이 artifact와 일부 summary는 성능 근거로 쓰지 않으므로 `verify --stage after`는 `INVALID`로 끝난다. 중단 기록은 덮어쓰지 않는다. `cleanup --fixture <fixture.json>`으로 DB fixture를 안전하게 정리한 뒤 새 run ID로 `prepare`하여 다시 실행한다.
 
 ## 측정 결과 위치
 

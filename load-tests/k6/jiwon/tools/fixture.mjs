@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   existsSync,
@@ -246,6 +246,13 @@ function requireTargetEnvironment() {
 }
 
 function runK6(k6Arguments, options = {}) {
+  return spawn('k6', k6Arguments, {
+    ...options,
+    shell: false,
+  });
+}
+
+function runK6Sync(k6Arguments, options = {}) {
   return spawnSync('k6', k6Arguments, {
     ...options,
     shell: false,
@@ -253,7 +260,7 @@ function runK6(k6Arguments, options = {}) {
 }
 
 function k6Version() {
-  const result = runK6(['version'], {
+  const result = runK6Sync(['version'], {
     cwd: repositoryRoot,
     encoding: 'utf8',
     env: process.env,
@@ -288,6 +295,36 @@ function runSummaryPath(fixturePath) {
   return path.join(path.dirname(fixturePath), RUN_SUMMARY_FILE);
 }
 
+function interruptedRunMessage(manifest, fixturePath) {
+  const signal = typeof manifest.k6Signal === 'string' ? manifest.k6Signal : '알 수 없는';
+  return `같은 fixture의 실행이 ${signal} 신호로 중단되었습니다. 중단 artifact를 보존하기 위해 재실행하지 않습니다. `
+    + `fixture.mjs cleanup --fixture ${fixturePath}로 DB fixture를 안전하게 정리한 뒤 새 run ID로 prepare하세요.`;
+}
+
+function existingRunArtifactMessage(manifestPath, fixturePath) {
+  try {
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    if (manifest.runState === 'INTERRUPTED') {
+      return interruptedRunMessage(manifest, fixturePath);
+    }
+  } catch (_) {
+    // 기존 artifact가 JSON이 아니어도 덮어쓰지 않는다.
+  }
+  return `같은 fixture의 실행 artifact가 이미 있습니다: ${path.dirname(fixturePath)}. 기존 결과를 덮어쓰지 말고 새 run ID를 사용하세요.`;
+}
+
+function waitForK6(k6Process) {
+  return new Promise((resolve) => {
+    let error = null;
+    k6Process.once('error', (spawnError) => {
+      error = spawnError;
+    });
+    k6Process.once('close', (status, signal) => {
+      resolve({ status, signal, error });
+    });
+  });
+}
+
 function isUtcTimestamp(value) {
   return typeof value === 'string' && value.endsWith('Z') && !Number.isNaN(Date.parse(value));
 }
@@ -310,6 +347,19 @@ function completedRunArtifact(fixturePath, fixture) {
     manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   } catch (_) {
     return { failure: 'run-manifest.json을 읽을 수 없습니다.' };
+  }
+
+  if (manifest.runState === 'INTERRUPTED') {
+    return { failure: interruptedRunMessage(manifest, fixturePath) };
+  }
+  if (manifest.runState === 'RUNNING') {
+    return { failure: 'run-manifest.json이 종료 상태로 기록되지 않은 실행을 가리킵니다.' };
+  }
+  if (manifest.runState && manifest.runState !== 'COMPLETED') {
+    return { failure: 'run-manifest.json이 완료되지 않은 실행을 가리킵니다.' };
+  }
+  if (manifest.completed === false) {
+    return { failure: 'run-manifest.json이 완료되지 않은 실행을 가리킵니다.' };
   }
 
   if (manifest.schemaVersion !== 1
@@ -485,12 +535,12 @@ function prepare(values) {
   }
 }
 
-function run(values) {
+async function run(values) {
   const { fixturePath, fixture } = readFixture(values.fixture);
   const manifestPath = runManifestPath(fixturePath);
   const summaryPath = runSummaryPath(fixturePath);
   if (existsSync(manifestPath) || existsSync(summaryPath)) {
-    fail(`같은 fixture의 실행 artifact가 이미 있습니다: ${path.dirname(fixturePath)}. 기존 결과를 덮어쓰지 말고 새 run ID를 사용하세요.`);
+    fail(existingRunArtifactMessage(manifestPath, fixturePath));
   }
 
   const sourceSha = requireSourceSha();
@@ -510,6 +560,8 @@ function run(values) {
     k6Version: version,
     startedAtUtc: new Date().toISOString(),
     finishedAtUtc: null,
+    runState: 'RUNNING',
+    completed: false,
     k6ExitCode: null,
     summaryFile: RUN_SUMMARY_FILE,
     summarySha256: null,
@@ -529,40 +581,72 @@ function run(values) {
     k6Environment.ROOM_K6_READ_DURATION_SECONDS = String(t5ReadOptions.durationSeconds);
     k6Environment.ROOM_K6_READ_THINK_TIME_MS = String(t5ReadOptions.thinkTimeMilliseconds);
   }
-  const result = runK6(['run', '--summary-export', summaryPath, scriptPath], {
-    cwd: repositoryRoot,
-    env: k6Environment,
-    stdio: 'inherit',
-  });
-  manifest.finishedAtUtc = new Date().toISOString();
-  manifest.k6ExitCode = Number.isInteger(result.status) ? result.status : null;
-  if (result.signal) {
-    manifest.k6Signal = result.signal;
-  }
-  if (result.error) {
-    manifest.k6Error = result.error.message;
-  }
-  if (existsSync(summaryPath)) {
-    manifest.summarySha256 = sha256(summaryPath);
-  }
-  writeJson(manifestPath, manifest);
+  let k6Process = null;
+  let interruptedSignal = null;
+  const interruptK6 = (signal) => {
+    if (interruptedSignal) {
+      return;
+    }
+    interruptedSignal = signal;
+    if (k6Process && k6Process.exitCode === null && k6Process.signalCode === null) {
+      k6Process.kill(signal);
+    }
+  };
+  process.on('SIGINT', interruptK6);
+  process.on('SIGTERM', interruptK6);
 
-  if (result.error) {
-    fail(`k6 실행을 시작하지 못했습니다. k6 설치와 PATH를 확인하세요: ${result.error.message}`);
-  }
-  if (manifest.k6ExitCode === null) {
-    fail(`k6 실행이 ${manifest.k6Signal || '알 수 없는 이유'}로 끝났습니다.`);
-  }
+  try {
+    k6Process = runK6(['run', '--summary-export', summaryPath, scriptPath], {
+      cwd: repositoryRoot,
+      env: k6Environment,
+      stdio: 'inherit',
+    });
+    if (interruptedSignal && k6Process.exitCode === null && k6Process.signalCode === null) {
+      k6Process.kill(interruptedSignal);
+    }
 
-  process.stdout.write(`${JSON.stringify({
-    fixtureId: fixture.fixtureId,
-    scenario: fixture.options.scenario,
-    manifestPath,
-    summaryPath,
-    k6ExitCode: manifest.k6ExitCode,
-  })}\n`);
-  if (manifest.k6ExitCode !== 0) {
-    process.exitCode = manifest.k6ExitCode;
+    const result = await waitForK6(k6Process);
+    const k6Signal = interruptedSignal || result.signal;
+    manifest.finishedAtUtc = new Date().toISOString();
+    manifest.k6ExitCode = Number.isInteger(result.status) ? result.status : null;
+    if (k6Signal) {
+      manifest.k6Signal = k6Signal;
+    }
+    if (result.error) {
+      manifest.k6Error = result.error.message;
+    }
+    if (existsSync(summaryPath)) {
+      manifest.summarySha256 = sha256(summaryPath);
+    }
+    manifest.runState = k6Signal ? 'INTERRUPTED' : result.error ? 'FAILED_TO_START' : 'COMPLETED';
+    manifest.completed = manifest.runState === 'COMPLETED';
+    writeJson(manifestPath, manifest);
+
+    if (k6Signal) {
+      process.stderr.write(`${interruptedRunMessage(manifest, fixturePath)}\n`);
+      process.exitCode = k6Signal === 'SIGINT' ? 130 : k6Signal === 'SIGTERM' ? 143 : 1;
+      return;
+    }
+    if (result.error) {
+      fail(`k6 실행을 시작하지 못했습니다. k6 설치와 PATH를 확인하세요: ${result.error.message}`);
+    }
+    if (manifest.k6ExitCode === null) {
+      fail(`k6 실행이 ${manifest.k6Signal || '알 수 없는 이유'}로 끝났습니다.`);
+    }
+
+    process.stdout.write(`${JSON.stringify({
+      fixtureId: fixture.fixtureId,
+      scenario: fixture.options.scenario,
+      manifestPath,
+      summaryPath,
+      k6ExitCode: manifest.k6ExitCode,
+    })}\n`);
+    if (manifest.k6ExitCode !== 0) {
+      process.exitCode = manifest.k6ExitCode;
+    }
+  } finally {
+    process.off('SIGINT', interruptK6);
+    process.off('SIGTERM', interruptK6);
   }
 }
 
@@ -632,7 +716,7 @@ function recoverCleanup(values) {
   })}\n`);
 }
 
-function main() {
+async function main() {
   const { command, values } = parseArguments(process.argv.slice(2));
   switch (command) {
     case 'help':
@@ -642,7 +726,7 @@ function main() {
       prepare(values);
       return;
     case 'run':
-      run(values);
+      await run(values);
       return;
     case 'verify':
       verify(values);
@@ -661,9 +745,7 @@ function main() {
   }
 }
 
-try {
-  main();
-} catch (error) {
+main().catch((error) => {
   process.stderr.write(`${error.message}\n`);
   process.exitCode = 1;
-}
+});
