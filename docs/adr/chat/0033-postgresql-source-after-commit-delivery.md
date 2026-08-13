@@ -78,12 +78,11 @@ Redis 발행·구독 또는 WebSocket 전달 실패는 저장 결과를 바꾸�
 
 ## 검증
 
-- 상태: 미검증
+- 상태: 검증됨
 - 근거:
-    - 구현: [#286](https://github.com/bamsongi-club/albam-mate/issues/286)에서 당시 `local-multi`와 `production` Redis publisher·subscriber·listener container, PostgreSQL catch-up, `afterMessageId` 재연결과 전달 직전 관계·세션 gate를 구현했다. [ADR-0052](../platform/0052-local-profile-multi-instance-default.md)와 [PR #472](https://github.com/bamsongi-club/albam-mate/pull/472)가 같은 로컬 구현을 현재 `local` 프로필로 통합했다.
+    - 구현: [PR #430](https://github.com/bamsongi-club/albam-mate/pull/430)(#286 구현)이 당시 `local-multi`와 `production` Redis publisher·subscriber·listener container, PostgreSQL catch-up, `afterMessageId` 재연결과 전달 직전 관계·세션 gate를 구현했다. [ADR-0052](../platform/0052-local-profile-multi-instance-default.md)와 [PR #472](https://github.com/bamsongi-club/albam-mate/pull/472)가 같은 로컬 구현을 현재 `local` 프로필로 통합했다.
     - 계약: 현재 채팅 Redis channel namespace는 `albam-mate:local:chat:events`와 `albam-mate:production:chat:events`다. 두 환경 모두 `eventType`·`roomId`·`messageId`만 신호에 담고 PostgreSQL 이력으로 catch-up한다.
     - 테스트: #286의 T1~T12와 PR #472의 `local` 프록시 검증이 커밋 후 전달, 중복·유실·역순 복구, 실제 WebSocket 재연결, 교차 인스턴스·재시작 복구, 세션 저장소 장애와 관측 경계를 자동 검증한다.
-- 미검증:
-    - ADR-0051의 자체 운영 Redis와 고정 Spring EC2 두 대 환경에서 실제 AWS 운영 부하를 검증해야 한다.
+    - 범위: ADR-0051의 자체 운영 Redis·고정 Spring EC2 두 대에서의 실제 AWS 운영 부하와 배포 결과는 이 ADR의 코드·로컬 다중 인스턴스 결정 검증이 아니라 상태표의 `운영 배포·실측` 축에서 관리한다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.
