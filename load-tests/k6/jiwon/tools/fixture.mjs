@@ -493,7 +493,7 @@ function t5StartSkewMetricFailure(summary, manifest) {
     return 'T5 room_start_skew_ms metric이 부족합니다.';
   }
   if (observedCount !== expectedCount) {
-    return `T5 room_start_skew_ms 관측 수 ${observedCount}가 VU 수 ${expectedCount}와 다릅니다.`;
+    return `T5 room_start_skew_ms 관측 수 ${observedCount}가 VU 수 ${expectedCount}과 다릅니다.`;
   }
   return null;
 }
