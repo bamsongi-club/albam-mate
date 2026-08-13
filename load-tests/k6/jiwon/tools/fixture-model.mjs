@@ -1008,7 +1008,7 @@ function evaluateT4(fixture, snapshot, failures, summary) {
 function evaluateT5(fixture, snapshot, baselineSnapshot, failures) {
   addFailure(
     failures,
-    JSON.stringify(snapshot) === JSON.stringify(baselineSnapshot),
+    baselineSnapshot !== null && JSON.stringify(snapshot) === JSON.stringify(baselineSnapshot),
     'T5 상세 조회 전후 ROOM·participation·waitlist snapshot이 달라졌습니다.',
   );
 }
@@ -1059,7 +1059,13 @@ function evaluateMeasuredRequests(fixture, failures, summary) {
   );
 }
 
-export function evaluateFixture(fixture, snapshot, stage, summary = null) {
+export function evaluateFixture(
+  fixture,
+  snapshot,
+  stage,
+  summary = null,
+  baselineSnapshot = fixture.baselineSnapshot || null,
+) {
   const failures = [];
   evaluateCommonInvariants(fixture, snapshot, failures);
 
@@ -1096,7 +1102,7 @@ export function evaluateFixture(fixture, snapshot, stage, summary = null) {
       evaluateT4(fixture, snapshot, failures, summary);
       break;
     case 't5':
-      evaluateT5(fixture, snapshot, fixture.baselineSnapshot, failures);
+      evaluateT5(fixture, snapshot, baselineSnapshot, failures);
       break;
     default:
       fail(`지원하지 않는 scenario: ${fixture.options.scenario}`);

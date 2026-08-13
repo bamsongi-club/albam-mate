@@ -439,6 +439,28 @@ test('T5 사후 검증은 조회 전후 snapshot이 같을 때만 통과한다',
   })).status, 'FAIL');
 });
 
+test('T5 사후 검증은 bundle 외부 baseline snapshot을 받아도 조회 전후 무변경을 판정한다', () => {
+  const { fixture } = fixtureFor({
+    scenario: 't5',
+    runId: 'fixture-t5-external-baseline',
+    t5Role: 'public',
+    t5Scale: 1,
+  });
+  const snapshot = initialSnapshot(fixture);
+  const baselineSnapshot = structuredClone(snapshot);
+
+  assert.deepEqual(evaluateFixture(
+    fixture,
+    snapshot,
+    'after',
+    summaryWith({ room_requests: 1, room_success: 1 }),
+    baselineSnapshot,
+  ), {
+    status: 'PASS',
+    failures: [],
+  });
+});
+
 test('요청을 관측하지 못한 after summary는 PASS가 될 수 없다', () => {
   const { fixture } = fixtureFor({
     scenario: 't3',

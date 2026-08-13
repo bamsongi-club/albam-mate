@@ -1,340 +1,338 @@
 import assert from 'node:assert/strict';
 import {
-  chmodSync,
+  existsSync,
   mkdirSync,
-  mkdtempSync,
   readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { createHash } from 'node:crypto';
-import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+import {
+  aggregateBundle,
+  compareT5Bundles,
+  diagnoseBundle,
+  executionOptionsBundle,
+  hydrateBundle,
+  renderBundle,
+  validateBundle,
+} from '../tools/fixture.mjs';
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(testDirectory, '../../../..');
-const fixtureTool = path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon', 'tools', 'fixture.mjs');
-const fixtureBuildRoot = path.join(repositoryRoot, 'build', 'k6', 'room');
+const bundleBuildRoot = path.join(repositoryRoot, 'build', 'k6', 'room');
+const passwordHash = '{bcrypt}$2y$10$PzJpRRDVEB/jtl2uSy8vZuLyskdxt1Jg6BZ23PQqlQLvm7kB0EAem';
 
-function createFakeK6(binDirectory) {
-  if (process.platform === 'win32') {
-    const programPath = path.join(binDirectory, 'fake-k6.mjs');
-    writeFileSync(programPath, `import { writeFileSync } from 'node:fs';
+function resourcesFor(plan) {
+  const users = {};
+  const rooms = {};
+  let nextUserId = 100;
+  let nextRoomId = 1000;
+  for (const user of plan.users) {
+    users[user.email] = nextUserId;
+    nextUserId += 1;
+  }
+  for (const room of plan.rooms) {
+    rooms[room.title] = nextRoomId;
+    nextRoomId += 1;
+  }
+  return { users, rooms };
+}
 
-const [command, ...args] = process.argv.slice(2);
-if (command === 'version') {
-  process.stdout.write('k6 v0.0.0-test\\n');
-  process.exit(0);
-}
-if (command !== 'run') {
-  process.exit(2);
-}
-const summaryIndex = args.indexOf('--summary-export');
-if (summaryIndex < 0 || !args[summaryIndex + 1]) {
-  process.exit(2);
-}
-const summary = { metrics: {} };
-if (process.env.FAKE_K6_CAPTURE_READ_OPTIONS === 'true') {
-  summary.t5ReadOptions = {
-    vus: process.env.ROOM_K6_READ_VUS,
-    durationSeconds: process.env.ROOM_K6_READ_DURATION_SECONDS,
-    thinkTimeMilliseconds: process.env.ROOM_K6_READ_THINK_TIME_MS,
-  };
-}
-writeFileSync(args[summaryIndex + 1], JSON.stringify(summary) + '\\n', 'utf8');
-process.exit(Number.parseInt(process.env.FAKE_K6_EXIT || '0', 10));
-`, 'utf8');
-    writeFileSync(
-      path.join(binDirectory, 'k6.cmd'),
-      `@echo off\r\n"${process.execPath}" "${programPath}" %*\r\n`,
-      'utf8',
-    );
-    return;
+function initialSnapshot(fixture) {
+  const rooms = [];
+  const participations = [];
+  const waitlists = [];
+
+  for (const room of Object.values(fixture.rooms)) {
+    rooms.push({
+      id: room.id,
+      hostUserId: fixture.users[room.hostKey].id,
+      title: room.title,
+      capacity: room.capacity,
+      activeParticipantCount: room.activeKeys.length,
+      status: room.status,
+      version: 0,
+      startAt: '2030-01-01T00:00:00Z',
+      updatedAt: '2030-01-01T00:00:00Z',
+    });
+    room.activeKeys.forEach((userKey, index) => {
+      participations.push({
+        roomId: room.id,
+        userId: fixture.users[userKey].id,
+        status: 'ACTIVE',
+        joinedAt: '2030-01-01T00:00:0' + index + 'Z',
+        canceledAt: null,
+      });
+    });
+    room.waiterKeys.forEach((userKey, index) => {
+      waitlists.push({
+        roomId: room.id,
+        userId: fixture.users[userKey].id,
+        status: 'WAITING',
+        queueOrder: index + 1,
+        queuedAt: '2030-01-01T00:00:00Z',
+      });
+    });
   }
 
-  const programPath = path.join(binDirectory, 'fake-k6.mjs');
-  writeFileSync(programPath, `import { writeFileSync } from 'node:fs';
+  return { rooms, participations, waitlists };
+}
 
-const [command, ...args] = process.argv.slice(2);
-if (command === 'version') {
-  process.stdout.write('k6 v0.0.0-test\\n');
-  process.exit(0);
+function summaryWith(counts = {}) {
+  const names = [
+    'room_success',
+    'room_created',
+    'room_requests',
+    'room_business_failures',
+    'room_concurrent_failures',
+    'room_contract_failures',
+    'room_unexpected_4xx',
+    'room_server_failures',
+  ];
+  const metrics = {};
+  names.forEach((name) => {
+    metrics[name] = { values: { count: counts[name] || 0 } };
+  });
+  return { metrics };
 }
-if (command !== 'run') {
-  process.exit(2);
+
+function writeJson(filePath, value) {
+  writeFileSync(filePath, JSON.stringify(value, null, 2) + '\n', 'utf8');
 }
-const summaryIndex = args.indexOf('--summary-export');
-if (summaryIndex < 0 || !args[summaryIndex + 1]) {
-  process.exit(2);
-}
-const summary = { metrics: {} };
-if (process.env.FAKE_K6_CAPTURE_READ_OPTIONS === 'true') {
-  summary.t5ReadOptions = {
-    vus: process.env.ROOM_K6_READ_VUS,
-    durationSeconds: process.env.ROOM_K6_READ_DURATION_SECONDS,
-    thinkTimeMilliseconds: process.env.ROOM_K6_READ_THINK_TIME_MS,
+
+function infraExecutionFor(rendered, t5ReadOptions, k6ExitCode = 0) {
+  return {
+    schemaVersion: 1,
+    runId: rendered.options.runId,
+    fixtureId: rendered.fixtureId,
+    stackId: 'stack-room-k6-test',
+    targetHttpsUrl: 'https://room-k6.test.invalid',
+    applicationRevision: 'a'.repeat(40),
+    startedAt: '2030-01-01T00:00:00.000Z',
+    finishedAt: '2030-01-01T00:01:00.000Z',
+    phases: {
+      prepare: { exitCode: 0 },
+      resourceQuery: { exitCode: 0 },
+      beforeSnapshot: { exitCode: 0 },
+      k6: { exitCode: k6ExitCode },
+      afterSnapshot: { exitCode: 0 },
+    },
+    k6Version: '0.0.0-test',
+    t5ReadOptions,
   };
 }
-writeFileSync(args[summaryIndex + 1], JSON.stringify(summary) + '\\n', 'utf8');
-process.exit(Number.parseInt(process.env.FAKE_K6_EXIT || '0', 10));
-`, 'utf8');
 
-  const executablePath = path.join(binDirectory, 'k6');
-  writeFileSync(executablePath, `#!/usr/bin/env node\nimport '${programPath.replaceAll('\\\\', '\\\\\\')}';\n`, 'utf8');
-  chmodSync(executablePath, 0o755);
+function completeT5Bundle(runId, role, scale, t5ReadOptions, k6ExitCode = 0) {
+  const rendered = renderBundle({
+    scenario: 't5',
+    runId,
+    profile: 'spike',
+    t5Role: role,
+    t5Scale: scale,
+  }, passwordHash);
+  const plan = JSON.parse(readFileSync(path.join(rendered.bundlePath, 'fixture-plan.json'), 'utf8'));
+  writeJson(path.join(rendered.bundlePath, 'resource-output.json'), resourcesFor(plan));
+  const hydrated = hydrateBundle(rendered.bundlePath);
+  const fixture = JSON.parse(readFileSync(hydrated.fixturePath, 'utf8'));
+  const snapshot = initialSnapshot(fixture);
+  writeJson(path.join(rendered.bundlePath, 'before-snapshot.json'), snapshot);
+  assert.equal(diagnoseBundle({ bundle: rendered.bundlePath, stage: 'before' }).status, 'PASS');
+  writeJson(path.join(rendered.bundlePath, 'after-snapshot.json'), snapshot);
+  writeJson(path.join(rendered.bundlePath, 'k6-summary.json'), summaryWith({
+    room_requests: 1,
+    room_success: 1,
+  }));
+  assert.equal(diagnoseBundle({ bundle: rendered.bundlePath, stage: 'after' }).status, 'PASS');
+  writeJson(
+    path.join(rendered.bundlePath, 'infra-execution.json'),
+    infraExecutionFor(rendered, t5ReadOptions, k6ExitCode),
+  );
+  mkdirSync(path.join(rendered.bundlePath, 'cloudwatch'), { recursive: true });
+  writeFileSync(path.join(rendered.bundlePath, 'cloudwatch', 'raw.json'), '{"cpu":42}\n', 'utf8');
+  return { rendered, finalResult: aggregateBundle(rendered.bundlePath) };
 }
 
-function writeFixture(directory, runId) {
-  const fixturePath = path.join(directory, 'fixture.json');
-  writeFileSync(fixturePath, `${JSON.stringify({
-    schemaVersion: 1,
-    fixtureId: `room-k6-${runId}-t1`,
-    options: { scenario: 't1', runId, profile: 'stress', rounds: 1 },
-    users: {},
-    rooms: {},
-  }, null, 2)}\n`, 'utf8');
-  return fixturePath;
-}
-
-function writeT5Fixture(directory, runId, role, scale) {
-  const fixturePath = path.join(directory, 'fixture.json');
-  writeFileSync(fixturePath, `${JSON.stringify({
-    schemaVersion: 1,
-    fixtureId: `room-k6-${runId}-t5-${role}-${scale}`,
-    options: {
-      scenario: 't5', runId, profile: 'stress', rounds: 1, t5Role: role, t5Scale: scale,
-    },
-    users: {},
-    rooms: {},
-  }, null, 2)}\n`, 'utf8');
-  return fixturePath;
-}
-
-function runFixture(fixturePath, binDirectory, extraEnvironment = {}) {
-  return spawnSync(process.execPath, [fixtureTool, 'run', '--fixture', fixturePath], {
-    cwd: repositoryRoot,
-    encoding: 'utf8',
-    env: {
-      ...process.env,
-      PATH: `${binDirectory}${path.delimiter}${process.env.PATH || ''}`,
-      ALBAM_MATE_SOURCE_SHA: 'a'.repeat(40),
-      ALBAM_MATE_TARGET_ENVIRONMENT: 'private-loadtest',
-      ...extraEnvironment,
-    },
-  });
-}
-
-function verifyAfter(fixturePath) {
-  return spawnSync(process.execPath, [fixtureTool, 'verify', '--fixture', fixturePath, '--stage', 'after'], {
-    cwd: repositoryRoot,
-    encoding: 'utf8',
-    env: process.env,
-  });
-}
-
-function compareT5(runId) {
-  return spawnSync(process.execPath, [fixtureTool, 'compare-t5', '--run-id', runId], {
-    cwd: repositoryRoot,
-    encoding: 'utf8',
-    env: process.env,
-  });
-}
-
-function sha256(filePath) {
-  return createHash('sha256').update(readFileSync(filePath)).digest('hex');
-}
-
-function createTestDirectory() {
-  mkdirSync(fixtureBuildRoot, { recursive: true });
-  return mkdtempSync(path.join(fixtureBuildRoot, 'fixture-runner-test-'));
-}
-
-test('run은 성공한 k6 실행의 provenance manifest와 summary를 같은 fixture에 남긴다', () => {
-  const fixtureDirectory = createTestDirectory();
-  const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
-  mkdirSync(binDirectory, { recursive: true });
-  createFakeK6(binDirectory);
+test('bundle은 현재 T3 실행 소스의 import closure를 함께 담고 실행 전 상태만 검증한다', () => {
+  const runId = 'runner-t3-closure-' + process.pid + '-' + Date.now().toString(36);
+  const rendered = renderBundle({
+    scenario: 't3',
+    runId,
+    profile: 'spike',
+    t3Mode: 'race',
+  }, passwordHash);
+  const runDirectory = path.dirname(rendered.bundlePath);
 
   try {
-    const fixturePath = writeFixture(fixtureDirectory, 'runner-success');
-    const result = runFixture(fixturePath, binDirectory);
-    assert.equal(result.status, 0, result.stderr || result.stdout);
-
-    const manifest = JSON.parse(readFileSync(path.join(fixtureDirectory, 'run-manifest.json'), 'utf8'));
-    assert.equal(manifest.fixtureId, 'room-k6-runner-success-t1');
-    assert.equal(manifest.runId, 'runner-success');
-    assert.equal(manifest.scenario, 't1');
-    assert.equal(manifest.sourceSha, 'a'.repeat(40));
-    assert.equal(manifest.targetEnvironment, 'private-loadtest');
-    assert.equal(manifest.k6Version, 'k6 v0.0.0-test');
-    assert.equal(manifest.k6ExitCode, 0);
-    assert.equal(manifest.summaryFile, 'k6-summary.json');
-    assert.equal(manifest.summarySha256, sha256(path.join(fixtureDirectory, 'k6-summary.json')));
-    assert.ok(Date.parse(manifest.startedAtUtc));
-    assert.ok(Date.parse(manifest.finishedAtUtc));
-    assert.deepEqual(JSON.parse(readFileSync(path.join(fixtureDirectory, 'k6-summary.json'), 'utf8')), {
-      metrics: {},
+    assert.deepEqual(validateBundle(rendered.bundlePath, { forExecution: true }), {
+      bundlePath: rendered.bundlePath,
+      runId,
+      fixtureId: rendered.fixtureId,
     });
-
-    const rerun = runFixture(fixturePath, binDirectory, { FAKE_K6_EXIT: '23' });
-    assert.notEqual(rerun.status, 0);
-    assert.match(rerun.stderr, /실행 artifact가 이미 있습니다/);
-    assert.equal(JSON.parse(readFileSync(path.join(fixtureDirectory, 'run-manifest.json'), 'utf8')).k6ExitCode, 0);
+    const requiredFiles = [
+      'scenario.js',
+      'lib/room-k6.js',
+      'lib/read-execution-options.mjs',
+      'lib/write-options.mjs',
+      'lib/t3-execution-plan.mjs',
+      'tools/fixture.mjs',
+      'tools/fixture-model.mjs',
+    ];
+    requiredFiles.forEach((relativePath) => {
+      assert.equal(existsSync(path.join(rendered.bundlePath, relativePath)), true, relativePath);
+    });
+    assert.match(
+      readFileSync(path.join(rendered.bundlePath, 'scenario.js'), 'utf8'),
+      /t3-execution-plan\.mjs/,
+    );
+    assert.match(
+      readFileSync(path.join(rendered.bundlePath, 'lib', 'room-k6.js'), 'utf8'),
+      /read-execution-options\.mjs/,
+    );
   } finally {
-    rmSync(fixtureDirectory, { recursive: true, force: true });
-    rmSync(binDirectory, { recursive: true, force: true });
+    rmSync(runDirectory, { recursive: true, force: true });
   }
 });
 
-test('T5 run은 유효 VU·duration·think time을 manifest에 기록한다', () => {
-  const fixtureDirectory = createTestDirectory();
-  const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
-  mkdirSync(binDirectory, { recursive: true });
-  createFakeK6(binDirectory);
+test('T5 실행 옵션은 bundle 앱 코드가 정규화하고 infra는 그대로 전달할 수 있다', () => {
+  const runId = 'runner-t5-options-' + process.pid + '-' + Date.now().toString(36);
+  const rendered = renderBundle({
+    scenario: 't5',
+    runId,
+    profile: 'spike',
+    t5Role: 'public',
+    t5Scale: 1,
+  }, passwordHash);
+  const runDirectory = path.dirname(rendered.bundlePath);
 
   try {
-    const fixturePath = writeT5Fixture(fixtureDirectory, 'runner-t5-options', 'public', 1);
-    const result = runFixture(fixturePath, binDirectory, {
+    const options = executionOptionsBundle(rendered.bundlePath, {
       ROOM_K6_READ_VUS: '7',
       ROOM_K6_READ_DURATION_SECONDS: '75',
       ROOM_K6_READ_THINK_TIME_MS: '25',
-      FAKE_K6_CAPTURE_READ_OPTIONS: 'true',
     });
-    assert.equal(result.status, 0, result.stderr || result.stdout);
-
-    const manifest = JSON.parse(readFileSync(path.join(fixtureDirectory, 'run-manifest.json'), 'utf8'));
-    assert.deepEqual(manifest.t5ReadOptions, {
-      vus: 7,
-      durationSeconds: 75,
-      thinkTimeMilliseconds: 25,
+    assert.deepEqual(options, {
+      bundlePath: rendered.bundlePath,
+      scenario: 't5',
+      t5ReadOptions: {
+        vus: 7,
+        durationSeconds: 75,
+        thinkTimeMilliseconds: 25,
+      },
+      k6Environment: {
+        ROOM_K6_READ_VUS: '7',
+        ROOM_K6_READ_DURATION_SECONDS: '75',
+        ROOM_K6_READ_THINK_TIME_MS: '25',
+      },
     });
-    const summary = JSON.parse(readFileSync(path.join(fixtureDirectory, 'k6-summary.json'), 'utf8'));
-    assert.deepEqual(summary.t5ReadOptions, {
-      vus: '7',
-      durationSeconds: '75',
-      thinkTimeMilliseconds: '25',
-    });
-
-    delete manifest.t5ReadOptions;
-    writeFileSync(path.join(fixtureDirectory, 'run-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
-    const verify = verifyAfter(fixturePath);
-    assert.equal(verify.status, 2, verify.stderr || verify.stdout);
-    const verification = JSON.parse(readFileSync(path.join(fixtureDirectory, 'after-verification.json'), 'utf8'));
-    assert.equal(verification.status, 'INVALID');
-    assert.match(verification.failures[0], /run-manifest/);
   } finally {
-    rmSync(fixtureDirectory, { recursive: true, force: true });
-    rmSync(binDirectory, { recursive: true, force: true });
+    rmSync(runDirectory, { recursive: true, force: true });
   }
 });
 
-test('T5 비교는 여섯 역할·규모 실행의 read profile 불일치를 거절한다', () => {
-  const runId = `runner-t5-compare-${process.pid}`;
-  const comparisonDirectory = path.join(fixtureBuildRoot, runId);
-  const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
-  mkdirSync(comparisonDirectory, { recursive: true });
-  mkdirSync(binDirectory, { recursive: true });
-  createFakeK6(binDirectory);
+test('T5 비교는 infra가 반환한 raw 실행 provenance와 앱 final-result를 사용한다', () => {
+  const runId = 'runner-t5-compare-' + process.pid + '-' + Date.now().toString(36);
+  const t5ReadOptions = { vus: 7, durationSeconds: 75, thinkTimeMilliseconds: 25 };
+  const runDirectory = path.join(bundleBuildRoot, runId);
+  let participantTenBundlePath;
 
   try {
     for (const role of ['public', 'host', 'participant']) {
       for (const scale of [1, 10]) {
-        const fixtureDirectory = path.join(comparisonDirectory, `${role}-${scale}`);
-        mkdirSync(fixtureDirectory, { recursive: true });
-        const fixturePath = writeT5Fixture(fixtureDirectory, runId, role, scale);
-        const run = runFixture(fixturePath, binDirectory, {
-          ROOM_K6_READ_VUS: '7',
-          ROOM_K6_READ_DURATION_SECONDS: '75',
-          ROOM_K6_READ_THINK_TIME_MS: '25',
-        });
-        assert.equal(run.status, 0, run.stderr || run.stdout);
+        const completed = completeT5Bundle(runId, role, scale, t5ReadOptions);
+        assert.equal(completed.finalResult.aggregationStatus, 'COMPLETE');
+        if (role === 'participant' && scale === 10) {
+          participantTenBundlePath = completed.rendered.bundlePath;
+        }
       }
     }
 
-    const matched = compareT5(runId);
-    assert.equal(matched.status, 0, matched.stderr || matched.stdout);
-    const matchedResult = JSON.parse(readFileSync(path.join(comparisonDirectory, 't5-comparison-verification.json'), 'utf8'));
-    assert.equal(matchedResult.status, 'PASS');
-    assert.deepEqual(matchedResult.t5ReadOptions, {
-      vus: 7,
-      durationSeconds: 75,
-      thinkTimeMilliseconds: 25,
-    });
+    const matched = compareT5Bundles(runId);
+    assert.equal(matched.status, 'PASS');
+    assert.deepEqual(matched.t5ReadOptions, t5ReadOptions);
 
-    const mismatchedManifestPath = path.join(comparisonDirectory, 'participant-10', 'run-manifest.json');
-    const mismatchedManifest = JSON.parse(readFileSync(mismatchedManifestPath, 'utf8'));
-    mismatchedManifest.t5ReadOptions.vus = 8;
-    writeFileSync(mismatchedManifestPath, `${JSON.stringify(mismatchedManifest, null, 2)}\n`, 'utf8');
-    const comparison = compareT5(runId);
-    assert.equal(comparison.status, 1, comparison.stderr || comparison.stdout);
-    const result = JSON.parse(readFileSync(path.join(comparisonDirectory, 't5-comparison-verification.json'), 'utf8'));
-    assert.equal(result.status, 'FAIL');
-    assert.match(result.failures[0], /read profile/);
+    const mismatchPath = path.join(participantTenBundlePath, 'infra-execution.json');
+    const mismatch = JSON.parse(readFileSync(mismatchPath, 'utf8'));
+    mismatch.t5ReadOptions.vus = 8;
+    writeJson(mismatchPath, mismatch);
+    const mismatched = compareT5Bundles(runId);
+    assert.equal(mismatched.status, 'FAIL');
+    assert.match(mismatched.failures[0], /read profile/);
 
-    rmSync(mismatchedManifestPath);
-    const incompleteArtifact = compareT5(runId);
-    assert.equal(incompleteArtifact.status, 2, incompleteArtifact.stderr || incompleteArtifact.stdout);
-    const incompleteArtifactResult = JSON.parse(readFileSync(path.join(comparisonDirectory, 't5-comparison-verification.json'), 'utf8'));
-    assert.equal(incompleteArtifactResult.status, 'INVALID');
-    assert.match(incompleteArtifactResult.failures[0], /run-manifest/);
-
-    rmSync(path.join(comparisonDirectory, 'participant-10'), { recursive: true, force: true });
-    const incompleteSet = compareT5(runId);
-    assert.equal(incompleteSet.status, 1, incompleteSet.stderr || incompleteSet.stdout);
-    const incompleteSetResult = JSON.parse(readFileSync(path.join(comparisonDirectory, 't5-comparison-verification.json'), 'utf8'));
-    assert.equal(incompleteSetResult.status, 'FAIL');
-    assert.match(incompleteSetResult.failures[0], /participant-10 fixture가 없습니다/);
+    rmSync(path.join(participantTenBundlePath, 'final-result.json'));
+    const invalid = compareT5Bundles(runId);
+    assert.equal(invalid.status, 'INVALID');
+    assert.match(invalid.failures[0], /final-result/);
   } finally {
-    rmSync(comparisonDirectory, { recursive: true, force: true });
-    rmSync(binDirectory, { recursive: true, force: true });
+    rmSync(runDirectory, { recursive: true, force: true });
   }
 });
 
-test('after 검증은 manifest와 다른 k6 summary를 INVALID로 거절한다', () => {
-  const fixtureDirectory = createTestDirectory();
-  const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
-  mkdirSync(binDirectory, { recursive: true });
-  createFakeK6(binDirectory);
+test('T5 비교는 deployment provenance 누락, 형식 오류, 불일치를 INVALID로 거절한다', () => {
+  const runId = 'runner-t5-provenance-' + process.pid + '-' + Date.now().toString(36);
+  const t5ReadOptions = { vus: 7, durationSeconds: 75, thinkTimeMilliseconds: 25 };
+  const runDirectory = path.join(bundleBuildRoot, runId);
+  let participantTenBundlePath;
 
   try {
-    const fixturePath = writeFixture(fixtureDirectory, 'runner-summary-mismatch');
-    const run = runFixture(fixturePath, binDirectory);
-    assert.equal(run.status, 0, run.stderr || run.stdout);
+    for (const role of ['public', 'host', 'participant']) {
+      for (const scale of [1, 10]) {
+        const completed = completeT5Bundle(runId, role, scale, t5ReadOptions);
+        if (role === 'participant' && scale === 10) {
+          participantTenBundlePath = completed.rendered.bundlePath;
+        }
+      }
+    }
 
-    writeFileSync(path.join(fixtureDirectory, 'k6-summary.json'), '{"metrics":{"tampered":{}}}\n', 'utf8');
-    const verify = verifyAfter(fixturePath);
-    assert.equal(verify.status, 2, verify.stderr || verify.stdout);
-    const result = JSON.parse(readFileSync(path.join(fixtureDirectory, 'after-verification.json'), 'utf8'));
-    assert.equal(result.status, 'INVALID');
-    assert.match(result.failures[0], /SHA-256/);
+    assert.equal(compareT5Bundles(runId).status, 'PASS');
+
+    const executionPath = path.join(participantTenBundlePath, 'infra-execution.json');
+    const execution = JSON.parse(readFileSync(executionPath, 'utf8'));
+    execution.applicationRevision = 'b'.repeat(40);
+    writeJson(executionPath, execution);
+    const mismatched = compareT5Bundles(runId);
+    assert.equal(mismatched.status, 'INVALID');
+    assert.match(mismatched.failures.join('\n'), /applicationRevision/);
+
+    execution.applicationRevision = 'a'.repeat(40);
+    delete execution.targetHttpsUrl;
+    writeJson(executionPath, execution);
+    const missing = compareT5Bundles(runId);
+    assert.equal(missing.status, 'INVALID');
+    assert.match(missing.failures.join('\n'), /infra metadata/);
+
+    execution.targetHttpsUrl = 'https://room-k6.test.invalid';
+    execution.stackId = '   ';
+    writeJson(executionPath, execution);
+    const malformed = compareT5Bundles(runId);
+    assert.equal(malformed.status, 'INVALID');
+    assert.match(malformed.failures.join('\n'), /infra metadata/);
   } finally {
-    rmSync(fixtureDirectory, { recursive: true, force: true });
-    rmSync(binDirectory, { recursive: true, force: true });
+    rmSync(runDirectory, { recursive: true, force: true });
   }
 });
 
-test('run은 k6 비정상 종료에도 종료 시각과 exit code를 보존한다', () => {
-  const fixtureDirectory = createTestDirectory();
-  const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
-  mkdirSync(binDirectory, { recursive: true });
-  createFakeK6(binDirectory);
+test('k6 비정상 종료도 infra raw metadata와 final-result에 보존하고 재판정하지 않는다', () => {
+  const runId = 'runner-k6-exit-' + process.pid + '-' + Date.now().toString(36);
+  let runDirectory;
 
   try {
-    const fixturePath = writeFixture(fixtureDirectory, 'runner-failure');
-    const result = runFixture(fixturePath, binDirectory, { FAKE_K6_EXIT: '23' });
-    assert.equal(result.status, 23, result.stderr || result.stdout);
-
-    const manifest = JSON.parse(readFileSync(path.join(fixtureDirectory, 'run-manifest.json'), 'utf8'));
-    assert.equal(manifest.k6ExitCode, 23);
-    assert.ok(Date.parse(manifest.finishedAtUtc));
-    assert.deepEqual(JSON.parse(readFileSync(path.join(fixtureDirectory, 'k6-summary.json'), 'utf8')), {
-      metrics: {},
-    });
+    const completed = completeT5Bundle(
+      runId,
+      'public',
+      1,
+      { vus: 10, durationSeconds: 60, thinkTimeMilliseconds: 0 },
+      23,
+    );
+    runDirectory = path.dirname(completed.rendered.bundlePath);
+    assert.equal(completed.finalResult.aggregationStatus, 'COMPLETE');
+    assert.equal(completed.finalResult.infraExecution.phases.k6.exitCode, 23);
+    assert.equal(completed.finalResult.diagnoses.after.status, 'PASS');
   } finally {
-    rmSync(fixtureDirectory, { recursive: true, force: true });
-    rmSync(binDirectory, { recursive: true, force: true });
+    if (runDirectory) {
+      rmSync(runDirectory, { recursive: true, force: true });
+    }
   }
 });
