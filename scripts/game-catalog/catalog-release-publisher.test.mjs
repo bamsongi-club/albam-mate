@@ -76,6 +76,43 @@ test('release 승격 직후 중단되어도 같은 승인 입력으로 publish�
     }
 });
 
+test('완료된 current release는 멱등 재실행하고 과거 release는 pointer 롤백을 거부한다', () => {
+    const root = mkdtempSync(join(tmpdir(), 'albam-catalog-release-pointer-order-'));
+    try {
+        const firstManifest = validManifest('release-001');
+        const firstArtifacts = { 'games.csv': { contents: 'first', rows: 1 } };
+        publishCatalogRelease({ outputRoot: root, manifest: firstManifest, artifacts: firstArtifacts });
+        const currentAfterFirstPublish = readFileSync(join(root, 'current-release.json'), 'utf8');
+
+        const retryResult = publishCatalogRelease({
+            outputRoot: root,
+            manifest: firstManifest,
+            artifacts: firstArtifacts,
+        });
+        assert.equal(retryResult.releaseId, 'release-001');
+        assert.equal(readFileSync(join(root, 'current-release.json'), 'utf8'), currentAfterFirstPublish);
+
+        publishCatalogRelease({
+            outputRoot: root,
+            manifest: validManifest('release-002'),
+            artifacts: { 'games.csv': { contents: 'second', rows: 1 } },
+        });
+        const currentBeforeHistoricalRetry = readFileSync(join(root, 'current-release.json'), 'utf8');
+
+        assert.throws(
+            () => publishCatalogRelease({
+                outputRoot: root,
+                manifest: firstManifest,
+                artifacts: firstArtifacts,
+            }),
+            /current release is release-002/u,
+        );
+        assert.equal(readFileSync(join(root, 'current-release.json'), 'utf8'), currentBeforeHistoricalRetry);
+    } finally {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
 test('손상된 중단 release는 artifact 삭제·변조 후 pointer 복구를 거부한다', () => {
     for (const [suffix, corrupt] of [
         ['deleted', (root) => rmSync(join(root, 'releases', 'release-001', 'games.csv'))],

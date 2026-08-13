@@ -37,14 +37,25 @@ export function publishCatalogRelease({
             || readFileSync(existingManifestPath, 'utf8') !== manifestContents) {
             throw new Error(`release already exists with different contents: ${manifest.releaseId}`);
         }
+        const currentPointer = readCurrentReleasePointer(root);
+        if (currentPointer && currentPointer.releaseId !== manifest.releaseId) {
+            throw new Error(
+                `cannot republish ${manifest.releaseId} while current release is ${currentPointer.releaseId}`,
+            );
+        }
+        if (currentPointer && currentPointer.manifestSha256 !== sha256(manifestContents)) {
+            throw new Error(`current release pointer does not match release: ${manifest.releaseId}`);
+        }
         verifyPublishedRelease(releaseDirectory, outputManifest);
-        publishCurrentRelease({
-            root,
-            releaseId: manifest.releaseId,
-            manifestContents,
-            writeFile,
-            rename,
-        });
+        if (!currentPointer) {
+            publishCurrentRelease({
+                root,
+                releaseId: manifest.releaseId,
+                manifestContents,
+                writeFile,
+                rename,
+            });
+        }
         return {
             releaseId: manifest.releaseId,
             releaseDirectory,
@@ -163,6 +174,28 @@ function verifyPublishedRelease(releaseDirectory, outputManifest) {
             throw new Error(`existing release artifact checksum mismatch: ${name}`);
         }
     }
+}
+
+function readCurrentReleasePointer(root) {
+    const pointerPath = join(root, CURRENT_RELEASE_FILE);
+    if (!existsSync(pointerPath)) return null;
+
+    let pointer;
+    try {
+        pointer = JSON.parse(readFileSync(pointerPath, 'utf8'));
+    } catch {
+        throw new Error('current release pointer is invalid JSON');
+    }
+    if (pointer === null || typeof pointer !== 'object' || Array.isArray(pointer)
+        || pointer.schemaVersion !== 1
+        || typeof pointer.releaseId !== 'string'
+        || pointer.releasePath !== `releases/${pointer.releaseId}`
+        || pointer.manifestPath !== `releases/${pointer.releaseId}/${RELEASE_MANIFEST_FILE}`
+        || typeof pointer.manifestSha256 !== 'string'
+        || !SHA256_PATTERN.test(pointer.manifestSha256)) {
+        throw new Error('current release pointer is invalid');
+    }
+    return pointer;
 }
 
 function publishCurrentRelease({
