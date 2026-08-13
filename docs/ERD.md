@@ -761,6 +761,11 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 - 재참가 시 기존 `PARTICIPATIONS` 행을 재활성화한다. `CANCELED`를 `ACTIVE`로 바꾸고 `joined_at`을 갱신하며 `canceled_at`은 NULL로 되돌린다.
 - `capacity`는 개설자를 제외한 1명 이상 10명 이하의 모집 인원이다. 전체 참여 가능 인원은 2명 이상 11명 이하다.
 
+### 게임명 부분일치 검색 인덱스
+
+- PostgreSQL은 `pg_trgm` extension과 `ix_games_name_lower_trgm` GIN 인덱스(`lower(name) gin_trgm_ops`)로 기존 `lower(name) LIKE '%keyword%'` 게임명 부분일치 조회를 지원한다. 검색 의미·HTTP 계약·최소 검색어 길이는 바꾸지 않는다.
+- 3글자 이상 검색어는 planner가 이 인덱스 경로를 선택할 수 있다. 1·2글자는 trgm 선택도가 낮을 수 있으므로 기존 planner 경로를 허용한다.
+
 ### 해 본 게임 관계 인덱스
 
 - `UNIQUE (user_id, game_id)`가 만드는 유일 인덱스로 본인 관계 확인과 `PLAYED_ONLY`·`EXCLUDE_PLAYED`의 사용자 선두 `EXISTS`·`NOT EXISTS` 조회를 지원한다. 같은 선두 열의 중복 인덱스는 만들지 않는다.
