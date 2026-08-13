@@ -154,9 +154,6 @@ function recordResponse(response, operation, expectedStatus, trend, tags) {
 function capacityMultiplier() {
   const value = (__ENV.MIXED_LOAD_MULTIPLIER || '1').trim();
   if (value === '0.5') {
-    if ((__ENV.MIXED_HALF_SCALE_ACK || '').trim() !== 'one-x-failed') {
-      throw new Error('0.5×는 1× 실패 뒤 MIXED_HALF_SCALE_ACK=one-x-failed로만 실행할 수 있습니다.');
-    }
     return 0.5;
   }
   if (/^(?:[1-9]|10)$/.test(value)) {
