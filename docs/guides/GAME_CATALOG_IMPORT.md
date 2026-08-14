@@ -111,6 +111,11 @@ psql "$DATABASE_URL" \
 ```sh
 BATCH_ID=2026-08-14-ranking-v1
 EVIDENCE_DIR=/secure/catalog-evidence/rank-02/$BATCH_ID
+
+if [ -e "$EVIDENCE_DIR" ]; then
+  printf '증적 디렉터리가 이미 존재합니다: %s\n' "$EVIDENCE_DIR" >&2
+  exit 1
+fi
 mkdir -p "$EVIDENCE_DIR"
 
 cp /path/to/approved-ranking-manifest.json "$EVIDENCE_DIR/manifest.json"
@@ -122,7 +127,16 @@ psql "$DATABASE_URL" \
   --command "COPY (SELECT id, popularity_score FROM games ORDER BY id) TO STDOUT WITH CSV HEADER" \
   > "$EVIDENCE_DIR/popularity-score-before.csv"
 
-sha256sum "$EVIDENCE_DIR"/* > "$EVIDENCE_DIR/SHA256SUMS"
+if ! shasum -a 256 \
+  "$EVIDENCE_DIR/manifest.json" \
+  "$EVIDENCE_DIR/quality-report.json" \
+  "$EVIDENCE_DIR/upsert-game-popularity.sql" \
+  "$EVIDENCE_DIR/popularity-score-before.csv" \
+  > "$EVIDENCE_DIR/SHA256SUMS"; then
+  rm -f "$EVIDENCE_DIR/SHA256SUMS"
+  printf 'checksum 생성에 실패해 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
 ```
 
 `quality-report.json`의 `status`가 `approved`이고 `SHA256SUMS`가 manifest·report·SQL과 일치할 때만 SQL을 실행한다. 실행 후에는 전체 게임 수와 점수 범위를 기록하고, 범위를 벗어난 행이 0인지 확인한다.
