@@ -1,7 +1,6 @@
 package cloud.bamsongi.albammate.chat.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -112,8 +111,19 @@ class ChatMessageRateLimitRedisRecoveryPostgresTest {
 		long userId = userAccountService.createAccount(command(email, "Redis 복구 사용자")).id();
 		Room room = createChatRoom(userId);
 		assertEquals("PONG", redisTemplate.getConnectionFactory().getConnection().ping());
+		CookieManager unavailableCookieManager = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+		HttpClient unavailableClient = HttpClient.newBuilder().cookieHandler(unavailableCookieManager).build();
+		URI baseUri = URI.create("http://localhost:" + port);
+		String unavailableCsrfToken = csrfToken(get(unavailableClient, baseUri.resolve("/api/auth/csrf")).body());
 
 		stopRedisProcess();
+		HttpResponse<String> unavailableLogin = post(
+			unavailableClient,
+			baseUri.resolve("/api/auth/login"),
+			loginBody(email),
+			unavailableCsrfToken);
+		assertEquals(503, unavailableLogin.statusCode(), unavailableLogin.body());
+		assertTrue(unavailableLogin.headers().firstValue("Retry-After").isEmpty());
 		Instant startedAt = Instant.now();
 		BusinessException exception = assertThrows(BusinessException.class,
 			() -> chatMessageCommandService.send(
@@ -126,13 +136,15 @@ class ChatMessageRateLimitRedisRecoveryPostgresTest {
 		assertEquals(0, chatMessageRepository.count());
 
 		startRedisProcess();
-		assertEquals("PONG", redisTemplate.getConnectionFactory().getConnection().ping());
+		awaitPrimaryRedisReady();
 
 		CookieManager cookieManager = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
 		HttpClient client = HttpClient.newBuilder().cookieHandler(cookieManager).build();
-		URI baseUri = URI.create("http://localhost:" + port);
-		String csrfToken = csrfToken(get(client, baseUri.resolve("/api/auth/csrf")).body());
-		assertEquals(200, post(client, baseUri.resolve("/api/auth/login"), loginBody(email), csrfToken).statusCode());
+		HttpResponse<String> csrf = get(client, baseUri.resolve("/api/auth/csrf"));
+		assertEquals(200, csrf.statusCode(), csrf.body());
+		HttpResponse<String> login = post(client, baseUri.resolve("/api/auth/login"), loginBody(email),
+			csrfToken(csrf.body()));
+		assertEquals(200, login.statusCode(), login.body());
 		assertNotNull(cookieNamed(cookieManager, "JSESSIONID"));
 
 		HttpResponse<String> recovered = post(
@@ -143,10 +155,10 @@ class ChatMessageRateLimitRedisRecoveryPostgresTest {
 		assertEquals(201, recovered.statusCode(), recovered.body());
 		assertEquals(1, chatMessageRepository.count());
 
-		assertFalse(redisConnectionFactory.getShareNativeConnection());
+		assertTrue(redisConnectionFactory.getShareNativeConnection());
 		assertEquals(Duration.ofSeconds(2), redisConnectionFactory.getClientConfiguration().getCommandTimeout());
 		ClientOptions clientOptions = redisConnectionFactory.getClientConfiguration().getClientOptions().orElseThrow();
-		assertFalse(clientOptions.isAutoReconnect());
+		assertTrue(clientOptions.isAutoReconnect());
 		assertEquals(ClientOptions.DisconnectedBehavior.REJECT_COMMANDS, clientOptions.getDisconnectedBehavior());
 	}
 
@@ -164,6 +176,21 @@ class ChatMessageRateLimitRedisRecoveryPostgresTest {
 		org.testcontainers.containers.Container.ExecResult result = REDIS.execInContainer("sh", "-c",
 			waitForPongCommand);
 		assertEquals(0, result.getExitCode(), "Redis 시작 대기 실패: " + result.getStderr());
+	}
+
+	private void awaitPrimaryRedisReady() throws InterruptedException {
+		Instant deadline = Instant.now().plusSeconds(5);
+		while (Instant.now().isBefore(deadline)) {
+			try {
+				if ("PONG".equals(redisTemplate.getConnectionFactory().getConnection().ping())) {
+					return;
+				}
+			} catch (RuntimeException ignored) {
+				// 자동 재연결이 새 native connection을 준비하는 동안만 poll한다.
+			}
+			Thread.sleep(100);
+		}
+		throw new AssertionError("Redis 복구 뒤 Primary Redis connection이 5초 안에 준비되지 않았습니다");
 	}
 
 	private HttpResponse<String> get(HttpClient client, URI uri) throws Exception {

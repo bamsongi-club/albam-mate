@@ -1,7 +1,6 @@
 package cloud.bamsongi.albammate.chat.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -116,17 +115,17 @@ class ChatMessageRateLimitUnavailableIntegrationTest {
 			redisConnectionFactory.getClientConfiguration().getCommandTimeout());
 		ClientOptions clientOptions = redisConnectionFactory.getClientConfiguration().getClientOptions().orElseThrow();
 		assertEquals(ClientOptions.DisconnectedBehavior.REJECT_COMMANDS, clientOptions.getDisconnectedBehavior());
-		assertFalse(clientOptions.isAutoReconnect());
+		assertTrue(clientOptions.isAutoReconnect());
 	}
 
 	@Test
-	void T2_Redis_단절_뒤_별도_요청은_끊긴_공유_연결을_재사용하지_않는다() {
-		assertFalse(redisConnectionFactory.getShareNativeConnection());
+	void T2_Redis_단절_뒤_별도_요청은_공유_연결을_자동_재연결한다() {
+		assertTrue(redisConnectionFactory.getShareNativeConnection());
 		assertEquals(java.time.Duration.ofSeconds(2),
 			redisConnectionFactory.getClientConfiguration().getCommandTimeout());
 		ClientOptions clientOptions = redisConnectionFactory.getClientConfiguration().getClientOptions().orElseThrow();
 		assertEquals(ClientOptions.DisconnectedBehavior.REJECT_COMMANDS, clientOptions.getDisconnectedBehavior());
-		assertFalse(clientOptions.isAutoReconnect());
+		assertTrue(clientOptions.isAutoReconnect());
 	}
 
 	private long insertUser() {

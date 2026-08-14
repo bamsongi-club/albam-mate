@@ -41,7 +41,7 @@ public class RedisSessionConfiguration {
 	@Bean
 	@Primary
 	LettuceConnectionFactory redisConnectionFactory(RedisSessionProperties properties) {
-		return createConnectionFactory(properties, false, false);
+		return createConnectionFactory(properties, true, true);
 	}
 
 	@Bean
