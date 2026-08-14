@@ -1,18 +1,19 @@
 # BGG 승인 데이터셋의 AI·embedding 사용 범위
 
-- 상태: 승인됨
+- 정책 승인 상태: 승인됨
+- 실행 가능한 release 상태: 미검증
 - 승인 확인일: 2026-08-14
 - 관련: [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md), [SEARCH-04 이슈 #712](https://github.com/bamsongi-club/albam-mate/issues/712), [게임 카탈로그 검수·적재 가이드](../guides/GAME_CATALOG_IMPORT.md)
 
-팀 승인에 따라 특정 BGG 기반 데이터셋의 서비스 적재와 해당 데이터셋을 이용한 AI 입력·embedding 생성을 모두 허용한다. 다만 이 문서는 BGG 전체 데이터에 대한 포괄 허가가 아니다. 실제 사용 가능한 범위는 각 배치의 승인 manifest가 가리키는 하나의 catalog release와 그 manifest의 allowlist로 고정한다.
+팀 승인에 따라 특정 BGG 기반 데이터셋의 서비스 적재와 해당 데이터셋을 이용한 AI 입력·embedding 생성을 정책적으로 허용한다. 다만 이 문서는 BGG 전체 데이터에 대한 포괄 허가가 아니며, 현재 저장소에 실행 가능한 구체 release manifest를 등록한 상태도 아니다. 실제 사용 가능한 범위는 검증을 통과한 하나의 catalog release와 그 manifest의 allowlist로 고정하며, manifest와 runner gate가 준비되기 전에는 BGG 기반 AI·embedding 실행을 허용하지 않는다.
 
 ## 승인 범위
 
 | 항목 | 판정 | 적용 경계 |
 | --- | --- | --- |
-| 특정 데이터셋의 서비스 적재 | 승인됨 | `approved: true`, `testOnly: false`인 정확한 catalog release만 허용 |
-| 승인 데이터셋의 AI 입력 | 승인됨 | manifest의 `approvedFields`와 `approvedProcessingScopes`에 포함된 필드·가공만 허용 |
-| 승인 데이터셋의 embedding 생성 | 승인됨 | 승인된 `search_text` 조립 규칙과 release에 연결된 index 산출에 한정 |
+| 특정 데이터셋의 서비스 적재 | 정책 승인됨 | `approved: true`, `testOnly: false`인 검증된 catalog release만 허용 |
+| 승인 데이터셋의 AI 입력 | 정책 승인됨 | 검증된 manifest의 `approvedFields`와 `approvedProcessingScopes`에 포함된 필드·가공만 허용 |
+| 승인 데이터셋의 embedding 생성 | 정책 승인됨 | 검증된 manifest의 승인 `search_text` 조립 규칙과 release에 연결된 index 산출에 한정 |
 | 다른 release·새 필드·새 가공 | 별도 승인 필요 | 기존 승인을 자동 승계하지 않음 |
 
 ## 배치 manifest 필수 기록
@@ -26,7 +27,7 @@ AI·embedding 산출 또는 서비스 적재를 실행하는 manifest에는 다�
 - 승인 근거의 외부 참조(`approvalReferences`), 검수자와 검수 시각
 - embedding을 만들 때의 model/provider, 차원, 문서 조립 규칙, index version과 산출물 SHA-256
 
-위 값이 없거나 실제 입력·산출물과 다르면 적재와 색인 생성을 모두 차단한다. 승인 근거 원문은 저장소에 복사하지 않고, manifest의 외부 참조와 비공개 증적 보관 위치로 연결한다.
+위 값이 없거나 실제 입력·산출물과 다르면 적재와 색인 생성을 모두 차단해야 한다. 승인 근거 원문은 저장소에 복사하지 않고, manifest의 외부 참조와 비공개 증적 보관 위치로 연결한다. 현재 `prepare-game-catalog.mjs`는 `validateApprovedReleaseManifest`를 호출하지 않으며, 기존 validator도 이 문서의 `datasetId`·`approvedFields`·`approvedProcessingScopes`·`search_text`·model/provider·index·출력 checksum을 검증하지 않는다. 따라서 이 문서는 목표 계약을 정의할 뿐, 현재 runner가 gate를 강제한다는 증거가 아니다.
 
 ## AI·embedding 처리 규칙
 

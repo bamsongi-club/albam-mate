@@ -95,7 +95,7 @@ P1은 조건 검색, 대기열·자동 승격, 알림과 채팅을 구현하지�
 ### 데이터·권한 경계 우선
 
 - AI 챗봇과 의미 기반 검색은 입력 데이터의 출처, 이용 허용 범위, 보존·가공 가능 여부를 구현 전에 확정한다.
-- [승인된 BGG catalog release](game-catalog/2026-08-14-bgg-ai-embedding-approval.md)는 manifest의 `approvedFields`·`approvedProcessingScopes` 범위에서만 AI·LLM 입력, embedding, 색인·가공에 사용한다. 승인되지 않은 release·필드·가공으로 이 범위를 넓히지 않는다. 상세 결정은 [ADR-0060](adr/game/0060-approved-catalog-ai-embedding-scope.md)을 따른다.
+- 정책 승인된 [BGG catalog release](game-catalog/2026-08-14-bgg-ai-embedding-approval.md)는 manifest의 `approvedFields`·`approvedProcessingScopes` 범위에서만 AI·LLM 입력, embedding, 색인·가공에 사용할 수 있다. 실제 `releaseId`·`datasetId`·checksum·행 수·승인 reference가 있는 manifest를 검증하고 적재·색인 runner gate를 연결하기 전에는 실행 승인으로 간주하지 않는다. 승인되지 않은 release·필드·가공으로 이 범위를 넓히지 않으며, 상세 결정은 [ADR-0060](adr/game/0060-approved-catalog-ai-embedding-scope.md)을 따른다.
 - 챗봇·`DISCOVERY-01`의 Tool Calling이나 실시간 매칭은 현재 API의 인증·인가·CSRF와 업무 불변식을 그대로 통과해야 한다. 서버 권한을 우회하는 내부 호출을 만들지 않는다.
 - 프롬프트·응답·검색 질의·매칭 조건에 개인정보나 비밀값이 들어가는 범위와 마스킹·보존 정책은 각 기능 문서가 명시한다.
 

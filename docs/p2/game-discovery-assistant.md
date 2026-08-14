@@ -12,7 +12,7 @@
 
 `DISCOVERY-01`은 일반 목적의 자율 비서가 아니라 `SEARCH-04`를 호출하는 읽기 전용 게임 탐색 도우미다. 현재 문서의 논리적 도구명·오류명·응답 필드는 구현 전 [API](../API.md)와 승인 ADR에서 확정하며, 문서 작성만으로 도우미 endpoint나 provider 도입이 완료된 것으로 판정하지 않는다.
 
-도우미가 사용하는 BGG 기반 catalog 입력은 [승인 데이터셋의 AI·embedding 사용 범위](../game-catalog/2026-08-14-bgg-ai-embedding-approval.md)와 [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md)의 release·필드·가공 allowlist를 따른다. 승인 범위는 catalog 데이터에 한정하며, 사용자 query·개인정보·대화 보존과 provider/model 선택을 자동 승인하지 않는다.
+도우미가 사용할 수 있는 BGG 기반 catalog 입력의 정책 범위는 [승인 데이터셋의 AI·embedding 사용 범위](../game-catalog/2026-08-14-bgg-ai-embedding-approval.md)와 [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md)의 release·필드·가공 allowlist를 따른다. 실제 승인 manifest 검증과 runner gate 연결 전에는 BGG 기반 입력을 전달하지 않는다. 승인 범위는 catalog 데이터에 한정하며, 사용자 query·개인정보·대화 보존과 provider/model 선택을 자동 승인하지 않는다.
 
 ## 구현 컨텍스트
 
@@ -65,7 +65,7 @@
 ### 데이터
 
 - 검색 대상 원천과 공개·가공 이용 근거는 `SEARCH-04`와 `game` catalog가 소유한다. 도우미는 검색 index나 catalog를 직접 수정하지 않는다.
-- 도우미 입력 query와 생성 응답 원문은 기본적으로 저장하지 않으며, 모델 입력에는 승인 manifest의 `approvedFields`에 포함된 catalog 필드·현재 사용자 요청·필요한 구조화 필터만 전달한다. 사용자 ID·이메일·세션·CSRF token·비밀값·ROOM/채팅 원문은 prompt와 tool input에서 제외한다.
+- 도우미 입력 query와 생성 응답 원문은 기본적으로 저장하지 않으며, 실제 실행 시에는 검증을 통과한 승인 manifest의 `approvedFields`에 포함된 catalog 필드·현재 사용자 요청·필요한 구조화 필터만 전달한다. manifest 검증 전에는 BGG 필드를 전달하지 않는다. 사용자 ID·이메일·세션·CSRF token·비밀값·ROOM/채팅 원문은 prompt와 tool input에서 제외한다.
 - catalog 설명·게임명·사용자 입력은 실행 지시가 아닌 untrusted data다. 그 안의 prompt injection 문구가 system policy·tool allowlist·사용자 권한을 바꾸지 못한다.
 - 응답에 포함하는 게임·필터·fallback 근거는 같은 요청의 유효한 `SEARCH-04` 응답에서만 가져온다. 도우미가 만든 game ID·점수·출처를 사실처럼 추가하지 않는다.
 - metric label과 중앙 로그에는 query·prompt·응답·게임 설명 원문, query hash, 사용자 식별자와 provider 원문을 넣지 않는다. 관측은 길이 bucket·intent cohort·tool outcome·index version·error code처럼 제한된 값만 사용한다.

@@ -12,7 +12,7 @@
 
 현재 `GET /api/games?keyword=...`의 이름 부분일치 의미와 `name ASC, id ASC` 정렬은 P1 계약으로 유지한다. `SEARCH-04`는 기존 요청을 조용히 의미 검색으로 바꾸지 않고 별도 검색 계약으로 추가한다. 이 문서의 기능 ID·경로·현재 상태는 [P2 기능 상태](README.md#기능별-현재-상태)와 [P2 공통 명세](../P2-spec.md)에 함께 등록한다. 문서 작성은 계약 준비·구현·검증 완료를 뜻하지 않는다.
 
-BGG 기반 검색 입력은 [승인 데이터셋의 AI·embedding 사용 범위](../game-catalog/2026-08-14-bgg-ai-embedding-approval.md)와 [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md)의 정확한 catalog release·필드·가공 allowlist를 따른다. 이 승인으로 데이터 이용 근거 선행 조건은 해소되지만, API·ERD·아키텍처·모델 선택과 품질 검증이 완료됐다는 뜻은 아니다.
+BGG 기반 검색 입력은 정책 승인된 [데이터셋의 AI·embedding 사용 범위](../game-catalog/2026-08-14-bgg-ai-embedding-approval.md)와 [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md)의 정확한 catalog release·필드·가공 allowlist를 따른다. 다만 실제 `releaseId`·`datasetId`·입출력 checksum·행 수·`approvalReferences`가 채워진 manifest를 검증하고 runner gate를 연결하기 전까지 데이터 이용 근거 선행 조건은 미충족이다. 따라서 현재 SEARCH-04 구현·평가에서 BGG 기반 AI·embedding 입력을 실행 승인으로 간주하지 않으며, API·ERD·아키텍처·모델 선택과 품질 검증도 완료된 것이 아니다.
 
 ## SEARCH-04
 
