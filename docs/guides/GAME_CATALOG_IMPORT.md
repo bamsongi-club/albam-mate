@@ -26,11 +26,11 @@ node scripts/game-catalog/prepare-game-catalog.mjs \
 - 변환 도구가 포함된 전체 Git commit SHA
 - 검수일·검수자
 - 사람이 확인하고 수용한 품질 경고 코드
-- AI·embedding을 사용하는 배치라면 `releaseId`·`datasetId`, `approvedFields`, `approvedProcessingScopes`, 승인 근거와 model/provider·index version
+- AI·embedding을 사용하는 배치라면 `releaseId`·`datasetId`, `approvedFields`, `approvedProcessingScopes`, `approval.references`, model/provider·index version과 `sources`·`outputs`의 checksum·행 수
 
 여기서 판본은 같은 게임의 개정·재판 등 출시 형태를 뜻하며 확장판과 구분한다.
 
-`TODO`, 체크섬 불일치, 미승인 상태 또는 미수용 경고가 하나라도 있으면 적재 산출물을 만들지 않는다. AI·embedding 산출을 함께 만드는 배치는 승인 manifest의 release·필드·가공 allowlist가 없거나 실제 입력과 다를 때 색인과 적재를 모두 차단해야 한다. 다만 현재 runner에는 이 AI·embedding gate가 아직 연결되지 않았다.
+`TODO`, 체크섬 불일치, 미승인 상태 또는 미수용 경고가 하나라도 있으면 적재 산출물을 만들지 않는다. AI·embedding 산출을 함께 만드는 배치는 승인 manifest의 release·필드·가공 allowlist가 없거나 실제 입력과 다를 때 색인과 적재를 모두 차단해야 한다. `prepare-game-catalog.mjs`는 이 gate를 연결해 생성 전에 실제 입력과 `service-catalog.json`·`upsert-games.sql`의 선언 checksum·행 수를 대조한다.
 
 `selection`은 다음 정합성을 만족해야 한다.
 
@@ -42,9 +42,9 @@ node scripts/game-catalog/prepare-game-catalog.mjs \
 
 ### 2-1. AI·embedding 승인 범위
 
-[BGG 승인 데이터셋의 AI·embedding 사용 범위](../game-catalog/2026-08-14-bgg-ai-embedding-approval.md)에 따라 정책 승인된 하나의 catalog release만 AI 입력·embedding에 사용할 수 있다. 실제 manifest 검증과 runner gate 연결 전에는 이 절차로 BGG 기반 AI·embedding 산출을 실행하지 않는다.
+[BGG 승인 데이터셋의 AI·embedding 사용 범위](../game-catalog/2026-08-14-bgg-ai-embedding-approval.md)에 따라 정책 승인된 하나의 catalog release만 AI 입력·embedding에 사용할 수 있다. 구체 승인 manifest를 등록하고 검증하기 전에는 이 절차로 BGG 기반 AI·embedding 산출을 실행하지 않는다.
 
-> 구현 상태: 이 절은 AI·embedding 승인 gate의 목표 계약을 정의한다. 현재 `prepare-game-catalog.mjs`는 `validateApprovedReleaseManifest`를 호출하지 않고, 기존 validator도 `datasetId`·`approvedFields`·`approvedProcessingScopes`·`search_text`·model/provider·index·출력 checksum을 검사하지 않는다. runner 구현과 테스트가 별도 반영되기 전까지 정책 승인만으로 실행 가능한 release로 간주하지 않는다.
+> 구현 상태: `prepare-game-catalog.mjs`는 `validateApprovedReleaseManifest`를 호출해 manifest 필수값과 입력·service catalog·UPSERT 산출물의 실제 checksum·행 수를 검증한다. 이 runner는 embedding 파일을 생성하지 않으므로 외부 embedding/index runner의 실제 embedding 산출물 대조는 별도 연결이 필요하다. 현재 저장소에 구체 승인 manifest가 없으므로 정책 승인만으로 실행 가능한 release로 간주하지 않는다.
 
 - `approved: true`, `testOnly: false`인 manifest와 정확히 일치하는 입력·결과 checksum·행 수를 확인한다.
 - manifest의 `approvedFields`에 있는 필드만 읽고, `approvedProcessingScopes`에 없는 번역·요약·재작성·파생 가공은 실행하지 않는다.

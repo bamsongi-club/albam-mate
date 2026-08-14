@@ -64,6 +64,84 @@ test('artifact checksum·행 수와 catalog ID coverage가 없으면 차단한�
     );
 });
 
+test('dataset·AI allowlist·search_text·embedding provenance가 없으면 차단한다', () => {
+    const missingDataset = validManifest();
+    delete missingDataset.datasetId;
+    assert.throws(
+        () => validateApprovedReleaseManifest(missingDataset),
+        /datasetId/u,
+    );
+
+    const missingScope = validManifest();
+    missingScope.approvedProcessingScopes = ['service-load'];
+    assert.throws(
+        () => validateApprovedReleaseManifest(missingScope),
+        /approvedProcessingScopes/u,
+    );
+
+    const missingSearchText = validManifest();
+    delete missingSearchText.search_text.assemblyRuleVersion;
+    assert.throws(
+        () => validateApprovedReleaseManifest(missingSearchText),
+        /assemblyRuleVersion/u,
+    );
+
+    const missingEmbeddingOutput = validManifest();
+    delete missingEmbeddingOutput.embedding.output.sha256;
+    assert.throws(
+        () => validateApprovedReleaseManifest(missingEmbeddingOutput),
+        /embedding\.output\.sha256/u,
+    );
+});
+
+test('runner 입력·산출물의 실제 checksum과 행 수가 manifest와 다르면 차단한다', () => {
+    const manifest = validManifest();
+    const actualInputs = {
+        games: { fileName: 'games.json', sha256: 'd'.repeat(64), rows: 2 },
+        ranks: { fileName: 'ranks.csv', sha256: 'e'.repeat(64), rows: 2 },
+    };
+    const actualOutputs = {
+        serviceCatalog: {
+            fileName: 'service-catalog.json',
+            sha256: 'f'.repeat(64),
+            rows: 2,
+        },
+        upsertSql: { fileName: 'upsert-games.sql', sha256: 'f'.repeat(64), rows: 2 },
+    };
+
+    assert.doesNotThrow(() =>
+        validateApprovedReleaseManifest(manifest, { actualInputs, actualOutputs }),
+    );
+
+    assert.throws(
+        () => validateApprovedReleaseManifest(manifest, {
+            actualInputs: {
+                ...actualInputs,
+                games: { ...actualInputs.games, sha256: '0'.repeat(64) },
+            },
+        }),
+        /sources\.games.*sha256/u,
+    );
+    assert.throws(
+        () => validateApprovedReleaseManifest(manifest, {
+            actualInputs: {
+                ...actualInputs,
+                ranks: { ...actualInputs.ranks, rows: 1 },
+            },
+        }),
+        /sources\.ranks.*rows/u,
+    );
+    assert.throws(
+        () => validateApprovedReleaseManifest(manifest, {
+            actualOutputs: {
+                ...actualOutputs,
+                serviceCatalog: { ...actualOutputs.serviceCatalog, sha256: '0'.repeat(64) },
+            },
+        }),
+        /outputs\.serviceCatalog.*sha256/u,
+    );
+});
+
 function validManifest() {
     const artifact = (status = 'approved') => ({
         status,
@@ -76,12 +154,43 @@ function validManifest() {
     return {
         schemaVersion: 1,
         releaseId: 'catalog-2026-08-13-001',
+        datasetId: 'bgg-catalog-2026-08-13',
         approved: true,
         testOnly: false,
         approval: {
             reviewedBy: 'albam-mate-team',
             reviewedAt: '2026-08-13T00:00:00Z',
             references: ['https://github.com/bamsongi-club/albam-mate/issues/680'],
+        },
+        approvedFields: [
+            'name',
+            'english_name',
+            'alias',
+            'tag',
+            'description',
+            'detail_description',
+        ],
+        approvedProcessingScopes: [
+            'service-load',
+            'search-text-assembly',
+            'embedding-generation',
+        ],
+        search_text: {
+            fields: ['name', 'english_name', 'description', 'detail_description'],
+            sourceFieldVersion: 'catalog-fields-v1',
+            assemblyRuleVersion: 'search-text-v1',
+        },
+        embedding: {
+            provider: 'test-provider',
+            model: 'test-model',
+            modelVersion: 'test-model-v1',
+            dimensions: 3,
+            indexVersion: 'search-04-test-v1',
+            output: {
+                path: 'output/catalog-embeddings.json',
+                sha256: '7'.repeat(64),
+                rows: 2,
+            },
         },
         inputs: {
             catalog: artifact(),
@@ -96,6 +205,30 @@ function validManifest() {
             relationGameIds: coverage(170000),
             mechanismIds: coverage(189),
             themeIds: coverage(100),
+        },
+        sources: {
+            games: {
+                fileName: 'games.json',
+                sha256: 'd'.repeat(64),
+                rows: 2,
+            },
+            ranks: {
+                fileName: 'ranks.csv',
+                sha256: 'e'.repeat(64),
+                rows: 2,
+            },
+        },
+        outputs: {
+            serviceCatalog: {
+                path: 'service-catalog.json',
+                sha256: 'f'.repeat(64),
+                rows: 2,
+            },
+            upsertSql: {
+                path: 'upsert-games.sql',
+                sha256: 'f'.repeat(64),
+                rows: 2,
+            },
         },
     };
 }

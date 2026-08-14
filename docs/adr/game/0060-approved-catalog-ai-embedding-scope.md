@@ -23,7 +23,7 @@
 
 ## 결정
 
-1. 정책적으로는 `approved: true`, `testOnly: false`인 하나의 catalog release에 대해 manifest가 허용한 필드와 `approvedProcessingScopes` 범위에서만 AI 입력·embedding 생성을 허용한다. 실제 실행은 구체 release manifest를 검증하고 runner gate를 연결한 뒤에만 가능하며, 현재 상태는 미검증이다.
+1. 정책적으로는 `approved: true`, `testOnly: false`인 하나의 catalog release에 대해 manifest가 허용한 필드와 `approvedProcessingScopes` 범위에서만 AI 입력·embedding 생성을 허용한다. `prepare-game-catalog.mjs`에 runner gate와 manifest 검증을 연결했지만, 실제 실행은 구체 승인 release manifest를 검증한 뒤에만 가능하며 현재 실행 가능한 release 상태는 미검증이다.
 2. 검색용 embedding은 승인 필드로 만든 결정적 `search_text`에서 생성하고, release·필드 버전·조립 규칙·model/provider·index version·산출물 checksum을 함께 기록한다. raw XML과 allowlist 밖 원문은 별도 명시가 없으면 처리하지 않는다.
 3. 데이터셋 승인만으로 model/provider 선택, vector 저장소, API·ERD·아키텍처 계약, 사용자 query 보존을 확정하지 않는다. 이 선택은 SEARCH-04의 별도 ADR·계약에서 검토한다.
 4. 사용자 ID·세션·ROOM·채팅·prompt·query 원문과 provider 응답 원문은 catalog embedding과 중앙 로그에 넣지 않는다. 사용자 query의 일시적 embedding 처리는 개인정보·보존 계약을 별도로 따른다.
@@ -31,14 +31,14 @@
 
 ## 결과
 
-- 얻는 것: runner gate 구현과 실행 manifest 검증이 완료된 뒤 승인된 dataset으로 SEARCH-04의 `search_text`·embedding 평가를 진행할 수 있고, release·필드·모델 변경을 재현 가능한 index version으로 추적할 수 있다.
+- 얻는 것: runner gate 구현과 실행 manifest 검증이 연결되어 승인된 dataset으로 SEARCH-04의 `search_text`·embedding 평가를 진행할 수 있는 기반이 생겼고, release·필드·모델 변경을 재현 가능한 index version으로 추적할 수 있다.
 - 감수할 비용·위험: 배치마다 manifest allowlist와 checksum, embedding provenance를 관리해야 하며 승인되지 않은 필드가 섞이면 생성 전에 차단해야 한다.
 - 후속 작업: #712의 평가 fixture를 승인 release와 manifest hash에 연결하고, lexical baseline·Dense offline PoC·hybrid 선택을 별도 품질 근거로 진행한다.
 
 ## 보류 및 재검토
 
 - 지금 하지 않는 것: 특정 embedding model/provider/vector DB 채택, 기존 P1 API의 의미 변경, persistent vector schema 확정, 사용자 query·대화 이력 저장, BGG 전체 release 자동 처리
-- 보류 이유: 이번 결정은 데이터 이용 범위의 정책 승인이지 검색 기술·API·저장 구조의 결정이 아니며, 현재 실행 가능한 release manifest와 runner gate도 아직 검증되지 않았다.
+- 보류 이유: 이번 결정은 데이터 이용 범위의 정책 승인이지 검색 기술·API·저장 구조의 결정이 아니며, 현재 실행 가능한 구체 release manifest가 아직 등록·검증되지 않았다.
 - 다시 검토할 조건: 승인 release가 바뀌거나, allowlist 밖 필드·가공·provider·공개 범위·보존 정책을 추가할 때
 
 ## 참고 자료
@@ -55,10 +55,11 @@
 - 근거:
     - 계약: [BGG 승인 데이터셋의 AI·embedding 사용 범위](../../game-catalog/2026-08-14-bgg-ai-embedding-approval.md)가 release·필드·가공 allowlist와 재승인 조건을 정의한다.
     - 이슈: [#712](https://github.com/bamsongi-club/albam-mate/issues/712)가 고정 release 기반 평가 fixture 작업을 소유한다.
+    - 구현·테스트: `catalog-release-manifest.mjs`가 승인 범위·provenance를 검증하고 `prepare-game-catalog.mjs`가 실제 입력·service catalog·UPSERT 산출물 checksum·행 수를 생성 전에 대조한다. Node runner 테스트 82건이 통과했다.
 - 미검증:
     - 실제 승인 manifest의 release ID·입출력 checksum·행 수·외부 승인 reference 연결
-    - `prepare-game-catalog.mjs`와 AI/index runner의 승인 manifest gate 연결 및 새 필드 검증
-    - `search_text`와 embedding 산출물의 checksum·model/provider·index version 검증
+    - `prepare-game-catalog.mjs`의 승인 manifest gate 연결과 새 필드 검증은 구현·테스트했지만, 실제 승인 manifest 연결
+    - AI/index runner의 `search_text`와 embedding 산출물 실제 파일 checksum·model/provider·index version 대조
     - API·ERD·아키텍처·운영 배포와 실제 품질 측정
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

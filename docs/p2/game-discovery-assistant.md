@@ -12,7 +12,7 @@
 
 `DISCOVERY-01`은 일반 목적의 자율 비서가 아니라 `SEARCH-04`를 호출하는 읽기 전용 게임 탐색 도우미다. 현재 문서의 논리적 도구명·오류명·응답 필드는 구현 전 [API](../API.md)와 승인 ADR에서 확정하며, 문서 작성만으로 도우미 endpoint나 provider 도입이 완료된 것으로 판정하지 않는다.
 
-도우미가 사용할 수 있는 BGG 기반 catalog 입력의 정책 범위는 [승인 데이터셋의 AI·embedding 사용 범위](../game-catalog/2026-08-14-bgg-ai-embedding-approval.md)와 [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md)의 release·필드·가공 allowlist를 따른다. 실제 승인 manifest 검증과 runner gate 연결 전에는 BGG 기반 입력을 전달하지 않는다. 승인 범위는 catalog 데이터에 한정하며, 사용자 query·개인정보·대화 보존과 provider/model 선택을 자동 승인하지 않는다.
+도우미가 사용할 수 있는 BGG 기반 catalog 입력의 정책 범위는 [승인 데이터셋의 AI·embedding 사용 범위](../game-catalog/2026-08-14-bgg-ai-embedding-approval.md)와 [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md)의 release·필드·가공 allowlist를 따른다. 구체 승인 manifest를 runner gate로 검증하기 전에는 BGG 기반 입력을 전달하지 않는다. 승인 범위는 catalog 데이터에 한정하며, 사용자 query·개인정보·대화 보존과 provider/model 선택을 자동 승인하지 않는다.
 
 ## 구현 컨텍스트
 

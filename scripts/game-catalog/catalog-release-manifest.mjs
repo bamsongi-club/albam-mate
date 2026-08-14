@@ -14,12 +14,21 @@ const REQUIRED_COVERAGE = [
     'themeIds',
 ];
 
+const REQUIRED_SOURCES = ['games', 'ranks'];
+const REQUIRED_OUTPUTS = ['serviceCatalog', 'upsertSql'];
+const REQUIRED_PROCESSING_SCOPES = [
+    'service-load',
+    'search-text-assembly',
+    'embedding-generation',
+];
+
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 const RELEASE_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{2,63}$/u;
 const WINDOWS_RESERVED_RELEASE_ID_PATTERN = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/u;
 const UTC_INSTANT_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
+const FIELD_NAME_PATTERN = /^[a-z][A-Za-z0-9_]{0,63}$/u;
 
-export function validateApprovedReleaseManifest(manifest) {
+export function validateApprovedReleaseManifest(manifest, { actualInputs, actualOutputs } = {}) {
     assertObject(manifest, 'release manifest');
     assertEqual(manifest.schemaVersion, 1, 'schemaVersion must be 1');
     assertString(manifest.releaseId, 'releaseId');
@@ -36,7 +45,13 @@ export function validateApprovedReleaseManifest(manifest) {
         throw new Error('release manifest testOnly must be false');
     }
 
+    assertSafeIdentifier(manifest.datasetId, 'datasetId');
     validateApproval(manifest.approval);
+    const approvedFields = validateStringArray(manifest.approvedFields, 'approvedFields');
+    validateProcessingScopes(manifest.approvedProcessingScopes);
+    validateSearchText(manifest.search_text, approvedFields);
+    validateEmbedding(manifest.embedding);
+
     assertObject(manifest.inputs, 'inputs');
     for (const inputName of REQUIRED_INPUTS) {
         validateArtifact(manifest.inputs[inputName], `inputs.${inputName}`, inputName);
@@ -45,6 +60,23 @@ export function validateApprovedReleaseManifest(manifest) {
     assertObject(manifest.coverage, 'coverage');
     for (const coverageName of REQUIRED_COVERAGE) {
         validateCoverage(manifest.coverage[coverageName], `coverage.${coverageName}`);
+    }
+
+    assertObject(manifest.sources, 'sources');
+    for (const sourceName of REQUIRED_SOURCES) {
+        validateSourceArtifact(manifest.sources[sourceName], `sources.${sourceName}`);
+    }
+
+    assertObject(manifest.outputs, 'outputs');
+    for (const outputName of REQUIRED_OUTPUTS) {
+        validateOutputArtifact(manifest.outputs[outputName], `outputs.${outputName}`);
+    }
+
+    if (actualInputs !== undefined) {
+        compareArtifacts(manifest.sources, actualInputs, 'sources');
+    }
+    if (actualOutputs !== undefined) {
+        compareArtifacts(manifest.outputs, actualOutputs, 'outputs');
     }
     return manifest;
 }
@@ -76,10 +108,98 @@ function validateArtifact(artifact, field, name) {
     assertRows(artifact.rows, `${field}.rows`);
 }
 
+function validateSourceArtifact(artifact, field) {
+    assertObject(artifact, field);
+    assertFileName(artifact.fileName, `${field}.fileName`);
+    assertSha256(artifact.sha256, `${field}.sha256`);
+    assertRows(artifact.rows, `${field}.rows`);
+}
+
+function validateOutputArtifact(artifact, field) {
+    assertObject(artifact, field);
+    assertRelativePath(artifact.path, `${field}.path`);
+    assertSha256(artifact.sha256, `${field}.sha256`);
+    assertRows(artifact.rows, `${field}.rows`);
+}
+
 function validateCoverage(coverage, field) {
     assertObject(coverage, field);
     assertRows(coverage.rows, `${field}.rows`);
     assertSha256(coverage.sha256, `${field}.sha256`);
+}
+
+function validateProcessingScopes(scopes) {
+    const values = validateStringArray(scopes, 'approvedProcessingScopes');
+    const missingScopes = REQUIRED_PROCESSING_SCOPES.filter((scope) => !values.includes(scope));
+    if (missingScopes.length > 0) {
+        throw new Error(
+            `approvedProcessingScopes must include: ${missingScopes.join(', ')}`,
+        );
+    }
+}
+
+function validateSearchText(searchText, approvedFields) {
+    assertObject(searchText, 'search_text');
+    const fields = validateStringArray(searchText.fields, 'search_text.fields');
+    assertString(searchText.sourceFieldVersion, 'search_text.sourceFieldVersion');
+    assertString(searchText.assemblyRuleVersion, 'search_text.assemblyRuleVersion');
+    const approvedFieldSet = new Set(approvedFields);
+    const unapprovedFields = fields.filter((field) => !approvedFieldSet.has(field));
+    if (unapprovedFields.length > 0) {
+        throw new Error(
+            `search_text.fields must be included in approvedFields: ${unapprovedFields.join(', ')}`,
+        );
+    }
+}
+
+function validateEmbedding(embedding) {
+    assertObject(embedding, 'embedding');
+    assertString(embedding.provider, 'embedding.provider');
+    assertString(embedding.model, 'embedding.model');
+    assertString(embedding.modelVersion, 'embedding.modelVersion');
+    assertString(embedding.indexVersion, 'embedding.indexVersion');
+    if (!Number.isSafeInteger(embedding.dimensions) || embedding.dimensions <= 0) {
+        throw new Error('embedding.dimensions must be a positive safe integer');
+    }
+    validateOutputArtifact(embedding.output, 'embedding.output');
+}
+
+function validateStringArray(value, field) {
+    if (!Array.isArray(value) || value.length === 0) {
+        throw new Error(`${field} must contain at least one value`);
+    }
+    const values = value.map((item) => {
+        assertString(item, `${field} item`);
+        if (!FIELD_NAME_PATTERN.test(item) && field !== 'approvedProcessingScopes') {
+            throw new Error(`${field} contains an invalid field name: ${item}`);
+        }
+        return item;
+    });
+    if (new Set(values).size !== values.length) {
+        throw new Error(`${field} must not contain duplicates`);
+    }
+    return values;
+}
+
+function compareArtifacts(declaredArtifacts, actualArtifacts, field) {
+    assertObject(actualArtifacts, `actual ${field}`);
+    for (const artifactName of field === 'sources' ? REQUIRED_SOURCES : REQUIRED_OUTPUTS) {
+        const declared = declaredArtifacts[artifactName];
+        const actual = actualArtifacts[artifactName];
+        assertObject(actual, `actual ${field}.${artifactName}`);
+        const declaredFileName = field === 'sources'
+            ? declared.fileName
+            : fileNameFromPath(declared.path);
+        if (actual.fileName !== declaredFileName) {
+            throw new Error(`${field}.${artifactName}.fileName does not match actual artifact`);
+        }
+        if (actual.sha256 !== declared.sha256) {
+            throw new Error(`${field}.${artifactName}.sha256 does not match actual artifact`);
+        }
+        if (actual.rows !== declared.rows) {
+            throw new Error(`${field}.${artifactName}.rows does not match actual artifact`);
+        }
+    }
 }
 
 function assertObject(value, field) {
@@ -96,6 +216,36 @@ function assertString(value, field) {
     if (typeof value !== 'string' || value.trim() === '') {
         throw new Error(`${field} must be a non-empty string`);
     }
+}
+
+function assertSafeIdentifier(value, field) {
+    assertString(value, field);
+    if (!RELEASE_ID_PATTERN.test(value)) {
+        throw new Error(`${field} must be a safe identifier`);
+    }
+}
+
+function assertFileName(value, field) {
+    assertString(value, field);
+    if (value.includes('/') || value.includes('\\') || value === '.' || value === '..') {
+        throw new Error(`${field} must be a file name`);
+    }
+}
+
+function assertRelativePath(value, field) {
+    assertString(value, field);
+    if (
+        value.startsWith('/')
+        || /^[A-Za-z]:[\\/]/u.test(value)
+        || value.split(/[\\/]/u).includes('..')
+        || value.includes('\u0000')
+    ) {
+        throw new Error(`${field} must be a safe relative path`);
+    }
+}
+
+function fileNameFromPath(path) {
+    return path.split(/[\\/]/u).at(-1);
 }
 
 function assertInstant(value, field) {

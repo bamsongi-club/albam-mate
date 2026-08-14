@@ -1,11 +1,11 @@
 # BGG 승인 데이터셋의 AI·embedding 사용 범위
 
 - 정책 승인 상태: 승인됨
-- 실행 가능한 release 상태: 미검증
+- 실행 가능한 release 상태: runner gate 구현·테스트됨, 실제 승인 manifest 미검증
 - 승인 확인일: 2026-08-14
 - 관련: [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md), [SEARCH-04 이슈 #712](https://github.com/bamsongi-club/albam-mate/issues/712), [게임 카탈로그 검수·적재 가이드](../guides/GAME_CATALOG_IMPORT.md)
 
-팀 승인에 따라 특정 BGG 기반 데이터셋의 서비스 적재와 해당 데이터셋을 이용한 AI 입력·embedding 생성을 정책적으로 허용한다. 다만 이 문서는 BGG 전체 데이터에 대한 포괄 허가가 아니며, 현재 저장소에 실행 가능한 구체 release manifest를 등록한 상태도 아니다. 실제 사용 가능한 범위는 검증을 통과한 하나의 catalog release와 그 manifest의 allowlist로 고정하며, manifest와 runner gate가 준비되기 전에는 BGG 기반 AI·embedding 실행을 허용하지 않는다.
+팀 승인에 따라 특정 BGG 기반 데이터셋의 서비스 적재와 해당 데이터셋을 이용한 AI 입력·embedding 생성을 정책적으로 허용한다. 다만 이 문서는 BGG 전체 데이터에 대한 포괄 허가가 아니며, 현재 저장소에 실행 가능한 구체 release manifest를 등록한 상태도 아니다. 실제 사용 가능한 범위는 검증을 통과한 하나의 catalog release와 그 manifest의 allowlist로 고정하며, 구체 release manifest를 runner gate로 검증하기 전에는 BGG 기반 AI·embedding 실행을 허용하지 않는다.
 
 ## 승인 범위
 
@@ -20,14 +20,16 @@
 
 AI·embedding 산출 또는 서비스 적재를 실행하는 manifest에는 다음 값을 함께 기록한다.
 
-- `releaseId`, `datasetId`, 입력·결과 파일의 SHA-256과 행 수
+- `releaseId`, `datasetId`, `sources`와 `outputs`의 파일명·SHA-256·행 수
 - `approved: true`, `testOnly: false`
 - 필드별 출처와 `approvedFields` allowlist
 - `approvedProcessingScopes`와 결정적 `search_text` 조립 규칙
-- 승인 근거의 외부 참조(`approvalReferences`), 검수자와 검수 시각
+- runner 범위는 `service-load`, `search-text-assembly`, `embedding-generation` 세 scope를 모두 명시
+- `outputs.serviceCatalog`·`outputs.upsertSql`은 runner가 생성할 파일의 상대 경로·SHA-256·행 수를 선언
+- 승인 근거의 외부 참조(`approval.references`), 검수자와 검수 시각
 - embedding을 만들 때의 model/provider, 차원, 문서 조립 규칙, index version과 산출물 SHA-256
 
-위 값이 없거나 실제 입력·산출물과 다르면 적재와 색인 생성을 모두 차단해야 한다. 승인 근거 원문은 저장소에 복사하지 않고, manifest의 외부 참조와 비공개 증적 보관 위치로 연결한다. 현재 `prepare-game-catalog.mjs`는 `validateApprovedReleaseManifest`를 호출하지 않으며, 기존 validator도 이 문서의 `datasetId`·`approvedFields`·`approvedProcessingScopes`·`search_text`·model/provider·index·출력 checksum을 검증하지 않는다. 따라서 이 문서는 목표 계약을 정의할 뿐, 현재 runner가 gate를 강제한다는 증거가 아니다.
+위 값이 없거나 실제 입력·산출물과 다르면 적재와 색인 생성을 모두 차단해야 한다. 승인 근거 원문은 저장소에 복사하지 않고, manifest의 외부 참조와 비공개 증적 보관 위치로 연결한다. `prepare-game-catalog.mjs`는 이제 `validateApprovedReleaseManifest`를 호출해 `datasetId`·`approvedFields`·`approvedProcessingScopes`·`search_text`·model/provider·index·embedding 산출물 descriptor를 검증하고, 생성 전 실제 입력과 service catalog·UPSERT 산출물의 checksum·행 수를 대조한다. 이 runner는 embedding 파일 자체를 생성하지 않으므로 외부 embedding/index runner가 해당 산출물 checksum을 실제 파일과 대조해야 하며, 현재 저장소에 구체 승인 manifest가 없어 실행 가능한 release 판정은 아직 미검증이다.
 
 ## AI·embedding 처리 규칙
 
