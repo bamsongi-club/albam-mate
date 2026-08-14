@@ -577,7 +577,7 @@ export function buildSnapshotQuery(fixture) {
     ) AS room_row
   ), '[]'::jsonb),
   'participations', COALESCE((
-    SELECT jsonb_agg(row_to_json(participation_row) ORDER BY participation_row.room_id, participation_row.user_id)
+    SELECT jsonb_agg(row_to_json(participation_row) ORDER BY participation_row."roomId", participation_row."userId")
     FROM (
       SELECT room_id AS "roomId", user_id AS "userId", status,
              joined_at AS "joinedAt", canceled_at AS "canceledAt"
@@ -586,7 +586,7 @@ export function buildSnapshotQuery(fixture) {
     ) AS participation_row
   ), '[]'::jsonb),
   'waitlists', COALESCE((
-    SELECT jsonb_agg(row_to_json(waitlist_row) ORDER BY waitlist_row.room_id, waitlist_row.queue_order, waitlist_row.user_id)
+    SELECT jsonb_agg(row_to_json(waitlist_row) ORDER BY waitlist_row."roomId", waitlist_row."queueOrder", waitlist_row."userId")
     FROM (
       SELECT room_id AS "roomId", user_id AS "userId", status,
              queue_order AS "queueOrder", queued_at AS "queuedAt"

@@ -5,6 +5,7 @@ import {
   buildCleanupSql,
   buildPrepareSql,
   buildResourceQuery,
+  buildSnapshotQuery,
   createFixturePlan,
   evaluateFixture,
   hydrateFixture,
@@ -269,6 +270,21 @@ test('fixture SQL은 필수 users timestamp와 정확한 ID 기반 cleanup을 �
   assert.match(cleanupSql, /fixture ROOM has chat message by non-fixture user/);
   assert.doesNotMatch(cleanupSql, /\bLIKE\b/i);
   assert.doesNotMatch(cleanupSql, /TRUNCATE/i);
+});
+
+test('snapshot SQL은 파생 테이블의 quoted camelCase alias로 정렬한다', () => {
+  const { fixture } = fixtureFor({
+    scenario: 't2',
+    runId: 'fixture-snapshot-aliases',
+    mode: 'hot',
+    subcase: 'distinct',
+    concurrency: 2,
+  });
+
+  const snapshotSql = buildSnapshotQuery(fixture);
+
+  assert.match(snapshotSql, /ORDER BY participation_row\."roomId", participation_row\."userId"/);
+  assert.match(snapshotSql, /ORDER BY waitlist_row\."roomId", waitlist_row\."queueOrder", waitlist_row\."userId"/);
 });
 
 test('T2 duplicate는 동시성 2 이외의 입력을 거절한다', () => {
