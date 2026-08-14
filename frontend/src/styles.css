@@ -494,12 +494,13 @@ textarea.field-input { height: 112px; line-height: 1.6; padding: 14px 16px; resi
 
 /* ── 채팅방 ────────────────────────────────────────────── */
 
-.chat-screen { display: flex; flex: 1 0 auto; flex-direction: column; min-height: 100dvh; }
+/* 다른 화면과 같은 규칙이다. 화면은 #root 높이에 맞춰 고정하고 .chat-log만 안에서 스크롤한다. */
+.chat-screen { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; min-width: 0; }
 .chat-topbar { align-items: center; box-shadow: inset 0 -1px 0 var(--line); display: flex; flex: none; gap: 4px; height: 56px; padding: 0 12px; position: sticky; top: 0; background: #fff; z-index: 10; }
 .chat-topbar-copy { flex: 1; min-width: 0; }
 .chat-topbar-copy strong { display: block; font-size: 15px; font-weight: 800; letter-spacing: -0.04em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-topbar-copy span { color: var(--sub); display: block; font-size: 12.5px; margin-top: 2px; }
-.chat-log { display: flex; flex: 1; flex-direction: column; gap: 14px; padding: 20px 18px; }
+.chat-log { display: flex; flex: 1; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto; padding: 20px 18px; -webkit-overflow-scrolling: touch; }
 .chat-daymark { align-self: center; color: var(--muted); font-size: 12.5px; font-weight: 700; }
 .chat-message { display: flex; flex-direction: column; gap: 5px; }
 .chat-message.theirs { align-items: flex-start; }

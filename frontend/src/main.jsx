@@ -2099,8 +2099,10 @@ export function App() {
       active = false;
     };
   }, [authenticated]);
+  // #root가 뷰포트에 고정돼 문서는 스크롤되지 않는다. 실제로 스크롤되는 본문을 화면마다 처음으로 되돌린다.
+  // 채팅 로그는 최신 메시지에 붙는 자기 규칙이 있으므로 여기서 건드리지 않는다.
   useEffect(() => {
-    window.scrollTo(0, 0);
+    document.querySelectorAll('.screen-body').forEach((body) => { body.scrollTop = 0; });
   }, [route, arg]);
   useEffect(() => {
     if (route === 'my' && (arg === 'joined' || arg === 'hosted')) setMyTab(arg);
