@@ -1,0 +1,776 @@
+{
+  "campaignId": "chat-delivery-capacity-2026-08-13",
+  "campaignStatus": "completed-with-limitations",
+  "documentStatus": "superseded",
+  "purpose": "#608 WebSocket timeout 분리가 포함된 release 69438fd3a30150623e5801ff6bff5f4705b6a795에서 채팅 전송·전달 6개 정본 축을 동일 fixture로 한 번 완주하고, 성공·실패 관측을 분리해 기록한다.",
+  "supersedes": null,
+  "supersededBy": "chat-delivery-capacity-2026-08-13-repeat2",
+  "window": {
+    "startedAt": "2026-08-13T09:50:07Z",
+    "endedAt": "2026-08-13T11:13:23Z",
+    "startedAtKst": "2026-08-13T18:50:07+09:00",
+    "endedAtKst": "2026-08-13T20:13:23+09:00",
+    "durationSeconds": 4996
+  },
+  "release": {
+    "sha": "69438fd3a30150623e5801ff6bff5f4705b6a795",
+    "subject": "fix: 유휴 WebSocket timeout 분리",
+    "backendImage": "sha256:9311e1dc14a57fb8314317c0d695b03733bb062fa14826f8505a2884c3933ab4",
+    "webImage": "sha256:9ec386df04a54c71ee5dd838067bb18c4fa2fd3e316d22175b52620e847a0200",
+    "postgresImage": "postgres@sha256:0826e5f2996099babb925e09fb72bf2c6eb5d187cfcae20aa9291af1612307e4",
+    "redisImage": "redis@sha256:78b83aee0bf6781ca973ee5022de73dd16fe93f53593c3a31f079c8c3fa08921"
+  },
+  "fixture": {
+    "seedSql": "load-tests/k6/eungi/fixtures/rooms.sql",
+    "cleanupSql": "load-tests/k6/eungi/fixtures/cleanup.sql",
+    "roomCount": 8,
+    "accountsPerRoom": 9,
+    "messagesPerRoom": 150,
+    "totalAccounts": 72,
+    "runIdPattern": "chat-delivery-capacity-2026-08-13-<ordinal>-<scenario>"
+  },
+  "observations": {
+    "deployment": {
+      "applicationNodes": 2,
+      "applicationInstanceType": "t4g.micro",
+      "postgresNodes": 1,
+      "postgresInstanceType": "t4g.micro",
+      "redisNodes": 1,
+      "redisInstanceType": "t4g.micro",
+      "loadGenerator": "c7g.large",
+      "k6Version": "1.3.0",
+      "loginLimitPerTenMinutes": 300,
+      "k6LoginLimit": 300,
+      "generalPublicIngressCidrs": []
+    },
+    "websocket": {
+      "load-throughput": {
+        "openedRate": 0.4444,
+        "opened": 8,
+        "total": 18,
+        "sessionHealthyRate": 0.4444,
+        "sessionHealthy": 8,
+        "sessionTotal": 18
+      },
+      "load-connections": {
+        "openedRate": 1.0,
+        "opened": 170,
+        "total": 170,
+        "sessionHealthyRate": 1.0,
+        "sessionHealthy": 97,
+        "sessionTotal": 97
+      },
+      "load-fanout": {
+        "openedRate": 1.0,
+        "opened": 57,
+        "total": 57,
+        "sessionHealthyRate": 0.8333,
+        "sessionHealthy": 30,
+        "sessionTotal": 36,
+        "deliveryCompleteRate": 1.0,
+        "deliveryComplete": 36,
+        "deliveryCompleteTotal": 36
+      },
+      "load-rooms": {
+        "openedRate": 1.0,
+        "opened": 50,
+        "total": 50,
+        "sessionHealthyRate": 1.0,
+        "sessionHealthy": 28,
+        "sessionTotal": 28,
+        "deliveryCompleteRate": 0.6786,
+        "deliveryComplete": 19,
+        "deliveryCompleteTotal": 28
+      },
+      "load-mixed": {
+        "openedRate": 1.0,
+        "opened": 55,
+        "total": 55,
+        "sessionHealthyRate": 0.8649,
+        "sessionHealthy": 32,
+        "sessionTotal": 37,
+        "deliveryCompleteRate": 1.0,
+        "deliveryComplete": 37,
+        "deliveryCompleteTotal": 37
+      }
+    },
+    "firstConfirmedBottleneck": {
+      "observedAt": "2026-08-13T09:52:03Z",
+      "scope": "load-throughput setup 중 App1과 App2",
+      "evidence": "두 앱 로그에서 HikariPool total=8, active=8, idle=0 및 30초 connection timeout이 동시에 관측됐고, ChatWebSocketHandshakeController에서 CannotCreateTransactionException이 뒤따랐다.",
+      "interpretation": "DB 연결 풀 포화는 이 Run에서 확인된 최초 병목이다. 연결 누수·풀 크기·PostgreSQL 수용량 중 정확한 원인은 별도 진단이 필요하다."
+    }
+  },
+  "runToRunVariance": "이번 release의 단일 campaign이므로 실행 간 편차는 평가하지 않았다. 이전 2026-08-12 보고서와 release가 달라 수치를 직접 비교하지 않는다.",
+  "knownLimitations": [
+    "모든 유효 Run의 dropped_iterations는 0이지만, p95는 성공하거나 수신된 표본에만 기반한다.",
+    "load-fanout, load-rooms, load-mixed의 단계 태그는 setup 시점 기준이므로 구독자 전달 완료율의 단계 비교에는 편향 가능성이 있다.",
+    "CPU, DB 시스템 지표는 이 campaign의 결론 근거로 별도 수집·검증하지 않았다.",
+    "원시 k6 summary의 setup_data에는 fixture 세션 또는 CSRF 정보가 포함될 수 있으므로 원문은 local-only로 유지하고 문서·manifest에 복사하지 않았다.",
+    "초기 fixture 인증 실패 1건은 임시 bcrypt 생성 래퍼의 문자열 제거 결함이 원인이며, 수정 뒤 같은 시나리오를 재실행한 결과만 campaign runs에 포함했다."
+  ],
+  "artifacts": {
+    "location": "local-only",
+    "directory": "albam-mate-infra/.run/results/",
+    "campaignLog": "chat-delivery-capacity-2026-08-13.campaign.log",
+    "runCount": 6,
+    "includedRunCount": 6,
+    "excludedAttemptCount": 1,
+    "rawArtifactsMayContainFixtureCredentials": true,
+    "report": "docs/measurements/k6/eungi/chat-delivery-capacity-2026-08-13.md"
+  },
+  "excludedAttempts": [
+    {
+      "scenario": "load-throughput",
+      "runId": "chat-delivery-capacity-2026-08-13-01-throughput",
+      "startedAt": "2026-08-13T09:44:37Z",
+      "endedAt": "2026-08-13T09:46:32Z",
+      "runnerExit": 2,
+      "k6Exit": 107,
+      "summary": "summary-20260813T094520Z.json",
+      "console": "console-20260813T094520Z.log",
+      "summarySha256": "3f0bd585475db43da7e90390e86305c3257282c6e8f746049b22031e5cd47105",
+      "consoleSha256": "fb4e0290195345ab852859f101540b88b8317330a225cb8a50cc65183eb48808",
+      "reason": "임시 bcrypt fixture 생성 래퍼가 hash의 문자 n까지 제거해 fixture 사용자 인증이 실패했다. iterations와 WebSocket 세션이 생성되지 않아 성능 결과로 사용하지 않았다.",
+      "reportDisposition": "excluded"
+    }
+  ],
+  "runs": [
+    {
+      "scenario": "load-throughput",
+      "startedAt": "2026-08-13T09:50:07Z",
+      "endedAt": "2026-08-13T10:04:14Z",
+      "startedAtKst": "2026-08-13T18:50:07+09:00",
+      "endedAtKst": "2026-08-13T19:04:14+09:00",
+      "exit": 2,
+      "runnerExit": 2,
+      "k6Exit": 99,
+      "status": "COMPLETED_WITH_THRESHOLD_VIOLATIONS",
+      "reportDisposition": "included",
+      "summary": "summary-20260813T095046Z.json",
+      "console": "console-20260813T095046Z.log",
+      "summarySha256": "45034b921113ae3c7c31a313c6438bcff441135a0c3b4aa42492c40a356e13f4",
+      "consoleSha256": "9517108ca3ac4c8386c7cfd6900a910d47e13dbb690ff04d68ba8a0591b2ee7d",
+      "droppedIterations": 0,
+      "httpReqFailed": {
+        "rate": 0,
+        "failedRequests": 0,
+        "totalRequests": 1866
+      },
+      "thresholdViolations": [
+        {
+          "metric": "chat_websocket_opened",
+          "threshold": "rate>=0.99"
+        },
+        {
+          "metric": "chat_websocket_session_healthy",
+          "threshold": "rate>=0.99"
+        }
+      ],
+      "execution": {
+        "runner": "albam-mate-infra/run.sh loadtest",
+        "k6Version": "1.3.0",
+        "resolvedScenarioEnvironment": {
+          "K6_LOGIN_LIMIT": 300,
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
+          "K6_LOAD_SEND_RATES": "1,2,3,4,5",
+          "K6_LOAD_SUBSCRIBERS_PER_ROOM": 6,
+          "K6_LOAD_THROUGHPUT_ROOMS": 3
+        }
+      },
+      "stages": [
+        {
+          "stage": 1,
+          "target": "1 req/s",
+          "httpP95": 54.904656949999996,
+          "sendOkRate": 1,
+          "sendTotal": 120,
+          "deliveryP95": 55,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null,
+          "subscriberDeliveryRate": null,
+          "subscriberDeliveryTotal": null
+        },
+        {
+          "stage": 2,
+          "target": "2 req/s",
+          "httpP95": 50.11125439999999,
+          "sendOkRate": 1,
+          "sendTotal": 180,
+          "deliveryP95": 51,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null,
+          "subscriberDeliveryRate": null,
+          "subscriberDeliveryTotal": null
+        },
+        {
+          "stage": 3,
+          "target": "3 req/s",
+          "httpP95": 43.36333155,
+          "sendOkRate": 1,
+          "sendTotal": 300,
+          "deliveryP95": 44,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null,
+          "subscriberDeliveryRate": null,
+          "subscriberDeliveryTotal": null
+        },
+        {
+          "stage": 4,
+          "target": "4 req/s",
+          "httpP95": 44.7316675,
+          "sendOkRate": 1,
+          "sendTotal": 420,
+          "deliveryP95": 43.04999999999995,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null,
+          "subscriberDeliveryRate": null,
+          "subscriberDeliveryTotal": null
+        },
+        {
+          "stage": 5,
+          "target": "5 req/s",
+          "httpP95": 39.359666999999995,
+          "sendOkRate": 1,
+          "sendTotal": 616,
+          "deliveryP95": 41,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null,
+          "subscriberDeliveryRate": null,
+          "subscriberDeliveryTotal": null
+        }
+      ]
+    },
+    {
+      "scenario": "load-connections",
+      "startedAt": "2026-08-13T10:05:41Z",
+      "endedAt": "2026-08-13T10:18:54Z",
+      "startedAtKst": "2026-08-13T19:05:41+09:00",
+      "endedAtKst": "2026-08-13T19:18:54+09:00",
+      "exit": 0,
+      "runnerExit": 0,
+      "k6Exit": 0,
+      "status": "COMPLETED",
+      "reportDisposition": "included",
+      "summary": "summary-20260813T100620Z.json",
+      "console": "console-20260813T100620Z.log",
+      "summarySha256": "f76fba4bd3ce421d2c8a19a3cef9f5d621de1289b868c587414b7066f6958610",
+      "consoleSha256": "0ae064dc3b7683d61df6d48f4e3625552ff7cd11f6cbb07e40ceb1ceb0c4cff0",
+      "droppedIterations": 0,
+      "httpReqFailed": {
+        "rate": 0,
+        "failedRequests": 0,
+        "totalRequests": 216
+      },
+      "thresholdViolations": [],
+      "execution": {
+        "runner": "albam-mate-infra/run.sh loadtest",
+        "k6Version": "1.3.0",
+        "resolvedScenarioEnvironment": {
+          "K6_LOGIN_LIMIT": 300,
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
+          "K6_LOAD_CONNECTION_STEPS": "5,10,20,40,80"
+        }
+      },
+      "stages": [
+        {
+          "stage": 1,
+          "target": "5 concurrent WebSocket connections",
+          "httpP95": null,
+          "sendOkRate": null,
+          "sendTotal": null,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": 27.6,
+          "openedRate": 1,
+          "openedTotal": 5,
+          "subscriberDeliveryRate": null,
+          "subscriberDeliveryTotal": null
+        },
+        {
+          "stage": 2,
+          "target": "10 concurrent WebSocket connections",
+          "httpP95": null,
+          "sendOkRate": null,
+          "sendTotal": null,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": 40.19999999999999,
+          "openedRate": 1,
+          "openedTotal": 9,
+          "subscriberDeliveryRate": null,
+          "subscriberDeliveryTotal": null
+        },
+        {
+          "stage": 3,
+          "target": "20 concurrent WebSocket connections",
+          "httpP95": null,
+          "sendOkRate": null,
+          "sendTotal": null,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": 40.8,
+          "openedRate": 1,
+          "openedTotal": 19,
+          "subscriberDeliveryRate": null,
+          "subscriberDeliveryTotal": null
+        },
+        {
+          "stage": 4,
+          "target": "40 concurrent WebSocket connections",
+          "httpP95": null,
+          "sendOkRate": null,
+          "sendTotal": null,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": 77.79999999999997,
+          "openedRate": 1,
+          "openedTotal": 39,
+          "subscriberDeliveryRate": null,
+          "subscriberDeliveryTotal": null
+        },
+        {
+          "stage": 5,
+          "target": "80 concurrent WebSocket connections",
+          "httpP95": null,
+          "sendOkRate": null,
+          "sendTotal": null,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": 48.09999999999997,
+          "openedRate": 1,
+          "openedTotal": 21,
+          "subscriberDeliveryRate": null,
+          "subscriberDeliveryTotal": null
+        }
+      ]
+    },
+    {
+      "scenario": "load-history",
+      "startedAt": "2026-08-13T10:19:14Z",
+      "endedAt": "2026-08-13T10:30:15Z",
+      "startedAtKst": "2026-08-13T19:19:14+09:00",
+      "endedAtKst": "2026-08-13T19:30:15+09:00",
+      "exit": 0,
+      "runnerExit": 0,
+      "k6Exit": 0,
+      "status": "COMPLETED",
+      "reportDisposition": "included",
+      "summary": "summary-20260813T101954Z.json",
+      "console": "console-20260813T101954Z.log",
+      "summarySha256": "b359e81c598c85e925145d7042f3b68708b6af0d3302ddd64757a2cf961bf95b",
+      "consoleSha256": "89dac6dc5b7f9b847e5d3c590ece133e97fcd4ed9f94ce5ca7ef57e896debbfd",
+      "droppedIterations": 0,
+      "httpReqFailed": {
+        "rate": 0,
+        "failedRequests": 0,
+        "totalRequests": 1731
+      },
+      "thresholdViolations": [],
+      "execution": {
+        "runner": "albam-mate-infra/run.sh loadtest",
+        "k6Version": "1.3.0",
+        "resolvedScenarioEnvironment": {
+          "K6_LOGIN_LIMIT": 300,
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
+          "K6_LOAD_HISTORY_RATES": "1,2,4,8"
+        }
+      },
+      "stages": [
+        {
+          "stage": 1,
+          "target": "1 req/s",
+          "httpP95": 29.3593269,
+          "sendOkRate": 1,
+          "sendTotal": 120,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null,
+          "subscriberDeliveryRate": null,
+          "subscriberDeliveryTotal": null
+        },
+        {
+          "stage": 2,
+          "target": "2 req/s",
+          "httpP95": 28.906603099999998,
+          "sendOkRate": 1,
+          "sendTotal": 180,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null,
+          "subscriberDeliveryRate": null,
+          "subscriberDeliveryTotal": null
+        },
+        {
+          "stage": 3,
+          "target": "4 req/s",
+          "httpP95": 27.459190250000002,
+          "sendOkRate": 1,
+          "sendTotal": 360,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null,
+          "subscriberDeliveryRate": null,
+          "subscriberDeliveryTotal": null
+        },
+        {
+          "stage": 4,
+          "target": "8 req/s",
+          "httpP95": 25.14625,
+          "sendOkRate": 1,
+          "sendTotal": 841,
+          "deliveryP95": null,
+          "deliverySamples": null,
+          "connectP95": null,
+          "openedRate": null,
+          "openedTotal": null,
+          "subscriberDeliveryRate": null,
+          "subscriberDeliveryTotal": null
+        }
+      ]
+    },
+    {
+      "scenario": "load-fanout",
+      "startedAt": "2026-08-13T10:30:33Z",
+      "endedAt": "2026-08-13T10:44:36Z",
+      "startedAtKst": "2026-08-13T19:30:33+09:00",
+      "endedAtKst": "2026-08-13T19:44:36+09:00",
+      "exit": 2,
+      "runnerExit": 2,
+      "k6Exit": 99,
+      "status": "COMPLETED_WITH_THRESHOLD_VIOLATIONS",
+      "reportDisposition": "included",
+      "summary": "summary-20260813T103112Z.json",
+      "console": "console-20260813T103112Z.log",
+      "summarySha256": "e4e1dab5104c106ecb2e85142c0b508aa95f6a8b0a9a66fd1707584812679f31",
+      "consoleSha256": "1cfb4203672b54949fda62065c3179201ccdf99178c6a08fc6de057407c3138e",
+      "droppedIterations": 0,
+      "httpReqFailed": {
+        "rate": 0.008801624915368992,
+        "failedRequests": 13,
+        "totalRequests": 1477
+      },
+      "thresholdViolations": [
+        {
+          "metric": "chat_send_expected_status",
+          "threshold": "rate>=0.99"
+        },
+        {
+          "metric": "chat_websocket_session_healthy",
+          "threshold": "rate>=0.99"
+        }
+      ],
+      "execution": {
+        "runner": "albam-mate-infra/run.sh loadtest",
+        "k6Version": "1.3.0",
+        "resolvedScenarioEnvironment": {
+          "K6_LOGIN_LIMIT": 300,
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
+          "K6_LOAD_FANOUT_SUBSCRIBER_STEPS": "2,4,8,16,24",
+          "K6_LOAD_FANOUT_SEND_RATE": 2
+        }
+      },
+      "stages": [
+        {
+          "stage": 1,
+          "target": "2 subscribers/room",
+          "httpP95": 36.742116499999995,
+          "sendOkRate": 0.9958333333333333,
+          "sendTotal": 240,
+          "deliveryP95": 25,
+          "deliverySamples": 472,
+          "connectP95": 22.85,
+          "openedRate": 1,
+          "openedTotal": 2,
+          "subscriberDeliveryRate": 1,
+          "subscriberDeliveryTotal": 2
+        },
+        {
+          "stage": 2,
+          "target": "4 subscribers/room",
+          "httpP95": 36.46656494999999,
+          "sendOkRate": 0.9833333333333333,
+          "sendTotal": 240,
+          "deliveryP95": 37.699999999999974,
+          "deliverySamples": 707,
+          "connectP95": 21.7,
+          "openedRate": 1,
+          "openedTotal": 3,
+          "subscriberDeliveryRate": 1,
+          "subscriberDeliveryTotal": 3
+        },
+        {
+          "stage": 3,
+          "target": "8 subscribers/room",
+          "httpP95": 37.07785635,
+          "sendOkRate": 0.9875,
+          "sendTotal": 240,
+          "deliveryP95": 50,
+          "deliverySamples": 1662,
+          "connectP95": 26.099999999999998,
+          "openedRate": 1,
+          "openedTotal": 7,
+          "subscriberDeliveryRate": 1,
+          "subscriberDeliveryTotal": 7
+        },
+        {
+          "stage": 4,
+          "target": "16 subscribers/room",
+          "httpP95": 39.410961799999995,
+          "sendOkRate": 0.9916666666666667,
+          "sendTotal": 240,
+          "deliveryP95": 107,
+          "deliverySamples": 2685,
+          "connectP95": 29.3,
+          "openedRate": 1,
+          "openedTotal": 15,
+          "subscriberDeliveryRate": 1,
+          "subscriberDeliveryTotal": 15
+        },
+        {
+          "stage": 5,
+          "target": "24 subscribers/room",
+          "httpP95": 67.754317,
+          "sendOkRate": 0.991701244813278,
+          "sendTotal": 241,
+          "deliveryP95": 158,
+          "deliverySamples": 1722,
+          "connectP95": 47.199999999999996,
+          "openedRate": 1,
+          "openedTotal": 8,
+          "subscriberDeliveryRate": 1,
+          "subscriberDeliveryTotal": 8
+        }
+      ]
+    },
+    {
+      "scenario": "load-rooms",
+      "startedAt": "2026-08-13T10:45:21Z",
+      "endedAt": "2026-08-13T10:59:07Z",
+      "startedAtKst": "2026-08-13T19:45:21+09:00",
+      "endedAtKst": "2026-08-13T19:59:07+09:00",
+      "exit": 2,
+      "runnerExit": 2,
+      "k6Exit": 99,
+      "status": "COMPLETED_WITH_THRESHOLD_VIOLATIONS",
+      "reportDisposition": "included",
+      "summary": "summary-20260813T104636Z.json",
+      "console": "console-20260813T104636Z.log",
+      "summarySha256": "76a50b98b7af48330a7311f5354e7711791a8358513ed55b133be2221ece9c91",
+      "consoleSha256": "3fd73c90c8c57f725afae0f1a349ae9ae4f74e5e68b1973b710fed88becb5287",
+      "droppedIterations": 0,
+      "httpReqFailed": {
+        "rate": 0.0023121387283236996,
+        "failedRequests": 4,
+        "totalRequests": 1730
+      },
+      "thresholdViolations": [
+        {
+          "metric": "load_subscriber_delivery_complete",
+          "threshold": "rate==1"
+        },
+        {
+          "metric": "load_subscriber_delivery_complete{stage:1}",
+          "threshold": "rate==1"
+        },
+        {
+          "metric": "load_subscriber_delivery_complete{stage:2}",
+          "threshold": "rate==1"
+        },
+        {
+          "metric": "load_subscriber_delivery_complete{stage:3}",
+          "threshold": "rate==1"
+        }
+      ],
+      "execution": {
+        "runner": "albam-mate-infra/run.sh loadtest",
+        "k6Version": "1.3.0",
+        "resolvedScenarioEnvironment": {
+          "K6_LOGIN_LIMIT": 300,
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
+          "K6_LOAD_ROOM_STEPS": "1,2,4,8",
+          "K6_LOAD_ROOM_SUBSCRIBERS": 3,
+          "K6_LOAD_ROOM_SEND_RATE": 1
+        }
+      },
+      "stages": [
+        {
+          "stage": 1,
+          "target": "1 active room",
+          "httpP95": 46.2666202,
+          "sendOkRate": 0.9666666666666667,
+          "sendTotal": 120,
+          "deliveryP95": 31,
+          "deliverySamples": 91,
+          "connectP95": 25.9,
+          "openedRate": 1,
+          "openedTotal": 3,
+          "subscriberDeliveryRate": 0.3333333333333333,
+          "subscriberDeliveryTotal": 3
+        },
+        {
+          "stage": 2,
+          "target": "2 active rooms",
+          "httpP95": 42.97786765,
+          "sendOkRate": 1,
+          "sendTotal": 180,
+          "deliveryP95": 30.549999999999997,
+          "deliverySamples": 89,
+          "connectP95": 25.6,
+          "openedRate": 1,
+          "openedTotal": 5,
+          "subscriberDeliveryRate": 0.2,
+          "subscriberDeliveryTotal": 5
+        },
+        {
+          "stage": 3,
+          "target": "4 active rooms",
+          "httpP95": 40.8694221,
+          "sendOkRate": 1,
+          "sendTotal": 360,
+          "deliveryP95": 28,
+          "deliverySamples": 432,
+          "connectP95": 29.5,
+          "openedRate": 1,
+          "openedTotal": 11,
+          "subscriberDeliveryRate": 0.8181818181818182,
+          "subscriberDeliveryTotal": 11
+        },
+        {
+          "stage": 4,
+          "target": "8 active rooms",
+          "httpP95": 39.05761315,
+          "sendOkRate": 1,
+          "sendTotal": 840,
+          "deliveryP95": 50,
+          "deliverySamples": 629,
+          "connectP95": 26.199999999999996,
+          "openedRate": 1,
+          "openedTotal": 7,
+          "subscriberDeliveryRate": 1,
+          "subscriberDeliveryTotal": 7
+        }
+      ]
+    },
+    {
+      "scenario": "load-mixed",
+      "startedAt": "2026-08-13T10:59:31Z",
+      "endedAt": "2026-08-13T11:13:23Z",
+      "startedAtKst": "2026-08-13T19:59:31+09:00",
+      "endedAtKst": "2026-08-13T20:13:23+09:00",
+      "exit": 2,
+      "runnerExit": 2,
+      "k6Exit": 99,
+      "status": "COMPLETED_WITH_THRESHOLD_VIOLATIONS",
+      "reportDisposition": "included",
+      "summary": "summary-20260813T110122Z.json",
+      "console": "console-20260813T110122Z.log",
+      "summarySha256": "ffb4c8613295106302defdd63115230c3e94673069d67b75f63cfb74760a4f7e",
+      "consoleSha256": "6a3be3c4ecb6b281f1d6139aee3019f0659a2bc5535870ee8ff01aafb0bc5a87",
+      "droppedIterations": 0,
+      "httpReqFailed": {
+        "rate": 0.0005715918833952558,
+        "failedRequests": 2,
+        "totalRequests": 3499
+      },
+      "thresholdViolations": [
+        {
+          "metric": "chat_websocket_session_healthy",
+          "threshold": "rate>=0.99"
+        }
+      ],
+      "execution": {
+        "runner": "albam-mate-infra/run.sh loadtest",
+        "k6Version": "1.3.0",
+        "resolvedScenarioEnvironment": {
+          "K6_LOGIN_LIMIT": 300,
+          "K6_LOAD_STEP_DURATION": "2m",
+          "K6_LOAD_WARMUP_DURATION": "30s",
+          "K6_LOAD_MIXED_SCALES": "1,2,3,4",
+          "K6_LOAD_MIXED_SEND_RATE": 1,
+          "K6_LOAD_MIXED_HISTORY_RATE": 2,
+          "K6_LOAD_MIXED_CONNECTIONS": 5
+        }
+      },
+      "stages": [
+        {
+          "stage": 1,
+          "target": "1x mixed load",
+          "httpP95": 36.7698536,
+          "sendOkRate": 1,
+          "sendTotal": 360,
+          "deliveryP95": 26,
+          "deliverySamples": 91,
+          "connectP95": 23.8,
+          "openedRate": 1,
+          "openedTotal": 5,
+          "subscriberDeliveryRate": 1,
+          "subscriberDeliveryTotal": 5
+        },
+        {
+          "stage": 2,
+          "target": "2x mixed load",
+          "httpP95": 36.5649442,
+          "sendOkRate": 1,
+          "sendTotal": 540,
+          "deliveryP95": 39,
+          "deliverySamples": 248,
+          "connectP95": 26.799999999999997,
+          "openedRate": 1,
+          "openedTotal": 9,
+          "subscriberDeliveryRate": 1,
+          "subscriberDeliveryTotal": 9
+        },
+        {
+          "stage": 3,
+          "target": "3x mixed load",
+          "httpP95": 59.9614826,
+          "sendOkRate": 0.9977777777777778,
+          "sendTotal": 900,
+          "deliveryP95": 49.84999999999999,
+          "deliverySamples": 532,
+          "connectP95": 56.899999999999956,
+          "openedRate": 1,
+          "openedTotal": 14,
+          "subscriberDeliveryRate": 1,
+          "subscriberDeliveryTotal": 14
+        },
+        {
+          "stage": 4,
+          "target": "4x mixed load",
+          "httpP95": 41.71642025,
+          "sendOkRate": 1,
+          "sendTotal": 1440,
+          "deliveryP95": 45.84999999999995,
+          "deliverySamples": 258,
+          "connectP95": 26,
+          "openedRate": 1,
+          "openedTotal": 5,
+          "subscriberDeliveryRate": 1,
+          "subscriberDeliveryTotal": 5
+        }
+      ]
+    }
+  ]
+}

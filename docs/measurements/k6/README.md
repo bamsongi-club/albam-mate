@@ -50,6 +50,7 @@ docs/
 - `reportDisposition=excluded`인 Run은 실패한 준비·계측 과정의 이력이며 정상·실패 경계 계산에 사용하지 않는다.
 - 원자료가 `local-only`라면 manifest의 SHA-256은 로컬 bundle의 변경 여부만 증명한다. 이 저장소만으로 원자료 내용을 독립 재검증할 수 있다는 뜻은 아니다.
 - 성공률·지연처럼 실행 간 편차가 큰 값은 같은 조건의 반복 측정 범위로 비교한다.
+- 후속 측정은 같은 release를 다시 잰 경우에만 기존 캠페인을 대체한다. release가 바뀌면 이전 캠페인을 before 기준선으로 남긴다.
 
 ## 상태 어휘
 
@@ -62,8 +63,12 @@ docs/
 | Run 판정 | `PASS` | 계약 또는 성능 임계를 유효하게 통과 |
 | Run 판정 | `FAIL` | Run은 유효하지만 성능 임계를 통과하지 못함 |
 | Run 판정 | `INVALID` | 준비·계측·필수 근거 조건을 만족하지 못해 경계 계산에서 제외 |
+| Manifest v3 실행 상태 | `COMPLETED` | 시나리오가 완주했고 threshold 위반이 없다. 보고서 Run 판정은 `PASS` |
+| Manifest v3 실행 상태 | `COMPLETED_WITH_THRESHOLD_VIOLATIONS` | 시나리오는 완주했지만 하나 이상의 threshold를 넘었다. 보고서 Run 판정은 `FAIL` |
 | 캠페인 판정 | `INCONSISTENT` | 탐색과 지속 Run이 재현되지 않아 정상·실패 경계를 확정할 수 없음 |
 | 캠페인 판정 | `PASS_AT_MAX` | 계획한 최대 단계까지 유효하게 통과했지만 그보다 높은 부하의 용량은 증명하지 않음 |
+
+`reportDisposition=included`은 원자료를 보고서 계산에 쓸 수 있다는 뜻일 뿐 Run 판정을 바꾸지 않는다. 따라서 유효한 `FAIL` Run도 `included`일 수 있다.
 
 ## ROOM 기준선과의 분리
 
