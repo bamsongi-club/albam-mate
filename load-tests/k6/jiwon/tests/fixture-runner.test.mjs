@@ -757,6 +757,14 @@ test('k6 runtime은 ownership marker가 있는 fixture schema 2만 실행한다'
   assert.match(source, /PREPARE_OWNERSHIP_PATTERN\.test\(fixture\.prepareOwnership\)/);
 });
 
+test('k6 runtime은 fixture 계정마다 독립 CookieJar를 만든다', () => {
+  const source = readFileSync(roomK6Library, 'utf8');
+
+  assert.doesNotMatch(source, /http\.cookieJar\(\)/);
+  assert.match(source, /const client = \{ jar: new http\.CookieJar\(\), csrf: null, sessionId: null \};/);
+  assert.match(source, /const jar = new http\.CookieJar\(\);/);
+});
+
 test('fixture tool은 ownership marker가 없는 legacy fixture를 k6 실행 전에 거절한다', () => {
   const prepared = writeFixture(`runner-legacy-fixture-${process.pid}`);
 
