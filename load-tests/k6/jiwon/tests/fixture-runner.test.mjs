@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import {
   chmodSync,
   copyFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -17,6 +19,14 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 
 import { createFixturePlan, hydrateFixture } from '../tools/fixture-model.mjs';
+import {
+  aggregateBundle,
+  bundleExecutionOptions,
+  diagnoseBundle,
+  hydrateBundle,
+  renderBundle,
+  validateBundle,
+} from '../tools/portable-bundle.mjs';
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(testDirectory, '../../../..');
@@ -619,6 +629,51 @@ function cleanupFixture(fixturePath, binDirectory, extraEnvironment = {}) {
 
 function sha256(filePath) {
   return createHash('sha256').update(readFileSync(filePath)).digest('hex');
+}
+
+function createPortableBundleSource(root) {
+  const sourceDirectory = path.join(root, 'source', 'jiwon');
+  cpSync(path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon'), sourceDirectory, { recursive: true });
+  return sourceDirectory;
+}
+
+function portableBundleContext(scenarioDirectory, buildRoot) {
+  return {
+    repositoryRoot,
+    scenarioDirectory,
+    buildRoot,
+    bundleRoot: null,
+    isBundleRuntime: false,
+    environment: { ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$portable-source-link-test' },
+  };
+}
+
+function renderPortableBundle(scenarioDirectory, buildRoot, suffix) {
+  return renderBundle({
+    scenario: 't1',
+    runId: `portable-source-link-${process.pid}-${Date.now()}-${suffix}`,
+    profile: 'spike',
+    mode: 'hot',
+    concurrency: '2',
+  }, portableBundleContext(scenarioDirectory, buildRoot), {
+    sourceRevision: 'd'.repeat(40),
+    sourceDirty: false,
+  });
+}
+
+function createSymbolicLinkOrSkip(t, target, linkPath, type, label) {
+  try {
+    symlinkSync(target, linkPath, type);
+    return true;
+  } catch (error) {
+    if (process.platform === 'win32' && (error?.code === 'EPERM' || error?.code === 'EACCES')) {
+      const message = `${label}: 현재 Windows 권한에서는 symbolic link 생성 검증을 건너뜁니다.`;
+      t.diagnostic(message);
+      t.skip(message);
+      return false;
+    }
+    throw error;
+  }
 }
 
 const fakeK6Skip = process.platform === 'win32'
@@ -1378,5 +1433,324 @@ test('prepare SQL 실행 실패도 recovery artifact 경로를 안내한다', {
   } finally {
     rmSync(path.join(fixtureBuildRoot, runId), { recursive: true, force: true });
     rmSync(binDirectory, { recursive: true, force: true });
+  }
+});
+
+test('portable bundle render는 source scenario/runtime과 부모 경로 symbolic link를 거절한다', async (t) => {
+  const verifySourceLinkRejection = async (name, suffix, configure) => {
+    await t.test(name, (subtest) => {
+      const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-portable-source-link-'));
+      try {
+        const sourceDirectory = createPortableBundleSource(root);
+        const scenarioDirectory = configure({ root, sourceDirectory, subtest });
+        if (!scenarioDirectory) {
+          return;
+        }
+
+        assert.throws(
+          () => renderPortableBundle(scenarioDirectory, path.join(root, 'build', 'k6', 'room'), suffix),
+          /symbolic link/,
+        );
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  };
+
+  await verifySourceLinkRejection('scenario entry symbolic link', 'scenario', ({ root, sourceDirectory, subtest }) => {
+    const scenarioPath = path.join(sourceDirectory, 't1-cancel-promotion.js');
+    const targetPath = path.join(root, 'outside-scenario.js');
+    copyFileSync(scenarioPath, targetPath);
+    rmSync(scenarioPath);
+    return createSymbolicLinkOrSkip(subtest, targetPath, scenarioPath, 'file', 'scenario entry')
+      ? sourceDirectory
+      : null;
+  });
+  await verifySourceLinkRejection('runtime file symbolic link', 'runtime-file', ({ root, sourceDirectory, subtest }) => {
+    const runtimePath = path.join(sourceDirectory, 'tools', 'fixture-model.mjs');
+    const targetPath = path.join(root, 'outside-runtime.mjs');
+    copyFileSync(runtimePath, targetPath);
+    rmSync(runtimePath);
+    return createSymbolicLinkOrSkip(subtest, targetPath, runtimePath, 'file', 'runtime file')
+      ? sourceDirectory
+      : null;
+  });
+  await verifySourceLinkRejection('runtime lib parent symbolic link', 'runtime-lib', ({ root, sourceDirectory, subtest }) => {
+    const libDirectory = path.join(sourceDirectory, 'lib');
+    const targetDirectory = path.join(root, 'outside-lib');
+    cpSync(libDirectory, targetDirectory, { recursive: true });
+    rmSync(libDirectory, { recursive: true, force: true });
+    return createSymbolicLinkOrSkip(subtest, targetDirectory, libDirectory, 'dir', 'runtime lib parent')
+      ? sourceDirectory
+      : null;
+  });
+  await verifySourceLinkRejection('scenarioDirectory symbolic link', 'scenario-directory', ({ root, sourceDirectory, subtest }) => {
+    const linkedDirectory = path.join(root, 'linked-scenario-directory');
+    return createSymbolicLinkOrSkip(subtest, sourceDirectory, linkedDirectory, 'dir', 'scenarioDirectory')
+      ? linkedDirectory
+      : null;
+  });
+  await verifySourceLinkRejection('scenarioDirectory ancestor symbolic link', 'scenario-ancestor', ({ root, sourceDirectory, subtest }) => {
+    const linkedParent = path.join(root, 'linked-source-parent');
+    return createSymbolicLinkOrSkip(subtest, path.dirname(sourceDirectory), linkedParent, 'dir', 'scenarioDirectory ancestor')
+      ? path.join(linkedParent, path.basename(sourceDirectory))
+      : null;
+  });
+});
+
+test('portable bundle은 DB·k6 없이 full closure와 immutable 계약을 생성한다', (t) => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-portable-bundle-'));
+  const buildRoot = path.join(root, 'build', 'k6', 'room');
+  const context = {
+    repositoryRoot,
+    scenarioDirectory: path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon'),
+    buildRoot,
+    bundleRoot: null,
+    isBundleRuntime: false,
+    environment: {
+      ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$portable-bundle-test',
+      ROOM_K6_SESSION_WARMUP_SECONDS: '15',
+      ROOM_K6_ROUND_INTERVAL_SECONDS: '20',
+      ROOM_K6_READ_VUS: '7',
+      ROOM_K6_READ_DURATION_SECONDS: '75',
+      ROOM_K6_READ_THINK_TIME_MS: '25',
+    },
+  };
+  const provenance = { sourceRevision: 'a'.repeat(40), sourceDirty: false };
+
+  try {
+    const rendered = renderBundle({
+      scenario: 't5',
+      runId: `portable-${process.pid}-${Date.now()}`,
+      profile: 'spike',
+      t5Role: 'host',
+      t5Scale: '1',
+    }, context, provenance);
+    const bundle = rendered.bundlePath;
+    const requiredPaths = [
+      'manifest.json',
+      'fixture-plan.json',
+      'private/prepare-provenance.json',
+      'prepare.sql',
+      'resource-query.sql',
+      'execution-options.json',
+      'scenario.js',
+      'lib/room-k6.js',
+      'lib/read-execution-options.mjs',
+      'lib/write-options.mjs',
+      'lib/start-skew.mjs',
+      'lib/write-response-contract.mjs',
+      'lib/t3-execution-plan.mjs',
+      'tools/fixture.mjs',
+      'tools/fixture-model.mjs',
+      'tools/portable-bundle.mjs',
+    ];
+    for (const relativePath of requiredPaths) {
+      assert.ok(existsSync(path.join(bundle, relativePath)), relativePath);
+    }
+
+    assert.deepEqual(validateBundle(bundle, context, { forExecution: true }), {
+      bundlePath: bundle,
+      runId: rendered.options.runId,
+      fixtureId: rendered.fixtureId,
+    });
+    assert.deepEqual(bundleExecutionOptions(bundle, context), {
+      schemaVersion: 1,
+      k6Environment: {
+        ROOM_K6_SESSION_WARMUP_SECONDS: '15',
+        ROOM_K6_ROUND_INTERVAL_SECONDS: '20',
+        ROOM_K6_READ_VUS: '7',
+        ROOM_K6_READ_DURATION_SECONDS: '75',
+        ROOM_K6_READ_THINK_TIME_MS: '25',
+      },
+      t5ReadOptions: { vus: 7, durationSeconds: 75, thinkTimeMilliseconds: 25 },
+    });
+
+    const bundleTool = path.join(bundle, 'tools', 'fixture.mjs');
+    const runtimeValidation = spawnSync(process.execPath, [
+      bundleTool,
+      'validate',
+      '--for-execution',
+      '--bundle',
+      bundle,
+    ], { encoding: 'utf8' });
+    assert.equal(runtimeValidation.status, 0, runtimeValidation.stderr || runtimeValidation.stdout);
+
+    const symlinkTarget = path.join(root, 'outside-scenario.js');
+    const symlinkPath = path.join(bundle, 'scenario.js');
+    copyFileSync(symlinkPath, symlinkTarget);
+    rmSync(symlinkPath);
+    try {
+      symlinkSync(symlinkTarget, symlinkPath, 'file');
+      assert.throws(
+        () => validateBundle(bundle, context, { forExecution: true }),
+        /symbolic link/,
+      );
+    } catch (error) {
+      if (error?.code === 'EPERM' || error?.code === 'EACCES') {
+        t.diagnostic('현재 Windows 권한에서는 symbolic link 생성 검증을 건너뜁니다.');
+      } else {
+        throw error;
+      }
+    } finally {
+      rmSync(symlinkPath, { force: true });
+    }
+
+    writeFileSync(path.join(bundle, 'scenario.js'), '// altered\n', 'utf8');
+    assert.throws(
+      () => validateBundle(bundle, context, { forExecution: true }),
+      /immutable artifact가 변조되었습니다: scenario\.js/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('portable bundle hydrate와 before diagnosis는 prepare ownership과 raw DB artifact를 다시 대조한다', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-portable-hydrate-'));
+  const buildRoot = path.join(root, 'build', 'k6', 'room');
+  const context = {
+    repositoryRoot,
+    scenarioDirectory: path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon'),
+    buildRoot,
+    bundleRoot: null,
+    isBundleRuntime: false,
+    environment: { ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$portable-hydrate-test' },
+  };
+  const provenance = { sourceRevision: 'b'.repeat(40), sourceDirty: false };
+
+  try {
+    const rendered = renderBundle({
+      scenario: 't1',
+      runId: `portable-hydrate-${process.pid}-${Date.now()}`,
+      profile: 'spike',
+      mode: 'hot',
+      concurrency: '2',
+    }, context, provenance);
+    const bundle = rendered.bundlePath;
+    const plan = JSON.parse(readFileSync(path.join(bundle, 'fixture-plan.json'), 'utf8'));
+    writeFileSync(
+      path.join(bundle, 'resource-output.json'),
+      `${JSON.stringify(fixtureResources(plan))}\n`,
+      'utf8',
+    );
+
+    const hydrated = hydrateBundle(bundle, context);
+    const fixture = JSON.parse(readFileSync(hydrated.fixturePath, 'utf8'));
+    assert.match(fixture.prepareOwnership, /^[0-9a-f]{32}$/);
+    assert.match(readFileSync(path.join(bundle, 'snapshot.sql'), 'utf8'), /jsonb_build_object/);
+    assert.match(readFileSync(path.join(bundle, 'cleanup.sql'), 'utf8'), /pg_advisory_xact_lock/);
+
+    writeFileSync(
+      path.join(bundle, 'before-snapshot.json'),
+      `${JSON.stringify(fixtureSnapshot(fixture))}\n`,
+      'utf8',
+    );
+    const before = diagnoseBundle({ bundle, stage: 'before' }, context);
+    assert.equal(before.status, 'PASS');
+    assert.equal(existsSync(path.join(bundle, 'before-diagnosis.json')), true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('portable bundle은 원격 raw metadata와 두 진단을 PASS·FAIL·INVALID로 집계한다', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-portable-aggregate-'));
+  const buildRoot = path.join(root, 'build', 'k6', 'room');
+  const context = {
+    repositoryRoot,
+    scenarioDirectory: path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon'),
+    buildRoot,
+    bundleRoot: null,
+    isBundleRuntime: false,
+    environment: {
+      ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$portable-aggregate-test',
+      ROOM_K6_READ_VUS: '7',
+      ROOM_K6_READ_DURATION_SECONDS: '75',
+      ROOM_K6_READ_THINK_TIME_MS: '25',
+    },
+  };
+  const provenance = { sourceRevision: 'c'.repeat(40), sourceDirty: false };
+
+  try {
+    const rendered = renderBundle({
+      scenario: 't5',
+      runId: `portable-aggregate-${process.pid}-${Date.now()}`,
+      profile: 'spike',
+      t5Role: 'host',
+      t5Scale: '1',
+    }, context, provenance);
+    const bundle = rendered.bundlePath;
+    const plan = JSON.parse(readFileSync(path.join(bundle, 'fixture-plan.json'), 'utf8'));
+    writeFileSync(
+      path.join(bundle, 'resource-output.json'),
+      `${JSON.stringify(fixtureResources(plan))}\n`,
+      'utf8',
+    );
+
+    const hydrated = hydrateBundle(bundle, context);
+    const fixture = JSON.parse(readFileSync(hydrated.fixturePath, 'utf8'));
+    const snapshot = fixtureSnapshot(fixture);
+    writeFileSync(path.join(bundle, 'before-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
+    diagnoseBundle({ bundle, stage: 'before' }, context);
+    writeFileSync(path.join(bundle, 'after-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
+    writeFileSync(path.join(bundle, 'k6-summary.json'), `${JSON.stringify(t5Summary(1))}\n`, 'utf8');
+    diagnoseBundle({ bundle, stage: 'after' }, context);
+
+    const executionPath = path.join(bundle, 'infra-execution.json');
+    const finalResultPath = path.join(bundle, 'final-result.json');
+    const afterDiagnosisPath = path.join(bundle, 'after-diagnosis.json');
+    const writeExecution = (k6ExitCode) => {
+      writeFileSync(executionPath, `${JSON.stringify({
+        schemaVersion: 1,
+        runId: rendered.options.runId,
+        fixtureId: rendered.fixtureId,
+        phases: {
+          prepare: { exitCode: 0 },
+          resourceQuery: { exitCode: 0 },
+          beforeSnapshot: { exitCode: 0 },
+          k6: { exitCode: k6ExitCode },
+          afterSnapshot: { exitCode: 0 },
+        },
+      })}\n`, 'utf8');
+    };
+    const aggregate = () => {
+      rmSync(finalResultPath, { force: true });
+      return aggregateBundle(bundle, context);
+    };
+
+    writeExecution(0);
+    const passResult = aggregate();
+    assert.equal(passResult.status, 'PASS');
+    assert.equal(passResult.issues.length, 0);
+
+    writeExecution(2);
+    const phaseFailure = aggregate();
+    assert.equal(phaseFailure.status, 'FAIL');
+    assert.equal(phaseFailure.infraExecution.phases.k6.exitCode, 2);
+
+    writeExecution(0);
+    const afterDiagnosis = JSON.parse(readFileSync(afterDiagnosisPath, 'utf8'));
+    afterDiagnosis.status = 'FAIL';
+    writeFileSync(afterDiagnosisPath, `${JSON.stringify(afterDiagnosis)}\n`, 'utf8');
+    const diagnosisFailure = aggregate();
+    assert.equal(diagnosisFailure.status, 'FAIL');
+    assert.equal(diagnosisFailure.afterDiagnosis.status, 'FAIL');
+
+    afterDiagnosis.status = 'INVALID';
+    writeFileSync(afterDiagnosisPath, `${JSON.stringify(afterDiagnosis)}\n`, 'utf8');
+    const invalidDiagnosis = aggregate();
+    assert.equal(invalidDiagnosis.status, 'INVALID');
+    assert.equal(invalidDiagnosis.afterDiagnosis.status, 'INVALID');
+
+    afterDiagnosis.status = 'PASS';
+    writeFileSync(afterDiagnosisPath, `${JSON.stringify(afterDiagnosis)}\n`, 'utf8');
+    writeExecution(null);
+    const incompleteMetadata = aggregate();
+    assert.equal(incompleteMetadata.status, 'INVALID');
+    assert.match(incompleteMetadata.issues[0], /phase exit code/);
+    assert.equal(existsSync(finalResultPath), true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
