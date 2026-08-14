@@ -30,7 +30,7 @@ P0는 홍대 오프라인 모임을 대상으로 하며 완료 시점의 범위�
 | --- | --- | --- |
 | P0 1차 MVP | `v0.1.0` 범위의 백엔드 17개 API와 React 연동 완료 | [P0 완료 명세](docs/archive/p0/P0-spec.md), [API 계약](docs/API.md) |
 | P1 2차 MVP | 필수 기능 계약·생산 코드·자동 검증 완료, 상시 운영 배포와 일부 실측은 미완료 | [P1 기능별 종료 상태](docs/archive/p1/README.md#기능별-종료-상태) |
-| P2 3차 MVP | 공통 명세와 운영 관측 정책을 정본으로 승격하고 메트릭·로그 전송 ADR을 승인했으며, 팀원별 상세 기능 명세와 구현은 준비 중 | [P2 기능 상태 정본](docs/p2/README.md#기능별-현재-상태) |
+| P2 3차 MVP | 공통 명세와 운영 관측 정책·런북을 정본으로 승격하고 메트릭·로그 전송 ADR을 승인했으며, 팀원별 상세 기능 명세와 구현은 준비 중 | [P2 기능 상태 정본](docs/p2/README.md#기능별-현재-상태) |
 | 로컬 검증 환경 | 프록시, Spring 2대, PostgreSQL과 Redis를 `compose.local.yml`로 실행 가능 | [로컬 개발 환경 실행](docs/guides/LOCAL_DEVELOPMENT.md) |
 | 운영 배포 | 상시 운영 서비스 배포는 완료하지 않았습니다. 임시 AWS 검증 스택은 측정 뒤 철거했습니다. | [P1 기능별 종료 상태](docs/archive/p1/README.md#기능별-종료-상태) |
 | 검증 실측 | 검색·알림은 임시 AWS의 제한된 실측, ROOM-09·10은 로컬 PostgreSQL 기준선을 보존했습니다. `INVALID` 실행과 미측정 기능은 분리합니다. | [k6 측정 문서 규칙](docs/measurements/k6/README.md), [인증·알림 측정](docs/measurements/k6/jiho/README.md), [ROOM-09 측정](docs/measurements/room-09-bounded-processing-baseline.md) |

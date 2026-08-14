@@ -105,7 +105,7 @@ node --test scripts/check-doc-links.test.mjs
 
 운영 호스트 준비, 설정 검증, 배포·롤백 명령은 [P1 AWS 다중 인스턴스 실행안](guides/AWS_MULTI_INSTANCE_INFRASTRUCTURE.md)이 소유한다. 이 문서에는 운영 비밀값이나 호스트별 긴 절차를 복제하지 않는다.
 
-P2 운영 관측의 기능 완료 기준은 [운영 관측 명세](p2/monitoring.md), 화면·경고 정책은 [대시보드 정책](p2/dashboard.md), metric·log 전송 경계는 [ADR-0058](adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md)·[ADR-0059](adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)을 따른다. 아직 구현·배포 검증을 마치지 않았으므로 실행되지 않는 예시 명령을 이 문서에 추가하지 않는다.
+P2 운영 관측의 기능 완료 기준은 [운영 관측 명세](p2/monitoring.md), 화면·경고 정책은 [대시보드 정책](p2/dashboard.md), metric·log 허용 목록과 계획 종료·재기동 계약은 [P2 운영 관측 런북](guides/MONITORING_OPERATIONS.md), 전송 경계는 [ADR-0058](adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md)·[ADR-0059](adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)을 따른다. 상태 전이 운영 CLI가 아직 구현·배포 검증되지 않았으므로 실행되지 않는 예시 명령을 이 문서에 추가하지 않는다.
 
 ## 프롬프트 기록 확인
 
@@ -120,7 +120,7 @@ P2 운영 관측의 기능 완료 기준은 [운영 관측 명세](p2/monitoring
 | 로컬 `.env`, 로그, 종료와 데이터 초기화 | [로컬 개발 환경 실행](guides/LOCAL_DEVELOPMENT.md) |
 | PostgreSQL 실패·커버리지 최소선 해석 | [백엔드 테스트와 커버리지 검증](guides/TESTING.md) |
 | 운영 Compose와 P1 AWS 검증 환경 | [P1 AWS 다중 인스턴스 실행안](guides/AWS_MULTI_INSTANCE_INFRASTRUCTURE.md) |
-| P2 metric·log·대시보드·경고 계약 | [P2 운영 관측 명세](p2/monitoring.md), [대시보드 정책](p2/dashboard.md) |
+| P2 metric·log·대시보드·경고·계획 종료 계약 | [P2 운영 관측 명세](p2/monitoring.md), [대시보드 정책](p2/dashboard.md), [운영 관측 런북](guides/MONITORING_OPERATIONS.md) |
 | 인증·알림 k6 계약과 용량 측정 | [인증·알림 k6 README](../load-tests/k6/jiho/README.md), [Jiho 측정 문서](measurements/k6/jiho/README.md) |
 | ROOM-09 기준선 실행과 보고서 재생성 | [ROOM-09 일괄 처리 기준선](measurements/room-09-bounded-processing-baseline.md#재현-명령) |
 | 게임 카탈로그 fixture·검수·적재 | [게임 카탈로그 검수·적재](guides/GAME_CATALOG_IMPORT.md) |

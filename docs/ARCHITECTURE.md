@@ -389,7 +389,7 @@ App1과 `local` Nginx는 Spring의 유일한 신뢰 프록시다. HTTP와 WebSoc
 
 #### P2 운영 관측 경계 (후속 구현)
 
-P2 운영 관측의 기능 규칙과 완료 기준은 [운영 관측 명세](p2/monitoring.md), 화면·경고·비용·배포 검증 정책은 [대시보드 정책](p2/dashboard.md)이 소유한다. 아래 전송 경계는 승인됐지만 아직 생산 배포에서 검증하지 않았으며, 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
+P2 운영 관측의 기능 규칙과 완료 기준은 [운영 관측 명세](p2/monitoring.md), 화면·경고·비용·배포 검증 정책은 [대시보드 정책](p2/dashboard.md), metric·log inventory와 운영 상태 전이·runbook은 [운영 관측 런북](guides/MONITORING_OPERATIONS.md)이 소유한다. 아래 전송 경계는 승인됐지만 아직 생산 배포에서 검증하지 않았으며, 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
 
 - Spring 애플리케이션은 [ADR-0058](adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md)에 따라 Micrometer metric을 OTLP HTTP로 같은 EC2의 host CloudWatch Agent에 보낸다. Spring container의 `127.0.0.1`을 host loopback으로 해석하지 않고, 외부에 publish하지 않은 동일 호스트 전용 Docker bridge와 host 방화벽으로 수신자를 해당 Spring container에 제한한다.
 - App1·App2는 각자 자신의 host Agent만 사용한다. Agent·CloudWatch 장애는 사용자 요청과 업무 트랜잭션을 실패시키지 않고 마지막 수집 시각과 관측 공백으로 드러낸다. 애플리케이션은 CloudWatch SDK나 다른 host Agent fallback을 사용하지 않는다.

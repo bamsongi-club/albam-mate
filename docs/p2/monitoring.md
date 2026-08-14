@@ -2,11 +2,11 @@
 
 > **문서 상태: active · 정본 승격일: 2026-08-13**
 >
-> 이 문서는 P1에서 조건부 후속으로 예약한 운영 관측을 P2의 `OPS-01`~`OPS-05`로 구체화한 기능 정본이다. 문서 활성화와 메트릭·로그 전송 ADR 승인만으로 구현·배포·실측이 완료되지는 않으며, 상태표의 남은 선행 계약을 충족해야 한다.
+> 이 문서는 P1에서 조건부 후속으로 예약한 운영 관측을 P2의 `OPS-01`~`OPS-05`로 구체화한 기능 정본이다. 문서 활성화와 메트릭·로그 전송 ADR·운영 계약 승인만으로 구현·배포·실측이 완료되지는 않으며, 기능별 상태표에서 그 축을 따로 판정한다.
 
 이 문서는 `OPS-01`~`OPS-05`의 기능 규칙, 완료 기준과 제외 범위를 정의한다. 현재 계약 준비·생산 코드·자동 검증·운영 배포와 실측 상태는 [P2 기능 상태 정본](README.md#기능별-현재-상태)에서만 판정한다.
 
-P2 전체 범위와 공통 운영 흐름은 [P2 공통 명세](../P2-spec.md), 화면·경고·비용·배포 검증 정책은 [운영 대시보드 정책](dashboard.md)이 관리한다. 메트릭 전송은 [ADR-0058](../adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md), 구조화 로그 전송·보존은 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)가 소유하며, 이 문서가 ADR이나 구현 증거를 대신하지 않는다.
+P2 전체 범위와 공통 운영 흐름은 [P2 공통 명세](../P2-spec.md), 화면·경고·비용·배포 검증 정책은 [운영 대시보드 정책](dashboard.md)이 관리한다. 실제 metric·log 허용 목록, alarm matrix와 전체 스택 계획 종료·재기동 절차는 [P2 운영 관측 런북](../guides/MONITORING_OPERATIONS.md)이 소유한다. 메트릭 전송은 [ADR-0058](../adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md), 구조화 로그 전송·보존은 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)가 소유하며, 이 문서가 ADR이나 구현 증거를 대신하지 않는다.
 
 ## 목표와 지원 수준
 
@@ -149,10 +149,10 @@ ROOM 상태 보정 또는 채팅 보존 실패·지연·상한 경고 수신
 - `OPS-01-AC1` 인터넷에 management 포트를 열지 않고 허용된 수집 주체만 health·metrics를 조회한다.
 - `OPS-01-AC2` host, container, Spring, PostgreSQL과 Redis 상태를 분리하고 어느 계층이 끊겼는지 식별한다.
 - `OPS-01-AC3` App1·App2와 release를 구분하고 컨테이너 재시작·OOM을 host memory와 혼동하지 않는다.
-- `OPS-01-AC4` 운영을 선언한 시간에 수집을 의도적으로 중단하면 이전 정상값이 유지되지 않고 관측 공백으로 판정된다. 시작·종료 시각을 기록한 계획 종료 구간은 장애에서 제외한다.
+- `OPS-01-AC4` 운영을 선언한 시간에 수집을 의도적으로 중단하면 이전 정상값이 유지되지 않고 관측 공백으로 판정된다. App1·App2·PostgreSQL·Redis 전체 스택을 최대 7일 종료하는 [검증된 `PLANNED_STOP`](../guides/MONITORING_OPERATIONS.md#운영-상태-정본) 구간만 가용성 장애에서 제외한다.
 - `OPS-01-AC5` 정상 → 연결 실패 → 복구 시나리오와 상태 전이를 같은 release에서 기록한다.
 - `OPS-01-AC6` 배포·재기동 절차는 Spring health와 PostgreSQL·Redis 연결 확인에 성공한 뒤에만 운영 상태를 `ACTIVE`로 바꾸고 이메일 경고를 활성화한다.
-- `OPS-01-AC7` 계획 종료 절차는 `PLANNED_STOP` 기록과 경고 중지에 성공한 뒤 서버를 종료하며 상태 전환 실패를 조용히 무시하지 않는다.
+- `OPS-01-AC7` 계획 종료 절차는 `PLANNED_STOP`·초과 schedule·억제 대상 alarm action을 기록하고 재조회한 뒤에만 서버를 종료한다. 하나라도 실패하면 종료를 중단하고 `ACTIVE`를 유지하며 상태 전환 실패를 조용히 무시하지 않는다.
 
 ### 제외 범위
 
@@ -345,7 +345,7 @@ Agent·CloudWatch 장애는 사용자 요청과 업무 transaction을 실패시�
 1. 요약 대시보드: 생존, 지연, 실패, 비용과 핵심 업무 기능 결과를 한 흐름으로 보여준다.
 2. 상세 대시보드: App1·App2, JVM·Tomcat·HikariCP, PostgreSQL·Redis, scheduler, AI·Tool과 도메인 작업을 같은 UTC 구간에서 분석한다.
 
-경고는 `warning`과 `critical`만 사용한다. 모든 경고는 실제 수신 경로, 1차 담당자, 확인 dashboard·query, 허용 조치와 금지된 자동 조치를 가져야 한다. 최소 한 번은 `OK → ALARM → OK`와 실제 경고·복구 수신을 검증한다.
+경고는 `warning`과 `critical`만 사용한다. 모든 경고는 실제 수신 경로, 1차 담당자, 확인 dashboard·query, 허용 조치와 금지된 자동 조치를 가져야 한다. metric·log inventory와 경고별 query·missing-data·복구 절차는 [운영 관측 런북](../guides/MONITORING_OPERATIONS.md#alarmrunbook-matrix)을 따르며, 최소 한 번은 `OK → ALARM → OK`와 실제 경고·복구 수신을 검증한다.
 
 ## 제외 범위
 
@@ -358,10 +358,10 @@ Agent·CloudWatch 장애는 사용자 요청과 업무 transaction을 실패시�
 - AWS 계정 전체 FinOps와 실제 청구액 확정
 - `OPS-06` 배포·rollback·backup·복구 자동화, `SEC-01`, `RANK-01`
 
-## 결정 위치와 남은 정본화
+## 결정 위치와 구현 경계
 
 사용자가 확인한 운영 정책은 [운영 대시보드 정책](dashboard.md)의 해당 절이 관리한다. 이 문서는 그 정책을 각 `OPS-*` 기능 규칙과 완료 기준으로만 연결하며 확정값 목록을 반복하지 않는다.
 
-메트릭 전송은 승인된 [ADR-0058](../adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md), 로그 전송·보존은 승인된 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)가 소유한다. 두 ADR은 기술 선택을 확정했지만 아직 미검증이며, 실제 metric·log 허용 목록, 경고별 query·런북, 배포 설정과 비용·장애 검증이 남아 있다. 이 문서와 ADR 승인만으로 구현·배포 또는 실측이 끝났다고 판정하지 않는다.
+메트릭 전송은 승인된 [ADR-0058](../adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md), 로그 전송·보존은 승인된 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)가 소유한다. 실제 metric·log 허용 목록, 경고별 query·런북, 배포 설정·IAM·상태 전이와 비용·장애 검증 계약은 [운영 관측 런북](../guides/MONITORING_OPERATIONS.md)에 반영했다. 남은 작업은 애플리케이션·인프라 구현, 자동 검증, AWS 배포와 실측이며 이 문서·런북·ADR 승인만으로 그 상태가 끝났다고 판정하지 않는다.
 
 AI provider·model과 실제 이메일 주소처럼 다른 기능 명세나 배포 비밀이 소유하는 값은 이 문서에 임의로 만들지 않는다. 구현 시점의 현재 상태는 [P2 기능 상태 정본](README.md#기능별-현재-상태)만 갱신한다.
