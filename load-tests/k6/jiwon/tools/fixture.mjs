@@ -25,6 +25,7 @@ import {
   RUN_ID_PATTERN,
 } from './fixture-model.mjs';
 import { readExecutionOptions } from '../lib/read-execution-options.mjs';
+import { executePortableBundleCommand } from './portable-bundle.mjs';
 
 const toolDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(toolDirectory, '../../../..');
@@ -54,6 +55,17 @@ const COMMAND_OPTION_KEYS = {
   'compare-t5': new Set(['runId']),
   cleanup: new Set(['fixture']),
   'recover-cleanup': new Set(['recovery']),
+  'render-bundle': new Set([
+    'scenario', 'runId', 'profile', 'rounds', 'mode', 'concurrency', 'subcase', 't3Mode', 't5Role', 't5Scale',
+  ]),
+  validate: new Set(['bundle', 'forExecution']),
+  'execution-options': new Set(['bundle']),
+  hydrate: new Set(['bundle']),
+  diagnose: new Set(['bundle', 'stage']),
+  aggregate: new Set(['bundle']),
+};
+const COMMAND_BOOLEAN_OPTION_KEYS = {
+  validate: new Set(['forExecution']),
 };
 
 function usage() {
@@ -64,6 +76,12 @@ function usage() {
   node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id <run-id>
   node load-tests/k6/jiwon/tools/fixture.mjs cleanup --fixture <fixture.json>
   node load-tests/k6/jiwon/tools/fixture.mjs recover-cleanup --recovery <prepare-recovery.json>
+  node load-tests/k6/jiwon/tools/fixture.mjs render-bundle --scenario t1 --run-id <run-id> [옵션]
+  node load-tests/k6/jiwon/tools/fixture.mjs validate [--for-execution] --bundle <bundle-directory>
+  node load-tests/k6/jiwon/tools/fixture.mjs execution-options --bundle <bundle-directory>
+  node load-tests/k6/jiwon/tools/fixture.mjs hydrate --bundle <bundle-directory>
+  node load-tests/k6/jiwon/tools/fixture.mjs diagnose --bundle <bundle-directory> --stage before|after
+  node load-tests/k6/jiwon/tools/fixture.mjs aggregate --bundle <bundle-directory>
 
 prepare 공통 옵션: --profile stress|spike --rounds <1..20>
 T1/T2: --mode hot|spread --concurrency 2|4|8
@@ -98,6 +116,10 @@ function parseArguments(argv) {
     if (Object.prototype.hasOwnProperty.call(values, key)) {
       fail(`${token} 옵션이 중복되었습니다.`);
     }
+    if (COMMAND_BOOLEAN_OPTION_KEYS[command]?.has(key)) {
+      values[key] = true;
+      continue;
+    }
     const value = rest[index + 1];
     if (!value || value.startsWith('--')) {
       fail(`${token} 값이 필요합니다.`);
@@ -113,6 +135,29 @@ function parseArguments(argv) {
     }
   }
   return { command, values };
+}
+
+function portableBundleContext() {
+  const bundleRoot = path.resolve(toolDirectory, '..');
+  const isBundleRuntime = existsSync(path.join(bundleRoot, 'manifest.json'));
+  return {
+    repositoryRoot,
+    scenarioDirectory: path.resolve(toolDirectory, '..'),
+    buildRoot: isBundleRuntime ? path.dirname(path.dirname(bundleRoot)) : buildRoot,
+    bundleRoot,
+    isBundleRuntime,
+    environment: process.env,
+  };
+}
+
+function portableBundleCommand(command, values) {
+  const result = executePortableBundleCommand(command, values, portableBundleContext());
+  process.stdout.write(`${JSON.stringify(result)}\n`);
+  if (result.status === 'INVALID') {
+    process.exitCode = 2;
+  } else if (result.status === 'FAIL') {
+    process.exitCode = 1;
+  }
 }
 
 function requireEnvironment(name) {
@@ -933,6 +978,14 @@ async function main() {
       return;
     case 'recover-cleanup':
       recoverCleanup(values);
+      return;
+    case 'render-bundle':
+    case 'validate':
+    case 'execution-options':
+    case 'hydrate':
+    case 'diagnose':
+    case 'aggregate':
+      portableBundleCommand(command, values);
       return;
     default:
       fail(`지원하지 않는 명령: ${command}\n\n${usage()}`);
