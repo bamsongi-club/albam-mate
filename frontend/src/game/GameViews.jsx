@@ -67,7 +67,7 @@ function GameCard({ game, played, pending, onTogglePlayed }) {
   );
 }
 
-export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, onPlayedError, headerActions, initialFilters = EMPTY_GAME_FILTERS }) {
+export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, onPlayedError, headerActions, initialFilters = EMPTY_GAME_FILTERS, onBack }) {
   const [input, setInput] = useState(gameQuery);
   const [filters, setFilters] = useState(initialFilters);
   const keyword = gameQuery.trim();
@@ -103,30 +103,32 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
 
   return (
     <>
-      <div className="screen-body pad-top">
-        <ScreenTitle actions={headerActions}>{title}</ScreenTitle>
-        <form
-          className="searchbox"
-          style={{ marginTop: 16 }}
-          onSubmit={(event) => { event.preventDefault(); onGameQueryChange(input.trim()); }}
-        >
-          <SearchIcon />
-          <label className="sr-only" htmlFor="game-q">게임 이름 검색</label>
-          <input id="game-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임 이름으로 검색" />
-        </form>
-        <GameFilters filters={filters} onChange={setFilters} quickSlot={playedChips} resultCount={total} />
-        {!error && <p className="section-label" style={{ marginTop: 18 }}>{loading && !data ? '불러오는 중' : '게임 ' + total + '개'}</p>}
-      </div>
+      {onBack
+        ? <TopBar onBack={onBack} title={title} action={headerActions} />
+        : null}
+      <div className={'screen-body pad-bottom' + (onBack ? '' : ' pad-top')}>
+      {!onBack && <ScreenTitle actions={headerActions}>{title}</ScreenTitle>}
+      <form
+        className="searchbox"
+        style={{ marginTop: 16 }}
+        onSubmit={(event) => { event.preventDefault(); onGameQueryChange(input.trim()); }}
+      >
+        <SearchIcon />
+        <label className="sr-only" htmlFor="game-q">게임 이름 검색</label>
+        <input id="game-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임 이름으로 검색" />
+      </form>
+      <GameFilters filters={filters} onChange={setFilters} quickSlot={playedChips} resultCount={total} />
+      {!error && <p className="section-label" style={{ marginTop: 18 }}>{loading && !data ? '불러오는 중' : '게임 ' + total + '개'}</p>}
       {error && (
-        <div className="screen-body pad-bottom" style={{ paddingTop: 26 }}>
+        <div style={{ marginTop: 26 }}>
           {unauthenticated
             ? <LoginRequiredView message="해 본 게임으로 거르려면 로그인해주세요." />
             : <ErrorBox message={error} title="게임을 불러오지 못했어요" onRetry={retry} />}
         </div>
       )}
-      {!error && loading && !data && <div className="screen-body pad-bottom" style={{ paddingTop: 22 }}><RoomSkeletons count={3} /></div>}
+      {!error && loading && !data && <div style={{ marginTop: 22 }}><RoomSkeletons count={3} /></div>}
       {!error && !!games.length && (
-        <div className="gamegrid">
+        <div className="gamegrid" style={{ marginTop: 18 }}>
           {games.map((game) => (
             <GameCard
               key={game.id}
@@ -139,15 +141,14 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
         </div>
       )}
       {!error && !loading && !games.length && (
-        <div className="screen-body pad-bottom" style={{ paddingTop: 26 }}>
+        <div style={{ marginTop: 26 }}>
           <StateBlock title="검색 결과가 없어요" description="게임 이름의 일부만 넣어보세요." />
         </div>
       )}
       {!error && !!games.length && (
-        <div className="screen-body pad-bottom">
-          <Pagination page={data?.page ?? 0} totalPages={data?.totalPages ?? 0} loading={loading} onChange={setPage} />
-        </div>
+        <Pagination page={data?.page ?? 0} totalPages={data?.totalPages ?? 0} loading={loading} onChange={setPage} />
       )}
+      </div>
     </>
   );
 }

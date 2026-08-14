@@ -37,11 +37,12 @@ export const MatchIcon = ({ size = 21 }) => <Stroke size={size} width={1.9}><pat
 export const EditIcon = ({ size = 19 }) => <Stroke size={size} width={1.9}><path d="M17 3a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" /></Stroke>;
 export const EyeOffIcon = ({ size = 18 }) => <Stroke size={size}><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a18.6 18.6 0 0 1 4.22-5.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a18.6 18.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><path d="M1 1l22 22" /></Stroke>;
 
-/** 뒤로가기 바. 오른쪽 보조 조작은 action으로 넘긴다. */
-export function TopBar({ onBack, backLabel = '뒤로 가기', action }) {
+/** 뒤로가기 바. 아이콘 옆에 title을 두면 같은 줄에서 제목을 보여준다. 오른쪽 보조 조작은 action으로 넘긴다. */
+export function TopBar({ onBack, backLabel = '뒤로 가기', title, action }) {
   return (
     <div className="topbar">
       <button type="button" className="icon-btn" aria-label={backLabel} onClick={onBack}><BackIcon /></button>
+      {title && <h1 className="topbar-title"><span>{title}</span></h1>}
       {action}
     </div>
   );
