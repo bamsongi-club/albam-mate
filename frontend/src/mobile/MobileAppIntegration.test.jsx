@@ -27,10 +27,14 @@ function stubHomeDependencies() {
   vi.spyOn(api, 'getNotifications').mockResolvedValue(page([]));
   vi.spyOn(api, 'getUnreadNotificationCount').mockResolvedValue({ unreadCount: 0 });
   vi.spyOn(api, 'getRooms').mockResolvedValue(page([]));
-  vi.spyOn(api, 'getGames').mockResolvedValue(page([]));
+  const getGames = vi.spyOn(api, 'getGames').mockResolvedValue(page([]));
   vi.spyOn(api, 'getGameRankings').mockResolvedValue({ overall: [], pastWeek: [] });
   const getMyRooms = vi.spyOn(api, 'getMyRooms').mockResolvedValue(page([]));
-  return { getMyRooms };
+  return { getGames, getMyRooms };
+}
+
+function lastGameQuery(getGames) {
+  return getGames.mock.calls[getGames.mock.calls.length - 1][0];
 }
 
 async function renderApp(hash) {
@@ -63,6 +67,19 @@ describe('모바일 앱 셸', () => {
     render(<App />);
 
     expect(screen.getByRole('status', { name: '알밤메이트를 여는 중' })).toBeTruthy();
+  });
+
+  it('해 본 게임과 게임 찾기를 오가면 route에 맞는 조건으로 다시 조회한다', async () => {
+    const { getGames } = stubHomeDependencies();
+
+    await renderApp('#/game-list/played');
+    await waitFor(() => expect(lastGameQuery(getGames).playedFilter).toBe('PLAYED_ONLY'));
+
+    await act(async () => { window.location.hash = '#/game-list'; });
+    await waitFor(() => expect(lastGameQuery(getGames).playedFilter).toBeFalsy());
+
+    await act(async () => { window.location.hash = '#/game-list/played'; });
+    await waitFor(() => expect(lastGameQuery(getGames).playedFilter).toBe('PLAYED_ONLY'));
   });
 
   it('하위 화면에서는 하단 탭바를 감춘다', async () => {

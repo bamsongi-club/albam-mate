@@ -2355,11 +2355,13 @@ export function App() {
   if (route === 'find') {
     content = <FindRoomsView roomType={roomType} onRoomTypeChange={setRoomType} roomQuery={roomQuery} onRoomQueryChange={setRoomQuery} roomFilters={roomFilters} onRoomFiltersChange={setRoomFilters} dataVersion={dataVersion} />;
   } else if (route === 'game-list' && arg === 'played') {
+    // GamesView는 initialFilters를 최초 마운트에만 반영하므로, 두 목록 route에 다른 key를 줘
+    // 전환 때 재마운트시킨다. 같은 route 안에서 고른 필터는 key가 그대로라 유지된다.
     content = me
-      ? <div className="screen"><GamesView title="해 본 게임" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} onPlayedError={handleProtectedError} headerActions={headerActions} initialFilters={{ ...EMPTY_GAME_FILTERS, playedFilter: 'PLAYED_ONLY' }} /></div>
+      ? <div className="screen" key="game-list-played"><GamesView title="해 본 게임" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} onPlayedError={handleProtectedError} headerActions={headerActions} initialFilters={{ ...EMPTY_GAME_FILTERS, playedFilter: 'PLAYED_ONLY' }} /></div>
       : <LoginRequiredView message="해 본 게임을 보려면 로그인해주세요." onBack={goBack} />;
   } else if (route === 'game-list') {
-    content = <div className="screen"><GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} onPlayedError={handleProtectedError} headerActions={headerActions} /></div>;
+    content = <div className="screen" key="game-list"><GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} onPlayedError={handleProtectedError} headerActions={headerActions} /></div>;
   } else if (route === 'game-rankings') {
     content = <GameRankingView onBack={goBack} dataVersion={dataVersion} />;
   } else if (route === 'game') {
