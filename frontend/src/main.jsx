@@ -38,6 +38,7 @@ import { selectNotificationAndNavigate } from './notification/notificationNaviga
 import { useNotificationPolling } from './notification/useNotificationPolling';
 import { useNotificationReadSync } from './notification/useNotificationReadSync';
 import { MobileBottomNavigation, ROOT_ROUTES } from './mobile/MobileNavigation';
+import { BotView, MatchView, OnlineRoomView, useOnlineMatch } from './p2';
 import './styles.css';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -50,7 +51,7 @@ const TYPE_LABEL = { GAME_FOCUSED: '게임 중심', PERSON_FOCUSED: '사람 중�
 const STATUS_LABEL = { RECRUITING: '모집 중', CLOSED: '모집 마감', CANCELED: '취소됨', FINISHED: '종료됨' };
 const MAX_CAPACITY = 10;
 // 하위 화면은 하단 탭바 없이 뒤로가기로만 돌아간다.
-const SUB_ROUTES = ['game', 'game-rankings', 'session', 'create', 'edit', 'my', 'chat', 'chats', 'notifications', 'social-link', 'auth', 'signup'];
+const SUB_ROUTES = ['game', 'game-rankings', 'session', 'create', 'edit', 'my', 'chat', 'chats', 'notifications', 'social-link', 'auth', 'signup', 'bot', 'match', 'online-room'];
 const loadFirstNotificationPage = (signal) => api.getNotifications({ page: 0, size: 10 }, signal);
 export const CHAT_SEND_REQUEST_DEADLINE_MS = 3_000;
 export const WAITLIST_POLL_INTERVAL_MS = 10_000;
@@ -796,7 +797,7 @@ function SessionActions({ room, roomRefreshing, me, onApply, onCancelApply, onHo
 }
 
 export function SessionDetailView({ sessionId, me, onBack, onApply, onCancelApply, onHostCancel, onFinish, onJoinWaitlist, onCancelWaitlist, onWaitlistSettled, dataVersion }) {
-  const { data, loading, error } = useRequest(
+  const { data, loading, error, retry } = useRequest(
     async (signal) => normalizeRoom(await api.getRoom(sessionId, signal)),
     [sessionId, dataVersion]
   );
@@ -804,7 +805,7 @@ export function SessionDetailView({ sessionId, me, onBack, onApply, onCancelAppl
     return (
       <div className="screen sub">
         <TopBar onBack={onBack} />
-        <div className="screen-body pad-bottom"><ErrorBox title="모임을 불러오지 못했어요" message={error} /></div>
+        <div className="screen-body pad-bottom"><ErrorBox title="모임을 불러오지 못했어요" message={error} onRetry={retry} /></div>
       </div>
     );
   }
@@ -1104,7 +1105,7 @@ function EditSessionForm({ room, onSave, onBack, today }) {
 }
 
 function EditView({ sessionId, onSave, onBack, dataVersion, today }) {
-  const { data, loading, error } = useRequest(
+  const { data, loading, error, retry } = useRequest(
     async (signal) => normalizeRoom(await api.getRoom(sessionId, signal)),
     [sessionId, dataVersion]
   );
@@ -1112,7 +1113,7 @@ function EditView({ sessionId, onSave, onBack, dataVersion, today }) {
     return (
       <div className="screen sub">
         <TopBar onBack={onBack} />
-        <div className="screen-body pad-bottom"><ErrorBox title="모임을 불러오지 못했어요" message={error} /></div>
+        <div className="screen-body pad-bottom"><ErrorBox title="모임을 불러오지 못했어요" message={error} onRetry={retry} /></div>
       </div>
     );
   }
@@ -1263,7 +1264,7 @@ export function ChatListView({ dataVersion, onBack }) {
       <TopBar onBack={onBack} />
       <div className="screen-body pad-bottom">
         <ScreenTitle>채팅</ScreenTitle>
-        {error && <div style={{ marginTop: 22 }}><ErrorBox title="채팅 목록을 불러오지 못했어요" message={error} /></div>}
+        {error && <div style={{ marginTop: 22 }}><ErrorBox title="채팅 목록을 불러오지 못했어요" message={error} onRetry={() => { joined.retry(); hosted.retry(); }} /></div>}
         {!error && loading && !list.length && <div style={{ marginTop: 22 }}><RoomSkeletons count={2} /></div>}
         {!error && !loading && !list.length && (
           <div style={{ marginTop: 22 }}>
@@ -1996,6 +1997,8 @@ export function App() {
   const [createMode, setCreateMode] = useState('GAME_FOCUSED');
   const [createGame, setCreateGame] = useState(null);
   const [dataVersion, setDataVersion] = useState(0);
+  // P2 시안. 매칭과 온라인 방이 상태를 나눠 쓰므로 화면 위에서 들고 있는다.
+  const onlineMatch = useOnlineMatch(dataVersion, route === 'match' || route === 'online-room');
   const [socialProviders, setSocialProviders] = useState([]);
   const [toast, setToast] = useState({ message: '', type: '' });
   const authenticated = Boolean(me);
@@ -2406,6 +2409,13 @@ export function App() {
         />
       )
       : <LoginRequiredView message="알림을 보려면 로그인해주세요." onBack={goBack} />;
+  } else if (route === 'bot') {
+    content = <BotView onBack={goBack} onCreateGame={handleCreateGame} onNavigate={navigate} />;
+  } else if (route === 'match') {
+    // 실패 화면은 서버가 없어 저절로 나오지 않으므로 주소로 확인한다.
+    content = <MatchView match={onlineMatch} previewFailed={arg === 'failed'} onBack={goBack} onNavigate={navigate} />;
+  } else if (route === 'online-room') {
+    content = <OnlineRoomView match={onlineMatch} onBack={goBack} onToast={showToast} />;
   } else if (route === 'social-link') {
     content = me
       ? <SocialLinkView socialProviders={socialProviders} onSocialLink={handleSocialLink} onBack={goBack} />
@@ -2433,6 +2443,8 @@ export function App() {
     <>
       {(!sessionChecked || !splashDone) && <Splash />}
       {content}
+      {/* P2 시안. 하단 탭이 보이는 상단 화면에서만 띄운다. */}
+      {showTabs && <a className="bot-fab" href="#/bot" aria-label="알밤봇 열기"><BrandMark size={30} tone="#fff" hole="#0A0A0A" /></a>}
       {showTabs && <MobileBottomNavigation route={route} authenticated={authenticated} />}
       <div id="toast" role="status" aria-live="polite" className={(toast.message ? 'show ' : '') + (toast.type === 'err' ? 'err' : '')}>{toast.message}</div>
     </>
