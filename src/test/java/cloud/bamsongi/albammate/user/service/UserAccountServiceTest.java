@@ -45,7 +45,7 @@ class UserAccountServiceTest {
 	void 이메일을_먼저_중복확인하고_슬롯_안에서_해시해_계정을_저장한다() {
 		AlwaysAvailableLimiter limiter = new AlwaysAvailableLimiter();
 		UserAccountApplicationService service = new UserAccountApplicationService(
-			userRepository, passwordEncoder, new PasswordHashExecutor(limiter));
+			userRepository, passwordEncoder, new PasswordHashExecutor(limiter, null));
 		when(userRepository.existsByEmail("user@example.com")).thenReturn(false);
 		when(passwordEncoder.encode("123456789012345")).thenReturn("{bcrypt}encoded");
 		when(userRepository.saveAndFlush(any(User.class)))
@@ -68,7 +68,7 @@ class UserAccountServiceTest {
 	void 사전_중복이면_해시와_저장을_수행하지_않는다() {
 		AlwaysAvailableLimiter limiter = new AlwaysAvailableLimiter();
 		UserAccountApplicationService service = new UserAccountApplicationService(
-			userRepository, passwordEncoder, new PasswordHashExecutor(limiter));
+			userRepository, passwordEncoder, new PasswordHashExecutor(limiter, null));
 		when(userRepository.existsByEmail("user@example.com")).thenReturn(true);
 
 		assertThrows(
@@ -84,7 +84,7 @@ class UserAccountServiceTest {
 	void 직접_호출도_사용자_값_타입으로_이메일과_닉네임을_정규화한다() {
 		AlwaysAvailableLimiter limiter = new AlwaysAvailableLimiter();
 		UserAccountApplicationService service = new UserAccountApplicationService(
-			userRepository, passwordEncoder, new PasswordHashExecutor(limiter));
+			userRepository, passwordEncoder, new PasswordHashExecutor(limiter, null));
 		when(userRepository.existsByEmail("user@example.com")).thenReturn(false);
 		when(passwordEncoder.encode("123456789012345")).thenReturn("{bcrypt}encoded");
 		when(userRepository.saveAndFlush(any(User.class)))
@@ -116,7 +116,7 @@ class UserAccountServiceTest {
 	void DB_unique_경쟁도_EMAIL_ALREADY_EXISTS로_변환한다() {
 		AlwaysAvailableLimiter limiter = new AlwaysAvailableLimiter();
 		UserAccountApplicationService service = new UserAccountApplicationService(
-			userRepository, passwordEncoder, new PasswordHashExecutor(limiter));
+			userRepository, passwordEncoder, new PasswordHashExecutor(limiter, null));
 		when(userRepository.existsByEmail("user@example.com")).thenReturn(false);
 		when(passwordEncoder.encode("123456789012345")).thenReturn("{bcrypt}encoded");
 		when(userRepository.saveAndFlush(any(User.class)))
@@ -133,7 +133,7 @@ class UserAccountServiceTest {
 	void 해시_슬롯이_없으면_사용자_생성을_시작하지_않는다() {
 		NoSlotLimiter limiter = new NoSlotLimiter();
 		UserAccountApplicationService service = new UserAccountApplicationService(
-			userRepository, passwordEncoder, new PasswordHashExecutor(limiter));
+			userRepository, passwordEncoder, new PasswordHashExecutor(limiter, null));
 
 		assertThrows(
 			RateLimitExceededException.class,
@@ -216,7 +216,7 @@ class UserAccountServiceTest {
 		return new UserAccountApplicationService(
 			userRepository,
 			passwordEncoder,
-			new PasswordHashExecutor(new AlwaysAvailableLimiter()));
+			new PasswordHashExecutor(new AlwaysAvailableLimiter(), null));
 	}
 
 	private static CreateUserAccountCommand command(

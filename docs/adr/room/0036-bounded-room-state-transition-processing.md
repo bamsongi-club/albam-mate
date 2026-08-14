@@ -99,15 +99,13 @@ DB 직접 갱신은 현재 선택하지 않는다. 제한된 ROOM별 처리의 �
 
 ## 검증
 
-- 상태: 미검증
+- 상태: 검증됨
 - 근거:
     - 구현: `V22__create_room_status_correction_progress.sql`과 `RoomStatusCorrectionCandidateSelector`·`RoomStatusCorrectionCoordinator`·`RoomStatusCorrectionProgressStore`·`RoomStatusCorrectionScheduler`가 제한 ID 선별, ROOM별 독립 처리, 영속 turn cutoff·cursor와 generation/version CAS를 구현한다.
     - 단위 검증: `RoomStatusCorrectionCandidateSelectorTest`, `RoomStatusCorrectionBoundedCoordinatorTest`, `RoomStatusCorrectionSchedulerLockTest`가 결정적 순서, 실패 격리, cursor 전진·회전, 잠금 미획득과 stale 실행 주체 중단을 검증한다.
     - PostgreSQL 검증: `RoomStatusCorrectionBoundedPostgresTest`, `RoomStatusCorrectionProgressPostgresTest`, `RoomStatusCorrectionProgressLocalMultiPostgresTest`가 대기열 종료와 ROOM 상태의 원자성, 재시작·장애 재선별, `local` 두 인스턴스의 ShedLock 임대 경쟁과 progress CAS를 검증한다.
     - 기준선 측정: [ROOM-09c 현행 일괄 처리 기준선](../../measurements/room-09-bounded-processing-baseline.md)이 데이터 규모별 처리량·실행시간·PostgreSQL 비용의 재현 계약을 남긴다.
     - 후보 측정과 초기 운영값: 같은 문서의 ROOM-09d 절이 현행과 제한 처리 후보를 같은 규모의 fixture로 측정해 대비 표와 보존 원자료를 남기고, 그 결과로 한 번당 ID 수 `100`, 실행시간 경고 `180s`, `lockAtMostFor` `10m`을 확정했다. `RoomStatusCorrectionPropertiesTest`가 확정값이 생산 `application.yml`과 설정 바인딩에 동일하게 적용되는지 검증한다.
-    - 측정이 보여준 경계: 후보는 ROOM당 비용이 규모와 무관하게 약 `12ms`로 평탄하고, 현행은 중형까지 상각 효과로 유리하다가 대형에서 역전당한다. 이 결정이 우선한 기준은 메모리·트랜잭션 범위 제한, 실패 격리와 진척성이며 처리 속도가 아니다. 따라서 측정은 결정을 바꾸지 않고 초기 운영값을 정하는 근거로만 사용했다.
-- 미검증:
-    - 측정 결과가 요구하면 실패 backoff·격리 또는 제한 범위의 조건부 DB 직접 갱신 비교 착수 여부를 사용자 결정으로 남겨야 한다.
+    - 측정이 보여준 경계: 후보는 ROOM당 비용이 규모와 무관하게 약 `12ms`로 평탄하고, 현행은 중형까지 상각 효과로 유리하다가 대형에서 역전당한다. 이 결정이 우선한 기준은 메모리·트랜잭션 범위 제한, 실패 격리와 진척성이며 처리 속도가 아니다. 따라서 측정은 결정을 바꾸지 않고 초기 운영값을 정하는 근거로만 사용했다. 실패 backoff·격리와 제한 범위의 조건부 DB 직접 갱신 비교는 이 결정의 검증 잔여가 아니라, `보류 및 재검토` 조건이 충족되고 사용자 승인을 받은 경우에만 착수하는 후속이다.
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

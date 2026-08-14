@@ -217,7 +217,9 @@ flowchart LR
 
 `RoomStatusCorrectionExecutor`는 같은 `REQUIRES_NEW` 트랜잭션에서 ROOM 상태 전환과 시작 경계의 `WAITING → EXPIRED` 조건부 갱신을 수행한다. 둘 중 하나가 실패하면 같은 ROOM의 변경을 함께 롤백하며, 스케줄러 경로는 이 단건 Executor를 ROOM별로 호출한다.
 
-공개 목록과 내 모임 QueryService는 기준 시각을 고정하고 전역 상태 보정 없이 ReadService로 유효 상태를 읽는다. 상세·상태 의존 명령·대기·채팅 접근은 대상 ROOM 상태 보정이 커밋된 뒤 ReadService로 최신 저장 상태를 읽는다. ReadService는 별도의 `REQUIRES_NEW`, `readOnly = true` 트랜잭션을 사용한다.
+공개 목록과 내 모임 QueryService는 기준 시각을 고정하고 전역 상태 보정 없이 ReadService로 유효 상태를 읽는다. 상세·상태 의존 명령·대기는 대상 ROOM 상태 보정이 커밋된 뒤 ReadService로 최신 저장 상태를 읽는다. ReadService는 별도의 `REQUIRES_NEW`, `readOnly = true` 트랜잭션을 사용한다.
+
+채팅 HTTP 전송·이력 조회, WebSocket handshake와 연결 유지 중 전달 직전 검증은 `RoomChatAccessGuard.executeWithAccess`가 대상 ROOM 보정을 독립 `REQUIRES_NEW` 트랜잭션으로 끝낸 뒤, 현재 트랜잭션에서 ROOM의 `PESSIMISTIC_READ` 공유 잠금을 얻어 상태와 주최자·`ACTIVE` 참가 관계를 확인하고 후속 채팅 동작까지 같은 잠금 범위에 둔다. WebSocket의 주기 검증은 ROOM별 `correctRoomState`로 보정을 한 번 끝낸 뒤 각 연결에서 `verifyCurrentAccess`를 호출하며, 이 메서드도 같은 공유 잠금으로 현재 접근을 확인한다. 따라서 채팅 접근은 ReadService의 락 없는 snapshot 조회 경로가 아니다.
 
 공개 목록·내 모임·상세 ReadService는 [ADR-0056](adr/room/0056-postgresql-room-query-snapshot-without-global-pre-correction.md)에 따라 `REPEATABLE_READ`에서 ROOM과 행동 가능성 판정에 필요한 현재 `ACTIVE`·`WAITING`·역할 사실을 같은 PostgreSQL 스냅샷으로 읽는다. 이 트랜잭션은 짧게 유지하며 `FOR UPDATE`·`FOR SHARE` 조회 락을 사용하지 않는다. 내 모임은 이미 조회한 주최자·현재 `ACTIVE` 관계를 사용하고 불필요한 WAITING 조회를 추가하지 않는다.
 
@@ -358,7 +360,7 @@ flowchart LR
     deleteBatch --> messages
 ```
 
-메시지 전송은 일반 `@Transactional` 하나에서 권한·상태, 멱등성 키와 저장을 처리한다. `REQUIRES_NEW`와 낙관 락 재시도를 사용하지 않는다. 잠금 순서는 `ROOMS` 다음 `CHAT_ROOMS`로 고정하고 메시지마다 `Room.version`을 올리지 않는다.
+메시지 저장 자체는 일반 `@Transactional` 하나에서 권한·상태, 멱등성 키와 저장을 처리한다. 사전 ROOM 상태 보정은 `RoomChatAccessGuard`를 통해 독립 `REQUIRES_NEW` 트랜잭션으로 끝내고, 메시지 저장 경로는 별도의 `REQUIRES_NEW`와 낙관 락 재시도를 사용하지 않는다. 잠금 순서는 `ROOMS` 다음 `CHAT_ROOMS`로 고정하고 메시지마다 `Room.version`을 올리지 않는다.
 
 실시간 전달은 [ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)에 따라 저장 커밋 뒤에만 수행하며 전달 실패가 저장을 롤백하지 않는다. Redis 신호는 `eventType`, `roomId`, `messageId`만 포함하고 메시지 본문 정본이 아니다. 구독 인스턴스는 로컬 연결별 마지막 전달 ID 이후의 PostgreSQL 이력을 조회한다. 이력·재연결의 `messageId` cursor는 승인된 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)을 따른다.
 

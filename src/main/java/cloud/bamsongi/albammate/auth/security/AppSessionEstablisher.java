@@ -1,5 +1,8 @@
 package cloud.bamsongi.albammate.auth.security;
 
+import java.util.Objects;
+
+import org.springframework.lang.Nullable;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContext;
@@ -8,10 +11,9 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Component;
 
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal;
+import cloud.bamsongi.albammate.measurement.AuthNotificationMeasurementRecorder;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
 
 /**
  * 로그인 성공 사용자를 서버 세션 인증으로 등록한다.
@@ -20,10 +22,17 @@ import lombok.RequiredArgsConstructor;
  * 주체로 남기지 않으므로, 인증을 만들지 않는 결과에서는 {@link #discard}로 남은 인증 컨텍스트를 지운다.
  */
 @Component
-@RequiredArgsConstructor
 public final class AppSessionEstablisher {
 
-	@NonNull private final SecurityContextRepository securityContextRepository;
+	private final SecurityContextRepository securityContextRepository;
+	private final AuthNotificationMeasurementRecorder measurementRecorder;
+
+	public AppSessionEstablisher(
+		SecurityContextRepository securityContextRepository,
+		@Nullable AuthNotificationMeasurementRecorder measurementRecorder) {
+		this.securityContextRepository = Objects.requireNonNull(securityContextRepository, "securityContextRepository");
+		this.measurementRecorder = measurementRecorder;
+	}
 
 	/** 세션 ID를 교체해 세션 고정 공격을 막고 현재 사용자 인증을 저장한다. */
 	public void establish(Long userId, HttpServletRequest request, HttpServletResponse response) {
@@ -36,13 +45,22 @@ public final class AppSessionEstablisher {
 			UsernamePasswordAuthenticationToken.authenticated(
 				new CurrentUserPrincipal(userId), null, AuthorityUtils.NO_AUTHORITIES));
 		SecurityContextHolder.setContext(context);
-		securityContextRepository.saveContext(context, request, response);
+		saveContext(context, request, response);
 	}
 
 	/** 저장된 인증을 지워 이 요청이 인증 세션을 남기지 않게 한다. */
 	public void discard(HttpServletRequest request, HttpServletResponse response) {
 		SecurityContext emptyContext = SecurityContextHolder.createEmptyContext();
 		SecurityContextHolder.setContext(emptyContext);
-		securityContextRepository.saveContext(emptyContext, request, response);
+		saveContext(emptyContext, request, response);
+	}
+
+	private void saveContext(SecurityContext context, HttpServletRequest request, HttpServletResponse response) {
+		if (measurementRecorder == null) {
+			securityContextRepository.saveContext(context, request, response);
+		} else {
+			measurementRecorder.authStage("session-context-save",
+				() -> securityContextRepository.saveContext(context, request, response));
+		}
 	}
 }
