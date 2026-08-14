@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../api';
-import { Cover, ErrorBox, RankSkeletons, ScreenTitle, TopBar } from '../shared/ui';
+import { Cover, ErrorBox, RankSkeletons, TopBar } from '../shared/ui';
 import { useRequest } from '../shared/async';
 
 // 두 랭킹은 한 응답으로 함께 오므로 탭을 바꿀 때 다시 조회하지 않는다.
@@ -27,9 +27,8 @@ export function GameRankingView({ onBack, dataVersion }) {
 
   return (
     <div className="screen sub">
-      <TopBar onBack={onBack} />
+      <TopBar onBack={onBack} title="인기 게임" />
       <div className="screen-body pad-bottom">
-        <ScreenTitle>인기 게임</ScreenTitle>
         <p className="screen-lead">밤송이에서 그 게임으로 열린 모임 수로 매긴 순위예요.</p>
         <div className="tabline">
           {RANKING_TABS.map((candidate) => (

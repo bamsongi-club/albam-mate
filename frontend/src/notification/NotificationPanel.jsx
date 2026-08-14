@@ -1,7 +1,7 @@
 import React from 'react';
 import { notificationMessage } from './notificationMessages';
 import { NOTIFICATION_SYNC_ERROR_MESSAGE } from './useNotificationReadSync';
-import { ScreenTitle, StateBlock, TopBar } from '../shared/ui';
+import { StateBlock, TopBar } from '../shared/ui';
 
 const EMPTY_READ_IDS = new Set();
 const SEOUL_TIME_ZONE = 'Asia/Seoul';
@@ -41,6 +41,7 @@ export function NotificationPanel({
       <TopBar
         onBack={onBack}
         backLabel="알림함 닫기"
+        title="알림"
         action={(
           <button
             type="button"
@@ -53,7 +54,6 @@ export function NotificationPanel({
         )}
       />
       <div className="screen-body pad-bottom">
-        <ScreenTitle>알림</ScreenTitle>
         <div aria-live="polite" aria-busy={bulkReadPending}>
           {synchronizationFailed && (
             <div className="notification-sync-error" role="alert">

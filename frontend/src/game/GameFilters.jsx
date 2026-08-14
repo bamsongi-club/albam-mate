@@ -401,16 +401,18 @@ export function GameFilters({ filters, onChange, quickSlot, resultCount }) {
         </label>
         {/* 범위 조건과 전용 인원은 서로 전환하는 조건이라 같은 칼럼에서 구분선으로 나눈다. */}
         <hr className="filter-group-divider" />
-        {EXCLUSIVE_PLAYER_COUNT_OPTIONS.map((option) => (
-          <label className="filter-option" key={option.value}>
-            <input
-              type="checkbox"
-              checked={filters.exclusivePlayerCount.includes(option.value)}
-              onChange={(event) => toggleExclusive(option.value, event.target.checked)}
-            />
-            {option.label}
-          </label>
-        ))}
+        <div className="filter-option-list">
+          {EXCLUSIVE_PLAYER_COUNT_OPTIONS.map((option) => (
+            <label className="filter-option" key={option.value}>
+              <input
+                type="checkbox"
+                checked={filters.exclusivePlayerCount.includes(option.value)}
+                onChange={(event) => toggleExclusive(option.value, event.target.checked)}
+              />
+              {option.label}
+            </label>
+          ))}
+        </div>
       </FilterNumberRangeGroup>
       <FilterMultiCheckGroup label="플레이 시간" values={filters.playTime} onToggle={togglePlayTime}
         options={Object.entries(PLAY_TIME_LABEL).map(([code, label]) => ({ value: code, label }))} />

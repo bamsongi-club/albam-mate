@@ -90,9 +90,8 @@ export function MatchView({ phase, dataVersion, onBack, onNavigate, onToast }) {
 
   return (
     <div className="screen sub">
-      <TopBar onBack={onBack} />
+      <TopBar onBack={onBack} title="실시간 온라인 매칭" />
       <div className="screen-body pad-bottom">
-        <h1 className="screen-title">실시간 온라인 매칭</h1>
         <p className="screen-lead">사람이 모이면 보드게임아레나 방으로 연결해요. 집에서 바로 하는 한 판이에요.</p>
 
         {step === 'idle' && (
