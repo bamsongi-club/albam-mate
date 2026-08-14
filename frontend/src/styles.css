@@ -141,6 +141,7 @@ ul, ol { list-style: none; }
 
 .searchbox { align-items: center; background: var(--fill); border-radius: 12px; display: flex; gap: 11px; height: 52px; padding: 0 16px; }
 .searchbox input { font-size: 15px; }
+.searchbox input:focus-visible { outline: none; }
 .searchbox svg { color: var(--sub); flex: none; }
 
 .chiprow { display: flex; gap: 8px; margin-top: 13px; overflow-x: auto; }
@@ -416,10 +417,13 @@ textarea.field-input { height: 112px; line-height: 1.6; padding: 14px 16px; resi
 .room-game-copy { flex: 1; min-width: 0; }
 .room-game-copy strong { display: block; font-size: 16px; font-weight: 800; letter-spacing: -0.04em; }
 .room-game-copy span { color: var(--sub); display: block; font-size: 13.5px; margin-top: 5px; }
-.room-facts { display: flex; flex-direction: column; gap: 18px; margin-top: 26px; }
-.room-facts > div { align-items: baseline; display: flex; gap: 16px; }
+/* 정보 행은 --card 면 안에 묶고 보더 대신 안쪽 그림자 한 줄로 구분한다. */
+.room-facts { background: var(--card); border-radius: 18px; margin-top: 26px; padding: 4px 16px; }
+.room-facts > div { align-items: baseline; display: flex; gap: 16px; padding: 14px 0; }
+.room-facts > div:not(:last-child) { box-shadow: inset 0 -1px 0 var(--line); }
 .room-facts dt { color: var(--sub); flex: none; font-size: 13.5px; width: 52px; }
 .room-facts dd { flex: 1; font-size: 15.5px; font-weight: 700; letter-spacing: -0.03em; }
+.room-description { background: var(--card); border-radius: 18px; margin-top: 26px; padding: 16px; }
 .room-members { display: flex; flex-direction: column; gap: 16px; margin-top: 22px; }
 .room-member { align-items: center; display: flex; gap: 13px; }
 .room-member-name { font-size: 15px; font-weight: 700; }

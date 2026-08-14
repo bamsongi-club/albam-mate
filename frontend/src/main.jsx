@@ -15,6 +15,7 @@ import {
   ChatIcon,
   CloseIcon,
   Cover,
+  EditIcon,
   ErrorBox,
   EyeIcon,
   EyeOffIcon,
@@ -845,7 +846,7 @@ export function SessionDetailView({ sessionId, me, onBack, onApply, onCancelAppl
     <div className="screen sub">
       <TopBar
         onBack={onBack}
-        action={canEdit(room) ? <a className="topbar-action" href={'#/edit/' + room.id}>수정</a> : null}
+        action={canEdit(room) ? <a className="icon-btn" aria-label="모임 수정" href={'#/edit/' + room.id}><EditIcon /></a> : null}
       />
       <div className="screen-body" style={{ paddingBottom: 28 }}>
         <p className="room-meta">{metaLine}</p>
@@ -870,12 +871,7 @@ export function SessionDetailView({ sessionId, me, onBack, onApply, onCancelAppl
           {facts.map((fact) => <div key={fact.key}><dt>{fact.key}</dt><dd>{fact.value}</dd></div>)}
         </dl>
 
-        {room.description && (
-          <>
-            <div className="divider" style={{ margin: '26px 0' }} />
-            <p className="longtext">{room.description}</p>
-          </>
-        )}
+        {room.description && <p className="longtext room-description">{room.description}</p>}
 
         <h2 className="section-title" style={{ marginTop: 30 }}>
           참가자 {participantCount(room)} / {totalSeats(room)}
