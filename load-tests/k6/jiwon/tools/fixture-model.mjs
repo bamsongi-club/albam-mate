@@ -61,10 +61,6 @@ function sqlLiteral(value) {
   return `'${String(value).replaceAll("'", "''")}'`;
 }
 
-function sqlValues(rows) {
-  return rows.map((row) => `(${row.map(sqlLiteral).join(', ')})`).join(',\n    ');
-}
-
 function sqlIds(values) {
   if (values.length === 0) {
     return 'NULL';
@@ -411,7 +407,13 @@ export function buildPrepareSql(plan, passwordHash, prepareOwnership) {
   const ownershipDescription = prepareOwnershipDescription(prepareOwnership);
   const usersByKey = new Map(plan.users.map((user) => [user.key, user]));
   const roomsByKey = new Map(plan.rooms.map((room) => [room.key, room]));
-  const userRows = plan.users.map((user) => [user.email, passwordHash, user.nickname]);
+  const userRows = plan.users.map((user) => `(
+        ${sqlLiteral(user.email)},
+        ${sqlLiteral(passwordHash)},
+        ${sqlLiteral(user.nickname)},
+        clock_timestamp(),
+        clock_timestamp()
+    )`);
   const roomRows = plan.rooms.map((room) => {
     const host = usersByKey.get(room.hostKey);
     return [
@@ -466,7 +468,7 @@ SELECT pg_advisory_xact_lock(hashtext(${sqlLiteral(plan.fixtureId)}));
 
 INSERT INTO users (email, password_hash, nickname, created_at, updated_at)
 VALUES
-    ${sqlValues(userRows)};
+    ${userRows.join(',\n    ')};
 
 INSERT INTO rooms (
     game_id, host_user_id, room_type, title, description, experience_level,

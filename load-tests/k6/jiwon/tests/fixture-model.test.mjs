@@ -200,7 +200,7 @@ test('T5 scale=10은 정원 상한에 맞춘 CLOSED 만석 fixture다', () => {
   });
 });
 
-test('fixture SQL은 정확한 ID 기반 cleanup을 만들고 prefix 전체 삭제를 쓰지 않는다', () => {
+test('fixture SQL은 필수 users timestamp와 정확한 ID 기반 cleanup을 만들고 prefix 전체 삭제를 쓰지 않는다', () => {
   const { plan, fixture } = fixtureFor({
     scenario: 't2',
     runId: 'fixture-cleanup',
@@ -219,6 +219,12 @@ test('fixture SQL은 정확한 ID 기반 cleanup을 만들고 prefix 전체 삭�
   assert.equal(plan.schemaVersion, 2);
   assert.equal(fixture.schemaVersion, 2);
   assert.match(prepareSql, /pg_advisory_xact_lock/);
+  const usersSql = prepareSql.slice(
+    prepareSql.indexOf('INSERT INTO users'),
+    prepareSql.indexOf('INSERT INTO rooms'),
+  );
+  const userTimestampPairs = usersSql.match(/clock_timestamp\(\),\s*clock_timestamp\(\)/g) ?? [];
+  assert.equal(userTimestampPairs.length, plan.users.length);
   assert.match(cleanupSql, /room_k6_cleanup_users/);
   assert.match(cleanupSql, /room_k6_cleanup_rooms/);
   assert.match(prepareSql, /ROOM k6 fixture a{32}/);
