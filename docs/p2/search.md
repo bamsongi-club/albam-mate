@@ -12,6 +12,8 @@
 
 현재 `GET /api/games?keyword=...`의 이름 부분일치 의미와 `name ASC, id ASC` 정렬은 P1 계약으로 유지한다. `SEARCH-04`는 기존 요청을 조용히 의미 검색으로 바꾸지 않고 별도 검색 계약으로 추가한다. 이 문서의 기능 ID·경로·현재 상태는 [P2 기능 상태](README.md#기능별-현재-상태)와 [P2 공통 명세](../P2-spec.md)에 함께 등록한다. 문서 작성은 계약 준비·구현·검증 완료를 뜻하지 않는다.
 
+BGG 기반 검색 입력은 [승인 데이터셋의 AI·embedding 사용 범위](../game-catalog/2026-08-14-bgg-ai-embedding-approval.md)와 [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md)의 정확한 catalog release·필드·가공 allowlist를 따른다. 이 승인으로 데이터 이용 근거 선행 조건은 해소되지만, API·ERD·아키텍처·모델 선택과 품질 검증이 완료됐다는 뜻은 아니다.
+
 ## SEARCH-04
 
 자연어 의도와 P1 hard filter를 결합하는 게임 의미 기반 검색 기능의 상세 명세입니다. 기능 동작과 완료 기준은 이 문서가 소유하며, 현재 상태는 [P2 기능 상태](README.md#기능별-현재-상태)에서 확인합니다.
@@ -53,7 +55,7 @@
 
 ### 포함 범위
 
-- 게임명만이 아니라 승인된 게임 설명·별칭·카테고리·테마·메커니즘과 정규화된 인원·시간·복잡도·최소 연령을 이용한 의도 검색 후보 생성.
+- 게임명만이 아니라 승인 manifest의 `approvedFields`에 포함된 게임 설명·별칭·카테고리·테마·메커니즘과 정규화된 인원·시간·복잡도·최소 연령을 이용한 의도 검색 후보 생성. 아래 필드명은 후보 목록이며 manifest allowlist를 대신하지 않는다.
 - lexical·semantic·hybrid 후보 생성 방식의 평가와 선택. 특정 모델·검색 엔진·vector DB는 이 문서에서 확정하지 않는다.
 - 후보 생성 뒤 `SEARCH-01`~`SEARCH-03`의 hard filter, 공개 게임 범위, `playedFilter` 권한과 페이지 경계를 적용하는 규칙.
 - 의미 검색 결과의 결정적 관련도 정렬, 동일 결과 중복 제거, 빈 결과와 fallback 상태 표시.
@@ -66,14 +68,14 @@
 - 이번 단계에서 하지 않는 것:
   - 현재 `GET /api/games?keyword=...`의 검색 의미·최소 검색어 길이·기본 정렬 변경
   - 사용자 검색 이력·ROOM 제목·참가자 정보·채팅·프롬프트 원문을 검색 문서에 포함
-  - BGG raw XML이나 이용 근거가 확인되지 않은 원문을 embedding·LLM 입력으로 사용
+  - 승인 manifest의 release·필드·가공 allowlist 밖 BGG raw XML이나 원문을 embedding·LLM 입력으로 사용
   - 개인화 랭킹, 인기 검색어, 외부 점수 결합, 자동 리뷰·추천 문구 생성
   - 검색 결과에 설명 근거나 AI 확률을 사실처럼 표시
   - 검색 품질을 확인하기 전 production migration·모델 교체·무제한 query retry
-- 제외 이유: P1 공개·개인정보 경계를 바꾸고, 데이터 이용 근거와 기대 결과가 확정되지 않은 상태에서 기술 선택을 제품 동작으로 굳히기 때문이다.
+- 제외 이유: 승인된 release·필드·가공 범위를 넘기거나, P1 공개·개인정보 경계를 바꾸고, 품질 근거가 없는 기술 선택을 제품 동작으로 굳히기 때문이다.
 - 다시 검토할 관측 근거·조건:
   - 평가 fixture에서 의미 질의의 관련도 개선이 P1 lexical baseline보다 재현성 있게 확인될 때
-  - 데이터 필드별 출처·공개·가공 이용 근거와 catalog release 갱신 절차가 승인될 때
+  - catalog release·필드·가공 범위·model/provider·보존 정책이 바뀌어 새 승인 manifest가 필요할 때
   - zero-result, fallback, hard-filter 위반과 p95 비용을 고정 release에서 측정할 수 있을 때
   - 사용자 검색 이력·개인화·외부 데이터 결합은 별도 제품 범위와 개인정보·ADR 검토가 승인될 때
 
@@ -104,9 +106,9 @@
 ### 데이터
 
 - 원천의 소유자는 `game` 카탈로그다. 검색 인덱스는 `GAMES`와 승인된 메타데이터의 재생성 가능한 read projection이며 업무 정본이 아니다.
-- 초기 후보 필드는 현재 공개 계약에 존재하는 `name`, `englishName`, 승인된 `alias`·`description`·`detailDescription`, category·theme·mechanism, 정규화된 player/time/complexity/minAge다. 필드별 source, 공개 상태, 가공 허용 범위와 release 버전을 fixture manifest에 기록한다.
+- 초기 후보 필드는 현재 공개 계약에 존재하는 `name`, `englishName`, 승인된 `alias`·`description`·`detailDescription`, category·theme·mechanism, 정규화된 player/time/complexity/minAge다. 실제 검색 문서에는 승인 manifest의 `approvedFields`만 포함하고, 필드별 source, 공개 상태, 가공 허용 범위와 release 버전을 fixture manifest에 기록한다.
 - 검색 결과의 `id`, `bggId`, 이름·표시 메타데이터와 `playedByMe` 의미는 [API](../API.md)와 [ERD](../ERD.md)의 기존 계약을 따른다. 검색 인덱스에만 존재하는 제목·설명·점수로 공개 응답을 새로 만들지 않는다.
-- 사용자 query는 요청 처리에만 사용하고 기본적으로 원문을 저장하지 않는다. 검색 문서는 `gameId`, 승인 필드의 정규화 값, source field version, index version만 가진다. query 원문·embedding 원문·사용자 ID·세션·이메일·ROOM/채팅 내용은 검색 인덱스에 넣지 않는다.
+- 사용자 query는 요청 처리에만 사용하고 기본적으로 원문을 저장하지 않는다. 검색 문서는 `gameId`, 승인 필드의 정규화 값, source field version, release ID, index version과 필요한 embedding provenance만 가진다. query 원문·embedding 입력 원문·사용자 ID·세션·이메일·ROOM/채팅 내용은 검색 인덱스에 넣지 않는다.
 - catalog release가 바뀌면 새 index version을 별도로 만들고 검증 후 원자적으로 활성화한다. 이전 index는 rollback과 장애 분석에 필요한 기간만 보존하며, 원천에서 제거되거나 공개가 철회된 게임은 다음 활성화 전에 검색 대상에서 제외한다.
 - 메트릭 label에는 `queryLengthBucket`, `searchMode`, `filterPresent`, `indexVersion`, `resultBucket`, `errorCode`처럼 제한된 분류값만 사용한다. query 원문·해시, 설명 원문, 개인정보·비밀값·토큰을 label이나 중앙 로그에 넣지 않는다.
 
@@ -140,9 +142,9 @@
 | 정본 | 변경 필요 여부 | 반영할 내용·링크 |
 | --- | --- | --- |
 | [API](../API.md) | 필요 | 별도 의미 검색 요청·응답·fallback 상태·`SEARCH_UNAVAILABLE` 오류·인증/필터 계약을 등록한다. 기존 [GAME-01](../API.md#game-01-게임-목록검색)의 `keyword` 의미와 응답 호환성은 유지한다. |
-| [ERD](../ERD.md) | 조건부 필요 | 영속 index metadata·source release·version·상태·활성 pointer가 필요하다고 결정될 때만 테이블·제약·보존을 반영한다. vector/검색 projection을 추가하기 전 데이터 이용 근거와 rollback/삭제 경계를 확정한다. |
+| [ERD](../ERD.md) | 조건부 필요 | 영속 index metadata·source release·version·상태·활성 pointer가 필요하다고 결정될 때만 테이블·제약·보존을 반영한다. vector/검색 projection은 승인 release·필드 allowlist와 rollback/삭제 경계를 연결해 반영한다. |
 | [아키텍처](../ARCHITECTURE.md) | 필요 | `game` 내부 의미 검색 read service와 projection/index build port의 책임, 외부 검색 adapter 의존 방향, query·catalog·fallback 흐름을 반영한다. 현재 `game` 모듈의 게임 목록·검색 책임은 유지한다. |
-| [ADR](../adr/README.md) | 필요 | 검색 대상 필드·데이터 이용 근거, lexical/semantic/hybrid 대안, hard filter 적용 경계, index version/cutover, fallback·품질 합격 기준을 비교하고 별도 ADR로 승인한다. 되돌리기 어려운 물리 선택은 [ADR 템플릿](../adr/0000-template.md)을 사용한다. |
+| [ADR](../adr/README.md) | 필요 | [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md)의 승인 release·필드·가공 범위를 전제로 lexical/semantic/hybrid 대안, hard filter 적용 경계, index version/cutover, fallback·품질 합격 기준과 물리 선택을 별도 ADR로 승인한다. |
 | 운영 가이드 | 필요 | index build·검증·활성화·rollback, 고정 fixture와 release SHA, 장애 시 fallback/disabled 판단, query 원문 금지와 지표 확인 절차를 추가한다. 기존 [P1 검색 성능 가이드](../guides/P1_SEARCH_PERFORMANCE.md)는 P1 이름 부분일치와 `pg_trgm` 측정 경계로 유지하며 P2 의미 품질 계약으로 재해석하지 않는다. |
 
 ## 완료 기준
