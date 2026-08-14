@@ -15,6 +15,7 @@ import {
   ChatIcon,
   CloseIcon,
   Cover,
+  EditIcon,
   ErrorBox,
   EyeIcon,
   EyeOffIcon,
@@ -713,7 +714,7 @@ function SessionActions({ room, roomRefreshing, me, onApply, onCancelApply, onHo
       const finishable = status === 'CLOSED' && hasStarted(room);
       return (
         <>
-          <div className="screen-body" style={{ paddingBottom: 24 }}>
+          <div style={{ padding: '0 var(--pad) 24px' }}>
             <div className="notecard">
               <strong>내가 연 모임이에요</strong>
               <p>{finishable ? '모임이 끝났다면 종료해주세요. 취소는 참가자에게 알림이 갑니다.' : '취소하면 참가자에게 알림이 가고 되돌릴 수 없어요.'}</p>
@@ -793,7 +794,7 @@ function SessionActions({ room, roomRefreshing, me, onApply, onCancelApply, onHo
   const card = waitlistCard();
   return (
     <>
-      {card && <div className="screen-body" style={{ paddingBottom: 24 }}>{card}</div>}
+      {card && <div style={{ padding: '0 var(--pad) 24px' }}>{card}</div>}
       {bar(<button className="btn cta off" type="button" disabled>{room.remainingRecruitmentSeats <= 0 ? '자리가 다 찼어요' : '지금은 참가할 수 없어요'}</button>)}
     </>
   );
@@ -845,7 +846,7 @@ export function SessionDetailView({ sessionId, me, onBack, onApply, onCancelAppl
     <div className="screen sub">
       <TopBar
         onBack={onBack}
-        action={canEdit(room) ? <a className="topbar-action" href={'#/edit/' + room.id}>수정</a> : null}
+        action={canEdit(room) ? <a className="icon-btn" aria-label="모임 수정" href={'#/edit/' + room.id}><EditIcon /></a> : null}
       />
       <div className="screen-body" style={{ paddingBottom: 28 }}>
         <p className="room-meta">{metaLine}</p>
@@ -870,12 +871,7 @@ export function SessionDetailView({ sessionId, me, onBack, onApply, onCancelAppl
           {facts.map((fact) => <div key={fact.key}><dt>{fact.key}</dt><dd>{fact.value}</dd></div>)}
         </dl>
 
-        {room.description && (
-          <>
-            <div className="divider" style={{ margin: '26px 0' }} />
-            <p className="longtext">{room.description}</p>
-          </>
-        )}
+        {room.description && <p className="longtext room-description">{room.description}</p>}
 
         <h2 className="section-title" style={{ marginTop: 30 }}>
           참가자 {participantCount(room)} / {totalSeats(room)}
@@ -1093,9 +1089,8 @@ function EditSessionForm({ room, onSave, onBack, today }) {
   };
   return (
     <form className="screen sub" onSubmit={submit}>
-      <TopBar onBack={onBack} />
+      <TopBar onBack={onBack} title="모임 수정" />
       <div className="screen-body" style={{ paddingBottom: 28 }}>
-        <ScreenTitle>모임 수정</ScreenTitle>
         <p className="screen-lead">{TYPE_LABEL[room.roomType]} 모임 · 성격과 지역은 수정할 수 없어요.</p>
         <RoomFormFields form={form} onChange={setForm} roomType={room.roomType} onOpenGamePicker={() => setGamePickerOpen(true)} today={today} />
       </div>
@@ -1153,9 +1148,8 @@ export function MyRoomsSection({ myTab, onMyTabChange, dataVersion, onCancelAppl
   const list = (page.data?.content || []).map(normalizeRoom);
   return (
     <div className="screen sub">
-      <TopBar onBack={onBack} action={<a className="topbar-action" href="#/chats">채팅</a>} />
+      <TopBar onBack={onBack} title="내 모임" action={<a className="icon-btn" href="#/chats" aria-label="전체 채팅"><ChatIcon /></a>} />
       <div className="screen-body pad-bottom">
-        <ScreenTitle>내 모임</ScreenTitle>
         <div className="tabline">
           <button type="button" aria-pressed={tab === 'joined'} className={tab === 'joined' ? 'on' : ''} onClick={() => onMyTabChange('joined')}>참가한</button>
           <button type="button" aria-pressed={tab === 'hosted'} className={tab === 'hosted' ? 'on' : ''} onClick={() => onMyTabChange('hosted')}>개설한</button>
@@ -1264,9 +1258,8 @@ export function ChatListView({ dataVersion, onBack }) {
     .sort((left, right) => new Date(left.startsAt) - new Date(right.startsAt));
   return (
     <div className="screen sub">
-      <TopBar onBack={onBack} />
+      <TopBar onBack={onBack} title="채팅" />
       <div className="screen-body pad-bottom">
-        <ScreenTitle>채팅</ScreenTitle>
         {error && <div style={{ marginTop: 22 }}><ErrorBox title="채팅 목록을 불러오지 못했어요" message={error} onRetry={() => { joined.retry(); hosted.retry(); }} /></div>}
         {!error && loading && !list.length && <div style={{ marginTop: 22 }}><RoomSkeletons count={2} /></div>}
         {!error && !loading && !list.length && (
@@ -1688,9 +1681,8 @@ export function SocialLinkView({ socialProviders = [], onSocialLink, onBack }) {
   };
   return (
     <div className="screen sub">
-      <TopBar onBack={onBack} />
+      <TopBar onBack={onBack} title="소셜 계정 연결" />
       <div className="screen-body pad-bottom">
-        <ScreenTitle>소셜 계정 연결</ScreenTitle>
         <div className="notecard" style={{ marginTop: 12 }}>
           <strong>이메일에 이미 가입된 계정이 있어요</strong>
           <p>이메일만 같다고 자동으로 합치지 않아요. 기존 계정으로 로그인한 지금 상태에서 동의하면 연결됩니다.</p>
@@ -1776,9 +1768,10 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onUplo
       setUploadingImage(false);
     }
   };
+  // 해 본 게임은 아래 메뉴 목록에 이미 같은 목적지로 가는 진입점이 있어 통계는 링크로 두지 않는다.
   const stats = [
-    { key: '참가한 모임', value: joinedPage?.totalElements ?? '—' },
-    { key: '개설한 모임', value: hostedPage?.totalElements ?? '—' },
+    { key: '참가한 모임', value: joinedPage?.totalElements ?? '—', href: '#/my/joined' },
+    { key: '개설한 모임', value: hostedPage?.totalElements ?? '—', href: '#/my/hosted' },
     { key: '해 본 게임', value: playedPage?.totalElements ?? '—' }
   ];
 
@@ -1819,7 +1812,10 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onUplo
         )}
 
         <dl className="profile-stats">
-          {stats.map((stat) => <div key={stat.key}><dd>{stat.value}</dd><dt>{stat.key}</dt></div>)}
+          {stats.map((stat) => {
+            const Tag = stat.href ? 'a' : 'div';
+            return <Tag key={stat.key} href={stat.href}><dd>{stat.value}</dd><dt>{stat.key}</dt></Tag>;
+          })}
         </dl>
 
         <div className="divider" style={{ marginTop: 28 }} />
@@ -1859,7 +1855,7 @@ function signupPasswordError(password) {
   return '';
 }
 
-export function AuthView({ onLogin, socialProviders = [], onSocialLogin }) {
+export function AuthView({ onLogin, socialProviders = [], onSocialLogin, onBack }) {
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -1880,6 +1876,7 @@ export function AuthView({ onLogin, socialProviders = [], onSocialLogin }) {
   };
   return (
     <div className="screen">
+      {onBack && <TopBar onBack={onBack} />}
       <div className="auth">
         <BrandMark size={62} />
         <h1>오늘 열린 모임에<br />한 자리 맡아두세요</h1>
@@ -1950,9 +1947,8 @@ export function SignupView({ onSignup, onBack }) {
   };
   return (
     <form className="screen sub" onSubmit={submit}>
-      <TopBar onBack={onBack} />
+      <TopBar onBack={onBack} title="회원가입" />
       <div className="screen-body pad-bottom">
-        <ScreenTitle>회원가입</ScreenTitle>
         <div className="field">
           <label className="sr-only" htmlFor="signup-email">이메일</label>
           <input id="signup-email" className="field-input" type="email" autoComplete="email" placeholder="이메일" required value={email} onChange={(event) => setEmail(event.target.value)} />
@@ -2105,6 +2101,9 @@ export function App() {
   }, [authenticated]);
   useEffect(() => {
     window.scrollTo(0, 0);
+  }, [route, arg]);
+  useEffect(() => {
+    if (route === 'my' && (arg === 'joined' || arg === 'hosted')) setMyTab(arg);
   }, [route, arg]);
 
   const handleProtectedError = (error, fallback) => {
@@ -2362,7 +2361,7 @@ export function App() {
     // GamesView는 initialFilters를 최초 마운트에만 반영하므로, 두 목록 route에 다른 key를 줘
     // 전환 때 재마운트시킨다. 같은 route 안에서 고른 필터는 key가 그대로라 유지된다.
     content = me
-      ? <div className="screen" key="game-list-played"><GamesView title="해 본 게임" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} onPlayedError={handleProtectedError} headerActions={headerActions} initialFilters={{ ...EMPTY_GAME_FILTERS, playedFilter: 'PLAYED_ONLY' }} /></div>
+      ? <div className="screen sub" key="game-list-played"><GamesView title="해 본 게임" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} onPlayedError={handleProtectedError} headerActions={headerActions} initialFilters={{ ...EMPTY_GAME_FILTERS, playedFilter: 'PLAYED_ONLY' }} onBack={goBack} /></div>
       : <LoginRequiredView message="해 본 게임을 보려면 로그인해주세요." onBack={goBack} />;
   } else if (route === 'game-list') {
     content = <div className="screen" key="game-list"><GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} onPlayedError={handleProtectedError} headerActions={headerActions} /></div>;
@@ -2433,11 +2432,11 @@ export function App() {
       : <AuthView onLogin={handleLogin} socialProviders={socialProviders} onSocialLogin={handleSocialLogin} />;
   } else if (route === 'auth') {
     content = me
-      ? <div className="screen"><div className="screen-body pad-top"><StateBlock title="이미 로그인되어 있어요" description="홈에서 모임을 찾아보세요."><a className="btn" href="#/home">홈으로 이동</a></StateBlock></div></div>
-      : <AuthView onLogin={handleLogin} socialProviders={socialProviders} onSocialLogin={handleSocialLogin} />;
+      ? <div className="screen sub"><TopBar onBack={goBack} /><div className="screen-body pad-bottom"><StateBlock title="이미 로그인되어 있어요" description="홈에서 모임을 찾아보세요."><a className="btn" href="#/home">홈으로 이동</a></StateBlock></div></div>
+      : <AuthView onLogin={handleLogin} socialProviders={socialProviders} onSocialLogin={handleSocialLogin} onBack={goBack} />;
   } else if (route === 'signup') {
     content = me
-      ? <div className="screen"><div className="screen-body pad-top"><StateBlock title="이미 로그인되어 있어요" description="홈에서 모임을 찾아보세요."><a className="btn" href="#/home">홈으로 이동</a></StateBlock></div></div>
+      ? <div className="screen sub"><TopBar onBack={goBack} /><div className="screen-body pad-bottom"><StateBlock title="이미 로그인되어 있어요" description="홈에서 모임을 찾아보세요."><a className="btn" href="#/home">홈으로 이동</a></StateBlock></div></div>
       : <SignupView onSignup={handleSignup} onBack={goBack} />;
   } else {
     content = <HomeView me={me} unreadCount={unreadCount} onOpenNotifications={openNotifications} dataVersion={dataVersion} />;

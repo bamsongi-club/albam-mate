@@ -1,5 +1,6 @@
 import React from 'react';
 import { playerColor, playerTextColor } from './players';
+import defaultGameCover from '../../assets/default-game-cover.jpg';
 
 // 로고는 인라인 SVG 단색 마크 한 벌만 쓴다. 로고 전용 서체는 쓰지 않는다.
 export function BrandMark({ size = 32, tone = '#0A0A0A', hole = '#fff' }) {
@@ -33,13 +34,15 @@ export const SendIcon = ({ size = 19 }) => <Stroke size={size} width={2.2}><path
 export const CameraIcon = ({ size = 12 }) => <Stroke size={size} width={2.2}><path d="M4 8.5h3l1.4-2h7.2L17 8.5h3v10H4zM12 16a3.2 3.2 0 1 1 0-6.4 3.2 3.2 0 0 1 0 6.4" /></Stroke>;
 export const EyeIcon = ({ size = 18 }) => <Stroke size={size}><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" /><circle cx="12" cy="12" r="3" /></Stroke>;
 export const MatchIcon = ({ size = 21 }) => <Stroke size={size} width={1.9}><path d="M4 6h16v10H4zM9 20h6M12 16v4" /></Stroke>;
+export const EditIcon = ({ size = 19 }) => <Stroke size={size} width={1.9}><path d="M17 3a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" /></Stroke>;
 export const EyeOffIcon = ({ size = 18 }) => <Stroke size={size}><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a18.6 18.6 0 0 1 4.22-5.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a18.6 18.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><path d="M1 1l22 22" /></Stroke>;
 
-/** 뒤로가기 바. 오른쪽 보조 조작은 action으로 넘긴다. */
-export function TopBar({ onBack, backLabel = '뒤로 가기', action }) {
+/** 뒤로가기 바. 아이콘 옆에 title을 두면 같은 줄에서 제목을 보여준다. 오른쪽 보조 조작은 action으로 넘긴다. */
+export function TopBar({ onBack, backLabel = '뒤로 가기', title, action }) {
   return (
     <div className="topbar">
       <button type="button" className="icon-btn" aria-label={backLabel} onClick={onBack}><BackIcon /></button>
+      {title && <h1 className="topbar-title"><span>{title}</span></h1>}
       {action}
     </div>
   );
@@ -76,7 +79,7 @@ export function SeatCount({ filled, total, size }) {
   return <span className={'seat-text' + (size === 'lg' ? ' lg' : '')}>{filled} / {total}</span>;
 }
 
-export function Cover({ src, className = '', style, fallback = 'assets/default-game-cover.jpg' }) {
+export function Cover({ src, className = '', style, fallback = defaultGameCover }) {
   const coverSrc = src || fallback;
   return (
     <span className={'cover ' + className} style={style}>
