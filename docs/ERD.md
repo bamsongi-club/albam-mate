@@ -724,7 +724,7 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 
 ### 소유 경계와 관계도
 
-`matching`은 요청·제안·응답·성공 파티·참가자 접근, 멱등성·신고·차단을 소유한다. `chat`은 `MATCH_CHAT_ROOMS`와 그 메시지·외부 링크·실시간 전달만 소유한다. P1 `CHAT_ROOMS.room_id`는 계속 `ROOMS.id`만 참조하며 P1 ROOM 접근 계산과 30일 메시지 보존에만 사용한다. MATCH는 이를 넓히거나 재사용하지 않고 `MATCH_CHAT_ROOMS.party_id`의 별도 관계를 사용한다.
+`matching`은 요청·제안·응답·성공 파티·참가자 접근, 멱등성·신고·차단을 소유한다. `chat`은 `MATCH_CHAT_ROOMS`와 URL 텍스트를 포함한 메시지·실시간 전달만 소유한다. P1 `CHAT_ROOMS.room_id`는 계속 `ROOMS.id`만 참조하며 P1 ROOM 접근 계산과 30일 메시지 보존에만 사용한다. MATCH는 이를 넓히거나 재사용하지 않고 `MATCH_CHAT_ROOMS.party_id`의 별도 관계를 사용한다.
 
 ~~~mermaid
 erDiagram
@@ -737,9 +737,7 @@ erDiagram
     USERS ||--o{ MATCH_PARTY_PARTICIPANTS : "성공 파티 참가"
     MATCH_PARTIES ||--o| MATCH_CHAT_ROOMS : "MATCH 전용 채팅"
     MATCH_CHAT_ROOMS ||--o{ MATCH_CHAT_MESSAGES : "메시지"
-    MATCH_CHAT_ROOMS ||--o{ MATCH_CHAT_LINKS : "외부 링크"
     USERS ||--o{ MATCH_CHAT_MESSAGES : "작성"
-    USERS ||--o{ MATCH_CHAT_LINKS : "공유"
     USERS ||--o{ MATCH_IDEMPOTENCY_RECORDS : "멱등성 기록"
     USERS ||--o{ MATCH_BLOCKS : "차단 시작"
     USERS ||--o{ MATCH_BLOCKS : "차단 대상"
@@ -756,6 +754,7 @@ erDiagram
 | `match_proposal_response_status` | `PENDING`, `ACCEPTED`, `REQUEUED`, `CANCELED`, `EXPIRED` |
 | `match_party_status` | `PREPARING`, `ACTIVE`, `CLOSED` |
 | `match_chat_message_type` | `USER`, `SYSTEM` |
+| `match_chat_system_event_key` | `CHAT_OPENED`, `CLOSES_IN_ONE_HOUR` |
 | `match_idempotency_operation` | `MATCH_REQUEST_CREATE`, `MATCH_PROPOSAL_RESPONSE` |
 | `match_report_reason` | `ABUSE_OR_HARASSMENT`, `HATE_OR_DISCRIMINATION`, `SEXUAL_CONTENT`, `SPAM_OR_SCAM`, `OTHER_RULE_VIOLATION` |
 
@@ -796,17 +795,16 @@ erDiagram
 | 테이블 | 주요 컬럼 | 타입·제약 |
 |---|---|---|
 | MATCH_PARTIES | id, proposal_id, game_id, status, preparing_started_at, chat_opened_at, closes_at, closed_at, purge_after, created_at, updated_at | `id BIGINT PK`; `proposal_id BIGINT NULL FK → MATCH_PROPOSALS.id ON DELETE SET NULL`; 게임·상태·준비 시작 시각은 NN, 이후 lifecycle 시각은 NULL 가능 |
-| MATCH_PARTY_PARTICIPANTS | party_id, user_id, created_at | `(party_id, user_id) BIGINT PK`; `party_id BIGINT FK → MATCH_PARTIES.id ON DELETE CASCADE`, `user_id BIGINT FK → USERS.id`인 성공 파티 참가자 접근 관계 |
+| MATCH_PARTY_PARTICIPANTS | party_id, user_id, left_at, created_at | `(party_id, user_id) BIGINT PK`; `party_id BIGINT FK → MATCH_PARTIES.id ON DELETE CASCADE`, `user_id BIGINT FK → USERS.id`, `left_at TIMESTAMPTZ NULL`. `left_at IS NULL`인 행만 현재 채팅 접근 관계이며 명시적 나가기 뒤에도 7일 보존을 위해 행은 남긴다. |
 
 ### MATCH 전용 채팅 저장
 
-이 세 테이블은 `chat` 소유의 계획 저장 구조다. `MATCH_CHAT_ROOMS`는 `MATCH_PARTIES`와 0 또는 1 관계이고 `CHAT_ROOMS`와 FK·공유 행·공유 접근 규칙을 갖지 않는다.
+이 두 테이블은 `chat` 소유의 계획 저장 구조다. `MATCH_CHAT_ROOMS`는 `MATCH_PARTIES`와 0 또는 1 관계이고 `CHAT_ROOMS`와 FK·공유 행·공유 접근 규칙을 갖지 않는다.
 
 | 테이블 | 주요 컬럼 | 타입·제약 |
 |---|---|---|
 | MATCH_CHAT_ROOMS | id, party_id, created_at, updated_at | `id BIGINT PK`; `party_id BIGINT FK → MATCH_PARTIES.id ON DELETE RESTRICT`, NN. matching이 파티를 연쇄 삭제하지 않도록 chat 정리 후에만 파티를 삭제한다. |
-| MATCH_CHAT_MESSAGES | id, match_chat_room_id, sender_user_id, message_type, client_message_id, content, created_at | `id BIGINT PK`; `match_chat_room_id BIGINT FK → MATCH_CHAT_ROOMS.id ON DELETE CASCADE`, 유형·본문·시각은 NN, SYSTEM 메시지의 `sender_user_id`·`client_message_id`는 NULL 가능 |
-| MATCH_CHAT_LINKS | id, match_chat_room_id, sender_user_id, url, created_at | `id BIGINT PK`; `match_chat_room_id BIGINT FK → MATCH_CHAT_ROOMS.id ON DELETE CASCADE`, 작성자 FK와 링크·시각은 NN |
+| MATCH_CHAT_MESSAGES | id, match_chat_room_id, sender_user_id, message_type, client_message_id, system_event_key, content, created_at | `id BIGINT PK`; `match_chat_room_id BIGINT FK → MATCH_CHAT_ROOMS.id ON DELETE CASCADE`, 유형·본문·시각은 NN. USER는 `sender_user_id`·`client_message_id`를, SYSTEM은 내부 `system_event_key`를 사용해 각각 재시도 중복을 막는다. |
 
 ### MATCH_IDEMPOTENCY_RECORDS, MATCH_BLOCKS와 MATCH_REPORTS
 
@@ -827,10 +825,10 @@ erDiagram
 | MATCH_REQUESTS, MATCH_PROPOSALS, MATCH_PARTIES | 각 `purge_after`의 `(purge_after, id) WHERE purge_after IS NOT NULL` 인덱스 | 종료 원자료를 제한된 묶음으로 물리 삭제한다. |
 | MATCH_PROPOSALS | `ck_match_proposals_status`: `status IN ('OPEN', 'CONFIRMED', 'DECLINED', 'EXPIRED', 'CANCELED')` | 제안의 저장 상태를 고정한다. |
 | MATCH_PROPOSAL_MEMBERS | `UNIQUE (proposal_id, user_id)`, `ck_match_proposal_members_response_status`, `proposal_id FK ON DELETE CASCADE`, `match_request_id FK ON DELETE CASCADE` | 한 제안에 같은 사용자를 중복으로 넣거나 승인되지 않은 응답 상태를 저장하지 않는다. 제안 또는 요청의 종료 원자료를 각 `purge_after`에 물리 삭제할 때 남은 응답 관계가 삭제를 막지 않는다. |
-| MATCH_PARTIES | `UNIQUE (proposal_id) WHERE proposal_id IS NOT NULL`, `proposal_id FK ON DELETE SET NULL`, `ck_match_parties_status` | 하나의 제안이 연결돼 있는 동안 둘 이상의 성공 파티를 만들지 않으며 `PREPARING`·`ACTIVE`·`CLOSED`만 저장한다. 제안이 먼저 purge되어도 늦게 `CLOSED`된 파티의 7일 보존은 막지 않는다. |
-| MATCH_PARTY_PARTICIPANTS | `PRIMARY KEY (party_id, user_id)` | 성공 파티의 같은 사용자 접근 관계는 한 번만 저장한다. |
+| MATCH_PARTIES | `UNIQUE (proposal_id) WHERE proposal_id IS NOT NULL`, `proposal_id FK ON DELETE SET NULL`, `ck_match_parties_status`, `idx_match_parties_preparing_due (preparing_started_at, id) WHERE status = 'PREPARING'` | 하나의 제안이 연결돼 있는 동안 둘 이상의 성공 파티를 만들지 않으며 `PREPARING`·`ACTIVE`·`CLOSED`만 저장한다. 제안이 먼저 purge되어도 늦게 `CLOSED`된 파티의 7일 보존은 막지 않는다. recovery scan은 준비 기한이 지난 대상만 제한적으로 찾는다. |
+| MATCH_PARTY_PARTICIPANTS | `PRIMARY KEY (party_id, user_id)`, `idx_match_party_participants_current (party_id, user_id) WHERE left_at IS NULL` | 성공 파티의 같은 사용자 접근 관계는 한 번만 저장한다. `left_at IS NULL`만 현재 접근·마지막 사용자 판정에 포함하고, 나간 관계는 Party purge까지 보존한다. |
 | MATCH_CHAT_ROOMS | `UNIQUE (party_id)`, `party_id FK ON DELETE RESTRICT` | 복구·재시도로 MATCH 채팅방을 중복 생성하지 않는다. matching이 파티를 연쇄 삭제하지 않고 chat 정리 경계가 방을 먼저 삭제하게 한다. |
-| MATCH_CHAT_MESSAGES, MATCH_CHAT_LINKS | 각 `match_chat_room_id FK ON DELETE CASCADE` | chat 소유의 방 삭제에서만 메시지·외부 링크를 함께 삭제한다. |
+| MATCH_CHAT_MESSAGES | `ck_match_chat_messages_kind`: USER는 `sender_user_id`·`client_message_id` NN 및 `system_event_key` NULL, SYSTEM은 sender·client ID NULL 및 `system_event_key IN ('CHAT_OPENED', 'CLOSES_IN_ONE_HOUR')`; `uq_match_chat_messages_user_client (match_chat_room_id, sender_user_id, client_message_id) WHERE client_message_id IS NOT NULL`; `uq_match_chat_messages_system_event (match_chat_room_id, system_event_key) WHERE system_event_key IS NOT NULL` | USER와 SYSTEM의 멱등성 근거를 섞지 않는다. 같은 사용자의 같은 USER 재전송과 같은 채팅방의 같은 SYSTEM lifecycle 알림은 각각 한 행으로 수렴한다. |
 | MATCH_BLOCKS | `CHECK (blocker_user_id <> blocked_user_id)`, PK와 `idx_match_blocks_blocked_blocker (blocked_user_id, blocker_user_id)` | 자기 차단을 막고 양방향 차단 후보 제외 조회를 지원한다. |
 | MATCH_REPORTS | `ck_match_reports_reason`: `reason IN ('ABUSE_OR_HARASSMENT', 'HATE_OR_DISCRIMINATION', 'SEXUAL_CONTENT', 'SPAM_OR_SCAM', 'OTHER_RULE_VIOLATION')`, `UNIQUE (reporter_user_id, reported_user_id)`, `CHECK (reporter_user_id <> reported_user_id)`, `(purge_after, id)` | 고정 신고 사유 다섯 값만 저장하며, 7일 보관 중 같은 신고자·피신고자 쌍을 한 건으로 제한하고 정리를 지원한다. |
 | MATCH_IDEMPOTENCY_RECORDS | `UNIQUE (user_id, idempotency_key)`, `ck_match_idempotency_operation`, `idx_match_idempotency_records_expiry (expires_at, id)` | 사용자 단위로 키를 전역 재사용하지 못하게 하고 24시간 뒤 제한된 묶음으로 정리한다. |
@@ -841,10 +839,13 @@ erDiagram
 
 - 후보 제안 Executor는 같은 게임의 `WAITING` 요청을 `priority_since ASC, id ASC`로 읽어 `FOR UPDATE SKIP LOCKED`로 선점한다. 같은 데이터베이스 트랜잭션에서 각 행을 `WAITING → PROPOSED`로 조건부 전이하고 제안·제안 회원을 함께 저장한다. 선점 행이 없거나 조건부 갱신이 0건이면 제안을 만들지 않는다.
 - 요청 생성과 제안 응답만 `Idempotency-Key`를 사용한다. 같은 사용자·키·canonical payload는 연결된 결과의 현재 상태를 반환하고, 다른 payload는 충돌이다. 취소·차단·차단 해제는 각 target-state 조건부 전이로 수렴하므로 key를 요구하지 않는다. key와 결과 메타데이터는 생성 시각부터 24시간 보존한다.
-- 요청 생성과 전원 수락 최종 확정은 사용자별 lifecycle을 직렬화하는 PostgreSQL 트랜잭션이다. 요청 생성은 대상 `USERS` 행 하나를, 전원 수락 최종 확정은 고정 제안 회원의 모든 `USERS` 행을 `id ASC` 결정적 순서로 `FOR UPDATE` 잠근다. 잠금 뒤 요청 생성은 `WAITING`·`PROPOSED`·`PAUSED` 현재 요청과 `PREPARING`·`ACTIVE` 파티 참가자 접근 관계가 모두 없는지 확인한다. 전원 수락 최종 확정은 각 사용자의 현재 요청이 그 제안의 `PROPOSED` 요청 하나뿐이고 `PREPARING`·`ACTIVE` 파티 참가자 접근 관계가 없는지 함께 확인한다. 그 뒤 요청을 `MATCHED`로 바꾸고 파티·참가자 접근 관계를 원자적으로 만든다. `CLOSED` 파티 관계는 이 판정에서 제외해 한 사용자에게 UI의 현재 상태가 하나만 남도록 한다.
-- 서버 시작과 주기 recovery는 `PREPARING` 파티도 다시 선별한다. `MATCH_CHAT_ROOMS`가 이미 있으면 같은 `party_id` 유일 제약을 이용해 중복 생성 없이 `ACTIVE`로 수렴한다. 준비 시작 후 5분까지 회복하지 못하면 chat 정리 경계가 부분 `MATCH_CHAT_ROOMS`를 먼저 삭제하고 그 내부 메시지·외부 링크를 cascade한 뒤, 성공 파티·참가자 접근 관계를 물리 삭제하고 연결 요청을 기존 `queued_at`·`priority_since`를 보존한 `WAITING`으로 복귀시킨다.
+- 요청 생성과 전원 수락 최종 확정은 사용자별 lifecycle을 직렬화하는 PostgreSQL 트랜잭션이다. 요청 생성은 대상 `USERS` 행 하나를, 전원 수락 최종 확정은 고정 제안 회원의 모든 `USERS` 행을 `id ASC` 결정적 순서로 `FOR UPDATE` 잠근다. 잠금 뒤 요청 생성은 `WAITING`·`PROPOSED`·`PAUSED` 현재 요청과 `PREPARING` Party의 참가자 관계, `ACTIVE` Party의 `left_at IS NULL` 참가자 접근 관계가 모두 없는지 확인한다. 전원 수락 최종 확정은 각 사용자의 현재 요청이 그 제안의 `PROPOSED` 요청 하나뿐이고 같은 현재 Party 관계가 없는지 함께 확인한다. 그 뒤 요청을 `MATCHED`로 바꾸고 파티·참가자 접근 관계를 원자적으로 만든다. `CLOSED`와 명시적으로 나간 `left_at IS NOT NULL` 관계는 이 판정에서 제외해 한 사용자에게 UI의 현재 상태가 하나만 남도록 한다.
+- 서버 시작과 주기 recovery는 `PREPARING` 파티도 다시 선별한다. scan·ShedLock은 후보 중복 조회만 조정하므로 Party별 Executor는 시작 즉시 대상 `MATCH_PARTIES` 행을 `FOR UPDATE`로 잠근다. 잠금 뒤 PostgreSQL 시각으로 `operation_time`과 `preparing_started_at + 5분` deadline을 정하고 현재 `status`, MATCH chat 존재를 다시 읽는다. deadline 전의 아직 `PREPARING` Party만 provision 또는 기존 채팅 재사용을 시작할 수 있으며, `PREPARING → ACTIVE` 조건부 갱신은 직전 DB 시각도 deadline 전인 경우 영향 행이 1일 때만 성공한다. 그 조건이 0건이거나 lock 뒤 deadline이 지났으면 채팅방 존재와 무관하게 아직 `PREPARING`인 Party의 실패 cleanup만 수행한다. cleanup도 같은 상태·기한 조건에서만 실행하고, 잠금 뒤 상태가 바뀌었거나 Party가 사라졌으면 no-op으로 끝내므로 ACTIVE 전이와 실패 삭제가 같은 Party에 함께 적용되지 않는다. 준비 시작 후 5분까지 `ACTIVE`로 회복하지 못하면 chat 정리 경계가 부분 `MATCH_CHAT_ROOMS`를 먼저 삭제하고 그 내부 메시지를 cascade한 뒤, 성공 파티·참가자 접근 관계를 물리 삭제하고 연결 요청을 기존 `queued_at`·`priority_since`를 보존한 `WAITING`으로 복귀시킨다.
+- 명시적 나가기는 `ACTIVE` Party 행을 `FOR UPDATE`로 잠근 뒤 본인 관계의 `left_at`을 조건부로 기록한다. 같은 잠금 안에서 `left_at IS NULL`인 남은 참가자를 다시 세어 0명이면 `ACTIVE → CLOSED`, `closed_at`, `purge_after`를 한 번만 확정한다. 마지막 사용자가 아니면 Party는 ACTIVE로 남고 나간 사용자만 접근을 잃는다. 24시간 종료와 마지막 나가기의 경쟁도 이 Party 잠금과 조건부 ACTIVE 전이를 공유하므로 한 실제 `closed_at`만 남는다.
+- MATCH 사용자 메시지 쓰기는 caller 트랜잭션에서 Party 행을 `FOR UPDATE`로 잠근 뒤 `status = ACTIVE`와 `left_at IS NULL`인 본인 접근을 다시 검증하고, 그 뒤 `MATCH_CHAT_ROOMS`를 잠근다. MATCH의 쓰기 잠금 순서는 `MATCH_PARTIES → MATCH_CHAT_ROOMS`이며 명시적 나가기·24시간 종료도 Party 잠금을 먼저 얻는다. 따라서 close가 먼저 커밋되면 뒤늦은 메시지 저장은 없고, write가 먼저 커밋되면 URL 텍스트를 포함한 메시지는 close 전 상태의 데이터만 남는다.
+- chat은 Party 잠금 안에서 `ACTIVE`를 다시 확인한 뒤 `CHAT_OPENED`, 종료 1시간 전에도 아직 ACTIVE인 Party에는 `CLOSES_IN_ONE_HOUR` SYSTEM 메시지를 각각 `system_event_key`로 `INSERT ... ON CONFLICT` 처리한다. 재시작·재시도·겹친 scheduler는 이미 저장된 행을 재사용하며, 조기 `CLOSED` Party에는 종료 1시간 전 메시지를 새로 만들지 않는다.
 - 요청은 각 요청 종료 시각부터 7일 뒤, 제안과 그 응답은 각 제안 종료 시각부터 7일 뒤 `purge_after`에서 물리 삭제한다. 제안 purge는 `MATCH_PROPOSAL_MEMBERS`를 cascade하고, 요청의 독립 purge는 남은 응답 관계를 cascade하므로 둘 중 늦게 `CLOSED`되는 성공 파티가 요청·제안 종료 원자료 삭제를 막지 않는다. 제안이 먼저 삭제되면 `MATCH_PARTIES.proposal_id`는 `NULL`로 바뀐다.
-- `PREPARING`과 `CLOSED`는 일반 사용자 메시지 조회·전송·실시간 구독을 허용하지 않는다. `ACTIVE → CLOSED` 뒤 성공 파티·참가자 접근 관계와 MATCH 채팅은 즉시 비공개가 되며 실제 `closed_at`부터 7일 보존한다. party retention 시 chat 정리 경계가 `MATCH_CHAT_ROOMS`를 먼저 삭제하고 그 내부 메시지·외부 링크를 cascade한 뒤, `MATCH_PARTY_PARTICIPANTS`와 `MATCH_PARTIES`를 삭제한다. `MATCH_CHAT_ROOMS.party_id`의 `ON DELETE RESTRICT`는 matching 소유 파티 삭제가 chat을 연쇄 삭제하지 못하게 한다. 이 삭제가 끝난 뒤 `PURGED` 행을 남기지 않는다.
+- `PREPARING`과 `CLOSED`는 일반 사용자 메시지 조회·전송·실시간 구독을 허용하지 않는다. `ACTIVE → CLOSED` 뒤 성공 파티·참가자 접근 관계와 MATCH 채팅은 즉시 비공개가 되며 실제 `closed_at`부터 7일 보존한다. party retention 시 chat 정리 경계가 `MATCH_CHAT_ROOMS`를 먼저 삭제하고 그 내부 URL 텍스트를 포함한 메시지를 cascade한 뒤, `MATCH_PARTY_PARTICIPANTS`와 `MATCH_PARTIES`를 삭제한다. `MATCH_CHAT_ROOMS.party_id`의 `ON DELETE RESTRICT`는 matching 소유 파티 삭제가 chat을 연쇄 삭제하지 못하게 한다. 이 삭제가 끝난 뒤 `PURGED` 행을 남기지 않는다.
 - 재접속·실시간 이벤트 유실은 하나의 서버 상태 조회로 복구한다. 실시간 이벤트와 기존 P1 Redis 전달 기술은 `ACTIVE` 이후의 전달 보조 수단일 뿐 MATCH 상태·접근의 정본이 아니다.
 - 신고는 다섯 사유 enum과 접수 시각만 7일 보관한다. 같은 신고자·피신고자 쌍의 반복 신고는 새 행을 만들지 않으며 신고는 차단·현재 제안·현재 성공 파티에 영향을 주지 않는다. 차단은 방향성 관계이고 이후 새 후보에서만 서로를 제외한다.
 
@@ -936,4 +937,4 @@ erDiagram
 - 방이 `CANCELED`·`FINISHED`로 전이된 뒤에도 저장된 메시지는 30일 보관하지만 일반 사용자 조회·전송·실시간 구독은 허용하지 않는다. 만료 메시지는 다음 일일 삭제 작업에서 최대 24시간 안에 제거한다.
 - ROOM Scheduler 상태 보정은 영속 순회 경계에서 제한된 ID를 선별한 뒤 ROOM마다 독립 트랜잭션으로 처리하고, cursor는 별도 조건부 갱신 트랜잭션으로 전진한다. 채팅 만료 삭제는 소량 묶음마다 독립 트랜잭션으로 처리한다. ShedLock 임대 만료로 실행이 겹쳐도 ROOM은 최신 상태를 다시 확인하고 늦은 실행 주체의 진행 상태 갱신은 generation·version 불일치로 거절한다.
 
-> 문서 관리: 소유자 `밤송이클럽 백엔드 팀` · 최종 검증일 `2026-08-14` · 폐기 조건 `저장 계약이 승인된 schema 생성 문서로 완전히 대체될 때`
+> 문서 관리: 소유자 `밤송이클럽 백엔드 팀` · 최종 검증일 `2026-08-15` · 폐기 조건 `저장 계약이 승인된 schema 생성 문서로 완전히 대체될 때`

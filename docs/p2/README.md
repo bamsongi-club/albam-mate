@@ -46,7 +46,7 @@ P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.
 
 `OPS-01`·`OPS-02`·`OPS-03`·`OPS-05`는 [운영 관측 런북](../guides/MONITORING_OPERATIONS.md)에 metric·log 허용 목록, alarm query·runbook, 상태 전이·IAM·배포 증거 계약을 반영해 구현 선행 계약을 마쳤다. 이는 생산 코드·자동 검증·AWS 배포·실측 완료가 아니다. `OPS-04`는 공통 관측 비용 계약만 준비됐으며 AI provider·model·호출 경계와 가격 snapshot 소유 계약이 확정될 때까지 `선행 계약 필요`를 유지한다.
 
-AI 챗봇은 담당 상세 명세가 등록된 뒤 기능별 선행 계약을 별도로 판정한다. `DISCOVERY-01`과 `SEARCH-04`는 상세 명세 초안을 등록했지만 필요한 API·ERD·아키텍처·ADR·운영 계약이 남아 있어 `선행 계약 필요`다. `MATCH-01`은 [API](../API.md)·[ERD](../ERD.md)·[아키텍처](../ARCHITECTURE.md)와 [MATCH ADR](../adr/matching/README.md)에 구현 선행 계약을 반영해 `계약 준비 완료`다. 생산 코드·PostgreSQL 통합 검증·동일 게임 활성 요청 1,000개와 두 matcher 인스턴스 기준의 baseline 측정은 후속 구현에서 각각 갱신한다.
+AI 챗봇은 담당 상세 명세가 등록된 뒤 기능별 선행 계약을 별도로 판정한다. `DISCOVERY-01`과 `SEARCH-04`는 상세 명세 초안을 등록했지만 필요한 API·ERD·아키텍처·ADR·운영 계약이 남아 있어 `선행 계약 필요`다. `MATCH-01`은 [API](../API.md)·[ERD](../ERD.md)·[아키텍처](../ARCHITECTURE.md)와 [MATCH ADR](../adr/matching/README.md)에 구현 선행 계약을 반영해 `계약 준비 완료`다. 생산 코드·PostgreSQL 통합 검증·[MATCH-01 후보 탐색 baseline 측정 계약](../measurements/match-01-candidate-search-baseline-contract.md)의 실행과 결과 채택은 후속 구현에서 각각 갱신한다.
 
 ## 팀 기능 문서 작성 규칙
 

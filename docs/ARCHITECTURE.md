@@ -88,8 +88,8 @@ RANK-02의 외부·내부 인기 점수는 런타임 모듈 호출이 아니라 
 | `user` | 사용자 계정·비밀번호 자격증명·외부 신원 연결·프로필·공개 사용자 조회 | OAuth 제공자 통신, 세션 생성·폐기 |
 | `game` | 게임 목록·검색·상세, RANK-02 저장 인기 점수와 게임 요약 계약 | 방 데이터 직접 조회 |
 | `room` | 방·참가 관계·정원·상태 전이·재시도·상태 보정 | 사용자·게임 내부 구현 |
-| `matching` (P2 계획·미구현) | MATCH 요청·제안·응답·성공 파티·참가자 접근, 후보 선점·복구·멱등성·신고·차단 | MATCH 채팅방·메시지·외부 링크·실시간 전달, 게임·사용자 내부 구현 |
-| `chat` (P1 구현, P2 MATCH 계획) | P1 ROOM별 채팅방·메시지 저장, 이력 cursor 조회, 현재 관계자 접근 검증과 실시간 전달. P2에서는 `matching.contract`를 통해 MATCH 전용 채팅방·메시지·외부 링크·실시간 전달만 담당 | 방·참가·MATCH 요청·제안·응답·성공 파티·참가자 접근 Entity/Repository, 인증 세션 내부 구현 |
+| `matching` (P2 계획·미구현) | MATCH 요청·제안·응답·성공 파티·참가자 접근, 후보 선점·복구·멱등성·신고·차단 | MATCH 채팅방·메시지·실시간 전달, 게임·사용자 내부 구현 |
+| `chat` (P1 구현, P2 MATCH 계획) | P1 ROOM별 채팅방·메시지 저장, 이력 cursor 조회, 현재 관계자 접근 검증과 실시간 전달. P2에서는 `matching.contract`를 통해 MATCH 전용 채팅방·URL 텍스트를 포함한 메시지·실시간 전달만 담당 | 방·참가·MATCH 요청·제안·응답·성공 파티·참가자 접근 Entity/Repository, 인증 세션 내부 구현 |
 | `notification` (P1) | 웹 알림 조회·읽음, Outbox·수신자 스냅샷·알림 저장, relay·재시도·복구·보존 정리 | 방 상태 전이·수신자 재계산, 이메일·모바일 푸시·Web Push·SMS 전달 |
 | `global` | 공통 응답·예외·보안·설정·UTC 시간 기반 | 업무 Entity·DTO·규칙 |
 | `infra` (P1) | Redis 세션·채팅 fan-out과 PostgreSQL 스케줄 잠금 같은 기술 adapter | 업무 규칙·Entity·HTTP DTO |
@@ -119,21 +119,27 @@ RANK-02의 외부·내부 인기 점수는 런타임 모듈 호출이 아니라 
 
 > 이 절은 P2 MATCH의 승인된 목표 구조다. `matching` 모듈·`matching.contract`·MATCH 전용 chat 구현·구조 검사는 아직 존재하지 않으며, 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정한다.
 
-`matching`은 MATCH 요청·제안·응답, 성공 파티와 참가자 접근, 후보 선점·복구·멱등성·신고·차단을 소유한다. `chat`은 MATCH 전용 채팅방·메시지·외부 링크·실시간 전달만 소유한다. P1 `ChatRoom`/`roomId`/ROOM 접근/30일 보존은 계속 ROOM 전용이며 MATCH로 확장하거나 재사용하지 않는다.
+`matching`은 MATCH 요청·제안·응답, 성공 파티와 참가자 접근, 후보 선점·복구·멱등성·신고·차단을 소유한다. `chat`은 MATCH 전용 채팅방·URL 텍스트를 포함한 메시지·실시간 전달만 소유한다. P1 `ChatRoom`/`roomId`/ROOM 접근/30일 보존은 계속 ROOM 전용이며 MATCH로 확장하거나 재사용하지 않는다.
 
 MATCH 협력 계약은 `matching.contract`가 소유한다.
 
 | 계약 | 호출·구현 | 책임과 트랜잭션 경계 |
 | --- | --- | --- |
 | `MatchChatProvisionPort` | `matching`의 `PREPARING` Recovery Executor가 호출하고 `chat`이 구현 | `partyId`별로 MATCH 채팅방 하나를 멱등 준비한다. |
-| `MatchChatCleanupPort` | `matching`의 Recovery/Cleanup Executor가 호출하고 `chat`이 구현 | `partyId`별 MATCH 메시지·외부 링크를 먼저, 채팅방을 마지막에 멱등 정리한다. 호출한 Executor의 DB 트랜잭션에 참여하며 별도 커밋·독립 트랜잭션을 열지 않는다. 성공 반환은 해당 chat 데이터 정리가 완료됐다는 뜻이다. |
-| `MatchPartyAccessQuery` | `chat`이 호출하고 `matching`이 구현 | 현재 Party 상태와 참가자 접근을 함께 확인해 `ACTIVE`일 때만 MATCH chat 접근을 허용한다. |
+| `MatchChatSystemMessagePort` | `matching`이 Party 상태를 잠근 뒤 호출하고 `chat`이 구현 | `CHAT_OPENED`·`CLOSES_IN_ONE_HOUR` lifecycle 알림을 Party별로 멱등 저장한다. 호출한 Executor의 DB 트랜잭션에 참여하며, 이미 기록한 같은 이벤트는 성공으로 수렴한다. |
+| `MatchChatCleanupPort` | `matching`의 Recovery/Cleanup Executor가 호출하고 `chat`이 구현 | `partyId`별 URL 텍스트를 포함한 MATCH 메시지를 먼저, 채팅방을 마지막에 멱등 정리한다. 호출한 Executor의 DB 트랜잭션에 참여하며 별도 커밋·독립 트랜잭션을 열지 않는다. 성공 반환은 해당 chat 데이터 정리가 완료됐다는 뜻이다. |
+| `MatchPartyAccessQuery` | `chat`이 호출하고 `matching`이 구현 | 현재 Party 상태와 아직 명시적으로 나가지 않은 참가자 접근을 함께 확인해 `ACTIVE`일 때만 MATCH chat 접근을 허용한다. |
+| `MatchPartyChatWriteGuard` | `chat`의 URL 텍스트를 포함한 메시지 쓰기 Command가 호출하고 `matching`이 구현 | 호출자 트랜잭션에서 Party를 `FOR UPDATE`로 잠근 뒤 `ACTIVE`와 아직 나가지 않은 본인 접근을 판정한다. 성공 반환 뒤 caller가 같은 트랜잭션에서만 chat 데이터를 저장한다. |
 
-따라서 런타임에는 양 모듈이 협력해도 컴파일 의존은 `chat → matching.contract`만 생긴다. `matching` Recovery/Cleanup Executor는 chat 정리 시 `MatchChatCleanupPort`만 호출하며 chat Entity·Repository를 직접 참조하지 않는다. `matching → chat`이나 순환 의존은 생기지 않는다.
+따라서 런타임에는 양 모듈이 협력해도 컴파일 의존은 `chat → matching.contract`만 생긴다. `matching` Recovery/Cleanup Executor는 위 provision·SYSTEM message·cleanup port만 호출하며 chat Entity·Repository를 직접 참조하지 않는다. `matching → chat`이나 순환 의존은 생기지 않는다.
 
-`PREPARING` 5분 실패에서는 Recovery/Cleanup Executor가 하나의 `REQUIRES_NEW`에서 `MatchChatCleanupPort` 완료 뒤 Party·참가자 접근을 물리 삭제하고 연결 요청을 기존 `queuedAt`·`prioritySince` 그대로 `WAITING`으로 복귀시킨다. `CLOSED` 뒤 7일 purge에서도 같은 Executor가 port 완료 뒤 Party·참가자 접근을 물리 삭제한다. 두 경우 모두 port 정리와 matching lifecycle 변경은 같은 DB 트랜잭션에서 성공하거나 함께 롤백하므로 부분 완료를 사용자에게 노출하지 않는다.
+Recovery/Cleanup Executor는 Party별 `REQUIRES_NEW`를 시작할 때 대상 `MATCH_PARTIES` 행을 `FOR UPDATE`로 잠근다. 잠금 뒤 PostgreSQL 시각으로 `operationTime`과 `prepareUntil = preparingStartedAt + 5분`을 한 번 정하고 현재 `status`·MATCH 채팅 존재를 다시 읽는다. `operationTime < prepareUntil`인 아직 `PREPARING` Party만 provision을 시작할 수 있으며, `PREPARING → ACTIVE` 조건부 전이 직전에도 DB 시각이 deadline 전인지 다시 확인한다. 그 조건이 0건이거나 `operationTime >= prepareUntil`이면 채팅방 존재와 무관하게 실패 cleanup만 수행한다. 잠금 뒤 `ACTIVE`·`CLOSED`가 되었거나 Party가 없으면 no-op으로 끝내므로 provision과 stale cleanup이 같은 Party에 함께 적용되지 않는다.
+
+`PREPARING` 5분 실패에서는 같은 Executor가 `MatchChatCleanupPort` 완료 뒤 Party·참가자 접근을 물리 삭제하고 연결 요청을 기존 `queuedAt`·`prioritySince` 그대로 `WAITING`으로 복귀시킨다. `CLOSED` 뒤 7일 purge에서도 같은 Executor가 port 완료 뒤 Party·참가자 접근을 물리 삭제한다. 두 경우 모두 port 정리와 matching lifecycle 변경은 같은 DB 트랜잭션에서 성공하거나 함께 롤백하므로 부분 완료를 사용자에게 노출하지 않는다.
 
 `PREPARING` Party는 채팅방 행이 이미 있어도 메시지 조회·전송·실시간 구독 권한을 부여하지 않는다. `MatchPartyAccessQuery`가 `ACTIVE`와 현재 참가자 접근을 함께 반환한 뒤에만 기존 P1의 세션·Redis Pub/Sub·전송 제한 기술을 MATCH 전달에 재사용할 수 있다. 재접속·이벤트 유실의 정본은 같은 query가 읽는 PostgreSQL 현재 상태이며 실시간 신호는 정본이 아니다.
+
+MATCH 사용자 메시지 쓰기는 chat Command가 연 트랜잭션에서 `MatchPartyChatWriteGuard`를 먼저 호출해 Party를 잠근 뒤 `MATCH_CHAT_ROOMS`를 잠그고 저장한다. MATCH의 쓰기 잠금 순서는 항상 `MATCH_PARTIES → MATCH_CHAT_ROOMS`다. 마지막 나가기·24시간 종료도 같은 Party 잠금을 먼저 얻으므로, close가 먼저 커밋되면 이후 쓰기는 거절되고 write가 먼저 커밋되면 URL 텍스트를 포함한 메시지는 close 전 상태에만 남는다. SYSTEM lifecycle 알림은 matching Executor가 Party 잠금과 `ACTIVE` 조건을 유지한 채 `MatchChatSystemMessagePort`를 호출해 같은 순서로 저장한다.
 
 ### 패키지 구조
 
@@ -158,7 +164,7 @@ MATCH 협력 계약은 `matching.contract`가 소유한다.
 | `chat/service` (P1) | 채팅방 접근, 메시지 저장·이력 조회 유스케이스 |
 | `chat/websocket` (P1) | 방별 WebSocket handshake, 인스턴스 로컬 연결과 PostgreSQL 이력 복구 상태 |
 | `chat/retention` (P1) | 최종 상태 메시지의 일일 만료 선별, 소량 묶음 삭제와 실패 계측 |
-| `chat/match` (P2 계획) | `matching.contract`의 provision·cleanup·access 계약만 사용하는 MATCH 전용 채팅방·메시지·링크·실시간 adapter |
+| `chat/match` (P2 계획) | `matching.contract`의 provision·cleanup·access·write guard 계약을 사용하는 MATCH 전용 채팅방·URL 텍스트를 포함한 메시지·실시간 adapter |
 | `global/security/session` (P1) | 공용 서버 세션 설정과 세션 쿠키 공통 규칙 |
 | `global/scheduling` (P1) | 업무 규칙을 모르는 클러스터 스케줄 잠금 port |
 | `global` | 업무 의미가 없는 공통 기술 기반 |
@@ -216,7 +222,8 @@ MATCH 협력 계약은 `matching.contract`가 소유한다.
 | Notification Recovery·Cleanup | 운영 명령 adapter와 Scheduler는 Repository를 직접 사용하지 않으며, application service·Executor가 제한된 묶음의 상태 전환과 물리 삭제 트랜잭션을 소유한다. |
 | MATCH Proposal Coordinator·Executor (P2 계획) | Coordinator는 트랜잭션 밖에서 제한된 후보 처리만 조정한다. Executor는 `REQUIRES_NEW`에서 `FOR UPDATE SKIP LOCKED` 후보 선점, `WAITING → PROPOSED` 조건부 전이와 제안·회원 저장을 함께 커밋한다. |
 | MATCH Proposal Response Executor (P2 계획) | 요청·응답 멱등성 기록과 대상 제안의 조건부 응답을 같은 `REQUIRES_NEW`에서 처리한다. 전원 수락이면 성공 Party·참가자 접근·연결 요청 `MATCHED`·Party `PREPARING`을 원자적으로 확정한다. |
-| MATCH Recovery/Cleanup Scheduler·Coordinator·Executor (P2 계획) | Scheduler·Coordinator는 전역 스케줄 잠금과 제한된 후보 순회만 조정한다. Executor는 제안 기한, `PREPARING` 복구, `CLOSED` 정리 대상마다 독립 `REQUIRES_NEW`를 소유한다. `PREPARING` 실패와 `CLOSED` purge에서는 `MatchChatCleanupPort`가 그 트랜잭션에 참여한 뒤 matching lifecycle을 처리한다. |
+| MATCH Party Leave Executor (P2 계획) | 명시적 나가기에서 Party를 잠근 뒤 본인 접근만 종료하고, 남은 현재 접근이 0이면 `ACTIVE → CLOSED`를 같은 `REQUIRES_NEW`에서 확정한다. 연결 종료·서버 재시작은 이 command를 호출하지 않는다. |
+| MATCH Recovery/Cleanup Scheduler·Coordinator·Executor (P2 계획) | Scheduler·Coordinator는 전역 스케줄 잠금과 제한된 후보 순회만 조정한다. Executor는 제안 기한, `PREPARING` 복구, `CLOSED` 정리 대상마다 독립 `REQUIRES_NEW`를 소유하고 Party 잠금 뒤 DB 시각·상태·기한·채팅을 다시 판정한다. deadline 전 provision·ACTIVE CAS, deadline 뒤 cleanup의 우선순위를 고정한다. `PREPARING` 실패와 `CLOSED` purge에서는 `MatchChatCleanupPort`가 그 트랜잭션에 참여한 뒤 matching lifecycle을 처리한다. |
 
 클래스 가시성은 호출 범위에서 가장 좁게 둔다. 같은 패키지에서만 쓰는 ReadService·Executor·Coordinator는 package-private으로 두고, 다른 패키지에서 호출해야 하는 Coordinator와 Retrier만 `public`으로 공개한다. Spring Proxy가 트랜잭션을 적용하거나 다른 패키지에서 호출하는 진입 메서드는 클래스 가시성과 별개로 `public`일 수 있다.
 
@@ -415,30 +422,32 @@ flowchart LR
     responseExecutor --> finalize["전원 수락: Party/접근 + 요청 MATCHED<br/>Party PREPARING<br/>같은 트랜잭션"]
     recoveryScheduler["Startup/Recovery Scheduler"] --> schedulerLock["ScheduledTaskLock<br/>scan 조정만"]
     schedulerLock --> recovery["Recovery/Cleanup Executor<br/>Party별 REQUIRES_NEW"]
-    recovery --> provisionPort["matching.contract<br/>MatchChatProvisionPort"]
+    recovery --> partyLock["MATCH_PARTIES FOR UPDATE<br/>DB 시각·상태·기한·채팅 재확인"]
+    partyLock --> provisionPort["PREPARING + deadline 전: matching.contract<br/>MatchChatProvisionPort"]
     provisionPort --> matchChat["chat: MATCH 전용 채팅 준비"]
-    matchChat --> active["기존/신규 채팅 1개로 ACTIVE 수렴"]
-    recovery --> preparingFailure["PREPARING 5분 실패"]
+    matchChat --> active["deadline 전 ACTIVE CAS + CHAT_OPENED 1건"]
+    partyLock --> preparingFailure["PREPARING + deadline 경과"]
     preparingFailure --> preparingCleanupPort["matching.contract<br/>MatchChatCleanupPort<br/>호출 Executor 트랜잭션 참여"]
-    preparingCleanupPort --> preparingChatCleanup["chat: partyId별 메시지·링크 → 채팅방 멱등 삭제"]
+    preparingCleanupPort --> preparingChatCleanup["chat: partyId별 URL 텍스트 포함 메시지 → 채팅방 멱등 삭제"]
     preparingChatCleanup --> failed["matching: Party/접근 물리 삭제<br/>연결 요청 WAITING 복귀<br/>같은 트랜잭션"]
-    recovery --> closedPurge["CLOSED + 7일 purge"]
+    partyLock --> closedPurge["CLOSED + 7일 purge"]
     closedPurge --> closedCleanupPort["matching.contract<br/>MatchChatCleanupPort<br/>호출 Executor 트랜잭션 참여"]
-    closedCleanupPort --> closedChatCleanup["chat: partyId별 메시지·링크 → 채팅방 멱등 삭제"]
+    closedCleanupPort --> closedChatCleanup["chat: partyId별 URL 텍스트 포함 메시지 → 채팅방 멱등 삭제"]
     closedChatCleanup --> purged["matching: Party/접근 물리 삭제<br/>같은 트랜잭션"]
 ```
 
 - Proposal Executor는 같은 게임의 후보를 `(prioritySince ASC, matchRequestId ASC)`로 `FOR UPDATE SKIP LOCKED` 선점한다. `WAITING → PROPOSED` 조건부 전이, Proposal·Member 저장은 같은 `REQUIRES_NEW`에서 성공하거나 함께 롤백한다. `ScheduledTaskLock`은 이 업무 claim을 대신하지 않는다.
 - MATCH 요청 생성과 제안 응답의 `Idempotency-Key` 기록·결과 메타데이터는 각 Command Executor의 같은 트랜잭션에 저장한다. 같은 user·key·canonical 의미면 연결된 현재 상태를 반환하고, 다른 operation·path·body action은 충돌이다. 취소·차단·차단 해제에는 key를 요구하지 않는다.
-- MATCH 요청 생성과 전원 수락 finalization은 관련 `USERS` 행을 `userId ASC`로 잠근 뒤 활성 MATCH 요청과 `PREPARING`·`ACTIVE` Party 소속을 함께 판정한다. 따라서 새 요청 생성과 all-accept finalization의 경합도 한 사용자에게 두 현재 상태를 만들지 않는다.
+- MATCH 요청 생성과 전원 수락 finalization은 관련 `USERS` 행을 `userId ASC`로 잠근 뒤 활성 MATCH 요청과 `PREPARING`·아직 명시적으로 나가지 않은 `ACTIVE` Party 소속을 함께 판정한다. 따라서 새 요청 생성과 all-accept finalization의 경합도 한 사용자에게 두 현재 상태를 만들지 않는다.
 - 전원 수락 finalization은 Party·참가자 접근·연결 요청 `MATCHED`·Party `PREPARING`을 하나의 `REQUIRES_NEW`에서 만든다. 채팅 provisioning은 그 이후 `matching.contract.MatchChatProvisionPort`를 통해 idempotent하게 실행한다. `chat`은 `partyId` 유일 채팅방을 만들거나 기존 방을 반환할 뿐 MATCH Entity·Repository를 참조하지 않는다.
-- startup과 모든 인스턴스의 recovery Scheduler는 `PREPARING`을 다시 선별한다. Executor는 Party 행을 최신 상태로 확인해 기존 MATCH 채팅이 있으면 중복 없이 `ACTIVE`로 전이한다. 준비 시작 뒤 5분이 지나도 회복하지 못하면 같은 `REQUIRES_NEW`에서 `MatchChatCleanupPort` 완료 뒤 Party·접근을 물리 삭제하고 연결 요청을 기존 우선순위로 `WAITING`에 복귀시킨다. port 정리나 이후 matching lifecycle 변경이 실패하면 모두 롤백해 partial chat·Party·접근 또는 재대기 완료를 남기지 않는다.
-- `ACTIVE → CLOSED` 전이는 즉시 `MatchPartyAccessQuery`의 메시지·링크·실시간 접근을 거절한다. cleanup Executor는 `closedAt + 7일` 뒤 같은 `REQUIRES_NEW`에서 `MatchChatCleanupPort` 완료 후 Party·참가자 접근을 물리 삭제한다. port 정리 실패 시 Party·접근을 먼저 삭제하지 않으며 함께 롤백한다. `PREPARING`도 일반 사용자 메시지 접근을 허용하지 않는다.
+- startup과 모든 인스턴스의 recovery Scheduler는 `PREPARING`을 다시 선별한다. `ScheduledTaskLock`은 scan 조정만 하므로 Party별 Executor는 먼저 Party 행을 `FOR UPDATE`로 잠근 뒤 DB 시각·상태·준비 시각·채팅을 재확인한다. lock 뒤 deadline 전인 `PREPARING`만 기존 MATCH 채팅으로 `ACTIVE`에 수렴하거나 provision을 시작할 수 있고, `ACTIVE` CAS 직전 deadline을 다시 조건부 확인한다. 그 조건이 실패했거나 lock 뒤 deadline이 지났으면 채팅방 존재와 무관하게 실패 cleanup만 수행한다. 잠금 뒤 상태가 바뀌었거나 Party가 없으면 no-op이다. port 정리나 이후 matching lifecycle 변경이 실패하면 모두 롤백해 partial chat·Party·접근 또는 재대기 완료를 남기지 않는다.
+- `ACTIVE` Party의 명시적 나가기는 Party 잠금 안에서 본인 접근을 끝내고 남은 현재 접근을 다시 센다. 마지막 사용자의 나가기 또는 24시간 종료 중 먼저 확정된 하나만 `ACTIVE → CLOSED`로 전이한다. 연결 종료·서버 재시작은 나가기가 아니므로 재접속 권한을 보존한다. `ACTIVE → CLOSED` 전이는 즉시 `MatchPartyAccessQuery`의 메시지·실시간 접근을 거절한다. URL 텍스트를 포함한 메시지 쓰기도 같은 Party 잠금 뒤 현재 접근을 다시 검증하므로 close 커밋 뒤 새 저장을 성공시키지 않는다. chat WebSocket은 메시지 전달 전과 관계 변경 뒤 이 query를 다시 확인해 이미 연결된 사용자도 접근을 잃으면 종료한다. cleanup Executor는 `closedAt + 7일` 뒤 같은 `REQUIRES_NEW`에서 `MatchChatCleanupPort` 완료 후 Party·참가자 접근을 물리 삭제한다. port 정리 실패 시 Party·접근을 먼저 삭제하지 않으며 함께 롤백한다. `PREPARING`도 일반 사용자 메시지 접근을 허용하지 않는다.
+- chat은 Party가 `ACTIVE`로 확정된 뒤 `CHAT_OPENED`, 종료 1시간 전에도 아직 `ACTIVE`인 경우 `CLOSES_IN_ONE_HOUR` SYSTEM 메시지를 matching Executor의 Party 잠금 안에서 저장한다. 같은 방·이벤트 키의 유일 제약과 conflict-as-exists 처리로 재시작·재시도·겹친 scheduler도 각 lifecycle 알림 한 건으로 수렴하며, 조기 `CLOSED` Party에는 종료 1시간 전 알림을 새로 만들지 않는다.
 - 재접속과 이벤트 유실은 한 번의 서버 상태 조회로 복구한다. P1 Redis Pub/Sub·세션·전송 제한은 `ACTIVE` 뒤 전달에만 재사용하며, Redis business lock은 MATCH 후보·응답·복구 정합성에 도입하지 않는다.
 
 #### P2 MATCH 기준 측정 gate (계획·미구현)
 
-같은 게임의 활성 MATCH 요청 1,000건과 matching 애플리케이션 인스턴스 2대를 고정한 조건에서 후보 조회 p95, DB lock wait, retry 횟수, 처리량과 중복·부분 성공 0건을 함께 측정한다. 숫자 SLO와 Redis 재검토는 이 증거 뒤에만 결정하며, DB 경합 증거 없이 Redis business lock을 추가하지 않는다([ADR-0063](adr/matching/0063-match-baseline-measurement-gate.md)).
+동일 게임의 `WAITING` MATCH 요청 1,000건과 matching 애플리케이션 인스턴스 2대를 고정한 baseline의 fixture·round·통계·결과 채택 기준은 [MATCH-01 후보 탐색 baseline 측정 계약](measurements/match-01-candidate-search-baseline-contract.md)이 정본이다. 숫자 SLO와 Redis 재검토는 그 증거 뒤에만 결정하며, DB 경합 증거 없이 Redis business lock을 추가하지 않는다([ADR-0063](adr/matching/0063-match-baseline-measurement-gate.md)).
 
 #### 다중 인스턴스 실행
 
@@ -609,4 +618,4 @@ P2 MATCH 계획은 아직 이 구조 검사에 등록되지 않았다. 구현 �
 
 중요한 구조 선택의 근거나 대안이 바뀌면 ADR을 추가하거나 기존 ADR을 대체한다. 코드 작성 규칙은 [CONVENTIONS](CONVENTIONS.md), HTTP 계약은 [API 명세](API.md), 저장 계약은 [ERD](ERD.md)가 각각 소유한다.
 
-> 문서 관리: 소유자 `밤송이클럽 백엔드 팀` · 최종 검증일 `2026-08-14` · 폐기 조건 `모듈러 모놀리스 구조를 더 이상 사용하지 않거나 후속 아키텍처 정본이 승인될 때`
+> 문서 관리: 소유자 `밤송이클럽 백엔드 팀` · 최종 검증일 `2026-08-15` · 폐기 조건 `모듈러 모놀리스 구조를 더 이상 사용하지 않거나 후속 아키텍처 정본이 승인될 때`
