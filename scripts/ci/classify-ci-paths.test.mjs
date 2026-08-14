@@ -10,7 +10,7 @@ import { classifyCiPaths, readNulDelimitedPaths } from "./classify-ci-paths.mjs"
 import { POSTGRES_DECISIONS } from "./classify-postgres-requirement.mjs";
 
 const scriptPath = fileURLToPath(new URL("./classify-ci-paths.mjs", import.meta.url));
-const workflowPath = fileURLToPath(new URL("../.github/workflows/ci.yml", import.meta.url));
+const workflowPath = fileURLToPath(new URL("../../.github/workflows/ci.yml", import.meta.url));
 
 const noBackend = (frontend) => ({
   backend: false,
@@ -35,10 +35,10 @@ test("문서 변경은 backend와 frontend를 실행하지 않는다", () => {
       "docs/guides/TESTING.md",
       "src/test/AGENTS.md",
       ".github/ISSUE_TEMPLATE/docs.yml",
-      "scripts/check-doc-links.test.mjs",
-      "scripts/check-monitoring-contract.mjs",
-      "scripts/check-monitoring-contract.test.mjs",
-      "scripts/classify-postgres-requirement.test.mjs",
+      "scripts/docs/check-doc-links.test.mjs",
+      "scripts/docs/check-monitoring-contract.mjs",
+      "scripts/docs/check-monitoring-contract.test.mjs",
+      "scripts/ci/classify-postgres-requirement.test.mjs",
       "scripts/verify-changed-h2-coverage.test.mjs",
     ]),
     noBackend(false),
@@ -188,8 +188,8 @@ test("CLI는 실제 diff의 safe 변경에서 PostgreSQL과 Docker를 생략한�
 
 test("CLI는 PostgreSQL 실행 대상과 선택 검증 제어 스크립트 단독 변경에서 PostgreSQL과 Docker를 실행한다", (t) => {
   for (const changedPath of [
-    "scripts/partition-postgres-tests.mjs",
-    "scripts/classify-postgres-requirement.mjs",
+    "scripts/ci/partition-postgres-tests.mjs",
+    "scripts/ci/classify-postgres-requirement.mjs",
     "scripts/verify-changed-h2-coverage.mjs",
   ]) {
     const worktree = fs.mkdtempSync(path.join(os.tmpdir(), "ci-postgres-control-"));

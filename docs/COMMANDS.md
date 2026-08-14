@@ -33,7 +33,7 @@ java --version
 | PostgreSQL 테스트 | `.\gradlew.bat postgresTest --no-daemon --stacktrace` | `./gradlew postgresTest --no-daemon --stacktrace` |
 | 빠른 커버리지 게이트 | `.\gradlew.bat jacocoTestReport jacocoTestCoverageVerification` | `./gradlew jacocoTestReport jacocoTestCoverageVerification` |
 | Java 컨벤션 검사 | `.\gradlew.bat conventionCheck` | `./gradlew conventionCheck` |
-| 문서 링크 검사 | `node scripts/check-doc-links.mjs` | `node scripts/check-doc-links.mjs` |
+| 문서 링크 검사 | `node scripts/docs/check-doc-links.mjs` | `node scripts/docs/check-doc-links.mjs` |
 | 프론트엔드 테스트 | `Set-Location frontend; npm.cmd test` | `cd frontend && npm test` |
 | 프론트엔드 빌드 | `Set-Location frontend; npm.cmd run build` | `cd frontend && npm run build` |
 | 로컬 전체 스택 시작 | `docker compose --env-file .env -f compose.local.yml up -d --build --wait` | 동일 |
@@ -97,10 +97,10 @@ Windows에서는 `./gradlew` 대신 `.\gradlew.bat`을 사용한다. 자동 포�
 Markdown 링크와 검사기 회귀를 확인한다.
 
 ```sh
-node scripts/check-doc-links.mjs
-node --test scripts/check-doc-links.test.mjs
-node scripts/check-monitoring-contract.mjs
-node --test scripts/check-monitoring-contract.test.mjs
+node scripts/docs/check-doc-links.mjs
+node --test scripts/docs/check-doc-links.test.mjs
+node scripts/docs/check-monitoring-contract.mjs
+node --test scripts/docs/check-monitoring-contract.test.mjs
 ```
 
 ## 운영 Compose

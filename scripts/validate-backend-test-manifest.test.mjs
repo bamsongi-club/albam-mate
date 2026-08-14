@@ -14,7 +14,7 @@ import {
     matchesPathPattern,
     validateBackendTestManifest,
 } from './validate-backend-test-manifest.mjs';
-import { POSTGRES_DECISIONS } from './classify-postgres-requirement.mjs';
+import { POSTGRES_DECISIONS } from './ci/classify-postgres-requirement.mjs';
 import { DEFAULT_SCHEMA_PATH as DEFAULT_PACKET_SCHEMA_PATH } from './validate-packet.mjs';
 
 const packetSchema = JSON.parse(fs.readFileSync(DEFAULT_PACKET_SCHEMA_PATH, 'utf8'));

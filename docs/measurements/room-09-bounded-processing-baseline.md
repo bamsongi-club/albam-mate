@@ -63,7 +63,7 @@
 
 변화율은 같은 세션 현행 중앙값을 분모로 한 관찰값이며 성능 합격선이나 운영 실측 주장이 아니다.
 
-`ROOM-09d-T2`가 요구하는 지표를 하나의 대비 표에 옮겼다. 이 표는 아래 보존 원자료에서 [`scripts/room09-measurement-report.mjs`](../../scripts/room09-measurement-report.mjs)가 생성하므로 손으로 고치지 않는다.
+`ROOM-09d-T2`가 요구하는 지표를 하나의 대비 표에 옮겼다. 이 표는 아래 보존 원자료에서 [`scripts/measurements/room09-measurement-report.mjs`](../../scripts/measurements/room09-measurement-report.mjs)가 생성하므로 손으로 고치지 않는다.
 
 <!-- room09-report:comparison-table:start -->
 | 규모 | 제한 ID | 경로 | 후보 수 | 성공 | 실패 | 호출 시간 최소/**중앙**/최대 (ms) | 전체 순회 최소/**중앙**/최대 (ms) | 처리량 최소/**중앙**/최대 (ROOM/s) | DB 호출 수 | DB 실행시간 중앙 (ms) | 현행 대비 시간 | 현행 대비 처리량 | 현행 대비 DB 시간 |
@@ -127,7 +127,7 @@
 | [`room-09d-waiting-queue-small-limit-10.json`](results/room-09d/room-09d-waiting-queue-small-limit-10.json) | `AB2D754130A8244E4B4B8EED3CA8141AF06DF7AE150BF80E12C4C1A80AD4C5F2` |
 <!-- room09-report:preserved-data-table:end -->
 
-SHA-256 기준은 위 현행 원자료와 같다. 이 표도 생성물이며 `scripts/room09-measurement-report.mjs`가 원자료에서 다시 계산한다.
+SHA-256 기준은 위 현행 원자료와 같다. 이 표도 생성물이며 `scripts/measurements/room09-measurement-report.mjs`가 원자료에서 다시 계산한다.
 
 ### 확정한 초기 운영값
 
@@ -148,7 +148,7 @@ SHA-256 기준은 위 현행 원자료와 같다. 이 표도 생성물이며 `sc
 - 이 수치는 로컬 단일 인스턴스와 Testcontainers 환경의 fixture 결과이며 운영 실측이나 성능 합격선이 아니다. 배포 환경에서 다시 측정한 값과 직접 비교하지 않는다.
 - 조합마다 현행과 후보는 같은 세션에서 얻었지만, 서로 다른 조합은 서로 다른 세션에서 측정했다. 같은 대형 현행이 `153,662 ms`와 `284,453 ms`로 벌어지는 것처럼 절대값은 호스트 부하에 크게 좌우된다. 따라서 조합 간 절대값을 직접 비교하지 않고 각 조합 안의 변화율만 읽는다.
 - 이 측정은 정상 처리 경로만 다룬다. 고의 실패·재시도·순회 중 새 due ROOM 유입은 포함하지 않으며, 실패 격리는 `#382`의 `ROOM-09b-T4` 검증 결과를 재사용한다.
-- 중형·대형 직접 비교 원자료 6개의 `executionCommand`는 측정 당시(`gitSha` `a3adcaeabf0e2a60751978767a9a0f9b9202c038`) 보고서 생성 코드의 selector 오류로 후보 단독 메서드를 가리켰고, 측정을 다시 하지 않고 `scripts/room09-measurement-report.mjs`가 정정했다. 정정은 그 필드 한 줄만 바꾸며, 스크립트가 나머지 모든 값이 동일한지 확인한 뒤에만 파일을 쓴다. 측정값은 여전히 `a3adcae`에서 실행한 결과다.
+- 중형·대형 직접 비교 원자료 6개의 `executionCommand`는 측정 당시(`gitSha` `a3adcaeabf0e2a60751978767a9a0f9b9202c038`) 보고서 생성 코드의 selector 오류로 후보 단독 메서드를 가리켰고, 측정을 다시 하지 않고 `scripts/measurements/room09-measurement-report.mjs`가 정정했다. 정정은 그 필드 한 줄만 바꾸며, 스크립트가 나머지 모든 값이 동일한지 확인한 뒤에만 파일을 쓴다. 측정값은 여전히 `a3adcae`에서 실행한 결과다.
 - 보존 원자료의 DB 비용에는 처리 직후의 사후 검증 `SELECT` 1회가 포함돼 있다. 실행시간은 처리 구간만 재므로 두 지표의 경계가 run당 쿼리 1개만큼 다르다. 측정 테스트는 이제 처리 반환 직후에 DB 통계를 먼저 확보해 경계를 맞추지만, 이 문서의 수치는 그 수정 이전에 얻은 값이다. 두 경로에 같은 1회가 더해져 조합 안의 변화율에는 영향이 거의 없다. 소형은 후보 `149`회 중 `0.7%`, 중형·대형은 `0.02%` 미만이다.
 - 소형·중형 열세의 원인을 ROOM당 트랜잭션 고정 비용으로 좁혔으나, 그 고정 비용의 내부 구성까지는 나누지 않았다. 확정하려면 트랜잭션 경계별 프로파일링이 따로 필요하다.
 - `candidate-limit`은 한 번에 선별할 ID 수이고, `max-batches-per-run`은 한 Scheduler 실행이 처리할 batch 수의 상한이다. 운영값 `100`과 `100`은 최대 `10,000` ROOM 시도를 뜻한다. 상한 뒤 마지막 cursor 뒤 후보를 한 건 확인해 실제 잔여 후보가 있으면 cursor를 보존하고 ROOM 전용 WARN을 한 번 남기며 다음 실행이 같은 turn cutoff를 재개한다. 후보가 비었을 때만 wrap한다. 대형 `10,000` due ROOM의 기존 측정 계약은 test-only `max-batches-per-run: 1001`로 보존해 `candidate-limit: 10`에서도 마지막 empty selector와 wrap까지 진행한다. 따라서 대형에서 관찰한 `151,774 ms`는 여전히 이 fixture의 관찰값이지 운영 실행 상한은 아니다. backlog가 커져 한 실행이 `lockAtMostFor` `10m`을 넘으면 다른 인스턴스가 만료된 잠금을 얻을 수 있고, `advanceCursor`가 `progressVersion`과 `executionGeneration`을 함께 CAS하며 새 실행의 `claimExecution`이 `executionGeneration`을 올리므로 기존 실행은 다음 ROOM 하나를 처리한 직후 CAS 실패로 멈춘다. 중첩 처리는 최대 ROOM `1`건이다.
@@ -227,13 +227,13 @@ try {
 측정과 보고를 나눈다. 대형 한 조합이 수십 분이라, 재현 명령·대비 표·SHA-256 같은 파생물이 원자료와 어긋날 때 측정을 다시 돌릴 수 없기 때문이다. 파생물은 보존 원자료만 읽어 다시 만든다.
 
 ```powershell
-node scripts/room09-measurement-report.mjs --check
+node scripts/measurements/room09-measurement-report.mjs --check
 ```
 
 `--check`는 보존 원자료의 재현 메타데이터와 이 문서의 생성 표가 원자료와 일치하는지만 확인하고 아무것도 쓰지 않는다. 어긋나면 실패한다.
 
 ```powershell
-node scripts/room09-measurement-report.mjs --write
+node scripts/measurements/room09-measurement-report.mjs --write
 ```
 
 `--write`는 원자료를 정본으로 삼아 재현 메타데이터와 위 세 생성 표를 다시 만든다. 측정값은 바꾸지 않으며, 재현 메타데이터를 뺀 나머지가 모두 같은지 확인한 뒤에만 파일을 쓴다. 새로 측정했다면 `build/reports/measurements/`의 JSON을 `results/room-09d/`로 복사한 뒤 `--write`를 실행한다.

@@ -39,7 +39,7 @@
 - 같은 Draft head에서 `review-code` 일반 리뷰를 비게시 read-only로 한 번 호출한다. 고정 diff, 승인된 T-ID와 manifest를 함께 전달해 변경 위험과 assertion·mock·실행 경계·누락 테스트를 일반 Finding으로 검토하며 T-ID별 별도 verdict를 만들지 않는다.
 - targeted 실행, 일반 리뷰와 현재 head CI가 모두 성공해야 Ready for review로 전환한다. 결과와 Finding은 대화와 임시 자료에만 유지하고, 사용자가 별도로 요청하지 않으면 review·comment·reply를 게시하거나 thread를 해결하지 않는다.
 - Ready 전환 직전에 최신 `origin/develop`이 변경 경로·공유 계약·API·스키마·마이그레이션·보안·빌드와 충돌하거나 merge conflict를 만드는지 확인한다. 영향이 없으면 현재 결과를 유지하고 CI와 mergeability만 확인한다. 영향이 있어 head를 바꾸면 manifest 검증, task별 targeted 실행, 일반 리뷰와 CI를 모두 새 head에서 반복한다.
-- Markdown을 바꾸면 `node scripts/check-doc-links.mjs`를 실행하고, 실행하지 못한 조건부 검증을 완료로 표시하지 않는다.
+- Markdown을 바꾸면 `node scripts/docs/check-doc-links.mjs`를 실행하고, 실행하지 못한 조건부 검증을 완료로 표시하지 않는다.
 
 ## PR 테스트 항목 handoff
 

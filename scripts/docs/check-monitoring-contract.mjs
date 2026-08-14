@@ -51,7 +51,7 @@ export function runCheck(repoRoot) {
 
 function main() {
   const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
-  const repoRoot = path.resolve(scriptDirectory, "..");
+  const repoRoot = path.resolve(scriptDirectory, "../..");
   const problems = runCheck(repoRoot);
   if (problems.length > 0) {
     for (const problem of problems) {

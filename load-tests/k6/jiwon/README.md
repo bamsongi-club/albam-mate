@@ -161,7 +161,7 @@ Get-ChildItem load-tests/k6/jiwon -Recurse -File |
   Where-Object { $_.Extension -in '.js', '.mjs' } |
   ForEach-Object { node --check $_.FullName }
 
-node scripts/check-doc-links.mjs
+node scripts/docs/check-doc-links.mjs
 ```
 
 k6가 설치된 실행 환경에서는 아래도 추가한다.

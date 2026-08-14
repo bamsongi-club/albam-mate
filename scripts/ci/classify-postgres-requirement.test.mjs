@@ -16,7 +16,7 @@ import {
 const scriptPath = fileURLToPath(new URL('./classify-postgres-requirement.mjs', import.meta.url));
 const myRoomQuerySourcePath = fileURLToPath(
     new URL(
-        '../src/main/java/cloud/bamsongi/albammate/room/service/query/MyRoomQueryService.java',
+        '../../src/main/java/cloud/bamsongi/albammate/room/service/query/MyRoomQueryService.java',
         import.meta.url,
     ),
 );
@@ -219,9 +219,9 @@ test('데이터 접근 문맥과 런타임 경로가 애매하면 needs-review�
 
 test('PostgreSQL 실행 대상과 선택 검증 제어 스크립트 변경은 needs-review로 분류한다', () => {
     const paths = [
-        'scripts/classify-ci-paths.mjs',
-        'scripts/classify-postgres-requirement.mjs',
-        'scripts/partition-postgres-tests.mjs',
+        'scripts/ci/classify-ci-paths.mjs',
+        'scripts/ci/classify-postgres-requirement.mjs',
+        'scripts/ci/partition-postgres-tests.mjs',
         'scripts/validate-backend-test-manifest.mjs',
         'scripts/verify-changed-h2-coverage.mjs',
     ];

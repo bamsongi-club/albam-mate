@@ -53,7 +53,7 @@ body:
       value: |
         - [ ] 대상 문서의 범위·정본 책임을 확인
         - [ ] 관련 문서·링크·앵커를 갱신
-        - [ ] `node scripts/check-doc-links.mjs` 통과
+        - [ ] `node scripts/docs/check-doc-links.mjs` 통과
     validations:
       required: true
 

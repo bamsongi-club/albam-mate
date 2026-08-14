@@ -7,7 +7,7 @@
 // 들여쓰기 코드 블록, 인라인 코드 스팬을 먼저 덮은 뒤 남은 본문에서 destination을 뽑는다.
 // destination을 뽑지 못한 링크는 건너뛰지 않고 `파싱 실패`로 보고한다. 검사기가 조용히
 // 지나친 링크가 통과로 보이면 게이트의 의미가 없기 때문이다.
-// 회귀 입력은 scripts/check-doc-links.test.mjs에 고정한다.
+// 회귀 입력은 scripts/docs/check-doc-links.test.mjs에 고정한다.
 
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';

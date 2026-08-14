@@ -23,13 +23,13 @@ Git의 `core.hooksPath`는 저장소에 commit되지 않는 clone별 설정이�
 Windows PowerShell:
 
 ```powershell
-.\scripts\install-git-hooks.ps1
+.\scripts\hooks\install-git-hooks.ps1
 ```
 
 macOS, Linux, WSL:
 
 ```sh
-sh ./scripts/install-git-hooks.sh
+sh ./scripts/hooks/install-git-hooks.sh
 ```
 
 두 설치 스크립트는 현재 저장소를 확인한 뒤 `core.hooksPath=.githooks`를 설정한다. POSIX용 스크립트는 macOS와 Linux에서 `.githooks/pre-commit`과 `gradlew`에 실행 권한도 부여한다.
