@@ -1,0 +1,1849 @@
+[
+  {
+    "id": "Q-001",
+    "query": "트릭테이킹 방식의 협력 게임 중 3인 이상 플레이 가능한 게임",
+    "cohorts": [
+      "exact/name variant",
+      "intent/description",
+      "intent+hard filter"
+    ],
+    "anchor": true,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 3
+    },
+    "expectedGameIds": [
+      6242,
+      17167,
+      24331,
+      27502,
+      33660,
+      39203,
+      39438,
+      113785,
+      164160,
+      180244
+    ],
+    "excludedGameIds": [
+      31260,
+      224517
+    ],
+    "expectedReasons": {
+      "6242": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "17167": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "24331": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "27502": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "33660": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "39203": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "39438": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "113785": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "164160": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "180244": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "31260": "draft 제외 후보이며 독립 판정 전입니다.",
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-002",
+    "query": "4명이 모두 초보여도 쉽게 즐길 수 있는 재미있는 파티 게임",
+    "cohorts": [
+      "exact/name variant",
+      "intent/description",
+      "intent+hard filter"
+    ],
+    "anchor": true,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4
+    },
+    "expectedGameIds": [
+      45,
+      126,
+      163,
+      208,
+      211,
+      317,
+      451,
+      570,
+      617,
+      642
+    ],
+    "excludedGameIds": [
+      174430,
+      224517
+    ],
+    "expectedReasons": {
+      "45": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "126": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "163": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "208": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "211": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "317": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "451": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "570": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "617": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "642": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다.",
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-003",
+    "query": "일꾼 놓기 게임 중 4인 플레이가 가능하고 플레이타임이 30분 이하인 게임",
+    "cohorts": [
+      "exact/name variant",
+      "intent/description",
+      "intent+hard filter"
+    ],
+    "anchor": true,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      768,
+      1162,
+      6281,
+      33865,
+      36811,
+      39579,
+      41019,
+      42791,
+      51826,
+      57135
+    ],
+    "excludedGameIds": [
+      31260,
+      224517
+    ],
+    "expectedReasons": {
+      "768": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "1162": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "6281": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "33865": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "36811": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "39579": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "41019": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "42791": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "51826": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다.",
+      "57135": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "31260": "draft 제외 후보이며 독립 판정 전입니다.",
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-004",
+    "query": "스페이스 크루 이름 변형 1",
+    "cohorts": [
+      "exact/name variant"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      284083
+    ],
+    "excludedGameIds": [
+      45
+    ],
+    "expectedReasons": {
+      "284083": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "45": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-005",
+    "query": "딥 씨 크루 이름 변형 2",
+    "cohorts": [
+      "exact/name variant"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      324856
+    ],
+    "excludedGameIds": [
+      45
+    ],
+    "expectedReasons": {
+      "324856": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "45": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-006",
+    "query": "하나비 이름 변형 3",
+    "cohorts": [
+      "exact/name variant"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      98778
+    ],
+    "excludedGameIds": [
+      45
+    ],
+    "expectedReasons": {
+      "98778": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "45": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-007",
+    "query": "더 마인드 이름 변형 4",
+    "cohorts": [
+      "exact/name variant"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      244992
+    ],
+    "excludedGameIds": [
+      45
+    ],
+    "expectedReasons": {
+      "244992": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "45": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-008",
+    "query": "코드네임 이름 변형 5",
+    "cohorts": [
+      "exact/name variant"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      178900
+    ],
+    "excludedGameIds": [
+      45
+    ],
+    "expectedReasons": {
+      "178900": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "45": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-009",
+    "query": "7 원더스 이름 변형 6",
+    "cohorts": [
+      "exact/name variant"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      68448
+    ],
+    "excludedGameIds": [
+      45
+    ],
+    "expectedReasons": {
+      "68448": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "45": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-010",
+    "query": "카르카손 이름 변형 7",
+    "cohorts": [
+      "exact/name variant"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      822
+    ],
+    "excludedGameIds": [
+      45
+    ],
+    "expectedReasons": {
+      "822": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "45": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-011",
+    "query": "팬데믹 이름 변형 8",
+    "cohorts": [
+      "exact/name variant"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      30549
+    ],
+    "excludedGameIds": [
+      45
+    ],
+    "expectedReasons": {
+      "30549": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "45": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-012",
+    "query": "아그리콜라 이름 변형 9",
+    "cohorts": [
+      "exact/name variant"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      31260
+    ],
+    "excludedGameIds": [
+      45
+    ],
+    "expectedReasons": {
+      "31260": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "45": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-013",
+    "query": "브라스: 버밍엄 이름 변형 10",
+    "cohorts": [
+      "exact/name variant"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      224517
+    ],
+    "excludedGameIds": [
+      45
+    ],
+    "expectedReasons": {
+      "224517": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "45": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-014",
+    "query": "글룸헤이븐 이름 변형 11",
+    "cohorts": [
+      "exact/name variant"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      174430
+    ],
+    "excludedGameIds": [
+      45
+    ],
+    "expectedReasons": {
+      "174430": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "45": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-015",
+    "query": "패치워크 이름 변형 12",
+    "cohorts": [
+      "exact/name variant"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      163412
+    ],
+    "excludedGameIds": [
+      45
+    ],
+    "expectedReasons": {
+      "163412": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "45": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-016",
+    "query": "협력하면서 트릭을 따는 카드 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      6242
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "6242": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-017",
+    "query": "팀으로 규칙을 맞춰 가는 트릭테이킹 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      17167
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "17167": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-018",
+    "query": "실수해도 함께 복구할 수 있는 협력 카드 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      24331
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "24331": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-019",
+    "query": "카드 정보를 공유하며 협력하는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      27502
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "27502": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-020",
+    "query": "짧은 라운드로 반복 플레이하는 협력 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      33660
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "33660": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-021",
+    "query": "트릭테이킹과 추리를 함께 하는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      39203
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "39203": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-022",
+    "query": "친구들과 가볍게 협력할 수 있는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      39438
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "39438": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-023",
+    "query": "카드 메커니즘이 중심인 협력 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      113785
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "113785": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-024",
+    "query": "팀 단위로 목표를 달성하는 카드 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      164160
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "164160": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-025",
+    "query": "3명 이상이 함께 즐기는 협력 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      180244
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "180244": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-026",
+    "query": "가볍고 빠른 파티 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      45
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "45": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-027",
+    "query": "처음 하는 사람도 규칙을 익히기 쉬운 파티 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      126
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "126": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-028",
+    "query": "짧은 시간에 끝나는 카드 파티 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      163
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "163": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-029",
+    "query": "여러 명이 웃으며 즐기는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      208
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "208": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-030",
+    "query": "4명에서 즐기기 좋은 가벼운 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      211
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "211": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-031",
+    "query": "초보자에게 설명하기 쉬운 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      317
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "317": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-032",
+    "query": "15분 안에 할 수 있는 파티 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      451
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "451": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-033",
+    "query": "카드로 간단히 경쟁하는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      570
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "570": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-034",
+    "query": "가족과 함께 할 수 있는 쉬운 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      617
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "617": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-035",
+    "query": "친구 모임에서 바로 시작할 수 있는 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      642
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "642": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-036",
+    "query": "협상과 카드 교환이 있는 가벼운 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      768
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "768": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-037",
+    "query": "반복해서 해도 부담이 적은 게임",
+    "cohorts": [
+      "intent/description"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {},
+    "expectedGameIds": [
+      1162
+    ],
+    "excludedGameIds": [
+      224517
+    ],
+    "expectedReasons": {
+      "1162": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "224517": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-038",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 1",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      768
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "768": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-039",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 2",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      1162
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "1162": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-040",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 3",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      6281
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "6281": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-041",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 4",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      33865
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "33865": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-042",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 5",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      36811
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "36811": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-043",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 6",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      39579
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "39579": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-044",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 7",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      41019
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "41019": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-045",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 8",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      42791
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "42791": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-046",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 9",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      51826
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "51826": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-047",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 10",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      57135
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "57135": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-048",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 11",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      61358
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "61358": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-049",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 12",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      62030
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "62030": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-050",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 13",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      64266
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "64266": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-051",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 14",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      69823
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "69823": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-052",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 15",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      71886
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "71886": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-053",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 16",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      72851
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "72851": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-054",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 17",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      75091
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "75091": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-055",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 18",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      75382
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "75382": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-056",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 19",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      80979
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "80979": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-057",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 20",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      83980
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "83980": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-058",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 21",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      84922
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "84922": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-059",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 22",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      85363
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "85363": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  },
+  {
+    "id": "Q-060",
+    "query": "4인 30분 이하 일꾼 놓기 후보 질의 23",
+    "cohorts": [
+      "intent+hard filter"
+    ],
+    "anchor": false,
+    "labelStatus": "proposed",
+    "hardFilters": {
+      "minPlayers": 4,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    "expectedGameIds": [
+      86620
+    ],
+    "excludedGameIds": [
+      174430
+    ],
+    "expectedReasons": {
+      "86620": "공개 catalog 메타데이터에서 만든 draft 후보이며 독립 판정 전입니다."
+    },
+    "excludedReasons": {
+      "174430": "draft 제외 후보이며 독립 판정 전입니다."
+    },
+    "source": {
+      "releaseId": "pending-bgg-catalog-release-2026-08-14",
+      "fieldVersion": "catalog-fields-v1",
+      "reference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md"
+    },
+    "judgements": []
+  }
+]

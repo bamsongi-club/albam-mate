@@ -1,0 +1,570 @@
+#!/usr/bin/env node
+
+import fs from "node:fs";
+import { createHash } from "node:crypto";
+import path from "node:path";
+import process from "node:process";
+import { fileURLToPath } from "node:url";
+
+export const COHORT_RULES = Object.freeze({
+    "exact/name variant": 15,
+    "intent/description": 25,
+    "intent+hard filter": 20,
+});
+
+const ALLOWED_SCOPE_PREFIXES = Object.freeze([
+    "docs/p2/search-evaluation/",
+    "scripts/p2-search-evaluation.mjs",
+    "scripts/p2-search-evaluation.test.mjs",
+    ".github/workflows/ci.yml",
+]);
+
+export function validateEvaluationManifest(manifest, options = {}) {
+    requireObject(manifest, "manifest");
+    if (manifest.schemaVersion !== 1) {
+        fail("SEARCH-04 manifest schemaVersion은 1이어야 합니다.");
+    }
+    if (manifest.featureId !== "SEARCH-04") {
+        fail("SEARCH-04 manifest featureId가 올바르지 않습니다.");
+    }
+    if (!["draft", "quality-ready"].includes(manifest.status)) {
+        fail("SEARCH-04 manifest status는 draft 또는 quality-ready여야 합니다.");
+    }
+
+    validateCatalogDescriptor(manifest.catalog);
+    const queries = manifest.queries;
+    if (!Array.isArray(queries) || queries.length < 60) {
+        fail("SEARCH-04 fixture는 cohort 최소 표본을 포함해 최소 60개 query가 필요합니다.");
+    }
+
+    const queryIds = new Set();
+    const queryTexts = new Set();
+    const cohortCounts = Object.fromEntries(Object.keys(COHORT_RULES).map((cohort) => [cohort, 0]));
+    const anchors = [];
+
+    for (const query of queries) {
+        validateQuery(query, manifest, queryIds, queryTexts, cohortCounts);
+        if (query.anchor === true) anchors.push(query);
+    }
+
+    for (const [cohort, minimum] of Object.entries(COHORT_RULES)) {
+        if (cohortCounts[cohort] < minimum) {
+            fail(`${cohort} cohort 최소 표본 ${minimum}개를 충족하지 못했습니다.`);
+        }
+    }
+    if (options.catalog !== undefined) validateCatalogReferences(queries, options.catalog);
+    if (anchors.length !== 3) {
+        fail(`대표 anchor는 3개여야 합니다. 현재 ${anchors.length}개입니다.`);
+    }
+    for (const anchor of anchors) validateAnchor(anchor);
+
+    validateJudgementContract(manifest.judgement);
+    validateQualityShape(manifest.quality);
+
+    return {
+        featureId: manifest.featureId,
+        status: manifest.status,
+        queryCount: queries.length,
+        cohortCounts,
+        anchorCount: anchors.length,
+    };
+}
+
+export function validateQualityReadiness(manifest, options = {}) {
+    const structural = validateEvaluationManifest(manifest, options);
+    const errors = [];
+
+    if (manifest.status !== "quality-ready") {
+        errors.push("status가 quality-ready가 아닙니다");
+    }
+    if (manifest.catalog.releaseStatus !== "approved") {
+        errors.push("catalog release 승인 상태가 아닙니다");
+    }
+    if (!isSha256(manifest.catalog.datasetSha256) || !Number.isInteger(manifest.catalog.rowCount)) {
+        errors.push("catalog release의 checksum/rowCount가 없습니다");
+    }
+    if (!isNonEmptyString(manifest.queriesSha256)) {
+        errors.push("fixture queries checksum이 없습니다");
+    }
+    if (!Array.isArray(manifest.approvalReferences) || manifest.approvalReferences.length === 0) {
+        errors.push("승인 근거 reference가 없습니다");
+    }
+
+    if (manifest.judgement?.status !== "approved") {
+        errors.push("독립 판정 상태가 approved가 아닙니다");
+    }
+    const judgementErrors = validateIndependentJudgements(manifest.queries);
+    errors.push(...judgementErrors);
+    const pendingLabels = manifest.queries.filter((query) => query.labelStatus !== "approved").length;
+    if (pendingLabels > 0) errors.push(`${pendingLabels}개 query의 labelStatus가 approved가 아닙니다`);
+
+    if (manifest.quality?.baseline?.status !== "approved") {
+        errors.push("baseline status가 approved가 아닙니다");
+    }
+    for (const cohort of Object.keys(COHORT_RULES)) {
+        const delta = cohortThreshold(manifest.cohorts?.[cohort]);
+        if (!Number.isFinite(delta)) {
+            errors.push(`${cohort} threshold가 승인되지 않았습니다`);
+        }
+    }
+    if (qualityHardFilterViolationRate(manifest.quality) !== 0) {
+        errors.push("hard-filter violation rate가 0이 아닙니다");
+    }
+
+    if (errors.length > 0) {
+        fail(`quality-ready 판정/threshold/baseline 준비가 되지 않았습니다: ${errors.join("; ")}`);
+    }
+    return { ...structural, qualityReady: true };
+}
+
+export function calculateRankingMetrics({
+    expectedGameIds,
+    rankedGameIds,
+    hardFilterViolationGameIds = [],
+    k = 10,
+}) {
+    if (!Number.isInteger(k) || k < 1) fail("평가 k는 1 이상의 정수여야 합니다.");
+    const expected = normalizeIds(expectedGameIds, "expectedGameIds");
+    const ranked = normalizeIds(rankedGameIds, "rankedGameIds");
+    const violations = new Set(normalizeIds(hardFilterViolationGameIds, "hardFilterViolationGameIds"));
+    const topK = ranked.slice(0, k);
+    const expectedSet = new Set(expected);
+    const relevantRanks = topK
+        .map((gameId, index) => ({ gameId, rank: index + 1 }))
+        .filter(({ gameId }) => expectedSet.has(gameId));
+    const relevantCount = relevantRanks.length;
+    const recallAtK = expected.length === 0 ? 0 : relevantCount / expected.length;
+    const mrrAtK = relevantRanks.length === 0 ? 0 : 1 / relevantRanks[0].rank;
+    const dcg = relevantRanks.reduce((sum, { rank }) => sum + (1 / Math.log2(rank + 1)), 0);
+    const idealRelevantCount = Math.min(expected.length, k);
+    const idcg = Array.from({ length: idealRelevantCount }, (_, index) => 1 / Math.log2(index + 2))
+        .reduce((sum, score) => sum + score, 0);
+    const ndcgAtK = idcg === 0 ? 0 : dcg / idcg;
+    const hardFilterViolationGameIdsInTopK = topK.filter((gameId) => violations.has(gameId));
+    const hardFilterViolationRate = topK.length === 0
+        ? 0
+        : hardFilterViolationGameIdsInTopK.length / topK.length;
+
+    return {
+        k,
+        expectedCount: expected.length,
+        relevantCountAtK: relevantCount,
+        recallAt10: recallAtK,
+        mrrAt10: mrrAtK,
+        ndcgAt10: ndcgAtK,
+        hardFilterViolationRate,
+        hardFilterViolationGameIds: hardFilterViolationGameIdsInTopK,
+        qualityEligible: hardFilterViolationRate === 0,
+    };
+}
+
+export function evaluateSearchResults({ manifest, candidateResults, baselineResults = undefined, catalog = undefined, k = 10 }) {
+    validateEvaluationManifest(manifest, { catalog });
+    const candidate = normalizeResults(candidateResults, "candidateResults");
+    const baseline = baselineResults === undefined ? undefined : normalizeResults(baselineResults, "baselineResults");
+    const perQuery = manifest.queries.map((query) => {
+        const candidateResult = candidate.get(query.id);
+        if (!candidateResult) fail(`query ${query.id}의 candidate 결과가 없습니다.`);
+        const row = {
+            queryId: query.id,
+            cohorts: query.cohorts,
+            candidate: calculateRankingMetrics({
+                expectedGameIds: query.expectedGameIds,
+                rankedGameIds: candidateResult.rankedGameIds,
+                hardFilterViolationGameIds: candidateResult.hardFilterViolationGameIds,
+                k,
+            }),
+        };
+        if (baseline) {
+            const baselineResult = baseline.get(query.id);
+            if (!baselineResult) fail(`query ${query.id}의 baseline 결과가 없습니다.`);
+            row.baseline = calculateRankingMetrics({
+                expectedGameIds: query.expectedGameIds,
+                rankedGameIds: baselineResult.rankedGameIds,
+                hardFilterViolationGameIds: baselineResult.hardFilterViolationGameIds,
+                k,
+            });
+            row.delta = {
+                recallAt10: row.candidate.recallAt10 - row.baseline.recallAt10,
+                mrrAt10: row.candidate.mrrAt10 - row.baseline.mrrAt10,
+                ndcgAt10: row.candidate.ndcgAt10 - row.baseline.ndcgAt10,
+            };
+        }
+        return row;
+    });
+
+    const cohorts = Object.fromEntries(Object.keys(COHORT_RULES).map((cohort) => [
+        cohort,
+        aggregateRows(perQuery.filter((row) => row.cohorts.includes(cohort))),
+    ]));
+    return {
+        featureId: manifest.featureId,
+        k,
+        queryCount: perQuery.length,
+        overall: aggregateRows(perQuery),
+        cohorts,
+        perQuery,
+    };
+}
+
+export function validateScope(changedFiles) {
+    if (!Array.isArray(changedFiles)) fail("changedFiles는 배열이어야 합니다.");
+    const invalid = changedFiles
+        .map((file) => file.replace(/^\.\//u, ""))
+        .filter((file) => !ALLOWED_SCOPE_PREFIXES.some((allowed) => allowed.endsWith("/")
+            ? file.startsWith(allowed)
+            : file === allowed));
+    if (invalid.length > 0) {
+        fail(`허용되지 않은 경로가 있습니다: ${invalid.join(", ")}`);
+    }
+    return { valid: true, changedFiles: changedFiles.length };
+}
+
+function validateQuery(query, manifest, queryIds, queryTexts, cohortCounts) {
+    requireObject(query, "query");
+    if (!isNonEmptyString(query.id) || queryIds.has(query.id)) {
+        fail(`query ID가 없거나 중복되었습니다: ${query.id ?? "<empty>"}`);
+    }
+    queryIds.add(query.id);
+    if (!isNonEmptyString(query.query)) fail(`query ${query.id}의 query text가 없습니다.`);
+    const normalizedText = query.query.trim().toLocaleLowerCase("ko-KR");
+    if (queryTexts.has(normalizedText)) fail(`query text가 중복되었습니다: ${query.id}`);
+    queryTexts.add(normalizedText);
+
+    if (!Array.isArray(query.cohorts) || query.cohorts.length === 0) {
+        fail(`query ${query.id}의 cohort가 없습니다.`);
+    }
+    if (new Set(query.cohorts).size !== query.cohorts.length) {
+        fail(`query ${query.id}의 cohort가 중복되었습니다.`);
+    }
+    for (const cohort of query.cohorts) {
+        if (!(cohort in COHORT_RULES)) fail(`query ${query.id}의 cohort가 올바르지 않습니다: ${cohort}`);
+        cohortCounts[cohort] += 1;
+    }
+
+    if (!Array.isArray(query.expectedGameIds) || query.expectedGameIds.length === 0) {
+        fail(`query ${query.id}의 expectedGameIds가 없습니다.`);
+    }
+    if (!Array.isArray(query.excludedGameIds)) fail(`query ${query.id}의 excludedGameIds가 없습니다.`);
+    const expected = new Set(normalizeIds(query.expectedGameIds, `query ${query.id} expectedGameIds`));
+    const excluded = new Set(normalizeIds(query.excludedGameIds, `query ${query.id} excludedGameIds`));
+    if ([...expected].some((gameId) => excluded.has(gameId))) {
+        fail(`query ${query.id}의 expected/excluded game ID가 겹칩니다.`);
+    }
+    if (!isNonEmptyObject(query.expectedReasons)) fail(`query ${query.id}의 expected 이유가 없습니다.`);
+    for (const gameId of expected) {
+        if (!isNonEmptyString(query.expectedReasons[gameId])) {
+            fail(`query ${query.id} expected game ID ${gameId}의 이유가 없습니다.`);
+        }
+    }
+
+    validateSource(query.source, manifest.catalog, query.id);
+    validateHardFilters(query.hardFilters, query.id);
+}
+
+function validateAnchor(query) {
+    if (query.expectedGameIds.length < 10 || query.expectedGameIds.length > 30) {
+        fail(`anchor ${query.id}의 expected game ID는 10~30개여야 합니다.`);
+    }
+    if (query.excludedGameIds.length === 0) fail(`anchor ${query.id}의 excludedGameIds가 없습니다.`);
+    if (!isNonEmptyObject(query.excludedReasons)) fail(`anchor ${query.id}의 excluded 이유가 없습니다.`);
+    for (const gameId of query.excludedGameIds) {
+        if (!isNonEmptyString(query.excludedReasons[gameId])) {
+            fail(`anchor ${query.id} excluded game ID ${gameId}의 이유가 없습니다.`);
+        }
+    }
+}
+
+function validateCatalogDescriptor(catalog) {
+    requireObject(catalog, "manifest.catalog");
+    for (const field of ["releaseId", "datasetId", "fieldVersion", "manifestReference"]) {
+        if (!isNonEmptyString(catalog[field])) fail(`manifest.catalog.${field}가 없습니다.`);
+    }
+}
+
+function validateSource(source, catalog, queryId) {
+    requireObject(source, `query ${queryId} source`);
+    for (const field of ["releaseId", "fieldVersion", "reference"]) {
+        if (!isNonEmptyString(source[field])) fail(`query ${queryId} source.${field}가 없습니다.`);
+    }
+    if (source.releaseId !== catalog.releaseId || source.fieldVersion !== catalog.fieldVersion) {
+        fail(`query ${queryId}의 source release/fieldVersion이 catalog와 다릅니다.`);
+    }
+}
+
+function validateHardFilters(hardFilters, queryId) {
+    if (hardFilters === undefined) return;
+    requireObject(hardFilters, `query ${queryId} hardFilters`);
+    for (const field of ["minPlayers", "maxPlayers", "maxPlayTimeMinutes"]) {
+        if (hardFilters[field] !== undefined
+            && (!Number.isInteger(hardFilters[field]) || hardFilters[field] < 1)) {
+            fail(`query ${queryId} hard filter ${field}가 올바르지 않습니다.`);
+        }
+    }
+    if (hardFilters.minPlayers !== undefined && hardFilters.maxPlayers !== undefined
+        && hardFilters.minPlayers > hardFilters.maxPlayers) {
+        fail(`query ${queryId} hard filter의 minPlayers가 maxPlayers보다 큽니다.`);
+    }
+}
+
+function validateCatalogReferences(queries, catalog) {
+    const records = catalogRecords(catalog);
+    for (const query of queries) {
+        for (const gameId of query.expectedGameIds) {
+            const record = records.get(String(gameId));
+            if (!record) fail(`query ${query.id}의 catalog 밖 game ID입니다: ${gameId}`);
+            validateHardFilterCompatibility(query, record);
+        }
+        for (const gameId of query.excludedGameIds) {
+            if (!records.has(String(gameId))) {
+                fail(`query ${query.id}의 catalog 밖 excluded game ID입니다: ${gameId}`);
+            }
+        }
+    }
+}
+
+function validateHardFilterCompatibility(query, record) {
+    const filters = query.hardFilters ?? {};
+    if (filters.minPlayers !== undefined && Number.isInteger(record.maxPlayers)
+        && filters.minPlayers > record.maxPlayers) {
+        fail(`query ${query.id}의 expected game ID ${recordId(record)}가 hard filter와 모순됩니다.`);
+    }
+    if (filters.maxPlayers !== undefined && Number.isInteger(record.minPlayers)
+        && filters.maxPlayers < record.minPlayers) {
+        fail(`query ${query.id}의 expected game ID ${recordId(record)}가 hard filter와 모순됩니다.`);
+    }
+    if (filters.maxPlayTimeMinutes !== undefined && Number.isInteger(record.maxPlayTimeMinutes)
+        && filters.maxPlayTimeMinutes < record.maxPlayTimeMinutes) {
+        fail(`query ${query.id}의 expected game ID ${recordId(record)}가 hard filter와 모순됩니다.`);
+    }
+}
+
+function validateJudgementContract(judgement) {
+    requireObject(judgement, "manifest.judgement");
+    if (!Number.isInteger(judgement.requiredIndependentJudges)
+        || judgement.requiredIndependentJudges < 2) {
+        fail("독립 판정자는 최소 2명이어야 합니다.");
+    }
+    if (judgement.thirdJudgeRequiredOnDisagreement !== true) {
+        fail("판정 불일치 시 제3 판정자 규칙이 필요합니다.");
+    }
+    if (!isNonEmptyString(judgement.status)) fail("manifest.judgement.status가 없습니다.");
+}
+
+function validateQualityShape(quality) {
+    requireObject(quality, "manifest.quality");
+    const violationRate = qualityHardFilterViolationRate(quality);
+    if (!Number.isFinite(violationRate) || violationRate < 0 || violationRate > 1) {
+        fail("manifest.quality.hard_filter_violation_rate가 올바르지 않습니다.");
+    }
+    requireObject(quality.baseline, "manifest.quality.baseline");
+    if (!isNonEmptyString(quality.baseline.status)) fail("baseline status가 없습니다.");
+}
+
+function cohortThreshold(cohort) {
+    return cohort?.min_delta_vs_baseline ?? cohort?.minDeltaVsBaseline;
+}
+
+function qualityHardFilterViolationRate(quality) {
+    return quality?.hard_filter_violation_rate ?? quality?.hardFilterViolationRate;
+}
+
+function validateIndependentJudgements(queries) {
+    const errors = [];
+    const missing = [];
+    const notApproved = [];
+    const disagreements = [];
+    for (const query of queries) {
+        if (!Array.isArray(query.judgements) || query.judgements.length < 2) {
+            missing.push(query.id);
+            continue;
+        }
+        const judges = new Set();
+        for (const judgement of query.judgements) {
+            if (!isNonEmptyString(judgement.judgeId) || judges.has(judgement.judgeId)) {
+                errors.push(`${query.id}의 판정자가 독립적이지 않습니다`);
+            }
+            judges.add(judgement.judgeId);
+            if (judgement.status !== "approved") {
+                notApproved.push(query.id);
+            }
+            if (!Array.isArray(judgement.expectedGameIds) || !Array.isArray(judgement.excludedGameIds)) {
+                errors.push(`${query.id}의 판정 결과 ID가 없습니다`);
+            }
+        }
+        const signatures = query.judgements.slice(0, 2).map(judgementSignature);
+        if (signatures[0] !== signatures[1] && query.judgements.length < 3) {
+            disagreements.push(query.id);
+        }
+    }
+    if (missing.length > 0) errors.push(`${missing.length}개 query에 독립 판정 2개가 없습니다`);
+    if (notApproved.length > 0) errors.push(`approved가 아닌 판정이 ${notApproved.length}개 있습니다`);
+    if (disagreements.length > 0) errors.push(`불일치에 대한 제3 판정이 ${disagreements.length}개 없습니다`);
+    return errors;
+}
+
+function judgementSignature(judgement) {
+    return JSON.stringify({
+        expectedGameIds: normalizeIds(judgement.expectedGameIds ?? [], "judgement expectedGameIds").sort(),
+        excludedGameIds: normalizeIds(judgement.excludedGameIds ?? [], "judgement excludedGameIds").sort(),
+    });
+}
+
+function normalizeResults(results, name) {
+    const entries = Array.isArray(results)
+        ? results.map((result) => [result.queryId, result])
+        : Object.entries(results ?? {});
+    const normalized = new Map();
+    for (const [queryId, result] of entries) {
+        if (!isNonEmptyString(queryId) || normalized.has(queryId)) fail(`${name} query ID가 중복되었습니다.`);
+        requireObject(result, `${name}.${queryId}`);
+        normalized.set(queryId, {
+            rankedGameIds: result.rankedGameIds ?? result.ranked ?? [],
+            hardFilterViolationGameIds: result.hardFilterViolationGameIds ?? [],
+        });
+    }
+    return normalized;
+}
+
+function aggregateRows(rows) {
+    if (rows.length === 0) return null;
+    const metrics = ["recallAt10", "mrrAt10", "ndcgAt10", "hardFilterViolationRate"];
+    const average = Object.fromEntries(metrics.map((metric) => [
+        metric,
+        rows.reduce((sum, row) => sum + row.candidate[metric], 0) / rows.length,
+    ]));
+    const summary = {
+        queryCount: rows.length,
+        ...average,
+        qualityEligible: average.hardFilterViolationRate === 0,
+    };
+    if (rows.every((row) => row.baseline)) {
+        summary.baseline = Object.fromEntries(metrics.map((metric) => [
+            metric,
+            rows.reduce((sum, row) => sum + row.baseline[metric], 0) / rows.length,
+        ]));
+        summary.delta = Object.fromEntries(metrics
+            .filter((metric) => metric !== "hardFilterViolationRate")
+            .map((metric) => [metric, average[metric] - summary.baseline[metric]]));
+    }
+    return summary;
+}
+
+function catalogRecords(catalog) {
+    const values = Array.isArray(catalog) ? catalog : catalog?.games;
+    if (!Array.isArray(values)) fail("catalog은 game record 배열이어야 합니다.");
+    return new Map(values.map((record) => [String(recordId(record)), record]));
+}
+
+function recordId(record) {
+    return record?.id ?? record?.gameId ?? record?.bggId;
+}
+
+function normalizeIds(ids, name) {
+    if (!Array.isArray(ids)) fail(`${name}는 배열이어야 합니다.`);
+    const normalized = ids.map((id) => String(id));
+    if (normalized.some((id) => id === "" || id === "undefined" || id === "null")) {
+        fail(`${name}에 올바르지 않은 ID가 있습니다.`);
+    }
+    if (new Set(normalized).size !== normalized.length) fail(`${name}에 중복 ID가 있습니다.`);
+    return normalized;
+}
+
+function requireObject(value, name) {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+        fail(`${name}은 object여야 합니다.`);
+    }
+}
+
+function isNonEmptyObject(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value)
+        && Object.keys(value).length > 0;
+}
+
+function isNonEmptyString(value) {
+    return typeof value === "string" && value.trim().length > 0;
+}
+
+function isSha256(value) {
+    return typeof value === "string" && /^[a-f0-9]{64}$/u.test(value);
+}
+
+function fail(message) {
+    throw new Error(message);
+}
+
+function parseArgs(args) {
+    const options = { check: false, qualityGate: false, metrics: false };
+    for (let index = 0; index < args.length; index += 1) {
+        const argument = args[index];
+        if (argument === "--check") {
+            options.check = true;
+        } else if (argument === "--quality-gate") {
+            options.qualityGate = true;
+        } else if (argument === "--metrics") {
+            options.metrics = true;
+        } else if (argument.startsWith("--")) {
+            const value = args[index + 1];
+            if (!value || value.startsWith("--")) fail(`${argument} 값이 필요합니다.`);
+            const optionName = argument.slice(2).replace(/-([a-z])/gu, (_, letter) => letter.toUpperCase());
+            options[optionName] = value;
+            index += 1;
+        } else {
+            fail(`알 수 없는 인자입니다: ${argument}`);
+        }
+    }
+    return options;
+}
+
+function readJson(filePath) {
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+
+function loadManifest(manifestPath) {
+    const manifest = readJson(manifestPath);
+    if (!manifest.queries && manifest.queriesPath) {
+        const queryPath = path.resolve(path.dirname(manifestPath), manifest.queriesPath);
+        const queryBytes = fs.readFileSync(queryPath);
+        manifest.queries = JSON.parse(queryBytes.toString("utf8"));
+        if (!Array.isArray(manifest.queries)) fail("queriesPath 파일은 query 배열이어야 합니다.");
+        if (manifest.queriesSha256 && !isSha256(manifest.queriesSha256)) {
+            fail("queriesSha256 형식이 올바르지 않습니다.");
+        }
+        if (manifest.queriesSha256) {
+            const actualSha256 = createHash("sha256").update(queryBytes).digest("hex");
+            if (actualSha256 !== manifest.queriesSha256) fail("queriesSha256가 queries 원자료와 다릅니다.");
+        }
+    }
+    return manifest;
+}
+
+function main() {
+    try {
+        const options = parseArgs(process.argv.slice(2));
+        if (!options.manifest) fail("--manifest 경로가 필요합니다.");
+        const manifestPath = path.resolve(options.manifest);
+        const manifest = loadManifest(manifestPath);
+        const catalog = options.catalog ? readJson(path.resolve(options.catalog)) : undefined;
+
+        if (options.changedFiles) {
+            validateScope(options.changedFiles.split(",").map((file) => file.trim()).filter(Boolean));
+        }
+        let result;
+        if (options.qualityGate) {
+            result = validateQualityReadiness(manifest, { catalog });
+        } else if (options.metrics) {
+            if (!options.results) fail("--metrics에는 --results 경로가 필요합니다.");
+            const candidate = readJson(path.resolve(options.results));
+            const baseline = options.baseline ? readJson(path.resolve(options.baseline)) : undefined;
+            result = evaluateSearchResults({ manifest, candidateResults: candidate, baselineResults: baseline, catalog });
+        } else {
+            result = validateEvaluationManifest(manifest, { catalog });
+        }
+        console.log(JSON.stringify({ ok: true, ...result }, null, 2));
+    } catch (error) {
+        console.error(JSON.stringify({ ok: false, error: error.message }, null, 2));
+        process.exitCode = 1;
+    }
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

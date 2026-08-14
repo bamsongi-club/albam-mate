@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "featureId": "SEARCH-04",
+  "status": "draft",
+  "catalog": {
+    "releaseId": "pending-bgg-catalog-release-2026-08-14",
+    "datasetId": "bgg-catalog-170k",
+    "fieldVersion": "catalog-fields-v1",
+    "manifestReference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md",
+    "releaseStatus": "not-registered"
+  },
+  "queriesPath": "queries.json",
+  "queriesSha256": "df3a246553933cfdf892fa3c64531d831069b77ffbcda3cf093171deabd1a452",
+  "cohorts": {
+    "exact/name variant": {
+      "minimum": 15,
+      "min_delta_vs_baseline": null,
+      "thresholdStatus": "pending"
+    },
+    "intent/description": {
+      "minimum": 25,
+      "min_delta_vs_baseline": null,
+      "thresholdStatus": "pending"
+    },
+    "intent+hard filter": {
+      "minimum": 20,
+      "min_delta_vs_baseline": null,
+      "thresholdStatus": "pending"
+    }
+  },
+  "quality": {
+    "status": "pending",
+    "hard_filter_violation_rate": 0,
+    "baseline": {
+      "status": "pending"
+    }
+  },
+  "judgement": {
+    "requiredIndependentJudges": 2,
+    "thirdJudgeRequiredOnDisagreement": true,
+    "status": "pending"
+  },
+  "approvalReferences": [],
+  "evaluationStatus": "pending",
+  "notes": [
+    "expectedGameIds와 excludedGameIds는 공개 catalog 기반 draft 후보이며 독립 판정 전이다.",
+    "정책상 BGG·AI·embedding 사용 승인은 구체 release manifest와 동일하지 않다.",
+    "quality-ready 전환은 승인된 release, 두 독립 판정, 불일치 시 제3 판정, baseline threshold가 모두 채워진 뒤에만 가능하다."
+  ]
+}

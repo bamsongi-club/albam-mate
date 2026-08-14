@@ -451,6 +451,13 @@ jobs:
       - name: Check document links
         run: node scripts/docs/check-doc-links.mjs
 
+      # SEARCH-04 평가 fixture·지표·품질 게이트의 회귀 경계를 CI에서 고정한다.
+      - name: Test SEARCH-04 evaluation contracts
+        run: node --test scripts/p2-search-evaluation.test.mjs
+
+      - name: Check SEARCH-04 evaluation fixture
+        run: node scripts/p2-search-evaluation.mjs --check --manifest docs/p2/search-evaluation/manifest.json
+
       - name: Test monitoring contract checker
         run: node --test scripts/docs/check-monitoring-contract.test.mjs
 
