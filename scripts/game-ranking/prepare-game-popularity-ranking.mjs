@@ -5,12 +5,6 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, w
 import { basename, dirname, join, resolve } from 'node:path';
 
 const args = parseArgs(process.argv.slice(2));
-if (!args.manifest || !args.out) {
-    throw new Error('usage: --manifest <path> --out <path>');
-}
-
-const manifestPath = resolve(args.manifest);
-const outputDirectory = resolve(args.out);
 const sqlFileName = 'upsert-game-popularity.sql';
 const reportFileName = 'quality-report.json';
 const RANK_CSV_HEADERS = {
@@ -40,9 +34,17 @@ const RANK_CSV_HEADERS = {
         ],
     ],
 };
+let outputDirectory;
 let stagingDirectory;
 
 try {
+    if (args.out) {
+        outputDirectory = resolve(args.out);
+    }
+    if (!args.manifest || !outputDirectory) {
+        throw new Error('usage: --manifest <path> --out <path>');
+    }
+    const manifestPath = resolve(args.manifest);
     mkdirSync(dirname(outputDirectory), { recursive: true });
     stagingDirectory = mkdtempSync(join(dirname(outputDirectory), `.${basename(outputDirectory)}-`));
     const manifest = readJson(manifestPath);
@@ -87,15 +89,17 @@ try {
     );
     publish(stagingDirectory, outputDirectory);
 } catch (error) {
-    rmSync(join(outputDirectory, sqlFileName), { force: true });
-    mkdirSync(outputDirectory, { recursive: true });
-    const reportPath = join(outputDirectory, reportFileName);
-    writeFileSync(
-        reportPath,
-        JSON.stringify({ status: 'blocked', errors: [error instanceof Error ? error.message : String(error)] }, null, 2),
-        'utf8',
-    );
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    const message = error instanceof Error ? error.message : String(error);
+    if (outputDirectory) {
+        rmSync(join(outputDirectory, sqlFileName), { force: true });
+        mkdirSync(outputDirectory, { recursive: true });
+        const reportPath = join(outputDirectory, reportFileName);
+        writeFileSync(reportPath, JSON.stringify({ status: 'blocked', errors: [message] }, null, 2), 'utf8');
+    }
+    process.stderr.write(`${message}\n`);
+    if (!outputDirectory) {
+        process.stderr.write('output path is unavailable for cleanup\n');
+    }
     process.exitCode = 1;
 } finally {
     if (stagingDirectory) {
@@ -175,8 +179,8 @@ function readScoreInput(path, expectedRows) {
         }
         return {
             bggId,
-            boardlifeRank: optionalRank(row?.boardlifeRank ?? row?.boardlife_rank),
-            bggRank: optionalRank(row?.bggRank ?? row?.bgg_rank),
+            boardlifeRank: row?.boardlifeRank ?? row?.boardlife_rank,
+            bggRank: row?.bggRank ?? row?.bgg_rank,
         };
     });
 }
@@ -186,8 +190,10 @@ function buildExternalScores(scoreInput, boardlifeRows, bggRows, allowRankFallba
     const bggByBggId = minRankByBggId(bggRows);
     const rows = scoreInput.map((input) => ({
         bggId: input.bggId,
-        boardlifeRank: boardlifeByBggId.get(input.bggId) ?? (allowRankFallback ? input.boardlifeRank : null),
-        bggRank: bggByBggId.get(input.bggId) ?? (allowRankFallback ? input.bggRank : null),
+        boardlifeRank: boardlifeByBggId.get(input.bggId)
+            ?? (allowRankFallback ? fallbackRank(input.boardlifeRank, 'boardlifeRank', input.bggId) : null),
+        bggRank: bggByBggId.get(input.bggId)
+            ?? (allowRankFallback ? fallbackRank(input.bggRank, 'bggRank', input.bggId) : null),
     }));
     const boardlifeRanks = rows.map((row) => row.boardlifeRank).filter((rank) => rank !== null);
     const bggRanks = rows.map((row) => row.bggRank).filter((rank) => rank !== null);
@@ -200,6 +206,13 @@ function buildExternalScores(scoreInput, boardlifeRows, bggRows, allowRankFallba
         boardlifeScore: normalizeRank(row.boardlifeRank, boardlifeRanks.length, boardlifeMaxRank),
         bggScore: normalizeRank(row.bggRank, bggRanks.length, bggMaxRank),
     }));
+}
+
+function fallbackRank(value, name, bggId) {
+    if (!interpretableRank(value)) {
+        throw new Error(`invalid scoreInput ${name} fallback at bggId ${bggId}`);
+    }
+    return optionalRank(value);
 }
 
 function minRankByBggId(rows) {

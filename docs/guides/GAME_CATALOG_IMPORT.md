@@ -165,6 +165,33 @@ if ! jq -e '.status == "approved"' "$EVIDENCE_DIR/quality-report.json" >/dev/nul
   exit 1
 fi
 
+if ! MANIFEST_BATCH_ID="$(jq -r '.batchId // empty' "$EVIDENCE_DIR/manifest.json")"; then
+  printf 'manifest batchId를 읽지 못해 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+if ! REPORT_BATCH_ID="$(jq -r '.batchId // empty' "$EVIDENCE_DIR/quality-report.json")"; then
+  printf 'quality-report.json batchId를 읽지 못해 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+if [ "$MANIFEST_BATCH_ID" != "$BATCH_ID" ] || [ "$REPORT_BATCH_ID" != "$BATCH_ID" ]; then
+  printf 'manifest·report batchId가 실행 배치와 달라 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+
+if ! EXPECTED_SQL_SHA256="$(jq -r '.output.sha256 // empty' "$EVIDENCE_DIR/quality-report.json")"; then
+  printf 'quality-report.json SQL checksum을 읽지 못해 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+if ! SQL_CHECKSUM_LINE="$(shasum -a 256 "$EVIDENCE_DIR/upsert-game-popularity.sql")"; then
+  printf '생성 SQL checksum을 계산하지 못해 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+ACTUAL_SQL_SHA256="${SQL_CHECKSUM_LINE%% *}"
+if [ -z "$EXPECTED_SQL_SHA256" ] || [ "$EXPECTED_SQL_SHA256" != "$ACTUAL_SQL_SHA256" ]; then
+  printf 'quality-report.json과 생성 SQL의 checksum이 달라 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+
 if ! shasum -a 256 -c "$EVIDENCE_DIR/SHA256SUMS"; then
   printf '증적 checksum 검증에 실패해 SQL 실행을 차단합니다.\n' >&2
   exit 1
@@ -178,7 +205,7 @@ if ! psql "$DATABASE_URL" \
 fi
 ```
 
-`quality-report.json`의 `status`가 `approved`이고 `SHA256SUMS`가 manifest·report·SQL·snapshot과 일치할 때만 SQL을 실행한다. 실행 후에는 전체 게임 수와 점수 범위를 기록하고, 범위를 벗어난 행이 0인지 확인한다.
+`quality-report.json`의 `status`가 `approved`이고 manifest·report의 `batchId`가 실행 배치와 같으며 report의 `output.sha256`가 생성 SQL의 실제 checksum과 일치할 때만 SQL을 실행한다. `SHA256SUMS`는 보존한 manifest·report·SQL·snapshot의 변경 여부를 추가로 확인한다. 실행 후에는 전체 게임 수와 점수 범위를 기록하고, 범위를 벗어난 행이 0인지 확인한다.
 
 ```sh
 psql "$DATABASE_URL" \

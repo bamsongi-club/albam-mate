@@ -1,6 +1,6 @@
 # 알밤메이트 API 명세서
 
-- 문서 상태: **현재 제공하는 P0·P1 HTTP·WebSocket 인터페이스 계약 (정본) · P2 변경 미반영**
+- 문서 상태: **현재 제공하는 P0·P1 및 RANK-02(P2) HTTP·WebSocket 인터페이스 계약 (정본) · 기타 P2 변경 미반영**
 - 기준 문서: [PRD](PRD.md), [P2 공통 명세](P2-spec.md), [P2 기능 상태](p2/README.md), [P1 종료 명세](archive/p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md), [ERD](ERD.md)
 
 ### 이 문서의 범위
@@ -11,7 +11,7 @@
 | 이 문서가 담지 않는 것 | 제품 규칙의 배경(→ [P2-spec](P2-spec.md), [P2 기능 문서](p2/README.md), [P1 종료 명세](archive/p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md)), 저장 구조·계산식(→ [ERD](ERD.md)), 되돌리기 어려운 기술 결정과 근거(→ [ADR](adr/README.md)) |
 | 변경 시 함께 갱신 | API 계약을 바꾸면 같은 변경에서 이 문서와 [엔드포인트별 오류 매트릭스](#11-부록-엔드포인트별-오류-매트릭스)를 함께 갱신하고, 관련 P2 기능 명세·[ERD](ERD.md)·[ADR](adr/README.md)과의 정합을 확인한다. 상세 규칙은 [CONVENTIONS](CONVENTIONS.md#api-응답)를 따른다. |
 
-> `P0`, `P1`, `P2`는 API가 도입되는 제품 단계이며 현재 구현 상태값이 아니다. P0·P1 계약은 현재 제공 인터페이스로 유지하고, 새 P2 계약은 상세 명세와 필요한 ADR을 확정한 뒤 이 문서에 반영한다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), P2 진행 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
+> `P0`, `P1`, `P2`는 API가 도입되는 제품 단계이며 현재 구현 상태값이 아니다. P0·P1 계약과 RANK-02(P2) 계약은 현재 제공 인터페이스로 유지하고, 그 밖의 새 P2 계약은 상세 명세와 필요한 ADR을 확정한 뒤 이 문서에 반영한다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), P2 진행 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
 
 ### 도입 단계와 제공 상태
 
@@ -203,8 +203,7 @@ P0와 P1은 서버 세션 인증을 사용한다. Bearer access token과 refresh
 
 | API | 도입 단계 | 제공 상태 | 고정 정렬 |
 |---|:---:|:---:|---|
-| `GET /api/games` | P0·P1 | 제공 | `name ASC, id ASC` |
-| `GET /api/games` (RANK-02 목표) | P2 | 구현 완료 · 미배포 | `popularity_score DESC, name ASC, id ASC` |
+| `GET /api/games` | P0·P1·P2 | 제공 | `popularity_score DESC, name ASC, id ASC` |
 | `GET /api/rooms` | P0·P1 | 제공 | 고정된 `requestTime`의 유효 상태와 필터를 적용한 뒤 `startsAt ASC, id ASC` |
 | `GET /api/users/me/rooms` | P0·P1 | 제공 | 고정된 `requestTime`의 유효 상태, `role` 필터와 중복 제거를 적용한 뒤 `startsAt DESC, id DESC` |
 | `GET /api/users/me/notifications` | P0·P1 | 제공 | `createdAt DESC, id DESC` |
@@ -227,7 +226,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 6 | P0 | [AUTH-04](#auth-04-내-프로필-수정) · [P0 완료 기록](archive/p0/auth-profile.md#auth-04-내-프로필-조회수정) | PATCH | `/api/users/me` | Y | Y | 200 |
 | 6.1 | P1 | [AUTH-04](#auth-04-프로필-이미지-업로드) · [정본](archive/p1/social-login.md) | POST | `/api/users/me/profile-image` | Y | Y | 200 |
 | 6.2 | P1 | [AUTH-04](#auth-04-프로필-이미지-삭제) · [정본](archive/p1/social-login.md) | DELETE | `/api/users/me/profile-image` | Y | Y | 200 |
-| 7 | P0·P1 | [GAME-01](#game-01-게임-목록검색) · [P0 완료 기록](archive/p0/game-catalog.md#game-01-게임-목록검색) · [SEARCH-01 정본](archive/p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](archive/p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games` | 선택 | N | 200 |
+| 7 | P0·P1·P2 | [GAME-01](#game-01-게임-목록검색) · [RANK-02 정본](p2/game-popularity.md#rank-02) · [P0 완료 기록](archive/p0/game-catalog.md#game-01-게임-목록검색) · [SEARCH-01 정본](archive/p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](archive/p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games` | 선택 | N | 200 |
 | 8 | P0·P1 | [GAME-02](#game-02-게임-상세-조회) · [P0 완료 기록](archive/p0/game-catalog.md#game-02-게임-상세-조회) · [SEARCH-01 정본](archive/p1/search.md#search-01-게임-조건-검색) · [SEARCH-03 정본](archive/p1/search.md#search-03-사용자별-해-본-게임) | GET | `/api/games/{gameId}` | 선택 | N | 200 |
 | 9 | P0 | [ROOM-03](#room-03-방-생성) · [P0 완료 기록](archive/p0/room.md#room-03-방-생성) | POST | `/api/rooms` | Y | Y | 201 |
 | 10 | P0·P1 | [ROOM-01](#room-01-방-목록-조회) · [P0 완료 기록](archive/p0/room.md#room-01-방-탐색) · [SEARCH-02 정본](archive/p1/search.md#search-02-방-조건-검색) · [ROOM-08 정본](archive/p1/room.md#room-08-방-상태와-직접-참가대기-가능-여부-분리) | GET | `/api/rooms` | 선택 | N | 200 |

@@ -189,6 +189,33 @@ class GamePopularityBatchPostgresTest {
 	}
 
 	@Test
+	void manifest_or_out_인자_검증_실패도_기존_SQL을_제거하고_차단_보고서를_남긴다() throws Exception {
+		Path caseDirectory = Files.createDirectory(tempDirectory.resolve("case-" + System.nanoTime()));
+		Path manifest = writeManifest(caseDirectory, List.of("{\"bggId\":101,\"rank\":1}"), List.of(),
+			List.of("{\"bggId\":101}"));
+		Path output = caseDirectory.resolve("out");
+
+		assertEquals(0, runPrepare(manifest, output).exitCode());
+
+		PreparationResult missingManifest = runPrepare("--out", output.toString());
+
+		assertEquals(1, missingManifest.exitCode(), missingManifest.outputText());
+		assertFalse(Files.exists(output.resolve("upsert-game-popularity.sql")));
+		assertTrue(Files.readString(output.resolve("quality-report.json")).contains("\"status\": \"blocked\""));
+
+		PreparationResult missingOutput = runPrepare("--manifest", manifest.toString());
+
+		assertEquals(1, missingOutput.exitCode(), missingOutput.outputText());
+		assertTrue(missingOutput.outputText().contains("output path is unavailable for cleanup"));
+	}
+
+	@Test
+	void 허용된_scoreInput_rank_fallback도_해석_불가_순위를_SQL_생성_전에_차단한다() throws Exception {
+		assertInvalidFallbackRankIsBlocked("{\"bggId\":101,\"boardlifeRank\":\"not-a-rank\"}");
+		assertInvalidFallbackRankIsBlocked("{\"bggId\":101,\"bggRank\":1.5}");
+	}
+
+	@Test
 	void 십칠만건_rank와_score_input을_생성한다() throws Exception {
 		List<String> ranks = IntStream.rangeClosed(1, 170_000)
 			.mapToObj(index -> "{\"bggId\":" + index + ",\"rank\":" + index + "}")
@@ -231,6 +258,18 @@ class GamePopularityBatchPostgresTest {
 		PreparationResult result = runPrepare(manifest, caseDirectory.resolve("out"));
 
 		assertEquals(1, result.exitCode(), result.outputText());
+	}
+
+	private void assertInvalidFallbackRankIsBlocked(String scoreInputRow) throws Exception {
+		Path caseDirectory = Files.createDirectory(tempDirectory.resolve("case-" + System.nanoTime()));
+		Path manifest = writeManifest(caseDirectory, List.of(), List.of(), List.of(scoreInputRow), true);
+		Path output = caseDirectory.resolve("out");
+
+		PreparationResult result = runPrepare(manifest, output);
+
+		assertEquals(1, result.exitCode(), result.outputText());
+		assertFalse(Files.exists(output.resolve("upsert-game-popularity.sql")));
+		assertTrue(Files.readString(output.resolve("quality-report.json")).contains("\"status\": \"blocked\""));
 	}
 
 	private Path writeManifest(Path caseDirectory, List<String> boardlifeRows, List<String> bggRows,
@@ -284,11 +323,16 @@ class GamePopularityBatchPostgresTest {
 	}
 
 	private PreparationResult runPrepare(Path manifest, Path output) throws Exception {
-		Process process = new ProcessBuilder(
+		return runPrepare("--manifest", manifest.toString(), "--out", output.toString());
+	}
+
+	private PreparationResult runPrepare(String... arguments) throws Exception {
+		ProcessBuilder processBuilder = new ProcessBuilder(
 			"node",
 			Path.of(System.getProperty("user.dir"), "scripts/game-ranking/prepare-game-popularity-ranking.mjs")
-				.toString(),
-			"--manifest", manifest.toString(), "--out", output.toString())
+				.toString());
+		processBuilder.command().addAll(List.of(arguments));
+		Process process = processBuilder
 			.redirectErrorStream(true)
 			.start();
 		int exitCode = process.waitFor();
