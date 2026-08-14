@@ -64,6 +64,8 @@ input, select, textarea { background: transparent; border: 0; color: var(--ink);
 ::placeholder { color: var(--muted); }
 input:focus, textarea:focus, select:focus { outline: none; }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+/* 위 reset이 특이성으로 이겨 키보드 포커스가 사라지므로 같은 특이성으로 되살린다. */
+input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 img { display: block; max-width: 100%; }
 ul, ol { list-style: none; }
 
