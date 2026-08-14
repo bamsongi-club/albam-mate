@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FilterIcon } from './ui';
 
 // 한 값만 고르는 조건은 라디오로 그린다. 값이 빈 문자열인 선택지가 조건 없음이다.
@@ -109,17 +109,37 @@ export function FilterNumberRangeGroup({ label, min, max, unit, onMinChange, onM
 export function FilterPanel({ title = '필터', chips = [], quickSlot, onReset, ctaLabel, children }) {
   const [isOpen, setIsOpen] = useState(false);
   const count = chips.length;
+  const sheetRef = useRef(null);
+  const toggleRef = useRef(null);
 
   useEffect(() => {
     if (!isOpen) return undefined;
-    const closeOnEscape = (event) => { if (event.key === 'Escape') setIsOpen(false); };
-    window.addEventListener('keydown', closeOnEscape);
+    const sheet = sheetRef.current;
+    // 모달이므로 조작 범위를 시트 안으로 한정한다. 뒤쪽 칩 줄로 Tab이 새지 않게 한다.
+    const focusables = () => [...sheet.querySelectorAll('a[href], button, input, select, textarea')]
+      .filter((node) => !node.disabled);
+    focusables()[0]?.focus();
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') { setIsOpen(false); return; }
+      if (event.key !== 'Tab') return;
+      const nodes = focusables();
+      if (!nodes.length) return;
+      const [first] = nodes;
+      const last = nodes[nodes.length - 1];
+      const inside = sheet.contains(document.activeElement);
+      if (event.shiftKey ? (document.activeElement === first || !inside) : (document.activeElement === last || !inside)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
     // 시트 뒤 본문이 함께 스크롤되지 않게 한다.
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
-      window.removeEventListener('keydown', closeOnEscape);
+      window.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = previousOverflow;
+      toggleRef.current?.focus();
     };
   }, [isOpen]);
 
@@ -129,6 +149,7 @@ export function FilterPanel({ title = '필터', chips = [], quickSlot, onReset, 
         {/* 보이는 글자가 그대로 조작 이름이 된다. 걸린 조건 수는 이름에도 함께 남는다. */}
         <button
           type="button"
+          ref={toggleRef}
           className={'filter-toggle' + (count ? ' on' : '')}
           aria-expanded={isOpen}
           onClick={() => setIsOpen(true)}
@@ -139,7 +160,7 @@ export function FilterPanel({ title = '필터', chips = [], quickSlot, onReset, 
       </div>
       {isOpen && (
         <div className="sheet-backdrop" role="presentation" onMouseDown={() => setIsOpen(false)}>
-          <section className="sheet nos" role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
+          <section className="sheet nos" ref={sheetRef} role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
             <span className="sheet-handle" aria-hidden="true" />
             <div className="sheet-head">
               <h2>{title}</h2>

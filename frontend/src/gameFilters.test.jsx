@@ -892,3 +892,28 @@ describe('T10 조건 조합', () => {
     expect(screen.getByText('요청을 처리하지 못했어요.')).toBeTruthy();
   });
 });
+
+describe('필터 시트 키보드 조작', () => {
+  it('시트를 열면 포커스를 안에 가두고 닫을 때 필터 버튼으로 되돌린다', async () => {
+    await renderGamesView();
+    const toggle = screen.getByRole('button', { name: /게임 필터/ });
+    openFilterPanel();
+
+    const sheet = screen.getByRole('dialog');
+    expect(sheet.contains(document.activeElement)).toBe(true);
+
+    // 마지막 조작에서 Tab을 누르면 뒤쪽 칩 줄이 아니라 시트의 처음으로 돌아온다.
+    const focusables = [...sheet.querySelectorAll('a[href], button, input, select, textarea')].filter((node) => !node.disabled);
+    const last = focusables[focusables.length - 1];
+    last.focus();
+    fireEvent.keyDown(window, { key: 'Tab' });
+    expect(document.activeElement).toBe(focusables[0]);
+
+    // 첫 조작에서 Shift+Tab은 마지막으로 돈다.
+    fireEvent.keyDown(window, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(last);
+
+    closeFilterPanel();
+    expect(document.activeElement).toBe(toggle);
+  });
+});
