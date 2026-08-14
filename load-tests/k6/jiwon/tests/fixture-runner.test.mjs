@@ -1576,6 +1576,21 @@ test('portable bundle은 DB·k6 없이 full closure와 immutable 계약을 생�
     ], { encoding: 'utf8' });
     assert.equal(runtimeValidation.status, 0, runtimeValidation.stderr || runtimeValidation.stdout);
 
+    const directCommands = [
+      ['prepare', '--scenario', 't1', '--run-id', `bundle-direct-${process.pid}`],
+      ['run', '--fixture', path.join(bundle, 'fixture.json')],
+      ['verify', '--fixture', path.join(bundle, 'fixture.json'), '--stage', 'before'],
+      ['compare-t5', '--run-id', `bundle-direct-${process.pid}`],
+      ['cleanup', '--fixture', path.join(bundle, 'fixture.json')],
+      ['recover-cleanup', '--recovery', path.join(bundle, 'prepare-recovery.json')],
+      ['render-bundle', '--scenario', 't1', '--run-id', `bundle-direct-${process.pid}`],
+    ];
+    for (const args of directCommands) {
+      const directCommand = spawnSync(process.execPath, [bundleTool, ...args], { encoding: 'utf8' });
+      assert.notEqual(directCommand.status, 0, directCommand.stderr || directCommand.stdout);
+      assert.match(directCommand.stderr, /실행 bundle에서는 직접 실행 명령을 사용할 수 없습니다/);
+    }
+
     const symlinkTarget = path.join(root, 'outside-scenario.js');
     const symlinkPath = path.join(bundle, 'scenario.js');
     copyFileSync(symlinkPath, symlinkTarget);
@@ -1600,6 +1615,13 @@ test('portable bundle은 DB·k6 없이 full closure와 immutable 계약을 생�
     assert.throws(
       () => validateBundle(bundle, context, { forExecution: true }),
       /immutable artifact가 변조되었습니다: scenario\.js/,
+    );
+
+    copyFileSync(symlinkTarget, symlinkPath);
+    rmSync(path.join(bundle, 'lib', 'write-options.mjs'));
+    assert.throws(
+      () => validateBundle(bundle, context, { forExecution: true }),
+      /일반 파일이어야 합니다/,
     );
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -1700,17 +1722,17 @@ test('portable bundle은 원격 raw metadata와 두 진단을 PASS·FAIL·INVALI
     const executionPath = path.join(bundle, 'infra-execution.json');
     const finalResultPath = path.join(bundle, 'final-result.json');
     const afterDiagnosisPath = path.join(bundle, 'after-diagnosis.json');
-    const writeExecution = (k6ExitCode) => {
+    const writeExecution = (failedPhase = null, exitCode = 0) => {
       writeFileSync(executionPath, `${JSON.stringify({
         schemaVersion: 1,
         runId: rendered.options.runId,
         fixtureId: rendered.fixtureId,
         phases: {
-          prepare: { exitCode: 0 },
-          resourceQuery: { exitCode: 0 },
-          beforeSnapshot: { exitCode: 0 },
-          k6: { exitCode: k6ExitCode },
-          afterSnapshot: { exitCode: 0 },
+          prepare: { exitCode: failedPhase === 'prepare' ? exitCode : 0 },
+          resourceQuery: { exitCode: failedPhase === 'resourceQuery' ? exitCode : 0 },
+          beforeSnapshot: { exitCode: failedPhase === 'beforeSnapshot' ? exitCode : 0 },
+          k6: { exitCode: failedPhase === 'k6' ? exitCode : 0 },
+          afterSnapshot: { exitCode: failedPhase === 'afterSnapshot' ? exitCode : 0 },
         },
       })}\n`, 'utf8');
     };
@@ -1719,17 +1741,19 @@ test('portable bundle은 원격 raw metadata와 두 진단을 PASS·FAIL·INVALI
       return aggregateBundle(bundle, context);
     };
 
-    writeExecution(0);
+    writeExecution();
     const passResult = aggregate();
     assert.equal(passResult.status, 'PASS');
     assert.equal(passResult.issues.length, 0);
 
-    writeExecution(2);
-    const phaseFailure = aggregate();
-    assert.equal(phaseFailure.status, 'FAIL');
-    assert.equal(phaseFailure.infraExecution.phases.k6.exitCode, 2);
+    for (const phaseName of ['prepare', 'resourceQuery', 'beforeSnapshot', 'k6', 'afterSnapshot']) {
+      writeExecution(phaseName, 2);
+      const phaseFailure = aggregate();
+      assert.equal(phaseFailure.status, 'FAIL');
+      assert.equal(phaseFailure.infraExecution.phases[phaseName].exitCode, 2);
+    }
 
-    writeExecution(0);
+    writeExecution();
     const afterDiagnosis = JSON.parse(readFileSync(afterDiagnosisPath, 'utf8'));
     afterDiagnosis.status = 'FAIL';
     writeFileSync(afterDiagnosisPath, `${JSON.stringify(afterDiagnosis)}\n`, 'utf8');
@@ -1745,7 +1769,7 @@ test('portable bundle은 원격 raw metadata와 두 진단을 PASS·FAIL·INVALI
 
     afterDiagnosis.status = 'PASS';
     writeFileSync(afterDiagnosisPath, `${JSON.stringify(afterDiagnosis)}\n`, 'utf8');
-    writeExecution(null);
+    writeExecution('k6', null);
     const incompleteMetadata = aggregate();
     assert.equal(incompleteMetadata.status, 'INVALID');
     assert.match(incompleteMetadata.issues[0], /phase exit code/);

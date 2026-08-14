@@ -67,6 +67,15 @@ const COMMAND_OPTION_KEYS = {
 const COMMAND_BOOLEAN_OPTION_KEYS = {
   validate: new Set(['forExecution']),
 };
+const BUNDLE_RUNTIME_DIRECT_COMMANDS = new Set([
+  'prepare',
+  'run',
+  'verify',
+  'compare-t5',
+  'cleanup',
+  'recover-cleanup',
+  'render-bundle',
+]);
 
 function usage() {
   return `사용법:
@@ -150,13 +159,20 @@ function portableBundleContext() {
   };
 }
 
-function portableBundleCommand(command, values) {
-  const result = executePortableBundleCommand(command, values, portableBundleContext());
+function portableBundleCommand(command, values, context) {
+  const result = executePortableBundleCommand(command, values, context);
   process.stdout.write(`${JSON.stringify(result)}\n`);
   if (result.status === 'INVALID') {
     process.exitCode = 2;
   } else if (result.status === 'FAIL') {
     process.exitCode = 1;
+  }
+}
+
+function assertBundleRuntimeCommand(command, context) {
+  if (context.isBundleRuntime && BUNDLE_RUNTIME_DIRECT_COMMANDS.has(command)) {
+    fail('실행 bundle에서는 직접 실행 명령을 사용할 수 없습니다. '
+      + 'validate, execution-options, hydrate, diagnose, aggregate만 사용하세요.');
   }
 }
 
@@ -957,6 +973,8 @@ function recoverCleanup(values) {
 
 async function main() {
   const { command, values } = parseArguments(process.argv.slice(2));
+  const bundleContext = portableBundleContext();
+  assertBundleRuntimeCommand(command, bundleContext);
   switch (command) {
     case 'help':
       process.stdout.write(usage());
@@ -985,7 +1003,7 @@ async function main() {
     case 'hydrate':
     case 'diagnose':
     case 'aggregate':
-      portableBundleCommand(command, values);
+      portableBundleCommand(command, values, bundleContext);
       return;
     default:
       fail(`지원하지 않는 명령: ${command}\n\n${usage()}`);
