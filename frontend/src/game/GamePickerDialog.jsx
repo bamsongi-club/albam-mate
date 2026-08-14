@@ -3,6 +3,7 @@ import { api, messageForError } from '../api';
 import { GAME_SEARCH_DEBOUNCE_MS, GAME_SEARCH_PAGE_SIZE } from './constants';
 import { normalizeGameSummary } from './data';
 import { CheckIcon, Cover, SearchIcon } from '../shared/ui';
+import { useSheetDragClose } from '../shared/sheetDrag';
 
 export function GamePickerDialog({ isOpen, selectedGameId, allowClear, onSelect, onClear, onClose }) {
   const [query, setQuery] = useState('');
@@ -30,6 +31,7 @@ export function GamePickerDialog({ isOpen, selectedGameId, allowClear, onSelect,
     setLoading(false);
     onClose();
   }, [invalidateSearch, onClose]);
+  const { sheetStyle, gripProps } = useSheetDragClose(handleClose);
 
   const handleQueryChange = (event) => {
     invalidateSearch();
@@ -137,8 +139,8 @@ export function GamePickerDialog({ isOpen, selectedGameId, allowClear, onSelect,
 
   return (
     <div className="sheet-backdrop" role="presentation" onMouseDown={handleClose}>
-      <section className="sheet tall" role="dialog" aria-modal="true" aria-labelledby="game-picker-title" onMouseDown={(event) => event.stopPropagation()}>
-        <span className="sheet-handle" aria-hidden="true" />
+      <section className="sheet tall" role="dialog" aria-modal="true" aria-labelledby="game-picker-title" style={sheetStyle} onMouseDown={(event) => event.stopPropagation()}>
+        <span className="sheet-grip" aria-hidden="true" {...gripProps}><span className="sheet-handle" /></span>
         <div className="sheet-head">
           <h2 id="game-picker-title">게임 선택</h2>
           <button type="button" className="sheet-reset" aria-label="게임 검색 닫기" onClick={handleClose}>닫기</button>

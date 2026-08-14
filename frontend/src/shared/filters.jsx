@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { FilterIcon } from './ui';
+import { useSheetDragClose } from './sheetDrag';
 
 // 한 값만 고르는 조건은 라디오로 그린다. 값이 빈 문자열인 선택지가 조건 없음이다.
 export function FilterRadioGroup({ name, label, value, options, onChange, children }) {
@@ -111,6 +112,7 @@ export function FilterPanel({ title = '필터', chips = [], quickSlot, onReset, 
   const count = chips.length;
   const sheetRef = useRef(null);
   const toggleRef = useRef(null);
+  const { sheetStyle, gripProps } = useSheetDragClose(() => setIsOpen(false));
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -160,8 +162,8 @@ export function FilterPanel({ title = '필터', chips = [], quickSlot, onReset, 
       </div>
       {isOpen && (
         <div className="sheet-backdrop" role="presentation" onMouseDown={() => setIsOpen(false)}>
-          <section className="sheet nos" ref={sheetRef} role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
-            <span className="sheet-handle" aria-hidden="true" />
+          <section className="sheet nos" ref={sheetRef} role="dialog" aria-modal="true" aria-label={title} style={sheetStyle} onMouseDown={(event) => event.stopPropagation()}>
+            <span className="sheet-grip" aria-hidden="true" {...gripProps}><span className="sheet-handle" /></span>
             <div className="sheet-head">
               <h2>{title}</h2>
               {/* 바깥 영역을 눌러야 닫힌다는 것을 바로 알아차리지 못하므로 닫는 방법을 머리글에 드러낸다. */}
