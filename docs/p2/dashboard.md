@@ -44,7 +44,7 @@ P2는 같은 지표·로그를 재사용하는 CloudWatch dashboard 두 개를 �
 
 지표 전송은 AI 코딩 에이전트가 아니라 EC2에 설치되는 Amazon CloudWatch Agent가 담당한다. 애플리케이션은 CloudWatch API를 직접 호출하지 않고 [ADR-0058](../adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md)에 따라 Spring Micrometer metric을 동일 호스트 전용 Docker bridge의 OTLP HTTP로 Agent에 전달한다.
 
-운영 로그는 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)에 따라 Spring Boot Logstash 한 줄 JSON을 stdout과 Agent 전용 rolling file에 함께 기록한다. Docker `json-file`과 전용 file은 각각 10MB × 5개, 총 50MB 이내로 회전하고, host Agent는 bind-mounted 전용 file의 허용 event만 CloudWatch Logs로 전송한다. Agent 장애는 사용자 기능을 실패시키지 않으며 회전으로 유실된 구간은 관측 공백으로 표시한다.
+운영 로그는 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)에 따라 Spring Boot Logstash 한 줄 JSON을 stdout과 Agent 전용 rolling file에 함께 기록한다. Docker `json-file`과 전용 file은 각각 10MB × 5개로 sink별 최대 50MB, 두 sink 합계는 Spring container별 최대 100MB 이내로 회전한다. host 전체 용량은 Spring container 수에 따른 이 합계와 다른 container·host log를 별도로 더해 산정한다. host Agent는 bind-mounted 전용 file의 허용 event만 CloudWatch Logs로 전송한다. Agent 장애는 사용자 기능을 실패시키지 않으며 회전으로 유실된 구간은 관측 공백으로 표시한다.
 
 ### 요약 대시보드
 

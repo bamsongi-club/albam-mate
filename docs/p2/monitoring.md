@@ -334,7 +334,7 @@ HTTP 2xx나 scheduler 실행 성공은 업무 기능 성공의 일부일 뿐이�
 
 중앙 수집 허용 범위는 `WARN`·`ERROR`, 알림·채팅·참가 대기열의 고정 핵심 업무 event와 배포 검증 event다. 정상 요청의 세부 흐름은 기본 수집하지 않고 오류 또는 허용된 업무 event만 서버 확정 request ID나 작업 상관 키로 연결한다.
 
-production 애플리케이션은 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)에 따라 Spring Boot 기본 Logstash 형식의 같은 event를 한 줄 JSON stdout과 Agent 수집 전용 rolling file에 함께 기록한다. Docker `json-file`과 전용 file은 각각 10MB × 5개, 총 50MB 이내로 회전한다. host Agent는 Docker daemon 전용 내부 파일이 아니라 bind-mounted 전용 file에서 허용한 로그만 CloudWatch Logs로 전송하며, 애플리케이션은 CloudWatch Logs API를 직접 호출하지 않는다.
+production 애플리케이션은 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)에 따라 Spring Boot 기본 Logstash 형식의 같은 event를 한 줄 JSON stdout과 Agent 수집 전용 rolling file에 함께 기록한다. Docker `json-file`과 전용 file은 각각 10MB × 5개로 sink별 최대 50MB, 두 sink 합계는 Spring container별 최대 100MB 이내로 회전한다. host 전체 용량은 Spring container 수에 따른 이 합계와 다른 container·host log를 별도로 더해 산정한다. host Agent는 Docker daemon 전용 내부 파일이 아니라 bind-mounted 전용 file에서 허용한 로그만 CloudWatch Logs로 전송하며, 애플리케이션은 CloudWatch Logs API를 직접 호출하지 않는다.
 
 Agent·CloudWatch 장애는 사용자 요청과 업무 transaction을 실패시키지 않는다. 로컬 보관은 Docker 회전 범위를 넘겨 무제한 확장하지 않으며, 전송 재개 전에 회전으로 유실된 구간은 숨기지 않고 관측 공백으로 기록한다.
 

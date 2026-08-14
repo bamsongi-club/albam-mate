@@ -44,23 +44,24 @@ production Spring은 같은 구조화 event를 한 줄 JSON stdout과 bind-mount
 6. 전용 host directory는 Spring container의 실행 UID가 쓰고 host Agent만 읽을 수 있게 최소 권한을 적용한다. App1·App2는 서로 다른 host directory와 log stream을 사용하고 로그 파일을 공유하지 않는다.
 7. Agent filter는 `WARN`·`ERROR`, 알림·채팅·참가 대기열의 고정 핵심 업무 event와 배포 검증 event만 중앙 전송한다. 정상 API 요청 수·지연·status 분포는 ADR-0058의 metric이 소유하며 정상 2xx·4xx access log 전체는 보내지 않는다.
 8. log stream은 `environment`, `stackId`, `role`, `instanceId`, `release`를 식별할 수 있어야 한다. CloudWatch Logs 보존기간은 14일이며 원문 로그를 Git에 복사하지 않는다.
-9. Agent·CloudWatch 전송 실패는 사용자 요청과 업무 트랜잭션을 실패시키지 않는다. 전용 file 회전 전에 보내지 못한 로그가 삭제되면 해당 UTC 구간과 마지막 수집 시각을 관측 공백으로 기록한다. 파일 쓰기 실패도 제품 요청을 실패시키지는 않지만 stdout 오류와 관측 self-health로 드러내야 한다.
-10. stdout과 전용 file에 같은 event가 두 번 기록되는 것은 서로 다른 로컬 sink의 의도된 중복이다. CloudWatch Agent는 전용 file 하나만 수집해 중앙 중복을 만들지 않는다.
-11. rollback은 Agent의 file collection과 Spring file appender를 비활성화하고 bind mount·host directory를 제거하는 방식으로 수행한다. Docker의 제한된 stdout 회전과 제품 기능은 유지한다.
+9. 로컬 보관량은 sink별 최대 50MB, 두 sink 합계는 Spring container별 최대 100MB로 산정한다. host 전체 용량에는 host에서 실행하는 Spring container 수에 따른 이 합계와 다른 container·host log의 보관량을 별도로 더한다.
+10. Agent·CloudWatch 전송 실패는 사용자 요청과 업무 트랜잭션을 실패시키지 않는다. 전용 file 회전 전에 보내지 못한 로그가 삭제되면 해당 UTC 구간과 마지막 수집 시각을 관측 공백으로 기록한다. 파일 쓰기 실패도 제품 요청을 실패시키지는 않지만 stdout 오류와 관측 self-health로 드러내야 한다.
+11. stdout과 전용 file에 같은 event가 두 번 기록되는 것은 서로 다른 로컬 sink의 의도된 중복이다. CloudWatch Agent는 전용 file 하나만 수집해 중앙 중복을 만들지 않는다.
+12. rollback은 Agent의 file collection과 Spring file appender를 비활성화하고 bind mount·host directory를 제거하는 방식으로 수행한다. Docker의 제한된 stdout 회전과 제품 기능은 유지한다.
 
 ## 결과
 
 - 얻는 것:
     - Docker daemon 전용 파일을 외부에서 읽지 않고 stdout 운영 조회와 Agent file 수집을 분리한다.
     - 애플리케이션에 AWS 전송 의존성을 넣지 않은 채 구조화 event·중앙 허용 목록·14일 보존을 적용할 수 있다.
-    - Docker stdout과 Agent 전용 file 모두 50MB 상한을 가져 Agent 장애가 host disk의 무제한 증가로 이어지지 않는다.
+    - Docker stdout과 Agent 전용 file은 sink별 50MB, Spring container별 합계 100MB 상한을 가져 Agent 장애가 host disk의 무제한 증가로 이어지지 않는다.
 - 감수할 비용·위험:
     - 같은 event를 stdout과 file에 직렬화·기록하므로 CPU와 disk write 비용이 늘어난다.
     - bind mount UID·권한, file rotation과 Agent tail 상태를 배포 절차에서 함께 관리해야 한다.
     - file appender 실패가 제품 요청을 막지 않도록 격리하면 중앙 로그 일부가 누락될 수 있으므로 self-health와 관측 공백 판정이 필요하다.
 - 후속 작업:
     - production structured stdout·file appender, 공통 field·MDC와 개인정보 회귀 검사를 구현한다.
-    - Compose에 전용 bind mount와 50MB file rotation 계약을 구현하고 host directory 권한을 검증한다.
+    - Compose에 전용 bind mount, sink별 50MB·Spring container별 합계 100MB 회전 계약을 구현하고 host directory 권한을 검증한다.
     - 인프라 저장소에서 Agent file filter·log group·stream·14일 retention을 구현한다.
     - 정상·WARN·ERROR·허용 업무 event·금지 payload, Agent 중지·file rotation·수집 재개 시나리오를 검증한다.
 
@@ -84,10 +85,10 @@ production Spring은 같은 구조화 event를 한 줄 JSON stdout과 bind-mount
 - 상태: 미검증
 - 근거:
     - 구현: `compose.production.yml`은 Spring·web stdout에 Docker `json-file`과 `max-size=10m`, `max-file=5` 회전을 적용한다.
-    - 계약: 이 ADR과 P2 운영 관측·대시보드·아키텍처 문서가 구조화 stdout·전용 rolling file, sink별 50MB 상한, 중앙 허용 목록, 14일 보존과 관측 공백 경계를 같은 결정으로 연결한다.
+    - 계약: 이 ADR과 P2 운영 관측·대시보드·아키텍처 문서가 구조화 stdout·전용 rolling file, sink별 50MB·Spring container별 합계 100MB 상한과 host 전체 산정 범위, 중앙 허용 목록, 14일 보존과 관측 공백 경계를 같은 결정으로 연결한다.
 - 미검증:
     - Spring Boot Logstash JSON stdout·file appender, 공통 field·MDC·금지 데이터 검사를 생산 코드에서 확인하지 않았다.
-    - bind mount UID·권한, file당 10MB·최대 5개 회전과 Docker stdout 50MB 상한을 실제 App1·App2에서 확인하지 않았다.
+    - bind mount UID·권한, sink별 10MB·최대 5개 회전과 Spring container별 합계 100MB 상한을 실제 App1·App2에서 확인하지 않았다.
     - Agent filter·CloudWatch Logs 전송·14일 retention과 장애 시 관측 공백을 실제 배포에서 검증하지 않았다.
 
 > 상태 값과 번호·대체 규칙은 [README](../README.md)를 따른다.
