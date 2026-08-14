@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join, resolve } from 'node:path';
 
 const args = parseArgs(process.argv.slice(2));
 if (!args.manifest || !args.out) {
@@ -11,17 +11,21 @@ if (!args.manifest || !args.out) {
 
 const manifestPath = resolve(args.manifest);
 const outputDirectory = resolve(args.out);
-mkdirSync(outputDirectory, { recursive: true });
+const sqlFileName = 'upsert-game-popularity.sql';
+const reportFileName = 'quality-report.json';
+let stagingDirectory;
 
 try {
+    mkdirSync(dirname(outputDirectory), { recursive: true });
+    stagingDirectory = mkdtempSync(join(dirname(outputDirectory), `.${basename(outputDirectory)}-`));
     const manifest = readJson(manifestPath);
     const inputs = validateManifest(manifest);
     const boardlifeRows = readRankRows(inputs.boardlife.path, inputs.boardlife.rows, 'BoardLife');
     const bggRows = readRankRows(inputs.bgg.path, inputs.bgg.rows, 'BGG');
     const scoreInput = readScoreInput(inputs.scoreInput.path, inputs.scoreInput.rows);
     const scores = buildExternalScores(scoreInput, boardlifeRows, bggRows);
-    const sqlPath = join(outputDirectory, 'upsert-game-popularity.sql');
-    const reportPath = join(outputDirectory, 'quality-report.json');
+    const sqlPath = join(stagingDirectory, sqlFileName);
+    const reportPath = join(stagingDirectory, reportFileName);
     writeFileSync(sqlPath, renderSql(scores), 'utf8');
     writeFileSync(
         reportPath,
@@ -40,7 +44,7 @@ try {
                     bggRankedRows: scores.filter((row) => row.bggRank !== null).length,
                 },
                 output: {
-                    path: sqlPath,
+                    path: join(outputDirectory, sqlFileName),
                     sha256: sha256File(sqlPath),
                 },
             },
@@ -49,8 +53,11 @@ try {
         ),
         'utf8',
     );
+    publish(stagingDirectory, outputDirectory);
 } catch (error) {
-    const reportPath = join(outputDirectory, 'quality-report.json');
+    rmSync(join(outputDirectory, sqlFileName), { force: true });
+    mkdirSync(outputDirectory, { recursive: true });
+    const reportPath = join(outputDirectory, reportFileName);
     writeFileSync(
         reportPath,
         JSON.stringify({ status: 'blocked', errors: [error instanceof Error ? error.message : String(error)] }, null, 2),
@@ -58,6 +65,10 @@ try {
     );
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exitCode = 1;
+} finally {
+    if (stagingDirectory) {
+        rmSync(stagingDirectory, { recursive: true, force: true });
+    }
 }
 
 function parseArgs(values) {
@@ -148,12 +159,14 @@ function buildExternalScores(scoreInput, boardlifeRows, bggRows) {
     }));
     const boardlifeRanks = rows.map((row) => row.boardlifeRank).filter((rank) => rank !== null);
     const bggRanks = rows.map((row) => row.bggRank).filter((rank) => rank !== null);
+    const boardlifeMaxRank = maxRank(boardlifeRanks);
+    const bggMaxRank = maxRank(bggRanks);
     return rows.map((row) => ({
         bggId: row.bggId,
         boardlifeRank: row.boardlifeRank,
         bggRank: row.bggRank,
-        boardlifeScore: normalizeRank(row.boardlifeRank, boardlifeRanks),
-        bggScore: normalizeRank(row.bggRank, bggRanks),
+        boardlifeScore: normalizeRank(row.boardlifeRank, boardlifeRanks.length, boardlifeMaxRank),
+        bggScore: normalizeRank(row.bggRank, bggRanks.length, bggMaxRank),
     }));
 }
 
@@ -173,18 +186,33 @@ function minRankByBggId(rows) {
     return result;
 }
 
-function normalizeRank(rank, ranks) {
-    if (rank === null || ranks.length === 0) {
+function normalizeRank(rank, rankCount, maxRank) {
+    if (rank === null || rankCount === 0) {
         return 0;
     }
-    if (ranks.length === 1) {
+    if (rankCount === 1) {
         return 1;
     }
-    const maxRank = Math.max(...ranks);
     if (maxRank === 1) {
         return rank === 1 ? 1 : 0;
     }
     return clamp((maxRank - rank) / (maxRank - 1));
+}
+
+function publish(stagingDirectory, outputDirectory) {
+    mkdirSync(outputDirectory, { recursive: true });
+    renameSync(join(stagingDirectory, sqlFileName), join(outputDirectory, sqlFileName));
+    renameSync(join(stagingDirectory, reportFileName), join(outputDirectory, reportFileName));
+}
+
+function maxRank(ranks) {
+    let maximum = 0;
+    for (const rank of ranks) {
+        if (rank > maximum) {
+            maximum = rank;
+        }
+    }
+    return maximum;
 }
 
 function renderSql(scores) {

@@ -10,7 +10,7 @@
 - 이 문서가 소유하지 않는 API·ERD·아키텍처·기술 결정: HTTP 경로·요청/응답 타입, 테이블·컬럼·제약, 모듈 의존과 트랜잭션 구조, embedding 모델·vector 저장소·검색 엔진 선택. 각 내용은 해당 정본과 승인 ADR이 소유한다.
 - 연결할 P1 종료 계약과 P2 공통 규칙: [P1 검색 종료 명세](../archive/p1/search.md)의 `SEARCH-01`~`SEARCH-03`, [P1 검색 성능·인덱스 가이드](../guides/P1_SEARCH_PERFORMANCE.md)의 측정 경계, [P1 기능 종료 상태](../archive/p1/README.md#기능별-종료-상태), 현재 [P2 공통 명세](../P2-spec.md)와 [P2 기능 상태](README.md#기능별-현재-상태).
 
-현재 `GET /api/games?keyword=...`의 이름 부분일치 의미와 `name ASC, id ASC` 정렬은 P1 계약으로 유지한다. `SEARCH-04`는 기존 요청을 조용히 의미 검색으로 바꾸지 않고 별도 검색 계약으로 추가한다. 이 문서의 기능 ID·경로·현재 상태는 [P2 기능 상태](README.md#기능별-현재-상태)와 [P2 공통 명세](../P2-spec.md)에 함께 등록한다. 문서 작성은 계약 준비·구현·검증 완료를 뜻하지 않는다.
+현재 `GET /api/games?keyword=...`의 이름 부분일치 의미와 RANK-02의 `popularity_score DESC, name ASC, id ASC` 기본 정렬은 P1·3차 MVP 계약으로 유지한다. `SEARCH-04`는 기존 요청을 조용히 의미 검색으로 바꾸지 않고 별도 검색 계약으로 추가한다. 이 문서의 기능 ID·경로·현재 상태는 [P2 기능 상태](README.md#기능별-현재-상태)와 [P2 공통 명세](../P2-spec.md)에 함께 등록한다. 문서 작성은 계약 준비·구현·검증 완료를 뜻하지 않는다.
 
 BGG 기반 검색 입력은 정책 승인된 [데이터셋의 AI·embedding 사용 범위](../game-catalog/2026-08-14-bgg-ai-embedding-approval.md)와 [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md)의 정확한 catalog release·필드·가공 allowlist를 따른다. `validateApprovedReleaseManifest`가 연결된 runner에서 실제 `releaseId`·`datasetId`·입출력 checksum·행 수·`approval.references`가 채워진 구체 manifest를 검증하기 전까지 데이터 이용 근거 선행 조건은 미충족이다. 따라서 현재 SEARCH-04 구현·평가에서 BGG 기반 AI·embedding 입력을 실행 승인으로 간주하지 않으며, API·ERD·아키텍처·모델 선택과 품질 검증도 완료된 것이 아니다.
 
@@ -126,7 +126,7 @@ BGG 기반 검색 입력은 정책 승인된 [데이터셋의 AI·embedding 사�
 - 하나의 source release에 대해 활성화할 index version은 하나다. 늦게 끝난 이전 release의 build가 현재 release를 덮어쓰지 못하게 source release와 expected version을 원자적으로 확인한다.
 - 검색 요청은 상태를 변경하지 않으므로 같은 query의 재시도는 결과 저장·중복 업무를 만들지 않는다. index rebuild·cutover는 별도의 idempotency key 또는 source release/version으로 중복 활성화를 막는다.
 - 최종 결과는 후보 조회 뒤 P1 hard filter를 다시 적용한 집합에서 만든다. 필터 종류 사이는 AND, 동일 필터의 선택지는 P1의 OR/ANY/ALL 의미를 유지한다. `playedFilter`·공개 범위·현재 catalog 유효성 위반 결과는 관련도가 높아도 반환하지 않는다.
-- 의미 검색 정렬은 `relevance DESC`를 우선하고 동률은 `name ASC, id ASC`로 결정한다. 기존 P1 endpoint의 `name ASC, id ASC` 기본 정렬은 변경하지 않는다. 필터 적용과 전체 건수·페이지 경계 계산은 페이지를 자른 뒤 다시 거르지 않는다.
+- 의미 검색 정렬은 `relevance DESC`를 우선하고 동률은 `name ASC, id ASC`로 결정한다. 기존 P1 endpoint의 `popularity_score DESC, name ASC, id ASC` 기본 정렬은 의미 검색 endpoint의 관련도 정렬로 대체하지 않는다. 필터 적용과 전체 건수·페이지 경계 계산은 페이지를 자른 뒤 다시 거르지 않는다.
 
 ### 실패·복구
 
@@ -152,7 +152,7 @@ BGG 기반 검색 입력은 정책 승인된 [데이터셋의 AI·embedding 사�
 ### SEARCH-04 완료 기준
 
 - `SEARCH-04-AC1`: 자연어 의도 query와 지원하는 P1 hard filter를 입력하면 공개 catalog에 속한 게임만 반환하고, hard filter를 모두 만족한 결과를 `relevance DESC, name ASC, id ASC` 순으로 페이지네이션한다. 판정은 고정 fixture의 HTTP 응답·필터 재계산·정렬 검증으로 한다.
-- `SEARCH-04-AC2`: 기존 `GET /api/games?keyword=...`가 P1의 부분일치·공개 범위·`name ASC, id ASC`·페이지 메타데이터를 그대로 반환하고, 의미 검색 도입만으로 기존 응답이 의미 검색 결과로 바뀌지 않는다. 판정은 기존 P1 회귀 테스트와 before/after 계약 비교로 한다.
+- `SEARCH-04-AC2`: 기존 `GET /api/games?keyword=...`가 P1의 부분일치·공개 범위·RANK-02 `popularity_score DESC, name ASC, id ASC`·페이지 메타데이터를 그대로 반환하고, 의미 검색 도입만으로 기존 응답이 의미 검색 결과로 바뀌지 않는다. 판정은 기존 P1 회귀 테스트와 before/after 계약 비교로 한다.
 - `SEARCH-04-AC3`: 빈 query·길이·필터·페이지 검증 오류와 비로그인 `playedFilter` 요청이 확정한 `400`·`401` 오류로 거절되고, 잘못된 요청이 index 조회나 사용자 데이터 조회를 실행하지 않는다. 판정은 HTTP 계약 테스트와 보안 로그 검증으로 한다.
 - `SEARCH-04-AC4`: 의미 검색 결과의 hard-filter 위반률이 0이고, 동일 query·동일 index version의 반복 요청이 동일한 결과 순서와 페이지 경계를 반환한다. 판정은 최소 60개 평가 query와 동시 반복 요청 결과 비교로 한다.
 - `SEARCH-04-AC5`: 의미 검색 평가 fixture가 구현 전에 대표 평가 질의 3개를 포함한 query, 필수 조건, 기대 게임 ID 10~30개, 제외 게임 ID, 기대 이유, 출처·버전을 고정하고, 최소 60개 query를 `exact/name variant` 15개 이상, `intent/description` 25개 이상, `intent+hard filter` 20개 이상으로 분포시킨다. 각 cohort와 전체 집합에서 2명의 독립 판정자·Recall@10·MRR@10·nDCG@10 산식을 재현하며, fixture manifest에 cohort별 각 지표의 `min_delta_vs_baseline`과 `hard_filter_violation_rate=0`을 기록한다. `exact/name variant`는 baseline 비회귀, 의미 cohort는 담당자·리뷰어가 승인한 baseline 대비 최소 개선값을 각각 통과해야 하며, 값이 없거나 승인되지 않은 cohort는 품질 합격으로 판정하지 않는다.

@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.game;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -11,6 +12,7 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.stream.IntStream;
 
 import javax.sql.DataSource;
 
@@ -132,9 +134,53 @@ class GamePopularityBatchPostgresTest {
 		assertEquals(new BigDecimal("0.000000"), popularityScore(103));
 	}
 
+	@Test
+	void 승인_실행_후_invalid_manifest가_같은_출력_경로의_기존_SQL을_제거하고_차단_보고서를_남긴다() throws Exception {
+		Path caseDirectory = Files.createDirectory(tempDirectory.resolve("case-" + System.nanoTime()));
+		Path manifest = writeManifest(caseDirectory, List.of("{\"bggId\":101,\"rank\":1}"), List.of(),
+			List.of("{\"bggId\":101}"));
+		Path output = caseDirectory.resolve("out");
+
+		assertEquals(0, runPrepare(manifest, output).exitCode());
+		assertTrue(Files.exists(output.resolve("upsert-game-popularity.sql")));
+		assertTrue(Files.readString(output.resolve("quality-report.json"))
+			.contains(output.resolve("upsert-game-popularity.sql").toString()));
+
+		Files.writeString(manifest, "{\"schemaVersion\":1,\"status\":\"blocked\"}");
+		PreparationResult blocked = runPrepare(manifest, output);
+
+		assertEquals(1, blocked.exitCode(), blocked.outputText());
+		assertFalse(Files.exists(output.resolve("upsert-game-popularity.sql")));
+		assertTrue(Files.readString(output.resolve("quality-report.json")).contains("\"status\": \"blocked\""));
+	}
+
+	@Test
+	void 십칠만건_rank와_score_input을_생성한다() throws Exception {
+		List<String> ranks = IntStream.rangeClosed(1, 170_000)
+			.mapToObj(index -> "{\"bggId\":" + index + ",\"rank\":" + index + "}")
+			.toList();
+		List<String> scoreInput = IntStream.rangeClosed(1, 170_000)
+			.mapToObj(index -> "{\"bggId\":" + index + "}")
+			.toList();
+
+		Path sqlPath = prepare(ranks, List.of(), scoreInput);
+
+		assertTrue(Files.exists(sqlPath));
+	}
+
 	private Path prepare(List<String> boardlifeRows, List<String> bggRows, List<String> scoreInputRows)
 		throws Exception {
 		Path caseDirectory = Files.createDirectory(tempDirectory.resolve("case-" + System.nanoTime()));
+		Path manifest = writeManifest(caseDirectory, boardlifeRows, bggRows, scoreInputRows);
+		Path output = caseDirectory.resolve("out");
+		PreparationResult result = runPrepare(manifest, output);
+		assertEquals(0, result.exitCode(), result.outputText());
+		return output.resolve("upsert-game-popularity.sql");
+	}
+
+	private Path writeManifest(Path caseDirectory, List<String> boardlifeRows, List<String> bggRows,
+		List<String> scoreInputRows)
+		throws Exception {
 		Path boardlife = writeRows(caseDirectory.resolve("boardlife.json"), boardlifeRows);
 		Path bgg = writeRows(caseDirectory.resolve("bgg.json"), bggRows);
 		Path scoreInput = writeRows(caseDirectory.resolve("score-input.json"), scoreInputRows);
@@ -157,7 +203,10 @@ class GamePopularityBatchPostgresTest {
 			jsonPath(boardlife), boardlifeRows.size(), sha256(boardlife),
 			jsonPath(bgg), bggRows.size(), sha256(bgg),
 			jsonPath(scoreInput), scoreInputRows.size(), sha256(scoreInput)));
-		Path output = caseDirectory.resolve("out");
+		return manifest;
+	}
+
+	private PreparationResult runPrepare(Path manifest, Path output) throws Exception {
 		Process process = new ProcessBuilder(
 			"node",
 			Path.of(System.getProperty("user.dir"), "scripts/game-ranking/prepare-game-popularity-ranking.mjs")
@@ -167,8 +216,7 @@ class GamePopularityBatchPostgresTest {
 			.start();
 		int exitCode = process.waitFor();
 		String outputText = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-		assertEquals(0, exitCode, outputText);
-		return output.resolve("upsert-game-popularity.sql");
+		return new PreparationResult(exitCode, outputText);
 	}
 
 	private Path writeRows(Path path, List<String> rows) throws IOException {
@@ -238,5 +286,8 @@ class GamePopularityBatchPostgresTest {
 
 	private String jsonPath(Path path) {
 		return path.toString().replace("\\", "\\\\");
+	}
+
+	private record PreparationResult(int exitCode, String outputText) {
 	}
 }
