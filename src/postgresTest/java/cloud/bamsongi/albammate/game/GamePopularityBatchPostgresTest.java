@@ -128,6 +128,27 @@ class GamePopularityBatchPostgresTest {
 	}
 
 	@Test
+	void scoreInput_rank_fallback은_manifest가_명시적으로_허용할_때만_사용한다() throws Exception {
+		seedGame(101, "fallback 허용 게임");
+		seedGame(102, "fallback 차단 게임");
+		List<String> scoreInput = List.of(
+			"{\"bggId\":101,\"boardlifeRank\":1,\"bggRank\":1}",
+			"{\"bggId\":102,\"boardlifeRank\":2,\"bggRank\":2}");
+
+		execute(prepare(List.of(), List.of(), scoreInput, true));
+		assertEquals(new BigDecimal("0.700000"), popularityScore(101));
+		assertEquals(new BigDecimal("0.000000"), popularityScore(102));
+
+		execute(prepare(List.of(), List.of(), scoreInput, false));
+		assertEquals(new BigDecimal("0.000000"), popularityScore(101));
+		assertEquals(new BigDecimal("0.000000"), popularityScore(102));
+
+		execute(prepare(List.of(), List.of(), scoreInput, null));
+		assertEquals(new BigDecimal("0.000000"), popularityScore(101));
+		assertEquals(new BigDecimal("0.000000"), popularityScore(102));
+	}
+
+	@Test
 	void 내부_집계는_GAME_FOCUSED만_대상으로하고_CANCELED는_제외한다() throws Exception {
 		long first = seedGame(101, "ID가 빠른 게임");
 		long second = seedGame(102, "ID가 늦은 게임");
@@ -183,8 +204,14 @@ class GamePopularityBatchPostgresTest {
 
 	private Path prepare(List<String> boardlifeRows, List<String> bggRows, List<String> scoreInputRows)
 		throws Exception {
+		return prepare(boardlifeRows, bggRows, scoreInputRows, null);
+	}
+
+	private Path prepare(List<String> boardlifeRows, List<String> bggRows, List<String> scoreInputRows,
+		Boolean allowRankFallback)
+		throws Exception {
 		Path caseDirectory = Files.createDirectory(tempDirectory.resolve("case-" + System.nanoTime()));
-		Path manifest = writeManifest(caseDirectory, boardlifeRows, bggRows, scoreInputRows);
+		Path manifest = writeManifest(caseDirectory, boardlifeRows, bggRows, scoreInputRows, allowRankFallback);
 		Path output = caseDirectory.resolve("out");
 		PreparationResult result = runPrepare(manifest, output);
 		assertEquals(0, result.exitCode(), result.outputText());
@@ -209,17 +236,32 @@ class GamePopularityBatchPostgresTest {
 	private Path writeManifest(Path caseDirectory, List<String> boardlifeRows, List<String> bggRows,
 		List<String> scoreInputRows)
 		throws Exception {
+		return writeManifest(caseDirectory, boardlifeRows, bggRows, scoreInputRows, null);
+	}
+
+	private Path writeManifest(Path caseDirectory, List<String> boardlifeRows, List<String> bggRows,
+		List<String> scoreInputRows, Boolean allowRankFallback)
+		throws Exception {
 		Path boardlife = writeRows(caseDirectory.resolve("boardlife.json"), boardlifeRows);
 		Path bgg = writeRows(caseDirectory.resolve("bgg.json"), bggRows);
 		Path scoreInput = writeRows(caseDirectory.resolve("score-input.json"), scoreInputRows);
 		return writeManifest(caseDirectory, boardlife, boardlifeRows.size(), bgg, bggRows.size(), scoreInput,
-			scoreInputRows.size());
+			scoreInputRows.size(), allowRankFallback);
 	}
 
 	private Path writeManifest(Path caseDirectory, Path boardlife, int boardlifeRows, Path bgg, int bggRows,
 		Path scoreInput, int scoreInputRows)
 		throws Exception {
+		return writeManifest(caseDirectory, boardlife, boardlifeRows, bgg, bggRows, scoreInput, scoreInputRows,
+			null);
+	}
+
+	private Path writeManifest(Path caseDirectory, Path boardlife, int boardlifeRows, Path bgg, int bggRows,
+		Path scoreInput, int scoreInputRows, Boolean allowRankFallback)
+		throws Exception {
 		Path manifest = caseDirectory.resolve("ranking-manifest.json");
+		String allowRankFallbackField = allowRankFallback == null ? ""
+			: ",\n\t\t\t    \"allowRankFallback\": " + allowRankFallback;
 		Files.writeString(manifest, """
 			{
 			  "schemaVersion": 1,
@@ -231,13 +273,13 @@ class GamePopularityBatchPostgresTest {
 			  },
 			  "scoreInput": {
 			    "path": "%s", "rows": %d, "sha256": "%s",
-			    "grain": "1 row per bggId", "reviewRequiredRows": 0
+			    "grain": "1 row per bggId", "reviewRequiredRows": 0%s
 			  }
 			}
 			""".formatted(
 			jsonPath(boardlife), boardlifeRows, sha256(boardlife),
 			jsonPath(bgg), bggRows, sha256(bgg),
-			jsonPath(scoreInput), scoreInputRows, sha256(scoreInput)));
+			jsonPath(scoreInput), scoreInputRows, sha256(scoreInput), allowRankFallbackField));
 		return manifest;
 	}
 

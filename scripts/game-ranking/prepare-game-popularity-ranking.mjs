@@ -50,7 +50,12 @@ try {
     const boardlifeRows = readRankRows(inputs.boardlife.path, inputs.boardlife.rows, 'BoardLife');
     const bggRows = readRankRows(inputs.bgg.path, inputs.bgg.rows, 'BGG');
     const scoreInput = readScoreInput(inputs.scoreInput.path, inputs.scoreInput.rows);
-    const scores = buildExternalScores(scoreInput, boardlifeRows, bggRows);
+    const scores = buildExternalScores(
+        scoreInput,
+        boardlifeRows,
+        bggRows,
+        inputs.scoreInput.allowRankFallback === true,
+    );
     const sqlPath = join(stagingDirectory, sqlFileName);
     const reportPath = join(stagingDirectory, reportFileName);
     writeFileSync(sqlPath, renderSql(scores), 'utf8');
@@ -176,13 +181,13 @@ function readScoreInput(path, expectedRows) {
     });
 }
 
-function buildExternalScores(scoreInput, boardlifeRows, bggRows) {
+function buildExternalScores(scoreInput, boardlifeRows, bggRows, allowRankFallback) {
     const boardlifeByBggId = minRankByBggId(boardlifeRows);
     const bggByBggId = minRankByBggId(bggRows);
     const rows = scoreInput.map((input) => ({
         bggId: input.bggId,
-        boardlifeRank: boardlifeByBggId.get(input.bggId) ?? input.boardlifeRank,
-        bggRank: bggByBggId.get(input.bggId) ?? input.bggRank,
+        boardlifeRank: boardlifeByBggId.get(input.bggId) ?? (allowRankFallback ? input.boardlifeRank : null),
+        bggRank: bggByBggId.get(input.bggId) ?? (allowRankFallback ? input.bggRank : null),
     }));
     const boardlifeRanks = rows.map((row) => row.boardlifeRank).filter((rank) => rank !== null);
     const bggRanks = rows.map((row) => row.bggRank).filter((rank) => rank !== null);

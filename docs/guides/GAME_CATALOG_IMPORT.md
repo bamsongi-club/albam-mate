@@ -86,7 +86,7 @@ node scripts/game-ranking/prepare-game-popularity-ranking.mjs \
   --out build/game-ranking/approved
 ```
 
-승인 manifest는 `schemaVersion: 1`, `status: approved`, `batchId`, BoardLife·BGG source의 `path`·`rows`·`sha256`, score input의 `path`·`rows`·`sha256`·`grain: 1 row per bggId`·`reviewRequiredRows: 0`을 포함해야 한다. 생성기는 rank 중복·결측·미매칭을 점수 규칙에 따라 처리하고 `quality-report.json`과 `upsert-game-popularity.sql`을 만든다. 승인되지 않은 manifest나 checksum·행 수가 맞지 않는 입력은 산출물을 차단한다.
+승인 manifest는 `schemaVersion: 1`, `status: approved`, `batchId`, BoardLife·BGG source의 `path`·`rows`·`sha256`, score input의 `path`·`rows`·`sha256`·`grain: 1 row per bggId`·`reviewRequiredRows: 0`·`allowRankFallback`을 포함해야 한다. `allowRankFallback`은 원천 CSV에 매칭되지 않은 행에서 score input의 `boardlifeRank`·`bggRank`를 대신 사용할 때만 `true`로 명시 승인한다. 생성기는 rank 중복·결측·미매칭을 점수 규칙에 따라 처리하고 `quality-report.json`과 `upsert-game-popularity.sql`을 만든다. 승인되지 않은 manifest나 checksum·행 수가 맞지 않는 입력은 산출물을 차단한다.
 생성된 SQL은 아래 보존·검증 절차를 모두 통과한 뒤에만 실행한다. 이 SQL은 전체 `GAME_FOCUSED` 방을 집계하면서 `CANCELED`만 제외하고, 외부 점수와 함께 `popularity_score`를 한 트랜잭션에서 갱신한다. 애플리케이션 요청 중 BoardLife·BGG를 직접 조회하지 않는다.
 
 ### RANK-02 보존·검증·복구
