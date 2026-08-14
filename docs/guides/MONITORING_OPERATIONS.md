@@ -47,9 +47,21 @@
 | `declaredAt` | AWS 인증 운영자가 상태를 확정한 UTC 시각 |
 | `plannedUntil` | `PLANNED_STOP`에서 필수, `declaredAt` 초과·최대 7일; `ACTIVE`에서는 `null` |
 | `actorArn` | STS `GetCallerIdentity`로 확인한 AWS principal ARN; 사용자 입력값을 신뢰하지 않음 |
-| `receiptId` | 한 번의 상태 전이·연장·복구 기록을 연결하는 고유 ID |
+| `receiptId` | 한 번의 상태 전이·연장·복구 기록을 연결하고 S3 감사 receipt prefix를 찾는 고유 ID |
 
 `PLANNED_STOP`은 자동 연장하지 않는다. 운영자는 최대 7일 안에서 새 `plannedUntil`을 명시해 연장하고 상태·Scheduler·receipt를 모두 재검증해야 한다. 기한이 지나면 가용성 alarm action은 계속 억제하지만 `계획 종료 초과` `critical`을 즉시 보내고, `ACTIVE` 전환 또는 명시적 연장까지 24시간마다 반복한다.
+
+### receipt 감사 저장소
+
+receipt 본문은 SSM state와 분리한 전용 S3 bucket에 append-only object로 저장한다. `albam-mate-infra`는 bucket 이름을 `operations_receipt_bucket_name` output으로 제공하고 public access를 전부 차단하며 기본 암호화·versioning과 Object Lock `COMPLIANCE` 90일 보존을 설정한다. 90일이 지난 object만 lifecycle로 만료할 수 있고, Terraform state·Ansible 전송·부하 결과 bucket과 함께 사용하지 않는다.
+
+object key는 `receipts/v1/{environment}/{stackId}/{receiptId}/{sequence}-{stage}.json`이다. `sequence`는 `000-requested`에서 시작해 단계마다 단조 증가하고 `999-final`로 끝난다. CLI는 `If-None-Match: *`로 새 key만 쓰며 기존 key·version을 덮어쓰거나 삭제하지 않는다. 각 object는 `schemaVersion`, `receiptId`, `sequence`, `stage`, `recordedAt`, actor·account·region·environment·stack·release, 이전 object key·SHA-256, 요청한 작업, AWS API 재조회 결과와 단계 판정을 포함한다. secret·이메일·사용자 데이터와 원문 log는 넣지 않는다.
+
+- 운영 CLI writer에는 대상 prefix의 `s3:PutObject`, `s3:GetObject`와 제한된 `s3:ListBucket`만 부여한다. `DeleteObject`, retention 변경과 `s3:BypassGovernanceRetention`은 부여하지 않는다.
+- 감사 reader는 별도 read-only role로 `ListBucket`, `GetObject`, `GetObjectVersion`만 사용한다. application EC2 role·GitHub Actions·일반 사용자 API는 receipt bucket 권한을 갖지 않는다.
+- CLI는 상태·alarm·Scheduler·resource를 바꾸기 전에 `000-requested`를 쓰고 다시 읽어 version ID·ETag·본문 SHA-256을 확인한다. 각 변경 뒤에는 AWS API 재조회 결과를 다음 sequence에 append하고 같은 검증을 마친 뒤에만 다음 변경으로 진행한다.
+- object 기록·재조회·hash chain 검증이 실패하면 상태 전환 실패로 처리하고 다음 변경을 실행하지 않는다. AWS 변경 뒤 기록이 실패한 경우 자동 성공이나 `ACTIVE`를 선언하지 않고 독립 SNS로 `critical`을 보낸 뒤, 운영자가 실제 AWS 상태와 마지막 검증 receipt를 기준으로 수동 복구한다.
+- 과거 작업은 state의 최신 `receiptId`에만 의존하지 않는다. stack prefix를 나열해 sequence·version·Object Lock 보존과 `previousSha256` chain을 검증해야 하나의 전이 기록으로 인정한다.
 
 ### writer와 IAM 경계
 
@@ -129,8 +141,8 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, 다음 네 met
 
 허용 공통 필드는 UTC `timestamp`, `level`, 고정 `event`, `environment`, `stackId`, `service`, `role`, `instanceId`, `release`, 서버 확정 `requestId`다. event별 수치·enum 필드는 아래 목록에서만 추가한다.
 
-- 수치: 고정 event가 정의한 `*Ms`, `*Count`, `*Limit`, `attempt`, `batchNumber`
-- 유한 enum: `failureCode`, `reasonCode`, `exceptionClass`, `eventType`, `targetType`, `action`, `outcome`, `roomStatus`, `useCase`, `section`, `lockName`
+- 수치: 고정 event가 정의한 `*Ms`, `*Millis`, `*Count`, `*Limit`, `attempt`, `batchNumber`
+- 유한 enum: `failureCode`, `reasonCode`, event별 `exceptionClass` 또는 `exceptionType`, `eventType`, `targetType`, `action`, `outcome`, `roomStatus`, `useCase`, `section`, `lockName`
 - UTC 시각: `measurementTime`, `occurredAt`, `outboxRecordedAt`, `notificationRecordedAt`, `nextAvailableAt`
 - 접근 제한 상관 키: 단일 `roomId`, `messageId`, `sourceEventId`; metric dimension·dashboard group·alarm dimension에는 사용하지 않는다.
 
@@ -147,7 +159,8 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, 다음 네 met
 | `notification_cleanup_completed`, `notification_cleanup_failed` | INFO/WARN; `targetType`, batch·delete count, duration, 고정 failure 값 | 허용 |
 | `chat_message_retention_completed`, `chat_message_retention_lease_guard_aborted`, `chat_message_retention_backlog_remaining`, `chat_message_retention_failed` | INFO/WARN/ERROR; count·duration·threshold·`exceptionClass` | 허용 |
 | `chat_message_retention_room_failed`, `chat_message_retention_lock_skipped` | INFO/WARN; 고정 reason, `lockName`, `section`, `exceptionClass` | 허용 |
-| `chat_realtime_publish_failed`, `chat_realtime_subscription_start_failed`, `chat_realtime_subscription_retry_schedule_failed` | WARN/ERROR; `eventType`, 단일 room/message 상관 키, `exceptionClass` | 허용·상관 키 비집계 |
+| `chat_realtime_publish_failed` | WARN; `eventType`, 단일 `roomId`·`messageId`, `exceptionType` | 허용·상관 키 비집계 |
+| `chat_realtime_subscription_start_failed`, `chat_realtime_subscription_retry_schedule_failed` | WARN; `retryDelayMillis`, `exceptionType` | 허용 |
 | `chat_message_sender_nickname_missing` | ERROR; 단일 `roomId` | 허용·상관 키 비집계 |
 | `room_state_reconciliation_completed`, `room_status_correction_batch_limit_reached`, `room_state_reconciliation_failed`, `room_status_correction_execution_slow`, `room_status_correction_skipped` | INFO/WARN; count·limit·duration·threshold·고정 reason | 허용 |
 | `room_status_reconciliation_room_failed`, `room_state_reconciliation_lock_skipped` | DEBUG/WARN; 단일 `roomId`, `useCase`, `reasonCode`, `lockName` | WARN만 허용·상관 키 비집계 |
@@ -239,7 +252,7 @@ health가 성공했더라도 alarm action 활성화, schedule 삭제 또는 `ACT
 - `OK → ALARM → OK` 시각과 SNS 실제 수신·복구 판정
 - 실패 단계, 수동 조치, 관측 공백 시작·종료와 최종 판정
 
-원문 CloudWatch log, 이메일 주소, secret, 사용자 데이터는 receipt와 Git에 넣지 않는다. 구현 rollback은 마지막 검증 release로 되돌린 뒤 같은 health·수집·alarm 검증을 반복한다. 문서 검사, Terraform plan, dashboard JSON과 screenshot만으로 배포·복구·실측을 통과로 기록하지 않는다.
+각 항목은 [receipt 감사 저장소](#receipt-감사-저장소)의 단계별 object와 hash chain으로 남긴다. 원문 CloudWatch log, 이메일 주소, secret, 사용자 데이터는 receipt와 Git에 넣지 않는다. 구현 rollback은 마지막 검증 release로 되돌린 뒤 같은 health·수집·alarm 검증을 반복한다. 문서 검사, Terraform plan, dashboard JSON과 screenshot만으로 배포·복구·실측을 통과로 기록하지 않는다.
 
 ## 구현 이후 명령 소유권
 

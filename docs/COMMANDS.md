@@ -99,6 +99,8 @@ Markdown 링크와 검사기 회귀를 확인한다.
 ```sh
 node scripts/check-doc-links.mjs
 node --test scripts/check-doc-links.test.mjs
+node scripts/check-monitoring-contract.mjs
+node --test scripts/check-monitoring-contract.test.mjs
 ```
 
 ## 운영 Compose
