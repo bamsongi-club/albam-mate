@@ -8,6 +8,7 @@
 - 낙관 락·저장 상태 보정·조회 snapshot 근거: [ADR-0005](adr/participation/0005-room-participation-optimistic-locking.md), [ADR-0055](adr/room/0055-room-query-effective-status-and-persistence-correction.md), [ADR-0056](adr/room/0056-postgresql-room-query-snapshot-without-global-pre-correction.md)
 - 알림 통합 이벤트·Outbox·relay 근거: [ADR-0029](adr/notification/0029-room-integration-event-transactional-outbox.md), [ADR-0040](adr/notification/0040-postgresql-notification-relay-recovery-retention.md)
 - 알림 표시 투영·조회·읽음 시각 근거: [ADR-0039](adr/notification/0039-notification-presentation-and-bulk-read-snapshot.md)
+- P2 운영 관측 전송 근거: [ADR-0058](adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md), [ADR-0059](adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)
 - 코드 배치·네이밍·트랜잭션 규칙: [CONVENTIONS](CONVENTIONS.md)
 - 제품·HTTP·저장 계약: [P2 명세](P2-spec.md), [P2 기능 문서](p2/README.md), [P1 종료 명세](archive/p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md), [API 명세](API.md), [ERD](ERD.md)
 
@@ -385,6 +386,17 @@ App1과 `local` Nginx는 Spring의 유일한 신뢰 프록시다. HTTP와 WebSoc
 - 방 상태 보정과 채팅 만료 삭제는 모든 인스턴스에 등록하되 Spring Scheduler와 PostgreSQL ShedLock으로 한 실행만 조정한다. 잠금은 업무 트랜잭션과 분리하고 작업 본문은 재실행되어도 같은 결과로 수렴시킨다.
 - Quartz 클러스터, Outbox, Redis Streams, RabbitMQ와 Kafka는 P1에 도입하지 않는다.
 - 실제 AWS App1 Nginx의 WebSocket Upgrade·다중 upstream·장애 처리, 고정 EC2 수동 교체와 운영 Redis의 HA·TLS·접근 제어·비밀·비용 검증은 후속 OPS다. 이 미검증은 `local` 기반 P1 채팅 구현을 막지 않는다.
+
+#### P2 운영 관측 경계 (후속 구현)
+
+P2 운영 관측의 기능 규칙과 완료 기준은 [운영 관측 명세](p2/monitoring.md), 화면·경고·비용·배포 검증 정책은 [대시보드 정책](p2/dashboard.md)이 소유한다. 아래 전송 경계는 승인됐지만 아직 생산 배포에서 검증하지 않았으며, 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
+
+- Spring 애플리케이션은 [ADR-0058](adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md)에 따라 Micrometer metric을 OTLP HTTP로 같은 EC2의 host CloudWatch Agent에 보낸다. Spring container의 `127.0.0.1`을 host loopback으로 해석하지 않고, 외부에 publish하지 않은 동일 호스트 전용 Docker bridge와 host 방화벽으로 수신자를 해당 Spring container에 제한한다.
+- App1·App2는 각자 자신의 host Agent만 사용한다. Agent·CloudWatch 장애는 사용자 요청과 업무 트랜잭션을 실패시키지 않고 마지막 수집 시각과 관측 공백으로 드러낸다. 애플리케이션은 CloudWatch SDK나 다른 host Agent fallback을 사용하지 않는다.
+- production Spring은 [ADR-0059](adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)에 따라 같은 Spring Boot Logstash 한 줄 JSON event를 stdout과 bind-mounted Agent 전용 rolling file에 함께 기록한다. Docker `json-file`과 전용 file은 각각 10MB × 5개로 sink별 최대 50MB, 두 sink 합계는 Spring container별 최대 100MB 이내로 제한 회전한다. host 전체 용량은 Spring container 수에 따른 이 합계와 다른 container·host log를 별도로 더해 산정한다. host Agent는 Docker daemon 전용 내부 파일이 아니라 전용 file의 허용 event만 CloudWatch Logs에 14일 보존한다.
+- metric·log 수집기는 제품 모듈이나 업무 데이터 정본이 아니다. 도메인 코드는 안정된 meter·event와 금지 데이터 경계를 소유하고, bridge·Agent·CloudWatch·dashboard·alarm은 인프라 adapter와 별도 인프라 저장소가 소유한다.
+
+현재 develop에는 Actuator·Micrometer meter와 production management endpoint, Docker 로그 회전 기반이 있지만 OTLP registry·Agent receiver·구조화 console·중앙 filter·retention·dashboard·alarm 구현은 없다. ADR·아키텍처 문서가 존재한다는 사실을 구현·배포·실측 완료로 해석하지 않는다.
 
 #### 기준 시각과 재시도
 

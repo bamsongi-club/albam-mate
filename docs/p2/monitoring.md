@@ -2,11 +2,11 @@
 
 > **문서 상태: active · 정본 승격일: 2026-08-13**
 >
-> 이 문서는 P1에서 조건부 후속으로 예약한 운영 관측을 P2의 `OPS-01`~`OPS-05`로 구체화한 기능 정본이다. 문서 활성화만으로 구현·배포·실측이 완료되지는 않으며, 메트릭·로그 전송 ADR과 상태표의 선행 계약을 충족해야 한다.
+> 이 문서는 P1에서 조건부 후속으로 예약한 운영 관측을 P2의 `OPS-01`~`OPS-05`로 구체화한 기능 정본이다. 문서 활성화와 메트릭·로그 전송 ADR 승인만으로 구현·배포·실측이 완료되지는 않으며, 상태표의 남은 선행 계약을 충족해야 한다.
 
 이 문서는 `OPS-01`~`OPS-05`의 기능 규칙, 완료 기준과 제외 범위를 정의한다. 현재 계약 준비·생산 코드·자동 검증·운영 배포와 실측 상태는 [P2 기능 상태 정본](README.md#기능별-현재-상태)에서만 판정한다.
 
-P2 전체 범위와 공통 운영 흐름은 [P2 공통 명세](../P2-spec.md), 화면·경고·비용·배포 검증 정책은 [운영 대시보드 정책](dashboard.md)이 관리한다. 메트릭·로그 전송 방식은 구현 전에 Platform ADR로 확정하며, 이 문서가 프로젝트 ADR이나 구현 증거를 대신하지 않는다.
+P2 전체 범위와 공통 운영 흐름은 [P2 공통 명세](../P2-spec.md), 화면·경고·비용·배포 검증 정책은 [운영 대시보드 정책](dashboard.md)이 관리한다. 메트릭 전송은 [ADR-0058](../adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md), 구조화 로그 전송·보존은 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)가 소유하며, 이 문서가 ADR이나 구현 증거를 대신하지 않는다.
 
 ## 목표와 지원 수준
 
@@ -39,7 +39,7 @@ P2 대시보드는 인프라가 켜져 있다는 사실만 보여주지 않는�
 
 | 필수 결과 | 완료 판정 |
 | --- | --- |
-| 메트릭·로그 수집 | 애플리케이션 메트릭이 loopback OTLP와 CloudWatch Agent를 거쳐 CloudWatch에 도착하고, 허용된 JSON 로그가 같은 release로 조회됨 |
+| 메트릭·로그 수집 | 애플리케이션 메트릭이 동일 호스트 전용 Docker bridge의 OTLP와 CloudWatch Agent를 거쳐 CloudWatch에 도착하고, 허용된 JSON 로그가 같은 release로 조회됨 |
 | 요약·상세 대시보드 | 두 화면이 실제 배포 데이터로 생존·지연·실패·자원 상태와 적용 가능한 업무 결과를 표시함 |
 | 이메일 경고 | 대표 경고에서 `OK → ALARM → OK` 전이와 실제 이메일 수신·복구를 확인함 |
 | 배포 시 기능 검증 | 알림·채팅·참가 대기열의 격리 시나리오가 기술 수락·업무 결과·사용자 가시 결과까지 통과함 |
@@ -68,7 +68,7 @@ P2 대시보드는 인프라가 켜져 있다는 사실만 보여주지 않는�
 - 사용자 ID·이메일·IP·세션·cookie·token, 요청·응답 body, 프롬프트·응답 원문, Tool 인자·결과, 채팅 내용, 알림 payload와 원본 SQL을 중앙 지표·로그에 넣지 않는다.
 - request ID는 외부 값을 그대로 신뢰하지 않고 서버가 확정한다. request ID와 허용된 자원 상관 키는 접근 제한된 로그에서만 사용한다.
 - management endpoint는 loopback 또는 관리 전용 내부 경계에서만 수집한다. 수집 실패가 제품 요청과 업무 transaction을 실패시키지 않는다.
-- Spring Micrometer metric은 OTLP로 같은 EC2의 loopback Amazon CloudWatch Agent에 전달한다. OTLP 수신 포트를 인터넷이나 다른 host에 공개하지 않는다.
+- Spring Micrometer metric은 [ADR-0058](../adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md)에 따라 OTLP HTTP로 같은 EC2의 host Amazon CloudWatch Agent에 전달한다. 컨테이너 loopback에 의존하지 않고 동일 호스트 전용 Docker bridge를 사용하며, OTLP 수신 포트를 Docker publish·인터넷·다른 host에 공개하지 않는다.
 - 모든 시각은 UTC로 수집하고 dashboard 표시 timezone을 명시한다. 데이터 누락은 값 `0`이나 정상 상태가 아니라 관측 공백으로 표시한다.
 
 ## 핵심 운영 흐름
@@ -334,7 +334,7 @@ HTTP 2xx나 scheduler 실행 성공은 업무 기능 성공의 일부일 뿐이�
 
 중앙 수집 허용 범위는 `WARN`·`ERROR`, 알림·채팅·참가 대기열의 고정 핵심 업무 event와 배포 검증 event다. 정상 요청의 세부 흐름은 기본 수집하지 않고 오류 또는 허용된 업무 event만 서버 확정 request ID나 작업 상관 키로 연결한다.
 
-production 애플리케이션은 한 event를 한 줄의 JSON stdout으로 기록한다. Docker `json-file`이 현재 기본값 `max-size=10m`, `max-file=5`로 로컬 회전하고 Amazon CloudWatch Agent가 허용한 로그를 CloudWatch Logs로 전송한다. 애플리케이션은 CloudWatch Logs API를 직접 호출하지 않는다.
+production 애플리케이션은 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)에 따라 Spring Boot 기본 Logstash 형식의 같은 event를 한 줄 JSON stdout과 Agent 수집 전용 rolling file에 함께 기록한다. Docker `json-file`과 전용 file은 각각 10MB × 5개로 sink별 최대 50MB, 두 sink 합계는 Spring container별 최대 100MB 이내로 회전한다. host 전체 용량은 Spring container 수에 따른 이 합계와 다른 container·host log를 별도로 더해 산정한다. host Agent는 Docker daemon 전용 내부 파일이 아니라 bind-mounted 전용 file에서 허용한 로그만 CloudWatch Logs로 전송하며, 애플리케이션은 CloudWatch Logs API를 직접 호출하지 않는다.
 
 Agent·CloudWatch 장애는 사용자 요청과 업무 transaction을 실패시키지 않는다. 로컬 보관은 Docker 회전 범위를 넘겨 무제한 확장하지 않으며, 전송 재개 전에 회전으로 유실된 구간은 숨기지 않고 관측 공백으로 기록한다.
 
@@ -362,6 +362,6 @@ Agent·CloudWatch 장애는 사용자 요청과 업무 transaction을 실패시�
 
 사용자가 확인한 운영 정책은 [운영 대시보드 정책](dashboard.md)의 해당 절이 관리한다. 이 문서는 그 정책을 각 `OPS-*` 기능 규칙과 완료 기준으로만 연결하며 확정값 목록을 반복하지 않는다.
 
-메트릭 전송과 로그 전송의 기술 선택은 구현 전에 각각 Platform ADR로 확정한다. 현재 프로젝트에는 두 ADR이 없으며, 이 문서만으로 구현·배포 또는 실측이 끝났다고 판정하지 않는다.
+메트릭 전송은 승인된 [ADR-0058](../adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md), 로그 전송·보존은 승인된 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)가 소유한다. 두 ADR은 기술 선택을 확정했지만 아직 미검증이며, 실제 metric·log 허용 목록, 경고별 query·런북, 배포 설정과 비용·장애 검증이 남아 있다. 이 문서와 ADR 승인만으로 구현·배포 또는 실측이 끝났다고 판정하지 않는다.
 
 AI provider·model과 실제 이메일 주소처럼 다른 기능 명세나 배포 비밀이 소유하는 값은 이 문서에 임의로 만들지 않는다. 구현 시점의 현재 상태는 [P2 기능 상태 정본](README.md#기능별-현재-상태)만 갱신한다.
