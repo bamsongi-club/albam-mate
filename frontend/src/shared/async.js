@@ -7,6 +7,8 @@ export function isUnauthenticated(error) {
 
 export function useRequest(load, dependencies) {
   const [state, setState] = useState({ data: null, loading: true, error: '' });
+  // 오류 블록의 '다시 시도'가 같은 조건으로 다시 부를 수 있게 재조회 신호를 둔다.
+  const [refreshVersion, setRefreshVersion] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -26,9 +28,9 @@ export function useRequest(load, dependencies) {
       active = false;
       controller.abort();
     };
-  }, dependencies);
+  }, [refreshVersion, ...dependencies]);
 
-  return state;
+  return { ...state, retry: () => setRefreshVersion((version) => version + 1) };
 }
 
 export function usePaginatedRequest(loadPage, dependencies) {

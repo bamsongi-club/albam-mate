@@ -76,7 +76,7 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
   // 해 본 게임 필터가 활성화된 동안에만 표시·취소 성공을 재조회 신호로 쓴다.
   // 그 외에는 조회 결과가 playedByMe로 걸러지지 않으므로 다시 부를 필요가 없다.
   const playedRefreshKey = filters.playedFilter ? playedGames.version : 0;
-  const { data, loading, error, unauthenticated, setPage } = usePaginatedRequest(
+  const { data, loading, error, unauthenticated, setPage, retry } = usePaginatedRequest(
     (page, signal) => api.getGames({ keyword, ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal),
     [keyword, filterKey, dataVersion, playedRefreshKey]
   );
@@ -120,7 +120,7 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
         <div className="screen-body pad-bottom" style={{ paddingTop: 26 }}>
           {unauthenticated
             ? <LoginRequiredView message="해 본 게임으로 거르려면 로그인해주세요." />
-            : <ErrorBox message={error} title="게임을 불러오지 못했어요" />}
+            : <ErrorBox message={error} title="게임을 불러오지 못했어요" onRetry={retry} />}
         </div>
       )}
       {!error && loading && !data && <div className="screen-body pad-bottom" style={{ paddingTop: 22 }}><RoomSkeletons count={3} /></div>}
@@ -164,11 +164,11 @@ function ComplexityPips({ complexity }) {
 
 export function GameDetailView({ gameId, onCreateGame, onBack, dataVersion, onPlayedError, renderRoom }) {
   const playedGames = usePlayedGames(onPlayedError);
-  const { data: gameData, loading: gameLoading, error: gameError } = useRequest(
+  const { data: gameData, loading: gameLoading, error: gameError, retry: retryGame } = useRequest(
     (signal) => api.getGame(gameId, signal),
     [gameId, dataVersion]
   );
-  const { data: roomPage, loading: roomsLoading, error: roomsError, setPage: setRoomPage } = usePaginatedRequest(
+  const { data: roomPage, loading: roomsLoading, error: roomsError, setPage: setRoomPage, retry: retryRooms } = usePaginatedRequest(
     (page, signal) => api.getRooms({ type: 'GAME_FOCUSED', gameId, page, size: ROOM_LIST_PAGE_SIZE }, signal),
     [gameId, dataVersion]
   );
@@ -179,7 +179,7 @@ export function GameDetailView({ gameId, onCreateGame, onBack, dataVersion, onPl
     return (
       <div className="screen sub">
         <TopBar onBack={onBack} />
-        <div className="screen-body pad-bottom"><ErrorBox message={gameError || roomsError} title="게임을 불러오지 못했어요" /></div>
+        <div className="screen-body pad-bottom"><ErrorBox message={gameError || roomsError} title="게임을 불러오지 못했어요" onRetry={() => { retryGame(); retryRooms(); }} /></div>
       </div>
     );
   }

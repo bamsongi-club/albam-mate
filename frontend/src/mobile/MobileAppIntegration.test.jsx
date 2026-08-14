@@ -51,7 +51,7 @@ describe('모바일 앱 셸', () => {
 
     await renderApp('#/home');
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: '예정된 모임이 없어요' })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('heading', { name: '아직 참가하는 모임이 없어요' })).toBeTruthy());
     const tabs = screen.getByLabelText('모바일 주요 메뉴');
     expect([...tabs.querySelectorAll('a')].map((tab) => tab.textContent)).toEqual(['홈', '게임', '모임 찾기', '내정보']);
     expect(screen.getByRole('link', { name: '전체 채팅' }).getAttribute('href')).toBe('#/chats');
