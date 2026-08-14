@@ -9,6 +9,7 @@
 | [Platform](platform/README.md) | Java·Spring, 데이터베이스, 공통 식별자 등 백엔드 기반 |
 | [Auth](auth/README.md) | 인증, 인가와 세션 보안 경계 |
 | [Game](game/README.md) | 게임 목록의 출처, 적재와 검색 경계 |
+| [Matching](matching/README.md) | 실시간 파티 매칭의 후보 선점, 요청 일관성, 채팅 handoff와 측정 경계 |
 | [Room](room/README.md) | 방 생명주기, 행동 가능성과 상태 전이 |
 | [Participation](participation/README.md) | 참가·대기 불변식, 정원과 동시성 |
 | [Notification](notification/README.md) | 서비스 내 웹 알림 생성, 전달 신뢰성과 실패 복구 |
