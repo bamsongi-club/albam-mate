@@ -2,7 +2,8 @@
 const PLAYER_COLORS = ['#C2402D', '#2C6E9B', '#D9A02B', '#3F7D53', '#7B4F9D', '#D2723A', '#4A5C8C', '#8A6A3C'];
 
 // 밝은 색 위에서만 글자를 먹색으로 둔다.
-const LIGHT_COLORS = new Set(['#D9A02B']);
+// #D2723A는 흰 글자와 3.38:1이라 WCAG AA(4.5:1)에 못 미친다. 먹색을 쓰면 5.86:1이 된다.
+const LIGHT_COLORS = new Set(['#D9A02B', '#D2723A']);
 
 export function playerColor(index) {
   return PLAYER_COLORS[index % PLAYER_COLORS.length];
