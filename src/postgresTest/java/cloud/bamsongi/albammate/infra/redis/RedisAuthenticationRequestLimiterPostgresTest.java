@@ -33,6 +33,7 @@ import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.security.ratelimit.AuthenticationRequestLimiter;
 import cloud.bamsongi.albammate.global.security.ratelimit.AuthenticationRequestLimiterMetrics;
 import cloud.bamsongi.albammate.global.security.ratelimit.LoginVerificationPermit;
+import io.lettuce.core.ClientOptions;
 
 @Testcontainers
 class RedisAuthenticationRequestLimiterPostgresTest {
@@ -61,6 +62,25 @@ class RedisAuthenticationRequestLimiterPostgresTest {
 	void tearDown() {
 		firstFactory.destroy();
 		secondFactory.destroy();
+	}
+
+	@Test
+	void T3_Primary_factory를_통한_인증_limiter는_Redis_원자_계약을_유지한다() {
+		LettuceConnectionFactory primaryFactory = primaryConnectionFactory();
+		try {
+			assertTrue(primaryFactory.getShareNativeConnection());
+			assertTrue(primaryFactory.getClientConfiguration().getClientOptions().orElseThrow().isAutoReconnect());
+			assertEquals(ClientOptions.DisconnectedBehavior.REJECT_COMMANDS,
+				primaryFactory.getClientConfiguration().getClientOptions().orElseThrow().getDisconnectedBehavior());
+
+			AuthenticationRequestLimiter primaryLimiter = limiter(primaryFactory, Duration.ofSeconds(10));
+			for (int index = 0; index < 5; index++) {
+				assertTrue(primaryLimiter.checkAndRecordSignup("203.0.113.210").allowed());
+			}
+			assertFalse(primaryLimiter.checkAndRecordSignup("203.0.113.210").allowed());
+		} finally {
+			primaryFactory.destroy();
+		}
 	}
 
 	@Test
@@ -379,6 +399,14 @@ class RedisAuthenticationRequestLimiterPostgresTest {
 			new RedisStandaloneConfiguration(REDIS.getHost(), REDIS.getMappedPort(6379)),
 			clientConfiguration);
 		factory.setShareNativeConnection(false);
+		factory.afterPropertiesSet();
+		factory.start();
+		return factory;
+	}
+
+	private LettuceConnectionFactory primaryConnectionFactory() {
+		LettuceConnectionFactory factory = new RedisSessionConfiguration().redisConnectionFactory(
+			new RedisSessionProperties(REDIS.getHost(), REDIS.getMappedPort(6379)));
 		factory.afterPropertiesSet();
 		factory.start();
 		return factory;

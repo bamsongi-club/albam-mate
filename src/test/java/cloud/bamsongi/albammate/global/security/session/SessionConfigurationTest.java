@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.global.security.session;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -120,8 +121,16 @@ class SessionConfigurationTest {
 
 	@Test
 	void T1_local과_production_연결_factory는_native_connection을_공유하고_자동_재연결한다() {
+		assertPrimaryRedisConnectionPolicy("local");
+		assertPrimaryRedisConnectionPolicy("production");
+	}
+
+	@Test
+	void T4_Spring_Session_factory는_Primary_factory와_분리되고_기존_세션_계약을_유지한다() {
 		assertRedisConnectionPolicy("local");
 		assertRedisConnectionPolicy("production");
+		assertPrimaryRedisConnectionPolicy("local");
+		assertPrimaryRedisConnectionPolicy("production");
 	}
 
 	@Test
@@ -203,6 +212,26 @@ class SessionConfigurationTest {
 				connectionFactory.getClientConfiguration().getClientOptions().orElseThrow().getDisconnectedBehavior());
 			assertSessionRepositoryUsesDedicatedFactory(context, connectionFactory);
 			assertRedisSessionJsonSerialization(context);
+		}
+	}
+
+	private void assertPrimaryRedisConnectionPolicy(String profile) {
+		try (AnnotationConfigApplicationContext context = redisSessionContext(profile)) {
+			LettuceConnectionFactory primaryConnectionFactory = context.getBean(
+				"redisConnectionFactory", LettuceConnectionFactory.class);
+			LettuceConnectionFactory dedicatedSessionConnectionFactory = sessionConnectionFactory(context);
+
+			assertNotSame(primaryConnectionFactory, dedicatedSessionConnectionFactory);
+			assertTrue(primaryConnectionFactory.getShareNativeConnection());
+			assertEquals(Duration.ofSeconds(2), primaryConnectionFactory.getClientConfiguration().getCommandTimeout());
+			assertEquals(Duration.ofSeconds(1), primaryConnectionFactory.getClientConfiguration()
+				.getClientOptions().orElseThrow().getSocketOptions().getConnectTimeout());
+			assertTrue(
+				primaryConnectionFactory.getClientConfiguration().getClientOptions().orElseThrow().isAutoReconnect());
+			assertEquals(
+				io.lettuce.core.ClientOptions.DisconnectedBehavior.REJECT_COMMANDS,
+				primaryConnectionFactory.getClientConfiguration().getClientOptions().orElseThrow()
+					.getDisconnectedBehavior());
 		}
 	}
 
