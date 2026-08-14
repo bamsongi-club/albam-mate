@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const DEFAULT_SOURCE_DIRECTORY = fileURLToPath(
-  new URL("../src/postgresTest/java/", import.meta.url),
+  new URL("../../src/postgresTest/java/", import.meta.url),
 );
 
 function collectTestFiles(directory) {

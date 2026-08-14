@@ -751,7 +751,7 @@ class RoomStatusCorrectionCandidateMeasurementPostgresTest {
 	 * 승인 규모의 동일 세션 비교는 한 제한 ID마다 두 경로를 12회 실행하므로 전체 후보를 한 번에 재면 오래 걸린다.
 	 * 기본값은 승인된 후보 전체이고, 부분 재측정이 필요할 때만 {@code issue390.candidateLimits}로 좁힌다.
 	 * 실제로 실행한 목록은 환경 메타데이터의 {@code measuredCandidateLimits}에 남는다. 부분 실행 산출물이
-	 * 최종 보존분이 되는 것은 {@code scripts/room09-measurement-report.mjs}의 조합 manifest가 막는다.
+	 * 최종 보존분이 되는 것은 {@code scripts/measurements/room09-measurement-report.mjs}의 조합 manifest가 막는다.
 	 */
 	private List<Integer> measuredCandidateLimits() {
 		String configured = System.getProperty("issue390.candidateLimits", "").trim();

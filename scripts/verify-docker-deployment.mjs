@@ -1039,7 +1039,7 @@ function verifyT8() {
             'https://127.0.0.1:8443/api/games?size=1',
         ]).stdout;
         assert(response.includes('"status"'), 'production Compose HTTPS API request failed');
-        run('node', ['scripts/check-doc-links.mjs']);
+        run('node', ['scripts/docs/check-doc-links.mjs']);
         console.log('T8 PASS: production Compose up --wait reports PostgreSQL fixture, Spring and web healthy, serves HTTPS API and has valid guide links.');
     } finally {
         if (composeAttempted) {

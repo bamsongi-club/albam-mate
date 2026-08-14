@@ -65,7 +65,7 @@ macOS·Linux:
 
 ## PostgreSQL 필요 변경 분류
 
-`scripts/classify-postgres-requirement.mjs`는 실제 변경 경로와 diff 신호를 읽고 `required`, `not-required`, `needs-review` 중 하나와 근거를 반환한다. 이 판정은 H2를 PostgreSQL 대체물로 만드는 규칙이 아니라, Docker 검증을 안전하게 선택하는 규칙이다.
+`scripts/ci/classify-postgres-requirement.mjs`는 실제 변경 경로와 diff 신호를 읽고 `required`, `not-required`, `needs-review` 중 하나와 근거를 반환한다. 이 판정은 H2를 PostgreSQL 대체물로 만드는 규칙이 아니라, Docker 검증을 안전하게 선택하는 규칙이다.
 
 | 변경 유형 | 판정 | 대표 신호 |
 | --- | --- | --- |
@@ -80,8 +80,8 @@ macOS·Linux:
 직접 확인할 때는 다음 명령을 사용한다. 커밋된 head는 `--base`를 반드시 넘긴다.
 
 ```sh
-node scripts/classify-postgres-requirement.mjs --worktree .
-node scripts/classify-postgres-requirement.mjs --worktree . --base origin/develop
+node scripts/ci/classify-postgres-requirement.mjs --worktree .
+node scripts/ci/classify-postgres-requirement.mjs --worktree . --base origin/develop
 ```
 
 backend-delivery packet v4와 manifest v2는 동일한 `postgresRequired`와 비어 있지 않은 `postgresRequirementReasons`를 기록한다. 실제 diff가 `required`인데 `false`이거나 `needs-review`를 `false`로 생략하면 manifest 검증이 실패한다. `true`는 `postgresTest` exact selector evidence를 하나 이상 요구한다. `not-required`에도 보수적으로 `true`를 선택할 수 있지만, 그 경우 PostgreSQL evidence를 실제로 실행해야 한다.

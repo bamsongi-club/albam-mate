@@ -25,9 +25,9 @@ const RUNTIME_REVIEW_PATHS = [
     /\/chat\/websocket\//u,
 ];
 const POSTGRES_EXECUTION_CONTROL_PATHS = new Set([
-    'scripts/classify-ci-paths.mjs',
-    'scripts/classify-postgres-requirement.mjs',
-    'scripts/partition-postgres-tests.mjs',
+    'scripts/ci/classify-ci-paths.mjs',
+    'scripts/ci/classify-postgres-requirement.mjs',
+    'scripts/ci/partition-postgres-tests.mjs',
     'scripts/validate-backend-test-manifest.mjs',
     'scripts/verify-changed-h2-coverage.mjs',
 ]);
@@ -367,7 +367,7 @@ function runCli() {
     const args = parseArguments(process.argv.slice(2));
     if (!args) {
         console.error(
-            '사용법: node scripts/classify-postgres-requirement.mjs --worktree <worktree> [--base <ref>]',
+            '사용법: node scripts/ci/classify-postgres-requirement.mjs --worktree <worktree> [--base <ref>]',
         );
         process.exitCode = 2;
         return;

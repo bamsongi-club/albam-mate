@@ -7,14 +7,14 @@ import {
     POSTGRES_DECISIONS,
     changedPathsIn,
     classifyPostgresRequirementIn,
-} from './classify-postgres-requirement.mjs';
+} from './ci/classify-postgres-requirement.mjs';
 import {
     DEFAULT_SCHEMA_PATH as DEFAULT_PACKET_SCHEMA_PATH,
     validateAgainstSchema,
     validatePacket,
 } from './validate-packet.mjs';
 
-export { changedPathsIn } from './classify-postgres-requirement.mjs';
+export { changedPathsIn } from './ci/classify-postgres-requirement.mjs';
 
 export const DEFAULT_MANIFEST_SCHEMA_PATH = fileURLToPath(
     new URL('../.codex/contracts/backend-test-manifest.schema.json', import.meta.url),

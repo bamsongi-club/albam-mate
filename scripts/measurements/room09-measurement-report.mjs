@@ -468,7 +468,7 @@ export function buildReport(rootDirectory) {
 function main(argv) {
   const write = argv.includes("--write");
   if (!write && !argv.includes("--check")) {
-    console.error("사용법: node scripts/room09-measurement-report.mjs [--check | --write]");
+    console.error("사용법: node scripts/measurements/room09-measurement-report.mjs [--check | --write]");
     return 2;
   }
   let built;

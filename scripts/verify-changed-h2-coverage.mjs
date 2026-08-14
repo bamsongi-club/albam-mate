@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { changedPathsIn } from './classify-postgres-requirement.mjs';
+import { changedPathsIn } from './ci/classify-postgres-requirement.mjs';
 
 const PRODUCTION_JAVA_PATH = /^src\/main\/java\/.+\.java$/u;
 const PACKAGE_DECLARATION = /^\s*package\s+([\w.]+)\s*;/mu;
