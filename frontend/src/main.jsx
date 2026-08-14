@@ -1768,10 +1768,11 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onUplo
       setUploadingImage(false);
     }
   };
+  // 해 본 게임은 아래 메뉴 목록에 이미 같은 목적지로 가는 진입점이 있어 통계는 링크로 두지 않는다.
   const stats = [
     { key: '참가한 모임', value: joinedPage?.totalElements ?? '—', href: '#/my/joined' },
     { key: '개설한 모임', value: hostedPage?.totalElements ?? '—', href: '#/my/hosted' },
-    { key: '해 본 게임', value: playedPage?.totalElements ?? '—', href: '#/game-list/played' }
+    { key: '해 본 게임', value: playedPage?.totalElements ?? '—' }
   ];
 
   return (
@@ -1811,7 +1812,10 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onUplo
         )}
 
         <dl className="profile-stats">
-          {stats.map((stat) => <a key={stat.key} href={stat.href}><dd>{stat.value}</dd><dt>{stat.key}</dt></a>)}
+          {stats.map((stat) => {
+            const Tag = stat.href ? 'a' : 'div';
+            return <Tag key={stat.key} href={stat.href}><dd>{stat.value}</dd><dt>{stat.key}</dt></Tag>;
+          })}
         </dl>
 
         <div className="divider" style={{ marginTop: 28 }} />
