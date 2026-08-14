@@ -11,6 +11,7 @@ import {
 import { basename, dirname, resolve } from "node:path";
 
 import { analyzeCatalog, parseRankRows, sha256 } from "./catalog-analysis.mjs";
+import { validateApprovedReleaseManifest } from "./catalog-release-manifest.mjs";
 import {
     buildQualityReport,
     renderJson,
@@ -163,6 +164,21 @@ function prepareCatalog({ games: gamesPath, ranks: ranksPath, manifest: manifest
         ranksPath,
         ranksContents,
     });
+    const actualInputs = {
+        games: {
+            fileName: basename(gamesPath),
+            sha256: sha256(gamesContents),
+            rows: Array.isArray(games) ? games.length : null,
+        },
+        ranks: {
+            fileName: basename(ranksPath),
+            sha256: sha256(ranksContents),
+            rows: rankRows.length,
+        },
+    };
+    if (resolvedManifest) {
+        analysis.errors.push(...validateManifestGate(resolvedManifest, { actualInputs }));
+    }
     const mechanisms = extractMechanismCatalog(games, resolvedManifest);
     if (mechanisms) {
         analysis.errors.push(...mechanisms.errors);
@@ -183,6 +199,34 @@ function prepareCatalog({ games: gamesPath, ranks: ranksPath, manifest: manifest
 
     const catalogText = renderJson(analysis.catalog);
     const sqlText = renderUpsertSql(analysis.catalog);
+    const actualOutputs = {
+        serviceCatalog: {
+            fileName: "service-catalog.json",
+            sha256: sha256(catalogText),
+            rows: analysis.catalog.length,
+        },
+        upsertSql: {
+            fileName: "upsert-games.sql",
+            sha256: sha256(sqlText),
+            rows: analysis.catalog.length,
+        },
+    };
+    const outputSummary = {
+        catalogRows: analysis.catalog.length,
+        catalogSha256: actualOutputs.serviceCatalog.sha256,
+        sqlSha256: actualOutputs.upsertSql.sha256,
+    };
+    analysis.errors.push(
+        ...validateManifestGate(resolvedManifest, { actualInputs, actualOutputs }),
+    );
+    if (analysis.errors.length > 0) {
+        writeJson(
+            resolve(out, "quality-report.json"),
+            buildQualityReport({ ...reportInput, outputs: outputSummary }),
+        );
+        process.exitCode = 1;
+        return;
+    }
     writeFileSync(resolve(out, "service-catalog.json"), catalogText, "utf8");
     writeFileSync(resolve(out, "upsert-games.sql"), sqlText, "utf8");
     if (mechanisms) {
@@ -199,11 +243,7 @@ function prepareCatalog({ games: gamesPath, ranks: ranksPath, manifest: manifest
         resolve(out, "quality-report.json"),
         buildQualityReport({
             ...reportInput,
-            outputs: {
-                catalogRows: analysis.catalog.length,
-                catalogSha256: sha256(catalogText),
-                sqlSha256: sha256(sqlText),
-            },
+            outputs: outputSummary,
         }),
     );
 }
@@ -226,7 +266,63 @@ function resolveManifest(manifest, manifestPath) {
         provenance: { ...baseManifest.provenance, ...manifest.provenance },
         fieldSources: { ...baseManifest.fieldSources, ...manifest.fieldSources },
         review: { ...baseManifest.review, ...manifest.review },
+        approval: mergeOptionalObject(baseManifest.approval, manifest.approval),
+        search_text: mergeOptionalObject(baseManifest.search_text, manifest.search_text),
+        embedding: mergeEmbedding(baseManifest.embedding, manifest.embedding),
+        inputs: mergeOptionalObject(baseManifest.inputs, manifest.inputs),
+        coverage: mergeOptionalObject(baseManifest.coverage, manifest.coverage),
+        outputs: mergeOptionalObject(baseManifest.outputs, manifest.outputs),
     };
+}
+
+function mergeOptionalObject(baseValue, overrideValue) {
+    if (baseValue === undefined && overrideValue === undefined) {
+        return undefined;
+    }
+    return { ...baseValue, ...overrideValue };
+}
+
+function mergeEmbedding(baseValue, overrideValue) {
+    const merged = mergeOptionalObject(baseValue, overrideValue);
+    if (!merged) {
+        return undefined;
+    }
+    const output = mergeOptionalObject(baseValue?.output, overrideValue?.output);
+    return output ? { ...merged, output } : merged;
+}
+
+function validateManifestGate(manifest, context) {
+    if (!requiresApprovedReleaseGate(manifest)) {
+        return [];
+    }
+    try {
+        validateApprovedReleaseManifest(manifest, context);
+        return [];
+    } catch (error) {
+        return [
+            {
+                code: "INVALID_APPROVED_RELEASE_MANIFEST",
+                message: error instanceof Error ? error.message : String(error),
+            },
+        ];
+    }
+}
+
+function requiresApprovedReleaseGate(manifest) {
+    if (!manifest) {
+        return false;
+    }
+    return [
+        "approved",
+        "testOnly",
+        "releaseId",
+        "datasetId",
+        "approvedFields",
+        "approvedProcessingScopes",
+        "search_text",
+        "embedding",
+        "outputs",
+    ].some((field) => manifest[field] !== undefined);
 }
 
 function writeFailureReport({ games, ranks, manifest, out }, error) {

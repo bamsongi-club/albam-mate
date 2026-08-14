@@ -95,7 +95,7 @@ P1은 조건 검색, 대기열·자동 승격, 알림과 채팅을 구현하지�
 ### 데이터·권한 경계 우선
 
 - AI 챗봇과 의미 기반 검색은 입력 데이터의 출처, 이용 허용 범위, 보존·가공 가능 여부를 구현 전에 확정한다.
-- 현재 승인 범위에서 BGG 원본 데이터는 AI·LLM 입력으로 사용하지 않는다. 별도 팀 소유 데이터나 이용 근거가 확인되기 전에는 이 제한을 우회하지 않는다.
+- 정책 승인된 [BGG catalog release](game-catalog/2026-08-14-bgg-ai-embedding-approval.md)는 manifest의 `approvedFields`·`approvedProcessingScopes` 범위에서만 AI·LLM 입력, embedding, 색인·가공에 사용할 수 있다. `validateApprovedReleaseManifest`가 연결된 runner에서 실제 `releaseId`·`datasetId`·checksum·행 수·승인 reference가 있는 구체 manifest를 검증하기 전에는 실행 승인으로 간주하지 않는다. 승인되지 않은 release·필드·가공으로 이 범위를 넓히지 않으며, 상세 결정은 [ADR-0060](adr/game/0060-approved-catalog-ai-embedding-scope.md)을 따른다.
 - 챗봇·`DISCOVERY-01`의 Tool Calling이나 실시간 매칭은 현재 API의 인증·인가·CSRF와 업무 불변식을 그대로 통과해야 한다. 서버 권한을 우회하는 내부 호출을 만들지 않는다.
 - 프롬프트·응답·검색 질의·매칭 조건에 개인정보나 비밀값이 들어가는 범위와 마스킹·보존 정책은 각 기능 문서가 명시한다.
 
@@ -155,7 +155,7 @@ AI 챗봇 본체의 상세 문서와 기능 ID는 담당자가 범위·데이터
 ### P2 공통 제외 범위
 
 - 담당 기능 문서가 없는 상태에서 AI·검색·매칭의 API, 저장 구조, 모델·알고리즘이나 화면을 공통 명세가 대신 확정하는 것
-- 데이터 이용 근거를 확인하지 않은 BGG 원본의 AI·LLM 입력과 색인·가공
+- 승인 manifest의 release·필드·processing allowlist 밖 BGG 원본의 AI·LLM 입력과 색인·가공
 - 챗봇·매칭 내부 호출이라는 이유로 현재 인증·인가·CSRF와 업무 불변식을 우회하는 것
 - 문서·코드·테스트·대시보드 screenshot만으로 실제 배포·기능 동작·품질 측정을 완료로 표시하는 것
 - 사용자 ID·이메일·세션·ROOM·메시지·프롬프트·응답 원문을 무제한 메트릭 label이나 중앙 로그로 수집하는 것

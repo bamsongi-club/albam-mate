@@ -15,6 +15,9 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { analyzeCatalog, parseRankRows, sha256 } from "./catalog-analysis.mjs";
+import { renderJson, renderUpsertSql } from "./catalog-artifact-renderer.mjs";
+
 const SCRIPT = resolve(
     dirname(fileURLToPath(import.meta.url)),
     "prepare-game-catalog.mjs",
@@ -30,6 +33,89 @@ test("manifest가 없으면 검수 보고서만 만들고 적재 산출물은 �
         assert.ok(report.errors.some(({ code }) => code === "MISSING_MANIFEST"));
         assert.equal(report.inputs.games.rows, 1);
         assert.equal(report.inputs.ranks.rows, 1);
+        assert.throws(() => readFileSync(join(out, "service-catalog.json")));
+        assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
+    });
+});
+
+test("승인 manifest의 dataset 범위가 없으면 runner가 적재 산출물을 차단한다", () => {
+    withCase([game(10, "10", "첫 번째 게임", "First Game")], ({
+        games,
+        ranks,
+        manifest,
+        out,
+    }) => {
+        writeManifest(manifest, games, ranks, []);
+        const value = readJson(manifest);
+        delete value.datasetId;
+        writeFileSync(manifest, `${JSON.stringify(value, null, 2)}\n`);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 1);
+        const report = readJson(join(out, "quality-report.json"));
+        assert.ok(
+            report.errors.some(({ code }) => code === "INVALID_APPROVED_RELEASE_MANIFEST"),
+        );
+        assert.throws(() => readFileSync(join(out, "service-catalog.json")));
+        assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
+    });
+});
+
+test("기존 비-AI manifest는 기존 출처·품질 validator로 계속 처리한다", () => {
+    withCase([game(10, "10", "첫 번째 게임", "First Game")], ({
+        games,
+        ranks,
+        manifest,
+        out,
+    }) => {
+        writeManifest(manifest, games, ranks, []);
+        const value = readJson(manifest);
+        for (const field of [
+            "releaseId",
+            "datasetId",
+            "approved",
+            "testOnly",
+            "approval",
+            "approvedFields",
+            "approvedProcessingScopes",
+            "search_text",
+            "embedding",
+            "inputs",
+            "coverage",
+            "outputs",
+        ]) {
+            delete value[field];
+        }
+        writeFileSync(manifest, `${JSON.stringify(value, null, 2)}\n`);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 0, result.stderr);
+        assert.equal(readJson(join(out, "quality-report.json")).release.releaseId, null);
+    });
+});
+
+test("승인 manifest의 산출물 checksum이 실제 결과와 다르면 파일을 쓰기 전에 차단한다", () => {
+    withCase([game(10, "10", "첫 번째 게임", "First Game")], ({
+        games,
+        ranks,
+        manifest,
+        out,
+    }) => {
+        writeManifest(manifest, games, ranks, []);
+        const value = readJson(manifest);
+        value.outputs.serviceCatalog.sha256 = "0".repeat(64);
+        writeFileSync(manifest, `${JSON.stringify(value, null, 2)}\n`);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 1);
+        const report = readJson(join(out, "quality-report.json"));
+        assert.ok(
+            report.errors.some(({ code }) => code === "INVALID_APPROVED_RELEASE_MANIFEST"),
+        );
+        assert.equal(report.outputs.catalogRows, 1);
         assert.throws(() => readFileSync(join(out, "service-catalog.json")));
         assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
     });
@@ -1538,9 +1624,62 @@ function writeManifest(path, gamesPath, ranksPath, acceptedWarnings) {
         schemaVersion: 1,
         batchId: "2026-07-24-test-catalog",
         toolCommit: "0123456789abcdef0123456789abcdef01234567",
+        releaseId: "catalog-2026-07-24-test",
+        datasetId: "bgg-catalog-2026-07-24-test",
+        approved: true,
+        testOnly: false,
+        approval: {
+            reviewedBy: "test-reviewer",
+            reviewedAt: "2026-07-27T10:00:00Z",
+            references: ["https://github.com/bamsongi-club/albam-mate/issues/712"],
+        },
+        approvedFields: [
+            "name",
+            "english_name",
+            "alias",
+            "tag",
+            "description",
+            "detail_description",
+        ],
+        approvedProcessingScopes: [
+            "service-load",
+            "search-text-assembly",
+            "embedding-generation",
+        ],
+        search_text: {
+            fields: ["name", "english_name", "description", "detail_description"],
+            sourceFieldVersion: "catalog-fields-v1",
+            assemblyRuleVersion: "search-text-v1",
+        },
+        embedding: {
+            provider: "test-provider",
+            model: "test-model",
+            modelVersion: "test-model-v1",
+            dimensions: 3,
+            indexVersion: "search-04-test-v1",
+            output: {
+                path: "output/catalog-embeddings.json",
+                sha256: "e".repeat(64),
+                rows: candidateRows,
+            },
+        },
+        inputs: {
+            catalog: approvedArtifact("catalog.json", candidateRows),
+            names: approvedArtifact("names.json", candidateRows),
+            descriptions: approvedArtifact("descriptions.json", candidateRows),
+            mechanismDictionary: approvedArtifact("mechanisms.json", 1),
+            themeDictionary: approvedArtifact("themes.json", 1),
+            relations: approvedArtifact("relations.json", candidateRows),
+        },
+        coverage: {
+            catalogIds: coverageArtifact(candidateRows),
+            relationGameIds: coverageArtifact(candidateRows),
+            mechanismIds: coverageArtifact(1),
+            themeIds: coverageArtifact(1),
+        },
         sources: {
-            games: sourceMetadata(gamesPath, "팀 검수 자료"),
-            ranks: sourceMetadata(ranksPath, "BGG 기준 스냅샷"),
+            games: sourceMetadata(gamesPath, "팀 검수 자료", candidateRows),
+            ranks: sourceMetadata(ranksPath, "BGG 기준 스냅샷", countCsvRows(ranksPath)),
         },
         fieldSources: {
             bgg_id: "ranks.id",
@@ -1582,7 +1721,21 @@ function writeManifest(path, gamesPath, ranksPath, acceptedWarnings) {
             acceptedWarnings,
         },
     };
+    manifest.outputs = expectedRunnerOutputs(manifest, gamesPath, ranksPath);
     writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
+function approvedArtifact(fileName, rows) {
+    return {
+        status: "approved",
+        path: `input/${fileName}`,
+        sha256: "a".repeat(64),
+        rows,
+    };
+}
+
+function coverageArtifact(rows) {
+    return { rows, sha256: "b".repeat(64) };
 }
 
 function writeMechanismManifest(path, publishedCount, relationCount, approvedCodes) {
@@ -1606,15 +1759,61 @@ function codeMappingSha256(codes) {
 	return createHash("sha256").update(canonical).digest("hex");
 }
 
-function sourceMetadata(path, source) {
+function sourceMetadata(path, source, rows) {
     const contents = readFileSync(path);
     return {
         fileName: path.split("/").at(-1),
         sha256: createHash("sha256").update(contents).digest("hex"),
+        rows,
         sourceReference: source,
         acquiredAt: "2026-07-24T00:00:00Z",
         usageTerms: "테스트 전용 자료",
     };
+}
+
+function countCsvRows(path) {
+    try {
+        return Math.max(0, readFileSync(path, "utf8").trimEnd().split("\n").length - 1);
+    } catch {
+        return 0;
+    }
+}
+
+function expectedRunnerOutputs(manifest, gamesPath, ranksPath) {
+    try {
+        const gamesContents = readFileSync(gamesPath);
+        const ranksContents = readFileSync(ranksPath);
+        const games = readJson(gamesPath);
+        const rankRows = parseRankRows(ranksContents.toString("utf8"));
+        const analysis = analyzeCatalog({
+            games,
+            rankRows,
+            manifest,
+            gamesPath,
+            gamesContents,
+            ranksPath,
+            ranksContents,
+        });
+        const catalogText = renderJson(analysis.catalog);
+        const sqlText = renderUpsertSql(analysis.catalog);
+        return {
+            serviceCatalog: {
+                path: "service-catalog.json",
+                sha256: sha256(catalogText),
+                rows: analysis.catalog.length,
+            },
+            upsertSql: {
+                path: "upsert-games.sql",
+                sha256: sha256(sqlText),
+                rows: analysis.catalog.length,
+            },
+        };
+    } catch {
+        return {
+            serviceCatalog: { path: "service-catalog.json", sha256: "0".repeat(64), rows: 0 },
+            upsertSql: { path: "upsert-games.sql", sha256: "0".repeat(64), rows: 0 },
+        };
+    }
 }
 
 function game(id, bggId, name, englishName) {

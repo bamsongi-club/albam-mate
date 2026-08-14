@@ -1,6 +1,6 @@
 # 게임 카탈로그 검수·적재
 
-이 절차는 [ADR-0015](../adr/game/0015-bgg-baseline-team-collected-game-list.md)와 [ADR-0050](../adr/game/0050-game-metadata-catalog-and-filters.md)의 BGG 기준 snapshot, 출처 기록, 선검증과 transaction 단위 `UPSERT` 규칙을 실행한다. 원본과 생성 산출물은 저장소에 커밋하지 않고, 출처·승인 manifest와 각 배치의 `quality-report.json`을 보관한다.
+이 절차는 [ADR-0015](../adr/game/0015-bgg-baseline-team-collected-game-list.md), [ADR-0050](../adr/game/0050-game-metadata-catalog-and-filters.md)와 [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md)의 BGG 기준 snapshot, 출처 기록, 선검증과 transaction 단위 `UPSERT` 규칙을 실행한다. 원본과 생성 산출물은 저장소에 커밋하지 않고, 출처·승인 manifest와 각 배치의 `quality-report.json`을 보관한다.
 
 입력 JSON의 `supported_player_count`는 게임 규칙상 플레이 가능한 인원 범위다. 이용자 평가 기반 추천 인원·최적 인원과는 구분한다.
 
@@ -26,10 +26,11 @@ node scripts/game-catalog/prepare-game-catalog.mjs \
 - 변환 도구가 포함된 전체 Git commit SHA
 - 검수일·검수자
 - 사람이 확인하고 수용한 품질 경고 코드
+- AI·embedding을 사용하는 배치라면 `releaseId`·`datasetId`, `approvedFields`, `approvedProcessingScopes`, `approval.references`, model/provider·index version과 `sources`·`outputs`의 checksum·행 수
 
 여기서 판본은 같은 게임의 개정·재판 등 출시 형태를 뜻하며 확장판과 구분한다.
 
-`TODO`, 체크섬 불일치, 미승인 상태 또는 미수용 경고가 하나라도 있으면 적재 산출물을 만들지 않는다.
+`TODO`, 체크섬 불일치, 미승인 상태 또는 미수용 경고가 하나라도 있으면 적재 산출물을 만들지 않는다. AI·embedding 산출을 함께 만드는 배치는 승인 manifest의 release·필드·가공 allowlist가 없거나 실제 입력과 다를 때 색인과 적재를 모두 차단해야 한다. `prepare-game-catalog.mjs`는 이 gate를 연결해 생성 전에 실제 입력과 `service-catalog.json`·`upsert-games.sql`의 선언 checksum·행 수를 대조한다.
 
 `selection`은 다음 정합성을 만족해야 한다.
 
@@ -38,6 +39,18 @@ node scripts/game-catalog/prepare-game-catalog.mjs \
 - `includedRows`가 실제 `service-catalog.json` 행 수와 같아야 한다.
 
 이 정보는 `quality-report.json`에도 그대로 기록되어 원본 후보에서 최종 적재 행까지의 차이를 추적한다.
+
+### 2-1. AI·embedding 승인 범위
+
+[BGG 승인 데이터셋의 AI·embedding 사용 범위](../game-catalog/2026-08-14-bgg-ai-embedding-approval.md)에 따라 정책 승인된 하나의 catalog release만 AI 입력·embedding에 사용할 수 있다. 구체 승인 manifest를 등록하고 검증하기 전에는 이 절차로 BGG 기반 AI·embedding 산출을 실행하지 않는다.
+
+> 구현 상태: `prepare-game-catalog.mjs`는 `validateApprovedReleaseManifest`를 호출해 manifest 필수값과 입력·service catalog·UPSERT 산출물의 실제 checksum·행 수를 검증한다. 이 runner는 embedding 파일을 생성하지 않으므로 외부 embedding/index runner의 실제 embedding 산출물 대조는 별도 연결이 필요하다. 현재 저장소에 구체 승인 manifest가 없으므로 정책 승인만으로 실행 가능한 release로 간주하지 않는다.
+
+- `approved: true`, `testOnly: false`인 manifest와 정확히 일치하는 입력·결과 checksum·행 수를 확인한다.
+- manifest의 `approvedFields`에 있는 필드만 읽고, `approvedProcessingScopes`에 없는 번역·요약·재작성·파생 가공은 실행하지 않는다.
+- 검색용 embedding은 결정적 `search_text` 조립 규칙과 model/provider·index version을 quality report에 남긴다. raw XML·allowlist 밖 원문은 별도 승인 없이는 모델·외부 provider·검색 index로 보내지 않는다.
+- 사용자 query·ID·세션·ROOM·채팅·prompt와 provider 응답 원문은 catalog 산출물·검색 index·중앙 로그에 저장하지 않는다.
+- release·필드·가공 규칙·model/provider·보존 또는 공개 범위가 바뀌면 새 manifest와 재승인을 요구한다.
 
 ## 3. 적재 산출물 생성
 
@@ -225,6 +238,7 @@ report의 `pageAndCountElapsedMs`는 page 조회와 total count 조회만 잰 �
 | [2026-08-03 P1 검색 수치 품질](../game-catalog/2026-08-03-p1-search-numeric-fields-quality-report.md) | 최소 연령·인원·시간 수치의 품질 게이트 |
 | [2026-08-04 P1 게임 메커니즘 품질](../game-catalog/2026-08-04-p1-game-mechanism-quality-report.md) | 공개 메커니즘과 게임 관계 적재 증거 |
 | [2026-08-05 게임 메타데이터 필터 성능](../game-catalog/2026-08-05-game-metadata-filter-performance.md) | 17만 건 검색 fixture와 실행 계획·시간 |
+| [2026-08-14 BGG 승인 데이터셋의 AI·embedding 사용 범위](../game-catalog/2026-08-14-bgg-ai-embedding-approval.md) | 승인 release·필드·가공 allowlist와 재승인 조건 |
 
 ## 7. 검증 명령
 
