@@ -36,6 +36,8 @@ test("문서 변경은 backend와 frontend를 실행하지 않는다", () => {
       "src/test/AGENTS.md",
       ".github/ISSUE_TEMPLATE/docs.yml",
       "scripts/check-doc-links.test.mjs",
+      "scripts/check-monitoring-contract.mjs",
+      "scripts/check-monitoring-contract.test.mjs",
       "scripts/classify-postgres-requirement.test.mjs",
       "scripts/verify-changed-h2-coverage.test.mjs",
     ]),

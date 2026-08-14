@@ -125,9 +125,12 @@ P2가 추가하는 애플리케이션 OTLP metric·중앙 로그·신규 alarm�
 - 모든 경고는 실제 수신 경로, 한 명의 1차 담당자, dashboard·log query와 런북을 갖는다.
 - 경고는 자동 restart·rollback·scale, 데이터 재처리와 구조 변경을 실행하지 않는다.
 - 최소 한 번은 통제 시나리오로 `OK → ALARM → OK`와 실제 경고·복구 수신을 확인한다.
-- 운영을 선언한 `ACTIVE` 시간의 missing data는 경고하고, 시작·종료 시각이 기록된 `PLANNED_STOP` 구간만 경고를 억제한다.
+- 운영을 선언한 `ACTIVE` 시간의 missing data는 경고한다. `PLANNED_STOP`은 App1·App2·PostgreSQL·Redis 전체 스택의 명시적 비용 절감 종료에만 사용하고 `plannedUntil`은 필수·최대 7일이며 연장은 운영자가 다시 선언한다.
+- `PLANNED_STOP`에서는 EC2·Spring·PostgreSQL·Redis 생존, metric·log 수집 공백과 CPU·memory·disk 등 중단 때문에 값이 사라지는 alarm action만 억제한다. 계획 종료 초과, 상태 전환 실패, 예상 밖 running resource·비용, 보안·IAM·감사 경고는 유지한다.
+- `plannedUntil`을 넘기면 가용성 alarm action은 계속 억제하되 `계획 종료 초과` `critical`을 즉시, `ACTIVE` 복구 또는 명시적 연장까지 24시간마다 반복한다.
 - 배포·재기동 절차는 Spring health와 PostgreSQL·Redis 연결에 성공한 뒤에만 `ACTIVE`로 전환하고 이메일 경고를 활성화한다.
-- 계획 종료 절차는 `PLANNED_STOP` 기록과 경고 중지에 성공한 뒤 서버를 종료한다. 상태 전환 실패는 명령 실패로 기록하고 자동 rollback은 수행하지 않는다.
+- 계획 종료 절차는 별도 SSM 상태, 초과 Scheduler와 alarm action 상태를 기록·재조회한 뒤 서버를 종료한다. 하나라도 실패하면 종료를 중단하고 `ACTIVE`를 유지하며 명령을 실패시킨다.
+- 재기동 health 뒤 alarm action 활성화·초과 schedule 삭제·`ACTIVE` 기록 중 하나라도 실패하면 서버를 자동 종료하거나 `ACTIVE`라고 선언하지 않는다. 운영자가 [운영 관측 런북](../guides/MONITORING_OPERATIONS.md#재기동과-active-복구)의 복구 절차를 수동 재시도한다.
 - 기존 host memory·disk 85%, CPU credit 20과 알림 전달 p95 30초·oldest processable age 60초 3회 연속 기준은 재사용한다.
 - API p95·p99, 5xx 비율, HikariCP pending, AI 오류율·예상 비용은 정상·통제 장애 측정 뒤 P2 초기 운영값으로 확정하고 SLA로 표현하지 않는다.
 
@@ -156,11 +159,11 @@ P2 정책에 필요한 선택은 모두 사용자 확인을 마쳤다. 아래 �
 | 정책 묶음 | 상태 | 상세 위치·남은 작업 |
 | --- | --- | --- |
 | 기능 동작 검증 시점·fixture | 사용자 확인 완료 | [기능 동작을 증명하는 방식](#기능-동작을-증명하는-방식) |
-| 경고 등급·이메일·담당자·운영 상태·초기 임계값 | 사용자 확인 완료 | [경고 정책](#경고-정책), 구현 작업에서 운영 런북 반영 |
+| 경고 등급·이메일·담당자·운영 상태·초기 임계값 | 사용자 확인·정본 반영 완료 | [경고 정책](#경고-정책), [운영 관측 런북](../guides/MONITORING_OPERATIONS.md) |
 | 요약·상세 대시보드 구성 | 사용자 확인 완료 | [화면 구성](#화면-구성) |
 | AI 예상 비용·가격표 갱신·관측 비용 상한 | 사용자 확인 완료 | [사용량과 추정 비용](#4-사용량과-추정-비용), [완료 증거](#완료-증거) |
-| 중앙 로그 범위·14일 보존 | 사용자 확인 완료 | [완료 증거](#완료-증거), [공통 구조화 로그](monitoring.md#공통-구조화-로그대시보드경고) |
-| 메트릭·로그 전송 경계 | Platform ADR 승인·미검증 | [ADR-0058](../adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md), [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md), [결정 위치와 남은 정본화](monitoring.md#결정-위치와-남은-정본화) |
+| 중앙 로그 범위·14일 보존 | 사용자 확인·정본 반영 완료 | [완료 증거](#완료-증거), [중앙 log 허용 목록](../guides/MONITORING_OPERATIONS.md#중앙-log-허용-목록) |
+| 메트릭·로그 전송 경계 | Platform ADR 승인·계약 반영·미검증 | [ADR-0058](../adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md), [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md), [결정 위치와 구현 경계](monitoring.md#결정-위치와-구현-경계) |
 | 실제 이메일 주소·AI provider·model | 이 문서의 결정 대상 아님 | SNS 구독과 AI 기능 명세·배포 설정에서 관리 |
 
 현재 계약·구현·검증·배포 상태는 [P2 기능 상태 정본](README.md#기능별-현재-상태)만 갱신한다.
