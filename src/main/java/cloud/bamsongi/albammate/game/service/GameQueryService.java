@@ -101,7 +101,12 @@ public class GameQueryService {
 	private Page<GameListItem> findPage(
 		GameListSearchCriteria criteria, int page, int size, Long currentUserId, Instant referenceTime) {
 		Pageable pageable = PageRequest.of(
-			page, size, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
+			page,
+			size,
+			Sort.by(
+				Sort.Order.desc("popularityScore"),
+				Sort.Order.asc("name"),
+				Sort.Order.asc("id")));
 		Map<Long, Long> upcomingRoomCounts = Map.of();
 		if (criteria.isUpcomingOnly()) {
 			upcomingRoomCounts = upcomingRoomCountQuery.findUpcomingRoomCounts(referenceTime);

@@ -203,7 +203,7 @@ P0와 P1은 서버 세션 인증을 사용한다. Bearer access token과 refresh
 
 | API | 고정 정렬 |
 |---|---|
-| `GET /api/games` | `name ASC, id ASC` |
+| `GET /api/games` | `popularity_score DESC, name ASC, id ASC` |
 | `GET /api/rooms` | 고정된 `requestTime`의 유효 상태와 필터를 적용한 뒤 `startsAt ASC, id ASC` |
 | `GET /api/users/me/rooms` | 고정된 `requestTime`의 유효 상태, `role` 필터와 중복 제거를 적용한 뒤 `startsAt DESC, id DESC` |
 | `GET /api/users/me/notifications` | `createdAt DESC, id DESC` |
@@ -1061,7 +1061,7 @@ request body와 query parameter는 없다. 현재 사용자와 제공자를 일�
 - `recommendedPlayerCount`와 `bestPlayerCount`는 각각 BGG 투표에서 정규화한 양의 인원을 반복 전달하며 같은 목록 안에서 OR다. 가능 인원과 다른 의미이며 `4+` 결과는 해당 게임의 검증된 최대 가능 인원까지 확장된 관계로 판정한다.
 - `themeMatch`와 `mechanismMatch`는 각각 생략하면 `ANY`이고 대응하는 선택 코드 없이 보내도 유효하다. 두 모드는 독립적이며 테마·메커니즘 그룹과 다른 필터 종류 사이는 `AND`로 결합한다. 중복되거나 잘못된 match 값, 존재하지 않는 category/theme code, 0 이하 인원은 일부 유효 값이 함께 있어도 전체 요청을 `VALIDATION_ERROR`로 거절한다.
 - 인원·시간·최연소 참여자 나이·복잡도·카테고리·테마·추천/베스트·메커니즘 필터를 적용하면 해당 조건을 판정할 검증값이나 관계가 없는 게임은 제외한다. 필터를 생략하면 누락값이나 관계 부재만으로 제외하지 않는다.
-- 모든 필터를 적용한 뒤 전체 건수, `name ASC, id ASC` 정렬과 페이지를 계산한다.
+- 모든 필터를 적용한 뒤 전체 건수, `popularity_score DESC, name ASC, id ASC` 정렬과 페이지를 계산한다. `popularity_score`는 응답에 노출하지 않는 저장 파생값이다.
 
 `tag` 필터와 클라이언트 지정 `sort`는 지원하지 않는다.
 

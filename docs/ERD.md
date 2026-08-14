@@ -13,7 +13,7 @@
 ## 기준과 범위
 
 - 기준: 새 P2 저장 계약은 [P2 기능 명세](p2/README.md)와 필요한 ADR을 먼저 확정하고 같은 변경에서 이 문서에 반영한다. 기존 P0·P1 규칙은 [P0 공통 명세](archive/p0/P0-spec.md), [P1 종료 명세](archive/p1/README.md)와 [관련 ADR](adr/README.md)을 따른다.
-- 범위: 현재 P0의 오프라인 방·게임 목록·사용자·방 참가, P1의 소셜 계정·대기열과 게임 검색 수치·메커니즘 목록·관계·사용자별 해 본 게임 관계·서비스 내 알림·방별 채팅·공용 스케줄 잠금
+- 범위: 현재 P0의 오프라인 방·게임 목록·사용자·방 참가, P1의 소셜 계정·대기열과 게임 검색 수치·메커니즘 목록·관계·사용자별 해 본 게임 관계·서비스 내 알림·방별 채팅·공용 스케줄 잠금, 3차 MVP RANK-02 인기 점수
 - 제외: 온라인 방, 온라인 자동 매칭, 후기, 룰마스터 가능 게임, 결제·포인트
 - P0 검색: 게임 목록은 게임명 `keyword`, 사람 중심 방 목록은 방 제목 `keyword` 검색을 지원한다. 게임 태그는 표시값이며 필터가 아니다.
 - 시간대가 겹치는 서로 다른 방에는 같은 사용자가 동시에 참가할 수 있다. 따라서 종료 시각과 시간 중복 제약은 두지 않는다.
@@ -80,6 +80,7 @@ erDiagram
         DECIMAL complexity
         INT release_year
         INT min_age
+        DECIMAL popularity_score
         TEXT description
         TEXT detail_description
         TIMESTAMPTZ created_at
@@ -300,6 +301,7 @@ erDiagram
 | complexity | DECIMAL(3,2) | NULL, 1.00~5.00 | BGG 복잡도. 입력 `0.00`은 평가 없음으로 `NULL` 정규화 |
 | release_year | INTEGER | NULL | BGG 기준 CSV의 `yearpublished`. 미상 값은 `NULL` |
 | min_age | INTEGER | NULL | BGG thing XML의 `minage`. 누락 또는 `0`은 `NULL` |
+| popularity_score | DECIMAL(8,6) | NN, 0 이상 1 이하, 기본값 0 | RANK-02 배치가 승인된 BoardLife·Albam·BGG 원천을 6:3:1로 결합한 저장 파생 점수. 응답에는 노출하지 않음 |
 | description | TEXT | NN | 게임 상세 화면에 표시하는 간단 설명 |
 | detail_description | TEXT | NN | 게임 상세 설명 |
 | created_at | TIMESTAMPTZ | NN | 등록 시각 |

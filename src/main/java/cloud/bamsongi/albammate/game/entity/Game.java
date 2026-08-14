@@ -69,6 +69,9 @@ public class Game extends BaseEntity {
 	@Column(name = "min_age")
 	private Integer minAge;
 
+	@Column(name = "popularity_score", nullable = false, precision = 8, scale = 6)
+	private BigDecimal popularityScore = BigDecimal.ZERO;
+
 	@Column(name = "description", nullable = false, columnDefinition = "TEXT")
 	private String description;
 

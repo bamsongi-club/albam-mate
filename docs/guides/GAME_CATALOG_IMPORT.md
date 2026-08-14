@@ -76,6 +76,26 @@ node scripts/game-catalog/prepare-game-catalog.mjs \
 `upsert-game-mechanisms.sql`은 게임 내부 ID를 해석해야 하므로 반드시 `upsert-games.sql` 다음에 실행한다. 승인 관계의 게임이나 메커니즘을 해석하지 못하면 전체 트랜잭션을 롤백한다.
 `upsert-game-metadata.sql`도 반드시 `upsert-games.sql` 다음에 실행한다. 승인 category/theme 관계의 게임이나 테마를 해석하지 못하면 category·theme·인원 선호·최소 연령 적재 전체를 롤백한다. BGG XML의 `minage`는 양의 PostgreSQL `INTEGER`만 저장하며 누락·`0`은 `NULL`로 재적재한다. 새 snapshot에 없다는 이유로 GAMES 행을 삭제하지 않는다. `quality-report.json`의 `testOnly`가 `true`인 산출물은 이 운영 경로로 실행하지 않는다.
 
+### RANK-02 인기 점수 배치
+
+[ADR-0058](../adr/game/0058-external-ranking-and-popularity-sort.md)의 승인 manifest를 사용해 BoardLife·BGG 순위와 1행 1 `bggId` score input을 검증하고, `games.popularity_score`를 갱신하는 SQL을 생성한다. raw source와 manifest는 저장소에 커밋하지 않는다.
+
+```sh
+node scripts/game-ranking/prepare-game-popularity-ranking.mjs \
+  --manifest /path/to/approved-ranking-manifest.json \
+  --out build/game-ranking/approved
+```
+
+승인 manifest는 `schemaVersion: 1`, `status: approved`, `batchId`, BoardLife·BGG source의 `path`·`rows`·`sha256`, score input의 `path`·`rows`·`sha256`·`grain: 1 row per bggId`·`reviewRequiredRows: 0`을 포함해야 한다. 생성기는 rank 중복·결측·미매칭을 점수 규칙에 따라 처리하고 `quality-report.json`과 `upsert-game-popularity.sql`을 만든다. 승인되지 않은 manifest나 checksum·행 수가 맞지 않는 입력은 산출물을 차단한다.
+
+```sh
+psql "$DATABASE_URL" \
+  --set ON_ERROR_STOP=on \
+  --file build/game-ranking/approved/upsert-game-popularity.sql
+```
+
+이 SQL은 전체 `GAME_FOCUSED` 방을 집계하면서 `CANCELED`만 제외하고, 외부 점수와 함께 `popularity_score`를 한 트랜잭션에서 갱신한다. 애플리케이션 요청 중 BoardLife·BGG를 직접 조회하지 않는다.
+
 ## 4. PostgreSQL 적재
 
 검수 보고서의 상태가 `ready`일 때만 대상 데이터베이스를 명시해 실행한다.

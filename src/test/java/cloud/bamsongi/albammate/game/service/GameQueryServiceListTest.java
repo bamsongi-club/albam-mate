@@ -354,7 +354,13 @@ class GameQueryServiceListTest {
 	}
 
 	private Pageable fixedPageRequest(int page, int size) {
-		return PageRequest.of(page, size, Sort.by(Sort.Order.asc("name"), Sort.Order.asc("id")));
+		return PageRequest.of(
+			page,
+			size,
+			Sort.by(
+				Sort.Order.desc("popularityScore"),
+				Sort.Order.asc("name"),
+				Sort.Order.asc("id")));
 	}
 
 	private GameQueryService newGameQueryService(Clock clock) {
