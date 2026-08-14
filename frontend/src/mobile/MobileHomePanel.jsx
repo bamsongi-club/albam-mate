@@ -1,8 +1,10 @@
 import React from 'react';
 import { api } from '../api';
-import { normalizeRoom } from '../game';
+import { normalizeGameSummary, normalizeRoom } from '../game';
 import { useRequest } from '../shared/async';
 import { ArrowIcon, ChatIcon, Cover, Meeples, RoomSkeletons, SeatCount } from '../shared/ui';
+
+const HOME_LIST_SIZE = 3;
 
 const SEOUL_TIME_FORMATTER = new Intl.DateTimeFormat('ko-KR', {
   timeZone: 'Asia/Seoul',
@@ -105,19 +107,28 @@ function NextRoomCard({ dataVersion }) {
 
 function TodayRooms({ dataVersion }) {
   const range = seoulTodayRange();
-  const { data, loading } = useRequest(
-    (signal) => api.getRooms({ status: 'RECRUITING', startsAtFrom: range.from, startsAtTo: range.to, page: 0, size: 3 }, signal),
-    [dataVersion]
-  );
-  const rooms = (data?.content || []).map(normalizeRoom);
+  // 오늘 열리는 모임이 없으면 자리를 비우지 않고 다음에 열리는 모임으로 채운다.
+  const { data, loading } = useRequest(async (signal) => {
+    const today = await api.getRooms({ status: 'RECRUITING', startsAtFrom: range.from, startsAtTo: range.to, page: 0, size: HOME_LIST_SIZE }, signal);
+    if (today.content?.length) return { rooms: today.content, today: true };
+    const upcoming = await api.getRooms({ status: 'RECRUITING', startsAtFrom: range.to, page: 0, size: HOME_LIST_SIZE }, signal);
+    return { rooms: upcoming.content || [], today: false };
+  }, [dataVersion]);
+  const rooms = (data?.rooms || []).map(normalizeRoom);
+  const upcoming = Boolean(rooms.length && !data.today);
   return (
     <section aria-labelledby="home-today-title">
       <div className="section-head">
-        <h2 className="section-title" id="home-today-title">오늘 열리는 모임</h2>
+        <h2 className="section-title" id="home-today-title">{upcoming ? '곧 열리는 모임' : '오늘 열리는 모임'}</h2>
         <a className="section-link" href="#/find">모두 보기</a>
       </div>
       {loading && !data && <div style={{ marginTop: 18 }}><RoomSkeletons count={2} /></div>}
-      {!loading && !rooms.length && <p className="screen-lead">오늘 시작하는 모임이 아직 없어요.</p>}
+      {/* 만들기·찾기 조작은 위 카드에 있으므로 여기서는 자리만 지킨다. */}
+      {!loading && !rooms.length && (
+        <div className="home-blank">
+          <p>{'아직 열린 모임이 없어요.'}<br />{'가장 먼저 모임을 열어보세요.'}</p>
+        </div>
+      )}
       {!!rooms.length && (
         <div className="home-rooms">
           {rooms.map((room) => {
@@ -143,23 +154,42 @@ function TodayRooms({ dataVersion }) {
 }
 
 function PopularGames({ dataVersion }) {
-  const { data, loading } = useRequest((signal) => api.getGameRankings(signal), [dataVersion]);
-  const items = (data?.overall || []).slice(0, 3);
-  if (!loading && !items.length) return null;
+  // 랭킹은 열린 모임 수로 집계하므로 모임이 없으면 비어 있다. 그때는 게임 목록으로 자리를 채운다.
+  const { data, loading } = useRequest(async (signal) => {
+    const rankings = await api.getGameRankings(signal);
+    const ranked = (rankings?.overall || []).slice(0, HOME_LIST_SIZE);
+    if (ranked.length) return { ranked, games: [] };
+    const games = await api.getGames({ page: 0, size: HOME_LIST_SIZE }, signal);
+    return { ranked: [], games: (games?.content || []).map(normalizeGameSummary) };
+  }, [dataVersion]);
+  const ranked = data?.ranked || [];
+  const games = data?.games || [];
+  const browsing = Boolean(data && !ranked.length);
+  if (!loading && !ranked.length && !games.length) return null;
   return (
     <section aria-labelledby="home-rank-title">
       <div className="section-head">
-        <h2 className="section-title" id="home-rank-title">인기 게임 랭킹</h2>
-        <a className="section-link" href="#/game-rankings">랭킹 전체</a>
+        <h2 className="section-title" id="home-rank-title">{browsing ? '게임 둘러보기' : '인기 게임 랭킹'}</h2>
+        <a className="section-link" href={browsing ? '#/game-list' : '#/game-rankings'}>{browsing ? '게임 전체' : '랭킹 전체'}</a>
       </div>
       <div className="home-ranks">
-        {items.map((item, index) => (
+        {ranked.map((item, index) => (
           <a className="home-rank" href={'#/game/' + item.gameId} key={item.gameId}>
             <span className="home-rank-no">{index + 1}</span>
             <Cover src={item.imageUrl} style={{ height: 46, width: 46 }} />
             <span className="home-rank-copy">
               <strong>{item.name}</strong>
               <span>열린 모임 {item.roomCount}</span>
+            </span>
+            <span className="rowarrow"><ArrowIcon size={16} /></span>
+          </a>
+        ))}
+        {games.map((game) => (
+          <a className="home-rank" href={'#/game/' + game.id} key={game.id}>
+            <Cover src={game.imageUrl} style={{ height: 46, width: 46 }} />
+            <span className="home-rank-copy">
+              <strong>{game.title}</strong>
+              <span>{[game.players, game.time].filter(Boolean).join(' · ')}</span>
             </span>
             <span className="rowarrow"><ArrowIcon size={16} /></span>
           </a>

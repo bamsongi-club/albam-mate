@@ -338,6 +338,9 @@ textarea.field-input { height: 112px; line-height: 1.6; padding: 14px 16px; resi
 .home-rooms { display: flex; flex-direction: column; gap: 24px; margin-top: 18px; }
 .home-rooms .roomrow > .cover { height: 76px; width: 76px; }
 .home-rooms .roomrow-title { font-size: 17.5px; margin-top: 6px; }
+.home-blank { background: var(--fill); border-radius: 18px; margin-top: 18px; padding: 26px 20px; text-align: center; }
+.home-blank p { color: var(--mid); font-size: 14px; line-height: 1.65; }
+.home-blank .btn { margin: 16px auto 0; max-width: 190px; }
 .home-entry { align-items: center; background: var(--card); border-radius: 18px; display: flex; gap: 14px; margin-top: 34px; padding: 16px; text-align: left; width: 100%; }
 .home-entry-mark { align-items: center; background: var(--ink); border-radius: 14px; color: #fff; display: flex; flex: none; height: 44px; justify-content: center; width: 44px; }
 .home-entry-copy { flex: 1; min-width: 0; }

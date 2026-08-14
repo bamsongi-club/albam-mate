@@ -12,9 +12,10 @@ afterEach(() => {
 });
 
 beforeEach(() => {
-  // 홈은 오늘 열리는 모임과 인기 랭킹도 함께 부른다. 여기서는 내 모임 카드만 확인한다.
+  // 홈은 모임 목록과 인기 랭킹, 랭킹이 비었을 때의 게임 목록도 함께 부른다.
   vi.spyOn(api, 'getRooms').mockResolvedValue(page([]));
   vi.spyOn(api, 'getGameRankings').mockResolvedValue({ overall: [], pastWeek: [] });
+  vi.spyOn(api, 'getGames').mockResolvedValue(page([]));
 });
 
 function room(overrides) {
@@ -78,6 +79,42 @@ describe('MobileHomePanel', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: '예정된 모임이 없어요' })).toBeTruthy());
     expect(screen.getByRole('link', { name: '모임 찾아보기' }).getAttribute('href')).toBe('#/find');
     expect(screen.getByRole('link', { name: '모임 만들기' }).getAttribute('href')).toBe('#/create');
+  });
+
+  it('오늘 열리는 모임이 없으면 다음에 열리는 모임으로 목록을 채운다', async () => {
+    vi.spyOn(api, 'getMyRooms').mockResolvedValue(page([]));
+    // 첫 조회는 오늘 범위, 두 번째 조회는 오늘 이후다.
+    vi.spyOn(api, 'getRooms').mockImplementation(({ startsAtTo }) => (
+      Promise.resolve(page(startsAtTo ? [] : [room({ id: 9, title: '다음 주 카탄' })]))
+    ));
+
+    render(<MobileHomePanel me={ME} dataVersion={0} />);
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: '곧 열리는 모임' })).toBeTruthy());
+    expect(screen.getByText('다음 주 카탄')).toBeTruthy();
+  });
+
+  it('열린 모임이 하나도 없으면 목록 자리에 안내를 둔다', async () => {
+    vi.spyOn(api, 'getMyRooms').mockResolvedValue(page([]));
+
+    render(<MobileHomePanel me={ME} dataVersion={0} />);
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: '오늘 열리는 모임' })).toBeTruthy());
+    expect(await screen.findByText(/가장 먼저 모임을 열어보세요/)).toBeTruthy();
+  });
+
+  it('랭킹이 비면 게임 목록으로 아래 자리를 채운다', async () => {
+    vi.spyOn(api, 'getMyRooms').mockResolvedValue(page([]));
+    const getGames = vi.spyOn(api, 'getGames').mockResolvedValue(page([
+      { id: 11, name: '카르카손', supportedPlayerCount: '2-5인', estimatedPlayTime: '35분' }
+    ]));
+
+    render(<MobileHomePanel me={ME} dataVersion={0} />);
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: '게임 둘러보기' })).toBeTruthy());
+    expect(screen.getByRole('link', { name: /카르카손/ }).getAttribute('href')).toBe('#/game/11');
+    expect(screen.getByRole('link', { name: '게임 전체' }).getAttribute('href')).toBe('#/game-list');
+    expect(getGames).toHaveBeenCalledWith({ page: 0, size: 3 }, expect.anything());
   });
 
   it('비로그인 상태에서는 내 모임을 조회하지 않는다', async () => {
