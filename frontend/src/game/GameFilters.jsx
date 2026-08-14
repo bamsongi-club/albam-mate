@@ -392,8 +392,28 @@ export function GameFilters({ filters, onChange, quickSlot, resultCount }) {
     >
       {/* 해 본 게임 조건은 칩 줄에서 고른다. 시트에서 같은 조건을 두 번 묻지 않는다. */}
       <FilterCheckGroup label="모임" checked={filters.upcomingOnly} onChange={(upcomingOnly) => update({ upcomingOnly })} text="예정 모임 있는 게임만" />
-      <FilterMultiCheckGroup label="카테고리" values={filters.category} onToggle={toggleIn('category')}
-        options={categoryOptions.map((option) => ({ value: option.code, label: option.nameKo }))} />
+      {/* 아래 순서는 디자인 핸드오프 v3의 게임 필터 시트 순서를 따른다. */}
+      <FilterNumberRangeGroup label="게임 인원" unit="명" min={filters.playerCountMin} max={filters.playerCountMax}
+        onMinChange={(playerCountMin) => updateRange({ playerCountMin })} onMaxChange={(playerCountMax) => updateRange({ playerCountMax })}>
+        <label className="filter-option filter-option-picker">
+          <input type="checkbox" checked={filters.playerCountExact} onChange={(event) => updateRange({ playerCountExact: event.target.checked })} />
+          인원 정확히 일치
+        </label>
+        {/* 범위 조건과 전용 인원은 서로 전환하는 조건이라 같은 칼럼에서 구분선으로 나눈다. */}
+        <hr className="filter-group-divider" />
+        {EXCLUSIVE_PLAYER_COUNT_OPTIONS.map((option) => (
+          <label className="filter-option" key={option.value}>
+            <input
+              type="checkbox"
+              checked={filters.exclusivePlayerCount.includes(option.value)}
+              onChange={(event) => toggleExclusive(option.value, event.target.checked)}
+            />
+            {option.label}
+          </label>
+        ))}
+      </FilterNumberRangeGroup>
+      <FilterMultiCheckGroup label="플레이 시간" values={filters.playTime} onToggle={togglePlayTime}
+        options={Object.entries(PLAY_TIME_LABEL).map(([code, label]) => ({ value: code, label }))} />
       <fieldset className="filter-group">
         <legend>최연소 참여자 나이</legend>
         <div className="filter-range">
@@ -415,27 +435,14 @@ export function GameFilters({ filters, onChange, quickSlot, resultCount }) {
       </fieldset>
       <FilterRadioGroup name="game-filter-complexity" label="게임 난이도" value={complexityBandOf(filters)?.value || ''} onChange={selectBand}
         options={[{ value: '', label: '전체' }, ...COMPLEXITY_BANDS.map((band) => ({ value: band.value, label: band.label }))]} />
-      <FilterMultiCheckGroup label="플레이 시간" values={filters.playTime} onToggle={togglePlayTime}
-        options={Object.entries(PLAY_TIME_LABEL).map(([code, label]) => ({ value: code, label }))} />
-      <FilterNumberRangeGroup label="게임 인원" unit="명" min={filters.playerCountMin} max={filters.playerCountMax}
-        onMinChange={(playerCountMin) => updateRange({ playerCountMin })} onMaxChange={(playerCountMax) => updateRange({ playerCountMax })}>
-        <label className="filter-option filter-option-picker">
-          <input type="checkbox" checked={filters.playerCountExact} onChange={(event) => updateRange({ playerCountExact: event.target.checked })} />
-          인원 정확히 일치
-        </label>
-        {/* 범위 조건과 전용 인원은 서로 전환하는 조건이라 같은 칼럼에서 구분선으로 나눈다. */}
-        <hr className="filter-group-divider" />
-        {EXCLUSIVE_PLAYER_COUNT_OPTIONS.map((option) => (
-          <label className="filter-option" key={option.value}>
-            <input
-              type="checkbox"
-              checked={filters.exclusivePlayerCount.includes(option.value)}
-              onChange={(event) => toggleExclusive(option.value, event.target.checked)}
-            />
-            {option.label}
-          </label>
-        ))}
-      </FilterNumberRangeGroup>
+      <FilterMultiCheckGroup label="카테고리" values={filters.category} onToggle={toggleIn('category')}
+        options={categoryOptions.map((option) => ({ value: option.code, label: option.nameKo }))} />
+      <ThemeFilterGroup options={themeOptions.map((option) => ({ value: option.code, label: option.nameKo }))}
+        selected={filters.theme} onToggle={toggleMatchable('theme', 'themeMatch')}
+        match={filters.themeMatch} onMatchChange={(themeMatch) => update({ themeMatch })} />
+      <MechanismFilterGroup options={mechanismOptions} selected={filters.mechanism}
+        onToggle={toggleMatchable('mechanism', 'mechanismMatch')}
+        match={filters.mechanismMatch} onMatchChange={(mechanismMatch) => update({ mechanismMatch })} />
       <FilterMultiCheckGroup label="추천 인원" values={filters.recommendedPlayerCount} onToggle={toggleIn('recommendedPlayerCount')}
         options={PREFERRED_PLAYER_COUNT_OPTIONS}>
         <CustomPlayerCountInput label="추천 인원" values={filters.recommendedPlayerCount}
@@ -446,12 +453,6 @@ export function GameFilters({ filters, onChange, quickSlot, resultCount }) {
         <CustomPlayerCountInput label="베스트 인원" values={filters.bestPlayerCount}
           onAdd={(value) => update({ bestPlayerCount: [...filters.bestPlayerCount, value] })} />
       </FilterMultiCheckGroup>
-      <ThemeFilterGroup options={themeOptions.map((option) => ({ value: option.code, label: option.nameKo }))}
-        selected={filters.theme} onToggle={toggleMatchable('theme', 'themeMatch')}
-        match={filters.themeMatch} onMatchChange={(themeMatch) => update({ themeMatch })} />
-      <MechanismFilterGroup options={mechanismOptions} selected={filters.mechanism}
-        onToggle={toggleMatchable('mechanism', 'mechanismMatch')}
-        match={filters.mechanismMatch} onMatchChange={(mechanismMatch) => update({ mechanismMatch })} />
     </FilterPanel>
   );
 }
