@@ -1,5 +1,6 @@
 import React from 'react';
 import { playerColor, playerTextColor } from './players';
+import defaultGameCover from '../../assets/default-game-cover.jpg';
 
 // 로고는 인라인 SVG 단색 마크 한 벌만 쓴다. 로고 전용 서체는 쓰지 않는다.
 export function BrandMark({ size = 32, tone = '#0A0A0A', hole = '#fff' }) {
@@ -76,7 +77,7 @@ export function SeatCount({ filled, total, size }) {
   return <span className={'seat-text' + (size === 'lg' ? ' lg' : '')}>{filled} / {total}</span>;
 }
 
-export function Cover({ src, className = '', style, fallback = 'assets/default-game-cover.jpg' }) {
+export function Cover({ src, className = '', style, fallback = defaultGameCover }) {
   const coverSrc = src || fallback;
   return (
     <span className={'cover ' + className} style={style}>
