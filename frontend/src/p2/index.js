@@ -1,2 +1,2 @@
 export { BotView } from './BotView';
-export { MatchView, OnlineRoomView, useOnlineMatch } from './MatchView';
+export { MatchView, OnlineRoomView, MATCH_PHASES, P2_NOTICE } from './MatchView';

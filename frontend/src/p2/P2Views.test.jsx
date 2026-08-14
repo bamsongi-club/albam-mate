@@ -7,7 +7,6 @@ import { App } from '../main';
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
-  vi.useRealTimers();
   cleanup();
   window.location.hash = '';
 });
@@ -23,19 +22,19 @@ const GAMES = [
   { id: 4, name: '스플렌더', supportedPlayerCount: '2-4인', estimatedPlayTime: '30분' }
 ];
 
-beforeEach(() => {
-  vi.spyOn(api, 'getMyProfile').mockResolvedValue({ id: 1, nickname: '테스터', email: 'tester@example.com', profileImageUrl: null });
+function stubApi({ authenticated = true } = {}) {
+  const profile = { id: 1, nickname: '테스터', email: 'tester@example.com', profileImageUrl: null };
+  vi.spyOn(api, 'getMyProfile').mockImplementation(() => (
+    authenticated ? Promise.resolve(profile) : Promise.reject(Object.assign(new Error('401'), { status: 401 }))
+  ));
   vi.spyOn(api, 'getSocialProviders').mockResolvedValue([]);
   vi.spyOn(api, 'getNotifications').mockResolvedValue(page([]));
   vi.spyOn(api, 'getUnreadNotificationCount').mockResolvedValue({ unreadCount: 0 });
   vi.spyOn(api, 'getRooms').mockResolvedValue(page([]));
   vi.spyOn(api, 'getMyRooms').mockResolvedValue(page([]));
   vi.spyOn(api, 'getGameRankings').mockResolvedValue({ overall: [], pastWeek: [] });
-  // 봇은 낱말을 keyword로 넘겨 게임을 찾는다. 실제 조회처럼 이름으로 걸러 준다.
-  vi.spyOn(api, 'getGames').mockImplementation(({ keyword }) => (
-    Promise.resolve(page(keyword ? GAMES.filter((game) => game.name.includes(keyword)) : GAMES))
-  ));
-});
+  vi.spyOn(api, 'getGames').mockResolvedValue(page(GAMES));
+}
 
 async function renderApp(hash) {
   vi.stubGlobal('scrollTo', vi.fn());
@@ -45,84 +44,102 @@ async function renderApp(hash) {
   return view;
 }
 
-async function go(hash) {
-  await act(async () => { window.location.hash = hash; });
+function toastText() {
+  return document.getElementById('toast').textContent;
 }
 
-describe('P2 알밤봇 시안', () => {
-  it('상단 화면에서만 FAB을 띄운다', async () => {
+async function press(name) {
+  await act(async () => { screen.getByRole('button', { name }).click(); });
+}
+
+beforeEach(() => stubApi());
+
+describe('P2 시안 진입', () => {
+  it('상단 화면에서만 알밤봇 FAB을 띄운다', async () => {
     await renderApp('#/home');
     await waitFor(() => expect(screen.getByRole('link', { name: '알밤봇 열기' })).toBeTruthy());
 
-    await go('#/chats');
+    await act(async () => { window.location.hash = '#/chats'; });
 
     await waitFor(() => expect(screen.queryByRole('link', { name: '알밤봇 열기' })).toBeNull());
   });
 
-  it('확인 카드를 누르기 전에는 아무 화면으로도 넘어가지 않는다', async () => {
-    await renderApp('#/bot');
+  it('비로그인 사용자는 매칭에 들어가지 못하고 로그인 안내를 받는다', async () => {
+    vi.restoreAllMocks();
+    stubApi({ authenticated: false });
 
-    await act(async () => { screen.getByRole('button', { name: '윙스팬 모임 만들어줘' }).click(); });
-    await waitFor(() => expect(screen.getByRole('heading', { name: '모임 만들기' })).toBeTruthy());
+    await renderApp('#/match');
 
-    // 카드만 떠 있고 라우트는 그대로다.
-    expect(window.location.hash).toBe('#/bot');
-    expect(screen.getByText('누를 때까지는 아무것도 실행되지 않아요.')).toBeTruthy();
-    expect(screen.getByText('게임 · 윙스팬')).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole('heading', { name: '로그인이 필요해요' })).toBeTruthy());
+    expect(screen.getByText('온라인 매칭을 쓰려면 로그인해주세요.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '매칭 시작하기' })).toBeNull();
   });
 
-  it('확인하면 봇이 찾은 게임으로 모임 만들기 화면을 연다', async () => {
+  it('비로그인 사용자는 알밤봇에도 들어가지 못한다', async () => {
+    vi.restoreAllMocks();
+    stubApi({ authenticated: false });
+
     await renderApp('#/bot');
-    await act(async () => { screen.getByRole('button', { name: '윙스팬 모임 만들어줘' }).click(); });
-    await waitFor(() => expect(screen.getByRole('button', { name: '이 조건으로 만들기' })).toBeTruthy());
 
-    await act(async () => { screen.getByRole('button', { name: '이 조건으로 만들기' }).click(); });
-
-    await waitFor(() => expect(window.location.hash).toBe('#/create'));
+    await waitFor(() => expect(screen.getByText('알밤봇을 쓰려면 로그인해주세요.')).toBeTruthy());
   });
 });
 
-describe('P2 실시간 온라인 매칭 시안', () => {
-  it('홈 엔트리에서 매칭 화면으로 이어진다', async () => {
-    await renderApp('#/home');
-
-    await waitFor(() => expect(screen.getByRole('link', { name: /실시간 온라인 매칭/ }).getAttribute('href')).toBe('#/match'));
-  });
-
-  it('매칭을 시작하면 찾는 중을 거쳐 성사 화면으로 간다', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+describe('P2 시안은 서버가 할 일을 실행하지 않는다', () => {
+  it('매칭 시작하기는 준비 중임을 알리고 화면을 바꾸지 않는다', async () => {
     await renderApp('#/match');
     await waitFor(() => expect(screen.getByRole('button', { name: '매칭 시작하기' })).toBeTruthy());
 
-    await act(async () => { screen.getByRole('button', { name: '매칭 시작하기' }).click(); });
-    expect(screen.getByRole('button', { name: '매칭 취소' })).toBeTruthy();
+    await press('매칭 시작하기');
 
-    await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
-
-    expect(screen.getByRole('heading', { name: /모였어요/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /온라인 방 들어가기/ })).toBeTruthy();
+    expect(toastText()).toBe('아직 준비 중인 기능이에요.');
+    expect(screen.getByRole('button', { name: '매칭 시작하기' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '매칭 취소' })).toBeNull();
   });
 
-  it('실패 화면은 다시 시도와 오프라인 모임 보기를 함께 준다', async () => {
-    await renderApp('#/match/failed');
+  it('알밤봇의 확인 카드와 전송은 준비 중임을 알린다', async () => {
+    await renderApp('#/bot');
+    await waitFor(() => expect(screen.getByRole('heading', { name: '모임 만들기' })).toBeTruthy());
+    expect(screen.getByText('누를 때까지는 아무것도 실행되지 않아요.')).toBeTruthy();
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: '지금은 사람이 모이지 않았어요' })).toBeTruthy());
-    expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '오프라인 모임 보기' })).toBeTruthy();
+    await press('이 조건으로 만들기');
+
+    expect(toastText()).toBe('아직 준비 중인 기능이에요.');
+    expect(window.location.hash).toBe('#/bot');
   });
 
-  it('온라인 방의 표 합계는 참가자 수와 같고, 정해야 아레나 CTA가 열린다', async () => {
+  it('온라인 방의 표는 참가자 수와 같고, 정하기와 아레나 열기는 준비 중임을 알린다', async () => {
     await renderApp('#/online-room');
     await waitFor(() => expect(screen.getByRole('button', { name: /카탄\s*\d+표/ })).toBeTruthy());
 
     const votes = screen.getAllByText(/^\d+표$/).map((node) => Number(node.textContent.replace('표', '')));
     expect(votes.reduce((sum, count) => sum + count, 0)).toBe(4);
 
-    expect(screen.getByRole('button', { name: '게임을 먼저 정해주세요' }).disabled).toBe(true);
+    await press(/으로 정하기$/);
+    expect(toastText()).toBe('아직 준비 중인 기능이에요.');
 
-    await act(async () => { screen.getByRole('button', { name: /으로 정하기$/ }).click(); });
+    await press(/보드게임아레나에서 열기$/);
+    expect(toastText()).toBe('아직 준비 중인 기능이에요.');
+  });
+});
 
-    expect(screen.getByRole('button', { name: /보드게임아레나에서 열기$/ }).disabled).toBe(false);
-    expect(screen.getByText(/으로 정해졌어요/)).toBeTruthy();
+describe('P2 시안 화면 이동', () => {
+  it('진행 단계는 주소로 확인하고 이동만 실제로 동작한다', async () => {
+    await renderApp('#/match/searching');
+    await waitFor(() => expect(screen.getByRole('button', { name: '매칭 취소' })).toBeTruthy());
+
+    await act(async () => { window.location.hash = '#/match/matched'; });
+    await waitFor(() => expect(screen.getByRole('heading', { name: /모였어요/ })).toBeTruthy());
+
+    await press(/온라인 방 들어가기/);
+    await waitFor(() => expect(window.location.hash).toBe('#/online-room'));
+  });
+
+  it('실패 화면은 다시 시도와 오프라인 모임 보기를 함께 준다', async () => {
+    await renderApp('#/match/failed');
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: '지금은 사람이 모이지 않았어요' })).toBeTruthy());
+    await press('오프라인 모임 보기');
+    await waitFor(() => expect(window.location.hash).toBe('#/find'));
   });
 });

@@ -38,7 +38,7 @@ import { selectNotificationAndNavigate } from './notification/notificationNaviga
 import { useNotificationPolling } from './notification/useNotificationPolling';
 import { useNotificationReadSync } from './notification/useNotificationReadSync';
 import { MobileBottomNavigation, ROOT_ROUTES } from './mobile/MobileNavigation';
-import { BotView, MatchView, OnlineRoomView, useOnlineMatch } from './p2';
+import { BotView, MatchView, OnlineRoomView } from './p2';
 import './styles.css';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -1997,8 +1997,6 @@ export function App() {
   const [createMode, setCreateMode] = useState('GAME_FOCUSED');
   const [createGame, setCreateGame] = useState(null);
   const [dataVersion, setDataVersion] = useState(0);
-  // P2 시안. 매칭과 온라인 방이 상태를 나눠 쓰므로 화면 위에서 들고 있는다.
-  const onlineMatch = useOnlineMatch(dataVersion, route === 'match' || route === 'online-room');
   const [socialProviders, setSocialProviders] = useState([]);
   const [toast, setToast] = useState({ message: '', type: '' });
   const authenticated = Boolean(me);
@@ -2410,12 +2408,18 @@ export function App() {
       )
       : <LoginRequiredView message="알림을 보려면 로그인해주세요." onBack={goBack} />;
   } else if (route === 'bot') {
-    content = <BotView onBack={goBack} onCreateGame={handleCreateGame} onNavigate={navigate} />;
+    content = me
+      ? <BotView onBack={goBack} onToast={showToast} />
+      : <LoginRequiredView message="알밤봇을 쓰려면 로그인해주세요." onBack={goBack} />;
   } else if (route === 'match') {
-    // 실패 화면은 서버가 없어 저절로 나오지 않으므로 주소로 확인한다.
-    content = <MatchView match={onlineMatch} previewFailed={arg === 'failed'} onBack={goBack} onNavigate={navigate} />;
+    // 진행 단계는 서버가 없어 저절로 바뀌지 않으므로 주소로 확인한다(#/match/searching 등).
+    content = me
+      ? <MatchView phase={arg} dataVersion={dataVersion} onBack={goBack} onNavigate={navigate} onToast={showToast} />
+      : <LoginRequiredView message="온라인 매칭을 쓰려면 로그인해주세요." onBack={goBack} />;
   } else if (route === 'online-room') {
-    content = <OnlineRoomView match={onlineMatch} onBack={goBack} onToast={showToast} />;
+    content = me
+      ? <OnlineRoomView dataVersion={dataVersion} onBack={goBack} onToast={showToast} />
+      : <LoginRequiredView message="온라인 방에 들어가려면 로그인해주세요." onBack={goBack} />;
   } else if (route === 'social-link') {
     content = me
       ? <SocialLinkView socialProviders={socialProviders} onSocialLink={handleSocialLink} onBack={goBack} />
