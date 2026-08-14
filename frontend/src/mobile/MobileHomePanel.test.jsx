@@ -113,7 +113,8 @@ describe('MobileHomePanel', () => {
     expect(screen.getByRole('link', { name: '모임 만들기' }).getAttribute('href')).toBe('#/create');
     expect(screen.getByRole('link', { name: '게임 둘러보기' }).getAttribute('href')).toBe('#/game-list');
     expect(screen.getByRole('heading', { name: '어떤 게임으로 여시게요?' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: /카르카손/ }).getAttribute('href')).toBe('#/game/11');
+    // 게임 목록은 모임 현황 뒤에 따로 오므로 도착을 기다린다.
+    expect((await screen.findByRole('link', { name: /카르카손/ })).getAttribute('href')).toBe('#/game/11');
     expect(screen.queryByRole('link', { name: '모두 보기' })).toBeNull();
   });
 
@@ -149,13 +150,17 @@ describe('MobileHomePanel', () => {
     expect(screen.queryByRole('link', { name: '랭킹 전체' })).toBeNull();
   });
 
-  it('비로그인 상태에서는 내 모임을 조회하지 않는다', async () => {
+  it('비로그인 상태에서는 내 모임을 조회하지 않고 방문자용 히어로를 둔다', async () => {
     const getMyRooms = vi.spyOn(api, 'getMyRooms').mockResolvedValue(page([]));
-    mockOpenRooms({ today: [room({ id: 5 })] });
+    mockOpenRooms({ today: [room({ id: 5 })], recruitingCount: 3 });
 
     render(<MobileHomePanel me={null} dataVersion={0} />);
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '오늘 열리는 모임' })).toBeTruthy());
     expect(getMyRooms).not.toHaveBeenCalled();
+    // 참가 이력을 알 수 없으므로 '아직 참가하는 모임이 없어요'라고 말하지 않는다.
+    expect(screen.getByRole('heading', { name: '보드게임 같이 할 사람을 찾아요' })).toBeTruthy();
+    expect(screen.getByText('지금 모집 중인 모임 3개')).toBeTruthy();
+    expect(screen.getByRole('link', { name: '모임 찾아보기' }).getAttribute('href')).toBe('#/find');
   });
 });

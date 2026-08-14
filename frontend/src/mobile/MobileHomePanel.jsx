@@ -91,8 +91,13 @@ function useOpenRooms(dataVersion) {
   };
 }
 
-/** 참가하는 모임이 없을 때의 히어로. 모집 중 건수에 따라 리드라인과 버튼이 함께 바뀐다. */
-function EmptyHero({ open }) {
+/**
+ * 참가하는 모임이 없을 때의 히어로. 모집 중 건수에 따라 리드라인과 버튼이 함께 바뀐다.
+ *
+ * 비로그인 방문자도 홈 위쪽이 비지 않게 같은 카드를 쓴다. 참가 이력을 알 수 없으므로
+ * 헤드라인만 바꾸고, 만들기·찾기 경로는 그대로 둔다. 로그인이 필요한 화면은 그 화면이 안내한다.
+ */
+function EmptyHero({ open, me }) {
   const lead = !open.settled
     ? '모집 중인 모임을 확인하고 있어요'
     : open.noOpenRooms ? '첫 모임을 열어보세요' : '지금 모집 중인 모임 ' + open.recruitingCount + '개';
@@ -100,9 +105,11 @@ function EmptyHero({ open }) {
   const primary = open.noOpenRooms ? { label: '모임 만들기', href: '#/create' } : { label: '모임 찾아보기', href: '#/find' };
   const secondary = open.noOpenRooms ? { label: '게임 둘러보기', href: '#/game-list' } : { label: '모임 만들기', href: '#/create' };
   return (
-    <section className="home-empty" aria-label="다음 내 모임">
+    <section className="home-empty" aria-label={me ? '다음 내 모임' : '모임 시작하기'}>
       <p className="home-empty-lead">{lead}</p>
-      <h2>{'아직 참가하는 '}<br />{'모임이 없어요'}</h2>
+      {me
+        ? <h2>{'아직 참가하는 '}<br />{'모임이 없어요'}</h2>
+        : <h2>{'보드게임 같이 할 '}<br />{'사람을 찾아요'}</h2>}
       <p>마음에 드는 모임을 찾거나 직접 열어보세요.</p>
       <div className="btn-row">
         <a className="btn" href={primary.href}>{primary.label}</a>
@@ -135,7 +142,7 @@ function NextRoomCard({ dataVersion, open }) {
     );
   }
   if (loading && !data) return <section className="home-next" aria-label="다음 내 모임"><p className="section-label">내 모임을 확인하고 있어요.</p></section>;
-  if (!nextRoom) return <EmptyHero open={open} />;
+  if (!nextRoom) return <EmptyHero open={open} me />;
 
   const seats = seatsOf(nextRoom);
   return (
@@ -288,7 +295,7 @@ export function MobileHomePanel({ me, dataVersion }) {
   const open = useOpenRooms(dataVersion);
   return (
     <>
-      {me && <NextRoomCard dataVersion={dataVersion} open={open} />}
+      {me ? <NextRoomCard dataVersion={dataVersion} open={open} /> : <EmptyHero open={open} />}
       <OpenRooms open={open} dataVersion={dataVersion} />
       <MatchEntry />
       <PopularGames dataVersion={dataVersion} noOpenRooms={open.noOpenRooms} />
