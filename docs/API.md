@@ -201,12 +201,13 @@ P0와 P1은 서버 세션 인증을 사용한다. Bearer access token과 refresh
 - 클라이언트 지정 `sort`와 응답 필드 `first`, `last`는 지원하지 않는다.
 - 목록 API는 아래 고정 정렬을 적용한다. 모든 정렬은 마지막에 내부 `id`를 고유 tie-breaker로 사용해 같은 DB 상태에서 페이지 이동 중 순서가 임의로 바뀌지 않게 한다.
 
-| API | 고정 정렬 |
-|---|---|
-| `GET /api/games` | `popularity_score DESC, name ASC, id ASC` |
-| `GET /api/rooms` | 고정된 `requestTime`의 유효 상태와 필터를 적용한 뒤 `startsAt ASC, id ASC` |
-| `GET /api/users/me/rooms` | 고정된 `requestTime`의 유효 상태, `role` 필터와 중복 제거를 적용한 뒤 `startsAt DESC, id DESC` |
-| `GET /api/users/me/notifications` | `createdAt DESC, id DESC` |
+| API | 도입 단계 | 제공 상태 | 고정 정렬 |
+|---|:---:|:---:|---|
+| `GET /api/games` | P0·P1 | 제공 | `name ASC, id ASC` |
+| `GET /api/games` (RANK-02 목표) | P2 | 구현 완료 · 미배포 | `popularity_score DESC, name ASC, id ASC` |
+| `GET /api/rooms` | P0·P1 | 제공 | 고정된 `requestTime`의 유효 상태와 필터를 적용한 뒤 `startsAt ASC, id ASC` |
+| `GET /api/users/me/rooms` | P0·P1 | 제공 | 고정된 `requestTime`의 유효 상태, `role` 필터와 중복 제거를 적용한 뒤 `startsAt DESC, id DESC` |
+| `GET /api/users/me/notifications` | P0·P1 | 제공 | `createdAt DESC, id DESC` |
 
 P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용한다. `beforeMessageId`가 없으면 최신 메시지부터 반환하고, 값이 있으면 해당 ID보다 이전에 저장된 메시지를 반환한다. 한 번에 반환하는 `size`는 1 이상 100 이하이며, 다음 구간이 있으면 `nextBeforeMessageId`와 `hasNext`를 함께 반환한다.
 

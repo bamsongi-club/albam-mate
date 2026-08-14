@@ -87,14 +87,7 @@ node scripts/game-ranking/prepare-game-popularity-ranking.mjs \
 ```
 
 승인 manifest는 `schemaVersion: 1`, `status: approved`, `batchId`, BoardLife·BGG source의 `path`·`rows`·`sha256`, score input의 `path`·`rows`·`sha256`·`grain: 1 row per bggId`·`reviewRequiredRows: 0`을 포함해야 한다. 생성기는 rank 중복·결측·미매칭을 점수 규칙에 따라 처리하고 `quality-report.json`과 `upsert-game-popularity.sql`을 만든다. 승인되지 않은 manifest나 checksum·행 수가 맞지 않는 입력은 산출물을 차단한다.
-
-```sh
-psql "$DATABASE_URL" \
-  --set ON_ERROR_STOP=on \
-  --file build/game-ranking/approved/upsert-game-popularity.sql
-```
-
-이 SQL은 전체 `GAME_FOCUSED` 방을 집계하면서 `CANCELED`만 제외하고, 외부 점수와 함께 `popularity_score`를 한 트랜잭션에서 갱신한다. 애플리케이션 요청 중 BoardLife·BGG를 직접 조회하지 않는다.
+생성된 SQL은 아래 보존·검증 절차를 모두 통과한 뒤에만 실행한다. 이 SQL은 전체 `GAME_FOCUSED` 방을 집계하면서 `CANCELED`만 제외하고, 외부 점수와 함께 `popularity_score`를 한 트랜잭션에서 갱신한다. 애플리케이션 요청 중 BoardLife·BGG를 직접 조회하지 않는다.
 
 ### RANK-02 보존·검증·복구
 
@@ -109,6 +102,8 @@ psql "$DATABASE_URL" \
 실행 전 snapshot과 생성 산출물을 보존하고 checksum을 기록한다.
 
 ```sh
+set -eu
+
 BATCH_ID=2026-08-14-ranking-v1
 EVIDENCE_DIR=/secure/catalog-evidence/rank-02/$BATCH_ID
 
@@ -122,10 +117,37 @@ cp /path/to/approved-ranking-manifest.json "$EVIDENCE_DIR/manifest.json"
 cp build/game-ranking/approved/quality-report.json "$EVIDENCE_DIR/quality-report.json"
 cp build/game-ranking/approved/upsert-game-popularity.sql "$EVIDENCE_DIR/upsert-game-popularity.sql"
 
-psql "$DATABASE_URL" \
+if ! psql "$DATABASE_URL" \
   --set ON_ERROR_STOP=on \
   --command "COPY (SELECT id, popularity_score FROM games ORDER BY id) TO STDOUT WITH CSV HEADER" \
-  > "$EVIDENCE_DIR/popularity-score-before.csv"
+  > "$EVIDENCE_DIR/popularity-score-before.csv"; then
+  rm -f "$EVIDENCE_DIR/popularity-score-before.csv"
+  printf '적재 전 snapshot 생성에 실패해 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+
+if ! EXPECTED_GAME_COUNT="$(psql "$DATABASE_URL" \
+  --set ON_ERROR_STOP=on \
+  --tuples-only --no-align \
+  --command "SELECT count(*) FROM games")"; then
+  rm -f "$EVIDENCE_DIR/popularity-score-before.csv"
+  printf 'snapshot 기준 게임 수 조회에 실패해 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+
+if [ "$(head -n 1 "$EVIDENCE_DIR/popularity-score-before.csv")" != "id,popularity_score" ]; then
+  rm -f "$EVIDENCE_DIR/popularity-score-before.csv"
+  printf 'snapshot header가 예상과 달라 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+
+SNAPSHOT_ROWS="$(awk 'NR > 1 { rows += 1 } END { print rows + 0 }' \
+  "$EVIDENCE_DIR/popularity-score-before.csv")"
+if [ "$SNAPSHOT_ROWS" -ne "$EXPECTED_GAME_COUNT" ]; then
+  rm -f "$EVIDENCE_DIR/popularity-score-before.csv"
+  printf 'snapshot 행 수가 현재 게임 수와 달라 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
 
 if ! shasum -a 256 \
   "$EVIDENCE_DIR/manifest.json" \
@@ -137,9 +159,26 @@ if ! shasum -a 256 \
   printf 'checksum 생성에 실패해 SQL 실행을 차단합니다.\n' >&2
   exit 1
 fi
+
+if ! jq -e '.status == "approved"' "$EVIDENCE_DIR/quality-report.json" >/dev/null; then
+  printf 'quality-report.json이 approved가 아니어서 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+
+if ! shasum -a 256 -c "$EVIDENCE_DIR/SHA256SUMS"; then
+  printf '증적 checksum 검증에 실패해 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+
+if ! psql "$DATABASE_URL" \
+  --set ON_ERROR_STOP=on \
+  --file "$EVIDENCE_DIR/upsert-game-popularity.sql"; then
+  printf '인기 점수 SQL 실행에 실패했습니다.\n' >&2
+  exit 1
+fi
 ```
 
-`quality-report.json`의 `status`가 `approved`이고 `SHA256SUMS`가 manifest·report·SQL과 일치할 때만 SQL을 실행한다. 실행 후에는 전체 게임 수와 점수 범위를 기록하고, 범위를 벗어난 행이 0인지 확인한다.
+`quality-report.json`의 `status`가 `approved`이고 `SHA256SUMS`가 manifest·report·SQL·snapshot과 일치할 때만 SQL을 실행한다. 실행 후에는 전체 게임 수와 점수 범위를 기록하고, 범위를 벗어난 행이 0인지 확인한다.
 
 ```sh
 psql "$DATABASE_URL" \

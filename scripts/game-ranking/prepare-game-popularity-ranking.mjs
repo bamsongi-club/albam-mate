@@ -13,6 +13,33 @@ const manifestPath = resolve(args.manifest);
 const outputDirectory = resolve(args.out);
 const sqlFileName = 'upsert-game-popularity.sql';
 const reportFileName = 'quality-report.json';
+const RANK_CSV_HEADERS = {
+    BoardLife: [
+        ['bggId', 'rank'],
+        ['bgg_id', 'rank'],
+        ['id', 'rank'],
+    ],
+    BGG: [
+        [
+            'id',
+            'name',
+            'yearpublished',
+            'rank',
+            'bayesaverage',
+            'average',
+            'usersrated',
+            'is_expansion',
+            'abstracts_rank',
+            'cgs_rank',
+            'childrensgames_rank',
+            'familygames_rank',
+            'partygames_rank',
+            'strategygames_rank',
+            'thematic_rank',
+            'wargames_rank',
+        ],
+    ],
+};
 let stagingDirectory;
 
 try {
@@ -117,12 +144,12 @@ function validateInput(input, name) {
 
 function readRankRows(path, expectedRows, source) {
     const content = readFileSync(path, 'utf8');
-    const parsed = path.endsWith('.csv') ? parseCsv(content) : readJson(path);
+    const parsed = path.endsWith('.csv') ? parseCsv(content, source) : readJson(path);
     const rows = Array.isArray(parsed) ? parsed : parsed?.rows;
     if (!Array.isArray(rows) || rows.length !== expectedRows) {
         throw new Error(`${source} row count does not match manifest`);
     }
-    return rows;
+    return validateRankRows(rows, source);
 }
 
 function readScoreInput(path, expectedRows) {
@@ -173,9 +200,9 @@ function buildExternalScores(scoreInput, boardlifeRows, bggRows) {
 function minRankByBggId(rows) {
     const result = new Map();
     for (const row of rows) {
-        const bggId = positiveInteger(row?.bggId ?? row?.bgg_id ?? row?.id);
+        const bggId = rankBggId(row);
         const rank = optionalRank(row?.rank);
-        if (bggId === null || rank === null) {
+        if (rank === null) {
             continue;
         }
         const current = result.get(bggId);
@@ -266,14 +293,21 @@ COMMIT;
 `;
 }
 
-function parseCsv(content) {
+function parseCsv(content, source) {
     const lines = content.split(/\r?\n/u).filter((line) => line.length > 0);
     if (lines.length === 0) {
         return [];
     }
     const header = parseCsvLine(lines[0]);
-    return lines.slice(1).map((line) => {
+    const allowedHeaders = RANK_CSV_HEADERS[source];
+    if (!allowedHeaders?.some((allowed) => sameColumns(header, allowed))) {
+        throw new Error(`invalid ${source} CSV header`);
+    }
+    return lines.slice(1).map((line, index) => {
         const values = parseCsvLine(line);
+        if (values.length !== header.length) {
+            throw new Error(`invalid ${source} CSV column count at row ${index + 1}`);
+        }
         return Object.fromEntries(header.map((name, index) => [name, values[index] ?? '']));
     });
 }
@@ -304,6 +338,36 @@ function parseCsvLine(line) {
 
 function readJson(path) {
     return JSON.parse(readFileSync(path, 'utf8'));
+}
+
+function validateRankRows(rows, source) {
+    return rows.map((row, index) => {
+        if (rankBggId(row) === null) {
+            throw new Error(`invalid ${source} bggId at row ${index}`);
+        }
+        if (!interpretableRank(row?.rank)) {
+            throw new Error(`invalid ${source} rank at row ${index}`);
+        }
+        return row;
+    });
+}
+
+function rankBggId(row) {
+    return positiveInteger(row?.bggId ?? row?.bgg_id ?? row?.id);
+}
+
+function interpretableRank(value) {
+    if (value === null || value === undefined || value === '') {
+        return true;
+    }
+    if (typeof value !== 'number' && typeof value !== 'string') {
+        return false;
+    }
+    return Number.isSafeInteger(Number(value));
+}
+
+function sameColumns(left, right) {
+    return left.length === right.length && left.every((column, index) => column === right[index]);
 }
 
 function inputReport(input) {

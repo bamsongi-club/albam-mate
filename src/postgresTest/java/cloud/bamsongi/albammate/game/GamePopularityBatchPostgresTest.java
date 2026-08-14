@@ -115,6 +115,19 @@ class GamePopularityBatchPostgresTest {
 	}
 
 	@Test
+	void malformed_CSV_rank_source는_SQL_생성_전에_차단한다() throws Exception {
+		assertMalformedRankSourceIsBlocked("boardlife.csv", "unknown,rank\n101,1\n");
+		assertMalformedRankSourceIsBlocked("boardlife.csv", "bggId,rank\n101\n");
+		assertMalformedRankSourceIsBlocked("boardlife.csv", "bggId,rank\nnot-a-bgg-id,1\n");
+		assertMalformedRankSourceIsBlocked("boardlife.csv", "bggId,rank\n101,not-a-rank\n");
+		assertMalformedRankSourceIsBlocked("bgg.csv",
+			"""
+				id,name,yearpublished,rank,bayesaverage,average,usersrated,is_expansion,abstracts_rank,cgs_rank,childrensgames_rank,familygames_rank,partygames_rank,strategygames_rank,thematic_rank,wargames_rank
+				101,x,2020,not-a-rank,1,1,1,0,0,0,0,1,0,1,0,0
+				""");
+	}
+
+	@Test
 	void 내부_집계는_GAME_FOCUSED만_대상으로하고_CANCELED는_제외한다() throws Exception {
 		long first = seedGame(101, "ID가 빠른 게임");
 		long second = seedGame(102, "ID가 늦은 게임");
@@ -178,12 +191,34 @@ class GamePopularityBatchPostgresTest {
 		return output.resolve("upsert-game-popularity.sql");
 	}
 
+	private void assertMalformedRankSourceIsBlocked(String sourceFileName, String sourceContent) throws Exception {
+		Path caseDirectory = Files.createDirectory(tempDirectory.resolve("case-" + System.nanoTime()));
+		Path source = caseDirectory.resolve(sourceFileName);
+		Files.writeString(source, sourceContent);
+		Path emptyRanks = writeRows(caseDirectory.resolve("empty-ranks.json"), List.of());
+		Path scoreInput = writeRows(caseDirectory.resolve("score-input.json"), List.of("{\"bggId\":101}"));
+		Path manifest = sourceFileName.equals("boardlife.csv")
+			? writeManifest(caseDirectory, source, 1, emptyRanks, 0, scoreInput, 1)
+			: writeManifest(caseDirectory, emptyRanks, 0, source, 1, scoreInput, 1);
+
+		PreparationResult result = runPrepare(manifest, caseDirectory.resolve("out"));
+
+		assertEquals(1, result.exitCode(), result.outputText());
+	}
+
 	private Path writeManifest(Path caseDirectory, List<String> boardlifeRows, List<String> bggRows,
 		List<String> scoreInputRows)
 		throws Exception {
 		Path boardlife = writeRows(caseDirectory.resolve("boardlife.json"), boardlifeRows);
 		Path bgg = writeRows(caseDirectory.resolve("bgg.json"), bggRows);
 		Path scoreInput = writeRows(caseDirectory.resolve("score-input.json"), scoreInputRows);
+		return writeManifest(caseDirectory, boardlife, boardlifeRows.size(), bgg, bggRows.size(), scoreInput,
+			scoreInputRows.size());
+	}
+
+	private Path writeManifest(Path caseDirectory, Path boardlife, int boardlifeRows, Path bgg, int bggRows,
+		Path scoreInput, int scoreInputRows)
+		throws Exception {
 		Path manifest = caseDirectory.resolve("ranking-manifest.json");
 		Files.writeString(manifest, """
 			{
@@ -200,9 +235,9 @@ class GamePopularityBatchPostgresTest {
 			  }
 			}
 			""".formatted(
-			jsonPath(boardlife), boardlifeRows.size(), sha256(boardlife),
-			jsonPath(bgg), bggRows.size(), sha256(bgg),
-			jsonPath(scoreInput), scoreInputRows.size(), sha256(scoreInput)));
+			jsonPath(boardlife), boardlifeRows, sha256(boardlife),
+			jsonPath(bgg), bggRows, sha256(bgg),
+			jsonPath(scoreInput), scoreInputRows, sha256(scoreInput)));
 		return manifest;
 	}
 
