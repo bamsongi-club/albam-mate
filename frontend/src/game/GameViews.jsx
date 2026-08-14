@@ -3,7 +3,7 @@ import { api } from '../api';
 import poweredByBgg from '../../assets/powered-by-bgg.svg';
 import { BggAttribution, CheckIcon, Cover, ErrorBox, PlusIcon, Pagination, RoomSkeletons, ScreenTitle, SearchIcon, StateBlock, TopBar } from '../shared/ui';
 import { usePaginatedRequest, useRequest } from '../shared/async';
-import { GAME_LIST_PAGE_SIZE, ROOM_LIST_PAGE_SIZE, EMPTY_GAME_FILTERS, PLAYED_FILTER_OPTIONS } from './constants';
+import { GAME_LIST_PAGE_SIZE, ROOM_LIST_PAGE_SIZE, EMPTY_GAME_FILTERS, PLAYED_FILTER_OPTIONS, DEFAULT_GAME_COVER_URL } from './constants';
 import { gameFilterParameters } from './filterLogic';
 import { gameMeta, normalizeGameSummary, normalizeRoom } from './data';
 import { GameFilters } from './GameFilters';
@@ -50,11 +50,12 @@ function PlayedGameBadge({ played, pending, onToggle }) {
 }
 
 function GameCard({ game, played, pending, onTogglePlayed }) {
+  const coverSrc = game.imageUrl || DEFAULT_GAME_COVER_URL;
   return (
     <div className="gamecard">
       <a href={'#/game/' + game.id} aria-label={game.title + ' 상세'}>
         <span className="cover-tile">
-          <Cover src={game.imageUrl} />
+          <Cover src={coverSrc} />
         </span>
         <span className="gamecard-name">{game.title}</span>
         <span className="gamecard-meta">{gameMeta(game)}</span>

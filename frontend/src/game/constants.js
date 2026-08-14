@@ -4,6 +4,8 @@ export const ROOM_LIST_PAGE_SIZE = 12;
 export const GAME_SEARCH_DEBOUNCE_MS = 250;
 // 인원 숫자 입력은 마지막 입력 뒤 이 시간이 지나면 조회한다. 체크박스는 기다리지 않는다.
 export const GAME_NUMBER_FILTER_DEBOUNCE_MS = 400;
+export const DEFAULT_GAME_COVER_URL = 'assets/default-game-cover.jpg';
+
 
 // 게임 필터 상태는 쿼리 파라미터 이름과 값을 그대로 쓴다. 빈 문자열과 빈 배열은 조건 없음이라 요청에서 빠진다.
 export const EMPTY_GAME_FILTERS = {

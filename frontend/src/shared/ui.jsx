@@ -76,10 +76,20 @@ export function SeatCount({ filled, total, size }) {
   return <span className={'seat-text' + (size === 'lg' ? ' lg' : '')}>{filled} / {total}</span>;
 }
 
-export function Cover({ src, className = '', style, fallback = '🎲' }) {
+export function Cover({ src, className = '', style, fallback = 'assets/default-game-cover.jpg' }) {
+  const coverSrc = src || fallback;
   return (
     <span className={'cover ' + className} style={style}>
-      {src ? <img src={src} alt="" loading="lazy" /> : <span className="cover-fallback" aria-hidden="true">{fallback}</span>}
+      <img
+        src={coverSrc}
+        alt=""
+        loading="lazy"
+        onError={(e) => {
+          if (e.currentTarget.src !== fallback) {
+            e.currentTarget.src = fallback;
+          }
+        }}
+      />
     </span>
   );
 }
