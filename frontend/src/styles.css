@@ -312,6 +312,7 @@ textarea.field-input { height: 112px; line-height: 1.6; padding: 14px 16px; resi
 .sheet.tall { height: 82dvh; max-height: none; }
 .sheet-handle { background: var(--off); border-radius: 99px; flex: none; height: 4px; margin: 6px auto 18px; width: 38px; }
 .sheet-head { align-items: center; display: flex; flex: none; justify-content: space-between; }
+.sheet-head-actions { align-items: center; display: flex; flex: none; gap: 10px; }
 .sheet-head h2 { font-size: 24px; font-weight: 800; letter-spacing: -0.055em; }
 .sheet-reset { align-items: center; color: var(--mid); display: flex; font-size: 13.5px; font-weight: 700; height: 32px; padding: 0 2px; }
 .sheet-cta { margin-top: 26px; }

@@ -193,6 +193,19 @@ describe('T2·T3 게임 조건 필터 조회 시점', () => {
     expect(screen.getByLabelText('최소').value).toBe('2');
     expect(screen.getByLabelText('90분 이상').checked).toBe(true);
   });
+
+  // #749 T8. 바깥 영역 터치로만 닫히는 것을 알아차리지 못한다는 피드백에 따라 닫기를 화면에 드러낸다.
+  it('#749 T8 시트 안의 닫기 조작으로 필터를 닫고 선택은 유지한다', async () => {
+    await renderGamesView();
+    openFilterPanel();
+    fireEvent.change(screen.getByLabelText('최소'), { target: { value: '3' } });
+
+    fireEvent.click(screen.getByRole('button', { name: '게임 필터 닫기' }));
+
+    expect(screen.queryByLabelText('최소')).toBeNull();
+    openFilterPanel();
+    expect(screen.getByLabelText('최소').value).toBe('3');
+  });
 });
 
 describe('T1 인원 범위와 전용 인원의 화면 전환', () => {
