@@ -59,12 +59,14 @@ Run마다 방 8개·계정 72개·방당 메시지 150건을 [`fixtures/rooms.sq
 
 | # | 시나리오 | 시각 (KST) | 소요 | `dropped_iterations` | exit | 판정 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `load-throughput` | 02:00:49~02:14:59 | 14분 10초 | 0 | 2 | `PASS` |
-| 2 | `load-connections` | 02:14:59~02:28:15 | 13분 16초 | 0 | 2 | `PASS` |
+| 1 | `load-throughput` | 02:00:49~02:14:59 | 14분 10초 | 0 | 2 | `FAIL` |
+| 2 | `load-connections` | 02:14:59~02:28:15 | 13분 16초 | 0 | 2 | `FAIL` |
 | 3 | `load-history` | 02:28:15~02:39:13 | 10분 58초 | 0 | **0** | `PASS` |
 | 4 | `load-fanout` | 02:39:13~02:52:58 | 13분 45초 | 0 | **0** | `PASS` |
-| 5 | `load-rooms` | 02:52:58~03:04:41 | 11분 43초 | 0 | 2 | `PASS` |
+| 5 | `load-rooms` | 02:52:58~03:04:41 | 11분 43초 | 0 | 2 | `FAIL` |
 | 6 | `load-mixed` | 03:04:42~03:16:26 | 11분 44초 | 0 | **0** | `PASS` |
+
+`FAIL`은 WebSocket 계약 threshold를 통과하지 못했다는 뜻이다. 세 Run 모두 원자료와 scenario를 완주했으므로 `reportDisposition=included`이며 `INVALID`는 아니다.
 
 ### 전송 처리량 `load-throughput`
 

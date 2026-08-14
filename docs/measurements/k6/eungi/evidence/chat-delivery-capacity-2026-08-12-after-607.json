@@ -46,6 +46,7 @@
     "after campaign은 1회 실행이며 성공률·p95의 절대값은 실행 간 편차를 포함한다.",
     "load-mixed는 4배가 마지막 계단이라 새 혼합 부하 경계를 찾지 못했다.",
     "load-throughput의 발신자 회전 결함은 남아 있어 이번 측정에서 429가 없었던 사실만으로 해결을 의미하지 않는다.",
+    "load-throughput의 WebSocket 연결 성립은 13/18(72.2%)에 그쳤고 connect_ms p95는 30,332ms였다. 이는 #608 유휴 종료로 설명되지 않으며 원인 미규명이다.",
     "원자료 bundle은 local-only라 저장소만으로 원자료 내용을 독립 재검증할 수 없다."
   ],
   "observations": {
@@ -131,8 +132,29 @@
     }
   },
   "remainingGateViolations": {
-    "note": "exit=2 인 3종의 위반 지표는 전부 WebSocket 세션 관련이며 성능 임계는 걸리지 않았다.",
-    "issue": "#608"
+    "note": "exit=2 인 3종의 위반은 모두 WebSocket 지표지만, 연결 수립 실패와 열린 뒤 세션 위반의 원인은 분리한다. 성능 임계는 걸리지 않았다.",
+    "idleClose": {
+      "scenarios": [
+        "load-connections"
+      ],
+      "issue": "#608",
+      "evidence": "열린 뒤 chat_websocket_session_healthy threshold 위반"
+    },
+    "deliveryMiss": {
+      "scenarios": [
+        "load-rooms"
+      ],
+      "issue": "#608",
+      "evidence": "열린 뒤 chat_websocket_session_healthy 및 load_subscriber_delivery_complete threshold 위반"
+    },
+    "openFailure": {
+      "scenarios": [
+        "load-throughput"
+      ],
+      "issue": null,
+      "evidence": "opened 72.2% (13/18), connect_ms p95 30,332ms",
+      "status": "원인 미규명. #608로 설명되지 않는다."
+    }
   },
   "artifacts": {
     "location": "local-only",
@@ -252,7 +274,7 @@
       "consoleSha256": "2382074af3832bd22b276a8e1bfe39cc56b23c9fcd4b9218b01339581ba10fec",
       "startedAtKst": "2026-08-12T21:33:24+09:00",
       "endedAtKst": "2026-08-12T21:47:44+09:00",
-      "status": "PASS",
+      "status": "FAIL",
       "reportDisposition": "included",
       "crossedThresholds": [
         "chat_websocket_opened",
@@ -365,7 +387,7 @@
       "consoleSha256": "8fc6aa47f635cea848204497326bcd51a6b95ca3bc2499f943c57176d6e442ef",
       "startedAtKst": "2026-08-12T21:47:44+09:00",
       "endedAtKst": "2026-08-12T22:01:15+09:00",
-      "status": "PASS",
+      "status": "FAIL",
       "reportDisposition": "included",
       "crossedThresholds": [
         "chat_websocket_session_healthy"
@@ -678,7 +700,7 @@
       "consoleSha256": "b5a8fb835a500719a38d1d05c14a38bf58ae8bb112027ee150d9f8e32844820b",
       "startedAtKst": "2026-08-12T22:27:10+09:00",
       "endedAtKst": "2026-08-12T22:39:05+09:00",
-      "status": "PASS",
+      "status": "FAIL",
       "reportDisposition": "included",
       "crossedThresholds": [
         "chat_websocket_session_healthy",

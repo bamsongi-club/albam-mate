@@ -27,8 +27,8 @@
 | PostgreSQL / Redis | PostgreSQL t4g.micro 1대 / Redis t4g.micro 1대 |
 | 발생기 | c7g.large 1대, k6 1.3.0 |
 | release SHA | `69438fd3a30150623e5801ff6bff5f4705b6a795` (fix: 유휴 WebSocket timeout 분리) |
-| backend image | `796458433281.dkr.ecr.ap-northeast-2.amazonaws.com/albam-mate/backend@sha256:9311e1dc14a57fb8314317c0d695b03733bb062fa14826f8505a2884c3933ab4` |
-| web image | `796458433281.dkr.ecr.ap-northeast-2.amazonaws.com/albam-mate/web@sha256:9ec386df04a54c71ee5dd838067bb18c4fa2fd3e316d22175b52620e847a0200` |
+| backend image | `sha256:9311e1dc14a57fb8314317c0d695b03733bb062fa14826f8505a2884c3933ab4` |
+| web image | `sha256:9ec386df04a54c71ee5dd838067bb18c4fa2fd3e316d22175b52620e847a0200` |
 | PostgreSQL image | `postgres@sha256:0826e5f2996099babb925e09fb72bf2c6eb5d187cfcae20aa9291af1612307e4` |
 | Redis image | `redis@sha256:78b83aee0bf6781ca973ee5022de73dd16fe93f53593c3a31f079c8c3fa08921` |
 | 로그인 제한 | App·k6 모두 300회/10분 |
@@ -52,12 +52,14 @@ Run마다 방 8개·계정 72개·방당 메시지 150건을 [`fixtures/rooms.sq
 
 | # | 시나리오 | 시각 (KST) | 소요 | `dropped_iterations` | exit | 판정 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `load-throughput` | 2026-08-13 23:47:59~2026-08-14 00:02:07 | 14분 8초 | 0 | 2 | COMPLETED_WITH_THRESHOLD_VIOLATIONS |
-| 2 | `load-connections` | 2026-08-14 00:02:07~2026-08-14 00:15:26 | 13분 19초 | 0 | 0 | COMPLETED |
-| 3 | `load-history` | 2026-08-14 00:15:26~2026-08-14 00:26:28 | 11분 2초 | 0 | 0 | COMPLETED |
-| 4 | `load-fanout` | 2026-08-14 00:26:28~2026-08-14 00:40:12 | 13분 44초 | 0 | 2 | COMPLETED_WITH_THRESHOLD_VIOLATIONS |
-| 5 | `load-rooms` | 2026-08-14 00:40:12~2026-08-14 00:51:58 | 11분 46초 | 0 | 2 | COMPLETED_WITH_THRESHOLD_VIOLATIONS |
-| 6 | `load-mixed` | 2026-08-14 00:51:58~2026-08-14 01:03:43 | 11분 45초 | 0 | 0 | COMPLETED |
+| 1 | `load-throughput` | 2026-08-13 23:47:59~2026-08-14 00:02:07 | 14분 8초 | 0 | 2 | `FAIL` |
+| 2 | `load-connections` | 2026-08-14 00:02:07~2026-08-14 00:15:26 | 13분 19초 | 0 | 0 | `PASS` |
+| 3 | `load-history` | 2026-08-14 00:15:26~2026-08-14 00:26:28 | 11분 2초 | 0 | 0 | `PASS` |
+| 4 | `load-fanout` | 2026-08-14 00:26:28~2026-08-14 00:40:12 | 13분 44초 | 0 | 2 | `FAIL` |
+| 5 | `load-rooms` | 2026-08-14 00:40:12~2026-08-14 00:51:58 | 11분 46초 | 0 | 2 | `FAIL` |
+| 6 | `load-mixed` | 2026-08-14 00:51:58~2026-08-14 01:03:43 | 11분 45초 | 0 | 0 | `PASS` |
+
+`FAIL`은 threshold를 넘었다는 뜻이다. manifest의 `COMPLETED` 계열 실행 상태와 `reportDisposition=included`은 scenario 완주·원자료 사용 가능 여부를 뜻하며 Run 판정을 바꾸지 않는다.
 
 ### 전송 처리량 `load-throughput`
 

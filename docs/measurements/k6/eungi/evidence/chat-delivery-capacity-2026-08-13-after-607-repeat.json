@@ -304,7 +304,7 @@
       "consoleSha256": "546e144537107fded0a27aca5879baacfa930c60af2eebe01f2505b10fc9e6da",
       "startedAtKst": "2026-08-13T02:00:49+09:00",
       "endedAtKst": "2026-08-13T02:14:59+09:00",
-      "status": "PASS",
+      "status": "FAIL",
       "reportDisposition": "included",
       "crossedThresholds": [
         "chat_websocket_opened",
@@ -420,7 +420,7 @@
       "consoleSha256": "294502de70d216a958711876ef124459f3b99a897920ca0165af74844797c952",
       "startedAtKst": "2026-08-13T02:14:59+09:00",
       "endedAtKst": "2026-08-13T02:28:15+09:00",
-      "status": "PASS",
+      "status": "FAIL",
       "reportDisposition": "included",
       "crossedThresholds": [
         "chat_websocket_session_healthy"
@@ -734,7 +734,7 @@
       "consoleSha256": "b0e21478e0cce47a7d5be7a0ad94c69a2ed54923500ea138cd9284412d66c197",
       "startedAtKst": "2026-08-13T02:52:58+09:00",
       "endedAtKst": "2026-08-13T03:04:41+09:00",
-      "status": "PASS",
+      "status": "FAIL",
       "reportDisposition": "included",
       "crossedThresholds": [
         "chat_websocket_session_healthy",

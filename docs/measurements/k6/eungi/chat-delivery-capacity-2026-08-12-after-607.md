@@ -17,7 +17,7 @@
 - **가장 심하게 무너지던 경계가 없어졌다.** 활성 방 8개 구간의 전송 성공률이 **100%**, 응답 p95가 **36ms**다. before 3회는 57.1~70%·3,119~5,105ms였다.
 - **개선이 확인된 축은 이력 조회와 활성 방 8개 구간이다.** 이력 조회 p95는 before 56~60ms에서 after 23~26ms로, 활성 방 8개 응답 p95는 3,119~5,105ms에서 36ms로 내려갔다. 동시 접속 p95는 27~70ms로 before 49~56ms와 겹쳐 개선을 판정할 수 없다.
 - 6종 중 **3종이 `exit=0`**이다. before는 `load-history` 하나뿐이었다.
-- **남은 게이트 위반은 전부 [#608](https://github.com/bamsongi-club/albam-mate/issues/608)이다.** `exit=2`인 3종의 위반 지표가 모두 WebSocket 세션 관련이며 성능 임계는 하나도 걸리지 않았다.
+- **남은 WebSocket 위반은 둘로 나뉜다.** `load-throughput`의 연결 성립은 13/18(72.2%)에 그쳤고 `connect_ms` p95는 30,332ms였다. 이는 [#608](https://github.com/bamsongi-club/albam-mate/issues/608) 유휴 종료와 다른 미규명 관측이다. `load-connections`·`load-rooms`의 열린 뒤 세션 유지·전달 위반은 #608이 겨냥한 유휴 종료와 맞는다. 성능 임계는 하나도 걸리지 않았다.
 - 이 캠페인은 1회 실행이다. 성공률의 절대값이 아니라 **500이 0이 된 사실**이 판정 근거다. 이 결과는 이후 [`chat-delivery-20260813T020049KST`](chat-delivery-capacity-2026-08-13-after-607-repeat.md)에서 다른 release로 재현됐다.
 
 ## 측정 조건
@@ -64,12 +64,14 @@ Run마다 방 8개·계정 72개·방당 메시지 150건을 측정 당시 relea
 
 | # | 시나리오 | 시각 (KST) | 소요 | `dropped_iterations` | exit | 판정 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `load-throughput` | 21:33:24~21:47:44 | 14분 20초 | 0 | 2 | `PASS` |
-| 2 | `load-connections` | 21:47:44~22:01:15 | 13분 31초 | 0 | 2 | `PASS` |
+| 1 | `load-throughput` | 21:33:24~21:47:44 | 14분 20초 | 0 | 2 | `FAIL` |
+| 2 | `load-connections` | 21:47:44~22:01:15 | 13분 31초 | 0 | 2 | `FAIL` |
 | 3 | `load-history` | 22:01:15~22:13:15 | 12분 00초 | 0 | **0** | `PASS` |
 | 4 | `load-fanout` | 22:13:15~22:27:10 | 13분 55초 | 0 | **0** | `PASS` |
-| 5 | `load-rooms` | 22:27:10~22:39:05 | 11분 55초 | 0 | 2 | `PASS` |
+| 5 | `load-rooms` | 22:27:10~22:39:05 | 11분 55초 | 0 | 2 | `FAIL` |
 | 6 | `load-mixed` | 22:39:05~22:50:58 | 11분 53초 | 0 | **0** | `PASS` |
+
+`FAIL`은 WebSocket 계약 threshold를 통과하지 못했다는 뜻이다. 세 Run 모두 원자료와 scenario를 완주했으므로 `reportDisposition=included`이며 `INVALID`는 아니다.
 
 **`dropped_iterations`가 6종 모두 0이다.** before의 `load-rooms` 10건·`load-mixed` 18건은 발생기가 목표 부하를 내지 못했다는 뜻이었다. 이번에는 목표를 전부 냈고 서버가 받아냈다.
 
@@ -178,17 +180,17 @@ before/after 비교다.
 
 before에서 47~52건 나오던 429도 이번에는 0건이다.
 
-## 남은 게이트 위반은 전부 #608이다
+## 남은 WebSocket 위반은 둘로 나뉜다
 
-`exit=2`인 3종의 위반 지표다.
+`exit=2`인 3종의 WebSocket 위반 지표다.
 
-| 시나리오 | 위반 지표 |
-| --- | --- |
-| `load-throughput` | `chat_websocket_opened`, `chat_websocket_session_healthy` |
-| `load-connections` | `chat_websocket_session_healthy` |
-| `load-rooms` | `chat_websocket_session_healthy`, `load_subscriber_delivery_complete` |
+| 시나리오 | 위반 지표 | 해석 |
+| --- | --- | --- |
+| `load-throughput` | `chat_websocket_opened`, `chat_websocket_session_healthy` | 연결 성립 13/18(72.2%), `connect_ms` p95 30,332ms. 원인 미규명이며 #608로 설명하지 않음 |
+| `load-connections` | `chat_websocket_session_healthy` | 열린 뒤 유휴 세션 종료. #608 대상 |
+| `load-rooms` | `chat_websocket_session_healthy`, `load_subscriber_delivery_complete` | 유휴 세션 종료의 전달 영향. #608 대상 |
 
-**응답 시간·전송 성공률·`dropped_iterations` 같은 성능 임계는 하나도 걸리지 않았다.** 전부 WebSocket 세션이 유지되지 않아 생긴 위반이며 원인은 [#608](https://github.com/bamsongi-club/albam-mate/issues/608)의 유휴 60초 종료다.
+`chat_websocket_opened`는 socket이 열린 뒤 유휴로 종료되는 지표가 아니라 연결 수립 지표다. 따라서 이 실패를 [#608](https://github.com/bamsongi-club/albam-mate/issues/608)의 유휴 60초 종료로 귀속하지 않는다. **응답 시간·전송 성공률·`dropped_iterations` 같은 성능 임계는 하나도 걸리지 않았다.**
 
 ## CPU
 
@@ -210,10 +212,11 @@ before와 마찬가지로 CPU는 병목이 아니다. 처리량이 크게 올랐
 
 ## 다음
 
-1. **[#608](https://github.com/bamsongi-club/albam-mate/issues/608) WebSocket 전용 `location` 분리** — 남은 게이트 위반의 전부다.
-2. **`load-throughput` 발신자 회전 수정** — 이 축의 편차 원인이다.
-3. **계단 상향 후 재측정** — `load-mixed`가 4배에서 전건 성공했으므로 새 경계를 찾으려면 계단을 올려야 한다.
-4. **#608 수정 후 반복 측정** — 그때는 같은 조건 3회로 범위를 잡는다.
+1. **[#608](https://github.com/bamsongi-club/albam-mate/issues/608) WebSocket 전용 `location` 분리** — 열린 뒤 유휴 세션 위반과 그 전달 영향을 분리한다.
+2. **`load-throughput` 연결 수립 실패 재현** — #608과 별도로 5/18 실패와 30초 지연의 원인을 분리한다.
+3. **`load-throughput` 발신자 회전 수정** — 이 축의 편차 원인이다.
+4. **계단 상향 후 재측정** — `load-mixed`가 4배에서 전건 성공했으므로 새 경계를 찾으려면 계단을 올려야 한다.
+5. **#608 수정 후 반복 측정** — 그때는 같은 조건 3회로 범위를 잡는다.
 
 ## 재현
 

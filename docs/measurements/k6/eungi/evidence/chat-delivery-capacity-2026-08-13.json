@@ -15,8 +15,8 @@
   "release": {
     "sha": "69438fd3a30150623e5801ff6bff5f4705b6a795",
     "subject": "fix: 유휴 WebSocket timeout 분리",
-    "backendImage": "796458433281.dkr.ecr.ap-northeast-2.amazonaws.com/albam-mate/backend@sha256:9311e1dc14a57fb8314317c0d695b03733bb062fa14826f8505a2884c3933ab4",
-    "webImage": "796458433281.dkr.ecr.ap-northeast-2.amazonaws.com/albam-mate/web@sha256:9ec386df04a54c71ee5dd838067bb18c4fa2fd3e316d22175b52620e847a0200",
+    "backendImage": "sha256:9311e1dc14a57fb8314317c0d695b03733bb062fa14826f8505a2884c3933ab4",
+    "webImage": "sha256:9ec386df04a54c71ee5dd838067bb18c4fa2fd3e316d22175b52620e847a0200",
     "postgresImage": "postgres@sha256:0826e5f2996099babb925e09fb72bf2c6eb5d187cfcae20aa9291af1612307e4",
     "redisImage": "redis@sha256:78b83aee0bf6781ca973ee5022de73dd16fe93f53593c3a31f079c8c3fa08921"
   },

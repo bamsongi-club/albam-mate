@@ -63,7 +63,11 @@ docs/
 | Run 판정 | `PASS` | 계약 또는 성능 임계를 유효하게 통과 |
 | Run 판정 | `FAIL` | Run은 유효하지만 성능 임계를 통과하지 못함 |
 | Run 판정 | `INVALID` | 준비·계측·필수 근거 조건을 만족하지 못해 경계 계산에서 제외 |
+| Manifest v3 실행 상태 | `COMPLETED` | 시나리오가 완주했고 threshold 위반이 없다. 보고서 Run 판정은 `PASS` |
+| Manifest v3 실행 상태 | `COMPLETED_WITH_THRESHOLD_VIOLATIONS` | 시나리오는 완주했지만 하나 이상의 threshold를 넘었다. 보고서 Run 판정은 `FAIL` |
 | 캠페인 판정 | `INCONSISTENT` | 탐색과 지속 Run이 재현되지 않아 정상·실패 경계를 확정할 수 없음 |
+
+`reportDisposition=included`은 원자료를 보고서 계산에 쓸 수 있다는 뜻일 뿐 Run 판정을 바꾸지 않는다. 따라서 유효한 `FAIL` Run도 `included`일 수 있다.
 
 ## ROOM 기준선과의 분리
 

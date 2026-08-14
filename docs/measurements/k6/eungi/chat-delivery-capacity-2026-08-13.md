@@ -55,14 +55,14 @@ Run마다 방 8개·계정 72개·방당 메시지 150건을 [`fixtures/rooms.sq
 
 | # | 시나리오 | 시각 (KST) | 소요 | `dropped_iterations` | exit | 판정 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `load-throughput` | 18:50:07~19:04:14 | 14분 07초 | 0 | 2 | `PASS` |
+| 1 | `load-throughput` | 18:50:07~19:04:14 | 14분 07초 | 0 | 2 | `FAIL` |
 | 2 | `load-connections` | 19:05:41~19:18:54 | 13분 13초 | 0 | **0** | `PASS` |
 | 3 | `load-history` | 19:19:14~19:30:15 | 11분 01초 | 0 | **0** | `PASS` |
-| 4 | `load-fanout` | 19:30:33~19:44:36 | 14분 03초 | 0 | 2 | `PASS` |
-| 5 | `load-rooms` | 19:45:21~19:59:07 | 13분 46초 | 0 | 2 | `PASS` |
-| 6 | `load-mixed` | 19:59:31~20:13:23 | 13분 52초 | 0 | 2 | `PASS` |
+| 4 | `load-fanout` | 19:30:33~19:44:36 | 14분 03초 | 0 | 2 | `FAIL` |
+| 5 | `load-rooms` | 19:45:21~19:59:07 | 13분 46초 | 0 | 2 | `FAIL` |
+| 6 | `load-mixed` | 19:59:31~20:13:23 | 13분 52초 | 0 | 2 | `FAIL` |
 
-`exit=2`는 관찰형 threshold 위반 뒤 결과를 회수한 상태다. Run이 중간에 무효가 됐다는 뜻이 아니며, scenario 완주·원자료·오염 여부를 확인해 6개 Run 모두 `included`로 판정했다.
+`FAIL`은 threshold를 넘었다는 뜻이다. `exit=2`는 관찰형 threshold 위반 뒤 결과를 회수한 상태이며 Run이 중간에 무효가 됐다는 뜻이 아니다. scenario 완주·원자료·오염 여부를 확인해 6개 Run 모두 `included`로 판정했다.
 
 ### 전송 처리량 `load-throughput`
 
