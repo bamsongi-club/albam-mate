@@ -815,8 +815,13 @@ function waitlistStatus(snapshot, roomId, userId) {
 }
 
 function metricCount(summary, name) {
-  const value = summary?.metrics?.[name]?.values?.count;
-  return typeof value === 'number' ? value : null;
+  const metric = summary?.metrics?.[name];
+  const nestedCount = metric?.values?.count;
+  if (typeof nestedCount === 'number') {
+    return nestedCount;
+  }
+  const directCount = metric?.count;
+  return typeof directCount === 'number' ? directCount : null;
 }
 
 function addFailure(failures, condition, message) {

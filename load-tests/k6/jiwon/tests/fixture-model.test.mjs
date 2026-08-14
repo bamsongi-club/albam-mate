@@ -102,6 +102,14 @@ function summaryWith(counts = {}) {
   return { metrics };
 }
 
+function summaryWithTopLevelCounts(counts = {}) {
+  const summary = summaryWith(counts);
+  Object.entries(summary.metrics).forEach(([name, metric]) => {
+    summary.metrics[name] = { count: metric.values.count };
+  });
+  return summary;
+}
+
 test('T1 hot stress fixture는 8명 취소·9명 FIFO 대기자를 round마다 분리한다', () => {
   const { plan, fixture } = fixtureFor({
     scenario: 't1',
@@ -469,6 +477,14 @@ test('T5 사후 검증은 조회 전후 snapshot이 같을 때만 통과한다',
   fixture.baselineSnapshot = structuredClone(snapshot);
 
   assert.deepEqual(evaluateFixture(fixture, snapshot, 'after', summaryWith({
+    room_requests: 1,
+    room_success: 1,
+  })), {
+    status: 'PASS',
+    failures: [],
+  });
+
+  assert.deepEqual(evaluateFixture(fixture, snapshot, 'after', summaryWithTopLevelCounts({
     room_requests: 1,
     room_success: 1,
   })), {
