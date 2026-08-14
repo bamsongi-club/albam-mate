@@ -405,6 +405,15 @@ function t5Summary(startSkewCount) {
   };
 }
 
+function t5SummaryWithTopLevelCounts(startSkewCount) {
+  return {
+    metrics: Object.fromEntries(
+      Object.entries(t5Summary(startSkewCount).metrics)
+        .map(([name, metric]) => [name, { count: metric.values.count }]),
+    ),
+  };
+}
+
 function writeCleanupFixture(runId, idOffset) {
   const plan = createFixturePlan({
     scenario: 't1',
@@ -1150,6 +1159,94 @@ test('T5 비교는 여섯 역할·규모 실행의 read profile 불일치를 거
   } finally {
     rmSync(comparisonDirectory, { recursive: true, force: true });
     rmSync(binDirectory, { recursive: true, force: true });
+  }
+});
+
+function completePortableT5Bundle(bundle, rendered, context) {
+  const plan = JSON.parse(readFileSync(path.join(bundle, 'fixture-plan.json'), 'utf8'));
+  writeFileSync(
+    path.join(bundle, 'resource-output.json'),
+    `${JSON.stringify(fixtureResources(plan))}\n`,
+    'utf8',
+  );
+  const hydrated = hydrateBundle(bundle, context);
+  const fixture = JSON.parse(readFileSync(hydrated.fixturePath, 'utf8'));
+  const snapshot = fixtureSnapshot(fixture);
+  writeFileSync(path.join(bundle, 'before-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
+  assert.equal(diagnoseBundle({ bundle, stage: 'before' }, context).status, 'PASS');
+  writeFileSync(path.join(bundle, 'after-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
+  writeFileSync(path.join(bundle, 'k6-summary.json'), `${JSON.stringify(t5SummaryWithTopLevelCounts(7))}\n`, 'utf8');
+  assert.equal(diagnoseBundle({ bundle, stage: 'after' }, context).status, 'PASS');
+  writeFileSync(path.join(bundle, 'infra-execution.json'), `${JSON.stringify({
+    schemaVersion: 1,
+    runId: rendered.options.runId,
+    fixtureId: rendered.fixtureId,
+    phases: {
+      prepare: { exitCode: 0 },
+      resourceQuery: { exitCode: 0 },
+      beforeSnapshot: { exitCode: 0 },
+      k6: { exitCode: 0 },
+      afterSnapshot: { exitCode: 0 },
+    },
+  })}\n`, 'utf8');
+  return aggregateBundle(bundle, context);
+}
+
+test('T5 비교는 portable bundle 완료 artifact와 k6 v1.3 top-level count를 검증한다', () => {
+  const runId = `portable-t5-compare-${process.pid}-${Date.now()}`;
+  const comparisonDirectory = path.join(fixtureBuildRoot, runId);
+  const context = {
+    repositoryRoot,
+    scenarioDirectory: path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon'),
+    buildRoot: fixtureBuildRoot,
+    bundleRoot: null,
+    isBundleRuntime: false,
+    environment: {
+      ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$portable-t5-compare-test',
+      ROOM_K6_READ_VUS: '7',
+      ROOM_K6_READ_DURATION_SECONDS: '75',
+      ROOM_K6_READ_THINK_TIME_MS: '25',
+    },
+  };
+  const bundles = new Map();
+
+  try {
+    for (const role of ['public', 'host', 'participant']) {
+      for (const scale of [1, 10]) {
+        const rendered = renderBundle({
+          scenario: 't5',
+          runId,
+          profile: 'spike',
+          t5Role: role,
+          t5Scale: String(scale),
+        }, context, { sourceRevision: 'e'.repeat(40), sourceDirty: false });
+        assert.equal(completePortableT5Bundle(rendered.bundlePath, rendered, context).status, 'PASS');
+        bundles.set(`${role}-${scale}`, rendered.bundlePath);
+      }
+    }
+
+    const compared = compareT5(runId);
+    assert.equal(compared.status, 0, compared.stderr || compared.stdout);
+    const result = JSON.parse(readFileSync(path.join(comparisonDirectory, 't5-comparison-verification.json'), 'utf8'));
+    assert.equal(result.status, 'PASS');
+    assert.equal(result.fixtureCount, 6);
+    assert.deepEqual(result.t5ReadOptions, {
+      vus: 7,
+      durationSeconds: 75,
+      thinkTimeMilliseconds: 25,
+    });
+
+    const finalResultPath = path.join(bundles.get('participant-10'), 'final-result.json');
+    const tamperedFinalResult = JSON.parse(readFileSync(finalResultPath, 'utf8'));
+    tamperedFinalResult.fixtureId = 'different-fixture';
+    writeFileSync(finalResultPath, `${JSON.stringify(tamperedFinalResult)}\n`, 'utf8');
+    const invalid = compareT5(runId);
+    assert.equal(invalid.status, 2, invalid.stderr || invalid.stdout);
+    const invalidResult = JSON.parse(readFileSync(path.join(comparisonDirectory, 't5-comparison-verification.json'), 'utf8'));
+    assert.equal(invalidResult.status, 'INVALID');
+    assert.match(invalidResult.failures.join('\n'), /portable final-result\.json/);
+  } finally {
+    rmSync(comparisonDirectory, { recursive: true, force: true });
   }
 });
 

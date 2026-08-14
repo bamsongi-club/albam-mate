@@ -25,7 +25,7 @@ import {
   RUN_ID_PATTERN,
 } from './fixture-model.mjs';
 import { readExecutionOptions } from '../lib/read-execution-options.mjs';
-import { executePortableBundleCommand } from './portable-bundle.mjs';
+import { executePortableBundleCommand, portableBundleArtifacts } from './portable-bundle.mjs';
 
 const toolDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(toolDirectory, '../../../..');
@@ -39,6 +39,7 @@ const SHA256_PATTERN = /^[0-9a-f]{64}$/i;
 const TARGET_ENVIRONMENT_PATTERN = /^[a-z0-9][a-z0-9._-]{0,79}$/;
 const T5_ROLES = ['public', 'host', 'participant'];
 const T5_SCALES = [1, 10];
+const PORTABLE_PHASE_NAMES = ['prepare', 'resourceQuery', 'beforeSnapshot', 'k6', 'afterSnapshot'];
 const SCENARIO_SCRIPTS = {
   t1: 't1-cancel-promotion.js',
   t2: 't2-concurrent-waitlist-registration.js',
@@ -587,9 +588,19 @@ function sameT5ReadOptions(left, right) {
     && left.thinkTimeMilliseconds === right.thinkTimeMilliseconds;
 }
 
-function t5StartSkewMetricFailure(summary, manifest) {
-  const observedCount = summary?.metrics?.room_start_skew_ms?.values?.count;
-  const expectedCount = manifest.t5ReadOptions.vus;
+function metricCount(summary, name) {
+  const metric = summary?.metrics?.[name];
+  const nestedCount = metric?.values?.count;
+  if (Number.isInteger(nestedCount)) {
+    return nestedCount;
+  }
+  const directCount = metric?.count;
+  return Number.isInteger(directCount) ? directCount : null;
+}
+
+function t5StartSkewMetricFailure(summary, t5ReadOptions) {
+  const observedCount = metricCount(summary, 'room_start_skew_ms');
+  const expectedCount = t5ReadOptions.vus;
   if (!Number.isInteger(observedCount)) {
     return 'T5 room_start_skew_ms metric이 부족합니다.';
   }
@@ -597,6 +608,127 @@ function t5StartSkewMetricFailure(summary, manifest) {
     return `T5 room_start_skew_ms 관측 수 ${observedCount}가 VU 수 ${expectedCount}과 다릅니다.`;
   }
   return null;
+}
+
+function readPortableArtifact(directory, relativePath) {
+  const artifactPath = path.join(directory, relativePath);
+  if (!existsSync(artifactPath)) {
+    return { invalid: `portable T5 비교에는 ${relativePath}이 필요합니다.` };
+  }
+  try {
+    return { value: JSON.parse(readFileSync(artifactPath, 'utf8')) };
+  } catch (_) {
+    return { invalid: `portable T5 ${relativePath}을 읽을 수 없습니다.` };
+  }
+}
+
+function completedPortableT5Artifact(fixturePath, fixture, context) {
+  const directory = path.dirname(fixturePath);
+  try {
+    executePortableBundleCommand('validate', { bundle: directory }, context);
+  } catch (_) {
+    return { invalid: 'portable bundle manifest 또는 immutable artifact 계약을 검증하지 못했습니다.' };
+  }
+
+  const artifacts = {};
+  for (const relativePath of [
+    'manifest.json',
+    portableBundleArtifacts.executionOptions,
+    portableBundleArtifacts.summary,
+    portableBundleArtifacts.infraExecution,
+    portableBundleArtifacts.beforeDiagnosis,
+    portableBundleArtifacts.afterDiagnosis,
+    portableBundleArtifacts.finalResult,
+  ]) {
+    const artifact = readPortableArtifact(directory, relativePath);
+    if (artifact.invalid) {
+      return artifact;
+    }
+    artifacts[relativePath] = artifact.value;
+  }
+
+  const manifest = artifacts['manifest.json'];
+  if (manifest.fixtureId !== fixture.fixtureId
+    || manifest.options?.runId !== fixture.options.runId
+    || manifest.options?.scenario !== 't5'
+    || !isDeepStrictEqual(manifest.options, fixture.options)) {
+    return { invalid: 'portable manifest.json이 현재 T5 fixture와 맞지 않습니다.' };
+  }
+
+  const t5ReadOptions = artifacts[portableBundleArtifacts.executionOptions]?.t5ReadOptions;
+  if (!isT5ReadOptions(t5ReadOptions)) {
+    return { invalid: 'portable execution-options.json에 유효한 T5 read profile이 없습니다.' };
+  }
+
+  const summary = artifacts[portableBundleArtifacts.summary];
+  if (!summary || typeof summary !== 'object' || Array.isArray(summary)
+    || !summary.metrics || typeof summary.metrics !== 'object' || Array.isArray(summary.metrics)) {
+    return { invalid: 'portable k6-summary.json 형식이 올바르지 않습니다.' };
+  }
+
+  const execution = artifacts[portableBundleArtifacts.infraExecution];
+  if (!execution || typeof execution !== 'object' || Array.isArray(execution)
+    || execution.schemaVersion !== 1
+    || execution.runId !== fixture.options.runId
+    || execution.fixtureId !== fixture.fixtureId
+    || !execution.phases || typeof execution.phases !== 'object' || Array.isArray(execution.phases)
+    || !PORTABLE_PHASE_NAMES.every((name) => Number.isInteger(execution.phases[name]?.exitCode))) {
+    return { invalid: 'portable infra-execution.json이 현재 T5 fixture와 맞지 않습니다.' };
+  }
+
+  const beforeDiagnosis = artifacts[portableBundleArtifacts.beforeDiagnosis];
+  const afterDiagnosis = artifacts[portableBundleArtifacts.afterDiagnosis];
+  const matchesDiagnosis = (diagnosis, stage) => diagnosis && typeof diagnosis === 'object' && !Array.isArray(diagnosis)
+    && diagnosis.fixtureId === fixture.fixtureId
+    && diagnosis.scenario === 't5'
+    && diagnosis.stage === stage
+    && ['PASS', 'FAIL', 'INVALID'].includes(diagnosis.status)
+    && Array.isArray(diagnosis.failures)
+    && (diagnosis.status !== 'PASS' || diagnosis.failures.length === 0);
+  if (!matchesDiagnosis(beforeDiagnosis, 'before') || !matchesDiagnosis(afterDiagnosis, 'after')) {
+    return { invalid: 'portable diagnosis artifact가 현재 T5 fixture와 맞지 않습니다.' };
+  }
+
+  const finalResult = artifacts[portableBundleArtifacts.finalResult];
+  const phaseCodes = PORTABLE_PHASE_NAMES.map((name) => execution.phases[name].exitCode);
+  const expectedStatus = finalResult?.issues?.length > 0
+    || beforeDiagnosis.status === 'INVALID'
+    || afterDiagnosis.status === 'INVALID'
+    ? 'INVALID'
+    : beforeDiagnosis.status === 'FAIL' || afterDiagnosis.status === 'FAIL' || phaseCodes.some((code) => code !== 0)
+      ? 'FAIL'
+      : 'PASS';
+  if (!finalResult || typeof finalResult !== 'object' || Array.isArray(finalResult)
+    || finalResult.schemaVersion !== 1
+    || finalResult.fixtureId !== fixture.fixtureId
+    || finalResult.runId !== fixture.options.runId
+    || finalResult.scenario !== 't5'
+    || !Array.isArray(finalResult.issues)
+    || !isDeepStrictEqual(finalResult.beforeDiagnosis, beforeDiagnosis)
+    || !isDeepStrictEqual(finalResult.afterDiagnosis, afterDiagnosis)
+    || !isDeepStrictEqual(finalResult.infraExecution, execution)
+    || finalResult.status !== expectedStatus) {
+    return { invalid: 'portable final-result.json이 현재 T5 실행 결과와 맞지 않습니다.' };
+  }
+  if (finalResult.status === 'INVALID') {
+    return { invalid: 'portable final-result.json이 INVALID로 끝났습니다.' };
+  }
+  return {
+    manifest: { k6ExitCode: execution.phases.k6.exitCode, t5ReadOptions },
+    summary,
+    afterArtifact: afterDiagnosis.status === 'PASS'
+      ? { verification: afterDiagnosis }
+      : { verification: afterDiagnosis, failed: 'portable after diagnosis가 FAIL로 끝났습니다.' },
+    finalFailure: finalResult.status === 'FAIL' ? 'portable final-result.json이 FAIL로 끝났습니다.' : null,
+  };
+}
+
+function completedT5Artifact(fixturePath, fixture, context) {
+  if (existsSync(path.join(path.dirname(fixturePath), 'manifest.json'))) {
+    const artifact = completedPortableT5Artifact(fixturePath, fixture, context);
+    return artifact.invalid ? { failure: artifact.invalid } : artifact;
+  }
+  return completedRunArtifact(fixturePath, fixture);
 }
 
 function t5AfterVerificationArtifact(fixturePath, fixture) {
@@ -634,6 +766,7 @@ function t5AfterVerificationArtifact(fixturePath, fixture) {
 function compareT5(values) {
   const runId = String(values.runId || '').trim();
   const outputDirectory = t5ComparisonDirectory(runId);
+  const bundleContext = portableBundleContext();
   const fixturePaths = readdirSync(outputDirectory, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => path.join(outputDirectory, entry.name, 'fixture.json'))
@@ -659,21 +792,24 @@ function compareT5(values) {
       continue;
     }
 
-    const runArtifact = completedRunArtifact(fixturePath, fixture);
+    const runArtifact = completedT5Artifact(fixturePath, fixture, bundleContext);
     if (runArtifact.failure) {
       invalidArtifact = true;
       failures.push(`T5 ${caseKey}: ${runArtifact.failure}`);
       continue;
     }
+    if (runArtifact.finalFailure) {
+      failures.push(`T5 ${caseKey}: ${runArtifact.finalFailure}`);
+    }
     if (runArtifact.manifest.k6ExitCode !== 0) {
       failures.push(`T5 ${caseKey}: k6 run이 exit=${runArtifact.manifest.k6ExitCode}로 종료되었습니다.`);
     }
-    const startSkewFailure = t5StartSkewMetricFailure(runArtifact.summary, runArtifact.manifest);
+    const startSkewFailure = t5StartSkewMetricFailure(runArtifact.summary, runArtifact.manifest.t5ReadOptions);
     if (startSkewFailure) {
       failures.push(`T5 ${caseKey}: ${startSkewFailure}`);
       continue;
     }
-    const afterArtifact = t5AfterVerificationArtifact(fixturePath, fixture);
+    const afterArtifact = runArtifact.afterArtifact || t5AfterVerificationArtifact(fixturePath, fixture);
     if (afterArtifact.invalid) {
       invalidArtifact = true;
       failures.push(`T5 ${caseKey}: ${afterArtifact.invalid}`);
@@ -928,7 +1064,7 @@ function verify(values) {
     failures.push(`k6 run이 exit=${runManifest.k6ExitCode}로 종료되었습니다.`);
   }
   if (runManifest && fixture.options.scenario === 't5') {
-    const startSkewFailure = t5StartSkewMetricFailure(summary, runManifest);
+    const startSkewFailure = t5StartSkewMetricFailure(summary, runManifest.t5ReadOptions);
     if (startSkewFailure) {
       failures.push(startSkewFailure);
     }
