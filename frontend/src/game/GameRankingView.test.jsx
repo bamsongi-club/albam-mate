@@ -70,12 +70,12 @@ describe('인기 게임 랭킹 화면', () => {
     expect(getGameRankings.mock.calls.length).toBe(1);
   });
 
-  it('게임명과 함께 영문명·출시 연도와 한 줄 설명을 표시한다', async () => {
+  it('게임명과 함께 영문명·출시 연도를 표시한다', async () => {
     render(<GameRankingView dataVersion={0} />);
     await act(async () => {});
 
+    expect(screen.getByText('카탄')).toBeTruthy();
     expect(screen.getByText('Catan (1995)')).toBeTruthy();
-    expect(screen.getByText('자원을 모아 섬을 개척하세요.')).toBeTruthy();
     // 출시 연도가 없으면 괄호 없이 영문명만 남는다.
     expect(screen.getByText('Carcassonne')).toBeTruthy();
   });
@@ -84,7 +84,7 @@ describe('인기 게임 랭킹 화면', () => {
     getGameRankings.mockReturnValue(new Promise(() => {}));
     render(<GameRankingView dataVersion={0} />);
 
-    expect(screen.getByText('불러오는 중…')).toBeTruthy();
+    expect(screen.getByRole('status', { name: '불러오는 중' })).toBeTruthy();
   });
 
   it('랭킹이 비어 있으면 탭마다 다른 안내를 표시한다', async () => {

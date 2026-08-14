@@ -69,7 +69,12 @@ async function renderGamesView() {
 }
 
 function openFilterPanel() {
-  fireEvent.click(screen.getByLabelText('조건 필터'));
+  fireEvent.click(screen.getByRole('button', { name: /게임 필터/ }));
+}
+
+// 시트는 결과 보기 CTA로 닫는다.
+function closeFilterPanel() {
+  fireEvent.click(screen.getByRole('button', { name: /게임 보기$/ }));
 }
 
 function mechanismGroup() {
@@ -166,11 +171,12 @@ describe('T2·T3 게임 조건 필터 조회 시점', () => {
     fireEvent.change(input, { target: { value: '10' } });
     expect(lastQuery().youngestPlayerAge).toBe('10');
     expect(lastQuery()).not.toHaveProperty('ageBand');
-    expect(screen.getByRole('button', { name: '최연소 10세 조건 해제' })).toBeTruthy();
+    // 걸린 조건 수는 필터 버튼 이름에 남는다.
+    expect(screen.getByRole('button', { name: '게임 필터 1' })).toBeTruthy();
 
     fireEvent.change(input, { target: { value: '' } });
     expect(lastQuery().youngestPlayerAge).toBe('');
-    expect(screen.queryByRole('button', { name: '최연소 10세 조건 해제' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '게임 필터 1' })).toBeNull();
   });
 
   it('필터 영역을 닫았다 다시 열어도 입력과 선택을 유지한다', async () => {
@@ -179,7 +185,7 @@ describe('T2·T3 게임 조건 필터 조회 시점', () => {
     fireEvent.change(screen.getByLabelText('최소'), { target: { value: '2' } });
     fireEvent.click(screen.getByLabelText('90분 이상'));
 
-    fireEvent.click(screen.getByText('닫기'));
+    closeFilterPanel();
     expect(screen.queryByLabelText('최소')).toBeNull();
 
     openFilterPanel();
@@ -320,8 +326,9 @@ describe('T4 대표 메커니즘과 설명', () => {
     const tooltip = document.getElementById(hint.getAttribute('aria-describedby'));
     expect(tooltip.getAttribute('role')).toBe('tooltip');
     expect(tooltip.textContent.trim()).not.toBe('');
-    // 화면을 막는 모달을 쓰지 않으므로 다른 조건을 보면서 설명을 읽을 수 있다.
-    expect(screen.queryByRole('dialog')).toBeNull();
+    // 말풍선은 화면을 막지 않으므로 다른 조건을 보면서 설명을 읽을 수 있다.
+    expect(tooltip.getAttribute('aria-modal')).toBeNull();
+    expect(screen.getByLabelText('90분 이상')).toBeTruthy();
   });
 
   it('아이콘을 다시 누르면 말풍선을 닫는다', async () => {
@@ -524,7 +531,7 @@ describe('T4 대표 메커니즘과 설명', () => {
     const stylesCss = readFileSync(stylesPath, 'utf-8');
     const rule = stylesCss.match(/\.mechanism-hint-text\s*\{[^}]*\}/)[0];
 
-    expect(rule).toMatch(/max-height:\s*calc\(100vh - 16px\)/);
+    expect(rule).toMatch(/max-height:\s*calc\(100dvh - 16px\)/);
     expect(rule).toMatch(/overflow-y:\s*auto/);
   });
 
@@ -789,7 +796,7 @@ describe('T6 메커니즘 선택과 조회', () => {
     openFilterPanel();
 
     fireEvent.click(screen.getByLabelText('핸드 관리'));
-    fireEvent.click(screen.getByText('닫기'));
+    closeFilterPanel();
     openFilterPanel();
 
     expect(getGameMechanisms).toHaveBeenCalledTimes(1);
@@ -802,7 +809,8 @@ describe('T10 조건 조합', () => {
     fireEvent.change(screen.getByLabelText('최대'), { target: { value: '4' } });
     fireEvent.click(screen.getByLabelText('90분 이상'));
     fireEvent.click(screen.getByLabelText('핸드 관리'));
-    fireEvent.click(within(screen.getByRole('group', { name: '해 본 게임' })).getByLabelText('해 본 게임만'));
+    // 해 본 게임 조건은 칩 줄에서 고른다.
+    fireEvent.click(screen.getByRole('button', { name: '해 본 게임만' }));
     fireEvent.click(within(screen.getByRole('group', { name: '게임 난이도' })).getByLabelText('3점대'));
     fireEvent.click(screen.getByLabelText('예정 모임 있는 게임만'));
     act(() => { vi.advanceTimersByTime(400); });
@@ -835,14 +843,12 @@ describe('T10 조건 조합', () => {
     openFilterPanel();
     applyEveryCondition();
 
-    ['2~4명', '90분 이상', '핸드 관리', '해 본 게임만', '난이도 3점대', '예정 모임 있음'].forEach((label) => {
-      expect(screen.getByLabelText(label + ' 조건 해제')).toBeTruthy();
-    });
+    expect(screen.getByRole('button', { name: '게임 필터 6' })).toBeTruthy();
 
     fireEvent.click(screen.getByText('초기화'));
     act(() => { vi.advanceTimersByTime(400); });
 
-    expect(screen.queryByLabelText('핸드 관리 조건 해제')).toBeNull();
+    expect(screen.queryByRole('button', { name: /게임 필터 \d/ })).toBeNull();
     expect(lastQuery()).toMatchObject({
       playerCountMin: '',
       playTime: [],
@@ -857,13 +863,13 @@ describe('T10 조건 조합', () => {
     openFilterPanel();
     applyEveryCondition();
 
-    fireEvent.click(screen.getByText('닫기'));
+    closeFilterPanel();
     openFilterPanel();
 
     expect(screen.getByLabelText('최소').value).toBe('2');
     expect(screen.getByLabelText('90분 이상').checked).toBe(true);
     expect(screen.getByLabelText('핸드 관리').checked).toBe(true);
-    expect(within(screen.getByRole('group', { name: '해 본 게임' })).getByLabelText('해 본 게임만').checked).toBe(true);
+    expect(screen.getByRole('button', { name: '해 본 게임만' }).getAttribute('aria-pressed')).toBe('true');
   });
 
   it('조건을 건 조회의 로딩과 빈 결과를 그대로 알린다', async () => {
@@ -872,7 +878,7 @@ describe('T10 조건 조합', () => {
     await renderGamesView();
 
     // 목록 자리에 불러오는 중임을 알린다.
-    expect(screen.getByText('불러오는 중…')).toBeTruthy();
+    expect(screen.getByText('불러오는 중')).toBeTruthy();
 
     await act(async () => { resolvePage(EMPTY_PAGE); });
     expect(screen.getByText(/검색 결과가 없어요/)).toBeTruthy();
@@ -884,5 +890,30 @@ describe('T10 조건 조합', () => {
     await renderGamesView();
 
     expect(screen.getByText('요청을 처리하지 못했어요.')).toBeTruthy();
+  });
+});
+
+describe('필터 시트 키보드 조작', () => {
+  it('시트를 열면 포커스를 안에 가두고 닫을 때 필터 버튼으로 되돌린다', async () => {
+    await renderGamesView();
+    const toggle = screen.getByRole('button', { name: /게임 필터/ });
+    openFilterPanel();
+
+    const sheet = screen.getByRole('dialog');
+    expect(sheet.contains(document.activeElement)).toBe(true);
+
+    // 마지막 조작에서 Tab을 누르면 뒤쪽 칩 줄이 아니라 시트의 처음으로 돌아온다.
+    const focusables = [...sheet.querySelectorAll('a[href], button, input, select, textarea')].filter((node) => !node.disabled);
+    const last = focusables[focusables.length - 1];
+    last.focus();
+    fireEvent.keyDown(window, { key: 'Tab' });
+    expect(document.activeElement).toBe(focusables[0]);
+
+    // 첫 조작에서 Shift+Tab은 마지막으로 돈다.
+    fireEvent.keyDown(window, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(last);
+
+    closeFilterPanel();
+    expect(document.activeElement).toBe(toggle);
   });
 });

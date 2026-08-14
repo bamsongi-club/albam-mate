@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api';
-import { ErrorBox, LoadingBox, Pagination, SearchHeader, SectionIcon } from '../shared/ui';
+import poweredByBgg from '../../assets/powered-by-bgg.svg';
+import { BggAttribution, CheckIcon, Cover, ErrorBox, PlusIcon, Pagination, RoomSkeletons, ScreenTitle, SearchIcon, StateBlock, TopBar } from '../shared/ui';
 import { usePaginatedRequest, useRequest } from '../shared/async';
-import { GAME_LIST_PAGE_SIZE, ROOM_LIST_PAGE_SIZE, EMPTY_GAME_FILTERS } from './constants';
+import { GAME_LIST_PAGE_SIZE, ROOM_LIST_PAGE_SIZE, EMPTY_GAME_FILTERS, PLAYED_FILTER_OPTIONS } from './constants';
 import { gameFilterParameters } from './filterLogic';
 import { gameMeta, normalizeGameSummary, normalizeRoom } from './data';
 import { GameFilters } from './GameFilters';
@@ -18,7 +19,11 @@ function metadataLabel(metadata) {
 }
 
 function LoginRequiredView({ message = '이 기능은 로그인 후 이용할 수 있어요.' }) {
-  return <div className="card"><h2>로그인이 필요해요</h2><p className="hint" style={{ marginBottom: 16 }}>{message}</p><a className="btn" href="#/auth">로그인 또는 회원가입</a></div>;
+  return (
+    <StateBlock title="로그인이 필요해요" description={message}>
+      <a className="btn" href="#/auth">로그인 또는 회원가입</a>
+    </StateBlock>
+  );
 }
 
 /**
@@ -27,46 +32,41 @@ function LoginRequiredView({ message = '이 기능은 로그인 후 이용할 �
  * 관계가 없거나 아직 판정하지 않은 상태를 `해보지 않음`으로 부르지 않고 눌리지 않은 상태로만 둔다.
  * 다른 사용자의 관계는 응답에 없으므로 화면에도 없다.
  */
-function PlayedGameToggle({ played, pending, onToggle, compact = false }) {
+function PlayedGameBadge({ played, pending, onToggle }) {
   const label = pending ? '저장 중…' : played ? '해봤어요 ✓' : '해봤어요';
   return (
     <button
       type="button"
-      className={'played-toggle' + (compact ? ' dot' : '') + (played ? ' on' : '')}
-      // 점만 두는 목록 카드에서도 조작 이름은 화면 낭독과 hover 안내로 남긴다.
-      aria-label={compact ? label : undefined}
-      title={compact ? label : undefined}
+      className={'played-badge' + (played ? ' on' : '')}
+      aria-label={label}
+      title={label}
       aria-pressed={played === true}
       disabled={pending}
-      onClick={onToggle}
+      onClick={(event) => { event.preventDefault(); onToggle(); }}
     >
-      {compact
-        ? <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
-        : label}
+      <CheckIcon />
     </button>
   );
 }
 
 function GameCard({ game, played, pending, onTogglePlayed }) {
   return (
-    <div className="gcard-shell">
-      <a className="gcard" href={'#/game/' + game.id}>
-        <div className="gart">{game.imageUrl ? <img src={game.imageUrl} alt="" loading="lazy" /> : '🎲'}</div>
-        <div className="gtitle">
-          <span className="gname">{game.title}</span>
-          {game.englishName && <span className="gen">{game.englishName}</span>}
-        </div>
-        {/* 카드 높이를 맞추려고 한 줄로 자른다. 잘린 뒷부분은 hover로 확인한다. */}
-        <div className="gmeta" title={gameMeta(game)}>{gameMeta(game)}</div>
-        <div className={'gsess' + (game.upcomingRoomCount ? '' : ' none')}>예정 모임 {game.upcomingRoomCount}개</div>
+    <div className="gamecard">
+      <a href={'#/game/' + game.id} aria-label={game.title + ' 상세'}>
+        <span className="cover-tile">
+          <Cover src={game.imageUrl} />
+        </span>
+        <span className="gamecard-name">{game.title}</span>
+        <span className="gamecard-meta">{gameMeta(game)}</span>
       </a>
-      {/* 카드 전체가 상세 링크라 해 본 게임 조작은 링크 밖에 두고 표지 모서리에 점으로 얹는다. */}
-      <PlayedGameToggle played={played} pending={pending} onToggle={onTogglePlayed} compact />
+      {/* 표지 위 체크 배지는 상세 링크 밖에 둔다. */}
+      <PlayedGameBadge played={played} pending={pending} onToggle={onTogglePlayed} />
+      {game.upcomingRoomCount > 0 && <span className="pill-green">열린 모임 {game.upcomingRoomCount}</span>}
     </div>
   );
 }
 
-export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, onPlayedError, initialFilters = EMPTY_GAME_FILTERS }) {
+export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, onPlayedError, headerActions, initialFilters = EMPTY_GAME_FILTERS }) {
   const [input, setInput] = useState(gameQuery);
   const [filters, setFilters] = useState(initialFilters);
   const keyword = gameQuery.trim();
@@ -76,31 +76,56 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
   // 해 본 게임 필터가 활성화된 동안에만 표시·취소 성공을 재조회 신호로 쓴다.
   // 그 외에는 조회 결과가 playedByMe로 걸러지지 않으므로 다시 부를 필요가 없다.
   const playedRefreshKey = filters.playedFilter ? playedGames.version : 0;
-  const { data, loading, error, unauthenticated, setPage } = usePaginatedRequest(
+  const { data, loading, error, unauthenticated, setPage, retry } = usePaginatedRequest(
     (page, signal) => api.getGames({ keyword, ...parameters, page, size: GAME_LIST_PAGE_SIZE }, signal),
     [keyword, filterKey, dataVersion, playedRefreshKey]
   );
   const games = (data?.content || []).map(normalizeGameSummary);
+  const total = data?.totalElements ?? 0;
   useEffect(() => setInput(gameQuery), [gameQuery]);
+
+  const playedChips = (
+    <>
+      {PLAYED_FILTER_OPTIONS.map((option) => (
+        <button
+          type="button"
+          key={option.value || 'all'}
+          className={'chip' + (filters.playedFilter === option.value ? ' on' : '')}
+          aria-pressed={filters.playedFilter === option.value}
+          onClick={() => setFilters((current) => ({ ...current, playedFilter: option.value }))}
+        >
+          {option.label}
+        </button>
+      ))}
+    </>
+  );
+
   return (
     <>
-      <SearchHeader
-        icon="games"
-        title={title}
-        keywordId="game-q"
-        keywordLabel="게임 이름 검색"
-        inputValue={input}
-        onInputChange={(event) => setInput(event.target.value)}
-        onSubmit={(event) => { event.preventDefault(); onGameQueryChange(input.trim()); }}
-        placeholder="게임 이름으로 검색"
-        filtersSlot={(searchSlot) => <GameFilters searchSlot={searchSlot} filters={filters} onChange={setFilters} />}
-      />
-      {error && (unauthenticated
-        ? <LoginRequiredView message="해 본 게임으로 거르려면 로그인해주세요." />
-        : <ErrorBox message={error} />)}
-      {!error && loading && !data && <LoadingBox />}
+      <div className="screen-body pad-top">
+        <ScreenTitle actions={headerActions}>{title}</ScreenTitle>
+        <form
+          className="searchbox"
+          style={{ marginTop: 16 }}
+          onSubmit={(event) => { event.preventDefault(); onGameQueryChange(input.trim()); }}
+        >
+          <SearchIcon />
+          <label className="sr-only" htmlFor="game-q">게임 이름 검색</label>
+          <input id="game-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임 이름으로 검색" />
+        </form>
+        <GameFilters filters={filters} onChange={setFilters} quickSlot={playedChips} resultCount={total} />
+        {!error && <p className="section-label" style={{ marginTop: 18 }}>{loading && !data ? '불러오는 중' : '게임 ' + total + '개'}</p>}
+      </div>
+      {error && (
+        <div className="screen-body pad-bottom" style={{ paddingTop: 26 }}>
+          {unauthenticated
+            ? <LoginRequiredView message="해 본 게임으로 거르려면 로그인해주세요." />
+            : <ErrorBox message={error} title="게임을 불러오지 못했어요" onRetry={retry} />}
+        </div>
+      )}
+      {!error && loading && !data && <div className="screen-body pad-bottom" style={{ paddingTop: 22 }}><RoomSkeletons count={3} /></div>}
       {!error && !!games.length && (
-        <div className="grid cols3">
+        <div className="gamegrid">
           {games.map((game) => (
             <GameCard
               key={game.id}
@@ -112,90 +137,142 @@ export function GamesView({ title, gameQuery, onGameQueryChange, dataVersion, on
           ))}
         </div>
       )}
-      {!error && !loading && !games.length && <div className="infobox" style={{ marginTop: 14 }}>검색 결과가 없어요. 다른 게임 이름으로 다시 찾아보세요.</div>}
-      {!error && !!games.length && <Pagination page={data?.page ?? 0} totalPages={data?.totalPages ?? 0} loading={loading} onChange={setPage} />}
+      {!error && !loading && !games.length && (
+        <div className="screen-body pad-bottom" style={{ paddingTop: 26 }}>
+          <StateBlock title="검색 결과가 없어요" description="게임 이름의 일부만 넣어보세요." />
+        </div>
+      )}
+      {!error && !!games.length && (
+        <div className="screen-body pad-bottom">
+          <Pagination page={data?.page ?? 0} totalPages={data?.totalPages ?? 0} loading={loading} onChange={setPage} />
+        </div>
+      )}
     </>
   );
 }
 
-export function GameDetailView({ gameId, onCreateGame, dataVersion, onPlayedError, renderRoom }) {
+function ComplexityPips({ complexity }) {
+  const score = Number(complexity);
+  const filled = Number.isFinite(score) ? Math.round(score) : 0;
+  return (
+    <p className="game-pips">
+      {Array.from({ length: 5 }, (_, index) => <i className={index < filled ? 'on' : ''} key={index} aria-hidden="true" />)}
+      <span>난이도 {complexity}</span>
+    </p>
+  );
+}
+
+export function GameDetailView({ gameId, onCreateGame, onBack, dataVersion, onPlayedError, renderRoom }) {
   const playedGames = usePlayedGames(onPlayedError);
-  const { data: gameData, loading: gameLoading, error: gameError } = useRequest(
+  const { data: gameData, loading: gameLoading, error: gameError, retry: retryGame } = useRequest(
     (signal) => api.getGame(gameId, signal),
     [gameId, dataVersion]
   );
-  const { data: roomPage, loading: roomsLoading, error: roomsError, setPage: setRoomPage } = usePaginatedRequest(
+  const { data: roomPage, loading: roomsLoading, error: roomsError, setPage: setRoomPage, retry: retryRooms } = usePaginatedRequest(
     (page, signal) => api.getRooms({ type: 'GAME_FOCUSED', gameId, page, size: ROOM_LIST_PAGE_SIZE }, signal),
     [gameId, dataVersion]
   );
-  if (gameError || roomsError) return <ErrorBox message={gameError || roomsError} />;
-  if ((gameLoading || roomsLoading) && (!gameData || !roomPage)) return <LoadingBox />;
   const game = gameData ? normalizeGameSummary(gameData) : null;
-  if (!game) return <div className="card">게임을 찾을 수 없어요.</div>;
+  const played = game ? playedGames.stateOf(game) : false;
+
+  if (gameError || roomsError) {
+    return (
+      <div className="screen sub">
+        <TopBar onBack={onBack} />
+        <div className="screen-body pad-bottom"><ErrorBox message={gameError || roomsError} title="게임을 불러오지 못했어요" onRetry={() => { retryGame(); retryRooms(); }} /></div>
+      </div>
+    );
+  }
+  if ((gameLoading || roomsLoading) && (!gameData || !roomPage)) {
+    return (
+      <div className="screen sub">
+        <TopBar onBack={onBack} />
+        <div className="screen-body pad-bottom"><RoomSkeletons count={2} /></div>
+      </div>
+    );
+  }
+  if (!game) {
+    return (
+      <div className="screen sub">
+        <TopBar onBack={onBack} />
+        <div className="screen-body pad-bottom"><StateBlock title="게임을 찾을 수 없어요" description="주소를 다시 확인해주세요." /></div>
+      </div>
+    );
+  }
+
+  const categories = game.categories.map(metadataLabel).filter(Boolean);
   const themes = game.themes.map(metadataLabel).filter(Boolean);
   const mechanisms = game.mechanisms.map(metadataLabel).filter(Boolean);
-  const identityMeta = [game.englishName, game.releaseYear && String(game.releaseYear), game.minAge && game.minAge + '세+'].filter(Boolean);
-  const detailStats = [
+  const specs = [
     { label: '인원', value: game.players },
-    { label: '플레이', value: game.time },
-    { label: '난이도', value: game.complexity }
-  ].filter((stat) => stat.value);
-  const features = [
-    game.tag && { type: 'tag', value: game.tag },
-    ...themes.map((value) => ({ type: 'theme', value })),
-    ...mechanisms.map((value) => ({ type: 'mechanism', value }))
-  ].filter(Boolean);
-  const rooms = (roomPage?.content || []).map(normalizeRoom);
-  const upcomingRooms = rooms.filter((room) => !hasStarted(room));
+    { label: '플레이 시간', value: game.time },
+    { label: '권장 연령', value: game.minAge ? game.minAge + '세+' : '' }
+  ].filter((spec) => spec.value);
+  const tags = [...categories, ...themes, ...mechanisms];
+  const rooms = (roomPage?.content || []).map(normalizeRoom).filter((room) => !hasStarted(room));
+
   return (
-    <div className="game-detail-page">
-      <a className="game-detail-mobile-back" href="#/game-list" aria-label="게임 목록으로 돌아가기">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
-      </a>
-      <section className="card game-detail-summary" aria-labelledby="game-detail-title">
-        <div className="detail-head game-detail-head">
-          <div className="dart game-detail-cover">{game.imageUrl ? <img src={game.imageUrl} alt="" /> : '🎲'}</div>
-          <div className="game-detail-copy">
-            <div className="game-detail-identity">
-              <h1 id="game-detail-title">{game.title}</h1>
-              <div className="game-detail-identity-meta">
-                {identityMeta.length > 0 && <p className="game-detail-english">{identityMeta.join(' · ')}</p>}
-                <div className="game-detail-utility">
-                  <PlayedGameToggle
-                    played={playedGames.stateOf(game)}
-                    pending={playedGames.isPending(game)}
-                    onToggle={() => playedGames.toggle(game)}
-                  />
-                </div>
-              </div>
-            </div>
-            {(detailStats.length > 0 || features.length > 0) && (
-              <section className="game-detail-overview" aria-label="게임 정보">
-                {detailStats.length > 0 && (
-                  <dl className="game-detail-stats">
-                    {detailStats.map((stat) => <div key={stat.label}><dt>{stat.label}</dt><dd>{stat.value}</dd></div>)}
-                  </dl>
-                )}
-                {features.length > 0 && (
-                  <div className="game-detail-features">
-                    <div className="game-detail-tags" aria-label="게임 테마와 메커니즘">
-                      {features.map((feature) => <span className="chip" key={feature.type + '-' + feature.value}>{feature.value}</span>)}
-                    </div>
-                  </div>
-                )}
-              </section>
+    <div className="screen sub">
+      <TopBar onBack={onBack} backLabel="게임 목록으로" />
+      <div className="screen-body pad-bottom">
+        <div className="game-head">
+          <div className="game-head-tile"><Cover src={game.imageUrl} /></div>
+          <div className="game-head-copy">
+            <h1>{game.title}</h1>
+            {/* 값이 없는 항목은 자리를 비운다. 추정하거나 대체값을 넣지 않는다. */}
+            {(game.englishName || game.releaseYear) && (
+              <p className="game-head-en">{[game.englishName, game.releaseYear].filter(Boolean).join(' · ')}</p>
             )}
-            {game.description && <p className="game-detail-description">{game.description}</p>}
+            {!!categories.length && <p className="game-head-cat">{categories.join(' · ')}</p>}
+            {game.complexity && <ComplexityPips complexity={game.complexity} />}
           </div>
         </div>
-      </section>
-      <section className="game-detail-rooms" aria-labelledby="game-detail-rooms-title">
-        <h2 id="game-detail-rooms-title">이 게임으로 열린 모임 <span className="cnt">{roomPage?.totalElements ?? upcomingRooms.length}</span></h2>
-        {upcomingRooms.length ? <div className="grid cols2">{upcomingRooms.map((room) => renderRoom?.(room))}</div> : <div className="infobox">아직 공개 예정 모임이 없어요. 첫 모임을 만들어보세요.</div>}
+
+        {!!specs.length && (
+          <dl className="game-specs">
+            {specs.map((spec) => <div key={spec.label}><dt>{spec.label}</dt><dd>{spec.value}</dd></div>)}
+          </dl>
+        )}
+
+        {!!tags.length && (
+          <div className="taglist" aria-label="게임 카테고리와 테마, 메커니즘">
+            {tags.map((tag) => <span className="tag" key={tag}>{tag}</span>)}
+          </div>
+        )}
+
+        <button
+          type="button"
+          className={'btn' + (played ? '' : ' fill')}
+          style={{ marginTop: 24 }}
+          aria-pressed={played === true}
+          disabled={playedGames.isPending(game)}
+          onClick={() => playedGames.toggle(game)}
+        >
+          <CheckIcon size={17} width={2.6} />
+          {playedGames.isPending(game) ? '저장 중…' : '해봤어요'}
+        </button>
+
+        {game.description && (
+          <>
+            <div className="divider" style={{ margin: '26px 0' }} />
+            <p className="longtext">{game.description}</p>
+          </>
+        )}
+
+        <h2 className="section-title" style={{ marginTop: 30 }}>이 게임으로 열린 모임 {roomPage?.totalElements ?? rooms.length}</h2>
+        <div className="roomlist" style={{ marginTop: 18 }}>
+          {rooms.length
+            ? rooms.map((room) => renderRoom?.(room))
+            : <p className="screen-lead">아직 이 게임으로 열린 모임이 없어요. 첫 모임을 열어보세요.</p>}
+        </div>
         <Pagination page={roomPage?.page ?? 0} totalPages={roomPage?.totalPages ?? 0} loading={roomsLoading} onChange={setRoomPage} />
-      </section>
-      <div className="game-detail-actions">
-        <button className="btn game-detail-create" type="button" onClick={() => onCreateGame(game)}>게임 모임 만들기</button>
+
+        <BggAttribution logoSrc={poweredByBgg} />
+      </div>
+      <div className="stickybar">
+        <button className="btn cta" type="button" onClick={() => onCreateGame(game)}>
+          <PlusIcon size={17} />이 게임으로 모임 만들기
+        </button>
       </div>
     </div>
   );

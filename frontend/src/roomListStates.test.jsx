@@ -27,6 +27,29 @@ function emptyPage() {
   return { content: [], page: 0, size: 10, totalElements: 0, totalPages: 0 };
 }
 
+function room(id) {
+  return {
+    id,
+    title: '모임 ' + id,
+    roomType: 'GAME_FOCUSED',
+    status: 'RECRUITING',
+    startsAt: '2099-09-01T19:00:00+09:00',
+    place: '강남',
+    region: '강남',
+    experienceLevel: 'BEGINNER_WELCOME',
+    isRulemasterLed: false,
+    participantCount: 1,
+    recruitmentCapacity: 3,
+    remainingRecruitmentSeats: 3,
+    participants: [],
+    game: null
+  };
+}
+
+function roomPage(ids, { page = 0, total, hasNext = false } = {}) {
+  return { content: ids.map(room), page, size: 10, totalElements: total ?? ids.length, totalPages: 2, hasNext };
+}
+
 function renderFindRooms(props = {}) {
   return render(
     <FindRoomsView
@@ -58,7 +81,10 @@ describe('모임 찾기 예외 화면', () => {
     await act(async () => {});
 
     expect(screen.getByRole('heading', { name: '조건에 맞는 모임이 없어요' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: '모임 만들기' }).getAttribute('href')).toBe('#/create');
+    // 타이틀 줄의 + 버튼과 빈 결과 안내가 같은 곳으로 간다.
+    screen.getAllByRole('link', { name: '모임 만들기' }).forEach((link) => {
+      expect(link.getAttribute('href')).toBe('#/create');
+    });
 
     fireEvent.click(screen.getByRole('button', { name: '필터 초기화' }));
     expect(onRoomTypeChange).toHaveBeenCalledWith('');
@@ -71,6 +97,48 @@ describe('모임 찾기 예외 화면', () => {
     renderFindRooms();
 
     expect(screen.getByRole('status', { name: '모임 목록을 불러오는 중' })).toBeTruthy();
+  });
+
+  it('남은 건수를 알리는 더 보기로 목록을 이어 붙인다', async () => {
+    getRooms.mockImplementation(({ page }) => Promise.resolve(
+      page === 0
+        ? roomPage([1, 2], { page: 0, total: 3, hasNext: true })
+        : roomPage([3], { page: 1, total: 3, hasNext: false })
+    ));
+    renderFindRooms();
+    await act(async () => {});
+
+    expect(screen.getByRole('button', { name: '1개 더 보기' })).toBeTruthy();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '1개 더 보기' })); });
+
+    // 다음 페이지로 갈아치우지 않고 앞 페이지 아래에 이어 붙인다.
+    expect(screen.getByText('모임 1')).toBeTruthy();
+    expect(screen.getByText('모임 3')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /더 보기$/ })).toBeNull();
+  });
+
+  it('조건이 바뀌면 쌓아 둔 목록을 처음부터 다시 채운다', async () => {
+    getRooms.mockResolvedValue(roomPage([1, 2], { total: 5, hasNext: true }));
+    const view = renderFindRooms();
+    await act(async () => {});
+    expect(screen.getByRole('button', { name: '3개 더 보기' })).toBeTruthy();
+
+    getRooms.mockResolvedValue(roomPage([9], { total: 1, hasNext: false }));
+    view.rerender(
+      <FindRoomsView
+        roomType="GAME_FOCUSED"
+        onRoomTypeChange={vi.fn()}
+        roomQuery=""
+        onRoomQueryChange={vi.fn()}
+        roomFilters={EMPTY_FILTERS}
+        onRoomFiltersChange={vi.fn()}
+        dataVersion={0}
+      />
+    );
+    await act(async () => {});
+
+    expect(screen.queryByText('모임 1')).toBeNull();
+    expect(screen.getByText('모임 9')).toBeTruthy();
   });
 
   it('목록 조회가 실패하면 다시 시도할 수 있다', async () => {

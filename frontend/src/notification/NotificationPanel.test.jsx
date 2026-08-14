@@ -10,10 +10,9 @@ afterEach(() => {
 
 function renderPanel(overrides = {}) {
   const properties = {
-    open: true,
     notifications: [],
     listStatus: 'ready',
-    onClose: vi.fn(),
+    onBack: vi.fn(),
     onRetry: vi.fn(),
     onSelectNotification: vi.fn(),
     onMarkAllAsRead: vi.fn(),
@@ -21,27 +20,6 @@ function renderPanel(overrides = {}) {
     ...overrides
   };
   return { properties, ...render(<NotificationPanel {...properties} />) };
-}
-
-function ModalHarness({ open, onClose }) {
-  return (
-    <>
-      <button type="button">알림 열기</button>
-      <main>알림함 뒤 본문</main>
-      <NotificationPanel
-        open={open}
-        isModal
-        notifications={[]}
-        listStatus="ready"
-        canMarkAllAsRead
-        onClose={onClose}
-        onRetry={vi.fn()}
-        onSelectNotification={vi.fn()}
-        onMarkAllAsRead={vi.fn()}
-        onRetrySynchronization={vi.fn()}
-      />
-    </>
-  );
 }
 
 describe('#499 T8 자동 승격 알림 표시와 선택', () => {
@@ -145,10 +123,10 @@ describe('모바일 알림 목록 구조', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '알림함 닫기' }));
 
-    expect(properties.onClose).toHaveBeenCalledOnce();
+    expect(properties.onBack).toHaveBeenCalledOnce();
   });
 
-  it('생성 시각과 읽음 상태를 날짜별 카드 흐름으로 구분한다', () => {
+  it('생성 시각과 읽음 상태를 점과 글씨 굵기로 구분한다', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-08-11T12:00:00+09:00'));
 
@@ -181,39 +159,11 @@ describe('모바일 알림 목록 구조', () => {
       ]
     });
 
-    expect([...container.querySelectorAll('.notification-section-title')].map((heading) => heading.textContent))
-      .toEqual(['오늘', '지난 7일', '이전 알림']);
-    expect(container.querySelector('.notification-item-icon.green')).toBeTruthy();
-    expect(container.querySelector('.notification-item.unread .notification-unread-dot')).toBeTruthy();
+    // 알림은 한 흐름으로 세우고 미읽음만 빨간 점과 굵은 글씨로 구분한다.
+    expect(container.querySelectorAll('.notification-item').length).toBe(3);
+    expect(container.querySelectorAll('.notification-item.unread .notification-dot').length).toBe(2);
     expect(screen.getByRole('button', { name: /이전 모임/ }).classList.contains('read')).toBe(true);
-  });
-
-  it('전체 화면에서는 키보드 모달로 열고 닫으며 초점을 되돌린다', () => {
-    const onClose = vi.fn();
-    const { rerender } = render(<ModalHarness open={false} onClose={onClose} />);
-    const trigger = screen.getByRole('button', { name: '알림 열기' });
-    trigger.focus();
-
-    rerender(<ModalHarness open onClose={onClose} />);
-
-    const dialog = screen.getByRole('dialog', { name: '알림함' });
-    const closeButton = screen.getByRole('button', { name: '알림함 닫기' });
-    const readAllButton = screen.getByRole('button', { name: '모두 읽음' });
-    expect(dialog.getAttribute('aria-modal')).toBe('true');
-    expect(document.activeElement).toBe(closeButton);
-    expect(document.querySelector('main')?.hasAttribute('inert')).toBe(true);
-
-    readAllButton.focus();
-    fireEvent.keyDown(readAllButton, { key: 'Tab' });
-    expect(document.activeElement).toBe(closeButton);
-    fireEvent.keyDown(closeButton, { key: 'Tab', shiftKey: true });
-    expect(document.activeElement).toBe(readAllButton);
-
-    fireEvent.keyDown(readAllButton, { key: 'Escape' });
-    expect(onClose).toHaveBeenCalledOnce();
-
-    rerender(<ModalHarness open={false} onClose={onClose} />);
-    expect(document.activeElement).toBe(trigger);
-    expect(document.querySelector('main')?.hasAttribute('inert')).toBe(false);
+    expect([...container.querySelectorAll('.notification-item time')].map((time) => time.getAttribute('datetime')))
+      .toEqual(['2026-08-11T18:05:00+09:00', '2026-08-08T18:31:00+09:00', '2026-08-03T18:00:00+09:00']);
   });
 });

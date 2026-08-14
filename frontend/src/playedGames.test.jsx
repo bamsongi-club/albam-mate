@@ -7,6 +7,7 @@ const getGame = vi.fn();
 const getRooms = vi.fn();
 const markGamePlayed = vi.fn();
 const unmarkGamePlayed = vi.fn();
+const getMyRooms = vi.fn();
 
 class TestApiError extends Error {
   constructor({ status, code, message }) {
@@ -28,6 +29,7 @@ vi.mock('./api', () => ({
     getGameThemes: vi.fn().mockResolvedValue([]),
     markGamePlayed: (...parameters) => markGamePlayed(...parameters),
     unmarkGamePlayed: (...parameters) => unmarkGamePlayed(...parameters),
+    getMyRooms: (...parameters) => getMyRooms(...parameters),
     getMyProfile: vi.fn(),
     getNotifications: vi.fn(),
     getUnreadNotificationCount: vi.fn()
@@ -78,12 +80,16 @@ function playedToggle() {
 }
 
 function openFilterPanel() {
-  fireEvent.click(screen.getByLabelText('조건 필터'));
+  fireEvent.click(screen.getByRole('button', { name: /게임 필터/ }));
 }
 
-// 게임 난이도 조건도 `전체`를 제공하므로 관계 필터는 그룹 안에서 찾는다.
+// 관계 필터는 검색창 아래 칩 줄에서 고른다.
 function playedFilterOption(label) {
-  return within(screen.getByRole('group', { name: '해 본 게임' })).getByLabelText(label);
+  return screen.getByRole('button', { name: label });
+}
+
+function isSelected(chip) {
+  return chip.getAttribute('aria-pressed') === 'true';
 }
 
 function lastQuery() {
@@ -162,14 +168,13 @@ describe('T7 해 본 게임 표시와 취소', () => {
 
     expect(markGamePlayed).toHaveBeenCalledWith('7');
     expect(playedToggle().getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByRole('button', { name: '해봤어요 ✓' })).toBeTruthy();
   });
 
-  it('상세 화면의 게임 모임 만들기 버튼은 선택한 게임을 생성 화면으로 넘긴다', async () => {
+  it('상세 화면의 모임 만들기 버튼은 선택한 게임을 생성 화면으로 넘긴다', async () => {
     const onCreateGame = vi.fn();
     await renderGameDetailView({ onCreateGame });
 
-    fireEvent.click(screen.getByRole('button', { name: '게임 모임 만들기' }));
+    fireEvent.click(screen.getByRole('button', { name: '이 게임으로 모임 만들기' }));
 
     expect(onCreateGame).toHaveBeenCalledWith(expect.objectContaining({ id: '7', title: '루미큐브' }));
   });
@@ -182,7 +187,7 @@ describe('T7 해 본 게임 표시와 취소', () => {
     });
     await renderGameDetailView();
 
-    expect(screen.getByLabelText('게임 정보')).toBeTruthy();
+    expect(screen.getByLabelText('게임 카테고리와 테마, 메커니즘')).toBeTruthy();
     expect(screen.queryByText('특징')).toBeNull();
     expect(screen.getByText('판타지')).toBeTruthy();
     expect(screen.getByText('전쟁')).toBeTruthy();
@@ -194,36 +199,28 @@ describe('T7 해 본 게임 표시와 취소', () => {
     getGame.mockResolvedValue({ ...GAME, releaseYear: 1990, minAge: 8 });
     await renderGameDetailView();
 
-    expect(screen.getByText('Rummikub · 1990 · 8세+')).toBeTruthy();
+    expect(screen.getByText('Rummikub · 1990')).toBeTruthy();
+    // 권장 연령은 인원·플레이 시간과 같은 줄의 항목으로 둔다.
+    expect(screen.getByText('권장 연령')).toBeTruthy();
+    expect(screen.getByText('8세+')).toBeTruthy();
     expect(screen.getByRole('button', { name: '해봤어요' })).toBeTruthy();
   });
 });
 
-describe('프로필의 플레이한 게임 미리보기', () => {
-  it('최근 플레이한 게임 세 개와 전체 목록 진입점을 표시한다', async () => {
-    getGames.mockResolvedValue({
-      content: [
-        { ...GAME, id: 7, name: '루미큐브' },
-        { ...GAME, id: 8, name: '윙스팬' },
-        { ...GAME, id: 9, name: '스플렌더' }
-      ],
-      page: 0,
-      size: 3,
-      totalElements: 19,
-      totalPages: 7
-    });
+describe('내정보의 해 본 게임 진입점', () => {
+  it('해 본 게임 수를 통계로 세고 목록 진입점을 남긴다', async () => {
+    getGames.mockResolvedValue({ content: [], page: 0, size: 1, totalElements: 19, totalPages: 19 });
+    getMyRooms.mockResolvedValue({ content: [], page: 0, size: 1, totalElements: 4, totalPages: 4 });
 
-    render(<ProfileView me={{ nickname: '테스터' }} onSave={vi.fn()} onLogout={vi.fn()} />);
+    render(<ProfileView me={{ nickname: '테스터', email: 'tester@example.com' }} onSave={vi.fn()} onLogout={vi.fn()} />);
     await act(async () => {});
 
     expect(getGames).toHaveBeenCalledWith(
-      expect.objectContaining({ playedFilter: 'PLAYED_ONLY', page: 0, size: 3 }),
+      expect.objectContaining({ playedFilter: 'PLAYED_ONLY', page: 0, size: 1 }),
       expect.any(AbortSignal)
     );
-    expect(screen.getByRole('heading', { name: '플레이한 게임' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: '플레이한 게임 전체 19개 보기' }).getAttribute('href')).toBe('#/game-list/played');
-    expect(screen.getByRole('link', { name: '루미큐브 게임 상세' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: '게임 추가' }).getAttribute('href')).toBe('#/game-list');
+    expect(screen.getByText('19')).toBeTruthy();
+    expect(screen.getByRole('link', { name: /해 본 게임/ }).getAttribute('href')).toBe('#/game-list/played');
   });
 });
 
@@ -232,7 +229,7 @@ describe('T8 해 본 게임 검색 필터', () => {
     await renderGamesView();
     openFilterPanel();
 
-    expect(playedFilterOption('전체').checked).toBe(true);
+    expect(isSelected(playedFilterOption('전체'))).toBe(true);
     expect(lastQuery().playedFilter).toBe('');
   });
 
@@ -245,8 +242,8 @@ describe('T8 해 본 게임 검색 필터', () => {
 
     fireEvent.click(playedFilterOption('해 본 게임 제외'));
     expect(lastQuery().playedFilter).toBe('EXCLUDE_PLAYED');
-    expect(playedFilterOption('해 본 게임만').checked).toBe(false);
-    expect(playedFilterOption('전체').checked).toBe(false);
+    expect(isSelected(playedFilterOption('해 본 게임만'))).toBe(false);
+    expect(isSelected(playedFilterOption('전체'))).toBe(false);
   });
 
   it('해 본 게임만 필터 중 표시를 취소하면 목록을 다시 불러온다', async () => {

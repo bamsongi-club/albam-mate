@@ -1,19 +1,44 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import brandSymbol from '../assets/albam-mate-symbol.png';
 import poweredByBgg from '../assets/powered-by-bgg.svg';
 import { ApiError, api, clearCsrfToken, messageForError, setUnauthenticatedHandler, socialLoginUrl } from './api';
-import { isUnauthenticated, usePaginatedRequest, useRequest } from './shared/async';
+import { isUnauthenticated, useCumulativeRequest, usePaginatedRequest, useRequest } from './shared/async';
 import { FilterCheckGroup, FilterPanel, FilterRadioGroup } from './shared/filters';
-import { ErrorBox, LoadingBox, Pagination, SearchHeader, SectionIcon } from './shared/ui';
-import { GameDetailView, GamePickerDialog, GameRankingView, GamesView, EMPTY_GAME_FILTERS, ROOM_LIST_PAGE_SIZE, normalizeGameSummary, normalizeRoom } from './game';
+import {
+  ArrowIcon,
+  Avatar,
+  BackIcon,
+  BellIcon,
+  BggAttribution,
+  BrandMark,
+  CameraIcon,
+  ChatIcon,
+  CloseIcon,
+  Cover,
+  ErrorBox,
+  EyeIcon,
+  EyeOffIcon,
+  InfoIcon,
+  Meeples,
+  Pagination,
+  PlusIcon,
+  RoomSkeletons,
+  ScreenTitle,
+  SearchIcon,
+  SeatCount,
+  SendIcon,
+  StateBlock,
+  TopBar
+} from './shared/ui';
+import { nameColor, playerColor, playerTextColor } from './shared/players';
+import { GameDetailView, GamePickerDialog, GameRankingView, GamesView, EMPTY_GAME_FILTERS, ROOM_LIST_PAGE_SIZE, normalizeRoom } from './game';
+import { MobileHomePanel } from './mobile/MobileHomePanel';
 import { NotificationPanel } from './notification/NotificationPanel';
 import { selectNotificationAndNavigate } from './notification/notificationNavigation';
 import { useNotificationPolling } from './notification/useNotificationPolling';
 import { useNotificationReadSync } from './notification/useNotificationReadSync';
-import { MobileBottomNavigation } from './mobile/MobileNavigation';
-import { MobileHomePanel } from './mobile/MobileHomePanel';
-import { useMobileViewport } from './mobile/useMobileViewport';
+import { MobileBottomNavigation, ROOT_ROUTES } from './mobile/MobileNavigation';
+import { BotView, MatchView, OnlineRoomView } from './p2';
 import './styles.css';
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -22,23 +47,26 @@ const EXP_LABEL = {
   BEGINNER_WELCOME: '초보 환영',
   EXPERIENCED_PREFERRED: '경험자 위주'
 };
-const CAPACITY_OPTIONS = Array.from({ length: 10 }, (_, index) => index + 1);
-const HOUR_OPTIONS = Array.from({ length: 12 }, (_, index) => index + 1);
-const MINUTE_OPTIONS = Array.from({ length: 6 }, (_, index) => index * 10);
+const TYPE_LABEL = { GAME_FOCUSED: '게임 중심', PERSON_FOCUSED: '사람 중심' };
+const STATUS_LABEL = { RECRUITING: '모집 중', CLOSED: '모집 마감', CANCELED: '취소됨', FINISHED: '종료됨' };
+const MAX_CAPACITY = 10;
+// 하위 화면은 하단 탭바 없이 뒤로가기로만 돌아간다.
+const SUB_ROUTES = ['game', 'game-rankings', 'session', 'create', 'edit', 'my', 'chat', 'chats', 'notifications', 'social-link', 'auth', 'signup', 'bot', 'match', 'online-room'];
 const loadFirstNotificationPage = (signal) => api.getNotifications({ page: 0, size: 10 }, signal);
-// 인원 숫자 입력은 마지막 입력 뒤 이 시간이 지나면 조회한다. 체크박스는 기다리지 않는다.
-const GAME_NUMBER_FILTER_DEBOUNCE_MS = 400;
 export const CHAT_SEND_REQUEST_DEADLINE_MS = 3_000;
 export const WAITLIST_POLL_INTERVAL_MS = 10_000;
 export const CHAT_SEND_RESULT_UNKNOWN_MESSAGE = '전송 여부를 확인하지 못했어요. 다시 시도해주세요.';
+// 스플래시는 세션 확인이 끝나면 사라진다. 너무 빨리 사라져 깜빡이지 않도록 최소 표시 시간만 둔다.
+const SPLASH_MIN_MS = 300;
 // 회원가입 비밀번호 한도는 서버 검증 규칙과 같은 값을 쓴다. 한쪽만 바뀌면 안내와 결과가 어긋난다.
 const PASSWORD_MIN_CODE_POINTS = 15;
 const PASSWORD_MAX_CODE_POINTS = 64;
 const PASSWORD_MAX_UTF8_BYTES = 72;
 const SOCIAL_PROVIDER_LABEL = { GOOGLE: 'Google', NAVER: 'Naver', KAKAO: 'Kakao' };
+
 function GoogleIcon() {
   return (
-    <svg viewBox="0 0 20 20" width="26" height="26" aria-hidden="true">
+    <svg viewBox="0 0 20 20" width="24" height="24" aria-hidden="true">
       <path fill="#4285F4" d="M19.6 10.23c0-.68-.06-1.33-.17-1.96H10v3.71h5.4a4.62 4.62 0 0 1-2 3.03v2.52h3.24c1.9-1.75 2.96-4.33 2.96-7.3z" />
       <path fill="#34A853" d="M10 20c2.7 0 4.96-.89 6.62-2.42l-3.24-2.52c-.9.6-2.05.96-3.38.96-2.6 0-4.8-1.75-5.59-4.11H1.06v2.6A10 10 0 0 0 10 20z" />
       <path fill="#FBBC05" d="M4.41 11.9A5.99 5.99 0 0 1 4.09 10c0-.66.11-1.3.32-1.9V5.5H1.06A9.98 9.98 0 0 0 0 10c0 1.61.39 3.14 1.06 4.5l3.35-2.6z" />
@@ -48,37 +76,19 @@ function GoogleIcon() {
 }
 function NaverIcon() {
   return (
-    <svg viewBox="0 0 20 20" width="35" height="35" aria-hidden="true">
-      <rect width="20" height="20" rx="4" fill="#03C75A" />
+    <svg viewBox="0 0 20 20" width="22" height="22" aria-hidden="true">
       <path fill="#fff" d="M11.6 5v5.3L8.4 5H6v10h2.4v-5.3l3.2 5.3H14V5z" />
     </svg>
   );
 }
 function KakaoIcon() {
   return (
-    <svg viewBox="0 0 20 20" width="35" height="35" aria-hidden="true">
-      <circle cx="10" cy="10" r="10" fill="#FEE500" />
+    <svg viewBox="0 0 20 20" width="26" height="26" aria-hidden="true">
       <path fill="#391B1B" d="M10 4.8c-3.31 0-6 2.13-6 4.76 0 1.7 1.14 3.2 2.85 4.05-.13.46-.46 1.63-.53 1.88-.08.31.11.31.24.22.1-.07 1.62-1.1 2.28-1.55.37.05.75.08 1.16.08 3.31 0 6-2.13 6-4.76s-2.69-4.68-6-4.68z" />
     </svg>
   );
 }
 const SOCIAL_PROVIDER_ICON = { GOOGLE: <GoogleIcon />, NAVER: <NaverIcon />, KAKAO: <KakaoIcon /> };
-function EyeIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-function EyeOffIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a18.6 18.6 0 0 1 4.22-5.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a18.6 18.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-      <line x1="1" y1="1" x2="23" y2="23" />
-    </svg>
-  );
-}
 
 // 채팅 진입은 서버가 매 요청마다 다시 판정한다. 거절 사유는 코드로만 구분해 안내한다.
 const CHAT_ACCESS_MESSAGE = {
@@ -91,7 +101,7 @@ const createClientMessageId = () => globalThis.crypto?.randomUUID?.() || 'chat-'
 const SOCIAL_AUTH_RESULT = {
   'login-success': { message: '로그인했어요.', type: '' },
   'link-success': { message: '소셜 계정을 연결했어요.', type: '' },
-  'link-required': { message: '같은 이메일을 쓰는 계정이 이미 있어요. 로그인한 뒤 마이페이지에서 연결해주세요.', type: 'err' },
+  'link-required': { message: '같은 이메일을 쓰는 계정이 이미 있어요. 로그인한 뒤 내정보에서 연결해주세요.', type: 'err' },
   'link-conflict': { message: '이미 연결된 계정이 있어 연결하지 못했어요.', type: 'err' },
   canceled: { message: '동의를 취소해서 중단했어요.', type: '' },
   'invalid-state': { message: '요청이 만료됐어요. 처음부터 다시 시도해주세요.', type: 'err' },
@@ -122,6 +132,7 @@ const EMPTY_ROOM_FILTERS = {
   experienceLevel: '',
   rulemasterOnly: false
 };
+
 function zeroPad(value) {
   return String(value).padStart(2, '0');
 }
@@ -246,13 +257,6 @@ function formatRoomDate(isoDate) {
   return (parts.monthIndex + 1) + '/' + parts.day + '(' + WEEKDAY_LABELS[weekday] + ')';
 }
 
-function formatCalendarDate(isoDate) {
-  const parts = dateParts(isoDate);
-  if (!parts) return '';
-  const weekday = new Date(Date.UTC(parts.year, parts.monthIndex, parts.day)).getUTCDay();
-  return parts.year + '년 ' + (parts.monthIndex + 1) + '월 ' + parts.day + '일 (' + WEEKDAY_LABELS[weekday] + ')';
-}
-
 function formatStartsAt(startsAt) {
   const date = isoDateInSeoul(startsAt);
   const dateLabel = date === todayInSeoul() ? '오늘' : formatRoomDate(date);
@@ -265,18 +269,9 @@ function timeParts(time) {
   return { isAfternoon: hour24 >= 12, hour: hour24 % 12 === 0 ? 12 : hour24 % 12, minute };
 }
 
-function timeFromParts({ isAfternoon, hour, minute }) {
-  return zeroPad((hour === 12 ? 0 : hour) + (isAfternoon ? 12 : 0)) + ':' + zeroPad(minute);
-}
-
 function formatRoomTime(time) {
   const parts = timeParts(time);
   return (parts.isAfternoon ? '오후' : '오전') + ' ' + parts.hour + ':' + zeroPad(parts.minute);
-}
-
-function monthFromIsoDate(isoDate) {
-  const parts = dateParts(isoDate) || dateParts(defaultRoomDate());
-  return new Date(parts.year, parts.monthIndex, 1);
 }
 
 export function readSocialAuthResult(search) {
@@ -324,6 +319,11 @@ function participantCount(room) {
   return room.participantCount;
 }
 
+// 자리 수는 주최자를 포함한다. 모집 정원은 주최자를 뺀 값이다.
+function totalSeats(room) {
+  return room.recruitmentCapacity + 1;
+}
+
 function isHost(room) {
   return room.myRole === 'HOST';
 }
@@ -340,15 +340,9 @@ function sessionStatus(room) {
   return room.status;
 }
 
-function statusMeta(room) {
-  const labels = {
-    RECRUITING: ['모집 중', 'green'],
-    CLOSED: ['모집 마감', 'amber'],
-    CANCELED: ['취소됨', 'red'],
-    FINISHED: ['종료됨', 'gray']
-  };
-  const entry = labels[sessionStatus(room)] || ['상태 확인 중', 'gray'];
-  return { code: sessionStatus(room), label: entry[0], className: entry[1] };
+function roomStatusLabel(room) {
+  if (sessionStatus(room) === 'RECRUITING') return room.remainingRecruitmentSeats <= 0 ? '자리 마감' : '';
+  return STATUS_LABEL[sessionStatus(room)] || '';
 }
 
 function canEdit(room) {
@@ -372,7 +366,7 @@ function roomFormFromRoom(room, initialGame = null) {
     date: room ? isoDateInSeoul(room.startsAt) : defaultRoomDate(),
     time: room ? timeInSeoul(room.startsAt) : '19:00',
     place: room?.place || '',
-    recruitmentCapacity: room?.recruitmentCapacity || 4,
+    recruitmentCapacity: room?.recruitmentCapacity || 3,
     experienceLevel: room?.experienceLevel || 'BEGINNER_WELCOME',
     isRulemasterLed: room?.isRulemasterLed || false
   };
@@ -398,231 +392,79 @@ function validateRoomForm(form, roomType) {
   if (!room.place) return { error: '장소를 입력해주세요.' };
   if (room.place.length > 100) return { error: '장소는 100자 이내로 입력해주세요.' };
   if (!room.startsAt || Date.parse(room.startsAt) <= Date.now()) return { error: '시작 시간은 현재 시각 이후여야 해요.' };
-  if (!Number.isInteger(room.recruitmentCapacity) || room.recruitmentCapacity < 1 || room.recruitmentCapacity > 10) return { error: '모집 정원은 본인 제외 1~10명이어야 해요.' };
+  if (!Number.isInteger(room.recruitmentCapacity) || room.recruitmentCapacity < 1 || room.recruitmentCapacity > MAX_CAPACITY) return { error: '모집 정원은 본인 제외 1~10명이어야 해요.' };
   return { room };
 }
 
-function mobilePageTitle(route) {
-  const titles = {
-    home: '홈',
-    find: '모임 찾기',
-    game: '게임',
-    'game-list': '게임',
-    'game-rankings': '인기 랭킹',
-    session: '모임',
-    create: '모임 만들기',
-    edit: '모임 수정',
-    my: '내 모임',
-    chat: '채팅',
-    chats: '채팅',
-    profile: '내정보',
-    auth: '로그인',
-    signup: '회원가입'
-  };
-  return titles[route] || '알밤메이트';
+/** 홈·게임 찾기 타이틀 줄 오른쪽에 붙는 알림·채팅 진입. */
+function HeaderActions({ unreadCount, onOpenNotifications }) {
+  return (
+    <span className="appbar-actions">
+      <button
+        type="button"
+        className="icon-btn"
+        aria-label={unreadCount > 0 ? '알림함, 읽지 않은 알림 ' + unreadCount + '개' : '알림함'}
+        onClick={onOpenNotifications}
+      >
+        <BellIcon />
+        {unreadCount > 0 && <span className="unread-dot" aria-hidden="true" />}
+      </button>
+      <a className="icon-btn" href="#/chats" aria-label="전체 채팅"><ChatIcon /></a>
+    </span>
+  );
 }
 
-function Header({ route, me, notificationMenu, isMobile }) {
-  const rootRoute = { find: 'find', game: 'game-list', 'game-list': 'game-list', 'game-rankings': 'game-list', create: 'profile', edit: 'profile', my: 'profile', chat: 'chats', chats: 'chats', profile: 'profile' };
-  const visibleUnreadCount = notificationMenu.unreadCount > 99 ? '99+' : notificationMenu.unreadCount;
-  const notificationLabel = notificationMenu.unreadCount > 0
-    ? '알림함, 읽지 않은 알림 ' + notificationMenu.unreadCount + '개'
-    : '알림함';
-  const headerClassName = [
-    route === 'chat' && 'chat-route-header',
-    route === 'game' && 'game-detail-route-header',
-    notificationMenu.open && 'notification-panel-open'
-  ].filter(Boolean).join(' ');
+function LoginRequiredView({ message = '이 기능은 로그인 후 이용할 수 있어요.', onBack }) {
   return (
-    <header className={headerClassName || undefined}>
-      <div className="hwrap">
-        <a className="logo" href="#/home" aria-label="알밤메이트 홈">
-          <span className="brand-mark" aria-hidden="true"><img src={brandSymbol} alt="" /></span>
-          <span className="brand-wordmark"><span className="brand-name">알밤</span><span className="brand-mate">메이트</span></span>
-        </a>
-        <span className="mobile-page-title">{mobilePageTitle(route)}</span>
-        <nav id="gnb" aria-label="주요 메뉴">
-          <a href="#/game-list" className={rootRoute[route] === 'game-list' ? 'on' : ''}>게임 찾기</a>
-          <a href="#/find" className={rootRoute[route] === 'find' ? 'on' : ''}>모임 찾기</a>
-          {me && (
-            <a href="#/chats" className={'nav-icon-btn' + (rootRoute[route] === 'chats' ? ' on' : '')} aria-label="전체 채팅">
-              <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></svg>
-            </a>
-          )}
-          {me && (
-            <div className="notification-menu">
-              <button
-                type="button"
-                className={'nav-icon-btn ' + (notificationMenu.open ? 'on' : '')}
-                aria-label={notificationLabel}
-                aria-expanded={notificationMenu.open}
-                onClick={notificationMenu.onToggle}
-              >
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>
-                {notificationMenu.unreadCount > 0 && (
-                  <span className="notification-badge" aria-hidden="true">{visibleUnreadCount}</span>
-                )}
-              </button>
-              <NotificationPanel
-                open={notificationMenu.open}
-                notifications={notificationMenu.notifications}
-                listStatus={notificationMenu.listStatus}
-                optimisticReadIds={notificationMenu.optimisticReadIds}
-                canMarkAllAsRead={notificationMenu.unreadCount > 0}
-                bulkReadPending={notificationMenu.bulkReadPending}
-                synchronizationFailed={notificationMenu.synchronizationFailed}
-                onClose={notificationMenu.onClose}
-                onRetry={notificationMenu.onRetry}
-                onSelectNotification={notificationMenu.onSelectNotification}
-                onMarkAllAsRead={notificationMenu.onMarkAllAsRead}
-                onRetrySynchronization={notificationMenu.onRetrySynchronization}
-                isModal={isMobile}
-              />
-            </div>
-          )}
-          {me
-            ? <a href="#/profile" className={'nav-icon-btn ' + (rootRoute[route] === 'profile' ? 'on' : '')} aria-label={me.nickname + ' 프로필'}>{me.profileImageUrl ? <img className="gnb-avatar" src={me.profileImageUrl} alt="" /> : <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 0 0-16 0" /></svg>}</a>
-            : <a href="#/auth" className="btn pill">로그인</a>}
-        </nav>
+    <div className="screen sub">
+      <TopBar onBack={onBack} />
+      <div className="screen-body pad-bottom">
+        <StateBlock title="로그인이 필요해요" description={message}>
+          <a className="btn" href="#/auth">로그인 또는 회원가입</a>
+        </StateBlock>
       </div>
-    </header>
-  );
-}
-
-function SiteFooter() {
-  return (
-    <footer className="site-footer">
-      <div className="fwrap">
-        <a className="fbrand" href="https://boardgamegeek.com" target="_blank" rel="noreferrer noopener">
-          <img src={poweredByBgg} alt="Powered by BGG" />
-        </a>
-        <p className="fnote">게임 정보는 <a href="https://boardgamegeek.com" target="_blank" rel="noreferrer noopener">BoardGameGeek</a>, 국내 보드게임 자료, 알밤 메이트 팀의 직접 작성·검수와 플레이 경험을 바탕으로 구성했습니다.</p>
-      </div>
-    </footer>
-  );
-}
-
-function ScrollToTopButton() {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => setVisible(window.scrollY > 400);
-    window.addEventListener('scroll', onScroll);
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-
-  if (!visible) return null;
-
-  return (
-    <button
-      type="button"
-      className="scroll-top-btn"
-      aria-label="맨 위로 이동"
-      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-    >
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" /></svg>
-    </button>
-  );
-}
-
-function SeatIcons({ room }) {
-  const active = activeParticipantCount(room);
-  return (
-    <>
-      {Array.from({ length: active }, (_, index) => <span className="seat f" key={'filled-' + index} />)}
-      {Array.from({ length: Math.max(0, room.recruitmentCapacity - active) }, (_, index) => <span className="seat" key={'empty-' + index} />)}
-    </>
-  );
-}
-
-/** 내 모임 목록 행. 참가 중이며 취소 가능한 모임만 카드 아래 취소 버튼을 함께 보여준다. */
-function MyRoomListItem({ room, onCancelApply }) {
-  const [pending, setPending] = useState(false);
-  const status = sessionStatus(room);
-  const cancelable = isJoined(room) && (status === 'RECRUITING' || status === 'CLOSED') && !hasStarted(room);
-  const cancel = async () => {
-    setPending(true);
-    try {
-      await onCancelApply(room.id);
-    } finally {
-      setPending(false);
-    }
-  };
-  return (
-    <div className="scard-shell">
-      <SessionCard room={room} />
-      {cancelable && (
-        <div className="scard-actions">
-          <button className="btn ghost" disabled={pending} type="button" onClick={cancel}>{pending ? '처리 중…' : '참가 취소'}</button>
-        </div>
-      )}
     </div>
   );
 }
 
-function SessionCard({ room }) {
-  const game = room.game;
-  const status = statusMeta(room);
+/** 모임 목록 한 줄. 표지·시각·배지·제목·게임과 장소·자리 미플을 한 규격으로 둔다. */
+function RoomListItem({ room, showHostBadge = false, actions }) {
+  const statusLabel = roomStatusLabel(room);
   return (
-    <a className="scard" href={'#/session/' + room.id}>
-      <div className="scard-top">
-        <span className="gemoji" aria-hidden="true">{game ? '🎲' : '🙌'}</span>
-        <div>
-          <div className="stitle">
-            {room.title} <span className={'badge ' + (room.roomType === 'PERSON_FOCUSED' ? 'people' : 'game')}>{room.roomType === 'PERSON_FOCUSED' ? '사람 중심' : '게임 중심'}</span>{' '}
-            <span className="chip">{EXP_LABEL[room.experienceLevel]}</span>
-            {status.code !== 'RECRUITING' && <>{' '}<span className={'badge ' + status.className}>{status.label}</span></>}
-          </div>
-          {/* 장식 이모지는 낭독기가 "시계"·"압정"으로 읽지 않도록 본문에서 떼어 놓는다. */}
-          <div className="smeta">{game ? <><span aria-hidden="true">🎲</span> {game.title}</> : '게임은 모임에서 정해요'}</div>
-          <div className="smeta"><span aria-hidden="true">🕐</span> {formatStartsAt(room.startsAt)} · <span aria-hidden="true">📍</span> {room.region || '홍대'}</div>
-        </div>
-      </div>
-      {/* 카드마다 같은 문구가 반복되던 "상세 위치는 참가 후 확인"은 뺐다. 상세 화면에서 안내한다. */}
-      <div className="sfoot">
-        <span className="cap">총 {participantCount(room)}/{room.recruitmentCapacity + 1}명</span>
-        <span>{room.isRulemasterLed ? '룰마스터 진행' : '참가자끼리 진행'}</span>
-      </div>
-    </a>
+    <div>
+      <a className="roomrow" href={'#/session/' + room.id}>
+        <Cover src={room.game?.imageUrl} />
+        <span className="roomrow-body">
+          <span className="roomrow-top">
+            <span className="roomrow-when">{formatStartsAt(room.startsAt)}</span>
+            {showHostBadge && isHost(room) && <span className="badge ink">내가 개설</span>}
+            {room.isRulemasterLed && <span className="badge">룰마스터</span>}
+            {statusLabel && <span className="badge muted">{statusLabel}</span>}
+          </span>
+          <span className="roomrow-title">{room.title}</span>
+          <span className="roomrow-meta">{(room.game?.title || TYPE_LABEL[room.roomType]) + ' · ' + (room.place || room.region || '장소 미정')}</span>
+          <span className="roomrow-seats">
+            <Meeples filled={participantCount(room)} total={totalSeats(room)} />
+            <SeatCount filled={participantCount(room)} total={totalSeats(room)} />
+          </span>
+        </span>
+      </a>
+      {actions && <div className="roomrow-actions">{actions}</div>}
+    </div>
   );
 }
 
-function LoginRequiredView({ message = '이 기능은 로그인 후 이용할 수 있어요.' }) {
-  return <div className="card"><h2>로그인이 필요해요</h2><p className="hint" style={{ marginBottom: 16 }}>{message}</p><a className="btn" href="#/auth">로그인 또는 회원가입</a></div>;
-}
-
-function HomeView({ me, onBrowsePeople, onSearchGame, dataVersion, isMobile }) {
-  // 지금은 게임 이름 검색으로 동작한다. 통합 검색으로 확장할 자리다.
-  const [input, setInput] = useState('');
-  const { data, loading, error } = useRequest(
-    (signal) => api.getRooms({ type: 'PERSON_FOCUSED', page: 0, size: 1 }, signal),
-    [dataVersion]
-  );
-  const { data: gameData, loading: gameLoading } = useRequest(
-    (signal) => api.getGames({ page: 0, size: 1 }, signal),
-    [dataVersion]
-  );
-  const personCount = data?.totalElements ?? 0;
-  const gameCount = gameData?.totalElements ?? 0;
+function HomeView({ me, unreadCount, onOpenNotifications, dataVersion }) {
   return (
-    <>
-      {me && isMobile && <MobileHomePanel dataVersion={dataVersion} />}
-      <section className="card hero">
-        <h1>오늘, 보드게임 한 판 어때요? 🎲</h1>
-        <p>게임을 먼저 고르거나, 함께할 사람부터 찾아 모임을 만들 수 있어요.</p>
-        <form className="inline-search hero-search" onSubmit={(event) => { event.preventDefault(); onSearchGame(input.trim()); }}>
-          <label className="hint" htmlFor="home-q" style={{ position: 'absolute', left: -9999 }}>게임 이름 검색</label>
-          <input id="home-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임 이름으로 검색" />
-          <button type="submit" aria-label="검색"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><line x1="21.5" y1="21.5" x2="15.3" y2="15.3" /></svg></button>
-        </form>
-        <div className="dual">
-          <a className="entry gamefirst" href="#/game-list"><span className="big">🎲</span><h3>게임부터 찾기</h3><p>하고 싶은 게임을 검색하고, 그 게임의 공개 모임을 찾아보세요.</p><span className="sub">{gameLoading ? '게임 불러오는 중…' : '게임 ' + gameCount + '개 둘러보기 →'}</span></a>
-          <a className="entry peoplefirst" href="#/find" onClick={onBrowsePeople}><span className="big">🙌</span><h3>사람부터 만나기</h3><p>게임이 아직 정해지지 않아도 괜찮아요. 제목으로 원하는 모임을 찾아보세요.</p><span className="sub">{loading ? '공개 모임 불러오는 중…' : '공개 모임 ' + personCount + '개 →'}</span></a>
-        </div>
-        {error && <p className="hint" style={{ marginTop: 16 }}>공개 모임 수를 불러오지 못했어요: {error}</p>}
-        <a className="entry ranking-entry" href="#/game-rankings"><span className="big">🏆</span><h3>인기 게임 랭킹</h3><p>밤송이에서 모임이 많이 열린 게임을 전체와 앞으로 7일로 나눠 보여줘요.</p><span className="sub">인기 랭킹 보기 →</span></a>
-      </section>
-    </>
+    <div className="screen">
+      <div className="appbar">
+        <span className="appbar-brand"><BrandMark /><span>알밤메이트</span></span>
+        <HeaderActions unreadCount={unreadCount} onOpenNotifications={onOpenNotifications} />
+      </div>
+      <div className="screen-body pad-bottom">
+        <MobileHomePanel me={me} dataVersion={dataVersion} />
+      </div>
+    </div>
   );
 }
 
@@ -639,37 +481,50 @@ function roomFilterParameters(filters, today) {
   };
 }
 
-// 요청에 실제로 담기는 값만 비교해 조회 의존성과 초기화 버튼 노출을 판정한다.
+// 요청에 실제로 담기는 값만 비교해 조회 의존성을 판정한다.
 function roomFilterKey(filters, today) {
   return JSON.stringify(roomFilterParameters(filters, today));
 }
 
-const EMPTY_ROOM_FILTER_KEY = roomFilterKey(EMPTY_ROOM_FILTERS, '');
-
-function roomFilterChips(filters, onChange, roomType, onRoomTypeChange) {
-  const update = (patch) => onChange({ ...filters, ...patch });
+function roomFilterChips(filters, roomType) {
   const chips = [];
-  const type = ROOM_TYPE_FILTERS.find((filter) => filter.value === roomType);
-  if (roomType) chips.push({ key: 'type', label: type.label, onClear: () => onRoomTypeChange('') });
-  if (filters.status) chips.push({ key: 'status', label: ROOM_STATUS_FILTER_LABEL[filters.status], onClear: () => update({ status: '' }) });
-  if (filters.datePreset) chips.push({ key: 'datePreset', label: DATE_PRESET_LABEL[filters.datePreset], onClear: () => update({ datePreset: '' }) });
-  if (filters.date) chips.push({ key: 'date', label: formatRoomDate(filters.date), onClear: () => update({ date: '' }) });
-  if (filters.minRemainingSeats) chips.push({ key: 'seats', label: filters.minRemainingSeats + '자리 이상', onClear: () => update({ minRemainingSeats: '' }) });
-  if (filters.experienceLevel) chips.push({ key: 'experience', label: EXP_LABEL[filters.experienceLevel], onClear: () => update({ experienceLevel: '' }) });
-  if (filters.rulemasterOnly) chips.push({ key: 'rulemaster', label: '룰마스터 진행', onClear: () => update({ rulemasterOnly: false }) });
+  if (roomType) chips.push('type');
+  if (filters.status) chips.push('status');
+  if (filters.datePreset) chips.push('datePreset');
+  if (filters.date) chips.push('date');
+  if (filters.minRemainingSeats) chips.push('seats');
+  if (filters.experienceLevel) chips.push('experience');
+  if (filters.rulemasterOnly) chips.push('rulemaster');
   return chips;
 }
 
-function RoomFilters({ filters, onChange, today, roomType, onRoomTypeChange, counts, searchSlot }) {
+function RoomFilters({ filters, onChange, today, roomType, onRoomTypeChange, counts, resultCount }) {
   const update = (patch) => onChange({ ...filters, ...patch });
   const withCount = (filter) => filter.label + (counts ? ' (' + counts[filter.value] + ')' : '');
+  const datePresetChips = (
+    <>
+      {[{ value: '', label: '전체' }, ...Object.entries(DATE_PRESET_LABEL).map(([code, label]) => ({ value: code, label }))].map((option) => (
+        <button
+          type="button"
+          key={option.value || 'all'}
+          className={'chip' + (!filters.date && filters.datePreset === option.value ? ' on' : '')}
+          aria-pressed={!filters.date && filters.datePreset === option.value}
+          onClick={() => update({ datePreset: option.value, date: '' })}
+        >
+          {option.label}
+        </button>
+      ))}
+    </>
+  );
   return (
     <FilterPanel
-      chips={roomFilterChips(filters, onChange, roomType, onRoomTypeChange)}
+      title="필터"
+      chips={roomFilterChips(filters, roomType)}
+      quickSlot={datePresetChips}
       onReset={() => { onRoomTypeChange(''); onChange(EMPTY_ROOM_FILTERS); }}
-      searchSlot={searchSlot}
+      ctaLabel={Number.isFinite(resultCount) ? resultCount + '개 모임 보기' : '모임 보기'}
     >
-      <FilterRadioGroup name="room-filter-type" label="유형" value={roomType} onChange={onRoomTypeChange}
+      <FilterRadioGroup name="room-filter-type" label="모임 성격" value={roomType} onChange={onRoomTypeChange}
         options={ROOM_TYPE_FILTERS.map((filter) => ({ value: filter.value, label: withCount(filter) }))} />
       <FilterRadioGroup name="room-filter-status" label="모집 상태" value={filters.status} onChange={(status) => update({ status })}
         options={[{ value: '', label: '전체' }, ...Object.entries(ROOM_STATUS_FILTER_LABEL).map(([code, label]) => ({ value: code, label }))]} />
@@ -681,16 +536,17 @@ function RoomFilters({ filters, onChange, today, roomType, onRoomTypeChange, cou
           { value: DATE_EXACT, label: '날짜 지정' }
         ]}>
         {!!filters.date && (
-          <div className="filter-option-picker">
-            <DatePicker id="room-filter-date-exact" value={filters.date} onChange={(date) => update({ date, datePreset: '' })} today={today} placeholder="날짜 지정" />
+          <div style={{ marginTop: 11 }}>
+            <label className="sr-only" htmlFor="room-filter-date-exact">날짜 지정</label>
+            <input id="room-filter-date-exact" className="field-input" type="date" min={today} value={filters.date} onChange={(event) => update({ date: event.target.value, datePreset: '' })} />
           </div>
         )}
       </FilterRadioGroup>
-      <FilterRadioGroup name="room-filter-seats" label="최소 남은 자리" value={filters.minRemainingSeats} onChange={(minRemainingSeats) => update({ minRemainingSeats })}
-        options={[{ value: '', label: '전체' }, ...CAPACITY_OPTIONS.map((seats) => ({ value: String(seats), label: seats + '자리 이상' }))]} />
+      <FilterRadioGroup name="room-filter-seats" label="남은 자리" value={filters.minRemainingSeats} onChange={(minRemainingSeats) => update({ minRemainingSeats })}
+        options={[{ value: '', label: '전체' }, ...Array.from({ length: MAX_CAPACITY }, (_, index) => ({ value: String(index + 1), label: index + 1 + '자리 이상' }))]} />
       <FilterRadioGroup name="room-filter-experience" label="경험 수준" value={filters.experienceLevel} onChange={(experienceLevel) => update({ experienceLevel })}
         options={[{ value: '', label: '전체' }, ...Object.entries(EXP_LABEL).map(([code, label]) => ({ value: code, label }))]} />
-      <FilterCheckGroup label="진행" checked={filters.rulemasterOnly} onChange={(rulemasterOnly) => update({ rulemasterOnly })} text="룰마스터 진행만" />
+      <FilterCheckGroup label="진행" checked={filters.rulemasterOnly} onChange={(rulemasterOnly) => update({ rulemasterOnly })} text="룰마스터 있는 모임만" />
     </FilterPanel>
   );
 }
@@ -719,67 +575,20 @@ function useRoomTypeCounts(keyword, filters, today, dataVersion) {
   return counts;
 }
 
-function RoomListPeopleIcon() {
-  return <svg viewBox="0 0 56 38" width="56" height="38" fill="currentColor" aria-hidden="true"><circle cx="12" cy="10" r="6" /><circle cx="28" cy="7" r="7" /><circle cx="44" cy="10" r="6" /><path d="M1 35c0-8 5-13 11-13s11 5 11 13Z" /><path d="M14 35c0-10 6-16 14-16s14 6 14 16Z" /><path d="M33 35c0-8 5-13 11-13s11 5 11 13Z" /></svg>;
-}
-
-function RoomListDiceIcon() {
-  return <svg viewBox="0 0 48 48" width="48" height="48" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="8" y="8" width="32" height="32" rx="9" transform="rotate(-12 24 24)" /><circle cx="18" cy="19" r="2.5" fill="currentColor" stroke="none" /><circle cx="30" cy="29" r="2.5" fill="currentColor" stroke="none" /></svg>;
-}
-
-function RoomListEmptyState({ onReset }) {
-  return (
-    <section className="room-list-state room-list-empty" aria-labelledby="room-list-empty-title">
-      <RoomListPeopleIcon />
-      <h2 id="room-list-empty-title">조건에 맞는 모임이 없어요</h2>
-      <p>필터를 하나만 풀어도 더 많은 모임을 볼 수 있어요.</p>
-      <div className="room-list-state-actions">
-        <button className="btn ghost" type="button" onClick={onReset}>필터 초기화</button>
-        <a className="btn" href="#/create">모임 만들기</a>
-      </div>
-    </section>
-  );
-}
-
-function RoomListLoadingState() {
-  return (
-    <section className="room-list-loading" role="status" aria-label="모임 목록을 불러오는 중">
-      <div className="room-list-skeletons" aria-hidden="true">
-        {[0, 1, 2, 3].map((index) => <div className="room-list-skeleton" key={index}><span /><div><i /><b /><em /></div></div>)}
-      </div>
-      <div className="room-list-loading-caption"><RoomListPeopleIcon /><span>모임을 불러오는 중</span></div>
-    </section>
-  );
-}
-
-function RoomListErrorState({ message, onRetry }) {
-  return (
-    <section className="room-list-error" role="alert" aria-labelledby="room-list-error-title">
-      <div className="room-list-error-banner"><span aria-hidden="true" /> <strong>{message || '모임 목록을 불러오지 못했어요.'}</strong><button type="button" onClick={onRetry}>다시</button></div>
-      <div className="room-list-state">
-        <RoomListDiceIcon />
-        <h2 id="room-list-error-title">목록을 불러오지 못했어요</h2>
-        <p>네트워크 연결을 확인하고 다시 시도해주세요.</p>
-        <button className="btn" type="button" onClick={onRetry}><span aria-hidden="true">↻</span> 다시 시도</button>
-      </div>
-    </section>
-  );
-}
-
 export function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQueryChange, roomFilters, onRoomFiltersChange, dataVersion }) {
   const [input, setInput] = useState(roomQuery);
   const keyword = roomQuery.trim();
   const today = useSeoulToday();
   const filterKey = roomFilterKey(roomFilters, today);
   const counts = useRoomTypeCounts(keyword, roomFilters, today, dataVersion);
-  const { data, loading, error, setPage, retry } = usePaginatedRequest(
+  const { items, total, hasNext, loading, error, loadMore, retry } = useCumulativeRequest(
     // 유형을 비우면 두 유형의 공개 방을 함께 받는다.
     (page, signal) => api.getRooms({ type: roomType, keyword, ...roomFilterParameters(roomFilters, today), page, size: ROOM_LIST_PAGE_SIZE }, signal),
     [roomType, keyword, filterKey, dataVersion]
   );
   // status는 서버가 페이지네이션 전에 거른다(roomFilterParameters). 기본값(전체)에서는 프런트가 상태로 다시 거르지 않아
-  // 모집 마감이라도 대기 신청이 가능한 방의 진입점이 유지된다. 사용자가 상태 필터를 고르면 그 상태만 노출된다.
-  const rooms = (data?.content || []).map(normalizeRoom);
+  // 모집 마감이라도 대기 신청이 가능한 방의 진입점이 유지된다.
+  const rooms = items.map(normalizeRoom);
   const resetFilters = () => {
     onRoomTypeChange('');
     onRoomQueryChange('');
@@ -787,28 +596,58 @@ export function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQue
   };
   useEffect(() => setInput(roomQuery), [roomQuery]);
   return (
-    <>
-      <SearchHeader
-        icon="rooms"
-        title="모임 찾기"
-        keywordId="room-q"
-        keywordLabel="모임 제목 검색"
-        inputValue={input}
-        onInputChange={(event) => setInput(event.target.value)}
-        onSubmit={(event) => { event.preventDefault(); onRoomQueryChange(input.trim()); }}
-        placeholder="모임 제목으로 검색"
-        actionSlot={rooms.length > 0 ? <a className="btn ghost" href="#/create">모임 만들기<SectionIcon name="pencil" /></a> : null}
-        filtersSlot={(searchSlot) => <RoomFilters searchSlot={searchSlot} filters={roomFilters} onChange={onRoomFiltersChange} today={today} roomType={roomType} onRoomTypeChange={onRoomTypeChange} counts={counts} />}
-      />
-      {error && <RoomListErrorState message={error} onRetry={retry} />}
-      {!error && loading && !data && <RoomListLoadingState />}
-      {!error && !!rooms.length && <div className="grid cols2 list-swappable" style={{ opacity: loading ? 0.6 : 1 }}>{rooms.map((room) => <SessionCard key={room.id} room={room} />)}</div>}
-      {!error && !loading && !rooms.length && <RoomListEmptyState onReset={resetFilters} />}
-      {!error && !!rooms.length && <Pagination page={data?.page ?? 0} totalPages={data?.totalPages ?? 0} loading={loading} onChange={setPage} />}
-    </>
+    <div className="screen">
+      <div className="screen-body pad-top pad-bottom">
+        <ScreenTitle actions={(
+          <span className="appbar-actions">
+            <a className="icon-btn" href="#/create" aria-label="모임 만들기">
+              <span className="round-plus"><PlusIcon /></span>
+            </a>
+          </span>
+        )}
+        >
+          모임 찾기
+        </ScreenTitle>
+        <form
+          className="searchbox"
+          style={{ marginTop: 16 }}
+          onSubmit={(event) => { event.preventDefault(); onRoomQueryChange(input.trim()); }}
+        >
+          <SearchIcon />
+          <label className="sr-only" htmlFor="room-q">모임 제목 검색</label>
+          <input id="room-q" value={input} onChange={(event) => setInput(event.target.value)} placeholder="게임, 모임 제목, 지역" />
+        </form>
+        <RoomFilters filters={roomFilters} onChange={onRoomFiltersChange} today={today} roomType={roomType} onRoomTypeChange={onRoomTypeChange} counts={counts} resultCount={total} />
+        {!error && <p className="section-label" style={{ marginTop: 18 }}>{loading && !rooms.length ? '불러오는 중' : '모임 ' + total + '개'}</p>}
+
+        <div style={{ marginTop: 18 }}>
+          {error && <ErrorBox title="모임을 불러오지 못했어요" message={error} onRetry={retry} />}
+          {!error && loading && !rooms.length && <RoomSkeletons label="모임 목록을 불러오는 중" />}
+          {!error && !!rooms.length && (
+            <div className="roomlist">
+              {rooms.map((room) => <RoomListItem key={room.id} room={room} />)}
+            </div>
+          )}
+          {!error && !loading && !rooms.length && (
+            <StateBlock title={<>{'조건에 맞는 '}<br />{'모임이 없어요'}</>} description="필터를 하나만 풀어도 더 많이 나와요. 직접 모임을 열어 사람을 모아도 좋고요.">
+              <div className="btn-row">
+                <button className="btn fill" type="button" onClick={resetFilters}>필터 초기화</button>
+                <a className="btn" href="#/create">모임 만들기</a>
+              </div>
+            </StateBlock>
+          )}
+          {!error && hasNext && (
+            <button type="button" className="more-btn" style={{ marginTop: 22 }} disabled={loading} onClick={loadMore}>
+              {loading ? '불러오는 중…' : (total - rooms.length) + '개 더 보기'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
+/** 대기열 카드와 sticky CTA. 상태 판정은 서버 응답만 따른다. */
 function SessionActions({ room, roomRefreshing, me, onApply, onCancelApply, onHostCancel, onFinish, onJoinWaitlist, onCancelWaitlist, onWaitlistSettled }) {
   const [pending, setPending] = useState(false);
   const [waitlistVersion, setWaitlistVersion] = useState(0);
@@ -859,244 +698,226 @@ function SessionActions({ room, roomRefreshing, me, onApply, onCancelApply, onHo
       setPending(false);
     }
   };
+  const canEnterChat = Boolean(room.myRole && (status === 'RECRUITING' || status === 'CLOSED'));
+  const chatButton = canEnterChat
+    ? <a className="btn-square fill" href={'#/chat/' + room.id} aria-label="모임 채팅"><ChatIcon size={20} /></a>
+    : null;
+  const bar = (cta) => <div className="stickybar">{chatButton}{cta}</div>;
 
-  if (!me) return <><div className="infobox">참가하거나 모임을 관리하려면 로그인해주세요.</div><a className="btn big" style={{ marginTop: 9 }} href="#/auth">로그인</a></>;
+  if (!me) {
+    return bar(<a className="btn cta" href="#/auth">로그인하고 참가하기</a>);
+  }
+
   if (isHost(room)) {
-    if (status === 'RECRUITING') {
-      return <><div className="page-actions">{canEdit(room) && <a className="btn ghost" href={'#/edit/' + room.id}>모임 수정</a>}<button className="btn redline" disabled={pending} type="button" onClick={run(onHostCancel)}>{pending ? '처리 중…' : '모임 취소'}</button></div>{canEdit(room) && <p className="hint">시작 전이며 다른 활성 참가자가 없을 때만 수정할 수 있어요.</p>}</>;
-    }
-    if (status === 'CLOSED') {
-      return hasStarted(room)
-        ? <div className="page-actions"><button className="btn green" disabled={pending} type="button" onClick={run(onFinish)}>{pending ? '처리 중…' : '모임 종료'}</button><button className="btn redline" disabled={pending} type="button" onClick={run(onHostCancel)}>모임 취소</button></div>
-        : <button className="btn redline" disabled={pending} type="button" onClick={run(onHostCancel)}>{pending ? '처리 중…' : '모임 취소'}</button>;
-    }
-    return <div className="infobox gray">{status === 'FINISHED' ? '종료된 모임입니다.' : '취소된 모임입니다.'}</div>;
-  }
-  if (status === 'CANCELED' || status === 'FINISHED') return <div className="infobox gray">{status === 'CANCELED' ? '취소된 모임입니다.' : '종료된 모임입니다.'}</div>;
-  if (isJoined(room)) {
-    return (status === 'RECRUITING' || status === 'CLOSED') && !hasStarted(room)
-      ? <><div className="infobox green">🎉 참가 중입니다.</div><button className="btn ghost big" disabled={pending} style={{ marginTop: 9 }} type="button" onClick={run(onCancelApply)}>{pending ? '처리 중…' : '참가 취소'}</button></>
-      : <div className="infobox green">🎉 참가 중입니다.</div>;
-  }
-  if (room.joinable) return <button className="btn big" disabled={pending} type="button" onClick={run(onApply)}>{pending ? '처리 중…' : '🙋 참가 신청하기'}</button>;
-  if (promoted) return <div className="infobox green">🎉 대기가 자리로 승격되어 참가가 확정됐어요! 화면을 새로고침하고 있어요…</div>;
-  if (waitlistError) {
-    return (
-      <>
-        <div className="infobox amber">대기 상태를 확인하지 못했어요: {waitlistError}</div>
-        <button className="btn ghost big" style={{ marginTop: 9 }} type="button" onClick={() => setWaitlistVersion((version) => version + 1)}>다시 시도</button>
-      </>
-    );
-  }
-  if (waiting) {
-    return (
-      <>
-        <div className="infobox amber">⏳ 대기 {waitlist.position}번째입니다.</div>
-        <button className="btn ghost big" disabled={pending} style={{ marginTop: 9 }} type="button" onClick={runWaitlist(onCancelWaitlist)}>{pending ? '처리 중…' : '대기 취소'}</button>
-        <p className="hint">자리가 나면 자동으로 참가돼요. 취소하면 대기 순번이 사라져요.</p>
-      </>
-    );
-  }
-  if (waitlistEnded) return <div className="infobox gray">{waitlistStatus === 'ROOM_CANCELED' ? '모임이 취소되어 대기가 종료됐어요.' : '모임이 시작되어 대기가 종료됐어요.'}</div>;
-  // 상세를 다시 읽는 동안에는 이전 응답의 waitlistable로 대기 신청을 안내하지 않는다.
-  if (room.waitlistable && !waitlistLoading && !roomRefreshing) {
-    return (
-      <>
-        <button className="btn ghost big" disabled={pending} type="button" onClick={runWaitlist(onJoinWaitlist)}>{pending ? '처리 중…' : '⏳ 대기 신청하기'}</button>
-        <p className="hint">지금은 정원이 가득 찼어요. 대기 신청하면 자리가 났을 때 자동으로 참가돼요.</p>
-      </>
-    );
-  }
-  if (eligibleForWaitlist && (waitlistLoading || roomRefreshing)) return <div className="infobox gray">참가 가능 여부를 확인하는 중…</div>;
-  return <div className="infobox amber">모집이 마감되었거나 지금은 참가할 수 없어요.</div>;
-}
-
-export function SessionDetailView({ sessionId, me, onApply, onCancelApply, onHostCancel, onFinish, onJoinWaitlist, onCancelWaitlist, onWaitlistSettled, dataVersion }) {
-  const { data, loading, error } = useRequest(
-    async (signal) => normalizeRoom(await api.getRoom(sessionId, signal)),
-    [sessionId, dataVersion]
-  );
-  if (error) return <ErrorBox message={error} />;
-  if (loading && !data) return <LoadingBox />;
-  const room = data;
-  if (!room) return <div className="card">모임을 찾을 수 없어요.</div>;
-  const status = statusMeta(room);
-  const canEnterChat = Boolean(room.myRole && (status.code === 'RECRUITING' || status.code === 'CLOSED'));
-  const privateView = Boolean(room.myRole);
-  const game = room.game;
-  const banners = {
-    RECRUITING: ['green', '✅ 참가 신청을 받는 중입니다'],
-    CLOSED: ['amber', '⏳ 모집이 마감되었습니다'],
-    CANCELED: ['red', '❌ 주최자가 취소한 모임입니다'],
-    FINISHED: ['gray', '🏁 종료된 모임입니다']
-  };
-  const banner = banners[status.code] || banners.CLOSED;
-  return (
-    <>
-      <div className={'banner ' + banner[0]}>{banner[1]}</div>
-      <div className="layout wide">
-        <div>
-          <div className="card">
-            <div className="detail-head">
-              <div className="dart">{game ? '🎲' : '🙌'}</div>
-              <div style={{ flex: 1 }}>
-                <h2>{room.title} <span className={'badge ' + (room.roomType === 'PERSON_FOCUSED' ? 'people' : 'game')}>{room.roomType === 'PERSON_FOCUSED' ? '사람 중심' : '게임 중심'}</span></h2>
-                <p className="smeta">{game ? '🎲 ' + game.title : '게임은 모임에서 정해요'}</p>
-                {room.description && <p style={{ color: 'var(--brown2)', marginTop: 10 }}>{room.description}</p>}
-                {canEnterChat && <div className="page-actions" style={{ marginTop: 15 }}><a className="btn ghost chat-entry" href={'#/chat/' + room.id}>💬 모임 채팅</a></div>}
-                <table className="metatable"><tbody>
-                  <tr><td>일시</td><td>{formatStartsAt(room.startsAt)}</td></tr>
-                  {privateView
-                    ? <><tr><td>장소</td><td>{room.region || '홍대'} · {room.place}</td></tr><tr><td>주최자</td><td>{room.host?.nickname}{isHost(room) ? ' (나)' : ''}</td></tr></>
-                    : <tr><td>장소</td><td>{room.region || '홍대'} · 참가 확정 후 확인할 수 있어요.</td></tr>}
-                  <tr><td>정원</td><td>총 {participantCount(room)}/{room.recruitmentCapacity + 1}명</td></tr>
-                  <tr><td>경험 수준</td><td>{EXP_LABEL[room.experienceLevel]}</td></tr>
-                  <tr><td>진행</td><td>{room.isRulemasterLed ? '룰마스터 진행 (개설자 자기신고)' : '참가자끼리 진행'}</td></tr>
-                </tbody></table>
-              </div>
+    if (status === 'RECRUITING' || status === 'CLOSED') {
+      const finishable = status === 'CLOSED' && hasStarted(room);
+      return (
+        <>
+          <div className="screen-body" style={{ paddingBottom: 24 }}>
+            <div className="notecard">
+              <strong>내가 연 모임이에요</strong>
+              <p>{finishable ? '모임이 끝났다면 종료해주세요. 취소는 참가자에게 알림이 갑니다.' : '취소하면 참가자에게 알림이 가고 되돌릴 수 없어요.'}</p>
+              <button className="btn fill" type="button" disabled={pending} onClick={run(onHostCancel)}>{pending ? '처리 중…' : '모임 취소'}</button>
             </div>
           </div>
-          {privateView
-            ? <section><h2><SectionIcon name="rooms" />참가자 <span className="cnt">총 {participantCount(room)}/{room.recruitmentCapacity + 1}명</span></h2><div className="card"><div className="srow" style={{ marginTop: 0 }}><SeatIcons room={room} /></div><div>{room.participants.map((participant, index) => <span className="pchip" key={participant.nickname + '-' + index}>🙂 {participant.nickname}</span>)}{!room.participants.length && <span className="hint">아직 참가자가 없어요.</span>}</div></div></section>
-            : <section><h2><SectionIcon name="rooms" />참가자</h2><div className="infobox">정확한 장소와 참가자 목록은 주최자 또는 현재 참가자만 확인할 수 있어요.</div></section>}
+          {bar(finishable
+            ? <button className="btn cta" type="button" disabled={pending} onClick={run(onFinish)}>{pending ? '처리 중…' : '모임 종료하기'}</button>
+            : <button className="btn cta off" type="button" disabled>{status === 'CLOSED' ? '모집이 마감됐어요' : '참가자를 기다리는 중'}</button>)}
+        </>
+      );
+    }
+    return bar(<button className="btn cta off" type="button" disabled>{status === 'FINISHED' ? '종료된 모임이에요' : '취소된 모임이에요'}</button>);
+  }
+
+  if (status === 'CANCELED' || status === 'FINISHED') {
+    return bar(<button className="btn cta off" type="button" disabled>{status === 'CANCELED' ? '취소된 모임이에요' : '종료된 모임이에요'}</button>);
+  }
+
+  if (isJoined(room)) {
+    const cancelable = (status === 'RECRUITING' || status === 'CLOSED') && !hasStarted(room);
+    return bar(cancelable
+      ? <button className="btn cta fill" type="button" disabled={pending} onClick={run(onCancelApply)}>{pending ? '처리 중…' : '참가 취소'}</button>
+      : <button className="btn cta off" type="button" disabled>참가 중이에요</button>);
+  }
+
+  if (room.joinable) {
+    return bar(<button className="btn cta" type="button" disabled={pending} onClick={run(onApply)}>{pending ? '처리 중…' : '참가하기'}</button>);
+  }
+
+  const waitlistCard = () => {
+    if (promoted) {
+      return (
+        <div className="notecard green">
+          <strong>대기가 자리로 승격되어 참가가 확정됐어요</strong>
+          <p>채팅이 열렸어요. 시간과 장소를 확인해주세요.</p>
         </div>
-        <aside><div className="card"><SessionActions room={room} roomRefreshing={loading} me={me} onApply={onApply} onCancelApply={onCancelApply} onHostCancel={onHostCancel} onFinish={onFinish} onJoinWaitlist={onJoinWaitlist} onCancelWaitlist={onCancelWaitlist} onWaitlistSettled={onWaitlistSettled} /></div></aside>
-      </div>
+      );
+    }
+    if (waitlistError) {
+      return (
+        <div className="notecard red">
+          <strong>대기 상태를 확인하지 못했어요</strong>
+          <p>{waitlistError}</p>
+          <button className="btn fill" type="button" onClick={() => setWaitlistVersion((version) => version + 1)}>다시 시도</button>
+        </div>
+      );
+    }
+    if (waiting) {
+      return (
+        <div className="notecard">
+          <strong className="lg">대기 {waitlist.position}번째입니다.</strong>
+          <p>자리가 나면 자동으로 참가돼요. 취소하면 대기 순번이 사라져요.</p>
+          <button className="btn white" type="button" disabled={pending} onClick={runWaitlist(onCancelWaitlist)}>{pending ? '처리 중…' : '대기 취소'}</button>
+        </div>
+      );
+    }
+    if (waitlistEnded) {
+      return <div className="notecard gray">{waitlistStatus === 'ROOM_CANCELED' ? '모임이 취소되어 대기가 종료됐어요.' : '모임이 시작되어 대기가 종료됐어요.'}</div>;
+    }
+    // 상세를 다시 읽는 동안에는 이전 응답의 waitlistable로 대기 신청을 안내하지 않는다.
+    if (room.waitlistable && !waitlistLoading && !roomRefreshing) {
+      return (
+        <div className="notecard">
+          <strong>지금은 정원이 가득 찼어요</strong>
+          <p>대기 신청하면 자리가 났을 때 순서대로 자동 참가돼요.</p>
+          <button className="btn" type="button" disabled={pending} onClick={runWaitlist(onJoinWaitlist)}>{pending ? '처리 중…' : '대기 신청하기'}</button>
+        </div>
+      );
+    }
+    if (eligibleForWaitlist && (waitlistLoading || roomRefreshing)) {
+      return <div className="notecard gray">참가 가능 여부를 확인하는 중…</div>;
+    }
+    return null;
+  };
+
+  const card = waitlistCard();
+  return (
+    <>
+      {card && <div className="screen-body" style={{ paddingBottom: 24 }}>{card}</div>}
+      {bar(<button className="btn cta off" type="button" disabled>{room.remainingRecruitmentSeats <= 0 ? '자리가 다 찼어요' : '지금은 참가할 수 없어요'}</button>)}
     </>
   );
 }
 
-// 팝오버 바깥을 누르거나 Escape를 누르면 닫는다. Escape는 트리거로 초점을 되돌린다.
-function usePopoverDismiss(isOpen, containerRef, onDismiss) {
-  useEffect(() => {
-    if (!isOpen) return undefined;
-    const closeWhenOutside = (event) => {
-      if (!containerRef.current?.contains(event.target)) onDismiss(false);
-    };
-    const closeOnEscape = (event) => {
-      if (event.key === 'Escape') onDismiss(true);
-    };
-    document.addEventListener('pointerdown', closeWhenOutside);
-    window.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('pointerdown', closeWhenOutside);
-      window.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [isOpen]);
-}
-
-// placeholder를 주면 값을 비운 상태를 허용한다. 필터처럼 날짜를 고르지 않는 선택지가 있을 때 쓴다.
-function DatePicker({ id, value, onChange, today, placeholder }) {
-  const selectedDate = dateParts(value) ? value : (placeholder ? '' : defaultRoomDate(today));
-  const openDate = selectedDate || today;
-  const [isOpen, setIsOpen] = useState(false);
-  const [draftDate, setDraftDate] = useState(openDate);
-  const [visibleMonth, setVisibleMonth] = useState(() => monthFromIsoDate(openDate));
-  const pickerRef = useRef(null);
-  const triggerRef = useRef(null);
-
-  const openPicker = () => {
-    setDraftDate(openDate);
-    setVisibleMonth(monthFromIsoDate(openDate));
-    setIsOpen(true);
-  };
-  const closePicker = (restoreFocus = false) => {
-    setIsOpen(false);
-    if (restoreFocus) window.setTimeout(() => triggerRef.current?.focus(), 0);
-  };
-  usePopoverDismiss(isOpen, pickerRef, closePicker);
-  const moveMonth = (offset) => setVisibleMonth((month) => new Date(month.getFullYear(), month.getMonth() + offset, 1));
-  const monthYear = visibleMonth.getFullYear();
-  const monthIndex = visibleMonth.getMonth();
-  const todayMonth = monthFromIsoDate(today);
-  const isFirstSelectableMonth = monthYear === todayMonth.getFullYear() && monthIndex === todayMonth.getMonth();
-  const monthStartsOn = new Date(monthYear, monthIndex, 1).getDay();
-  const days = Array.from({ length: 42 }, (_, index) => {
-    const date = new Date(monthYear, monthIndex, index - monthStartsOn + 1);
-    const isoDate = isoDateFromParts(date.getFullYear(), date.getMonth(), date.getDate());
-    return { isoDate, day: date.getDate(), isCurrentMonth: date.getMonth() === monthIndex, isPast: isoDate < today, weekday: date.getDay() };
-  });
-
-  return (
-    <div className="date-picker" ref={pickerRef}>
-      <button id={id} ref={triggerRef} type="button" className="date-picker-trigger" aria-label={selectedDate ? '날짜 ' + formatCalendarDate(selectedDate) : placeholder} aria-expanded={isOpen} aria-haspopup="dialog" aria-controls={isOpen ? id + '-calendar' : undefined} onClick={() => isOpen ? closePicker() : openPicker()}>
-        <span className={'date-picker-value' + (selectedDate ? '' : ' empty')}>{selectedDate ? formatRoomDate(selectedDate) : placeholder}</span>
-      </button>
-      {isOpen && (
-        <section id={id + '-calendar'} className="date-picker-popover" role="dialog" aria-label="날짜 선택">
-          <div className="date-picker-header">
-            <div className="date-picker-month"><strong>{monthYear}년 {monthIndex + 1}월</strong></div>
-            <div className="date-picker-navigation"><button type="button" aria-label="이전 달" disabled={isFirstSelectableMonth} onClick={() => moveMonth(-1)}>‹</button><button type="button" aria-label="다음 달" onClick={() => moveMonth(1)}>›</button><button type="button" className="date-picker-close" aria-label="날짜 선택 닫기" onClick={() => closePicker(true)}>×</button></div>
-          </div>
-          <div className="date-picker-weekdays" aria-hidden="true">{WEEKDAY_LABELS.map((weekday, index) => <span className={index === 0 ? 'sun' : index === 6 ? 'sat' : ''} key={weekday}>{weekday}</span>)}</div>
-          <div className="date-picker-days">{days.map((day) => <button type="button" key={day.isoDate} className={['date-picker-day', !day.isCurrentMonth && 'outside', day.isoDate === today && 'today', day.isoDate === draftDate && 'selected', day.weekday === 0 && 'sun', day.weekday === 6 && 'sat'].filter(Boolean).join(' ')} aria-label={formatCalendarDate(day.isoDate)} aria-pressed={day.isoDate === draftDate} disabled={day.isPast} onClick={() => { setDraftDate(day.isoDate); if (!day.isCurrentMonth) setVisibleMonth(monthFromIsoDate(day.isoDate)); }}>{day.day}</button>)}</div>
-          <div className="date-picker-footer"><button type="button" className="date-picker-today" onClick={() => { setDraftDate(today); setVisibleMonth(monthFromIsoDate(today)); }}>오늘</button>{placeholder && <button type="button" className="date-picker-today" onClick={() => { onChange(''); closePicker(true); }}>선택 해제</button>}<button type="button" className="date-picker-confirm" onClick={() => { onChange(draftDate); closePicker(true); }}>선택 완료</button></div>
-        </section>
-      )}
-    </div>
+export function SessionDetailView({ sessionId, me, onBack, onApply, onCancelApply, onHostCancel, onFinish, onJoinWaitlist, onCancelWaitlist, onWaitlistSettled, dataVersion }) {
+  const { data, loading, error, retry } = useRequest(
+    async (signal) => normalizeRoom(await api.getRoom(sessionId, signal)),
+    [sessionId, dataVersion]
   );
-}
-
-function TimePicker({ id, value, onChange }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [draft, setDraft] = useState(() => timeParts(value));
-  const pickerRef = useRef(null);
-  const triggerRef = useRef(null);
-  const selectedHourRef = useRef(null);
-
-  const openPicker = () => {
-    setDraft(timeParts(value));
-    setIsOpen(true);
-  };
-  const closePicker = (restoreFocus = false) => {
-    setIsOpen(false);
-    if (restoreFocus) window.setTimeout(() => triggerRef.current?.focus(), 0);
-  };
-  usePopoverDismiss(isOpen, pickerRef, closePicker);
-
-  // 시 목록은 12개라 스크롤되므로 열 때 선택한 시를 컬럼 가운데로 옮긴다.
-  // scrollIntoView는 팝오버 바깥의 페이지까지 함께 스크롤하므로 컬럼만 직접 움직인다.
-  useEffect(() => {
-    const option = selectedHourRef.current;
-    if (!isOpen || !option) return;
-    const column = option.parentElement;
-    column.scrollTop = option.offsetTop - (column.clientHeight - option.clientHeight) / 2;
-  }, [isOpen]);
-
-  // 네이티브 입력으로 저장한 10분 단위 밖의 시간도 선택 상태로 보이게 한다.
-  const minutes = MINUTE_OPTIONS.includes(draft.minute) ? MINUTE_OPTIONS : [...MINUTE_OPTIONS, draft.minute].sort((left, right) => left - right);
+  if (error) {
+    return (
+      <div className="screen sub">
+        <TopBar onBack={onBack} />
+        <div className="screen-body pad-bottom"><ErrorBox title="모임을 불러오지 못했어요" message={error} onRetry={retry} /></div>
+      </div>
+    );
+  }
+  if (loading && !data) {
+    return (
+      <div className="screen sub">
+        <TopBar onBack={onBack} />
+        <div className="screen-body pad-bottom"><RoomSkeletons count={2} /></div>
+      </div>
+    );
+  }
+  const room = data;
+  if (!room) {
+    return (
+      <div className="screen sub">
+        <TopBar onBack={onBack} />
+        <div className="screen-body pad-bottom"><StateBlock title="모임을 찾을 수 없어요" description="주소를 다시 확인해주세요." /></div>
+      </div>
+    );
+  }
+  const privateView = Boolean(room.myRole);
+  const game = room.game;
+  const metaLine = [STATUS_LABEL[sessionStatus(room)], TYPE_LABEL[room.roomType], EXP_LABEL[room.experienceLevel]].filter(Boolean).join(' · ');
+  // 호스트 닉네임은 참가자에게만 내려온다. 값이 없는 줄을 자리만 차지하게 두지 않는다.
+  const facts = [
+    { key: '일시', value: formatStartsAt(room.startsAt) },
+    { key: '장소', value: privateView ? room.place : '참가 확정 후 확인할 수 있어요' },
+    { key: '지역', value: room.region || '홍대' },
+    room.host?.nickname && { key: '호스트', value: room.host.nickname + (isHost(room) ? ' (나)' : '') },
+    { key: '진행', value: room.isRulemasterLed ? '룰마스터 진행' : '참가자끼리 진행' }
+  ].filter(Boolean);
 
   return (
-    <div className="date-picker time-picker" ref={pickerRef}>
-      <button id={id} ref={triggerRef} type="button" className="date-picker-trigger" aria-label={'시간 ' + formatRoomTime(value)} aria-expanded={isOpen} aria-haspopup="dialog" aria-controls={isOpen ? id + '-options' : undefined} onClick={() => isOpen ? closePicker() : openPicker()}>
-        <span className="date-picker-value">{formatRoomTime(value)}</span>
-      </button>
-      {isOpen && (
-        <section id={id + '-options'} className="date-picker-popover" role="dialog" aria-label="시간 선택">
-          <div className="date-picker-header">
-            <div className="date-picker-month"><strong>{formatRoomTime(timeFromParts(draft))}</strong></div>
-            <div className="date-picker-navigation"><button type="button" className="date-picker-close" aria-label="시간 선택 닫기" onClick={() => closePicker(true)}>×</button></div>
-          </div>
-          <div className="time-picker-columns">
-            <div className="time-picker-column" role="group" aria-label="오전 오후">
-              {[false, true].map((isAfternoon) => (
-                <button type="button" key={String(isAfternoon)} className={'time-picker-option' + (draft.isAfternoon === isAfternoon ? ' selected' : '')} aria-pressed={draft.isAfternoon === isAfternoon} onClick={() => setDraft({ ...draft, isAfternoon })}>{isAfternoon ? '오후' : '오전'}</button>
+    <div className="screen sub">
+      <TopBar
+        onBack={onBack}
+        action={canEdit(room) ? <a className="topbar-action" href={'#/edit/' + room.id}>수정</a> : null}
+      />
+      <div className="screen-body" style={{ paddingBottom: 28 }}>
+        <p className="room-meta">{metaLine}</p>
+        <h1 className="room-title">{room.title}</h1>
+
+        {game && (() => {
+          // 모임 상세의 game은 요약이라 인원·시간이 없을 수 있다. 없으면 부제 줄을 만들지 않는다.
+          const gameMetaLine = [game.players, game.time, game.complexity && '난이도 ' + game.complexity].filter(Boolean).join(' · ');
+          return (
+            <a className="room-game" href={'#/game/' + game.id}>
+              <Cover src={game.imageUrl} />
+              <span className="room-game-copy">
+                <strong>{game.title}</strong>
+                {gameMetaLine && <span>{gameMetaLine}</span>}
+              </span>
+              <span className="rowarrow"><ArrowIcon /></span>
+            </a>
+          );
+        })()}
+
+        <dl className="room-facts">
+          {facts.map((fact) => <div key={fact.key}><dt>{fact.key}</dt><dd>{fact.value}</dd></div>)}
+        </dl>
+
+        {room.description && (
+          <>
+            <div className="divider" style={{ margin: '26px 0' }} />
+            <p className="longtext">{room.description}</p>
+          </>
+        )}
+
+        <h2 className="section-title" style={{ marginTop: 30 }}>
+          참가자 {participantCount(room)} / {totalSeats(room)}
+        </h2>
+        <div style={{ marginTop: 15 }}>
+          <Meeples filled={participantCount(room)} total={totalSeats(room)} size="lg" animate />
+        </div>
+        {privateView
+          ? (
+            <div className="room-members">
+              {room.participants.map((participant, index) => (
+                <div className="room-member" key={participant.nickname + '-' + index}>
+                  <Avatar name={participant.nickname} index={index} imageUrl={participant.profileImageUrl} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="room-member-name" style={{ color: playerColor(index) }}>{participant.nickname}</div>
+                    <div className="room-member-role">{participant.nickname === room.host?.nickname ? '호스트' : '참가자'}</div>
+                  </div>
+                  {participant.isMe && <span className="room-member-me">나</span>}
+                </div>
+              ))}
+              {Array.from({ length: Math.max(0, totalSeats(room) - participantCount(room)) }, (_, index) => (
+                <div className="room-member" key={'empty-' + index}>
+                  <span className="avatar empty" aria-hidden="true">빈</span>
+                  <div className="room-member-name" style={{ color: 'var(--muted)' }}>빈 자리</div>
+                </div>
               ))}
             </div>
-            <div className="time-picker-column" role="group" aria-label="시">
-              {HOUR_OPTIONS.map((hour) => (
-                <button type="button" key={hour} ref={draft.hour === hour ? selectedHourRef : null} className={'time-picker-option' + (draft.hour === hour ? ' selected' : '')} aria-pressed={draft.hour === hour} onClick={() => setDraft({ ...draft, hour })}>{hour}</button>
-              ))}
-            </div>
-            <div className="time-picker-column" role="group" aria-label="분">
-              {minutes.map((minute) => (
-                <button type="button" key={minute} className={'time-picker-option' + (draft.minute === minute ? ' selected' : '')} aria-pressed={draft.minute === minute} onClick={() => setDraft({ ...draft, minute })}>{zeroPad(minute)}</button>
-              ))}
-            </div>
-          </div>
-          <div className="date-picker-footer"><button type="button" className="date-picker-confirm" onClick={() => { onChange(timeFromParts(draft)); closePicker(true); }}>선택 완료</button></div>
-        </section>
-      )}
+          )
+          : <p className="screen-lead" style={{ marginTop: 18 }}>정확한 장소와 참가자 목록은 주최자 또는 현재 참가자만 확인할 수 있어요.</p>}
+      </div>
+      <SessionActions
+        room={room}
+        roomRefreshing={loading}
+        me={me}
+        onApply={onApply}
+        onCancelApply={onCancelApply}
+        onHostCancel={onHostCancel}
+        onFinish={onFinish}
+        onJoinWaitlist={onJoinWaitlist}
+        onCancelWaitlist={onCancelWaitlist}
+        onWaitlistSettled={onWaitlistSettled}
+      />
     </div>
   );
 }
@@ -1105,22 +926,89 @@ function RoomFormFields({ form, onChange, roomType, onOpenGamePicker, today }) {
   const gameFocused = roomType === 'GAME_FOCUSED';
   const update = (field, value) => onChange({ ...form, [field]: value });
   const selectedGame = form.selectedGame;
+  const capacity = Number(form.recruitmentCapacity);
   return (
     <>
-      <div className="formrow">
-        <div><div className="field-label-row"><label>게임 {gameFocused ? '(필수)' : '(선택)'}</label><button type="button" className="game-search-open" onClick={onOpenGamePicker}>게임 검색</button></div><div className="game-selected-value">{selectedGame ? selectedGame.title : '선택한 게임이 없어요'}</div><p className="hint">{gameFocused ? '게임 검색으로 선택해주세요.' : '게임 없이 모임을 만들 수도 있어요.'}</p></div>
-        <div><label htmlFor="room-title">모임 제목</label><input id="room-title" maxLength="100" value={form.title} onChange={(event) => update('title', event.target.value)} placeholder="예: 토요일 오후 같이 게임 고를 분" /></div>
+      <div className="field">
+        <span className="field-label">게임 {gameFocused ? '(필수)' : '(선택)'}</span>
+        <button type="button" className="pickrow" onClick={onOpenGamePicker}>
+          <Cover src={selectedGame?.imageUrl} />
+          <span className="pickrow-copy">
+            <strong className={selectedGame ? '' : 'empty'}>{selectedGame ? selectedGame.title : '게임 선택하기'}</strong>
+            <span>{gameFocused ? '게임 중심 모임은 게임을 골라야 해요' : '게임 없이 모임을 열 수도 있어요'}</span>
+          </span>
+          <span className="rowarrow"><ArrowIcon /></span>
+        </button>
       </div>
-      <div className="formrow single"><div><label htmlFor="room-description">설명 (선택, 255자 이내)</label><textarea id="room-description" maxLength="255" value={form.description} onChange={(event) => update('description', event.target.value)} placeholder="예: 처음 오신 분도 환영합니다." /></div></div>
-      <div className="formrow"><div><label htmlFor="room-date">날짜</label><DatePicker id="room-date" value={form.date} onChange={(date) => update('date', date)} today={today} /></div><div><label htmlFor="room-time">시간</label><TimePicker id="room-time" value={form.time} onChange={(time) => update('time', time)} /></div></div>
-      <div className="formrow"><div><label>지역</label><div className="game-selected-value">홍대</div></div><div><label htmlFor="room-place">장소</label><input id="room-place" maxLength="100" value={form.place} onChange={(event) => update('place', event.target.value)} placeholder="예: 홍대입구역 인근 OO보드게임카페" /></div></div>
-      <div className="formrow"><div><label htmlFor="room-capacity">모집 정원 (본인 제외, 1~10명)</label><select id="room-capacity" value={form.recruitmentCapacity} onChange={(event) => update('recruitmentCapacity', Number(event.target.value))}>{CAPACITY_OPTIONS.map((capacity) => <option value={capacity} key={capacity}>{capacity}명</option>)}</select></div><div><label htmlFor="room-experience">경험 수준</label><select id="room-experience" value={form.experienceLevel} onChange={(event) => update('experienceLevel', event.target.value)}>{Object.entries(EXP_LABEL).map(([code, label]) => <option value={code} key={code}>{label}</option>)}</select></div></div>
-      <label className="checkline"><input type="checkbox" checked={form.isRulemasterLed} onChange={(event) => update('isRulemasterLed', event.target.checked)} /> 룰마스터 진행 (개설자 자기신고)</label>
+
+      <div className="field">
+        <label className="field-label" htmlFor="room-title">제목</label>
+        <input id="room-title" className="field-input" maxLength="100" value={form.title} onChange={(event) => update('title', event.target.value)} placeholder="예) 윙스팬 같이 하실 분" />
+      </div>
+
+      <div className="field field-row">
+        <div>
+          <label className="field-label" htmlFor="room-date">날짜</label>
+          <input id="room-date" className="field-input" type="date" min={today} value={form.date} onChange={(event) => update('date', event.target.value)} />
+        </div>
+        <div>
+          <label className="field-label" htmlFor="room-time">시작 시간</label>
+          <input id="room-time" className="field-input" type="time" step="600" value={form.time} onChange={(event) => update('time', event.target.value)} />
+        </div>
+      </div>
+
+      <div className="field">
+        <label className="field-label" htmlFor="room-place">장소</label>
+        <input id="room-place" className="field-input" maxLength="100" value={form.place} onChange={(event) => update('place', event.target.value)} placeholder="예) 주사위섬 합정점" />
+        <p className="field-hint">지역은 홍대로 고정돼요.</p>
+      </div>
+
+      <div className="field">
+        <span className="field-label" id="room-capacity-label">모집 인원 (본인 제외)</span>
+        <div className="stepper" role="group" aria-labelledby="room-capacity-label">
+          <button type="button" className="stepper-btn" aria-label="모집 인원 줄이기" disabled={capacity <= 1} onClick={() => update('recruitmentCapacity', Math.max(1, capacity - 1))}>−</button>
+          <span className="stepper-value">
+            <Meeples filled={capacity + 1} total={capacity + 1} size="md" />
+          </span>
+          <button type="button" className="stepper-btn" aria-label="모집 인원 늘리기" disabled={capacity >= MAX_CAPACITY} onClick={() => update('recruitmentCapacity', Math.min(MAX_CAPACITY, capacity + 1))}>+</button>
+        </div>
+        <p className="stepper-caption">나 포함 {capacity + 1}명 · {capacity}명 모집</p>
+      </div>
+
+      <div className="field">
+        <span className="field-label">경험 수준</span>
+        <div className="optionlist">
+          {Object.entries(EXP_LABEL).map(([code, label]) => (
+            <button
+              type="button"
+              key={code}
+              className={'optionrow' + (form.experienceLevel === code ? ' on' : '')}
+              aria-pressed={form.experienceLevel === code}
+              onClick={() => update('experienceLevel', code)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <button type="button" className="switch-row" aria-pressed={form.isRulemasterLed} onClick={() => update('isRulemasterLed', !form.isRulemasterLed)}>
+        <span className="switch-copy">
+          <strong>룰 설명을 해줄 수 있어요</strong>
+          <span>초보자에게 룰마스터로 표시됩니다</span>
+        </span>
+        <span className={'switch' + (form.isRulemasterLed ? ' on' : '')} aria-hidden="true"><span /></span>
+      </button>
+
+      <div className="field">
+        <label className="field-label" htmlFor="room-description">소개</label>
+        <textarea id="room-description" className="field-input" maxLength="255" value={form.description} onChange={(event) => update('description', event.target.value)} placeholder="어떤 분위기인지, 룰 설명이 필요한지 적어주세요." />
+      </div>
     </>
   );
 }
 
-function CreateView({ createMode, onCreateModeChange, initialGame, onCreate, today }) {
+function CreateView({ createMode, onCreateModeChange, initialGame, onCreate, onBack, today }) {
   const [form, setForm] = useState(() => roomFormFromRoom(null, initialGame));
   const defaultDateRef = useRef(form.date);
   const [gamePickerOpen, setGamePickerOpen] = useState(false);
@@ -1137,6 +1025,7 @@ function CreateView({ createMode, onCreateModeChange, initialGame, onCreate, tod
     setForm((current) => current.date === previousDefaultDate ? { ...current, date: nextDefaultDate } : current);
     defaultDateRef.current = nextDefaultDate;
   }, [today]);
+  const ready = Boolean(form.title.trim() && form.place.trim());
   const submit = async (event) => {
     event.preventDefault();
     setSubmitting(true);
@@ -1148,40 +1037,51 @@ function CreateView({ createMode, onCreateModeChange, initialGame, onCreate, tod
   };
 
   return (
-    <>
-      <h2><SectionIcon name="pencil" />모임 만들기</h2>
-      <div className="layout wide">
-        <form className="card" onSubmit={submit}>
-          <label>모임 유형</label>
-          <div className="formrow">
-            <button type="button" className={'modecard ' + (gameFocused ? 'on' : '')} onClick={() => onCreateModeChange('GAME_FOCUSED')}><b>🎲 게임 중심</b><span>게임을 먼저 정하고 사람을 모아요. 게임 선택은 필수예요.</span></button>
-            <button type="button" className={'modecard ' + (!gameFocused ? 'on' : '')} onClick={() => onCreateModeChange('PERSON_FOCUSED')}><b>🙌 사람 중심</b><span>함께할 사람부터 모아요. 게임 선택은 선택이에요.</span></button>
+    <form className="screen sub" onSubmit={submit}>
+      <div className="topbar">
+        <button type="button" className="icon-btn" aria-label="닫기" onClick={onBack}>
+          <CloseIcon />
+        </button>
+      </div>
+      <div className="screen-body" style={{ paddingBottom: 28 }}>
+        <ScreenTitle>모임 만들기</ScreenTitle>
+        <div className="field" style={{ marginTop: 28 }}>
+          <span className="field-label">모임 성격</span>
+          <div className="modecards">
+            <button type="button" className={'modecard' + (gameFocused ? ' on' : '')} aria-pressed={gameFocused} onClick={() => onCreateModeChange('GAME_FOCUSED')}>
+              <strong>게임 중심</strong>
+              <span>게임을 먼저 정하고 사람을 모아요</span>
+            </button>
+            <button type="button" className={'modecard' + (!gameFocused ? ' on' : '')} aria-pressed={!gameFocused} onClick={() => onCreateModeChange('PERSON_FOCUSED')}>
+              <strong>사람 중심</strong>
+              <span>함께할 사람부터 모아요</span>
+            </button>
           </div>
-          <RoomFormFields form={form} onChange={setForm} roomType={createMode} onOpenGamePicker={() => setGamePickerOpen(true)} today={today} />
-          <button className="btn big create-submit" style={{ marginTop: 14 }} disabled={submitting} type="submit">{submitting ? '모임을 만드는 중…' : '모임 만들기'}</button>
-        </form>
-        <aside>
-          <div className="card infobox create-note">
-            <b>📌 개설 안내</b>
-            <ul>
-              <li>게임 중심은 게임 선택이 필수예요.</li>
-              <li>사람 중심은 게임 없이 열 수 있어요.</li>
-              <li>지역은 홍대로 고정되고, 장소만 입력해요.</li>
-              <li>모집 정원은 주최자 제외 1명 이상 10명 이하예요.</li>
-            </ul>
-          </div>
-        </aside>
+        </div>
+        <RoomFormFields form={form} onChange={setForm} roomType={createMode} onOpenGamePicker={() => setGamePickerOpen(true)} today={today} />
+      </div>
+      <div className="stickybar">
+        <button className={'btn cta' + (ready ? '' : ' off')} disabled={submitting} type="submit">
+          {submitting ? '모임을 여는 중…' : ready ? '모임 열기' : '제목과 장소를 채워주세요'}
+        </button>
       </div>
       <GamePickerDialog isOpen={gamePickerOpen} selectedGameId={form.gameId} allowClear={!gameFocused} onSelect={(game) => setForm((current) => ({ ...current, gameId: game.id, selectedGame: game }))} onClear={() => setForm((current) => ({ ...current, gameId: '', selectedGame: null }))} onClose={() => setGamePickerOpen(false)} />
-    </>
+    </form>
   );
 }
 
-function EditSessionForm({ room, onSave, today }) {
+function EditSessionForm({ room, onSave, onBack, today }) {
   const [form, setForm] = useState(() => roomFormFromRoom(room));
   const [gamePickerOpen, setGamePickerOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  if (!canEdit(room)) return <div className="card">지금은 이 모임을 수정할 수 없어요.</div>;
+  if (!canEdit(room)) {
+    return (
+      <div className="screen sub">
+        <TopBar onBack={onBack} />
+        <div className="screen-body pad-bottom"><StateBlock title="지금은 수정할 수 없어요" description="시작 전이며 다른 활성 참가자가 없을 때만 수정할 수 있어요." /></div>
+      </div>
+    );
+  }
   const submit = async (event) => {
     event.preventDefault();
     setSubmitting(true);
@@ -1192,75 +1092,54 @@ function EditSessionForm({ room, onSave, today }) {
     }
   };
   return (
-    <>
-      <h2><SectionIcon name="pencil" />모임 수정</h2>
-      <form className="card" style={{ maxWidth: 780 }} onSubmit={submit}>
-        <div className="infobox" style={{ marginBottom: 16 }}>{room.roomType === 'GAME_FOCUSED' ? '게임 중심' : '사람 중심'} 모임 · 유형과 지역은 수정할 수 없어요.</div>
+    <form className="screen sub" onSubmit={submit}>
+      <TopBar onBack={onBack} />
+      <div className="screen-body" style={{ paddingBottom: 28 }}>
+        <ScreenTitle>모임 수정</ScreenTitle>
+        <p className="screen-lead">{TYPE_LABEL[room.roomType]} 모임 · 성격과 지역은 수정할 수 없어요.</p>
         <RoomFormFields form={form} onChange={setForm} roomType={room.roomType} onOpenGamePicker={() => setGamePickerOpen(true)} today={today} />
-        <div className="page-actions" style={{ marginTop: 16 }}><button className="btn" disabled={submitting} type="submit">{submitting ? '저장 중…' : '수정 저장'}</button><a className="btn ghost" href={'#/session/' + room.id}>취소</a></div>
-      </form>
-      <GamePickerDialog isOpen={gamePickerOpen} selectedGameId={form.gameId} allowClear={room.roomType === 'PERSON_FOCUSED'} onSelect={(game) => setForm((current) => ({ ...current, gameId: game.id, selectedGame: game }))} onClear={() => setForm((current) => ({ ...current, gameId: '', selectedGame: null }))} onClose={() => setGamePickerOpen(false)} />
-    </>
-  );
-}
-
-/** 참가 중이며 채팅에 들어갈 수 있는 모임만 골라 채팅방 목록으로 보여준다. */
-export function ChatListView({ dataVersion }) {
-  const [keyword, setKeyword] = useState('');
-  const joined = useRequest((signal) => api.getMyRooms({ role: 'joined', page: 0, size: 100 }, signal), [dataVersion]);
-  const hosted = useRequest((signal) => api.getMyRooms({ role: 'hosted', page: 0, size: 100 }, signal), [dataVersion]);
-  const loading = joined.loading || hosted.loading;
-  const error = joined.error || hosted.error;
-  const rooms = [...(joined.data?.content || []), ...(hosted.data?.content || [])].map(normalizeRoom);
-  const chatRooms = rooms.filter((room) => {
-    const status = statusMeta(room);
-    return Boolean(room.myRole) && (status.code === 'RECRUITING' || status.code === 'CLOSED');
-  });
-  const seen = new Set();
-  const list = chatRooms
-    .filter((room) => (seen.has(room.id) ? false : (seen.add(room.id), true)))
-    .filter((room) => room.title.toLowerCase().includes(keyword.trim().toLowerCase()))
-    .sort((a, b) => new Date(a.startsAt) - new Date(b.startsAt));
-  return (
-    <>
-      <h2><SectionIcon name="chat" />채팅</h2>
-      <div className="inline-search">
-        <label className="sr-only" htmlFor="chat-list-q">모임 제목으로 채팅방 찾기</label>
-        <input id="chat-list-q" value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="모임 제목으로 찾기" />
-        <span aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="10.5" cy="10.5" r="6.5" /><line x1="21.5" y1="21.5" x2="15.3" y2="15.3" /></svg></span>
       </div>
-      {error && <ErrorBox message={error} />}
-      {!error && loading && !list.length && <LoadingBox />}
-      {!error && !loading && !chatRooms.length && <div className="infobox">지금 채팅할 수 있는 모임이 없어요.</div>}
-      {!error && !!chatRooms.length && !list.length && <div className="infobox">'{keyword}'와 일치하는 채팅방이 없어요.</div>}
-      {!error && !!list.length && (
-        <div className="card menu-list" style={{ maxWidth: 560 }}>
-          {list.map((room) => (
-            <a className="menu-row" href={'#/chat/' + room.id} key={room.id}>
-              <span className="menu-icon" aria-hidden="true"><SectionIcon name="chat" /></span>
-              <span className="menu-label">{room.title}</span>
-              <span className="hint" style={{ marginRight: 4 }}>{formatStartsAt(room.startsAt)}</span>
-              <span className="menu-arrow" aria-hidden="true">›</span>
-            </a>
-          ))}
-        </div>
-      )}
-    </>
+      <div className="stickybar">
+        <button className="btn cta" disabled={submitting} type="submit">{submitting ? '저장 중…' : '수정 저장'}</button>
+      </div>
+      <GamePickerDialog isOpen={gamePickerOpen} selectedGameId={form.gameId} allowClear={room.roomType === 'PERSON_FOCUSED'} onSelect={(game) => setForm((current) => ({ ...current, gameId: game.id, selectedGame: game }))} onClear={() => setForm((current) => ({ ...current, gameId: '', selectedGame: null }))} onClose={() => setGamePickerOpen(false)} />
+    </form>
   );
 }
 
-function EditView({ sessionId, onSave, dataVersion, today }) {
-  const { data, loading, error } = useRequest(
+function EditView({ sessionId, onSave, onBack, dataVersion, today }) {
+  const { data, loading, error, retry } = useRequest(
     async (signal) => normalizeRoom(await api.getRoom(sessionId, signal)),
     [sessionId, dataVersion]
   );
-  if (error) return <ErrorBox message={error} />;
-  if (loading && !data) return <LoadingBox />;
-  if (!data) return <div className="card">지금은 이 모임을 수정할 수 없어요.</div>;
-  return <EditSessionForm key={data.id} room={data} onSave={onSave} today={today} />;
+  if (error) {
+    return (
+      <div className="screen sub">
+        <TopBar onBack={onBack} />
+        <div className="screen-body pad-bottom"><ErrorBox title="모임을 불러오지 못했어요" message={error} onRetry={retry} /></div>
+      </div>
+    );
+  }
+  if (loading && !data) {
+    return (
+      <div className="screen sub">
+        <TopBar onBack={onBack} />
+        <div className="screen-body pad-bottom"><RoomSkeletons count={1} /></div>
+      </div>
+    );
+  }
+  if (!data) {
+    return (
+      <div className="screen sub">
+        <TopBar onBack={onBack} />
+        <div className="screen-body pad-bottom"><StateBlock title="지금은 이 모임을 수정할 수 없어요" /></div>
+      </div>
+    );
+  }
+  return <EditSessionForm key={data.id} room={data} onSave={onSave} onBack={onBack} today={today} />;
 }
 
-export function MyRoomsSection({ myTab, onMyTabChange, dataVersion, onCancelApply }) {
+export function MyRoomsSection({ myTab, onMyTabChange, dataVersion, onCancelApply, onBack }) {
   const joined = usePaginatedRequest(
     (page, signal) => api.getMyRooms({ role: 'joined', page, size: ROOM_LIST_PAGE_SIZE }, signal),
     [dataVersion]
@@ -1272,38 +1151,62 @@ export function MyRoomsSection({ myTab, onMyTabChange, dataVersion, onCancelAppl
   const tab = myTab === 'hosted' ? 'hosted' : 'joined';
   const page = tab === 'hosted' ? hosted : joined;
   const list = (page.data?.content || []).map(normalizeRoom);
-  const joinedCount = joined.data?.totalElements ?? '—';
-  const hostedCount = hosted.data?.totalElements ?? '—';
   return (
-    <>
-      <h2><SectionIcon name="list" />내 모임</h2>
-      <div className="tabs-row">
-        <div className="tabs">
-          <button type="button" className={tab === 'joined' ? 'on' : ''} onClick={() => onMyTabChange('joined')}><span className="tab-full">참가한 모임 ({joinedCount})</span><span className="tab-short">참가 {joinedCount}</span></button>
-          <button type="button" className={tab === 'hosted' ? 'on' : ''} onClick={() => onMyTabChange('hosted')}><span className="tab-full">개설한 모임 ({hostedCount})</span><span className="tab-short">개설 {hostedCount}</span></button>
+    <div className="screen sub">
+      <TopBar onBack={onBack} action={<a className="topbar-action" href="#/chats">채팅</a>} />
+      <div className="screen-body pad-bottom">
+        <ScreenTitle>내 모임</ScreenTitle>
+        <div className="tabline">
+          <button type="button" aria-pressed={tab === 'joined'} className={tab === 'joined' ? 'on' : ''} onClick={() => onMyTabChange('joined')}>참가한</button>
+          <button type="button" aria-pressed={tab === 'hosted'} className={tab === 'hosted' ? 'on' : ''} onClick={() => onMyTabChange('hosted')}>개설한</button>
         </div>
-        <a className="btn ghost" href="#/create">모임 만들기<SectionIcon name="pencil" /></a>
+        <div style={{ marginTop: 22 }}>
+          {page.error && <ErrorBox title="내 모임을 불러오지 못했어요" message={page.error} onRetry={page.retry} />}
+          {!page.error && page.loading && !page.data && <RoomSkeletons count={2} />}
+          {!page.error && !!list.length && (
+            <div className="roomlist">
+              {list.map((room) => (
+                <MyRoomListItem key={room.id} room={room} tab={tab} onCancelApply={onCancelApply} />
+              ))}
+            </div>
+          )}
+          {!page.error && !page.loading && !list.length && (
+            <StateBlock
+              title={tab === 'joined' ? '참가한 모임이 없어요' : '개설한 모임이 없어요'}
+              description={tab === 'joined' ? '마음에 드는 모임을 찾아 한 자리 맡아보세요.' : '직접 모임을 열어 사람을 모아보세요.'}
+            >
+              <a className="btn" href={tab === 'joined' ? '#/find' : '#/create'}>{tab === 'joined' ? '모임 찾아보기' : '모임 만들기'}</a>
+            </StateBlock>
+          )}
+          {!page.error && !!list.length && <Pagination page={page.data?.page ?? 0} totalPages={page.data?.totalPages ?? 0} loading={page.loading} onChange={page.setPage} />}
+        </div>
       </div>
-      {page.error && <ErrorBox message={page.error} />}
-      {!page.error && page.loading && !page.data && <LoadingBox />}
-      {!page.error && !!list.length && (
-        <div className="session-list">
-          {list.map((room) => (tab === 'joined'
-            ? <MyRoomListItem key={room.id} room={room} onCancelApply={onCancelApply} />
-            : <SessionCard key={room.id} room={room} />))}
-        </div>
-      )}
-      {!page.error && !page.loading && !list.length && (
-        <div className="infobox">
-          {tab === 'joined'
-            ? <>아직 참가한 모임이 없어요. <a className="infobox-action" href="#/find">모임 찾아보기 →</a></>
-            : '아직 개설한 모임이 없어요. 위 버튼으로 첫 모임을 열어보세요.'}
-        </div>
-      )}
-      {!page.error && !!list.length && <Pagination page={page.data?.page ?? 0} totalPages={page.data?.totalPages ?? 0} loading={page.loading} onChange={page.setPage} />}
-      {!page.error && !!list.length && <p className="hint" style={{ marginTop: 14 }}>카드는 공개 모임 정보만 표시하고, 정확한 장소와 참가자 목록은 모임 상세에서 권한에 따라 확인할 수 있어요.</p>}
-    </>
+    </div>
   );
+}
+
+/** 내 모임 목록 행. 참가 중이며 취소 가능한 모임만 카드 아래 취소 버튼을 함께 보여준다. */
+function MyRoomListItem({ room, tab, onCancelApply }) {
+  const [pending, setPending] = useState(false);
+  const status = sessionStatus(room);
+  const cancelable = isJoined(room) && (status === 'RECRUITING' || status === 'CLOSED') && !hasStarted(room);
+  const canEnterChat = Boolean(room.myRole && (status === 'RECRUITING' || status === 'CLOSED'));
+  const cancel = async () => {
+    setPending(true);
+    try {
+      await onCancelApply(room.id);
+    } finally {
+      setPending(false);
+    }
+  };
+  const actions = (canEnterChat || cancelable) ? (
+    <>
+      {canEnterChat && <a className="btn fill sm" href={'#/chat/' + room.id}>채팅</a>}
+      {cancelable && <button className="btn fill sm" type="button" disabled={pending} onClick={cancel}>{pending ? '처리 중…' : '참가 취소'}</button>}
+      {tab === 'hosted' && <a className="btn fill sm" href={'#/session/' + room.id}>참가자 관리</a>}
+    </>
+  ) : null;
+  return <RoomListItem room={room} showHostBadge={tab === 'hosted'} actions={actions} />;
 }
 
 const CHAT_GROUP_WINDOW_MS = 3 * 60 * 1000;
@@ -1320,11 +1223,6 @@ function formatChatDay(isoDate) {
 function formatChatTime(createdAt) {
   const time = timeInSeoul(createdAt);
   return time ? formatRoomTime(time) : '';
-}
-
-function chatParticipantTone(nickname = '') {
-  const tone = [...nickname].reduce((total, letter) => total + (letter.codePointAt(0) || 0), 0) % 3;
-  return ['green', 'clay', 'gold'][tone];
 }
 
 // 같은 사람이 3분 안에 이어 보낸 메시지는 한 덩어리로 본다. 이름은 덩어리 첫 줄, 시각은 마지막 줄에만 붙는다.
@@ -1350,6 +1248,51 @@ function groupChatMessages(messages) {
     });
   });
   return days;
+}
+
+/** 참가 중이며 채팅에 들어갈 수 있는 모임만 골라 채팅방 목록으로 보여준다. */
+export function ChatListView({ dataVersion, onBack }) {
+  const joined = useRequest((signal) => api.getMyRooms({ role: 'joined', page: 0, size: 100 }, signal), [dataVersion]);
+  const hosted = useRequest((signal) => api.getMyRooms({ role: 'hosted', page: 0, size: 100 }, signal), [dataVersion]);
+  const loading = joined.loading || hosted.loading;
+  const error = joined.error || hosted.error;
+  const rooms = [...(joined.data?.content || []), ...(hosted.data?.content || [])].map(normalizeRoom);
+  const seen = new Set();
+  const list = rooms
+    .filter((room) => Boolean(room.myRole) && (room.status === 'RECRUITING' || room.status === 'CLOSED'))
+    .filter((room) => (seen.has(room.id) ? false : (seen.add(room.id), true)))
+    .sort((left, right) => new Date(left.startsAt) - new Date(right.startsAt));
+  return (
+    <div className="screen sub">
+      <TopBar onBack={onBack} />
+      <div className="screen-body pad-bottom">
+        <ScreenTitle>채팅</ScreenTitle>
+        {error && <div style={{ marginTop: 22 }}><ErrorBox title="채팅 목록을 불러오지 못했어요" message={error} onRetry={() => { joined.retry(); hosted.retry(); }} /></div>}
+        {!error && loading && !list.length && <div style={{ marginTop: 22 }}><RoomSkeletons count={2} /></div>}
+        {!error && !loading && !list.length && (
+          <div style={{ marginTop: 22 }}>
+            <StateBlock title="참가 중인 채팅이 없어요" description="모임에 참가하면 채팅이 열립니다." />
+          </div>
+        )}
+        {!error && !!list.length && (
+          <div className="chatlist">
+            {list.map((room) => (
+              <a className="chatrow" href={'#/chat/' + room.id} key={room.id}>
+                <Cover src={room.game?.imageUrl} />
+                <span className="chatrow-copy">
+                  <span className="chatrow-head">
+                    <strong>{room.title}</strong>
+                    <time dateTime={room.startsAt}>{formatStartsAt(room.startsAt)}</time>
+                  </span>
+                  <span className="chatrow-last">{participantCount(room)}명 참가 · {room.place || room.region || '장소 미정'}</span>
+                </span>
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // 직접 URL로 들어와도 진입 여부는 서버 응답으로만 정해진다. 거절은 서버 원문 대신 계약된 code로 안내한다.
@@ -1380,12 +1323,12 @@ function mergeChatMessages(current, incoming) {
   return [...byId.values()].sort((left, right) => Number(left.messageId) - Number(right.messageId));
 }
 
-export function ChatRoomView({ roomId, dataVersion, me }) {
+export function ChatRoomView({ roomId, dataVersion, onBack }) {
   const { data, loading, error } = useRequest(
     (signal) => api.getChatMessages(roomId, signal).catch((cause) => { throw chatAccessError(cause); }),
     [roomId, dataVersion]
   );
-  // 옆 열에 띄울 모임 정보. 못 불러와도 대화는 그대로 보여준다.
+  // 상단 바에 띄울 모임 정보. 못 불러와도 대화는 그대로 보여준다.
   const roomInfo = useRequest((signal) => api.getRoom(roomId, signal).catch(() => null), [roomId, dataVersion]);
   const roomIdRef = useRef(roomId);
   const roomGenerationRef = useRef(0);
@@ -1585,7 +1528,6 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     }
     refocusComposeRef.current = true;
     // WebSocket 이벤트가 이 HTTP 응답보다 먼저 도착할 수 있으므로 대기 전에 미리 세운다.
-    // 그러면 실시간 병합이 먼저 목록 길이를 바꿔도 그 시점에 소비되어 하단 이동이 지연되지 않는다.
     scrollToBottomRef.current = true;
     setSending(true);
     setSendError('');
@@ -1641,7 +1583,6 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
   };
 
   // 전송 중에는 입력이 disabled가 되어 브라우저가 포커스를 뗀다. 전송이 끝나면 되돌려 바로 이어 쓸 수 있게 한다.
-  // 실패해도 되돌려 사용자가 고쳐서 다시 보낼 수 있게 한다. 최초 렌더에서는 플래그가 없어 포커스를 가져가지 않는다.
   useEffect(() => {
     if (sending || !refocusComposeRef.current) return;
     refocusComposeRef.current = false;
@@ -1659,145 +1600,137 @@ export function ChatRoomView({ roomId, dataVersion, me }) {
     event.currentTarget.form?.requestSubmit();
   };
 
+  const room = roomInfo.data;
+  // 이름 색은 참가자 순서를 따른다. 모임 정보를 아직 못 읽었거나 목록에 없는 사람만 이름으로 색을 정한다.
+  const participantOrder = new Map((room?.participants || []).map((participant, index) => [participant.nickname, index]));
+  const senderColor = (nickname) => (participantOrder.has(nickname) ? playerColor(participantOrder.get(nickname)) : nameColor(nickname));
+
   return (
-    <>
-      <div className="chat-view">
-        <aside className="chat-side">
-          <p className="chat-side-kicker"><SectionIcon name="chat" />모임 채팅</p>
-          <h2>{roomInfo.data?.title || '모임'}</h2>
-          <dl className="chat-facts">
-            <div><dt>일시</dt><dd>{roomInfo.data ? formatStartsAt(roomInfo.data.startsAt) : '—'}</dd></div>
-            <div><dt>장소</dt><dd>{roomInfo.data?.region || '—'}</dd></div>
-            <div><dt>인원</dt><dd>{roomInfo.data?.participantCount ? participantCount(roomInfo.data) + '명' : '—'}</dd></div>
-            <div><dt>경험</dt><dd>{EXP_LABEL[roomInfo.data?.experienceLevel] || '—'}</dd></div>
-          </dl>
-          <div className="chat-side-links">
-            <a href={'#/session/' + roomId}>모임 상세로</a>
-            <a href="#/my">내 모임</a>
-          </div>
-        </aside>
-
-        <section className="chat-main">
-          <div className="chat-mobile-header">
-            <a className="chat-mobile-nav" href="#/chats" aria-label="전체 채팅으로 돌아가기">
-              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
-            </a>
-            <div className="chat-mobile-room">
-              <h1 className="chat-mobile-title">{roomInfo.data?.title || '모임 채팅'}</h1>
-              <p className="chat-mobile-meta">{roomInfo.data ? participantCount(roomInfo.data) + '명 · ' + formatStartsAt(roomInfo.data.startsAt) : '참가자와 대화 중'}</p>
-            </div>
-            <a className="chat-mobile-nav" href={'#/session/' + roomId} aria-label="모임 상세 보기">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="12" cy="19" r="1.7" /></svg>
-            </a>
-          </div>
-          {connectionStatus === 'reconnecting' && <p className="sr-only" role="status">{CHAT_CONNECTION_STATUS.reconnecting}</p>}
-          {['failed', 'exhausted', 'restricted'].includes(connectionStatus) && (
-            <div className="chat-connection-notice" role="status">
-              <p>{CHAT_CONNECTION_STATUS[connectionStatus]}</p>
-              <a href="#/chats">채팅 목록으로 이동</a>
-            </div>
-          )}
-          <div className="chat-log" ref={chatHistoryRef} onScroll={handleChatScroll}>
-            {!error && !!displayedMessages.length && <div className="chat-load-sentinel" ref={loadMoreSentinelRef} aria-hidden="true" />}
-            {error && <ErrorBox message={error} />}
-            {!error && loading && !data && <LoadingBox label="채팅을 불러오는 중…" />}
-            {!error && loadingMore && <p className="hint chat-loading-more" role="status">이전 메시지를 불러오는 중…</p>}
-            {!error && !loading && !displayedMessages.length && <p className="chat-empty">아직 주고받은 메시지가 없어요.<br /><span className="hint">모임 전에 인사를 남겨보세요.</span></p>}
-            {groupChatMessages(displayedMessages).map((day) => (
-              <ul className="chat-day" key={day.day}>
-                <li className="chat-daymark" role="presentation"><span>{formatChatDay(day.day)}</span></li>
-                {day.rows.map(({ message, isGroupStart, isGroupEnd }) => {
-                  const isMine = Boolean(message.isMine);
-                  const owner = isMine ? 'mine' : 'theirs';
-                  return (
-                    <li
-                      className={'chat-message ' + owner + (isGroupStart ? ' start' : '')}
-                      data-message-owner={owner}
-                      key={message.messageId}
-                    >
-                      {/* 내 이름은 화면에서는 군더더기라 숨기고, 화면 낭독기에는 남긴다. */}
-                      {isGroupStart && !isMine && (
-                        <span className={'chat-person-mark ' + chatParticipantTone(message.sender?.nickname)} aria-hidden="true">
-                          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="12" cy="8" r="4" /><path d="M4.5 21a7.5 7.5 0 0 1 15 0Z" /></svg>
-                        </span>
-                      )}
-                      {isGroupStart && <b className={'chat-sender' + (isMine ? ' sr-only' : '')}>{isMine ? '나' : message.sender?.nickname}</b>}
-                      <span className="chat-line">
-                        <span className="chat-content">{message.content}</span>
-                        {isGroupEnd && <time className="chat-time" dateTime={message.createdAt}>{formatChatTime(message.createdAt)}</time>}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            ))}
-          </div>
-
-          {!error && <form className="chat-compose" onSubmit={submit}>
-            <label className="sr-only" htmlFor="chat-message">메시지</label>
-            <button className="chat-attachment-btn" type="button" disabled aria-label="첨부 기능은 아직 제공하지 않습니다">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-            </button>
-            <textarea id="chat-message" ref={composeInputRef} disabled={sending} maxLength="500" value={content} onChange={(event) => { setContent(event.target.value); setSendError(''); setSendResultUnknown(false); }} onKeyDown={handleComposeKeyDown} placeholder="메시지 입력" />
-            <button className="chat-send-btn" disabled={sending} type="submit" aria-label={sending ? '전송 중…' : sendResultUnknown ? '다시 시도' : '전송'}>
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></svg>
-            </button>
-            <span className={'chat-count' + ([...content].length > 450 ? ' near' : '')}>{[...content].length}/500</span>
-            {sendError && <p className="hint warn chat-senderror" role="alert">{sendError}</p>}
-          </form>}
-        </section>
+    <div className="chat-screen">
+      <div className="chat-topbar">
+        <button type="button" className="icon-btn" aria-label="뒤로 가기" onClick={onBack}>
+          <BackIcon />
+        </button>
+        <div className="chat-topbar-copy">
+          <strong>{room?.title || '모임 채팅'}</strong>
+          <span>{room ? participantCount(room) + '명 · ' + formatStartsAt(room.startsAt) : '참가자와 대화 중'}</span>
+        </div>
+        <a className="icon-btn" href={'#/session/' + roomId} aria-label="모임 상세 보기"><InfoIcon /></a>
       </div>
-    </>
+
+      {connectionStatus === 'reconnecting' && <p className="sr-only" role="status">{CHAT_CONNECTION_STATUS.reconnecting}</p>}
+      {['failed', 'exhausted', 'restricted'].includes(connectionStatus) && (
+        <div className="chat-notice" role="status">
+          {CHAT_CONNECTION_STATUS[connectionStatus]}
+          {' '}
+          <a href="#/chats"><b>채팅 목록으로 이동</b></a>
+        </div>
+      )}
+
+      <div className="chat-log" ref={chatHistoryRef} onScroll={handleChatScroll}>
+        {!error && !!displayedMessages.length && <div ref={loadMoreSentinelRef} aria-hidden="true" style={{ height: 1 }} />}
+        {error && <ErrorBox title="채팅을 열 수 없어요" message={error} />}
+        {!error && loading && !data && <p className="chat-empty" role="status">채팅을 불러오는 중…</p>}
+        {!error && loadingMore && <p className="chat-daymark" role="status">이전 메시지를 불러오는 중…</p>}
+        {!error && !loading && !displayedMessages.length && <p className="chat-empty">아직 주고받은 메시지가 없어요.<br />모임 전에 인사를 남겨보세요.</p>}
+        {groupChatMessages(displayedMessages).map((day) => (
+          <React.Fragment key={day.day}>
+            <p className="chat-daymark">{formatChatDay(day.day)}</p>
+            {day.rows.map(({ message, isGroupStart, isGroupEnd }) => {
+              const isMine = Boolean(message.isMine);
+              const nickname = message.sender?.nickname || '';
+              const tone = senderColor(nickname);
+              return (
+                <div className={'chat-message ' + (isMine ? 'mine' : 'theirs')} data-message-owner={isMine ? 'mine' : 'theirs'} key={message.messageId}>
+                  {isGroupStart && !isMine && (
+                    <span className="chat-sender">
+                      <span className="avatar" style={{ background: tone, color: playerTextColor(tone) }} aria-hidden="true">{[...nickname][0] || '?'}</span>
+                      <b style={{ color: tone }}>{nickname}</b>
+                    </span>
+                  )}
+                  {isGroupStart && isMine && <b className="sr-only">나</b>}
+                  <span className="chat-line">
+                    <span className="chat-content">{message.content}</span>
+                    {isGroupEnd && <time className="chat-time" dateTime={message.createdAt}>{formatChatTime(message.createdAt)}</time>}
+                  </span>
+                </div>
+              );
+            })}
+          </React.Fragment>
+        ))}
+      </div>
+
+      {!error && (
+        <form className="chat-compose" onSubmit={submit}>
+          <label className="sr-only" htmlFor="chat-message">메시지</label>
+          <textarea id="chat-message" ref={composeInputRef} disabled={sending} maxLength="500" value={content} onChange={(event) => { setContent(event.target.value); setSendError(''); setSendResultUnknown(false); }} onKeyDown={handleComposeKeyDown} placeholder="메시지 입력" />
+          <button className="chat-send" disabled={sending} type="submit" aria-label={sending ? '전송 중…' : sendResultUnknown ? '다시 시도' : '전송'}>
+            <SendIcon />
+          </button>
+        </form>
+      )}
+      {sendError && (
+        <div className="chat-fail" style={{ margin: '0 18px 14px' }} role="alert">
+          <span>{sendError}</span>
+          {sendResultUnknown && <button type="button" onClick={submit}>재시도</button>}
+        </div>
+      )}
+    </div>
   );
 }
 
-function ProfilePlayedGames({ dataVersion }) {
-  const { data, loading } = useRequest(
-    (signal) => api.getGames({ playedFilter: 'PLAYED_ONLY', page: 0, size: 3 }, signal),
-    [dataVersion]
-  );
-  const games = (data?.content || []).map(normalizeGameSummary);
-  const total = data ? Number(data.totalElements || 0) : null;
-  const allGamesLabel = total === null ? '플레이한 게임 전체 보기' : '플레이한 게임 전체 ' + total + '개 보기';
+export function SocialLinkView({ socialProviders = [], onSocialLink, onBack }) {
+  const [linking, setLinking] = useState('');
+  // 연결은 제공자 화면으로 전체 페이지를 넘긴다. 성공하면 이 화면이 다시 그려지지 않으므로 상태를 되돌리지 않는다.
+  const startLink = async (provider) => {
+    setLinking(provider);
+    if (!await onSocialLink(provider)) setLinking('');
+  };
   return (
-    <section className="profile-played-games" aria-labelledby="profile-played-games-title">
-      <div className="profile-played-games-heading">
-        <h3 id="profile-played-games-title">플레이한 게임</h3>
-        <a href="#/game-list/played" aria-label={allGamesLabel}>{total === null ? '전체 보기' : '전체 ' + total}</a>
+    <div className="screen sub">
+      <TopBar onBack={onBack} />
+      <div className="screen-body pad-bottom">
+        <ScreenTitle>소셜 계정 연결</ScreenTitle>
+        <div className="notecard" style={{ marginTop: 12 }}>
+          <strong>이메일에 이미 가입된 계정이 있어요</strong>
+          <p>이메일만 같다고 자동으로 합치지 않아요. 기존 계정으로 로그인한 지금 상태에서 동의하면 연결됩니다.</p>
+        </div>
+        <p className="screen-lead" style={{ marginTop: 12 }}>연결하면 다음부터 그 계정으로도 로그인할 수 있어요. 연결 해제는 아직 지원하지 않아요.</p>
+        <div className="social-link-list">
+          {socialProviders.map((item) => (item.linked
+            ? (
+              <div className="social-link-row" key={item.provider}>
+                <strong>{SOCIAL_PROVIDER_LABEL[item.provider]}</strong>
+                <span className="social-link-state linked">연결됨</span>
+              </div>
+            )
+            : (
+              <button className="social-link-row" key={item.provider} type="button" disabled={Boolean(linking)} onClick={() => startLink(item.provider)}>
+                <strong>{SOCIAL_PROVIDER_LABEL[item.provider]}</strong>
+                <span className="social-link-state">{linking === item.provider ? '연결 중…' : '연결하기'}</span>
+              </button>
+            )))}
+          {!socialProviders.length && <p className="screen-lead">지금은 연결할 수 있는 제공자가 없어요.</p>}
+        </div>
       </div>
-      <div className="profile-played-games-grid">
-        {loading && !data
-          ? [0, 1, 2].map((index) => <div className="profile-played-game profile-played-game-skeleton" key={index} aria-hidden="true"><span /><b /></div>)
-          : games.map((game) => (
-            <a className="profile-played-game" href={'#/game/' + game.id} key={game.id} aria-label={game.title + ' 게임 상세'}>
-              <span className="profile-played-game-cover">{game.imageUrl ? <img src={game.imageUrl} alt="" /> : '🎲'}</span>
-              <strong>{game.title}</strong>
-            </a>
-          ))}
-        <a className="profile-played-game profile-played-game-add" href="#/game-list" aria-label="게임 추가"><span className="profile-played-game-add-box" aria-hidden="true">+</span><strong>추가</strong></a>
-      </div>
-    </section>
+    </div>
   );
 }
 
-export function ProfileView({ me, onSave, onLogout, socialProviders = [], onSocialLink, onUploadImage, onDeleteImage, dataVersion = 0 }) {
+export function ProfileView({ me, onSave, onLogout, socialProviders = [], onUploadImage, onDeleteImage, dataVersion = 0, unreadCount, onOpenNotifications }) {
   const [nickname, setNickname] = useState(me.nickname);
   const [editing, setEditing] = useState(false);
-  const [socialLinkOpen, setSocialLinkOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [linking, setLinking] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
+  const counts = useRequest((signal) => Promise.all([
+    api.getMyRooms({ role: 'joined', page: 0, size: 1 }, signal),
+    api.getMyRooms({ role: 'hosted', page: 0, size: 1 }, signal),
+    api.getGames({ playedFilter: 'PLAYED_ONLY', page: 0, size: 1 }, signal)
+  ]), [dataVersion]);
+  const [joinedPage, hostedPage, playedPage] = counts.data || [];
   useEffect(() => setNickname(me.nickname), [me.nickname]);
-  const openProfileEditor = () => {
-    setNickname(me.nickname);
-    setEditing(true);
-  };
-  const closeProfileEditor = () => {
-    setNickname(me.nickname);
-    setEditing(false);
-  };
   const logout = async () => {
     setLoggingOut(true);
     try {
@@ -1843,101 +1776,74 @@ export function ProfileView({ me, onSave, onLogout, socialProviders = [], onSoci
       setUploadingImage(false);
     }
   };
-  // 연결은 제공자 화면으로 전체 페이지를 넘긴다. 성공하면 이 화면이 다시 그려지지 않으므로 상태를 되돌리지 않는다.
-  const startLink = async (provider) => {
-    setLinking(provider);
-    if (!await onSocialLink(provider)) setLinking('');
-  };
+  const stats = [
+    { key: '참가한 모임', value: joinedPage?.totalElements ?? '—' },
+    { key: '개설한 모임', value: hostedPage?.totalElements ?? '—' },
+    { key: '해 본 게임', value: playedPage?.totalElements ?? '—' }
+  ];
+
   return (
-    <>
-      <div className="profile-head">
-        <div className="profile-avatar-wrap">
-          {me.profileImageUrl
-            ? <img className="profile-avatar" src={me.profileImageUrl} alt={me.nickname + ' 프로필 이미지'} />
-            : <span className="profile-avatar" aria-hidden="true">{me.nickname.slice(0, 1)}</span>}
-          <button className="profile-avatar-edit" type="button" disabled={uploadingImage} onClick={openProfileEditor} aria-label="프로필 수정" aria-expanded={editing} aria-controls="profile-edit-panel">
-            {uploadingImage ? '…' : <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>}
-          </button>
-          <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleImageSelect} aria-label="프로필 사진 파일" />
-        </div>
-        <div>
-          <h2>{me.nickname}</h2>
-        </div>
-      </div>
-      {editing && (
-        <form className="profile-edit-card" id="profile-edit-panel" onSubmit={submit} aria-label="프로필 수정">
-          <div className="profile-edit-card-heading">
-            <strong>프로필 수정</strong>
-            <span>사진과 닉네임을 한 곳에서 관리하세요.</span>
+    <div className="screen">
+      <div className="screen-body pad-top pad-bottom">
+        <ScreenTitle actions={<HeaderActions unreadCount={unreadCount} onOpenNotifications={onOpenNotifications} />}>내정보</ScreenTitle>
+        <div className="profile-head">
+          <div className="profile-avatar">
+            <Avatar name={me.nickname} index={0} imageUrl={me.profileImageUrl} />
+            <button className="profile-avatar-edit" type="button" disabled={uploadingImage} aria-label="프로필 사진 변경" onClick={() => fileInputRef.current?.click()}>
+              <CameraIcon />
+            </button>
+            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleImageSelect} aria-label="프로필 사진 파일" />
           </div>
-          <div className="profile-edit-photo">
-            <span className="profile-edit-label">프로필 사진</span>
-            <div className="profile-edit-photo-actions">
-              <button className="btn ghost" type="button" disabled={uploadingImage} onClick={() => fileInputRef.current?.click()}>{uploadingImage ? '사진 변경 중…' : '사진 변경'}</button>
-              {me.profileImageUrl && <button className="profile-photo-delete" type="button" disabled={uploadingImage} onClick={handleDeleteImage}>사진 삭제</button>}
+          <div className="profile-name">
+            <strong>{me.nickname}</strong>
+            {/* 내 정보 응답에 이메일이 없으면 빈 줄을 만들지 않는다. */}
+            {me.email && <span>{me.email}</span>}
+          </div>
+          <button type="button" className="profile-edit-btn" aria-expanded={editing} onClick={() => { setNickname(me.nickname); setEditing(!editing); }}>수정</button>
+        </div>
+
+        {editing && (
+          <form onSubmit={submit} aria-label="프로필 수정">
+            <div className="field">
+              <label className="field-label" htmlFor="profile-nickname">닉네임</label>
+              <input id="profile-nickname" className="field-input" maxLength="50" autoFocus value={nickname} onChange={(event) => setNickname(event.target.value)} />
             </div>
-          </div>
-          <div className="profile-edit-field">
-            <label className="profile-edit-label" htmlFor="profile-nickname">닉네임</label>
-            <input id="profile-nickname" maxLength="50" autoFocus value={nickname} onChange={(event) => setNickname(event.target.value)} />
-            <p className="hint">알밤메이트에서 표시되는 내 닉네임입니다.</p>
-          </div>
-          <div className="profile-edit-actions">
-            <button className="btn" disabled={saving} type="submit">{saving ? '저장 중…' : '저장'}</button>
-            <button className="btn ghost" disabled={saving} type="button" onClick={closeProfileEditor}>취소</button>
-          </div>
-        </form>
-      )}
-      <ProfilePlayedGames dataVersion={dataVersion} />
-      <div className="card menu-list" style={{ maxWidth: 560 }}>
-          <a className="menu-row" href="#/my">
-            <span className="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3.5 6h.01" /><path d="M3.5 12h.01" /><path d="M3.5 18h.01" /></svg></span>
-            <span className="menu-label">내 모임</span>
-            <span className="menu-arrow" aria-hidden="true">›</span>
-          </a>
-          <a className="menu-row" href="#/game-list/played">
-            <span className="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m9 12 2 2 4-4" /><circle cx="12" cy="12" r="9" /></svg></span>
-            <span className="menu-label">해 본 게임</span>
-            <span className="menu-arrow" aria-hidden="true">›</span>
-          </a>
+            <div className="btn-row" style={{ marginTop: 12 }}>
+              <button className="btn fill" type="button" disabled={saving} onClick={() => { setNickname(me.nickname); setEditing(false); }}>취소</button>
+              <button className="btn" disabled={saving} type="submit">{saving ? '저장 중…' : '저장'}</button>
+            </div>
+            {me.profileImageUrl && (
+              <button className="btn fill sm" type="button" style={{ marginTop: 8 }} disabled={uploadingImage} onClick={handleDeleteImage}>프로필 사진 삭제</button>
+            )}
+          </form>
+        )}
+
+        <dl className="profile-stats">
+          {stats.map((stat) => <div key={stat.key}><dd>{stat.value}</dd><dt>{stat.key}</dt></div>)}
+        </dl>
+
+        <div className="divider" style={{ marginTop: 28 }} />
+        <div className="menu-list">
+          <a className="menu-row" href="#/my"><span className="menu-row-label">내 모임</span><span className="rowarrow"><ArrowIcon size={16} /></span></a>
+          <a className="menu-row" href="#/game-list/played"><span className="menu-row-label">해 본 게임</span><span className="rowarrow"><ArrowIcon size={16} /></span></a>
           {socialProviders.length > 0 && (
-            <div>
-              <button className="menu-row" type="button" aria-expanded={socialLinkOpen} onClick={() => setSocialLinkOpen(!socialLinkOpen)}>
-                <span className="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5" /><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5" /></svg></span>
-                <span className="menu-label">소셜 계정 연결</span>
-                <span className="menu-arrow" aria-hidden="true">{socialLinkOpen ? '▾' : '›'}</span>
-              </button>
-              {socialLinkOpen && (
-                <div className="menu-panel social-link-panel">
-                  {socialProviders.map((item) => {
-                    const providerLabel = SOCIAL_PROVIDER_LABEL[item.provider];
-                    const providerDetails = <>
-                      <span className={'social-provider-icon ' + item.provider.toLowerCase()} aria-hidden="true">{SOCIAL_PROVIDER_ICON[item.provider]}</span>
-                      <span className="social-link-copy">
-                        <strong>{providerLabel}</strong>
-                        <span>{item.linked ? '연결된 계정' : '로그인 수단으로 추가'}</span>
-                      </span>
-                    </>;
-                    return item.linked
-                      ? <div className="social-link-row" key={item.provider}>{providerDetails}<span className="social-link-state" role="status">연결됨</span></div>
-                      : <button className="social-link-row social-link-row-action" key={item.provider} type="button" disabled={Boolean(linking)} onClick={() => startLink(item.provider)} aria-label={providerLabel + ' 연결'}>{providerDetails}<span className="social-link-arrow" aria-hidden="true">{linking === item.provider ? '…' : '›'}</span></button>;
-                  })}
-                  <p className="social-link-note">연결한 계정으로도 로그인할 수 있어요. 연결 해제와 교체는 아직 제공하지 않아요.</p>
-                </div>
-              )}
-            </div>
+            <a className="menu-row" href="#/social-link">
+              <span className="menu-row-label">소셜 계정 연결</span>
+              <span className="menu-row-value">{socialProviders.filter((item) => item.linked).length}개 연결됨</span>
+              <span className="rowarrow"><ArrowIcon size={16} /></span>
+            </a>
           )}
-          <button className="menu-row" type="button" disabled={loggingOut} onClick={logout}>
-            <span className="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></svg></span>
-            <span className="menu-label">{loggingOut ? '로그아웃 중…' : '로그아웃'}</span>
-          </button>
+        </div>
+        <div className="divider" style={{ marginTop: 14 }} />
+
+        <button className="btn fill" type="button" style={{ marginTop: 30 }} disabled={loggingOut} onClick={logout}>{loggingOut ? '로그아웃 중…' : '로그아웃'}</button>
+        <BggAttribution logoSrc={poweredByBgg} />
       </div>
-    </>
+    </div>
   );
 }
 
 // 브라우저 minLength와 서버의 Unicode 문자 수 계산이 다를 수 있어 하한도 같은 기준으로 판정한다.
-// 안내 문구의 한글 24자는 72바이트를 한글 한 글자 3바이트로 나눈 값이다.
 // 이 문장이 가입이 막힌 사유를 알리는 유일한 자리다. 같은 말을 오류 상자에 겹쳐 띄우지 않는다.
 function signupPasswordError(password) {
   const codePointLength = [...password].length;
@@ -1954,6 +1860,7 @@ function signupPasswordError(password) {
 }
 
 export function AuthView({ onLogin, socialProviders = [], onSocialLogin }) {
+  const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -1972,37 +1879,49 @@ export function AuthView({ onLogin, socialProviders = [], onSocialLogin }) {
     }
   };
   return (
-    <div className="auth-modal-backdrop">
-      <section className="auth-modal" aria-label="로그인">
-        <a className="auth-modal-close" href="#/home" aria-label="닫기">×</a>
-        <form onSubmit={submit}>
-          <div className="auth-email-header">
-            <span className="auth-email-brand"><img src={brandSymbol} alt="" /></span>
-            <span className="auth-email-title">알밤메이트로 로그인하기</span>
-          </div>
-          <div className="formrow single"><div><label className="sr-only" htmlFor="auth-email">이메일</label><input id="auth-email" type="email" autoComplete="email" placeholder="이메일" required value={email} onChange={(event) => setEmail(event.target.value)} /></div><div><label className="sr-only" htmlFor="auth-password">비밀번호</label><div className="auth-password-field"><input id="auth-password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="비밀번호" required value={password} onChange={(event) => setPassword(event.target.value)} /><button type="button" className="auth-password-toggle" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}>{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button></div></div></div>
-          {error && <ErrorBox message={error} />}
-          <button className="btn big pill" disabled={submitting} type="submit">{submitting ? '처리 중…' : '로그인'}</button>
-        </form>
+    <div className="screen">
+      <div className="auth">
+        <BrandMark size={62} />
+        <h1>오늘 열린 모임에<br />한 자리 맡아두세요</h1>
+        <p className="auth-lead">근처에서 열리는 보드게임 모임을 찾고,<br />직접 모임을 열어 사람을 모아요.</p>
+
+        {showEmailForm
+          ? (
+            <form onSubmit={submit}>
+              <div className="field">
+                <label className="sr-only" htmlFor="auth-email">이메일</label>
+                <input id="auth-email" className="field-input" type="email" autoComplete="email" placeholder="이메일" required value={email} onChange={(event) => setEmail(event.target.value)} />
+              </div>
+              <div className="field auth-password">
+                <label className="sr-only" htmlFor="auth-password">비밀번호</label>
+                <input id="auth-password" className="field-input" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="비밀번호" required value={password} onChange={(event) => setPassword(event.target.value)} />
+                <button type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}>{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button>
+              </div>
+              {error && <p className="field-hint warn" role="alert">{error}</p>}
+              <button className="btn cta" disabled={submitting} type="submit">{submitting ? '처리 중…' : '로그인'}</button>
+            </form>
+          )
+          : <button className="btn cta" type="button" onClick={() => setShowEmailForm(true)}>이메일로 로그인</button>}
+
         {socialProviders.length > 0 && (
           <>
-            <div className="auth-divider">또는</div>
+            <div className="auth-divider"><span>간편 로그인</span></div>
             <div className="social-auth">
               {socialProviders.map((item) => (
                 <button className={'social-auth-btn ' + item.provider.toLowerCase()} key={item.provider} type="button" onClick={() => onSocialLogin(item.provider)} aria-label={SOCIAL_PROVIDER_LABEL[item.provider] + '로 계속하기'}>
-                  <span className="social-auth-icon">{SOCIAL_PROVIDER_ICON[item.provider]}</span>
+                  {SOCIAL_PROVIDER_ICON[item.provider]}
                 </button>
               ))}
             </div>
           </>
         )}
-        <a className="auth-switch-link" href="#/signup">알밤메이트가 처음이신가요? <u>가입하기</u></a>
-      </section>
+        <a className="auth-switch" href="#/signup">계정이 없으신가요? <b>회원가입</b></a>
+      </div>
     </div>
   );
 }
 
-export function SignupView({ onSignup }) {
+export function SignupView({ onSignup, onBack }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
@@ -2030,27 +1949,49 @@ export function SignupView({ onSignup }) {
     }
   };
   return (
-    <section className="card signup-page" style={{ margin: '0 auto', maxWidth: 460 }}>
-      <h2>회원가입</h2>
-      <form onSubmit={submit}>
-        <div className="auth-email-header">
-          <span className="auth-email-brand"><img src={brandSymbol} alt="" /></span>
-          <span className="auth-email-title">알밤메이트로 회원가입하기</span>
+    <form className="screen sub" onSubmit={submit}>
+      <TopBar onBack={onBack} />
+      <div className="screen-body pad-bottom">
+        <ScreenTitle>회원가입</ScreenTitle>
+        <div className="field">
+          <label className="sr-only" htmlFor="signup-email">이메일</label>
+          <input id="signup-email" className="field-input" type="email" autoComplete="email" placeholder="이메일" required value={email} onChange={(event) => setEmail(event.target.value)} />
         </div>
-        <div className="formrow single"><div><label className="sr-only" htmlFor="signup-email">이메일</label><input id="signup-email" type="email" autoComplete="email" placeholder="이메일" required value={email} onChange={(event) => setEmail(event.target.value)} /></div><div><label className="sr-only" htmlFor="signup-nickname">닉네임</label><input id="signup-nickname" maxLength="50" placeholder="닉네임" required value={nickname} onChange={(event) => setNickname(event.target.value)} /></div><div><label className="sr-only" htmlFor="signup-password">비밀번호</label><div className="auth-password-field"><input id="signup-password" ref={passwordRef} type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={PASSWORD_MIN_CODE_POINTS} placeholder="비밀번호" required value={password} onChange={(event) => setPassword(event.target.value)} aria-describedby="signup-password-hint" aria-invalid={passwordError ? true : undefined} /><button type="button" className="auth-password-toggle" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}>{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button></div><p id="signup-password-hint" className={passwordError ? 'hint warn' : 'hint'} role={passwordError ? 'alert' : undefined}>{passwordError || '15자 이상, Unicode와 공백을 사용할 수 있어요.'}</p></div></div>
-        {error && <ErrorBox message={error} />}
-        <button className="btn big pill" disabled={submitting} type="submit">{submitting ? '처리 중…' : '회원가입'}</button>
-      </form>
-      <a className="auth-switch-link" href="#/auth">이미 계정이 있으신가요? <u>로그인</u></a>
-    </section>
+        <div className="field">
+          <label className="sr-only" htmlFor="signup-nickname">닉네임</label>
+          <input id="signup-nickname" className="field-input" maxLength="50" placeholder="닉네임" required value={nickname} onChange={(event) => setNickname(event.target.value)} />
+        </div>
+        <div className="field auth-password">
+          <label className="sr-only" htmlFor="signup-password">비밀번호</label>
+          <input id="signup-password" className="field-input" ref={passwordRef} type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={PASSWORD_MIN_CODE_POINTS} placeholder="비밀번호" required value={password} onChange={(event) => setPassword(event.target.value)} aria-describedby="signup-password-hint" aria-invalid={passwordError ? true : undefined} />
+          <button type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}>{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button>
+        </div>
+        <p id="signup-password-hint" className={passwordError ? 'field-hint warn' : 'field-hint'} role={passwordError ? 'alert' : undefined}>{passwordError || '15자 이상, Unicode와 공백을 사용할 수 있어요.'}</p>
+        {error && <p className="field-hint warn" role="alert">{error}</p>}
+        <a className="auth-switch" href="#/auth">이미 계정이 있으신가요? <b>로그인</b></a>
+      </div>
+      <div className="stickybar">
+        <button className="btn cta" disabled={submitting} type="submit">{submitting ? '처리 중…' : '회원가입'}</button>
+      </div>
+    </form>
+  );
+}
+
+function Splash() {
+  return (
+    <div className="splash" role="status" aria-label="알밤메이트를 여는 중">
+      <BrandMark size={76} />
+      <span>알밤메이트</span>
+    </div>
   );
 }
 
 export function App() {
   const [{ route, arg }, navigate] = useHashRoute();
   const today = useSeoulToday();
-  const isMobile = useMobileViewport();
   const [me, setMe] = useState(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const [splashDone, setSplashDone] = useState(false);
   const [gameQuery, setGameQuery] = useState('');
   const [roomQuery, setRoomQuery] = useState('');
   const [roomType, setRoomType] = useState('');
@@ -2059,7 +2000,6 @@ export function App() {
   const [createMode, setCreateMode] = useState('GAME_FOCUSED');
   const [createGame, setCreateGame] = useState(null);
   const [dataVersion, setDataVersion] = useState(0);
-  const [notificationOpen, setNotificationOpen] = useState(false);
   const [socialProviders, setSocialProviders] = useState([]);
   const [toast, setToast] = useState({ message: '', type: '' });
   const authenticated = Boolean(me);
@@ -2075,7 +2015,6 @@ export function App() {
     if (!meRef.current) return;
     meRef.current = null;
     setMe(null);
-    setNotificationOpen(false);
     setDataVersion((version) => version + 1);
     window.location.hash = '#/auth';
   }, []);
@@ -2092,7 +2031,7 @@ export function App() {
 
   const notificationState = useNotificationPolling({
     enabled: Boolean(me),
-    panelOpen: notificationOpen,
+    panelOpen: route === 'notifications',
     loadNotifications: loadFirstNotificationPage,
     loadUnreadCount: api.getUnreadNotificationCount,
     onBackgroundError: handleNotificationBackgroundError
@@ -2113,12 +2052,20 @@ export function App() {
   });
 
   const refreshData = () => setDataVersion((version) => version + 1);
+  const goBack = () => {
+    if (window.history.length > 1) window.history.back();
+    else navigate('/home');
+  };
 
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
   useEffect(() => {
     setUnauthenticatedHandler(expireAuthentication);
     return () => setUnauthenticatedHandler(undefined);
   }, [expireAuthentication]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSplashDone(true), SPLASH_MIN_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
   useEffect(() => {
     let active = true;
     api.getMyProfile()
@@ -2129,6 +2076,9 @@ export function App() {
         if (error?.name !== 'AbortError' && !isUnauthenticated(error) && active) {
           showToast(messageForError(error, '로그인 상태를 확인하지 못했어요.'), 'err');
         }
+      })
+      .finally(() => {
+        if (active) setSessionChecked(true);
       });
     return () => {
       active = false;
@@ -2155,7 +2105,6 @@ export function App() {
   }, [authenticated]);
   useEffect(() => {
     window.scrollTo(0, 0);
-    setNotificationOpen(false);
   }, [route, arg]);
 
   const handleProtectedError = (error, fallback) => {
@@ -2178,13 +2127,6 @@ export function App() {
       onUnauthenticated: expireAuthentication,
       onUnavailable: (message) => showToast(message, 'err')
     });
-  };
-
-  const handleBrowsePeople = () => setRoomType('PERSON_FOCUSED');
-
-  const handleSearchGame = (keyword) => {
-    setGameQuery(keyword);
-    navigate('/game-list');
   };
 
   const handleCreateGame = (game) => {
@@ -2239,7 +2181,6 @@ export function App() {
       await api.logout();
       meRef.current = null;
       setMe(null);
-      setNotificationOpen(false);
       refreshData();
       showToast('로그아웃했어요.');
       navigate('/home');
@@ -2410,54 +2351,108 @@ export function App() {
     }
   };
 
+  const unreadCount = notificationReadSync.visibleUnreadCount;
+  const openNotifications = () => navigate('/notifications');
+  const headerActions = <HeaderActions unreadCount={unreadCount} onOpenNotifications={openNotifications} />;
+
   let content;
-  if (route === 'find') content = <FindRoomsView roomType={roomType} onRoomTypeChange={setRoomType} roomQuery={roomQuery} onRoomQueryChange={setRoomQuery} roomFilters={roomFilters} onRoomFiltersChange={setRoomFilters} dataVersion={dataVersion} />;
-  else if (route === 'game-list' && arg === 'played') {
+  if (route === 'find') {
+    content = <FindRoomsView roomType={roomType} onRoomTypeChange={setRoomType} roomQuery={roomQuery} onRoomQueryChange={setRoomQuery} roomFilters={roomFilters} onRoomFiltersChange={setRoomFilters} dataVersion={dataVersion} />;
+  } else if (route === 'game-list' && arg === 'played') {
+    // GamesView는 initialFilters를 최초 마운트에만 반영하므로, 두 목록 route에 다른 key를 줘
+    // 전환 때 재마운트시킨다. 같은 route 안에서 고른 필터는 key가 그대로라 유지된다.
     content = me
-      ? <GamesView title="해 본 게임" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} onPlayedError={handleProtectedError}
-        initialFilters={{ ...EMPTY_GAME_FILTERS, playedFilter: 'PLAYED_ONLY' }} />
-      : <LoginRequiredView message="해 본 게임을 보려면 로그인해주세요." />;
+      ? <div className="screen" key="game-list-played"><GamesView title="해 본 게임" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} onPlayedError={handleProtectedError} headerActions={headerActions} initialFilters={{ ...EMPTY_GAME_FILTERS, playedFilter: 'PLAYED_ONLY' }} /></div>
+      : <LoginRequiredView message="해 본 게임을 보려면 로그인해주세요." onBack={goBack} />;
+  } else if (route === 'game-list') {
+    content = <div className="screen" key="game-list"><GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} onPlayedError={handleProtectedError} headerActions={headerActions} /></div>;
+  } else if (route === 'game-rankings') {
+    content = <GameRankingView onBack={goBack} dataVersion={dataVersion} />;
+  } else if (route === 'game') {
+    content = <GameDetailView gameId={arg} onCreateGame={handleCreateGame} onBack={goBack} dataVersion={dataVersion} onPlayedError={handleProtectedError} renderRoom={(room) => <RoomListItem key={room.id} room={room} />} />;
+  } else if (route === 'session') {
+    content = <SessionDetailView sessionId={arg} me={me} onBack={goBack} onApply={handleApply} onCancelApply={handleCancelApply} onHostCancel={handleHostCancel} onFinish={handleFinish} onJoinWaitlist={handleJoinWaitlist} onCancelWaitlist={handleCancelWaitlist} onWaitlistSettled={refreshData} dataVersion={dataVersion} />;
+  } else if (route === 'create') {
+    content = me
+      ? <CreateView createMode={createMode} onCreateModeChange={setCreateMode} initialGame={createGame} onCreate={handleCreate} onBack={goBack} today={today} />
+      : <LoginRequiredView message="모임을 만들려면 로그인해주세요." onBack={goBack} />;
+  } else if (route === 'edit') {
+    content = me
+      ? <EditView sessionId={arg} onSave={handleSave} onBack={goBack} dataVersion={dataVersion} today={today} />
+      : <LoginRequiredView message="모임을 수정하려면 로그인해주세요." onBack={goBack} />;
+  } else if (route === 'my') {
+    content = me
+      ? <MyRoomsSection myTab={myTab} onMyTabChange={setMyTab} dataVersion={dataVersion} onCancelApply={handleCancelApply} onBack={goBack} />
+      : <LoginRequiredView message="내 모임을 보려면 로그인해주세요." onBack={goBack} />;
+  } else if (route === 'chat') {
+    content = me
+      ? <ChatRoomView roomId={arg} dataVersion={dataVersion} onBack={goBack} />
+      : <LoginRequiredView message="모임 채팅을 보려면 로그인해주세요." onBack={goBack} />;
+  } else if (route === 'chats') {
+    content = me
+      ? <ChatListView dataVersion={dataVersion} onBack={goBack} />
+      : <LoginRequiredView message="채팅 목록을 보려면 로그인해주세요." onBack={goBack} />;
+  } else if (route === 'notifications') {
+    content = me
+      ? (
+        <NotificationPanel
+          notifications={notificationState.notifications}
+          listStatus={notificationState.listStatus}
+          optimisticReadIds={notificationReadSync.optimisticReadIds}
+          canMarkAllAsRead={unreadCount > 0}
+          bulkReadPending={notificationReadSync.bulkReadPending}
+          synchronizationFailed={notificationReadSync.synchronizationFailed}
+          onBack={goBack}
+          onRetry={notificationState.retry}
+          onSelectNotification={handleNotificationSelect}
+          onMarkAllAsRead={notificationReadSync.markAllAsRead}
+          onRetrySynchronization={notificationReadSync.retrySynchronization}
+        />
+      )
+      : <LoginRequiredView message="알림을 보려면 로그인해주세요." onBack={goBack} />;
+  } else if (route === 'bot') {
+    content = me
+      ? <BotView onBack={goBack} onToast={showToast} />
+      : <LoginRequiredView message="알밤봇을 쓰려면 로그인해주세요." onBack={goBack} />;
+  } else if (route === 'match') {
+    // 진행 단계는 서버가 없어 저절로 바뀌지 않으므로 주소로 확인한다(#/match/searching 등).
+    content = me
+      ? <MatchView phase={arg} dataVersion={dataVersion} onBack={goBack} onNavigate={navigate} onToast={showToast} />
+      : <LoginRequiredView message="온라인 매칭을 쓰려면 로그인해주세요." onBack={goBack} />;
+  } else if (route === 'online-room') {
+    content = me
+      ? <OnlineRoomView dataVersion={dataVersion} onBack={goBack} onToast={showToast} />
+      : <LoginRequiredView message="온라인 방에 들어가려면 로그인해주세요." onBack={goBack} />;
+  } else if (route === 'social-link') {
+    content = me
+      ? <SocialLinkView socialProviders={socialProviders} onSocialLink={handleSocialLink} onBack={goBack} />
+      : <LoginRequiredView message="소셜 계정을 연결하려면 로그인해주세요." onBack={goBack} />;
+  } else if (route === 'profile') {
+    content = me
+      ? <ProfileView me={me} onSave={handleSaveProfile} onLogout={handleLogout} socialProviders={socialProviders} onUploadImage={handleUploadProfileImage} onDeleteImage={handleDeleteProfileImage} dataVersion={dataVersion} unreadCount={unreadCount} onOpenNotifications={openNotifications} />
+      : <AuthView onLogin={handleLogin} socialProviders={socialProviders} onSocialLogin={handleSocialLogin} />;
+  } else if (route === 'auth') {
+    content = me
+      ? <div className="screen"><div className="screen-body pad-top"><StateBlock title="이미 로그인되어 있어요" description="홈에서 모임을 찾아보세요."><a className="btn" href="#/home">홈으로 이동</a></StateBlock></div></div>
+      : <AuthView onLogin={handleLogin} socialProviders={socialProviders} onSocialLogin={handleSocialLogin} />;
+  } else if (route === 'signup') {
+    content = me
+      ? <div className="screen"><div className="screen-body pad-top"><StateBlock title="이미 로그인되어 있어요" description="홈에서 모임을 찾아보세요."><a className="btn" href="#/home">홈으로 이동</a></StateBlock></div></div>
+      : <SignupView onSignup={handleSignup} onBack={goBack} />;
+  } else {
+    content = <HomeView me={me} unreadCount={unreadCount} onOpenNotifications={openNotifications} dataVersion={dataVersion} />;
   }
-  else if (route === 'game-list') content = <GamesView title="게임 찾기" gameQuery={gameQuery} onGameQueryChange={setGameQuery} dataVersion={dataVersion} onPlayedError={handleProtectedError} />;
-  else if (route === 'game-rankings') content = <GameRankingView dataVersion={dataVersion} />;
-  else if (route === 'game') content = <GameDetailView gameId={arg} onCreateGame={handleCreateGame} dataVersion={dataVersion} onPlayedError={handleProtectedError} renderRoom={(room) => <SessionCard key={room.id} room={room} />} />;
-  else if (route === 'session') content = <SessionDetailView sessionId={arg} me={me} onApply={handleApply} onCancelApply={handleCancelApply} onHostCancel={handleHostCancel} onFinish={handleFinish} onJoinWaitlist={handleJoinWaitlist} onCancelWaitlist={handleCancelWaitlist} onWaitlistSettled={refreshData} dataVersion={dataVersion} />;
-  else if (route === 'create') content = me ? <CreateView createMode={createMode} onCreateModeChange={setCreateMode} initialGame={createGame} onCreate={handleCreate} today={today} /> : <LoginRequiredView message="모임을 만들려면 로그인해주세요." />;
-  else if (route === 'edit') content = me ? <EditView sessionId={arg} onSave={handleSave} dataVersion={dataVersion} today={today} /> : <LoginRequiredView message="모임을 수정하려면 로그인해주세요." />;
-  else if (route === 'my') content = me ? <MyRoomsSection myTab={myTab} onMyTabChange={setMyTab} dataVersion={dataVersion} onCancelApply={handleCancelApply} /> : <LoginRequiredView message="내 모임을 보려면 로그인해주세요." />;
-  else if (route === 'chat') content = me ? <ChatRoomView roomId={arg} dataVersion={dataVersion} me={me} /> : <LoginRequiredView message="모임 채팅을 보려면 로그인해주세요." />;
-  else if (route === 'chats') content = me ? <ChatListView dataVersion={dataVersion} /> : <LoginRequiredView message="채팅 목록을 보려면 로그인해주세요." />;
-  else if (route === 'profile') content = me ? <ProfileView me={me} onSave={handleSaveProfile} onLogout={handleLogout} socialProviders={socialProviders} onSocialLink={handleSocialLink} onUploadImage={handleUploadProfileImage} onDeleteImage={handleDeleteProfileImage} dataVersion={dataVersion} /> : <LoginRequiredView message="마이페이지를 보려면 로그인해주세요." />;
-  else if (route === 'auth') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <AuthView onLogin={handleLogin} socialProviders={socialProviders} onSocialLogin={handleSocialLogin} />;
-  else if (route === 'signup') content = me ? <div className="card"><h2>이미 로그인되어 있어요.</h2><a className="btn" href="#/home">홈으로 이동</a></div> : <SignupView onSignup={handleSignup} />;
-  else content = <HomeView me={me} onBrowsePeople={handleBrowsePeople} onSearchGame={handleSearchGame} dataVersion={dataVersion} isMobile={isMobile} />;
+
+  // 상단 화면에서만 탭바를 띄운다. 하위 화면은 뒤로가기로 돌아간다.
+  const showTabs = ROOT_ROUTES.includes(route) || !SUB_ROUTES.includes(route);
 
   return (
     <>
-      <Header
-        route={route}
-        me={me}
-        isMobile={isMobile}
-        notificationMenu={{
-          open: notificationOpen,
-          unreadCount: notificationReadSync.visibleUnreadCount,
-          notifications: notificationState.notifications,
-          listStatus: notificationState.listStatus,
-          optimisticReadIds: notificationReadSync.optimisticReadIds,
-          bulkReadPending: notificationReadSync.bulkReadPending,
-          synchronizationFailed: notificationReadSync.synchronizationFailed,
-          onToggle: () => setNotificationOpen((open) => !open),
-          onClose: () => setNotificationOpen(false),
-          onRetry: notificationState.retry,
-          onSelectNotification: handleNotificationSelect,
-          onMarkAllAsRead: notificationReadSync.markAllAsRead,
-          onRetrySynchronization: notificationReadSync.retrySynchronization
-        }}
-      />
-      <main className={route === 'chat' ? 'chat-route-main' : route === 'game' ? 'game-detail-route-main' : undefined}>{content}</main>
-      {route !== 'chat' && route !== 'game' && <MobileBottomNavigation route={route} authenticated={authenticated} />}
-      <SiteFooter />
-      <ScrollToTopButton />
+      {(!sessionChecked || !splashDone) && <Splash />}
+      {content}
+      {/* P2 시안. 하단 탭이 보이는 상단 화면에서만 띄운다. */}
+      {showTabs && <a className="bot-fab" href="#/bot" aria-label="알밤봇 열기"><BrandMark size={30} tone="#fff" hole="#0A0A0A" /></a>}
+      {showTabs && <MobileBottomNavigation route={route} authenticated={authenticated} />}
       <div id="toast" role="status" aria-live="polite" className={(toast.message ? 'show ' : '') + (toast.type === 'err' ? 'err' : '')}>{toast.message}</div>
     </>
   );

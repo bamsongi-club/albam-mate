@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../api';
-import { ErrorBox, LoadingBox, SectionIcon } from '../shared/ui';
+import { Cover, ErrorBox, RankSkeletons, ScreenTitle, TopBar } from '../shared/ui';
 import { useRequest } from '../shared/async';
 
 // 두 랭킹은 한 응답으로 함께 오므로 탭을 바꿀 때 다시 조회하지 않는다.
@@ -14,23 +14,7 @@ function originLabel(item) {
   return item.releaseYear ? item.englishName + ' (' + item.releaseYear + ')' : item.englishName;
 }
 
-function GameRankingItem({ item }) {
-  return (
-    <a className="ranking-row" href={'#/game/' + item.gameId}>
-      <span className="ranking-rank">{item.rank}</span>
-      <span className="ranking-art">{item.imageUrl ? <img src={item.imageUrl} alt="" loading="lazy" /> : '🎲'}</span>
-      <span className="ranking-game">
-        <span className="ranking-name">{item.name}</span>
-        <span className="ranking-origin">{originLabel(item)}</span>
-        <span className="ranking-desc">{item.description}</span>
-      </span>
-      {/* 표 머리글을 낭독에서 뺀 대신 숫자의 뜻을 항목 안에 남긴다. */}
-      <span className="ranking-count"><span className="sr-only">모임 </span><b>{item.roomCount}</b>개</span>
-    </a>
-  );
-}
-
-export function GameRankingView({ dataVersion }) {
+export function GameRankingView({ onBack, dataVersion }) {
   const [tabKey, setTabKey] = useState(RANKING_TABS[0].key);
   // 조회에 실패한 뒤 같은 요청을 다시 보내는 신호다.
   const [retryVersion, setRetryVersion] = useState(0);
@@ -42,11 +26,12 @@ export function GameRankingView({ dataVersion }) {
   const items = data?.[tab.key] || [];
 
   return (
-    <>
-      <h2><SectionIcon name="games" />인기 게임 랭킹</h2>
-      <p className="hint search-header-hint">밤송이에서 그 게임으로 열린 모임 수로 매긴 순위예요.</p>
-      <div className="tabs-row">
-        <div className="tabs">
+    <div className="screen sub">
+      <TopBar onBack={onBack} />
+      <div className="screen-body pad-bottom">
+        <ScreenTitle>인기 게임</ScreenTitle>
+        <p className="screen-lead">밤송이에서 그 게임으로 열린 모임 수로 매긴 순위예요.</p>
+        <div className="tabline">
           {RANKING_TABS.map((candidate) => (
             <button
               key={candidate.key}
@@ -59,25 +44,34 @@ export function GameRankingView({ dataVersion }) {
             </button>
           ))}
         </div>
-      </div>
-      {error && (
-        <div className="infobox red" role="alert">
-          {error}
-          <button className="infobox-action" type="button" onClick={() => setRetryVersion((version) => version + 1)}>다시 시도</button>
-        </div>
-      )}
-      {!error && loading && !data && <LoadingBox />}
-      {!error && !!items.length && (
-        <div className="ranking-table">
-          <div className="ranking-head" aria-hidden="true">
-            <span className="ranking-rank">순위</span>
-            <span className="ranking-game">게임</span>
-            <span className="ranking-count">모임 수</span>
+
+        {error && (
+          <div style={{ marginTop: 24 }}>
+            <ErrorBox
+              title="랭킹을 불러오지 못했어요"
+              message={error}
+              onRetry={() => setRetryVersion((version) => version + 1)}
+            />
           </div>
-          {items.map((item) => <GameRankingItem key={item.gameId} item={item} />)}
-        </div>
-      )}
-      {!error && !loading && !items.length && <div className="infobox">{tab.emptyMessage}</div>}
-    </>
+        )}
+        {!error && loading && !data && <div style={{ marginTop: 22 }}><RankSkeletons /></div>}
+        {!error && !!items.length && (
+          <div className="ranklist">
+            {items.map((item) => (
+              <a className="rank-row" href={'#/game/' + item.gameId} key={item.gameId}>
+                <span className="rank-no">{item.rank}</span>
+                <span className="rank-tile"><Cover src={item.imageUrl} /></span>
+                <span className="rank-copy">
+                  <strong>{item.name}</strong>
+                  <span>{originLabel(item)}</span>
+                </span>
+                <span className="rank-count"><span className="sr-only">모임 </span>{item.roomCount}개</span>
+              </a>
+            ))}
+          </div>
+        )}
+        {!error && !loading && !items.length && <p className="screen-lead" style={{ marginTop: 24 }}>{tab.emptyMessage}</p>}
+      </div>
+    </div>
   );
 }

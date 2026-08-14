@@ -72,7 +72,7 @@ describe('PART-04 대기 상태와 상세 행동 가능 여부 수렴', () => {
     const onWaitlistSettled = vi.fn();
     renderDetail({ onWaitlistSettled });
 
-    await waitFor(() => expect(screen.getByText('⏳ 대기 1번째입니다.')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('대기 1번째입니다.')).toBeTruthy());
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(WAITLIST_POLL_INTERVAL_MS);
@@ -80,7 +80,7 @@ describe('PART-04 대기 상태와 상세 행동 가능 여부 수렴', () => {
 
     expect(getMyWaitlist.mock.calls.length).toBeGreaterThan(1);
     expect(onWaitlistSettled).toHaveBeenCalled();
-    expect(screen.getByText('🎉 대기가 자리로 승격되어 참가가 확정됐어요! 화면을 새로고침하고 있어요…')).toBeTruthy();
+    expect(screen.getByText('대기가 자리로 승격되어 참가가 확정됐어요')).toBeTruthy();
   });
 
   it('재활성화하지 않는 EXPIRED 이력에서는 이전 waitlistable로 재신청을 안내하지 않는다', async () => {
@@ -89,7 +89,7 @@ describe('PART-04 대기 상태와 상세 행동 가능 여부 수렴', () => {
     renderDetail();
 
     await waitFor(() => expect(screen.getByText('모임이 시작되어 대기가 종료됐어요.')).toBeTruthy());
-    expect(screen.queryByRole('button', { name: '⏳ 대기 신청하기' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '대기 신청하기' })).toBeNull();
   });
 
   it('대기 취소가 끝나면 상세를 다시 읽어 최신 waitlistable로 재신청을 안내한다', async () => {
@@ -107,7 +107,7 @@ describe('PART-04 대기 상태와 상세 행동 가능 여부 수렴', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: '대기 취소' })).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: '대기 취소' }));
 
-    await waitFor(() => expect(screen.getByRole('button', { name: '⏳ 대기 신청하기' })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('button', { name: '대기 신청하기' })).toBeTruthy());
     expect(getRoom.mock.calls.length).toBeGreaterThan(1);
   });
 
@@ -123,11 +123,11 @@ describe('PART-04 대기 상태와 상세 행동 가능 여부 수렴', () => {
     window.location.hash = '#/session/7';
     render(<App />);
 
-    await waitFor(() => expect(screen.getByRole('button', { name: '⏳ 대기 신청하기' })).toBeTruthy());
-    fireEvent.click(screen.getByRole('button', { name: '⏳ 대기 신청하기' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: '대기 신청하기' })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: '대기 신청하기' }));
 
-    await waitFor(() => expect(screen.getByRole('button', { name: '🙋 참가 신청하기' })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('button', { name: '참가하기' })).toBeTruthy());
     expect(getRoom.mock.calls.length).toBeGreaterThan(1);
-    expect(screen.queryByRole('button', { name: '⏳ 대기 신청하기' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '대기 신청하기' })).toBeNull();
   });
 });
