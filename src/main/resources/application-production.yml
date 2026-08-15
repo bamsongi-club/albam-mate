@@ -27,12 +27,68 @@ spring:
     redis:
       host: ${ALBAM_MATE_REDIS_HOST}
       port: ${ALBAM_MATE_REDIS_PORT:6379}
+      connect-timeout: 1s
+      timeout: 1s
 
 server:
   forward-headers-strategy: framework
   shutdown: graceful
 
+management:
+  server:
+    port: ${MANAGEMENT_SERVER_PORT:9090}
+    address: 0.0.0.0
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  otlp:
+    metrics:
+      export:
+        enabled: true
+        url: ${ALBAM_MATE_OTLP_METRICS_URL:http://host.docker.internal:4318/v1/metrics}
+        step: 1m
+        batch-size: 1000
+        connect-timeout: 1s
+        read-timeout: 2s
+        resource-attributes:
+          environment: ${ALBAM_MATE_ENVIRONMENT}
+          stackId: ${ALBAM_MATE_STACK_ID}
+          service: albam-mate
+          role: ${ALBAM_MATE_ROLE}
+          instanceId: ${ALBAM_MATE_INSTANCE_ID}
+          release: ${ALBAM_MATE_RELEASE}
+
+logging:
+  structured:
+    format:
+      console: logstash
+      file: logstash
+    json:
+      add:
+        environment: ${ALBAM_MATE_ENVIRONMENT}
+        stackId: ${ALBAM_MATE_STACK_ID}
+        service: albam-mate
+        role: ${ALBAM_MATE_ROLE}
+        instanceId: ${ALBAM_MATE_INSTANCE_ID}
+        release: ${ALBAM_MATE_RELEASE}
+  file:
+    name: /var/log/albam-mate/events.json
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 4
+      total-size-cap: 50MB
+
 app:
+  monitoring:
+    dependency-health:
+      enabled: true
+      poll-interval: 10s
   security:
     cookie:
       secure: true
