@@ -1794,6 +1794,126 @@ test('portable bundle hydrate와 before diagnosis는 prepare ownership과 raw DB
   }
 });
 
+test('portable bundle before diagnosis 재실행은 기존 T5 baselineSnapshot을 보존한다', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-portable-before-diagnosis-'));
+  const buildRoot = path.join(root, 'build', 'k6', 'room');
+  const context = {
+    repositoryRoot,
+    scenarioDirectory: path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon'),
+    buildRoot,
+    bundleRoot: null,
+    isBundleRuntime: false,
+    environment: {
+      ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$portable-before-diagnosis-test',
+      ROOM_K6_READ_VUS: '7',
+      ROOM_K6_READ_DURATION_SECONDS: '75',
+      ROOM_K6_READ_THINK_TIME_MS: '1000',
+    },
+  };
+  const provenance = { sourceRevision: 'b'.repeat(40), sourceDirty: false };
+
+  try {
+    const rendered = renderBundle({
+      scenario: 't5',
+      runId: `portable-before-diagnosis-${process.pid}-${Date.now()}`,
+      profile: 'spike',
+      t5Role: 'host',
+      t5Scale: '1',
+    }, context, provenance);
+    const bundle = rendered.bundlePath;
+    const plan = JSON.parse(readFileSync(path.join(bundle, 'fixture-plan.json'), 'utf8'));
+    writeFileSync(
+      path.join(bundle, 'resource-output.json'),
+      `${JSON.stringify(fixtureResources(plan))}\n`,
+      'utf8',
+    );
+
+    const hydrated = hydrateBundle(bundle, context);
+    const fixture = JSON.parse(readFileSync(hydrated.fixturePath, 'utf8'));
+    const baselineSnapshot = fixtureSnapshot(fixture);
+    writeFileSync(path.join(bundle, 'before-snapshot.json'), `${JSON.stringify(baselineSnapshot)}\n`, 'utf8');
+    assert.equal(diagnoseBundle({ bundle, stage: 'before' }, context).status, 'PASS');
+
+    const fixtureBeforeRetry = readFileSync(hydrated.fixturePath, 'utf8');
+    const changedSnapshot = { ...baselineSnapshot, rooms: [] };
+    writeFileSync(path.join(bundle, 'before-snapshot.json'), `${JSON.stringify(changedSnapshot)}\n`, 'utf8');
+
+    assert.throws(
+      () => diagnoseBundle({ bundle, stage: 'before' }, context),
+      /before-diagnosis\.json/,
+    );
+    assert.equal(readFileSync(hydrated.fixturePath, 'utf8'), fixtureBeforeRetry);
+
+    writeFileSync(path.join(bundle, 'after-snapshot.json'), `${JSON.stringify(baselineSnapshot)}\n`, 'utf8');
+    writeFileSync(path.join(bundle, 'k6-summary.json'), `${JSON.stringify(t5Summary(7))}\n`, 'utf8');
+    assert.equal(diagnoseBundle({ bundle, stage: 'after' }, context).status, 'PASS');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('portable bundle before diagnosis는 final create-only artifact를 baseline 전에 선점한다', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-portable-before-reservation-'));
+  const buildRoot = path.join(root, 'build', 'k6', 'room');
+  const context = {
+    repositoryRoot,
+    scenarioDirectory: path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon'),
+    buildRoot,
+    bundleRoot: null,
+    isBundleRuntime: false,
+    environment: {
+      ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$portable-before-reservation-test',
+      ROOM_K6_READ_VUS: '7',
+      ROOM_K6_READ_DURATION_SECONDS: '75',
+      ROOM_K6_READ_THINK_TIME_MS: '1000',
+    },
+  };
+  const provenance = { sourceRevision: 'b'.repeat(40), sourceDirty: false };
+
+  try {
+    const rendered = renderBundle({
+      scenario: 't5',
+      runId: `portable-before-reservation-${process.pid}-${Date.now()}`,
+      profile: 'spike',
+      t5Role: 'host',
+      t5Scale: '1',
+    }, context, provenance);
+    const bundle = rendered.bundlePath;
+    const plan = JSON.parse(readFileSync(path.join(bundle, 'fixture-plan.json'), 'utf8'));
+    writeFileSync(
+      path.join(bundle, 'resource-output.json'),
+      `${JSON.stringify(fixtureResources(plan))}\n`,
+      'utf8',
+    );
+
+    const hydrated = hydrateBundle(bundle, context);
+    const fixtureBeforeDiagnosis = readFileSync(hydrated.fixturePath, 'utf8');
+    writeFileSync(path.join(bundle, 'before-snapshot.json'), '{}\n', 'utf8');
+
+    assert.throws(
+      () => diagnoseBundle({ bundle, stage: 'before' }, context),
+      /before-snapshot\.json은 rooms, participations, waitlists 배열을 포함해야 합니다/,
+    );
+    assert.equal(existsSync(path.join(bundle, 'before-diagnosis.json')), false);
+    assert.equal(readFileSync(hydrated.fixturePath, 'utf8'), fixtureBeforeDiagnosis);
+
+    const portableBundleSource = readFileSync(
+      path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon', 'tools', 'portable-bundle.mjs'),
+      'utf8',
+    );
+    const diagnoseStart = portableBundleSource.indexOf('export function diagnoseBundle');
+    const diagnoseEnd = portableBundleSource.indexOf('\nexport function aggregateBundle', diagnoseStart);
+    const diagnoseSource = portableBundleSource.slice(diagnoseStart, diagnoseEnd);
+    const finalDiagnosisWrite = diagnoseSource.indexOf('writeNewJson(outputPath, result);');
+    const baselineWrite = diagnoseSource.indexOf('fixture.baselineSnapshot = snapshot;');
+    assert.notEqual(finalDiagnosisWrite, -1);
+    assert.notEqual(baselineWrite, -1);
+    assert.ok(finalDiagnosisWrite < baselineWrite);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('portable bundle은 원격 raw metadata와 두 진단을 PASS·FAIL·INVALID로 집계한다', () => {
   const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-portable-aggregate-'));
   const buildRoot = path.join(root, 'build', 'k6', 'room');

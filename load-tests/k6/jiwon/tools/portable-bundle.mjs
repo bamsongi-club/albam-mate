@@ -567,15 +567,13 @@ export function diagnoseBundle(values, context) {
     fail('--stage는 before 또는 after여야 합니다.');
   }
   const { bundle, plan, ownership } = readBundle(context, values.bundle);
+  const output = stage === 'before' ? ARTIFACTS.beforeDiagnosis : ARTIFACTS.afterDiagnosis;
+  const outputPath = artifactPath(bundle, output);
   const snapshotPath = stage === 'before' ? ARTIFACTS.beforeSnapshot : ARTIFACTS.afterSnapshot;
   const snapshot = readSnapshot(bundle, snapshotPath);
   const fixture = readHydratedFixture(bundle, plan, ownership, {
     requireBaseline: stage === 'after' && plan.options.scenario === 't5',
   });
-  if (stage === 'before') {
-    fixture.baselineSnapshot = snapshot;
-    writeJson(artifactPath(bundle, ARTIFACTS.fixture), fixture);
-  }
   const summary = stage === 'after' ? readJson(artifactPath(bundle, ARTIFACTS.summary), 'k6 summary') : null;
   const evaluation = evaluateFixture(fixture, snapshot, stage, summary);
   const result = {
@@ -584,8 +582,13 @@ export function diagnoseBundle(values, context) {
     stage,
     ...evaluation,
   };
-  const output = stage === 'before' ? ARTIFACTS.beforeDiagnosis : ARTIFACTS.afterDiagnosis;
-  writeNewJson(artifactPath(bundle, output), result);
+  if (stage === 'before') {
+    writeNewJson(outputPath, result);
+    fixture.baselineSnapshot = snapshot;
+    writeJson(artifactPath(bundle, ARTIFACTS.fixture), fixture);
+  } else {
+    writeNewJson(outputPath, result);
+  }
   return result;
 }
 
