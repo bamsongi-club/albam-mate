@@ -194,7 +194,7 @@ node load-tests/k6/jiwon/tools/fixture.mjs recover-cleanup `
 
 ## 측정 결과 위치
 
-현재 승인해 보존한 ROOM k6 측정 문서는 없다. 실행 결과를 정본으로 승격할 때만 `docs/measurements/k6/jiwon/` 아래에 추가한다. 탐색·반복 실행의 원시 fixture, summary와 bundle은 `build/k6/room/<run-id>/`에만 둔다.
+승인해 보존한 ROOM k6 측정 문서는 [Jiwon k6 측정 문서](../../../docs/measurements/k6/jiwon/README.md)에서 관리한다. 현재 correctness 기준선은 그 목록의 final-05이며, 앞선 invalid·recovery campaign은 결론 계산에서 분리한다. 새 실행 결과를 정본으로 승격할 때도 같은 경로에 추가한다. 탐색·반복 실행의 원시 fixture, summary와 bundle은 `build/k6/room/<run-id>/`에만 둔다.
 
 ## 검증
 
