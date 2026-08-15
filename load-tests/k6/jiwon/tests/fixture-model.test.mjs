@@ -499,6 +499,26 @@ test('T5 사후 검증은 조회 전후 snapshot이 같을 때만 통과한다',
   })).status, 'FAIL');
 });
 
+test('summary metric count는 0 이상 safe integer가 아니면 PASS가 될 수 없다', () => {
+  const { fixture } = fixtureFor({
+    scenario: 't5',
+    runId: 'fixture-invalid-metric-count',
+    t5Role: 'public',
+    t5Scale: 1,
+  });
+  const snapshot = initialSnapshot(fixture);
+  fixture.baselineSnapshot = structuredClone(snapshot);
+
+  for (const count of [0.5, -1, Number.MAX_SAFE_INTEGER + 1, Number.NaN, Number.POSITIVE_INFINITY]) {
+    const summary = summaryWith({ room_requests: 1, room_success: 1 });
+    summary.metrics.room_requests.values.count = count;
+    summary.metrics.room_success.values.count = count;
+    const result = evaluateFixture(fixture, snapshot, 'after', summary);
+    assert.equal(result.status, 'FAIL', `invalid metric count ${count}가 PASS가 되었습니다.`);
+    assert.match(result.failures.join('\n'), /metric이 부족합니다/);
+  }
+});
+
 test('요청을 관측하지 못한 after summary는 PASS가 될 수 없다', () => {
   const { fixture } = fixtureFor({
     scenario: 't3',

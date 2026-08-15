@@ -194,12 +194,47 @@ function assertInsideBuild(candidatePath) {
   return resolved;
 }
 
+function commandWithPrefix(environment, executableVariable, prefixVariable, defaultExecutable) {
+  const executable = String(environment[executableVariable] || defaultExecutable).trim();
+  if (!executable) {
+    fail(`${executableVariable}은 비어 있을 수 없습니다.`);
+  }
+  const rawPrefix = environment[prefixVariable];
+  if (!rawPrefix) {
+    return { executable, prefixArguments: [] };
+  }
+  let prefixArguments;
+  try {
+    prefixArguments = JSON.parse(rawPrefix);
+  } catch (_) {
+    fail(`${prefixVariable}는 string 배열 JSON이어야 합니다.`);
+  }
+  if (!Array.isArray(prefixArguments) || prefixArguments.some((argument) => typeof argument !== 'string' || !argument.trim())) {
+    fail(`${prefixVariable}는 비어 있지 않은 string 배열 JSON이어야 합니다.`);
+  }
+  return { executable, prefixArguments };
+}
+
 function psql(psqlArgs, input = undefined) {
-  const result = spawnSync('psql', ['-X', '--no-psqlrc', '-v', 'ON_ERROR_STOP=1', ...psqlArgs], {
+  const { executable, prefixArguments } = commandWithPrefix(
+    process.env,
+    'ROOM_K6_PSQL_EXECUTABLE',
+    'ROOM_K6_PSQL_ARGUMENT_PREFIX',
+    'psql',
+  );
+  const result = spawnSync(executable, [
+    ...prefixArguments,
+    '-X',
+    '--no-psqlrc',
+    '-v',
+    'ON_ERROR_STOP=1',
+    ...psqlArgs,
+  ], {
     cwd: repositoryRoot,
     encoding: 'utf8',
     env: process.env,
     input,
+    shell: false,
   });
 
   if (result.error) {
@@ -422,17 +457,47 @@ function requireTargetEnvironment() {
 }
 
 function runK6(k6Arguments, options = {}) {
-  return spawn('k6', k6Arguments, {
+  const { executable, prefixArguments } = commandWithPrefix(
+    options.env || process.env,
+    'ROOM_K6_EXECUTABLE',
+    'ROOM_K6_ARGUMENT_PREFIX',
+    'k6',
+  );
+  return spawn(executable, [...prefixArguments, ...k6Arguments], {
     ...options,
     shell: false,
   });
 }
 
 function runK6Sync(k6Arguments, options = {}) {
-  return spawnSync('k6', k6Arguments, {
+  const { executable, prefixArguments } = commandWithPrefix(
+    options.env || process.env,
+    'ROOM_K6_EXECUTABLE',
+    'ROOM_K6_ARGUMENT_PREFIX',
+    'k6',
+  );
+  return spawnSync(executable, [...prefixArguments, ...k6Arguments], {
     ...options,
     shell: false,
   });
+}
+
+function installTestInterruptWatcher(onInterrupt) {
+  const signalFile = String(process.env.ROOM_K6_TEST_INTERRUPT_FILE || '').trim();
+  if (!signalFile) {
+    return null;
+  }
+  const watcher = setInterval(() => {
+    if (!existsSync(signalFile)) {
+      return;
+    }
+    const signal = readFileSync(signalFile, 'utf8').trim();
+    if (signal === 'SIGINT' || signal === 'SIGTERM') {
+      onInterrupt(signal);
+    }
+  }, 10);
+  watcher.unref();
+  return watcher;
 }
 
 function k6Version() {
@@ -591,11 +656,11 @@ function sameT5ReadOptions(left, right) {
 function metricCount(summary, name) {
   const metric = summary?.metrics?.[name];
   const nestedCount = metric?.values?.count;
-  if (Number.isInteger(nestedCount)) {
-    return nestedCount;
+  if (nestedCount !== undefined) {
+    return Number.isSafeInteger(nestedCount) && nestedCount >= 0 ? nestedCount : null;
   }
   const directCount = metric?.count;
-  return Number.isInteger(directCount) ? directCount : null;
+  return Number.isSafeInteger(directCount) && directCount >= 0 ? directCount : null;
 }
 
 function t5StartSkewMetricFailure(summary, t5ReadOptions) {
@@ -949,6 +1014,7 @@ async function run(values) {
   }
   let k6Process = null;
   let interruptedSignal = null;
+  let testInterruptWatcher = null;
   const interruptK6 = (signal) => {
     if (interruptedSignal) {
       return;
@@ -963,6 +1029,7 @@ async function run(values) {
     process.on('SIGINT', interruptK6);
     process.on('SIGTERM', interruptK6);
     writeNewJson(manifestPath, manifest);
+    testInterruptWatcher = installTestInterruptWatcher(interruptK6);
 
     const k6Environment = {
       ...process.env,
@@ -1024,6 +1091,9 @@ async function run(values) {
       process.exitCode = manifest.k6ExitCode;
     }
   } finally {
+    if (testInterruptWatcher) {
+      clearInterval(testInterruptWatcher);
+    }
     process.off('SIGINT', interruptK6);
     process.off('SIGTERM', interruptK6);
   }

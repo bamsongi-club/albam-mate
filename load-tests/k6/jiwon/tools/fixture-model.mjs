@@ -817,11 +817,11 @@ function waitlistStatus(snapshot, roomId, userId) {
 function metricCount(summary, name) {
   const metric = summary?.metrics?.[name];
   const nestedCount = metric?.values?.count;
-  if (typeof nestedCount === 'number') {
-    return nestedCount;
+  if (nestedCount !== undefined) {
+    return Number.isSafeInteger(nestedCount) && nestedCount >= 0 ? nestedCount : null;
   }
   const directCount = metric?.count;
-  return typeof directCount === 'number' ? directCount : null;
+  return Number.isSafeInteger(directCount) && directCount >= 0 ? directCount : null;
 }
 
 function addFailure(failures, condition, message) {

@@ -463,6 +463,30 @@ function fixtureResourceQueryResult(fixturePath) {
   });
 }
 
+function fakeK6ExecutionEnvironment(binDirectory) {
+  const programPath = path.join(binDirectory, 'fake-k6.mjs');
+  if (!existsSync(programPath)) {
+    return {};
+  }
+  return {
+    ROOM_K6_EXECUTABLE: process.execPath,
+    ROOM_K6_ARGUMENT_PREFIX: JSON.stringify([programPath]),
+  };
+}
+
+function fakePsqlExecutionEnvironment(binDirectory) {
+  const programPath = ['fake-psql.mjs', 'ownership-fake-psql.mjs']
+    .map((fileName) => path.join(binDirectory, fileName))
+    .find((candidate) => existsSync(candidate));
+  if (!programPath) {
+    return {};
+  }
+  return {
+    ROOM_K6_PSQL_EXECUTABLE: process.execPath,
+    ROOM_K6_PSQL_ARGUMENT_PREFIX: JSON.stringify([programPath]),
+  };
+}
+
 function runFixture(fixturePath, binDirectory, extraEnvironment = {}) {
   return spawnSync(process.execPath, [fixtureTool, 'run', '--fixture', fixturePath], {
     cwd: repositoryRoot,
@@ -473,6 +497,8 @@ function runFixture(fixturePath, binDirectory, extraEnvironment = {}) {
       ALBAM_MATE_SOURCE_SHA: 'a'.repeat(40),
       ALBAM_MATE_TARGET_ENVIRONMENT: 'private-loadtest',
       FAKE_PSQL_RESOURCE_RESULT: fixtureResourceQueryResult(fixturePath),
+      ...fakeK6ExecutionEnvironment(binDirectory),
+      ...fakePsqlExecutionEnvironment(binDirectory),
       ...extraEnvironment,
     },
   });
@@ -487,6 +513,8 @@ function startFixture(fixturePath, binDirectory, extraEnvironment = {}) {
       ALBAM_MATE_SOURCE_SHA: 'a'.repeat(40),
       ALBAM_MATE_TARGET_ENVIRONMENT: 'private-loadtest',
       FAKE_PSQL_RESOURCE_RESULT: fixtureResourceQueryResult(fixturePath),
+      ...fakeK6ExecutionEnvironment(binDirectory),
+      ...fakePsqlExecutionEnvironment(binDirectory),
       ...extraEnvironment,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -563,6 +591,7 @@ function runPrepare(runId, binDirectory, extraEnvironment = {}) {
       ...process.env,
       PATH: `${binDirectory}${path.delimiter}${process.env.PATH || ''}`,
       ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$test-hash',
+      ...fakePsqlExecutionEnvironment(binDirectory),
       ...extraEnvironment,
     },
   });
@@ -583,6 +612,7 @@ function startPrepareFromTool(tool, runId, binDirectory, extraEnvironment = {}) 
       ...process.env,
       PATH: `${binDirectory}${path.delimiter}${process.env.PATH || ''}`,
       ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$test-hash',
+      ...fakePsqlExecutionEnvironment(binDirectory),
       ...extraEnvironment,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -596,6 +626,7 @@ function recoverCleanup(recoveryPath, binDirectory, extraEnvironment = {}) {
     env: {
       ...process.env,
       PATH: `${binDirectory}${path.delimiter}${process.env.PATH || ''}`,
+      ...fakePsqlExecutionEnvironment(binDirectory),
       ...extraEnvironment,
     },
   });
@@ -608,6 +639,7 @@ function recoverCleanupFromTool(tool, recoveryPath, binDirectory, extraEnvironme
     env: {
       ...process.env,
       PATH: `${binDirectory}${path.delimiter}${process.env.PATH || ''}`,
+      ...fakePsqlExecutionEnvironment(binDirectory),
       ...extraEnvironment,
     },
   });
@@ -621,6 +653,7 @@ function verifyAfter(fixturePath, binDirectory = null, extraEnvironment = {}) {
   };
   if (binDirectory) {
     environment.PATH = `${binDirectory}${path.delimiter}${process.env.PATH || ''}`;
+    Object.assign(environment, fakePsqlExecutionEnvironment(binDirectory));
   }
   return spawnSync(process.execPath, [fixtureTool, 'verify', '--fixture', fixturePath, '--stage', 'after'], {
     cwd: repositoryRoot,
@@ -644,6 +677,7 @@ function cleanupFixture(fixturePath, binDirectory, extraEnvironment = {}) {
     env: {
       ...process.env,
       PATH: `${binDirectory}${path.delimiter}${process.env.PATH || ''}`,
+      ...fakePsqlExecutionEnvironment(binDirectory),
       ...extraEnvironment,
     },
   });
@@ -698,16 +732,13 @@ function createSymbolicLinkOrSkip(t, target, linkPath, type, label) {
   }
 }
 
-const fakeK6Skip = process.platform === 'win32'
-  ? 'Windows에서는 k6.cmd fake를 셸 없이 실행할 수 없어 직접 실행 보안 계약만 검증한다.'
-  : false;
-
-test('k6 실행은 Windows 셸을 사용하지 않는다', () => {
+test('k6 실행은 셸 없이 명시적 executable과 prefix arguments를 사용한다', () => {
   const source = readFileSync(fixtureTool, 'utf8');
   const runK6 = source.slice(source.indexOf('function runK6('), source.indexOf('function k6Version('));
 
   assert.match(runK6, /shell:\s*false/);
-  assert.doesNotMatch(runK6, /process\.platform\s*===\s*['"]win32['"]/);
+  assert.match(runK6, /ROOM_K6_EXECUTABLE/);
+  assert.match(runK6, /ROOM_K6_ARGUMENT_PREFIX/);
 });
 
 test('run은 RUNNING manifest 기록 전에 중단 처리기를 설치하고 항상 해제한다', () => {
@@ -805,9 +836,7 @@ test('fixture tool은 ownership marker가 없는 legacy fixture를 k6 실행 전
   }
 });
 
-test('run은 현재 DB resource ID와 다른 fixture를 k6 시작 전에 거절한다', {
-  skip: fakeK6Skip,
-}, () => {
+test('run은 현재 DB resource ID와 다른 fixture를 k6 시작 전에 거절한다', () => {
   const runId = `runner-resource-identity-${process.pid}`;
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
   mkdirSync(binDirectory, { recursive: true });
@@ -837,7 +866,7 @@ test('run은 현재 DB resource ID와 다른 fixture를 k6 시작 전에 거절�
   }
 });
 
-test('run은 성공한 k6 실행의 provenance manifest와 summary를 같은 fixture에 남긴다', { skip: fakeK6Skip }, () => {
+test('run은 성공한 k6 실행의 provenance manifest와 summary를 같은 fixture에 남긴다', () => {
   const runId = `runner-success-${process.pid}`;
   const prepared = writeFixture(runId);
   const { fixtureDirectory, fixturePath } = prepared;
@@ -879,15 +908,14 @@ test('run은 성공한 k6 실행의 provenance manifest와 summary를 같은 fix
 });
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
-  test('run은 ' + signal + ' 중단도 종료된 manifest로 보존하고 새 run ID 재시도를 안내한다', {
-    skip: fakeK6Skip,
-  }, async () => {
+  test('run은 ' + signal + ' 중단도 종료된 manifest로 보존하고 새 run ID 재시도를 안내한다', async () => {
     const runId = `runner-interrupted-${signal.toLowerCase()}-${process.pid}`;
     const prepared = writeFixture(runId);
     const { fixtureDirectory, fixturePath } = prepared;
     const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
     const startedPath = path.join(fixtureDirectory, 'fake-k6-started');
     const fakeK6PidPath = path.join(fixtureDirectory, 'fake-k6.pid');
+    const interruptPath = path.join(fixtureDirectory, 'interrupt-signal');
     let runner;
     mkdirSync(binDirectory, { recursive: true });
     createFakeK6(binDirectory);
@@ -897,10 +925,15 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
         FAKE_K6_WAIT_FOR_SIGNAL: 'true',
         FAKE_K6_STARTED_FILE: startedPath,
         FAKE_K6_PID_FILE: fakeK6PidPath,
+        ROOM_K6_TEST_INTERRUPT_FILE: interruptPath,
       });
       const exit = waitForFixtureExit(runner);
       await waitForFile(startedPath);
-      assert.equal(runner.kill(signal), true);
+      if (process.platform === 'win32') {
+        writeFileSync(interruptPath, `${signal}\n`, 'utf8');
+      } else {
+        assert.equal(runner.kill(signal), true);
+      }
 
       const result = await exit;
       assert.notEqual(result.status, 0, result.stderr || result.stdout);
@@ -934,7 +967,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   });
 }
 
-test('T5 run은 유효 VU·duration·think time을 manifest에 기록한다', { skip: fakeK6Skip }, () => {
+test('T5 run은 유효 VU·duration·think time을 manifest에 기록한다', () => {
   const prepared = writeT5Fixture(`runner-t5-options-${process.pid}`, 'public', 1);
   const { fixtureDirectory, fixturePath } = prepared;
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
@@ -976,7 +1009,7 @@ test('T5 run은 유효 VU·duration·think time을 manifest에 기록한다', { 
   }
 });
 
-test('T5 after 검증은 VU별 시작 편차 metric을 요구한다', { skip: fakeK6Skip }, () => {
+test('T5 after 검증은 VU별 시작 편차 metric을 요구한다', () => {
   const prepared = writeT5Fixture(`runner-t5-start-skew-${process.pid}`, 'public', 1);
   const { fixtureDirectory, fixturePath } = prepared;
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
@@ -1009,9 +1042,7 @@ test('T5 after 검증은 VU별 시작 편차 metric을 요구한다', { skip: fa
   }
 });
 
-test('after 검증은 run 뒤 fixture baselineSnapshot 변조를 INVALID로 거절한다', {
-  skip: fakeK6Skip,
-}, () => {
+test('after 검증은 run 뒤 fixture baselineSnapshot 변조를 INVALID로 거절한다', () => {
   const prepared = writeT5Fixture(`runner-baseline-tamper-${process.pid}`, 'public', 1);
   const { fixtureDirectory, fixturePath } = prepared;
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
@@ -1044,7 +1075,7 @@ test('after 검증은 run 뒤 fixture baselineSnapshot 변조를 INVALID로 거�
   }
 });
 
-test('T5 비교는 여섯 역할·규모 실행의 read profile 불일치를 거절한다', { skip: fakeK6Skip }, () => {
+test('T5 비교는 여섯 역할·규모 실행의 read profile 불일치를 거절한다', () => {
   const runId = `runner-t5-compare-${process.pid}`;
   const comparisonDirectory = path.join(fixtureBuildRoot, runId);
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
@@ -1263,11 +1294,7 @@ test('T5 비교는 portable bundle 완료 artifact와 k6 v1.3 top-level count를
   }
 });
 
-test('cleanup은 다른 run fixture와 결정적 식별자 변조를 psql 전에 거절한다', {
-  skip: process.platform === 'win32'
-    ? 'psql은 셸을 사용하지 않으므로 Windows에서는 Unix fake 실행을 사용하지 않는다.'
-    : false,
-}, () => {
+test('cleanup은 다른 run fixture와 결정적 식별자 변조를 psql 전에 거절한다', () => {
   const sourceRunId = `runner-cleanup-source-${process.pid}`;
   const targetRunId = `runner-cleanup-target-${process.pid}`;
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-psql-bin-'));
@@ -1311,7 +1338,7 @@ test('cleanup은 다른 run fixture와 결정적 식별자 변조를 psql 전에
   }
 });
 
-test('after 검증은 manifest와 다른 k6 summary를 INVALID로 거절한다', { skip: fakeK6Skip }, () => {
+test('after 검증은 manifest와 다른 k6 summary를 INVALID로 거절한다', () => {
   const prepared = writeFixture(`runner-summary-mismatch-${process.pid}`);
   const { fixtureDirectory, fixturePath } = prepared;
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
@@ -1334,7 +1361,7 @@ test('after 검증은 manifest와 다른 k6 summary를 INVALID로 거절한다',
   }
 });
 
-test('run은 k6 비정상 종료에도 종료 시각과 exit code를 보존한다', { skip: fakeK6Skip }, () => {
+test('run은 k6 비정상 종료에도 종료 시각과 exit code를 보존한다', () => {
   const prepared = writeFixture(`runner-failure-${process.pid}`);
   const { fixtureDirectory, fixturePath } = prepared;
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
@@ -1357,11 +1384,7 @@ test('run은 k6 비정상 종료에도 종료 시각과 exit code를 보존한�
   }
 });
 
-test('prepare 후 조회 실패에도 recovery artifact로 동일 fixture cleanup을 재개한다', {
-  skip: process.platform === 'win32'
-    ? 'psql은 셸을 사용하지 않으므로 Windows에서는 Unix fake 실행을 사용하지 않는다.'
-    : false,
-}, () => {
+test('prepare 후 조회 실패에도 recovery artifact로 동일 fixture cleanup을 재개한다', () => {
   const runId = `runner-recovery-${process.pid}`;
   const plan = createFixturePlan({
     scenario: 't1',
@@ -1404,11 +1427,7 @@ test('prepare 후 조회 실패에도 recovery artifact로 동일 fixture cleanu
   }
 });
 
-test('다른 작업 디렉터리의 실패한 prepare recovery는 commit한 fixture를 정리하지 못한다', {
-  skip: process.platform === 'win32'
-    ? 'psql은 셸을 사용하지 않으므로 Windows에서는 Unix fake 실행을 사용하지 않는다.'
-    : false,
-}, async () => {
+test('다른 작업 디렉터리의 실패한 prepare recovery는 commit한 fixture를 정리하지 못한다', async () => {
   const runId = `runner-prepare-ownership-${process.pid}`;
   const plan = createFixturePlan({
     scenario: 't1',
@@ -1522,11 +1541,7 @@ test('다른 작업 디렉터리의 실패한 prepare recovery는 commit한 fixt
   }
 });
 
-test('prepare SQL 실행 실패도 recovery artifact 경로를 안내한다', {
-  skip: process.platform === 'win32'
-    ? 'psql은 셸을 사용하지 않으므로 Windows에서는 Unix fake 실행을 사용하지 않는다.'
-    : false,
-}, () => {
+test('prepare SQL 실행 실패도 recovery artifact 경로를 안내한다', () => {
   const runId = `runner-prepare-failure-${process.pid}`;
   const plan = createFixturePlan({
     scenario: 't1',
@@ -1909,6 +1924,58 @@ test('portable bundle before diagnosis는 final create-only artifact를 baseline
     assert.notEqual(finalDiagnosisWrite, -1);
     assert.notEqual(baselineWrite, -1);
     assert.ok(finalDiagnosisWrite < baselineWrite);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('portable bundle before diagnosis는 사후 실행 artifact가 있으면 baseline을 기록하지 않는다', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-portable-before-artifact-'));
+  const buildRoot = path.join(root, 'build', 'k6', 'room');
+  const context = {
+    repositoryRoot,
+    scenarioDirectory: path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon'),
+    buildRoot,
+    bundleRoot: null,
+    isBundleRuntime: false,
+    environment: { ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$portable-before-artifact-test' },
+  };
+  const provenance = { sourceRevision: 'b'.repeat(40), sourceDirty: false };
+  const artifactContents = new Map([
+    ['k6-summary.json', '{}\n'],
+    ['k6-console.log', 'k6 output\n'],
+    ['after-snapshot.json', '{}\n'],
+    ['after-diagnosis.json', '{}\n'],
+    ['final-result.json', '{}\n'],
+    ['infra-execution.json', '{}\n'],
+  ]);
+
+  try {
+    for (const [artifactName, contents] of artifactContents) {
+      const rendered = renderBundle({
+        scenario: 't1',
+        runId: `portable-before-artifact-${artifactName.replace(/[^a-z0-9]/g, '-')}-${process.pid}-${Date.now()}`,
+        profile: 'spike',
+        mode: 'hot',
+        concurrency: '2',
+      }, context, provenance);
+      const bundle = rendered.bundlePath;
+      const plan = JSON.parse(readFileSync(path.join(bundle, 'fixture-plan.json'), 'utf8'));
+      writeFileSync(path.join(bundle, 'resource-output.json'), `${JSON.stringify(fixtureResources(plan))}\n`, 'utf8');
+
+      const hydrated = hydrateBundle(bundle, context);
+      const fixtureBeforeDiagnosis = readFileSync(hydrated.fixturePath, 'utf8');
+      const fixture = JSON.parse(fixtureBeforeDiagnosis);
+      writeFileSync(path.join(bundle, 'before-snapshot.json'), `${JSON.stringify(fixtureSnapshot(fixture))}\n`, 'utf8');
+      writeFileSync(path.join(bundle, artifactName), contents, 'utf8');
+
+      assert.throws(
+        () => diagnoseBundle({ bundle, stage: 'before' }, context),
+        /사후 실행 artifact가 이미 있습니다/,
+      );
+      assert.equal(existsSync(path.join(bundle, 'before-diagnosis.json')), false);
+      assert.equal(readFileSync(hydrated.fixturePath, 'utf8'), fixtureBeforeDiagnosis);
+    }
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

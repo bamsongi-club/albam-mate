@@ -567,6 +567,19 @@ export function diagnoseBundle(values, context) {
     fail('--stage는 before 또는 after여야 합니다.');
   }
   const { bundle, plan, ownership } = readBundle(context, values.bundle);
+  if (stage === 'before') {
+    const executionArtifact = [
+      ARTIFACTS.summary,
+      ARTIFACTS.console,
+      ARTIFACTS.afterSnapshot,
+      ARTIFACTS.afterDiagnosis,
+      ARTIFACTS.finalResult,
+      ARTIFACTS.infraExecution,
+    ].find((relativePath) => existsSync(artifactPath(bundle, relativePath)));
+    if (executionArtifact) {
+      fail(`before diagnosis 전에 사후 실행 artifact가 이미 있습니다: ${executionArtifact}. 새 bundle을 사용하세요.`);
+    }
+  }
   const output = stage === 'before' ? ARTIFACTS.beforeDiagnosis : ARTIFACTS.afterDiagnosis;
   const outputPath = artifactPath(bundle, output);
   const snapshotPath = stage === 'before' ? ARTIFACTS.beforeSnapshot : ARTIFACTS.afterSnapshot;

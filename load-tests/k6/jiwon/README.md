@@ -117,6 +117,8 @@ $bundle = node load-tests/k6/jiwon/tools/fixture.mjs render-bundle `
 
 `manifest.json`에는 source revision과 source/runtime/SQL/execution options의 SHA-256을 기록한다. `validate --for-execution`은 누락·변조·symbolic link·이미 생성된 실행 artifact를 원격 DB 작업 전에 거절한다. `execution-options.json`은 T1~T4의 warm-up·round interval과 T5의 VU·duration·think time을 고정한다.
 
+기본 실행은 PATH의 `k6`와 `psql`을 `shell: false`로 호출한다. Windows 등에서 wrapper가 아닌 Node 기반 도구를 명시해야 할 때만 `ROOM_K6_EXECUTABLE`·`ROOM_K6_ARGUMENT_PREFIX`(string 배열 JSON), `ROOM_K6_PSQL_EXECUTABLE`·`ROOM_K6_PSQL_ARGUMENT_PREFIX`를 사용해 executable과 선행 인수를 분리한다. 이 설정은 shell을 켜거나 manifest/payload의 외부 신뢰 기준을 제공하지 않는다.
+
 그 다음 `albam-mate-infra`의 같은 stack 설정에서 배포와 실행을 수행한다. `room-k6`은 이미 생성된 bundle을 받으며, bundle을 새로 만들거나 앱 SQL 의미를 해석하지 않는다.
 
 `perf.env`의 `APP_REPO`는 bundle을 만든 **동일한 clean checkout**을 가리켜야 한다. infra의 첫 번째 정적 gate는 `APP_REPO/build/k6/room/...` 밖의 bundle과 `RELEASE_SHA`가 다른 source revision을 모두 거절한다.
