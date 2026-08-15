@@ -131,3 +131,71 @@ describe('PART-04 대기 상태와 상세 행동 가능 여부 수렴', () => {
     expect(screen.queryByRole('button', { name: '대기 신청하기' })).toBeNull();
   });
 });
+
+// #754 회귀. 안내 카드가 스크롤 영역 밖에 있으면 화면 아래에 계속 남아 닫히지 않는 팝업처럼 보인다.
+describe('#754 T1~T5 모임 상세 안내 카드 위치', () => {
+  const hostRoom = (overrides = {}) => fullRoom({
+    status: 'RECRUITING',
+    myRole: 'HOST',
+    host: { nickname: '테스터' },
+    participantCount: 1,
+    remainingRecruitmentSeats: 3,
+    ...overrides
+  });
+
+  const scrollBody = () => document.querySelector('.screen-body');
+  const stickybar = () => document.querySelector('.stickybar');
+
+  it('T1 호스트 카드가 스크롤 본문 안에 있고 고정 요소는 하단 바뿐이다', async () => {
+    vi.spyOn(api, 'getRoom').mockResolvedValue(hostRoom());
+    renderDetail();
+
+    await waitFor(() => expect(screen.getByText('내가 연 모임이에요')).toBeTruthy());
+    expect(scrollBody().contains(screen.getByText('내가 연 모임이에요'))).toBe(true);
+    // 하단 바는 본문 밖 형제로 남아야 고정이 유지된다.
+    expect(scrollBody().contains(stickybar())).toBe(false);
+    expect(stickybar().parentElement).toBe(scrollBody().parentElement);
+  });
+
+  it('T2 호스트는 모임 취소를 찾아 실행할 수 있다', async () => {
+    const onHostCancel = vi.fn().mockResolvedValue(true);
+    vi.spyOn(api, 'getRoom').mockResolvedValue(hostRoom());
+    renderDetail({ onHostCancel });
+
+    await waitFor(() => expect(screen.getByRole('button', { name: '모임 취소' })).toBeTruthy());
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '모임 취소' })); });
+    expect(onHostCancel).toHaveBeenCalledWith('7');
+  });
+
+  it('T3 시작한 마감 모임에서는 모임 종료하기를 하단 바에서 실행할 수 있다', async () => {
+    const onFinish = vi.fn().mockResolvedValue(true);
+    vi.spyOn(api, 'getRoom').mockResolvedValue(hostRoom({ status: 'CLOSED', startsAt: '2020-01-01T19:00:00+09:00' }));
+    renderDetail({ onFinish });
+
+    await waitFor(() => expect(screen.getByRole('button', { name: '모임 종료하기' })).toBeTruthy());
+    expect(stickybar().contains(screen.getByRole('button', { name: '모임 종료하기' }))).toBe(true);
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '모임 종료하기' })); });
+    expect(onFinish).toHaveBeenCalledWith('7');
+  });
+
+  it('T4 대기 안내 카드도 스크롤 본문 안에 있다', async () => {
+    vi.spyOn(api, 'getRoom').mockResolvedValue(fullRoom({ waitlistable: true }));
+    vi.spyOn(api, 'getMyWaitlist')
+      .mockRejectedValue(new ApiError({ status: 404, code: 'WAITLIST_ENTRY_NOT_FOUND', message: '대기 이력이 없습니다.' }));
+    renderDetail();
+
+    await waitFor(() => expect(screen.getByText('지금은 정원이 가득 찼어요')).toBeTruthy());
+    expect(scrollBody().contains(screen.getByText('지금은 정원이 가득 찼어요'))).toBe(true);
+    expect(scrollBody().contains(stickybar())).toBe(false);
+  });
+
+  it('T5 카드가 있어도 하단 바의 채팅 진입과 주 CTA가 그대로 보인다', async () => {
+    vi.spyOn(api, 'getRoom').mockResolvedValue(hostRoom());
+    renderDetail();
+
+    await waitFor(() => expect(screen.getByText('내가 연 모임이에요')).toBeTruthy());
+    const bar = stickybar();
+    expect(bar.querySelector('a[href="#/chat/7"]')).toBeTruthy();
+    expect(bar.querySelector('.btn.cta')).toBeTruthy();
+  });
+});

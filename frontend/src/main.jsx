@@ -649,7 +649,8 @@ export function FindRoomsView({ roomType, onRoomTypeChange, roomQuery, onRoomQue
 }
 
 /** 대기열 카드와 sticky CTA. 상태 판정은 서버 응답만 따른다. */
-function SessionActions({ room, roomRefreshing, me, onApply, onCancelApply, onHostCancel, onFinish, onJoinWaitlist, onCancelWaitlist, onWaitlistSettled }) {
+// 안내 카드는 본문과 함께 스크롤되고 하단 바만 고정된다. 두 자리가 상태를 나눠 쓰므로 훅으로 한 번만 계산한다.
+function useSessionActions({ room, roomRefreshing, me, onApply, onCancelApply, onHostCancel, onFinish, onJoinWaitlist, onCancelWaitlist, onWaitlistSettled }) {
   const [pending, setPending] = useState(false);
   const [waitlistVersion, setWaitlistVersion] = useState(0);
   const status = sessionStatus(room);
@@ -703,7 +704,8 @@ function SessionActions({ room, roomRefreshing, me, onApply, onCancelApply, onHo
   const chatButton = canEnterChat
     ? <a className="btn-square fill" href={'#/chat/' + room.id} aria-label="모임 채팅"><ChatIcon size={20} /></a>
     : null;
-  const bar = (cta) => <div className="stickybar">{chatButton}{cta}</div>;
+  // card는 본문 안, bar는 본문 밖 고정 자리에 그려진다.
+  const bar = (cta, card = null) => ({ card, bar: <div className="stickybar">{chatButton}{cta}</div> });
 
   if (!me) {
     return bar(<a className="btn cta" href="#/auth">로그인하고 참가하기</a>);
@@ -712,19 +714,15 @@ function SessionActions({ room, roomRefreshing, me, onApply, onCancelApply, onHo
   if (isHost(room)) {
     if (status === 'RECRUITING' || status === 'CLOSED') {
       const finishable = status === 'CLOSED' && hasStarted(room);
-      return (
-        <>
-          <div style={{ padding: '0 var(--pad) 24px' }}>
-            <div className="notecard">
-              <strong>내가 연 모임이에요</strong>
-              <p>{finishable ? '모임이 끝났다면 종료해주세요. 취소는 참가자에게 알림이 갑니다.' : '취소하면 참가자에게 알림이 가고 되돌릴 수 없어요.'}</p>
-              <button className="btn fill" type="button" disabled={pending} onClick={run(onHostCancel)}>{pending ? '처리 중…' : '모임 취소'}</button>
-            </div>
-          </div>
-          {bar(finishable
-            ? <button className="btn cta" type="button" disabled={pending} onClick={run(onFinish)}>{pending ? '처리 중…' : '모임 종료하기'}</button>
-            : <button className="btn cta off" type="button" disabled>{status === 'CLOSED' ? '모집이 마감됐어요' : '참가자를 기다리는 중'}</button>)}
-        </>
+      return bar(
+        finishable
+          ? <button className="btn cta" type="button" disabled={pending} onClick={run(onFinish)}>{pending ? '처리 중…' : '모임 종료하기'}</button>
+          : <button className="btn cta off" type="button" disabled>{status === 'CLOSED' ? '모집이 마감됐어요' : '참가자를 기다리는 중'}</button>,
+        <div className="notecard">
+          <strong>내가 연 모임이에요</strong>
+          <p>{finishable ? '모임이 끝났다면 종료해주세요. 취소는 참가자에게 알림이 갑니다.' : '취소하면 참가자에게 알림이 가고 되돌릴 수 없어요.'}</p>
+          <button className="btn fill" type="button" disabled={pending} onClick={run(onHostCancel)}>{pending ? '처리 중…' : '모임 취소'}</button>
+        </div>
       );
     }
     return bar(<button className="btn cta off" type="button" disabled>{status === 'FINISHED' ? '종료된 모임이에요' : '취소된 모임이에요'}</button>);
@@ -791,12 +789,9 @@ function SessionActions({ room, roomRefreshing, me, onApply, onCancelApply, onHo
     return null;
   };
 
-  const card = waitlistCard();
-  return (
-    <>
-      {card && <div style={{ padding: '0 var(--pad) 24px' }}>{card}</div>}
-      {bar(<button className="btn cta off" type="button" disabled>{room.remainingRecruitmentSeats <= 0 ? '자리가 다 찼어요' : '지금은 참가할 수 없어요'}</button>)}
-    </>
+  return bar(
+    <button className="btn cta off" type="button" disabled>{room.remainingRecruitmentSeats <= 0 ? '자리가 다 찼어요' : '지금은 참가할 수 없어요'}</button>,
+    waitlistCard()
   );
 }
 
@@ -830,6 +825,37 @@ export function SessionDetailView({ sessionId, me, onBack, onApply, onCancelAppl
       </div>
     );
   }
+  return (
+    <SessionDetailContent
+      room={room}
+      roomRefreshing={loading}
+      me={me}
+      onBack={onBack}
+      onApply={onApply}
+      onCancelApply={onCancelApply}
+      onHostCancel={onHostCancel}
+      onFinish={onFinish}
+      onJoinWaitlist={onJoinWaitlist}
+      onCancelWaitlist={onCancelWaitlist}
+      onWaitlistSettled={onWaitlistSettled}
+    />
+  );
+}
+
+// 조회 상태 분기를 위에서 끝내고, 방이 확정된 뒤에만 조작 훅을 부른다.
+function SessionDetailContent({ room, roomRefreshing, me, onBack, onApply, onCancelApply, onHostCancel, onFinish, onJoinWaitlist, onCancelWaitlist, onWaitlistSettled }) {
+  const actions = useSessionActions({
+    room,
+    roomRefreshing,
+    me,
+    onApply,
+    onCancelApply,
+    onHostCancel,
+    onFinish,
+    onJoinWaitlist,
+    onCancelWaitlist,
+    onWaitlistSettled
+  });
   const privateView = Boolean(room.myRole);
   const game = room.game;
   const metaLine = [STATUS_LABEL[sessionStatus(room)], TYPE_LABEL[room.roomType], EXP_LABEL[room.experienceLevel]].filter(Boolean).join(' · ');
@@ -901,19 +927,9 @@ export function SessionDetailView({ sessionId, me, onBack, onApply, onCancelAppl
             </div>
           )
           : <p className="screen-lead" style={{ marginTop: 18 }}>정확한 장소와 참가자 목록은 주최자 또는 현재 참가자만 확인할 수 있어요.</p>}
+        {actions.card && <div className="session-notice">{actions.card}</div>}
       </div>
-      <SessionActions
-        room={room}
-        roomRefreshing={loading}
-        me={me}
-        onApply={onApply}
-        onCancelApply={onCancelApply}
-        onHostCancel={onHostCancel}
-        onFinish={onFinish}
-        onJoinWaitlist={onJoinWaitlist}
-        onCancelWaitlist={onCancelWaitlist}
-        onWaitlistSettled={onWaitlistSettled}
-      />
+      {actions.bar}
     </div>
   );
 }

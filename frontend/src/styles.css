@@ -452,6 +452,8 @@ textarea.field-input { height: 112px; line-height: 1.6; padding: 14px 16px; resi
 .avatar img { height: 100%; object-fit: cover; width: 100%; }
 .avatar.empty { background: var(--fill); color: var(--sub); font-size: 12.5px; font-weight: 700; }
 
+/* 모임 상세의 안내 카드. 본문 안에서 함께 스크롤되며 마지막 항목과 간격을 둔다. */
+.session-notice { margin-top: 26px; }
 .notecard { background: var(--card); border-radius: 18px; padding: 18px; }
 .notecard strong { display: block; font-size: 15px; font-weight: 800; letter-spacing: -0.04em; }
 .notecard strong.lg { font-size: 17px; letter-spacing: -0.045em; }
