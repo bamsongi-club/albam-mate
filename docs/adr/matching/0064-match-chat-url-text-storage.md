@@ -45,7 +45,7 @@ ADR-0062는 MATCH chat cleanup과 7일 보관을 설명하면서 `message·link`
 
 ## 적용·호환·rollback
 
-- 적용: #741에서는 활성 API·ERD·아키텍처·MATCH 명세를 이 ADR에 연결하고, ADR-0062의 부분 대체 관계와 Matching ADR 인덱스를 갱신한다. 생산 코드·Flyway는 아직 없다.
+- 적용: [PR #741](https://github.com/bamsongi-club/albam-mate/pull/741)에서는 [기술 계약 이슈 #737](https://github.com/bamsongi-club/albam-mate/issues/737)의 활성 API·ERD·아키텍처·MATCH 명세를 이 ADR에 연결하고, ADR-0062의 부분 대체 관계와 Matching ADR 인덱스를 갱신한다. 생산 코드·Flyway는 아직 없다.
 - 호환: P1 ROOM 채팅의 URL 텍스트 처리·메시지 30일 보관·경로는 바꾸지 않는다. MATCH의 URL 텍스트를 ROOM 채팅 link 기능으로 재사용하지 않는다.
 - runtime rollback: URL 텍스트는 메시지 lifecycle과 분리된 상태가 없으므로 cleanup 실패는 message·room cleanup 전체를 롤백한다. 완료된 7일 물리 삭제를 되돌리는 복구 경로는 제공하지 않는다.
 - 배포 rollback: 아직 배포할 schema나 endpoint가 없다. 후속 구현은 별도 link table을 만들지 않은 상태에서 forward migration과 message cleanup을 검증해야 한다.
@@ -60,7 +60,7 @@ ADR-0062는 MATCH chat cleanup과 7일 보관을 설명하면서 `message·link`
 
 - [MATCH-01 성공 파티 채팅](../../p2/matching.md#성공-파티-채팅)
 - [MATCH 채팅 메시지 전송 API](../../API.md#match-01-매칭-채팅-메시지-전송)
-- [P2 MATCH 저장 lifecycle](../../ERD.md#p2-match-저장-lifecycle)
+- [P2 MATCH 저장 경계](../../ERD.md#p2-match-저장-경계)
 - [P2 MATCH 모듈 계약](../../ARCHITECTURE.md#p2-match-모듈-계약-계획미구현)
 - [ADR-0062: MATCH 전용 채팅 handoff·복구와 최소 보관](0062-match-chat-handoff-recovery-retention.md)
 

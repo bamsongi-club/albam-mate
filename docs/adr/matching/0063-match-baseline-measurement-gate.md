@@ -5,7 +5,7 @@
 - 결정일: 2026-08-14
 - 관련: [MATCH-01 기술 계약 이슈 #737](https://github.com/bamsongi-club/albam-mate/issues/737), [MATCH-01 운영 측정](../../p2/matching.md#운영-측정), [MATCH-01 완료 기준](../../p2/matching.md#완료-기준), [P2 기능 상태](../../p2/README.md#기능별-현재-상태), [P2 운영 관측 명세](../../p2/monitoring.md), [ADR-0061 PostgreSQL 후보 선점과 매칭 요청 멱등성](0061-postgresql-candidate-reservation-idempotency.md)
 - 대체 대상: 없음
-- 후속 ADR: 없음
+- 후속 ADR: [0065](0065-match-candidate-claim-baseline-scope.md) (candidate claim baseline 범위와 종합 정합성 gate)
 
 ## 맥락
 
