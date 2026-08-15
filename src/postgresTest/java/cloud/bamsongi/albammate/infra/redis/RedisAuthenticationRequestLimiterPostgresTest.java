@@ -405,8 +405,8 @@ class RedisAuthenticationRequestLimiterPostgresTest {
 	}
 
 	private LettuceConnectionFactory primaryConnectionFactory() {
-		LettuceConnectionFactory factory = new RedisSessionConfiguration().redisConnectionFactory(
-			new RedisSessionProperties(REDIS.getHost(), REDIS.getMappedPort(6379)));
+		LettuceConnectionFactory factory = new RedisConnectionRuntimeConfiguration().redisConnectionFactory(
+			new RedisConnectionProperties(REDIS.getHost(), REDIS.getMappedPort(6379)));
 		factory.afterPropertiesSet();
 		factory.start();
 		return factory;
