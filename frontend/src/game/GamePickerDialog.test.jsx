@@ -269,3 +269,42 @@ it('닫힌 직후 이전 더 보기 오류를 재오픈 상태에 반영하지 �
   expect(screen.queryByText('A 닫힌 뒤 더 보기 실패')).toBeNull();
   expect(screen.queryByText('검색 중…')).toBeNull();
 });
+
+// #750 T4. 필터 시트와 같은 손잡이를 쓰므로 닫기 제스처도 같은 규칙을 따라야 한다.
+describe('#750 T4 게임 선택 시트 스와이프 닫기', () => {
+  const pointerAt = (clientY) => ({ clientY, pointerId: 1 });
+  const grip = () => document.querySelector('.sheet-grip');
+  const SHEET_CLOSE_DRAG_PX = 80;
+
+  function openPicker(onClose) {
+    getGames.mockResolvedValue(GAME_A_FIRST_PAGE);
+    return render(
+      <GamePickerDialog isOpen selectedGameId={null} allowClear={false} onSelect={vi.fn()} onClear={vi.fn()} onClose={onClose} />
+    );
+  }
+
+  it('손잡이에서 임계값 이상 끌면 닫힌다', async () => {
+    const onClose = vi.fn();
+    openPicker(onClose);
+    await act(async () => {});
+
+    fireEvent.pointerDown(grip(), pointerAt(100));
+    fireEvent.pointerMove(grip(), pointerAt(100 + SHEET_CLOSE_DRAG_PX));
+    fireEvent.pointerUp(grip(), pointerAt(100 + SHEET_CLOSE_DRAG_PX));
+
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('임계값 미만으로 끌었다 놓으면 닫히지 않는다', async () => {
+    const onClose = vi.fn();
+    openPicker(onClose);
+    await act(async () => {});
+
+    fireEvent.pointerDown(grip(), pointerAt(100));
+    fireEvent.pointerMove(grip(), pointerAt(100 + SHEET_CLOSE_DRAG_PX - 1));
+    fireEvent.pointerUp(grip(), pointerAt(100 + SHEET_CLOSE_DRAG_PX - 1));
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(document.querySelector('.sheet').style.transform).toBe('');
+  });
+});

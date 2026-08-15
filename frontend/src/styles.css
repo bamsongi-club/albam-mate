@@ -307,10 +307,16 @@ textarea.field-input { height: 112px; line-height: 1.6; padding: 14px 16px; resi
   max-height: 88dvh;
   overflow-y: auto;
   padding: 10px var(--pad) calc(22px + env(safe-area-inset-bottom));
+  /* 끌다 놓았을 때 제자리로 되돌아가는 움직임. 끄는 동안에는 인라인 transition:none이 이걸 끈다. */
+  transition: transform 0.2s ease-out;
   width: min(100%, var(--app-width));
 }
 .sheet.tall { height: 82dvh; max-height: none; }
-.sheet-handle { background: var(--off); border-radius: 99px; flex: none; height: 4px; margin: 6px auto 18px; width: 38px; }
+/* 손잡이는 끌어서 닫는 조작 지점이다. 막대 자체는 얇으므로 잡을 수 있는 영역을 따로 넓힌다.
+   touch-action: none이라야 끄는 동안 브라우저가 대신 스크롤하지 않는다. */
+.sheet-grip { display: block; flex: none; padding: 6px 0 14px; touch-action: none; cursor: grab; }
+.sheet-grip:active { cursor: grabbing; }
+.sheet-handle { background: var(--off); border-radius: 99px; display: block; height: 4px; margin: 0 auto; width: 38px; }
 .sheet-head { align-items: center; display: flex; flex: none; justify-content: space-between; }
 .sheet-head-actions { align-items: center; display: flex; flex: none; gap: 10px; }
 .sheet-head h2 { font-size: 24px; font-weight: 800; letter-spacing: -0.055em; }
