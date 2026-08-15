@@ -25,6 +25,6 @@ public final class ApiAuthenticationEntryPoint implements AuthenticationEntryPoi
 		HttpServletResponse response,
 		AuthenticationException authException)
 		throws IOException {
-		responseWriter.write(response, ErrorCode.UNAUTHENTICATED);
+		responseWriter.write(request, response, ErrorCode.UNAUTHENTICATED);
 	}
 }

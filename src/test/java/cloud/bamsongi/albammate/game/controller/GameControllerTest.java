@@ -30,6 +30,9 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.web.servlet.MockMvc;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.game.dto.GameDetail;
 import cloud.bamsongi.albammate.game.dto.GameListItem;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
@@ -331,6 +334,87 @@ class GameControllerTest {
 			mockMvc.perform(get("/api/games/" + gameId))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+		}
+	}
+
+	@Test
+	void 공개_게임_목록_성공은_검색어_없이_허용된_업무결과_로그만_남긴다() throws Exception {
+		when(gameQueryService.findPage(any(GameListRequest.class), any()))
+			.thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(GameController.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+
+		try {
+			mockMvc.perform(get("/api/games?keyword=secret-search-term"))
+				.andExpect(status().isOk());
+
+			String message = appender.list.stream()
+				.map(ILoggingEvent::getFormattedMessage)
+				.filter(value -> value.contains("event=game_search_completed"))
+				.findFirst()
+				.orElseThrow();
+			org.junit.jupiter.api.Assertions.assertTrue(message.contains("outcome=success"));
+			org.junit.jupiter.api.Assertions.assertTrue(message.contains("resultCount=0"));
+			org.junit.jupiter.api.Assertions.assertTrue(message.contains("durationMs="));
+			org.junit.jupiter.api.Assertions.assertFalse(message.contains("secret-search-term"));
+			org.junit.jupiter.api.Assertions.assertFalse(message.contains("keyword="));
+			org.junit.jupiter.api.Assertions.assertFalse(message.contains("userId="));
+			org.junit.jupiter.api.Assertions.assertFalse(message.contains("session"));
+			org.junit.jupiter.api.Assertions.assertFalse(message.contains("token"));
+		} finally {
+			logger.detachAppender(appender);
+			appender.stop();
+		}
+	}
+
+	@Test
+	void 게임_상세_성공과_미존재는_응답을유지하며_허용된_결과와_실패코드로_기록한다() throws Exception {
+		GameDetail detail = GameDetailFixture.of(
+			1L, 1001L, "카탄", "Catan", null, "3~4명", "전략", "60~90분", new BigDecimal("2.00"),
+			0L, "카탄 기본판", "설명", "상세 설명");
+		when(gameDetailQueryService.findById(1L, null)).thenReturn(detail);
+		when(gameDetailQueryService.findById(999L, null))
+			.thenThrow(new BusinessException(ErrorCode.GAME_NOT_FOUND));
+		Logger controllerLogger = (Logger)org.slf4j.LoggerFactory.getLogger(GameController.class);
+		Logger exceptionLogger = (Logger)org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
+		ListAppender<ILoggingEvent> controllerAppender = new ListAppender<>();
+		ListAppender<ILoggingEvent> exceptionAppender = new ListAppender<>();
+		controllerAppender.start();
+		exceptionAppender.start();
+		controllerLogger.addAppender(controllerAppender);
+		exceptionLogger.addAppender(exceptionAppender);
+
+		try {
+			mockMvc.perform(get("/api/games/1"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.id").value(1));
+			mockMvc.perform(get("/api/games/999"))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.code").value(ErrorCode.GAME_NOT_FOUND.getCode()));
+
+			String completed = controllerAppender.list.stream()
+				.map(ILoggingEvent::getFormattedMessage)
+				.filter(value -> value.contains("event=game_detail_completed"))
+				.findFirst()
+				.orElseThrow();
+			String failed = exceptionAppender.list.stream()
+				.map(ILoggingEvent::getFormattedMessage)
+				.filter(value -> value.contains("event=game_detail_failed"))
+				.findFirst()
+				.orElseThrow();
+			org.junit.jupiter.api.Assertions.assertTrue(completed.contains("gameId=1"));
+			org.junit.jupiter.api.Assertions.assertTrue(completed.contains("outcome=success"));
+			org.junit.jupiter.api.Assertions.assertTrue(failed.contains("gameId=999"));
+			org.junit.jupiter.api.Assertions.assertTrue(failed.contains("outcome=rejected"));
+			org.junit.jupiter.api.Assertions.assertTrue(
+				failed.contains("failureCode=" + ErrorCode.GAME_NOT_FOUND.getCode()));
+		} finally {
+			controllerLogger.detachAppender(controllerAppender);
+			exceptionLogger.detachAppender(exceptionAppender);
+			controllerAppender.stop();
+			exceptionAppender.stop();
 		}
 	}
 

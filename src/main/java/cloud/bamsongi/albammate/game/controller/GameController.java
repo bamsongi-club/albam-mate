@@ -19,10 +19,12 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/games")
 @RequiredArgsConstructor
+@Slf4j
 public class GameController {
 
 	@NonNull private final GameQueryService gameQueryService;
@@ -33,15 +35,28 @@ public class GameController {
 	public ApiResponse<PageResponse<GameListItem>> listGames(
 		@Valid @ModelAttribute
 		GameListRequest request) {
+		long startedAt = System.nanoTime();
+		PageResponse<GameListItem> page = PageResponse.from(
+			gameQueryService.findPage(request, currentUserAccessor.currentUserId().orElse(null)));
+		log.info(
+			"event=game_search_completed outcome=success resultCount={} durationMs={}",
+			page.content().size(),
+			(java.lang.System.nanoTime() - startedAt) / 1_000_000);
 		return ApiResponse.success(
 			HttpStatus.OK,
-			PageResponse.from(gameQueryService.findPage(request, currentUserAccessor.currentUserId().orElse(null))));
+			page);
 	}
 
 	@GetMapping("/{gameId}")
 	public ApiResponse<GameDetail> getGameDetail(@PathVariable @Min(1) Long gameId) {
+		long startedAt = System.nanoTime();
+		GameDetail detail = gameDetailQueryService.findById(gameId, currentUserAccessor.currentUserId().orElse(null));
+		log.info(
+			"event=game_detail_completed gameId={} outcome=success durationMs={}",
+			gameId,
+			(java.lang.System.nanoTime() - startedAt) / 1_000_000);
 		return ApiResponse.success(
 			HttpStatus.OK,
-			gameDetailQueryService.findById(gameId, currentUserAccessor.currentUserId().orElse(null)));
+			detail);
 	}
 }

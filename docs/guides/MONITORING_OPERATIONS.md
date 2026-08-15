@@ -144,7 +144,7 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, 다음 네 met
 - 수치: 고정 event가 정의한 `*Ms`, `*Millis`, `*Count`, `*Limit`, `attempt`, `batchNumber`
 - 유한 enum: `failureCode`, `reasonCode`, event별 `exceptionClass` 또는 `exceptionType`, `eventType`, `targetType`, `action`, `outcome`, `roomStatus`, `useCase`, `section`, `lockName`
 - UTC 시각: `measurementTime`, `occurredAt`, `outboxRecordedAt`, `notificationRecordedAt`, `nextAvailableAt`
-- 접근 제한 상관 키: 단일 `roomId`, `messageId`, `sourceEventId`; metric dimension·dashboard group·alarm dimension에는 사용하지 않는다.
+- 접근 제한 상관 키: 단일 `roomId`, `messageId`, `sourceEventId`, `gameId`; metric dimension·dashboard group·alarm dimension에는 사용하지 않는다.
 
 이메일·IP·사용자 ID·`actorUserId`, session·cookie·token·secret, request/response body, prompt/response 원문, Tool 인자·결과, 채팅 내용, 알림 payload, 원본 SQL, 예외 message·stack trace 전문은 중앙 전송을 금지한다. `sourceEventIds` 같은 ID 배열과 자유 입력 `requestedBy`·`reasonReference`도 제외한다. 정상 2xx·4xx access log 전체는 전송하지 않는다.
 
@@ -167,6 +167,10 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, 다음 네 met
 | `room_update_retry`, `room_cancel_retry`, `room_finish_retry`, `room_participation_retry`, `room_participation_cancel_retry`, `room_waitlist_cancel_retry`, `room_state_reconciliation_retry` | DEBUG/WARN; 단일 `roomId`, `attempt`, `useCase`, `reasonCode` | exhausted WARN만 허용·상관 키 비집계 |
 | `room_created`, `room_updated`, `room_canceled`, `room_finished`, `room_participation_created`, `room_participation_canceled` | 현재 `actorUserId` 포함 | 필드 제거·회귀 검사 전 중앙 전송 금지 |
 | `notification_outbox_operation_previewed`, `notification_outbox_operation_completed` | 현재 ID 배열·자유 입력 operator 필드 포함 | 전용 감사 경로를 설계하기 전 중앙 전송 금지 |
+| `game_search_completed` | INFO; `outcome=success`, `resultCount`, `durationMs` | 허용 |
+| `game_detail_completed` | INFO; 단일 `gameId`, `outcome=success`, `durationMs` | 허용·상관 키 비집계 |
+| `game_played_state_changed` | INFO; 단일 `gameId`, `action=mark|unmark`, `outcome=played|not_played` | 허용·상관 키 비집계 |
+| `game_search_failed`, `game_detail_failed`, `game_played_state_change_failed` | 예상 사용자 거절은 INFO·`outcome=rejected`·`failureCode`; 기술 실패는 WARN/ERROR·`outcome=failed`·`failureCode`·`exceptionClass`; 상세·상태 변경만 단일 `gameId`, 상태 변경은 `action=mark|unmark` | 허용·상관 키 비집계 |
 
 CloudWatch Logs subscription 또는 Agent 전처리는 `event` 허용 목록과 최소 level을 함께 적용한다. production에서 JSON parsing 실패, 허용 목록 밖 event, 금지 key 또는 한 실행에서 새로운 event·field가 발견되면 배포 검증을 실패시킨다. 운영 log group 보존기간은 14일이다.
 
