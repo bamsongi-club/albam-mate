@@ -3,6 +3,7 @@ package cloud.bamsongi.albammate.room.repository;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -27,6 +29,7 @@ class RoomRepositoryTest {
 
 	private static final Instant BASE_TIME = Instant.parse("2026-07-28T00:00:00Z");
 	private static final Set<RoomStatus> PUBLIC_STATUSES = Set.of(RoomStatus.RECRUITING, RoomStatus.CLOSED);
+	private static final Set<ExperienceLevel> ALL_EXPERIENCE_LEVELS = EnumSet.allOf(ExperienceLevel.class);
 
 	@Autowired
 	private RoomRepository roomRepository;
@@ -68,16 +71,16 @@ class RoomRepositoryTest {
 		roomRepository.saveAllAndFlush(List.of(second, canceled, first));
 		jdbcTemplate.update("update rooms set status = 'CANCELED' where id = ?", canceled.getId());
 
-		Page<Room> firstPage = roomRepository.findPublicRoomsWithoutKeyword(
+		Page<Room> firstPage = findPublicRooms(
 			RoomType.GAME_FOCUSED,
 			gameId,
-			PUBLIC_STATUSES,
+			null,
 			PageRequest.of(
 				0, 1, Sort.by(Sort.Order.asc("startAt"), Sort.Order.asc("id"))));
-		Page<Room> secondPage = roomRepository.findPublicRoomsWithoutKeyword(
+		Page<Room> secondPage = findPublicRooms(
 			RoomType.GAME_FOCUSED,
 			gameId,
-			PUBLIC_STATUSES,
+			null,
 			PageRequest.of(
 				1, 1, Sort.by(Sort.Order.asc("startAt"), Sort.Order.asc("id"))));
 
@@ -96,11 +99,10 @@ class RoomRepositoryTest {
 				personRoom("스터디 모임"),
 				gameRoom("Party가 아닌 게임 중심 방", BASE_TIME.plusSeconds(300))));
 
-		Page<Room> result = roomRepository.findPublicRoomsByTitleContainingIgnoreCase(
+		Page<Room> result = findPublicRooms(
 			RoomType.PERSON_FOCUSED,
 			null,
 			"party",
-			PUBLIC_STATUSES,
 			PageRequest.of(
 				0, 10, Sort.by(Sort.Order.asc("startAt"), Sort.Order.asc("id"))));
 
@@ -137,18 +139,40 @@ class RoomRepositoryTest {
 	}
 
 	private List<String> findPersonRoomTitles(String keyword) {
-		return roomRepository
-			.findPublicRoomsByTitleContainingIgnoreCase(
-				RoomType.PERSON_FOCUSED,
-				null,
-				keyword,
-				PUBLIC_STATUSES,
-				PageRequest.of(
-					0, 10, Sort.by(Sort.Order.asc("startAt"), Sort.Order.asc("id"))))
+		return findPublicRooms(
+			RoomType.PERSON_FOCUSED,
+			null,
+			keyword,
+			PageRequest.of(
+				0, 10, Sort.by(Sort.Order.asc("startAt"), Sort.Order.asc("id"))))
 			.getContent()
 			.stream()
 			.map(Room::getTitle)
 			.toList();
+	}
+
+	/** RoomListSearchCriteria/PublicRoomQuery를 거치지 않고 findPublicRoomsAt JPQL을 직접 호출한다. */
+	private Page<Room> findPublicRooms(RoomType roomType, Long gameId, String keyword, Pageable pageable) {
+		return roomRepository.findPublicRoomsAt(
+			roomType,
+			false,
+			false,
+			false,
+			BASE_TIME,
+			gameId,
+			keyword != null,
+			keyword == null ? "" : keyword,
+			false,
+			Instant.EPOCH,
+			false,
+			Instant.EPOCH,
+			false,
+			0,
+			ALL_EXPERIENCE_LEVELS,
+			false,
+			PUBLIC_STATUSES,
+			BASE_TIME.minus(Room.AUTOMATIC_FINISH_AFTER_START),
+			pageable);
 	}
 
 	private Room gameRoom(String title, Instant startsAt) {
