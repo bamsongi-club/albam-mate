@@ -51,3 +51,6 @@ out/
 !.env.example
 !.env.production.example
 /src/test/http/http-client.private.env.json
+
+### Graphify ###
+graphify-out/
