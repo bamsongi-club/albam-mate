@@ -21,4 +21,8 @@ public final class MonitoringStructuredLoggingCustomizer
 	public void customize(Members<ILoggingEvent> members) {
 		members.applyingPathFilter(path -> FORBIDDEN_KEYS.contains(path.name().toLowerCase(Locale.ROOT)));
 	}
+
+	public static Set<String> forbiddenKeys() {
+		return FORBIDDEN_KEYS;
+	}
 }

@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.global.config;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -20,7 +21,7 @@ class P2MonitoringContractTest {
 		String app2 = read("compose.app2.yml");
 
 		assertTrue(production.contains("management:"));
-		assertTrue(production.contains("address: 0.0.0.0"));
+		assertTrue(production.contains("address: 127.0.0.1"));
 		assertTrue(production.contains("include: health,metrics"));
 		assertTrue(production.contains("url: ${ALBAM_MATE_OTLP_METRICS_URL"));
 		assertTrue(production.contains("connect-timeout: 1s"));
@@ -29,6 +30,10 @@ class P2MonitoringContractTest {
 		assertTrue(app2.contains("host.docker.internal:host-gateway"));
 		assertPortsAreNotPublished(app1);
 		assertPortsAreNotPublished(app2);
+		assertManagementIsNotExposed(app1);
+		assertManagementIsNotExposed(app2);
+		assertTrue(app1.contains("http://127.0.0.1:9090/actuator/health"));
+		assertTrue(app2.contains("http://127.0.0.1:9090/actuator/health"));
 	}
 
 	@Test
@@ -37,6 +42,12 @@ class P2MonitoringContractTest {
 		String app1 = read("compose.production.yml");
 		String app2 = read("compose.app2.yml");
 		String logging = production.substring(production.indexOf("logging:"), production.indexOf("app:"));
+		Map<String, Object> productionRoot = new Yaml().load(production);
+		Map<String, Object> management = map(productionRoot.get("management"));
+		Map<String, Object> resourceAttributes = map(map(map(map(management.get("otlp")).get("metrics")).get("export"))
+			.get("resource-attributes"));
+		Map<String, Object> openTelemetryResourceAttributes = map(map(management.get("opentelemetry"))
+			.get("resource-attributes"));
 
 		for (String allowed : new String[] {"environment", "stackId", "service", "role", "instanceId", "release"}) {
 			assertTrue(logging.contains(allowed + ": "));
@@ -49,6 +60,14 @@ class P2MonitoringContractTest {
 		assertTrue(logging.contains("total-size-cap: 50MB"));
 		assertTrue(app1.contains("/var/log/albam-mate"));
 		assertTrue(app2.contains("/var/log/albam-mate"));
+		for (String attribute : new String[] {"environment", "stackId", "service", "role", "instanceId", "release"}) {
+			assertTrue(resourceAttributes.containsKey(attribute));
+			assertEquals(resourceAttributes.get(attribute), openTelemetryResourceAttributes.get(attribute));
+		}
+		assertEquals("${ALBAM_MATE_ROLE:-app1}", springEnvironment(app1).get("ALBAM_MATE_ROLE"));
+		assertEquals("${ALBAM_MATE_ROLE:-app2}", springEnvironment(app2).get("ALBAM_MATE_ROLE"));
+		assertTrue(springEnvironment(app1).containsKey("ALBAM_MATE_RELEASE"));
+		assertTrue(springEnvironment(app2).containsKey("ALBAM_MATE_RELEASE"));
 		assertFalse(logging.contains("requestId: ${"));
 		assertFalse(logging.contains("userId: ${"));
 		assertFalse(logging.contains("roomId: ${"));
@@ -88,5 +107,29 @@ class P2MonitoringContractTest {
 				assertFalse(target.matches(".*(^|:)4318(/.*)?$"));
 			}
 		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private void assertManagementIsNotExposed(String compose) {
+		Map<String, Object> root = new Yaml().load(compose);
+		Map<String, Object> services = map(root.get("services"));
+		Map<String, Object> spring = map(services.get("spring"));
+		Object expose = spring.get("expose");
+		if (expose == null) {
+			return;
+		}
+		for (Object target : (Iterable<Object>)expose) {
+			assertFalse("9090".equals(String.valueOf(target)));
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private Map<String, Object> springEnvironment(String compose) {
+		return map(map(map(map(new Yaml().load(compose)).get("services")).get("spring")).get("environment"));
+	}
+
+	@SuppressWarnings("unchecked")
+	private Map<String, Object> map(Object value) {
+		return (Map<String, Object>)value;
 	}
 }

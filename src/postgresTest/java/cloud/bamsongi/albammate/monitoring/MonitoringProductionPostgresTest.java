@@ -1,7 +1,10 @@
 package cloud.bamsongi.albammate.monitoring;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -10,22 +13,30 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+
+import com.sun.net.httpserver.HttpServer;
 
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.FileAppender;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.registry.otlp.OtlpMeterRegistry;
 
 @Testcontainers
 @ActiveProfiles("production")
@@ -41,12 +52,13 @@ import io.micrometer.core.instrument.MeterRegistry;
 	"ALBAM_MATE_ROLE=app1",
 	"ALBAM_MATE_INSTANCE_ID=postgres-test",
 	"ALBAM_MATE_RELEASE=test-release",
-	"ALBAM_MATE_OTLP_METRICS_URL=http://127.0.0.1:1/v1/metrics",
 	"logging.file.name=build/test-results/monitoring/production-structured.json"
 })
 class MonitoringProductionPostgresTest {
 
 	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final AtomicInteger FAILED_OTLP_REQUESTS = new AtomicInteger();
+	private static final HttpServer FAILING_OTLP_RECEIVER = startFailingOtlpReceiver();
 
 	@Container
 	@ServiceConnection
@@ -56,8 +68,23 @@ class MonitoringProductionPostgresTest {
 	@Autowired
 	private MeterRegistry meterRegistry;
 
+	@Autowired
+	private OtlpMeterRegistry otlpMeterRegistry;
+
 	@LocalServerPort
 	private int applicationPort;
+
+	@DynamicPropertySource
+	static void monitoringProperties(DynamicPropertyRegistry registry) {
+		registry.add("management.otlp.metrics.export.step", () -> "10ms");
+		registry.add("management.otlp.metrics.export.url",
+			() -> "http://127.0.0.1:" + FAILING_OTLP_RECEIVER.getAddress().getPort() + "/v1/metrics");
+	}
+
+	@AfterAll
+	static void stopFailingOtlpReceiver() {
+		FAILING_OTLP_RECEIVER.stop(0);
+	}
 
 	@Test
 	void T1_OTLP_receiver가_도달_불가해도_대표_제품_요청은_성공한다() throws Exception {
@@ -68,6 +95,40 @@ class MonitoringProductionPostgresTest {
 			HttpResponse.BodyHandlers.ofString());
 
 		assertEquals(200, response.statusCode());
+		publishOtlpMetrics();
+		assertTrue(waitForFailedOtlpRequest());
+	}
+
+	private void publishOtlpMetrics() throws ReflectiveOperationException {
+		java.lang.reflect.Method publish = OtlpMeterRegistry.class.getDeclaredMethod("publish");
+		publish.setAccessible(true);
+		publish.invoke(otlpMeterRegistry);
+	}
+
+	private static HttpServer startFailingOtlpReceiver() {
+		try {
+			HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+			server.createContext("/v1/metrics", exchange -> {
+				FAILED_OTLP_REQUESTS.incrementAndGet();
+				exchange.getRequestBody().readAllBytes();
+				exchange.close();
+			});
+			server.start();
+			return server;
+		} catch (IOException exception) {
+			throw new IllegalStateException("OTLP 실패 수신기를 시작하지 못했습니다", exception);
+		}
+	}
+
+	private static boolean waitForFailedOtlpRequest() throws InterruptedException {
+		long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(2);
+		while (System.nanoTime() < deadline) {
+			if (FAILED_OTLP_REQUESTS.get() > 0) {
+				return true;
+			}
+			Thread.sleep(20);
+		}
+		return FAILED_OTLP_REQUESTS.get() > 0;
 	}
 
 	@Test
@@ -95,9 +156,9 @@ class MonitoringProductionPostgresTest {
 		assertEquals(true, appender.isStarted());
 		Path logPath = Path.of(appender.getFile());
 		long offset = Files.exists(logPath) ? Files.size(logPath) : 0;
-		org.slf4j.MDC.put("email", "sentinel-email");
-		org.slf4j.MDC.put("roomId", "sentinel-room");
-		org.slf4j.MDC.put("requestBody", "sentinel-body");
+		Map<String, String> sentinels = MonitoringStructuredLoggingCustomizer.forbiddenKeys().stream()
+			.collect(java.util.stream.Collectors.toMap(key -> key, key -> "sentinel-" + key));
+		sentinels.forEach(org.slf4j.MDC::put);
 		try {
 			logger.warn("monitoring_contract_test");
 		} finally {
@@ -113,11 +174,9 @@ class MonitoringProductionPostgresTest {
 		assertEquals(true, json.contains("\"role\":\"app1\""));
 		assertEquals(true, json.contains("\"instanceId\":\"postgres-test\""));
 		assertEquals(true, json.contains("\"release\":\"test-release\""));
-		assertEquals(false, json.contains("\"email\""));
-		assertEquals(false, json.contains("\"roomId\""));
-		assertEquals(false, json.contains("\"requestBody\""));
-		assertEquals(false, json.contains("sentinel-email"));
-		assertEquals(false, json.contains("sentinel-room"));
-		assertEquals(false, json.contains("sentinel-body"));
+		sentinels.forEach((key, value) -> {
+			assertEquals(false, json.contains("\"" + key + "\""));
+			assertEquals(false, json.contains(value));
+		});
 	}
 }

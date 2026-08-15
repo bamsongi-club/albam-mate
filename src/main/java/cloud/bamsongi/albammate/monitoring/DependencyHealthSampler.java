@@ -8,7 +8,6 @@ import javax.sql.DataSource;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import io.micrometer.core.instrument.MeterRegistry;
@@ -29,7 +28,6 @@ class DependencyHealthSampler {
 		metrics = new DependencyHealthMetrics(meterRegistry);
 	}
 
-	@Scheduled(fixedDelayString = "${app.monitoring.dependency-health.poll-interval:10s}")
 	void sample() {
 		metrics.recordPostgresql(postgresqlIsUp());
 		metrics.recordRedis(redisIsUp());
