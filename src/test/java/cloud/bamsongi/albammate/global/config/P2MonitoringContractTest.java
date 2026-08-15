@@ -6,8 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+import org.yaml.snakeyaml.Yaml;
 
 class P2MonitoringContractTest {
 
@@ -25,10 +27,8 @@ class P2MonitoringContractTest {
 		assertTrue(production.contains("read-timeout: 2s"));
 		assertTrue(app1.contains("host.docker.internal:host-gateway"));
 		assertTrue(app2.contains("host.docker.internal:host-gateway"));
-		assertFalse(app1.contains("9090:9090"));
-		assertFalse(app2.contains("9090:9090"));
-		assertFalse(app1.contains("4318:4318"));
-		assertFalse(app2.contains("4318:4318"));
+		assertPortsAreNotPublished(app1);
+		assertPortsAreNotPublished(app2);
 	}
 
 	@Test
@@ -55,11 +55,38 @@ class P2MonitoringContractTest {
 		assertFalse(logging.contains("messageId: ${"));
 	}
 
+	@Test
+	void T3_OPS01_상태는_공개_앱_범위의_부분_구현과_부분_검증으로만_표시한다() {
+		String readme = read("docs/p2/README.md");
+
+		assertTrue(readme.contains("OPS-01 공개 앱 범위 부분 구현·부분 검증"));
+		assertFalse(readme.contains("OPS-01-AC1`~`OPS-01-AC3` 공개 구현·자동 검증 완료"));
+	}
+
 	private String read(String relativePath) {
 		try {
 			return Files.readString(Path.of(relativePath));
 		} catch (IOException exception) {
 			throw new IllegalStateException("운영 관측 계약 파일을 읽지 못했습니다: " + relativePath, exception);
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private void assertPortsAreNotPublished(String compose) {
+		Map<String, Object> root = new Yaml().load(compose);
+		Map<String, Object> services = (Map<String, Object>)root.get("services");
+		for (Object serviceValue : services.values()) {
+			Map<String, Object> service = (Map<String, Object>)serviceValue;
+			Object ports = service.get("ports");
+			if (ports == null) {
+				continue;
+			}
+			for (Object port : (Iterable<Object>)ports) {
+				String target = port instanceof Map<?, ?> map ? String.valueOf(map.get("target"))
+					: String.valueOf(port);
+				assertFalse(target.matches(".*(^|:)9090(/.*)?$"));
+				assertFalse(target.matches(".*(^|:)4318(/.*)?$"));
+			}
 		}
 	}
 }
