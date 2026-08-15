@@ -3,7 +3,9 @@ package cloud.bamsongi.albammate.monitoring;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -16,6 +18,8 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.zip.GZIPInputStream;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -37,6 +41,7 @@ import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.FileAppender;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceRequest;
 
 @Testcontainers
 @ActiveProfiles("production")
@@ -62,6 +67,7 @@ class MonitoringProductionPostgresTest {
 		"querystring", "prompt", "response", "toolargs", "toolresult", "chatcontent", "notificationpayload",
 		"rawsql", "userid", "actoruserid", "roomid", "messageid", "sourceeventid");
 	private static final AtomicInteger FAILED_OTLP_REQUESTS = new AtomicInteger();
+	private static final AtomicReference<OtlpPayload> LAST_OTLP_PAYLOAD = new AtomicReference<>();
 	private static final HttpServer FAILING_OTLP_RECEIVER = startFailingOtlpReceiver();
 
 	@Container
@@ -90,6 +96,7 @@ class MonitoringProductionPostgresTest {
 	@Test
 	void T1_OTLP_receiver가_도달_불가해도_대표_제품_요청은_성공한다() throws Exception {
 		int requestsBefore = FAILED_OTLP_REQUESTS.get();
+		LAST_OTLP_PAYLOAD.set(null);
 		meterRegistry.counter("monitoring.contract.otlp.failure.probe").increment();
 		HttpResponse<String> response = HttpClient.newHttpClient().send(
 			HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + applicationPort + "/api/games?size=1"))
@@ -99,14 +106,16 @@ class MonitoringProductionPostgresTest {
 
 		assertEquals(200, response.statusCode());
 		assertTrue(waitForFailedOtlpRequestAfter(requestsBefore));
+		assertExpectedResourceAttributes(LAST_OTLP_PAYLOAD.get());
 	}
 
 	private static HttpServer startFailingOtlpReceiver() {
 		try {
 			HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
 			server.createContext("/v1/metrics", exchange -> {
+				LAST_OTLP_PAYLOAD.set(new OtlpPayload(exchange.getRequestBody().readAllBytes(),
+					exchange.getRequestHeaders().getFirst("Content-Encoding")));
 				FAILED_OTLP_REQUESTS.incrementAndGet();
-				exchange.getRequestBody().readAllBytes();
 				exchange.sendResponseHeaders(503, -1);
 				exchange.close();
 			});
@@ -126,6 +135,32 @@ class MonitoringProductionPostgresTest {
 			Thread.sleep(20);
 		}
 		return FAILED_OTLP_REQUESTS.get() > requestsBefore;
+	}
+
+	private static void assertExpectedResourceAttributes(OtlpPayload payload) throws IOException {
+		assertTrue(payload != null);
+		ExportMetricsServiceRequest request = ExportMetricsServiceRequest.parseFrom(decode(payload));
+		Map<String, String> attributes = request.getResourceMetricsList().stream()
+			.flatMap(resourceMetrics -> resourceMetrics.getResource().getAttributesList().stream())
+			.collect(java.util.stream.Collectors.toMap(attribute -> attribute.getKey(),
+				attribute -> attribute.getValue().getStringValue(), (first, ignored) -> first));
+		assertEquals("test", attributes.get("environment"));
+		assertEquals("issue-730", attributes.get("stackId"));
+		assertEquals("albam-mate", attributes.get("service"));
+		assertEquals("app1", attributes.get("role"));
+		assertEquals("postgres-test", attributes.get("instanceId"));
+		assertEquals("test-release", attributes.get("release"));
+	}
+
+	private static byte[] decode(OtlpPayload payload) throws IOException {
+		try (InputStream body = "gzip".equalsIgnoreCase(payload.contentEncoding())
+			? new GZIPInputStream(new ByteArrayInputStream(payload.body()))
+			: new ByteArrayInputStream(payload.body())) {
+			return body.readAllBytes();
+		}
+	}
+
+	private record OtlpPayload(byte[] body, String contentEncoding) {
 	}
 
 	@Test
