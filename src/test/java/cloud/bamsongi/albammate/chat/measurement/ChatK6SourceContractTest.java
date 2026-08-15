@@ -31,6 +31,50 @@ class ChatK6SourceContractTest {
 	}
 
 	@Test
+	void T5_k6_전송_제한_계약은_사용자_오십오십일과_방_백백일_경계를_검증한다() throws IOException {
+		String rateLimitContract = file("load-tests/k6/eungi/rate-limit-contract.js");
+
+		assertThat(rateLimitContract).contains("const ROOM_RATE_LIMIT_PARTICIPANT_COUNT = 3;");
+		assertThat(rateLimitContract).contains(
+			"const RATE_LIMIT_ATTEMPTS = readFixedPositiveInteger(\n\t'K6_RATE_LIMIT_ATTEMPTS',\n\t51,\n\t'the exact user limiter proof',");
+		assertThat(rateLimitContract).contains(
+			"const ROOM_RATE_LIMIT_ATTEMPTS = readFixedPositiveInteger(\n\t'K6_ROOM_RATE_LIMIT_ATTEMPTS',\n\t34,\n\t'the exact room limiter proof',");
+		assertThat(rateLimitContract).contains(
+			"execution.vu.idInTest === ROOM_RATE_LIMIT_PARTICIPANT_COUNT\n\t\t&& execution.vu.iterationInScenario === ROOM_RATE_LIMIT_ATTEMPTS - 1");
+		assertThat(rateLimitContract).contains("const expectedCreated = Math.min(RATE_LIMIT_ATTEMPTS, 50);");
+		assertThat(rateLimitContract).contains("const expectedThrottled = Math.max(0, RATE_LIMIT_ATTEMPTS - 50);");
+		assertThat(rateLimitContract)
+			.contains("rateLimitThresholds(Math.min(RATE_LIMIT_ATTEMPTS, 50), Math.max(0, RATE_LIMIT_ATTEMPTS - 50))");
+		assertThat(rateLimitContract).contains("rateLimitThresholds(100, 1)");
+	}
+
+	@Test
+	void T7_API와_CHAT_문서와_테스트_k6_링크가_오십백_계약으로_일치한다() throws IOException {
+		String properties = file(
+			"src/main/java/cloud/bamsongi/albammate/infra/redis/ChatMessageRateLimitProperties.java");
+		String library = file("load-tests/k6/eungi/lib/chat.js");
+		String rateLimitContract = file("load-tests/k6/eungi/rate-limit-contract.js");
+		String api = file("docs/API.md");
+		String chatting = file("docs/archive/p1/chatting.md");
+		String p1Readme = file("docs/archive/p1/README.md");
+
+		assertThat(properties).contains("@DefaultValue(\"50\")");
+		assertThat(properties).contains("@DefaultValue(\"100\")");
+		assertThat(library).contains("export const USER_RATE_LIMIT_PER_SECOND = 5;");
+		assertThat(library).contains("export const ROOM_RATE_LIMIT_PER_SECOND = 10;");
+		assertThat(rateLimitContract).contains("rateLimitThresholds(100, 1)");
+		assertThat(api).contains("50건/10초");
+		assertThat(api).contains("100건/10초");
+		assertThat(api).contains("issues/760#issuecomment-5300372595");
+		assertThat(api).contains("issues/761#issuecomment-5300395172");
+		assertThat(chatting).contains("50건/10초");
+		assertThat(chatting).contains("100건/10초");
+		assertThat(chatting).contains("issues/761#issuecomment-5300395172");
+		assertThat(p1Readme).contains("issues/760#issuecomment-5300372595");
+		assertThat(p1Readme).contains("issues/761#issuecomment-5300395172");
+	}
+
+	@Test
 	void 장기_구독자의_전달_지연은_수신_시점의_단계로_기록한다() throws IOException {
 		String library = file("load-tests/k6/eungi/lib/chat.js");
 		String fanout = file("load-tests/k6/eungi/load-fanout.js");

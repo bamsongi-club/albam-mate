@@ -24,17 +24,20 @@ import {
 
 export { setup } from './lib/chat.js';
 
-// The dedicated room-limit proof needs 35 attempts: seven distinct users send
-// five messages each.  The first thirty exercise the room bucket; the last
-// five must be room-throttled without hitting a user bucket first.  This is
-// deliberately separate from the six-member normal hot-room geometry.
-const ROOM_RATE_LIMIT_PARTICIPANT_COUNT = 7;
+// The dedicated room-limit proof sends 101 requests from three distinct users.
+// The first hundred exercise the room bucket, and the 101st is room-throttled
+// while every sender remains below the 50-message user bucket.
+const ROOM_RATE_LIMIT_PARTICIPANT_COUNT = 3;
 
-const RATE_LIMIT_ATTEMPTS = readPositiveInteger('K6_RATE_LIMIT_ATTEMPTS', 6);
+const RATE_LIMIT_ATTEMPTS = readFixedPositiveInteger(
+	'K6_RATE_LIMIT_ATTEMPTS',
+	51,
+	'the exact user limiter proof',
+);
 
 const ROOM_RATE_LIMIT_ATTEMPTS = readFixedPositiveInteger(
 	'K6_ROOM_RATE_LIMIT_ATTEMPTS',
-	5,
+	34,
 	'the exact room limiter proof',
 );
 
@@ -57,8 +60,8 @@ export function rateLimitUser(data) {
 			unexpected++;
 		}
 	}
-	const expectedCreated = Math.min(RATE_LIMIT_ATTEMPTS, 5);
-	const expectedThrottled = Math.max(0, RATE_LIMIT_ATTEMPTS - 5);
+	const expectedCreated = Math.min(RATE_LIMIT_ATTEMPTS, 50);
+	const expectedThrottled = Math.max(0, RATE_LIMIT_ATTEMPTS - 50);
 	const expected = created === expectedCreated && throttled === expectedThrottled && unexpected === 0;
 	sendExpectedStatus.add(expected);
 	check({ expected }, {
@@ -67,14 +70,18 @@ export function rateLimitUser(data) {
 }
 
 export function rateLimitRoom(data) {
-	// 쿨다운은 VU마다 첫 iteration에서만 기다린다. 매 iteration마다 자면 35건이
-	// 55초에 흩뿌려져 방 버킷(3/s)이 차지 않아 30건 통과·5건 차단이 나오지 않는다.
+	// 쿨다운은 VU마다 첫 iteration에서만 기다린다. 매 iteration마다 자면 101건이
+	// 흩뿌려져 방 버킷이 차지 않아 100건 통과·101번째 차단이 나오지 않는다.
 	if (execution.vu.iterationInScenario === 0) {
 		waitForRateLimitCooldown();
 	}
 	const users = rateLimitRoomUsers(data.users);
-	// Each VU owns one sender so that five attempts per VU cannot accidentally
-	// consume another sender's five-message user quota and hide the room limit.
+	// Three VU x 34 iterations is 102. 마지막 VU의 마지막 iteration을 건너뛰어
+	// 정확히 101회를 보내고, 각 sender는 34회 이하로 user bucket에 닿지 않는다.
+	if (execution.vu.idInTest === ROOM_RATE_LIMIT_PARTICIPANT_COUNT
+		&& execution.vu.iterationInScenario === ROOM_RATE_LIMIT_ATTEMPTS - 1) {
+		return;
+	}
 	const user = users[(execution.vu.idInTest - 1) % users.length];
 	const result = postNewMessage(
 		user,
@@ -142,7 +149,7 @@ export const options = CASE === 'user'
 		1,
 		1,
 		'1m',
-		rateLimitThresholds(Math.min(RATE_LIMIT_ATTEMPTS, 5), Math.max(0, RATE_LIMIT_ATTEMPTS - 5)),
+		rateLimitThresholds(Math.min(RATE_LIMIT_ATTEMPTS, 50), Math.max(0, RATE_LIMIT_ATTEMPTS - 50)),
 	)
 	: perVuOptions(
 		'rate_limit_room',
@@ -150,5 +157,5 @@ export const options = CASE === 'user'
 		ROOM_RATE_LIMIT_PARTICIPANT_COUNT,
 		ROOM_RATE_LIMIT_ATTEMPTS,
 		'1m',
-		rateLimitThresholds(30, 5),
+		rateLimitThresholds(100, 1),
 	);

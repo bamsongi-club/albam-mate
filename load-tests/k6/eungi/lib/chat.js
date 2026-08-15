@@ -52,9 +52,9 @@ export const LOAD_WARMUP_STAGE = 'warmup';
 // 부하 시나리오가 쓰는 방당 수신자 수.
 export const LOAD_SUBSCRIBERS_PER_ROOM = readPositiveInteger('K6_LOAD_SUBSCRIBERS_PER_ROOM', 6);
 
-export const USER_RATE_LIMIT_PER_SECOND = 0.5;
+export const USER_RATE_LIMIT_PER_SECOND = 5;
 
-export const ROOM_RATE_LIMIT_PER_SECOND = 3;
+export const ROOM_RATE_LIMIT_PER_SECOND = 10;
 
 export const ROOM_PARTICIPANT_COUNT = readFixedPositiveInteger(
 	'K6_ROOM_PARTICIPANT_COUNT',

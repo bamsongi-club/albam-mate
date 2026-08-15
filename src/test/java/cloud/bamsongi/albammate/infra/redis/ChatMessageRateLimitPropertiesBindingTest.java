@@ -12,12 +12,12 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 class ChatMessageRateLimitPropertiesBindingTest {
 
 	@Test
-	void T3_기본_전송_제한_속성은_계약과_같다() {
+	void T1_기본_전송_제한_속성은_사용자_오십건_방_백건_십초로_바인딩된다() {
 		contextRunnerWith().run(context -> {
 			assertNull(context.getStartupFailure());
 			ChatMessageRateLimitProperties properties = context.getBean(ChatMessageRateLimitProperties.class);
-			assertEquals(5, properties.userLimit());
-			assertEquals(30, properties.roomLimit());
+			assertEquals(50, properties.userLimit());
+			assertEquals(100, properties.roomLimit());
 			assertEquals(Duration.ofSeconds(10), properties.window());
 		});
 	}

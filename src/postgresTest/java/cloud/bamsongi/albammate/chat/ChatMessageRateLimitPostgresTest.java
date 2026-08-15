@@ -115,7 +115,7 @@ class ChatMessageRateLimitPostgresTest {
 	}
 
 	@Test
-	void 사용자_bucket은_모든_방의_신규_전송을_합산해_다섯_건만_허용하고_TTL을_연장하지_않는다() {
+	void T2_사용자_bucket은_모든_방의_신규_전송을_합산해_오십건만_허용하고_TTL을_연장하지_않는다() {
 		long userId = insertUser("사용자");
 		Room firstRoom = createChatRoom(userId, 2);
 		Room secondRoom = createChatRoom(userId, 2);
@@ -124,7 +124,7 @@ class ChatMessageRateLimitPostgresTest {
 		Long initialTtl = redis().getExpire(userKey(userId), TimeUnit.MILLISECONDS);
 		assertNotNull(initialTtl);
 		assertTrue(initialTtl > 0 && initialTtl <= 10_000, "initial TTL=" + initialTtl);
-		for (int index = 2; index <= 5; index++) {
+		for (int index = 2; index <= 50; index++) {
 			send(userId, index % 2 == 0 ? secondRoom.getId() : firstRoom.getId(), "message-" + index);
 		}
 
@@ -132,12 +132,12 @@ class ChatMessageRateLimitPostgresTest {
 		assertNotNull(ttlAfterAllowedMessages);
 		assertTrue(ttlAfterAllowedMessages > 0 && ttlAfterAllowedMessages <= initialTtl,
 			"TTL이 연장됐습니다. initial=" + initialTtl + ", actual=" + ttlAfterAllowedMessages);
-		assertRateLimited(() -> send(userId, secondRoom.getId(), "sixth"));
-		assertEquals(5, chatMessageRepository.count());
+		assertRateLimited(() -> send(userId, secondRoom.getId(), "fifty-first"));
+		assertEquals(50, chatMessageRepository.count());
 	}
 
 	@Test
-	void 방_bucket은_모든_참여자의_신규_전송을_합산해_서른_건만_허용하고_TTL을_연장하지_않는다() {
+	void T2_방_bucket은_모든_참여자의_신규_전송을_합산해_백건만_허용하고_TTL을_연장하지_않는다() {
 		long hostUserId = insertUser("방장");
 		Room room = createChatRoom(hostUserId, 10);
 		List<Long> senders = new ArrayList<>(List.of(hostUserId));
@@ -151,46 +151,45 @@ class ChatMessageRateLimitPostgresTest {
 		Long initialTtl = redis().getExpire(roomKey(room.getId()), TimeUnit.MILLISECONDS);
 		assertNotNull(initialTtl);
 		assertTrue(initialTtl > 0 && initialTtl <= 10_000, "initial TTL=" + initialTtl);
-		int messageNumber = 2;
-		for (int senderIndex = 0; senderIndex < 6; senderIndex++) {
-			int sends = senderIndex == 0 ? 4 : 5;
-			for (int sendIndex = 0; sendIndex < sends; sendIndex++) {
-				send(senders.get(senderIndex), room.getId(), "room-" + messageNumber++);
-			}
+		for (int messageNumber = 2; messageNumber <= 100; messageNumber++) {
+			send(senders.get((messageNumber - 1) % senders.size()), room.getId(), "room-" + messageNumber);
 		}
 
 		Long ttlAfterAllowedMessages = redis().getExpire(roomKey(room.getId()), TimeUnit.MILLISECONDS);
 		assertNotNull(ttlAfterAllowedMessages);
 		assertTrue(ttlAfterAllowedMessages > 0 && ttlAfterAllowedMessages <= initialTtl,
 			"TTL이 연장됐습니다. initial=" + initialTtl + ", actual=" + ttlAfterAllowedMessages);
-		assertRateLimited(() -> send(senders.get(6), room.getId(), "room-31"));
-		assertEquals(30, chatMessageRepository.count());
+		assertRateLimited(() -> send(senders.get(6), room.getId(), "room-101"));
+		assertEquals(100, chatMessageRepository.count());
 	}
 
 	@Test
 	void 하나라도_초과하면_두_bucket을_증가시키지_않고_두_bucket_초과시_더_긴_TTL을_Retry_After로_반환한다() {
 		long userId = insertUser("원자성");
 		Room room = createChatRoom(userId, 2);
-		redis().opsForValue().set(userKey(userId), "5", 2_500, TimeUnit.MILLISECONDS);
-		redis().opsForValue().set(roomKey(room.getId()), "7", 2_500, TimeUnit.MILLISECONDS);
+		redis().opsForValue().set(userKey(userId), "49", 2_500, TimeUnit.MILLISECONDS);
+		redis().opsForValue().set(roomKey(room.getId()), "99", 2_500, TimeUnit.MILLISECONDS);
 
-		assertRateLimited(() -> send(userId, room.getId(), "user-over"));
-		assertEquals("5", redis().opsForValue().get(userKey(userId)));
-		assertEquals("7", redis().opsForValue().get(roomKey(room.getId())));
+		send(userId, room.getId(), "last-allowed");
+		assertEquals("50", redis().opsForValue().get(userKey(userId)));
+		assertEquals("100", redis().opsForValue().get(roomKey(room.getId())));
+		assertRateLimited(() -> send(userId, room.getId(), "both-over"));
+		assertEquals("50", redis().opsForValue().get(userKey(userId)));
+		assertEquals("100", redis().opsForValue().get(roomKey(room.getId())));
 
-		redis().opsForValue().set(roomKey(room.getId()), "30", 5_000, TimeUnit.MILLISECONDS);
+		redis().opsForValue().set(roomKey(room.getId()), "100", 5_000, TimeUnit.MILLISECONDS);
 		Long userTtl = redis().getExpire(userKey(userId), TimeUnit.MILLISECONDS);
 		Long roomTtl = redis().getExpire(roomKey(room.getId()), TimeUnit.MILLISECONDS);
 		assertNotNull(userTtl);
 		assertNotNull(roomTtl);
 		RateLimitExceededException exception = assertThrows(
-			RateLimitExceededException.class, () -> send(userId, room.getId(), "both-over"));
+			RateLimitExceededException.class, () -> send(userId, room.getId(), "both-over-longer-ttl"));
 
 		int expectedRetryAfter = (int)Math.ceil(Math.max(userTtl, roomTtl) / 1_000.0);
 		assertTrue(exception.getRetryAfterSeconds() <= expectedRetryAfter);
 		assertTrue(exception.getRetryAfterSeconds() >= Math.max(1, expectedRetryAfter - 1));
-		assertEquals("5", redis().opsForValue().get(userKey(userId)));
-		assertEquals("30", redis().opsForValue().get(roomKey(room.getId())));
+		assertEquals("50", redis().opsForValue().get(userKey(userId)));
+		assertEquals("100", redis().opsForValue().get(roomKey(room.getId())));
 	}
 
 	@Test
@@ -240,14 +239,14 @@ class ChatMessageRateLimitPostgresTest {
 		send(hostUserId, room.getId(), "replay", "첫 본문");
 		send(hostUserId, room.getId(), "replay", "첫 본문");
 		assertEquals("1", redis().opsForValue().get(roomKey(room.getId())));
-		for (int index = 2; index <= 5; index++) {
+		for (int index = 2; index <= 50; index++) {
 			send(hostUserId, room.getId(), "new-" + index);
 		}
 
-		assertEquals("5", redis().opsForValue().get(roomKey(room.getId())));
-		assertRateLimited(() -> send(hostUserId, room.getId(), "new-6"));
-		assertEquals(5, chatMessageRepository.count());
-		assertEquals(5, realtimePublisher.events().size());
+		assertEquals("50", redis().opsForValue().get(roomKey(room.getId())));
+		assertRateLimited(() -> send(hostUserId, room.getId(), "new-51"));
+		assertEquals(50, chatMessageRepository.count());
+		assertEquals(50, realtimePublisher.events().size());
 	}
 
 	@Test
@@ -261,14 +260,14 @@ class ChatMessageRateLimitPostgresTest {
 		assertEquals(0, chatMessageRepository.count());
 		assertTrue(realtimePublisher.events().isEmpty());
 
-		for (int index = 1; index <= 5; index++) {
+		for (int index = 1; index <= 50; index++) {
 			ChatMessageSendResult result = send(userId, room.getId(), "stored-" + index);
 			assertTrue(result.created());
 		}
 
 		assertRateLimited(() -> send(userId, room.getId(), "not-stored"));
-		assertEquals(5, chatMessageRepository.count());
-		assertEquals(5, realtimePublisher.events().size());
+		assertEquals(50, chatMessageRepository.count());
+		assertEquals(50, realtimePublisher.events().size());
 	}
 
 	@Test

@@ -1902,7 +1902,7 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 
 ### 채팅 공통 계약
 
-채팅의 제품 규칙은 [P1 방 채팅 기능 명세](archive/p1/chatting.md)를 따른다. 아래 HTTP·WebSocket 인터페이스는 현재 제공 중이며 기능별 구현·검증·운영 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태)을 따른다. 메시지 ID cursor·실시간 전달·PostgreSQL 정본·보관 경계는 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0049](adr/chat/0049-chat-message-retention-lock-section-boundary.md), 전송 제한·Redis 실패 처리의 공개 계약은 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)과 [#372 정본 반영 이슈](https://github.com/bamsongi-club/albam-mate/issues/372)에 따른다.
+채팅의 제품 규칙은 [P1 방 채팅 기능 명세](archive/p1/chatting.md)를 따른다. 아래 HTTP·WebSocket 인터페이스는 현재 제공 중이며 기능별 구현·검증·운영 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태)을 따른다. 메시지 ID cursor·실시간 전달·PostgreSQL 정본·보관 경계는 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0049](adr/chat/0049-chat-message-retention-lock-section-boundary.md), 전송 제한·Redis 실패 처리의 공개 계약은 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)과 [#372 정본 반영 이슈](https://github.com/bamsongi-club/albam-mate/issues/372), 50/100 완화 결정은 [#760 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/760#issuecomment-5300372595), 검증 계약은 [#761 T1~T7 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/761#issuecomment-5300395172)을 따른다.
 
 모든 채팅 요청은 요청 시점의 방 상태와 주최자·현재 `ACTIVE` 참가자 관계를 서버에서 다시 확인한다. 접근 확인 전 대상 ROOM 보정의 낙관 락 재시도를 소진하면 `409 ROOM_CONCURRENT_MODIFICATION`을 반환한다. `RECRUITING`·`CLOSED` 방만 일반 사용자 접근을 허용하며, 참가 취소·`CANCELED`·`FINISHED` 상태는 `FORBIDDEN`으로 거절한다. 메시지 본문은 로그와 메트릭에 기록하지 않는다.
 
@@ -1942,8 +1942,8 @@ LF는 본문에 그대로 보존하며, 저장·이력 조회·실시간 수신�
 
 | 대상 | 제한 키 | 허용량 | 창·TTL |
 |---|---|---:|---|
-| 사용자 | 인증된 `userId`, 모든 방 합산 | 5건/10초 | 10초 고정 창 |
-| 방 | `roomId`, 모든 참여자 합산 | 30건/10초 | 10초 고정 창 |
+| 사용자 | 인증된 `userId`, 모든 방 합산 | 50건/10초 | 10초 고정 창 |
+| 방 | `roomId`, 모든 참여자 합산 | 100건/10초 | 10초 고정 창 |
 
 - 첫 허용 요청이 각 bucket의 TTL을 시작한다. 이후 허용·거절 요청은 TTL을 연장하지 않는다.
 - 사용자·방 bucket의 허용 확인과 증가는 원자적으로 처리한다. 하나라도 초과하면 어느 bucket도 증가시키지 않는다.

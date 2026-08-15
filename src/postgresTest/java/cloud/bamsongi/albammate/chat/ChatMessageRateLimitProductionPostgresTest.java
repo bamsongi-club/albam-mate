@@ -84,6 +84,8 @@ class ChatMessageRateLimitProductionPostgresTest {
 	@Autowired
 	private ChatMessageRateLimiter chatMessageRateLimiter;
 	@Autowired
+	private ChatMessageRateLimitProperties rateLimitProperties;
+	@Autowired
 	private ChatMessageRepository chatMessageRepository;
 	@Autowired
 	private ChatRoomRepository chatRoomRepository;
@@ -120,22 +122,22 @@ class ChatMessageRateLimitProductionPostgresTest {
 	}
 
 	@Test
-	void T1_사용자_bucket은_production_namespace로_모든_방의_신규_전송을_합산해_다섯_건만_허용한다() {
+	void T4_사용자_bucket은_production_namespace로_모든_방의_신규_전송을_합산해_오십건만_허용한다() {
 		long userId = insertUser("사용자");
 		Room firstRoom = createChatRoom(userId, 2);
 		Room secondRoom = createChatRoom(userId, 2);
 
-		for (int index = 1; index <= 5; index++) {
+		for (int index = 1; index <= 50; index++) {
 			send(userId, index % 2 == 0 ? secondRoom.getId() : firstRoom.getId(), "message-" + index);
 		}
 
 		assertTrue(Boolean.TRUE.equals(redis().hasKey(userKey(PRODUCTION_RATE_LIMIT_PREFIX, userId))));
-		assertRateLimited(() -> send(userId, secondRoom.getId(), "sixth"));
-		assertEquals(5, chatMessageRepository.count());
+		assertRateLimited(() -> send(userId, secondRoom.getId(), "fifty-first"));
+		assertEquals(50, chatMessageRepository.count());
 	}
 
 	@Test
-	void T2_방_bucket은_production_namespace로_모든_참여자의_신규_전송을_합산해_서른_건만_허용한다() {
+	void T4_방_bucket은_production_namespace로_모든_참여자의_신규_전송을_합산해_백건만_허용한다() {
 		long hostUserId = insertUser("방장");
 		Room room = createChatRoom(hostUserId, 10);
 		List<Long> senders = new ArrayList<>(List.of(hostUserId));
@@ -145,18 +147,13 @@ class ChatMessageRateLimitProductionPostgresTest {
 			senders.add(participantUserId);
 		}
 
-		int messageNumber = 1;
-		send(senders.getFirst(), room.getId(), "room-" + messageNumber++);
-		for (int senderIndex = 0; senderIndex < 6; senderIndex++) {
-			int sends = senderIndex == 0 ? 4 : 5;
-			for (int sendIndex = 0; sendIndex < sends; sendIndex++) {
-				send(senders.get(senderIndex), room.getId(), "room-" + messageNumber++);
-			}
+		for (int messageNumber = 1; messageNumber <= 100; messageNumber++) {
+			send(senders.get((messageNumber - 1) % senders.size()), room.getId(), "room-" + messageNumber);
 		}
 
 		assertTrue(Boolean.TRUE.equals(redis().hasKey(roomKey(PRODUCTION_RATE_LIMIT_PREFIX, room.getId()))));
-		assertRateLimited(() -> send(senders.get(6), room.getId(), "room-31"));
-		assertEquals(30, chatMessageRepository.count());
+		assertRateLimited(() -> send(senders.get(6), room.getId(), "room-101"));
+		assertEquals(100, chatMessageRepository.count());
 	}
 
 	@Test
@@ -171,10 +168,10 @@ class ChatMessageRateLimitProductionPostgresTest {
 	}
 
 	@Test
-	void T3_같은_Redis를_공유하는_두_production_인스턴스가_사용자와_방_bucket_상태를_공유해_합산_한도를_넘기지_못한다() {
+	void T4_같은_Redis를_공유하는_두_production_인스턴스가_사용자와_방_bucket_상태를_공유해_오십백_합산_한도를_넘기지_못한다() {
 		assertInstanceOf(RedisChatMessageRateLimiter.class, chatMessageRateLimiter);
 
-		ChatMessageRateLimitProperties rateLimitProperties = new ChatMessageRateLimitProperties(5, 30,
+		ChatMessageRateLimitProperties rateLimitProperties = new ChatMessageRateLimitProperties(50, 100,
 			Duration.ofSeconds(10));
 		RedisChatMessageRateLimiter firstInstance = new RedisChatMessageRateLimiter(redisConnectionFactory,
 			environment, rateLimitProperties);
@@ -183,7 +180,7 @@ class ChatMessageRateLimitProductionPostgresTest {
 
 		long sharedUserId = 9_100_001L;
 		long sharedRoomId = 9_200_001L;
-		for (int index = 1; index <= 5; index++) {
+		for (int index = 1; index <= 50; index++) {
 			RedisChatMessageRateLimiter instance = index % 2 == 0 ? secondInstance : firstInstance;
 			instance.reserve(sharedUserId, sharedRoomId);
 		}
@@ -191,7 +188,7 @@ class ChatMessageRateLimitProductionPostgresTest {
 		assertThrows(RateLimitExceededException.class, () -> secondInstance.reserve(sharedUserId, sharedRoomId));
 
 		long sharedRoomForManyUsersId = 9_200_002L;
-		for (int index = 1; index <= 30; index++) {
+		for (int index = 1; index <= 100; index++) {
 			RedisChatMessageRateLimiter instance = index % 2 == 0 ? secondInstance : firstInstance;
 			instance.reserve(9_100_100L + index, sharedRoomForManyUsersId);
 		}
@@ -201,6 +198,21 @@ class ChatMessageRateLimitProductionPostgresTest {
 		assertThrows(
 			RateLimitExceededException.class,
 			() -> secondInstance.reserve(9_100_201L, sharedRoomForManyUsersId));
+	}
+
+	@Test
+	void T6_production_전송_제한_상태_확인_실패는_저장_전_Retry_After_없는_오백삼으로_fail_closed한다() {
+		assertEquals(50, rateLimitProperties.userLimit());
+		assertEquals(100, rateLimitProperties.roomLimit());
+		long userId = insertUser("production 코럽트");
+		Room room = createChatRoom(userId, 2);
+		redis().opsForValue().set(roomKey(PRODUCTION_RATE_LIMIT_PREFIX, room.getId()), "not-an-integer");
+
+		BusinessException exception = assertThrows(
+			BusinessException.class, () -> send(userId, room.getId(), "corrupt-rate-limit-state"));
+
+		assertEquals(ErrorCode.SERVICE_UNAVAILABLE, exception.getErrorCode());
+		assertEquals(0, chatMessageRepository.count());
 	}
 
 	private void send(long userId, long roomId, String clientMessageId) {
