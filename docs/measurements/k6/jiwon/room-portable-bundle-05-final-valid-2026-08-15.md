@@ -1,4 +1,4 @@
-# ROOM portable bundle 최종 매트릭스 — 2026-08-15
+# [05/05] ROOM portable bundle 최종 유효 매트릭스 — PASS (2026-08-15)
 
 | 항목 | 값 |
 | --- | --- |

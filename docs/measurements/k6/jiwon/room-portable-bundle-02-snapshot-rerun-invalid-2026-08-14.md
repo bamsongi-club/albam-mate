@@ -1,4 +1,4 @@
-# ROOM portable bundle snapshot 재실행 — 2026-08-14
+# [02/05] ROOM portable bundle snapshot 재실행 — INVALID (2026-08-14)
 
 | 항목 | 값 |
 | --- | --- |

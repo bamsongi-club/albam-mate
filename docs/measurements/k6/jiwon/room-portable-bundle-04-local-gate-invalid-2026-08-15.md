@@ -1,4 +1,4 @@
-# ROOM portable bundle local gate 중단 — 2026-08-15
+# [04/05] ROOM portable bundle local gate 중단 — INVALID (2026-08-15)
 
 | 항목 | 값 |
 | --- | --- |

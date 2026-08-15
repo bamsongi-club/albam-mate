@@ -1,4 +1,4 @@
-# ROOM portable bundle k6 매트릭스 — 2026-08-14
+# [01/05] ROOM portable bundle 초기 매트릭스 — INVALID (2026-08-14)
 
 | 항목 | 값 |
 | --- | --- |

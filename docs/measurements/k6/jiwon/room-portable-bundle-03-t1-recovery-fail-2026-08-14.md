@@ -1,4 +1,4 @@
-# ROOM portable bundle T1 recovery smoke — 2026-08-14
+# [03/05] ROOM portable bundle T1 recovery smoke — FAIL (2026-08-14)
 
 | 항목 | 값 |
 | --- | --- |
