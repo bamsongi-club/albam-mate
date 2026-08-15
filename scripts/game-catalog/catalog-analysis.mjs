@@ -55,6 +55,10 @@ const FIELD_LENGTHS = {
     estimated_play_time: 50,
 };
 const OPTIONAL_TEXT_FIELDS = new Set(["alias", "image_url"]);
+const LOCALIZED_DESCRIPTION_FIELDS = ["description", "detail_description"];
+const HANGUL_LETTERS = /[가-힣ㄱ-ㅎㅏ-ㅣ]/g;
+const LATIN_LETTERS = /[A-Za-z]/g;
+const MIN_HANGUL_LETTER_SHARE = 0.3;
 const POSTGRES_INTEGER_MIN = -2_147_483_648;
 const POSTGRES_INTEGER_MAX = 2_147_483_647;
 
@@ -195,6 +199,10 @@ function qualityWarnings(games, rankByBggId) {
     if (correlationWarning) {
         warnings.push(correlationWarning);
     }
+    const untranslatedWarning = untranslatedDescriptions(games);
+    if (untranslatedWarning) {
+        warnings.push(untranslatedWarning);
+    }
     if (games.length < 20) {
         return warnings;
     }
@@ -228,6 +236,48 @@ function qualityWarnings(games, rankByBggId) {
         0.5,
     );
     return warnings;
+}
+
+function untranslatedDescriptions(games) {
+    const findings = [];
+    const affectedRows = new Set();
+    for (const game of games) {
+        for (const field of LOCALIZED_DESCRIPTION_FIELDS) {
+            if (!isUntranslatedDescription(game[field])) {
+                continue;
+            }
+            affectedRows.add(String(game.bgg_id));
+            findings.push({
+                bgg_id: Number(game.bgg_id),
+                field,
+                sample: String(game[field] ?? "").slice(0, 300),
+            });
+        }
+    }
+    if (findings.length === 0) {
+        return null;
+    }
+    return {
+        code: "UNTRANSLATED_DESCRIPTION",
+        message:
+            "설명 필드가 한국어로 번역되지 않아 원문이 그대로 노출됩니다. " +
+            "번역 후 다시 적재하거나 검수자가 경고를 승인해야 합니다.",
+        rowCount: affectedRows.size,
+        totalCount: games.length,
+        fieldCount: findings.length,
+        sample: findings.slice(0, 10),
+    };
+}
+
+function isUntranslatedDescription(value) {
+    const text = String(value ?? "");
+    const hangul = text.match(HANGUL_LETTERS)?.length ?? 0;
+    const latin = text.match(LATIN_LETTERS)?.length ?? 0;
+    const letters = hangul + latin;
+    if (letters === 0) {
+        return false;
+    }
+    return hangul / letters < MIN_HANGUL_LETTER_SHARE;
 }
 
 function suspiciousComplexityRankCorrelation(games, rankByBggId) {

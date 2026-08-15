@@ -4,6 +4,24 @@
 
 입력 JSON의 `supported_player_count`는 게임 규칙상 플레이 가능한 인원 범위다. 이용자 평가 기반 추천 인원·최적 인원과는 구분한다.
 
+## 0. 설명 한국어화
+
+`description`과 `detail_description`은 적재 시점에 이미 한국어여야 한다. 파이프라인은 번역을 하지 않고, 미번역 입력을 `UNTRANSLATED_DESCRIPTION` 경고로 차단한다.
+
+BGG 원문을 번역해 적재 입력을 만들 때는 아래를 실행한다. `--limit`은 BGG rank 상위 몇 건을 번역할지 정하며, 남은 게임은 이후 배치로 나눠 처리한다. `upsert-games.sql`은 입력에 없는 기존 게임을 삭제하지 않으므로 부분 배치로 나눠 적재해도 된다.
+
+```sh
+ANTHROPIC_API_KEY=... node scripts/game-catalog/translate-descriptions.mjs \
+  --games /path/to/games.json \
+  --ranks /path/to/boardgames_ranks07-24.csv \
+  --limit 5000 \
+  --out /path/to/translated-games.json
+```
+
+Message Batches API로 처리해 표준 요금의 50%가 든다. 배치는 보통 1시간 안에 끝나고, 중간에 끊기면 출력에 찍힌 `--batch-id`로 이어받는다. `--dry-run`은 대상 건수와 분량만 보고하고 API를 호출하지 않는다.
+
+번역 결과를 적재 입력으로 쓸 때 manifest의 `selection`은 그 입력 파일 기준으로 적는다. 5,000행을 번역해 적재하면 `candidateRows`와 `includedRows`가 각각 `5000`, `excludedRows`는 `0`이다.
+
 ## 1. 초안 검수
 
 manifest 없이 실행해 파일 체크섬, BGG 매핑과 품질 경고를 먼저 확인한다. 검수가 끝나기 전에는 `quality-report.json`만 생성되고 종료 코드는 실패다.
@@ -26,6 +44,8 @@ node scripts/game-catalog/prepare-game-catalog.mjs \
 - 변환 도구가 포함된 전체 Git commit SHA
 - 검수일·검수자
 - 사람이 확인하고 수용한 품질 경고 코드
+
+`UNTRANSLATED_DESCRIPTION`은 원칙적으로 수용하지 않는다. 번역을 마친 입력으로 다시 실행하고, 수용해야 한다면 그 배치에서 미번역을 허용하는 이유를 검수 기록에 남긴다.
 - AI·embedding을 사용하는 배치라면 `releaseId`·`datasetId`, `approvedFields`, `approvedProcessingScopes`, `approval.references`, model/provider·index version과 `sources`·`outputs`의 checksum·행 수
 
 여기서 판본은 같은 게임의 개정·재판 등 출시 형태를 뜻하며 확장판과 구분한다.

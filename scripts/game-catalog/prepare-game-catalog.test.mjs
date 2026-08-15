@@ -1590,6 +1590,73 @@ test("메커니즘 reviewedAt은 실제 ISO-8601 instant가 아니면 적재 산
 	}
 });
 
+test("번역되지 않은 영문 설명은 경고로 남고 승인 없이는 적재 산출물을 만들지 않는다", () => {
+    const untranslated = game(1, "10", "세티", "SETI");
+    untranslated.description =
+        "In SETI: Search for Extraterrestrial Intelligence, you lead a research team.";
+    untranslated.detail_description =
+        "Scan the sky, analyze signals, and publish your findings to score points.";
+
+    withCase([untranslated], ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 1);
+        const report = readJson(join(out, "quality-report.json"));
+        const warning = report.warnings.find(({ code }) => code === "UNTRANSLATED_DESCRIPTION");
+        assert.ok(warning, "UNTRANSLATED_DESCRIPTION 경고가 있어야 한다");
+        assert.equal(warning.rowCount, 1);
+        assert.deepEqual(
+            warning.sample.map(({ bgg_id, field }) => [bgg_id, field]),
+            [
+                [10, "description"],
+                [10, "detail_description"],
+            ],
+        );
+        assert.ok(
+            report.errors.some(({ code }) => code === "UNACKNOWLEDGED_WARNINGS"),
+        );
+        assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
+    });
+});
+
+test("영문 문장에 한글 단어만 섞인 설명도 미번역으로 탐지한다", () => {
+    const wordSwapped = game(1, "10", "그란 포르세티", "Gran Forseti");
+    wordSwapped.description = "Game about 전략적 politics and roles.";
+    wordSwapped.detail_description =
+        "You must play as your role, but be careful, your identity is a 비밀 until the end.";
+
+    withCase([wordSwapped], ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 1);
+        const report = readJson(join(out, "quality-report.json"));
+        assert.ok(
+            report.warnings.some(({ code }) => code === "UNTRANSLATED_DESCRIPTION"),
+        );
+        assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
+    });
+});
+
+test("한국어 설명은 영문 고유명사가 섞여도 미번역으로 보지 않는다", () => {
+    const translated = game(1, "10", "트와일라잇 임페리움", "Twilight Imperium");
+    translated.description = "Twilight Imperium은 은하 패권을 다투는 대형 전략 게임입니다.";
+    translated.detail_description =
+        "[승리 조건] 공표 목표와 비밀 목표를 달성해 10점에 먼저 도달하면 승리합니다.";
+
+    withCase([translated], ({ games, ranks, manifest, out }) => {
+        writeManifest(manifest, games, ranks, []);
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 0, result.stderr);
+        const report = readJson(join(out, "quality-report.json"));
+        assert.ok(
+            !report.warnings.some(({ code }) => code === "UNTRANSLATED_DESCRIPTION"),
+        );
+    });
+});
+
 function withCase(rows, operation) {
     const root = mkdtempSync(join(tmpdir(), "albam-mate-game-catalog-"));
     try {
