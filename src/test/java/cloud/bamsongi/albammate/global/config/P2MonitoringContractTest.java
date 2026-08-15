@@ -32,6 +32,8 @@ class P2MonitoringContractTest {
 		assertPortsAreNotPublished(app2);
 		assertManagementIsNotExposed(app1);
 		assertManagementIsNotExposed(app2);
+		assertEquals("127.0.0.1", springEnvironment(app1).get("MANAGEMENT_SERVER_ADDRESS"));
+		assertEquals("127.0.0.1", springEnvironment(app2).get("MANAGEMENT_SERVER_ADDRESS"));
 		assertTrue(app1.contains("http://127.0.0.1:9090/actuator/health"));
 		assertTrue(app2.contains("http://127.0.0.1:9090/actuator/health"));
 	}
@@ -60,10 +62,8 @@ class P2MonitoringContractTest {
 		assertTrue(logging.contains("total-size-cap: 50MB"));
 		assertTrue(app1.contains("/var/log/albam-mate"));
 		assertTrue(app2.contains("/var/log/albam-mate"));
-		for (String attribute : new String[] {"environment", "stackId", "service", "role", "instanceId", "release"}) {
-			assertTrue(resourceAttributes.containsKey(attribute));
-			assertEquals(resourceAttributes.get(attribute), openTelemetryResourceAttributes.get(attribute));
-		}
+		assertEquals(expectedResourceAttributes(), resourceAttributes);
+		assertEquals(expectedResourceAttributes(), openTelemetryResourceAttributes);
 		assertEquals("${ALBAM_MATE_ROLE:-app1}", springEnvironment(app1).get("ALBAM_MATE_ROLE"));
 		assertEquals("${ALBAM_MATE_ROLE:-app2}", springEnvironment(app2).get("ALBAM_MATE_ROLE"));
 		assertTrue(springEnvironment(app1).containsKey("ALBAM_MATE_RELEASE"));
@@ -131,5 +131,15 @@ class P2MonitoringContractTest {
 	@SuppressWarnings("unchecked")
 	private Map<String, Object> map(Object value) {
 		return (Map<String, Object>)value;
+	}
+
+	private Map<String, Object> expectedResourceAttributes() {
+		return Map.of(
+			"environment", "${ALBAM_MATE_ENVIRONMENT}",
+			"stackId", "${ALBAM_MATE_STACK_ID}",
+			"service", "albam-mate",
+			"role", "${ALBAM_MATE_ROLE}",
+			"instanceId", "${ALBAM_MATE_INSTANCE_ID}",
+			"release", "${ALBAM_MATE_RELEASE}");
 	}
 }

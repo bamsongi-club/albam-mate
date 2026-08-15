@@ -22,7 +22,4 @@ public final class MonitoringStructuredLoggingCustomizer
 		members.applyingPathFilter(path -> FORBIDDEN_KEYS.contains(path.name().toLowerCase(Locale.ROOT)));
 	}
 
-	public static Set<String> forbiddenKeys() {
-		return FORBIDDEN_KEYS;
-	}
 }

@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.AfterAll;
@@ -36,7 +37,6 @@ import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.FileAppender;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.registry.otlp.OtlpMeterRegistry;
 
 @Testcontainers
 @ActiveProfiles("production")
@@ -57,6 +57,10 @@ import io.micrometer.registry.otlp.OtlpMeterRegistry;
 class MonitoringProductionPostgresTest {
 
 	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final Set<String> FORBIDDEN_MDC_KEYS = Set.of(
+		"email", "ip", "session", "cookie", "token", "authorization", "requestbody", "responsebody",
+		"querystring", "prompt", "response", "toolargs", "toolresult", "chatcontent", "notificationpayload",
+		"rawsql", "userid", "actoruserid", "roomid", "messageid", "sourceeventid");
 	private static final AtomicInteger FAILED_OTLP_REQUESTS = new AtomicInteger();
 	private static final HttpServer FAILING_OTLP_RECEIVER = startFailingOtlpReceiver();
 
@@ -67,9 +71,6 @@ class MonitoringProductionPostgresTest {
 
 	@Autowired
 	private MeterRegistry meterRegistry;
-
-	@Autowired
-	private OtlpMeterRegistry otlpMeterRegistry;
 
 	@LocalServerPort
 	private int applicationPort;
@@ -88,6 +89,8 @@ class MonitoringProductionPostgresTest {
 
 	@Test
 	void T1_OTLP_receiver가_도달_불가해도_대표_제품_요청은_성공한다() throws Exception {
+		int requestsBefore = FAILED_OTLP_REQUESTS.get();
+		meterRegistry.counter("monitoring.contract.otlp.failure.probe").increment();
 		HttpResponse<String> response = HttpClient.newHttpClient().send(
 			HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + applicationPort + "/api/games?size=1"))
 				.GET()
@@ -95,14 +98,7 @@ class MonitoringProductionPostgresTest {
 			HttpResponse.BodyHandlers.ofString());
 
 		assertEquals(200, response.statusCode());
-		publishOtlpMetrics();
-		assertTrue(waitForFailedOtlpRequest());
-	}
-
-	private void publishOtlpMetrics() throws ReflectiveOperationException {
-		java.lang.reflect.Method publish = OtlpMeterRegistry.class.getDeclaredMethod("publish");
-		publish.setAccessible(true);
-		publish.invoke(otlpMeterRegistry);
+		assertTrue(waitForFailedOtlpRequestAfter(requestsBefore));
 	}
 
 	private static HttpServer startFailingOtlpReceiver() {
@@ -111,6 +107,7 @@ class MonitoringProductionPostgresTest {
 			server.createContext("/v1/metrics", exchange -> {
 				FAILED_OTLP_REQUESTS.incrementAndGet();
 				exchange.getRequestBody().readAllBytes();
+				exchange.sendResponseHeaders(503, -1);
 				exchange.close();
 			});
 			server.start();
@@ -120,15 +117,15 @@ class MonitoringProductionPostgresTest {
 		}
 	}
 
-	private static boolean waitForFailedOtlpRequest() throws InterruptedException {
+	private static boolean waitForFailedOtlpRequestAfter(int requestsBefore) throws InterruptedException {
 		long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(2);
 		while (System.nanoTime() < deadline) {
-			if (FAILED_OTLP_REQUESTS.get() > 0) {
+			if (FAILED_OTLP_REQUESTS.get() > requestsBefore) {
 				return true;
 			}
 			Thread.sleep(20);
 		}
-		return FAILED_OTLP_REQUESTS.get() > 0;
+		return FAILED_OTLP_REQUESTS.get() > requestsBefore;
 	}
 
 	@Test
@@ -156,7 +153,8 @@ class MonitoringProductionPostgresTest {
 		assertEquals(true, appender.isStarted());
 		Path logPath = Path.of(appender.getFile());
 		long offset = Files.exists(logPath) ? Files.size(logPath) : 0;
-		Map<String, String> sentinels = MonitoringStructuredLoggingCustomizer.forbiddenKeys().stream()
+		assertTrue(productionExcludedJsonFields().containsAll(FORBIDDEN_MDC_KEYS));
+		Map<String, String> sentinels = FORBIDDEN_MDC_KEYS.stream()
 			.collect(java.util.stream.Collectors.toMap(key -> key, key -> "sentinel-" + key));
 		sentinels.forEach(org.slf4j.MDC::put);
 		try {
@@ -178,5 +176,15 @@ class MonitoringProductionPostgresTest {
 			assertEquals(false, json.contains("\"" + key + "\""));
 			assertEquals(false, json.contains(value));
 		});
+	}
+
+	@SuppressWarnings("unchecked")
+	private Set<String> productionExcludedJsonFields() throws IOException {
+		Map<String, Object> root = new org.yaml.snakeyaml.Yaml()
+			.load(Files.readString(Path.of("src/main/resources/application-production.yml")));
+		Map<String, Object> logging = (Map<String, Object>)root.get("logging");
+		Map<String, Object> structured = (Map<String, Object>)logging.get("structured");
+		Map<String, Object> json = (Map<String, Object>)structured.get("json");
+		return Set.of(String.valueOf(json.get("exclude")).toLowerCase(java.util.Locale.ROOT).split(","));
 	}
 }
