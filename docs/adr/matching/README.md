@@ -11,3 +11,4 @@
 | [0061](0061-postgresql-candidate-reservation-idempotency.md) | PostgreSQL 후보 선점과 매칭 요청 멱등성 | 승인됨 | 2026-08-14 | 미검증 |
 | [0062](0062-match-chat-handoff-recovery-retention.md) | MATCH 전용 채팅 handoff·복구와 최소 보관 | 승인됨 | 2026-08-14 | 미검증 |
 | [0063](0063-match-baseline-measurement-gate.md) | MATCH 후보 탐색 성능 baseline 측정 gate | 승인됨 | 2026-08-14 | 미검증 |
+| [0064](0064-match-chat-url-text-storage.md) | MATCH 채팅 URL 텍스트를 메시지 본문에만 저장 | 승인됨 | 2026-08-15 | 미검증 |

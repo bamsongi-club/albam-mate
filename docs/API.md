@@ -2306,7 +2306,7 @@ MATCHING은 매칭 요청·제안·성공 파티와 그 접근 관계를 소유�
 | Request Body / Idempotency-Key | 없음 / 없음 |
 | 성공 | `200 OK`, `data`: `CurrentMatchStateResponse` |
 
-경로와 `DELETE`만으로 본인의 비종료 매칭 요청을 없애는 목표 상태가 결정된다. `WAITING`·`PROPOSED`·`PAUSED` 요청을 취소하며, 열린 제안을 취소하면 다른 사용자의 제안 종료·자동 재대기 규칙도 적용한다. 이미 취소되어 대상이 없으면 반복 요청도 `200 OK`와 모든 필드가 `null`인 현재 상태로 수렴한다. `PREPARING`·`ACTIVE` 성공 파티는 이 API로 취소·퇴장·재매칭하지 않으며 `MATCH_REQUEST_CANCELLATION_NOT_AVAILABLE`를 반환한다. `PAUSED` 사용자가 다시 찾으려면 이 목표 상태 `DELETE` 뒤 새 요청을 등록한다.
+경로와 `DELETE`만으로 본인의 비종료 매칭 요청을 없애는 목표 상태가 결정된다. `WAITING`·`PROPOSED`·`PAUSED` 요청을 취소하며, `PROPOSED` 요청의 취소는 [ERD의 제안 종결 전이](ERD.md#p2-match-저장-lifecycle)에 따라 같은 열린 제안의 `REQUEUE`·`CANCEL`·기한 만료·마지막 `ACCEPT`와 하나의 종결 결과를 경쟁한다. 이 취소가 종결 승자가 되면 다른 사용자의 제안 종료·자동 재대기 규칙도 같은 트랜잭션에서 적용한다. 이미 취소되어 대상이 없으면 반복 요청도 `200 OK`와 모든 필드가 `null`인 현재 상태로 수렴한다. `PREPARING`·`ACTIVE` 성공 파티는 이 API로 취소·퇴장·재매칭하지 않으며 `MATCH_REQUEST_CANCELLATION_NOT_AVAILABLE`를 반환한다. `PAUSED` 사용자가 다시 찾으려면 이 목표 상태 `DELETE` 뒤 새 요청을 등록한다.
 
 ### MATCH-01 제안 응답
 
@@ -2335,7 +2335,7 @@ MATCHING은 매칭 요청·제안·성공 파티와 그 접근 관계를 소유�
 |---|---|:---:|:---:|---|
 | `action` | MatchProposalResponseAction | Y | N | `ACCEPT`, `REQUEUE`, `CANCEL` 중 하나 |
 
-`respondBy` 이전의 본인 열린 제안에 대해서만 첫 유효 응답 하나를 기록한다. `ACCEPT`는 다른 사용자 응답을 기다리면 `PROPOSED`와 `myResponse = ACCEPTED`를, 전원 수락이면 `PREPARING` 또는 이미 열린 `ACTIVE`를 반환한다. `REQUEUE`는 현재 제안을 종료하고 이 사용자의 새 대기 시도를 `WAITING`으로 만든다. `CANCEL`은 본인의 매칭 요청을 취소한다. 다른 사용자의 재대기·취소로 제안이 끝난 수락자와 조기 종료 시점 미결정 사용자는 기존 우선순위로 자동 재대기하며, 응답 기한까지 미응답한 사용자는 `PAUSED`가 된다.
+`respondBy` 이전의 본인 열린 제안에 대해서만 첫 유효 응답 하나를 기록한다. 마지막이 아닌 `ACCEPT`는 `PROPOSED`와 `myResponse = ACCEPTED`를 반환한다. 마지막 `ACCEPT`, `REQUEUE`, `CANCEL`, `PROPOSED` 요청의 `DELETE`, 응답 기한 만료는 [ERD의 제안 종결 전이](ERD.md#p2-match-저장-lifecycle)에서 하나의 종결 승자만 정한다. 승자는 그 결과를 기준으로 `PREPARING` 또는 이미 열린 `ACTIVE`, 새 `WAITING`, `PAUSED`, 요청 취소 중 하나의 최신 상태를 반환하고 패자는 상태를 다시 전이시키지 않는다. `REQUEUE`가 승자가 되면 이 사용자의 새 대기 시도는 `WAITING`이 되고, `CANCEL`이 승자가 되면 본인의 매칭 요청을 취소한다. 다른 사용자의 재대기·취소로 제안이 끝난 수락자와 조기 종료 시점 미결정 사용자는 기존 우선순위로 자동 재대기하며, 응답 기한까지 미응답한 사용자는 `PAUSED`가 된다.
 
 응답 기한이 지났거나, 다른 사용자의 유효 응답으로 제안이 끝났거나, 이 사용자가 이미 다른 키로 첫 유효 응답을 보냈으면 새 명령은 `MATCH_PROPOSAL_RESPONSE_NOT_AVAILABLE`다. 이 오류는 현재 제안 외의 과거 제안에 응답할 수 없다는 의미이며, 같은 멱등키 재시도에는 적용하지 않는다.
 
@@ -2375,7 +2375,7 @@ MATCH 성공 파티와 접근 관계는 MATCHING이 판정하며, 채팅은 Part
 | `clientMessageId` | string | Y | N | 1~100자. 같은 파티·같은 사용자에서 전송 재시도의 기준 |
 | `content` | string | Y | N | CRLF를 LF로 정규화하고 LF 외 제어문자를 거절한 뒤, 앞뒤 공백 제거 후 1~500자의 일반 텍스트 |
 
-같은 사용자·파티의 같은 `clientMessageId`에 다른 정규화 본문을 보내면 `VALIDATION_ERROR`다. 시스템 메시지는 이 API로 만들 수 없다. 외부 URL은 `content` 안의 일반 텍스트로만 공유하며 별도 링크 생성·조회 API, 링크 미리보기, 링크 유효성 검증이나 별도 링크 저장 행을 만들지 않는다. URL 텍스트를 포함한 메시지 본문은 로그와 metric label에 기록하지 않는다.
+같은 사용자·파티의 같은 `clientMessageId`에 다른 정규화 본문을 보내면 `VALIDATION_ERROR`다. 시스템 메시지는 이 API로 만들 수 없다. 외부 URL은 `content` 안의 일반 텍스트로만 공유하며 별도 링크 생성·조회 API, 링크 미리보기, 링크 유효성 검증이나 별도 링크 저장 행을 만들지 않는다([ADR-0064](adr/matching/0064-match-chat-url-text-storage.md)). URL 텍스트를 포함한 메시지 본문은 로그와 metric label에 기록하지 않는다.
 
 #### MATCH 채팅 전송 제한
 
