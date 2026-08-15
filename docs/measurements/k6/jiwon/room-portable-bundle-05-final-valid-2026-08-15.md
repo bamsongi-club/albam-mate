@@ -3,21 +3,36 @@
 | 항목 | 값 |
 | --- | --- |
 | 문서 상태 | `current` |
-| Campaign 상태 | `valid-measurement-campaign` |
+| Campaign 상태 | `completed-with-limitations` |
+| Run 판정 | 25/25 `PASS` |
 | 실행 경로 | ROOM portable bundle → `run.sh room-k6` |
 | 제외한 경로 | generic `loadtest` |
 | 측정 전제 | clean app checkout, bundle source와 배포 release 정렬, Terraform plan 무변경 |
 | 전체 시간 범위 | UTC 2026-08-14 15:39:20–17:01:09 / KST 2026-08-15 00:39:20–02:01:09 |
 | 유효성 gate | final result `PASS` 25/25, 모든 remote phase `0`, T5 comparison `PASS` 6/6 |
-| 비밀정보 경계 | 비밀번호, password hash, URL, 토큰, revision·resource·fixture 식별자는 기록하지 않음 |
+| 비밀정보 경계 | 비밀번호·credential-derived hash·토큰·세션·CSRF·URL·실제 fixture/resource ID·원시 SQL·로그는 기록하지 않음 |
+| 이 문서가 답하는 질문 | 정렬된 release·전용 환경·고정 fixture의 공식 25개 조합에서 ROOM HTTP/DB correctness 회귀가 관찰되는가 |
+| 이 문서가 답하지 않는 질문 | 낙관락/비관락 선택, 재시도 정책의 충분성, 성능 SLO·최대 용량, 병목의 근본 원인 |
+| 근거 식별자 | [canonical campaign manifest](evidence/room-portable-bundle-final-valid-2026-08-15.json) — source/artifact 무결성 식별값, 명시적 Run ledger, 실행 수치·gate를 보존 |
 
-## 결론
+## 1. 테스트 목적
 
-공식 ROOM matrix 25개(T1 6, T2 7, T3 3, T4 3, T5 6)가 모두 `PASS`했다. 각 bundle은 HTTP 분류와 DB snapshot 사후 진단을 함께 통과했고, 모든 remote phase가 exit `0`이었다. T5 여섯 role×scale 실행도 동일 read profile과 시작 편차 조건을 만족했고 comparison gate가 `PASS`했다.
+정본인 [ROOM k6 측정 목적과 시나리오](../../../../load-tests/k6/jiwon/README.md)는 동시성 오류·불변식 위반·공통 병목을 찾고, 같은 조건의 개선 전후를 비교하는 것을 이 측정의 우선 목적으로 둔다. 이 campaign이 답하려 한 질문은 **정렬된 release·전용 환경·고정 fixture에서 ROOM 핵심 HTTP 흐름의 응답·DB 불변식 회귀가 있는가**이다. 따라서 이번 결과는 이후 변경 전후에 같은 correctness 조건을 대조할 기준선이 된다.
 
-아래 p50·p95·RPS는 이 전용 환경에서의 관찰값이다. summary가 p99를 수집하지 않았으므로 p99는 `N/A`로 남겼으며 추정하지 않는다. 업무 실패·동시성 결과는 해당 scenario가 명시적으로 허용한 종단 상태일 수 있으므로, final `PASS` 및 예상 밖 4xx·5xx·contract failure 0과 함께 해석한다.
+동시에 이 campaign은 단일 실행 관찰값을 남기는 correctness 측정이다. production 락 전략, 성능 SLO, 최대 용량, 병목의 근본 원인을 결정하는 실험은 아니다. 특히 `ROOM_CONCURRENT_MODIFICATION`은 허용된 재시도 소진 결과를 관찰하는 지표이며, 낙관락·비관락 선택은 별도 측정과 승인이 필요하다.
 
-## 공통 판정
+## 2. 테스트 진행 과정
+
+1. clean app checkout에서 bundle source와 배포 release 정렬을 확인하고, 각 portable bundle의 immutable 입력을 검증했다.
+2. generic `loadtest`를 사용하지 않고, T1 6개·T2 7개·T3 3개·T4 3개·T5 6개, 총 25개를 `run.sh room-k6`으로 순차 실행했다. 각 조합은 한 번씩 실행했으므로 아래 latency·RPS는 반복 측정의 범위나 중앙값이 아닌 단일 관찰값이다.
+3. 각 실행은 `validate → execution options → prepare → resource query → hydrate → before snapshot/diagnosis → k6 → after snapshot/diagnosis → aggregate` 순으로 진행했다.
+4. T5 여섯 role×scale 실행 뒤, 동일 read profile·실행 결과 artifact·start-skew 관측을 comparison gate로 다시 확인했다.
+5. [canonical campaign manifest](evidence/room-portable-bundle-final-valid-2026-08-15.json)의 Run ledger에 위 25개만 `included`로 명시하고, local-only 원자료의 source·입력·실행 결과 artifact 무결성 식별값을 연결했다. 앞선 `01`–`04` campaign은 이 결론 계산에 섞지 않았다.
+6. 모든 Run의 final 판정과 T5 comparison을 확인한 뒤 test-owned P1 stack을 teardown하고 잔여 resource를 조회했다.
+
+## 3. 테스트 결과
+
+### 공통 판정
 
 - final result: `PASS` 25/25
 - remote phase: prepare, resource query, before snapshot, k6, after snapshot 모두 `0`
@@ -25,9 +40,23 @@
 - start skew maximum: 2 ms 이하로, 1,000 ms 미만 gate 통과
 - T5 comparison: fixture 6개, failure 0개, `PASS`
 
-## Run 결과
+### 지표 해석과 한계
 
-### T1
+- `성공/요청`은 성공 응답 수와 전체 요청 수다. `업무 결과`와 `동시성 결과`는 scenario classifier가 허용한 업무 종단 또는 재시도 소진 종단의 건수이므로, 그 수만으로 오류나 성능 저하라고 단정하지 않는다.
+- 아래 p50·p95·RPS는 이 전용 환경에서 각 조합을 한 번 실행해 얻은 관찰값이다. summary가 p99를 수집하지 않았으므로 p99는 `N/A`로 남겼으며 추정하지 않는다.
+- T1–T4의 write wave와 T5의 read profile은 부하 생성 모델과 분모가 다르다. 따라서 표의 RPS를 scenario 간 용량 순위로 비교하거나 단일 수치로 성능 개선 효과를 판단하지 않는다.
+
+### 시나리오와 Run 결과
+
+| 시나리오 | 검증한 업무 흐름 | `PASS`가 의미하는 것 | 이번 관찰의 해석 |
+| --- | --- | --- | --- |
+| T1 | 취소 후 FIFO 자동 승격 | 성공 취소 수와 `PROMOTED` 수가 일치하고, 정원 위반·중복 승격이 없음 | hot c8에서 허용된 동시성 결과가 23/40이었지만 불변식은 유지됐다. 재시도·경합 비용을 다음 측정에서 우선 확인할 신호이지 락 전략의 결론은 아니다. |
+| T2 | 동시 대기 등록과 중복 등록 | WAITING·순번 중복이 없고, 새 대기 등록 결과와 응답이 일치하며 5xx가 없음 | hot c8에서 허용된 동시성 결과가 20/40이었지만 정합성은 유지됐다. T1과 함께 high-contention write 경로의 관찰 우선순위를 높인다. |
+| T3 | 대기 등록과 취소의 경합 | 허용 종단만 남고 `RECRUITING + WAITING` 조합이 없음 | 경합 업무 종단은 허용 범위 안이었다. DB lock wait·query 시간 없이 원인이나 비용을 판단할 수 없다. |
+| T4 | 마지막 자리에 동시 참가 | ACTIVE가 정확히 한 명이고 정원 초과·자동 WAITING이 없음 | 마지막 자리의 업무 종단은 모두 계약을 지켰다. 현 결과만으로 transaction·index 개선을 제안하지 않는다. |
+| T5 | 역할별 ROOM 상세 조회 | 역할별 응답 shape·헤더가 맞고 조회 전후 DB snapshot이 동일함 | 여섯 role×scale 조합의 correctness는 확인했지만, 각 조건이 1회뿐이므로 역할·scale 성능 우열이나 용량을 결론 내리지 않는다. |
+
+### T1 — 취소 후 FIFO 자동 승격
 
 | 조건 | UTC 시작–종료 | KST 시작–종료 | p50 ms | p95 ms | p99 | RPS | 성공/요청 | 업무 결과 | 동시성 결과 | skew max ms | 판정 |
 | --- | --- | --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- |
@@ -38,7 +67,7 @@
 | stress / spread / c4 | 2026-08-14 15:53:28–2026-08-14 15:56:55 | 2026-08-15 00:53:28–2026-08-15 00:56:55 | 50.90 | 56.82 | N/A | 0.21 | 20 / 20 | 0 | 0 | 1.00 | `PASS` |
 | stress / spread / c8 | 2026-08-14 15:57:01–2026-08-14 16:00:28 | 2026-08-15 00:57:01–2026-08-15 01:00:28 | 60.29 | 76.55 | N/A | 0.42 | 40 / 40 | 0 | 0 | 1.00 | `PASS` |
 
-### T2
+### T2 — 동시 대기 등록과 중복 등록
 
 | 조건 | UTC 시작–종료 | KST 시작–종료 | p50 ms | p95 ms | p99 | RPS | 성공/요청 | 업무 결과 | 동시성 결과 | skew max ms | 판정 |
 | --- | --- | --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- |
@@ -50,7 +79,7 @@
 | stress / distinct / spread / c8 | 2026-08-14 16:18:13–2026-08-14 16:21:39 | 2026-08-15 01:18:13–2026-08-15 01:21:39 | 39.72 | 55.61 | N/A | 0.42 | 40 / 40 | 0 | 0 | 1.00 | `PASS` |
 | spike / duplicate / hot / c2 | 2026-08-14 16:21:45–2026-08-14 16:23:51 | 2026-08-15 01:21:45–2026-08-15 01:23:51 | 36.33 | 40.89 | N/A | 0.13 | 2 / 2 | 0 | 0 | 1.00 | `PASS` |
 
-### T3
+### T3 — 대기 등록과 취소 경합
 
 | 조건 | UTC 시작–종료 | KST 시작–종료 | p50 ms | p95 ms | p99 | RPS | 성공/요청 | 업무 결과 | 동시성 결과 | skew max ms | 판정 |
 | --- | --- | --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- |
@@ -58,7 +87,7 @@
 | spike / wait-first | 2026-08-14 16:27:08–2026-08-14 16:29:14 | 2026-08-15 01:27:08–2026-08-15 01:29:14 | 32.07 | 33.40 | N/A | 0.13 | 2 / 2 | 0 | 0 | 1.00 | `PASS` |
 | spike / cancel-first | 2026-08-14 16:29:19–2026-08-14 16:31:24 | 2026-08-15 01:29:19–2026-08-15 01:31:24 | 38.80 | 53.64 | N/A | 0.13 | 1 / 2 | 1 | 0 | 1.00 | `PASS` |
 
-### T4
+### T4 — 마지막 자리 동시 참가
 
 | 조건 | UTC 시작–종료 | KST 시작–종료 | p50 ms | p95 ms | p99 | RPS | 성공/요청 | 업무 결과 | 동시성 결과 | skew max ms | 판정 |
 | --- | --- | --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- |
@@ -66,7 +95,9 @@
 | stress / last-seat / c4 | 2026-08-14 16:35:00–2026-08-14 16:38:27 | 2026-08-15 01:35:00–2026-08-15 01:38:27 | 34.45 | 41.53 | N/A | 0.21 | 5 / 20 | 15 | 0 | 1.00 | `PASS` |
 | stress / last-seat / c8 | 2026-08-14 16:38:32–2026-08-14 16:41:59 | 2026-08-15 01:38:32–2026-08-15 01:41:59 | 45.13 | 56.24 | N/A | 0.42 | 5 / 40 | 35 | 0 | 1.00 | `PASS` |
 
-### T5
+### T5 — 역할별 ROOM 상세 조회
+
+고정 read profile은 10 VU / 60 seconds / think time 0 ms였다. 이 profile 안에서만 아래 수치를 해석한다.
 
 | 조건 | UTC 시작–종료 | KST 시작–종료 | p50 ms | p95 ms | p99 | RPS | 성공/요청 | 업무 결과 | 동시성 결과 | skew max ms | 판정 |
 | --- | --- | --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- |
@@ -77,11 +108,33 @@
 | read / participant / scale 1 | 2026-08-14 16:54:53–2026-08-14 16:57:58 | 2026-08-15 01:54:53–2026-08-15 01:57:58 | 19.56 | 24.78 | N/A | 412.85 | 31039 / 31039 | 0 | 0 | 1.00 | `PASS` |
 | read / participant / scale 10 | 2026-08-14 16:58:04–2026-08-14 17:01:09 | 2026-08-15 01:58:04–2026-08-15 02:01:09 | 20.46 | 28.64 | N/A | 377.56 | 28377 / 28377 | 0 | 0 | 1.00 | `PASS` |
 
-## T5 comparison recovery
+### T5 comparison 계약 보정 및 artifact 재검증
 
-원격 T5 여섯 실행은 처음부터 모두 final `PASS`였지만, 최초 host comparison은 legacy direct-runner artifact만 요구해 `INVALID`가 됐다. 이는 성능·DB 실행 결함이 아니라 host-side artifact 해석 결함이었다.
+원격 T5 여섯 실행은 처음부터 모두 final `PASS`였지만, 최초 comparison gate는 legacy direct-runner artifact만 요구해 `INVALID`가 됐다. 이는 데이터 복구나 원격 재실행이 아니라, portable bundle 결과를 host-side comparison이 읽지 못한 해석 계약 결함이었다.
 
-portable manifest, execution options, immutable artifact, remote phase, before/after diagnosis, final result, start-skew metric을 검증하도록 comparison을 보정했다. 기존 immutable bundle을 다시 비교한 결과는 UTC 2026-08-14 17:14:00 / KST 2026-08-15 02:14:00에 fixture 6개, failure 0개, `PASS`였다. 이 재검증은 AWS 호출·fixture 생성·k6 실행을 발생시키지 않았다.
+보정된 comparison은 public/host/participant × scale 1/10의 여섯 논리 조합, 동일 VU·duration·think-time profile, portable 입력 계약, remote phase·before/after diagnosis·final result의 상호 일치, start-skew 관측을 확인한다. UTC 2026-08-14 17:14:00 / KST 2026-08-15 02:14:00의 artifact-only 재검증은 fixture 6개, failure 0개, `PASS`였다. AWS 호출·fixture 생성·k6 실행은 발생하지 않았다.
+
+이 gate가 말하는 것은 “여섯 T5 결과 묶음이 같은 읽기 profile과 결과 계약으로 유효하다”는 것이다. 역할·scale 간 p50·p95·RPS 우열이나 용량을 비교하는 성능 분석은 아니다.
+
+## 4. Conclusion
+
+### 확정한 사실
+
+공식 matrix 25개가 모두 `PASS`했으므로, 이 release·전용 환경·고정 fixture 조건에서는 T1–T5의 HTTP 응답 계약과 사후 DB 불변식 회귀를 발견하지 못했다. [canonical campaign manifest](evidence/room-portable-bundle-final-valid-2026-08-15.json)는 결론 계산에 쓴 25개와 local-only 원자료의 무결성 식별값을 분리해 보존한다. 따라서 이 문서는 이후 변경 전후에 **같은 correctness 조건**을 대조할 기준선으로 사용할 수 있다.
+
+### 성능·구조 개선에 관한 현재 판정
+
+지금 즉시 코드·구조 변경을 결정할 근거는 없다. 다만 T1 hot c8의 40요청 중 23건과 T2 hot c8의 40요청 중 20건이 허용된 동시성 결과였다는 점은, high-contention write 경로를 다음 측정의 첫 우선순위로 둘 근거가 된다. 이는 불변식이 유지됐다는 증거이지 현 재시도 정책이나 락 전략이 충분하다는 증거는 아니다. T3·T4의 업무 결과도 scenario가 허용한 종단 상태 안에서 판정됐고, T5는 correctness만 확인했을 뿐 역할·scale별 성능 우열이나 최대 용량을 보여주지 않는다.
+
+### 개선 후보와 다음 측정
+
+| 우선순위 | 관찰 | 지금 결정하지 않는 것 | 다음 측정 | 그 뒤 가능한 판단 |
+| --- | --- | --- | --- | --- |
+| 1 | T1·T2 hot c8에서 허용된 동시성 결과가 각각 23/40, 20/40 | 낙관락·비관락 선택, 재시도 횟수·backoff·UX의 변경 | 같은 release·환경·profile에서 hot/spread c4·c8을 독립 실행 최소 3회씩 반복하고, p99·409/재시도 결과·애플리케이션 retry 로그·DB CPU/connection/lock wait/query 시간을 같은 시간 창에 수집 | 충돌 비용의 반복성 및 재시도 정책과 DB transaction/lock 개선 중 어느 쪽을 우선할지 |
+| 2 | T3·T4는 경합·마지막 자리의 업무 종단과 DB 불변식을 모두 지킴 | SQL/index·transaction critical section 변경 | c4·c8 반복 측정에 DB lock wait·query 시간·connection을 추가해 허용된 업무 종단의 비용을 분리 | 실제 DB 병목이 확인될 때에만 SQL/index 또는 transaction 범위 개선을 검토 |
+| 3 | T5 여섯 role×scale이 모두 PASS했으나 각 조건은 1회 관찰이고 p99가 없음 | 역할·scale 성능 순위, read 경로의 cache·조회 조립 개선 | 고정 read profile(10 VU / 60 seconds / think time 0 ms)에서 role×scale별 독립 실행 최소 3회, p99와 애플리케이션·DB 자원을 함께 수집 | 역할 또는 scale에 따라 반복되는 지연·자원 차이가 있을 때 해당 read query·응답 조립·cache 후보를 좁힘 |
+
+반복 횟수 ‘최소 3회’는 이번 결과의 통계적 한계를 줄이기 위한 권고이지, 이번 `PASS` 판정을 소급해 바꾸는 gate는 아니다. 다음 campaign에서는 비교 전에 SLO·허용 409/재시도 정책·수집 항목을 먼저 명시하고, 같은 source/release·환경·profile의 범위와 원자료 무결성 식별값을 campaign manifest에 남긴다.
 
 ## 결과 처리
 

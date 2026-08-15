@@ -2,13 +2,14 @@
 
 | 항목 | 값 |
 | --- | --- |
-| 문서 상태 | `archived` |
-| Campaign 상태 | `failed-and-recovered` |
+| 문서 상태 | `superseded` |
+| Campaign 상태 | `completed-with-limitations` |
 | 기록 분류 | `invalid-measurement-campaign` — 원인은 확인했지만 성능 기준선에서는 제외 |
 | 실행 경로 | ROOM portable bundle → `run.sh room-k6` |
 | 조건 | T1 / stress / hot / concurrency 2 |
 | 시간 범위 | UTC 2026-08-14 14:45:19–14:48:46 / KST 2026-08-14 23:45:19–23:48:46 |
-| 비밀정보 경계 | 비밀번호, password hash, URL, 토큰, revision·resource 식별자는 기록하지 않음 |
+| 근거 식별자 | [비식별 canonical campaign manifest](evidence/room-portable-bundle-03-t1-recovery-fail-2026-08-14.json) |
+| 비밀정보 경계 | 비밀번호·credential-derived hash·토큰·세션·CSRF·URL·실제 fixture/resource 식별자는 기록하지 않음. source/artifact 무결성 식별값은 linked manifest에만 보존 |
 
 ## 결론
 

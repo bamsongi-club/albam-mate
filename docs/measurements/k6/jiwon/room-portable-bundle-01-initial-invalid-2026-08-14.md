@@ -2,7 +2,7 @@
 
 | 항목 | 값 |
 | --- | --- |
-| 문서 상태 | `current` |
+| 문서 상태 | `superseded` |
 | Campaign | `room-k6-matrix-2026-08-14` |
 | Campaign 상태 | `completed-with-limitations` |
 | 기록 분류 | `invalid-measurement-campaign` — 성능 기준선·용량 판단에서 제외 |
@@ -10,7 +10,8 @@
 | 제외한 경로 | generic `loadtest` |
 | 측정 대상 release | bundle source와 배포 release가 일치하는 clean app checkout |
 | 시간대 | 원격 실행 artifact의 UTC와 같은 시각의 KST(UTC+09:00) |
-| 원시 산출물 | 로컬 `build/k6/room/`만 보존; 비밀값·실환경 URL·식별자는 이 문서에 기록하지 않음 |
+| 근거 식별자 | [비식별 canonical campaign manifest](evidence/room-portable-bundle-01-initial-invalid-2026-08-14.json) |
+| 원시 산출물 | 로컬 `build/k6/room/`만 보존; 비밀값·실환경 URL·실제 fixture/resource 식별자는 이 문서에 기록하지 않음 |
 
 ## 결론
 
@@ -23,7 +24,7 @@
 - bundle 생성 checkout은 clean 상태였고 bundle source와 배포 release의 정렬 gate를 통과했다.
 - 전용 P1 스택에 대해 실행했으며, 결과 회수 직후 teardown을 수행한다.
 - Windows/Git Bash 환경에서 runner가 portable bundle을 전달할 수 있게 한 로컬 호환성 보정은 infra working tree에만 남아 있으며, 이 보고서 작성이나 앱 release에는 포함하지 않았다.
-- 비밀번호, password hash, URL, 토큰, release SHA, 리소스 식별자는 문서와 표에서 의도적으로 제외했다.
+- 비밀번호·credential-derived hash·토큰·세션·CSRF·URL·실제 fixture/resource 식별자는 문서와 표에서 제외했다. source/artifact 무결성 식별값은 linked manifest에만 보존한다.
 
 ## Run 결과
 

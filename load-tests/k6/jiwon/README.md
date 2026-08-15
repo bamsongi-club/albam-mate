@@ -157,7 +157,13 @@ node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id $runId
 
 사후 검증은 HTTP 응답 분류와 DB snapshot을 함께 판정한다.
 
-실행 결과를 비교하거나 정본으로 승격할 때는 `run-manifest.json`의 `sourceSha`, `targetEnvironment`, `fixtureId`, `startedAtUtc`, `finishedAtUtc`, `k6Version`, `runState`, `completed`를 함께 보존한다. T5는 `t5ReadOptions`와 `t5-comparison-verification.json`도 함께 보존한다.
+직접 `run` 경로의 실행 결과를 비교할 때는 `run-manifest.json`의 source SHA, 대상 환경, fixture 식별자, 시작·종료 UTC, k6 버전, `runState`, `completed`를 함께 대조한다. T5는 `t5ReadOptions`와 `t5-comparison-verification.json`도 함께 대조한다.
+
+ROOM portable bundle → `run.sh room-k6` 결과를 여러 Run 단위로 정본 승격할 때는 [k6 결과 문서 공통 규칙](../../../docs/measurements/k6/README.md)을 따른 campaign manifest를 남긴다. manifest는 clean source와 deployed release 정렬, 허용된 실행 옵션, 포함·제외 Run ledger, local-only bundle의 source·artifact 무결성 식별값, phase·diagnosis·summary 판정을 보존한다. 비밀번호·credential-derived hash·토큰·세션·CSRF·URL·실제 fixture/resource ID·원시 SQL·로그는 manifest에도 넣지 않는다.
+
+portable bundle의 `manifest.json`은 입력 계약이고, `infra-execution.json`·before/after diagnosis·`final-result.json`·`k6-summary.json`은 실행 결과다. 따라서 campaign manifest에는 두 종류의 artifact를 모두 식별하되 원문은 계속 `build/k6/room/`에만 local-only로 둔다.
+
+원시 bundle 자체에는 campaign ID나 `reportDisposition`이 없으므로, campaign을 시작할 때 어떤 논리 Run을 포함·제외할지 별도 ledger로 확정한다. local `build/`에 남은 `PASS` artifact 전체를 자동으로 기준선에 포함하거나, 다른 campaign의 실패 이력을 final campaign에 합치지 않는다.
 
 `room_success`, `room_created`, `room_business_failures`, `room_concurrent_failures`, `room_unexpected_4xx`, `room_server_failures`, `room_contract_failures`, `room_request_duration`, `room_start_skew_ms`를 k6 summary에서 확인한다.
 

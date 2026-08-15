@@ -6,7 +6,7 @@
 
 상위 `README.md`는 공통 배치와 보존 규칙만 설명한다. 소유자별 테스트·캠페인 목록은 각 소유자 폴더의 `README.md`에서 관리하며 이 문서에 다시 모으지 않는다.
 
-`build/k6/<test-content>/`에는 매 실행의 fixture, 실행 bundle, 원시 로그와 원시 k6 결과를 두며 Git에 커밋하지 않는다. 이 디렉터리에는 비밀값과 실제 환경의 리소스 식별자를 제거하고 검증 절차를 마친 결과만 보존한다. 탐색·반복 실행 결과를 모두 문서로 옮기지 않는다.
+`build/k6/<test-content>/`에는 매 실행의 fixture, 실행 bundle, 원시 로그와 원시 k6 결과를 두며 Git에 커밋하지 않는다. 원시 산출물에는 비밀값과 실제 환경의 리소스 식별자가 포함될 수 있다. 이 중 검증·비식별화 절차를 마친 결과만 이 문서 아래에 별도로 보존하며, 탐색·반복 실행 결과를 모두 문서로 옮기지 않는다.
 
 ## 디렉터리 배치
 
@@ -40,6 +40,7 @@ docs/
 - Markdown 결과 문서는 `<test-content>-<YYYY-MM-DD>.md` 형식을 사용한다. `<test-content>`는 영문 소문자 kebab-case로 쓰며, 도메인명이 아니라 실제로 측정하거나 판단한 업무 흐름을 표현한다.
 - 문서에는 시나리오, 실행 환경·명령, fixture 전제, 주요 지표, 결과 해석과 한계를 적는다. 소유자 폴더만 1차 분류로 사용하며 도메인 하위 폴더를 추가하지 않는다.
 - 각 소유자의 `evidence/`에는 Markdown 문서의 수치를 뒷받침해야 할 때만 검증·비식별화한 JSON 증거를 둔다. 여러 Run을 묶은 campaign manifest도 이 경계를 따른다.
+- campaign manifest는 원자료를 식별하는 데 필요한 비밀이 아닌 source·artifact 무결성 식별값은 보존할 수 있다. 비밀번호·credential-derived hash·토큰·세션·CSRF·URL·실제 fixture/resource ID·원시 SQL·로그는 보존하지 않는다.
 - 후속 측정은 새 Campaign ID와 manifest를 만들고 기존 보고서와 manifest를 덮어쓰지 않는다.
 
 ## 근거와 정본 경계

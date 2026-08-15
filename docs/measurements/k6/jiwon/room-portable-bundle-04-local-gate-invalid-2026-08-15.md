@@ -2,12 +2,13 @@
 
 | 항목 | 값 |
 | --- | --- |
-| 문서 상태 | `archived` |
-| Campaign 상태 | `incomplete` |
+| 문서 상태 | `superseded` |
+| Campaign 상태 | `completed-with-limitations` |
 | 기록 분류 | `invalid-measurement-campaign` — 불완전한 중간 실행으로 성능 기준선에서 제외 |
 | 실행 경로 | ROOM portable bundle → `run.sh room-k6` |
 | 시간 범위 | UTC 2026-08-14 15:22:53–15:37:07 / KST 2026-08-15 00:22:53–00:37:07 |
-| 비밀정보 경계 | 비밀번호, password hash, URL, 토큰, revision·resource 식별자는 기록하지 않음 |
+| 근거 식별자 | [비식별 canonical campaign manifest](evidence/room-portable-bundle-04-local-gate-invalid-2026-08-15.json) |
+| 비밀정보 경계 | 비밀번호·credential-derived hash·토큰·세션·CSRF·URL·실제 fixture/resource 식별자는 기록하지 않음. source/artifact 무결성 식별값은 linked manifest에만 보존 |
 
 ## 결론
 
