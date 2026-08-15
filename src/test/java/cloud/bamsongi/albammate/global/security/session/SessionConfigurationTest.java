@@ -124,16 +124,6 @@ class SessionConfigurationTest {
 	}
 
 	@Test
-	void production은_Redis_세션_연결을_등록한다() {
-		try (AnnotationConfigApplicationContext context = redisSessionContext("production")) {
-			LettuceConnectionFactory connectionFactory = sessionConnectionFactory(context);
-
-			assertEquals("redis", connectionFactory.getHostName());
-			assertEquals(6379, connectionFactory.getPort());
-		}
-	}
-
-	@Test
 	void Spring_Session_쿠키는_기존_JSESSIONID_계약을_그대로_사용한다() {
 		SecurityCookieProperties properties = new SecurityCookieProperties();
 		properties.setSecure(false);
@@ -186,6 +176,8 @@ class SessionConfigurationTest {
 
 			assertSame(primaryConnectionFactory, context.getBean(LettuceConnectionFactory.class));
 			assertNotSame(primaryConnectionFactory, sessionConnectionFactory);
+			assertEquals("redis", sessionConnectionFactory.getHostName());
+			assertEquals(6379, sessionConnectionFactory.getPort());
 			assertSameConnectionPolicy(primaryConnectionFactory, sessionConnectionFactory);
 			assertSessionRepositoryUsesDedicatedFactory(context, sessionConnectionFactory);
 			assertRedisSessionJsonSerialization(context);
