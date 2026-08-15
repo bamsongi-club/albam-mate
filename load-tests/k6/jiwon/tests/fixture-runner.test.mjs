@@ -288,6 +288,7 @@ function createIsolatedFixtureTool() {
 
   copySource(path.join('load-tests', 'k6', 'jiwon', 'tools', 'fixture.mjs'));
   copySource(path.join('load-tests', 'k6', 'jiwon', 'tools', 'fixture-model.mjs'));
+  copySource(path.join('load-tests', 'k6', 'jiwon', 'tools', 'portable-bundle.mjs'));
   copySource(path.join('load-tests', 'k6', 'jiwon', 'lib', 'read-execution-options.mjs'));
 
   return {
@@ -296,6 +297,18 @@ function createIsolatedFixtureTool() {
     buildRoot: path.join(root, 'build', 'k6', 'room'),
   };
 }
+
+test('격리 fixture 도구는 portable bundle 정적 의존성을 포함한다', () => {
+  const tool = createIsolatedFixtureTool();
+
+  try {
+    const result = spawnSync(process.execPath, [tool.fixtureTool, 'help'], { encoding: 'utf8' });
+
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+  } finally {
+    rmSync(tool.root, { recursive: true, force: true });
+  }
+});
 
 function fixtureResources(plan, idOffset = 100) {
   return {
