@@ -71,6 +71,8 @@ flowchart LR
 
 런타임 호출 방향과 컴파일 의존 방향이 다를 수 있다. 예를 들어 `game`이 예정 모임 수를 조회할 때는 [`game.contract.UpcomingRoomCountQuery`](../src/main/java/cloud/bamsongi/albammate/game/contract/UpcomingRoomCountQuery.java)를 [`room.service.query.RoomUpcomingRoomCountQuery`](../src/main/java/cloud/bamsongi/albammate/room/service/query/RoomUpcomingRoomCountQuery.java)가 구현한다. 런타임 호출은 game에서 room으로 이어지지만, 컴파일 의존은 `room → game.contract`로 유지된다.
 
+RANK-02의 외부·내부 인기 점수는 런타임 모듈 호출이 아니라 승인 manifest를 입력으로 하는 저장 배치가 만든다. `scripts/game-ranking`이 생성한 SQL이 `rooms`의 전체 `GAME_FOCUSED` 누적 집계를 파생 점수에 반영하고, 애플리케이션의 game 목록 조회는 `games.popularity_score`만 읽는다. 따라서 game 모듈은 room Entity·Repository를 직접 참조하지 않으며, 외부 BoardLife·BGG도 실행 중 호출하지 않는다.
+
 업무 모듈이 외부 시스템에 요청하는 포트는 이를 소유한 `<module>/contract`에 둔다. `infra`는 이 포트를 구현하고 필요한 업무 모듈의 `contract`와 `global`만 참조한다. 현재 `infra`는 Redis 세션·실시간 전달·전송 제한 adapter와 PostgreSQL 스케줄 잠금 adapter를 제공한다. 업무 모듈은 Redis·ShedLock의 구체 구현을 직접 참조하지 않는다.
 
 ### 모듈 책임
@@ -79,7 +81,7 @@ flowchart LR
 | --- | --- | --- |
 | `auth` | 회원가입·이메일·소셜 로그인·로그아웃·CSRF, OAuth 흐름과 인증 요청 보호 | 사용자·외부 신원 영속 구조, 사용자 프로필 HTTP 흐름 |
 | `user` | 사용자 계정·비밀번호 자격증명·외부 신원 연결·프로필·공개 사용자 조회 | OAuth 제공자 통신, 세션 생성·폐기 |
-| `game` | 게임 목록·검색·상세와 게임 요약 계약 | 방 데이터 직접 조회 |
+| `game` | 게임 목록·검색·상세, RANK-02 저장 인기 점수와 게임 요약 계약 | 방 데이터 직접 조회 |
 | `room` | 방·참가 관계·정원·상태 전이·재시도·상태 보정 | 사용자·게임 내부 구현 |
 | `chat` (P1) | 방별 채팅방·메시지 저장, 이력 커서 조회, 현재 관계자 접근 검증, 실시간 전달 경계 | 방·참가 Entity/Repository, 인증 세션 내부 구현, 온라인 자동 매칭 |
 | `notification` (P1) | 웹 알림 조회·읽음, Outbox·수신자 스냅샷·알림 저장, relay·재시도·복구·보존 정리 | 방 상태 전이·수신자 재계산, 이메일·모바일 푸시·Web Push·SMS 전달 |

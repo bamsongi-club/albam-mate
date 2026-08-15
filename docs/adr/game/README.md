@@ -18,4 +18,5 @@
 | [0048](0048-full-reviewed-game-mechanism-catalog.md) | 검수된 메커니즘 189개 전체를 안정적인 내부 목록으로 공개 | 승인됨 | 2026-08-04 | 검증됨 |
 | [0050](0050-game-metadata-catalog-and-filters.md) | 17만 게임 메타데이터를 관계로 관리하고 상세 필터를 제공 | 승인됨 | 2026-08-05 | 검증됨 |
 | [0057](0057-game-catalog-operational-import-strategy.md) | 게임 카탈로그 운영 적재는 승인 청크 UPSERT로 시작하고 증분 파이프라인은 후속으로 설계 | 승인됨 | 2026-08-13 | 미검증 |
+| [0058](0058-external-ranking-and-popularity-sort.md) | 외부·내부 원천을 결합한 게임 인기 점수와 기본 정렬 | 승인됨 | 2026-08-14 | 미검증 |
 | [0060](0060-approved-catalog-ai-embedding-scope.md) | 승인된 카탈로그 release의 AI·embedding 처리 범위를 허용 | 승인됨 | 2026-08-14 | 미검증 |

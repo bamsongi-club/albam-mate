@@ -76,6 +76,164 @@ node scripts/game-catalog/prepare-game-catalog.mjs \
 `upsert-game-mechanisms.sql`은 게임 내부 ID를 해석해야 하므로 반드시 `upsert-games.sql` 다음에 실행한다. 승인 관계의 게임이나 메커니즘을 해석하지 못하면 전체 트랜잭션을 롤백한다.
 `upsert-game-metadata.sql`도 반드시 `upsert-games.sql` 다음에 실행한다. 승인 category/theme 관계의 게임이나 테마를 해석하지 못하면 category·theme·인원 선호·최소 연령 적재 전체를 롤백한다. BGG XML의 `minage`는 양의 PostgreSQL `INTEGER`만 저장하며 누락·`0`은 `NULL`로 재적재한다. 새 snapshot에 없다는 이유로 GAMES 행을 삭제하지 않는다. `quality-report.json`의 `testOnly`가 `true`인 산출물은 이 운영 경로로 실행하지 않는다.
 
+### RANK-02 인기 점수 배치
+
+[ADR-0058](../adr/game/0058-external-ranking-and-popularity-sort.md)의 승인 manifest를 사용해 BoardLife·BGG 순위와 1행 1 `bggId` score input을 검증하고, `games.popularity_score`를 갱신하는 SQL을 생성한다. raw source와 manifest는 저장소에 커밋하지 않는다.
+
+```sh
+node scripts/game-ranking/prepare-game-popularity-ranking.mjs \
+  --manifest /path/to/approved-ranking-manifest.json \
+  --out build/game-ranking/approved
+```
+
+승인 manifest는 `schemaVersion: 1`, `status: approved`, `batchId`, BoardLife·BGG source의 `path`·`rows`·`sha256`, score input의 `path`·`rows`·`sha256`·`grain: 1 row per bggId`·`reviewRequiredRows: 0`·`allowRankFallback`을 포함해야 한다. `allowRankFallback`은 원천 CSV에 매칭되지 않은 행에서 score input의 `boardlifeRank`·`bggRank`를 대신 사용할 때만 `true`로 명시 승인한다. 생성기는 rank 중복·결측·미매칭을 점수 규칙에 따라 처리하고 `quality-report.json`과 `upsert-game-popularity.sql`을 만든다. 승인되지 않은 manifest나 checksum·행 수가 맞지 않는 입력은 산출물을 차단한다.
+생성된 SQL은 아래 보존·검증 절차를 모두 통과한 뒤에만 실행한다. 이 SQL은 전체 `GAME_FOCUSED` 방을 집계하면서 `CANCELED`만 제외하고, 외부 점수와 함께 `popularity_score`를 한 트랜잭션에서 갱신한다. 애플리케이션 요청 중 BoardLife·BGG를 직접 조회하지 않는다.
+
+### RANK-02 보존·검증·복구
+
+카탈로그 운영 담당자는 승인 배치마다 적재 전에 이전 점수와 산출물의 증적을 저장한다. 기본 보존 기간은 최근 3개 배치와 90일 중 긴 기간이며, 갱신 주기는 BoardLife·BGG 승인 snapshot이 바뀔 때마다로 한다. 증적 디렉터리는 접근이 제한된 운영 저장소의 `rank-02/<batchId>/`를 사용하고, 아래 파일을 함께 보관한다.
+
+- 승인 manifest와 raw source 참조
+- `quality-report.json`과 `upsert-game-popularity.sql`
+- 위 파일의 SHA-256 목록
+- 적재 직전 `games.id,popularity_score` snapshot CSV
+- 실행 후 검증 쿼리 결과와 복구 이력
+
+실행 전 snapshot과 생성 산출물을 보존하고 checksum을 기록한다.
+
+```sh
+set -eu
+
+BATCH_ID=2026-08-14-ranking-v1
+EVIDENCE_DIR=/secure/catalog-evidence/rank-02/$BATCH_ID
+
+if [ -e "$EVIDENCE_DIR" ]; then
+  printf '증적 디렉터리가 이미 존재합니다: %s\n' "$EVIDENCE_DIR" >&2
+  exit 1
+fi
+mkdir -p "$EVIDENCE_DIR"
+
+cp /path/to/approved-ranking-manifest.json "$EVIDENCE_DIR/manifest.json"
+cp build/game-ranking/approved/quality-report.json "$EVIDENCE_DIR/quality-report.json"
+cp build/game-ranking/approved/upsert-game-popularity.sql "$EVIDENCE_DIR/upsert-game-popularity.sql"
+
+if ! psql "$DATABASE_URL" \
+  --set ON_ERROR_STOP=on \
+  --command "COPY (SELECT id, popularity_score FROM games ORDER BY id) TO STDOUT WITH CSV HEADER" \
+  > "$EVIDENCE_DIR/popularity-score-before.csv"; then
+  rm -f "$EVIDENCE_DIR/popularity-score-before.csv"
+  printf '적재 전 snapshot 생성에 실패해 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+
+if ! EXPECTED_GAME_COUNT="$(psql "$DATABASE_URL" \
+  --set ON_ERROR_STOP=on \
+  --tuples-only --no-align \
+  --command "SELECT count(*) FROM games")"; then
+  rm -f "$EVIDENCE_DIR/popularity-score-before.csv"
+  printf 'snapshot 기준 게임 수 조회에 실패해 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+
+if [ "$(head -n 1 "$EVIDENCE_DIR/popularity-score-before.csv")" != "id,popularity_score" ]; then
+  rm -f "$EVIDENCE_DIR/popularity-score-before.csv"
+  printf 'snapshot header가 예상과 달라 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+
+SNAPSHOT_ROWS="$(awk 'NR > 1 { rows += 1 } END { print rows + 0 }' \
+  "$EVIDENCE_DIR/popularity-score-before.csv")"
+if [ "$SNAPSHOT_ROWS" -ne "$EXPECTED_GAME_COUNT" ]; then
+  rm -f "$EVIDENCE_DIR/popularity-score-before.csv"
+  printf 'snapshot 행 수가 현재 게임 수와 달라 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+
+if ! shasum -a 256 \
+  "$EVIDENCE_DIR/manifest.json" \
+  "$EVIDENCE_DIR/quality-report.json" \
+  "$EVIDENCE_DIR/upsert-game-popularity.sql" \
+  "$EVIDENCE_DIR/popularity-score-before.csv" \
+  > "$EVIDENCE_DIR/SHA256SUMS"; then
+  rm -f "$EVIDENCE_DIR/SHA256SUMS"
+  printf 'checksum 생성에 실패해 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+
+if ! jq -e '.status == "approved"' "$EVIDENCE_DIR/quality-report.json" >/dev/null; then
+  printf 'quality-report.json이 approved가 아니어서 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+
+if ! MANIFEST_BATCH_ID="$(jq -r '.batchId // empty' "$EVIDENCE_DIR/manifest.json")"; then
+  printf 'manifest batchId를 읽지 못해 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+if ! REPORT_BATCH_ID="$(jq -r '.batchId // empty' "$EVIDENCE_DIR/quality-report.json")"; then
+  printf 'quality-report.json batchId를 읽지 못해 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+if [ "$MANIFEST_BATCH_ID" != "$BATCH_ID" ] || [ "$REPORT_BATCH_ID" != "$BATCH_ID" ]; then
+  printf 'manifest·report batchId가 실행 배치와 달라 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+
+if ! EXPECTED_SQL_SHA256="$(jq -r '.output.sha256 // empty' "$EVIDENCE_DIR/quality-report.json")"; then
+  printf 'quality-report.json SQL checksum을 읽지 못해 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+if ! SQL_CHECKSUM_LINE="$(shasum -a 256 "$EVIDENCE_DIR/upsert-game-popularity.sql")"; then
+  printf '생성 SQL checksum을 계산하지 못해 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+ACTUAL_SQL_SHA256="${SQL_CHECKSUM_LINE%% *}"
+if [ -z "$EXPECTED_SQL_SHA256" ] || [ "$EXPECTED_SQL_SHA256" != "$ACTUAL_SQL_SHA256" ]; then
+  printf 'quality-report.json과 생성 SQL의 checksum이 달라 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+
+if ! shasum -a 256 -c "$EVIDENCE_DIR/SHA256SUMS"; then
+  printf '증적 checksum 검증에 실패해 SQL 실행을 차단합니다.\n' >&2
+  exit 1
+fi
+
+if ! psql "$DATABASE_URL" \
+  --set ON_ERROR_STOP=on \
+  --file "$EVIDENCE_DIR/upsert-game-popularity.sql"; then
+  printf '인기 점수 SQL 실행에 실패했습니다.\n' >&2
+  exit 1
+fi
+```
+
+`quality-report.json`의 `status`가 `approved`이고 manifest·report의 `batchId`가 실행 배치와 같으며 report의 `output.sha256`가 생성 SQL의 실제 checksum과 일치할 때만 SQL을 실행한다. `SHA256SUMS`는 보존한 manifest·report·SQL·snapshot의 변경 여부를 추가로 확인한다. 실행 후에는 전체 게임 수와 점수 범위를 기록하고, 범위를 벗어난 행이 0인지 확인한다.
+
+```sh
+psql "$DATABASE_URL" \
+  --set ON_ERROR_STOP=on \
+  --command "SELECT count(*) AS total_games, min(popularity_score) AS min_score, max(popularity_score) AS max_score, count(*) FILTER (WHERE popularity_score < 0 OR popularity_score > 1) AS invalid_scores FROM games" \
+  > "$EVIDENCE_DIR/post-check.txt"
+```
+
+검증 실패나 승인 오류가 발견되면 다음 명령으로 이전 snapshot을 복원한다. 복원 후 같은 post-check를 다시 실행하고, 배치 담당자가 복구 이력을 증적 디렉터리에 남긴다.
+
+```sh
+psql "$DATABASE_URL" --set ON_ERROR_STOP=on <<SQL
+BEGIN;
+CREATE TEMP TABLE popularity_score_restore (
+    game_id BIGINT PRIMARY KEY,
+    popularity_score DECIMAL(8, 6) NOT NULL
+);
+\\copy popularity_score_restore (game_id, popularity_score) FROM '$EVIDENCE_DIR/popularity-score-before.csv' WITH (FORMAT csv, HEADER true)
+UPDATE games AS game
+SET popularity_score = restore.popularity_score
+FROM popularity_score_restore AS restore
+WHERE game.id = restore.game_id;
+COMMIT;
+SQL
+```
+
+복구 책임자는 해당 승인 배치를 실행한 카탈로그 운영 담당자이며, 실행 전 snapshot 없이 전역 점수 SQL을 실행하지 않는다.
+
 ## 4. PostgreSQL 적재
 
 검수 보고서의 상태가 `ready`일 때만 대상 데이터베이스를 명시해 실행한다.
