@@ -8,4 +8,4 @@
 | [ROOM portable bundle local gate 중단 (2026-08-15)](room-portable-bundle-local-gate-2026-08-15.md) | `room-k6-local-gate-2026-08-15` | `INVALID` | 자동 첨부파일로 인해 불완전해진 중간 campaign 기록 |
 | [ROOM portable bundle 최종 매트릭스 (2026-08-15)](room-portable-bundle-final-2026-08-15.md) | `room-k6-final-clean-2026-08-15` | `PASS` | 공식 25개 조합과 T5 comparison gate를 통과한 유효 측정 기록 |
 
-이 문서는 ROOM portable bundle → infra `run.sh room-k6` 경로로 수집한 결과만 보존한다. 원시 bundle과 실행 산출물은 `build/k6/room/`에만 남기며 Git에 포함하지 않는다.
+공통 배치·보존 규칙은 [상위 k6 결과 문서](../README.md)를 따른다. 이 문서는 ROOM portable bundle → infra `run.sh room-k6` 경로로 수집한 결과만 보존한다. 원시 bundle과 실행 산출물은 `build/k6/room/`에만 남기며 Git에 포함하지 않는다.
