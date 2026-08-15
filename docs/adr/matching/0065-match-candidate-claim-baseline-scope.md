@@ -32,7 +32,7 @@ ADR-0063은 MATCH baseline에서 후보 선점 성능과 중복·부분 성공·
 
 - candidate claim p95·lock wait·retry·throughput의 원인을 최종 Party·복구 처리와 섞지 않는다.
 - 모든 MATCH 정합성 gate를 통과하지 않은 결과로 Redis business lock 도입 또는 운영 성능 통과를 주장할 수 없다.
-- baseline JSON은 candidate claim 분포와 tie 검증을 보관하고, 통합 검증 artifact의 기준 SHA와 연결해야 한다.
+- baseline JSON은 candidate claim 분포와 tie 검증을 보관한다. baseline JSON과 `MATCH-01-T1`, `MATCH-01-T5`~`T7` 통합 검증 artifact는 동일한 Git canonical blob SHA-256을 각각 기록해야 하며, 하나라도 불일치하면 종합 gate를 `INVALID`로 판정한다. 서로 다른 기준 SHA의 결과를 연결하거나 `BASELINE_ACCEPTED`로 승격할 수 없다.
 
 ## 적용·호환·rollback
 

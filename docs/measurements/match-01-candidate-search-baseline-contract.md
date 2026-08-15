@@ -39,7 +39,7 @@ fixture 생성·truncate·통계 초기화는 측정 구간 밖에서 끝낸다.
 - 유효한 measured round의 candidate claim transaction latency p95는 논리 claim 시도 전체 `n = 1,000`을 오름차순 정렬한 뒤 nearest-rank `ceil(0.95 × n)`번째 값으로 계산한다. 후보 없음과 retry를 포함한 최종 논리 시도는 위 수집 규칙대로 포함한다. 이 값에 최종 응답·Party provisioning·현재 상태 조회 시간은 포함하지 않는다.
 - 세 measured round가 모두 유효할 때만 baseline을 비교할 수 있다. 결과 문서는 각 round의 p50·p95·p99, 처리량, retry 수, DB lock wait, PostgreSQL 비용과 세 round p95의 중앙값·최댓값을 함께 제시한다. 가장 좋은 한 round만 선택하지 않는다.
 - `BASELINE_ACCEPTED`는 세 round 모두 유효하고, 각 round에 1,000개 표본·두 matcher 완료·원자료·DB 통계·lock wait 기록이 있으며, 기대한 `500`개 proposal·`1,000`개 member 전이·`1,000`개 입력 request의 정확히 한 번의 claim·fixture manifest의 tie 순서가 실제 결과와 일치하고, 한 요청의 둘 이상 `PROPOSED` 점유·중복 제안·제안 회원 일부만 전이된 부분 claim이 0건인 경우에만 부여한다. 최종 ACCEPT·Party 확정·현재 상태 복구는 별도 통합 검증 결과로 기록하며 이 baseline의 acceptance로 대신하지 않는다. 이는 SLO 달성을 뜻하지 않는다.
-- `INVALID`는 실행 또는 관측 계약을 충족하지 않아 성능 비교에 쓸 수 없는 결과다. `FAILED`는 DB·runner 기술 오류 또는 위 candidate claim 정합성 위반이 발생한 결과다. `INVALID`·`FAILED` 어느 경우에도 Redis 도입 결론이나 성능 수치를 채택하지 않는다.
+- `INVALID`는 실행 또는 관측 계약을 충족하지 않아 성능 비교에 쓸 수 없는 결과다. `FAILED`는 실행·관측 계약을 충족한 뒤 candidate claim 정합성 검증이 실패한 결과다. 기술 오류·timeout·matcher 조기 종료·fixture 개수 불일치·관측 누락은 `INVALID`로, 실행 완료 후 candidate claim 정합성 위반은 `FAILED`로 분류한다. `INVALID`·`FAILED` 어느 경우에도 Redis 도입 결론이나 성능 수치를 채택하지 않는다.
 
 ## 원자료 보존과 재검토
 
@@ -50,6 +50,6 @@ fixture 생성·truncate·통계 초기화는 측정 구간 밖에서 끝낸다.
 - `BASELINE_ACCEPTED` 결과에서 candidate claim transaction p95, DB lock wait 또는 retry가 서비스 목표를 정할 만큼 지속적으로 높게 나타난 경우에는 PostgreSQL 쿼리·인덱스·트랜잭션 개선을 먼저 비교하고, 해결되지 않는 근거가 있으면 Redis를 포함한 대안을 비교하는 새 ADR을 작성한다.
 - `FAILED`가 실제 영속 상태의 정합성 위반을 기록한 경우에는 해당 구현을 성능 통과로 처리하지 않고 중단·되돌린다. 그 결과는 Redis를 바로 도입하는 근거가 아니라, PostgreSQL 정합성 복구안과 Redis를 포함한 대안을 비교하는 새 ADR을 열어야 하는 근거다.
 
-fixture·runner·관측이 불완전한 `INVALID`와 기술 오류만 있는 `FAILED`는 재검토 gate가 아니다. 원인을 고친 뒤 같은 계약으로 다시 측정한다. 어느 경우에도 새 ADR 승인 전에는 Redis business lock을 도입하지 않는다.
+fixture·runner·관측이 불완전한 `INVALID`는 재검토 gate가 아니다. 원인을 고친 뒤 같은 계약으로 다시 측정한다. `FAILED`는 정합성 위반의 원인을 확인해야 하며, 실제 영속 상태 위반이면 위 절차에 따라 중단·되돌리고 새 ADR을 연다. 어느 경우에도 새 ADR 승인 전에는 Redis business lock을 도입하지 않는다.
 
 > 문서 관리: 소유자 `밤송이클럽 MATCHING 담당` · 최종 검증일 `2026-08-15` · 폐기 조건 `MATCH-01 후보 탐색 측정 계약이 승인된 단일 측정 정본으로 대체될 때`
