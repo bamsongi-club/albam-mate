@@ -24,45 +24,20 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 class RoomListReadService {
 
-	private static final Set<RoomStatus> PUBLIC_STATUSES = Set.of(RoomStatus.RECRUITING, RoomStatus.CLOSED);
-
+	@NonNull private final PublicRoomQuery publicRoomQuery;
 	@NonNull private final RoomRepository roomRepository;
 	@NonNull private final RoomWaitlistRepository roomWaitlistRepository;
 
 	@Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW, isolation = Isolation.REPEATABLE_READ)
 	public RoomListReadResult findPublicRoomsAt(
 		RoomListSearchCriteria criteria, Pageable pageable, Long currentUserId, Instant requestTime) {
-		Page<Room> rooms = findFilteredPublicRooms(criteria, pageable, requestTime);
+		Page<Room> rooms = publicRoomQuery.findPublicRooms(criteria, pageable, requestTime);
 		Set<Long> activeParticipationRoomIds = findActiveParticipationRoomIds(currentUserId, rooms);
 		Set<Long> waitingRoomIds = findWaitingRoomIds(currentUserId, rooms);
 		Map<Long, RoomStatus> effectiveStatuses = rooms.getContent().stream().collect(Collectors.toUnmodifiableMap(
 			Room::getId, room -> RoomEffectiveStatus.resolve(room, requestTime)));
 		return new RoomListReadResult(
 			rooms, effectiveStatuses, activeParticipationRoomIds, waitingRoomIds, requestTime);
-	}
-
-	private Page<Room> findFilteredPublicRooms(
-		RoomListSearchCriteria criteria, Pageable pageable, Instant requestTime) {
-		return roomRepository.findPublicRoomsAt(
-			criteria.roomType(),
-			criteria.status() != null,
-			criteria.status() == RoomStatus.RECRUITING,
-			criteria.status() == RoomStatus.CLOSED,
-			requestTime,
-			criteria.gameId(),
-			criteria.hasKeyword(),
-			criteria.keywordOrEmpty(),
-			criteria.hasStartsAtFrom(),
-			criteria.startsAtFromOrEpoch(),
-			criteria.hasStartsAtTo(),
-			criteria.startsAtToOrEpoch(),
-			criteria.hasMinRemainingSeats(),
-			criteria.minRemainingSeatsOrZero(),
-			criteria.appliedExperienceLevels(),
-			criteria.rulemasterOnly(),
-			PUBLIC_STATUSES,
-			requestTime.minus(Room.AUTOMATIC_FINISH_AFTER_START),
-			pageable);
 	}
 
 	private Set<Long> findActiveParticipationRoomIds(Long currentUserId, Page<Room> rooms) {
