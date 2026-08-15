@@ -10,7 +10,7 @@
     "releaseStatus": "not-registered"
   },
   "queriesPath": "queries.json",
-  "queriesSha256": "df3a246553933cfdf892fa3c64531d831069b77ffbcda3cf093171deabd1a452",
+  "queriesSha256": "463ef536cfc6f6a879a090d485ae893a9cd06116b7e73367178ab9303c126eda",
   "cohorts": {
     "exact/name variant": {
       "minimum": 15,

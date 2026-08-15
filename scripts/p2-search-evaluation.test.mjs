@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import test from "node:test";
 
@@ -24,6 +25,14 @@ test("저장된 draft fixture의 manifest와 query 원자료를 검증한다", (
     assert.equal(manifest.queriesSha256.length, 64);
     assert.doesNotThrow(() => validateEvaluationManifest({ ...manifest, queries }));
     assert.equal(queries.filter((query) => query.anchor).length, 3);
+});
+
+test("저장된 query 원자료 checksum이 manifest와 일치한다", () => {
+    const manifest = JSON.parse(fs.readFileSync(new URL("../docs/p2/search-evaluation/manifest.json", import.meta.url)));
+    const queryBytes = fs.readFileSync(new URL("../docs/p2/search-evaluation/queries.json", import.meta.url));
+    const actualSha256 = createHash("sha256").update(queryBytes).digest("hex");
+
+    assert.equal(manifest.queriesSha256, actualSha256);
 });
 
 test("cohort 표본이 부족하면 fixture를 거절한다", () => {

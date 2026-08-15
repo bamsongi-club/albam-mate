@@ -30,6 +30,32 @@ node scripts/p2-search-evaluation.mjs \
   --manifest docs/p2/search-evaluation/manifest.json
 ```
 
+고정 fixture에 대한 후보·baseline 결과의 `Recall@10`, `MRR@10`, `nDCG@10`과
+`hard_filter_violation_rate`는 다음 입력 형식으로 다시 계산합니다. 결과의 key는 fixture
+query ID이며, `rankedGameIds`는 관련도 내림차순 결과, `hardFilterViolationGameIds`는
+hard filter를 위반한 결과 ID입니다.
+
+```json
+{
+  "Q-001": {
+    "rankedGameIds": [123, 456, 789],
+    "hardFilterViolationGameIds": []
+  }
+}
+```
+
+```bash
+node scripts/p2-search-evaluation.mjs \
+  --metrics \
+  --manifest docs/p2/search-evaluation/manifest.json \
+  --results /path/to/candidate-results.json \
+  --baseline /path/to/baseline-results.json
+```
+
+공개 catalog ID와 hard filter 수치를 함께 확인할 때는 검수된 catalog record 배열을
+`--catalog /path/to/catalog-index.json`으로 추가합니다. 현재는 구체 release가 등록되지
+않았으므로 이 인자를 생략한 구조 검증만 품질 승인으로 해석할 수 없습니다.
+
 BGG 데이터셋 및 AI·embedding 사용 정책 승인은 [승인 범위 문서](../../game-catalog/2026-08-14-bgg-ai-embedding-approval.md)와 [ADR-0060](../../adr/game/0060-approved-catalog-ai-embedding-scope.md)을 따릅니다. 정책 승인을 실제 실행 가능한 release 승인으로 추정하지 않으며, 이 fixture 자체가 embedding 생성이나 운영 검색 구현을 수행하지 않습니다.
 
 T1~T6 검증은 [validator 테스트](../../../scripts/p2-search-evaluation.test.mjs)에서 구조·표본·catalog ID·hard filter·지표·판정·범위 경계를 각각 검사합니다. 이 경계 밖의 API·DTO·ERD·backend·frontend·Flyway·provider/model 변경은 SEARCH-04 fixture 작업에 포함하지 않습니다.
