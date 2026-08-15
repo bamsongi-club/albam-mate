@@ -305,8 +305,12 @@ function useHashRoute() {
     return () => window.removeEventListener('hashchange', updateLocation);
   }, []);
 
-  const navigate = (path) => {
-    window.location.hash = path.startsWith('#') ? path : '#' + path;
+  // 기본은 히스토리에 쌓는 이동이다. 이미 끝나 다시 돌아갈 이유가 없는 화면은 replace로 현재 항목을 대체해
+  // 뒤로 가기가 방금 끝낸 화면으로 되돌아가지 않게 한다. replace도 hashchange를 발생시켜 구독은 그대로 동작한다.
+  const navigate = (path, { replace = false } = {}) => {
+    const hash = path.startsWith('#') ? path : '#' + path;
+    if (replace) window.location.replace(hash);
+    else window.location.hash = hash;
   };
 
   return [location, navigate];
@@ -2159,7 +2163,7 @@ export function App() {
       setMe(profile);
       refreshData();
       showToast('로그인했어요.');
-      navigate('/home');
+      navigate('/home', { replace: true });
       return true;
     } catch (error) {
       showToast(messageForError(error, '로그인하지 못했어요.'), 'err');
@@ -2200,7 +2204,7 @@ export function App() {
       setMe(null);
       refreshData();
       showToast('로그아웃했어요.');
-      navigate('/home');
+      navigate('/home', { replace: true });
     } catch (error) {
       if (isUnauthenticated(error)) {
         expireAuthentication();
@@ -2226,7 +2230,7 @@ export function App() {
       setCreateGame(null);
       refreshData();
       showToast('모임이 열렸어요! 참가 신청을 받는 중입니다.');
-      navigate('/session/' + room.id);
+      navigate('/session/' + room.id, { replace: true });
       return true;
     } catch (error) {
       handleProtectedError(error, '모임을 열지 못했어요.');
@@ -2244,7 +2248,7 @@ export function App() {
       await api.updateRoom(roomId, { ...result.room, description: result.room.description || null });
       refreshData();
       showToast('모임 정보를 수정했어요.');
-      navigate('/session/' + roomId);
+      navigate('/session/' + roomId, { replace: true });
       return true;
     } catch (error) {
       handleProtectedError(error, '모임 정보를 수정하지 못했어요.');
