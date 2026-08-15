@@ -268,41 +268,6 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 		Pageable pageable);
 
 	@Query("""
-		select room
-		from Room room
-		where (:roomType is null or room.roomType = :roomType)
-		  and room.status in :publicStatuses
-		  and (:gameId is null or room.gameId = :gameId)
-		""")
-	Page<Room> findPublicRoomsWithoutKeyword(
-		@Param("roomType")
-		RoomType roomType,
-		@Param("gameId")
-		Long gameId,
-		@Param("publicStatuses")
-		Collection<RoomStatus> publicStatuses,
-		Pageable pageable);
-
-	@Query("""
-		select room
-		from Room room
-		where (:roomType is null or room.roomType = :roomType)
-		  and room.status in :publicStatuses
-		  and (:gameId is null or room.gameId = :gameId)
-		  and lower(room.title) like concat('%', lower(:keyword), '%') escape '!'
-		""")
-	Page<Room> findPublicRoomsByTitleContainingIgnoreCase(
-		@Param("roomType")
-		RoomType roomType,
-		@Param("gameId")
-		Long gameId,
-		@Param("keyword")
-		String keyword,
-		@Param("publicStatuses")
-		Collection<RoomStatus> publicStatuses,
-		Pageable pageable);
-
-	@Query("""
 		select participation.room.id
 		from Participation participation
 		where participation.userId = :userId
