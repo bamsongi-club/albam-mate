@@ -1025,6 +1025,119 @@ describe('#427 T1~T4 메시지 전송·이력 추가 조회', () => {
   });
 });
 
+// #749 회귀. 스크롤 위치 계산은 레이아웃 없이 확인할 수 없으므로 요소 크기를 고정해 두고 검증한다.
+// `.chat-log`가 실제 스크롤 컨테이너인지(T1)는 이 층에서 알 수 없어 브라우저 검증이 담당한다.
+describe('#749 T2~T5 채팅 스크롤 위치', () => {
+  const SCROLL_HEIGHT = 500;
+  const CLIENT_HEIGHT = 200;
+  let restoreScrollMetrics;
+
+  function stubScrollMetrics() {
+    const originals = ['scrollHeight', 'clientHeight', 'scrollTop']
+      .map((name) => [name, Object.getOwnPropertyDescriptor(Element.prototype, name)]);
+    const scrollTops = new WeakMap();
+    Object.defineProperties(Element.prototype, {
+      scrollHeight: { configurable: true, get: () => SCROLL_HEIGHT },
+      clientHeight: { configurable: true, get: () => CLIENT_HEIGHT },
+      scrollTop: {
+        configurable: true,
+        get() { return scrollTops.get(this) ?? 0; },
+        set(value) { scrollTops.set(this, value); }
+      }
+    });
+    restoreScrollMetrics = () => originals.forEach(([name, descriptor]) => {
+      if (descriptor) Object.defineProperty(Element.prototype, name, descriptor);
+      else delete Element.prototype[name];
+    });
+  }
+
+  afterEach(() => {
+    restoreScrollMetrics?.();
+    restoreScrollMetrics = undefined;
+  });
+
+  function openRoom() {
+    FakeWebSocket.instances = [];
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+    vi.spyOn(api, 'getChatMessages').mockResolvedValue({
+      messages: [{ messageId: 1, roomId: 7, sender: { nickname: '상대' }, isMine: false, content: '기존 메시지', createdAt: '2026-09-01T19:00:00+09:00' }],
+      nextBeforeMessageId: null,
+      hasNext: false
+    });
+    return FakeWebSocket.instances;
+  }
+
+  const arrive = (socket, content) => act(async () => {
+    socket.message({
+      eventId: 2,
+      type: 'MESSAGE_CREATED',
+      message: { messageId: 2, roomId: 7, sender: { nickname: '상대' }, isMine: false, content, createdAt: '2026-09-01T19:01:00+09:00' }
+    });
+    await Promise.resolve();
+  });
+
+  it('T2 채팅방에 들어오면 최신 메시지가 보이는 위치에서 시작한다', async () => {
+    stubScrollMetrics();
+    const sockets = openRoom();
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+
+    await waitFor(() => expect(sockets).toHaveLength(1));
+    await waitFor(() => expect(screen.getByText('기존 메시지')).toBeTruthy());
+    expect(document.querySelector('.chat-log').scrollTop).toBe(SCROLL_HEIGHT);
+  });
+
+  it('T3 채팅방을 나갔다가 다시 들어와도 최신 메시지 위치에서 시작한다', async () => {
+    stubScrollMetrics();
+    const sockets = openRoom();
+
+    const first = render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(screen.getByText('기존 메시지')).toBeTruthy());
+    first.unmount();
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+
+    await waitFor(() => expect(sockets.length).toBeGreaterThan(1));
+    await waitFor(() => expect(screen.getByText('기존 메시지')).toBeTruthy());
+    expect(document.querySelector('.chat-log').scrollTop).toBe(SCROLL_HEIGHT);
+  });
+
+  it('T4 맨 아래를 보고 있으면 새 메시지가 도착할 때 그 위치로 내려간다', async () => {
+    stubScrollMetrics();
+    const sockets = openRoom();
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(sockets).toHaveLength(1));
+    await waitFor(() => expect(screen.getByText('기존 메시지')).toBeTruthy());
+    const history = document.querySelector('.chat-log');
+    // 하단에 붙어 있는 상태를 사용자의 스크롤로 확정한다.
+    history.scrollTop = SCROLL_HEIGHT - CLIENT_HEIGHT;
+    fireEvent.scroll(history);
+
+    await arrive(sockets[0], '새로 온 메시지');
+
+    await waitFor(() => expect(screen.getByText('새로 온 메시지')).toBeTruthy());
+    expect(history.scrollTop).toBe(SCROLL_HEIGHT);
+  });
+
+  it('T5 이전 메시지를 읽는 중에는 새 메시지가 와도 읽던 위치를 유지한다', async () => {
+    stubScrollMetrics();
+    const sockets = openRoom();
+
+    render(<ChatRoomView roomId="7" dataVersion={0} />);
+    await waitFor(() => expect(sockets).toHaveLength(1));
+    await waitFor(() => expect(screen.getByText('기존 메시지')).toBeTruthy());
+    const history = document.querySelector('.chat-log');
+    history.scrollTop = 0;
+    fireEvent.scroll(history);
+
+    await arrive(sockets[0], '읽는 중 도착');
+
+    await waitFor(() => expect(screen.getByText('읽는 중 도착')).toBeTruthy());
+    expect(history.scrollTop).toBe(0);
+  });
+});
+
 describe('#427 T5~T6 모임 상세 채팅 진입', () => {
   const detailRoom = (roomType, status = 'RECRUITING') => ({
     id: 7,

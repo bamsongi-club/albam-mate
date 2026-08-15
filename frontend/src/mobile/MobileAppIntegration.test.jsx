@@ -82,6 +82,30 @@ describe('모바일 앱 셸', () => {
     await waitFor(() => expect(lastGameQuery(getGames).playedFilter).toBe('PLAYED_ONLY'));
   });
 
+  // #749 T7. #root가 고정돼 문서는 스크롤되지 않으므로 실제로 스크롤되는 본문이 초기화돼야 한다.
+  // 본문 요소가 살아남는 전환에서만 이전 위치가 남는다. 다른 전환은 요소가 다시 마운트돼 저절로 맨 위에서 시작한다.
+  it('#749 T7 본문 요소가 유지되는 화면 전환에서도 본문이 맨 위에서 시작한다', async () => {
+    stubHomeDependencies();
+    await renderApp('#/my/joined');
+    await waitFor(() => expect(screen.getByRole('button', { name: '개설한' })).toBeTruthy());
+
+    // jsdom은 레이아웃이 없어 scrollTop을 항상 0으로 돌려주므로 값을 직접 붙잡는다.
+    const body = document.querySelector('.screen-body');
+    let scrollTop = 0;
+    Object.defineProperty(body, 'scrollTop', {
+      configurable: true,
+      get: () => scrollTop,
+      set: (value) => { scrollTop = value; }
+    });
+    scrollTop = 240;
+
+    await act(async () => { window.location.hash = '#/my/hosted'; });
+    await waitFor(() => expect(screen.getByRole('button', { name: '개설한' }).getAttribute('aria-pressed')).toBe('true'));
+
+    expect(document.querySelector('.screen-body')).toBe(body);
+    expect(scrollTop).toBe(0);
+  });
+
   it('하위 화면에서는 하단 탭바를 감춘다', async () => {
     stubHomeDependencies();
     vi.spyOn(api, 'getGame').mockResolvedValue({ id: 7, name: '루미큐브', themes: [], mechanisms: [], categories: [] });

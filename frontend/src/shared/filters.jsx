@@ -164,7 +164,11 @@ export function FilterPanel({ title = '필터', chips = [], quickSlot, onReset, 
             <span className="sheet-handle" aria-hidden="true" />
             <div className="sheet-head">
               <h2>{title}</h2>
-              <button type="button" className="sheet-reset" onClick={onReset}>초기화</button>
+              {/* 바깥 영역을 눌러야 닫힌다는 것을 바로 알아차리지 못하므로 닫는 방법을 머리글에 드러낸다. */}
+              <div className="sheet-head-actions">
+                <button type="button" className="sheet-reset" onClick={onReset}>초기화</button>
+                <button type="button" className="sheet-reset" aria-label={title + ' 닫기'} onClick={() => setIsOpen(false)}>닫기</button>
+              </div>
             </div>
             <div className="filter-groups">{children}</div>
             <button type="button" className="btn cta sheet-cta" onClick={() => setIsOpen(false)}>{ctaLabel || '결과 보기'}</button>
