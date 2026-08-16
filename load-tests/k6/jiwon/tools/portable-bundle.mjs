@@ -20,6 +20,7 @@ import {
   createFixturePlan,
   evaluateFixture,
   hydrateFixture,
+  normalizeRoomSummary,
   normalizePrepareOwnership,
   RUN_ID_PATTERN,
 } from './fixture-model.mjs';
@@ -606,7 +607,12 @@ export function diagnoseBundle(values, context) {
     const beforeDiagnosis = readDiagnosis(bundle, ARTIFACTS.beforeDiagnosis, 'before');
     fixture.baselineSnapshot = beforeDiagnosis.baselineSnapshot;
   }
-  const summary = stage === 'after' ? readJson(artifactPath(bundle, ARTIFACTS.summary), 'k6 summary') : null;
+  let summary = null;
+  if (stage === 'after') {
+    const summaryPath = artifactPath(bundle, ARTIFACTS.summary);
+    summary = normalizeRoomSummary(readJson(summaryPath, 'k6 summary'));
+    writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`, 'utf8');
+  }
   const evaluation = evaluateFixture(fixture, snapshot, stage, summary);
   const result = {
     fixtureId: fixture.fixtureId,

@@ -21,6 +21,7 @@ import {
   createFixturePlan,
   evaluateFixture,
   hydrateFixture,
+  normalizeRoomSummary,
   normalizePrepareOwnership,
   RUN_ID_PATTERN,
 } from './fixture-model.mjs';
@@ -430,6 +431,15 @@ function readPrepareRecovery(rawPath) {
 
 function writeJson(filePath, value) {
   writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+}
+
+function normalizeSummaryFile(summaryPath) {
+  try {
+    const summary = JSON.parse(readFileSync(summaryPath, 'utf8'));
+    writeJson(summaryPath, normalizeRoomSummary(summary));
+  } catch (_) {
+    // 손상된 summary는 원본 artifact와 hash를 보존하고 after 검증에서 INVALID로 판정한다.
+  }
 }
 
 function writeNewJson(filePath, value) {
@@ -1077,6 +1087,7 @@ async function run(values) {
       manifest.k6Error = result.error.message;
     }
     if (existsSync(summaryPath)) {
+      normalizeSummaryFile(summaryPath);
       manifest.summarySha256 = sha256(summaryPath);
     }
     manifest.runState = k6Signal ? 'INTERRUPTED' : result.error ? 'FAILED_TO_START' : 'COMPLETED';

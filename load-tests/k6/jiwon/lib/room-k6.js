@@ -290,7 +290,7 @@ export function sessionFor(runtime, sessions, userKey) {
 export function readOptions(runtime) {
   const maxDuration = runtime.sessionWarmupSeconds + runtime.readDurationSeconds + 30;
   return {
-    summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'count'],
+    summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)', 'count'],
     scenarios: {
       room_read: {
         executor: 'per-vu-iterations',
@@ -354,8 +354,9 @@ export function targetForRound(fixture, round) {
 }
 
 function recordResponse(response, outcome, tags, label) {
-  const metricTags = { ...tags, outcome: outcome.category };
-  roomRequestDuration.add(response.timings.duration, metricTags);
+  const outcomeCategory = outcome.contract ? outcome.category : 'unexpected';
+  const metricTags = { ...tags, outcome: outcomeCategory };
+  roomRequestDuration.add(response.timings.duration, { outcome: outcomeCategory });
   roomRequests.add(1, metricTags);
 
   const isSuccessful = outcome.category === 'success' && outcome.contract;

@@ -9,6 +9,8 @@ import {
   createFixturePlan,
   evaluateFixture,
   hydrateFixture,
+  normalizeRoomSummary,
+  roomRequestDurationMetricName,
 } from '../tools/fixture-model.mjs';
 
 const PREPARE_OWNERSHIP = 'a'.repeat(32);
@@ -97,18 +99,125 @@ function summaryWith(counts = {}) {
   ];
   const metrics = {};
   metricNames.forEach((name) => {
-    metrics[name] = { values: { count: counts[name] || 0 } };
+    metrics[name] = { values: { count: counts[name] ?? 0 } };
   });
+
+  const requestCount = counts.room_requests ?? 0;
+  const successCount = counts.room_success ?? 0;
+  const businessCount = counts.room_business_failures ?? 0;
+  const concurrencyCount = counts.room_concurrent_failures ?? 0;
+  const unexpectedCount = counts.room_unexpected_outcome
+    ?? Math.max(0, requestCount - successCount - businessCount - concurrencyCount);
+  const outcomeCounts = {
+    success: successCount,
+    business: businessCount,
+    concurrency: concurrencyCount,
+    unexpected: unexpectedCount,
+  };
+  for (const [category, count] of Object.entries(outcomeCounts)) {
+    metrics[roomRequestDurationMetricName(category)] = {
+      values: {
+        p50: count > 0 ? 10 : null,
+        p95: count > 0 ? 20 : null,
+        p99: count > 0 ? 30 : null,
+        max: count > 0 ? 40 : null,
+        count,
+      },
+    };
+  }
   return { metrics };
 }
 
 function summaryWithTopLevelCounts(counts = {}) {
   const summary = summaryWith(counts);
   Object.entries(summary.metrics).forEach(([name, metric]) => {
+    if (name.startsWith('room_request_duration{outcome:')) {
+      return;
+    }
     summary.metrics[name] = { count: metric.values.count };
   });
   return summary;
 }
+
+test('outcome별 duration은 표본 유무와 관계없이 p50·p95·p99·max·count 구조를 유지한다', () => {
+  const successMetric = roomRequestDurationMetricName('success');
+  const concurrencyMetric = roomRequestDurationMetricName('concurrency');
+  const normalized = normalizeRoomSummary({
+    metrics: {
+      [successMetric]: {
+        type: 'trend',
+        contains: 'time',
+        values: { med: 12, 'p(95)': 18, 'p(99)': 20, max: 25, count: 2 },
+      },
+      [concurrencyMetric]: {
+        type: 'trend',
+        contains: 'time',
+        values: { med: 0, 'p(95)': 0, 'p(99)': 0, max: 0, count: 0 },
+      },
+    },
+  });
+
+  assert.deepEqual(normalized.metrics[successMetric].values, {
+    p50: 12,
+    p95: 18,
+    p99: 20,
+    max: 25,
+    count: 2,
+  });
+  for (const category of ['business', 'concurrency', 'unexpected']) {
+    assert.deepEqual(normalized.metrics[roomRequestDurationMetricName(category)].values, {
+      p50: null,
+      p95: null,
+      p99: null,
+      max: null,
+      count: 0,
+    });
+  }
+});
+
+test('T2 outcome별 count 합은 전체 room_requests와 일치해야 한다', () => {
+  const summary = summaryWith({
+    room_requests: 4,
+    room_success: 1,
+    room_business_failures: 1,
+    room_concurrent_failures: 1,
+    room_unexpected_outcome: 1,
+  });
+  const counts = ['success', 'business', 'concurrency', 'unexpected']
+    .map((category) => summary.metrics[roomRequestDurationMetricName(category)].values.count);
+
+  assert.equal(counts.reduce((total, count) => total + count, 0), summary.metrics.room_requests.values.count);
+});
+
+test('기존 응답 분류 counter와 outcome별 count가 다르면 사후 판정은 실패한다', () => {
+  const { fixture } = fixtureFor({
+    scenario: 't5',
+    runId: 'fixture-outcome-counter-mismatch',
+    t5Role: 'public',
+    t5Scale: 1,
+  });
+  const snapshot = initialSnapshot(fixture);
+  fixture.baselineSnapshot = structuredClone(snapshot);
+  const summary = summaryWith({ room_requests: 1, room_success: 1 });
+  summary.metrics[roomRequestDurationMetricName('success')].values = {
+    p50: null,
+    p95: null,
+    p99: null,
+    max: null,
+    count: 0,
+  };
+  summary.metrics[roomRequestDurationMetricName('unexpected')].values = {
+    p50: 10,
+    p95: 20,
+    p99: 30,
+    max: 40,
+    count: 1,
+  };
+
+  const result = evaluateFixture(fixture, snapshot, 'after', summary);
+  assert.equal(result.status, 'FAIL');
+  assert.match(result.failures.join('\n'), /success outcome count와 기존 counter/);
+});
 
 test('T1 hot stress fixture는 8명 취소·9명 FIFO 대기자를 round마다 분리한다', () => {
   const { plan, fixture } = fixtureFor({
