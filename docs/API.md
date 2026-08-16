@@ -2484,7 +2484,7 @@ WebSocket은 수신 전용이다. 클라이언트가 애플리케이션 메시�
 | Request Body / Idempotency-Key | 없음 / 없음 |
 | 성공 | `200 OK`, `data`: `{}` |
 
-`blockId`는 본인의 `MatchBlockListItem`에서 받은 차단 관계 ID다. 본인 소유 관계가 아니거나 이미 삭제된 관계는 다른 사용자의 차단 상태를 노출하지 않고 `FORBIDDEN`으로 처리한다. 이미 해제된 `DELETE`는 `200 OK`와 `{}`로 수렴한다.
+`blockId`는 본인의 `MatchBlockListItem`에서 받은 차단 관계 ID다. 서버는 현재 사용자가 소유한 일치 관계만 삭제한다. 일치 관계가 없으면 이미 해제됨·존재하지 않음·다른 사용자 소유를 구분하지 않고 모두 `200 OK`와 `{}`로 수렴하며, 다른 사용자의 차단 관계는 변경하지 않는다. 따라서 응답 유실 뒤 같은 `DELETE`를 반복해도 별도 해제 이력 없이 같은 목표 상태를 반환하고 다른 사용자의 차단 상태도 노출하지 않는다.
 
 ### MATCH-01 신고 접수
 
@@ -2675,7 +2675,7 @@ WebSocket은 수신 전용이다. 클라이언트가 애플리케이션 메시�
 | `DELETE /api/matches/parties/{partyId}/participants/me` | `UNAUTHENTICATED`, `MATCH_PARTY_NOT_FOUND`, `FORBIDDEN`, `MATCH_PARTY_LEAVE_NOT_AVAILABLE`, `CSRF_TOKEN_INVALID` |
 | `GET /api/matches/blocks` | `UNAUTHENTICATED`, `VALIDATION_ERROR` |
 | `PUT /api/matches/parties/{partyId}/participants/{participantRef}/block` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `MATCH_PARTY_NOT_FOUND`, `MATCH_PARTICIPANT_NOT_FOUND`, `FORBIDDEN`, `CSRF_TOKEN_INVALID` |
-| `DELETE /api/matches/blocks/{blockId}` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `FORBIDDEN`, `CSRF_TOKEN_INVALID` |
+| `DELETE /api/matches/blocks/{blockId}` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `CSRF_TOKEN_INVALID` |
 | `POST /api/matches/parties/{partyId}/reports` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `MATCH_PARTY_NOT_FOUND`, `MATCH_PARTICIPANT_NOT_FOUND`, `FORBIDDEN`, `CSRF_TOKEN_INVALID` |
 
 - `POST /api/matches/requests`의 `MATCH_REQUEST_ALREADY_ACTIVE`는 `WAITING`·`PROPOSED`·`PAUSED` 요청뿐 아니라 `PREPARING`·아직 명시적으로 나가지 않은 `ACTIVE` 성공 파티 접근 관계에도 적용한다. 사용자가 명시적으로 나갔거나 성공 파티가 실제 `CLOSED`가 된 뒤에는 그 관계만으로 새 요청을 거절하지 않는다.

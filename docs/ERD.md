@@ -785,8 +785,8 @@ erDiagram
 
 | 테이블 | 주요 컬럼 | 타입·제약 |
 |---|---|---|
-| MATCH_PROPOSALS | id, game_id, party_size, status, respond_by, confirmed_at, purge_after, created_at, updated_at | `id BIGINT PK`; `game_id BIGINT FK → GAMES.id`; 상태·기한은 NN, 확정·삭제 기준은 NULL 가능 |
-| MATCH_PROPOSAL_MEMBERS | proposal_id, match_request_id, user_id, response_status, responded_at, created_at, updated_at | `(proposal_id, match_request_id) BIGINT PK`; `proposal_id BIGINT FK → MATCH_PROPOSALS.id ON DELETE CASCADE`, `(match_request_id, user_id) FK → MATCH_REQUESTS(id, user_id) ON DELETE CASCADE`, `user_id`는 USERS FK, 응답 시각은 NULL 가능 |
+| MATCH_PROPOSALS | id, game_id, party_size, status, respond_by, confirmed_at, purge_after, created_at, updated_at | `id BIGINT PK`; `game_id BIGINT NN FK → GAMES.id`; `party_size SMALLINT NN`; `status VARCHAR(20) NN`; `respond_by TIMESTAMPTZ NN`; `confirmed_at`·`purge_after`는 TIMESTAMPTZ NULL; `created_at`·`updated_at`은 TIMESTAMPTZ NN |
+| MATCH_PROPOSAL_MEMBERS | proposal_id, match_request_id, user_id, response_status, responded_at, created_at, updated_at | `(proposal_id, match_request_id) BIGINT PK`; `proposal_id BIGINT NN FK → MATCH_PROPOSALS.id ON DELETE CASCADE`; `match_request_id BIGINT NN`; `user_id BIGINT NN FK → USERS.id`; `response_status VARCHAR(20) NN`; `responded_at TIMESTAMPTZ NULL`; `created_at`·`updated_at`은 TIMESTAMPTZ NN; `(match_request_id, user_id) FK → MATCH_REQUESTS(id, user_id) ON DELETE CASCADE` |
 
 ### MATCH_PARTIES와 MATCH_PARTY_PARTICIPANTS
 
@@ -794,8 +794,8 @@ erDiagram
 
 | 테이블 | 주요 컬럼 | 타입·제약 |
 |---|---|---|
-| MATCH_PARTIES | id, proposal_id, game_id, status, preparing_started_at, chat_opened_at, closes_at, closed_at, purge_after, created_at, updated_at | `id BIGINT PK`; `proposal_id BIGINT NULL FK → MATCH_PROPOSALS.id ON DELETE SET NULL`; 게임·상태·준비 시작 시각은 NN, 이후 lifecycle 시각은 NULL 가능 |
-| MATCH_PARTY_PARTICIPANTS | party_id, user_id, participant_ref, left_at, created_at | `(party_id, user_id) BIGINT PK`; `party_id BIGINT FK → MATCH_PARTIES.id ON DELETE CASCADE`, `user_id BIGINT FK → USERS.id`, `participant_ref UUID NN`, `UNIQUE (party_id, participant_ref)`, `left_at TIMESTAMPTZ NULL`. `participant_ref`는 해당 Party 안에서만 의미를 갖는 외부용 불투명 식별자이며, `left_at IS NULL`인 행만 현재 채팅 접근 관계다. 명시적 나가기 뒤에도 7일 보존을 위해 행은 남긴다. |
+| MATCH_PARTIES | id, proposal_id, game_id, status, preparing_started_at, chat_opened_at, closes_at, closed_at, purge_after, created_at, updated_at | `id BIGINT PK`; `proposal_id BIGINT NULL FK → MATCH_PROPOSALS.id ON DELETE SET NULL`; `game_id BIGINT NN FK → GAMES.id`; `status VARCHAR(20) NN`; `preparing_started_at TIMESTAMPTZ NN`; `chat_opened_at`·`closes_at`·`closed_at`·`purge_after`는 TIMESTAMPTZ NULL; `created_at`·`updated_at`은 TIMESTAMPTZ NN |
+| MATCH_PARTY_PARTICIPANTS | party_id, user_id, participant_ref, left_at, created_at | `(party_id, user_id) BIGINT PK`; `party_id BIGINT NN FK → MATCH_PARTIES.id ON DELETE CASCADE`; `user_id BIGINT NN FK → USERS.id`; `participant_ref UUID NN`; `left_at TIMESTAMPTZ NULL`; `created_at TIMESTAMPTZ NN`; `UNIQUE (party_id, participant_ref)`. `participant_ref`는 해당 Party 안에서만 의미를 갖는 외부용 불투명 식별자이며, `left_at IS NULL`인 행만 현재 채팅 접근 관계다. 명시적 나가기 뒤에도 7일 보존을 위해 행은 남긴다. |
 
 ### MATCH 전용 채팅 저장
 
@@ -803,16 +803,16 @@ erDiagram
 
 | 테이블 | 주요 컬럼 | 타입·제약 |
 |---|---|---|
-| MATCH_CHAT_ROOMS | id, party_id, created_at, updated_at | `id BIGINT PK`; `party_id BIGINT FK → MATCH_PARTIES.id ON DELETE RESTRICT`, NN. matching이 파티를 연쇄 삭제하지 않도록 chat 정리 후에만 파티를 삭제한다. |
-| MATCH_CHAT_MESSAGES | id, match_chat_room_id, sender_user_id, message_type, client_message_id, system_event_key, content, created_at | `id BIGINT PK`; `match_chat_room_id BIGINT FK → MATCH_CHAT_ROOMS.id ON DELETE CASCADE`, 유형·본문·시각은 NN. USER는 `sender_user_id`·`client_message_id`를, SYSTEM은 내부 `system_event_key`를 사용해 각각 재시도 중복을 막는다. |
+| MATCH_CHAT_ROOMS | id, party_id, created_at, updated_at | `id BIGINT PK`; `party_id BIGINT NN FK → MATCH_PARTIES.id ON DELETE RESTRICT`; `created_at`·`updated_at`은 TIMESTAMPTZ NN. matching이 파티를 연쇄 삭제하지 않도록 chat 정리 후에만 파티를 삭제한다. |
+| MATCH_CHAT_MESSAGES | id, match_chat_room_id, sender_user_id, message_type, client_message_id, system_event_key, content, created_at | `id BIGINT PK`; `match_chat_room_id BIGINT NN FK → MATCH_CHAT_ROOMS.id ON DELETE CASCADE`; `sender_user_id BIGINT NULL FK → USERS.id`; `message_type VARCHAR(20) NN`; `client_message_id`·`system_event_key`는 VARCHAR NULL; `content TEXT NN`; `created_at TIMESTAMPTZ NN`. USER는 `sender_user_id`·`client_message_id`를, SYSTEM은 내부 `system_event_key`를 사용해 각각 재시도 중복을 막는다. |
 
 ### MATCH_IDEMPOTENCY_RECORDS, MATCH_BLOCKS와 MATCH_REPORTS
 
 | 테이블 | 주요 컬럼 | 타입·제약 |
 |---|---|---|
-| MATCH_IDEMPOTENCY_RECORDS | id, user_id, idempotency_key, operation, payload_fingerprint, result_entity_type, result_entity_id, result_state, created_at, expires_at | `id BIGINT PK`; 사용자 FK, key·operation·fingerprint·만료 시각 NN. result 참조는 24시간 기록 보존을 위해 FK가 아닌 논리 메타데이터다. |
-| MATCH_BLOCKS | id, blocker_user_id, blocked_user_id, created_at | `id BIGINT PK`; blocker·blocked는 USERS FK이며 `(blocker_user_id, blocked_user_id)`는 UNIQUE |
-| MATCH_REPORTS | id, reporter_user_id, reported_user_id, reason, reported_at, purge_after | `id BIGINT PK`; 신고자·피신고자 USERS FK, `reason VARCHAR(30) NN`, 접수·삭제 기준 시각 NN |
+| MATCH_IDEMPOTENCY_RECORDS | id, user_id, idempotency_key, operation, payload_fingerprint, result_entity_type, result_entity_id, result_state, created_at, expires_at | `id BIGINT PK`; `user_id BIGINT NN FK → USERS.id`; `idempotency_key`·`operation`·`payload_fingerprint`은 VARCHAR NN; `result_entity_type`·`result_entity_id`·`result_state`는 현재 상태가 없을 수 있어 NULL 가능; `created_at`·`expires_at`은 TIMESTAMPTZ NN. result 참조는 24시간 기록 보존을 위해 FK가 아닌 논리 메타데이터다. |
+| MATCH_BLOCKS | id, blocker_user_id, blocked_user_id, created_at | `id BIGINT PK`; `blocker_user_id`·`blocked_user_id`는 BIGINT NN FK → USERS.id; `created_at TIMESTAMPTZ NN`; `(blocker_user_id, blocked_user_id)`는 UNIQUE |
+| MATCH_REPORTS | id, reporter_user_id, reported_user_id, reason, reported_at, purge_after | `id BIGINT PK`; `reporter_user_id`·`reported_user_id`는 BIGINT NN FK → USERS.id; `reason VARCHAR(30) NN`; `reported_at`·`purge_after`는 TIMESTAMPTZ NN |
 
 ### P2 MATCH 제약과 인덱스
 
@@ -825,7 +825,8 @@ erDiagram
 | MATCH_REQUESTS | `idx_match_requests_waiting_candidate`: `(game_id, priority_since ASC, id ASC) WHERE status = 'WAITING'` | 같은 게임 후보의 결정적 선점 순서 `prioritySince ASC, matchRequestId ASC`를 지원한다. |
 | MATCH_REQUESTS, MATCH_PROPOSALS, MATCH_PARTIES | 각 `purge_after`의 `(purge_after, id) WHERE purge_after IS NOT NULL` 인덱스 | 종료 원자료를 제한된 묶음으로 물리 삭제한다. |
 | MATCH_PROPOSALS | `ck_match_proposals_status`: `status IN ('OPEN', 'CONFIRMED', 'DECLINED', 'EXPIRED', 'CANCELED')` | 제안의 저장 상태를 고정한다. |
-| MATCH_PROPOSAL_MEMBERS | `UNIQUE (proposal_id, user_id)`, `ck_match_proposal_members_response_status`, `proposal_id FK ON DELETE CASCADE`, `(match_request_id, user_id) FK → MATCH_REQUESTS(id, user_id) ON DELETE CASCADE` | 한 제안에 같은 사용자를 중복으로 넣거나 요청 소유자와 다른 사용자를 Proposal Member로 저장하지 않는다. 제안 또는 요청의 종료 원자료를 각 `purge_after`에 물리 삭제할 때 남은 응답 관계가 삭제를 막지 않는다. |
+| MATCH_PROPOSALS | `ck_match_proposals_party_size`: `party_size > 0` | 실제 파티 인원이 없거나 음수인 제안을 저장하지 않는다. 게임 지원 인원·각 요청 범위와의 교집합은 제안 생성 트랜잭션에서 검증한다. |
+| MATCH_PROPOSAL_MEMBERS | `UNIQUE (proposal_id, user_id)`, `ck_match_proposal_members_response_status`: `response_status IN ('PENDING', 'ACCEPTED', 'REQUEUED', 'CANCELED', 'EXPIRED')`, `ck_match_proposal_members_response_lifecycle`: `PENDING`·`EXPIRED`는 `responded_at IS NULL`, `ACCEPTED`·`REQUEUED`·`CANCELED`는 `responded_at IS NOT NULL`; `proposal_id FK ON DELETE CASCADE`; `(match_request_id, user_id) FK → MATCH_REQUESTS(id, user_id) ON DELETE CASCADE` | 한 제안에 같은 사용자를 중복으로 넣거나 요청 소유자와 다른 사용자를 Proposal Member로 저장하지 않는다. 응답 전·기한 만료 상태와 사용자의 최초 유효 응답 시각을 구분한다. 제안 또는 요청의 종료 원자료를 각 `purge_after`에 물리 삭제할 때 남은 응답 관계가 삭제를 막지 않는다. |
 | MATCH_PARTIES | `UNIQUE (proposal_id) WHERE proposal_id IS NOT NULL`, `proposal_id FK ON DELETE SET NULL`, `ck_match_parties_status`, `idx_match_parties_preparing_due (preparing_started_at, id) WHERE status = 'PREPARING'`, `idx_match_parties_active_due (closes_at, id) WHERE status = 'ACTIVE'` | 하나의 제안이 연결돼 있는 동안 둘 이상의 성공 파티를 만들지 않으며 `PREPARING`·`ACTIVE`·`CLOSED`만 저장한다. 제안이 먼저 purge되어도 늦게 `CLOSED`된 파티의 7일 보존은 막지 않는다. recovery scan은 준비 기한뿐 아니라 `ACTIVE`의 `closesAt - 1시간` 알림과 `closesAt` 종료 due를 제한적으로 찾는다. |
 | MATCH_PARTIES | `ck_match_parties_lifecycle`: `PREPARING`은 `preparing_started_at` NN, `ACTIVE`는 `chat_opened_at`·`closes_at` NN, `CLOSED`는 `closed_at`·`purge_after` NN 및 `purge_after = closed_at + INTERVAL '7 days'` | 상태에 필요한 lifecycle 시각을 함께 저장한다. `ACTIVE` Party가 종료 기준 없이 due scan에서 빠지거나, `CLOSED` Party가 실제 종료·7일 purge 기준 없이 남는 것을 허용하지 않는다. |
 | MATCH_PARTY_PARTICIPANTS | `PRIMARY KEY (party_id, user_id)`, `UNIQUE (party_id, participant_ref)`, `idx_match_party_participants_current (party_id, user_id) WHERE left_at IS NULL` | 성공 파티의 같은 사용자 접근 관계와 Party-scoped participant reference는 한 번만 저장한다. `left_at IS NULL`만 현재 접근·마지막 사용자 판정에 포함하고, 나간 관계는 Party purge까지 보존한다. |

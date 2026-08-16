@@ -13,16 +13,22 @@ ADR-0063의 baseline gate는 하나의 latency 수치로 모든 MATCH 흐름을 
 | 항목 | 고정값 또는 필수 기록값 |
 | --- | --- |
 | 기준 SHA | 실행한 `git rev-parse HEAD` 값 |
-| fixture seed | `MATCH-01-CANDIDATE-BASELINE-V1` |
+| fixture generator | `MATCH-01-CANDIDATE-BASELINE-V1`. 아래 ordinal·시각 배정 규칙까지 같은 버전의 입력 계약이다 |
 | 요청 | 같은 `gameId`·Board Game Arena의 `WAITING` 요청 정확히 1,000건. `PREPARING`·`ACTIVE`·`CLOSED` Party와 열린 제안은 0건 |
 | 인원 범위 | 모든 요청은 `[2, 4]`; 게임도 `[2, 4]` 지원. 따라서 claim당 2명, 기대 가능한 candidate claim은 500개 proposal·1,000개 member 전이 |
-| 우선순위 | seed가 만든 순서대로 100개 동점 쌍과 서로 다른 `prioritySince`를 가진 800개 요청을 가진다. 모든 tie는 `requestId ASC`로 판정 가능해야 한다 |
+| 우선순위 | fixture ordinal `1..200`은 두 행씩 같은 `prioritySince`를 갖는 100개 동점 쌍, `201..1000`은 서로 다른 `prioritySince`를 갖는다. 모든 tie는 `requestId ASC`로 판정 가능해야 한다 |
 | 차단 | `MATCH_BLOCKS`는 0건. 차단 필터 정확성은 기능 통합 테스트에서 별도로 검증하며, 이 baseline에 숨은 선택도 변수를 넣지 않는다 |
 | matcher | 같은 애플리케이션 SHA·설정의 독립 matcher 프로세스 2개가 하나의 PostgreSQL DB를 공유한다. Redis business lock은 사용하지 않는다 |
 | 시작 | 두 matcher가 각각 500회의 claim 시도를 준비한 뒤 같은 barrier에서 시작한다. 총 계획 표본은 round당 1,000 claim 시도다 |
 | 배경 작업 | 후보 탐색과 무관한 scheduler·relay·retention 작업은 끄거나, 끌 수 없으면 이름·설정·실행 SQL을 결과에 기록한다 |
 
-fixture 생성·truncate·통계 초기화는 측정 구간 밖에서 끝낸다. 각 round는 fixture를 새로 만들므로 이전 round의 `PROPOSED`·제안·잠금 상태를 재사용하지 않는다. fixture manifest에는 1,000개의 `requestId`, `prioritySince`, `queuedAt`, 인원 범위와 기대 tie 순서를 보존한다.
+fixture 생성·truncate·통계 초기화는 측정 구간 밖에서 끝낸다. 각 round는 fixture를 새로 만들므로 이전 round의 `PROPOSED`·제안·잠금 상태를 재사용하지 않는다. fixture 입력은 다음 알고리즘으로 고정한다.
+
+1. 요청과 synthetic 사용자는 각각 fixture ordinal `1..1000`을 하나씩 가지며 요청 ordinal과 사용자 ordinal은 같다. 다른 MATCH 요청·제안·Party·차단 관계가 없는 초기 DB에서 ordinal 오름차순으로 한 트랜잭션에 삽입한다.
+2. 기준 시각은 `2026-01-01T00:00:00Z`다. ordinal `1..200`의 `queuedAt`·`prioritySince`는 모두 `기준 시각 + ceil(ordinal / 2)초`로 설정한다. 따라서 `(1, 2)`부터 `(199, 200)`까지 정확히 100개 동점 쌍이 생긴다.
+3. ordinal `201..1000`의 `queuedAt`·`prioritySince`는 모두 `기준 시각 + ordinal초`로 설정해 다른 요청·동점 쌍과 겹치지 않게 한다. 모든 행의 인원 범위는 `[2, 4]`다.
+4. DB 삽입 전에 `fixtureOrdinal,userFixtureOrdinal,queuedAt,prioritySince,minPartySize,maxPartySize` 열 순서와 ordinal 오름차순, UTF-8·LF·마지막 LF를 사용하는 CSV를 만든다. 이 바이트의 SHA-256을 `fixtureInputSha256`으로 기록하고 모든 warm-up·measured round에서 같은 값인지 먼저 검증한다.
+5. 삽입 뒤 materialized fixture manifest에는 위 입력 열과 실제 `userId`·`requestId`, 기대 tie 순서를 기록한다. 각 동점 쌍에서 낮은 ordinal의 `requestId`가 더 작아야 하며, 다르면 측정을 시작하지 않고 해당 round를 `INVALID`로 남긴다.
 
 ## round와 수집 방식
 
@@ -43,7 +49,7 @@ fixture 생성·truncate·통계 초기화는 측정 구간 밖에서 끝낸다.
 
 ## 원자료 보존과 재검토
 
-구현 뒤 각 실행 결과는 `docs/measurements/results/match-01/`에 버전 관리 JSON으로 보존한다. JSON은 기준 SHA·환경·fixture manifest·warm-up 여부·각 measured round의 1,000개 candidate claim transaction latency·retry·proposal 500개/멤버 1,000개/입력 request 1,000개 claim 결과 분포·tie 순서 검증·DB 통계·lock wait 설정과 원자료·정합성 검증 결과를 포함한다. 최종 응답·Party 확정·현재 상태 복구의 통합 검증 결과는 별도 artifact로 연결한다. 결과 변경은 Git canonical blob SHA-256도 함께 기록한다. 개선 전후 비교는 같은 fixture·topology·환경 profile로 한 실행 세션에서 만든 `BASELINE_ACCEPTED` 결과끼리만 수행하며, 다른 하드웨어·DB 설정 결과를 직접 순위화하지 않는다.
+구현 뒤 각 실행 결과는 `docs/measurements/results/match-01/`에 버전 관리 JSON으로 보존한다. JSON은 실행한 40자 Git commit SHA·환경·`fixtureInputSha256`·materialized fixture manifest·warm-up 여부·각 measured round의 1,000개 candidate claim transaction latency·retry·proposal 500개/멤버 1,000개/입력 request 1,000개 claim 결과 분포·tie 순서 검증·DB 통계·lock wait 설정과 원자료·정합성 검증 결과를 포함한다. 최종 응답·Party 확정·현재 상태 복구의 통합 검증 결과는 별도 artifact로 연결한다. 결과 artifact 자신의 SHA-256을 그 파일 안에 순환 기록하지 않으며, [ADR-0065](../adr/matching/0065-match-candidate-claim-baseline-scope.md)의 종합 gate manifest가 artifact별 저장 경로와 Git canonical blob SHA-256을 기록한다. 개선 전후 비교는 같은 fixture·topology·환경 profile로 한 실행 세션에서 만든 `BASELINE_ACCEPTED` 결과끼리만 수행하며, 다른 하드웨어·DB 설정 결과를 직접 순위화하지 않는다.
 
 다음 경우에 [ADR-0063](../adr/matching/0063-match-baseline-measurement-gate.md)의 재검토 절차를 연다.
 

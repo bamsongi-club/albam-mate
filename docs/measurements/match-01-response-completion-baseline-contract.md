@@ -12,15 +12,25 @@
 | --- | --- |
 | 기준 SHA | 실행한 `git rev-parse HEAD` 값 |
 | fixture seed | `MATCH-01-RESPONSE-COMPLETION-V1` |
-| 데이터 | 시나리오별로 동일 게임·Board Game Arena의 새 `OPEN` Proposal을 만들고, 후보 선점·`PREPARING` Party·`ACTIVE` Party·이전 응답 멱등성 기록은 0건으로 둔다. 비종결 `ACCEPT`는 Proposal 1,000개와 응답 대상 Member 1,000명, 마지막 `ACCEPT`는 Proposal 500개와 Member 1,000명, `REQUEUE`·`CANCEL`은 Proposal 1,000개와 응답 대상 Member 1,000명을 사용한다 |
+| 공통 Proposal 구성 | 같은 게임·Board Game Arena, 게임과 두 연결 요청의 인원 범위 `[2, 4]`, 실제 `party_size = 2`로 고정한다. 각 `OPEN` Proposal은 서로 다른 synthetic 사용자 요청 2개와 `PENDING` Member 2개를 정확히 가지며 두 요청은 `PROPOSED`, `responded_at`은 NULL이다 |
+| 데이터 | 비종결 `ACCEPT`·`REQUEUE`·`CANCEL`은 각각 Proposal 1,000개·Member/연결 요청 2,000개와 명령 대상 Member 1,000명을 사용한다. 마지막 `ACCEPT`는 Proposal 500개·Member/연결 요청 1,000개를 사용하고 두 Member 모두 명령 대상이다. 모든 fixture에서 후보 선점·`PREPARING`·`ACTIVE` Party와 이전 응답 멱등성 기록은 0건이다 |
 | 시나리오 | `ACCEPT` 비종결 응답, 마지막 `ACCEPT`에 의한 최종 확정, `REQUEUE`, `CANCEL`을 각각 독립 fixture로 실행한다 |
-| 동시성 | 비종결 `ACCEPT`는 각 Proposal에서 한 Member만 barrier로 최초 응답해 `PROPOSED`를 남긴다. 마지막 `ACCEPT`는 각 Proposal의 두 Member가 같은 barrier에서 최초 응답하며, 먼저 잠긴 Member는 비종결 `PROPOSED`, 나중에 잠긴 Member는 최종 `PREPARING` 확정을 반환한다. `REQUEUE`·`CANCEL`은 각 Proposal에서 한 Member가 barrier로 최초 응답한다. 동일 Member의 같은 명령 중복 경합은 별도 correctness-only fixture로 재현한다 |
+| 시각·동시성 | fixture 트랜잭션의 `transaction_timestamp()`을 `fixtureReferenceTime`으로 사용하고 모든 Proposal의 `created_at`과 `respond_by = fixtureReferenceTime + 30초`를 고정한다. barrier는 5초 안에 해제하며 모든 명령의 `operationTime < respondBy`를 검증한다. 비종결 `ACCEPT`·`REQUEUE`·`CANCEL`은 각 Proposal의 member ordinal 1만 명령하고, 마지막 `ACCEPT`는 두 Member가 같은 barrier에서 각각 최초 응답한다 |
 | 표본 | 각 시나리오·round의 latency 모집단은 정확히 1,000개의 최초 유효 명령이다. 마지막 `ACCEPT`는 500건의 정상 비종결 `PROPOSED`와 500건의 정상 최종 확정을 모두 포함하며 어느 응답도 패자·중복 응답으로 분류하지 않는다. correctness-only 중복 경합 명령은 latency p50/p95/p99 모집단에서 제외하고 최종 상태 assertion에만 포함한다 |
 | 배경 작업 | 응답 경로와 무관한 scheduler·relay·retention 작업은 끄거나, 끌 수 없으면 이름·설정·실행 SQL을 결과에 기록한다 |
 
-fixture 생성·truncate·통계 초기화는 측정 구간 밖에서 끝낸다. 각 시나리오와 round는 `OPEN` Proposal과 Member를 새로 만들며 이전 응답·Party·잠금 상태를 재사용하지 않는다. fixture manifest에는 Proposal ID, Member user ID의 비공개 내부 원자료와 기대하는 승자·최종 상태를 보존하되 결과 artifact에는 식별자를 원문으로 공개하지 않는다.
+시나리오별 fixture와 최종 상태 assertion은 다음으로 고정한다.
 
-correctness-only 중복 경합 fixture는 500개 Proposal에서 각 Member가 같은 action과 같은 `Idempotency-Key`를 동시에 두 번 전송하는 2,000개 명령으로 고정한다. 이 명령은 latency 표본에는 넣지 않고, 같은 결과의 단일 저장·중복 상태 전이 없음·최종 Party 1개 assertion만 판정한다.
+| 시나리오 | 명령 뒤 필수 상태 |
+| --- | --- |
+| 비종결 `ACCEPT` | Proposal `OPEN`; 대상 Member `ACCEPTED`·비대상 Member `PENDING`; 두 요청 `PROPOSED`; Party 0개 |
+| 마지막 `ACCEPT` | Proposal `CONFIRMED`; 두 Member `ACCEPTED`; 두 요청 `MATCHED`; Proposal당 `PREPARING` Party 1개와 참가자 접근 2개 |
+| `REQUEUE` | Proposal `DECLINED`; 대상 Member `REQUEUED`; 대상 요청은 새 `queuedAt`·`prioritySince`의 `WAITING`; 비대상 Member는 `PENDING`, 비대상 요청은 기존 `queuedAt`·`prioritySince`를 유지한 `WAITING`; Party 0개 |
+| `CANCEL` | Proposal `CANCELED`; 대상 Member `CANCELED`; 대상 요청 `CANCELED`; 비대상 Member는 `PENDING`, 비대상 요청은 기존 `queuedAt`·`prioritySince`를 유지한 `WAITING`; Party 0개 |
+
+fixture 생성·truncate·통계 초기화는 측정 구간 밖에서 끝낸다. 각 시나리오와 round는 위 전체 상태의 Proposal·Member·연결 요청을 새로 만들며 이전 응답·Party·잠금 상태를 재사용하지 않는다. DB 삽입 전 `scenario,proposalOrdinal,memberOrdinal,userFixtureOrdinal,minPartySize,maxPartySize,partySize,initialRequestStatus,initialResponseStatus,commandTarget` 열 순서와 Proposal·Member ordinal 오름차순, UTF-8·LF·마지막 LF를 사용하는 CSV를 만들고 SHA-256을 `fixtureInputSha256`으로 기록한다. materialized fixture manifest에는 이 입력과 실제 Proposal·Member·request ID, 기대 결과 집합을 보존하되 결과 artifact에는 사용자 식별자를 원문으로 공개하지 않는다.
+
+correctness-only 중복 경합은 네 시나리오 각각에 대해 같은 전체 fixture와 1,000개 논리 명령을 새로 만든 뒤, 각 논리 명령을 같은 action·body·`Idempotency-Key`로 동시에 두 번 보내는 2,000개 물리 요청으로 고정한다. latency 표본에는 넣지 않고, 키별 멱등성 기록 1개·논리 명령 한 번의 상태 전이·위 표의 최종 상태를 assertion한다. 마지막 `ACCEPT`에서만 Proposal당 Party 1개를 요구하며 나머지 세 시나리오는 Party 0개를 요구한다.
 
 ## round와 수집 방식
 
@@ -41,7 +51,7 @@ correctness-only 중복 경합 fixture는 500개 Proposal에서 각 Member가 �
 
 ## 원자료 보존과 재검토
 
-구현 뒤 결과는 `docs/measurements/results/match-01/response-completion/`에 시나리오·round별 JSON으로 보존한다. 결과에는 기준 SHA, 환경, fixture seed와 manifest digest, warm-up 여부, 각 measured round의 1,000개 비식별 latency raw sample과 action·결과 상태, retry·lock wait·DB 통계, 상태 assertion, 결과 판정과 원자료 SHA-256을 포함한다. 사용자 ID·닉네임·메시지 본문·멱등키 원문은 raw sample이나 metric label에 넣지 않는다. 개선 전후 비교는 같은 시나리오·fixture·topology·환경 profile의 `RESPONSE_BASELINE_ACCEPTED`끼리만 수행한다.
+구현 뒤 결과는 `docs/measurements/results/match-01/response-completion/`에 시나리오·round별 JSON으로 보존한다. 결과에는 실행한 40자 Git commit SHA, 환경, fixture seed·`fixtureInputSha256`·materialized manifest digest, warm-up 여부, 각 measured round의 1,000개 비식별 latency raw sample과 action·결과 상태, retry·lock wait·DB 통계, 상태 assertion, 결과 판정과 원자료 SHA-256을 포함한다. 사용자 ID·닉네임·메시지 본문·멱등키 원문은 raw sample이나 metric label에 넣지 않는다. 개선 전후 비교는 같은 시나리오·fixture·topology·환경 profile의 `RESPONSE_BASELINE_ACCEPTED`끼리만 수행한다.
 
 다음 경우 응답 경로의 쿼리·인덱스·트랜잭션 개선을 먼저 비교하고, 해결되지 않는 근거가 있으면 별도 ADR 재검토를 연다.
 

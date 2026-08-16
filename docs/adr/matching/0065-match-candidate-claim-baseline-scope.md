@@ -32,7 +32,8 @@ ADR-0063은 MATCH baseline에서 후보 선점 성능과 중복·부분 성공·
 
 - candidate claim p95·lock wait·retry·throughput의 원인을 최종 Party·복구 처리와 섞지 않는다.
 - 모든 MATCH 정합성 gate를 통과하지 않은 결과로 Redis business lock 도입 또는 운영 성능 통과를 주장할 수 없다.
-- baseline JSON은 candidate claim 분포와 tie 검증을 보관한다. baseline JSON과 `MATCH-01-T1`, `MATCH-01-T5`~`T7` 통합 검증 artifact는 동일한 Git canonical blob SHA-256을 각각 기록해야 하며, 하나라도 불일치하면 종합 gate를 `INVALID`로 판정한다. 서로 다른 기준 SHA의 결과를 연결하거나 `BASELINE_ACCEPTED`로 승격할 수 없다.
+- baseline JSON은 candidate claim 분포와 tie 검증을 보관하고, baseline JSON과 `MATCH-01-T1`, `MATCH-01-T5`~`T7` 통합 검증 artifact는 각각 실행한 40자 `measuredGitCommitSha`를 기록한다. 종합 gate는 `docs/measurements/results/match-01/gates/`의 별도 manifest 하나가 `measuredGitCommitSha`와 필수 증거 ID별 저장소 상대 경로·각 artifact의 `gitCanonicalBlobSha256`을 기록할 때만 평가한다.
+- `gitCanonicalBlobSha256`은 gate를 평가하는 커밋에서 상대 경로가 가리키는 Git blob의 원본 바이트(`git rev-parse HEAD:<path>`로 blob을 정하고 `git cat-file blob <blob>`으로 읽은 바이트)를 SHA-256으로 계산한 값이다. 서로 내용이 다른 artifact가 같은 SHA-256을 기록할 필요는 없다. 필수 증거가 없거나 중복되고, artifact 안의 `measuredGitCommitSha`가 manifest와 다르거나, 경로의 실제 blob SHA-256이 manifest 값과 다르면 종합 gate를 `INVALID`로 판정한다. 결과 artifact가 자기 SHA-256을 자기 내용 안에 기록하지 않아 순환 해시를 만들지 않는다.
 
 ## 적용·호환·rollback
 
