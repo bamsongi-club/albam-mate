@@ -2,7 +2,8 @@
 
 | 항목 | 값 |
 | --- | --- |
-| Campaign 상태 정본 | [campaign 상태 인덱스](README.md) |
+| 문서 상태 | [`superseded`](README.md) |
+| Campaign 상태 | [`completed-with-limitations`](README.md) |
 | 기록 분류 | `invalid-measurement-campaign` — 성능 기준선·용량 판단에서 제외 |
 | 실행 경로 | ROOM portable bundle → `run.sh room-k6` |
 | 시간 범위 | UTC 2026-08-14 13:58:28–14:33:37 / KST 2026-08-14 22:58:28–23:33:37 |

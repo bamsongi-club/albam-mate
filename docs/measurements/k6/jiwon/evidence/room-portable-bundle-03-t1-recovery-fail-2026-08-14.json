@@ -2,12 +2,18 @@
   "schema": "k6-campaign-manifest-v3",
   "kind": "room-portable-bundle",
   "campaignId": "room-k6-t1-recovery-smoke-2026-08-14",
+  "campaignStatus": "completed-with-limitations",
   "campaignOutcome": "failed-and-recovered",
+  "documentStatus": "superseded",
   "reportStatus": "FAIL",
   "purpose": "snapshot SQL 수정 뒤 T1 hot concurrency 2 smoke의 실패 원인을 확인하고, 세션 격리 수정 후 새 bundle의 recovery smoke로 원인 가설을 검증한다. 두 Run은 서로 다른 source revision이므로 성능 기준선에는 사용하지 않는다.",
   "documents": {
     "ownerIndex": "../README.md",
     "report": "../room-portable-bundle-03-t1-recovery-fail-2026-08-14.md"
+  },
+  "lineage": {
+    "campaignSequence": 3,
+    "successorCampaign": "room-k6-final-clean-2026-08-15"
   },
   "executionPath": {
     "included": "ROOM portable bundle -> infra run.sh room-k6",
@@ -130,6 +136,11 @@
         "k6SummarySha256": "4f892da84fb1938e982a38ede256ad41fcf1bca84afe2ae229b82e5908458fd0"
       }
     }
+  ],
+  "knownLimitations": [
+    "단일 T1 조건만 다뤘고 공식 25개 매트릭스를 실행하지 않았다.",
+    "서로 다른 source revision의 두 Run을 지연시간 또는 RPS 개선 비교에 사용하지 않는다.",
+    "local-only artifact digests prove later local modification only; this Git repository cannot independently reconstruct the raw bundle."
   ],
   "teardown": {
     "status": "not-run",

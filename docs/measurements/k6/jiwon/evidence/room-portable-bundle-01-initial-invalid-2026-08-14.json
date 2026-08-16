@@ -2,11 +2,17 @@
   "schema": "k6-campaign-manifest-v3",
   "kind": "room-portable-bundle",
   "campaignId": "room-k6-matrix-2026-08-14",
+  "campaignStatus": "completed-with-limitations",
+  "documentStatus": "superseded",
   "reportStatus": "INVALID",
   "purpose": "공식 ROOM 25개 조합의 portable bundle 실행 가능 여부를 확인한다. 이 campaign은 fixture prepare 단계 결함으로 성능 기준선에는 사용하지 않는다.",
   "documents": {
     "ownerIndex": "../README.md",
     "report": "../room-portable-bundle-01-initial-invalid-2026-08-14.md"
+  },
+  "lineage": {
+    "campaignSequence": 1,
+    "successorCampaign": "room-k6-snapshot-rerun-2026-08-14"
   },
   "executionPath": {
     "included": "ROOM portable bundle -> infra run.sh room-k6",
@@ -348,6 +354,11 @@
       "metrics": { "available": false, "reason": "prepare failed before k6" },
       "artifactDigests": { "portableBundleManifestSha256": "36b7d1162582743b216d933fbe9c4bcb2fb3406db89aa422d2de9650dc1c9940", "finalResultSha256": "6ad7487801aeab7eba89513b923bdc4c552dd81cd311d0dc8039c598bac409e6" }
     }
+  ],
+  "knownLimitations": [
+    "k6, HTTP latency, RPS, HTTP error rate, and after diagnosis were not collected because every Run stopped in prepare.",
+    "T5 comparison FAIL is a consequence of zero valid fixtures, not a performance comparison result.",
+    "local-only artifact digests prove later local modification only; this Git repository cannot independently reconstruct the raw bundle."
   ],
   "teardown": {
     "status": "completed",

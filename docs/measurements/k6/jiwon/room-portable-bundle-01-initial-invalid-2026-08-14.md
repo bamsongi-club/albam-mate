@@ -2,8 +2,9 @@
 
 | 항목 | 값 |
 | --- | --- |
+| 문서 상태 | [`superseded`](README.md) |
 | Campaign | `room-k6-matrix-2026-08-14` |
-| Campaign 상태 정본 | [campaign 상태 인덱스](README.md) |
+| Campaign 상태 | [`completed-with-limitations`](README.md) |
 | 기록 분류 | `invalid-measurement-campaign` — 성능 기준선·용량 판단에서 제외 |
 | 실행 경로 | ROOM portable bundle → `run.sh room-k6` |
 | 제외한 경로 | generic `loadtest` |

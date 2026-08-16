@@ -2,12 +2,18 @@
   "schema": "k6-campaign-manifest-v3",
   "kind": "room-portable-bundle",
   "campaignId": "room-k6-local-gate-2026-08-15",
+  "campaignStatus": "completed-with-limitations",
   "campaignOutcome": "incomplete",
+  "documentStatus": "superseded",
   "reportStatus": "INVALID",
   "purpose": "official ROOM matrix를 새 source에서 다시 시작하되, clean-source render gate가 remote handoff 전에 untracked 변경을 차단하는지와 중단된 campaign의 원자료 경계를 기록한다.",
   "documents": {
     "ownerIndex": "../README.md",
     "report": "../room-portable-bundle-04-local-gate-invalid-2026-08-15.md"
+  },
+  "lineage": {
+    "campaignSequence": 4,
+    "successorCampaign": "room-k6-final-clean-2026-08-15"
   },
   "executionPath": {
     "included": "ROOM portable bundle -> infra run.sh room-k6",
@@ -213,6 +219,11 @@
       "remoteArtifactAvailable": false,
       "reason": "clean-source gate blocked bundle render before remote handoff; no raw artifact digest exists."
     }
+  ],
+  "knownLimitations": [
+    "remote artifact가 없는 local-render-gate attempt에는 시간, phase exit, metric, source/application alignment, artifact digest를 만들지 않았다.",
+    "official 25개 중 12개는 이 campaign에서 시도하지 않았다.",
+    "local-only artifact digests prove later local modification only; this Git repository cannot independently reconstruct the raw bundle."
   ],
   "teardown": {
     "status": "not-run",

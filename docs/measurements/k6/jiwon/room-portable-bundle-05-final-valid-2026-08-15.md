@@ -2,7 +2,8 @@
 
 | 항목 | 값 |
 | --- | --- |
-| Campaign 상태 정본 | [campaign 상태 인덱스](README.md) |
+| 문서 상태 | [`current`](README.md) |
+| Campaign 상태 | [`completed-with-limitations`](README.md) |
 | Run 판정 | 25/25 `PASS` |
 | 실행 경로 | ROOM portable bundle → `run.sh room-k6` |
 | 제외한 경로 | generic `loadtest` |

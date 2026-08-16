@@ -2,7 +2,8 @@
 
 | 항목 | 값 |
 | --- | --- |
-| Campaign 상태 정본 | [campaign 상태 인덱스](README.md) |
+| 문서 상태 | [`superseded`](README.md) |
+| Campaign 상태 | [`completed-with-limitations`](README.md) |
 | 기록 분류 | `invalid-measurement-campaign` — 원인은 확인했지만 성능 기준선에서는 제외 |
 | 실행 경로 | ROOM portable bundle → `run.sh room-k6` |
 | 조건 | T1 / stress / hot / concurrency 2 |
