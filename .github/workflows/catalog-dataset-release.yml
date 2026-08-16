@@ -1,0 +1,42 @@
+name: Catalog Dataset Release
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - "scripts/game-catalog/catalog-dataset-release-manifest.mjs"
+      - "scripts/game-catalog/catalog-dataset-release-manifest.test.mjs"
+      - "scripts/game-catalog/measure-catalog-dataset-release.mjs"
+      - "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md"
+      - ".github/workflows/catalog-dataset-release.yml"
+  push:
+    branches: [develop, main]
+    paths:
+      - "scripts/game-catalog/catalog-dataset-release-manifest.mjs"
+      - "scripts/game-catalog/catalog-dataset-release-manifest.test.mjs"
+      - "scripts/game-catalog/measure-catalog-dataset-release.mjs"
+      - "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md"
+      - ".github/workflows/catalog-dataset-release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate catalog dataset release gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Test catalog dataset release manifest
+        run: node --test scripts/game-catalog/catalog-dataset-release-manifest.test.mjs
+
+      - name: Check release scripts syntax
+        run: |
+          node --check scripts/game-catalog/catalog-dataset-release-manifest.mjs
+          node --check scripts/game-catalog/measure-catalog-dataset-release.mjs
