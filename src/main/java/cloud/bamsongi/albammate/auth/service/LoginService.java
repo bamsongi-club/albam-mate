@@ -3,17 +3,14 @@ package cloud.bamsongi.albammate.auth.service;
 import java.util.Objects;
 import java.util.Optional;
 
-import org.springframework.lang.Nullable;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import cloud.bamsongi.albammate.auth.exception.InvalidCredentialsException;
 import cloud.bamsongi.albammate.global.config.PasswordSecurityProperties;
-import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
 import cloud.bamsongi.albammate.global.security.password.PasswordHashExecutor;
 import cloud.bamsongi.albammate.global.security.ratelimit.AuthenticationRequestLimiter;
-import cloud.bamsongi.albammate.measurement.AuthNotificationMeasurementRecorder;
 import cloud.bamsongi.albammate.user.contract.UserAccount;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
 import cloud.bamsongi.albammate.user.contract.UserCredentials;
@@ -30,21 +27,18 @@ public class LoginService {
 	private final PasswordEncoder passwordEncoder;
 	private final PasswordHashExecutor passwordHashExecutor;
 	private final String dummyPasswordHash;
-	private final AuthNotificationMeasurementRecorder measurementRecorder;
 
 	public LoginService(
 		AuthenticationRequestLimiter requestLimiter,
 		UserAccountService userAccountService,
 		PasswordEncoder passwordEncoder,
 		PasswordHashExecutor passwordHashExecutor,
-		PasswordSecurityProperties properties,
-		@Nullable AuthNotificationMeasurementRecorder measurementRecorder) {
+		PasswordSecurityProperties properties) {
 		this.requestLimiter = Objects.requireNonNull(requestLimiter, "requestLimiter");
 		this.userAccountService = Objects.requireNonNull(userAccountService, "userAccountService");
 		this.passwordEncoder = Objects.requireNonNull(passwordEncoder, "passwordEncoder");
 		this.passwordHashExecutor = Objects.requireNonNull(passwordHashExecutor, "passwordHashExecutor");
 		this.dummyPasswordHash = createDummyPasswordHash(properties);
-		this.measurementRecorder = measurementRecorder;
 	}
 
 	/**
@@ -64,54 +58,35 @@ public class LoginService {
 	 */
 	public UserAccount login(LoginCommand command, String remoteIp) {
 		String normalizedEmail = command.email().value();
-		try {
-			measure("request-limit", () -> requestLimiter.requireLoginAllowed(remoteIp));
-		} catch (RuntimeException exception) {
-			recordRejection(exception, "ip-limit");
-			throw exception;
-		}
+		requestLimiter.requireLoginAllowed(remoteIp);
 		cloud.bamsongi.albammate.global.security.ratelimit.LoginVerificationPermit permit;
-		try {
-			permit = measure("verification-gate",
-				() -> requestLimiter.requireLoginVerification(normalizedEmail, remoteIp));
-		} catch (RuntimeException exception) {
-			recordRejection(exception, "verification-gate");
-			throw exception;
-		}
+		permit = requestLimiter.requireLoginVerification(normalizedEmail, remoteIp);
 		try (permit) {
-			try {
-				measure("failure-limit", () -> requestLimiter.requireLoginFailureAllowed(normalizedEmail, remoteIp));
-			} catch (RuntimeException exception) {
-				recordRejection(exception, "failure-limit");
-				throw exception;
-			}
+			requestLimiter.requireLoginFailureAllowed(normalizedEmail, remoteIp);
 			return passwordHashExecutor.execute(() -> verifyCredentials(command, remoteIp));
 		}
 	}
 
 	private UserAccount verifyCredentials(LoginCommand command, String remoteIp) {
 		String normalizedEmail = command.email().value();
-		Optional<UserCredentials> credentials = measure("user-lookup",
-			() -> userAccountService.findCredentialsByEmail(command.email()));
+		Optional<UserCredentials> credentials = userAccountService.findCredentialsByEmail(command.email());
 		String storedHash = credentials.map(UserCredentials::passwordHash).orElse(dummyPasswordHash);
 
 		// 계정이 없어도 더미 해시로 bcrypt를 돌린 뒤 계정 유무를 AND한다. 순서를 바꿔 계정 유무를 먼저 보면
 		// 해시를 건너뛰어 응답 시간 차이로 계정 존재 여부가 드러난다.
-		boolean matches = measure("bcrypt-verify", () -> passwordEncoder.matches(command.password(), storedHash));
+		boolean matches = passwordEncoder.matches(command.password(), storedHash);
 		boolean credentialsVerified = matches && credentials.isPresent();
 		if (!credentialsVerified) {
-			measure("failure-record",
-				() -> requestLimiter.recordLoginFailure(normalizedEmail, remoteIp).throwIfRejected());
+			requestLimiter.recordLoginFailure(normalizedEmail, remoteIp).throwIfRejected();
 			throw new InvalidCredentialsException();
 		}
 
 		UserCredentials authenticated = credentials.orElseThrow();
-		if (measure("bcrypt-upgrade-check", () -> passwordEncoder.upgradeEncoding(storedHash))) {
-			String upgradedHash = measure("bcrypt-upgrade-encode", () -> passwordEncoder.encode(command.password()));
-			measure("password-hash-update",
-				() -> userAccountService.updatePasswordHash(authenticated.id(), upgradedHash));
+		if (passwordEncoder.upgradeEncoding(storedHash)) {
+			String upgradedHash = passwordEncoder.encode(command.password());
+			userAccountService.updatePasswordHash(authenticated.id(), upgradedHash);
 		}
-		measure("failure-reset", () -> requestLimiter.resetLoginFailures(normalizedEmail, remoteIp));
+		requestLimiter.resetLoginFailures(normalizedEmail, remoteIp);
 		return UserAccount.from(authenticated);
 	}
 
@@ -121,22 +96,4 @@ public class LoginService {
 		return "{bcrypt}" + bcrypt.encode(DUMMY_PASSWORD);
 	}
 
-	private <T> T measure(String stage, java.util.function.Supplier<T> work) {
-		return measurementRecorder == null ? work.get() : measurementRecorder.authStage(stage, work);
-	}
-
-	private void measure(String stage, Runnable work) {
-		if (measurementRecorder == null) {
-			work.run();
-		} else {
-			measurementRecorder.authStage(stage, work);
-		}
-	}
-
-	private void recordRejection(RuntimeException exception, String rateLimitSource) {
-		if (measurementRecorder != null) {
-			measurementRecorder.authRejection(
-				exception instanceof RateLimitExceededException ? rateLimitSource : "redis-unavailable");
-		}
-	}
 }
