@@ -1,33 +1,32 @@
 # [01/05] ROOM portable bundle 초기 매트릭스 — INVALID (2026-08-14)
 
-| 항목 | 값 |
-| --- | --- |
-| 문서 상태 | [`superseded`](README.md) |
-| Campaign | `room-k6-matrix-2026-08-14` |
-| Campaign 상태 | [`completed-with-limitations`](README.md) |
-| 기록 분류 | `invalid-measurement-campaign` — 성능 기준선·용량 판단에서 제외 |
-| 실행 경로 | ROOM portable bundle → `run.sh room-k6` |
-| 제외한 경로 | generic `loadtest` |
-| 측정 대상 release | bundle source와 배포 release가 일치하는 clean app checkout |
-| 시간대 | 원격 실행 artifact의 UTC와 같은 시각의 KST(UTC+09:00) |
-| 근거 식별자 | [비식별 canonical campaign manifest](evidence/room-portable-bundle-01-initial-invalid-2026-08-14.json) |
-| 원시 산출물 | 로컬 `build/k6/room/`만 보존; 비밀값·실환경 URL·실제 fixture/resource 식별자는 이 문서에 기록하지 않음 |
-
 ## 결론
 
 공식 25개 조합을 모두 실행했고, 각 실행은 fixture 준비 단계에서 `INVALID`가 되었다. 따라서 k6 부하 생성, HTTP 지연시간, RPS, 오류율, DB 사후 진단은 시작되지 않았고 성능 수치를 보고할 수 없다. 25개 Run은 모두 성능 경계 계산에서 제외한다.
 
-공통 원인은 **실행 당시** fixture SQL의 `users` INSERT 열 수와 VALUES 표현식 수가 맞지 않았던 것이다. 생성기는 `email`, `password_hash`, `nickname` 세 값만 만들지만 INSERT 대상에는 `created_at`, `updated_at`도 포함했다. PostgreSQL은 `INSERT has more target columns than expressions`로 거절했고, `prepare` phase exit code는 모두 `3`이었다. 이 기록은 실행 원시 산출물의 오류와 당시 bundle source에 관한 것이며, 이후 source 수정으로 과거 Run의 판정이 바뀌지는 않는다.
+- Campaign ID: `room-k6-matrix-2026-08-14`
+- 캠페인 종료 상태: [`completed-with-limitations`](README.md)
+- 측정 증거 판정: `INVALID`
+- 문서 상태: [`superseded`](README.md)
+- 기록 분류: `invalid-measurement-campaign` — 성능 기준선·용량 판단에서 제외
+- 문서 인덱스: [Jiwon k6 측정 문서](README.md)
+- 근거 식별자: [campaign manifest](evidence/room-portable-bundle-01-initial-invalid-2026-08-14.json)
+- 대체 관계: 02 snapshot 재실행 전 오류 이력
 
-## 실행 전제와 경계
+공통 원인은 실행 당시 fixture SQL의 `users` INSERT 열 수와 VALUES 표현식 수가 맞지 않아 `prepare=3`으로 종료된 것이다. 이 결과는 준비 단계 결함을 재현한 유효한 오류 기록이지만 성능 측정 결과는 아니다.
 
-- bundle 생성 checkout은 clean 상태였고 bundle source와 배포 release의 정렬 gate를 통과했다.
-- 전용 P1 스택에 대해 실행했으며, 결과 회수 직후 teardown을 수행한다.
-- Windows/Git Bash 환경에서 runner가 portable bundle을 전달할 수 있게 한 로컬 호환성 보정은 infra working tree에만 남아 있으며, 이 보고서 작성이나 앱 release에는 포함하지 않았다.
-- 비밀번호·credential-derived hash·토큰·세션·CSRF·URL·실제 fixture/resource 식별자는 문서와 표에서 제외했다. source/artifact 무결성 식별값은 linked manifest에만 보존한다.
-- linked manifest의 local-only artifact digest는 이후 로컬 원자료의 변경 여부만 확인하며, 이 Git 저장소만으로 원자료 bundle 내용을 독립 재구성할 수는 없다.
+## 측정 조건
 
-## Run 결과
+| 항목 | 고정 값 |
+| --- | --- |
+| 실행 구간 | UTC 2026-08-14 12:21:08~12:42:27 / KST 2026-08-14 21:21:08~21:42:27 |
+| source / 배포 release | `3c21c1e69a214d6033e341c04cc111ef81e90c06` / 동일 revision, 정렬 gate 통과 |
+| 실행 범위 | T1 6개·T2 7개·T3 3개·T4 3개·T5 6개, 총 25개를 각각 한 번 실행 |
+| runner | ROOM portable bundle → infra `run.sh room-k6`; generic `loadtest` 제외 |
+| 실행 환경 | clean app checkout, 전용 P1 stack, Windows/Git Bash 전달 경로 |
+| 원자료 | 로컬 `build/k6/room/`만 보존; 비밀값·실환경 URL·실제 fixture/resource 식별자는 Git에 기록하지 않음 |
+
+## 실행 이력과 판정
 
 모든 시각은 원격 실행 artifact 기준이다. `prepare=3`은 PostgreSQL이 fixture SQL을 거절한 exit code다.
 
@@ -61,19 +60,32 @@
 
 T5 비교 gate도 2026-08-14 12:42:27 UTC (21:42:27 KST)에 실행했다. 유효한 여섯 fixture가 하나도 없어 `FAIL`로 종료했으며, 이는 성능 실패가 아니라 위 준비 단계 오류의 후속 결과다.
 
-## 해석과 다음 측정 조건
+## 원인과 후속 수정
 
-- 이번 실행은 모든 공식 조합의 동일한 준비 결함을 증명했지만, 어떤 조합의 성능도 측정하지 못했다.
-- 수정 후에는 새 source/release 정렬을 만들고, clean checkout에서 새 bundle을 생성해 별도 campaign으로 25개 매트릭스를 다시 실행해야 한다. 이 문서는 그 재측정의 before 근거로 남긴다.
-- 재측정 전 최소 gate는 `prepare` 성공, before/after diagnosis 존재, k6 summary 존재, T5 여섯 fixture와 compare gate 통과다.
-
-## 후속 수정
+실행 당시 fixture SQL의 `users` INSERT 열 수와 VALUES 표현식 수가 맞지 않았다. 생성기는 `email`, `password_hash`, `nickname` 세 값만 만들지만 INSERT 대상에는 `created_at`, `updated_at`도 포함했다. PostgreSQL은 `INSERT has more target columns than expressions`로 거절했고, 25개 Run의 `prepare` phase exit code가 모두 `3`이었다.
 
 - `users` fixture 행마다 `created_at`, `updated_at`에 `clock_timestamp()`를 넣도록 SQL 생성기를 수정했다.
 - 생성된 users SQL에 user 수만큼 timestamp 쌍이 있는지 확인하는 회귀 테스트를 추가했다.
 - 이 수정은 과거 25개 Run을 유효한 성능 결과로 바꾸지 않는다. 새 release와 clean checkout 정렬, 별도 campaign 재실행이 필요하며 이번 수정 후 AWS 재실행은 하지 않았다.
 
-## 결과 처리
+## 해석과 한계
+
+- 이번 실행은 모든 공식 조합의 동일한 준비 결함을 증명했지만, 어떤 조합의 성능도 측정하지 못했다.
+- Windows/Git Bash 전달을 위한 로컬 infra 호환성 보정은 당시 infra working tree에만 있었고 이 보고서의 app release에는 포함되지 않았다.
+- manifest의 local-only artifact digest는 이후 로컬 원자료의 변경 여부만 확인하며, 이 Git 저장소만으로 원자료 bundle을 독립 재구성할 수는 없다.
+
+## 다음 측정 조건
+
+- 새 source/release 정렬을 만들고 clean checkout에서 새 bundle을 생성해 25개 매트릭스를 별도 campaign으로 다시 실행한다.
+- 재측정 전 최소 gate는 `prepare` 성공, before/after diagnosis 존재, k6 summary 존재, T5 여섯 fixture와 comparison 통과다.
+
+## 재현
+
+현재 실행 절차는 [ROOM k6 실행](../../../../load-tests/k6/jiwon/README.md#실행)과 [Terraform 원격 실행 bundle](../../../../load-tests/k6/jiwon/README.md#terraform-원격-실행-bundle)을 따른다. 이 문서는 수정 전 source의 오류 이력이므로 현재 source에서 동일 실패를 재현하는 명령을 별도로 제공하지 않는다.
+
+## 원자료와 teardown
+
+Run ledger와 artifact 무결성 식별값은 [campaign manifest](evidence/room-portable-bundle-01-initial-invalid-2026-08-14.json)에 있다. 원시 bundle과 실행 산출물은 로컬 `build/k6/room/`에만 보존한다.
 
 P1 teardown은 이 보고서 작성 직후 완료했다. 최종 검증 시각은 2026-08-14 12:56:30 UTC (2026-08-14 21:56:30 KST)다.
 

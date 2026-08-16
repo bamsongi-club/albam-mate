@@ -1,27 +1,40 @@
 # [05/05] ROOM portable bundle 최종 유효 매트릭스 — PASS (2026-08-15)
 
-| 항목 | 값 |
-| --- | --- |
-| 문서 상태 | [`current`](README.md) |
-| Campaign 상태 | [`completed-with-limitations`](README.md) |
-| Run 판정 | 25/25 `PASS` |
-| 실행 경로 | ROOM portable bundle → `run.sh room-k6` |
-| 제외한 경로 | generic `loadtest` |
-| 측정 전제 | clean app checkout, bundle source와 배포 release 정렬, Terraform plan 무변경 |
-| 전체 시간 범위 | UTC 2026-08-14 15:39:20–17:01:09 / KST 2026-08-15 00:39:20–02:01:09 |
-| 유효성 gate | final result `PASS` 25/25, 모든 remote phase `0`, T5 comparison `PASS` 6/6 |
-| 비밀정보 경계 | 비밀번호·credential-derived hash·토큰·세션·CSRF·URL·실제 fixture/resource ID·원시 SQL·로그는 기록하지 않음 |
-| 이 문서가 답하는 질문 | 정렬된 release·전용 환경·고정 fixture의 공식 25개 조합에서 ROOM HTTP/DB correctness 회귀가 관찰되는가 |
-| 이 문서가 답하지 않는 질문 | 낙관락/비관락 선택, 재시도 정책의 충분성, 성능 SLO·최대 용량, 병목의 근본 원인 |
-| 근거 식별자 | [canonical campaign manifest](evidence/room-portable-bundle-final-valid-2026-08-15.json) — source/artifact 무결성 식별값, 명시적 Run ledger, 실행 수치·gate를 보존 |
+## 결론
 
-## 1. 테스트 목적
+공식 matrix 25개가 모두 `PASS`했으므로, 이 release·전용 환경·고정 fixture 조건에서는 T1~T5의 HTTP 응답 계약과 사후 DB 불변식 회귀를 발견하지 못했다. 이 문서는 이후 변경 전후에 같은 correctness 조건을 대조할 현재 기준선이다.
+
+- Campaign ID: `room-k6-final-clean-2026-08-15`
+- 캠페인 종료 상태: [`completed-with-limitations`](README.md)
+- 측정 증거 판정: 25/25 `PASS`, T5 comparison 6/6 `PASS`
+- 문서 상태: [`current`](README.md)
+- 문서 인덱스: [Jiwon k6 측정 문서](README.md)
+- 근거 식별자: [campaign manifest](evidence/room-portable-bundle-final-valid-2026-08-15.json)
+- 대체 관계: 01~04 실패·중단 이력을 성능 기준선에서 제외하고 현재 correctness 기준선으로 사용
+
+- 모든 Run의 prepare, resource query, before snapshot, k6, after snapshot phase가 `0`이었다.
+- 예상 밖 4xx, server failure, contract failure는 모든 Run에서 0건이었다.
+- p50·p95·RPS는 조건별 단일 관찰값이며 p99를 수집하지 않았으므로 성능 SLO·최대 용량이나 락 전략을 결정하지 않는다.
+
+## 측정 조건
+
+| 항목 | 고정 값 |
+| --- | --- |
+| 실행 구간 | UTC 2026-08-14 15:39:20~17:01:09 / KST 2026-08-15 00:39:20~02:01:09 |
+| source / 배포 release | `92f5f667b732a5b6b9e6cd7dff5befd13354148a` / 동일 revision, 25개 Run 모두 정렬 |
+| portable bundle | schema v2 / fixture schema v2, clean source 25/25 |
+| 발생기 | k6 `1.3.0` |
+| 실행 범위 | T1 6개·T2 7개·T3 3개·T4 3개·T5 6개, 총 25개를 각각 한 번 실행 |
+| runner | ROOM portable bundle → infra `run.sh room-k6`; generic `loadtest` 제외 |
+| 측정 전제 | clean app checkout, bundle source와 배포 release 정렬, Terraform plan 무변경 |
+| 유효성 gate | final result `PASS` 25/25, 모든 remote phase `0`, T5 comparison `PASS` 6/6 |
+| 원자료 | 로컬 `build/k6/room/`만 보존; 비밀번호·토큰·세션·CSRF·URL·실제 fixture/resource ID·원시 SQL·로그는 Git에 기록하지 않음 |
 
 정본인 [ROOM k6 측정 목적과 시나리오](../../../../load-tests/k6/jiwon/README.md)는 동시성 오류·불변식 위반·공통 병목을 찾고, 같은 조건의 개선 전후를 비교하는 것을 이 측정의 우선 목적으로 둔다. 이 campaign이 답하려 한 질문은 **정렬된 release·전용 환경·고정 fixture에서 ROOM 핵심 HTTP 흐름의 응답·DB 불변식 회귀가 있는가**이다. 따라서 이번 결과는 이후 변경 전후에 같은 correctness 조건을 대조할 기준선이 된다.
 
 동시에 이 campaign은 단일 실행 관찰값을 남기는 correctness 측정이다. production 락 전략, 성능 SLO, 최대 용량, 병목의 근본 원인을 결정하는 실험은 아니다. 특히 `ROOM_CONCURRENT_MODIFICATION`은 허용된 재시도 소진 결과를 관찰하는 지표이며, 낙관락·비관락 선택은 별도 측정과 승인이 필요하다.
 
-## 2. 테스트 진행 과정
+## 테스트 진행 과정
 
 1. clean app checkout에서 bundle source와 배포 release 정렬을 확인하고, 각 portable bundle의 immutable 입력을 검증했다.
 2. generic `loadtest`를 사용하지 않고, T1 6개·T2 7개·T3 3개·T4 3개·T5 6개, 총 25개를 `run.sh room-k6`으로 순차 실행했다. 각 조합은 한 번씩 실행했으므로 아래 latency·RPS는 반복 측정의 범위나 중앙값이 아닌 단일 관찰값이다.
@@ -30,7 +43,7 @@
 5. [canonical campaign manifest](evidence/room-portable-bundle-final-valid-2026-08-15.json)의 Run ledger에 위 25개만 `included`로 명시하고, local-only 원자료의 source·입력·실행 결과 artifact 무결성 식별값을 연결했다. 앞선 `01`–`04` campaign은 이 결론 계산에 섞지 않았다.
 6. 모든 Run의 final 판정과 T5 comparison을 확인한 뒤 test-owned P1 stack을 teardown하고 잔여 resource를 조회했다.
 
-## 3. 테스트 결과
+## 부하 campaign
 
 ### 공통 판정
 
@@ -118,17 +131,15 @@
 
 이 gate가 말하는 것은 “여섯 T5 결과 묶음이 같은 읽기 profile과 결과 계약으로 유효하다”는 것이다. 역할·scale 간 p50·p95·RPS 우열이나 용량을 비교하는 성능 분석은 아니다.
 
-## 4. Conclusion
+## 해석과 한계
 
-### 확정한 사실
+[Campaign manifest](evidence/room-portable-bundle-final-valid-2026-08-15.json)는 결론 계산에 쓴 25개와 local-only 원자료의 무결성 식별값을 분리해 보존한다.
 
-공식 matrix 25개가 모두 `PASS`했으므로, 이 release·전용 환경·고정 fixture 조건에서는 T1–T5의 HTTP 응답 계약과 사후 DB 불변식 회귀를 발견하지 못했다. [canonical campaign manifest](evidence/room-portable-bundle-final-valid-2026-08-15.json)는 결론 계산에 쓴 25개와 local-only 원자료의 무결성 식별값을 분리해 보존한다. 따라서 이 문서는 이후 변경 전후에 **같은 correctness 조건**을 대조할 기준선으로 사용할 수 있다.
-
-### 성능·구조 개선에 관한 현재 판정
+### 현재 판정
 
 지금 즉시 코드·구조 변경을 결정할 근거는 없다. 다만 T1 hot c8의 40요청 중 23건과 T2 hot c8의 40요청 중 20건이 허용된 동시성 결과였다는 점은, high-contention write 경로를 다음 측정의 첫 우선순위로 둘 근거가 된다. 이는 불변식이 유지됐다는 증거이지 현 재시도 정책이나 락 전략이 충분하다는 증거는 아니다. T3·T4의 업무 결과도 scenario가 허용한 종단 상태 안에서 판정됐고, T5는 correctness만 확인했을 뿐 역할·scale별 성능 우열이나 최대 용량을 보여주지 않는다.
 
-### 개선 후보와 다음 측정
+## 다음 측정
 
 | 우선순위 | 관찰 | 지금 결정하지 않는 것 | 다음 측정 | 그 뒤 가능한 판단 |
 | --- | --- | --- | --- | --- |
@@ -138,7 +149,13 @@
 
 반복 횟수 ‘최소 3회’는 이번 결과의 통계적 한계를 줄이기 위한 권고이지, 이번 `PASS` 판정을 소급해 바꾸는 gate는 아니다. 다음 campaign에서는 비교 전에 SLO·허용 409/재시도 정책·수집 항목을 먼저 명시하고, 같은 source/release·환경·profile의 범위와 원자료 무결성 식별값을 campaign manifest에 남긴다.
 
-## 결과 처리
+## 재현
+
+같은 조건의 재현은 [ROOM k6 실행](../../../../load-tests/k6/jiwon/README.md#실행)과 [Terraform 원격 실행 bundle](../../../../load-tests/k6/jiwon/README.md#terraform-원격-실행-bundle)을 따른다. source/release 정렬, clean-source gate, fixture별 portable bundle 검증을 모두 통과한 새 Run만 비교에 사용한다.
+
+## 원자료와 teardown
+
+25개 Run ledger, 수치, phase와 artifact 무결성 식별값은 [campaign manifest](evidence/room-portable-bundle-final-valid-2026-08-15.json)에 있다. 원시 bundle과 실행 산출물은 로컬 `build/k6/room/`에만 보존한다.
 
 final `PASS`와 T5 comparison `PASS`를 다시 확인한 뒤 전용 P1 stack teardown을 실행했다. teardown 및 잔여 resource 검증 완료 시각은 UTC 2026-08-14 17:30:01 / KST 2026-08-15 02:30:01이다. 비밀값은 조회하지 않았고, test-owned resource의 개수만 확인했다.
 
