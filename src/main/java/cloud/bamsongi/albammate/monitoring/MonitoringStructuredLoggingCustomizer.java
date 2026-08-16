@@ -8,18 +8,24 @@ import org.springframework.boot.logging.structured.StructuredLoggingJsonMembersC
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
 
-/** 중앙 sink에 허용되지 않은 MDC key가 구조화 JSON으로 직렬화되는 것을 막는다. */
+/** 중앙 sink에 문서화된 구조화 field만 직렬화한다. */
 public final class MonitoringStructuredLoggingCustomizer
 	implements StructuredLoggingJsonMembersCustomizer<ILoggingEvent> {
 
-	private static final Set<String> FORBIDDEN_KEYS = Set.of(
-		"email", "ip", "session", "cookie", "token", "authorization", "requestbody", "responsebody",
-		"querystring", "prompt", "response", "toolargs", "toolresult", "chatcontent", "notificationpayload",
-		"rawsql", "userid", "actoruserid", "roomid", "messageid", "sourceeventid");
+	private static final Set<String> ALLOWED_KEYS = Set.of(
+		"@timestamp", "level", "event", "environment", "stackid", "service", "role", "instanceid", "release",
+		"requestid", "failurecode", "reasoncode", "exceptionclass", "exceptiontype", "eventtype", "targettype",
+		"action", "outcome", "roomstatus", "usecase", "section", "lockname", "measurementtime", "occurredat",
+		"outboxrecordedat", "notificationrecordedat", "nextavailableat", "roomid", "messageid", "sourceeventid",
+		"attempt", "batchnumber", "claimedcount", "processedcount", "retryscheduledcount", "failedcount",
+		"recipientcount", "failurecount", "totalfailurecount", "reprocesscount", "deletedcount", "changedcount",
+		"purgedroomcount", "deletedmessagecount", "durationms", "oldestprocessableagems", "deliverydelayms",
+		"processingdurationms", "maxrundurationms", "lockatmostforms", "maximumdelayms", "warningthresholdms",
+		"retrydelaymillis", "maxlocksectionsperrun", "candidatelimit", "maxbatchesperrun", "thresholdms");
 
 	@Override
 	public void customize(Members<ILoggingEvent> members) {
-		members.applyingPathFilter(path -> FORBIDDEN_KEYS.contains(path.name().toLowerCase(Locale.ROOT)));
+		members.applyingPathFilter(path -> !ALLOWED_KEYS.contains(path.name().toLowerCase(Locale.ROOT)));
 	}
 
 }

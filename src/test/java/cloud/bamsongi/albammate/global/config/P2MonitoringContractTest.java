@@ -59,7 +59,7 @@ class P2MonitoringContractTest {
 		assertTrue(logging.contains("file: logstash"));
 		assertTrue(logging.contains("name: /var/log/albam-mate/events.json"));
 		assertTrue(logging.contains("max-file-size: 10MB"));
-		assertTrue(logging.contains("total-size-cap: 50MB"));
+		assertTrue(logging.contains("total-size-cap: 40MB"));
 		assertTrue(app1.contains("/var/log/albam-mate"));
 		assertTrue(app2.contains("/var/log/albam-mate"));
 		assertEquals(expectedResourceAttributes(), resourceAttributes);

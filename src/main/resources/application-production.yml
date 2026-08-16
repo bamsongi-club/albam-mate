@@ -77,7 +77,7 @@ logging:
       console: logstash
       file: logstash
     json:
-      exclude: email,ip,session,cookie,token,authorization,requestBody,responseBody,queryString,prompt,response,toolArgs,toolResult,chatContent,notificationPayload,rawSql,userId,actorUserId,roomId,messageId,sourceEventId
+      exclude: email,ip,session,cookie,token,authorization,requestBody,responseBody,queryString,prompt,response,toolArgs,toolResult,chatContent,notificationPayload,rawSql,userId,actorUserId
       customizer: cloud.bamsongi.albammate.monitoring.MonitoringStructuredLoggingCustomizer
       add:
         environment: ${ALBAM_MATE_ENVIRONMENT}
@@ -92,7 +92,7 @@ logging:
     rollingpolicy:
       max-file-size: 10MB
       max-history: 4
-      total-size-cap: 50MB
+      total-size-cap: 40MB
 
 app:
   monitoring:
