@@ -8,6 +8,8 @@ import {
 	sendRateLimited,
 	FIXTURE_USERS,
 	PRIMARY_ROOM_ID,
+	ROOM_RATE_LIMIT_PER_WINDOW,
+	USER_RATE_LIMIT_PER_WINDOW,
 	defaultThresholds,
 	immediateStopGate,
 	perVuOptions,
@@ -60,8 +62,8 @@ export function rateLimitUser(data) {
 			unexpected++;
 		}
 	}
-	const expectedCreated = Math.min(RATE_LIMIT_ATTEMPTS, 50);
-	const expectedThrottled = Math.max(0, RATE_LIMIT_ATTEMPTS - 50);
+	const expectedCreated = Math.min(RATE_LIMIT_ATTEMPTS, USER_RATE_LIMIT_PER_WINDOW);
+	const expectedThrottled = Math.max(0, RATE_LIMIT_ATTEMPTS - USER_RATE_LIMIT_PER_WINDOW);
 	const expected = created === expectedCreated && throttled === expectedThrottled && unexpected === 0;
 	sendExpectedStatus.add(expected);
 	check({ expected }, {
@@ -149,7 +151,10 @@ export const options = CASE === 'user'
 		1,
 		1,
 		'1m',
-		rateLimitThresholds(Math.min(RATE_LIMIT_ATTEMPTS, 50), Math.max(0, RATE_LIMIT_ATTEMPTS - 50)),
+		rateLimitThresholds(
+			Math.min(RATE_LIMIT_ATTEMPTS, USER_RATE_LIMIT_PER_WINDOW),
+			Math.max(0, RATE_LIMIT_ATTEMPTS - USER_RATE_LIMIT_PER_WINDOW),
+		),
 	)
 	: perVuOptions(
 		'rate_limit_room',
@@ -157,5 +162,5 @@ export const options = CASE === 'user'
 		ROOM_RATE_LIMIT_PARTICIPANT_COUNT,
 		ROOM_RATE_LIMIT_ATTEMPTS,
 		'1m',
-		rateLimitThresholds(100, 1),
+		rateLimitThresholds(ROOM_RATE_LIMIT_PER_WINDOW, 1),
 	);

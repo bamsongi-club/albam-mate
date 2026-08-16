@@ -52,9 +52,15 @@ export const LOAD_WARMUP_STAGE = 'warmup';
 // 부하 시나리오가 쓰는 방당 수신자 수.
 export const LOAD_SUBSCRIBERS_PER_ROOM = readPositiveInteger('K6_LOAD_SUBSCRIBERS_PER_ROOM', 6);
 
+export const RATE_LIMIT_WINDOW_SECONDS = 10;
+
 export const USER_RATE_LIMIT_PER_SECOND = 5;
 
 export const ROOM_RATE_LIMIT_PER_SECOND = 10;
+
+export const USER_RATE_LIMIT_PER_WINDOW = USER_RATE_LIMIT_PER_SECOND * RATE_LIMIT_WINDOW_SECONDS;
+
+export const ROOM_RATE_LIMIT_PER_WINDOW = ROOM_RATE_LIMIT_PER_SECOND * RATE_LIMIT_WINDOW_SECONDS;
 
 export const ROOM_PARTICIPANT_COUNT = readFixedPositiveInteger(
 	'K6_ROOM_PARTICIPANT_COUNT',
@@ -1058,15 +1064,17 @@ export function validateProfileVuCount(vus, mode) {
 
 export function validateBurstMapping(vus, messagesPerUser, mode) {
 	validateProfileVuCount(vus, mode);
-	if (messagesPerUser > 5) {
-		throw new Error(`${mode} creates more than 5 messages per user inside one 10-second quota window`);
+	if (messagesPerUser > USER_RATE_LIMIT_PER_WINDOW) {
+		throw new Error(
+			`${mode} creates more than ${USER_RATE_LIMIT_PER_WINDOW} messages per user inside one 10-second quota window`,
+		);
 	}
 	const users = PROFILE_USERS.slice(0, vus);
 	const roomCounts = roomUserCounts(users);
 	for (let index = 0; index < PROFILE_ROOM_IDS.length; index++) {
 		const roomId = PROFILE_ROOM_IDS[index];
-		if ((roomCounts[roomId] || 0) * messagesPerUser > 30) {
-			throw new Error(`${mode} exceeds the room 30/10s quota for room ${roomId}`);
+		if ((roomCounts[roomId] || 0) * messagesPerUser > ROOM_RATE_LIMIT_PER_WINDOW) {
+			throw new Error(`${mode} exceeds the room ${ROOM_RATE_LIMIT_PER_WINDOW}/10s quota for room ${roomId}`);
 		}
 	}
 }
@@ -1076,8 +1084,10 @@ export function validateFanoutProfile() {
 	if (FANOUT_SUBSCRIBER_COUNT < 2 || FANOUT_SUBSCRIBER_COUNT > subscribers.length) {
 		throw new Error('K6_FANOUT_SUBSCRIBER_COUNT must select 2 through all primary-room participants');
 	}
-	if (FANOUT_MESSAGES > 5) {
-		throw new Error('K6_FANOUT_MESSAGES must not exceed the sender 5/10s quota');
+	if (FANOUT_MESSAGES > USER_RATE_LIMIT_PER_WINDOW) {
+		throw new Error(
+			`K6_FANOUT_MESSAGES must not exceed the sender ${USER_RATE_LIMIT_PER_WINDOW}/10s quota`,
+		);
 	}
 	validateDistinctPrincipals(subscribers.slice(0, FANOUT_SUBSCRIBER_COUNT), 'fanout subscribers');
 }

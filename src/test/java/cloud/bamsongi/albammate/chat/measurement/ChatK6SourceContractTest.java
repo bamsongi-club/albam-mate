@@ -41,11 +41,13 @@ class ChatK6SourceContractTest {
 			"const ROOM_RATE_LIMIT_ATTEMPTS = readFixedPositiveInteger(\n\t'K6_ROOM_RATE_LIMIT_ATTEMPTS',\n\t34,\n\t'the exact room limiter proof',");
 		assertThat(rateLimitContract).contains(
 			"execution.vu.idInTest === ROOM_RATE_LIMIT_PARTICIPANT_COUNT\n\t\t&& execution.vu.iterationInScenario === ROOM_RATE_LIMIT_ATTEMPTS - 1");
-		assertThat(rateLimitContract).contains("const expectedCreated = Math.min(RATE_LIMIT_ATTEMPTS, 50);");
-		assertThat(rateLimitContract).contains("const expectedThrottled = Math.max(0, RATE_LIMIT_ATTEMPTS - 50);");
 		assertThat(rateLimitContract)
-			.contains("rateLimitThresholds(Math.min(RATE_LIMIT_ATTEMPTS, 50), Math.max(0, RATE_LIMIT_ATTEMPTS - 50))");
-		assertThat(rateLimitContract).contains("rateLimitThresholds(100, 1)");
+			.contains("const expectedCreated = Math.min(RATE_LIMIT_ATTEMPTS, USER_RATE_LIMIT_PER_WINDOW);");
+		assertThat(rateLimitContract)
+			.contains("const expectedThrottled = Math.max(0, RATE_LIMIT_ATTEMPTS - USER_RATE_LIMIT_PER_WINDOW);");
+		assertThat(rateLimitContract)
+			.contains("Math.min(RATE_LIMIT_ATTEMPTS, USER_RATE_LIMIT_PER_WINDOW)");
+		assertThat(rateLimitContract).contains("rateLimitThresholds(ROOM_RATE_LIMIT_PER_WINDOW, 1)");
 	}
 
 	@Test
@@ -55,23 +57,27 @@ class ChatK6SourceContractTest {
 		String library = file("load-tests/k6/eungi/lib/chat.js");
 		String rateLimitContract = file("load-tests/k6/eungi/rate-limit-contract.js");
 		String api = file("docs/API.md");
-		String chatting = file("docs/archive/p1/chatting.md");
-		String p1Readme = file("docs/archive/p1/README.md");
 
 		assertThat(properties).contains("@DefaultValue(\"50\")");
 		assertThat(properties).contains("@DefaultValue(\"100\")");
+		assertThat(library).contains("export const RATE_LIMIT_WINDOW_SECONDS = 10;");
 		assertThat(library).contains("export const USER_RATE_LIMIT_PER_SECOND = 5;");
 		assertThat(library).contains("export const ROOM_RATE_LIMIT_PER_SECOND = 10;");
-		assertThat(rateLimitContract).contains("rateLimitThresholds(100, 1)");
+		assertThat(library)
+			.contains(
+				"export const USER_RATE_LIMIT_PER_WINDOW = USER_RATE_LIMIT_PER_SECOND * RATE_LIMIT_WINDOW_SECONDS;");
+		assertThat(library)
+			.contains(
+				"export const ROOM_RATE_LIMIT_PER_WINDOW = ROOM_RATE_LIMIT_PER_SECOND * RATE_LIMIT_WINDOW_SECONDS;");
+		assertThat(library).contains("if (messagesPerUser > USER_RATE_LIMIT_PER_WINDOW) {");
+		assertThat(library)
+			.contains("if ((roomCounts[roomId] || 0) * messagesPerUser > ROOM_RATE_LIMIT_PER_WINDOW) {");
+		assertThat(library).contains("if (FANOUT_MESSAGES > USER_RATE_LIMIT_PER_WINDOW) {");
 		assertThat(api).contains("50건/10초");
 		assertThat(api).contains("100건/10초");
+		assertThat(api).contains("현재 제품·HTTP·WebSocket 계약은 이 문서가 정본");
 		assertThat(api).contains("issues/760#issuecomment-5300372595");
 		assertThat(api).contains("issues/761#issuecomment-5300395172");
-		assertThat(chatting).contains("50건/10초");
-		assertThat(chatting).contains("100건/10초");
-		assertThat(chatting).contains("issues/761#issuecomment-5300395172");
-		assertThat(p1Readme).contains("issues/760#issuecomment-5300372595");
-		assertThat(p1Readme).contains("issues/761#issuecomment-5300395172");
 	}
 
 	@Test

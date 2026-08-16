@@ -87,7 +87,7 @@
 | 공통 응답·오류 | [API 공통 계약](../../API.md#1-공통-계약), [오류 코드](../../API.md#10-오류-코드) |
 | 시간 기준 | [ADR-0009 UTC 저장과 서비스 시간대 변환](../../adr/platform/0009-utc-time-standard.md) |
 | 검증 환경 | [ADR-0010 H2와 PostgreSQL 테스트 경계](../../adr/platform/0010-h2-postgresql-test-boundary.md) |
-| 기술 결정 | [ADR-0031 메시지 ID 커서](../../adr/chat/0031-chat-history-cursor-pagination.md) — 승인됨, [ADR-0033 PostgreSQL 정본·커밋 후 전달](../../adr/chat/0033-postgresql-source-after-commit-delivery.md) — 승인됨, [#288 전송 제한 계약 승인](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930), [#760 50/100 결정 승인](https://github.com/bamsongi-club/albam-mate/issues/760#issuecomment-5300372595), [#761 T1~T7 검증 승인](https://github.com/bamsongi-club/albam-mate/issues/761#issuecomment-5300395172) |
+| 기술 결정 | [ADR-0031 메시지 ID 커서](../../adr/chat/0031-chat-history-cursor-pagination.md) — 승인됨, [ADR-0033 PostgreSQL 정본·커밋 후 전달](../../adr/chat/0033-postgresql-source-after-commit-delivery.md) — 승인됨, [#288 전송 제한 계약 승인](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930) |
 
 ### 기능 규칙
 
@@ -103,7 +103,7 @@
 - 이력 항목은 메시지 식별자, 방 식별자, 작성자 표시 정보, 본문과 서버 생성 시각을
   제공한다. 내부 사용자 식별자와 참가 관계 정보는 노출하지 않는다.
 - 동일한 클라이언트 메시지 식별자로 재전송된 요청은 멱등하게 처리한다.
-- 인증·관계·본문·멱등성 검증을 통과한 신규 전송에만 사용자 bucket 50건/10초와 방 bucket 100건/10초를 적용한다. 사용자 bucket은 모든 방, 방 bucket은 모든 참여자의 전송을 합산한다.
+- 인증·관계·본문·멱등성 검증을 통과한 신규 전송에만 사용자 bucket 5건/10초와 방 bucket 30건/10초를 적용한다. 사용자 bucket은 모든 방, 방 bucket은 모든 참여자의 전송을 합산한다.
 - 두 bucket은 10초 고정 창으로 동작하고 TTL을 연장하지 않는다. 허용 확인과 증가는 원자적으로 처리하며 하나라도 초과하면 어느 bucket도 증가시키지 않는다. 검증 실패·권한 거부·이미 저장된 동일 payload의 멱등 재전송은 quota를 소비하지 않는다.
 - 제한 초과는 429와 초과 bucket의 남은 TTL을 올림한 `Retry-After`를 반환한다. 두 bucket이 초과하면 더 큰 값을 사용하며, 이 헤더는 429에만 포함한다. Redis 제한 상태 확인 실패·결과 불명확은 저장 전 503으로 실패하고 인메모리 fallback과 `Retry-After`를 허용하지 않는다.
 - Redis 연결 timeout은 1초, Redis 명령·Lua 실행 timeout은 2초로 둔다. 이 시간 안에 연결·명령 결과를 확정하지 못하면 저장 전에 503으로 실패하며 서버가 Redis 재기동을 기다리기 위해 자동 재시도하지 않는다.
@@ -216,13 +216,13 @@
 | 입력·오류 | [API 공통 계약](../../API.md#1-공통-계약), [채팅 API 오류 계약](../../API.md#채팅-공통-계약) |
 | 로그 | [Logging 규칙](../../CONVENTIONS.md#logging) |
 | 보안 | 세션 인증, CSRF, 출력 인코딩과 Redis 사용자·방 단위 전송 제한 |
-| 관련 정본 | [ADR-0049 메시지 보관·삭제와 잠금 구간 경계](../../adr/chat/0049-chat-message-retention-lock-section-boundary.md), [ADR-0038 스케줄 실행 조정](../../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), [#288 전송 제한 계약 승인](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930), [#760 50/100 결정 승인](https://github.com/bamsongi-club/albam-mate/issues/760#issuecomment-5300372595), [#761 T1~T7 검증 승인](https://github.com/bamsongi-club/albam-mate/issues/761#issuecomment-5300395172), [CHAT_ROOMS](../../ERD.md#chat_rooms), [SHEDLOCK](../../ERD.md#shedlock) |
+| 관련 정본 | [ADR-0049 메시지 보관·삭제와 잠금 구간 경계](../../adr/chat/0049-chat-message-retention-lock-section-boundary.md), [ADR-0038 스케줄 실행 조정](../../adr/platform/0038-multi-instance-session-and-scheduler-coordination.md), [#288 전송 제한 계약 승인](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930), [CHAT_ROOMS](../../ERD.md#chat_rooms), [SHEDLOCK](../../ERD.md#shedlock) |
 
 ### 기능 규칙
 
 - 메시지는 일반 텍스트로 렌더링하고 사용자 입력을 HTML로 실행하지 않는다.
 - 사용자·방 단위 전송 제한은 `local`과 `production`의 공용 Redis에서 프로필별로 분리한
-  key prefix와 TTL로 관리한다. 사용자 bucket은 50건/10초, 방 bucket은 100건/10초의
+  key prefix와 TTL로 관리한다. 사용자 bucket은 5건/10초, 방 bucket은 30건/10초의
   10초 고정 창이며 TTL을 연장하지 않는다. 두 bucket의 확인·증가는 원자적으로
   처리하고, 초과 요청은 counter를 증가시키지 않는다.
 - 인증·관계·본문·멱등성 검증 실패와 동일 payload의 멱등 재전송은 제한량을 소비하지

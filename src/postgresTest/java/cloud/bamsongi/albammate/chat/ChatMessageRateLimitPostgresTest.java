@@ -167,6 +167,18 @@ class ChatMessageRateLimitPostgresTest {
 	void 하나라도_초과하면_두_bucket을_증가시키지_않고_두_bucket_초과시_더_긴_TTL을_Retry_After로_반환한다() {
 		long userId = insertUser("원자성");
 		Room room = createChatRoom(userId, 2);
+		redis().opsForValue().set(userKey(userId), "50", 2_500, TimeUnit.MILLISECONDS);
+		redis().opsForValue().set(roomKey(room.getId()), "99", 2_500, TimeUnit.MILLISECONDS);
+		assertRateLimited(() -> send(userId, room.getId(), "user-over"));
+		assertEquals("50", redis().opsForValue().get(userKey(userId)));
+		assertEquals("99", redis().opsForValue().get(roomKey(room.getId())));
+
+		redis().opsForValue().set(userKey(userId), "49", 2_500, TimeUnit.MILLISECONDS);
+		redis().opsForValue().set(roomKey(room.getId()), "100", 2_500, TimeUnit.MILLISECONDS);
+		assertRateLimited(() -> send(userId, room.getId(), "room-over"));
+		assertEquals("49", redis().opsForValue().get(userKey(userId)));
+		assertEquals("100", redis().opsForValue().get(roomKey(room.getId())));
+
 		redis().opsForValue().set(userKey(userId), "49", 2_500, TimeUnit.MILLISECONDS);
 		redis().opsForValue().set(roomKey(room.getId()), "99", 2_500, TimeUnit.MILLISECONDS);
 
