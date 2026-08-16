@@ -27,9 +27,10 @@ public class NotificationRelayScheduler {
 			try {
 				coordinator.processBatch();
 			} catch (RuntimeException exception) {
-				log.error(
-					"event=notification_outbox_relay_scheduler_failed failureCode={} exceptionClass={} occurredAt={}",
-					"RELAY_SCHEDULER_FAILURE", exception.getClass().getSimpleName(), Instant.now(clock));
+				log.atError().addKeyValue("event", "notification_outbox_relay_scheduler_failed")
+					.addKeyValue("failureCode", "RELAY_SCHEDULER_FAILURE")
+					.addKeyValue("exceptionClass", exception.getClass().getSimpleName())
+					.addKeyValue("occurredAt", Instant.now(clock)).log("notification relay scheduler failed");
 			}
 		}
 	}

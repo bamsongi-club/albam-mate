@@ -71,17 +71,18 @@ class RedisChatRealtimeListenerConfiguration {
 			container.start();
 		} catch (RuntimeException exception) {
 			container.stop();
-			log.warn(
-				"event=chat_realtime_subscription_start_failed retryDelayMillis={} exceptionType={}",
-				INITIAL_SUBSCRIPTION_RETRY_DELAY.toMillis(), exception.getClass().getName());
+			log.atWarn().addKeyValue("event", "chat_realtime_subscription_start_failed")
+				.addKeyValue("retryDelayMillis", INITIAL_SUBSCRIPTION_RETRY_DELAY.toMillis())
+				.addKeyValue("exceptionType", exception.getClass().getName())
+				.log("chat realtime subscription start failed");
 			try {
 				retryScheduler.schedule(
 					() -> startQuietly(container, retryScheduler),
 					Instant.now().plus(INITIAL_SUBSCRIPTION_RETRY_DELAY));
 			} catch (RuntimeException retryException) {
-				log.warn(
-					"event=chat_realtime_subscription_retry_schedule_failed exceptionType={}",
-					retryException.getClass().getName());
+				log.atWarn().addKeyValue("event", "chat_realtime_subscription_retry_schedule_failed")
+					.addKeyValue("exceptionType", retryException.getClass().getName())
+					.log("chat realtime subscription retry schedule failed");
 			}
 		}
 	}

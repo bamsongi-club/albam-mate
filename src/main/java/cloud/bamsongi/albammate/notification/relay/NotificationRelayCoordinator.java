@@ -64,18 +64,23 @@ public class NotificationRelayCoordinator {
 
 	private void logBatch(RelayBatchSummary summary) {
 		if (summary.claimedCount() == 0 && summary.oldestProcessableAgeMillis() == null) {
-			log.debug(
-				"event=notification_outbox_relay_batch_completed claimedCount={} processedCount={} retryScheduledCount={} "
-					+ "failedCount={} durationMs={} oldestProcessableAgeMs={}",
-				summary.claimedCount(), summary.processedCount(), summary.retryScheduledCount(), summary.failedCount(),
-				summary.durationMillis(), summary.oldestProcessableAgeMillis());
+			log.atDebug().addKeyValue("event", "notification_outbox_relay_batch_completed")
+				.addKeyValue("claimedCount", summary.claimedCount())
+				.addKeyValue("processedCount", summary.processedCount())
+				.addKeyValue("retryScheduledCount", summary.retryScheduledCount())
+				.addKeyValue("failedCount", summary.failedCount())
+				.addKeyValue("durationMs", summary.durationMillis())
+				.addKeyValue("oldestProcessableAgeMs", summary.oldestProcessableAgeMillis())
+				.log("notification relay batch completed");
 			return;
 		}
-		log.info(
-			"event=notification_outbox_relay_batch_completed claimedCount={} processedCount={} retryScheduledCount={} "
-				+ "failedCount={} durationMs={} oldestProcessableAgeMs={}",
-			summary.claimedCount(), summary.processedCount(), summary.retryScheduledCount(), summary.failedCount(),
-			summary.durationMillis(), summary.oldestProcessableAgeMillis());
+		log.atInfo().addKeyValue("event", "notification_outbox_relay_batch_completed")
+			.addKeyValue("claimedCount", summary.claimedCount()).addKeyValue("processedCount", summary.processedCount())
+			.addKeyValue("retryScheduledCount", summary.retryScheduledCount())
+			.addKeyValue("failedCount", summary.failedCount())
+			.addKeyValue("durationMs", summary.durationMillis())
+			.addKeyValue("oldestProcessableAgeMs", summary.oldestProcessableAgeMillis())
+			.log("notification relay batch completed");
 	}
 
 	public record RelayBatchSummary(

@@ -70,7 +70,8 @@ public class ChatMessageHistoryQueryService {
 	private String nicknameOf(Map<Long, String> nicknamesById, ChatMessage message, long roomId) {
 		String nickname = nicknamesById.get(message.getSenderUserId());
 		if (nickname == null) {
-			log.error("event=chat_message_sender_nickname_missing roomId={}", roomId);
+			log.atError().addKeyValue("event", "chat_message_sender_nickname_missing")
+				.addKeyValue("roomId", roomId).log("chat message sender nickname missing");
 			throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
 		}
 		return nickname;

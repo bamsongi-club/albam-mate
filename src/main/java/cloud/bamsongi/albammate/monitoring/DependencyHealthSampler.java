@@ -2,15 +2,22 @@ package cloud.bamsongi.albammate.monitoring;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.time.Duration;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import javax.sql.DataSource;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.stereotype.Component;
 
 import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.annotation.PreDestroy;
 
 /** 업무 transaction 밖에서 의존성 연결 상태만 제한된 주기로 표본화한다. */
 @Component
@@ -20,17 +27,62 @@ class DependencyHealthSampler {
 	private final DataSource dataSource;
 	private final RedisConnectionFactory redisConnectionFactory;
 	private final DependencyHealthMetrics metrics;
+	private final Duration probeTimeout;
+	private final java.util.concurrent.ExecutorService postgresqlProbeExecutor = Executors
+		.newSingleThreadExecutor(runnable -> {
+			Thread thread = new Thread(runnable, "dependency-health-postgresql-probe");
+			thread.setDaemon(true);
+			return thread;
+		});
+	private final java.util.concurrent.ExecutorService redisProbeExecutor = Executors
+		.newSingleThreadExecutor(runnable -> {
+			Thread thread = new Thread(runnable, "dependency-health-redis-probe");
+			thread.setDaemon(true);
+			return thread;
+		});
+
+	@Autowired
+	DependencyHealthSampler(DataSource dataSource, RedisConnectionFactory redisConnectionFactory,
+		MeterRegistry meterRegistry, @Value("${app.monitoring.dependency-health.poll-interval:10s}")
+		Duration pollInterval) {
+		this.dataSource = dataSource;
+		this.redisConnectionFactory = redisConnectionFactory;
+		metrics = new DependencyHealthMetrics(meterRegistry);
+		probeTimeout = boundedProbeTimeout(pollInterval);
+	}
 
 	DependencyHealthSampler(DataSource dataSource, RedisConnectionFactory redisConnectionFactory,
 		MeterRegistry meterRegistry) {
 		this.dataSource = dataSource;
 		this.redisConnectionFactory = redisConnectionFactory;
 		metrics = new DependencyHealthMetrics(meterRegistry);
+		probeTimeout = Duration.ofMillis(250);
 	}
 
 	void sample() {
-		metrics.recordPostgresql(postgresqlIsUp());
-		metrics.recordRedis(redisIsUp());
+		Future<Boolean> postgresqlProbe = postgresqlProbeExecutor.submit(this::postgresqlIsUp);
+		Future<Boolean> redisProbe = redisProbeExecutor.submit(this::redisIsUp);
+		metrics.recordRedis(awaitProbe(redisProbe));
+		metrics.recordPostgresql(awaitProbe(postgresqlProbe));
+	}
+
+	@PreDestroy
+	void shutdown() {
+		postgresqlProbeExecutor.shutdownNow();
+		redisProbeExecutor.shutdownNow();
+	}
+
+	private boolean awaitProbe(Future<Boolean> probe) {
+		try {
+			return probe.get(probeTimeout.toNanos(), TimeUnit.NANOSECONDS);
+		} catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			probe.cancel(true);
+			return false;
+		} catch (java.util.concurrent.TimeoutException | java.util.concurrent.ExecutionException exception) {
+			probe.cancel(true);
+			return false;
+		}
 	}
 
 	private boolean postgresqlIsUp() {
@@ -47,5 +99,17 @@ class DependencyHealthSampler {
 		} catch (RuntimeException exception) {
 			return false;
 		}
+	}
+
+	private static Duration boundedProbeTimeout(Duration pollInterval) {
+		if (pollInterval.isNegative() || pollInterval.isZero()) {
+			throw new IllegalArgumentException("의존성 상태 표본화 주기는 양수여야 합니다.");
+		}
+		long pollIntervalNanos = pollInterval.toNanos();
+		if (pollIntervalNanos < 3) {
+			throw new IllegalArgumentException("의존성 상태 표본화 주기는 두 probe timeout보다 길어야 합니다.");
+		}
+		long timeoutNanos = Math.min(Duration.ofMillis(250).toNanos(), (pollIntervalNanos - 1) / 2);
+		return Duration.ofNanos(timeoutNanos);
 	}
 }

@@ -163,20 +163,18 @@ public class NotificationRelayExecutor {
 	}
 
 	private static void logProcessedEvent(ProcessedEvent processedEvent) {
-		log.info(
-			"event=notification_outbox_relay_event_processed sourceEventId={} eventType={} recipientCount={} "
-				+ "outboxRecordedAt={} notificationRecordedAt={} failureCount={} totalFailureCount={} "
-				+ "reprocessCount={} deliveryDelayMs={} processingDurationMs={}",
-			processedEvent.sourceEventId(),
-			processedEvent.eventType(),
-			processedEvent.recipientCount(),
-			processedEvent.outboxRecordedAt(),
-			processedEvent.notificationRecordedAt(),
-			processedEvent.failureCount(),
-			processedEvent.totalFailureCount(),
-			processedEvent.reprocessCount(),
-			processedEvent.deliveryDelayMs(),
-			processedEvent.processingDurationMs());
+		log.atInfo().addKeyValue("event", "notification_outbox_relay_event_processed")
+			.addKeyValue("sourceEventId", processedEvent.sourceEventId())
+			.addKeyValue("eventType", processedEvent.eventType())
+			.addKeyValue("recipientCount", processedEvent.recipientCount())
+			.addKeyValue("outboxRecordedAt", processedEvent.outboxRecordedAt())
+			.addKeyValue("notificationRecordedAt", processedEvent.notificationRecordedAt())
+			.addKeyValue("failureCount", processedEvent.failureCount())
+			.addKeyValue("totalFailureCount", processedEvent.totalFailureCount())
+			.addKeyValue("reprocessCount", processedEvent.reprocessCount())
+			.addKeyValue("deliveryDelayMs", processedEvent.deliveryDelayMs())
+			.addKeyValue("processingDurationMs", processedEvent.processingDurationMs())
+			.log("notification relay event processed");
 	}
 
 	private static long elapsedMillis(long startedAtNanos) {

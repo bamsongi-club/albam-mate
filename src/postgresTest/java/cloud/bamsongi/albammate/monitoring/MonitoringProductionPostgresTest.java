@@ -17,10 +17,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.GZIPInputStream;
 
 import org.junit.jupiter.api.AfterAll;
@@ -47,8 +51,11 @@ import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.FileAppender;
 import ch.qos.logback.core.read.ListAppender;
+import cloud.bamsongi.albammate.global.exception.BusinessException;
+import cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceRequest;
+import jakarta.persistence.OptimisticLockException;
 
 @Testcontainers
 @ActiveProfiles("production")
@@ -79,8 +86,17 @@ class MonitoringProductionPostgresTest {
 		"processedCount", "3",
 		"candidateLimit", "10");
 	private static final String OTLP_PROBE_METRIC = "monitoring.contract.otlp.read-timeout.probe";
+	private static final Map<String, String> EXPECTED_OTLP_RESOURCE_ATTRIBUTES = Map.of(
+		"environment", "test",
+		"stackId", "issue-730",
+		"service", "albam-mate",
+		"role", "app1",
+		"instanceId", "postgres-test",
+		"release", "test-release");
 	private static final ConcurrentLinkedQueue<OtlpPayload> OTLP_PAYLOADS = new ConcurrentLinkedQueue<>();
 	private static final ExecutorService OTLP_RECEIVER_EXECUTOR = Executors.newFixedThreadPool(1);
+	private static final AtomicReference<CountDownLatch> OTLP_REQUEST_ENTERED = new AtomicReference<>(
+		new CountDownLatch(1));
 	private static final HttpServer TIMED_OUT_OTLP_RECEIVER = startTimedOutOtlpReceiver();
 
 	@Container
@@ -122,9 +138,11 @@ class MonitoringProductionPostgresTest {
 		ListAppender<ILoggingEvent> exports = new ListAppender<>();
 		exports.start();
 		otlpLogger.addAppender(exports);
+		OTLP_REQUEST_ENTERED.set(new CountDownLatch(1));
 		meterRegistry.counter(OTLP_PROBE_METRIC).increment();
-		long startedAt = System.nanoTime();
 		try {
+			assertTrue(OTLP_REQUEST_ENTERED.get().await(2, TimeUnit.SECONDS));
+			long startedAt = System.nanoTime();
 			HttpResponse<String> response = HttpClient.newHttpClient().send(
 				HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + applicationPort + "/api/games?size=1"))
 					.GET()
@@ -134,6 +152,7 @@ class MonitoringProductionPostgresTest {
 			assertEquals(200, response.statusCode());
 			assertTrue(java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt) < 1_000);
 			assertTrue(waitForProbeMetricExport());
+			assertResourceAttributes(probeMetricRequest().orElseThrow());
 			assertTrue(waitForReadTimeoutExport(exports));
 		} finally {
 			otlpLogger.detachAppender(exports);
@@ -146,6 +165,7 @@ class MonitoringProductionPostgresTest {
 			HttpServer receiver = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
 			receiver.createContext("/v1/metrics", exchange -> {
 				try {
+					OTLP_REQUEST_ENTERED.get().countDown();
 					OTLP_PAYLOADS.add(new OtlpPayload(exchange.getRequestBody().readAllBytes(),
 						exchange.getRequestHeaders().getFirst("Content-Encoding")));
 					Thread.sleep(200);
@@ -177,6 +197,13 @@ class MonitoringProductionPostgresTest {
 		return false;
 	}
 
+	private static Optional<ExportMetricsServiceRequest> probeMetricRequest() {
+		return OTLP_PAYLOADS.stream()
+			.map(MonitoringProductionPostgresTest::parseRequest)
+			.filter(MonitoringProductionPostgresTest::containsProbeMetric)
+			.findFirst();
+	}
+
 	private static boolean waitForReadTimeoutExport(ListAppender<ILoggingEvent> exports) throws InterruptedException {
 		long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(2);
 		while (System.nanoTime() < deadline) {
@@ -192,15 +219,32 @@ class MonitoringProductionPostgresTest {
 	}
 
 	private static boolean containsProbeMetric(OtlpPayload payload) {
+		return containsProbeMetric(parseRequest(payload));
+	}
+
+	private static ExportMetricsServiceRequest parseRequest(OtlpPayload payload) {
 		try {
-			ExportMetricsServiceRequest request = ExportMetricsServiceRequest.parseFrom(decode(payload));
-			return request.getResourceMetricsList().stream()
-				.flatMap(resourceMetrics -> resourceMetrics.getScopeMetricsList().stream())
-				.flatMap(scopeMetrics -> scopeMetrics.getMetricsList().stream())
-				.anyMatch(metric -> OTLP_PROBE_METRIC.equals(metric.getName()));
+			return ExportMetricsServiceRequest.parseFrom(decode(payload));
 		} catch (IOException exception) {
 			throw new IllegalStateException("OTLP probe payload을 해석하지 못했습니다", exception);
 		}
+	}
+
+	private static boolean containsProbeMetric(ExportMetricsServiceRequest request) {
+		return request.getResourceMetricsList().stream()
+			.flatMap(resourceMetrics -> resourceMetrics.getScopeMetricsList().stream())
+			.flatMap(scopeMetrics -> scopeMetrics.getMetricsList().stream())
+			.anyMatch(metric -> OTLP_PROBE_METRIC.equals(metric.getName()));
+	}
+
+	private static void assertResourceAttributes(ExportMetricsServiceRequest request) {
+		Map<String, String> actual = request.getResourceMetricsList().stream()
+			.flatMap(resourceMetrics -> resourceMetrics.getResource().getAttributesList().stream())
+			.collect(java.util.stream.Collectors.toMap(
+				attribute -> attribute.getKey(),
+				attribute -> attribute.getValue().getStringValue(),
+				(first, second) -> first));
+		EXPECTED_OTLP_RESOURCE_ATTRIBUTES.forEach((key, value) -> assertEquals(value, actual.get(key)));
 	}
 
 	private static byte[] decode(OtlpPayload payload) throws IOException {
@@ -277,6 +321,37 @@ class MonitoringProductionPostgresTest {
 			.reduce((first, second) -> second)
 			.orElseThrow();
 		assertStructuredLogContract(consoleJson, "monitoring_console_contract_test");
+	}
+
+	@Test
+	void T3_실제_업무_log_호출은_stdout과_file_JSON에_event와_허용_field를_남긴다(CapturedOutput output) throws Exception {
+		LoggerContext context = (LoggerContext)org.slf4j.LoggerFactory.getILoggerFactory();
+		Logger root = context.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+		FileAppender<ILoggingEvent> appender = (FileAppender<ILoggingEvent>)root.getAppender("FILE");
+		Path logPath = Path.of(appender.getFile());
+		long offset = Files.exists(logPath) ? Files.size(logPath) : 0;
+
+		RoomOptimisticLockRetrier retrier = new RoomOptimisticLockRetrier();
+		org.junit.jupiter.api.Assertions.assertThrows(BusinessException.class,
+			() -> retrier.execute(() -> {
+				throw new OptimisticLockException();
+			}, "room_update_retry", 17L));
+
+		byte[] all = Files.readAllBytes(logPath);
+		String fileJson = new String(Arrays.copyOfRange(all, Math.toIntExact(offset), all.length),
+			StandardCharsets.UTF_8);
+		assertTrue(fileJson.contains("\"event\":\"room_update_retry\""));
+		assertTrue(fileJson.contains("\"roomId\":17"));
+		assertTrue(fileJson.contains("\"attempt\":3"));
+		assertTrue(fileJson.contains("\"useCase\":\"ROOM_UPDATE\""));
+		String consoleJson = (output.getOut() + output.getErr()).lines()
+			.filter(line -> line.contains("\"event\":\"room_update_retry\""))
+			.reduce((first, second) -> second)
+			.orElseThrow();
+		assertTrue(consoleJson.contains("\"roomId\":17"));
+		assertTrue(consoleJson.contains("\"attempt\":3"));
+		assertTrue(consoleJson.contains("\"useCase\":\"ROOM_UPDATE\""));
+		assertFalse(consoleJson.contains("\"message\""));
 	}
 
 	private static void putContractMdc(String event) {

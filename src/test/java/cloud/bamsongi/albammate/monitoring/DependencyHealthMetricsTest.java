@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.monitoring;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
@@ -59,6 +60,12 @@ class DependencyHealthMetricsTest {
 		DependencyHealthSampler sampler = new DependencyHealthSampler(dataSource, redisConnectionFactory, registry);
 
 		when(postgresql.isValid(1)).thenReturn(true);
+		when(redis.ping()).thenReturn("PONG");
+		sampler.sample();
+		assertEquals(1.0, gaugeValue(registry, "postgresql"));
+		assertEquals(1.0, gaugeValue(registry, "redis"));
+
+		when(postgresql.isValid(1)).thenReturn(true);
 		when(redis.ping()).thenThrow(new IllegalStateException("redis unavailable"));
 		sampler.sample();
 		assertEquals(1.0, gaugeValue(registry, "postgresql"));
@@ -69,6 +76,77 @@ class DependencyHealthMetricsTest {
 		sampler.sample();
 		assertEquals(0.0, gaugeValue(registry, "postgresql"));
 		assertEquals(1.0, gaugeValue(registry, "redis"));
+		sampler.shutdown();
+	}
+
+	@Test
+	void T2_PostgreSQL_probe가_지연되어도_Redis_gauge는_제한시간_안에_갱신한다() throws Exception {
+		SimpleMeterRegistry registry = new SimpleMeterRegistry();
+		DataSource dataSource = mock(DataSource.class);
+		RedisConnectionFactory redisConnectionFactory = mock(RedisConnectionFactory.class);
+		RedisConnection redis = mock(RedisConnection.class);
+		when(dataSource.getConnection()).thenAnswer(invocation -> {
+			Thread.sleep(1_000);
+			throw new java.sql.SQLException("postgresql pool acquisition timed out");
+		});
+		when(redisConnectionFactory.getConnection()).thenReturn(redis);
+		when(redis.ping()).thenReturn("PONG");
+		DependencyHealthSampler sampler = new DependencyHealthSampler(dataSource, redisConnectionFactory, registry);
+
+		long startedAt = System.nanoTime();
+		sampler.sample();
+
+		assertTrue(java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt) < 500);
+		assertEquals(0.0, gaugeValue(registry, "postgresql"));
+		assertEquals(1.0, gaugeValue(registry, "redis"));
+		sampler.shutdown();
+	}
+
+	@Test
+	void T2_연속된_PostgreSQL_pool_지연도_Redis_probe_slot을_점유하지_않는다() throws Exception {
+		SimpleMeterRegistry registry = new SimpleMeterRegistry();
+		DataSource dataSource = mock(DataSource.class);
+		RedisConnectionFactory redisConnectionFactory = mock(RedisConnectionFactory.class);
+		RedisConnection redis = mock(RedisConnection.class);
+		java.util.concurrent.CountDownLatch releasePostgresqlProbes = new java.util.concurrent.CountDownLatch(1);
+		when(dataSource.getConnection()).thenAnswer(invocation -> {
+			while (releasePostgresqlProbes.getCount() > 0) {
+				try {
+					releasePostgresqlProbes.await(10, java.util.concurrent.TimeUnit.MILLISECONDS);
+				} catch (InterruptedException ignored) {
+					// Hikari 획득이 interrupt에 즉시 반응하지 않는 경계를 재현한다.
+				}
+			}
+			throw new java.sql.SQLException("postgresql pool acquisition timed out");
+		});
+		when(redisConnectionFactory.getConnection()).thenReturn(redis);
+		when(redis.ping()).thenReturn("PONG");
+		DependencyHealthSampler sampler = new DependencyHealthSampler(dataSource, redisConnectionFactory, registry);
+
+		try {
+			sampler.sample();
+			long startedAt = System.nanoTime();
+			sampler.sample();
+
+			assertTrue(java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt) < 500);
+			assertEquals(1.0, gaugeValue(registry, "redis"));
+		} finally {
+			releasePostgresqlProbes.countDown();
+			sampler.shutdown();
+		}
+	}
+
+	@Test
+	void T2_두_dependency_probe_timeout의_합은_아주_짧은_poll_interval보다도_엄격히_짧다() throws Exception {
+		java.lang.reflect.Method timeout = DependencyHealthSampler.class
+			.getDeclaredMethod("boundedProbeTimeout", java.time.Duration.class);
+		timeout.setAccessible(true);
+
+		for (java.time.Duration pollInterval : java.util.List.of(java.time.Duration.ofMillis(1),
+			java.time.Duration.ofMillis(2))) {
+			java.time.Duration probeTimeout = (java.time.Duration)timeout.invoke(null, pollInterval);
+			assertTrue(probeTimeout.multipliedBy(2).compareTo(pollInterval) < 0);
+		}
 	}
 
 	@Test

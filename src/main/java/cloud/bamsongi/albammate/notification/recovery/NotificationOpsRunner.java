@@ -33,8 +33,9 @@ public class NotificationOpsRunner implements ApplicationRunner, ExitCodeGenerat
 			System.err.println("notification outbox operation input rejected");
 			exitCode = 2;
 		} catch (RuntimeException exception) {
-			log.error("event=notification_outbox_operation_failed exceptionClass={}",
-				exception.getClass().getSimpleName());
+			log.atError().addKeyValue("event", "notification_outbox_operation_failed")
+				.addKeyValue("exceptionClass", exception.getClass().getSimpleName())
+				.log("notification outbox operation failed");
 			System.err.println("notification outbox operation failed");
 			exitCode = 1;
 		}
