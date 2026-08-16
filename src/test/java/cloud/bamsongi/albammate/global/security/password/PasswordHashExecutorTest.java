@@ -9,15 +9,22 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 import cloud.bamsongi.albammate.global.exception.RateLimitExceededException;
-import cloud.bamsongi.albammate.measurement.AuthNotificationMeasurementRecorder;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 class PasswordHashExecutorTest {
 
 	@Test
+	void 해시_작업의_반환값을_그대로_반환하고_슬롯을_한번_반환한다() {
+		StubLimiter limiter = new StubLimiter();
+		PasswordHashExecutor executor = new PasswordHashExecutor(limiter);
+
+		assertEquals("hashed", executor.execute(() -> "hashed"));
+		assertEquals(1, limiter.closedPermits.get());
+	}
+
+	@Test
 	void 해시_작업이_예외를_던져도_슬롯을_반환한다() {
 		StubLimiter limiter = new StubLimiter();
-		PasswordHashExecutor executor = new PasswordHashExecutor(limiter, null);
+		PasswordHashExecutor executor = new PasswordHashExecutor(limiter);
 
 		assertThrows(
 			IllegalStateException.class,
@@ -37,7 +44,7 @@ class PasswordHashExecutorTest {
 				public Optional<PasswordHashPermit> tryAcquire() {
 					return Optional.empty();
 				}
-			}, null);
+			});
 
 		RateLimitExceededException exception = assertThrows(
 			RateLimitExceededException.class,
@@ -48,60 +55,8 @@ class PasswordHashExecutorTest {
 	}
 
 	@Test
-	void T4_T6_bcrypt_슬롯_포화는_콜백을_실행하지_않고_원인과_permit_경계를_기록한다() {
-		SimpleMeterRegistry registry = new SimpleMeterRegistry();
-		AtomicInteger executions = new AtomicInteger();
-		PasswordHashExecutor executor = new PasswordHashExecutor(
-			new PasswordHashConcurrencyLimiter() {
-				@Override
-				public Optional<PasswordHashPermit> tryAcquire() {
-					return Optional.empty();
-				}
-			}, new AuthNotificationMeasurementRecorder(registry));
-
-		assertThrows(RateLimitExceededException.class, () -> executor.execute(executions::incrementAndGet));
-
-		assertEquals(0, executions.get());
-		assertEquals(0, registry.find("auth.login.stage.duration").tag("stage", "bcrypt-permit").timer().count());
-		assertEquals(1, registry.find("auth.login.rejections").tag("source", "bcrypt-slot").counter().count());
-	}
-
-	@Test
-	void T12_필수_동시성_제한자가_null이면_생성_즉시_실패한다() {
-		assertThrows(NullPointerException.class, () -> new PasswordHashExecutor(null, null));
-	}
-
-	@Test
-	void T6_bcrypt_permit은_해시_작업과_permit_반환까지_전체_점유를_기록한다() {
-		SimpleMeterRegistry registry = new SimpleMeterRegistry();
-		PasswordHashExecutor executor = new PasswordHashExecutor(new PasswordHashConcurrencyLimiter() {
-			@Override
-			public Optional<PasswordHashPermit> tryAcquire() {
-				return Optional.of(() -> java.util.concurrent.locks.LockSupport.parkNanos(
-					java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(20)));
-			}
-		},
-			new AuthNotificationMeasurementRecorder(registry));
-
-		executor.execute(() -> "hashed");
-
-		assertEquals(1, registry.find("auth.login.stage.duration").tag("stage", "bcrypt-permit").timer().count());
-		assertEquals(true, registry.find("auth.login.stage.duration").tag("stage", "bcrypt-permit").timer()
-			.totalTime(java.util.concurrent.TimeUnit.MILLISECONDS) >= 20);
-	}
-
-	@Test
-	void T6_획득_성공_뒤_해시_작업의_제한_예외는_bcrypt_slot_거절로_기록하지_않는다() {
-		SimpleMeterRegistry registry = new SimpleMeterRegistry();
-		PasswordHashExecutor executor = new PasswordHashExecutor(new StubLimiter(),
-			new AuthNotificationMeasurementRecorder(registry));
-
-		assertThrows(RateLimitExceededException.class,
-			() -> executor.execute(() -> {
-				throw new RateLimitExceededException(1);
-			}));
-
-		assertEquals(0, registry.find("auth.login.rejections").tag("source", "bcrypt-slot").counter().count());
+	void 필수_동시성_제한자가_null이면_생성_즉시_실패한다() {
+		assertThrows(NullPointerException.class, () -> new PasswordHashExecutor(null));
 	}
 
 	private static final class StubLimiter implements PasswordHashConcurrencyLimiter {

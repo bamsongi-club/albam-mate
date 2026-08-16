@@ -28,7 +28,6 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
-import cloud.bamsongi.albammate.measurement.AuthNotificationMeasurementRecorder;
 import cloud.bamsongi.albammate.notification.entity.Notification;
 import cloud.bamsongi.albammate.notification.entity.NotificationOutboxEvent;
 import cloud.bamsongi.albammate.notification.enums.NotificationOutboxEventType;
@@ -36,7 +35,6 @@ import cloud.bamsongi.albammate.notification.enums.NotificationOutboxStatus;
 import cloud.bamsongi.albammate.notification.repository.NotificationOutboxEventRepository;
 import cloud.bamsongi.albammate.notification.repository.NotificationOutboxRecipientRepository;
 import cloud.bamsongi.albammate.notification.repository.NotificationRepository;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 class NotificationRelayExecutorTest {
 
@@ -55,17 +53,17 @@ class NotificationRelayExecutorTest {
 	}
 
 	@Test
-	void T12_필수_relay_저장소가_null이면_생성_즉시_실패한다() {
+	void 필수_relay_저장소가_null이면_생성_즉시_실패한다() {
 		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
 		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);
 		NotificationRepository notificationRepository = mock(NotificationRepository.class);
 
 		assertThrows(NullPointerException.class,
-			() -> new NotificationRelayExecutor(null, recipientRepository, notificationRepository, null));
+			() -> new NotificationRelayExecutor(null, recipientRepository, notificationRepository));
 		assertThrows(NullPointerException.class,
-			() -> new NotificationRelayExecutor(eventRepository, null, notificationRepository, null));
+			() -> new NotificationRelayExecutor(eventRepository, null, notificationRepository));
 		assertThrows(NullPointerException.class,
-			() -> new NotificationRelayExecutor(eventRepository, recipientRepository, null, null));
+			() -> new NotificationRelayExecutor(eventRepository, recipientRepository, null));
 	}
 
 	@Test
@@ -79,7 +77,7 @@ class NotificationRelayExecutorTest {
 		when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
 		when(recipientRepository.findRecipientUserIdsByOutboxEventId(10L)).thenReturn(List.of(2L, 3L));
 		NotificationRelayExecutor executor = new NotificationRelayExecutor(
-			eventRepository, recipientRepository, notificationRepository, null);
+			eventRepository, recipientRepository, notificationRepository);
 
 		NotificationRelayExecutor.ProcessedEvent processedEvent = executor.processOne().orElseThrow();
 
@@ -107,7 +105,7 @@ class NotificationRelayExecutorTest {
 		when(notificationRepository.insertIfAbsent(any(Notification.class)))
 			.thenThrow(new DataIntegrityViolationException("insert failed"));
 		NotificationRelayExecutor executor = new NotificationRelayExecutor(
-			eventRepository, recipientRepository, notificationRepository, null);
+			eventRepository, recipientRepository, notificationRepository);
 
 		NotificationRelayProcessingException exception = assertThrows(
 			NotificationRelayProcessingException.class, executor::processOne);
@@ -117,85 +115,6 @@ class NotificationRelayExecutorTest {
 			NotificationRelayProcessingException.FailureReason.PROCESSING_FAILURE, exception.getFailureReason());
 		assertTrue(exception.getCause() instanceof DataIntegrityViolationException);
 		assertEquals(NotificationOutboxStatus.PENDING, event.getStatus());
-	}
-
-	@Test
-	void T8_성공_relay는_저장_단계와_commit_afterCompletion을_분리_기록한다() {
-		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
-		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);
-		NotificationRepository notificationRepository = mock(NotificationRepository.class);
-		SimpleMeterRegistry registry = new SimpleMeterRegistry();
-		NotificationOutboxEvent event = pendingEvent(10L);
-		NotificationOutboxEventRepository.RelayClaim relayClaim = claim(10L);
-		when(eventRepository.claimEarliestProcessableEvent()).thenReturn(Optional.of(relayClaim));
-		when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
-		when(recipientRepository.findRecipientUserIdsByOutboxEventId(10L)).thenReturn(List.of(2L));
-		NotificationRelayExecutor executor = new NotificationRelayExecutor(eventRepository, recipientRepository,
-			notificationRepository, new AuthNotificationMeasurementRecorder(registry));
-
-		executor.processOne();
-		TransactionSynchronizationManager.getSynchronizations().forEach(sync -> sync.beforeCommit(false));
-		TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit);
-		TransactionSynchronizationManager.getSynchronizations()
-			.forEach(sync -> sync.afterCompletion(TransactionSynchronization.STATUS_COMMITTED));
-
-		assertRelayTimer(registry, "claim", "success");
-		assertRelayTimer(registry, "recipient-insert-loop", "success");
-		assertRelayTimer(registry, "event-flush", "success");
-		assertRelayTimer(registry, "tx-commit", "committed");
-		assertRelayTimer(registry, "tx-total", "committed");
-		assertRelayTimerHasPositiveDuration(registry, "tx-commit", "committed");
-		assertRelayTimerHasPositiveDuration(registry, "tx-total", "committed");
-		assertRelayTimer(registry, "afterCompletion", "committed");
-	}
-
-	@Test
-	void T9_rollback_relay도_tx_total과_afterCompletion_결과를_정확히_기록한다() {
-		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
-		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);
-		NotificationRepository notificationRepository = mock(NotificationRepository.class);
-		SimpleMeterRegistry registry = new SimpleMeterRegistry();
-		NotificationOutboxEvent event = pendingEvent(10L);
-		NotificationOutboxEventRepository.RelayClaim relayClaim = claim(10L);
-		when(eventRepository.claimEarliestProcessableEvent()).thenReturn(Optional.of(relayClaim));
-		when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
-		when(recipientRepository.findRecipientUserIdsByOutboxEventId(10L)).thenReturn(List.of(2L));
-		when(notificationRepository.insertIfAbsent(any(Notification.class)))
-			.thenThrow(new DataIntegrityViolationException("insert failed"));
-		NotificationRelayExecutor executor = new NotificationRelayExecutor(eventRepository, recipientRepository,
-			notificationRepository, new AuthNotificationMeasurementRecorder(registry));
-
-		assertThrows(NotificationRelayProcessingException.class, executor::processOne);
-		TransactionSynchronizationManager.getSynchronizations()
-			.forEach(sync -> sync.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK));
-
-		assertRelayTimer(registry, "tx-total", "rolled-back");
-		assertRelayTimerHasPositiveDuration(registry, "tx-total", "rolled-back");
-		assertRelayTimer(registry, "afterCompletion", "rolled-back");
-	}
-
-	@Test
-	void STATUS_UNKNOWN은_승인되지_않은_rollback_metric으로_오분류하지_않는다() {
-		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
-		NotificationOutboxRecipientRepository recipientRepository = mock(NotificationOutboxRecipientRepository.class);
-		NotificationRepository notificationRepository = mock(NotificationRepository.class);
-		SimpleMeterRegistry registry = new SimpleMeterRegistry();
-		NotificationOutboxEvent event = pendingEvent(10L);
-		NotificationOutboxEventRepository.RelayClaim relayClaim = claim(10L);
-		when(eventRepository.claimEarliestProcessableEvent()).thenReturn(Optional.of(relayClaim));
-		when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
-		when(recipientRepository.findRecipientUserIdsByOutboxEventId(10L)).thenReturn(List.of(2L));
-		NotificationRelayExecutor executor = new NotificationRelayExecutor(eventRepository, recipientRepository,
-			notificationRepository, new AuthNotificationMeasurementRecorder(registry));
-
-		executor.processOne();
-		TransactionSynchronizationManager.getSynchronizations()
-			.forEach(sync -> sync.afterCompletion(TransactionSynchronization.STATUS_UNKNOWN));
-
-		assertEquals(0, registry.find("notification.relay.stage.duration")
-			.tags("stage", "tx-total", "result", "rolled-back").timer().count());
-		assertEquals(0, registry.find("notification.relay.stage.duration")
-			.tags("stage", "afterCompletion", "result", "rolled-back").timer().count());
 	}
 
 	@Test
@@ -209,7 +128,7 @@ class NotificationRelayExecutorTest {
 		when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
 		when(recipientRepository.findRecipientUserIdsByOutboxEventId(10L)).thenReturn(List.of());
 		NotificationRelayExecutor executor = new NotificationRelayExecutor(
-			eventRepository, recipientRepository, notificationRepository, null);
+			eventRepository, recipientRepository, notificationRepository);
 
 		NotificationRelayProcessingException exception = assertThrows(
 			NotificationRelayProcessingException.class, executor::processOne);
@@ -233,7 +152,7 @@ class NotificationRelayExecutorTest {
 		when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
 		when(recipientRepository.findRecipientUserIdsByOutboxEventId(10L)).thenReturn(List.of(987_654_321L));
 		NotificationRelayExecutor executor = new NotificationRelayExecutor(
-			eventRepository, recipientRepository, notificationRepository, null);
+			eventRepository, recipientRepository, notificationRepository);
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 		try {
 			executor.processOne();
@@ -263,7 +182,7 @@ class NotificationRelayExecutorTest {
 		NotificationRepository notificationRepository = mock(NotificationRepository.class);
 		when(eventRepository.claimEarliestProcessableEvent()).thenReturn(Optional.empty());
 		NotificationRelayExecutor executor = new NotificationRelayExecutor(
-			eventRepository, recipientRepository, notificationRepository, null);
+			eventRepository, recipientRepository, notificationRepository);
 
 		Optional<NotificationRelayExecutor.ProcessedEvent> processedEvent = executor.processOne();
 
@@ -284,7 +203,7 @@ class NotificationRelayExecutorTest {
 		when(eventRepository.claimEarliestProcessableEvent()).thenReturn(Optional.of(relayClaim));
 		when(eventRepository.findById(10L)).thenReturn(Optional.of(event));
 		NotificationRelayExecutor executor = new NotificationRelayExecutor(
-			eventRepository, recipientRepository, notificationRepository, null);
+			eventRepository, recipientRepository, notificationRepository);
 
 		NotificationRelayProcessingException exception = assertThrows(
 			NotificationRelayProcessingException.class, executor::processOne);
@@ -345,13 +264,4 @@ class NotificationRelayExecutorTest {
 		assertFalse(message.contains("relay-session-sensitive"));
 	}
 
-	private void assertRelayTimer(SimpleMeterRegistry registry, String stage, String result) {
-		assertEquals(1, registry.find("notification.relay.stage.duration")
-			.tags("stage", stage, "result", result).timer().count());
-	}
-
-	private void assertRelayTimerHasPositiveDuration(SimpleMeterRegistry registry, String stage, String result) {
-		assertTrue(registry.find("notification.relay.stage.duration")
-			.tags("stage", stage, "result", result).timer().totalTime(java.util.concurrent.TimeUnit.NANOSECONDS) > 0);
-	}
 }

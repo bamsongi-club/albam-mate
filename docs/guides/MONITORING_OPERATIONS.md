@@ -102,16 +102,12 @@ object key는 `receipts/v1/{environment}/{stackId}/{receiptId}/{sequence}-{stage
 
 ### 현재 생산 코드의 domain meter
 
-source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, 다음 네 meter가 `AuthNotificationMeasurementRecorder`, WebSocket 네 meter가 `ChatWebSocketMetrics`, message delivery 두 meter가 `ChatMessageCommittedListener`, retention 여덟 meter가 `ChatMessageRetentionMetrics`다. `추가 구현 필요` meter는 각각 notification relay, ROOM status correction과 waitlist module이 생산하고 도메인 코드가 CloudWatch SDK에 의존하지 않도록 `MeterRegistry`까지만 소유한다.
+source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 meter가 `ChatWebSocketMetrics`, message delivery 두 meter가 `ChatMessageCommittedListener`, retention 여덟 meter가 `ChatMessageRetentionMetrics`다. `추가 구현 필요` meter는 각각 notification relay, ROOM status correction과 waitlist module이 생산하고 도메인 코드가 CloudWatch SDK에 의존하지 않도록 `MeterRegistry`까지만 소유한다.
 
 | 이름 | type | 허용 tag 값 | 사용 query·용도 | 상태 |
 | --- | --- | --- | --- | --- |
 | `auth.request.limiter.rejections` | counter | `family=ip|failure`, `reason=capacity_saturated|redis_unavailable` | 5분 `Sum`·인증 거절 원인 | 현재 코드·export 필요 |
 | `auth.request.limiter.capacity.utilization` | gauge | `family=ip|failure` | 5분 `Maximum`·용량 warning 후보 | 현재 코드·export 필요 |
-| `auth.login.stage.duration` | timer | `stage=request-limit|verification-gate|failure-limit|user-lookup|bcrypt-permit|bcrypt-verify|bcrypt-upgrade-check|bcrypt-upgrade-encode|password-hash-update|failure-record|failure-reset|session-context-save|session-repository-save` | stage별 count·p95 | 현재 코드·production 기본 비활성 |
-| `auth.login.rejections` | counter | `source=ip-limit|verification-gate|failure-limit|bcrypt-slot|redis-unavailable` | source별 5분 `Sum` | 현재 코드·production 기본 비활성 |
-| `notification.query.stage.duration` | timer | `stage=content|total-count|unread-count` | stage별 count·p95 | 현재 코드·production 기본 비활성 |
-| `notification.relay.stage.duration` | timer | `stage=claim|event-fetch|recipient-lookup|recipient-insert-loop|event-flush`일 때 `result=success`; `stage=tx-commit|tx-total|afterCompletion`일 때 `result=committed|rolled-back` | stage별 count·p95 | 현재 코드·production 기본 비활성 |
 | `chat.websocket.connections.active` | gauge | 없음 | App별 `Maximum` | 현재 코드·export 필요 |
 | `chat.websocket.delivery.latency` | timer | 없음 | 5분 count·p95 | 현재 코드·export 필요 |
 | `chat.websocket.delivery.failures` | counter | 없음 | 5분 `Sum` | 현재 코드·export 필요 |
