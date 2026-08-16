@@ -1,13 +1,18 @@
 #!/usr/bin/env node
 
-import { createHash } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { validateCatalogDatasetReleaseManifest } from './catalog-dataset-release-manifest.mjs';
+import {
+    measureCatalogDatasetCoverage,
+    resolveArtifactPaths,
+    sha256,
+} from './catalog-dataset-release-measurement.mjs';
 
 const options = parseOptions(process.argv.slice(2));
 const manifest = JSON.parse(readFileSync(options.manifest, 'utf8'));
+validateCatalogDatasetReleaseManifest(manifest);
 const datasetContents = readFileSync(options.dataset);
 const datasetRows = JSON.parse(datasetContents);
 if (!Array.isArray(datasetRows)) {
@@ -29,23 +34,27 @@ const actualDataset = {
     sha256: sha256(datasetContents),
     idSetSha256: sha256(Buffer.from(canonicalIds, 'utf8')),
 };
+const artifactPaths = resolveArtifactPaths(manifest.artifacts, options.artifactsRoot);
+const artifactContents = Object.fromEntries(
+    Object.entries(artifactPaths).map(([key, artifactPath]) => [key, readFileSync(artifactPath)]),
+);
 const actualArtifacts = Object.fromEntries(
-    Object.entries(manifest.artifacts).map(([key, artifact]) => {
-        const artifactPath = resolve(options.artifactsRoot, artifact.path);
-        const contents = readFileSync(artifactPath);
+    Object.entries(artifactContents).map(([key, contents]) => {
+        const artifactPath = artifactPaths[key];
         return [key, {
             sha256: sha256(contents),
             bytes: statSync(artifactPath).size,
         }];
     }),
 );
+const actualCoverage = measureCatalogDatasetCoverage({
+    datasetIds: ids,
+    mechanismSql: artifactContents['02'],
+    metadataSql: artifactContents['03'],
+});
 
-validateCatalogDatasetReleaseManifest(manifest, { actualDataset, actualArtifacts });
-process.stdout.write(`${JSON.stringify({ actualDataset, actualArtifacts }, null, 2)}\n`);
-
-function sha256(contents) {
-    return createHash('sha256').update(contents).digest('hex');
-}
+validateCatalogDatasetReleaseManifest(manifest, { actualDataset, actualArtifacts, actualCoverage });
+process.stdout.write(`${JSON.stringify({ actualDataset, actualArtifacts, actualCoverage }, null, 2)}\n`);
 
 function parseOptions(args) {
     const values = {};

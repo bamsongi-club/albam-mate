@@ -6,7 +6,11 @@ on:
     paths:
       - "scripts/game-catalog/catalog-dataset-release-manifest.mjs"
       - "scripts/game-catalog/catalog-dataset-release-manifest.test.mjs"
+      - "scripts/game-catalog/catalog-dataset-release-measurement.mjs"
+      - "scripts/game-catalog/catalog-dataset-release-measurement.test.mjs"
       - "scripts/game-catalog/measure-catalog-dataset-release.mjs"
+      - "scripts/game-catalog/prepare-game-catalog.mjs"
+      - "scripts/game-catalog/prepare-game-catalog.test.mjs"
       - "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md"
       - ".github/workflows/catalog-dataset-release.yml"
   push:
@@ -14,7 +18,11 @@ on:
     paths:
       - "scripts/game-catalog/catalog-dataset-release-manifest.mjs"
       - "scripts/game-catalog/catalog-dataset-release-manifest.test.mjs"
+      - "scripts/game-catalog/catalog-dataset-release-measurement.mjs"
+      - "scripts/game-catalog/catalog-dataset-release-measurement.test.mjs"
       - "scripts/game-catalog/measure-catalog-dataset-release.mjs"
+      - "scripts/game-catalog/prepare-game-catalog.mjs"
+      - "scripts/game-catalog/prepare-game-catalog.test.mjs"
       - "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md"
       - ".github/workflows/catalog-dataset-release.yml"
   workflow_dispatch:
@@ -33,10 +41,14 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Test catalog dataset release manifest
-        run: node --test scripts/game-catalog/catalog-dataset-release-manifest.test.mjs
+      - name: Test catalog dataset release gate
+        run: node --test scripts/game-catalog/catalog-dataset-release*.test.mjs
+
+      - name: Test execution manifest handoff
+        run: node --test scripts/game-catalog/prepare-game-catalog.test.mjs
 
       - name: Check release scripts syntax
         run: |
           node --check scripts/game-catalog/catalog-dataset-release-manifest.mjs
+          node --check scripts/game-catalog/catalog-dataset-release-measurement.mjs
           node --check scripts/game-catalog/measure-catalog-dataset-release.mjs

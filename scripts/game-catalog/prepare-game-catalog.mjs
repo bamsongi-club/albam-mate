@@ -8,10 +8,15 @@ import {
     statSync,
     writeFileSync,
 } from "node:fs";
-import { basename, dirname, resolve } from "node:path";
+import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
 
 import { analyzeCatalog, parseRankRows, sha256 } from "./catalog-analysis.mjs";
 import { validateApprovedReleaseManifest } from "./catalog-release-manifest.mjs";
+import {
+    CATALOG_DATASET_RELEASE_KIND,
+    validateCatalogDatasetReleaseManifest,
+    validateCatalogDatasetReleaseReference,
+} from "./catalog-dataset-release-manifest.mjs";
 import {
     buildQualityReport,
     renderJson,
@@ -177,7 +182,7 @@ function prepareCatalog({ games: gamesPath, ranks: ranksPath, manifest: manifest
         },
     };
     if (resolvedManifest) {
-        analysis.errors.push(...validateManifestGate(resolvedManifest, { actualInputs }));
+        analysis.errors.push(...validateManifestGate(resolvedManifest, { actualInputs, manifestPath }));
     }
     const mechanisms = extractMechanismCatalog(games, resolvedManifest);
     if (mechanisms) {
@@ -217,7 +222,7 @@ function prepareCatalog({ games: gamesPath, ranks: ranksPath, manifest: manifest
         sqlSha256: actualOutputs.upsertSql.sha256,
     };
     analysis.errors.push(
-        ...validateManifestGate(resolvedManifest, { actualInputs, actualOutputs }),
+        ...validateManifestGate(resolvedManifest, { actualInputs, actualOutputs, manifestPath }),
     );
     if (analysis.errors.length > 0) {
         writeJson(
@@ -269,6 +274,7 @@ function resolveManifest(manifest, manifestPath) {
         approval: mergeOptionalObject(baseManifest.approval, manifest.approval),
         search_text: mergeOptionalObject(baseManifest.search_text, manifest.search_text),
         embedding: mergeEmbedding(baseManifest.embedding, manifest.embedding),
+        datasetRelease: mergeOptionalObject(baseManifest.datasetRelease, manifest.datasetRelease),
         inputs: mergeOptionalObject(baseManifest.inputs, manifest.inputs),
         coverage: mergeOptionalObject(baseManifest.coverage, manifest.coverage),
         outputs: mergeOptionalObject(baseManifest.outputs, manifest.outputs),
@@ -295,6 +301,26 @@ function validateManifestGate(manifest, context) {
     if (!requiresApprovedReleaseGate(manifest)) {
         return [];
     }
+    if (manifest.kind === CATALOG_DATASET_RELEASE_KIND) {
+        return [
+            {
+                code: "DATASET_RELEASE_MANIFEST_NOT_EXECUTION",
+                message: "catalog dataset release manifest는 execution manifest에 참조해야 하며 runner에 직접 전달할 수 없습니다.",
+            },
+        ];
+    }
+    if (manifest.datasetRelease !== undefined) {
+        try {
+            validateDatasetReleaseHandoff(manifest, context);
+        } catch (error) {
+            return [
+                {
+                    code: "INVALID_DATASET_RELEASE_REFERENCE",
+                    message: error instanceof Error ? error.message : String(error),
+                },
+            ];
+        }
+    }
     try {
         validateApprovedReleaseManifest(manifest, context);
         return [];
@@ -308,11 +334,53 @@ function validateManifestGate(manifest, context) {
     }
 }
 
+function validateDatasetReleaseHandoff(manifest, { manifestPath }) {
+    if (!manifestPath) {
+        throw new Error("datasetRelease reference requires the execution manifest path");
+    }
+    const referencePath = manifest.datasetRelease?.manifestPath;
+    assertSafeRelativeManifestPath(referencePath);
+    const baseDirectory = realpathSync(dirname(manifestPath));
+    const candidatePath = resolve(baseDirectory, referencePath);
+    const datasetManifestPath = realpathSync(candidatePath);
+    const relativePath = relative(baseDirectory, datasetManifestPath);
+    if (!relativePath || relativePath.startsWith("..") || isAbsolute(relativePath)) {
+        throw new Error("datasetRelease.manifestPath resolves outside the execution manifest directory");
+    }
+    const datasetManifestContents = readInput(datasetManifestPath, "dataset release manifest");
+    const datasetManifest = parseJson(
+        datasetManifestContents,
+        "INVALID_DATASET_RELEASE_MANIFEST_JSON",
+        "dataset release manifest를 해석할 수 없습니다.",
+        "dataset release manifest",
+    );
+    validateCatalogDatasetReleaseManifest(datasetManifest);
+    validateCatalogDatasetReleaseReference(
+        manifest.datasetRelease,
+        datasetManifest,
+        sha256(datasetManifestContents),
+    );
+}
+
+function assertSafeRelativeManifestPath(path) {
+    if (
+        typeof path !== "string"
+        || path.trim() === ""
+        || isAbsolute(path)
+        || /^[a-zA-Z]:[\\/]/u.test(path)
+        || path.split(/[\\/]/u).some((segment) => segment === ".." || segment === "")
+    ) {
+        throw new Error("datasetRelease.manifestPath must be a safe relative path");
+    }
+}
+
 function requiresApprovedReleaseGate(manifest) {
     if (!manifest) {
         return false;
     }
-    return [
+    return manifest.kind === CATALOG_DATASET_RELEASE_KIND
+        || manifest.datasetRelease !== undefined
+        || [
         "approved",
         "testOnly",
         "releaseId",
