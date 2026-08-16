@@ -6,6 +6,7 @@ import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideOutsid
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.List;
 import java.util.Map;
@@ -56,24 +57,34 @@ class ModuleArchitectureTest {
 		ROOT_PACKAGE + ".chat.entity",
 		ROOT_PACKAGE + ".chat.repository",
 		ROOT_PACKAGE + ".chat.service",
+		ROOT_PACKAGE + ".chat.match",
+		ROOT_PACKAGE + ".chat.match.entity",
+		ROOT_PACKAGE + ".chat.match.repository",
 		ROOT_PACKAGE + ".chat.retention",
 		ROOT_PACKAGE + ".chat.websocket");
+	private static final Set<String> ALLOWED_MATCHING_PACKAGES = Set.of(
+		ROOT_PACKAGE + ".matching",
+		ROOT_PACKAGE + ".matching.contract",
+		ROOT_PACKAGE + ".matching.entity",
+		ROOT_PACKAGE + ".matching.repository",
+		ROOT_PACKAGE + ".matching.service.query");
 	private static final String ROOM_RETRIER = ROOT_PACKAGE + ".room.service.RoomOptimisticLockRetrier";
 	private static final Set<String> ALLOWED_ROOM_RETRIER_USERS = Set.of(
 		ROOT_PACKAGE + ".room.service.command.RoomCommandExecutionCoordinator",
 		ROOT_PACKAGE + ".room.statuscorrection.RoomStatusCorrectionCoordinator");
 	private static final List<String> BUSINESS_MODULES = List.of("auth", "user", "game", "room", "notification",
-		"chat");
+		"chat", "matching");
 	private static final String[] BUSINESS_MODULE_PACKAGES = BUSINESS_MODULES.stream()
 		.map(ModuleArchitectureTest::modulePackage)
 		.toArray(String[]::new);
 	private static final Map<String, List<String>> FORBIDDEN_DEPENDENCIES = Map.of(
-		"auth", List.of("game", "room", "notification", "chat"),
-		"user", List.of("auth", "game", "room", "notification", "chat"),
-		"game", List.of("auth", "user", "room", "notification", "chat"),
-		"room", List.of("auth", "notification", "chat"),
-		"notification", List.of("auth", "user", "game", "chat"),
-		"chat", List.of("auth", "game", "notification"));
+		"auth", List.of("game", "room", "notification", "chat", "matching"),
+		"user", List.of("auth", "game", "room", "notification", "chat", "matching"),
+		"game", List.of("auth", "user", "room", "notification", "chat", "matching"),
+		"room", List.of("auth", "notification", "chat", "matching"),
+		"notification", List.of("auth", "user", "game", "chat", "matching"),
+		"chat", List.of("auth", "game", "notification"),
+		"matching", List.of("auth", "room", "notification", "chat"));
 	private static final JavaClasses PRODUCTION_CLASSES = new ClassFileImporter()
 		.withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
 		.importPackages(ROOT_PACKAGE);
@@ -199,6 +210,37 @@ class ModuleArchitectureTest {
 			.should(resideInAllowedPackage(ALLOWED_CHAT_PACKAGES, "Chat"))
 			.because("CHAT-01은 entity, repository와 room.contract만 사용하는 lifecycle service를 소유하고,"
 				+ " CHAT-03은 방별 WebSocket handshake 경계를 websocket 패키지에 소유한다")
+			.check(PRODUCTION_CLASSES);
+	}
+
+	@Test
+	void MATCH는_chat_구현을_참조하지_않고_chat_match는_matching_contract만_참조한다() {
+		JavaClasses matchingClasses = PRODUCTION_CLASSES.that(
+			resideInAPackage(ROOT_PACKAGE + ".matching.."));
+		assertFalse(matchingClasses.isEmpty(), "MATCH 저장·계약 생산 패키지가 등록되지 않았습니다.");
+		classes()
+			.that()
+			.resideInAPackage(ROOT_PACKAGE + ".matching..")
+			.should(resideInAllowedPackage(ALLOWED_MATCHING_PACKAGES, "MATCH"))
+			.because("MATCH는 contract, entity, repository와 query 경계만 사용한다")
+			.check(PRODUCTION_CLASSES);
+		noClasses()
+			.that()
+			.resideInAPackage(ROOT_PACKAGE + ".matching..")
+			.should()
+			.dependOnClassesThat()
+			.resideInAPackage(ROOT_PACKAGE + ".chat..")
+			.because("matching은 chat 구현·Entity·Repository를 참조하지 않는다")
+			.check(PRODUCTION_CLASSES);
+		noClasses()
+			.that()
+			.resideInAPackage(ROOT_PACKAGE + ".chat.match..")
+			.should()
+			.dependOnClassesThat(
+				resideInAPackage(ROOT_PACKAGE + ".matching..")
+					.and(resideOutsideOfPackage(ROOT_PACKAGE + ".matching.contract..")))
+			.because("MATCH chat은 matching.contract 밖 구현을 참조하지 않는다")
+			.allowEmptyShould(true)
 			.check(PRODUCTION_CLASSES);
 	}
 

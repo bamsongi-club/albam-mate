@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -115,6 +117,34 @@ class ApiEndpointPolicyRegistryTest {
 
 		assertFalse(endpointPolicyRegistry.knownEndpointPathMatcher().matches(request));
 		assertTrue(endpointPolicyRegistry.protectedFutureSubpathMatcher().matches(request));
+	}
+
+	@Test
+	void MATCH_정책_contributor를_합성해도_미등록_하위_경로는_보호한다() throws Exception {
+		String unregisteredPath = "/api/matches/future-endpoint";
+		MockHttpServletRequest unregisteredRequest = new MockHttpServletRequest(HttpMethod.GET.name(), unregisteredPath);
+		unregisteredRequest.setServletPath(unregisteredPath);
+		assertTrue(endpointPolicyRegistry.protectedFutureSubpathMatcher().matches(unregisteredRequest));
+
+		Class<?> contributorType = Class.forName(
+			"cloud.bamsongi.albammate.global.security.endpoint.ApiEndpointPolicyContributor");
+		assertTrue(contributorType.isInterface());
+		ApiEndpointPolicy contributorPolicy = new ApiEndpointPolicy(
+			HttpMethod.GET,
+			"/api/matches/current",
+			ApiEndpointAuthenticationMode.AUTHENTICATED,
+			false);
+		Object contributor = Proxy.newProxyInstance(
+			contributorType.getClassLoader(),
+			new Class<?>[] {contributorType},
+			(proxy, method, arguments) -> List.of(contributorPolicy));
+		Method factory = ApiEndpointPolicyRegistry.class.getDeclaredMethod("forContributors", List.class);
+		ApiEndpointPolicyRegistry registry = (ApiEndpointPolicyRegistry) factory.invoke(null, List.of(contributor));
+
+		MockHttpServletRequest registeredRequest = new MockHttpServletRequest(HttpMethod.GET.name(), "/api/matches/current");
+		registeredRequest.setServletPath("/api/matches/current");
+		assertTrue(registry.authenticatedRequestMatcher().matches(registeredRequest));
+		assertTrue(registry.knownEndpointPathMatcher().matches(registeredRequest));
 	}
 
 	@Test

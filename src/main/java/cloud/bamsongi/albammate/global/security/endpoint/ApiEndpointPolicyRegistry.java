@@ -34,15 +34,15 @@ public final class ApiEndpointPolicyRegistry {
 	 */
 	private static final List<String> PROTECTED_FUTURE_SUBPATH_PREFIXES = List.of("/api/auth/", "/api/games/",
 		"/api/game-mechanisms/", "/api/game-categories/", "/api/game-themes/", "/api/game-rankings/", "/api/rooms/",
-		"/api/users/me/");
+		"/api/users/me/", "/api/matches/");
 
 	private final List<ApiEndpointPolicy> policies;
 
 	public ApiEndpointPolicyRegistry() {
-		this(defaultPolicies());
+		this((Collection<ApiEndpointPolicy>) defaultPolicies());
 	}
 
-	private ApiEndpointPolicyRegistry(List<ApiEndpointPolicy> policies) {
+	private ApiEndpointPolicyRegistry(Collection<ApiEndpointPolicy> policies) {
 		this.policies = List.copyOf(policies);
 		validatePolicies(this.policies);
 	}
@@ -115,7 +115,11 @@ public final class ApiEndpointPolicyRegistry {
 	}
 
 	static ApiEndpointPolicyRegistry forPolicies(List<ApiEndpointPolicy> policies) {
-		return new ApiEndpointPolicyRegistry(policies);
+		return new ApiEndpointPolicyRegistry((Collection<ApiEndpointPolicy>) policies);
+	}
+
+	static ApiEndpointPolicyRegistry forContributors(List<ApiEndpointPolicyContributor> contributors) {
+		return new ApiEndpointPolicyRegistry((Collection<ApiEndpointPolicy>) policiesFrom(contributors));
 	}
 
 	private RequestMatcher requestMatcherFor(ApiEndpointAuthenticationMode authenticationMode) {
@@ -210,6 +214,12 @@ public final class ApiEndpointPolicyRegistry {
 			policy(HttpMethod.GET, "/api/rooms/{roomId}/chat/messages", AUTHENTICATED, false),
 			policy(HttpMethod.GET, "/api/rooms/{roomId}/chat/ws", AUTHENTICATED, false),
 			policy(HttpMethod.GET, "/api/users/me/rooms", AUTHENTICATED, false));
+	}
+
+	private static List<ApiEndpointPolicy> policiesFrom(List<ApiEndpointPolicyContributor> contributors) {
+		List<ApiEndpointPolicy> policies = new ArrayList<>(defaultPolicies());
+		contributors.forEach(contributor -> policies.addAll(contributor.policies()));
+		return policies;
 	}
 
 	private static ApiEndpointPolicy policy(
