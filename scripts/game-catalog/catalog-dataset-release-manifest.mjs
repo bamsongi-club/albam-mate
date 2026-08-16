@@ -13,7 +13,10 @@ const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 const SAFE_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{2,63}$/u;
 const UTC_INSTANT_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
 
-export function validateCatalogDatasetReleaseManifest(manifest, { actualArtifacts } = {}) {
+export function validateCatalogDatasetReleaseManifest(
+    manifest,
+    { actualDataset, actualArtifacts } = {},
+) {
     assertObject(manifest, 'catalog dataset release manifest');
     assertEqual(manifest.schemaVersion, 1, 'schemaVersion must be 1');
     assertEqual(manifest.kind, 'catalog-dataset-release', 'kind must be catalog-dataset-release');
@@ -29,7 +32,7 @@ export function validateCatalogDatasetReleaseManifest(manifest, { actualArtifact
     }
 
     validateApproval(manifest.approval);
-    validateDataset(manifest.dataset);
+    validateDataset(manifest.dataset, actualDataset);
     validateApprovedFields(manifest.approvedFields);
     validateArtifacts(manifest.artifacts, actualArtifacts);
     validateCoverage(manifest.coverage);
@@ -54,13 +57,26 @@ function validateApproval(approval) {
     }
 }
 
-function validateDataset(dataset) {
+function validateDataset(dataset, actualDataset) {
     assertObject(dataset, 'dataset');
     if (!Number.isSafeInteger(dataset.rows) || dataset.rows <= 0) {
         throw new Error('dataset.rows must be a positive safe integer');
     }
     assertSha256(dataset.sha256, 'dataset.sha256');
     assertSha256(dataset.idSetSha256, 'dataset.idSetSha256');
+
+    if (actualDataset !== undefined) {
+        assertObject(actualDataset, 'actualDataset');
+        if (actualDataset.rows !== dataset.rows) {
+            throw new Error('dataset.rows does not match actual dataset');
+        }
+        if (actualDataset.sha256 !== dataset.sha256) {
+            throw new Error('dataset.sha256 does not match actual dataset');
+        }
+        if (actualDataset.idSetSha256 !== dataset.idSetSha256) {
+            throw new Error('dataset.idSetSha256 does not match actual dataset');
+        }
+    }
 }
 
 function validateApprovedFields(fields) {
