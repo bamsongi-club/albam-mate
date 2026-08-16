@@ -1,0 +1,1047 @@
+{
+  "schema": "k6-campaign-manifest-v3",
+  "kind": "room-portable-bundle",
+  "campaignId": "room-k6-final-clean-2026-08-15",
+  "campaignStatus": "completed-with-limitations",
+  "documentStatus": "current",
+  "reportStatus": "PASS",
+  "purpose": "ROOM portable bundle -> infra run.sh room-k6 경로의 최종 25개 유효 Run을, 보고서 수치와 local-only 원자료 bundle의 비밀이 아닌 provenance 및 무결성 식별값으로 연결한다.",
+  "documents": {
+    "report": "../room-portable-bundle-05-final-valid-2026-08-15.md",
+    "ownerIndex": "../README.md",
+    "measurementRules": "../../README.md",
+    "scriptRunbook": "../../../../../load-tests/k6/jiwon/README.md"
+  },
+  "executionPath": {
+    "included": "ROOM portable bundle -> infra run.sh room-k6",
+    "excluded": "generic loadtest"
+  },
+  "lineage": {
+    "campaignSequence": 5,
+    "priorCampaigns": [
+      {
+        "campaignId": "room-k6-matrix-2026-08-14",
+        "report": "../room-portable-bundle-01-initial-invalid-2026-08-14.md",
+        "recordedStatus": "INVALID",
+        "relationship": "final-05 이전의 별도 campaign 기록이며 이 manifest의 Run은 아님"
+      },
+      {
+        "campaignId": "room-k6-snapshot-rerun-2026-08-14",
+        "report": "../room-portable-bundle-02-snapshot-rerun-invalid-2026-08-14.md",
+        "recordedStatus": "INVALID",
+        "relationship": "final-05 이전의 별도 campaign 기록이며 이 manifest의 Run은 아님"
+      },
+      {
+        "campaignId": "room-k6-t1-recovery-smoke-2026-08-14",
+        "report": "../room-portable-bundle-03-t1-recovery-fail-2026-08-14.md",
+        "recordedStatus": "FAIL",
+        "relationship": "final-05 이전의 별도 campaign 기록이며 이 manifest의 Run은 아님"
+      },
+      {
+        "campaignId": "room-k6-local-gate-2026-08-15",
+        "report": "../room-portable-bundle-04-local-gate-invalid-2026-08-15.md",
+        "recordedStatus": "INVALID",
+        "relationship": "final-05 이전의 별도 campaign 기록이며 이 manifest의 Run은 아님"
+      }
+    ]
+  },
+  "window": {
+    "startedAtUtc": "2026-08-14T15:39:20Z",
+    "endedAtUtc": "2026-08-14T17:01:09Z",
+    "startedAtKst": "2026-08-15T00:39:20+09:00",
+    "endedAtKst": "2026-08-15T02:01:09+09:00",
+    "durationSeconds": 4909
+  },
+  "provenance": {
+    "alignment": {
+      "includedRunCount": 25,
+      "sourceRevision": {
+        "value": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "matchedRunCount": 25,
+        "distinctValueCount": 1
+      },
+      "deployedApplicationRevision": {
+        "value": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "matchedRunCount": 25,
+        "distinctValueCount": 1
+      },
+      "cleanSource": {
+        "value": true,
+        "matchedRunCount": 25
+      },
+      "portableBundle": {
+        "kind": "albam-mate-room-k6-bundle",
+        "schemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "matchedRunCount": 25
+      },
+      "k6": {
+        "version": "1.3.0",
+        "matchedRunCount": 25,
+        "distinctValueCount": 1
+      }
+    }
+  },
+  "artifactBoundary": {
+    "rawArtifactRetention": "local-only",
+    "repositoryRelativePathTemplates": {
+      "perFixtureBundle": "build/k6/room/<run-id>/<fixture-id>/",
+      "t5Comparison": "build/k6/room/<t5-run-id>/t5-comparison-verification.json"
+    },
+    "retainedInGit": [
+      "campaign and report metadata",
+      "scenario conditions and aggregate metrics",
+      "source and deployed-application revisions",
+      "non-secret SHA-256 artifact integrity identifiers"
+    ],
+    "prohibitedFromManifest": [
+      "password and credential-derived hash",
+      "token",
+      "session",
+      "CSRF value",
+      "URL",
+      "actual fixture or resource ID",
+      "raw SQL",
+      "raw log"
+    ],
+    "independentVerificationLimitation": "원자료 bundle은 local-only이므로 이 manifest의 SHA-256은 해당 로컬 artifact의 변경 여부만 증명한다. 이 저장소만으로 원자료 내용을 독립 재검증할 수는 없다."
+  },
+  "attribution": {
+    "selectionMethod": {
+      "rawArtifactsHaveCampaignId": false,
+      "rawArtifactsHaveReportDisposition": false,
+      "ledgerFields": [
+        "sequence",
+        "scenario",
+        "condition",
+        "UTC execution window"
+      ],
+      "rawArtifactMatchFields": [
+        "scenario",
+        "infra-execution startedAt",
+        "infra-execution finishedAt"
+      ],
+      "exactSingleMatchRunCount": 25,
+      "selectedRunCount": 25,
+      "outsideLedgerPassRunCount": 5
+    },
+    "reportMetricRelationship": "각 included Run의 원자료 k6 summary가 이 manifest의 p50, p95, RPS, 요청·결과 count와 일치함을 검증했다."
+  },
+  "validity": {
+    "includedRunCount": 25,
+    "reportStatusCounts": {
+      "PASS": 25
+    },
+    "scenarioCounts": {
+      "t1": 6,
+      "t2": 7,
+      "t3": 3,
+      "t4": 3,
+      "t5": 6
+    },
+    "allIncludedRuns": {
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      }
+    },
+    "t5Comparison": {
+      "status": "PASS",
+      "fixtureCount": 6,
+      "failureCount": 0,
+      "coverage": {
+        "roles": [
+          "public",
+          "host",
+          "participant"
+        ],
+        "scales": [
+          1,
+          10
+        ],
+        "expectedRoleScaleCaseCount": 6,
+        "allExpectedCasesCovered": true
+      },
+      "commonReadOptions": {
+        "vus": 10,
+        "durationSeconds": 60,
+        "thinkTimeMilliseconds": 0
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "comparisonSha256": "2f19f0a065239a96221ad2b4beabcac564c6bd28b2c923777523aaeba28af9b1"
+      },
+      "artifactOnlyRevalidation": {
+        "performed": true,
+        "method": "기존 local-only 여섯 fixture artifact를 다시 읽어 공통 read option과 6-case coverage를 비교했다.",
+        "workloadRerun": false
+      }
+    },
+    "notCollectedMetrics": [
+      "room_request_duration.p99"
+    ]
+  },
+  "runs": [
+    {
+      "sequence": 1,
+      "scenario": "t1",
+      "condition": "stress / hot / c2",
+      "window": {
+        "startedAtUtc": "2026-08-14T15:39:20Z",
+        "endedAtUtc": "2026-08-14T15:42:46Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 65.420495,
+        "p95Ms": 80.3716765,
+        "p99Ms": null,
+        "requestsPerSecond": 0.104851534,
+        "requestCount": 10,
+        "successCount": 10,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "af629dbcf72136241694abdcae7f2183b7e59d704ba47bcaa03ba24bf4cde936",
+        "infraExecutionSha256": "d308b036d1473f96a30e241e5eef1bce1ab2b09cefa0b802f0315ad0676773ea",
+        "beforeDiagnosisSha256": "87a7b13c588dd633e787f248f9893b109870f306060ac02e5006bafbd2cb00fa",
+        "afterDiagnosisSha256": "e4e5c8c6e8cfc50f9c7f76d93b9d80923c9b078035039656b7c67a7ad8136474",
+        "finalResultSha256": "40374c9eb66ddf2e03c321f1286df1327855a0c8f351e5b303058fb03fd68fac",
+        "k6SummarySha256": "f20d261e8e492e666bf2c145fe16fc2c88a1404587ea9a6778c1341eb88da208"
+      }
+    },
+    {
+      "sequence": 2,
+      "scenario": "t1",
+      "condition": "stress / hot / c4",
+      "window": {
+        "startedAtUtc": "2026-08-14T15:42:52Z",
+        "endedAtUtc": "2026-08-14T15:46:18Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 87.812344,
+        "p95Ms": 116.1283189,
+        "p99Ms": null,
+        "requestsPerSecond": 0.209027745,
+        "requestCount": 20,
+        "successCount": 15,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 5,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "4186c70a015c0faefda9b1fd4b8eb1f1f0fb111079c90c3b48fd32097053502c",
+        "infraExecutionSha256": "97c30e773397ed578b34df8999069bb41c36480b12c59db61e80b623a475324e",
+        "beforeDiagnosisSha256": "66ea6fe4a720cc47b3b786cb7da1fa1a2116d1e1072e1fb5d15055a3c60c782a",
+        "afterDiagnosisSha256": "6b56403275d36729a3f1a0581445b006179f89cecf35fb5f07166d69207e30dc",
+        "finalResultSha256": "b48892716a7a805e20f6e059f9a757222a49a1b4ffeec33151a3cce4cd36aa4e",
+        "k6SummarySha256": "8675a18120e23bf5fb03c8d5648d9c6e97e48554401542601b074d9e7ef63be4"
+      }
+    },
+    {
+      "sequence": 3,
+      "scenario": "t1",
+      "condition": "stress / hot / c8",
+      "window": {
+        "startedAtUtc": "2026-08-14T15:46:24Z",
+        "endedAtUtc": "2026-08-14T15:49:50Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 112.989267,
+        "p95Ms": 144.77677205,
+        "p99Ms": null,
+        "requestsPerSecond": 0.415422745,
+        "requestCount": 40,
+        "successCount": 17,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 23,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "ee50aa303fac5e0a30558e8074bae4a4b27ea937e7bfbcb20961b612c55f269b",
+        "infraExecutionSha256": "0149b3b9c21cc47ce6e30d5db92e5ac901c9df1d918206edea27a7d5b610aa10",
+        "beforeDiagnosisSha256": "cf8c3c1e0054e92642d588ab53a328c633be3a58a3eeebefabd6a5881bc9f158",
+        "afterDiagnosisSha256": "c7b9444f0771cb51aedd93d2ee3fc6dfe802d6de59d5cf5cba5d8492556c9196",
+        "finalResultSha256": "048f6bcd3cb8cfe3c0dc34315813eb750cbe5ac062da7f0c526190b7960eb2ae",
+        "k6SummarySha256": "9603e22382486f3d4229fdf1093d35fc109de0a521f254c6afabed61c66a6a91"
+      }
+    },
+    {
+      "sequence": 4,
+      "scenario": "t1",
+      "condition": "stress / spread / c2",
+      "window": {
+        "startedAtUtc": "2026-08-14T15:49:56Z",
+        "endedAtUtc": "2026-08-14T15:53:22Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 47.439802,
+        "p95Ms": 230.96448375,
+        "p99Ms": null,
+        "requestsPerSecond": 0.104666944,
+        "requestCount": 10,
+        "successCount": 10,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "0af8068ff6eafbbd5857ef9bb6743299ba145aeae3895111ada395cd55c4a267",
+        "infraExecutionSha256": "ec81e99e15019c6d84b3405faa09787fbd3e50224d63376a745eff2a30c4c14a",
+        "beforeDiagnosisSha256": "2201c096269a37cf36a5b5fb5e81c4723d998e3acb3d4a5aba719ad33322f982",
+        "afterDiagnosisSha256": "fcd980cbc452c7204f9e517d253852088e6462898fb1950c3f9d7b4c6e4be31e",
+        "finalResultSha256": "6b74a5940d9bb0afa7bc5783d5084e63e8926173fe0fec0b5bd7b7276337a4b8",
+        "k6SummarySha256": "6080e496d7cf0093068203f02ec42b752054dff3ba456b28f2bd6406ac5de179"
+      }
+    },
+    {
+      "sequence": 5,
+      "scenario": "t1",
+      "condition": "stress / spread / c4",
+      "window": {
+        "startedAtUtc": "2026-08-14T15:53:28Z",
+        "endedAtUtc": "2026-08-14T15:56:55Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 50.9024325,
+        "p95Ms": 56.81707875,
+        "p99Ms": null,
+        "requestsPerSecond": 0.209159109,
+        "requestCount": 20,
+        "successCount": 20,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "245ef44e1b222d61b6de15224aedb0046033a50caa907a2c473b2dd783b6f733",
+        "infraExecutionSha256": "20a12cd9c7f4e33628e48083c7b015b7f215d61afa66df7daf9eb3d3284cef82",
+        "beforeDiagnosisSha256": "be15b22fd0d878df27f287457a5a330035af67e97f482bd302d52d872e9ab817",
+        "afterDiagnosisSha256": "3b9901a48913d969630b36f64a32631f6eb2b8c01bbfbc81fe09090e1613396c",
+        "finalResultSha256": "5e33ce5e3a6a050081e6f44a2853b445024e50989796d2e4a8ca29b9549ad1e9",
+        "k6SummarySha256": "20bca0f395ef5f44a9dc4f5a3b91d081e275362908ae9c1b0231b574e4fb7224"
+      }
+    },
+    {
+      "sequence": 6,
+      "scenario": "t1",
+      "condition": "stress / spread / c8",
+      "window": {
+        "startedAtUtc": "2026-08-14T15:57:01Z",
+        "endedAtUtc": "2026-08-14T16:00:28Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 60.286566,
+        "p95Ms": 76.54850405,
+        "p99Ms": null,
+        "requestsPerSecond": 0.415862556,
+        "requestCount": 40,
+        "successCount": 40,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "edaa1cc9b7cb7b9d22937c7f9551cc80e0d32964edf6c1929883a650a049f2f7",
+        "infraExecutionSha256": "f29826bde9ec8372ae18699c2273033c5ad29db75b8c8b8f618597999485a168",
+        "beforeDiagnosisSha256": "ad4a098ff8719cd06445418fa3422282e5a4127cbd1c9201986b3c815068fa6d",
+        "afterDiagnosisSha256": "d279e811c430552b362eb429ba7373f2ab340d82a29b2d9cdc08ea3c24680d97",
+        "finalResultSha256": "890f0ed3f752322249c5d123c802799476b372cc566813aa71cb21cd49e65cef",
+        "k6SummarySha256": "ffa9ded59d18e11f72c7dbb2c6d0b25cbed07478e19e7b1970fe01d4f55c88d8"
+      }
+    },
+    {
+      "sequence": 7,
+      "scenario": "t2",
+      "condition": "stress / distinct / hot / c2",
+      "window": {
+        "startedAtUtc": "2026-08-14T16:00:34Z",
+        "endedAtUtc": "2026-08-14T16:04:01Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 45.022682,
+        "p95Ms": 103.0621755,
+        "p99Ms": null,
+        "requestsPerSecond": 0.104889268,
+        "requestCount": 10,
+        "successCount": 10,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 2
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "6ca730e6b17a9f974921adea76c183093724dc0ec392926bffa280ea745b7b7a",
+        "infraExecutionSha256": "be695b4b4f29452de8bfd45b55689107c57ae91e0e8f3f207969de734449ce47",
+        "beforeDiagnosisSha256": "f73a7b14c4ca8d8b53ba77cc17d4b4ca4516e15a88aa7df546315c7f99a264d7",
+        "afterDiagnosisSha256": "0f7d410dec0b49a3c42d250498b71883552d9c64aae3ec476d53d0f6427ea313",
+        "finalResultSha256": "daffd15f615fa0f69aa49c6383f1c78f131714c5c5d03454cab136616b542964",
+        "k6SummarySha256": "a5a407faee5b09560b4282268a61cec464ede65fd2052651f645b17a6887c953"
+      }
+    },
+    {
+      "sequence": 8,
+      "scenario": "t2",
+      "condition": "stress / distinct / hot / c4",
+      "window": {
+        "startedAtUtc": "2026-08-14T16:04:07Z",
+        "endedAtUtc": "2026-08-14T16:07:33Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 49.901254,
+        "p95Ms": 64.94915225,
+        "p99Ms": null,
+        "requestsPerSecond": 0.209125843,
+        "requestCount": 20,
+        "successCount": 15,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 5,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "a191682a9d11690e222dbed3358c9cc9df320313f541b3cb2c84a57dba2d5f40",
+        "infraExecutionSha256": "3cd7e027cea661e437e8e3caeb47d99b156a682dae1396074653273bf7749e97",
+        "beforeDiagnosisSha256": "3ea3196856f0adf067f3172fce91e67bf8ece1a1608fe2590a40cda4d338f6f7",
+        "afterDiagnosisSha256": "dd357d63a424c3d0c1504df98d7bcee9b503df8d249e3e765028d49a39c116cd",
+        "finalResultSha256": "476e8ef8b3b2308e414f225eb11f2e5b49e6fd8bf8d2f4ac2aa247d0149101e6",
+        "k6SummarySha256": "6081454b81987c6eb28ecfc919b3b87027550a34ad51dd76ab401f7c3cbc51b2"
+      }
+    },
+    {
+      "sequence": 9,
+      "scenario": "t2",
+      "condition": "stress / distinct / hot / c8",
+      "window": {
+        "startedAtUtc": "2026-08-14T16:07:38Z",
+        "endedAtUtc": "2026-08-14T16:11:04Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 73.4527425,
+        "p95Ms": 116.1693161,
+        "p99Ms": null,
+        "requestsPerSecond": 0.415945956,
+        "requestCount": 40,
+        "successCount": 20,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 20,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "b6b4f55f5b6f575599340fd9b3e231dee547029e959f53dced6125bbeccbfde9",
+        "infraExecutionSha256": "3e8f1c740f05604d9c5a57e04c1848a9d76ffea78698bde51fb9e5263ed12027",
+        "beforeDiagnosisSha256": "1d6cf6f84d10eebc9273b32923da7831c93d8c257fe6ca71c6d3b187dbdce9ad",
+        "afterDiagnosisSha256": "b71010be2eed03eff6d5758be13c37365f783f1c8a2d1af3ba0f4690cefc2f2e",
+        "finalResultSha256": "8568e290ec7bddcbe5dcf6fb2125e9421f48983e174d13775235267edf848bb1",
+        "k6SummarySha256": "800f10e922ee260c82545460423c61afb75441195d003b725c0a05cf0efd7f9d"
+      }
+    },
+    {
+      "sequence": 10,
+      "scenario": "t2",
+      "condition": "stress / distinct / spread / c2",
+      "window": {
+        "startedAtUtc": "2026-08-14T16:11:10Z",
+        "endedAtUtc": "2026-08-14T16:14:36Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 28.171832,
+        "p95Ms": 35.16447595,
+        "p99Ms": null,
+        "requestsPerSecond": 0.104901785,
+        "requestCount": 10,
+        "successCount": 10,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "b8c08938659add36485ad063897dea9461d99b3a60f06c3ac01559d5403cceac",
+        "infraExecutionSha256": "eee23a5476bb5714382f99e091e869a9f80eda6c2745255a720dee91b03ced2b",
+        "beforeDiagnosisSha256": "ae68a9b4b4d1616066d47d4590def5e95e4017ef46b06041d80a1ba92e4ed10e",
+        "afterDiagnosisSha256": "53797f33c4e8ae1417bec5e5bcd78c2debdee9ee7c4a53de7ec3f1bf6921a7c3",
+        "finalResultSha256": "6e5c4851b2b4c0ffb7bbea0e9d53577811f8a7d0dc873cd8cda9b026bffcb083",
+        "k6SummarySha256": "ea35a16e40928823959b80f1f8355d9da9e799c326b24ec41c25264b615aa5c8"
+      }
+    },
+    {
+      "sequence": 11,
+      "scenario": "t2",
+      "condition": "stress / distinct / spread / c4",
+      "window": {
+        "startedAtUtc": "2026-08-14T16:14:42Z",
+        "endedAtUtc": "2026-08-14T16:18:07Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 30.9117745,
+        "p95Ms": 36.12665845,
+        "p99Ms": null,
+        "requestsPerSecond": 0.209269238,
+        "requestCount": 20,
+        "successCount": 20,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "4455bbb38aa9d41563fc8a86c5e2fca8c3fb4cd25675ce4a08f8b200874efba9",
+        "infraExecutionSha256": "2d19f0b2fdac690b41b05047250947628f83ade8935e85ccfbf8e1e843f8e7c5",
+        "beforeDiagnosisSha256": "78076f0fd0d3d3a24a201e6a95ae26e72f2e23a8979fa3622de3cd163bdb5720",
+        "afterDiagnosisSha256": "37c1b1e27a01386a4dacbd5278a7c7b3342891cf634f93025a5107e3ced2c8ff",
+        "finalResultSha256": "44df690a425b1d38a0e17d4a2de4187f1219d0dee9137496987db0f4a76463e7",
+        "k6SummarySha256": "6c2e5aaa186b8602deab988ac3d59abbcf54c60d394c20b3556384bda08ab305"
+      }
+    },
+    {
+      "sequence": 12,
+      "scenario": "t2",
+      "condition": "stress / distinct / spread / c8",
+      "window": {
+        "startedAtUtc": "2026-08-14T16:18:13Z",
+        "endedAtUtc": "2026-08-14T16:21:39Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 39.722878,
+        "p95Ms": 55.60634175,
+        "p99Ms": null,
+        "requestsPerSecond": 0.416164335,
+        "requestCount": 40,
+        "successCount": 40,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "cc78c9c75890bed29f47eba1f39767c8e2d6ee308a839dccce5837699708d6cd",
+        "infraExecutionSha256": "5955b3fdacd9f6ca96566a6aa87c474630507685b9ef584bbd644cba67e2e38f",
+        "beforeDiagnosisSha256": "16081678afd9a5b69b1b46ed67918fee9fa839597bf410f6dd17b251b10ce40b",
+        "afterDiagnosisSha256": "ebeac37ae34875d540dc762d088016bda5b4d40724249f8fd6e386101c94651e",
+        "finalResultSha256": "4523a5f62372d8d52a4e1916c6a32ad51f4c32a3767f9ca45291bfc78d2f8625",
+        "k6SummarySha256": "015b4e13fc6c56c393da401b520a7a4b83bd0e7b1545517a7636693fddf73f13"
+      }
+    },
+    {
+      "sequence": 13,
+      "scenario": "t2",
+      "condition": "spike / duplicate / hot / c2",
+      "window": {
+        "startedAtUtc": "2026-08-14T16:21:45Z",
+        "endedAtUtc": "2026-08-14T16:23:51Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 36.3272305,
+        "p95Ms": 40.89273565,
+        "p99Ms": null,
+        "requestsPerSecond": 0.13140833,
+        "requestCount": 2,
+        "successCount": 2,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "c1eec2cd30ade5f68d03893dcdefa012dc45c34e69f8f8a9f80bed5537c15b35",
+        "infraExecutionSha256": "01c5aa96d78cddd509b250a0ef50c705166f9acd367df161a408897ce69e5de2",
+        "beforeDiagnosisSha256": "b8526a0021342e9210b56f315310a09f35c4ad209d2fa64e4930c04f75a4df5f",
+        "afterDiagnosisSha256": "2d81006b6491698e550be9fae158f06c14a79697f3af3129d470a9001adeb461",
+        "finalResultSha256": "e44554fde141259502bb996564406d64d4b691361fba5021c0a955dd00e289e2",
+        "k6SummarySha256": "cc6a75184c354b8b5bce7bed9e9a3ab4a60029d2d06ec603cdea94cf571fc436"
+      }
+    },
+    {
+      "sequence": 14,
+      "scenario": "t3",
+      "condition": "stress / race",
+      "window": {
+        "startedAtUtc": "2026-08-14T16:24:56Z",
+        "endedAtUtc": "2026-08-14T16:27:03Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 78.478205,
+        "p95Ms": 101.7348047,
+        "p99Ms": null,
+        "requestsPerSecond": 0.649476059,
+        "requestCount": 10,
+        "successCount": 7,
+        "businessFailureCount": 3,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "e9e0b6df18b343f6dbf837c3991599c03c0b762e49a7ceb1e14b3c0534167317",
+        "infraExecutionSha256": "8b47de5cc097038e00c96c23f5abe8100e31e4ffa16afe897fe6f8d1c3b7f106",
+        "beforeDiagnosisSha256": "8ec1e25e6e19be9f69c4619653a75f1f7b9c3386b2c3c255b10f01ea57b91e22",
+        "afterDiagnosisSha256": "79429dd8ef6dbb6f9302a70135bc749f8e3a6718459a4ccb22b013bd258585c0",
+        "finalResultSha256": "8f0ad37aba4eda8ebfa234c12e4f8ce4102a4105a5492f280e984891b6a66c34",
+        "k6SummarySha256": "bf8646176e9f5e079bc876a61bd253eb82acc5fa5e6c73ae71db98fe01db553a"
+      }
+    },
+    {
+      "sequence": 15,
+      "scenario": "t3",
+      "condition": "spike / wait-first",
+      "window": {
+        "startedAtUtc": "2026-08-14T16:27:08Z",
+        "endedAtUtc": "2026-08-14T16:29:14Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 32.074752,
+        "p95Ms": 33.4005123,
+        "p99Ms": null,
+        "requestsPerSecond": 0.130340684,
+        "requestCount": 2,
+        "successCount": 2,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "534dfd87240323f40fff5fecdd2d80820439f291334fc0479df4142547390cc8",
+        "infraExecutionSha256": "5f7bbc577d4d9a2dbfda1dc92341063ef77b2bbf94bd725d37d2ef2d79f52d76",
+        "beforeDiagnosisSha256": "c597df2d1e85259ce89dee630df6db79dd69cae4f21750d742bb650eb4ec7ac3",
+        "afterDiagnosisSha256": "0427a122433fddc59ed714c84fcce4108f50e1f24e83d3014880f4517b834a96",
+        "finalResultSha256": "12d550c5813efc80a6ec1a68166f549d77b8564c446edce7727df2e5382bb265",
+        "k6SummarySha256": "977e75208ac74bce2bebf50a7f49df0478e12a42fe8c28a3280484addcf92347"
+      }
+    },
+    {
+      "sequence": 16,
+      "scenario": "t3",
+      "condition": "spike / cancel-first",
+      "window": {
+        "startedAtUtc": "2026-08-14T16:29:19Z",
+        "endedAtUtc": "2026-08-14T16:31:24Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 38.803738,
+        "p95Ms": 53.638825,
+        "p99Ms": null,
+        "requestsPerSecond": 0.130165679,
+        "requestCount": 2,
+        "successCount": 1,
+        "businessFailureCount": 1,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "b9a179f94bcf02d366b29a1418d328bbdc9ebffd90056fd071428b031b1d2a66",
+        "infraExecutionSha256": "a9082ba2e6ca5ebfe3dc4408075ce6eaa12bfd96e05a9d85e5b246d2112c3e76",
+        "beforeDiagnosisSha256": "5c0dec7e65f62a6c79e670e626569952695872d8bddd36d42bb9c32331d7b178",
+        "afterDiagnosisSha256": "02e71e47aba8bfd262b110f6c8e2752215d66bb4138a16aa154d02ab01ba73ae",
+        "finalResultSha256": "763a6b580cf0ba0cdab23d9f0a901a0b9f35778907bfcf0d38ca336737e16269",
+        "k6SummarySha256": "c83242a4c953629c7a967ca04bbae059e93330d79f037d8f3f211bfbb229c44a"
+      }
+    },
+    {
+      "sequence": 17,
+      "scenario": "t4",
+      "condition": "stress / last-seat / c2",
+      "window": {
+        "startedAtUtc": "2026-08-14T16:31:30Z",
+        "endedAtUtc": "2026-08-14T16:34:55Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 31.485148,
+        "p95Ms": 43.72009935,
+        "p99Ms": null,
+        "requestsPerSecond": 0.104911266,
+        "requestCount": 10,
+        "successCount": 5,
+        "businessFailureCount": 5,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "713d7d15da633882fe8ee90ed8dce2b9e01cc3bd1be263f6205a69e577fb6d14",
+        "infraExecutionSha256": "dbf51477c8243193a4b8f36977dda6bfb9c8eb9deb7088e67f71c142b5460bd7",
+        "beforeDiagnosisSha256": "59d2b31ac66ecc627a93855661a60d320cc390c6c49e7687327e5779fb44421f",
+        "afterDiagnosisSha256": "b5449c07317a50205c19d76322423270672ff51305fd7eba34bd7ec1bcf88130",
+        "finalResultSha256": "36bd40cc70f9905d791276a0f9e451e3e1b3f333b9a8138e0564cdf541033749",
+        "k6SummarySha256": "e86d36dfe4bcff789cb6f87957a8057e94034a68f652bfdd06d64648e74520b4"
+      }
+    },
+    {
+      "sequence": 18,
+      "scenario": "t4",
+      "condition": "stress / last-seat / c4",
+      "window": {
+        "startedAtUtc": "2026-08-14T16:35:00Z",
+        "endedAtUtc": "2026-08-14T16:38:27Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 34.4492,
+        "p95Ms": 41.53354895,
+        "p99Ms": null,
+        "requestsPerSecond": 0.209268662,
+        "requestCount": 20,
+        "successCount": 5,
+        "businessFailureCount": 15,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "e40e566de6cd9fb1a4ebeb543c3cb8540ba38fb96e3045fb243fa191bb6fef14",
+        "infraExecutionSha256": "5330132b0fe83630c9e4b22093bbdb52a067e64ee881d47804dac6ca73148344",
+        "beforeDiagnosisSha256": "a486c7d617319de22c38ae912af559a67f77a6735f91b4c6a438cb75d9c2fa9c",
+        "afterDiagnosisSha256": "e0743fec2b1f4ad5b8dcc36dcf64b03d0389b6a41e1c71fdcd8da4dc687fd240",
+        "finalResultSha256": "af32dff327b9f402f43a5b6d6ec7a3c41d83480c8cbf64e31ae9f52ef2f023d3",
+        "k6SummarySha256": "5843fa45814416de0179bb967279b1457e3e7007bc72e17bea1d43c73856cb9f"
+      }
+    },
+    {
+      "sequence": 19,
+      "scenario": "t4",
+      "condition": "stress / last-seat / c8",
+      "window": {
+        "startedAtUtc": "2026-08-14T16:38:32Z",
+        "endedAtUtc": "2026-08-14T16:41:59Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 45.128081,
+        "p95Ms": 56.2420422,
+        "p99Ms": null,
+        "requestsPerSecond": 0.416207343,
+        "requestCount": 40,
+        "successCount": 5,
+        "businessFailureCount": 35,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "c21ae777127e0867cb836eb5577af16bb9608d0add5509653207e6d530c3771b",
+        "infraExecutionSha256": "53c46e350addd11f9113145a5e9610887b56f99509e82d2d4aaf7f9ed8545d7c",
+        "beforeDiagnosisSha256": "2af5fc5183343e83a8e2a2ebf3d950909f8fcaaa0c6ecdb764ddeb31c6d68c01",
+        "afterDiagnosisSha256": "a501c6733b22bc4dd4740e91fd0fceda6546a443a46d9a6f0be92f50d4b5f6f4",
+        "finalResultSha256": "c54d7ceea5e1f2db93e657bf408b66f32f2a991a99d60c5986392eaec7f0b403",
+        "k6SummarySha256": "2f43c185a3d92fcd70b1ad9d378edb7c5a7857fbbd3c7988d265a28e09643cb1"
+      }
+    },
+    {
+      "sequence": 20,
+      "scenario": "t5",
+      "condition": "read / public / scale 1",
+      "window": {
+        "startedAtUtc": "2026-08-14T16:42:04Z",
+        "endedAtUtc": "2026-08-14T16:45:12Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 20.01871,
+        "p95Ms": 38.3605407,
+        "p99Ms": null,
+        "requestsPerSecond": 353.952520852,
+        "requestCount": 26603,
+        "successCount": 26603,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "843a83ab9c69d87bee112af6b6395a16315adf9c7e0e78ab952be5764466ec58",
+        "infraExecutionSha256": "e500687f78f7b034247cef69eeaa51fe3f1655d6c7953bb3ccd40c1b6c8a05f8",
+        "beforeDiagnosisSha256": "3c577fd9b109b91b71743c3bf4a3a71d6ac7480c453c363daad5b2e3a1c72949",
+        "afterDiagnosisSha256": "f935ca2925bc77259191ad3ed7b9299902d22358317553065bc106744cb9b2c6",
+        "finalResultSha256": "9c1e6e79b51da511c2365abfc904a76d8b24b10248de5e1a3269bbda2b19565c",
+        "k6SummarySha256": "11cbc251ef431187ffc8eee3904d59ca7a5984d0f880eb7bdaa039150302c585"
+      }
+    },
+    {
+      "sequence": 21,
+      "scenario": "t5",
+      "condition": "read / public / scale 10",
+      "window": {
+        "startedAtUtc": "2026-08-14T16:45:18Z",
+        "endedAtUtc": "2026-08-14T16:48:24Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 17.063012,
+        "p95Ms": 21.8949976,
+        "p99Ms": null,
+        "requestsPerSecond": 458.956765153,
+        "requestCount": 34495,
+        "successCount": 34495,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "07e5044603c7d04f744b34381cdc1a269541de6dc77958491a380643ebb6f7cb",
+        "infraExecutionSha256": "8e547d2ddeb20ab642b116c8b6dea84fb94824fa5c80e9cf1d902516c8621dd0",
+        "beforeDiagnosisSha256": "92b33e2bcdc77f927cda8936346917a8226d775dc05da5165e28880959c7d4a5",
+        "afterDiagnosisSha256": "db81ed1c9fd73e91b210f4a56794c433542de027dbebce1dad8ce25fe559cc67",
+        "finalResultSha256": "ed124cac29cf0de135a1905439eb061367b4fe56286cf0019cf4f2891ee3e4b7",
+        "k6SummarySha256": "851f66675598e47c5239609ddb33752aad44c86f38a73c0754ea75b609181503"
+      }
+    },
+    {
+      "sequence": 22,
+      "scenario": "t5",
+      "condition": "read / host / scale 1",
+      "window": {
+        "startedAtUtc": "2026-08-14T16:48:29Z",
+        "endedAtUtc": "2026-08-14T16:51:35Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 18.987669,
+        "p95Ms": 26.127547,
+        "p99Ms": null,
+        "requestsPerSecond": 407.478755018,
+        "requestCount": 30631,
+        "successCount": 30631,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "ba515e565b3d5739706663f0276cd2258a470f4432e9b617065155ea9293f4e4",
+        "infraExecutionSha256": "09ea6786a28e075253a319127f1ab458db08158dbe5c058cfa86d38aae29ff12",
+        "beforeDiagnosisSha256": "354f27be35c83d7fcd59ad29033eabf2709b767242ccb1cba0ab9f2624df7582",
+        "afterDiagnosisSha256": "e18ece01ea1373b7cf5a3a983c2466a31b2a991f030fd7458340cc0972a53351",
+        "finalResultSha256": "a627946c66b562763e0b9836ad92d11ba9df947ea8dccf0063e700ec07f7e048",
+        "k6SummarySha256": "6a504ef033edd42e716464e01cfea6abab988190879583c27283f2265aa5bad4"
+      }
+    },
+    {
+      "sequence": 23,
+      "scenario": "t5",
+      "condition": "read / host / scale 10",
+      "window": {
+        "startedAtUtc": "2026-08-14T16:51:41Z",
+        "endedAtUtc": "2026-08-14T16:54:47Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 18.817535,
+        "p95Ms": 24.4024196,
+        "p99Ms": null,
+        "requestsPerSecond": 419.42242219,
+        "requestCount": 31535,
+        "successCount": 31535,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "021b7a2c81eb998fe0a04614a11308e71e4af8529ded9f3810a503c8e3ce7d5c",
+        "infraExecutionSha256": "a2623225a63ca6674e60416d98a1a8baf0bff808c361c0274713e1177997af65",
+        "beforeDiagnosisSha256": "10edc566905eeaaacecb79d6eb1d1d5c9add038dab12eb77b556485c390f6a8b",
+        "afterDiagnosisSha256": "d117b620e53c03dcdf67fcd13bd296600d55f594b39a37f0dad13e285eb3bc79",
+        "finalResultSha256": "ea501a138bb73f0a7ed2450ca925989020a5e8a6f9f8fe0f1d15f1c1f12cec7b",
+        "k6SummarySha256": "2a78e600a03ffccdbdc207eb847369c9602bf6074ff633fde36ec74a6a701a2c"
+      }
+    },
+    {
+      "sequence": 24,
+      "scenario": "t5",
+      "condition": "read / participant / scale 1",
+      "window": {
+        "startedAtUtc": "2026-08-14T16:54:53Z",
+        "endedAtUtc": "2026-08-14T16:57:58Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 19.560502,
+        "p95Ms": 24.7776991,
+        "p99Ms": null,
+        "requestsPerSecond": 412.851651216,
+        "requestCount": 31039,
+        "successCount": 31039,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "e05d2ee89fa0af99df9436c91b4c9b12605da19e3ae05bc9598dbaf006657f5c",
+        "infraExecutionSha256": "887de78a4212715f2eaae688ec4745200c8f48157935a36875cbf9390cce8e3f",
+        "beforeDiagnosisSha256": "08c4d8f9a275e5836aa4b7276cbad2168cd0211da02bdb652118aff5d414a395",
+        "afterDiagnosisSha256": "4e347e35433a5d0f01bd756634757a3b798f9334a5722cffda4a9ef8eb8b8de2",
+        "finalResultSha256": "8a28649bbbfabfb5d20bbcf9555cf27271df62fef64ea94562155923926f55b7",
+        "k6SummarySha256": "65d15caca84729ea13b8548c9ce4b4841b6c3df553772ddcf27e3f6b3190758e"
+      }
+    },
+    {
+      "sequence": 25,
+      "scenario": "t5",
+      "condition": "read / participant / scale 10",
+      "window": {
+        "startedAtUtc": "2026-08-14T16:58:04Z",
+        "endedAtUtc": "2026-08-14T17:01:09Z"
+      },
+      "reportDisposition": "included",
+      "reportStatus": "PASS",
+      "metrics": {
+        "p50Ms": 20.458065,
+        "p95Ms": 28.6400626,
+        "p99Ms": null,
+        "requestsPerSecond": 377.561971661,
+        "requestCount": 28377,
+        "successCount": 28377,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactIntegrity": {
+        "algorithm": "SHA-256",
+        "manifestSha256": "01397a05df68e2405da113d2d57d0228e63029511ece420bfed487640e8f94fc",
+        "infraExecutionSha256": "eba8c164cc17e5bc7c1b373a190f21ed491e75bc4278a5334a6ed805518b8c6a",
+        "beforeDiagnosisSha256": "fd43e97056d9e2a3b19f3cf69e756f3bb9663f07b0dcd5874294251b4540fb9b",
+        "afterDiagnosisSha256": "92050ff56c2a5b67f2c2c4e994bf2291d130e7db21065d75d0c9302ee51fbf39",
+        "finalResultSha256": "5fcda608d67557bc36ba0ddb4c2d82b455a23f051f8d17b468caf8ccb6e973ff",
+        "k6SummarySha256": "fce571b0bf0972cd00ff0f35b34726f419b45ef52925b2324723029510e898f0"
+      }
+    }
+  ],
+  "knownLimitations": [
+    "원자료 bundle은 local-only이며, 이 저장소만으로 원자료 내용을 독립 재검증할 수 없다.",
+    "raw artifact에는 campaignId와 reportDisposition이 없으므로 final-05 membership은 이 manifest의 명시적 ledger와 scenario 및 UTC execution window의 정확 일치로 재구성했다.",
+    "원자료 PASS 결과 중 ledger 밖의 다섯 Run은 이 campaign의 보고서 결론에 포함하지 않았다.",
+    "room_request_duration.p99는 수집하지 않았다."
+  ]
+}

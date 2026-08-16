@@ -254,7 +254,7 @@ function preparedSessions(runtime) {
     if (!account) {
       fail(`fixture session user를 찾지 못했습니다: ${userKey}`);
     }
-    const client = { jar: http.cookieJar(), csrf: null, sessionId: null };
+    const client = { jar: new http.CookieJar(), csrf: null, sessionId: null };
     const setupTags = scenarioTags(runtime, null, { phase: 'session-setup', user_key: userKey });
     if (!login(client, runtime, account, setupTags)) {
       fail(`fixture session 준비에 실패했습니다(user=${userKey}). 인증 제한·비밀번호 hash·대상 환경을 확인하세요.`);
@@ -276,7 +276,7 @@ export function sessionFor(runtime, sessions, userKey) {
   if (!prepared || !prepared.sessionId || !prepared.csrfHeaderName || !prepared.csrfToken) {
     fail(`준비된 fixture session을 찾지 못했습니다: ${userKey}`);
   }
-  const jar = http.cookieJar();
+  const jar = new http.CookieJar();
   jar.set(runtime.targetUrl, 'JSESSIONID', prepared.sessionId);
   jar.set(runtime.targetUrl, 'XSRF-TOKEN', prepared.csrfToken);
   const client = {

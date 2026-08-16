@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import {
   chmodSync,
   copyFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -17,6 +19,14 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 
 import { createFixturePlan, hydrateFixture } from '../tools/fixture-model.mjs';
+import {
+  aggregateBundle,
+  bundleExecutionOptions,
+  diagnoseBundle,
+  hydrateBundle,
+  renderBundle,
+  validateBundle,
+} from '../tools/portable-bundle.mjs';
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(testDirectory, '../../../..');
@@ -278,6 +288,7 @@ function createIsolatedFixtureTool() {
 
   copySource(path.join('load-tests', 'k6', 'jiwon', 'tools', 'fixture.mjs'));
   copySource(path.join('load-tests', 'k6', 'jiwon', 'tools', 'fixture-model.mjs'));
+  copySource(path.join('load-tests', 'k6', 'jiwon', 'tools', 'portable-bundle.mjs'));
   copySource(path.join('load-tests', 'k6', 'jiwon', 'lib', 'read-execution-options.mjs'));
 
   return {
@@ -286,6 +297,18 @@ function createIsolatedFixtureTool() {
     buildRoot: path.join(root, 'build', 'k6', 'room'),
   };
 }
+
+test('격리 fixture 도구는 portable bundle 정적 의존성을 포함한다', () => {
+  const tool = createIsolatedFixtureTool();
+
+  try {
+    const result = spawnSync(process.execPath, [tool.fixtureTool, 'help'], { encoding: 'utf8' });
+
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+  } finally {
+    rmSync(tool.root, { recursive: true, force: true });
+  }
+});
 
 function fixtureResources(plan, idOffset = 100) {
   return {
@@ -395,6 +418,15 @@ function t5Summary(startSkewCount) {
   };
 }
 
+function t5SummaryWithTopLevelCounts(startSkewCount) {
+  return {
+    metrics: Object.fromEntries(
+      Object.entries(t5Summary(startSkewCount).metrics)
+        .map(([name, metric]) => [name, { count: metric.values.count }]),
+    ),
+  };
+}
+
 function writeCleanupFixture(runId, idOffset) {
   const plan = createFixturePlan({
     scenario: 't1',
@@ -431,6 +463,30 @@ function fixtureResourceQueryResult(fixturePath) {
   });
 }
 
+function fakeK6ExecutionEnvironment(binDirectory) {
+  const programPath = path.join(binDirectory, 'fake-k6.mjs');
+  if (!existsSync(programPath)) {
+    return {};
+  }
+  return {
+    ROOM_K6_EXECUTABLE: process.execPath,
+    ROOM_K6_ARGUMENT_PREFIX: JSON.stringify([programPath]),
+  };
+}
+
+function fakePsqlExecutionEnvironment(binDirectory) {
+  const programPath = ['fake-psql.mjs', 'ownership-fake-psql.mjs']
+    .map((fileName) => path.join(binDirectory, fileName))
+    .find((candidate) => existsSync(candidate));
+  if (!programPath) {
+    return {};
+  }
+  return {
+    ROOM_K6_PSQL_EXECUTABLE: process.execPath,
+    ROOM_K6_PSQL_ARGUMENT_PREFIX: JSON.stringify([programPath]),
+  };
+}
+
 function runFixture(fixturePath, binDirectory, extraEnvironment = {}) {
   return spawnSync(process.execPath, [fixtureTool, 'run', '--fixture', fixturePath], {
     cwd: repositoryRoot,
@@ -441,6 +497,8 @@ function runFixture(fixturePath, binDirectory, extraEnvironment = {}) {
       ALBAM_MATE_SOURCE_SHA: 'a'.repeat(40),
       ALBAM_MATE_TARGET_ENVIRONMENT: 'private-loadtest',
       FAKE_PSQL_RESOURCE_RESULT: fixtureResourceQueryResult(fixturePath),
+      ...fakeK6ExecutionEnvironment(binDirectory),
+      ...fakePsqlExecutionEnvironment(binDirectory),
       ...extraEnvironment,
     },
   });
@@ -455,6 +513,8 @@ function startFixture(fixturePath, binDirectory, extraEnvironment = {}) {
       ALBAM_MATE_SOURCE_SHA: 'a'.repeat(40),
       ALBAM_MATE_TARGET_ENVIRONMENT: 'private-loadtest',
       FAKE_PSQL_RESOURCE_RESULT: fixtureResourceQueryResult(fixturePath),
+      ...fakeK6ExecutionEnvironment(binDirectory),
+      ...fakePsqlExecutionEnvironment(binDirectory),
       ...extraEnvironment,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -531,6 +591,7 @@ function runPrepare(runId, binDirectory, extraEnvironment = {}) {
       ...process.env,
       PATH: `${binDirectory}${path.delimiter}${process.env.PATH || ''}`,
       ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$test-hash',
+      ...fakePsqlExecutionEnvironment(binDirectory),
       ...extraEnvironment,
     },
   });
@@ -551,6 +612,7 @@ function startPrepareFromTool(tool, runId, binDirectory, extraEnvironment = {}) 
       ...process.env,
       PATH: `${binDirectory}${path.delimiter}${process.env.PATH || ''}`,
       ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$test-hash',
+      ...fakePsqlExecutionEnvironment(binDirectory),
       ...extraEnvironment,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -564,6 +626,7 @@ function recoverCleanup(recoveryPath, binDirectory, extraEnvironment = {}) {
     env: {
       ...process.env,
       PATH: `${binDirectory}${path.delimiter}${process.env.PATH || ''}`,
+      ...fakePsqlExecutionEnvironment(binDirectory),
       ...extraEnvironment,
     },
   });
@@ -576,6 +639,7 @@ function recoverCleanupFromTool(tool, recoveryPath, binDirectory, extraEnvironme
     env: {
       ...process.env,
       PATH: `${binDirectory}${path.delimiter}${process.env.PATH || ''}`,
+      ...fakePsqlExecutionEnvironment(binDirectory),
       ...extraEnvironment,
     },
   });
@@ -589,6 +653,7 @@ function verifyAfter(fixturePath, binDirectory = null, extraEnvironment = {}) {
   };
   if (binDirectory) {
     environment.PATH = `${binDirectory}${path.delimiter}${process.env.PATH || ''}`;
+    Object.assign(environment, fakePsqlExecutionEnvironment(binDirectory));
   }
   return spawnSync(process.execPath, [fixtureTool, 'verify', '--fixture', fixturePath, '--stage', 'after'], {
     cwd: repositoryRoot,
@@ -612,6 +677,7 @@ function cleanupFixture(fixturePath, binDirectory, extraEnvironment = {}) {
     env: {
       ...process.env,
       PATH: `${binDirectory}${path.delimiter}${process.env.PATH || ''}`,
+      ...fakePsqlExecutionEnvironment(binDirectory),
       ...extraEnvironment,
     },
   });
@@ -621,16 +687,58 @@ function sha256(filePath) {
   return createHash('sha256').update(readFileSync(filePath)).digest('hex');
 }
 
-const fakeK6Skip = process.platform === 'win32'
-  ? 'Windows에서는 k6.cmd fake를 셸 없이 실행할 수 없어 직접 실행 보안 계약만 검증한다.'
-  : false;
+function createPortableBundleSource(root) {
+  const sourceDirectory = path.join(root, 'source', 'jiwon');
+  cpSync(path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon'), sourceDirectory, { recursive: true });
+  return sourceDirectory;
+}
 
-test('k6 실행은 Windows 셸을 사용하지 않는다', () => {
+function portableBundleContext(scenarioDirectory, buildRoot) {
+  return {
+    repositoryRoot,
+    scenarioDirectory,
+    buildRoot,
+    bundleRoot: null,
+    isBundleRuntime: false,
+    environment: { ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$portable-source-link-test' },
+  };
+}
+
+function renderPortableBundle(scenarioDirectory, buildRoot, suffix) {
+  return renderBundle({
+    scenario: 't1',
+    runId: `portable-source-link-${process.pid}-${Date.now()}-${suffix}`,
+    profile: 'spike',
+    mode: 'hot',
+    concurrency: '2',
+  }, portableBundleContext(scenarioDirectory, buildRoot), {
+    sourceRevision: 'd'.repeat(40),
+    sourceDirty: false,
+  });
+}
+
+function createSymbolicLinkOrSkip(t, target, linkPath, type, label) {
+  try {
+    symlinkSync(target, linkPath, type);
+    return true;
+  } catch (error) {
+    if (process.platform === 'win32' && (error?.code === 'EPERM' || error?.code === 'EACCES')) {
+      const message = `${label}: 현재 Windows 권한에서는 symbolic link 생성 검증을 건너뜁니다.`;
+      t.diagnostic(message);
+      t.skip(message);
+      return false;
+    }
+    throw error;
+  }
+}
+
+test('k6 실행은 셸 없이 명시적 executable과 prefix arguments를 사용한다', () => {
   const source = readFileSync(fixtureTool, 'utf8');
   const runK6 = source.slice(source.indexOf('function runK6('), source.indexOf('function k6Version('));
 
   assert.match(runK6, /shell:\s*false/);
-  assert.doesNotMatch(runK6, /process\.platform\s*===\s*['"]win32['"]/);
+  assert.match(runK6, /ROOM_K6_EXECUTABLE/);
+  assert.match(runK6, /ROOM_K6_ARGUMENT_PREFIX/);
 });
 
 test('run은 RUNNING manifest 기록 전에 중단 처리기를 설치하고 항상 해제한다', () => {
@@ -702,6 +810,14 @@ test('k6 runtime은 ownership marker가 있는 fixture schema 2만 실행한다'
   assert.match(source, /PREPARE_OWNERSHIP_PATTERN\.test\(fixture\.prepareOwnership\)/);
 });
 
+test('k6 runtime은 fixture 계정마다 독립 CookieJar를 만든다', () => {
+  const source = readFileSync(roomK6Library, 'utf8');
+
+  assert.doesNotMatch(source, /http\.cookieJar\(\)/);
+  assert.match(source, /const client = \{ jar: new http\.CookieJar\(\), csrf: null, sessionId: null \};/);
+  assert.match(source, /const jar = new http\.CookieJar\(\);/);
+});
+
 test('fixture tool은 ownership marker가 없는 legacy fixture를 k6 실행 전에 거절한다', () => {
   const prepared = writeFixture(`runner-legacy-fixture-${process.pid}`);
 
@@ -720,9 +836,7 @@ test('fixture tool은 ownership marker가 없는 legacy fixture를 k6 실행 전
   }
 });
 
-test('run은 현재 DB resource ID와 다른 fixture를 k6 시작 전에 거절한다', {
-  skip: fakeK6Skip,
-}, () => {
+test('run은 현재 DB resource ID와 다른 fixture를 k6 시작 전에 거절한다', () => {
   const runId = `runner-resource-identity-${process.pid}`;
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
   mkdirSync(binDirectory, { recursive: true });
@@ -752,7 +866,7 @@ test('run은 현재 DB resource ID와 다른 fixture를 k6 시작 전에 거절�
   }
 });
 
-test('run은 성공한 k6 실행의 provenance manifest와 summary를 같은 fixture에 남긴다', { skip: fakeK6Skip }, () => {
+test('run은 성공한 k6 실행의 provenance manifest와 summary를 같은 fixture에 남긴다', () => {
   const runId = `runner-success-${process.pid}`;
   const prepared = writeFixture(runId);
   const { fixtureDirectory, fixturePath } = prepared;
@@ -794,15 +908,14 @@ test('run은 성공한 k6 실행의 provenance manifest와 summary를 같은 fix
 });
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
-  test('run은 ' + signal + ' 중단도 종료된 manifest로 보존하고 새 run ID 재시도를 안내한다', {
-    skip: fakeK6Skip,
-  }, async () => {
+  test('run은 ' + signal + ' 중단도 종료된 manifest로 보존하고 새 run ID 재시도를 안내한다', async () => {
     const runId = `runner-interrupted-${signal.toLowerCase()}-${process.pid}`;
     const prepared = writeFixture(runId);
     const { fixtureDirectory, fixturePath } = prepared;
     const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
     const startedPath = path.join(fixtureDirectory, 'fake-k6-started');
     const fakeK6PidPath = path.join(fixtureDirectory, 'fake-k6.pid');
+    const interruptPath = path.join(fixtureDirectory, 'interrupt-signal');
     let runner;
     mkdirSync(binDirectory, { recursive: true });
     createFakeK6(binDirectory);
@@ -812,10 +925,15 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
         FAKE_K6_WAIT_FOR_SIGNAL: 'true',
         FAKE_K6_STARTED_FILE: startedPath,
         FAKE_K6_PID_FILE: fakeK6PidPath,
+        ROOM_K6_TEST_INTERRUPT_FILE: interruptPath,
       });
       const exit = waitForFixtureExit(runner);
       await waitForFile(startedPath);
-      assert.equal(runner.kill(signal), true);
+      if (process.platform === 'win32') {
+        writeFileSync(interruptPath, `${signal}\n`, 'utf8');
+      } else {
+        assert.equal(runner.kill(signal), true);
+      }
 
       const result = await exit;
       assert.notEqual(result.status, 0, result.stderr || result.stdout);
@@ -849,7 +967,43 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   });
 }
 
-test('T5 run은 유효 VU·duration·think time을 manifest에 기록한다', { skip: fakeK6Skip }, () => {
+test('테스트 interrupt 파일을 읽지 못해도 k6 자식과 manifest를 종료한다', async () => {
+  const runId = `runner-interrupt-read-error-${process.pid}`;
+  const prepared = writeFixture(runId);
+  const { fixtureDirectory, fixturePath } = prepared;
+  const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
+  const fakeK6PidPath = path.join(fixtureDirectory, 'fake-k6.pid');
+  const interruptDirectory = path.join(fixtureDirectory, 'interrupt-directory');
+  let runner;
+  mkdirSync(binDirectory, { recursive: true });
+  mkdirSync(interruptDirectory);
+  createFakeK6(binDirectory);
+
+  try {
+    runner = startFixture(fixturePath, binDirectory, {
+      FAKE_K6_WAIT_FOR_SIGNAL: 'true',
+      FAKE_K6_PID_FILE: fakeK6PidPath,
+      ROOM_K6_TEST_INTERRUPT_FILE: interruptDirectory,
+    });
+    const result = await waitForFixtureExit(runner);
+    assert.notEqual(result.status, 0, result.stderr || result.stdout);
+
+    const manifest = JSON.parse(readFileSync(path.join(fixtureDirectory, 'run-manifest.json'), 'utf8'));
+    assert.equal(manifest.runState, 'INTERRUPTED');
+    assert.equal(manifest.completed, false);
+    assert.equal(manifest.k6Signal, 'SIGTERM');
+    assert.ok(Date.parse(manifest.finishedAtUtc));
+  } finally {
+    if (runner && runner.exitCode === null && runner.signalCode === null) {
+      runner.kill('SIGKILL');
+    }
+    stopFakeK6(fakeK6PidPath);
+    rmSync(fixtureDirectory, { recursive: true, force: true });
+    rmSync(binDirectory, { recursive: true, force: true });
+  }
+});
+
+test('T5 run은 유효 VU·duration·think time을 manifest에 기록한다', () => {
   const prepared = writeT5Fixture(`runner-t5-options-${process.pid}`, 'public', 1);
   const { fixtureDirectory, fixturePath } = prepared;
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
@@ -891,7 +1045,7 @@ test('T5 run은 유효 VU·duration·think time을 manifest에 기록한다', { 
   }
 });
 
-test('T5 after 검증은 VU별 시작 편차 metric을 요구한다', { skip: fakeK6Skip }, () => {
+test('T5 after 검증은 VU별 시작 편차 metric을 요구한다', () => {
   const prepared = writeT5Fixture(`runner-t5-start-skew-${process.pid}`, 'public', 1);
   const { fixtureDirectory, fixturePath } = prepared;
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
@@ -924,9 +1078,7 @@ test('T5 after 검증은 VU별 시작 편차 metric을 요구한다', { skip: fa
   }
 });
 
-test('after 검증은 run 뒤 fixture baselineSnapshot 변조를 INVALID로 거절한다', {
-  skip: fakeK6Skip,
-}, () => {
+test('after 검증은 run 뒤 fixture baselineSnapshot 변조를 INVALID로 거절한다', () => {
   const prepared = writeT5Fixture(`runner-baseline-tamper-${process.pid}`, 'public', 1);
   const { fixtureDirectory, fixturePath } = prepared;
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
@@ -959,7 +1111,7 @@ test('after 검증은 run 뒤 fixture baselineSnapshot 변조를 INVALID로 거�
   }
 });
 
-test('T5 비교는 여섯 역할·규모 실행의 read profile 불일치를 거절한다', { skip: fakeK6Skip }, () => {
+test('T5 비교는 여섯 역할·규모 실행의 read profile 불일치를 거절한다', () => {
   const runId = `runner-t5-compare-${process.pid}`;
   const comparisonDirectory = path.join(fixtureBuildRoot, runId);
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
@@ -1090,11 +1242,118 @@ test('T5 비교는 여섯 역할·규모 실행의 read profile 불일치를 거
   }
 });
 
-test('cleanup은 다른 run fixture와 결정적 식별자 변조를 psql 전에 거절한다', {
-  skip: process.platform === 'win32'
-    ? 'psql은 셸을 사용하지 않으므로 Windows에서는 Unix fake 실행을 사용하지 않는다.'
-    : false,
-}, () => {
+function completePortableT5Bundle(bundle, rendered, context) {
+  const plan = JSON.parse(readFileSync(path.join(bundle, 'fixture-plan.json'), 'utf8'));
+  writeFileSync(
+    path.join(bundle, 'resource-output.json'),
+    `${JSON.stringify(fixtureResources(plan))}\n`,
+    'utf8',
+  );
+  const hydrated = hydrateBundle(bundle, context);
+  const fixture = JSON.parse(readFileSync(hydrated.fixturePath, 'utf8'));
+  const snapshot = fixtureSnapshot(fixture);
+  writeFileSync(path.join(bundle, 'before-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
+  assert.equal(diagnoseBundle({ bundle, stage: 'before' }, context).status, 'PASS');
+  writeFileSync(path.join(bundle, 'after-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
+  writeFileSync(path.join(bundle, 'k6-summary.json'), `${JSON.stringify(t5SummaryWithTopLevelCounts(7))}\n`, 'utf8');
+  assert.equal(diagnoseBundle({ bundle, stage: 'after' }, context).status, 'PASS');
+  writeFileSync(path.join(bundle, 'infra-execution.json'), `${JSON.stringify({
+    schemaVersion: 1,
+    runId: rendered.options.runId,
+    fixtureId: rendered.fixtureId,
+    phases: {
+      prepare: { exitCode: 0 },
+      resourceQuery: { exitCode: 0 },
+      beforeSnapshot: { exitCode: 0 },
+      k6: { exitCode: 0 },
+      afterSnapshot: { exitCode: 0 },
+    },
+  })}\n`, 'utf8');
+  return aggregateBundle(bundle, context);
+}
+
+test('T5 비교는 portable bundle 완료 artifact와 k6 v1.3 top-level count를 검증한다', () => {
+  const runId = `portable-t5-compare-${process.pid}-${Date.now()}`;
+  const comparisonDirectory = path.join(fixtureBuildRoot, runId);
+  const context = {
+    repositoryRoot,
+    scenarioDirectory: path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon'),
+    buildRoot: fixtureBuildRoot,
+    bundleRoot: null,
+    isBundleRuntime: false,
+    environment: {
+      ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$portable-t5-compare-test',
+      ROOM_K6_READ_VUS: '7',
+      ROOM_K6_READ_DURATION_SECONDS: '75',
+      ROOM_K6_READ_THINK_TIME_MS: '25',
+    },
+  };
+  const bundles = new Map();
+
+  try {
+    for (const role of ['public', 'host', 'participant']) {
+      for (const scale of [1, 10]) {
+        const rendered = renderBundle({
+          scenario: 't5',
+          runId,
+          profile: 'spike',
+          t5Role: role,
+          t5Scale: String(scale),
+        }, context, { sourceRevision: 'e'.repeat(40), sourceDirty: false });
+        assert.equal(completePortableT5Bundle(rendered.bundlePath, rendered, context).status, 'PASS');
+        bundles.set(`${role}-${scale}`, rendered.bundlePath);
+      }
+    }
+
+    const compared = compareT5(runId);
+    assert.equal(compared.status, 0, compared.stderr || compared.stdout);
+    const result = JSON.parse(readFileSync(path.join(comparisonDirectory, 't5-comparison-verification.json'), 'utf8'));
+    assert.equal(result.status, 'PASS');
+    assert.equal(result.fixtureCount, 6);
+    assert.deepEqual(result.t5ReadOptions, {
+      vus: 7,
+      durationSeconds: 75,
+      thinkTimeMilliseconds: 25,
+    });
+
+    const baselineBundle = bundles.get('host-1');
+    const beforeDiagnosisPath = path.join(baselineBundle, 'before-diagnosis.json');
+    const baselineFinalResultPath = path.join(baselineBundle, 'final-result.json');
+    const beforeDiagnosis = JSON.parse(readFileSync(beforeDiagnosisPath, 'utf8'));
+    const baselineFinalResult = JSON.parse(readFileSync(baselineFinalResultPath, 'utf8'));
+    const diagnosisWithoutBaseline = structuredClone(beforeDiagnosis);
+    const finalResultWithoutBaseline = structuredClone(baselineFinalResult);
+    delete diagnosisWithoutBaseline.baselineSnapshot;
+    delete finalResultWithoutBaseline.beforeDiagnosis.baselineSnapshot;
+    writeFileSync(beforeDiagnosisPath, `${JSON.stringify(diagnosisWithoutBaseline)}\n`, 'utf8');
+    writeFileSync(baselineFinalResultPath, `${JSON.stringify(finalResultWithoutBaseline)}\n`, 'utf8');
+
+    const missingBaseline = compareT5(runId);
+    assert.equal(missingBaseline.status, 2, missingBaseline.stderr || missingBaseline.stdout);
+    const missingBaselineResult = JSON.parse(
+      readFileSync(path.join(comparisonDirectory, 't5-comparison-verification.json'), 'utf8'),
+    );
+    assert.equal(missingBaselineResult.status, 'INVALID');
+    assert.match(missingBaselineResult.failures.join('\n'), /portable diagnosis artifact/);
+
+    writeFileSync(beforeDiagnosisPath, `${JSON.stringify(beforeDiagnosis)}\n`, 'utf8');
+    writeFileSync(baselineFinalResultPath, `${JSON.stringify(baselineFinalResult)}\n`, 'utf8');
+
+    const finalResultPath = path.join(bundles.get('participant-10'), 'final-result.json');
+    const tamperedFinalResult = JSON.parse(readFileSync(finalResultPath, 'utf8'));
+    tamperedFinalResult.fixtureId = 'different-fixture';
+    writeFileSync(finalResultPath, `${JSON.stringify(tamperedFinalResult)}\n`, 'utf8');
+    const invalid = compareT5(runId);
+    assert.equal(invalid.status, 2, invalid.stderr || invalid.stdout);
+    const invalidResult = JSON.parse(readFileSync(path.join(comparisonDirectory, 't5-comparison-verification.json'), 'utf8'));
+    assert.equal(invalidResult.status, 'INVALID');
+    assert.match(invalidResult.failures.join('\n'), /portable final-result\.json/);
+  } finally {
+    rmSync(comparisonDirectory, { recursive: true, force: true });
+  }
+});
+
+test('cleanup은 다른 run fixture와 결정적 식별자 변조를 psql 전에 거절한다', () => {
   const sourceRunId = `runner-cleanup-source-${process.pid}`;
   const targetRunId = `runner-cleanup-target-${process.pid}`;
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-psql-bin-'));
@@ -1138,7 +1397,7 @@ test('cleanup은 다른 run fixture와 결정적 식별자 변조를 psql 전에
   }
 });
 
-test('after 검증은 manifest와 다른 k6 summary를 INVALID로 거절한다', { skip: fakeK6Skip }, () => {
+test('after 검증은 manifest와 다른 k6 summary를 INVALID로 거절한다', () => {
   const prepared = writeFixture(`runner-summary-mismatch-${process.pid}`);
   const { fixtureDirectory, fixturePath } = prepared;
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
@@ -1161,7 +1420,7 @@ test('after 검증은 manifest와 다른 k6 summary를 INVALID로 거절한다',
   }
 });
 
-test('run은 k6 비정상 종료에도 종료 시각과 exit code를 보존한다', { skip: fakeK6Skip }, () => {
+test('run은 k6 비정상 종료에도 종료 시각과 exit code를 보존한다', () => {
   const prepared = writeFixture(`runner-failure-${process.pid}`);
   const { fixtureDirectory, fixturePath } = prepared;
   const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
@@ -1184,11 +1443,7 @@ test('run은 k6 비정상 종료에도 종료 시각과 exit code를 보존한�
   }
 });
 
-test('prepare 후 조회 실패에도 recovery artifact로 동일 fixture cleanup을 재개한다', {
-  skip: process.platform === 'win32'
-    ? 'psql은 셸을 사용하지 않으므로 Windows에서는 Unix fake 실행을 사용하지 않는다.'
-    : false,
-}, () => {
+test('prepare 후 조회 실패에도 recovery artifact로 동일 fixture cleanup을 재개한다', () => {
   const runId = `runner-recovery-${process.pid}`;
   const plan = createFixturePlan({
     scenario: 't1',
@@ -1231,11 +1486,7 @@ test('prepare 후 조회 실패에도 recovery artifact로 동일 fixture cleanu
   }
 });
 
-test('다른 작업 디렉터리의 실패한 prepare recovery는 commit한 fixture를 정리하지 못한다', {
-  skip: process.platform === 'win32'
-    ? 'psql은 셸을 사용하지 않으므로 Windows에서는 Unix fake 실행을 사용하지 않는다.'
-    : false,
-}, async () => {
+test('다른 작업 디렉터리의 실패한 prepare recovery는 commit한 fixture를 정리하지 못한다', async () => {
   const runId = `runner-prepare-ownership-${process.pid}`;
   const plan = createFixturePlan({
     scenario: 't1',
@@ -1349,11 +1600,7 @@ test('다른 작업 디렉터리의 실패한 prepare recovery는 commit한 fixt
   }
 });
 
-test('prepare SQL 실행 실패도 recovery artifact 경로를 안내한다', {
-  skip: process.platform === 'win32'
-    ? 'psql은 셸을 사용하지 않으므로 Windows에서는 Unix fake 실행을 사용하지 않는다.'
-    : false,
-}, () => {
+test('prepare SQL 실행 실패도 recovery artifact 경로를 안내한다', () => {
   const runId = `runner-prepare-failure-${process.pid}`;
   const plan = createFixturePlan({
     scenario: 't1',
@@ -1378,5 +1625,526 @@ test('prepare SQL 실행 실패도 recovery artifact 경로를 안내한다', {
   } finally {
     rmSync(path.join(fixtureBuildRoot, runId), { recursive: true, force: true });
     rmSync(binDirectory, { recursive: true, force: true });
+  }
+});
+
+test('portable bundle render는 source scenario/runtime과 부모 경로 symbolic link를 거절한다', async (t) => {
+  const verifySourceLinkRejection = async (name, suffix, configure) => {
+    await t.test(name, (subtest) => {
+      const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-portable-source-link-'));
+      try {
+        const sourceDirectory = createPortableBundleSource(root);
+        const scenarioDirectory = configure({ root, sourceDirectory, subtest });
+        if (!scenarioDirectory) {
+          return;
+        }
+
+        assert.throws(
+          () => renderPortableBundle(scenarioDirectory, path.join(root, 'build', 'k6', 'room'), suffix),
+          /symbolic link/,
+        );
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  };
+
+  await verifySourceLinkRejection('scenario entry symbolic link', 'scenario', ({ root, sourceDirectory, subtest }) => {
+    const scenarioPath = path.join(sourceDirectory, 't1-cancel-promotion.js');
+    const targetPath = path.join(root, 'outside-scenario.js');
+    copyFileSync(scenarioPath, targetPath);
+    rmSync(scenarioPath);
+    return createSymbolicLinkOrSkip(subtest, targetPath, scenarioPath, 'file', 'scenario entry')
+      ? sourceDirectory
+      : null;
+  });
+  await verifySourceLinkRejection('runtime file symbolic link', 'runtime-file', ({ root, sourceDirectory, subtest }) => {
+    const runtimePath = path.join(sourceDirectory, 'tools', 'fixture-model.mjs');
+    const targetPath = path.join(root, 'outside-runtime.mjs');
+    copyFileSync(runtimePath, targetPath);
+    rmSync(runtimePath);
+    return createSymbolicLinkOrSkip(subtest, targetPath, runtimePath, 'file', 'runtime file')
+      ? sourceDirectory
+      : null;
+  });
+  await verifySourceLinkRejection('runtime lib parent symbolic link', 'runtime-lib', ({ root, sourceDirectory, subtest }) => {
+    const libDirectory = path.join(sourceDirectory, 'lib');
+    const targetDirectory = path.join(root, 'outside-lib');
+    cpSync(libDirectory, targetDirectory, { recursive: true });
+    rmSync(libDirectory, { recursive: true, force: true });
+    return createSymbolicLinkOrSkip(subtest, targetDirectory, libDirectory, 'dir', 'runtime lib parent')
+      ? sourceDirectory
+      : null;
+  });
+  await verifySourceLinkRejection('scenarioDirectory symbolic link', 'scenario-directory', ({ root, sourceDirectory, subtest }) => {
+    const linkedDirectory = path.join(root, 'linked-scenario-directory');
+    return createSymbolicLinkOrSkip(subtest, sourceDirectory, linkedDirectory, 'dir', 'scenarioDirectory')
+      ? linkedDirectory
+      : null;
+  });
+  await verifySourceLinkRejection('scenarioDirectory ancestor symbolic link', 'scenario-ancestor', ({ root, sourceDirectory, subtest }) => {
+    const linkedParent = path.join(root, 'linked-source-parent');
+    return createSymbolicLinkOrSkip(subtest, path.dirname(sourceDirectory), linkedParent, 'dir', 'scenarioDirectory ancestor')
+      ? path.join(linkedParent, path.basename(sourceDirectory))
+      : null;
+  });
+});
+
+test('portable bundle은 DB·k6 없이 full closure와 immutable 계약을 생성한다', (t) => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-portable-bundle-'));
+  const buildRoot = path.join(root, 'build', 'k6', 'room');
+  const context = {
+    repositoryRoot,
+    scenarioDirectory: path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon'),
+    buildRoot,
+    bundleRoot: null,
+    isBundleRuntime: false,
+    environment: {
+      ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$portable-bundle-test',
+      ROOM_K6_SESSION_WARMUP_SECONDS: '15',
+      ROOM_K6_ROUND_INTERVAL_SECONDS: '20',
+      ROOM_K6_READ_VUS: '7',
+      ROOM_K6_READ_DURATION_SECONDS: '75',
+      ROOM_K6_READ_THINK_TIME_MS: '25',
+    },
+  };
+  const provenance = { sourceRevision: 'a'.repeat(40), sourceDirty: false };
+
+  try {
+    const rendered = renderBundle({
+      scenario: 't5',
+      runId: `portable-${process.pid}-${Date.now()}`,
+      profile: 'spike',
+      t5Role: 'host',
+      t5Scale: '1',
+    }, context, provenance);
+    const bundle = rendered.bundlePath;
+    const requiredPaths = [
+      'manifest.json',
+      'fixture-plan.json',
+      'private/prepare-provenance.json',
+      'prepare.sql',
+      'resource-query.sql',
+      'execution-options.json',
+      'scenario.js',
+      'lib/room-k6.js',
+      'lib/read-execution-options.mjs',
+      'lib/write-options.mjs',
+      'lib/start-skew.mjs',
+      'lib/write-response-contract.mjs',
+      'lib/t3-execution-plan.mjs',
+      'tools/fixture.mjs',
+      'tools/fixture-model.mjs',
+      'tools/portable-bundle.mjs',
+    ];
+    for (const relativePath of requiredPaths) {
+      assert.ok(existsSync(path.join(bundle, relativePath)), relativePath);
+    }
+
+    assert.deepEqual(validateBundle(bundle, context, { forExecution: true }), {
+      bundlePath: bundle,
+      runId: rendered.options.runId,
+      fixtureId: rendered.fixtureId,
+    });
+    assert.deepEqual(bundleExecutionOptions(bundle, context), {
+      schemaVersion: 1,
+      k6Environment: {
+        ROOM_K6_SESSION_WARMUP_SECONDS: '15',
+        ROOM_K6_ROUND_INTERVAL_SECONDS: '20',
+        ROOM_K6_READ_VUS: '7',
+        ROOM_K6_READ_DURATION_SECONDS: '75',
+        ROOM_K6_READ_THINK_TIME_MS: '25',
+      },
+      t5ReadOptions: { vus: 7, durationSeconds: 75, thinkTimeMilliseconds: 25 },
+    });
+
+    const bundleTool = path.join(bundle, 'tools', 'fixture.mjs');
+    const runtimeValidation = spawnSync(process.execPath, [
+      bundleTool,
+      'validate',
+      '--for-execution',
+      '--bundle',
+      bundle,
+    ], { encoding: 'utf8' });
+    assert.equal(runtimeValidation.status, 0, runtimeValidation.stderr || runtimeValidation.stdout);
+
+    const directCommands = [
+      ['prepare', '--scenario', 't1', '--run-id', `bundle-direct-${process.pid}`],
+      ['run', '--fixture', path.join(bundle, 'fixture.json')],
+      ['verify', '--fixture', path.join(bundle, 'fixture.json'), '--stage', 'before'],
+      ['compare-t5', '--run-id', `bundle-direct-${process.pid}`],
+      ['cleanup', '--fixture', path.join(bundle, 'fixture.json')],
+      ['recover-cleanup', '--recovery', path.join(bundle, 'prepare-recovery.json')],
+      ['render-bundle', '--scenario', 't1', '--run-id', `bundle-direct-${process.pid}`],
+    ];
+    for (const args of directCommands) {
+      const directCommand = spawnSync(process.execPath, [bundleTool, ...args], { encoding: 'utf8' });
+      assert.notEqual(directCommand.status, 0, directCommand.stderr || directCommand.stdout);
+      assert.match(directCommand.stderr, /실행 bundle에서는 직접 실행 명령을 사용할 수 없습니다/);
+    }
+
+    const symlinkTarget = path.join(root, 'outside-scenario.js');
+    const symlinkPath = path.join(bundle, 'scenario.js');
+    copyFileSync(symlinkPath, symlinkTarget);
+    rmSync(symlinkPath);
+    try {
+      symlinkSync(symlinkTarget, symlinkPath, 'file');
+      assert.throws(
+        () => validateBundle(bundle, context, { forExecution: true }),
+        /symbolic link/,
+      );
+    } catch (error) {
+      if (error?.code === 'EPERM' || error?.code === 'EACCES') {
+        t.diagnostic('현재 Windows 권한에서는 symbolic link 생성 검증을 건너뜁니다.');
+      } else {
+        throw error;
+      }
+    } finally {
+      rmSync(symlinkPath, { force: true });
+    }
+
+    writeFileSync(path.join(bundle, 'scenario.js'), '// altered\n', 'utf8');
+    assert.throws(
+      () => validateBundle(bundle, context, { forExecution: true }),
+      /immutable artifact가 변조되었습니다: scenario\.js/,
+    );
+
+    copyFileSync(symlinkTarget, symlinkPath);
+    rmSync(path.join(bundle, 'lib', 'write-options.mjs'));
+    assert.throws(
+      () => validateBundle(bundle, context, { forExecution: true }),
+      /일반 파일이어야 합니다/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('portable bundle hydrate와 before diagnosis는 prepare ownership과 raw DB artifact를 다시 대조한다', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-portable-hydrate-'));
+  const buildRoot = path.join(root, 'build', 'k6', 'room');
+  const context = {
+    repositoryRoot,
+    scenarioDirectory: path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon'),
+    buildRoot,
+    bundleRoot: null,
+    isBundleRuntime: false,
+    environment: { ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$portable-hydrate-test' },
+  };
+  const provenance = { sourceRevision: 'b'.repeat(40), sourceDirty: false };
+
+  try {
+    const rendered = renderBundle({
+      scenario: 't1',
+      runId: `portable-hydrate-${process.pid}-${Date.now()}`,
+      profile: 'spike',
+      mode: 'hot',
+      concurrency: '2',
+    }, context, provenance);
+    const bundle = rendered.bundlePath;
+    const plan = JSON.parse(readFileSync(path.join(bundle, 'fixture-plan.json'), 'utf8'));
+    writeFileSync(
+      path.join(bundle, 'resource-output.json'),
+      `${JSON.stringify(fixtureResources(plan))}\n`,
+      'utf8',
+    );
+
+    const hydrated = hydrateBundle(bundle, context);
+    const fixture = JSON.parse(readFileSync(hydrated.fixturePath, 'utf8'));
+    assert.match(fixture.prepareOwnership, /^[0-9a-f]{32}$/);
+    assert.match(readFileSync(path.join(bundle, 'snapshot.sql'), 'utf8'), /jsonb_build_object/);
+    assert.match(readFileSync(path.join(bundle, 'cleanup.sql'), 'utf8'), /pg_advisory_xact_lock/);
+
+    writeFileSync(
+      path.join(bundle, 'before-snapshot.json'),
+      `${JSON.stringify(fixtureSnapshot(fixture))}\n`,
+      'utf8',
+    );
+    const before = diagnoseBundle({ bundle, stage: 'before' }, context);
+    assert.equal(before.status, 'PASS');
+    assert.equal(existsSync(path.join(bundle, 'before-diagnosis.json')), true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('portable bundle before diagnosis 재실행은 create-only T5 baseline을 보존한다', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-portable-before-diagnosis-'));
+  const buildRoot = path.join(root, 'build', 'k6', 'room');
+  const context = {
+    repositoryRoot,
+    scenarioDirectory: path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon'),
+    buildRoot,
+    bundleRoot: null,
+    isBundleRuntime: false,
+    environment: {
+      ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$portable-before-diagnosis-test',
+      ROOM_K6_READ_VUS: '7',
+      ROOM_K6_READ_DURATION_SECONDS: '75',
+      ROOM_K6_READ_THINK_TIME_MS: '1000',
+    },
+  };
+  const provenance = { sourceRevision: 'b'.repeat(40), sourceDirty: false };
+
+  try {
+    const rendered = renderBundle({
+      scenario: 't5',
+      runId: `portable-before-diagnosis-${process.pid}-${Date.now()}`,
+      profile: 'spike',
+      t5Role: 'host',
+      t5Scale: '1',
+    }, context, provenance);
+    const bundle = rendered.bundlePath;
+    const plan = JSON.parse(readFileSync(path.join(bundle, 'fixture-plan.json'), 'utf8'));
+    writeFileSync(
+      path.join(bundle, 'resource-output.json'),
+      `${JSON.stringify(fixtureResources(plan))}\n`,
+      'utf8',
+    );
+
+    const hydrated = hydrateBundle(bundle, context);
+    const fixtureBeforeDiagnosis = readFileSync(hydrated.fixturePath, 'utf8');
+    const fixture = JSON.parse(fixtureBeforeDiagnosis);
+    const baselineSnapshot = fixtureSnapshot(fixture);
+    writeFileSync(path.join(bundle, 'before-snapshot.json'), `${JSON.stringify(baselineSnapshot)}\n`, 'utf8');
+    assert.equal(diagnoseBundle({ bundle, stage: 'before' }, context).status, 'PASS');
+    const beforeDiagnosis = JSON.parse(readFileSync(path.join(bundle, 'before-diagnosis.json'), 'utf8'));
+    assert.deepEqual(beforeDiagnosis.baselineSnapshot, baselineSnapshot);
+    assert.equal(readFileSync(hydrated.fixturePath, 'utf8'), fixtureBeforeDiagnosis);
+
+    const changedSnapshot = { ...baselineSnapshot, rooms: [] };
+    writeFileSync(path.join(bundle, 'before-snapshot.json'), `${JSON.stringify(changedSnapshot)}\n`, 'utf8');
+
+    assert.throws(
+      () => diagnoseBundle({ bundle, stage: 'before' }, context),
+      /before-diagnosis\.json/,
+    );
+    assert.equal(readFileSync(hydrated.fixturePath, 'utf8'), fixtureBeforeDiagnosis);
+
+    writeFileSync(path.join(bundle, 'after-snapshot.json'), `${JSON.stringify(baselineSnapshot)}\n`, 'utf8');
+    writeFileSync(path.join(bundle, 'k6-summary.json'), `${JSON.stringify(t5Summary(7))}\n`, 'utf8');
+    assert.equal(diagnoseBundle({ bundle, stage: 'after' }, context).status, 'PASS');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('portable bundle before diagnosis는 잘못된 snapshot에서 부분 artifact를 남기지 않는다', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-portable-before-reservation-'));
+  const buildRoot = path.join(root, 'build', 'k6', 'room');
+  const context = {
+    repositoryRoot,
+    scenarioDirectory: path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon'),
+    buildRoot,
+    bundleRoot: null,
+    isBundleRuntime: false,
+    environment: {
+      ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$portable-before-reservation-test',
+      ROOM_K6_READ_VUS: '7',
+      ROOM_K6_READ_DURATION_SECONDS: '75',
+      ROOM_K6_READ_THINK_TIME_MS: '1000',
+    },
+  };
+  const provenance = { sourceRevision: 'b'.repeat(40), sourceDirty: false };
+
+  try {
+    const rendered = renderBundle({
+      scenario: 't5',
+      runId: `portable-before-reservation-${process.pid}-${Date.now()}`,
+      profile: 'spike',
+      t5Role: 'host',
+      t5Scale: '1',
+    }, context, provenance);
+    const bundle = rendered.bundlePath;
+    const plan = JSON.parse(readFileSync(path.join(bundle, 'fixture-plan.json'), 'utf8'));
+    writeFileSync(
+      path.join(bundle, 'resource-output.json'),
+      `${JSON.stringify(fixtureResources(plan))}\n`,
+      'utf8',
+    );
+
+    const hydrated = hydrateBundle(bundle, context);
+    const fixtureBeforeDiagnosis = readFileSync(hydrated.fixturePath, 'utf8');
+    writeFileSync(path.join(bundle, 'before-snapshot.json'), '{}\n', 'utf8');
+
+    assert.throws(
+      () => diagnoseBundle({ bundle, stage: 'before' }, context),
+      /before-snapshot\.json은 rooms, participations, waitlists 배열을 포함해야 합니다/,
+    );
+    assert.equal(existsSync(path.join(bundle, 'before-diagnosis.json')), false);
+    assert.equal(readFileSync(hydrated.fixturePath, 'utf8'), fixtureBeforeDiagnosis);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('portable bundle before diagnosis는 사후 실행 artifact가 있으면 baseline을 기록하지 않는다', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-portable-before-artifact-'));
+  const buildRoot = path.join(root, 'build', 'k6', 'room');
+  const context = {
+    repositoryRoot,
+    scenarioDirectory: path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon'),
+    buildRoot,
+    bundleRoot: null,
+    isBundleRuntime: false,
+    environment: { ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$portable-before-artifact-test' },
+  };
+  const provenance = { sourceRevision: 'b'.repeat(40), sourceDirty: false };
+  const artifactContents = new Map([
+    ['k6-summary.json', '{}\n'],
+    ['k6-console.log', 'k6 output\n'],
+    ['after-snapshot.json', '{}\n'],
+    ['after-diagnosis.json', '{}\n'],
+    ['final-result.json', '{}\n'],
+    ['infra-execution.json', '{}\n'],
+  ]);
+
+  try {
+    for (const [artifactName, contents] of artifactContents) {
+      const rendered = renderBundle({
+        scenario: 't1',
+        runId: `portable-before-artifact-${artifactName.replace(/[^a-z0-9]/g, '-')}-${process.pid}-${Date.now()}`,
+        profile: 'spike',
+        mode: 'hot',
+        concurrency: '2',
+      }, context, provenance);
+      const bundle = rendered.bundlePath;
+      const plan = JSON.parse(readFileSync(path.join(bundle, 'fixture-plan.json'), 'utf8'));
+      writeFileSync(path.join(bundle, 'resource-output.json'), `${JSON.stringify(fixtureResources(plan))}\n`, 'utf8');
+
+      const hydrated = hydrateBundle(bundle, context);
+      const fixtureBeforeDiagnosis = readFileSync(hydrated.fixturePath, 'utf8');
+      const fixture = JSON.parse(fixtureBeforeDiagnosis);
+      writeFileSync(path.join(bundle, 'before-snapshot.json'), `${JSON.stringify(fixtureSnapshot(fixture))}\n`, 'utf8');
+      writeFileSync(path.join(bundle, artifactName), contents, 'utf8');
+
+      assert.throws(
+        () => diagnoseBundle({ bundle, stage: 'before' }, context),
+        /사후 실행 artifact가 이미 있습니다/,
+      );
+      assert.equal(existsSync(path.join(bundle, 'before-diagnosis.json')), false);
+      assert.equal(readFileSync(hydrated.fixturePath, 'utf8'), fixtureBeforeDiagnosis);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('portable bundle은 원격 raw metadata와 두 진단을 PASS·FAIL·INVALID로 집계한다', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-portable-aggregate-'));
+  const buildRoot = path.join(root, 'build', 'k6', 'room');
+  const context = {
+    repositoryRoot,
+    scenarioDirectory: path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon'),
+    buildRoot,
+    bundleRoot: null,
+    isBundleRuntime: false,
+    environment: {
+      ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$portable-aggregate-test',
+      ROOM_K6_READ_VUS: '7',
+      ROOM_K6_READ_DURATION_SECONDS: '75',
+      ROOM_K6_READ_THINK_TIME_MS: '25',
+    },
+  };
+  const provenance = { sourceRevision: 'c'.repeat(40), sourceDirty: false };
+
+  try {
+    const rendered = renderBundle({
+      scenario: 't5',
+      runId: `portable-aggregate-${process.pid}-${Date.now()}`,
+      profile: 'spike',
+      t5Role: 'host',
+      t5Scale: '1',
+    }, context, provenance);
+    const bundle = rendered.bundlePath;
+    const plan = JSON.parse(readFileSync(path.join(bundle, 'fixture-plan.json'), 'utf8'));
+    writeFileSync(
+      path.join(bundle, 'resource-output.json'),
+      `${JSON.stringify(fixtureResources(plan))}\n`,
+      'utf8',
+    );
+
+    const hydrated = hydrateBundle(bundle, context);
+    const fixture = JSON.parse(readFileSync(hydrated.fixturePath, 'utf8'));
+    const snapshot = fixtureSnapshot(fixture);
+    writeFileSync(path.join(bundle, 'before-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
+    diagnoseBundle({ bundle, stage: 'before' }, context);
+    writeFileSync(path.join(bundle, 'after-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
+    writeFileSync(path.join(bundle, 'k6-summary.json'), `${JSON.stringify(t5Summary(1))}\n`, 'utf8');
+    diagnoseBundle({ bundle, stage: 'after' }, context);
+
+    const executionPath = path.join(bundle, 'infra-execution.json');
+    const finalResultPath = path.join(bundle, 'final-result.json');
+    const afterDiagnosisPath = path.join(bundle, 'after-diagnosis.json');
+    const writeExecution = (failedPhase = null, exitCode = 0) => {
+      writeFileSync(executionPath, `${JSON.stringify({
+        schemaVersion: 1,
+        runId: rendered.options.runId,
+        fixtureId: rendered.fixtureId,
+        phases: {
+          prepare: { exitCode: failedPhase === 'prepare' ? exitCode : 0 },
+          resourceQuery: { exitCode: failedPhase === 'resourceQuery' ? exitCode : 0 },
+          beforeSnapshot: { exitCode: failedPhase === 'beforeSnapshot' ? exitCode : 0 },
+          k6: { exitCode: failedPhase === 'k6' ? exitCode : 0 },
+          afterSnapshot: { exitCode: failedPhase === 'afterSnapshot' ? exitCode : 0 },
+        },
+      })}\n`, 'utf8');
+    };
+    const aggregate = () => {
+      rmSync(finalResultPath, { force: true });
+      return aggregateBundle(bundle, context);
+    };
+
+    writeExecution();
+    const passResult = aggregate();
+    assert.equal(passResult.status, 'PASS');
+    assert.equal(passResult.issues.length, 0);
+
+    for (const phaseName of ['prepare', 'resourceQuery', 'beforeSnapshot', 'k6', 'afterSnapshot']) {
+      writeExecution(phaseName, 2);
+      const phaseFailure = aggregate();
+      assert.equal(phaseFailure.status, 'FAIL');
+      assert.equal(phaseFailure.infraExecution.phases[phaseName].exitCode, 2);
+    }
+
+    writeExecution();
+    const afterDiagnosis = JSON.parse(readFileSync(afterDiagnosisPath, 'utf8'));
+    afterDiagnosis.status = 'FAIL';
+    afterDiagnosis.failures = ['강제 FAIL'];
+    writeFileSync(afterDiagnosisPath, `${JSON.stringify(afterDiagnosis)}\n`, 'utf8');
+    const diagnosisFailure = aggregate();
+    assert.equal(diagnosisFailure.status, 'FAIL');
+    assert.equal(diagnosisFailure.afterDiagnosis.status, 'FAIL');
+
+    afterDiagnosis.status = 'INVALID';
+    afterDiagnosis.failures = ['강제 INVALID'];
+    writeFileSync(afterDiagnosisPath, `${JSON.stringify(afterDiagnosis)}\n`, 'utf8');
+    const invalidDiagnosis = aggregate();
+    assert.equal(invalidDiagnosis.status, 'INVALID');
+    assert.equal(invalidDiagnosis.afterDiagnosis.status, 'INVALID');
+
+    afterDiagnosis.status = 'PASS';
+    afterDiagnosis.failures = ['PASS와 모순되는 실패'];
+    writeFileSync(afterDiagnosisPath, `${JSON.stringify(afterDiagnosis)}\n`, 'utf8');
+    const contradictoryDiagnosis = aggregate();
+    assert.equal(contradictoryDiagnosis.status, 'INVALID');
+    assert.equal(contradictoryDiagnosis.afterDiagnosis, null);
+    assert.match(contradictoryDiagnosis.issues[0], /after-diagnosis\.json/);
+
+    delete afterDiagnosis.failures;
+    writeFileSync(afterDiagnosisPath, `${JSON.stringify(afterDiagnosis)}\n`, 'utf8');
+    const missingFailures = aggregate();
+    assert.equal(missingFailures.status, 'INVALID');
+    assert.equal(missingFailures.afterDiagnosis, null);
+
+    afterDiagnosis.failures = [];
+    writeFileSync(afterDiagnosisPath, `${JSON.stringify(afterDiagnosis)}\n`, 'utf8');
+    writeExecution('k6', null);
+    const incompleteMetadata = aggregate();
+    assert.equal(incompleteMetadata.status, 'INVALID');
+    assert.match(incompleteMetadata.issues[0], /phase exit code/);
+    assert.equal(existsSync(finalResultPath), true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
