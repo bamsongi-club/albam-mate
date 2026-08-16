@@ -2,9 +2,8 @@
 
 | 항목 | 값 |
 | --- | --- |
-| 문서 상태 | `superseded` |
 | Campaign | `room-k6-matrix-2026-08-14` |
-| Campaign 상태 | `completed-with-limitations` |
+| Campaign 상태 정본 | [campaign 상태 인덱스](README.md) |
 | 기록 분류 | `invalid-measurement-campaign` — 성능 기준선·용량 판단에서 제외 |
 | 실행 경로 | ROOM portable bundle → `run.sh room-k6` |
 | 제외한 경로 | generic `loadtest` |
@@ -25,6 +24,7 @@
 - 전용 P1 스택에 대해 실행했으며, 결과 회수 직후 teardown을 수행한다.
 - Windows/Git Bash 환경에서 runner가 portable bundle을 전달할 수 있게 한 로컬 호환성 보정은 infra working tree에만 남아 있으며, 이 보고서 작성이나 앱 release에는 포함하지 않았다.
 - 비밀번호·credential-derived hash·토큰·세션·CSRF·URL·실제 fixture/resource 식별자는 문서와 표에서 제외했다. source/artifact 무결성 식별값은 linked manifest에만 보존한다.
+- linked manifest의 local-only artifact digest는 이후 로컬 원자료의 변경 여부만 확인하며, 이 Git 저장소만으로 원자료 bundle 내용을 독립 재구성할 수는 없다.
 
 ## Run 결과
 

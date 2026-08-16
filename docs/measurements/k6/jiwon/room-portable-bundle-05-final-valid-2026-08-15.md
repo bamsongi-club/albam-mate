@@ -2,8 +2,7 @@
 
 | 항목 | 값 |
 | --- | --- |
-| 문서 상태 | `current` |
-| Campaign 상태 | `completed-with-limitations` |
+| Campaign 상태 정본 | [campaign 상태 인덱스](README.md) |
 | Run 판정 | 25/25 `PASS` |
 | 실행 경로 | ROOM portable bundle → `run.sh room-k6` |
 | 제외한 경로 | generic `loadtest` |
@@ -44,6 +43,8 @@
 
 - `성공/요청`은 성공 응답 수와 전체 요청 수다. `업무 결과`와 `동시성 결과`는 scenario classifier가 허용한 업무 종단 또는 재시도 소진 종단의 건수이므로, 그 수만으로 오류나 성능 저하라고 단정하지 않는다.
 - 아래 p50·p95·RPS는 이 전용 환경에서 각 조합을 한 번 실행해 얻은 관찰값이다. summary가 p99를 수집하지 않았으므로 p99는 `N/A`로 남겼으며 추정하지 않는다.
+- 원자료 bundle은 local-only이므로 이 Git 저장소만으로 내용을 독립 재검증할 수 없다. raw artifact에는 campaign ID와 보고 포함 여부가 없어, final-05 membership은 linked manifest의 명시적 ledger와 scenario·UTC 실행 구간의 정확 일치로 재구성했다.
+- 원자료의 `PASS` 결과 중 manifest ledger 밖의 5개 Run은 이 보고서 결론에 포함하지 않았다.
 - T1–T4의 write wave와 T5의 read profile은 부하 생성 모델과 분모가 다르다. 따라서 표의 RPS를 scenario 간 용량 순위로 비교하거나 단일 수치로 성능 개선 효과를 판단하지 않는다.
 
 ### 시나리오와 Run 결과

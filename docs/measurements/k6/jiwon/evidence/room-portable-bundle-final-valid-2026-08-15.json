@@ -2,8 +2,6 @@
   "schema": "k6-campaign-manifest-v3",
   "kind": "room-portable-bundle",
   "campaignId": "room-k6-final-clean-2026-08-15",
-  "campaignStatus": "completed-with-limitations",
-  "documentStatus": "current",
   "reportStatus": "PASS",
   "purpose": "ROOM portable bundle -> infra run.sh room-k6 경로의 최종 25개 유효 Run을, 보고서 수치와 local-only 원자료 bundle의 비밀이 아닌 provenance 및 무결성 식별값으로 연결한다.",
   "documents": {
@@ -15,35 +13,6 @@
   "executionPath": {
     "included": "ROOM portable bundle -> infra run.sh room-k6",
     "excluded": "generic loadtest"
-  },
-  "lineage": {
-    "campaignSequence": 5,
-    "priorCampaigns": [
-      {
-        "campaignId": "room-k6-matrix-2026-08-14",
-        "report": "../room-portable-bundle-01-initial-invalid-2026-08-14.md",
-        "recordedStatus": "INVALID",
-        "relationship": "final-05 이전의 별도 campaign 기록이며 이 manifest의 Run은 아님"
-      },
-      {
-        "campaignId": "room-k6-snapshot-rerun-2026-08-14",
-        "report": "../room-portable-bundle-02-snapshot-rerun-invalid-2026-08-14.md",
-        "recordedStatus": "INVALID",
-        "relationship": "final-05 이전의 별도 campaign 기록이며 이 manifest의 Run은 아님"
-      },
-      {
-        "campaignId": "room-k6-t1-recovery-smoke-2026-08-14",
-        "report": "../room-portable-bundle-03-t1-recovery-fail-2026-08-14.md",
-        "recordedStatus": "FAIL",
-        "relationship": "final-05 이전의 별도 campaign 기록이며 이 manifest의 Run은 아님"
-      },
-      {
-        "campaignId": "room-k6-local-gate-2026-08-15",
-        "report": "../room-portable-bundle-04-local-gate-invalid-2026-08-15.md",
-        "recordedStatus": "INVALID",
-        "relationship": "final-05 이전의 별도 campaign 기록이며 이 manifest의 Run은 아님"
-      }
-    ]
   },
   "window": {
     "startedAtUtc": "2026-08-14T15:39:20Z",
@@ -1037,11 +1006,5 @@
         "k6SummarySha256": "fce571b0bf0972cd00ff0f35b34726f419b45ef52925b2324723029510e898f0"
       }
     }
-  ],
-  "knownLimitations": [
-    "원자료 bundle은 local-only이며, 이 저장소만으로 원자료 내용을 독립 재검증할 수 없다.",
-    "raw artifact에는 campaignId와 reportDisposition이 없으므로 final-05 membership은 이 manifest의 명시적 ledger와 scenario 및 UTC execution window의 정확 일치로 재구성했다.",
-    "원자료 PASS 결과 중 ledger 밖의 다섯 Run은 이 campaign의 보고서 결론에 포함하지 않았다.",
-    "room_request_duration.p99는 수집하지 않았다."
   ]
 }

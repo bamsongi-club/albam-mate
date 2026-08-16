@@ -2,8 +2,7 @@
 
 | 항목 | 값 |
 | --- | --- |
-| 문서 상태 | `superseded` |
-| Campaign 상태 | `completed-with-limitations` |
+| Campaign 상태 정본 | [campaign 상태 인덱스](README.md) |
 | 기록 분류 | `invalid-measurement-campaign` — 성능 기준선·용량 판단에서 제외 |
 | 실행 경로 | ROOM portable bundle → `run.sh room-k6` |
 | 시간 범위 | UTC 2026-08-14 13:58:28–14:33:37 / KST 2026-08-14 22:58:28–23:33:37 |
@@ -23,6 +22,11 @@ snapshot SQL의 파생 테이블은 quoted camelCase alias를 내보내는데, o
 - snapshot SQL의 alias 계약을 확인하는 회귀 테스트를 추가했다.
 
 이 수정은 과거 25개 결과를 유효한 성능 결과로 바꾸지 않는다. 새 clean bundle과 새 release 정렬로 별도 campaign을 다시 실행해야 한다.
+
+## 해석과 한계
+
+- T5 comparison의 `INVALID`는 유효 fixture가 하나도 없었던 후속 결과이며, 성능 비교 결과가 아니다.
+- linked manifest의 local-only artifact digest는 이후 로컬 원자료의 변경 여부만 확인하며, 이 Git 저장소만으로 원자료 bundle 내용을 독립 재구성할 수는 없다.
 
 ## 판정 근거
 

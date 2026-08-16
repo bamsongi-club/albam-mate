@@ -2,17 +2,11 @@
   "schema": "k6-campaign-manifest-v3",
   "kind": "room-portable-bundle",
   "campaignId": "room-k6-snapshot-rerun-2026-08-14",
-  "campaignStatus": "completed-with-limitations",
-  "documentStatus": "superseded",
   "reportStatus": "INVALID",
   "purpose": "users fixture SQL 수정 뒤 공식 ROOM 25개 조합을 다시 실행해 snapshot을 포함한 실행 전 gate를 확인한다. 이 campaign은 before snapshot 결함으로 성능 기준선에는 사용하지 않는다.",
   "documents": {
     "ownerIndex": "../README.md",
     "report": "../room-portable-bundle-02-snapshot-rerun-invalid-2026-08-14.md"
-  },
-  "lineage": {
-    "campaignSequence": 2,
-    "successorCampaign": "room-k6-t1-recovery-smoke-2026-08-14"
   },
   "executionPath": {
     "included": "ROOM portable bundle -> infra run.sh room-k6",
@@ -354,11 +348,6 @@
       "metrics": { "available": false, "reason": "beforeSnapshot failed before k6" },
       "artifactDigests": { "portableBundleManifestSha256": "d44ded5fa22264d5a6f27094f78535ed6a456f58f66dd7418ff4ae670439e93f", "finalResultSha256": "bfa3458a7250ddf1b817a006b1453f20844cb9b2c2991a02181dd9777295b660" }
     }
-  ],
-  "knownLimitations": [
-    "k6, HTTP latency, RPS, HTTP error rate, and after diagnosis were not collected because every Run stopped in beforeSnapshot.",
-    "T5 comparison INVALID is a consequence of zero valid fixtures, not a performance comparison result.",
-    "local-only artifact digests prove later local modification only; this Git repository cannot independently reconstruct the raw bundle."
   ],
   "teardown": {
     "status": "not-run",
