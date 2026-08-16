@@ -41,13 +41,10 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.notification.repository.NotificationOutboxEventRepository;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Timer;
 
 @Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class, properties = {
-	"app.notification.relay.enabled=false",
-	"app.measurement.auth-notification.enabled=true"
+	"app.notification.relay.enabled=false"
 })
 class NotificationRelayPostgresTest {
 
@@ -79,9 +76,6 @@ class NotificationRelayPostgresTest {
 
 	@Autowired
 	private NotificationOutboxEventRepository eventRepository;
-
-	@Autowired
-	private MeterRegistry meterRegistry;
 
 	@Autowired
 	private PlatformTransactionManager transactionManager;
@@ -121,14 +115,11 @@ class NotificationRelayPostgresTest {
 	}
 
 	@Test
-	void T8_outer_rollback과_독립된_REQUIRES_NEW_inner_commit은_실제_트랜잭션_metric을_한번씩_기록한다() {
+	void outer_rollback에도_독립_트랜잭션의_성공_relay는_보존된다() {
 		Fixture fixture = createFixture();
 		long eventId = insertPendingEvent(fixture.roomId());
 		insertRecipient(eventId, fixture.firstRecipientUserId());
 		String outerEmail = "relay-outer-commit-" + UUID.randomUUID() + "@example.com";
-		RelayMeterSnapshot txCommit = relayMetric("tx-commit", "committed");
-		RelayMeterSnapshot txTotal = relayMetric("tx-total", "committed");
-		RelayMeterSnapshot afterCompletion = relayMetric("afterCompletion", "committed");
 
 		assertTrue(AopUtils.isAopProxy(executor));
 		new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
@@ -143,19 +134,14 @@ class NotificationRelayPostgresTest {
 			"select status from notification_outbox_events where id = ?", String.class, eventId));
 		assertEquals(1, jdbcTemplate.queryForObject(
 			"select count(*) from notifications where source_event_id = ?", Integer.class, eventId));
-		assertMetricRecorded(txCommit);
-		assertMetricRecorded(txTotal);
-		assertMetricRecorded(afterCompletion);
 	}
 
 	@Test
-	void T9_outer_rollback과_독립된_REQUIRES_NEW_inner_rollback은_rollback_metric을_한번씩_기록한다() {
+	void outer_rollback과_deferred_commit_실패에서는_독립_트랜잭션도_롤백된다() {
 		Fixture fixture = createFixture();
 		long eventId = insertPendingEvent(fixture.roomId());
 		insertRecipient(eventId, fixture.firstRecipientUserId());
 		String outerEmail = "relay-outer-rollback-" + UUID.randomUUID() + "@example.com";
-		RelayMeterSnapshot txTotal = relayMetric("tx-total", "rolled-back");
-		RelayMeterSnapshot afterCompletion = relayMetric("afterCompletion", "rolled-back");
 		installDeferredProcessedCommitFailureTrigger(eventId);
 
 		try {
@@ -172,8 +158,6 @@ class NotificationRelayPostgresTest {
 				"select status from notification_outbox_events where id = ?", String.class, eventId));
 			assertEquals(0, jdbcTemplate.queryForObject(
 				"select count(*) from notifications where source_event_id = ?", Integer.class, eventId));
-			assertMetricRecorded(txTotal);
-			assertMetricRecorded(afterCompletion);
 		} finally {
 			jdbcTemplate.execute(
 				"drop trigger if exists notification_relay_fail_deferred_commit on notification_outbox_events");
@@ -842,25 +826,6 @@ class NotificationRelayPostgresTest {
 		return false;
 	}
 
-	private RelayMeterSnapshot relayMetric(String stage, String result) {
-		Timer timer = meterRegistry.find("notification.relay.stage.duration")
-			.tags("stage", stage, "result", result).timer();
-		if (timer == null) {
-			throw new AssertionError("missing relay metric: " + stage + "/" + result);
-		}
-		return new RelayMeterSnapshot(stage, result, timer.count(), timer.totalTime(TimeUnit.NANOSECONDS));
-	}
-
-	private void assertMetricRecorded(RelayMeterSnapshot before) {
-		Timer timer = meterRegistry.find("notification.relay.stage.duration")
-			.tags("stage", before.stage(), "result", before.result()).timer();
-		assertEquals(before.count() + 1, timer.count());
-		assertTrue(timer.totalTime(TimeUnit.NANOSECONDS) > before.durationNanos());
-	}
-
 	private record Fixture(long roomId, long firstRecipientUserId, long secondRecipientUserId) {
-	}
-
-	private record RelayMeterSnapshot(String stage, String result, long count, double durationNanos) {
 	}
 }

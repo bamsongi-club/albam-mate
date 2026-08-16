@@ -27,6 +27,9 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.PlayedFilter;
 import cloud.bamsongi.albammate.game.dto.PlayedGameStateResponse;
@@ -135,6 +138,37 @@ class UserPlayedGamePostgresTest {
 			}
 		}
 		assertEquals(1, userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).size());
+	}
+
+	@Test
+	void PostgreSQL_반복_목표상태는_저장결과와_동일한_업무결과로그로_기록한다() {
+		User user = user("logged-idempotency");
+		Game game = game("LoggedIdempotency");
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(UserPlayedGameService.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+
+		try {
+			userPlayedGameService.markPlayed(user.getId(), game.getId());
+			userPlayedGameService.markPlayed(user.getId(), game.getId());
+			assertEquals(1, userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).size());
+			userPlayedGameService.unmarkPlayed(user.getId(), game.getId());
+			userPlayedGameService.unmarkPlayed(user.getId(), game.getId());
+			assertTrue(userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).isEmpty());
+
+			List<String> messages = appender.list.stream()
+				.map(ILoggingEvent::getFormattedMessage)
+				.filter(value -> value.contains("event=game_played_state_changed"))
+				.toList();
+			assertEquals(4, messages.size());
+			assertEquals(2, messages.stream().filter(value -> value.contains("action=mark outcome=played")).count());
+			assertEquals(2,
+				messages.stream().filter(value -> value.contains("action=unmark outcome=not_played")).count());
+		} finally {
+			logger.detachAppender(appender);
+			appender.stop();
+		}
 	}
 
 	@Test

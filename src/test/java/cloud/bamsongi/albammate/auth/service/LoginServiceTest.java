@@ -39,12 +39,10 @@ import cloud.bamsongi.albammate.global.security.ratelimit.AuthenticationRequestL
 import cloud.bamsongi.albammate.global.security.ratelimit.InMemoryAuthenticationRequestLimiter;
 import cloud.bamsongi.albammate.global.security.ratelimit.LoginVerificationPermit;
 import cloud.bamsongi.albammate.global.security.ratelimit.RateLimitDecision;
-import cloud.bamsongi.albammate.measurement.AuthNotificationMeasurementRecorder;
 import cloud.bamsongi.albammate.user.contract.UserAccount;
 import cloud.bamsongi.albammate.user.contract.UserAccountService;
 import cloud.bamsongi.albammate.user.contract.UserCredentials;
 import cloud.bamsongi.albammate.user.contract.UserEmail;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 @ExtendWith(MockitoExtension.class)
 class LoginServiceTest {
@@ -148,61 +146,18 @@ class LoginServiceTest {
 	}
 
 	@Test
-	void T2_정상_로그인은_실행한_인증_단계만_낮은_카디널리티로_기록한다() {
-		SimpleMeterRegistry registry = new SimpleMeterRegistry();
-		LoginService service = serviceWithAvailableHashSlot(new AuthNotificationMeasurementRecorder(registry));
-		UserCredentials credentials = new UserCredentials(9L, "닉네임", "{bcrypt}current");
-		when(userAccountService.findCredentialsByEmail(userEmail("user@example.com")))
-			.thenReturn(Optional.of(credentials));
-		when(passwordEncoder.matches("correct", "{bcrypt}current")).thenReturn(true);
-		when(passwordEncoder.upgradeEncoding("{bcrypt}current")).thenReturn(false);
-
-		service.login(normalized("user@example.com", "correct"), "203.0.113.43");
-
-		assertTimerRecorded(registry, "request-limit");
-		assertTimerRecorded(registry, "verification-gate");
-		assertTimerRecorded(registry, "failure-limit");
-		assertTimerRecorded(registry, "user-lookup");
-		assertTimerRecorded(registry, "bcrypt-verify");
-		assertTimerRecorded(registry, "bcrypt-upgrade-check");
-		assertTimerRecorded(registry, "failure-reset");
-	}
-
-	@Test
-	void T3_실패_로그인은_dummy_bcrypt와_실행한_단계만_기록한다() {
-		SimpleMeterRegistry registry = new SimpleMeterRegistry();
-		LoginService service = serviceWithAvailableHashSlot(new AuthNotificationMeasurementRecorder(registry));
-		when(userAccountService.findCredentialsByEmail(userEmail("missing@example.com"))).thenReturn(Optional.empty());
-		when(passwordEncoder.matches(org.mockito.ArgumentMatchers.eq("wrong"), any(String.class))).thenReturn(false);
-
-		assertThrows(InvalidCredentialsException.class,
-			() -> service.login(normalized("missing@example.com", "wrong"), "203.0.113.42"));
-
-		assertTimerRecorded(registry, "bcrypt-verify");
-		assertTimerRecorded(registry, "failure-record");
-		assertEquals(0,
-			registry.find("auth.login.stage.duration").tag("stage", "bcrypt-upgrade-encode").timer().count());
-	}
-
-	@Test
-	void T4_각_거절_경로는_기존_예외를_유지하고_안전한_원인만_기록한다() {
-		SimpleMeterRegistry registry = new SimpleMeterRegistry();
-		AuthNotificationMeasurementRecorder recorder = new AuthNotificationMeasurementRecorder(registry);
-		LoginService ipLimited = serviceWithAvailableHashSlot(recorder);
+	void 요청_제한과_저장소_오류는_기존_예외를_유지한다() {
+		LoginService ipLimited = serviceWithAvailableHashSlot();
 		doThrow(new RateLimitExceededException(1)).when(requestLimiter).requireLoginAllowed("203.0.113.44");
 		assertThrows(RateLimitExceededException.class,
 			() -> ipLimited.login(normalized("user@example.com", "wrong"), "203.0.113.44"));
-		assertEquals(1, registry.find("auth.login.rejections").tag("source", "ip-limit").counter().count());
 
-		SimpleMeterRegistry redisRegistry = new SimpleMeterRegistry();
-		LoginService redisUnavailable = serviceWithAvailableHashSlot(
-			new AuthNotificationMeasurementRecorder(redisRegistry));
+		LoginService redisUnavailable = serviceWithAvailableHashSlot();
 		doThrow(new BusinessException(ErrorCode.SERVICE_UNAVAILABLE))
 			.when(requestLimiter).requireLoginAllowed("203.0.113.45");
-		assertThrows(BusinessException.class,
+		BusinessException exception = assertThrows(BusinessException.class,
 			() -> redisUnavailable.login(normalized("user@example.com", "wrong"), "203.0.113.45"));
-		assertEquals(1,
-			redisRegistry.find("auth.login.rejections").tag("source", "redis-unavailable").counter().count());
+		assertEquals(ErrorCode.SERVICE_UNAVAILABLE, exception.getErrorCode());
 	}
 
 	@Test
@@ -217,8 +172,8 @@ class LoginServiceTest {
 			requestLimiter,
 			userAccountService,
 			passwordEncoder,
-			new PasswordHashExecutor(noSlotLimiter, null),
-			passwordSecurityProperties(), null);
+			new PasswordHashExecutor(noSlotLimiter),
+			passwordSecurityProperties());
 
 		configureLimiter();
 
@@ -231,7 +186,7 @@ class LoginServiceTest {
 	}
 
 	@Test
-	void T6_Redis를_확인할_수_없으면_로그인_조회와_비밀번호_해시를_시작하지_않는다() {
+	void Redis를_확인할_수_없으면_로그인_조회와_비밀번호_해시를_시작하지_않는다() {
 		LoginService service = serviceWithAvailableHashSlot();
 		doThrow(new BusinessException(ErrorCode.SERVICE_UNAVAILABLE))
 			.when(requestLimiter)
@@ -276,8 +231,8 @@ class LoginServiceTest {
 			limiter,
 			userAccountService,
 			blockingPasswordEncoder,
-			new PasswordHashExecutor(hashLimiter, null),
-			passwordSecurityProperties(), null);
+			new PasswordHashExecutor(hashLimiter),
+			passwordSecurityProperties());
 		String remoteIp = "203.0.113.45";
 
 		ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -315,10 +270,6 @@ class LoginServiceTest {
 	}
 
 	private LoginService serviceWithAvailableHashSlot() {
-		return serviceWithAvailableHashSlot(null);
-	}
-
-	private LoginService serviceWithAvailableHashSlot(AuthNotificationMeasurementRecorder recorder) {
 		PasswordHashConcurrencyLimiter limiter = new PasswordHashConcurrencyLimiter() {
 			@Override
 			public Optional<PasswordHashPermit> tryAcquire() {
@@ -330,8 +281,8 @@ class LoginServiceTest {
 			requestLimiter,
 			userAccountService,
 			passwordEncoder,
-			new PasswordHashExecutor(limiter, recorder),
-			passwordSecurityProperties(), recorder);
+			new PasswordHashExecutor(limiter),
+			passwordSecurityProperties());
 	}
 
 	private LoginCommand normalized(String email, String password) {
@@ -363,7 +314,4 @@ class LoginServiceTest {
 			.thenReturn(Optional.of((LoginVerificationPermit)() -> {}));
 	}
 
-	private void assertTimerRecorded(SimpleMeterRegistry registry, String stage) {
-		assertEquals(1, registry.find("auth.login.stage.duration").tag("stage", stage).timer().count());
-	}
 }

@@ -2,7 +2,6 @@ package cloud.bamsongi.albammate.auth.security;
 
 import java.util.Objects;
 
-import org.springframework.lang.Nullable;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContext;
@@ -11,7 +10,6 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Component;
 
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal;
-import cloud.bamsongi.albammate.measurement.AuthNotificationMeasurementRecorder;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -25,13 +23,10 @@ import jakarta.servlet.http.HttpServletResponse;
 public final class AppSessionEstablisher {
 
 	private final SecurityContextRepository securityContextRepository;
-	private final AuthNotificationMeasurementRecorder measurementRecorder;
 
 	public AppSessionEstablisher(
-		SecurityContextRepository securityContextRepository,
-		@Nullable AuthNotificationMeasurementRecorder measurementRecorder) {
+		SecurityContextRepository securityContextRepository) {
 		this.securityContextRepository = Objects.requireNonNull(securityContextRepository, "securityContextRepository");
-		this.measurementRecorder = measurementRecorder;
 	}
 
 	/** 세션 ID를 교체해 세션 고정 공격을 막고 현재 사용자 인증을 저장한다. */
@@ -56,11 +51,6 @@ public final class AppSessionEstablisher {
 	}
 
 	private void saveContext(SecurityContext context, HttpServletRequest request, HttpServletResponse response) {
-		if (measurementRecorder == null) {
-			securityContextRepository.saveContext(context, request, response);
-		} else {
-			measurementRecorder.authStage("session-context-save",
-				() -> securityContextRepository.saveContext(context, request, response));
-		}
+		securityContextRepository.saveContext(context, request, response);
 	}
 }

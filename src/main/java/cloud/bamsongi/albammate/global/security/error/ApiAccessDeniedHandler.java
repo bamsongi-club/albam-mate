@@ -32,7 +32,7 @@ public final class ApiAccessDeniedHandler implements AccessDeniedHandler {
 		AccessDeniedException accessDeniedException)
 		throws IOException {
 		ErrorCode errorCode = resolveErrorCode(request, accessDeniedException);
-		responseWriter.write(response, errorCode);
+		responseWriter.write(request, response, errorCode);
 	}
 
 	private ErrorCode resolveErrorCode(
