@@ -19,6 +19,34 @@ test('승인되지 않았거나 test-only이면 차단한다', () => {
     );
 });
 
+test('실제 dataset rows/hash/id-set hash가 manifest와 모두 일치해야 한다', () => {
+    const manifest = validManifest();
+    const actualDataset = { ...manifest.dataset };
+
+    assert.doesNotThrow(() =>
+        validateCatalogDatasetReleaseManifest(manifest, { actualDataset }),
+    );
+
+    assert.throws(
+        () => validateCatalogDatasetReleaseManifest(manifest, {
+            actualDataset: { ...actualDataset, rows: actualDataset.rows - 1 },
+        }),
+        /dataset\.rows does not match/u,
+    );
+    assert.throws(
+        () => validateCatalogDatasetReleaseManifest(manifest, {
+            actualDataset: { ...actualDataset, sha256: '0'.repeat(64) },
+        }),
+        /dataset\.sha256 does not match/u,
+    );
+    assert.throws(
+        () => validateCatalogDatasetReleaseManifest(manifest, {
+            actualDataset: { ...actualDataset, idSetSha256: '0'.repeat(64) },
+        }),
+        /dataset\.idSetSha256 does not match/u,
+    );
+});
+
 test('01~07 승인 artifact와 실제 checksum/bytes가 모두 일치해야 한다', () => {
     const manifest = validManifest();
     const actualArtifacts = Object.fromEntries(
