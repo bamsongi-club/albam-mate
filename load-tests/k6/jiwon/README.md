@@ -133,6 +133,8 @@ ROOM_K6_FIXTURE_PASSWORD='<private-password>' ./run.sh room-k6 \
 
 원격 단계는 `validate → execution options → prepare SQL → resource query → hydrate → before snapshot/diagnosis → k6 → after snapshot/diagnosis → aggregate` 순서다. prepare/resource query/snapshot은 PostgreSQL host에서, k6는 load generator에서 실행한다. hydrate·diagnosis·aggregate는 bundle 안의 Node 도구가 controller에서 raw artifact만 읽어 수행한다.
 
+T5의 `before-diagnosis.json`은 실행 전 snapshot과 판정을 하나의 create-only artifact에 함께 고정한다. `after` diagnosis는 이 고정 snapshot을 baseline으로 사용하며 `fixture.json`을 다시 쓰지 않는다. `aggregate`는 diagnosis의 identity·stage·status·failures 일관성을 다시 검증하고, `PASS`와 failures가 함께 있거나 failures가 누락된 artifact는 `INVALID`로 처리한다.
+
 정상 흐름은 테스트 직후 `down`으로 전용 DB와 stack을 함께 폐기하므로 fixture cleanup transport를 자동 실행하지 않는다. 실행이 중단돼 stack을 유지해야 한다면 이 최초 원격 흐름을 재사용하지 말고, 후속 명시 cleanup 계약을 먼저 추가한다.
 
 시나리오별 fixture 입력은 아래처럼 바꾼다.

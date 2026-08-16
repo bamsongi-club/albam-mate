@@ -967,6 +967,42 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   });
 }
 
+test('테스트 interrupt 파일을 읽지 못해도 k6 자식과 manifest를 종료한다', async () => {
+  const runId = `runner-interrupt-read-error-${process.pid}`;
+  const prepared = writeFixture(runId);
+  const { fixtureDirectory, fixturePath } = prepared;
+  const binDirectory = mkdtempSync(path.join(os.tmpdir(), 'room-k6-bin-'));
+  const fakeK6PidPath = path.join(fixtureDirectory, 'fake-k6.pid');
+  const interruptDirectory = path.join(fixtureDirectory, 'interrupt-directory');
+  let runner;
+  mkdirSync(binDirectory, { recursive: true });
+  mkdirSync(interruptDirectory);
+  createFakeK6(binDirectory);
+
+  try {
+    runner = startFixture(fixturePath, binDirectory, {
+      FAKE_K6_WAIT_FOR_SIGNAL: 'true',
+      FAKE_K6_PID_FILE: fakeK6PidPath,
+      ROOM_K6_TEST_INTERRUPT_FILE: interruptDirectory,
+    });
+    const result = await waitForFixtureExit(runner);
+    assert.notEqual(result.status, 0, result.stderr || result.stdout);
+
+    const manifest = JSON.parse(readFileSync(path.join(fixtureDirectory, 'run-manifest.json'), 'utf8'));
+    assert.equal(manifest.runState, 'INTERRUPTED');
+    assert.equal(manifest.completed, false);
+    assert.equal(manifest.k6Signal, 'SIGTERM');
+    assert.ok(Date.parse(manifest.finishedAtUtc));
+  } finally {
+    if (runner && runner.exitCode === null && runner.signalCode === null) {
+      runner.kill('SIGKILL');
+    }
+    stopFakeK6(fakeK6PidPath);
+    rmSync(fixtureDirectory, { recursive: true, force: true });
+    rmSync(binDirectory, { recursive: true, force: true });
+  }
+});
+
 test('T5 run은 유효 VU·duration·think time을 manifest에 기록한다', () => {
   const prepared = writeT5Fixture(`runner-t5-options-${process.pid}`, 'public', 1);
   const { fixtureDirectory, fixturePath } = prepared;
@@ -1279,6 +1315,29 @@ test('T5 비교는 portable bundle 완료 artifact와 k6 v1.3 top-level count를
       durationSeconds: 75,
       thinkTimeMilliseconds: 25,
     });
+
+    const baselineBundle = bundles.get('host-1');
+    const beforeDiagnosisPath = path.join(baselineBundle, 'before-diagnosis.json');
+    const baselineFinalResultPath = path.join(baselineBundle, 'final-result.json');
+    const beforeDiagnosis = JSON.parse(readFileSync(beforeDiagnosisPath, 'utf8'));
+    const baselineFinalResult = JSON.parse(readFileSync(baselineFinalResultPath, 'utf8'));
+    const diagnosisWithoutBaseline = structuredClone(beforeDiagnosis);
+    const finalResultWithoutBaseline = structuredClone(baselineFinalResult);
+    delete diagnosisWithoutBaseline.baselineSnapshot;
+    delete finalResultWithoutBaseline.beforeDiagnosis.baselineSnapshot;
+    writeFileSync(beforeDiagnosisPath, `${JSON.stringify(diagnosisWithoutBaseline)}\n`, 'utf8');
+    writeFileSync(baselineFinalResultPath, `${JSON.stringify(finalResultWithoutBaseline)}\n`, 'utf8');
+
+    const missingBaseline = compareT5(runId);
+    assert.equal(missingBaseline.status, 2, missingBaseline.stderr || missingBaseline.stdout);
+    const missingBaselineResult = JSON.parse(
+      readFileSync(path.join(comparisonDirectory, 't5-comparison-verification.json'), 'utf8'),
+    );
+    assert.equal(missingBaselineResult.status, 'INVALID');
+    assert.match(missingBaselineResult.failures.join('\n'), /portable diagnosis artifact/);
+
+    writeFileSync(beforeDiagnosisPath, `${JSON.stringify(beforeDiagnosis)}\n`, 'utf8');
+    writeFileSync(baselineFinalResultPath, `${JSON.stringify(baselineFinalResult)}\n`, 'utf8');
 
     const finalResultPath = path.join(bundles.get('participant-10'), 'final-result.json');
     const tamperedFinalResult = JSON.parse(readFileSync(finalResultPath, 'utf8'));
@@ -1809,7 +1868,7 @@ test('portable bundle hydrate와 before diagnosis는 prepare ownership과 raw DB
   }
 });
 
-test('portable bundle before diagnosis 재실행은 기존 T5 baselineSnapshot을 보존한다', () => {
+test('portable bundle before diagnosis 재실행은 create-only T5 baseline을 보존한다', () => {
   const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-portable-before-diagnosis-'));
   const buildRoot = path.join(root, 'build', 'k6', 'room');
   const context = {
@@ -1844,12 +1903,15 @@ test('portable bundle before diagnosis 재실행은 기존 T5 baselineSnapshot�
     );
 
     const hydrated = hydrateBundle(bundle, context);
-    const fixture = JSON.parse(readFileSync(hydrated.fixturePath, 'utf8'));
+    const fixtureBeforeDiagnosis = readFileSync(hydrated.fixturePath, 'utf8');
+    const fixture = JSON.parse(fixtureBeforeDiagnosis);
     const baselineSnapshot = fixtureSnapshot(fixture);
     writeFileSync(path.join(bundle, 'before-snapshot.json'), `${JSON.stringify(baselineSnapshot)}\n`, 'utf8');
     assert.equal(diagnoseBundle({ bundle, stage: 'before' }, context).status, 'PASS');
+    const beforeDiagnosis = JSON.parse(readFileSync(path.join(bundle, 'before-diagnosis.json'), 'utf8'));
+    assert.deepEqual(beforeDiagnosis.baselineSnapshot, baselineSnapshot);
+    assert.equal(readFileSync(hydrated.fixturePath, 'utf8'), fixtureBeforeDiagnosis);
 
-    const fixtureBeforeRetry = readFileSync(hydrated.fixturePath, 'utf8');
     const changedSnapshot = { ...baselineSnapshot, rooms: [] };
     writeFileSync(path.join(bundle, 'before-snapshot.json'), `${JSON.stringify(changedSnapshot)}\n`, 'utf8');
 
@@ -1857,7 +1919,7 @@ test('portable bundle before diagnosis 재실행은 기존 T5 baselineSnapshot�
       () => diagnoseBundle({ bundle, stage: 'before' }, context),
       /before-diagnosis\.json/,
     );
-    assert.equal(readFileSync(hydrated.fixturePath, 'utf8'), fixtureBeforeRetry);
+    assert.equal(readFileSync(hydrated.fixturePath, 'utf8'), fixtureBeforeDiagnosis);
 
     writeFileSync(path.join(bundle, 'after-snapshot.json'), `${JSON.stringify(baselineSnapshot)}\n`, 'utf8');
     writeFileSync(path.join(bundle, 'k6-summary.json'), `${JSON.stringify(t5Summary(7))}\n`, 'utf8');
@@ -1867,7 +1929,7 @@ test('portable bundle before diagnosis 재실행은 기존 T5 baselineSnapshot�
   }
 });
 
-test('portable bundle before diagnosis는 final create-only artifact를 baseline 전에 선점한다', () => {
+test('portable bundle before diagnosis는 잘못된 snapshot에서 부분 artifact를 남기지 않는다', () => {
   const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-portable-before-reservation-'));
   const buildRoot = path.join(root, 'build', 'k6', 'room');
   const context = {
@@ -1911,19 +1973,6 @@ test('portable bundle before diagnosis는 final create-only artifact를 baseline
     );
     assert.equal(existsSync(path.join(bundle, 'before-diagnosis.json')), false);
     assert.equal(readFileSync(hydrated.fixturePath, 'utf8'), fixtureBeforeDiagnosis);
-
-    const portableBundleSource = readFileSync(
-      path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon', 'tools', 'portable-bundle.mjs'),
-      'utf8',
-    );
-    const diagnoseStart = portableBundleSource.indexOf('export function diagnoseBundle');
-    const diagnoseEnd = portableBundleSource.indexOf('\nexport function aggregateBundle', diagnoseStart);
-    const diagnoseSource = portableBundleSource.slice(diagnoseStart, diagnoseEnd);
-    const finalDiagnosisWrite = diagnoseSource.indexOf('writeNewJson(outputPath, result);');
-    const baselineWrite = diagnoseSource.indexOf('fixture.baselineSnapshot = snapshot;');
-    assert.notEqual(finalDiagnosisWrite, -1);
-    assert.notEqual(baselineWrite, -1);
-    assert.ok(finalDiagnosisWrite < baselineWrite);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -2061,18 +2110,34 @@ test('portable bundle은 원격 raw metadata와 두 진단을 PASS·FAIL·INVALI
     writeExecution();
     const afterDiagnosis = JSON.parse(readFileSync(afterDiagnosisPath, 'utf8'));
     afterDiagnosis.status = 'FAIL';
+    afterDiagnosis.failures = ['강제 FAIL'];
     writeFileSync(afterDiagnosisPath, `${JSON.stringify(afterDiagnosis)}\n`, 'utf8');
     const diagnosisFailure = aggregate();
     assert.equal(diagnosisFailure.status, 'FAIL');
     assert.equal(diagnosisFailure.afterDiagnosis.status, 'FAIL');
 
     afterDiagnosis.status = 'INVALID';
+    afterDiagnosis.failures = ['강제 INVALID'];
     writeFileSync(afterDiagnosisPath, `${JSON.stringify(afterDiagnosis)}\n`, 'utf8');
     const invalidDiagnosis = aggregate();
     assert.equal(invalidDiagnosis.status, 'INVALID');
     assert.equal(invalidDiagnosis.afterDiagnosis.status, 'INVALID');
 
     afterDiagnosis.status = 'PASS';
+    afterDiagnosis.failures = ['PASS와 모순되는 실패'];
+    writeFileSync(afterDiagnosisPath, `${JSON.stringify(afterDiagnosis)}\n`, 'utf8');
+    const contradictoryDiagnosis = aggregate();
+    assert.equal(contradictoryDiagnosis.status, 'INVALID');
+    assert.equal(contradictoryDiagnosis.afterDiagnosis, null);
+    assert.match(contradictoryDiagnosis.issues[0], /after-diagnosis\.json/);
+
+    delete afterDiagnosis.failures;
+    writeFileSync(afterDiagnosisPath, `${JSON.stringify(afterDiagnosis)}\n`, 'utf8');
+    const missingFailures = aggregate();
+    assert.equal(missingFailures.status, 'INVALID');
+    assert.equal(missingFailures.afterDiagnosis, null);
+
+    afterDiagnosis.failures = [];
     writeFileSync(afterDiagnosisPath, `${JSON.stringify(afterDiagnosis)}\n`, 'utf8');
     writeExecution('k6', null);
     const incompleteMetadata = aggregate();

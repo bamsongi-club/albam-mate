@@ -491,7 +491,16 @@ function installTestInterruptWatcher(onInterrupt) {
     if (!existsSync(signalFile)) {
       return;
     }
-    const signal = readFileSync(signalFile, 'utf8').trim();
+    let signal;
+    try {
+      signal = readFileSync(signalFile, 'utf8').trim();
+    } catch (error) {
+      if (error?.code === 'ENOENT') {
+        return;
+      }
+      onInterrupt('SIGTERM');
+      return;
+    }
     if (signal === 'SIGINT' || signal === 'SIGTERM') {
       onInterrupt(signal);
     }
@@ -575,6 +584,11 @@ function isT5ReadOptions(value) {
     && Number.isInteger(value.vus) && value.vus >= 1 && value.vus <= 500
     && Number.isInteger(value.durationSeconds) && value.durationSeconds >= 5 && value.durationSeconds <= 3600
     && Number.isInteger(value.thinkTimeMilliseconds) && value.thinkTimeMilliseconds >= 0 && value.thinkTimeMilliseconds <= 10000;
+}
+
+function isPortableSnapshot(value) {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    && Array.isArray(value.rooms) && Array.isArray(value.participations) && Array.isArray(value.waitlists);
 }
 
 function completedRunArtifact(fixturePath, fixture) {
@@ -749,7 +763,8 @@ function completedPortableT5Artifact(fixturePath, fixture, context) {
     && diagnosis.stage === stage
     && ['PASS', 'FAIL', 'INVALID'].includes(diagnosis.status)
     && Array.isArray(diagnosis.failures)
-    && (diagnosis.status !== 'PASS' || diagnosis.failures.length === 0);
+    && (diagnosis.status !== 'PASS' || diagnosis.failures.length === 0)
+    && (stage !== 'before' || isPortableSnapshot(diagnosis.baselineSnapshot));
   if (!matchesDiagnosis(beforeDiagnosis, 'before') || !matchesDiagnosis(afterDiagnosis, 'after')) {
     return { invalid: 'portable diagnosis artifact가 현재 T5 fixture와 맞지 않습니다.' };
   }

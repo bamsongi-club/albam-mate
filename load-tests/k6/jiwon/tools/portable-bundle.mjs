@@ -429,16 +429,14 @@ function assertPristineExecutionState(bundle) {
   }
 }
 
-function readHydratedFixture(bundle, plan, ownership, { requireBaseline = false } = {}) {
+function readHydratedFixture(bundle, plan, ownership) {
   const fixture = readJson(artifactPath(bundle, ARTIFACTS.fixture), 'fixture');
   const resources = readJson(artifactPath(bundle, ARTIFACTS.resourceOutput), 'resource output');
   const expected = hydrateFixture(plan, resources, ownership);
-  const { baselineSnapshot, ...fixtureCore } = fixture;
+  const fixtureCore = { ...fixture };
+  delete fixtureCore.baselineSnapshot;
   if (!sameJson(fixtureCore, expected)) {
     fail('fixture.json이 fixture plan·resource output·prepare ownership과 일치하지 않습니다.');
-  }
-  if (requireBaseline && !isSnapshot(baselineSnapshot)) {
-    fail('T5 after 진단에는 before snapshot으로 고정한 fixture baselineSnapshot이 필요합니다.');
   }
   return fixture;
 }
@@ -468,6 +466,25 @@ function readInfraExecution(bundle) {
     fail('infra-execution.json이 이 bundle의 원시 실행 metadata 계약과 일치하지 않습니다.');
   }
   return execution;
+}
+
+function readDiagnosis(bundle, relativePath, stage) {
+  const diagnosis = readJson(artifactPath(bundle, relativePath), `${stage} diagnosis`);
+  const status = diagnosis?.status;
+  const failures = diagnosis?.failures;
+  const hasValidIdentity = diagnosis?.fixtureId === bundle.manifest.fixtureId
+    && diagnosis.scenario === bundle.manifest.options.scenario
+    && diagnosis.stage === stage;
+  const hasValidStatus = ['PASS', 'FAIL', 'INVALID'].includes(status);
+  const hasValidFailures = Array.isArray(failures)
+    && (status === 'PASS' ? failures.length === 0 : failures.length > 0);
+  const hasRequiredBaseline = stage !== 'before'
+    || bundle.manifest.options.scenario !== 't5'
+    || isSnapshot(diagnosis?.baselineSnapshot);
+  if (!hasValidIdentity || !hasValidStatus || !hasValidFailures || !hasRequiredBaseline) {
+    fail(`${relativePath}이 현재 bundle의 ${stage} 진단 계약과 맞지 않습니다.`);
+  }
+  return diagnosis;
 }
 
 export function renderBundle(values, context, provenanceOverride = undefined) {
@@ -584,9 +601,11 @@ export function diagnoseBundle(values, context) {
   const outputPath = artifactPath(bundle, output);
   const snapshotPath = stage === 'before' ? ARTIFACTS.beforeSnapshot : ARTIFACTS.afterSnapshot;
   const snapshot = readSnapshot(bundle, snapshotPath);
-  const fixture = readHydratedFixture(bundle, plan, ownership, {
-    requireBaseline: stage === 'after' && plan.options.scenario === 't5',
-  });
+  const fixture = readHydratedFixture(bundle, plan, ownership);
+  if (stage === 'after' && plan.options.scenario === 't5') {
+    const beforeDiagnosis = readDiagnosis(bundle, ARTIFACTS.beforeDiagnosis, 'before');
+    fixture.baselineSnapshot = beforeDiagnosis.baselineSnapshot;
+  }
   const summary = stage === 'after' ? readJson(artifactPath(bundle, ARTIFACTS.summary), 'k6 summary') : null;
   const evaluation = evaluateFixture(fixture, snapshot, stage, summary);
   const result = {
@@ -595,34 +614,26 @@ export function diagnoseBundle(values, context) {
     stage,
     ...evaluation,
   };
-  if (stage === 'before') {
-    writeNewJson(outputPath, result);
-    fixture.baselineSnapshot = snapshot;
-    writeJson(artifactPath(bundle, ARTIFACTS.fixture), fixture);
-  } else {
-    writeNewJson(outputPath, result);
+  if (stage === 'before' && plan.options.scenario === 't5') {
+    result.baselineSnapshot = snapshot;
   }
+  writeNewJson(outputPath, result);
   return result;
 }
 
 export function aggregateBundle(rawBundlePath, context) {
   const { bundle } = readBundle(context, rawBundlePath);
   const issues = [];
-  const readDiagnosis = (relativePath, stage) => {
+  const readCurrentDiagnosis = (relativePath, stage) => {
     try {
-      const diagnosis = readJson(artifactPath(bundle, relativePath), `${stage} diagnosis`);
-      if (diagnosis.fixtureId !== bundle.manifest.fixtureId || diagnosis.scenario !== bundle.manifest.options.scenario
-        || diagnosis.stage !== stage || !['PASS', 'FAIL', 'INVALID'].includes(diagnosis.status)) {
-        throw new Error('identity');
-      }
-      return diagnosis;
+      return readDiagnosis(bundle, relativePath, stage);
     } catch (_) {
       issues.push(`${relativePath}이 없거나 현재 bundle의 ${stage} 진단 계약과 맞지 않습니다.`);
       return null;
     }
   };
-  const before = readDiagnosis(ARTIFACTS.beforeDiagnosis, 'before');
-  const after = readDiagnosis(ARTIFACTS.afterDiagnosis, 'after');
+  const before = readCurrentDiagnosis(ARTIFACTS.beforeDiagnosis, 'before');
+  const after = readCurrentDiagnosis(ARTIFACTS.afterDiagnosis, 'after');
   let execution = null;
   try {
     execution = readInfraExecution(bundle);
