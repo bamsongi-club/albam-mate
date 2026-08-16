@@ -819,7 +819,7 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 | `platform` | string | Y | N | 항상 `BOARD_GAME_ARENA` |
 | `partySize` | integer | Y | N | 고정된 실제 파티 인원 |
 | `members` | MatchProposalMemberPreview[] | Y | N | 제안 참가 예정자의 공개 프로필 이미지 |
-| `respondBy` | string(date-time) | Y | N | 제안 생성 시 고정한 30초 응답 기한 |
+| `respondBy` | string(date-time) | Y | N | 제안 생성 시 고정한 응답 기한. 기한 규칙은 [MATCH-01 후보 파티와 제안](p2/matching.md#후보-파티와-제안)을 따름 |
 | `myResponse` | MatchProposalMyResponse | Y | N | 요청자의 현재 유효 응답 |
 
 ### 4.25 MatchProposalMemberPreview
@@ -837,7 +837,7 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
 | `preparingStartedAt` | string(date-time) | Y | N | 전원 수락으로 성공 파티를 확정한 시각 |
-| `prepareUntil` | string(date-time) | Y | N | 채팅 생성·복구를 시도하는 최대 5분 기한 |
+| `prepareUntil` | string(date-time) | Y | N | 채팅 생성·복구를 시도하는 제품 기한. 계산 규칙은 [MATCH-01 성공 파티 채팅](p2/matching.md#성공-파티-채팅)을 따름 |
 
 ### 4.27 MatchChatHandoff
 
@@ -921,7 +921,7 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
 | `receivedAt` | string(date-time) | Y | N | 이번 신고 receipt의 접수 시각 |
-| `alreadyReceived` | boolean | Y | N | 같은 신고자·피신고자 조합의 7일 이내 기존 접수면 `true` |
+| `alreadyReceived` | boolean | Y | N | 같은 신고자·피신고자 조합의 보존 중인 기존 접수면 `true`. 보존 규칙은 [MATCH-01 신고와 차단](p2/matching.md#신고와-차단)을 따름 |
 
 ### 4.33 MatchPartyMember
 
@@ -2284,9 +2284,9 @@ MATCHING은 매칭 요청·제안·성공 파티와 그 접근 관계를 소유�
 | 인증 / CSRF | 필요 / 불필요 |
 | 성공 | `200 OK`, `data`: `CurrentMatchStateResponse` |
 
-응답은 한 사용자에게 현재 하나인 화면 상태만 반환한다. `WAITING`은 후보 부재로 대기 중인 요청, `PROPOSED`는 응답 기한 안의 열린 제안, `PAUSED`는 본인의 미응답으로 다시 찾기를 기다리는 요청, `PREPARING`은 전원 수락 뒤 최대 5분의 채팅 준비, `ACTIVE`는 채팅 handoff 상태다. `PREPARING`에는 채팅 경로나 party ID를 반환하지 않으며, `ACTIVE`일 때만 `chat`에 연결 정보를 담는다. 현재 대상이 없으면 `operationTime`을 제외한 `data` 필드가 `null`이다.
+응답은 한 사용자에게 현재 하나인 화면 상태만 반환한다. `WAITING`은 후보 부재로 대기 중인 요청, `PROPOSED`는 응답 기한 안의 열린 제안, `PAUSED`는 본인의 미응답으로 다시 찾기를 기다리는 요청, `PREPARING`은 [제품이 정한 기한](p2/matching.md#성공-파티-채팅) 안의 채팅 준비, `ACTIVE`는 채팅 handoff 상태다. `PREPARING`에는 채팅 경로나 party ID를 반환하지 않으며, `ACTIVE`일 때만 `chat`에 연결 정보를 담는다. 현재 대상이 없으면 `operationTime`을 제외한 `data` 필드가 `null`이다.
 
-조회는 due 상태를 임의로 선택해 숨기지 않는다. 요청·제안·Party의 현재 상태 조회 전 due `OPEN` proposal은 Proposal Terminal/expiry Executor가, due `PREPARING` Party는 Recovery/Cleanup Executor가, `closesAt <= operationTime`이거나 `closesAt - 1시간 <= operationTime < closesAt`이면서 `CLOSES_IN_ONE_HOUR`가 아직 없는 `ACTIVE` Party는 Party lifecycle Executor가 PostgreSQL `operationTime`으로 먼저 보정한다. `ACTIVE` Party lifecycle Executor는 종료 1시간 전 구간에서 해당 `CLOSES_IN_ONE_HOUR`가 없을 때만 메시지를 멱등 저장하고, `closesAt`이 지났으면 `CLOSED` 전이를 확정한다. 그 뒤 Query Service는 `REQUIRES_NEW`·`readOnly`·`REPEATABLE_READ` 트랜잭션을 시작하고 첫 업무 조회 전에 `operationTime = transaction_timestamp()`를 고정한다. 하나의 SQL snapshot에서 요청·제안·Party·접근·채팅 handoff를 함께 읽어 그 시각의 committed 상태만 조합하며, 실시간 이벤트나 서로 다른 조회 시각으로 상태를 합치지 않는다. 이 snapshot에서 due `OPEN` proposal, due `PREPARING` Party 또는 위 조건의 `ACTIVE` lifecycle due Party가 다시 보이면 응답을 만들지 않고 read transaction을 rollback한 뒤 해당 Executor를 호출하고 새 snapshot을 연다. 최대 3회의 snapshot 시도 안에 due 행이 없는 결과를 확보하지 못하면 `MATCH_CURRENT_STATE_NOT_STABLE`을 반환한다.
+조회는 due 상태를 임의로 선택해 숨기지 않는다. due 상태 보정, PostgreSQL `operationTime` 고정, 단일 SQL snapshot과 bounded retry의 실행 계약은 [아키텍처의 MATCH 현재 상태 snapshot](ARCHITECTURE.md#p2-match-현재-상태-snapshot-계획미구현)을 따른다. API는 보정이 끝난 하나의 안정적인 현재 상태만 반환하며, 실행 계약 안에서 안정적인 snapshot을 확보하지 못하면 `MATCH_CURRENT_STATE_NOT_STABLE`을 반환한다.
 
 ### MATCH-01 매칭 요청 등록
 
@@ -2353,7 +2353,7 @@ MATCHING은 매칭 요청·제안·성공 파티와 그 접근 관계를 소유�
 |---|---|:---:|:---:|---|
 | `action` | MatchProposalResponseAction | Y | N | `ACCEPT`, `REQUEUE`, `CANCEL` 중 하나 |
 
-`respondBy` 이전의 본인 열린 제안에 대해서만 첫 유효 응답 하나를 기록한다. 마지막이 아닌 `ACCEPT`는 `PROPOSED`와 `myResponse = ACCEPTED`를 반환한다. 마지막 `ACCEPT`, `REQUEUE`, `CANCEL`, `PROPOSED` 요청의 `DELETE`, 응답 기한 만료는 [아키텍처의 Proposal Terminal Executor](ARCHITECTURE.md#p2-match-제안채팅-복구-흐름-계획미구현)에서 하나의 종결 승자만 정한다. 승자는 그 결과를 기준으로 `PREPARING` 또는 이미 열린 `ACTIVE`, 새 `WAITING`, `PAUSED`, 요청 취소 중 하나의 최신 상태를 반환하고 패자는 상태를 다시 전이시키지 않는다. `REQUEUE`가 승자가 되면 이 사용자의 새 대기 시도는 `WAITING`이 되고, `CANCEL`이 승자가 되면 본인의 매칭 요청을 취소한다. 다른 사용자의 재대기·취소로 제안이 끝난 수락자와 조기 종료 시점 미결정 사용자는 기존 우선순위로 자동 재대기하며, 응답 기한까지 미응답한 사용자는 `PAUSED`가 된다.
+`respondBy` 이전의 본인 열린 제안에 대해서만 첫 유효 응답 하나를 기록한다. 마지막이 아닌 `ACCEPT`는 `PROPOSED`와 `myResponse = ACCEPTED`를 반환한다. 마지막 `ACCEPT`, `REQUEUE`, `CANCEL`, `PROPOSED` 요청의 `DELETE`, 응답 기한 만료가 하나의 종결 결과로 수렴하는 실행 경계는 [아키텍처의 Proposal Terminal Executor](ARCHITECTURE.md#p2-match-제안채팅-복구-흐름-계획미구현)가 소유한다. 종결 결과별 `PREPARING`·`ACTIVE`·`WAITING`·`PAUSED`·취소 전이, 자동 재대기·우선순위와 미응답 정책은 [MATCH-01 후보 파티와 제안](p2/matching.md#후보-파티와-제안)을 따르며, 이 API는 그 규칙으로 확정된 최신 `CurrentMatchStateResponse`를 반환한다.
 
 응답 기한이 지났거나, 다른 사용자의 유효 응답으로 제안이 끝났거나, 이 사용자가 이미 다른 키로 첫 유효 응답을 보냈으면 새 명령은 `MATCH_PROPOSAL_RESPONSE_NOT_AVAILABLE`다. 이 오류는 현재 제안 외의 과거 제안에 응답할 수 없다는 의미이며, 같은 멱등키 재시도에는 적용하지 않는다.
 
@@ -2363,7 +2363,7 @@ MATCHING은 매칭 요청·제안·성공 파티와 그 접근 관계를 소유�
 
 MATCH 성공 파티와 접근 관계는 MATCHING이 판정하며, 채팅은 Party가 `ACTIVE`이고 현재 사용자의 참가자 접근 관계가 아직 나가지 않은 경우에만 메시지 저장·이력·실시간 전달을 제공한다. 따라서 `/api/rooms/{roomId}/chat/**`와 ROOM 주최자·참가자 접근 규칙은 적용하지 않는다. `PREPARING` 중에는 모든 MATCH 채팅 경로를 허용하지 않고 `MATCH_CHAT_NOT_ACTIVE`를 반환하며, 클라이언트는 현재 상태 조회의 `preparing`으로 화면을 유지한다.
 
-메시지는 HTTP로 저장하고 WebSocket으로 수신한다. 커서 기반 이력·재연결 원칙과 HTTP 저장/WebSocket 수신 방식은 [ADR-0032](adr/chat/0032-http-send-websocket-receive.md)를 따른다. 이력·전송·구독은 `ACTIVE`인 현재 성공 파티 관계를 요청과 handshake 때마다 다시 확인하고, `CLOSED` 뒤에는 조회·전송·구독을 허용하지 않는다. MATCH 채팅은 `chatOpenedAt`부터 24시간 뒤(또는 마지막 현재 사용자의 명시적 나가기 시점)에 `CLOSED`가 되고 그 실제 시각부터 URL 텍스트를 포함한 메시지·성공 파티·접근 관계를 7일 뒤 삭제한다. 기존 ROOM 채팅의 30일 보존은 적용하지 않는다.
+메시지는 HTTP로 저장하고 WebSocket으로 수신한다. 커서 기반 이력·재연결 원칙과 HTTP 저장/WebSocket 수신 방식은 [ADR-0032](adr/chat/0032-http-send-websocket-receive.md)를 따른다. 이력·전송·구독은 `ACTIVE`인 현재 성공 파티 관계를 요청과 handshake 때마다 다시 확인하고, `CLOSED` 뒤에는 조회·전송·구독을 허용하지 않는다. MATCH 채팅은 `closesAt` 도달 또는 마지막 현재 사용자의 명시적 나가기로 `CLOSED`가 되며, `purgeAfter`가 되면 URL 텍스트를 포함한 메시지·성공 파티·접근 관계를 삭제한다. `closesAt`·`purgeAfter` 계산과 기존 ROOM 채팅과의 보존 차이는 [MATCH-01 성공 파티 채팅](p2/matching.md#성공-파티-채팅)을 따른다.
 
 ### MATCH-01 매칭 채팅 메시지 전송
 
@@ -2444,7 +2444,7 @@ WebSocket은 수신 전용이다. 클라이언트가 애플리케이션 메시�
 
 이 명령은 `ACTIVE` 성공 파티에서 사용자가 **명시적으로** 나가겠다는 뜻이다. 브라우저 종료, WebSocket 연결 끊김, 서버 재시작은 나가기로 해석하지 않으므로 재접속 복구 권한을 잃지 않는다. Executor는 Party를 잠근 뒤 아직 나가지 않은 본인 접근 관계만 목표 상태 `나감`으로 바꾸고, 남은 현재 접근 관계가 없으면 같은 트랜잭션에서 Party를 `ACTIVE → CLOSED`로 전이한다. 마지막 사용자가 아닌 경우 Party와 다른 사용자의 채팅은 계속 `ACTIVE`이며 자동 충원·자동 재매칭을 하지 않는다.
 
-이미 나갔거나 마지막 퇴장으로 `CLOSED`가 된 자신의 Party에 같은 `DELETE`를 반복해도 새 상태 전이나 보존 기한을 만들지 않고 `200 OK`와 최신 현재 상태로 수렴한다. 명시적으로 나간 사용자는 해당 Party의 채팅 접근을 즉시 잃고, 현재 매칭 상태가 없으면 새 매칭 요청을 등록할 수 있다. `PREPARING` Party에서는 아직 채팅에 나갈 수 없으므로 `MATCH_PARTY_LEAVE_NOT_AVAILABLE`를 반환한다. 본인 관계가 없거나 7일 삭제 뒤에는 `FORBIDDEN`, 존재하지 않는 Party는 `MATCH_PARTY_NOT_FOUND`를 반환한다.
+이미 나갔거나 마지막 퇴장으로 `CLOSED`가 된 자신의 Party에 같은 `DELETE`를 반복해도 새 상태 전이나 보존 기한을 만들지 않고 `200 OK`와 최신 현재 상태로 수렴한다. 명시적으로 나간 사용자는 해당 Party의 채팅 접근을 즉시 잃고, 현재 매칭 상태가 없으면 새 매칭 요청을 등록할 수 있다. `PREPARING` Party에서는 아직 채팅에 나갈 수 없으므로 `MATCH_PARTY_LEAVE_NOT_AVAILABLE`를 반환한다. 본인 관계가 없거나 [제품 보존 기한](p2/matching.md#성공-파티-채팅)에 따른 물리 삭제 뒤에는 `FORBIDDEN`, 존재하지 않는 Party는 `MATCH_PARTY_NOT_FOUND`를 반환한다.
 
 ### MATCH-01 차단 목록 조회
 
@@ -2492,7 +2492,7 @@ WebSocket은 수신 전용이다. 클라이언트가 애플리케이션 메시�
 |---|---|
 | Method / Path | `POST /api/matches/parties/{partyId}/reports` |
 | 인증 / CSRF | 필요 / 필요 |
-| 성공 | 최초 접수는 `201 Created`, 같은 신고자·피신고자 조합의 7일 이내 재신고는 `200 OK`; `data`: `MatchReportReceipt` |
+| 성공 | 최초 접수는 `201 Created`, 같은 신고자·피신고자 조합의 보존 중 재신고는 `200 OK`; `data`: `MatchReportReceipt`. 보존 규칙은 [MATCH-01 신고와 차단](p2/matching.md#신고와-차단)을 따름 |
 
 | Path variable | 타입 | 검증 |
 |---|---|---|
@@ -2514,7 +2514,7 @@ WebSocket은 수신 전용이다. 클라이언트가 애플리케이션 메시�
 | `participantRef` | string | Y | N | 같은 `partyId`에서 받은 다른 참가자의 opaque reference |
 | `reason` | MatchReportReason | Y | N | 고정 사유 5개 중 하나 |
 
-같은 신고자·피신고자 조합에는 신고 command의 `operationTime`부터 7일 동안 하나의 receipt만 있다. `purge_after > operationTime`인 동안의 재신고는 사유가 달라도 새 행을 만들거나 기존 사유·접수 시각을 바꾸지 않고 `200 OK`와 `alreadyReceived = true`인 기존 receipt를 반환한다. `purge_after <= operationTime`이면 이전 행이 batch purge되지 않았더라도 같은 트랜잭션에서 사유·접수 시각·`purge_after`를 새 신고로 원자 교체하고 `201 Created`와 `alreadyReceived = false`를 반환한다. 신고는 차단을 자동 생성하지 않으며 현재 제안·성공 파티·이후 후보에 영향을 주지 않는다.
+같은 신고자·피신고자 조합에는 [제품이 정한 보존 기간](p2/matching.md#신고와-차단) 동안 하나의 receipt만 있다. `purge_after > operationTime`인 동안의 재신고는 사유가 달라도 새 행을 만들거나 기존 사유·접수 시각을 바꾸지 않고 `200 OK`와 `alreadyReceived = true`인 기존 receipt를 반환한다. `purge_after <= operationTime`이면 이전 행이 batch purge되지 않았더라도 같은 트랜잭션에서 사유·접수 시각·`purge_after`를 새 신고로 원자 교체하고 `201 Created`와 `alreadyReceived = false`를 반환한다. 신고는 차단을 자동 생성하지 않으며 현재 제안·성공 파티·이후 후보에 영향을 주지 않는다.
 
 ## 10. 오류 코드
 

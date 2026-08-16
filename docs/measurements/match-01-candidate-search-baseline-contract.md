@@ -47,9 +47,15 @@ fixture 생성·truncate·통계 초기화는 측정 구간 밖에서 끝낸다.
 - `BASELINE_ACCEPTED`는 세 round 모두 유효하고, 각 round에 1,000개 표본·두 matcher 완료·원자료·DB 통계·lock wait 기록이 있으며, 기대한 `500`개 proposal·`1,000`개 member 전이·`1,000`개 입력 request의 정확히 한 번의 claim·fixture manifest의 tie 순서가 실제 결과와 일치하고, 한 요청의 둘 이상 `PROPOSED` 점유·중복 제안·제안 회원 일부만 전이된 부분 claim이 0건인 경우에만 부여한다. 최종 ACCEPT·Party 확정·현재 상태 복구는 별도 통합 검증 결과로 기록하며 이 baseline의 acceptance로 대신하지 않는다. 이는 SLO 달성을 뜻하지 않는다.
 - `INVALID`는 실행 또는 관측 계약을 충족하지 않아 성능 비교에 쓸 수 없는 결과다. `FAILED`는 실행·관측 계약을 충족한 뒤 candidate claim 정합성 검증이 실패한 결과다. 기술 오류·timeout·matcher 조기 종료·fixture 개수 불일치·관측 누락은 `INVALID`로, 실행 완료 후 candidate claim 정합성 위반은 `FAILED`로 분류한다. `INVALID`·`FAILED` 어느 경우에도 Redis 도입 결론이나 성능 수치를 채택하지 않는다.
 
+## 종합 정합성 gate manifest
+
+baseline JSON과 `MATCH-01-T1`, `MATCH-01-T5`~`T7` 통합 검증 artifact는 각각 실행한 40자 `measuredGitCommitSha`를 기록한다. 종합 gate는 `docs/measurements/results/match-01/gates/`의 별도 manifest 하나가 `measuredGitCommitSha`와 필수 증거 ID별 저장소 상대 경로·각 artifact의 `gitCanonicalBlobSha256`을 기록할 때만 평가한다.
+
+`gitCanonicalBlobSha256`은 gate를 평가하는 커밋에서 상대 경로가 가리키는 Git blob의 원본 바이트(`git rev-parse HEAD:<path>`로 blob을 정하고 `git cat-file blob <blob>`으로 읽은 바이트)를 SHA-256으로 계산한 값이다. 서로 내용이 다른 artifact가 같은 SHA-256을 기록할 필요는 없다. 필수 증거가 없거나 중복되고, artifact 안의 `measuredGitCommitSha`가 manifest와 다르거나, 경로의 실제 blob SHA-256이 manifest 값과 다르면 종합 gate를 `INVALID`로 판정한다. 결과 artifact가 자기 SHA-256을 자기 내용 안에 기록하지 않아 순환 해시를 만들지 않는다.
+
 ## 원자료 보존과 재검토
 
-구현 뒤 각 실행 결과는 `docs/measurements/results/match-01/`에 버전 관리 JSON으로 보존한다. JSON은 실행한 40자 Git commit SHA·환경·`fixtureInputSha256`·materialized fixture manifest·warm-up 여부·각 measured round의 1,000개 candidate claim transaction latency·retry·proposal 500개/멤버 1,000개/입력 request 1,000개 claim 결과 분포·tie 순서 검증·DB 통계·lock wait 설정과 원자료·정합성 검증 결과를 포함한다. 최종 응답·Party 확정·현재 상태 복구의 통합 검증 결과는 별도 artifact로 연결한다. 결과 artifact 자신의 SHA-256을 그 파일 안에 순환 기록하지 않으며, [ADR-0065](../adr/matching/0065-match-candidate-claim-baseline-scope.md)의 종합 gate manifest가 artifact별 저장 경로와 Git canonical blob SHA-256을 기록한다. 개선 전후 비교는 같은 fixture·topology·환경 profile로 한 실행 세션에서 만든 `BASELINE_ACCEPTED` 결과끼리만 수행하며, 다른 하드웨어·DB 설정 결과를 직접 순위화하지 않는다.
+구현 뒤 각 실행 결과는 `docs/measurements/results/match-01/`에 버전 관리 JSON으로 보존한다. JSON은 실행한 40자 Git commit SHA·환경·`fixtureInputSha256`·materialized fixture manifest·warm-up 여부·각 measured round의 1,000개 candidate claim transaction latency·retry·proposal 500개/멤버 1,000개/입력 request 1,000개 claim 결과 분포·tie 순서 검증·DB 통계·lock wait 설정과 원자료·정합성 검증 결과를 포함한다. 최종 응답·Party 확정·현재 상태 복구의 통합 검증 결과는 별도 artifact로 연결한다. 결과 artifact와 별도 증거의 식별·해시·유효성 판정은 [종합 정합성 gate manifest](#종합-정합성-gate-manifest)를 따른다. 개선 전후 비교는 같은 fixture·topology·환경 profile로 한 실행 세션에서 만든 `BASELINE_ACCEPTED` 결과끼리만 수행하며, 다른 하드웨어·DB 설정 결과를 직접 순위화하지 않는다.
 
 다음 경우에 [ADR-0063](../adr/matching/0063-match-baseline-measurement-gate.md)의 재검토 절차를 연다.
 

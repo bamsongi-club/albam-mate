@@ -47,7 +47,7 @@ P2 전체 범위와 공통 규칙은 [P2 명세](../P2-spec.md), 제품 방향�
 | 매칭 요청·제안 응답·상태 조회·MATCH 채팅·신고·차단의 HTTP 계약 | [API 명세](../API.md) |
 | 요청·제안·성공 파티·접근 관계·MATCH 채팅·신고·차단의 데이터·제약·보존 | [ERD](../ERD.md) |
 | `matching`·`chat` 책임, PostgreSQL claim·재시도, 재기동 복구와 실시간 전달 경계 | [아키텍처](../ARCHITECTURE.md) |
-| 후보 선점·멱등성, MATCH 채팅 handoff·복구·보관, 성능 측정·Redis 재검토 이유 | [MATCH ADR](../adr/matching/README.md) |
+| 기술 선택의 이유·대안·재검토 조건 | [MATCH ADR](../adr/matching/README.md) |
 | 후보 탐색 baseline의 fixture·round·통계·결과 채택 | [MATCH-01 후보 탐색 baseline 측정 계약](../measurements/match-01-candidate-search-baseline-contract.md) |
 | 응답 완료 지연 측정의 fixture·round·경계·결과 채택 | [MATCH-01 응답 완료 지연 측정 계약](../measurements/match-01-response-completion-baseline-contract.md) |
 
