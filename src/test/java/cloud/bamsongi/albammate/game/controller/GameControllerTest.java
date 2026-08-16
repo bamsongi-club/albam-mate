@@ -370,6 +370,68 @@ class GameControllerTest {
 	}
 
 	@Test
+	void 공개_게임_목록_기술실패는_500_응답과_ERROR_실패이벤트를_남긴다() throws Exception {
+		when(gameQueryService.findPage(any(GameListRequest.class), any()))
+			.thenThrow(new IllegalStateException("search failure"));
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+
+		try {
+			mockMvc.perform(get("/api/games"))
+				.andExpect(status().isInternalServerError())
+				.andExpect(jsonPath("$.code").value(ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+
+			ILoggingEvent failure = appender.list.stream()
+				.filter(event -> event.getFormattedMessage().contains("event=game_search_failed"))
+				.findFirst()
+				.orElseThrow();
+			org.junit.jupiter.api.Assertions.assertEquals(ch.qos.logback.classic.Level.ERROR, failure.getLevel());
+			String message = failure.getFormattedMessage();
+			org.junit.jupiter.api.Assertions.assertTrue(message.contains("outcome=failed"));
+			org.junit.jupiter.api.Assertions.assertTrue(
+				message.contains("failureCode=" + ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+			org.junit.jupiter.api.Assertions
+				.assertTrue(message.contains("exceptionClass=java.lang.IllegalStateException"));
+		} finally {
+			logger.detachAppender(appender);
+			appender.stop();
+		}
+	}
+
+	@Test
+	void 비정상_게임_ID_상세요청은_gameId_없이_INFO_실패이벤트를_남긴다() throws Exception {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+
+		try {
+			for (String gameId : List.of("0", "-1", "not-a-number")) {
+				mockMvc.perform(get("/api/games/" + gameId))
+					.andExpect(status().isBadRequest())
+					.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+			}
+
+			List<ILoggingEvent> failures = appender.list.stream()
+				.filter(event -> event.getFormattedMessage().contains("event=game_detail_failed"))
+				.toList();
+			org.junit.jupiter.api.Assertions.assertEquals(3, failures.size());
+			org.junit.jupiter.api.Assertions.assertTrue(
+				failures.stream().allMatch(event -> event.getLevel() == ch.qos.logback.classic.Level.INFO));
+			List<String> messages = failures.stream().map(ILoggingEvent::getFormattedMessage).toList();
+			org.junit.jupiter.api.Assertions.assertTrue(
+				messages.stream().allMatch(value -> value.contains("outcome=rejected failureCode=VALIDATION_ERROR")));
+			org.junit.jupiter.api.Assertions
+				.assertTrue(messages.stream().noneMatch(value -> value.contains("gameId=")));
+		} finally {
+			logger.detachAppender(appender);
+			appender.stop();
+		}
+	}
+
+	@Test
 	void 게임_상세_성공과_미존재는_응답을유지하며_허용된_결과와_실패코드로_기록한다() throws Exception {
 		GameDetail detail = GameDetailFixture.of(
 			1L, 1001L, "카탄", "Catan", null, "3~4명", "전략", "60~90분", new BigDecimal("2.00"),

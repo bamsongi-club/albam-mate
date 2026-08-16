@@ -69,9 +69,7 @@ public final class SecurityErrorResponseWriter {
 			return null;
 		}
 		String gameId = requestUri.substring(prefix.length());
-		return gameId.isEmpty() || gameId.contains("/") || !gameId.chars().allMatch(Character::isDigit)
-			? null
-			: gameId;
+		return gameId.isEmpty() || gameId.contains("/") ? null : gameId;
 	}
 
 	private Long positiveGameIdOrNull(String gameId) {

@@ -250,6 +250,54 @@ class UserPlayedGameHttpIntegrationTest {
 	}
 
 	@Test
+	void 취소_실패는_unmark_INFO_실패이벤트과_기존오류응답으로_관계를_보존한다() throws Exception {
+		User user = user("logged-unmark-failure");
+		Game game = game("LoggedUnmarkFailure");
+		mark(user, game);
+		Logger securityLogger = (Logger)org.slf4j.LoggerFactory.getLogger(SecurityErrorResponseWriter.class);
+		Logger exceptionLogger = (Logger)org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
+		ListAppender<ILoggingEvent> securityAppender = new ListAppender<>();
+		ListAppender<ILoggingEvent> exceptionAppender = new ListAppender<>();
+		securityAppender.start();
+		exceptionAppender.start();
+		securityLogger.addAppender(securityAppender);
+		exceptionLogger.addAppender(exceptionAppender);
+
+		try {
+			mockMvc.perform(delete(path(game)))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
+			for (String gameId : List.of("0", "-1", "not-a-number")) {
+				performWithCsrf(delete("/api/users/me/played-games/" + gameId), user.getId(), true)
+					.andExpect(status().isBadRequest())
+					.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+			}
+
+			assertEquals(1, userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).size());
+			List<ILoggingEvent> failureEvents = new ArrayList<>();
+			failureEvents.addAll(securityAppender.list);
+			failureEvents.addAll(exceptionAppender.list);
+			List<ILoggingEvent> unmarkFailures = failureEvents.stream()
+				.filter(event -> event.getFormattedMessage()
+					.contains("event=game_played_state_change_failed action=unmark"))
+				.toList();
+			assertEquals(4, unmarkFailures.size());
+			assertTrue(unmarkFailures.stream().allMatch(event -> event.getLevel() == Level.INFO));
+			List<String> messages = unmarkFailures.stream().map(ILoggingEvent::getFormattedMessage).toList();
+			assertTrue(messages.stream()
+				.anyMatch(value -> value.contains("failureCode=UNAUTHENTICATED gameId=" + game.getId())));
+			assertEquals(3, messages.stream().filter(value -> value.contains("failureCode=VALIDATION_ERROR")).count());
+			assertTrue(messages.stream().filter(value -> value.contains("failureCode=VALIDATION_ERROR"))
+				.noneMatch(value -> value.contains("gameId=")));
+		} finally {
+			securityLogger.detachAppender(securityAppender);
+			exceptionLogger.detachAppender(exceptionAppender);
+			securityAppender.stop();
+			exceptionAppender.stop();
+		}
+	}
+
+	@Test
 	void 목록과_상세는_현재_사용자_관계만_playedByMe로_반환하고_관계필터를_다른조건과_AND로_적용한다() throws Exception {
 		User userA = user("a");
 		User userB = user("b");
