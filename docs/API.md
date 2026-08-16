@@ -1,6 +1,6 @@
 # 알밤메이트 API 명세서
 
-- 문서 상태: **현재 제공하는 P0·P1 및 RANK-02(P2) HTTP·WebSocket 인터페이스 계약 (정본) · 기타 P2 변경 미반영**
+- 문서 상태: **현재 제공하는 P0·P1 및 RANK-02(P2) HTTP·WebSocket 인터페이스 계약 (정본) · P2 `MATCH-01`의 승인된 목표 API 계약 포함 · 기타 P2 변경 미반영**. 기능 전체의 계약·구현·검증·배포·실측 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
 - 기준 문서: [PRD](PRD.md), [P2 공통 명세](P2-spec.md), [P2 기능 상태](p2/README.md), [P1 종료 명세](archive/p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md), [ERD](ERD.md)
 
 ### 이 문서의 범위
@@ -11,7 +11,7 @@
 | 이 문서가 담지 않는 것 | 제품 규칙의 배경(→ [P2-spec](P2-spec.md), [P2 기능 문서](p2/README.md), [P1 종료 명세](archive/p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md)), 저장 구조·계산식(→ [ERD](ERD.md)), 되돌리기 어려운 기술 결정과 근거(→ [ADR](adr/README.md)) |
 | 변경 시 함께 갱신 | API 계약을 바꾸면 같은 변경에서 이 문서와 [엔드포인트별 오류 매트릭스](#11-부록-엔드포인트별-오류-매트릭스)를 함께 갱신하고, 관련 P2 기능 명세·[ERD](ERD.md)·[ADR](adr/README.md)과의 정합을 확인한다. 상세 규칙은 [CONVENTIONS](CONVENTIONS.md#api-응답)를 따른다. |
 
-> `P0`, `P1`, `P2`는 API가 도입되는 제품 단계이며 현재 구현 상태값이 아니다. P0·P1 계약과 RANK-02(P2) 계약은 현재 제공 인터페이스로 유지하고, 그 밖의 새 P2 계약은 상세 명세와 필요한 ADR을 확정한 뒤 이 문서에 반영한다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), P2 진행 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
+> `P0`, `P1`, `P2`는 API가 도입되는 제품 단계이며 현재 구현 상태값이 아니다. P0·P1·RANK-02(P2) 계약은 현재 제공 인터페이스로 유지한다. 이 문서의 P2 `MATCH-01` 절은 승인된 목표 API 계약이며 모든 항목이 `구현 예정`이므로 현재 요청에 사용하거나 현재 응답으로 기대하면 안 된다. 그 밖의 새 P2 계약은 상세 명세와 필요한 ADR을 확정한 뒤 이 문서에 반영한다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), P2 진행 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
 
 ### 도입 단계와 제공 상태
 
@@ -58,6 +58,7 @@ P0는 `게임부터 찾기`, `사람부터 만나기`, `방 만들기` 세 흐�
 - [7. 방 API](#7-방-api)
 - [8. 참가·대기·내 모임 API](#8-참가대기내-모임-api)
 - [9. 알림·채팅 API](#9-알림채팅-api)
+- [MATCH-01 실시간 파티 매칭 API](#match-01-실시간-파티-매칭-api)
 - [10. 오류 코드](#10-오류-코드)
 - [11. 부록: 엔드포인트별 오류 매트릭스](#11-부록-엔드포인트별-오류-매트릭스)
 
@@ -257,6 +258,18 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 35 | P1 | [GAME-04](#game-04-게임-카테고리-선택지-조회) · [SEARCH-01 정본](archive/p1/search.md#search-01-게임-조건-검색) | GET | `/api/game-categories` | N | N | 200 |
 | 36 | P1 | [GAME-05](#game-05-게임-테마-선택지-조회) · [SEARCH-01 정본](archive/p1/search.md#search-01-게임-조건-검색) | GET | `/api/game-themes` | N | N | 200 |
 | 37 | P1 | [RANK-01](#rank-01-인기-게임-랭킹-조회) · [정본](archive/p1/ranking.md#rank-01-인기-게임-랭킹) | GET | `/api/game-rankings` | N | N | 200 |
+| 38 | P2 | [MATCH-01](#match-01-현재-상태-조회) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | GET | `/api/matches/current` | Y | N | 200 |
+| 39 | P2 | [MATCH-01](#match-01-매칭-요청-등록) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | POST | `/api/matches/requests` | Y | Y | 201·200 |
+| 40 | P2 | [MATCH-01](#match-01-매칭-요청-취소) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | DELETE | `/api/matches/requests/me` | Y | Y | 200 |
+| 41 | P2 | [MATCH-01](#match-01-제안-응답) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | POST | `/api/matches/proposals/{proposalId}/responses` | Y | Y | 200 |
+| 42 | P2 | [MATCH-01](#match-01-매칭-채팅-이력-조회) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | GET | `/api/matches/parties/{partyId}/chat/messages` | Y | N | 200 |
+| 43 | P2 | [MATCH-01](#match-01-매칭-채팅-메시지-전송) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | POST | `/api/matches/parties/{partyId}/chat/messages` | Y | Y | 201·200 |
+| 44 | P2 | [MATCH-01](#match-01-매칭-채팅-실시간-구독) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | GET (Upgrade) | `/api/matches/parties/{partyId}/chat/ws` | Y | N | 101 |
+| 45 | P2 | [MATCH-01](#match-01-차단-목록-조회) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | GET | `/api/matches/blocks` | Y | N | 200 |
+| 46 | P2 | [MATCH-01](#match-01-사용자-차단) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | PUT | `/api/matches/parties/{partyId}/participants/{participantRef}/block` | Y | Y | 200 |
+| 47 | P2 | [MATCH-01](#match-01-차단-해제) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | DELETE | `/api/matches/blocks/{blockId}` | Y | Y | 200 |
+| 48 | P2 | [MATCH-01](#match-01-신고-접수) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | POST | `/api/matches/parties/{partyId}/reports` | Y | Y | 201·200 |
+| 49 | P2 | [MATCH-01](#match-01-성공-파티-나가기) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | DELETE | `/api/matches/parties/{partyId}/participants/me` | Y | Y | 200 |
 
 `GET /api/games`, `GET /api/games/{gameId}`, `GET /api/rooms`, `GET /api/rooms/{roomId}`와 `GET /api/auth/social/providers`의 인증은 "선택"이다. 비로그인도 호출할 수 있고, 유효한 세션이 있으면 요청자 기준 값을 계산한다. 단, `GET /api/games`의 유효한 `playedFilter`는 로그인을 요구한다.
 
@@ -416,6 +429,60 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 `PARTICIPANT_JOINED`는 최초 참가와 취소 뒤 재참가를 구분하지 않는다. `WAITLIST_PROMOTED`는 실제 자동 승격된 사용자에게만 생성되며 주최자용 빈자리 알림과 함께 생성되지 않는다. 알림 응답은 참가자의 닉네임·사용자 ID·이메일을 포함하지 않으며, 클라이언트는 `type`으로 표시 문구·방식과 동작을 렌더링한다.
 
 `NotificationListItem`에는 `message` 필드가 없고 서버도 표시 문구를 생성하거나 저장하지 않는다. P1 웹 클라이언트는 `type`과 `roomTitle`로 문구를 만들며, 정확한 기본 문구와 텍스트 렌더링 규칙은 [알림 프론트엔드 UX 계약](archive/p1/notification.md#프론트엔드-ux-계약)을 따른다. 이 규칙은 참가자 식별자를 문구에 복원하거나 추론하는 근거가 아니다.
+
+### MatchCurrentState
+
+> **도입 단계: P2** · **기능: MATCH-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+`GET /api/matches/current`의 현재 화면 상태다. 현재 매칭·성공 파티가 없으면 응답 필드는 `null`이며 이 enum 값을 반환하지 않는다.
+
+| 값 | 의미 |
+|---|---|
+| `WAITING` | 현재 매칭 요청이 후보를 기다림 |
+| `PROPOSED` | 응답 기한 안의 열린 제안이 있음 |
+| `PAUSED` | 본인이 응답 기한까지 응답하지 않아 다시 찾기를 기다림 |
+| `PREPARING` | 전원 수락 뒤 MATCH 채팅을 준비·복구 중이며 아직 접근할 수 없음 |
+| `ACTIVE` | MATCH 전용 채팅이 열려 handoff 정보를 사용할 수 있음 |
+
+### MatchProposalResponseAction
+
+> **도입 단계: P2** · **기능: MATCH-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+| 값 | 의미 |
+|---|---|
+| `ACCEPT` | 현재 열린 제안을 수락 |
+| `REQUEUE` | 현재 제안을 끝내고 새 대기 시도로 재대기 |
+| `CANCEL` | 현재 매칭 요청을 취소 |
+
+### MatchProposalMyResponse
+
+> **도입 단계: P2** · **기능: MATCH-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+| 값 | 의미 |
+|---|---|
+| `PENDING` | 아직 이 제안에 유효 응답을 보내지 않음 |
+| `ACCEPTED` | 수락을 기록했으며 다른 사용자의 응답 또는 다음 상태 전이를 기다림 |
+
+### MatchChatMessageType
+
+> **도입 단계: P2** · **기능: MATCH-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+| 값 | 의미 |
+|---|---|
+| `USER` | 사용자가 HTTP 전송으로 저장한 메시지 |
+| `SYSTEM` | 채팅 활성화·종료 예정 알림을 알리는 시스템 메시지 |
+
+### MatchReportReason
+
+> **도입 단계: P2** · **기능: MATCH-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+| 값 | 의미 |
+|---|---|
+| `ABUSE_OR_HARASSMENT` | 학대 또는 괴롭힘 |
+| `HATE_OR_DISCRIMINATION` | 혐오 또는 차별 |
+| `SEXUAL_CONTENT` | 성적 콘텐츠 |
+| `SPAM_OR_SCAM` | 스팸 또는 사기 |
+| `OTHER_RULE_VIOLATION` | 그 밖의 운영 규칙 위반 |
 
 ## 4. 공통 스키마
 
@@ -702,6 +769,172 @@ P0 프로필은 닉네임만 제공·수정한다. P1부터 프로필 이미지 
 |---|---|:---:|:---:|---|
 | `gameId` | integer | Y | N | 표시하거나 표시를 취소한 알밤메이트 내부 게임 ID |
 | `playedByMe` | boolean | Y | N | 표시 성공은 `true`, 표시 취소 성공은 `false` |
+
+### 4.22 CurrentMatchStateResponse
+
+> **도입 단계: P2** · **기능: MATCH-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관계를 하나의 읽기 snapshot에서 조합한 현재 화면 복구 정본이다. `operationTime`은 snapshot을 고정한 시각이며 항상 반환하고, 그 밖의 상태별 필드만 아래 표에 따라 `null`이 될 수 있다. 현재 매칭 요청과 성공 파티가 모두 없으면 `operationTime`을 제외한 모든 필드가 `null`이다. 만료된 `OPEN` 제안과 `PREPARING` 기한 초과 Party는 이 응답에서 살아 있는 상태로 반환하지 않으며, 먼저 해당 recovery·terminal Executor가 최신 저장 상태를 확정한 뒤 snapshot을 시작한다.
+
+| `state` | `request` | `proposal` | `preparing` | `chat` |
+|---|---|---|---|---|
+| `WAITING` | `MatchRequestSummary` | `null` | `null` | `null` |
+| `PROPOSED` | `MatchRequestSummary` | `MatchProposalSummary` | `null` | `null` |
+| `PAUSED` | `MatchRequestSummary` | `null` | `null` | `null` |
+| `PREPARING` | `null` | `null` | `MatchPreparingSummary` | `null` |
+| `ACTIVE` | `null` | `null` | `null` | `MatchChatHandoff` |
+| 현재 대상 없음 | `null` | `null` | `null` | `null` |
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `operationTime` | string(date-time) | Y | N | current-state read transaction이 첫 업무 조회 전에 `transaction_timestamp()`로 고정한 snapshot 기준 시각 |
+| `state` | MatchCurrentState | Y | Y | 현재 화면 상태. 현재 대상이 없으면 `null` |
+| `request` | MatchRequestSummary | Y | Y | `WAITING`·`PROPOSED`·`PAUSED`에서만 현재 요청 |
+| `proposal` | MatchProposalSummary | Y | Y | `PROPOSED`에서만 열린 제안 |
+| `preparing` | MatchPreparingSummary | Y | Y | `PREPARING`에서만 준비 상태. 채팅 경로는 포함하지 않음 |
+| `chat` | MatchChatHandoff | Y | Y | `ACTIVE`에서만 연결 정보를 제공 |
+
+### 4.23 MatchRequestSummary
+
+> **도입 단계: P2** · **기능: MATCH-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `game` | GameSummary | Y | N | 요청 등록 때 고정한 게임 |
+| `platform` | string | Y | N | 항상 `BOARD_GAME_ARENA` |
+| `minPlayers` | integer | Y | N | 요청한 최소 파티 인원 |
+| `maxPlayers` | integer | Y | N | 요청한 최대 파티 인원 |
+| `queuedAt` | string(date-time) | Y | N | 현재 대기 시도를 시작한 시각 |
+
+### 4.24 MatchProposalSummary
+
+> **도입 단계: P2** · **기능: MATCH-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+`members`에는 공개 프로필 이미지와 실제 파티 인원만 담으며 닉네임·사용자 ID·이메일·매칭 조건을 포함하지 않는다.
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `proposalId` | integer | Y | N | 열린 제안 ID |
+| `game` | GameSummary | Y | N | 제안 게임 |
+| `platform` | string | Y | N | 항상 `BOARD_GAME_ARENA` |
+| `partySize` | integer | Y | N | 고정된 실제 파티 인원 |
+| `members` | MatchProposalMemberPreview[] | Y | N | 제안 참가 예정자의 공개 프로필 이미지 |
+| `respondBy` | string(date-time) | Y | N | 제안 생성 시 고정한 응답 기한. 기한 규칙은 [MATCH-01 후보 파티와 제안](p2/matching.md#후보-파티와-제안)을 따름 |
+| `myResponse` | MatchProposalMyResponse | Y | N | 요청자의 현재 유효 응답 |
+
+### 4.25 MatchProposalMemberPreview
+
+> **도입 단계: P2** · **기능: MATCH-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `profileImageUrl` | string | Y | Y | 공개 프로필 이미지 URL. 없으면 `null` |
+
+### 4.26 MatchPreparingSummary
+
+> **도입 단계: P2** · **기능: MATCH-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `preparingStartedAt` | string(date-time) | Y | N | 전원 수락으로 성공 파티를 확정한 시각 |
+| `prepareUntil` | string(date-time) | Y | N | 채팅 생성·복구를 시도하는 제품 기한. 계산 규칙은 [MATCH-01 성공 파티 채팅](p2/matching.md#성공-파티-채팅)을 따름 |
+
+### 4.27 MatchChatHandoff
+
+> **도입 단계: P2** · **기능: MATCH-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+`ACTIVE` 상태에서만 반환한다. `partyId`와 세 경로는 MATCH 전용이며 기존 `/api/rooms/{roomId}/chat/**` 경로나 ROOM 접근 규칙을 재사용하지 않는다.
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `partyId` | integer | Y | N | 성공 매칭 파티 ID |
+| `members` | MatchPartyMember[] | Y | N | 확정된 성공 파티의 현재 공개 프로필 목록. 사용자 ID·이메일·인증 정보는 포함하지 않음 |
+| `chatOpenedAt` | string(date-time) | Y | N | 채팅이 처음 사용 가능해진 시각 |
+| `closesAt` | string(date-time) | Y | N | 예약 종료 시각 |
+| `historyPath` | string | Y | N | `GET /api/matches/parties/{partyId}/chat/messages` 경로 |
+| `sendPath` | string | Y | N | `POST /api/matches/parties/{partyId}/chat/messages` 경로 |
+| `webSocketPath` | string | Y | N | `GET /api/matches/parties/{partyId}/chat/ws` Upgrade 경로 |
+
+### 4.28 MatchChatMessage
+
+> **도입 단계: P2** · **기능: MATCH-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `messageId` | integer | Y | N | 서버 저장 순서·재연결 커서에 쓰는 메시지 ID |
+| `partyId` | integer | Y | N | 성공 매칭 파티 ID |
+| `type` | MatchChatMessageType | Y | N | 사용자 또는 시스템 메시지 |
+| `clientMessageId` | string | Y | Y | `USER` 메시지의 전송 멱등성 식별자. `SYSTEM`이면 `null` |
+| `sender` | MatchChatSender | Y | Y | `USER` 작성자의 Party-scoped opaque 식별자와 현재 공개 닉네임. `SYSTEM`이면 `null` |
+| `isMine` | boolean | Y | N | 현재 요청자가 작성한 `USER` 메시지이면 `true`; 시스템 메시지는 `false` |
+| `content` | string | Y | N | 일반 텍스트 메시지 |
+| `createdAt` | string(date-time) | Y | N | 서버 저장 시각 |
+
+`MatchChatSender`는 다음 필드만 제공한다.
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `participantRef` | string | Y | N | 해당 Party에서만 의미 있는 opaque participant reference. 사용자 ID가 아님 |
+| `nickname` | string | Y | N | 현재 공개 닉네임 |
+
+### 4.29 MatchChatMessagePage
+
+> **도입 단계: P2** · **기능: MATCH-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `messages` | MatchChatMessage[] | Y | N | 최신 메시지부터 `messageId` 내림차순으로 반환한 구간 |
+| `nextBeforeMessageId` | integer | Y | Y | 다음 과거 구간의 커서. 더 없으면 `null` |
+| `hasNext` | boolean | Y | N | 더 과거 메시지 존재 여부 |
+
+### 4.30 MatchChatMessageEvent
+
+> **도입 단계: P2** · **기능: MATCH-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `eventId` | integer | Y | N | 중복 제거와 재연결 기준으로 쓰는 `messageId` |
+| `type` | string | Y | N | `MESSAGE_CREATED` |
+| `message` | MatchChatMessage | Y | N | 커밋된 사용자 또는 시스템 메시지 |
+
+### 4.31 MatchBlockListItem
+
+> **도입 단계: P2** · **기능: MATCH-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `blockId` | integer | Y | N | 차단 관계 ID. 차단 해제에 사용하며 사용자 ID가 아님 |
+| `blockedUser` | MatchBlockedUserSummary | Y | N | 차단 목록 표시용 현재 공개 프로필. 사용자 ID는 포함하지 않음 |
+| `blockedAt` | string(date-time) | Y | N | 차단 관계를 처음 설정한 시각 |
+
+`MatchBlockedUserSummary`는 다음 필드만 제공한다.
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `nickname` | string | Y | N | 현재 공개 닉네임 |
+| `profileImageUrl` | string | Y | Y | 현재 공개 프로필 이미지 URL. 없으면 `null` |
+
+### 4.32 MatchReportReceipt
+
+> **도입 단계: P2** · **기능: MATCH-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `receivedAt` | string(date-time) | Y | N | 이번 신고 receipt의 접수 시각 |
+| `alreadyReceived` | boolean | Y | N | 같은 신고자·피신고자 조합의 보존 중인 기존 접수면 `true`. 보존 규칙은 [MATCH-01 신고와 차단](p2/matching.md#신고와-차단)을 따름 |
+
+### 4.33 MatchPartyMember
+
+> **도입 단계: P2** · **기능: MATCH-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+`ACTIVE` 성공 파티의 `MatchChatHandoff.members` 항목이다. 현재 요청자도 포함하며, 재접속·이벤트 유실 뒤에도 이 목록으로 성공 파티의 공개 프로필을 복구한다.
+
+| 필드 | 타입 | 필수 | nullable | 설명 |
+|---|---|:---:|:---:|---|
+| `participantRef` | string | Y | N | 해당 Party에서만 의미 있는 opaque participant reference. 사용자 ID가 아님 |
+| `nickname` | string | Y | N | 현재 공개 닉네임 |
+| `profileImageUrl` | string | Y | Y | 현재 공개 프로필 이미지 URL. 없으면 `null` |
+| `isMine` | boolean | Y | N | 현재 요청자의 항목이면 `true` |
 
 ## 5. 인증·프로필 API
 
@@ -2025,6 +2258,264 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 | 허용되지 않은 `Origin` | 403 | `FORBIDDEN` |
 | Upgrade 전에 세션 상태 저장소를 확인할 수 없음 | 503 | `SERVICE_UNAVAILABLE` |
 
+## MATCH-01 실시간 파티 매칭 API
+
+> **도입 단계: P2** · **기능: MATCH-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+>
+> 이 절의 모든 HTTP·WebSocket 경로·요청·응답·enum은 승인된 목표 계약이며 현재 제공 기능이 아니다. 제품 상태는 [P2 기능 상태의 `MATCH-01`](p2/README.md#기능별-현재-상태)에서 별도로 판정한다.
+
+MATCHING은 매칭 요청·제안·성공 파티와 그 접근 관계를 소유한다. 현재 상태 조회는 PostgreSQL 정본을 조합해 반환하며, WebSocket·그 밖의 실시간 이벤트는 정본이 아니다. 따라서 재접속, 이벤트 유실·중복·순서 역전 또는 서버 재기동 뒤 클라이언트는 반드시 이 조회 결과로 화면을 복구한다. 저장 구조·제약·인덱스는 [P2 MATCH 저장 계약](ERD.md#p2-match-저장-계약-계획미구현), 모듈 흐름·재시도 내부는 [P2 MATCH 모듈 계약](ARCHITECTURE.md#p2-match-모듈-계약-계획미구현), 기술 선택 근거는 [MATCH ADR](adr/matching/README.md)이 소유한다.
+
+모든 MATCH HTTP API는 인증된 현재 사용자만 호출한다. `GET`은 CSRF가 필요 없고 `POST`·`PUT`·`DELETE`는 세션과 CSRF가 필요하다. 유효 세션이 없으면 CSRF보다 `UNAUTHENTICATED`를 먼저 반환한다. MATCH WebSocket handshake는 세션과 허용된 `Origin`을 검증하며 CSRF는 필요 없다.
+
+### MATCH 멱등성 키 공통 계약
+
+`POST /api/matches/requests`와 `POST /api/matches/proposals/{proposalId}/responses`는 `Idempotency-Key` 헤더가 필수다. 키는 앞뒤 공백 없이 1~100자의 ASCII printable 문자다. 키의 범위는 인증된 사용자별 24시간이며, 같은 사용자는 이 기간에 같은 키를 다른 MATCH 명령에 재사용할 수 없다.
+
+명령의 의미는 operation(`MATCH_REQUEST_CREATE` 또는 `MATCH_PROPOSAL_RESPONSE`), 경로의 `proposalId`, 검증을 통과한 request body 값으로 정한다. 같은 사용자·키·의미의 재시도는 업무 상태를 다시 전이하지 않고 항상 `200 OK`와 **그 시점의 최신 `CurrentMatchStateResponse`**를 반환한다. 같은 사용자·키에 operation·경로·body 중 하나라도 다르면 `409 IDEMPOTENCY_KEY_CONFLICT`이며 상태를 바꾸지 않는다. 24시간이 지나면 키 보장은 끝나며, 이전 기록이 아직 purge되지 않았더라도 새 명령은 같은 트랜잭션의 operation time으로 만료를 판정해 그 키의 기록을 새 의미로 원자 교체할 수 있다. 만료 전 기록은 batch purge 여부와 관계없이 충돌·재사용 규칙을 그대로 적용한다.
+
+두 명령은 세션, CSRF, 헤더·경로·body 형식, 저장된 멱등성 결과, 현재 업무 상태 순서로 판정한다. 따라서 첫 유효 명령 뒤 제안이 종료되었더라도 같은 키·의미의 재시도는 "현재 열린 제안 없음" 오류가 아니라 최신 상태를 반환한다.
+
+### MATCH-01 현재 상태 조회
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `GET /api/matches/current` |
+| 인증 / CSRF | 필요 / 불필요 |
+| 성공 | `200 OK`, `data`: `CurrentMatchStateResponse` |
+
+응답은 한 사용자에게 현재 하나인 화면 상태만 반환한다. `WAITING`은 후보 부재로 대기 중인 요청, `PROPOSED`는 응답 기한 안의 열린 제안, `PAUSED`는 본인의 미응답으로 다시 찾기를 기다리는 요청, `PREPARING`은 [제품이 정한 기한](p2/matching.md#성공-파티-채팅) 안의 채팅 준비, `ACTIVE`는 채팅 handoff 상태다. `PREPARING`에는 채팅 경로나 party ID를 반환하지 않으며, `ACTIVE`일 때만 `chat`에 연결 정보를 담는다. 현재 대상이 없으면 `operationTime`을 제외한 `data` 필드가 `null`이다.
+
+조회는 due 상태를 임의로 선택해 숨기지 않는다. due 상태 보정, PostgreSQL `operationTime` 고정, 단일 SQL snapshot과 bounded retry의 실행 계약은 [아키텍처의 MATCH 현재 상태 snapshot](ARCHITECTURE.md#p2-match-현재-상태-snapshot-계획미구현)을 따른다. API는 보정이 끝난 하나의 안정적인 현재 상태만 반환하며, 실행 계약 안에서 안정적인 snapshot을 확보하지 못하면 `MATCH_CURRENT_STATE_NOT_STABLE`을 반환한다.
+
+### MATCH-01 매칭 요청 등록
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `POST /api/matches/requests` |
+| 인증 / CSRF | 필요 / 필요 |
+| 필수 헤더 | `Idempotency-Key` |
+| 성공 | 최초 유효 등록은 `201 Created`, 같은 키·같은 의미 재시도는 `200 OK`; `data`: `CurrentMatchStateResponse` |
+
+#### Request Body — MatchRequestCreateRequest
+
+~~~json
+{
+  "gameId": 42,
+  "minPlayers": 3,
+  "maxPlayers": 4
+}
+~~~
+
+| 필드 | 타입 | 필수 | nullable | 검증 |
+|---|---|:---:|:---:|---|
+| `gameId` | integer | Y | N | 1 이상의 알밤메이트 내부 게임 ID |
+| `minPlayers` | integer | Y | N | 1 이상이며 `maxPlayers` 이하 |
+| `maxPlayers` | integer | Y | N | `minPlayers` 이상 |
+
+플랫폼은 항상 `BOARD_GAME_ARENA`이며 본문으로 바꾸지 않는다. 요청 인원 범위와 게임 지원 인원 범위의 교집합이 없으면 `MATCH_PLAYER_RANGE_NOT_SUPPORTED`를 반환하고 요청을 만들지 않는다. 교집합은 있지만 현재 후보가 없으면 `WAITING` 상태로 성공한다. 한 사용자는 `WAITING`·`PROPOSED`·`PAUSED` 중 하나의 비종료 매칭 요청과 `PREPARING` 또는 아직 명시적으로 나가지 않은 `ACTIVE` 성공 파티 접근 관계를 동시에 가질 수 없다. 둘 중 하나가 있으면 새 등록은 `MATCH_REQUEST_ALREADY_ACTIVE`다. 명시적으로 나갔거나 실제 `CLOSED`가 된 성공 파티 관계는 새 요청 등록을 막지 않는다.
+
+### MATCH-01 매칭 요청 취소
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `DELETE /api/matches/requests/me` |
+| 인증 / CSRF | 필요 / 필요 |
+| Request Body / Idempotency-Key | 없음 / 없음 |
+| 성공 | `200 OK`, `data`: `CurrentMatchStateResponse` |
+
+경로와 `DELETE`만으로 본인의 비종료 매칭 요청을 없애는 목표 상태가 결정된다. `WAITING`·`PROPOSED`·`PAUSED` 요청을 취소하며, `PROPOSED` 요청의 취소는 [아키텍처의 Proposal Terminal Executor](ARCHITECTURE.md#p2-match-제안채팅-복구-흐름-계획미구현)에 따라 같은 열린 제안의 `REQUEUE`·`CANCEL`·기한 만료·마지막 `ACCEPT`와 하나의 종결 결과를 경쟁한다. 이 취소가 종결 승자가 되면 다른 사용자의 제안 종료·자동 재대기 규칙도 같은 트랜잭션에서 적용한다. 이미 취소되어 대상이 없으면 반복 요청도 `200 OK`와 모든 필드가 `null`인 현재 상태로 수렴한다. `PREPARING`·`ACTIVE` 성공 파티는 이 API로 취소·퇴장·재매칭하지 않으며 `MATCH_REQUEST_CANCELLATION_NOT_AVAILABLE`를 반환한다. `PAUSED` 사용자가 다시 찾으려면 이 목표 상태 `DELETE` 뒤 새 요청을 등록한다.
+
+### MATCH-01 제안 응답
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `POST /api/matches/proposals/{proposalId}/responses` |
+| 인증 / CSRF | 필요 / 필요 |
+| 필수 헤더 | `Idempotency-Key` |
+| 성공 | 최초 유효 응답과 같은 키·같은 의미 재시도 모두 `200 OK`, `data`: `CurrentMatchStateResponse` |
+
+#### Path Variables
+
+| 이름 | 타입 | 필수 | 검증 |
+|---|---|:---:|---|
+| `proposalId` | integer | Y | 1 이상의 제안 ID |
+
+#### Request Body — MatchProposalResponseRequest
+
+~~~json
+{
+  "action": "ACCEPT"
+}
+~~~
+
+| 필드 | 타입 | 필수 | nullable | 검증 |
+|---|---|:---:|:---:|---|
+| `action` | MatchProposalResponseAction | Y | N | `ACCEPT`, `REQUEUE`, `CANCEL` 중 하나 |
+
+`respondBy` 이전의 본인 열린 제안에 대해서만 첫 유효 응답 하나를 기록한다. 마지막이 아닌 `ACCEPT`는 `PROPOSED`와 `myResponse = ACCEPTED`를 반환한다. 마지막 `ACCEPT`, `REQUEUE`, `CANCEL`, `PROPOSED` 요청의 `DELETE`, 응답 기한 만료가 하나의 종결 결과로 수렴하는 실행 경계는 [아키텍처의 Proposal Terminal Executor](ARCHITECTURE.md#p2-match-제안채팅-복구-흐름-계획미구현)가 소유한다. 종결 결과별 `PREPARING`·`ACTIVE`·`WAITING`·`PAUSED`·취소 전이, 자동 재대기·우선순위와 미응답 정책은 [MATCH-01 후보 파티와 제안](p2/matching.md#후보-파티와-제안)을 따르며, 이 API는 그 규칙으로 확정된 최신 `CurrentMatchStateResponse`를 반환한다.
+
+응답 기한이 지났거나, 다른 사용자의 유효 응답으로 제안이 끝났거나, 이 사용자가 이미 다른 키로 첫 유효 응답을 보냈으면 새 명령은 `MATCH_PROPOSAL_RESPONSE_NOT_AVAILABLE`다. 이 오류는 현재 제안 외의 과거 제안에 응답할 수 없다는 의미이며, 같은 멱등키 재시도에는 적용하지 않는다.
+
+**수락 응답을 잃어버린 경우:** 클라이언트는 새 키나 새 `ACCEPT`를 보내지 않고 같은 `proposalId`, body, `Idempotency-Key`로 재시도한다. 서버는 두 번째 수락·두 번째 성공 파티를 만들지 않고 `200 OK`와 최신 `PROPOSED`·`PREPARING`·`ACTIVE` 또는 채팅 준비 실패 뒤 `WAITING` 상태를 반환한다. 재시도할 수 없거나 이벤트가 유실됐으면 `GET /api/matches/current`으로 같은 상태를 복구한다.
+
+### MATCH 채팅 공통 계약
+
+MATCH 성공 파티와 접근 관계는 MATCHING이 판정하며, 채팅은 Party가 `ACTIVE`이고 현재 사용자의 참가자 접근 관계가 아직 나가지 않은 경우에만 메시지 저장·이력·실시간 전달을 제공한다. 따라서 `/api/rooms/{roomId}/chat/**`와 ROOM 주최자·참가자 접근 규칙은 적용하지 않는다. `PREPARING` 중에는 모든 MATCH 채팅 경로를 허용하지 않고 `MATCH_CHAT_NOT_ACTIVE`를 반환하며, 클라이언트는 현재 상태 조회의 `preparing`으로 화면을 유지한다.
+
+메시지는 HTTP로 저장하고 WebSocket으로 수신한다. 커서 기반 이력·재연결 원칙과 HTTP 저장/WebSocket 수신 방식은 [ADR-0032](adr/chat/0032-http-send-websocket-receive.md)를 따른다. 이력·전송·구독은 `ACTIVE`인 현재 성공 파티 관계를 요청과 handshake 때마다 다시 확인하고, `CLOSED` 뒤에는 조회·전송·구독을 허용하지 않는다. MATCH 채팅은 `closesAt` 도달 또는 마지막 현재 사용자의 명시적 나가기로 `CLOSED`가 되며, `purgeAfter`가 되면 URL 텍스트를 포함한 메시지·성공 파티·접근 관계를 삭제한다. `closesAt`·`purgeAfter` 계산과 기존 ROOM 채팅과의 보존 차이는 [MATCH-01 성공 파티 채팅](p2/matching.md#성공-파티-채팅)을 따른다.
+
+### MATCH-01 매칭 채팅 메시지 전송
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `POST /api/matches/parties/{partyId}/chat/messages` |
+| 인증 / CSRF | 필요 / 필요 |
+| 성공 | 최초 저장은 `201 Created`, 같은 `clientMessageId`·같은 정규화 본문 재시도는 `200 OK`; `data`: `MatchChatMessage` |
+
+#### Path Variables
+
+| 이름 | 타입 | 필수 | 검증 |
+|---|---|:---:|---|
+| `partyId` | integer | Y | 1 이상의 성공 파티 ID |
+
+#### Request Body — MatchChatMessageSendRequest
+
+~~~json
+{
+  "clientMessageId": "01JMATCH-0001",
+  "content": "같이 플레이해요."
+}
+~~~
+
+| 필드 | 타입 | 필수 | nullable | 검증 |
+|---|---|:---:|:---:|---|
+| `clientMessageId` | string | Y | N | 1~100자. 같은 파티·같은 사용자에서 전송 재시도의 기준 |
+| `content` | string | Y | N | CRLF를 LF로 정규화하고 LF 외 제어문자를 거절한 뒤, 앞뒤 공백 제거 후 1~500자의 일반 텍스트 |
+
+같은 사용자·파티의 같은 `clientMessageId`에 다른 정규화 본문을 보내면 `VALIDATION_ERROR`다. 시스템 메시지는 이 API로 만들 수 없다. 외부 URL은 `content` 안의 일반 텍스트로만 공유하며 별도 링크 생성·조회 API, 링크 미리보기, 링크 유효성 검증이나 별도 링크 저장 행을 만들지 않는다([ADR-0064](adr/matching/0064-match-chat-url-text-storage.md)). URL 텍스트를 포함한 메시지 본문은 로그와 metric label에 기록하지 않는다.
+
+#### MATCH 채팅 전송 제한
+
+MATCH의 사용자 메시지는 P1 채팅과 같은 Redis 전송 제한을 쓰되, MATCH 전용 key namespace에서 사용자 bucket `5건/10초`와 Party bucket `30건/10초`을 함께 적용한다. 사용자 bucket은 모든 MATCH Party의 전송을 합산하고 Party bucket은 같은 Party의 모든 현재 참가자 전송을 합산한다. 이는 전송 남용 제한일 뿐 MATCH 후보 선점·응답·복구의 Redis 업무 락이 아니다.
+
+공통 인증·CSRF, Party 존재·현재 접근·`ACTIVE` 상태, 본문 정규화와 같은 `clientMessageId`의 멱등 재전송 판정을 통과한 **신규** 전송에만 두 bucket을 적용한다. 두 bucket은 10초 고정 창이며 TTL을 연장하지 않고, 허용 확인과 증가는 원자적으로 처리한다. 하나라도 초과하면 둘 다 증가시키지 않는다. 검증 실패·권한 거부·이미 저장된 같은 정규화 본문의 멱등 재전송은 quota를 소비하지 않는다.
+
+초과하면 `429 RATE_LIMIT_EXCEEDED`와 초과 bucket의 남은 TTL을 올림한 `Retry-After`를 반환한다. 둘 다 초과하면 더 큰 값을 사용하며 `Retry-After`는 429에만 포함한다. Redis 제한 상태를 확인할 수 없거나 결과가 불명확하면 메시지를 저장하기 전에 `503 SERVICE_UNAVAILABLE`로 실패하고, 인메모리 fallback·자동 재시도·`Retry-After`를 허용하지 않는다.
+
+### MATCH-01 매칭 채팅 이력 조회
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `GET /api/matches/parties/{partyId}/chat/messages` |
+| 인증 / CSRF | 필요 / 불필요 |
+| 성공 | `200 OK`, `data`: `MatchChatMessagePage` |
+
+| Query parameter | 타입 | 필수 | 기본값 | 검증·의미 |
+|---|---|:---:|---|---|
+| `beforeMessageId` | integer | N | 없음 | 1 이상의 메시지 ID. 해당 ID보다 이전 메시지를 조회 |
+| `size` | integer | N | `50` | 1~100. 최신 메시지부터 반환 |
+
+`beforeMessageId`가 없으면 최신 구간을 반환한다. 클라이언트는 `nextBeforeMessageId`를 사용해 과거 구간을 조회하고 `messageId`로 중복을 제거한다.
+
+### MATCH-01 매칭 채팅 실시간 구독
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `GET /api/matches/parties/{partyId}/chat/ws` WebSocket Upgrade |
+| 인증 / CSRF | 필요 / 불필요 |
+| handshake | 기존 `JSESSIONID` 세션, MATCH `ACTIVE` 접근 관계와 허용된 `Origin` 검증 |
+| 성공 | `101 Switching Protocols`, 서버 발신 JSON 텍스트 프레임의 `MatchChatMessageEvent` |
+
+| Query parameter | 타입 | 필수 | 기본값 | 검증·의미 |
+|---|---|:---:|---|---|
+| `afterMessageId` | integer | N | 없음 | 이 ID보다 큰 커밋 메시지를 먼저 복구한 뒤 실시간 구독 |
+
+WebSocket은 수신 전용이다. 클라이언트가 애플리케이션 메시지 프레임을 보내면 처리하지 않고 정책 위반으로 연결을 종료한다. 연결이 끊기면 마지막 `eventId`를 `afterMessageId`로 사용하며, 접근 관계·채팅 상태·세션이 바뀌면 연결을 종료한다.
+
+### MATCH-01 성공 파티 나가기
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `DELETE /api/matches/parties/{partyId}/participants/me` |
+| 인증 / CSRF | 필요 / 필요 |
+| Request Body / Idempotency-Key | 없음 / 없음 |
+| 성공 | `200 OK`, `data`: `CurrentMatchStateResponse` |
+
+이 명령은 `ACTIVE` 성공 파티에서 사용자가 **명시적으로** 나가겠다는 뜻이다. 브라우저 종료, WebSocket 연결 끊김, 서버 재시작은 나가기로 해석하지 않으므로 재접속 복구 권한을 잃지 않는다. Executor는 Party를 잠근 뒤 아직 나가지 않은 본인 접근 관계만 목표 상태 `나감`으로 바꾸고, 남은 현재 접근 관계가 없으면 같은 트랜잭션에서 Party를 `ACTIVE → CLOSED`로 전이한다. 마지막 사용자가 아닌 경우 Party와 다른 사용자의 채팅은 계속 `ACTIVE`이며 자동 충원·자동 재매칭을 하지 않는다.
+
+이미 나갔거나 마지막 퇴장으로 `CLOSED`가 된 자신의 Party에 같은 `DELETE`를 반복해도 새 상태 전이나 보존 기한을 만들지 않고 `200 OK`와 최신 현재 상태로 수렴한다. 명시적으로 나간 사용자는 해당 Party의 채팅 접근을 즉시 잃고, 현재 매칭 상태가 없으면 새 매칭 요청을 등록할 수 있다. `PREPARING` Party에서는 아직 채팅에 나갈 수 없으므로 `MATCH_PARTY_LEAVE_NOT_AVAILABLE`를 반환한다. 본인 관계가 없거나 [제품 보존 기한](p2/matching.md#성공-파티-채팅)에 따른 물리 삭제 뒤에는 `FORBIDDEN`, 존재하지 않는 Party는 `MATCH_PARTY_NOT_FOUND`를 반환한다.
+
+### MATCH-01 차단 목록 조회
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `GET /api/matches/blocks` |
+| 인증 / CSRF | 필요 / 불필요 |
+| 성공 | `200 OK`, `data`: `PageResponse<MatchBlockListItem>` |
+
+| Query parameter | 타입 | 필수 | 기본값 | 검증 |
+|---|---|:---:|---|---|
+| `page` | integer | N | `0` | 0 이상 |
+| `size` | integer | N | `10` | 1~100 |
+
+### MATCH-01 사용자 차단
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `PUT /api/matches/parties/{partyId}/participants/{participantRef}/block` |
+| 인증 / CSRF | 필요 / 필요 |
+| Request Body / Idempotency-Key | 없음 / 없음 |
+| 성공 | `200 OK`, `data`: `MatchBlockListItem` |
+
+| Path variable | 타입 | 검증 |
+|---|---|---|
+| `partyId` | integer | 1 이상의 MATCH Party ID |
+| `participantRef` | string | 같은 Party의 `MatchPartyMember`에서 받은 opaque reference |
+
+`partyId`는 요청자가 현재 속했거나 보존 기간 안에 속했던 MATCH Party이고, `participantRef`는 그 Party의 공개 `MatchPartyMember`에서 받은 opaque 값이다. 서버는 Party-scoped reference를 같은 Party 안의 사용자로 해석하며 사용자 ID를 요청으로 받거나 응답에 노출하지 않는다. 본인 participantRef는 차단할 수 없다. 이미 차단된 관계도 같은 목표 상태로 `200 OK`에 수렴하고, 차단은 이미 열린 제안·성공 파티를 바꾸지 않으며 이후 새 후보 구성에서만 두 사용자를 함께 넣지 않는다.
+
+### MATCH-01 차단 해제
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `DELETE /api/matches/blocks/{blockId}` |
+| 인증 / CSRF | 필요 / 필요 |
+| Request Body / Idempotency-Key | 없음 / 없음 |
+| 성공 | `200 OK`, `data`: `{}` |
+
+`blockId`는 본인의 `MatchBlockListItem`에서 받은 차단 관계 ID다. 서버는 현재 사용자가 소유한 일치 관계만 삭제한다. 일치 관계가 없으면 이미 해제됨·존재하지 않음·다른 사용자 소유를 구분하지 않고 모두 `200 OK`와 `{}`로 수렴하며, 다른 사용자의 차단 관계는 변경하지 않는다. 따라서 응답 유실 뒤 같은 `DELETE`를 반복해도 별도 해제 이력 없이 같은 목표 상태를 반환하고 다른 사용자의 차단 상태도 노출하지 않는다.
+
+### MATCH-01 신고 접수
+
+| 항목 | 값 |
+|---|---|
+| Method / Path | `POST /api/matches/parties/{partyId}/reports` |
+| 인증 / CSRF | 필요 / 필요 |
+| 성공 | 최초 접수는 `201 Created`, 같은 신고자·피신고자 조합의 보존 중 재신고는 `200 OK`; `data`: `MatchReportReceipt`. 보존 규칙은 [MATCH-01 신고와 차단](p2/matching.md#신고와-차단)을 따름 |
+
+| Path variable | 타입 | 검증 |
+|---|---|---|
+| `partyId` | integer | 1 이상의 MATCH Party ID |
+
+`partyId`와 `participantRef`는 요청자가 현재 속했거나 보존 기간 안에 속했던 MATCH Party에서 함께 얻은 값이어야 한다. 서버는 Party-scoped reference를 내부 사용자로 해석하고, 사용자 ID를 요청으로 받거나 응답·로그에 노출하지 않는다. 대상이 그 Party의 다른 참가자가 아니면 `MATCH_PARTICIPANT_NOT_FOUND` 또는 `FORBIDDEN`을 반환한다.
+
+#### Request Body — MatchReportCreateRequest
+
+~~~json
+{
+  "participantRef": "part_opaque_ref",
+  "reason": "ABUSE_OR_HARASSMENT"
+}
+~~~
+
+| 필드 | 타입 | 필수 | nullable | 검증 |
+|---|---|:---:|:---:|---|
+| `participantRef` | string | Y | N | 같은 `partyId`에서 받은 다른 참가자의 opaque reference |
+| `reason` | MatchReportReason | Y | N | 고정 사유 5개 중 하나 |
+
+같은 신고자·피신고자 조합에는 [제품이 정한 보존 기간](p2/matching.md#신고와-차단) 동안 하나의 receipt만 있다. `purge_after > operationTime`인 동안의 재신고는 사유가 달라도 새 행을 만들거나 기존 사유·접수 시각을 바꾸지 않고 `200 OK`와 `alreadyReceived = true`인 기존 receipt를 반환한다. `purge_after <= operationTime`이면 이전 행이 batch purge되지 않았더라도 같은 트랜잭션에서 사유·접수 시각·`purge_after`를 새 신고로 원자 교체하고 `201 Created`와 `alreadyReceived = false`를 반환한다. 신고는 차단을 자동 생성하지 않으며 현재 제안·성공 파티·이후 후보에 영향을 주지 않는다.
+
 ## 10. 오류 코드
 
 오류 코드는 클라이언트가 실패 원인을 식별하는 안정적인 외부 계약이다.
@@ -2056,7 +2547,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 
 `SERVICE_UNAVAILABLE`의 현재 적용 범위는 [채팅 API](#채팅-공통-계약)의 세 엔드포인트와 `POST /api/auth/signup`, `POST /api/auth/login`이다. `local`과 `production`에서 인증 요청 제한 Redis를 확인할 수 없으면 회원가입·로그인은 사용자 조회·생성과 비밀번호 해시 전에 이 코드를 반환한다. 채팅 요청이 Spring Session Redis의 세션 상태를 확인할 수 없으면 같은 코드를 반환하며, 메시지 전송은 세션 저장소가 정상이더라도 전송 제한 상태 저장소를 확인할 수 없으면 저장 전에 같은 코드를 반환한다. 이 503에는 `Retry-After`를 포함하지 않으며 Redis 장애 시 인메모리 구현으로 자동 대체하지 않는다.
 
-로그인·로그아웃과 그 밖의 세션 사용 엔드포인트로 이 코드를 확장할지는 이 문서에서 아직 결정하지 않는다. 확장이 필요하면 적용 엔드포인트를 명시한 별도 계약 변경으로 승인받은 뒤 이 절과 [엔드포인트별 오류 매트릭스](#11-부록-엔드포인트별-오류-매트릭스)를 함께 갱신한다.
+로그인·로그아웃과 그 밖의 현재 P0·P1 세션 사용 엔드포인트로 이 코드를 확장할지는 이 문서에서 아직 결정하지 않는다. P2 MATCH 채팅의 계획된 적용 범위는 [MATCH 채팅 API](#match-채팅-공통-계약)와 오류 매트릭스에만 적으며, 이 계약이 현재 제공 범위를 넓히지 않는다.
 
 ### 10.2 인증·회원 오류
 
@@ -2114,6 +2605,25 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 
 다른 사용자의 알림에도 같은 코드를 반환하며 `FORBIDDEN`으로 구분하지 않는다.
 
+### 10.7 매칭 오류
+
+> **도입 단계: P2** · **기능: MATCH-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+
+| code | HTTP | 기본 message | 발생 조건 |
+|---|---:|---|---|
+| `IDEMPOTENCY_KEY_CONFLICT` | 409 | 동일한 멱등성 키를 다른 요청에 사용할 수 없습니다. | 같은 사용자·24시간 범위의 `Idempotency-Key`가 다른 operation·경로·body 의미로 이미 기록됨 |
+| `MATCH_CURRENT_STATE_NOT_STABLE` | 409 | 매칭 현재 상태가 계속 변경 중입니다. 잠시 후 다시 시도해 주세요. | current-state read의 bounded snapshot 재시도 안에 due recovery와 상태 조합이 안정되지 않음 |
+| `MATCH_REQUEST_ALREADY_ACTIVE` | 409 | 이미 진행 중인 매칭 요청이 있습니다. | `WAITING`·`PROPOSED`·`PAUSED` 요청이 있거나 `PREPARING`·아직 명시적으로 나가지 않은 `ACTIVE` 성공 파티 접근 관계가 있는 사용자가 새 요청을 등록함. 명시적으로 나갔거나 실제 `CLOSED` 뒤에는 성공 파티 관계만으로 이 오류를 반환하지 않음 |
+| `MATCH_PLAYER_RANGE_NOT_SUPPORTED` | 409 | 게임 지원 인원과 요청 인원 범위가 겹치지 않습니다. | 요청 범위와 게임 지원 인원 범위의 교집합이 없음 |
+| `MATCH_REQUEST_CANCELLATION_NOT_AVAILABLE` | 409 | 현재 성공 파티는 매칭 요청으로 취소할 수 없습니다. | `PREPARING`·`ACTIVE` 성공 파티에 요청 취소를 시도함 |
+| `MATCH_PROPOSAL_RESPONSE_NOT_AVAILABLE` | 409 | 현재 응답할 수 있는 매칭 제안이 없습니다. | 본인 열린 제안이 없거나 응답 기한이 지났거나 첫 유효 응답이 다른 키로 이미 처리됨 |
+| `MATCH_PARTY_NOT_FOUND` | 404 | 성공 파티를 찾을 수 없습니다. | 요청한 성공 파티가 없음 |
+| `MATCH_PARTY_LEAVE_NOT_AVAILABLE` | 409 | 현재 성공 파티에서 나갈 수 없습니다. | 채팅이 아직 `PREPARING`이어서 명시적 나가기 대상이 아님 |
+| `MATCH_CHAT_NOT_ACTIVE` | 409 | 매칭 채팅이 아직 준비되지 않았습니다. | 본인 성공 파티 채팅이 `PREPARING`이거나 아직 `ACTIVE`가 아님 |
+| `MATCH_PARTICIPANT_NOT_FOUND` | 404 | 매칭 참가자를 찾을 수 없습니다. | Party-scoped `participantRef`가 없거나 해당 Party의 참가자가 아님 |
+
+`MATCH_PARTY_NOT_FOUND`와 `MATCH_CHAT_NOT_ACTIVE`는 유효한 현재 성공 파티 접근 관계를 확인한 뒤에만 구분한다. 관계가 없거나 `CLOSED` 뒤 접근이 차단된 경우에는 `FORBIDDEN`을 반환해 다른 성공 파티·채팅 상태를 노출하지 않는다.
+
 ## 11. 부록: 엔드포인트별 오류 매트릭스
 
 각 엔드포인트가 반환할 수 있는 오류 코드의 전체 인덱스다. 개별 판정 순서는 각 API 절을, 코드 정의는 [10. 오류 코드](#10-오류-코드)를 따른다.
@@ -2155,8 +2665,21 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 | `POST /api/rooms/{roomId}/chat/messages` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `ROOM_CONCURRENT_MODIFICATION`, `VALIDATION_ERROR`, `RATE_LIMIT_EXCEEDED`, `SERVICE_UNAVAILABLE`, `CSRF_TOKEN_INVALID` |
 | `GET /api/rooms/{roomId}/chat/messages` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `ROOM_CONCURRENT_MODIFICATION`, `VALIDATION_ERROR`, `SERVICE_UNAVAILABLE` |
 | `GET /api/rooms/{roomId}/chat/ws` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `ROOM_CONCURRENT_MODIFICATION`, `VALIDATION_ERROR`, `SERVICE_UNAVAILABLE` |
+| `GET /api/matches/current` | `UNAUTHENTICATED`, `MATCH_CURRENT_STATE_NOT_STABLE` |
+| `POST /api/matches/requests` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `MATCH_PLAYER_RANGE_NOT_SUPPORTED`, `MATCH_REQUEST_ALREADY_ACTIVE`, `IDEMPOTENCY_KEY_CONFLICT`, `CSRF_TOKEN_INVALID` |
+| `DELETE /api/matches/requests/me` | `UNAUTHENTICATED`, `MATCH_REQUEST_CANCELLATION_NOT_AVAILABLE`, `CSRF_TOKEN_INVALID` |
+| `POST /api/matches/proposals/{proposalId}/responses` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `MATCH_PROPOSAL_RESPONSE_NOT_AVAILABLE`, `IDEMPOTENCY_KEY_CONFLICT`, `CSRF_TOKEN_INVALID` |
+| `POST /api/matches/parties/{partyId}/chat/messages` | `UNAUTHENTICATED`, `MATCH_PARTY_NOT_FOUND`, `FORBIDDEN`, `MATCH_CHAT_NOT_ACTIVE`, `VALIDATION_ERROR`, `RATE_LIMIT_EXCEEDED`, `SERVICE_UNAVAILABLE`, `CSRF_TOKEN_INVALID` |
+| `GET /api/matches/parties/{partyId}/chat/messages` | `UNAUTHENTICATED`, `MATCH_PARTY_NOT_FOUND`, `FORBIDDEN`, `MATCH_CHAT_NOT_ACTIVE`, `VALIDATION_ERROR`, `SERVICE_UNAVAILABLE` |
+| `GET /api/matches/parties/{partyId}/chat/ws` | `UNAUTHENTICATED`, `MATCH_PARTY_NOT_FOUND`, `FORBIDDEN`, `MATCH_CHAT_NOT_ACTIVE`, `VALIDATION_ERROR`, `SERVICE_UNAVAILABLE` |
+| `DELETE /api/matches/parties/{partyId}/participants/me` | `UNAUTHENTICATED`, `MATCH_PARTY_NOT_FOUND`, `FORBIDDEN`, `MATCH_PARTY_LEAVE_NOT_AVAILABLE`, `CSRF_TOKEN_INVALID` |
+| `GET /api/matches/blocks` | `UNAUTHENTICATED`, `VALIDATION_ERROR` |
+| `PUT /api/matches/parties/{partyId}/participants/{participantRef}/block` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `MATCH_PARTY_NOT_FOUND`, `MATCH_PARTICIPANT_NOT_FOUND`, `FORBIDDEN`, `CSRF_TOKEN_INVALID` |
+| `DELETE /api/matches/blocks/{blockId}` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `CSRF_TOKEN_INVALID` |
+| `POST /api/matches/parties/{partyId}/reports` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `MATCH_PARTY_NOT_FOUND`, `MATCH_PARTICIPANT_NOT_FOUND`, `FORBIDDEN`, `CSRF_TOKEN_INVALID` |
 
+- `POST /api/matches/requests`의 `MATCH_REQUEST_ALREADY_ACTIVE`는 `WAITING`·`PROPOSED`·`PAUSED` 요청뿐 아니라 `PREPARING`·아직 명시적으로 나가지 않은 `ACTIVE` 성공 파티 접근 관계에도 적용한다. 사용자가 명시적으로 나갔거나 성공 파티가 실제 `CLOSED`가 된 뒤에는 그 관계만으로 새 요청을 거절하지 않는다.
 - `GET /api/rooms/{roomId}`에서만 취소·종료 방을 권한 없는 사용자가 조회할 때 존재 여부를 숨기기 위해 `ROOM_NOT_FOUND`를 반환한다. 그 외 주최자 전용 쓰기 API의 비주최자 요청은 `FORBIDDEN`을 반환한다.
 - `PATCH /api/rooms/{roomId}`의 `GAME_NOT_FOUND`는 요청에 `gameId`를 포함했을 때만 적용한다.
 
-> 문서 관리: 소유자 `밤송이클럽 백엔드·프런트엔드 팀` · 최종 검증일 `2026-08-12` · 폐기 조건 `HTTP·WebSocket 계약이 승인된 다른 정본에서 생성되고 이 문서가 그 정본으로 대체될 때`
+> 문서 관리: 소유자 `밤송이클럽 백엔드·프런트엔드 팀` · 최종 검증일 `2026-08-15` · 폐기 조건 `HTTP·WebSocket 계약이 승인된 다른 정본에서 생성되고 이 문서가 그 정본으로 대체될 때`
