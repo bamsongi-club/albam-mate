@@ -13,4 +13,3 @@
 | [0063](0063-match-baseline-measurement-gate.md) | MATCH 후보 탐색 성능 baseline 측정 gate | 승인됨 | 2026-08-14 | 미검증 |
 | [0064](0064-match-chat-url-text-storage.md) | MATCH 채팅 URL 텍스트를 메시지 본문에만 저장 | 승인됨 | 2026-08-15 | 미검증 |
 | [0065](0065-match-candidate-claim-baseline-scope.md) | MATCH candidate claim baseline 범위와 종합 정합성 gate | 승인됨 | 2026-08-15 | 미검증 |
-| [0066](0066-match-contract-canonical-ownership.md) | MATCH 계약의 단일 정본 소유권 전환 | 승인됨 | 2026-08-16 | 검증됨 |

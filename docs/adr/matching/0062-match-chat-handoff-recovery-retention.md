@@ -5,7 +5,7 @@
 - 결정일: 2026-08-14
 - 관련: [MATCH-01 기술 계약 이슈 #737](https://github.com/bamsongi-club/albam-mate/issues/737), [MATCH-01 성공 파티 채팅 규칙](../../p2/matching.md#성공-파티-채팅), [MATCH-01 신고와 차단 규칙](../../p2/matching.md#신고와-차단), [P2 기능 상태](../../p2/README.md#기능별-현재-상태), [API 명세](../../API.md), [ERD](../../ERD.md), [아키텍처](../../ARCHITECTURE.md), [ADR-0049 ROOM 채팅 보관·삭제](../chat/0049-chat-message-retention-lock-section-boundary.md)
 - 대체 대상: 없음
-- 후속 ADR: [ADR-0064](0064-match-chat-url-text-storage.md)가 URL 텍스트 표현·보관·cleanup 범위를 부분 대체, [ADR-0066](0066-match-contract-canonical-ownership.md)이 제품 시간·보관·신고 상세와 복구 실행 상세의 활성 정본 소유권을 부분 대체
+- 후속 ADR: [ADR-0064](0064-match-chat-url-text-storage.md)가 URL 텍스트 표현·보관·cleanup 범위를 부분 대체
 
 ## 맥락
 

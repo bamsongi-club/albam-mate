@@ -2264,7 +2264,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 >
 > 이 절의 모든 HTTP·WebSocket 경로·요청·응답·enum은 승인된 목표 계약이며 현재 제공 기능이 아니다. 제품 상태는 [P2 기능 상태의 `MATCH-01`](p2/README.md#기능별-현재-상태)에서 별도로 판정한다.
 
-MATCHING은 매칭 요청·제안·성공 파티와 그 접근 관계를 소유한다. 현재 상태 조회는 PostgreSQL 정본을 조합해 반환하며, WebSocket·그 밖의 실시간 이벤트는 정본이 아니다. 따라서 재접속, 이벤트 유실·중복·순서 역전 또는 서버 재기동 뒤 클라이언트는 반드시 이 조회 결과로 화면을 복구한다. 저장 구조·제약·인덱스는 [ERD](ERD.md), 모듈 흐름·재시도 내부는 [아키텍처](ARCHITECTURE.md), 기술 선택 근거는 [ADR](adr/README.md)가 소유한다.
+MATCHING은 매칭 요청·제안·성공 파티와 그 접근 관계를 소유한다. 현재 상태 조회는 PostgreSQL 정본을 조합해 반환하며, WebSocket·그 밖의 실시간 이벤트는 정본이 아니다. 따라서 재접속, 이벤트 유실·중복·순서 역전 또는 서버 재기동 뒤 클라이언트는 반드시 이 조회 결과로 화면을 복구한다. 저장 구조·제약·인덱스는 [P2 MATCH 저장 계약](ERD.md#p2-match-저장-계약-계획미구현), 모듈 흐름·재시도 내부는 [P2 MATCH 모듈 계약](ARCHITECTURE.md#p2-match-모듈-계약-계획미구현), 기술 선택 근거는 [MATCH ADR](adr/matching/README.md)이 소유한다.
 
 모든 MATCH HTTP API는 인증된 현재 사용자만 호출한다. `GET`은 CSRF가 필요 없고 `POST`·`PUT`·`DELETE`는 세션과 CSRF가 필요하다. 유효 세션이 없으면 CSRF보다 `UNAUTHENTICATED`를 먼저 반환한다. MATCH WebSocket handshake는 세션과 허용된 `Origin`을 검증하며 CSRF는 필요 없다.
 

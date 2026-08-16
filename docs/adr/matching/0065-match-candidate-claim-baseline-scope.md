@@ -5,7 +5,7 @@
 - 결정일: 2026-08-15
 - 관련: [MATCH-01 기술 계약 이슈 #737](https://github.com/bamsongi-club/albam-mate/issues/737), [PR #741](https://github.com/bamsongi-club/albam-mate/pull/741), [ADR-0063](0063-match-baseline-measurement-gate.md), [MATCH-01 후보 탐색 baseline 측정 계약](../../measurements/match-01-candidate-search-baseline-contract.md), [MATCH-01 완료 기준](../../p2/matching.md#완료-기준)
 - 대체 대상: [ADR-0063](0063-match-baseline-measurement-gate.md)의 candidate claim baseline 범위와 정합성 gate 해석
-- 후속 ADR: [0066](0066-match-contract-canonical-ownership.md) (candidate fixture·개수·acceptance와 증거 manifest mechanics 상세의 활성 정본 소유권)
+- 후속 ADR: 없음
 
 ## 맥락
 
