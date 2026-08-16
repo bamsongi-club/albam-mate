@@ -175,6 +175,7 @@ def gatedBranchCoverage = [
     'cloud.bamsongi.albammate.game.service'   : 1.00,
     'cloud.bamsongi.albammate.game.repository': 0.91,
     'cloud.bamsongi.albammate.global.config'               : 1.00,
+    'cloud.bamsongi.albammate.global.exception'            : 0.89,
     'cloud.bamsongi.albammate.global.security.currentuser' : 0.83,
     'cloud.bamsongi.albammate.global.security.endpoint'    : 0.90,
     'cloud.bamsongi.albammate.global.security.error'       : 0.71,

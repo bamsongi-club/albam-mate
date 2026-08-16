@@ -29,11 +29,18 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
 import cloud.bamsongi.albammate.game.repository.UserPlayedGameRepository;
+import cloud.bamsongi.albammate.game.service.UserPlayedGameService;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
+import cloud.bamsongi.albammate.global.exception.GlobalExceptionHandler;
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal;
+import cloud.bamsongi.albammate.global.security.error.SecurityErrorResponseWriter;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 import jakarta.servlet.http.Cookie;
@@ -87,6 +94,73 @@ class UserPlayedGameHttpIntegrationTest {
 	}
 
 	@Test
+	void 인증_CSRF를_통과한_등록은_저장확정뒤_200응답과_같은_목표상태를_기록한다() throws Exception {
+		User user = user("logged-mark");
+		Game game = game("LoggedMark");
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(UserPlayedGameService.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+
+		try {
+			performWithCsrf(put(path(game)), user.getId(), true)
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.gameId").value(game.getId()))
+				.andExpect(jsonPath("$.data.playedByMe").value(true));
+
+			assertEquals(1, userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).size());
+			String message = appender.list.stream()
+				.map(ILoggingEvent::getFormattedMessage)
+				.filter(value -> value.contains("event=game_played_state_changed"))
+				.findFirst()
+				.orElseThrow();
+			assertTrue(message.contains("gameId=" + game.getId()));
+			assertTrue(message.contains("action=mark"));
+			assertTrue(message.contains("outcome=played"));
+		} finally {
+			logger.detachAppender(appender);
+			appender.stop();
+		}
+	}
+
+	@Test
+	void 취소와_반복_목표요청은_실제_저장결과와_같은_상태만_기록한다() throws Exception {
+		User user = user("logged-idempotency");
+		Game game = game("LoggedIdempotency");
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(UserPlayedGameService.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+
+		try {
+			for (int ignored = 0; ignored < 2; ignored++) {
+				performWithCsrf(put(path(game)), user.getId(), true)
+					.andExpect(status().isOk())
+					.andExpect(jsonPath("$.data.playedByMe").value(true));
+			}
+			assertEquals(1, userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).size());
+			for (int ignored = 0; ignored < 2; ignored++) {
+				performWithCsrf(delete(path(game)), user.getId(), true)
+					.andExpect(status().isOk())
+					.andExpect(jsonPath("$.data.playedByMe").value(false));
+			}
+			assertTrue(userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).isEmpty());
+
+			List<String> messages = appender.list.stream()
+				.map(ILoggingEvent::getFormattedMessage)
+				.filter(value -> value.contains("event=game_played_state_changed"))
+				.toList();
+			assertEquals(4, messages.size());
+			assertEquals(2, messages.stream().filter(value -> value.contains("action=mark outcome=played")).count());
+			assertEquals(2,
+				messages.stream().filter(value -> value.contains("action=unmark outcome=not_played")).count());
+		} finally {
+			logger.detachAppender(appender);
+			appender.stop();
+		}
+	}
+
+	@Test
 	void 등록과_취소는_인증_CSRF_path_게임존재_순서의_실패에서_관계를_바꾸지_않는다() throws Exception {
 		User user = user("priority");
 		Game game = game("Priority");
@@ -120,6 +194,107 @@ class UserPlayedGameHttpIntegrationTest {
 				.andExpect(jsonPath("$.code").value(ErrorCode.GAME_NOT_FOUND.getCode()));
 		}
 		assertEquals(1, userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).size());
+	}
+
+	@Test
+	void 잘못된입력_비로그인_CSRF_게임미존재는_상태를바꾸지않고_INFO_실패이벤트로_수렴한다() throws Exception {
+		User user = user("logged-failure");
+		Game game = game("LoggedFailure");
+		mark(user, game);
+		Logger securityLogger = (Logger)org.slf4j.LoggerFactory.getLogger(SecurityErrorResponseWriter.class);
+		Logger exceptionLogger = (Logger)org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
+		ListAppender<ILoggingEvent> securityAppender = new ListAppender<>();
+		ListAppender<ILoggingEvent> exceptionAppender = new ListAppender<>();
+		securityAppender.start();
+		exceptionAppender.start();
+		securityLogger.addAppender(securityAppender);
+		exceptionLogger.addAppender(exceptionAppender);
+
+		try {
+			mockMvc.perform(put(path(game)))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
+			performWithCsrf(put(path(game)), user.getId(), false)
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.code").value(ErrorCode.CSRF_TOKEN_INVALID.getCode()));
+			performWithCsrf(put("/api/users/me/played-games/0"), user.getId(), true)
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+			performWithCsrf(put("/api/users/me/played-games/999999"), user.getId(), true)
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.code").value(ErrorCode.GAME_NOT_FOUND.getCode()));
+
+			assertEquals(1, userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).size());
+			List<ILoggingEvent> failureEvents = new ArrayList<>();
+			failureEvents.addAll(securityAppender.list);
+			failureEvents.addAll(exceptionAppender.list);
+			List<ILoggingEvent> gameFailures = failureEvents.stream()
+				.filter(event -> event.getFormattedMessage().contains("event=game_played_state_change_failed"))
+				.toList();
+			assertEquals(4, gameFailures.size());
+			assertTrue(gameFailures.stream().allMatch(event -> event.getLevel() == Level.INFO));
+			List<String> messages = gameFailures.stream().map(ILoggingEvent::getFormattedMessage).toList();
+			assertTrue(messages.stream().anyMatch(value -> value.contains("failureCode=UNAUTHENTICATED")));
+			assertTrue(messages.stream().anyMatch(value -> value.contains("failureCode=CSRF_TOKEN_INVALID")));
+			assertTrue(messages.stream().anyMatch(value -> value.contains("failureCode=VALIDATION_ERROR")));
+			assertTrue(messages.stream().anyMatch(value -> value.contains("failureCode=GAME_NOT_FOUND gameId=999999")));
+			assertTrue(messages.stream().noneMatch(value -> value.contains(user.getEmail())));
+			assertTrue(messages.stream().noneMatch(value -> value.contains("JSESSIONID")));
+			assertTrue(messages.stream().noneMatch(value -> value.contains("XSRF-TOKEN")));
+		} finally {
+			securityLogger.detachAppender(securityAppender);
+			exceptionLogger.detachAppender(exceptionAppender);
+			securityAppender.stop();
+			exceptionAppender.stop();
+		}
+	}
+
+	@Test
+	void 취소_실패는_unmark_INFO_실패이벤트과_기존오류응답으로_관계를_보존한다() throws Exception {
+		User user = user("logged-unmark-failure");
+		Game game = game("LoggedUnmarkFailure");
+		mark(user, game);
+		Logger securityLogger = (Logger)org.slf4j.LoggerFactory.getLogger(SecurityErrorResponseWriter.class);
+		Logger exceptionLogger = (Logger)org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
+		ListAppender<ILoggingEvent> securityAppender = new ListAppender<>();
+		ListAppender<ILoggingEvent> exceptionAppender = new ListAppender<>();
+		securityAppender.start();
+		exceptionAppender.start();
+		securityLogger.addAppender(securityAppender);
+		exceptionLogger.addAppender(exceptionAppender);
+
+		try {
+			mockMvc.perform(delete(path(game)))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value(ErrorCode.UNAUTHENTICATED.getCode()));
+			for (String gameId : List.of("0", "-1", "not-a-number")) {
+				performWithCsrf(delete("/api/users/me/played-games/" + gameId), user.getId(), true)
+					.andExpect(status().isBadRequest())
+					.andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
+			}
+
+			assertEquals(1, userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).size());
+			List<ILoggingEvent> failureEvents = new ArrayList<>();
+			failureEvents.addAll(securityAppender.list);
+			failureEvents.addAll(exceptionAppender.list);
+			List<ILoggingEvent> unmarkFailures = failureEvents.stream()
+				.filter(event -> event.getFormattedMessage()
+					.contains("event=game_played_state_change_failed action=unmark"))
+				.toList();
+			assertEquals(4, unmarkFailures.size());
+			assertTrue(unmarkFailures.stream().allMatch(event -> event.getLevel() == Level.INFO));
+			List<String> messages = unmarkFailures.stream().map(ILoggingEvent::getFormattedMessage).toList();
+			assertTrue(messages.stream()
+				.anyMatch(value -> value.contains("failureCode=UNAUTHENTICATED gameId=" + game.getId())));
+			assertEquals(3, messages.stream().filter(value -> value.contains("failureCode=VALIDATION_ERROR")).count());
+			assertTrue(messages.stream().filter(value -> value.contains("failureCode=VALIDATION_ERROR"))
+				.noneMatch(value -> value.contains("gameId=")));
+		} finally {
+			securityLogger.detachAppender(securityAppender);
+			exceptionLogger.detachAppender(exceptionAppender);
+			securityAppender.stop();
+			exceptionAppender.stop();
+		}
 	}
 
 	@Test
