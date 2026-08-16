@@ -23,8 +23,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -846,9 +844,6 @@ final class RoomConcurrencyBaselineSupport {
 
 	private static final class RetryLogCapture {
 
-		private static final Pattern RETRY_LOG_PATTERN = Pattern.compile(
-			"^event=(\\S+)(?: roomId=(\\d+))? attempt=(\\d+) useCase=(\\S+) reasonCode=(\\S+)$");
-
 		private final Logger logger;
 		private final Level previousLevel;
 		private final ListAppender<ILoggingEvent> appender;
@@ -876,18 +871,19 @@ final class RoomConcurrencyBaselineSupport {
 		}
 
 		private static RetryLogRecord parse(ILoggingEvent event) {
-			String message = event.getFormattedMessage();
-			Matcher matcher = RETRY_LOG_PATTERN.matcher(message);
-			if (!matcher.matches()) {
-				throw new AssertionError("재시도 로그 형식이 계약과 다릅니다: " + message);
+			Map<String, Object> fields = event.getKeyValuePairs().stream()
+				.collect(java.util.stream.Collectors.toMap(pair -> pair.key, pair -> pair.value));
+			if (!fields.keySet().equals(Set.of("event", "attempt", "useCase", "reasonCode"))
+				&& !fields.keySet().equals(Set.of("event", "roomId", "attempt", "useCase", "reasonCode"))) {
+				throw new AssertionError("재시도 구조화 field 계약이 다릅니다: " + fields);
 			}
-			Long roomId = matcher.group(2) == null ? null : Long.valueOf(matcher.group(2));
+			Long roomId = fields.containsKey("roomId") ? ((Number)fields.get("roomId")).longValue() : null;
 			return new RetryLogRecord(
-				matcher.group(1),
+				(String)fields.get("event"),
 				roomId,
-				Integer.parseInt(matcher.group(3)),
-				matcher.group(4),
-				matcher.group(5),
+				((Number)fields.get("attempt")).intValue(),
+				(String)fields.get("useCase"),
+				(String)fields.get("reasonCode"),
 				event.getLevel());
 		}
 

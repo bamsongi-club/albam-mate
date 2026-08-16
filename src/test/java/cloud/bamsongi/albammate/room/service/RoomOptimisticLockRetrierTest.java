@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.room.service;
 
+import static cloud.bamsongi.albammate.fixture.StructuredLogAssertions.fieldText;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -122,14 +123,14 @@ class RoomOptimisticLockRetrierTest {
 
 			assertEquals(
 				"event=room_state_reconciliation_retry attempt=2 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_CONFLICT",
-				appender.list.get(0).getFormattedMessage());
+				fieldText(appender.list.get(0)));
 			assertEquals(
 				"event=room_state_reconciliation_retry attempt=3 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_CONFLICT",
-				appender.list.get(1).getFormattedMessage());
+				fieldText(appender.list.get(1)));
 			assertEquals(
 				"event=room_state_reconciliation_retry attempt=3 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_EXHAUSTED",
-				appender.list.get(2).getFormattedMessage());
-			assertTrue(appender.list.stream().noneMatch(event -> event.getFormattedMessage().contains("roomId=")));
+				fieldText(appender.list.get(2)));
+			assertTrue(appender.list.stream().noneMatch(event -> fieldText(event).contains("roomId=")));
 		} finally {
 			detachLogAppender(appender);
 		}
@@ -163,19 +164,19 @@ class RoomOptimisticLockRetrierTest {
 				assertEquals(
 					"event=" + event + " roomId=7 attempt=2 useCase=" + useCase
 						+ " reasonCode=OPTIMISTIC_LOCK_CONFLICT",
-					appender.list.get(firstLogIndex).getFormattedMessage());
+					fieldText(appender.list.get(firstLogIndex)));
 				assertEquals(
 					"event=" + event + " roomId=7 attempt=3 useCase=" + useCase
 						+ " reasonCode=OPTIMISTIC_LOCK_CONFLICT",
-					appender.list.get(firstLogIndex + 1).getFormattedMessage());
+					fieldText(appender.list.get(firstLogIndex + 1)));
 				assertEquals(
 					"event=" + event + " roomId=7 attempt=3 useCase=" + useCase
 						+ " reasonCode=OPTIMISTIC_LOCK_EXHAUSTED",
-					appender.list.get(firstLogIndex + 2).getFormattedMessage());
+					fieldText(appender.list.get(firstLogIndex + 2)));
 				useCaseIndex++;
 			}
 			assertTrue(appender.list.stream().allMatch(event -> event.getThrowableProxy() == null));
-			assertTrue(appender.list.stream().noneMatch(event -> event.getFormattedMessage().contains("민감한 예외 메시지")));
+			assertTrue(appender.list.stream().noneMatch(event -> fieldText(event).contains("민감한 예외 메시지")));
 		} finally {
 			detachLogAppender(appender);
 		}
@@ -203,11 +204,11 @@ class RoomOptimisticLockRetrierTest {
 		assertEquals(Level.DEBUG, appender.list.get(1).getLevel());
 		assertEquals(Level.WARN, appender.list.get(2).getLevel());
 		assertEquals(eventWithRoomId + " attempt=2 useCase=ROOM_CANCEL reasonCode=OPTIMISTIC_LOCK_CONFLICT",
-			appender.list.get(0).getFormattedMessage());
+			fieldText(appender.list.get(0)));
 		assertEquals(eventWithRoomId + " attempt=3 useCase=ROOM_CANCEL reasonCode=OPTIMISTIC_LOCK_CONFLICT",
-			appender.list.get(1).getFormattedMessage());
+			fieldText(appender.list.get(1)));
 		assertEquals(eventWithRoomId + " attempt=3 useCase=ROOM_CANCEL reasonCode=OPTIMISTIC_LOCK_EXHAUSTED",
-			appender.list.get(2).getFormattedMessage());
+			fieldText(appender.list.get(2)));
 		assertTrue(appender.list.stream().allMatch(event -> event.getThrowableProxy() == null));
 	}
 }

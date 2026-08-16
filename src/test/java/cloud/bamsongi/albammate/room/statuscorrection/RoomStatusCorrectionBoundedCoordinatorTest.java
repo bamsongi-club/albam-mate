@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.room.statuscorrection;
 
+import static cloud.bamsongi.albammate.fixture.StructuredLogAssertions.fieldText;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -106,18 +107,18 @@ class RoomStatusCorrectionBoundedCoordinatorTest {
 			assertEquals(3, retrierAppender.list.size());
 			assertEquals(
 				"event=room_state_reconciliation_retry roomId=10 attempt=2 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_CONFLICT",
-				retrierAppender.list.get(0).getFormattedMessage());
+				fieldText(retrierAppender.list.get(0)));
 			assertEquals(
 				"event=room_state_reconciliation_retry roomId=10 attempt=3 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_CONFLICT",
-				retrierAppender.list.get(1).getFormattedMessage());
+				fieldText(retrierAppender.list.get(1)));
 			assertEquals(
 				"event=room_state_reconciliation_retry roomId=10 attempt=3 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_EXHAUSTED",
-				retrierAppender.list.get(2).getFormattedMessage());
+				fieldText(retrierAppender.list.get(2)));
 			assertEquals(1, coordinatorAppender.list.size());
 			assertEquals(
 				"event=room_status_reconciliation_room_failed roomId=30 useCase=ROOM_STATUS_CORRECTION reasonCode=UNEXPECTED_FAILURE",
-				coordinatorAppender.list.get(0).getFormattedMessage());
-			assertTrue(coordinatorAppender.list.stream().noneMatch(event -> event.getFormattedMessage()
+				fieldText(coordinatorAppender.list.get(0)));
+			assertTrue(coordinatorAppender.list.stream().noneMatch(event -> fieldText(event)
 				.contains("로그에 남기면 안 되는 예외 메시지")));
 		} finally {
 			detachLogAppender(RoomStatusCorrectionCoordinator.class, coordinatorAppender);

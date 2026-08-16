@@ -57,7 +57,8 @@ class DependencyHealthMetricsTest {
 		RedisConnection redis = mock(RedisConnection.class);
 		when(dataSource.getConnection()).thenReturn(postgresql);
 		when(redisConnectionFactory.getConnection()).thenReturn(redis);
-		DependencyHealthSampler sampler = new DependencyHealthSampler(dataSource, redisConnectionFactory, registry);
+		DependencyHealthSampler sampler = new DependencyHealthSampler(
+			dataSource, redisConnectionFactory, registry, java.time.Duration.ofSeconds(10));
 
 		when(postgresql.isValid(1)).thenReturn(true);
 		when(redis.ping()).thenReturn("PONG");
@@ -91,7 +92,8 @@ class DependencyHealthMetricsTest {
 		});
 		when(redisConnectionFactory.getConnection()).thenReturn(redis);
 		when(redis.ping()).thenReturn("PONG");
-		DependencyHealthSampler sampler = new DependencyHealthSampler(dataSource, redisConnectionFactory, registry);
+		DependencyHealthSampler sampler = new DependencyHealthSampler(
+			dataSource, redisConnectionFactory, registry, java.time.Duration.ofSeconds(10));
 
 		long startedAt = System.nanoTime();
 		sampler.sample();
@@ -121,7 +123,8 @@ class DependencyHealthMetricsTest {
 		});
 		when(redisConnectionFactory.getConnection()).thenReturn(redis);
 		when(redis.ping()).thenReturn("PONG");
-		DependencyHealthSampler sampler = new DependencyHealthSampler(dataSource, redisConnectionFactory, registry);
+		DependencyHealthSampler sampler = new DependencyHealthSampler(
+			dataSource, redisConnectionFactory, registry, java.time.Duration.ofSeconds(10));
 
 		try {
 			sampler.sample();

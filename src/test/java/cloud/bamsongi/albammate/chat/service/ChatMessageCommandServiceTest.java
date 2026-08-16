@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.chat.service;
 
+import static cloud.bamsongi.albammate.fixture.StructuredLogAssertions.assertFields;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -68,7 +69,7 @@ class ChatMessageCommandServiceTest {
 			assertEquals(1, appender.list.size());
 			ILoggingEvent event = appender.list.getFirst();
 			assertEquals(Level.ERROR, event.getLevel());
-			assertEquals("event=chat_message_sender_nickname_missing roomId=9", event.getFormattedMessage());
+			assertFields(event, java.util.Map.of("event", "chat_message_sender_nickname_missing", "roomId", ROOM_ID));
 			assertFalse(event.getFormattedMessage().contains(String.valueOf(SENDER_USER_ID)));
 			assertFalse(event.getFormattedMessage().contains(SECRET_CONTENT));
 		} finally {

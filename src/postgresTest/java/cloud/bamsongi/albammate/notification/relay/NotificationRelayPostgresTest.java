@@ -11,6 +11,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -211,8 +212,10 @@ class NotificationRelayPostgresTest {
 
 			assertEquals(1, appender.list.size());
 			assertEquals(Level.INFO, appender.list.getFirst().getLevel());
-			assertTrue(appender.list.getFirst().getFormattedMessage()
-				.contains("event=notification_outbox_relay_event_processed sourceEventId=" + eventId));
+			Map<String, Object> fields = appender.list.getFirst().getKeyValuePairs().stream()
+				.collect(java.util.stream.Collectors.toMap(pair -> pair.key, pair -> pair.value));
+			assertEquals("notification_outbox_relay_event_processed", fields.get("event"));
+			assertEquals(eventId, ((Number)fields.get("sourceEventId")).longValue());
 		} finally {
 			detachExecutorLogAppender(appender);
 		}

@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.notification.relay;
 
+import static cloud.bamsongi.albammate.fixture.StructuredLogAssertions.fieldText;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -80,7 +81,7 @@ class NotificationRelayCoordinatorTest {
 
 			assertEquals(1, appender.list.size());
 			assertEquals(Level.INFO, appender.list.getFirst().getLevel());
-			String message = appender.list.getFirst().getFormattedMessage();
+			String message = fieldText(appender.list.getFirst());
 			assertTrue(message.contains("event=notification_outbox_relay_batch_completed claimedCount=1"));
 			assertTrue(message.contains("processedCount=1 retryScheduledCount=0 failedCount=0"));
 			assertTrue(message.contains("durationMs="));
@@ -108,7 +109,7 @@ class NotificationRelayCoordinatorTest {
 
 			assertEquals(1, appender.list.size());
 			assertEquals(Level.DEBUG, appender.list.getFirst().getLevel());
-			String message = appender.list.getFirst().getFormattedMessage();
+			String message = fieldText(appender.list.getFirst());
 			assertTrue(message.contains("claimedCount=0 processedCount=0 retryScheduledCount=0 failedCount=0"));
 			assertTrue(message.contains("durationMs="));
 			assertTrue(message.contains("oldestProcessableAgeMs=null"));

@@ -9,7 +9,6 @@ import java.util.concurrent.TimeUnit;
 
 import javax.sql.DataSource;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.connection.RedisConnection;
@@ -41,7 +40,6 @@ class DependencyHealthSampler {
 			return thread;
 		});
 
-	@Autowired
 	DependencyHealthSampler(DataSource dataSource, RedisConnectionFactory redisConnectionFactory,
 		MeterRegistry meterRegistry, @Value("${app.monitoring.dependency-health.poll-interval:10s}")
 		Duration pollInterval) {
@@ -49,14 +47,6 @@ class DependencyHealthSampler {
 		this.redisConnectionFactory = redisConnectionFactory;
 		metrics = new DependencyHealthMetrics(meterRegistry);
 		probeTimeout = boundedProbeTimeout(pollInterval);
-	}
-
-	DependencyHealthSampler(DataSource dataSource, RedisConnectionFactory redisConnectionFactory,
-		MeterRegistry meterRegistry) {
-		this.dataSource = dataSource;
-		this.redisConnectionFactory = redisConnectionFactory;
-		metrics = new DependencyHealthMetrics(meterRegistry);
-		probeTimeout = Duration.ofMillis(250);
 	}
 
 	void sample() {

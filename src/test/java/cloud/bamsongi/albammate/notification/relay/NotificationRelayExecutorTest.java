@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.notification.relay;
 
+import static cloud.bamsongi.albammate.fixture.StructuredLogAssertions.fieldText;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -243,7 +244,7 @@ class NotificationRelayExecutorTest {
 
 			assertEquals(1, appender.list.size());
 			assertEquals(Level.INFO, appender.list.getFirst().getLevel());
-			String message = appender.list.getFirst().getFormattedMessage();
+			String message = fieldText(appender.list.getFirst());
 			assertTrue(message.contains("event=notification_outbox_relay_event_processed sourceEventId=10"));
 			assertTrue(message.contains("eventType=PARTICIPATION_JOINED recipientCount=1"));
 			assertTrue(message.contains("outboxRecordedAt=" + RECORDED_AT));
