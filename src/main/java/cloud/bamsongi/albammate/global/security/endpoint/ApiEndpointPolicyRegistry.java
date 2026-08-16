@@ -39,7 +39,7 @@ public final class ApiEndpointPolicyRegistry {
 	private final List<ApiEndpointPolicy> policies;
 
 	public ApiEndpointPolicyRegistry() {
-		this((Collection<ApiEndpointPolicy>) defaultPolicies());
+		this((Collection<ApiEndpointPolicy>)defaultPolicies());
 	}
 
 	private ApiEndpointPolicyRegistry(Collection<ApiEndpointPolicy> policies) {
@@ -115,11 +115,11 @@ public final class ApiEndpointPolicyRegistry {
 	}
 
 	static ApiEndpointPolicyRegistry forPolicies(List<ApiEndpointPolicy> policies) {
-		return new ApiEndpointPolicyRegistry((Collection<ApiEndpointPolicy>) policies);
+		return new ApiEndpointPolicyRegistry((Collection<ApiEndpointPolicy>)policies);
 	}
 
 	static ApiEndpointPolicyRegistry forContributors(List<ApiEndpointPolicyContributor> contributors) {
-		return new ApiEndpointPolicyRegistry((Collection<ApiEndpointPolicy>) policiesFrom(contributors));
+		return new ApiEndpointPolicyRegistry((Collection<ApiEndpointPolicy>)policiesFrom(contributors));
 	}
 
 	private RequestMatcher requestMatcherFor(ApiEndpointAuthenticationMode authenticationMode) {

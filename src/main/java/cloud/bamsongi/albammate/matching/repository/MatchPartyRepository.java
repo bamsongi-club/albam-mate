@@ -14,5 +14,6 @@ public interface MatchPartyRepository extends JpaRepository<MatchParty, Long> {
 
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select party from MatchParty party where party.id = :partyId")
-	Optional<MatchParty> findByIdForUpdate(@Param("partyId") Long partyId);
+	Optional<MatchParty> findByIdForUpdate(@Param("partyId")
+	Long partyId);
 }

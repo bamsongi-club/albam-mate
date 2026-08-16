@@ -15,5 +15,7 @@ public interface MatchBlockRepository extends JpaRepository<MatchBlock, Long> {
 		   or (matchBlock.blockerUserId = :secondUserId and matchBlock.blockedUserId = :firstUserId)
 		""")
 	boolean existsBlockBetweenUsers(
-		@Param("firstUserId") Long firstUserId, @Param("secondUserId") Long secondUserId);
+		@Param("firstUserId")
+		Long firstUserId, @Param("secondUserId")
+		Long secondUserId);
 }

@@ -4,9 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Method;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.lang.reflect.Method;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,7 +23,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
-import cloud.bamsongi.albammate.matching.MatchProposalResponseStatus;
 import cloud.bamsongi.albammate.matching.entity.MatchPartyParticipant;
 import cloud.bamsongi.albammate.matching.entity.MatchPartyParticipantId;
 import cloud.bamsongi.albammate.matching.entity.MatchProposalMember;
@@ -64,7 +63,8 @@ class MatchEntityMappingPostgresTest {
 		Class<?> participantType = Class.forName("cloud.bamsongi.albammate.matching.entity.MatchPartyParticipant");
 
 		EntityType<?> requestEntity = entityManager.getMetamodel().entity(requestType);
-		assertEquals("match_requests", requestEntity.getJavaType().getAnnotation(jakarta.persistence.Table.class).name());
+		assertEquals("match_requests",
+			requestEntity.getJavaType().getAnnotation(jakarta.persistence.Table.class).name());
 		assertEquals(jakarta.persistence.EnumType.STRING, requestType.getDeclaredField("status")
 			.getAnnotation(jakarta.persistence.Enumerated.class).value());
 		assertTrue(requestEntity.getAttributes().stream().anyMatch(attribute -> attribute.getName().equals("userId")));
@@ -76,9 +76,10 @@ class MatchEntityMappingPostgresTest {
 
 		long userId = insertUser("mapping");
 		long gameId = insertGame();
-		Class<? extends Enum> requestStatusType = (Class<? extends Enum>) Class.forName(
+		Class<? extends Enum> requestStatusType = (Class<? extends Enum>)Class.forName(
 			"cloud.bamsongi.albammate.matching.MatchRequestStatus");
-		Object request = requestType.getMethod("create", long.class, long.class, int.class, int.class, requestStatusType)
+		Object request = requestType
+			.getMethod("create", long.class, long.class, int.class, int.class, requestStatusType)
 			.invoke(null, userId, gameId, 2, 4, Enum.valueOf(requestStatusType, "WAITING"));
 		entityManager.persist(request);
 		entityManager.flush();
@@ -95,7 +96,7 @@ class MatchEntityMappingPostgresTest {
 		Instant respondedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
 		MatchProposalMember member = MatchProposalMember.create(
 			proposalId,
-			((Long) requestId),
+			((Long)requestId),
 			userId,
 			MatchProposalResponseStatus.ACCEPTED,
 			respondedAt);
@@ -111,7 +112,7 @@ class MatchEntityMappingPostgresTest {
 
 		MatchProposalMember reloadedMember = entityManager.find(
 			MatchProposalMember.class,
-			new MatchProposalMemberId(proposalId, (Long) requestId));
+			new MatchProposalMemberId(proposalId, (Long)requestId));
 		MatchPartyParticipant reloadedParticipant = entityManager.find(
 			MatchPartyParticipant.class,
 			new MatchPartyParticipantId(partyId, userId));
@@ -146,15 +147,16 @@ class MatchEntityMappingPostgresTest {
 			"cloud.bamsongi.albammate.matching.repository.MatchPartyParticipantRepository");
 		Object participantRepository = applicationContext.getBean(participantRepositoryType);
 		Method participantRefs = participantRepositoryType.getMethod("findCurrentParticipantRefsByPartyId", Long.class);
-		List<?> refs = (List<?>) participantRefs.invoke(participantRepository, firstPartyId);
+		List<?> refs = (List<?>)participantRefs.invoke(participantRepository, firstPartyId);
 		assertEquals(List.of(firstRef), refs);
 		assertFalse(refs.contains(otherPartyRef));
 
-		Class<?> blockRepositoryType = Class.forName("cloud.bamsongi.albammate.matching.repository.MatchBlockRepository");
+		Class<?> blockRepositoryType = Class
+			.forName("cloud.bamsongi.albammate.matching.repository.MatchBlockRepository");
 		Object blockRepository = applicationContext.getBean(blockRepositoryType);
 		Method blockBetweenUsers = blockRepositoryType.getMethod("existsBlockBetweenUsers", Long.class, Long.class);
-		assertTrue((boolean) blockBetweenUsers.invoke(blockRepository, firstUserId, thirdUserId));
-		assertFalse((boolean) blockBetweenUsers.invoke(blockRepository, firstUserId, secondUserId));
+		assertTrue((boolean)blockBetweenUsers.invoke(blockRepository, firstUserId, thirdUserId));
+		assertFalse((boolean)blockBetweenUsers.invoke(blockRepository, firstUserId, secondUserId));
 	}
 
 	private long insertUser(String role) {

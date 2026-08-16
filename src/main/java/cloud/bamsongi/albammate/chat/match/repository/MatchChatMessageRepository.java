@@ -4,5 +4,4 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import cloud.bamsongi.albammate.chat.match.entity.MatchChatMessage;
 
-public interface MatchChatMessageRepository extends JpaRepository<MatchChatMessage, Long> {
-}
+public interface MatchChatMessageRepository extends JpaRepository<MatchChatMessage, Long> {}

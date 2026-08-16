@@ -53,8 +53,8 @@ public class MatchRequest extends BaseEntity {
 		Instant now = Instant.now();
 		request.userId = userId;
 		request.gameId = gameId;
-		request.minPartySize = (short) minPartySize;
-		request.maxPartySize = (short) maxPartySize;
+		request.minPartySize = (short)minPartySize;
+		request.maxPartySize = (short)maxPartySize;
 		request.status = status;
 		request.queuedAt = now;
 		request.prioritySince = now;

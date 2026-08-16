@@ -59,10 +59,10 @@ class MatchPartyAccessQueryPostgresTest {
 		Object accessQuery = applicationContext.getBean(accessQueryType);
 		Method hasActiveAccess = accessQueryType.getMethod("hasActiveAccess", long.class, long.class);
 
-		assertTrue((boolean) hasActiveAccess.invoke(accessQuery, memberId, activePartyId));
-		assertFalse((boolean) hasActiveAccess.invoke(accessQuery, memberId, preparingPartyId));
-		assertFalse((boolean) hasActiveAccess.invoke(accessQuery, memberId, closedPartyId));
-		assertFalse((boolean) hasActiveAccess.invoke(accessQuery, outsiderId, activePartyId));
+		assertTrue((boolean)hasActiveAccess.invoke(accessQuery, memberId, activePartyId));
+		assertFalse((boolean)hasActiveAccess.invoke(accessQuery, memberId, preparingPartyId));
+		assertFalse((boolean)hasActiveAccess.invoke(accessQuery, memberId, closedPartyId));
+		assertFalse((boolean)hasActiveAccess.invoke(accessQuery, outsiderId, activePartyId));
 	}
 
 	private long insertUser(String role) {
@@ -93,7 +93,8 @@ class MatchPartyAccessQueryPostgresTest {
 			default -> "current_timestamp";
 		};
 		return jdbcTemplate.queryForObject(
-			"insert into match_parties (game_id, status, " + lifecycleColumns + ", created_at, updated_at) values (?, ?, "
+			"insert into match_parties (game_id, status, " + lifecycleColumns
+				+ ", created_at, updated_at) values (?, ?, "
 				+ lifecycleValues + ", current_timestamp, current_timestamp) returning id",
 			Long.class,
 			gameId,
