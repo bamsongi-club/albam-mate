@@ -175,18 +175,38 @@ test('outcome별 duration은 표본 유무와 관계없이 p50·p95·p99·max·c
   }
 });
 
-test('T2 outcome별 count 합은 전체 room_requests와 일치해야 한다', () => {
+test('T2 outcome별 count 합이 실제 ROOM 요청 수와 다르면 사후 판정은 실패한다', () => {
+  const { fixture } = fixtureFor({
+    scenario: 't2',
+    runId: 'fixture-t2-outcome-count-mismatch',
+    profile: 'spike',
+    mode: 'hot',
+    subcase: 'distinct',
+    concurrency: 2,
+  });
+  const snapshot = initialSnapshot(fixture);
+  fixture.targets.forEach((target, index) => {
+    const room = fixture.rooms[target.roomKey];
+    snapshot.waitlists.push({
+      roomId: room.id,
+      userId: fixture.users[target.actorKey].id,
+      status: 'WAITING',
+      queueOrder: index + 1,
+      queuedAt: '2030-01-01T00:01:00Z',
+    });
+  });
   const summary = summaryWith({
-    room_requests: 4,
-    room_success: 1,
-    room_business_failures: 1,
-    room_concurrent_failures: 1,
+    room_requests: 2,
+    room_success: 2,
+    room_created: 2,
+    room_waitlist_position_1: 1,
+    room_waitlist_position_2: 1,
     room_unexpected_outcome: 1,
   });
-  const counts = ['success', 'business', 'concurrency', 'unexpected']
-    .map((category) => summary.metrics[roomRequestDurationMetricName(category)].values.count);
 
-  assert.equal(counts.reduce((total, count) => total + count, 0), summary.metrics.room_requests.values.count);
+  const result = evaluateFixture(fixture, snapshot, 'after', summary);
+  assert.equal(result.status, 'FAIL');
+  assert.match(result.failures.join('\n'), /outcome별 count 합과 실제 ROOM 요청 수/);
 });
 
 test('기존 응답 분류 counter와 outcome별 count가 다르면 사후 판정은 실패한다', () => {

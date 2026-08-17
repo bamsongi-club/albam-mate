@@ -823,6 +823,8 @@ test('T5 read 옵션은 시작 편차를 summary에 남기고 1초를 넘으면 
     writeOptionsSource,
     /summaryTrendStats:\s*\[\s*'avg',\s*'min',\s*'med',\s*'max',\s*'p\(90\)',\s*'p\(95\)',\s*'p\(99\)',\s*'count',?\s*\]/,
   );
+  assert.match(source, /thresholds:\s*\{\s*\.\.\.outcomeDurationThresholds\(\)/);
+  assert.match(writeOptionsSource, /thresholds:\s*\{\s*\.\.\.outcomeDurationThresholds\(\)/);
   assert.match(source, /room_start_skew_ms:\s*\[\s*START_SKEW_THRESHOLD\s*\]/);
 });
 

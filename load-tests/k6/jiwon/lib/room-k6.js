@@ -8,7 +8,7 @@ import {
   hasT3CancelPayload,
   hasWaitlistPayload,
 } from './write-response-contract.mjs';
-import { writeOptions } from './write-options.mjs';
+import { outcomeDurationThresholds, writeOptions } from './write-options.mjs';
 import { START_SKEW_THRESHOLD } from './start-skew.mjs';
 
 export { writeOptions };
@@ -300,6 +300,7 @@ export function readOptions(runtime) {
       },
     },
     thresholds: {
+      ...outcomeDurationThresholds(),
       room_contract_failures: ['count==0'],
       room_unexpected_4xx: ['count==0'],
       room_server_failures: ['count==0'],
