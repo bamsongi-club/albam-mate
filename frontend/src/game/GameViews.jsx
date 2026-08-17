@@ -176,6 +176,9 @@ export function GameDetailView({ gameId, onCreateGame, onBack, dataVersion, onPl
   );
   const game = gameData ? normalizeGameSummary(gameData) : null;
   const played = game ? playedGames.stateOf(game) : false;
+  const [detailOpen, setDetailOpen] = useState(false);
+  // 다른 게임으로 이동하면 앞 게임에서 펼쳐 둔 상태가 남지 않도록 되돌린다.
+  useEffect(() => setDetailOpen(false), [gameId]);
 
   if (gameError || roomsError) {
     return (
@@ -211,6 +214,11 @@ export function GameDetailView({ gameId, onCreateGame, onBack, dataVersion, onPl
     { label: '권장 연령', value: game.minAge ? game.minAge + '세+' : '' }
   ].filter((spec) => spec.value);
   const tags = [...categories, ...themes, ...mechanisms];
+  // 상세 설명은 빈 줄로 문단을 나눠 저장한다. 문단마다 따로 렌더링해야 줄바꿈이 살아난다.
+  const detailParagraphs = game.detailDescription
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
   const rooms = (roomPage?.content || []).map(normalizeRoom).filter((room) => !hasStarted(room));
 
   return (
@@ -254,10 +262,31 @@ export function GameDetailView({ gameId, onCreateGame, onBack, dataVersion, onPl
           {playedGames.isPending(game) ? '저장 중…' : '해봤어요'}
         </button>
 
-        {game.description && (
+        {(game.description || detailParagraphs.length > 0) && (
           <>
             <div className="divider" style={{ margin: '26px 0' }} />
-            <p className="longtext">{game.description}</p>
+            {game.description && <p className="longtext">{game.description}</p>}
+            {detailParagraphs.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  className="btn fill"
+                  style={{ marginTop: 18 }}
+                  aria-expanded={detailOpen}
+                  aria-controls="game-detail-description"
+                  onClick={() => setDetailOpen((open) => !open)}
+                >
+                  {detailOpen ? '상세 설명 접기' : '상세 설명 보기'}
+                </button>
+                <div id="game-detail-description" hidden={!detailOpen} style={{ marginTop: 18 }}>
+                  {detailParagraphs.map((paragraph, index) => (
+                    <p key={paragraph} className="longtext" style={{ marginTop: index === 0 ? 0 : 18 }}>
+                      {paragraph}
+                    </p>
+                  ))}
+                </div>
+              </>
+            )}
           </>
         )}
 

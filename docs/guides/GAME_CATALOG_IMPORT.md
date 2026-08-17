@@ -22,6 +22,16 @@ Message Batches API로 처리해 표준 요금의 50%가 든다. 배치는 보�
 
 번역 결과를 적재 입력으로 쓸 때 manifest의 `selection`은 그 입력 파일 기준으로 적는다. 5,000행을 번역해 적재하면 `candidateRows`와 `includedRows`가 각각 `5000`, `excludedRows`는 `0`이다.
 
+검수를 마친 설명을 이미 적재된 카탈로그에 덧씌울 때는 아래로 UPSERT SQL을 만든다. 입력은 `[{ "bgg_id": 1, "description": "...", "detail_description": "..." }]` 형태이며, 두 필드가 모두 한국어인 행만 내보낸다. 미번역이 한 행이라도 섞이면 SQL을 만들지 않고 실패한다.
+
+```sh
+node scripts/game-catalog/export-korean-descriptions.mjs \
+  --input /path/to/korean-descriptions.json \
+  --out /path/to/08-upsert-korean-descriptions.sql
+```
+
+산출물은 `bgg_id` 오름차순 단일 트랜잭션이라 같은 입력이면 항상 같은 파일이 나온다. 기존 전달본 `01~07` 뒤에 적용한다.
+
 ## 1. 초안 검수
 
 manifest 없이 실행해 파일 체크섬, BGG 매핑과 품질 경고를 먼저 확인한다. 검수가 끝나기 전에는 `quality-report.json`만 생성되고 종료 코드는 실패다.
