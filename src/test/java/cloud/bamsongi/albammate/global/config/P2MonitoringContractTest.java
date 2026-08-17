@@ -39,10 +39,69 @@ class P2MonitoringContractTest {
 	}
 
 	@Test
+	void T1_배포_예시는_각_App의_관측_식별자와_UID_10001_로그_디렉터리_준비를_명시한다() {
+		String environmentExample = read(".env.production.example");
+		String deploymentGuide = read("docs/guides/AWS_MULTI_INSTANCE_INFRASTRUCTURE.md");
+		String verifier = read("scripts/verify-docker-deployment.mjs");
+		int appTableStart = deploymentGuide.indexOf("| App1 |");
+		String appEnvironmentTable = deploymentGuide.substring(
+			appTableStart, deploymentGuide.indexOf("| PostgreSQL |", appTableStart));
+
+		assertTrue(
+			environmentExample.contains("ALBAM_MATE_OTLP_METRICS_URL=http://host.docker.internal:4318/v1/metrics"));
+		assertTrue(environmentExample.contains("ALBAM_MATE_ENVIRONMENT=production"));
+		assertTrue(environmentExample.contains("ALBAM_MATE_STACK_ID=albam-mate-production"));
+		assertTrue(environmentExample.contains("ALBAM_MATE_INSTANCE_ID=app1"));
+		assertTrue(environmentExample.contains("ALBAM_MATE_INSTANCE_ID=app2"));
+		assertTrue(environmentExample.contains("ALBAM_MATE_OBSERVABILITY_LOG_PATH=/var/log/albam-mate"));
+		for (String required : new String[] {
+			"ALBAM_MATE_ENVIRONMENT", "ALBAM_MATE_STACK_ID", "ALBAM_MATE_INSTANCE_ID",
+			"ALBAM_MATE_OBSERVABILITY_LOG_PATH"
+		}) {
+			assertTrue(appEnvironmentTable.contains(required));
+		}
+		assertTrue(deploymentGuide.contains("install -d -o 10001 -g 10001 -m 0750 /var/log/albam-mate"));
+		assertTrue(verifier.contains("assertSpringObservabilityEnvironment"));
+		assertTrue(verifier.contains("'app1', 'app1'"));
+		assertTrue(verifier.contains("assertApp2ProductionConfig"));
+		assertTrue(verifier.contains("'app2', 'app2'"));
+		assertTrue(verifier.contains("assertObservabilityLogBindMount"));
+		assertTrue(verifier.contains("assertObservabilityLogBindWritableByRuntimeUser"));
+	}
+
+	@Test
+	void T2_테스트_기본값은_probe를_끄고_production은_app_redis_정책을_사용한다() {
+		String production = read("src/main/resources/application-production.yml");
+		String h2 = read("src/test/resources/application.yml");
+		String postgres = read("src/postgresTest/resources/application.yml");
+		Map<String, Object> productionRoot = new Yaml().load(production);
+		Map<String, Object> redis = map(map(map(productionRoot.get("spring")).get("data")).get("redis"));
+		Map<String, Object> productionDependencyHealth = map(
+			map(map(productionRoot.get("app")).get("monitoring")).get("dependency-health"));
+		Map<String, Object> h2Root = new Yaml().load(h2);
+		Map<String, Object> h2DependencyHealth = map(
+			map(map(h2Root.get("app")).get("monitoring")).get("dependency-health"));
+		Map<String, Object> postgresRoot = new Yaml().load(postgres);
+		Map<String, Object> postgresDependencyHealth = map(
+			map(map(postgresRoot.get("app")).get("monitoring")).get("dependency-health"));
+
+		assertFalse(redis.containsKey("connect-timeout"));
+		assertFalse(redis.containsKey("timeout"));
+		assertEquals(true, productionDependencyHealth.get("enabled"));
+		assertEquals(false, h2DependencyHealth.get("enabled"));
+		assertEquals(false, postgresDependencyHealth.get("enabled"));
+	}
+
+	@Test
 	void T3_배포_식별자와_구조화_로그_sink에는_허용된_고정값만_쓴다() {
 		String production = read("src/main/resources/application-production.yml");
 		String app1 = read("compose.production.yml");
 		String app2 = read("compose.app2.yml");
+		String monitoringOperations = read("docs/guides/MONITORING_OPERATIONS.md");
+		String customizer = read(
+			"src/main/java/cloud/bamsongi/albammate/monitoring/MonitoringStructuredLoggingCustomizer.java");
+		String recorder = read(
+			"src/main/java/cloud/bamsongi/albammate/notification/relay/NotificationRelayFailureRecorder.java");
 		String logging = production.substring(production.indexOf("logging:"), production.indexOf("app:"));
 		Map<String, Object> productionRoot = new Yaml().load(production);
 		Map<String, Object> management = map(productionRoot.get("management"));
@@ -72,6 +131,11 @@ class P2MonitoringContractTest {
 		assertFalse(logging.contains("userId: ${"));
 		assertFalse(logging.contains("roomId: ${"));
 		assertFalse(logging.contains("messageId: ${"));
+		assertTrue(monitoringOperations
+			.contains("`notification_outbox_relay_event_failed` 전용 boolean `deterministicFailure`"));
+		assertTrue(monitoringOperations.contains("결정적 또는 보존 기간 만료"));
+		assertTrue(customizer.contains("\"deterministicfailure\""));
+		assertTrue(recorder.contains("addKeyValue(\"deterministicFailure\""));
 	}
 
 	@Test

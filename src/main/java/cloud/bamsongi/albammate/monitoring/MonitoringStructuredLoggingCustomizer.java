@@ -17,6 +17,7 @@ public final class MonitoringStructuredLoggingCustomizer
 		"requestid", "failurecode", "reasoncode", "exceptionclass", "exceptiontype", "eventtype", "targettype",
 		"action", "outcome", "roomstatus", "usecase", "section", "lockname", "measurementtime", "occurredat",
 		"outboxrecordedat", "notificationrecordedat", "nextavailableat", "roomid", "messageid", "sourceeventid",
+		"gameid", "deterministicfailure",
 		"attempt", "batchnumber", "claimedcount", "processedcount", "retryscheduledcount", "failedcount",
 		"recipientcount", "failurecount", "totalfailurecount", "reprocesscount", "deletedcount", "changedcount",
 		"purgedroomcount", "deletedmessagecount", "durationms", "oldestprocessableagems", "deliverydelayms",

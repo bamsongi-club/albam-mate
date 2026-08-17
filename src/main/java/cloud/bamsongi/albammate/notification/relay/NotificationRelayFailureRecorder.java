@@ -94,6 +94,7 @@ public class NotificationRelayFailureRecorder {
 				.addKeyValue("failureCode", recordedFailure.failureCode())
 				.addKeyValue("failureCount", recordedFailure.failureCount())
 				.addKeyValue("totalFailureCount", recordedFailure.totalFailureCount())
+				.addKeyValue("deterministicFailure", recordedFailure.deterministicFailure())
 				.log("notification relay event failed");
 		}
 	}

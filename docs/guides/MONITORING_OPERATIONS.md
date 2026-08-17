@@ -141,6 +141,7 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 
 - 유한 enum: `failureCode`, `reasonCode`, event별 `exceptionClass` 또는 `exceptionType`, `eventType`, `targetType`, `action`, `outcome`, `roomStatus`, `useCase`, `section`, `lockName`
 - UTC 시각: `measurementTime`, `occurredAt`, `outboxRecordedAt`, `notificationRecordedAt`, `nextAvailableAt`
 - 접근 제한 상관 키: 단일 `roomId`, `messageId`, `sourceEventId`, `gameId`; metric dimension·dashboard group·alarm dimension에는 사용하지 않는다.
+- event별 boolean은 `notification_outbox_relay_event_failed` 전용 boolean `deterministicFailure`만 허용한다. `true`는 이번 실패가 결정적 또는 보존 기간 만료로 자동 재시도 대상이 아니며 최종 실패로 격리됐음을, `false`는 그렇지 않음을 뜻한다. 다른 event나 metric dimension에는 넣지 않는다.
 
 이메일·IP·사용자 ID·`actorUserId`, session·cookie·token·secret, request/response body, prompt/response 원문, Tool 인자·결과, 채팅 내용, 알림 payload, 원본 SQL, 예외 message·stack trace 전문은 중앙 전송을 금지한다. `sourceEventIds` 같은 ID 배열과 자유 입력 `requestedBy`·`reasonReference`도 제외한다. 정상 2xx·4xx access log 전체는 전송하지 않는다.
 
@@ -150,7 +151,8 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 
 | --- | --- | --- |
 | `notification_outbox_relay_batch_completed` | INFO; 처리·retry·failure count, `durationMs`, `oldestProcessableAgeMs` | 허용 |
 | `notification_outbox_relay_event_processed` | INFO; 단일 `sourceEventId`, `eventType`, count·시각·지연 | 허용·상관 키 비집계 |
-| `notification_outbox_relay_retry_scheduled`, `notification_outbox_relay_event_failed` | WARN; 단일 `sourceEventId`, 고정 failure 값·count·다음 시각 | 허용·상관 키 비집계 |
+| `notification_outbox_relay_retry_scheduled` | WARN; 단일 `sourceEventId`, 고정 failure 값·count·다음 시각 | 허용·상관 키 비집계 |
+| `notification_outbox_relay_event_failed` | WARN; 단일 `sourceEventId`, 고정 failure 값·count, 전용 boolean `deterministicFailure` | 허용·상관 키 비집계 |
 | `notification_outbox_relay_scheduler_failed`, `notification_outbox_operation_failed` | ERROR; `failureCode`, `exceptionClass`, `occurredAt` | 허용 |
 | `notification_cleanup_completed`, `notification_cleanup_failed` | INFO/WARN; `targetType`, batch·delete count, duration, 고정 failure 값 | 허용 |
 | `chat_message_retention_completed`, `chat_message_retention_lease_guard_aborted`, `chat_message_retention_backlog_remaining`, `chat_message_retention_failed` | INFO/WARN/ERROR; count·duration·threshold·`exceptionClass` | 허용 |

@@ -306,19 +306,22 @@ class GlobalExceptionHandlerTest {
 				.andExpect(status().isInternalServerError());
 
 			ILoggingEvent gameFailure = appender.list.stream()
-				.filter(event -> event.getFormattedMessage().contains("event=game_detail_failed"))
+				.filter(event -> hasKeyValue(event, "event", "game_detail_failed"))
 				.findFirst()
 				.orElseThrow();
 			assertEquals(Level.ERROR, gameFailure.getLevel());
-			assertTrue(gameFailure.getFormattedMessage().contains("outcome=failed"));
-			assertTrue(gameFailure.getFormattedMessage().contains("failureCode=INTERNAL_SERVER_ERROR"));
-			assertTrue(gameFailure.getFormattedMessage().contains("exceptionClass=java.lang.IllegalStateException"));
+			assertEquals("failed", keyValues(gameFailure).get("outcome"));
+			assertEquals("INTERNAL_SERVER_ERROR", keyValues(gameFailure).get("failureCode"));
+			assertEquals("java.lang.IllegalStateException", keyValues(gameFailure).get("exceptionClass"));
+			assertEquals(777L, keyValues(gameFailure).get("gameId"));
 			assertFalse(gameFailure.getFormattedMessage().contains("password=secret"));
 			assertFalse(gameFailure.getFormattedMessage().contains("database-token"));
 			assertEquals(
 				1,
 				appender.list.stream()
-					.filter(event -> event.getFormattedMessage().contains("event=game_"))
+					.filter(event -> event.getKeyValuePairs() != null && event.getKeyValuePairs().stream()
+						.anyMatch(pair -> pair.key.equals("event")
+							&& String.valueOf(pair.value).startsWith("game_")))
 					.count());
 			assertTrue(
 				appender.list.stream()
@@ -363,6 +366,15 @@ class GlobalExceptionHandlerTest {
 		assertEquals(expected.getCode(), body.code());
 		assertEquals(expected.getMessage(), body.message());
 		assertTrue(body.data() == null);
+	}
+
+	private boolean hasKeyValue(ILoggingEvent event, String key, Object value) {
+		return event.getKeyValuePairs().stream().anyMatch(pair -> pair.key.equals(key) && pair.value.equals(value));
+	}
+
+	private Map<String, Object> keyValues(ILoggingEvent event) {
+		return event.getKeyValuePairs().stream()
+			.collect(Collectors.toMap(pair -> pair.key, pair -> pair.value));
 	}
 
 	private void assertErrorJson(MvcResult result, ErrorCode expected) throws Exception {

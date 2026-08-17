@@ -38,10 +38,12 @@ public class GameController {
 		long startedAt = System.nanoTime();
 		PageResponse<GameListItem> page = PageResponse.from(
 			gameQueryService.findPage(request, currentUserAccessor.currentUserId().orElse(null)));
-		log.info(
-			"event=game_search_completed outcome=success resultCount={} durationMs={}",
-			page.content().size(),
-			(java.lang.System.nanoTime() - startedAt) / 1_000_000);
+		log.atInfo()
+			.addKeyValue("event", "game_search_completed")
+			.addKeyValue("outcome", "success")
+			.addKeyValue("resultCount", page.content().size())
+			.addKeyValue("durationMs", (java.lang.System.nanoTime() - startedAt) / 1_000_000)
+			.log("game search completed");
 		return ApiResponse.success(
 			HttpStatus.OK,
 			page);
@@ -51,10 +53,12 @@ public class GameController {
 	public ApiResponse<GameDetail> getGameDetail(@PathVariable @Min(1) Long gameId) {
 		long startedAt = System.nanoTime();
 		GameDetail detail = gameDetailQueryService.findById(gameId, currentUserAccessor.currentUserId().orElse(null));
-		log.info(
-			"event=game_detail_completed gameId={} outcome=success durationMs={}",
-			gameId,
-			(java.lang.System.nanoTime() - startedAt) / 1_000_000);
+		log.atInfo()
+			.addKeyValue("event", "game_detail_completed")
+			.addKeyValue("gameId", gameId)
+			.addKeyValue("outcome", "success")
+			.addKeyValue("durationMs", (java.lang.System.nanoTime() - startedAt) / 1_000_000)
+			.log("game detail completed");
 		return ApiResponse.success(
 			HttpStatus.OK,
 			detail);

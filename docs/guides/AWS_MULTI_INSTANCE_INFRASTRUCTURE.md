@@ -253,14 +253,18 @@ web의 Nginx는 `ssl_certificate`와 `ssl_certificate_key` 파일이 없으면 �
 - 배포 노드에서는 태그뿐 아니라 실제 pull된 digest와 컨테이너의 release SHA를 함께 확인한다.
 - 게시가 실패하면 같은 SHA를 재게시하지 않고 새 커밋 SHA로 다시 만든다.
 
+Spring 컨테이너가 구조화 로그 파일을 쓸 수 있도록 App1·App2 호스트에서 Compose 기동 전에
+`install -d -o 10001 -g 10001 -m 0750 /var/log/albam-mate`를 실행하고, 각 노드 환경 파일의
+`ALBAM_MATE_OBSERVABILITY_LOG_PATH`에 그 경로를 지정한다.
+
 ### 6. 노드별 필수 환경변수
 
 각 노드에는 그 역할에 필요한 값만 전달한다. RDS를 쓰지 않으므로 RDS CA 경로는 어느 노드에도 필요하지 않다.
 
 | 노드 | 필수 환경변수 | 비고 |
 | --- | --- | --- |
-| App1 | `ALBAM_MATE_IMAGE_NAMESPACE`, `ALBAM_MATE_RELEASE`, `ALBAM_MATE_DB_HOST`·`ALBAM_MATE_DB_NAME`·`ALBAM_MATE_DB_USER`·`ALBAM_MATE_DB_PASSWORD`, `ALBAM_MATE_REDIS_HOST`, `JDK_JAVA_OPTIONS=-Xmx256m`, `ALBAM_MATE_APP2_HOST`, `ALBAM_MATE_HTTPS_BIND_ADDRESS`, `ALBAM_MATE_TLS_PATH` | App1에만 App2 주소·HTTPS bind 주소·TLS 경로가 필요하다. |
-| App2 | `ALBAM_MATE_IMAGE_NAMESPACE`, `ALBAM_MATE_RELEASE`, `ALBAM_MATE_DB_HOST`·`ALBAM_MATE_DB_NAME`·`ALBAM_MATE_DB_USER`·`ALBAM_MATE_DB_PASSWORD`, `ALBAM_MATE_REDIS_HOST`, `JDK_JAVA_OPTIONS=-Xmx256m` | web을 실행하지 않으므로 TLS 경로와 HTTPS bind 주소를 두지 않는다. |
+| App1 | `ALBAM_MATE_IMAGE_NAMESPACE`, `ALBAM_MATE_RELEASE`, `ALBAM_MATE_DB_HOST`·`ALBAM_MATE_DB_NAME`·`ALBAM_MATE_DB_USER`·`ALBAM_MATE_DB_PASSWORD`, `ALBAM_MATE_REDIS_HOST`, `ALBAM_MATE_ENVIRONMENT`, `ALBAM_MATE_STACK_ID`, `ALBAM_MATE_INSTANCE_ID`, `ALBAM_MATE_OBSERVABILITY_LOG_PATH`, `JDK_JAVA_OPTIONS=-Xmx256m`, `ALBAM_MATE_APP2_HOST`, `ALBAM_MATE_HTTPS_BIND_ADDRESS`, `ALBAM_MATE_TLS_PATH` | App1에만 App2 주소·HTTPS bind 주소·TLS 경로가 필요하다. |
+| App2 | `ALBAM_MATE_IMAGE_NAMESPACE`, `ALBAM_MATE_RELEASE`, `ALBAM_MATE_DB_HOST`·`ALBAM_MATE_DB_NAME`·`ALBAM_MATE_DB_USER`·`ALBAM_MATE_DB_PASSWORD`, `ALBAM_MATE_REDIS_HOST`, `ALBAM_MATE_ENVIRONMENT`, `ALBAM_MATE_STACK_ID`, `ALBAM_MATE_INSTANCE_ID`, `ALBAM_MATE_OBSERVABILITY_LOG_PATH`, `JDK_JAVA_OPTIONS=-Xmx256m` | web을 실행하지 않으므로 TLS 경로와 HTTPS bind 주소를 두지 않는다. |
 | PostgreSQL | `ALBAM_MATE_DB_NAME`, `ALBAM_MATE_DB_USER`, `ALBAM_MATE_DB_PASSWORD` | 애플리케이션·Redis 접속값을 두지 않는다. |
 | Redis | 없음 | 현재 Compose 기준으로 필수값도 비밀값도 없다. DB 비밀값을 전달하지 않는다. |
 

@@ -138,9 +138,12 @@ class NotificationRelayFailureRecorderTest {
 
 			assertEquals(1, appender.list.size());
 			assertEquals(Level.WARN, appender.list.getFirst().getLevel());
-			String message = fieldText(appender.list.getFirst());
+			ILoggingEvent event = appender.list.getFirst();
+			String message = fieldText(event);
 			assertTrue(message.contains("event=notification_outbox_relay_event_failed sourceEventId=10"));
 			assertFalse(message.contains("unsupported type"));
+			assertTrue(event.getKeyValuePairs().stream()
+				.anyMatch(pair -> pair.key.equals("deterministicFailure") && Boolean.TRUE.equals(pair.value)));
 		} finally {
 			TransactionSynchronizationManager.clearSynchronization();
 			detachLogAppender(appender);
