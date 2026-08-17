@@ -71,9 +71,9 @@
 ### 데이터·권한
 
 - 로그인 사용자만 `AI-01`을 사용할 수 있으며 기존 인증·인가·CSRF·Room 업무 불변식을 그대로 통과한다.
-- provider에는 고정 instruction·강제 schema·기준 시각·현재 사용자 문장·서버가 확인한 누락 필드만 전달한다. 게임 ID·Room 쓰기 권한·임의 SQL/DSL은 provider에 위임하지 않는다.
-- 추천 후보 조회는 `AI-01`이 소유하는 별도 서버 읽기 흐름으로 둔다. 후속 API·아키텍처 계약에서는 `game.contract`의 AI-01 후보 조회 port를 통해서만 호출하며, `DISCOVERY-01`의 `SEARCH-04` tool을 호출하거나 `game` repository·catalog를 직접 읽지 않는다.
-- 현재 존재하는 `GameQuery` 요약 계약은 서버가 이미 확정한 game ID를 보강하는 공개 계약으로만 취급하며, AI-01 후보 필터·정렬 계약을 대신 확정하지 않는다. 후보 필드·필터·정렬은 후속 API·아키텍처 계약에서 승인한다.
+- provider에는 고정 instruction·강제 schema·기준 시각·서버가 최소화한 사용자 문장·서버가 확인한 누락 필드만 전달한다. 호출 전에 전화번호·주소·연락처·자격증명·token 같은 PII·secret을 탐지해 승인된 방식으로 마스킹하고, 안전하게 마스킹할 수 없으면 provider 호출을 fail-closed로 거절한다. provider가 no-retention·no-training 조건을 계약으로 보장하지 못하면 호출하지 않으며, 게임 ID·Room 쓰기 권한·임의 SQL/DSL은 provider에 위임하지 않는다.
+- 추천 후보 조회는 `AI-01`이 소유하는 별도 서버 읽기 흐름으로 둔다. 구조화된 추천 조건은 모두 AND로 적용한 뒤 내부 `RANK-01` 순서로 정렬하며, 공개 `RANK-01` API의 상위 10개 결과나 provider가 정한 순서를 사용하지 않는다. 후속 API·아키텍처 계약에서는 `game.contract`의 AI-01 후보 조회 port를 통해서만 호출하며, `DISCOVERY-01`의 `SEARCH-04` tool을 호출하거나 `game` repository·catalog를 직접 읽지 않는다.
+- 현재 존재하는 `GameQuery` 요약 계약은 서버가 이미 확정한 game ID를 보강하는 공개 계약으로만 취급하며, AI-01 후보 선택·필터·정렬을 대신하지 않는다. 후보 응답 필드는 후속 API·아키텍처 계약에서 승인하되, AND 필터와 내부 `RANK-01` 정렬은 이 기능의 고정 규칙으로 유지한다.
 - 추천 후보와 Room 생성 가능 여부는 서버가 소유한 검증·권한 경계를 따른다. 모델 출력은 신뢰할 수 없는 구조화 입력으로 검증한다.
 - `RECOMMEND`의 `missingFields`에는 추천에 필요한 검색 조건만 포함한다. 방 생성 전용 필드를 함께 채우도록 요구하지 않으며, 검색 조건이 전혀 없으면 후보 조회를 하지 않고 `NEEDS_INPUT`으로 끝낸다.
 - `CREATE_ROOM`의 `missingFields`는 방 생성에 필요한 총 인원·시작 시각·지역·게임 선택을 기준으로 판정한다. 추천 단계의 누락 질문과 섞지 않는다.
@@ -84,6 +84,7 @@
 - 자연어 요청과 추천만으로는 Room·ChatRoom·참가 관계를 만들지 않는다.
 - 사용자가 확인 카드에서 최종 조건과 상세 장소를 확인한 뒤에만 기존 Room 생성 command를 호출한다.
 - 동일 확인 재시도는 같은 결과로 수렴해야 하며, 다른 요청이나 오래된 초안이 중복 Room을 만들지 않아야 한다. 구체 잠금·유일 제약·오류 코드는 AI-D02 승인 결과를 따른다.
+- `Idempotency-Key`의 저장·조회·유일성 범위는 최소 현재 인증 사용자(`currentUserId`)·확인 대상 draft/resource·operation으로 묶는다. 같은 범위의 재시도만 최초 Room 결과를 재생하고, 다른 사용자·draft·operation에서 같은 key를 재사용하면 Room을 반환하지 않고 `CONFIRMATION_CONFLICT` 또는 `FORBIDDEN`으로 끝낸다.
 
 ### 실패·복구
 
@@ -93,7 +94,7 @@
 | `NO_CANDIDATES` | 유효한 `RECOMMEND` 검색 조건으로 후보를 조회했지만 결과가 없음 | 후보 없음과 검색 조건 수정 안내 |
 | `CONSENT_REQUIRED` | 외부 AI 처리 동의가 없음 또는 철회됨 | 동의 없이는 AI 호출·활성 초안을 만들지 않음 |
 | `AI_UNAVAILABLE` | timeout·429·schema 오류·provider 장애 | 성공 결과로 포장하지 않고 수동 흐름 또는 재시도 안내 |
-| `CONFIRMATION_CONFLICT` | 만료·타인 접근·오래된 draft version·멱등성 충돌 | Room을 만들지 않고 공개 오류 계약에 맞게 반환 |
+| `CONFIRMATION_CONFLICT` | 만료·타인 접근·오래된 draft version·멱등키 범위 밖 재사용·멱등성 충돌 | Room을 만들지 않고 공개 오류 계약에 맞게 반환 |
 
 실패 상태와 오류 코드는 API·ADR 승인 전까지 논리적 기능 상태로만 취급하며, 이 문서가 공개 HTTP 계약을 대신하지 않는다.
 
@@ -106,12 +107,12 @@
 ## 기능 ID별 완료 기준
 
 - `AI-01-AC1`: 로그인 사용자의 자연어 요청이 서버 검증 가능한 구조화 조건과 상태로 변환되고, 지원하지 않는 요청·모호한 조건·prompt injection이 안전하게 거절된다.
-- `AI-01-AC2`: 조건이 유효하면 서버가 허용된 후보 조회 경계에서 추천을 만들고, 결과에 없는 게임·조건·업무 처리를 성공한 것처럼 주장하지 않는다.
+- `AI-01-AC2`: 조건이 유효하면 서버가 구조화 조건을 모두 AND로 적용하고 내부 `RANK-01` 순서로 정렬한 후보를 추천하며, 결과에 없는 게임·조건·업무 처리를 성공한 것처럼 주장하지 않는다.
 - `AI-01-AC3`: 확인 전 Room·ChatRoom·참가 관계가 0개이며, 필요한 필드가 빠진 경우 `NEEDS_INPUT`으로 필요한 정보만 다시 요청한다.
-- `AI-01-AC4`: 사용자의 명시적 확인 뒤 기존 Room 생성 command를 호출하고, 동일 확인 재시도·동시 요청·오래된 draft가 정확히 하나의 결과로 수렴한다.
+- `AI-01-AC4`: 사용자의 명시적 확인 뒤 기존 Room 생성 command를 호출하고, 현재 사용자·대상 draft·operation 범위가 같은 동일 확인 재시도·동시 요청·오래된 draft가 정확히 하나의 결과로 수렴하며 범위 밖 key 재사용은 Room을 반환하지 않는다.
 - `AI-01-AC5`: 동의 철회·provider 장애·timeout·quota 초과·schema 오류·Room 생성 실패가 각각 공개된 실패 상태로 끝나며 부분적인 Room·ChatRoom을 남기지 않는다.
-- `AI-01-AC6`: 외부 처리 payload, 보존, 호출 한도, 비용 상한, fake provider와 feature flag가 승인된 AI-D01 계약과 일치하고 실제 provider가 기본 테스트에서 호출되지 않는다.
-- `AI-01-AC7`: 고정 fixture에서 추천·추가 질문·거절·실패·확인형 생성의 성공·실패 결과와 비용·지연·금지 데이터 부재를 재현 가능하게 판정한다.
+- `AI-01-AC6`: 외부 처리 payload가 PII·secret 차단·allowlist와 provider no-retention·no-training 조건을 지키고, 보존·호출 한도·비용 상한·fake provider와 feature flag가 승인된 AI-D01 계약과 일치하며 실제 provider가 기본 테스트에서 호출되지 않는다.
+- `AI-01-AC7`: 고정 fixture에서 추천·추가 질문·거절·실패·확인형 생성의 성공·실패 결과와 비용·지연·금지 데이터 부재를 [검증 설계의 비용·지연 판정 기준](assistant-load-test.md#비용지연-판정)에 따라 `PASS`·`FAIL`·`NOT_RUN`·`NO_OBSERVATION`·`INVALID`로 재현 가능하게 판정한다.
 
 위 완료 기준의 구현·자동 검증·배포·실측 상태는 [P2 기능 상태](README.md#기능별-현재-상태)에서 각각 기록하며, 이 문서 등록만으로 어느 축도 완료로 표시하지 않는다.
 
