@@ -466,6 +466,10 @@ jobs:
           load-tests/k6/jiwon/tests/fixture-runner.test.mjs
           load-tests/k6/jiwon/tests/write-response-contract.test.mjs
 
+      # 합성 summary로 검증할 수 없는 k6 1.3.0의 tagged submetric 동작도 실제 이미지로 회귀 검증한다.
+      - name: Test ROOM k6 1.3.0 summary export
+        run: node --test load-tests/k6/jiwon/tests/k6-summary-outcome-smoke.test.mjs
+
       # 계약 테스트가 import하지 않는 T1~T5 실행 스크립트도 병합 전 파싱한다.
       - name: Check ROOM k6 script syntax
         shell: bash

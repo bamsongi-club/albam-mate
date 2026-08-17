@@ -8,7 +8,7 @@ import {
   hasT3CancelPayload,
   hasWaitlistPayload,
 } from './write-response-contract.mjs';
-import { writeOptions } from './write-options.mjs';
+import { outcomeDurationThresholds, writeOptions } from './write-options.mjs';
 import { START_SKEW_THRESHOLD } from './start-skew.mjs';
 
 export { writeOptions };
@@ -290,7 +290,7 @@ export function sessionFor(runtime, sessions, userKey) {
 export function readOptions(runtime) {
   const maxDuration = runtime.sessionWarmupSeconds + runtime.readDurationSeconds + 30;
   return {
-    summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'count'],
+    summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)', 'count'],
     scenarios: {
       room_read: {
         executor: 'per-vu-iterations',
@@ -300,6 +300,7 @@ export function readOptions(runtime) {
       },
     },
     thresholds: {
+      ...outcomeDurationThresholds(),
       room_contract_failures: ['count==0'],
       room_unexpected_4xx: ['count==0'],
       room_server_failures: ['count==0'],
@@ -354,8 +355,9 @@ export function targetForRound(fixture, round) {
 }
 
 function recordResponse(response, outcome, tags, label) {
-  const metricTags = { ...tags, outcome: outcome.category };
-  roomRequestDuration.add(response.timings.duration, metricTags);
+  const outcomeCategory = outcome.contract ? outcome.category : 'unexpected';
+  const metricTags = { ...tags, outcome: outcomeCategory };
+  roomRequestDuration.add(response.timings.duration, { outcome: outcomeCategory });
   roomRequests.add(1, metricTags);
 
   const isSuccessful = outcome.category === 'success' && outcome.contract;

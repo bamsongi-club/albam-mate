@@ -167,7 +167,16 @@ node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id $runId
 
 portable bundle의 `manifest.json`은 실행 입력 계약이고, `infra-execution.json`·before/after diagnosis·`final-result.json`·`k6-summary.json`은 실행 결과다.
 
-`room_success`, `room_created`, `room_business_failures`, `room_concurrent_failures`, `room_unexpected_4xx`, `room_server_failures`, `room_contract_failures`, `room_request_duration`, `room_start_skew_ms`를 k6 summary에서 확인한다.
+`room_success`, `room_created`, `room_business_failures`, `room_concurrent_failures`, `room_unexpected_4xx`, `room_server_failures`, `room_contract_failures`, `room_start_skew_ms`와 아래 outcome별 duration metric을 k6 summary에서 확인한다.
+
+`k6-summary.json`은 `room_request_duration{outcome:success}`, `room_request_duration{outcome:business}`, `room_request_duration{outcome:concurrency}`, `room_request_duration{outcome:unexpected}`를 항상 포함한다. 각 metric의 `values`는 다음 구조로 정규화한다.
+
+| 필드 | 표본이 있을 때 | 표본이 없을 때 |
+| --- | --- | --- |
+| `count` | 발생 건수 | `0` |
+| `p50`, `p95`, `p99`, `max` | 관측 지연시간 통계 | JSON `null` |
+
+표본이 없는 outcome의 지연시간을 `0`으로 기록하지 않는다. 사람이 보는 표와 문서에서 JSON `null`은 `N/A`로 표시한다. 네 outcome의 `count` 합은 `room_requests`와 같아야 하며, 검증과 portable bundle 진단이 이 조건을 확인한다.
 
 ## 결과 판정
 
@@ -213,7 +222,13 @@ Get-ChildItem load-tests/k6/jiwon -Recurse -File |
 node scripts/docs/check-doc-links.mjs
 ```
 
-k6가 설치된 실행 환경에서는 아래도 추가한다.
+Docker가 있는 실행 환경에서는 고정된 k6 1.3.0 이미지의 raw `summary-export` 회귀 테스트도 추가한다.
+
+```powershell
+node --test load-tests/k6/jiwon/tests/k6-summary-outcome-smoke.test.mjs
+```
+
+k6가 직접 설치된 실행 환경에서는 아래도 추가한다.
 
 ```powershell
 k6 inspect load-tests/k6/jiwon/t1-cancel-promotion.js

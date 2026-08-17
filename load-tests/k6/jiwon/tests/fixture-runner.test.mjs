@@ -33,6 +33,7 @@ const repositoryRoot = path.resolve(testDirectory, '../../../..');
 const fixtureTool = path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon', 'tools', 'fixture.mjs');
 const fixtureBuildRoot = path.join(repositoryRoot, 'build', 'k6', 'room');
 const roomK6Library = path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon', 'lib', 'room-k6.js');
+const writeOptionsLibrary = path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon', 'lib', 'write-options.mjs');
 const t5Script = path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon', 't5-room-detail-by-role.js');
 const PREPARE_OWNERSHIP = 'a'.repeat(32);
 
@@ -404,6 +405,15 @@ function writeBoundSummary(fixtureDirectory, summary) {
 
 function t5Summary(startSkewCount) {
   const metric = (count) => ({ values: { count } });
+  const durationMetric = (count) => ({
+    values: {
+      p50: count > 0 ? 10 : null,
+      p95: count > 0 ? 20 : null,
+      p99: count > 0 ? 30 : null,
+      max: count > 0 ? 40 : null,
+      count,
+    },
+  });
   return {
     metrics: {
       room_requests: metric(1),
@@ -414,6 +424,10 @@ function t5Summary(startSkewCount) {
       room_unexpected_4xx: metric(0),
       room_server_failures: metric(0),
       room_start_skew_ms: metric(startSkewCount),
+      'room_request_duration{outcome:success}': durationMetric(1),
+      'room_request_duration{outcome:business}': durationMetric(0),
+      'room_request_duration{outcome:concurrency}': durationMetric(0),
+      'room_request_duration{outcome:unexpected}': durationMetric(0),
     },
   };
 }
@@ -422,7 +436,12 @@ function t5SummaryWithTopLevelCounts(startSkewCount) {
   return {
     metrics: Object.fromEntries(
       Object.entries(t5Summary(startSkewCount).metrics)
-        .map(([name, metric]) => [name, { count: metric.values.count }]),
+        .map(([name, metric]) => [
+          name,
+          name.startsWith('room_request_duration{outcome:')
+            ? metric
+            : { count: metric.values.count },
+        ]),
     ),
   };
 }
@@ -794,11 +813,18 @@ test('T5는 barrier 직후 VU별 측정 시작 편차를 기록한다', () => {
 
 test('T5 read 옵션은 시작 편차를 summary에 남기고 1초를 넘으면 실패한다', () => {
   const source = readFileSync(roomK6Library, 'utf8');
+  const writeOptionsSource = readFileSync(writeOptionsLibrary, 'utf8');
 
   assert.match(
     source,
-    /summaryTrendStats:\s*\[\s*'avg',\s*'min',\s*'med',\s*'max',\s*'p\(90\)',\s*'p\(95\)',\s*'count',?\s*\]/,
+    /summaryTrendStats:\s*\[\s*'avg',\s*'min',\s*'med',\s*'max',\s*'p\(90\)',\s*'p\(95\)',\s*'p\(99\)',\s*'count',?\s*\]/,
   );
+  assert.match(
+    writeOptionsSource,
+    /summaryTrendStats:\s*\[\s*'avg',\s*'min',\s*'med',\s*'max',\s*'p\(90\)',\s*'p\(95\)',\s*'p\(99\)',\s*'count',?\s*\]/,
+  );
+  assert.match(source, /thresholds:\s*\{\s*\.\.\.outcomeDurationThresholds\(\)/);
+  assert.match(writeOptionsSource, /thresholds:\s*\{\s*\.\.\.outcomeDurationThresholds\(\)/);
   assert.match(source, /room_start_skew_ms:\s*\[\s*START_SKEW_THRESHOLD\s*\]/);
 });
 
@@ -893,9 +919,16 @@ test('run은 성공한 k6 실행의 provenance manifest와 summary를 같은 fix
     assert.equal(manifest.summarySha256, sha256(path.join(fixtureDirectory, 'k6-summary.json')));
     assert.ok(Date.parse(manifest.startedAtUtc));
     assert.ok(Date.parse(manifest.finishedAtUtc));
-    assert.deepEqual(JSON.parse(readFileSync(path.join(fixtureDirectory, 'k6-summary.json'), 'utf8')), {
-      metrics: {},
-    });
+    const summary = JSON.parse(readFileSync(path.join(fixtureDirectory, 'k6-summary.json'), 'utf8'));
+    for (const category of ['success', 'business', 'concurrency', 'unexpected']) {
+      assert.deepEqual(summary.metrics[`room_request_duration{outcome:${category}}`].values, {
+        p50: null,
+        p95: null,
+        p99: null,
+        max: null,
+        count: 0,
+      });
+    }
 
     const rerun = runFixture(fixturePath, binDirectory, { FAKE_K6_EXIT: '23' });
     assert.notEqual(rerun.status, 0);
@@ -1434,9 +1467,16 @@ test('run은 k6 비정상 종료에도 종료 시각과 exit code를 보존한�
     const manifest = JSON.parse(readFileSync(path.join(fixtureDirectory, 'run-manifest.json'), 'utf8'));
     assert.equal(manifest.k6ExitCode, 23);
     assert.ok(Date.parse(manifest.finishedAtUtc));
-    assert.deepEqual(JSON.parse(readFileSync(path.join(fixtureDirectory, 'k6-summary.json'), 'utf8')), {
-      metrics: {},
-    });
+    const summary = JSON.parse(readFileSync(path.join(fixtureDirectory, 'k6-summary.json'), 'utf8'));
+    for (const category of ['success', 'business', 'concurrency', 'unexpected']) {
+      assert.deepEqual(summary.metrics[`room_request_duration{outcome:${category}}`].values, {
+        p50: null,
+        p95: null,
+        p99: null,
+        max: null,
+        count: 0,
+      });
+    }
   } finally {
     rmSync(fixtureDirectory, { recursive: true, force: true });
     rmSync(binDirectory, { recursive: true, force: true });
