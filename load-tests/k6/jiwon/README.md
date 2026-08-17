@@ -222,7 +222,13 @@ Get-ChildItem load-tests/k6/jiwon -Recurse -File |
 node scripts/docs/check-doc-links.mjs
 ```
 
-k6가 설치된 실행 환경에서는 아래도 추가한다.
+Docker가 있는 실행 환경에서는 고정된 k6 1.3.0 이미지의 raw `summary-export` 회귀 테스트도 추가한다.
+
+```powershell
+node --test load-tests/k6/jiwon/tests/k6-summary-outcome-smoke.test.mjs
+```
+
+k6가 직접 설치된 실행 환경에서는 아래도 추가한다.
 
 ```powershell
 k6 inspect load-tests/k6/jiwon/t1-cancel-promotion.js
