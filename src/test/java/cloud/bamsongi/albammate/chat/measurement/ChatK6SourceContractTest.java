@@ -138,7 +138,9 @@ class ChatK6SourceContractTest {
 			"(?m)^\\|\\s*방\\s*\\|[^\\n]*\\|\\s*100건/10초\\s*\\|\\s*10초 고정 창\\s*\\|\\s*$");
 		assertThat(api).contains("현재 제품·HTTP·WebSocket 계약은 이 문서가 정본");
 		assertThat(api).contains("issues/760#issuecomment-5300372595");
-		assertThat(api).contains("issues/761#issuecomment-5300395172");
+		assertThat(api).doesNotContain("issues/761#issuecomment-5300395172");
+		assertThat(api).contains(
+			"[CHAT-03](#chat-03-실시간-메시지-구독) · [P1 종료 기록](archive/p1/chatting.md#chat-03-실시간-전달재연결-복구)");
 		assertThat(rateLimitContract).contains("validateCommonPrerequisites();");
 		assertThat(rateLimitContract).containsPattern(
 			"(?s)if\\s*\\(CASE\\s*===\\s*'room'\\)\\s*\\{\\s*validateRateLimitRoomProfile\\(\\);\\s*\\}");

@@ -246,7 +246,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 24 | P1 | [NOTI-03](#noti-03-내-알림-일괄-읽음) · [정본](archive/p1/notification.md#noti-03-알림-읽음-처리) | PATCH | `/api/users/me/notifications` | Y | Y | 200 |
 | 25 | P1 | [CHAT-02](#chat-02-메시지-전송) · [P1 종료 기록](archive/p1/chatting.md#chat-02-메시지-전송이력-조회) | POST | `/api/rooms/{roomId}/chat/messages` | Y | Y | 201·200 |
 | 26 | P1 | [CHAT-02](#chat-02-메시지-이력-조회) · [P1 종료 기록](archive/p1/chatting.md#chat-02-메시지-전송이력-조회) | GET | `/api/rooms/{roomId}/chat/messages` | Y | N | 200 |
-| 27 | P1 | [CHAT-03](#chat-03-실시간-메시지-구독) · [정본](archive/p1/chatting.md#chat-03-실시간-전달재연결-복구) | GET (Upgrade) | `/api/rooms/{roomId}/chat/ws` | Y | N | 101 |
+| 27 | P1 | [CHAT-03](#chat-03-실시간-메시지-구독) · [P1 종료 기록](archive/p1/chatting.md#chat-03-실시간-전달재연결-복구) | GET (Upgrade) | `/api/rooms/{roomId}/chat/ws` | Y | N | 101 |
 | 28 | P1 | [AUTH-05](#auth-05-소셜-로그인계정-연결) · [정본](archive/p1/social-login.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/providers` | 선택 | N | 200 |
 | 29 | P1 | [AUTH-05](#소셜-로그인-authorization-시작) · [정본](archive/p1/social-login.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/authorization/{provider}` | N | N | 302 |
 | 30 | P1 | [AUTH-05](#소셜-callback과-고정-결과) · [정본](archive/p1/social-login.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/callback/{provider}` | N | N | 302 |
@@ -1902,7 +1902,7 @@ Path variable·query parameter·body는 없다. `unreadCount`는 미확인 개�
 
 ### 채팅 공통 계약
 
-현재 제품·HTTP·WebSocket 계약은 이 문서가 정본이며, P1 종료 시점의 기록은 [P1 방 채팅 기능 명세](archive/p1/chatting.md)와 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태)에 보존한다. 메시지 ID cursor·실시간 전달·PostgreSQL 정본·보관 경계는 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0049](adr/chat/0049-chat-message-retention-lock-section-boundary.md), 전송 제한·Redis 실패 처리의 공개 계약은 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)과 [#372 정본 반영 이슈](https://github.com/bamsongi-club/albam-mate/issues/372), 50/100 완화 결정은 [#760 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/760#issuecomment-5300372595), 검증 계약은 [#761 T1~T7 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/761#issuecomment-5300395172)을 따른다.
+현재 제품·HTTP·WebSocket 계약은 이 문서가 정본이며, P1 종료 시점의 기록은 [P1 방 채팅 기능 명세](archive/p1/chatting.md)와 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태)에 보존한다. 메시지 ID cursor·실시간 전달·PostgreSQL 정본·보관 경계는 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)·[ADR-0032](adr/chat/0032-http-send-websocket-receive.md)·[ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)·[ADR-0049](adr/chat/0049-chat-message-retention-lock-section-boundary.md), 전송 제한·Redis 실패 처리의 공개 계약은 [#288 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/288#issuecomment-5175338930)과 [#372 정본 반영 이슈](https://github.com/bamsongi-club/albam-mate/issues/372), 50/100 완화 결정은 [#760 승인 댓글](https://github.com/bamsongi-club/albam-mate/issues/760#issuecomment-5300372595)을 따른다.
 
 모든 채팅 요청은 요청 시점의 방 상태와 주최자·현재 `ACTIVE` 참가자 관계를 서버에서 다시 확인한다. 접근 확인 전 대상 ROOM 보정의 낙관 락 재시도를 소진하면 `409 ROOM_CONCURRENT_MODIFICATION`을 반환한다. `RECRUITING`·`CLOSED` 방만 일반 사용자 접근을 허용하며, 참가 취소·`CANCELED`·`FINISHED` 상태는 `FORBIDDEN`으로 거절한다. 메시지 본문은 로그와 메트릭에 기록하지 않는다.
 
