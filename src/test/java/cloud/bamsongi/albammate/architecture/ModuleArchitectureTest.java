@@ -216,7 +216,7 @@ class ModuleArchitectureTest {
 	}
 
 	@Test
-	void MATCH는_chat_구현을_참조하지_않고_chat_match는_matching_contract만_참조한다() {
+	void MATCH는_chat_구현을_참조하지_않고_chat은_matching_contract만_참조한다() {
 		JavaClasses matchingClasses = PRODUCTION_CLASSES.that(
 			resideInAPackage(ROOT_PACKAGE + ".matching.."));
 		assertFalse(matchingClasses.isEmpty(), "MATCH 저장·계약 생산 패키지가 등록되지 않았습니다.");
@@ -236,12 +236,12 @@ class ModuleArchitectureTest {
 			.check(PRODUCTION_CLASSES);
 		noClasses()
 			.that()
-			.resideInAPackage(ROOT_PACKAGE + ".chat.match..")
+			.resideInAPackage(ROOT_PACKAGE + ".chat..")
 			.should()
 			.dependOnClassesThat(
 				resideInAPackage(ROOT_PACKAGE + ".matching..")
 					.and(resideOutsideOfPackage(ROOT_PACKAGE + ".matching.contract..")))
-			.because("MATCH chat은 matching.contract 밖 구현을 참조하지 않는다")
+			.because("chat은 matching.contract 밖 구현을 참조하지 않는다")
 			.allowEmptyShould(true)
 			.check(PRODUCTION_CLASSES);
 	}

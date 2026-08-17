@@ -44,6 +44,7 @@ class MatchPartyAccessQueryPostgresTest {
 	@Test
 	void ACTIVE이고_나가지_않은_본인_참가_관계만_MATCH_채팅_접근으로_허용한다() throws Exception {
 		long memberId = insertUser("member");
+		long formerMemberId = insertUser("former");
 		long outsiderId = insertUser("outsider");
 		long gameId = insertGame();
 		long activePartyId = insertParty(gameId, "ACTIVE");
@@ -52,7 +53,7 @@ class MatchPartyAccessQueryPostgresTest {
 		insertParticipant(activePartyId, memberId, false);
 		insertParticipant(preparingPartyId, memberId, false);
 		insertParticipant(closedPartyId, memberId, false);
-		insertParticipant(activePartyId, outsiderId, true);
+		insertParticipant(activePartyId, formerMemberId, true);
 
 		Class<?> accessQueryType = Class.forName(
 			"cloud.bamsongi.albammate.matching.contract.MatchPartyAccessQuery");
@@ -62,6 +63,7 @@ class MatchPartyAccessQueryPostgresTest {
 		assertTrue((boolean)hasActiveAccess.invoke(accessQuery, memberId, activePartyId));
 		assertFalse((boolean)hasActiveAccess.invoke(accessQuery, memberId, preparingPartyId));
 		assertFalse((boolean)hasActiveAccess.invoke(accessQuery, memberId, closedPartyId));
+		assertFalse((boolean)hasActiveAccess.invoke(accessQuery, formerMemberId, activePartyId));
 		assertFalse((boolean)hasActiveAccess.invoke(accessQuery, outsiderId, activePartyId));
 	}
 
