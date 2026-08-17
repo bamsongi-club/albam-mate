@@ -15,11 +15,14 @@
 
 ## 고정 fixture
 
+아래 검증은 응답 문구가 아니라 `missingFields` 집합과 호출 trace를 assertion한다. `recommendationSearchFields`는 fixture가 선언한 추천 검색 조건 집합이고, `roomCreationFields`는 총 인원·시작 시각·지역·게임 선택처럼 방 생성에 필요한 필드 집합이다. 두 집합은 공개 HTTP 필드가 승인될 때 해당 이름으로 고정한다.
+
 | cohort | 최소 시나리오 | 기대 상태 |
 | --- | --- | --- |
-| 추천 | 유효한 게임·인원·시간 조건 | 후보와 적용 조건만 반환 |
-| 입력 부족 | 게임·인원·시간·지역 중 일부 누락 | `NEEDS_INPUT`, 필요한 필드만 질문 |
-| 후보 없음 | 유효하지만 결과가 없는 조건 | `NO_CANDIDATES`, 성공 결과를 만들지 않음 |
+| 추천 입력 없음 | `RECOMMEND`에 `게임 추천해줘`처럼 검색 조건이 없음 | `NEEDS_INPUT`; `missingFields == recommendationSearchFields`, `missingFields ∩ roomCreationFields == ∅`, 후보 조회 trace 0건, 활성 임시 초안 0개 |
+| 추천 | 유효한 `RECOMMEND` 검색 조건 | `missingFields == ∅`, 후보 조회 trace 1건과 후보·적용 조건 반환, 활성 임시 초안·Room 0개 |
+| 방 생성 입력 부족 | `CREATE_ROOM`의 총 인원·시작 시각·지역·게임 선택 중 일부 누락 | `NEEDS_INPUT`; `missingFields`가 확인되지 않은 `roomCreationFields`와 정확히 일치하고 추천 검색 조건을 섞지 않으며 Room·ChatRoom을 만들지 않음 |
+| 후보 없음 | 유효한 `RECOMMEND` 조건으로 조회했지만 결과가 없음 | `NO_CANDIDATES`; `missingFields == ∅`, 유효 조건의 후보 조회 trace 정확히 1건과 0건 결과, 활성 임시 초안·Room 0개 |
 | 동의 | 동의 전·동의 후·철회 후 | 동의 전/철회 후 provider 호출 0건 |
 | 확인 성공 | 유효한 새 초안과 유효한 confirm | 성공 응답, Room 정확히 1개, ChatRoom 정확히 1개 |
 | 확인 재시도 | 같은 key·같은 draft version 재시도 | 최초 성공 응답·Room ID·ChatRoom ID를 그대로 반환하고 추가 행 0개 |
