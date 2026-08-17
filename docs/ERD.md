@@ -21,7 +21,7 @@
 
 ## 관계도
 
-아래 관계도는 현재 구현된 P0·P1 저장 구조만 나타낸다. P2 MATCH의 계획 관계는 [P2 MATCH 저장 계약](#p2-match-저장-계약-계획미구현)에서 별도로 표현한다.
+아래 관계도는 P0·P1 저장 구조만 나타낸다. P2 MATCH 관계는 [P2 MATCH 저장 계약](#p2-match-저장-계약)에서 별도로 표현한다.
 
 ~~~mermaid
 erDiagram
@@ -716,9 +716,9 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 - 사용자·방 삭제 기능은 P1 알림 범위에 없으므로 관련 FK는 `ON DELETE NO ACTION`으로 둔다. 향후 계정 삭제나 방 물리 삭제를 도입할 때 알림 익명화·삭제 순서를 별도로 결정한다.
 - 별도 복구 이력 테이블은 두지 않는다. 현재·누적 실패 횟수, 재처리 횟수와 마지막 실패·재처리·폐기 근거만 Outbox에 보존하며 강한 감사 이력이 필요해지면 후속 저장 계약으로 확장한다.
 
-## P2 MATCH 저장 계약 (계획·미구현)
+## P2 MATCH 저장 계약
 
-> 이 절은 `MATCH-01`의 승인된 목표 저장 계약이며 아직 Flyway·JPA 엔티티·생산 테이블이 없다. 현재 제공·검증·배포·실측 여부는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 판정한다. 후보 선점·멱등성 선택 근거는 [ADR-0061](adr/matching/0061-postgresql-candidate-reservation-idempotency.md), MATCH 전용 채팅의 도메인 분리·port 선택 근거는 [ADR-0062](adr/matching/0062-match-chat-handoff-recovery-retention.md), URL 텍스트 표현 선택은 [ADR-0064](adr/matching/0064-match-chat-url-text-storage.md), baseline 전 목표·Redis 재검토 결정은 [ADR-0063](adr/matching/0063-match-baseline-measurement-gate.md)을 따른다. MATCH 채팅의 제품 동작·보존은 [MATCH-01 성공 파티 채팅](p2/matching.md#성공-파티-채팅), 복구 실행은 [아키텍처의 P2 MATCH 모듈 계약](ARCHITECTURE.md#p2-match-모듈-계약-계획미구현), candidate 측정 상세는 [후보 탐색 baseline 측정 계약](measurements/match-01-candidate-search-baseline-contract.md)이 각각 소유한다.
+> 이 절은 `MATCH-01`의 승인된 저장 계약이다. 아래 테이블은 Flyway 마이그레이션과 JPA 엔티티로 이미 만들어져 있으며, 기능별 제공·검증·배포·실측 여부는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 판정한다. 저장 구조가 있다는 사실을 기능 구현의 완료 증거로 읽지 않는다. 후보 선점·멱등성 선택 근거는 [ADR-0061](adr/matching/0061-postgresql-candidate-reservation-idempotency.md), MATCH 전용 채팅의 도메인 분리·port 선택 근거는 [ADR-0062](adr/matching/0062-match-chat-handoff-recovery-retention.md), URL 텍스트 표현 선택은 [ADR-0064](adr/matching/0064-match-chat-url-text-storage.md), baseline 전 목표·Redis 재검토 결정은 [ADR-0063](adr/matching/0063-match-baseline-measurement-gate.md)을 따른다. MATCH 채팅의 제품 동작·보존은 [MATCH-01 성공 파티 채팅](p2/matching.md#성공-파티-채팅), 복구 실행은 [아키텍처의 P2 MATCH 모듈 계약](ARCHITECTURE.md#p2-match-모듈-계약), candidate 측정 상세는 [후보 탐색 baseline 측정 계약](measurements/match-01-candidate-search-baseline-contract.md)이 각각 소유한다.
 
 이 절은 저장 이름·타입·제약·인덱스와 저장 효과만 소유한다. 제품 흐름과 HTTP 필드는 [MATCH-01 명세](p2/matching.md#match-01-실시간-파티-매칭), API 필드·오류는 [API](API.md)가 소유하며 여기서 반복하지 않는다.
 
@@ -762,15 +762,17 @@ erDiagram
 
 ### MATCH_REQUESTS
 
-물리 테이블명은 계획상 `match_requests`다. Board Game Arena가 P2 MVP에서 유일한 플랫폼이므로 중복 플랫폼 컬럼은 두지 않는다.
+물리 테이블명은 `match_requests`다. Board Game Arena가 P2 MVP에서 유일한 플랫폼이므로 중복 플랫폼 컬럼은 두지 않는다.
+
+`min_party_size`·`max_party_size`는 요청 등록 시점에 확정한 **요청 인원 범위와 게임 지원 인원 범위의 교집합**을 저장한다. 게임 지원 인원 범위를 따로 스냅샷하는 컬럼은 두지 않으며, 후보 선별은 이 두 컬럼만 읽는다. 따라서 이후 게임 카탈로그가 바뀌어도 기존 요청의 판정은 변하지 않는다.
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | id | BIGINT | PK, NN, AI | `matchRequestId` |
 | user_id | BIGINT | FK → USERS.id, NN | 요청 사용자 |
 | game_id | BIGINT | FK → GAMES.id, NN | 고정 게임 |
-| min_party_size | SMALLINT | NN | 허용 파티 인원 하한 |
-| max_party_size | SMALLINT | NN | 허용 파티 인원 상한 |
+| min_party_size | SMALLINT | NN | 요청 범위와 게임 지원 범위의 교집합 하한 |
+| max_party_size | SMALLINT | NN | 요청 범위와 게임 지원 범위의 교집합 상한 |
 | status | VARCHAR(20) | NN | `match_request_status` |
 | queued_at | TIMESTAMPTZ | NN | 현재 대기 시도 시작 시각 |
 | priority_since | TIMESTAMPTZ | NN | 현재 대기 시도의 FIFO 기준 시각 |
