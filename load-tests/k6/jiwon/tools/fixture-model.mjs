@@ -61,10 +61,6 @@ function sqlLiteral(value) {
   return `'${String(value).replaceAll("'", "''")}'`;
 }
 
-function sqlValues(rows) {
-  return rows.map((row) => `(${row.map(sqlLiteral).join(', ')})`).join(',\n    ');
-}
-
 function sqlIds(values) {
   if (values.length === 0) {
     return 'NULL';
@@ -411,7 +407,13 @@ export function buildPrepareSql(plan, passwordHash, prepareOwnership) {
   const ownershipDescription = prepareOwnershipDescription(prepareOwnership);
   const usersByKey = new Map(plan.users.map((user) => [user.key, user]));
   const roomsByKey = new Map(plan.rooms.map((room) => [room.key, room]));
-  const userRows = plan.users.map((user) => [user.email, passwordHash, user.nickname]);
+  const userRows = plan.users.map((user) => `(
+        ${sqlLiteral(user.email)},
+        ${sqlLiteral(passwordHash)},
+        ${sqlLiteral(user.nickname)},
+        clock_timestamp(),
+        clock_timestamp()
+    )`);
   const roomRows = plan.rooms.map((room) => {
     const host = usersByKey.get(room.hostKey);
     return [
@@ -466,7 +468,7 @@ SELECT pg_advisory_xact_lock(hashtext(${sqlLiteral(plan.fixtureId)}));
 
 INSERT INTO users (email, password_hash, nickname, created_at, updated_at)
 VALUES
-    ${sqlValues(userRows)};
+    ${userRows.join(',\n    ')};
 
 INSERT INTO rooms (
     game_id, host_user_id, room_type, title, description, experience_level,
@@ -575,7 +577,7 @@ export function buildSnapshotQuery(fixture) {
     ) AS room_row
   ), '[]'::jsonb),
   'participations', COALESCE((
-    SELECT jsonb_agg(row_to_json(participation_row) ORDER BY participation_row.room_id, participation_row.user_id)
+    SELECT jsonb_agg(row_to_json(participation_row) ORDER BY participation_row."roomId", participation_row."userId")
     FROM (
       SELECT room_id AS "roomId", user_id AS "userId", status,
              joined_at AS "joinedAt", canceled_at AS "canceledAt"
@@ -584,7 +586,7 @@ export function buildSnapshotQuery(fixture) {
     ) AS participation_row
   ), '[]'::jsonb),
   'waitlists', COALESCE((
-    SELECT jsonb_agg(row_to_json(waitlist_row) ORDER BY waitlist_row.room_id, waitlist_row.queue_order, waitlist_row.user_id)
+    SELECT jsonb_agg(row_to_json(waitlist_row) ORDER BY waitlist_row."roomId", waitlist_row."queueOrder", waitlist_row."userId")
     FROM (
       SELECT room_id AS "roomId", user_id AS "userId", status,
              queue_order AS "queueOrder", queued_at AS "queuedAt"
@@ -813,8 +815,13 @@ function waitlistStatus(snapshot, roomId, userId) {
 }
 
 function metricCount(summary, name) {
-  const value = summary?.metrics?.[name]?.values?.count;
-  return typeof value === 'number' ? value : null;
+  const metric = summary?.metrics?.[name];
+  const nestedCount = metric?.values?.count;
+  if (nestedCount !== undefined) {
+    return Number.isSafeInteger(nestedCount) && nestedCount >= 0 ? nestedCount : null;
+  }
+  const directCount = metric?.count;
+  return Number.isSafeInteger(directCount) && directCount >= 0 ? directCount : null;
 }
 
 function addFailure(failures, condition, message) {

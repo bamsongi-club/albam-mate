@@ -18,6 +18,8 @@
 
 ## 배치 manifest 필수 기록
 
+실행 경계는 두 manifest로 나눈다. `kind=catalog-dataset-release` manifest는 dataset ID·원본 snapshot·field provenance·전달 artifact·SQL coverage를 고정하는 dataset release이며 runner에 직접 전달하지 않는다. 적재·`search_text`·embedding을 실행하는 execution manifest는 `datasetRelease.manifestPath`, `releaseId`, `datasetId`, `manifestSha256`로 이 release를 참조하고 아래 실행 정보를 추가한다.
+
 AI·embedding 산출 또는 서비스 적재를 실행하는 manifest에는 다음 값을 함께 기록한다.
 
 - `releaseId`, `datasetId`, `sources`와 `outputs`의 파일명·SHA-256·행 수
@@ -29,7 +31,7 @@ AI·embedding 산출 또는 서비스 적재를 실행하는 manifest에는 다�
 - 승인 근거의 외부 참조(`approval.references`), 검수자와 검수 시각
 - embedding을 만들 때의 model/provider, 차원, 문서 조립 규칙, index version과 산출물 SHA-256
 
-위 값이 없거나 실제 입력·산출물과 다르면 적재와 색인 생성을 모두 차단해야 한다. 승인 근거 원문은 저장소에 복사하지 않고, manifest의 외부 참조와 비공개 증적 보관 위치로 연결한다. `prepare-game-catalog.mjs`는 이제 `validateApprovedReleaseManifest`를 호출해 `datasetId`·`approvedFields`·`approvedProcessingScopes`·`search_text`·model/provider·index·embedding 산출물 descriptor를 검증하고, 생성 전 실제 입력과 service catalog·UPSERT 산출물의 checksum·행 수를 대조한다. 이 runner는 embedding 파일 자체를 생성하지 않으므로 외부 embedding/index runner가 해당 산출물 checksum을 실제 파일과 대조해야 하며, 현재 저장소에 구체 승인 manifest가 없어 실행 가능한 release 판정은 아직 미검증이다.
+위 값이 없거나 실제 입력·산출물과 다르면 적재와 색인 생성을 모두 차단해야 한다. 승인 근거 원문은 저장소에 복사하지 않고, manifest의 외부 참조와 비공개 증적 보관 위치로 연결한다. `prepare-game-catalog.mjs`는 dataset release reference의 상대 경로·realpath·manifest SHA-256·release ID·dataset ID를 먼저 확인한 뒤 `validateApprovedReleaseManifest`를 호출해 `approvedFields`·`approvedProcessingScopes`·`search_text`·model/provider·index·embedding 산출물 descriptor를 검증하고, 생성 전 실제 입력과 service catalog·UPSERT 산출물의 checksum·행 수를 대조한다. dataset-only manifest는 직접 실행을 차단한다. 이 runner는 embedding 파일 자체를 생성하지 않으므로 외부 embedding/index runner가 해당 산출물 checksum을 실제 파일과 대조해야 하며, 현재 저장소에 구체 승인 manifest가 없어 실행 가능한 release 판정은 아직 미검증이다.
 
 ## AI·embedding 처리 규칙
 

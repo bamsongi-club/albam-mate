@@ -1,0 +1,149 @@
+{
+  "schema": "k6-campaign-manifest-v3",
+  "kind": "room-portable-bundle",
+  "campaignId": "room-k6-t1-recovery-smoke-2026-08-14",
+  "campaignStatus": "completed-with-limitations",
+  "campaignOutcome": "failed-and-recovered",
+  "documentStatus": "superseded",
+  "reportStatus": "FAIL",
+  "purpose": "snapshot SQL 수정 뒤 T1 hot concurrency 2 smoke의 실패 원인을 확인하고, 세션 격리 수정 후 새 bundle의 recovery smoke로 원인 가설을 검증한다. 두 Run은 서로 다른 source revision이므로 성능 기준선에는 사용하지 않는다.",
+  "documents": {
+    "ownerIndex": "../README.md",
+    "report": "../room-portable-bundle-03-t1-recovery-fail-2026-08-14.md"
+  },
+  "lineage": {
+    "campaignSequence": 3,
+    "successorCampaign": "room-k6-final-clean-2026-08-15"
+  },
+  "executionPath": {
+    "included": "ROOM portable bundle -> infra run.sh room-k6",
+    "excluded": "generic loadtest"
+  },
+  "window": {
+    "startedAtUtc": "2026-08-14T14:45:19Z",
+    "endedAtUtc": "2026-08-14T15:21:05Z",
+    "startedAtKst": "2026-08-14T23:45:19+09:00",
+    "endedAtKst": "2026-08-15T00:21:05+09:00",
+    "durationSeconds": 2146,
+    "reportFailureObservationWindow": {
+      "startedAtUtc": "2026-08-14T14:45:19Z",
+      "endedAtUtc": "2026-08-14T14:48:46Z"
+    }
+  },
+  "artifactBoundary": {
+    "rawArtifacts": "local-only",
+    "directoryPattern": "build/k6/room/<run-id>/<fixture-id>",
+    "rawArtifactsVersioned": false,
+    "notRetained": [
+      "password and credential-derived hash",
+      "token, session, and CSRF material",
+      "target URL and actual fixture or resource identifiers",
+      "raw SQL, console log, and raw k6 summary content"
+    ],
+    "digestScope": "per-run portable manifest, final-result, and k6-summary artifact SHA-256"
+  },
+  "sources": [
+    {
+      "sequences": [1],
+      "sourceRevision": "c76b38cb086ea796ad62c139df15b9c1a38a2168",
+      "applicationRevision": "c76b38cb086ea796ad62c139df15b9c1a38a2168",
+      "sourceToApplicationAlignment": "MATCH"
+    },
+    {
+      "sequences": [2],
+      "sourceRevision": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+      "applicationRevision": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+      "sourceToApplicationAlignment": "MATCH"
+    }
+  ],
+  "integrityChecks": {
+    "historicalBundleValidation": {
+      "method": "embedded historical portable-bundle validator",
+      "checkedRunCount": 2,
+      "passedRunCount": 2,
+      "failedRunCount": 0,
+      "rawBundleTampering": "NOT_DETECTED"
+    },
+    "currentSourceRevalidation": {
+      "method": "current checkout validator against the historical local-only bundles",
+      "checkedRunCount": 2,
+      "passedRunCount": 2,
+      "failedRunCount": 0,
+      "outcome": "PASS",
+      "reason": "현재 source와의 validator 호환성 통과는 historical raw bundle의 embedded integrity 검증과 별도 근거다."
+    }
+  },
+  "selection": {
+    "plannedSmokeRunCount": 1,
+    "recoveryRunCount": 1,
+    "reportConclusionRunCount": 2,
+    "performanceBaselineRunCount": 0,
+    "method": "T1 / stress / hot / concurrency 2의 실패 smoke를 기록하고, 세션 격리 수정 후 새 source와 새 bundle로 동일 조건 recovery smoke를 한 번 실행",
+    "reasonNotPerformanceBaseline": "실패와 recovery가 서로 다른 source revision에서 한 번씩만 관찰됐으므로 성능 수치나 용량 결론으로 비교하지 않는다."
+  },
+  "runs": [
+    {
+      "sequence": 1,
+      "roleInCampaign": "failure-diagnosis",
+      "scenario": "t1",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "hot", "concurrency": 2 },
+      "window": { "startedAtUtc": "2026-08-14T14:45:19Z", "endedAtUtc": "2026-08-14T14:48:46Z" },
+      "status": "FAIL",
+      "reportDisposition": "included",
+      "baselineDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 0, "resourceQuery": 0, "beforeSnapshot": 0, "k6": 99, "afterSnapshot": 0 },
+      "diagnosisStatus": { "before": "PASS", "after": "FAIL" },
+      "metrics": {
+        "requestCount": 10,
+        "successCount": 5,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 5,
+        "serverFailureCount": 0,
+        "contractFailureCount": 5,
+        "startSkewMaxMs": 1
+      },
+      "artifactDigests": {
+        "portableBundleManifestSha256": "edf22c32c5ff3381e34d6220163e39873363c4487b2fd304ec6827ea8a4db989",
+        "finalResultSha256": "73c53f0df1a1162b9b3146a0fbba87ab64d52e0c1befca9f9d786dff9233fa80",
+        "k6SummarySha256": "7862e6d6cbaf4568f43ea9fcb8e563aca8e2db6442f0f8c3719fd1bfe3632a4a"
+      }
+    },
+    {
+      "sequence": 2,
+      "roleInCampaign": "recovery-confirmation",
+      "scenario": "t1",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "hot", "concurrency": 2 },
+      "window": { "startedAtUtc": "2026-08-14T15:17:36Z", "endedAtUtc": "2026-08-14T15:21:05Z" },
+      "status": "PASS",
+      "reportDisposition": "included",
+      "baselineDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 0, "resourceQuery": 0, "beforeSnapshot": 0, "k6": 0, "afterSnapshot": 0 },
+      "diagnosisStatus": { "before": "PASS", "after": "PASS" },
+      "metrics": {
+        "requestCount": 10,
+        "successCount": 10,
+        "businessFailureCount": 0,
+        "concurrentFailureCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1
+      },
+      "artifactDigests": {
+        "portableBundleManifestSha256": "aeec643e73c617cd92530df7cffc1f58431f48508dba3b55c6b0f5861a9aa94e",
+        "finalResultSha256": "ff56e1729d5945fbf6ca0e60d7a150c272b146b86b0efc9c7211ad8330bd00de",
+        "k6SummarySha256": "4f892da84fb1938e982a38ede256ad41fcf1bca84afe2ae229b82e5908458fd0"
+      }
+    }
+  ],
+  "knownLimitations": [
+    "단일 T1 조건만 다뤘고 공식 25개 매트릭스를 실행하지 않았다.",
+    "서로 다른 source revision의 두 Run을 지연시간 또는 RPS 개선 비교에 사용하지 않는다.",
+    "local-only artifact digests prove later local modification only; this Git repository cannot independently reconstruct the raw bundle."
+  ],
+  "teardown": {
+    "status": "not-run",
+    "reason": "원인 수정과 재측정을 위해 전용 stack을 유지했으며 teardown 결과는 최종 유효 campaign에만 기록한다."
+  }
+}

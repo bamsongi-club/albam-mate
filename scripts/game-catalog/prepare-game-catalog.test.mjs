@@ -38,6 +38,30 @@ test("manifest가 없으면 검수 보고서만 만들고 적재 산출물은 �
     });
 });
 
+test("catalog dataset release manifest는 execution runner에 직접 전달할 수 없다", () => {
+    withCase([game(10, "10", "첫 번째 게임", "First Game")], ({
+        games,
+        ranks,
+        manifest,
+        out,
+    }) => {
+        writeManifest(manifest, games, ranks, []);
+        const value = readJson(manifest);
+        value.kind = "catalog-dataset-release";
+        writeFileSync(manifest, `${JSON.stringify(value, null, 2)}\n`);
+
+        const result = runCli(games, ranks, out, manifest);
+
+        assert.equal(result.status, 1);
+        const report = readJson(join(out, "quality-report.json"));
+        assert.ok(
+            report.errors.some(({ code }) => code === "DATASET_RELEASE_MANIFEST_NOT_EXECUTION"),
+        );
+        assert.throws(() => readFileSync(join(out, "service-catalog.json")));
+        assert.throws(() => readFileSync(join(out, "upsert-games.sql")));
+    });
+});
+
 test("승인 manifest의 dataset 범위가 없으면 runner가 적재 산출물을 차단한다", () => {
     withCase([game(10, "10", "첫 번째 게임", "First Game")], ({
         games,

@@ -15,7 +15,7 @@ P2는 AI 챗봇(게임 탐색 도우미 포함), 게임 의미 기반 검색, �
 | [DISCOVERY-01 게임 탐색 도우미 명세](game-discovery-assistant.md#discovery-01) | 자연어 의도 해석·SEARCH-04 read-only tool 호출·근거 있는 응답·권한·안전·품질 | 초안 작성 완료·선행 계약 필요 |
 | [SEARCH-04 게임 의미 기반 검색 명세](search.md#search-04) | 검색 대상 데이터, 색인·질의·정렬, 기존 검색과의 관계와 품질 평가 | 초안 작성 완료·선행 계약 필요 |
 | [RANK-02 게임 인기순 정렬 명세](game-popularity.md#rank-02) | 국내·내부·국외 인기 원천 결합, 승인 배치·복구와 게임 목록 기본 정렬 | 구현·자동 검증 완료·배포/실측 필요 |
-| [실시간 파티 매칭 명세](matching.md) | `MATCH-01`의 단일 게임·Board Game Arena 고정 매칭, 제안·채팅·신고·차단과 동시성·실패·복구·성능 검증 | 기능 명세 작성 완료·선행 계약 필요 |
+| [실시간 파티 매칭 명세](matching.md) | `MATCH-01`의 단일 게임·Board Game Arena 고정 매칭, 제안·채팅·신고·차단과 동시성·실패·복구·성능 검증 | 기능 명세 작성 완료·계약 준비 완료 |
 | [운영 관측](monitoring.md) | `OPS-01`~`OPS-05`의 기능별 지표·로그·검증 기준과 제외 범위 | OPS-01 공개 앱 범위 부분 구현·부분 검증, infra/AWS 배포·실측 필요 |
 | [운영 대시보드 정책](dashboard.md) | 생존·지연·실패·비용·업무 기능 결과의 화면·경고·증거 정책 | 정책 값 사용자 확인·정본 반영 완료 |
 
@@ -31,7 +31,7 @@ P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.
 | 게임 탐색 도우미 | [`DISCOVERY-01`](game-discovery-assistant.md#discovery-01) | 선행 계약 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 게임 의미 기반 검색 | [`SEARCH-04`](search.md#search-04) | 선행 계약 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 게임 인기순 정렬 | [`RANK-02`](game-popularity.md#rank-02) | 계약 준비 완료 | 구현 완료 | 자동 검증 완료 | 미배포 | 미측정 |
-| 실시간 파티 매칭 | [`MATCH-01`](matching.md#match-01-실시간-파티-매칭) | 선행 계약 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
+| 실시간 파티 매칭 | [`MATCH-01`](matching.md#match-01-실시간-파티-매칭) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 서비스 생존·연결 | [`OPS-01`](monitoring.md#ops-01-서비스-생존과-연결-상태) | 계약 준비 완료 | 공개 앱 범위 부분 구현, container restart·OOM과 host memory 분리 infra 미구현 | 공개 앱 범위 부분 검증, CloudWatch·release 실측 미검증 | 미배포 | 미측정 |
 | 지연·포화 | [`OPS-02`](monitoring.md#ops-02-지연과-포화) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 실패·이상 | [`OPS-03`](monitoring.md#ops-03-실패와-이상) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
@@ -46,7 +46,7 @@ P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.
 
 `OPS-01`·`OPS-02`·`OPS-03`·`OPS-05`는 [운영 관측 런북](../guides/MONITORING_OPERATIONS.md)에 metric·log 허용 목록, alarm query·runbook, 상태 전이·IAM·배포 증거 계약을 반영해 구현 선행 계약을 마쳤다. 이는 생산 코드·자동 검증·AWS 배포·실측 완료가 아니다. `OPS-04`는 공통 관측 비용 계약만 준비됐으며 AI provider·model·호출 경계와 가격 snapshot 소유 계약이 확정될 때까지 `선행 계약 필요`를 유지한다.
 
-AI 챗봇은 담당 상세 명세가 등록된 뒤 기능별 선행 계약을 별도로 판정한다. `DISCOVERY-01`과 `SEARCH-04`는 상세 명세 초안을 등록했지만 필요한 API·ERD·아키텍처·ADR·운영 계약이 남아 있어 `선행 계약 필요`다. `MATCH-01`은 핵심 매칭·채팅·신고·차단과 자동 검증·부하·성능 증거를 포함한 상세 명세를 등록했지만, 현재 API·ERD·아키텍처·운영 계약과 필수 ADR에 구현 계약이 반영되지 않아 `선행 계약 필요`다.
+AI 챗봇은 담당 상세 명세가 등록된 뒤 기능별 선행 계약을 별도로 판정한다. `DISCOVERY-01`과 `SEARCH-04`는 상세 명세 초안을 등록했지만 필요한 API·ERD·아키텍처·ADR·운영 계약이 남아 있어 `선행 계약 필요`다. `MATCH-01`은 [API](../API.md)·[ERD](../ERD.md)·[아키텍처](../ARCHITECTURE.md)와 [MATCH ADR](../adr/matching/README.md)에 구현 선행 계약을 반영해 `계약 준비 완료`다. 생산 코드·PostgreSQL 통합 검증·[MATCH-01 후보 탐색 baseline 측정 계약](../measurements/match-01-candidate-search-baseline-contract.md)의 실행과 결과 채택은 후속 구현에서 각각 갱신한다.
 
 ## 팀 기능 문서 작성 규칙
 
