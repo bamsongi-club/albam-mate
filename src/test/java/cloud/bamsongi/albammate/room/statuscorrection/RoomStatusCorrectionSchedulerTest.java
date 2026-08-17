@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.room.statuscorrection;
 
+import static cloud.bamsongi.albammate.fixture.StructuredLogAssertions.fieldText;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -73,7 +74,7 @@ class RoomStatusCorrectionSchedulerTest {
 			assertEquals(1, appender.list.size());
 			assertEquals(Level.INFO, appender.list.getFirst().getLevel());
 			assertEquals("event=room_state_reconciliation_completed changedCount=2",
-				appender.list.getFirst().getFormattedMessage());
+				fieldText(appender.list.getFirst()));
 		} finally {
 			detachLogAppender(appender);
 		}
@@ -93,7 +94,7 @@ class RoomStatusCorrectionSchedulerTest {
 			assertEquals(1, appender.list.size());
 			assertEquals(Level.DEBUG, appender.list.getFirst().getLevel());
 			assertEquals("event=room_state_reconciliation_completed changedCount=0",
-				appender.list.getFirst().getFormattedMessage());
+				fieldText(appender.list.getFirst()));
 		} finally {
 			detachLogAppender(appender);
 		}
@@ -137,8 +138,8 @@ class RoomStatusCorrectionSchedulerTest {
 			scheduler.correctDueRooms();
 
 			verifyNoInteractions(coordinator, progressStore);
-			assertEquals("event=room_status_correction_skipped reason=candidate_limit_missing",
-				appender.list.getFirst().getFormattedMessage());
+			assertEquals("event=room_status_correction_skipped reasonCode=CANDIDATE_LIMIT_MISSING",
+				fieldText(appender.list.getFirst()));
 		} finally {
 			detachLogAppender(appender);
 		}
@@ -157,7 +158,7 @@ class RoomStatusCorrectionSchedulerTest {
 
 			assertEquals(1, appender.list.size());
 			assertEquals(Level.WARN, appender.list.getFirst().getLevel());
-			assertEquals("event=room_state_reconciliation_failed", appender.list.getFirst().getFormattedMessage());
+			assertEquals("event=room_state_reconciliation_failed", fieldText(appender.list.getFirst()));
 			assertTrue(appender.list.getFirst().getThrowableProxy() == null);
 		} finally {
 			detachLogAppender(appender);
@@ -392,7 +393,7 @@ class RoomStatusCorrectionSchedulerTest {
 	private long warningCount(ListAppender<ILoggingEvent> appender, String event) {
 		return appender.list.stream()
 			.filter(loggingEvent -> loggingEvent.getLevel() == Level.WARN)
-			.filter(loggingEvent -> loggingEvent.getFormattedMessage().startsWith(event))
+			.filter(loggingEvent -> fieldText(loggingEvent).startsWith(event))
 			.count();
 	}
 
@@ -425,7 +426,7 @@ class RoomStatusCorrectionSchedulerTest {
 			}
 
 			assertEquals(expectedSlowWarningCount, appender.list.stream()
-				.filter(event -> event.getFormattedMessage().startsWith("event=room_status_correction_execution_slow"))
+				.filter(event -> fieldText(event).startsWith("event=room_status_correction_execution_slow"))
 				.count());
 		} finally {
 			detachLogAppender(appender);

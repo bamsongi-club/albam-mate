@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.room.statuscorrection;
 
+import static cloud.bamsongi.albammate.fixture.StructuredLogAssertions.fieldText;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -73,13 +74,13 @@ class RoomStatusCorrectionCoordinatorTest {
 			assertEquals(Level.WARN, appender.list.get(2).getLevel());
 			assertEquals(
 				"event=room_state_reconciliation_retry roomId=10 attempt=2 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_CONFLICT",
-				appender.list.get(0).getFormattedMessage());
+				fieldText(appender.list.get(0)));
 			assertEquals(
 				"event=room_state_reconciliation_retry roomId=10 attempt=3 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_CONFLICT",
-				appender.list.get(1).getFormattedMessage());
+				fieldText(appender.list.get(1)));
 			assertEquals(
 				"event=room_state_reconciliation_retry roomId=10 attempt=3 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_EXHAUSTED",
-				appender.list.get(2).getFormattedMessage());
+				fieldText(appender.list.get(2)));
 		} finally {
 			detachLogAppender(appender);
 		}
@@ -197,14 +198,14 @@ class RoomStatusCorrectionCoordinatorTest {
 			assertEquals(Level.WARN, appender.list.get(2).getLevel());
 			assertEquals(
 				"event=room_state_reconciliation_retry attempt=2 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_CONFLICT",
-				appender.list.get(0).getFormattedMessage());
+				fieldText(appender.list.get(0)));
 			assertEquals(
 				"event=room_state_reconciliation_retry attempt=3 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_CONFLICT",
-				appender.list.get(1).getFormattedMessage());
+				fieldText(appender.list.get(1)));
 			assertEquals(
 				"event=room_state_reconciliation_retry attempt=3 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_EXHAUSTED",
-				appender.list.get(2).getFormattedMessage());
-			assertTrue(appender.list.stream().noneMatch(event -> event.getFormattedMessage().contains("roomId=")));
+				fieldText(appender.list.get(2)));
+			assertTrue(appender.list.stream().noneMatch(event -> fieldText(event).contains("roomId=")));
 		} finally {
 			detachLogAppender(appender);
 		}

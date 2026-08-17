@@ -36,12 +36,11 @@ class ChatMessageCommittedListener {
 			deliveryDuration.record(() -> chatRealtimePublisher.publish(event));
 		} catch (RuntimeException exception) {
 			deliveryFailures.increment();
-			log.warn(
-				"event=chat_realtime_publish_failed eventType={} roomId={} messageId={} exceptionType={}",
-				event.eventType(),
-				event.roomId(),
-				event.messageId(),
-				exception.getClass().getName());
+			log.atWarn().addKeyValue("event", "chat_realtime_publish_failed")
+				.addKeyValue("eventType", event.eventType()).addKeyValue("roomId", event.roomId())
+				.addKeyValue("messageId", event.messageId())
+				.addKeyValue("exceptionType", exception.getClass().getName())
+				.log("chat realtime publish failed");
 		}
 	}
 }

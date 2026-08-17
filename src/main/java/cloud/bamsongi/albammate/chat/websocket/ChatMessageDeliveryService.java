@@ -63,7 +63,8 @@ class ChatMessageDeliveryService {
 			}
 			String nickname = nicknames.get(message.getSenderUserId());
 			if (nickname == null) {
-				log.error("event=chat_message_sender_nickname_missing roomId={}", connection.roomId);
+				log.atError().addKeyValue("event", "chat_message_sender_nickname_missing")
+					.addKeyValue("roomId", connection.roomId).log("chat message sender nickname missing");
 				metrics.recordDeliveryFailure();
 				connectionRegistry.closeForTransportFailure(connection.session);
 				break;

@@ -1,8 +1,8 @@
 package cloud.bamsongi.albammate.notification.cleanup;
 
+import static cloud.bamsongi.albammate.fixture.StructuredLogAssertions.fields;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -11,6 +11,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
+import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
@@ -71,18 +73,22 @@ class NotificationCleanupCoordinatorTest {
 
 			assertEquals(2, appender.list.size());
 			assertEquals(Level.INFO, appender.list.get(0).getLevel());
-			String completedLog = appender.list.get(0).getFormattedMessage();
-			assertTrue(completedLog.contains(
-				"event=notification_cleanup_completed targetType=NOTIFICATION batchNumber=1 deletedCount=1 durationMs="));
-			assertTrue(completedLog.endsWith("measurementTime=" + MEASUREMENT_TIME));
-			String failureLog = appender.list.get(1).getFormattedMessage();
+			Map<String, Object> completedLog = fields(appender.list.get(0));
+			assertEquals("notification_cleanup_completed", completedLog.get("event"));
+			assertEquals(NotificationCleanupTarget.NOTIFICATION, completedLog.get("targetType"));
+			assertEquals(MEASUREMENT_TIME, completedLog.get("measurementTime"));
+			Map<String, Object> failureLog = fields(appender.list.get(1));
 			assertEquals(Level.WARN, appender.list.get(1).getLevel());
-			assertTrue(failureLog.contains("targetType=OUTBOX batchNumber=1"));
-			assertTrue(failureLog.contains(
-				"deletedCount=0 failureCode=CLEANUP_BATCH_FAILURE exceptionClass=IllegalStateException durationMs="));
-			assertFalse(failureLog.contains("measurementTime="));
-			assertFalse(failureLog.contains("user@example.com"));
-			assertFalse(failureLog.contains("sensitive-token"));
+			assertEquals("notification_cleanup_failed", failureLog.get("event"));
+			assertEquals(
+				Set.of("event", "targetType", "batchNumber", "deletedCount", "failureCode", "exceptionClass",
+					"durationMs"),
+				failureLog.keySet());
+			assertEquals(NotificationCleanupTarget.OUTBOX, failureLog.get("targetType"));
+			assertEquals("CLEANUP_BATCH_FAILURE", failureLog.get("failureCode"));
+			assertEquals("IllegalStateException", failureLog.get("exceptionClass"));
+			assertFalse(failureLog.containsKey("measurementTime"));
+			assertNoSensitiveData(appender.list.get(1));
 		} finally {
 			detachLogAppender(appender);
 		}
@@ -103,13 +109,19 @@ class NotificationCleanupCoordinatorTest {
 		try {
 			coordinator.cleanupExpiredData();
 
-			String failureLog = appender.list.get(0).getFormattedMessage();
-			assertTrue(failureLog.contains(
-				"targetType=NOTIFICATION batchNumber=1 deletedCount=0 failureCode=CLEANUP_BATCH_FAILURE "
-					+ "exceptionClass=IllegalArgumentException durationMs="));
-			assertTrue(failureLog.endsWith("measurementTime=" + MEASUREMENT_TIME));
-			assertFalse(failureLog.contains("user@example.com"));
-			assertFalse(failureLog.contains("sensitive-token"));
+			Map<String, Object> failureLog = fields(appender.list.get(0));
+			assertEquals(Level.WARN, appender.list.get(0).getLevel());
+			assertEquals("notification_cleanup_failed", failureLog.get("event"));
+			assertEquals(
+				Set.of(
+					"event", "targetType", "batchNumber", "deletedCount", "failureCode", "exceptionClass", "durationMs",
+					"measurementTime"),
+				failureLog.keySet());
+			assertEquals(NotificationCleanupTarget.NOTIFICATION, failureLog.get("targetType"));
+			assertEquals("CLEANUP_BATCH_FAILURE", failureLog.get("failureCode"));
+			assertEquals("IllegalArgumentException", failureLog.get("exceptionClass"));
+			assertEquals(MEASUREMENT_TIME, failureLog.get("measurementTime"));
+			assertNoSensitiveData(appender.list.get(0));
 		} finally {
 			detachLogAppender(appender);
 		}
@@ -126,6 +138,16 @@ class NotificationCleanupCoordinatorTest {
 		NotificationCleanupTarget targetType,
 		long deletedCount) {
 		return new NotificationCleanupExecutor.CleanupBatchResult(targetType, MEASUREMENT_TIME, deletedCount);
+	}
+
+	private void assertNoSensitiveData(ILoggingEvent event) {
+		String structuredFields = fields(event).entrySet().stream()
+			.map(entry -> entry.getKey() + "=" + entry.getValue())
+			.collect(java.util.stream.Collectors.joining(" "));
+		assertFalse(event.getFormattedMessage().contains("user@example.com"));
+		assertFalse(event.getFormattedMessage().contains("sensitive-token"));
+		assertFalse(structuredFields.contains("user@example.com"));
+		assertFalse(structuredFields.contains("sensitive-token"));
 	}
 
 	private ListAppender<ILoggingEvent> attachLogAppender() {

@@ -350,19 +350,21 @@ class GameControllerTest {
 			mockMvc.perform(get("/api/games?keyword=secret-search-term"))
 				.andExpect(status().isOk());
 
-			String message = appender.list.stream()
-				.map(ILoggingEvent::getFormattedMessage)
-				.filter(value -> value.contains("event=game_search_completed"))
+			ILoggingEvent event = appender.list.stream()
+				.filter(value -> value.getKeyValuePairs().stream()
+					.anyMatch(pair -> pair.key.equals("event") && pair.value.equals("game_search_completed")))
 				.findFirst()
 				.orElseThrow();
-			org.junit.jupiter.api.Assertions.assertTrue(message.contains("outcome=success"));
-			org.junit.jupiter.api.Assertions.assertTrue(message.contains("resultCount=0"));
-			org.junit.jupiter.api.Assertions.assertTrue(message.contains("durationMs="));
-			org.junit.jupiter.api.Assertions.assertFalse(message.contains("secret-search-term"));
-			org.junit.jupiter.api.Assertions.assertFalse(message.contains("keyword="));
-			org.junit.jupiter.api.Assertions.assertFalse(message.contains("userId="));
-			org.junit.jupiter.api.Assertions.assertFalse(message.contains("session"));
-			org.junit.jupiter.api.Assertions.assertFalse(message.contains("token"));
+			java.util.Map<String, Object> fields = event.getKeyValuePairs().stream()
+				.collect(java.util.stream.Collectors.toMap(pair -> pair.key, pair -> pair.value));
+			org.junit.jupiter.api.Assertions.assertEquals("success", fields.get("outcome"));
+			org.junit.jupiter.api.Assertions.assertEquals(0, fields.get("resultCount"));
+			org.junit.jupiter.api.Assertions.assertTrue(((Long)fields.get("durationMs")) >= 0);
+			org.junit.jupiter.api.Assertions.assertFalse(event.getFormattedMessage().contains("secret-search-term"));
+			org.junit.jupiter.api.Assertions.assertFalse(event.getFormattedMessage().contains("keyword="));
+			org.junit.jupiter.api.Assertions.assertFalse(event.getFormattedMessage().contains("userId="));
+			org.junit.jupiter.api.Assertions.assertFalse(event.getFormattedMessage().contains("session"));
+			org.junit.jupiter.api.Assertions.assertFalse(event.getFormattedMessage().contains("token"));
 		} finally {
 			logger.detachAppender(appender);
 			appender.stop();
@@ -384,16 +386,16 @@ class GameControllerTest {
 				.andExpect(jsonPath("$.code").value(ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
 
 			ILoggingEvent failure = appender.list.stream()
-				.filter(event -> event.getFormattedMessage().contains("event=game_search_failed"))
+				.filter(event -> hasKeyValue(event, "event", "game_search_failed"))
 				.findFirst()
 				.orElseThrow();
 			org.junit.jupiter.api.Assertions.assertEquals(ch.qos.logback.classic.Level.ERROR, failure.getLevel());
-			String message = failure.getFormattedMessage();
-			org.junit.jupiter.api.Assertions.assertTrue(message.contains("outcome=failed"));
-			org.junit.jupiter.api.Assertions.assertTrue(
-				message.contains("failureCode=" + ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
-			org.junit.jupiter.api.Assertions
-				.assertTrue(message.contains("exceptionClass=java.lang.IllegalStateException"));
+			java.util.Map<String, Object> fields = keyValues(failure);
+			org.junit.jupiter.api.Assertions.assertEquals("failed", fields.get("outcome"));
+			org.junit.jupiter.api.Assertions.assertEquals(ErrorCode.INTERNAL_SERVER_ERROR.getCode(),
+				fields.get("failureCode"));
+			org.junit.jupiter.api.Assertions.assertEquals("java.lang.IllegalStateException",
+				fields.get("exceptionClass"));
 		} finally {
 			logger.detachAppender(appender);
 			appender.stop();
@@ -415,16 +417,16 @@ class GameControllerTest {
 			}
 
 			List<ILoggingEvent> failures = appender.list.stream()
-				.filter(event -> event.getFormattedMessage().contains("event=game_detail_failed"))
+				.filter(event -> hasKeyValue(event, "event", "game_detail_failed"))
 				.toList();
 			org.junit.jupiter.api.Assertions.assertEquals(3, failures.size());
 			org.junit.jupiter.api.Assertions.assertTrue(
 				failures.stream().allMatch(event -> event.getLevel() == ch.qos.logback.classic.Level.INFO));
-			List<String> messages = failures.stream().map(ILoggingEvent::getFormattedMessage).toList();
 			org.junit.jupiter.api.Assertions.assertTrue(
-				messages.stream().allMatch(value -> value.contains("outcome=rejected failureCode=VALIDATION_ERROR")));
+				failures.stream().allMatch(event -> "rejected".equals(keyValues(event).get("outcome"))
+					&& ErrorCode.VALIDATION_ERROR.getCode().equals(keyValues(event).get("failureCode"))));
 			org.junit.jupiter.api.Assertions
-				.assertTrue(messages.stream().noneMatch(value -> value.contains("gameId=")));
+				.assertTrue(failures.stream().noneMatch(event -> keyValues(event).containsKey("gameId")));
 		} finally {
 			logger.detachAppender(appender);
 			appender.stop();
@@ -456,22 +458,20 @@ class GameControllerTest {
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.code").value(ErrorCode.GAME_NOT_FOUND.getCode()));
 
-			String completed = controllerAppender.list.stream()
-				.map(ILoggingEvent::getFormattedMessage)
-				.filter(value -> value.contains("event=game_detail_completed"))
+			ILoggingEvent completed = controllerAppender.list.stream()
+				.filter(event -> hasKeyValue(event, "event", "game_detail_completed"))
 				.findFirst()
 				.orElseThrow();
-			String failed = exceptionAppender.list.stream()
-				.map(ILoggingEvent::getFormattedMessage)
-				.filter(value -> value.contains("event=game_detail_failed"))
+			ILoggingEvent failed = exceptionAppender.list.stream()
+				.filter(event -> hasKeyValue(event, "event", "game_detail_failed"))
 				.findFirst()
 				.orElseThrow();
-			org.junit.jupiter.api.Assertions.assertTrue(completed.contains("gameId=1"));
-			org.junit.jupiter.api.Assertions.assertTrue(completed.contains("outcome=success"));
-			org.junit.jupiter.api.Assertions.assertTrue(failed.contains("gameId=999"));
-			org.junit.jupiter.api.Assertions.assertTrue(failed.contains("outcome=rejected"));
-			org.junit.jupiter.api.Assertions.assertTrue(
-				failed.contains("failureCode=" + ErrorCode.GAME_NOT_FOUND.getCode()));
+			org.junit.jupiter.api.Assertions.assertEquals(1L, keyValues(completed).get("gameId"));
+			org.junit.jupiter.api.Assertions.assertEquals("success", keyValues(completed).get("outcome"));
+			org.junit.jupiter.api.Assertions.assertEquals(999L, keyValues(failed).get("gameId"));
+			org.junit.jupiter.api.Assertions.assertEquals("rejected", keyValues(failed).get("outcome"));
+			org.junit.jupiter.api.Assertions.assertEquals(ErrorCode.GAME_NOT_FOUND.getCode(),
+				keyValues(failed).get("failureCode"));
 		} finally {
 			controllerLogger.detachAppender(controllerAppender);
 			exceptionLogger.detachAppender(exceptionAppender);
@@ -484,6 +484,15 @@ class GameControllerTest {
 		ArgumentCaptor<GameListRequest> requestCaptor = ArgumentCaptor.forClass(GameListRequest.class);
 		verify(gameQueryService).findPage(requestCaptor.capture(), org.mockito.ArgumentMatchers.isNull());
 		return requestCaptor.getValue();
+	}
+
+	private boolean hasKeyValue(ILoggingEvent event, String key, Object value) {
+		return event.getKeyValuePairs().stream().anyMatch(pair -> pair.key.equals(key) && pair.value.equals(value));
+	}
+
+	private java.util.Map<String, Object> keyValues(ILoggingEvent event) {
+		return event.getKeyValuePairs().stream()
+			.collect(java.util.stream.Collectors.toMap(pair -> pair.key, pair -> pair.value));
 	}
 
 	@TestConfiguration(proxyBeanMethods = false)

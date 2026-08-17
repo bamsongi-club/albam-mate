@@ -1,5 +1,7 @@
 package cloud.bamsongi.albammate.game.controller;
 
+import static cloud.bamsongi.albammate.fixture.StructuredLogAssertions.fieldText;
+import static cloud.bamsongi.albammate.fixture.StructuredLogAssertions.fields;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -14,6 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -109,14 +112,14 @@ class UserPlayedGameHttpIntegrationTest {
 				.andExpect(jsonPath("$.data.playedByMe").value(true));
 
 			assertEquals(1, userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).size());
-			String message = appender.list.stream()
-				.map(ILoggingEvent::getFormattedMessage)
-				.filter(value -> value.contains("event=game_played_state_changed"))
+			Map<String, Object> logFields = appender.list.stream()
+				.map(event -> fields(event))
+				.filter(value -> "game_played_state_changed".equals(value.get("event")))
 				.findFirst()
 				.orElseThrow();
-			assertTrue(message.contains("gameId=" + game.getId()));
-			assertTrue(message.contains("action=mark"));
-			assertTrue(message.contains("outcome=played"));
+			assertEquals(game.getId(), logFields.get("gameId"));
+			assertEquals("mark", logFields.get("action"));
+			assertEquals("played", logFields.get("outcome"));
 		} finally {
 			logger.detachAppender(appender);
 			appender.stop();
@@ -146,14 +149,19 @@ class UserPlayedGameHttpIntegrationTest {
 			}
 			assertTrue(userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).isEmpty());
 
-			List<String> messages = appender.list.stream()
-				.map(ILoggingEvent::getFormattedMessage)
-				.filter(value -> value.contains("event=game_played_state_changed"))
+			List<Map<String, Object>> logFields = appender.list.stream()
+				.map(event -> fields(event))
+				.filter(value -> "game_played_state_changed".equals(value.get("event")))
 				.toList();
-			assertEquals(4, messages.size());
-			assertEquals(2, messages.stream().filter(value -> value.contains("action=mark outcome=played")).count());
+			assertEquals(4, logFields.size());
+			assertEquals(2, logFields.stream()
+				.filter(value -> "mark".equals(value.get("action")) && "played".equals(value.get("outcome")))
+				.count());
 			assertEquals(2,
-				messages.stream().filter(value -> value.contains("action=unmark outcome=not_played")).count());
+				logFields.stream()
+					.filter(value -> "unmark".equals(value.get("action"))
+						&& "not_played".equals(value.get("outcome")))
+					.count());
 		} finally {
 			logger.detachAppender(appender);
 			appender.stop();
@@ -229,18 +237,19 @@ class UserPlayedGameHttpIntegrationTest {
 			failureEvents.addAll(securityAppender.list);
 			failureEvents.addAll(exceptionAppender.list);
 			List<ILoggingEvent> gameFailures = failureEvents.stream()
-				.filter(event -> event.getFormattedMessage().contains("event=game_played_state_change_failed"))
+				.filter(event -> "game_played_state_change_failed".equals(fields(event).get("event")))
 				.toList();
 			assertEquals(4, gameFailures.size());
 			assertTrue(gameFailures.stream().allMatch(event -> event.getLevel() == Level.INFO));
-			List<String> messages = gameFailures.stream().map(ILoggingEvent::getFormattedMessage).toList();
-			assertTrue(messages.stream().anyMatch(value -> value.contains("failureCode=UNAUTHENTICATED")));
-			assertTrue(messages.stream().anyMatch(value -> value.contains("failureCode=CSRF_TOKEN_INVALID")));
-			assertTrue(messages.stream().anyMatch(value -> value.contains("failureCode=VALIDATION_ERROR")));
-			assertTrue(messages.stream().anyMatch(value -> value.contains("failureCode=GAME_NOT_FOUND gameId=999999")));
-			assertTrue(messages.stream().noneMatch(value -> value.contains(user.getEmail())));
-			assertTrue(messages.stream().noneMatch(value -> value.contains("JSESSIONID")));
-			assertTrue(messages.stream().noneMatch(value -> value.contains("XSRF-TOKEN")));
+			List<String> fieldTexts = gameFailures.stream().map(event -> fieldText(event)).toList();
+			assertTrue(fieldTexts.stream().anyMatch(value -> value.contains("failureCode=UNAUTHENTICATED")));
+			assertTrue(fieldTexts.stream().anyMatch(value -> value.contains("failureCode=CSRF_TOKEN_INVALID")));
+			assertTrue(fieldTexts.stream().anyMatch(value -> value.contains("failureCode=VALIDATION_ERROR")));
+			assertTrue(fieldTexts.stream()
+				.anyMatch(value -> value.contains("failureCode=GAME_NOT_FOUND") && value.contains("gameId=999999")));
+			assertTrue(fieldTexts.stream().noneMatch(value -> value.contains(user.getEmail())));
+			assertTrue(fieldTexts.stream().noneMatch(value -> value.contains("JSESSIONID")));
+			assertTrue(fieldTexts.stream().noneMatch(value -> value.contains("XSRF-TOKEN")));
 		} finally {
 			securityLogger.detachAppender(securityAppender);
 			exceptionLogger.detachAppender(exceptionAppender);
@@ -278,16 +287,21 @@ class UserPlayedGameHttpIntegrationTest {
 			failureEvents.addAll(securityAppender.list);
 			failureEvents.addAll(exceptionAppender.list);
 			List<ILoggingEvent> unmarkFailures = failureEvents.stream()
-				.filter(event -> event.getFormattedMessage()
-					.contains("event=game_played_state_change_failed action=unmark"))
+				.filter(event -> {
+					Map<String, Object> logFields = fields(event);
+					return "game_played_state_change_failed".equals(logFields.get("event"))
+						&& "unmark".equals(logFields.get("action"));
+				})
 				.toList();
 			assertEquals(4, unmarkFailures.size());
 			assertTrue(unmarkFailures.stream().allMatch(event -> event.getLevel() == Level.INFO));
-			List<String> messages = unmarkFailures.stream().map(ILoggingEvent::getFormattedMessage).toList();
-			assertTrue(messages.stream()
-				.anyMatch(value -> value.contains("failureCode=UNAUTHENTICATED gameId=" + game.getId())));
-			assertEquals(3, messages.stream().filter(value -> value.contains("failureCode=VALIDATION_ERROR")).count());
-			assertTrue(messages.stream().filter(value -> value.contains("failureCode=VALIDATION_ERROR"))
+			List<String> fieldTexts = unmarkFailures.stream().map(event -> fieldText(event)).toList();
+			assertTrue(fieldTexts.stream()
+				.anyMatch(value -> value.contains("failureCode=UNAUTHENTICATED")
+					&& value.contains("gameId=" + game.getId())));
+			assertEquals(3,
+				fieldTexts.stream().filter(value -> value.contains("failureCode=VALIDATION_ERROR")).count());
+			assertTrue(fieldTexts.stream().filter(value -> value.contains("failureCode=VALIDATION_ERROR"))
 				.noneMatch(value -> value.contains("gameId=")));
 		} finally {
 			securityLogger.detachAppender(securityAppender);

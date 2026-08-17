@@ -79,19 +79,23 @@ public class NotificationRelayFailureRecorder {
 
 	private void logRecordedFailure(RecordedFailure recordedFailure) {
 		if (recordedFailure.retryScheduled()) {
-			log.warn(
-				"event=notification_outbox_relay_retry_scheduled sourceEventId={} eventType={} failureCode={} "
-					+ "failureClass={} failureCount={} totalFailureCount={} nextAvailableAt={}",
-				recordedFailure.sourceEventId(), recordedFailure.eventType(), recordedFailure.failureCode(),
-				recordedFailure.failureClass(), recordedFailure.failureCount(), recordedFailure.totalFailureCount(),
-				recordedFailure.nextAvailableAt());
+			log.atWarn().addKeyValue("event", "notification_outbox_relay_retry_scheduled")
+				.addKeyValue("sourceEventId", recordedFailure.sourceEventId())
+				.addKeyValue("eventType", recordedFailure.eventType())
+				.addKeyValue("failureCode", recordedFailure.failureCode())
+				.addKeyValue("failureCount", recordedFailure.failureCount())
+				.addKeyValue("totalFailureCount", recordedFailure.totalFailureCount())
+				.addKeyValue("nextAvailableAt", recordedFailure.nextAvailableAt())
+				.log("notification relay retry scheduled");
 		} else {
-			log.warn(
-				"event=notification_outbox_relay_event_failed sourceEventId={} eventType={} failureCode={} "
-					+ "failureClass={} failureCount={} totalFailureCount={} deterministicFailure={}",
-				recordedFailure.sourceEventId(), recordedFailure.eventType(), recordedFailure.failureCode(),
-				recordedFailure.failureClass(), recordedFailure.failureCount(), recordedFailure.totalFailureCount(),
-				recordedFailure.deterministicFailure());
+			log.atWarn().addKeyValue("event", "notification_outbox_relay_event_failed")
+				.addKeyValue("sourceEventId", recordedFailure.sourceEventId())
+				.addKeyValue("eventType", recordedFailure.eventType())
+				.addKeyValue("failureCode", recordedFailure.failureCode())
+				.addKeyValue("failureCount", recordedFailure.failureCount())
+				.addKeyValue("totalFailureCount", recordedFailure.totalFailureCount())
+				.addKeyValue("deterministicFailure", recordedFailure.deterministicFailure())
+				.log("notification relay event failed");
 		}
 	}
 

@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.room.statuscorrection;
 
+import static cloud.bamsongi.albammate.fixture.StructuredLogAssertions.fields;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -92,8 +93,8 @@ class RoomStatusCorrectionSchedulerLockTest {
 
 			long warnings = appender.list.stream()
 				.filter(event -> event.getLevel() == Level.WARN)
-				.filter(event -> event.getFormattedMessage().startsWith(
-					"event=room_status_correction_execution_slow"))
+				.filter(event -> "room_status_correction_execution_slow".equals(
+					fields(event).get("event")))
 				.count();
 			assertEquals(1L, warnings);
 		} finally {

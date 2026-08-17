@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.notification.relay;
 
+import static cloud.bamsongi.albammate.fixture.StructuredLogAssertions.assertFields;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -8,6 +9,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
@@ -65,9 +67,9 @@ class NotificationRelaySchedulerTest {
 			scheduler.relayProcessableEvents();
 
 			assertEquals(1, appender.list.size());
-			assertEquals("event=notification_outbox_relay_scheduler_failed failureCode=RELAY_SCHEDULER_FAILURE "
-				+ "exceptionClass=IllegalStateException occurredAt=2026-08-03T00:00:00Z",
-				appender.list.getFirst().getFormattedMessage());
+			assertFields(appender.list.getFirst(), Map.of(
+				"event", "notification_outbox_relay_scheduler_failed", "failureCode", "RELAY_SCHEDULER_FAILURE",
+				"exceptionClass", "IllegalStateException", "occurredAt", Instant.parse("2026-08-03T00:00:00Z")));
 		} finally {
 			detachLogAppender(appender);
 		}

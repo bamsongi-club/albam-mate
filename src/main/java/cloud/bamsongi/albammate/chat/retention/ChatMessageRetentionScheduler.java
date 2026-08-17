@@ -49,7 +49,9 @@ class ChatMessageRetentionScheduler {
 					() -> summary.set(coordinator.purgeExpiredMessages()));
 				if (!execution.acquired()) {
 					metrics.recordLockSkipped();
-					log.info("event=chat_message_retention_lock_skipped lockName={} section={}", LOCK_NAME, section);
+					log.atInfo().addKeyValue("event", "chat_message_retention_lock_skipped")
+						.addKeyValue("lockName", LOCK_NAME).addKeyValue("section", section)
+						.log("chat message retention lock skipped");
 					return;
 				}
 				ChatMessageRetentionCoordinator.RetentionRunSummary result = summary.get();
@@ -58,12 +60,14 @@ class ChatMessageRetentionScheduler {
 				}
 			}
 			metrics.recordBacklogRemaining();
-			log.warn("event=chat_message_retention_backlog_remaining maxLockSectionsPerRun={}",
-				properties.getMaxLockSectionsPerRun());
+			log.atWarn().addKeyValue("event", "chat_message_retention_backlog_remaining")
+				.addKeyValue("maxLockSectionsPerRun", properties.getMaxLockSectionsPerRun())
+				.log("chat message retention backlog remaining");
 		} catch (RuntimeException exception) {
 			metrics.recordExecutionFailure();
-			log.error("event=chat_message_retention_failed exceptionClass={}",
-				exception.getClass().getSimpleName());
+			log.atError().addKeyValue("event", "chat_message_retention_failed")
+				.addKeyValue("exceptionClass", exception.getClass().getSimpleName())
+				.log("chat message retention failed");
 		}
 	}
 }

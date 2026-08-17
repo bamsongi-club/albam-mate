@@ -157,41 +157,34 @@ public class GlobalExceptionHandler {
 			logTechnicalGameFailure(failureEvent, errorCode, exception);
 			return;
 		}
-		if (failureEvent.gameId() == null) {
-			log.info(
-				"event={}{} outcome=rejected failureCode={}",
-				failureEvent.event(),
-				failureEvent.actionSuffix(),
-				errorCode.getCode());
-			return;
+		var rejectionLog = log.atInfo()
+			.addKeyValue("event", failureEvent.event())
+			.addKeyValue("outcome", "rejected")
+			.addKeyValue("failureCode", errorCode.getCode());
+		if (failureEvent.action() != null) {
+			rejectionLog.addKeyValue("action", failureEvent.action());
 		}
-		log.info(
-			"event={}{} outcome=rejected failureCode={} gameId={}",
-			failureEvent.event(),
-			failureEvent.actionSuffix(),
-			errorCode.getCode(),
-			failureEvent.gameId());
+		if (failureEvent.gameId() != null) {
+			rejectionLog.addKeyValue("gameId", failureEvent.gameId());
+		}
+		rejectionLog.log("game request rejected");
 	}
 
 	private void logTechnicalGameFailure(
 		GameFailureEvent failureEvent, ErrorCode errorCode, Exception exception) {
 		String exceptionClass = exception == null ? "unknown" : exception.getClass().getName();
-		if (failureEvent.gameId() == null) {
-			log.error(
-				"event={}{} outcome=failed failureCode={} exceptionClass={}",
-				failureEvent.event(),
-				failureEvent.actionSuffix(),
-				errorCode.getCode(),
-				exceptionClass);
-			return;
+		var failureLog = log.atError()
+			.addKeyValue("event", failureEvent.event())
+			.addKeyValue("outcome", "failed")
+			.addKeyValue("failureCode", errorCode.getCode())
+			.addKeyValue("exceptionClass", exceptionClass);
+		if (failureEvent.action() != null) {
+			failureLog.addKeyValue("action", failureEvent.action());
 		}
-		log.error(
-			"event={}{} outcome=failed failureCode={} exceptionClass={} gameId={}",
-			failureEvent.event(),
-			failureEvent.actionSuffix(),
-			errorCode.getCode(),
-			exceptionClass,
-			failureEvent.gameId());
+		if (failureEvent.gameId() != null) {
+			failureLog.addKeyValue("gameId", failureEvent.gameId());
+		}
+		failureLog.log("game request failed");
 	}
 
 	private HttpServletRequest currentRequest() {
@@ -243,10 +236,6 @@ public class GlobalExceptionHandler {
 	}
 
 	private record GameFailureEvent(String event, String action, Long gameId) {
-
-		private String actionSuffix() {
-			return action == null ? "" : " action=" + action;
-		}
 	}
 
 	private static final class SanitizedThrowable extends Throwable {

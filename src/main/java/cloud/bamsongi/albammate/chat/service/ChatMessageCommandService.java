@@ -148,7 +148,8 @@ public class ChatMessageCommandService {
 		return userQuery
 			.findNicknameById(currentUserId)
 			.orElseThrow(() -> {
-				log.error("event=chat_message_sender_nickname_missing roomId={}", roomId);
+				log.atError().addKeyValue("event", "chat_message_sender_nickname_missing")
+					.addKeyValue("roomId", roomId).log("chat message sender nickname missing");
 				return new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
 			});
 	}

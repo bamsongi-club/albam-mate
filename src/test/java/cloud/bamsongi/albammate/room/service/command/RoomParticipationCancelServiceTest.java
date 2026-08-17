@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.room.service.command;
 
+import static cloud.bamsongi.albammate.fixture.StructuredLogAssertions.fieldText;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -127,10 +128,10 @@ class RoomParticipationCancelServiceTest {
 		assertEquals(Level.DEBUG, appender.list.get(1).getLevel());
 		assertEquals(Level.WARN, appender.list.get(2).getLevel());
 		assertTrue(appender.list.stream().allMatch(
-			event -> event.getFormattedMessage().contains(eventWithRoomId)));
-		assertTrue(appender.list.get(0).getFormattedMessage().contains("attempt=2"));
-		assertTrue(appender.list.get(1).getFormattedMessage().contains("attempt=3"));
-		assertTrue(appender.list.get(2).getFormattedMessage().contains("attempt=3"));
+			event -> fieldText(event).contains(eventWithRoomId)));
+		assertTrue(fieldText(appender.list.get(0)).contains("attempt=2"));
+		assertTrue(fieldText(appender.list.get(1)).contains("attempt=3"));
+		assertTrue(fieldText(appender.list.get(2)).contains("attempt=3"));
 		assertTrue(appender.list.stream().allMatch(event -> event.getThrowableProxy() == null));
 	}
 }

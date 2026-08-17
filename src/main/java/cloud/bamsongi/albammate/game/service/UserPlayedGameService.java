@@ -34,14 +34,24 @@ public class UserPlayedGameService {
 			}
 		}
 		PlayedGameStateResponse response = new PlayedGameStateResponse(gameId, true);
-		log.info("event=game_played_state_changed gameId={} action=mark outcome=played", gameId);
+		log.atInfo()
+			.addKeyValue("event", "game_played_state_changed")
+			.addKeyValue("gameId", gameId)
+			.addKeyValue("action", "mark")
+			.addKeyValue("outcome", "played")
+			.log("game played state changed");
 		return response;
 	}
 
 	public PlayedGameStateResponse unmarkPlayed(long userId, long gameId) {
 		commandExecutor.unmarkPlayed(userId, gameId);
 		PlayedGameStateResponse response = new PlayedGameStateResponse(gameId, false);
-		log.info("event=game_played_state_changed gameId={} action=unmark outcome=not_played", gameId);
+		log.atInfo()
+			.addKeyValue("event", "game_played_state_changed")
+			.addKeyValue("gameId", gameId)
+			.addKeyValue("action", "unmark")
+			.addKeyValue("outcome", "not_played")
+			.log("game played state changed");
 		return response;
 	}
 }

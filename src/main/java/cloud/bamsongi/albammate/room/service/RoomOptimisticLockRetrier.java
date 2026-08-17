@@ -53,18 +53,20 @@ public class RoomOptimisticLockRetrier {
 		String reasonCode = exhausted ? "OPTIMISTIC_LOCK_EXHAUSTED" : "OPTIMISTIC_LOCK_CONFLICT";
 		if (roomId == null) {
 			if (exhausted) {
-				log.warn("event={} attempt={} useCase={} reasonCode={}", event, attempt, useCase, reasonCode);
+				log.atWarn().addKeyValue("event", event).addKeyValue("attempt", attempt)
+					.addKeyValue("useCase", useCase).addKeyValue("reasonCode", reasonCode).log("room retry exhausted");
 			} else {
-				log.debug("event={} attempt={} useCase={} reasonCode={}", event, attempt, useCase, reasonCode);
+				log.atDebug().addKeyValue("event", event).addKeyValue("attempt", attempt)
+					.addKeyValue("useCase", useCase).addKeyValue("reasonCode", reasonCode).log("room retry conflict");
 			}
 			return;
 		}
 		if (exhausted) {
-			log.warn("event={} roomId={} attempt={} useCase={} reasonCode={}", event, roomId, attempt, useCase,
-				reasonCode);
+			log.atWarn().addKeyValue("event", event).addKeyValue("roomId", roomId).addKeyValue("attempt", attempt)
+				.addKeyValue("useCase", useCase).addKeyValue("reasonCode", reasonCode).log("room retry exhausted");
 		} else {
-			log.debug("event={} roomId={} attempt={} useCase={} reasonCode={}", event, roomId, attempt, useCase,
-				reasonCode);
+			log.atDebug().addKeyValue("event", event).addKeyValue("roomId", roomId).addKeyValue("attempt", attempt)
+				.addKeyValue("useCase", useCase).addKeyValue("reasonCode", reasonCode).log("room retry conflict");
 		}
 	}
 
