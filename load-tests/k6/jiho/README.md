@@ -50,6 +50,7 @@ ADR-0051은 성공 기준에서 "세션을 유지한 채 WebSocket을 열고 채
 | 알림 polling 용량 | `notification-polling-capacity.js` | 읽기 경로만 격리했을 때 한계 (단독 진단) | 없음 |
 | 알림 fan-out 용량 | `notification-fanout-capacity.js` | 이벤트당·수신자당 relay 처리 비용 (외삽용 단가) | 없음 |
 | Redis 세션 진단 | `redis-session-diagnostic.js` | 공개 요청과 인증 세션 요청의 Redis 연결 churn 차이 | 오류율 1% 미만, p95 1초 이하 |
+| OPS-02 지연·포화 | `ops02-latency-saturation.js` | 통제된 지연·DB pool 대기 전후의 관측 신호가 같은 release에서 나타나고 복구하는가 | 요청 실패·drop 0; 지연값은 판정 임계가 아님 |
 
 **혼합 부하가 1차 측정이다.** 나머지 용량 3종은 혼합 부하에서 특정 역할이 먼저 무너졌을 때 그 역할만 격리해 원인을 좁히는 진단 도구다. 축별로 따로 잰 상한을 합쳐 "견딘다"를 판정하지 않는다.
 
@@ -317,6 +318,27 @@ LOAD_TEST_USER_COUNT=12 \
 한 VU가 수신자를 차례로 조회하므로 뒤에 조회하는 수신자일수록 관찰 지연에 폴링 순서만큼의 값이 더 붙는다. 라운드마다 시작 수신자를 옮겨 이 편향을 특정 수신자에 고정하지 않고 흩는다. 따라서 `fanout_delivery_observed_delay`는 전체 분포로만 읽고, `fanout_recipient` 태그는 편향이 남았는지 확인하는 용도다. 수신자 사이 지연 비교는 App 로그로 판정한다.
 
 fan-out 용량 Run에는 고정 p95 성공 임계가 없다. 입력 이벤트 수·수신자 수·App 인스턴스·relay 5초/50건 조건과 함께 지연, backlog 최대치와 입력 종료 후 0으로 수렴한 시간을 기록한다. 다만 알림 유실·중복과 제한 시간 안의 최종 수렴은 계약 실패로 처리한다.
+
+## OPS-02 지연·포화 통제 시나리오
+
+`ops02-latency-saturation.js`는 공개 DB 조회 하나를 고정 도착률로 호출하고, 서로 다른 Run의 `OPS02_PHASE`만 기록한다. 느린 응답이나 DB pool 대기 주입은 인프라 운영 도구가 소유하며 이 스크립트가 제품 설정·DB·네트워크를 변경하지 않는다.
+
+- 느린 요청: `baseline → slow-request → recovery`
+- DB pool 대기: `baseline → db-pool-wait → recovery`
+
+세 단계는 같은 `ALBAM_MATE_RELEASE`와 고정 인프라·fixture로 실행한다. 각 Run은 `ALBAM_MATE_RUN_ID`, `CAPACITY_PROFILE_ACK=auth-notification-perf-v1`, `OPS02_PHASE`, `ALBAM_MATE_RELEASE`를 명시하고 App1·App2, Nginx, JVM·Tomcat·Hikari, PostgreSQL·Redis의 같은 UTC 구간을 별도 manifest로 연결한다.
+
+```sh
+CAPACITY_PROFILE_ACK=auth-notification-perf-v1 \
+ALBAM_MATE_RUN_ID=ops02-baseline-1 \
+OPS02_PHASE=baseline \
+ALBAM_MATE_RELEASE=<deployed-release> \
+OPS02_RATE=1 \
+OPS02_DURATION_SECONDS=60 \
+./run.sh loadtest ops02-latency-saturation
+```
+
+원시 결과는 `build/k6/ops02-latency-saturation/` 아래에만 보존한다. 이 시나리오의 percentile은 관측 신호와 복구를 비교하기 위한 값이며, 한 번의 실행으로 SLA나 최종 용량을 확정하지 않는다.
 
 ## 결과 판정
 
