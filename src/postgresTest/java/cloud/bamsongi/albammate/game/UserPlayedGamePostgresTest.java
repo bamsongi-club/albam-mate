@@ -8,6 +8,7 @@ import static org.mockito.Mockito.doAnswer;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -157,14 +158,17 @@ class UserPlayedGamePostgresTest {
 			userPlayedGameService.unmarkPlayed(user.getId(), game.getId());
 			assertTrue(userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).isEmpty());
 
-			List<String> messages = appender.list.stream()
-				.map(ILoggingEvent::getFormattedMessage)
-				.filter(value -> value.contains("event=game_played_state_changed"))
+			List<Map<String, Object>> events = appender.list.stream()
+				.map(this::fields)
+				.filter(fields -> "game_played_state_changed".equals(fields.get("event")))
 				.toList();
-			assertEquals(4, messages.size());
-			assertEquals(2, messages.stream().filter(value -> value.contains("action=mark outcome=played")).count());
-			assertEquals(2,
-				messages.stream().filter(value -> value.contains("action=unmark outcome=not_played")).count());
+			assertEquals(4, events.size());
+			assertEquals(2, events.stream().filter(fields -> fields.equals(Map.of(
+				"event", "game_played_state_changed", "gameId", game.getId(), "action", "mark", "outcome", "played")))
+				.count());
+			assertEquals(2, events.stream().filter(fields -> fields.equals(Map.of(
+				"event", "game_played_state_changed", "gameId", game.getId(), "action", "unmark", "outcome",
+				"not_played"))).count());
 		} finally {
 			logger.detachAppender(appender);
 			appender.stop();
@@ -223,6 +227,11 @@ class UserPlayedGamePostgresTest {
 			assertTrue(start.await(10, TimeUnit.SECONDS));
 			return userPlayedGameService.markPlayed(userId, gameId);
 		};
+	}
+
+	private Map<String, Object> fields(ILoggingEvent event) {
+		return event.getKeyValuePairs().stream()
+			.collect(java.util.stream.Collectors.toMap(pair -> pair.key, pair -> pair.value));
 	}
 
 	private User user(String suffix) {
