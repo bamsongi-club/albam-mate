@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  chmodSync,
   existsSync,
   mkdtempSync,
   mkdirSync,
@@ -63,6 +64,7 @@ test('k6 1.3.0 summary-export는 관측·무표본 outcome을 모두 생성하�
   const smokeParent = path.join(repositoryRoot, 'build', 'k6', 'room');
   mkdirSync(smokeParent, { recursive: true });
   const smokeDirectory = mkdtempSync(path.join(smokeParent, 'summary-outcome-smoke-'));
+  chmodSync(smokeDirectory, 0o777);
   const summaryPath = path.join(smokeDirectory, 'summary.json');
   const containerSummaryPath = `/work/${path.relative(repositoryRoot, summaryPath).replaceAll(path.sep, '/')}`;
   const containerFixturePath = `/work/${path.relative(repositoryRoot, fixturePath).replaceAll(path.sep, '/')}`;
@@ -79,7 +81,11 @@ test('k6 1.3.0 summary-export는 관측·무표본 outcome을 모두 생성하�
     containerFixturePath,
   ]);
   assertCommandSucceeded(run, `${k6Image} summary-export smoke`);
-  assert.equal(existsSync(summaryPath), true, 'k6 summary-export 파일이 생성되어야 합니다.');
+  assert.equal(
+    existsSync(summaryPath),
+    true,
+    `k6 summary-export 파일이 생성되어야 합니다.\n${commandOutput(run)}`,
+  );
 
   const rawSummary = JSON.parse(readFileSync(summaryPath, 'utf8'));
   const metrics = rawSummary.metrics;
