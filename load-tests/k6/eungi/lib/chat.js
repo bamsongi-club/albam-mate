@@ -466,17 +466,36 @@ export function postNewMessage(user, runId, purpose, sequence, targetBaseUrl = B
 	);
 }
 
+export function postNewMessagesBatch(messages, runId, purpose, targetBaseUrl = BASE_URL) {
+	const requests = messages.map(({ user, sequence }) => messageRequest(
+		user,
+		clientMessageId(runId, purpose, execution.vu.idInTest, sequence),
+		messageContent(runId, purpose, execution.vu.idInTest, sequence),
+		targetBaseUrl,
+	));
+	return http.batch(requests).map(recordMessageResponse);
+}
+
 export function postMessage(user, clientMessageId, content, targetBaseUrl = BASE_URL, additionalHeaders = {}) {
-	const jar = installSession(user, targetBaseUrl);
-	const response = http.post(
-		`${targetBaseUrl}/api/rooms/${user.roomId}/chat/messages`,
-		JSON.stringify({ clientMessageId, content }),
-		{
+	const request = messageRequest(user, clientMessageId, content, targetBaseUrl, additionalHeaders);
+	const response = http.post(request.url, request.body, request.params);
+	return recordMessageResponse(response);
+}
+
+function messageRequest(user, clientMessageId, content, targetBaseUrl, additionalHeaders = {}) {
+	return {
+		method: 'POST',
+		url: `${targetBaseUrl}/api/rooms/${user.roomId}/chat/messages`,
+		body: JSON.stringify({ clientMessageId, content }),
+		params: {
 			headers: { ...jsonHeaders(user), ...additionalHeaders },
-			jar,
+			jar: installSession(user, targetBaseUrl),
 			tags: { name: 'chat_send', mode: execution.scenario.name, room_id: String(user.roomId) },
 		},
-	);
+	};
+}
+
+function recordMessageResponse(response) {
 	recordHttpResponse(response, 'message');
 	const payload = parseApiPayload(response);
 	if (response.status === 201) {

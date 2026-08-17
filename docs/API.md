@@ -244,8 +244,8 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 22 | P1 | [NOTI-02](#noti-02-내-미확인-알림-수) · [정본](archive/p1/notification.md#noti-02-내-알림-목록미확인-개수) | GET | `/api/users/me/notifications/unread-count` | Y | N | 200 |
 | 23 | P1 | [NOTI-03](#noti-03-내-알림-단건-읽음) · [정본](archive/p1/notification.md#noti-03-알림-읽음-처리) | PATCH | `/api/users/me/notifications/{notificationId}` | Y | Y | 200 |
 | 24 | P1 | [NOTI-03](#noti-03-내-알림-일괄-읽음) · [정본](archive/p1/notification.md#noti-03-알림-읽음-처리) | PATCH | `/api/users/me/notifications` | Y | Y | 200 |
-| 25 | P1 | [CHAT-02](#chat-02-메시지-전송) · [정본](archive/p1/chatting.md#chat-02-메시지-전송이력-조회) | POST | `/api/rooms/{roomId}/chat/messages` | Y | Y | 201·200 |
-| 26 | P1 | [CHAT-02](#chat-02-메시지-이력-조회) · [정본](archive/p1/chatting.md#chat-02-메시지-전송이력-조회) | GET | `/api/rooms/{roomId}/chat/messages` | Y | N | 200 |
+| 25 | P1 | [CHAT-02](#chat-02-메시지-전송) · [P1 종료 기록](archive/p1/chatting.md#chat-02-메시지-전송이력-조회) | POST | `/api/rooms/{roomId}/chat/messages` | Y | Y | 201·200 |
+| 26 | P1 | [CHAT-02](#chat-02-메시지-이력-조회) · [P1 종료 기록](archive/p1/chatting.md#chat-02-메시지-전송이력-조회) | GET | `/api/rooms/{roomId}/chat/messages` | Y | N | 200 |
 | 27 | P1 | [CHAT-03](#chat-03-실시간-메시지-구독) · [정본](archive/p1/chatting.md#chat-03-실시간-전달재연결-복구) | GET (Upgrade) | `/api/rooms/{roomId}/chat/ws` | Y | N | 101 |
 | 28 | P1 | [AUTH-05](#auth-05-소셜-로그인계정-연결) · [정본](archive/p1/social-login.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/providers` | 선택 | N | 200 |
 | 29 | P1 | [AUTH-05](#소셜-로그인-authorization-시작) · [정본](archive/p1/social-login.md#auth-05-소셜-로그인계정-연결) | GET | `/api/auth/social/authorization/{provider}` | N | N | 302 |
