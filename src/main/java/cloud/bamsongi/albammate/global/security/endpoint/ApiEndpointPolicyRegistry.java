@@ -38,12 +38,8 @@ public final class ApiEndpointPolicyRegistry {
 
 	private final List<ApiEndpointPolicy> policies;
 
-	public ApiEndpointPolicyRegistry() {
-		this((Collection<ApiEndpointPolicy>)defaultPolicies());
-	}
-
-	private ApiEndpointPolicyRegistry(Collection<ApiEndpointPolicy> policies) {
-		this.policies = List.copyOf(policies);
+	public ApiEndpointPolicyRegistry(List<ApiEndpointPolicyContributor> contributors) {
+		this.policies = List.copyOf(policiesFrom(contributors));
 		validatePolicies(this.policies);
 	}
 
@@ -115,11 +111,7 @@ public final class ApiEndpointPolicyRegistry {
 	}
 
 	static ApiEndpointPolicyRegistry forPolicies(List<ApiEndpointPolicy> policies) {
-		return new ApiEndpointPolicyRegistry((Collection<ApiEndpointPolicy>)policies);
-	}
-
-	static ApiEndpointPolicyRegistry forContributors(List<ApiEndpointPolicyContributor> contributors) {
-		return new ApiEndpointPolicyRegistry((Collection<ApiEndpointPolicy>)policiesFrom(contributors));
+		return new ApiEndpointPolicyRegistry(List.of(() -> policies));
 	}
 
 	private RequestMatcher requestMatcherFor(ApiEndpointAuthenticationMode authenticationMode) {

@@ -15,6 +15,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import org.junit.jupiter.api.AfterEach;
@@ -62,10 +63,12 @@ class MatchPartyChatWriteGuardPostgresTest {
 	@Test
 	void Guard는_ACTIVE_현재참가자만_통과시키고_호출자_트랜잭션_종료까지_Party_잠금을_유지한다() throws Exception {
 		long memberId = insertUser("member");
+		long formerMemberId = insertUser("former-member");
 		long outsiderId = insertUser("outsider");
 		long gameId = insertGame();
 		long partyId = insertActiveParty(gameId);
 		insertParticipant(partyId, memberId, false);
+		insertParticipant(partyId, formerMemberId, true);
 
 		Class<?> guardType = Class.forName(
 			"cloud.bamsongi.albammate.matching.contract.MatchPartyChatWriteGuard");
@@ -73,6 +76,18 @@ class MatchPartyChatWriteGuardPostgresTest {
 		Method executeWithActiveAccess = guardType.getMethod(
 			"executeWithActiveAccess", long.class, long.class, Supplier.class);
 		assertEquals("allowed", invokeGuard(executeWithActiveAccess, guard, memberId, partyId, () -> "allowed"));
+		AtomicBoolean formerSupplierExecuted = new AtomicBoolean(false);
+		assertForbidden(
+			() -> invokeGuard(
+				executeWithActiveAccess,
+				guard,
+				formerMemberId,
+				partyId,
+				() -> {
+					formerSupplierExecuted.set(true);
+					return "forbidden";
+				}));
+		assertFalse(formerSupplierExecuted.get());
 		assertForbidden(() -> invokeGuard(executeWithActiveAccess, guard, outsiderId, partyId, () -> null));
 
 		TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);

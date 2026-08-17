@@ -67,7 +67,9 @@ class ModuleArchitectureTest {
 		ROOT_PACKAGE + ".matching.contract",
 		ROOT_PACKAGE + ".matching.entity",
 		ROOT_PACKAGE + ".matching.repository",
-		ROOT_PACKAGE + ".matching.service.query");
+		ROOT_PACKAGE + ".matching.service.command",
+		ROOT_PACKAGE + ".matching.service.query",
+		ROOT_PACKAGE + ".matching.recovery");
 	private static final String ROOM_RETRIER = ROOT_PACKAGE + ".room.service.RoomOptimisticLockRetrier";
 	private static final Set<String> ALLOWED_ROOM_RETRIER_USERS = Set.of(
 		ROOT_PACKAGE + ".room.service.command.RoomCommandExecutionCoordinator",
@@ -222,7 +224,7 @@ class ModuleArchitectureTest {
 			.that()
 			.resideInAPackage(ROOT_PACKAGE + ".matching..")
 			.should(resideInAllowedPackage(ALLOWED_MATCHING_PACKAGES, "MATCH"))
-			.because("MATCH는 contract, entity, repository와 query 경계만 사용한다")
+			.because("MATCH는 정본에 선언한 contract, entity, repository, service, recovery 경계만 사용한다")
 			.check(PRODUCTION_CLASSES);
 		noClasses()
 			.that()

@@ -18,10 +18,9 @@ public interface MatchPartyParticipantRepository extends JpaRepository<MatchPart
 		select participant.participantRef
 		from MatchPartyParticipant participant
 		where participant.id.partyId = :partyId
-		  and participant.leftAt is null
 		order by participant.createdAt asc
 		""")
-	List<UUID> findCurrentParticipantRefsByPartyId(@Param("partyId")
+	List<UUID> findParticipantRefsByPartyId(@Param("partyId")
 	Long partyId);
 
 	@Query("""

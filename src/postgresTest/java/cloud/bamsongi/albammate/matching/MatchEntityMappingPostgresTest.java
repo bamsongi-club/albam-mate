@@ -8,6 +8,7 @@ import java.lang.reflect.Method;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
@@ -123,40 +124,47 @@ class MatchEntityMappingPostgresTest {
 	}
 
 	@Test
-	void ParticipantRepository는_대상_Party의_현재_participantRef만_반환하고_BlockRepository는_양방향_차단을_조회한다() throws Exception {
+	void ParticipantRepository는_대상_Party의_current와_former_participantRef를_보존하고_BlockRepository는_각_방향의_차단을_조회한다()
+		throws Exception {
 		long firstUserId = insertUser("first");
-		long secondUserId = insertUser("second");
-		long thirdUserId = insertUser("third");
+		long formerUserId = insertUser("former");
+		long otherPartyUserId = insertUser("other-party");
+		long forwardBlockedUserId = insertUser("forward-blocked");
+		long reverseBlockedUserId = insertUser("reverse-blocked");
 		long gameId = insertGame();
 		long firstPartyId = insertParty(gameId, "ACTIVE");
 		long secondPartyId = insertParty(gameId, "ACTIVE");
 		UUID firstRef = UUID.randomUUID();
+		UUID formerRef = UUID.randomUUID();
 		UUID otherPartyRef = UUID.randomUUID();
 		insertParticipant(firstPartyId, firstUserId, firstRef, false);
-		insertParticipant(secondPartyId, secondUserId, otherPartyRef, false);
-		jdbcTemplate.update(
-			"insert into match_blocks (blocker_user_id, blocked_user_id, created_at) values (?, ?, current_timestamp)",
-			thirdUserId,
-			firstUserId);
+		insertParticipant(firstPartyId, formerUserId, formerRef, true);
+		insertParticipant(secondPartyId, otherPartyUserId, otherPartyRef, false);
 		jdbcTemplate.update(
 			"insert into match_blocks (blocker_user_id, blocked_user_id, created_at) values (?, ?, current_timestamp)",
 			firstUserId,
-			thirdUserId);
+			forwardBlockedUserId);
+		jdbcTemplate.update(
+			"insert into match_blocks (blocker_user_id, blocked_user_id, created_at) values (?, ?, current_timestamp)",
+			reverseBlockedUserId,
+			firstUserId);
 
 		Class<?> participantRepositoryType = Class.forName(
 			"cloud.bamsongi.albammate.matching.repository.MatchPartyParticipantRepository");
 		Object participantRepository = applicationContext.getBean(participantRepositoryType);
-		Method participantRefs = participantRepositoryType.getMethod("findCurrentParticipantRefsByPartyId", Long.class);
+		Method participantRefs = participantRepositoryType.getMethod("findParticipantRefsByPartyId", Long.class);
 		List<?> refs = (List<?>)participantRefs.invoke(participantRepository, firstPartyId);
-		assertEquals(List.of(firstRef), refs);
+		assertEquals(2, refs.size());
+		assertEquals(Set.of(firstRef, formerRef), Set.copyOf(refs));
 		assertFalse(refs.contains(otherPartyRef));
 
 		Class<?> blockRepositoryType = Class
 			.forName("cloud.bamsongi.albammate.matching.repository.MatchBlockRepository");
 		Object blockRepository = applicationContext.getBean(blockRepositoryType);
 		Method blockBetweenUsers = blockRepositoryType.getMethod("existsBlockBetweenUsers", Long.class, Long.class);
-		assertTrue((boolean)blockBetweenUsers.invoke(blockRepository, firstUserId, thirdUserId));
-		assertFalse((boolean)blockBetweenUsers.invoke(blockRepository, firstUserId, secondUserId));
+		assertTrue((boolean)blockBetweenUsers.invoke(blockRepository, firstUserId, forwardBlockedUserId));
+		assertTrue((boolean)blockBetweenUsers.invoke(blockRepository, firstUserId, reverseBlockedUserId));
+		assertFalse((boolean)blockBetweenUsers.invoke(blockRepository, firstUserId, otherPartyUserId));
 	}
 
 	private long insertUser(String role) {
