@@ -121,19 +121,38 @@ function printHelp() {
     `  --output-directory <dir>  result directory\n`);
 }
 
-async function fetchJson(url) {
-  const response = await fetch(url, { headers: { Accept: "application/json" } });
-  const text = await response.text();
-  let body;
+async function fetchJson(url, requestTimeoutMs) {
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, requestTimeoutMs);
+
   try {
-    body = JSON.parse(text);
-  } catch {
-    throw new Error(`${url} 응답이 JSON이 아닙니다. status=${response.status}`);
+    const response = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    const text = await response.text();
+    let body;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      throw new Error(`${url} 응답이 JSON이 아닙니다. status=${response.status}`);
+    }
+    if (!response.ok) {
+      throw new Error(`${url} 호출 실패: status=${response.status}, body=${text.slice(0, 500)}`);
+    }
+    return body;
+  } catch (error) {
+    if (timedOut || error?.name === "AbortError") {
+      throw new Error(`HTTP 요청 timeout (${requestTimeoutMs}ms): ${url}`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  if (!response.ok) {
-    throw new Error(`${url} 호출 실패: status=${response.status}, body=${text.slice(0, 500)}`);
-  }
-  return body;
 }
 
 function gameListResponseError(body) {
@@ -180,13 +199,19 @@ function firstCode(response, label) {
   return code;
 }
 
-async function discoverScenarioValues(baseUrl) {
+async function discoverScenarioValues(baseUrl, requestTimeoutMs, expectedDatasetSize) {
   const base = await fetchJson(
     `${baseUrl}/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24`,
+    requestTimeoutMs,
   );
   const baseResponseError = gameListResponseError(base);
   if (baseResponseError) {
     throw new Error(`base discovery 응답 계약 불일치: ${baseResponseError}`);
+  }
+  if (base.data.totalElements !== expectedDatasetSize) {
+    throw new Error(
+      `base discovery dataset count 불일치: expected=${expectedDatasetSize}, actual=${base.data.totalElements}`,
+    );
   }
   const firstGame = base?.data?.content?.[0];
   const keywordCandidate = [firstGame?.name, firstGame?.englishName]
@@ -196,8 +221,8 @@ async function discoverScenarioValues(baseUrl) {
   }
 
   const [themes, mechanisms] = await Promise.all([
-    fetchJson(`${baseUrl}/api/game-themes`),
-    fetchJson(`${baseUrl}/api/game-mechanisms`),
+    fetchJson(`${baseUrl}/api/game-themes`, requestTimeoutMs),
+    fetchJson(`${baseUrl}/api/game-mechanisms`, requestTimeoutMs),
   ]);
 
   return {
@@ -503,7 +528,7 @@ async function main() {
     console.log(`[game-list-740] runner-commit=${runnerProvenance.commit}`);
     console.log(`[game-list-740] runner-file-sha256=${runnerProvenance.fileSha256}`);
 
-    discovered = await discoverScenarioValues(options.baseUrl);
+    discovered = await discoverScenarioValues(options.baseUrl, options.requestTimeoutMs, options.datasetSize);
     console.log(`[game-list-740] discovered keyword=${JSON.stringify(discovered.keyword)}, theme=${discovered.theme}, mechanism=${discovered.mechanism}`);
 
     for (const scenario of scenarios(discovered)) {

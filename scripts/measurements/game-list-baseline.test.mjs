@@ -16,21 +16,32 @@ function startServer({
   failMeasuredRequest = false,
   invalidMeasuredResponse = false,
   hangMeasuredRequest = false,
+  hangDiscoveryPath = null,
+  datasetSize = 170005,
 } = {}) {
   let gameRequests = 0;
   const server = createServer((request, response) => {
     response.setHeader("content-type", "application/json");
 
     if (request.url?.startsWith("/api/game-themes")) {
+      if (hangDiscoveryPath === "themes") {
+        return;
+      }
       response.end(JSON.stringify({ data: [{ code: "THEME" }] }));
       return;
     }
     if (request.url?.startsWith("/api/game-mechanisms")) {
+      if (hangDiscoveryPath === "mechanisms") {
+        return;
+      }
       response.end(JSON.stringify({ data: [{ code: "MECHANISM" }] }));
       return;
     }
     if (request.url?.startsWith("/api/games")) {
       gameRequests += 1;
+      if (hangDiscoveryPath === "games") {
+        return;
+      }
       if (failMeasuredRequest && gameRequests === 7) {
         response.statusCode = 503;
         response.end(JSON.stringify({ error: "temporary failure" }));
@@ -49,8 +60,8 @@ function startServer({
           content: [{ name: "Catan", englishName: "Catan" }],
           page: 0,
           size: 24,
-          totalElements: 1,
-          totalPages: 1,
+          totalElements: datasetSize,
+          totalPages: Math.ceil(datasetSize / 24),
           hasNext: false,
         },
       }));
@@ -193,6 +204,57 @@ test("멈춘 HTTP 요청은 timeout 실패 sample과 함께 종료된다", async
     assert.equal(report.status, "failed");
     assert.equal(report.results[0].samples.at(-1).status, null);
     assert.match(report.results[0].samples.at(-1).error, /timeout/u);
+  } finally {
+    await server.close();
+    fs.rmSync(outputDirectory, { recursive: true, force: true });
+  }
+});
+
+test("discovery 게임 목록 요청은 timeout 실패 artifact를 남긴다", async () => {
+  const server = await startServer({ hangDiscoveryPath: "games" });
+  const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-discovery-timeout-"));
+  try {
+    const result = await runRunner(server.baseUrl, outputDirectory, ["--request-timeout-ms", "50"]);
+
+    assert.notEqual(result.status, 0);
+    const report = readSingleReport(outputDirectory);
+    assert.equal(report.status, "failed");
+    assert.deepEqual(report.results, []);
+    assert.match(report.failure.message, /HTTP 요청 timeout/u);
+  } finally {
+    await server.close();
+    fs.rmSync(outputDirectory, { recursive: true, force: true });
+  }
+});
+
+test("discovery metadata 요청은 timeout 실패 artifact를 남긴다", async () => {
+  const server = await startServer({ hangDiscoveryPath: "themes" });
+  const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-metadata-timeout-"));
+  try {
+    const result = await runRunner(server.baseUrl, outputDirectory, ["--request-timeout-ms", "50"]);
+
+    assert.notEqual(result.status, 0);
+    const report = readSingleReport(outputDirectory);
+    assert.equal(report.status, "failed");
+    assert.deepEqual(report.results, []);
+    assert.match(report.failure.message, /HTTP 요청 timeout/u);
+  } finally {
+    await server.close();
+    fs.rmSync(outputDirectory, { recursive: true, force: true });
+  }
+});
+
+test("base discovery의 실제 dataset count가 기대값과 다르면 실패 artifact를 남긴다", async () => {
+  const server = await startServer({ datasetSize: 1 });
+  const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-dataset-mismatch-"));
+  try {
+    const result = await runRunner(server.baseUrl, outputDirectory);
+
+    assert.notEqual(result.status, 0);
+    const report = readSingleReport(outputDirectory);
+    assert.equal(report.status, "failed");
+    assert.deepEqual(report.results, []);
+    assert.match(report.failure.message, /expected=170005, actual=1/u);
   } finally {
     await server.close();
     fs.rmSync(outputDirectory, { recursive: true, force: true });
