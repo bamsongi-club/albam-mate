@@ -90,6 +90,13 @@ function writePassRun(buildRoot, run) {
   const finishedAtUtc = `2026-08-${20 + run.repeat}T00:01:00.000Z`;
   const fixturePath = path.join(directory, 'fixture.json');
   const summaryPath = path.join(directory, 'k6-summary.json');
+  const runManifestPath = path.join(directory, RUN_MANIFEST_FILE);
+  const resourceSignalsPath = path.join(directory, RESOURCE_SIGNALS_FILE);
+  const snapshot = {
+    rooms: [{ roomId: run.fixtureId }],
+    participations: [],
+    waitlists: [],
+  };
   writeJson(fixturePath, { fixtureId: run.fixtureId });
   writeJson(summaryPath, t5Summary());
 
@@ -110,11 +117,12 @@ function writePassRun(buildRoot, run) {
     schemaVersion: 1,
     t5ReadOptions: run.readProfile,
   });
-  writeJson(path.join(directory, RUN_MANIFEST_FILE), {
+  const runManifest = {
     schemaVersion: 2,
     fixtureId: run.fixtureId,
     runId: run.runId,
     scenario: 't5',
+    condition: run.options,
     sourceSha: SOURCE_SHA,
     targetEnvironment: 'private-loadtest',
     k6Version: 'v1.3.0',
@@ -127,30 +135,28 @@ function writePassRun(buildRoot, run) {
     summaryFile: 'k6-summary.json',
     summarySha256: sha256(summaryPath),
     t5ReadOptions: run.readProfile,
-  });
-  writeJson(path.join(directory, 'before-diagnosis.json'), {
+  };
+  writeJson(runManifestPath, runManifest);
+  writeJson(path.join(directory, 'before-snapshot.json'), snapshot);
+  writeJson(path.join(directory, 'after-snapshot.json'), snapshot);
+  const beforeDiagnosis = {
     fixtureId: run.fixtureId,
     scenario: 't5',
     stage: 'before',
     status: 'PASS',
     failures: [],
-  });
-  writeJson(path.join(directory, 'after-diagnosis.json'), {
+    baselineSnapshot: snapshot,
+  };
+  const afterDiagnosis = {
     fixtureId: run.fixtureId,
     scenario: 't5',
     stage: 'after',
     status: 'PASS',
     failures: [],
-  });
-  writeJson(path.join(directory, 'final-result.json'), {
-    schemaVersion: 1,
-    fixtureId: run.fixtureId,
-    runId: run.runId,
-    scenario: 't5',
-    status: 'PASS',
-    issues: [],
-  });
-  writeJson(path.join(directory, 'infra-execution.json'), {
+  };
+  writeJson(path.join(directory, 'before-diagnosis.json'), beforeDiagnosis);
+  writeJson(path.join(directory, 'after-diagnosis.json'), afterDiagnosis);
+  const infraExecution = {
     schemaVersion: 1,
     runId: run.runId,
     fixtureId: run.fixtureId,
@@ -161,11 +167,43 @@ function writePassRun(buildRoot, run) {
       k6: { exitCode: 0 },
       afterSnapshot: { exitCode: 0 },
     },
+  };
+  writeJson(path.join(directory, 'infra-execution.json'), infraExecution);
+  const signals = resourceSignals(run, startedAtUtc, finishedAtUtc);
+  writeJson(resourceSignalsPath, signals);
+  const normalizedSignals = {
+    schemaVersion: 1,
+    runId: run.runId,
+    fixtureId: run.fixtureId,
+    window: { startedAtUtc, finishedAtUtc },
+    http: { requestCount: signals.http.requestCount, failedRequestCount: signals.http.failedRequestCount },
+    tomcat: { activeThreads: signals.tomcat.activeThreads },
+    hikari: { activeConnections: signals.hikari.activeConnections },
+    jvm: { heapUsedBytes: signals.jvm.heapUsedBytes },
+    postgresql: { activeConnections: signals.postgresql.activeConnections },
+    query: { ...signals.query },
+  };
+  writeJson(path.join(directory, 'final-result.json'), {
+    schemaVersion: 1,
+    fixtureId: run.fixtureId,
+    runId: run.runId,
+    scenario: 't5',
+    status: 'PASS',
+    issues: [],
+    beforeDiagnosis,
+    afterDiagnosis,
+    infraExecution,
+    completion: {
+      runManifest,
+      resourceSignals: normalizedSignals,
+      artifactSha256: {
+        fixture: sha256(fixturePath),
+        summary: sha256(summaryPath),
+        runManifest: sha256(runManifestPath),
+        resourceSignals: sha256(resourceSignalsPath),
+      },
+    },
   });
-  writeJson(
-    path.join(directory, RESOURCE_SIGNALS_FILE),
-    resourceSignals(run, startedAtUtc, finishedAtUtc),
-  );
   return directory;
 }
 
@@ -269,6 +307,11 @@ test('T5 반복 비교는 run 사이 provenance가 다르면 INVALID다', () => 
     runManifest.sourceSha = 'b'.repeat(40);
     runManifest.targetEnvironment = 'private-loadtest-other';
     writeJson(runManifestPath, runManifest);
+    const finalResultPath = path.join(directory, 'final-result.json');
+    const finalResult = JSON.parse(readFileSync(finalResultPath, 'utf8'));
+    finalResult.completion.runManifest = runManifest;
+    finalResult.completion.artifactSha256.runManifest = sha256(runManifestPath);
+    writeJson(finalResultPath, finalResult);
 
     const result = compareT5RepetitionCampaign({ campaignId: plan.campaignId, buildRoot });
 
@@ -293,6 +336,83 @@ test('T5 반복 비교는 원본 run-manifest completion이 없으면 INVALID로
     assert.equal(result.status, 'INVALID');
     assert.equal(result.acceptedCount, 5);
     assert.match(result.failures.join('\n'), /run-manifest\.json/);
+  } finally {
+    rmSync(buildRoot, { recursive: true, force: true });
+  }
+});
+
+test('T5 반복 비교는 before snapshot이 없으면 INVALID로 차단한다', () => {
+  const buildRoot = mkdtempSync(path.join(os.tmpdir(), 'room-k6-t5-missing-before-snapshot-'));
+  try {
+    const plan = writeCampaignArtifacts(buildRoot, 'room-t5-missing-before-snapshot-test');
+    const run = plan.runs.find((candidate) => candidate.conditionKey === 'public-1' && candidate.repeat === 2);
+    unlinkSync(path.join(buildRoot, run.runId, run.fixtureId, 'before-snapshot.json'));
+
+    const result = compareT5RepetitionCampaign({ campaignId: plan.campaignId, buildRoot });
+
+    assert.equal(result.status, 'INVALID');
+    assert.equal(result.acceptedCount, 5);
+    assert.match(result.failures.join('\n'), /before-snapshot\.json/);
+  } finally {
+    rmSync(buildRoot, { recursive: true, force: true });
+  }
+});
+
+test('T5 반복 비교는 before·after snapshot이 다르면 FAIL로 남긴다', () => {
+  const buildRoot = mkdtempSync(path.join(os.tmpdir(), 'room-k6-t5-changed-snapshot-'));
+  try {
+    const plan = writeCampaignArtifacts(buildRoot, 'room-t5-changed-snapshot-test');
+    const run = plan.runs.find((candidate) => candidate.conditionKey === 'host-1' && candidate.repeat === 3);
+    const afterSnapshotPath = path.join(buildRoot, run.runId, run.fixtureId, 'after-snapshot.json');
+    const afterSnapshot = JSON.parse(readFileSync(afterSnapshotPath, 'utf8'));
+    afterSnapshot.rooms.push({ roomId: 'unexpected-room' });
+    writeJson(afterSnapshotPath, afterSnapshot);
+
+    const result = compareT5RepetitionCampaign({ campaignId: plan.campaignId, buildRoot });
+
+    assert.equal(result.status, 'FAIL');
+    assert.equal(result.acceptedCount, 5);
+    assert.match(result.failures.join('\n'), /before-snapshot\.json과 after-snapshot\.json/);
+  } finally {
+    rmSync(buildRoot, { recursive: true, force: true });
+  }
+});
+
+test('T5 반복 비교는 before diagnosis의 stale baselineSnapshot을 INVALID로 차단한다', () => {
+  const buildRoot = mkdtempSync(path.join(os.tmpdir(), 'room-k6-t5-stale-diagnosis-'));
+  try {
+    const plan = writeCampaignArtifacts(buildRoot, 'room-t5-stale-diagnosis-test');
+    const run = plan.runs.find((candidate) => candidate.conditionKey === 'participant-1' && candidate.repeat === 1);
+    const diagnosisPath = path.join(buildRoot, run.runId, run.fixtureId, 'before-diagnosis.json');
+    const diagnosis = JSON.parse(readFileSync(diagnosisPath, 'utf8'));
+    diagnosis.baselineSnapshot.rooms[0].roomId = 'stale-room';
+    writeJson(diagnosisPath, diagnosis);
+
+    const result = compareT5RepetitionCampaign({ campaignId: plan.campaignId, buildRoot });
+
+    assert.equal(result.status, 'INVALID');
+    assert.equal(result.acceptedCount, 5);
+    assert.match(result.failures.join('\n'), /before-diagnosis\.json.*baselineSnapshot/);
+  } finally {
+    rmSync(buildRoot, { recursive: true, force: true });
+  }
+});
+
+test('T5 반복 비교는 final result의 nested diagnosis가 현재 artifact와 다르면 INVALID로 차단한다', () => {
+  const buildRoot = mkdtempSync(path.join(os.tmpdir(), 'room-k6-t5-final-evidence-mismatch-'));
+  try {
+    const plan = writeCampaignArtifacts(buildRoot, 'room-t5-final-evidence-mismatch-test');
+    const run = plan.runs.find((candidate) => candidate.conditionKey === 'participant-10' && candidate.repeat === 2);
+    const finalResultPath = path.join(buildRoot, run.runId, run.fixtureId, 'final-result.json');
+    const finalResult = JSON.parse(readFileSync(finalResultPath, 'utf8'));
+    finalResult.afterDiagnosis.failures = ['stale diagnosis'];
+    writeJson(finalResultPath, finalResult);
+
+    const result = compareT5RepetitionCampaign({ campaignId: plan.campaignId, buildRoot });
+
+    assert.equal(result.status, 'INVALID');
+    assert.equal(result.acceptedCount, 5);
+    assert.match(result.failures.join('\n'), /final-result\.json.*afterDiagnosis/);
   } finally {
     rmSync(buildRoot, { recursive: true, force: true });
   }

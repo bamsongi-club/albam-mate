@@ -585,6 +585,11 @@ export function readPortableT5CompletionArtifacts(bundle, fixture = null, execut
   };
 }
 
+function hasPortableT5CompletionArtifacts(bundle) {
+  return [ARTIFACTS.runManifest, ARTIFACTS.resourceSignals]
+    .some((relativePath) => existsSync(artifactPath(bundle, relativePath)));
+}
+
 function isSnapshot(value) {
   return value && typeof value === 'object' && !Array.isArray(value)
     && Array.isArray(value.rooms) && Array.isArray(value.participations) && Array.isArray(value.waitlists);
@@ -749,8 +754,10 @@ export function diagnoseBundle(values, context) {
   const snapshot = readSnapshot(bundle, snapshotPath);
   const fixture = readHydratedFixture(bundle, plan, ownership);
   if (stage === 'after' && plan.options.scenario === 't5') {
-    readPortableT5CompletionArtifacts(bundle, fixture, executionOptions);
     const beforeDiagnosis = readDiagnosis(bundle, ARTIFACTS.beforeDiagnosis, 'before');
+    if (hasPortableT5CompletionArtifacts(bundle)) {
+      readPortableT5CompletionArtifacts(bundle, fixture, executionOptions);
+    }
     fixture.baselineSnapshot = beforeDiagnosis.baselineSnapshot;
   }
   let summary = null;
@@ -792,7 +799,7 @@ export function aggregateBundle(rawBundlePath, context) {
     issues.push('infra-execution.json이 없거나 현재 bundle의 원시 실행 metadata 계약과 맞지 않습니다.');
   }
   let completion = null;
-  if (bundle.manifest.options.scenario === 't5') {
+  if (bundle.manifest.options.scenario === 't5' && hasPortableT5CompletionArtifacts(bundle)) {
     try {
       completion = readPortableT5CompletionArtifacts(bundle, null, executionOptions);
     } catch (_) {
@@ -803,11 +810,12 @@ export function aggregateBundle(rawBundlePath, context) {
   if (phaseCodes.some((code) => code === null)) {
     issues.push('원시 실행 phase exit code가 완결되지 않았습니다.');
   }
+  const hasCompletionFailure = completion !== null && completion.runManifest.k6ExitCode !== 0;
   const hasInvalid = issues.length > 0 || before?.status === 'INVALID' || after?.status === 'INVALID';
   const hasFailure = before?.status === 'FAIL'
     || after?.status === 'FAIL'
     || phaseCodes.some((code) => code !== null && code !== 0)
-    || completion?.runManifest.k6ExitCode !== 0;
+    || hasCompletionFailure;
   const result = {
     schemaVersion: 1,
     fixtureId: bundle.manifest.fixtureId,

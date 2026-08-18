@@ -61,6 +61,13 @@ function isObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value);
 }
 
+function isSnapshot(value) {
+  return isObject(value)
+    && Array.isArray(value.rooms)
+    && Array.isArray(value.participations)
+    && Array.isArray(value.waitlists);
+}
+
 function readJson(filePath, label) {
   if (!existsSync(filePath)) {
     return { error: `${label}이 없습니다.` };
@@ -184,6 +191,7 @@ function validateCompletionManifest(directory, run, portableManifest, summaryPat
     || manifest.fixtureId !== run.fixtureId
     || manifest.runId !== run.runId
     || manifest.scenario !== 't5'
+    || !isDeepStrictEqual(manifest.condition, run.options)
     || manifest.runState !== 'COMPLETED'
     || manifest.completed !== true
     || !Number.isInteger(manifest.k6ExitCode)
@@ -213,7 +221,7 @@ function validateCompletionManifest(directory, run, portableManifest, summaryPat
   return { value: manifest };
 }
 
-function validateDiagnosis(directory, fileName, run, stage) {
+function validateDiagnosis(directory, fileName, run, stage, expectedBaselineSnapshot = null) {
   const result = readJson(path.join(directory, fileName), fileName);
   if (result.error) {
     return result;
@@ -230,13 +238,18 @@ function validateDiagnosis(directory, fileName, run, stage) {
   if (diagnosis.status === 'PASS' && diagnosis.failures.length !== 0) {
     return { error: `${fileName}가 PASS인데 failures가 비어 있지 않습니다.` };
   }
+  if (stage === 'before'
+    && (!isSnapshot(diagnosis.baselineSnapshot)
+      || !isDeepStrictEqual(diagnosis.baselineSnapshot, expectedBaselineSnapshot))) {
+    return { error: `${fileName}의 baselineSnapshot이 before-snapshot.json과 다릅니다.` };
+  }
   if (diagnosis.status === 'FAIL') {
     return { failure: `${fileName}가 FAIL로 끝났습니다.` };
   }
   return { value: diagnosis };
 }
 
-function validateFinalResult(directory, run) {
+function validateFinalResult(directory, run, expectedEvidence) {
   const result = readJson(path.join(directory, 'final-result.json'), 'final-result.json');
   if (result.error) {
     return result;
@@ -256,6 +269,18 @@ function validateFinalResult(directory, run) {
   }
   if (finalResult.status === 'FAIL') {
     return { failure: 'final-result.json이 FAIL로 끝났습니다.' };
+  }
+  const evidenceEntries = [
+    ['beforeDiagnosis', finalResult.beforeDiagnosis, expectedEvidence.beforeDiagnosis],
+    ['afterDiagnosis', finalResult.afterDiagnosis, expectedEvidence.afterDiagnosis],
+    ['infraExecution', finalResult.infraExecution, expectedEvidence.infraExecution],
+    ['completion', finalResult.completion, expectedEvidence.completion],
+  ];
+  const mismatchedEvidence = evidenceEntries.find(([, actual, expected]) => (
+    !isDeepStrictEqual(actual, expected)
+  ));
+  if (mismatchedEvidence) {
+    return { error: `final-result.json의 ${mismatchedEvidence[0]} evidence가 실제 artifact와 다릅니다.` };
   }
   return { value: finalResult };
 }
@@ -407,7 +432,9 @@ function validateResourceSignals(directory, run, completionManifest) {
     if (!values || RESOURCE_REQUIRED_FIELDS[group].some((field) => !Object.hasOwn(values, field))) {
       return { error: `${RESOURCE_SIGNALS_FILE}에 ${group} 자원 신호가 없습니다.` };
     }
-    normalized[group] = values;
+    normalized[group] = Object.fromEntries(
+      RESOURCE_REQUIRED_FIELDS[group].map((field) => [field, values[field]]),
+    );
   }
 
   const querySignals = {};
@@ -468,7 +495,34 @@ function readT5RunArtifact(buildRoot, run) {
     return invalidRun(run, 'execution-options.json과 run-manifest.json의 read profile이 다릅니다.');
   }
 
-  const beforeDiagnosis = validateDiagnosis(directory, 'before-diagnosis.json', run, 'before');
+  const beforeSnapshotPath = path.join(directory, 'before-snapshot.json');
+  const beforeSnapshotResult = readJson(beforeSnapshotPath, 'before-snapshot.json');
+  if (beforeSnapshotResult.error) {
+    return invalidRun(run, beforeSnapshotResult.error);
+  }
+  if (!isSnapshot(beforeSnapshotResult.value)) {
+    return invalidRun(run, 'before-snapshot.json에 rooms, participations, waitlists 배열이 없습니다.');
+  }
+
+  const afterSnapshotPath = path.join(directory, 'after-snapshot.json');
+  const afterSnapshotResult = readJson(afterSnapshotPath, 'after-snapshot.json');
+  if (afterSnapshotResult.error) {
+    return invalidRun(run, afterSnapshotResult.error);
+  }
+  if (!isSnapshot(afterSnapshotResult.value)) {
+    return invalidRun(run, 'after-snapshot.json에 rooms, participations, waitlists 배열이 없습니다.');
+  }
+  if (!isDeepStrictEqual(beforeSnapshotResult.value, afterSnapshotResult.value)) {
+    return failedRun(run, 'before-snapshot.json과 after-snapshot.json의 rooms, participations, waitlists가 다릅니다.');
+  }
+
+  const beforeDiagnosis = validateDiagnosis(
+    directory,
+    'before-diagnosis.json',
+    run,
+    'before',
+    beforeSnapshotResult.value,
+  );
   if (beforeDiagnosis.error) {
     return invalidRun(run, beforeDiagnosis.error);
   }
@@ -481,13 +535,6 @@ function readT5RunArtifact(buildRoot, run) {
   }
   if (afterDiagnosis.failure) {
     return failedRun(run, afterDiagnosis.failure);
-  }
-  const finalResult = validateFinalResult(directory, run);
-  if (finalResult.error) {
-    return invalidRun(run, finalResult.error);
-  }
-  if (finalResult.failure) {
-    return failedRun(run, finalResult.failure);
   }
   const infraExecution = validateInfraExecution(directory, run);
   if (infraExecution.error) {
@@ -509,6 +556,29 @@ function readT5RunArtifact(buildRoot, run) {
     return invalidRun(run, resourceSignals.error);
   }
 
+  const completionEvidence = {
+    runManifest: completion.value,
+    resourceSignals: resourceSignals.value,
+    artifactSha256: {
+      fixture: sha256(fixturePath),
+      summary: sha256(summaryPath),
+      runManifest: sha256(path.join(directory, RUN_MANIFEST_FILE)),
+      resourceSignals: sha256(path.join(directory, RESOURCE_SIGNALS_FILE)),
+    },
+  };
+  const finalResult = validateFinalResult(directory, run, {
+    beforeDiagnosis: beforeDiagnosis.value,
+    afterDiagnosis: afterDiagnosis.value,
+    infraExecution: infraExecution.value,
+    completion: completionEvidence,
+  });
+  if (finalResult.error) {
+    return invalidRun(run, finalResult.error);
+  }
+  if (finalResult.failure) {
+    return failedRun(run, finalResult.failure);
+  }
+
   return {
     kind: 'PASS',
     run,
@@ -525,10 +595,17 @@ function readT5RunArtifact(buildRoot, run) {
     },
     metrics: summary.value,
     resourceSignals: resourceSignals.value,
+    snapshot: { beforeAfterEqual: true },
     artifactSha256: {
+      fixture: sha256(fixturePath),
       summary: sha256(summaryPath),
       completion: sha256(path.join(directory, RUN_MANIFEST_FILE)),
       resourceSignals: sha256(path.join(directory, RESOURCE_SIGNALS_FILE)),
+      beforeSnapshot: sha256(beforeSnapshotPath),
+      afterSnapshot: sha256(afterSnapshotPath),
+      beforeDiagnosis: sha256(path.join(directory, 'before-diagnosis.json')),
+      afterDiagnosis: sha256(path.join(directory, 'after-diagnosis.json')),
+      finalResult: sha256(path.join(directory, 'final-result.json')),
     },
   };
 }
@@ -610,6 +687,7 @@ export function compareT5RepetitionCampaign({ campaignId, buildRoot = defaultBui
         window: result.window || null,
         metrics: result.metrics || null,
         resourceSignals: result.resourceSignals || null,
+        snapshot: result.snapshot || null,
         artifactSha256: result.artifactSha256 || null,
         failure: result.failure || null,
       })),

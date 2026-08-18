@@ -136,6 +136,8 @@ ROOM_K6_FIXTURE_PASSWORD='<private-password>' ./run.sh room-k6 \
 
 T5의 `before-diagnosis.json`은 실행 전 snapshot과 판정을 하나의 create-only artifact에 함께 고정한다. `after` diagnosis는 이 고정 snapshot을 baseline으로 사용하며 `fixture.json`을 다시 쓰지 않는다. `aggregate`는 diagnosis의 identity·stage·status·failures 일관성을 다시 검증하고, `PASS`와 failures가 함께 있거나 failures가 누락된 artifact는 `INVALID`로 처리한다.
 
+구형 runner와의 단일 portable T5 bundle 호환을 위해 `run-manifest.json`과 `resource-signals.json`이 모두 없으면 `after diagnosis`와 `aggregate`는 기존 snapshot/diagnosis 경로를 유지한다. 둘 중 하나라도 생성된 경우에는 두 completion artifact를 함께 검증하며, 일부만 있거나 계약이 맞지 않으면 `INVALID`로 처리한다. 반복 비교(`t5-repetition.mjs compare`)는 각 run의 completion artifact와 snapshot·diagnosis·final-result evidence를 모두 요구한다.
+
 정상 흐름은 테스트 직후 `down`으로 전용 DB와 stack을 함께 폐기하므로 fixture cleanup transport를 자동 실행하지 않는다. 실행이 중단돼 stack을 유지해야 한다면 이 최초 원격 흐름을 재사용하지 말고, 후속 명시 cleanup 계약을 먼저 추가한다.
 
 시나리오별 fixture 입력은 아래처럼 바꾼다.

@@ -1352,6 +1352,64 @@ function completePortableT5Bundle(bundle, rendered, context) {
   return aggregateBundle(bundle, context);
 }
 
+test('portable T5 diagnose와 aggregate는 completion artifact가 없는 기존 runner를 허용한다', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-portable-t5-legacy-runner-'));
+  const buildRoot = path.join(root, 'build', 'k6', 'room');
+  const context = {
+    repositoryRoot,
+    scenarioDirectory: path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon'),
+    buildRoot,
+    bundleRoot: null,
+    isBundleRuntime: false,
+    environment: {
+      ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$portable-t5-legacy-runner-test',
+      ROOM_K6_READ_VUS: '7',
+      ROOM_K6_READ_DURATION_SECONDS: '75',
+      ROOM_K6_READ_THINK_TIME_MS: '25',
+    },
+  };
+
+  try {
+    const rendered = renderBundle({
+      scenario: 't5',
+      runId: `portable-t5-legacy-runner-${process.pid}-${Date.now()}`,
+      profile: 'spike',
+      t5Role: 'host',
+      t5Scale: '1',
+    }, context, { sourceRevision: 'd'.repeat(40), sourceDirty: false });
+    const bundle = rendered.bundlePath;
+    const plan = JSON.parse(readFileSync(path.join(bundle, 'fixture-plan.json'), 'utf8'));
+    writeFileSync(path.join(bundle, 'resource-output.json'), `${JSON.stringify(fixtureResources(plan))}\n`, 'utf8');
+
+    const hydrated = hydrateBundle(bundle, context);
+    const snapshot = fixtureSnapshot(JSON.parse(readFileSync(hydrated.fixturePath, 'utf8')));
+    writeFileSync(path.join(bundle, 'before-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
+    assert.equal(diagnoseBundle({ bundle, stage: 'before' }, context).status, 'PASS');
+    writeFileSync(path.join(bundle, 'after-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
+    writeFileSync(path.join(bundle, 'k6-summary.json'), `${JSON.stringify(t5SummaryWithTopLevelCounts(7))}\n`, 'utf8');
+    assert.equal(diagnoseBundle({ bundle, stage: 'after' }, context).status, 'PASS');
+
+    writeFileSync(path.join(bundle, 'infra-execution.json'), `${JSON.stringify({
+      schemaVersion: 1,
+      runId: rendered.options.runId,
+      fixtureId: rendered.fixtureId,
+      phases: {
+        prepare: { exitCode: 0 },
+        resourceQuery: { exitCode: 0 },
+        beforeSnapshot: { exitCode: 0 },
+        k6: { exitCode: 0 },
+        afterSnapshot: { exitCode: 0 },
+      },
+    })}\n`, 'utf8');
+
+    const aggregate = aggregateBundle(bundle, context);
+    assert.equal(aggregate.status, 'PASS');
+    assert.equal(aggregate.completion, null);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('T5 비교는 portable bundle 완료 artifact와 k6 v1.3 top-level count를 검증한다', () => {
   const runId = `portable-t5-compare-${process.pid}-${Date.now()}`;
   const comparisonDirectory = path.join(fixtureBuildRoot, runId);
