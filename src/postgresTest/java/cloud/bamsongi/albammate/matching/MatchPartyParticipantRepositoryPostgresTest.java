@@ -57,8 +57,10 @@ class MatchPartyParticipantRepositoryPostgresTest {
 		insertParticipant(activePartyId, formerUserId, leftParticipantRef, Instant.now());
 		insertParticipant(closedPartyId, userId, closedParticipantRef, null);
 
-		assertTrue(participantRepository.findByPartyIdAndParticipantRef(activePartyId, activeParticipantRef).isPresent());
-		assertFalse(participantRepository.findByPartyIdAndParticipantRef(otherPartyId, activeParticipantRef).isPresent());
+		assertTrue(
+			participantRepository.findByPartyIdAndParticipantRef(activePartyId, activeParticipantRef).isPresent());
+		assertFalse(
+			participantRepository.findByPartyIdAndParticipantRef(otherPartyId, activeParticipantRef).isPresent());
 		assertTrue(participantRepository.findParticipantByPartyIdAndUserId(activePartyId, formerUserId).isPresent());
 		assertTrue(participantRepository.findParticipantByPartyIdAndUserId(closedPartyId, userId).isPresent());
 	}

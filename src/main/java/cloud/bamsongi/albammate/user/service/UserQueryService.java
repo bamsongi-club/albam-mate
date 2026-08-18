@@ -8,8 +8,8 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import cloud.bamsongi.albammate.user.contract.UserQuery;
 import cloud.bamsongi.albammate.user.contract.UserPublicProfile;
+import cloud.bamsongi.albammate.user.contract.UserQuery;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
