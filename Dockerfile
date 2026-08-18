@@ -25,8 +25,8 @@ RUN apk add --upgrade --no-cache \
         'libexpat>=2.8.2-r0' \
     && addgroup -S -g 10001 albam \
     && adduser -S -D -H -u 10001 -G albam albam \
-    && mkdir -p /app \
-    && chown 10001:10001 /app
+    && mkdir -p /app/uploads/profile \
+    && chown -R 10001:10001 /app
 
 WORKDIR /app
 
