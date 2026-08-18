@@ -6,6 +6,19 @@
 
 ## AI-01 AI 모임 도우미
 
+### AI-01~AI-04 전달 패키지
+
+이 문서의 기능 ID `AI-01`은 AI 모임 도우미 전체 기능과 공개 API·저장·모듈 계약을 뜻한다. 구현·운영 이슈는 아래 네 전달 패키지로 나뉘며, 패키지 ID는 새로운 HTTP·ERD 계약을 만들거나 기존 기능 ID를 대체하지 않는다. 각 패키지의 사람이 승인한 T-ID는 연결된 하위 이슈가 소유한다.
+
+| 전달 패키지 | 책임 | 상위 정본 이슈 | 하위 구현·검증 이슈 |
+| --- | --- | --- | --- |
+| `AI-01` | 동의·철회, 인증·CSRF, 외부 AI 처리·PII·secret 경계 | [#827](https://github.com/bamsongi-club/albam-mate/issues/827) | [#818](https://github.com/bamsongi-club/albam-mate/issues/818) 동의 범위, [#821](https://github.com/bamsongi-club/albam-mate/issues/821) 동의 설정 UI |
+| `AI-02` | 의도 추출·추천, Provider·quota·비용·사용량 | [#828](https://github.com/bamsongi-club/albam-mate/issues/828) | [#818](https://github.com/bamsongi-club/albam-mate/issues/818) 추천 범위, [#819](https://github.com/bamsongi-club/albam-mate/issues/819), [#821](https://github.com/bamsongi-club/albam-mate/issues/821) 추천 UI |
+| `AI-03` | 15분 초안, 확인형 Room 생성, Room·ChatRoom 원자성, 초안·확정 UI | [#826](https://github.com/bamsongi-club/albam-mate/issues/826) | [#820](https://github.com/bamsongi-club/albam-mate/issues/820), [#821](https://github.com/bamsongi-club/albam-mate/issues/821) 초안·확정 UI |
+| `AI-04` | 운영 인프라·production 배포·feature gate·배포 후 실측 | [#829](https://github.com/bamsongi-club/albam-mate/issues/829) | [#822](https://github.com/bamsongi-club/albam-mate/issues/822), [#823](https://github.com/bamsongi-club/albam-mate/issues/823), [#824](https://github.com/bamsongi-club/albam-mate/issues/824) |
+
+착수 순서는 `AI-01 → AI-02 → AI-03 → AI-04`로 고정한다. 상위 이슈는 하위 이슈의 구현·검증·배포·실측 증거를 집계하고, 하위 이슈의 T-ID 승인 댓글을 대신하지 않는다.
+
 ## 문서 책임
 
 - 이 문서가 소유하는 기능 동작과 완료 기준: 로그인 사용자의 자연어 조건을 서버가 구조화하고, 추천과 누락 정보 확인을 거쳐 사용자가 명시적으로 확인한 경우 기존 Room 생성 유스케이스로 연결하는 AI 모임 도우미의 동작과 `AI-01` 완료 기준.
