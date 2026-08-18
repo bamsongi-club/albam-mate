@@ -253,6 +253,45 @@ test("quality corpus version·snapshot·selection 규칙이 서로 다르면 거
     assert.throws(() => validateEvaluationManifest(changedSnapshot), /snapshot/u);
 });
 
+test("ADR-0072 selection·index 불변식은 각각 회귀를 거절한다", () => {
+    const cutoffBeforeMapping = buildManifest();
+    cutoffBeforeMapping.qualityCorpus.selection.cutoffAppliedAfterMapping = false;
+    assert.throws(() => validateEvaluationManifest(cutoffBeforeMapping), /mapping 뒤에/u);
+
+    const snapshotNotPinned = buildManifest();
+    snapshotNotPinned.qualityCorpus.selection.snapshotPinned = false;
+    assert.throws(() => validateEvaluationManifest(snapshotNotPinned), /snapshot/u);
+
+    const invalidDedupe = buildManifest();
+    invalidDedupe.qualityCorpus.selection.dedupe = "first row wins";
+    assert.throws(() => validateEvaluationManifest(invalidDedupe), /중복 제거/u);
+
+    const unsortedMembers = buildManifest();
+    [unsortedMembers.qualityCorpus.members[0], unsortedMembers.qualityCorpus.members[1]] = [
+        unsortedMembers.qualityCorpus.members[1],
+        unsortedMembers.qualityCorpus.members[0],
+    ];
+    assert.throws(() => validateEvaluationManifest(unsortedMembers), /오름차순/u);
+
+    const invalidRollback = buildManifest();
+    invalidRollback.index.rollbackPolicy = "delete-previous-ready";
+    assert.throws(() => validateEvaluationManifest(invalidRollback), /rollback/u);
+
+    const missingLanguagePolicy = buildManifest();
+    delete missingLanguagePolicy.qualityCorpus.selection.languageExclusionPolicy;
+    assert.throws(() => validateEvaluationManifest(missingLanguagePolicy), /languageExclusionPolicy/u);
+});
+
+test("quality corpus members 구조 오류를 memberCount보다 먼저 진단한다", () => {
+    const missingMembers = buildManifest();
+    delete missingMembers.qualityCorpus.members;
+    assert.throws(() => validateEvaluationManifest(missingMembers), /members가 없습니다/u);
+
+    const emptyMembers = buildManifest();
+    emptyMembers.qualityCorpus.members = [];
+    assert.throws(() => validateEvaluationManifest(emptyMembers), /members가 없습니다/u);
+});
+
 test("Recall·MRR·nDCG를 k별 반환 key와 함께 재현한다", () => {
     const metricsAt10 = calculateRankingMetrics({
         expectedGameIds: [1, 2, 3],

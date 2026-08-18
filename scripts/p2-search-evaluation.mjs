@@ -427,11 +427,11 @@ function validateQualityCorpusDescriptor(corpus) {
     if (JSON.stringify(corpus.selection.order) !== JSON.stringify(["boardlifeRank:asc", "bggId:asc"])) {
         fail("quality corpus 정렬 규칙은 BoardLife rank와 BGG ID 오름차순이어야 합니다.");
     }
-    if (corpus.selection.memberCount !== corpus.members?.length) {
-        fail("quality corpus selection.memberCount가 members와 다릅니다.");
-    }
     if (!Array.isArray(corpus.members) || corpus.members.length === 0) {
         fail("manifest.qualityCorpus.members가 없습니다.");
+    }
+    if (corpus.selection.memberCount !== corpus.members.length) {
+        fail("quality corpus selection.memberCount가 members와 다릅니다.");
     }
     const memberIds = new Set();
     let previousMember;
