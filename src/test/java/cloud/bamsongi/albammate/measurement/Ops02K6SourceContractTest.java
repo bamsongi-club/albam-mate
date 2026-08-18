@@ -21,12 +21,13 @@ class Ops02K6SourceContractTest {
 			.contains("'baseline', 'slow-request', 'db-pool-wait', 'recovery'")
 			.contains("ALBAM_MATE_RELEASE")
 			.contains("publicProbe(client")
-			.contains("upstreamName(response)")
 			.contains("phase: PHASE")
 			.contains("release: RELEASE")
 			.contains("ops02_request_errors: ['rate==0']")
 			.contains("dropped_iterations: ['count==0']")
 			.contains("'p(50)'", "'p(95)'", "'p(99)'")
+			.doesNotContain("upstreamName")
+			.doesNotContain("upstream:")
 			.doesNotContain("p(95)<=")
 			.doesNotContainIgnoringCase("SLA");
 	}

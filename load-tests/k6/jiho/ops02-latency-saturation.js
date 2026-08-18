@@ -6,7 +6,6 @@ import {
   integerEnv,
   publicProbe,
   requireCapacityProfile,
-  upstreamName,
 } from './lib/albam.js';
 
 requireCapacityProfile();
@@ -62,7 +61,6 @@ export default function () {
     phase: PHASE,
     release: RELEASE,
     status: String(response.status),
-    upstream: upstreamName(response),
   };
 
   check(response, { 'OPS-02 public probe가 성공한다': () => succeeded });
