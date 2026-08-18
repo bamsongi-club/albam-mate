@@ -116,7 +116,7 @@ class LocalMultiProxyRuntimePostgresTest {
 				Thread.sleep(PROXY_UPSTREAM_RETRY_INTERVAL_MILLIS);
 			}
 		}
-		assertEquals(2, upstreams.size(),
+		assertEquals(Set.of("app1", "app2"), upstreams,
 			"proxy did not route requests to both Spring instances within "
 				+ CROSS_INSTANCE_TIMEOUT_MILLIS + "ms: " + upstreams);
 	}

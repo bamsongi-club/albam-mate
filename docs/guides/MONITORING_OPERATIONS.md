@@ -11,10 +11,10 @@
 | 구분 | 현재 판정 | 완료 증거 |
 | --- | --- | --- |
 | 이 문서의 metric·log·alarm·상태 전이 계약 | 확정 | 이 문서와 연결 정본의 링크·회귀 검사 |
-| 애플리케이션 OTLP·JSON logging | `OPS-01-AC1`~`AC3` 구현·자동 검증 완료 | 앱 [#764](https://github.com/bamsongi-club/albam-mate/pull/764), merge `0fa8285a019fafbb1d7caa65baa30cc8446e2c89` |
-| 인프라 수집·상태 정본·경고 제어·Scheduler | `OPS-01-AC1`~`AC7` 구현·자동 검증 완료 | `albam-mate-infra` [#14](https://github.com/bamsongi-club/albam-mate-infra/pull/14)·[#16](https://github.com/bamsongi-club/albam-mate-infra/pull/16)·[#17](https://github.com/bamsongi-club/albam-mate-infra/pull/17)·[#18](https://github.com/bamsongi-club/albam-mate-infra/pull/18)·[#19](https://github.com/bamsongi-club/albam-mate-infra/pull/19)·[#20](https://github.com/bamsongi-club/albam-mate-infra/pull/20)·[#22](https://github.com/bamsongi-club/albam-mate-infra/pull/22), main `ce8913c01937b7db71264008bd24a851a1c6d4d4` |
-| AWS 배포와 실제 수집 | `OPS-01-AC1`~`AC7` 임시 배포·실측·철거 완료 | #730 앱 release `8e25bbc6ee2c1b68aa28247b9c2fdbf7b8e88784`, 아래 #730·#731 T1~T3와 Terraform teardown |
-| 경고·복구 | #731 범위 실측 완료 | 대표 alarm `OK → ALARM → OK`, SNS 경고·복구 실제 수신, 최종 receipt `79bc6489-994a-4ba5-80ae-b43b075d8020` |
+| 애플리케이션 OTLP·JSON logging | `OPS-01-AC1`~`AC3` 구현·자동 검증 완료, OPS-02 HTTP·JVM·Tomcat·Hikari·Nginx timing 원천 범위 부분 구현·자동 검증 | OPS-01 앱 [#764](https://github.com/bamsongi-club/albam-mate/pull/764), merge `0fa8285a019fafbb1d7caa65baa30cc8446e2c89`; OPS-02 production 설정·자동 검증 |
+| 인프라 수집·상태 정본·경고 제어·Scheduler | `OPS-01-AC1`~`AC7` 구현·자동 검증 완료, OPS-02 infra 미구현 | `albam-mate-infra` [#14](https://github.com/bamsongi-club/albam-mate-infra/pull/14)·[#16](https://github.com/bamsongi-club/albam-mate-infra/pull/16)·[#17](https://github.com/bamsongi-club/albam-mate-infra/pull/17)·[#18](https://github.com/bamsongi-club/albam-mate-infra/pull/18)·[#19](https://github.com/bamsongi-club/albam-mate-infra/pull/19)·[#20](https://github.com/bamsongi-club/albam-mate-infra/pull/20)·[#22](https://github.com/bamsongi-club/albam-mate-infra/pull/22), main `ce8913c01937b7db71264008bd24a851a1c6d4d4` |
+| AWS 배포와 실제 수집 | `OPS-01-AC1`~`AC7` 임시 배포·실측·철거 완료, OPS-02 미배포·미측정 | OPS-01 #730 앱 release `8e25bbc6ee2c1b68aa28247b9c2fdbf7b8e88784`, 아래 #730·#731 T1~T3와 Terraform teardown; OPS-02는 같은 release의 metric·log 도착과 수집 공백 검사 필요 |
+| 경고·복구 | #731 OPS-01 범위 실측 완료, OPS-02 미측정 | OPS-01 대표 alarm `OK → ALARM → OK`, SNS 경고·복구 실제 수신, 최종 receipt `79bc6489-994a-4ba5-80ae-b43b075d8020`; OPS-02 실측 필요 |
 
 이 계약은 App1·App2·PostgreSQL·Redis로 구성한 하나의 `stackId` 전체에만 적용한다. 애플리케이션 배포, 한 컨테이너 재시작, rolling restart와 부분 유지보수는 `PLANNED_STOP`이 아니며 `ACTIVE` 상태와 배포 grace 안에서 관측한다.
 
@@ -106,14 +106,16 @@ object key는 `receipts/v1/{environment}/{stackId}/{receiptId}/{sequence}-{stage
 | `CWAgent mem_used_percent` | gauge·host Agent | `InstanceId`, `StackId`, `Role` | 10초 `Maximum > 85`, 6회 | 현재 인프라 alarm |
 | `CWAgent disk_used_percent` | gauge·host Agent | 위 값과 `fstype=xfs`, `path=/` | 10초 `Maximum > 85`, 6회 | 현재 인프라 alarm |
 | `AWS/EC2 NetworkIn`, `NetworkOut` | counter·EC2 | `InstanceId`, 배포 `role` mapping | 1분 `Sum`·원인 분석 | 현재 dashboard |
-| `http.server.requests` | timer·Spring MVC observation | `method`, 정규화 `uri`, `status`, `outcome` | 5분 count·p50·p95·p99·5xx 비율 | meter 기반 있음·histogram/export 설정 필요 |
-| `jvm.memory.used`, `jvm.memory.max` | gauge·Micrometer JVM binder | `area`, 제한된 `id` | 1분 `Maximum`·used/max | meter 기반 있음·export 필요 |
-| `jvm.gc.pause` | timer·Micrometer JVM binder | `action`, `cause`의 라이브러리 유한값 | 5분 count·p95 | meter 기반 있음·export 필요 |
-| `jvm.threads.live` | gauge·Micrometer JVM binder | 없음 | 1분 `Maximum` | meter 기반 있음·export 필요 |
-| `tomcat.threads.busy`, `tomcat.threads.current`, `tomcat.threads.config.max` | gauge·Tomcat binder | connector `name`의 배포 고정값 | 1분 `Maximum`, busy/max | meter 기반 있음·export 필요 |
-| `hikaricp.connections.active`, `idle`, `pending`, `max`, `timeout` | gauge·counter·HikariCP binder | 고정 pool 이름 | 1분 `Maximum`·timeout `Sum` | meter 기반 있음·export 필요 |
+| `http.server.requests` | timer·Spring MVC observation | `method`, 정규화 `uri`, `status`, `outcome` | 5분 count·p50·p95·p99·5xx 비율 | production histogram 설정·OTLP export 자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `jvm.memory.used`, `jvm.memory.max` | gauge·Micrometer JVM binder | `area`, 제한된 `id` | 1분 `Maximum`·used/max | production 설정·OTLP export 자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `jvm.gc.pause` | timer·Micrometer JVM binder | `action`, `cause`의 라이브러리 유한값 | 5분 count·p95 | meter 기반 있음·OTLP export 검증 필요, CloudWatch 배포·실측 필요 |
+| `jvm.threads.live` | gauge·Micrometer JVM binder | 없음 | 1분 `Maximum` | production 설정·OTLP export 자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `tomcat.threads.busy`, `tomcat.threads.current`, `tomcat.threads.config.max` | gauge·Tomcat binder | connector `name`의 배포 고정값 | 1분 `Maximum`, busy/max | Spring Boot 4 connector binder·OTLP export 자동 검증, CloudWatch 실측 필요 |
+| `hikaricp.connections.active`, `idle`, `pending`, `max`, `timeout` | gauge·counter·HikariCP binder | 고정 pool 이름 | 1분 `Maximum`·timeout `Sum` | production 설정·OTLP export 자동 검증 완료, CloudWatch 배포·실측 필요 |
 | `albam.dependency.health` | gauge·추가 구현 | `dependency=postgresql|redis`; 값 `1=up`, `0=down` | 마지막 값과 2회 연속 down | 추가 구현 필요 |
 | `albam.telemetry.last_success_age` | gauge·Agent/infra 추가 구현 | `signal=metric|log`, 배포 dimension | 5분 `Maximum`; ACTIVE에서 임계 초과 | 추가 구현 필요 |
+
+`frontend/nginx.production.conf`는 proxy 구간에 한해 raw URI·query·client 식별자 없이 `request_time`, `upstream_response_time`, `upstream_addr`를 구조화된 timing 원천으로 남긴다. 외부 응답의 `X-Albam-Mate-Upstream`은 backend가 검증한 `app1` 또는 `app2` 역할만 전달하고 raw 주소를 합성하지 않는다. 내부 `upstream_addr`는 CloudWatch dimension으로 직접 사용하지 않고, private infra가 배포 manifest와 대조해 유한한 App1·App2 `role`로 변환해야 한다. Agent 변환·CloudWatch 배포·실측은 아직 완료 증거가 아니다.
 
 `meter 기반 있음`은 Actuator·Micrometer binder를 사용할 수 있다는 뜻이며 CloudWatch 도착이나 percentile 존재를 뜻하지 않는다. 실제 OTLP 이름 변환이 생기면 CloudWatch의 최종 이름을 구현 PR에서 이 표와 alarm query에 함께 고정한다.
 

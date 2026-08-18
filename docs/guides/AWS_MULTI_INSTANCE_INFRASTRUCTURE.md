@@ -180,7 +180,7 @@ web의 Nginx는 `ssl_certificate`와 `ssl_certificate_key` 파일이 없으면 �
    wss://<direct-host>/api/rooms/<roomId>/chat/ws
    ```
 
-   App1 Nginx access log에 해당 요청과 WebSocket `101`이 남고, `/api/` HTTP 응답의 `X-Albam-Mate-Upstream` 또는 upstream 로그로 App1·App2 분산을 확인한 뒤에만 부하를 시작한다. 이 접속 확인과 부하 모두 SSM 포워딩이 아닌 동일한 직접 경로에서 수행한다.
+   App1 Nginx access log에 해당 요청과 WebSocket `101`이 남고, `/api/` HTTP 응답의 `X-Albam-Mate-Upstream=app1|app2` 또는 upstream 로그로 App1·App2 분산을 확인한 뒤에만 부하를 시작한다. 응답 header는 raw upstream 주소를 내보내지 않으며, 내부 `upstream_addr`는 private infra가 manifest와 대조해 역할로 변환한다. 이 접속 확인과 부하 모두 SSM 포워딩이 아닌 동일한 직접 경로에서 수행한다.
 7. 측정 시작 시각, release SHA·이미지 digest, Terraform commit, 허용 CIDR, `DIRECT_HOST`, 두 Origin 값과 전환·원복 시각을 함께 기록한다.
 
 #### 측정 후 원복

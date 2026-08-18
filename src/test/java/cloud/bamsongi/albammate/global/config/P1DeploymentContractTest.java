@@ -49,7 +49,9 @@ class P1DeploymentContractTest {
 		String localSpringTwo = section(localCompose, "  spring-2:", "  proxy:");
 		assertTrue(localSpringOne.contains("environment: &spring_environment"));
 		assertTrue(localSpringOne.contains("ALBAM_MATE_LOGIN_LIMIT: ${ALBAM_MATE_LOGIN_LIMIT:-30}"));
-		assertTrue(localSpringTwo.contains("environment: *spring_environment"));
+		assertFalse(localSpringOne.contains("ALBAM_MATE_ROLE:"));
+		assertTrue(localSpringTwo.contains("<<: *spring_environment"));
+		assertTrue(localSpringTwo.contains("ALBAM_MATE_ROLE: app2"));
 		assertFalse(localCompose.contains("APP_SECURITY_AUTHREQUEST_LOGINLIMIT"));
 		assertEquals("${ALBAM_MATE_LOGIN_LIMIT:30}", yamlProperties("src/main/resources/application-local.yml")
 			.getProperty("app.security.auth-request.login-limit"));
@@ -70,13 +72,21 @@ class P1DeploymentContractTest {
 	}
 
 	@Test
-	void nginx는_App1과_App2_upstream_응답과_헤더를_모두_노출한다() throws IOException {
+	void nginx는_App1과_App2_upstream으로_라우팅하고_backend_bounded_헤더만_전달한다() throws IOException {
 		String nginx = file("frontend/nginx.production.conf");
 
 		assertTrue(nginx.contains("server spring:8080;"));
 		assertTrue(nginx.contains("server ${ALBAM_MATE_APP2_HOST}:8080;"));
 		assertFalse(nginx.contains("server 127.0.0.1:8080;"));
-		assertTrue(nginx.contains("add_header X-Albam-Mate-Upstream $upstream_addr always;"));
+		assertFalse(nginx.contains("add_header X-Albam-Mate-Upstream"));
+		assertEquals(3, count(nginx, "proxy_pass_header X-Albam-Mate-Upstream;"));
+		String localNginx = file("frontend/nginx.local.conf");
+		assertFalse(localNginx.contains("add_header X-Albam-Mate-Upstream"));
+		assertEquals(2, count(localNginx, "proxy_pass_header X-Albam-Mate-Upstream;"));
+		String verifier = file("scripts/verify-docker-deployment.mjs");
+		assertTrue(verifier.contains("assertUpstreamPair(body, upstream);"));
+		assertTrue(verifier.contains("body === 'production-proxy-app1' && upstream === 'app1'"));
+		assertTrue(verifier.contains("body === 'production-proxy-app2' && upstream === 'app2'"));
 	}
 
 	@Test
@@ -347,5 +357,9 @@ class P1DeploymentContractTest {
 		int endIndex = end == null ? contents.length() : contents.indexOf(end, startIndex + start.length());
 		assertTrue(endIndex >= 0, () -> "missing section: " + end);
 		return contents.substring(startIndex, endIndex);
+	}
+
+	private int count(String contents, String expected) {
+		return contents.split(Pattern.quote(expected), -1).length - 1;
 	}
 }

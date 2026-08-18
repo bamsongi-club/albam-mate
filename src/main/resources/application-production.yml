@@ -36,6 +36,23 @@ management:
   server:
     port: ${MANAGEMENT_SERVER_PORT:9090}
     address: 127.0.0.1
+  metrics:
+    enable:
+      jvm: true
+      tomcat: true
+      hikaricp: true
+    tags:
+      environment: ${ALBAM_MATE_ENVIRONMENT}
+      stackId: ${ALBAM_MATE_STACK_ID}
+      service: albam-mate
+      role: ${ALBAM_MATE_ROLE}
+      instanceId: ${ALBAM_MATE_INSTANCE_ID}
+      release: ${ALBAM_MATE_RELEASE}
+    distribution:
+      percentiles:
+        http.server.requests: [0.5, 0.95, 0.99]
+      percentiles-histogram:
+        http.server.requests: true
   opentelemetry:
     resource-attributes:
       environment: ${ALBAM_MATE_ENVIRONMENT}
@@ -94,6 +111,7 @@ logging:
 
 app:
   monitoring:
+    upstream-role: ${ALBAM_MATE_ROLE}
     dependency-health:
       enabled: true
       poll-interval: 10s

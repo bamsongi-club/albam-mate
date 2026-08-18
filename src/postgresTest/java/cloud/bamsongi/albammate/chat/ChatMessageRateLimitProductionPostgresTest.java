@@ -139,6 +139,7 @@ class ChatMessageRateLimitProductionPostgresTest {
 		registry.add("spring.datasource.password", POSTGRES::getPassword);
 		registry.add("app.redis.host", REDIS::getHost);
 		registry.add("app.redis.port", () -> REDIS.getMappedPort(6379));
+		registry.add("app.monitoring.upstream-role", () -> "app1");
 	}
 
 	@AfterEach
