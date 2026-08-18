@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -115,6 +117,58 @@ class UserRowLockPortPostgresTest {
 		}
 	}
 
+	@Test
+	void 낮은_ID_행부터_실제로_잠가_높은_ID_경합_중에도_잠금_순서를_보장한다() throws Exception {
+		long lowUserId = insertUser("low");
+		long highUserId = insertUser("high");
+		TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+		CountDownLatch highRowLocked = new CountDownLatch(1);
+		CountDownLatch releaseHighRow = new CountDownLatch(1);
+		CountDownLatch targetStarted = new CountDownLatch(1);
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		Future<Void> blockerFuture = executor.submit(
+			() -> transactionTemplate.execute(status -> {
+				jdbcTemplate.queryForObject(
+					"select id from users where id = ? for update", Long.class, highUserId);
+				highRowLocked.countDown();
+				await(releaseHighRow);
+				return null;
+			}));
+		Future<Set<Long>> targetFuture = null;
+
+		try {
+			assertTrue(
+				highRowLocked.await(WAIT_SECONDS, TimeUnit.SECONDS),
+				"높은 ID 사용자 행을 선행 잠그지 못했습니다.");
+			targetFuture = executor.submit(
+				() -> transactionTemplate.execute(status -> {
+					targetStarted.countDown();
+					return userRowLockPort.lockExistingUsersInAscendingOrder(
+						List.of(highUserId, lowUserId));
+				}));
+			assertTrue(
+				targetStarted.await(WAIT_SECONDS, TimeUnit.SECONDS),
+				"대상 잠금 트랜잭션이 시작되지 않았습니다.");
+			assertTrue(
+				observeRowLockedByAnotherTransaction(lowUserId),
+				"높은 ID 행에서 경합 중인 동안 낮은 ID 행이 먼저 잠기지 않았습니다.");
+
+			releaseHighRow.countDown();
+			assertEquals(
+				List.of(lowUserId, highUserId),
+				List.copyOf(targetFuture.get(WAIT_SECONDS, TimeUnit.SECONDS)));
+			blockerFuture.get(WAIT_SECONDS, TimeUnit.SECONDS);
+		} finally {
+			releaseHighRow.countDown();
+			if (targetFuture != null) {
+				targetFuture.get(WAIT_SECONDS, TimeUnit.SECONDS);
+			}
+			blockerFuture.get(WAIT_SECONDS, TimeUnit.SECONDS);
+			executor.shutdownNow();
+			assertTrue(executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS));
+		}
+	}
+
 	private long insertUser(String role) {
 		return jdbcTemplate.queryForObject(
 			"insert into users (email, password_hash, nickname, created_at, updated_at) values (?, 'hash', ?, current_timestamp, current_timestamp) returning id",
@@ -130,5 +184,45 @@ class UserRowLockPortPostgresTest {
 			Thread.currentThread().interrupt();
 			throw new AssertionError("동시성 동기화 대기 중 인터럽트되었습니다.", exception);
 		}
+	}
+
+	private boolean observeRowLockedByAnotherTransaction(long userId) {
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(WAIT_SECONDS);
+		while (System.nanoTime() < deadline) {
+			if (!tryLockRowNowait(userId)) {
+				return true;
+			}
+			try {
+				Thread.sleep(10);
+			} catch (InterruptedException exception) {
+				Thread.currentThread().interrupt();
+				throw new AssertionError("행 잠금 관찰 중 인터럽트되었습니다.", exception);
+			}
+		}
+		return false;
+	}
+
+	private boolean tryLockRowNowait(long userId) {
+		try {
+			jdbcTemplate.queryForObject(
+				"select id from users where id = ? for update nowait", Long.class, userId);
+			return true;
+		} catch (DataAccessException exception) {
+			if (isLockNotAvailable(exception)) {
+				return false;
+			}
+			throw exception;
+		}
+	}
+
+	private boolean isLockNotAvailable(DataAccessException exception) {
+		Throwable cause = exception;
+		while (cause != null) {
+			if (cause instanceof SQLException sqlException && "55P03".equals(sqlException.getSQLState())) {
+				return true;
+			}
+			cause = cause.getCause();
+		}
+		return false;
 	}
 }

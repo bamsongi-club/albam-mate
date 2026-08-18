@@ -35,7 +35,10 @@ import cloud.bamsongi.albammate.global.config.TimeConfig;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 
-@DataJpaTest
+@DataJpaTest(properties = {
+	"spring.flyway.enabled=false",
+	"spring.jpa.hibernate.ddl-auto=create-drop"
+})
 @Import({JpaConfig.class, TimeConfig.class})
 class GameRepositoryTest {
 
@@ -310,14 +313,18 @@ class GameRepositoryTest {
 	}
 
 	@Test
-	void 매칭_지원_인원_범위는_실제_최소최대_값만_사용하고_전체_결측값과_없는_게임은_empty다() {
+	void 매칭_지원_인원_범위는_실제_최소최대_값만_사용하고_결측값과_없는_게임은_empty다() {
 		Game completeRange = saveGame(2001L, "CompleteRange", 2, 4, 20, new BigDecimal("2.00"));
 		Game missingRange = saveGame(2002L, "MissingRange", null, null, 20, new BigDecimal("2.00"));
+		Game missingMin = saveGame(2003L, "MissingMin", null, 4, 20, new BigDecimal("2.00"));
+		Game missingMax = saveGame(2004L, "MissingMax", 2, null, 20, new BigDecimal("2.00"));
 
 		assertEquals(
 			Optional.of(new GamePlayerRange(completeRange.getId(), 2, 4)),
 			gameRepository.findPlayerRangeById(completeRange.getId()));
 		assertTrue(gameRepository.findPlayerRangeById(missingRange.getId()).isEmpty());
+		assertTrue(gameRepository.findPlayerRangeById(missingMin.getId()).isEmpty());
+		assertTrue(gameRepository.findPlayerRangeById(missingMax.getId()).isEmpty());
 		assertTrue(gameRepository.findPlayerRangeById(999_999L).isEmpty());
 	}
 
