@@ -89,7 +89,8 @@ export function responseHeader(response, name) {
 }
 
 export function upstreamName(response) {
-  return responseHeader(response, 'X-Albam-Mate-Upstream') || 'missing';
+  const value = responseHeader(response, 'X-Albam-Mate-Upstream');
+  return value === 'app1' || value === 'app2' ? value : 'missing';
 }
 
 export function retryAfterSeconds(response) {

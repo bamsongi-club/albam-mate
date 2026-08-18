@@ -96,7 +96,7 @@ Run ID는 DB fixture만 분리한다. 인증 IP 제한은 Run ID와 무관하게
 
 ## 로컬 예행
 
-운영 실행 전에 로컬에서 스크립트가 도는지 먼저 확인한다. `compose.local.yml`은 프록시·Spring 두 대·PostgreSQL·Redis를 함께 띄우고 프록시가 `X-Albam-Mate-Upstream`을 붙이므로, **다중 인스턴스·공용 Redis·upstream 구분까지 그대로 재현된다.** 로컬 실행 명령은 [docs/COMMANDS.md](../../../docs/COMMANDS.md)를 따른다.
+운영 실행 전에 로컬에서 스크립트가 도는지 먼저 확인한다. `compose.local.yml`은 프록시·Spring 두 대·PostgreSQL·Redis를 함께 띄우고 backend가 `X-Albam-Mate-Upstream=app1|app2`만 응답에 설정하므로, **다중 인스턴스·공용 Redis·bounded upstream 역할 구분까지 그대로 재현된다.** raw `upstream_addr`는 응답·k6 tag에 쓰지 않고 내부 infra가 manifest와 대조해 역할로 변환한다. 로컬 실행 명령은 [docs/COMMANDS.md](../../../docs/COMMANDS.md)를 따른다.
 
 **로컬은 동작 확인용이며 용량 근거가 아니다.** 로컬 Spring에는 `-Xmx256m`도 CPU credit도 인스턴스 간 네트워크도 없다. 여기서 나온 지연·처리량은 `t4g.micro` 결과를 대신하지 못한다.
 

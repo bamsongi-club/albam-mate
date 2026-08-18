@@ -78,7 +78,9 @@ services:
   spring-2:
     image: albam-mate-spring:local
     restart: unless-stopped
-    environment: *spring_environment
+    environment:
+      <<: *spring_environment
+      ALBAM_MATE_ROLE: app2
     depends_on:
       postgres:
         condition: service_healthy

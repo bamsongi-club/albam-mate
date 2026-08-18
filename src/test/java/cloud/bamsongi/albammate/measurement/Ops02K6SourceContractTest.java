@@ -15,21 +15,25 @@ class Ops02K6SourceContractTest {
 	@Test
 	void T3_지연과_pool_대기는_같은_release의_분리된_통제_단계로만_실행한다() throws IOException {
 		String scenario = scenario();
+		String library = read("load-tests/k6/jiho/lib/albam.js");
 
 		assertThat(scenario)
 			.contains("requireCapacityProfile()")
 			.contains("'baseline', 'slow-request', 'db-pool-wait', 'recovery'")
 			.contains("ALBAM_MATE_RELEASE")
 			.contains("publicProbe(client")
+			.contains("upstreamName,")
 			.contains("phase: PHASE")
 			.contains("release: RELEASE")
+			.contains("upstream: upstreamName(response)")
 			.contains("ops02_request_errors: ['rate==0']")
 			.contains("dropped_iterations: ['count==0']")
 			.contains("'p(50)'", "'p(95)'", "'p(99)'")
-			.doesNotContain("upstreamName")
-			.doesNotContain("upstream:")
 			.doesNotContain("p(95)<=")
 			.doesNotContainIgnoringCase("SLA");
+		assertThat(library)
+			.contains("return value === 'app1' || value === 'app2' ? value : 'missing';")
+			.doesNotContain("return responseHeader(response, 'X-Albam-Mate-Upstream') || 'missing';");
 	}
 
 	@Test

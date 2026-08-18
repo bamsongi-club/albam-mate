@@ -111,6 +111,7 @@ logging:
 
 app:
   monitoring:
+    upstream-role: ${ALBAM_MATE_ROLE}
     dependency-health:
       enabled: true
       poll-interval: 10s

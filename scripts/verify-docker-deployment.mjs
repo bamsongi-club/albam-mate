@@ -855,14 +855,30 @@ function verifyT6() {
     try {
         assertUnusedResources([spring, app2, web], network);
         createCertificate(certificateDirectory);
+        const springFixture = writeT6UpstreamFixture(certificateDirectory, 'app1', 'production-proxy-app1');
+        const app2Fixture = writeT6UpstreamFixture(certificateDirectory, 'app2', 'production-proxy-app2');
         assertProductionConfig(loadProductionConfig(productionEnvironment(certificateDirectory)));
         buildOwnedImage(ownedImages, webImage, ['--file', 'frontend/Dockerfile.production', 'frontend']);
         docker(['network', 'create', network]);
         networkCreated = true;
-        docker(['run', '-d', '--name', spring, '--network', network, '--network-alias', 'spring', httpEchoImage, '-listen=:8080', '-text=production-proxy-app1']);
+        docker([
+            'run', '-d', '--name', spring, '--network', network, '--network-alias', 'spring', '--mount',
+            `type=bind,source=${springFixture},target=/etc/nginx/conf.d/default.conf,readonly`, nginxImage,
+        ]);
         springCreated = true;
-        docker(['run', '-d', '--name', app2, '--network', network, '--network-alias', 'app-b.albam-mate.internal', httpEchoImage, '-listen=:8080', '-text=production-proxy-app2']);
+        docker([
+            'run', '-d', '--name', app2, '--network', network, '--network-alias', 'app-b.albam-mate.internal', '--mount',
+            `type=bind,source=${app2Fixture},target=/etc/nginx/conf.d/default.conf,readonly`, nginxImage,
+        ]);
         app2Created = true;
+        for (const [name, expectedBody] of [[spring, 'production-proxy-app1'], [app2, 'production-proxy-app2']]) {
+            waitFor(`${name} upstream fixture`, () => {
+                const response = docker(['exec', name, 'wget', '-qO-', 'http://127.0.0.1:8080/verify'], {
+                    allowFailure: true,
+                });
+                return response.status === 0 && response.stdout.trim() === expectedBody;
+            });
+        }
         docker([
             'run',
             '-d',
@@ -916,14 +932,41 @@ function verifyT6() {
                 body === 'production-proxy-app1' || body === 'production-proxy-app2',
                 `unexpected production upstream response: ${body}`,
             );
+            assertUpstreamPair(body, upstream);
             observedBodies.add(body);
             observedUpstreams.add(upstream);
         }
-        assert(observedBodies.has('production-proxy-app1'), 'repeated requests never observed App1');
-        assert(observedBodies.has('production-proxy-app2'), 'repeated requests never observed App2');
-        assert(observedUpstreams.size === 2, `repeated requests observed ${observedUpstreams.size} upstream addresses`);
+        removeContainer(spring);
+        springCreated = false;
+        const app2Response = waitFor('production App2 fallback', () => {
+            const response = docker([
+                'exec',
+                web,
+                'wget',
+                '--no-check-certificate',
+                '-S',
+                '-qO-',
+                'https://127.0.0.1:8443/api/verify',
+            ], { allowFailure: true });
+            const body = response.stdout.trim();
+            if (response.status !== 0 || body !== 'production-proxy-app2') {
+                return false;
+            }
+            assertUpstreamPair(body, upstreamHeader(response));
+            return response;
+        });
+        observedBodies.add(app2Response.stdout.trim());
+        observedUpstreams.add(upstreamHeader(app2Response));
+        assert(
+            observedBodies.has('production-proxy-app1') && observedBodies.has('production-proxy-app2'),
+            `repeated requests observed upstream bodies: ${[...observedBodies].join(', ')}`,
+        );
+        assert(
+            observedUpstreams.size === 2 && observedUpstreams.has('app1') && observedUpstreams.has('app2'),
+            `repeated requests observed bounded upstream roles: ${[...observedUpstreams].join(', ')}`,
+        );
         verifyDatabaseHealthcheck();
-        console.log('T6 PASS: repeated HTTPS requests observed both App1/App2 bodies and upstream headers while both backends stayed healthy; PostgreSQL also reached healthy.');
+        console.log('T6 PASS: HTTPS requests observed App1 then App2 fallback bodies and bounded upstream roles; PostgreSQL also reached healthy.');
     } finally {
         if (webCreated) removeContainer(web);
         if (app2Created) removeContainer(app2);
@@ -934,10 +977,28 @@ function verifyT6() {
     }
 }
 
+function writeT6UpstreamFixture(directory, role, body) {
+    const fixture = path.join(directory, `${role}.conf`);
+    fs.writeFileSync(
+        fixture,
+        `server {\n    listen 8080;\n    location / {\n        default_type text/plain;\n        add_header X-Albam-Mate-Upstream ${role} always;\n        return 200 '${body}';\n    }\n}\n`,
+        'utf8',
+    );
+    return fixture;
+}
+
 function upstreamHeader(response) {
     const match = response.stderr.match(/^\s*X-Albam-Mate-Upstream:\s*(.+)$/imu);
     assert(match, `response omitted X-Albam-Mate-Upstream: ${response.stderr}`);
     return match[1].trim();
+}
+
+function assertUpstreamPair(body, upstream) {
+    assert(
+        (body === 'production-proxy-app1' && upstream === 'app1')
+            || (body === 'production-proxy-app2' && upstream === 'app2'),
+        `production upstream body/header mismatch: body=${body}, upstream=${upstream}`,
+    );
 }
 
 function verifyDatabaseHealthcheck() {

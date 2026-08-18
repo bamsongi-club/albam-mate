@@ -81,6 +81,10 @@ describe('production nginx OPS-02 timing', () => {
   it('keeps the private upstream address in the timing log but never exposes it to public responses', () => {
     expect(configuration).toContain('"upstreamAddress":"$upstream_addr"');
     expect(configuration).not.toContain('add_header X-Albam-Mate-Upstream');
+
+    for (const location of ['~ ^/api/rooms/[1-9][0-9]*/chat/ws$', '/api/', '/uploads/']) {
+      expect(locationBody(location)).toContain('proxy_pass_header X-Albam-Mate-Upstream;');
+    }
   });
 
   it('enables the timing record only for bounded upstream locations', () => {

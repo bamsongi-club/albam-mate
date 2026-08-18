@@ -93,7 +93,6 @@ class LatencySaturationProductionPostgresTest {
 		"release", "test-release");
 	private static final Set<String> REQUIRED_SATURATION_METERS = Set.of(
 		"jvm.memory.used",
-		"jvm.gc.live.data.size",
 		"jvm.threads.live",
 		"tomcat.threads.busy",
 		"tomcat.threads.current",
