@@ -93,7 +93,8 @@ class ChatMessageDeliveryServiceTest {
 		ChatMessage message3 = chatMessage(3L, USER_ID);
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
 			.thenReturn(List.of(message1, message2, message3));
-		when(userQuery.findUserSummariesByIds(any())).thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
+		when(userQuery.findUserSummariesByIds(any()))
+			.thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
 
 		deliveryService.deliverNewMessages(connection);
 
@@ -121,7 +122,8 @@ class ChatMessageDeliveryServiceTest {
 
 		ArgumentCaptor<TextMessage> captor = ArgumentCaptor.forClass(TextMessage.class);
 		verify(session).sendMessage(captor.capture());
-		assertTrue(captor.getValue().getPayload().contains("\"profileImageUrl\":\"https://cdn.example.com/profile.png\""));
+		assertTrue(
+			captor.getValue().getPayload().contains("\"profileImageUrl\":\"https://cdn.example.com/profile.png\""));
 	}
 
 	@Test
@@ -153,7 +155,8 @@ class ChatMessageDeliveryServiceTest {
 		ChatMessage message2 = chatMessage(2L);
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
 			.thenReturn(List.of(message1, message2));
-		when(userQuery.findUserSummariesByIds(any())).thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
+		when(userQuery.findUserSummariesByIds(any()))
+			.thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
 
 		deliveryService.deliverNewMessages(connection);
 
@@ -182,7 +185,8 @@ class ChatMessageDeliveryServiceTest {
 		ChatMessage message2 = chatMessage(2L);
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
 			.thenReturn(List.of(message1, message2));
-		when(userQuery.findUserSummariesByIds(any())).thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
+		when(userQuery.findUserSummariesByIds(any()))
+			.thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
 		doThrow(new IOException("boom")).when(session).sendMessage(any());
 
 		deliveryService.deliverNewMessages(connection);
@@ -203,7 +207,8 @@ class ChatMessageDeliveryServiceTest {
 		ChatMessage message2 = chatMessage(2L);
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
 			.thenReturn(List.of(message1, message2));
-		when(userQuery.findUserSummariesByIds(any())).thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
+		when(userQuery.findUserSummariesByIds(any()))
+			.thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
 
 		deliveryService.deliverNewMessages(connection);
 

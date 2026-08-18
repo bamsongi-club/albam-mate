@@ -123,7 +123,8 @@ class UserQueryServiceTest {
 		return projection;
 	}
 
-	private UserRepository.UserSummaryProjection summaryProjection(long userId, String nickname, String profileImageUrl) {
+	private UserRepository.UserSummaryProjection summaryProjection(long userId, String nickname,
+		String profileImageUrl) {
 		UserRepository.UserSummaryProjection projection = org.mockito.Mockito.mock(
 			UserRepository.UserSummaryProjection.class);
 		when(projection.getId()).thenReturn(userId);
