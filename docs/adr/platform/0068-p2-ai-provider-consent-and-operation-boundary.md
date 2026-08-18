@@ -58,7 +58,7 @@
 ## 결과
 
 - 얻는 것:
-  - `assistant → infra.ai`와 `assistant → game.contract`·`room.contract` 경계가 분리된다.
+  - `infra.ai → assistant.contract` adapter 구현 의존과 `assistant → game.contract`·`room.contract` 업무 협력 의존으로 경계가 분리된다.
   - 실제 provider가 기본 테스트·기본 profile·health 판정에 끼어들지 않는다.
   - 동의 철회, payload 최소화, 보존 금지, quota와 비용 상한을 구현·검증 계약으로 연결할 수 있다.
 - 감수할 비용·위험:

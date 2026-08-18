@@ -67,7 +67,7 @@ manifest hash는 `manifestSha256` 필드를 제외한 전체 manifest를 JSON ob
 - 측정 경계는 인증·동의·quota 판정이 끝나 AI 명령이 수락된 시점부터 최종 상태 응답을 조합한 시점까지의 end-to-end latency와, provider adapter가 payload를 전송한 시점부터 구조화 응답 검증 또는 timeout까지의 provider latency로 나눈다. fixture 생성·setup·generator warm-up은 latency 표본에서 제외하고 provider 대기·schema 검증은 포함한다.
 - 추정 비용은 고정된 provider/model 가격 snapshot의 input token 수·output token 수와 요청별 고정 과금을 각각 곱해 더한다. 가격 snapshot·usage·호출 trace 중 하나라도 없으면 비용 `0`으로 대체하지 않고 `NO_OBSERVATION` 또는 `INVALID`로 판정한다.
 - cost cap은 [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md)의 앱 전체 월 `$5`와 80% 알림 기준 `$4`를 사용한다. latency threshold는 구현 이슈의 테스트 계약에서 별도 승인하며, threshold·cap이 없거나 실제 provider 관측을 실행하지 않은 결과는 `NOT_RUN`이다.
-- `PASS`는 manifest/hash·trace·부수효과가 완전하고, 승인된 latency threshold와 cost cap을 모두 만족하며 금지 데이터가 없는 경우에만 부여한다. 실행·관측 계약은 충족했지만 threshold 초과·cost cap 초과·금지 데이터가 확인되면 `FAIL`, manifest/hash·trace·측정 자료가 누락되면 `INVALID`로 판정한다. provider 호출·가격 snapshot·승인값이 없는 경우는 `NOT_RUN` 또는 `NO_OBSERVATION`이며 AC7 통과로 세지 않는다.
+- `PASS`는 manifest/hash·trace·부수효과가 완전하고, 승인된 latency threshold와 cost cap을 모두 만족하며 금지 데이터가 없는 경우에만 부여한다. 실행·관측 계약은 충족했지만 threshold 초과·cost cap 초과·금지 데이터가 확인되면 `FAIL`, manifest/hash·trace·측정 자료가 누락되면 `INVALID`로 판정한다. provider 호출·가격 snapshot·승인값이 없는 경우는 `NOT_RUN` 또는 `NO_OBSERVATION`이며 `AI-02-AC3`의 quota·비용 근거나 `AI-04-AC2`의 배포 후 관측 근거로 세지 않는다.
 
 ## 판정 기준
 

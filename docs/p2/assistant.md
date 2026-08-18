@@ -145,8 +145,8 @@ Provider egress·secret/config·release·migration·feature gate·rollback과 �
 
 - 로그인 사용자만 `AI-01`을 사용할 수 있으며 기존 인증·인가·CSRF·Room 업무 불변식을 그대로 통과한다.
 - provider에는 고정 instruction·강제 schema·기준 시각·서버가 최소화한 사용자 문장·서버가 확인한 누락 필드만 전달한다. 호출 전에 전화번호·주소·연락처·자격증명·token 같은 PII·secret을 탐지해 승인된 방식으로 마스킹하고, 안전하게 마스킹할 수 없으면 provider 호출을 fail-closed로 거절한다. provider가 no-retention·no-training 조건을 계약으로 보장하지 못하면 호출하지 않으며, 게임 ID·Room 쓰기 권한·임의 SQL/DSL은 provider에 위임하지 않는다.
-- 추천 후보 조회는 `AI-01`이 소유하는 별도 서버 읽기 흐름으로 둔다. 구조화된 추천 조건은 모두 AND로 적용한 뒤 내부 `RANK-01` 순서로 정렬하며, 공개 `RANK-01` API의 상위 10개 결과나 provider가 정한 순서를 사용하지 않는다. [API](../API.md)·[아키텍처](../ARCHITECTURE.md)의 `game.contract` AI-01 후보 조회 port를 통해서만 호출하며, `DISCOVERY-01`의 `SEARCH-04` tool을 호출하거나 `game` repository·catalog를 직접 읽지 않는다.
-- 현재 존재하는 `GameQuery` 요약 계약은 서버가 이미 확정한 game ID를 보강하는 공개 계약으로만 취급하며, AI-01 후보 선택·필터·정렬을 대신하지 않는다. 후보 응답 필드는 [API](../API.md)의 `AssistantRecommendationResponse`로 승인했고, AND 필터와 내부 `RANK-01` 정렬은 이 기능의 고정 규칙으로 유지한다.
+- 추천 후보 조회는 `AI-02`가 소유하는 별도 서버 읽기 흐름으로 두고, `AI-01`은 그 구조화 추천 결과를 제품 흐름에서 orchestration·소비하기만 한다. 구조화된 추천 조건은 모두 AND로 적용한 뒤 내부 `RANK-01` 순서로 정렬하며, 공개 `RANK-01` API의 상위 10개 결과나 provider가 정한 순서를 사용하지 않는다. [API](../API.md)·[아키텍처](../ARCHITECTURE.md)의 `game.contract` AI-02 후보 조회 port를 통해서만 호출하며, `DISCOVERY-01`의 `SEARCH-04` tool을 호출하거나 `game` repository·catalog를 직접 읽지 않는다.
+- 현재 존재하는 `GameQuery` 요약 계약은 서버가 이미 확정한 game ID를 보강하는 공개 계약으로만 취급하며, `AI-02`가 소유하는 후보 선택·필터·정렬을 대신하지 않는다. 후보 응답 필드는 [API](../API.md)의 `AssistantRecommendationResponse`로 승인했고, AND 필터와 내부 `RANK-01` 정렬은 이 기능의 고정 규칙으로 유지한다.
 - 추천 후보와 Room 생성 가능 여부는 서버가 소유한 검증·권한 경계를 따른다. 모델 출력은 신뢰할 수 없는 구조화 입력으로 검증한다.
 - `RECOMMEND`의 `missingFields`에는 추천에 필요한 검색 조건만 포함한다. 방 생성 전용 필드를 함께 채우도록 요구하지 않으며, 검색 조건이 전혀 없으면 후보 조회를 하지 않고 `NEEDS_INPUT`으로 끝낸다.
 - `CREATE_ROOM`의 `missingFields`는 방 생성에 필요한 총 인원·시작 시각·지역·게임 선택을 기준으로 판정한다. 추천 단계의 누락 질문과 섞지 않는다.
