@@ -1,0 +1,115 @@
+package cloud.bamsongi.albammate.user;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+
+import cloud.bamsongi.albammate.AlbamMateApplication;
+import cloud.bamsongi.albammate.user.contract.UserRowLockPort;
+
+@Testcontainers
+@SpringBootTest(classes = AlbamMateApplication.class)
+class UserRowLockPortPostgresTest {
+
+	private static final String POSTGRES_IMAGE = "postgres:18.4";
+	private static final long WAIT_SECONDS = 10;
+
+	@Container
+	@ServiceConnection
+	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
+		.withDatabaseName("albam_mate_user_row_lock_test");
+
+	@Autowired
+	private UserRowLockPort userRowLockPort;
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
+	@Autowired
+	private PlatformTransactionManager transactionManager;
+
+	@AfterEach
+	void tearDown() {
+		jdbcTemplate.execute("truncate table users restart identity cascade");
+	}
+
+	@Test
+	void 입력_순서와_없는_ID에_관계없이_존재한_사용자만_같은_순서로_잠가_직렬화한다() throws Exception {
+		long firstUserId = insertUser("first");
+		long secondUserId = insertUser("second");
+		TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+		CountDownLatch firstTransactionLocked = new CountDownLatch(1);
+		CountDownLatch releaseFirstTransaction = new CountDownLatch(1);
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+
+		try {
+			Future<Set<Long>> firstFuture = executor.submit(
+				() -> transactionTemplate.execute(status -> {
+					Set<Long> lockedUserIds = userRowLockPort.lockExistingUsersInAscendingOrder(
+						List.of(secondUserId, 999_999L, firstUserId));
+					firstTransactionLocked.countDown();
+					await(releaseFirstTransaction);
+					return lockedUserIds;
+				}));
+			await(firstTransactionLocked);
+
+			Future<Set<Long>> secondFuture = executor.submit(
+				() -> transactionTemplate.execute(
+					status -> userRowLockPort.lockExistingUsersInAscendingOrder(
+						List.of(firstUserId, secondUserId))));
+			assertThrows(
+				TimeoutException.class,
+				() -> secondFuture.get(1, TimeUnit.SECONDS),
+				"반대 입력 순서의 두 사용자 잠금이 먼저 완료됐습니다.");
+
+			releaseFirstTransaction.countDown();
+			assertEquals(
+				List.of(firstUserId, secondUserId),
+				List.copyOf(firstFuture.get(WAIT_SECONDS, TimeUnit.SECONDS)));
+			assertEquals(
+				List.of(firstUserId, secondUserId),
+				List.copyOf(secondFuture.get(WAIT_SECONDS, TimeUnit.SECONDS)));
+		} finally {
+			releaseFirstTransaction.countDown();
+			executor.shutdownNow();
+			assertTrue(executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS));
+		}
+	}
+
+	private long insertUser(String role) {
+		return jdbcTemplate.queryForObject(
+			"insert into users (email, password_hash, nickname, created_at, updated_at) values (?, 'hash', ?, current_timestamp, current_timestamp) returning id",
+			Long.class,
+			"row-lock-" + role + "-" + UUID.randomUUID() + "@example.com",
+			"잠금 " + role);
+	}
+
+	private void await(CountDownLatch latch) {
+		try {
+			assertTrue(latch.await(WAIT_SECONDS, TimeUnit.SECONDS), "동시성 동기화 지점에 도달하지 못했습니다.");
+		} catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			throw new AssertionError("동시성 동기화 대기 중 인터럽트되었습니다.", exception);
+		}
+	}
+}

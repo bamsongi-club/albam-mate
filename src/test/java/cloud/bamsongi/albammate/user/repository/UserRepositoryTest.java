@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Import;
 
 import cloud.bamsongi.albammate.global.config.JpaConfig;
 import cloud.bamsongi.albammate.global.config.TimeConfig;
+import cloud.bamsongi.albammate.user.contract.UserPublicProfile;
 import cloud.bamsongi.albammate.user.entity.User;
 
 @DataJpaTest
@@ -39,5 +40,25 @@ class UserRepositoryTest {
 
 		assertEquals(
 			Map.of(users.getFirst().getId(), "방장", users.getLast().getId(), "참가자"), nicknamesById);
+	}
+
+	@Test
+	void 공개_프로필_projection은_이미지가_없으면_null로_반환한다() {
+		User userWithoutImage = userRepository.saveAndFlush(
+			User.create("no-image@example.com", "{bcrypt}hash", "이미지 없음"));
+		User userWithImage = userRepository.saveAndFlush(
+			User.createSocial("with-image@example.com", "이미지 있음", "https://example.com/profile.png"));
+
+		List<UserPublicProfile> profiles = userRepository.findPublicProfilesByIds(
+			List.of(userWithoutImage.getId(), userWithImage.getId(), 999_999L));
+
+		Map<Long, UserPublicProfile> profilesById = profiles.stream()
+			.collect(Collectors.toMap(UserPublicProfile::userId, profile -> profile));
+		assertEquals(
+			new UserPublicProfile(userWithoutImage.getId(), "이미지 없음", null),
+			profilesById.get(userWithoutImage.getId()));
+		assertEquals(
+			new UserPublicProfile(userWithImage.getId(), "이미지 있음", "https://example.com/profile.png"),
+			profilesById.get(userWithImage.getId()));
 	}
 }

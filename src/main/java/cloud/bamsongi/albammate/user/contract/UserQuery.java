@@ -16,10 +16,26 @@ public interface UserQuery {
 	Optional<String> findNicknameById(Long userId);
 
 	/**
+	 * 사용자 ID로 공개 프로필을 조회한다.
+	 *
+	 * @param userId 알밤메이트 내부 사용자 ID
+	 * @return 사용자가 없으면 {@link Optional#empty()}
+	 */
+	Optional<UserPublicProfile> findPublicProfileById(Long userId);
+
+	/**
 	 * 여러 사용자 ID의 공개 표시용 닉네임을 조회한다.
 	 *
 	 * @param userIds 알밤메이트 내부 사용자 ID
 	 * @return 빈 입력이면 빈 Map, 중복 ID는 하나의 키로 합치며 존재하지 않는 사용자 ID는 제외한 닉네임
 	 */
 	Map<Long, String> findNicknamesByIds(Collection<Long> userIds);
+
+	/**
+	 * 여러 사용자의 공개 프로필을 조회한다.
+	 *
+	 * @param userIds 알밤메이트 내부 사용자 ID
+	 * @return 빈 입력이면 빈 Map, 존재하지 않는 사용자 ID를 제외한 공개 프로필
+	 */
+	Map<Long, UserPublicProfile> findPublicProfilesByIds(Collection<Long> userIds);
 }
