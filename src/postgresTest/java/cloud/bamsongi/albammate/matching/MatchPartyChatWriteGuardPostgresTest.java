@@ -67,8 +67,10 @@ class MatchPartyChatWriteGuardPostgresTest {
 		long outsiderId = insertUser("outsider");
 		long gameId = insertGame();
 		long partyId = insertActiveParty(gameId);
+		long preparingPartyId = insertPreparingParty(gameId);
 		insertParticipant(partyId, memberId, false);
 		insertParticipant(partyId, formerMemberId, true);
+		insertParticipant(preparingPartyId, memberId, false);
 
 		Class<?> guardType = Class.forName(
 			"cloud.bamsongi.albammate.matching.contract.MatchPartyChatWriteGuard");
@@ -89,6 +91,18 @@ class MatchPartyChatWriteGuardPostgresTest {
 				}));
 		assertFalse(formerSupplierExecuted.get());
 		assertForbidden(() -> invokeGuard(executeWithActiveAccess, guard, outsiderId, partyId, () -> null));
+		AtomicBoolean preparingSupplierExecuted = new AtomicBoolean(false);
+		assertNotActive(
+			() -> invokeGuard(
+				executeWithActiveAccess,
+				guard,
+				memberId,
+				preparingPartyId,
+				() -> {
+					preparingSupplierExecuted.set(true);
+					return "not-active";
+				}));
+		assertFalse(preparingSupplierExecuted.get());
 
 		TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
 		CountDownLatch guardReturned = new CountDownLatch(1);
@@ -169,6 +183,11 @@ class MatchPartyChatWriteGuardPostgresTest {
 		assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
 	}
 
+	private void assertNotActive(org.junit.jupiter.api.function.Executable operation) {
+		BusinessException exception = assertThrows(BusinessException.class, operation);
+		assertEquals(ErrorCode.MATCH_CHAT_NOT_ACTIVE, exception.getErrorCode());
+	}
+
 	private long insertUser(String role) {
 		return jdbcTemplate.queryForObject(
 			"insert into users (email, password_hash, nickname, created_at, updated_at) values (?, 'hash', ?, current_timestamp, current_timestamp) returning id",
@@ -189,6 +208,14 @@ class MatchPartyChatWriteGuardPostgresTest {
 		return jdbcTemplate.queryForObject(
 			"insert into match_parties (game_id, status, preparing_started_at, chat_opened_at, closes_at, created_at, updated_at) "
 				+ "values (?, 'ACTIVE', current_timestamp, current_timestamp, current_timestamp + interval '1 day', current_timestamp, current_timestamp) returning id",
+			Long.class,
+			gameId);
+	}
+
+	private long insertPreparingParty(long gameId) {
+		return jdbcTemplate.queryForObject(
+			"insert into match_parties (game_id, status, preparing_started_at, created_at, updated_at) "
+				+ "values (?, 'PREPARING', current_timestamp, current_timestamp, current_timestamp) returning id",
 			Long.class,
 			gameId);
 	}

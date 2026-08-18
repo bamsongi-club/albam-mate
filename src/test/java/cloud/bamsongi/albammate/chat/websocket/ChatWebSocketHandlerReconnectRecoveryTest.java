@@ -66,7 +66,8 @@ class ChatWebSocketHandlerReconnectRecoveryTest {
 		when(chatMessageRepository.existsByIdAndChatRoomId(5L, CHAT_ROOM_ID)).thenReturn(true);
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 5L))
 			.thenReturn(List.of(message6, message7));
-		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+		when(userQuery.findUserSummariesByIds(any()))
+			.thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
 		WebSocketSession session = session(5L);
 		ChatWebSocketHandler handler = handler();
 
@@ -88,7 +89,8 @@ class ChatWebSocketHandlerReconnectRecoveryTest {
 		when(chatMessageRepository.existsById(9L)).thenReturn(false);
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 5L))
 			.thenReturn(List.of(), List.of(laterMessage));
-		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+		when(userQuery.findUserSummariesByIds(any()))
+			.thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
 		WebSocketSession session = session(9L);
 		ChatWebSocketHandler handler = handler();
 
@@ -109,7 +111,8 @@ class ChatWebSocketHandlerReconnectRecoveryTest {
 		when(chatMessageRepository.existsByIdAndChatRoomId(15L, CHAT_ROOM_ID)).thenReturn(false);
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
 			.thenReturn(List.of(currentRoomFirstMessage, currentRoomLatestMessage));
-		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+		when(userQuery.findUserSummariesByIds(any()))
+			.thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
 		WebSocketSession session = session(15L);
 		ChatWebSocketHandler handler = handler();
 
@@ -131,7 +134,8 @@ class ChatWebSocketHandlerReconnectRecoveryTest {
 		when(chatMessageRepository.existsById(21L)).thenReturn(true);
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
 			.thenReturn(List.of(currentRoomFirstMessage, currentRoomLatestMessage));
-		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+		when(userQuery.findUserSummariesByIds(any()))
+			.thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
 		WebSocketSession session = session(21L);
 		ChatWebSocketHandler handler = handler();
 
@@ -157,7 +161,8 @@ class ChatWebSocketHandlerReconnectRecoveryTest {
 			});
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(eq(CHAT_ROOM_ID), eq(1L)))
 			.thenReturn(List.of(message2));
-		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+		when(userQuery.findUserSummariesByIds(any()))
+			.thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
 		WebSocketSession session = session(null);
 		ChatWebSocketHandler handler = handler();
 

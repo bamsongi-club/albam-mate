@@ -54,15 +54,15 @@ class ChatMessageDeliveryService {
 		if (newMessages.isEmpty()) {
 			return;
 		}
-		Map<Long, String> nicknames = userQuery.findNicknamesByIds(
+		Map<Long, UserQuery.UserSummary> senderSummaries = userQuery.findUserSummariesByIds(
 			newMessages.stream().map(ChatMessage::getSenderUserId).collect(Collectors.toSet()));
 		int delivered = 0;
 		for (ChatMessage message : newMessages) {
 			if (connectionRegistry.shouldStopDelivery(connection.session)) {
 				break;
 			}
-			String nickname = nicknames.get(message.getSenderUserId());
-			if (nickname == null) {
+			UserQuery.UserSummary sender = senderSummaries.get(message.getSenderUserId());
+			if (sender == null) {
 				log.atError().addKeyValue("event", "chat_message_sender_nickname_missing")
 					.addKeyValue("roomId", connection.roomId).log("chat message sender nickname missing");
 				metrics.recordDeliveryFailure();
@@ -72,7 +72,8 @@ class ChatMessageDeliveryService {
 			ChatMessageResponse response = ChatMessageResponse.from(
 				message,
 				connection.roomId,
-				nickname,
+				sender.nickname(),
+				sender.profileImageUrl(),
 				message.getSenderUserId().equals(connection.userId));
 			if (!send(connection.session, ChatMessageEvent.messageCreated(response))) {
 				metrics.recordDeliveryFailure();

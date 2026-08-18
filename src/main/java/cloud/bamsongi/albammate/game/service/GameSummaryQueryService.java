@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import cloud.bamsongi.albammate.game.contract.GamePlayerRange;
 import cloud.bamsongi.albammate.game.contract.GameQuery;
 import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
@@ -30,6 +31,11 @@ public class GameSummaryQueryService implements GameQuery {
 	@Override
 	public Optional<GameSummary> findSummaryById(Long gameId) {
 		return gameRepository.findSummaryById(gameId);
+	}
+
+	@Override
+	public Optional<GamePlayerRange> findPlayerRangeById(Long gameId) {
+		return gameRepository.findPlayerRangeById(gameId);
 	}
 
 	@Override

@@ -51,7 +51,9 @@ class RoomUpdateExecutorTest {
 	@BeforeEach
 	void setUp() {
 		executor = new RoomUpdateExecutor(roomRepository, gameQuery, userQuery, new RoomActionAvailabilityEvaluator());
-		lenient().when(userQuery.findNicknameById(HOST_ID)).thenReturn(Optional.of("방장"));
+		lenient()
+			.when(userQuery.findUserSummaryById(HOST_ID))
+			.thenReturn(Optional.of(new UserQuery.UserSummary("방장", "https://cdn.example.com/host.png")));
 	}
 
 	@Test
@@ -213,7 +215,7 @@ class RoomUpdateExecutorTest {
 	}
 
 	@Test
-	void 게임을_유지한_사람_중심_방은_기존_게임_요약을_반환한다() {
+	void T5_게임을_유지한_사람_중심_방은_기존_게임_요약과_주최자_프로필_이미지_URL을_반환한다() {
 		Room room = room(RoomType.PERSON_FOCUSED, 3L, NOW.plusSeconds(3600));
 		GameSummary game = new GameSummary(3L, 1003L, "카탄");
 		when(roomRepository.findById(ROOM_ID)).thenReturn(Optional.of(room));
@@ -222,7 +224,19 @@ class RoomUpdateExecutorTest {
 		ParticipantRoomResponse response = executor.updateRoom(HOST_ID, ROOM_ID, new RoomUpdateRequest(), NOW);
 
 		assertEquals(game, response.game());
-		verify(userQuery).findNicknameById(HOST_ID);
+		assertEquals("https://cdn.example.com/host.png", response.host().profileImageUrl());
+		verify(userQuery).findUserSummaryById(HOST_ID);
+	}
+
+	@Test
+	void T6_프로필_이미지가_없는_주최자의_host_profileImageUrl은_null이다() {
+		when(userQuery.findUserSummaryById(HOST_ID)).thenReturn(Optional.of(new UserQuery.UserSummary("방장", null)));
+		when(roomRepository.findById(ROOM_ID))
+			.thenReturn(Optional.of(room(RoomType.PERSON_FOCUSED, null, NOW.plusSeconds(3600))));
+
+		ParticipantRoomResponse response = executor.updateRoom(HOST_ID, ROOM_ID, new RoomUpdateRequest(), NOW);
+
+		assertEquals(null, response.host().profileImageUrl());
 	}
 
 	private Room room(RoomType roomType, Long gameId, Instant startsAt) {

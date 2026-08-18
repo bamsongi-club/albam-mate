@@ -71,10 +71,10 @@ class RoomUpdateExecutor {
 				? request.recruitmentCapacity()
 				: room.getCapacity());
 
-		NicknameSummary host = new NicknameSummary(
-			userQuery
-				.findNicknameById(currentUserId)
-				.orElseThrow(UnauthenticatedException::new));
+		UserQuery.UserSummary hostSummary = userQuery
+			.findUserSummaryById(currentUserId)
+			.orElseThrow(UnauthenticatedException::new);
+		NicknameSummary host = new NicknameSummary(hostSummary.nickname(), hostSummary.profileImageUrl());
 		RoomActionAvailability availability = roomActionAvailabilityEvaluator.evaluate(
 			new RoomActionAvailabilityFacts(room, requestTime, true, true, false, false));
 		return ParticipantRoomResponse.from(

@@ -58,13 +58,17 @@ class ModuleArchitectureTest {
 		ROOT_PACKAGE + ".chat.repository",
 		ROOT_PACKAGE + ".chat.service",
 		ROOT_PACKAGE + ".chat.match",
+		ROOT_PACKAGE + ".chat.match.adapter",
 		ROOT_PACKAGE + ".chat.match.entity",
 		ROOT_PACKAGE + ".chat.match.repository",
+		ROOT_PACKAGE + ".chat.match.service",
 		ROOT_PACKAGE + ".chat.retention",
 		ROOT_PACKAGE + ".chat.websocket");
 	private static final Set<String> ALLOWED_MATCHING_PACKAGES = Set.of(
 		ROOT_PACKAGE + ".matching",
 		ROOT_PACKAGE + ".matching.contract",
+		ROOT_PACKAGE + ".matching.controller",
+		ROOT_PACKAGE + ".matching.dto",
 		ROOT_PACKAGE + ".matching.entity",
 		ROOT_PACKAGE + ".matching.repository",
 		ROOT_PACKAGE + ".matching.service.command",
