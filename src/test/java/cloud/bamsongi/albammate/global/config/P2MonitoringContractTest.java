@@ -139,11 +139,11 @@ class P2MonitoringContractTest {
 	}
 
 	@Test
-	void T3_OPS01_상태는_공개_앱_범위의_부분_구현과_부분_검증으로만_표시한다() {
+	void T3_OPS01_상태는_구현과_자동_검증과_임시_AWS_실측_철거_완료로_표시한다() {
 		String readme = read("docs/p2/README.md");
 
-		assertTrue(readme.contains("OPS-01 공개 앱 범위 부분 구현·부분 검증"));
-		assertFalse(readme.contains("OPS-01-AC1`~`OPS-01-AC3` 공개 구현·자동 검증 완료"));
+		assertTrue(readme.contains("OPS-01 구현·자동 검증·임시 AWS 실측·철거 완료"));
+		assertTrue(readme.contains("`AC1`~`AC7` 실측 완료"));
 	}
 
 	private String read(String relativePath) {
