@@ -123,8 +123,10 @@ class RoomControllerDetailTest {
 			.andExpect(jsonPath("$.data.myRole").value("HOST"))
 			.andExpect(jsonPath("$.data.place").value("정확한 장소"))
 			.andExpect(jsonPath("$.data.host.nickname").value("방장"))
+			.andExpect(jsonPath("$.data.host.profileImageUrl").value("https://cdn.example.com/host.png"))
 			.andExpect(jsonPath("$.data.participants[0].nickname").value("방장"))
 			.andExpect(jsonPath("$.data.participants[1].nickname").value("참가자"))
+			.andExpect(jsonPath("$.data.participants[1].profileImageUrl").doesNotExist())
 			.andExpect(jsonPath("$.data.participants[0].id").doesNotExist())
 			.andExpect(header().string("Vary", "Cookie"));
 	}
@@ -212,7 +214,7 @@ class RoomControllerDetailTest {
 	}
 
 	private ParticipantRoomResponse participantResponse(MyRole myRole) {
-		NicknameSummary host = new NicknameSummary("방장");
+		NicknameSummary host = new NicknameSummary("방장", "https://cdn.example.com/host.png");
 		return new ParticipantRoomResponse(
 			1L,
 			RoomType.PERSON_FOCUSED,
@@ -232,7 +234,7 @@ class RoomControllerDetailTest {
 			myRole,
 			"정확한 장소",
 			host,
-			List.of(host, new NicknameSummary("참가자")));
+			List.of(host, new NicknameSummary("참가자", null)));
 	}
 
 	@TestConfiguration(proxyBeanMethods = false)

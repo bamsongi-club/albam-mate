@@ -22,12 +22,12 @@ class ParticipantRoomResponseTest {
 	@Test
 	void 방과_참가자_정보로_관계자_상세_응답을_구성한다() {
 		Room room = room();
-		NicknameSummary host = new NicknameSummary("방장");
+		NicknameSummary host = new NicknameSummary("방장", "https://cdn.example.com/host.png");
 		GameSummary game = new GameSummary(3L, 1003L, "카탄");
 
 		ParticipantRoomResponse response = ParticipantRoomResponse.from(
 			room, game, new RoomActionAvailability(true, false), MyRole.JOINED, host,
-			List.of(host, new NicknameSummary("참가자")));
+			List.of(host, new NicknameSummary("참가자", null)));
 
 		assertEquals(7L, response.id());
 		assertEquals(game, response.game());
@@ -36,7 +36,7 @@ class ParticipantRoomResponseTest {
 		assertEquals(true, response.joinable());
 		assertEquals(MyRole.JOINED, response.myRole());
 		assertEquals("장소", response.place());
-		assertEquals(List.of(host, new NicknameSummary("참가자")), response.participants());
+		assertEquals(List.of(host, new NicknameSummary("참가자", null)), response.participants());
 	}
 
 	private Room room() {

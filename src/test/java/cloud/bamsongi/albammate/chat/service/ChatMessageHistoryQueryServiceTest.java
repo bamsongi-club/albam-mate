@@ -65,7 +65,7 @@ class ChatMessageHistoryQueryServiceTest {
 		when(chatMessage.getSenderUserId()).thenReturn(77L);
 		when(chatMessageRepository.findByChatRoomIdOrderByIdDesc(eq(99L), any()))
 			.thenReturn(List.of(chatMessage));
-		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of());
+		when(userQuery.findUserSummariesByIds(any())).thenReturn(Map.of());
 
 		BusinessException exception = assertThrows(
 			BusinessException.class,
@@ -83,7 +83,7 @@ class ChatMessageHistoryQueryServiceTest {
 		when(chatMessage.getSenderUserId()).thenReturn(77L);
 		when(chatMessageRepository.findByChatRoomIdOrderByIdDesc(eq(99L), any()))
 			.thenReturn(List.of(chatMessage));
-		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of());
+		when(userQuery.findUserSummariesByIds(any())).thenReturn(Map.of());
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 
 		try {

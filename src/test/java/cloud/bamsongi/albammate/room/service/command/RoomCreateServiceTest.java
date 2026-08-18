@@ -84,6 +84,44 @@ class RoomCreateServiceTest {
 				response.id()));
 	}
 
+	@Test
+	void T4_주최자에게_프로필_이미지가_있으면_생성_응답_host에_현재_프로필_이미지_URL이_채워진다() {
+		Long hostUserId = insertUser("host-with-image@example.com", "방장", "https://cdn.example.com/host.png");
+		CreateRoomRequest request = new CreateRoomRequest(
+			RoomType.PERSON_FOCUSED,
+			"프로필 이미지 방",
+			null,
+			null,
+			ExperienceLevel.ALL_LEVELS,
+			true,
+			NOW.plusSeconds(7200),
+			"홍대",
+			3);
+
+		ParticipantRoomResponse response = roomCreateService.createRoom(hostUserId, request);
+
+		assertEquals("https://cdn.example.com/host.png", response.host().profileImageUrl());
+	}
+
+	@Test
+	void T6_주최자에게_프로필_이미지가_없으면_생성_응답_host_profileImageUrl은_null이다() {
+		Long hostUserId = insertUser("host-without-image@example.com", "방장");
+		CreateRoomRequest request = new CreateRoomRequest(
+			RoomType.PERSON_FOCUSED,
+			"프로필 이미지 없는 방",
+			null,
+			null,
+			ExperienceLevel.ALL_LEVELS,
+			true,
+			NOW.plusSeconds(7200),
+			"홍대",
+			3);
+
+		ParticipantRoomResponse response = roomCreateService.createRoom(hostUserId, request);
+
+		assertEquals(null, response.host().profileImageUrl());
+	}
+
 	private Long insertUser(String email, String nickname) {
 		jdbcTemplate.update(
 			"insert into users "
@@ -93,6 +131,20 @@ class RoomCreateServiceTest {
 				+ "TIMESTAMP WITH TIME ZONE '2026-07-27T00:00:00Z')",
 			email,
 			nickname);
+		return jdbcTemplate.queryForObject(
+			"select id from users where email = ?", Long.class, email);
+	}
+
+	private Long insertUser(String email, String nickname, String profileImageUrl) {
+		jdbcTemplate.update(
+			"insert into users "
+				+ "(email, password_hash, nickname, profile_image_url, created_at, updated_at) "
+				+ "values (?, 'fixture-password-hash', ?, ?, "
+				+ "TIMESTAMP WITH TIME ZONE '2026-07-27T00:00:00Z', "
+				+ "TIMESTAMP WITH TIME ZONE '2026-07-27T00:00:00Z')",
+			email,
+			nickname,
+			profileImageUrl);
 		return jdbcTemplate.queryForObject(
 			"select id from users where email = ?", Long.class, email);
 	}
