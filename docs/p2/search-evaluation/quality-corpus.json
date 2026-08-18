@@ -1,0 +1,232 @@
+{
+  "schemaVersion": 1,
+  "corpusId": "boardlife-quality-top1000",
+  "corpusVersion": "boardlife-quality-top1000-v1",
+  "status": "provisional",
+  "releaseId": "pending-boardlife-quality-top1000-2026-08-14",
+  "releaseStatus": "provisional",
+  "rankCutoff": 1000,
+  "source": {
+    "releaseId": "pending-boardlife-quality-top1000-2026-08-14",
+    "releaseStatus": "provisional",
+    "datasetId": "boardlife-quality-top1000",
+    "rankCutoff": 1000,
+    "sourceReference": "https://boardlife.co.kr/rank",
+    "sourceManifestReference": "external://boardlife-ranking-mapping-2026-08-14.json",
+    "sourceArtifactSha256": "90ba6710c0a15d1590491f6bb499534afbf31377904fa2cc00a1aedf4f348252",
+    "snapshotId": "boardlife-ranking-2026-08-14",
+    "snapshotVersion": "2026-08-14",
+    "snapshotSha256": "90ba6710c0a15d1590491f6bb499534afbf31377904fa2cc00a1aedf4f348252",
+    "catalogReleaseId": "pending-bgg-catalog-release-2026-08-14",
+    "mappingStatus": "provisional",
+    "candidateRowsObserved": 992,
+    "mappedUniqueGamesObserved": 977,
+    "reviewRequiredRows": 1020,
+    "duplicateBggIdReviewRequired": true
+  },
+  "selection": {
+    "mode": "fixture-membership-subset",
+    "note": "전체 Top 1,000 원천을 저장하지 않고 현재 development seed가 참조하는 membership·hard-filter projection만 보존합니다. mapping은 provisional이며 memberCount 27은 개발용 projection입니다.",
+    "ruleVersion": "boardlife-mapped-unique-rank-v1",
+    "targetSize": 1000,
+    "mappingKey": "bggId",
+    "memberIdField": "gameId",
+    "order": ["boardlifeRank:asc", "bggId:asc"],
+    "dedupe": "unique bggId; retain lowest valid boardlife rank",
+    "cutoffAppliedAfterMapping": true,
+    "snapshotPinned": true,
+    "languageExclusionPolicy": "membership is not replaced by missing Korean data",
+    "memberCount": 27
+  },
+  "members": [
+    {
+      "gameId": 224517,
+      "boardlifeRank": 1,
+      "minPlayers": 2,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 120
+    },
+    {
+      "gameId": 174430,
+      "boardlifeRank": 4,
+      "minPlayers": 1,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 120
+    },
+    {
+      "gameId": 31260,
+      "boardlifeRank": 25,
+      "minPlayers": 1,
+      "maxPlayers": 5,
+      "maxPlayTimeMinutes": 150
+    },
+    {
+      "gameId": 150145,
+      "boardlifeRank": 39,
+      "minPlayers": 2,
+      "maxPlayers": 8,
+      "maxPlayTimeMinutes": 30
+    },
+    {
+      "gameId": 284083,
+      "boardlifeRank": 44,
+      "minPlayers": 2,
+      "maxPlayers": 5,
+      "maxPlayTimeMinutes": 20
+    },
+    {
+      "gameId": 40834,
+      "boardlifeRank": 64,
+      "minPlayers": 2,
+      "maxPlayers": 6,
+      "maxPlayTimeMinutes": 30
+    },
+    {
+      "gameId": 36218,
+      "boardlifeRank": 65,
+      "minPlayers": 2,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    {
+      "gameId": 324856,
+      "boardlifeRank": 83,
+      "minPlayers": 2,
+      "maxPlayers": 5,
+      "maxPlayTimeMinutes": 20
+    },
+    {
+      "gameId": 148228,
+      "boardlifeRank": 112,
+      "minPlayers": 2,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 30
+    },
+    {
+      "gameId": 68448,
+      "boardlifeRank": 145,
+      "minPlayers": 2,
+      "maxPlayers": 7,
+      "maxPlayTimeMinutes": 30
+    },
+    {
+      "gameId": 14996,
+      "boardlifeRank": 164,
+      "minPlayers": 2,
+      "maxPlayers": 5,
+      "maxPlayTimeMinutes": 60
+    },
+    {
+      "gameId": 178900,
+      "boardlifeRank": 166,
+      "minPlayers": 2,
+      "maxPlayers": 8,
+      "maxPlayTimeMinutes": 15
+    },
+    {
+      "gameId": 254640,
+      "boardlifeRank": 202,
+      "minPlayers": 3,
+      "maxPlayers": 7,
+      "maxPlayTimeMinutes": 60
+    },
+    {
+      "gameId": 300905,
+      "boardlifeRank": 228,
+      "minPlayers": 4,
+      "maxPlayers": 9,
+      "maxPlayTimeMinutes": 30
+    },
+    {
+      "gameId": 153016,
+      "boardlifeRank": 239,
+      "minPlayers": 4,
+      "maxPlayers": 12,
+      "maxPlayTimeMinutes": 30
+    },
+    {
+      "gameId": 129622,
+      "boardlifeRank": 269,
+      "minPlayers": 2,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 20
+    },
+    {
+      "gameId": 39856,
+      "boardlifeRank": 272,
+      "minPlayers": 3,
+      "maxPlayers": 6,
+      "maxPlayTimeMinutes": 30
+    },
+    {
+      "gameId": 429293,
+      "boardlifeRank": 361,
+      "minPlayers": 1,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 20
+    },
+    {
+      "gameId": 244992,
+      "boardlifeRank": 407,
+      "minPlayers": 2,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 20
+    },
+    {
+      "gameId": 98778,
+      "boardlifeRank": 414,
+      "minPlayers": 2,
+      "maxPlayers": 5,
+      "maxPlayTimeMinutes": 25
+    },
+    {
+      "gameId": 153938,
+      "boardlifeRank": 418,
+      "minPlayers": 2,
+      "maxPlayers": 8,
+      "maxPlayTimeMinutes": 30
+    },
+    {
+      "gameId": 192291,
+      "boardlifeRank": 615,
+      "minPlayers": 2,
+      "maxPlayers": 8,
+      "maxPlayTimeMinutes": 20
+    },
+    {
+      "gameId": 290357,
+      "boardlifeRank": 669,
+      "minPlayers": 2,
+      "maxPlayers": 5,
+      "maxPlayTimeMinutes": 20
+    },
+    {
+      "gameId": 36811,
+      "boardlifeRank": 758,
+      "minPlayers": 2,
+      "maxPlayers": 5,
+      "maxPlayTimeMinutes": 30
+    },
+    {
+      "gameId": 287607,
+      "boardlifeRank": 798,
+      "minPlayers": 2,
+      "maxPlayers": 7,
+      "maxPlayTimeMinutes": 45
+    },
+    {
+      "gameId": 358669,
+      "boardlifeRank": 832,
+      "minPlayers": 1,
+      "maxPlayers": 4,
+      "maxPlayTimeMinutes": 120
+    },
+    {
+      "gameId": 173090,
+      "boardlifeRank": 896,
+      "minPlayers": 1,
+      "maxPlayers": 5,
+      "maxPlayTimeMinutes": 20
+    }
+  ]
+}
