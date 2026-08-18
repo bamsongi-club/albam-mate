@@ -109,7 +109,7 @@ node --test scripts/docs/check-monitoring-contract.test.mjs
 
 P2 운영 관측의 기능 완료 기준은 [운영 관측 명세](p2/monitoring.md), 화면·경고 정책은 [대시보드 정책](p2/dashboard.md), metric·log 허용 목록과 계획 종료·재기동 계약은 [P2 운영 관측 런북](guides/MONITORING_OPERATIONS.md), 전송 경계는 [ADR-0071](adr/platform/0071-p2-application-metrics-otlp-host-cloudwatch-agent.md)·[ADR-0059](adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)을 따른다.
 
-상태 전이 명령은 [`albam-mate-infra`](https://github.com/bamsongi-club/albam-mate-infra/tree/47bd0ba1a8cb97b13694ff492bf365f0cfee66d7) checkout에서 실행한다. 실제 `stackId`, UTC 종료 시각과 대표 alarm 이름을 넣어야 하며, 상태 변경 명령은 정확한 `--confirm-stack-id` 없이는 실패한다.
+상태 전이 명령은 [`albam-mate-infra`](https://github.com/bamsongi-club/albam-mate-infra/tree/ce8913c01937b7db71264008bd24a851a1c6d4d4) checkout에서 실행한다. 실제 `stackId`, UTC 종료 시각과 대표 alarm 이름을 넣어야 하며, 상태 변경 명령은 정확한 `--confirm-stack-id` 없이는 실패한다.
 
 ```sh
 ./run.sh ops status
