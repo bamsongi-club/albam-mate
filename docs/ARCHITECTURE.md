@@ -10,7 +10,7 @@
 - 알림 표시 투영·조회·읽음 시각 근거: [ADR-0039](adr/notification/0039-notification-presentation-and-bulk-read-snapshot.md)
 - P2 운영 관측 전송 근거: [ADR-0071](adr/platform/0071-p2-application-metrics-otlp-host-cloudwatch-agent.md), [ADR-0059](adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)
 - P2 AI provider·동의·초안·확인형 Room·지역 경계: [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)
-- P2 MATCH 후보 선점·멱등성, 채팅 handoff·복구·보존, URL 텍스트 표현, 기준 측정 gate, 게임·플랫폼 없는 인원 범위 매칭: [ADR-0061](adr/matching/0061-postgresql-candidate-reservation-idempotency.md), [ADR-0062](adr/matching/0062-match-chat-handoff-recovery-retention.md), [ADR-0064](adr/matching/0064-match-chat-url-text-storage.md), [ADR-0063](adr/matching/0063-match-baseline-measurement-gate.md), [ADR-0074](adr/matching/0074-match-no-game-player-range.md)
+- P2 MATCH 후보 선점·멱등성, 채팅 handoff·복구·보존, URL 텍스트 표현, 기준 측정 gate, 게임·플랫폼 없는 인원 범위 매칭: [ADR-0061](adr/matching/0061-postgresql-candidate-reservation-idempotency.md), [ADR-0062](adr/matching/0062-match-chat-handoff-recovery-retention.md), [ADR-0064](adr/matching/0064-match-chat-url-text-storage.md), [ADR-0063](adr/matching/0063-match-baseline-measurement-gate.md), [ADR-0077](adr/matching/0077-match-no-game-player-range.md)
 - 코드 배치·네이밍·트랜잭션 규칙: [CONVENTIONS](CONVENTIONS.md)
 - 제품·HTTP·저장 계약: [P2 명세](P2-spec.md), [P2 기능 문서](p2/README.md), [P1 종료 명세](archive/p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md), [API 명세](API.md), [ERD](ERD.md)
 
@@ -151,7 +151,7 @@ AI-01~AI-03 협력 계약은 책임을 소유한 모듈의 `contract`에 둔다.
 
 ### P2 MATCH 모듈 계약
 
-> 이 절은 P2 MATCH의 승인된 구조다. `matching` 모듈·`matching.contract`·MATCH 전용 chat 저장 구조와 구조 검사는 존재한다. `user.contract` 조회와 `MatchPartyChatAccess` 확장은 [ADR-0067](adr/matching/0067-match-shared-contract-boundary.md)의 결정이며 [#801](https://github.com/bamsongi-club/albam-mate/issues/801)이 구현한다. 게임·플랫폼 없는 인원 범위 매칭과 그에 따른 공개 계약은 [ADR-0074](adr/matching/0074-match-no-game-player-range.md)와 [#835](https://github.com/bamsongi-club/albam-mate/issues/835)에 반영한다. 기능별 구현·검증 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정하고, 이 절의 계약 서술을 완료 증거로 읽지 않는다.
+> 이 절은 P2 MATCH의 승인된 구조다. `matching` 모듈·`matching.contract`·MATCH 전용 chat 저장 구조와 구조 검사는 존재한다. `user.contract` 조회와 `MatchPartyChatAccess` 확장은 [ADR-0067](adr/matching/0067-match-shared-contract-boundary.md)의 결정이며 [#801](https://github.com/bamsongi-club/albam-mate/issues/801)이 구현한다. 게임·플랫폼 없는 인원 범위 매칭과 그에 따른 공개 계약은 [ADR-0077](adr/matching/0077-match-no-game-player-range.md)와 [#835](https://github.com/bamsongi-club/albam-mate/issues/835)에 반영한다. 기능별 구현·검증 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정하고, 이 절의 계약 서술을 완료 증거로 읽지 않는다.
 
 `matching`은 MATCH 요청·제안·응답, 성공 파티와 참가자 접근, 후보 선점·복구·멱등성·신고·차단을 소유한다. `chat`은 MATCH 전용 채팅방·URL 텍스트를 포함한 메시지·실시간 전달만 소유한다. P1 `ChatRoom`/`roomId`/ROOM 접근/30일 보존은 계속 ROOM 전용이며 MATCH로 확장하거나 재사용하지 않는다.
 

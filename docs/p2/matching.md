@@ -75,7 +75,7 @@ P2 전체 범위와 공통 규칙은 [P2 명세](../P2-spec.md), 제품 방향�
 | `queuedAt` | 현재 대기 시도를 시작한 서버 시각 | 해당 시도 시작 시 고정한다 |
 | `prioritySince` | 실제 매칭 가능한 매칭 요청끼리 FIFO 순서를 정할 기준 시각 | MVP에서는 현재 대기 시도의 `queuedAt`과 같다. 자동 재대기에서는 유지하고, 사용자가 새 대기 시도를 시작하면 새 `queuedAt`으로 바꾼다 |
 
-- 후보 선별은 [ADR-0074](../adr/matching/0074-match-no-game-player-range.md)의 결정적 절차를 따른다. 가장 오래된 `WAITING` 요청을 anchor로 고정하고, anchor의 `minPlayers`부터 `maxPlayers`까지 `targetPartySize`를 오름차순으로 시도한다. 각 시도에서 `prioritySince ASC, matchRequestId ASC` 순으로 호환 요청을 스캔해 차단 요청은 제외하고 `targetPartySize`명에서 멈춘다. 정확히 그 수를 선택했고 선택된 `minPlayers`의 최댓값도 `targetPartySize`일 때만 후보를 확정한다. 호환되지 않는 요청은 건너뛰지만 먼저 선택된 호환 요청을 뒤 요청으로 바꾸는 backtracking은 하지 않는다. 모든 시도가 실패하면 anchor는 `WAITING`으로 남는다.
+- 후보 선별은 [ADR-0077](../adr/matching/0077-match-no-game-player-range.md)의 결정적 절차를 따른다. 가장 오래된 `WAITING` 요청을 anchor로 고정하고, anchor의 `minPlayers`부터 `maxPlayers`까지 `targetPartySize`를 오름차순으로 시도한다. 각 시도에서 `prioritySince ASC, matchRequestId ASC` 순으로 호환 요청을 스캔해 차단 요청은 제외하고 `targetPartySize`명에서 멈춘다. 정확히 그 수를 선택했고 선택된 `minPlayers`의 최댓값도 `targetPartySize`일 때만 후보를 확정한다. 호환되지 않는 요청은 건너뛰지만 먼저 선택된 호환 요청을 뒤 요청으로 바꾸는 backtracking은 하지 않는다. 모든 시도가 실패하면 anchor는 `WAITING`으로 남는다.
 - 각 대기 시도는 `queuedAt`과 `prioritySince`를 고정한다. 다른 참가자 때문에 제안이 종료되거나 채팅 준비가 실패해 같은 대기 시도에서 자동 재대기하면 두 값(`queuedAt`, `prioritySince`)을 유지한다.
 - `WAITING` 매칭 요청은 시간 경과만으로 자동 만료되지 않는다. `PAUSED` 사용자가 `다시 찾기`를 누르거나 사용자가 기존 매칭 요청을 취소한 뒤 새 매칭 요청을 등록하면 새 대기 시도를 시작해 두 값을 현재 시각 기준으로 리셋한다.
 - 사용자가 대기 화면을 벗어나거나 네트워크·WebSocket 연결이 일시적으로 끊겨도 서버의 매칭 요청과 두 시각은 유지된다. 사용자가 명시적으로 취소하거나 열린 제안이 수락·재대기·취소·미응답으로 처리되거나 채팅 준비 실패를 시스템이 복구 처리할 때만 매칭 요청 상태가 바뀐다.
