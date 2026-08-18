@@ -31,7 +31,7 @@ import {
   StateBlock,
   TopBar
 } from './shared/ui';
-import { nameColor, playerColor, playerTextColor } from './shared/players';
+import { nameColor, playerColor } from './shared/players';
 import { GameDetailView, GamePickerDialog, GameRankingView, GamesView, EMPTY_GAME_FILTERS, ROOM_LIST_PAGE_SIZE, normalizeRoom } from './game';
 import { MobileHomePanel } from './mobile/MobileHomePanel';
 import { NotificationPanel } from './notification/NotificationPanel';
@@ -1657,7 +1657,7 @@ export function ChatRoomView({ roomId, dataVersion, onBack }) {
                 <div className={'chat-message ' + (isMine ? 'mine' : 'theirs')} data-message-owner={isMine ? 'mine' : 'theirs'} key={message.messageId}>
                   {isGroupStart && !isMine && (
                     <span className="chat-sender">
-                      <span className="avatar" style={{ background: tone, color: playerTextColor(tone) }} aria-hidden="true">{[...nickname][0] || '?'}</span>
+                      <Avatar name={nickname} index={participantOrder.get(nickname)} imageUrl={message.sender?.profileImageUrl} />
                       <b style={{ color: tone }}>{nickname}</b>
                     </span>
                   )}
