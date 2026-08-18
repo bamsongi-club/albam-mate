@@ -66,7 +66,7 @@
   - 모델 ID와 provider 정책 변경은 enablement 전 재검증이 필요하다.
   - 비용 알림 전달의 운영 증거는 `OPS-04` 구현·배포에서 별도로 남겨야 한다.
 - 후속 작업:
-  - `AI-01b`에서 dependency·설정·Redis key·fake provider·quota·오류 계약을 구현한다.
+  - `AI-02a`에서 dependency·설정·Redis key·fake provider·quota·오류 계약을 구현한다.
   - `OPS-04`에 provider/model/feature label, 가격 snapshot, cap 알림과 보존 금지 검증을 연결한다.
 
 ## 보류 및 재검토

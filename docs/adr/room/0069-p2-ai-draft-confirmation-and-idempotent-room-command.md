@@ -59,7 +59,7 @@
   - 확인 결과 key는 최대 24시간 hash와 결과 참조를 보존한다.
   - PostgreSQL row lock·version·유일 제약의 충돌 경로를 별도로 검증해야 한다.
 - 후속 작업:
-  - `AI-01c`에서 초안 테이블·migration·확인형 API·Room command·오류 응답을 구현한다.
+  - `AI-03a`에서 초안 테이블·migration·확인형 API·Room command·오류 응답을 구현한다.
   - API·ERD·아키텍처에 기존 즉시 생성과 확인형 생성의 공존 계약을 반영한다.
 
 ## 보류 및 재검토

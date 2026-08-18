@@ -11,7 +11,10 @@ P2는 AI 챗봇(게임 탐색 도우미 포함), 게임 의미 기반 검색, �
 | 기능 영역·문서 | 책임 | 현재 상태 |
 | --- | --- | --- |
 | [P2 공통 명세](../P2-spec.md) | P2 전체 범위, 기능 문서 작성 규칙, 공통 통합 원칙과 구현 완료 기준 | 정본 승격 완료 |
-| [`AI-01` AI 모임 도우미 명세](assistant.md#ai-01-ai-모임-도우미) | 자연어 조건 해석, 서버 추천, 명시적 확인형 Room 생성, 데이터·권한·실패·품질·안전 경계 | 계약 확정·구현 보류 |
+| [`AI-01` AI 모임 도우미](assistant.md#ai-01-ai-모임-도우미) | 사용자 동의·철회, assistant 진입·화면, 추천·확인 흐름과 기존 수동 Room 회귀 | 계약 확정·구현 보류 |
+| [`AI-02` AI 의도·추천·Provider 운영](assistant.md#ai-02-ai-의도-추출추천provider-운영) | 구조화 조건, 후보 추천, provider adapter·fake·quota·timeout·비용·usage 경계 | 계약 확정·구현 보류 |
+| [`AI-03` AI 초안·확인형 Room 생성](assistant.md#ai-03-ai-초안확인형-room-생성) | 15분 초안, 장소·지역, 멱등 확인과 Room·ChatRoom 원자성 | 계약 확정·구현 보류 |
+| [`AI-04` AI 운영 배포·실측](assistant.md#ai-04-ai-운영-배포실측) | 인프라·secret/config, production 배포·feature gate·rollback, 배포 후 제한 실측 | 계약 확정·구현 보류 |
 | [DISCOVERY-01 게임 탐색 도우미 명세](game-discovery-assistant.md#discovery-01) | 자연어 의도 해석·SEARCH-04 read-only tool 호출·근거 있는 응답·권한·안전·품질 | 초안 작성 완료·선행 계약 필요 |
 | [SEARCH-04 게임 의미 기반 검색 명세](search.md#search-04) | 검색 대상 데이터, 색인·질의·정렬, 기존 검색과의 관계와 품질 평가 | 초안 작성 완료·선행 계약 필요 |
 | [RANK-02 게임 인기순 정렬 명세](game-popularity.md#rank-02) | 국내·내부·국외 인기 원천 결합, 승인 배치·복구와 게임 목록 기본 정렬 | 구현·자동 검증 완료·배포/실측 필요 |
@@ -27,7 +30,10 @@ P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.
 
 | 기능 영역 | 기능 ID | 계약 준비 | 생산 코드 | 자동 검증 | 배포 상태 | 실측 상태 |
 | --- | --- | --- | --- | --- | --- | --- |
-| AI 챗봇 | [`AI-01`](assistant.md#ai-01-ai-모임-도우미) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
+| AI 모임 도우미 | [`AI-01`](assistant.md#ai-01-ai-모임-도우미) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
+| AI 의도·추천·Provider | [`AI-02`](assistant.md#ai-02-ai-의도-추출추천provider-운영) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
+| AI 초안·확인형 Room | [`AI-03`](assistant.md#ai-03-ai-초안확인형-room-생성) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
+| AI 운영 배포·실측 | [`AI-04`](assistant.md#ai-04-ai-운영-배포실측) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 게임 탐색 도우미 | [`DISCOVERY-01`](game-discovery-assistant.md#discovery-01) | 선행 계약 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 게임 의미 기반 검색 | [`SEARCH-04`](search.md#search-04) | 선행 계약 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 게임 인기순 정렬 | [`RANK-02`](game-popularity.md#rank-02) | 계약 준비 완료 | 구현 완료 | 자동 검증 완료 | 미배포 | 미측정 |
@@ -46,7 +52,7 @@ P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.
 
 `OPS-01`·`OPS-02`·`OPS-03`·`OPS-05`는 [운영 관측 런북](../guides/MONITORING_OPERATIONS.md)에 metric·log 허용 목록, alarm query·runbook, 상태 전이·IAM·배포 증거 계약을 반영해 구현 선행 계약을 마쳤다. 이 가운데 [#731](https://github.com/bamsongi-club/albam-mate/issues/731)의 `OPS-01-AC4`~`AC7`은 운영 CLI 구현·자동 검증·AWS 임시 배포·실측과 teardown을 완료했다. [#730](https://github.com/bamsongi-club/albam-mate/issues/730)의 `OPS-01-AC1`~`AC3`이 남아 있으므로 `OPS-01` 전체는 부분 구현·부분 검증 상태를 유지한다. `OPS-02`·`OPS-03`·`OPS-05`의 계약 준비도 생산 코드·자동 검증·AWS 배포·실측 완료를 뜻하지 않는다. `OPS-04`는 승인된 [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md)의 provider·model·호출·비용 정책을 참조하며, 실제 metric·가격 snapshot·알림 배포와 실측은 아직 남아 있다.
 
-`AI-01`은 [AI 모임 도우미 명세](assistant.md), [AI-D01 ADR](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md), [AI-D02 ADR](../adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md), [AI-D03 ADR](../adr/room/0070-p2-room-region-closed-set-and-compatibility.md)와 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md)에 승인된 목표 계약을 반영했다. 구현·운영 전달은 [AI-01~AI-04 패키지 표](assistant.md#ai-01ai-04-전달-패키지)의 순서와 상위 이슈를 따른다. migration·생산 코드·검증·배포·실측은 아직 남아 있다. `AI-01`은 `SEARCH-04` 읽기 전용 게임 탐색을 소유하는 `DISCOVERY-01`과 합치지 않으며, 구현 이슈는 각 소유 정본의 계약을 선행 링크로 고정한 뒤 시작한다. `DISCOVERY-01`과 `SEARCH-04`도 상세 명세를 등록했지만 필요한 API·ERD·아키텍처·ADR·운영 계약이 남아 있어 `선행 계약 필요`다. `MATCH-01`은 [API](../API.md)·[ERD](../ERD.md)·[아키텍처](../ARCHITECTURE.md)와 [MATCH ADR](../adr/matching/README.md)에 구현 선행 계약을 반영해 `계약 준비 완료`다. 기능 구현 중 드러난 `game`·`user`·`matching` 공통 공개 계약의 빈틈은 [#800](https://github.com/bamsongi-club/albam-mate/issues/800)에서 결정해 [ADR-0067](../adr/matching/0067-match-shared-contract-boundary.md)과 위 정본에 반영했고, 그 계약의 구현체·계약 테스트·구조 검사 등록은 [#801](https://github.com/bamsongi-club/albam-mate/issues/801)이 소유한다. MATCH 기능 구현 이슈는 #801이 `develop`에 반영된 뒤 공통 계약을 사용한다. 생산 코드·PostgreSQL 통합 검증·[MATCH-01 후보 탐색 baseline 측정 계약](../measurements/match-01-candidate-search-baseline-contract.md)의 실행과 결과 채택은 후속 구현에서 각각 갱신한다.
+`AI-01`~`AI-04`는 [AI 기능군 명세](assistant.md), [AI-D01 ADR](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md), [AI-D02 ADR](../adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md), [AI-D03 ADR](../adr/room/0070-p2-room-region-closed-set-and-compatibility.md)와 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md)에 승인된 목표 계약을 기능별로 반영한다. 구현·운영 전달은 [AI-01~AI-04 독립 기능 표](assistant.md#ai-기능군-ai-01ai-04)의 순서와 상위 이슈를 따른다. migration·생산 코드·검증·배포·실측은 아직 남아 있다. AI 기능군은 `SEARCH-04` 읽기 전용 게임 탐색을 소유하는 `DISCOVERY-01`과 합치지 않으며, 구현 이슈는 각 소유 정본의 계약을 선행 링크로 고정한 뒤 시작한다. `DISCOVERY-01`과 `SEARCH-04`도 상세 명세를 등록했지만 필요한 API·ERD·아키텍처·ADR·운영 계약이 남아 있어 `선행 계약 필요`다. `MATCH-01`은 [API](../API.md)·[ERD](../ERD.md)·[아키텍처](../ARCHITECTURE.md)와 [MATCH ADR](../adr/matching/README.md)에 구현 선행 계약을 반영해 `계약 준비 완료`다. 기능 구현 중 드러난 `game`·`user`·`matching` 공통 공개 계약의 빈틈은 [#800](https://github.com/bamsongi-club/albam-mate/issues/800)에서 결정해 [ADR-0067](../adr/matching/0067-match-shared-contract-boundary.md)과 위 정본에 반영했고, 그 계약의 구현체·계약 테스트·구조 검사 등록은 [#801](https://github.com/bamsongi-club/albam-mate/issues/801)이 소유한다. MATCH 기능 구현 이슈는 #801이 `develop`에 반영된 뒤 공통 계약을 사용한다. 생산 코드·PostgreSQL 통합 검증·[MATCH-01 후보 탐색 baseline 측정 계약](../measurements/match-01-candidate-search-baseline-contract.md)의 실행과 결과 채택은 후속 구현에서 각각 갱신한다.
 
 ## 팀 기능 문서 작성 규칙
 

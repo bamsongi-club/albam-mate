@@ -1,16 +1,16 @@
-# AI-01 부하·계약 검증 설계
+# AI 기능군 계약·부하 검증 설계
 
 > **문서 상태: 설계 초안 · 실행하지 않음**
 >
-> 기능 ID: `AI-01` · 기준 이슈: [#794](https://github.com/bamsongi-club/albam-mate/issues/794)
+> 기능 ID: `AI-01`~`AI-03` · 기준 이슈: [#794](https://github.com/bamsongi-club/albam-mate/issues/794)
 
-이 문서는 AI-01의 계약·동시성·실패·비용 경계를 재현하기 위한 검증 설계다. 실제 provider 호출, AWS 부하, 운영 capacity나 품질 완료를 이 문서가 선언하지 않는다.
+이 문서는 `AI-01`~`AI-03`의 계약·동시성·실패·비용 경계를 재현하기 위한 검증 설계다. `AI-04`의 배포 후 제한 실측은 이 문서가 아니라 `AI-04c`가 소유한다. 실제 provider 호출, AWS 부하, 운영 capacity나 품질 완료를 이 문서가 선언하지 않는다.
 
 ## 검증 원칙
 
 - 기본 runner는 결정적 fake provider를 사용한다. 같은 입력·schema version·fixture hash는 같은 구조화 결과와 오류를 반환해야 한다.
 - 실제 provider는 [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md)의 실행 권한, model ID 확인, payload allowlist와 비용 상한 확인 뒤 별도 수동 smoke에서만 사용한다.
-- 테스트는 `AI-01a`~`AI-01d`의 계약을 분리해 판정하고, setup 실패·관측 누락·generator 포화는 기능 실패가 아닌 `INVALID`로 기록한다.
+- 테스트는 `AI-01a`·`AI-01b`·`AI-02a`·`AI-03a`의 계약을 기능별로 분리해 판정하고, setup 실패·관측 누락·generator 포화는 기능 실패가 아닌 `INVALID`로 기록한다.
 - prompt·응답·Tool 인자·게임 후보·사용자 ID·세션·비밀값을 결과 파일·metric label·central log에 남기지 않는다.
 
 ## 고정 fixture
@@ -75,8 +75,8 @@ manifest hash는 `manifestSha256` 필드를 제외한 전체 manifest를 JSON ob
 - provider 호출이 없던 환경의 비용은 `0`으로 판정하지 않고 `NOT_RUN` 또는 `NO_OBSERVATION`으로 기록한다.
 - runner가 fixture를 읽지 못했거나 관측 파일이 없거나 generator가 목표 부하를 만들지 못하면 실행 무결성 실패 `INVALID`다.
 - 실제 provider/model·release·fixture hash·schema version·실행 시각·환경을 결과에 기록하되 비밀값과 원문 입력은 기록하지 않는다.
-- 결과는 성공·업무 거절·기술 실패·복구·관측 공백을 분리해 `AI-01` 기능 상태와 `OPS-04` 증거에 연결한다.
+- 결과는 성공·업무 거절·기술 실패·복구·관측 공백을 분리해 `AI-01`~`AI-03` 기능 상태와 `OPS-04` 증거에 연결한다. 배포 후 제한 실측은 `AI-04c`에 별도 연결한다.
 
 ## 실행 게이트
 
-이 설계의 정책 전제는 완료된 [#795](https://github.com/bamsongi-club/albam-mate/issues/795)·[#796](https://github.com/bamsongi-club/albam-mate/issues/796)와 승인된 ADR-0068~0070으로 확정됐다. 다만 구현 이슈가 runner 경로·cwd·shell·시간 측정·결과 경로를 고정하기 전에는 실행 계약으로 승격하지 않는다. 먼저 fake provider 계약 검증을 통과한 뒤 필요한 환경에서 부하를 실행한다.
+이 설계의 정책 전제는 완료된 [#795](https://github.com/bamsongi-club/albam-mate/issues/795)·[#796](https://github.com/bamsongi-club/albam-mate/issues/796)와 승인된 ADR-0068~0070으로 확정됐다. 다만 구현 이슈가 runner 경로·cwd·shell·시간 측정·결과 경로를 고정하기 전에는 실행 계약으로 승격하지 않는다. 이번 전달 범위에서는 자동 부하테스트 runner를 실행하지 않으며, 필요한 경우 별도 승인 뒤 fake provider 계약 검증과 부하 실행을 재개한다.

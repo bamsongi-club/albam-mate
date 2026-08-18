@@ -12,7 +12,10 @@
 | --- | --- |
 | 본 문서 | P2 전체 범위, 기능 문서 작성 규칙, 공통 통합 원칙과 구현 완료 기준 |
 | [P2 문서·기능 상태](p2/README.md) | 팀원별 기능 문서 라우팅과 계약·생산 코드·자동 검증·배포·실측 상태 |
-| [`AI-01` AI 모임 도우미 명세](p2/assistant.md#ai-01-ai-모임-도우미) | 계약 확정·구현 보류 · 자연어 조건 해석, 서버 추천, 명시적 확인형 Room 생성, 데이터·권한·실패·검증 기준 |
+| [`AI-01` AI 모임 도우미 명세](p2/assistant.md#ai-01-ai-모임-도우미) | 계약 확정·구현 보류 · 사용자 동의·철회, assistant 진입·화면, 추천·확인 흐름과 기존 수동 Room 회귀 |
+| [`AI-02` AI 의도·추천·Provider 운영 명세](p2/assistant.md#ai-02-ai-의도-추출추천provider-운영) | 계약 확정·구현 보류 · 구조화 조건, 후보 추천, provider·quota·timeout·비용·usage 경계 |
+| [`AI-03` AI 초안·확인형 Room 생성 명세](p2/assistant.md#ai-03-ai-초안확인형-room-생성) | 계약 확정·구현 보류 · 15분 초안, 장소·지역, 멱등 확인과 Room·ChatRoom 원자성 |
+| [`AI-04` AI 운영 배포·실측 명세](p2/assistant.md#ai-04-ai-운영-배포실측) | 계약 확정·구현 보류 · 인프라·secret/config, production 배포·feature gate·rollback, 배포 후 제한 실측 |
 | [`DISCOVERY-01` 게임 탐색 도우미 명세](p2/game-discovery-assistant.md#discovery-01) | 초안 작성 완료·선행 계약 필요 · 자연어 의도 해석, SEARCH-04 도구 호출, 근거·권한·안전·품질 기준 |
 | [`SEARCH-04` 게임 의미 기반 검색 명세](p2/search.md#search-04) | 초안 작성 완료·선행 계약 필요 · 검색 대상 데이터, 색인·검색·정렬과 품질 평가 기준 |
 | [`RANK-02` 게임 인기순 정렬 명세](p2/game-popularity.md#rank-02) | 구현·자동 검증 완료·배포/실측 필요 · 국내·내부·국외 인기 원천 결합, 승인 배치와 복구 기준 |
@@ -48,18 +51,21 @@
 
 ### P2 정의
 
-P2는 하나의 모니터링 기능을 뜻하지 않는다. 다음 다섯 기능 영역을 독립된 상세 명세로 작성하고, AI 챗봇 영역의 게임 탐색 도우미(`DISCOVERY-01`)를 별도 계약으로 좁혀 공통 제품 계약과 운영 관측으로 연결하는 3차 MVP 단계다.
+P2는 하나의 모니터링 기능을 뜻하지 않는다. 다음 기능 영역을 독립된 상세 명세로 작성하고, AI 모임 도우미는 `AI-01`~`AI-04`의 독립 기능으로 나누며 게임 탐색 도우미(`DISCOVERY-01`)를 별도 계약으로 좁혀 공통 제품 계약과 운영 관측으로 연결하는 3차 MVP 단계다.
 
 | 기능 영역 | P2에서 작성할 핵심 계약 | 현재 문서 상태 |
 | --- | --- | --- |
-| AI 챗봇 | 사용자 입력·응답, 사용할 데이터, 서비스 기능 호출 권한, 실패·fallback과 품질·안전 검증 | [`AI-01` AI 모임 도우미 명세](p2/assistant.md#ai-01-ai-모임-도우미) 계약 확정·구현 보류 |
+| AI 모임 도우미 | 사용자 동의·철회, assistant 진입·화면, 추천·확인 흐름과 기존 수동 Room 회귀 | [`AI-01` AI 모임 도우미 명세](p2/assistant.md#ai-01-ai-모임-도우미) 계약 확정·구현 보류 |
+| AI 의도·추천·Provider | 사용자 입력의 구조화 조건, 후보 추천, Provider·quota·비용·usage 경계 | [`AI-02` AI 의도·추천·Provider 운영 명세](p2/assistant.md#ai-02-ai-의도-추출추천provider-운영) 계약 확정·구현 보류 |
+| AI 초안·확인형 Room | 15분 초안, 장소·지역, 멱등 확인과 Room·ChatRoom 원자성 | [`AI-03` AI 초안·확인형 Room 생성 명세](p2/assistant.md#ai-03-ai-초안확인형-room-생성) 계약 확정·구현 보류 |
+| AI 운영 배포·실측 | 인프라·secret/config, production 배포·feature gate·rollback, 배포 후 제한 실측 | [`AI-04` AI 운영 배포·실측 명세](p2/assistant.md#ai-04-ai-운영-배포실측) 계약 확정·구현 보류 |
 | AI 챗봇 하위·게임 탐색 도우미 | 자연어 의도 해석, SEARCH-04 읽기 도구 호출, 근거 있는 응답, 권한·안전·fallback과 품질 검증 | [`DISCOVERY-01` 상세 명세](p2/game-discovery-assistant.md#discovery-01) 초안 작성 완료·선행 계약 필요 |
 | 게임 의미 기반 검색 | 검색 대상 데이터와 이용 경계, 색인·질의·정렬 방식, 기존 조건 검색과의 관계, 검색 품질 평가 | [`SEARCH-04` 상세 명세](p2/search.md#search-04) 초안 작성 완료·선행 계약 필요 |
 | 게임 인기순 정렬 | 국내·내부·국외 인기 원천 결합, 승인 배치의 실패·복구, 게임 목록 기본 정렬 | [`RANK-02` 상세 명세](p2/game-popularity.md#rank-02) 구현·자동 검증 완료·배포/실측 필요 |
 | 실시간 매칭 | 매칭 대상·조건·상태·생명주기, 실시간 전달, 동시성·실패·취소·복구와 사용자 화면 | [`MATCH-01` 기능 명세](p2/matching.md)·구현 계약 등록 완료 · 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태) |
 | 운영 관측 | 서비스 생존·지연·실패·AI 사용량·추정 비용과 핵심 업무 기능의 최종 결과 | [운영 관측 명세](p2/monitoring.md) 정본 승격·전송 ADR·[운영 계약](guides/MONITORING_OPERATIONS.md) 반영 |
 
-위 표는 팀 문서의 자리를 정한 것이다. `AI-01`의 상세 동작은 기능 문서에 등록했고 외부 AI 처리·provider 경계는 승인된 [ADR-0068](adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md), Room 초안·확인형 생성은 승인된 [ADR-0069](adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 승인된 [ADR-0070](adr/room/0070-p2-room-region-closed-set-and-compatibility.md)을 기준으로 API·ERD·아키텍처의 목표 계약에 반영했다. 이 공통 명세는 AI 챗봇의 API, 저장 구조, 알고리즘, 화면과 완료 기준을 대신 소유하지 않는다. `AI-01`과 `DISCOVERY-01`은 자연어 입력·게임 후보 조회·쓰기 권한의 소유 경계를 분리한다. 실시간 매칭의 상세 규칙과 완료 기준은 [`MATCH-01` 기능 명세](p2/matching.md)가 소유하며, 계약·생산 코드·자동 검증·배포·실측 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 갱신한다.
+위 표는 팀 문서의 자리를 정한 것이다. `AI-01`~`AI-04`의 상세 동작은 기능 문서에 등록했고 외부 AI 처리·provider 경계는 승인된 [ADR-0068](adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md), Room 초안·확인형 생성은 승인된 [ADR-0069](adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 승인된 [ADR-0070](adr/room/0070-p2-room-region-closed-set-and-compatibility.md)을 기준으로 API·ERD·아키텍처의 목표 계약에 기능별로 반영했다. 이 공통 명세는 AI 기능군의 API, 저장 구조, 알고리즘, 화면과 완료 기준을 대신 소유하지 않는다. `AI-01`~`AI-04`와 `DISCOVERY-01`은 자연어 입력·게임 후보 조회·쓰기 권한의 소유 경계를 분리한다. 실시간 매칭의 상세 규칙과 완료 기준은 [`MATCH-01` 기능 명세](p2/matching.md)가 소유하며, 계약·생산 코드·자동 검증·배포·실측 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 갱신한다.
 
 ### 해결하려는 문제와 검증 가설
 
@@ -131,14 +137,17 @@ P1은 조건 검색, 대기열·자동 승격, 알림과 채팅을 구현하지�
 
 | 기능 영역 | 기능 ID | 상세 문서 | 준비 상태 |
 | --- | --- | --- | --- |
-| AI 챗봇 | `AI-01` | [AI 모임 도우미](p2/assistant.md#ai-01-ai-모임-도우미) | 계약 확정·구현 보류 |
+| AI 모임 도우미 | `AI-01` | [AI 모임 도우미](p2/assistant.md#ai-01-ai-모임-도우미) | 계약 확정·구현 보류 |
+| AI 의도·추천·Provider | `AI-02` | [AI 의도·추천·Provider 운영](p2/assistant.md#ai-02-ai-의도-추출추천provider-운영) | 계약 확정·구현 보류 |
+| AI 초안·확인형 Room | `AI-03` | [AI 초안·확인형 Room 생성](p2/assistant.md#ai-03-ai-초안확인형-room-생성) | 계약 확정·구현 보류 |
+| AI 운영 배포·실측 | `AI-04` | [AI 운영 배포·실측](p2/assistant.md#ai-04-ai-운영-배포실측) | 계약 확정·구현 보류 |
 | 게임 탐색 도우미 | `DISCOVERY-01` | [게임 탐색 도우미](p2/game-discovery-assistant.md#discovery-01) | 기능 명세 초안 작성 완료·선행 계약 필요 |
 | 게임 의미 기반 검색 | `SEARCH-04` | [검색 고도화](p2/search.md#search-04) | 기능 명세 초안 작성 완료·선행 계약 필요 |
 | 게임 인기순 정렬 | `RANK-02` | [게임 인기순 정렬](p2/game-popularity.md#rank-02) | 구현·자동 검증 완료·배포/실측 필요 |
 | 실시간 매칭 | `MATCH-01` | [실시간 파티 매칭](p2/matching.md) | 기능 명세·구현 계약 등록 완료 · 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태) |
 | 운영 관측 | `OPS-01`~`OPS-05` | [운영 관측](p2/monitoring.md), [대시보드 정책](p2/dashboard.md), [운영 관측 런북](guides/MONITORING_OPERATIONS.md) | 정책 정본 승격·전송 ADR·운영 계약 반영 |
 
-`AI-01`의 상세 문서와 기능 ID를 등록했지만 공통 명세가 외부 provider, 공개 API, Room 저장 구조, 알고리즘이나 UI를 대신 소유하지 않는다. `AI-D01`~`AI-D03`과 목표 ADR은 승인됐으며, 각 기능 문서가 소유하는 API·ERD·아키텍처 계약에 반영됐다. `DISCOVERY-01`, `SEARCH-04`, `MATCH-01`도 공통 명세가 API, 테이블, 알고리즘이나 UI를 대신 확정하지 않으며, 필요한 기술 계약은 각 기능 문서와 승인 ADR에서 정한다.
+`AI-01`~`AI-04`의 상세 문서와 기능 ID를 등록했지만 공통 명세가 외부 provider, 공개 API, Room 저장 구조, 알고리즘이나 UI를 대신 소유하지 않는다. `AI-D01`~`AI-D03`과 목표 ADR은 승인됐으며, 각 기능 문서가 소유하는 API·ERD·아키텍처 계약에 반영됐다. `DISCOVERY-01`, `SEARCH-04`, `MATCH-01`도 공통 명세가 API, 테이블, 알고리즘이나 UI를 대신 확정하지 않으며, 필요한 기술 계약은 각 기능 문서와 승인 ADR에서 정한다.
 
 ### 기능 문서 필수 구성
 
@@ -153,7 +162,7 @@ P1은 조건 검색, 대기열·자동 승격, 알림과 채팅을 구현하지�
 7. API·ERD·아키텍처·ADR의 변경 필요 여부
 8. 자동 검증, 배포 검증, 품질·운영 측정 기준
 
-문서 작성만으로 `계약 준비 완료`가 되지는 않는다. 필요한 제품 정책과 ADR을 승인하고 API·ERD·아키텍처 등 소유 정본을 확정 반영한 뒤 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 갱신한다. AI-01은 #795·#796과 ADR-0068~0070 승인이 완료됐으므로 계약 준비 상태로 두되, 생산 코드·검증·배포·실측 상태는 별도로 유지한다.
+문서 작성만으로 `계약 준비 완료`가 되지는 않는다. 필요한 제품 정책과 ADR을 승인하고 API·ERD·아키텍처 등 소유 정본을 확정 반영한 뒤 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 갱신한다. AI-01~AI-04는 #795·#796과 ADR-0068~0070 승인이 완료됐으므로 계약 준비 상태로 두되, 생산 코드·검증·배포·실측 상태는 별도로 유지한다.
 
 ### P2 공통 제외 범위
 

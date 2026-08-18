@@ -43,7 +43,7 @@
   - 제약 migration 전에 운영 데이터 검사가 필수다.
   - 호환 기간 동안 누락 요청은 `홍대`로 해석되므로 관측과 종료 조건을 관리해야 한다.
 - 후속 작업:
-  - `AI-01c`에서 enum·DTO·요청 기본값·migration·기존 데이터 검사를 구현한다.
+  - `AI-03a`에서 enum·DTO·요청 기본값·migration·기존 데이터 검사를 구현한다.
   - `docs/API.md`, `docs/ERD.md`, `docs/ARCHITECTURE.md`에 region 계약을 반영한다.
 
 ## 보류 및 재검토
