@@ -6,9 +6,9 @@
 
 이 문서는 **측정/진단만** 다룬다. 인덱스 추가, 쿼리 변경, `Page` 계약 변경, 캐시, 프론트 로딩 전략은 #740 범위가 아니다.
 
-2026-08-18 실제 측정 결과는 [game-list-740-2026-08-18.md](results/game-list-740/game-list-740-2026-08-18.md)에 기록했다. 해당 결과는 PR #771에 추가되기 전 server/runner commit `9775ef4`의 170,005건 전용 DB에서 수집한 참고용 HTTP baseline, 실제 SQL statement capture, `EXPLAIN (ANALYZE, BUFFERS)`를 포함한다.
+2026-08-18 실제 측정 결과는 [game-list-740-2026-08-18.md](results/game-list-740/game-list-740-2026-08-18.md)에 기록했다. 첨부된 `albam-mate-170k-patched-v4.zip`을 직접 import한 뒤 PR #771 최신 head인 server/runner commit `5b2909d`에서 수집한 HTTP baseline, 실제 SQL statement capture, `EXPLAIN (ANALYZE, BUFFERS)`를 포함한다.
 
-> 주의: 이 참고 결과는 첨부된 `albam-mate-170k-patched-v4.zip`을 직접 import한 결과가 아니다. v4 기준 완료 판정에는 v4를 별도 DB에 직접 import하고 최신 head에서 재측정한 결과가 필요하다.
+v4 ZIP의 SHA-256과 SQL 파일 checksum, import 순서, 측정 DB의 실제 row count를 결과 문서에 함께 남겼다. local `afterMigrate`가 만든 음수 BGG ID fixture 30건은 room 참조가 없음을 확인한 뒤 격리된 측정 DB에서만 제거하여 v4 게임 수를 `170,005`건으로 맞췄다.
 
 ## 고정 측정 조건
 
@@ -183,15 +183,15 @@ EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT TEXT)
 
 다음이 모두 채워져야 #740을 닫는다.
 
-- [ ] 측정 당시 runner/server commit SHA 기록
-- [ ] 첨부 v4 직접 import, 데이터 170,005건 및 v4 ZIP SHA-256 확인
-- [ ] 각 시나리오 warm-up 후 20회 이상의 raw sample 보존
-- [ ] 각 시나리오 p50/p95/max/status 기록
-- [ ] 요청 1회 SQL 개수와 유형 기록
-- [ ] N+1/중복 query 여부 판정
-- [ ] content/count/validation/related 구간 DB 시간 분리
-- [ ] 가장 느린 SQL의 `EXPLAIN (ANALYZE, BUFFERS)` 보존
-- [ ] 병목 1순위를 숫자로 확정
+- [x] 측정 당시 runner/server commit SHA 기록
+- [x] 첨부 v4 직접 import, 데이터 170,005건 및 v4 ZIP SHA-256 확인
+- [x] 각 시나리오 warm-up 후 20회 이상의 raw sample 보존
+- [x] 각 시나리오 p50/p95/max/status 기록
+- [x] 요청 1회 SQL 개수와 유형 기록
+- [x] N+1/중복 query 여부 판정
+- [x] content/count/validation/related 구간의 대표 실행계획 시간 기록
+- [x] 가장 느린 SQL의 `EXPLAIN (ANALYZE, BUFFERS)` 보존
+- [x] 병목 1순위를 숫자로 확정
 - [ ] 개선은 별도 후속 이슈로 최소 범위만 생성
 
 ## 후속 이슈 분리 원칙
