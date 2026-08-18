@@ -129,9 +129,9 @@ Provider egress·secret/config·release·migration·feature gate·rollback과 �
 1. 결정적 fake provider에서 같은 입력·schema version·fixture hash가 같은 구조화 결과와 오류를 반환하고, 실제 provider가 기본 테스트에서 호출되지 않는지 확인한다.
 2. 인증·동의·CSRF·feature flag·PII/secret 차단·payload allowlist·no-retention/no-training 조건이 provider 호출 전에 적용되는지 확인한다.
 3. `RECOMMEND`의 검색 조건이 모두 AND로 적용되고 내부 `RANK-01` 순서로 정렬되며, 추천 조건이 없으면 후보 조회와 초안 생성이 모두 0건인지 확인한다.
-4. `CREATE_ROOM`의 누락 필드가 정확히 `NEEDS_INPUT`으로 반환되고, 확인 전 Room·ChatRoom·참가 관계가 생성되지 않는지 확인한다.
+4. `CREATE_ROOM`의 누락 필드가 정확히 `NEEDS_INPUT`으로 반환되고, 확인 전 Room·ChatRoom·참가 관계가 생성되지 않는지 확인한다. 초안 수정은 `ACTIVE`에만 적용되고 `CONFIRMED`·`DISCARDED` 수정과 `CONFIRMED` 폐기가 계약된 충돌 오류로 끝나는지 확인한다.
 5. 유효한 confirm이 Room 정확히 1개와 ChatRoom 정확히 1개를 원자적으로 만들고, Room 생성 실패 시 부분 상태를 남기지 않는지 확인한다.
-6. 같은 `(currentUserId, draft/resource, operation)` 범위의 동일 `Idempotency-Key`·draft version 재시도가 최초 결과를 재생하고 새 Room·ChatRoom을 만들지 않는지 확인한다. 범위 밖 key 재사용·다른 version·동시 요청·만료 초안은 계약된 오류로 수렴해야 한다.
+6. 같은 `(currentUserId, draft/resource, operation)` 범위의 동일 `Idempotency-Key`·draft version 재시도가 최초 결과를 재생하고 새 Room·ChatRoom을 만들지 않는지 확인한다. 범위 밖 key 재사용·다른 version·동시 요청·만료 초안은 계약된 오류로 수렴해야 한다. 보존 기간이 지난 key는 같은 사용자의 다음 초안 생성·확인 명령이 만료 기록을 정리한 뒤 새 확인으로 처리되고 이전 Room 결과를 재생하지 않는지도 확인한다.
 7. 동의 철회·timeout·429·schema 오류·Redis 불능·quota 초과·provider 또는 Room 생성 실패가 공개 실패 상태와 fail-closed로 끝나는지 확인한다.
 8. prompt·응답·Tool 인자·게임 후보·사용자 ID·세션·비밀값이 provider payload·저장소·metric·central log에 원문으로 남지 않는지 확인한다.
 9. 고정 fixture의 manifest version·hash·caseId·trace·부수효과 assertion과 결과 판정이 일치하는지 확인한다. setup 실패·관측 누락·generator 포화는 기능 실패가 아닌 `INVALID`로 기록한다.
@@ -149,7 +149,10 @@ Provider egress·secret/config·release·migration·feature gate·rollback과 �
 - 현재 존재하는 `GameQuery` 요약 계약은 서버가 이미 확정한 game ID를 보강하는 공개 계약으로만 취급하며, `AI-02`가 소유하는 후보 선택·필터·정렬을 대신하지 않는다. 후보 응답 필드는 [API](../API.md)의 `AssistantRecommendationResponse`로 승인했고, AND 필터와 내부 `RANK-01` 정렬은 이 기능의 고정 규칙으로 유지한다.
 - 추천 후보와 Room 생성 가능 여부는 서버가 소유한 검증·권한 경계를 따른다. 모델 출력은 신뢰할 수 없는 구조화 입력으로 검증한다.
 - `RECOMMEND`의 `missingFields`에는 추천에 필요한 검색 조건만 포함한다. 방 생성 전용 필드를 함께 채우도록 요구하지 않으며, 검색 조건이 전혀 없으면 후보 조회를 하지 않고 `NEEDS_INPUT`으로 끝낸다.
+- 추천 검색 조건은 카테고리·메커니즘·테마와 선택 정제 조건인 난이도 상한·플레이 시간 상한이며, 승인된 게임 목록 검색의 같은 code 집합과 값 범위를 쓴다. 카테고리·메커니즘·테마 가운데 하나 이상이 있어야 후보를 조회하고, 하나도 없으면 공개 `GAME_STYLE` 하나만 담아 되묻는다. 난이도·플레이 시간은 누락으로 요구하지 않는다.
+- 이미 확인된 총 인원·게임 선택은 후보 조회의 추가 AND 필터로 쓸 수 있지만 `RECOMMEND`의 누락 조건으로 요구하지 않는다. 후보는 AND 필터와 내부 `RANK-01` 정렬 뒤 상위 10건으로 절단하고 동점은 게임 ID 오름차순으로 끊으며 pagination을 제공하지 않는다.
 - `CREATE_ROOM`의 `missingFields`는 방 생성에 필요한 총 인원·시작 시각·지역·게임 선택을 기준으로 판정한다. 추천 단계의 누락 질문과 섞지 않는다.
+- 총 인원(`PLAYER_COUNT`)은 주최자를 포함한 총 플레이 인원 2~11명을 뜻하며, 추천의 게임 인원 필터와 방 생성 판정이 같은 기준을 쓴다. 초안·Room 생성으로 넘길 때만 `recruitmentCapacity = 총 인원 - 1`로 변환해 기존 Room의 개설자 제외 1~10명 규칙에 맞춘다.
 - `missingFields`는 액션에서 허용한 필드와 이미 확인된 필드의 차집합으로 판정한다. 액션이 바뀌지 않는 한 추천 검색 조건과 방 생성 필드를 한 배열에 섞지 않는다.
 
 ### 확인과 부수효과

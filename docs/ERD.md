@@ -810,10 +810,10 @@ erDiagram
 | ASSISTANT_DRAFTS | `ck_assistant_drafts_place_before_confirm`: `status <> 'CONFIRMED' OR place IS NOT NULL` | `ACTIVE`·`DISCARDED` 초안은 장소가 NULL일 수 있고, `CONFIRMED` 초안은 사용자 장소 입력 없이는 저장하지 않는다. |
 | ASSISTANT_DRAFTS | `ck_assistant_drafts_result`: `status = 'CONFIRMED'`이면 `confirmed_at`, `room_id`, `chat_room_id`가 모두 NN이고, 그 외에는 모두 NULL | 초안 상태와 결과 참조의 부분 기록을 막는다. |
 | ASSISTANT_IDEMPOTENCY_RECORDS | `UNIQUE (user_id, draft_id, operation)` | 한 초안 확인 범위에는 하나의 key 의미만 허용한다. 다른 key는 `ASSISTANT_DRAFT_CONFLICT`다. |
-| ASSISTANT_IDEMPOTENCY_RECORDS | `UNIQUE (user_id, key_hash)` | 같은 사용자의 key를 다른 draft·operation에 재사용하지 않는다. |
-| ASSISTANT_IDEMPOTENCY_RECORDS | `idx_assistant_idempotency_expiry (expires_at, id)` | PENDING·확인 결과의 제한된 보존 정리를 지원한다. 명령은 batch purge를 기다리지 않고 만료를 판정한다. |
+| ASSISTANT_IDEMPOTENCY_RECORDS | `UNIQUE (user_id, key_hash)` | 같은 사용자의 key를 다른 draft·operation에 재사용하지 않는다. 시간 없는 제약이라 보존 기간 자체를 판정하지 않으며, `expires_at <= 요청 시작 시각`인 그 사용자의 행은 batch purge를 기다리지 않고 다음 초안 생성·확인 명령 트랜잭션에서 모두 삭제한 뒤 새 key를 별도 행으로 등록한다. |
+| ASSISTANT_IDEMPOTENCY_RECORDS | `idx_assistant_idempotency_expiry (expires_at, id)` | PENDING·확인 결과의 제한된 보존 정리를 지원한다. 명령은 batch purge를 기다리지 않고 만료를 판정하며, 만료 행의 실제 삭제 주체도 같은 사용자의 다음 초안 생성·확인 명령이다. |
 
-`ASSISTANT_DRAFTS` 확인은 초안 행을 `FOR UPDATE`로 잠그고 요청 시작 시각·동의·version·필수 입력을 검증한다. 같은 트랜잭션에서 `ASSISTANT_IDEMPOTENCY_RECORDS`를 유일성으로 확보한 뒤 `room.contract` 확인형 command를 호출하며, Room·ChatRoom·초안 결과 참조가 함께 커밋되거나 함께 롤백된다. 동의 철회는 활성 초안을 `DISCARDED`로 종결하고 새 provider 호출·초안 생성을 막는다.
+`ASSISTANT_DRAFTS` 생성·수정·확인은 모두 대상 `USERS` 행 → 초안 행 → `ASSISTANT_IDEMPOTENCY_RECORDS` 순서로 `FOR UPDATE` 잠그며, 확인은 그 뒤 요청 시작 시각·동의·version·필수 입력을 검증한다. 같은 트랜잭션에서 `ASSISTANT_IDEMPOTENCY_RECORDS`를 유일성으로 확보한 뒤 `room.contract` 확인형 command를 호출하며, Room·ChatRoom·초안 결과 참조가 함께 커밋되거나 함께 롤백된다. 같은 트랜잭션에서 그 사용자의 만료된 멱등성 기록을 먼저 모두 삭제하므로 보존이 끝난 key hash가 유일 제약에 남지 않으며, 이 정리는 멱등성 기록만 삭제하고 참조하던 Room·ChatRoom은 삭제하지 않는다. 이후 AI-03 명령을 실행하지 않는 사용자의 만료 기록이 남는 경계는 [ADR-0069](adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md)가 알려진 한계로 소유한다. 동의 철회는 활성 초안을 `DISCARDED`로 종결하고 새 provider 호출·초안 생성을 막는다.
 
 AI 기능 저장소에는 `raw_prompt`, provider 원문 응답, prompt hash, 대화 이력, BGG 원문, 후보 목록, 사용자 ID·세션·secret을 provider payload 또는 관측 저장소로 복제하는 테이블·컬럼을 두지 않는다.
 

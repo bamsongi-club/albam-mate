@@ -15,7 +15,7 @@
 
 ## 고정 fixture
 
-아래 검증은 응답 문구가 아니라 `missingFields` 집합과 호출 trace를 assertion한다. `recommendationSearchFields`는 fixture가 선언한 추천 검색 조건 집합이고, `roomCreationFields`는 총 인원·시작 시각·지역·게임 선택처럼 방 생성에 필요한 필드 집합이다. 두 집합은 공개 HTTP 필드가 승인될 때 해당 이름으로 고정한다.
+아래 검증은 응답 문구가 아니라 `missingFields` 집합과 호출 trace를 assertion한다. `recommendationSearchFields`는 추천 검색 조건 집합 `{GAME_STYLE}`이고, `roomCreationFields`는 총 인원·시작 시각·지역·게임 선택에 대응하는 방 생성 필드 집합 `{PLAYER_COUNT, STARTS_AT, REGION, GAME}`이다. 두 집합은 공개 [`AssistantMissingField`](../API.md#ai-기능군-목표-enum)와 같은 값을 쓰며 서로 겹치지 않는다.
 
 실행 fixture는 비식별 synthetic manifest `docs/p2/fixtures/ai-01/manifest.json`으로 고정한다. manifest version은 `AI-01-FIXTURE-V1`이고, 각 case는 `AI01-<COHORT>-<NNN>` 형식의 변경되지 않는 `caseId`를 갖는다. 모든 cohort는 독립 case를 최소 3개 포함하고, 동시성·멱등성·장애·공격·PII/secret cohort는 최소 5개를 포함한다. 각 case에는 cohort, synthetic structured input, 기대 action/status, 정확한 `missingFields` 집합, provider·candidate 조회 trace 기대값과 Room·ChatRoom·draft 부수효과 판정을 담는다.
 
@@ -25,6 +25,7 @@ manifest hash는 `manifestSha256` 필드를 제외한 전체 manifest를 JSON ob
 | --- | --- | --- |
 | 추천 입력 없음 | `RECOMMEND`에 `게임 추천해줘`처럼 검색 조건이 없음 | `NEEDS_INPUT`; `missingFields == recommendationSearchFields`, `missingFields ∩ roomCreationFields == ∅`, 후보 조회 trace 0건, 활성 임시 초안 0개 |
 | 추천 | 유효한 `RECOMMEND` 검색 조건 | `missingFields == ∅`, 후보 조회 trace 1건과 후보·적용 조건 반환, 활성 임시 초안·Room 0개 |
+| 다회 입력 병합 | 1턴에서 게임 스타일 조건을 확보하고 2턴은 총 인원만 언급하며 직전 `conditions`를 되돌려 보냄 | 2턴 응답의 `categories`·`mechanisms`·`themes`가 1턴 값과 같고, 새로 언급한 필드만 대체되며, `conditions`를 생략한 요청은 이전 조건을 잇지 않음 |
 | 방 생성 입력 부족 | `CREATE_ROOM`의 총 인원·시작 시각·지역·게임 선택 중 일부 누락 | `NEEDS_INPUT`; `missingFields`가 확인되지 않은 `roomCreationFields`와 정확히 일치하고 추천 검색 조건을 섞지 않으며 Room·ChatRoom을 만들지 않음 |
 | 후보 없음 | 유효한 `RECOMMEND` 조건으로 조회했지만 결과가 없음 | `NO_CANDIDATES`; `missingFields == ∅`, 유효 조건의 후보 조회 trace 정확히 1건과 0건 결과, 활성 임시 초안·Room 0개 |
 | 동의 | 동의 전·동의 후·철회 후 | 동의 전/철회 후 provider 호출 0건 |

@@ -348,7 +348,7 @@ AI-03 초안 요청에서 `region`을 생략하면 호환 기간 동안 `홍대`
 | `AssistantConsentStatus` | `NOT_GRANTED`, `GRANTED`, `REVOKED` | 외부 AI 처리 동의 상태. 행이 없으면 `NOT_GRANTED` |
 | `AssistantConsentDecision` | `GRANT`, `REVOKE` | 동의 저장 또는 철회 요청 |
 | `AssistantRecommendationState` | `NEEDS_INPUT`, `RECOMMENDED`, `NO_CANDIDATES`, `UNSUPPORTED` | 누락 조건 추가 질문, 후보 추천, 후보 없음, 지원하지 않는 요청 |
-| `AssistantMissingField` | `GAME`, `PLAYER_COUNT`, `STARTS_AT`, `REGION` | 추천을 위해 필요한 누락 조건 |
+| `AssistantMissingField` | `GAME_STYLE`, `GAME`, `PLAYER_COUNT`, `STARTS_AT`, `REGION` | 액션별 누락 조건. `GAME_STYLE`은 `RECOMMEND`의 추천 검색 조건이고 `GAME`·`PLAYER_COUNT`·`STARTS_AT`·`REGION`은 `CREATE_ROOM`의 방 생성 필드다. 한 응답에 두 집합을 섞지 않는다 |
 | `AssistantDraftStatus` | `ACTIVE`, `CONFIRMED`, `DISCARDED` | 임시 초안의 논리 상태 |
 
 ### ParticipationStatus
@@ -996,11 +996,18 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
-| `gameId` | integer | Y | Y | 서버가 확인한 게임 ID. 후보가 여러 개면 `null` |
-| `playerCount` | integer | Y | Y | 요청한 플레이 인원 |
-| `startsAt` | string(date-time) | Y | Y | 요청한 모임 시작 시각 |
-| `region` | Region | Y | Y | 서버가 정규화한 지역 |
+| `categories` | string[] | Y | N | 추천 검색 조건. 고정 카테고리 code 목록. 없으면 `[]` |
+| `mechanisms` | string[] | Y | N | 추천 검색 조건. 공개 메커니즘 내부 code 목록. 없으면 `[]` |
+| `themes` | string[] | Y | N | 추천 검색 조건. 테마 code 목록. 없으면 `[]` |
+| `complexityMax` | number | Y | Y | 추천 검색 조건. `1.00`~`5.00` 난이도 상한. 없으면 `null` |
+| `playTimeMax` | GamePlayTimeFilter | Y | Y | 추천 검색 조건. 최대 플레이 시간 구간. 없으면 `null` |
+| `gameId` | integer | Y | Y | 방 생성 필드. 서버가 확인한 게임 ID. 후보가 여러 개면 `null` |
+| `playerCount` | integer | Y | Y | 방 생성 필드. 서버가 확인한 총 플레이 인원. 주최자를 포함한 2~11명이며 게임 후보의 `min_players`~`max_players` 판정도 같은 기준을 쓴다 |
+| `startsAt` | string(date-time) | Y | Y | 방 생성 필드. 요청한 모임 시작 시각 |
+| `region` | Region | Y | Y | 방 생성 필드. 서버가 정규화한 지역 |
 | `experienceLevel` | ExperienceLevel | Y | Y | 추천에 사용한 경험 수준. 없으면 `null` |
+
+`categories`·`mechanisms`·`themes`·`complexityMax`·`playTimeMax`는 승인된 게임 목록 검색의 같은 code 집합과 값 범위를 그대로 쓴다. 세 배열은 각각 목록 안 `ANY`로 결합하고 서로 다른 조건 종류끼리는 `AND`로 결합한다. AI 경로는 게임 목록 검색의 `mechanismMatch`·`themeMatch`에 해당하는 선택지를 노출하지 않고 항상 `ANY`로 고정하므로, 후보를 좁히는 판단은 결합 모드가 아니라 조건 종류를 늘리는 방식으로만 한다. `RECOMMEND`는 `categories`·`mechanisms`·`themes` 가운데 하나 이상이 있어야 후보를 조회하며, 하나도 없으면 `GAME_STYLE`만 담은 `NEEDS_INPUT`으로 끝낸다. `complexityMax`·`playTimeMax`는 선택 정제 조건이라 누락으로 요구하지 않는다. 이미 확인된 `gameId`·`playerCount`는 후보 조회의 추가 `AND` 필터로 쓸 수 있지만 `RECOMMEND`의 누락 조건으로 요구하지 않는다.
 
 ### 4.36 AssistantRecommendationResponse
 
@@ -1013,9 +1020,9 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 | `state` | AssistantRecommendationState | Y | N | 추가 질문, 추천, 지원하지 않는 요청 |
 | `conditions` | AssistantConditionSummary | Y | N | 서버가 검증한 구조화 조건. 미확정 필드는 `null` |
 | `missingFields` | AssistantMissingField[] | Y | N | `NEEDS_INPUT`일 때 필요한 필드 집합. 그 밖에는 `[]` |
-| `candidates` | GameSummary[] | Y | N | 서버의 AND 조건과 내부 `RANK-01` 순서로 정렬한 후보. 없으면 `[]` |
+| `candidates` | GameSummary[] | Y | N | 서버의 AND 조건과 내부 `RANK-01` 순서로 정렬한 후보 최대 10건. 없으면 `[]` |
 
-후보는 provider가 반환한 게임 식별자를 신뢰하지 않고 서버가 `game.contract`로 다시 조회한다. 공개 `RANK-01` 상위 결과나 `DISCOVERY-01`의 `SEARCH-04` tool을 사용하지 않는다.
+후보는 provider가 반환한 게임 식별자를 신뢰하지 않고 서버가 `game.contract`로 다시 조회한다. 공개 `RANK-01` 상위 결과나 `DISCOVERY-01`의 `SEARCH-04` tool을 사용하지 않는다. 후보는 AND 필터와 내부 `RANK-01` 정렬 뒤 상위 10건으로 절단하며, 동점은 게임 ID 오름차순으로 끊는다. 절단 사실을 알리는 총 개수 필드나 pagination은 제공하지 않는다.
 
 ### 4.37 AssistantDraftResponse
 
@@ -1048,7 +1055,7 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 | `startsAt` | string(date-time) | Y | N | 미래 시각, 오프셋 필수 |
 | `region` | Region | Y | N | 요청 누락 시 `홍대`로 정규화 |
 | `place` | string | Y | Y | 확인 전 `null` 허용. 확인 시 1~100자 필수 |
-| `recruitmentCapacity` | integer | Y | N | 개설자 제외 1~10명 |
+| `recruitmentCapacity` | integer | Y | N | 개설자 제외 1~10명. AI 초안은 `AssistantConditionSummary.playerCount`를 `recruitmentCapacity = playerCount - 1`로 변환해 채운다 |
 
 ### 4.39 AssistantRoomCreationResult
 
@@ -1058,7 +1065,8 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 |---|---|:---:|:---:|---|
 | `roomId` | integer | Y | N | 확인형 command로 생성된 Room ID |
 | `chatRoomId` | integer | Y | N | 같은 트랜잭션에서 생성된 ChatRoom ID |
-| `room` | ParticipantRoomResponse | Y | N | 기존 Room 상세 응답. 생성 사용자 기준 |
+
+`room.contract` 확인형 command는 식별자만 반환하고 Room 상세 HTTP DTO를 반환하지 않는다. 상세가 필요한 화면은 `roomId`로 기존 `GET /api/rooms/{roomId}`를 호출한다.
 
 ## 5. 인증·프로필 API
 
@@ -1934,7 +1942,7 @@ Vary: Cookie
 | `decision` | AssistantConsentDecision | Y | N | `GRANT` 또는 `REVOKE` |
 | `consentVersion` | string | 조건부 | Y | `GRANT`일 때 현재 동의문 버전과 일치해야 함. `REVOKE`에서는 생략 |
 
-`REVOKE`는 새 provider 호출과 활성 초안 생성을 막고, 현재 활성 초안을 `DISCARDED`로 종결한다. 동의 원문·사용자 자연어·provider token은 저장하지 않는다. `GRANT`는 현재 provider 정책의 no-retention·no-training 확인이 끝난 경우에만 저장한다.
+`REVOKE`는 새 provider 호출과 활성 초안 생성을 막고, 현재 활성 초안을 `DISCARDED`로 종결한다. 동의 원문·사용자 자연어·provider token은 저장하지 않는다. `GRANT`는 현재 provider 정책의 no-retention·no-training 확인이 끝난 경우에만 저장한다. 이 전제를 확인할 수 없으면 `503 ASSISTANT_NOT_ENABLED`로 fail-closed 한다. 이 endpoint는 provider를 호출하지 않으므로 `ASSISTANT_PROVIDER_UNAVAILABLE`을 사용하지 않는다. `GRANT`의 판정 순서는 `UNAUTHENTICATED` → `CSRF_TOKEN_INVALID` → `ASSISTANT_NOT_ENABLED` → `VALIDATION_ERROR` → `ASSISTANT_CONSENT_VERSION_MISMATCH`다. `REVOKE`의 판정 순서는 `UNAUTHENTICATED` → `CSRF_TOKEN_INVALID` → `VALIDATION_ERROR`이며 `ASSISTANT_NOT_ENABLED`와 `ASSISTANT_CONSENT_VERSION_MISMATCH`를 적용하지 않는다. 따라서 기능이 비활성이어도 사용자는 항상 동의를 철회할 수 있다.
 
 ### AI-02 자연어 추천
 
@@ -1948,15 +1956,17 @@ Vary: Cookie
 
 ~~~json
 {
-  "message": "초보자와 주말 저녁에 할 협력 게임을 추천해줘"
+  "message": "초보자와 주말 저녁에 할 협력 게임을 추천해줘",
+  "conditions": null
 }
 ~~~
 
 | 필드 | 타입 | 필수 | nullable | 검증·의미 |
 |---|---|:---:|:---:|---|
 | `message` | string | Y | N | 앞뒤 공백 제거 후 1~2000자, 제어문자 금지. 현재 한 번의 사용자 입력만 전달 |
+| `conditions` | AssistantConditionSummary | N | Y | 직전 응답이 반환한 누적 조건. 첫 요청이나 새 대화에서는 `null` |
 
-서버는 provider 호출 전에 PII·secret·지원하지 않는 지시를 검사한다. provider에는 버전이 지정된 instruction·강제 `propose_game_room_intent` schema·기준 시각·현재 문장·서버가 식별한 누락 필드만 allowlist로 전달하며, 원문 응답·대화 이력·prompt hash는 저장하지 않는다. `NEEDS_INPUT`과 `UNSUPPORTED`는 HTTP 성공 결과이며 Room·ChatRoom·초안을 만들지 않는다. 후보가 있으면 서버가 모든 구조화 조건을 `AND`로 적용하고 내부 `RANK-01` 순서로 정렬한다.
+서버는 provider 호출 전에 PII·secret·지원하지 않는 지시를 검사한다. provider에는 버전이 지정된 instruction·강제 `propose_game_room_intent` schema·기준 시각·현재 문장·서버가 식별한 누락 필드만 allowlist로 전달하며, 원문 응답·대화 이력·prompt hash는 저장하지 않는다. 서버는 대화 이력과 추천 상태를 저장하지 않으므로 다회 입력 흐름은 클라이언트가 잇는다. `NEEDS_INPUT`을 받은 클라이언트는 다음 요청에 직전 응답의 `conditions`를 그대로 담아 보내고, 서버는 이를 신뢰할 수 없는 구조화 입력으로 다시 검증한 뒤 필드 단위로 병합한다. 이번 문장에서 값을 추출한 필드만 대체하고, 배열이 비어 있거나 스칼라가 `null`인 필드는 이번 문장이 그 조건을 언급하지 않은 것으로 보아 이전 값을 그대로 유지한다. 따라서 후속 문장이 게임 스타일을 다시 말하지 않아도 앞 턴에서 확보한 `categories`·`mechanisms`·`themes`가 지워지지 않는다. 조건을 비우려면 `conditions`를 생략해 새 대화로 시작한다. `conditions`를 생략하면 이번 문장만으로 판정하므로 이전 조건은 이어지지 않는다. provider에는 병합 결과가 아니라 현재 문장과 서버가 식별한 누락 필드만 전달한다. `NEEDS_INPUT`과 `UNSUPPORTED`는 HTTP 성공 결과이며 Room·ChatRoom·초안을 만들지 않는다. 후보가 있으면 서버가 모든 구조화 조건을 `AND`로 적용하고 내부 `RANK-01` 순서로 정렬한다.
 
 ### AI-03 초안 생성
 
@@ -1980,7 +1990,7 @@ Vary: Cookie
 | 인증 / CSRF | 필요 / 불필요 |
 | 성공 | `200 OK`, `data`: `AssistantDraftResponse` |
 
-현재 사용자 소유 초안만 조회한다. 요청 시작 시각에 `expiresAt`이 지났으면 `410 ASSISTANT_DRAFT_EXPIRED`이며, 타인 초안이나 없는 초안은 `404 ASSISTANT_DRAFT_NOT_FOUND`다.
+현재 사용자 소유 초안만 조회한다. 만료 판정은 `ACTIVE` 초안에만 적용하며, `ACTIVE` 초안의 요청 시작 시각에 `expiresAt`이 지났으면 `410 ASSISTANT_DRAFT_EXPIRED`다. 이미 종결된 `CONFIRMED`·`DISCARDED` 초안은 만료로 재판정하지 않고 현재 상태와 결과를 그대로 반환한다. 타인 초안이나 없는 초안은 `404 ASSISTANT_DRAFT_NOT_FOUND`다.
 
 ### AI-03 초안 수정
 
@@ -1990,7 +2000,7 @@ Vary: Cookie
 | 인증 / CSRF | 필요 / 필요 |
 | 성공 | `200 OK`, `data`: `AssistantDraftResponse` |
 
-요청 본문은 `draftVersion`과 변경할 `AssistantRoomDraftInput` 필드 중 하나 이상을 받는다. `draftVersion`이 현재 값과 다르면 `409 ASSISTANT_DRAFT_CONFLICT`이며 저장하지 않는다. `place`는 이 경로에서 사용자가 직접 입력·수정하며 provider 결과나 raw prompt에서 채우지 않는다. 수정 성공 시 버전을 1 증가시키고 활성 초안의 만료 기준은 생성 시각을 유지한다.
+요청 본문은 `draftVersion`과 변경할 `AssistantRoomDraftInput` 필드 중 하나 이상을 받는다. 수정은 `ACTIVE` 초안에만 허용한다. 판정 순서는 `404` → 상태 → 만료 → version이다. 대상이 `CONFIRMED`이거나 `DISCARDED`이면 만료·version 검사 전에 `409 ASSISTANT_DRAFT_CONFLICT`로 끝내고 저장하지 않으므로, 이미 만든 Room·ChatRoom과 초안 `input`이 달라지거나 terminal 상태가 다시 변형되지 않는다. `410 ASSISTANT_DRAFT_EXPIRED`는 `ACTIVE` 초안에만 적용한다. `draftVersion`이 현재 값과 다르면 `409 ASSISTANT_DRAFT_CONFLICT`이며 저장하지 않는다. `place`는 이 경로에서 사용자가 직접 입력·수정하며 provider 결과나 raw prompt에서 채우지 않는다. 수정 성공 시 버전을 1 증가시키고 활성 초안의 만료 기준은 생성 시각을 유지한다.
 
 ### AI-03 초안 폐기
 
@@ -2000,7 +2010,7 @@ Vary: Cookie
 | 인증 / CSRF | 필요 / 필요 |
 | 성공 | `200 OK`, `data`: `{}` |
 
-현재 사용자 소유 `ACTIVE` 초안을 `DISCARDED`로 만든다. 이미 `DISCARDED`인 같은 초안에 대한 반복 요청은 새 부수효과 없이 `200 OK`로 수렴한다. 확인된 초안은 이 API로 Room을 취소하지 않는다.
+현재 사용자 소유 `ACTIVE` 초안을 `DISCARDED`로 만든다. 판정 순서는 `404` → 상태 → 만료다. 이미 `DISCARDED`인 같은 초안에 대한 반복 요청은 만료 여부와 무관하게 새 부수효과 없이 `200 OK`로 수렴하고, `CONFIRMED` 초안은 만료 검사 전에 `409 ASSISTANT_DRAFT_CONFLICT`로 거절한다. 따라서 이 API로 확인된 초안의 Room을 취소하지 않는다. `410 ASSISTANT_DRAFT_EXPIRED`는 `ACTIVE` 초안에만 적용한다.
 
 ### AI-03 초안 확인과 Room 생성
 
@@ -2023,9 +2033,9 @@ Vary: Cookie
 |---|---|:---:|:---:|---|
 | `draftVersion` | integer | Y | N | 확인 카드가 읽은 최신 초안 버전 |
 
-`Idempotency-Key`는 앞뒤 공백 없는 1~100자의 ASCII printable 문자다. 서버는 SHA-256 hash만 저장한다. 멱등성 범위는 `(currentUserId, draftId, DRAFT_CONFIRM)`이며, 같은 범위의 확인 결과는 `draftVersion` 검사보다 먼저 재생한다. 다른 키·오래된 version·범위 밖 재사용·동시성 충돌은 `409 ASSISTANT_DRAFT_CONFLICT`이고 Room을 만들지 않는다. 같은 key와 같은 의미의 재시도는 두 번째 Room·ChatRoom을 만들지 않는다.
+`Idempotency-Key`는 앞뒤 공백 없는 1~100자의 ASCII printable 문자다. 서버는 SHA-256 hash만 저장한다. 멱등성 범위는 `(currentUserId, draftId, DRAFT_CONFIRM)`이며, 같은 범위의 확인 결과는 `draftVersion` 검사보다 먼저 재생한다. 다른 키·오래된 version·범위 밖 재사용·동시성 충돌은 `409 ASSISTANT_DRAFT_CONFLICT`이고 Room을 만들지 않는다. 같은 key와 같은 의미의 재시도는 두 번째 Room·ChatRoom을 만들지 않는다. 확인 결과의 재생 보장은 확인 시각부터 24시간이다. 보존 기간이 지난 기록은 별도 batch를 기다리지 않고 같은 사용자의 다음 초안 생성·확인 명령이 같은 트랜잭션에서 만료를 판정해 정리하므로, 같은 key를 새 초안 확인에 다시 쓸 수 있고 이때는 이전 Room 결과를 재생하지 않는다.
 
-확인 시작 시 초안 행을 잠그고 만료·동의·version·필수 `place`를 판정한다. 확인 성공은 기존 `room.contract` 확인형 command를 호출해 Room과 ChatRoom을 하나의 DB 트랜잭션에서 생성하고, 초안을 `CONFIRMED`로 바꾸며 결과 참조를 저장한다. 어느 단계라도 실패하면 Room·ChatRoom·초안 상태 변경을 함께 롤백한다. 기존 수동 `POST /api/rooms`는 이 경로와 별개로 계속 제공한다.
+확인 시작 시 대상 `USERS` 행 → 초안 행 → `ASSISTANT_IDEMPOTENCY_RECORDS`를 이 순서로 잠근다. 판정 순서는 `404` → 같은 범위·같은 key의 멱등 재생 → 상태 → 만료 → 동의 → version → 필수 `place`다. 보존 기간 안의 같은 key 재시도는 상태 판정보다 먼저 원래 결과를 재생하고, 재생 대상이 아닌 `CONFIRMED`·`DISCARDED` 초안의 확인 시도는 `409 ASSISTANT_DRAFT_CONFLICT`로 끝낸다. `410 ASSISTANT_DRAFT_EXPIRED`는 `ACTIVE` 초안에만 적용한다. 확인 성공은 기존 `room.contract` 확인형 command를 호출해 Room과 ChatRoom을 하나의 DB 트랜잭션에서 생성하고, 초안을 `CONFIRMED`로 바꾸며 결과 참조를 저장한다. 어느 단계라도 실패하면 Room·ChatRoom·초안 상태 변경을 함께 롤백한다. 기존 수동 `POST /api/rooms`는 이 경로와 별개로 계속 제공한다.
 
 ## 8. 참가·대기·내 모임 API
 
@@ -2897,13 +2907,13 @@ MATCH 채팅 경로(`/api/matches/parties/{partyId}/chat/**`)는 성공 파티 �
 | `ASSISTANT_CONSENT_REQUIRED` | 403 | 외부 AI 처리 동의가 필요합니다. | 유효한 `GRANTED` 동의 없이 추천·초안·확인을 요청함 |
 | `ASSISTANT_CONSENT_VERSION_MISMATCH` | 409 | 최신 동의문을 확인해야 합니다. | 승인되지 않은 동의문 버전을 `GRANT`로 보냄 |
 | `ASSISTANT_INPUT_NOT_ALLOWED` | 400 | 외부 AI 처리에 허용되지 않는 입력입니다. | PII·secret·지원하지 않는 지시를 안전하게 처리할 수 없음 |
-| `ASSISTANT_PROVIDER_UNAVAILABLE` | 503 | AI provider를 현재 사용할 수 없습니다. | provider·정책을 확인할 수 없거나 timeout·provider 429가 발생함 |
+| `ASSISTANT_PROVIDER_UNAVAILABLE` | 503 | AI provider를 현재 사용할 수 없습니다. | provider를 호출하는 경로에서 provider·정책을 확인할 수 없거나 timeout·provider 429가 발생함. provider를 호출하지 않는 동의·초안 경로에는 사용하지 않음 |
 | `ASSISTANT_PROVIDER_RESPONSE_INVALID` | 503 | AI provider 응답을 처리할 수 없습니다. | 강제 구조화 schema를 검증하지 못함 |
 | `RATE_LIMIT_EXCEEDED` | 429 | AI 요청 처리 한도를 초과했습니다. 잠시 후 다시 시도해 주세요. | 사용자별 KST 일일 5회 또는 월간 150회 quota에 도달함 |
 | `ASSISTANT_COST_LIMIT_EXCEEDED` | 429 | AI 사용 비용 한도를 초과했습니다. | 앱 전체 월 hard cap `$5`에 도달함 |
 | `ASSISTANT_DRAFT_NOT_FOUND` | 404 | AI 초안을 찾을 수 없습니다. | 없는 초안 또는 현재 사용자 소유가 아닌 초안 |
 | `ASSISTANT_DRAFT_EXPIRED` | 410 | AI 초안이 만료되었습니다. | 요청 시작 시각에 초안의 15분 유효 기간이 지남 |
-| `ASSISTANT_DRAFT_CONFLICT` | 409 | AI 초안이 동시에 변경되었습니다. 다시 확인해 주세요. | 오래된 version, 다른 멱등키, 범위 밖 key 재사용 또는 confirm 경합 |
+| `ASSISTANT_DRAFT_CONFLICT` | 409 | AI 초안이 동시에 변경되었습니다. 다시 확인해 주세요. | 오래된 version, 다른 멱등키, 범위 밖 key 재사용, confirm 경합 또는 `CONFIRMED`·`DISCARDED` 초안 수정과 `CONFIRMED` 초안 폐기 시도 |
 
 `ASSISTANT_PROVIDER_UNAVAILABLE`는 실제 provider를 자동 재시도하거나 다른 model로 조용히 대체하지 않는다. Redis 비용·사용량 예약을 확인할 수 없는 경우에는 공통 오류인 `SERVICE_UNAVAILABLE`을 반환하고 provider를 호출하지 않는다. `ASSISTANT_PROVIDER_RESPONSE_INVALID`와 모든 provider 실패는 Room·ChatRoom·초안 확인 결과를 남기지 않는다. `ASSISTANT_DRAFT_EXPIRED`는 HTTP `410 Gone`을 사용하며 클라이언트는 새 초안을 시작해야 한다.
 
@@ -2949,12 +2959,12 @@ MATCH 채팅 경로(`/api/matches/parties/{partyId}/chat/**`)는 성공 파티 �
 | `GET /api/rooms/{roomId}/chat/messages` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `ROOM_CONCURRENT_MODIFICATION`, `VALIDATION_ERROR`, `SERVICE_UNAVAILABLE` |
 | `GET /api/rooms/{roomId}/chat/ws` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `ROOM_CONCURRENT_MODIFICATION`, `VALIDATION_ERROR`, `SERVICE_UNAVAILABLE` |
 | `GET /api/assistant/consent` | `UNAUTHENTICATED` |
-| `PUT /api/assistant/consent` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ASSISTANT_CONSENT_VERSION_MISMATCH`, `CSRF_TOKEN_INVALID` |
+| `PUT /api/assistant/consent` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `CSRF_TOKEN_INVALID`, `GRANT`에만 `ASSISTANT_NOT_ENABLED`·`ASSISTANT_CONSENT_VERSION_MISMATCH` |
 | `POST /api/assistant/recommendations` | `UNAUTHENTICATED`, `ASSISTANT_NOT_ENABLED`, `ASSISTANT_CONSENT_REQUIRED`, `VALIDATION_ERROR`, `ASSISTANT_INPUT_NOT_ALLOWED`, `ASSISTANT_PROVIDER_UNAVAILABLE`, `ASSISTANT_PROVIDER_RESPONSE_INVALID`, `RATE_LIMIT_EXCEEDED`, `ASSISTANT_COST_LIMIT_EXCEEDED`, `SERVICE_UNAVAILABLE`, `CSRF_TOKEN_INVALID` |
 | `POST /api/assistant/drafts` | `UNAUTHENTICATED`, `ASSISTANT_NOT_ENABLED`, `ASSISTANT_CONSENT_REQUIRED`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `CSRF_TOKEN_INVALID` |
 | `GET /api/assistant/drafts/{draftId}` | `UNAUTHENTICATED`, `ASSISTANT_DRAFT_NOT_FOUND`, `ASSISTANT_DRAFT_EXPIRED` |
 | `PATCH /api/assistant/drafts/{draftId}` | `UNAUTHENTICATED`, `ASSISTANT_DRAFT_NOT_FOUND`, `ASSISTANT_DRAFT_EXPIRED`, `ASSISTANT_DRAFT_CONFLICT`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `CSRF_TOKEN_INVALID` |
-| `DELETE /api/assistant/drafts/{draftId}` | `UNAUTHENTICATED`, `ASSISTANT_DRAFT_NOT_FOUND`, `ASSISTANT_DRAFT_EXPIRED`, `CSRF_TOKEN_INVALID` |
+| `DELETE /api/assistant/drafts/{draftId}` | `UNAUTHENTICATED`, `ASSISTANT_DRAFT_NOT_FOUND`, `ASSISTANT_DRAFT_EXPIRED`, `ASSISTANT_DRAFT_CONFLICT`, `CSRF_TOKEN_INVALID` |
 | `POST /api/assistant/drafts/{draftId}/confirm` | `UNAUTHENTICATED`, `ASSISTANT_NOT_ENABLED`, `ASSISTANT_CONSENT_REQUIRED`, `ASSISTANT_DRAFT_NOT_FOUND`, `ASSISTANT_DRAFT_EXPIRED`, `ASSISTANT_DRAFT_CONFLICT`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
 | `GET /api/matches/current` | `UNAUTHENTICATED`, `MATCH_CURRENT_STATE_NOT_STABLE` |
 | `POST /api/matches/requests` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `MATCH_PLAYER_RANGE_NOT_SUPPORTED`, `MATCH_REQUEST_ALREADY_ACTIVE`, `IDEMPOTENCY_KEY_CONFLICT`, `CSRF_TOKEN_INVALID` |

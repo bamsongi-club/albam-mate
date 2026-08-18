@@ -12,10 +12,10 @@
 | --- | --- |
 | 본 문서 | P2 전체 범위, 기능 문서 작성 규칙, 공통 통합 원칙과 구현 완료 기준 |
 | [P2 문서·기능 상태](p2/README.md) | 팀원별 기능 문서 라우팅과 계약·생산 코드·자동 검증·배포·실측 상태 |
-| [`AI-01` AI 모임 도우미 명세](p2/assistant.md#ai-01-ai-모임-도우미) | 계약 확정·구현 보류 · 사용자 동의·철회, assistant 진입·화면, 추천·확인 흐름과 기존 수동 Room 회귀 |
-| [`AI-02` AI 의도·추천·Provider 운영 명세](p2/assistant.md#ai-02-ai-의도-추출추천provider-운영) | 계약 확정·구현 보류 · 구조화 조건, 후보 추천, provider·quota·timeout·비용·usage 경계 |
-| [`AI-03` AI 초안·확인형 Room 생성 명세](p2/assistant.md#ai-03-ai-초안확인형-room-생성) | 계약 확정·구현 보류 · 15분 초안, 장소·지역, 멱등 확인과 Room·ChatRoom 원자성 |
-| [`AI-04` AI 운영 배포·실측 명세](p2/assistant.md#ai-04-ai-운영-배포실측) | 계약 확정·구현 보류 · 인프라·secret/config, production 배포·feature gate·rollback, 배포 후 제한 실측 |
+| [`AI-01` AI 모임 도우미 명세](p2/assistant.md#ai-01-ai-모임-도우미) | 제품 계약 확정·T-ID 승인 필요·구현 보류 · 사용자 동의·철회, assistant 진입·화면, 추천·확인 흐름과 기존 수동 Room 회귀 |
+| [`AI-02` AI 의도·추천·Provider 운영 명세](p2/assistant.md#ai-02-ai-의도-추출추천provider-운영) | 제품 계약 확정·T-ID 승인 필요·구현 보류 · 구조화 조건, 후보 추천, provider·quota·timeout·비용·usage 경계 |
+| [`AI-03` AI 초안·확인형 Room 생성 명세](p2/assistant.md#ai-03-ai-초안확인형-room-생성) | 제품 계약 확정·T-ID 승인 필요·구현 보류 · 15분 초안, 장소·지역, 멱등 확인과 Room·ChatRoom 원자성 |
+| [`AI-04` AI 운영 배포·실측 명세](p2/assistant.md#ai-04-ai-운영-배포실측) | 제품 계약 확정·T-ID 승인 필요·구현 보류 · 인프라·secret/config, production 배포·feature gate·rollback, 배포 후 제한 실측 |
 | [`DISCOVERY-01` 게임 탐색 도우미 명세](p2/game-discovery-assistant.md#discovery-01) | 초안 작성 완료·선행 계약 필요 · 자연어 의도 해석, SEARCH-04 도구 호출, 근거·권한·안전·품질 기준 |
 | [`SEARCH-04` 게임 의미 기반 검색 명세](p2/search.md#search-04) | 초안 작성 완료·선행 계약 필요 · 검색 대상 데이터, 색인·검색·정렬과 품질 평가 기준 |
 | [`RANK-02` 게임 인기순 정렬 명세](p2/game-popularity.md#rank-02) | 구현·자동 검증 완료·배포/실측 필요 · 국내·내부·국외 인기 원천 결합, 승인 배치와 복구 기준 |
@@ -55,10 +55,10 @@ P2는 하나의 모니터링 기능을 뜻하지 않는다. 다음 기능 영역
 
 | 기능 영역 | P2에서 작성할 핵심 계약 | 현재 문서 상태 |
 | --- | --- | --- |
-| AI 모임 도우미 | 사용자 동의·철회, assistant 진입·화면, 추천·확인 흐름과 기존 수동 Room 회귀 | [`AI-01` AI 모임 도우미 명세](p2/assistant.md#ai-01-ai-모임-도우미) 계약 확정·구현 보류 |
-| AI 의도·추천·Provider | 사용자 입력의 구조화 조건, 후보 추천, Provider·quota·비용·usage 경계 | [`AI-02` AI 의도·추천·Provider 운영 명세](p2/assistant.md#ai-02-ai-의도-추출추천provider-운영) 계약 확정·구현 보류 |
-| AI 초안·확인형 Room | 15분 초안, 장소·지역, 멱등 확인과 Room·ChatRoom 원자성 | [`AI-03` AI 초안·확인형 Room 생성 명세](p2/assistant.md#ai-03-ai-초안확인형-room-생성) 계약 확정·구현 보류 |
-| AI 운영 배포·실측 | 인프라·secret/config, production 배포·feature gate·rollback, 배포 후 제한 실측 | [`AI-04` AI 운영 배포·실측 명세](p2/assistant.md#ai-04-ai-운영-배포실측) 계약 확정·구현 보류 |
+| AI 모임 도우미 | 사용자 동의·철회, assistant 진입·화면, 추천·확인 흐름과 기존 수동 Room 회귀 | [`AI-01` AI 모임 도우미 명세](p2/assistant.md#ai-01-ai-모임-도우미) 제품 계약 확정·T-ID 승인 필요·구현 보류 |
+| AI 의도·추천·Provider | 사용자 입력의 구조화 조건, 후보 추천, Provider·quota·비용·usage 경계 | [`AI-02` AI 의도·추천·Provider 운영 명세](p2/assistant.md#ai-02-ai-의도-추출추천provider-운영) 제품 계약 확정·T-ID 승인 필요·구현 보류 |
+| AI 초안·확인형 Room | 15분 초안, 장소·지역, 멱등 확인과 Room·ChatRoom 원자성 | [`AI-03` AI 초안·확인형 Room 생성 명세](p2/assistant.md#ai-03-ai-초안확인형-room-생성) 제품 계약 확정·T-ID 승인 필요·구현 보류 |
+| AI 운영 배포·실측 | 인프라·secret/config, production 배포·feature gate·rollback, 배포 후 제한 실측 | [`AI-04` AI 운영 배포·실측 명세](p2/assistant.md#ai-04-ai-운영-배포실측) 제품 계약 확정·T-ID 승인 필요·구현 보류 |
 | AI 챗봇 하위·게임 탐색 도우미 | 자연어 의도 해석, SEARCH-04 읽기 도구 호출, 근거 있는 응답, 권한·안전·fallback과 품질 검증 | [`DISCOVERY-01` 상세 명세](p2/game-discovery-assistant.md#discovery-01) 초안 작성 완료·선행 계약 필요 |
 | 게임 의미 기반 검색 | 검색 대상 데이터와 이용 경계, 색인·질의·정렬 방식, 기존 조건 검색과의 관계, 검색 품질 평가 | [`SEARCH-04` 상세 명세](p2/search.md#search-04) 초안 작성 완료·선행 계약 필요 |
 | 게임 인기순 정렬 | 국내·내부·국외 인기 원천 결합, 승인 배치의 실패·복구, 게임 목록 기본 정렬 | [`RANK-02` 상세 명세](p2/game-popularity.md#rank-02) 구현·자동 검증 완료·배포/실측 필요 |
@@ -137,10 +137,10 @@ P1은 조건 검색, 대기열·자동 승격, 알림과 채팅을 구현하지�
 
 | 기능 영역 | 기능 ID | 상세 문서 | 준비 상태 |
 | --- | --- | --- | --- |
-| AI 모임 도우미 | `AI-01` | [AI 모임 도우미](p2/assistant.md#ai-01-ai-모임-도우미) | 계약 확정·구현 보류 |
-| AI 의도·추천·Provider | `AI-02` | [AI 의도·추천·Provider 운영](p2/assistant.md#ai-02-ai-의도-추출추천provider-운영) | 계약 확정·구현 보류 |
-| AI 초안·확인형 Room | `AI-03` | [AI 초안·확인형 Room 생성](p2/assistant.md#ai-03-ai-초안확인형-room-생성) | 계약 확정·구현 보류 |
-| AI 운영 배포·실측 | `AI-04` | [AI 운영 배포·실측](p2/assistant.md#ai-04-ai-운영-배포실측) | 계약 확정·구현 보류 |
+| AI 모임 도우미 | `AI-01` | [AI 모임 도우미](p2/assistant.md#ai-01-ai-모임-도우미) | 제품 계약 확정·T-ID 승인 필요·구현 보류 |
+| AI 의도·추천·Provider | `AI-02` | [AI 의도·추천·Provider 운영](p2/assistant.md#ai-02-ai-의도-추출추천provider-운영) | 제품 계약 확정·T-ID 승인 필요·구현 보류 |
+| AI 초안·확인형 Room | `AI-03` | [AI 초안·확인형 Room 생성](p2/assistant.md#ai-03-ai-초안확인형-room-생성) | 제품 계약 확정·T-ID 승인 필요·구현 보류 |
+| AI 운영 배포·실측 | `AI-04` | [AI 운영 배포·실측](p2/assistant.md#ai-04-ai-운영-배포실측) | 제품 계약 확정·T-ID 승인 필요·구현 보류 |
 | 게임 탐색 도우미 | `DISCOVERY-01` | [게임 탐색 도우미](p2/game-discovery-assistant.md#discovery-01) | 기능 명세 초안 작성 완료·선행 계약 필요 |
 | 게임 의미 기반 검색 | `SEARCH-04` | [검색 고도화](p2/search.md#search-04) | 기능 명세 초안 작성 완료·선행 계약 필요 |
 | 게임 인기순 정렬 | `RANK-02` | [게임 인기순 정렬](p2/game-popularity.md#rank-02) | 구현·자동 검증 완료·배포/실측 필요 |
