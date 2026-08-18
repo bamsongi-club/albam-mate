@@ -1,0 +1,389 @@
+jshell>  === base-content ===
+Limit  (cost=0.42..23.15 rows=24 width=1148) (actual time=0.282..1.958 rows=24.00 loops=1)
+  Buffers: shared read=27
+  I/O Timings: shared read=1.671
+  ->  Index Scan using ix_games_popularity_score_name_id on games g1_0  (cost=0.42..161418.52 rows=170454 width=1148) (actual time=0.279..1.947 rows=24.00 loops=1)
+        Index Searches: 1
+        Buffers: shared read=27
+        I/O Timings: shared read=1.671
+Planning:
+  Buffers: shared hit=207 read=56
+  I/O Timings: shared read=3.262
+Planning Time: 9.098 ms
+Execution Time: 2.090 ms
+jshell>  === base-count ===
+Finalize Aggregate  (cost=6476.69..6476.70 rows=1 width=8) (actual time=102.078..106.276 rows=1.00 loops=1)
+  Buffers: shared hit=84854 read=933
+  I/O Timings: shared read=48.100
+  ->  Gather  (cost=6476.47..6476.68 rows=2 width=8) (actual time=102.057..106.257 rows=3.00 loops=1)
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=84854 read=933
+        I/O Timings: shared read=48.100
+        ->  Partial Aggregate  (cost=5476.47..5476.48 rows=1 width=8) (actual time=72.175..72.175 rows=1.00 loops=3)
+              Buffers: shared hit=84854 read=933
+              I/O Timings: shared read=48.100
+              ->  Parallel Index Only Scan using games_pkey on games g1_0  (cost=0.42..5298.92 rows=71022 width=8) (actual time=0.210..66.756 rows=56668.33 loops=3)
+                    Heap Fetches: 0
+                    Index Searches: 1
+                    Buffers: shared hit=84854 read=933
+                    I/O Timings: shared read=48.100
+Planning:
+  Buffers: shared hit=3 read=3
+  I/O Timings: shared read=6.618
+Planning Time: 8.890 ms
+Execution Time: 106.694 ms
+jshell>  === base-related ===
+HashAggregate  (cost=8.47..8.58 rows=11 width=16) (actual time=0.674..0.675 rows=0.00 loops=1)
+  Group Key: game_id
+  Batches: 1  Memory Usage: 32kB
+  Buffers: shared read=7
+  I/O Timings: shared read=0.533
+  ->  Seq Scan on rooms r1_0  (cost=0.06..8.41 rows=12 width=16) (actual time=0.668..0.668 rows=0.00 loops=1)
+        Filter: ((start_at > '2026-08-18 21:32:55.603943+09'::timestamp with time zone) AND ((status)::text <> ALL ('{CANCELED,FINISHED}'::text[])) AND ((room_type)::text = 'GAME_FOCUSED'::text) AND (game_id = ANY ('{219023,279996,200269,204779,207657,218127,237316,177262,247157,140913,227139,132321,204314,155962,180064,257957,214369,250192,200569,202216,274049,207999,209502,158335}'::bigint[])))
+        Rows Removed by Filter: 60
+        Buffers: shared read=7
+        I/O Timings: shared read=0.533
+Planning:
+  Buffers: shared hit=116 read=7
+  I/O Timings: shared read=0.291
+Planning Time: 1.163 ms
+Execution Time: 0.785 ms
+jshell>  === keyword-content ===
+Limit  (cost=136.62..136.66 rows=17 width=1148) (actual time=0.672..0.674 rows=1.00 loops=1)
+  Buffers: shared hit=16 read=11
+  I/O Timings: shared read=0.409
+  ->  Sort  (cost=136.62..136.66 rows=17 width=1148) (actual time=0.670..0.672 rows=1.00 loops=1)
+        Sort Key: popularity_score DESC, name, id
+        Sort Method: quicksort  Memory: 27kB
+        Buffers: shared hit=16 read=11
+        I/O Timings: shared read=0.409
+        ->  Bitmap Heap Scan on games g1_0  (cost=69.03..136.27 rows=17 width=1148) (actual time=0.593..0.595 rows=1.00 loops=1)
+              Recheck Cond: (lower((name)::text) ~~ '%브라스: 버밍엄%'::text)
+              Rows Removed by Index Recheck: 1
+              Heap Blocks: exact=2
+              Buffers: shared hit=7 read=11
+              I/O Timings: shared read=0.409
+              ->  Bitmap Index Scan on ix_games_name_lower_trgm  (cost=0.00..69.02 rows=17 width=0) (actual time=0.481..0.481 rows=2.00 loops=1)
+                    Index Cond: (lower((name)::text) ~~ '%브라스: 버밍엄%'::text)
+                    Index Searches: 1
+                    Buffers: shared hit=6 read=10
+                    I/O Timings: shared read=0.336
+Planning:
+  Buffers: shared hit=13 read=4
+  I/O Timings: shared read=0.296
+Planning Time: 3.440 ms
+Execution Time: 0.906 ms
+jshell>  === player-content ===
+Limit  (cost=0.42..27.17 rows=24 width=1148) (actual time=0.018..0.272 rows=24.00 loops=1)
+  Buffers: shared hit=27 read=3
+  I/O Timings: shared read=0.178
+  ->  Index Scan using ix_games_popularity_score_name_id on games g1_0  (cost=0.42..162270.79 rows=145606 width=1148) (actual time=0.017..0.268 rows=24.00 loops=1)
+        Filter: ((min_players <= 4) AND (max_players >= 4))
+        Rows Removed by Filter: 3
+        Index Searches: 1
+        Buffers: shared hit=27 read=3
+        I/O Timings: shared read=0.178
+Planning:
+  Buffers: shared hit=10
+Planning Time: 0.223 ms
+Execution Time: 0.297 ms
+jshell>  === player-count ===
+Finalize Aggregate  (cost=45761.22..45761.24 rows=1 width=8) (actual time=839.059..842.431 rows=1.00 loops=1)
+  Buffers: shared hit=28 read=43516
+  I/O Timings: shared read=2030.406
+  ->  Gather  (cost=45761.01..45761.22 rows=2 width=8) (actual time=838.436..842.413 rows=3.00 loops=1)
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=28 read=43516
+        I/O Timings: shared read=2030.406
+        ->  Partial Aggregate  (cost=44761.01..44761.02 rows=1 width=8) (actual time=817.211..817.214 rows=1.00 loops=3)
+              Buffers: shared hit=28 read=43516
+              I/O Timings: shared read=2030.406
+              ->  Parallel Seq Scan on games g1_0  (cost=0.00..44609.34 rows=60669 width=8) (actual time=0.236..808.408 rows=48436.67 loops=3)
+                    Filter: ((min_players <= 4) AND (max_players >= 4))
+                    Rows Removed by Filter: 8232
+                    Buffers: shared hit=28 read=43516
+                    I/O Timings: shared read=2030.406
+Planning Time: 0.164 ms
+Execution Time: 842.480 ms
+jshell>  === relation-content ===
+Limit  (cost=9692.45..9692.51 rows=24 width=1148) (actual time=1640.440..1640.449 rows=24.00 loops=1)
+  Buffers: shared hit=325816 read=29253
+  I/O Timings: shared read=919.891
+  ->  Sort  (cost=9692.45..9692.62 rows=70 width=1148) (actual time=1640.437..1640.443 rows=24.00 loops=1)
+        Sort Key: g1_0.popularity_score DESC, g1_0.name, g1_0.id
+        Sort Method: top-N heapsort  Memory: 85kB
+        Buffers: shared hit=325816 read=29253
+        I/O Timings: shared read=919.891
+        ->  Nested Loop Semi Join  (cost=2528.85..9690.49 rows=70 width=1148) (actual time=375.007..1631.945 rows=70.00 loops=1)
+              Buffers: shared hit=325816 read=29253
+              I/O Timings: shared read=919.891
+              ->  Nested Loop  (cost=2528.28..7416.35 rows=2186 width=1156) (actual time=215.334..832.177 rows=24419.00 loops=1)
+                    Buffers: shared hit=78674 read=21452
+                    I/O Timings: shared read=519.315
+                    ->  HashAggregate  (cost=2527.86..2549.72 rows=2186 width=8) (actual time=215.243..242.938 rows=24419.00 loops=1)
+                          Group Key: gmr1_0.game_id
+                          Batches: 1  Memory Usage: 1305kB
+                          Buffers: shared hit=5 read=2445
+                          I/O Timings: shared read=172.918
+                          ->  Nested Loop  (cost=65.87..2522.40 rows=2186 width=8) (actual time=10.751..197.882 rows=24419.00 loops=1)
+                                Buffers: shared hit=5 read=2445
+                                I/O Timings: shared read=172.918
+                                ->  Index Scan using uq_game_mechanisms_code on game_mechanisms m1_0  (cost=0.14..8.16 rows=1 width=8) (actual time=0.169..0.177 rows=1.00 loops=1)
+                                      Index Cond: ((code)::text = 'HAND_MANAGEMENT'::text)
+                                      Filter: is_public
+                                      Index Searches: 1
+                                      Buffers: shared read=2
+                                      I/O Timings: shared read=0.110
+                                ->  Bitmap Heap Scan on game_mechanism_relations gmr1_0  (cost=65.72..2491.92 rows=2232 width=16) (actual time=10.575..193.598 rows=24419.00 loops=1)
+                                      Recheck Cond: (mechanism_id = m1_0.id)
+                                      Heap Blocks: exact=2317
+                                      Buffers: shared hit=5 read=2443
+                                      I/O Timings: shared read=172.808
+                                      ->  Bitmap Index Scan on idx_game_mechanism_relations_mechanism_game  (cost=0.00..65.16 rows=2232 width=0) (actual time=10.083..10.083 rows=24419.00 loops=1)
+                                            Index Cond: (mechanism_id = m1_0.id)
+                                            Index Searches: 1
+                                            Buffers: shared hit=1 read=130
+                                            I/O Timings: shared read=6.708
+                    ->  Index Scan using games_pkey on games g1_0  (cost=0.42..2.25 rows=1 width=1148) (actual time=0.023..0.023 rows=1.00 loops=24419)
+                          Index Cond: (id = gmr1_0.game_id)
+                          Index Searches: 24419
+                          Buffers: shared hit=78669 read=19007
+                          I/O Timings: shared read=346.397
+              ->  Nested Loop  (cost=0.56..1.03 rows=1 width=8) (actual time=0.032..0.032 rows=0.00 loops=24419)
+                    Buffers: shared hit=247142 read=7801
+                    I/O Timings: shared read=400.576
+                    ->  Index Only Scan using game_theme_relations_pkey on game_theme_relations gtr1_0  (cost=0.42..0.52 rows=3 width=16) (actual time=0.025..0.026 rows=3.21 loops=24419)
+                          Index Cond: (game_id = gmr1_0.game_id)
+                          Heap Fetches: 78352
+                          Index Searches: 24419
+                          Buffers: shared hit=90438 read=7801
+                          I/O Timings: shared read=400.576
+                    ->  Index Scan using game_themes_pkey on game_themes t1_0  (cost=0.14..0.16 rows=1 width=8) (actual time=0.001..0.001 rows=0.00 loops=78352)
+                          Index Cond: (id = gtr1_0.theme_id)
+                          Filter: ((code)::text = 'BOOK_BGG_1117'::text)
+                          Rows Removed by Filter: 1
+                          Index Searches: 78352
+                          Buffers: shared hit=156704
+Planning:
+  Buffers: shared hit=256 read=47
+  I/O Timings: shared read=2.530
+Planning Time: 6.110 ms
+Execution Time: 1640.857 ms
+jshell>  === relation-count ===
+Aggregate  (cost=5862.07..5862.08 rows=1 width=8) (actual time=369.924..369.929 rows=1.00 loops=1)
+  Buffers: shared hit=340036 read=2625
+  I/O Timings: shared read=18.456
+  ->  Nested Loop Semi Join  (cost=2528.85..5861.89 rows=70 width=8) (actual time=42.657..369.778 rows=70.00 loops=1)
+        Buffers: shared hit=340036 read=2625
+        I/O Timings: shared read=18.456
+        ->  Nested Loop  (cost=2528.28..3587.75 rows=2186 width=16) (actual time=35.872..135.764 rows=24419.00 loops=1)
+              Buffers: shared hit=85272 read=2446
+              I/O Timings: shared read=14.938
+              ->  HashAggregate  (cost=2527.86..2549.72 rows=2186 width=8) (actual time=35.845..45.471 rows=24419.00 loops=1)
+                    Group Key: gmr1_0.game_id
+                    Batches: 1  Memory Usage: 1305kB
+                    Buffers: shared hit=5 read=2445
+                    I/O Timings: shared read=14.930
+                    ->  Nested Loop  (cost=65.87..2522.40 rows=2186 width=8) (actual time=2.992..27.638 rows=24419.00 loops=1)
+                          Buffers: shared hit=5 read=2445
+                          I/O Timings: shared read=14.930
+                          ->  Index Scan using uq_game_mechanisms_code on game_mechanisms m1_0  (cost=0.14..8.16 rows=1 width=8) (actual time=0.051..0.057 rows=1.00 loops=1)
+                                Index Cond: ((code)::text = 'HAND_MANAGEMENT'::text)
+                                Filter: is_public
+                                Index Searches: 1
+                                Buffers: shared read=2
+                                I/O Timings: shared read=0.026
+                          ->  Bitmap Heap Scan on game_mechanism_relations gmr1_0  (cost=65.72..2491.92 rows=2232 width=16) (actual time=2.937..24.650 rows=24419.00 loops=1)
+                                Recheck Cond: (mechanism_id = m1_0.id)
+                                Heap Blocks: exact=2317
+                                Buffers: shared hit=5 read=2443
+                                I/O Timings: shared read=14.905
+                                ->  Bitmap Index Scan on idx_game_mechanism_relations_mechanism_game  (cost=0.00..65.16 rows=2232 width=0) (actual time=2.574..2.575 rows=24419.00 loops=1)
+                                      Index Cond: (mechanism_id = m1_0.id)
+                                      Index Searches: 1
+                                      Buffers: shared hit=1 read=130
+                                      I/O Timings: shared read=0.788
+              ->  Index Only Scan using games_pkey on games g1_0  (cost=0.42..0.48 rows=1 width=8) (actual time=0.003..0.003 rows=1.00 loops=24419)
+                    Index Cond: (id = gmr1_0.game_id)
+                    Heap Fetches: 0
+                    Index Searches: 24419
+                    Buffers: shared hit=85267 read=1
+                    I/O Timings: shared read=0.007
+        ->  Nested Loop  (cost=0.56..1.03 rows=1 width=8) (actual time=0.009..0.009 rows=0.00 loops=24419)
+              Buffers: shared hit=254764 read=179
+              I/O Timings: shared read=3.518
+              ->  Index Only Scan using game_theme_relations_pkey on game_theme_relations gtr1_0  (cost=0.42..0.52 rows=3 width=16) (actual time=0.005..0.006 rows=3.21 loops=24419)
+                    Index Cond: (game_id = gmr1_0.game_id)
+                    Heap Fetches: 78352
+                    Index Searches: 24419
+                    Buffers: shared hit=98060 read=179
+                    I/O Timings: shared read=3.518
+              ->  Index Scan using game_themes_pkey on game_themes t1_0  (cost=0.14..0.16 rows=1 width=8) (actual time=0.001..0.001 rows=0.00 loops=78352)
+                    Index Cond: (id = gtr1_0.theme_id)
+                    Filter: ((code)::text = 'BOOK_BGG_1117'::text)
+                    Rows Removed by Filter: 1
+                    Index Searches: 78352
+                    Buffers: shared hit=156704
+Planning:
+  Buffers: shared hit=55 read=19
+  I/O Timings: shared read=0.086
+Planning Time: 0.748 ms
+Execution Time: 370.251 ms
+jshell>  === complex-content ===
+Limit  (cost=8759.06..8759.12 rows=24 width=1148) (actual time=800.223..800.320 rows=24.00 loops=1)
+  Buffers: shared hit=232618 read=15374
+  I/O Timings: shared read=229.896
+  ->  Sort  (cost=8759.06..8759.16 rows=40 width=1148) (actual time=800.216..800.285 rows=24.00 loops=1)
+        Sort Key: g1_0.popularity_score DESC, g1_0.name, g1_0.id
+        Sort Method: quicksort  Memory: 81kB
+        Buffers: shared hit=232618 read=15374
+        I/O Timings: shared read=229.896
+        ->  Nested Loop Semi Join  (cost=2528.85..8757.99 rows=40 width=1148) (actual time=76.937..794.675 rows=38.00 loops=1)
+              Buffers: shared hit=232618 read=15374
+              I/O Timings: shared read=229.896
+              ->  Nested Loop  (cost=2528.28..7438.87 rows=1268 width=1156) (actual time=64.299..547.969 rows=14228.00 loops=1)
+                    Buffers: shared hit=84822 read=15304
+                    I/O Timings: shared read=228.643
+                    ->  HashAggregate  (cost=2527.86..2549.72 rows=2186 width=8) (actual time=64.019..81.907 rows=24419.00 loops=1)
+                          Group Key: gmr1_0.game_id
+                          Batches: 1  Memory Usage: 1305kB
+                          Buffers: shared hit=2450
+                          ->  Nested Loop  (cost=65.87..2522.40 rows=2186 width=8) (actual time=3.947..29.813 rows=24419.00 loops=1)
+                                Buffers: shared hit=2450
+                                ->  Index Scan using uq_game_mechanisms_code on game_mechanisms m1_0  (cost=0.14..8.16 rows=1 width=8) (actual time=0.010..0.081 rows=1.00 loops=1)
+                                      Index Cond: ((code)::text = 'HAND_MANAGEMENT'::text)
+                                      Filter: is_public
+                                      Index Searches: 1
+                                      Buffers: shared hit=2
+                                ->  Bitmap Heap Scan on game_mechanism_relations gmr1_0  (cost=65.72..2491.92 rows=2232 width=16) (actual time=3.934..26.611 rows=24419.00 loops=1)
+                                      Recheck Cond: (mechanism_id = m1_0.id)
+                                      Heap Blocks: exact=2317
+                                      Buffers: shared hit=2448
+                                      ->  Bitmap Index Scan on idx_game_mechanism_relations_mechanism_game  (cost=0.00..65.16 rows=2232 width=0) (actual time=3.559..3.559 rows=24419.00 loops=1)
+                                            Index Cond: (mechanism_id = m1_0.id)
+                                            Index Searches: 1
+                                            Buffers: shared hit=131
+                    ->  Index Scan using games_pkey on games g1_0  (cost=0.42..2.26 rows=1 width=1148) (actual time=0.018..0.018 rows=0.58 loops=24419)
+                          Index Cond: (id = gmr1_0.game_id)
+                          Filter: ((min_players <= 4) AND (max_players >= 4) AND (complexity >= 2.00) AND (complexity <= 4.00))
+                          Rows Removed by Filter: 0
+                          Index Searches: 24419
+                          Buffers: shared hit=82372 read=15304
+                          I/O Timings: shared read=228.643
+              ->  Nested Loop  (cost=0.56..1.03 rows=1 width=8) (actual time=0.017..0.017 rows=0.00 loops=14228)
+                    Buffers: shared hit=147796 read=70
+                    I/O Timings: shared read=1.254
+                    ->  Index Only Scan using game_theme_relations_pkey on game_theme_relations gtr1_0  (cost=0.42..0.52 rows=3 width=16) (actual time=0.010..0.011 rows=3.19 loops=14228)
+                          Index Cond: (game_id = gmr1_0.game_id)
+                          Heap Fetches: 45328
+                          Index Searches: 14228
+                          Buffers: shared hit=57140 read=70
+                          I/O Timings: shared read=1.254
+                    ->  Index Scan using game_themes_pkey on game_themes t1_0  (cost=0.14..0.16 rows=1 width=8) (actual time=0.001..0.001 rows=0.00 loops=45328)
+                          Index Cond: (id = gtr1_0.theme_id)
+                          Filter: ((code)::text = 'BOOK_BGG_1117'::text)
+                          Rows Removed by Filter: 1
+                          Index Searches: 45328
+                          Buffers: shared hit=90656
+Planning:
+  Buffers: shared hit=80 read=4
+  I/O Timings: shared read=0.076
+Planning Time: 1.003 ms
+Execution Time: 802.860 ms
+jshell>  === complex-count ===
+Aggregate  (cost=8758.09..8758.10 rows=1 width=8) (actual time=620.585..620.588 rows=1.00 loops=1)
+  Buffers: shared hit=230458 read=17534
+  I/O Timings: shared read=225.602
+  ->  Nested Loop Semi Join  (cost=2528.85..8757.99 rows=40 width=8) (actual time=81.872..620.462 rows=38.00 loops=1)
+        Buffers: shared hit=230458 read=17534
+        I/O Timings: shared read=225.602
+        ->  Nested Loop  (cost=2528.28..7438.87 rows=1268 width=16) (actual time=57.173..439.210 rows=14228.00 loops=1)
+              Buffers: shared hit=82966 read=17160
+              I/O Timings: shared read=222.064
+              ->  HashAggregate  (cost=2527.86..2549.72 rows=2186 width=8) (actual time=57.096..69.846 rows=24419.00 loops=1)
+                    Group Key: gmr1_0.game_id
+                    Batches: 1  Memory Usage: 1305kB
+                    Buffers: shared hit=5 read=2445
+                    I/O Timings: shared read=31.748
+                    ->  Nested Loop  (cost=65.87..2522.40 rows=2186 width=8) (actual time=6.152..46.561 rows=24419.00 loops=1)
+                          Buffers: shared hit=5 read=2445
+                          I/O Timings: shared read=31.748
+                          ->  Index Scan using uq_game_mechanisms_code on game_mechanisms m1_0  (cost=0.14..8.16 rows=1 width=8) (actual time=0.093..0.099 rows=1.00 loops=1)
+                                Index Cond: ((code)::text = 'HAND_MANAGEMENT'::text)
+                                Filter: is_public
+                                Index Searches: 1
+                                Buffers: shared read=2
+                                I/O Timings: shared read=0.048
+                          ->  Bitmap Heap Scan on game_mechanism_relations gmr1_0  (cost=65.72..2491.92 rows=2232 width=16) (actual time=6.054..43.449 rows=24419.00 loops=1)
+                                Recheck Cond: (mechanism_id = m1_0.id)
+                                Heap Blocks: exact=2317
+                                Buffers: shared hit=5 read=2443
+                                I/O Timings: shared read=31.700
+                                ->  Bitmap Index Scan on idx_game_mechanism_relations_mechanism_game  (cost=0.00..65.16 rows=2232 width=0) (actual time=5.688..5.688 rows=24419.00 loops=1)
+                                      Index Cond: (mechanism_id = m1_0.id)
+                                      Index Searches: 1
+                                      Buffers: shared hit=1 read=130
+                                      I/O Timings: shared read=3.197
+              ->  Index Scan using games_pkey on games g1_0  (cost=0.42..2.26 rows=1 width=8) (actual time=0.015..0.015 rows=0.58 loops=24419)
+                    Index Cond: (id = gmr1_0.game_id)
+                    Filter: ((min_players <= 4) AND (max_players >= 4) AND (complexity >= 2.00) AND (complexity <= 4.00))
+                    Rows Removed by Filter: 0
+                    Index Searches: 24419
+                    Buffers: shared hit=82961 read=14715
+                    I/O Timings: shared read=190.316
+        ->  Nested Loop  (cost=0.56..1.03 rows=1 width=8) (actual time=0.012..0.012 rows=0.00 loops=14228)
+              Buffers: shared hit=147492 read=374
+              I/O Timings: shared read=3.539
+              ->  Index Only Scan using game_theme_relations_pkey on game_theme_relations gtr1_0  (cost=0.42..0.52 rows=3 width=16) (actual time=0.007..0.008 rows=3.19 loops=14228)
+                    Index Cond: (game_id = gmr1_0.game_id)
+                    Heap Fetches: 45328
+                    Index Searches: 14228
+                    Buffers: shared hit=56836 read=374
+                    I/O Timings: shared read=3.539
+              ->  Index Scan using game_themes_pkey on game_themes t1_0  (cost=0.14..0.16 rows=1 width=8) (actual time=0.001..0.001 rows=0.00 loops=45328)
+                    Index Cond: (id = gtr1_0.theme_id)
+                    Filter: ((code)::text = 'BOOK_BGG_1117'::text)
+                    Rows Removed by Filter: 1
+                    Index Searches: 45328
+                    Buffers: shared hit=90656
+Planning:
+  Buffers: shared hit=68 read=6
+  I/O Timings: shared read=0.266
+Planning Time: 2.538 ms
+Execution Time: 620.986 ms
+jshell>  === flags-room-discovery ===
+HashAggregate  (cost=8.20..8.42 rows=22 width=16) (actual time=0.290..0.295 rows=30.00 loops=1)
+  Group Key: game_id
+  Batches: 1  Memory Usage: 32kB
+  Buffers: shared read=7
+  I/O Timings: shared read=0.185
+  ->  Seq Scan on rooms r1_0  (cost=0.00..8.05 rows=30 width=16) (actual time=0.156..0.267 rows=30.00 loops=1)
+        Filter: ((start_at > '2026-08-18 21:33:06.296545+09'::timestamp with time zone) AND ((status)::text <> ALL ('{CANCELED,FINISHED}'::text[])) AND ((room_type)::text = 'GAME_FOCUSED'::text))
+        Rows Removed by Filter: 30
+        Buffers: shared read=7
+        I/O Timings: shared read=0.185
+Planning Time: 0.326 ms
+Execution Time: 0.343 ms
+jshell>  === flags-content ===
+Limit  (cost=252.99..252.99 rows=1 width=1148) (actual time=0.224..0.225 rows=0.00 loops=1)
+  Buffers: shared hit=26 read=6
+  I/O Timings: shared read=0.094
+  ->  Sort  (cost=252.99..252.99 rows=1 width=1148) (actual time=0.222..0.222 rows=0.00 loops=1)
+        Sort Key: popularity_score DESC, name, id
+        Sort Method: quicksort  Memory: 25kB
+        Buffers: shared hit=26 read=6
+        I/O Timings: shared read=0.094
+        ->  Index Scan using games_pkey on games g1_0  (cost=0.42..252.98 rows=1 width=1148) (actual time=0.200..0.200 rows=0.00 loops=1)
+              Index Cond: (id = ANY ('{129559,129561,129560,129563,129562,129565,129564,129567,129566,129569,129568,129571,129570,129573,129572,129575,129574,129577,129576,129579,129578,129581,129580,129583,129582,129585,129584,129587,129586,129588}'::bigint[]))
+              Filter: ((min_players = 4) AND (max_players = 4))
+              Rows Removed by Filter: 30
+              Index Searches: 1
+              Buffers: shared hit=26 read=6
+              I/O Timings: shared read=0.094
+Planning:
+  Buffers: shared hit=1 read=7
+  I/O Timings: shared read=0.204
+Planning Time: 0.601 ms
+Execution Time: 0.280 ms

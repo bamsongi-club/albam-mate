@@ -6,6 +6,8 @@
 
 이 문서는 **측정/진단만** 다룬다. 인덱스 추가, 쿼리 변경, `Page` 계약 변경, 캐시, 프론트 로딩 전략은 #740 범위가 아니다.
 
+2026-08-18 실제 측정 결과는 [game-list-740-2026-08-18.md](results/game-list-740/game-list-740-2026-08-18.md)에 기록했다. 해당 결과는 PR #771 head의 170,005건 전용 DB에서 수집한 HTTP baseline, 실제 SQL statement capture, `EXPLAIN (ANALYZE, BUFFERS)`를 포함한다.
+
 ## 고정 측정 조건
 
 - 대상: local compose proxy `http://127.0.0.1:5173`
