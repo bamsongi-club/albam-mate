@@ -16,7 +16,7 @@ P2는 AI 챗봇(게임 탐색 도우미 포함), 게임 의미 기반 검색, �
 | [SEARCH-04 게임 의미 기반 검색 명세](search.md#search-04) | 검색 대상 데이터, 색인·질의·정렬, 기존 검색과의 관계와 품질 평가 | 초안 작성 완료·선행 계약 필요 |
 | [RANK-02 게임 인기순 정렬 명세](game-popularity.md#rank-02) | 국내·내부·국외 인기 원천 결합, 승인 배치·복구와 게임 목록 기본 정렬 | 구현·자동 검증 완료·배포/실측 필요 |
 | [실시간 파티 매칭 명세](matching.md) | `MATCH-01`의 단일 게임·Board Game Arena 고정 매칭, 제안·채팅·신고·차단과 동시성·실패·복구·성능 검증 | 기능 명세 작성 완료·계약 준비 완료 |
-| [운영 관측](monitoring.md) | `OPS-01`~`OPS-05`의 기능별 지표·로그·검증 기준과 제외 범위 | OPS-01 공개 앱 범위 부분 구현·부분 검증, infra/AWS 배포·실측 필요 |
+| [운영 관측](monitoring.md) | `OPS-01`~`OPS-05`의 기능별 지표·로그·검증 기준과 제외 범위 | OPS-01 부분 구현·부분 검증, #731 AC4~AC7 AWS 실측·철거 완료, #730 AC1~AC3 완료 필요 |
 | [운영 대시보드 정책](dashboard.md) | 생존·지연·실패·비용·업무 기능 결과의 화면·경고·증거 정책 | 정책 값 사용자 확인·정본 반영 완료 |
 
 P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md)와 승인 ADR의 현재 계약을 기본으로 유지한다. 각 기능 작성자는 자신의 상세 명세가 요구하는 변경만 식별하고, 구현 작업에서 소유 정본과 필요한 ADR을 함께 갱신한다.
@@ -32,7 +32,7 @@ P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.
 | 게임 의미 기반 검색 | [`SEARCH-04`](search.md#search-04) | 선행 계약 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 게임 인기순 정렬 | [`RANK-02`](game-popularity.md#rank-02) | 계약 준비 완료 | 구현 완료 | 자동 검증 완료 | 미배포 | 미측정 |
 | 실시간 파티 매칭 | [`MATCH-01`](matching.md#match-01-실시간-파티-매칭) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
-| 서비스 생존·연결 | [`OPS-01`](monitoring.md#ops-01-서비스-생존과-연결-상태) | 계약 준비 완료 | 공개 앱 범위 부분 구현, container restart·OOM과 host memory 분리 infra 미구현 | 공개 앱 범위 부분 검증, CloudWatch·release 실측 미검증 | 미배포 | 미측정 |
+| 서비스 생존·연결 | [`OPS-01`](monitoring.md#ops-01-서비스-생존과-연결-상태) | 계약 준비 완료 | 부분 구현: #730 공개 앱, #731 운영 CLI·인프라 | 부분 검증: #730 공개 앱, #731 상태 전이·실패 복구·경고 | #731 임시 AWS 검증 배포·철거 완료, #730 완료 필요 | #731 `AC4`~`AC7` 실측 완료, #730 `AC1`~`AC3` 미완료 |
 | 지연·포화 | [`OPS-02`](monitoring.md#ops-02-지연과-포화) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 실패·이상 | [`OPS-03`](monitoring.md#ops-03-실패와-이상) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
 | AI 사용량·추정 비용 | [`OPS-04`](monitoring.md#ops-04-ai-사용량과-추정-비용) | 선행 계약 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
@@ -44,7 +44,7 @@ P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.
 - `부분 구현`과 `부분 검증`: 연결한 기능 ID 일부만 생산 코드와 자동 증거를 갖춘 상태다.
 - `미배포`와 `미측정`은 별도 상태다. 임시 검증 배포·운영 배포·유효 실측·`INVALID` 측정을 같은 값으로 합치지 않는다.
 
-`OPS-01`·`OPS-02`·`OPS-03`·`OPS-05`는 [운영 관측 런북](../guides/MONITORING_OPERATIONS.md)에 metric·log 허용 목록, alarm query·runbook, 상태 전이·IAM·배포 증거 계약을 반영해 구현 선행 계약을 마쳤다. 이는 생산 코드·자동 검증·AWS 배포·실측 완료가 아니다. `OPS-04`는 공통 관측 비용 계약만 준비됐으며 AI provider·model·호출 경계와 가격 snapshot 소유 계약이 확정될 때까지 `선행 계약 필요`를 유지한다.
+`OPS-01`·`OPS-02`·`OPS-03`·`OPS-05`는 [운영 관측 런북](../guides/MONITORING_OPERATIONS.md)에 metric·log 허용 목록, alarm query·runbook, 상태 전이·IAM·배포 증거 계약을 반영해 구현 선행 계약을 마쳤다. 이 가운데 [#731](https://github.com/bamsongi-club/albam-mate/issues/731)의 `OPS-01-AC4`~`AC7`은 운영 CLI 구현·자동 검증·AWS 임시 배포·실측과 teardown을 완료했다. [#730](https://github.com/bamsongi-club/albam-mate/issues/730)의 `OPS-01-AC1`~`AC3`이 남아 있으므로 `OPS-01` 전체는 부분 구현·부분 검증 상태를 유지한다. `OPS-02`·`OPS-03`·`OPS-05`의 계약 준비도 생산 코드·자동 검증·AWS 배포·실측 완료를 뜻하지 않는다. `OPS-04`는 공통 관측 비용 계약만 준비됐으며 AI provider·model·호출 경계와 가격 snapshot 소유 계약이 확정될 때까지 `선행 계약 필요`를 유지한다.
 
 `AI-01`은 [AI 모임 도우미 명세](assistant.md)와 [결정 초안](assistant-decision-draft.md)을 등록했지만, 외부 AI 처리·provider 경계와 Room 초안·확인형 생성·지역 계약이 승인되지 않아 `선행 계약 필요`다. 후속 결정은 [#795](https://github.com/bamsongi-club/albam-mate/issues/795)와 [#796](https://github.com/bamsongi-club/albam-mate/issues/796)에서 각각 다룬다. `AI-01`은 `SEARCH-04` 읽기 전용 게임 탐색을 소유하는 `DISCOVERY-01`과 합치지 않으며, AI-01 구현 이슈는 두 결정과 필요한 API·ERD·아키텍처 반영 뒤에 시작한다. `DISCOVERY-01`과 `SEARCH-04`도 상세 명세 초안을 등록했지만 필요한 API·ERD·아키텍처·ADR·운영 계약이 남아 있어 `선행 계약 필요`다. `MATCH-01`은 [API](../API.md)·[ERD](../ERD.md)·[아키텍처](../ARCHITECTURE.md)와 [MATCH ADR](../adr/matching/README.md)에 구현 선행 계약을 반영해 `계약 준비 완료`다. 기능 구현 중 드러난 `game`·`user`·`matching` 공통 공개 계약의 빈틈은 [#800](https://github.com/bamsongi-club/albam-mate/issues/800)에서 결정해 [ADR-0067](../adr/matching/0067-match-shared-contract-boundary.md)과 위 정본에 반영했고, 그 계약의 구현체·계약 테스트·구조 검사 등록은 [#801](https://github.com/bamsongi-club/albam-mate/issues/801)이 소유한다. MATCH 기능 구현 이슈는 #801이 `develop`에 반영된 뒤 공통 계약을 사용한다. 생산 코드·PostgreSQL 통합 검증·[MATCH-01 후보 탐색 baseline 측정 계약](../measurements/match-01-candidate-search-baseline-contract.md)의 실행과 결과 채택은 후속 구현에서 각각 갱신한다.
 

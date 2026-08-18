@@ -1,8 +1,8 @@
 # P2 운영 관측 런북
 
-> **문서 상태: active · 계약 정본 · 구현·배포 전 기준 · 최종 검증일: 2026-08-14**
+> **문서 상태: active · 계약 정본 · #731 CLI 구현·AWS 실측 완료 · 최종 검증일: 2026-08-14**
 >
-> 이 문서는 `OPS-01`~`OPS-05`의 metric·log 허용 목록, 경고 대응과 전체 스택 계획 종료·재기동 계약을 소유한다. 현재 `albam-mate-infra` 운영 CLI에는 이 절차가 아직 구현되지 않았으므로 아래 흐름을 실행 가능한 명령으로 해석하지 않는다.
+> 이 문서는 `OPS-01`~`OPS-05`의 metric·log 허용 목록, 경고 대응과 전체 스택 계획 종료·재기동 계약을 소유한다. `OPS-01-AC4`~`AC7`은 `albam-mate-infra` 운영 CLI와 AWS에서 검증됐으며, `OPS-01-AC1`~`AC3`은 [#730](https://github.com/bamsongi-club/albam-mate/issues/730)의 별도 완료 범위다.
 
 [P2 운영 관측 명세](../p2/monitoring.md)는 기능 규칙과 완료 기준, [운영 대시보드 정책](../p2/dashboard.md)은 화면·등급·비용 정책, [ADR-0071](../adr/platform/0071-p2-application-metrics-otlp-host-cloudwatch-agent.md)과 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)는 전송 기술을 소유한다. 이 런북은 사용자 결정을 마친 [#713](https://github.com/bamsongi-club/albam-mate/issues/713)을 정본에 반영해 실제 구현·배포·장애 대응에 연결하며, 문서나 정적 설정만으로 구현·배포·실측 완료를 선언하지 않는다.
 
@@ -11,12 +11,21 @@
 | 구분 | 현재 판정 | 완료 증거 |
 | --- | --- | --- |
 | 이 문서의 metric·log·alarm·상태 전이 계약 | 확정 | 이 문서와 연결 정본의 링크·회귀 검사 |
-| 애플리케이션 OTLP·JSON logging | 미구현 | 생산 설정·자동 검증·release SHA |
-| 인프라 상태 정본·경고 제어·Scheduler | 미구현 | `albam-mate-infra` 구현·plan·자동 검증 |
-| AWS 배포와 실제 수집 | 미배포·미측정 | 같은 release의 metric·log 도착과 수집 공백 검사 |
-| 경고·복구 | 미측정 | `OK → ALARM → OK`, SNS 실제 수신과 receipt |
+| 애플리케이션 OTLP·JSON logging | 부분 구현·부분 검증 | [#730](https://github.com/bamsongi-club/albam-mate/issues/730)의 생산 설정·자동 검증·release 증거 |
+| 인프라 상태 정본·경고 제어·Scheduler | `OPS-01-AC4`~`AC7` 구현·자동 검증 완료 | `albam-mate-infra` [#14](https://github.com/bamsongi-club/albam-mate-infra/pull/14)·[#16](https://github.com/bamsongi-club/albam-mate-infra/pull/16)·[#17](https://github.com/bamsongi-club/albam-mate-infra/pull/17), main `47bd0ba1a8cb97b13694ff492bf365f0cfee66d7` |
+| AWS 배포와 실제 수집 | #731 범위 임시 배포·실측·철거 완료 | 앱 release `d67befb5f305f5c9314e31144fbfd5f982774379`, T1~T3 metric·log·resource 재조회와 Terraform teardown |
+| 경고·복구 | #731 범위 실측 완료 | 대표 alarm `OK → ALARM → OK`, SNS 경고·복구 실제 수신, 최종 receipt `79bc6489-994a-4ba5-80ae-b43b075d8020` |
 
 이 계약은 App1·App2·PostgreSQL·Redis로 구성한 하나의 `stackId` 전체에만 적용한다. 애플리케이션 배포, 한 컨테이너 재시작, rolling restart와 부분 유지보수는 `PLANNED_STOP`이 아니며 `ACTIVE` 상태와 배포 grace 안에서 관측한다.
+
+### #731 AWS 수용 결과
+
+- T1은 `ACTIVE → PLANNED_STOP → ACTIVE`, 16개 alarm action 억제·복구와 초과 schedule 생성·삭제를 AWS API와 receipt에서 재확인했다.
+- T2는 App2 종료 뒤 App1 권한 거부를 주입해 부분 실패를 만들고 `PLANNED_STOP`·실제 resource·alarm 억제·schedule을 보존한 뒤 `recover`로 정상 복구했다.
+- T3는 PostgreSQL → Redis → App2 → App1 순으로 동일 release를 재기동하고 health·metric·log 도착 뒤에만 `ACTIVE`를 선언했으며, 대표 alarm과 SNS 경고·복구 수신을 확인했다.
+- 검증 뒤 Terraform P1 리소스 83개를 삭제했고 EC2·EBS·EIP·alarm·SNS 잔존 0개, 원격 P1 state 0개를 확인했다. receipt bucket과 bootstrap lock·state·ECR 자원은 감사·재실행 경계로 보존했다.
+
+이 결과는 [#731](https://github.com/bamsongi-club/albam-mate/issues/731)이 소유한 `OPS-01-AC4`~`AC7`만 완료한다. [#730](https://github.com/bamsongi-club/albam-mate/issues/730)의 `OPS-01-AC1`~`AC3`가 닫히기 전에는 `OPS-01` 전체를 완료로 판정하지 않는다.
 
 ## 운영 상태 정본
 
@@ -258,6 +267,6 @@ health가 성공했더라도 alarm action 활성화, schedule 삭제 또는 `ACT
 
 ## 구현 이후 명령 소유권
 
-상태 조회·계획 종료·연장·재기동·복구 명령은 `albam-mate-infra`의 단일 운영 CLI가 소유한다. 구현 PR에서 실제 subcommand, 필수 인자, dry-run·exit code와 receipt 위치를 확정한 뒤에만 [COMMANDS](../COMMANDS.md)에 반복 명령을 추가한다. 이 문서는 구현 전 임의 shell 예시를 제공하지 않는다.
+상태 조회·계획 종료·연장·재기동·복구 명령은 [`albam-mate-infra`](https://github.com/bamsongi-club/albam-mate-infra/tree/47bd0ba1a8cb97b13694ff492bf365f0cfee66d7)의 단일 운영 CLI가 소유한다. 반복 subcommand와 필수 인자는 [COMMANDS](../COMMANDS.md#운영-compose)에 등록하며, 세부 bootstrap·배포·receipt 절차는 인프라 저장소 README를 따른다.
 
 > 문서 관리: 소유자 `밤송이클럽 개발·운영 팀` · 최종 검증일 `2026-08-14` · 폐기 조건 `상태 전이·경고 대응 계약을 검증된 단일 운영 CLI의 생성형 문서가 완전히 대체할 때`
