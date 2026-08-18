@@ -802,8 +802,8 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 |---|---|:---:|:---:|---|
 | `game` | GameSummary | Y | N | 요청 등록 때 고정한 게임 |
 | `platform` | string | Y | N | 항상 `BOARD_GAME_ARENA` |
-| `minPlayers` | integer | Y | N | 요청한 최소 파티 인원 |
-| `maxPlayers` | integer | Y | N | 요청한 최대 파티 인원 |
+| `minPlayers` | integer | Y | N | 등록 시점에 확정한 요청 범위와 게임 지원 범위의 교집합 하한 |
+| `maxPlayers` | integer | Y | N | 등록 시점에 확정한 요청 범위와 게임 지원 범위의 교집합 상한 |
 | `queuedAt` | string(date-time) | Y | N | 현재 대기 시도를 시작한 시각 |
 
 ### 4.24 MatchProposalSummary
@@ -2264,7 +2264,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 >
 > 이 절의 모든 HTTP·WebSocket 경로·요청·응답·enum은 승인된 목표 계약이며 현재 제공 기능이 아니다. 제품 상태는 [P2 기능 상태의 `MATCH-01`](p2/README.md#기능별-현재-상태)에서 별도로 판정한다.
 
-MATCHING은 매칭 요청·제안·성공 파티와 그 접근 관계를 소유한다. 현재 상태 조회는 PostgreSQL 정본을 조합해 반환하며, WebSocket·그 밖의 실시간 이벤트는 정본이 아니다. 따라서 재접속, 이벤트 유실·중복·순서 역전 또는 서버 재기동 뒤 클라이언트는 반드시 이 조회 결과로 화면을 복구한다. 저장 구조·제약·인덱스는 [P2 MATCH 저장 계약](ERD.md#p2-match-저장-계약-계획미구현), 모듈 흐름·재시도 내부는 [P2 MATCH 모듈 계약](ARCHITECTURE.md#p2-match-모듈-계약-계획미구현), 기술 선택 근거는 [MATCH ADR](adr/matching/README.md)이 소유한다.
+MATCHING은 매칭 요청·제안·성공 파티와 그 접근 관계를 소유한다. 현재 상태 조회는 PostgreSQL 정본을 조합해 반환하며, WebSocket·그 밖의 실시간 이벤트는 정본이 아니다. 따라서 재접속, 이벤트 유실·중복·순서 역전 또는 서버 재기동 뒤 클라이언트는 반드시 이 조회 결과로 화면을 복구한다. 저장 구조·제약·인덱스는 [P2 MATCH 저장 계약](ERD.md#p2-match-저장-계약), 모듈 흐름·재시도 내부는 [P2 MATCH 모듈 계약](ARCHITECTURE.md#p2-match-모듈-계약), 기술 선택 근거는 [MATCH ADR](adr/matching/README.md)이 소유한다.
 
 모든 MATCH HTTP API는 인증된 현재 사용자만 호출한다. `GET`은 CSRF가 필요 없고 `POST`·`PUT`·`DELETE`는 세션과 CSRF가 필요하다. 유효 세션이 없으면 CSRF보다 `UNAUTHENTICATED`를 먼저 반환한다. MATCH WebSocket handshake는 세션과 허용된 `Origin`을 검증하며 CSRF는 필요 없다.
 
@@ -2313,7 +2313,11 @@ MATCHING은 매칭 요청·제안·성공 파티와 그 접근 관계를 소유�
 | `minPlayers` | integer | Y | N | 1 이상이며 `maxPlayers` 이하 |
 | `maxPlayers` | integer | Y | N | `minPlayers` 이상 |
 
-플랫폼은 항상 `BOARD_GAME_ARENA`이며 본문으로 바꾸지 않는다. 요청 인원 범위와 게임 지원 인원 범위의 교집합이 없으면 `MATCH_PLAYER_RANGE_NOT_SUPPORTED`를 반환하고 요청을 만들지 않는다. 교집합은 있지만 현재 후보가 없으면 `WAITING` 상태로 성공한다. 한 사용자는 `WAITING`·`PROPOSED`·`PAUSED` 중 하나의 비종료 매칭 요청과 `PREPARING` 또는 아직 명시적으로 나가지 않은 `ACTIVE` 성공 파티 접근 관계를 동시에 가질 수 없다. 둘 중 하나가 있으면 새 등록은 `MATCH_REQUEST_ALREADY_ACTIVE`다. 명시적으로 나갔거나 실제 `CLOSED`가 된 성공 파티 관계는 새 요청 등록을 막지 않는다.
+플랫폼은 항상 `BOARD_GAME_ARENA`이며 본문으로 바꾸지 않는다. 요청 인원 범위와 게임 지원 인원 범위의 교집합이 없으면 `MATCH_PLAYER_RANGE_NOT_SUPPORTED`를 반환하고 요청을 만들지 않는다. 게임의 지원 인원 범위를 확인할 수 없는 경우도 교집합 없음과 같이 이 오류로 거절한다. 교집합은 있지만 현재 후보가 없으면 `WAITING` 상태로 성공한다.
+
+한 사용자는 `WAITING`·`PROPOSED`·`PAUSED` 중 하나의 비종료 매칭 요청과 `PREPARING` 또는 아직 명시적으로 나가지 않은 `ACTIVE` 성공 파티 접근 관계를 동시에 가질 수 없다. 둘 중 하나가 있으면 새 등록은 `MATCH_REQUEST_ALREADY_ACTIVE`다. 명시적으로 나갔거나 실제 `CLOSED`가 된 성공 파티 관계는 새 요청 등록을 막지 않는다.
+
+저장하는 값은 본문의 요청 범위가 아니라 등록 시점에 확정한 교집합이다. 이후 조회 응답의 `minPlayers`·`maxPlayers`와 후보 선별은 이 교집합을 사용하므로, 게임 카탈로그가 나중에 바뀌어도 기존 요청의 판정은 변하지 않는다. 요청 본문의 원래 희망 범위는 저장하지 않으므로 어떤 응답도 반환하지 않는다. 두 값이 입력과 다를 수 있음을 알리는 화면 문구는 [MATCH-01 매칭 요청](p2/matching.md#기능-규칙)이 소유한다.
 
 ### MATCH-01 매칭 요청 취소
 
@@ -2614,7 +2618,7 @@ WebSocket은 수신 전용이다. 클라이언트가 애플리케이션 메시�
 | `IDEMPOTENCY_KEY_CONFLICT` | 409 | 동일한 멱등성 키를 다른 요청에 사용할 수 없습니다. | 같은 사용자·24시간 범위의 `Idempotency-Key`가 다른 operation·경로·body 의미로 이미 기록됨 |
 | `MATCH_CURRENT_STATE_NOT_STABLE` | 409 | 매칭 현재 상태가 계속 변경 중입니다. 잠시 후 다시 시도해 주세요. | current-state read의 bounded snapshot 재시도 안에 due recovery와 상태 조합이 안정되지 않음 |
 | `MATCH_REQUEST_ALREADY_ACTIVE` | 409 | 이미 진행 중인 매칭 요청이 있습니다. | `WAITING`·`PROPOSED`·`PAUSED` 요청이 있거나 `PREPARING`·아직 명시적으로 나가지 않은 `ACTIVE` 성공 파티 접근 관계가 있는 사용자가 새 요청을 등록함. 명시적으로 나갔거나 실제 `CLOSED` 뒤에는 성공 파티 관계만으로 이 오류를 반환하지 않음 |
-| `MATCH_PLAYER_RANGE_NOT_SUPPORTED` | 409 | 게임 지원 인원과 요청 인원 범위가 겹치지 않습니다. | 요청 범위와 게임 지원 인원 범위의 교집합이 없음 |
+| `MATCH_PLAYER_RANGE_NOT_SUPPORTED` | 409 | 게임 지원 인원과 요청 인원 범위가 겹치지 않습니다. | 요청 범위와 게임 지원 인원 범위의 교집합이 없거나, 게임 지원 인원 범위를 확인할 수 없음 |
 | `MATCH_REQUEST_CANCELLATION_NOT_AVAILABLE` | 409 | 현재 성공 파티는 매칭 요청으로 취소할 수 없습니다. | `PREPARING`·`ACTIVE` 성공 파티에 요청 취소를 시도함 |
 | `MATCH_PROPOSAL_RESPONSE_NOT_AVAILABLE` | 409 | 현재 응답할 수 있는 매칭 제안이 없습니다. | 본인 열린 제안이 없거나 응답 기한이 지났거나 첫 유효 응답이 다른 키로 이미 처리됨 |
 | `MATCH_PARTY_NOT_FOUND` | 404 | 성공 파티를 찾을 수 없습니다. | 요청한 성공 파티가 없음 |
@@ -2622,7 +2626,9 @@ WebSocket은 수신 전용이다. 클라이언트가 애플리케이션 메시�
 | `MATCH_CHAT_NOT_ACTIVE` | 409 | 매칭 채팅이 아직 준비되지 않았습니다. | 본인 성공 파티 채팅이 `PREPARING`이거나 아직 `ACTIVE`가 아님 |
 | `MATCH_PARTICIPANT_NOT_FOUND` | 404 | 매칭 참가자를 찾을 수 없습니다. | Party-scoped `participantRef`가 없거나 해당 Party의 참가자가 아님 |
 
-`MATCH_PARTY_NOT_FOUND`와 `MATCH_CHAT_NOT_ACTIVE`는 유효한 현재 성공 파티 접근 관계를 확인한 뒤에만 구분한다. 관계가 없거나 `CLOSED` 뒤 접근이 차단된 경우에는 `FORBIDDEN`을 반환해 다른 성공 파티·채팅 상태를 노출하지 않는다.
+MATCH 채팅 경로(`/api/matches/parties/{partyId}/chat/**`)는 성공 파티 접근을 `ACTIVE`·현재 참가자면 허용, `PREPARING`인 현재 참가자면 `MATCH_CHAT_NOT_ACTIVE`, 그 밖의 `CLOSED`·비참가자·이탈자·파티 미존재는 모두 `FORBIDDEN`으로 판정한다. 파티 존재 여부를 접근 권한이 없는 호출자에게 노출하지 않기 위해 미존재를 `FORBIDDEN`으로 흡수하므로, 채팅 경로는 `MATCH_PARTY_NOT_FOUND`를 반환하지 않는다.
+
+`MATCH_PARTY_NOT_FOUND`는 나가기·차단·신고처럼 채팅 밖 성공 파티 경로에서만 반환한다. 이 경로들도 요청자가 해당 파티의 참가자임을 확인한 뒤에만 파티·참가자의 존재를 구분해 알리고, 확인하지 못하면 `FORBIDDEN`을 반환해 다른 성공 파티 상태를 노출하지 않는다.
 
 ## 11. 부록: 엔드포인트별 오류 매트릭스
 
@@ -2669,9 +2675,9 @@ WebSocket은 수신 전용이다. 클라이언트가 애플리케이션 메시�
 | `POST /api/matches/requests` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `MATCH_PLAYER_RANGE_NOT_SUPPORTED`, `MATCH_REQUEST_ALREADY_ACTIVE`, `IDEMPOTENCY_KEY_CONFLICT`, `CSRF_TOKEN_INVALID` |
 | `DELETE /api/matches/requests/me` | `UNAUTHENTICATED`, `MATCH_REQUEST_CANCELLATION_NOT_AVAILABLE`, `CSRF_TOKEN_INVALID` |
 | `POST /api/matches/proposals/{proposalId}/responses` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `MATCH_PROPOSAL_RESPONSE_NOT_AVAILABLE`, `IDEMPOTENCY_KEY_CONFLICT`, `CSRF_TOKEN_INVALID` |
-| `POST /api/matches/parties/{partyId}/chat/messages` | `UNAUTHENTICATED`, `MATCH_PARTY_NOT_FOUND`, `FORBIDDEN`, `MATCH_CHAT_NOT_ACTIVE`, `VALIDATION_ERROR`, `RATE_LIMIT_EXCEEDED`, `SERVICE_UNAVAILABLE`, `CSRF_TOKEN_INVALID` |
-| `GET /api/matches/parties/{partyId}/chat/messages` | `UNAUTHENTICATED`, `MATCH_PARTY_NOT_FOUND`, `FORBIDDEN`, `MATCH_CHAT_NOT_ACTIVE`, `VALIDATION_ERROR`, `SERVICE_UNAVAILABLE` |
-| `GET /api/matches/parties/{partyId}/chat/ws` | `UNAUTHENTICATED`, `MATCH_PARTY_NOT_FOUND`, `FORBIDDEN`, `MATCH_CHAT_NOT_ACTIVE`, `VALIDATION_ERROR`, `SERVICE_UNAVAILABLE` |
+| `POST /api/matches/parties/{partyId}/chat/messages` | `UNAUTHENTICATED`, `FORBIDDEN`, `MATCH_CHAT_NOT_ACTIVE`, `VALIDATION_ERROR`, `RATE_LIMIT_EXCEEDED`, `SERVICE_UNAVAILABLE`, `CSRF_TOKEN_INVALID` |
+| `GET /api/matches/parties/{partyId}/chat/messages` | `UNAUTHENTICATED`, `FORBIDDEN`, `MATCH_CHAT_NOT_ACTIVE`, `VALIDATION_ERROR`, `SERVICE_UNAVAILABLE` |
+| `GET /api/matches/parties/{partyId}/chat/ws` | `UNAUTHENTICATED`, `FORBIDDEN`, `MATCH_CHAT_NOT_ACTIVE`, `VALIDATION_ERROR`, `SERVICE_UNAVAILABLE` |
 | `DELETE /api/matches/parties/{partyId}/participants/me` | `UNAUTHENTICATED`, `MATCH_PARTY_NOT_FOUND`, `FORBIDDEN`, `MATCH_PARTY_LEAVE_NOT_AVAILABLE`, `CSRF_TOKEN_INVALID` |
 | `GET /api/matches/blocks` | `UNAUTHENTICATED`, `VALIDATION_ERROR` |
 | `PUT /api/matches/parties/{partyId}/participants/{participantRef}/block` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `MATCH_PARTY_NOT_FOUND`, `MATCH_PARTICIPANT_NOT_FOUND`, `FORBIDDEN`, `CSRF_TOKEN_INVALID` |

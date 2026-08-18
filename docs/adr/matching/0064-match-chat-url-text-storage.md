@@ -61,7 +61,7 @@ ADR-0062는 MATCH chat cleanup과 7일 보관을 설명하면서 `message·link`
 - [MATCH-01 성공 파티 채팅](../../p2/matching.md#성공-파티-채팅)
 - [MATCH 채팅 메시지 전송 API](../../API.md#match-01-매칭-채팅-메시지-전송)
 - [P2 MATCH 저장 경계](../../ERD.md#p2-match-저장-경계)
-- [P2 MATCH 모듈 계약](../../ARCHITECTURE.md#p2-match-모듈-계약-계획미구현)
+- [P2 MATCH 모듈 계약](../../ARCHITECTURE.md#p2-match-모듈-계약)
 - [ADR-0062: MATCH 전용 채팅 handoff·복구와 최소 보관](0062-match-chat-handoff-recovery-retention.md)
 
 ## 검증

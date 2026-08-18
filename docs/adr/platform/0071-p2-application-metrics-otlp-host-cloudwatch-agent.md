@@ -1,4 +1,4 @@
-# ADR-0058: P2 애플리케이션 메트릭을 동일 호스트 CloudWatch Agent로 OTLP 전송
+# ADR-0071: P2 애플리케이션 메트릭을 동일 호스트 CloudWatch Agent로 OTLP 전송
 
 - 상태: 승인됨
 - 작성일: 2026-08-13
@@ -6,6 +6,7 @@
 - 관련: [P2 운영 관측](../../p2/monitoring.md), [P2 운영 대시보드 정책](../../p2/dashboard.md), [다중 인스턴스 실행](../../ARCHITECTURE.md#다중-인스턴스-실행), [ADR-0051 P1 저비용 4 EC2 자체 운영 인프라](0051-p1-self-managed-aws-infrastructure.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
+- 번호 정정: 이 ADR은 `0058`로 승인됐으나 [`docs/adr/game/0058-external-ranking-and-popularity-sort.md`](../game/0058-external-ranking-and-popularity-sort.md)와 전역 번호가 중복돼 `0071`로 재배정됐다. 재배정 시점에 `0067`~`0070`은 병행 작업이 이미 점유하고 있었다. 결정 내용은 바꾸지 않았다.
 
 ## 맥락
 
