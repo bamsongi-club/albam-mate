@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import {
     calculateRankingMetrics,
     evaluateSearchResults,
+    loadManifest,
     validateEvaluationManifest,
     validateQualityReadiness,
     validateScope,
@@ -99,6 +102,7 @@ test("catalog 밖의 game ID와 hard filter 모순을 거절한다", () => {
         maxPlayers: 6,
         maxPlayTimeMinutes: 30,
     });
+    manifest.qualityCorpus.selection.memberCount = manifest.qualityCorpus.members.length;
     assert.throws(
         () => validateEvaluationManifest(manifest, {
             catalog: [{ id: 1, minPlayers: 2, maxPlayers: 4 }],
@@ -138,9 +142,42 @@ test("quality-ready는 두 독립 판정과 승인된 임계값이 없으면 실
 });
 
 test("승인된 판정 합의와 query label이 일치하면 quality-ready를 통과한다", () => {
-    const result = validateQualityReadiness(buildQualityReadyManifest());
+    const result = withLoadedQualityReadyManifest((manifest) => validateQualityReadiness(manifest));
 
     assert.equal(result.qualityReady, true);
+});
+
+test("quality-ready는 loadManifest가 검증한 원자료 없이 통과하지 않는다", () => {
+    assert.throws(
+        () => validateQualityReadiness(buildQualityReadyManifest()),
+        /원자료|loadManifest/u,
+    );
+});
+
+test("quality-ready는 queriesPath와 qualityCorpusPath를 모두 요구한다", () => {
+    const missingQueriesPath = buildQualityReadyManifest();
+    delete missingQueriesPath.queriesPath;
+    assert.throws(() => validateQualityReadiness(missingQueriesPath), /queriesPath/u);
+
+    const missingCorpusPath = buildQualityReadyManifest();
+    delete missingCorpusPath.qualityCorpusPath;
+    assert.throws(() => validateQualityReadiness(missingCorpusPath), /quality corpus path/u);
+});
+
+test("loadManifest는 inline 원자료와 path 파일이 다르면 거절한다", () => {
+    const fixture = createQualityReadyFixture();
+    try {
+        const manifest = JSON.parse(fs.readFileSync(fixture.manifestPath, "utf8"));
+        manifest.queries[0].query = "inline 불일치";
+        fs.writeFileSync(fixture.manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+        assert.throws(
+            () => loadManifest(fixture.manifestPath),
+            /inline queries와 queriesPath/u,
+        );
+    } finally {
+        fs.rmSync(fixture.directory, { recursive: true, force: true });
+    }
 });
 
 test("quality-ready는 queries checksum 형식이 아니면 실패한다", () => {
@@ -177,17 +214,43 @@ test("판정자 간 불일치에는 제3 판정이 필요하다", () => {
 });
 
 test("제3 판정이 다수 합의를 만들면 quality-ready를 통과한다", () => {
-    const manifest = buildQualityReadyManifest();
-    const query = manifest.queries[0];
-    query.judgements[1].expectedGameIds = [2];
-    query.judgements.push({
-        judgeId: "judge-c",
-        status: "approved",
-        expectedGameIds: query.expectedGameIds,
-        excludedGameIds: query.excludedGameIds,
+    const result = withLoadedQualityReadyManifest((manifest) => {
+        const query = manifest.queries[0];
+        query.judgements[1].expectedGameIds = [2];
+        query.judgements.push({
+            judgeId: "judge-c",
+            status: "approved",
+            expectedGameIds: query.expectedGameIds,
+            excludedGameIds: query.excludedGameIds,
+        });
+        return validateQualityReadiness(manifest);
     });
 
-    assert.doesNotThrow(() => validateQualityReadiness(manifest));
+    assert.equal(result.qualityReady, true);
+});
+
+test("quality corpus target은 170,000 전체 catalog를 품질 corpus로 승격하지 못한다", () => {
+    const manifest = buildManifest();
+    manifest.qualityCorpus.selection.targetSize = 170000;
+
+    assert.throws(
+        () => validateEvaluationManifest(manifest),
+        /1,000·5,000·10,000|targetSize/u,
+    );
+});
+
+test("quality corpus version·snapshot·selection 규칙이 서로 다르면 거절한다", () => {
+    const mixedVersion = buildManifest();
+    mixedVersion.index.corpusVersion = "other-corpus-v1";
+    assert.throws(() => validateEvaluationManifest(mixedVersion), /version\/checksum/u);
+
+    const contradictoryTarget = buildManifest();
+    contradictoryTarget.qualityCorpus.selection.targetSize = 5000;
+    assert.throws(() => validateEvaluationManifest(contradictoryTarget), /rankCutoff|targetSize/u);
+
+    const changedSnapshot = buildManifest();
+    changedSnapshot.corpusSnapshot.snapshotSha256 = "e".repeat(64);
+    assert.throws(() => validateEvaluationManifest(changedSnapshot), /snapshot/u);
 });
 
 test("Recall·MRR·nDCG를 k별 반환 key와 함께 재현한다", () => {
@@ -258,6 +321,10 @@ test("검색 평가 범위를 벗어난 변경 파일을 거절한다", () => {
         () => validateScope(["src/main/java/cloud/bamsongi/Game.java"]),
         /허용되지 않은 경로/u,
     );
+    assert.throws(
+        () => validateScope(["docs/p2/search-evaluation/../../../src/main/java/cloud/bamsongi/Game.java"]),
+        /허용되지 않은 경로/u,
+    );
 });
 
 function buildManifest() {
@@ -299,6 +366,15 @@ function buildManifest() {
         featureId: "SEARCH-04",
         evaluationProfile: "final-quality",
         status: "draft",
+        evaluationVersion: "search-04-final-quality-test-v1",
+        qualityCorpusVersion: "quality-corpus-test-v1",
+        selectionRuleVersion: "quality-corpus-selection-test-v1",
+        corpusSnapshot: {
+            snapshotId: "boardlife-ranking-test",
+            snapshotVersion: "2026-08-10",
+            snapshotSha256: "d".repeat(64),
+            fixed: true,
+        },
         catalog: {
             releaseId: "catalog-release-2026-08-10",
             datasetId: "bgg-catalog-170k",
@@ -312,15 +388,37 @@ function buildManifest() {
         qualityCorpus: {
             schemaVersion: 1,
             corpusId: "quality-corpus-test",
+            corpusVersion: "quality-corpus-test-v1",
             status: "provisional",
             releaseId: "quality-corpus-test",
             releaseStatus: "provisional",
             rankCutoff: 1000,
             source: {
+                releaseId: "quality-corpus-test",
+                releaseStatus: "provisional",
                 datasetId: "boardlife-quality-top1000",
                 sourceReference: "https://boardlife.co.kr/rank",
                 sourceManifestReference: "external://quality-corpus-test.json",
                 sourceArtifactSha256: "d".repeat(64),
+                snapshotId: "boardlife-ranking-test",
+                snapshotVersion: "2026-08-10",
+                snapshotSha256: "d".repeat(64),
+                catalogReleaseId: "catalog-release-2026-08-10",
+                mappingStatus: "provisional",
+            },
+            selection: {
+                mode: "fixture-membership-subset",
+                note: "테스트용 projection",
+                ruleVersion: "quality-corpus-selection-test-v1",
+                targetSize: 1000,
+                mappingKey: "bggId",
+                memberIdField: "gameId",
+                order: ["boardlifeRank:asc", "bggId:asc"],
+                dedupe: "unique bggId; retain lowest valid boardlife rank",
+                cutoffAppliedAfterMapping: true,
+                snapshotPinned: true,
+                languageExclusionPolicy: "membership is not replaced by missing Korean data",
+                memberCount: 99,
             },
             members: Array.from({ length: 99 }, (_, index) => ({
                 gameId: index + 1,
@@ -329,6 +427,13 @@ function buildManifest() {
                 maxPlayers: 6,
                 maxPlayTimeMinutes: 30,
             })),
+        },
+        index: {
+            corpusVersion: "quality-corpus-test-v1",
+            corpusSha256: "c".repeat(64),
+            status: "not-registered",
+            allowedStates: ["BUILDING", "READY", "FAILED"],
+            rollbackPolicy: "retain-previous-ready",
         },
         cohorts: {
             "exact/name variant": { minimum: 15, minDeltaVsBaseline: null },
@@ -385,4 +490,32 @@ function buildQualityReadyManifest() {
         ],
     }));
     return manifest;
+}
+
+function createQualityReadyFixture() {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "search-evaluation-test-"));
+    const manifest = buildQualityReadyManifest();
+    const queryBytes = Buffer.from(`${JSON.stringify(manifest.queries, null, 2)}\n`);
+    const corpusBytes = Buffer.from(`${JSON.stringify(manifest.qualityCorpus, null, 2)}\n`);
+    const manifestPath = path.join(directory, "manifest.json");
+    const queriesPath = path.join(directory, "queries.json");
+    const corpusPath = path.join(directory, "quality-corpus.json");
+
+    fs.writeFileSync(queriesPath, queryBytes);
+    fs.writeFileSync(corpusPath, corpusBytes);
+    manifest.queriesSha256 = createHash("sha256").update(queryBytes).digest("hex");
+    manifest.qualityCorpusSha256 = createHash("sha256").update(corpusBytes).digest("hex");
+    manifest.index.corpusSha256 = manifest.qualityCorpusSha256;
+    fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+    return { directory, manifestPath };
+}
+
+function withLoadedQualityReadyManifest(callback) {
+    const fixture = createQualityReadyFixture();
+    try {
+        return callback(loadManifest(fixture.manifestPath));
+    } finally {
+        fs.rmSync(fixture.directory, { recursive: true, force: true });
+    }
 }

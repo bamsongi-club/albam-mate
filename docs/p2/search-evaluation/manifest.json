@@ -3,6 +3,15 @@
   "featureId": "SEARCH-04",
   "evaluationProfile": "development-seed",
   "status": "draft",
+  "evaluationVersion": "search-04-development-seed-2026-08-14-v1",
+  "qualityCorpusVersion": "boardlife-quality-top1000-v1",
+  "selectionRuleVersion": "boardlife-mapped-unique-rank-v1",
+  "corpusSnapshot": {
+    "snapshotId": "boardlife-ranking-2026-08-14",
+    "snapshotVersion": "2026-08-14",
+    "snapshotSha256": "90ba6710c0a15d1590491f6bb499534afbf31377904fa2cc00a1aedf4f348252",
+    "fixed": true
+  },
   "catalog": {
     "releaseId": "pending-bgg-catalog-release-2026-08-14",
     "datasetId": "bgg-catalog-170k",
@@ -11,7 +20,14 @@
     "releaseStatus": "not-registered"
   },
   "qualityCorpusPath": "quality-corpus.json",
-  "qualityCorpusSha256": "2b71753f1246f72172888606a98059c0b275eeb43f698079bd94196bb37e2bee",
+  "qualityCorpusSha256": "1ae65a90ea9763d2396da767b30f813fdc93320fbcf055124816174422a6f64e",
+  "index": {
+    "corpusVersion": "boardlife-quality-top1000-v1",
+    "corpusSha256": "1ae65a90ea9763d2396da767b30f813fdc93320fbcf055124816174422a6f64e",
+    "status": "not-registered",
+    "allowedStates": ["BUILDING", "READY", "FAILED"],
+    "rollbackPolicy": "retain-previous-ready"
+  },
   "queriesPath": "queries.json",
   "queriesSha256": "b677c49139dc5cf1f9b210ee1c00800f86607cb9ecca242e9dbcdbc4fe008306",
   "cohorts": {

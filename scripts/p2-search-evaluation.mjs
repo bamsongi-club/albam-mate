@@ -31,10 +31,15 @@ export const EVALUATION_PROFILES = Object.freeze({
 
 const ALLOWED_SCOPE_PREFIXES = Object.freeze([
     "docs/p2/search-evaluation/",
+    "docs/p2/search.md",
+    "docs/adr/game/README.md",
+    "docs/adr/game/0072-search-quality-corpus-membership-and-versioning.md",
     "scripts/p2-search-evaluation.mjs",
     "scripts/p2-search-evaluation.test.mjs",
     ".github/workflows/ci.yml",
 ]);
+
+const SOURCE_INTEGRITY = Symbol("searchEvaluationSourceIntegrity");
 
 function evaluationProfile(value) {
     if (!isNonEmptyString(value) || !(value in EVALUATION_PROFILES)) {
@@ -58,6 +63,7 @@ export function validateEvaluationManifest(manifest, options = {}) {
     const profile = evaluationProfile(manifest.evaluationProfile);
     validateCatalogDescriptor(manifest.catalog);
     validateQualityCorpusDescriptor(manifest.qualityCorpus);
+    validateVersioningContract(manifest);
     if (manifest.qualityCorpusPath && !manifest.qualityCorpus) {
         fail("qualityCorpusPath 파일이 로드되지 않았습니다.");
     }
@@ -140,6 +146,10 @@ export function validateQualityReadiness(manifest, options = {}) {
     }
     if (!isNonEmptyString(manifest.qualityCorpusPath)) {
         errors.push("quality corpus path가 없습니다");
+    }
+    if (manifest[SOURCE_INTEGRITY]?.queries !== true
+        || manifest[SOURCE_INTEGRITY]?.qualityCorpus !== true) {
+        errors.push("queries·quality corpus 원자료가 loadManifest에서 checksum 대조되지 않았습니다");
     }
     if (!Array.isArray(manifest.approvalReferences) || manifest.approvalReferences.length === 0) {
         errors.push("승인 근거 reference가 없습니다");
@@ -266,11 +276,16 @@ export function evaluateSearchResults({ manifest, candidateResults, baselineResu
 
 export function validateScope(changedFiles) {
     if (!Array.isArray(changedFiles)) fail("changedFiles는 배열이어야 합니다.");
-    const invalid = changedFiles
-        .map((file) => file.replace(/^\.\//u, ""))
-        .filter((file) => !ALLOWED_SCOPE_PREFIXES.some((allowed) => allowed.endsWith("/")
-            ? file.startsWith(allowed)
-            : file === allowed));
+    const normalizedFiles = changedFiles.map((file) => {
+        if (!isNonEmptyString(file)) fail("changedFiles에는 비어 있지 않은 경로만 허용됩니다.");
+        const normalized = path.posix.normalize(file.replaceAll("\\", "/").replace(/^\.\//u, ""));
+        return { original: file, normalized };
+    });
+    const invalid = normalizedFiles
+        .filter(({ normalized }) => !ALLOWED_SCOPE_PREFIXES.some((allowed) => allowed.endsWith("/")
+            ? normalized.startsWith(allowed)
+            : normalized === allowed))
+        .map(({ original }) => original);
     if (invalid.length > 0) {
         fail(`허용되지 않은 경로가 있습니다: ${invalid.join(", ")}`);
     }
@@ -352,14 +367,26 @@ function validateCatalogDescriptor(catalog) {
 
 function validateQualityCorpusDescriptor(corpus) {
     requireObject(corpus, "manifest.qualityCorpus");
-    for (const field of ["corpusId", "releaseId", "releaseStatus"]) {
+    for (const field of ["corpusId", "corpusVersion", "releaseId", "releaseStatus"]) {
         if (!isNonEmptyString(corpus[field])) fail(`manifest.qualityCorpus.${field}가 없습니다.`);
     }
     if (!Number.isInteger(corpus.rankCutoff) || corpus.rankCutoff < 1) {
         fail("manifest.qualityCorpus.rankCutoff가 올바르지 않습니다.");
     }
     requireObject(corpus.source, "manifest.qualityCorpus.source");
-    for (const field of ["datasetId", "sourceReference", "sourceManifestReference", "sourceArtifactSha256"]) {
+    for (const field of [
+        "releaseId",
+        "releaseStatus",
+        "datasetId",
+        "sourceReference",
+        "sourceManifestReference",
+        "sourceArtifactSha256",
+        "snapshotId",
+        "snapshotVersion",
+        "snapshotSha256",
+        "catalogReleaseId",
+        "mappingStatus",
+    ]) {
         if (!isNonEmptyString(corpus.source[field])) {
             fail(`manifest.qualityCorpus.source.${field}가 없습니다.`);
         }
@@ -367,10 +394,47 @@ function validateQualityCorpusDescriptor(corpus) {
     if (!isSha256(corpus.source.sourceArtifactSha256)) {
         fail("manifest.qualityCorpus.source.sourceArtifactSha256 형식이 올바르지 않습니다.");
     }
+    if (!isSha256(corpus.source.snapshotSha256)) {
+        fail("manifest.qualityCorpus.source.snapshotSha256 형식이 올바르지 않습니다.");
+    }
+    requireObject(corpus.selection, "manifest.qualityCorpus.selection");
+    for (const field of [
+        "mode",
+        "note",
+        "ruleVersion",
+        "mappingKey",
+        "memberIdField",
+        "dedupe",
+        "languageExclusionPolicy",
+    ]) {
+        if (!isNonEmptyString(corpus.selection[field])) {
+            fail(`manifest.qualityCorpus.selection.${field}가 없습니다.`);
+        }
+    }
+    if (![1000, 5000, 10000].includes(corpus.selection.targetSize)
+        || corpus.selection.targetSize !== corpus.rankCutoff) {
+        fail("quality corpus targetSize는 rankCutoff와 같은 1,000·5,000·10,000 중 하나여야 합니다.");
+    }
+    if (corpus.selection.memberIdField !== "gameId" || corpus.selection.mappingKey !== "bggId") {
+        fail("quality corpus selection은 bggId를 gameId로 매핑해야 합니다.");
+    }
+    if (corpus.selection.dedupe !== "unique bggId; retain lowest valid boardlife rank") {
+        fail("quality corpus 중복 제거 규칙이 올바르지 않습니다.");
+    }
+    if (corpus.selection.cutoffAppliedAfterMapping !== true || corpus.selection.snapshotPinned !== true) {
+        fail("quality corpus cutoff은 mapping 뒤에 적용되고 snapshot을 고정해야 합니다.");
+    }
+    if (JSON.stringify(corpus.selection.order) !== JSON.stringify(["boardlifeRank:asc", "bggId:asc"])) {
+        fail("quality corpus 정렬 규칙은 BoardLife rank와 BGG ID 오름차순이어야 합니다.");
+    }
+    if (corpus.selection.memberCount !== corpus.members?.length) {
+        fail("quality corpus selection.memberCount가 members와 다릅니다.");
+    }
     if (!Array.isArray(corpus.members) || corpus.members.length === 0) {
         fail("manifest.qualityCorpus.members가 없습니다.");
     }
     const memberIds = new Set();
+    let previousMember;
     for (const member of corpus.members) {
         requireObject(member, "manifest.qualityCorpus.member");
         const id = recordId(member);
@@ -383,6 +447,63 @@ function validateQualityCorpusDescriptor(corpus) {
             || member.boardlifeRank > corpus.rankCutoff) {
             fail(`manifest.qualityCorpus member ${id}의 BoardLife rank가 cutoff 밖입니다.`);
         }
+        if (previousMember
+            && (member.boardlifeRank < previousMember.boardlifeRank
+                || (member.boardlifeRank === previousMember.boardlifeRank && id < previousMember.id))) {
+            fail("quality corpus members는 BoardLife rank·BGG ID 오름차순이어야 합니다.");
+        }
+        previousMember = { boardlifeRank: member.boardlifeRank, id };
+    }
+}
+
+function validateVersioningContract(manifest) {
+    for (const field of ["evaluationVersion", "qualityCorpusVersion", "selectionRuleVersion"]) {
+        if (!isNonEmptyString(manifest[field])) fail(`manifest.${field}가 없습니다.`);
+    }
+    if (manifest.qualityCorpusVersion !== manifest.qualityCorpus.corpusVersion) {
+        fail("manifest qualityCorpusVersion과 quality corpus corpusVersion이 다릅니다.");
+    }
+    if (manifest.selectionRuleVersion !== manifest.qualityCorpus.selection.ruleVersion) {
+        fail("manifest selectionRuleVersion과 quality corpus ruleVersion이 다릅니다.");
+    }
+
+    requireObject(manifest.corpusSnapshot, "manifest.corpusSnapshot");
+    for (const field of ["snapshotId", "snapshotVersion", "snapshotSha256"]) {
+        if (!isNonEmptyString(manifest.corpusSnapshot[field])) {
+            fail(`manifest.corpusSnapshot.${field}가 없습니다.`);
+        }
+    }
+    if (manifest.corpusSnapshot.fixed !== true || !isSha256(manifest.corpusSnapshot.snapshotSha256)) {
+        fail("manifest.corpusSnapshot은 고정 snapshot과 SHA-256을 가져야 합니다.");
+    }
+    const source = manifest.qualityCorpus.source;
+    if (manifest.corpusSnapshot.snapshotId !== source.snapshotId
+        || manifest.corpusSnapshot.snapshotVersion !== source.snapshotVersion
+        || manifest.corpusSnapshot.snapshotSha256 !== source.snapshotSha256) {
+        fail("manifest snapshot과 quality corpus source snapshot이 다릅니다.");
+    }
+    if (source.catalogReleaseId !== manifest.catalog.releaseId) {
+        fail("quality corpus mapping의 catalog release가 manifest와 다릅니다.");
+    }
+
+    requireObject(manifest.index, "manifest.index");
+    if (manifest.index.corpusVersion !== manifest.qualityCorpusVersion
+        || manifest.index.corpusSha256 !== manifest.qualityCorpusSha256) {
+        fail("index가 quality corpus version/checksum을 고정하지 않았습니다.");
+    }
+    if (!isSha256(manifest.index.corpusSha256)) {
+        fail("manifest.index.corpusSha256 형식이 올바르지 않습니다.");
+    }
+    if (!Array.isArray(manifest.index.allowedStates)
+        || JSON.stringify(manifest.index.allowedStates) !== JSON.stringify(["BUILDING", "READY", "FAILED"])) {
+        fail("manifest.index.allowedStates는 BUILDING·READY·FAILED여야 합니다.");
+    }
+    if (!isNonEmptyString(manifest.index.status)
+        || !["not-registered", "BUILDING", "READY", "FAILED"].includes(manifest.index.status)) {
+        fail("manifest.index.status가 올바르지 않습니다.");
+    }
+    if (manifest.index.rollbackPolicy !== "retain-previous-ready") {
+        fail("index 실패 시 이전 READY를 유지하는 rollback 정책이 필요합니다.");
     }
 }
 
@@ -669,8 +790,9 @@ function readJson(filePath) {
     return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
 
-function loadManifest(manifestPath) {
+export function loadManifest(manifestPath) {
     const manifest = readJson(manifestPath);
+    const sourceIntegrity = { queries: false, qualityCorpus: false };
     if (manifest.queriesPath) {
         const queryPath = path.resolve(path.dirname(manifestPath), manifest.queriesPath);
         const queryBytes = fs.readFileSync(queryPath);
@@ -686,6 +808,7 @@ function loadManifest(manifestPath) {
         if (manifest.queriesSha256) {
             const actualSha256 = createHash("sha256").update(queryBytes).digest("hex");
             if (actualSha256 !== manifest.queriesSha256) fail("queriesSha256가 queries 원자료와 다릅니다.");
+            sourceIntegrity.queries = true;
         }
     }
     if (manifest.qualityCorpusPath) {
@@ -704,8 +827,13 @@ function loadManifest(manifestPath) {
             if (actualSha256 !== manifest.qualityCorpusSha256) {
                 fail("qualityCorpusSha256가 quality corpus 원자료와 다릅니다.");
             }
+            sourceIntegrity.qualityCorpus = true;
         }
     }
+    Object.defineProperty(manifest, SOURCE_INTEGRITY, {
+        value: Object.freeze(sourceIntegrity),
+        enumerable: false,
+    });
     return manifest;
 }
 

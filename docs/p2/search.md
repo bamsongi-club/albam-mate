@@ -14,6 +14,8 @@
 
 BGG 기반 검색 입력은 정책 승인된 [데이터셋의 AI·embedding 사용 범위](../game-catalog/2026-08-14-bgg-ai-embedding-approval.md)와 [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md)의 정확한 catalog release·필드·가공 allowlist를 따른다. 먼저 `catalog-dataset-release` manifest가 고정 dataset profile·field provenance·실제 artifact/SQL coverage를 통과해야 하고, 실행 manifest는 그 release의 `releaseId`·`datasetId`·manifest SHA-256을 `datasetRelease`로 참조해야 한다. `prepare-game-catalog.mjs`는 dataset-only manifest의 직접 실행을 차단한 뒤 참조 SHA/ID와 기존 `validateApprovedReleaseManifest`의 입출력 checksum·행 수·`approval.references`를 차례로 검증한다. 현재 저장소에는 실행 가능한 구체 release manifest가 등록되지 않았으므로 BGG 기반 AI·embedding 입력을 실행 승인으로 간주하지 않으며, API·ERD·아키텍처·모델 선택과 품질 검증도 완료된 것이 아니다.
 
+SEARCH-04 평가 corpus의 deterministic membership, pinned snapshot/version, 1,000·5,000·10,000 quality scale과 약 17만 catalog의 경계, index cutover·rollback은 [ADR-0072](../adr/game/0072-search-quality-corpus-membership-and-versioning.md)와 [실행 fixture](search-evaluation/README.md)가 소유합니다. 이 문서는 사용자 동작·실패·완료 기준을 소유하며, fixture의 provisional 상태를 제품 품질 승인으로 해석하지 않습니다.
+
 ## SEARCH-04
 
 자연어 의도와 P1 hard filter를 결합하는 게임 의미 기반 검색 기능의 상세 명세입니다. 기능 동작과 완료 기준은 이 문서가 소유하며, 현재 상태는 [P2 기능 상태](README.md#기능별-현재-상태)에서 확인합니다.
@@ -144,7 +146,7 @@ BGG 기반 검색 입력은 정책 승인된 [데이터셋의 AI·embedding 사�
 | [API](../API.md) | 필요 | 별도 의미 검색 요청·응답·fallback 상태·`SEARCH_UNAVAILABLE` 오류·인증/필터 계약을 등록한다. 기존 [GAME-01](../API.md#game-01-게임-목록검색)의 `keyword` 의미와 응답 호환성은 유지한다. |
 | [ERD](../ERD.md) | 조건부 필요 | 영속 index metadata·source release·version·상태·활성 pointer가 필요하다고 결정될 때만 테이블·제약·보존을 반영한다. vector/검색 projection은 승인 release·필드 allowlist와 rollback/삭제 경계를 연결해 반영한다. |
 | [아키텍처](../ARCHITECTURE.md) | 필요 | `game` 내부 의미 검색 read service와 projection/index build port의 책임, 외부 검색 adapter 의존 방향, query·catalog·fallback 흐름을 반영한다. 현재 `game` 모듈의 게임 목록·검색 책임은 유지한다. |
-| [ADR](../adr/README.md) | 필요 | [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md)의 승인 release·필드·가공 범위를 전제로 lexical/semantic/hybrid 대안, hard filter 적용 경계, index version/cutover, fallback·품질 합격 기준과 물리 선택을 별도 ADR로 승인한다. |
+| [ADR](../adr/README.md) | 필요 | [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md)과 [ADR-0072](../adr/game/0072-search-quality-corpus-membership-and-versioning.md)의 승인 release·corpus membership·version 경계를 전제로 lexical/semantic/hybrid 대안, hard filter 적용 경계, index version/cutover, fallback·품질 합격 기준과 물리 선택을 별도 ADR로 승인한다. |
 | 운영 가이드 | 필요 | index build·검증·활성화·rollback, 고정 fixture와 release SHA, 장애 시 fallback/disabled 판단, query 원문 금지와 지표 확인 절차를 추가한다. 기존 [P1 검색 성능 가이드](../guides/P1_SEARCH_PERFORMANCE.md)는 P1 이름 부분일치와 `pg_trgm` 측정 경계로 유지하며 P2 의미 품질 계약으로 재해석하지 않는다. |
 
 ## 완료 기준
