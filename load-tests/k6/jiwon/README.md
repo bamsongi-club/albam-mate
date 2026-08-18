@@ -36,8 +36,9 @@
 | `before-verification.json` | 동일 경로 | 실행 전 DB 불변식 |
 | `after-verification.json` | 동일 경로 | 실행 뒤 HTTP·DB 불변식 판정. T5 비교는 같은 fixture의 `PASS` artifact만 허용 |
 | `run-manifest.json` | 동일 경로 | 대상 배포 SHA·환경·fixture SHA-256·k6 버전·시작/종료 UTC와 `runState`·`completed`를 묶은 실행 기록 |
+| `resource-signals.json` | 동일 경로 | T5 측정 window에 연결된 HTTP·Tomcat·Hikari·JVM·PostgreSQL 및 query call/time/buffer 원시 신호 |
 | `k6-summary.json` | 동일 경로 | `run`이 같은 manifest와 함께 생성한 k6 summary |
-| `t5-comparison-verification.json` | `build/k6/room/<run-id>/` | T5 role×scale 6개 실행의 공통 read profile 검증 결과 |
+| `t5-comparison-verification.json` | `build/k6/room/<run-id>/` 또는 `build/k6/room/t5-campaign/<campaign-id>/` | T5 role×scale 6개 실행 또는 6조건×3회 campaign의 공통 read profile 검증 결과 |
 | `cleanup.sql` | 동일 경로 | 정확한 생성 ID만 정리하는 SQL |
 | `manifest.json` | 동일 경로 | portable bundle의 clean source revision, immutable artifact hash와 실행 경계 |
 | `fixture-plan.json`, `private/prepare-provenance.json` | 동일 경로 | 결정적 fixture 계획과 실행별 ownership·password hash provenance |
@@ -157,6 +158,15 @@ node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id $runId
 
 `compare-t5`는 public/host/participant × ACTIVE 1/10 fixture가 모두 있고, 각 완료 manifest의 `t5ReadOptions`가 같으며 각 fixture의 `after-verification.json`이 같은 fixture의 `stage: "after"`, `status: "PASS"`인지 확인한다. 각 `after` 검증은 `room_start_skew_ms` 관측 수가 해당 실행의 VU 수와 같은지도 확인한다. 비교 결과로 사용할 T5 묶음은 이 명령이 `PASS`일 때만 유효하다.
 
+재작업에서 같은 6조건을 3회씩 독립 실행할 때는 `t5-repetition.mjs`로 계획과 최종 비교를 분리한다. `plan`은 `campaign-id-r1|r2|r3`을 반복 identity로 사용해 18개 render 입력을 출력하고, 각 repeat run ID 아래에 public/host/participant × ACTIVE 1/10을 하나씩 둔다.
+
+```powershell
+node load-tests/k6/jiwon/tools/t5-repetition.mjs plan --campaign-id $campaignId
+node load-tests/k6/jiwon/tools/t5-repetition.mjs compare --campaign-id $campaignId
+```
+
+`compare`는 artifact를 회수한 앱 checkout에서 각 portable bundle의 원본 `run-manifest.json`과 `resource-signals.json`을 읽어 completion window·fixture/summary SHA-256·고정 read profile(10 VU/60초/0ms)·성공 응답 p50/p95/p99/max/count/RPS를 role·scale·repeat에 연결한다. HTTP·Tomcat·Hikari·JVM·PostgreSQL 신호 또는 query call/time/buffer 입력이 없거나 p99/RPS가 없으면 `INVALID`이며, 18개 run과 6개 조건이 모두 accepted일 때만 `PASS`다. 원격 k6가 끝난 뒤 `fixture.mjs run`을 다시 호출하거나 completion artifact를 수동 생성하지 않는다.
+
 ## 결과 확인
 
 사후 검증은 HTTP 응답 분류와 DB snapshot을 함께 판정한다.
@@ -165,7 +175,7 @@ node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id $runId
 
 여러 Run을 campaign으로 승격할 때의 보존·증거·포함/제외 규칙은 [k6 결과 문서 공통 규칙](../../../docs/measurements/k6/README.md)을 정본으로 따른다.
 
-portable bundle의 `manifest.json`은 실행 입력 계약이고, `infra-execution.json`·before/after diagnosis·`final-result.json`·`k6-summary.json`은 실행 결과다.
+portable bundle의 `manifest.json`은 실행 입력 계약이고, `infra-execution.json`·before/after diagnosis·`final-result.json`·`k6-summary.json`·`resource-signals.json`은 실행 결과다.
 
 `room_success`, `room_created`, `room_business_failures`, `room_concurrent_failures`, `room_unexpected_4xx`, `room_server_failures`, `room_contract_failures`, `room_start_skew_ms`와 아래 outcome별 duration metric을 k6 summary에서 확인한다.
 
