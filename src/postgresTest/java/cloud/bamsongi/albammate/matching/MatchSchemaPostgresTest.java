@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 import javax.sql.DataSource;
@@ -32,13 +33,12 @@ class MatchSchemaPostgresTest {
 	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final String COMMON_MIGRATION_LOCATION = "classpath:db/migration";
 	private static final String POSTGRES_MIGRATION_LOCATION = "classpath:db/vendor-migration/postgresql";
+	private static final Map<String, Integer> EXPECTED_LEGACY_MIGRATION_CHECKSUMS = Map.of(
+		"28", -295162230,
+		"29", -1629277577);
 	private static final List<ExpectedConstraint> EXPECTED_MATCH_CONSTRAINTS = List.of(
 		new ExpectedConstraint("match_requests", "f", "fk_match_requests_user",
 			"FOREIGN KEY (user_id) REFERENCES users(id)"),
-		new ExpectedConstraint("match_requests", "f", "fk_match_requests_game",
-			"FOREIGN KEY (game_id) REFERENCES games(id)"),
-		new ExpectedConstraint("match_proposals", "f", "fk_match_proposals_game",
-			"FOREIGN KEY (game_id) REFERENCES games(id)"),
 		new ExpectedConstraint(
 			"match_proposal_members",
 			"f",
@@ -56,8 +56,6 @@ class MatchSchemaPostgresTest {
 			"f",
 			"fk_match_parties_proposal",
 			"FOREIGN KEY (proposal_id) REFERENCES match_proposals(id) ON DELETE SET NULL"),
-		new ExpectedConstraint("match_parties", "f", "fk_match_parties_game",
-			"FOREIGN KEY (game_id) REFERENCES games(id)"),
 		new ExpectedConstraint(
 			"match_party_participants",
 			"f",
@@ -133,7 +131,8 @@ class MatchSchemaPostgresTest {
 			"match_requests",
 			false,
 			"idx_match_requests_waiting_candidate",
-			"((status)::text = 'WAITING'::text)"),
+			"((status)::text = 'WAITING'::text)",
+			"priority_since,id"),
 		new ExpectedPartialIndex(
 			"match_requests",
 			false,
@@ -185,7 +184,11 @@ class MatchSchemaPostgresTest {
 			this(tableName, type, constraintName, null);
 		}
 	}
-	private record ExpectedPartialIndex(String tableName, boolean unique, String indexName, String predicate) {
+	private record ExpectedPartialIndex(
+		String tableName, boolean unique, String indexName, String predicate, String keyColumns) {
+		private ExpectedPartialIndex(String tableName, boolean unique, String indexName, String predicate) {
+			this(tableName, unique, indexName, predicate, null);
+		}
 	}
 
 	@Container
@@ -200,7 +203,7 @@ class MatchSchemaPostgresTest {
 	private JdbcTemplate jdbcTemplate;
 
 	@Test
-	void V28_MATCH_마이그레이션은_테이블과_이름있는_제약_그리고_partial_index를_생성한다() {
+	void 빈_데이터베이스에서_V31까지_순서대로_적용하고_Flyway_validation을_통과한다() {
 		String schemaName = newSchemaName();
 		try {
 			migrate(schemaName);
@@ -229,56 +232,153 @@ class MatchSchemaPostgresTest {
 			for (ExpectedPartialIndex index : EXPECTED_MATCH_PARTIAL_INDEXES) {
 				assertPartialIndexExists(schemaName, index);
 				assertPartialIndexPredicate(schemaName, index);
+				assertPartialIndexColumns(schemaName, index);
 			}
+			assertEquals(1, migrationCount(schemaName, "30"));
+			assertEquals(1, migrationCount(schemaName, "31"));
+			validate(schemaName);
 		} finally {
 			dropSchema(schemaName);
 		}
 	}
 
 	@Test
-	void MATCH_핵심_FK_CHECK_UNIQUE_위반은_PostgreSQL이_거절한다() {
+	void V28_V29_적용_기존_데이터베이스는_기존_checksum을_보존한_채_V31까지_전진_적용한다() {
+		String schemaName = newSchemaName();
+		try {
+			migrateTo(schemaName, "29");
+			Map<String, Integer> existingChecksums = migrationChecksums(schemaName, List.of("28", "29"));
+			assertEquals(EXPECTED_LEGACY_MIGRATION_CHECKSUMS, existingChecksums);
+
+			migrate(schemaName);
+
+			assertEquals(EXPECTED_LEGACY_MIGRATION_CHECKSUMS,
+				migrationChecksums(schemaName, List.of("28", "29")));
+			assertEquals(1, migrationCount(schemaName, "30"));
+			assertEquals(1, migrationCount(schemaName, "31"));
+			validate(schemaName);
+		} finally {
+			dropSchema(schemaName);
+		}
+	}
+
+	@Test
+	void migration_후_MATCH_세_테이블과_정의에서_game_id_참조를_제거한다() {
+		String schemaName = newSchemaName();
+		try {
+			migrate(schemaName);
+
+			for (String tableName : List.of("match_requests", "match_proposals", "match_parties")) {
+				assertEquals(0, jdbcTemplate.queryForObject(
+					"select count(*) from information_schema.columns where table_schema = ? and table_name = ? and column_name = 'game_id'",
+					Integer.class, schemaName, tableName));
+			}
+			assertEquals(0, jdbcTemplate.queryForObject(
+				"select count(*) from pg_constraint constraint_info "
+					+ "join pg_namespace namespace_info on namespace_info.oid = constraint_info.connamespace "
+					+ "join pg_class table_info on table_info.oid = constraint_info.conrelid "
+					+ "where namespace_info.nspname = ? and table_info.relname in ('match_requests', 'match_proposals', 'match_parties') "
+					+ "and pg_get_constraintdef(constraint_info.oid) ilike '%game_id%'",
+				Integer.class, schemaName));
+			assertEquals(0, jdbcTemplate.queryForObject(
+				"select count(*) from pg_indexes where schemaname = ? and tablename like 'match_%' and indexdef ilike '%game_id%'",
+				Integer.class, schemaName));
+		} finally {
+			dropSchema(schemaName);
+		}
+	}
+
+	@Test
+	void 기존_MATCH_관계_데이터는_game_id_외의_행_PK_상태_인원_시각을_보존한다() {
+		String schemaName = newSchemaName();
+		try {
+			migrateTo(schemaName, "29");
+			long userId = insertUser(schemaName, "legacy-owner");
+			long gameId = insertGame(schemaName);
+			long requestId = insertLegacyRequest(schemaName, userId, gameId, "WAITING");
+			long proposalId = jdbcTemplate.queryForObject(
+				"insert into " + table(schemaName, "match_proposals")
+					+ " (game_id, party_size, status, respond_by, created_at, updated_at) "
+					+ "values (?, 2, 'OPEN', current_timestamp + interval '30 seconds', current_timestamp, current_timestamp) returning id",
+				Long.class, gameId);
+			long partyId = jdbcTemplate.queryForObject(
+				"insert into " + table(schemaName, "match_parties")
+					+ " (proposal_id, game_id, status, preparing_started_at, chat_opened_at, closes_at, created_at, updated_at) "
+					+ "values (?, ?, 'ACTIVE', current_timestamp, current_timestamp, current_timestamp + interval '1 day', current_timestamp, current_timestamp) returning id",
+				Long.class, proposalId, gameId);
+			UUID participantRef = UUID.randomUUID();
+			jdbcTemplate.update("insert into " + table(schemaName, "match_proposal_members")
+				+ " (proposal_id, match_request_id, user_id, response_status, created_at, updated_at) values (?, ?, ?, 'PENDING', current_timestamp, current_timestamp)",
+				proposalId, requestId, userId);
+			jdbcTemplate.update("insert into " + table(schemaName, "match_party_participants")
+				+ " (party_id, user_id, participant_ref, created_at) values (?, ?, ?, current_timestamp)",
+				partyId, userId, participantRef);
+
+			Map<String, Object> requestBefore = row(schemaName, "match_requests", requestId);
+			Map<String, Object> proposalBefore = row(schemaName, "match_proposals", proposalId);
+			Map<String, Object> partyBefore = row(schemaName, "match_parties", partyId);
+			Map<String, Object> memberBefore = jdbcTemplate
+				.queryForMap("select * from " + table(schemaName, "match_proposal_members")
+					+ " where proposal_id = ? and match_request_id = ?", proposalId, requestId);
+			Map<String, Object> participantBefore = jdbcTemplate
+				.queryForMap("select * from " + table(schemaName, "match_party_participants")
+					+ " where party_id = ? and user_id = ?", partyId, userId);
+
+			migrate(schemaName);
+
+			assertEquals(withoutGameId(requestBefore), row(schemaName, "match_requests", requestId));
+			assertEquals(withoutGameId(proposalBefore), row(schemaName, "match_proposals", proposalId));
+			assertEquals(withoutGameId(partyBefore), row(schemaName, "match_parties", partyId));
+			assertEquals(memberBefore,
+				jdbcTemplate.queryForMap("select * from " + table(schemaName, "match_proposal_members")
+					+ " where proposal_id = ? and match_request_id = ?", proposalId, requestId));
+			assertEquals(participantBefore,
+				jdbcTemplate.queryForMap("select * from " + table(schemaName, "match_party_participants")
+					+ " where party_id = ? and user_id = ?", partyId, userId));
+		} finally {
+			dropSchema(schemaName);
+		}
+	}
+
+	@Test
+	void 게임_제거_후에도_비게임_제약은_PostgreSQL이_정상과_대표_위반을_구분한다() {
 		String schemaName = newSchemaName();
 		try {
 			migrate(schemaName);
 			long userId = insertUser(schemaName, "requester");
 			long otherUserId = insertUser(schemaName, "other");
-			long gameId = insertGame(schemaName);
-			long requestId = insertRequest(schemaName, userId, gameId, "WAITING");
-			long secondRequestId = insertRequest(schemaName, userId, gameId, "MATCHED");
+			long requestId = insertRequest(schemaName, userId, "WAITING");
+			long secondRequestId = insertRequest(schemaName, userId, "MATCHED");
 			long proposalId = jdbcTemplate.queryForObject(
 				"insert into " + table(schemaName, "match_proposals")
-					+ " (game_id, party_size, status, respond_by, created_at, updated_at) "
-					+ "values (?, 2, 'OPEN', current_timestamp + interval '30 seconds', current_timestamp, current_timestamp) returning id",
-				Long.class,
-				gameId);
+					+ " (party_size, status, respond_by, created_at, updated_at) "
+					+ "values (2, 'OPEN', current_timestamp + interval '30 seconds', current_timestamp, current_timestamp) returning id",
+				Long.class);
 
 			assertConstraintViolation(
 				"23514",
 				"ck_match_requests_party_size",
 				() -> jdbcTemplate.update(
 					"insert into " + table(schemaName, "match_requests")
-						+ " (user_id, game_id, min_party_size, max_party_size, status, queued_at, priority_since, created_at, updated_at) "
-						+ "values (?, ?, 3, 2, 'WAITING', current_timestamp, current_timestamp, current_timestamp, current_timestamp)",
-					userId,
-					gameId));
+						+ " (user_id, min_party_size, max_party_size, status, queued_at, priority_since, created_at, updated_at) "
+						+ "values (?, 3, 2, 'WAITING', current_timestamp, current_timestamp, current_timestamp, current_timestamp)",
+					userId));
 			assertConstraintViolation(
 				"23505",
 				"uq_match_requests_active_user",
 				() -> jdbcTemplate.update(
 					"insert into " + table(schemaName, "match_requests")
-						+ " (user_id, game_id, min_party_size, max_party_size, status, queued_at, priority_since, created_at, updated_at) "
-						+ "values (?, ?, 2, 4, 'PAUSED', current_timestamp, current_timestamp, current_timestamp, current_timestamp)",
-					userId,
-					gameId));
+						+ " (user_id, min_party_size, max_party_size, status, queued_at, priority_since, created_at, updated_at) "
+						+ "values (?, 2, 4, 'PAUSED', current_timestamp, current_timestamp, current_timestamp, current_timestamp)",
+					userId));
 			assertConstraintViolation(
 				"23505",
 				"uq_match_requests_active_user",
 				() -> jdbcTemplate.update(
 					"insert into " + table(schemaName, "match_requests")
-						+ " (user_id, game_id, min_party_size, max_party_size, status, queued_at, priority_since, created_at, updated_at) "
-						+ "values (?, ?, 2, 4, 'PROPOSED', current_timestamp, current_timestamp, current_timestamp, current_timestamp)",
-					userId,
-					gameId));
+						+ " (user_id, min_party_size, max_party_size, status, queued_at, priority_since, created_at, updated_at) "
+						+ "values (?, 2, 4, 'PROPOSED', current_timestamp, current_timestamp, current_timestamp, current_timestamp)",
+					userId));
 			assertConstraintViolation(
 				"23503",
 				"fk_match_proposal_members_request_owner",
@@ -306,6 +406,11 @@ class MatchSchemaPostgresTest {
 					proposalId,
 					secondRequestId,
 					userId));
+			assertConstraintViolation(
+				"23514",
+				"ck_match_parties_lifecycle",
+				() -> jdbcTemplate.update("insert into " + table(schemaName, "match_parties")
+					+ " (status, preparing_started_at, created_at, updated_at) values ('ACTIVE', current_timestamp, current_timestamp, current_timestamp)"));
 		} finally {
 			dropSchema(schemaName);
 		}
@@ -319,6 +424,27 @@ class MatchSchemaPostgresTest {
 			.defaultSchema(schemaName)
 			.load()
 			.migrate();
+	}
+
+	private void migrateTo(String schemaName, String targetVersion) {
+		Flyway.configure()
+			.dataSource(dataSource)
+			.locations(COMMON_MIGRATION_LOCATION, POSTGRES_MIGRATION_LOCATION)
+			.schemas(schemaName)
+			.defaultSchema(schemaName)
+			.target(targetVersion)
+			.load()
+			.migrate();
+	}
+
+	private void validate(String schemaName) {
+		Flyway.configure()
+			.dataSource(dataSource)
+			.locations(COMMON_MIGRATION_LOCATION, POSTGRES_MIGRATION_LOCATION)
+			.schemas(schemaName)
+			.defaultSchema(schemaName)
+			.load()
+			.validate();
 	}
 
 	private long insertUser(String schemaName, String role) {
@@ -339,15 +465,50 @@ class MatchSchemaPostgresTest {
 			Math.abs(UUID.randomUUID().getMostSignificantBits()));
 	}
 
-	private long insertRequest(String schemaName, long userId, long gameId, String status) {
+	private long insertRequest(String schemaName, long userId, String status) {
+		return jdbcTemplate.queryForObject(
+			"insert into " + table(schemaName, "match_requests")
+				+ " (user_id, min_party_size, max_party_size, status, queued_at, priority_since, created_at, updated_at) "
+				+ "values (?, 2, 4, ?, current_timestamp, current_timestamp, current_timestamp, current_timestamp) returning id",
+			Long.class,
+			userId,
+			status);
+	}
+
+	private long insertLegacyRequest(String schemaName, long userId, long gameId, String status) {
 		return jdbcTemplate.queryForObject(
 			"insert into " + table(schemaName, "match_requests")
 				+ " (user_id, game_id, min_party_size, max_party_size, status, queued_at, priority_since, created_at, updated_at) "
 				+ "values (?, ?, 2, 4, ?, current_timestamp, current_timestamp, current_timestamp, current_timestamp) returning id",
-			Long.class,
-			userId,
-			gameId,
-			status);
+			Long.class, userId, gameId, status);
+	}
+
+	private int migrationCount(String schemaName, String version) {
+		return jdbcTemplate.queryForObject(
+			"select count(*) from " + table(schemaName, "flyway_schema_history") + " where version = ? and success",
+			Integer.class, version);
+	}
+
+	private Map<String, Integer> migrationChecksums(String schemaName, List<String> versions) {
+		return jdbcTemplate.query("select version, checksum from " + table(schemaName, "flyway_schema_history")
+			+ " where version in (?, ?)",
+			resultSet -> {
+				Map<String, Integer> checksums = new java.util.HashMap<>();
+				while (resultSet.next()) {
+					checksums.put(resultSet.getString("version"), resultSet.getInt("checksum"));
+				}
+				return checksums;
+			}, versions.get(0), versions.get(1));
+	}
+
+	private Map<String, Object> row(String schemaName, String tableName, long id) {
+		return jdbcTemplate.queryForMap("select * from " + table(schemaName, tableName) + " where id = ?", id);
+	}
+
+	private Map<String, Object> withoutGameId(Map<String, Object> row) {
+		Map<String, Object> preserved = new java.util.HashMap<>(row);
+		preserved.remove("game_id");
+		return preserved;
 	}
 
 	private void assertConstraintExists(String schemaName, ExpectedConstraint expected) {
@@ -415,8 +576,22 @@ class MatchSchemaPostgresTest {
 			"Unexpected predicate for " + expected.indexName());
 	}
 
+	private void assertPartialIndexColumns(String schemaName, ExpectedPartialIndex expected) {
+		if (expected.keyColumns() == null) {
+			return;
+		}
+		assertEquals(
+			normalizeIndexColumns(expected.keyColumns()),
+			normalizeIndexColumns(partialIndexColumns(schemaName, expected)),
+			"Unexpected key columns for " + expected.indexName());
+	}
+
 	private String normalizePredicate(String predicate) {
 		return predicate.replaceAll("\\s+", "");
+	}
+
+	private String normalizeIndexColumns(String columns) {
+		return columns.replaceAll("\\s+", "").replace("\"", "").toLowerCase(Locale.ROOT);
 	}
 
 	private String normalizeDefinition(String definition, String schemaName) {
@@ -431,6 +606,24 @@ class MatchSchemaPostgresTest {
 				+ "join pg_namespace index_namespace on index_namespace.oid = index_info.relnamespace "
 				+ "join pg_class table_info on table_info.oid = index_relation.indrelid "
 				+ "join pg_namespace table_namespace on table_namespace.oid = table_info.relnamespace "
+				+ "where index_namespace.nspname = ? and index_info.relname = ? "
+				+ "and table_namespace.nspname = ? and table_info.relname = ?",
+			String.class,
+			schemaName,
+			expected.indexName(),
+			schemaName,
+			expected.tableName());
+	}
+
+	private String partialIndexColumns(String schemaName, ExpectedPartialIndex expected) {
+		return jdbcTemplate.queryForObject(
+			"select string_agg(pg_get_indexdef(index_relation.indexrelid, key_column.position, true), ',' order by key_column.position) "
+				+ "from pg_index index_relation "
+				+ "join pg_class index_info on index_info.oid = index_relation.indexrelid "
+				+ "join pg_namespace index_namespace on index_namespace.oid = index_info.relnamespace "
+				+ "join pg_class table_info on table_info.oid = index_relation.indrelid "
+				+ "join pg_namespace table_namespace on table_namespace.oid = table_info.relnamespace "
+				+ "cross join lateral generate_series(1, index_relation.indnkeyatts) as key_column(position) "
 				+ "where index_namespace.nspname = ? and index_info.relname = ? "
 				+ "and table_namespace.nspname = ? and table_info.relname = ?",
 			String.class,

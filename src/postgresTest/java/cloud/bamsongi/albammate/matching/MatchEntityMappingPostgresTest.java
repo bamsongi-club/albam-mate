@@ -2,6 +2,8 @@ package cloud.bamsongi.albammate.matching;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Method;
@@ -58,8 +60,10 @@ class MatchEntityMappingPostgresTest {
 
 	@Test
 	@Transactional
-	void MATCH_Entity와_복합_ID는_저장_후_재조회에서_문자열_enum과_PK_FK_매핑을_보존한다() throws Exception {
+	void 게임_없는_MATCH_Entity는_PostgreSQL_저장_재조회와_직접_Repository_query를_통과한다() throws Exception {
 		Class<?> requestType = Class.forName("cloud.bamsongi.albammate.matching.entity.MatchRequest");
+		Class<?> proposalType = Class.forName("cloud.bamsongi.albammate.matching.entity.MatchProposal");
+		Class<?> partyType = Class.forName("cloud.bamsongi.albammate.matching.entity.MatchParty");
 		Class<?> proposalMemberType = Class.forName("cloud.bamsongi.albammate.matching.entity.MatchProposalMember");
 		Class<?> participantType = Class.forName("cloud.bamsongi.albammate.matching.entity.MatchPartyParticipant");
 
@@ -69,19 +73,25 @@ class MatchEntityMappingPostgresTest {
 		assertEquals(jakarta.persistence.EnumType.STRING, requestType.getDeclaredField("status")
 			.getAnnotation(jakarta.persistence.Enumerated.class).value());
 		assertTrue(requestEntity.getAttributes().stream().anyMatch(attribute -> attribute.getName().equals("userId")));
-		assertTrue(requestEntity.getAttributes().stream().anyMatch(attribute -> attribute.getName().equals("gameId")));
+		assertFalse(requestEntity.getAttributes().stream().anyMatch(attribute -> attribute.getName().equals("gameId")));
+		assertFalse(entityManager.getMetamodel().entity(proposalType).getAttributes().stream()
+			.anyMatch(attribute -> attribute.getName().equals("gameId")));
+		assertFalse(entityManager.getMetamodel().entity(partyType).getAttributes().stream()
+			.anyMatch(attribute -> attribute.getName().equals("gameId")));
+		assertThrows(NoSuchFieldException.class, () -> requestType.getDeclaredField("gameId"));
+		assertThrows(NoSuchFieldException.class, () -> proposalType.getDeclaredField("gameId"));
+		assertThrows(NoSuchFieldException.class, () -> partyType.getDeclaredField("gameId"));
 		assertTrue(proposalMemberType.isAnnotationPresent(jakarta.persistence.Entity.class));
 		assertTrue(participantType.isAnnotationPresent(jakarta.persistence.Entity.class));
 		assertTrue(proposalMemberType.getDeclaredField("id").isAnnotationPresent(jakarta.persistence.EmbeddedId.class));
 		assertTrue(participantType.getDeclaredField("id").isAnnotationPresent(jakarta.persistence.EmbeddedId.class));
 
 		long userId = insertUser("mapping");
-		long gameId = insertGame();
 		Class<? extends Enum> requestStatusType = (Class<? extends Enum>)Class.forName(
 			"cloud.bamsongi.albammate.matching.MatchRequestStatus");
 		Object request = requestType
-			.getMethod("create", long.class, long.class, int.class, int.class, requestStatusType)
-			.invoke(null, userId, gameId, 2, 4, Enum.valueOf(requestStatusType, "WAITING"));
+			.getMethod("create", long.class, int.class, int.class, requestStatusType)
+			.invoke(null, userId, 2, 4, Enum.valueOf(requestStatusType, "WAITING"));
 		entityManager.persist(request);
 		entityManager.flush();
 		entityManager.clear();
@@ -90,10 +100,11 @@ class MatchEntityMappingPostgresTest {
 		Object reloaded = entityManager.find(requestType, requestId);
 		assertEquals("WAITING", requestType.getMethod("getStatus").invoke(reloaded).toString());
 		assertEquals(userId, requestType.getMethod("getUserId").invoke(reloaded));
-		assertEquals(gameId, requestType.getMethod("getGameId").invoke(reloaded));
 
-		long proposalId = insertProposal(gameId);
-		long partyId = insertParty(gameId, "ACTIVE");
+		long proposalId = insertProposal();
+		long partyId = insertParty("ACTIVE");
+		assertNotNull(entityManager.find(proposalType, proposalId));
+		assertNotNull(entityManager.find(partyType, partyId));
 		Instant respondedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
 		MatchProposalMember member = MatchProposalMember.create(
 			proposalId,
@@ -131,9 +142,8 @@ class MatchEntityMappingPostgresTest {
 		long otherPartyUserId = insertUser("other-party");
 		long forwardBlockedUserId = insertUser("forward-blocked");
 		long reverseBlockedUserId = insertUser("reverse-blocked");
-		long gameId = insertGame();
-		long firstPartyId = insertParty(gameId, "ACTIVE");
-		long secondPartyId = insertParty(gameId, "ACTIVE");
+		long firstPartyId = insertParty("ACTIVE");
+		long secondPartyId = insertParty("ACTIVE");
 		UUID firstRef = UUID.randomUUID();
 		UUID formerRef = UUID.randomUUID();
 		UUID otherPartyRef = UUID.randomUUID();
@@ -175,28 +185,18 @@ class MatchEntityMappingPostgresTest {
 			"매칭 " + role);
 	}
 
-	private long insertGame() {
+	private long insertProposal() {
 		return jdbcTemplate.queryForObject(
-			"insert into games (bgg_id, name, english_name, supported_player_count, tag, estimated_play_time, description, detail_description, created_at, updated_at) "
-				+ "values (?, '매핑 게임', 'Mapping Game', '2-4', '전략', '60', '설명', '상세 설명', current_timestamp, current_timestamp) returning id",
-			Long.class,
-			Math.abs(UUID.randomUUID().getMostSignificantBits()));
+			"insert into match_proposals (party_size, status, respond_by, created_at, updated_at) "
+				+ "values (2, 'OPEN', current_timestamp + interval '30 seconds', current_timestamp, current_timestamp) returning id",
+			Long.class);
 	}
 
-	private long insertProposal(long gameId) {
+	private long insertParty(String status) {
 		return jdbcTemplate.queryForObject(
-			"insert into match_proposals (game_id, party_size, status, respond_by, created_at, updated_at) "
-				+ "values (?, 2, 'OPEN', current_timestamp + interval '30 seconds', current_timestamp, current_timestamp) returning id",
+			"insert into match_parties (status, preparing_started_at, chat_opened_at, closes_at, created_at, updated_at) "
+				+ "values (?, current_timestamp, current_timestamp, current_timestamp + interval '1 day', current_timestamp, current_timestamp) returning id",
 			Long.class,
-			gameId);
-	}
-
-	private long insertParty(long gameId, String status) {
-		return jdbcTemplate.queryForObject(
-			"insert into match_parties (game_id, status, preparing_started_at, chat_opened_at, closes_at, created_at, updated_at) "
-				+ "values (?, ?, current_timestamp, current_timestamp, current_timestamp + interval '1 day', current_timestamp, current_timestamp) returning id",
-			Long.class,
-			gameId,
 			status);
 	}
 

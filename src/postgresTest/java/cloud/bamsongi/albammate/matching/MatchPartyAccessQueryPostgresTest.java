@@ -37,7 +37,7 @@ class MatchPartyAccessQueryPostgresTest {
 	@AfterEach
 	void tearDown() {
 		jdbcTemplate.execute(
-			"truncate table match_chat_messages, match_chat_rooms, match_party_participants, match_parties, games, users restart identity cascade");
+			"truncate table match_chat_messages, match_chat_rooms, match_party_participants, match_parties, users restart identity cascade");
 	}
 
 	@Test
@@ -45,10 +45,9 @@ class MatchPartyAccessQueryPostgresTest {
 		long memberId = insertUser("member");
 		long formerMemberId = insertUser("former");
 		long outsiderId = insertUser("outsider");
-		long gameId = insertGame();
-		long activePartyId = insertParty(gameId, "ACTIVE");
-		long preparingPartyId = insertParty(gameId, "PREPARING");
-		long closedPartyId = insertParty(gameId, "CLOSED");
+		long activePartyId = insertParty("ACTIVE");
+		long preparingPartyId = insertParty("PREPARING");
+		long closedPartyId = insertParty("CLOSED");
 		insertParticipant(activePartyId, memberId, false);
 		insertParticipant(preparingPartyId, memberId, false);
 		insertParticipant(closedPartyId, memberId, false);
@@ -70,15 +69,7 @@ class MatchPartyAccessQueryPostgresTest {
 			"매칭 " + role);
 	}
 
-	private long insertGame() {
-		return jdbcTemplate.queryForObject(
-			"insert into games (bgg_id, name, english_name, supported_player_count, tag, estimated_play_time, description, detail_description, created_at, updated_at) "
-				+ "values (?, '접근 게임', 'Access Game', '2-4', '전략', '60', '설명', '상세 설명', current_timestamp, current_timestamp) returning id",
-			Long.class,
-			Math.abs(UUID.randomUUID().getMostSignificantBits()));
-	}
-
-	private long insertParty(long gameId, String status) {
+	private long insertParty(String status) {
 		String lifecycleColumns = switch (status) {
 			case "ACTIVE" -> "preparing_started_at, chat_opened_at, closes_at";
 			case "CLOSED" -> "preparing_started_at, closed_at, purge_after";
@@ -90,11 +81,10 @@ class MatchPartyAccessQueryPostgresTest {
 			default -> "current_timestamp";
 		};
 		return jdbcTemplate.queryForObject(
-			"insert into match_parties (game_id, status, " + lifecycleColumns
-				+ ", created_at, updated_at) values (?, ?, "
+			"insert into match_parties (status, " + lifecycleColumns
+				+ ", created_at, updated_at) values (?, "
 				+ lifecycleValues + ", current_timestamp, current_timestamp) returning id",
 			Long.class,
-			gameId,
 			status);
 	}
 

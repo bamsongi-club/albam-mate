@@ -15,8 +15,8 @@
 ## 기준과 범위
 
 - 기준: 새 P2 저장 계약은 [P2 기능 명세](p2/README.md)와 필요한 ADR을 먼저 확정하고 같은 변경에서 이 문서에 반영한다. 아래 P2 AI 기능군 절의 후속 물리 구현도 같은 기준을 따른다. 기존 P0·P1 규칙은 [P0 공통 명세](archive/p0/P0-spec.md), [P1 종료 명세](archive/p1/README.md)와 [관련 ADR](adr/README.md)을 따른다.
-- 범위: 현재 P0의 오프라인 방·게임 목록·사용자·방 참가, P1의 소셜 계정·대기열과 게임 검색 수치·메커니즘 목록·관계·사용자별 해 본 게임 관계·서비스 내 알림·방별 채팅·공용 스케줄 잠금, 3차 MVP RANK-02 인기 점수, P2 계획의 Board Game Arena 고정 MATCH 요청·제안·성공 파티·전용 채팅·신고·차단
-- 제외: 기존 ROOM을 확장한 온라인 방·온라인 ROOM 자동 매칭, 후기, 룰마스터 가능 게임, 결제·포인트. 아래 `MATCH-01`은 기존 ROOM·참가·대기열과 별개인 Board Game Arena 고정 P2 계획 계약이므로 이 제외 범위에 포함하지 않는다.
+- 범위: 현재 P0의 오프라인 방·게임 목록·사용자·방 참가, P1의 소셜 계정·대기열과 게임 검색 수치·메커니즘 목록·관계·사용자별 해 본 게임 관계·서비스 내 알림·방별 채팅·공용 스케줄 잠금, 3차 MVP RANK-02 인기 점수, P2 계획의 게임·플랫폼과 독립적인 MATCH 요청·제안·성공 파티·전용 채팅·신고·차단
+- 제외: 기존 ROOM을 확장한 온라인 방·온라인 ROOM 자동 매칭, 후기, 룰마스터 가능 게임, 결제·포인트. 아래 `MATCH-01`은 기존 ROOM·참가·대기열과 별개인 인원 범위 기반 사람 매칭·전용 채팅 연결 계약이므로 이 제외 범위에 포함하지 않는다.
 - P0 검색: 게임 목록은 게임명 `keyword`, 사람 중심 방 목록은 방 제목 `keyword` 검색을 지원한다. 게임 태그는 표시값이며 필터가 아니다.
 - 시간대가 겹치는 서로 다른 방에는 같은 사용자가 동시에 참가할 수 있다. 따라서 종료 시각과 시간 중복 제약은 두지 않는다.
 
@@ -830,7 +830,6 @@ AI 기능 저장소에는 `raw_prompt`, provider 원문 응답, prompt hash, 대
 ~~~mermaid
 erDiagram
     USERS ||--o{ MATCH_REQUESTS : "요청"
-    GAMES ||--o{ MATCH_REQUESTS : "선택 게임"
     MATCH_PROPOSALS ||--|{ MATCH_PROPOSAL_MEMBERS : "고정 후보"
     MATCH_REQUESTS ||--o{ MATCH_PROPOSAL_MEMBERS : "제안 이력"
     MATCH_PROPOSALS ||--o| MATCH_PARTIES : "전원 수락 성공"
@@ -863,17 +862,16 @@ erDiagram
 
 ### MATCH_REQUESTS
 
-물리 테이블명은 `match_requests`다. Board Game Arena가 P2 MVP에서 유일한 플랫폼이므로 중복 플랫폼 컬럼은 두지 않는다.
+물리 테이블명은 `match_requests`다. MATCH 요청은 게임이나 플랫폼을 저장하지 않고 인원 범위와 대기 순서로만 후보를 표현한다.
 
-`min_party_size`·`max_party_size`는 요청 등록 시점에 확정한 **요청 인원 범위와 게임 지원 인원 범위의 교집합**을 저장한다. 게임 지원 인원 범위를 따로 스냅샷하는 컬럼은 두지 않으며, 후보 선별은 이 두 컬럼만 읽는다. 따라서 이후 게임 카탈로그가 바뀌어도 기존 요청의 판정은 변하지 않는다.
+`min_party_size`·`max_party_size`는 요청 등록 시점에 확정한 요청 인원 범위를 저장한다. 후보 선별은 이 두 컬럼만 읽는다.
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | id | BIGINT | PK, NN, AI | `matchRequestId` |
 | user_id | BIGINT | FK → USERS.id, NN | 요청 사용자 |
-| game_id | BIGINT | FK → GAMES.id, NN | 고정 게임 |
-| min_party_size | SMALLINT | NN | 요청 범위와 게임 지원 범위의 교집합 하한 |
-| max_party_size | SMALLINT | NN | 요청 범위와 게임 지원 범위의 교집합 상한 |
+| min_party_size | SMALLINT | NN | 요청 인원 범위 하한 |
+| max_party_size | SMALLINT | NN | 요청 인원 범위 상한 |
 | status | VARCHAR(20) | NN | `match_request_status` |
 | queued_at | TIMESTAMPTZ | NN | 현재 대기 시도 시작 시각 |
 | priority_since | TIMESTAMPTZ | NN | 현재 대기 시도의 FIFO 기준 시각 |
@@ -888,7 +886,7 @@ erDiagram
 
 | 테이블 | 주요 컬럼 | 타입·제약 |
 |---|---|---|
-| MATCH_PROPOSALS | id, game_id, party_size, status, respond_by, confirmed_at, purge_after, created_at, updated_at | `id BIGINT PK`; `game_id BIGINT NN FK → GAMES.id`; `party_size SMALLINT NN`; `status VARCHAR(20) NN`; `respond_by TIMESTAMPTZ NN`; `confirmed_at`·`purge_after`는 TIMESTAMPTZ NULL; `created_at`·`updated_at`은 TIMESTAMPTZ NN |
+| MATCH_PROPOSALS | id, party_size, status, respond_by, confirmed_at, purge_after, created_at, updated_at | `id BIGINT PK`; `party_size SMALLINT NN`; `status VARCHAR(20) NN`; `respond_by TIMESTAMPTZ NN`; `confirmed_at`·`purge_after`는 TIMESTAMPTZ NULL; `created_at`·`updated_at`은 TIMESTAMPTZ NN |
 | MATCH_PROPOSAL_MEMBERS | proposal_id, match_request_id, user_id, response_status, responded_at, created_at, updated_at | `(proposal_id, match_request_id) BIGINT PK`; `proposal_id BIGINT NN FK → MATCH_PROPOSALS.id ON DELETE CASCADE`; `match_request_id BIGINT NN`; `user_id BIGINT NN FK → USERS.id`; `response_status VARCHAR(20) NN`; `responded_at TIMESTAMPTZ NULL`; `created_at`·`updated_at`은 TIMESTAMPTZ NN; `(match_request_id, user_id) FK → MATCH_REQUESTS(id, user_id) ON DELETE CASCADE` |
 
 ### MATCH_PARTIES와 MATCH_PARTY_PARTICIPANTS
@@ -897,7 +895,7 @@ erDiagram
 
 | 테이블 | 주요 컬럼 | 타입·제약 |
 |---|---|---|
-| MATCH_PARTIES | id, proposal_id, game_id, status, preparing_started_at, chat_opened_at, closes_at, closed_at, purge_after, created_at, updated_at | `id BIGINT PK`; `proposal_id BIGINT NULL FK → MATCH_PROPOSALS.id ON DELETE SET NULL`; `game_id BIGINT NN FK → GAMES.id`; `status VARCHAR(20) NN`; `preparing_started_at TIMESTAMPTZ NN`; `chat_opened_at`·`closes_at`·`closed_at`·`purge_after`는 TIMESTAMPTZ NULL; `created_at`·`updated_at`은 TIMESTAMPTZ NN |
+| MATCH_PARTIES | id, proposal_id, status, preparing_started_at, chat_opened_at, closes_at, closed_at, purge_after, created_at, updated_at | `id BIGINT PK`; `proposal_id BIGINT NULL FK → MATCH_PROPOSALS.id ON DELETE SET NULL`; `status VARCHAR(20) NN`; `preparing_started_at TIMESTAMPTZ NN`; `chat_opened_at`·`closes_at`·`closed_at`·`purge_after`는 TIMESTAMPTZ NULL; `created_at`·`updated_at`은 TIMESTAMPTZ NN |
 | MATCH_PARTY_PARTICIPANTS | party_id, user_id, participant_ref, left_at, created_at | `(party_id, user_id) BIGINT PK`; `party_id BIGINT NN FK → MATCH_PARTIES.id ON DELETE CASCADE`; `user_id BIGINT NN FK → USERS.id`; `participant_ref UUID NN`; `left_at TIMESTAMPTZ NULL`; `created_at TIMESTAMPTZ NN`; `UNIQUE (party_id, participant_ref)`. `participant_ref`는 해당 Party 안에서만 의미를 갖는 외부용 불투명 식별자이며, `left_at IS NULL`인 행만 현재 채팅 접근 관계다. 명시적 나가기 뒤에도 Party의 `purge_after`가 될 때까지 행을 남긴다. 보존 기한은 [MATCH-01 성공 파티 채팅](p2/matching.md#성공-파티-채팅)을 따른다. |
 
 ### MATCH 전용 채팅 저장
@@ -925,10 +923,10 @@ erDiagram
 | MATCH_REQUESTS | `ck_match_requests_status`: `status IN ('WAITING', 'PROPOSED', 'PAUSED', 'MATCHED', 'CANCELED')` | 승인된 요청 상태만 저장한다. |
 | MATCH_REQUESTS | `uq_match_requests_active_user`: `UNIQUE (user_id) WHERE status IN ('WAITING', 'PROPOSED', 'PAUSED')` | 한 사용자의 현재 비종료 요청을 하나로 제한한다. 이 요청 테이블 내부 제약만으로는 성공 파티 참가자 접근 관계와의 cross-table 불변식을 보장하지 않는다. |
 | MATCH_REQUESTS | `uq_match_requests_id_user`: `UNIQUE (id, user_id)` | Proposal Member의 `match_request_id`와 `user_id`가 같은 요청 소유자를 가리키도록 복합 FK의 참조 대상을 제공한다. |
-| MATCH_REQUESTS | `idx_match_requests_waiting_candidate`: `(game_id, priority_since ASC, id ASC) WHERE status = 'WAITING'` | 같은 게임 후보의 결정적 선점 순서 `prioritySince ASC, matchRequestId ASC`를 지원한다. |
+| MATCH_REQUESTS | `idx_match_requests_waiting_candidate`: `(priority_since ASC, id ASC) WHERE status = 'WAITING'` | 인원 범위 매칭 후보의 결정적 선점 순서 `prioritySince ASC, matchRequestId ASC`를 지원한다. |
 | MATCH_REQUESTS, MATCH_PROPOSALS, MATCH_PARTIES | 각 `purge_after`의 `(purge_after, id) WHERE purge_after IS NOT NULL` 인덱스 | 종료 원자료를 제한된 묶음으로 물리 삭제한다. |
 | MATCH_PROPOSALS | `ck_match_proposals_status`: `status IN ('OPEN', 'CONFIRMED', 'DECLINED', 'EXPIRED', 'CANCELED')` | 제안의 저장 상태를 고정한다. |
-| MATCH_PROPOSALS | `ck_match_proposals_party_size`: `party_size > 0` | 실제 파티 인원이 없거나 음수인 제안을 저장하지 않는다. 게임 지원 인원·각 요청 범위와의 교집합은 제안 생성 트랜잭션에서 검증한다. |
+| MATCH_PROPOSALS | `ck_match_proposals_party_size`: `party_size > 0` | 실제 파티 인원이 없거나 음수인 제안을 저장하지 않는다. 각 요청 인원 범위와의 교집합은 제안 생성 트랜잭션에서 검증한다. |
 | MATCH_PROPOSAL_MEMBERS | `UNIQUE (proposal_id, user_id)`, `ck_match_proposal_members_response_status`: `response_status IN ('PENDING', 'ACCEPTED', 'REQUEUED', 'CANCELED', 'EXPIRED')`, `ck_match_proposal_members_response_lifecycle`: `PENDING`·`EXPIRED`는 `responded_at IS NULL`, `ACCEPTED`·`REQUEUED`·`CANCELED`는 `responded_at IS NOT NULL`; `proposal_id FK ON DELETE CASCADE`; `(match_request_id, user_id) FK → MATCH_REQUESTS(id, user_id) ON DELETE CASCADE` | 한 제안에 같은 사용자를 중복으로 넣거나 요청 소유자와 다른 사용자를 Proposal Member로 저장하지 않는다. 응답 전·기한 만료 상태와 사용자의 최초 유효 응답 시각을 구분한다. 제안 또는 요청의 종료 원자료를 각 `purge_after`에 물리 삭제할 때 남은 응답 관계가 삭제를 막지 않는다. |
 | MATCH_PARTIES | `UNIQUE (proposal_id) WHERE proposal_id IS NOT NULL`, `proposal_id FK ON DELETE SET NULL`, `ck_match_parties_status`, `idx_match_parties_preparing_due (preparing_started_at, id) WHERE status = 'PREPARING'`, `idx_match_parties_active_due (closes_at, id) WHERE status = 'ACTIVE'` | 하나의 제안이 연결돼 있는 동안 둘 이상의 성공 파티를 만들지 않으며 `PREPARING`·`ACTIVE`·`CLOSED`만 저장한다. 제안이 먼저 purge되어도 늦게 `CLOSED`된 파티의 `purge_after` 보존은 막지 않는다. recovery scan은 저장한 lifecycle 시각으로 준비·사전 알림·예약 종료 due 후보를 제한적으로 찾으며, 각 제품 시각은 [MATCH-01 성공 파티 채팅](p2/matching.md#성공-파티-채팅)을 따른다. |
 | MATCH_PARTIES | `ck_match_parties_lifecycle`: `PREPARING`은 `preparing_started_at` NN, `ACTIVE`는 `chat_opened_at`·`closes_at` NN, `CLOSED`는 `closed_at`·`purge_after` NN 및 `purge_after = closed_at + INTERVAL '7 days'` | 상태에 필요한 lifecycle 시각과 [제품 보존 규칙](p2/matching.md#성공-파티-채팅)의 저장 투영을 함께 강제한다. `ACTIVE` Party가 종료 기준 없이 due scan에서 빠지거나 `CLOSED` Party가 실제 종료·purge 기준 없이 남는 것을 허용하지 않는다. |
