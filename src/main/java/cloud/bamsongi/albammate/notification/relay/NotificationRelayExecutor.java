@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,24 +32,17 @@ public class NotificationRelayExecutor {
 	private final NotificationRepository notificationRepository;
 	private final NotificationRelayMetrics metrics;
 
-	@Autowired
 	public NotificationRelayExecutor(
 		NotificationOutboxEventRepository eventRepository,
 		NotificationOutboxRecipientRepository recipientRepository,
 		NotificationRepository notificationRepository,
-		NotificationRelayMetrics metrics) {
+		NotificationRelayMetrics... metrics) {
 		this.eventRepository = Objects.requireNonNull(eventRepository, "eventRepository");
 		this.recipientRepository = Objects.requireNonNull(recipientRepository, "recipientRepository");
 		this.notificationRepository = Objects.requireNonNull(notificationRepository, "notificationRepository");
-		this.metrics = Objects.requireNonNull(metrics, "metrics");
-	}
-
-	public NotificationRelayExecutor(
-		NotificationOutboxEventRepository eventRepository,
-		NotificationOutboxRecipientRepository recipientRepository,
-		NotificationRepository notificationRepository) {
-		this(eventRepository, recipientRepository, notificationRepository,
-			new NotificationRelayMetrics(Metrics.globalRegistry));
+		this.metrics = metrics.length == 0
+			? new NotificationRelayMetrics(Metrics.globalRegistry)
+			: Objects.requireNonNull(metrics[0], "metrics");
 	}
 
 	/** 처리 가능한 가장 이른 이벤트 하나만 독립 트랜잭션에서 처리한다. */

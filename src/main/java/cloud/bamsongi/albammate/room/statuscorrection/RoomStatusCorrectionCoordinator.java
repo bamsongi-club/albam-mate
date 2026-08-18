@@ -6,7 +6,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.IntConsumer;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
@@ -27,27 +26,19 @@ public class RoomStatusCorrectionCoordinator {
 	private final RoomStatusCorrectionProgressStore progressStore;
 	private final RoomStatusCorrectionMetrics metrics;
 
-	@Autowired
 	public RoomStatusCorrectionCoordinator(
 		RoomStatusCorrectionExecutor executor,
 		RoomOptimisticLockRetrier retrier,
 		RoomStatusCorrectionCandidateSelector candidateSelector,
 		RoomStatusCorrectionProgressStore progressStore,
-		RoomStatusCorrectionMetrics metrics) {
+		RoomStatusCorrectionMetrics... metrics) {
 		this.executor = Objects.requireNonNull(executor, "executor");
 		this.retrier = Objects.requireNonNull(retrier, "retrier");
 		this.candidateSelector = Objects.requireNonNull(candidateSelector, "candidateSelector");
 		this.progressStore = Objects.requireNonNull(progressStore, "progressStore");
-		this.metrics = Objects.requireNonNull(metrics, "metrics");
-	}
-
-	public RoomStatusCorrectionCoordinator(
-		RoomStatusCorrectionExecutor executor,
-		RoomOptimisticLockRetrier retrier,
-		RoomStatusCorrectionCandidateSelector candidateSelector,
-		RoomStatusCorrectionProgressStore progressStore) {
-		this(executor, retrier, candidateSelector, progressStore,
-			new RoomStatusCorrectionMetrics(Metrics.globalRegistry));
+		this.metrics = metrics.length == 0
+			? new RoomStatusCorrectionMetrics(Metrics.globalRegistry)
+			: Objects.requireNonNull(metrics[0], "metrics");
 	}
 
 	/** 단건 상태 보정을 최대 세 개의 독립 트랜잭션으로 시도한다. */
