@@ -1,6 +1,6 @@
 # 알밤메이트 ERD
 
-이 문서는 현재 P0·P1 데이터 모델과 데이터 제약, 승인된 P2 `AI-01` 계획 저장 계약과 구현된 P2 `MATCH-01` 저장 구조를 정의한다. 이 문서에 적은 P1 알림·채팅·다중 인스턴스 스케줄 잠금·소셜 계정·대기열·게임 검색 수치·메타데이터·메커니즘·사용자별 해 본 게임 관계와 P2 MATCH 저장 구조는 전진 Flyway 마이그레이션과 생산 코드에 반영돼 있다. 아래 P2 AI-01 절은 구현 목표일 뿐 아직 Flyway·JPA 엔티티·생산 코드에 반영되지 않았다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), P2 진행 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
+이 문서는 현재 P0·P1 데이터 모델과 데이터 제약, 승인된 P2 `AI-01`~`AI-03` 계획 저장 계약과 구현된 P2 `MATCH-01` 저장 구조를 정의한다. 이 문서에 적은 P1 알림·채팅·다중 인스턴스 스케줄 잠금·소셜 계정·대기열·게임 검색 수치·메타데이터·메커니즘·사용자별 해 본 게임 관계와 P2 MATCH 저장 구조는 전진 Flyway 마이그레이션과 생산 코드에 반영돼 있다. 아래 P2 AI 기능군 절은 구현 목표일 뿐 아직 Flyway·JPA 엔티티·생산 코드에 반영되지 않았다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), P2 진행 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
 
 ### 이 문서의 범위
 
@@ -8,13 +8,13 @@
 |---|---|
 | 이 문서가 정본인 것 | 테이블·컬럼·타입·DB 제약, 저장 계산식과 저장 불변식 |
 | 이 문서가 담지 않는 것 | 제품 규칙(상태 전이·권한·시간·정원)은 [P2 명세](P2-spec.md), [P1 종료 명세](archive/p1/README.md)와 [P0-spec](archive/p0/P0-spec.md#공통-규칙), 요청·응답 계약은 [API](API.md), 기술 결정 이유는 [ADR](adr/README.md) |
-| P2 AI-01 표기 | 아래 P2 AI-01 테이블·인덱스는 승인된 계획 계약이며 아직 물리 schema·JPA 매핑에 반영되지 않았다. |
+| P2 AI-01~AI-03 표기 | 아래 P2 AI 기능군 테이블·인덱스는 승인된 계획 계약이며 아직 물리 schema·JPA 매핑에 반영되지 않았다. |
 | P2 MATCH 표기 | 아래 P2 MATCH 테이블·인덱스는 승인된 저장 계약이며 물리 schema·JPA 매핑은 존재한다. 기능 제공·검증·배포·실측 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로 판정한다. |
 | 변경 시 함께 갱신 | 스키마를 바꾸면 Flyway 마이그레이션과 JPA 엔티티를 같은 변경에서 일치시킨다(→ [마이그레이션 작업 안내](../src/main/resources/db/migration/AGENTS.md), [ADR-0008](adr/platform/0008-flyway-database-migrations.md)) |
 
 ## 기준과 범위
 
-- 기준: 새 P2 저장 계약은 [P2 기능 명세](p2/README.md)와 필요한 ADR을 먼저 확정하고 같은 변경에서 이 문서에 반영한다. 아래 P2 AI-01 절의 후속 물리 구현도 같은 기준을 따른다. 기존 P0·P1 규칙은 [P0 공통 명세](archive/p0/P0-spec.md), [P1 종료 명세](archive/p1/README.md)와 [관련 ADR](adr/README.md)을 따른다.
+- 기준: 새 P2 저장 계약은 [P2 기능 명세](p2/README.md)와 필요한 ADR을 먼저 확정하고 같은 변경에서 이 문서에 반영한다. 아래 P2 AI 기능군 절의 후속 물리 구현도 같은 기준을 따른다. 기존 P0·P1 규칙은 [P0 공통 명세](archive/p0/P0-spec.md), [P1 종료 명세](archive/p1/README.md)와 [관련 ADR](adr/README.md)을 따른다.
 - 범위: 현재 P0의 오프라인 방·게임 목록·사용자·방 참가, P1의 소셜 계정·대기열과 게임 검색 수치·메커니즘 목록·관계·사용자별 해 본 게임 관계·서비스 내 알림·방별 채팅·공용 스케줄 잠금, 3차 MVP RANK-02 인기 점수, P2 계획의 Board Game Arena 고정 MATCH 요청·제안·성공 파티·전용 채팅·신고·차단
 - 제외: 기존 ROOM을 확장한 온라인 방·온라인 ROOM 자동 매칭, 후기, 룰마스터 가능 게임, 결제·포인트. 아래 `MATCH-01`은 기존 ROOM·참가·대기열과 별개인 Board Game Arena 고정 P2 계획 계약이므로 이 제외 범위에 포함하지 않는다.
 - P0 검색: 게임 목록은 게임명 `keyword`, 사람 중심 방 목록은 방 제목 `keyword` 검색을 지원한다. 게임 태그는 표시값이며 필터가 아니다.
@@ -431,7 +431,7 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 | description | VARCHAR(255) | NULL | 선택 모임 소개 |
 | experience_level | VARCHAR(30) | NN, `ck_rooms_experience_level`: `CHECK (experience_level IN ('ALL_LEVELS', 'BEGINNER_WELCOME', 'EXPERIENCED_PREFERRED'))` | `ALL_LEVELS`, `BEGINNER_WELCOME`, `EXPERIENCED_PREFERRED` |
 | is_rulemaster_led | BOOLEAN | NN | 개설자의 룰마스터 진행 자기신고 |
-| region | VARCHAR(50) | NN, DEFAULT `홍대` · P2 목표 `ck_rooms_region`: `CHECK (region IN ('홍대', '강남', '건대', '잠실'))` | 모임 지역. AI-01 확인형 생성은 닫힌 지역 집합을 사용 |
+| region | VARCHAR(50) | NN, DEFAULT `홍대` · P2 목표 `ck_rooms_region`: `CHECK (region IN ('홍대', '강남', '건대', '잠실'))` | 모임 지역. AI-03 확인형 생성은 닫힌 지역 집합을 사용 |
 | capacity | INT | NN | 방 생성 시 입력하는 개설자 제외 모집 정원 |
 | active_participant_count | INT | NN, DEFAULT 0 | 개설자를 제외한 현재 `ACTIVE` 참가 관계 수 |
 | start_at | TIMESTAMPTZ | NN | 실제 모임 시작 시각 |
@@ -719,15 +719,15 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 - 사용자·방 삭제 기능은 P1 알림 범위에 없으므로 관련 FK는 `ON DELETE NO ACTION`으로 둔다. 향후 계정 삭제나 방 물리 삭제를 도입할 때 알림 익명화·삭제 순서를 별도로 결정한다.
 - 별도 복구 이력 테이블은 두지 않는다. 현재·누적 실패 횟수, 재처리 횟수와 마지막 실패·재처리·폐기 근거만 Outbox에 보존하며 강한 감사 이력이 필요해지면 후속 저장 계약으로 확장한다.
 
-## P2 AI-01 저장 계약 (계획·미구현)
+## P2 AI 기능군 저장 계약 (계획·미구현)
 
-> 이 절은 `AI-01`의 승인된 목표 저장 계약이며 아직 Flyway·JPA 엔티티·생산 테이블이 없다. 현재 제공·검증·배포·실측 여부는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 판정한다. 외부 provider·동의·보존·비용 경계는 [ADR-0068](adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md), 초안·확인·멱등성은 [ADR-0069](adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0070](adr/room/0070-p2-room-region-closed-set-and-compatibility.md)을 따른다.
+> 이 절은 `AI-01`~`AI-03`의 승인된 목표 저장 계약이며 아직 Flyway·JPA 엔티티·생산 테이블이 없다. 현재 제공·검증·배포·실측 여부는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 판정한다. 외부 provider·동의·보존·비용 경계는 [ADR-0068](adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md), 초안·확인·멱등성은 [ADR-0069](adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0070](adr/room/0070-p2-room-region-closed-set-and-compatibility.md)을 따른다.
 
-이 절은 동의·초안·확인 멱등성의 저장 이름·타입·제약과 저장 효과만 소유한다. 자연어 요청·provider payload·모델 원문 응답·대화 이력·게임 후보는 저장하지 않으며, HTTP 필드·오류는 [AI-01 API](API.md#ai-01-ai-모임-도우미-api), 모듈·트랜잭션 흐름은 [아키텍처의 AI-01 모듈 계약](ARCHITECTURE.md#p2-ai-01-모듈-계약-승인된-계획미구현)이 소유한다.
+이 절은 AI-01 동의와 AI-03 초안·확인 멱등성의 저장 이름·타입·제약과 저장 효과만 소유한다. AI-02의 자연어 요청·provider payload·모델 원문 응답·대화 이력·게임 후보는 저장하지 않으며, HTTP 필드·오류는 [AI 기능군 API](API.md#ai-기능군-api), 모듈·트랜잭션 흐름은 [아키텍처의 AI 기능군 모듈 계약](ARCHITECTURE.md#p2-ai-기능군-모듈-계약-승인된-계획미구현)이 소유한다.
 
 ### 소유 경계와 관계도
 
-`assistant`는 사용자별 외부 처리 동의, 현재 초안과 확인 결과 참조를 소유한다. `ROOMS`·`CHAT_ROOMS`는 기존 `room`의 저장 구조를 유지하며 확인 성공 시 결과만 참조한다. provider 호출·추천 결과를 위한 원문·대화·후보 저장 테이블은 만들지 않는다.
+`assistant`는 AI-01의 사용자별 외부 처리 동의와 AI-03의 현재 초안·확인 결과 참조를 소유한다. AI-02의 provider 호출·추천 결과를 위한 원문·대화·후보 저장 테이블은 만들지 않는다. `ROOMS`·`CHAT_ROOMS`는 기존 `room`의 저장 구조를 유지하며 확인 성공 시 결과만 참조한다.
 
 ~~~mermaid
 erDiagram
@@ -790,7 +790,7 @@ erDiagram
 | id | BIGINT | PK, NN, AI | 확인 멱등성 기록 ID |
 | user_id | BIGINT | FK → USERS.id, NN | 현재 사용자 범위 |
 | draft_id | BIGINT | FK → ASSISTANT_DRAFTS.id, NN | 확인 대상 초안 |
-| operation | VARCHAR(30) | NN, `CHECK (operation = 'DRAFT_CONFIRM')` | 현재 AI-01 확인 operation |
+| operation | VARCHAR(30) | NN, `CHECK (operation = 'DRAFT_CONFIRM')` | 현재 AI-03 확인 operation |
 | key_hash | CHAR(64) | NN | ASCII key의 SHA-256 hex digest |
 | draft_version | BIGINT | NN | 확인 시 사용한 초안 버전 |
 | status | VARCHAR(20) | NN, `CHECK (status IN ('PENDING', 'CONFIRMED'))` | 결과 확정 전·확정 후 |
@@ -800,7 +800,7 @@ erDiagram
 | confirmed_at | TIMESTAMPTZ | NULL | Room·ChatRoom 결과 확정 시각 |
 | expires_at | TIMESTAMPTZ | NN | `PENDING`은 초안 만료 시각, `CONFIRMED`는 확인 시각 + 24시간 |
 
-### AI-01 제약과 저장 경계
+### AI-01·AI-03 제약과 저장 경계
 
 | 대상 | 제약 또는 인덱스 | 의미 |
 |---|---|---|
@@ -815,7 +815,7 @@ erDiagram
 
 `ASSISTANT_DRAFTS` 확인은 초안 행을 `FOR UPDATE`로 잠그고 요청 시작 시각·동의·version·필수 입력을 검증한다. 같은 트랜잭션에서 `ASSISTANT_IDEMPOTENCY_RECORDS`를 유일성으로 확보한 뒤 `room.contract` 확인형 command를 호출하며, Room·ChatRoom·초안 결과 참조가 함께 커밋되거나 함께 롤백된다. 동의 철회는 활성 초안을 `DISCARDED`로 종결하고 새 provider 호출·초안 생성을 막는다.
 
-AI-01 저장소에는 `raw_prompt`, provider 원문 응답, prompt hash, 대화 이력, BGG 원문, 후보 목록, 사용자 ID·세션·secret을 provider payload 또는 관측 저장소로 복제하는 테이블·컬럼을 두지 않는다.
+AI 기능 저장소에는 `raw_prompt`, provider 원문 응답, prompt hash, 대화 이력, BGG 원문, 후보 목록, 사용자 ID·세션·secret을 provider payload 또는 관측 저장소로 복제하는 테이블·컬럼을 두지 않는다.
 
 ## P2 MATCH 저장 계약
 

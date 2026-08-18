@@ -11,10 +11,10 @@ P2는 AI 챗봇(게임 탐색 도우미 포함), 게임 의미 기반 검색, �
 | 기능 영역·문서 | 책임 | 현재 상태 |
 | --- | --- | --- |
 | [P2 공통 명세](../P2-spec.md) | P2 전체 범위, 기능 문서 작성 규칙, 공통 통합 원칙과 구현 완료 기준 | 정본 승격 완료 |
-| [`AI-01` AI 모임 도우미](assistant.md#ai-01-ai-모임-도우미) | 사용자 동의·철회, assistant 진입·화면, 추천·확인 흐름과 기존 수동 Room 회귀 | 계약 확정·구현 보류 |
-| [`AI-02` AI 의도·추천·Provider 운영](assistant.md#ai-02-ai-의도-추출추천provider-운영) | 구조화 조건, 후보 추천, provider adapter·fake·quota·timeout·비용·usage 경계 | 계약 확정·구현 보류 |
-| [`AI-03` AI 초안·확인형 Room 생성](assistant.md#ai-03-ai-초안확인형-room-생성) | 15분 초안, 장소·지역, 멱등 확인과 Room·ChatRoom 원자성 | 계약 확정·구현 보류 |
-| [`AI-04` AI 운영 배포·실측](assistant.md#ai-04-ai-운영-배포실측) | 인프라·secret/config, production 배포·feature gate·rollback, 배포 후 제한 실측 | 계약 확정·구현 보류 |
+| [`AI-01` AI 모임 도우미](assistant.md#ai-01-ai-모임-도우미) | 사용자 동의·철회, assistant 진입·화면, 추천·확인 흐름과 기존 수동 Room 회귀 | 제품 계약 확정·T-ID 승인 필요·구현 보류 |
+| [`AI-02` AI 의도·추천·Provider 운영](assistant.md#ai-02-ai-의도-추출추천provider-운영) | 구조화 조건, 후보 추천, provider adapter·fake·quota·timeout·비용·usage 경계 | 제품 계약 확정·T-ID 승인 필요·구현 보류 |
+| [`AI-03` AI 초안·확인형 Room 생성](assistant.md#ai-03-ai-초안확인형-room-생성) | 15분 초안, 장소·지역, 멱등 확인과 Room·ChatRoom 원자성 | 제품 계약 확정·T-ID 승인 필요·구현 보류 |
+| [`AI-04` AI 운영 배포·실측](assistant.md#ai-04-ai-운영-배포실측) | 인프라·secret/config, production 배포·feature gate·rollback, 배포 후 제한 실측 | 제품 계약 확정·T-ID 승인 필요·구현 보류 |
 | [DISCOVERY-01 게임 탐색 도우미 명세](game-discovery-assistant.md#discovery-01) | 자연어 의도 해석·SEARCH-04 read-only tool 호출·근거 있는 응답·권한·안전·품질 | 초안 작성 완료·선행 계약 필요 |
 | [SEARCH-04 게임 의미 기반 검색 명세](search.md#search-04) | 검색 대상 데이터, 색인·질의·정렬, 기존 검색과의 관계와 품질 평가 | 초안 작성 완료·선행 계약 필요 |
 | [RANK-02 게임 인기순 정렬 명세](game-popularity.md#rank-02) | 국내·내부·국외 인기 원천 결합, 승인 배치·복구와 게임 목록 기본 정렬 | 구현·자동 검증 완료·배포/실측 필요 |
@@ -30,10 +30,10 @@ P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.
 
 | 기능 영역 | 기능 ID | 계약 준비 | 생산 코드 | 자동 검증 | 배포 상태 | 실측 상태 |
 | --- | --- | --- | --- | --- | --- | --- |
-| AI 모임 도우미 | [`AI-01`](assistant.md#ai-01-ai-모임-도우미) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
-| AI 의도·추천·Provider | [`AI-02`](assistant.md#ai-02-ai-의도-추출추천provider-운영) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
-| AI 초안·확인형 Room | [`AI-03`](assistant.md#ai-03-ai-초안확인형-room-생성) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
-| AI 운영 배포·실측 | [`AI-04`](assistant.md#ai-04-ai-운영-배포실측) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
+| AI 모임 도우미 | [`AI-01`](assistant.md#ai-01-ai-모임-도우미) | T-ID 승인 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
+| AI 의도·추천·Provider | [`AI-02`](assistant.md#ai-02-ai-의도-추출추천provider-운영) | T-ID 승인 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
+| AI 초안·확인형 Room | [`AI-03`](assistant.md#ai-03-ai-초안확인형-room-생성) | T-ID 승인 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
+| AI 운영 배포·실측 | [`AI-04`](assistant.md#ai-04-ai-운영-배포실측) | T-ID 승인 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 게임 탐색 도우미 | [`DISCOVERY-01`](game-discovery-assistant.md#discovery-01) | 선행 계약 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 게임 의미 기반 검색 | [`SEARCH-04`](search.md#search-04) | 선행 계약 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 게임 인기순 정렬 | [`RANK-02`](game-popularity.md#rank-02) | 계약 준비 완료 | 구현 완료 | 자동 검증 완료 | 미배포 | 미측정 |
@@ -47,6 +47,7 @@ P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.
 - `기능 명세 필요`: 기능 ID, 사용자 문제, 흐름, 데이터·권한, 완료 기준과 제외 범위가 아직 문서화되지 않았다.
 - `선행 계약 필요`: 기능 명세가 있더라도 필수 ADR 승인 또는 API·ERD·아키텍처·운영 정본 반영이 남아 있다.
 - `계약 준비 완료`: 구현에 필요한 제품·API·저장·아키텍처·운영 계약과 필수 ADR이 모두 반영·승인됐다. 생산 코드나 검증 완료를 뜻하지 않는다.
+- `T-ID 승인 필요`: 제품·API·저장·아키텍처·운영 계약과 필수 ADR은 반영됐지만, 구현 이슈의 전체 T-ID 승인 댓글이 없어 테스트 계약은 미확정이다.
 - `부분 구현`과 `부분 검증`: 연결한 기능 ID 일부만 생산 코드와 자동 증거를 갖춘 상태다.
 - `미배포`와 `미측정`은 별도 상태다. 임시 검증 배포·운영 배포·유효 실측·`INVALID` 측정을 같은 값으로 합치지 않는다.
 
