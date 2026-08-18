@@ -6,7 +6,7 @@
 
 이 문서는 `OPS-01`~`OPS-05`의 기능 규칙, 완료 기준과 제외 범위를 정의한다. 현재 계약 준비·생산 코드·자동 검증·운영 배포와 실측 상태는 [P2 기능 상태 정본](README.md#기능별-현재-상태)에서만 판정한다.
 
-P2 전체 범위와 공통 운영 흐름은 [P2 공통 명세](../P2-spec.md), 화면·경고·비용·배포 검증 정책은 [운영 대시보드 정책](dashboard.md)이 관리한다. 실제 metric·log 허용 목록, alarm matrix와 전체 스택 계획 종료·재기동 절차는 [P2 운영 관측 런북](../guides/MONITORING_OPERATIONS.md)이 소유한다. 메트릭 전송은 [ADR-0058](../adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md), 구조화 로그 전송·보존은 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)가 소유하며, 이 문서가 ADR이나 구현 증거를 대신하지 않는다.
+P2 전체 범위와 공통 운영 흐름은 [P2 공통 명세](../P2-spec.md), 화면·경고·비용·배포 검증 정책은 [운영 대시보드 정책](dashboard.md)이 관리한다. 실제 metric·log 허용 목록, alarm matrix와 전체 스택 계획 종료·재기동 절차는 [P2 운영 관측 런북](../guides/MONITORING_OPERATIONS.md)이 소유한다. 메트릭 전송은 [ADR-0071](../adr/platform/0071-p2-application-metrics-otlp-host-cloudwatch-agent.md), 구조화 로그 전송·보존은 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)가 소유하며, 이 문서가 ADR이나 구현 증거를 대신하지 않는다.
 
 ## 목표와 지원 수준
 
@@ -68,7 +68,7 @@ P2 대시보드는 인프라가 켜져 있다는 사실만 보여주지 않는�
 - 사용자 ID·이메일·IP·세션·cookie·token, 요청·응답 body, 프롬프트·응답 원문, Tool 인자·결과, 채팅 내용, 알림 payload와 원본 SQL을 중앙 지표·로그에 넣지 않는다.
 - request ID는 외부 값을 그대로 신뢰하지 않고 서버가 확정한다. request ID와 허용된 자원 상관 키는 접근 제한된 로그에서만 사용한다.
 - management endpoint는 loopback 또는 관리 전용 내부 경계에서만 수집한다. 수집 실패가 제품 요청과 업무 transaction을 실패시키지 않는다.
-- Spring Micrometer metric은 [ADR-0058](../adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md)에 따라 OTLP HTTP로 같은 EC2의 host Amazon CloudWatch Agent에 전달한다. 컨테이너 loopback에 의존하지 않고 동일 호스트 전용 Docker bridge를 사용하며, OTLP 수신 포트를 Docker publish·인터넷·다른 host에 공개하지 않는다.
+- Spring Micrometer metric은 [ADR-0071](../adr/platform/0071-p2-application-metrics-otlp-host-cloudwatch-agent.md)에 따라 OTLP HTTP로 같은 EC2의 host Amazon CloudWatch Agent에 전달한다. 컨테이너 loopback에 의존하지 않고 동일 호스트 전용 Docker bridge를 사용하며, OTLP 수신 포트를 Docker publish·인터넷·다른 host에 공개하지 않는다.
 - 모든 시각은 UTC로 수집하고 dashboard 표시 timezone을 명시한다. 데이터 누락은 값 `0`이나 정상 상태가 아니라 관측 공백으로 표시한다.
 
 ## 핵심 운영 흐름
@@ -364,6 +364,6 @@ Agent·CloudWatch 장애는 사용자 요청과 업무 transaction을 실패시�
 
 사용자가 확인한 운영 정책은 [운영 대시보드 정책](dashboard.md)의 해당 절이 관리한다. 이 문서는 그 정책을 각 `OPS-*` 기능 규칙과 완료 기준으로만 연결하며 확정값 목록을 반복하지 않는다.
 
-메트릭 전송은 승인된 [ADR-0058](../adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md), 로그 전송·보존은 승인된 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)가 소유한다. 실제 metric·log 허용 목록, 경고별 query·런북, 배포 설정·IAM·상태 전이와 비용·장애 검증 계약은 [운영 관측 런북](../guides/MONITORING_OPERATIONS.md)에 반영했다. 남은 작업은 애플리케이션·인프라 구현, 자동 검증, AWS 배포와 실측이며 이 문서·런북·ADR 승인만으로 그 상태가 끝났다고 판정하지 않는다.
+메트릭 전송은 승인된 [ADR-0071](../adr/platform/0071-p2-application-metrics-otlp-host-cloudwatch-agent.md), 로그 전송·보존은 승인된 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)가 소유한다. 실제 metric·log 허용 목록, 경고별 query·런북, 배포 설정·IAM·상태 전이와 비용·장애 검증 계약은 [운영 관측 런북](../guides/MONITORING_OPERATIONS.md)에 반영했다. 남은 작업은 애플리케이션·인프라 구현, 자동 검증, AWS 배포와 실측이며 이 문서·런북·ADR 승인만으로 그 상태가 끝났다고 판정하지 않는다.
 
 AI provider·model과 실제 이메일 주소처럼 다른 기능 명세나 배포 비밀이 소유하는 값은 이 문서에 임의로 만들지 않는다. 구현 시점의 현재 상태는 [P2 기능 상태 정본](README.md#기능별-현재-상태)만 갱신한다.

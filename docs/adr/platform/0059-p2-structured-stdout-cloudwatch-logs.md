@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-08-13
 - 결정일: 2026-08-13
-- 관련: [P2 운영 관측](../../p2/monitoring.md), [P2 운영 대시보드 정책](../../p2/dashboard.md), [ADR-0058 애플리케이션 메트릭 OTLP 전송](0058-p2-application-metrics-otlp-host-cloudwatch-agent.md), [운영 Compose](../../../compose.production.yml)
+- 관련: [P2 운영 관측](../../p2/monitoring.md), [P2 운영 대시보드 정책](../../p2/dashboard.md), [ADR-0071 애플리케이션 메트릭 OTLP 전송](0071-p2-application-metrics-otlp-host-cloudwatch-agent.md), [운영 Compose](../../../compose.production.yml)
 - 대체 대상: 없음
 - 후속 ADR: 없음
 
@@ -42,7 +42,7 @@ production Spring은 같은 구조화 event를 한 줄 JSON stdout과 bind-mount
 4. stdout은 현재 Docker `json-file`의 `max-size=10m`, `max-file=5`를 유지해 컨테이너별 최대 50MB 범위에서 `docker logs`로 조회한다. Docker daemon 전용 내부 파일을 Agent나 다른 도구가 직접 읽지 않는다.
 5. Agent 수집 전용 file은 container 안의 고정 경로에 기록하고 App1·App2 host의 전용 directory를 bind mount한다. file appender는 파일당 최대 10MB, 현재 파일을 포함해 최대 5개, 총 50MB 이내로 회전한다. 압축 여부와 날짜 suffix는 구현 세부지만 총 상한을 넘기지 않는다.
 6. 전용 host directory는 Spring container의 실행 UID가 쓰고 host Agent만 읽을 수 있게 최소 권한을 적용한다. App1·App2는 서로 다른 host directory와 log stream을 사용하고 로그 파일을 공유하지 않는다.
-7. Agent filter는 `WARN`·`ERROR`, 알림·채팅·참가 대기열의 고정 핵심 업무 event와 배포 검증 event만 중앙 전송한다. 정상 API 요청 수·지연·status 분포는 ADR-0058의 metric이 소유하며 정상 2xx·4xx access log 전체는 보내지 않는다.
+7. Agent filter는 `WARN`·`ERROR`, 알림·채팅·참가 대기열의 고정 핵심 업무 event와 배포 검증 event만 중앙 전송한다. 정상 API 요청 수·지연·status 분포는 ADR-0071의 metric이 소유하며 정상 2xx·4xx access log 전체는 보내지 않는다.
 8. log stream은 `environment`, `stackId`, `role`, `instanceId`, `release`를 식별할 수 있어야 한다. CloudWatch Logs 보존기간은 14일이며 원문 로그를 Git에 복사하지 않는다.
 9. 로컬 보관량은 sink별 최대 50MB, 두 sink 합계는 Spring container별 최대 100MB로 산정한다. host 전체 용량에는 host에서 실행하는 Spring container 수에 따른 이 합계와 다른 container·host log의 보관량을 별도로 더한다.
 10. Agent·CloudWatch 전송 실패는 사용자 요청과 업무 트랜잭션을 실패시키지 않는다. 전용 file 회전 전에 보내지 못한 로그가 삭제되면 해당 UTC 구간과 마지막 수집 시각을 관측 공백으로 기록한다. 파일 쓰기 실패도 제품 요청을 실패시키지는 않지만 stdout 오류와 관측 self-health로 드러내야 한다.
