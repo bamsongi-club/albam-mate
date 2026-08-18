@@ -21,10 +21,13 @@ test("draft fixture는 세 cohort 최소 표본과 대표 query 계약을 검증
 test("저장된 draft fixture의 manifest와 query 원자료를 검증한다", () => {
     const manifest = JSON.parse(fs.readFileSync(new URL("../docs/p2/search-evaluation/manifest.json", import.meta.url)));
     const queries = JSON.parse(fs.readFileSync(new URL("../docs/p2/search-evaluation/queries.json", import.meta.url)));
+    const qualityCorpus = JSON.parse(fs.readFileSync(new URL("../docs/p2/search-evaluation/quality-corpus.json", import.meta.url)));
 
     assert.equal(manifest.queriesSha256.length, 64);
-    assert.doesNotThrow(() => validateEvaluationManifest({ ...manifest, queries }));
+    assert.equal(manifest.evaluationProfile, "development-seed");
+    assert.doesNotThrow(() => validateEvaluationManifest({ ...manifest, queries, qualityCorpus }));
     assert.equal(queries.filter((query) => query.anchor).length, 3);
+    assert.equal(queries.length, 15);
 });
 
 test("저장된 query 원자료 checksum이 manifest와 일치한다", () => {
@@ -35,9 +38,29 @@ test("저장된 query 원자료 checksum이 manifest와 일치한다", () => {
     assert.equal(manifest.queriesSha256, actualSha256);
 });
 
+test("저장된 quality corpus projection checksum이 manifest와 일치한다", () => {
+    const manifest = JSON.parse(fs.readFileSync(new URL("../docs/p2/search-evaluation/manifest.json", import.meta.url)));
+    const corpusBytes = fs.readFileSync(new URL("../docs/p2/search-evaluation/quality-corpus.json", import.meta.url));
+    const actualSha256 = createHash("sha256").update(corpusBytes).digest("hex");
+
+    assert.equal(manifest.qualityCorpusSha256, actualSha256);
+});
+
+test("development seed는 Top 1,000 membership 밖 ID와 final 승격을 거절한다", () => {
+    const manifest = JSON.parse(fs.readFileSync(new URL("../docs/p2/search-evaluation/manifest.json", import.meta.url)));
+    const queries = JSON.parse(fs.readFileSync(new URL("../docs/p2/search-evaluation/queries.json", import.meta.url)));
+    const qualityCorpus = JSON.parse(fs.readFileSync(new URL("../docs/p2/search-evaluation/quality-corpus.json", import.meta.url)));
+
+    assert.throws(() => validateQualityReadiness({ ...manifest, queries, qualityCorpus }), /development seed/u);
+    const invalid = { ...manifest, queries, qualityCorpus };
+    invalid.queries[0].expectedGameIds = [999999];
+    invalid.queries[0].expectedReasons = { 999999: "테스트 후보" };
+    assert.throws(() => validateEvaluationManifest(invalid), /Top 1,000 quality corpus/u);
+});
+
 test("cohort 표본이 부족하면 fixture를 거절한다", () => {
     const manifest = buildManifest();
-    manifest.queries = manifest.queries.slice(0, 59);
+    manifest.queries[59].cohorts = [];
 
     assert.throws(
         () => validateEvaluationManifest(manifest),
@@ -69,6 +92,13 @@ test("catalog 밖의 game ID와 hard filter 모순을 거절한다", () => {
     const manifest = buildManifest();
     manifest.queries[0].expectedGameIds = [999];
     manifest.queries[0].expectedReasons = { 999: "테스트 기대 근거" };
+    manifest.qualityCorpus.members.push({
+        gameId: 999,
+        boardlifeRank: 999,
+        minPlayers: 2,
+        maxPlayers: 6,
+        maxPlayTimeMinutes: 30,
+    });
     assert.throws(
         () => validateEvaluationManifest(manifest, {
             catalog: [{ id: 1, minPlayers: 2, maxPlayers: 4 }],
@@ -162,6 +192,7 @@ test("cohort와 전체 집합의 평가 결과를 같은 fixture에서 재현한
 test("검색 평가 범위를 벗어난 변경 파일을 거절한다", () => {
     assert.doesNotThrow(() => validateScope([
         "docs/p2/search-evaluation/manifest.json",
+        "docs/p2/search-evaluation/quality-corpus.json",
         "scripts/p2-search-evaluation.mjs",
         "scripts/p2-search-evaluation.test.mjs",
         ".github/workflows/ci.yml",
@@ -186,6 +217,7 @@ function buildManifest() {
             query: isAnchor ? `대표 질의 ${index + 1}` : `확장 질의 ${index + 1}`,
             cohorts: [cohort],
             anchor: isAnchor,
+            evaluationStatus: "final",
             labelStatus: "proposed",
             hardFilters: index === 0 ? { minPlayers: 3 } : {},
             expectedGameIds: isAnchor ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] : [1],
@@ -198,6 +230,8 @@ function buildManifest() {
                 releaseId: "catalog-release-2026-08-10",
                 fieldVersion: "catalog-fields-v1",
                 reference: "docs/game-catalog/source-manifest.json",
+                qualityCorpusReleaseId: "quality-corpus-test",
+                qualityCorpusReference: "docs/p2/search-evaluation/quality-corpus.json",
             },
             judgements: [],
         };
@@ -206,12 +240,36 @@ function buildManifest() {
     return {
         schemaVersion: 1,
         featureId: "SEARCH-04",
+        evaluationProfile: "final-quality",
         status: "draft",
         catalog: {
             releaseId: "catalog-release-2026-08-10",
             datasetId: "bgg-catalog-170k",
             fieldVersion: "catalog-fields-v1",
             manifestReference: "docs/game-catalog/source-manifest.json",
+            releaseStatus: "not-registered",
+        },
+        qualityCorpusSha256: "c".repeat(64),
+        qualityCorpus: {
+            schemaVersion: 1,
+            corpusId: "quality-corpus-test",
+            status: "provisional",
+            releaseId: "quality-corpus-test",
+            releaseStatus: "provisional",
+            rankCutoff: 1000,
+            source: {
+                datasetId: "boardlife-quality-top1000",
+                sourceReference: "https://boardlife.co.kr/rank",
+                sourceManifestReference: "external://quality-corpus-test.json",
+                sourceArtifactSha256: "d".repeat(64),
+            },
+            members: Array.from({ length: 99 }, (_, index) => ({
+                gameId: index + 1,
+                boardlifeRank: index + 1,
+                minPlayers: 2,
+                maxPlayers: 6,
+                maxPlayTimeMinutes: 30,
+            })),
         },
         cohorts: {
             "exact/name variant": { minimum: 15, minDeltaVsBaseline: null },
@@ -235,6 +293,8 @@ function buildQualityReadyManifest() {
     const manifest = buildManifest();
     manifest.status = "quality-ready";
     manifest.catalog.releaseStatus = "approved";
+    manifest.qualityCorpus.status = "approved";
+    manifest.qualityCorpus.releaseStatus = "approved";
     manifest.catalog.datasetSha256 = "a".repeat(64);
     manifest.catalog.rowCount = 60;
     manifest.queriesSha256 = "b".repeat(64);

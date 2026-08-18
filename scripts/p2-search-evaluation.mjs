@@ -12,12 +12,36 @@ export const COHORT_RULES = Object.freeze({
     "intent+hard filter": 20,
 });
 
+export const EVALUATION_PROFILES = Object.freeze({
+    "development-seed": Object.freeze({
+        minQueries: 12,
+        maxQueries: 15,
+        cohortMinimums: Object.freeze({
+            "exact/name variant": 1,
+            "intent/description": 1,
+            "intent+hard filter": 1,
+        }),
+    }),
+    "final-quality": Object.freeze({
+        minQueries: 60,
+        maxQueries: Number.POSITIVE_INFINITY,
+        cohortMinimums: COHORT_RULES,
+    }),
+});
+
 const ALLOWED_SCOPE_PREFIXES = Object.freeze([
     "docs/p2/search-evaluation/",
     "scripts/p2-search-evaluation.mjs",
     "scripts/p2-search-evaluation.test.mjs",
     ".github/workflows/ci.yml",
 ]);
+
+function evaluationProfile(value) {
+    if (!isNonEmptyString(value) || !(value in EVALUATION_PROFILES)) {
+        fail("SEARCH-04 evaluationProfile이 올바르지 않습니다.");
+    }
+    return EVALUATION_PROFILES[value];
+}
 
 export function validateEvaluationManifest(manifest, options = {}) {
     requireObject(manifest, "manifest");
@@ -31,10 +55,21 @@ export function validateEvaluationManifest(manifest, options = {}) {
         fail("SEARCH-04 manifest status는 draft 또는 quality-ready여야 합니다.");
     }
 
+    const profile = evaluationProfile(manifest.evaluationProfile);
     validateCatalogDescriptor(manifest.catalog);
+    validateQualityCorpusDescriptor(manifest.qualityCorpus);
+    if (manifest.qualityCorpusPath && !manifest.qualityCorpus) {
+        fail("qualityCorpusPath 파일이 로드되지 않았습니다.");
+    }
+    if (manifest.qualityCorpusSha256 !== undefined && !isSha256(manifest.qualityCorpusSha256)) {
+        fail("qualityCorpusSha256 형식이 올바르지 않습니다.");
+    }
     const queries = manifest.queries;
-    if (!Array.isArray(queries) || queries.length < 60) {
-        fail("SEARCH-04 fixture는 cohort 최소 표본을 포함해 최소 60개 query가 필요합니다.");
+    if (!Array.isArray(queries)
+        || queries.length < profile.minQueries
+        || queries.length > profile.maxQueries) {
+        const maximum = Number.isFinite(profile.maxQueries) ? `~${profile.maxQueries}` : "+";
+        fail(`SEARCH-04 ${manifest.evaluationProfile} fixture는 ${profile.minQueries}${maximum}개 query가 필요합니다.`);
     }
 
     const queryIds = new Set();
@@ -43,15 +78,16 @@ export function validateEvaluationManifest(manifest, options = {}) {
     const anchors = [];
 
     for (const query of queries) {
-        validateQuery(query, manifest, queryIds, queryTexts, cohortCounts);
+        validateQuery(query, manifest, profile, queryIds, queryTexts, cohortCounts);
         if (query.anchor === true) anchors.push(query);
     }
 
-    for (const [cohort, minimum] of Object.entries(COHORT_RULES)) {
+    for (const [cohort, minimum] of Object.entries(profile.cohortMinimums)) {
         if (cohortCounts[cohort] < minimum) {
             fail(`${cohort} cohort 최소 표본 ${minimum}개를 충족하지 못했습니다.`);
         }
     }
+    validateQualityCorpusReferences(queries, manifest.qualityCorpus);
     if (options.catalog !== undefined) validateCatalogReferences(queries, options.catalog);
     if (anchors.length !== 3) {
         fail(`대표 anchor는 3개여야 합니다. 현재 ${anchors.length}개입니다.`);
@@ -63,6 +99,7 @@ export function validateEvaluationManifest(manifest, options = {}) {
 
     return {
         featureId: manifest.featureId,
+        evaluationProfile: manifest.evaluationProfile,
         status: manifest.status,
         queryCount: queries.length,
         cohortCounts,
@@ -74,6 +111,9 @@ export function validateQualityReadiness(manifest, options = {}) {
     const structural = validateEvaluationManifest(manifest, options);
     const errors = [];
 
+    if (manifest.evaluationProfile !== "final-quality") {
+        errors.push("development seed는 final quality gate를 통과할 수 없습니다");
+    }
     if (manifest.status !== "quality-ready") {
         errors.push("status가 quality-ready가 아닙니다");
     }
@@ -82,6 +122,15 @@ export function validateQualityReadiness(manifest, options = {}) {
     }
     if (!isSha256(manifest.catalog.datasetSha256) || !Number.isInteger(manifest.catalog.rowCount)) {
         errors.push("catalog release의 checksum/rowCount가 없습니다");
+    }
+    if (manifest.qualityCorpus.releaseStatus !== "approved") {
+        errors.push("quality corpus 승인 상태가 아닙니다");
+    }
+    if (!isSha256(manifest.qualityCorpus.source.sourceArtifactSha256)) {
+        errors.push("quality corpus 원천 checksum이 없습니다");
+    }
+    if (!isSha256(manifest.qualityCorpusSha256)) {
+        errors.push("quality corpus projection checksum이 없습니다");
     }
     if (!isNonEmptyString(manifest.queriesSha256)) {
         errors.push("fixture queries checksum이 없습니다");
@@ -220,7 +269,7 @@ export function validateScope(changedFiles) {
     return { valid: true, changedFiles: changedFiles.length };
 }
 
-function validateQuery(query, manifest, queryIds, queryTexts, cohortCounts) {
+function validateQuery(query, manifest, profile, queryIds, queryTexts, cohortCounts) {
     requireObject(query, "query");
     if (!isNonEmptyString(query.id) || queryIds.has(query.id)) {
         fail(`query ID가 없거나 중복되었습니다: ${query.id ?? "<empty>"}`);
@@ -258,8 +307,16 @@ function validateQuery(query, manifest, queryIds, queryTexts, cohortCounts) {
         }
     }
 
-    validateSource(query.source, manifest.catalog, query.id);
+    validateSource(query.source, manifest.catalog, manifest.qualityCorpus, query.id);
     validateHardFilters(query.hardFilters, query.id);
+    if (profile === EVALUATION_PROFILES["development-seed"]) {
+        if (query.evaluationStatus !== "development") {
+            fail(`query ${query.id}는 development 상태여야 합니다.`);
+        }
+        if (query.labelStatus !== "provisional") {
+            fail(`query ${query.id}의 labelStatus는 provisional이어야 합니다.`);
+        }
+    }
 }
 
 function validateAnchor(query) {
@@ -280,15 +337,71 @@ function validateCatalogDescriptor(catalog) {
     for (const field of ["releaseId", "datasetId", "fieldVersion", "manifestReference"]) {
         if (!isNonEmptyString(catalog[field])) fail(`manifest.catalog.${field}가 없습니다.`);
     }
+    if (!["not-registered", "provisional", "approved"].includes(catalog.releaseStatus)) {
+        fail("manifest.catalog.releaseStatus가 올바르지 않습니다.");
+    }
 }
 
-function validateSource(source, catalog, queryId) {
+function validateQualityCorpusDescriptor(corpus) {
+    requireObject(corpus, "manifest.qualityCorpus");
+    for (const field of ["corpusId", "releaseId", "releaseStatus"]) {
+        if (!isNonEmptyString(corpus[field])) fail(`manifest.qualityCorpus.${field}가 없습니다.`);
+    }
+    if (!Number.isInteger(corpus.rankCutoff) || corpus.rankCutoff < 1) {
+        fail("manifest.qualityCorpus.rankCutoff가 올바르지 않습니다.");
+    }
+    requireObject(corpus.source, "manifest.qualityCorpus.source");
+    for (const field of ["datasetId", "sourceReference", "sourceManifestReference", "sourceArtifactSha256"]) {
+        if (!isNonEmptyString(corpus.source[field])) {
+            fail(`manifest.qualityCorpus.source.${field}가 없습니다.`);
+        }
+    }
+    if (!isSha256(corpus.source.sourceArtifactSha256)) {
+        fail("manifest.qualityCorpus.source.sourceArtifactSha256 형식이 올바르지 않습니다.");
+    }
+    if (!Array.isArray(corpus.members) || corpus.members.length === 0) {
+        fail("manifest.qualityCorpus.members가 없습니다.");
+    }
+    const memberIds = new Set();
+    for (const member of corpus.members) {
+        requireObject(member, "manifest.qualityCorpus.member");
+        const id = recordId(member);
+        if (!Number.isInteger(id) || id < 1 || memberIds.has(String(id))) {
+            fail(`manifest.qualityCorpus member ID가 없거나 중복되었습니다: ${id ?? "<empty>"}`);
+        }
+        memberIds.add(String(id));
+        if (!Number.isInteger(member.boardlifeRank)
+            || member.boardlifeRank < 1
+            || member.boardlifeRank > corpus.rankCutoff) {
+            fail(`manifest.qualityCorpus member ${id}의 BoardLife rank가 cutoff 밖입니다.`);
+        }
+    }
+}
+
+function validateSource(source, catalog, qualityCorpus, queryId) {
     requireObject(source, `query ${queryId} source`);
-    for (const field of ["releaseId", "fieldVersion", "reference"]) {
+    for (const field of ["releaseId", "fieldVersion", "reference", "qualityCorpusReleaseId", "qualityCorpusReference"]) {
         if (!isNonEmptyString(source[field])) fail(`query ${queryId} source.${field}가 없습니다.`);
     }
     if (source.releaseId !== catalog.releaseId || source.fieldVersion !== catalog.fieldVersion) {
         fail(`query ${queryId}의 source release/fieldVersion이 catalog와 다릅니다.`);
+    }
+    if (source.qualityCorpusReleaseId !== qualityCorpus.releaseId) {
+        fail(`query ${queryId}의 source quality corpus release가 manifest와 다릅니다.`);
+    }
+}
+
+function validateQualityCorpusReferences(queries, corpus) {
+    const records = catalogRecords(corpus);
+    for (const query of queries) {
+        for (const gameId of [...query.expectedGameIds, ...query.excludedGameIds]) {
+            if (!records.has(String(gameId))) {
+                fail(`query ${query.id}의 Top 1,000 quality corpus 밖 game ID입니다: ${gameId}`);
+            }
+        }
+        for (const gameId of query.expectedGameIds) {
+            validateHardFilterCompatibility(query, records.get(String(gameId)));
+        }
     }
 }
 
@@ -451,7 +564,7 @@ function aggregateRows(rows) {
 }
 
 function catalogRecords(catalog) {
-    const values = Array.isArray(catalog) ? catalog : catalog?.games;
+    const values = Array.isArray(catalog) ? catalog : catalog?.games ?? catalog?.members;
     if (!Array.isArray(values)) fail("catalog은 game record 배열이어야 합니다.");
     return new Map(values.map((record) => [String(recordId(record)), record]));
 }
@@ -533,6 +646,20 @@ function loadManifest(manifestPath) {
         if (manifest.queriesSha256) {
             const actualSha256 = createHash("sha256").update(queryBytes).digest("hex");
             if (actualSha256 !== manifest.queriesSha256) fail("queriesSha256가 queries 원자료와 다릅니다.");
+        }
+    }
+    if (!manifest.qualityCorpus && manifest.qualityCorpusPath) {
+        const corpusPath = path.resolve(path.dirname(manifestPath), manifest.qualityCorpusPath);
+        const corpusBytes = fs.readFileSync(corpusPath);
+        manifest.qualityCorpus = JSON.parse(corpusBytes.toString("utf8"));
+        if (manifest.qualityCorpusSha256 && !isSha256(manifest.qualityCorpusSha256)) {
+            fail("qualityCorpusSha256 형식이 올바르지 않습니다.");
+        }
+        if (manifest.qualityCorpusSha256) {
+            const actualSha256 = createHash("sha256").update(corpusBytes).digest("hex");
+            if (actualSha256 !== manifest.qualityCorpusSha256) {
+                fail("qualityCorpusSha256가 quality corpus 원자료와 다릅니다.");
+            }
         }
     }
     return manifest;

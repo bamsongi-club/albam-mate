@@ -1,29 +1,32 @@
 {
   "schemaVersion": 1,
   "featureId": "SEARCH-04",
+  "evaluationProfile": "development-seed",
   "status": "draft",
   "catalog": {
     "releaseId": "pending-bgg-catalog-release-2026-08-14",
     "datasetId": "bgg-catalog-170k",
     "fieldVersion": "catalog-fields-v1",
-    "manifestReference": "docs/game-catalog/2026-08-14-bgg-ai-embedding-approval.md",
+    "manifestReference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
     "releaseStatus": "not-registered"
   },
+  "qualityCorpusPath": "quality-corpus.json",
+  "qualityCorpusSha256": "2b71753f1246f72172888606a98059c0b275eeb43f698079bd94196bb37e2bee",
   "queriesPath": "queries.json",
-  "queriesSha256": "463ef536cfc6f6a879a090d485ae893a9cd06116b7e73367178ab9303c126eda",
+  "queriesSha256": "b677c49139dc5cf1f9b210ee1c00800f86607cb9ecca242e9dbcdbc4fe008306",
   "cohorts": {
     "exact/name variant": {
-      "minimum": 15,
+      "minimum": 1,
       "min_delta_vs_baseline": null,
       "thresholdStatus": "pending"
     },
     "intent/description": {
-      "minimum": 25,
+      "minimum": 1,
       "min_delta_vs_baseline": null,
       "thresholdStatus": "pending"
     },
     "intent+hard filter": {
-      "minimum": 20,
+      "minimum": 1,
       "min_delta_vs_baseline": null,
       "thresholdStatus": "pending"
     }
@@ -41,10 +44,13 @@
     "status": "pending"
   },
   "approvalReferences": [],
-  "evaluationStatus": "pending",
+  "evaluationStatus": "development",
   "notes": [
-    "expectedGameIds와 excludedGameIds는 공개 catalog 기반 draft 후보이며 독립 판정 전이다.",
+    "현재 profile은 development-seed이며 15개 query는 후보 검색 PoC와 회귀 확인용이다.",
+    "expectedGameIds와 excludedGameIds는 Top 1,000 membership·공개 catalog 필드 기반 draft 후보이며 독립 판정 전이다.",
+    "quality-corpus.json은 전체 Top 1,000 원천이 아니라 현재 seed가 참조하는 membership·hard-filter projection이다.",
+    "BoardLife 원천 mapping은 provisional이고 duplicate/review-required 행이 남아 있으므로 quality-ready 승인을 의미하지 않는다.",
     "정책상 BGG·AI·embedding 사용 승인은 구체 release manifest와 동일하지 않다.",
-    "quality-ready 전환은 승인된 release, 두 독립 판정, 불일치 시 제3 판정, baseline threshold가 모두 채워진 뒤에만 가능하다."
+    "quality-ready 전환은 final-quality profile, 승인된 catalog·quality corpus, 두 독립 판정, 불일치 시 제3 판정, baseline threshold가 모두 채워진 뒤에만 가능하다."
   ]
 }
