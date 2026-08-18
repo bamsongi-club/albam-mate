@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.matching.entity;
 
 import java.time.Instant;
+import java.util.Objects;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -27,4 +28,15 @@ public class MatchBlock {
 	private Long blockedUserId;
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt;
+
+	public static MatchBlock create(long blockerUserId, long blockedUserId, Instant createdAt) {
+		if (blockerUserId == blockedUserId) {
+			throw new IllegalArgumentException("blockerUserId and blockedUserId must differ");
+		}
+		MatchBlock matchBlock = new MatchBlock();
+		matchBlock.blockerUserId = blockerUserId;
+		matchBlock.blockedUserId = blockedUserId;
+		matchBlock.createdAt = Objects.requireNonNull(createdAt, "createdAt");
+		return matchBlock;
+	}
 }
