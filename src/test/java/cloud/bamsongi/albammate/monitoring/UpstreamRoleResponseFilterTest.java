@@ -2,6 +2,7 @@ package cloud.bamsongi.albammate.monitoring;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -57,7 +58,7 @@ class UpstreamRoleResponseFilterTest {
 	}
 
 	@Test
-	void T3_filterChain_예외는_서버오류_이벤트를_한번_기록하고_전달한다() throws Exception {
+	void T3_filterChain_예외와_확정된_IOException_5xx만_서버오류를_기록하고_전달한다() throws Exception {
 		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(UpstreamRoleResponseFilter.class);
 		ListAppender<ILoggingEvent> appender = new ListAppender<>();
 		appender.start();
@@ -65,29 +66,49 @@ class UpstreamRoleResponseFilterTest {
 		try {
 			MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/games");
 			request.setQueryString("secret=do-not-log");
-			assertThrows(ServletException.class,
+			ServletException servletException = new ServletException("filter chain failure");
+			assertSame(servletException, assertThrows(ServletException.class,
 				() -> new UpstreamRoleResponseFilter("app1").doFilter(request, new MockHttpServletResponse(),
 					(servletRequest, response) -> {
-						throw new ServletException("filter chain failure");
-					}));
+						throw servletException;
+					})));
+			IllegalStateException runtimeException = new IllegalStateException("filter chain failure");
+			assertSame(runtimeException, assertThrows(IllegalStateException.class,
+				() -> new UpstreamRoleResponseFilter("app1").doFilter(request, new MockHttpServletResponse(),
+					(servletRequest, response) -> {
+						throw runtimeException;
+					})));
+			java.io.IOException clientAbort = new java.io.IOException("filter chain failure");
+			assertSame(clientAbort, assertThrows(java.io.IOException.class,
+				() -> throwingIOException(request, new MockHttpServletResponse(), clientAbort)));
+			MockHttpServletResponse clientFailureResponse = new MockHttpServletResponse();
+			clientFailureResponse.setStatus(404);
 			assertThrows(java.io.IOException.class,
-				() -> new UpstreamRoleResponseFilter("app1").doFilter(request, new MockHttpServletResponse(),
-					(servletRequest, response) -> {
-						throw new java.io.IOException("filter chain failure");
-					}));
-			assertThrows(IllegalStateException.class,
-				() -> new UpstreamRoleResponseFilter("app1").doFilter(request, new MockHttpServletResponse(),
-					(servletRequest, response) -> {
-						throw new IllegalStateException("filter chain failure");
-					}));
+				() -> throwingIOException(request, clientFailureResponse,
+					new java.io.IOException("filter chain failure")));
+			assertEquals(2, appender.list.size());
+			MockHttpServletResponse serverFailureResponse = new MockHttpServletResponse();
+			serverFailureResponse.setStatus(503);
+			assertThrows(java.io.IOException.class,
+				() -> throwingIOException(request, serverFailureResponse,
+					new java.io.IOException("filter chain failure")));
+			MockHttpServletResponse timeoutResponse = new MockHttpServletResponse();
+			timeoutResponse.setStatus(504);
+			assertThrows(java.io.IOException.class,
+				() -> throwingIOException(request, timeoutResponse, new java.io.IOException("filter chain failure")));
 
-			assertEquals(3, appender.list.size());
-			appender.list.forEach(event -> {
-				assertEquals(Level.ERROR, event.getLevel());
-				String fields = cloud.bamsongi.albammate.fixture.StructuredLogAssertions.fieldText(event);
-				assertEquals("event=http_request_failed failureCode=HTTP_SERVER_ERROR", fields);
-				assertFalse(fields.contains("secret=do-not-log"));
-			});
+			assertEquals(4, appender.list.size());
+			assertEquals(List.of(
+				"event=http_request_failed failureCode=HTTP_SERVER_ERROR",
+				"event=http_request_failed failureCode=HTTP_SERVER_ERROR",
+				"event=http_request_failed failureCode=HTTP_SERVER_ERROR",
+				"event=http_request_failed failureCode=HTTP_TIMEOUT"),
+				appender.list.stream().map(event -> {
+					assertEquals(Level.ERROR, event.getLevel());
+					String fields = cloud.bamsongi.albammate.fixture.StructuredLogAssertions.fieldText(event);
+					assertFalse(fields.contains("secret=do-not-log"));
+					return fields;
+				}).toList());
 		} finally {
 			logger.detachAppender(appender);
 			appender.stop();
@@ -120,5 +141,14 @@ class UpstreamRoleResponseFilterTest {
 		new UpstreamRoleResponseFilter(role).doFilter(new MockHttpServletRequest(), response,
 			(request, servletResponse) -> {});
 		return response;
+	}
+
+	private void throwingIOException(
+		MockHttpServletRequest request, MockHttpServletResponse response, java.io.IOException exception)
+		throws Exception {
+		new UpstreamRoleResponseFilter("app1").doFilter(request, response,
+			(servletRequest, servletResponse) -> {
+				throw exception;
+			});
 	}
 }
