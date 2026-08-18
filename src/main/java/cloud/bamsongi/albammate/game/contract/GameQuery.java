@@ -20,14 +20,6 @@ public interface GameQuery {
 	Optional<GameSummary> findSummaryById(Long gameId);
 
 	/**
-	 * MATCH 요청 등록에서 게임의 지원 인원 범위를 조회한다.
-	 *
-	 * @param gameId 알밤메이트 내부 게임 ID
-	 * @return 게임이 없거나 지원 인원 범위가 미상이면 {@link Optional#empty()}
-	 */
-	Optional<GamePlayerRange> findPlayerRangeById(Long gameId);
-
-	/**
 	 * 여러 게임 요약을 조회한다.
 	 *
 	 * @param gameIds 알밤메이트 내부 게임 ID

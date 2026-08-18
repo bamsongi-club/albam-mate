@@ -90,7 +90,7 @@ class ModuleArchitectureTest {
 		"room", List.of("auth", "notification", "chat", "matching"),
 		"notification", List.of("auth", "user", "game", "chat", "matching"),
 		"chat", List.of("auth", "game", "notification"),
-		"matching", List.of("auth", "room", "notification", "chat"));
+		"matching", List.of("auth", "game", "room", "notification", "chat"));
 	private static final JavaClasses PRODUCTION_CLASSES = new ClassFileImporter()
 		.withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
 		.importPackages(ROOT_PACKAGE);
@@ -135,7 +135,7 @@ class ModuleArchitectureTest {
 						.map(ModuleArchitectureTest::modulePackage)
 						.toArray(String[]::new))
 				.because(
-					"허용된 참조 방향은 auth→user, room→user·game, notification→room.contract, chat→room.contract·user.contract이다")
+					"업무 모듈 간 참조 방향은 이 테스트의 명시된 금지 목록과 각 모듈의 contract 경계를 따른다")
 				.allowEmptyShould(sourceModule.equals("notification"))
 				.check(PRODUCTION_CLASSES));
 	}

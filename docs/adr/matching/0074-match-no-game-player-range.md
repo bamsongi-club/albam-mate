@@ -25,12 +25,14 @@ MATCH-01의 초기 계약은 사용자가 게임을 선택하고 Board Game Aren
 
 MATCH-01은 게임과 플랫폼을 매칭 조건·저장 데이터·응답 표현에서 제거하고, 사용자가 원하는 최소·최대 인원 범위만으로 매칭한다.
 
-- 매칭 요청은 `minPlayers`와 `maxPlayers`만 입력 조건으로 받는다. `minPlayers > 0`, `minPlayers <= maxPlayers`만 검증하고 두 값은 사용자가 입력한 값 그대로 저장·조회한다.
-- 후보는 연결된 요청들의 인원 범위 교집합이 존재할 때만 구성한다. 실제 `partySize`는 교집합의 하한, 즉 선택된 요청들의 `minPlayers` 중 최댓값으로 고정한다. 교집합이 없으면 해당 요청은 후보가 되지 않고 `WAITING`으로 남는다.
+- 매칭 요청은 `minPlayers`와 `maxPlayers`만 입력 조건으로 받는다. `1 <= minPlayers <= maxPlayers <= 32767`을 검증하고 두 값은 사용자가 입력한 값 그대로 저장·조회한다. 현재 persistence의 `SMALLINT` 상한, API·Entity 검증 상한과 DB `CHECK` 상한을 같은 값으로 고정하며, #838의 forward migration도 이 불변식을 유지한다.
+- 후보는 다음 결정적 절차로 구성한다. (1) `prioritySince ASC, matchRequestId ASC`에서 가장 오래된 `WAITING` 요청을 anchor로 고정한다. (2) anchor의 `minPlayers`부터 `maxPlayers`까지 `targetPartySize`를 오름차순으로 시도한다. (3) 각 시도에서 FIFO 순서로 `minPlayers <= targetPartySize <= maxPlayers`인 요청만 남기고, 차단 요청은 제외하며, `targetPartySize`명에서 선택을 멈춘다. (4) 정확히 `targetPartySize`명을 선택했고 선택된 요청의 `minPlayers` 최댓값이 `targetPartySize`일 때만 후보를 확정한다. 이때 교집합 하한과 실제 `partySize`가 모두 `targetPartySize`가 된다. 호환되지 않는 요청은 건너뛰지만 FIFO로 먼저 선택된 호환 요청을 뒤 요청으로 바꾸는 backtracking은 하지 않는다. 모든 시도가 실패하면 anchor는 `WAITING`으로 남는다.
 - `prioritySince ASC, matchRequestId ASC`의 제한된 FIFO, 차단 관계 제외, 사용자당 활성 요청 하나, PostgreSQL 선점·멱등성·응답 경합·채팅 복구 규칙은 유지한다.
 - MATCH 요청·제안·성공 파티·현재 상태 조회·채팅 handoff에는 게임과 플랫폼을 포함하지 않는다. `game` 모듈의 카탈로그·지원 인원·플랫폼 정보를 읽거나, 게임을 검증·추천·예약·링크 생성하지 않는다.
 - 전원 수락 뒤 연결되는 MATCH 채팅은 참가자를 연결하는 공간만 제공한다. 참가자들은 채팅에서 원하는 게임과 진행 방법을 직접 정한다.
 - 기존 저장 구조의 `game_id` 제거와 필요한 참조·인덱스·제약 변경은 [#838](https://github.com/bamsongi-club/albam-mate/issues/838)의 새 forward migration과 같은 변경에서 처리한다. 이미 반영된 V28/V29 migration 파일은 수정하지 않는다.
+
+혼합 범위 예시에서 FIFO anchor `R1=[2,4]`, 이후 요청 `R2=[4,4]`, `R3=[2,2]`, `R4=[4,4]`, `R5=[4,4]`를 사용하면 `targetPartySize=2`에서 `R2`를 건너뛰고 `R1·R3`를 선택해 `partySize=2`로 확정한다. 이 예시는 `MATCH-01-T2`와 후보 탐색 baseline 전 별도 correctness smoke에서 재현한다.
 
 ## 결과
 
@@ -51,6 +53,7 @@ MATCH-01은 게임과 플랫폼을 매칭 조건·저장 데이터·응답 표�
 - 지금 하지 않는 것: 게임 선택 UI, 게임별 후보 필터, 플랫폼 계정 연동, 게임 지원 인원 검증, 시스템 게임 추천, 외부 게임방 생성과 링크 유효성 검사.
 - 보류 이유: 현재 MVP의 목표가 사람 매칭률과 구현 단순성 확인이며, 채팅에서 참가자들이 게임을 직접 정하는 운영으로 시작하기로 했기 때문이다.
 - 다시 검토할 조건: 게임별 매칭이 필요하다는 사용자 요구가 확인되거나, 서로 다른 게임 선택으로 채팅 합의가 반복적으로 실패하거나, 후보 풀이 지나치게 넓어 매칭 품질·안전 문제가 측정되는 경우. 재도입 시에는 게임 선택 시점·지원 인원 snapshot·플랫폼 범위·기존 요청 호환·마이그레이션을 별도 ADR로 결정한다.
+- 저장 타입을 `INTEGER`로 넓히는 migration을 도입하면 API·Entity 검증 상한과 DB CHECK를 같은 변경에서 다시 결정하고 이 ADR을 갱신한다.
 
 ## 참고 자료
 

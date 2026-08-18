@@ -836,8 +836,8 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
-| `minPlayers` | integer | Y | N | 사용자가 등록한 희망 인원 범위의 하한 |
-| `maxPlayers` | integer | Y | N | 사용자가 등록한 희망 인원 범위의 상한 |
+| `minPlayers` | integer | Y | N | `1`~`32767` 범위에서 사용자가 등록한 희망 인원 범위의 하한 |
+| `maxPlayers` | integer | Y | N | `minPlayers` 이상 `32767` 이하인 희망 인원 범위의 상한 |
 | `queuedAt` | string(date-time) | Y | N | 현재 대기 시도를 시작한 시각 |
 
 ### 4.24 MatchProposalSummary
@@ -2572,8 +2572,8 @@ MATCHING은 매칭 요청·제안·성공 파티와 그 접근 관계를 소유�
 
 | 필드 | 타입 | 필수 | nullable | 검증 |
 |---|---|:---:|:---:|---|
-| `minPlayers` | integer | Y | N | 1 이상이며 `maxPlayers` 이하 |
-| `maxPlayers` | integer | Y | N | `minPlayers` 이상 |
+| `minPlayers` | integer | Y | N | `1` 이상 `32767` 이하이며 `maxPlayers` 이하 |
+| `maxPlayers` | integer | Y | N | `minPlayers` 이상 `32767` 이하 |
 
 게임과 플랫폼은 요청·응답·매칭 후보 조건에 포함하지 않는다. 두 인원 값이 유효하면 게임 카탈로그를 조회하지 않고 요청을 등록한다. 현재 후보가 없거나 다른 요청과 인원 범위가 겹치지 않으면 `WAITING` 상태로 성공한다.
 

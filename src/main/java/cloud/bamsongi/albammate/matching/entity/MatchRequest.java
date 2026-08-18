@@ -22,6 +22,9 @@ import lombok.NoArgsConstructor;
 @Table(name = "match_requests")
 public class MatchRequest extends BaseEntity {
 
+	private static final int MIN_PARTY_SIZE = 1;
+	private static final int MAX_PARTY_SIZE = Short.MAX_VALUE;
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
@@ -49,6 +52,8 @@ public class MatchRequest extends BaseEntity {
 
 	public static MatchRequest create(
 		long userId, long gameId, int minPartySize, int maxPartySize, MatchRequestStatus status) {
+		validatePartySize(minPartySize, maxPartySize);
+
 		MatchRequest request = new MatchRequest();
 		Instant now = Instant.now();
 		request.userId = userId;
@@ -59,5 +64,14 @@ public class MatchRequest extends BaseEntity {
 		request.queuedAt = now;
 		request.prioritySince = now;
 		return request;
+	}
+
+	private static void validatePartySize(int minPartySize, int maxPartySize) {
+		if (minPartySize < MIN_PARTY_SIZE
+			|| maxPartySize > MAX_PARTY_SIZE
+			|| minPartySize > maxPartySize) {
+			throw new IllegalArgumentException(
+				"매칭 인원 범위는 1 이상 32767 이하이며 최소값은 최대값보다 클 수 없습니다.");
+		}
 	}
 }

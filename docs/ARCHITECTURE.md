@@ -640,7 +640,7 @@ Repository Projection은 쿼리가 선택한 열을 담는 저장소 계층 타�
 
 - 업무 모듈 사이의 순환 의존 금지
 - 다른 업무 모듈의 `contract` 외 내부 구현 참조 금지
-- `auth → user`, `room → user·game`, `notification → room.contract`, `chat → room.contract·user.contract·matching.contract`, `matching → user.contract` 외 현재 업무 모듈 의존 금지
+- `auth → user`, `room → user·game`, `notification → room.contract`, `chat → room.contract·user.contract·matching.contract`, `matching → user.contract`만 허용하며 `matching → game`은 금지
 - `global`의 업무 모듈 의존 금지
 - 생산 코드의 `@Autowired` 필드·생성자·메서드 주입 금지
 - ROOM 코드를 `contract`를 포함해 이 문서가 허용한 패키지에만 배치

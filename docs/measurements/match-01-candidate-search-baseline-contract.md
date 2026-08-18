@@ -30,6 +30,20 @@ fixture 생성·truncate·통계 초기화는 측정 구간 밖에서 끝낸다.
 4. DB 삽입 전에 `fixtureOrdinal,userFixtureOrdinal,queuedAt,prioritySince,minPartySize,maxPartySize` 열 순서와 ordinal 오름차순, UTF-8·LF·마지막 LF를 사용하는 CSV를 만든다. 이 바이트의 SHA-256을 `fixtureInputSha256`으로 기록하고 모든 warm-up·measured round에서 같은 값인지 먼저 검증한다.
 5. 삽입 뒤 materialized fixture manifest에는 위 입력 열과 실제 `userId`·`requestId`, 기대 tie 순서를 기록한다. 각 동점 쌍에서 낮은 ordinal의 `requestId`가 더 작아야 하며, 다르면 측정을 시작하지 않고 해당 round를 `INVALID`로 남긴다.
 
+## 혼합 범위 correctness smoke
+
+후보 선택의 혼합 범위 정합성은 성능 표본에 섞지 않고 baseline 실행 전 별도 smoke로 검증한다. 아래 다섯 요청을 `prioritySince ASC, requestId ASC` 순서로 넣고, 차단 관계는 두지 않는다.
+
+| 요청 | 인원 범위 |
+| --- | --- |
+| `R1` (anchor) | `[2,4]` |
+| `R2` | `[4,4]` |
+| `R3` | `[2,2]` |
+| `R4` | `[4,4]` |
+| `R5` | `[4,4]` |
+
+검증 결과는 `targetPartySize`를 anchor의 최소값부터 오름차순으로 시도할 때 `targetPartySize=2`에서 `R2`를 건너뛰고 `R1·R3`를 선택하는 `partySize=2` proposal 한 건이어야 한다. `R2`처럼 현재 target과 호환되지 않는 요청을 건너뛰며, FIFO로 먼저 선택된 호환 요청을 뒤 요청으로 바꾸지 않는 것도 함께 확인한다. smoke 결과와 실행한 commit SHA는 baseline 결과 artifact에 기록하되, latency 표본·`BASELINE_ACCEPTED`의 1,000건 계산에는 포함하지 않는다.
+
 ## round와 수집 방식
 
 1. 같은 fixture·topology로 warm-up round 1회를 실행하고, 그 결과는 통계·판정에서 제외한다.

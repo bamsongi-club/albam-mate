@@ -15,7 +15,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import cloud.bamsongi.albammate.game.contract.GamePlayerRange;
 import cloud.bamsongi.albammate.game.contract.GameQuery;
 import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
@@ -45,18 +44,6 @@ class GameSummaryQueryServiceTest {
 		assertEquals(Optional.of(expected), gameSummaryQueryService.findSummaryById(gameId));
 
 		verify(gameRepository).findSummaryById(gameId);
-		verify(gameRepository, never()).findById(gameId);
-	}
-
-	@Test
-	void 게임_지원_인원_범위는_매칭_전용_projection으로_조회한다() {
-		Long gameId = 1L;
-		GamePlayerRange expected = new GamePlayerRange(gameId, 2, 4);
-		when(gameRepository.findPlayerRangeById(gameId)).thenReturn(Optional.of(expected));
-
-		assertEquals(Optional.of(expected), gameSummaryQueryService.findPlayerRangeById(gameId));
-
-		verify(gameRepository).findPlayerRangeById(gameId);
 		verify(gameRepository, never()).findById(gameId);
 	}
 
