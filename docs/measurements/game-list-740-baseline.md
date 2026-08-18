@@ -6,7 +6,7 @@
 
 이 문서는 **측정/진단만** 다룬다. 인덱스 추가, 쿼리 변경, `Page` 계약 변경, 캐시, 프론트 로딩 전략은 #740 범위가 아니다.
 
-2026-08-18 실제 측정 결과는 [game-list-740-2026-08-18.md](results/game-list-740/game-list-740-2026-08-18.md)에 기록했다. 첨부된 `albam-mate-170k-patched-v4.zip`을 직접 import한 뒤 PR #771 최신 head인 server/runner commit `5b2909d`에서 수집한 HTTP baseline, 실제 SQL statement capture, `EXPLAIN (ANALYZE, BUFFERS)`를 포함한다.
+2026-08-18 실제 측정 결과는 [game-list-740-2026-08-18.md](results/game-list-740/game-list-740-2026-08-18.md)에 기록했다. 첨부된 `albam-mate-170k-patched-v4.zip`을 직접 import한 뒤 PR #771의 측정 대상 server/runner commit `5b2909d`에서 수집한 HTTP baseline, 실제 SQL statement capture, `EXPLAIN (ANALYZE, BUFFERS)`를 포함한다.
 
 v4 ZIP의 SHA-256과 SQL 파일 checksum, import 순서, 측정 DB의 실제 row count를 결과 문서에 함께 남겼다. local `afterMigrate`가 만든 음수 BGG ID fixture 30건은 room 참조가 없음을 확인한 뒤 격리된 측정 DB에서만 제거하여 v4 게임 수를 `170,005`건으로 맞췄다.
 
