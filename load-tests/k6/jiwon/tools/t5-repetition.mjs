@@ -517,6 +517,12 @@ function readT5RunArtifact(buildRoot, run) {
       startedAtUtc: completion.value.startedAtUtc,
       finishedAtUtc: completion.value.finishedAtUtc,
     },
+    provenance: {
+      sourceSha: completion.value.sourceSha.toLowerCase(),
+      deployedRelease: portableManifest.value.sourceRevision.toLowerCase(),
+      targetEnvironment: completion.value.targetEnvironment,
+      k6Version: completion.value.k6Version,
+    },
     metrics: summary.value,
     resourceSignals: resourceSignals.value,
     artifactSha256: {
@@ -529,6 +535,17 @@ function readT5RunArtifact(buildRoot, run) {
 
 function comparisonOutputPath(buildRoot, campaignId) {
   return path.join(buildRoot, 't5-campaign', campaignId, COMPARISON_FILE);
+}
+
+const CAMPAIGN_PROVENANCE_FIELDS = [
+  'sourceSha',
+  'deployedRelease',
+  'targetEnvironment',
+  'k6Version',
+];
+
+function provenanceDifferences(expected, actual) {
+  return CAMPAIGN_PROVENANCE_FIELDS.filter((field) => expected[field] !== actual[field]);
 }
 
 export function compareT5RepetitionCampaign({ campaignId, buildRoot = defaultBuildRoot, outputPath } = {}) {
@@ -553,6 +570,22 @@ export function compareT5RepetitionCampaign({ campaignId, buildRoot = defaultBui
     }
   }
 
+  const allResults = [...runsByCondition.values()].flat();
+  const passingResults = allResults.filter((result) => result.kind === 'PASS');
+  const expectedProvenance = passingResults[0]?.provenance || null;
+  if (expectedProvenance) {
+    for (const result of passingResults.slice(1)) {
+      const differences = provenanceDifferences(expectedProvenance, result.provenance);
+      if (differences.length === 0) {
+        continue;
+      }
+      result.kind = 'INVALID';
+      result.failure = `${result.run.repeatId}/${result.run.conditionKey}: T5 campaign provenance 불일치 (${differences.join(', ')})`;
+      invalidArtifact.push(result);
+      failures.push(result.failure);
+    }
+  }
+
   const conditions = [];
   let acceptedCount = 0;
   let acceptedRunCount = 0;
@@ -573,6 +606,7 @@ export function compareT5RepetitionCampaign({ campaignId, buildRoot = defaultBui
         runId: result.run.runId,
         fixtureId: result.run.fixtureId,
         status: result.kind,
+        provenance: result.provenance || null,
         window: result.window || null,
         metrics: result.metrics || null,
         resourceSignals: result.resourceSignals || null,
@@ -605,6 +639,7 @@ export function compareT5RepetitionCampaign({ campaignId, buildRoot = defaultBui
     acceptedCount,
     acceptedRunCount,
     failures,
+    provenance: expectedProvenance,
     conditions,
   };
   const targetPath = outputPath || comparisonOutputPath(buildRoot, plan.campaignId);

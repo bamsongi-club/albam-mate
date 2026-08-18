@@ -228,6 +228,12 @@ test('T5 반복 비교는 18개 완료 artifact를 role·scale별 6/6 accepted�
     assert.equal(result.acceptedRunCount, 18);
     assert.equal(result.acceptedCount, 6);
     assert.equal(result.failures.length, 0);
+    assert.deepEqual(result.provenance, {
+      sourceSha: SOURCE_SHA,
+      deployedRelease: SOURCE_SHA,
+      targetEnvironment: 'private-loadtest',
+      k6Version: 'v1.3.0',
+    });
     assert.equal(existsSync(outputPath), true);
 
     const publicScale10 = result.conditions.find((condition) => condition.conditionKey === 'public-10');
@@ -242,6 +248,34 @@ test('T5 반복 비교는 18개 완료 artifact를 role·scale별 6/6 accepted�
     assert.equal(publicScale10.runs[0].metrics.rps, 10);
     assert.equal(publicScale10.runs[0].resourceSignals.query.callCount, 10);
     assert.equal(publicScale10.runs[0].resourceSignals.postgresql.activeConnections, 2);
+  } finally {
+    rmSync(buildRoot, { recursive: true, force: true });
+  }
+});
+
+test('T5 반복 비교는 run 사이 provenance가 다르면 INVALID다', () => {
+  const buildRoot = mkdtempSync(path.join(os.tmpdir(), 'room-k6-t5-provenance-mismatch-'));
+  try {
+    const plan = writeCampaignArtifacts(buildRoot, 'room-t5-provenance-mismatch-test');
+    const run = plan.runs.find((candidate) => candidate.conditionKey === 'public-10' && candidate.repeat === 2);
+    const directory = path.join(buildRoot, run.runId, run.fixtureId);
+    const portableManifestPath = path.join(directory, 'manifest.json');
+    const portableManifest = JSON.parse(readFileSync(portableManifestPath, 'utf8'));
+    portableManifest.sourceRevision = 'b'.repeat(40);
+    writeJson(portableManifestPath, portableManifest);
+
+    const runManifestPath = path.join(directory, RUN_MANIFEST_FILE);
+    const runManifest = JSON.parse(readFileSync(runManifestPath, 'utf8'));
+    runManifest.sourceSha = 'b'.repeat(40);
+    runManifest.targetEnvironment = 'private-loadtest-other';
+    writeJson(runManifestPath, runManifest);
+
+    const result = compareT5RepetitionCampaign({ campaignId: plan.campaignId, buildRoot });
+
+    assert.equal(result.status, 'INVALID');
+    assert.equal(result.acceptedCount, 5);
+    assert.equal(result.acceptedRunCount, 15);
+    assert.match(result.failures.join('\n'), /provenance.*불일치/);
   } finally {
     rmSync(buildRoot, { recursive: true, force: true });
   }

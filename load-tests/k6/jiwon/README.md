@@ -165,7 +165,7 @@ node load-tests/k6/jiwon/tools/t5-repetition.mjs plan --campaign-id $campaignId
 node load-tests/k6/jiwon/tools/t5-repetition.mjs compare --campaign-id $campaignId
 ```
 
-`compare`는 artifact를 회수한 앱 checkout에서 각 portable bundle의 원본 `run-manifest.json`과 `resource-signals.json`을 읽어 completion window·fixture/summary SHA-256·고정 read profile(10 VU/60초/0ms)·성공 응답 p50/p95/p99/max/count/RPS를 role·scale·repeat에 연결한다. HTTP·Tomcat·Hikari·JVM·PostgreSQL 신호 또는 query call/time/buffer 입력이 없거나 p99/RPS가 없으면 `INVALID`이며, 18개 run과 6개 조건이 모두 accepted일 때만 `PASS`다. 원격 k6가 끝난 뒤 `fixture.mjs run`을 다시 호출하거나 completion artifact를 수동 생성하지 않는다.
+`compare`는 artifact를 회수한 앱 checkout에서 각 portable bundle의 원본 `run-manifest.json`과 `resource-signals.json`을 읽어 completion window·fixture/summary SHA-256·고정 read profile(10 VU/60초/0ms)·성공 응답 p50/p95/p99/max/count/RPS를 role·scale·repeat에 연결한다. source SHA·배포 release·대상 환경·k6 version은 첫 유효 run의 campaign provenance와 모든 비교 run을 대조하며, 하나라도 다르면 `INVALID`다. HTTP·Tomcat·Hikari·JVM·PostgreSQL 신호 또는 query call/time/buffer 입력이 없거나 p99/RPS가 없으면 `INVALID`이며, 18개 run과 6개 조건이 모두 accepted일 때만 `PASS`다. 원격 k6가 끝난 뒤 `fixture.mjs run`을 다시 호출하거나 completion artifact를 수동 생성하지 않는다.
 
 ## 결과 확인
 
