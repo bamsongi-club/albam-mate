@@ -1,8 +1,8 @@
 # ADR-0066: 검색 품질 corpus와 대규모 catalog 성능 검증 corpus를 분리
 
-- 상태: 제안됨
+- 상태: 승인됨
 - 작성일: 2026-08-18
-- 결정일: 미정
+- 결정일: 2026-08-18
 - 관련: [SEARCH-04 이슈 #712](https://github.com/bamsongi-club/albam-mate/issues/712), [SEARCH-04 명세](../../p2/search.md), [ADR-0060: 승인된 카탈로그 release의 AI·embedding 처리 범위를 허용](0060-approved-catalog-ai-embedding-scope.md), [ADR-0058: 외부·내부 원천을 결합한 게임 인기 점수와 기본 정렬](0058-external-ranking-and-popularity-sort.md), [ADR-0050: 17만 게임 메타데이터를 관계로 관리하고 상세 필터를 제공](0050-game-metadata-catalog-and-filters.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
