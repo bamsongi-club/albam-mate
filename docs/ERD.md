@@ -1,6 +1,6 @@
 # 알밤메이트 ERD
 
-이 문서는 현재 P0·P1 데이터 모델과 데이터 제약, 그리고 승인된 P2 `MATCH-01`의 계획 저장 계약을 정의한다. 이 문서에 적은 P1 알림·채팅·다중 인스턴스 스케줄 잠금·소셜 계정·대기열·게임 검색 수치·메타데이터·메커니즘·사용자별 해 본 게임 관계는 전진 Flyway 마이그레이션과 생산 코드에 반영돼 있다. 아래 P2 MATCH 절은 구현 목표일 뿐 아직 Flyway·JPA 엔티티·생산 코드에 반영되지 않았다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), P2 진행 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
+이 문서는 현재 P0·P1 데이터 모델과 데이터 제약, 승인된 P2 `AI-01`~`AI-03` 계획 저장 계약과 구현된 P2 `MATCH-01` 저장 구조를 정의한다. 이 문서에 적은 P1 알림·채팅·다중 인스턴스 스케줄 잠금·소셜 계정·대기열·게임 검색 수치·메타데이터·메커니즘·사용자별 해 본 게임 관계와 P2 MATCH 저장 구조는 전진 Flyway 마이그레이션과 생산 코드에 반영돼 있다. 아래 P2 AI 기능군 절은 구현 목표일 뿐 아직 Flyway·JPA 엔티티·생산 코드에 반영되지 않았다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), P2 진행 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
 
 ### 이 문서의 범위
 
@@ -8,12 +8,13 @@
 |---|---|
 | 이 문서가 정본인 것 | 테이블·컬럼·타입·DB 제약, 저장 계산식과 저장 불변식 |
 | 이 문서가 담지 않는 것 | 제품 규칙(상태 전이·권한·시간·정원)은 [P2 명세](P2-spec.md), [P1 종료 명세](archive/p1/README.md)와 [P0-spec](archive/p0/P0-spec.md#공통-규칙), 요청·응답 계약은 [API](API.md), 기술 결정 이유는 [ADR](adr/README.md) |
-| P2 MATCH 표기 | 아래 P2 MATCH 테이블·인덱스는 승인된 계획 계약이다. 현재 물리 schema·JPA 매핑·API 제공 여부는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정한다. |
+| P2 AI-01~AI-03 표기 | 아래 P2 AI 기능군 테이블·인덱스는 승인된 계획 계약이며 아직 물리 schema·JPA 매핑에 반영되지 않았다. |
+| P2 MATCH 표기 | 아래 P2 MATCH 테이블·인덱스는 승인된 저장 계약이며 물리 schema·JPA 매핑은 존재한다. 기능 제공·검증·배포·실측 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로 판정한다. |
 | 변경 시 함께 갱신 | 스키마를 바꾸면 Flyway 마이그레이션과 JPA 엔티티를 같은 변경에서 일치시킨다(→ [마이그레이션 작업 안내](../src/main/resources/db/migration/AGENTS.md), [ADR-0008](adr/platform/0008-flyway-database-migrations.md)) |
 
 ## 기준과 범위
 
-- 기준: 새 P2 저장 계약은 [P2 기능 명세](p2/README.md)와 필요한 ADR을 먼저 확정하고 같은 변경에서 이 문서에 반영한다. 아래 P2 MATCH 절의 후속 물리 구현도 같은 기준을 따른다. 기존 P0·P1 규칙은 [P0 공통 명세](archive/p0/P0-spec.md), [P1 종료 명세](archive/p1/README.md)와 [관련 ADR](adr/README.md)을 따른다.
+- 기준: 새 P2 저장 계약은 [P2 기능 명세](p2/README.md)와 필요한 ADR을 먼저 확정하고 같은 변경에서 이 문서에 반영한다. 아래 P2 AI 기능군 절의 후속 물리 구현도 같은 기준을 따른다. 기존 P0·P1 규칙은 [P0 공통 명세](archive/p0/P0-spec.md), [P1 종료 명세](archive/p1/README.md)와 [관련 ADR](adr/README.md)을 따른다.
 - 범위: 현재 P0의 오프라인 방·게임 목록·사용자·방 참가, P1의 소셜 계정·대기열과 게임 검색 수치·메커니즘 목록·관계·사용자별 해 본 게임 관계·서비스 내 알림·방별 채팅·공용 스케줄 잠금, 3차 MVP RANK-02 인기 점수, P2 계획의 Board Game Arena 고정 MATCH 요청·제안·성공 파티·전용 채팅·신고·차단
 - 제외: 기존 ROOM을 확장한 온라인 방·온라인 ROOM 자동 매칭, 후기, 룰마스터 가능 게임, 결제·포인트. 아래 `MATCH-01`은 기존 ROOM·참가·대기열과 별개인 Board Game Arena 고정 P2 계획 계약이므로 이 제외 범위에 포함하지 않는다.
 - P0 검색: 게임 목록은 게임명 `keyword`, 사람 중심 방 목록은 방 제목 `keyword` 검색을 지원한다. 게임 태그는 표시값이며 필터가 아니다.
@@ -430,7 +431,7 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 | description | VARCHAR(255) | NULL | 선택 모임 소개 |
 | experience_level | VARCHAR(30) | NN, `ck_rooms_experience_level`: `CHECK (experience_level IN ('ALL_LEVELS', 'BEGINNER_WELCOME', 'EXPERIENCED_PREFERRED'))` | `ALL_LEVELS`, `BEGINNER_WELCOME`, `EXPERIENCED_PREFERRED` |
 | is_rulemaster_led | BOOLEAN | NN | 개설자의 룰마스터 진행 자기신고 |
-| region | VARCHAR(50) | NN, DEFAULT `홍대` | 모임 지역 |
+| region | VARCHAR(50) | NN, DEFAULT `홍대` · P2 목표 `ck_rooms_region`: `CHECK (region IN ('홍대', '강남', '건대', '잠실'))` | 모임 지역. AI-03 확인형 생성은 닫힌 지역 집합을 사용 |
 | capacity | INT | NN | 방 생성 시 입력하는 개설자 제외 모집 정원 |
 | active_participant_count | INT | NN, DEFAULT 0 | 개설자를 제외한 현재 `ACTIVE` 참가 관계 수 |
 | start_at | TIMESTAMPTZ | NN | 실제 모임 시작 시각 |
@@ -441,6 +442,8 @@ ERD의 `ROOMS` 표기는 물리 테이블명 `rooms`를 뜻한다.
 | updated_at | TIMESTAMPTZ | NN | 수정 시각 |
 
 `idx_rooms_public_start_at_id (start_at, id) WHERE status IN ('RECRUITING', 'CLOSED')`는 공개 방의 날짜 범위와 `startsAt ASC, id ASC` 페이지를 위한 PostgreSQL 전용 부분 인덱스다.
+
+P2 AI-03a migration은 기존 `rooms.region` 값을 먼저 검사한다. 허용 집합 밖의 값이 하나라도 있으면 제약을 추가하지 않고 migration을 중단하며, 기존 Room 행은 재작성하지 않는다. 기존 직접 Room 생성 요청의 `region` 생략과 `홍대` 기본값은 호환 기간 동안 유지한다.
 
 ### PARTICIPATIONS
 
@@ -716,6 +719,104 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 - 사용자·방 삭제 기능은 P1 알림 범위에 없으므로 관련 FK는 `ON DELETE NO ACTION`으로 둔다. 향후 계정 삭제나 방 물리 삭제를 도입할 때 알림 익명화·삭제 순서를 별도로 결정한다.
 - 별도 복구 이력 테이블은 두지 않는다. 현재·누적 실패 횟수, 재처리 횟수와 마지막 실패·재처리·폐기 근거만 Outbox에 보존하며 강한 감사 이력이 필요해지면 후속 저장 계약으로 확장한다.
 
+## P2 AI 기능군 저장 계약 (계획·미구현)
+
+> 이 절은 `AI-01`~`AI-03`의 승인된 목표 저장 계약이며 아직 Flyway·JPA 엔티티·생산 테이블이 없다. 현재 제공·검증·배포·실측 여부는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 판정한다. 외부 provider·동의·보존·비용 경계는 [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), 초안·확인·멱등성은 [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)을 따른다.
+
+이 절은 AI-01 동의와 AI-03 초안·확인 멱등성의 저장 이름·타입·제약과 저장 효과만 소유한다. AI-02의 자연어 요청·provider payload·모델 원문 응답·대화 이력·게임 후보는 저장하지 않으며, HTTP 필드·오류는 [AI 기능군 API](API.md#ai-기능군-api), 모듈·트랜잭션 흐름은 [아키텍처의 AI 기능군 모듈 계약](ARCHITECTURE.md#p2-ai-기능군-모듈-계약-승인된-계획미구현)이 소유한다.
+
+### 소유 경계와 관계도
+
+`assistant`는 AI-01의 사용자별 외부 처리 동의와 AI-03의 현재 초안·확인 결과 참조를 소유한다. AI-02의 provider 호출·추천 결과를 위한 원문·대화·후보 저장 테이블은 만들지 않는다. `ROOMS`·`CHAT_ROOMS`는 기존 `room`의 저장 구조를 유지하며 확인 성공 시 결과만 참조한다.
+
+~~~mermaid
+erDiagram
+    USERS ||--o| ASSISTANT_CONSENTS : "동의"
+    USERS ||--o{ ASSISTANT_DRAFTS : "초안"
+    ASSISTANT_DRAFTS ||--o| ASSISTANT_IDEMPOTENCY_RECORDS : "확인 멱등성"
+    ROOMS o|--o| ASSISTANT_DRAFTS : "확인 결과"
+    CHAT_ROOMS o|--o| ASSISTANT_DRAFTS : "확인 결과"
+~~~
+
+### ASSISTANT_CONSENTS
+
+사용자별 최신 외부 처리 동의와 확인된 provider 정책 메타데이터만 저장한다. 동의 원문·provider token·자연어 입력은 저장하지 않는다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| user_id | BIGINT | PK, FK → USERS.id, NN | 동의 주체. 한 사용자당 한 최신 상태 |
+| status | VARCHAR(20) | NN, `ck_assistant_consents_status`: `CHECK (status IN ('GRANTED', 'REVOKED'))` | 행이 없으면 API에서 `NOT_GRANTED`로 응답 |
+| consent_version | VARCHAR(50) | NN | 사용자가 승인한 동의문 버전 |
+| provider | VARCHAR(20) | NN, `CHECK (provider = 'OPENAI')` | 현재 승인 provider |
+| policy_version | VARCHAR(100) | NN | 확인한 provider 정책 버전 |
+| policy_url | VARCHAR(500) | NN | 확인한 provider 정책 주소 |
+| store | BOOLEAN | NN, `CHECK (store = FALSE)` | provider 요청 저장 금지 |
+| granted_at | TIMESTAMPTZ | NULL | 마지막 동의 시각 |
+| revoked_at | TIMESTAMPTZ | NULL | 마지막 철회 시각 |
+| updated_at | TIMESTAMPTZ | NN | 상태 갱신 시각 |
+
+### ASSISTANT_DRAFTS
+
+`CREATE_ROOM`으로 전환한 구조화 입력을 15분 동안 보관하는 임시 초안이다. `place`는 사용자가 확인 카드에서 직접 입력하기 전까지 NULL일 수 있으며, 초안 자체는 Room·ChatRoom·참가 관계가 아니다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | BIGINT | PK, NN, AI | 초안 식별자 |
+| user_id | BIGINT | FK → USERS.id, NN | 초안 소유 사용자 |
+| draft_version | BIGINT | NN, DEFAULT 0 | PATCH·confirm의 낙관적 버전 |
+| status | VARCHAR(20) | NN, `ck_assistant_drafts_status`: `CHECK (status IN ('ACTIVE', 'CONFIRMED', 'DISCARDED'))` | 만료는 요청 시작 시각에 논리 판정하며 별도 scheduler 상태를 요구하지 않음 |
+| room_type | VARCHAR(20) | NN | 기존 `ROOMS.room_type` 값 집합 |
+| title | VARCHAR(100) | NN | 확인형 Room 제목 |
+| description | VARCHAR(255) | NULL | 선택 소개 |
+| game_id | BIGINT | FK → GAMES.id, NULL | `GAME_FOCUSED` 선택 게임 |
+| experience_level | VARCHAR(30) | NN | 기존 Room 경험 수준 값 집합 |
+| is_rulemaster_led | BOOLEAN | NN | 룰마스터 진행 자기신고 |
+| region | VARCHAR(50) | NN, DEFAULT `홍대` | `홍대`·`강남`·`건대`·`잠실` 중 하나 |
+| capacity | INT | NN | 개설자 제외 모집 정원 |
+| start_at | TIMESTAMPTZ | NN | 확인형 Room 시작 시각 |
+| place | VARCHAR(100) | NULL | 확인 전 사용자 입력 대기. confirm 전 NN이어야 함 |
+| expires_at | TIMESTAMPTZ | NN | 생성 시각 + 15분. API 응답에는 노출하지 않음 |
+| confirmed_at | TIMESTAMPTZ | NULL | Room 확인 성공 시각 |
+| room_id | BIGINT | FK → ROOMS.id, NULL | 확인 성공 결과 Room 참조 |
+| chat_room_id | BIGINT | FK → CHAT_ROOMS.id, NULL | 같은 트랜잭션 결과 ChatRoom 참조 |
+| created_at, updated_at | TIMESTAMPTZ | NN | 생성·마지막 변경 시각 |
+
+### ASSISTANT_IDEMPOTENCY_RECORDS
+
+확인 명령의 같은 범위·같은 key 재시도와 다른 key 충돌을 저장한다. 원본 `Idempotency-Key`와 자연어·payload는 저장하지 않고 SHA-256 hash와 결과 메타데이터만 보관한다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | BIGINT | PK, NN, AI | 확인 멱등성 기록 ID |
+| user_id | BIGINT | FK → USERS.id, NN | 현재 사용자 범위 |
+| draft_id | BIGINT | FK → ASSISTANT_DRAFTS.id, NN | 확인 대상 초안 |
+| operation | VARCHAR(30) | NN, `CHECK (operation = 'DRAFT_CONFIRM')` | 현재 AI-03 확인 operation |
+| key_hash | CHAR(64) | NN | ASCII key의 SHA-256 hex digest |
+| draft_version | BIGINT | NN | 확인 시 사용한 초안 버전 |
+| status | VARCHAR(20) | NN, `CHECK (status IN ('PENDING', 'CONFIRMED'))` | 결과 확정 전·확정 후 |
+| room_id | BIGINT | FK → ROOMS.id, NULL | 성공 결과 Room 참조 |
+| chat_room_id | BIGINT | FK → CHAT_ROOMS.id, NULL | 성공 결과 ChatRoom 참조 |
+| created_at | TIMESTAMPTZ | NN | key를 등록한 시각 |
+| confirmed_at | TIMESTAMPTZ | NULL | Room·ChatRoom 결과 확정 시각 |
+| expires_at | TIMESTAMPTZ | NN | `PENDING`은 초안 만료 시각, `CONFIRMED`는 확인 시각 + 24시간 |
+
+### AI-01·AI-03 제약과 저장 경계
+
+| 대상 | 제약 또는 인덱스 | 의미 |
+|---|---|---|
+| ASSISTANT_CONSENTS | `UNIQUE (user_id)` 및 status·provider·store CHECK | 한 사용자의 최신 동의와 승인된 provider 정책만 저장한다. |
+| ASSISTANT_DRAFTS | `uq_assistant_drafts_active_user`: `UNIQUE (user_id) WHERE status = 'ACTIVE'` | 한 사용자당 활성 초안을 하나로 제한한다. |
+| ASSISTANT_DRAFTS | `ck_assistant_drafts_room_type`, `ck_assistant_drafts_experience_level`, `ck_assistant_drafts_region`, `ck_assistant_drafts_capacity` | 기존 Room 값 집합·네 지역·모집 정원 범위를 DB에서도 제한한다. |
+| ASSISTANT_DRAFTS | `ck_assistant_drafts_place_before_confirm`: `status <> 'CONFIRMED' OR place IS NOT NULL` | `ACTIVE`·`DISCARDED` 초안은 장소가 NULL일 수 있고, `CONFIRMED` 초안은 사용자 장소 입력 없이는 저장하지 않는다. |
+| ASSISTANT_DRAFTS | `ck_assistant_drafts_result`: `status = 'CONFIRMED'`이면 `confirmed_at`, `room_id`, `chat_room_id`가 모두 NN이고, 그 외에는 모두 NULL | 초안 상태와 결과 참조의 부분 기록을 막는다. |
+| ASSISTANT_IDEMPOTENCY_RECORDS | `UNIQUE (user_id, draft_id, operation)` | 한 초안 확인 범위에는 하나의 key 의미만 허용한다. 다른 key는 `ASSISTANT_DRAFT_CONFLICT`다. |
+| ASSISTANT_IDEMPOTENCY_RECORDS | `UNIQUE (user_id, key_hash)` | 같은 사용자의 key를 다른 draft·operation에 재사용하지 않는다. 시간 없는 제약이라 보존 기간 자체를 판정하지 않으며, `expires_at <= 요청 시작 시각`인 그 사용자의 행은 batch purge를 기다리지 않고 다음 초안 생성·확인 명령 트랜잭션에서 모두 삭제한 뒤 새 key를 별도 행으로 등록한다. |
+| ASSISTANT_IDEMPOTENCY_RECORDS | `idx_assistant_idempotency_expiry (expires_at, id)` | PENDING·확인 결과의 제한된 보존 정리를 지원한다. 명령은 batch purge를 기다리지 않고 만료를 판정하며, 만료 행의 실제 삭제 주체도 같은 사용자의 다음 초안 생성·확인 명령이다. |
+
+`ASSISTANT_DRAFTS` 생성·수정·확인은 모두 대상 `USERS` 행 → 초안 행 → `ASSISTANT_IDEMPOTENCY_RECORDS` 순서로 `FOR UPDATE` 잠그며, 확인은 그 뒤 요청 시작 시각·동의·version·필수 입력을 검증한다. 같은 트랜잭션에서 `ASSISTANT_IDEMPOTENCY_RECORDS`를 유일성으로 확보한 뒤 `room.contract` 확인형 command를 호출하며, Room·ChatRoom·초안 결과 참조가 함께 커밋되거나 함께 롤백된다. 같은 트랜잭션에서 그 사용자의 만료된 멱등성 기록을 먼저 모두 삭제하므로 보존이 끝난 key hash가 유일 제약에 남지 않으며, 이 정리는 멱등성 기록만 삭제하고 참조하던 Room·ChatRoom은 삭제하지 않는다. 이후 AI-03 명령을 실행하지 않는 사용자의 만료 기록이 남는 경계는 [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md)가 알려진 한계로 소유한다. 동의 철회는 활성 초안을 `DISCARDED`로 종결하고 새 provider 호출·초안 생성을 막는다.
+
+AI 기능 저장소에는 `raw_prompt`, provider 원문 응답, prompt hash, 대화 이력, BGG 원문, 후보 목록, 사용자 ID·세션·secret을 provider payload 또는 관측 저장소로 복제하는 테이블·컬럼을 두지 않는다.
+
 ## P2 MATCH 저장 계약
 
 > 이 절은 `MATCH-01`의 승인된 저장 계약이다. 아래 테이블은 Flyway 마이그레이션과 JPA 엔티티로 이미 만들어져 있으며, 기능별 제공·검증·배포·실측 여부는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 판정한다. 저장 구조가 있다는 사실을 기능 구현의 완료 증거로 읽지 않는다. 후보 선점·멱등성 선택 근거는 [ADR-0061](adr/matching/0061-postgresql-candidate-reservation-idempotency.md), MATCH 전용 채팅의 도메인 분리·port 선택 근거는 [ADR-0062](adr/matching/0062-match-chat-handoff-recovery-retention.md), URL 텍스트 표현 선택은 [ADR-0064](adr/matching/0064-match-chat-url-text-storage.md), baseline 전 목표·Redis 재검토 결정은 [ADR-0063](adr/matching/0063-match-baseline-measurement-gate.md)을 따른다. MATCH 채팅의 제품 동작·보존은 [MATCH-01 성공 파티 채팅](p2/matching.md#성공-파티-채팅), 복구 실행은 [아키텍처의 P2 MATCH 모듈 계약](ARCHITECTURE.md#p2-match-모듈-계약), candidate 측정 상세는 [후보 탐색 baseline 측정 계약](measurements/match-01-candidate-search-baseline-contract.md)이 각각 소유한다.
@@ -801,7 +902,7 @@ erDiagram
 
 ### MATCH 전용 채팅 저장
 
-이 두 테이블은 `chat` 소유의 계획 저장 구조다. `MATCH_CHAT_ROOMS`는 `MATCH_PARTIES`와 0 또는 1 관계이고 `CHAT_ROOMS`와 FK·공유 행·공유 접근 규칙을 갖지 않는다.
+이 두 테이블은 `chat` 소유의 저장 구조다. `MATCH_CHAT_ROOMS`는 `MATCH_PARTIES`와 0 또는 1 관계이고 `CHAT_ROOMS`와 FK·공유 행·공유 접근 규칙을 갖지 않는다.
 
 | 테이블 | 주요 컬럼 | 타입·제약 |
 |---|---|---|
@@ -936,4 +1037,4 @@ erDiagram
 - 방이 `CANCELED`·`FINISHED`로 전이된 뒤에도 저장된 메시지는 30일 보관하지만 일반 사용자 조회·전송·실시간 구독은 허용하지 않는다. 만료 메시지는 다음 일일 삭제 작업에서 최대 24시간 안에 제거한다.
 - ROOM Scheduler 상태 보정은 영속 순회 경계에서 제한된 ID를 선별한 뒤 ROOM마다 독립 트랜잭션으로 처리하고, cursor는 별도 조건부 갱신 트랜잭션으로 전진한다. 채팅 만료 삭제는 소량 묶음마다 독립 트랜잭션으로 처리한다. ShedLock 임대 만료로 실행이 겹쳐도 ROOM은 최신 상태를 다시 확인하고 늦은 실행 주체의 진행 상태 갱신은 generation·version 불일치로 거절한다.
 
-> 문서 관리: 소유자 `밤송이클럽 백엔드 팀` · 최종 검증일 `2026-08-15` · 폐기 조건 `저장 계약이 승인된 schema 생성 문서로 완전히 대체될 때`
+> 문서 관리: 소유자 `밤송이클럽 백엔드 팀` · 최종 검증일 `2026-08-18` · 폐기 조건 `저장 계약이 승인된 schema 생성 문서로 완전히 대체될 때`

@@ -11,7 +11,10 @@ P2는 AI 챗봇(게임 탐색 도우미 포함), 게임 의미 기반 검색, �
 | 기능 영역·문서 | 책임 | 현재 상태 |
 | --- | --- | --- |
 | [P2 공통 명세](../P2-spec.md) | P2 전체 범위, 기능 문서 작성 규칙, 공통 통합 원칙과 구현 완료 기준 | 정본 승격 완료 |
-| [`AI-01` AI 모임 도우미 명세](assistant.md#ai-01-ai-모임-도우미) | 자연어 조건 해석, 서버 추천, 명시적 확인형 Room 생성, 데이터·권한·실패·품질·안전 경계 | 초안 작성 완료·선행 결정 필요 |
+| [`AI-01` AI 모임 도우미](assistant.md#ai-01-ai-모임-도우미) | 사용자 동의·철회, assistant 진입·화면, 추천·확인 흐름과 기존 수동 Room 회귀 | 제품 계약 확정·T-ID 승인 필요·구현 보류 |
+| [`AI-02` AI 의도·추천·Provider 운영](assistant.md#ai-02-ai-의도-추출추천provider-운영) | 구조화 조건, 후보 추천, provider adapter·fake·quota·timeout·비용·usage 경계 | 제품 계약 확정·T-ID 승인 필요·구현 보류 |
+| [`AI-03` AI 초안·확인형 Room 생성](assistant.md#ai-03-ai-초안확인형-room-생성) | 15분 초안, 장소·지역, 멱등 확인과 Room·ChatRoom 원자성 | 제품 계약 확정·T-ID 승인 필요·구현 보류 |
+| [`AI-04` AI 운영 배포·실측](assistant.md#ai-04-ai-운영-배포실측) | 인프라·secret/config, production 배포·feature gate·rollback, 배포 후 제한 실측 | 제품 계약 확정·T-ID 승인 필요·구현 보류 |
 | [DISCOVERY-01 게임 탐색 도우미 명세](game-discovery-assistant.md#discovery-01) | 자연어 의도 해석·SEARCH-04 read-only tool 호출·근거 있는 응답·권한·안전·품질 | 초안 작성 완료·선행 계약 필요 |
 | [SEARCH-04 게임 의미 기반 검색 명세](search.md#search-04) | 검색 대상 데이터, 색인·질의·정렬, 기존 검색과의 관계와 품질 평가 | 초안 작성 완료·선행 계약 필요 |
 | [RANK-02 게임 인기순 정렬 명세](game-popularity.md#rank-02) | 국내·내부·국외 인기 원천 결합, 승인 배치·복구와 게임 목록 기본 정렬 | 구현·자동 검증 완료·배포/실측 필요 |
@@ -19,7 +22,7 @@ P2는 AI 챗봇(게임 탐색 도우미 포함), 게임 의미 기반 검색, �
 | [운영 관측](monitoring.md) | `OPS-01`~`OPS-05`의 기능별 지표·로그·검증 기준과 제외 범위 | OPS-01 구현·자동 검증·임시 AWS 실측·철거 완료, OPS-02 앱 HTTP·JVM·Tomcat·Hikari·Nginx timing 원천 범위 부분 구현·부분 검증, infra/AWS 배포·실측 필요 |
 | [운영 대시보드 정책](dashboard.md) | 생존·지연·실패·비용·업무 기능 결과의 화면·경고·증거 정책 | 정책 값 사용자 확인·정본 반영 완료 |
 
-P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md)와 승인 ADR의 현재 계약을 기본으로 유지한다. 각 기능 작성자는 자신의 상세 명세가 요구하는 변경만 식별하고, 구현 작업에서 소유 정본과 필요한 ADR을 함께 갱신한다.
+P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md)와 승인 ADR 또는 아직 승인되지 않은 목표 계약을 구분해 유지한다. 각 기능 작성자는 자신의 상세 명세가 요구하는 변경만 식별하고, 구현 작업에서 소유 정본과 필요한 ADR을 함께 갱신한다.
 
 ## 기능별 현재 상태
 
@@ -27,7 +30,10 @@ P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.
 
 | 기능 영역 | 기능 ID | 계약 준비 | 생산 코드 | 자동 검증 | 배포 상태 | 실측 상태 |
 | --- | --- | --- | --- | --- | --- | --- |
-| AI 챗봇 | [`AI-01`](assistant.md#ai-01-ai-모임-도우미) | 선행 계약 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
+| AI 모임 도우미 | [`AI-01`](assistant.md#ai-01-ai-모임-도우미) | T-ID 승인 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
+| AI 의도·추천·Provider | [`AI-02`](assistant.md#ai-02-ai-의도-추출추천provider-운영) | T-ID 승인 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
+| AI 초안·확인형 Room | [`AI-03`](assistant.md#ai-03-ai-초안확인형-room-생성) | T-ID 승인 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
+| AI 운영 배포·실측 | [`AI-04`](assistant.md#ai-04-ai-운영-배포실측) | T-ID 승인 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 게임 탐색 도우미 | [`DISCOVERY-01`](game-discovery-assistant.md#discovery-01) | 선행 계약 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 게임 의미 기반 검색 | [`SEARCH-04`](search.md#search-04) | 선행 계약 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 게임 인기순 정렬 | [`RANK-02`](game-popularity.md#rank-02) | 계약 준비 완료 | 구현 완료 | 자동 검증 완료 | 미배포 | 미측정 |
@@ -35,18 +41,19 @@ P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.
 | 서비스 생존·연결 | [`OPS-01`](monitoring.md#ops-01-서비스-생존과-연결-상태) | 계약 준비 완료 | 구현 완료 | 자동 검증 완료 | 임시 AWS 검증 배포·철거 완료 | `AC1`~`AC7` 실측 완료 |
 | 지연·포화 | [`OPS-02`](monitoring.md#ops-02-지연과-포화) | 계약 준비 완료 | 앱 HTTP percentile·JVM·Tomcat·Hikari OTLP와 Nginx timing 원천 범위 부분 구현, infra·외부 API/AI 미구현 | production PostgreSQL HTTP·OTLP·pool 대기·복구와 Nginx 설정 계약 부분 검증, CloudWatch·release 실측 미검증 | 미배포 | 미측정 |
 | 실패·이상 | [`OPS-03`](monitoring.md#ops-03-실패와-이상) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
-| AI 사용량·추정 비용 | [`OPS-04`](monitoring.md#ops-04-ai-사용량과-추정-비용) | 선행 계약 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
+| AI 사용량·추정 비용 | [`OPS-04`](monitoring.md#ops-04-ai-사용량과-추정-비용) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 핵심 업무 기능 결과 | [`OPS-05`](monitoring.md#ops-05-핵심-업무-기능-결과) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
 
 - `기능 명세 필요`: 기능 ID, 사용자 문제, 흐름, 데이터·권한, 완료 기준과 제외 범위가 아직 문서화되지 않았다.
 - `선행 계약 필요`: 기능 명세가 있더라도 필수 ADR 승인 또는 API·ERD·아키텍처·운영 정본 반영이 남아 있다.
 - `계약 준비 완료`: 구현에 필요한 제품·API·저장·아키텍처·운영 계약과 필수 ADR이 모두 반영·승인됐다. 생산 코드나 검증 완료를 뜻하지 않는다.
+- `T-ID 승인 필요`: 제품·API·저장·아키텍처·운영 계약과 필수 ADR은 반영됐지만, 구현 이슈의 전체 T-ID 승인 댓글이 없어 테스트 계약은 미확정이다.
 - `부분 구현`과 `부분 검증`: 연결한 기능 ID 일부만 생산 코드와 자동 증거를 갖춘 상태다.
 - `미배포`와 `미측정`은 별도 상태다. 임시 검증 배포·운영 배포·유효 실측·`INVALID` 측정을 같은 값으로 합치지 않는다.
 
-`OPS-01`·`OPS-02`·`OPS-03`·`OPS-05`는 [운영 관측 런북](../guides/MONITORING_OPERATIONS.md)에 metric·log 허용 목록, alarm query·runbook, 상태 전이·IAM·배포 증거 계약을 반영해 구현 선행 계약을 마쳤다. 이 가운데 [#730](https://github.com/bamsongi-club/albam-mate/issues/730)의 `OPS-01-AC1`~`AC3`과 [#731](https://github.com/bamsongi-club/albam-mate/issues/731)의 `OPS-01-AC4`~`AC7`은 생산 코드·운영 CLI·인프라 구현, 자동 검증, 같은 release의 AWS 임시 배포·실측과 teardown을 완료했다. 이는 `OPS-01` 완료 증거이며 상시 운영 배포를 뜻하지 않는다. `OPS-02`·`OPS-03`·`OPS-05`의 계약 준비도 생산 코드·자동 검증·AWS 배포·실측 완료를 뜻하지 않는다. `OPS-04`는 공통 관측 비용 계약만 준비됐으며 AI provider·model·호출 경계와 가격 snapshot 소유 계약이 확정될 때까지 `선행 계약 필요`를 유지한다.
+`OPS-01`·`OPS-02`·`OPS-03`·`OPS-05`는 [운영 관측 런북](../guides/MONITORING_OPERATIONS.md)에 metric·log 허용 목록, alarm query·runbook, 상태 전이·IAM·배포 증거 계약을 반영해 구현 선행 계약을 마쳤다. 이 가운데 [#730](https://github.com/bamsongi-club/albam-mate/issues/730)의 `OPS-01-AC1`~`AC3`과 [#731](https://github.com/bamsongi-club/albam-mate/issues/731)의 `OPS-01-AC4`~`AC7`은 생산 코드·운영 CLI·인프라 구현, 자동 검증, 같은 release의 AWS 임시 배포·실측과 teardown을 완료했다. 이는 `OPS-01` 완료 증거이며 상시 운영 배포를 뜻하지 않는다. `OPS-02`·`OPS-03`·`OPS-05`의 계약 준비도 생산 코드·자동 검증·AWS 배포·실측 완료를 뜻하지 않는다. `OPS-04`는 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)이 AI provider·model·호출 경계와 가격 snapshot 소유 계약을 승인해 `계약 준비 완료`다. 이는 생산 코드·자동 검증·배포·실측 완료를 뜻하지 않으며, 실제 배포·관측·가격 snapshot 전에는 `OPS-04`를 완료로 표시하지 않는다.
 
-`AI-01`은 [AI 모임 도우미 명세](assistant.md)와 [결정 초안](assistant-decision-draft.md)을 등록했지만, 외부 AI 처리·provider 경계와 Room 초안·확인형 생성·지역 계약이 승인되지 않아 `선행 계약 필요`다. 후속 결정은 [#795](https://github.com/bamsongi-club/albam-mate/issues/795)와 [#796](https://github.com/bamsongi-club/albam-mate/issues/796)에서 각각 다룬다. `AI-01`은 `SEARCH-04` 읽기 전용 게임 탐색을 소유하는 `DISCOVERY-01`과 합치지 않으며, AI-01 구현 이슈는 두 결정과 필요한 API·ERD·아키텍처 반영 뒤에 시작한다. `DISCOVERY-01`과 `SEARCH-04`도 상세 명세 초안을 등록했지만 필요한 API·ERD·아키텍처·ADR·운영 계약이 남아 있어 `선행 계약 필요`다. `MATCH-01`은 [API](../API.md)·[ERD](../ERD.md)·[아키텍처](../ARCHITECTURE.md)와 [MATCH ADR](../adr/matching/README.md)에 구현 선행 계약을 반영해 `계약 준비 완료`다. 기능 구현 중 드러난 `game`·`user`·`matching` 공통 공개 계약의 빈틈은 [#800](https://github.com/bamsongi-club/albam-mate/issues/800)에서 결정해 [ADR-0067](../adr/matching/0067-match-shared-contract-boundary.md)과 위 정본에 반영했고, 그 계약의 구현체·계약 테스트·구조 검사 등록은 [#801](https://github.com/bamsongi-club/albam-mate/issues/801)이 소유한다. MATCH 기능 구현 이슈는 #801이 `develop`에 반영된 뒤 공통 계약을 사용한다. 생산 코드·PostgreSQL 통합 검증·[MATCH-01 후보 탐색 baseline 측정 계약](../measurements/match-01-candidate-search-baseline-contract.md)의 실행과 결과 채택은 후속 구현에서 각각 갱신한다.
+`AI-01`~`AI-04`는 [AI 기능군 명세](assistant.md), [AI-D01 ADR](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), [AI-D02 ADR](../adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), [AI-D03 ADR](../adr/room/0076-p2-room-region-closed-set-and-compatibility.md)와 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md)에 승인된 목표 계약을 기능별로 반영한다. 구현·운영 전달은 [AI-01~AI-04 독립 기능 표](assistant.md#ai-기능군-ai-01ai-04)의 순서와 상위 이슈를 따른다. migration·생산 코드·검증·배포·실측은 아직 남아 있다. AI 기능군은 `SEARCH-04` 읽기 전용 게임 탐색을 소유하는 `DISCOVERY-01`과 합치지 않으며, 구현 이슈는 각 소유 정본의 계약을 선행 링크로 고정한 뒤 시작한다. `DISCOVERY-01`과 `SEARCH-04`도 상세 명세를 등록했지만 필요한 API·ERD·아키텍처·ADR·운영 계약이 남아 있어 `선행 계약 필요`다. `MATCH-01`은 [API](../API.md)·[ERD](../ERD.md)·[아키텍처](../ARCHITECTURE.md)와 [MATCH ADR](../adr/matching/README.md)에 구현 선행 계약을 반영해 `계약 준비 완료`다. 기능 구현 중 드러난 `game`·`user`·`matching` 공통 공개 계약의 빈틈은 [#800](https://github.com/bamsongi-club/albam-mate/issues/800)에서 결정해 [ADR-0067](../adr/matching/0067-match-shared-contract-boundary.md)과 위 정본에 반영했고, 그 계약의 구현체·계약 테스트·구조 검사 등록은 [#801](https://github.com/bamsongi-club/albam-mate/issues/801)이 소유한다. MATCH 기능 구현 이슈는 #801이 `develop`에 반영된 뒤 공통 계약을 사용한다. 생산 코드·PostgreSQL 통합 검증·[MATCH-01 후보 탐색 baseline 측정 계약](../measurements/match-01-candidate-search-baseline-contract.md)의 실행과 결과 채택은 후속 구현에서 각각 갱신한다.
 
 ## 팀 기능 문서 작성 규칙
 

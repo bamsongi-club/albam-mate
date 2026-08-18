@@ -9,6 +9,7 @@
 - 알림 통합 이벤트·Outbox·relay 근거: [ADR-0029](adr/notification/0029-room-integration-event-transactional-outbox.md), [ADR-0040](adr/notification/0040-postgresql-notification-relay-recovery-retention.md)
 - 알림 표시 투영·조회·읽음 시각 근거: [ADR-0039](adr/notification/0039-notification-presentation-and-bulk-read-snapshot.md)
 - P2 운영 관측 전송 근거: [ADR-0071](adr/platform/0071-p2-application-metrics-otlp-host-cloudwatch-agent.md), [ADR-0059](adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)
+- P2 AI provider·동의·초안·확인형 Room·지역 경계: [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)
 - P2 MATCH 후보 선점·멱등성, 채팅 handoff·복구·보존, URL 텍스트 표현, 기준 측정 gate: [ADR-0061](adr/matching/0061-postgresql-candidate-reservation-idempotency.md), [ADR-0062](adr/matching/0062-match-chat-handoff-recovery-retention.md), [ADR-0064](adr/matching/0064-match-chat-url-text-storage.md), [ADR-0063](adr/matching/0063-match-baseline-measurement-gate.md)
 - 코드 배치·네이밍·트랜잭션 규칙: [CONVENTIONS](CONVENTIONS.md)
 - 제품·HTTP·저장 계약: [P2 명세](P2-spec.md), [P2 기능 문서](p2/README.md), [P1 종료 명세](archive/p1/README.md), [P0 완료 명세](archive/p0/P0-spec.md), [API 명세](API.md), [ERD](ERD.md)
@@ -39,7 +40,7 @@
 
 - 하나의 Gradle 프로젝트와 Spring Boot 애플리케이션, 데이터베이스를 유지한다.
 - 같은 Spring Boot 애플리케이션을 여러 인스턴스로 실행하되 모든 인스턴스가 공용 PostgreSQL과 Redis를 사용한다. 채팅을 별도 서비스로 분리하지 않는다.
-- `auth`, `user`, `game`, `room`과 P1의 `chat`·`notification`을 논리적 업무 모듈로 유지한다. P2의 `matching`은 별도 업무 모듈이며 저장 구조와 공개 계약이 생산 코드에 있다. OAuth 제공자 통신과 앱 세션 전환은 `auth`, 외부 신원 저장은 `user`가 소유한다.
+- `auth`, `user`, `game`, `room`과 P1의 `chat`·`notification`을 논리적 업무 모듈로 유지한다. P2 계획 `assistant`와 P2의 `matching`은 각각 AI-01~AI-03·MATCH-01의 별도 업무 모듈이며, `matching`의 저장 구조와 공개 계약은 생산 코드에 있다. OAuth 제공자 통신과 앱 세션 전환은 `auth`, 외부 신원 저장은 `user`가 소유한다.
 - 조회와 상태 변경 유스케이스는 각각 `query`, `command`로 구분하지만 Entity, Repository와 데이터베이스까지 나누는 CQRS는 도입하지 않는다.
 - 모듈 간 협력은 상대 모듈의 `contract`만 사용한다.
 - 독립 트랜잭션과 재시도가 필요한 Coordinator·Executor 분리는 유지하며, 재시도마다 최신 Entity와 version을 다시 조회한다.
@@ -57,9 +58,11 @@ flowchart LR
     chat["chat"] -->|"room.contract"| room
     chat -->|"user.contract"| user
     notification["notification"] -->|"room.contract"| room
-    matching["matching"] -->|"user.contract<br/>P2 계획"| user
-    matching -->|"game.contract<br/>P2 계획"| game
-    chat -->|"matching.contract<br/>P2 계획"| matching
+    assistant["assistant<br/>P2 계획·미구현"] -->|"game.contract"| game
+    assistant -->|"room.contract"| room
+    matching["matching"] -->|"user.contract"| user
+    matching -->|"game.contract"| game
+    chat -->|"matching.contract<br/>P2 MATCH"| matching
 
     auth -.->|"기술 기반"| global["global"]
     user -.->|"기술 기반"| global
@@ -67,12 +70,14 @@ flowchart LR
     room -.->|"기술 기반"| global
     chat -.->|"기술 기반"| global
     notification -.->|"기술 기반"| global
+    assistant -.->|"기술 기반"| global
     matching -.->|"기술 기반"| global
     infra["infra"] -.->|"기술 기반"| global
+    infra -->|"assistant.contract<br/>provider adapter"| assistant
     infra -->|"실시간 전달 port 구현"| chat
 ```
 
-현재 허용된 업무 모듈 의존 방향은 `auth → user`, `room → user·game`, `chat → room.contract·user.contract`, `notification → room.contract`, `matching → user.contract·game.contract`, `chat → matching.contract`이다. `chat`은 `room`·`user`·`matching`의 Entity와 Repository를, `notification`은 `room`의 Entity와 Repository를, `matching`은 `user`·`game`의 Entity와 Repository를 직접 참조하지 않고 공개 계약만 사용한다. 이 금지는 타입 참조뿐 아니라 JPQL에서 다른 모듈의 Entity를 조인하는 경로에도 적용한다. `matching → chat` 직접 의존은 만들지 않으며 반대 방향의 직접 참조와 순환 의존은 허용하지 않는다.
+현재 허용된 업무 모듈 의존 방향은 `auth → user`, `room → user·game`, `chat → room.contract·user.contract`, `notification → room.contract`, `matching → user.contract·game.contract`, `chat → matching.contract`, `assistant → game.contract·room.contract`, `infra → assistant.contract`이다. `assistant`는 `game`·`room`의 Entity·Repository와 `infra.ai`를 직접 참조하지 않고 공개 계약만 사용한다. `chat`은 `room`·`user`·`matching`의 Entity와 Repository를, `notification`은 `room`의 Entity와 Repository를, `matching`은 `user`·`game`의 Entity와 Repository를 직접 참조하지 않고 공개 계약만 사용한다. 이 금지는 타입 참조뿐 아니라 JPQL에서 다른 모듈의 Entity를 조인하는 경로에도 적용한다. `matching → chat` 직접 의존은 만들지 않으며 반대 방향의 직접 참조와 순환 의존은 허용하지 않는다.
 
 런타임 호출 방향과 컴파일 의존 방향이 다를 수 있다. 예를 들어 `game`이 예정 모임 수를 조회할 때는 [`game.contract.UpcomingRoomCountQuery`](../src/main/java/cloud/bamsongi/albammate/game/contract/UpcomingRoomCountQuery.java)를 [`room.service.query.RoomUpcomingRoomCountQuery`](../src/main/java/cloud/bamsongi/albammate/room/service/query/RoomUpcomingRoomCountQuery.java)가 구현한다. 런타임 호출은 game에서 room으로 이어지지만, 컴파일 의존은 `room → game.contract`로 유지된다.
 
@@ -88,6 +93,7 @@ RANK-02의 외부·내부 인기 점수는 런타임 모듈 호출이 아니라 
 | `user` | 사용자 계정·비밀번호 자격증명·외부 신원 연결·프로필·공개 사용자 조회 | OAuth 제공자 통신, 세션 생성·폐기 |
 | `game` | 게임 목록·검색·상세, RANK-02 저장 인기 점수와 게임 요약 계약 | 방 데이터 직접 조회 |
 | `room` | 방·참가 관계·정원·상태 전이·재시도·상태 보정 | 사용자·게임 내부 구현 |
+| `assistant` (P2 계획·미구현) | 외부 처리 동의·철회, 자연어 의도 추출 orchestration, 서버 후보 추천, 15분 초안·확인·멱등성 HTTP 흐름 | provider SDK·원문 보존, game·room Entity/Repository, 사용자 확인 없는 Room 변경 |
 | `matching` (P2 일부 구현) | MATCH 요청·제안·응답·성공 파티·참가자 접근, 후보 선점·복구·멱등성·신고·차단. 현재 생산 코드는 저장 구조와 chat 접근 계약뿐이고 나머지는 P2 계획 | MATCH 채팅방·메시지·실시간 전달, 게임·사용자 내부 구현 |
 | `chat` (P1 구현, P2 MATCH 일부 구현) | P1 ROOM별 채팅방·메시지 저장, 이력 cursor 조회, 현재 관계자 접근 검증과 실시간 전달. P2에서는 `matching.contract`를 통해 MATCH 전용 채팅방·URL 텍스트를 포함한 메시지·실시간 전달만 담당하며, 현재 생산 코드는 그 저장 구조뿐이고 adapter·유스케이스는 P2 계획 | 방·참가·MATCH 요청·제안·응답·성공 파티·참가자 접근 Entity/Repository, 인증 세션 내부 구현 |
 | `notification` (P1) | 웹 알림 조회·읽음, Outbox·수신자 스냅샷·알림 저장, relay·재시도·복구·보존 정리 | 방 상태 전이·수신자 재계산, 이메일·모바일 푸시·Web Push·SMS 전달 |
@@ -114,6 +120,35 @@ RANK-02의 외부·내부 인기 점수는 런타임 모듈 호출이 아니라 
 `room.contract`가 승인된 방 변경 이벤트와 기록 포트를 소유하고 `notification`이 포트를 구현한다. 최종 성공한 Room Command Executor가 런타임에 기록 포트를 호출하더라도 `room`은 자기 계약만 알고, 컴파일 의존은 `notification → room.contract`로 유지한다. `room`은 알림 문구·Outbox·relay·읽음 정책을 참조하지 않는다.
 
 알림 코드는 `notification/service/query`, `notification/service/command`, `notification/relay`, `notification/recovery`, `notification/cleanup`의 책임 경계에 배치한다. `/api/users/me/notifications` 하위 조회·읽음은 URL 접두사가 아니라 데이터와 불변식 소유권에 따라 P1 `NotificationController`가 담당한다.
+
+### P2 AI 기능군 모듈 계약 (승인된 계획·미구현)
+
+> 이 절은 P2 `AI-01`~`AI-03`의 승인된 목표 구조다. `assistant` 모듈·`assistant.contract`·`infra.ai` adapter는 아직 존재하지 않으며, 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정한다. 외부 provider와 Room 쓰기 권한은 분리하고, 사용자의 명시적 확인 전에는 Room·ChatRoom 상태 변경을 허용하지 않는다.
+
+`assistant`는 AI-01의 동의·철회와 제품 흐름, AI-02의 자연어 추천, AI-03의 초안·확인 HTTP 경계와 `ASSISTANT_*` 저장 구조를 소유한다. 외부 provider SDK는 `infra.ai`만 참조하고, `game`·`room`의 Entity·Repository와 `DISCOVERY-01`의 `SEARCH-04` tool은 직접 참조하지 않는다.
+
+AI-01~AI-03 협력 계약은 책임을 소유한 모듈의 `contract`에 둔다. provider 경계인 `AssistantIntentExtractor`와 후보 조회는 AI-02가 각각 `assistant.contract`와 `game.contract`를 통해 소유하고, 확인형 Room 생성은 AI-03이 `room.contract`를 통해 소유한다.
+
+| 계약 | 소유 | 호출·구현 | 책임과 트랜잭션 경계 |
+|---|---|---|---|
+| `AssistantIntentExtractor` (AI-02) | `assistant.contract` | `assistant`의 추천 Service가 호출하고 `infra.ai`가 구현 | 현재 한 번의 사용자 문장과 서버가 허용한 schema만 provider에 전달해 `AssistantConditionSummary` 후보를 반환한다. 게임 조회·Room 쓰기·tool loop·원문 저장은 하지 않는다. 기본 구현은 deterministic fake provider다. |
+| `AssistantGameCandidateQuery` (AI-02) | `game.contract` | `assistant`가 호출하고 `game`이 구현 | 카테고리·메커니즘·테마 배열은 각각 목록 안 `ANY`로 고정 결합하고, 이 셋과 난이도 상한·플레이 시간 상한·이미 확인된 총 인원·게임 선택은 서로 `AND`로 적용하며 내부 `RANK-01` 순서로 후보를 반환한다. 정렬 뒤 상위 10건만 반환하고 동점은 게임 ID 오름차순으로 끊으며 pagination은 제공하지 않는다. `assistant`는 game repository·catalog를 직접 읽지 않는다. |
+| `AssistantRoomCreationCommand` (AI-03) | `room.contract` | `assistant`의 Confirm Executor가 호출하고 `room`이 구현 | 현재 인증 사용자 컨텍스트와 초안 입력을 받아 기존 Room 생성 불변식과 `RoomCreated → ChatRoom` 원자성을 적용하고 `roomId`·`chatRoomId` 생성 결과를 반환한다. 사용자 ID를 요청 body에서 받지 않는다. |
+
+`AssistantRoomCreationCommand`는 `room`이 `chat` Entity·Repository를 직접 참조해 `chatRoomId`를 얻는 구조가 아니다. 확인형 command는 `room.contract`가 정의한 동기 `RoomCreated` handoff를 같은 트랜잭션에서 발행하고, `chat`의 listener가 `CHAT_ROOMS`를 저장한 뒤 생성된 ID를 handoff에 채운다. listener가 결과를 채우기 전에 실패하거나 ID가 없으면 command도 실패하고 Room·ChatRoom·초안 결과를 함께 롤백한다. 따라서 컴파일 의존은 `assistant → room.contract`와 `chat → room.contract`로 유지되며 `room → chat` 직접 의존은 생기지 않는다.
+
+`AssistantIntentExtractor`는 버전이 지정된 `propose_game_room_intent` schema만 사용한다. `assistant`는 provider가 반환한 game ID·조건을 신뢰하지 않고 구조화 검증 뒤 `AssistantGameCandidateQuery`로 재조회한다. provider는 게임 후보·BGG 원문·prompt hash·Room command 권한을 받지 않는다.
+
+### AI 기능군 처리·잠금 흐름
+
+1. `AssistantController`가 세션·CSRF·동의·입력 형식을 확인한다. 추천의 외부 호출은 `assistant.service`가 quota·비용 예약과 PII/secret allowlist 검사를 통과한 뒤 시작한다.
+2. 추천은 provider 호출과 후보 조회만 수행하고 Room·ChatRoom·초안을 만들지 않는다. provider 장애·schema 오류·Redis 비용 예약 실패는 명시적 오류로 끝내며 다른 model로 자동 전환하지 않는다.
+3. AI-03의 모든 쓰기 Executor는 `USERS` 행 → `ASSISTANT_DRAFTS` 행 → `ASSISTANT_IDEMPOTENCY_RECORDS` 순서로만 잠근다. 이 순서는 MATCH 멱등성 Executor와 같은 원칙이며, 활성 초안 유일 제약을 잠금 순서나 삭제의 배타성 근거로 쓰지 않는다. 같은 사용자의 초안 생성·수정·확인이 동시에 들어와도 이 순서 때문에 교착 없이 직렬화된다.
+4. `DraftCreate/PatchExecutor`는 `ASSISTANT_DRAFTS`를 사용자별 활성 하나로 유지하고, 초안 생성도 confirm과 같은 규칙으로 그 사용자의 만료된 `ASSISTANT_IDEMPOTENCY_RECORDS`를 같은 트랜잭션에서 삭제한다. `PatchExecutor`는 `ACTIVE` 초안만 수정한다. `region`은 네 지역 enum과 DB CHECK를 통과시키고 생략 시 호환 기본값 `홍대`를 적용한다.
+5. `DraftConfirmExecutor`는 provider를 호출하지 않는다. 진입 전에 `ASSISTANT_NOT_ENABLED` gate를 fail-closed로 먼저 통과해야 하며, 비활성 상태에서는 아래 잠금·정리·재생을 수행하지 않는다. 위 순서로 `USERS` 행 → `ASSISTANT_DRAFTS` 행 → `ASSISTANT_IDEMPOTENCY_RECORDS`를 먼저 잠근 뒤, 같은 `operationTime`으로 만료를 확인해 `expiresAt <= operationTime`인 그 사용자의 기록을 batch purge 없이 모두 삭제한다. 그다음 `expiresAt > operationTime`인 같은 범위·같은 key의 저장 결과를 초안 상태·만료·동의·version·필수 `place` 확인보다 먼저 재생하고, 재생 대상이 없을 때만 그 확인들을 수행한 뒤 새 key를 별도 행으로 등록한다.
+6. 확인 성공은 같은 트랜잭션에서 `AssistantRoomCreationCommand`를 호출해 Room과 ChatRoom을 만들고, 동기 handoff로 받은 `chatRoomId`를 포함한 초안·확인 결과 참조를 `CONFIRMED`로 커밋한다. handoff 또는 어느 저장 경계라도 실패하면 세 저장 경계를 함께 롤백한다. 같은 사용자·draft·operation의 같은 key 재시도는 결과를 반환하고 다른 key·오래된 version은 Room을 만들지 않는다.
+
+`REVOKE`는 활성 초안을 `DISCARDED`로 만들고 이후 추천·초안·확인을 차단한다. `assistant`는 `room`의 Entity·Repository를 직접 잠그지 않으며, Room 생성의 잠금·참가·알림·ChatRoom 불변식은 `room.contract`와 Room 내부 Executor가 소유한다. `assistant → infra.ai` 직접 의존이나 provider 호출을 Room 트랜잭션 안에 넣는 구조는 허용하지 않는다.
 
 ### P2 MATCH 모듈 계약
 
@@ -172,6 +207,12 @@ MATCH 사용자 메시지 쓰기는 chat Command가 연 트랜잭션에서 `Matc
 | `room/service/command` | ROOM 변경 유스케이스, Coordinator와 Executor |
 | `room/enums` | ROOM Entity·DTO가 공유하는 방·참가 도메인 타입 |
 | `room/statuscorrection` | 공통 단건 상태 보정과 Scheduler 전용 제한 선별·영속 진행 조정 |
+| `assistant/contract` (P2 계획) | AI-02 `AssistantIntentExtractor` provider 협력 계약 |
+| `game/contract` (P2 확장) | AI-02 `AssistantGameCandidateQuery` 후보 조회 계약 |
+| `room/contract` (P2 확장) | AI-03 `AssistantRoomCreationCommand` 확인형 Room command와 ChatRoom 결과 handoff 계약 |
+| `assistant/controller`, `assistant/dto` (P2 계획) | AI-01 동의·AI-02 추천·AI-03 초안·확인 HTTP 경계와 요청·응답 변환 |
+| `assistant/entity`, `assistant/repository` (P2 계획) | AI-01 동의·AI-03 초안·확인 멱등성 저장 계약. provider 원문은 저장하지 않음 |
+| `assistant/service` (P2 계획) | AI-01 요청 orchestration, AI-02 추천 Provider 경계, AI-03 초안 lifecycle·확인 Executor와 트랜잭션 조정 |
 | `matching/contract` (P2) | MATCH chat provision·cleanup·access 공개 계약. `chat`이 구현 또는 호출한다. |
 | `matching/service/query` (P2) | MATCH 조회 유스케이스와 `chat`에 공개하는 접근·쓰기 guard 판정 |
 | `matching/service/command` (P2 계획) | MATCH 상태 변경, 후보 선점 Coordinator와 독립 Executor |
@@ -187,6 +228,7 @@ MATCH 사용자 메시지 쓰기는 chat Command가 연 트랜잭션에서 `Matc
 | `global/scheduling` (P1) | 업무 규칙을 모르는 클러스터 스케줄 잠금 port |
 | `global` | 업무 의미가 없는 공통 기술 기반 |
 | `infra/redis` (P1) | `chat.contract`의 실시간 발행·구독 port와 Spring Session Redis adapter |
+| `infra/ai` (P2 계획) | AI-02 `assistant.contract.AssistantIntentExtractor`의 OpenAI·fake provider adapter. `assistant` 업무 규칙은 소유하지 않음 |
 | `infra/scheduling` (P1) | PostgreSQL 시각과 `SHEDLOCK` 테이블을 사용하는 스케줄 잠금 adapter |
 
 필요한 구현만 만들며 빈 폴더를 미리 생성하지 않는다. `contract`도 다른 모듈에 공개할 계약이나 `infra`가 구현할 포트가 생길 때만 추가한다. 표는 모든 모듈에 모든 패키지를 허용한다는 뜻이 아니다. 기존 패키지에 파일을 추가할 때는 갱신하지 않지만, 모듈에 새로운 최상위 책임 패키지를 만들 때는 이 절과 구조 검사를 함께 확인한다.
@@ -650,4 +692,4 @@ P2 MATCH의 허용 의존 방향과 `matching`·`chat` 패키지 경계는 이 �
 
 중요한 구조 선택의 근거나 대안이 바뀌면 ADR을 추가하거나 기존 ADR을 대체한다. 코드 작성 규칙은 [CONVENTIONS](CONVENTIONS.md), HTTP 계약은 [API 명세](API.md), 저장 계약은 [ERD](ERD.md)가 각각 소유한다.
 
-> 문서 관리: 소유자 `밤송이클럽 백엔드 팀` · 최종 검증일 `2026-08-15` · 폐기 조건 `모듈러 모놀리스 구조를 더 이상 사용하지 않거나 후속 아키텍처 정본이 승인될 때`
+> 문서 관리: 소유자 `밤송이클럽 백엔드 팀` · 최종 검증일 `2026-08-18` · 폐기 조건 `모듈러 모놀리스 구조를 더 이상 사용하지 않거나 후속 아키텍처 정본이 승인될 때`
