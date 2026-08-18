@@ -1,9 +1,7 @@
 package cloud.bamsongi.albammate.matching;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.lang.reflect.Method;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
@@ -11,13 +9,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.context.ApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
+import cloud.bamsongi.albammate.matching.contract.MatchPartyAccessQuery;
+import cloud.bamsongi.albammate.matching.contract.MatchPartyChatAccess;
 
 @Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class)
@@ -31,7 +30,7 @@ class MatchPartyAccessQueryPostgresTest {
 		.withDatabaseName("albam_mate_match_access_test");
 
 	@Autowired
-	private ApplicationContext applicationContext;
+	private MatchPartyAccessQuery accessQuery;
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
 
@@ -42,7 +41,7 @@ class MatchPartyAccessQueryPostgresTest {
 	}
 
 	@Test
-	void ACTIVE이고_나가지_않은_본인_참가_관계만_MATCH_채팅_접근으로_허용한다() throws Exception {
+	void 현재_참가자의_ACTIVE와_PREPARING만_서로_다른_채팅_접근_결과로_반환한다() {
 		long memberId = insertUser("member");
 		long formerMemberId = insertUser("former");
 		long outsiderId = insertUser("outsider");
@@ -55,16 +54,12 @@ class MatchPartyAccessQueryPostgresTest {
 		insertParticipant(closedPartyId, memberId, false);
 		insertParticipant(activePartyId, formerMemberId, true);
 
-		Class<?> accessQueryType = Class.forName(
-			"cloud.bamsongi.albammate.matching.contract.MatchPartyAccessQuery");
-		Object accessQuery = applicationContext.getBean(accessQueryType);
-		Method hasActiveAccess = accessQueryType.getMethod("hasActiveAccess", long.class, long.class);
-
-		assertTrue((boolean)hasActiveAccess.invoke(accessQuery, memberId, activePartyId));
-		assertFalse((boolean)hasActiveAccess.invoke(accessQuery, memberId, preparingPartyId));
-		assertFalse((boolean)hasActiveAccess.invoke(accessQuery, memberId, closedPartyId));
-		assertFalse((boolean)hasActiveAccess.invoke(accessQuery, formerMemberId, activePartyId));
-		assertFalse((boolean)hasActiveAccess.invoke(accessQuery, outsiderId, activePartyId));
+		assertEquals(MatchPartyChatAccess.ALLOWED, accessQuery.evaluateChatAccess(memberId, activePartyId));
+		assertEquals(MatchPartyChatAccess.NOT_ACTIVE, accessQuery.evaluateChatAccess(memberId, preparingPartyId));
+		assertEquals(MatchPartyChatAccess.FORBIDDEN, accessQuery.evaluateChatAccess(memberId, closedPartyId));
+		assertEquals(MatchPartyChatAccess.FORBIDDEN, accessQuery.evaluateChatAccess(formerMemberId, activePartyId));
+		assertEquals(MatchPartyChatAccess.FORBIDDEN, accessQuery.evaluateChatAccess(outsiderId, activePartyId));
+		assertEquals(MatchPartyChatAccess.FORBIDDEN, accessQuery.evaluateChatAccess(memberId, 999_999L));
 	}
 
 	private long insertUser(String role) {

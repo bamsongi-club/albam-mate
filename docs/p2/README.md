@@ -31,7 +31,7 @@ P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.
 | 게임 탐색 도우미 | [`DISCOVERY-01`](game-discovery-assistant.md#discovery-01) | 선행 계약 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 게임 의미 기반 검색 | [`SEARCH-04`](search.md#search-04) | 선행 계약 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 게임 인기순 정렬 | [`RANK-02`](game-popularity.md#rank-02) | 계약 준비 완료 | 구현 완료 | 자동 검증 완료 | 미배포 | 미측정 |
-| 실시간 파티 매칭 | [`MATCH-01`](matching.md#match-01-실시간-파티-매칭) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
+| 실시간 파티 매칭 | [`MATCH-01`](matching.md#match-01-실시간-파티-매칭) | 계약 준비 완료 | 부분 구현 | 미검증 | 미배포 | 미측정 |
 | 서비스 생존·연결 | [`OPS-01`](monitoring.md#ops-01-서비스-생존과-연결-상태) | 계약 준비 완료 | 구현 완료 | 자동 검증 완료 | 임시 AWS 검증 배포·철거 완료 | `AC1`~`AC7` 실측 완료 |
 | 지연·포화 | [`OPS-02`](monitoring.md#ops-02-지연과-포화) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 실패·이상 | [`OPS-03`](monitoring.md#ops-03-실패와-이상) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |

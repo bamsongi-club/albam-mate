@@ -27,6 +27,30 @@ public interface MatchPartyParticipantRepository extends JpaRepository<MatchPart
 		select participant
 		from MatchPartyParticipant participant
 		where participant.id.partyId = :partyId
+		  and participant.participantRef = :participantRef
+		""")
+	Optional<MatchPartyParticipant> findByPartyIdAndParticipantRef(
+		@Param("partyId")
+		Long partyId,
+		@Param("participantRef")
+		UUID participantRef);
+
+	@Query("""
+		select participant
+		from MatchPartyParticipant participant
+		where participant.id.partyId = :partyId
+		  and participant.id.userId = :userId
+		""")
+	Optional<MatchPartyParticipant> findParticipantByPartyIdAndUserId(
+		@Param("partyId")
+		Long partyId,
+		@Param("userId")
+		Long userId);
+
+	@Query("""
+		select participant
+		from MatchPartyParticipant participant
+		where participant.id.partyId = :partyId
 		  and participant.id.userId = :userId
 		  and participant.leftAt is null
 		""")
@@ -36,19 +60,16 @@ public interface MatchPartyParticipantRepository extends JpaRepository<MatchPart
 		Long userId);
 
 	@Query("""
-		select case when count(participant) > 0 then true else false end
+		select party.status
 		from MatchParty party, MatchPartyParticipant participant
 		where party.id = :partyId
-		  and party.status = :status
 		  and participant.id.partyId = party.id
 		  and participant.id.userId = :userId
 		  and participant.leftAt is null
 		""")
-	boolean existsCurrentParticipantForPartyStatus(
+	Optional<MatchPartyStatus> findCurrentParticipantPartyStatus(
 		@Param("partyId")
 		Long partyId,
 		@Param("userId")
-		Long userId,
-		@Param("status")
-		MatchPartyStatus status);
+		Long userId);
 }
