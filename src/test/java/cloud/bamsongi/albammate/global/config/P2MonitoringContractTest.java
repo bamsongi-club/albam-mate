@@ -139,10 +139,10 @@ class P2MonitoringContractTest {
 	}
 
 	@Test
-	void T3_OPS01_상태는_공개_앱_범위의_부분_구현과_부분_검증으로만_표시한다() {
+	void T3_OPS01_상태는_부분_구현과_부분_검증으로만_표시한다() {
 		String readme = read("docs/p2/README.md");
 
-		assertTrue(readme.contains("OPS-01 공개 앱 범위 부분 구현·부분 검증"));
+		assertTrue(readme.contains("OPS-01 부분 구현·부분 검증"));
 		assertFalse(readme.contains("OPS-01-AC1`~`OPS-01-AC3` 공개 구현·자동 검증 완료"));
 	}
 
