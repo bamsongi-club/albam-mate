@@ -88,6 +88,7 @@ class RedisSessionProductionProfilePostgresTest {
 		registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
 		registry.add("app.redis.host", REDIS::getHost);
 		registry.add("app.redis.port", () -> REDIS.getMappedPort(6379));
+		registry.add("app.monitoring.upstream-role", () -> "app1");
 	}
 
 	@Test
@@ -133,6 +134,7 @@ class RedisSessionProductionProfilePostgresTest {
 			"--spring.data.redis.port=" + REDIS.getMappedPort(6379),
 			"--app.redis.host=" + REDIS.getHost(),
 			"--app.redis.port=" + REDIS.getMappedPort(6379),
+			"--app.monitoring.upstream-role=app2",
 			"--app.security.cookie.secure=false",
 			"--app.notification.relay.enabled=false");
 	}

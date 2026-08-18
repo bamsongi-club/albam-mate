@@ -43,6 +43,7 @@ import cloud.bamsongi.albammate.room.repository.RoomRepository;
 	"spring.flyway.locations=classpath:db/migration",
 	"app.redis.host=127.0.0.1",
 	"app.redis.port=1",
+	"app.monitoring.upstream-role=app1",
 	"app.notification.relay.enabled=false"
 })
 @Import(ChatMessageRateLimitUnavailableIntegrationTest.TestBeans.class)
