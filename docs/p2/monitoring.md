@@ -250,7 +250,7 @@ p50·p95·p99는 같은 timer의 분포에서 계산한다. 평균만 표시하�
 | 화면·비용 | [요약 대시보드의 사용량과 추정 비용](dashboard.md#4-사용량과-추정-비용), [완료 증거](dashboard.md#완료-증거) |
 | 현재 상태 | [P2 기능 상태 정본](README.md#기능별-현재-상태) |
 
-AI 기능의 외부 처리·provider·model·호출 예산·가격 snapshot 소유 경계는 완료된 [#795](https://github.com/bamsongi-club/albam-mate/issues/795)와 승인된 [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md)에 정본으로 등록돼 있다. `OPS-04`는 그 승인 경계를 관측·비용 계산에 연결하며 provider나 비용 정책을 이 문서에서 임의로 결정하지 않는다. 실제 배포·관측·가격 snapshot 전에는 `OPS-04`를 완료로 표시하지 않는다.
+AI 기능의 외부 처리·provider·model·호출 예산·가격 snapshot 소유 경계는 완료된 [#795](https://github.com/bamsongi-club/albam-mate/issues/795)와 승인된 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)에 정본으로 등록돼 있다. `OPS-04`는 그 승인 경계를 관측·비용 계산에 연결하며 provider나 비용 정책을 이 문서에서 임의로 결정하지 않는다. 실제 배포·관측·가격 snapshot 전에는 `OPS-04`를 완료로 표시하지 않는다.
 
 ### 기능 규칙
 

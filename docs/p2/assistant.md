@@ -36,10 +36,10 @@ Provider egress·secret/config·release·migration·feature gate·rollback과 �
 ## 문서 책임
 
 - 이 문서가 소유하는 기능 동작과 완료 기준: `AI-01`~`AI-04`의 사용자 흐름·Provider·Room·운영 경계와 각 기능의 독립 완료 기준. 공개 API·저장·모듈 계약은 각 기능이 소유한 정본에 연결한다.
-- 이 문서가 소유하지 않는 결정: 외부 AI 처리·동의·provider 운영 경계는 [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md), Room 초안·확인형 생성은 [ADR-0069](../adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역 계약은 [ADR-0070](../adr/room/0070-p2-room-region-closed-set-and-compatibility.md)가 소유한다. 공개 HTTP·저장·모듈 계약은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md)에 반영됐다.
+- 이 문서가 소유하지 않는 결정: 외부 AI 처리·동의·provider 운영 경계는 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), Room 초안·확인형 생성은 [ADR-0075](../adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역 계약은 [ADR-0076](../adr/room/0076-p2-room-region-closed-set-and-compatibility.md)가 소유한다. 공개 HTTP·저장·모듈 계약은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md)에 반영됐다.
 - `AI-01`~`AI-04`는 [`DISCOVERY-01` 게임 탐색 도우미](game-discovery-assistant.md#ai-01과의-경계)와 별도 기능군이다. `DISCOVERY-01`은 `SEARCH-04` 읽기 전용 탐색을 소유하고, AI 기능군은 서버 추천과 확인형 Room 생성 흐름을 소유한다.
 
-문서 등록과 AI-D01~D03 결정은 provider 도입·생산 코드·배포·실측 완료를 뜻하지 않는다. [#795](https://github.com/bamsongi-club/albam-mate/issues/795)·[#796](https://github.com/bamsongi-club/albam-mate/issues/796)와 ADR-0068~0070의 결정은 완료됐고, migration·구현 이슈의 대상 경로·테스트 계약·rollback을 별도로 고정하기 전까지 생산 구현은 보류한다.
+문서 등록과 AI-D01~D03 결정은 provider 도입·생산 코드·배포·실측 완료를 뜻하지 않는다. [#795](https://github.com/bamsongi-club/albam-mate/issues/795)·[#796](https://github.com/bamsongi-club/albam-mate/issues/796)와 ADR-0074~0076의 결정은 완료됐고, migration·구현 이슈의 대상 경로·테스트 계약·rollback을 별도로 고정하기 전까지 생산 구현은 보류한다.
 
 ## 확정된 사항과 소유 정본
 
@@ -47,9 +47,9 @@ Provider egress·secret/config·release·migration·feature gate·rollback과 �
 
 | 결정 | 확정 내용 | 기술 정본 |
 | --- | --- | --- |
-| `AI-D01` | 외부 provider는 `assistant.contract.AssistantIntentExtractor` 한 port 뒤에 두고, 동의·PII/secret 차단·no-retention·no-training·fake provider·호출/비용 상한을 적용한다. 모델은 `propose_game_room_intent` 구조화 결과만 제안하며 검색·Room 쓰기·tool loop 권한을 갖지 않는다. | [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md) |
-| `AI-D02` | `RECOMMEND`는 후보만 조회하고 초안을 만들지 않는다. `CREATE_ROOM` 전환 후 15분 초안을 만들며, 상세 장소와 최종 조건을 사용자가 확인한 뒤에만 `room.contract` 확인형 command를 호출한다. `Idempotency-Key`·draft version·Room·ChatRoom 원자성을 적용한다. | [ADR-0069](../adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md) |
-| `AI-D03` | 지역은 `홍대`·`강남`·`건대`·`잠실`의 닫힌 집합이다. 호환 기간의 누락은 `홍대`로 해석하고, 기존 행은 재작성하지 않으며 migration 전 허용값을 검사한다. | [ADR-0070](../adr/room/0070-p2-room-region-closed-set-and-compatibility.md) |
+| `AI-D01` | 외부 provider는 `assistant.contract.AssistantIntentExtractor` 한 port 뒤에 두고, 동의·PII/secret 차단·no-retention·no-training·fake provider·호출/비용 상한을 적용한다. 모델은 `propose_game_room_intent` 구조화 결과만 제안하며 검색·Room 쓰기·tool loop 권한을 갖지 않는다. | [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md) |
+| `AI-D02` | `RECOMMEND`는 후보만 조회하고 초안을 만들지 않는다. `CREATE_ROOM` 전환 후 15분 초안을 만들며, 상세 장소와 최종 조건을 사용자가 확인한 뒤에만 `room.contract` 확인형 command를 호출한다. `Idempotency-Key`·draft version·Room·ChatRoom 원자성을 적용한다. | [ADR-0075](../adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md) |
+| `AI-D03` | 지역은 `홍대`·`강남`·`건대`·`잠실`의 닫힌 집합이다. 호환 기간의 누락은 `홍대`로 해석하고, 기존 행은 재작성하지 않으며 migration 전 허용값을 검사한다. | [ADR-0076](../adr/room/0076-p2-room-region-closed-set-and-compatibility.md) |
 
 결정 흐름은 `#794`의 AI-01 범위·소유 경계에서 시작해 완료된 `#795`의 AI-D01, `#796`의 AI-D02·D03으로 이어진다. 세 결정은 승인된 목표 계약으로 공개 API·ERD·아키텍처에 반영되며, 생산 코드·자동 검증·배포·실측은 별도 상태 축으로 관리한다.
 
@@ -91,8 +91,8 @@ Provider egress·secret/config·release·migration·feature gate·rollback과 �
 
 - `AI-01a`: 로그인·외부 처리 동의, 인증·인가·CSRF와 AI 요청 진입 경계. 자연어 추천 통합 T-ID는 이 슬라이스에서 함께 검증한다.
 - `AI-01b`: `#/assistant` 화면, 추천·추가 질문·확인 카드·실패 상태, `내정보 > AI 설정`의 동의 상태·정책 버전·URL 확인과 철회 화면, 기존 수동 Room 생성 회귀 보호.
-- `AI-02a`: `AssistantIntentExtractor` port와 adapter, payload allowlist, 호출 한도·timeout·비용 상한·fail-closed·fake provider·사용량 이벤트. 구조화 조건·추천 상태의 통합 T-ID는 `AI-01a`와 `AI-01b`가 연결한다. 세부 값은 [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md)을 따른다.
-- `AI-03a`: 15분 임시 초안, 상세 장소 입력, 명시적 확인, `Idempotency-Key`와 draft version을 사용하는 Room 생성 연결. 확인 UI 통합 T-ID는 `AI-01b`가 연결하며, 세부 저장·지역·오류 계약은 [ADR-0069](../adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md)와 [ADR-0070](../adr/room/0070-p2-room-region-closed-set-and-compatibility.md)를 따른다.
+- `AI-02a`: `AssistantIntentExtractor` port와 adapter, payload allowlist, 호출 한도·timeout·비용 상한·fail-closed·fake provider·사용량 이벤트. 구조화 조건·추천 상태의 통합 T-ID는 `AI-01a`와 `AI-01b`가 연결한다. 세부 값은 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)을 따른다.
+- `AI-03a`: 15분 임시 초안, 상세 장소 입력, 명시적 확인, `Idempotency-Key`와 draft version을 사용하는 Room 생성 연결. 확인 UI 통합 T-ID는 `AI-01b`가 연결하며, 세부 저장·지역·오류 계약은 [ADR-0075](../adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md)와 [ADR-0076](../adr/room/0076-p2-room-region-closed-set-and-compatibility.md)를 따른다.
 - `AI-04a`: 운영 Provider egress·secret·설정과 인프라 배포.
 - `AI-04b`: production release·migration·feature gate·rollback.
 - `AI-04c`: 배포 후 제한된 기능 실측·token/latency/error/cost 증거와 완료 판정. 자동 부하테스트 runner와 OPS-04 dashboard·alarm 구현은 제외한다.
@@ -114,10 +114,10 @@ Provider egress·secret/config·release·migration·feature gate·rollback과 �
 
 | 슬라이스 | 책임 | 구현 전제 |
 | --- | --- | --- |
-| `AI-01a` | 동의·철회, 인증·인가·CSRF, AI 요청 진입과 추천 orchestration | API·아키텍처·ADR-0068 계약 |
+| `AI-01a` | 동의·철회, 인증·인가·CSRF, AI 요청 진입과 추천 orchestration | API·아키텍처·ADR-0074 계약 |
 | `AI-01b` | `#/assistant` 화면, 동의 설정, 추천·추가 질문·확인 카드, 수동 Room 회귀 | `AI-01a`·`AI-02a`·`AI-03a` 공개 응답 계약 |
-| `AI-02a` | provider adapter, fake provider, payload allowlist, quota·timeout·비용·fail-closed·usage event | ADR-0068, 설정·관측 계약 |
-| `AI-03a` | 임시 초안, 장소 입력, 지역 검증, 확인형 Room command와 멱등성 | ADR-0069·0070, ERD·API·Room 계약 |
+| `AI-02a` | provider adapter, fake provider, payload allowlist, quota·timeout·비용·fail-closed·usage event | ADR-0074, 설정·관측 계약 |
+| `AI-03a` | 임시 초안, 장소 입력, 지역 검증, 확인형 Room command와 멱등성 | ADR-0075·0076, ERD·API·Room 계약 |
 | `AI-04a` | 운영 인프라·Provider egress·secret/config 배포 | 운영 권한·Terraform/Compose·Secret 계약 |
 | `AI-04b` | production release·migration·feature gate·rollback | `AI-01a`·`AI-02a`·`AI-03a` 고정 release |
 | `AI-04c` | 배포 후 제한된 수동 시나리오·관측 receipt·완료 판정 | `AI-04a`·`AI-04b`, OPS-04 인계 계약 |
@@ -159,7 +159,7 @@ Provider egress·secret/config·release·migration·feature gate·rollback과 �
 
 - 자연어 요청과 추천만으로는 Room·ChatRoom·참가 관계를 만들지 않는다.
 - 사용자가 확인 카드에서 최종 조건과 상세 장소를 확인한 뒤에만 기존 Room 생성 command를 호출한다.
-- 동일 확인 재시도는 같은 결과로 수렴해야 하며, 다른 요청이나 오래된 초안이 중복 Room을 만들지 않아야 한다. 구체 잠금·유일 제약·오류 코드는 [ADR-0069](../adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md)을 따른다.
+- 동일 확인 재시도는 같은 결과로 수렴해야 하며, 다른 요청이나 오래된 초안이 중복 Room을 만들지 않아야 한다. 구체 잠금·유일 제약·오류 코드는 [ADR-0075](../adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md)을 따른다.
 - `Idempotency-Key`의 저장·조회·유일성 범위는 최소 현재 인증 사용자(`currentUserId`)·확인 대상 draft/resource·operation으로 묶는다. 같은 범위의 재시도만 최초 Room 결과를 재생하고, 다른 사용자·draft·operation에서 같은 key를 재사용하면 Room을 반환하지 않고 `CONFIRMATION_CONFLICT`로 끝낸다.
 
 ### 실패·복구
@@ -178,7 +178,7 @@ Provider egress·secret/config·release·migration·feature gate·rollback과 �
 
 - 성공·추가 질문·거절·provider 실패·Room 생성 최종 결과와 허용된 provider/model/feature/tool label만 집계한다.
 - prompt·응답 원문·Tool 인자·게임 후보·사용자 ID·세션·대화 이력·비밀값은 중앙 metric/log에 남기지 않는다.
-- AI 사용량·추정 비용은 [OPS-04](monitoring.md#ops-04-ai-사용량과-추정-비용)의 공통 규칙과 승인된 [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md)의 경계를 함께 따른다. 호출이 없는 기간을 비용 `0`의 증거로 기록하지 않는다.
+- AI 사용량·추정 비용은 [OPS-04](monitoring.md#ops-04-ai-사용량과-추정-비용)의 공통 규칙과 승인된 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)의 경계를 함께 따른다. 호출이 없는 기간을 비용 `0`의 증거로 기록하지 않는다.
 
 ## 기능 ID별 완료 기준
 
@@ -208,10 +208,10 @@ Provider egress·secret/config·release·migration·feature gate·rollback과 �
 ## 구현·검증 게이트
 
 1. [#794](https://github.com/bamsongi-club/albam-mate/issues/794)의 AI-01 제품 흐름·`DISCOVERY-01` 경계 문서화는 완료됐고, 이 문서에서 `AI-02`~`AI-04` 독립 기능과 각 완료 기준을 추가로 등록했다.
-2. [#795](https://github.com/bamsongi-club/albam-mate/issues/795)와 [#796](https://github.com/bamsongi-club/albam-mate/issues/796)의 결정과 [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md)·[ADR-0069](../adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md)·[ADR-0070](../adr/room/0070-p2-room-region-closed-set-and-compatibility.md)가 승인됐고, 공개 API·ERD·아키텍처 계약도 반영됐다. 이제 migration·구현 이슈의 대상 경로·테스트 계약·rollback을 고정하기 전에는 `AI-01a`·`AI-01b`·`AI-02a`·`AI-03a` 생산 코드를 시작하지 않는다.
+2. [#795](https://github.com/bamsongi-club/albam-mate/issues/795)와 [#796](https://github.com/bamsongi-club/albam-mate/issues/796)의 결정과 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)·[ADR-0075](../adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md)·[ADR-0076](../adr/room/0076-p2-room-region-closed-set-and-compatibility.md)가 승인됐고, 공개 API·ERD·아키텍처 계약도 반영됐다. 이제 migration·구현 이슈의 대상 경로·테스트 계약·rollback을 고정하기 전에는 `AI-01a`·`AI-01b`·`AI-02a`·`AI-03a` 생산 코드를 시작하지 않는다.
 3. 공개 계약과 구현 이슈가 고정되면 기능별 T-ID를 먼저 승인하고, fake provider·고정 fixture로 `AI-01`~`AI-03`의 계약을 검증한다. 확인 전 무부수효과, 확인 후 단일 Room·ChatRoom 원자성, 동일 key·동시 요청 수렴, 기존 수동 Room 생성·참가·채팅·CSRF 회귀를 함께 확인한다.
 4. 실제 provider·운영 배포·제한된 배포 후 실측은 실행 권한과 환경·가격 snapshot·결과 보존 경계를 확인한 뒤 별도 증거로 남긴다. 자동 부하테스트 runner는 이번 전달 범위에 포함하지 않는다. 문서·결정·계약·생산 코드·자동 검증·배포·실측은 [P2 기능 상태](README.md#기능별-현재-상태)에 별도 축으로 기록한다.
 
 ## 문서 관리
 
-소유자 `알밤메이트 AI 모임 도우미 담당자` · 최종 검증일 `2026-08-18` · 결정 정본 `ADR-0068~0070` · 상세 검증 정본 `assistant-load-test.md`
+소유자 `알밤메이트 AI 모임 도우미 담당자` · 최종 검증일 `2026-08-18` · 결정 정본 `ADR-0074~0076` · 상세 검증 정본 `assistant-load-test.md`

@@ -1,4 +1,4 @@
-# ADR-0069: P2 AI 초안·확인형 Room command와 멱등성
+# ADR-0075: P2 AI 초안·확인형 Room command와 멱등성
 
 - 상태: 승인됨
 - 작성일: 2026-08-17
@@ -36,7 +36,7 @@
 - confirm은 `Idempotency-Key`와 draft version을 함께 사용한다. key는 원문이 아닌 SHA-256 hash로 저장한다.
 - 미확인 초안의 key hash는 초안 만료 시각까지, 확인된 결과의 key hash와 Room 결과 참조는 확인 시각부터 24시간까지 보존한다. 같은 범위의 재시도는 AI 기능이 활성인 동안 이 보존 기간 안에서만 원래 결과를 재생한다. 기능이 비활성이면 재생 전에 `503`으로 fail-closed 하며, 이는 기존 Room·ChatRoom 결과를 바꾸지 않는다.
 - 만료 기록의 정리 주체는 별도 scheduler가 아니라 같은 사용자의 다음 초안 생성·확인 명령이다. 명령은 초안 행을 잠근 같은 트랜잭션에서 고정한 요청 시작 시각으로 만료를 판정하고, `expires_at`이 지난 그 사용자의 기록을 모두 삭제한 뒤 새 key를 별도 행으로 등록한다. 다건 삭제와 단건 등록을 분리하므로 어느 경우에 행을 교체할지 구현이 따로 판단하지 않는다. 이 정리는 멱등성 기록만 지우고 참조하던 Room·ChatRoom과 초안 결과 참조는 삭제하지 않는다.
-- 따라서 AI를 다시 쓰는 사용자에게는 보존이 끝난 key hash가 유일 제약에 남지 않는다. 반대로 이후 AI-03 명령을 다시 실행하지 않는 사용자의 만료 기록은 정리 시점이 오지 않아 남는다. 잔존량은 그 사용자가 마지막 활동 구간에서 성공한 confirm 횟수만큼이며 별도 상한을 두지 않는다. confirm은 provider를 호출하지 않으므로 [ADR-0068](../platform/0068-p2-ai-provider-consent-and-operation-boundary.md)의 provider 호출 quota가 이 횟수를 제한하지 않는다. P2는 이 잔존을 알려진 한계로 받아들이고 별도 batch를 두지 않는다.
+- 따라서 AI를 다시 쓰는 사용자에게는 보존이 끝난 key hash가 유일 제약에 남지 않는다. 반대로 이후 AI-03 명령을 다시 실행하지 않는 사용자의 만료 기록은 정리 시점이 오지 않아 남는다. 잔존량은 그 사용자가 마지막 활동 구간에서 성공한 confirm 횟수만큼이며 별도 상한을 두지 않는다. confirm은 provider를 호출하지 않으므로 [ADR-0074](../platform/0074-p2-ai-provider-consent-and-operation-boundary.md)의 provider 호출 quota가 이 횟수를 제한하지 않는다. P2는 이 잔존을 알려진 한계로 받아들이고 별도 batch를 두지 않는다.
 - 보존 기간이 지난 뒤의 같은 key 재시도는 새 확인으로 처리하며 이전 Room 결과를 재생하지 않는다.
 - 멱등성 범위는 최소 `(currentUserId, draft/resource, operation)`이다. 기능 gate를 통과한 요청에서 같은 범위의 이미 확인된 key는 초안 상태·만료·draft version 검사보다 먼저 같은 Room·ChatRoom 결과를 반환한다.
 - 다른 사용자·draft/resource·operation의 같은 key, 다른 key, 오래된 version, 만료 초안은 새 Room을 만들지 않는다.

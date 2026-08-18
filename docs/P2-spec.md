@@ -65,7 +65,7 @@ P2는 하나의 모니터링 기능을 뜻하지 않는다. 다음 기능 영역
 | 실시간 매칭 | 매칭 대상·조건·상태·생명주기, 실시간 전달, 동시성·실패·취소·복구와 사용자 화면 | [`MATCH-01` 기능 명세](p2/matching.md)·구현 계약 등록 완료 · 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태) |
 | 운영 관측 | 서비스 생존·지연·실패·AI 사용량·추정 비용과 핵심 업무 기능의 최종 결과 | [운영 관측 명세](p2/monitoring.md) 정본 승격·전송 ADR·[운영 계약](guides/MONITORING_OPERATIONS.md) 반영 |
 
-위 표는 팀 문서의 자리를 정한 것이다. `AI-01`~`AI-04`의 상세 동작은 기능 문서에 등록했고 외부 AI 처리·provider 경계는 승인된 [ADR-0068](adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md), Room 초안·확인형 생성은 승인된 [ADR-0069](adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 승인된 [ADR-0070](adr/room/0070-p2-room-region-closed-set-and-compatibility.md)을 기준으로 API·ERD·아키텍처의 목표 계약에 기능별로 반영했다. 이 공통 명세는 AI 기능군의 API, 저장 구조, 알고리즘, 화면과 완료 기준을 대신 소유하지 않는다. `AI-01`~`AI-04`와 `DISCOVERY-01`은 자연어 입력·게임 후보 조회·쓰기 권한의 소유 경계를 분리한다. 실시간 매칭의 상세 규칙과 완료 기준은 [`MATCH-01` 기능 명세](p2/matching.md)가 소유하며, 계약·생산 코드·자동 검증·배포·실측 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 갱신한다.
+위 표는 팀 문서의 자리를 정한 것이다. `AI-01`~`AI-04`의 상세 동작은 기능 문서에 등록했고 외부 AI 처리·provider 경계는 승인된 [ADR-0074](adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md), Room 초안·확인형 생성은 승인된 [ADR-0075](adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 승인된 [ADR-0076](adr/room/0076-p2-room-region-closed-set-and-compatibility.md)을 기준으로 API·ERD·아키텍처의 목표 계약에 기능별로 반영했다. 이 공통 명세는 AI 기능군의 API, 저장 구조, 알고리즘, 화면과 완료 기준을 대신 소유하지 않는다. `AI-01`~`AI-04`와 `DISCOVERY-01`은 자연어 입력·게임 후보 조회·쓰기 권한의 소유 경계를 분리한다. 실시간 매칭의 상세 규칙과 완료 기준은 [`MATCH-01` 기능 명세](p2/matching.md)가 소유하며, 계약·생산 코드·자동 검증·배포·실측 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 갱신한다.
 
 ### 해결하려는 문제와 검증 가설
 
@@ -162,7 +162,7 @@ P1은 조건 검색, 대기열·자동 승격, 알림과 채팅을 구현하지�
 7. API·ERD·아키텍처·ADR의 변경 필요 여부
 8. 자동 검증, 배포 검증, 품질·운영 측정 기준
 
-문서 작성만으로 `계약 준비 완료`가 되지는 않는다. 필요한 제품 정책과 ADR을 승인하고 API·ERD·아키텍처 등 소유 정본을 확정 반영한 뒤 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 갱신한다. AI-01~AI-04는 #795·#796과 ADR-0068~0070 승인이 완료됐으므로 계약 준비 상태로 두되, 생산 코드·검증·배포·실측 상태는 별도로 유지한다.
+문서 작성만으로 `계약 준비 완료`가 되지는 않는다. 필요한 제품 정책과 ADR을 승인하고 API·ERD·아키텍처 등 소유 정본을 확정 반영한 뒤 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 갱신한다. AI-01~AI-04는 #795·#796과 ADR-0074~0076 승인이 완료됐으므로 계약 준비 상태로 두되, 생산 코드·검증·배포·실측 상태는 별도로 유지한다.
 
 ### P2 공통 제외 범위
 
