@@ -27,11 +27,11 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 
 function summaryWithOneSuccess(run) {
   const duration = (count) => ({
-    values: {
-      p50: count > 0 ? 10 : null,
-      p95: count > 0 ? 20 : null,
-      p99: count > 0 ? 30 : null,
-      max: count > 0 ? 40 : null,
+      values: {
+        p50: count > 0 ? 10 : 0,
+        p95: count > 0 ? 20 : 0,
+        p99: count > 0 ? 30 : 0,
+        max: count > 0 ? 40 : 0,
       count,
     },
   });

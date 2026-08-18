@@ -376,6 +376,11 @@ function validateDurationMetric(summary, metricName) {
   };
   const statisticNames = ['p50', 'p95', 'p99', 'max'];
   if (values.count === 0) {
+    for (const name of statisticNames) {
+      if (normalizedValues[name] === 0) {
+        normalizedValues[name] = null;
+      }
+    }
     if (!statisticNames.every((name) => normalizedValues[name] === null)) {
       return { error: `${metricName} 무표본 통계는 null이어야 합니다.` };
     }

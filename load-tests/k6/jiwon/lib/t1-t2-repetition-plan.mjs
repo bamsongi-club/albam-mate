@@ -111,15 +111,15 @@ export function createT1T2RepetitionPlan({ campaignId, sourceSha, targetEnvironm
   for (const condition of T1_T2_CONDITIONS) {
     for (let repeat = 1; repeat <= T1_T2_REPEAT_COUNT; repeat += 1) {
       const runId = repeatRunId(normalizedCampaignId, condition.conditionKey, repeat);
-      const options = conditionOptions(condition, runId);
-      const fixturePlan = createFixturePlan(options);
+      const inputOptions = conditionOptions(condition, runId);
+      const fixturePlan = createFixturePlan(inputOptions);
       runs.push({
         repeat,
         repeatId: `r${repeat}`,
         conditionKey: condition.conditionKey,
         runId,
         fixtureId: fixturePlan.fixtureId,
-        options,
+        options: fixturePlan.options,
         readProfile: T1_T2_READ_PROFILE,
         writeExecutionProfile: { ...T1_T2_WRITE_EXECUTION_PROFILE },
         sourceSha: normalizedSourceSha,
