@@ -24,5 +24,5 @@
 | [0051](0051-p1-self-managed-aws-infrastructure.md) | P1 저비용 4 EC2 자체 운영 인프라와 Nginx 진입점 | 승인됨 | 2026-08-06 | 미검증 |
 | [0052](0052-local-profile-multi-instance-default.md) | `local` 프로필을 다중 인스턴스 기본 검증 환경으로 통합 | 승인됨 | 2026-08-07 | 검증됨 |
 | [0059](0059-p2-structured-stdout-cloudwatch-logs.md) | P2 구조화 애플리케이션 로그를 CloudWatch Logs에 전송 | 승인됨 | 2026-08-13 | 미검증 |
-| [0066](0066-p2-ai-provider-consent-and-operation-boundary.md) | P2 AI provider·동의·운영 경계를 단일 port와 fail-closed 정책으로 고정 | 승인됨 | 2026-08-17 | 미검증 |
+| [0068](0068-p2-ai-provider-consent-and-operation-boundary.md) | P2 AI provider·동의·운영 경계를 단일 port와 fail-closed 정책으로 고정 | 승인됨 | 2026-08-17 | 미검증 |
 | [0071](0071-p2-application-metrics-otlp-host-cloudwatch-agent.md) | P2 애플리케이션 메트릭을 동일 호스트 CloudWatch Agent로 OTLP 전송 | 승인됨 | 2026-08-13 | 미검증 |

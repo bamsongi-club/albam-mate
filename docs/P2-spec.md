@@ -59,7 +59,7 @@ P2는 하나의 모니터링 기능을 뜻하지 않는다. 다음 다섯 기능
 | 실시간 매칭 | 매칭 대상·조건·상태·생명주기, 실시간 전달, 동시성·실패·취소·복구와 사용자 화면 | [`MATCH-01` 기능 명세](p2/matching.md)·구현 계약 등록 완료 · 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태) |
 | 운영 관측 | 서비스 생존·지연·실패·AI 사용량·추정 비용과 핵심 업무 기능의 최종 결과 | [운영 관측 명세](p2/monitoring.md) 정본 승격·전송 ADR·[운영 계약](guides/MONITORING_OPERATIONS.md) 반영 |
 
-위 표는 팀 문서의 자리를 정한 것이다. `AI-01`의 상세 동작은 기능 문서에 등록했고 외부 AI 처리·provider 경계는 [ADR-0066](adr/platform/0066-p2-ai-provider-consent-and-operation-boundary.md), Room 초안·확인형 생성은 [ADR-0067](adr/room/0067-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0068](adr/room/0068-p2-room-region-closed-set-and-compatibility.md)을 기준으로 API·ERD·아키텍처 계약에 반영했다. 이 공통 명세는 AI 챗봇의 API, 저장 구조, 알고리즘, 화면과 완료 기준을 대신 소유하지 않는다. `AI-01`과 `DISCOVERY-01`은 자연어 입력·게임 후보 조회·쓰기 권한의 소유 경계를 분리한다. 실시간 매칭의 상세 규칙과 완료 기준은 [`MATCH-01` 기능 명세](p2/matching.md)가 소유하며, 계약·생산 코드·자동 검증·배포·실측 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 갱신한다.
+위 표는 팀 문서의 자리를 정한 것이다. `AI-01`의 상세 동작은 기능 문서에 등록했고 외부 AI 처리·provider 경계는 [ADR-0068](adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md), Room 초안·확인형 생성은 [ADR-0069](adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0070](adr/room/0070-p2-room-region-closed-set-and-compatibility.md)을 기준으로 API·ERD·아키텍처 계약에 반영했다. 이 공통 명세는 AI 챗봇의 API, 저장 구조, 알고리즘, 화면과 완료 기준을 대신 소유하지 않는다. `AI-01`과 `DISCOVERY-01`은 자연어 입력·게임 후보 조회·쓰기 권한의 소유 경계를 분리한다. 실시간 매칭의 상세 규칙과 완료 기준은 [`MATCH-01` 기능 명세](p2/matching.md)가 소유하며, 계약·생산 코드·자동 검증·배포·실측 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 갱신한다.
 
 ### 해결하려는 문제와 검증 가설
 

@@ -13,5 +13,5 @@
 | [0041](0041-postgresql-room-query-consistent-snapshot.md) | 상태 보정 뒤 ROOM 조회를 PostgreSQL 일관 스냅샷으로 구성 | 대체됨 | 2026-08-03 | 검증됨 |
 | [0055](0055-room-query-effective-status-and-persistence-correction.md) | ROOM 조회 유효 상태와 저장 상태 보정 책임 분리 | 승인됨 | 2026-08-10 | 검증됨 |
 | [0056](0056-postgresql-room-query-snapshot-without-global-pre-correction.md) | 사전 전역 보정 없는 ROOM 조회의 PostgreSQL 일관 snapshot | 승인됨 | 2026-08-10 | 검증됨 |
-| [0067](0067-p2-ai-draft-confirmation-and-idempotent-room-command.md) | P2 AI 임시 초안·확인형 Room command와 멱등성 | 승인됨 | 2026-08-17 | 미검증 |
-| [0068](0068-p2-room-region-closed-set-and-compatibility.md) | P2 Room 지역 닫힌 집합과 기존 요청 호환 | 승인됨 | 2026-08-17 | 미검증 |
+| [0069](0069-p2-ai-draft-confirmation-and-idempotent-room-command.md) | P2 AI 임시 초안·확인형 Room command와 멱등성 | 승인됨 | 2026-08-17 | 미검증 |
+| [0070](0070-p2-room-region-closed-set-and-compatibility.md) | P2 Room 지역 닫힌 집합과 기존 요청 호환 | 승인됨 | 2026-08-17 | 미검증 |

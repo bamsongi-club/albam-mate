@@ -720,7 +720,7 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 
 ## P2 AI-01 저장 계약 (계획·미구현)
 
-> 이 절은 `AI-01`의 승인된 목표 저장 계약이며 아직 Flyway·JPA 엔티티·생산 테이블이 없다. 현재 제공·검증·배포·실측 여부는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 판정한다. 외부 provider·동의·보존·비용 경계는 [ADR-0066](adr/platform/0066-p2-ai-provider-consent-and-operation-boundary.md), 초안·확인·멱등성은 [ADR-0067](adr/room/0067-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0068](adr/room/0068-p2-room-region-closed-set-and-compatibility.md)을 따른다.
+> 이 절은 `AI-01`의 승인된 목표 저장 계약이며 아직 Flyway·JPA 엔티티·생산 테이블이 없다. 현재 제공·검증·배포·실측 여부는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 판정한다. 외부 provider·동의·보존·비용 경계는 [ADR-0068](adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md), 초안·확인·멱등성은 [ADR-0069](adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0070](adr/room/0070-p2-room-region-closed-set-and-compatibility.md)을 따른다.
 
 이 절은 동의·초안·확인 멱등성의 저장 이름·타입·제약과 저장 효과만 소유한다. 자연어 요청·provider payload·모델 원문 응답·대화 이력·게임 후보는 저장하지 않으며, HTTP 필드·오류는 [AI-01 API](API.md#ai-01-ai-모임-도우미-api), 모듈·트랜잭션 흐름은 [아키텍처의 AI-01 모듈 계약](ARCHITECTURE.md#p2-ai-01-모듈-계약-계획미구현)이 소유한다.
 

@@ -1,4 +1,4 @@
-# ADR-0067: P2 AI 초안·확인형 Room command와 멱등성
+# ADR-0069: P2 AI 초안·확인형 Room command와 멱등성
 
 - 상태: 승인됨
 - 작성일: 2026-08-17

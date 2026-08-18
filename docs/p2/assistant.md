@@ -9,7 +9,7 @@
 ## 문서 책임
 
 - 이 문서가 소유하는 기능 동작과 완료 기준: 로그인 사용자의 자연어 조건을 서버가 구조화하고, 추천과 누락 정보 확인을 거쳐 사용자가 명시적으로 확인한 경우 기존 Room 생성 유스케이스로 연결하는 AI 모임 도우미의 동작과 `AI-01` 완료 기준.
-- 이 문서가 소유하지 않는 결정: 외부 AI 처리·동의·provider 운영 경계는 [ADR-0066](../adr/platform/0066-p2-ai-provider-consent-and-operation-boundary.md), Room 초안·확인형 생성은 [ADR-0067](../adr/room/0067-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역 계약은 [ADR-0068](../adr/room/0068-p2-room-region-closed-set-and-compatibility.md)가 소유한다. 공개 HTTP·저장·모듈 계약은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md)에 반영됐다.
+- 이 문서가 소유하지 않는 결정: 외부 AI 처리·동의·provider 운영 경계는 [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md), Room 초안·확인형 생성은 [ADR-0069](../adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역 계약은 [ADR-0070](../adr/room/0070-p2-room-region-closed-set-and-compatibility.md)가 소유한다. 공개 HTTP·저장·모듈 계약은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md)에 반영됐다.
 - `AI-01`은 [`DISCOVERY-01` 게임 탐색 도우미](game-discovery-assistant.md#ai-01과의-경계)와 별도 기능이다. `DISCOVERY-01`은 `SEARCH-04` 읽기 전용 탐색을 소유하고, `AI-01`은 확인형 Room 생성 흐름을 소유한다.
 
 문서 등록과 AI-D01~D03 ADR 승인은 provider 도입·생산 코드·배포·실측 완료를 뜻하지 않는다. 공개 API·저장·모듈 계약은 반영됐고, [#794](https://github.com/bamsongi-club/albam-mate/issues/794)의 범위와 승인된 ADR을 바탕으로 migration·구현 이슈를 후속 진행한다.
@@ -20,9 +20,9 @@
 
 | 결정 | 확정 내용 | 기술 정본 |
 | --- | --- | --- |
-| `AI-D01` | 외부 provider는 `assistant.contract.AssistantIntentExtractor` 한 port 뒤에 두고, 동의·PII/secret 차단·no-retention·no-training·fake provider·호출/비용 상한을 적용한다. 모델은 `propose_game_room_intent` 구조화 결과만 제안하며 검색·Room 쓰기·tool loop 권한을 갖지 않는다. | [ADR-0066](../adr/platform/0066-p2-ai-provider-consent-and-operation-boundary.md) |
-| `AI-D02` | `RECOMMEND`는 후보만 조회하고 초안을 만들지 않는다. `CREATE_ROOM` 전환 후 15분 초안을 만들며, 상세 장소와 최종 조건을 사용자가 확인한 뒤에만 `room.contract` 확인형 command를 호출한다. `Idempotency-Key`·draft version·Room·ChatRoom 원자성을 적용한다. | [ADR-0067](../adr/room/0067-p2-ai-draft-confirmation-and-idempotent-room-command.md) |
-| `AI-D03` | 지역은 `홍대`·`강남`·`건대`·`잠실`의 닫힌 집합이다. 호환 기간의 누락은 `홍대`로 해석하고, 기존 행은 재작성하지 않으며 migration 전 허용값을 검사한다. | [ADR-0068](../adr/room/0068-p2-room-region-closed-set-and-compatibility.md) |
+| `AI-D01` | 외부 provider는 `assistant.contract.AssistantIntentExtractor` 한 port 뒤에 두고, 동의·PII/secret 차단·no-retention·no-training·fake provider·호출/비용 상한을 적용한다. 모델은 `propose_game_room_intent` 구조화 결과만 제안하며 검색·Room 쓰기·tool loop 권한을 갖지 않는다. | [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md) |
+| `AI-D02` | `RECOMMEND`는 후보만 조회하고 초안을 만들지 않는다. `CREATE_ROOM` 전환 후 15분 초안을 만들며, 상세 장소와 최종 조건을 사용자가 확인한 뒤에만 `room.contract` 확인형 command를 호출한다. `Idempotency-Key`·draft version·Room·ChatRoom 원자성을 적용한다. | [ADR-0069](../adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md) |
+| `AI-D03` | 지역은 `홍대`·`강남`·`건대`·`잠실`의 닫힌 집합이다. 호환 기간의 누락은 `홍대`로 해석하고, 기존 행은 재작성하지 않으며 migration 전 허용값을 검사한다. | [ADR-0070](../adr/room/0070-p2-room-region-closed-set-and-compatibility.md) |
 
 결정 흐름은 `#794`의 AI-01 범위·소유 경계에서 시작해 `#795`의 AI-D01, `#796`의 AI-D02·D03으로 이어진다. 세 결정은 승인됐고 공개 API·ERD·아키텍처 계약에 반영됐지만 생산 코드·자동 검증·배포·실측은 아직 완료되지 않았다.
 
@@ -63,8 +63,8 @@
 ### 포함 범위
 
 - `AI-01a`: 로그인·외부 처리 동의, 자연어에서 서버가 소비할 구조화 조건 추출, 누락 필드·후보 없음·지원하지 않는 요청의 상태 구분.
-- `AI-01b`: 외부 AI port와 adapter, payload allowlist, 호출 한도·timeout·비용 상한·fail-closed·fake provider 기본 검증. 세부 값은 [ADR-0066](../adr/platform/0066-p2-ai-provider-consent-and-operation-boundary.md)을 따른다.
-- `AI-01c`: 15분 임시 초안, 상세 장소 입력, 명시적 확인, `Idempotency-Key`와 draft version을 사용하는 Room 생성 연결. 세부 저장·지역·오류 계약은 [ADR-0067](../adr/room/0067-p2-ai-draft-confirmation-and-idempotent-room-command.md)와 [ADR-0068](../adr/room/0068-p2-room-region-closed-set-and-compatibility.md)를 따른다.
+- `AI-01b`: 외부 AI port와 adapter, payload allowlist, 호출 한도·timeout·비용 상한·fail-closed·fake provider 기본 검증. 세부 값은 [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md)을 따른다.
+- `AI-01c`: 15분 임시 초안, 상세 장소 입력, 명시적 확인, `Idempotency-Key`와 draft version을 사용하는 Room 생성 연결. 세부 저장·지역·오류 계약은 [ADR-0069](../adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md)와 [ADR-0070](../adr/room/0070-p2-room-region-closed-set-and-compatibility.md)를 따른다.
 - `AI-01d`: `#/assistant` 화면, 추천·추가 질문·확인 카드·실패 상태와 기존 수동 Room 생성 회귀 보호.
 - `AI-01` 전체 흐름의 품질·계약·부하 검증 설계는 [검증 설계](assistant-load-test.md)를 따른다.
 
@@ -84,9 +84,9 @@
 
 | 슬라이스 | 책임 | 구현 전제 |
 | --- | --- | --- |
-| `AI-01a` | 동의·철회, 조건 추출, 서버 추천·추가 질문 | ADR-0066, API·아키텍처 계약 |
-| `AI-01b` | provider adapter, fake provider, quota·timeout·비용·fail-closed | ADR-0066, 설정·관측 계약 |
-| `AI-01c` | 임시 초안, 장소 입력, 지역 검증, 확인형 Room command와 멱등성 | ADR-0067·0068, ERD·API·Room 계약 |
+| `AI-01a` | 동의·철회, 조건 추출, 서버 추천·추가 질문 | ADR-0068, API·아키텍처 계약 |
+| `AI-01b` | provider adapter, fake provider, quota·timeout·비용·fail-closed | ADR-0068, 설정·관측 계약 |
+| `AI-01c` | 임시 초안, 장소 입력, 지역 검증, 확인형 Room command와 멱등성 | ADR-0069·0070, ERD·API·Room 계약 |
 | `AI-01d` | `#/assistant` 화면, 확인 카드, 실패 상태, 수동 Room 회귀 | `AI-01a`·`AI-01c` 공개 응답 계약 |
 
 각 구현 이슈는 대상 경로, 공개 계약, migration, 테스트 ID, rollback과 제외 범위를 선언한다. 공유 파일을 여러 슬라이스가 수정하면 먼저 소유자를 정하고 계약 변경을 선행한다. 이 문서와 ADR·API·ERD·아키텍처의 계약 및 각 구현 이슈의 테스트 계약이 고정되기 전에는 provider dependency, 공개 endpoint, 테이블, 생산 코드를 추가하지 않는다.
@@ -123,7 +123,7 @@
 
 - 자연어 요청과 추천만으로는 Room·ChatRoom·참가 관계를 만들지 않는다.
 - 사용자가 확인 카드에서 최종 조건과 상세 장소를 확인한 뒤에만 기존 Room 생성 command를 호출한다.
-- 동일 확인 재시도는 같은 결과로 수렴해야 하며, 다른 요청이나 오래된 초안이 중복 Room을 만들지 않아야 한다. 구체 잠금·유일 제약·오류 코드는 [ADR-0067](../adr/room/0067-p2-ai-draft-confirmation-and-idempotent-room-command.md)을 따른다.
+- 동일 확인 재시도는 같은 결과로 수렴해야 하며, 다른 요청이나 오래된 초안이 중복 Room을 만들지 않아야 한다. 구체 잠금·유일 제약·오류 코드는 [ADR-0069](../adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md)을 따른다.
 - `Idempotency-Key`의 저장·조회·유일성 범위는 최소 현재 인증 사용자(`currentUserId`)·확인 대상 draft/resource·operation으로 묶는다. 같은 범위의 재시도만 최초 Room 결과를 재생하고, 다른 사용자·draft·operation에서 같은 key를 재사용하면 Room을 반환하지 않고 `CONFIRMATION_CONFLICT` 또는 `FORBIDDEN`으로 끝낸다.
 
 ### 실패·복구
@@ -142,7 +142,7 @@
 
 - 성공·추가 질문·거절·provider 실패·Room 생성 최종 결과와 허용된 provider/model/feature/tool label만 집계한다.
 - prompt·응답 원문·Tool 인자·게임 후보·사용자 ID·세션·대화 이력·비밀값은 중앙 metric/log에 남기지 않는다.
-- AI 사용량·추정 비용은 [OPS-04](monitoring.md#ops-04-ai-사용량과-추정-비용)의 공통 규칙과 [ADR-0066](../adr/platform/0066-p2-ai-provider-consent-and-operation-boundary.md)의 승인 경계를 함께 따른다. 호출이 없는 기간을 비용 `0`의 증거로 기록하지 않는다.
+- AI 사용량·추정 비용은 [OPS-04](monitoring.md#ops-04-ai-사용량과-추정-비용)의 공통 규칙과 [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md)의 승인 경계를 함께 따른다. 호출이 없는 기간을 비용 `0`의 증거로 기록하지 않는다.
 
 ## 기능 ID별 완료 기준
 
@@ -170,10 +170,10 @@
 ## 구현·검증 게이트
 
 1. [#794](https://github.com/bamsongi-club/albam-mate/issues/794)의 AI-01 범위·`DISCOVERY-01` 경계 문서화는 완료됐다.
-2. [#795](https://github.com/bamsongi-club/albam-mate/issues/795)와 [#796](https://github.com/bamsongi-club/albam-mate/issues/796)의 결정과 [ADR-0066](../adr/platform/0066-p2-ai-provider-consent-and-operation-boundary.md)·[ADR-0067](../adr/room/0067-p2-ai-draft-confirmation-and-idempotent-room-command.md)·[ADR-0068](../adr/room/0068-p2-room-region-closed-set-and-compatibility.md)가 승인됐고, 공개 API·ERD·아키텍처 계약도 반영됐다. 이제 migration·구현 이슈의 대상 경로·테스트 계약·rollback을 고정하기 전에는 `AI-01a`~`AI-01d` 생산 코드를 시작하지 않는다.
+2. [#795](https://github.com/bamsongi-club/albam-mate/issues/795)와 [#796](https://github.com/bamsongi-club/albam-mate/issues/796)의 결정과 [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md)·[ADR-0069](../adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md)·[ADR-0070](../adr/room/0070-p2-room-region-closed-set-and-compatibility.md)가 승인됐고, 공개 API·ERD·아키텍처 계약도 반영됐다. 이제 migration·구현 이슈의 대상 경로·테스트 계약·rollback을 고정하기 전에는 `AI-01a`~`AI-01d` 생산 코드를 시작하지 않는다.
 3. 공개 계약과 구현 이슈가 고정되면 하위 슬라이스별 테스트 계약을 먼저 승인하고, fake provider·고정 fixture로 자동 검증한다. 확인 전 무부수효과, 확인 후 단일 Room·ChatRoom 원자성, 동일 key·동시 요청 수렴, 기존 수동 Room 생성·참가·채팅·CSRF 회귀를 함께 확인한다.
 4. 실제 provider·운영 배포·부하 측정은 실행 권한과 환경·가격 snapshot·결과 보존 경계를 확인한 뒤 별도 증거로 남긴다. 문서·결정·계약·생산 코드·자동 검증·배포·실측은 [P2 기능 상태](README.md#기능별-현재-상태)에 별도 축으로 기록한다.
 
 ## 문서 관리
 
-소유자 `알밤메이트 AI 모임 도우미 담당자` · 최종 검증일 `2026-08-18` · 결정 정본 `ADR-0066~0068` · 상세 검증 정본 `assistant-load-test.md`
+소유자 `알밤메이트 AI 모임 도우미 담당자` · 최종 검증일 `2026-08-18` · 결정 정본 `ADR-0068~0070` · 상세 검증 정본 `assistant-load-test.md`
