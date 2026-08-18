@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import process from "node:process";
 import { execFileSync } from "node:child_process";
@@ -11,8 +12,10 @@ const DEFAULT_BASE_URL = "http://127.0.0.1:5173";
 const DEFAULT_WARM_UP_RUNS = 5;
 const DEFAULT_MEASURED_RUNS = 20;
 const DEFAULT_DATASET_SIZE = 170005;
-const DEFAULT_DATASET_SHA256 = "09da6ecbc6f3be18b4233a26a4715b7af0011929b3e5c2b549b1b021dc5fa079";
-const RUNNER_REPOSITORY = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
+const RUNNER_FILE = fileURLToPath(import.meta.url);
+const RUNNER_REPOSITORY = path.resolve(path.dirname(RUNNER_FILE), "../..");
+const RUNNER_RELATIVE_PATH = path.relative(RUNNER_REPOSITORY, RUNNER_FILE);
 
 function parseArgs(argv) {
   const options = {
@@ -20,7 +23,8 @@ function parseArgs(argv) {
     warmUpRuns: DEFAULT_WARM_UP_RUNS,
     measuredRuns: DEFAULT_MEASURED_RUNS,
     datasetSize: DEFAULT_DATASET_SIZE,
-    datasetSha256: DEFAULT_DATASET_SHA256,
+    datasetSha256: null,
+    requestTimeoutMs: DEFAULT_REQUEST_TIMEOUT_MS,
     serverCommit: null,
     outputDirectory: "docs/measurements/results/game-list-740",
   };
@@ -50,7 +54,10 @@ function parseArgs(argv) {
         options.datasetSize = positiveInteger(next(), argument);
         break;
       case "--dataset-sha256":
-        options.datasetSha256 = next();
+        options.datasetSha256 = sha256(next(), argument);
+        break;
+      case "--request-timeout-ms":
+        options.requestTimeoutMs = positiveInteger(next(), argument);
         break;
       case "--server-commit":
         options.serverCommit = commitSha(next(), argument);
@@ -69,6 +76,9 @@ function parseArgs(argv) {
 
   if (options.measuredRuns < 20) {
     throw new Error("#740 기준을 지키기 위해 --runs는 20 이상이어야 합니다.");
+  }
+  if (!options.datasetSha256) {
+    throw new Error("--dataset-sha256은 측정 대상 데이터셋의 64자리 SHA-256이 필요합니다.");
   }
   if (!options.serverCommit) {
     throw new Error("--server-commit은 측정 대상 서버의 commit SHA가 필요합니다.");
@@ -91,6 +101,13 @@ function commitSha(raw, optionName) {
   return raw;
 }
 
+function sha256(raw, optionName) {
+  if (!/^[0-9a-f]{64}$/u.test(raw)) {
+    throw new Error(`${optionName}은 64자리 소문자 hexadecimal SHA-256이어야 합니다: ${raw}`);
+  }
+  return raw;
+}
+
 function printHelp() {
   console.log(`Usage: node scripts/measurements/game-list-baseline.mjs [options]\n\n` +
     `Options:\n` +
@@ -98,7 +115,8 @@ function printHelp() {
     `  --warm-up <n>             warm-up calls per scenario (default: ${DEFAULT_WARM_UP_RUNS})\n` +
     `  --runs <n>                measured calls per scenario, >= 20 (default: ${DEFAULT_MEASURED_RUNS})\n` +
     `  --dataset-size <n>        loaded game row count (default: ${DEFAULT_DATASET_SIZE})\n` +
-    `  --dataset-sha256 <sha>    source dataset SHA-256\n` +
+    `  --dataset-sha256 <sha>    source dataset SHA-256 (required)\n` +
+    `  --request-timeout-ms <n>  timeout per HTTP request/body read (default: ${DEFAULT_REQUEST_TIMEOUT_MS})\n` +
     `  --server-commit <sha>     measured server commit SHA (required)\n` +
     `  --output-directory <dir>  result directory\n`);
 }
@@ -118,6 +136,42 @@ async function fetchJson(url) {
   return body;
 }
 
+function gameListResponseError(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return "응답 envelope가 JSON object가 아닙니다.";
+  }
+  if (body.status !== 200) {
+    return `응답 envelope status가 200이 아닙니다: ${body.status}`;
+  }
+
+  const page = body.data;
+  if (!page || typeof page !== "object" || Array.isArray(page)) {
+    return "응답 data가 page object가 아닙니다.";
+  }
+  if (!Array.isArray(page.content)) {
+    return "응답 data.content가 array가 아닙니다.";
+  }
+  if (!Number.isSafeInteger(page.page) || page.page < 0) {
+    return "응답 data.page가 0 이상의 정수가 아닙니다.";
+  }
+  if (!Number.isSafeInteger(page.size) || page.size <= 0) {
+    return "응답 data.size가 1 이상의 정수가 아닙니다.";
+  }
+  if (!Number.isSafeInteger(page.totalElements) || page.totalElements < 0) {
+    return "응답 data.totalElements가 0 이상의 정수가 아닙니다.";
+  }
+  if (!Number.isSafeInteger(page.totalPages) || page.totalPages < 0) {
+    return "응답 data.totalPages가 0 이상의 정수가 아닙니다.";
+  }
+  if (typeof page.hasNext !== "boolean") {
+    return "응답 data.hasNext가 boolean이 아닙니다.";
+  }
+  if (page.content.some((item) => !item || typeof item !== "object" || Array.isArray(item))) {
+    return "응답 data.content의 game item이 object가 아닙니다.";
+  }
+  return null;
+}
+
 function firstCode(response, label) {
   const code = response?.data?.find((item) => typeof item?.code === "string" && item.code.length > 0)?.code;
   if (!code) {
@@ -130,6 +184,10 @@ async function discoverScenarioValues(baseUrl) {
   const base = await fetchJson(
     `${baseUrl}/api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24`,
   );
+  const baseResponseError = gameListResponseError(base);
+  if (baseResponseError) {
+    throw new Error(`base discovery 응답 계약 불일치: ${baseResponseError}`);
+  }
   const firstGame = base?.data?.content?.[0];
   const keywordCandidate = [firstGame?.name, firstGame?.englishName]
     .find((value) => typeof value === "string" && value.trim().length >= 2);
@@ -194,14 +252,56 @@ function scenarioUrl(baseUrl, scenario) {
   return `${baseUrl}/api/games?${params.toString()}`;
 }
 
-async function requestOnce(url) {
+async function requestOnce(url, requestTimeoutMs) {
   const startedAt = performance.now();
-  const response = await fetch(url, {
-    headers: { Accept: "application/json", "Cache-Control": "no-cache" },
-  });
-  const bytes = (await response.arrayBuffer()).byteLength;
-  const elapsedMs = performance.now() - startedAt;
-  return { status: response.status, elapsedMs, bytes };
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, requestTimeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      headers: { Accept: "application/json", "Cache-Control": "no-cache" },
+      signal: controller.signal,
+    });
+    const buffer = await response.arrayBuffer();
+    const bytes = buffer.byteLength;
+    let error = null;
+    if (response.status === 200) {
+      let body;
+      try {
+        body = JSON.parse(new TextDecoder().decode(buffer));
+      } catch {
+        error = "응답 body가 JSON이 아닙니다.";
+      }
+      if (!error) {
+        const responseError = gameListResponseError(body);
+        if (responseError) {
+          error = `응답 계약 불일치: ${responseError}`;
+        }
+      }
+    }
+    return {
+      status: response.status,
+      elapsedMs: performance.now() - startedAt,
+      bytes,
+      error,
+    };
+  } catch (error) {
+    const message = timedOut || error?.name === "AbortError"
+      ? `HTTP 요청 timeout (${requestTimeoutMs}ms)`
+      : `HTTP 요청 실패: ${errorMessage(error)}`;
+    return {
+      status: null,
+      elapsedMs: performance.now() - startedAt,
+      bytes: 0,
+      error: `${message}: ${url}`,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function percentile(sortedValues, percentileValue) {
@@ -229,21 +329,27 @@ function summarize(samples) {
   };
 }
 
-async function measureScenario(baseUrl, scenario, warmUpRuns, measuredRuns) {
+async function measureScenario(baseUrl, scenario, warmUpRuns, measuredRuns, requestTimeoutMs) {
   const url = scenarioUrl(baseUrl, scenario);
   const samples = [];
 
   try {
     for (let index = 0; index < warmUpRuns; index += 1) {
-      const warmUp = await requestOnce(url);
+      const warmUp = await requestOnce(url, requestTimeoutMs);
+      if (warmUp.error) {
+        throw new Error(`${scenario.name} warm-up 실패: ${warmUp.error}`);
+      }
       if (warmUp.status !== 200) {
         throw new Error(`${scenario.name} warm-up 실패: status=${warmUp.status}, url=${url}`);
       }
     }
 
     for (let index = 0; index < measuredRuns; index += 1) {
-      const sample = await requestOnce(url);
+      const sample = await requestOnce(url, requestTimeoutMs);
       samples.push({ run: index + 1, ...sample });
+      if (sample.error) {
+        throw new Error(`${scenario.name} 실측 실패: run=${index + 1}, ${sample.error}`);
+      }
       if (sample.status !== 200) {
         throw new Error(`${scenario.name} 실측 실패: run=${index + 1}, status=${sample.status}, url=${url}`);
       }
@@ -283,12 +389,60 @@ function currentGitCommit() {
   }
 }
 
+function runnerFileSha256() {
+  try {
+    return createHash("sha256").update(fs.readFileSync(RUNNER_FILE)).digest("hex");
+  } catch {
+    return null;
+  }
+}
+
+function runnerSourceClean() {
+  try {
+    return execFileSync(
+      "git",
+      ["-C", RUNNER_REPOSITORY, "status", "--porcelain", "--", RUNNER_RELATIVE_PATH],
+      { encoding: "utf8" },
+    ).trim() === "";
+  } catch {
+    return null;
+  }
+}
+
+function currentRunnerProvenance() {
+  return {
+    commit: currentGitCommit(),
+    fileSha256: runnerFileSha256(),
+    sourceClean: runnerSourceClean(),
+  };
+}
+
+function assertRunnerProvenance(provenance) {
+  if (!provenance.commit || !provenance.fileSha256) {
+    throw new Error("runner commit 또는 runner 파일 SHA-256을 확인하지 못했습니다.");
+  }
+  if (provenance.sourceClean !== true) {
+    throw new Error("측정 시작 시 runner 파일에 미커밋 변경이 있어 provenance를 고정할 수 없습니다.");
+  }
+}
+
+function assertRunnerProvenanceStable(startProvenance) {
+  const endProvenance = currentRunnerProvenance();
+  if (
+    endProvenance.commit !== startProvenance.commit
+    || endProvenance.fileSha256 !== startProvenance.fileSha256
+    || endProvenance.sourceClean !== true
+  ) {
+    throw new Error("측정 중 runner commit 또는 runner 파일이 변경되어 성공 산출물을 만들 수 없습니다.");
+  }
+}
+
 function csvEscape(value) {
   const text = String(value);
   return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
-function writeArtifacts(options, discovered, results, failure, runnerCommit) {
+function writeArtifacts(options, discovered, results, failure, runnerProvenance) {
   fs.mkdirSync(options.outputDirectory, { recursive: true });
   const timestamp = new Date().toISOString().replaceAll(":", "-");
   const baseName = `game-list-740-${timestamp}`;
@@ -299,7 +453,9 @@ function writeArtifacts(options, discovered, results, failure, runnerCommit) {
     issue: 740,
     status: failure ? "failed" : "success",
     measuredAt: new Date().toISOString(),
-    runnerCommit,
+    runnerCommit: runnerProvenance?.commit ?? null,
+    runnerFileSha256: runnerProvenance?.fileSha256 ?? null,
+    runnerSourceClean: runnerProvenance?.sourceClean ?? null,
     serverCommit: options.serverCommit,
     baseUrl: options.baseUrl,
     dataset: { gameCount: options.datasetSize, sha256: options.datasetSha256 },
@@ -339,8 +495,14 @@ async function main() {
   let discovered = null;
   const results = [];
   let failure = null;
+  let runnerProvenance = null;
 
   try {
+    runnerProvenance = currentRunnerProvenance();
+    assertRunnerProvenance(runnerProvenance);
+    console.log(`[game-list-740] runner-commit=${runnerProvenance.commit}`);
+    console.log(`[game-list-740] runner-file-sha256=${runnerProvenance.fileSha256}`);
+
     discovered = await discoverScenarioValues(options.baseUrl);
     console.log(`[game-list-740] discovered keyword=${JSON.stringify(discovered.keyword)}, theme=${discovered.theme}, mechanism=${discovered.mechanism}`);
 
@@ -351,6 +513,7 @@ async function main() {
         scenario,
         options.warmUpRuns,
         options.measuredRuns,
+        options.requestTimeoutMs,
       );
       results.push(result);
       if (result.status === "failed") {
@@ -363,16 +526,13 @@ async function main() {
           `p95=${result.summary.p95Ms.toFixed(3)}ms max=${result.summary.maxMs.toFixed(3)}ms`,
       );
     }
+
+    assertRunnerProvenanceStable(runnerProvenance);
   } catch (error) {
     failure = error;
   }
 
-  const runnerCommit = currentGitCommit();
-  if (!runnerCommit && !failure) {
-    failure = new Error("runner commit을 확인하지 못해 성공 산출물을 만들 수 없습니다.");
-  }
-
-  const artifacts = writeArtifacts(options, discovered, results, failure, runnerCommit);
+  const artifacts = writeArtifacts(options, discovered, results, failure, runnerProvenance);
   console.log(`[game-list-740] json=${artifacts.jsonPath}`);
   console.log(`[game-list-740] csv=${artifacts.csvPath}`);
   if (failure) {
