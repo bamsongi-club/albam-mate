@@ -190,16 +190,26 @@ test("제3 판정이 다수 합의를 만들면 quality-ready를 통과한다", 
     assert.doesNotThrow(() => validateQualityReadiness(manifest));
 });
 
-test("Recall@5·MRR@5·nDCG@5를 k에 맞춰 재현한다", () => {
-    const metrics = calculateRankingMetrics({
+test("Recall·MRR·nDCG를 k별 반환 key와 함께 재현한다", () => {
+    const metricsAt10 = calculateRankingMetrics({
+        expectedGameIds: [1, 2, 3],
+        rankedGameIds: [9, 2, 8, 1, 7, 3],
+        k: 10,
+    });
+
+    assert.equal(metricsAt10.recallAt10, 1);
+    assert.equal(metricsAt10.mrrAt10, 1 / 2);
+    assert.equal(metricsAt10.ndcgAt10, (1 / Math.log2(3) + 1 / Math.log2(5) + 1 / Math.log2(7)) / (1 + 1 / Math.log2(3) + 1 / 2));
+
+    const metricsAt5 = calculateRankingMetrics({
         expectedGameIds: [1, 2, 3],
         rankedGameIds: [9, 2, 8, 1, 7, 3],
         k: 5,
     });
 
-    assert.equal(metrics.recallAt5, 2 / 3);
-    assert.equal(metrics.mrrAt5, 1 / 2);
-    assert.equal(metrics.ndcgAt5, (1 / Math.log2(3) + 1 / Math.log2(5)) / (1 + 1 / Math.log2(3) + 1 / 2));
+    assert.equal(metricsAt5.recallAt5, 2 / 3);
+    assert.equal(metricsAt5.mrrAt5, 1 / 2);
+    assert.equal(metricsAt5.ndcgAt5, (1 / Math.log2(3) + 1 / Math.log2(5)) / (1 + 1 / Math.log2(3) + 1 / 2));
 });
 
 test("hard-filter violation이 있으면 품질 결과가 합격할 수 없다", () => {
