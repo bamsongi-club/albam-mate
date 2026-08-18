@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.monitoring;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -20,9 +21,39 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 class DependencyHealthMetricsTest {
+
+	@Test
+	void T1_Redis_장애와_복구는_유한_failureCode의_구조화_이벤트로_한번씩만_기록한다() {
+		SimpleMeterRegistry registry = new SimpleMeterRegistry();
+		DependencyHealthMetrics metrics = new DependencyHealthMetrics(registry);
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(DependencyHealthMetrics.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		try {
+			metrics.recordRedis(true);
+			metrics.recordRedis(false);
+			metrics.recordRedis(false);
+			metrics.recordRedis(true);
+
+			assertEquals(2, appender.list.size());
+			assertEquals("event=dependency_health_changed dependency=redis outcome=down failureCode=REDIS_UNAVAILABLE",
+				cloud.bamsongi.albammate.fixture.StructuredLogAssertions.fieldText(appender.list.get(0)));
+			assertEquals("event=dependency_health_changed dependency=redis outcome=recovered",
+				cloud.bamsongi.albammate.fixture.StructuredLogAssertions.fieldText(appender.list.get(1)));
+			assertFalse(appender.list.stream().map(ILoggingEvent::getFormattedMessage)
+				.anyMatch(message -> message.contains("redis unavailable")));
+		} finally {
+			logger.detachAppender(appender);
+			appender.stop();
+		}
+	}
 
 	@Test
 	void T2_PostgreSQL과_Redis의_상태를_서로_독립된_유한_dimension으로_기록한다() throws Exception {
@@ -58,7 +89,8 @@ class DependencyHealthMetricsTest {
 		when(dataSource.getConnection()).thenReturn(postgresql);
 		when(redisConnectionFactory.getConnection()).thenReturn(redis);
 		DependencyHealthSampler sampler = new DependencyHealthSampler(
-			dataSource, redisConnectionFactory, registry, java.time.Duration.ofSeconds(10));
+			dataSource, redisConnectionFactory, new DependencyHealthMetrics(registry),
+			java.time.Duration.ofSeconds(10));
 
 		when(postgresql.isValid(1)).thenReturn(true);
 		when(redis.ping()).thenReturn("PONG");
@@ -93,7 +125,8 @@ class DependencyHealthMetricsTest {
 		when(redisConnectionFactory.getConnection()).thenReturn(redis);
 		when(redis.ping()).thenReturn("PONG");
 		DependencyHealthSampler sampler = new DependencyHealthSampler(
-			dataSource, redisConnectionFactory, registry, java.time.Duration.ofSeconds(10));
+			dataSource, redisConnectionFactory, new DependencyHealthMetrics(registry),
+			java.time.Duration.ofSeconds(10));
 
 		long startedAt = System.nanoTime();
 		sampler.sample();
@@ -124,7 +157,8 @@ class DependencyHealthMetricsTest {
 		when(redisConnectionFactory.getConnection()).thenReturn(redis);
 		when(redis.ping()).thenReturn("PONG");
 		DependencyHealthSampler sampler = new DependencyHealthSampler(
-			dataSource, redisConnectionFactory, registry, java.time.Duration.ofSeconds(10));
+			dataSource, redisConnectionFactory, new DependencyHealthMetrics(registry),
+			java.time.Duration.ofSeconds(10));
 
 		try {
 			sampler.sample();

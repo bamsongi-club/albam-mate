@@ -15,7 +15,8 @@ public final class MonitoringStructuredLoggingCustomizer
 	private static final Set<String> ALLOWED_KEYS = Set.of(
 		"@timestamp", "level", "event", "environment", "stackid", "service", "role", "instanceid", "release",
 		"requestid", "failurecode", "reasoncode", "exceptionclass", "exceptiontype", "eventtype", "targettype",
-		"action", "outcome", "roomstatus", "usecase", "section", "lockname", "measurementtime", "occurredat",
+		"action", "outcome", "dependency", "roomstatus", "usecase", "section", "lockname", "measurementtime",
+		"occurredat",
 		"outboxrecordedat", "notificationrecordedat", "nextavailableat", "roomid", "messageid", "sourceeventid",
 		"gameid", "deterministicfailure",
 		"attempt", "batchnumber", "claimedcount", "processedcount", "retryscheduledcount", "failedcount",

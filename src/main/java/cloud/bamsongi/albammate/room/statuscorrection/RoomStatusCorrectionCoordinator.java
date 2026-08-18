@@ -6,10 +6,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.IntConsumer;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
+import cloud.bamsongi.albammate.monitoring.RoomStatusCorrectionMetrics;
 import cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier;
+import io.micrometer.core.instrument.Metrics;
 import lombok.extern.slf4j.Slf4j;
 
 /** 트랜잭션 경계 밖에서 낙관 락 충돌만 제한적으로 재시도한다. */
@@ -21,16 +24,29 @@ public class RoomStatusCorrectionCoordinator {
 	private final RoomOptimisticLockRetrier retrier;
 	private final RoomStatusCorrectionCandidateSelector candidateSelector;
 	private final RoomStatusCorrectionProgressStore progressStore;
+	private final RoomStatusCorrectionMetrics metrics;
+
+	@Autowired
+	public RoomStatusCorrectionCoordinator(
+		RoomStatusCorrectionExecutor executor,
+		RoomOptimisticLockRetrier retrier,
+		RoomStatusCorrectionCandidateSelector candidateSelector,
+		RoomStatusCorrectionProgressStore progressStore,
+		RoomStatusCorrectionMetrics metrics) {
+		this.executor = Objects.requireNonNull(executor, "executor");
+		this.retrier = Objects.requireNonNull(retrier, "retrier");
+		this.candidateSelector = Objects.requireNonNull(candidateSelector, "candidateSelector");
+		this.progressStore = Objects.requireNonNull(progressStore, "progressStore");
+		this.metrics = Objects.requireNonNull(metrics, "metrics");
+	}
 
 	public RoomStatusCorrectionCoordinator(
 		RoomStatusCorrectionExecutor executor,
 		RoomOptimisticLockRetrier retrier,
 		RoomStatusCorrectionCandidateSelector candidateSelector,
 		RoomStatusCorrectionProgressStore progressStore) {
-		this.executor = Objects.requireNonNull(executor, "executor");
-		this.retrier = Objects.requireNonNull(retrier, "retrier");
-		this.candidateSelector = Objects.requireNonNull(candidateSelector, "candidateSelector");
-		this.progressStore = Objects.requireNonNull(progressStore, "progressStore");
+		this(executor, retrier, candidateSelector, progressStore,
+			new RoomStatusCorrectionMetrics(Metrics.globalRegistry));
 	}
 
 	/** 단건 상태 보정을 최대 세 개의 독립 트랜잭션으로 시도한다. */
@@ -81,14 +97,16 @@ public class RoomStatusCorrectionCoordinator {
 			throw new IllegalArgumentException("ROOM 상태 보정 실행당 최대 배치 수는 양수여야 합니다.");
 		}
 
+		long startedAtNanos = System.nanoTime();
 		RoomStatusCorrectionProgressStore.ProgressSnapshot progress = claimedProgress;
 		int changedCount = 0;
+		boolean roomFailureObserved = false;
 		for (int batchIndex = 0; batchIndex < maxBatchesPerRun; batchIndex++) {
 			List<RoomStatusCorrectionCandidateSelector.DueRoomCandidate> candidates = candidateSelector
 				.select(progress, candidateLimit);
 			if (candidates.isEmpty()) {
 				progressStore.wrap(progress, nextTurnCutoff(requestTime, progress.turnCutoff()));
-				return new BoundedCorrectionResult(changedCount, false);
+				return recordRun(new BoundedCorrectionResult(changedCount, false), roomFailureObserved, startedAtNanos);
 			}
 
 			for (RoomStatusCorrectionCandidateSelector.DueRoomCandidate candidate : candidates) {
@@ -99,6 +117,7 @@ public class RoomStatusCorrectionCoordinator {
 				} catch (BusinessException exception) {
 					// 계약된 업무 거절과 낙관 락 소진은 호출자 오류 계약으로만 전달한다.
 				} catch (RuntimeException exception) {
+					roomFailureObserved = true;
 					log.atWarn().addKeyValue("event", "room_status_reconciliation_room_failed")
 						.addKeyValue("roomId", candidate.roomId()).addKeyValue("useCase", "ROOM_STATUS_CORRECTION")
 						.addKeyValue("reasonCode", "UNEXPECTED_FAILURE").log("room status reconciliation room failed");
@@ -107,20 +126,34 @@ public class RoomStatusCorrectionCoordinator {
 				Optional<RoomStatusCorrectionProgressStore.ProgressSnapshot> advanced = progressStore.advanceCursor(
 					progress, candidate.dueAt(), candidate.roomId());
 				if (advanced.isEmpty()) {
-					return new BoundedCorrectionResult(changedCount, false);
+					return recordRun(new BoundedCorrectionResult(changedCount, false), roomFailureObserved,
+						startedAtNanos);
 				}
 				progress = advanced.get();
 			}
 		}
 
 		if (!candidateSelector.select(progress, 1).isEmpty()) {
-			return new BoundedCorrectionResult(changedCount, true);
+			return recordRun(new BoundedCorrectionResult(changedCount, true), roomFailureObserved, startedAtNanos);
 		}
 		progressStore.wrap(progress, nextTurnCutoff(requestTime, progress.turnCutoff()));
-		return new BoundedCorrectionResult(changedCount, false);
+		return recordRun(new BoundedCorrectionResult(changedCount, false), roomFailureObserved, startedAtNanos);
 	}
 
 	record BoundedCorrectionResult(int changedCount, boolean hasRemainingCandidates) {
+	}
+
+	private BoundedCorrectionResult recordRun(
+		BoundedCorrectionResult result,
+		boolean roomFailureObserved,
+		long startedAtNanos) {
+		RoomStatusCorrectionMetrics.RunOutcome outcome = roomFailureObserved
+			? RoomStatusCorrectionMetrics.RunOutcome.FAILED
+			: result.hasRemainingCandidates()
+				? RoomStatusCorrectionMetrics.RunOutcome.BATCH_LIMIT
+				: RoomStatusCorrectionMetrics.RunOutcome.COMPLETED;
+		metrics.recordRun(outcome, java.time.Duration.ofNanos(System.nanoTime() - startedAtNanos));
+		return result;
 	}
 
 	private boolean correctRoom(Long roomId, Instant requestTime, IntConsumer beforeRetry) {

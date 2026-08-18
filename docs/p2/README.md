@@ -42,7 +42,7 @@ P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.
 | 채팅 시스템 메시지 | [`CHAT-06`](chat.md#chat-06-입장퇴장-시스템-메시지) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 서비스 생존·연결 | [`OPS-01`](monitoring.md#ops-01-서비스-생존과-연결-상태) | 계약 준비 완료 | 구현 완료 | 자동 검증 완료 | 임시 AWS 검증 배포·철거 완료 | `AC1`~`AC7` 실측 완료 |
 | 지연·포화 | [`OPS-02`](monitoring.md#ops-02-지연과-포화) | 계약 준비 완료 | 앱·인프라 구현 완료, 미배포 외부 API·AI 조건부 제외 | 앱 CI·인프라 수집·query·주입·복구·teardown 자동 검증 완료 | 고정 SHA 임시 AWS 검증 배포·철거 완료 | `AC1`~`AC4`, `AC6` 실측 완료, `AC5` 조건부 제외 |
-| 실패·이상 | [`OPS-03`](monitoring.md#ops-03-실패와-이상) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
+| 실패·이상 | [`OPS-03`](monitoring.md#ops-03-실패와-이상) | 계약 준비 완료 | HTTP 5xx·dependency 전환과 relay·ROOM·채팅 보존의 유한 failure/outcome signal 부분 구현 | H2 단위·production PostgreSQL context의 Redis 장애·복구 구조화 로그/metric 부분 검증 | 미배포 | 미측정 |
 | AI 사용량·추정 비용 | [`OPS-04`](monitoring.md#ops-04-ai-사용량과-추정-비용) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
 | 핵심 업무 기능 결과 | [`OPS-05`](monitoring.md#ops-05-핵심-업무-기능-결과) | 계약 준비 완료 | 미구현 | 미검증 | 미배포 | 미측정 |
 

@@ -15,7 +15,6 @@ import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.stereotype.Component;
 
-import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PreDestroy;
 
 /** 업무 transaction 밖에서 의존성 연결 상태만 제한된 주기로 표본화한다. */
@@ -41,11 +40,11 @@ class DependencyHealthSampler {
 		});
 
 	DependencyHealthSampler(DataSource dataSource, RedisConnectionFactory redisConnectionFactory,
-		MeterRegistry meterRegistry, @Value("${app.monitoring.dependency-health.poll-interval:10s}")
+		DependencyHealthMetrics metrics, @Value("${app.monitoring.dependency-health.poll-interval:10s}")
 		Duration pollInterval) {
 		this.dataSource = dataSource;
 		this.redisConnectionFactory = redisConnectionFactory;
-		metrics = new DependencyHealthMetrics(meterRegistry);
+		this.metrics = metrics;
 		probeTimeout = boundedProbeTimeout(pollInterval);
 	}
 

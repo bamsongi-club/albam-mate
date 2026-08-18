@@ -108,6 +108,9 @@ class MonitoringProductionPostgresTest {
 	private MeterRegistry meterRegistry;
 
 	@Autowired
+	private DependencyHealthMetrics dependencyHealthMetrics;
+
+	@Autowired
 	private OtlpMetricsProperties otlpMetricsProperties;
 
 	@LocalServerPort
@@ -280,6 +283,27 @@ class MonitoringProductionPostgresTest {
 			.meter()
 			.getId()
 			.getTag("dependency"));
+	}
+
+	@Test
+	void T3_운영_PostgreSQL_context에서_Redis_장애와_복구는_같은_release의_meter와_JSON_log로_연결된다() throws IOException {
+		LoggerContext context = (LoggerContext)org.slf4j.LoggerFactory.getILoggerFactory();
+		Logger root = context.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+		FileAppender<ILoggingEvent> appender = (FileAppender<ILoggingEvent>)root.getAppender("FILE");
+		Path logPath = Path.of(appender.getFile());
+		long offset = Files.exists(logPath) ? Files.size(logPath) : 0;
+		dependencyHealthMetrics.recordRedis(true);
+		dependencyHealthMetrics.recordRedis(false);
+		dependencyHealthMetrics.recordRedis(true);
+
+		assertEquals(1.0, meterRegistry.find("albam.dependency.health").tag("dependency", "redis").gauge().value());
+		byte[] all = Files.readAllBytes(logPath);
+		String logOutput = new String(Arrays.copyOfRange(all, Math.toIntExact(offset), all.length),
+			StandardCharsets.UTF_8);
+		assertTrue(logOutput.contains("\"event\":\"dependency_health_changed\""));
+		assertTrue(logOutput.contains("\"failureCode\":\"REDIS_UNAVAILABLE\""));
+		assertTrue(logOutput.contains("\"release\":\"test-release\""));
+		assertFalse(logOutput.contains("redis unavailable"));
 	}
 
 	@Test

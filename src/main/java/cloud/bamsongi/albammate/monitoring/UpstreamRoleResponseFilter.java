@@ -12,10 +12,12 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 
 /** local·production proxy 응답에 검증된 Spring 역할만 노출한다. */
 @Component
 @Profile({"local", "production"})
+@Slf4j
 public final class UpstreamRoleResponseFilter extends OncePerRequestFilter {
 
 	public static final String HEADER_NAME = "X-Albam-Mate-Upstream";
@@ -37,5 +39,11 @@ public final class UpstreamRoleResponseFilter extends OncePerRequestFilter {
 		throws ServletException, IOException {
 		response.setHeader(HEADER_NAME, role);
 		filterChain.doFilter(request, response);
+		if (response.getStatus() >= HttpServletResponse.SC_INTERNAL_SERVER_ERROR) {
+			log.atError().addKeyValue("event", "http_request_failed")
+				.addKeyValue("failureCode", response.getStatus() == HttpServletResponse.SC_GATEWAY_TIMEOUT
+					? "HTTP_TIMEOUT" : "HTTP_SERVER_ERROR")
+				.log("http request failed");
+		}
 	}
 }
