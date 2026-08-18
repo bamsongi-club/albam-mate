@@ -53,7 +53,7 @@ function startServer({ failMeasuredRequest = false } = {}) {
   });
 }
 
-function runRunner(baseUrl, outputDirectory, extraArguments = []) {
+function runRunner(baseUrl, outputDirectory, extraArguments = [], cwd = repositoryRoot) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [
       runnerPath,
@@ -64,7 +64,7 @@ function runRunner(baseUrl, outputDirectory, extraArguments = []) {
       "--output-directory",
       outputDirectory,
       ...extraArguments,
-    ], { cwd: repositoryRoot });
+    ], { cwd });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (chunk) => { stdout += chunk; });
@@ -84,7 +84,7 @@ test("성공 산출물은 serverCommit과 runnerCommit 및 최신 170,005 datase
   const server = await startServer();
   const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-success-"));
   try {
-    const result = await runRunner(server.baseUrl, outputDirectory);
+    const result = await runRunner(server.baseUrl, outputDirectory, [], os.tmpdir());
 
     assert.equal(result.status, 0, result.stderr);
     const report = readSingleReport(outputDirectory);

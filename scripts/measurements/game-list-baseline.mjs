@@ -5,12 +5,14 @@ import path from "node:path";
 import process from "node:process";
 import { execFileSync } from "node:child_process";
 import { performance } from "node:perf_hooks";
+import { fileURLToPath } from "node:url";
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:5173";
 const DEFAULT_WARM_UP_RUNS = 5;
 const DEFAULT_MEASURED_RUNS = 20;
 const DEFAULT_DATASET_SIZE = 170005;
 const DEFAULT_DATASET_SHA256 = "09da6ecbc6f3be18b4233a26a4715b7af0011929b3e5c2b549b1b021dc5fa079";
+const RUNNER_REPOSITORY = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 function parseArgs(argv) {
   const options = {
@@ -275,9 +277,9 @@ function errorMessage(error) {
 
 function currentGitCommit() {
   try {
-    return execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+    return execFileSync("git", ["-C", RUNNER_REPOSITORY, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
   } catch {
-    return "UNKNOWN";
+    return null;
   }
 }
 
@@ -286,7 +288,7 @@ function csvEscape(value) {
   return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
-function writeArtifacts(options, discovered, results, failure) {
+function writeArtifacts(options, discovered, results, failure, runnerCommit) {
   fs.mkdirSync(options.outputDirectory, { recursive: true });
   const timestamp = new Date().toISOString().replaceAll(":", "-");
   const baseName = `game-list-740-${timestamp}`;
@@ -297,7 +299,7 @@ function writeArtifacts(options, discovered, results, failure) {
     issue: 740,
     status: failure ? "failed" : "success",
     measuredAt: new Date().toISOString(),
-    runnerCommit: currentGitCommit(),
+    runnerCommit,
     serverCommit: options.serverCommit,
     baseUrl: options.baseUrl,
     dataset: { gameCount: options.datasetSize, sha256: options.datasetSha256 },
@@ -365,7 +367,12 @@ async function main() {
     failure = error;
   }
 
-  const artifacts = writeArtifacts(options, discovered, results, failure);
+  const runnerCommit = currentGitCommit();
+  if (!runnerCommit && !failure) {
+    failure = new Error("runner commit을 확인하지 못해 성공 산출물을 만들 수 없습니다.");
+  }
+
+  const artifacts = writeArtifacts(options, discovered, results, failure, runnerCommit);
   console.log(`[game-list-740] json=${artifacts.jsonPath}`);
   console.log(`[game-list-740] csv=${artifacts.csvPath}`);
   if (failure) {
