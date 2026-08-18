@@ -57,9 +57,9 @@ flowchart LR
     chat["chat"] -->|"room.contract"| room
     chat -->|"user.contract"| user
     notification["notification"] -->|"room.contract"| room
-    matching["matching"] -->|"user.contract"| user
-    matching -->|"game.contract"| game
-    chat -->|"matching.contract"| matching
+    matching["matching"] -->|"user.contract<br/>P2 계획"| user
+    matching -->|"game.contract<br/>P2 계획"| game
+    chat -->|"matching.contract<br/>P2 계획"| matching
 
     auth -.->|"기술 기반"| global["global"]
     user -.->|"기술 기반"| global
@@ -88,8 +88,8 @@ RANK-02의 외부·내부 인기 점수는 런타임 모듈 호출이 아니라 
 | `user` | 사용자 계정·비밀번호 자격증명·외부 신원 연결·프로필·공개 사용자 조회 | OAuth 제공자 통신, 세션 생성·폐기 |
 | `game` | 게임 목록·검색·상세, RANK-02 저장 인기 점수와 게임 요약 계약 | 방 데이터 직접 조회 |
 | `room` | 방·참가 관계·정원·상태 전이·재시도·상태 보정 | 사용자·게임 내부 구현 |
-| `matching` (P2) | MATCH 요청·제안·응답·성공 파티·참가자 접근, 후보 선점·복구·멱등성·신고·차단 | MATCH 채팅방·메시지·실시간 전달, 게임·사용자 내부 구현 |
-| `chat` (P1·P2) | P1 ROOM별 채팅방·메시지 저장, 이력 cursor 조회, 현재 관계자 접근 검증과 실시간 전달. P2에서는 `matching.contract`를 통해 MATCH 전용 채팅방·URL 텍스트를 포함한 메시지·실시간 전달만 담당 | 방·참가·MATCH 요청·제안·응답·성공 파티·참가자 접근 Entity/Repository, 인증 세션 내부 구현 |
+| `matching` (P2 일부 구현) | MATCH 요청·제안·응답·성공 파티·참가자 접근, 후보 선점·복구·멱등성·신고·차단. 현재 생산 코드는 저장 구조와 chat 접근 계약뿐이고 나머지는 P2 계획 | MATCH 채팅방·메시지·실시간 전달, 게임·사용자 내부 구현 |
+| `chat` (P1 구현, P2 MATCH 일부 구현) | P1 ROOM별 채팅방·메시지 저장, 이력 cursor 조회, 현재 관계자 접근 검증과 실시간 전달. P2에서는 `matching.contract`를 통해 MATCH 전용 채팅방·URL 텍스트를 포함한 메시지·실시간 전달만 담당하며, 현재 생산 코드는 그 저장 구조뿐이고 adapter·유스케이스는 P2 계획 | 방·참가·MATCH 요청·제안·응답·성공 파티·참가자 접근 Entity/Repository, 인증 세션 내부 구현 |
 | `notification` (P1) | 웹 알림 조회·읽음, Outbox·수신자 스냅샷·알림 저장, relay·재시도·복구·보존 정리 | 방 상태 전이·수신자 재계산, 이메일·모바일 푸시·Web Push·SMS 전달 |
 | `global` | 공통 응답·예외·보안·설정·UTC 시간 기반 | 업무 Entity·DTO·규칙 |
 | `infra` (P1) | Redis 세션·채팅 fan-out과 PostgreSQL 스케줄 잠금 같은 기술 adapter | 업무 규칙·Entity·HTTP DTO |

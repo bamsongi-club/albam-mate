@@ -2618,7 +2618,7 @@ WebSocket은 수신 전용이다. 클라이언트가 애플리케이션 메시�
 | `IDEMPOTENCY_KEY_CONFLICT` | 409 | 동일한 멱등성 키를 다른 요청에 사용할 수 없습니다. | 같은 사용자·24시간 범위의 `Idempotency-Key`가 다른 operation·경로·body 의미로 이미 기록됨 |
 | `MATCH_CURRENT_STATE_NOT_STABLE` | 409 | 매칭 현재 상태가 계속 변경 중입니다. 잠시 후 다시 시도해 주세요. | current-state read의 bounded snapshot 재시도 안에 due recovery와 상태 조합이 안정되지 않음 |
 | `MATCH_REQUEST_ALREADY_ACTIVE` | 409 | 이미 진행 중인 매칭 요청이 있습니다. | `WAITING`·`PROPOSED`·`PAUSED` 요청이 있거나 `PREPARING`·아직 명시적으로 나가지 않은 `ACTIVE` 성공 파티 접근 관계가 있는 사용자가 새 요청을 등록함. 명시적으로 나갔거나 실제 `CLOSED` 뒤에는 성공 파티 관계만으로 이 오류를 반환하지 않음 |
-| `MATCH_PLAYER_RANGE_NOT_SUPPORTED` | 409 | 게임 지원 인원과 요청 인원 범위가 겹치지 않습니다. | 요청 범위와 게임 지원 인원 범위의 교집합이 없음 |
+| `MATCH_PLAYER_RANGE_NOT_SUPPORTED` | 409 | 게임 지원 인원과 요청 인원 범위가 겹치지 않습니다. | 요청 범위와 게임 지원 인원 범위의 교집합이 없거나, 게임 지원 인원 범위를 확인할 수 없음 |
 | `MATCH_REQUEST_CANCELLATION_NOT_AVAILABLE` | 409 | 현재 성공 파티는 매칭 요청으로 취소할 수 없습니다. | `PREPARING`·`ACTIVE` 성공 파티에 요청 취소를 시도함 |
 | `MATCH_PROPOSAL_RESPONSE_NOT_AVAILABLE` | 409 | 현재 응답할 수 있는 매칭 제안이 없습니다. | 본인 열린 제안이 없거나 응답 기한이 지났거나 첫 유효 응답이 다른 키로 이미 처리됨 |
 | `MATCH_PARTY_NOT_FOUND` | 404 | 성공 파티를 찾을 수 없습니다. | 요청한 성공 파티가 없음 |

@@ -6,6 +6,7 @@
 - 관련: [P2 운영 관측](../../p2/monitoring.md), [P2 운영 대시보드 정책](../../p2/dashboard.md), [ADR-0071 애플리케이션 메트릭 OTLP 전송](0071-p2-application-metrics-otlp-host-cloudwatch-agent.md), [운영 Compose](../../../compose.production.yml)
 - 대체 대상: 없음
 - 후속 ADR: 없음
+- 번호 정정: 이 문서가 참조하던 애플리케이션 메트릭 ADR은 전역 번호 중복으로 `ADR-0058`에서 [`ADR-0071`](0071-p2-application-metrics-otlp-host-cloudwatch-agent.md)로 재배정됐다. 위 `관련` 링크와 `결정` 7번 항목의 상호 참조 번호를 그에 맞춰 고쳤으며 결정 내용은 바꾸지 않았다.
 
 ## 맥락
 
