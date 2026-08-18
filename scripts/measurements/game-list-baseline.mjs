@@ -9,7 +9,7 @@ import { performance } from "node:perf_hooks";
 const DEFAULT_BASE_URL = "http://127.0.0.1:5173";
 const DEFAULT_WARM_UP_RUNS = 5;
 const DEFAULT_MEASURED_RUNS = 20;
-const DEFAULT_DATASET_SIZE = 170035;
+const DEFAULT_DATASET_SIZE = 170005;
 const DEFAULT_DATASET_SHA256 = "09da6ecbc6f3be18b4233a26a4715b7af0011929b3e5c2b549b1b021dc5fa079";
 
 function parseArgs(argv) {
@@ -19,6 +19,7 @@ function parseArgs(argv) {
     measuredRuns: DEFAULT_MEASURED_RUNS,
     datasetSize: DEFAULT_DATASET_SIZE,
     datasetSha256: DEFAULT_DATASET_SHA256,
+    serverCommit: null,
     outputDirectory: "docs/measurements/results/game-list-740",
   };
 
@@ -49,6 +50,9 @@ function parseArgs(argv) {
       case "--dataset-sha256":
         options.datasetSha256 = next();
         break;
+      case "--server-commit":
+        options.serverCommit = commitSha(next(), argument);
+        break;
       case "--output-directory":
         options.outputDirectory = next();
         break;
@@ -64,6 +68,9 @@ function parseArgs(argv) {
   if (options.measuredRuns < 20) {
     throw new Error("#740 기준을 지키기 위해 --runs는 20 이상이어야 합니다.");
   }
+  if (!options.serverCommit) {
+    throw new Error("--server-commit은 측정 대상 서버의 commit SHA가 필요합니다.");
+  }
   return options;
 }
 
@@ -75,6 +82,13 @@ function positiveInteger(raw, optionName) {
   return value;
 }
 
+function commitSha(raw, optionName) {
+  if (!/^[0-9a-f]{7,40}$/u.test(raw)) {
+    throw new Error(`${optionName}은 7~40자리 소문자 hexadecimal commit SHA여야 합니다: ${raw}`);
+  }
+  return raw;
+}
+
 function printHelp() {
   console.log(`Usage: node scripts/measurements/game-list-baseline.mjs [options]\n\n` +
     `Options:\n` +
@@ -83,6 +97,7 @@ function printHelp() {
     `  --runs <n>                measured calls per scenario, >= 20 (default: ${DEFAULT_MEASURED_RUNS})\n` +
     `  --dataset-size <n>        loaded game row count (default: ${DEFAULT_DATASET_SIZE})\n` +
     `  --dataset-sha256 <sha>    source dataset SHA-256\n` +
+    `  --server-commit <sha>     measured server commit SHA (required)\n` +
     `  --output-directory <dir>  result directory\n`);
 }
 
@@ -214,23 +229,48 @@ function summarize(samples) {
 
 async function measureScenario(baseUrl, scenario, warmUpRuns, measuredRuns) {
   const url = scenarioUrl(baseUrl, scenario);
-  for (let index = 0; index < warmUpRuns; index += 1) {
-    const warmUp = await requestOnce(url);
-    if (warmUp.status !== 200) {
-      throw new Error(`${scenario.name} warm-up 실패: status=${warmUp.status}, url=${url}`);
-    }
-  }
-
   const samples = [];
-  for (let index = 0; index < measuredRuns; index += 1) {
-    const sample = await requestOnce(url);
-    samples.push({ run: index + 1, ...sample });
-    if (sample.status !== 200) {
-      throw new Error(`${scenario.name} 실측 실패: run=${index + 1}, status=${sample.status}, url=${url}`);
-    }
-  }
 
-  return { name: scenario.name, url, params: scenario.params, samples, summary: summarize(samples) };
+  try {
+    for (let index = 0; index < warmUpRuns; index += 1) {
+      const warmUp = await requestOnce(url);
+      if (warmUp.status !== 200) {
+        throw new Error(`${scenario.name} warm-up 실패: status=${warmUp.status}, url=${url}`);
+      }
+    }
+
+    for (let index = 0; index < measuredRuns; index += 1) {
+      const sample = await requestOnce(url);
+      samples.push({ run: index + 1, ...sample });
+      if (sample.status !== 200) {
+        throw new Error(`${scenario.name} 실측 실패: run=${index + 1}, status=${sample.status}, url=${url}`);
+      }
+    }
+
+    return {
+      name: scenario.name,
+      url,
+      params: scenario.params,
+      status: "success",
+      samples,
+      summary: summarize(samples),
+      error: null,
+    };
+  } catch (error) {
+    return {
+      name: scenario.name,
+      url,
+      params: scenario.params,
+      status: "failed",
+      samples,
+      summary: null,
+      error: { message: errorMessage(error) },
+    };
+  }
+}
+
+function errorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function currentGitCommit() {
@@ -246,7 +286,7 @@ function csvEscape(value) {
   return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
-function writeArtifacts(options, discovered, results) {
+function writeArtifacts(options, discovered, results, failure) {
   fs.mkdirSync(options.outputDirectory, { recursive: true });
   const timestamp = new Date().toISOString().replaceAll(":", "-");
   const baseName = `game-list-740-${timestamp}`;
@@ -255,28 +295,34 @@ function writeArtifacts(options, discovered, results) {
 
   const report = {
     issue: 740,
+    status: failure ? "failed" : "success",
     measuredAt: new Date().toISOString(),
-    gitCommit: currentGitCommit(),
+    runnerCommit: currentGitCommit(),
+    serverCommit: options.serverCommit,
     baseUrl: options.baseUrl,
     dataset: { gameCount: options.datasetSize, sha256: options.datasetSha256 },
     warmUpRuns: options.warmUpRuns,
     measuredRuns: options.measuredRuns,
     discovered,
     percentileMethod: "nearest-rank (ceil(p * N))",
+    failure: failure ? { message: errorMessage(failure) } : null,
     results,
   };
   fs.writeFileSync(jsonPath, `${JSON.stringify(report, null, 2)}\n`);
 
-  const rows = [["scenario", "p50_ms", "p95_ms", "max_ms", "min_ms", "statuses", "url"]];
+  const rows = [["scenario", "status", "p50_ms", "p95_ms", "max_ms", "min_ms", "statuses", "url", "error"]];
   for (const result of results) {
+    const summary = result.summary;
     rows.push([
       result.name,
-      result.summary.p50Ms.toFixed(3),
-      result.summary.p95Ms.toFixed(3),
-      result.summary.maxMs.toFixed(3),
-      result.summary.minMs.toFixed(3),
-      JSON.stringify(result.summary.statuses),
+      result.status,
+      summary ? summary.p50Ms.toFixed(3) : "",
+      summary ? summary.p95Ms.toFixed(3) : "",
+      summary ? summary.maxMs.toFixed(3) : "",
+      summary ? summary.minMs.toFixed(3) : "",
+      JSON.stringify(summary?.statuses ?? {}),
       result.url,
+      result.error?.message ?? "",
     ]);
   }
   fs.writeFileSync(csvPath, `${rows.map((row) => row.map(csvEscape).join(",")).join("\n")}\n`);
@@ -287,28 +333,44 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   console.log(`[game-list-740] target=${options.baseUrl}`);
   console.log(`[game-list-740] warm-up=${options.warmUpRuns}, measured=${options.measuredRuns}`);
-  const discovered = await discoverScenarioValues(options.baseUrl);
-  console.log(`[game-list-740] discovered keyword=${JSON.stringify(discovered.keyword)}, theme=${discovered.theme}, mechanism=${discovered.mechanism}`);
-
+  console.log(`[game-list-740] server-commit=${options.serverCommit}`);
+  let discovered = null;
   const results = [];
-  for (const scenario of scenarios(discovered)) {
-    console.log(`[game-list-740] measuring ${scenario.name}`);
-    const result = await measureScenario(
-      options.baseUrl,
-      scenario,
-      options.warmUpRuns,
-      options.measuredRuns,
-    );
-    results.push(result);
-    console.log(
-      `[game-list-740] ${scenario.name}: p50=${result.summary.p50Ms.toFixed(3)}ms ` +
-        `p95=${result.summary.p95Ms.toFixed(3)}ms max=${result.summary.maxMs.toFixed(3)}ms`,
-    );
+  let failure = null;
+
+  try {
+    discovered = await discoverScenarioValues(options.baseUrl);
+    console.log(`[game-list-740] discovered keyword=${JSON.stringify(discovered.keyword)}, theme=${discovered.theme}, mechanism=${discovered.mechanism}`);
+
+    for (const scenario of scenarios(discovered)) {
+      console.log(`[game-list-740] measuring ${scenario.name}`);
+      const result = await measureScenario(
+        options.baseUrl,
+        scenario,
+        options.warmUpRuns,
+        options.measuredRuns,
+      );
+      results.push(result);
+      if (result.status === "failed") {
+        failure = new Error(result.error.message);
+        console.error(`[game-list-740] ${scenario.name}: FAILED ${result.error.message}`);
+        break;
+      }
+      console.log(
+        `[game-list-740] ${scenario.name}: p50=${result.summary.p50Ms.toFixed(3)}ms ` +
+          `p95=${result.summary.p95Ms.toFixed(3)}ms max=${result.summary.maxMs.toFixed(3)}ms`,
+      );
+    }
+  } catch (error) {
+    failure = error;
   }
 
-  const artifacts = writeArtifacts(options, discovered, results);
+  const artifacts = writeArtifacts(options, discovered, results, failure);
   console.log(`[game-list-740] json=${artifacts.jsonPath}`);
   console.log(`[game-list-740] csv=${artifacts.csvPath}`);
+  if (failure) {
+    throw failure;
+  }
 }
 
 main().catch((error) => {

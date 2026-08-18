@@ -9,7 +9,7 @@
 ## 고정 측정 조건
 
 - 대상: local compose proxy `http://127.0.0.1:5173`
-- 데이터: games `170,035`건
+- 데이터: games `170,005`건
 - 입력 ZIP SHA-256: `09da6ecbc6f3be18b4233a26a4715b7af0011929b3e5c2b549b1b021dc5fa079`
 - 적재 순서: `01 → 01b → 02 → 03 → 04 → 05 → 06 → 07`
 - 페이지: `page=0`, `size=24`
@@ -20,7 +20,8 @@
 ## 실행
 
 ```bash
-node scripts/measurements/game-list-baseline.mjs
+node scripts/measurements/game-list-baseline.mjs \
+  --server-commit <측정 대상 서버 commit SHA>
 ```
 
 필요하면 다음처럼 변경한다.
@@ -30,8 +31,11 @@ node scripts/measurements/game-list-baseline.mjs \
   --base-url http://127.0.0.1:5173 \
   --warm-up 5 \
   --runs 20 \
-  --dataset-size 170035
+  --dataset-size 170005 \
+  --server-commit <측정 대상 서버 commit SHA>
 ```
+
+`--server-commit`은 측정 대상 서버의 image/runtime provenance에서 확인한 값이어야 한다. 러너를 실행한 작업 디렉터리의 commit은 결과에 `runnerCommit`으로 별도 기록하며 `serverCommit`을 대신하지 않는다.
 
 러너는 현재 데이터에서 유효한 값을 자동으로 선택한다.
 
@@ -41,7 +45,7 @@ node scripts/measurements/game-list-baseline.mjs \
 
 따라서 데이터셋이 바뀌어도 존재하지 않는 relation code 때문에 400 응답을 성능 표본으로 기록하지 않는다. 실제 사용한 값과 URL은 결과 JSON에 보존한다.
 
-결과는 기본적으로 `docs/measurements/results/game-list-740/` 아래 JSON/CSV로 생성한다. 결과 파일을 커밋할 때에는 실행 당시 `gitCommit`, 데이터 건수, SHA-256이 맞는지 먼저 확인한다.
+결과는 기본적으로 `docs/measurements/results/game-list-740/` 아래 JSON/CSV로 생성한다. 결과 파일을 커밋할 때에는 실행 당시 `runnerCommit`, `serverCommit`, 데이터 건수, SHA-256이 맞는지 먼저 확인한다. 측정 중 non-200 또는 네트워크 오류가 발생하면 `status=failed`와 이미 수집한 raw sample을 함께 저장하며, 실패 report는 정상 baseline으로 사용하지 않는다.
 
 ## 측정 매트릭스
 
@@ -169,14 +173,14 @@ EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT TEXT)
 - `Page`를 유지하므로 결과 목록 외 total count 비용이 존재한다.
 - 기본 익명 목록 DTO 생성 자체는 24건이고 relation collection을 순회하지 않는다.
 
-따라서 **17만 건 전체를 JSON으로 내려서 느리다**라는 가설은 현재 API 구조와 맞지 않는다. 한 페이지는 24건만 반환한다. 병목 후보는 우선 `170,035`건 모집합에서의 정렬/필터/content/count 실행계획과 relation filter의 subquery 비용으로 검증해야 한다.
+따라서 **17만 건 전체를 JSON으로 내려서 느리다**라는 가설은 현재 API 구조와 맞지 않는다. 한 페이지는 24건만 반환한다. 병목 후보는 우선 `170,005`건 모집합에서의 정렬/필터/content/count 실행계획과 relation filter의 subquery 비용으로 검증해야 한다.
 
 ## #740 완료 판정
 
 다음이 모두 채워져야 #740을 닫는다.
 
-- [ ] 측정 당시 develop/대상 commit SHA 기록
-- [ ] 데이터 170,035건 및 입력 ZIP SHA-256 확인
+- [ ] 측정 당시 runner/server commit SHA 기록
+- [ ] 데이터 170,005건 및 입력 ZIP SHA-256 확인
 - [ ] 각 시나리오 warm-up 후 20회 이상의 raw sample 보존
 - [ ] 각 시나리오 p50/p95/max/status 기록
 - [ ] 요청 1회 SQL 개수와 유형 기록
