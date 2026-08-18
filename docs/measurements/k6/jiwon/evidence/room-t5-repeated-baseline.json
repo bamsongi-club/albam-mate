@@ -1,0 +1,664 @@
+{
+  "schema": "k6-campaign-manifest-v3",
+  "kind": "room-t5-repeated-baseline",
+  "campaignId": "room-t5-repeated-baseline-2026-08-18",
+  "issueNumber": 779,
+  "campaignStatus": "completed-with-limitations",
+  "documentStatus": "current",
+  "reportStatus": "INVALID",
+  "purpose": "Issue #779의 승인된 T1-T4 계약을 고정 read profile과 전용 AWS stack에서 실행하고, 비교 유효성 누락을 숨기지 않은 기준선 ledger로 남긴다.",
+  "contract": {
+    "source": "Issue #779 승인 최신 T1-T4 댓글",
+    "roles": [
+      "public",
+      "host",
+      "participant"
+    ],
+    "scales": [
+      1,
+      10
+    ],
+    "requiredConditions": 6,
+    "requiredRepeatsPerCondition": 3,
+    "requiredIndependentRuns": 18,
+    "commonReadOptions": {
+      "vus": 10,
+      "durationSeconds": 60,
+      "thinkTimeMilliseconds": 0
+    },
+    "startSkewGate": "room_start_skew_ms max < 1000 ms",
+    "invalidDisposition": "필수 manifest/run artifact/comparison 또는 계측 누락 run은 INVALID로 유효 비교에 포함하지 않음"
+  },
+  "window": {
+    "startedAtUtc": "2026-08-18T03:56:50Z",
+    "endedAtUtc": "2026-08-18T04:19:30Z"
+  },
+  "provenance": {
+    "sourceShaValues": [
+      "92f5f667b732a5b6b9e6cd7dff5befd13354148a"
+    ],
+    "deployedReleaseValues": [
+      "92f5f667b732a5b6b9e6cd7dff5befd13354148a"
+    ],
+    "sameSourceAcrossRuns": true,
+    "sameReleaseAcrossRuns": true,
+    "targetEnvironment": "aws-dedicated-private-loadtest",
+    "stackId": "perf-jiwon-779",
+    "portableBundle": {
+      "kind": "albam-mate-room-k6-bundle",
+      "schemaVersion": 2,
+      "fixtureSchemaVersion": 2,
+      "cleanSourceRuns": 6
+    },
+    "k6VersionValues": [
+      "1.3.0"
+    ],
+    "readOptionsValues": [
+      "{\"vus\":10,\"durationSeconds\":60,\"thinkTimeMilliseconds\":0}"
+    ]
+  },
+  "coverage": [
+    {
+      "role": "public",
+      "scale": 1,
+      "condition": "public / ACTIVE scale 1",
+      "requiredRuns": 3,
+      "actualRuns": 1,
+      "transportPassRuns": 1,
+      "validRuns": 0,
+      "status": "INVALID"
+    },
+    {
+      "role": "public",
+      "scale": 10,
+      "condition": "public / ACTIVE scale 10",
+      "requiredRuns": 3,
+      "actualRuns": 1,
+      "transportPassRuns": 1,
+      "validRuns": 0,
+      "status": "INVALID"
+    },
+    {
+      "role": "host",
+      "scale": 1,
+      "condition": "host / ACTIVE scale 1",
+      "requiredRuns": 3,
+      "actualRuns": 1,
+      "transportPassRuns": 1,
+      "validRuns": 0,
+      "status": "INVALID"
+    },
+    {
+      "role": "host",
+      "scale": 10,
+      "condition": "host / ACTIVE scale 10",
+      "requiredRuns": 3,
+      "actualRuns": 1,
+      "transportPassRuns": 1,
+      "validRuns": 0,
+      "status": "INVALID"
+    },
+    {
+      "role": "participant",
+      "scale": 1,
+      "condition": "participant / ACTIVE scale 1",
+      "requiredRuns": 3,
+      "actualRuns": 1,
+      "transportPassRuns": 1,
+      "validRuns": 0,
+      "status": "INVALID"
+    },
+    {
+      "role": "participant",
+      "scale": 10,
+      "condition": "participant / ACTIVE scale 10",
+      "requiredRuns": 3,
+      "actualRuns": 1,
+      "transportPassRuns": 1,
+      "validRuns": 0,
+      "status": "INVALID"
+    }
+  ],
+  "validity": {
+    "canonicalFixtureCount": 6,
+    "requiredIndependentRuns": 18,
+    "actualIndependentRuns": 6,
+    "notStartedRuns": 12,
+    "transportPassRuns": 6,
+    "validRunCounts": {
+      "PASS": 0,
+      "FAIL": 0,
+      "INVALID": 6
+    },
+    "allReadOptionsMatch": true,
+    "startSkew": {
+      "checkedRuns": 6,
+      "gatePassedRuns": 6,
+      "maximumMs": 1
+    },
+    "responseContract": {
+      "checksFailRuns": 0,
+      "dbSnapshotPassRuns": 6
+    },
+    "outcomeEquation": {
+      "checkedRuns": 6,
+      "matchingRuns": 6,
+      "mismatchingRuns": 0,
+      "totals": {
+        "requestCount": 103599,
+        "successCount": 103599,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 0,
+        "unexpectedCount": 0
+      }
+    },
+    "missingRequiredEvidence": [
+      "조건별 3회 반복이 아니라 각 조건 1회만 실행됨",
+      "canonical bundle의 run-manifest.json이 0개임",
+      "T5 comparison이 INVALID이고 accepted fixture가 0개임",
+      "role·scale별 p99가 summary에 없고 query call/time/buffer가 없음",
+      "HTTP·Tomcat·Hikari·JVM·PostgreSQL 자원 신호가 같은 UTC run window에 연결되지 않음"
+    ]
+  },
+  "comparison": {
+    "status": "INVALID",
+    "expectedCases": 6,
+    "fixtureCount": 0,
+    "acceptedCases": 0,
+    "runManifestCount": 0,
+    "failureSummary": [
+      "after 검증이 fixture.mjs run의 run-manifest.json을 요구함",
+      "public/host/participant × scale 1/10의 비교 fixture 6개가 accepted되지 않음"
+    ],
+    "artifactIntegrity": {
+      "comparisonSha256": "e6bc82f62b83b29e4d5b85e6229b5d4130682d4126cb7f9ca1e8557f19e11207"
+    }
+  },
+  "artifactBoundary": {
+    "rawArtifactRetention": "local-only",
+    "repositoryRelativePathTemplate": "build/k6/room/<run-id>/<fixture-id>/",
+    "retainedInGit": [
+      "campaign metadata",
+      "role·scale coverage and per-run aggregate metrics",
+      "source and deployed release",
+      "read profile",
+      "non-secret SHA-256 artifact identifiers"
+    ],
+    "prohibitedFromGit": [
+      "password",
+      "token",
+      "CSRF value",
+      "target URL",
+      "fixture/resource ID",
+      "raw SQL",
+      "raw log"
+    ],
+    "independentVerificationLimitation": "raw bundle은 local-only이므로 이 저장소만으로 원자료 내용을 독립 재검증할 수 없다."
+  },
+  "teardown": {
+    "destroyExitCode": 0,
+    "confirmedResidualQuery": {
+      "activeEc2": 0,
+      "ebsVolumes": 0,
+      "elasticIps": 0,
+      "cloudwatchAlarms": 0,
+      "cloudwatchDashboards": 0,
+      "route53Zones": 0,
+      "issueScopedSsmParameters": 9
+    },
+    "sharedEcr": "공유 ECR은 보존; 삭제하지 않음",
+    "rawArtifacts": "6개 canonical bundle과 comparison/teardown artifact는 local-only로 보존; Git에는 비밀·토큰·URL·fixture/resource ID·raw log를 넣지 않음"
+  },
+  "runs": [
+    {
+      "sequence": 1,
+      "role": "participant",
+      "scale": 10,
+      "condition": "participant / ACTIVE scale 10",
+      "runId": "room-t5-repeated-2026-08-18-r01-canonical",
+      "window": {
+        "startedAtUtc": "2026-08-18T04:15:53Z",
+        "endedAtUtc": "2026-08-18T04:19:30Z"
+      },
+      "transportStatus": "PASS",
+      "comparisonStatus": "INVALID",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false,
+        "t5ReadOptions": {
+          "vus": 10,
+          "durationSeconds": 60,
+          "thinkTimeMilliseconds": 0
+        }
+      },
+      "metrics": {
+        "p50Ms": 18.46756,
+        "p95Ms": 160.7901436,
+        "p99Ms": null,
+        "maxMs": 394.640904,
+        "requestsPerSecond": 268.16443734033027,
+        "requestCount": 20177,
+        "successCount": 20177,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 0,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "responseContractChecksPass": 20177,
+        "responseContractChecksFail": 0,
+        "outcomeEquationMatches": true
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "readOptionsMatch": true,
+        "startSkewGatePassed": true,
+        "dbSnapshotUnchanged": true,
+        "comparisonFixtureAccepted": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "295d2e767eef61a60ad092baf67b4585f4e41a97a401e52db00772a92e7488d3",
+        "fixture": "f4fad9041e759ff7f5bb6022f4d07641ff47236adf6144c236160d374c7b3d46",
+        "executionOptions": "40ef785474e3070701e1dfa129d57b2cb71d22d3b2be9d9059e84f5e30b85768",
+        "infraExecution": "6542fe3f89550453f4f0d0f20d54e3f068bf6a397c0360b7aa4dd8673c08e855",
+        "beforeSnapshot": "bc077d174b89e294990f0fb955ed9a0e297fbbdf9bbdb95e1ff6564f290c8d64",
+        "afterSnapshot": "bc077d174b89e294990f0fb955ed9a0e297fbbdf9bbdb95e1ff6564f290c8d64",
+        "beforeDiagnosis": "76c6f2de5aafdf50c3a9dab119ef7ac60db2fbf3e52a327357f6facb62c9d7a7",
+        "afterDiagnosis": "acafcac7ddad1a03f33f07f08bf9211cccec125bbd563361a299bd38e83516cc",
+        "finalResult": "b213daa03bcff8d878d901e2220a1575dc93c1802ed0f08aa139b9c47bd6101e",
+        "k6Summary": "82782a4c1970513d55706dabb2f90f2b9867daef7421880dfabbb210b34c439c"
+      }
+    },
+    {
+      "sequence": 2,
+      "role": "public",
+      "scale": 1,
+      "condition": "public / ACTIVE scale 1",
+      "runId": "room-t5-repeated-2026-08-18-r01-canonical",
+      "window": {
+        "startedAtUtc": "2026-08-18T03:56:50Z",
+        "endedAtUtc": "2026-08-18T04:00:31Z"
+      },
+      "transportStatus": "PASS",
+      "comparisonStatus": "INVALID",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false,
+        "t5ReadOptions": {
+          "vus": 10,
+          "durationSeconds": 60,
+          "thinkTimeMilliseconds": 0
+        }
+      },
+      "metrics": {
+        "p50Ms": 23.715103,
+        "p95Ms": 162.217623,
+        "p99Ms": null,
+        "maxMs": 946.722089,
+        "requestsPerSecond": 187.78228438127633,
+        "requestCount": 14301,
+        "successCount": 14301,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 0,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "responseContractChecksPass": 14301,
+        "responseContractChecksFail": 0,
+        "outcomeEquationMatches": true
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "readOptionsMatch": true,
+        "startSkewGatePassed": true,
+        "dbSnapshotUnchanged": true,
+        "comparisonFixtureAccepted": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "cd4908f7dbaca36f921b50535012f9d6654812e759b22c6fb3bc5edd67f95d0b",
+        "fixture": "0d60759fdcbd794fa74cc3aa19c5d9c346b721920d45b00605fe5e8fb659449d",
+        "executionOptions": "40ef785474e3070701e1dfa129d57b2cb71d22d3b2be9d9059e84f5e30b85768",
+        "infraExecution": "0e9970d01158ba0e528b6eabe063599a50617a4cb4f041e2280d7554a07835fa",
+        "beforeSnapshot": "9c75c30c427ed9e358d3c7c0b2f8832e31563d5b6361f095df1cd4dc14cd1d5d",
+        "afterSnapshot": "9c75c30c427ed9e358d3c7c0b2f8832e31563d5b6361f095df1cd4dc14cd1d5d",
+        "beforeDiagnosis": "4cb8b368150edd2fb5d5e9bfe8597529a9188b772155eb3f3b4419bae9722f8f",
+        "afterDiagnosis": "8966da7a963b05608c8e9c8a31adaeef435de0796f31a1730a80adb350ce1bde",
+        "finalResult": "249f63d4806fcd0d75cdaea00f3c86930b52bc2ac5882fd3f90b67f60d9d82d3",
+        "k6Summary": "dd89cb9f45caa6c72e976c27ac277704a3b2dbac727d9a0a4f693620fb23d859"
+      }
+    },
+    {
+      "sequence": 3,
+      "role": "public",
+      "scale": 10,
+      "condition": "public / ACTIVE scale 10",
+      "runId": "room-t5-repeated-2026-08-18-r01-canonical",
+      "window": {
+        "startedAtUtc": "2026-08-18T04:00:42Z",
+        "endedAtUtc": "2026-08-18T04:04:22Z"
+      },
+      "transportStatus": "PASS",
+      "comparisonStatus": "INVALID",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false,
+        "t5ReadOptions": {
+          "vus": 10,
+          "durationSeconds": 60,
+          "thinkTimeMilliseconds": 0
+        }
+      },
+      "metrics": {
+        "p50Ms": 17.380823499999998,
+        "p95Ms": 161.1055807,
+        "p99Ms": null,
+        "maxMs": 555.362232,
+        "requestsPerSecond": 214.21650700161817,
+        "requestCount": 16152,
+        "successCount": 16152,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 0,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "responseContractChecksPass": 16152,
+        "responseContractChecksFail": 0,
+        "outcomeEquationMatches": true
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "readOptionsMatch": true,
+        "startSkewGatePassed": true,
+        "dbSnapshotUnchanged": true,
+        "comparisonFixtureAccepted": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "79fe9c46471bdc411175a67ed986183277cb8b4716b2f3ffc096b913bda1452e",
+        "fixture": "14b523e03c16234832fe9434f54fdcce0fec9834900b990ad3cb5a9ece925ea7",
+        "executionOptions": "40ef785474e3070701e1dfa129d57b2cb71d22d3b2be9d9059e84f5e30b85768",
+        "infraExecution": "fdc1184f5d3f637d09c3506d12a415311e0824f51d21547f911e56d6656c2b3c",
+        "beforeSnapshot": "c4c4135e43c6531b50e0219c1371110a62e05aab4c3356f49468eda08dae2a88",
+        "afterSnapshot": "c4c4135e43c6531b50e0219c1371110a62e05aab4c3356f49468eda08dae2a88",
+        "beforeDiagnosis": "693f8e50d0a25fbfdcb75b1e697bd9bf10500871d3809698a080e1edfc05c076",
+        "afterDiagnosis": "a0de238a32dd5f25a4d3c3122ff55f7ae3fffc6272ceda9e12640505d344ad0b",
+        "finalResult": "6251aa074a003478f9b5454df4540b9683c23421456b686005ba91a21e4db328",
+        "k6Summary": "ffefa3d77f32ae3484754d446dbc8ce66b5ef29524077dade2358231a0f80890"
+      }
+    },
+    {
+      "sequence": 4,
+      "role": "host",
+      "scale": 10,
+      "condition": "host / ACTIVE scale 10",
+      "runId": "room-t5-repeated-2026-08-18-r01-canonical",
+      "window": {
+        "startedAtUtc": "2026-08-18T04:08:19Z",
+        "endedAtUtc": "2026-08-18T04:11:54Z"
+      },
+      "transportStatus": "PASS",
+      "comparisonStatus": "INVALID",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false,
+        "t5ReadOptions": {
+          "vus": 10,
+          "durationSeconds": 60,
+          "thinkTimeMilliseconds": 0
+        }
+      },
+      "metrics": {
+        "p50Ms": 17.554214,
+        "p95Ms": 161.05634,
+        "p99Ms": null,
+        "maxMs": 397.151469,
+        "requestsPerSecond": 233.58989593139097,
+        "requestCount": 17575,
+        "successCount": 17575,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 0,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "responseContractChecksPass": 17575,
+        "responseContractChecksFail": 0,
+        "outcomeEquationMatches": true
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "readOptionsMatch": true,
+        "startSkewGatePassed": true,
+        "dbSnapshotUnchanged": true,
+        "comparisonFixtureAccepted": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "0c3ad03e374a27f657aeccb8f2b2331304b605799dbe8fc5bcec8a58d09bbfab",
+        "fixture": "2c5feef49b993136999660ad545c88af30703737a321dbbf0df491de2b0ea8db",
+        "executionOptions": "40ef785474e3070701e1dfa129d57b2cb71d22d3b2be9d9059e84f5e30b85768",
+        "infraExecution": "f8306baa6fc92d5997a82b0dfd8607103abe5928179ad04fcd77007ed60f2918",
+        "beforeSnapshot": "4729d0c0c6639596e3edccc1efbf91eb4fa8c216bb101d17b63ae780456cf196",
+        "afterSnapshot": "4729d0c0c6639596e3edccc1efbf91eb4fa8c216bb101d17b63ae780456cf196",
+        "beforeDiagnosis": "f4984ef9314cf6ec1b3a11669b7b578f6a83431a7378347ebf80b58b5b4bbe35",
+        "afterDiagnosis": "52df3b5ea113b2a097fce805d8212a375668739393f0799c95059e9ff3332f87",
+        "finalResult": "ae4569e3b7f951e0efce4fd2f30ac3bf186c9b73db37259d4fcc3333829b0361",
+        "k6Summary": "d50f70483a6746046a30148354159b13d270c0673dcfdd10468648c5089c6536"
+      }
+    },
+    {
+      "sequence": 5,
+      "role": "host",
+      "scale": 1,
+      "condition": "host / ACTIVE scale 1",
+      "runId": "room-t5-repeated-2026-08-18-r01-canonical",
+      "window": {
+        "startedAtUtc": "2026-08-18T04:04:32Z",
+        "endedAtUtc": "2026-08-18T04:08:08Z"
+      },
+      "transportStatus": "PASS",
+      "comparisonStatus": "INVALID",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false,
+        "t5ReadOptions": {
+          "vus": 10,
+          "durationSeconds": 60,
+          "thinkTimeMilliseconds": 0
+        }
+      },
+      "metrics": {
+        "p50Ms": 18.537881,
+        "p95Ms": 225.90472589999996,
+        "p99Ms": null,
+        "maxMs": 704.260356,
+        "requestsPerSecond": 195.0628581849252,
+        "requestCount": 14675,
+        "successCount": 14675,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 0,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "responseContractChecksPass": 14675,
+        "responseContractChecksFail": 0,
+        "outcomeEquationMatches": true
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "readOptionsMatch": true,
+        "startSkewGatePassed": true,
+        "dbSnapshotUnchanged": true,
+        "comparisonFixtureAccepted": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "9fb6a176c267c5a4d9d16a55ee039431f6f42a8fd89748dea86b6cf8c668d70e",
+        "fixture": "6fcf3f59f1796292291b0aa0a5342ff0c74ed67e6a7fe75b4b744e4292180b05",
+        "executionOptions": "40ef785474e3070701e1dfa129d57b2cb71d22d3b2be9d9059e84f5e30b85768",
+        "infraExecution": "4f5457bfd55d8d5ef8de018cc272ffec4dcf3ecbfa0f03e4b17ac6c9c4c25736",
+        "beforeSnapshot": "55dbde586904a99ff40dd3595507b939b52d7fd1668e6184a95a0e8e6908eb8f",
+        "afterSnapshot": "55dbde586904a99ff40dd3595507b939b52d7fd1668e6184a95a0e8e6908eb8f",
+        "beforeDiagnosis": "e2576e0d47ff202a6b58fd0f38028343ef9be1e4d132168e823fbecb52f08ac8",
+        "afterDiagnosis": "fb6041fad9cb38ee09eced0b629a66f034ec019eb2c4ff14d002a50c88e1a8b4",
+        "finalResult": "3853efd078c242434246a70c273d8177b74e2b8545b05200700f83494323888f",
+        "k6Summary": "c7f345f23117968d0b6e871d1339dc4f27dc06593edad94fdc770a81fd0e12aa"
+      }
+    },
+    {
+      "sequence": 6,
+      "role": "participant",
+      "scale": 1,
+      "condition": "participant / ACTIVE scale 1",
+      "runId": "room-t5-repeated-2026-08-18-r01-canonical",
+      "window": {
+        "startedAtUtc": "2026-08-18T04:12:05Z",
+        "endedAtUtc": "2026-08-18T04:15:43Z"
+      },
+      "transportStatus": "PASS",
+      "comparisonStatus": "INVALID",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false,
+        "t5ReadOptions": {
+          "vus": 10,
+          "durationSeconds": 60,
+          "thinkTimeMilliseconds": 0
+        }
+      },
+      "metrics": {
+        "p50Ms": 18.525462,
+        "p95Ms": 155.04328149999992,
+        "p99Ms": null,
+        "maxMs": 552.46389,
+        "requestsPerSecond": 275.3547038768144,
+        "requestCount": 20719,
+        "successCount": 20719,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 0,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "responseContractChecksPass": 20719,
+        "responseContractChecksFail": 0,
+        "outcomeEquationMatches": true
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "readOptionsMatch": true,
+        "startSkewGatePassed": true,
+        "dbSnapshotUnchanged": true,
+        "comparisonFixtureAccepted": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "198d35abee46fe06842e25f44eefefae282464371b22cdc52c453b987c706b40",
+        "fixture": "704bae99c1114845645acb235bdad183f378b39770ac7cfdf46584f59c60940e",
+        "executionOptions": "40ef785474e3070701e1dfa129d57b2cb71d22d3b2be9d9059e84f5e30b85768",
+        "infraExecution": "ba00033adf3f7d6fa48f93ff27605b49e871a80915147513dc21a92f572c55e5",
+        "beforeSnapshot": "8e15d57613d35da4885e7838d575a51216c002a88b807495c8c452b18e864380",
+        "afterSnapshot": "8e15d57613d35da4885e7838d575a51216c002a88b807495c8c452b18e864380",
+        "beforeDiagnosis": "38a89a47458c2b930317039e9f1ca7f00afb0d36b6cb6915f38669f512a0d3ac",
+        "afterDiagnosis": "8df96f3c411854394e5b51003f8fa17a842abe3942cc77f6fb08b844c3650a9c",
+        "finalResult": "2ca1debcb6eb57bbf456f0006170ae8d862ec4d86ad5bd2a44ed85129ac04b18",
+        "k6Summary": "011fd27791290031256d6e8acf2e7b4f4f915487621e7a7920320eba4a43b7d5"
+      }
+    }
+  ]
+}
