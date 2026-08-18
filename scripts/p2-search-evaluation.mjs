@@ -132,8 +132,14 @@ export function validateQualityReadiness(manifest, options = {}) {
     if (!isSha256(manifest.qualityCorpusSha256)) {
         errors.push("quality corpus projection checksum이 없습니다");
     }
-    if (!isNonEmptyString(manifest.queriesSha256)) {
+    if (!isSha256(manifest.queriesSha256)) {
         errors.push("fixture queries checksum이 없습니다");
+    }
+    if (!isNonEmptyString(manifest.queriesPath)) {
+        errors.push("fixture queriesPath가 없습니다");
+    }
+    if (!isNonEmptyString(manifest.qualityCorpusPath)) {
+        errors.push("quality corpus path가 없습니다");
     }
     if (!Array.isArray(manifest.approvalReferences) || manifest.approvalReferences.length === 0) {
         errors.push("승인 근거 reference가 없습니다");
@@ -193,14 +199,15 @@ export function calculateRankingMetrics({
     const hardFilterViolationRate = topK.length === 0
         ? 0
         : hardFilterViolationGameIdsInTopK.length / topK.length;
+    const metricKeys = rankingMetricKeys(k);
 
     return {
         k,
         expectedCount: expected.length,
         relevantCountAtK: relevantCount,
-        recallAt10: recallAtK,
-        mrrAt10: mrrAtK,
-        ndcgAt10: ndcgAtK,
+        [metricKeys.recall]: recallAtK,
+        [metricKeys.mrr]: mrrAtK,
+        [metricKeys.ndcg]: ndcgAtK,
         hardFilterViolationRate,
         hardFilterViolationGameIds: hardFilterViolationGameIdsInTopK,
         qualityEligible: hardFilterViolationRate === 0,
@@ -233,10 +240,11 @@ export function evaluateSearchResults({ manifest, candidateResults, baselineResu
                 hardFilterViolationGameIds: baselineResult.hardFilterViolationGameIds,
                 k,
             });
+            const metricKeys = rankingMetricKeys(k);
             row.delta = {
-                recallAt10: row.candidate.recallAt10 - row.baseline.recallAt10,
-                mrrAt10: row.candidate.mrrAt10 - row.baseline.mrrAt10,
-                ndcgAt10: row.candidate.ndcgAt10 - row.baseline.ndcgAt10,
+                [metricKeys.recall]: row.candidate[metricKeys.recall] - row.baseline[metricKeys.recall],
+                [metricKeys.mrr]: row.candidate[metricKeys.mrr] - row.baseline[metricKeys.mrr],
+                [metricKeys.ndcg]: row.candidate[metricKeys.ndcg] - row.baseline[metricKeys.ndcg],
             };
         }
         return row;
@@ -487,6 +495,7 @@ function validateIndependentJudgements(queries) {
     const missing = [];
     const notApproved = [];
     const disagreements = [];
+    const labelMismatches = [];
     for (const query of queries) {
         if (!Array.isArray(query.judgements) || query.judgements.length < 2) {
             missing.push(query.id);
@@ -505,14 +514,21 @@ function validateIndependentJudgements(queries) {
                 errors.push(`${query.id}의 판정 결과 ID가 없습니다`);
             }
         }
-        const signatures = query.judgements.slice(0, 2).map(judgementSignature);
-        if (signatures[0] !== signatures[1] && query.judgements.length < 3) {
+        const consensusSignature = judgementConsensusSignature(query.judgements);
+        if (consensusSignature === null) {
             disagreements.push(query.id);
+        } else if (judgementSignature(query) !== consensusSignature) {
+            labelMismatches.push(query.id);
         }
     }
     if (missing.length > 0) errors.push(`${missing.length}개 query에 독립 판정 2개가 없습니다`);
     if (notApproved.length > 0) errors.push(`approved가 아닌 판정이 ${notApproved.length}개 있습니다`);
-    if (disagreements.length > 0) errors.push(`불일치에 대한 제3 판정이 ${disagreements.length}개 없습니다`);
+    if (disagreements.length > 0) {
+        errors.push(`판정 불일치를 해소할 제3 판정 또는 다수 합의가 ${new Set(disagreements).size}개 없습니다`);
+    }
+    if (labelMismatches.length > 0) {
+        errors.push(`query label이 승인 판정 합의와 다른 query가 ${labelMismatches.length}개 있습니다`);
+    }
     return errors;
 }
 
@@ -521,6 +537,17 @@ function judgementSignature(judgement) {
         expectedGameIds: normalizeIds(judgement.expectedGameIds ?? [], "judgement expectedGameIds").sort(),
         excludedGameIds: normalizeIds(judgement.excludedGameIds ?? [], "judgement excludedGameIds").sort(),
     });
+}
+
+function judgementConsensusSignature(judgements) {
+    const counts = new Map();
+    for (const judgement of judgements) {
+        const signature = judgementSignature(judgement);
+        counts.set(signature, (counts.get(signature) ?? 0) + 1);
+    }
+    const [consensus] = [...counts.entries()].sort((left, right) => right[1] - left[1]);
+    if (!consensus || consensus[1] <= judgements.length / 2) return null;
+    return consensus[0];
 }
 
 function normalizeResults(results, name) {
@@ -541,7 +568,8 @@ function normalizeResults(results, name) {
 
 function aggregateRows(rows) {
     if (rows.length === 0) return null;
-    const metrics = ["recallAt10", "mrrAt10", "ndcgAt10", "hardFilterViolationRate"];
+    const metricKeys = rankingMetricKeys(rows[0].candidate.k);
+    const metrics = [metricKeys.recall, metricKeys.mrr, metricKeys.ndcg, "hardFilterViolationRate"];
     const average = Object.fromEntries(metrics.map((metric) => [
         metric,
         rows.reduce((sum, row) => sum + row.candidate[metric], 0) / rows.length,
@@ -561,6 +589,14 @@ function aggregateRows(rows) {
             .map((metric) => [metric, average[metric] - summary.baseline[metric]]));
     }
     return summary;
+}
+
+function rankingMetricKeys(k) {
+    return {
+        recall: `recallAt${k}`,
+        mrr: `mrrAt${k}`,
+        ndcg: `ndcgAt${k}`,
+    };
 }
 
 function catalogRecords(catalog) {
@@ -635,11 +671,15 @@ function readJson(filePath) {
 
 function loadManifest(manifestPath) {
     const manifest = readJson(manifestPath);
-    if (!manifest.queries && manifest.queriesPath) {
+    if (manifest.queriesPath) {
         const queryPath = path.resolve(path.dirname(manifestPath), manifest.queriesPath);
         const queryBytes = fs.readFileSync(queryPath);
-        manifest.queries = JSON.parse(queryBytes.toString("utf8"));
-        if (!Array.isArray(manifest.queries)) fail("queriesPath 파일은 query 배열이어야 합니다.");
+        const queriesFromPath = JSON.parse(queryBytes.toString("utf8"));
+        if (!Array.isArray(queriesFromPath)) fail("queriesPath 파일은 query 배열이어야 합니다.");
+        if (manifest.queries && JSON.stringify(manifest.queries) !== JSON.stringify(queriesFromPath)) {
+            fail("inline queries와 queriesPath 파일이 다릅니다.");
+        }
+        manifest.queries = queriesFromPath;
         if (manifest.queriesSha256 && !isSha256(manifest.queriesSha256)) {
             fail("queriesSha256 형식이 올바르지 않습니다.");
         }
@@ -648,10 +688,14 @@ function loadManifest(manifestPath) {
             if (actualSha256 !== manifest.queriesSha256) fail("queriesSha256가 queries 원자료와 다릅니다.");
         }
     }
-    if (!manifest.qualityCorpus && manifest.qualityCorpusPath) {
+    if (manifest.qualityCorpusPath) {
         const corpusPath = path.resolve(path.dirname(manifestPath), manifest.qualityCorpusPath);
         const corpusBytes = fs.readFileSync(corpusPath);
-        manifest.qualityCorpus = JSON.parse(corpusBytes.toString("utf8"));
+        const qualityCorpusFromPath = JSON.parse(corpusBytes.toString("utf8"));
+        if (manifest.qualityCorpus && JSON.stringify(manifest.qualityCorpus) !== JSON.stringify(qualityCorpusFromPath)) {
+            fail("inline quality corpus와 qualityCorpusPath 파일이 다릅니다.");
+        }
+        manifest.qualityCorpus = qualityCorpusFromPath;
         if (manifest.qualityCorpusSha256 && !isSha256(manifest.qualityCorpusSha256)) {
             fail("qualityCorpusSha256 형식이 올바르지 않습니다.");
         }

@@ -60,11 +60,11 @@ test("development seed는 Top 1,000 membership 밖 ID와 final 승격을 거절�
 
 test("cohort 표본이 부족하면 fixture를 거절한다", () => {
     const manifest = buildManifest();
-    manifest.queries[59].cohorts = [];
+    manifest.queries[59].cohorts = ["exact/name variant"];
 
     assert.throws(
         () => validateEvaluationManifest(manifest),
-        /최소 표본|cohort/u,
+        /intent\+hard filter cohort 최소 표본 20개/u,
     );
 });
 
@@ -137,6 +137,35 @@ test("quality-ready는 두 독립 판정과 승인된 임계값이 없으면 실
     );
 });
 
+test("승인된 판정 합의와 query label이 일치하면 quality-ready를 통과한다", () => {
+    const result = validateQualityReadiness(buildQualityReadyManifest());
+
+    assert.equal(result.qualityReady, true);
+});
+
+test("quality-ready는 queries checksum 형식이 아니면 실패한다", () => {
+    const manifest = buildQualityReadyManifest();
+    manifest.queriesSha256 = "pending";
+
+    assert.throws(
+        () => validateQualityReadiness(manifest),
+        /checksum/u,
+    );
+});
+
+test("query label이 승인 판정 합의와 다르면 quality-ready를 거절한다", () => {
+    const manifest = buildQualityReadyManifest();
+    manifest.queries[0].expectedGameIds = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    manifest.queries[0].expectedReasons = Object.fromEntries(
+        manifest.queries[0].expectedGameIds.map((gameId) => [gameId, "테스트 기대 근거"]),
+    );
+
+    assert.throws(
+        () => validateQualityReadiness(manifest),
+        /label.*합의/u,
+    );
+});
+
 test("판정자 간 불일치에는 제3 판정이 필요하다", () => {
     const manifest = buildQualityReadyManifest();
     manifest.queries[0].judgements[1].expectedGameIds = [999];
@@ -147,16 +176,30 @@ test("판정자 간 불일치에는 제3 판정이 필요하다", () => {
     );
 });
 
-test("Recall@10·MRR@10·nDCG@10을 고정된 순위에서 재현한다", () => {
+test("제3 판정이 다수 합의를 만들면 quality-ready를 통과한다", () => {
+    const manifest = buildQualityReadyManifest();
+    const query = manifest.queries[0];
+    query.judgements[1].expectedGameIds = [2];
+    query.judgements.push({
+        judgeId: "judge-c",
+        status: "approved",
+        expectedGameIds: query.expectedGameIds,
+        excludedGameIds: query.excludedGameIds,
+    });
+
+    assert.doesNotThrow(() => validateQualityReadiness(manifest));
+});
+
+test("Recall@5·MRR@5·nDCG@5를 k에 맞춰 재현한다", () => {
     const metrics = calculateRankingMetrics({
         expectedGameIds: [1, 2, 3],
         rankedGameIds: [9, 2, 8, 1, 7, 3],
         k: 5,
     });
 
-    assert.equal(metrics.recallAt10, 2 / 3);
-    assert.equal(metrics.mrrAt10, 1 / 2);
-    assert.equal(metrics.ndcgAt10, (1 / Math.log2(3) + 1 / Math.log2(5)) / (1 + 1 / Math.log2(3) + 1 / 2));
+    assert.equal(metrics.recallAt5, 2 / 3);
+    assert.equal(metrics.mrrAt5, 1 / 2);
+    assert.equal(metrics.ndcgAt5, (1 / Math.log2(3) + 1 / Math.log2(5)) / (1 + 1 / Math.log2(3) + 1 / 2));
 });
 
 test("hard-filter violation이 있으면 품질 결과가 합격할 수 없다", () => {
@@ -187,6 +230,10 @@ test("cohort와 전체 집합의 평가 결과를 같은 fixture에서 재현한
     assert.equal(first.cohorts["intent/description"].queryCount, 25);
     assert.equal(first.cohorts["intent+hard filter"].queryCount, 20);
     assert.equal(first.overall.hardFilterViolationRate, 0);
+
+    const kFive = evaluateSearchResults({ manifest, candidateResults, k: 5 });
+    assert.equal(typeof kFive.overall.recallAt5, "number");
+    assert.equal(kFive.overall.recallAt10, undefined);
 });
 
 test("검색 평가 범위를 벗어난 변경 파일을 거절한다", () => {
@@ -249,6 +296,8 @@ function buildManifest() {
             manifestReference: "docs/game-catalog/source-manifest.json",
             releaseStatus: "not-registered",
         },
+        queriesPath: "queries.json",
+        qualityCorpusPath: "quality-corpus.json",
         qualityCorpusSha256: "c".repeat(64),
         qualityCorpus: {
             schemaVersion: 1,

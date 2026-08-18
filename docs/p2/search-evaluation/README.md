@@ -31,7 +31,7 @@ node scripts/p2-search-evaluation.mjs \
 
 이 명령은 profile의 12~15개 범위, 세 cohort, Top 1,000 membership, hard-filter 호환성, query·corpus checksum을 확인합니다.
 
-품질 게이트는 현재 의도적으로 실패합니다. `final-quality` profile로 전환하려면 승인된 catalog release와 quality corpus, 60개 이상 query, 독립 판정·불일치 제3 판정, baseline·cohort threshold를 별도로 채워야 합니다.
+품질 게이트는 현재 의도적으로 실패합니다. `final-quality` profile로 전환하려면 승인된 catalog release와 quality corpus, 60개 이상 query, 독립 판정·불일치 제3 판정, baseline·cohort threshold를 별도로 채워야 합니다. 실행 경로는 `queriesPath`·`qualityCorpusPath`의 원자료를 읽어 manifest checksum과 대조하며, inline 데이터만으로는 final gate를 통과시키지 않습니다.
 
 ```bash
 node scripts/p2-search-evaluation.mjs \
