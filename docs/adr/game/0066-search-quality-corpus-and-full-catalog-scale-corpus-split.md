@@ -9,19 +9,24 @@
 
 ## 맥락
 
-SEARCH-04는 의미 기반 검색 품질을 Sparse·Dense·Hybrid 방식으로 비교·평가해야 하고, 동시에 기존 이름 검색·구조화 필터는 [ADR-0050](0050-game-metadata-catalog-and-filters.md)이 적재한 BGG 약 17만 건 전체 카탈로그에서 계속 동작해야 한다. 두 요구를 하나의 corpus로 묶으면 문제가 생긴다.
+SEARCH-04는 두 가지를 동시에 만족해야 한다.
 
-- 17만 건 전체에 대해 한국어명·alias·설명 enrichment와 embedding을 만들면 검수·번역·비용이 커지고, 검색 품질 평가는 실제로 소수의 대표 게임에서만 이뤄진다.
-- 반대로 소규모 품질 corpus만으로 DB index 성능, cache, pagination, 부하테스트까지 검증하면 실제 운영 규모에서 다른 성능 특성이 드러났을 때 재현하기 어렵다.
+- 의미 기반 검색 품질을 Sparse·Dense·Hybrid 방식으로 비교·평가한다.
+- 기존 이름 검색·구조화 필터는 [ADR-0050](0050-game-metadata-catalog-and-filters.md)이 적재한 BGG 약 17만 건 전체 카탈로그에서 계속 동작해야 한다.
 
-이 결정은 [ADR-0060](0060-approved-catalog-ai-embedding-scope.md)이 정한 "어떤 catalog dataset release를 AI·embedding에 쓸 수 있는가"라는 정책 경계 안에서, "그 승인된 release 중 어떤 하위 집합을 검색 품질 corpus로 쓰고 어떤 집합을 대규모 성능 검증 corpus로 쓰는가"를 정한다. 이후 Dense·Hybrid 비교, vector indexing, 부하테스트, corpus 확장 전략에 계속 영향을 주므로 지역적인 구현 세부가 아니라 ADR 대상으로 판단했다.
+이 둘을 같은 corpus 하나로 처리하면 다음 문제가 생긴다.
 
-판단 기준은 다음과 같다.
+- 17만 건 전체에 한국어명·alias·설명 enrichment와 embedding을 만들면 검수·번역 비용이 크게 늘어난다. 그런데도 실제 검색 품질 평가는 소수의 대표 게임에서만 이뤄져 비용 대비 효과가 낮다.
+- 반대로 소규모 품질 corpus만으로 DB index 성능, cache, pagination, 부하테스트까지 검증하면, 실제 운영 규모(17만 건)에서 드러나는 성능 특성을 재현하지 못한다.
+
+[ADR-0060](0060-approved-catalog-ai-embedding-scope.md)은 "어떤 catalog dataset release를 AI·embedding에 쓸 수 있는가"를 정한 정책 경계다. 이 ADR은 그 경계 **안에서**, "승인된 release 중 어떤 하위 집합을 검색 품질 corpus로 쓰고 어떤 집합을 대규모 성능 검증 corpus로 쓸지"를 정한다. 이 선택은 이후 Dense·Hybrid 비교, vector indexing, 부하테스트, corpus 확장 전략에 계속 영향을 주므로 지역적인 구현 세부가 아니라 ADR로 남긴다.
+
+판단 기준:
 
 - 검색 품질 평가가 반복 가능하고 검수 가능한 규모인가.
 - 기존 이름 검색·필터·성능 계약이 전체 카탈로그 규모에서 계속 검증되는가.
-- 품질 corpus 규모가 향후 확대될 때 아키텍처를 다시 설계하지 않아도 되는가.
-- BoardLife 순위를 게임 선정 기준으로 쓰는 것과 BoardLife의 한국어 설명 등 콘텐츠를 실제로 적재·가공하는 것을 구분해서 승인 경계를 지키는가.
+- 품질 corpus 규모를 나중에 늘릴 때 아키텍처를 다시 설계하지 않아도 되는가.
+- BoardLife 순위를 게임 **선정 기준**으로 쓰는 것과 BoardLife의 한국어 설명 등 **콘텐츠**를 실제로 적재·가공하는 것을 구분해, 기존 승인 경계를 지키는가.
 
 ## 검토한 대안
 
@@ -33,13 +38,34 @@ SEARCH-04는 의미 기반 검색 품질을 Sparse·Dense·Hybrid 방식으로 �
 
 ## 결정
 
-1. 검색 corpus를 두 계층으로 분리한다.
-   - **품질 corpus(Quality/Enriched Corpus)**: [ADR-0058](0058-external-ranking-and-popularity-sort.md)이 정의한 BoardLife 국내 순위 기준 상위 1,000개 게임. 목적은 한국어명·alias·설명 등 enrichment, SEARCH-04 evaluation, Sparse·Dense·Hybrid 비교다.
-   - **전체 카탈로그(Full Catalog)**: [ADR-0050](0050-game-metadata-catalog-and-filters.md)이 적재하는 BGG 약 17만 건. 목적은 기존 이름 검색, 구조화 필터, DB index 성능, cache, pagination, 부하테스트다.
-2. 품질 corpus의 게임 선정에는 BoardLife 순위를 selection 기준으로만 사용한다. BoardLife의 한국어 설명 등 실제 콘텐츠를 적재·가공·embedding 입력으로 쓰려면, [ADR-0060](0060-approved-catalog-ai-embedding-scope.md)이 요구하는 것과 동일하게 필드별 provenance와 사용 권한·출처 승인이 확인된 필드만 반영한다. 승인되지 않은 필드는 이 ADR로 자동 허용되지 않는다.
-3. 품질 corpus는 SEARCH-04의 초기 평가 규모일 뿐, 의미 검색 시스템을 1,000건에 영구히 종속시키지 않는다. corpus 확장은 `1,000 → 5,000 → 10,000 → 170,000` 순으로 단계적으로 늘릴 수 있게, 선정 기준(순위 컷오프)과 처리 파이프라인(enrichment → embedding → index)을 규모 파라미터로 다룬다. 특정 구현이 1,000을 상수로 고정하지 않는다.
-4. Sparse·Dense·Hybrid 비교와 검색 품질 평가는 품질 corpus를 기준으로 수행하고, 그 결과를 전체 카탈로그 검색 품질의 대표값으로 일반화하지 않는다. 전체 카탈로그의 검색 동작은 기존 이름 검색·필터 계약을 유지하며, 의미 검색이 전체 카탈로그로 확장될 때는 별도 재검토를 거친다.
-5. DB index 성능, cache, pagination, 부하테스트는 전체 카탈로그 규모를 기준으로 검증하고, 품질 corpus 규모의 측정 결과를 전체 카탈로그 성능 계약의 근거로 대신하지 않는다.
+### 1. corpus를 두 계층으로 나눈다
+
+| corpus | 범위 | 목적 |
+| --- | --- | --- |
+| **품질 corpus**(Quality/Enriched Corpus) | [ADR-0058](0058-external-ranking-and-popularity-sort.md)이 정의한 BoardLife 국내 순위 기준 상위 1,000개 게임 | 한국어명·alias·설명 등 enrichment, SEARCH-04 evaluation, Sparse·Dense·Hybrid 비교 |
+| **전체 카탈로그**(Full Catalog) | [ADR-0050](0050-game-metadata-catalog-and-filters.md)이 적재하는 BGG 약 17만 건 | 기존 이름 검색, 구조화 필터, DB index 성능, cache, pagination, 부하테스트 |
+
+### 2. BoardLife는 "선정 기준"과 "콘텐츠"를 분리해서 쓴다
+
+- 품질 corpus에 어떤 게임을 넣을지는 BoardLife **순위**로만 정한다.
+- BoardLife의 한국어 설명 등 실제 **콘텐츠**를 적재·가공·embedding 입력으로 쓰려면 별도 승인이 필요하다. [ADR-0060](0060-approved-catalog-ai-embedding-scope.md)과 동일하게, 필드별 provenance와 사용 권한·출처 승인이 확인된 필드만 반영한다.
+- 승인되지 않은 BoardLife 콘텐츠 필드는 이 ADR만으로 자동 허용되지 않는다.
+
+### 3. 품질 corpus는 1,000건에 영구히 묶이지 않는다
+
+품질 corpus는 SEARCH-04의 **초기** 평가 규모다. 필요하면 아래 순서로 단계적으로 늘릴 수 있게 설계한다.
+
+```
+1,000 → 5,000 → 10,000 → 170,000
+```
+
+이를 위해 선정 기준(순위 컷오프)과 처리 파이프라인(enrichment → embedding → index)을 규모 파라미터로 다루고, 특정 구현에서 1,000을 상수로 고정하지 않는다.
+
+### 4. 평가 결과의 적용 범위를 구분한다
+
+- Sparse·Dense·Hybrid 비교와 검색 품질 평가는 **품질 corpus**를 기준으로 수행한다. 그 결과를 전체 카탈로그 검색 품질의 대표값으로 일반화하지 않는다.
+- 전체 카탈로그의 검색 동작은 기존 이름 검색·필터 계약을 그대로 유지한다. 의미 검색을 전체 카탈로그로 확장할 때는 별도 재검토를 거친다.
+- DB index 성능, cache, pagination, 부하테스트는 **전체 카탈로그** 규모를 기준으로 검증한다. 품질 corpus 규모의 측정 결과를 전체 카탈로그 성능 계약의 근거로 대신하지 않는다.
 
 ## 결과
 
