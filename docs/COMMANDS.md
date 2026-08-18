@@ -107,7 +107,22 @@ node --test scripts/docs/check-monitoring-contract.test.mjs
 
 운영 호스트 준비, 설정 검증, 배포·롤백 명령은 [P1 AWS 다중 인스턴스 실행안](guides/AWS_MULTI_INSTANCE_INFRASTRUCTURE.md)이 소유한다. 이 문서에는 운영 비밀값이나 호스트별 긴 절차를 복제하지 않는다.
 
-P2 운영 관측의 기능 완료 기준은 [운영 관측 명세](p2/monitoring.md), 화면·경고 정책은 [대시보드 정책](p2/dashboard.md), metric·log 허용 목록과 계획 종료·재기동 계약은 [P2 운영 관측 런북](guides/MONITORING_OPERATIONS.md), 전송 경계는 [ADR-0071](adr/platform/0071-p2-application-metrics-otlp-host-cloudwatch-agent.md)·[ADR-0059](adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)을 따른다. 상태 전이 운영 CLI가 아직 구현·배포 검증되지 않았으므로 실행되지 않는 예시 명령을 이 문서에 추가하지 않는다.
+P2 운영 관측의 기능 완료 기준은 [운영 관측 명세](p2/monitoring.md), 화면·경고 정책은 [대시보드 정책](p2/dashboard.md), metric·log 허용 목록과 계획 종료·재기동 계약은 [P2 운영 관측 런북](guides/MONITORING_OPERATIONS.md), 전송 경계는 [ADR-0071](adr/platform/0071-p2-application-metrics-otlp-host-cloudwatch-agent.md)·[ADR-0059](adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)을 따른다.
+
+상태 전이 명령은 [`albam-mate-infra`](https://github.com/bamsongi-club/albam-mate-infra/tree/47bd0ba1a8cb97b13694ff492bf365f0cfee66d7) checkout에서 실행한다. 실제 `stackId`, UTC 종료 시각과 대표 alarm 이름을 넣어야 하며, 상태 변경 명령은 정확한 `--confirm-stack-id` 없이는 실패한다.
+
+```sh
+./run.sh ops status
+./run.sh ops initialize-active --confirm-stack-id <stack-id>
+./run.sh ops plan-stop --planned-until <YYYY-MM-DDTHH:MM:SSZ> --confirm-stack-id <stack-id>
+./run.sh ops extend --planned-until <YYYY-MM-DDTHH:MM:SSZ> --confirm-stack-id <stack-id>
+./run.sh ops restart --confirm-stack-id <stack-id>
+./run.sh ops recover --confirm-stack-id <stack-id>
+./run.sh ops verify-alert-cycle --alarm-name <alarm-name> --confirm-stack-id <stack-id>
+./run.sh down
+```
+
+`down`은 `PLANNED_STOP`과 초과 schedule이 없을 때만 P1을 철거하고, 성공한 destroy 뒤 동적 운영 상태를 정리한다. Object Lock receipt와 bootstrap state·lock·ECR 자원은 감사와 다음 실행을 위해 남긴다.
 
 ## 프롬프트 기록 확인
 
