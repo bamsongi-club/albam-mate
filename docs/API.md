@@ -1047,7 +1047,7 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 | `isRulemasterLed` | boolean | Y | N | 룰마스터 진행 자기신고 |
 | `startsAt` | string(date-time) | Y | N | 미래 시각, 오프셋 필수 |
 | `region` | Region | Y | N | 요청 누락 시 `홍대`로 정규화 |
-| `place` | string | Y | Y | 확인 전 `null` 허용. 확인 전 1~100자 필수 |
+| `place` | string | Y | Y | 확인 전 `null` 허용. 확인 시 1~100자 필수 |
 | `recruitmentCapacity` | integer | Y | N | 개설자 제외 1~10명 |
 
 ### 4.39 AssistantRoomCreationResult
@@ -2951,7 +2951,7 @@ MATCH 채팅 경로(`/api/matches/parties/{partyId}/chat/**`)는 성공 파티 �
 | `GET /api/assistant/consent` | `UNAUTHENTICATED` |
 | `PUT /api/assistant/consent` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ASSISTANT_CONSENT_VERSION_MISMATCH`, `CSRF_TOKEN_INVALID` |
 | `POST /api/assistant/recommendations` | `UNAUTHENTICATED`, `ASSISTANT_NOT_ENABLED`, `ASSISTANT_CONSENT_REQUIRED`, `VALIDATION_ERROR`, `ASSISTANT_INPUT_NOT_ALLOWED`, `ASSISTANT_PROVIDER_UNAVAILABLE`, `ASSISTANT_PROVIDER_RESPONSE_INVALID`, `RATE_LIMIT_EXCEEDED`, `ASSISTANT_COST_LIMIT_EXCEEDED`, `SERVICE_UNAVAILABLE`, `CSRF_TOKEN_INVALID` |
-| `POST /api/assistant/drafts` | `UNAUTHENTICATED`, `ASSISTANT_NOT_ENABLED`, `ASSISTANT_CONSENT_REQUIRED`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `RATE_LIMIT_EXCEEDED`, `ASSISTANT_COST_LIMIT_EXCEEDED`, `CSRF_TOKEN_INVALID` |
+| `POST /api/assistant/drafts` | `UNAUTHENTICATED`, `ASSISTANT_NOT_ENABLED`, `ASSISTANT_CONSENT_REQUIRED`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `CSRF_TOKEN_INVALID` |
 | `GET /api/assistant/drafts/{draftId}` | `UNAUTHENTICATED`, `ASSISTANT_DRAFT_NOT_FOUND`, `ASSISTANT_DRAFT_EXPIRED` |
 | `PATCH /api/assistant/drafts/{draftId}` | `UNAUTHENTICATED`, `ASSISTANT_DRAFT_NOT_FOUND`, `ASSISTANT_DRAFT_EXPIRED`, `ASSISTANT_DRAFT_CONFLICT`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `CSRF_TOKEN_INVALID` |
 | `DELETE /api/assistant/drafts/{draftId}` | `UNAUTHENTICATED`, `ASSISTANT_DRAFT_NOT_FOUND`, `ASSISTANT_DRAFT_EXPIRED`, `CSRF_TOKEN_INVALID` |
