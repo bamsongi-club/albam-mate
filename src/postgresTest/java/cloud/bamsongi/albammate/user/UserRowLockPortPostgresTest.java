@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.user;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -58,6 +59,9 @@ class UserRowLockPortPostgresTest {
 		TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
 		CountDownLatch transactionsReady = new CountDownLatch(2);
 		CountDownLatch startTransactions = new CountDownLatch(1);
+		CountDownLatch anyTransactionLocked = new CountDownLatch(1);
+		CountDownLatch allTransactionsLocked = new CountDownLatch(2);
+		CountDownLatch releaseTransactions = new CountDownLatch(1);
 		ExecutorService executor = Executors.newFixedThreadPool(2);
 
 		try {
@@ -65,8 +69,12 @@ class UserRowLockPortPostgresTest {
 				() -> transactionTemplate.execute(status -> {
 					transactionsReady.countDown();
 					await(startTransactions);
-					return userRowLockPort.lockExistingUsersInAscendingOrder(
+					Set<Long> lockedUserIds = userRowLockPort.lockExistingUsersInAscendingOrder(
 						List.of(secondUserId, 999_999L, firstUserId));
+					anyTransactionLocked.countDown();
+					allTransactionsLocked.countDown();
+					await(releaseTransactions);
+					return lockedUserIds;
 				}));
 
 			Future<Set<Long>> secondFuture = executor.submit(
@@ -74,14 +82,25 @@ class UserRowLockPortPostgresTest {
 					status -> {
 						transactionsReady.countDown();
 						await(startTransactions);
-						return userRowLockPort.lockExistingUsersInAscendingOrder(
+						Set<Long> lockedUserIds = userRowLockPort.lockExistingUsersInAscendingOrder(
 							List.of(firstUserId, secondUserId));
+						anyTransactionLocked.countDown();
+						allTransactionsLocked.countDown();
+						await(releaseTransactions);
+						return lockedUserIds;
 					}));
 
 			assertTrue(
 				transactionsReady.await(WAIT_SECONDS, TimeUnit.SECONDS),
 				"두 트랜잭션이 동시성 시작 지점에 도달하지 못했습니다.");
 			startTransactions.countDown();
+			assertTrue(
+				anyTransactionLocked.await(WAIT_SECONDS, TimeUnit.SECONDS),
+				"두 트랜잭션 중 어느 것도 사용자 행 잠금을 획득하지 못했습니다.");
+			assertFalse(
+				allTransactionsLocked.await(1, TimeUnit.SECONDS),
+				"두 번째 트랜잭션이 첫 번째 트랜잭션의 잠금 해제 전에 완료됐습니다.");
+			releaseTransactions.countDown();
 			assertEquals(
 				List.of(firstUserId, secondUserId),
 				List.copyOf(firstFuture.get(WAIT_SECONDS, TimeUnit.SECONDS)));
@@ -90,6 +109,7 @@ class UserRowLockPortPostgresTest {
 				List.copyOf(secondFuture.get(WAIT_SECONDS, TimeUnit.SECONDS)));
 		} finally {
 			startTransactions.countDown();
+			releaseTransactions.countDown();
 			executor.shutdownNow();
 			assertTrue(executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS));
 		}
