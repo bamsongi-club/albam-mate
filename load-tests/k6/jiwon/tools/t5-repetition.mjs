@@ -336,11 +336,16 @@ function validateSummary(summary, run) {
 
   const successValues = metricValues(summary, SUCCESS_DURATION_METRIC);
   const latency = {};
+  const successP50 = successValues?.p50 ?? successValues?.med;
+  const successP95 = successValues?.p95 ?? successValues?.['p(95)'];
+  const successP99 = successValues?.p99 ?? successValues?.['p(99)'];
+  const successMax = successValues?.max;
+  const successStatistics = { p50: successP50, p95: successP95, p99: successP99, max: successMax };
   for (const name of ['p50', 'p95', 'p99', 'max']) {
-    if (!Number.isFinite(successValues?.[name])) {
+    if (!Number.isFinite(successStatistics[name])) {
       return { error: `성공 응답 ${name}가 없어 T5 비교를 할 수 없습니다.` };
     }
-    latency[name] = successValues[name];
+    latency[name] = successStatistics[name];
   }
 
   const rpsValues = metricValues(summary, 'http_reqs');

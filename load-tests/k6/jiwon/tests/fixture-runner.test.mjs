@@ -1288,6 +1288,7 @@ function writePortableT5CompletionArtifacts(bundle, rendered) {
     fixtureId: rendered.fixtureId,
     runId: rendered.options.runId,
     scenario: 't5',
+    condition: rendered.options,
     sourceSha: portableManifest.sourceRevision,
     targetEnvironment: 'private-loadtest',
     k6Version: 'v1.3.0',
