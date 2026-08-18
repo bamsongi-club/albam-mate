@@ -13,9 +13,9 @@ ADR-0063의 baseline gate는 하나의 latency 수치로 모든 MATCH 흐름을 
 | 항목 | 고정값 또는 필수 기록값 |
 | --- | --- |
 | 기준 SHA | 실행한 `git rev-parse HEAD` 값 |
-| fixture generator | `MATCH-01-CANDIDATE-BASELINE-V1`. 아래 ordinal·시각 배정 규칙까지 같은 버전의 입력 계약이다 |
-| 요청 | 같은 `gameId`·Board Game Arena의 `WAITING` 요청 정확히 1,000건. `PREPARING`·`ACTIVE`·`CLOSED` Party와 열린 제안은 0건 |
-| 인원 범위 | 모든 요청은 `[2, 4]`; 게임도 `[2, 4]` 지원. 따라서 claim당 2명, 기대 가능한 candidate claim은 500개 proposal·1,000개 member 전이 |
+| fixture generator | `MATCH-01-CANDIDATE-BASELINE-V2`. 아래 ordinal·시각 배정 규칙까지 같은 버전의 입력 계약이다 |
+| 요청 | 게임·플랫폼 조건 없이 사용자 인원 범위 `[2, 4]`를 가진 `WAITING` 요청 정확히 1,000건. `PREPARING`·`ACTIVE`·`CLOSED` Party와 열린 제안은 0건 |
+| 인원 범위 | 모든 요청의 사용자 인원 범위는 `[2, 4]`다. 따라서 claim당 2명, 기대 가능한 candidate claim은 500개 proposal·1,000개 member 전이 |
 | 우선순위 | fixture ordinal `1..200`은 두 행씩 같은 `prioritySince`를 갖는 100개 동점 쌍, `201..1000`은 서로 다른 `prioritySince`를 갖는다. 모든 tie는 `requestId ASC`로 판정 가능해야 한다 |
 | 차단 | `MATCH_BLOCKS`는 0건. 차단 필터 정확성은 기능 통합 테스트에서 별도로 검증하며, 이 baseline에 숨은 선택도 변수를 넣지 않는다 |
 | matcher | 같은 애플리케이션 SHA·설정의 독립 matcher 프로세스 2개가 하나의 PostgreSQL DB를 공유한다. Redis business lock은 사용하지 않는다 |

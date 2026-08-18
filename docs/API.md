@@ -836,10 +836,8 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
-| `game` | GameSummary | Y | N | 요청 등록 때 고정한 게임 |
-| `platform` | string | Y | N | 항상 `BOARD_GAME_ARENA` |
-| `minPlayers` | integer | Y | N | 등록 시점에 확정한 요청 범위와 게임 지원 범위의 교집합 하한 |
-| `maxPlayers` | integer | Y | N | 등록 시점에 확정한 요청 범위와 게임 지원 범위의 교집합 상한 |
+| `minPlayers` | integer | Y | N | 사용자가 등록한 희망 인원 범위의 하한 |
+| `maxPlayers` | integer | Y | N | 사용자가 등록한 희망 인원 범위의 상한 |
 | `queuedAt` | string(date-time) | Y | N | 현재 대기 시도를 시작한 시각 |
 
 ### 4.24 MatchProposalSummary
@@ -851,9 +849,7 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
 | `proposalId` | integer | Y | N | 열린 제안 ID |
-| `game` | GameSummary | Y | N | 제안 게임 |
-| `platform` | string | Y | N | 항상 `BOARD_GAME_ARENA` |
-| `partySize` | integer | Y | N | 고정된 실제 파티 인원 |
+| `partySize` | integer | Y | N | 연결된 요청 인원 범위 교집합의 하한으로 고정한 실제 파티 인원 |
 | `members` | MatchProposalMemberPreview[] | Y | N | 제안 참가 예정자의 공개 프로필 이미지 |
 | `respondBy` | string(date-time) | Y | N | 제안 생성 시 고정한 응답 기한. 기한 규칙은 [MATCH-01 후보 파티와 제안](p2/matching.md#후보-파티와-제안)을 따름 |
 | `myResponse` | MatchProposalMyResponse | Y | N | 요청자의 현재 유효 응답 |
@@ -2569,7 +2565,6 @@ MATCHING은 매칭 요청·제안·성공 파티와 그 접근 관계를 소유�
 
 ~~~json
 {
-  "gameId": 42,
   "minPlayers": 3,
   "maxPlayers": 4
 }
@@ -2577,15 +2572,14 @@ MATCHING은 매칭 요청·제안·성공 파티와 그 접근 관계를 소유�
 
 | 필드 | 타입 | 필수 | nullable | 검증 |
 |---|---|:---:|:---:|---|
-| `gameId` | integer | Y | N | 1 이상의 알밤메이트 내부 게임 ID |
 | `minPlayers` | integer | Y | N | 1 이상이며 `maxPlayers` 이하 |
 | `maxPlayers` | integer | Y | N | `minPlayers` 이상 |
 
-플랫폼은 항상 `BOARD_GAME_ARENA`이며 본문으로 바꾸지 않는다. 요청 인원 범위와 게임 지원 인원 범위의 교집합이 없으면 `MATCH_PLAYER_RANGE_NOT_SUPPORTED`를 반환하고 요청을 만들지 않는다. 게임의 지원 인원 범위를 확인할 수 없는 경우도 교집합 없음과 같이 이 오류로 거절한다. 교집합은 있지만 현재 후보가 없으면 `WAITING` 상태로 성공한다.
+게임과 플랫폼은 요청·응답·매칭 후보 조건에 포함하지 않는다. 두 인원 값이 유효하면 게임 카탈로그를 조회하지 않고 요청을 등록한다. 현재 후보가 없거나 다른 요청과 인원 범위가 겹치지 않으면 `WAITING` 상태로 성공한다.
 
 한 사용자는 `WAITING`·`PROPOSED`·`PAUSED` 중 하나의 비종료 매칭 요청과 `PREPARING` 또는 아직 명시적으로 나가지 않은 `ACTIVE` 성공 파티 접근 관계를 동시에 가질 수 없다. 둘 중 하나가 있으면 새 등록은 `MATCH_REQUEST_ALREADY_ACTIVE`다. 명시적으로 나갔거나 실제 `CLOSED`가 된 성공 파티 관계는 새 요청 등록을 막지 않는다.
 
-저장하는 값은 본문의 요청 범위가 아니라 등록 시점에 확정한 교집합이다. 이후 조회 응답의 `minPlayers`·`maxPlayers`와 후보 선별은 이 교집합을 사용하므로, 게임 카탈로그가 나중에 바뀌어도 기존 요청의 판정은 변하지 않는다. 요청 본문의 원래 희망 범위는 저장하지 않으므로 어떤 응답도 반환하지 않는다. 두 값이 입력과 다를 수 있음을 알리는 화면 문구는 [MATCH-01 매칭 요청](p2/matching.md#기능-규칙)이 소유한다.
+저장하는 `minPlayers`·`maxPlayers`는 본문에 입력한 희망 범위 그대로다. 후보 선별은 연결된 요청들의 저장 범위 교집합을 사용하며, 실제 `partySize`는 그 교집합의 하한으로 정한다. 매칭이 확정된 뒤 참가자들은 전용 채팅에서 원하는 게임과 진행 방법을 직접 정한다.
 
 ### MATCH-01 매칭 요청 취소
 
@@ -2886,7 +2880,6 @@ WebSocket은 수신 전용이다. 클라이언트가 애플리케이션 메시�
 | `IDEMPOTENCY_KEY_CONFLICT` | 409 | 동일한 멱등성 키를 다른 요청에 사용할 수 없습니다. | 같은 사용자·24시간 범위의 `Idempotency-Key`가 다른 operation·경로·body 의미로 이미 기록됨 |
 | `MATCH_CURRENT_STATE_NOT_STABLE` | 409 | 매칭 현재 상태가 계속 변경 중입니다. 잠시 후 다시 시도해 주세요. | current-state read의 bounded snapshot 재시도 안에 due recovery와 상태 조합이 안정되지 않음 |
 | `MATCH_REQUEST_ALREADY_ACTIVE` | 409 | 이미 진행 중인 매칭 요청이 있습니다. | `WAITING`·`PROPOSED`·`PAUSED` 요청이 있거나 `PREPARING`·아직 명시적으로 나가지 않은 `ACTIVE` 성공 파티 접근 관계가 있는 사용자가 새 요청을 등록함. 명시적으로 나갔거나 실제 `CLOSED` 뒤에는 성공 파티 관계만으로 이 오류를 반환하지 않음 |
-| `MATCH_PLAYER_RANGE_NOT_SUPPORTED` | 409 | 게임 지원 인원과 요청 인원 범위가 겹치지 않습니다. | 요청 범위와 게임 지원 인원 범위의 교집합이 없거나, 게임 지원 인원 범위를 확인할 수 없음 |
 | `MATCH_REQUEST_CANCELLATION_NOT_AVAILABLE` | 409 | 현재 성공 파티는 매칭 요청으로 취소할 수 없습니다. | `PREPARING`·`ACTIVE` 성공 파티에 요청 취소를 시도함 |
 | `MATCH_PROPOSAL_RESPONSE_NOT_AVAILABLE` | 409 | 현재 응답할 수 있는 매칭 제안이 없습니다. | 본인 열린 제안이 없거나 응답 기한이 지났거나 첫 유효 응답이 다른 키로 이미 처리됨 |
 | `MATCH_PARTY_NOT_FOUND` | 404 | 성공 파티를 찾을 수 없습니다. | 요청한 성공 파티가 없음 |
@@ -2968,7 +2961,7 @@ MATCH 채팅 경로(`/api/matches/parties/{partyId}/chat/**`)는 성공 파티 �
 | `DELETE /api/assistant/drafts/{draftId}` | `UNAUTHENTICATED`, `ASSISTANT_DRAFT_NOT_FOUND`, `ASSISTANT_DRAFT_EXPIRED`, `ASSISTANT_DRAFT_CONFLICT`, `CSRF_TOKEN_INVALID` |
 | `POST /api/assistant/drafts/{draftId}/confirm` | `UNAUTHENTICATED`, `ASSISTANT_NOT_ENABLED`, `ASSISTANT_CONSENT_REQUIRED`, `ASSISTANT_DRAFT_NOT_FOUND`, `ASSISTANT_DRAFT_EXPIRED`, `ASSISTANT_DRAFT_CONFLICT`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `ROOM_CONCURRENT_MODIFICATION`, `CSRF_TOKEN_INVALID` |
 | `GET /api/matches/current` | `UNAUTHENTICATED`, `MATCH_CURRENT_STATE_NOT_STABLE` |
-| `POST /api/matches/requests` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `MATCH_PLAYER_RANGE_NOT_SUPPORTED`, `MATCH_REQUEST_ALREADY_ACTIVE`, `IDEMPOTENCY_KEY_CONFLICT`, `CSRF_TOKEN_INVALID` |
+| `POST /api/matches/requests` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `MATCH_REQUEST_ALREADY_ACTIVE`, `IDEMPOTENCY_KEY_CONFLICT`, `CSRF_TOKEN_INVALID` |
 | `DELETE /api/matches/requests/me` | `UNAUTHENTICATED`, `MATCH_REQUEST_CANCELLATION_NOT_AVAILABLE`, `CSRF_TOKEN_INVALID` |
 | `POST /api/matches/proposals/{proposalId}/responses` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `MATCH_PROPOSAL_RESPONSE_NOT_AVAILABLE`, `IDEMPOTENCY_KEY_CONFLICT`, `CSRF_TOKEN_INVALID` |
 | `POST /api/matches/parties/{partyId}/chat/messages` | `UNAUTHENTICATED`, `FORBIDDEN`, `MATCH_CHAT_NOT_ACTIVE`, `VALIDATION_ERROR`, `RATE_LIMIT_EXCEEDED`, `SERVICE_UNAVAILABLE`, `CSRF_TOKEN_INVALID` |
