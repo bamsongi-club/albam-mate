@@ -1,6 +1,6 @@
 # P2 AI 모임 도우미 기능 명세
 
-> **문서 상태: 결정·ADR 승인됨 · 공개 계약 반영 완료 · 구현 필요**
+> **문서 상태: 결정 완료·공개 목표 계약 반영 · 구현 보류**
 >
 > 담당자: `@silverThunder09` · 기능 ID: `AI-01` · 상태 정본: [P2 기능 상태](README.md#기능별-현재-상태)
 
@@ -12,9 +12,9 @@
 - 이 문서가 소유하지 않는 결정: 외부 AI 처리·동의·provider 운영 경계는 [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md), Room 초안·확인형 생성은 [ADR-0069](../adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역 계약은 [ADR-0070](../adr/room/0070-p2-room-region-closed-set-and-compatibility.md)가 소유한다. 공개 HTTP·저장·모듈 계약은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md)에 반영됐다.
 - `AI-01`은 [`DISCOVERY-01` 게임 탐색 도우미](game-discovery-assistant.md#ai-01과의-경계)와 별도 기능이다. `DISCOVERY-01`은 `SEARCH-04` 읽기 전용 탐색을 소유하고, `AI-01`은 확인형 Room 생성 흐름을 소유한다.
 
-문서 등록과 AI-D01~D03 ADR 승인은 provider 도입·생산 코드·배포·실측 완료를 뜻하지 않는다. 공개 API·저장·모듈 계약은 반영됐고, [#794](https://github.com/bamsongi-club/albam-mate/issues/794)의 범위와 승인된 ADR을 바탕으로 migration·구현 이슈를 후속 진행한다.
+문서 등록과 AI-D01~D03 결정은 provider 도입·생산 코드·배포·실측 완료를 뜻하지 않는다. [#795](https://github.com/bamsongi-club/albam-mate/issues/795)·[#796](https://github.com/bamsongi-club/albam-mate/issues/796)와 ADR-0068~0070의 결정은 완료됐고, migration·구현 이슈의 대상 경로·테스트 계약·rollback을 별도로 고정하기 전까지 생산 구현은 보류한다.
 
-## 결정된 사항과 소유 정본
+## 확정된 사항과 소유 정본
 
 `AI-01`의 기능 동작·완료 기준·구현 순서·검증 항목은 이 문서가 소유한다. 되돌리기 어렵거나 여러 모듈에 영향을 주는 기술 결정은 아래 ADR이 소유하고, HTTP·저장·모듈 계약은 각각 [API](../API.md)·[ERD](../ERD.md)·[아키텍처](../ARCHITECTURE.md)가 소유한다. 이 문서는 결정 요약을 제공하지만 ADR의 대체 정본이 아니다.
 
@@ -24,7 +24,7 @@
 | `AI-D02` | `RECOMMEND`는 후보만 조회하고 초안을 만들지 않는다. `CREATE_ROOM` 전환 후 15분 초안을 만들며, 상세 장소와 최종 조건을 사용자가 확인한 뒤에만 `room.contract` 확인형 command를 호출한다. `Idempotency-Key`·draft version·Room·ChatRoom 원자성을 적용한다. | [ADR-0069](../adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md) |
 | `AI-D03` | 지역은 `홍대`·`강남`·`건대`·`잠실`의 닫힌 집합이다. 호환 기간의 누락은 `홍대`로 해석하고, 기존 행은 재작성하지 않으며 migration 전 허용값을 검사한다. | [ADR-0070](../adr/room/0070-p2-room-region-closed-set-and-compatibility.md) |
 
-결정 흐름은 `#794`의 AI-01 범위·소유 경계에서 시작해 `#795`의 AI-D01, `#796`의 AI-D02·D03으로 이어진다. 세 결정은 승인됐고 공개 API·ERD·아키텍처 계약에 반영됐지만 생산 코드·자동 검증·배포·실측은 아직 완료되지 않았다.
+결정 흐름은 `#794`의 AI-01 범위·소유 경계에서 시작해 완료된 `#795`의 AI-D01, `#796`의 AI-D02·D03으로 이어진다. 세 결정은 승인된 목표 계약으로 공개 API·ERD·아키텍처에 반영되며, 생산 코드·자동 검증·배포·실측은 별도 상태 축으로 관리한다.
 
 ## 구현 컨텍스트
 
@@ -49,7 +49,7 @@
 
 ### 액션별 추천·생성 경계
 
-서버는 자연어 입력을 처리할 때 추천(`RECOMMEND`)과 방 생성(`CREATE_ROOM`)을 구분한다. 아래는 기능 명세의 논리 경계이며, 공개 HTTP 필드와 저장 구조는 승인된 AI-D01~D03 ADR을 기준으로 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md)에 확정했다.
+서버는 자연어 입력을 처리할 때 추천(`RECOMMEND`)과 방 생성(`CREATE_ROOM`)을 구분한다. 아래는 기능 명세의 논리 경계이며, 공개 HTTP 필드와 저장 구조는 승인된 AI-D01~D03 목표 계약을 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.md)에 반영한다. 실제 구현은 구현 이슈의 대상 경로·테스트·rollback을 고정한 뒤 시작한다.
 
 | 액션 | 목적 | `missingFields`와 다음 행동 | 부수효과 |
 | --- | --- | --- | --- |
@@ -142,7 +142,7 @@
 
 - 성공·추가 질문·거절·provider 실패·Room 생성 최종 결과와 허용된 provider/model/feature/tool label만 집계한다.
 - prompt·응답 원문·Tool 인자·게임 후보·사용자 ID·세션·대화 이력·비밀값은 중앙 metric/log에 남기지 않는다.
-- AI 사용량·추정 비용은 [OPS-04](monitoring.md#ops-04-ai-사용량과-추정-비용)의 공통 규칙과 [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md)의 승인 경계를 함께 따른다. 호출이 없는 기간을 비용 `0`의 증거로 기록하지 않는다.
+- AI 사용량·추정 비용은 [OPS-04](monitoring.md#ops-04-ai-사용량과-추정-비용)의 공통 규칙과 승인된 [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md)의 경계를 함께 따른다. 호출이 없는 기간을 비용 `0`의 증거로 기록하지 않는다.
 
 ## 기능 ID별 완료 기준
 
@@ -160,12 +160,12 @@
 
 | 정본 | 현재 상태 | 다음 반영 |
 | --- | --- | --- |
-| [P2 기능 상태](README.md#기능별-현재-상태) | 이 문서와 `AI-01` 행 등록, AI-D01~D03 승인 | API·ERD·아키텍처·구현·검증·배포·실측 축을 단계별 갱신 |
+| [P2 기능 상태](README.md#기능별-현재-상태) | 이 문서와 `AI-01` 행 등록, AI-D01~D03·ADR 승인 완료 | API·ERD·아키텍처·구현·검증·배포·실측 축을 단계별 갱신 |
 | [P2 공통 명세](../P2-spec.md) | AI-01 범위와 경계 링크 등록 | 공통 규칙과 충돌할 때 소유 문서 조정 |
 | [API](../API.md) | AI-01 확인형 command·초안 API 목표 계약 반영 | 생산 Controller·DTO·오류 검증 구현 |
 | [ERD](../ERD.md) | `ASSISTANT_CONSENTS`·`ASSISTANT_DRAFTS`·`ASSISTANT_IDEMPOTENCY_RECORDS` 목표 계약 반영 | Flyway·JPA·운영 데이터 사전 검사 구현 |
 | [아키텍처](../ARCHITECTURE.md) | assistant module·port·provider adapter 경계 반영 | 모듈·port·transaction 구현 및 구조 검증 |
-| [OPS-04](monitoring.md#ops-04-ai-사용량과-추정-비용) | 공통 관측 계약과 AI ADR 승인 | AI-01b 구현·배포 뒤 사용량·비용 관측 연결 |
+| [OPS-04](monitoring.md#ops-04-ai-사용량과-추정-비용) | 공통 관측 계약과 승인된 AI ADR | AI-01b 구현·배포 뒤 사용량·비용 관측 연결 |
 
 ## 구현·검증 게이트
 

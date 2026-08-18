@@ -2,7 +2,7 @@
 
 - 상태: 승인됨
 - 작성일: 2026-08-17
-- 결정일: 2026-08-17
+- 결정일: 2026-08-18
 - 관련: [#794](https://github.com/bamsongi-club/albam-mate/issues/794), [#795](https://github.com/bamsongi-club/albam-mate/issues/795), [AI-01 명세](../../p2/assistant.md), [OPS-04](../../p2/monitoring.md#ops-04-ai-사용량과-추정-비용), [ADR-0019](../game/0019-bgg-full-catalog-staged-enrichment.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
@@ -36,7 +36,7 @@
 
 - provider는 OpenAI로 하고 Java 통합 버전은 Spring AI `2.0.0-M7`로 고정한다.
 - 애플리케이션과 provider 사이에는 `assistant.contract.AssistantIntentExtractor` 하나의 port만 둔다. provider SDK adapter는 `infra.ai`에 둔다.
-- 실제 model ID는 ADR에 고정하지 않는다. `local-openai`를 활성화하기 전에 배포 계정으로 `GET /v1/models/{modelId}`를 확인하고, 확인에 실패하면 다른 모델로 조용히 대체하지 않고 이 결정을 재승인한다.
+- model ID는 `gpt-5.6-luna`로 고정한다. `local-openai` 또는 production을 활성화하기 전에 배포 계정의 실제 접근을 확인하고, 확인에 실패하면 다른 모델로 조용히 대체하지 않고 AI 기능을 비활성화한다.
 - provider에는 버전이 지정된 instruction, 강제 schema, 기준 시각 `Asia/Seoul`, 현재 사용자 문장과 서버가 식별한 누락 필드만 allowlist로 전달한다. PII·secret은 호출 전에 탐지해 승인된 방식으로 마스킹하고 안전하게 처리할 수 없으면 호출을 거절한다.
 - 모델은 `propose_game_room_intent` 하나만 강제 호출한다. 병렬 tool 호출·자동 tool loop·게임 검색·Room 쓰기·임의 SQL/DSL 실행 권한은 제공하지 않는다.
 - 게임 후보는 서버가 `game.contract`를 통해 조회하고, AI가 반환한 식별자·조건은 신뢰하지 않는 구조화 입력으로 다시 검증한다. BGG 원문·게임 후보·prompt hash를 provider에 보내지 않는다.
@@ -52,8 +52,8 @@
 
 - 기본 profile과 CI는 결정적 fake provider를 사용한다. 실제 provider는 `local-openai` 수동 smoke에서만 호출한다.
 - `app.assistant.enabled=false`를 기본값으로 둔다. 외부 provider 상태는 readiness/liveness 판정에 넣지 않는다.
-- 호출 한도는 사용자당 10분 5회, KST 기준 일 30회, 동시 1회, timeout 8초, retry 0으로 한다. timeout·429·schema 오류도 한도에 포함한다.
-- Redis 원자 예약으로 앱 월 비용 hard cap `$10`과 80% 알림을 관리한다. Redis가 불능이면 AI 명령은 fail-closed 한다.
+- 호출 한도는 사용자당 KST 일 5회와 월 150회, 동시 1회, timeout 10초, retry 0으로 한다. 일일 한도는 매일 00:00 KST, 월 한도는 매월 1일 00:00 KST에 reset하며 10분 이동 창은 두지 않는다. provider 호출을 시작한 timeout·429·schema 오류도 quota에 포함하고, Redis 장애로 provider 호출을 시작하지 못한 요청은 포함하지 않는다.
+- 초기 AI 이용 보장 대상은 40명이며 사용자별 quota는 양도하지 않는다. Redis 원자 예약으로 앱 월 비용 hard cap `$5`와 80% 알림 `$4`를 관리하고 `$5` 도달 시 신규 AI 호출을 차단한다. Redis가 불능이면 AI 명령은 `503 SERVICE_UNAVAILABLE`으로 fail-closed 한다.
 
 ## 결과
 
@@ -71,8 +71,8 @@
 
 ## 보류 및 재검토
 
-- 지금 하지 않는 것: 특정 model ID의 영구 고정, provider 원문 저장, RAG/BGG 원문 전송, 실제 provider 상시 호출, 운영 비용·용량 완료 판정.
-- 보류 이유: 배포 계정의 model 가용성, provider 정책과 운영 증거는 구현·배포 시점에 확인해야 하며 현재 ADR은 경계와 fail-closed 규칙만 소유한다.
+- 지금 하지 않는 것: provider 원문 저장, RAG/BGG 원문 전송, 실제 provider 상시 호출, 운영 비용·용량 완료 판정.
+- 보류 이유: 배포 계정의 model 접근과 provider 정책·운영 증거는 enable·배포 시점에 확인해야 하며 현재 ADR은 경계와 fail-closed 규칙만 소유한다.
 - 다시 검토할 조건: provider·정책·가격표가 바뀌거나, no-retention/no-training 보장이 사라지거나, 승인된 catalog 범위가 바뀌는 경우.
 
 ## 참고 자료
@@ -85,7 +85,7 @@
 ## 검증
 
 - 상태: 미검증
-- 근거: 계약 — [#795](https://github.com/bamsongi-club/albam-mate/issues/795)의 승인된 우선안과 `AI-01` 명세의 provider·보존·비용 경계를 반영함.
+- 근거: 결정 — 완료된 [#795](https://github.com/bamsongi-club/albam-mate/issues/795)의 결정 댓글과 `AI-01` 명세의 provider·보존·비용 경계를 반영함.
 - 미검증:
   - provider model ID·정책 URL·실제 비용 알림 경로 확인
   - dependency·설정·fake provider·quota·Redis fail-closed 구현과 테스트

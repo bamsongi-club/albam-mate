@@ -260,14 +260,14 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 | 35 | P1 | [GAME-04](#game-04-게임-카테고리-선택지-조회) · [SEARCH-01 정본](archive/p1/search.md#search-01-게임-조건-검색) | GET | `/api/game-categories` | N | N | 200 |
 | 36 | P1 | [GAME-05](#game-05-게임-테마-선택지-조회) · [SEARCH-01 정본](archive/p1/search.md#search-01-게임-조건-검색) | GET | `/api/game-themes` | N | N | 200 |
 | 37 | P1 | [RANK-01](#rank-01-인기-게임-랭킹-조회) · [정본](archive/p1/ranking.md#rank-01-인기-게임-랭킹) | GET | `/api/game-rankings` | N | N | 200 |
-| 37.1 | P2 | [AI-01](#ai-01-동의-조회) · [정본](p2/assistant.md#ai-01-ai-모임-도우미) · API 계약 준비 완료·구현 예정 | GET | `/api/assistant/consent` | Y | N | 200 |
-| 37.2 | P2 | [AI-01](#ai-01-동의-변경) · [정본](p2/assistant.md#ai-01-ai-모임-도우미) · API 계약 준비 완료·구현 예정 | PUT | `/api/assistant/consent` | Y | Y | 200 |
-| 37.3 | P2 | [AI-01](#ai-01-자연어-추천) · [정본](p2/assistant.md#ai-01-ai-모임-도우미) · API 계약 준비 완료·구현 예정 | POST | `/api/assistant/recommendations` | Y | Y | 200 |
-| 37.4 | P2 | [AI-01](#ai-01-초안-생성) · [정본](p2/assistant.md#ai-01-ai-모임-도우미) · API 계약 준비 완료·구현 예정 | POST | `/api/assistant/drafts` | Y | Y | 201 |
-| 37.5 | P2 | [AI-01](#ai-01-초안-조회) · [정본](p2/assistant.md#ai-01-ai-모임-도우미) · API 계약 준비 완료·구현 예정 | GET | `/api/assistant/drafts/{draftId}` | Y | N | 200 |
-| 37.6 | P2 | [AI-01](#ai-01-초안-수정) · [정본](p2/assistant.md#ai-01-ai-모임-도우미) · API 계약 준비 완료·구현 예정 | PATCH | `/api/assistant/drafts/{draftId}` | Y | Y | 200 |
-| 37.7 | P2 | [AI-01](#ai-01-초안-폐기) · [정본](p2/assistant.md#ai-01-ai-모임-도우미) · API 계약 준비 완료·구현 예정 | DELETE | `/api/assistant/drafts/{draftId}` | Y | Y | 200 |
-| 37.8 | P2 | [AI-01](#ai-01-초안-확인과-room-생성) · [정본](p2/assistant.md#ai-01-ai-모임-도우미) · API 계약 준비 완료·구현 예정 | POST | `/api/assistant/drafts/{draftId}/confirm` | Y | Y | 201·200 |
+| 37.1 | P2 | [AI-01](#ai-01-동의-조회) · [정본](p2/assistant.md#ai-01-ai-모임-도우미) · API 계약 확정·구현 보류 | GET | `/api/assistant/consent` | Y | N | 200 |
+| 37.2 | P2 | [AI-01](#ai-01-동의-변경) · [정본](p2/assistant.md#ai-01-ai-모임-도우미) · API 계약 확정·구현 보류 | PUT | `/api/assistant/consent` | Y | Y | 200 |
+| 37.3 | P2 | [AI-01](#ai-01-자연어-추천) · [정본](p2/assistant.md#ai-01-ai-모임-도우미) · API 계약 확정·구현 보류 | POST | `/api/assistant/recommendations` | Y | Y | 200 |
+| 37.4 | P2 | [AI-01](#ai-01-초안-생성) · [정본](p2/assistant.md#ai-01-ai-모임-도우미) · API 계약 확정·구현 보류 | POST | `/api/assistant/drafts` | Y | Y | 201 |
+| 37.5 | P2 | [AI-01](#ai-01-초안-조회) · [정본](p2/assistant.md#ai-01-ai-모임-도우미) · API 계약 확정·구현 보류 | GET | `/api/assistant/drafts/{draftId}` | Y | N | 200 |
+| 37.6 | P2 | [AI-01](#ai-01-초안-수정) · [정본](p2/assistant.md#ai-01-ai-모임-도우미) · API 계약 확정·구현 보류 | PATCH | `/api/assistant/drafts/{draftId}` | Y | Y | 200 |
+| 37.7 | P2 | [AI-01](#ai-01-초안-폐기) · [정본](p2/assistant.md#ai-01-ai-모임-도우미) · API 계약 확정·구현 보류 | DELETE | `/api/assistant/drafts/{draftId}` | Y | Y | 200 |
+| 37.8 | P2 | [AI-01](#ai-01-초안-확인과-room-생성) · [정본](p2/assistant.md#ai-01-ai-모임-도우미) · API 계약 확정·구현 보류 | POST | `/api/assistant/drafts/{draftId}/confirm` | Y | Y | 201·200 |
 | 38 | P2 | [MATCH-01](#match-01-현재-상태-조회) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | GET | `/api/matches/current` | Y | N | 200 |
 | 39 | P2 | [MATCH-01](#match-01-매칭-요청-등록) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | POST | `/api/matches/requests` | Y | Y | 201·200 |
 | 40 | P2 | [MATCH-01](#match-01-매칭-요청-취소) · [정본](p2/matching.md#match-01-실시간-파티-매칭) · API 계약 준비 완료·구현 예정 | DELETE | `/api/matches/requests/me` | Y | Y | 200 |
@@ -328,7 +328,7 @@ P1 채팅 이력은 페이지 번호가 아니라 메시지 ID 커서를 사용�
 
 ### Region
 
-> **도입 단계: P2** · **기능: AI-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+> **도입 단계: P2** · **기능: AI-01** · **API 계약 상태: 계약 확정** · **제공 상태: 구현 보류**
 
 | 값 | 의미 |
 |---|---|
@@ -341,13 +341,13 @@ AI-01 초안 요청에서 `region`을 생략하면 호환 기간 동안 `홍대`
 
 ### AI-01 목표 enum
 
-> **도입 단계: P2** · **기능: AI-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+> **도입 단계: P2** · **기능: AI-01** · **API 계약 상태: 계약 확정** · **제공 상태: 구현 보류**
 
 | 이름 | 값 | 의미 |
 |---|---|---|
 | `AssistantConsentStatus` | `NOT_GRANTED`, `GRANTED`, `REVOKED` | 외부 AI 처리 동의 상태. 행이 없으면 `NOT_GRANTED` |
 | `AssistantConsentDecision` | `GRANT`, `REVOKE` | 동의 저장 또는 철회 요청 |
-| `AssistantRecommendationState` | `NEEDS_INPUT`, `RECOMMENDED`, `UNSUPPORTED` | 누락 조건 추가 질문, 후보 추천, 지원하지 않는 요청 |
+| `AssistantRecommendationState` | `NEEDS_INPUT`, `RECOMMENDED`, `NO_CANDIDATES`, `UNSUPPORTED` | 누락 조건 추가 질문, 후보 추천, 후보 없음, 지원하지 않는 요청 |
 | `AssistantMissingField` | `GAME`, `PLAYER_COUNT`, `STARTS_AT`, `REGION` | 추천을 위해 필요한 누락 조건 |
 | `AssistantDraftStatus` | `ACTIVE`, `CONFIRMED`, `DISCARDED` | 임시 초안의 논리 상태 |
 
@@ -973,14 +973,14 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 
 ### 4.34 AssistantConsentResponse
 
-> **도입 단계: P2** · **기능: AI-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+> **도입 단계: P2** · **기능: AI-01** · **API 계약 상태: 계약 확정** · **제공 상태: 구현 보류**
 
 외부 provider로 자연어를 전송하기 전에 사용자에게 보여줄 현재 동의·정책 상태다. 동의 원문이나 사용자 입력은 응답에 포함하지 않는다.
 
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
 | `status` | AssistantConsentStatus | Y | N | 현재 동의 상태 |
-| `provider` | string | Y | N | 현재 승인된 provider. 목표 계약에서는 `OPENAI` |
+| `provider` | string | Y | N | 승인된 provider. `OPENAI` 고정 |
 | `consentVersion` | string | Y | N | 동의문 버전 |
 | `policyVersion` | string | Y | N | 확인한 provider 정책 버전 |
 | `policyUrl` | string(uri) | Y | N | 확인한 provider 정책 주소 |
@@ -990,7 +990,7 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 
 ### 4.35 AssistantConditionSummary
 
-> **도입 단계: P2** · **기능: AI-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+> **도입 단계: P2** · **기능: AI-01** · **API 계약 상태: 계약 확정** · **제공 상태: 구현 보류**
 
 서버가 provider 결과를 검증·정규화한 조건이다. 모델 원문·prompt·tool 인자는 반환하지 않는다.
 
@@ -1004,7 +1004,7 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 
 ### 4.36 AssistantRecommendationResponse
 
-> **도입 단계: P2** · **기능: AI-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+> **도입 단계: P2** · **기능: AI-01** · **API 계약 상태: 계약 확정** · **제공 상태: 구현 보류**
 
 `RECOMMEND` 흐름의 결과다. 이 응답은 Room·ChatRoom·임시 초안을 만들지 않는다.
 
@@ -1019,7 +1019,7 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 
 ### 4.37 AssistantDraftResponse
 
-> **도입 단계: P2** · **기능: AI-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+> **도입 단계: P2** · **기능: AI-01** · **API 계약 상태: 계약 확정** · **제공 상태: 구현 보류**
 
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
@@ -1033,7 +1033,7 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 
 ### 4.38 AssistantRoomDraftInput
 
-> **도입 단계: P2** · **기능: AI-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+> **도입 단계: P2** · **기능: AI-01** · **API 계약 상태: 계약 확정** · **제공 상태: 구현 보류**
 
 확인형 Room command에 전달할 서버 검증 입력이다. `POST /api/rooms`의 기존 요청과 같은 Room 불변식을 사용하지만, AI 초안에는 `region`이 포함되고 확인 전 `place`가 비어 있을 수 있다.
 
@@ -1052,7 +1052,7 @@ PostgreSQL에 커밋된 매칭 요청·제안·성공 파티·채팅 접근 관�
 
 ### 4.39 AssistantRoomCreationResult
 
-> **도입 단계: P2** · **기능: AI-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+> **도입 단계: P2** · **기능: AI-01** · **API 계약 상태: 계약 확정** · **제공 상태: 구현 보류**
 
 | 필드 | 타입 | 필수 | nullable | 설명 |
 |---|---|:---:|:---:|---|
@@ -1896,7 +1896,7 @@ Vary: Cookie
 
 ## AI-01 AI 모임 도우미 API
 
-> **도입 단계: P2** · **기능: AI-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+> **도입 단계: P2** · **기능: AI-01** · **API 계약 상태: 계약 확정** · **제공 상태: 구현 보류**
 >
 > 이 절의 모든 HTTP 경로·요청·응답·오류는 승인된 목표 계약이며 현재 제공 기능이 아니다. 외부 provider·보존·호출 한도는 [ADR-0068](adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md), 초안·확인·멱등성은 [ADR-0069](adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0070](adr/room/0070-p2-room-region-closed-set-and-compatibility.md)을 따른다.
 
@@ -2521,7 +2521,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 >
 > 이 절의 모든 HTTP·WebSocket 경로·요청·응답·enum은 승인된 목표 계약이며 현재 제공 기능이 아니다. 제품 상태는 [P2 기능 상태의 `MATCH-01`](p2/README.md#기능별-현재-상태)에서 별도로 판정한다.
 
-MATCHING은 매칭 요청·제안·성공 파티와 그 접근 관계를 소유한다. 현재 상태 조회는 PostgreSQL 정본을 조합해 반환하며, WebSocket·그 밖의 실시간 이벤트는 정본이 아니다. 따라서 재접속, 이벤트 유실·중복·순서 역전 또는 서버 재기동 뒤 클라이언트는 반드시 이 조회 결과로 화면을 복구한다. 저장 구조·제약·인덱스는 [P2 MATCH 저장 계약](ERD.md#p2-match-저장-계약), 모듈 흐름·재시도 내부는 [P2 MATCH 모듈 계약](ARCHITECTURE.md#p2-match-모듈-계약), 기술 선택 근거는 [MATCH ADR](adr/matching/README.md)이 소유한다.
+MATCHING은 매칭 요청·제안·성공 파티와 그 접근 관계를 소유한다. 현재 상태 조회는 PostgreSQL 정본을 조합해 반환하며, WebSocket·그 밖의 실시간 이벤트는 정본이 아니다. 따라서 재접속, 이벤트 유실·중복·순서 역전 또는 서버 재기동 뒤 클라이언트는 반드시 이 조회 결과로 화면을 복구한다. 저장 구조·제약·인덱스는 [P2 MATCH 저장 계약](ERD.md#p2-match-저장-계약-계획미구현), 모듈 흐름·재시도 내부는 [P2 MATCH 모듈 계약](ARCHITECTURE.md#p2-match-모듈-계약), 기술 선택 근거는 [MATCH ADR](adr/matching/README.md)이 소유한다.
 
 모든 MATCH HTTP API는 인증된 현재 사용자만 호출한다. `GET`은 CSRF가 필요 없고 `POST`·`PUT`·`DELETE`는 세션과 CSRF가 필요하다. 유효 세션이 없으면 CSRF보다 `UNAUTHENTICATED`를 먼저 반환한다. MATCH WebSocket handshake는 세션과 허용된 `Origin`을 검증하며 CSRF는 필요 없다.
 
@@ -2889,7 +2889,7 @@ MATCH 채팅 경로(`/api/matches/parties/{partyId}/chat/**`)는 성공 파티 �
 
 ### 10.8 AI-01 오류
 
-> **도입 단계: P2** · **기능: AI-01** · **API 계약 상태: 계약 준비 완료** · **제공 상태: 구현 예정**
+> **도입 단계: P2** · **기능: AI-01** · **API 계약 상태: 계약 확정** · **제공 상태: 구현 보류**
 
 | code | HTTP | 기본 message | 발생 조건 |
 |---|---:|---|---|
@@ -2897,9 +2897,10 @@ MATCH 채팅 경로(`/api/matches/parties/{partyId}/chat/**`)는 성공 파티 �
 | `ASSISTANT_CONSENT_REQUIRED` | 403 | 외부 AI 처리 동의가 필요합니다. | 유효한 `GRANTED` 동의 없이 추천·초안·확인을 요청함 |
 | `ASSISTANT_CONSENT_VERSION_MISMATCH` | 409 | 최신 동의문을 확인해야 합니다. | 승인되지 않은 동의문 버전을 `GRANT`로 보냄 |
 | `ASSISTANT_INPUT_NOT_ALLOWED` | 400 | 외부 AI 처리에 허용되지 않는 입력입니다. | PII·secret·지원하지 않는 지시를 안전하게 처리할 수 없음 |
-| `ASSISTANT_PROVIDER_UNAVAILABLE` | 503 | AI provider를 현재 사용할 수 없습니다. | provider·정책·Redis 비용 예약을 확인할 수 없거나 timeout·429가 발생함 |
+| `ASSISTANT_PROVIDER_UNAVAILABLE` | 503 | AI provider를 현재 사용할 수 없습니다. | provider·정책·Redis 비용 예약을 확인할 수 없거나 timeout·provider 429가 발생함 |
 | `ASSISTANT_PROVIDER_RESPONSE_INVALID` | 503 | AI provider 응답을 처리할 수 없습니다. | 강제 구조화 schema를 검증하지 못함 |
-| `ASSISTANT_COST_LIMIT_EXCEEDED` | 429 | AI 사용 비용 한도를 초과했습니다. | 월 hard cap 또는 사용자 호출 한도에 도달함 |
+| `RATE_LIMIT_EXCEEDED` | 429 | AI 요청 처리 한도를 초과했습니다. 잠시 후 다시 시도해 주세요. | 사용자별 KST 일일 5회 또는 월간 150회 quota에 도달함 |
+| `ASSISTANT_COST_LIMIT_EXCEEDED` | 429 | AI 사용 비용 한도를 초과했습니다. | 앱 전체 월 hard cap `$5`에 도달함 |
 | `ASSISTANT_DRAFT_NOT_FOUND` | 404 | AI 초안을 찾을 수 없습니다. | 없는 초안 또는 현재 사용자 소유가 아닌 초안 |
 | `ASSISTANT_DRAFT_EXPIRED` | 410 | AI 초안이 만료되었습니다. | 요청 시작 시각에 초안의 15분 유효 기간이 지남 |
 | `ASSISTANT_DRAFT_CONFLICT` | 409 | AI 초안이 동시에 변경되었습니다. 다시 확인해 주세요. | 오래된 version, 다른 멱등키, 범위 밖 key 재사용 또는 confirm 경합 |
@@ -2949,8 +2950,8 @@ MATCH 채팅 경로(`/api/matches/parties/{partyId}/chat/**`)는 성공 파티 �
 | `GET /api/rooms/{roomId}/chat/ws` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `ROOM_CONCURRENT_MODIFICATION`, `VALIDATION_ERROR`, `SERVICE_UNAVAILABLE` |
 | `GET /api/assistant/consent` | `UNAUTHENTICATED` |
 | `PUT /api/assistant/consent` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ASSISTANT_CONSENT_VERSION_MISMATCH`, `CSRF_TOKEN_INVALID` |
-| `POST /api/assistant/recommendations` | `UNAUTHENTICATED`, `ASSISTANT_NOT_ENABLED`, `ASSISTANT_CONSENT_REQUIRED`, `VALIDATION_ERROR`, `ASSISTANT_INPUT_NOT_ALLOWED`, `ASSISTANT_PROVIDER_UNAVAILABLE`, `ASSISTANT_PROVIDER_RESPONSE_INVALID`, `ASSISTANT_COST_LIMIT_EXCEEDED`, `CSRF_TOKEN_INVALID` |
-| `POST /api/assistant/drafts` | `UNAUTHENTICATED`, `ASSISTANT_NOT_ENABLED`, `ASSISTANT_CONSENT_REQUIRED`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `CSRF_TOKEN_INVALID` |
+| `POST /api/assistant/recommendations` | `UNAUTHENTICATED`, `ASSISTANT_NOT_ENABLED`, `ASSISTANT_CONSENT_REQUIRED`, `VALIDATION_ERROR`, `ASSISTANT_INPUT_NOT_ALLOWED`, `ASSISTANT_PROVIDER_UNAVAILABLE`, `ASSISTANT_PROVIDER_RESPONSE_INVALID`, `RATE_LIMIT_EXCEEDED`, `ASSISTANT_COST_LIMIT_EXCEEDED`, `CSRF_TOKEN_INVALID` |
+| `POST /api/assistant/drafts` | `UNAUTHENTICATED`, `ASSISTANT_NOT_ENABLED`, `ASSISTANT_CONSENT_REQUIRED`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `RATE_LIMIT_EXCEEDED`, `ASSISTANT_COST_LIMIT_EXCEEDED`, `CSRF_TOKEN_INVALID` |
 | `GET /api/assistant/drafts/{draftId}` | `UNAUTHENTICATED`, `ASSISTANT_DRAFT_NOT_FOUND`, `ASSISTANT_DRAFT_EXPIRED` |
 | `PATCH /api/assistant/drafts/{draftId}` | `UNAUTHENTICATED`, `ASSISTANT_DRAFT_NOT_FOUND`, `ASSISTANT_DRAFT_EXPIRED`, `ASSISTANT_DRAFT_CONFLICT`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `CSRF_TOKEN_INVALID` |
 | `DELETE /api/assistant/drafts/{draftId}` | `UNAUTHENTICATED`, `ASSISTANT_DRAFT_NOT_FOUND`, `ASSISTANT_DRAFT_EXPIRED`, `CSRF_TOKEN_INVALID` |

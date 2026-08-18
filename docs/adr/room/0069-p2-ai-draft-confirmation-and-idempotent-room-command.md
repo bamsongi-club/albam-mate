@@ -2,7 +2,7 @@
 
 - 상태: 승인됨
 - 작성일: 2026-08-17
-- 결정일: 2026-08-17
+- 결정일: 2026-08-18
 - 관련: [#794](https://github.com/bamsongi-club/albam-mate/issues/794), [#796](https://github.com/bamsongi-club/albam-mate/issues/796), [AI-01 명세](../../p2/assistant.md), [ROOM-03 API](../../API.md#room-03-방-생성)
 - 대체 대상: 없음
 - 후속 ADR: 없음
@@ -27,8 +27,8 @@
 ### 추천과 초안
 
 - `RECOMMEND`는 검색 조건이 유효할 때 후보 집합만 반환한다. 검색 조건이 없으면 `NEEDS_INPUT`으로 추천 조건만 되묻고, 활성 초안·Room을 만들지 않는다.
-- `CREATE_ROOM`으로 전환해 방 생성 정보를 채운 경우에만 서버가 15분 임시 초안을 만든다. 초안 만료는 생성 시각부터 계산하며 새 명령·동의 철회·명시 폐기·만료가 기존 활성 초안을 종결한다.
-- 사용자당 활성 초안은 하나다. `(user_id, active_slot)` 유일 제약으로 보장한다.
+- `CREATE_ROOM`으로 전환해 방 생성 정보를 채운 경우에만 서버가 15분 임시 초안을 만든다. 초안 만료는 생성 시각부터 계산하며 새 명령은 기존 활성 초안을 `DISCARDED`로 종결하고 새 초안을 만든다. 동의 철회·명시 폐기·만료도 기존 활성 초안을 종결한다.
+- 사용자당 활성 초안은 하나다. `(user_id, active_slot)` 유일 제약으로 보장하며 별도 `SUPERSEDED` 상태는 추가하지 않는다.
 - 상세 장소는 확인 카드에서 사용자가 직접 입력한다. 모델 결과·raw prompt에서 장소를 추출하거나 저장하지 않는다.
 
 ### 확인·멱등성·동시성
@@ -76,7 +76,7 @@
 ## 검증
 
 - 상태: 미검증
-- 근거: 계약 — [#796](https://github.com/bamsongi-club/albam-mate/issues/796)의 초안과 기존 `RoomCreated → ChatRoom` lifecycle 경계를 반영함.
+- 근거: 결정 — 완료된 [#796](https://github.com/bamsongi-club/albam-mate/issues/796)의 결정 댓글과 기존 `RoomCreated → ChatRoom` lifecycle 경계를 반영함.
 - 미검증:
   - 초안·멱등 record schema, migration, row lock/version과 동시 confirm 테스트
   - 공개 API·오류 응답·기존 Room 생성 회귀 검증

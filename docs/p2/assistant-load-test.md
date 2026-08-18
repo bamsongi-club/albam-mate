@@ -51,7 +51,7 @@ manifest hash는 `manifestSha256` 필드를 제외한 전체 manifest를 JSON ob
 
 ## 부하 시나리오
 
-호출 제한값은 [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md)의 사용자 10분 5회·KST 일 30회·동시 1회·timeout 8초·retry 0을 사용한다. 이 정책값은 목표 SLO나 capacity 증거를 대신하지 않는다.
+호출 제한값은 [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md)의 사용자 KST 일 5회·월 150회·동시 1회·timeout 10초·retry 0을 사용한다. 10분 이동 창은 두지 않으며, 앱 전체 월 hard cap은 `$5`, 80% 알림 기준은 `$4`다. 초기 보장 규모는 사용자 40명·월 6,000회 계획으로 둔다. 이 정책값은 목표 SLO나 capacity 증거를 대신하지 않는다.
 
 | 시나리오 | 목적 | 관찰값 |
 | --- | --- | --- |
@@ -66,7 +66,7 @@ manifest hash는 `manifestSha256` 필드를 제외한 전체 manifest를 JSON ob
 
 - 측정 경계는 인증·동의·quota 판정이 끝나 AI 명령이 수락된 시점부터 최종 상태 응답을 조합한 시점까지의 end-to-end latency와, provider adapter가 payload를 전송한 시점부터 구조화 응답 검증 또는 timeout까지의 provider latency로 나눈다. fixture 생성·setup·generator warm-up은 latency 표본에서 제외하고 provider 대기·schema 검증은 포함한다.
 - 추정 비용은 고정된 provider/model 가격 snapshot의 input token 수·output token 수와 요청별 고정 과금을 각각 곱해 더한다. 가격 snapshot·usage·호출 trace 중 하나라도 없으면 비용 `0`으로 대체하지 않고 `NO_OBSERVATION` 또는 `INVALID`로 판정한다.
-- cost cap은 [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md)의 월 `$10`과 80% 알림 정책을 사용한다. latency threshold는 구현 이슈의 테스트 계약에서 별도 승인하며, threshold·cap이 없거나 실제 provider 관측을 실행하지 않은 결과는 `NOT_RUN`이다.
+- cost cap은 [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md)의 앱 전체 월 `$5`와 80% 알림 기준 `$4`를 사용한다. latency threshold는 구현 이슈의 테스트 계약에서 별도 승인하며, threshold·cap이 없거나 실제 provider 관측을 실행하지 않은 결과는 `NOT_RUN`이다.
 - `PASS`는 manifest/hash·trace·부수효과가 완전하고, 승인된 latency threshold와 cost cap을 모두 만족하며 금지 데이터가 없는 경우에만 부여한다. 실행·관측 계약은 충족했지만 threshold 초과·cost cap 초과·금지 데이터가 확인되면 `FAIL`, manifest/hash·trace·측정 자료가 누락되면 `INVALID`로 판정한다. provider 호출·가격 snapshot·승인값이 없는 경우는 `NOT_RUN` 또는 `NO_OBSERVATION`이며 AC7 통과로 세지 않는다.
 
 ## 판정 기준
@@ -79,4 +79,4 @@ manifest hash는 `manifestSha256` 필드를 제외한 전체 manifest를 JSON ob
 
 ## 실행 게이트
 
-이 설계는 [#795](https://github.com/bamsongi-club/albam-mate/issues/795)와 [#796](https://github.com/bamsongi-club/albam-mate/issues/796)의 ADR 승인으로 정책 전제를 확보했지만, 구현 이슈가 runner 경로·cwd·shell·시간 측정·결과 경로를 고정하기 전에는 실행 계약으로 승격하지 않는다. 먼저 fake provider 계약 검증을 통과한 뒤 필요한 환경에서 부하를 실행한다.
+이 설계의 정책 전제는 완료된 [#795](https://github.com/bamsongi-club/albam-mate/issues/795)·[#796](https://github.com/bamsongi-club/albam-mate/issues/796)와 승인된 ADR-0068~0070으로 확정됐다. 다만 구현 이슈가 runner 경로·cwd·shell·시간 측정·결과 경로를 고정하기 전에는 실행 계약으로 승격하지 않는다. 먼저 fake provider 계약 검증을 통과한 뒤 필요한 환경에서 부하를 실행한다.

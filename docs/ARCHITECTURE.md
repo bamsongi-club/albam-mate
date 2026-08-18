@@ -121,7 +121,7 @@ RANK-02의 외부·내부 인기 점수는 런타임 모듈 호출이 아니라 
 
 알림 코드는 `notification/service/query`, `notification/service/command`, `notification/relay`, `notification/recovery`, `notification/cleanup`의 책임 경계에 배치한다. `/api/users/me/notifications` 하위 조회·읽음은 URL 접두사가 아니라 데이터와 불변식 소유권에 따라 P1 `NotificationController`가 담당한다.
 
-### P2 AI-01 모듈 계약 (계획·미구현)
+### P2 AI-01 모듈 계약 (승인된 계획·미구현)
 
 > 이 절은 P2 `AI-01`의 승인된 목표 구조다. `assistant` 모듈·`assistant.contract`·`infra.ai` adapter는 아직 존재하지 않으며, 현재 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정한다. 외부 provider와 Room 쓰기 권한은 분리하고, 사용자의 명시적 확인 전에는 Room·ChatRoom 상태 변경을 허용하지 않는다.
 
@@ -133,7 +133,7 @@ AI-01 협력 계약은 아래 세 port를 기준으로 한다.
 |---|---|---|
 | `AssistantIntentExtractor` | `assistant`의 추천 Service가 호출하고 `infra.ai`가 구현 | 현재 한 번의 사용자 문장과 서버가 허용한 schema만 provider에 전달해 `AssistantConditionSummary` 후보를 반환한다. 게임 조회·Room 쓰기·tool loop·원문 저장은 하지 않는다. 기본 구현은 deterministic fake provider다. |
 | `AssistantGameCandidateQuery` | `assistant`가 호출하고 `game`이 구현 | 서버가 검증한 조건을 모두 `AND`로 적용하고 내부 `RANK-01` 순서로 후보를 반환한다. `assistant`는 game repository·catalog를 직접 읽지 않는다. |
-| `AssistantRoomCreationCommand` | `assistant`의 Confirm Executor가 호출하고 `room`이 구현 | 현재 인증 사용자 컨텍스트와 초안 입력을 받아 기존 Room 생성 불변식과 `RoomCreated → ChatRoom` 원자성을 적용한다. 사용자 ID를 요청 body에서 받지 않는다. |
+| `AssistantRoomCreationCommand` | `assistant`의 Confirm Executor가 호출하고 `room`이 구현 | 현재 인증 사용자 컨텍스트와 초안 입력을 받아 기존 Room 생성 불변식과 `RoomCreated → ChatRoom` 원자성을 적용하고 `roomId`·`chatRoomId` 생성 결과를 반환한다. 사용자 ID를 요청 body에서 받지 않는다. |
 
 `AssistantIntentExtractor`는 버전이 지정된 `propose_game_room_intent` schema만 사용한다. `assistant`는 provider가 반환한 game ID·조건을 신뢰하지 않고 구조화 검증 뒤 `AssistantGameCandidateQuery`로 재조회한다. provider는 게임 후보·BGG 원문·prompt hash·Room command 권한을 받지 않는다.
 

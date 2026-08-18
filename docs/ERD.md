@@ -21,7 +21,7 @@
 
 ## 관계도
 
-아래 관계도는 P0·P1 저장 구조만 나타낸다. P2 MATCH 관계는 [P2 MATCH 저장 계약](#p2-match-저장-계약)에서 별도로 표현한다.
+아래 관계도는 P0·P1 저장 구조만 나타낸다. P2 MATCH 관계는 [P2 MATCH 저장 계약](#p2-match-저장-계약-계획미구현)에서 별도로 표현한다.
 
 ~~~mermaid
 erDiagram
@@ -722,7 +722,7 @@ Outbox의 `occurred_at`과 Notification의 `created_at`은 애플리케이션 `C
 
 > 이 절은 `AI-01`의 승인된 목표 저장 계약이며 아직 Flyway·JPA 엔티티·생산 테이블이 없다. 현재 제공·검증·배포·실측 여부는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 판정한다. 외부 provider·동의·보존·비용 경계는 [ADR-0068](adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md), 초안·확인·멱등성은 [ADR-0069](adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md), 지역은 [ADR-0070](adr/room/0070-p2-room-region-closed-set-and-compatibility.md)을 따른다.
 
-이 절은 동의·초안·확인 멱등성의 저장 이름·타입·제약과 저장 효과만 소유한다. 자연어 요청·provider payload·모델 원문 응답·대화 이력·게임 후보는 저장하지 않으며, HTTP 필드·오류는 [AI-01 API](API.md#ai-01-ai-모임-도우미-api), 모듈·트랜잭션 흐름은 [아키텍처의 AI-01 모듈 계약](ARCHITECTURE.md#p2-ai-01-모듈-계약-계획미구현)이 소유한다.
+이 절은 동의·초안·확인 멱등성의 저장 이름·타입·제약과 저장 효과만 소유한다. 자연어 요청·provider payload·모델 원문 응답·대화 이력·게임 후보는 저장하지 않으며, HTTP 필드·오류는 [AI-01 API](API.md#ai-01-ai-모임-도우미-api), 모듈·트랜잭션 흐름은 [아키텍처의 AI-01 모듈 계약](ARCHITECTURE.md#p2-ai-01-모듈-계약-승인된-계획미구현)이 소유한다.
 
 ### 소유 경계와 관계도
 
@@ -806,7 +806,7 @@ erDiagram
 | ASSISTANT_CONSENTS | `UNIQUE (user_id)` 및 status·provider·store CHECK | 한 사용자의 최신 동의와 승인된 provider 정책만 저장한다. |
 | ASSISTANT_DRAFTS | `uq_assistant_drafts_active_user`: `UNIQUE (user_id) WHERE status = 'ACTIVE'` | 한 사용자당 활성 초안을 하나로 제한한다. |
 | ASSISTANT_DRAFTS | `ck_assistant_drafts_room_type`, `ck_assistant_drafts_experience_level`, `ck_assistant_drafts_region`, `ck_assistant_drafts_capacity` | 기존 Room 값 집합·네 지역·모집 정원 범위를 DB에서도 제한한다. |
-| ASSISTANT_DRAFTS | `ck_assistant_drafts_place_before_confirm`: `status = 'CONFIRMED' OR place IS NOT NULL` | 확인 성공 초안은 사용자 장소 입력 없이는 저장하지 않는다. |
+| ASSISTANT_DRAFTS | `ck_assistant_drafts_place_before_confirm`: `status <> 'CONFIRMED' OR place IS NOT NULL` | `ACTIVE`·`DISCARDED` 초안은 장소가 NULL일 수 있고, `CONFIRMED` 초안은 사용자 장소 입력 없이는 저장하지 않는다. |
 | ASSISTANT_DRAFTS | `ck_assistant_drafts_result`: `status = 'CONFIRMED'`이면 `confirmed_at`, `room_id`, `chat_room_id`가 모두 NN이고, 그 외에는 모두 NULL | 초안 상태와 결과 참조의 부분 기록을 막는다. |
 | ASSISTANT_IDEMPOTENCY_RECORDS | `UNIQUE (user_id, draft_id, operation)` | 한 초안 확인 범위에는 하나의 key 의미만 허용한다. 다른 key는 `ASSISTANT_DRAFT_CONFLICT`다. |
 | ASSISTANT_IDEMPOTENCY_RECORDS | `UNIQUE (user_id, key_hash)` | 같은 사용자의 key를 다른 draft·operation에 재사용하지 않는다. |

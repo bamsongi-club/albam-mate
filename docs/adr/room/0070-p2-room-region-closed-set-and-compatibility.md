@@ -2,7 +2,7 @@
 
 - 상태: 승인됨
 - 작성일: 2026-08-17
-- 결정일: 2026-08-17
+- 결정일: 2026-08-18
 - 관련: [#794](https://github.com/bamsongi-club/albam-mate/issues/794), [#796](https://github.com/bamsongi-club/albam-mate/issues/796), [AI-01 명세](../../p2/assistant.md), [ROOM-03 API](../../API.md#room-03-방-생성), [Room ERD](../../ERD.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
@@ -27,7 +27,7 @@
 - 허용 지역은 `홍대`, `강남`, `건대`, `잠실`의 닫힌 집합으로 고정한다. Java 내부는 enum으로 표현하고 DB에는 현재 wire 관례와 기존 행을 보존하는 한국어 문자열을 저장한다.
 - DB에는 `CHECK (region IN ('홍대', '강남', '건대', '잠실'))` 제약을 둔다. 애플리케이션 검증만으로 대체하지 않는다.
 - 공개 API wire value는 기존 한국어 문자열을 유지한다. AI는 enum 지역만 제안하며 상세 장소는 별도 `place` 입력으로 분리한다.
-- 새 Room 생성 요청에는 `region`을 추가하되 호환 기간에는 optional로 받는다. 누락된 기존 요청은 `홍대`로 해석한다.
+- AI-01 확인형 Room 생성 요청에는 `region`을 추가하되 호환 기간에는 optional로 받는다. 기존 직접 `POST /api/rooms` 계약은 region 없이 유지하며, 누락된 AI 요청은 `홍대`로 해석한다.
 - 호환 기간 종료 조건은 모든 지원 first-party client가 `region`을 전송하는 release가 배포되고, 이후 30일 동안 누락 요청이 관측되지 않는 것이다. 종료 시 required 전환은 별도 ADR 또는 API 계약 변경으로 승인한다.
 - 기존 Room 행은 재작성하지 않는다. migration 전 운영 데이터의 `region` 허용값을 확인한다. 예상 밖 값이 하나라도 있으면 제약 migration을 중단하고 정리·rollback 계획을 별도 승인한다.
 - 기존 `PATCH`에서 지역을 수정할 수 없는 규칙과 P2의 지역 목록 검색 필터 제외는 유지한다.
@@ -62,7 +62,7 @@
 ## 검증
 
 - 상태: 미검증
-- 근거: 계약 — [#796](https://github.com/bamsongi-club/albam-mate/issues/796)의 지역 우선안과 현재 `Room.region`·기존 `홍대` 기본값 경계를 반영함.
+- 근거: 결정 — 완료된 [#796](https://github.com/bamsongi-club/albam-mate/issues/796)의 지역 결정과 현재 `Room.region`·기존 `홍대` 기본값 경계를 반영함.
 - 미검증:
   - 운영 Room region 값 확인과 `CHECK` migration rollback 검증
   - API·DTO·enum·기존 client 호환 및 지역 입력 회귀 테스트
