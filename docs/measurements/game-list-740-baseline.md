@@ -6,14 +6,16 @@
 
 이 문서는 **측정/진단만** 다룬다. 인덱스 추가, 쿼리 변경, `Page` 계약 변경, 캐시, 프론트 로딩 전략은 #740 범위가 아니다.
 
-2026-08-18 실제 측정 결과는 [game-list-740-2026-08-18.md](results/game-list-740/game-list-740-2026-08-18.md)에 기록했다. 해당 결과는 PR #771 head의 170,005건 전용 DB에서 수집한 HTTP baseline, 실제 SQL statement capture, `EXPLAIN (ANALYZE, BUFFERS)`를 포함한다.
+2026-08-18 실제 측정 결과는 [game-list-740-2026-08-18.md](results/game-list-740/game-list-740-2026-08-18.md)에 기록했다. 해당 결과는 PR #771에 추가되기 전 server/runner commit `9775ef4`의 170,005건 전용 DB에서 수집한 참고용 HTTP baseline, 실제 SQL statement capture, `EXPLAIN (ANALYZE, BUFFERS)`를 포함한다.
+
+> 주의: 이 참고 결과는 첨부된 `albam-mate-170k-patched-v4.zip`을 직접 import한 결과가 아니다. v4 기준 완료 판정에는 v4를 별도 DB에 직접 import하고 최신 head에서 재측정한 결과가 필요하다.
 
 ## 고정 측정 조건
 
 - 대상: local compose proxy `http://127.0.0.1:5173`
 - 데이터: games `170,005`건
-- 입력 ZIP SHA-256: `09da6ecbc6f3be18b4233a26a4715b7af0011929b3e5c2b549b1b021dc5fa079`
-- 적재 순서: `01 → 01b → 02 → 03 → 04 → 05 → 06 → 07`
+- v4 직접 적재 기준 ZIP SHA-256: `d4abcf8ff91c0551ac6bc9afdb87ccae007ce46ad8139689ccb01a5c92c537c8`
+- v4 적재 순서: `01-games-full.sql → 02-metadata-full.sql`
 - 페이지: `page=0`, `size=24`
 - 시나리오별 warm-up 5회 후 실측 20회 이상
 - p50/p95: nearest-rank 방식 `ceil(p * N)`
@@ -182,7 +184,7 @@ EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT TEXT)
 다음이 모두 채워져야 #740을 닫는다.
 
 - [ ] 측정 당시 runner/server commit SHA 기록
-- [ ] 데이터 170,005건 및 입력 ZIP SHA-256 확인
+- [ ] 첨부 v4 직접 import, 데이터 170,005건 및 v4 ZIP SHA-256 확인
 - [ ] 각 시나리오 warm-up 후 20회 이상의 raw sample 보존
 - [ ] 각 시나리오 p50/p95/max/status 기록
 - [ ] 요청 1회 SQL 개수와 유형 기록
