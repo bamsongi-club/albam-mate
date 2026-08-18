@@ -112,7 +112,7 @@ object key는 `receipts/v1/{environment}/{stackId}/{receiptId}/{sequence}-{stage
 | `jvm.threads.live` | gauge·Micrometer JVM binder | 없음 | 1분 `Maximum` | production 설정·OTLP export 자동 검증 완료, CloudWatch 배포·실측 필요 |
 | `tomcat.threads.busy`, `tomcat.threads.current`, `tomcat.threads.config.max` | gauge·Tomcat binder | connector `name`의 배포 고정값 | 1분 `Maximum`, busy/max | Spring Boot 4 connector binder·OTLP export 자동 검증, CloudWatch 실측 필요 |
 | `hikaricp.connections.active`, `idle`, `pending`, `max`, `timeout` | gauge·counter·HikariCP binder | 고정 pool 이름 | 1분 `Maximum`·timeout `Sum` | production 설정·OTLP export 자동 검증 완료, CloudWatch 배포·실측 필요 |
-| `albam.dependency.health` | gauge·앱 코드 | `dependency=postgresql|redis`; 값 `1=up`, `0=down`; probe timeout·중단·실행 예외는 기존 값을 갱신하지 않음 | 마지막 값과 2회 연속 down | 앱 코드·자동 검증 완료, OTLP/CloudWatch export·배포·실측 미확인 |
+| `albam.dependency.health` | gauge·앱 코드 | `dependency=postgresql|redis`; 값 `1=up`, `0=down`; 최초 known 결과 전과 probe timeout·중단·실행 예외는 missing 값을 유지 | 마지막 값과 2회 연속 down | 앱 코드·자동 검증 완료, OTLP/CloudWatch export·배포·실측 미확인 |
 | `albam.telemetry.last_success_age` | gauge·Agent/infra 추가 구현 | `signal=metric|log`, 배포 dimension | 5분 `Maximum`; ACTIVE에서 임계 초과 | 추가 구현 필요 |
 
 `frontend/nginx.production.conf`는 proxy 구간에 한해 raw URI·query·client 식별자 없이 `request_time`, `upstream_response_time`, `upstream_addr`를 구조화된 timing 원천으로 남긴다. 외부 응답의 `X-Albam-Mate-Upstream`은 backend가 검증한 `app1` 또는 `app2` 역할만 전달하고 raw 주소를 합성하지 않는다. 내부 `upstream_addr`는 CloudWatch dimension으로 직접 사용하지 않고, private infra가 배포 manifest와 대조해 유한한 App1·App2 `role`로 변환해야 한다. Agent 변환·CloudWatch 배포·실측은 아직 완료 증거가 아니다.

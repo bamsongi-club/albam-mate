@@ -13,16 +13,16 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 public final class DependencyHealthMetrics {
 
-	private final AtomicInteger postgresqlUp = new AtomicInteger();
-	private final AtomicInteger redisUp = new AtomicInteger();
+	private final AtomicInteger postgresqlUp = new AtomicInteger(-1);
+	private final AtomicInteger redisUp = new AtomicInteger(-1);
 	private final AtomicInteger previousPostgresqlUp = new AtomicInteger(-1);
 	private final AtomicInteger previousRedisUp = new AtomicInteger(-1);
 
 	public DependencyHealthMetrics(MeterRegistry meterRegistry) {
-		Gauge.builder("albam.dependency.health", postgresqlUp, AtomicInteger::get)
+		Gauge.builder("albam.dependency.health", postgresqlUp, DependencyHealthMetrics::gaugeValue)
 			.tag("dependency", "postgresql")
 			.register(meterRegistry);
-		Gauge.builder("albam.dependency.health", redisUp, AtomicInteger::get)
+		Gauge.builder("albam.dependency.health", redisUp, DependencyHealthMetrics::gaugeValue)
 			.tag("dependency", "redis")
 			.register(meterRegistry);
 	}
@@ -56,5 +56,9 @@ public final class DependencyHealthMetrics {
 		log.atWarn().addKeyValue("event", "dependency_health_changed")
 			.addKeyValue("dependency", dependency).addKeyValue("outcome", "down")
 			.addKeyValue("failureCode", unavailableFailureCode).log("dependency health changed");
+	}
+
+	private static double gaugeValue(AtomicInteger state) {
+		return state.get() < 0 ? Double.NaN : state.get();
 	}
 }

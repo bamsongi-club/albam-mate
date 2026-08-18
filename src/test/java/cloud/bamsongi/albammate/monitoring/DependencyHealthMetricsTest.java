@@ -143,6 +143,32 @@ class DependencyHealthMetricsTest {
 	}
 
 	@Test
+	void T1_최초_probe_UNKNOWN은_dependency_health를_down으로_노출하지_않는다() throws Exception {
+		SimpleMeterRegistry registry = new SimpleMeterRegistry();
+		DataSource dataSource = mock(DataSource.class);
+		RedisConnectionFactory redisConnectionFactory = mock(RedisConnectionFactory.class);
+		when(dataSource.getConnection()).thenAnswer(invocation -> {
+			Thread.sleep(1_000);
+			throw new java.sql.SQLException("postgresql pool acquisition timed out");
+		});
+		when(redisConnectionFactory.getConnection()).thenAnswer(invocation -> {
+			Thread.sleep(1_000);
+			throw new IllegalStateException("redis probe timed out");
+		});
+		DependencyHealthSampler sampler = new DependencyHealthSampler(
+			dataSource, redisConnectionFactory, new DependencyHealthMetrics(registry),
+			java.time.Duration.ofSeconds(10));
+		try {
+			sampler.sample();
+
+			assertTrue(Double.isNaN(gaugeValue(registry, "postgresql")));
+			assertTrue(Double.isNaN(gaugeValue(registry, "redis")));
+		} finally {
+			sampler.shutdown();
+		}
+	}
+
+	@Test
 	void T2_연속된_PostgreSQL_pool_지연도_Redis_probe_slot을_점유하지_않는다() throws Exception {
 		SimpleMeterRegistry registry = new SimpleMeterRegistry();
 		DataSource dataSource = mock(DataSource.class);
