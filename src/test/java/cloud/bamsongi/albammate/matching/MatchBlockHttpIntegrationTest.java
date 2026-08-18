@@ -25,7 +25,7 @@ import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.global.security.currentuser.CurrentUserPrincipal;
 
-@SpringBootTest(classes = AlbamMateApplication.class)
+@SpringBootTest(classes = AlbamMateApplication.class, properties = "spring.datasource.url=jdbc:h2:mem:match-block-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1")
 @AutoConfigureMockMvc
 class MatchBlockHttpIntegrationTest {
 
