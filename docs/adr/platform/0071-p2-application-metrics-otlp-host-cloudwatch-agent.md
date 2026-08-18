@@ -1,4 +1,4 @@
-# ADR-0058: P2 애플리케이션 메트릭을 동일 호스트 CloudWatch Agent로 OTLP 전송
+# ADR-0071: P2 애플리케이션 메트릭을 동일 호스트 CloudWatch Agent로 OTLP 전송
 
 - 상태: 승인됨
 - 작성일: 2026-08-13

@@ -158,7 +158,7 @@ P2 이후 후보의 도입 순서·차수는 P2 기능별 구현·검증 결과�
 - P1 알림은 본인만 조회·읽음 처리하고, 알림 자체를 방 접근 권한으로 사용하지 않는다.
 - P1 소셜 로그인은 제공자 subject를 정본 식별자로 사용하고 이메일만으로 기존 계정을 자동 병합하지 않으며 외부 token을 저장하지 않는다.
 - P1 채팅은 로컬 프록시 뒤 애플리케이션 두 대와 공용 PostgreSQL·Redis로 교차 인스턴스 경로를 검증했다. AWS 검증 토폴로지와 배포·실측의 종료 상태는 [P1 기능별 종료 상태](archive/p1/README.md#기능별-종료-상태)의 `배포 상태`와 `실측 상태`를 따르며, 임시 검증 배포를 운영 배포로 해석하지 않는다.
-- P2 운영 관측은 서비스 생존·지연·실패·AI 사용량·추정 비용과 핵심 업무 결과를 연결한다. 메트릭 전송은 [ADR-0058](adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md), 구조화 로그 전송·보존은 [ADR-0059](adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)를 따르며, 기능별 금지 데이터·label과 구현·배포·실측 상태는 별도로 검증한다.
+- P2 운영 관측은 서비스 생존·지연·실패·AI 사용량·추정 비용과 핵심 업무 결과를 연결한다. 메트릭 전송은 [ADR-0071](adr/platform/0071-p2-application-metrics-otlp-host-cloudwatch-agent.md), 구조화 로그 전송·보존은 [ADR-0059](adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)를 따르며, 기능별 금지 데이터·label과 구현·배포·실측 상태는 별도로 검증한다.
 - 여러 인스턴스에 등록되는 ROOM 상태 보정과 채팅 만료 삭제는 Spring Scheduler와 PostgreSQL ShedLock으로 한 실행만 소유하게 하고, 작업 본문은 재실행해도 같은 결과로 수렴시킨다.
 - 다중 인스턴스에서도 ROOM·참가 정합성은 공용 PostgreSQL의 기존 낙관 락과 제한 재시도를 유지하며 Redis 분산 락으로 교체하지 않는다.
 - 후기·참석·룰마스터 신뢰 정보는 역할과 근거를 분리해 저장하고, 공개 기준을 운영 정책으로 문서화한다.
