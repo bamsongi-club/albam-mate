@@ -131,7 +131,7 @@ Provider egress·secret/config·release·migration·feature gate·rollback과 �
 3. `RECOMMEND`의 검색 조건이 모두 AND로 적용되고 내부 `RANK-01` 순서로 정렬되며, 추천 조건이 없으면 후보 조회와 초안 생성이 모두 0건인지 확인한다.
 4. `CREATE_ROOM`의 누락 필드가 정확히 `NEEDS_INPUT`으로 반환되고, 확인 전 Room·ChatRoom·참가 관계가 생성되지 않는지 확인한다. 초안 수정은 `ACTIVE`에만 적용되고 `CONFIRMED`·`DISCARDED` 수정과 `CONFIRMED` 폐기가 계약된 충돌 오류로 끝나는지 확인한다.
 5. 유효한 confirm이 Room 정확히 1개와 ChatRoom 정확히 1개를 원자적으로 만들고, Room 생성 실패 시 부분 상태를 남기지 않는지 확인한다.
-6. 같은 `(currentUserId, draft/resource, operation)` 범위의 동일 `Idempotency-Key`·draft version 재시도가 최초 결과를 재생하고 새 Room·ChatRoom을 만들지 않는지 확인한다. 범위 밖 key 재사용·다른 version·동시 요청·만료 초안은 계약된 오류로 수렴해야 한다. 보존 기간이 지난 key는 같은 사용자의 다음 초안 생성·확인 명령이 만료 기록을 정리한 뒤 새 확인으로 처리되고 이전 Room 결과를 재생하지 않는지도 확인한다.
+6. AI 기능이 활성인 동안 같은 `(currentUserId, draft/resource, operation)` 범위의 동일 `Idempotency-Key`·draft version 재시도가 최초 결과를 재생하고 새 Room·ChatRoom을 만들지 않는지, 비활성 상태에서는 재생 전에 fail-closed로 끝나고 기존 결과가 바뀌지 않는지 확인한다. 범위 밖 key 재사용·다른 version·동시 요청·만료 초안은 계약된 오류로 수렴해야 한다. 보존 기간이 지난 key는 같은 사용자의 다음 초안 생성·확인 명령이 만료 기록을 정리한 뒤 새 확인으로 처리되고 이전 Room 결과를 재생하지 않는지도 확인한다.
 7. 동의 철회·timeout·429·schema 오류·Redis 불능·quota 초과·provider 또는 Room 생성 실패가 공개 실패 상태와 fail-closed로 끝나는지 확인한다.
 8. prompt·응답·Tool 인자·게임 후보·사용자 ID·세션·비밀값이 provider payload·저장소·metric·central log에 원문으로 남지 않는지 확인한다.
 9. 고정 fixture의 manifest version·hash·caseId·trace·부수효과 assertion과 결과 판정이 일치하는지 확인한다. setup 실패·관측 누락·generator 포화는 기능 실패가 아닌 `INVALID`로 기록한다.
@@ -160,19 +160,19 @@ Provider egress·secret/config·release·migration·feature gate·rollback과 �
 - 자연어 요청과 추천만으로는 Room·ChatRoom·참가 관계를 만들지 않는다.
 - 사용자가 확인 카드에서 최종 조건과 상세 장소를 확인한 뒤에만 기존 Room 생성 command를 호출한다.
 - 동일 확인 재시도는 같은 결과로 수렴해야 하며, 다른 요청이나 오래된 초안이 중복 Room을 만들지 않아야 한다. 구체 잠금·유일 제약·오류 코드는 [ADR-0069](../adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md)을 따른다.
-- `Idempotency-Key`의 저장·조회·유일성 범위는 최소 현재 인증 사용자(`currentUserId`)·확인 대상 draft/resource·operation으로 묶는다. 같은 범위의 재시도만 최초 Room 결과를 재생하고, 다른 사용자·draft·operation에서 같은 key를 재사용하면 Room을 반환하지 않고 `CONFIRMATION_CONFLICT` 또는 `FORBIDDEN`으로 끝낸다.
+- `Idempotency-Key`의 저장·조회·유일성 범위는 최소 현재 인증 사용자(`currentUserId`)·확인 대상 draft/resource·operation으로 묶는다. 같은 범위의 재시도만 최초 Room 결과를 재생하고, 다른 사용자·draft·operation에서 같은 key를 재사용하면 Room을 반환하지 않고 `CONFIRMATION_CONFLICT`로 끝낸다.
 
 ### 실패·복구
 
-| 상태 | 의미 | 사용자 결과 |
-| --- | --- | --- |
-| `NEEDS_INPUT` | 액션에 필요한 조건이 부족함. `RECOMMEND`는 후보 조회 없이 검색 조건만 질문함 | 액션에 필요한 조건만 다시 질문 |
-| `NO_CANDIDATES` | 유효한 `RECOMMEND` 검색 조건으로 후보를 조회했지만 결과가 없음 | 후보 없음과 검색 조건 수정 안내 |
-| `CONSENT_REQUIRED` | 외부 AI 처리 동의가 없음 또는 철회됨 | 동의 없이는 AI 호출·활성 초안을 만들지 않음 |
-| `AI_UNAVAILABLE` | timeout·429·schema 오류·provider 장애 | 성공 결과로 포장하지 않고 수동 흐름 또는 재시도 안내 |
-| `CONFIRMATION_CONFLICT` | 만료·타인 접근·오래된 draft version·멱등키 범위 밖 재사용·멱등성 충돌 | Room을 만들지 않고 공개 오류 계약에 맞게 반환 |
+| 상태 | 의미 | 사용자 결과 | 공개 계약의 대응 값 |
+| --- | --- | --- | --- |
+| `NEEDS_INPUT` | 액션에 필요한 조건이 부족함. `RECOMMEND`는 후보 조회 없이 검색 조건만 질문함 | 액션에 필요한 조건만 다시 질문 | `AssistantRecommendationState.NEEDS_INPUT` (오류 아님) |
+| `NO_CANDIDATES` | 유효한 `RECOMMEND` 검색 조건으로 후보를 조회했지만 결과가 없음 | 후보 없음과 검색 조건 수정 안내 | `AssistantRecommendationState.NO_CANDIDATES` (오류 아님) |
+| `CONSENT_REQUIRED` | 외부 AI 처리 동의가 없음 또는 철회됨 | 동의 없이는 AI 호출·활성 초안을 만들지 않음 | `ASSISTANT_CONSENT_REQUIRED` |
+| `AI_UNAVAILABLE` | timeout·429·schema 오류·provider 장애·비용 한도 | 성공 결과로 포장하지 않고 수동 흐름 또는 재시도 안내 | `ASSISTANT_PROVIDER_UNAVAILABLE`, `ASSISTANT_PROVIDER_RESPONSE_INVALID`, `RATE_LIMIT_EXCEEDED`, `ASSISTANT_COST_LIMIT_EXCEEDED` |
+| `CONFIRMATION_CONFLICT` | 만료·타인 접근·오래된 draft version·멱등키 범위 밖 재사용·멱등성 충돌 | Room을 만들지 않고 공개 오류 계약에 맞게 반환 | `ASSISTANT_DRAFT_CONFLICT`, `ASSISTANT_DRAFT_EXPIRED`, `ASSISTANT_DRAFT_NOT_FOUND` |
 
-실패 상태와 오류 코드는 공개 API 계약에 반영되기 전까지 논리적 기능 상태로 취급하며, 이 문서가 공개 HTTP 계약을 대신하지 않는다.
+왼쪽 상태명은 이 문서의 논리 이름이고 공개 HTTP 계약은 [API](../API.md#108-ai-기능군-오류)의 오류 코드다. 한 논리 상태가 여러 코드에 대응하므로 구현·검증은 오른쪽 코드를 기준으로 판정하며, 이 문서가 공개 HTTP 계약을 대신하지 않는다.
 
 ### 관측·보존
 

@@ -85,7 +85,7 @@
 ## 검증
 
 - 상태: 미검증
-- 근거: 결정 — 완료된 [#795](https://github.com/bamsongi-club/albam-mate/issues/795)의 결정 댓글과 `AI-01` 명세의 provider·보존·비용 경계를 반영함.
+- 근거: 없음
 - 미검증:
   - provider model ID·정책 URL·실제 비용 알림 경로 확인
   - dependency·설정·fake provider·quota·Redis fail-closed 구현과 테스트

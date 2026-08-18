@@ -62,7 +62,7 @@
 ## 검증
 
 - 상태: 미검증
-- 근거: 결정 — 완료된 [#796](https://github.com/bamsongi-club/albam-mate/issues/796)의 지역 결정과 현재 `Room.region`·기존 `홍대` 기본값 경계를 반영함.
+- 근거: 없음
 - 미검증:
   - 운영 Room region 값 확인과 `CHECK` migration rollback 검증
   - API·DTO·enum·기존 client 호환 및 지역 입력 회귀 테스트

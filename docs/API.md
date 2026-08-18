@@ -2033,9 +2033,9 @@ Vary: Cookie
 |---|---|:---:|:---:|---|
 | `draftVersion` | integer | Y | N | 확인 카드가 읽은 최신 초안 버전 |
 
-`Idempotency-Key`는 앞뒤 공백 없는 1~100자의 ASCII printable 문자다. 서버는 SHA-256 hash만 저장한다. 멱등성 범위는 `(currentUserId, draftId, DRAFT_CONFIRM)`이며, 같은 범위의 확인 결과는 `draftVersion` 검사보다 먼저 재생한다. 다른 키·오래된 version·범위 밖 재사용·동시성 충돌은 `409 ASSISTANT_DRAFT_CONFLICT`이고 Room을 만들지 않는다. 같은 key와 같은 의미의 재시도는 두 번째 Room·ChatRoom을 만들지 않는다. 확인 결과의 재생 보장은 확인 시각부터 24시간이다. 보존 기간이 지난 기록은 별도 batch를 기다리지 않고 같은 사용자의 다음 초안 생성·확인 명령이 같은 트랜잭션에서 만료를 판정해 정리하므로, 같은 key를 새 초안 확인에 다시 쓸 수 있고 이때는 이전 Room 결과를 재생하지 않는다.
+`Idempotency-Key`는 앞뒤 공백 없는 1~100자의 ASCII printable 문자다. 서버는 SHA-256 hash만 저장한다. 멱등성 범위는 `(currentUserId, draftId, DRAFT_CONFIRM)`이며, 같은 범위의 확인 결과는 `draftVersion` 검사보다 먼저 재생한다. 다른 키·오래된 version·범위 밖 재사용·동시성 충돌은 `409 ASSISTANT_DRAFT_CONFLICT`이고 Room을 만들지 않는다. 같은 key와 같은 의미의 재시도는 두 번째 Room·ChatRoom을 만들지 않는다. 확인 결과의 재생 보장은 AI 기능이 활성인 동안 확인 시각부터 24시간이며, 비활성 상태에서는 아래 판정 순서대로 재생 전에 `ASSISTANT_NOT_ENABLED`로 끝난다. 보존 기간이 지난 기록은 별도 batch를 기다리지 않고 같은 사용자의 다음 초안 생성·확인 명령이 같은 트랜잭션에서 만료를 판정해 정리하므로, 같은 key를 새 초안 확인에 다시 쓸 수 있고 이때는 이전 Room 결과를 재생하지 않는다.
 
-확인 시작 시 대상 `USERS` 행 → 초안 행 → `ASSISTANT_IDEMPOTENCY_RECORDS`를 이 순서로 잠근다. 판정 순서는 `404` → 같은 범위·같은 key의 멱등 재생 → 상태 → 만료 → 동의 → version → 필수 `place`다. 보존 기간 안의 같은 key 재시도는 상태 판정보다 먼저 원래 결과를 재생하고, 재생 대상이 아닌 `CONFIRMED`·`DISCARDED` 초안의 확인 시도는 `409 ASSISTANT_DRAFT_CONFLICT`로 끝낸다. `410 ASSISTANT_DRAFT_EXPIRED`는 `ACTIVE` 초안에만 적용한다. 확인 성공은 기존 `room.contract` 확인형 command를 호출해 Room과 ChatRoom을 하나의 DB 트랜잭션에서 생성하고, 초안을 `CONFIRMED`로 바꾸며 결과 참조를 저장한다. 어느 단계라도 실패하면 Room·ChatRoom·초안 상태 변경을 함께 롤백한다. 기존 수동 `POST /api/rooms`는 이 경로와 별개로 계속 제공한다.
+확인 시작 시 대상 `USERS` 행 → 초안 행 → `ASSISTANT_IDEMPOTENCY_RECORDS`를 이 순서로 잠근다. 판정 순서는 `ASSISTANT_NOT_ENABLED` → `404` → 같은 범위·같은 key의 멱등 재생 → 상태 → 만료 → 동의 → version → 필수 `place`다. 기능 gate는 동의 endpoint와 같게 업무 판정보다 먼저 fail-closed로 적용하므로 비활성 상태에서는 멱등 재생도 하지 않는다. 보존 기간 안의 같은 key 재시도는 상태 판정보다 먼저 원래 결과를 재생하고, 재생 대상이 아닌 `CONFIRMED`·`DISCARDED` 초안의 확인 시도는 `409 ASSISTANT_DRAFT_CONFLICT`로 끝낸다. `410 ASSISTANT_DRAFT_EXPIRED`는 `ACTIVE` 초안에만 적용한다. 확인 성공은 기존 `room.contract` 확인형 command를 호출해 Room과 ChatRoom을 하나의 DB 트랜잭션에서 생성하고, 초안을 `CONFIRMED`로 바꾸며 결과 참조를 저장한다. 어느 단계라도 실패하면 Room·ChatRoom·초안 상태 변경을 함께 롤백한다. 기존 수동 `POST /api/rooms`는 이 경로와 별개로 계속 제공한다.
 
 ## 8. 참가·대기·내 모임 API
 

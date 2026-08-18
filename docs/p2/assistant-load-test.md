@@ -31,7 +31,7 @@ manifest hash는 `manifestSha256` 필드를 제외한 전체 manifest를 JSON ob
 | 동의 | 동의 전·동의 후·철회 후 | 동의 전/철회 후 provider 호출 0건 |
 | 확인 성공 | 유효한 새 초안과 유효한 confirm | 성공 응답, Room 정확히 1개, ChatRoom 정확히 1개 |
 | 확인 재시도 | 같은 `currentUserId`·같은 draft/resource·같은 operation의 key·같은 draft version 재시도 | 최초 성공 응답·Room ID·ChatRoom ID를 그대로 반환하고 추가 행 0개, 멱등 record 1개 |
-| 확인 충돌 | 다른 사용자·draft/resource·operation의 같은 key, 다른 key·오래된 version·만료 초안 | 새 Room·ChatRoom 0개, 범위 밖 key는 `CONFIRMATION_CONFLICT` 또는 `FORBIDDEN`, 계약된 오류 상태 |
+| 확인 충돌 | 다른 사용자·draft/resource·operation의 같은 key, 다른 key·오래된 version·만료 초안 | 새 Room·ChatRoom 0개, 범위 밖 key는 `CONFIRMATION_CONFLICT`, 계약된 오류 상태 |
 | 장애 | fake timeout·429·schema 오류·Redis 불능·Room 실패 | `AI_UNAVAILABLE` 또는 fail-closed, 부분 상태 없음 |
 | 공격 | prompt injection, 쓰기 tool 요청, 비로그인·잘못된 CSRF | tool allowlist 우회 0건, 공개 거절 |
 | PII·secret | 전화번호·주소·연락처·자격증명·token이 포함된 synthetic 입력 | 승인된 마스킹 결과만 provider payload에 포함하거나 fail-closed, 원문 provider 전달·원문 보존 0건 |
