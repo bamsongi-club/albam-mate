@@ -20,4 +20,4 @@
 | [0057](0057-game-catalog-operational-import-strategy.md) | 게임 카탈로그 운영 적재는 승인 청크 UPSERT로 시작하고 증분 파이프라인은 후속으로 설계 | 승인됨 | 2026-08-13 | 미검증 |
 | [0058](0058-external-ranking-and-popularity-sort.md) | 외부·내부 원천을 결합한 게임 인기 점수와 기본 정렬 | 승인됨 | 2026-08-14 | 미검증 |
 | [0060](0060-approved-catalog-ai-embedding-scope.md) | 승인된 카탈로그 release의 AI·embedding 처리 범위를 허용 | 승인됨 | 2026-08-14 | 미검증 |
-| [0066](0066-search-quality-corpus-and-full-catalog-scale-corpus-split.md) | 검색 품질 corpus와 대규모 catalog 성능 검증 corpus를 분리 | 승인됨 | 2026-08-18 | 미검증 |
+| [0066](0066-search-quality-corpus-and-full-catalog-scale-corpus-split.md) | 검색 품질 데이터와 대규모 catalog 성능 검증 데이터를 분리 | 승인됨 | 2026-08-18 | 미검증 |
