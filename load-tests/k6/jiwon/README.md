@@ -38,10 +38,12 @@
 | `run-manifest.json` | 동일 경로 | 대상 배포 SHA·환경·fixture SHA-256·k6 버전·시작/종료 UTC와 `runState`·`completed`를 묶은 실행 기록 |
 | `k6-summary.json` | 동일 경로 | `run`이 같은 manifest와 함께 생성한 k6 summary |
 | `t5-comparison-verification.json` | `build/k6/room/<run-id>/` | T5 role×scale 6개 실행의 공통 read profile 검증 결과 |
+| `t1-t2-comparison-verification.json` | `build/k6/room/t1-t2-campaign/<campaign-id>/` | T1·T2 8조건 × 3회 repetition의 원본 artifact 검증 결과 |
 | `cleanup.sql` | 동일 경로 | 정확한 생성 ID만 정리하는 SQL |
 | `manifest.json` | 동일 경로 | portable bundle의 clean source revision, immutable artifact hash와 실행 경계 |
 | `fixture-plan.json`, `private/prepare-provenance.json` | 동일 경로 | 결정적 fixture 계획과 실행별 ownership·password hash provenance |
 | `resource-query.sql`, `resource-output.json` | 동일 경로 | 원격 DB가 반환한 fixture identity 원시 결과 |
+| `resource-signals.json` | 동일 경로 | 같은 run window의 HTTP·Tomcat·Hikari·JVM·PostgreSQL·query·retry 구조화 신호 |
 | `execution-options.json` | 동일 경로 | 정규화한 k6 환경 값과 T5 read profile |
 | `before/after-snapshot.json`, `before/after-diagnosis.json`, `infra-execution.json`, `final-result.json` | 동일 경로 | 원격 실행의 raw DB/k6 결과, 앱 진단과 최종 판정 |
 
@@ -157,6 +159,23 @@ node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id $runId
 
 `compare-t5`는 public/host/participant × ACTIVE 1/10 fixture가 모두 있고, 각 완료 manifest의 `t5ReadOptions`가 같으며 각 fixture의 `after-verification.json`이 같은 fixture의 `stage: "after"`, `status: "PASS"`인지 확인한다. 각 `after` 검증은 `room_start_skew_ms` 관측 수가 해당 실행의 VU 수와 같은지도 확인한다. 비교 결과로 사용할 T5 묶음은 이 명령이 `PASS`일 때만 유효하다.
 
+Issue #778의 공식 반복 campaign은 T1 hot/spread × 동시성 4/8의 4조건과 T2 `distinct` hot/spread × 동시성 4/8의 4조건을 각각 3회씩, 총 24개의 독립 run으로 구성한다. `t1-t2-repetition.mjs plan`은 각 run의 `runId`, 결정적 `fixtureId`, 전체 fixture options, write execution profile, `readProfile: null`, 배포 source SHA와 target environment를 고정한다.
+
+```powershell
+$campaignId = 'room-t1-t2-repeat-2026-08-18'
+$sourceSha = '<40-character-deployed-git-sha>'
+$targetEnvironment = 'private-loadtest'
+
+node load-tests/k6/jiwon/tools/t1-t2-repetition.mjs plan `
+  --campaign-id $campaignId --source-sha $sourceSha --target-environment $targetEnvironment
+
+node load-tests/k6/jiwon/tools/t1-t2-repetition.mjs compare `
+  --campaign-id $campaignId --source-sha $sourceSha --target-environment $targetEnvironment `
+  --build-root build/k6/room
+```
+
+`compare`는 원격 실행이 끝난 뒤 회수된 portable bundle만 읽는다. 각 run에서 portable manifest·fixture plan·fixture identity와 고정 options/read profile/source identity, 완료 `run-manifest.json`의 UTC window·fixture/summary SHA-256, before/after diagnosis `PASS`, 모든 phase exit code 0, `final-result.json` `PASS`, outcome별 count·p50·p95·p99·max와 `room_start_skew_ms` gate를 확인한다. 같은 window의 `resource-signals.json`에는 HTTP·Tomcat·Hikari·JVM·PostgreSQL·query 신호와 `commonRetrier`·`coordinator` retry attempt/retry/exhausted 분포가 있어야 한다. 누락·불일치·실패 run은 `INVALID`로 보존하며, 8조건 모두 3회 `PASS`일 때만 campaign을 `PASS`로 기록한다. 이 도구는 `fixture.mjs run`을 다시 호출하지 않고, 원본 summary나 final-result를 덮어쓰거나 synthetic `PASS` artifact를 만들지 않는다.
+
 ## 결과 확인
 
 사후 검증은 HTTP 응답 분류와 DB snapshot을 함께 판정한다.
@@ -214,6 +233,7 @@ node --test load-tests/k6/jiwon/tests/fixture-model.test.mjs
 node --test load-tests/k6/jiwon/tests/t3-execution-plan.test.mjs
 node --test load-tests/k6/jiwon/tests/fixture-runner.test.mjs
 node --test load-tests/k6/jiwon/tests/write-response-contract.test.mjs
+node --test load-tests/k6/jiwon/tests/t1-t2-repetition.test.mjs
 
 Get-ChildItem load-tests/k6/jiwon -Recurse -File |
   Where-Object { $_.Extension -in '.js', '.mjs' } |
