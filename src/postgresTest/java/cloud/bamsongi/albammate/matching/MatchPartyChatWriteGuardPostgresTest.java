@@ -57,7 +57,7 @@ class MatchPartyChatWriteGuardPostgresTest {
 	@AfterEach
 	void tearDown() {
 		jdbcTemplate.execute(
-			"truncate table match_chat_messages, match_chat_rooms, match_party_participants, match_parties, games, users restart identity cascade");
+			"truncate table match_chat_messages, match_chat_rooms, match_party_participants, match_parties, users restart identity cascade");
 	}
 
 	@Test
@@ -65,9 +65,8 @@ class MatchPartyChatWriteGuardPostgresTest {
 		long memberId = insertUser("member");
 		long formerMemberId = insertUser("former-member");
 		long outsiderId = insertUser("outsider");
-		long gameId = insertGame();
-		long partyId = insertActiveParty(gameId);
-		long preparingPartyId = insertPreparingParty(gameId);
+		long partyId = insertActiveParty();
+		long preparingPartyId = insertPreparingParty();
 		insertParticipant(partyId, memberId, false);
 		insertParticipant(partyId, formerMemberId, true);
 		insertParticipant(preparingPartyId, memberId, false);
@@ -136,7 +135,7 @@ class MatchPartyChatWriteGuardPostgresTest {
 		}
 		assertForbidden(() -> invokeGuard(executeWithActiveAccess, guard, memberId, partyId, () -> null));
 
-		long rollbackPartyId = insertActiveParty(gameId);
+		long rollbackPartyId = insertActiveParty();
 		long roomId = insertChatRoom(rollbackPartyId);
 		insertParticipant(rollbackPartyId, memberId, false);
 		assertThrows(
@@ -196,28 +195,18 @@ class MatchPartyChatWriteGuardPostgresTest {
 			"매칭 " + role);
 	}
 
-	private long insertGame() {
+	private long insertActiveParty() {
 		return jdbcTemplate.queryForObject(
-			"insert into games (bgg_id, name, english_name, supported_player_count, tag, estimated_play_time, description, detail_description, created_at, updated_at) "
-				+ "values (?, 'Guard 게임', 'Guard Game', '2-4', '전략', '60', '설명', '상세 설명', current_timestamp, current_timestamp) returning id",
-			Long.class,
-			Math.abs(UUID.randomUUID().getMostSignificantBits()));
+			"insert into match_parties (status, preparing_started_at, chat_opened_at, closes_at, created_at, updated_at) "
+				+ "values ('ACTIVE', current_timestamp, current_timestamp, current_timestamp + interval '1 day', current_timestamp, current_timestamp) returning id",
+			Long.class);
 	}
 
-	private long insertActiveParty(long gameId) {
+	private long insertPreparingParty() {
 		return jdbcTemplate.queryForObject(
-			"insert into match_parties (game_id, status, preparing_started_at, chat_opened_at, closes_at, created_at, updated_at) "
-				+ "values (?, 'ACTIVE', current_timestamp, current_timestamp, current_timestamp + interval '1 day', current_timestamp, current_timestamp) returning id",
-			Long.class,
-			gameId);
-	}
-
-	private long insertPreparingParty(long gameId) {
-		return jdbcTemplate.queryForObject(
-			"insert into match_parties (game_id, status, preparing_started_at, created_at, updated_at) "
-				+ "values (?, 'PREPARING', current_timestamp, current_timestamp, current_timestamp) returning id",
-			Long.class,
-			gameId);
+			"insert into match_parties (status, preparing_started_at, created_at, updated_at) "
+				+ "values ('PREPARING', current_timestamp, current_timestamp, current_timestamp) returning id",
+			Long.class);
 	}
 
 	private long insertChatRoom(long partyId) {

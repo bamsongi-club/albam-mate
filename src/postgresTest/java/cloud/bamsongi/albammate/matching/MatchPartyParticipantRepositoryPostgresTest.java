@@ -43,7 +43,7 @@ class MatchPartyParticipantRepositoryPostgresTest {
 	@AfterEach
 	void tearDown() {
 		jdbcTemplate.execute(
-			"truncate table match_party_participants, match_parties, games, users restart identity cascade");
+			"truncate table match_party_participants, match_parties, users restart identity cascade");
 	}
 
 	@Test
@@ -52,10 +52,9 @@ class MatchPartyParticipantRepositoryPostgresTest {
 		long secondUserId = insertUser("second");
 		long formerUserId = insertUser("former");
 		long closedUserId = insertUser("closed");
-		long gameId = insertGame();
-		long firstPartyId = insertParty(gameId, "ACTIVE");
-		long secondPartyId = insertParty(gameId, "ACTIVE");
-		long closedPartyId = insertParty(gameId, "CLOSED");
+		long firstPartyId = insertParty("ACTIVE");
+		long secondPartyId = insertParty("ACTIVE");
+		long closedPartyId = insertParty("CLOSED");
 		UUID sharedParticipantRef = UUID.fromString("00000000-0000-0000-0000-000000000801");
 		UUID formerParticipantRef = UUID.fromString("00000000-0000-0000-0000-000000000802");
 		UUID closedParticipantRef = UUID.fromString("00000000-0000-0000-0000-000000000803");
@@ -110,16 +109,7 @@ class MatchPartyParticipantRepositoryPostgresTest {
 			Timestamp.from(FIXED_TIME));
 	}
 
-	private long insertGame() {
-		return jdbcTemplate.queryForObject(
-			"insert into games (bgg_id, name, english_name, supported_player_count, tag, estimated_play_time, description, detail_description, created_at, updated_at) "
-				+ "values (801001, '참가자 게임', 'Participant Game', '2-4', '전략', '60', '설명', '상세 설명', ?, ?) returning id",
-			Long.class,
-			Timestamp.from(FIXED_TIME),
-			Timestamp.from(FIXED_TIME));
-	}
-
-	private long insertParty(long gameId, String status) {
+	private long insertParty(String status) {
 		String lifecycleColumns = switch (status) {
 			case "ACTIVE" -> "preparing_started_at, chat_opened_at, closes_at";
 			case "CLOSED" -> "preparing_started_at, closed_at, purge_after";
@@ -131,21 +121,21 @@ class MatchPartyParticipantRepositoryPostgresTest {
 			default -> "?";
 		};
 		return jdbcTemplate.queryForObject(
-			"insert into match_parties (game_id, status, " + lifecycleColumns
-				+ ", created_at, updated_at) values (?, ?, " + lifecycleValues + ", ?, ?) returning id",
+			"insert into match_parties (status, " + lifecycleColumns
+				+ ", created_at, updated_at) values (?, " + lifecycleValues + ", ?, ?) returning id",
 			Long.class,
-			partyValues(gameId, status));
+			partyValues(status));
 	}
 
-	private Object[] partyValues(long gameId, String status) {
+	private Object[] partyValues(String status) {
 		Timestamp preparingStartedAt = Timestamp.from(FIXED_TIME);
 		Timestamp lifecycleTime = Timestamp.from(FIXED_TIME.plusSeconds(3_600));
 		Timestamp retentionEnd = Timestamp.from(FIXED_TIME.plusSeconds(3_600 + 604_800));
 		if (status.equals("CLOSED")) {
-			return new Object[] {gameId, status, preparingStartedAt, lifecycleTime, retentionEnd, preparingStartedAt,
+			return new Object[] {status, preparingStartedAt, lifecycleTime, retentionEnd, preparingStartedAt,
 				preparingStartedAt};
 		}
-		return new Object[] {gameId, status, preparingStartedAt, preparingStartedAt, lifecycleTime, preparingStartedAt,
+		return new Object[] {status, preparingStartedAt, preparingStartedAt, lifecycleTime, preparingStartedAt,
 			preparingStartedAt};
 	}
 

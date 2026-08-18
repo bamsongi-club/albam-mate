@@ -30,8 +30,6 @@ public class MatchRequest extends BaseEntity {
 	private Long id;
 	@Column(name = "user_id", nullable = false)
 	private Long userId;
-	@Column(name = "game_id", nullable = false)
-	private Long gameId;
 	@Column(name = "min_party_size", nullable = false)
 	private short minPartySize;
 	@Column(name = "max_party_size", nullable = false)
@@ -51,13 +49,12 @@ public class MatchRequest extends BaseEntity {
 	private Instant purgeAfter;
 
 	public static MatchRequest create(
-		long userId, long gameId, int minPartySize, int maxPartySize, MatchRequestStatus status) {
+		long userId, int minPartySize, int maxPartySize, MatchRequestStatus status) {
 		validatePartySize(minPartySize, maxPartySize);
 
 		MatchRequest request = new MatchRequest();
 		Instant now = Instant.now();
 		request.userId = userId;
-		request.gameId = gameId;
 		request.minPartySize = (short)minPartySize;
 		request.maxPartySize = (short)maxPartySize;
 		request.status = status;

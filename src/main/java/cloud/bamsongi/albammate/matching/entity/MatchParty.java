@@ -27,8 +27,6 @@ public class MatchParty extends BaseEntity {
 	private Long id;
 	@Column(name = "proposal_id")
 	private Long proposalId;
-	@Column(name = "game_id", nullable = false)
-	private Long gameId;
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private MatchPartyStatus status;

@@ -13,9 +13,6 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import cloud.bamsongi.albammate.game.entity.Game;
-import cloud.bamsongi.albammate.game.fixture.GameFixture;
-import cloud.bamsongi.albammate.game.repository.GameRepository;
 import cloud.bamsongi.albammate.global.config.JpaConfig;
 import cloud.bamsongi.albammate.global.config.TimeConfig;
 import cloud.bamsongi.albammate.matching.entity.MatchParty;
@@ -39,18 +36,15 @@ class MatchPartyParticipantRepositoryTest {
 	@Autowired
 	private MatchPartyRepository partyRepository;
 	@Autowired
-	private GameRepository gameRepository;
-	@Autowired
 	private UserRepository userRepository;
 
 	@Test
 	void 참가자_ref는_같은_Party에서만_해석되고_이탈과_CLOSED_보존_멤버십은_조회된다() {
 		User user = saveUser("member");
 		User formerUser = saveUser("former-member");
-		Game game = gameRepository.saveAndFlush(GameFixture.valid(3_001L, "Participant Game"));
-		MatchParty activeParty = saveParty(game.getId(), MatchPartyStatus.ACTIVE);
-		MatchParty otherParty = saveParty(game.getId(), MatchPartyStatus.ACTIVE);
-		MatchParty closedParty = saveParty(game.getId(), MatchPartyStatus.CLOSED);
+		MatchParty activeParty = saveParty(MatchPartyStatus.ACTIVE);
+		MatchParty otherParty = saveParty(MatchPartyStatus.ACTIVE);
+		MatchParty closedParty = saveParty(MatchPartyStatus.CLOSED);
 		UUID activeParticipantRef = UUID.fromString("00000000-0000-0000-0000-000000000001");
 		UUID leftParticipantRef = UUID.fromString("00000000-0000-0000-0000-000000000002");
 		UUID closedParticipantRef = UUID.fromString("00000000-0000-0000-0000-000000000003");
@@ -84,9 +78,8 @@ class MatchPartyParticipantRepositoryTest {
 			User.create("match-participant-" + role + "@example.com", "{bcrypt}hash", "매칭 " + role));
 	}
 
-	private MatchParty saveParty(long gameId, MatchPartyStatus status) {
+	private MatchParty saveParty(MatchPartyStatus status) {
 		MatchParty party = BeanUtils.instantiateClass(MatchParty.class);
-		ReflectionTestUtils.setField(party, "gameId", gameId);
 		ReflectionTestUtils.setField(party, "status", status);
 		ReflectionTestUtils.setField(party, "preparingStartedAt", FIXED_TIME);
 		if (status == MatchPartyStatus.ACTIVE) {

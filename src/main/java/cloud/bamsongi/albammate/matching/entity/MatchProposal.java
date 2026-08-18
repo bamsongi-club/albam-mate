@@ -25,8 +25,6 @@ public class MatchProposal extends BaseEntity {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
-	@Column(name = "game_id", nullable = false)
-	private Long gameId;
 	@Column(name = "party_size", nullable = false)
 	private short partySize;
 	@Enumerated(EnumType.STRING)
