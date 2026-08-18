@@ -14,6 +14,7 @@ import {
   createT1T2RepetitionPlan,
   validateT1T2RepetitionPlan,
 } from '../lib/t1-t2-repetition-plan.mjs';
+import { validateBundle } from './portable-bundle.mjs';
 
 const toolDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(toolDirectory, '../../../..');
@@ -33,14 +34,23 @@ const RESOURCE_GROUP_FIELDS = Object.freeze({
   tomcat: ['activeThreads', 'busyThreads', 'maxThreads'],
   hikari: ['activeConnections', 'idleConnections', 'pendingThreads', 'maxPoolSize'],
   jvm: ['heapUsedBytes', 'heapMaxBytes', 'cpuPercent'],
-  postgresql: ['cpuPercent', 'activeConnections', 'lockWaitCount'],
+  postgresql: [
+    'cpuPercent',
+    'activeConnections',
+    'lockWaitCount',
+    'transactionDurationMilliseconds',
+  ],
 });
 const RESOURCE_REQUIRED_FIELDS = Object.freeze({
   http: ['requestCount', 'failedRequestCount'],
   tomcat: ['activeThreads'],
-  hikari: ['activeConnections'],
+  hikari: ['activeConnections', 'pendingThreads'],
   jvm: ['heapUsedBytes'],
-  postgresql: ['activeConnections'],
+  postgresql: [
+    'activeConnections',
+    'lockWaitCount',
+    'transactionDurationMilliseconds',
+  ],
 });
 const QUERY_SIGNAL_FIELDS = [
   'callCount',
@@ -168,7 +178,7 @@ function requireRunDirectory(buildRoot, run) {
   return { directory };
 }
 
-function validatePortableManifest(directory, run) {
+function validatePortableManifest(directory, run, buildRoot) {
   const result = readJson(path.join(directory, 'manifest.json'), 'portable manifest.json');
   if (result.error) {
     return result;
@@ -183,11 +193,22 @@ function validatePortableManifest(directory, run) {
     || manifest.sourceRevision !== run.sourceSha
     || manifest.sourceDirty !== false
     || !isObject(manifest.artifacts)
-    || manifest.artifacts.runManifest !== RUN_MANIFEST_FILE
     || manifest.artifacts.summary !== 'k6-summary.json'
     || manifest.artifacts.finalResult !== 'final-result.json') {
     return { error: 'portable manifest.json이 계획된 T1/T2 fixture와 맞지 않습니다.' };
   }
+
+  try {
+    validateBundle(directory, {
+      repositoryRoot,
+      buildRoot,
+      isBundleRuntime: false,
+      bundleRoot: null,
+    });
+  } catch (error) {
+    return { error: `portable bundle 검증 실패: ${error.message}` };
+  }
+
   return { value: manifest };
 }
 
@@ -571,7 +592,7 @@ function readT1T2RunArtifact(buildRoot, run) {
     return invalidRun(run, directoryResult.error);
   }
   const directory = directoryResult.directory;
-  const portableManifest = validatePortableManifest(directory, run);
+  const portableManifest = validatePortableManifest(directory, run, buildRoot);
   if (portableManifest.error) {
     return invalidRun(run, portableManifest.error);
   }
@@ -768,12 +789,15 @@ export function compareT1T2RepetitionCampaign({
     });
   }
 
-  const status = invalidArtifact.length === 0
-    && failures.length === 0
-    && acceptedCount === validatedPlan.conditionCount
-    && acceptedRunCount === validatedPlan.runCount
-    ? 'PASS'
-    : 'INVALID';
+  let status = 'PASS';
+  if (invalidArtifact.length > 0) {
+    status = 'INVALID';
+  } else if (failures.length > 0) {
+    status = 'FAIL';
+  } else if (acceptedCount !== validatedPlan.conditionCount
+    || acceptedRunCount !== validatedPlan.runCount) {
+    status = 'INVALID';
+  }
   const result = {
     schemaVersion: 1,
     campaignId: validatedPlan.campaignId,

@@ -174,7 +174,7 @@ node load-tests/k6/jiwon/tools/t1-t2-repetition.mjs compare `
   --build-root build/k6/room
 ```
 
-`compare`는 원격 실행이 끝난 뒤 회수된 portable bundle만 읽는다. 각 run에서 portable manifest·fixture plan·fixture identity와 고정 options/read profile/source identity, 완료 `run-manifest.json`의 UTC window·fixture/summary SHA-256, before/after diagnosis `PASS`, 모든 phase exit code 0, `final-result.json` `PASS`, outcome별 count·p50·p95·p99·max와 `room_start_skew_ms` gate를 확인한다. 같은 window의 `resource-signals.json`에는 HTTP·Tomcat·Hikari·JVM·PostgreSQL·query 신호와 `commonRetrier`·`coordinator` retry attempt/retry/exhausted 분포가 있어야 한다. 누락·불일치·실패 run은 `INVALID`로 보존하며, 8조건 모두 3회 `PASS`일 때만 campaign을 `PASS`로 기록한다. 이 도구는 `fixture.mjs run`을 다시 호출하지 않고, 원본 summary나 final-result를 덮어쓰거나 synthetic `PASS` artifact를 만들지 않는다.
+`compare`는 원격 실행이 끝난 뒤 회수된 portable bundle만 읽는다. 각 run에서 portable manifest·fixture plan·fixture identity와 고정 options/read profile/source identity, 완료 `run-manifest.json`의 UTC window·fixture/summary SHA-256, before/after diagnosis `PASS`, 모든 phase exit code 0, `final-result.json` `PASS`, outcome별 count·p50·p95·p99·max와 `room_start_skew_ms` gate를 확인한다. 같은 window의 `resource-signals.json`에는 HTTP·Tomcat·Hikari·JVM·PostgreSQL·query 신호와 `commonRetrier`·`coordinator` retry attempt/retry/exhausted 분포가 있어야 한다. 필수 artifact·provenance·계측 누락과 불일치는 `INVALID`, 유효한 관측 뒤 요청·불변식·실행 실패는 `FAIL`로 보존하며, 8조건 모두 3회 `PASS`일 때만 campaign을 `PASS`로 기록한다. 이 도구는 `fixture.mjs run`을 다시 호출하지 않고, 원본 summary나 final-result를 덮어쓰거나 synthetic `PASS` artifact를 만들지 않는다.
 
 ## 결과 확인
 

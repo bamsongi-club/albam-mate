@@ -1,4 +1,6 @@
+import { createHash } from 'node:crypto';
 import {
+  appendFileSync,
   existsSync,
   mkdtempSync,
   readFileSync,
@@ -16,8 +18,10 @@ import {
   T1_T2_CONDITIONS,
   T1_T2_REPEAT_COUNT,
 } from '../lib/t1-t2-repetition-plan.mjs';
+import { renderBundle } from '../tools/portable-bundle.mjs';
 import {
   compareT1T2RepetitionCampaign,
+  readT1T2RunArtifact,
   validateResourceSignals,
   validateSummary,
 } from '../tools/t1-t2-repetition.mjs';
@@ -53,6 +57,164 @@ function summaryWithOneSuccess(run) {
       'room_request_duration{outcome:unexpected}': duration(0),
     },
   };
+}
+
+function writeJson(filePath, value) {
+  writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+}
+
+function sha256(filePath) {
+  return createHash('sha256').update(readFileSync(filePath)).digest('hex');
+}
+
+function portableBundleContext(buildRoot) {
+  return {
+    repositoryRoot,
+    scenarioDirectory: path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon'),
+    buildRoot,
+    isBundleRuntime: false,
+    bundleRoot: null,
+    environment: {
+      ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$test',
+      ROOM_K6_SESSION_WARMUP_SECONDS: '15',
+      ROOM_K6_ROUND_INTERVAL_SECONDS: '20',
+    },
+  };
+}
+
+function renderRunBundle(run, buildRoot) {
+  const { fixtureId: _fixtureId, ...inputOptions } = run.options;
+  return renderBundle(
+    inputOptions,
+    portableBundleContext(buildRoot),
+    { sourceRevision: SOURCE_SHA, sourceDirty: false },
+  );
+}
+
+function resourceSignalsFor(run, summaryResult, completionManifest) {
+  return {
+    schemaVersion: 1,
+    status: 'PASS',
+    runId: run.runId,
+    fixtureId: run.fixtureId,
+    scenario: run.options.scenario,
+    sourceSha: run.sourceSha,
+    targetEnvironment: run.targetEnvironment,
+    condition: run.options,
+    window: {
+      startedAtUtc: completionManifest.startedAtUtc,
+      finishedAtUtc: completionManifest.finishedAtUtc,
+    },
+    outcomeCoverage: summaryResult.outcomes,
+    http: { requestCount: 1, failedRequestCount: 0, rps: 1 },
+    tomcat: { activeThreads: 1, busyThreads: 0, maxThreads: 64 },
+    hikari: { activeConnections: 1, idleConnections: 0, pendingThreads: 0, maxPoolSize: 10 },
+    jvm: { heapUsedBytes: 1, heapMaxBytes: 10, cpuPercent: 0 },
+    postgresql: {
+      cpuPercent: 0,
+      activeConnections: 1,
+      lockWaitCount: 0,
+      transactionDurationMilliseconds: 5,
+    },
+    query: {
+      callCount: 1,
+      totalTimeMilliseconds: 1,
+      sharedBuffersHit: 0,
+      sharedBuffersRead: 0,
+    },
+    retry: {
+      commonRetrier: { attempts: { '1': 0 }, retries: 0, exhausted: 0 },
+      coordinator: { attempts: { '1': 0 }, retries: 0, exhausted: 0 },
+    },
+    observedStructuredRetryEvents: 0,
+  };
+}
+
+function writeValidRunArtifacts(run, buildRoot, { failing = false } = {}) {
+  const rendered = renderRunBundle(run, buildRoot);
+  const directory = rendered.bundlePath;
+  const fixturePath = path.join(directory, 'fixture.json');
+  const summaryPath = path.join(directory, 'k6-summary.json');
+  const fixture = {
+    schemaVersion: 2,
+    fixtureId: run.fixtureId,
+    options: run.options,
+  };
+  const summary = summaryWithOneSuccess(run);
+  const summaryResult = validateSummary(summary, run).value;
+  if (failing) {
+    summary.metrics.room_server_failures.values.count = 1;
+  }
+  writeJson(fixturePath, fixture);
+  writeJson(summaryPath, summary);
+
+  const completionManifest = {
+    schemaVersion: 2,
+    fixtureId: run.fixtureId,
+    runId: run.runId,
+    scenario: run.options.scenario,
+    condition: run.options,
+    runState: 'COMPLETED',
+    completed: true,
+    k6ExitCode: 0,
+    sourceSha: run.sourceSha,
+    targetEnvironment: run.targetEnvironment,
+    k6Version: '1.3.0',
+    startedAtUtc: '2026-08-19T00:00:00.000Z',
+    finishedAtUtc: '2026-08-19T00:01:00.000Z',
+    summaryFile: 'k6-summary.json',
+    summarySha256: sha256(summaryPath),
+    fixtureSha256: sha256(fixturePath),
+    t5ReadOptions: null,
+  };
+  writeJson(path.join(directory, 'run-manifest.json'), completionManifest);
+
+  const beforeDiagnosis = {
+    fixtureId: run.fixtureId,
+    scenario: run.options.scenario,
+    stage: 'before',
+    status: 'PASS',
+    failures: [],
+  };
+  const afterDiagnosis = {
+    fixtureId: run.fixtureId,
+    scenario: run.options.scenario,
+    stage: 'after',
+    status: 'PASS',
+    failures: [],
+  };
+  const infraExecution = {
+    schemaVersion: 1,
+    runId: run.runId,
+    fixtureId: run.fixtureId,
+    phases: {
+      prepare: { exitCode: 0 },
+      resourceQuery: { exitCode: 0 },
+      beforeSnapshot: { exitCode: 0 },
+      k6: { exitCode: 0 },
+      afterSnapshot: { exitCode: 0 },
+    },
+  };
+  writeJson(path.join(directory, 'before-diagnosis.json'), beforeDiagnosis);
+  writeJson(path.join(directory, 'after-diagnosis.json'), afterDiagnosis);
+  writeJson(path.join(directory, 'infra-execution.json'), infraExecution);
+  writeJson(path.join(directory, 'final-result.json'), {
+    schemaVersion: 1,
+    fixtureId: run.fixtureId,
+    runId: run.runId,
+    scenario: run.options.scenario,
+    status: 'PASS',
+    issues: [],
+    beforeDiagnosis,
+    afterDiagnosis,
+    infraExecution,
+    runManifest: completionManifest,
+  });
+  writeJson(
+    path.join(directory, 'resource-signals.json'),
+    resourceSignalsFor(run, summaryResult, completionManifest),
+  );
+  return directory;
 }
 
 test('T1/T2 반복 계획은 8조건 × 3회와 독립 fixture/run identity를 만든다', () => {
@@ -182,6 +344,77 @@ test('T1/T2 resource signal 계약은 retry 분포와 필수 자원 신호 누�
 
   assert.match(result.error, /run·condition·source·UTC window/);
   assert.equal(validateSummary(summary, run).value.requestCount, 1);
+});
+
+test('T1/T2 resource signal 계약은 T3 DB·connection 필수 신호 누락을 INVALID로 차단한다', () => {
+  const plan = createT1T2RepetitionPlan({
+    campaignId: 'room-t1-t2-required-signal-test',
+    sourceSha: SOURCE_SHA,
+    targetEnvironment: 'private-loadtest',
+  });
+  const run = plan.runs[0];
+  const summary = summaryWithOneSuccess(run);
+  const summaryResult = validateSummary(summary, run).value;
+  const completionManifest = {
+    startedAtUtc: '2026-08-18T00:00:00.000Z',
+    finishedAtUtc: '2026-08-18T00:01:00.000Z',
+  };
+
+  for (const [group, field] of [
+    ['hikari', 'pendingThreads'],
+    ['postgresql', 'lockWaitCount'],
+    ['postgresql', 'transactionDurationMilliseconds'],
+  ]) {
+    const signals = resourceSignalsFor(run, summaryResult, completionManifest);
+    delete signals[group][field];
+
+    const result = validateResourceSignals(signals, run, completionManifest, summaryResult);
+
+    assert.ok(result.error, `${group}.${field} 누락이 통과했습니다.`);
+  }
+});
+
+test('T1/T2 비교기는 portable bundle immutable artifact 변경을 INVALID로 차단한다', () => {
+  const buildRoot = mkdtempSync(path.join(os.tmpdir(), 'room-k6-t1-t2-immutable-'));
+  try {
+    const plan = createT1T2RepetitionPlan({
+      campaignId: 'room-t1-t2-immutable-test',
+      sourceSha: SOURCE_SHA,
+      targetEnvironment: 'private-loadtest',
+    });
+    const run = plan.runs[0];
+    const directory = renderRunBundle(run, buildRoot).bundlePath;
+    appendFileSync(path.join(directory, 'scenario.js'), '\n// tampered\n');
+
+    const result = readT1T2RunArtifact(buildRoot, run);
+
+    assert.equal(result.kind, 'INVALID');
+    assert.match(result.failure, /immutable artifact가 변조되었습니다/);
+  } finally {
+    rmSync(buildRoot, { recursive: true, force: true });
+  }
+});
+
+test('T1/T2 비교 campaign은 유효 artifact의 실행 실패를 INVALID가 아닌 FAIL로 기록한다', () => {
+  const buildRoot = mkdtempSync(path.join(os.tmpdir(), 'room-k6-t1-t2-fail-'));
+  try {
+    const plan = createT1T2RepetitionPlan({
+      campaignId: 'room-t1-t2-fail-test',
+      sourceSha: SOURCE_SHA,
+      targetEnvironment: 'private-loadtest',
+    });
+    for (const [index, run] of plan.runs.entries()) {
+      writeValidRunArtifacts(run, buildRoot, { failing: index === 0 });
+    }
+
+    const result = compareT1T2RepetitionCampaign({ plan, buildRoot });
+
+    assert.equal(result.status, 'FAIL');
+    assert.equal(result.conditions[0].runs[0].status, 'FAIL');
+    assert.match(result.failures.join('\n'), /room_server_failures/);
+  } finally {
+    rmSync(buildRoot, { recursive: true, force: true });
+  }
 });
 
 test('T1/T2 repetition tool은 fixture.mjs를 재실행하거나 원본 summary·final-result를 쓰지 않는다', () => {
