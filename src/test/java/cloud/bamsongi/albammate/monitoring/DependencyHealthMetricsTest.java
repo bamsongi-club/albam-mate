@@ -113,26 +113,31 @@ class DependencyHealthMetricsTest {
 	}
 
 	@Test
-	void T2_PostgreSQL_probe가_지연되어도_Redis_gauge는_제한시간_안에_갱신한다() throws Exception {
+	void T1_PostgreSQL_probe_시간초과는_기존_상태를_down으로_바꾸지_않는다() throws Exception {
 		SimpleMeterRegistry registry = new SimpleMeterRegistry();
 		DataSource dataSource = mock(DataSource.class);
 		RedisConnectionFactory redisConnectionFactory = mock(RedisConnectionFactory.class);
+		Connection postgresql = mock(Connection.class);
 		RedisConnection redis = mock(RedisConnection.class);
-		when(dataSource.getConnection()).thenAnswer(invocation -> {
+		when(dataSource.getConnection()).thenReturn(postgresql).thenAnswer(invocation -> {
 			Thread.sleep(1_000);
 			throw new java.sql.SQLException("postgresql pool acquisition timed out");
 		});
 		when(redisConnectionFactory.getConnection()).thenReturn(redis);
+		when(postgresql.isValid(1)).thenReturn(true);
 		when(redis.ping()).thenReturn("PONG");
 		DependencyHealthSampler sampler = new DependencyHealthSampler(
 			dataSource, redisConnectionFactory, new DependencyHealthMetrics(registry),
 			java.time.Duration.ofSeconds(10));
 
+		sampler.sample();
+		assertEquals(1.0, gaugeValue(registry, "postgresql"));
+
 		long startedAt = System.nanoTime();
 		sampler.sample();
 
 		assertTrue(java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt) < 500);
-		assertEquals(0.0, gaugeValue(registry, "postgresql"));
+		assertEquals(1.0, gaugeValue(registry, "postgresql"));
 		assertEquals(1.0, gaugeValue(registry, "redis"));
 		sampler.shutdown();
 	}

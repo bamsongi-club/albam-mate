@@ -130,6 +130,132 @@ class RoomStatusCorrectionCoordinatorTest {
 	}
 
 	@Test
+	void T2_낙관락_소진_ROOM도_전체_run은_failed_하나로_기록한다() {
+		SimpleMeterRegistry registry = new SimpleMeterRegistry();
+		Metrics.addRegistry(registry);
+		RoomStatusCorrectionExecutor executor = mock(RoomStatusCorrectionExecutor.class);
+		RoomStatusCorrectionCandidateSelector candidateSelector = mock(RoomStatusCorrectionCandidateSelector.class);
+		RoomStatusCorrectionProgressStore progressStore = mock(RoomStatusCorrectionProgressStore.class);
+		RoomStatusCorrectionProgressStore.ProgressSnapshot progress = mock(
+			RoomStatusCorrectionProgressStore.ProgressSnapshot.class);
+		RoomStatusCorrectionCandidateSelector.DueRoomCandidate candidate = new RoomStatusCorrectionCandidateSelector.DueRoomCandidate(
+			10L, REQUEST_TIME.minusSeconds(2));
+		when(progress.turnCutoff()).thenReturn(REQUEST_TIME.minusSeconds(1));
+		when(candidateSelector.select(progress, 10)).thenReturn(List.of(candidate));
+		when(candidateSelector.select(progress, 1)).thenReturn(List.of());
+		when(progressStore.advanceCursor(progress, candidate.dueAt(), candidate.roomId()))
+			.thenReturn(Optional.of(progress));
+		doThrow(new OptimisticLockException()).doThrow(new OptimisticLockException())
+			.doThrow(new OptimisticLockException())
+			.when(executor).correctRoom(10L, REQUEST_TIME);
+		RoomStatusCorrectionCoordinator coordinator = new RoomStatusCorrectionCoordinator(
+			executor, new RoomOptimisticLockRetrier(), candidateSelector, progressStore);
+		try {
+			coordinator.correctBoundedDueRooms(REQUEST_TIME, progress, 10, 1);
+
+			assertEquals(1.0, registry.find("room.status.correction.runs").tag("outcome", "failed").counter()
+				.count());
+			assertEquals(0.0, registry.find("room.status.correction.runs").tag("outcome", "completed").counter()
+				.count());
+			assertEquals(0.0, registry.find("room.status.correction.runs").tag("outcome", "batch_limit").counter()
+				.count());
+		} finally {
+			Metrics.removeRegistry(registry);
+			registry.close();
+		}
+	}
+
+	@Test
+	void T2_후보선택_외곽실패는_failed_하나를_기록하고_전달한다() {
+		SimpleMeterRegistry registry = new SimpleMeterRegistry();
+		Metrics.addRegistry(registry);
+		RoomStatusCorrectionCandidateSelector candidateSelector = mock(RoomStatusCorrectionCandidateSelector.class);
+		RoomStatusCorrectionProgressStore.ProgressSnapshot progress = mock(
+			RoomStatusCorrectionProgressStore.ProgressSnapshot.class);
+		when(candidateSelector.select(progress, 10)).thenThrow(new IllegalStateException("candidate select failure"));
+		RoomStatusCorrectionCoordinator coordinator = new RoomStatusCorrectionCoordinator(
+			mock(RoomStatusCorrectionExecutor.class), new RoomOptimisticLockRetrier(), candidateSelector,
+			mock(RoomStatusCorrectionProgressStore.class));
+		try {
+			assertThrows(IllegalStateException.class,
+				() -> coordinator.correctBoundedDueRooms(REQUEST_TIME, progress, 10, 1));
+
+			assertEquals(1.0, registry.find("room.status.correction.runs").tag("outcome", "failed").counter()
+				.count());
+			assertEquals(0.0, registry.find("room.status.correction.runs").tag("outcome", "completed").counter()
+				.count());
+			assertEquals(0.0, registry.find("room.status.correction.runs").tag("outcome", "batch_limit").counter()
+				.count());
+		} finally {
+			Metrics.removeRegistry(registry);
+			registry.close();
+		}
+	}
+
+	@Test
+	void T2_cursor_전진_외곽실패는_failed_하나를_기록하고_전달한다() {
+		SimpleMeterRegistry registry = new SimpleMeterRegistry();
+		Metrics.addRegistry(registry);
+		RoomStatusCorrectionExecutor executor = mock(RoomStatusCorrectionExecutor.class);
+		RoomStatusCorrectionCandidateSelector candidateSelector = mock(RoomStatusCorrectionCandidateSelector.class);
+		RoomStatusCorrectionProgressStore progressStore = mock(RoomStatusCorrectionProgressStore.class);
+		RoomStatusCorrectionProgressStore.ProgressSnapshot progress = mock(
+			RoomStatusCorrectionProgressStore.ProgressSnapshot.class);
+		RoomStatusCorrectionCandidateSelector.DueRoomCandidate candidate = new RoomStatusCorrectionCandidateSelector.DueRoomCandidate(
+			10L, REQUEST_TIME.minusSeconds(2));
+		when(candidateSelector.select(progress, 10)).thenReturn(List.of(candidate));
+		when(progressStore.advanceCursor(progress, candidate.dueAt(), candidate.roomId()))
+			.thenThrow(new IllegalStateException("cursor advance failure"));
+		RoomStatusCorrectionCoordinator coordinator = new RoomStatusCorrectionCoordinator(
+			executor, new RoomOptimisticLockRetrier(), candidateSelector, progressStore);
+		try {
+			assertThrows(IllegalStateException.class,
+				() -> coordinator.correctBoundedDueRooms(REQUEST_TIME, progress, 10, 1));
+
+			assertEquals(1.0, registry.find("room.status.correction.runs").tag("outcome", "failed").counter()
+				.count());
+			assertEquals(0.0, registry.find("room.status.correction.runs").tag("outcome", "completed").counter()
+				.count());
+			assertEquals(0.0, registry.find("room.status.correction.runs").tag("outcome", "batch_limit").counter()
+				.count());
+		} finally {
+			Metrics.removeRegistry(registry);
+			registry.close();
+		}
+	}
+
+	@Test
+	void T2_cursor_wrap_외곽실패는_failed_하나를_기록하고_전달한다() {
+		SimpleMeterRegistry registry = new SimpleMeterRegistry();
+		Metrics.addRegistry(registry);
+		RoomStatusCorrectionCandidateSelector candidateSelector = mock(RoomStatusCorrectionCandidateSelector.class);
+		RoomStatusCorrectionProgressStore progressStore = mock(RoomStatusCorrectionProgressStore.class);
+		RoomStatusCorrectionProgressStore.ProgressSnapshot progress = mock(
+			RoomStatusCorrectionProgressStore.ProgressSnapshot.class);
+		when(progress.turnCutoff()).thenReturn(REQUEST_TIME.minusSeconds(1));
+		when(candidateSelector.select(progress, 10)).thenReturn(List.of());
+		doThrow(new IllegalStateException("cursor wrap failure")).when(progressStore)
+			.wrap(progress, REQUEST_TIME);
+		RoomStatusCorrectionCoordinator coordinator = new RoomStatusCorrectionCoordinator(
+			mock(RoomStatusCorrectionExecutor.class), new RoomOptimisticLockRetrier(), candidateSelector,
+			progressStore);
+		try {
+			assertThrows(IllegalStateException.class,
+				() -> coordinator.correctBoundedDueRooms(REQUEST_TIME, progress, 10, 1));
+
+			assertEquals(1.0, registry.find("room.status.correction.runs").tag("outcome", "failed").counter()
+				.count());
+			assertEquals(0.0, registry.find("room.status.correction.runs").tag("outcome", "completed").counter()
+				.count());
+			assertEquals(0.0, registry.find("room.status.correction.runs").tag("outcome", "batch_limit").counter()
+				.count());
+		} finally {
+			Metrics.removeRegistry(registry);
+			registry.close();
+		}
+	}
+
+	@Test
 	void 낙관락_충돌_후_성공하면_한_번만_재시도한다() {
 		RoomStatusCorrectionExecutor executor = mock(RoomStatusCorrectionExecutor.class);
 		RoomStatusCorrectionCoordinator coordinator = coordinator(executor);

@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
+import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.monitoring.RoomStatusCorrectionMetrics;
 import cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier;
 import io.micrometer.core.instrument.Metrics;
@@ -101,43 +102,53 @@ public class RoomStatusCorrectionCoordinator {
 		RoomStatusCorrectionProgressStore.ProgressSnapshot progress = claimedProgress;
 		int changedCount = 0;
 		boolean roomFailureObserved = false;
-		for (int batchIndex = 0; batchIndex < maxBatchesPerRun; batchIndex++) {
-			List<RoomStatusCorrectionCandidateSelector.DueRoomCandidate> candidates = candidateSelector
-				.select(progress, candidateLimit);
-			if (candidates.isEmpty()) {
-				progressStore.wrap(progress, nextTurnCutoff(requestTime, progress.turnCutoff()));
-				return recordRun(new BoundedCorrectionResult(changedCount, false), roomFailureObserved, startedAtNanos);
-			}
-
-			for (RoomStatusCorrectionCandidateSelector.DueRoomCandidate candidate : candidates) {
-				try {
-					if (correctRoom(candidate.roomId(), requestTime, beforeRetry)) {
-						changedCount++;
-					}
-				} catch (BusinessException exception) {
-					// 계약된 업무 거절과 낙관 락 소진은 호출자 오류 계약으로만 전달한다.
-				} catch (RuntimeException exception) {
-					roomFailureObserved = true;
-					log.atWarn().addKeyValue("event", "room_status_reconciliation_room_failed")
-						.addKeyValue("roomId", candidate.roomId()).addKeyValue("useCase", "ROOM_STATUS_CORRECTION")
-						.addKeyValue("reasonCode", "UNEXPECTED_FAILURE").log("room status reconciliation room failed");
-				}
-
-				Optional<RoomStatusCorrectionProgressStore.ProgressSnapshot> advanced = progressStore.advanceCursor(
-					progress, candidate.dueAt(), candidate.roomId());
-				if (advanced.isEmpty()) {
+		try {
+			for (int batchIndex = 0; batchIndex < maxBatchesPerRun; batchIndex++) {
+				List<RoomStatusCorrectionCandidateSelector.DueRoomCandidate> candidates = candidateSelector
+					.select(progress, candidateLimit);
+				if (candidates.isEmpty()) {
+					progressStore.wrap(progress, nextTurnCutoff(requestTime, progress.turnCutoff()));
 					return recordRun(new BoundedCorrectionResult(changedCount, false), roomFailureObserved,
 						startedAtNanos);
 				}
-				progress = advanced.get();
-			}
-		}
 
-		if (!candidateSelector.select(progress, 1).isEmpty()) {
-			return recordRun(new BoundedCorrectionResult(changedCount, true), roomFailureObserved, startedAtNanos);
+				for (RoomStatusCorrectionCandidateSelector.DueRoomCandidate candidate : candidates) {
+					try {
+						if (correctRoom(candidate.roomId(), requestTime, beforeRetry)) {
+							changedCount++;
+						}
+					} catch (BusinessException exception) {
+						if (exception.getErrorCode() == ErrorCode.ROOM_CONCURRENT_MODIFICATION) {
+							roomFailureObserved = true;
+						}
+					} catch (RuntimeException exception) {
+						roomFailureObserved = true;
+						log.atWarn().addKeyValue("event", "room_status_reconciliation_room_failed")
+							.addKeyValue("roomId", candidate.roomId()).addKeyValue("useCase", "ROOM_STATUS_CORRECTION")
+							.addKeyValue("reasonCode", "UNEXPECTED_FAILURE")
+							.log("room status reconciliation room failed");
+					}
+
+					Optional<RoomStatusCorrectionProgressStore.ProgressSnapshot> advanced = progressStore.advanceCursor(
+						progress, candidate.dueAt(), candidate.roomId());
+					if (advanced.isEmpty()) {
+						return recordRun(new BoundedCorrectionResult(changedCount, false), roomFailureObserved,
+							startedAtNanos);
+					}
+					progress = advanced.get();
+				}
+			}
+
+			if (!candidateSelector.select(progress, 1).isEmpty()) {
+				return recordRun(new BoundedCorrectionResult(changedCount, true), roomFailureObserved, startedAtNanos);
+			}
+			progressStore.wrap(progress, nextTurnCutoff(requestTime, progress.turnCutoff()));
+			return recordRun(new BoundedCorrectionResult(changedCount, false), roomFailureObserved, startedAtNanos);
+		} catch (RuntimeException exception) {
+			metrics.recordRun(RoomStatusCorrectionMetrics.RunOutcome.FAILED,
+				java.time.Duration.ofNanos(System.nanoTime() - startedAtNanos));
+			throw exception;
 		}
-		progressStore.wrap(progress, nextTurnCutoff(requestTime, progress.turnCutoff()));
-		return recordRun(new BoundedCorrectionResult(changedCount, false), roomFailureObserved, startedAtNanos);
 	}
 
 	record BoundedCorrectionResult(int changedCount, boolean hasRemainingCandidates) {
