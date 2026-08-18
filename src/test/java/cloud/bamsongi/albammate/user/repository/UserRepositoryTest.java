@@ -63,4 +63,45 @@ class UserRepositoryTest {
 			profilesById);
 		assertTrue(userRepository.findPublicProfileById(999_999L).isEmpty());
 	}
+
+	@Test
+	void 사용자_요약_단건_조회는_닉네임과_프로필_이미지_URL을_함께_반환하고_이미지가_없으면_null이다() {
+		User withImage = User.create("with-image@example.com", "{bcrypt}hash", "방장");
+		withImage.changeProfileImageUrl("https://cdn.example.com/host.png");
+		User withoutImage = User.create("without-image@example.com", "{bcrypt}hash", "참가자");
+		List<User> users = userRepository.saveAllAndFlush(List.of(withImage, withoutImage));
+
+		UserRepository.UserSummaryProjection withImageSummary = userRepository
+			.findUserSummaryProjectionById(users.getFirst().getId())
+			.orElseThrow();
+		UserRepository.UserSummaryProjection withoutImageSummary = userRepository
+			.findUserSummaryProjectionById(users.getLast().getId())
+			.orElseThrow();
+
+		assertEquals("방장", withImageSummary.getNickname());
+		assertEquals("https://cdn.example.com/host.png", withImageSummary.getProfileImageUrl());
+		assertEquals("참가자", withoutImageSummary.getNickname());
+		assertEquals(null, withoutImageSummary.getProfileImageUrl());
+	}
+
+	@Test
+	void 여러_사용자_요약은_ID와_닉네임과_프로필_이미지_URL_projection으로_존재하는_사용자만_반환한다() {
+		User withImage = User.create("with-image-multi@example.com", "{bcrypt}hash", "방장");
+		withImage.changeProfileImageUrl("https://cdn.example.com/host.png");
+		User withoutImage = User.create("without-image-multi@example.com", "{bcrypt}hash", "참가자");
+		List<User> users = userRepository.saveAllAndFlush(List.of(withImage, withoutImage));
+
+		Map<Long, UserRepository.UserSummaryProjection> summariesById = userRepository
+			.findUserSummaryProjectionsByIds(
+				List.of(users.getFirst().getId(), users.getLast().getId(), users.getFirst().getId(), 999_999L))
+			.stream()
+			.collect(Collectors.toMap(UserRepository.UserSummaryProjection::getId, projection -> projection));
+
+		assertEquals(2, summariesById.size());
+		assertEquals("방장", summariesById.get(users.getFirst().getId()).getNickname());
+		assertEquals(
+			"https://cdn.example.com/host.png", summariesById.get(users.getFirst().getId()).getProfileImageUrl());
+		assertEquals("참가자", summariesById.get(users.getLast().getId()).getNickname());
+		assertEquals(null, summariesById.get(users.getLast().getId()).getProfileImageUrl());
+	}
 }

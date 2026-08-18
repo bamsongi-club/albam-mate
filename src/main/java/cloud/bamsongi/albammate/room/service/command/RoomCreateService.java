@@ -43,8 +43,8 @@ public class RoomCreateService {
 	@Transactional
 	public ParticipantRoomResponse createRoom(long currentUserId, CreateRoomRequest request) {
 		Instant requestTime = Instant.now(clock);
-		String hostNickname = userQuery
-			.findNicknameById(currentUserId)
+		UserQuery.UserSummary hostSummary = userQuery
+			.findUserSummaryById(currentUserId)
 			.orElseThrow(UnauthenticatedException::new);
 		GameSummary game = resolveGame(request);
 		validateStartsAt(request.startsAt(), requestTime);
@@ -62,7 +62,7 @@ public class RoomCreateService {
 			request.recruitmentCapacity());
 		Room savedRoom = roomRepository.save(room);
 		eventPublisher.publishEvent(new RoomCreated(savedRoom.getId()));
-		NicknameSummary host = new NicknameSummary(hostNickname);
+		NicknameSummary host = new NicknameSummary(hostSummary.nickname(), hostSummary.profileImageUrl());
 		RoomActionAvailability availability = roomActionAvailabilityEvaluator.evaluate(
 			new RoomActionAvailabilityFacts(savedRoom, requestTime, true, true, false, false));
 		return ParticipantRoomResponse.from(

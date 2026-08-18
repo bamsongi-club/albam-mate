@@ -97,6 +97,7 @@ class ChatMessageControllerTest {
 			.andExpect(jsonPath("$.data.roomId").value(1))
 			.andExpect(jsonPath("$.data.clientMessageId").value("client-1"))
 			.andExpect(jsonPath("$.data.sender.nickname").value("작성자"))
+			.andExpect(jsonPath("$.data.sender.profileImageUrl").value("https://cdn.example.com/writer.png"))
 			.andExpect(jsonPath("$.data.isMine").value(true))
 			.andExpect(jsonPath("$.data.content").value("안녕하세요"))
 			.andExpect(jsonPath("$.data.senderUserId").doesNotExist());
@@ -226,7 +227,7 @@ class ChatMessageControllerTest {
 			10L,
 			1L,
 			"client-1",
-			new ChatMessageSender("작성자"),
+			new ChatMessageSender("작성자", "https://cdn.example.com/writer.png"),
 			true,
 			"안녕하세요",
 			Instant.parse("2026-08-04T00:00:00Z"));

@@ -25,3 +25,4 @@
 | [0052](0052-local-profile-multi-instance-default.md) | `local` 프로필을 다중 인스턴스 기본 검증 환경으로 통합 | 승인됨 | 2026-08-07 | 검증됨 |
 | [0059](0059-p2-structured-stdout-cloudwatch-logs.md) | P2 구조화 애플리케이션 로그를 CloudWatch Logs에 전송 | 승인됨 | 2026-08-13 | 미검증 |
 | [0071](0071-p2-application-metrics-otlp-host-cloudwatch-agent.md) | P2 애플리케이션 메트릭을 동일 호스트 CloudWatch Agent로 OTLP 전송 | 승인됨 | 2026-08-13 | 미검증 |
+| [0073](0073-profile-image-shared-object-storage.md) | 프로필 이미지 저장소를 다중 인스턴스 공용 객체 스토리지(S3)로 전환 | 제안됨 | 미정 | 미검증 |
