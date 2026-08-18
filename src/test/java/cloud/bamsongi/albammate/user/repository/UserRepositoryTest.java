@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.user.repository;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
@@ -55,10 +56,11 @@ class UserRepositoryTest {
 		Map<Long, UserPublicProfile> profilesById = profiles.stream()
 			.collect(Collectors.toMap(UserPublicProfile::userId, profile -> profile));
 		assertEquals(
-			new UserPublicProfile(userWithoutImage.getId(), "이미지 없음", null),
-			profilesById.get(userWithoutImage.getId()));
-		assertEquals(
-			new UserPublicProfile(userWithImage.getId(), "이미지 있음", "https://example.com/profile.png"),
-			profilesById.get(userWithImage.getId()));
+			Map.of(
+				userWithoutImage.getId(), new UserPublicProfile(userWithoutImage.getId(), "이미지 없음", null),
+				userWithImage.getId(),
+				new UserPublicProfile(userWithImage.getId(), "이미지 있음", "https://example.com/profile.png")),
+			profilesById);
+		assertTrue(userRepository.findPublicProfileById(999_999L).isEmpty());
 	}
 }

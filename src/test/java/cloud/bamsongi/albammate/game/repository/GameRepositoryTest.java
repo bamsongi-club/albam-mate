@@ -19,6 +19,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import cloud.bamsongi.albammate.game.contract.GamePlayerRange;
 import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
@@ -306,6 +307,18 @@ class GameRepositoryTest {
 		assertEquals(Optional.of(new GameSummary(savedGame.getId(), savedGame.getBggId(), savedGame.getName())),
 			result);
 		assertTrue(gameRepository.findSummaryById(999_999L).isEmpty());
+	}
+
+	@Test
+	void 매칭_지원_인원_범위는_실제_최소최대_값만_사용하고_전체_결측값과_없는_게임은_empty다() {
+		Game completeRange = saveGame(2001L, "CompleteRange", 2, 4, 20, new BigDecimal("2.00"));
+		Game missingRange = saveGame(2002L, "MissingRange", null, null, 20, new BigDecimal("2.00"));
+
+		assertEquals(
+			Optional.of(new GamePlayerRange(completeRange.getId(), 2, 4)),
+			gameRepository.findPlayerRangeById(completeRange.getId()));
+		assertTrue(gameRepository.findPlayerRangeById(missingRange.getId()).isEmpty());
+		assertTrue(gameRepository.findPlayerRangeById(999_999L).isEmpty());
 	}
 
 	private GameListSearchCriteria pagedCriteria() {
