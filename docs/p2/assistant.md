@@ -65,7 +65,7 @@
 - `AI-01a`: 로그인·외부 처리 동의, 자연어에서 서버가 소비할 구조화 조건 추출, 누락 필드·후보 없음·지원하지 않는 요청의 상태 구분.
 - `AI-01b`: 외부 AI port와 adapter, payload allowlist, 호출 한도·timeout·비용 상한·fail-closed·fake provider 기본 검증. 세부 값은 [ADR-0068](../adr/platform/0068-p2-ai-provider-consent-and-operation-boundary.md)을 따른다.
 - `AI-01c`: 15분 임시 초안, 상세 장소 입력, 명시적 확인, `Idempotency-Key`와 draft version을 사용하는 Room 생성 연결. 세부 저장·지역·오류 계약은 [ADR-0069](../adr/room/0069-p2-ai-draft-confirmation-and-idempotent-room-command.md)와 [ADR-0070](../adr/room/0070-p2-room-region-closed-set-and-compatibility.md)를 따른다.
-- `AI-01d`: `#/assistant` 화면, 추천·추가 질문·확인 카드·실패 상태와 기존 수동 Room 생성 회귀 보호.
+- `AI-01d`: `#/assistant` 화면, 추천·추가 질문·확인 카드·실패 상태, `내정보 > AI 설정`의 동의 상태·정책 버전·URL 확인과 철회 화면, 기존 수동 Room 생성 회귀 보호.
 - `AI-01` 전체 흐름의 품질·계약·부하 검증 설계는 [검증 설계](assistant-load-test.md)를 따른다.
 
 ### 제외 범위와 재검토 조건
@@ -87,7 +87,7 @@
 | `AI-01a` | 동의·철회, 조건 추출, 서버 추천·추가 질문 | ADR-0068, API·아키텍처 계약 |
 | `AI-01b` | provider adapter, fake provider, quota·timeout·비용·fail-closed | ADR-0068, 설정·관측 계약 |
 | `AI-01c` | 임시 초안, 장소 입력, 지역 검증, 확인형 Room command와 멱등성 | ADR-0069·0070, ERD·API·Room 계약 |
-| `AI-01d` | `#/assistant` 화면, 확인 카드, 실패 상태, 수동 Room 회귀 | `AI-01a`·`AI-01c` 공개 응답 계약 |
+| `AI-01d` | `#/assistant` 화면, 확인 카드, 실패 상태, `내정보 > AI 설정` 동의·철회 화면, 수동 Room 회귀 | `AI-01a`·`AI-01c` 공개 응답 계약 |
 
 각 구현 이슈는 대상 경로, 공개 계약, migration, 테스트 ID, rollback과 제외 범위를 선언한다. 공유 파일을 여러 슬라이스가 수정하면 먼저 소유자를 정하고 계약 변경을 선행한다. 이 문서와 ADR·API·ERD·아키텍처의 계약 및 각 구현 이슈의 테스트 계약이 고정되기 전에는 provider dependency, 공개 endpoint, 테이블, 생산 코드를 추가하지 않는다.
 
