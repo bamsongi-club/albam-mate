@@ -13,9 +13,9 @@ ADR-0063의 baseline gate는 하나의 latency 수치로 모든 MATCH 흐름을 
 | 항목 | 고정값 또는 필수 기록값 |
 | --- | --- |
 | 기준 SHA | 실행한 `git rev-parse HEAD` 값 |
-| fixture generator | `MATCH-01-CANDIDATE-BASELINE-V1`. 아래 ordinal·시각 배정 규칙까지 같은 버전의 입력 계약이다 |
-| 요청 | 같은 `gameId`·Board Game Arena의 `WAITING` 요청 정확히 1,000건. `PREPARING`·`ACTIVE`·`CLOSED` Party와 열린 제안은 0건 |
-| 인원 범위 | 모든 요청은 `[2, 4]`; 게임도 `[2, 4]` 지원. 따라서 claim당 2명, 기대 가능한 candidate claim은 500개 proposal·1,000개 member 전이 |
+| fixture generator | `MATCH-01-CANDIDATE-BASELINE-V2`. 아래 ordinal·시각 배정 규칙까지 같은 버전의 입력 계약이다 |
+| 요청 | 게임·플랫폼 조건 없이 사용자 인원 범위 `[2, 4]`를 가진 `WAITING` 요청 정확히 1,000건. `PREPARING`·`ACTIVE`·`CLOSED` Party와 열린 제안은 0건 |
+| 인원 범위 | 모든 요청의 사용자 인원 범위는 `[2, 4]`다. 따라서 claim당 2명, 기대 가능한 candidate claim은 500개 proposal·1,000개 member 전이 |
 | 우선순위 | fixture ordinal `1..200`은 두 행씩 같은 `prioritySince`를 갖는 100개 동점 쌍, `201..1000`은 서로 다른 `prioritySince`를 갖는다. 모든 tie는 `requestId ASC`로 판정 가능해야 한다 |
 | 차단 | `MATCH_BLOCKS`는 0건. 차단 필터 정확성은 기능 통합 테스트에서 별도로 검증하며, 이 baseline에 숨은 선택도 변수를 넣지 않는다 |
 | matcher | 같은 애플리케이션 SHA·설정의 독립 matcher 프로세스 2개가 하나의 PostgreSQL DB를 공유한다. Redis business lock은 사용하지 않는다 |
@@ -29,6 +29,20 @@ fixture 생성·truncate·통계 초기화는 측정 구간 밖에서 끝낸다.
 3. ordinal `201..1000`의 `queuedAt`·`prioritySince`는 모두 `기준 시각 + ordinal초`로 설정해 다른 요청·동점 쌍과 겹치지 않게 한다. 모든 행의 인원 범위는 `[2, 4]`다.
 4. DB 삽입 전에 `fixtureOrdinal,userFixtureOrdinal,queuedAt,prioritySince,minPartySize,maxPartySize` 열 순서와 ordinal 오름차순, UTF-8·LF·마지막 LF를 사용하는 CSV를 만든다. 이 바이트의 SHA-256을 `fixtureInputSha256`으로 기록하고 모든 warm-up·measured round에서 같은 값인지 먼저 검증한다.
 5. 삽입 뒤 materialized fixture manifest에는 위 입력 열과 실제 `userId`·`requestId`, 기대 tie 순서를 기록한다. 각 동점 쌍에서 낮은 ordinal의 `requestId`가 더 작아야 하며, 다르면 측정을 시작하지 않고 해당 round를 `INVALID`로 남긴다.
+
+## 혼합 범위 correctness smoke
+
+후보 선택의 혼합 범위 정합성은 성능 표본에 섞지 않고 baseline 실행 전 별도 smoke로 검증한다. 아래 다섯 요청을 `prioritySince ASC, requestId ASC` 순서로 넣고, 차단 관계는 두지 않는다.
+
+| 요청 | 인원 범위 |
+| --- | --- |
+| `R1` (anchor) | `[2,4]` |
+| `R2` | `[4,4]` |
+| `R3` | `[2,2]` |
+| `R4` | `[4,4]` |
+| `R5` | `[4,4]` |
+
+검증 결과는 `targetPartySize`를 anchor의 최소값부터 오름차순으로 시도할 때 `targetPartySize=2`에서 `R2`를 건너뛰고 `R1·R3`를 선택하는 `partySize=2` proposal 한 건이어야 한다. `R2`처럼 현재 target과 호환되지 않는 요청을 건너뛰며, FIFO로 먼저 선택된 호환 요청을 뒤 요청으로 바꾸지 않는 것도 함께 확인한다. smoke 결과와 실행한 commit SHA는 baseline 결과 artifact에 기록하되, latency 표본·`BASELINE_ACCEPTED`의 1,000건 계산에는 포함하지 않는다.
 
 ## round와 수집 방식
 

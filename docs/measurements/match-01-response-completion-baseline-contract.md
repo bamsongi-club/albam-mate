@@ -11,8 +11,8 @@
 | 항목 | 고정값 또는 필수 기록값 |
 | --- | --- |
 | 기준 SHA | 실행한 `git rev-parse HEAD` 값 |
-| fixture seed | `MATCH-01-RESPONSE-COMPLETION-V1` |
-| 공통 Proposal 구성 | 같은 게임·Board Game Arena, 게임과 두 연결 요청의 인원 범위 `[2, 4]`, 실제 `party_size = 2`로 고정한다. 각 `OPEN` Proposal은 서로 다른 synthetic 사용자 요청 2개와 `PENDING` Member 2개를 정확히 가지며 두 요청은 `PROPOSED`, `responded_at`은 NULL이다 |
+| fixture seed | `MATCH-01-RESPONSE-COMPLETION-V2` |
+| 공통 Proposal 구성 | 두 연결 요청의 사용자 인원 범위 `[2, 4]`, 실제 `party_size = 2`로 고정한다. 각 `OPEN` Proposal은 서로 다른 synthetic 사용자 요청 2개와 `PENDING` Member 2개를 정확히 가지며 두 요청은 `PROPOSED`, `responded_at`은 NULL이다. 게임·플랫폼 필드는 fixture에 넣지 않는다 |
 | 데이터 | 비종결 `ACCEPT`·`REQUEUE`·`CANCEL`은 각각 Proposal 1,000개·Member/연결 요청 2,000개와 명령 대상 Member 1,000명을 사용한다. 마지막 `ACCEPT`는 Proposal 500개·Member/연결 요청 1,000개를 사용하고 두 Member 모두 명령 대상이다. 모든 fixture에서 후보 선점·`PREPARING`·`ACTIVE` Party와 이전 응답 멱등성 기록은 0건이다 |
 | 시나리오 | `ACCEPT` 비종결 응답, 마지막 `ACCEPT`에 의한 최종 확정, `REQUEUE`, `CANCEL`을 각각 독립 fixture로 실행한다 |
 | 시각·동시성 | fixture 트랜잭션의 `transaction_timestamp()`을 `fixtureReferenceTime`으로 사용하고 모든 Proposal의 `created_at`과 `respond_by = fixtureReferenceTime + 30초`를 고정한다. barrier는 5초 안에 해제하며 모든 명령의 `operationTime < respondBy`를 검증한다. 비종결 `ACCEPT`·`REQUEUE`·`CANCEL`은 각 Proposal의 member ordinal 1만 명령하고, 마지막 `ACCEPT`는 두 Member가 같은 barrier에서 각각 최초 응답한다 |

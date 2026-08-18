@@ -9,7 +9,6 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import cloud.bamsongi.albammate.game.contract.GamePlayerRange;
 import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.game.entity.Game;
 
@@ -21,16 +20,6 @@ public interface GameRepository extends JpaRepository<Game, Long>, JpaSpecificat
 		where g.id = :gameId
 		""")
 	Optional<GameSummary> findSummaryById(@Param("gameId")
-	Long gameId);
-
-	@Query("""
-		select new cloud.bamsongi.albammate.game.contract.GamePlayerRange(g.id, g.minPlayers, g.maxPlayers)
-		from Game g
-		where g.id = :gameId
-		  and g.minPlayers is not null
-		  and g.maxPlayers is not null
-		""")
-	Optional<GamePlayerRange> findPlayerRangeById(@Param("gameId")
 	Long gameId);
 
 	@Query("""

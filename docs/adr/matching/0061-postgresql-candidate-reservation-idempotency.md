@@ -53,7 +53,7 @@ MATCH-01은 실제로 구성 가능한 요청만 제한된 FIFO 순서로 제안
     - 유니크 제약, 조건부 전이, 사용자 잠금 순서, 키 지문과 24시간 정리 작업을 API·ERD·마이그레이션·테스트에 일관되게 반영해야 한다.
 - 후속 작업:
     - #737에서 반영한 API·ERD·아키텍처 계약을 따르는 후속 구현 이슈에서 Flyway와 PostgreSQL 통합 테스트를 작성한다.
-    - [ADR-0063](0063-match-baseline-measurement-gate.md)의 동일 게임 활성 요청 1,000개·서버 2대 baseline으로 후보 탐색과 lock 경합을 측정한다.
+    - [ADR-0063](0063-match-baseline-measurement-gate.md)의 사용자 인원 범위 `[2, 4]` `WAITING` 요청 1,000개·서버 2대 baseline으로 후보 탐색과 lock 경합을 측정한다.
 
 ## 적용·호환·rollback
 

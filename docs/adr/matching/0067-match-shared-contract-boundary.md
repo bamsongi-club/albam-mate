@@ -5,7 +5,7 @@
 - 결정일: 2026-08-18
 - 관련: [아키텍처](../../ARCHITECTURE.md#p2-match-모듈-계약) / [ERD](../../ERD.md#match_requests) / [API](../../API.md#match-채팅-공통-계약) / [실시간 파티 매칭 명세](../../p2/matching.md#match-01-실시간-파티-매칭) / [Issue #800](https://github.com/bamsongi-club/albam-mate/issues/800) / [Issue #801](https://github.com/bamsongi-club/albam-mate/issues/801)
 - 대체 대상: 없음
-- 후속 ADR: 없음
+- 후속 ADR: [ADR-0077](0077-match-no-game-player-range.md) — 게임 지원 인원 범위 조회·교집합 저장 결정만 부분 대체
 
 ## 맥락
 

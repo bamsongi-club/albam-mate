@@ -37,7 +37,6 @@ public enum ErrorCode {
 	IDEMPOTENCY_KEY_CONFLICT(HttpStatus.CONFLICT, "동일한 멱등성 키를 다른 요청에 사용할 수 없습니다."),
 	MATCH_CURRENT_STATE_NOT_STABLE(HttpStatus.CONFLICT, "매칭 현재 상태가 계속 변경 중입니다. 잠시 후 다시 시도해 주세요."),
 	MATCH_REQUEST_ALREADY_ACTIVE(HttpStatus.CONFLICT, "이미 진행 중인 매칭 요청이 있습니다."),
-	MATCH_PLAYER_RANGE_NOT_SUPPORTED(HttpStatus.CONFLICT, "게임 지원 인원과 요청 인원 범위가 겹치지 않습니다."),
 	MATCH_REQUEST_CANCELLATION_NOT_AVAILABLE(HttpStatus.CONFLICT, "현재 성공 파티는 매칭 요청으로 취소할 수 없습니다."),
 	MATCH_PROPOSAL_RESPONSE_NOT_AVAILABLE(HttpStatus.CONFLICT, "현재 응답할 수 있는 매칭 제안이 없습니다."),
 	MATCH_PARTY_NOT_FOUND(HttpStatus.NOT_FOUND, "성공 파티를 찾을 수 없습니다."),

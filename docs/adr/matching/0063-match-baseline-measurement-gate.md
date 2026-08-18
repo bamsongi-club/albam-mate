@@ -3,7 +3,7 @@
 - 상태: 승인됨
 - 작성일: 2026-08-14
 - 결정일: 2026-08-14
-- 관련: [MATCH-01 기술 계약 이슈 #737](https://github.com/bamsongi-club/albam-mate/issues/737), [MATCH-01 운영 측정](../../p2/matching.md#운영-측정), [MATCH-01 완료 기준](../../p2/matching.md#완료-기준), [P2 기능 상태](../../p2/README.md#기능별-현재-상태), [P2 운영 관측 명세](../../p2/monitoring.md), [ADR-0061 PostgreSQL 후보 선점과 매칭 요청 멱등성](0061-postgresql-candidate-reservation-idempotency.md)
+- 관련: [MATCH-01 기술 계약 이슈 #737](https://github.com/bamsongi-club/albam-mate/issues/737), [MATCH-01 운영 측정](../../p2/matching.md#운영-측정), [MATCH-01 완료 기준](../../p2/matching.md#완료-기준), [P2 기능 상태](../../p2/README.md#기능별-현재-상태), [P2 운영 관측 명세](../../p2/monitoring.md), [ADR-0061 PostgreSQL 후보 선점과 매칭 요청 멱등성](0061-postgresql-candidate-reservation-idempotency.md), [ADR-0077 게임·플랫폼 없는 인원 범위 매칭](0077-match-no-game-player-range.md)
 - 대체 대상: 없음
 - 후속 ADR: [0065](0065-match-candidate-claim-baseline-scope.md) (candidate claim baseline 범위와 종합 정합성 gate)
 
@@ -11,7 +11,7 @@
 
 MATCH-01은 후보 탐색 p95, DB lock 대기, 재시도율, 처리량과 정합성 위반을 부하에서 측정해야 한다. 현재 MATCH-01은 #737 범위의 계약 준비를 마쳤지만 생산 코드·Flyway 마이그레이션·자동 검증·배포·성능 측정 결과가 없다. 구현 전에 임의의 p95 수치나 Redis 업무 락을 정하면 실제 데이터 분포·쿼리 계획·동시 트랜잭션 경합과 무관한 목표가 된다.
 
-첫 baseline은 동일 게임의 활성 매칭 요청 1,000개와 동시에 matcher를 실행하는 서버 2대로 고정한다. 이 부하는 초기 구현이 PostgreSQL 정본·행 잠금 결정 아래에서 어떤 경합을 만드는지 확인하는 비교 출발점이다. 판단 기준은 재현 가능한 부하 조건, 후보 탐색 지연과 DB 경합의 관측, 처리량과 재시도의 비교 가능성, 그리고 중복 제안·중복 성공·부분 성공 0건의 정합성 우선이다.
+첫 baseline은 사용자 인원 범위 `[2, 4]`의 `WAITING` 매칭 요청 1,000개와 동시에 matcher를 실행하는 서버 2대로 고정한다. 이 부하는 초기 구현이 PostgreSQL 정본·행 잠금 결정 아래에서 어떤 경합을 만드는지 확인하는 비교 출발점이다. 판단 기준은 재현 가능한 부하 조건, 후보 탐색 지연과 DB 경합의 관측, 처리량과 재시도의 비교 가능성, 그리고 중복 제안·중복 성공·부분 성공 0건의 정합성 우선이다.
 
 ## 검토한 대안
 
@@ -19,11 +19,11 @@ MATCH-01은 후보 탐색 p95, DB lock 대기, 재시도율, 처리량과 정합
 | --- | --- | --- | --- |
 | 구현 전에 고정 p95 목표와 Redis 업무 락을 채택 | 성능 목표와 해결책이 즉시 생긴다. | 요청 분포·인덱스·쿼리 계획·lock wait 근거 없이 숫자와 복잡한 분산 업무 정본을 강제한다. | 제외 |
 | 단일 서버의 소규모 기능 테스트만 수행 | 실행 비용이 작고 빠르다. | 다중 matcher 경합, SKIP LOCKED 후보 점유, DB lock wait와 실제 처리량을 판단할 수 없다. | 제외 |
-| 동일 게임 활성 요청 1,000개와 서버 2대의 PostgreSQL baseline을 먼저 측정하고 이후 수치 목표·대안을 결정 | 초기 구현의 사실을 기준으로 목표와 개선안을 비교할 수 있고 정합성 위반을 release blocker로 다룬다. | 측정 fixture·환경·결과 파일을 재현 가능하게 관리해야 하며, baseline 뒤에 다시 결정하는 시간이 필요하다. | 선택 |
+| 사용자 인원 범위 `[2, 4]`의 `WAITING` 요청 1,000개와 서버 2대의 PostgreSQL baseline을 먼저 측정하고 이후 수치 목표·대안을 결정 | 초기 구현의 사실을 기준으로 목표와 개선안을 비교할 수 있고 정합성 위반을 release blocker로 다룬다. | 측정 fixture·환경·결과 파일을 재현 가능하게 관리해야 하며, baseline 뒤에 다시 결정하는 시간이 필요하다. | 선택 |
 
 ## 결정
 
-1. MATCH-01의 첫 성능 baseline은 동일 게임의 활성 매칭 요청 1,000개와 서버 2대가 동시에 matcher를 실행하는 조건으로 수행한다. 실행 입력, 데이터 분포, 서버·DB 설정, 애플리케이션·스키마·인덱스 버전과 쿼리 계획을 결과와 함께 기록해 같은 조건을 재현할 수 있어야 한다.
+1. MATCH-01의 첫 성능 baseline은 사용자 인원 범위 `[2, 4]`의 `WAITING` 매칭 요청 1,000개와 서버 2대가 동시에 matcher를 실행하는 조건으로 수행한다. 실행 입력, 데이터 분포, 서버·DB 설정, 애플리케이션·스키마·인덱스 버전과 쿼리 계획을 결과와 함께 기록해 같은 조건을 재현할 수 있어야 한다.
 2. baseline은 후보 탐색 p95, DB lock wait, matcher 재시도율 또는 재시도 횟수, 처리량, 그리고 정합성 위반 건수를 함께 측정한다. 정합성 위반은 중복 활성 요청, 중복 제안, 중복 성공, 부분 성공을 포함하며 목표는 0건이다.
 3. 후보 탐색 p95와 lock wait·재시도·처리량의 수치 목표는 첫 baseline 전에는 고정하지 않는다. 첫 baseline의 실제 결과, query plan, 정합성 결과와 개선 전후 비교를 근거로 목표 수치와 허용 범위를 별도로 결정한다.
 4. Redis 업무 락은 baseline 이전에 도입하지 않는다. PostgreSQL baseline이 정합성 0건을 지키지 못하거나, 측정된 DB 경합이 PostgreSQL 안의 쿼리·인덱스·트랜잭션 개선으로 해결되지 않는다는 근거가 생길 때만 Redis와 다른 대안을 비교하는 새 ADR을 작성한다.
@@ -67,7 +67,7 @@ MATCH-01은 후보 탐색 p95, DB lock 대기, 재시도율, 처리량과 정합
 - 상태: 미검증
 - 근거: 없음
 - 미검증:
-    - 동일 게임 활성 매칭 요청 1,000개·서버 2대 matcher의 PostgreSQL baseline runner와 fixture가 아직 없다.
+    - 사용자 인원 범위 `[2, 4]`의 `WAITING` 매칭 요청 1,000개·서버 2대 matcher의 PostgreSQL baseline runner와 fixture가 아직 없다.
     - 후보 탐색 p95, DB lock wait, 재시도, 처리량, 중복 활성 요청·제안·성공·부분 성공 0건의 결과 파일이 없다.
     - baseline 근거로 정한 수치 목표, 쿼리·인덱스·트랜잭션 개선 전후 비교, Redis 업무 락 필요성의 별도 ADR이 없다.
 
