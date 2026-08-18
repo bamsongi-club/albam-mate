@@ -6,7 +6,9 @@
 
 이 문서는 **측정/진단만** 다룬다. 인덱스 추가, 쿼리 변경, `Page` 계약 변경, 캐시, 프론트 로딩 전략은 #740 범위가 아니다.
 
-2026-08-18 실제 측정 결과는 [game-list-740-2026-08-18.md](results/game-list-740/game-list-740-2026-08-18.md)에 기록했다. 첨부된 `albam-mate-170k-patched-v4.zip`을 직접 import한 뒤 PR #771의 측정 대상 server/runner commit `5b2909d`에서 수집한 HTTP baseline, 실제 SQL statement capture, `EXPLAIN (ANALYZE, BUFFERS)`를 포함한다.
+2026-08-18 실제 측정 결과는 [game-list-740-2026-08-18.md](results/game-list-740/game-list-740-2026-08-18.md)에 기록했다. 첨부된 `albam-mate-170k-patched-v4.zip`을 직접 import한 뒤 PR #771 최신 server/runner commit `12815af9bf322b2c293c0b9fe98da9186f3e3778`에서 최신 HTTP baseline을 다시 수집했고, 실제 SQL statement capture와 `EXPLAIN (ANALYZE, BUFFERS)`를 함께 보존했다.
+
+최신 안전성 보강 runner의 [baseline JSON](results/game-list-740/game-list-740-2026-08-18T17-03-13.911Z.json)과 [CSV](results/game-list-740/game-list-740-2026-08-18T17-03-13.911Z.csv)가 현재 정본이다. `game-list-740-2026-08-18T14-36-38.069Z.json/csv`는 보강 전 runner의 역사 기록으로만 보존하며 #740 완료 근거에서 제외한다.
 
 v4 ZIP의 SHA-256과 SQL 파일 checksum, import 순서, 측정 DB의 실제 row count를 결과 문서에 함께 남겼다. local `afterMigrate`가 만든 음수 BGG ID fixture 30건은 room 참조가 없음을 확인한 뒤 격리된 측정 DB에서만 제거하여 v4 게임 수를 `170,005`건으로 맞췄다.
 
@@ -41,7 +43,7 @@ node scripts/measurements/game-list-baseline.mjs \
   --server-commit <측정 대상 서버 commit SHA>
 ```
 
-`--dataset-sha256`은 측정에 사용한 원본 데이터셋의 SHA-256을 반드시 명시한다. `--server-commit`은 측정 대상 서버의 image/runtime provenance에서 확인한 값이어야 한다. 러너를 실행한 작업 디렉터리의 commit, 러너 파일 SHA-256, 측정 전후 source clean 여부는 결과에 `runnerCommit`, `runnerFileSha256`, `runnerSourceClean`으로 별도 기록하며 `serverCommit`을 대신하지 않는다. 요청별 timeout은 기본 30초이며 `--request-timeout-ms`로 조정할 수 있다.
+`--dataset-sha256`은 측정에 사용한 원본 데이터셋의 SHA-256을 반드시 명시한다. `--server-commit`은 측정 대상 서버의 image/runtime provenance에서 확인한 값이어야 한다. 러너를 실행한 작업 디렉터리의 commit, 러너 파일 SHA-256, 측정 전후 source clean 여부는 결과에 `runnerCommit`, `runnerFileSha256`, `runnerSourceClean`으로 별도 기록하며 `serverCommit`을 대신하지 않는다. 요청별 timeout은 기본 30초이며 `--request-timeout-ms`로 조정할 수 있고, 사전 discovery의 games/theme/mechanism 요청에도 동일하게 적용된다. 기본 discovery의 `data.totalElements`는 `--dataset-size`와 정확히 일치해야 하며, 불일치하면 expected/actual count를 포함한 failed artifact를 남긴다.
 
 러너는 현재 데이터에서 유효한 값을 자동으로 선택한다.
 
@@ -187,6 +189,8 @@ EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT TEXT)
 - [x] 각 시나리오 warm-up 후 20회 이상의 raw sample 보존
 - [x] 각 시나리오 p50/p95/max/status 기록
 - [x] 요청 1회 SQL 개수와 유형 기록
+- [x] 최신 안전성 보강 runner로 v4 baseline 재실행, `runnerFileSha256`/`runnerSourceClean` 기록
+- [x] discovery timeout과 실제 `totalElements` 대조 검증
 - [x] N+1/중복 query 여부 판정
 - [x] content/count/validation/related 구간의 대표 실행계획 시간 기록
 - [x] 가장 느린 SQL의 `EXPLAIN (ANALYZE, BUFFERS)` 보존
