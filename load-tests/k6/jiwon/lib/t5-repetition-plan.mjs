@@ -67,7 +67,7 @@ export function createT5RepetitionPlan(inputCampaignId) {
           conditionKey,
           runId,
           fixtureId: fixturePlan.fixtureId,
-          options,
+          options: fixturePlan.options,
           readProfile: { ...T5_READ_PROFILE },
         });
       }

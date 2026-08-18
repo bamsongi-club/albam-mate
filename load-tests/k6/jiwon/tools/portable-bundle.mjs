@@ -507,6 +507,7 @@ export function readPortableT5CompletionArtifacts(bundle, fixture = null, execut
     || runManifest.fixtureId !== expectedFixtureId
     || runManifest.runId !== expectedRunId
     || runManifest.scenario !== 't5'
+    || !sameJson(runManifest.condition, bundle.manifest.options)
     || runManifest.sourceSha !== bundle.manifest.sourceRevision
     || !TARGET_ENVIRONMENT_PATTERN.test(runManifest.targetEnvironment || '')
     || typeof runManifest.k6Version !== 'string'

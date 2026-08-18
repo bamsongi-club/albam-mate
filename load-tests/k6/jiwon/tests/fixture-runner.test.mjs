@@ -2087,6 +2087,7 @@ test('portable bundle before diagnosis는 사후 실행 artifact가 있으면 ba
   const artifactContents = new Map([
     ['k6-summary.json', '{}\n'],
     ['k6-console.log', 'k6 output\n'],
+    ['run-manifest.json', '{}\n'],
     ['after-snapshot.json', '{}\n'],
     ['after-diagnosis.json', '{}\n'],
     ['final-result.json', '{}\n'],
@@ -2164,14 +2165,16 @@ test('portable bundle은 원격 raw metadata와 두 진단을 PASS·FAIL·INVALI
     writeFileSync(path.join(bundle, 'before-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
     diagnoseBundle({ bundle, stage: 'before' }, context);
     writeFileSync(path.join(bundle, 'after-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
-    writeFileSync(path.join(bundle, 'k6-summary.json'), `${JSON.stringify(t5Summary(1))}\n`, 'utf8');
+    const summaryPath = path.join(bundle, 'k6-summary.json');
+    writeFileSync(summaryPath, `${JSON.stringify(t5Summary(1))}\n`, 'utf8');
+    const rawSummary = readFileSync(summaryPath, 'utf8');
+    const rawSummaryDigest = sha256(summaryPath);
     writePortableT5CompletionArtifacts(bundle, rendered);
     diagnoseBundle({ bundle, stage: 'after' }, context);
 
     const executionPath = path.join(bundle, 'infra-execution.json');
     const finalResultPath = path.join(bundle, 'final-result.json');
     const afterDiagnosisPath = path.join(bundle, 'after-diagnosis.json');
-    const summaryPath = path.join(bundle, 'k6-summary.json');
     const resourceSignalsPath = path.join(bundle, 'resource-signals.json');
     const originalSummary = readFileSync(summaryPath);
     const originalResourceSignals = readFileSync(resourceSignalsPath);
@@ -2198,6 +2201,9 @@ test('portable bundle은 원격 raw metadata와 두 진단을 PASS·FAIL·INVALI
     const passResult = aggregate();
     assert.equal(passResult.status, 'PASS');
     assert.equal(passResult.issues.length, 0);
+    assert.deepEqual(passResult.completion.runManifest.condition, rendered.options);
+    assert.equal(readFileSync(summaryPath, 'utf8'), rawSummary);
+    assert.equal(sha256(summaryPath), rawSummaryDigest);
     assert.deepEqual(readFileSync(summaryPath), originalSummary);
 
     rmSync(resourceSignalsPath);
