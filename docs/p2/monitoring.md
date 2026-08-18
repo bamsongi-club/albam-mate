@@ -170,7 +170,7 @@ ROOM 상태 보정 또는 채팅 보존 실패·지연·상한 경고 수신
 | --- | --- |
 | 공통 규칙 | [운영 관측 공통 연결](../P2-spec.md#운영-관측-공통-연결), [공통 수집·보안 계약](#공통-수집보안-계약) |
 | 화면 | [요약 대시보드의 요청 지연과 포화](dashboard.md#2-요청-지연과-포화), [상세 대시보드](dashboard.md#상세-대시보드) |
-| 측정 근거 | [k6 측정 문서](../measurements/k6/README.md) |
+| 측정 근거 | [OPS-02 비식별 실측 결과](../measurements/k6/jiho/ops02-latency-saturation-2026-08-19.md), [k6 측정 문서](../measurements/k6/README.md) |
 | 현재 상태 | [P2 기능 상태 정본](README.md#기능별-현재-상태) |
 
 ### 기능 규칙
