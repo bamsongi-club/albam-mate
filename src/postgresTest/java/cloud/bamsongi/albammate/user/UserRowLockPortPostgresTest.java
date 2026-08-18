@@ -2,6 +2,7 @@ package cloud.bamsongi.albammate.user;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.SQLException;
@@ -21,6 +22,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Container;
@@ -52,6 +54,15 @@ class UserRowLockPortPostgresTest {
 	@AfterEach
 	void tearDown() {
 		jdbcTemplate.execute("truncate table users restart identity cascade");
+	}
+
+	@Test
+	void 호출자_트랜잭션이_없으면_즉시_거절한다() {
+		long userId = insertUser("no-caller-transaction");
+
+		assertThrows(
+			IllegalTransactionStateException.class,
+			() -> userRowLockPort.lockExistingUsersInAscendingOrder(List.of(userId)));
 	}
 
 	@Test
