@@ -109,8 +109,8 @@ class RoomUpdateServiceTest {
 					any(RoomUpdateRequest.class),
 					any(Instant.class));
 			assertEquals(3, appender.list.size());
-			assertEquals(Level.DEBUG, appender.list.get(0).getLevel());
-			assertEquals(Level.DEBUG, appender.list.get(1).getLevel());
+			assertEquals(Level.INFO, appender.list.get(0).getLevel());
+			assertEquals(Level.INFO, appender.list.get(1).getLevel());
 			assertEquals(Level.WARN, appender.list.get(2).getLevel());
 			assertTrue(appender.list.stream().allMatch(
 				event -> fieldText(event).contains("event=room_update_retry roomId=7")));

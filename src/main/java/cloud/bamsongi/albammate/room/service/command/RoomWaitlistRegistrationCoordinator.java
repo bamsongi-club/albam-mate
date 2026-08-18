@@ -25,6 +25,8 @@ class RoomWaitlistRegistrationCoordinator {
 	private static final int MAX_ATTEMPTS = 3;
 	private static final String WAITING_QUEUE_ORDER_CONSTRAINT = "uq_room_waitlists_waiting_room_queue_order";
 	private static final String USE_CASE = "ROOM_WAITLIST_REGISTRATION";
+	private static final String RETRY_EVENT = "room_waitlist_registration_retry";
+	private static final String RETRY_EXHAUSTED_EVENT = "room_waitlist_registration_retry_exhausted";
 	private static final String WAITING_QUEUE_ORDER_CONFLICT = "WAITING_QUEUE_ORDER_CONFLICT";
 	private static final String WAITING_QUEUE_ORDER_CONFLICT_EXHAUSTED = "WAITING_QUEUE_ORDER_CONFLICT_EXHAUSTED";
 	private static final String UNEXPECTED_INTEGRITY_FAILURE = "UNEXPECTED_INTEGRITY_FAILURE";
@@ -41,6 +43,9 @@ class RoomWaitlistRegistrationCoordinator {
 				return executor.register(currentUserId, roomId, requestTime);
 			} catch (ObjectOptimisticLockingFailureException exception) {
 				lastRetryableFailure = exception;
+				if (attempt < MAX_ATTEMPTS) {
+					logOptimisticLockRetry(roomId, attempt + 1);
+				}
 			} catch (DataIntegrityViolationException exception) {
 				if (!isWaitingQueueOrderConflict(exception)) {
 					logUnexpectedIntegrityFailure(roomId, attempt);
@@ -57,6 +62,7 @@ class RoomWaitlistRegistrationCoordinator {
 		}
 
 		if (lastRetryableFailure instanceof ObjectOptimisticLockingFailureException) {
+			logOptimisticLockRetryExhausted(roomId, MAX_ATTEMPTS);
 			throw new BusinessException(ErrorCode.ROOM_CONCURRENT_MODIFICATION, lastRetryableFailure);
 		}
 		logWaitingQueueOrderConflictExhausted(roomId, MAX_ATTEMPTS);
@@ -76,21 +82,66 @@ class RoomWaitlistRegistrationCoordinator {
 	}
 
 	private void logWaitingQueueOrderRetry(long roomId, int nextAttempt) {
-		log.warn("roomId={} useCase={} attempt={} reasonCode={}",
-			roomId, USE_CASE, nextAttempt, WAITING_QUEUE_ORDER_CONFLICT);
+		log.atWarn()
+			.addKeyValue("event", RETRY_EVENT)
+			.addKeyValue("roomId", roomId)
+			.addKeyValue("useCase", USE_CASE)
+			.addKeyValue("attempt", nextAttempt)
+			.addKeyValue("reasonCode", WAITING_QUEUE_ORDER_CONFLICT)
+			.log("roomId={} useCase={} attempt={} reasonCode={}",
+				roomId, USE_CASE, nextAttempt, WAITING_QUEUE_ORDER_CONFLICT);
 	}
 
 	private void logWaitingQueueOrderConflictExhausted(long roomId, int attempt) {
-		log.error("roomId={} useCase={} attempt={} reasonCode={}",
-			roomId, USE_CASE, attempt, WAITING_QUEUE_ORDER_CONFLICT_EXHAUSTED);
+		log.atError()
+			.addKeyValue("event", RETRY_EXHAUSTED_EVENT)
+			.addKeyValue("roomId", roomId)
+			.addKeyValue("useCase", USE_CASE)
+			.addKeyValue("attempt", attempt)
+			.addKeyValue("reasonCode", WAITING_QUEUE_ORDER_CONFLICT_EXHAUSTED)
+			.log("roomId={} useCase={} attempt={} reasonCode={}",
+				roomId, USE_CASE, attempt, WAITING_QUEUE_ORDER_CONFLICT_EXHAUSTED);
 	}
 
 	private void logUnexpectedIntegrityFailure(long roomId, int attempt) {
-		log.error("roomId={} useCase={} attempt={} reasonCode={}",
-			roomId, USE_CASE, attempt, UNEXPECTED_INTEGRITY_FAILURE);
+		log.atError()
+			.addKeyValue("event", "room_waitlist_registration_integrity_failure")
+			.addKeyValue("roomId", roomId)
+			.addKeyValue("useCase", USE_CASE)
+			.addKeyValue("attempt", attempt)
+			.addKeyValue("reasonCode", UNEXPECTED_INTEGRITY_FAILURE)
+			.log("roomId={} useCase={} attempt={} reasonCode={}",
+				roomId, USE_CASE, attempt, UNEXPECTED_INTEGRITY_FAILURE);
 	}
 
 	private void logUnexpectedDatabaseFailure(long roomId) {
-		log.error("roomId={} useCase={} reasonCode={}", roomId, USE_CASE, UNEXPECTED_DATABASE_FAILURE);
+		log.atError()
+			.addKeyValue("event", "room_waitlist_registration_database_failure")
+			.addKeyValue("roomId", roomId)
+			.addKeyValue("useCase", USE_CASE)
+			.addKeyValue("reasonCode", UNEXPECTED_DATABASE_FAILURE)
+			.log("roomId={} useCase={} reasonCode={}", roomId, USE_CASE, UNEXPECTED_DATABASE_FAILURE);
+	}
+
+	private void logOptimisticLockRetry(long roomId, int nextAttempt) {
+		log.atInfo()
+			.addKeyValue("event", RETRY_EVENT)
+			.addKeyValue("roomId", roomId)
+			.addKeyValue("useCase", USE_CASE)
+			.addKeyValue("attempt", nextAttempt)
+			.addKeyValue("reasonCode", "OPTIMISTIC_LOCK_CONFLICT")
+			.log("roomId={} useCase={} attempt={} reasonCode={}",
+				roomId, USE_CASE, nextAttempt, "OPTIMISTIC_LOCK_CONFLICT");
+	}
+
+	private void logOptimisticLockRetryExhausted(long roomId, int attempt) {
+		log.atWarn()
+			.addKeyValue("event", RETRY_EXHAUSTED_EVENT)
+			.addKeyValue("roomId", roomId)
+			.addKeyValue("useCase", USE_CASE)
+			.addKeyValue("attempt", attempt)
+			.addKeyValue("reasonCode", "OPTIMISTIC_LOCK_EXHAUSTED")
+			.log("roomId={} useCase={} attempt={} reasonCode={}",
+				roomId, USE_CASE, attempt, "OPTIMISTIC_LOCK_EXHAUSTED");
 	}
 }

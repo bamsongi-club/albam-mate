@@ -171,7 +171,7 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 
 | `chat_message_sender_nickname_missing` | ERROR; 단일 `roomId` | 허용·상관 키 비집계 |
 | `room_state_reconciliation_completed`, `room_status_correction_batch_limit_reached`, `room_state_reconciliation_failed`, `room_status_correction_execution_slow`, `room_status_correction_skipped` | INFO/WARN; count·limit·duration·threshold·고정 reason | 허용 |
 | `room_status_reconciliation_room_failed`, `room_state_reconciliation_lock_skipped` | DEBUG/WARN; 단일 `roomId`, `useCase`, `reasonCode`, `lockName` | WARN만 허용·상관 키 비집계 |
-| `room_update_retry`, `room_cancel_retry`, `room_finish_retry`, `room_participation_retry`, `room_participation_cancel_retry`, `room_waitlist_cancel_retry`, `room_state_reconciliation_retry` | DEBUG/WARN; 단일 `roomId`, `attempt`, `useCase`, `reasonCode` | exhausted WARN만 허용·상관 키 비집계 |
+| `room_update_retry`, `room_cancel_retry`, `room_finish_retry`, `room_participation_retry`, `room_participation_cancel_retry`, `room_waitlist_cancel_retry`, `room_waitlist_registration_retry`, `room_state_reconciliation_retry` | INFO/WARN; 단일 `roomId`, `attempt`, `useCase`, `reasonCode` | exhausted WARN만 허용·상관 키 비집계 |
 | `room_created`, `room_updated`, `room_canceled`, `room_finished`, `room_participation_created`, `room_participation_canceled` | 현재 `actorUserId` 포함 | 필드 제거·회귀 검사 전 중앙 전송 금지 |
 | `notification_outbox_operation_previewed`, `notification_outbox_operation_completed` | 현재 ID 배열·자유 입력 operator 필드 포함 | 전용 감사 경로를 설계하기 전 중앙 전송 금지 |
 | `game_search_completed` | INFO; `outcome=success`, `resultCount`, `durationMs` | 허용 |

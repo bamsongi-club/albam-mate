@@ -69,8 +69,8 @@ class RoomStatusCorrectionCoordinatorTest {
 			assertSame(third, exception.getCause());
 			verify(executor, times(3)).correctRoom(ROOM_ID, REQUEST_TIME);
 			assertEquals(3, appender.list.size());
-			assertEquals(Level.DEBUG, appender.list.get(0).getLevel());
-			assertEquals(Level.DEBUG, appender.list.get(1).getLevel());
+			assertEquals(Level.INFO, appender.list.get(0).getLevel());
+			assertEquals(Level.INFO, appender.list.get(1).getLevel());
 			assertEquals(Level.WARN, appender.list.get(2).getLevel());
 			assertEquals(
 				"event=room_state_reconciliation_retry roomId=10 attempt=2 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_CONFLICT",
@@ -193,8 +193,8 @@ class RoomStatusCorrectionCoordinatorTest {
 
 			verify(executor, times(3)).correctDueRooms(REQUEST_TIME);
 			assertEquals(3, appender.list.size());
-			assertEquals(Level.DEBUG, appender.list.get(0).getLevel());
-			assertEquals(Level.DEBUG, appender.list.get(1).getLevel());
+			assertEquals(Level.INFO, appender.list.get(0).getLevel());
+			assertEquals(Level.INFO, appender.list.get(1).getLevel());
 			assertEquals(Level.WARN, appender.list.get(2).getLevel());
 			assertEquals(
 				"event=room_state_reconciliation_retry attempt=2 useCase=ROOM_STATUS_CORRECTION reasonCode=OPTIMISTIC_LOCK_CONFLICT",

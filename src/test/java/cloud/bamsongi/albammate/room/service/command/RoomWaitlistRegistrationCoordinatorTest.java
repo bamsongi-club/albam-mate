@@ -129,14 +129,17 @@ class RoomWaitlistRegistrationCoordinatorTest {
 
 			assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, exception.getErrorCode());
 			verify(executor, times(3)).register(7L, 1L, REQUEST_TIME);
-			assertEquals(2, appender.list.size());
-			assertEquals(Level.WARN, appender.list.get(0).getLevel());
+			assertEquals(3, appender.list.size());
+			assertEquals(Level.INFO, appender.list.get(0).getLevel());
 			assertEquals("roomId=1 useCase=ROOM_WAITLIST_REGISTRATION "
-				+ "attempt=3 reasonCode=WAITING_QUEUE_ORDER_CONFLICT", appender.list.get(0).getFormattedMessage());
-			assertEquals(Level.ERROR, appender.list.get(1).getLevel());
+				+ "attempt=2 reasonCode=OPTIMISTIC_LOCK_CONFLICT", appender.list.get(0).getFormattedMessage());
+			assertEquals(Level.WARN, appender.list.get(1).getLevel());
+			assertEquals("roomId=1 useCase=ROOM_WAITLIST_REGISTRATION "
+				+ "attempt=3 reasonCode=WAITING_QUEUE_ORDER_CONFLICT", appender.list.get(1).getFormattedMessage());
+			assertEquals(Level.ERROR, appender.list.get(2).getLevel());
 			assertEquals("roomId=1 useCase=ROOM_WAITLIST_REGISTRATION "
 				+ "attempt=3 reasonCode=WAITING_QUEUE_ORDER_CONFLICT_EXHAUSTED",
-				appender.list.get(1).getFormattedMessage());
+				appender.list.get(2).getFormattedMessage());
 			assertTrue(appender.list.stream().noneMatch(event -> event.getFormattedMessage().contains("SQL=")));
 			assertTrue(
 				appender.list.stream().noneMatch(event -> event.getFormattedMessage().contains("session-token")));
@@ -194,7 +197,19 @@ class RoomWaitlistRegistrationCoordinatorTest {
 
 			assertEquals(ErrorCode.ROOM_CONCURRENT_MODIFICATION, exception.getErrorCode());
 			verify(executor, times(3)).register(7L, 1L, REQUEST_TIME);
-			assertTrue(appender.list.isEmpty());
+			assertEquals(3, appender.list.size());
+			assertTrue(appender.list.get(0).getKeyValuePairs().stream().anyMatch(pair ->
+				pair.key.equals("event") && pair.value.equals("room_waitlist_registration_retry")));
+			assertTrue(appender.list.get(0).getKeyValuePairs().stream().anyMatch(pair ->
+				pair.key.equals("reasonCode") && pair.value.equals("OPTIMISTIC_LOCK_CONFLICT")));
+			assertTrue(appender.list.get(2).getKeyValuePairs().stream().anyMatch(pair ->
+				pair.key.equals("attempt") && pair.value.equals(3)));
+			assertTrue(appender.list.get(2).getKeyValuePairs().stream().anyMatch(pair ->
+				pair.key.equals("event") && pair.value.equals("room_waitlist_registration_retry_exhausted")));
+			assertTrue(appender.list.get(2).getKeyValuePairs().stream().anyMatch(pair ->
+				pair.key.equals("reasonCode") && pair.value.equals("OPTIMISTIC_LOCK_EXHAUSTED")));
+			assertTrue(appender.list.stream().noneMatch(event -> event.getKeyValuePairs().stream()
+				.anyMatch(pair -> pair.key.equals("reasonCode") && pair.value.equals("UNEXPECTED_DATABASE_FAILURE"))));
 		} finally {
 			detachLogAppender(appender);
 		}

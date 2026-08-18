@@ -200,8 +200,8 @@ class RoomOptimisticLockRetrierTest {
 
 	private void assertRetryLogs(ListAppender<ILoggingEvent> appender, String eventWithRoomId) {
 		assertEquals(3, appender.list.size());
-		assertEquals(Level.DEBUG, appender.list.get(0).getLevel());
-		assertEquals(Level.DEBUG, appender.list.get(1).getLevel());
+		assertEquals(Level.INFO, appender.list.get(0).getLevel());
+		assertEquals(Level.INFO, appender.list.get(1).getLevel());
 		assertEquals(Level.WARN, appender.list.get(2).getLevel());
 		assertEquals(eventWithRoomId + " attempt=2 useCase=ROOM_CANCEL reasonCode=OPTIMISTIC_LOCK_CONFLICT",
 			fieldText(appender.list.get(0)));

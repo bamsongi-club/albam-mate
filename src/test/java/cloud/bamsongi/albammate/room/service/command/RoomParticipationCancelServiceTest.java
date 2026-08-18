@@ -124,8 +124,8 @@ class RoomParticipationCancelServiceTest {
 
 	private void assertRetryLogs(ListAppender<ILoggingEvent> appender, String eventWithRoomId) {
 		assertEquals(3, appender.list.size());
-		assertEquals(Level.DEBUG, appender.list.get(0).getLevel());
-		assertEquals(Level.DEBUG, appender.list.get(1).getLevel());
+		assertEquals(Level.INFO, appender.list.get(0).getLevel());
+		assertEquals(Level.INFO, appender.list.get(1).getLevel());
 		assertEquals(Level.WARN, appender.list.get(2).getLevel());
 		assertTrue(appender.list.stream().allMatch(
 			event -> fieldText(event).contains(eventWithRoomId)));

@@ -403,6 +403,30 @@ function writeBoundSummary(fixtureDirectory, summary) {
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
 }
 
+function writePortableRunManifest(bundle, rendered) {
+  const fixturePath = path.join(bundle, 'fixture.json');
+  const summaryPath = path.join(bundle, 'k6-summary.json');
+  const bundleManifest = JSON.parse(readFileSync(path.join(bundle, 'manifest.json'), 'utf8'));
+  writeFileSync(path.join(bundle, 'run-manifest.json'), `${JSON.stringify({
+    schemaVersion: 2,
+    fixtureId: rendered.fixtureId,
+    runId: rendered.options.runId,
+    scenario: rendered.options.scenario,
+    condition: rendered.options,
+    sourceSha: bundleManifest.sourceRevision,
+    targetEnvironment: 'private-loadtest',
+    k6Version: 'k6 v0.0.0-test',
+    startedAtUtc: '2026-08-17T00:00:00Z',
+    finishedAtUtc: '2026-08-17T00:01:00Z',
+    runState: 'COMPLETED',
+    completed: true,
+    k6ExitCode: 0,
+    fixtureSha256: sha256(fixturePath),
+    summaryFile: 'k6-summary.json',
+    summarySha256: sha256(summaryPath),
+  }, null, 2)}\n`, 'utf8');
+}
+
 function t5Summary(startSkewCount) {
   const metric = (count) => ({ values: { count } });
   const durationMetric = (count) => ({
@@ -1290,6 +1314,7 @@ function completePortableT5Bundle(bundle, rendered, context) {
   writeFileSync(path.join(bundle, 'after-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
   writeFileSync(path.join(bundle, 'k6-summary.json'), `${JSON.stringify(t5SummaryWithTopLevelCounts(7))}\n`, 'utf8');
   assert.equal(diagnoseBundle({ bundle, stage: 'after' }, context).status, 'PASS');
+  writePortableRunManifest(bundle, rendered);
   writeFileSync(path.join(bundle, 'infra-execution.json'), `${JSON.stringify({
     schemaVersion: 1,
     runId: rendered.options.runId,
@@ -2033,6 +2058,7 @@ test('portable bundle before diagnosis는 사후 실행 artifact가 있으면 ba
   const artifactContents = new Map([
     ['k6-summary.json', '{}\n'],
     ['k6-console.log', 'k6 output\n'],
+    ['run-manifest.json', '{}\n'],
     ['after-snapshot.json', '{}\n'],
     ['after-diagnosis.json', '{}\n'],
     ['final-result.json', '{}\n'],
@@ -2110,8 +2136,14 @@ test('portable bundle은 원격 raw metadata와 두 진단을 PASS·FAIL·INVALI
     writeFileSync(path.join(bundle, 'before-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
     diagnoseBundle({ bundle, stage: 'before' }, context);
     writeFileSync(path.join(bundle, 'after-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
-    writeFileSync(path.join(bundle, 'k6-summary.json'), `${JSON.stringify(t5Summary(1))}\n`, 'utf8');
+    const summaryPath = path.join(bundle, 'k6-summary.json');
+    writeFileSync(summaryPath, `${JSON.stringify(t5Summary(1))}\n`, 'utf8');
+    const rawSummary = readFileSync(summaryPath, 'utf8');
+    const rawSummaryDigest = sha256(summaryPath);
+    writePortableRunManifest(bundle, rendered);
     diagnoseBundle({ bundle, stage: 'after' }, context);
+    assert.equal(readFileSync(summaryPath, 'utf8'), rawSummary);
+    assert.equal(sha256(summaryPath), rawSummaryDigest);
 
     const executionPath = path.join(bundle, 'infra-execution.json');
     const finalResultPath = path.join(bundle, 'final-result.json');
@@ -2139,6 +2171,13 @@ test('portable bundle은 원격 raw metadata와 두 진단을 PASS·FAIL·INVALI
     const passResult = aggregate();
     assert.equal(passResult.status, 'PASS');
     assert.equal(passResult.issues.length, 0);
+    assert.equal(passResult.summary.metrics['room_request_duration{outcome:success}'].values.p99, 30);
+    assert.equal(passResult.summary.metrics['room_request_duration{outcome:success}'].values.max, 40);
+    assert.deepEqual(passResult.runManifest.condition, rendered.options);
+    assert.equal(
+      JSON.parse(readFileSync(finalResultPath, 'utf8')).summary.metrics['room_request_duration{outcome:success}'].values.p99,
+      30,
+    );
 
     for (const phaseName of ['prepare', 'resourceQuery', 'beforeSnapshot', 'k6', 'afterSnapshot']) {
       writeExecution(phaseName, 2);
@@ -2184,6 +2223,11 @@ test('portable bundle은 원격 raw metadata와 두 진단을 PASS·FAIL·INVALI
     assert.equal(incompleteMetadata.status, 'INVALID');
     assert.match(incompleteMetadata.issues[0], /phase exit code/);
     assert.equal(existsSync(finalResultPath), true);
+
+    rmSync(path.join(bundle, 'k6-summary.json'));
+    const missingSummary = aggregate();
+    assert.equal(missingSummary.status, 'INVALID');
+    assert.match(missingSummary.issues.join('\n'), /summary/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

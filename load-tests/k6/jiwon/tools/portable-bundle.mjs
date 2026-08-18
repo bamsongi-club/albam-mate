@@ -67,6 +67,13 @@ const ARTIFACTS = Object.freeze({
   afterSnapshot: 'after-snapshot.json',
   summary: 'k6-summary.json',
   console: 'k6-console.log',
+  runManifest: 'run-manifest.json',
+  t3AppLogApp1: 't3-app-log-app1.log',
+  t3AppLogApp2: 't3-app-log-app2.log',
+  t3MetricsApp1: 't3-metrics-app1.csv',
+  t3MetricsApp2: 't3-metrics-app2.csv',
+  t3MetricsPostgres: 't3-metrics-postgres.csv',
+  t3Signals: 't3-signals.json',
   infraExecution: 'infra-execution.json',
   beforeDiagnosis: 'before-diagnosis.json',
   afterDiagnosis: 'after-diagnosis.json',
@@ -90,6 +97,13 @@ const EXECUTION_STATE_ARTIFACTS = Object.freeze([
   ARTIFACTS.afterSnapshot,
   ARTIFACTS.summary,
   ARTIFACTS.console,
+  ARTIFACTS.runManifest,
+  ARTIFACTS.t3AppLogApp1,
+  ARTIFACTS.t3AppLogApp2,
+  ARTIFACTS.t3MetricsApp1,
+  ARTIFACTS.t3MetricsApp2,
+  ARTIFACTS.t3MetricsPostgres,
+  ARTIFACTS.t3Signals,
   ARTIFACTS.infraExecution,
   ARTIFACTS.beforeDiagnosis,
   ARTIFACTS.afterDiagnosis,
@@ -455,6 +469,172 @@ function readSnapshot(bundle, relativePath) {
   return snapshot;
 }
 
+function isUtcTimestamp(value) {
+  return typeof value === 'string' && value.endsWith('Z') && !Number.isNaN(Date.parse(value));
+}
+
+function isNonNegativeInteger(value) {
+  return Number.isSafeInteger(value) && value >= 0;
+}
+
+function isNonNegativeNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+function readMeasuredSummary(bundle) {
+  const summary = readJson(artifactPath(bundle, ARTIFACTS.summary), 'k6 summary');
+  if (!summary || typeof summary !== 'object' || Array.isArray(summary)
+    || !summary.metrics || typeof summary.metrics !== 'object' || Array.isArray(summary.metrics)) {
+    fail('k6-summary.json에 metrics object가 필요합니다.');
+  }
+
+  for (const category of ['success', 'business', 'concurrency', 'unexpected']) {
+    const metricName = `room_request_duration{outcome:${category}}`;
+    if (!Object.hasOwn(summary.metrics, metricName)) {
+      fail(`k6-summary.json에 ${metricName}이 없습니다.`);
+    }
+  }
+
+  const normalized = normalizeRoomSummary(summary);
+  for (const category of ['success', 'business', 'concurrency', 'unexpected']) {
+    const metricName = `room_request_duration{outcome:${category}}`;
+    const values = normalized.metrics[metricName]?.values;
+    if (!isNonNegativeInteger(values?.count)) {
+      fail(`k6-summary.json의 ${metricName} count가 유효하지 않습니다.`);
+    }
+    const statisticNames = ['p50', 'p95', 'p99', 'max'];
+    if (values.count === 0) {
+      if (!statisticNames.every((name) => values[name] === null)) {
+        fail(`k6-summary.json의 ${metricName} 무표본 통계는 null이어야 합니다.`);
+      }
+    } else if (!statisticNames.every((name) => Number.isFinite(values[name]))) {
+      fail(`k6-summary.json의 ${metricName} p50·p95·p99·max가 부족합니다.`);
+    }
+  }
+  return normalized;
+}
+
+function readRunManifest(bundle) {
+  const manifest = readJson(artifactPath(bundle, ARTIFACTS.runManifest), 'run manifest');
+  const expectedOptions = bundle.manifest.options;
+  const valid = manifest && typeof manifest === 'object' && !Array.isArray(manifest)
+    && manifest.schemaVersion === 2
+    && manifest.fixtureId === bundle.manifest.fixtureId
+    && manifest.runId === expectedOptions.runId
+    && manifest.scenario === expectedOptions.scenario
+    && sameJson(manifest.condition, expectedOptions)
+    && manifest.sourceSha === bundle.manifest.sourceRevision
+    && typeof manifest.targetEnvironment === 'string'
+    && IDENTIFIER_PATTERN.test(manifest.targetEnvironment)
+    && typeof manifest.k6Version === 'string' && manifest.k6Version.trim().length > 0
+    && isUtcTimestamp(manifest.startedAtUtc)
+    && isUtcTimestamp(manifest.finishedAtUtc)
+    && Date.parse(manifest.finishedAtUtc) >= Date.parse(manifest.startedAtUtc)
+    && manifest.runState === 'COMPLETED'
+    && manifest.completed === true
+    && Number.isInteger(manifest.k6ExitCode)
+    && SHA256_PATTERN.test(manifest.fixtureSha256 || '')
+    && manifest.summaryFile === ARTIFACTS.summary
+    && SHA256_PATTERN.test(manifest.summarySha256 || '');
+  if (!valid) {
+    fail('run-manifest.json이 현재 bundle의 완료된 실행 provenance 계약과 맞지 않습니다.');
+  }
+
+  const fixturePath = artifactPath(bundle, ARTIFACTS.fixture);
+  const summaryPath = artifactPath(bundle, ARTIFACTS.summary);
+  if (digestFile(fixturePath, 'fixture') !== manifest.fixtureSha256) {
+    fail('fixture.json의 SHA-256이 run-manifest.json과 다릅니다.');
+  }
+  if (digestFile(summaryPath, 'k6 summary') !== manifest.summarySha256) {
+    fail('k6-summary.json의 SHA-256이 run-manifest.json과 다릅니다.');
+  }
+  return manifest;
+}
+
+function readT3SignalDistribution(value, label) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || !value.attempts || typeof value.attempts !== 'object' || Array.isArray(value.attempts)
+    || !isNonNegativeInteger(value.retries) || !isNonNegativeInteger(value.exhausted)) {
+    fail(`t3-signals.json의 ${label} retry distribution이 올바르지 않습니다.`);
+  }
+  for (const [attempt, count] of Object.entries(value.attempts)) {
+    if (!/^\d+$/.test(attempt) || !isNonNegativeInteger(count)) {
+      fail(`t3-signals.json의 ${label} attempt distribution이 올바르지 않습니다.`);
+    }
+  }
+}
+
+function readT3Signals(bundle, runManifest, summary) {
+  const signals = readJson(artifactPath(bundle, ARTIFACTS.t3Signals), 'T3 signals');
+  const expectedCoverage = Object.fromEntries(
+    ['success', 'business', 'concurrency', 'unexpected'].map((category) => {
+      const values = summary.metrics[`room_request_duration{outcome:${category}}`].values;
+      return [category, {
+        p50: values.p50,
+        p95: values.p95,
+        p99: values.p99,
+        max: values.max,
+        count: values.count,
+      }];
+    }),
+  );
+  const validIdentity = signals && typeof signals === 'object' && !Array.isArray(signals)
+    && signals.schemaVersion === 1
+    && signals.status === 'PASS'
+    && signals.runId === bundle.manifest.options.runId
+    && signals.fixtureId === bundle.manifest.fixtureId
+    && signals.scenario === 't3'
+    && sameJson(signals.condition, bundle.manifest.options)
+    && sameJson(signals.window, {
+      startedAtUtc: runManifest.startedAtUtc,
+      finishedAtUtc: runManifest.finishedAtUtc,
+    })
+    && sameJson(signals.outcomeCoverage, expectedCoverage);
+  if (!validIdentity) {
+    fail('t3-signals.json이 현재 T3 run·condition·outcome window와 맞지 않습니다.');
+  }
+
+  readT3SignalDistribution(signals.retry?.commonRetrier, 'commonRetrier');
+  readT3SignalDistribution(signals.retry?.coordinator, 'coordinator');
+  const database = signals.database;
+  if (!database || !isNonNegativeNumber(database.queryCalls)
+    || !isNonNegativeNumber(database.queryTimeMs)
+    || !isNonNegativeNumber(database.transactionCount)
+    || !isNonNegativeNumber(database.transactionDurationMs)
+    || !isNonNegativeNumber(database.lockWaitCount)) {
+    fail('t3-signals.json의 DB query·transaction·lock signal이 부족합니다.');
+  }
+  const connection = signals.connection;
+  if (!connection || !isNonNegativeNumber(connection.hikariPendingMax)
+    || !isNonNegativeInteger(connection.hikariPendingSamples)
+    || !isNonNegativeNumber(connection.hikariActiveMax)
+    || !isNonNegativeInteger(connection.hikariActiveSamples)) {
+    fail('t3-signals.json의 Hikari connection signal이 부족합니다.');
+  }
+
+  const expectedSources = {
+    appLogApp1: ARTIFACTS.t3AppLogApp1,
+    appLogApp2: ARTIFACTS.t3AppLogApp2,
+    metricsApp1: ARTIFACTS.t3MetricsApp1,
+    metricsApp2: ARTIFACTS.t3MetricsApp2,
+    metricsPostgres: ARTIFACTS.t3MetricsPostgres,
+  };
+  if (!signals.sources || typeof signals.sources !== 'object' || Array.isArray(signals.sources)) {
+    fail('t3-signals.json의 source provenance가 없습니다.');
+  }
+  for (const [name, relativePath] of Object.entries(expectedSources)) {
+    const source = signals.sources[name];
+    if (!source || source.path !== relativePath || !SHA256_PATTERN.test(source.sha256 || '')
+      || !isNonNegativeInteger(source.sampleCount)) {
+      fail(`t3-signals.json의 ${name} source provenance가 올바르지 않습니다.`);
+    }
+    if (digestFile(artifactPath(bundle, relativePath), name) !== source.sha256) {
+      fail(`T3 source artifact의 SHA-256이 t3-signals.json과 다릅니다: ${relativePath}`);
+    }
+  }
+  return signals;
+}
+
 function readInfraExecution(bundle) {
   const execution = readJson(artifactPath(bundle, ARTIFACTS.infraExecution), 'infra execution');
   const phaseNames = ['prepare', 'resourceQuery', 'beforeSnapshot', 'k6', 'afterSnapshot'];
@@ -589,6 +769,13 @@ export function diagnoseBundle(values, context) {
     const executionArtifact = [
       ARTIFACTS.summary,
       ARTIFACTS.console,
+      ARTIFACTS.runManifest,
+      ARTIFACTS.t3AppLogApp1,
+      ARTIFACTS.t3AppLogApp2,
+      ARTIFACTS.t3MetricsApp1,
+      ARTIFACTS.t3MetricsApp2,
+      ARTIFACTS.t3MetricsPostgres,
+      ARTIFACTS.t3Signals,
       ARTIFACTS.afterSnapshot,
       ARTIFACTS.afterDiagnosis,
       ARTIFACTS.finalResult,
@@ -611,7 +798,6 @@ export function diagnoseBundle(values, context) {
   if (stage === 'after') {
     const summaryPath = artifactPath(bundle, ARTIFACTS.summary);
     summary = normalizeRoomSummary(readJson(summaryPath, 'k6 summary'));
-    writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`, 'utf8');
   }
   const evaluation = evaluateFixture(fixture, snapshot, stage, summary);
   const result = {
@@ -640,6 +826,30 @@ export function aggregateBundle(rawBundlePath, context) {
   };
   const before = readCurrentDiagnosis(ARTIFACTS.beforeDiagnosis, 'before');
   const after = readCurrentDiagnosis(ARTIFACTS.afterDiagnosis, 'after');
+  let summary = null;
+  try {
+    summary = readMeasuredSummary(bundle);
+  } catch (_) {
+    issues.push('k6-summary.json이 없거나 outcome별 p50·p95·p99·max 계약과 맞지 않습니다.');
+  }
+  let runManifest = null;
+  try {
+    runManifest = readRunManifest(bundle);
+  } catch (_) {
+    issues.push('run-manifest.json이 없거나 현재 bundle의 완료된 실행 provenance 계약과 맞지 않습니다.');
+  }
+  let t3Signals = null;
+  if (bundle.manifest.options.scenario === 't3') {
+    if (summary && runManifest) {
+      try {
+        t3Signals = readT3Signals(bundle, runManifest, summary);
+      } catch (_) {
+        issues.push('t3-signals.json이 없거나 run·condition·outcome·DB·connection 계측 계약과 맞지 않습니다.');
+      }
+    } else {
+      issues.push('T3 aggregate에는 유효한 summary와 run-manifest가 먼저 필요합니다.');
+    }
+  }
   let execution = null;
   try {
     execution = readInfraExecution(bundle);
@@ -651,7 +861,9 @@ export function aggregateBundle(rawBundlePath, context) {
     issues.push('원시 실행 phase exit code가 완결되지 않았습니다.');
   }
   const hasInvalid = issues.length > 0 || before?.status === 'INVALID' || after?.status === 'INVALID';
-  const hasFailure = before?.status === 'FAIL' || after?.status === 'FAIL' || phaseCodes.some((code) => code !== null && code !== 0);
+  const hasFailure = before?.status === 'FAIL' || after?.status === 'FAIL'
+    || runManifest?.k6ExitCode !== undefined && runManifest.k6ExitCode !== 0
+    || phaseCodes.some((code) => code !== null && code !== 0);
   const result = {
     schemaVersion: 1,
     fixtureId: bundle.manifest.fixtureId,
@@ -661,6 +873,9 @@ export function aggregateBundle(rawBundlePath, context) {
     issues,
     beforeDiagnosis: before,
     afterDiagnosis: after,
+    summary,
+    runManifest,
+    t3Signals,
     infraExecution: execution,
   };
   const output = artifactPath(bundle, ARTIFACTS.finalResult);

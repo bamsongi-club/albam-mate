@@ -56,7 +56,7 @@ public class RoomOptimisticLockRetrier {
 				log.atWarn().addKeyValue("event", event).addKeyValue("attempt", attempt)
 					.addKeyValue("useCase", useCase).addKeyValue("reasonCode", reasonCode).log("room retry exhausted");
 			} else {
-				log.atDebug().addKeyValue("event", event).addKeyValue("attempt", attempt)
+				log.atInfo().addKeyValue("event", event).addKeyValue("attempt", attempt)
 					.addKeyValue("useCase", useCase).addKeyValue("reasonCode", reasonCode).log("room retry conflict");
 			}
 			return;
@@ -65,7 +65,7 @@ public class RoomOptimisticLockRetrier {
 			log.atWarn().addKeyValue("event", event).addKeyValue("roomId", roomId).addKeyValue("attempt", attempt)
 				.addKeyValue("useCase", useCase).addKeyValue("reasonCode", reasonCode).log("room retry exhausted");
 		} else {
-			log.atDebug().addKeyValue("event", event).addKeyValue("roomId", roomId).addKeyValue("attempt", attempt)
+			log.atInfo().addKeyValue("event", event).addKeyValue("roomId", roomId).addKeyValue("attempt", attempt)
 				.addKeyValue("useCase", useCase).addKeyValue("reasonCode", reasonCode).log("room retry conflict");
 		}
 	}
