@@ -1657,7 +1657,7 @@ export function ChatRoomView({ roomId, dataVersion, onBack }) {
                 <div className={'chat-message ' + (isMine ? 'mine' : 'theirs')} data-message-owner={isMine ? 'mine' : 'theirs'} key={message.messageId}>
                   {isGroupStart && !isMine && (
                     <span className="chat-sender">
-                      <Avatar name={nickname} index={participantOrder.get(nickname)} imageUrl={message.sender?.profileImageUrl} />
+                      <Avatar name={nickname} color={tone} imageUrl={message.sender?.profileImageUrl} />
                       <b style={{ color: tone }}>{nickname}</b>
                     </span>
                   )}

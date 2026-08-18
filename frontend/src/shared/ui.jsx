@@ -97,11 +97,11 @@ export function Cover({ src, className = '', style, fallback = defaultGameCover 
   );
 }
 
-export function Avatar({ name = '', index, imageUrl, className = '' }) {
-  const color = playerColor(Number.isInteger(index) ? index : 0);
+export function Avatar({ name = '', index, imageUrl, color, className = '' }) {
+  const resolvedColor = color || playerColor(Number.isInteger(index) ? index : 0);
   if (imageUrl) return <span className={'avatar ' + className}><img src={imageUrl} alt="" /></span>;
   return (
-    <span className={'avatar ' + className} style={{ background: color, color: playerTextColor(color) }} aria-hidden="true">
+    <span className={'avatar ' + className} style={{ background: resolvedColor, color: playerTextColor(resolvedColor) }} aria-hidden="true">
       {[...name][0] || '?'}
     </span>
   );
