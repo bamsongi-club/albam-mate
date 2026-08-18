@@ -38,12 +38,20 @@ public final class UpstreamRoleResponseFilter extends OncePerRequestFilter {
 		HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
 		throws ServletException, IOException {
 		response.setHeader(HEADER_NAME, role);
-		filterChain.doFilter(request, response);
-		if (response.getStatus() >= HttpServletResponse.SC_INTERNAL_SERVER_ERROR) {
-			log.atError().addKeyValue("event", "http_request_failed")
-				.addKeyValue("failureCode", response.getStatus() == HttpServletResponse.SC_GATEWAY_TIMEOUT
-					? "HTTP_TIMEOUT" : "HTTP_SERVER_ERROR")
-				.log("http request failed");
+		try {
+			filterChain.doFilter(request, response);
+		} catch (ServletException | IOException | RuntimeException exception) {
+			logFailure("HTTP_SERVER_ERROR");
+			throw exception;
 		}
+		if (response.getStatus() >= HttpServletResponse.SC_INTERNAL_SERVER_ERROR) {
+			logFailure(response.getStatus() == HttpServletResponse.SC_GATEWAY_TIMEOUT
+				? "HTTP_TIMEOUT" : "HTTP_SERVER_ERROR");
+		}
+	}
+
+	private void logFailure(String failureCode) {
+		log.atError().addKeyValue("event", "http_request_failed")
+			.addKeyValue("failureCode", failureCode).log("http request failed");
 	}
 }

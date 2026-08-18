@@ -17,6 +17,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import jakarta.servlet.ServletException;
 
 class UpstreamRoleResponseFilterTest {
 
@@ -50,6 +51,44 @@ class UpstreamRoleResponseFilterTest {
 				.contains("event=http_request_failed failureCode=HTTP_TIMEOUT"));
 		} finally {
 			org.slf4j.MDC.clear();
+			logger.detachAppender(appender);
+			appender.stop();
+		}
+	}
+
+	@Test
+	void T3_filterChain_예외는_서버오류_이벤트를_한번_기록하고_전달한다() throws Exception {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(UpstreamRoleResponseFilter.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		try {
+			MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/games");
+			request.setQueryString("secret=do-not-log");
+			assertThrows(ServletException.class,
+				() -> new UpstreamRoleResponseFilter("app1").doFilter(request, new MockHttpServletResponse(),
+					(servletRequest, response) -> {
+						throw new ServletException("filter chain failure");
+					}));
+			assertThrows(java.io.IOException.class,
+				() -> new UpstreamRoleResponseFilter("app1").doFilter(request, new MockHttpServletResponse(),
+					(servletRequest, response) -> {
+						throw new java.io.IOException("filter chain failure");
+					}));
+			assertThrows(IllegalStateException.class,
+				() -> new UpstreamRoleResponseFilter("app1").doFilter(request, new MockHttpServletResponse(),
+					(servletRequest, response) -> {
+						throw new IllegalStateException("filter chain failure");
+					}));
+
+			assertEquals(3, appender.list.size());
+			appender.list.forEach(event -> {
+				assertEquals(Level.ERROR, event.getLevel());
+				String fields = cloud.bamsongi.albammate.fixture.StructuredLogAssertions.fieldText(event);
+				assertEquals("event=http_request_failed failureCode=HTTP_SERVER_ERROR", fields);
+				assertFalse(fields.contains("secret=do-not-log"));
+			});
+		} finally {
 			logger.detachAppender(appender);
 			appender.stop();
 		}
