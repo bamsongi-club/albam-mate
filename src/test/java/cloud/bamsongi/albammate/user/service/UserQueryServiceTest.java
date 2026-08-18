@@ -63,11 +63,80 @@ class UserQueryServiceTest {
 		verify(userRepository, never()).findAllById(userIds);
 	}
 
+	@Test
+	void 요약_단건_조회는_닉네임과_프로필_이미지_URL을_함께_반환한다() {
+		UserRepository.UserSummaryProjection projection = summaryProjectionWithoutId(
+			"방장", "https://cdn.example.com/host.png");
+		when(userRepository.findUserSummaryProjectionById(42L)).thenReturn(Optional.of(projection));
+
+		assertEquals(
+			Optional.of(new cloud.bamsongi.albammate.user.contract.UserQuery.UserSummary(
+				"방장", "https://cdn.example.com/host.png")),
+			userQueryService.findUserSummaryById(42L));
+	}
+
+	@Test
+	void 요약_단건_조회는_프로필_이미지가_없으면_profileImageUrl이_null이다() {
+		UserRepository.UserSummaryProjection projection = summaryProjectionWithoutId("방장", null);
+		when(userRepository.findUserSummaryProjectionById(42L)).thenReturn(Optional.of(projection));
+
+		assertEquals(
+			Optional.of(new cloud.bamsongi.albammate.user.contract.UserQuery.UserSummary("방장", null)),
+			userQueryService.findUserSummaryById(42L));
+	}
+
+	@Test
+	void 존재하지_않는_사용자의_요약은_empty다() {
+		when(userRepository.findUserSummaryProjectionById(404L)).thenReturn(Optional.empty());
+
+		assertTrue(userQueryService.findUserSummaryById(404L).isEmpty());
+	}
+
+	@Test
+	void 빈_ID_컬렉션의_요약_조회는_저장소를_조회하지_않는다() {
+		assertEquals(Map.of(), userQueryService.findUserSummariesByIds(List.of()));
+
+		verifyNoInteractions(userRepository);
+	}
+
+	@Test
+	void 여러_사용자_요약_조회는_중복_ID를_하나로_합치고_없는_ID는_제외한다() {
+		List<Long> userIds = List.of(42L, 77L, 42L, 404L);
+		UserRepository.UserSummaryProjection host = summaryProjection(42L, "방장", "https://cdn.example.com/host.png");
+		UserRepository.UserSummaryProjection participant = summaryProjection(77L, "참가자", null);
+		when(userRepository.findUserSummaryProjectionsByIds(userIds)).thenReturn(List.of(host, participant));
+
+		assertEquals(
+			Map.of(
+				42L, new cloud.bamsongi.albammate.user.contract.UserQuery.UserSummary(
+					"방장", "https://cdn.example.com/host.png"),
+				77L, new cloud.bamsongi.albammate.user.contract.UserQuery.UserSummary("참가자", null)),
+			userQueryService.findUserSummariesByIds(userIds));
+		verify(userRepository).findUserSummaryProjectionsByIds(userIds);
+	}
+
 	private UserRepository.UserNicknameProjection nicknameProjection(long userId, String nickname) {
 		UserRepository.UserNicknameProjection projection = org.mockito.Mockito.mock(
 			UserRepository.UserNicknameProjection.class);
 		when(projection.getId()).thenReturn(userId);
 		when(projection.getNickname()).thenReturn(nickname);
+		return projection;
+	}
+
+	private UserRepository.UserSummaryProjection summaryProjection(long userId, String nickname, String profileImageUrl) {
+		UserRepository.UserSummaryProjection projection = org.mockito.Mockito.mock(
+			UserRepository.UserSummaryProjection.class);
+		when(projection.getId()).thenReturn(userId);
+		when(projection.getNickname()).thenReturn(nickname);
+		when(projection.getProfileImageUrl()).thenReturn(profileImageUrl);
+		return projection;
+	}
+
+	private UserRepository.UserSummaryProjection summaryProjectionWithoutId(String nickname, String profileImageUrl) {
+		UserRepository.UserSummaryProjection projection = org.mockito.Mockito.mock(
+			UserRepository.UserSummaryProjection.class);
+		when(projection.getNickname()).thenReturn(nickname);
+		when(projection.getProfileImageUrl()).thenReturn(profileImageUrl);
 		return projection;
 	}
 }

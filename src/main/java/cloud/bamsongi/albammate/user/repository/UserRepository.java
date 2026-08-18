@@ -46,10 +46,35 @@ public interface UserRepository extends JpaRepository<User, Long> {
 	List<UserNicknameProjection> findNicknameProjectionsByIds(@Param("userIds")
 	Collection<Long> userIds);
 
+	@Query("""
+		select u.nickname as nickname, u.profileImageUrl as profileImageUrl
+		from User u
+		where u.id = :userId
+		""")
+	Optional<UserSummaryProjection> findUserSummaryProjectionById(@Param("userId")
+	Long userId);
+
+	@Query("""
+		select u.id as id, u.nickname as nickname, u.profileImageUrl as profileImageUrl
+		from User u
+		where u.id in :userIds
+		""")
+	List<UserSummaryProjection> findUserSummaryProjectionsByIds(@Param("userIds")
+	Collection<Long> userIds);
+
 	interface UserNicknameProjection {
 
 		Long getId();
 
 		String getNickname();
+	}
+
+	interface UserSummaryProjection {
+
+		Long getId();
+
+		String getNickname();
+
+		String getProfileImageUrl();
 	}
 }

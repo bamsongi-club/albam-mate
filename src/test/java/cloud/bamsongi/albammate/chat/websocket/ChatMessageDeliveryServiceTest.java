@@ -61,7 +61,7 @@ class ChatMessageDeliveryServiceTest {
 		ChatMessage message = chatMessage(1L, 77L);
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
 			.thenReturn(List.of(message));
-		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of());
+		when(userQuery.findUserSummariesByIds(any())).thenReturn(Map.of());
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 
 		try {
@@ -93,7 +93,7 @@ class ChatMessageDeliveryServiceTest {
 		ChatMessage message3 = chatMessage(3L, USER_ID);
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
 			.thenReturn(List.of(message1, message2, message3));
-		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+		when(userQuery.findUserSummariesByIds(any())).thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
 
 		deliveryService.deliverNewMessages(connection);
 
@@ -106,6 +106,44 @@ class ChatMessageDeliveryServiceTest {
 	}
 
 	@Test
+	void T1_전달된_메시지의_sender에_발신자_프로필_이미지_URL이_채워진다() throws Exception {
+		WebSocketSession session = mock(WebSocketSession.class);
+		when(session.isOpen()).thenReturn(true);
+		when(connectionRegistry.shouldStopDelivery(session)).thenReturn(false);
+		ChatRoomConnection connection = new ChatRoomConnection(session, ROOM_ID, CHAT_ROOM_ID, USER_ID, 0L);
+		ChatMessage message = chatMessage(1L, USER_ID);
+		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
+			.thenReturn(List.of(message));
+		when(userQuery.findUserSummariesByIds(any()))
+			.thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", "https://cdn.example.com/profile.png")));
+
+		deliveryService.deliverNewMessages(connection);
+
+		ArgumentCaptor<TextMessage> captor = ArgumentCaptor.forClass(TextMessage.class);
+		verify(session).sendMessage(captor.capture());
+		assertTrue(captor.getValue().getPayload().contains("\"profileImageUrl\":\"https://cdn.example.com/profile.png\""));
+	}
+
+	@Test
+	void T6_전달된_메시지의_발신자에게_프로필_이미지가_없으면_sender_profileImageUrl은_null이다() throws Exception {
+		WebSocketSession session = mock(WebSocketSession.class);
+		when(session.isOpen()).thenReturn(true);
+		when(connectionRegistry.shouldStopDelivery(session)).thenReturn(false);
+		ChatRoomConnection connection = new ChatRoomConnection(session, ROOM_ID, CHAT_ROOM_ID, USER_ID, 0L);
+		ChatMessage message = chatMessage(1L, USER_ID);
+		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
+			.thenReturn(List.of(message));
+		when(userQuery.findUserSummariesByIds(any()))
+			.thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
+
+		deliveryService.deliverNewMessages(connection);
+
+		ArgumentCaptor<TextMessage> captor = ArgumentCaptor.forClass(TextMessage.class);
+		verify(session).sendMessage(captor.capture());
+		assertFalse(captor.getValue().getPayload().contains("profileImageUrl\":\""));
+	}
+
+	@Test
 	void T4_마지막_전달_ID_이후_메시지만_ASC로_전달하고_기준을_갱신해_중복_전달하지_않는다() throws Exception {
 		WebSocketSession session = mock(WebSocketSession.class);
 		when(session.isOpen()).thenReturn(true);
@@ -115,7 +153,7 @@ class ChatMessageDeliveryServiceTest {
 		ChatMessage message2 = chatMessage(2L);
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
 			.thenReturn(List.of(message1, message2));
-		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+		when(userQuery.findUserSummariesByIds(any())).thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
 
 		deliveryService.deliverNewMessages(connection);
 
@@ -144,7 +182,7 @@ class ChatMessageDeliveryServiceTest {
 		ChatMessage message2 = chatMessage(2L);
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
 			.thenReturn(List.of(message1, message2));
-		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+		when(userQuery.findUserSummariesByIds(any())).thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
 		doThrow(new IOException("boom")).when(session).sendMessage(any());
 
 		deliveryService.deliverNewMessages(connection);
@@ -165,7 +203,7 @@ class ChatMessageDeliveryServiceTest {
 		ChatMessage message2 = chatMessage(2L);
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
 			.thenReturn(List.of(message1, message2));
-		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+		when(userQuery.findUserSummariesByIds(any())).thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
 
 		deliveryService.deliverNewMessages(connection);
 

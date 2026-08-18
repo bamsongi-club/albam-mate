@@ -14,12 +14,13 @@ public record ChatMessageResponse(
 	String content,
 	Instant createdAt) {
 
-	public static ChatMessageResponse from(ChatMessage message, long roomId, String nickname, boolean isMine) {
+	public static ChatMessageResponse from(
+		ChatMessage message, long roomId, String nickname, String profileImageUrl, boolean isMine) {
 		return new ChatMessageResponse(
 			message.getId(),
 			roomId,
 			message.getClientMessageId(),
-			new ChatMessageSender(nickname),
+			new ChatMessageSender(nickname, profileImageUrl),
 			isMine,
 			message.getContent(),
 			message.getCreatedAt());
