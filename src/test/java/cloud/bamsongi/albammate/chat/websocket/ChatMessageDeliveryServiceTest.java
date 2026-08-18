@@ -33,6 +33,7 @@ import cloud.bamsongi.albammate.chat.entity.ChatMessage;
 import cloud.bamsongi.albammate.chat.repository.ChatMessageRepository;
 import cloud.bamsongi.albammate.user.contract.UserQuery;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /** T4: catch-up 전달 컴포넌트가 마지막 전달 ID 이후 메시지를 ASC로 전달하고 실패를 종료·계측하는 동작을 직접 검증한다. */
@@ -142,7 +143,11 @@ class ChatMessageDeliveryServiceTest {
 
 		ArgumentCaptor<TextMessage> captor = ArgumentCaptor.forClass(TextMessage.class);
 		verify(session).sendMessage(captor.capture());
-		assertFalse(captor.getValue().getPayload().contains("profileImageUrl\":\""));
+		JsonNode sender = JsonMapper.builder().build()
+			.readTree(captor.getValue().getPayload())
+			.path("message").path("sender");
+		assertTrue(sender.has("profileImageUrl"));
+		assertTrue(sender.get("profileImageUrl").isNull());
 	}
 
 	@Test
