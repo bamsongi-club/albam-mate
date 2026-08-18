@@ -70,13 +70,13 @@ class P1DeploymentContractTest {
 	}
 
 	@Test
-	void nginx는_App1과_App2_upstream_응답과_헤더를_모두_노출한다() throws IOException {
+	void nginx는_App1과_App2_upstream으로_라우팅하고_원본_upstream_응답_헤더를_노출하지_않는다() throws IOException {
 		String nginx = file("frontend/nginx.production.conf");
 
 		assertTrue(nginx.contains("server spring:8080;"));
 		assertTrue(nginx.contains("server ${ALBAM_MATE_APP2_HOST}:8080;"));
 		assertFalse(nginx.contains("server 127.0.0.1:8080;"));
-		assertTrue(nginx.contains("add_header X-Albam-Mate-Upstream $upstream_addr always;"));
+		assertFalse(nginx.contains("add_header X-Albam-Mate-Upstream"));
 	}
 
 	@Test
