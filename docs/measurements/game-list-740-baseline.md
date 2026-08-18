@@ -25,6 +25,7 @@ v4 ZIP의 SHA-256과 SQL 파일 checksum, import 순서, 측정 DB의 실제 row
 
 ```bash
 node scripts/measurements/game-list-baseline.mjs \
+  --dataset-sha256 d4abcf8ff91c0551ac6bc9afdb87ccae007ce46ad8139689ccb01a5c92c537c8 \
   --server-commit <측정 대상 서버 commit SHA>
 ```
 
@@ -36,10 +37,11 @@ node scripts/measurements/game-list-baseline.mjs \
   --warm-up 5 \
   --runs 20 \
   --dataset-size 170005 \
+  --dataset-sha256 d4abcf8ff91c0551ac6bc9afdb87ccae007ce46ad8139689ccb01a5c92c537c8 \
   --server-commit <측정 대상 서버 commit SHA>
 ```
 
-`--server-commit`은 측정 대상 서버의 image/runtime provenance에서 확인한 값이어야 한다. 러너를 실행한 작업 디렉터리의 commit은 결과에 `runnerCommit`으로 별도 기록하며 `serverCommit`을 대신하지 않는다.
+`--dataset-sha256`은 측정에 사용한 원본 데이터셋의 SHA-256을 반드시 명시한다. `--server-commit`은 측정 대상 서버의 image/runtime provenance에서 확인한 값이어야 한다. 러너를 실행한 작업 디렉터리의 commit, 러너 파일 SHA-256, 측정 전후 source clean 여부는 결과에 `runnerCommit`, `runnerFileSha256`, `runnerSourceClean`으로 별도 기록하며 `serverCommit`을 대신하지 않는다. 요청별 timeout은 기본 30초이며 `--request-timeout-ms`로 조정할 수 있다.
 
 러너는 현재 데이터에서 유효한 값을 자동으로 선택한다.
 
@@ -133,18 +135,15 @@ HTTP total time
 - room group/count + `game_id in (...)` → upcoming related query
 - 필터 코드 존재 검증 query → validation query
 
-각 SQL의 DB 실행 시간을 요청 단위로 합산하고 다음 표를 채운다.
+각 SQL의 DB 실행 시간을 요청 단위로 합산한다. 기본 요청은 [동일 요청의 controller/SQL/HTTP capture](results/game-list-740/game-list-740-2026-08-19-base-request-capture.log)로 다음처럼 대응했다.
 
-| scenario | HTTP p95 | controller | content | count | validation | related | residual |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| base | TBD | TBD | TBD | TBD | 0 | TBD | TBD |
-| keyword | TBD | TBD | TBD | TBD | 0 | TBD | TBD |
-| player-count | TBD | TBD | TBD | TBD | 0 | TBD | TBD |
-| relation-theme-mechanism | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
-| complex | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
-| flags-upcoming-exact | TBD | TBD | TBD | TBD | 0 | 경로별 기록 | TBD |
+| evidence | HTTP total | controller | content | count | validation | related | SQL execute sum | controller - SQL | HTTP - controller |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| base request, 1 capture | 110.654ms | 54ms | 0.474ms | 15.766ms | 0ms | 0.089ms | 16.329ms | 37.671ms | 56.654ms |
 
-`residual`은 `controller/HTTP`와 DB statement 합의 차이로 단정하지 않는다. Hibernate materialization, DTO 조립, 트랜잭션 경계, JSON serialization, proxy 비용이 섞일 수 있으므로 별도 칼럼으로 남긴다.
+따라서 이 capture에서 기본 요청의 DB statement 1순위는 `count`다. 다만 전체 HTTP 시간에서는 `controller - SQL execute sum`과 `HTTP - controller` 잔여 구간이 더 크다. `residual`은 Hibernate materialization, DTO 조립, 트랜잭션 경계, JSON serialization, proxy 비용이 섞인 구간이므로 SQL 병목으로 단정하지 않는다. HTTP p95는 20회 분포이고 위 분해는 단일 요청이므로 서로 같은 통계량처럼 비교하지 않는다.
+
+relation filter의 `296.095ms` EXPLAIN은 기본 요청의 수치가 아니라 relation 시나리오 후보이며, 이 값을 근거로 #740의 기본 요청 후속 범위를 결정하지 않는다.
 
 ## EXPLAIN 기준
 
@@ -191,7 +190,9 @@ EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT TEXT)
 - [x] N+1/중복 query 여부 판정
 - [x] content/count/validation/related 구간의 대표 실행계획 시간 기록
 - [x] 가장 느린 SQL의 `EXPLAIN (ANALYZE, BUFFERS)` 보존
-- [x] 병목 1순위를 숫자로 확정
+- [x] 기본 요청의 controller/SQL/HTTP 잔여 구간 대응 기록
+- [x] 기본 요청의 DB statement 1순위(count) 숫자로 확인
+- [ ] 기본 요청 전체 잔여 구간의 세부 계측 및 후속 #770 단일 범위 승인
 - [ ] 개선은 별도 후속 이슈로 최소 범위만 생성
 
 ## 후속 이슈 분리 원칙
