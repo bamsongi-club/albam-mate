@@ -74,7 +74,8 @@ class ChatWebSocketHandlerRealtimeDeliveryTest {
 		ChatMessage message10 = chatMessage(10L);
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
 			.thenReturn(List.of(message10));
-		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+		when(userQuery.findUserSummariesByIds(any()))
+			.thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
 
 		handler.onMessageCommitted(MessageCommitted.messageCreated(ROOM_ID, 10L));
 
@@ -107,7 +108,8 @@ class ChatWebSocketHandlerRealtimeDeliveryTest {
 			.thenReturn(List.of(message10));
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 10L))
 			.thenReturn(List.of());
-		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+		when(userQuery.findUserSummariesByIds(any()))
+			.thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
 
 		handler.onMessageCommitted(MessageCommitted.messageCreated(ROOM_ID, 10L));
 		handler.onMessageCommitted(MessageCommitted.messageCreated(ROOM_ID, 10L));
@@ -126,7 +128,8 @@ class ChatWebSocketHandlerRealtimeDeliveryTest {
 		ChatMessage message3 = chatMessage(3L);
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
 			.thenReturn(List.of(message1, message2, message3));
-		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+		when(userQuery.findUserSummariesByIds(any()))
+			.thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
 
 		handler.onMessageCommitted(MessageCommitted.messageCreated(ROOM_ID, 3L));
 
@@ -146,7 +149,8 @@ class ChatWebSocketHandlerRealtimeDeliveryTest {
 			.thenReturn(List.of(message5, message6));
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 6L))
 			.thenReturn(List.of());
-		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+		when(userQuery.findUserSummariesByIds(any()))
+			.thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
 
 		handler.onMessageCommitted(MessageCommitted.messageCreated(ROOM_ID, 6L));
 		handler.onMessageCommitted(MessageCommitted.messageCreated(ROOM_ID, 5L));
@@ -198,7 +202,8 @@ class ChatWebSocketHandlerRealtimeDeliveryTest {
 		ChatMessage message10 = chatMessage(10L);
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
 			.thenReturn(List.of(message10));
-		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+		when(userQuery.findUserSummariesByIds(any()))
+			.thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
 		CountDownLatch validationAccessChecked = new CountDownLatch(1);
 		CountDownLatch allowValidationClose = new CountDownLatch(1);
 		doAnswer(invocation -> {
@@ -237,7 +242,8 @@ class ChatWebSocketHandlerRealtimeDeliveryTest {
 		ChatMessage message10 = chatMessage(10L);
 		when(chatMessageRepository.findByChatRoomIdAndIdGreaterThanOrderByIdAsc(CHAT_ROOM_ID, 0L))
 			.thenReturn(List.of(message10));
-		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of(USER_ID, "발신자"));
+		when(userQuery.findUserSummariesByIds(any()))
+			.thenReturn(Map.of(USER_ID, new UserQuery.UserSummary("발신자", null)));
 
 		handler.onMessageCommitted(MessageCommitted.messageCreated(ROOM_ID, 10L));
 

@@ -47,7 +47,7 @@ class ChatMessageCommandServiceTest {
 		ChatRoom chatRoom = mock(ChatRoom.class);
 		when(chatRoomRepository.findByRoomIdForMessageAppend(ROOM_ID)).thenReturn(Optional.of(chatRoom));
 		UserQuery userQuery = mock(UserQuery.class);
-		when(userQuery.findNicknameById(SENDER_USER_ID)).thenReturn(Optional.empty());
+		when(userQuery.findUserSummaryById(SENDER_USER_ID)).thenReturn(Optional.empty());
 		ChatMessageCommandService service = new ChatMessageCommandService(
 			chatAccessGuard,
 			chatRoomRepository,

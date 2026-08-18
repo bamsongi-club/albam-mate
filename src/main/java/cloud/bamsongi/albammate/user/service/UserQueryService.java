@@ -36,4 +36,24 @@ public class UserQueryService implements UserQuery {
 					UserRepository.UserNicknameProjection::getId,
 					UserRepository.UserNicknameProjection::getNickname));
 	}
+
+	@Override
+	public Optional<UserQuery.UserSummary> findUserSummaryById(Long userId) {
+		return userRepository
+			.findUserSummaryProjectionById(userId)
+			.map(projection -> new UserQuery.UserSummary(projection.getNickname(), projection.getProfileImageUrl()));
+	}
+
+	@Override
+	public Map<Long, UserQuery.UserSummary> findUserSummariesByIds(Collection<Long> userIds) {
+		if (userIds.isEmpty()) {
+			return Map.of();
+		}
+		return userRepository.findUserSummaryProjectionsByIds(userIds).stream()
+			.collect(
+				Collectors.toMap(
+					UserRepository.UserSummaryProjection::getId,
+					projection -> new UserQuery.UserSummary(
+						projection.getNickname(), projection.getProfileImageUrl())));
+	}
 }

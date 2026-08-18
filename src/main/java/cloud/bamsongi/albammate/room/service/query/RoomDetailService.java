@@ -75,13 +75,13 @@ public class RoomDetailService {
 		for (Participation participation : activeParticipations) {
 			userIds.add(participation.getUserId());
 		}
-		Map<Long, String> nicknamesById = userQuery.findNicknamesByIds(userIds);
+		Map<Long, UserQuery.UserSummary> summariesById = userQuery.findUserSummariesByIds(userIds);
 
-		NicknameSummary host = nicknameSummary(nicknamesById, room.getHostUserId());
+		NicknameSummary host = nicknameSummary(summariesById, room.getHostUserId());
 		List<NicknameSummary> participants = new ArrayList<>();
 		participants.add(host);
 		for (Participation participation : activeParticipations) {
-			participants.add(nicknameSummary(nicknamesById, participation.getUserId()));
+			participants.add(nicknameSummary(summariesById, participation.getUserId()));
 		}
 		return ParticipantRoomResponse.from(
 			room,
@@ -101,12 +101,12 @@ public class RoomDetailService {
 			.orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR));
 	}
 
-	private NicknameSummary nicknameSummary(Map<Long, String> nicknamesById, Long userId) {
-		String nickname = nicknamesById.get(userId);
-		if (nickname == null) {
+	private NicknameSummary nicknameSummary(Map<Long, UserQuery.UserSummary> summariesById, Long userId) {
+		UserQuery.UserSummary summary = summariesById.get(userId);
+		if (summary == null) {
 			throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
 		}
-		return new NicknameSummary(nickname);
+		return new NicknameSummary(summary.nickname(), summary.profileImageUrl());
 	}
 
 	private boolean isFinal(RoomStatus status) {

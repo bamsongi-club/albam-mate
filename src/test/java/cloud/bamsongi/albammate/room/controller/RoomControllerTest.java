@@ -601,7 +601,7 @@ class RoomControllerTest {
 	}
 
 	private ParticipantRoomResponse response() {
-		NicknameSummary host = new NicknameSummary("방장");
+		NicknameSummary host = new NicknameSummary("방장", null);
 		return new ParticipantRoomResponse(
 			1L,
 			RoomType.PERSON_FOCUSED,
