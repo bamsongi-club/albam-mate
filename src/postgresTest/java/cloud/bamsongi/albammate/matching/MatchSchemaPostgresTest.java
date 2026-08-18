@@ -131,7 +131,8 @@ class MatchSchemaPostgresTest {
 			"match_requests",
 			false,
 			"idx_match_requests_waiting_candidate",
-			"((status)::text = 'WAITING'::text)"),
+			"((status)::text = 'WAITING'::text)",
+			"priority_since,id"),
 		new ExpectedPartialIndex(
 			"match_requests",
 			false,
@@ -183,7 +184,11 @@ class MatchSchemaPostgresTest {
 			this(tableName, type, constraintName, null);
 		}
 	}
-	private record ExpectedPartialIndex(String tableName, boolean unique, String indexName, String predicate) {
+	private record ExpectedPartialIndex(
+		String tableName, boolean unique, String indexName, String predicate, String keyColumns) {
+		private ExpectedPartialIndex(String tableName, boolean unique, String indexName, String predicate) {
+			this(tableName, unique, indexName, predicate, null);
+		}
 	}
 
 	@Container
@@ -227,6 +232,7 @@ class MatchSchemaPostgresTest {
 			for (ExpectedPartialIndex index : EXPECTED_MATCH_PARTIAL_INDEXES) {
 				assertPartialIndexExists(schemaName, index);
 				assertPartialIndexPredicate(schemaName, index);
+				assertPartialIndexColumns(schemaName, index);
 			}
 			assertEquals(1, migrationCount(schemaName, "30"));
 			assertEquals(1, migrationCount(schemaName, "31"));
@@ -570,8 +576,22 @@ class MatchSchemaPostgresTest {
 			"Unexpected predicate for " + expected.indexName());
 	}
 
+	private void assertPartialIndexColumns(String schemaName, ExpectedPartialIndex expected) {
+		if (expected.keyColumns() == null) {
+			return;
+		}
+		assertEquals(
+			normalizeIndexColumns(expected.keyColumns()),
+			normalizeIndexColumns(partialIndexColumns(schemaName, expected)),
+			"Unexpected key columns for " + expected.indexName());
+	}
+
 	private String normalizePredicate(String predicate) {
 		return predicate.replaceAll("\\s+", "");
+	}
+
+	private String normalizeIndexColumns(String columns) {
+		return columns.replaceAll("\\s+", "").replace("\"", "").toLowerCase(Locale.ROOT);
 	}
 
 	private String normalizeDefinition(String definition, String schemaName) {
@@ -586,6 +606,24 @@ class MatchSchemaPostgresTest {
 				+ "join pg_namespace index_namespace on index_namespace.oid = index_info.relnamespace "
 				+ "join pg_class table_info on table_info.oid = index_relation.indrelid "
 				+ "join pg_namespace table_namespace on table_namespace.oid = table_info.relnamespace "
+				+ "where index_namespace.nspname = ? and index_info.relname = ? "
+				+ "and table_namespace.nspname = ? and table_info.relname = ?",
+			String.class,
+			schemaName,
+			expected.indexName(),
+			schemaName,
+			expected.tableName());
+	}
+
+	private String partialIndexColumns(String schemaName, ExpectedPartialIndex expected) {
+		return jdbcTemplate.queryForObject(
+			"select string_agg(pg_get_indexdef(index_relation.indexrelid, key_column.position, true), ',' order by key_column.position) "
+				+ "from pg_index index_relation "
+				+ "join pg_class index_info on index_info.oid = index_relation.indexrelid "
+				+ "join pg_namespace index_namespace on index_namespace.oid = index_info.relnamespace "
+				+ "join pg_class table_info on table_info.oid = index_relation.indrelid "
+				+ "join pg_namespace table_namespace on table_namespace.oid = table_info.relnamespace "
+				+ "cross join lateral generate_series(1, index_relation.indnkeyatts) as key_column(position) "
 				+ "where index_namespace.nspname = ? and index_info.relname = ? "
 				+ "and table_namespace.nspname = ? and table_info.relname = ?",
 			String.class,
