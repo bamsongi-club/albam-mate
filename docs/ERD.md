@@ -1,6 +1,6 @@
 # 알밤메이트 ERD
 
-이 문서는 현재 P0·P1 데이터 모델과 데이터 제약, 그리고 승인된 P2 `AI-01`·`MATCH-01`의 계획 저장 계약을 정의한다. 이 문서에 적은 P1 알림·채팅·다중 인스턴스 스케줄 잠금·소셜 계정·대기열·게임 검색 수치·메타데이터·메커니즘·사용자별 해 본 게임 관계는 전진 Flyway 마이그레이션과 생산 코드에 반영돼 있다. 아래 P2 AI-01·MATCH 절은 구현 목표일 뿐 아직 Flyway·JPA 엔티티·생산 코드에 반영되지 않았다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), P2 진행 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
+이 문서는 현재 P0·P1 데이터 모델과 데이터 제약, 승인된 P2 `AI-01` 계획 저장 계약과 구현된 P2 `MATCH-01` 저장 구조를 정의한다. 이 문서에 적은 P1 알림·채팅·다중 인스턴스 스케줄 잠금·소셜 계정·대기열·게임 검색 수치·메타데이터·메커니즘·사용자별 해 본 게임 관계와 P2 MATCH 저장 구조는 전진 Flyway 마이그레이션과 생산 코드에 반영돼 있다. 아래 P2 AI-01 절은 구현 목표일 뿐 아직 Flyway·JPA 엔티티·생산 코드에 반영되지 않았다. P1 종료 상태는 [P1 기능 종료 상태](archive/p1/README.md#기능별-종료-상태), P2 진행 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)를 따른다.
 
 ### 이 문서의 범위
 
@@ -8,12 +8,13 @@
 |---|---|
 | 이 문서가 정본인 것 | 테이블·컬럼·타입·DB 제약, 저장 계산식과 저장 불변식 |
 | 이 문서가 담지 않는 것 | 제품 규칙(상태 전이·권한·시간·정원)은 [P2 명세](P2-spec.md), [P1 종료 명세](archive/p1/README.md)와 [P0-spec](archive/p0/P0-spec.md#공통-규칙), 요청·응답 계약은 [API](API.md), 기술 결정 이유는 [ADR](adr/README.md) |
-| P2 AI-01·MATCH 표기 | 아래 P2 AI-01·MATCH 테이블·인덱스는 승인된 계획 계약이다. 현재 물리 schema·JPA 매핑·API 제공 여부는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로만 판정한다. |
+| P2 AI-01 표기 | 아래 P2 AI-01 테이블·인덱스는 승인된 계획 계약이며 아직 물리 schema·JPA 매핑에 반영되지 않았다. |
+| P2 MATCH 표기 | 아래 P2 MATCH 테이블·인덱스는 승인된 저장 계약이며 물리 schema·JPA 매핑은 존재한다. 기능 제공·검증·배포·실측 상태는 [P2 기능 상태](p2/README.md#기능별-현재-상태)로 판정한다. |
 | 변경 시 함께 갱신 | 스키마를 바꾸면 Flyway 마이그레이션과 JPA 엔티티를 같은 변경에서 일치시킨다(→ [마이그레이션 작업 안내](../src/main/resources/db/migration/AGENTS.md), [ADR-0008](adr/platform/0008-flyway-database-migrations.md)) |
 
 ## 기준과 범위
 
-- 기준: 새 P2 저장 계약은 [P2 기능 명세](p2/README.md)와 필요한 ADR을 먼저 확정하고 같은 변경에서 이 문서에 반영한다. 아래 P2 AI-01·MATCH 절의 후속 물리 구현도 같은 기준을 따른다. 기존 P0·P1 규칙은 [P0 공통 명세](archive/p0/P0-spec.md), [P1 종료 명세](archive/p1/README.md)와 [관련 ADR](adr/README.md)을 따른다.
+- 기준: 새 P2 저장 계약은 [P2 기능 명세](p2/README.md)와 필요한 ADR을 먼저 확정하고 같은 변경에서 이 문서에 반영한다. 아래 P2 AI-01 절의 후속 물리 구현도 같은 기준을 따른다. 기존 P0·P1 규칙은 [P0 공통 명세](archive/p0/P0-spec.md), [P1 종료 명세](archive/p1/README.md)와 [관련 ADR](adr/README.md)을 따른다.
 - 범위: 현재 P0의 오프라인 방·게임 목록·사용자·방 참가, P1의 소셜 계정·대기열과 게임 검색 수치·메커니즘 목록·관계·사용자별 해 본 게임 관계·서비스 내 알림·방별 채팅·공용 스케줄 잠금, 3차 MVP RANK-02 인기 점수, P2 계획의 Board Game Arena 고정 MATCH 요청·제안·성공 파티·전용 채팅·신고·차단
 - 제외: 기존 ROOM을 확장한 온라인 방·온라인 ROOM 자동 매칭, 후기, 룰마스터 가능 게임, 결제·포인트. 아래 `MATCH-01`은 기존 ROOM·참가·대기열과 별개인 Board Game Arena 고정 P2 계획 계약이므로 이 제외 범위에 포함하지 않는다.
 - P0 검색: 게임 목록은 게임명 `keyword`, 사람 중심 방 목록은 방 제목 `keyword` 검색을 지원한다. 게임 태그는 표시값이며 필터가 아니다.
@@ -21,7 +22,7 @@
 
 ## 관계도
 
-아래 관계도는 P0·P1 저장 구조만 나타낸다. P2 MATCH 관계는 [P2 MATCH 저장 계약](#p2-match-저장-계약-계획미구현)에서 별도로 표현한다.
+아래 관계도는 P0·P1 저장 구조만 나타낸다. P2 MATCH 관계는 [P2 MATCH 저장 계약](#p2-match-저장-계약)에서 별도로 표현한다.
 
 ~~~mermaid
 erDiagram
@@ -816,7 +817,7 @@ erDiagram
 
 AI-01 저장소에는 `raw_prompt`, provider 원문 응답, prompt hash, 대화 이력, BGG 원문, 후보 목록, 사용자 ID·세션·secret을 provider payload 또는 관측 저장소로 복제하는 테이블·컬럼을 두지 않는다.
 
-## P2 MATCH 저장 계약 (계획·미구현)
+## P2 MATCH 저장 계약
 
 > 이 절은 `MATCH-01`의 승인된 저장 계약이다. 아래 테이블은 Flyway 마이그레이션과 JPA 엔티티로 이미 만들어져 있으며, 기능별 제공·검증·배포·실측 여부는 [P2 기능 상태](p2/README.md#기능별-현재-상태)에서만 판정한다. 저장 구조가 있다는 사실을 기능 구현의 완료 증거로 읽지 않는다. 후보 선점·멱등성 선택 근거는 [ADR-0061](adr/matching/0061-postgresql-candidate-reservation-idempotency.md), MATCH 전용 채팅의 도메인 분리·port 선택 근거는 [ADR-0062](adr/matching/0062-match-chat-handoff-recovery-retention.md), URL 텍스트 표현 선택은 [ADR-0064](adr/matching/0064-match-chat-url-text-storage.md), baseline 전 목표·Redis 재검토 결정은 [ADR-0063](adr/matching/0063-match-baseline-measurement-gate.md)을 따른다. MATCH 채팅의 제품 동작·보존은 [MATCH-01 성공 파티 채팅](p2/matching.md#성공-파티-채팅), 복구 실행은 [아키텍처의 P2 MATCH 모듈 계약](ARCHITECTURE.md#p2-match-모듈-계약), candidate 측정 상세는 [후보 탐색 baseline 측정 계약](measurements/match-01-candidate-search-baseline-contract.md)이 각각 소유한다.
 
@@ -901,7 +902,7 @@ erDiagram
 
 ### MATCH 전용 채팅 저장
 
-이 두 테이블은 `chat` 소유의 계획 저장 구조다. `MATCH_CHAT_ROOMS`는 `MATCH_PARTIES`와 0 또는 1 관계이고 `CHAT_ROOMS`와 FK·공유 행·공유 접근 규칙을 갖지 않는다.
+이 두 테이블은 `chat` 소유의 저장 구조다. `MATCH_CHAT_ROOMS`는 `MATCH_PARTIES`와 0 또는 1 관계이고 `CHAT_ROOMS`와 FK·공유 행·공유 접근 규칙을 갖지 않는다.
 
 | 테이블 | 주요 컬럼 | 타입·제약 |
 |---|---|---|

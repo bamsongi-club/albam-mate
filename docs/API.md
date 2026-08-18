@@ -2521,7 +2521,7 @@ WebSocket은 P1에서 수신 전용이다. 클라이언트가 애플리케이션
 >
 > 이 절의 모든 HTTP·WebSocket 경로·요청·응답·enum은 승인된 목표 계약이며 현재 제공 기능이 아니다. 제품 상태는 [P2 기능 상태의 `MATCH-01`](p2/README.md#기능별-현재-상태)에서 별도로 판정한다.
 
-MATCHING은 매칭 요청·제안·성공 파티와 그 접근 관계를 소유한다. 현재 상태 조회는 PostgreSQL 정본을 조합해 반환하며, WebSocket·그 밖의 실시간 이벤트는 정본이 아니다. 따라서 재접속, 이벤트 유실·중복·순서 역전 또는 서버 재기동 뒤 클라이언트는 반드시 이 조회 결과로 화면을 복구한다. 저장 구조·제약·인덱스는 [P2 MATCH 저장 계약](ERD.md#p2-match-저장-계약-계획미구현), 모듈 흐름·재시도 내부는 [P2 MATCH 모듈 계약](ARCHITECTURE.md#p2-match-모듈-계약), 기술 선택 근거는 [MATCH ADR](adr/matching/README.md)이 소유한다.
+MATCHING은 매칭 요청·제안·성공 파티와 그 접근 관계를 소유한다. 현재 상태 조회는 PostgreSQL 정본을 조합해 반환하며, WebSocket·그 밖의 실시간 이벤트는 정본이 아니다. 따라서 재접속, 이벤트 유실·중복·순서 역전 또는 서버 재기동 뒤 클라이언트는 반드시 이 조회 결과로 화면을 복구한다. 저장 구조·제약·인덱스는 [P2 MATCH 저장 계약](ERD.md#p2-match-저장-계약), 모듈 흐름·재시도 내부는 [P2 MATCH 모듈 계약](ARCHITECTURE.md#p2-match-모듈-계약), 기술 선택 근거는 [MATCH ADR](adr/matching/README.md)이 소유한다.
 
 모든 MATCH HTTP API는 인증된 현재 사용자만 호출한다. `GET`은 CSRF가 필요 없고 `POST`·`PUT`·`DELETE`는 세션과 CSRF가 필요하다. 유효 세션이 없으면 CSRF보다 `UNAUTHENTICATED`를 먼저 반환한다. MATCH WebSocket handshake는 세션과 허용된 `Origin`을 검증하며 CSRF는 필요 없다.
 
@@ -2802,11 +2802,11 @@ WebSocket은 수신 전용이다. 클라이언트가 애플리케이션 메시�
 | `NOT_ACCEPTABLE` | 406 | 요청한 응답 미디어 타입을 제공할 수 없습니다. | `Accept` 헤더와 호환되는 응답 미디어 타입이 없음 |
 | `UNSUPPORTED_MEDIA_TYPE` | 415 | 지원하지 않는 요청 미디어 타입입니다. | `Content-Type`이 요청 본문 계약과 호환되지 않거나, PART-04 대기 API에 금지된 `Content-Type`·`Transfer-Encoding`·실제 본문이 포함됨 |
 | `INTERNAL_SERVER_ERROR` | 500 | 서버 오류가 발생했습니다. | 처리하지 않은 예외로 요청을 완료하지 못함 |
-| `SERVICE_UNAVAILABLE` | 503 | 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요. | 요청 처리에 필수인 세션·인증 요청 제한 또는 전송 제한 상태 저장소를 확인할 수 없음 |
+| `SERVICE_UNAVAILABLE` | 503 | 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요. | 요청 처리에 필수인 세션·인증 요청 제한·전송 제한 또는 AI 비용·사용량 예약 상태 저장소를 확인할 수 없음 |
 
 `METHOD_NOT_ALLOWED`, `NOT_ACCEPTABLE`, `UNSUPPORTED_MEDIA_TYPE` 응답은 Spring MVC 예외가 제공하는 `Allow`, `Accept`, `Accept-Patch` 등의 프로토콜 헤더가 있으면 그대로 포함한다.
 
-`SERVICE_UNAVAILABLE`의 현재 적용 범위는 [채팅 API](#채팅-공통-계약)의 세 엔드포인트와 `POST /api/auth/signup`, `POST /api/auth/login`이다. `local`과 `production`에서 인증 요청 제한 Redis를 확인할 수 없으면 회원가입·로그인은 사용자 조회·생성과 비밀번호 해시 전에 이 코드를 반환한다. 채팅 요청이 Spring Session Redis의 세션 상태를 확인할 수 없으면 같은 코드를 반환하며, 메시지 전송은 세션 저장소가 정상이더라도 전송 제한 상태 저장소를 확인할 수 없으면 저장 전에 같은 코드를 반환한다. 이 503에는 `Retry-After`를 포함하지 않으며 Redis 장애 시 인메모리 구현으로 자동 대체하지 않는다.
+`SERVICE_UNAVAILABLE`의 현재 적용 범위는 [채팅 API](#채팅-공통-계약)의 세 엔드포인트, `POST /api/auth/signup`, `POST /api/auth/login`, `POST /api/assistant/recommendations`이다. `local`과 `production`에서 인증 요청 제한 Redis를 확인할 수 없으면 회원가입·로그인은 사용자 조회·생성과 비밀번호 해시 전에 이 코드를 반환한다. 채팅 요청이 Spring Session Redis의 세션 상태를 확인할 수 없으면 같은 코드를 반환하며, 메시지 전송은 세션 저장소가 정상이더라도 전송 제한 상태 저장소를 확인할 수 없으면 저장 전에 같은 코드를 반환한다. AI 추천은 비용·사용량 예약 Redis를 확인할 수 없을 때 provider를 호출하지 않고 같은 코드를 반환한다. 이 503에는 `Retry-After`를 포함하지 않으며 Redis 장애 시 인메모리 구현으로 자동 대체하지 않는다.
 
 로그인·로그아웃과 그 밖의 현재 P0·P1 세션 사용 엔드포인트로 이 코드를 확장할지는 이 문서에서 아직 결정하지 않는다. P2 MATCH 채팅의 계획된 적용 범위는 [MATCH 채팅 API](#match-채팅-공통-계약)와 오류 매트릭스에만 적으며, 이 계약이 현재 제공 범위를 넓히지 않는다.
 
@@ -2897,7 +2897,7 @@ MATCH 채팅 경로(`/api/matches/parties/{partyId}/chat/**`)는 성공 파티 �
 | `ASSISTANT_CONSENT_REQUIRED` | 403 | 외부 AI 처리 동의가 필요합니다. | 유효한 `GRANTED` 동의 없이 추천·초안·확인을 요청함 |
 | `ASSISTANT_CONSENT_VERSION_MISMATCH` | 409 | 최신 동의문을 확인해야 합니다. | 승인되지 않은 동의문 버전을 `GRANT`로 보냄 |
 | `ASSISTANT_INPUT_NOT_ALLOWED` | 400 | 외부 AI 처리에 허용되지 않는 입력입니다. | PII·secret·지원하지 않는 지시를 안전하게 처리할 수 없음 |
-| `ASSISTANT_PROVIDER_UNAVAILABLE` | 503 | AI provider를 현재 사용할 수 없습니다. | provider·정책·Redis 비용 예약을 확인할 수 없거나 timeout·provider 429가 발생함 |
+| `ASSISTANT_PROVIDER_UNAVAILABLE` | 503 | AI provider를 현재 사용할 수 없습니다. | provider·정책을 확인할 수 없거나 timeout·provider 429가 발생함 |
 | `ASSISTANT_PROVIDER_RESPONSE_INVALID` | 503 | AI provider 응답을 처리할 수 없습니다. | 강제 구조화 schema를 검증하지 못함 |
 | `RATE_LIMIT_EXCEEDED` | 429 | AI 요청 처리 한도를 초과했습니다. 잠시 후 다시 시도해 주세요. | 사용자별 KST 일일 5회 또는 월간 150회 quota에 도달함 |
 | `ASSISTANT_COST_LIMIT_EXCEEDED` | 429 | AI 사용 비용 한도를 초과했습니다. | 앱 전체 월 hard cap `$5`에 도달함 |
@@ -2905,7 +2905,7 @@ MATCH 채팅 경로(`/api/matches/parties/{partyId}/chat/**`)는 성공 파티 �
 | `ASSISTANT_DRAFT_EXPIRED` | 410 | AI 초안이 만료되었습니다. | 요청 시작 시각에 초안의 15분 유효 기간이 지남 |
 | `ASSISTANT_DRAFT_CONFLICT` | 409 | AI 초안이 동시에 변경되었습니다. 다시 확인해 주세요. | 오래된 version, 다른 멱등키, 범위 밖 key 재사용 또는 confirm 경합 |
 
-`ASSISTANT_PROVIDER_UNAVAILABLE`는 실제 provider를 자동 재시도하거나 다른 model로 조용히 대체하지 않는다. `ASSISTANT_PROVIDER_RESPONSE_INVALID`와 모든 provider 실패는 Room·ChatRoom·초안 확인 결과를 남기지 않는다. `ASSISTANT_DRAFT_EXPIRED`는 HTTP `410 Gone`을 사용하며 클라이언트는 새 초안을 시작해야 한다.
+`ASSISTANT_PROVIDER_UNAVAILABLE`는 실제 provider를 자동 재시도하거나 다른 model로 조용히 대체하지 않는다. Redis 비용·사용량 예약을 확인할 수 없는 경우에는 공통 오류인 `SERVICE_UNAVAILABLE`을 반환하고 provider를 호출하지 않는다. `ASSISTANT_PROVIDER_RESPONSE_INVALID`와 모든 provider 실패는 Room·ChatRoom·초안 확인 결과를 남기지 않는다. `ASSISTANT_DRAFT_EXPIRED`는 HTTP `410 Gone`을 사용하며 클라이언트는 새 초안을 시작해야 한다.
 
 ## 11. 부록: 엔드포인트별 오류 매트릭스
 
@@ -2950,7 +2950,7 @@ MATCH 채팅 경로(`/api/matches/parties/{partyId}/chat/**`)는 성공 파티 �
 | `GET /api/rooms/{roomId}/chat/ws` | `UNAUTHENTICATED`, `ROOM_NOT_FOUND`, `FORBIDDEN`, `ROOM_CONCURRENT_MODIFICATION`, `VALIDATION_ERROR`, `SERVICE_UNAVAILABLE` |
 | `GET /api/assistant/consent` | `UNAUTHENTICATED` |
 | `PUT /api/assistant/consent` | `UNAUTHENTICATED`, `VALIDATION_ERROR`, `ASSISTANT_CONSENT_VERSION_MISMATCH`, `CSRF_TOKEN_INVALID` |
-| `POST /api/assistant/recommendations` | `UNAUTHENTICATED`, `ASSISTANT_NOT_ENABLED`, `ASSISTANT_CONSENT_REQUIRED`, `VALIDATION_ERROR`, `ASSISTANT_INPUT_NOT_ALLOWED`, `ASSISTANT_PROVIDER_UNAVAILABLE`, `ASSISTANT_PROVIDER_RESPONSE_INVALID`, `RATE_LIMIT_EXCEEDED`, `ASSISTANT_COST_LIMIT_EXCEEDED`, `CSRF_TOKEN_INVALID` |
+| `POST /api/assistant/recommendations` | `UNAUTHENTICATED`, `ASSISTANT_NOT_ENABLED`, `ASSISTANT_CONSENT_REQUIRED`, `VALIDATION_ERROR`, `ASSISTANT_INPUT_NOT_ALLOWED`, `ASSISTANT_PROVIDER_UNAVAILABLE`, `ASSISTANT_PROVIDER_RESPONSE_INVALID`, `RATE_LIMIT_EXCEEDED`, `ASSISTANT_COST_LIMIT_EXCEEDED`, `SERVICE_UNAVAILABLE`, `CSRF_TOKEN_INVALID` |
 | `POST /api/assistant/drafts` | `UNAUTHENTICATED`, `ASSISTANT_NOT_ENABLED`, `ASSISTANT_CONSENT_REQUIRED`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `RATE_LIMIT_EXCEEDED`, `ASSISTANT_COST_LIMIT_EXCEEDED`, `CSRF_TOKEN_INVALID` |
 | `GET /api/assistant/drafts/{draftId}` | `UNAUTHENTICATED`, `ASSISTANT_DRAFT_NOT_FOUND`, `ASSISTANT_DRAFT_EXPIRED` |
 | `PATCH /api/assistant/drafts/{draftId}` | `UNAUTHENTICATED`, `ASSISTANT_DRAFT_NOT_FOUND`, `ASSISTANT_DRAFT_EXPIRED`, `ASSISTANT_DRAFT_CONFLICT`, `VALIDATION_ERROR`, `GAME_NOT_FOUND`, `CSRF_TOKEN_INVALID` |

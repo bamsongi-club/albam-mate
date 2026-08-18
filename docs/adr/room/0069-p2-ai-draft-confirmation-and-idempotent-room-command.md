@@ -28,7 +28,7 @@
 
 - `RECOMMEND`는 검색 조건이 유효할 때 후보 집합만 반환한다. 검색 조건이 없으면 `NEEDS_INPUT`으로 추천 조건만 되묻고, 활성 초안·Room을 만들지 않는다.
 - `CREATE_ROOM`으로 전환해 방 생성 정보를 채운 경우에만 서버가 15분 임시 초안을 만든다. 초안 만료는 생성 시각부터 계산하며 새 명령은 기존 활성 초안을 `DISCARDED`로 종결하고 새 초안을 만든다. 동의 철회·명시 폐기·만료도 기존 활성 초안을 종결한다.
-- 사용자당 활성 초안은 하나다. `(user_id, active_slot)` 유일 제약으로 보장하며 별도 `SUPERSEDED` 상태는 추가하지 않는다.
+- 사용자당 활성 초안은 하나다. `UNIQUE (user_id) WHERE status = 'ACTIVE'` 부분 유일 제약으로 보장하며 별도 `active_slot` 컬럼이나 `SUPERSEDED` 상태는 추가하지 않는다.
 - 상세 장소는 확인 카드에서 사용자가 직접 입력한다. 모델 결과·raw prompt에서 장소를 추출하거나 저장하지 않는다.
 
 ### 확인·멱등성·동시성
@@ -45,6 +45,7 @@
 
 - assistant는 `room.contract`의 확인형 command만 호출한다. 현재 사용자 ID는 요청 인자가 아니라 command 내부의 인증 컨텍스트에서 읽는다.
 - 기존 `RoomCreated → ChatRoom` 트랜잭션을 재사용한다. Room 생성이 실패하면 ChatRoom도 남기지 않는다.
+- 확인형 command는 `room.contract`가 소유하며 `room`은 `chat` Entity·Repository를 직접 참조하지 않는다. 같은 트랜잭션의 동기 `RoomCreated` handoff를 `chat` listener가 채팅방 저장 후 채우고, command는 그 `chatRoomId`를 결과에 포함한다. handoff가 완료되지 않으면 전체 생성 결과를 롤백한다.
 - 기존 즉시 생성 `POST /api/rooms`는 유지하고 확인형 경로와 공존시킨다. 공개 요청·응답·오류·초안 저장 구조는 API·ERD·아키텍처 문서와 구현 이슈에서 반영한다.
 
 ## 결과
