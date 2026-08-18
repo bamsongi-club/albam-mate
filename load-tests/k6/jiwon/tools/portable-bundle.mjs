@@ -32,6 +32,22 @@ const SOURCE_SHA_PATTERN = /^[a-f0-9]{40}$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const FIXTURE_ID_PATTERN = /^room-k6-t[1-5]-[a-f0-9]{12}$/;
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+const TARGET_ENVIRONMENT_PATTERN = /^[a-z0-9][a-z0-9._-]{0,79}$/;
+const UTC_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+
+const REQUIRED_RESOURCE_SIGNAL_FIELDS = Object.freeze({
+  http: ['requestCount', 'failedRequestCount'],
+  tomcat: ['activeThreads'],
+  hikari: ['activeConnections'],
+  jvm: ['heapUsedBytes'],
+  postgresql: ['activeConnections'],
+});
+const REQUIRED_QUERY_SIGNAL_FIELDS = Object.freeze([
+  'callCount',
+  'totalTimeMilliseconds',
+  'sharedBuffersHit',
+  'sharedBuffersRead',
+]);
 
 const SCENARIO_ENTRIES = Object.freeze({
   t1: 't1-cancel-promotion.js',
@@ -66,6 +82,8 @@ const ARTIFACTS = Object.freeze({
   beforeSnapshot: 'before-snapshot.json',
   afterSnapshot: 'after-snapshot.json',
   summary: 'k6-summary.json',
+  runManifest: 'run-manifest.json',
+  resourceSignals: 'resource-signals.json',
   console: 'k6-console.log',
   infraExecution: 'infra-execution.json',
   beforeDiagnosis: 'before-diagnosis.json',
@@ -89,6 +107,8 @@ const EXECUTION_STATE_ARTIFACTS = Object.freeze([
   ARTIFACTS.beforeSnapshot,
   ARTIFACTS.afterSnapshot,
   ARTIFACTS.summary,
+  ARTIFACTS.runManifest,
+  ARTIFACTS.resourceSignals,
   ARTIFACTS.console,
   ARTIFACTS.infraExecution,
   ARTIFACTS.beforeDiagnosis,
@@ -393,8 +413,9 @@ function readBundle(context, rawBundlePath) {
   if (resourceQuerySql !== buildResourceQuery(plan, ownership)) {
     fail('resource-query.sql이 fixture plan·prepare ownership과 일치하지 않습니다.');
   }
-  assertExecutionOptions(readJson(artifactPath(bundle, ARTIFACTS.executionOptions), 'execution options'));
-  return { bundle, plan, ownership };
+  const executionOptions = readJson(artifactPath(bundle, ARTIFACTS.executionOptions), 'execution options');
+  assertExecutionOptions(executionOptions);
+  return { bundle, plan, ownership, executionOptions };
 }
 
 function immutablePaths(bundle) {
@@ -440,6 +461,127 @@ function readHydratedFixture(bundle, plan, ownership) {
     fail('fixture.json이 fixture plan·resource output·prepare ownership과 일치하지 않습니다.');
   }
   return fixture;
+}
+
+function isObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isUtcTimestamp(value) {
+  return typeof value === 'string'
+    && UTC_TIMESTAMP_PATTERN.test(value)
+    && !Number.isNaN(Date.parse(value));
+}
+
+function isT5ReadOptions(value) {
+  return isObject(value)
+    && Number.isInteger(value.vus) && value.vus >= 1 && value.vus <= 500
+    && Number.isInteger(value.durationSeconds) && value.durationSeconds >= 5 && value.durationSeconds <= 3600
+    && Number.isInteger(value.thinkTimeMilliseconds)
+    && value.thinkTimeMilliseconds >= 0 && value.thinkTimeMilliseconds <= 10000;
+}
+
+function hasNonNegativeNumericFields(value, fields) {
+  return isObject(value)
+    && fields.every((field) => Number.isFinite(value[field]) && value[field] >= 0);
+}
+
+export function readPortableT5CompletionArtifacts(bundle, fixture = null, executionOptions = null) {
+  const expectedFixtureId = bundle.manifest.fixtureId;
+  const expectedRunId = bundle.manifest.options?.runId;
+  const expectedReadOptions = executionOptions?.t5ReadOptions;
+  if (bundle.manifest.options?.scenario !== 't5'
+    || !isT5ReadOptions(expectedReadOptions)) {
+    fail('T5 portable bundle에 고정 read profile이 없습니다.');
+  }
+  if (fixture
+    && (fixture.fixtureId !== expectedFixtureId || fixture.options?.runId !== expectedRunId)) {
+    fail('T5 fixture와 portable bundle identity가 일치하지 않습니다.');
+  }
+
+  const runManifest = readJson(artifactPath(bundle, ARTIFACTS.runManifest), 'run-manifest');
+  const fixturePath = artifactPath(bundle, ARTIFACTS.fixture);
+  const summaryPath = artifactPath(bundle, ARTIFACTS.summary);
+  if (!isObject(runManifest)
+    || runManifest.schemaVersion !== 2
+    || runManifest.fixtureId !== expectedFixtureId
+    || runManifest.runId !== expectedRunId
+    || runManifest.scenario !== 't5'
+    || runManifest.sourceSha !== bundle.manifest.sourceRevision
+    || !TARGET_ENVIRONMENT_PATTERN.test(runManifest.targetEnvironment || '')
+    || typeof runManifest.k6Version !== 'string'
+    || runManifest.k6Version.trim() === ''
+    || !isUtcTimestamp(runManifest.startedAtUtc)
+    || !isUtcTimestamp(runManifest.finishedAtUtc)
+    || Date.parse(runManifest.finishedAtUtc) < Date.parse(runManifest.startedAtUtc)
+    || runManifest.runState !== 'COMPLETED'
+    || runManifest.completed !== true
+    || !Number.isInteger(runManifest.k6ExitCode)
+    || !SHA256_PATTERN.test(runManifest.fixtureSha256 || '')
+    || runManifest.summaryFile !== ARTIFACTS.summary
+    || !SHA256_PATTERN.test(runManifest.summarySha256 || '')
+    || !sameJson(runManifest.t5ReadOptions, expectedReadOptions)) {
+    fail('run-manifest.json이 원본 T5 completion artifact 계약과 일치하지 않습니다.');
+  }
+  if (digestFile(fixturePath, 'fixture') !== runManifest.fixtureSha256) {
+    fail('run-manifest.json의 fixtureSha256가 실제 fixture.json과 다릅니다.');
+  }
+  if (digestFile(summaryPath, 'k6 summary') !== runManifest.summarySha256) {
+    fail('run-manifest.json의 summarySha256가 실제 k6-summary.json과 다릅니다.');
+  }
+
+  const resourceSignals = readJson(
+    artifactPath(bundle, ARTIFACTS.resourceSignals),
+    'resource-signals',
+  );
+  if (!isObject(resourceSignals)
+    || resourceSignals.schemaVersion !== 1
+    || resourceSignals.runId !== expectedRunId
+    || resourceSignals.fixtureId !== expectedFixtureId
+    || !isObject(resourceSignals.window)
+    || resourceSignals.window.startedAtUtc !== runManifest.startedAtUtc
+    || resourceSignals.window.finishedAtUtc !== runManifest.finishedAtUtc
+    || !isUtcTimestamp(resourceSignals.window.startedAtUtc)
+    || !isUtcTimestamp(resourceSignals.window.finishedAtUtc)) {
+    fail('resource-signals.json이 run-manifest.json의 측정 window와 연결되지 않았습니다.');
+  }
+  for (const [group, fields] of Object.entries(REQUIRED_RESOURCE_SIGNAL_FIELDS)) {
+    if (!hasNonNegativeNumericFields(resourceSignals[group], fields)) {
+      fail(`resource-signals.json에 ${group} 필수 numeric signal이 없습니다.`);
+    }
+  }
+  if (!hasNonNegativeNumericFields(resourceSignals.query, REQUIRED_QUERY_SIGNAL_FIELDS)) {
+    fail('resource-signals.json에 query 필수 numeric signal이 없습니다.');
+  }
+
+  const normalizedResourceSignals = {
+    schemaVersion: 1,
+    runId: expectedRunId,
+    fixtureId: expectedFixtureId,
+    window: {
+      startedAtUtc: runManifest.startedAtUtc,
+      finishedAtUtc: runManifest.finishedAtUtc,
+    },
+  };
+  for (const [group, fields] of Object.entries(REQUIRED_RESOURCE_SIGNAL_FIELDS)) {
+    normalizedResourceSignals[group] = Object.fromEntries(
+      fields.map((field) => [field, resourceSignals[group][field]]),
+    );
+  }
+  normalizedResourceSignals.query = Object.fromEntries(
+    REQUIRED_QUERY_SIGNAL_FIELDS.map((field) => [field, resourceSignals.query[field]]),
+  );
+
+  return {
+    runManifest,
+    resourceSignals: normalizedResourceSignals,
+    artifactSha256: {
+      fixture: digestFile(fixturePath, 'fixture'),
+      summary: digestFile(summaryPath, 'k6 summary'),
+      runManifest: digestFile(artifactPath(bundle, ARTIFACTS.runManifest), 'run-manifest'),
+      resourceSignals: digestFile(artifactPath(bundle, ARTIFACTS.resourceSignals), 'resource-signals'),
+    },
+  };
 }
 
 function isSnapshot(value) {
@@ -584,10 +726,12 @@ export function diagnoseBundle(values, context) {
   if (stage !== 'before' && stage !== 'after') {
     fail('--stage는 before 또는 after여야 합니다.');
   }
-  const { bundle, plan, ownership } = readBundle(context, values.bundle);
+  const { bundle, plan, ownership, executionOptions } = readBundle(context, values.bundle);
   if (stage === 'before') {
     const executionArtifact = [
       ARTIFACTS.summary,
+      ARTIFACTS.runManifest,
+      ARTIFACTS.resourceSignals,
       ARTIFACTS.console,
       ARTIFACTS.afterSnapshot,
       ARTIFACTS.afterDiagnosis,
@@ -604,6 +748,7 @@ export function diagnoseBundle(values, context) {
   const snapshot = readSnapshot(bundle, snapshotPath);
   const fixture = readHydratedFixture(bundle, plan, ownership);
   if (stage === 'after' && plan.options.scenario === 't5') {
+    readPortableT5CompletionArtifacts(bundle, fixture, executionOptions);
     const beforeDiagnosis = readDiagnosis(bundle, ARTIFACTS.beforeDiagnosis, 'before');
     fixture.baselineSnapshot = beforeDiagnosis.baselineSnapshot;
   }
@@ -611,7 +756,6 @@ export function diagnoseBundle(values, context) {
   if (stage === 'after') {
     const summaryPath = artifactPath(bundle, ARTIFACTS.summary);
     summary = normalizeRoomSummary(readJson(summaryPath, 'k6 summary'));
-    writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`, 'utf8');
   }
   const evaluation = evaluateFixture(fixture, snapshot, stage, summary);
   const result = {
@@ -628,7 +772,7 @@ export function diagnoseBundle(values, context) {
 }
 
 export function aggregateBundle(rawBundlePath, context) {
-  const { bundle } = readBundle(context, rawBundlePath);
+  const { bundle, executionOptions } = readBundle(context, rawBundlePath);
   const issues = [];
   const readCurrentDiagnosis = (relativePath, stage) => {
     try {
@@ -646,12 +790,23 @@ export function aggregateBundle(rawBundlePath, context) {
   } catch (_) {
     issues.push('infra-execution.json이 없거나 현재 bundle의 원시 실행 metadata 계약과 맞지 않습니다.');
   }
+  let completion = null;
+  if (bundle.manifest.options.scenario === 't5') {
+    try {
+      completion = readPortableT5CompletionArtifacts(bundle, null, executionOptions);
+    } catch (_) {
+      issues.push('run-manifest.json 또는 resource-signals.json이 원본 T5 completion 계약과 맞지 않습니다.');
+    }
+  }
   const phaseCodes = execution ? Object.values(execution.phases).map((phase) => phase.exitCode) : [];
   if (phaseCodes.some((code) => code === null)) {
     issues.push('원시 실행 phase exit code가 완결되지 않았습니다.');
   }
   const hasInvalid = issues.length > 0 || before?.status === 'INVALID' || after?.status === 'INVALID';
-  const hasFailure = before?.status === 'FAIL' || after?.status === 'FAIL' || phaseCodes.some((code) => code !== null && code !== 0);
+  const hasFailure = before?.status === 'FAIL'
+    || after?.status === 'FAIL'
+    || phaseCodes.some((code) => code !== null && code !== 0)
+    || completion?.runManifest.k6ExitCode !== 0;
   const result = {
     schemaVersion: 1,
     fixtureId: bundle.manifest.fixtureId,
@@ -662,6 +817,7 @@ export function aggregateBundle(rawBundlePath, context) {
     beforeDiagnosis: before,
     afterDiagnosis: after,
     infraExecution: execution,
+    completion,
   };
   const output = artifactPath(bundle, ARTIFACTS.finalResult);
   if (existsSync(output)) {
