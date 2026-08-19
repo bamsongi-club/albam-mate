@@ -32,7 +32,7 @@ P2 구현은 [API](../API.md), [ERD](../ERD.md), [아키텍처](../ARCHITECTURE.
 
 | 기능 영역 | 기능 ID | 계약 준비 | 생산 코드 | 자동 검증 | 배포 상태 | 실측 상태 |
 | --- | --- | --- | --- | --- | --- | --- |
-| AI 모임 도우미 | [`AI-01`](assistant.md#ai-01-ai-모임-도우미) | T-ID 승인 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
+| AI 모임 도우미 | [`AI-01`](assistant.md#ai-01-ai-모임-도우미) | T-ID 승인 완료 | AI-01a T1~T3 동의·철회·인증·CSRF 구현, T4~T5 추천 통합·AI-01b는 후속 | H2·PostgreSQL T1~T3 통과 | 미배포 | 미측정 |
 | AI 의도·추천·Provider | [`AI-02`](assistant.md#ai-02-ai-의도-추출추천provider-운영) | T-ID 승인 완료 | AI-02a Provider/foundation: port·fake/OpenAI adapter·payload allowlist와 공유 contract/seam 구현. Redis quota·비용·completion은 `#851`, usage·cost-warning event consumer는 `#852` 소유 | 미검증 | 미배포 | 미측정 |
 | AI 초안·확인형 Room | [`AI-03`](assistant.md#ai-03-ai-초안확인형-room-생성) | T-ID 승인 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
 | AI 운영 배포·실측 | [`AI-04`](assistant.md#ai-04-ai-운영-배포실측) | T-ID 승인 필요 | 미구현 | 미검증 | 미배포 | 미측정 |
