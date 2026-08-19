@@ -148,12 +148,17 @@ class P2MonitoringContractTest {
 	}
 
 	@Test
-	void T3_OPS02는_임시_AWS_실측과_외부_API_AI_조건부_제외를_표시한다() {
+	void T3_OPS02는_앱과_인프라_구현과_자동_검증과_AWS실측완료로_표시한다() {
 		String readme = read("docs/p2/README.md");
+		String monitoringOperations = read("docs/guides/MONITORING_OPERATIONS.md");
 		String ops02Row = readme.lines()
 			.filter(line -> line.startsWith("| 지연·포화 |"))
 			.findFirst()
 			.orElseThrow(() -> new IllegalStateException("OPS-02 상태 행을 찾지 못했습니다"));
+		String gcPauseRow = monitoringOperations.lines()
+			.filter(line -> line.startsWith("| `jvm.gc.pause` |"))
+			.findFirst()
+			.orElseThrow(() -> new IllegalStateException("jvm.gc.pause 상태 행을 찾지 못했습니다"));
 
 		assertTrue(readme.contains(
 			"OPS-01·OPS-02 구현·자동 검증·임시 AWS 실측·철거 완료, OPS-02 외부 API·AI는 해당 기능 미배포로 조건부 제외"));
@@ -162,11 +167,17 @@ class P2MonitoringContractTest {
 		assertTrue(ops02Row.contains("앱·인프라 구현 완료, 미배포 외부 API·AI 조건부 제외"));
 		assertTrue(ops02Row.contains("앱 CI·인프라 수집·query·주입·복구·teardown 자동 검증 완료"));
 		assertTrue(ops02Row.contains("고정 SHA 임시 AWS 검증 배포·철거 완료"));
-		assertTrue(ops02Row.endsWith("| `AC1`~`AC4`, `AC6` 실측 완료, `AC5` 조건부 제외 |"));
-		assertTrue(readme
-			.contains("[#732](https://github.com/bamsongi-club/albam-mate/issues/732)의 `OPS-02-AC1`~`AC4`, `AC6`도"));
-		assertTrue(readme.contains("`AC5`는 외부 API·AI 기능이 배포되지 않은 현재 환경에서 조건부 제외"));
-		assertFalse(ops02Row.contains("| 미배포 | 미측정 |"));
+		assertTrue(ops02Row.contains("`AC1`~`AC4`, `AC6` 실측 완료, `AC5` 조건부 제외"));
+		assertTrue(monitoringOperations.contains(
+			"production histogram 설정·OTLP export 자동 검증 완료, CloudWatch 배포·실측 필요"));
+		assertTrue(monitoringOperations.contains(
+			"production 설정·OTLP export 자동 검증 완료, CloudWatch 배포·실측 필요"));
+		assertEquals(
+			"| `jvm.gc.pause` | timer·Micrometer JVM binder | `action`, `cause`의 라이브러리 유한값 | 5분 count·p95 | meter 기반 있음·OTLP export 검증 필요, CloudWatch 배포·실측 필요 |",
+			gcPauseRow);
+		assertFalse(readme.contains("OPS-01 공개 앱 범위와 OPS-02 앱 HTTP·JVM·Tomcat·Hikari·Nginx timing 원천 범위 부분 구현·부분 검증"));
+		assertFalse(
+			readme.contains("| 지연·포화 | [`OPS-02`](monitoring.md#ops-02-지연과-포화) | 계약 준비 완료 | 구현 완료 | 자동 검증 완료 |"));
 	}
 
 	private String read(String relativePath) {
