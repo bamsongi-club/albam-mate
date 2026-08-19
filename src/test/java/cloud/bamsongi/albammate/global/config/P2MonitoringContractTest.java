@@ -142,13 +142,13 @@ class P2MonitoringContractTest {
 	void T3_OPS01_상태는_구현과_자동검증과_AWS실측완료로_표시한다() {
 		String readme = read("docs/p2/README.md");
 
-		assertTrue(readme.contains("OPS-01 구현·자동 검증·임시 AWS 실측·철거 완료"));
+		assertTrue(readme.contains("OPS-01·OPS-02 구현·자동 검증·임시 AWS 실측·철거 완료"));
 		assertTrue(readme.contains("`AC1`~`AC7` 실측 완료"));
 		assertFalse(readme.contains("OPS-01 부분 구현·부분 검증"));
 	}
 
 	@Test
-	void T3_OPS02는_앱_원천과_자동_검증만_부분_완료로_표시한다() {
+	void T3_OPS02는_앱과_인프라_구현과_자동_검증과_AWS실측완료로_표시한다() {
 		String readme = read("docs/p2/README.md");
 		String monitoringOperations = read("docs/guides/MONITORING_OPERATIONS.md");
 		String ops02Row = readme.lines()
@@ -161,13 +161,13 @@ class P2MonitoringContractTest {
 			.orElseThrow(() -> new IllegalStateException("jvm.gc.pause 상태 행을 찾지 못했습니다"));
 
 		assertTrue(readme.contains(
-			"OPS-01 구현·자동 검증·임시 AWS 실측·철거 완료, OPS-02 앱 HTTP·JVM·Tomcat·Hikari·Nginx timing 원천 범위 부분 구현·부분 검증"));
+			"OPS-01·OPS-02 구현·자동 검증·임시 AWS 실측·철거 완료, OPS-02 외부 API·AI는 해당 기능 미배포로 조건부 제외"));
 		assertTrue(readme.contains(
 			"| 서비스 생존·연결 | [`OPS-01`](monitoring.md#ops-01-서비스-생존과-연결-상태) | 계약 준비 완료 | 구현 완료 | 자동 검증 완료 | 임시 AWS 검증 배포·철거 완료 | `AC1`~`AC7` 실측 완료 |"));
-		assertTrue(ops02Row.contains("앱 HTTP percentile·JVM·Tomcat·Hikari OTLP와 Nginx timing 원천 범위 부분 구현"));
-		assertTrue(ops02Row.contains("production PostgreSQL HTTP·OTLP·pool 대기·복구와 Nginx 설정 계약 부분 검증"));
-		assertTrue(ops02Row.contains("infra·외부 API/AI 미구현"));
-		assertTrue(ops02Row.endsWith("| 미배포 | 미측정 |"));
+		assertTrue(ops02Row.contains("앱·인프라 구현 완료, 미배포 외부 API·AI 조건부 제외"));
+		assertTrue(ops02Row.contains("앱 CI·인프라 수집·query·주입·복구·teardown 자동 검증 완료"));
+		assertTrue(ops02Row.contains("고정 SHA 임시 AWS 검증 배포·철거 완료"));
+		assertTrue(ops02Row.contains("`AC1`~`AC4`, `AC6` 실측 완료, `AC5` 조건부 제외"));
 		assertTrue(monitoringOperations.contains(
 			"production histogram 설정·OTLP export 자동 검증 완료, CloudWatch 배포·실측 필요"));
 		assertTrue(monitoringOperations.contains(
