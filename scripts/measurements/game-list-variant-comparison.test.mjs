@@ -178,6 +178,14 @@ test("각 variant의 네 artifact와 같은 fixture fingerprint가 없으면 비
     candidate.artifact.endProvenance.dataset.bggIdSetSha256 = "8".repeat(64);
   }
   assert.throws(() => compareVariants(consistentlyWrongFixtureArtifacts), /승인된 fixture/u);
+
+  const duplicatePathArtifacts = validSpecs();
+  duplicatePathArtifacts
+    .filter((candidate) => candidate.variant === "V1")
+    .forEach((candidate) => {
+      candidate.path = "same-v1-artifact.json";
+    });
+  assert.throws(() => compareVariants(duplicatePathArtifacts), /artifact path가 중복/u);
 });
 
 test("한 scenario라도 V0 median p95의 105%를 넘으면 후보를 탈락시킨다", () => {
@@ -249,6 +257,7 @@ test("EXPLAIN target·provenance와 qualified games exact count를 검증한다"
   assert.equal(containsGamesExactCount("select count(*) from games"), true);
   assert.equal(containsGamesExactCount("select count(*) from public.games"), true);
   assert.equal(containsGamesExactCount('select count(*) from "public"."games"'), true);
+  assert.equal(containsGamesExactCount("select count(*)::bigint from public.games"), true);
   assert.equal(containsGamesExactCount("select count(*) from game_themes"), false);
 
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-evidence-"));
@@ -266,6 +275,18 @@ test("EXPLAIN target·provenance와 qualified games exact count를 검증한다"
     assert.throws(
       () => validateEvidenceRoot(copiedEvidenceRoot, specs),
       /slowest.*SQL/iu,
+    );
+    fs.writeFileSync(slowestPath, slowestInput);
+
+    const slowestOutputPath = path.join(copiedEvidenceRoot, "v0/explain-output/base-slowest.txt");
+    const slowestOutput = fs.readFileSync(slowestOutputPath, "utf8");
+    fs.writeFileSync(
+      slowestOutputPath,
+      slowestOutput.replace(/source_sql_sha256=[0-9a-f]{64}/u, `source_sql_sha256=${"0".repeat(64)}`),
+    );
+    assert.throws(
+      () => validateEvidenceRoot(copiedEvidenceRoot, specs),
+      /source SQL SHA-256/iu,
     );
   } finally {
     fs.rmSync(root, { recursive: true, force: true });

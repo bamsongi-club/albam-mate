@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -313,6 +314,10 @@ function normalizeSql(sql) {
     .toLowerCase();
 }
 
+function sourceSqlSha256(sql) {
+  return createHash("sha256").update(sql, "utf8").digest("hex");
+}
+
 function explainTargetSql(input, label) {
   const matched = /EXPLAIN\s*\([^)]*\)\s*([\s\S]*?)\s*;?\s*$/iu.exec(input);
   if (!matched) {
@@ -321,7 +326,7 @@ function explainTargetSql(input, label) {
   return matched[1].trim();
 }
 
-function validateExplainTarget(input, postgresLog, expectedSql, expectedDurationMs, variantKey, scenario, label) {
+function validateExplainTarget(input, output, postgresLog, expectedSql, expectedDurationMs, variantKey, scenario, label) {
   const source = /^-- source=(.+)$/mu.exec(input)?.[1];
   if (!source?.endsWith(`/${variantKey}/${scenario}.postgres.log`)) {
     fail(`${label} EXPLAIN source가 scenario capture와 다릅니다.`);
@@ -331,8 +336,13 @@ function validateExplainTarget(input, postgresLog, expectedSql, expectedDuration
     || Math.abs(Number(capturedDuration) - expectedDurationMs) > 0.001) {
     fail(`${label} EXPLAIN duration이 selection-summary와 다릅니다.`);
   }
-  if (normalizeSql(explainTargetSql(input, label)) !== normalizeSql(expectedSql)) {
+  const targetSql = explainTargetSql(input, label);
+  if (normalizeSql(targetSql) !== normalizeSql(expectedSql)) {
     fail(`${label} EXPLAIN SQL이 selection-summary의 선택 SQL과 다릅니다.`);
+  }
+  const outputFingerprint = /^-- source_sql_sha256=([0-9a-f]{64})$/mu.exec(output)?.[1];
+  if (outputFingerprint !== sourceSqlSha256(targetSql)) {
+    fail(`${label} EXPLAIN output의 source SQL SHA-256이 입력 SQL과 다릅니다.`);
   }
   if (!postgresLog.includes(expectedSql)) {
     fail(`${label} 선택 SQL이 postgres capture에 없습니다.`);
@@ -343,6 +353,7 @@ export function containsGamesExactCount(sql) {
   const normalized = sql
     .replace(/--[^\r\n]*/gu, " ")
     .replace(/\/\*[\s\S]*?\*\//gu, " ")
+    .replace(/\s*::\s*(?:"?[\w$]+"?\s*\.\s*)?"?[\w$]+"?(?:\s*\([^)]*\))?/giu, " ")
     .replace(/\s+/gu, " ");
   return /\bselect\s+count\s*\([^)]*\)\s+from\s+(?:(?:"?[\w$]+"?)\s*\.\s*)?"?games"?(?=\s|[),;]|$)/iu.test(normalized);
 }
@@ -478,6 +489,7 @@ export function validateEvidenceRoot(evidenceRoot, artifactSpecs) {
       );
       validateExplainTarget(
         slowestInput,
+        slowestOutput,
         postgresLog,
         slowestSql,
         slowestDurationMs,
@@ -505,6 +517,7 @@ export function validateEvidenceRoot(evidenceRoot, artifactSpecs) {
         );
         validateExplainTarget(
           contentInput,
+          contentOutput,
           postgresLog,
           contentSql,
           contentDurationMs,
@@ -621,8 +634,15 @@ function canonicalVariantArtifacts(specs) {
     fail("artifact spec 목록이 array가 아닙니다.");
   }
   const byVariant = Object.fromEntries(VARIANTS.map((variant) => [variant, new Map()]));
+  const paths = new Map();
   for (const spec of specs) {
     validateSpec(spec);
+    const resolvedPath = path.resolve(spec.path);
+    const previous = paths.get(resolvedPath);
+    if (previous) {
+      fail(`artifact path가 중복되었습니다: ${resolvedPath} (${previous}, ${spec.variant} round ${spec.round})`);
+    }
+    paths.set(resolvedPath, `${spec.variant} round ${spec.round}`);
     const rounds = byVariant[spec.variant];
     if (rounds.has(spec.round)) {
       fail(`${spec.variant} round ${spec.round} artifact가 중복되었습니다.`);
