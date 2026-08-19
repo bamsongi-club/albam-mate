@@ -17,14 +17,15 @@ http_total_ms=41.503
 upstream_role=app2
 upstream_address=172.18.0.4:8080
 upstream_container=6be52e4662fb7ee74a2d64dd5931eb3814f7c6e2c5b88341f7445b8579f8f050
-proxy_measurement_request_count=1
+proxy_capture_window_api_request_count=1
+proxy_measurement_id_request_count=1
 games_row_count=170005
 
 response headers:
 X-Albam-Mate-Upstream: app2
 X-Albam-Mate-Upstream-Address: 172.18.0.4:8080
 
-proxy raw window (the unique capture ID occurs on exactly one /api/games request):
+proxy raw window (the only /api/games HTTP request is recorded once by the default log and once by the measurement log):
 2026-08-19T02:52:11.324247465Z 172.18.0.1 - - [19/Aug/2026:02:52:11 +0000] "GET /api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24 HTTP/1.1" 200 6496 "-" "curl/8.7.1" "-"
 2026-08-19T02:52:11.324267631Z 2026-08-19T02:52:11+00:00 measurement_id=game-list-740-base-20260819025211249 request="GET /api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24 HTTP/1.1" status=200 upstream=172.18.0.4:8080
 
