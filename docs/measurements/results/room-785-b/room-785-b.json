@@ -3,11 +3,11 @@
   "candidate": "B",
   "lockBaseSha": "49b960a1f7537574b39d67ff22df8890a3891ef6",
   "candidateImplementationSourceSha": "433d835eadff1da25d9a83d3d0ee2dc8cd748480",
-  "measurementExecutionGitHead": "22022ed73984ec0e215ed14638a3818f6fb15138",
-  "worktreeState": "measurement captured at clean HEAD 22022ed73984ec0e215ed14638a3818f6fb15138; artifact finalized afterward",
+  "measurementExecutionGitHead": "091a68886c4eff237f53138319d494f837cea64c",
+  "worktreeState": "measurement captured at clean HEAD 091a68886c4eff237f53138319d494f837cea64c; artifact finalized afterward",
   "comparisonStatus": "VALID",
   "comparisonInvalidReasons": [],
-  "capturedAt": "2026-08-19T15:36:21.395Z",
+  "capturedAt": "2026-08-19T17:12:28.713Z",
   "postgresImage": "postgres:18.4",
   "javaVersion": "21.0.11",
   "operatingSystem": "Windows 11 10.0",
@@ -63,17 +63,17 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          17203000,
-          51013400,
-          52161300,
-          31510100
+          17401500,
+          51986300,
+          48557400,
+          16194900
         ],
-        "calls": 32,
-        "totalExecMs": 2.6799850000000003,
+        "calls": 34,
+        "totalExecMs": 1.952604,
         "rows": 16,
-        "sharedBlksHit": 199,
+        "sharedBlksHit": 204,
         "sharedBlksRead": 4,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T1 requestCount=4 success=2 businessFailure=2 concurrencyFailure=0 technicalFailure=0 conflictCount=2 retry0=2 retry1=2 retry2=0 exhausted=0 responseNanos=[17203000,51013400,52161300,31510100] calls=32 totalExecMs=2.6799850000000003 rows=16 sharedBlksHit=199 sharedBlksRead=4 retryRequestCount=2 retryTupleCount=2 retryTuples=[[logger=cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier,event=room_participation_retry,roomId=1,requestSeed=-2323109044994929345,derivedSeed=1770595899995396771,attempt=2,maxDelayMillis=5,delayMillis=4,scenario=T1],[logger=cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier,event=room_participation_retry,roomId=2,requestSeed=-7307274452546990977,derivedSeed=-5164579144442100893,attempt=2,maxDelayMillis=5,delayMillis=5,scenario=T1]]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T1 requestCount=4 success=2 businessFailure=2 concurrencyFailure=0 technicalFailure=0 conflictCount=2 retry0=2 retry1=2 retry2=0 exhausted=0 responseNanos=[17401500,51986300,48557400,16194900] calls=34 totalExecMs=1.952604 rows=16 sharedBlksHit=204 sharedBlksRead=4 retryRequestCount=2 retryTupleCount=2 retryTuples=[[logger=cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier,event=room_participation_retry,roomId=1,requestSeed=3963363790825007326,derivedSeed=-6262931000391634204,attempt=2,maxDelayMillis=5,delayMillis=5,scenario=T1],[logger=cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier,event=room_participation_retry,roomId=2,requestSeed=7733091919056573165,derivedSeed=-81823467470402891,attempt=2,maxDelayMillis=5,delayMillis=1,scenario=T1]]"
       }
     ],
     "T2": [
@@ -91,15 +91,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          46893600,
-          102594900
+          46734100,
+          100901800
         ],
-        "calls": 16,
-        "totalExecMs": 1.417873,
+        "calls": 17,
+        "totalExecMs": 1.3000990000000001,
         "rows": 13,
-        "sharedBlksHit": 89,
+        "sharedBlksHit": 91,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-new-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[46893600,102594900] calls=16 totalExecMs=1.417873 rows=13 sharedBlksHit=89 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-new-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[46734100,100901800] calls=17 totalExecMs=1.3000990000000001 rows=13 sharedBlksHit=91 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -115,15 +115,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          101570800,
-          96954600
+          62792700,
+          59892200
         ],
-        "calls": 18,
-        "totalExecMs": 1.812397,
+        "calls": 19,
+        "totalExecMs": 1.459397,
         "rows": 14,
-        "sharedBlksHit": 181,
+        "sharedBlksHit": 183,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-new-cancel-first-promotion requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[101570800,96954600] calls=18 totalExecMs=1.812397 rows=14 sharedBlksHit=181 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-new-cancel-first-promotion requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[62792700,59892200] calls=19 totalExecMs=1.459397 rows=14 sharedBlksHit=183 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -139,15 +139,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          27500500,
-          52294200
+          45835000,
+          97020900
         ],
         "calls": 21,
-        "totalExecMs": 0.894979,
+        "totalExecMs": 0.872848,
         "rows": 12,
         "sharedBlksHit": 69,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-reactivation-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[27500500,52294200] calls=21 totalExecMs=0.894979 rows=12 sharedBlksHit=69 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-reactivation-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[45835000,97020900] calls=21 totalExecMs=0.872848 rows=12 sharedBlksHit=69 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -163,15 +163,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          71827600,
-          18516300
+          71323200,
+          38050400
         ],
         "calls": 21,
-        "totalExecMs": 0.9341420000000001,
+        "totalExecMs": 0.980112,
         "rows": 13,
         "sharedBlksHit": 57,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-reactivation-cancel-first-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[71827600,18516300] calls=21 totalExecMs=0.9341420000000001 rows=13 sharedBlksHit=57 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-reactivation-cancel-first-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[71323200,38050400] calls=21 totalExecMs=0.980112 rows=13 sharedBlksHit=57 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -187,15 +187,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          18424100,
-          23556700
+          10788200,
+          13150600
         ],
         "calls": 7,
-        "totalExecMs": 0.25389100000000003,
+        "totalExecMs": 0.165739,
         "rows": 3,
         "sharedBlksHit": 15,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-direct-participation-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[18424100,23556700] calls=7 totalExecMs=0.25389100000000003 rows=3 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-direct-participation-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[10788200,13150600] calls=7 totalExecMs=0.165739 rows=3 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -211,15 +211,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          34391900,
-          10761700
+          8311500,
+          3774300
         ],
         "calls": 7,
-        "totalExecMs": 0.21851800000000002,
+        "totalExecMs": 0.09645,
         "rows": 3,
-        "sharedBlksHit": 16,
+        "sharedBlksHit": 15,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[34391900,10761700] calls=7 totalExecMs=0.21851800000000002 rows=3 sharedBlksHit=16 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8311500,3774300] calls=7 totalExecMs=0.09645 rows=3 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -235,15 +235,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          19238400,
-          29721600
+          6914600,
+          12484000
         ],
         "calls": 7,
-        "totalExecMs": 0.244305,
+        "totalExecMs": 0.17411,
         "rows": 3,
         "sharedBlksHit": 15,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-new-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[19238400,29721600] calls=7 totalExecMs=0.244305 rows=3 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-new-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[6914600,12484000] calls=7 totalExecMs=0.17411 rows=3 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -259,15 +259,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          34843100,
-          12825700
+          42242700,
+          29804900
         ],
         "calls": 7,
-        "totalExecMs": 0.19846599999999998,
+        "totalExecMs": 0.24927,
         "rows": 3,
         "sharedBlksHit": 14,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-new-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[34843100,12825700] calls=7 totalExecMs=0.19846599999999998 rows=3 sharedBlksHit=14 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-new-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[42242700,29804900] calls=7 totalExecMs=0.24927 rows=3 sharedBlksHit=14 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -283,15 +283,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          5975200,
-          9838200
+          22399400,
+          28783400
         ],
         "calls": 7,
-        "totalExecMs": 0.144504,
+        "totalExecMs": 0.20016899999999999,
         "rows": 4,
         "sharedBlksHit": 17,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-reactivation-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[5975200,9838200] calls=7 totalExecMs=0.144504 rows=4 sharedBlksHit=17 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-reactivation-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[22399400,28783400] calls=7 totalExecMs=0.20016899999999999 rows=4 sharedBlksHit=17 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -307,15 +307,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          30864500,
-          25450900
+          31666500,
+          12304700
         ],
         "calls": 7,
-        "totalExecMs": 0.225845,
+        "totalExecMs": 0.212968,
         "rows": 4,
-        "sharedBlksHit": 17,
+        "sharedBlksHit": 16,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-reactivation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[30864500,25450900] calls=7 totalExecMs=0.225845 rows=4 sharedBlksHit=17 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-reactivation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[31666500,12304700] calls=7 totalExecMs=0.212968 rows=4 sharedBlksHit=16 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -331,15 +331,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          7614500,
-          10415200
+          6838900,
+          10654700
         ],
         "calls": 6,
-        "totalExecMs": 0.20568999999999998,
+        "totalExecMs": 0.1774,
         "rows": 5,
         "sharedBlksHit": 21,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[7614500,10415200] calls=6 totalExecMs=0.20568999999999998 rows=5 sharedBlksHit=21 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[6838900,10654700] calls=6 totalExecMs=0.1774 rows=5 sharedBlksHit=21 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -355,15 +355,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          12867500,
-          8204600
+          32223600,
+          12270200
         ],
         "calls": 7,
-        "totalExecMs": 0.23696499999999998,
+        "totalExecMs": 0.175946,
         "rows": 5,
-        "sharedBlksHit": 24,
+        "sharedBlksHit": 23,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-correction-first requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[12867500,8204600] calls=7 totalExecMs=0.23696499999999998 rows=5 sharedBlksHit=24 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-correction-first requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[32223600,12270200] calls=7 totalExecMs=0.175946 rows=5 sharedBlksHit=23 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -379,15 +379,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          13366200,
-          17872200
+          8448100,
+          16513600
         ],
         "calls": 6,
-        "totalExecMs": 0.293699,
+        "totalExecMs": 0.170062,
         "rows": 4,
-        "sharedBlksHit": 15,
+        "sharedBlksHit": 14,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-participation-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[13366200,17872200] calls=6 totalExecMs=0.293699 rows=4 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-participation-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8448100,16513600] calls=6 totalExecMs=0.170062 rows=4 sharedBlksHit=14 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -403,15 +403,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          7595800,
-          4854000
+          8427300,
+          5264000
         ],
         "calls": 6,
-        "totalExecMs": 0.134735,
+        "totalExecMs": 0.148666,
         "rows": 4,
         "sharedBlksHit": 15,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-participation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[7595800,4854000] calls=6 totalExecMs=0.134735 rows=4 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-participation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8427300,5264000] calls=6 totalExecMs=0.148666 rows=4 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -427,15 +427,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          33823500,
-          53484700
+          28215100,
+          47810100
         ],
-        "calls": 14,
-        "totalExecMs": 0.8942519999999999,
+        "calls": 15,
+        "totalExecMs": 0.6836089999999998,
         "rows": 10,
         "sharedBlksHit": 53,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-new-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[33823500,53484700] calls=14 totalExecMs=0.8942519999999999 rows=10 sharedBlksHit=53 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-new-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[28215100,47810100] calls=15 totalExecMs=0.6836089999999998 rows=10 sharedBlksHit=53 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -451,15 +451,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          51004000,
-          48000700
+          55284800,
+          51568100
         ],
-        "calls": 17,
-        "totalExecMs": 1.144636,
+        "calls": 18,
+        "totalExecMs": 1.0013569999999998,
         "rows": 13,
-        "sharedBlksHit": 77,
+        "sharedBlksHit": 81,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-new-cancel-first-promotion requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[51004000,48000700] calls=17 totalExecMs=1.144636 rows=13 sharedBlksHit=77 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-new-cancel-first-promotion requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[55284800,51568100] calls=18 totalExecMs=1.0013569999999998 rows=13 sharedBlksHit=81 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -475,15 +475,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          35583700,
-          89413200
+          12970700,
+          58548200
         ],
         "calls": 21,
-        "totalExecMs": 0.8864669999999999,
+        "totalExecMs": 0.610164,
         "rows": 12,
         "sharedBlksHit": 56,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-reactivation-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[35583700,89413200] calls=21 totalExecMs=0.8864669999999999 rows=12 sharedBlksHit=56 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-reactivation-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[12970700,58548200] calls=21 totalExecMs=0.610164 rows=12 sharedBlksHit=56 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -499,15 +499,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          87114800,
-          38287800
+          63604000,
+          17305900
         ],
         "calls": 21,
-        "totalExecMs": 1.042061,
+        "totalExecMs": 0.70066,
         "rows": 13,
         "sharedBlksHit": 57,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-reactivation-cancel-first-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[87114800,38287800] calls=21 totalExecMs=1.042061 rows=13 sharedBlksHit=57 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-reactivation-cancel-first-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[63604000,17305900] calls=21 totalExecMs=0.70066 rows=13 sharedBlksHit=57 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -523,15 +523,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          5759100,
-          7452500
+          8636000,
+          11338800
         ],
         "calls": 7,
-        "totalExecMs": 0.133295,
+        "totalExecMs": 0.192904,
         "rows": 3,
         "sharedBlksHit": 16,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-direct-participation-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[5759100,7452500] calls=7 totalExecMs=0.133295 rows=3 sharedBlksHit=16 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-direct-participation-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8636000,11338800] calls=7 totalExecMs=0.192904 rows=3 sharedBlksHit=16 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -547,15 +547,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          7250200,
-          3646200
+          31321600,
+          10076600
         ],
         "calls": 7,
-        "totalExecMs": 0.129814,
+        "totalExecMs": 0.196973,
         "rows": 3,
         "sharedBlksHit": 15,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[7250200,3646200] calls=7 totalExecMs=0.129814 rows=3 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[31321600,10076600] calls=7 totalExecMs=0.196973 rows=3 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -571,15 +571,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          4410200,
-          7649400
+          5948600,
+          9970200
         ],
         "calls": 7,
-        "totalExecMs": 0.097414,
+        "totalExecMs": 0.12900499999999998,
         "rows": 3,
         "sharedBlksHit": 15,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-new-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[4410200,7649400] calls=7 totalExecMs=0.097414 rows=3 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-new-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[5948600,9970200] calls=7 totalExecMs=0.12900499999999998 rows=3 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -595,15 +595,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          8487100,
-          5610900
+          35401900,
+          29324100
         ],
         "calls": 7,
-        "totalExecMs": 0.12062600000000001,
+        "totalExecMs": 0.245595,
         "rows": 3,
-        "sharedBlksHit": 14,
+        "sharedBlksHit": 15,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-new-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8487100,5610900] calls=7 totalExecMs=0.12062600000000001 rows=3 sharedBlksHit=14 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-new-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[35401900,29324100] calls=7 totalExecMs=0.245595 rows=3 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -619,15 +619,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          4566900,
-          7367900
+          4230500,
+          6816100
         ],
         "calls": 7,
-        "totalExecMs": 0.116123,
+        "totalExecMs": 0.108575,
         "rows": 4,
         "sharedBlksHit": 17,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-reactivation-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[4566900,7367900] calls=7 totalExecMs=0.116123 rows=4 sharedBlksHit=17 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-reactivation-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[4230500,6816100] calls=7 totalExecMs=0.108575 rows=4 sharedBlksHit=17 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -643,15 +643,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          34328000,
-          14279200
+          31895400,
+          10464300
         ],
         "calls": 7,
-        "totalExecMs": 0.305263,
+        "totalExecMs": 0.21177400000000002,
         "rows": 4,
         "sharedBlksHit": 17,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-reactivation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[34328000,14279200] calls=7 totalExecMs=0.305263 rows=4 sharedBlksHit=17 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-reactivation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[31895400,10464300] calls=7 totalExecMs=0.21177400000000002 rows=4 sharedBlksHit=17 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -667,15 +667,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          4236300,
-          6315400
+          21168800,
+          26085500
         ],
         "calls": 6,
-        "totalExecMs": 0.15022,
+        "totalExecMs": 0.169804,
         "rows": 5,
         "sharedBlksHit": 21,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[4236300,6315400] calls=6 totalExecMs=0.15022 rows=5 sharedBlksHit=21 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[21168800,26085500] calls=6 totalExecMs=0.169804 rows=5 sharedBlksHit=21 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -691,15 +691,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          7468600,
-          5139500
+          31965900,
+          13114600
         ],
         "calls": 7,
-        "totalExecMs": 0.15708000000000003,
+        "totalExecMs": 0.239564,
         "rows": 5,
-        "sharedBlksHit": 24,
+        "sharedBlksHit": 23,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-correction-first requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[7468600,5139500] calls=7 totalExecMs=0.15708000000000003 rows=5 sharedBlksHit=24 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-correction-first requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[31965900,13114600] calls=7 totalExecMs=0.239564 rows=5 sharedBlksHit=23 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -715,15 +715,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          3714300,
-          6166400
+          5702200,
+          11183400
         ],
         "calls": 6,
-        "totalExecMs": 0.098817,
+        "totalExecMs": 0.118656,
         "rows": 4,
         "sharedBlksHit": 14,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-participation-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[3714300,6166400] calls=6 totalExecMs=0.098817 rows=4 sharedBlksHit=14 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-participation-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[5702200,11183400] calls=6 totalExecMs=0.118656 rows=4 sharedBlksHit=14 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -739,15 +739,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          10922400,
-          3673100
+          9257800,
+          4821800
         ],
         "calls": 6,
-        "totalExecMs": 0.127256,
+        "totalExecMs": 0.153052,
         "rows": 4,
         "sharedBlksHit": 15,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-participation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[10922400,3673100] calls=6 totalExecMs=0.127256 rows=4 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-participation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[9257800,4821800] calls=6 totalExecMs=0.153052 rows=4 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -763,15 +763,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          8128500,
-          30292200
+          8251500,
+          44995700
         ],
-        "calls": 14,
-        "totalExecMs": 0.8384029999999999,
+        "calls": 15,
+        "totalExecMs": 0.885633,
         "rows": 10,
-        "sharedBlksHit": 51,
+        "sharedBlksHit": 55,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-new-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8128500,30292200] calls=14 totalExecMs=0.8384029999999999 rows=10 sharedBlksHit=51 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-new-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8251500,44995700] calls=15 totalExecMs=0.885633 rows=10 sharedBlksHit=55 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -787,15 +787,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          28203000,
-          26313600
+          45811500,
+          42045700
         ],
-        "calls": 17,
-        "totalExecMs": 0.8386929999999999,
+        "calls": 18,
+        "totalExecMs": 0.9308210000000001,
         "rows": 13,
-        "sharedBlksHit": 77,
+        "sharedBlksHit": 79,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-new-cancel-first-promotion requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[28203000,26313600] calls=17 totalExecMs=0.8386929999999999 rows=13 sharedBlksHit=77 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-new-cancel-first-promotion requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[45811500,42045700] calls=18 totalExecMs=0.9308210000000001 rows=13 sharedBlksHit=79 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -811,15 +811,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          35588900,
-          82181700
+          35650400,
+          83063700
         ],
         "calls": 21,
-        "totalExecMs": 1.056537,
+        "totalExecMs": 1.0984289999999999,
         "rows": 12,
         "sharedBlksHit": 56,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-reactivation-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[35588900,82181700] calls=21 totalExecMs=1.056537 rows=12 sharedBlksHit=56 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-reactivation-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[35650400,83063700] calls=21 totalExecMs=1.0984289999999999 rows=12 sharedBlksHit=56 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -835,15 +835,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          60270600,
-          15954700
+          56519400,
+          12261500
         ],
         "calls": 21,
-        "totalExecMs": 0.809099,
+        "totalExecMs": 0.6157639999999999,
         "rows": 13,
         "sharedBlksHit": 57,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-reactivation-cancel-first-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[60270600,15954700] calls=21 totalExecMs=0.809099 rows=13 sharedBlksHit=57 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-waitlist-reactivation-cancel-first-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[56519400,12261500] calls=21 totalExecMs=0.6157639999999999 rows=13 sharedBlksHit=57 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -859,15 +859,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          10233000,
-          12663300
+          7243700,
+          9504600
         ],
         "calls": 7,
-        "totalExecMs": 0.21135500000000002,
+        "totalExecMs": 0.16561599999999999,
         "rows": 3,
         "sharedBlksHit": 16,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-direct-participation-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[10233000,12663300] calls=7 totalExecMs=0.21135500000000002 rows=3 sharedBlksHit=16 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-direct-participation-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[7243700,9504600] calls=7 totalExecMs=0.16561599999999999 rows=3 sharedBlksHit=16 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -883,15 +883,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          10950200,
-          5055200
+          12205600,
+          3973500
         ],
         "calls": 7,
-        "totalExecMs": 0.202735,
+        "totalExecMs": 0.123642,
         "rows": 3,
         "sharedBlksHit": 16,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[10950200,5055200] calls=7 totalExecMs=0.202735 rows=3 sharedBlksHit=16 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[12205600,3973500] calls=7 totalExecMs=0.123642 rows=3 sharedBlksHit=16 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -907,15 +907,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          6708100,
-          14075500
+          21055600,
+          26742500
         ],
         "calls": 7,
-        "totalExecMs": 0.130546,
+        "totalExecMs": 0.19078299999999998,
         "rows": 3,
         "sharedBlksHit": 14,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-new-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[6708100,14075500] calls=7 totalExecMs=0.130546 rows=3 sharedBlksHit=14 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-new-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[21055600,26742500] calls=7 totalExecMs=0.19078299999999998 rows=3 sharedBlksHit=14 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -931,15 +931,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          29582000,
-          12993500
+          11563200,
+          5762300
         ],
         "calls": 7,
-        "totalExecMs": 0.35455,
+        "totalExecMs": 0.128986,
         "rows": 3,
         "sharedBlksHit": 14,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-new-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[29582000,12993500] calls=7 totalExecMs=0.35455 rows=3 sharedBlksHit=14 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-new-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[11563200,5762300] calls=7 totalExecMs=0.128986 rows=3 sharedBlksHit=14 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -955,15 +955,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          11930100,
-          31213400
+          7194700,
+          11490000
         ],
         "calls": 7,
-        "totalExecMs": 0.31264800000000004,
+        "totalExecMs": 0.161157,
         "rows": 4,
-        "sharedBlksHit": 17,
+        "sharedBlksHit": 16,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-reactivation-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[11930100,31213400] calls=7 totalExecMs=0.31264800000000004 rows=4 sharedBlksHit=17 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-reactivation-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[7194700,11490000] calls=7 totalExecMs=0.161157 rows=4 sharedBlksHit=16 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -979,15 +979,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          13186000,
-          8374500
+          20417600,
+          32238500
         ],
         "calls": 7,
-        "totalExecMs": 0.265015,
+        "totalExecMs": 0.44132499999999997,
         "rows": 4,
-        "sharedBlksHit": 16,
+        "sharedBlksHit": 17,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-reactivation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[13186000,8374500] calls=7 totalExecMs=0.265015 rows=4 sharedBlksHit=16 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-reactivation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[20417600,32238500] calls=7 totalExecMs=0.44132499999999997 rows=4 sharedBlksHit=17 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -1003,15 +1003,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          8187300,
-          11378900
+          19513000,
+          28982900
         ],
         "calls": 6,
-        "totalExecMs": 0.271482,
+        "totalExecMs": 0.474823,
         "rows": 5,
-        "sharedBlksHit": 21,
+        "sharedBlksHit": 20,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8187300,11378900] calls=6 totalExecMs=0.271482 rows=5 sharedBlksHit=21 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[19513000,28982900] calls=6 totalExecMs=0.474823 rows=5 sharedBlksHit=20 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -1027,15 +1027,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          28063700,
-          23410600
+          10403300,
+          7596000
         ],
         "calls": 7,
-        "totalExecMs": 0.41879500000000003,
+        "totalExecMs": 0.226028,
         "rows": 5,
         "sharedBlksHit": 24,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-correction-first requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[28063700,23410600] calls=7 totalExecMs=0.41879500000000003 rows=5 sharedBlksHit=24 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-waitlist-correction-first requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[10403300,7596000] calls=7 totalExecMs=0.226028 rows=5 sharedBlksHit=24 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -1051,15 +1051,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          6615400,
-          9750800
+          21871500,
+          26784800
         ],
         "calls": 6,
-        "totalExecMs": 0.354437,
+        "totalExecMs": 0.301417,
         "rows": 4,
-        "sharedBlksHit": 15,
+        "sharedBlksHit": 14,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-participation-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[6615400,9750800] calls=6 totalExecMs=0.354437 rows=4 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-participation-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[21871500,26784800] calls=6 totalExecMs=0.301417 rows=4 sharedBlksHit=14 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -1075,15 +1075,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          13174700,
-          4850400
+          8989500,
+          5645600
         ],
         "calls": 6,
-        "totalExecMs": 0.495586,
+        "totalExecMs": 0.167517,
         "rows": 4,
         "sharedBlksHit": 15,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-participation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[13174700,4850400] calls=6 totalExecMs=0.495586 rows=4 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-start-participation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8989500,5645600] calls=6 totalExecMs=0.167517 rows=4 sharedBlksHit=15 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -1100,11 +1100,11 @@
         "exhausted": 0,
         "responseNanos": [],
         "calls": 1,
-        "totalExecMs": 0.024722,
+        "totalExecMs": 0.021079,
         "rows": 2,
         "sharedBlksHit": 2,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-due-room-order requestCount=0 success=0 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=0 retry1=0 retry2=0 exhausted=0 responseNanos=[] calls=1 totalExecMs=0.024722 rows=2 sharedBlksHit=2 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-due-room-order requestCount=0 success=0 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=0 retry1=0 retry2=0 exhausted=0 responseNanos=[] calls=1 totalExecMs=0.021079 rows=2 sharedBlksHit=2 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -1120,15 +1120,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          40707300,
-          53463700
+          54712200,
+          24686500
         ],
-        "calls": 16,
-        "totalExecMs": 38.441762,
+        "calls": 17,
+        "totalExecMs": 16.246855,
         "rows": 8,
-        "sharedBlksHit": 152,
+        "sharedBlksHit": 154,
         "sharedBlksRead": 4,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-lock requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=1 retry0=1 retry1=1 retry2=0 exhausted=0 responseNanos=[40707300,53463700] calls=16 totalExecMs=38.441762 rows=8 sharedBlksHit=152 sharedBlksRead=4 retryRequestCount=1 retryTupleCount=1 retryTuples=[[logger=cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier,event=room_participation_retry,roomId=3,requestSeed=7907062479349078146,derivedSeed=5311263901597251520,attempt=2,maxDelayMillis=5,delayMillis=1,scenario=T2-lock]]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-lock requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=1 retry0=1 retry1=1 retry2=0 exhausted=0 responseNanos=[54712200,24686500] calls=17 totalExecMs=16.246855 rows=8 sharedBlksHit=154 sharedBlksRead=4 retryRequestCount=1 retryTupleCount=1 retryTuples=[[logger=cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier,event=room_participation_retry,roomId=3,requestSeed=-2167606809354456513,derivedSeed=6591165204850054563,attempt=2,maxDelayMillis=5,delayMillis=0,scenario=T2-lock]]"
       },
       {
         "candidate": "B",
@@ -1144,14 +1144,14 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          6363800
+          25763700
         ],
         "calls": 4,
-        "totalExecMs": 0.136018,
+        "totalExecMs": 0.189159,
         "rows": 2,
         "sharedBlksHit": 11,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-rollback requestCount=1 success=0 businessFailure=0 concurrencyFailure=0 technicalFailure=1 conflictCount=0 retry0=1 retry1=0 retry2=0 exhausted=0 responseNanos=[6363800] calls=4 totalExecMs=0.136018 rows=2 sharedBlksHit=11 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T2-rollback requestCount=1 success=0 businessFailure=0 concurrencyFailure=0 technicalFailure=1 conflictCount=0 retry0=1 retry1=0 retry2=0 exhausted=0 responseNanos=[25763700] calls=4 totalExecMs=0.189159 rows=2 sharedBlksHit=11 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       }
     ],
     "T3": [
@@ -1169,14 +1169,14 @@
         "retry2": 1,
         "exhausted": 1,
         "responseNanos": [
-          382235400
+          407468900
         ],
         "calls": 13,
-        "totalExecMs": 1.030525,
+        "totalExecMs": 0.428496,
         "rows": 6,
         "sharedBlksHit": 53,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T3-optimistic-exhausted requestCount=1 success=0 businessFailure=0 concurrencyFailure=1 technicalFailure=0 conflictCount=3 retry0=0 retry1=0 retry2=1 exhausted=1 responseNanos=[382235400] calls=13 totalExecMs=1.030525 rows=6 sharedBlksHit=53 sharedBlksRead=0 retryRequestCount=1 retryTupleCount=2 retryTuples=[[logger=cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier,event=room_participation_retry,roomId=1,requestSeed=-6996627308767992339,derivedSeed=4465482312706856885,attempt=2,maxDelayMillis=5,delayMillis=1,scenario=T3-optimistic-exhausted],[logger=cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier,event=room_participation_retry,roomId=1,requestSeed=-6996627308767992339,derivedSeed=4465482312706856886,attempt=3,maxDelayMillis=10,delayMillis=3,scenario=T3-optimistic-exhausted]]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T3-optimistic-exhausted requestCount=1 success=0 businessFailure=0 concurrencyFailure=1 technicalFailure=0 conflictCount=3 retry0=0 retry1=0 retry2=1 exhausted=1 responseNanos=[407468900] calls=13 totalExecMs=0.428496 rows=6 sharedBlksHit=53 sharedBlksRead=0 retryRequestCount=1 retryTupleCount=2 retryTuples=[[logger=cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier,event=room_participation_retry,roomId=1,requestSeed=803717876480625949,derivedSeed=6468510097189852805,attempt=2,maxDelayMillis=5,delayMillis=5,scenario=T3-optimistic-exhausted],[logger=cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier,event=room_participation_retry,roomId=1,requestSeed=803717876480625949,derivedSeed=6468510097189852806,attempt=3,maxDelayMillis=10,delayMillis=1,scenario=T3-optimistic-exhausted]]"
       },
       {
         "candidate": "B",
@@ -1192,14 +1192,14 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          33736600
+          10898400
         ],
         "calls": 4,
-        "totalExecMs": 0.23037600000000003,
+        "totalExecMs": 0.14211400000000002,
         "rows": 2,
         "sharedBlksHit": 11,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T3-unexpected-technical requestCount=1 success=0 businessFailure=0 concurrencyFailure=0 technicalFailure=1 conflictCount=0 retry0=1 retry1=0 retry2=0 exhausted=0 responseNanos=[33736600] calls=4 totalExecMs=0.23037600000000003 rows=2 sharedBlksHit=11 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T3-unexpected-technical requestCount=1 success=0 businessFailure=0 concurrencyFailure=0 technicalFailure=1 conflictCount=0 retry0=1 retry1=0 retry2=0 exhausted=0 responseNanos=[10898400] calls=4 totalExecMs=0.14211400000000002 rows=2 sharedBlksHit=11 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -1215,14 +1215,14 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          130560200
+          140522100
         ],
         "calls": 5,
-        "totalExecMs": 0.060646,
+        "totalExecMs": 0.045883,
         "rows": 1,
         "sharedBlksHit": 3,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T3-lock-timeout requestCount=1 success=0 businessFailure=0 concurrencyFailure=0 technicalFailure=1 conflictCount=0 retry0=1 retry1=0 retry2=0 exhausted=0 responseNanos=[130560200] calls=5 totalExecMs=0.060646 rows=1 sharedBlksHit=3 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T3-lock-timeout requestCount=1 success=0 businessFailure=0 concurrencyFailure=0 technicalFailure=1 conflictCount=0 retry0=1 retry1=0 retry2=0 exhausted=0 responseNanos=[140522100] calls=5 totalExecMs=0.045883 rows=1 sharedBlksHit=3 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       },
       {
         "candidate": "B",
@@ -1238,19 +1238,19 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          1027436400,
-          1013529200
+          1033842400,
+          1053195400
         ],
-        "calls": 14,
-        "totalExecMs": 1001.168321,
+        "calls": 15,
+        "totalExecMs": 1001.715813,
         "rows": 10,
-        "sharedBlksHit": 55,
+        "sharedBlksHit": 226,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=B scenario=T3-deadlock requestCount=2 success=1 businessFailure=0 concurrencyFailure=0 technicalFailure=1 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[1027436400,1013529200] calls=14 totalExecMs=1001.168321 rows=10 sharedBlksHit=55 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
+        "rawRecord": "ROOM785_RAW candidate=B scenario=T3-deadlock requestCount=2 success=1 businessFailure=0 concurrencyFailure=0 technicalFailure=1 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[1033842400,1053195400] calls=15 totalExecMs=1001.715813 rows=10 sharedBlksHit=226 sharedBlksRead=0 retryRequestCount=0 retryTupleCount=0 retryTuples=[]"
       }
     ]
   },
-  "artifactSha256": "73494CC53B0B6C19B63A85F1FF3F6E1935FE9C019C2241D1EC97080726A599E6",
+  "artifactSha256": "3B9F4FA83FD0BC917E39BF224252C79836224F8034A274121753398F95062801",
   "scenarioSetDigest": "ECD025F2CC7B4A565AF32FBF851190D0FE744C4DF743E571EFF6AA71E8B5D992",
   "t2RoundRepetitions": 3,
   "metricFields": [
@@ -1284,22 +1284,22 @@
             "logger": "cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier",
             "event": "room_participation_retry",
             "roomId": 1,
-            "requestSeed": -2323109044994929345,
-            "derivedSeed": 1770595899995396771,
+            "requestSeed": 3963363790825007326,
+            "derivedSeed": -6262931000391634204,
             "attempt": 2,
             "maxDelayMillis": 5,
-            "delayMillis": 4,
+            "delayMillis": 5,
             "scenario": "T1"
           },
           {
             "logger": "cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier",
             "event": "room_participation_retry",
             "roomId": 2,
-            "requestSeed": -7307274452546990977,
-            "derivedSeed": -5164579144442100893,
+            "requestSeed": 7733091919056573165,
+            "derivedSeed": -81823467470402891,
             "attempt": 2,
             "maxDelayMillis": 5,
-            "delayMillis": 5,
+            "delayMillis": 1,
             "scenario": "T1"
           }
         ]
@@ -1573,11 +1573,11 @@
             "logger": "cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier",
             "event": "room_participation_retry",
             "roomId": 3,
-            "requestSeed": 7907062479349078146,
-            "derivedSeed": 5311263901597251520,
+            "requestSeed": -2167606809354456513,
+            "derivedSeed": 6591165204850054563,
             "attempt": 2,
             "maxDelayMillis": 5,
-            "delayMillis": 1,
+            "delayMillis": 0,
             "scenario": "T2-lock"
           }
         ]
@@ -1599,22 +1599,22 @@
             "logger": "cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier",
             "event": "room_participation_retry",
             "roomId": 1,
-            "requestSeed": -6996627308767992339,
-            "derivedSeed": 4465482312706856885,
+            "requestSeed": 803717876480625949,
+            "derivedSeed": 6468510097189852805,
             "attempt": 2,
             "maxDelayMillis": 5,
-            "delayMillis": 1,
+            "delayMillis": 5,
             "scenario": "T3-optimistic-exhausted"
           },
           {
             "logger": "cloud.bamsongi.albammate.room.service.RoomOptimisticLockRetrier",
             "event": "room_participation_retry",
             "roomId": 1,
-            "requestSeed": -6996627308767992339,
-            "derivedSeed": 4465482312706856886,
+            "requestSeed": 803717876480625949,
+            "derivedSeed": 6468510097189852806,
             "attempt": 3,
             "maxDelayMillis": 10,
-            "delayMillis": 3,
+            "delayMillis": 1,
             "scenario": "T3-optimistic-exhausted"
           }
         ]

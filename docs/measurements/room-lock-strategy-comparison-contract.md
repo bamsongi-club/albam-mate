@@ -6,8 +6,8 @@
 
 - LOCK_BASE: `49b960a1f7537574b39d67ff22df8890a3891ef6`
 - 후보 B production source SHA: `433d835eadff1da25d9a83d3d0ee2dc8cd748480` (bounded jitter 재시도 구현이 확정된 커밋)
-- 측정 실행 Git HEAD: `22022ed73984ec0e215ed14638a3818f6fb15138` (현재 공통 harness에서 artifact를 만든 clean repository HEAD). 후보 production source와 측정 harness의 식별자는 같은 의미가 아니므로 별도로 남긴다.
-- base-to-head diff digest: `fd6bda84b96d86a45ecb6114333035aea375f4e600c6c6dbc32da6543c899b81` (`49b960a1..22022ed7`). 산식은 `sha256(git diff --binary <LOCK_BASE>..<측정 실행 SHA> bytes)`이며 `core.autocrlf=input`, `core.eol=lf` 체크아웃 기준이다. 개행·`diff` 출력 설정이 다른 환경에서는 같은 커밋 쌍이라도 값이 달라질 수 있으므로 재현 시 이 설정을 함께 고정한다.
+- 측정 실행 Git HEAD: `091a68886c4eff237f53138319d494f837cea64c` (현재 공통 harness에서 artifact를 만든 clean repository HEAD). 후보 production source와 측정 harness의 식별자는 같은 의미가 아니므로 별도로 남긴다.
+- base-to-head diff digest: `5e38fac00e8978b2ea373f46d5daa5e38854da3a2dc4be511655ad759b469ea1` (`49b960a1..091a6888`). 산식은 `sha256(git diff --binary <LOCK_BASE>..<측정 실행 SHA> bytes)`이며 `core.autocrlf=input`, `core.eol=lf` 체크아웃 기준이다. 개행·`diff` 출력 설정이 다른 환경에서는 같은 커밋 쌍이라도 값이 달라질 수 있으므로 재현 시 이 설정을 함께 고정한다.
 - 실행 환경 값(Java, PostgreSQL, image, OS, CPU, 설정)은 아래 보존 artifact의 동명 필드에 고정하며, 문서와 artifact 값이 다르면 `INVALID`다.
 - 후보 B는 낙관 락, 최초 시도 1회와 재시도 2회를 합쳐 최대 3회만 실행한다. retry 2는 `0~5ms`, retry 3은 `0~10ms` bounded full jitter이며 exponential backoff는 사용하지 않는다.
 - 테스트는 실제 production entrypoint의 request seed, derived jitter seed, 실제 delay trace를 읽어 seed 관계와 각 상한을 검증한다.
@@ -39,8 +39,8 @@
 `retry2`, `exhausted`, fixture/time과 `ROOM785_RAW`를 같은 JSON artifact에 남긴다. 별도 `retryEvidence`에는 retrier와 waitlist registration coordinator 양쪽의 각 retry request tuple을 `requestSeed`, `derivedSeed`, `attempt`, `maxDelayMillis`, `delayMillis`, `roomId`, logger/event와 함께 남긴다. `retry0/1/2`는 measured retrier의 outcome bucket이고, `retryEvidence`의 request·tuple count는 두 bounded-jitter logger의 raw tuple 집계다.
 
 - ROOM785_RAW 보존 경로: `docs/measurements/results/room-785-b/room-785-b.json`
-- artifact SHA-256: `73494CC53B0B6C19B63A85F1FF3F6E1935FE9C019C2241D1EC97080726A599E6`은 `artifactSha256` 한 줄을 제외한 canonical UTF-8 LF bytes 기준 값이다. artifact 자신은 자신의 checksum을 포함하지 않아 순환하지 않는다.
-- 현재 artifact는 원격 B gate/jitter 변경 위에 공통 scenario·반복·T3 unit·metric 계약을 통합한 harness에서 clean HEAD `22022ed7`로 재측정한 결과다. T1 1개(양쪽 commit 순서 4개 요청 집계), T2 45개, T3 4개 round와 공통 `scenarioSetDigest`를 보존하며 `comparisonStatus=VALID`이다.
+- artifact SHA-256: `3B9F4FA83FD0BC917E39BF224252C79836224F8034A274121753398F95062801`은 `artifactSha256` 한 줄을 제외한 canonical UTF-8 LF bytes 기준 값이다. artifact 자신은 자신의 checksum을 포함하지 않아 순환하지 않는다.
+- 현재 artifact는 원격 B gate/jitter 변경 위에 공통 scenario·반복·T3 unit·metric 계약을 통합한 harness에서 clean HEAD `091a6888`로 재측정한 결과다. T1 1개(양쪽 commit 순서 4개 요청 집계), T2 45개, T3 4개 round와 공통 `scenarioSetDigest`를 보존하며 `comparisonStatus=VALID`이다.
 - `ROOM785_RAW` 필드 이름과 순서는 후보 A와 같은 `METRIC_FIELDS`로 고정해 후보 간 같은 필드로 비교한다.
 - artifact는 candidate/source·execution SHA, PostgreSQL image, Java, OS, CPU, retry budget, gate와 정확한 재현 명령을 함께 보존한다.
 - 현재 B artifact는 A/C와 동일한 T1/T2/T3 `1/45/4` round, 3회 반복, 공통 scenario-set digest와 metric field를 보존한다. B 고유의 bounded-jitter retry tuple은 공통 metric field와 별도 evidence로 보존하며, artifact provenance와 checksum은 현재 파일·실행 SHA와 일치한다.
