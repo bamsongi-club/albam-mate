@@ -6,7 +6,7 @@
 
 이 문서는 **측정/진단만** 다룬다. 인덱스 추가, 쿼리 변경, `Page` 계약 변경, 캐시, 프론트 로딩 전략은 #740 범위가 아니다.
 
-2026-08-19 실제 재측정 결과는 [최신 develop 결과](results/game-list-740/game-list-740-2026-08-19.md)에 기록했다. 원격 `develop` `50545cb172f14c76dcd9846a519959ae45e9e020`을 반영한 server/runner commit `2e28b6c9294fa0b30b40b6c057d6199cf5804a4b`에서 v4 DB를 다시 측정하고, 실제 SQL statement capture와 `EXPLAIN (ANALYZE, BUFFERS)`를 함께 보존했다.
+2026-08-19 실제 재측정 결과는 [최신 develop 결과](results/game-list-740/game-list-740-2026-08-19.md)에 기록했다. 원격 `develop` `69e595513378d9e0569f5b35221a7441f194f62e`을 반영한 server/runner commit `044dd1bad7bfcfb3de45245233887a159691bcfb`에서 v4 DB를 다시 측정하고, 서버 container revision/image provenance, 응답 upstream 역할, timestamp/PID가 있는 SQL statement capture와 `EXPLAIN (ANALYZE, BUFFERS)`를 함께 보존했다.
 
 현재 evidence는 2026-08-19의 별도 runner 실행 3회 JSON/CSV 집합이다. 단일 batch의 빠른 p95를 canonical 값으로 고르지 않으며, batch별 편차와 실행 조건을 결과 문서에 함께 기록한다. `game-list-740-2026-08-18T14-36-38.069Z.json/csv`는 보강 전 runner의 역사 기록으로만 보존하며 #740 완료 근거에서 제외한다.
 
@@ -27,9 +27,14 @@ v4 ZIP의 SHA-256과 SQL 파일 checksum, import 순서, 측정 DB의 실제 row
 ## 실행
 
 ```bash
+app1_container="$(docker compose ps -q spring-1)"
+app2_container="$(docker compose ps -q spring-2)"
+
 node scripts/measurements/game-list-baseline.mjs \
   --dataset-sha256 d4abcf8ff91c0551ac6bc9afdb87ccae007ce46ad8139689ccb01a5c92c537c8 \
-  --server-commit <측정 대상 서버 commit SHA>
+  --server-commit <측정 대상 서버의 40자리 commit SHA> \
+  --server-container "app1=$app1_container" \
+  --server-container "app2=$app2_container"
 ```
 
 필요하면 다음처럼 변경한다.
@@ -41,10 +46,12 @@ node scripts/measurements/game-list-baseline.mjs \
   --runs 20 \
   --dataset-size 170005 \
   --dataset-sha256 d4abcf8ff91c0551ac6bc9afdb87ccae007ce46ad8139689ccb01a5c92c537c8 \
-  --server-commit <측정 대상 서버 commit SHA>
+  --server-commit <측정 대상 서버의 40자리 commit SHA> \
+  --server-container "app1=$app1_container" \
+  --server-container "app2=$app2_container"
 ```
 
-`--dataset-sha256`은 측정에 사용한 원본 데이터셋의 SHA-256을 반드시 명시한다. `--server-commit`은 측정 대상 서버의 image/runtime provenance에서 확인한 값이어야 한다. 러너를 실행한 작업 디렉터리의 commit, 러너 파일 SHA-256, 측정 전후 source clean 여부는 결과에 `runnerCommit`, `runnerFileSha256`, `runnerSourceClean`으로 별도 기록하며 `serverCommit`을 대신하지 않는다. 요청별 timeout은 기본 30초이며 `--request-timeout-ms`로 조정할 수 있고, 사전 discovery의 games/theme/mechanism 요청에도 동일하게 적용된다. 기본 discovery의 `data.totalElements`는 `--dataset-size`와 정확히 일치해야 하며, 불일치하면 expected/actual count를 포함한 failed artifact를 남긴다.
+`--dataset-sha256`은 측정에 사용한 원본 데이터셋의 SHA-256을 반드시 명시한다. `--server-commit`은 40자리 SHA여야 하며, 정확히 두 `--server-container`(`app1`, `app2`)의 OCI revision label 및 동일 image ID와 시작/종료 시점 모두 일치해야 한다. runner는 각 discovery/실측 응답의 `X-Albam-Mate-Upstream` 역할도 그 검증 container 집합에 대조한다. 러너를 실행한 작업 디렉터리의 commit, 러너 파일 SHA-256, 측정 전후 source clean 여부는 결과에 `runnerCommit`, `runnerFileSha256`, `runnerSourceClean`으로 별도 기록하며 `serverCommit`을 대신하지 않는다. 요청별 timeout은 기본 30초이며 `--request-timeout-ms`로 조정할 수 있고, 사전 discovery의 games/theme/mechanism 요청에도 동일하게 적용된다. 기본 discovery의 `data.totalElements`는 `--dataset-size`와 정확히 일치해야 하며, 불일치하면 expected/actual count를 포함한 failed artifact를 남긴다.
 
 러너는 현재 데이터에서 유효한 값을 자동으로 선택한다.
 
@@ -142,9 +149,9 @@ HTTP total time
 
 | evidence | HTTP total | controller | content | count | validation | related | SQL execute sum | controller - SQL | HTTP - controller |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| base request, 1 capture | 92.594ms | 49ms | 1.717ms | 20.488ms | 0ms | 0.043ms | 22.248ms | 26.752ms | 43.594ms |
+| base request, 1 capture | 32.379ms | duration 미기록 | 0.527ms | 16.373ms | 0ms | 0.081ms | 16.981ms | 산출 안 함 | 산출 안 함 |
 
-따라서 이 capture에서 기본 요청의 DB statement 1순위는 `count`다. 다만 전체 HTTP 시간에서는 `controller - SQL execute sum`과 `HTTP - controller` 잔여 구간이 더 크다. `residual`은 Hibernate materialization, DTO 조립, 트랜잭션 경계, JSON serialization, proxy 비용이 섞인 구간이므로 SQL 병목으로 단정하지 않는다. HTTP p95는 20회 분포이고 위 분해는 단일 요청이므로 서로 같은 통계량처럼 비교하지 않는다.
+따라서 이 capture에서 기본 요청의 DB statement 1순위는 `count`다. raw capture는 HTTP 시작/종료 시각, `X-Albam-Mate-Upstream: app2`, 해당 controller log, 하나의 PostgreSQL PID `76`의 content/count/related statement를 함께 보존한다. 현재 console profile은 controller duration key-value를 내보내지 않으므로 `controller - SQL`과 `HTTP - controller` residual은 산출하지 않는다. HTTP p95는 20회 분포이고 위 분해는 단일 요청이므로 서로 같은 통계량처럼 비교하지 않는다.
 
 relation filter의 `296.095ms` EXPLAIN은 기본 요청의 수치가 아니라 relation 시나리오 후보이며, 이 값을 근거로 #740의 기본 요청 후속 범위를 결정하지 않는다.
 
@@ -191,12 +198,14 @@ EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT TEXT)
 - [x] 각 시나리오 p50/p95/max/status 기록
 - [x] 요청 1회 SQL 개수와 유형 기록
 - [x] 최신 `develop` 반영 server/runner로 v4 baseline 재실행, `runnerFileSha256`/`runnerSourceClean` 기록
+- [x] 서버 OCI revision label·동일 image ID·upstream 역할을 runner artifact에 기록하고 전후 대조
 - [x] 동일 조건의 별도 runner 실행 3회와 batch별 p50/p95 편차 기록
 - [x] discovery timeout과 실제 `totalElements` 대조 검증
 - [x] N+1/중복 query 여부 판정
 - [x] content/count/validation/related 구간의 대표 실행계획 시간 기록
 - [x] 가장 느린 SQL의 `EXPLAIN (ANALYZE, BUFFERS)` 보존
-- [x] 기본 요청의 controller/SQL/HTTP 잔여 구간 대응 기록
+- [x] 기본 요청의 HTTP/upstream/controller/SQL 시간 창 대응 기록
+- [x] 기본 요청 raw capture에 HTTP window·upstream 역할·PostgreSQL timestamp/PID·content/count/related statement 보존
 - [x] 기본 요청의 DB statement 1순위(count) 숫자로 확인
 - [ ] 기본 요청 전체 잔여 구간의 세부 계측 및 후속 #770 단일 범위 승인
 - [ ] 개선은 별도 후속 이슈로 최소 범위만 생성
