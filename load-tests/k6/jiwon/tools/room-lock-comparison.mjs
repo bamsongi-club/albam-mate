@@ -1286,7 +1286,7 @@ if (isMainModule) {
   try {
     main();
   } catch (error) {
-    process.stderr.write(`${error.message}\n`);
+    process.stderr.write(`${process.env.ROOM_LOCK_COMPARISON_DEBUG === '1' ? error.stack : error.message}\n`);
     process.exitCode = 1;
   }
 }
@@ -1296,5 +1296,6 @@ export {
   createComparisonFixturePlan,
   conditionFor,
   normalizedComparisonInput,
+  renderBundle,
   runtimeContractSource,
 };
