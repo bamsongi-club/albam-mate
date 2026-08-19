@@ -1,6 +1,7 @@
 package cloud.bamsongi.albammate.game;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -31,19 +32,29 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.GamePlayTimeFilter;
+import cloud.bamsongi.albammate.game.dto.MechanismMatch;
+import cloud.bamsongi.albammate.game.dto.ThemeMatch;
 import cloud.bamsongi.albammate.game.entity.Game;
 import cloud.bamsongi.albammate.game.entity.GameCategory;
 import cloud.bamsongi.albammate.game.entity.GameCategoryRelation;
 import cloud.bamsongi.albammate.game.entity.GameMechanism;
 import cloud.bamsongi.albammate.game.entity.GameMechanismRelation;
+import cloud.bamsongi.albammate.game.entity.GameTheme;
+import cloud.bamsongi.albammate.game.entity.GameThemeRelation;
 import cloud.bamsongi.albammate.game.repository.GameCategoryRelationRepository;
 import cloud.bamsongi.albammate.game.repository.GameCategoryRepository;
 import cloud.bamsongi.albammate.game.repository.GameListSpecification;
 import cloud.bamsongi.albammate.game.repository.GameMechanismRelationRepository;
 import cloud.bamsongi.albammate.game.repository.GameMechanismRepository;
 import cloud.bamsongi.albammate.game.repository.GameRepository;
+import cloud.bamsongi.albammate.game.repository.GameThemeRelationRepository;
+import cloud.bamsongi.albammate.game.repository.GameThemeRepository;
 import cloud.bamsongi.albammate.game.service.GameListSearchCriteria;
 import cloud.bamsongi.albammate.game.service.GameQueryService;
 
@@ -70,6 +81,11 @@ class GameListFilterPostgresTest {
 
 	@Autowired
 	private GameMechanismRelationRepository gameMechanismRelationRepository;
+	@Autowired
+	private GameThemeRepository gameThemeRepository;
+
+	@Autowired
+	private GameThemeRelationRepository gameThemeRelationRepository;
 
 	@Autowired
 	private GameCategoryRepository gameCategoryRepository;
@@ -131,6 +147,54 @@ class GameListFilterPostgresTest {
 				request.setMechanism(List.of("HAND_MANAGEMENT", "DICE_ROLLING", "DICE_ROLLING"));
 				request.setPlayerCount(2);
 			}));
+	}
+
+	@Test
+	void V1_관계필터는_DB_내부_uncorrelated_game_ID_subquery와_Slice_경계를_사용한다() {
+		GameTheme fantasy = saveTheme(2101L, "FANTASY");
+		GameTheme war = saveTheme(2102L, "WAR");
+		GameMechanism hand = saveMechanism(2101L, "HAND_MANAGEMENT", true);
+		GameMechanism dice = saveMechanism(2102L, "DICE_ROLLING", true);
+		Game both = saveGame(2101L, "Relation-Alpha", 2, 4, 20, new BigDecimal("2.00"));
+		Game themeAllMechanismAny = saveGame(2102L, "Relation-Charlie", 2, 4, 20, new BigDecimal("2.00"));
+		Game themeAnyMechanismAll = saveGame(2103L, "Relation-Bravo", 2, 4, 20, new BigDecimal("2.00"));
+		linkTheme(both, fantasy);
+		linkTheme(both, war);
+		linkMechanism(both, hand);
+		linkMechanism(both, dice);
+		linkTheme(themeAllMechanismAny, fantasy);
+		linkTheme(themeAllMechanismAny, war);
+		linkMechanism(themeAllMechanismAny, hand);
+		linkTheme(themeAnyMechanismAll, fantasy);
+		linkMechanism(themeAnyMechanismAll, hand);
+		linkMechanism(themeAnyMechanismAll, dice);
+
+		Logger sqlLogger = (Logger) org.slf4j.LoggerFactory.getLogger("org.hibernate.SQL");
+		Level originalLevel = sqlLogger.getLevel();
+		ListAppender<ILoggingEvent> sqlEvents = new ListAppender<>();
+		sqlEvents.start();
+		sqlLogger.addAppender(sqlEvents);
+		sqlLogger.setLevel(Level.DEBUG);
+		try {
+			List<Long> ids = List.of(0, 1, 2).stream().flatMap(page -> {
+				GameListRequest request = relationRequest(page);
+				return gameQueryService.findPage(request, null).getContent().stream().map(game -> game.id());
+			}).toList();
+
+			assertEquals(List.of(both.getId(), themeAnyMechanismAll.getId(), themeAllMechanismAny.getId()), ids);
+			assertEquals(false, gameQueryService.findPage(relationRequest(2), null).hasNext());
+			String relationSql = sqlEvents.list.stream()
+				.map(ILoggingEvent::getFormattedMessage)
+				.filter(sql -> sql.contains("from games"))
+				.findFirst()
+				.orElseThrow();
+			assertTrue(relationSql.contains("in ((select"));
+			assertTrue(relationSql.contains("game_theme_relations"));
+			assertTrue(relationSql.contains("game_mechanism_relations"));
+		} finally {
+			sqlLogger.detachAppender(sqlEvents);
+			sqlLogger.setLevel(originalLevel);
+		}
 	}
 
 	@Test
@@ -280,5 +344,29 @@ class GameListFilterPostgresTest {
 				"Issue #351",
 				isPublic ? "beyejin" : null,
 				isPublic ? Instant.parse("2026-08-04T00:00:00Z") : null));
+	}
+
+	private GameTheme saveTheme(long bggId, String code) {
+		return gameThemeRepository.saveAndFlush(new GameTheme(bggId, code, code, code));
+	}
+
+	private GameListRequest relationRequest(int page) {
+		GameListRequest request = new GameListRequest();
+		request.setKeyword("Relation-");
+		request.setTheme(List.of("FANTASY", "WAR"));
+		request.setThemeMatch(List.of(ThemeMatch.ANY));
+		request.setMechanism(List.of("HAND_MANAGEMENT", "DICE_ROLLING"));
+		request.setMechanismMatch(List.of(MechanismMatch.ANY));
+		request.setPage(page);
+		request.setSize(1);
+		return request;
+	}
+
+	private void linkTheme(Game game, GameTheme theme) {
+		gameThemeRelationRepository.saveAndFlush(new GameThemeRelation(game, theme));
+	}
+
+	private void linkMechanism(Game game, GameMechanism mechanism) {
+		gameMechanismRelationRepository.saveAndFlush(new GameMechanismRelation(game, mechanism));
 	}
 }

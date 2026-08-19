@@ -162,6 +162,58 @@ class GameMatchModeHttpIntegrationTest {
 			.andExpect(jsonPath("$.data.content[0].id").value(matched.getId()));
 	}
 
+	@Test
+	void V1_관계필터는_ANY_ALL_조합과_Slice_경계를_V0와_같이_보존한다() throws Exception {
+		GameTheme fantasy = saveTheme(5501L, "FANTASY");
+		GameTheme war = saveTheme(5502L, "WAR");
+		GameMechanism hand = saveMechanism(5501L, "HAND_MANAGEMENT");
+		GameMechanism dice = saveMechanism(5502L, "DICE_ROLLING");
+		Game both = saveGame(550001L, "T5 both", 2);
+		Game themeAllMechanismAny = saveGame(550002L, "T5 theme all", 2);
+		Game themeAnyMechanismAll = saveGame(550003L, "T5 mechanism all", 2);
+		linkTheme(both, fantasy);
+		linkTheme(both, war);
+		linkMechanism(both, hand);
+		linkMechanism(both, dice);
+		linkTheme(themeAllMechanismAny, fantasy);
+		linkTheme(themeAllMechanismAny, war);
+		linkMechanism(themeAllMechanismAny, hand);
+		linkTheme(themeAnyMechanismAll, fantasy);
+		linkMechanism(themeAnyMechanismAll, hand);
+		linkMechanism(themeAnyMechanismAll, dice);
+
+		mockMvc.perform(matchRequest("T5"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.totalElements").doesNotExist())
+			.andExpect(jsonPath("$.data.totalPages").doesNotExist())
+			.andExpect(jsonPath("$.data.content[0].id").value(both.getId()))
+			.andExpect(jsonPath("$.data.content[1].id").value(themeAnyMechanismAll.getId()))
+			.andExpect(jsonPath("$.data.content[2].id").value(themeAllMechanismAny.getId()));
+		mockMvc.perform(matchRequest("T5").param("themeMatch", "ALL"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.content[0].id").value(both.getId()))
+			.andExpect(jsonPath("$.data.content[1].id").value(themeAllMechanismAny.getId()));
+		mockMvc.perform(matchRequest("T5").param("mechanismMatch", "ALL"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.content[0].id").value(both.getId()))
+			.andExpect(jsonPath("$.data.content[1].id").value(themeAnyMechanismAll.getId()));
+		mockMvc.perform(matchRequest("T5").param("themeMatch", "ALL").param("mechanismMatch", "ALL"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.content[0].id").value(both.getId()));
+		mockMvc.perform(matchRequest("T5").param("size", "1").param("page", "0"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.content[0].id").value(both.getId()))
+			.andExpect(jsonPath("$.data.hasNext").value(true));
+		mockMvc.perform(matchRequest("T5").param("size", "1").param("page", "1"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.content[0].id").value(themeAnyMechanismAll.getId()))
+			.andExpect(jsonPath("$.data.hasNext").value(true));
+		mockMvc.perform(matchRequest("T5").param("size", "1").param("page", "2"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.content[0].id").value(themeAllMechanismAny.getId()))
+			.andExpect(jsonPath("$.data.hasNext").value(false));
+	}
+
 	private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder matchRequest(String name) {
 		return get("/api/games")
 			.param("keyword", PREFIX + name)

@@ -98,15 +98,13 @@ public final class GameListSpecification {
 		var subquery = query.subquery(Long.class);
 		Root<GameThemeRelation> relation = subquery.from(GameThemeRelation.class);
 		var theme = relation.join("theme");
+		subquery.select(relation.get("game").get("id"));
+		subquery.where(theme.get("code").in(themes));
 		if (themeMatch == ThemeMatch.ALL) {
-			subquery.select(criteriaBuilder.countDistinct(theme.get("code")));
-			subquery.where(criteriaBuilder.equal(relation.get("game"), root), theme.get("code").in(themes));
-			predicates.add(criteriaBuilder.equal(subquery, (long)themes.size()));
-			return;
+			subquery.groupBy(relation.get("game").get("id"));
+			subquery.having(criteriaBuilder.equal(criteriaBuilder.countDistinct(theme.get("code")), (long)themes.size()));
 		}
-		subquery.select(criteriaBuilder.literal(1L));
-		subquery.where(criteriaBuilder.equal(relation.get("game"), root), theme.get("code").in(themes));
-		predicates.add(criteriaBuilder.exists(subquery));
+		predicates.add(root.get("id").in(subquery));
 	}
 
 	private static void addPlayerPreferencePredicate(
@@ -163,21 +161,14 @@ public final class GameListSpecification {
 		var subquery = query.subquery(Long.class);
 		Root<GameMechanismRelation> relation = subquery.from(GameMechanismRelation.class);
 		var mechanism = relation.join("mechanism");
+		subquery.select(relation.get("game").get("id"));
+		subquery.where(mechanism.get("code").in(mechanisms), criteriaBuilder.isTrue(mechanism.get("isPublic")));
 		if (mechanismMatch == MechanismMatch.ALL) {
-			subquery.select(criteriaBuilder.countDistinct(mechanism.get("code")));
-			subquery.where(
-				criteriaBuilder.equal(relation.get("game"), root),
-				mechanism.get("code").in(mechanisms),
-				criteriaBuilder.isTrue(mechanism.get("isPublic")));
-			predicates.add(criteriaBuilder.equal(subquery, (long)mechanisms.size()));
-			return;
+			subquery.groupBy(relation.get("game").get("id"));
+			subquery.having(
+				criteriaBuilder.equal(criteriaBuilder.countDistinct(mechanism.get("code")), (long)mechanisms.size()));
 		}
-		subquery.select(criteriaBuilder.literal(1L));
-		subquery.where(
-			criteriaBuilder.equal(relation.get("game"), root),
-			mechanism.get("code").in(mechanisms),
-			criteriaBuilder.isTrue(mechanism.get("isPublic")));
-		predicates.add(criteriaBuilder.exists(subquery));
+		predicates.add(root.get("id").in(subquery));
 	}
 
 	private static void addPlayerCountPredicates(
