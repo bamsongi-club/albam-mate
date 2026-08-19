@@ -274,6 +274,7 @@ class ChatWebSocketHandlerRealtimeDeliveryTest {
 			connectionRegistry,
 			chatMessageRepository,
 			userQuery,
+			new cloud.bamsongi.albammate.chat.system.ChatMessageResponseAssembler(),
 			metrics,
 			JsonMapper.builder().build(),
 			Clock.fixed(CREATED_AT.plusSeconds(1), ZoneOffset.UTC));

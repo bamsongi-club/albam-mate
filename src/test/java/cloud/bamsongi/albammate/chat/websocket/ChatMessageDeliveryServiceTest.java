@@ -31,6 +31,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.chat.entity.ChatMessage;
 import cloud.bamsongi.albammate.chat.repository.ChatMessageRepository;
+import cloud.bamsongi.albammate.chat.system.ChatMessageResponseAssembler;
 import cloud.bamsongi.albammate.user.contract.UserQuery;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import tools.jackson.databind.JsonNode;
@@ -50,7 +51,7 @@ class ChatMessageDeliveryServiceTest {
 	private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 	private final ChatWebSocketMetrics metrics = new ChatWebSocketMetrics(meterRegistry);
 	private final ChatMessageDeliveryService deliveryService = new ChatMessageDeliveryService(
-		connectionRegistry, chatMessageRepository, userQuery, metrics,
+		connectionRegistry, chatMessageRepository, userQuery, new ChatMessageResponseAssembler(), metrics,
 		JsonMapper.builder().build(), Clock.fixed(CREATED_AT.plusSeconds(1), ZoneOffset.UTC));
 
 	@Test
