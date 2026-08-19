@@ -1275,52 +1275,6 @@ test('T5 비교는 여섯 역할·규모 실행의 read profile 불일치를 거
   }
 });
 
-function writePortableT5CompletionArtifacts(bundle, rendered) {
-  const portableManifest = JSON.parse(readFileSync(path.join(bundle, 'manifest.json'), 'utf8'));
-  const executionOptions = JSON.parse(readFileSync(path.join(bundle, 'execution-options.json'), 'utf8'));
-  const fixturePath = path.join(bundle, 'fixture.json');
-  const summaryPath = path.join(bundle, 'k6-summary.json');
-  const startedAtUtc = '2026-08-18T00:00:00.000Z';
-  const finishedAtUtc = '2026-08-18T00:01:00.000Z';
-
-  writeFileSync(path.join(bundle, 'run-manifest.json'), `${JSON.stringify({
-    schemaVersion: 2,
-    fixtureId: rendered.fixtureId,
-    runId: rendered.options.runId,
-    scenario: 't5',
-    condition: rendered.options,
-    sourceSha: portableManifest.sourceRevision,
-    targetEnvironment: 'private-loadtest',
-    k6Version: 'v1.3.0',
-    startedAtUtc,
-    finishedAtUtc,
-    runState: 'COMPLETED',
-    completed: true,
-    k6ExitCode: 0,
-    fixtureSha256: sha256(fixturePath),
-    summaryFile: 'k6-summary.json',
-    summarySha256: sha256(summaryPath),
-    t5ReadOptions: executionOptions.t5ReadOptions,
-  }, null, 2)}\n`, 'utf8');
-  writeFileSync(path.join(bundle, 'resource-signals.json'), `${JSON.stringify({
-    schemaVersion: 1,
-    runId: rendered.options.runId,
-    fixtureId: rendered.fixtureId,
-    window: { startedAtUtc, finishedAtUtc },
-    http: { requestCount: 1, failedRequestCount: 0 },
-    tomcat: { activeThreads: 2 },
-    hikari: { activeConnections: 1 },
-    jvm: { heapUsedBytes: 100 },
-    postgresql: { activeConnections: 2 },
-    query: {
-      callCount: 1,
-      totalTimeMilliseconds: 20,
-      sharedBuffersHit: 100,
-      sharedBuffersRead: 2,
-    },
-  }, null, 2)}\n`, 'utf8');
-}
-
 function completePortableT5Bundle(bundle, rendered, context) {
   const plan = JSON.parse(readFileSync(path.join(bundle, 'fixture-plan.json'), 'utf8'));
   writeFileSync(
@@ -1335,7 +1289,6 @@ function completePortableT5Bundle(bundle, rendered, context) {
   assert.equal(diagnoseBundle({ bundle, stage: 'before' }, context).status, 'PASS');
   writeFileSync(path.join(bundle, 'after-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
   writeFileSync(path.join(bundle, 'k6-summary.json'), `${JSON.stringify(t5SummaryWithTopLevelCounts(7))}\n`, 'utf8');
-  writePortableT5CompletionArtifacts(bundle, rendered);
   assert.equal(diagnoseBundle({ bundle, stage: 'after' }, context).status, 'PASS');
   writeFileSync(path.join(bundle, 'infra-execution.json'), `${JSON.stringify({
     schemaVersion: 1,
@@ -1351,64 +1304,6 @@ function completePortableT5Bundle(bundle, rendered, context) {
   })}\n`, 'utf8');
   return aggregateBundle(bundle, context);
 }
-
-test('portable T5 diagnose와 aggregate는 completion artifact가 없는 기존 runner를 허용한다', () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), 'room-k6-portable-t5-legacy-runner-'));
-  const buildRoot = path.join(root, 'build', 'k6', 'room');
-  const context = {
-    repositoryRoot,
-    scenarioDirectory: path.join(repositoryRoot, 'load-tests', 'k6', 'jiwon'),
-    buildRoot,
-    bundleRoot: null,
-    isBundleRuntime: false,
-    environment: {
-      ROOM_K6_FIXTURE_PASSWORD_HASH: '{bcrypt}$2a$10$portable-t5-legacy-runner-test',
-      ROOM_K6_READ_VUS: '7',
-      ROOM_K6_READ_DURATION_SECONDS: '75',
-      ROOM_K6_READ_THINK_TIME_MS: '25',
-    },
-  };
-
-  try {
-    const rendered = renderBundle({
-      scenario: 't5',
-      runId: `portable-t5-legacy-runner-${process.pid}-${Date.now()}`,
-      profile: 'spike',
-      t5Role: 'host',
-      t5Scale: '1',
-    }, context, { sourceRevision: 'd'.repeat(40), sourceDirty: false });
-    const bundle = rendered.bundlePath;
-    const plan = JSON.parse(readFileSync(path.join(bundle, 'fixture-plan.json'), 'utf8'));
-    writeFileSync(path.join(bundle, 'resource-output.json'), `${JSON.stringify(fixtureResources(plan))}\n`, 'utf8');
-
-    const hydrated = hydrateBundle(bundle, context);
-    const snapshot = fixtureSnapshot(JSON.parse(readFileSync(hydrated.fixturePath, 'utf8')));
-    writeFileSync(path.join(bundle, 'before-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
-    assert.equal(diagnoseBundle({ bundle, stage: 'before' }, context).status, 'PASS');
-    writeFileSync(path.join(bundle, 'after-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
-    writeFileSync(path.join(bundle, 'k6-summary.json'), `${JSON.stringify(t5SummaryWithTopLevelCounts(7))}\n`, 'utf8');
-    assert.equal(diagnoseBundle({ bundle, stage: 'after' }, context).status, 'PASS');
-
-    writeFileSync(path.join(bundle, 'infra-execution.json'), `${JSON.stringify({
-      schemaVersion: 1,
-      runId: rendered.options.runId,
-      fixtureId: rendered.fixtureId,
-      phases: {
-        prepare: { exitCode: 0 },
-        resourceQuery: { exitCode: 0 },
-        beforeSnapshot: { exitCode: 0 },
-        k6: { exitCode: 0 },
-        afterSnapshot: { exitCode: 0 },
-      },
-    })}\n`, 'utf8');
-
-    const aggregate = aggregateBundle(bundle, context);
-    assert.equal(aggregate.status, 'PASS');
-    assert.equal(aggregate.completion, null);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
 
 test('T5 비교는 portable bundle 완료 artifact와 k6 v1.3 top-level count를 검증한다', () => {
   const runId = `portable-t5-compare-${process.pid}-${Date.now()}`;
@@ -1891,12 +1786,6 @@ test('portable bundle은 DB·k6 없이 full closure와 immutable 계약을 생�
       runId: rendered.options.runId,
       fixtureId: rendered.fixtureId,
     });
-    writeFileSync(path.join(bundle, 'run-manifest.json'), '{}\n', 'utf8');
-    assert.throws(
-      () => validateBundle(bundle, context, { forExecution: true }),
-      /run-manifest\.json/,
-    );
-    rmSync(path.join(bundle, 'run-manifest.json'));
     assert.deepEqual(bundleExecutionOptions(bundle, context), {
       schemaVersion: 1,
       k6Environment: {
@@ -2074,7 +1963,6 @@ test('portable bundle before diagnosis 재실행은 create-only T5 baseline을 �
 
     writeFileSync(path.join(bundle, 'after-snapshot.json'), `${JSON.stringify(baselineSnapshot)}\n`, 'utf8');
     writeFileSync(path.join(bundle, 'k6-summary.json'), `${JSON.stringify(t5Summary(7))}\n`, 'utf8');
-    writePortableT5CompletionArtifacts(bundle, rendered);
     assert.equal(diagnoseBundle({ bundle, stage: 'after' }, context).status, 'PASS');
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -2145,7 +2033,6 @@ test('portable bundle before diagnosis는 사후 실행 artifact가 있으면 ba
   const artifactContents = new Map([
     ['k6-summary.json', '{}\n'],
     ['k6-console.log', 'k6 output\n'],
-    ['run-manifest.json', '{}\n'],
     ['after-snapshot.json', '{}\n'],
     ['after-diagnosis.json', '{}\n'],
     ['final-result.json', '{}\n'],
@@ -2223,19 +2110,12 @@ test('portable bundle은 원격 raw metadata와 두 진단을 PASS·FAIL·INVALI
     writeFileSync(path.join(bundle, 'before-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
     diagnoseBundle({ bundle, stage: 'before' }, context);
     writeFileSync(path.join(bundle, 'after-snapshot.json'), `${JSON.stringify(snapshot)}\n`, 'utf8');
-    const summaryPath = path.join(bundle, 'k6-summary.json');
-    writeFileSync(summaryPath, `${JSON.stringify(t5Summary(1))}\n`, 'utf8');
-    const rawSummary = readFileSync(summaryPath, 'utf8');
-    const rawSummaryDigest = sha256(summaryPath);
-    writePortableT5CompletionArtifacts(bundle, rendered);
+    writeFileSync(path.join(bundle, 'k6-summary.json'), `${JSON.stringify(t5Summary(1))}\n`, 'utf8');
     diagnoseBundle({ bundle, stage: 'after' }, context);
 
     const executionPath = path.join(bundle, 'infra-execution.json');
     const finalResultPath = path.join(bundle, 'final-result.json');
     const afterDiagnosisPath = path.join(bundle, 'after-diagnosis.json');
-    const resourceSignalsPath = path.join(bundle, 'resource-signals.json');
-    const originalSummary = readFileSync(summaryPath);
-    const originalResourceSignals = readFileSync(resourceSignalsPath);
     const writeExecution = (failedPhase = null, exitCode = 0) => {
       writeFileSync(executionPath, `${JSON.stringify({
         schemaVersion: 1,
@@ -2259,16 +2139,6 @@ test('portable bundle은 원격 raw metadata와 두 진단을 PASS·FAIL·INVALI
     const passResult = aggregate();
     assert.equal(passResult.status, 'PASS');
     assert.equal(passResult.issues.length, 0);
-    assert.deepEqual(passResult.completion.runManifest.condition, rendered.options);
-    assert.equal(readFileSync(summaryPath, 'utf8'), rawSummary);
-    assert.equal(sha256(summaryPath), rawSummaryDigest);
-    assert.deepEqual(readFileSync(summaryPath), originalSummary);
-
-    rmSync(resourceSignalsPath);
-    const missingCompletion = aggregate();
-    assert.equal(missingCompletion.status, 'INVALID');
-    assert.match(missingCompletion.issues.join('\n'), /resource-signals\.json/);
-    writeFileSync(resourceSignalsPath, originalResourceSignals);
 
     for (const phaseName of ['prepare', 'resourceQuery', 'beforeSnapshot', 'k6', 'afterSnapshot']) {
       writeExecution(phaseName, 2);

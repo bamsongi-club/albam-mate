@@ -26,11 +26,7 @@ import {
   RUN_ID_PATTERN,
 } from './fixture-model.mjs';
 import { readExecutionOptions } from '../lib/read-execution-options.mjs';
-import {
-  executePortableBundleCommand,
-  portableBundleArtifacts,
-  readPortableT5CompletionArtifacts,
-} from './portable-bundle.mjs';
+import { executePortableBundleCommand, portableBundleArtifacts } from './portable-bundle.mjs';
 
 const toolDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(toolDirectory, '../../../..');
@@ -728,8 +724,6 @@ function completedPortableT5Artifact(fixturePath, fixture, context) {
     'manifest.json',
     portableBundleArtifacts.executionOptions,
     portableBundleArtifacts.summary,
-    portableBundleArtifacts.runManifest,
-    portableBundleArtifacts.resourceSignals,
     portableBundleArtifacts.infraExecution,
     portableBundleArtifacts.beforeDiagnosis,
     portableBundleArtifacts.afterDiagnosis,
@@ -753,17 +747,6 @@ function completedPortableT5Artifact(fixturePath, fixture, context) {
   const t5ReadOptions = artifacts[portableBundleArtifacts.executionOptions]?.t5ReadOptions;
   if (!isT5ReadOptions(t5ReadOptions)) {
     return { invalid: 'portable execution-options.json에 유효한 T5 read profile이 없습니다.' };
-  }
-
-  let completion;
-  try {
-    completion = readPortableT5CompletionArtifacts(
-      { directory, manifest },
-      fixture,
-      artifacts[portableBundleArtifacts.executionOptions],
-    );
-  } catch (error) {
-    return { invalid: error.message };
   }
 
   const summary = artifacts[portableBundleArtifacts.summary];
@@ -803,7 +786,6 @@ function completedPortableT5Artifact(fixturePath, fixture, context) {
     || afterDiagnosis.status === 'INVALID'
     ? 'INVALID'
     : beforeDiagnosis.status === 'FAIL' || afterDiagnosis.status === 'FAIL' || phaseCodes.some((code) => code !== 0)
-      || completion.runManifest.k6ExitCode !== 0
       ? 'FAIL'
       : 'PASS';
   if (!finalResult || typeof finalResult !== 'object' || Array.isArray(finalResult)
@@ -815,7 +797,6 @@ function completedPortableT5Artifact(fixturePath, fixture, context) {
     || !isDeepStrictEqual(finalResult.beforeDiagnosis, beforeDiagnosis)
     || !isDeepStrictEqual(finalResult.afterDiagnosis, afterDiagnosis)
     || !isDeepStrictEqual(finalResult.infraExecution, execution)
-    || !isDeepStrictEqual(finalResult.completion, completion)
     || finalResult.status !== expectedStatus) {
     return { invalid: 'portable final-result.json이 현재 T5 실행 결과와 맞지 않습니다.' };
   }
@@ -823,9 +804,8 @@ function completedPortableT5Artifact(fixturePath, fixture, context) {
     return { invalid: 'portable final-result.json이 INVALID로 끝났습니다.' };
   }
   return {
-    manifest: { k6ExitCode: completion.runManifest.k6ExitCode, t5ReadOptions },
+    manifest: { k6ExitCode: execution.phases.k6.exitCode, t5ReadOptions },
     summary,
-    resourceSignals: completion.resourceSignals,
     afterArtifact: afterDiagnosis.status === 'PASS'
       ? { verification: afterDiagnosis }
       : { verification: afterDiagnosis, failed: 'portable after diagnosis가 FAIL로 끝났습니다.' },
