@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.matching.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -58,6 +59,18 @@ public interface MatchPartyParticipantRepository extends JpaRepository<MatchPart
 		@Param("partyId")
 		Long partyId, @Param("userId")
 		Long userId);
+
+	@Query("""
+		select participant
+		from MatchPartyParticipant participant
+		where participant.id.partyId = :partyId
+		  and participant.id.userId in :userIds
+		""")
+	List<MatchPartyParticipant> findParticipantsByPartyIdAndUserIds(
+		@Param("partyId")
+		Long partyId,
+		@Param("userIds")
+		Collection<Long> userIds);
 
 	@Query("""
 		select party.status
