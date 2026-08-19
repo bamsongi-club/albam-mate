@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { linkSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+    existsSync,
+    linkSync,
+    mkdtempSync,
+    readFileSync,
+    rmSync,
+    writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -15,6 +22,7 @@ import {
     sha256,
     TRUSTED_EVALUATION_MANIFEST_SHA256,
     TRUSTED_INPUT_DESCRIPTOR_SHA256,
+    writeOutputAtomically,
 } from './lexical-sparse-baseline.mjs';
 import { loadManifest } from '../p2-search-evaluation.mjs';
 
@@ -26,83 +34,42 @@ const INPUT_DESCRIPTOR_PATH = path.join(
     REPOSITORY_ROOT,
     'docs/p2/search-evaluation/lexical-sparse-baseline-input.json',
 );
+const FIXTURE_ROOT = path.join(REPOSITORY_ROOT, 'docs/p2/search-evaluation/lexical-sparse/fixtures');
+const POC_MANIFEST_PATH = path.join(FIXTURE_ROOT, 'poc-search-text-manifest.json');
+const SEARCH_TEXT_PATH = path.join(FIXTURE_ROOT, 'search-text-top1000.json');
+const OUTPUT_ROOT = path.join(REPOSITORY_ROOT, 'docs/p2/search-evaluation/lexical-sparse/outputs');
+const EVIDENCE_PATH = path.join(REPOSITORY_ROOT, 'docs/p2/search-evaluation/lexical-sparse/baseline-evidence.json');
+const TRUSTED_POC_MANIFEST_SHA256 = 'b9793fa757c953c3bbc7724f665160874274111b65fbec7bba9d06f63c854f40';
+const TRUSTED_SEARCH_TEXT_SHA256 = 'ec364be3a34268d1bb6d27e3c41e2cdd31852565eec79fa31faaacda17af4ece';
+const TRUSTED_SEARCH_TEXT_GAMES_SHA256 = '03aa685a5828208f53912a0507d45f1b4db191eeb4e63d76d9e2cde9b890049f';
+const TRUSTED_EVIDENCE_SHA256 = 'c18613b86b2788a123ced8a4e3fd37bdf437721526e8a297d88e34e3662da987';
+const TRUSTED_RESULT_SHA256 = Object.freeze({
+    lexical: 'b20965faf427ad56584323831b6a8588e2ce3576621abc739bbae06360c4ea07',
+    sparse: '5bbf261860cf9141065111b5713bc1365691d4518c9169d75f7a8dc249c92d67',
+});
 const SCRIPT_PATH = path.join(path.dirname(TEST_FILE), 'lexical-sparse-baseline.mjs');
 
 function fixture() {
     const manifest = loadManifest(MANIFEST_PATH);
-    const datasetManifestBytes = readFileSync(DATASET_MANIFEST_PATH);
-    const qualityCorpusBytes = readFileSync(path.join(
-        REPOSITORY_ROOT,
-        'docs/p2/search-evaluation/quality-corpus.json',
-    ));
-    const games = manifest.qualityCorpus.members.map((member) => ({
-        gameId: member.gameId,
-        searchText: searchTextFor(member.gameId),
-    }));
-    const searchTextArtifact = {
-            schemaVersion: 1,
-            kind: 'poc-search-text',
-            datasetRelease: {
-                releaseId: manifest.catalog.releaseId,
-                datasetId: manifest.catalog.datasetId,
-                manifestSha256: sha256(datasetManifestBytes),
-            },
-            corpus: {
-                releaseId: manifest.qualityCorpus.releaseId,
-                corpusVersion: manifest.qualityCorpus.corpusVersion,
-            },
-            approvedFields: ['name', 'englishName', 'alias', 'mechanism', 'category', 'theme', 'description', 'detailDescription'],
-            gameCount: games.length,
-            searchTextSha256: sha256(Buffer.from(`${JSON.stringify(games)}\n`, 'utf8')),
-            games,
+    const inputDescriptorBytes = readFileSync(INPUT_DESCRIPTOR_PATH);
+    const inputDescriptor = JSON.parse(inputDescriptorBytes.toString('utf8'));
+    const pocManifestBytes = readFileSync(POC_MANIFEST_PATH);
+    const pocManifest = JSON.parse(pocManifestBytes.toString('utf8'));
+    const searchTextBytes = readFileSync(SEARCH_TEXT_PATH);
+    const searchTextArtifact = JSON.parse(searchTextBytes.toString('utf8'));
+    return {
+        manifest,
+        inputDescriptor,
+        inputDescriptorBytes,
+        pocManifest,
+        pocManifestBytes,
+        searchTextArtifact,
+        searchTextBytes,
     };
-    const pocManifest = {
-        schemaVersion: 1,
-        kind: 'poc-search-text-execution',
-        approved: true,
-        testOnly: false,
-        datasetRelease: {
-            manifestPath: 'catalog-dataset-release.json',
-            releaseId: manifest.catalog.releaseId,
-            datasetId: manifest.catalog.datasetId,
-            manifestSha256: sha256(datasetManifestBytes),
-        },
-        approvedFields: ['name', 'englishName', 'alias', 'mechanism', 'category', 'theme', 'description', 'detailDescription'],
-        approvedProcessingScopes: ['search-text-assembly'],
-        corpus: {
-            path: 'quality-corpus.json',
-            sha256: sha256(qualityCorpusBytes),
-        },
-    };
-    const pocManifestBytes = Buffer.from(`${JSON.stringify(pocManifest, null, 2)}\n`, 'utf8');
-    const searchTextBytes = Buffer.from(`${JSON.stringify(searchTextArtifact, null, 2)}\n`, 'utf8');
-    const inputDescriptor = {
-        schemaVersion: 1,
-        kind: 'search-04-baseline-input',
-        upstreamPullRequest: 861,
-        datasetRelease: {
-            releaseId: manifest.catalog.releaseId,
-            datasetId: manifest.catalog.datasetId,
-            manifestSha256: sha256(datasetManifestBytes),
-        },
-        qualityCorpus: {
-            releaseId: manifest.qualityCorpus.releaseId,
-            corpusVersion: manifest.qualityCorpus.corpusVersion,
-            sha256: manifest.qualityCorpusSha256,
-        },
-        approvedFields: pocManifest.approvedFields,
-        pocManifest: {
-            reference: 'test://poc-search-text-manifest.json',
-            sha256: sha256(pocManifestBytes),
-        },
-        searchTextArtifact: {
-            reference: 'test://search-text.json',
-            sha256: sha256(searchTextBytes),
-            gamesSha256: searchTextArtifact.searchTextSha256,
-            gameCount: searchTextArtifact.gameCount,
-        },
-    };
-    return { manifest, searchTextArtifact, inputDescriptor, pocManifest, pocManifestBytes, searchTextBytes };
+}
+
+function expectedResults(mode) {
+    return JSON.parse(readFileSync(path.join(OUTPUT_ROOT, `${mode}-results.json`), 'utf8'));
 }
 
 function runBaseline(data, mode) {
@@ -118,22 +85,14 @@ function runBaseline(data, mode) {
     });
 }
 
-function searchTextFor(gameId) {
-    if (gameId === 284083) return '게임명: 스페이스크루\n메커니즘: 트릭테이킹, 협력';
-    if (gameId === 324856) return '영문명: Deep Sea Crew';
-    if (gameId === 36811) return '게임명: 빠른 일꾼\n메커니즘: 일꾼 놓기';
-    if (gameId === 999999) return '게임명: 테스트';
-    return `게임명: 게임 ${gameId}`;
-}
-
 test('T1: 같은 pinned 입력의 lexical baseline은 결정적 ranked ID와 checksum을 만든다', () => {
     const data = fixture();
     const first = runBaseline(data, 'lexical');
     const second = runBaseline(data, 'lexical');
 
     assert.deepEqual(first, second);
-    assert.equal(first['Q-004'].rankedGameIds[0], 284083);
-    assert.equal(first['Q-005'].rankedGameIds[0], 324856);
+    assert.deepEqual(first, expectedResults('lexical'));
+    assert.equal(Object.keys(first).length, 15);
     assert.equal(
         sha256(Buffer.from(canonicalJson(first), 'utf8')),
         sha256(Buffer.from(canonicalJson(second), 'utf8')),
@@ -158,8 +117,7 @@ test('T2: Sparse baseline은 메커니즘·카테고리·테마 field만 신호�
     const data = fixture();
     const results = runBaseline(data, 'sparse');
 
-    assert.equal(results['Q-001'].rankedGameIds[0], 284083);
-    assert.equal(results['Q-003'].rankedGameIds[0], 36811);
+    assert.deepEqual(results, expectedResults('sparse'));
 
     const descriptionOnly = parseSearchText('게임명: 무관한 게임\n설명: 트릭테이킹 협력');
     assert.equal(scoreCandidate({ mode: 'sparse', query: { query: '트릭테이킹 협력' }, fields: descriptionOnly }), 0);
@@ -168,6 +126,10 @@ test('T2: Sparse baseline은 메커니즘·카테고리·테마 field만 신호�
     assert.equal(scoreCandidate({ mode: 'sparse', query: { query: '트릭테이킹 협력' }, fields: nameOnly }), 0);
     const metadataOnly = parseSearchText('메커니즘: 트릭테이킹, 협력');
     assert.ok(scoreCandidate({ mode: 'sparse', query: { query: '트릭테이킹 협력' }, fields: metadataOnly }) > 0);
+
+    const metadataSequence = parseSearchText('메커니즘: 협력 게임');
+    assert.equal(scoreCandidate({ mode: 'sparse', query: { query: '협력' }, fields: metadataSequence }), 0);
+    assert.ok(scoreCandidate({ mode: 'sparse', query: { query: '협력 게임' }, fields: metadataSequence }) > 0);
 
     const multilineDescription = parseSearchText('설명: 첫 문단입니다.\n두 번째 줄입니다.\n\nHistory: 세 번째 줄입니다.');
     assert.equal(multilineDescription.description[0], '첫 문단입니다.\n두 번째 줄입니다.\nHistory: 세 번째 줄입니다.');
@@ -196,6 +158,8 @@ test('T3: lexical과 Sparse 결과는 동일 query ID·ranked game ID 중심 형
 
     assert.deepEqual(Object.keys(lexical), expectedQueryIds);
     assert.deepEqual(Object.keys(sparse), expectedQueryIds);
+    assert.deepEqual(lexical, expectedResults('lexical'));
+    assert.deepEqual(sparse, expectedResults('sparse'));
     for (const results of [lexical, sparse]) {
         for (const result of Object.values(results)) {
             assert.deepEqual(Object.keys(result).sort(), ['hardFilterViolationGameIds', 'rankedGameIds']);
@@ -305,13 +269,22 @@ test('승인 release·corpus·search_text checksum이 바뀌면 baseline 실행�
 });
 
 test('커밋된 baseline input descriptor가 trust anchor checksum으로 고정되어 있다', () => {
-    const descriptorBytes = readFileSync(INPUT_DESCRIPTOR_PATH);
-    const descriptor = JSON.parse(descriptorBytes.toString('utf8'));
+    const data = fixture();
+    const descriptor = data.inputDescriptor;
 
-    assert.equal(sha256(descriptorBytes), TRUSTED_INPUT_DESCRIPTOR_SHA256);
+    assert.equal(sha256(data.inputDescriptorBytes), TRUSTED_INPUT_DESCRIPTOR_SHA256);
     assert.equal(descriptor.kind, 'search-04-baseline-input');
     assert.equal(descriptor.upstreamPullRequest, 861);
     assert.equal(descriptor.searchTextArtifact.gameCount, 1000);
+    assert.equal(sha256(data.pocManifestBytes), TRUSTED_POC_MANIFEST_SHA256);
+    assert.equal(sha256(data.searchTextBytes), TRUSTED_SEARCH_TEXT_SHA256);
+    assert.equal(
+        sha256(Buffer.from(`${JSON.stringify(data.searchTextArtifact.games)}\n`, 'utf8')),
+        TRUSTED_SEARCH_TEXT_GAMES_SHA256,
+    );
+    assert.equal(descriptor.pocManifest.sha256, TRUSTED_POC_MANIFEST_SHA256);
+    assert.equal(descriptor.searchTextArtifact.sha256, TRUSTED_SEARCH_TEXT_SHA256);
+    assert.equal(descriptor.searchTextArtifact.gamesSha256, TRUSTED_SEARCH_TEXT_GAMES_SHA256);
 });
 
 test('커밋된 evaluation manifest가 trust anchor checksum으로 고정되어 있다', () => {
@@ -322,6 +295,77 @@ test('커밋된 evaluation manifest가 trust anchor checksum으로 고정되어 
         'e604e12740730aa9cb713e4b3db34f5ce311bcfff0db651da463a81f997329d4',
     );
     assert.equal(TRUSTED_EVALUATION_MANIFEST_SHA256, 'e604e12740730aa9cb713e4b3db34f5ce311bcfff0db651da463a81f997329d4');
+});
+
+test('baseline evidence receipt가 실제 15-query 결과 artifact와 일치한다', () => {
+    const evidenceBytes = readFileSync(EVIDENCE_PATH);
+    const evidence = JSON.parse(evidenceBytes.toString('utf8'));
+
+    assert.equal(sha256(evidenceBytes), TRUSTED_EVIDENCE_SHA256);
+    for (const mode of ['lexical', 'sparse']) {
+        const resultBytes = readFileSync(path.join(OUTPUT_ROOT, `${mode}-results.json`));
+        assert.equal(sha256(resultBytes), TRUSTED_RESULT_SHA256[mode]);
+        assert.equal(evidence.outputs[mode].sha256, TRUSTED_RESULT_SHA256[mode]);
+        assert.equal(evidence.outputs[mode].queryCount, Object.keys(JSON.parse(resultBytes)).length);
+    }
+});
+
+test('CLI는 실제 승인 artifact로 15개 query의 결과 파일과 checksum을 만든다', () => {
+    const directory = mkdtempSync(path.join(tmpdir(), 'search-04-baseline-cli-'));
+    try {
+        for (const mode of ['lexical', 'sparse']) {
+            const outputPath = path.join(directory, `${mode}-results.json`);
+            const stdout = execFileSync(process.execPath, [
+                SCRIPT_PATH,
+                '--mode', mode,
+                '--manifest', MANIFEST_PATH,
+                '--input-descriptor', INPUT_DESCRIPTOR_PATH,
+                '--poc-manifest', POC_MANIFEST_PATH,
+                '--search-text', SEARCH_TEXT_PATH,
+                '--out', outputPath,
+            ], { cwd: REPOSITORY_ROOT, encoding: 'utf8' });
+            const envelope = JSON.parse(stdout);
+            const resultBytes = readFileSync(outputPath);
+            const results = JSON.parse(resultBytes.toString('utf8'));
+
+            assert.equal(envelope.ok, true);
+            assert.equal(envelope.queryCount, 15);
+            assert.equal(envelope.resultSha256, sha256(resultBytes));
+            assert.equal(envelope.output, outputPath);
+            assert.deepEqual(results, expectedResults(mode));
+        }
+    } finally {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('atomic output writer는 write·rename 실패에서 기존 결과와 임시 파일을 보존한다', () => {
+    const directory = mkdtempSync(path.join(tmpdir(), 'search-04-baseline-atomic-'));
+    const outputPath = path.join(directory, 'results.json');
+    writeFileSync(outputPath, 'previous\n', 'utf8');
+    try {
+        assert.throws(
+            () => writeOutputAtomically(outputPath, 'next\n', {
+                randomId: () => 'write-failure',
+                writeFile: () => { throw new Error('write failed'); },
+            }),
+            /write failed/u,
+        );
+        assert.equal(readFileSync(outputPath, 'utf8'), 'previous\n');
+        assert.equal(existsSync(path.join(directory, '.results.json.write-failure.tmp')), false);
+
+        assert.throws(
+            () => writeOutputAtomically(outputPath, 'next\n', {
+                randomId: () => 'rename-failure',
+                rename: () => { throw new Error('rename failed'); },
+            }),
+            /rename failed/u,
+        );
+        assert.equal(readFileSync(outputPath, 'utf8'), 'previous\n');
+        assert.equal(existsSync(path.join(directory, '.results.json.rename-failure.tmp')), false);
+    } finally {
+        rmSync(directory, { recursive: true, force: true });
+    }
 });
 
 test('CLI는 커밋된 고정 descriptor 외의 입력을 거절한다', () => {

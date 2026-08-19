@@ -458,6 +458,9 @@ jobs:
       - name: Check SEARCH-04 evaluation fixture
         run: node scripts/p2-search-evaluation.mjs --check --manifest docs/p2/search-evaluation/manifest.json
 
+      - name: Test SEARCH-04 lexical sparse baseline
+        run: node --test scripts/search-evaluation/lexical-sparse-baseline.test.mjs
+
       - name: Test monitoring contract checker
         run: node --test scripts/docs/check-monitoring-contract.test.mjs
 

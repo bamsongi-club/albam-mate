@@ -21,7 +21,7 @@ import {
 export const RESULT_SCHEMA_VERSION = 1;
 export const RESULT_KIND = 'search-04-baseline-results';
 export const RULE_VERSION = 'search-04-lexical-sparse-v1';
-export const TRUSTED_INPUT_DESCRIPTOR_SHA256 = '800230a012d8a1a7d12e90b8b2d326a460c646bcc34ea0ae2eda063ce95e5aa7';
+export const TRUSTED_INPUT_DESCRIPTOR_SHA256 = '4c4c22657d735bda8a109b5df12dd39eb7e9b80c786fdbb4efff670337eddf5b';
 export const TRUSTED_EVALUATION_MANIFEST_SHA256 = 'e604e12740730aa9cb713e4b3db34f5ce311bcfff0db651da463a81f997329d4';
 export const MODES = Object.freeze(['lexical', 'sparse']);
 
@@ -74,6 +74,26 @@ const HARD_FILTER_STOP_TOKENS = new Set([
     '쉬운',
     '쉬움',
     '어려운',
+]);
+const HARD_FILTER_CONTEXT_TOKENS = new Set([
+    '가능',
+    '가능한',
+    '명',
+    '명이',
+    '명인',
+    '인',
+    '인용',
+    '플레이어',
+    '분',
+    '시간',
+    '분간',
+    '이상',
+    '이하',
+    '미만',
+    '초과',
+    '이내',
+    '안에',
+    '까지',
 ]);
 const REQUIRED_APPROVED_FIELDS = Object.freeze([
     'name',
@@ -277,8 +297,13 @@ function validateInputDescriptor({ inputDescriptor, manifest, manifestPath, pocM
     }
     assertDatasetRelease(pocManifest.datasetRelease, inputDescriptor.datasetRelease);
     assertApprovedFields(pocManifest.approvedFields, inputDescriptor.approvedFields);
-    if (pocManifest.corpus?.sha256 !== inputDescriptor.qualityCorpus.sha256) {
+    const pocCorpusSha256 = pocManifest.corpus?.sha256 ?? pocManifest.sources?.corpus?.sha256;
+    if (pocCorpusSha256 !== inputDescriptor.qualityCorpus.sha256) {
         throw new Error('POC search-text manifest corpus checksum이 승인된 quality corpus와 다릅니다.');
+    }
+    if (pocManifest.outputs?.searchText?.sha256 !== inputDescriptor.searchTextArtifact.sha256
+        || pocManifest.outputs?.searchText?.rows !== inputDescriptor.searchTextArtifact.gameCount) {
+        throw new Error('POC search-text manifest output descriptor가 승인된 search-text artifact와 다릅니다.');
     }
 
     requireObject(inputDescriptor.searchTextArtifact, 'baseline input descriptor searchTextArtifact');
@@ -323,7 +348,7 @@ export function scoreCandidate({ mode, query, fields }) {
     if (!MODES.includes(mode)) throw new Error(`지원하지 않는 baseline mode입니다: ${mode}`);
     return mode === 'lexical'
         ? lexicalScore(query.query, fields)
-        : sparseScore(query.query, fields);
+        : sparseScore(query, fields);
 }
 
 export function matchesHardFilters(member, hardFilters = {}) {
@@ -424,13 +449,42 @@ function lexicalScore(query, fields) {
 }
 
 function sparseScore(query, fields) {
-    const queryTokens = signalTokens(query);
+    const queryTokens = sparseQueryTokens(query);
     if (queryTokens.length === 0) return 0;
     return SPARSE_FIELDS.reduce((score, field) => score + fields[field].reduce((fieldScore, value) => {
-        const fieldTokens = signalTokens(value);
+        const fieldTokens = normalizedTokens(value);
         if (fieldTokens.length === 0 || !containsTokenSequence(queryTokens, fieldTokens)) return fieldScore;
         return fieldScore + SPARSE_WEIGHTS[field] * 1_000 + fieldTokens.length;
     }, 0), 0);
+}
+
+function sparseQueryTokens(query) {
+    const queryText = typeof query === 'string' ? query : query?.query;
+    const tokens = normalizedTokens(queryText);
+    const removedIndexes = new Set();
+    const hardFilters = typeof query === 'object' && query !== null ? query.hardFilters ?? {} : {};
+
+    for (const filterValue of Object.values(hardFilters)) {
+        if (!Number.isSafeInteger(filterValue)) continue;
+        for (let index = 0; index < tokens.length; index += 1) {
+            if (!containsFilterValue(tokens[index], filterValue)) continue;
+            removedIndexes.add(index);
+            for (let next = index + 1; next < tokens.length; next += 1) {
+                if (!HARD_FILTER_CONTEXT_TOKENS.has(tokens[next])) break;
+                removedIndexes.add(next);
+            }
+        }
+    }
+
+    return tokens.filter((_, index) => !removedIndexes.has(index));
+}
+
+function containsFilterValue(token, filterValue) {
+    return token.replace(/[^\p{N}]/gu, '') === String(filterValue);
+}
+
+function normalizedTokens(value) {
+    return normalizeText(value).split(' ').filter(Boolean);
 }
 
 function containsTokenSequence(tokens, sequence) {
@@ -544,17 +598,22 @@ function assertOutputIsSeparate(outputPath, inputPaths) {
     }
 }
 
-function writeOutputAtomically(outputPath, contents) {
+export function writeOutputAtomically(outputPath, contents, {
+    writeFile = writeFileSync,
+    rename = renameSync,
+    unlink = unlinkSync,
+    randomId = randomUUID,
+} = {}) {
     const temporaryPath = path.join(
         path.dirname(outputPath),
-        `.${path.basename(outputPath)}.${randomUUID()}.tmp`,
+        `.${path.basename(outputPath)}.${randomId()}.tmp`,
     );
     try {
-        writeFileSync(temporaryPath, contents, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
-        renameSync(temporaryPath, outputPath);
+        writeFile(temporaryPath, contents, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+        rename(temporaryPath, outputPath);
     } catch (error) {
         try {
-            unlinkSync(temporaryPath);
+            unlink(temporaryPath);
         } catch {
             // Preserve the original write/rename error.
         }

@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "kind": "poc-search-text-execution",
+  "approved": true,
+  "testOnly": false,
+  "approval": {
+    "reviewedBy": "vanilalatte03",
+    "reviewedAt": "2026-08-19T07:55:22Z",
+    "references": [
+      "https://github.com/bamsongi-club/albam-mate/pull/861"
+    ]
+  },
+  "datasetRelease": {
+    "manifestPath": "catalog-dataset-release.json",
+    "releaseId": "bgg-catalog-170k-v4-2026-08-19",
+    "datasetId": "bgg-catalog-170k",
+    "manifestSha256": "9b1341775977078d70ca91d741ad6420ec443ced6b50a98ab4ff46638fb9f2c5"
+  },
+  "approvedFields": [
+    "name",
+    "englishName",
+    "alias",
+    "mechanism",
+    "category",
+    "theme",
+    "description",
+    "detailDescription"
+  ],
+  "approvedProcessingScopes": [
+    "search-text-assembly"
+  ],
+  "sources": {
+    "corpus": {
+      "path": "quality-corpus.json",
+      "sha256": "0ce65a0ab500054c11548fe487afab8247b8f09282087f6db4d144d0783c87e8",
+      "rows": 1000
+    }
+  },
+  "outputs": {
+    "searchText": {
+      "path": "search-text-top1000.json",
+      "sha256": "ec364be3a34268d1bb6d27e3c41e2cdd31852565eec79fa31faaacda17af4ece",
+      "rows": 1000
+    }
+  },
+  "searchTextTemplate": "게임명: {name}\n영문명: {englishName}\n메커니즘: {mechanisms}\n카테고리: {categories}\n테마: {themes}\n설명: {description}"
+}

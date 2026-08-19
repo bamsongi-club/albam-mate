@@ -6,9 +6,9 @@
 
 - `docs/p2/search-evaluation/manifest.json`의 `development-seed` profile
 - 승인된 Top 1,000 `quality-corpus.json`
-- [입력 descriptor](lexical-sparse-baseline-input.json)에 고정한 PR #861 POC manifest와 `search-text.json` 외부 artifact
+- [입력 descriptor](lexical-sparse-baseline-input.json)에 고정한 PR #861 POC manifest와 [실제 `search-text` fixture](lexical-sparse/fixtures/search-text-top1000.json)
 
-실행기는 descriptor·POC manifest·search-text artifact 전체 파일 SHA-256과 logical `games` SHA-256, dataset `releaseId`·`datasetId`·manifest SHA-256, Top 1,000 membership을 모두 대조합니다. 입력이 바뀌면 실행을 거절합니다.
+실행기는 descriptor·POC manifest·search-text artifact 전체 파일 SHA-256과 logical `games` SHA-256, dataset `releaseId`·`datasetId`·manifest SHA-256, Top 1,000 membership을 모두 대조합니다. 입력이 바뀌면 실행을 거절합니다. 고정 입력과 15개 query 결과의 위치·checksum·행 수는 [evidence receipt](lexical-sparse/baseline-evidence.json)에 기록합니다.
 
 ## 실행
 
@@ -44,7 +44,7 @@ stdout의 `resultSha256`와 외부 결과 파일을 함께 보존합니다. 동�
 ### Sparse
 
 - `메커니즘`·`카테고리`·`테마` field의 승인된 값만 사용합니다.
-- query에 구조화 값의 정규화 token sequence가 나타날 때만 점수를 더합니다. 고정 가중치는 mechanism 3, category 2, theme 1입니다.
+- query에서 파싱된 hard-filter 구간만 제외한 뒤 구조화 값의 원래 정규화 token sequence가 나타날 때만 점수를 더합니다. 고정 가중치는 mechanism 3, category 2, theme 1입니다.
 - 설명·detail description·이름·영문명은 Sparse relevance 신호로 사용하지 않습니다.
 - 동점 정렬은 Lexical과 같습니다.
 

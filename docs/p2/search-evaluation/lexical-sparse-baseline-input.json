@@ -23,11 +23,11 @@
     "detailDescription"
   ],
   "pocManifest": {
-    "reference": "external://pr-861/search-text/poc-search-text-manifest.json",
-    "sha256": "d79350944d48e49458b0fadf644cb570f36061027f436c66b7a92fa3db49dc88"
+    "reference": "lexical-sparse/fixtures/poc-search-text-manifest.json",
+    "sha256": "b9793fa757c953c3bbc7724f665160874274111b65fbec7bba9d06f63c854f40"
   },
   "searchTextArtifact": {
-    "reference": "external://pr-861/search-text/search-text-top1000.json",
+    "reference": "lexical-sparse/fixtures/search-text-top1000.json",
     "sha256": "ec364be3a34268d1bb6d27e3c41e2cdd31852565eec79fa31faaacda17af4ece",
     "gamesSha256": "03aa685a5828208f53912a0507d45f1b4db191eeb4e63d76d9e2cde9b890049f",
     "gameCount": 1000
