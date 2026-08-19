@@ -17,7 +17,8 @@ import cloud.bamsongi.albammate.chat.entity.ChatRoom;
 public interface ChatRoomPreviewRepository extends Repository<ChatRoom, Long> {
 
 	@Query(value = """
-		SELECT cr.room_id AS roomId, cm.content AS content, cm.created_at AS createdAt
+		SELECT cr.room_id AS roomId, cm.content AS content,
+		       CAST(EXTRACT(EPOCH FROM cm.created_at) * 1000 AS BIGINT) AS createdAtEpochMilli
 		FROM chat_rooms cr
 		JOIN chat_messages cm ON cm.chat_room_id = cr.id
 		WHERE cr.room_id IN (:roomIds)

@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.chat.service;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,7 +46,7 @@ public class ChatRoomPreviewQueryService implements ChatRoomPreviewQuery {
 				roomId,
 				new ChatRoomPreview(
 					lastMessage.getContent(),
-					lastMessage.getCreatedAt().toInstant(),
+					Instant.ofEpochMilli(lastMessage.getCreatedAtEpochMilli()),
 					unreadCountsByRoomId.getOrDefault(roomId, 0L).intValue()));
 		}
 		return previews;
