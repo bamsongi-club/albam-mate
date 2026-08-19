@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import fs from "node:fs";
 import os from "node:os";
@@ -10,8 +11,45 @@ import { fileURLToPath } from "node:url";
 const repositoryRoot = fileURLToPath(new URL("../../", import.meta.url));
 const runnerPath = fileURLToPath(new URL("./game-list-baseline.mjs", import.meta.url));
 const serverCommit = "a".repeat(40);
-const datasetSha256 = "d".repeat(64);
+const fixtureDatasetSize = 25;
+const fixtureBggIds = Array.from({ length: fixtureDatasetSize }, (_, index) => index + 1);
+const fixtureMetadata = {
+  gameMechanismRelations: 3,
+  gameThemeRelations: 4,
+  gameCategoryRelations: 2,
+  gamePlayerPreferences: 5,
+};
 let dockerFixture;
+let datasetManifestFixture;
+
+function bggIdSetSha256(ids) {
+  return createHash("sha256")
+    .update([...ids].sort((left, right) => left - right).map((id) => `${id}\n`).join(""))
+    .digest("hex");
+}
+
+function createDatasetManifestFixture(
+  ids = fixtureBggIds,
+  metadata = fixtureMetadata,
+) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-manifest-"));
+  const manifestPath = path.join(root, "fixture.json");
+  const manifestText = `${JSON.stringify({
+    schemaVersion: 1,
+    fixtureId: `test-${ids.length}`,
+    games: {
+      rowCount: ids.length,
+      bggIdSetSha256: bggIdSetSha256(ids),
+    },
+    metadata,
+  }, null, 2)}\n`;
+  fs.writeFileSync(manifestPath, manifestText, "utf8");
+  return {
+    root,
+    manifestPath,
+    sha256: createHash("sha256").update(manifestText).digest("hex"),
+  };
+}
 
 function gameItems(count) {
   return Array.from(
@@ -25,7 +63,7 @@ function startServer({
   invalidMeasuredResponse = false,
   hangMeasuredRequest = false,
   hangDiscoveryPath = null,
-  datasetSize = 170005,
+  datasetSize = fixtureDatasetSize,
   responseSize = 24,
   measuredPageOverride = null,
   upstreamRole = "app1",
@@ -117,8 +155,10 @@ function createDockerFixture({
   app2Revision = serverCommit,
   app1ImageId = `sha256:${"1".repeat(64)}`,
   app2ImageId = app1ImageId,
-  databaseGameCount = 170005,
+  databaseGameCount = fixtureDatasetSize,
   databaseGameCounts = [databaseGameCount],
+  databaseBggIds = fixtureBggIds,
+  metadataCounts = fixtureMetadata,
 } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-docker-"));
   const configPath = path.join(root, "containers.json");
@@ -171,6 +211,8 @@ function createDockerFixture({
         "albam-mate-771_default": { IPAddress: "172.28.0.13" },
       },
       gameCounts: databaseGameCounts,
+      bggIds: databaseBggIds,
+      metadataCounts,
     },
   };
   fs.writeFileSync(configPath, JSON.stringify(records));
@@ -203,6 +245,22 @@ if (arguments[0] === "ps" && arguments.at(-2) === "--format" && arguments.at(-1)
 if (arguments[0] === "exec" && arguments[2] === "sh" && arguments[3] === "-c") {
   const record = Object.values(records).find((candidate) => candidate.id === arguments[1]);
   if (!record || record.labels["com.docker.compose.service"] !== "postgres") process.exit(2);
+  const query = arguments[4] || "";
+  if (query.includes("select bgg_id from games order by bgg_id")) {
+    process.stdout.write((record.bggIds || []).join("\\n") + "\\n");
+    process.exit(0);
+  }
+  if (query.includes("game_mechanism_relations")) {
+    const metadata = record.metadataCounts || {};
+    process.stdout.write([
+      metadata.gameMechanismRelations,
+      metadata.gameThemeRelations,
+      metadata.gameCategoryRelations,
+      metadata.gamePlayerPreferences,
+    ].join("|") + "\\n");
+    process.exit(0);
+  }
+  if (!query.includes("select count(*) from games")) process.exit(2);
   const callIndex = Number(fs.existsSync(process.env.GAME_LIST_DOCKER_FIXTURE_CALLS)
     ? fs.readFileSync(process.env.GAME_LIST_DOCKER_FIXTURE_CALLS, "utf8")
     : "0");
@@ -228,11 +286,13 @@ if (arguments[0] === "exec" && arguments[2] === "sh" && arguments[3] === "-c") {
 }
 
 test.before(() => {
+  datasetManifestFixture = createDatasetManifestFixture();
   dockerFixture = createDockerFixture();
 });
 
 test.after(() => {
   fs.rmSync(dockerFixture.root, { recursive: true, force: true });
+  fs.rmSync(datasetManifestFixture.root, { recursive: true, force: true });
 });
 
 function createCleanRunnerFixture() {
@@ -253,7 +313,11 @@ function runRunner(
   outputDirectory,
   extraArguments = [],
   cwd = repositoryRoot,
-  { datasetSha = datasetSha256, script = runnerPath, env = dockerFixture.env } = {},
+  {
+    datasetManifest = datasetManifestFixture.manifestPath,
+    script = runnerPath,
+    env = dockerFixture.env,
+  } = {},
 ) {
   const runnerFixture = script === runnerPath ? createCleanRunnerFixture() : null;
   const effectiveScript = runnerFixture?.script ?? script;
@@ -276,7 +340,9 @@ function runRunner(
       "app2=app2-container",
       "--proxy-container",
       "proxy-container",
-      ...(datasetSha === null ? [] : ["--dataset-sha256", datasetSha]),
+      "--dataset-size",
+      String(fixtureDatasetSize),
+      ...(datasetManifest === null ? [] : ["--dataset-manifest", datasetManifest]),
       "--output-directory",
       outputDirectory,
       ...extraArguments,
@@ -302,7 +368,7 @@ function readSingleReport(outputDirectory) {
   return JSON.parse(fs.readFileSync(path.join(outputDirectory, reportName), "utf8"));
 }
 
-test("성공 산출물은 serverCommit과 runnerCommit 및 최신 170,005 dataset을 구분해 기록한다", async () => {
+test("성공 산출물은 serverCommit과 runnerCommit 및 fixture fingerprint를 구분해 기록한다", async () => {
   const server = await startServer();
   const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-success-"));
   try {
@@ -344,14 +410,21 @@ test("성공 산출물은 serverCommit과 runnerCommit 및 최신 170,005 datase
       networkNames: ["albam-mate-771_default"],
     });
     assert.deepEqual(report.dataset, {
-      gameCount: 170005,
-      observedGameCount: 170005,
-      sha256: datasetSha256,
+      fixtureId: "test-25",
+      fixtureManifestSha256: datasetManifestFixture.sha256,
+      gameCount: fixtureDatasetSize,
+      observedGameCount: fixtureDatasetSize,
+      bggIdSetSha256: bggIdSetSha256(fixtureBggIds),
+      observedBggIdSetSha256: bggIdSetSha256(fixtureBggIds),
+      metadata: fixtureMetadata,
+      observedMetadata: fixtureMetadata,
       postgresContainerId: "4".repeat(64),
       postgresComposeProject: "albam-mate-771",
     });
     assert.deepEqual(report.endProvenance.dataset, {
-      observedGameCount: 170005,
+      observedGameCount: fixtureDatasetSize,
+      bggIdSetSha256: bggIdSetSha256(fixtureBggIds),
+      metadata: fixtureMetadata,
       postgresContainerId: "4".repeat(64),
       postgresComposeProject: "albam-mate-771",
     });
@@ -465,14 +538,14 @@ test("실측 non-200이면 실패 상태와 이미 수집한 raw sample을 산�
   }
 });
 
-test("dataset SHA-256이 없으면 실행을 거부한다", async () => {
+test("dataset manifest가 없으면 실행을 거부한다", async () => {
   const server = await startServer();
   const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-missing-dataset-"));
   try {
-    const result = await runRunner(server.baseUrl, outputDirectory, [], repositoryRoot, { datasetSha: null });
+    const result = await runRunner(server.baseUrl, outputDirectory, [], repositoryRoot, { datasetManifest: null });
 
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /--dataset-sha256/u);
+    assert.match(result.stderr, /--dataset-manifest/u);
     assert.deepEqual(fs.readdirSync(outputDirectory), []);
   } finally {
     await server.close();
@@ -532,9 +605,14 @@ test("Slice metadata 의미가 요청과 다르면 실패 sample을 보존한다
       error: /totalPages를 포함하면 안 됩니다/u,
     },
     {
+      name: "unexpected field",
+      measuredPageOverride: { totalCount: fixtureDatasetSize },
+      error: /허용하지 않는 필드/u,
+    },
+    {
       name: "hasNext",
       measuredPageOverride: { hasNext: false },
-      error: /170005건 fixture의 첫 페이지에서 true여야 합니다/u,
+      error: /25건 fixture의 첫 페이지에서 true여야 합니다/u,
     },
   ];
 
@@ -559,11 +637,12 @@ test("멈춘 HTTP 요청은 timeout 실패 sample과 함께 종료된다", async
   const server = await startServer({ hangMeasuredRequest: true });
   const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-timeout-"));
   try {
-    const result = await runRunner(server.baseUrl, outputDirectory, ["--request-timeout-ms", "50"]);
+    const result = await runRunner(server.baseUrl, outputDirectory, ["--request-timeout-ms", "1000"]);
 
     assert.notEqual(result.status, 0);
     const report = readSingleReport(outputDirectory);
     assert.equal(report.status, "failed");
+    assert.equal(report.results.length, 1, report.failure?.message);
     assert.equal(report.results[0].samples.at(-1).status, null);
     assert.match(report.results[0].samples.at(-1).error, /timeout/u);
   } finally {
@@ -576,7 +655,7 @@ test("discovery 게임 목록 요청은 timeout 실패 artifact를 남긴다", a
   const server = await startServer({ hangDiscoveryPath: "games" });
   const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-discovery-timeout-"));
   try {
-    const result = await runRunner(server.baseUrl, outputDirectory, ["--request-timeout-ms", "50"]);
+    const result = await runRunner(server.baseUrl, outputDirectory, ["--request-timeout-ms", "1000"]);
 
     assert.notEqual(result.status, 0);
     const report = readSingleReport(outputDirectory);
@@ -584,7 +663,9 @@ test("discovery 게임 목록 요청은 timeout 실패 artifact를 남긴다", a
     assert.deepEqual(report.results, []);
     assert.match(report.failure.message, /HTTP 요청 timeout/u);
     assert.deepEqual(report.endProvenance.dataset, {
-      observedGameCount: 170005,
+      observedGameCount: fixtureDatasetSize,
+      bggIdSetSha256: bggIdSetSha256(fixtureBggIds),
+      metadata: fixtureMetadata,
       postgresContainerId: "4".repeat(64),
       postgresComposeProject: "albam-mate-771",
     });
@@ -597,13 +678,13 @@ test("discovery 게임 목록 요청은 timeout 실패 artifact를 남긴다", a
 
 test("discovery 실패 뒤 종료 fixture 대조 오류를 artifact에 남기되 원래 실패를 보존한다", async () => {
   const server = await startServer({ hangDiscoveryPath: "games" });
-  const fixture = createDockerFixture({ databaseGameCounts: [170005, 1] });
+  const fixture = createDockerFixture({ databaseGameCounts: [fixtureDatasetSize, 1] });
   const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-discovery-end-provenance-"));
   try {
     const result = await runRunner(
       server.baseUrl,
       outputDirectory,
-      ["--request-timeout-ms", "50"],
+      ["--request-timeout-ms", "1000"],
       repositoryRoot,
       { env: fixture.env },
     );
@@ -614,7 +695,7 @@ test("discovery 실패 뒤 종료 fixture 대조 오류를 artifact에 남기되
     assert.equal(report.endProvenance.dataset, null);
     assert.deepEqual(report.endProvenance.errors, [{
       scope: "dataset",
-      message: "PostgreSQL fixture games row count 불일치: expected=170005, actual=1",
+      message: "PostgreSQL fixture games row count 불일치: expected=25, actual=1",
     }]);
   } finally {
     await server.close();
@@ -627,7 +708,7 @@ test("discovery metadata 요청은 timeout 실패 artifact를 남긴다", async 
   const server = await startServer({ hangDiscoveryPath: "themes" });
   const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-metadata-timeout-"));
   try {
-    const result = await runRunner(server.baseUrl, outputDirectory, ["--request-timeout-ms", "50"]);
+    const result = await runRunner(server.baseUrl, outputDirectory, ["--request-timeout-ms", "1000"]);
 
     assert.notEqual(result.status, 0);
     const report = readSingleReport(outputDirectory);
@@ -651,7 +732,47 @@ test("Compose PostgreSQL의 실제 dataset count가 기대값과 다르면 실�
     const report = readSingleReport(outputDirectory);
     assert.equal(report.status, "failed");
     assert.deepEqual(report.results, []);
-    assert.match(report.failure.message, /expected=170005, actual=1/u);
+    assert.match(report.failure.message, /expected=25, actual=1/u);
+  } finally {
+    await server.close();
+    fs.rmSync(outputDirectory, { recursive: true, force: true });
+    fs.rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("manifest의 BGG ID 집합과 PostgreSQL fixture가 다르면 성공 산출물을 만들지 않는다", async () => {
+  const server = await startServer();
+  const fixture = createDockerFixture({
+    databaseBggIds: [...fixtureBggIds.slice(0, -1), 999],
+  });
+  const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-dataset-fingerprint-"));
+  try {
+    const result = await runRunner(server.baseUrl, outputDirectory, [], repositoryRoot, { env: fixture.env });
+
+    assert.notEqual(result.status, 0);
+    const report = readSingleReport(outputDirectory);
+    assert.equal(report.status, "failed");
+    assert.match(report.failure.message, /BGG ID 집합 지문 불일치/u);
+  } finally {
+    await server.close();
+    fs.rmSync(outputDirectory, { recursive: true, force: true });
+    fs.rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test("manifest의 metadata row count와 PostgreSQL fixture가 다르면 성공 산출물을 만들지 않는다", async () => {
+  const server = await startServer();
+  const fixture = createDockerFixture({
+    metadataCounts: { ...fixtureMetadata, gameThemeRelations: fixtureMetadata.gameThemeRelations + 1 },
+  });
+  const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-metadata-fingerprint-"));
+  try {
+    const result = await runRunner(server.baseUrl, outputDirectory, [], repositoryRoot, { env: fixture.env });
+
+    assert.notEqual(result.status, 0);
+    const report = readSingleReport(outputDirectory);
+    assert.equal(report.status, "failed");
+    assert.match(report.failure.message, /metadata row count 불일치/u);
   } finally {
     await server.close();
     fs.rmSync(outputDirectory, { recursive: true, force: true });

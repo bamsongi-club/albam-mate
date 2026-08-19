@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "game-list-170005-observed-2026-08-19",
+  "games": {
+    "rowCount": 170005,
+    "bggIdSetSha256": "75bcb893bcfef7f3b0a0de363e06037d332392c038ad5eb46c33de2b553c8744"
+  },
+  "metadata": {
+    "gameMechanismRelations": 428488,
+    "gameThemeRelations": 461973,
+    "gameCategoryRelations": 17337,
+    "gamePlayerPreferences": 263463
+  },
+  "lineage": {
+    "status": "observed-fixture-fingerprint",
+    "note": "Identifies the database snapshot used for this measurement. The preserved 01-games-full.sql has 175234 rows and a different BGG ID set, so this manifest does not claim v4 direct-import lineage."
+  }
+}

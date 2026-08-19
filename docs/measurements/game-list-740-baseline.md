@@ -10,19 +10,19 @@
 
 현재 evidence는 2026-08-19의 별도 runner 실행 3회 JSON/CSV 집합이다. 단일 batch의 빠른 p95를 canonical 값으로 고르지 않으며, batch별 편차와 실행 조건을 결과 문서에 함께 기록한다. `game-list-740-2026-08-18T14-36-38.069Z.json/csv`는 보강 전 runner의 역사 기록으로만 보존하며 #740 완료 근거에서 제외한다.
 
-v4 ZIP의 SHA-256과 SQL 파일 checksum, import 순서, 측정 DB의 실제 row count를 결과 문서에 함께 남겼다. local `afterMigrate`가 만든 음수 BGG ID fixture 30건은 room 참조가 없음을 확인한 뒤 격리된 측정 DB에서만 제거하여 v4 게임 수를 `170,005`건으로 맞췄다.
+Before Page baseline의 v4 ZIP SHA-256·SQL checksum·import 순서는 역사 기록으로 보존한다. 다만 #770 Slice의 현재 `170,005`건 DB는 보관된 `01-games-full.sql`(175,234행, 다른 BGG ID 집합)과 일치하지 않는다. 따라서 Slice fixture는 [관측 지문 manifest](results/game-list-740/game-list-770-fixture-170005-manifest.json)로만 식별하며, v4 직접 적재 lineage를 주장하지 않는다.
 
 ## 고정 측정 조건
 
 - 대상: local compose proxy `http://127.0.0.1:5173`
-- 데이터: games `170,005`건
-- v4 직접 적재 기준 ZIP SHA-256: `d4abcf8ff91c0551ac6bc9afdb87ccae007ce46ad8139689ccb01a5c92c537c8`
-- v4 적재 순서: `01-games-full.sql → 02-metadata-full.sql`
+- 데이터: games `170,005`건, [관측 지문 manifest](results/game-list-740/game-list-770-fixture-170005-manifest.json)
+- games BGG ID 집합 SHA-256: `75bcb893bcfef7f3b0a0de363e06037d332392c038ad5eb46c33de2b553c8744`
+- metadata row count: mechanism `428488`, theme `461973`, category `17337`, player preference `263463`
 - 페이지: `page=0`, `size=24`
 - 시나리오별 warm-up 5회 후 실측 20회 이상
 - p50/p95: nearest-rank 방식 `ceil(p * N)`
 - 각 실측은 순차 요청으로 실행하여 동시 부하가 baseline에 섞이지 않게 한다.
-- 200 응답은 요청한 `page=0`, `size=24`와 정확히 일치해야 하며, `content`·`page`·`size`·`hasNext` Slice 의미를 검증한다. `content`는 `size`를 넘지 않고 `hasNext=true`이면 `size`와 같아야 하며, 170,005건 기본 첫 페이지는 `hasNext=true`여야 한다. 목록 응답에는 `totalElements`·`totalPages`가 없어야 하며, 실제 Slice metadata는 각 raw sample JSON에 보존한다.
+- 200 응답은 요청한 `page=0`, `size=24`와 정확히 일치해야 하며, `data` 키 집합이 정확히 `content`·`page`·`size`·`hasNext`인지 검증한다. `content`는 `size`를 넘지 않고 `hasNext=true`이면 `size`와 같아야 하며, 170,005건 기본 첫 페이지는 `hasNext=true`여야 한다. 목록 응답에는 `totalElements`·`totalPages`와 그 밖의 확장 필드가 없어야 하며, 실제 Slice metadata는 각 raw sample JSON에 보존한다.
 
 ## 실행
 
@@ -30,9 +30,10 @@ v4 ZIP의 SHA-256과 SQL 파일 checksum, import 순서, 측정 DB의 실제 row
 app1_container="$(docker compose ps -q spring-1)"
 app2_container="$(docker compose ps -q spring-2)"
 proxy_container="$(docker compose ps -q proxy)"
+fixture_manifest="docs/measurements/results/game-list-740/game-list-770-fixture-170005-manifest.json"
 
 node scripts/measurements/game-list-baseline.mjs \
-  --dataset-sha256 d4abcf8ff91c0551ac6bc9afdb87ccae007ce46ad8139689ccb01a5c92c537c8 \
+  --dataset-manifest "$fixture_manifest" \
   --server-commit <측정 대상 서버의 40자리 commit SHA> \
   --server-container "app1=$app1_container" \
   --server-container "app2=$app2_container" \
@@ -47,14 +48,16 @@ node scripts/measurements/game-list-baseline.mjs \
   --warm-up 5 \
   --runs 20 \
   --dataset-size 170005 \
-  --dataset-sha256 d4abcf8ff91c0551ac6bc9afdb87ccae007ce46ad8139689ccb01a5c92c537c8 \
+  --dataset-manifest "$fixture_manifest" \
   --server-commit <측정 대상 서버의 40자리 commit SHA> \
   --server-container "app1=$app1_container" \
   --server-container "app2=$app2_container" \
   --proxy-container "$proxy_container"
 ```
 
-`--dataset-sha256`은 측정에 사용한 원본 데이터셋의 SHA-256을 반드시 명시한다. `--server-commit`은 40자리 SHA여야 하며, 정확히 두 `--server-container`(`app1`, `app2`)의 OCI revision label·동일 image ID·Compose project/network와 `--proxy-container`의 proxy service/network가 시작/종료 시점 모두 일치해야 한다. runner는 각 discovery/실측 응답의 `X-Albam-Mate-Upstream` 역할과 `X-Albam-Mate-Upstream-Address`를 inspect한 해당 Spring container network 주소에 대조한다. 러너를 실행한 작업 디렉터리의 commit, 러너 파일 SHA-256, 측정 전후 source clean 여부는 결과에 `runnerCommit`, `runnerFileSha256`, `runnerSourceClean`으로 별도 기록하며 `serverCommit`을 대신하지 않는다. 요청별 timeout은 기본 30초이며 `--request-timeout-ms`로 조정할 수 있고, 사전 discovery의 games/theme/mechanism 요청에도 동일하게 적용된다. API의 목록 Slice에는 전체 건수가 없으므로, runner는 같은 Compose project의 PostgreSQL `games` row count를 시작·종료에 직접 대조해 `--dataset-size`와 일치하지 않으면 expected/actual count를 포함한 failed artifact를 남긴다. 이 직접 fixture 확인은 `PGAPPNAME=game-list-baseline-fixture-check`로 구분되어 앱 요청의 SQL capture와 섞이지 않는다.
+`--dataset-manifest`는 측정 DB의 고정 지문을 담은 버전 관리 파일이다. runner는 시작·종료에 같은 Compose PostgreSQL의 `games` 행 수, 정렬 BGG ID 집합 SHA-256, metadata relation 네 종류의 행 수를 manifest와 대조한다. 따라서 다른 `170,005`행 fixture를 올려 두고 count만 맞춘 실행은 성공 artifact를 만들 수 없다. 결과에는 manifest SHA-256과 기대값·관측값을 함께 기록한다. 이 manifest는 현재 측정 DB snapshot의 식별자이며, 보관된 v4 ZIP 또는 `01-games-full.sql`이 직접 적재 원본이라는 주장을 대신하지 않는다. `--server-commit`은 40자리 SHA여야 하며, 정확히 두 `--server-container`(`app1`, `app2`)의 OCI revision label·동일 image ID·Compose project/network와 `--proxy-container`의 proxy service/network가 시작/종료 시점 모두 일치해야 한다. runner는 각 discovery/실측 응답의 `X-Albam-Mate-Upstream` 역할과 `X-Albam-Mate-Upstream-Address`를 inspect한 해당 Spring container network 주소에 대조한다. 러너를 실행한 작업 디렉터리의 commit, 러너 파일 SHA-256, 측정 전후 source clean 여부는 결과에 `runnerCommit`, `runnerFileSha256`, `runnerSourceClean`으로 별도 기록하며 `serverCommit`을 대신하지 않는다. 요청별 timeout은 기본 30초이며 `--request-timeout-ms`로 조정할 수 있고, 사전 discovery의 games/theme/mechanism 요청에도 동일하게 적용된다. 이 직접 fixture 확인은 `PGAPPNAME=game-list-baseline-fixture-check`로 구분되어 앱 요청의 SQL capture와 섞이지 않는다.
+
+이 fingerprint는 games의 행 수·BGG ID 집합과 metadata relation 행 수를 고정한다. 개별 게임 속성이나 원본 SQL/ZIP lineage는 별도 raw source 또는 capture 없이는 주장하지 않는다.
 
 러너는 현재 데이터에서 유효한 값을 자동으로 선택한다.
 
@@ -156,7 +159,7 @@ HTTP total time
 
 따라서 이 Page capture에서 기본 요청의 DB statement 1순위는 `count`였다. raw capture는 HTTP 시작/종료 시각, 고유 measurement ID의 단일 proxy `/api/games` access log, `X-Albam-Mate-Upstream: app2`와 inspect IP 대조, 해당 controller log, 하나의 PostgreSQL `app2` PID `56`의 content/count/related statement를 함께 보존한다. Spring은 host port를 publish하지 않고 health check도 game-list URL을 호출하지 않는다. 당시 console profile은 controller duration key-value를 내보내지 않았으므로 `controller - SQL`과 `HTTP - controller` residual은 산출하지 않았다. HTTP p95는 20회 분포이고 위 분해는 단일 요청이므로 서로 같은 통계량처럼 비교하지 않는다.
 
-현재 #770 Slice raw capture는 앱 요청에서 `size + 1` content query와 upcoming related query만 분류하며 app count statement가 없어야 한다. 필터 시나리오의 코드 검증 query는 별도로 분류한다. Compose PostgreSQL fixture의 `games` row count 직접 확인은 `PGAPPNAME=game-list-baseline-fixture-check`를 사용하므로 앱 요청 SQL 개수에 포함하지 않는다.
+현재 #770 Slice raw capture는 앱 요청에서 `size + 1` content query와 upcoming related query만 분류하며 app count statement가 없어야 한다. 필터 시나리오의 코드 검증 query는 별도로 분류한다. Compose PostgreSQL fixture의 games row count·BGG ID 집합·metadata relation count 직접 확인은 `PGAPPNAME=game-list-baseline-fixture-check`를 사용하므로 앱 요청 SQL 개수에 포함하지 않는다.
 
 relation filter의 `296.095ms` EXPLAIN은 기본 요청의 수치가 아니라 relation 시나리오 후보이며, 이 값을 근거로 #740의 기본 요청 후속 범위를 결정하지 않는다.
 
@@ -198,14 +201,14 @@ EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT TEXT)
 다음이 모두 채워져야 #740을 닫는다.
 
 - [x] 측정 당시 runner/server commit SHA 기록
-- [x] 첨부 v4 직접 import, 데이터 170,005건 및 v4 ZIP SHA-256 확인
+- [x] Before Page의 역사적 v4 provenance와 #770 Slice fixture의 관측 지문을 분리해 보존
 - [x] 각 시나리오 warm-up 후 20회 이상의 raw sample 보존
 - [x] 각 시나리오 p50/p95/max/status 기록
 - [x] 요청 1회 SQL 개수와 유형 기록
-- [x] 최신 `develop` 반영 server/runner로 v4 baseline 재실행, `runnerFileSha256`/`runnerSourceClean` 기록
+- [x] 최신 `develop` 반영 server/runner로 Before Page baseline 재실행, `runnerFileSha256`/`runnerSourceClean` 기록
 - [x] 서버 OCI revision label·동일 image ID·proxy Compose network·upstream 역할/address를 runner artifact에 기록하고 전후 대조
 - [x] 동일 조건의 별도 runner 실행 3회와 batch별 p50/p95 편차 기록
-- [x] #770 Slice 계약에서 discovery timeout과 Compose PostgreSQL fixture count 전후 대조 검증 ([#770 Slice 실측](results/game-list-740/game-list-770-2026-08-19.md))
+- [x] #770 Slice 계약에서 discovery timeout과 Compose PostgreSQL fixture 지문 전후 대조 검증 ([#770 Slice 실측](results/game-list-740/game-list-770-2026-08-19.md))
 - [x] N+1/중복 query 여부 판정
 - [ ] #770 Slice content/validation/related 구간의 대표 실행계획 시간 기록
 - [x] 가장 느린 SQL의 `EXPLAIN (ANALYZE, BUFFERS)` 보존

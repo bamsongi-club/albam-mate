@@ -25,7 +25,7 @@ function parseArgs(argv) {
     warmUpRuns: DEFAULT_WARM_UP_RUNS,
     measuredRuns: DEFAULT_MEASURED_RUNS,
     datasetSize: DEFAULT_DATASET_SIZE,
-    datasetSha256: null,
+    datasetManifest: null,
     requestTimeoutMs: DEFAULT_REQUEST_TIMEOUT_MS,
     serverCommit: null,
     serverContainers: [],
@@ -57,8 +57,8 @@ function parseArgs(argv) {
       case "--dataset-size":
         options.datasetSize = positiveInteger(next(), argument);
         break;
-      case "--dataset-sha256":
-        options.datasetSha256 = sha256(next(), argument);
+      case "--dataset-manifest":
+        options.datasetManifest = next();
         break;
       case "--request-timeout-ms":
         options.requestTimeoutMs = positiveInteger(next(), argument);
@@ -95,8 +95,8 @@ function parseArgs(argv) {
   if (options.measuredRuns < 20) {
     throw new Error("#740 기준을 지키기 위해 --runs는 20 이상이어야 합니다.");
   }
-  if (!options.datasetSha256) {
-    throw new Error("--dataset-sha256은 측정 대상 데이터셋의 64자리 SHA-256이 필요합니다.");
+  if (!options.datasetManifest) {
+    throw new Error("--dataset-manifest로 검증 가능한 fixture manifest 경로가 필요합니다.");
   }
   if (!options.serverCommit) {
     throw new Error("--server-commit은 측정 대상 서버의 commit SHA가 필요합니다.");
@@ -147,7 +147,7 @@ function printHelp() {
     `  --warm-up <n>             warm-up calls per scenario (default: ${DEFAULT_WARM_UP_RUNS})\n` +
     `  --runs <n>                measured calls per scenario, >= 20 (default: ${DEFAULT_MEASURED_RUNS})\n` +
     `  --dataset-size <n>        loaded game row count (default: ${DEFAULT_DATASET_SIZE})\n` +
-    `  --dataset-sha256 <sha>    source dataset SHA-256 (required)\n` +
+    `  --dataset-manifest <path> fixture row/ID fingerprint manifest (required)\n` +
     `  --request-timeout-ms <n>  timeout per HTTP request/body read (default: ${DEFAULT_REQUEST_TIMEOUT_MS})\n` +
     `  --server-commit <sha>     measured server 40-char commit SHA (required)\n` +
     `  --server-container <role=name>  app1/app2 measured Spring container (required twice)\n` +
@@ -257,6 +257,11 @@ function gameListResponseError(body, expectedPage = null) {
   }
   if (Object.hasOwn(page, "totalPages")) {
     return "응답 data에 totalPages를 포함하면 안 됩니다.";
+  }
+  const allowedFields = new Set(["content", "page", "size", "hasNext"]);
+  const unexpectedFields = Object.keys(page).filter((field) => !allowedFields.has(field));
+  if (unexpectedFields.length > 0) {
+    return `응답 data에 허용하지 않는 필드가 있습니다: ${unexpectedFields.sort().join(", ")}`;
   }
   if (typeof page.hasNext !== "boolean") {
     return "응답 data.hasNext가 boolean이 아닙니다.";
@@ -771,6 +776,77 @@ function composePostgresContainerId(composeProject) {
   return ids[0];
 }
 
+function fixtureManifest(options) {
+  let manifestText;
+  try {
+    manifestText = fs.readFileSync(options.datasetManifest, "utf8");
+  } catch (error) {
+    throw new Error(`fixture manifest를 읽지 못했습니다: ${errorMessage(error)}`);
+  }
+
+  let manifest;
+  try {
+    manifest = JSON.parse(manifestText);
+  } catch (error) {
+    throw new Error(`fixture manifest JSON이 아닙니다: ${errorMessage(error)}`);
+  }
+  if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) {
+    throw new Error("fixture manifest는 JSON object여야 합니다.");
+  }
+  if (manifest.schemaVersion !== 1) {
+    throw new Error(`fixture manifest schemaVersion은 1이어야 합니다: ${manifest.schemaVersion}`);
+  }
+  if (typeof manifest.fixtureId !== "string" || manifest.fixtureId.trim() === "") {
+    throw new Error("fixture manifest fixtureId가 필요합니다.");
+  }
+  if (!manifest.games || typeof manifest.games !== "object" || Array.isArray(manifest.games)) {
+    throw new Error("fixture manifest games object가 필요합니다.");
+  }
+  const gameCount = positiveInteger(manifest.games.rowCount, "fixture manifest games.rowCount");
+  const bggIdSetSha256 = sha256(manifest.games.bggIdSetSha256, "fixture manifest games.bggIdSetSha256");
+  if (gameCount !== options.datasetSize) {
+    throw new Error(
+      `fixture manifest games.rowCount가 --dataset-size와 다릅니다: manifest=${gameCount}, option=${options.datasetSize}`,
+    );
+  }
+  if (!manifest.metadata || typeof manifest.metadata !== "object" || Array.isArray(manifest.metadata)) {
+    throw new Error("fixture manifest metadata object가 필요합니다.");
+  }
+  const metadata = {
+    gameMechanismRelations: nonnegativeInteger(
+      manifest.metadata.gameMechanismRelations,
+      "fixture manifest metadata.gameMechanismRelations",
+    ),
+    gameThemeRelations: nonnegativeInteger(
+      manifest.metadata.gameThemeRelations,
+      "fixture manifest metadata.gameThemeRelations",
+    ),
+    gameCategoryRelations: nonnegativeInteger(
+      manifest.metadata.gameCategoryRelations,
+      "fixture manifest metadata.gameCategoryRelations",
+    ),
+    gamePlayerPreferences: nonnegativeInteger(
+      manifest.metadata.gamePlayerPreferences,
+      "fixture manifest metadata.gamePlayerPreferences",
+    ),
+  };
+  return {
+    fixtureId: manifest.fixtureId,
+    manifestSha256: createHash("sha256").update(manifestText).digest("hex"),
+    gameCount,
+    bggIdSetSha256,
+    metadata,
+  };
+}
+
+function nonnegativeInteger(raw, optionName) {
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`${optionName}은 0 이상의 정수여야 합니다: ${raw}`);
+  }
+  return value;
+}
+
 function postgresGameCount(containerId) {
   let output;
   try {
@@ -798,29 +874,112 @@ function postgresGameCount(containerId) {
   return count;
 }
 
-function currentDatasetProvenance(composeProject, expectedGameCount) {
-  const postgresContainerId = composePostgresContainerId(composeProject);
-  const observedGameCount = postgresGameCount(postgresContainerId);
-  if (observedGameCount !== expectedGameCount) {
-    throw new Error(
-      `PostgreSQL fixture games row count 불일치: expected=${expectedGameCount}, actual=${observedGameCount}`,
+function postgresBggIdSetSha256(containerId) {
+  let output;
+  try {
+    output = execFileSync(
+      "docker",
+      [
+        "exec",
+        containerId,
+        "sh",
+        "-c",
+        'PGAPPNAME=game-list-baseline-fixture-check psql -v ON_ERROR_STOP=1 -At -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "select bgg_id from games order by bgg_id"',
+      ],
+      { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
     );
+  } catch (error) {
+    throw new Error(`PostgreSQL fixture BGG ID 집합 조회 실패: ${errorMessage(error)}`);
   }
-  return { observedGameCount, postgresContainerId, postgresComposeProject: composeProject };
+  const ids = output.trim().split(/\s+/u).filter(Boolean);
+  const digest = createHash("sha256");
+  let previousId = 0;
+  for (const rawId of ids) {
+    const id = Number(rawId);
+    if (!Number.isSafeInteger(id) || id <= previousId) {
+      throw new Error(`PostgreSQL fixture BGG ID가 정렬된 양의 정수가 아닙니다: ${JSON.stringify(rawId)}`);
+    }
+    previousId = id;
+    digest.update(`${id}\n`);
+  }
+  return { count: ids.length, bggIdSetSha256: digest.digest("hex") };
 }
 
-function assertDatasetProvenanceStable(startProvenance, expectedGameCount) {
+function postgresMetadataCounts(containerId) {
+  let output;
+  try {
+    output = execFileSync(
+      "docker",
+      [
+        "exec",
+        containerId,
+        "sh",
+        "-c",
+        'PGAPPNAME=game-list-baseline-fixture-check psql -v ON_ERROR_STOP=1 -At -F "|" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "select (select count(*) from game_mechanism_relations), (select count(*) from game_theme_relations), (select count(*) from game_category_relations), (select count(*) from game_player_preferences)"',
+      ],
+      { encoding: "utf8" },
+    ).trim();
+  } catch (error) {
+    throw new Error(`PostgreSQL fixture metadata row count 조회 실패: ${errorMessage(error)}`);
+  }
+  const [gameMechanismRelations, gameThemeRelations, gameCategoryRelations, gamePlayerPreferences, ...unexpected] = output.split("|");
+  if (unexpected.length > 0 || gamePlayerPreferences === undefined) {
+    throw new Error(`PostgreSQL fixture metadata row count 형식이 아닙니다: ${JSON.stringify(output)}`);
+  }
+  return {
+    gameMechanismRelations: nonnegativeInteger(gameMechanismRelations, "PostgreSQL game_mechanism_relations count"),
+    gameThemeRelations: nonnegativeInteger(gameThemeRelations, "PostgreSQL game_theme_relations count"),
+    gameCategoryRelations: nonnegativeInteger(gameCategoryRelations, "PostgreSQL game_category_relations count"),
+    gamePlayerPreferences: nonnegativeInteger(gamePlayerPreferences, "PostgreSQL game_player_preferences count"),
+  };
+}
+
+function currentDatasetProvenance(composeProject, fixture) {
+  const postgresContainerId = composePostgresContainerId(composeProject);
+  const observedGameCount = postgresGameCount(postgresContainerId);
+  if (observedGameCount !== fixture.gameCount) {
+    throw new Error(
+      `PostgreSQL fixture games row count 불일치: expected=${fixture.gameCount}, actual=${observedGameCount}`,
+    );
+  }
+  const bggIds = postgresBggIdSetSha256(postgresContainerId);
+  if (bggIds.count !== observedGameCount) {
+    throw new Error(
+      `PostgreSQL fixture BGG ID 수와 games row count가 다릅니다: bggIds=${bggIds.count}, games=${observedGameCount}`,
+    );
+  }
+  if (bggIds.bggIdSetSha256 !== fixture.bggIdSetSha256) {
+    throw new Error(
+      `PostgreSQL fixture BGG ID 집합 지문 불일치: expected=${fixture.bggIdSetSha256}, actual=${bggIds.bggIdSetSha256}`,
+    );
+  }
+  const metadata = postgresMetadataCounts(postgresContainerId);
+  if (JSON.stringify(metadata) !== JSON.stringify(fixture.metadata)) {
+    throw new Error(
+      `PostgreSQL fixture metadata row count 불일치: expected=${JSON.stringify(fixture.metadata)}, actual=${JSON.stringify(metadata)}`,
+    );
+  }
+  return {
+    observedGameCount,
+    bggIdSetSha256: bggIds.bggIdSetSha256,
+    metadata,
+    postgresContainerId,
+    postgresComposeProject: composeProject,
+  };
+}
+
+function assertDatasetProvenanceStable(startProvenance, fixture) {
   const endProvenance = currentDatasetProvenance(
     startProvenance.postgresComposeProject,
-    expectedGameCount,
+    fixture,
   );
   if (JSON.stringify(endProvenance) !== JSON.stringify(startProvenance)) {
-    throw new Error("측정 중 PostgreSQL fixture provenance 또는 games row count가 변경되어 성공 산출물을 만들 수 없습니다.");
+    throw new Error("측정 중 PostgreSQL fixture provenance, games/metadata row count 또는 BGG ID 집합이 변경되어 성공 산출물을 만들 수 없습니다.");
   }
   return endProvenance;
 }
 
-function endProvenance(options, runnerProvenance, serverProvenance, datasetProvenance) {
+function endProvenance(options, runnerProvenance, serverProvenance, fixture, datasetProvenance) {
   const result = { runner: null, server: null, dataset: null, errors: [] };
   const check = (scope, start, assertion) => {
     if (!start) return;
@@ -833,7 +992,10 @@ function endProvenance(options, runnerProvenance, serverProvenance, datasetProve
 
   check("runner", runnerProvenance, () => assertRunnerProvenanceStable(runnerProvenance));
   check("server", serverProvenance, () => assertServerProvenanceStable(options, serverProvenance));
-  check("dataset", datasetProvenance, () => assertDatasetProvenanceStable(datasetProvenance, options.datasetSize));
+  check("dataset", datasetProvenance, () => assertDatasetProvenanceStable(
+    datasetProvenance,
+    fixture,
+  ));
   return result;
 }
 
@@ -842,7 +1004,7 @@ function csvEscape(value) {
   return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
-function writeArtifacts(options, discovered, results, failure, runnerProvenance, serverProvenance, datasetProvenance, finalProvenance) {
+function writeArtifacts(options, discovered, results, failure, runnerProvenance, serverProvenance, fixture, datasetProvenance, finalProvenance) {
   fs.mkdirSync(options.outputDirectory, { recursive: true });
   const timestamp = new Date().toISOString().replaceAll(":", "-");
   const baseName = `game-list-740-${timestamp}`;
@@ -861,9 +1023,14 @@ function writeArtifacts(options, discovered, results, failure, runnerProvenance,
     proxyContainer: serverProvenance?.proxyContainer ?? null,
     baseUrl: options.baseUrl,
     dataset: {
-      gameCount: options.datasetSize,
+      fixtureId: fixture?.fixtureId ?? null,
+      fixtureManifestSha256: fixture?.manifestSha256 ?? null,
+      gameCount: fixture?.gameCount ?? options.datasetSize,
       observedGameCount: datasetProvenance?.observedGameCount ?? null,
-      sha256: options.datasetSha256,
+      bggIdSetSha256: fixture?.bggIdSetSha256 ?? null,
+      observedBggIdSetSha256: datasetProvenance?.bggIdSetSha256 ?? null,
+      metadata: fixture?.metadata ?? null,
+      observedMetadata: datasetProvenance?.metadata ?? null,
       postgresContainerId: datasetProvenance?.postgresContainerId ?? null,
       postgresComposeProject: datasetProvenance?.postgresComposeProject ?? null,
     },
@@ -906,6 +1073,7 @@ async function main() {
   let failure = null;
   let runnerProvenance = null;
   let serverProvenance = null;
+  let fixture = null;
   let datasetProvenance = null;
   let finalProvenance = null;
 
@@ -915,12 +1083,17 @@ async function main() {
     console.log(`[game-list-740] runner-commit=${runnerProvenance.commit}`);
     console.log(`[game-list-740] runner-file-sha256=${runnerProvenance.fileSha256}`);
 
+    fixture = fixtureManifest(options);
+    console.log(`[game-list-740] fixture-id=${fixture.fixtureId}`);
+    console.log(`[game-list-740] fixture-manifest-sha256=${fixture.manifestSha256}`);
+    console.log(`[game-list-740] fixture-bgg-id-set-sha256=${fixture.bggIdSetSha256}`);
+
     serverProvenance = currentServerProvenance(options);
     console.log(`[game-list-740] server-image-id=${serverProvenance.containers[0].imageId}`);
 
     datasetProvenance = currentDatasetProvenance(
       serverProvenance.containers[0].composeProject,
-      options.datasetSize,
+      fixture,
     );
     console.log(`[game-list-740] postgres-games=${datasetProvenance.observedGameCount}`);
 
@@ -961,6 +1134,7 @@ async function main() {
       options,
       runnerProvenance,
       serverProvenance,
+      fixture,
       datasetProvenance,
     );
     if (!failure && finalProvenance.errors.length > 0) {
@@ -977,6 +1151,7 @@ async function main() {
     failure,
     runnerProvenance,
     serverProvenance,
+    fixture,
     datasetProvenance,
     finalProvenance,
   );
