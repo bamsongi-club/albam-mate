@@ -55,7 +55,30 @@
     ],
     "readOptionsValues": [
       "{\"vus\":10,\"durationSeconds\":60,\"thinkTimeMilliseconds\":0}"
-    ]
+    ],
+    "comparisonVerifier": {
+      "executedSourceSha": "291ac6fe469834ab747eeb25ffd4a609173410ea",
+      "currentPrHeadSourceSha": "a6e99c20d078e5a1aec298907f338e262513783b",
+      "checkedVerifierFiles": [
+        "load-tests/k6/jiwon/tools/fixture.mjs",
+        "load-tests/k6/jiwon/tools/portable-bundle.mjs",
+        "load-tests/k6/jiwon/tools/fixture-model.mjs"
+      ],
+      "checkedVerifierFilesMatchCurrentPrHead": true,
+      "fixtureToolPath": "load-tests/k6/jiwon/tools/fixture.mjs",
+      "portableBundleToolPath": "load-tests/k6/jiwon/tools/portable-bundle.mjs",
+      "fixtureToolSha256": "83f2b6bb25c10444d143b0c34ec9c43d743959ed5c012e6d9b5c0d72bc746455",
+      "portableBundleToolSha256": "a2d2832513282eff349c2e2c5f23c2b44065790bafc90e1e70952d5223abf136",
+      "command": "node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id room-t5-repeated-2026-08-18-r01-canonical",
+      "artifactRoot": "build/k6/room/room-t5-repeated-2026-08-18-r01-canonical/",
+      "comparisonArtifact": "build/k6/room/room-t5-repeated-2026-08-18-r01-canonical/t5-comparison-verification.json",
+      "comparisonArtifactSha256": "b96e27db979faad0ff79e2810dce7f43f6c7beb9c86eaa8d471f18d07f6e0122",
+      "result": "INVALID",
+      "historicalBundleEmbeddedVerifierSha256": {
+        "tools/fixture.mjs": "d99a2c2c2f5c43a60ea391a0af6903c4dd8ebb25fb831ef06ae6b601e6271b33",
+        "tools/portable-bundle.mjs": "08ef74f125aca2ccb0f38c83eb8ded892d840683e430871048fbc1d452b8abe0"
+      }
+    }
   },
   "coverage": [
     {
@@ -119,6 +142,16 @@
       "status": "INVALID"
     }
   ],
+  "selection": {
+    "plannedRunCount": 18,
+    "actualRunCount": 6,
+    "notStartedRunCount": 12,
+    "includedRunCount": 0,
+    "excludedRunCount": 6,
+    "method": "public/host/participant × ACTIVE scale 1/10의 canonical fixture를 조건별 1회 실행하고, 각 Run의 reportDisposition을 반복·comparison·계측 유효성 판정과 별도로 기록",
+    "reasonAllExcluded": "실행된 6개 Run 모두 반복 부족, canonical comparison INVALID, 필수 자원 계측 누락으로 공식 보고서 결론 계산에 포함하지 않는다.",
+    "excludedRunUse": "diagnostic-observation-only"
+  },
   "validity": {
     "canonicalFixtureCount": 6,
     "requiredIndependentRuns": 18,
@@ -154,7 +187,7 @@
     },
     "missingRequiredEvidence": [
       "조건별 3회 반복이 아니라 각 조건 1회만 실행됨",
-      "canonical bundle의 run-manifest.json이 0개임",
+      "portable before-diagnosis.json에 current T5 verifier가 요구하는 baselineSnapshot이 없음",
       "T5 comparison이 INVALID이고 accepted fixture가 0개임",
       "role·scale별 p99가 summary에 없고 query call/time/buffer가 없음",
       "HTTP·Tomcat·Hikari·JVM·PostgreSQL 자원 신호가 같은 UTC run window에 연결되지 않음"
@@ -165,13 +198,13 @@
     "expectedCases": 6,
     "fixtureCount": 0,
     "acceptedCases": 0,
-    "runManifestCount": 0,
     "failureSummary": [
-      "after 검증이 fixture.mjs run의 run-manifest.json을 요구함",
-      "public/host/participant × scale 1/10의 비교 fixture 6개가 accepted되지 않음"
+      "현재 canonical compare-t5가 portable 경로로 6개 bundle을 읽었지만 각 bundle에서 `portable diagnosis artifact가 현재 T5 fixture와 맞지 않습니다.`로 INVALID 처리함",
+      "6개 portable before-diagnosis.json 모두 T5 비교에 필요한 baselineSnapshot이 없어 accepted fixture가 0개임",
+      "portable 경로는 run-manifest.json을 요구하지 않으며, 기존 run-manifest 부재 설명은 stale verifier 결과임"
     ],
     "artifactIntegrity": {
-      "comparisonSha256": "e6bc82f62b83b29e4d5b85e6229b5d4130682d4126cb7f9ca1e8557f19e11207"
+      "comparisonSha256": "b96e27db979faad0ff79e2810dce7f43f6c7beb9c86eaa8d471f18d07f6e0122"
     }
   },
   "artifactBoundary": {
@@ -216,6 +249,7 @@
       "scale": 10,
       "condition": "participant / ACTIVE scale 10",
       "runId": "room-t5-repeated-2026-08-18-r01-canonical",
+      "reportDisposition": "excluded",
       "window": {
         "startedAtUtc": "2026-08-18T04:15:53Z",
         "endedAtUtc": "2026-08-18T04:19:30Z"
@@ -291,6 +325,7 @@
       "scale": 1,
       "condition": "public / ACTIVE scale 1",
       "runId": "room-t5-repeated-2026-08-18-r01-canonical",
+      "reportDisposition": "excluded",
       "window": {
         "startedAtUtc": "2026-08-18T03:56:50Z",
         "endedAtUtc": "2026-08-18T04:00:31Z"
@@ -366,6 +401,7 @@
       "scale": 10,
       "condition": "public / ACTIVE scale 10",
       "runId": "room-t5-repeated-2026-08-18-r01-canonical",
+      "reportDisposition": "excluded",
       "window": {
         "startedAtUtc": "2026-08-18T04:00:42Z",
         "endedAtUtc": "2026-08-18T04:04:22Z"
@@ -441,6 +477,7 @@
       "scale": 10,
       "condition": "host / ACTIVE scale 10",
       "runId": "room-t5-repeated-2026-08-18-r01-canonical",
+      "reportDisposition": "excluded",
       "window": {
         "startedAtUtc": "2026-08-18T04:08:19Z",
         "endedAtUtc": "2026-08-18T04:11:54Z"
@@ -516,6 +553,7 @@
       "scale": 1,
       "condition": "host / ACTIVE scale 1",
       "runId": "room-t5-repeated-2026-08-18-r01-canonical",
+      "reportDisposition": "excluded",
       "window": {
         "startedAtUtc": "2026-08-18T04:04:32Z",
         "endedAtUtc": "2026-08-18T04:08:08Z"
@@ -591,6 +629,7 @@
       "scale": 1,
       "condition": "participant / ACTIVE scale 1",
       "runId": "room-t5-repeated-2026-08-18-r01-canonical",
+      "reportDisposition": "excluded",
       "window": {
         "startedAtUtc": "2026-08-18T04:12:05Z",
         "endedAtUtc": "2026-08-18T04:15:43Z"

@@ -8,12 +8,14 @@ Issue #779의 승인된 T1~T4 계약에 따라 public·host·participant × ACTI
 - 실제: canonical fixture 6개, 조건별 1회; 미실행 12회
 - 유효 판정: `PASS` 0, `FAIL` 0, `INVALID` 6
 - 공통 profile: 10 VU / 60 seconds / think time 0ms
-- comparison: expected 6, accepted 0; canonical bundle의 run-manifest.json 0개
+- comparison: expected 6, fixtureCount 0, accepted 0; portable diagnosis contract 불일치로 `INVALID`
 - start-skew: 6/6 gate 통과, 최대 1ms
 - response contract check 실패 run 0, 조회 전후 DB snapshot/diagnosis PASS 6/6
 - teardown: `run.sh down` exit 0, active EC2/EBS/EIP/CloudWatch/Route53 0, issue SSM 9 retained
 
 개별 `final-result.json`의 `PASS`는 원격 실행과 snapshot/diagnosis 결과를 뜻하지만, 승인된 T4 comparison gate가 유효하지 않아 기준선 `PASS`로 승격하지 않는다. 비교에 필요한 artifact를 만들기 위해 별도의 두 번째 k6 실행을 합성하거나, 누락 run을 채우지 않았다.
+
+campaign evidence의 실행된 6개 Run은 모두 `reportDisposition=excluded`다. 반복별 p50·p95·RPS·요청 수는 excluded Run에서 얻은 진단 관찰값일 뿐이며, included Run이 0이므로 공식 결론 계산·role/scale 비교·성능 기준선에 사용하지 않는다.
 
 근거 ledger와 비밀 없는 artifact SHA-256은 [campaign evidence](evidence/room-t5-repeated-baseline.json)에 있다. 원시 bundle은 local-only다.
 
@@ -37,7 +39,7 @@ Issue #779의 승인된 T1~T4 계약에 따라 public·host·participant × ACTI
 | T1 반복·provenance | 6개 role/scale fixture, source/release/profile/options/UTC/artifact digest 정렬; 각 조건 1회 | 반복 부족으로 `INVALID` |
 | T2 response shape·security header | k6 response contract checks 실패 0/6, role/scale 실행 결과는 존재 | comparison invalid과 필수 반복 부족으로 유효 결과 제외 |
 | T3 DB 무변경·자원 연결 | before/after snapshot·diagnosis 6/6 PASS; query call/time/buffer와 HTTP·Tomcat·Hikari·JVM·PostgreSQL 신호는 없음 | `INVALID` |
-| T4 비교 묶음 | comparison status INVALID, fixtureCount 0, accepted 0, run-manifest 0 | `INVALID` |
+| T4 비교 묶음 | 현재 canonical verifier 재검증 결과 `INVALID`, fixtureCount 0, accepted 0, portable before diagnosis의 `baselineSnapshot` 누락 | `INVALID` |
 
 ## 조건 coverage
 
@@ -65,11 +67,12 @@ p50은 summary의 `med`를 사용했고 p99는 summary에 없어 `N/A`로 보존
 | 5 | host / 1 | 2026-08-18 04:04–04:08 | 18.538 | 225.905 | N/A | 704.260 | 195.063 | 14675 | 14675 | 0 | 1 | PASS / INVALID |
 | 6 | participant / 1 | 2026-08-18 04:12–04:15 | 18.525 | 155.043 | N/A | 552.464 | 275.355 | 20719 | 20719 | 0 | 1 | PASS / INVALID |
 
-## comparison 차단 원인
+## comparison 재검증 결과
 
-- canonical bundle 6개에는 portable `manifest.json`가 있으나 `run-manifest.json`는 0개다.
-- canonical comparison artifact는 `INVALID`이고 accepted fixture 0개다. after 검증이 `fixture.mjs run`이 남긴 run-manifest를 요구해 role/scale 6개를 비교 묶음으로 채택하지 못했다.
-- 현재 infra runner가 원격 k6를 이미 실행한 뒤 직접 `fixture.mjs run`을 호출하면 두 번째 별도 k6 실행이 되어 synthetic provenance가 된다. 따라서 누락 manifest를 수동 생성하지 않았다.
+- canonical bundle 6개에는 portable `manifest.json`가 있다. 현재 canonical `compare-t5`는 이 portable 경로를 선택하며, 이 경로에는 `run-manifest.json`이 필요하지 않다.
+- 현재 PR head와 동일한 verifier 파일 SHA-256을 사용해 보존된 6개 bundle을 재평가했다. 명령, source SHA, artifact digest는 [campaign evidence](evidence/room-t5-repeated-baseline.json)의 `provenance.comparisonVerifier`에 기록했다.
+- 재검증 결과는 `INVALID`, `fixtureCount=0`, accepted 0이다. 6개 모두 `portable diagnosis artifact가 현재 T5 fixture와 맞지 않습니다.`로 거절됐고, 보존된 `before-diagnosis.json`에 현재 T5 portable verifier가 요구하는 `baselineSnapshot`이 없어 비교 fixture로 채택되지 않았다.
+- 기존 comparison artifact의 `run-manifest.json` 원인 설명은 portable 경로가 아닌 stale verifier 결과이므로 제거했다. 누락된 `run-manifest.json`을 수동 생성하거나 두 번째 k6 실행으로 보정하지 않는다.
 - role·scale별 query call/time/buffer와 승인된 애플리케이션·DB 자원 신호도 같은 UTC 구간에 연결되지 않았다.
 
 ## Teardown와 잔여 조회
@@ -89,8 +92,8 @@ fixture model/runner 관련 기존 검증과 `git diff --check`를 실행하고,
 
 다음 유효 campaign 전에는 다음을 별도 scope로 해결해야 한다.
 
-1. 원격 k6 완료 결과를 재실행 없이 `run-manifest.json`으로 확정하는 completion 계약을 app load-test와 infra runner 양쪽에 추가한다.
-2. 18개 independent run과 comparison 6/6 accepted gate를 다시 실행한다.
+1. portable bundle 생성 결과가 T5 before diagnosis의 `baselineSnapshot` 계약을 충족하도록 보완하고, 현재 canonical verifier로 6/6 accepted gate를 확인한다.
+2. 18개 independent run을 조건별 3회씩 다시 실행한다.
 3. role·scale별 p99와 query call/time/buffer, HTTP·Tomcat·Hikari·JVM·PostgreSQL 신호를 같은 UTC window로 연결한다.
 4. 이 결과만으로 역할·scale 성능 순위·최대 용량·cache/SQL 변경·운영 SLO를 결정하지 않는다.
 
