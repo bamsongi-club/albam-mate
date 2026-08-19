@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import test from 'node:test';
 import {
     ARTIFACT_BASENAMES,
@@ -13,6 +14,63 @@ import {
     validateCatalogDatasetReleaseManifest,
     validateCatalogDatasetReleaseReference,
 } from './catalog-dataset-release-manifest.mjs';
+
+test('커밋된 승인 release manifest는 고정 profile과 승인·실측 선언을 보존한다', () => {
+    const manifest = JSON.parse(
+        fs.readFileSync(new URL('../../docs/game-catalog/catalog-dataset-release.json', import.meta.url)),
+    );
+
+    assert.deepEqual(validateCatalogDatasetReleaseManifest(manifest), manifest);
+    assert.equal(manifest.releaseId, 'bgg-catalog-170k-v4-2026-08-19');
+    assert.equal(manifest.approved, true);
+    assert.equal(manifest.testOnly, false);
+    assert.deepEqual(manifest.approval, {
+        reviewedBy: 'beyejin',
+        reviewedAt: '2026-08-19T01:18:11.000Z',
+        references: ['https://github.com/bamsongi-club/albam-mate/issues/833#issuecomment-5336311731'],
+    });
+    assert.deepEqual(manifest.dataset, {
+        rows: 170000,
+        sha256: '16dc54a9b123328e7e4c58edcd7acfc7c9036bd2ca6dadf9a7b000f24fa682b0',
+        idSetSha256: '46277da6ad8173c69dc26478df461b00ca9425971a1daa698fb6da3da1fd4546',
+    });
+    assert.deepEqual(manifest.artifacts, {
+        '01': {
+            status: 'approved',
+            path: '01-games-full.sql',
+            sha256: '7866812e8ecd22942eccc3dee4553b49161af6297399c907b6a2953a9abb3c19',
+            bytes: 206704274,
+        },
+        '02': {
+            status: 'approved',
+            path: '02-metadata-full.sql',
+            sha256: '65fac23bef6bd662b9b74c8f5adb754981236c35d89839509bcca76610790278',
+            bytes: 41650159,
+        },
+    });
+    assert.deepEqual(manifest.coverage, {
+        catalogIds: {
+            rows: 170000,
+            sha256: '46277da6ad8173c69dc26478df461b00ca9425971a1daa698fb6da3da1fd4546',
+            serialization: 'sorted-bgg-id-lines-v1',
+        },
+        mechanismRelations: {
+            rows: 428488,
+            sha256: '2dc8aca4c0a2b8149e5a5556d5f07040dbb91394474bf01592160d5b5d3008e3',
+            serialization: 'sorted-bgg-id-mechanism-id-csv-v1',
+        },
+        themeRelations: {
+            rows: 461973,
+            sha256: '5eff6c8432b3254861ac43569ecf71bb341f4ad881dcfb67602fee6bbd6bb93d',
+            serialization: 'sorted-bgg-id-theme-id-csv-v1',
+        },
+        playerPreferences: {
+            rows: 263463,
+            sha256: '1c76de0cf0e0afd0faa4a98cad9178b4474c9634fa24fed3a31cb198b2574e8a',
+            serialization: 'sorted-bgg-id-player-count-recommended-best-csv-v1',
+        },
+    });
+});
 
 test('catalog dataset release는 embedding 정보 없이 승인할 수 있다', () => {
     const manifest = validManifest();
@@ -59,7 +117,7 @@ test('실제 dataset rows/hash/id-set hash가 manifest와 모두 일치해야 �
     );
 });
 
-test('01~07 승인 artifact와 실제 checksum/bytes가 모두 일치해야 한다', () => {
+test('01~02 승인 artifact와 실제 checksum/bytes가 모두 일치해야 한다', () => {
     const manifest = validManifest();
     const actualArtifacts = Object.fromEntries(
         Object.entries(manifest.artifacts).map(([key, value]) => [key, {
@@ -76,10 +134,10 @@ test('01~07 승인 artifact와 실제 checksum/bytes가 모두 일치해야 한�
         () => validateCatalogDatasetReleaseManifest(manifest, {
             actualArtifacts: {
                 ...actualArtifacts,
-                '01b': { ...actualArtifacts['01b'], sha256: '0'.repeat(64) },
+                '02': { ...actualArtifacts['02'], sha256: '0'.repeat(64) },
             },
         }),
-        /01b.*sha256/u,
+        /02.*sha256/u,
     );
 });
 
@@ -144,7 +202,7 @@ test('실제 SQL coverage를 계산한 값과 manifest 선언을 대조한다', 
 
 test('artifact path는 key에 맞는 상대 경로이고 서로 다른 파일이어야 한다', () => {
     const duplicatePath = validManifest();
-    duplicatePath.artifacts['01b'].path = duplicatePath.artifacts['01'].path;
+    duplicatePath.artifacts['02'].path = duplicatePath.artifacts['01'].path;
     assert.throws(() => validateCatalogDatasetReleaseManifest(duplicatePath), /duplicates/u);
 
     const parentPath = validManifest();
@@ -156,7 +214,7 @@ test('artifact path는 key에 맞는 상대 경로이고 서로 다른 파일이
     assert.throws(() => validateCatalogDatasetReleaseManifest(absolutePath), /relative path/u);
 
     const wrongBasename = validManifest();
-    wrongBasename.artifacts['01'].path = 'artifacts/02-upsert-game-mechanisms.sql';
+    wrongBasename.artifacts['01'].path = `artifacts/${ARTIFACT_BASENAMES['02']}`;
     assert.throws(() => validateCatalogDatasetReleaseManifest(wrongBasename), /must end with/u);
 });
 
@@ -258,13 +316,7 @@ function validManifest() {
         },
         artifacts: {
             '01': artifact('01'),
-            '01b': artifact('01b'),
             '02': artifact('02'),
-            '03': artifact('03'),
-            '04': artifact('04'),
-            '05': artifact('05'),
-            '06': artifact('06'),
-            '07': artifact('07'),
         },
         coverage: {
             catalogIds: coverage('catalogIds', 'd'),

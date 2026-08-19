@@ -1,8 +1,8 @@
 # ADR-0072: SEARCH-04 품질 corpus membership·version·rollback 계약
 
-- 상태: 제안됨
+- 상태: 승인됨
 - 작성일: 2026-08-18
-- 결정일: 미정
+- 결정일: 2026-08-19
 - 관련: [SEARCH-04 이슈 #712](https://github.com/bamsongi-club/albam-mate/issues/712), [SEARCH-04 명세](../../p2/search.md), [SEARCH-04 평가 fixture](../../p2/search-evaluation/README.md), [ADR-0066: 검색 품질 데이터와 대규모 catalog 성능 검증 데이터를 분리](0066-search-quality-corpus-and-full-catalog-scale-corpus-split.md), [ADR-0060: 승인된 카탈로그 release의 AI·embedding 처리 범위를 허용](0060-approved-catalog-ai-embedding-scope.md), [ADR-0058: 외부·내부 원천을 결합한 게임 인기 점수와 기본 정렬](0058-external-ranking-and-popularity-sort.md)
 - 대체 대상: 없음
 - 후속 ADR: 없음
@@ -97,10 +97,8 @@ manifest의 index version·corpus version·projection SHA-256은 서로 일치�
 ## 검증
 
 - 상태: 미검증
-- 근거: 없음
+- 근거: 2026-08-19 [승인 코멘트](https://github.com/bamsongi-club/albam-mate/issues/712#issuecomment-5336358882) — pinned BoardLife ranking snapshot(`boardlife-ranking-mapping-2026-08-14.json`, SHA-256 `90ba6710c0a15d1590491f6bb499534afbf31377904fa2cc00a1aedf4f348252`, `quality-corpus.json`의 기존 pin과 일치)의 `resolved` 20,438행을 이 ADR의 selection 규칙(같은 bggId는 최저 rank만 유지 → catalog 존재 여부로 mapping → rank 오름차순·bggId 오름차순 정렬 → target N 적용)대로 처리해 재현했다. dedupe 결과 20,297개 고유 bggId, target 1,000 정확히 충족, 산출 membership의 canonical checksum은 `533c62364028edf8ada53af1c3c3fca46c48a1af170c92297eac94198f1353e3`. 승인된 [`bgg-catalog-170k-v4-2026-08-19` catalog release](https://github.com/bamsongi-club/albam-mate/issues/833#issuecomment-5336311731)(170,000 bggId 집합)로 다시 mapping해도 성공 20,297·실패 0으로 동일한 checksum이 재현됨을 확인해, 승인된 catalog release·BoardLife snapshot이 이 selection contract의 source field를 충족함을 검증했다.
 - 미검증:
-    - 실제 승인된 catalog release와 BoardLife ranking snapshot이 이 selection contract의 모든 source field를 충족하는지
-    - full ranking 원천에서 dedupe·mapping·target N 결과를 독립적으로 재현할 수 있는지
     - 실제 index builder의 `BUILDING → READY/FAILED` 전환, active pointer 원자 cutover와 이전 `READY` 보존
 
 > 상태 값과 번호·대체 규칙은 [루트 README](../README.md)를 따른다.

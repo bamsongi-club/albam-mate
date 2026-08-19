@@ -4,7 +4,7 @@
   "evaluationProfile": "development-seed",
   "status": "draft",
   "evaluationVersion": "search-04-development-seed-2026-08-14-v1",
-  "qualityCorpusVersion": "boardlife-quality-top1000-v1",
+  "qualityCorpusVersion": "boardlife-quality-top1000-v2",
   "selectionRuleVersion": "boardlife-mapped-unique-rank-v1",
   "corpusSnapshot": {
     "snapshotId": "boardlife-ranking-2026-08-14",
@@ -13,23 +13,23 @@
     "fixed": true
   },
   "catalog": {
-    "releaseId": "pending-bgg-catalog-release-2026-08-14",
+    "releaseId": "bgg-catalog-170k-v4-2026-08-19",
     "datasetId": "bgg-catalog-170k",
     "fieldVersion": "catalog-fields-v1",
-    "manifestReference": "docs/game-catalog/SEARCH_04_CATALOG_DATASET_RELEASE.md",
-    "releaseStatus": "not-registered"
+    "manifestReference": "docs/game-catalog/catalog-dataset-release.json",
+    "releaseStatus": "approved"
   },
   "qualityCorpusPath": "quality-corpus.json",
-  "qualityCorpusSha256": "1ae65a90ea9763d2396da767b30f813fdc93320fbcf055124816174422a6f64e",
+  "qualityCorpusSha256": "0ce65a0ab500054c11548fe487afab8247b8f09282087f6db4d144d0783c87e8",
   "index": {
-    "corpusVersion": "boardlife-quality-top1000-v1",
-    "corpusSha256": "1ae65a90ea9763d2396da767b30f813fdc93320fbcf055124816174422a6f64e",
-    "status": "not-registered",
+    "corpusVersion": "boardlife-quality-top1000-v2",
+    "corpusSha256": "0ce65a0ab500054c11548fe487afab8247b8f09282087f6db4d144d0783c87e8",
+    "status": "READY",
     "allowedStates": ["BUILDING", "READY", "FAILED"],
     "rollbackPolicy": "retain-previous-ready"
   },
   "queriesPath": "queries.json",
-  "queriesSha256": "b677c49139dc5cf1f9b210ee1c00800f86607cb9ecca242e9dbcdbc4fe008306",
+  "queriesSha256": "7dae3cdd6b36756dd6b210c6dc1c0121cad9ec197187246dd607b1eb130a2b2f",
   "cohorts": {
     "exact/name variant": {
       "minimum": 1,
@@ -64,7 +64,7 @@
   "notes": [
     "현재 profile은 development-seed이며 15개 query는 후보 검색 PoC와 회귀 확인용이다.",
     "expectedGameIds와 excludedGameIds는 Top 1,000 membership·공개 catalog 필드 기반 draft 후보이며 독립 판정 전이다.",
-    "quality-corpus.json은 전체 Top 1,000 원천이 아니라 현재 seed가 참조하는 membership·hard-filter projection이다.",
+    "quality-corpus.json은 ADR-0072 selection rule과 승인된 bgg-catalog-170k-v4-2026-08-19 release로 생성한 실제 Top 1,000 전체 membership이다(v2, 2026-08-19).",
     "BoardLife 원천 mapping은 provisional이고 duplicate/review-required 행이 남아 있으므로 quality-ready 승인을 의미하지 않는다.",
     "정책상 BGG·AI·embedding 사용 승인은 구체 release manifest와 동일하지 않다.",
     "quality-ready 전환은 final-quality profile, 승인된 catalog·quality corpus, 두 독립 판정, 불일치 시 제3 판정, baseline threshold가 모두 채워진 뒤에만 가능하다."
