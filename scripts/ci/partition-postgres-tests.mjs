@@ -5,6 +5,9 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const DEFAULT_SOURCE_DIRECTORY = fileURLToPath(
   new URL("../../src/postgresTest/java/", import.meta.url),
 );
+const DEFAULT_DURATION_MANIFEST = fileURLToPath(
+  new URL("./postgres-test-durations.json", import.meta.url),
+);
 
 function collectTestFiles(directory) {
   return fs
@@ -19,8 +22,38 @@ function collectTestFiles(directory) {
     });
 }
 
-export function discoverPostgresTests(sourceDirectory = DEFAULT_SOURCE_DIRECTORY) {
-  return collectTestFiles(sourceDirectory).map((filePath) => {
+function readDurationManifest(manifestPath) {
+  if (!fs.existsSync(manifestPath)) {
+    return new Map();
+  }
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  if (manifest.schemaVersion !== 1 || typeof manifest.durationsMs !== "object") {
+    throw new Error(`PostgreSQL duration manifest 형식이 올바르지 않습니다: ${manifestPath}`);
+  }
+  return new Map(
+    Object.entries(manifest.durationsMs).map(([className, durationMs]) => {
+      if (!Number.isFinite(durationMs) || durationMs <= 0) {
+        throw new Error(`PostgreSQL duration은 양수여야 합니다: ${className}`);
+      }
+      return [className, durationMs];
+    }),
+  );
+}
+
+function isMeasurementOnly(source, className) {
+  const classIndex = source.indexOf(`class ${className}`);
+  if (classIndex < 0) {
+    throw new Error(`테스트 class 선언을 찾을 수 없습니다: ${className}`);
+  }
+  return /@Tag\(\s*"measurement"\s*\)/.test(source.slice(0, classIndex));
+}
+
+export function discoverPostgresTests(
+  sourceDirectory = DEFAULT_SOURCE_DIRECTORY,
+  durationManifestPath = DEFAULT_DURATION_MANIFEST,
+) {
+  const durations = readDurationManifest(durationManifestPath);
+  const discovered = collectTestFiles(sourceDirectory).flatMap((filePath) => {
     const source = fs.readFileSync(filePath, "utf8");
     const packageMatch = source.match(/^package\s+([\w.]+);/m);
     if (!packageMatch) {
@@ -28,12 +61,32 @@ export function discoverPostgresTests(sourceDirectory = DEFAULT_SOURCE_DIRECTORY
     }
 
     const className = path.basename(filePath, ".java");
-    return {
-      className: `${packageMatch[1]}.${className}`,
+    if (isMeasurementOnly(source, className)) {
+      return [];
+    }
+    const qualifiedClassName = `${packageMatch[1]}.${className}`;
+    return [{
+      className: qualifiedClassName,
       relativePath: path.relative(sourceDirectory, filePath).replaceAll("\\", "/"),
-      weight: fs.statSync(filePath).size,
-    };
+      sourceBytes: fs.statSync(filePath).size,
+      durationMs: durations.get(qualifiedClassName),
+    }];
   });
+
+  const knownRatios = discovered
+    .filter((postgresTest) => postgresTest.durationMs !== undefined)
+    .map((postgresTest) => postgresTest.durationMs / postgresTest.sourceBytes)
+    .sort((left, right) => left - right);
+  const fallbackMsPerByte = knownRatios.length === 0
+    ? 1
+    : knownRatios[Math.floor(knownRatios.length / 2)];
+
+  return discovered.map((postgresTest) => ({
+    ...postgresTest,
+    weight: postgresTest.durationMs
+      ?? Math.max(1, Math.round(postgresTest.sourceBytes * fallbackMsPerByte)),
+    weightSource: postgresTest.durationMs === undefined ? "source-size-fallback" : "junit-median",
+  }));
 }
 
 export function partitionPostgresTests(tests, shardCount) {
@@ -82,18 +135,31 @@ function readIntegerArgument(args, name) {
   return value;
 }
 
+function readOptionalArgument(args, name, fallback) {
+  const index = args.indexOf(name);
+  return index < 0 ? fallback : args[index + 1];
+}
+
 function main() {
   const args = process.argv.slice(2);
   const shardCount = readIntegerArgument(args, "--shard-count");
   const shardIndex = readIntegerArgument(args, "--shard-index");
-  const shards = partitionPostgresTests(discoverPostgresTests(), shardCount);
+  const durationManifestPath = readOptionalArgument(
+    args,
+    "--duration-manifest",
+    DEFAULT_DURATION_MANIFEST,
+  );
+  const shards = partitionPostgresTests(
+    discoverPostgresTests(DEFAULT_SOURCE_DIRECTORY, durationManifestPath),
+    shardCount,
+  );
   if (shardIndex < 0 || shardIndex >= shards.length) {
     throw new Error(`--shard-index는 0 이상 ${shards.length - 1} 이하여야 합니다.`);
   }
 
   const shard = shards[shardIndex];
   process.stderr.write(
-    `PostgreSQL shard ${shard.index + 1}/${shards.length}: ${shard.tests.length} classes, weight ${shard.totalWeight}\n`,
+    `PostgreSQL shard ${shard.index + 1}/${shards.length}: ${shard.tests.length} classes, estimated ${shard.totalWeight}ms\n`,
   );
   process.stdout.write(`${shard.tests.map((postgresTest) => postgresTest.className).join("\n")}\n`);
 }
