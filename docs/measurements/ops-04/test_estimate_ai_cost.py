@@ -25,8 +25,10 @@ class EstimateAiCostTest(unittest.TestCase):
             "provider": "openai",
             "model": "gpt-5.6-luna",
             "requests": [
-                {"inputTokens": 1000, "outputTokens": 200, "totalTokens": 1200},
-                {"inputTokens": 500, "outputTokens": 300, "totalTokens": 800},
+                {"inputTokens": 1000, "outputTokens": 200, "totalTokens": 1200,
+                 "cachedInputTokens": 0},
+                {"inputTokens": 500, "outputTokens": 300, "totalTokens": 800,
+                 "cachedInputTokens": 0},
             ],
         }
 
@@ -55,16 +57,61 @@ class EstimateAiCostTest(unittest.TestCase):
         base = {
             "observationStatus": "OBSERVED", "provider": "openai",
             "model": "gpt-5.6-terra",
-            "requests": [{"inputTokens": 10, "outputTokens": 1, "totalTokens": 11}],
+            "requests": [{"inputTokens": 10, "outputTokens": 1, "totalTokens": 11,
+                          "cachedInputTokens": 0}],
         }
         mismatch = ESTIMATOR.estimate(self.snapshot, base)
         long_context = ESTIMATOR.estimate(self.snapshot, {
             **base, "model": "gpt-5.6-luna",
-            "requests": [{"inputTokens": 272001, "outputTokens": 1, "totalTokens": 272002}],
+            "requests": [{"inputTokens": 272001, "outputTokens": 1, "totalTokens": 272002,
+                          "cachedInputTokens": 0}],
         })
 
         self.assertEqual("MODEL_MISMATCH", mismatch["reason"])
         self.assertEqual("LONG_CONTEXT_PRICE_NOT_REPRESENTED", long_context["reason"])
+
+    def test_cached_input_must_be_explicitly_observed_as_zero(self) -> None:
+        base_request = {"inputTokens": 10, "outputTokens": 1, "totalTokens": 11}
+        base_usage = {
+            "observationStatus": "OBSERVED", "provider": "openai",
+            "model": "gpt-5.6-luna",
+        }
+
+        observed_zero = ESTIMATOR.estimate(
+            self.snapshot,
+            {**base_usage, "requests": [{**base_request, "cachedInputTokens": 0}]},
+        )
+        self.assertEqual("ESTIMATED", observed_zero["status"])
+
+        for cached_value in (None, 1, "0", True):
+            with self.subTest(cachedInputTokens=cached_value):
+                result = ESTIMATOR.estimate(
+                    self.snapshot,
+                    {**base_usage, "requests": [
+                        {**base_request, "cachedInputTokens": cached_value}
+                    ]},
+                )
+                self.assertEqual("NO_OBSERVATION", result["status"])
+                self.assertEqual("CACHED_INPUT_NOT_MEASURED", result["reason"])
+
+        missing = ESTIMATOR.estimate(
+            self.snapshot, {**base_usage, "requests": [base_request]},
+        )
+        self.assertEqual("CACHED_INPUT_NOT_MEASURED", missing["reason"])
+
+    def test_token_counts_require_non_negative_json_integers(self) -> None:
+        usage = {
+            "observationStatus": "OBSERVED", "provider": "openai",
+            "model": "gpt-5.6-luna",
+        }
+        for invalid_value in (1.9, True, "1"):
+            with self.subTest(inputTokens=invalid_value):
+                request = {
+                    "inputTokens": invalid_value, "outputTokens": 1,
+                    "totalTokens": 2, "cachedInputTokens": 0,
+                }
+                with self.assertRaisesRegex(ValueError, "invalid token fields"):
+                    ESTIMATOR.estimate(self.snapshot, {**usage, "requests": [request]})
 
     def test_snapshot_rate_card_is_checksum_protected(self) -> None:
         changed = json.loads(json.dumps(self.snapshot))
@@ -72,6 +119,14 @@ class EstimateAiCostTest(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "checksum"):
             ESTIMATOR.validate_snapshot(changed)
+
+    def test_snapshot_identity_and_provenance_are_checksum_protected(self) -> None:
+        for field in ("snapshotId", "provider", "model", "effectiveFrom", "sources"):
+            with self.subTest(field=field):
+                changed = json.loads(json.dumps(self.snapshot))
+                changed[field] = "changed" if field != "sources" else ["https://example.com"]
+                with self.assertRaisesRegex(ValueError, "snapshot checksum"):
+                    ESTIMATOR.validate_snapshot(changed)
 
 
 if __name__ == "__main__":

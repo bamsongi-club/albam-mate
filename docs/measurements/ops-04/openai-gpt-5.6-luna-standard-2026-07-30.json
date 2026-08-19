@@ -19,6 +19,7 @@
     "shortContextMaximumInputTokens": 272000
   },
   "rateCardChecksumSha256": "50fe86838f93e8788ad8360fd780b716e30132573bd736bdf6bd0c1831e13d7c",
+  "snapshotChecksumSha256": "4fcaa7afd3e6ec6f0f223051d06d488ddfb48c4e17939fd462122868e94a22bb",
   "calculationPolicy": {
     "formula": "inputTokens * inputUsd / unitTokens + outputTokens * outputUsd / unitTokens",
     "cachedInputPolicy": "NO_OBSERVATION_WHEN_NONZERO_OR_UNKNOWN",

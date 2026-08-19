@@ -24,8 +24,8 @@ def canonical_sha256(value: Any) -> str:
 def validate_snapshot(snapshot: dict[str, Any]) -> None:
     required = {
         "schemaVersion", "snapshotId", "provider", "model", "currency",
-        "billingMode", "effectiveFrom", "sources", "rateCard",
-        "rateCardChecksumSha256", "calculationPolicy",
+        "billingMode", "effectiveFrom", "retrievedAt", "sources", "rateCard",
+        "rateCardChecksumSha256", "snapshotChecksumSha256", "calculationPolicy",
     }
     missing = sorted(required - set(snapshot))
     if missing:
@@ -37,6 +37,12 @@ def validate_snapshot(snapshot: dict[str, Any]) -> None:
     actual_checksum = canonical_sha256(snapshot["rateCard"])
     if actual_checksum != snapshot["rateCardChecksumSha256"]:
         raise ValueError("rateCard checksum does not match the snapshot")
+    snapshot_payload = {
+        key: value for key, value in snapshot.items()
+        if key != "snapshotChecksumSha256"
+    }
+    if canonical_sha256(snapshot_payload) != snapshot["snapshotChecksumSha256"]:
+        raise ValueError("snapshot checksum does not match the snapshot")
 
 
 def no_observation(snapshot: dict[str, Any], reason: str) -> dict[str, Any]:
@@ -74,17 +80,20 @@ def estimate(snapshot: dict[str, Any], usage: dict[str, Any]) -> dict[str, Any]:
 
     for index, request in enumerate(requests):
         try:
-            input_tokens = int(request["inputTokens"])
-            output_tokens = int(request["outputTokens"])
-            total_tokens = int(request["totalTokens"])
-            cached_input_tokens = request.get("cachedInputTokens")
-        except (KeyError, TypeError, ValueError) as error:
+            input_tokens = request["inputTokens"]
+            output_tokens = request["outputTokens"]
+            total_tokens = request["totalTokens"]
+        except (KeyError, TypeError) as error:
             raise ValueError(f"request[{index}] has invalid token fields") from error
-        if input_tokens < 0 or output_tokens < 0 or total_tokens < 0:
+        token_counts = (input_tokens, output_tokens, total_tokens)
+        if any(type(value) is not int for value in token_counts):
+            raise ValueError(f"request[{index}] has invalid token fields")
+        if any(value < 0 for value in token_counts):
             raise ValueError(f"request[{index}] token counts must be non-negative")
         if total_tokens != input_tokens + output_tokens:
             raise ValueError(f"request[{index}] totalTokens does not match input + output")
-        if cached_input_tokens not in (None, 0):
+        cached_input_tokens = request.get("cachedInputTokens")
+        if type(cached_input_tokens) is not int or cached_input_tokens != 0:
             return no_observation(snapshot, "CACHED_INPUT_NOT_MEASURED")
         if input_tokens > maximum_input:
             return no_observation(snapshot, "LONG_CONTEXT_PRICE_NOT_REPRESENTED")

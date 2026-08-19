@@ -1,6 +1,6 @@
 # P2 운영 관측 런북
 
-> **문서 상태: active · 계약 정본 · OPS-01 구현·AWS 실측 완료 · OPS-04 구현·로컬 검증 완료 · 최종 검증일: 2026-08-19**
+> **문서 상태: active · 계약 정본 · OPS-01 구현·AWS 실측 완료 · OPS-04 부분 구현·부분 로컬 검증 · 최종 검증일: 2026-08-19**
 >
 > 이 문서는 `OPS-01`~`OPS-05`의 metric·log 허용 목록, 경고 대응과 전체 스택 계획 종료·재기동 계약을 소유한다. `OPS-01-AC1`~`AC3`은 [#730](https://github.com/bamsongi-club/albam-mate/issues/730), `OPS-01-AC4`~`AC7`은 [#731](https://github.com/bamsongi-club/albam-mate/issues/731)의 앱·운영 CLI·인프라와 AWS 수용 실행에서 검증됐다.
 
@@ -11,8 +11,8 @@
 | 구분 | 현재 판정 | 완료 증거 |
 | --- | --- | --- |
 | 이 문서의 metric·log·alarm·상태 전이 계약 | 확정 | 이 문서와 연결 정본의 링크·회귀 검사 |
-| 애플리케이션 OTLP·JSON logging | `OPS-01-AC1`~`AC3` 구현·자동 검증 완료, OPS-02 HTTP·JVM·Tomcat·Hikari·Nginx timing 원천 범위 부분 구현·자동 검증, OPS-04 usage·cost-warning meter 구현·자동 검증 완료 | OPS-01 앱 [#764](https://github.com/bamsongi-club/albam-mate/pull/764), merge `0fa8285a019fafbb1d7caa65baa30cc8446e2c89`; OPS-02 production 설정·자동 검증; OPS-04 #852 소비 결과와 #872 로컬 통합 검증 |
-| 인프라 수집·상태 정본·경고 제어·Scheduler | `OPS-01-AC1`~`AC7` 구현·자동 검증 완료, OPS-02 infra 미구현, OPS-04 dashboard·cost-warning alarm·비용 계산 구현·로컬 검증 완료 | `albam-mate-infra` [#14](https://github.com/bamsongi-club/albam-mate-infra/pull/14)·[#16](https://github.com/bamsongi-club/albam-mate-infra/pull/16)·[#17](https://github.com/bamsongi-club/albam-mate-infra/pull/17)·[#18](https://github.com/bamsongi-club/albam-mate-infra/pull/18)·[#19](https://github.com/bamsongi-club/albam-mate-infra/pull/19)·[#20](https://github.com/bamsongi-club/albam-mate-infra/pull/20)·[#22](https://github.com/bamsongi-club/albam-mate-infra/pull/22), main `ce8913c01937b7db71264008bd24a851a1c6d4d4`; OPS-04 별도 워크트리 로컬 검증 |
+| 애플리케이션 OTLP·JSON logging | `OPS-01-AC1`~`AC3` 구현·자동 검증 완료, OPS-02 HTTP·JVM·Tomcat·Hikari·Nginx timing 원천 범위 부분 구현·자동 검증, OPS-04 usage·cost-warning meter 구현·자동 검증 완료. 단, 요청별 가격 적격성 신호는 미구현 | OPS-01 앱 [#764](https://github.com/bamsongi-club/albam-mate/pull/764), merge `0fa8285a019fafbb1d7caa65baa30cc8446e2c89`; OPS-02 production 설정·자동 검증; OPS-04 #852 소비 결과와 #872 계산기 검증 |
+| 인프라 수집·상태 정본·경고 제어·Scheduler | `OPS-01-AC1`~`AC7` 구현·자동 검증 완료, OPS-02 infra 미구현, OPS-04 dashboard·cost-warning alarm 골격 구현. 비용 panel의 미관측 경계와 실제 cardinality 배포 gate는 미구현 | `albam-mate-infra` [#14](https://github.com/bamsongi-club/albam-mate-infra/pull/14)·[#16](https://github.com/bamsongi-club/albam-mate-infra/pull/16)·[#17](https://github.com/bamsongi-club/albam-mate-infra/pull/17)·[#18](https://github.com/bamsongi-club/albam-mate-infra/pull/18)·[#19](https://github.com/bamsongi-club/albam-mate-infra/pull/19)·[#20](https://github.com/bamsongi-club/albam-mate-infra/pull/20)·[#22](https://github.com/bamsongi-club/albam-mate-infra/pull/22), main `ce8913c01937b7db71264008bd24a851a1c6d4d4`; OPS-04 [#42](https://github.com/bamsongi-club/albam-mate-infra/pull/42) |
 | AWS 배포와 실제 수집 | `OPS-01-AC1`~`AC7` 임시 배포·실측·철거 완료, OPS-02·OPS-04 미배포·미측정 | OPS-01 #730 앱 release `8e25bbc6ee2c1b68aa28247b9c2fdbf7b8e88784`, 아래 #730·#731 T1~T3와 Terraform teardown; OPS-02·OPS-04는 같은 release의 metric·log 도착과 수집 공백 검사 필요 |
 | 경고·복구 | #731 OPS-01 범위 실측 완료, OPS-02·OPS-04 미측정 | OPS-01 대표 alarm `OK → ALARM → OK`, SNS 경고·복구 실제 수신, 최종 receipt `79bc6489-994a-4ba5-80ae-b43b075d8020`; OPS-02와 OPS-04 `$4` warning·복구 실측 필요 |
 
@@ -158,13 +158,13 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 
 
 ### OPS-04 가격·비용 계산과 경고 경계
 
-OpenAI `gpt-5.6-luna` standard short-context 가격은 [OPS-04 가격 snapshot](../measurements/ops-04/README.md)에 고정한다. 입력 USD 0.20/1M token과 출력 USD 1.20/1M token으로 `assistant.usage.tokens`를 독립 재계산하며, dashboard 값은 실제 청구서가 아닌 추정값이다. cached input을 분리하지 못하거나 요청별 input이 272,000 token을 넘으면 임의의 요율이나 비용 `0`을 적용하지 않고 `NO_OBSERVATION`으로 남긴다.
+OpenAI `gpt-5.6-luna` standard short-context 가격은 [OPS-04 가격 snapshot](../measurements/ops-04/README.md)에 고정한다. 정제된 요청별 입력에서 `cachedInputTokens`가 명시적인 정수 `0`이고 input이 272,000 token 이하일 때만 입력 USD 0.20/1M token과 출력 USD 1.20/1M token으로 독립 재계산한다. 그 외에는 임의의 요율이나 비용 `0`을 적용하지 않고 `NO_OBSERVATION`으로 남긴다.
 
 #872 승인 T1의 `outcome` 축은 #852가 고정한 실제 bounded tag `status`로 조회한다. OPS-04가 같은 의미의 `outcome` tag를 중복 추가하거나 공유 meter 계약을 확장하지 않는다.
 
-비공개 인프라의 `${project_name}-${stack_id}-ops04` dashboard는 같은 `release`의 요청 수, input/output/total token, 공식 snapshot 추정 비용과 `$4` warning 신호를 표시한다. cost-warning alarm은 SNS warning과 OK action을 모두 가지며, 예상 밖 비용 신호이므로 `PLANNED_STOP` alarm 억제 목록에는 넣지 않는다. 통제된 `OK → ALARM → OK`는 별도 alert-cycle 허용 목록과 receipt로 검증한다. 정적 dashboard·alarm 구현은 AWS metric 도착, 이메일 수신, 복구와 teardown을 증명하지 않는다.
+현재 공유 meter는 요청별 cached input과 long-context 가격 적격성을 전달하지 않는다. 따라서 [인프라 #42](https://github.com/bamsongi-club/albam-mate-infra/pull/42)의 집계 token 기반 비용 panel과 `$4` alarm은 배포 가능한 숫자 비용 근거가 아니며, bounded 가격 적격성 신호와 미관측 query가 구현되기 전에는 `NO_OBSERVATION`으로 취급한다. cost-warning alarm의 SNS warning·OK action과 통제된 `OK → ALARM → OK`도 그 이후 별도 alert-cycle 허용 목록과 receipt로 검증한다. 앱의 `assistant.cost.warning` meter는 애플리케이션 상태 신호일 뿐 실제 청구서나 CloudWatch alarm을 대체하지 않는다.
 
-관측 자체의 월 비용은 기존 host/application 관측을 제외한 OPS-04 증분만 계산한다. release별 provider 하나와 현재 유한 status 조합을 전제로 31일·60초 export, 최대 128개 bounded series, export당 series별 최대 2 datapoint, datapoint당 600 bytes, OTel USD 0.50/GB, 유료 dashboard 1개 USD 3, standard alarm 1개 USD 0.10을 보수적으로 적용한 현재 추정은 월 USD 6.53이다. 128개는 무제한 cardinality 예측이 아니라 배포 중단 상한이다. series·datapoint·가격 가정 중 하나라도 넘거나 누락되면 `$10 이하`로 간주하지 않고 재계산·재승인을 요구한다. OPS-04는 새 중앙 log group을 만들지 않아 증분 log 비용은 0으로 계산한다.
+인프라 #42의 월 USD 6.53은 OPS-04 dashboard 1개·standard alarm 1개와 수동 입력한 128 series 가정만 포함한 좁은 계획 추정이며, 승인 T5의 PASS 근거가 아니다. 128은 실제 meter별 허용 tag 조합에서 산출되지 않았고 배포 차단 검사에도 연결되지 않았다. T5는 P2가 새로 수집하는 application OTLP metric의 meter별 series·datapoint, 중앙 로그 수집량·보존, alarm·dashboard를 모두 목록화해 합산하고 기존 host 관측 비용은 별도 항목으로 표시해야 한다. 실제 cardinality 산출과 배포 전 상한 검사가 구현되고 전체 P2 비용이 재계산·승인되기 전에는 `$10 이하` PASS를 주장하지 않는다.
 
 채팅 보존의 복구 판정은 앱 인스턴스 메모리나 domain meter가 합성하지 않는다. release 전체의 `failures`와 `completed` 신호를 함께 평가하는 비공개 infra alarm이 소유하며, 그 alarm 구현·배포·실측은 미완료다.
 
@@ -303,4 +303,4 @@ health가 성공했더라도 alarm action 활성화, schedule 삭제 또는 `ACT
 
 상태 조회·계획 종료·연장·재기동·복구 명령은 [`albam-mate-infra`](https://github.com/bamsongi-club/albam-mate-infra/tree/ce8913c01937b7db71264008bd24a851a1c6d4d4)의 단일 운영 CLI가 소유한다. 반복 subcommand와 필수 인자는 [COMMANDS](../COMMANDS.md#운영-compose)에 등록하며, 세부 bootstrap·배포·receipt 절차는 인프라 저장소 README를 따른다.
 
-> 문서 관리: 소유자 `밤송이클럽 개발·운영 팀` · 최종 검증일 `2026-08-18` · 폐기 조건 `상태 전이·경고 대응 계약을 검증된 단일 운영 CLI의 생성형 문서가 완전히 대체할 때`
+> 문서 관리: 소유자 `밤송이클럽 개발·운영 팀` · 최종 검증일 `2026-08-19` · 폐기 조건 `상태 전이·경고 대응 계약을 검증된 단일 운영 CLI의 생성형 문서가 완전히 대체할 때`
