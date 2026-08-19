@@ -78,6 +78,7 @@ import io.opentelemetry.proto.metrics.v1.NumberDataPoint;
 	"ALBAM_MATE_ROLE=app1",
 	"ALBAM_MATE_INSTANCE_ID=postgres-test",
 	"ALBAM_MATE_RELEASE=test-release",
+	"management.otlp.metrics.export.enabled=true",
 	"spring.datasource.hikari.maximum-pool-size=1",
 	"spring.datasource.hikari.minimum-idle=0"
 })

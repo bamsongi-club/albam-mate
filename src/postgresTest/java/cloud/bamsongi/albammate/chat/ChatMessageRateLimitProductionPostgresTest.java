@@ -79,6 +79,7 @@ import tools.jackson.databind.ObjectMapper;
 @ActiveProfiles("production")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
 	"app.notification.relay.enabled=false",
+	"management.otlp.metrics.export.enabled=false",
 	"app.security.cookie.secure=false"
 })
 @Import(ChatMessageRateLimitProductionPostgresTest.TestBeans.class)

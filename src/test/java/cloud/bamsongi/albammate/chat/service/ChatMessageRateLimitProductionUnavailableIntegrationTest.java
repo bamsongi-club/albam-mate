@@ -44,6 +44,7 @@ import cloud.bamsongi.albammate.room.repository.RoomRepository;
 	"app.redis.host=127.0.0.1",
 	"app.redis.port=1",
 	"app.monitoring.upstream-role=app1",
+	"management.otlp.metrics.export.enabled=false",
 	"app.notification.relay.enabled=false"
 })
 @Import(ChatMessageRateLimitUnavailableIntegrationTest.TestBeans.class)

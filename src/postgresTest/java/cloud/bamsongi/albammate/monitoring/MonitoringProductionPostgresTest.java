@@ -79,6 +79,7 @@ import jakarta.persistence.OptimisticLockException;
 	"ALBAM_MATE_ROLE=app1",
 	"ALBAM_MATE_INSTANCE_ID=postgres-test",
 	"ALBAM_MATE_RELEASE=test-release",
+	"management.otlp.metrics.export.enabled=true",
 	"logging.file.name=build/test-results/monitoring/production-structured.json"
 })
 class MonitoringProductionPostgresTest {

@@ -234,6 +234,8 @@ class ChatK6SourceContractTest {
 	}
 
 	private String file(String path) throws IOException {
-		return Files.readString(REPOSITORY_ROOT.resolve(path));
+		return Files.readString(REPOSITORY_ROOT.resolve(path), java.nio.charset.StandardCharsets.UTF_8)
+			.replace("\r\n", "\n")
+			.replace('\r', '\n');
 	}
 }
