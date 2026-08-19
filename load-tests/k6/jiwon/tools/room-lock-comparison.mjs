@@ -470,7 +470,13 @@ function normalizedComparisonInput(input) {
     comparison,
   };
   const fixtureId = `room-k6-${scenario}-${digest(JSON.stringify(options))}`;
-  return { ...comparison, runId, subcase, fixtureId, options };
+  return {
+    ...comparison,
+    runId,
+    subcase,
+    fixtureId,
+    options: { ...options, fixtureId },
+  };
 }
 
 function addUserTarget(targets, planner, target) {
