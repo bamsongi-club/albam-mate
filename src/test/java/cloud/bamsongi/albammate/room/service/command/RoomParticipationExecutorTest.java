@@ -21,6 +21,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
@@ -49,6 +50,7 @@ class RoomParticipationExecutorTest {
 	private ParticipationRepository participationRepository;
 	@Mock
 	private RoomChangeEventRecorder roomChangeEventRecorder;
+	private final ApplicationEventPublisher eventPublisher = event -> {};
 	@Mock
 	private Room room;
 
@@ -187,6 +189,7 @@ class RoomParticipationExecutorTest {
 	}
 
 	private RoomParticipationExecutor executor() {
-		return new RoomParticipationExecutor(roomRepository, participationRepository, roomChangeEventRecorder);
+		return new RoomParticipationExecutor(
+			roomRepository, participationRepository, roomChangeEventRecorder, eventPublisher);
 	}
 }

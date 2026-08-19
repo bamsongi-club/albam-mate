@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +14,7 @@ import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.contract.ParticipationJoinedEvent;
 import cloud.bamsongi.albammate.room.contract.RoomChangeEventRecorder;
+import cloud.bamsongi.albammate.room.contract.RoomParticipantChanged;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import cloud.bamsongi.albammate.room.entity.Participation;
 import cloud.bamsongi.albammate.room.entity.Room;
@@ -28,14 +30,17 @@ class RoomParticipationExecutor {
 	private final RoomRepository roomRepository;
 	private final ParticipationRepository participationRepository;
 	private final RoomChangeEventRecorder roomChangeEventRecorder;
+	private final ApplicationEventPublisher eventPublisher;
 
 	RoomParticipationExecutor(
 		RoomRepository roomRepository,
 		ParticipationRepository participationRepository,
-		RoomChangeEventRecorder roomChangeEventRecorder) {
+		RoomChangeEventRecorder roomChangeEventRecorder,
+		ApplicationEventPublisher eventPublisher) {
 		this.roomRepository = Objects.requireNonNull(roomRepository, "roomRepository");
 		this.participationRepository = Objects.requireNonNull(participationRepository, "participationRepository");
 		this.roomChangeEventRecorder = Objects.requireNonNull(roomChangeEventRecorder, "roomChangeEventRecorder");
+		this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher");
 	}
 
 	/** 요청 시각의 방 상태를 보정한 뒤 신규 또는 취소된 참가 관계를 활성화한다. */
@@ -67,6 +72,8 @@ class RoomParticipationExecutor {
 		participationRepository.save(participation);
 		roomChangeEventRecorder.record(
 			new ParticipationJoinedEvent(room.getId(), requestTime), List.of(room.getHostUserId()));
+		eventPublisher.publishEvent(
+			new RoomParticipantChanged(room.getId(), currentUserId, RoomParticipantChanged.Kind.ENTERED, requestTime));
 		return RoomParticipationResponse.from(room, ParticipationStatus.ACTIVE);
 	}
 

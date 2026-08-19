@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +14,7 @@ import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.contract.ParticipationCanceledEvent;
 import cloud.bamsongi.albammate.room.contract.RoomChangeEventRecorder;
+import cloud.bamsongi.albammate.room.contract.RoomParticipantChanged;
 import cloud.bamsongi.albammate.room.contract.WaitlistPromotedEvent;
 import cloud.bamsongi.albammate.room.dto.RoomParticipationResponse;
 import cloud.bamsongi.albammate.room.entity.Participation;
@@ -31,17 +33,20 @@ class RoomParticipationCancelExecutor {
 	private final ParticipationRepository participationRepository;
 	private final RoomWaitlistRepository roomWaitlistRepository;
 	private final RoomChangeEventRecorder roomChangeEventRecorder;
+	private final ApplicationEventPublisher eventPublisher;
 
 	RoomParticipationCancelExecutor(
 		RoomRepository roomRepository,
 		ParticipationRepository participationRepository,
 		RoomWaitlistRepository roomWaitlistRepository,
 		RoomChangeEventRecorder roomChangeEventRecorder,
+		ApplicationEventPublisher eventPublisher,
 		RoomWaitlistMetrics... ignoredMetrics) {
 		this.roomRepository = Objects.requireNonNull(roomRepository, "roomRepository");
 		this.participationRepository = Objects.requireNonNull(participationRepository, "participationRepository");
 		this.roomWaitlistRepository = Objects.requireNonNull(roomWaitlistRepository, "roomWaitlistRepository");
 		this.roomChangeEventRecorder = Objects.requireNonNull(roomChangeEventRecorder, "roomChangeEventRecorder");
+		this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher");
 	}
 
 	/** 요청 시각의 방 상태를 보정한 뒤 활성 참가 관계를 취소하고 점유 인원을 갱신한다. */
@@ -72,6 +77,8 @@ class RoomParticipationCancelExecutor {
 		participation.cancel(requestTime);
 		participationRepository.save(participation);
 		participationRepository.flush();
+		eventPublisher.publishEvent(
+			new RoomParticipantChanged(room.getId(), currentUserId, RoomParticipantChanged.Kind.LEFT, requestTime));
 		Optional<Long> promotedUserId = promoteFirstWaiting(room, requestTime, promotionAttemptedObserver);
 		if (promotedUserId.isPresent()) {
 			roomChangeEventRecorder.record(
