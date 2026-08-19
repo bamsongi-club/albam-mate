@@ -163,7 +163,8 @@ class P2MonitoringContractTest {
 		assertTrue(ops02Row.contains("앱 CI·인프라 수집·query·주입·복구·teardown 자동 검증 완료"));
 		assertTrue(ops02Row.contains("고정 SHA 임시 AWS 검증 배포·철거 완료"));
 		assertTrue(ops02Row.endsWith("| `AC1`~`AC4`, `AC6` 실측 완료, `AC5` 조건부 제외 |"));
-		assertTrue(readme.contains("[#732](https://github.com/bamsongi-club/albam-mate/issues/732)의 `OPS-02-AC1`~`AC4`, `AC6`도"));
+		assertTrue(readme
+			.contains("[#732](https://github.com/bamsongi-club/albam-mate/issues/732)의 `OPS-02-AC1`~`AC4`, `AC6`도"));
 		assertTrue(readme.contains("`AC5`는 외부 API·AI 기능이 배포되지 않은 현재 환경에서 조건부 제외"));
 		assertFalse(ops02Row.contains("| 미배포 | 미측정 |"));
 	}
