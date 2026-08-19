@@ -467,9 +467,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          packet_path="$(mktemp)"
-          metrics_path="$(mktemp)"
-          trap 'rm -f "$packet_path" "$metrics_path"' EXIT
+          artifact_dir="$(mktemp -d)"
+          packet_path="$artifact_dir/packet.json"
+          metrics_path="$artifact_dir/metrics.json"
+          trap 'rm -rf "$artifact_dir"' EXIT
           node scripts/search-evaluation/search-candidate-comparison.mjs \
             --packet \
             --manifest docs/p2/search-evaluation/search-candidate-semantic-30-input.json \
