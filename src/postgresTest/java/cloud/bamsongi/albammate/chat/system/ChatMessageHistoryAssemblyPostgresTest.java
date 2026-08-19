@@ -100,6 +100,44 @@ class ChatMessageHistoryAssemblyPostgresTest {
 	}
 
 	@Test
+	void T1_대상_공개_프로필을_찾지_못해도_이력_조회가_실패하지_않고_고정_대체_표시명을_반환한다() {
+		activateGate();
+		long hostUserId = insertUser("history-fallback-host@example.com", "방장");
+		Room room = createRoom(hostUserId, 2);
+		long phantomSubjectUserId = insertPhantomSystemMessageWithMissingSubject(room.getId());
+
+		ChatMessagePageResponse page = historyQueryService.history(hostUserId, room.getId(), null, 10);
+
+		assertEquals(1, page.messages().size());
+		ChatMessageResponse response = page.messages().getFirst();
+		assertEquals(ChatMessageType.SYSTEM, response.messageType());
+		assertEquals("알 수 없는 사용자님이 입장했어요.", response.content());
+		assertEquals("알 수 없는 사용자", response.subject().nickname());
+		assertNull(response.subject().profileImageUrl());
+		assertTrue(phantomSubjectUserId > 0);
+	}
+
+	/**
+	 * {@code fk_chat_messages_subject_user}는 {@code ON DELETE NO ACTION}이라 참가·채팅 이력이 있는 사용자를
+	 * 삭제할 수 없다. 대상 공개 프로필 미조회 fallback은 실제 운영에서 사용자 삭제로는 재현할 수 없으므로, 세션
+	 * 트리거를 잠시 끄고 존재하지 않는 사용자를 가리키는 SYSTEM 행을 직접 삽입해 그 상태를 재현한다.
+	 */
+	private long insertPhantomSystemMessageWithMissingSubject(long roomId) {
+		Long chatRoomId = chatRoomRepository.findByRoomId(roomId).orElseThrow().getId();
+		long phantomSubjectUserId = jdbcTemplate.queryForObject("select coalesce(max(id), 0) + 1000 from users", Long.class);
+		jdbcTemplate.execute("set session_replication_role = 'replica'");
+		try {
+			jdbcTemplate.update(
+				"insert into chat_messages (chat_room_id, message_type, system_event_key, subject_user_id, "
+					+ "created_at) values (?, 'SYSTEM', 'PARTICIPANT_ENTERED', ?, current_timestamp)",
+				chatRoomId, phantomSubjectUserId);
+		} finally {
+			jdbcTemplate.execute("set session_replication_role = 'origin'");
+		}
+		return phantomSubjectUserId;
+	}
+
+	@Test
 	void T2_사용자_메시지와_SYSTEM_안내가_섞인_이력에서_beforeMessageId_구간이_끊기지_않고_size가_합산된다() {
 		activateGate();
 		long hostUserId = insertUser("page-host@example.com", "방장");

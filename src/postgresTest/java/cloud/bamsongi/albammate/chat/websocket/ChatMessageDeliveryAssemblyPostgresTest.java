@@ -4,12 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
@@ -137,6 +140,64 @@ class ChatMessageDeliveryAssemblyPostgresTest {
 			.getFirst()
 			.getId();
 		assertEquals(lastMessageId, connection.lastDeliveredMessageId.get());
+	}
+
+	@Test
+	void T3_실시간_전달_중_전송_실패로_연결이_닫혀도_재연결_catch_up이_중단된_지점부터_중복_누락_없이_복구한다() throws Exception {
+		activateGate();
+		long hostUserId = insertUser("delivery-recover-host@example.com", "방장");
+		long participantUserId = insertUser("delivery-recover-member@example.com", "참가자");
+		Room room = createRoom(hostUserId, 2);
+		Long chatRoomId = chatRoomRepository.findByRoomId(room.getId()).orElseThrow().getId();
+
+		roomParticipationService.participate(participantUserId, room.getId());
+		insertUserMessage(chatRoomId, hostUserId, "recover-client-1", "안녕하세요");
+		roomParticipationCancelService.cancelParticipation(participantUserId, room.getId());
+
+		WebSocketSession failingSession = mock(WebSocketSession.class);
+		when(failingSession.isOpen()).thenReturn(true);
+		doNothing().doThrow(new IOException("transport failure")).when(failingSession).sendMessage(any());
+		ChatConnectionRegistry connectionRegistry = mock(ChatConnectionRegistry.class);
+		when(connectionRegistry.shouldStopDelivery(any())).thenReturn(false);
+		ChatWebSocketMetrics metrics = new ChatWebSocketMetrics(new SimpleMeterRegistry());
+		ChatMessageDeliveryService deliveryService = new ChatMessageDeliveryService(
+			connectionRegistry, chatMessageRepository, userQuery, responseAssembler, metrics,
+			objectMapper, Clock.fixed(NOW.plusSeconds(7200), ZoneOffset.UTC));
+		ChatRoomConnection firstConnection = new ChatRoomConnection(
+			failingSession, room.getId(), chatRoomId, hostUserId, 0L);
+
+		deliveryService.deliverNewMessages(firstConnection);
+
+		verify(connectionRegistry, times(1)).closeForTransportFailure(failingSession);
+		long deliveredBeforeFailure = firstConnection.lastDeliveredMessageId.get();
+		assertTrue(deliveredBeforeFailure > 0, "첫 안내는 전송에 성공해 기준이 그 메시지까지 전진해야 한다");
+
+		WebSocketSession reconnectedSession = mock(WebSocketSession.class);
+		when(reconnectedSession.isOpen()).thenReturn(true);
+		ChatRoomConnection reconnectedConnection = new ChatRoomConnection(
+			reconnectedSession, room.getId(), chatRoomId, hostUserId, deliveredBeforeFailure);
+
+		deliveryService.deliverNewMessages(reconnectedConnection);
+
+		verify(connectionRegistry, never()).closeForTransportFailure(reconnectedSession);
+		ArgumentCaptor<TextMessage> recoveredCaptor = ArgumentCaptor.forClass(TextMessage.class);
+		verify(reconnectedSession, times(2)).sendMessage(recoveredCaptor.capture());
+		List<JsonNode> recovered = recoveredCaptor.getAllValues().stream()
+			.map(text -> objectMapper.readTree(text.getPayload()))
+			.toList();
+
+		JsonNode userMessage = recovered.get(0).get("message");
+		assertEquals("USER", userMessage.get("messageType").asText());
+		assertEquals("안녕하세요", userMessage.get("content").asText());
+		JsonNode left = recovered.get(1).get("message");
+		assertEquals("PARTICIPANT_LEFT", left.get("systemEvent").asText());
+		assertEquals("참가자님이 나갔어요.", left.get("content").asText());
+
+		long lastMessageId = chatMessageRepository
+			.findByChatRoomIdOrderByIdDesc(chatRoomId, org.springframework.data.domain.Pageable.unpaged())
+			.getFirst()
+			.getId();
+		assertEquals(lastMessageId, reconnectedConnection.lastDeliveredMessageId.get(), "복구 후 기준이 마지막 메시지까지 전진한다");
 	}
 
 	private void insertUserMessage(long chatRoomId, long senderUserId, String clientMessageId, String content) {

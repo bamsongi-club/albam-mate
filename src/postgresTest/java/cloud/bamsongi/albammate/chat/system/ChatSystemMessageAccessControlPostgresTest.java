@@ -97,6 +97,19 @@ class ChatSystemMessageAccessControlPostgresTest {
 		assertForbidden(() -> historyQueryService.history(hostUserId, room.getId(), null, 10));
 	}
 
+	@Test
+	void T4_FINISHED_방의_SYSTEM_안내_이력_조회도_참가자였던_사용자에게_거절된다() {
+		activateGate();
+		long hostUserId = insertUser("finished-room-host@example.com", "방장");
+		long participantUserId = insertUser("finished-room-member@example.com", "참가자");
+		Room room = createRoom(hostUserId, 3);
+		roomParticipationService.participate(participantUserId, room.getId());
+		jdbcTemplate.update("update rooms set status = 'FINISHED' where id = ?", room.getId());
+
+		assertForbidden(() -> historyQueryService.history(participantUserId, room.getId(), null, 10));
+		assertForbidden(() -> historyQueryService.history(hostUserId, room.getId(), null, 10));
+	}
+
 	private void assertForbidden(org.junit.jupiter.api.function.Executable operation) {
 		BusinessException exception = assertThrows(BusinessException.class, operation);
 		assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
