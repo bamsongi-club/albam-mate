@@ -22,6 +22,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 
+import cloud.bamsongi.albammate.chat.contract.ChatRoomPreviewQuery;
 import cloud.bamsongi.albammate.game.contract.GameQuery;
 import cloud.bamsongi.albammate.game.contract.GameSummary;
 import cloud.bamsongi.albammate.room.entity.Room;
@@ -42,6 +43,8 @@ class MyRoomQueryServiceTest {
 	private MyRoomReadService myRoomReadService;
 	@Mock
 	private GameQuery gameQuery;
+	@Mock
+	private ChatRoomPreviewQuery chatRoomPreviewQuery;
 
 	private MyRoomQueryService myRoomQueryService;
 
@@ -51,7 +54,8 @@ class MyRoomQueryServiceTest {
 			myRoomReadService,
 			gameQuery,
 			Clock.fixed(NOW, ZoneOffset.UTC),
-			new RoomActionAvailabilityEvaluator());
+			new RoomActionAvailabilityEvaluator(),
+			chatRoomPreviewQuery);
 	}
 
 	@Test
@@ -68,6 +72,8 @@ class MyRoomQueryServiceTest {
 				Map.of(
 					7L, new GameSummary(7L, 1007L, "카탄"),
 					8L, new GameSummary(8L, 1008L, "아줄")));
+		when(chatRoomPreviewQuery.findPreviews(42L, Set.of(1L, 2L)))
+			.thenReturn(Map.of(2L, new ChatRoomPreviewQuery.ChatRoomPreview("안녕하세요", NOW, 3)));
 
 		var response = myRoomQueryService.findPage(42L, MyRoomRole.ALL, 0, 10);
 
@@ -79,6 +85,10 @@ class MyRoomQueryServiceTest {
 		assertFalse(response.content().get(1).joinable());
 		assertEquals(3, response.content().get(1).participantCount());
 		assertEquals(1, response.content().get(1).remainingRecruitmentSeats());
+		assertNull(response.content().get(0).lastMessagePreview());
+		assertEquals(0, response.content().get(0).unreadCount());
+		assertEquals("안녕하세요", response.content().get(1).lastMessagePreview());
+		assertEquals(3, response.content().get(1).unreadCount());
 		verify(gameQuery).findSummariesByIds(Set.of(7L, 8L));
 		verify(myRoomReadService).findMyRoomsAt(42L, MyRoomRole.ALL, pageable, NOW);
 	}
