@@ -1,0 +1,1999 @@
+{
+  "schema": "k6-campaign-manifest-v3",
+  "kind": "room-t1-t2-repeated-baseline",
+  "campaignId": "room-t1-t2-repeated-baseline-2026-08-18",
+  "issueNumber": 778,
+  "campaignStatus": "completed-with-limitations",
+  "documentStatus": "current",
+  "reportStatus": "INVALID",
+  "purpose": "Issue #778의 승인된 T1-T4 계약을 고정 release와 전용 AWS stack에서 반복 실행하고, 유효성 누락을 숨기지 않은 기준선 ledger로 남긴다.",
+  "contract": {
+    "source": "Issue #778 승인 최신 T1-T4 댓글",
+    "validTIds": [
+      "T1",
+      "T2",
+      "T3",
+      "T4"
+    ],
+    "requiredConditions": 8,
+    "requiredRepeatsPerCondition": 3,
+    "requiredIndependentRuns": 24,
+    "startSkewGate": "room_start_skew_ms max < 1000 ms",
+    "outcomeEquation": "success + business + concurrency + unexpected = all ROOM requests",
+    "invalidDisposition": "필수 provenance, outcome별 지연, p99 또는 T3 계측 누락 run은 INVALID로 유효 PASS에 포함하지 않음"
+  },
+  "window": {
+    "startedAtUtc": "2026-08-18T03:50:29Z",
+    "endedAtUtc": "2026-08-18T05:32:05Z"
+  },
+  "provenance": {
+    "sourceShaValues": [
+      "92f5f667b732a5b6b9e6cd7dff5befd13354148a"
+    ],
+    "deployedReleaseValues": [
+      "92f5f667b732a5b6b9e6cd7dff5befd13354148a"
+    ],
+    "sameSourceAcrossRuns": true,
+    "sameReleaseAcrossRuns": true,
+    "targetEnvironment": "aws-dedicated-private-loadtest",
+    "stackId": "perf-jiwon-778",
+    "portableBundle": {
+      "kind": "albam-mate-room-k6-bundle",
+      "schemaVersion": 2,
+      "fixtureSchemaVersion": 2,
+      "cleanSourceRuns": 24,
+      "sourceDirtyRuns": 0
+    },
+    "k6VersionValues": [
+      "1.3.0"
+    ]
+  },
+  "coverage": [
+    {
+      "scenario": "t1",
+      "subcase": null,
+      "condition": "stress / hot / c4",
+      "profile": "stress",
+      "mode": "hot",
+      "concurrency": 4,
+      "requiredRuns": 3,
+      "actualRuns": 3,
+      "transportPassRuns": 3,
+      "validRuns": 0,
+      "status": "INVALID"
+    },
+    {
+      "scenario": "t1",
+      "subcase": null,
+      "condition": "stress / hot / c8",
+      "profile": "stress",
+      "mode": "hot",
+      "concurrency": 8,
+      "requiredRuns": 3,
+      "actualRuns": 3,
+      "transportPassRuns": 3,
+      "validRuns": 0,
+      "status": "INVALID"
+    },
+    {
+      "scenario": "t1",
+      "subcase": null,
+      "condition": "stress / spread / c4",
+      "profile": "stress",
+      "mode": "spread",
+      "concurrency": 4,
+      "requiredRuns": 3,
+      "actualRuns": 3,
+      "transportPassRuns": 3,
+      "validRuns": 0,
+      "status": "INVALID"
+    },
+    {
+      "scenario": "t1",
+      "subcase": null,
+      "condition": "stress / spread / c8",
+      "profile": "stress",
+      "mode": "spread",
+      "concurrency": 8,
+      "requiredRuns": 3,
+      "actualRuns": 3,
+      "transportPassRuns": 3,
+      "validRuns": 0,
+      "status": "INVALID"
+    },
+    {
+      "scenario": "t2",
+      "subcase": "distinct",
+      "condition": "stress / distinct / hot / c4",
+      "profile": "stress",
+      "mode": "hot",
+      "concurrency": 4,
+      "requiredRuns": 3,
+      "actualRuns": 3,
+      "transportPassRuns": 3,
+      "validRuns": 0,
+      "status": "INVALID"
+    },
+    {
+      "scenario": "t2",
+      "subcase": "distinct",
+      "condition": "stress / distinct / hot / c8",
+      "profile": "stress",
+      "mode": "hot",
+      "concurrency": 8,
+      "requiredRuns": 3,
+      "actualRuns": 3,
+      "transportPassRuns": 3,
+      "validRuns": 0,
+      "status": "INVALID"
+    },
+    {
+      "scenario": "t2",
+      "subcase": "distinct",
+      "condition": "stress / distinct / spread / c4",
+      "profile": "stress",
+      "mode": "spread",
+      "concurrency": 4,
+      "requiredRuns": 3,
+      "actualRuns": 3,
+      "transportPassRuns": 3,
+      "validRuns": 0,
+      "status": "INVALID"
+    },
+    {
+      "scenario": "t2",
+      "subcase": "distinct",
+      "condition": "stress / distinct / spread / c8",
+      "profile": "stress",
+      "mode": "spread",
+      "concurrency": 8,
+      "requiredRuns": 3,
+      "actualRuns": 3,
+      "transportPassRuns": 3,
+      "validRuns": 0,
+      "status": "INVALID"
+    }
+  ],
+  "selection": {
+    "plannedRunCount": 24,
+    "includedRunCount": 0,
+    "excludedRunCount": 24,
+    "method": "T1/T2 8개 조건을 조건별 3회씩 실행하고, 각 Run의 reportDisposition을 전체 T1-T4 계약의 유효성 판정과 별도로 기록",
+    "reasonAllExcluded": "24개 Run 모두 T2 outcome별 latency/p99와 T3 retrier·Coordinator·DB·connection 계측이 누락되어 INVALID이며, 공식 보고서 결론 계산에 포함하지 않는다.",
+    "excludedRunUse": "diagnostic-observation-only"
+  },
+  "validity": {
+    "transportStatusCounts": {
+      "PASS": 24,
+      "FAIL": 0,
+      "INVALID": 0
+    },
+    "validRunCounts": {
+      "PASS": 0,
+      "FAIL": 0,
+      "INVALID": 24
+    },
+    "outcomeEquation": {
+      "checkedRuns": 24,
+      "matchingRuns": 24,
+      "mismatchingRuns": 0,
+      "totals": {
+        "requestCount": 720,
+        "successCount": 550,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 170,
+        "unexpectedCount": 0
+      }
+    },
+    "startSkew": {
+      "checkedRuns": 24,
+      "gatePassedRuns": 24,
+      "maximumMs": 3
+    },
+    "invariantDiagnostics": {
+      "beforePassRuns": 24,
+      "afterPassRuns": 24,
+      "additionalT1T2Failures": 0,
+      "t3SignalsPresentRuns": 0,
+      "outcomeLatencyCompleteRuns": 0
+    },
+    "missingRequiredEvidence": [
+      "T2 outcome별 latency p50/p95/p99/max를 outcome별로 수집한 artifact가 없음",
+      "T2 p99가 k6 summary에 없어 null로 보존됨",
+      "T3 retrier/Coordinator attempt·retry·exhausted 분포가 없음",
+      "T3 DB query call/time·transaction duration·lock wait·connection/Hikari pending 신호가 없음",
+      "T3 신호와 run/condition/UTC 구간을 연결한 artifact가 없음",
+      "T1/T2 portable final PASS는 transport/diagnosis 판정일 뿐 전체 T1-T4 계약을 충족한 valid PASS가 아님"
+    ]
+  },
+  "artifactBoundary": {
+    "rawArtifactRetention": "local-only",
+    "repositoryRelativePathTemplate": "build/k6/room/<run-id>/<fixture-id>/",
+    "retainedInGit": [
+      "campaign metadata",
+      "condition coverage and per-run aggregate metrics",
+      "source and deployed release",
+      "non-secret SHA-256 artifact identifiers"
+    ],
+    "prohibitedFromGit": [
+      "password",
+      "token",
+      "CSRF value",
+      "target URL",
+      "fixture/resource ID",
+      "raw SQL",
+      "raw log"
+    ],
+    "independentVerificationLimitation": "raw bundle은 local-only이므로 이 저장소만으로 원자료 내용을 독립 재검증할 수 없다."
+  },
+  "teardown": {
+    "destroyExitCode": 0,
+    "confirmedZeroResources": [
+      "test-owned EC2",
+      "test-owned EBS",
+      "test-owned public IPv4",
+      "test-owned EIP",
+      "test-owned CloudWatch alarm/dashboard"
+    ],
+    "verificationLimitations": [
+      "Terraform state 재조회는 HTTP 403으로 resource count 확인 불가",
+      "SSM 잔여 조회는 invalid input으로 최종 수치 확인 불가",
+      "configured ECR repository 조회는 not found/count 0으로 반환되어 shared ECR 잔여 범위를 확정하지 못함"
+    ],
+    "rawArtifacts": "24개 bundle은 local-only로 보존; Git에는 비밀·토큰·URL·fixture/resource ID·raw log를 넣지 않음"
+  },
+  "runs": [
+    {
+      "sequence": 1,
+      "scenario": "t1",
+      "subcase": null,
+      "condition": "stress / hot / c4",
+      "profile": "stress",
+      "mode": "hot",
+      "concurrency": 4,
+      "runId": "room-t1-stress-hot-c4-r01",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T03:50:29Z",
+        "endedAtUtc": "2026-08-18T03:54:28Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 141.62947200000002,
+        "p95Ms": 645.5681253,
+        "p99Ms": null,
+        "maxMs": 658.064849,
+        "requestsPerSecond": 0.20674306429800526,
+        "businessCompletedPerSecond": 0.15505729822350395,
+        "requestCount": 20,
+        "successCount": 15,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 5,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "79dd29088ec2c9c19f57e0c35dfc699091278db8c141fcfa06eed0858cbe6c0b",
+        "infraExecution": "115c53572c20714322f8014492de0c303c3fcd68efbb4e044a42eaf367a4bc01",
+        "beforeSnapshot": "e04cbee75ca957dd0ad2727d2ad67d67cd526eaa74493533b149b0c467d10047",
+        "afterSnapshot": "08071c29f167e05f09f728712e113b6d180edf9db76b9f01107da63f89511d2d",
+        "beforeDiagnosis": "faaa92324f8a4af9b57f9cd669d028fe73cd61d80f0e497127a9cafed886e64f",
+        "afterDiagnosis": "afda362ffdb7d167aba9687a29cfd12123e81b9bf405ffa9b9150651c0335f5d",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "2fc002be1f53ad4883a561fdbb58e7d554cac7a23c6c67367eab62b484e9fd5b",
+        "k6Summary": "ef82b06618be6b50a085ea22ab94c0a97254f64207789236eb5f8922d5513f22",
+        "fixture": "79a85f3612e3c0a05a08c6dd6398404e09ed35e9d0de2f6d3feb4d19cdeacbea"
+      }
+    },
+    {
+      "sequence": 2,
+      "scenario": "t1",
+      "subcase": null,
+      "condition": "stress / hot / c4",
+      "profile": "stress",
+      "mode": "hot",
+      "concurrency": 4,
+      "runId": "room-t1-stress-hot-c4-r02",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T03:59:16Z",
+        "endedAtUtc": "2026-08-18T04:03:12Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 110.08613199999999,
+        "p95Ms": 142.4508961,
+        "p99Ms": null,
+        "maxMs": 151.011367,
+        "requestsPerSecond": 0.2089653744606784,
+        "businessCompletedPerSecond": 0.1567240308455088,
+        "requestCount": 20,
+        "successCount": 15,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 5,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "92cda200d54c9c4c6169e064684df65999dd99d6bd4afdd7b919bd29dee04910",
+        "infraExecution": "f91861025c016cd64663332b2e1f97a93d3137c5214efe2799f563b4110e40fd",
+        "beforeSnapshot": "09042402f21d867dbf01fa5fd3dfa884119cc8e461b2acd3949335316fc6bcbe",
+        "afterSnapshot": "bedc982d523a0278ac05e88fd1bf95b8372c0d7a18f0d8f81ef9994273e480f9",
+        "beforeDiagnosis": "33a879dc3c05aaebe9e35de2e3730141ea62c73f2acbe3318562b8b3e178a7ab",
+        "afterDiagnosis": "52b78038f6b7ba1e2c2f7c71a7c5fcf7b1eac3f14c648139ee0d63da68693704",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "43d6eef697c1f5ab5416552fbd5396bba2459e4060447415ff2a6afbd6e74ac9",
+        "k6Summary": "0779c6805b92d8dced6347c4d9e75088487734d66a9ad6d94689001fd0ca0add",
+        "fixture": "a506d902e7afce792d0d699938d681807859b1e63ed4d76f06ab9900703f3239"
+      }
+    },
+    {
+      "sequence": 3,
+      "scenario": "t1",
+      "subcase": null,
+      "condition": "stress / hot / c4",
+      "profile": "stress",
+      "mode": "hot",
+      "concurrency": 4,
+      "runId": "room-t1-stress-hot-c4-r03",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T04:03:22Z",
+        "endedAtUtc": "2026-08-18T04:07:14Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 105.6391335,
+        "p95Ms": 147.85189715,
+        "p99Ms": null,
+        "maxMs": 148.592539,
+        "requestsPerSecond": 0.20896518860955168,
+        "businessCompletedPerSecond": 0.15672389145716378,
+        "requestCount": 20,
+        "successCount": 15,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 5,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "57a43ce6da2f05b701ced7b7195ce9d41da564486a8a5e983d87e81de81b89c7",
+        "infraExecution": "5218e7a5591bb5181d8e3c84434927649a3235fac886e14514d884ff203d7282",
+        "beforeSnapshot": "b948d9bf20d06abdd7a0ccddf2b0dedcae396085a61c84c0353c5ef43a4487f6",
+        "afterSnapshot": "d07ee8ef0786524b25f7a56983533ac82f9f2e5b8542be6d14cd7f2936411447",
+        "beforeDiagnosis": "4399a0e0b174e92bdc3ee7555b6e0dfcb5431b4179d17dfe4bb18919a12815f0",
+        "afterDiagnosis": "bc99a975bf0c5bb92adc4149b62ac2ca33849c7b7803c7f36a177675667923fc",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "32de56f28516bf526a4f2157901c57a2b2bf6eae918013c1232d1d035e808cb0",
+        "k6Summary": "9198ed538d5ccf1262278ceb8edc8e32ccea348e1fd1caab026e2963bfc1cf77",
+        "fixture": "3ca26f5c7e37c6c15bc925b6f65726a374615822852750e3cfbbc96a754bbdb5"
+      }
+    },
+    {
+      "sequence": 4,
+      "scenario": "t1",
+      "subcase": null,
+      "condition": "stress / hot / c8",
+      "profile": "stress",
+      "mode": "hot",
+      "concurrency": 8,
+      "runId": "room-t1-stress-hot-c8-r01",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T04:07:24Z",
+        "endedAtUtc": "2026-08-18T04:11:20Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 142.086751,
+        "p95Ms": 213.14597455,
+        "p99Ms": null,
+        "maxMs": 217.173395,
+        "requestsPerSecond": 0.41556241134533456,
+        "businessCompletedPerSecond": 0.18700308510540056,
+        "requestCount": 40,
+        "successCount": 18,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 22,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "c205d802b8b73afd9c338146580eb6c4f2df2ebde47a91a5881c210ec63c79d2",
+        "infraExecution": "6c8d2b730138ca030829d0c4ac7b2de5144f6f27f62b437be0fe6b4a6ae20b15",
+        "beforeSnapshot": "1fab7663b5043fc8acd81e95f2c8798017ffdf0c6926019e595f202ea3daae96",
+        "afterSnapshot": "ec5cb685e531c5e266c2d284564f2dd387162c9072c2f61f2c547cff819e7129",
+        "beforeDiagnosis": "7996fcead8210e1f4fa82b39c1386b91ec4063aea9b83010a72bf1e109b5b836",
+        "afterDiagnosis": "82b672a658fbf0bdd70db789cc646adb0adbab0233abce4804d4e3fb900abfe5",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "90cf0f67481c32ecc751e577ea29cf96ede308f1b7bb4cc1636e4d098bd71ec7",
+        "k6Summary": "14b0dda6fd68125c519e8c6861909b3420c57215a1bc81ad4a3edf94c9f0b2e7",
+        "fixture": "90d3897fae37b464e68891abfc0156251fb9ba3da6b05b548a2b88f8a448e3c3"
+      }
+    },
+    {
+      "sequence": 5,
+      "scenario": "t1",
+      "subcase": null,
+      "condition": "stress / hot / c8",
+      "profile": "stress",
+      "mode": "hot",
+      "concurrency": 8,
+      "runId": "room-t1-stress-hot-c8-r02",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T04:11:30Z",
+        "endedAtUtc": "2026-08-18T04:15:28Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 122.360274,
+        "p95Ms": 154.8041364,
+        "p99Ms": null,
+        "maxMs": 169.670116,
+        "requestsPerSecond": 0.4156377633369279,
+        "businessCompletedPerSecond": 0.15586416125134797,
+        "requestCount": 40,
+        "successCount": 15,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 25,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "3414f9c326a81977f91d73007896662e6663d8b8c7d959a02c8e1be3a6cbf27a",
+        "infraExecution": "d27747fa939c27510a9f09dad73ebaa6d183e9e03478f07995468c8888d6511e",
+        "beforeSnapshot": "fdf8b54d3b381d5fc81f91fb96886f3fb2b83004007280b3c08d9f6d9c8a15a3",
+        "afterSnapshot": "cfab55047a1f79b39f81b4727f822cde2247a12aa94fd6c498de0f7361cfbad3",
+        "beforeDiagnosis": "0129348d61516dd54749006e65ecbcdd090a89f6d59be1e84ff7f1305d98abc1",
+        "afterDiagnosis": "b42550eb8e357b6892c5e81ba978ba1c8758e02d78aaae11e36fd78e6eb955be",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "49e576f12831ee386d3e6662d679e70bb61d54b4810e0593b04fde39afb79754",
+        "k6Summary": "8436ee6019a66ed6969c5f8ebe2f48d8cdbea9acb6ff2de2dd6ce6a5c3f8d95a",
+        "fixture": "9c721d51f58725a24cc5a0eb967f093985680413a53a2f26d7b614e05fb7dd43"
+      }
+    },
+    {
+      "sequence": 6,
+      "scenario": "t1",
+      "subcase": null,
+      "condition": "stress / hot / c8",
+      "profile": "stress",
+      "mode": "hot",
+      "concurrency": 8,
+      "runId": "room-t1-stress-hot-c8-r03",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T04:15:38Z",
+        "endedAtUtc": "2026-08-18T04:19:36Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 110.3925635,
+        "p95Ms": 134.2055439,
+        "p99Ms": null,
+        "maxMs": 134.978835,
+        "requestsPerSecond": 0.4149041004389347,
+        "businessCompletedPerSecond": 0.15558903766460053,
+        "requestCount": 40,
+        "successCount": 15,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 25,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 2,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "172b482c76bc64c3abf7b489c9929d0f514f0e015c41be037136dd27b2b7cee8",
+        "infraExecution": "4a001316520b8ec9d2b29a92575475945b7b3357f5dcc792309f6e5962f75a37",
+        "beforeSnapshot": "833ead7d7f0cbad41c4c95f3237b4f1e9b9f79777757b82ce5c16ddc4cdfbf03",
+        "afterSnapshot": "6c232df32ee8e16b28d342bab77012f7688b9f85227df9ee43b1b2c81b94da7f",
+        "beforeDiagnosis": "dd6c59de3869cec6d6d7e4c4fa5b70653410667deff8b21ba274245d248b28a4",
+        "afterDiagnosis": "baa508e2e55a0a1da97abf4bf905f3c6c3663912ecd378276316975c49038659",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "51c4c15a1ff1d0fd48acc8ce484f73c44bee36c8eaf75deccf79010e358277ad",
+        "k6Summary": "0178fe0ea9679392214dd755a405f488c2c56963db4a2ff8169c18bcd8d409d4",
+        "fixture": "4ba2530843c9cc89faf9d5e6d07e55f45fd9ac7f4a73cc18b1ae7cccefbe01a3"
+      }
+    },
+    {
+      "sequence": 7,
+      "scenario": "t1",
+      "subcase": null,
+      "condition": "stress / spread / c4",
+      "profile": "stress",
+      "mode": "spread",
+      "concurrency": 4,
+      "runId": "room-t1-stress-spread-c4-r01",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T04:19:46Z",
+        "endedAtUtc": "2026-08-18T04:23:44Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 50.101772,
+        "p95Ms": 63.95170445,
+        "p99Ms": null,
+        "maxMs": 67.630379,
+        "requestsPerSecond": 0.20922225456636478,
+        "businessCompletedPerSecond": 0.20922225456636478,
+        "requestCount": 20,
+        "successCount": 20,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 0,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "84182f15590abb70e87e6d080503c27f0e7b93f498f4294fe83939222a6aa9b6",
+        "infraExecution": "35b610251c901a3e3c80532db9df0eea7b7d886f8852195af2e580b70215d73e",
+        "beforeSnapshot": "3c7a2b4e1697b495289f5c98619554877b6c074660c445a7946716aa123a1e0e",
+        "afterSnapshot": "cc680a70188b75615d110dbea6d600b36aaa6e3820708566f964b53ce8385634",
+        "beforeDiagnosis": "2607b454100e68f86d3d96f37f73212bd5d94d2272d103c7f9f94b415d40b809",
+        "afterDiagnosis": "b553d9e8c54e4dd39d10da5c59810ac460ca0c76d6392f63836751f6c695e184",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "357577dcd850f55a79f5bc47e41b4fed760b68ecdc70bcae787db881092b257a",
+        "k6Summary": "b21a3df724438c92574a5a316fa60199a2045013d5c0e3193ec2d051feffc8df",
+        "fixture": "473bcd31f856e1ff225d9001af11bbde65754eb6d323b224c29318e908180a56"
+      }
+    },
+    {
+      "sequence": 8,
+      "scenario": "t1",
+      "subcase": null,
+      "condition": "stress / spread / c4",
+      "profile": "stress",
+      "mode": "spread",
+      "concurrency": 4,
+      "runId": "room-t1-stress-spread-c4-r02",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T04:23:54Z",
+        "endedAtUtc": "2026-08-18T04:27:47Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 51.0325965,
+        "p95Ms": 58.6787273,
+        "p99Ms": null,
+        "maxMs": 60.528858,
+        "requestsPerSecond": 0.20921609260329585,
+        "businessCompletedPerSecond": 0.20921609260329585,
+        "requestCount": 20,
+        "successCount": 20,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 0,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 3,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "46b5f91e0587a3c284ccd5cc648c44925a456e320d029bf58ae9849d8d475d61",
+        "infraExecution": "20ba8ca8fb53763704965297580127c4845423b6264c2580d57f05a466469f3a",
+        "beforeSnapshot": "9cfeee8dd62d0812a877d95944eef8a24c9599fbb6e4c1b7b07bcec0701a4687",
+        "afterSnapshot": "ff9f460d42cb7ef74a092506947773572456ebd15552cc86523f6d0b73f68f9a",
+        "beforeDiagnosis": "70bf8b9b66f16f66e109c4d3c343976bf7a8d02dce62c4e13911dcf271082067",
+        "afterDiagnosis": "838b57165da3d9303c666081cbeea95bf84cffb918ed10d876082db849fcb7ee",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "d36edb964cca2bde193b7e5bac00663b2e9190ee003e912f8065af32b2ec3fed",
+        "k6Summary": "d18d82e4a7f45633b953dfa82c4e64d5efcf2b0d707ea893253ca3d15e982f4d",
+        "fixture": "bb371b6993d38de8d04c0f135e817a9a857092b8eef9adc505135ebeade91bf5"
+      }
+    },
+    {
+      "sequence": 9,
+      "scenario": "t1",
+      "subcase": null,
+      "condition": "stress / spread / c4",
+      "profile": "stress",
+      "mode": "spread",
+      "concurrency": 4,
+      "runId": "room-t1-stress-spread-c4-r03",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T04:27:56Z",
+        "endedAtUtc": "2026-08-18T04:31:46Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 50.239171999999996,
+        "p95Ms": 61.695640149999996,
+        "p99Ms": null,
+        "maxMs": 66.164367,
+        "requestsPerSecond": 0.20922412476388935,
+        "businessCompletedPerSecond": 0.20922412476388935,
+        "requestCount": 20,
+        "successCount": 20,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 0,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "bd26193a55d2f45ced7e3ee877375ce98bba3884f978e9383520271507359332",
+        "infraExecution": "0102629bdde69ba1550d3afddf61b3ee71f4a2abab7c5a97c4363f260bef2010",
+        "beforeSnapshot": "599eb5423375172f68d8ece477498e3f96b4d013fb8637c46387e7df1acc6bd2",
+        "afterSnapshot": "45aac6d7943f2da25a6a781fd7880f59e4926a27a4e72a16c5339aab0950a83d",
+        "beforeDiagnosis": "b0f5da7092e72298253a31c49bca7c76a789bcc70ce9eaee265fd96e2f3c0be9",
+        "afterDiagnosis": "6108f2715a96441f1f5ab21345bbcfd941e81134bf204df7ddde3d0ed635b9d7",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "7e843bc6650a6f8887f24eb61445a0c0c07698694b7574316aeb3584ae5a7ec9",
+        "k6Summary": "fdf5000c356dacc362d1efe71bbf5ae1f02075961fa9ab63f87df4e32a81b98c",
+        "fixture": "7f3f3cbe39af3d0e6fd6c290784c4e3be528448ae236b1ba8c0a6cc49b9a0cff"
+      }
+    },
+    {
+      "sequence": 10,
+      "scenario": "t1",
+      "subcase": null,
+      "condition": "stress / spread / c8",
+      "profile": "stress",
+      "mode": "spread",
+      "concurrency": 8,
+      "runId": "room-t1-stress-spread-c8-r01",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T04:31:57Z",
+        "endedAtUtc": "2026-08-18T04:35:51Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 65.230099,
+        "p95Ms": 99.02571239999999,
+        "p99Ms": null,
+        "maxMs": 118.524769,
+        "requestsPerSecond": 0.4160725286051734,
+        "businessCompletedPerSecond": 0.4160725286051734,
+        "requestCount": 40,
+        "successCount": 40,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 0,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 2,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "943d02f9e2ed697bff5563ce307aa62f6c2e676dea6da647b1d5d42891f053da",
+        "infraExecution": "b82d4d7ae49ff53afafe0ddea9dcacc971f094648822ab82c13f0722acbc67a0",
+        "beforeSnapshot": "9b46fd3025bfb20f4773f84b86e2ef48b660d51f2a9a336c791f9431e66f91ce",
+        "afterSnapshot": "cc49adc3cce9626f5e4fa12c3fd83c4a1acea4a94858f6f18c885383124b183f",
+        "beforeDiagnosis": "4d3bdce9c8f14048e95bfc564233df8d90b3ef107688c2ab870e680e73a2b44b",
+        "afterDiagnosis": "97d75cd29e94c10ece1d00c774886b2db44f00515e70c1488a1bd4714a4d5019",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "76b435545dd034cd7142c92cd991fdd2a455f967823b412b811cebcc337d214a",
+        "k6Summary": "2142a7c081013c5fae910846ca5bdc2abf3815879f51d6ca981f8ba069c18150",
+        "fixture": "bf3cb7f8cde7cd972fdd4c8b401dc56e2ca1fef0aa71663d6f10b482758e8427"
+      }
+    },
+    {
+      "sequence": 11,
+      "scenario": "t1",
+      "subcase": null,
+      "condition": "stress / spread / c8",
+      "profile": "stress",
+      "mode": "spread",
+      "concurrency": 8,
+      "runId": "room-t1-stress-spread-c8-r02",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T04:36:00Z",
+        "endedAtUtc": "2026-08-18T04:39:52Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 62.602533,
+        "p95Ms": 85.4064378,
+        "p99Ms": null,
+        "maxMs": 89.063788,
+        "requestsPerSecond": 0.41610329465494356,
+        "businessCompletedPerSecond": 0.41610329465494356,
+        "requestCount": 40,
+        "successCount": 40,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 0,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "d8a0e19ac3fc1da653d494486aabe5ab908be1bd030c91e1b2e029fc0840298b",
+        "infraExecution": "712df964e5212b6a7e45d6ae186aa7d5220767ccc6c14460cc92d8b524f1023f",
+        "beforeSnapshot": "8668b6c4e85affd4ef89eef74629befc384e32b48f93aaecd26a01f65147ba51",
+        "afterSnapshot": "7097229b625f2c3f374b18ec2dce468cb0ce13ca1ff17c3d98e5005c7830d04a",
+        "beforeDiagnosis": "8ee57a815cd4943f42c4a33bf55860fa93b9ea2afc8434ee774fb1d4038ae4e3",
+        "afterDiagnosis": "9f739cbd8dc97279e9498220c11d3ef9fb8d3a8755304f2c58a5c8dddd8c86e7",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "1cb9aeb42ad06638c1d74942882fe5c4a1a674658a38dfa3a14953a18487e107",
+        "k6Summary": "57ee4b4e18f70de1bfb4e5838ec28d114ca1d16b452289e5f9b17f8294355f2d",
+        "fixture": "d4ae02159284b818b5769df4e3e215c543c45094db041ff011cab09d04fc2bd0"
+      }
+    },
+    {
+      "sequence": 12,
+      "scenario": "t1",
+      "subcase": null,
+      "condition": "stress / spread / c8",
+      "profile": "stress",
+      "mode": "spread",
+      "concurrency": 8,
+      "runId": "room-t1-stress-spread-c8-r03",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T04:40:02Z",
+        "endedAtUtc": "2026-08-18T04:43:53Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 56.016641,
+        "p95Ms": 70.7780205,
+        "p99Ms": null,
+        "maxMs": 76.850717,
+        "requestsPerSecond": 0.4162313656523255,
+        "businessCompletedPerSecond": 0.4162313656523255,
+        "requestCount": 40,
+        "successCount": 40,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 0,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "ddb6ae56063c8b77a9994a9d26a11eacdfedfc5d2f75aa99765bdd24dd8232c6",
+        "infraExecution": "982daee57abea4bab630d076fea317311fd3acc31619dbee3da233c63f537d3f",
+        "beforeSnapshot": "e33aa310adde85e7da9dbaa5559365080e91069570e1db8fb9ecc4399113fe71",
+        "afterSnapshot": "2e991e64fa42c3f189857046d5b7b90c3ac94e293ce30c57ec4aedf0550e42f3",
+        "beforeDiagnosis": "b7a62b4ec49d4d3fa04dbd7749a89e1b25c862e5a4092f216189361a7a37912b",
+        "afterDiagnosis": "3b89f0adc6b1f6a35e959c0f17ecb4ef8ff74b6ef7963882a3ee2e621974b248",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "25e895f8444281a1a8395b011458026fa18d57da0e13352a26f6be571c16a478",
+        "k6Summary": "e1f1b93fe5c631df90f7bd52f5739b833dee445c1f275e8ac68ea5b00fdc7437",
+        "fixture": "48e26ae60048e2b769da2131527fb69430d87998e1cc72f678daa6ef85e5b9f9"
+      }
+    },
+    {
+      "sequence": 13,
+      "scenario": "t2",
+      "subcase": "distinct",
+      "condition": "stress / distinct / hot / c4",
+      "profile": "stress",
+      "mode": "hot",
+      "concurrency": 4,
+      "runId": "room-t2-stress-hot-c4-r01",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T04:44:02Z",
+        "endedAtUtc": "2026-08-18T04:47:55Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 56.945912,
+        "p95Ms": 129.688901,
+        "p99Ms": null,
+        "maxMs": 133.344539,
+        "requestsPerSecond": 0.2092344871506901,
+        "businessCompletedPerSecond": 0.15692586536301756,
+        "requestCount": 20,
+        "successCount": 15,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 5,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "7fee9194a357dc3b579ea07fb1e76b87a6b87e87a4f65703dace15d373d618f5",
+        "infraExecution": "40e6a60a614e5f3310b67007d3fc21b3e1b6d08a27f7d5d1d90740a3e056ba14",
+        "beforeSnapshot": "c4073b740bce7e0b9fed80d19d059e193ae94a711015a5eca58ad4e66d85290d",
+        "afterSnapshot": "c26224d279a343b5c415481e23e7e8d73236d86caf544b9c3a3495f55efaf36f",
+        "beforeDiagnosis": "e2851d741aea445a0eba1507e2b5615061e83ea0a996094c13d91d40b2feec6c",
+        "afterDiagnosis": "9d63af1140dbd41f39dccc339e88bb22a7dbd68d5432e2953ffcd0162fe9c9c8",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "d24bd33ab78c3e4fa1f777deab67e070bd0db1657eed2ef5aecaf6ca477c026f",
+        "k6Summary": "c259f56dfb4aaea28d6f42881e451533fcf0f33bbeef382ba3b278d27d35aa4f",
+        "fixture": "835cf622aabdf4e452e48c01ea5ccba9e5663378964da731e9eee5ee53c24a1a"
+      }
+    },
+    {
+      "sequence": 14,
+      "scenario": "t2",
+      "subcase": "distinct",
+      "condition": "stress / distinct / hot / c4",
+      "profile": "stress",
+      "mode": "hot",
+      "concurrency": 4,
+      "runId": "room-t2-stress-hot-c4-r02",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T04:48:03Z",
+        "endedAtUtc": "2026-08-18T04:51:53Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 44.097575,
+        "p95Ms": 55.27293855,
+        "p99Ms": null,
+        "maxMs": 56.114269,
+        "requestsPerSecond": 0.20925338680931557,
+        "businessCompletedPerSecond": 0.15694004010698667,
+        "requestCount": 20,
+        "successCount": 15,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 5,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "172a337dbae9d42c2aec46819b76dc3e1c2e70774ef31ee139b6cfb172ad9824",
+        "infraExecution": "b5811bc435854badb2e91ece905e027c6778ebcee7bd17992d71d96fea65d82e",
+        "beforeSnapshot": "1d4aa4a6e00fbd68d3457f77426a48e0e17bd27e9dbf29e78a595ea291ad6a30",
+        "afterSnapshot": "f99f73df62945c7409b6b106d2acdd590a43af5e90ba1097031a5d2a9d44f0e1",
+        "beforeDiagnosis": "a7fadbca56289be6e202980db7fa1b24c6ede6030b3e91e0c0380016d5a97f1f",
+        "afterDiagnosis": "fc7b6f8f1eac1cb698a83a8ccf03cad05c7c99c53b65068e020271332cb00b78",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "3b447c0efa6adb524007e7ab845aa9221d78e1ba1a25f4c7e25a507358c5181f",
+        "k6Summary": "82fd063f348aab35fcc0d7661580f34bb11506a2580c2429c1ac8a10f0af5b3f",
+        "fixture": "e0dd7f421151e2a23158498ed525c0b2cdd3e2b25d7a571b0152df49ad57aa59"
+      }
+    },
+    {
+      "sequence": 15,
+      "scenario": "t2",
+      "subcase": "distinct",
+      "condition": "stress / distinct / hot / c4",
+      "profile": "stress",
+      "mode": "hot",
+      "concurrency": 4,
+      "runId": "room-t2-stress-hot-c4-r03",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T04:52:02Z",
+        "endedAtUtc": "2026-08-18T04:55:53Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 45.840856,
+        "p95Ms": 56.70582624999998,
+        "p99Ms": null,
+        "maxMs": 72.912432,
+        "requestsPerSecond": 0.2092691062241569,
+        "businessCompletedPerSecond": 0.16741528497932553,
+        "requestCount": 20,
+        "successCount": 16,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 4,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "688a5e061e039c48e2a4cee308a9352ee53b82963e0907e1203a9b1fe7e983a9",
+        "infraExecution": "85fe86162fd557f5eb098db60f1cf636ce61e1281fa2628fe5aabb1840f89ef7",
+        "beforeSnapshot": "55af354e04c10f5ee2724086ae27992b659f39ca6315c45b84f16c6f74e24a5d",
+        "afterSnapshot": "92f94d0d36a1ff67c825f3c01a4a8862242d95a96b616a4f6fac022dd3c0085e",
+        "beforeDiagnosis": "51f7196878ef5ec1ad96284a55e39bc2592e36073d9576ad1d17930bceda1bb2",
+        "afterDiagnosis": "9f5e644b19062f44f342a013861d3662b3061b961d765c28b77f910fbaee71b9",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "e5f9deb40d1882677f186a240d5a25071131da4d7cda1e20523eed9213b37efb",
+        "k6Summary": "ef9b32c9d8ab5a9d00e9d0ab8a5aa1ca128fbc7ad0ca22883c751dfbe13644ec",
+        "fixture": "cef25442a610d051275260a12156e0f7a0677f465eb4b8b896a98edb0a8eeec5"
+      }
+    },
+    {
+      "sequence": 16,
+      "scenario": "t2",
+      "subcase": "distinct",
+      "condition": "stress / distinct / hot / c8",
+      "profile": "stress",
+      "mode": "hot",
+      "concurrency": 8,
+      "runId": "room-t2-stress-hot-c8-r01",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T04:56:01Z",
+        "endedAtUtc": "2026-08-18T04:59:50Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 62.0350435,
+        "p95Ms": 86.81806994999998,
+        "p99Ms": null,
+        "maxMs": 102.183202,
+        "requestsPerSecond": 0.4161721182016684,
+        "businessCompletedPerSecond": 0.18727745319075076,
+        "requestCount": 40,
+        "successCount": 18,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 22,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "fe5a92e7c799ee0ba3f427b7b956c31acef5673cd8eb3a021026c0f1fb83d07d",
+        "infraExecution": "3b4a76e2817c36a313b87e071a867900edbcd117279707382b9dcd4281ef8ee2",
+        "beforeSnapshot": "9301b3f48dad0274ad1511da5012993694140c6afd62c8c6483f0b4fa2c28d24",
+        "afterSnapshot": "5a1aed3f78670330aa40821525993e20af556fa3c6a4e51a2759fdb7f1fef114",
+        "beforeDiagnosis": "b9e3b430e7c06ebc7c44f9c95126ea9c34dd7052d4f35589e4c517a5768e1580",
+        "afterDiagnosis": "9f90f711995a94b2799456aa753773a7cad56be1af2a34e5f92858f6311b1244",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "aac8eb06dc5015a8dc97da01780cbf125e266544ea1f7628ab76dd51fa0144e2",
+        "k6Summary": "8c4c8907351bbdb4fa80d8f8729b13597e8e26e6a65ddf5e6b0d9224dc61fc4b",
+        "fixture": "777109be885c0755929cb0070c62ea18424f0722841f73f3f43f407c0065a0a4"
+      }
+    },
+    {
+      "sequence": 17,
+      "scenario": "t2",
+      "subcase": "distinct",
+      "condition": "stress / distinct / hot / c8",
+      "profile": "stress",
+      "mode": "hot",
+      "concurrency": 8,
+      "runId": "room-t2-stress-hot-c8-r02",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T04:59:59Z",
+        "endedAtUtc": "2026-08-18T05:03:50Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 62.2622345,
+        "p95Ms": 99.64869129999998,
+        "p99Ms": null,
+        "maxMs": 113.474141,
+        "requestsPerSecond": 0.41625552739666116,
+        "businessCompletedPerSecond": 0.16650221095866446,
+        "requestCount": 40,
+        "successCount": 16,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 24,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "67ea7dbb48e5d201e7c0152c08f657823bae82e8f18a1b976359a46febfb5ff2",
+        "infraExecution": "ed0c28a5a9cc5388324d2cfe2fd783eff64f4d04e34a1dc85ec9011fd4702abe",
+        "beforeSnapshot": "78087382224831810168cfeb0618ebc5f218865d5169285704282b5a012868a8",
+        "afterSnapshot": "8acda2e085e7846245aff655af8e34bc1c0cd1d774ec412cf7987a199bbedc5c",
+        "beforeDiagnosis": "3edd669f45390c25e509c2131fda3465aec5dff3ceffc966f1790948bbdaa646",
+        "afterDiagnosis": "c10f46f64cde1cbeedf441f0c5608f18a58a8b620307eb41ce014750b0f762ba",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "ad80817d8af91ff5403b9c4c127240b012c96fd1061672ff8922b7beefbae865",
+        "k6Summary": "310902c9aef709101aa44d2182beba0243cba049eda8af0a693beff5f5846372",
+        "fixture": "0ebb066ad83b2af2cf53bd45e85675be84eddc2a679a9b7dbbeb11b812a2c6fa"
+      }
+    },
+    {
+      "sequence": 18,
+      "scenario": "t2",
+      "subcase": "distinct",
+      "condition": "stress / distinct / hot / c8",
+      "profile": "stress",
+      "mode": "hot",
+      "concurrency": 8,
+      "runId": "room-t2-stress-hot-c8-r03",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T05:03:59Z",
+        "endedAtUtc": "2026-08-18T05:07:50Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 57.8481795,
+        "p95Ms": 69.91722245,
+        "p99Ms": null,
+        "maxMs": 75.180541,
+        "requestsPerSecond": 0.41620551889432045,
+        "businessCompletedPerSecond": 0.1768873455300862,
+        "requestCount": 40,
+        "successCount": 17,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 23,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "8e2a06e330fe909208306a632822dffd1a92c793da6b9f8ac4a714db5804fef4",
+        "infraExecution": "9f94af519a5f3897801fcbc8a2640b27109a0eb04454cfed903700d28eb3d595",
+        "beforeSnapshot": "8f6ea02f719f61ef3ea53b7f63567515634cbe4c4a109fc7854fd87bbde104d0",
+        "afterSnapshot": "d100d1a9acdce56eeebc95e081ce41a248716ead22944f64438a9f1d2946c93c",
+        "beforeDiagnosis": "2d58c0911fb34be0bde694bab938bbeed2ea08007d662ac84c8b69dd54e72224",
+        "afterDiagnosis": "ad02703dd83c5f3be3880e199199c134ee6f27b25eed174b24a2eb272140dc17",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "9eb94fc19351e0e556fdc1e8da7309c004f36fbaab49f2fce9d80d35ec416fb6",
+        "k6Summary": "9754d0df3bf36188dfcf09055cc9aca9a68c166bbffa1bc9aff5697edbe2c1ea",
+        "fixture": "1871c1024fc217eeb67a501fb266a26eaead1e0f8d7f1d234cc053e447176449"
+      }
+    },
+    {
+      "sequence": 19,
+      "scenario": "t2",
+      "subcase": "distinct",
+      "condition": "stress / distinct / spread / c4",
+      "profile": "stress",
+      "mode": "spread",
+      "concurrency": 4,
+      "runId": "room-t2-stress-spread-c4-r01",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T05:08:00Z",
+        "endedAtUtc": "2026-08-18T05:11:50Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 28.7077765,
+        "p95Ms": 36.110451299999994,
+        "p99Ms": null,
+        "maxMs": 37.942779,
+        "requestsPerSecond": 0.20930820547821244,
+        "businessCompletedPerSecond": 0.20930820547821244,
+        "requestCount": 20,
+        "successCount": 20,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 0,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "5937a3dc9ce04c2da4fbd62cc34e45a98254a8e6ed999a7b66953f1454f4b316",
+        "infraExecution": "f6aae1dd5dc641621cab2776b6c35dce861a5b7721d1ab3adb2b2e38dc88c5ea",
+        "beforeSnapshot": "10b9e25efbe3ff7e6c9d5b5d719613efdb7e5ff80a7c4f3fb49f5217d8300a97",
+        "afterSnapshot": "aa68dafda7c777801b1f8d81dcaad19148b3df494809e4a8b9608b743da276d8",
+        "beforeDiagnosis": "70e02fb6a0b7a5c7817f6db16f8a2e5c26f833aebcd3f19d9e4efd687fe9d342",
+        "afterDiagnosis": "7d7ee23e1f70bfe96d3e604c36f0a934ec95ac69f6e04edc320bfa4f9dda12d5",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "88495ac4e4584c7422d65fc40580440d26c24591ddfb6ee644ac987273364de7",
+        "k6Summary": "1194d400ac8aa1cd0e943ab103b1090d1d1e560a23cba107e4b12095b4a30c2d",
+        "fixture": "ceedbcfd67355fbeed0e401e4b18e1955063cce6d78456ee08c2e360f67afb13"
+      }
+    },
+    {
+      "sequence": 20,
+      "scenario": "t2",
+      "subcase": "distinct",
+      "condition": "stress / distinct / spread / c4",
+      "profile": "stress",
+      "mode": "spread",
+      "concurrency": 4,
+      "runId": "room-t2-stress-spread-c4-r02",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T05:12:00Z",
+        "endedAtUtc": "2026-08-18T05:15:53Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 26.440541,
+        "p95Ms": 37.563945,
+        "p99Ms": null,
+        "maxMs": 38.911235,
+        "requestsPerSecond": 0.20932351413821867,
+        "businessCompletedPerSecond": 0.20932351413821867,
+        "requestCount": 20,
+        "successCount": 20,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 0,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "28a531ddd8e77e759d9dbc6dd59e2a6cafb2bc94068a84027f27fb2eaf90c3d7",
+        "infraExecution": "df716979f34a77e9c3cc8a47f8e03091725095ea9c39104bf9d2cb74f09d5334",
+        "beforeSnapshot": "bf5816a31c24fc8f5b43fe04ffe2a14b3d696ac3e78eca4c6030188c2610d677",
+        "afterSnapshot": "dec9f26fbc1fa8084ff9a582f9c91e056ccc19df4745904b6fcdd98ff9ea47c6",
+        "beforeDiagnosis": "02efd90f15696f715f4af5383195cf64b2f90efa450bd0ff88d4436a34d6da44",
+        "afterDiagnosis": "7d81abd4dca80d65adae7a6b9f68ebd8b090d76099561d9601847b7cf032b4e8",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "777625100261ee76d24beb4cde22a8fe0e33dbcfb5bf95bb2d686e4401043fa2",
+        "k6Summary": "c75320012c1960da7599f96f59e2f9fbadaa29503d42d80b9fa950a380dc7633",
+        "fixture": "d36d273e1b5b2e0367a505f6d911a3684d0ecfd0b74519bf1a83bae49b475aec"
+      }
+    },
+    {
+      "sequence": 21,
+      "scenario": "t2",
+      "subcase": "distinct",
+      "condition": "stress / distinct / spread / c4",
+      "profile": "stress",
+      "mode": "spread",
+      "concurrency": 4,
+      "runId": "room-t2-stress-spread-c4-r03",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T05:16:03Z",
+        "endedAtUtc": "2026-08-18T05:19:56Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 27.766843,
+        "p95Ms": 34.898046099999995,
+        "p99Ms": null,
+        "maxMs": 41.537959,
+        "requestsPerSecond": 0.20932718293974872,
+        "businessCompletedPerSecond": 0.20932718293974872,
+        "requestCount": 20,
+        "successCount": 20,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 0,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "d2b637be2407269ef87c410e91bf6a8cdc0f88ccef431155cd7ba84f60b603e8",
+        "infraExecution": "cdfa2ea4f1a8f022f9343c7cb03a543dd2544075fdc10c8f80bce5f7aa2cd10e",
+        "beforeSnapshot": "0752747f710b99ea9efc28d6e2e57058c033fdb6ad90cc006d337b299ed5b37b",
+        "afterSnapshot": "1eace876ac0f725c44eb3e3bbccab57b2b116d6d94c9694aa516355dd8f08fcf",
+        "beforeDiagnosis": "fcdbbb6e218430293b3a6fb4b5c4e252acbe1afc71a7ceec8302c1fff7cefbcf",
+        "afterDiagnosis": "5f26d01845bc3d6e7b64566b9f2a993e1ce8f6443d1219e2c48bee1f869b8049",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "544b069e33eecaba832e2f91b2f8073ec2a37d0a2d0cbe9a3eede04a5a646cf9",
+        "k6Summary": "851e1e663f8bc0484efb53e1e1a21a43cfdb48982d41a6c060dea2582e3abebe",
+        "fixture": "e6b574d8f29ce5db8305583bee4fa36cee1061104cdb983d04bf7d3442eefe0e"
+      }
+    },
+    {
+      "sequence": 22,
+      "scenario": "t2",
+      "subcase": "distinct",
+      "condition": "stress / distinct / spread / c8",
+      "profile": "stress",
+      "mode": "spread",
+      "concurrency": 8,
+      "runId": "room-t2-stress-spread-c8-r01",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T05:20:07Z",
+        "endedAtUtc": "2026-08-18T05:24:00Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 35.5396995,
+        "p95Ms": 50.146566,
+        "p99Ms": null,
+        "maxMs": 57.121922,
+        "requestsPerSecond": 0.41632988514084457,
+        "businessCompletedPerSecond": 0.41632988514084457,
+        "requestCount": 40,
+        "successCount": 40,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 0,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "bae25655f2bfa93ea5382a7b0a930630a22ae2d2eb97b8f7c9a2015e466911d3",
+        "infraExecution": "c6dbe1b40556bd17276e00084c27f8615f408b643e7806f871385ccde995d096",
+        "beforeSnapshot": "38b7c67f24179cd5e25e9b7bb93358d8a4d8740d17eef3b1ed95a3ed95143439",
+        "afterSnapshot": "347162695d832a9a8e406f85e30e89f917ff38b0491a9f50ba66a8bfb56cad84",
+        "beforeDiagnosis": "2bc3c312a25ab2d9ce9e1c28f87c9c464796955e1b20d7ac79a3cb6389543ea7",
+        "afterDiagnosis": "02323a70b5fb09f41c5a33463fe80e976b29b4912dc998c1d2e63c7988ca83a3",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "b881db59c1ebea386c1b8faffb8970d1d2340cd8002735ac5e063fa7e3ef2f96",
+        "k6Summary": "1a6e1461da47b85247c9a520f37a8ef197d17bc705bc39d1d4264facaa01b508",
+        "fixture": "1e3674d047994249737a182e861156e5d5602d0861a72da5ef6aba2d578167f9"
+      }
+    },
+    {
+      "sequence": 23,
+      "scenario": "t2",
+      "subcase": "distinct",
+      "condition": "stress / distinct / spread / c8",
+      "profile": "stress",
+      "mode": "spread",
+      "concurrency": 8,
+      "runId": "room-t2-stress-spread-c8-r02",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T05:24:09Z",
+        "endedAtUtc": "2026-08-18T05:28:01Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 32.3116,
+        "p95Ms": 47.927025349999994,
+        "p99Ms": null,
+        "maxMs": 62.065497,
+        "requestsPerSecond": 0.4164349054289079,
+        "businessCompletedPerSecond": 0.4164349054289079,
+        "requestCount": 40,
+        "successCount": 40,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 0,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "f8b6b781add22b483d35762d22d5f48330d8b80997fbd20c40bff8f1c3a4b403",
+        "infraExecution": "5fe4464cc1607dd3092fb36659daca5248d51cff2f4ad921a451ab670c3013f8",
+        "beforeSnapshot": "8dbeb8849d65d9e3654dde826c1390def99ae5d1e02e3c09e88ee482adcafc10",
+        "afterSnapshot": "914bb7b0ea80065f03d7d4f3edda1ffe112c84e81a0bda94045f911eb4326407",
+        "beforeDiagnosis": "15658c23a7934dae3a96a310a6661c457bffca29d32d7ca42e86402232709a2a",
+        "afterDiagnosis": "949070630b5e6248e62e8bbe02c105653a4aa67fe8d0ec7cc7ded12cea831d07",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "3edb2f7d12f936d194a6b406cea4ea2de3a174ff24f1e325bd6486a90a641b54",
+        "k6Summary": "e0324e297496244ed18e9aabca7c97ca7c32674209d1d47acf15e02c1950c48f",
+        "fixture": "6cdbaf201166a7fa0b6da2c4947e25097a8ac563b33add5728fbd41b150e8600"
+      }
+    },
+    {
+      "sequence": 24,
+      "scenario": "t2",
+      "subcase": "distinct",
+      "condition": "stress / distinct / spread / c8",
+      "profile": "stress",
+      "mode": "spread",
+      "concurrency": 8,
+      "runId": "room-t2-stress-spread-c8-r03",
+      "reportDisposition": "excluded",
+      "window": {
+        "startedAtUtc": "2026-08-18T05:28:11Z",
+        "endedAtUtc": "2026-08-18T05:32:05Z"
+      },
+      "transportStatus": "PASS",
+      "beforeDiagnosis": "PASS",
+      "afterDiagnosis": "PASS",
+      "remotePhaseExitCodes": {
+        "prepare": 0,
+        "resourceQuery": 0,
+        "beforeSnapshot": 0,
+        "k6": 0,
+        "afterSnapshot": 0
+      },
+      "provenance": {
+        "sourceSha": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "deployedRelease": "92f5f667b732a5b6b9e6cd7dff5befd13354148a",
+        "targetEnvironment": "aws-dedicated-private-loadtest",
+        "k6Version": "1.3.0",
+        "bundleSchemaVersion": 2,
+        "fixtureSchemaVersion": 2,
+        "sourceDirty": false
+      },
+      "metrics": {
+        "p50Ms": 31.2087115,
+        "p95Ms": 53.64092679999999,
+        "p99Ms": null,
+        "maxMs": 58.701759,
+        "requestsPerSecond": 0.416377834436485,
+        "businessCompletedPerSecond": 0.416377834436485,
+        "requestCount": 40,
+        "successCount": 40,
+        "businessFailureCount": 0,
+        "concurrencyFailureCount": 0,
+        "unexpectedCount": 0,
+        "unexpected4xxCount": 0,
+        "serverFailureCount": 0,
+        "contractFailureCount": 0,
+        "startSkewMaxMs": 1,
+        "outcomeEquationMatches": true,
+        "outcomeLatencyByOutcome": "not-collected"
+      },
+      "checks": {
+        "requiredArtifactSetPresent": true,
+        "startSkewGatePassed": true,
+        "t1t2SnapshotDiagnosisAdditionalFailures": 0,
+        "t3SignalsPresent": false,
+        "t2P99AndOutcomeLatencyPresent": false,
+        "validRun": false
+      },
+      "artifactIntegrity": {
+        "manifest": "726d961c3570dada6a6fa21b73d7bebaaeeb90f8c23b4a97f2d6f4c49ef99a1b",
+        "infraExecution": "ff91222cb58f72dc892c230efd00583d47c5ff78408864e1339d44aec98231cf",
+        "beforeSnapshot": "c1f2df08b6d11182bc3c0cb309ef9171829c2cef331592cf3e546749e696bffe",
+        "afterSnapshot": "49ab65f5f34642b6d5cf8b9f58ac784f093933aa3d5bdde46cb96b64356c727d",
+        "beforeDiagnosis": "b467f522b7e9ecc2a4871c1c0cea66541e680e385445a2600f1a0d0bb8f06091",
+        "afterDiagnosis": "847228a98f89b249798bdff9be0e5b3bd9ef8a277a2160a0b4fe7630050bc652",
+        "executionOptions": "5f5e6b92b2d0c42ba3cc4b4a8b106616044188239526328e33b93a991de76806",
+        "finalResult": "0fee55775745dbccbcea11975d70239eec7785e0f0cc917b792c17657fe04da4",
+        "k6Summary": "0f14d0cdb9b30ec138171c10f0a9696ca58ada15697ed097cecee69ffea97a3e",
+        "fixture": "e2221c066117672b4deb806fa5c053d78c480496659974398484d9564453980e"
+      }
+    }
+  ]
+}
