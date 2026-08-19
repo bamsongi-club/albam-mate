@@ -27,8 +27,8 @@
 
 | 파일 | 책임 |
 | --- | --- |
-| docs/adr/game/0080-game-list-relation-filter-performance-selection.md | 후보 비교·선택, cache/projection 제외, rollback·재검토 경계 |
-| docs/adr/game/README.md | ADR-0080 인덱스 |
+| docs/adr/game/0081-game-list-relation-filter-performance-selection.md | 후보 비교·선택, cache/projection 제외, rollback·재검토 경계 |
+| docs/adr/game/README.md | ADR-0081 인덱스 |
 | scripts/measurements/game-list-variant-comparison.mjs | 로컬 V0~V3 raw artifact 16개 검증과 p50/p95/max·gate·선정 결과 생성 |
 | scripts/measurements/game-list-variant-comparison.test.mjs | artifact 누락·fixture 불일치·5% 회귀·tie-break 테스트 |
 | src/main/java/cloud/bamsongi/albammate/game/repository/GameListSpecification.java | V1 uncorrelated theme/mechanism game-ID subquery |
@@ -40,16 +40,16 @@
 | docs/measurements/results/game-list-740/game-list-770-relation-variant-comparison-2026-08-19.md | 사람용 비교 표·EXPLAIN·결론 |
 | docs/measurements/game-list-740-baseline.md | 비교 실행 경로와 #863 분리 링크 |
 
-## Task 1: ADR-0080으로 선택 경계 승인 기록
+## Task 1: ADR-0081로 선택 경계 승인 기록
 
 **Files:**
-- Create: docs/adr/game/0080-game-list-relation-filter-performance-selection.md
+- Create: docs/adr/game/0081-game-list-relation-filter-performance-selection.md
 - Modify: docs/adr/game/README.md
 - Test: scripts/docs/check-doc-links.mjs
 
 **Interfaces:**
 - Consumes: V0~V3 spec, #770 Slice contract, #863 분리 범위
-- Produces: 후보 코드·migration·측정이 참조할 승인 ADR-0080
+- Produces: 후보 코드·migration·측정이 참조할 승인 ADR-0081
 
 - [ ] **Step 1: ADR 번호 충돌을 확인한다.**
 
@@ -64,14 +64,14 @@ gh pr list --repo bamsongi-club/albam-mate --state open --limit 100 \
   --json number,headRefName,files
 ~~~
 
-Expected: 열린 PR #862가 ADR-0079를 이미 사용하므로 ADR-0080을 사용한다. 추가 번호 충돌이 보이면 다음 전역 번호로 파일명·제목·README 행을 함께 바꾼다.
+Expected: 기존 전역 ADR 번호와 충돌하지 않는 ADR-0081을 파일명·제목·README 행에 함께 반영한다.
 
 - [ ] **Step 2: ADR 초안을 작성한다.**
 
 ADR 결정 본문은 다음 사실을 정확히 고정한다.
 
 ~~~
-# ADR-0080: 게임 목록 relation filter는 query shape·theme index를 실측 비교해 선택
+# ADR-0081: 게임 목록 relation filter는 query shape·theme index를 실측 비교해 선택
 
 - 상태: 승인됨
 - 작성일: 2026-08-19
@@ -93,7 +93,7 @@ V3(결합)를 동일 fixture의 네 round 순차 측정으로 비교한다.
 README 표에 번호 순서로 아래 한 행을 넣는다.
 
 ~~~
-| [0080](0080-game-list-relation-filter-performance-selection.md) | 게임 목록 relation filter는 query shape·theme index를 실측 비교해 선택 | 승인됨 | 2026-08-19 | 미검증 |
+| [0081](0081-game-list-relation-filter-performance-selection.md) | 게임 목록 relation filter는 query shape·theme index를 실측 비교해 선택 | 승인됨 | 2026-08-19 | 미검증 |
 ~~~
 
 - [ ] **Step 4: 문서 링크 검사를 통과시킨다.**
@@ -109,7 +109,7 @@ Expected: ADR 제목·상태·링크가 유효하고 미검증을 구현 완료�
 - [ ] **Step 5: ADR만 커밋한다.**
 
 ~~~
-git add docs/adr/game/0080-game-list-relation-filter-performance-selection.md docs/adr/game/README.md
+git add docs/adr/game/0081-game-list-relation-filter-performance-selection.md docs/adr/game/README.md
 git commit -m 'docs: 게임 목록 relation 성능 선택 ADR 추가'
 ~~~
 
@@ -120,7 +120,7 @@ git commit -m 'docs: 게임 목록 relation 성능 선택 ADR 추가'
 - Modify externally after human approval: 해당 issue의 최신 전체 T1…T5 승인 코멘트
 
 **Interfaces:**
-- Consumes: ADR-0080, #770 Slice V0, 성능 비교 spec
+- Consumes: ADR-0081, #770 Slice V0, 성능 비교 spec
 - Produces: 후보 코드·Flyway·측정을 시작할 수 있는 독립 issue 번호와 사람이 승인한 테스트 계약
 
 - [ ] **Step 1: template과 중복을 확인한다.**
@@ -152,7 +152,7 @@ Expected: feature Form이 enabled이고 같은 목적의 issue가 없을 때만 
 
 - [ ] **Step 3: 사람의 최신 전체 T1…T5 승인 코멘트를 기다린다.**
 
-Expected: 승인 전에는 Task 3 이후의 코드·migration·측정을 시작하지 않는다. 승인 뒤 issue URL과 comment URL을 ADR-0080 검증·결과 문서에 링크한다.
+Expected: 승인 전에는 Task 3 이후의 코드·migration·측정을 시작하지 않는다. 승인 뒤 issue URL과 comment URL을 ADR-0081 검증·결과 문서에 링크한다.
 
 ## Task 3: variant artifact 비교기를 TDD로 추가
 
@@ -483,7 +483,7 @@ Expected: comparator input 16개는 모두 success, 6 scenario, scenario당 20�
 
 **Files:**
 - Create: docs/measurements/results/game-list-740/game-list-770-relation-variant-comparison-2026-08-19.md
-- Modify: docs/adr/game/0080-game-list-relation-filter-performance-selection.md
+- Modify: docs/adr/game/0081-game-list-relation-filter-performance-selection.md
 - Modify: docs/measurements/game-list-740-baseline.md
 
 **Interfaces:**
@@ -514,14 +514,14 @@ AND complex median p95 < V0 median p95
 
 - [ ] **Step 4: ADR 검증 절만 갱신한다.**
 
-ADR-0080의 승인된 결정 본문은 수정하지 않는다. 검증 절에는 selected variant 또는 V0 유지, raw result, H2/PostgreSQL test, runner/artifact, SQL/EXPLAIN 근거를 넣는다. #863 동시 부하 검증은 미검증으로 남긴다.
+ADR-0081의 승인된 결정 본문은 수정하지 않는다. 검증 절에는 selected variant 또는 V0 유지, raw result, H2/PostgreSQL test, runner/artifact, SQL/EXPLAIN 근거를 넣는다. #863 동시 부하 검증은 미검증으로 남긴다.
 
 - [ ] **Step 5: 결과 문서만 커밋한다.**
 
 ~~~
 git add docs/measurements/results/game-list-740 \
   docs/measurements/game-list-740-baseline.md \
-  docs/adr/game/0080-game-list-relation-filter-performance-selection.md
+  docs/adr/game/0081-game-list-relation-filter-performance-selection.md
 git commit -m 'docs: 게임 목록 relation 성능 비교 결과 기록'
 ~~~
 
@@ -603,7 +603,7 @@ esac
 
 git add docs/measurements/results/game-list-740 \
   docs/measurements/game-list-740-baseline.md \
-  docs/adr/game/0080-game-list-relation-filter-performance-selection.md
+  docs/adr/game/0081-game-list-relation-filter-performance-selection.md
 git commit -m 'docs: 게임 목록 relation 성능 개선 근거 추가'
 ~~~
 

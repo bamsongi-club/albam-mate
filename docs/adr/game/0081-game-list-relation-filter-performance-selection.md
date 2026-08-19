@@ -1,4 +1,4 @@
-# ADR-0080: 게임 목록 relation filter는 query shape·theme index를 실측 비교해 선택
+# ADR-0081: 게임 목록 relation filter는 query shape·theme index를 실측 비교해 선택
 
 - 상태: 승인됨
 - 작성일: 2026-08-19

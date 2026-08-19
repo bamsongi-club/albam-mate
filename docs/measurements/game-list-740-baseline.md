@@ -76,7 +76,7 @@ canonical games 지문은 목록 결과에 영향을 주는 name·alias·image·
 
 ## #867 V0~V3 relation·complex 후보 비교
 
-[#867](https://github.com/bamsongi-club/albam-mate/issues/867)은 #770 Slice를 V0 control로 두고 V1(query shape), V2(PostgreSQL theme relation index), V3(결합)를 비교한다. 선택·rollback 경계는 [ADR-0080](../adr/game/0080-game-list-relation-filter-performance-selection.md)에서 정한다. cache·cursor·projection과 동시 HTTP·CPU·오류율은 이 비교에 넣지 않으며 후자는 [#863](https://github.com/bamsongi-club/albam-mate/issues/863)에서만 다룬다.
+[#867](https://github.com/bamsongi-club/albam-mate/issues/867)은 #770 Slice를 V0 control로 두고 V1(query shape), V2(PostgreSQL theme relation index), V3(결합)를 비교한다. 선택·rollback 경계는 [ADR-0081](../adr/game/0081-game-list-relation-filter-performance-selection.md)에서 정한다. cache·cursor·projection과 동시 HTTP·CPU·오류율은 이 비교에 넣지 않으며 후자는 [#863](https://github.com/bamsongi-club/albam-mate/issues/863)에서만 다룬다.
 
 각 variant는 독립 fixture DB에서 여섯 scenario를 warm-up 5회 뒤 순차 20회로 실행한다. V0~V3은 다음 순서를 정확히 한 번씩 써서 총 16개 성공 artifact를 만든다.
 
