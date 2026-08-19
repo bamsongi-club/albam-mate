@@ -105,7 +105,11 @@ final class InMemoryAiQuotaLedger implements AiQuotaLedger {
 
 	private void publishWarningIfFirstReached(YearMonth quotaMonth, BigDecimal costUsd) {
 		if (costUsd.compareTo(WARNING_THRESHOLD_USD) >= 0 && warnedMonths.add(quotaMonth)) {
-			warningEventSink.record(new AssistantCostWarningEvent(quotaMonth, costUsd, WARNING_THRESHOLD_USD));
+			try {
+				warningEventSink.record(new AssistantCostWarningEvent(quotaMonth, costUsd, WARNING_THRESHOLD_USD));
+			} catch (RuntimeException ignored) {
+				// quota 상태 전이는 경고 전달 장애와 독립적으로 완료한다.
+			}
 		}
 	}
 

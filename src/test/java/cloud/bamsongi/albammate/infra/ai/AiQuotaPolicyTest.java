@@ -95,6 +95,30 @@ class AiQuotaPolicyTest {
 	}
 
 	@Test
+	void T3_경고_sink_실패에도_예약과_completion을_성공으로_반환한다() {
+		InMemoryAiQuotaLedger reserveWarningLedger = new InMemoryAiQuotaLedger(event -> {
+			throw new IllegalStateException("warning delivery unavailable");
+		});
+		AiQuotaReservation reserveWarningReservation = reserveWarningLedger.reserve(
+			"user-a", JANUARY_31_KST, new BigDecimal("4.00"));
+		assertEquals(AiQuotaReservationStatus.ACQUIRED, reserveWarningReservation.status());
+		assertFalse(reserveWarningReservation.reservationToken().isBlank());
+		assertEquals(AiQuotaCompletionStatus.COMPLETED,
+			reserveWarningLedger.complete(reserveWarningReservation, new BigDecimal("4.00")));
+
+		InMemoryAiQuotaLedger completionWarningLedger = new InMemoryAiQuotaLedger(event -> {
+			throw new IllegalStateException("warning delivery unavailable");
+		});
+		AiQuotaReservation completionWarningReservation = completionWarningLedger.reserve(
+			"user-b", JANUARY_31_KST, BigDecimal.ZERO);
+		assertEquals(AiQuotaReservationStatus.ACQUIRED, completionWarningReservation.status());
+		assertEquals(AiQuotaCompletionStatus.COMPLETED,
+			completionWarningLedger.complete(completionWarningReservation, new BigDecimal("4.00")));
+		assertEquals(AiQuotaCompletionStatus.COMPLETED,
+			completionWarningLedger.complete(completionWarningReservation, new BigDecimal("4.00")));
+	}
+
+	@Test
 	void T4_provider_실패도_quota에_포함하고_completion은_중복_청구하지_않는다() {
 		InMemoryAiQuotaLedger ledger = new InMemoryAiQuotaLedger(event -> {});
 		AiProviderIntentExtractor extractor = new AiProviderIntentExtractor(

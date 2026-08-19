@@ -12,7 +12,9 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -35,7 +37,7 @@ final class RedisAiQuotaLedger implements AiQuotaLedger {
 	private static final BigDecimal WARNING_THRESHOLD_USD = new BigDecimal("4.00");
 	private static final long WARNING_THRESHOLD_CENTS = 400;
 	private static final long HARD_CAP_CENTS = 500;
-	private static final long[] COMPLETION_RETRY_DELAYS_SECONDS = {1, 2, 4, 8, 16};
+	private static final long COMPLETION_RETRY_DELAY_SECONDS = 1;
 	private static final int DAILY_LIMIT = 5;
 	private static final int MONTHLY_LIMIT = 150;
 	private static final DefaultRedisScript<List> RESERVE_SCRIPT = new DefaultRedisScript<>(
@@ -53,7 +55,7 @@ final class RedisAiQuotaLedger implements AiQuotaLedger {
 			if currentCostCents == 0 then redis.call('PSETEX', KEYS[4], ARGV[7], tostring(nextCostCents)) else redis.call('SET', KEYS[4], tostring(nextCostCents), 'KEEPTTL') end
 			redis.call('ZADD', KEYS[3], ARGV[8], ARGV[9])
 			redis.call('PEXPIRE', KEYS[3], ARGV[10])
-			redis.call('HSET', KEYS[6], 'state', 'PENDING', 'reservedCostCents', ARGV[4], 'quotaMonth', ARGV[11])
+			redis.call('HSET', KEYS[6], 'state', 'PENDING', 'reservedCostCents', ARGV[4], 'quotaMonth', ARGV[11], 'subjectHash', ARGV[13])
 			redis.call('PEXPIRE', KEYS[6], ARGV[7])
 			local warned = 0
 			if nextCostCents >= tonumber(ARGV[12]) and redis.call('SET', KEYS[5], '1', 'NX', 'PX', ARGV[7]) then warned = 1 end
@@ -63,18 +65,35 @@ final class RedisAiQuotaLedger implements AiQuotaLedger {
 	private static final DefaultRedisScript<List> COMPLETE_SCRIPT = new DefaultRedisScript<>(
 		"""
 			if redis.call('EXISTS', KEYS[1]) == 0 then return {2, 0, '0'} end
-			if redis.call('HGET', KEYS[1], 'state') == 'COMPLETED' then return {1, 0, redis.call('GET', KEYS[3]) or '0'} end
+			if redis.call('HGET', KEYS[1], 'state') == 'COMPLETED' then
+			  redis.call('ZREM', KEYS[5], ARGV[2])
+			  return {1, 0, redis.call('GET', KEYS[3]) or '0'}
+			end
 			local reservedCostCents = tonumber(redis.call('HGET', KEYS[1], 'reservedCostCents') or '0')
 			local currentCostCents = tonumber(redis.call('GET', KEYS[3]) or '0')
 			local nextCostCents = currentCostCents + tonumber(ARGV[1]) - reservedCostCents
 			redis.call('HSET', KEYS[1], 'state', 'COMPLETED', 'actualCostCents', ARGV[1])
+			redis.call('HDEL', KEYS[1], 'pendingCompletionCostCents')
 			redis.call('ZREM', KEYS[2], ARGV[2])
+			redis.call('ZREM', KEYS[5], ARGV[2])
 			redis.call('SET', KEYS[3], tostring(nextCostCents), 'KEEPTTL')
 			local warned = 0
 			if nextCostCents >= tonumber(ARGV[3]) and redis.call('SET', KEYS[4], '1', 'NX', 'PX', ARGV[4]) then warned = 1 end
 			return {1, warned, tostring(nextCostCents)}
 			""",
 		List.class);
+	private static final DefaultRedisScript<Long> SCHEDULE_COMPLETION_SCRIPT = new DefaultRedisScript<>(
+		"""
+			if redis.call('EXISTS', KEYS[1]) == 0 or redis.call('HGET', KEYS[1], 'state') ~= 'PENDING' then return 0 end
+			local reservationTtl = redis.call('PTTL', KEYS[1])
+			if reservationTtl <= 0 then return 0 end
+			redis.call('HSET', KEYS[1], 'pendingCompletionCostCents', ARGV[1])
+			redis.call('ZADD', KEYS[2], 0, ARGV[2])
+			local pendingTtl = redis.call('PTTL', KEYS[2])
+			if pendingTtl < reservationTtl then redis.call('PEXPIRE', KEYS[2], reservationTtl) end
+			return 1
+			""",
+		Long.class);
 
 	private final StringRedisTemplate redisTemplate;
 	private final AiCostWarningEventSink warningEventSink;
@@ -107,6 +126,7 @@ final class RedisAiQuotaLedger implements AiQuotaLedger {
 		if (activeReservationTtl.isNegative() || activeReservationTtl.isZero()) {
 			throw new IllegalArgumentException("activeReservationTtl must be positive");
 		}
+		reconcilePendingCompletions();
 	}
 
 	@Override
@@ -132,7 +152,7 @@ final class RedisAiQuotaLedger implements AiQuotaLedger {
 				Long.toString(dayTtlMillis(kst)),
 				Long.toString(monthTtlMillis(kst)), Long.toString(now.plus(activeReservationTtl).toEpochMilli()), token,
 				Long.toString(activeReservationTtl.toMillis()), quotaMonth.toString(),
-				Long.toString(WARNING_THRESHOLD_CENTS));
+				Long.toString(WARNING_THRESHOLD_CENTS), subjectHash);
 			Decision decision = Decision.from(result);
 			if (decision.status == AiQuotaReservationStatus.ACQUIRED) {
 				publishWarningIfNeeded(decision.warning, quotaMonth, decision.costUsd);
@@ -151,17 +171,24 @@ final class RedisAiQuotaLedger implements AiQuotaLedger {
 			return AiQuotaCompletionStatus.NOT_ACQUIRED;
 		}
 		BigDecimal actualCostUsd = normalizeCost(costUsd);
-		String subjectHash = subjectHash(reservation.quotaSubject());
+		return complete(reservation.reservationToken(), reservation.quotaMonth(),
+			subjectHash(reservation.quotaSubject()),
+			actualCostUsd);
+	}
+
+	private AiQuotaCompletionStatus complete(
+		String reservationToken, YearMonth quotaMonth, String subjectHash, BigDecimal actualCostUsd) {
 		try {
 			List<?> result = redisTemplate.execute(COMPLETE_SCRIPT,
-				List.of(reservationKey(reservation.reservationToken()), activeKey(subjectHash),
-					costKey(reservation.quotaMonth()), warningKey(reservation.quotaMonth())),
-				Long.toString(toCents(actualCostUsd)), reservation.reservationToken(),
+				List.of(reservationKey(reservationToken), activeKey(subjectHash), costKey(quotaMonth),
+					warningKey(quotaMonth),
+					pendingCompletionKey()),
+				Long.toString(toCents(actualCostUsd)), reservationToken,
 				Long.toString(WARNING_THRESHOLD_CENTS),
 				Long.toString(RECORD_RETENTION.toMillis()));
 			CompletionDecision decision = CompletionDecision.from(result);
 			if (decision.completed) {
-				publishWarningIfNeeded(decision.warning, reservation.quotaMonth(), decision.costUsd);
+				publishWarningIfNeeded(decision.warning, quotaMonth, decision.costUsd);
 				return AiQuotaCompletionStatus.COMPLETED;
 			}
 			return decision.notAcquired ? AiQuotaCompletionStatus.NOT_ACQUIRED : AiQuotaCompletionStatus.UNAVAILABLE;
@@ -173,26 +200,49 @@ final class RedisAiQuotaLedger implements AiQuotaLedger {
 	@Override
 	public void scheduleCompletionRetry(AiQuotaReservation reservation, BigDecimal costUsd) {
 		if (reservation == null || reservation.status() != AiQuotaReservationStatus.ACQUIRED
-			|| reservation.reservationToken().isBlank()) {
+			|| reservation.reservationToken().isBlank() || reservation.quotaMonth() == null) {
 			return;
 		}
-		scheduleCompletionRetry(reservation, costUsd, 0);
+		BigDecimal actualCostUsd = normalizeCost(costUsd);
+		String subjectHash = subjectHash(reservation.quotaSubject());
+		persistPendingCompletion(reservation.reservationToken(), actualCostUsd);
+		scheduleCompletionRetry(reservation.reservationToken(), reservation.quotaMonth(), subjectHash, actualCostUsd);
 	}
 
-	private void scheduleCompletionRetry(AiQuotaReservation reservation, BigDecimal costUsd, int attempt) {
-		if (attempt >= COMPLETION_RETRY_DELAYS_SECONDS.length) {
+	private void persistPendingCompletion(String reservationToken, BigDecimal actualCostUsd) {
+		try {
+			redisTemplate.execute(SCHEDULE_COMPLETION_SCRIPT,
+				List.of(reservationKey(reservationToken), pendingCompletionKey()),
+				Long.toString(toCents(actualCostUsd)), reservationToken);
+		} catch (RuntimeException exception) {
+			// 현재 프로세스 재시도는 유지하고, Redis 복구 뒤에는 같은 token으로만 completion 한다.
+		}
+	}
+
+	private void scheduleCompletionRetry(
+		String reservationToken, YearMonth quotaMonth, String subjectHash, BigDecimal actualCostUsd) {
+		if (completionRetryExecutor.isShutdown()) {
 			return;
 		}
 		completionRetryExecutor.schedule(() -> {
-			if (complete(reservation, costUsd) == AiQuotaCompletionStatus.UNAVAILABLE) {
-				scheduleCompletionRetry(reservation, costUsd, attempt + 1);
+			if (complete(reservationToken, quotaMonth, subjectHash,
+				actualCostUsd) == AiQuotaCompletionStatus.UNAVAILABLE) {
+				scheduleCompletionRetry(reservationToken, quotaMonth, subjectHash, actualCostUsd);
 			}
-		}, COMPLETION_RETRY_DELAYS_SECONDS[attempt], TimeUnit.SECONDS);
+		}, COMPLETION_RETRY_DELAY_SECONDS, TimeUnit.SECONDS);
 	}
 
 	@PreDestroy
 	void shutdownCompletionRetryExecutor() {
-		completionRetryExecutor.shutdownNow();
+		completionRetryExecutor.shutdown();
+		try {
+			if (!completionRetryExecutor.awaitTermination(250, TimeUnit.MILLISECONDS)) {
+				completionRetryExecutor.shutdownNow();
+			}
+		} catch (InterruptedException exception) {
+			completionRetryExecutor.shutdownNow();
+			Thread.currentThread().interrupt();
+		}
 	}
 
 	private static final Duration RECORD_RETENTION = Duration.ofDays(2);
@@ -206,7 +256,11 @@ final class RedisAiQuotaLedger implements AiQuotaLedger {
 
 	private void publishWarningIfNeeded(boolean warning, YearMonth quotaMonth, BigDecimal costUsd) {
 		if (warning) {
-			warningEventSink.record(new AssistantCostWarningEvent(quotaMonth, costUsd, WARNING_THRESHOLD_USD));
+			try {
+				warningEventSink.record(new AssistantCostWarningEvent(quotaMonth, costUsd, WARNING_THRESHOLD_USD));
+			} catch (RuntimeException ignored) {
+				// Redis Lua 상태 전이는 경고 전달 장애와 독립적으로 완료한다.
+			}
 		}
 	}
 
@@ -232,6 +286,39 @@ final class RedisAiQuotaLedger implements AiQuotaLedger {
 
 	private String reservationKey(String token) {
 		return KEY_PREFIX + ":{v1}:reservation:" + token;
+	}
+
+	private String pendingCompletionKey() {
+		return KEY_PREFIX + ":{v1}:pending-completion";
+	}
+
+	private void reconcilePendingCompletions() {
+		try {
+			Set<String> pendingTokens = redisTemplate.opsForZSet().range(pendingCompletionKey(), 0, -1);
+			if (pendingTokens == null) {
+				return;
+			}
+			for (String reservationToken : pendingTokens) {
+				reconcilePendingCompletion(reservationToken);
+			}
+		} catch (RuntimeException ignored) {
+			// Redis fail-closed는 호출 시 reserve/complete가 판정하며, 기동 중 복구 스캔은 재시도한다.
+		}
+	}
+
+	private void reconcilePendingCompletion(String reservationToken) {
+		Map<Object, Object> state = redisTemplate.opsForHash().entries(reservationKey(reservationToken));
+		Object pendingCostCents = state.get("pendingCompletionCostCents");
+		if (!"PENDING".equals(state.get("state")) || pendingCostCents == null
+			|| state.get("quotaMonth") == null || state.get("subjectHash") == null) {
+			return;
+		}
+		try {
+			scheduleCompletionRetry(reservationToken, YearMonth.parse(valueOf(state.get("quotaMonth"))),
+				valueOf(state.get("subjectHash")), fromCents(pendingCostCents));
+		} catch (IllegalArgumentException exception) {
+			// 손상된 보류 기록은 provider 재호출 없이 retention 만료로 정리한다.
+		}
 	}
 
 	private long dayTtlMillis(ZonedDateTime kst) {
