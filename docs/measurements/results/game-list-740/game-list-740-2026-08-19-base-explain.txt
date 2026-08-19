@@ -1,0 +1,42 @@
+=== base-content ===
+Limit  (cost=0.42..17.47 rows=24 width=1162) (actual time=0.008..0.606 rows=24.00 loops=1)
+  Output: id, alias, bgg_id, complexity, created_at, description, detail_description, english_name, estimated_play_time, image_url, max_play_time_minutes, max_players, min_age, min_play_time_minutes, min_players, name, popularity_score, release_year, supported_player_count, tag, updated_at
+  Buffers: shared hit=18 read=9
+  ->  Index Scan using ix_games_popularity_score_name_id on public.games g  (cost=0.42..121003.66 rows=170366 width=1162) (actual time=0.007..0.603 rows=24.00 loops=1)
+        Output: id, alias, bgg_id, complexity, created_at, description, detail_description, english_name, estimated_play_time, image_url, max_play_time_minutes, max_players, min_age, min_play_time_minutes, min_players, name, popularity_score, release_year, supported_player_count, tag, updated_at
+        Index Searches: 1
+        Buffers: shared hit=18 read=9
+Planning:
+  Buffers: shared hit=141
+Planning Time: 0.972 ms
+Execution Time: 0.621 ms
+
+=== base-count ===
+Finalize Aggregate  (cost=6591.79..6591.80 rows=1 width=8) (actual time=14.193..14.364 rows=1.00 loops=1)
+  Output: count(id)
+  Buffers: shared hit=84440
+  ->  Gather  (cost=6591.57..6591.78 rows=2 width=8) (actual time=14.187..14.360 rows=3.00 loops=1)
+        Output: (PARTIAL count(id))
+        Workers Planned: 2
+        Workers Launched: 2
+        Buffers: shared hit=84440
+        ->  Partial Aggregate  (cost=5591.57..5591.58 rows=1 width=8) (actual time=11.198..11.199 rows=1.00 loops=3)
+              Output: PARTIAL count(id)
+              Buffers: shared hit=84440
+              Worker 0:  actual time=9.472..9.472 rows=1.00 loops=1
+                Buffers: shared hit=15355
+              Worker 1:  actual time=10.042..10.043 rows=1.00 loops=1
+                Buffers: shared hit=34766
+              ->  Parallel Index Only Scan using games_pkey on public.games g  (cost=0.42..5414.11 rows=70986 width=8) (actual time=0.080..9.037 rows=56668.33 loops=3)
+                    Output: id
+                    Heap Fetches: 0
+                    Index Searches: 1
+                    Buffers: shared hit=84440
+                    Worker 0:  actual time=0.217..7.688 rows=30936.00 loops=1
+                      Buffers: shared hit=15355
+                    Worker 1:  actual time=0.016..7.971 rows=69931.00 loops=1
+                      Buffers: shared hit=34766
+Planning:
+  Buffers: shared hit=3
+Planning Time: 0.034 ms
+Execution Time: 14.376 ms

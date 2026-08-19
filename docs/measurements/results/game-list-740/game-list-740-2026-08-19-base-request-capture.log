@@ -1,23 +1,17 @@
-GAME LIST #740 BASE REQUEST DECOMPOSITION
+capturedAt=2026-08-19T00:57:22Z
+serverCommit=2e28b6c9294fa0b30b40b6c057d6199cf5804a4b
 request=GET /api/games?upcomingOnly=false&playerCountExact=false&page=0&size=24
-capture_start=2026-08-18T15:54:46Z
-capture_end=2026-08-18T15:54:46Z
-
-[http]
 http_status=200
-http_elapsed_ms=110.654
-response={"status":200,"page":0,"size":24,"totalElements":170005,"contentLength":24}
+http_total_ms=92.594
 
-[controller]
-2026-08-18T15:54:46.798Z INFO event=game_search_completed outcome=success resultCount=24 durationMs=54
+{"@timestamp":"2026-08-19T00:57:22.706288261Z","message":"game search completed","logger_name":"cloud.bamsongi.albammate.game.controller.GameController","level":"INFO","event":"game_search_completed","outcome":"success","resultCount":24,"durationMs":49}
 
-[postgres execute statements]
-2026-08-18 15:54:46.756 UTC duration=0.474 ms execute S_5: select g1_0.id,g1_0.alias,g1_0.bgg_id,g1_0.complexity,g1_0.created_at,g1_0.description,g1_0.detail_description,g1_0.english_name,g1_0.estimated_play_time,g1_0.image_url,g1_0.max_play_time_minutes,g1_0.max_players,g1_0.min_age,g1_0.min_play_time_minutes,g1_0.min_players,g1_0.name,g1_0.popularity_score,g1_0.release_year,g1_0.supported_player_count,g1_0.tag,g1_0.updated_at from games g1_0 where 1=1 order by g1_0.popularity_score desc,g1_0.name,g1_0.id offset $1 rows fetch first $2 rows only
-2026-08-18 15:54:46.782 UTC duration=15.766 ms execute S_6: select count(g1_0.id) from games g1_0 where 1=1
-2026-08-18 15:54:46.787 UTC duration=0.089 ms execute <unnamed>: select r1_0.game_id,count(r1_0.id) from rooms r1_0 where r1_0.game_id in ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24) and r1_0.room_type=$25 and r1_0.start_at>$26 and r1_0.status not in ($27,$28) group by r1_0.game_id
+postgres execute content:
+duration: 1.717 ms  execute <unnamed>: select g1_0.id,g1_0.alias,g1_0.bgg_id,g1_0.complexity,g1_0.created_at,g1_0.description,g1_0.detail_description,g1_0.english_name,g1_0.estimated_play_time,g1_0.image_url,g1_0.max_play_time_minutes,g1_0.max_players,g1_0.min_age,g1_0.min_play_time_minutes,g1_0.min_players,g1_0.name,g1_0.popularity_score,g1_0.release_year,g1_0.supported_player_count,g1_0.tag,g1_0.updated_at from games g1_0 where 1=1 order by g1_0.popularity_score desc,g1_0.name,g1_0.id offset $1 rows fetch first $2 rows only
+bind: offset=0, fetch=24
 
-[derived decomposition]
-sql_execute_sum_ms=16.329
-controller_minus_sql_ms=37.671
-http_minus_controller_ms=56.654
-note=PostgreSQL execute durations are the three relevant statements from the capture; controller and HTTP residuals are not attributed to SQL without separate instrumentation.
+postgres execute count:
+duration: 20.488 ms  execute <unnamed>: select count(g1_0.id) from games g1_0 where 1=1
+
+postgres execute related rooms:
+duration: 0.043 ms  execute <unnamed>: select r1_0.game_id,count(r1_0.id) from rooms r1_0 where r1_0.game_id in ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24) and r1_0.room_type=$25 and r1_0.start_at>$26 and r1_0.status not in ($27,$28) group by r1_0.game_id
