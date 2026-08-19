@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "kind": "search-04-dense-execution",
+  "featureId": "SEARCH-04",
+  "evaluationProfile": "development-seed",
+  "status": "evidence-only",
+  "approvalReference": "https://github.com/bamsongi-club/albam-mate/issues/868#issuecomment-5341110812",
+  "branch": "feature/issue-868-dense-hybrid-evaluation",
+  "inputGitHead": "592de01644e33554dcce5a13bfcb5e9d5bfac882",
+  "execution": {
+    "mode": "offline",
+    "runner": "scripts/search-evaluation/run-bge-m3.py",
+    "provider": "local",
+    "network": "disabled",
+    "externalApi": false,
+    "secretRequired": false,
+    "runtime": {
+      "python": "3.14.6",
+      "sentenceTransformers": "6.0.0",
+      "torch": "2.13.0",
+      "numpy": "2.5.2",
+      "device": "mps:0"
+    },
+    "resultNote": "2026-08-19 local BGE-M3 rerun; approved input/model and package versions are pinned, device mps:0 was captured, and quality remains unjudged until independent human gold qrels are approved."
+  },
+  "model": {
+    "provider": "local",
+    "modelId": "BAAI/bge-m3",
+    "revision": "5617a9f61b028005a4858fdac845db406aefb181",
+    "dimension": 1024,
+    "pooling": "cls",
+    "normalized": true,
+    "prefix": "none",
+    "denseOnly": true,
+    "similarity": "normalized-dot"
+  },
+  "sources": {
+    "qualityCorpus": {
+      "path": "quality-corpus.json",
+      "sha256": "0ce65a0ab500054c11548fe487afab8247b8f09282087f6db4d144d0783c87e8",
+      "rows": 1000
+    },
+    "searchText": {
+      "path": "search-text-top1000.json",
+      "sha256": "ec364be3a34268d1bb6d27e3c41e2cdd31852565eec79fa31faaacda17af4ece",
+      "rows": 1000
+    },
+    "queries": {
+      "path": "queries.json",
+      "sha256": "93d3e79d5a04d9eb147830f513df960a564a7ff32a786441b6f9e59665901772",
+      "rows": 3
+    },
+    "displayMap": {
+      "path": "display-map-top1000.json",
+      "sha256": "b3e717225cc091712071506d24c7653823994ec6b9743b2a8c3532fa659b3ffc",
+      "rows": 1000
+    },
+    "modelArtifactManifest": {
+      "path": "model-artifact-manifest.json",
+      "sha256": "82bc00be0afb7daa72f89b3e7a7f14552b59466550a9eafa2f965b59e65cb708",
+      "rows": 10
+    }
+  },
+  "outputs": {
+    "results": {
+      "path": "results.json",
+      "sha256": "6e66436f07c092fc760c4cf1de7ba02b6621ea27766de21599e92d0616c84f32",
+      "rows": 3,
+      "topK": 20
+    },
+    "candidatePool": {
+      "path": "candidate-pool.json",
+      "sha256": "684b2dc7e5f97d58bc94c73b5f67b56acc2791923746fc5ec4dc4c4d997a173a",
+      "rows": 3
+    },
+    "blindJudgement": {
+      "path": "blind-judgement.json",
+      "sha256": "ad48e0cef803e5c08f3024381e5b915080e103ed33f6f41ef9c44eeeb36d873b",
+      "rows": 3
+    },
+    "goldJudgementPacket": {
+      "path": "gold-judgement-packet.json",
+      "sha256": "18b4255bce189113e79d3565b203e515837606eff2db83b352ad26d18ca61b65",
+      "rows": 3
+    }
+  },
+  "hybrid": {
+    "status": "deferred",
+    "reason": "#866 lexical/Sparse 결과가 아직 없어 Hybrid/RRF와 최종 방식 선택을 실행하지 않음"
+  },
+  "quality": {
+    "status": "unjudged",
+    "qualityReady": false,
+    "note": "Q-010~Q-012는 사람 판정 전이며 expected gold가 없음"
+  }
+}
