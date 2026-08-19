@@ -31,6 +31,8 @@ java --version
 | H2 전체 테스트 | `.\gradlew.bat test` | `./gradlew test` |
 | 빌드 | `.\gradlew.bat build` | `./gradlew build` |
 | PostgreSQL 테스트 | `.\gradlew.bat postgresTest --no-daemon --stacktrace` | `./gradlew postgresTest --no-daemon --stacktrace` |
+| PostgreSQL 측정 | `.\gradlew.bat postgresMeasurementTest --no-daemon --stacktrace` | `./gradlew postgresMeasurementTest --no-daemon --stacktrace` |
+| 고위험 mutation | `.\gradlew.bat highRiskMutationTest --no-daemon` | `./gradlew highRiskMutationTest --no-daemon` |
 | 빠른 커버리지 게이트 | `.\gradlew.bat jacocoTestReport jacocoTestCoverageVerification` | `./gradlew jacocoTestReport jacocoTestCoverageVerification` |
 | Java 컨벤션 검사 | `.\gradlew.bat conventionCheck` | `./gradlew conventionCheck` |
 | 문서 링크 검사 | `node scripts/docs/check-doc-links.mjs` | `node scripts/docs/check-doc-links.mjs` |
@@ -63,12 +65,21 @@ docker compose --env-file .env -f compose.local.yml down
 | --- | --- | --- |
 | 빠른 H2 회귀 | 운영체제에 맞는 Wrapper로 `test` | [빠른 H2 테스트](guides/TESTING.md#빠른-h2-테스트-실행) |
 | PostgreSQL 계약 | 먼저 `docker version`, 이후 `postgresTest --no-daemon --stacktrace` | [PostgreSQL 검증](guides/TESTING.md#postgresql-검증-실행) |
+| PostgreSQL wall-clock 측정 | `postgresMeasurementTest --no-daemon --stacktrace` | [PostgreSQL 측정과 shard 시간 갱신](guides/TESTING.md#postgresql-측정과-shard-시간-갱신) |
+| 고위험 순수 로직 mutation | `highRiskMutationTest --no-daemon` | [고위험 mutation 검증](guides/TESTING.md#고위험-mutation-검증) |
 | H2 커버리지 | `jacocoTestReport jacocoTestCoverageVerification` | [커버리지 게이트](guides/TESTING.md#커버리지-게이트-실행) |
 | H2·PostgreSQL 합산 커버리지 | `jacocoAllTestReport jacocoAllTestCoverageVerification` | [정본 커버리지와 CI 판정](guides/TESTING.md#ci-판정) |
 
 ### PostgreSQL 마이그레이션 검증
 
 `postgresTest`는 빈 PostgreSQL 18.4 컨테이너에 Flyway를 적용하고 Hibernate 스키마와 PostgreSQL 전용 계약을 확인한다. 실행·실패 해석은 [PostgreSQL 검증 가이드](guides/TESTING.md#postgresql-검증-실행)를 따른다.
+
+PostgreSQL topology와 shard 도구만 빠르게 확인한다.
+
+```sh
+node scripts/ci/validate-postgres-test-topology.mjs
+node --test scripts/ci/partition-postgres-tests.test.mjs scripts/ci/update-postgres-test-durations.test.mjs scripts/ci/validate-postgres-test-topology.test.mjs
+```
 
 ### 분기 커버리지 확인
 
