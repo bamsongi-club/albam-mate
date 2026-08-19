@@ -530,6 +530,8 @@ P1 채팅방을 저장하는 구현된 테이블이다. `V6__create_p1_chat_room
 
 P1 CHAT-02의 V9 전진 Flyway가 생성하는 메시지 저장의 최종 정본이다([ADR-0033](adr/chat/0033-postgresql-source-after-commit-delivery.md)). `id`는 승인된 [ADR-0031](adr/chat/0031-chat-history-cursor-pagination.md)의 커서와 실시간 catch-up 기준으로 사용하며, 클라이언트 시각으로 순서를 정하지 않는다.
 
+아래 표는 전진 migration 전의 현재 스키마다. P2 `CHAT-06`이 입장·퇴장 안내를 위해 더할 컬럼·제약과 NOT NULL 완화는 [CHAT-06 저장 계약](#chat-06-입장퇴장-시스템-메시지-저장-계약)이 소유한다.
+
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | id | BIGINT | PK, NN, AI | 서버가 부여하는 메시지 식별자·정렬 기준 |
@@ -538,6 +540,73 @@ P1 CHAT-02의 V9 전진 Flyway가 생성하는 메시지 저장의 최종 정본
 | client_message_id | VARCHAR(100) | NN | 재시도 멱등성 키 |
 | content | TEXT | NN | 앞뒤 공백 제거 후 1~500자의 일반 텍스트 |
 | created_at | TIMESTAMPTZ | NN | 서버 저장 시각 |
+
+### CHAT-06 입장·퇴장 시스템 메시지 저장 계약
+
+> **도입 단계: P2** · **기능: CHAT-06** · **저장 계약 상태: 계약 준비 완료** · **적용 상태: 전진 migration 필요**
+>
+> 이 절은 승인된 목표 저장 계약이며 현재 배포된 스키마가 아니다. 위 [CHAT_MESSAGES](#chat_messages) 표는 전진 migration 전의 현재 스키마를 설명한다. 현재 상태는 [P2 기능 상태의 `CHAT-06`](p2/README.md#기능별-현재-상태)에서만 판정한다.
+
+`CHAT-06`은 별도 시스템 메시지 테이블을 만들지 않고 `CHAT_MESSAGES`를 확장한다. 사용자 메시지와 시스템 메시지가 하나의 `id` 순서·커서·보존 경계를 공유하기 위한 선택이며 이유·대안·재검토 조건은 [ADR-0078](adr/chat/0078-chat-system-message-storage-and-read-time-composition.md)이 소유한다. 완성된 안내 문장과 표시용 닉네임 사본은 저장하지 않고, 조회 시점에 서버가 조립한다.
+
+| 컬럼 | 변경 | 제약 | 설명 |
+|---|---|---|---|
+| message_type | 추가 | VARCHAR(20) NN DEFAULT `'USER'` | `USER` 또는 `SYSTEM`. 기존 행과 이 컬럼을 모르는 구버전 INSERT는 default로 `USER`가 된다. default는 [혼합 버전 순서](#chat-06-혼합-버전-배포활성화rollback-순서)의 마지막 단계까지 유지한다 |
+| system_event_key | 추가 | VARCHAR(40) NULL | `PARTICIPANT_ENTERED` 또는 `PARTICIPANT_LEFT` |
+| subject_user_id | 추가 | BIGINT FK → USERS.id, NULL | 안내 대상 사용자. `ON DELETE NO ACTION`. 참가·참가 취소의 행위자는 항상 이 사용자 자신이므로 행위자 컬럼을 따로 두지 않는다 |
+| sender_user_id | NOT NULL 완화 | BIGINT FK → USERS.id, NULL | `USER`의 작성자. `SYSTEM`은 NULL |
+| client_message_id | NOT NULL 완화 | VARCHAR(100) NULL | `USER`의 재시도 멱등성 키. `SYSTEM`은 NULL |
+| content | NOT NULL 완화 | TEXT NULL | `USER`의 본문. `SYSTEM`은 NULL이며 문장은 저장하지 않는다 |
+
+물리 구현은 기존 P1·MATCH와 같이 PostgreSQL native enum 대신 `VARCHAR`와 이름 있는 `CHECK` 제약을 사용한다. `subject_user_id`는 `ON DELETE NO ACTION`이며 사용자 삭제로 안내를 연쇄 삭제하지 않는다.
+
+| 대상 | 제약·인덱스 | 이유 |
+|---|---|---|
+| CHAT_MESSAGES | `ck_chat_messages_kind`: `USER`는 `sender_user_id`·`client_message_id`·`content` NN 및 `system_event_key`·`subject_user_id` NULL, `SYSTEM`은 `sender_user_id`·`client_message_id`·`content` NULL 및 `subject_user_id` NN과 `system_event_key IN ('PARTICIPANT_ENTERED', 'PARTICIPANT_LEFT')` | 두 종류의 필수 값과 멱등성 근거를 섞지 않는다. 사건 키는 non-null 여부만이 아니라 허용값까지 강제해, enum으로 역직렬화할 수 없는 행이 이력 페이지·catch-up 전체를 실패시키지 않게 한다. 같은 저장소의 `ck_match_chat_messages_kind`와 무결성 수준을 맞춘다 |
+| CHAT_MESSAGES | 기존 `uq_chat_messages_room_sender_client_message`를 `WHERE client_message_id IS NOT NULL` 부분 유일 인덱스로 전환 | 선택 사항이다. PostgreSQL 기본 `NULLS DISTINCT`에서 `SYSTEM` 행의 NULL 키는 이미 서로 충돌하지 않으므로 멱등성 판정에는 전환이 필요하지 않고, 판정 대상과 인덱스 크기를 사용자 메시지로 좁히려는 목적만 있다 |
+| CHAT_MESSAGES | 기존 `(chat_room_id, id DESC)` 인덱스를 그대로 사용 | 시스템 메시지도 같은 커서·catch-up 조회 경로를 쓴다 |
+
+- `SYSTEM` 행에는 별도 멱등성 키를 두지 않는다. 안내는 원인 참가·참가 취소 업무 트랜잭션 안에서만 저장하며, 그 트랜잭션이 참가 관계를 실제로 전이시킬 때 정확히 한 번 커밋된다. 재참가·재취소는 새로운 전이이므로 각각 새 행을 만든다.
+- `SYSTEM` 행도 `CHAT_ROOMS` 행을 잠근 뒤 ID를 할당해 방별 ID 순서와 커밋 가시성 순서를 사용자 메시지와 함께 유지한다.
+- 보존·만료 물리 삭제는 `CHAT_ROOMS.purge_after`와 [ADR-0049](adr/chat/0049-chat-message-retention-lock-section-boundary.md)의 30일 계약을 그대로 따르며 종류별로 다른 기간을 두지 않는다.
+- 전진 migration이 반드시 해야 하는 일은 컬럼 추가, `sender_user_id`·`client_message_id`·`content`의 NOT NULL 완화, `ck_chat_messages_kind` 추가다. 부분 유일 인덱스 전환은 위 표대로 선택 사항이다. 어떤 경우에도 기존 채팅방에 `SYSTEM` 행을 소급 생성하지 않는다.
+- 이 확장은 P1 ROOM 채팅에만 적용한다. `MATCH_CHAT_MESSAGES`와 행·제약·`system_event_key` 값을 공유하지 않는다.
+
+#### CHAT-06 혼합 버전 배포·활성화·rollback 순서
+
+이 저장소는 App1·App2 두 인스턴스를 순차로 갱신하므로 구버전과 신버전이 함께 도는 구간이 있다([다중 인스턴스 인프라](guides/AWS_MULTI_INSTANCE_INFRASTRUCTURE.md)). 이 구간에서 schema 변경과 `SYSTEM` 쓰기를 한 단계로 적용하면 두 방향으로 깨진다.
+
+- `message_type`을 default 없이 NOT NULL로 확정하면, 이 컬럼을 모르는 구버전 `ChatMessage` INSERT가 NOT NULL 위반으로 실패해 **사용자 메시지 전송이 중단된다**.
+- 신버전이 `SYSTEM` 행을 쓰기 시작한 뒤 구버전 인스턴스가 남아 있으면, 구버전 전달 경로는 모든 행의 `sender_user_id`를 필수로 조회하므로 sender를 찾지 못해 **WebSocket 연결을 닫는다**. 그 행은 30일 보존 대상이라 사라지지 않아, 해당 방의 실시간 전달은 구버전을 걷어낼 때까지 계속 실패한다.
+
+따라서 schema 확장, 읽기 배포, 쓰기 활성화, 정리를 아래 순서로 분리한다. 각 단계는 앞 단계가 모든 인스턴스에 반영된 것을 확인한 뒤에만 진행한다.
+
+| 단계 | 하는 일 | 다음 단계로 가는 조건 |
+|---|---|---|
+| 1. expand | 컬럼 추가(`message_type`은 NOT NULL DEFAULT `'USER'`), `sender_user_id`·`client_message_id`·`content` NOT NULL 완화, `ck_chat_messages_kind` 추가 | 구버전 writer가 default로 `USER` 행을 계속 저장하고, 구버전 reader가 읽는 행이 전부 `USER`인 상태 |
+| 2. reader 배포 | `SYSTEM` 행을 읽고 조립할 수 있는 신버전을 전 인스턴스에 배포한다. `SYSTEM` 쓰기는 비활성 상태로 둔다 | 구버전 인스턴스 drain 확인. 이 시점까지 `SYSTEM` 행은 한 건도 없어야 한다 |
+| 3. 쓰기 활성화 | `CHAT_SYSTEM_MESSAGE_ACTIVATION.enabled_at`을 채워 참가·참가 취소의 `SYSTEM` 안내 저장을 전역으로 켠다 | 안내 저장·이력·실시간 전달이 정상 동작 |
+| 4. contract | `message_type`의 DEFAULT 제거. expand migration과 같은 배포 산출물에 넣지 않고 별도 후속 migration으로 소유한다 | 구버전 rollback 포기와 신버전 writer drain이 끝난 뒤 |
+
+- 2단계와 3단계를 가르는 활성화는 인스턴스별 런타임 설정이 아니라 아래 `CHAT_SYSTEM_MESSAGE_ACTIVATION` 단일 행이다. 원인 참가·참가 취소 트랜잭션이 같은 트랜잭션에서 이 행을 읽어 `enabled_at IS NOT NULL AND enabled_at <= operationTime`일 때만 안내를 저장한다. 인스턴스별 `application.yml`·profile 값으로 이 판정을 대신하지 않는다.
+- 이 비교의 `operationTime`은 판정 트랜잭션이 PostgreSQL `clock_timestamp()`를 한 번 평가해 고정한 값이며, `enabled_at`을 기록할 때도 같은 PostgreSQL 시계를 쓴다. Command Coordinator가 낙관 락 재시도 전에 고정하는 애플리케이션 `Clock` 값(`occurredAt`·`requestTime`)은 gate 비교에 쓰지 않는다. 두 시계는 [서로 상대 순서를 보장하지 않는 별도 도메인](#p1-알림-check-제약)이므로 섞으면 활성화 직후 구간의 판정이 인스턴스 시계 편차에 노출되고, 같은 사건이 인스턴스에 따라 갈리지 않게 하려는 이 gate의 목적 자체가 깨진다.
+- 모든 인스턴스가 한 행을 같은 트랜잭션에서 읽으므로, 순차 재시작으로 신·구 버전이 섞인 구간에도 한 사건의 안내 저장 여부가 요청이 라우팅된 인스턴스에 따라 갈리지 않는다. `enabled_at` 이전 사건에는 안내가 없고 이후 사건에는 반드시 있다. `CHAT-06-AC1`의 정확히 한 건과 운영 목표 누락 0건은 이 전역 활성화 시각 이후의 사건에만 적용한다.
+- `enabled_at`을 다시 비우면 그 뒤 사건의 안내 저장만 멈추고 참가·참가 취소는 기존 계약대로 성공한다. 이미 저장된 안내 행은 지우지 않는다.
+- rollback 순서는 `SYSTEM` 쓰기 중지 → 신버전 writer drain → `SYSTEM` 행을 읽을 수 있는 버전 유지다. 이미 저장된 `SYSTEM` 행이 있는 상태에서 구버전으로 되돌리면 그 방의 실시간 전달이 깨지므로, 구버전까지 되돌려야 한다면 해당 행의 격리·정리 범위를 함께 정한 뒤에만 진행한다.
+- `sender_user_id`·`client_message_id`·`content`의 NOT NULL 복구는 `SYSTEM` 행이 하나라도 있으면 불가능하다. schema를 되돌리는 rollback은 3단계 이후 지원하지 않는다.
+- 혼합 버전 저장·조회와 이 rollback 순서는 후속 구현 이슈의 PostgreSQL 검증에 포함한다.
+
+##### CHAT_SYSTEM_MESSAGE_ACTIVATION
+
+`SYSTEM` 안내 쓰기의 전역 활성화 시각만 담는 단일 행 테이블이다. 기능 gate 전용이며 다른 기능 플래그나 일반 설정 저장소로 쓰지 않는다.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| gate_name | VARCHAR(64) | PK, NN | 고정값 `chat-system-message` |
+| enabled_at | TIMESTAMPTZ | NULL | 이 시각 이후 확정된 참가·참가 취소부터 안내를 저장한다. `NULL`이면 비활성 |
+| updated_at | TIMESTAMPTZ | NN | 마지막 활성화 상태 변경 시각 |
+
+expand migration이 위 고정 `gate_name` 행 하나를 `enabled_at NULL`로 함께 생성한다. 런타임은 행 누락을 자동 삽입하거나 임의 값으로 복구하지 않고, 행을 읽을 수 없으면 안내를 저장하지 않는다.
 
 ### ROOM_STATUS_CORRECTION_PROGRESS
 
@@ -981,6 +1050,7 @@ erDiagram
 | CHAT_ROOMS | UNIQUE (room_id) | ROOM당 채팅방은 최대 하나만 둔다. |
 | CHAT_ROOMS | CHECK (messages_purged_at IS NULL OR purge_after IS NOT NULL) | 삭제 완료 시각은 삭제 기준 시각이 설정된 채팅방에만 기록한다. |
 | CHAT_MESSAGES | UNIQUE (chat_room_id, sender_user_id, client_message_id) | 같은 사용자의 같은 방·멱등성 키는 하나의 메시지만 저장한다. |
+| CHAT_MESSAGES (`CHAT-06` 목표) | `ck_chat_messages_kind` | 사용자 메시지와 입장·퇴장 안내의 필수 값·멱등성 근거를 섞지 않는다. `client_message_id IS NOT NULL` 부분 유일 인덱스 전환은 선택 사항이며, 적용 범위는 [CHAT-06 저장 계약](#chat-06-입장퇴장-시스템-메시지-저장-계약)을 따른다. |
 | ROOM_STATUS_CORRECTION_PROGRESS | CHECK (job_name = 'room-status-correction') | ROOM Scheduler 진행 상태는 고정된 단일 작업만 저장한다. |
 | ROOM_STATUS_CORRECTION_PROGRESS | CHECK ((cursor_due_at IS NULL AND cursor_room_id IS NULL) OR (cursor_due_at IS NOT NULL AND cursor_room_id IS NOT NULL)) | cursor의 두 구성 요소는 함께 존재하거나 함께 비어 있다. |
 | ROOM_STATUS_CORRECTION_PROGRESS | CHECK (cursor_due_at IS NULL OR (turn_cutoff IS NOT NULL AND cursor_due_at <= turn_cutoff)) | 저장된 cursor는 현재 순회 경계를 넘지 않는다. |
@@ -1014,6 +1084,7 @@ erDiagram
 - `CHAT_MESSAGES(chat_room_id, id DESC)` 인덱스로 최신 이력과 `beforeMessageId` 커서 조회를 지원한다.
 - `CHAT_ROOMS(purge_after)` 조건부 인덱스로 삭제 기준 시각이 지났고 아직 `messages_purged_at`이 없는 채팅방을 선별한다.
 - `CHAT_MESSAGES(chat_room_id, sender_user_id, client_message_id)` 유일 제약으로 재시도 중복 저장을 막는다. 같은 키로 다른 본문을 보내면 저장하지 않고 `VALIDATION_ERROR`를 반환한다.
+- `CHAT-06` 입장·퇴장 안내는 별도 테이블 없이 `CHAT_MESSAGES`를 확장해 저장하며, 컬럼·제약·소급 경계는 [CHAT-06 저장 계약](#chat-06-입장퇴장-시스템-메시지-저장-계약)이 소유한다.
 - 같은 채팅방의 메시지는 `CHAT_ROOMS` 행을 잠근 뒤 ID를 할당해 방별 ID 순서와 커밋 가시성 순서를 일치시킨다.
 - 방이 `CANCELED`·`FINISHED`로 전환되면 `purge_after`를 전환 시각에서 30일 뒤로 설정한다. 만료 뒤 일일 스케줄러가 메시지를 물리 삭제하고 `messages_purged_at`을 기록한다([ADR-0049](adr/chat/0049-chat-message-retention-lock-section-boundary.md)).
 - ShedLock은 [ADR-0038](adr/platform/0038-multi-instance-session-and-scheduler-coordination.md)에 따라 PostgreSQL 시각으로 `lock_until`을 비교한다. 잠금 획득·해제 트랜잭션은 ROOM별 상태 전환과 채팅 삭제 묶음의 업무 트랜잭션에 결합하지 않는다.
@@ -1032,6 +1103,7 @@ erDiagram
 - `start_at`과 상태 전이 시각 비교는 [ADR-0009](adr/platform/0009-utc-time-standard.md)의 UTC 기준을 따른다.
 - 해 본 게임 관계는 사용자의 명시적 표시·취소로만 생성·삭제한다. 방 생성·참가·종료 이력으로 자동 변경하지 않으며 다른 사용자의 관계를 공개 조회에 사용하지 않는다.
 - 채팅 접근 여부는 `CHAT_ROOMS`에 회원 행을 복제하지 않고 요청 시점의 주최자·`ACTIVE` 참가 관계와 `ROOMS.status`로 판정한다.
+- `CHAT-06` 입장·퇴장 안내는 참가·참가 취소가 참가 관계를 실제로 전이시킨 트랜잭션에서만 저장한다. 표시 문장과 닉네임 사본을 저장하지 않고 조회 시점에 조립하므로, 메시지 행이 보관하는 개인정보는 대상 사용자 ID 참조뿐이다.
 - 방이 `CANCELED`·`FINISHED`로 전이된 뒤에도 저장된 메시지는 30일 보관하지만 일반 사용자 조회·전송·실시간 구독은 허용하지 않는다. 만료 메시지는 다음 일일 삭제 작업에서 최대 24시간 안에 제거한다.
 - ROOM Scheduler 상태 보정은 영속 순회 경계에서 제한된 ID를 선별한 뒤 ROOM마다 독립 트랜잭션으로 처리하고, cursor는 별도 조건부 갱신 트랜잭션으로 전진한다. 채팅 만료 삭제는 소량 묶음마다 독립 트랜잭션으로 처리한다. ShedLock 임대 만료로 실행이 겹쳐도 ROOM은 최신 상태를 다시 확인하고 늦은 실행 주체의 진행 상태 갱신은 generation·version 불일치로 거절한다.
 
