@@ -31,6 +31,8 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 		"(?i)(?<![a-z0-9])(?:sk-[a-z0-9_-]{16,}|gh[pousr]_[a-z0-9_]{20,}|github_pat_[a-z0-9_]{20,}|akia[0-9a-z]{16}|AIza[a-z0-9_-]{20,}|xox[baprs]-[a-z0-9-]{10,}|eyJ[a-z0-9_-]{10,}\\.[a-z0-9_-]{10,}\\.[a-z0-9_-]{10,})(?![a-z0-9])");
 	private static final Pattern PEM_PRIVATE_KEY = Pattern.compile(
 		"(?is)-----BEGIN\\s+(?:[a-z0-9 ]+\\s+)?PRIVATE KEY-----");
+	private static final Pattern KOREAN_STREET_ADDRESS = Pattern.compile(
+		"(?:[가-힣]+(?:특별시|광역시|시|도)\\s+)?[가-힣]+(?:구|군)\\s+[가-힣0-9]+(?:로|길)\\s*\\d+(?:-\\d+)?");
 
 	private final AiProviderClient provider;
 	private final AiQuotaLedger quotaLedger;
@@ -89,9 +91,11 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 			? success(response, startedAt)
 			: failure(statusFor(response.failure()), response, startedAt, chargedCostUsd);
 		AiQuotaCompletionStatus completionStatus = completeOnce(reservation, chargedCostUsd);
-		if (completionStatus == AiQuotaCompletionStatus.UNAVAILABLE) {
-			quotaLedger.scheduleCompletionRetry(reservation, chargedCostUsd);
-			result = failure(AssistantIntentStatus.SERVICE_UNAVAILABLE, response, startedAt, chargedCostUsd);
+		if (completionStatus != AiQuotaCompletionStatus.COMPLETED) {
+			if (completionStatus == AiQuotaCompletionStatus.UNAVAILABLE) {
+				quotaLedger.scheduleCompletionRetry(reservation, chargedCostUsd);
+			}
+			return failure(AssistantIntentStatus.SERVICE_UNAVAILABLE);
 		}
 		if (result.usage() != null) {
 			usageEventSink.record(result.usage());
@@ -173,6 +177,7 @@ public final class AiProviderIntentExtractor implements AssistantIntentExtractor
 			|| LONG_NUMBER.matcher(sentence).find()
 			|| UUID.matcher(sentence).find()
 			|| API_CREDENTIAL.matcher(sentence).find()
-			|| PEM_PRIVATE_KEY.matcher(sentence).find();
+			|| PEM_PRIVATE_KEY.matcher(sentence).find()
+			|| KOREAN_STREET_ADDRESS.matcher(sentence).find();
 	}
 }
