@@ -20,8 +20,8 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import cloud.bamsongi.albammate.monitoring.NotificationRelayMetrics;
 import cloud.bamsongi.albammate.notification.repository.NotificationOutboxEventRepository;
-import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 class NotificationRelayCoordinatorTest {
@@ -29,15 +29,15 @@ class NotificationRelayCoordinatorTest {
 	@Test
 	void T1_적체_gauge는_batch_뒤_밀리초를_초로_기록하고_없으면_0이다() {
 		SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
-		Metrics.addRegistry(meterRegistry);
 		NotificationRelayExecutor executor = mock(NotificationRelayExecutor.class);
 		NotificationRelayFailureRecorder failureRecorder = mock(NotificationRelayFailureRecorder.class);
 		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
 		NotificationRelayProperties properties = new NotificationRelayProperties();
+		NotificationRelayMetrics metrics = new NotificationRelayMetrics(meterRegistry);
 		when(executor.processOne()).thenReturn(Optional.empty());
 		when(eventRepository.findOldestProcessableAgeMillis()).thenReturn(65_500L, (Long)null);
 		NotificationRelayCoordinator coordinator = new NotificationRelayCoordinator(executor, failureRecorder,
-			eventRepository, properties);
+			eventRepository, properties, metrics);
 
 		try {
 			coordinator.processBatch();
@@ -49,7 +49,6 @@ class NotificationRelayCoordinatorTest {
 			coordinator.processBatch();
 			assertEquals(0.0, meterRegistry.get("notification.relay.oldest.processable.age").gauge().value());
 		} finally {
-			Metrics.removeRegistry(meterRegistry);
 			meterRegistry.close();
 		}
 	}

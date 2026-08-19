@@ -142,14 +142,16 @@ class RoomWaitlistConcurrencyPostgresTest {
 
 	@Test
 	void T3_대기열_진입_취소_FIFO_승격은_PostgreSQL_커밋_뒤_유한_metric과_불변식으로_수렴한다() {
-		jdbcTemplate.update("update rooms set active_participant_count = capacity where id = ?", roomId);
+		long canceledUserId = insertUser("concurrency-waitlist-canceled@example.com");
+		jdbcTemplate.update("update rooms set capacity = 1, active_participant_count = 1 where id = ?", roomId);
 		double joinsBefore = operationCount("join", "accepted");
 		double cancelsBefore = operationCount("cancel", "accepted");
 		double promotionsBefore = operationCount("promote", "accepted");
 
 		roomWaitlistCommandService.register(secondUserId, roomId);
-		roomWaitlistCommandService.cancel(secondUserId, roomId);
 		roomWaitlistCommandService.register(thirdUserId, roomId);
+		roomWaitlistCommandService.register(canceledUserId, roomId);
+		roomWaitlistCommandService.cancel(canceledUserId, roomId);
 		new TransactionTemplate(transactionManager).executeWithoutResult(status -> jdbcTemplate.update(
 			"insert into participations (room_id, user_id, status, joined_at, created_at, updated_at) values (?, ?, "
 				+ "'ACTIVE', ?, ?, ?)",
@@ -161,20 +163,35 @@ class RoomWaitlistConcurrencyPostgresTest {
 
 		roomParticipationCancelService.cancelParticipation(firstUserId, roomId);
 
-		assertEquals(joinsBefore + 2.0, operationCount("join", "accepted"));
+		assertEquals(joinsBefore + 3.0, operationCount("join", "accepted"));
 		assertEquals(cancelsBefore + 1.0, operationCount("cancel", "accepted"));
 		assertEquals(promotionsBefore + 1.0, operationCount("promote", "accepted"));
-		assertEquals("PROMOTED", waitlistStatus(thirdUserId));
+		assertTrue(waitlistQueueOrder(secondUserId) < waitlistQueueOrder(thirdUserId));
+		assertEquals("PROMOTED", waitlistStatus(secondUserId));
+		assertEquals("WAITING", waitlistStatus(thirdUserId));
+		assertEquals("CANCELED", waitlistStatus(canceledUserId));
 		assertEquals(1, jdbcTemplate.queryForObject(
 			"select count(*) from participations where room_id = ? and user_id = ? and status = 'ACTIVE'",
 			Integer.class,
 			roomId,
-			thirdUserId));
+			secondUserId));
 		assertEquals(0, jdbcTemplate.queryForObject(
 			"select count(*) from participations where room_id = ? and user_id = ? and status = 'ACTIVE'",
 			Integer.class,
 			roomId,
 			firstUserId));
+		int capacity = jdbcTemplate.queryForObject("select capacity from rooms where id = ?", Integer.class, roomId);
+		int activeParticipantCount = jdbcTemplate.queryForObject(
+			"select active_participant_count from rooms where id = ?", Integer.class, roomId);
+		int activeParticipationCount = jdbcTemplate.queryForObject(
+			"select count(*) from participations where room_id = ? and status = 'ACTIVE'", Integer.class, roomId);
+		assertTrue(activeParticipantCount <= capacity);
+		assertEquals(activeParticipantCount, activeParticipationCount);
+		for (long userId : List.of(firstUserId, secondUserId, thirdUserId, canceledUserId)) {
+			assertTrue(jdbcTemplate.queryForObject(
+				"select count(*) from participations where user_id = ? and status = 'ACTIVE'", Integer.class,
+				userId) <= 1);
+		}
 		assertTrue(meterRegistry.find("room.waitlist.operations").meters().stream()
 			.allMatch(meter -> meter.getId().getTags().stream()
 				.allMatch(tag -> "operation".equals(tag.getKey()) || "outcome".equals(tag.getKey()))));
