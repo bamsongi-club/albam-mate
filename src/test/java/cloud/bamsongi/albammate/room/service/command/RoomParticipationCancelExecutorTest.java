@@ -19,6 +19,7 @@ import org.mockito.InOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
@@ -51,6 +52,7 @@ import jakarta.persistence.EntityManager;
 class RoomParticipationCancelExecutorTest {
 
 	private static final Instant NOW = Instant.parse("2026-07-28T00:00:00Z");
+	private static final ApplicationEventPublisher NO_OP_EVENT_PUBLISHER = event -> {};
 
 	@Autowired
 	private RoomParticipationCancelService roomParticipationCancelService;
@@ -228,7 +230,8 @@ class RoomParticipationCancelExecutorTest {
 			mockedRoomRepository,
 			mockedParticipationRepository,
 			mockedWaitlistRepository,
-			mock(RoomChangeEventRecorder.class));
+			mock(RoomChangeEventRecorder.class),
+			NO_OP_EVENT_PUBLISHER);
 		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(mockedRoom));
 		when(mockedRoom.getHostUserId()).thenReturn(1L);
 		when(mockedRoom.getId()).thenReturn(roomId);
@@ -370,7 +373,8 @@ class RoomParticipationCancelExecutorTest {
 		Room room = mock(Room.class);
 		Participation participation = mock(Participation.class);
 		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
-			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder);
+			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder,
+			NO_OP_EVENT_PUBLISHER);
 		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(room));
 		when(room.getHostUserId()).thenReturn(1L);
 		when(room.getId()).thenReturn(roomId);
@@ -403,7 +407,8 @@ class RoomParticipationCancelExecutorTest {
 		Participation leavingParticipation = mock(Participation.class);
 		RoomWaitlistCandidateProjection waiting = candidate(20L, 1L);
 		RoomParticipationCancelExecutor promotedExecutor = new RoomParticipationCancelExecutor(
-			promotedRoomRepository, promotedParticipationRepository, promotedWaitlistRepository, promotedRecorder);
+			promotedRoomRepository, promotedParticipationRepository, promotedWaitlistRepository, promotedRecorder,
+			NO_OP_EVENT_PUBLISHER);
 		when(promotedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(promotedRoom));
 		when(promotedRoom.getHostUserId()).thenReturn(1L);
 		when(promotedRoom.getId()).thenReturn(roomId);
@@ -440,7 +445,8 @@ class RoomParticipationCancelExecutorTest {
 		Participation leavingParticipation = mock(Participation.class);
 		RoomWaitlistCandidateProjection waiting = candidate(promotedUserId, 1L);
 		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
-			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder);
+			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder,
+			NO_OP_EVENT_PUBLISHER);
 		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(room));
 		when(room.getHostUserId()).thenReturn(1L);
 		when(room.getId()).thenReturn(roomId);
@@ -480,7 +486,8 @@ class RoomParticipationCancelExecutorTest {
 		Participation participation = mock(Participation.class);
 		RoomWaitlistCandidateProjection waiting = candidate(20L, 1L);
 		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
-			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder);
+			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder,
+			NO_OP_EVENT_PUBLISHER);
 		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(room));
 		when(room.getHostUserId()).thenReturn(hostUserId);
 		when(room.getId()).thenReturn(roomId);
@@ -519,7 +526,8 @@ class RoomParticipationCancelExecutorTest {
 		Room room = mock(Room.class);
 		Participation participation = mock(Participation.class);
 		RoomParticipationCancelExecutor executor = new RoomParticipationCancelExecutor(
-			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder);
+			mockedRoomRepository, mockedParticipationRepository, mockedWaitlistRepository, recorder,
+			NO_OP_EVENT_PUBLISHER);
 		when(mockedRoomRepository.findById(roomId)).thenReturn(java.util.Optional.of(room));
 		when(room.getHostUserId()).thenReturn(1L);
 		when(room.getId()).thenReturn(roomId);
