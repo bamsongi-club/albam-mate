@@ -7,7 +7,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -97,6 +100,36 @@ class MatchPartyParticipantRepositoryPostgresTest {
 			.orElseThrow();
 		assertEquals(closedParticipantRef, closedMembership.getParticipantRef());
 		assertTrue(isClosedRetentionPeriod(closedPartyId));
+	}
+
+	@Test
+	void 배치_조회는_PostgreSQL_IN절에서_파티_경계를_넘지_않고_없는_사용자는_결과에서_제외한다() {
+		long firstUserId = insertUser("batch-first");
+		long secondUserId = insertUser("batch-second");
+		long otherPartyUserId = insertUser("batch-other-party");
+		long firstPartyId = insertParty("ACTIVE");
+		long otherPartyId = insertParty("ACTIVE");
+		UUID firstRef = UUID.fromString("00000000-0000-0000-0000-000000000901");
+		UUID secondRef = UUID.fromString("00000000-0000-0000-0000-000000000902");
+		UUID otherPartyRef = UUID.fromString("00000000-0000-0000-0000-000000000903");
+
+		insertParticipant(firstPartyId, firstUserId, firstRef, null);
+		insertParticipant(firstPartyId, secondUserId, secondRef, FIXED_TIME.plusSeconds(60));
+		insertParticipant(otherPartyId, otherPartyUserId, otherPartyRef, null);
+
+		List<MatchPartyParticipant> result = participantRepository.findParticipantsByPartyIdAndUserIds(
+			firstPartyId,
+			List.of(firstUserId, secondUserId, otherPartyUserId, 999_999L));
+
+		Map<Long, UUID> refsByUserId = result.stream()
+			.collect(Collectors.toMap(
+				participant -> participant.getId().getUserId(),
+				MatchPartyParticipant::getParticipantRef));
+		assertEquals(2, result.size());
+		assertEquals(firstRef, refsByUserId.get(firstUserId));
+		assertEquals(secondRef, refsByUserId.get(secondUserId));
+		assertFalse(refsByUserId.containsKey(otherPartyUserId));
+		assertFalse(refsByUserId.containsKey(999_999L));
 	}
 
 	private long insertUser(String role) {

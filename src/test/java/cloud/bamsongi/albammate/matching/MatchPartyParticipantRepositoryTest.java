@@ -1,10 +1,14 @@
 package cloud.bamsongi.albammate.matching;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.BeanUtils;
@@ -71,6 +75,42 @@ class MatchPartyParticipantRepositoryTest {
 				.isPresent());
 		assertTrue(
 			participantRepository.findParticipantByPartyIdAndUserId(closedParty.getId(), user.getId()).isPresent());
+	}
+
+	@Test
+	void 배치_조회는_같은_Party의_현재와_과거_참가자만_반환하고_다른_Party나_없는_사용자는_제외한다() {
+		User user = saveUser("batch-member");
+		User formerUser = saveUser("batch-former-member");
+		User otherPartyUser = saveUser("batch-other-party-member");
+		MatchParty party = saveParty(MatchPartyStatus.ACTIVE);
+		MatchParty otherParty = saveParty(MatchPartyStatus.ACTIVE);
+		UUID participantRef = UUID.fromString("00000000-0000-0000-0000-000000000101");
+		UUID formerParticipantRef = UUID.fromString("00000000-0000-0000-0000-000000000102");
+		UUID otherPartyParticipantRef = UUID.fromString("00000000-0000-0000-0000-000000000103");
+
+		participantRepository.saveAndFlush(
+			MatchPartyParticipant.create(party.getId(), user.getId(), participantRef, FIXED_TIME));
+		MatchPartyParticipant formerParticipant = MatchPartyParticipant.create(
+			party.getId(), formerUser.getId(), formerParticipantRef, FIXED_TIME);
+		ReflectionTestUtils.setField(formerParticipant, "leftAt", FIXED_TIME.plusSeconds(60));
+		participantRepository.saveAndFlush(formerParticipant);
+		participantRepository.saveAndFlush(
+			MatchPartyParticipant.create(
+				otherParty.getId(), otherPartyUser.getId(), otherPartyParticipantRef, FIXED_TIME));
+
+		List<MatchPartyParticipant> result = participantRepository.findParticipantsByPartyIdAndUserIds(
+			party.getId(),
+			List.of(user.getId(), formerUser.getId(), otherPartyUser.getId(), 999_999L));
+
+		Map<Long, UUID> refsByUserId = result.stream()
+			.collect(Collectors.toMap(
+				participant -> participant.getId().getUserId(),
+				MatchPartyParticipant::getParticipantRef));
+		assertEquals(2, result.size());
+		assertEquals(participantRef, refsByUserId.get(user.getId()));
+		assertEquals(formerParticipantRef, refsByUserId.get(formerUser.getId()));
+		assertFalse(refsByUserId.containsKey(otherPartyUser.getId()));
+		assertFalse(refsByUserId.containsKey(999_999L));
 	}
 
 	private User saveUser(String role) {
