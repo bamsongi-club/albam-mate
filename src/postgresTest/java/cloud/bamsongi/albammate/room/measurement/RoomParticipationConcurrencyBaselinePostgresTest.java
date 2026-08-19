@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -152,6 +153,7 @@ class RoomParticipationConcurrencyBaselinePostgresTest {
 	}
 
 	@Test
+	@Tag("measurement")
 	void 마지막_좌석_측정_round는_결과_분포_재시도_응답시간과_PostgreSQL_비용을_원자료로_남긴다()
 		throws Exception {
 		baselineSupport.clearCollectedRounds();

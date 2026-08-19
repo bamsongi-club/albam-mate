@@ -10,25 +10,17 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
+
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 /**
  * #870 T4 — 접근 판정·30일 보존이 사용자 메시지와 같고, SYSTEM 행도 별도 예외 없이 만료 묶음 물리 삭제 대상에
  * 포함됨을 실제 PostgreSQL로 재현한다. 보존 로직({@link ChatMessageRetentionCoordinator})은 #870에서 변경하지
  * 않으며 이 테스트는 기존 삭제 질의가 {@code message_type}으로 걸러내지 않는지만 확인한다.
  */
-@Testcontainers
 @SpringBootTest(properties = "app.chat.retention.enabled=false")
-class ChatSystemMessageRetentionPostgresTest {
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18.4")
-		.withDatabaseName("albam_mate_chat_system_retention_test");
+class ChatSystemMessageRetentionPostgresTest extends SharedPostgresIntegrationSupport {
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;

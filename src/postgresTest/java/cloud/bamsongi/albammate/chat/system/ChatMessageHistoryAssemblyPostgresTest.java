@@ -15,14 +15,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.chat.dto.ChatMessagePageResponse;
@@ -38,24 +34,18 @@ import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationCancelService;
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 /**
  * #870 T1·T2 — 이력 조회가 SYSTEM 안내를 서버가 조립한 문장으로 반환하고, 닉네임 변경·프로필 미조회 fallback,
  * USER·SYSTEM이 섞인 페이지네이션을 실제 PostgreSQL로 재현한다.
  */
-@Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class)
 @Import(ChatMessageHistoryAssemblyPostgresTest.FixedClockConfiguration.class)
-class ChatMessageHistoryAssemblyPostgresTest {
+class ChatMessageHistoryAssemblyPostgresTest extends SharedPostgresIntegrationSupport {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final String GATE_NAME = "chat-system-message";
 	private static final Instant NOW = Instant.parse("2026-07-28T00:00:00Z");
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_chat_history_assembly_test");
 
 	@Autowired
 	private RoomParticipationService roomParticipationService;

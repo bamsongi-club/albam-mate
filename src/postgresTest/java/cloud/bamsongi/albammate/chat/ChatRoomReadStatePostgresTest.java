@@ -17,11 +17,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.chat.dto.ChatRoomReadStateResponse;
@@ -34,6 +31,7 @@ import cloud.bamsongi.albammate.room.entity.Room;
 import cloud.bamsongi.albammate.room.enums.ExperienceLevel;
 import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 /**
  * T4: CHAT_ROOM_READ_STATES의 GREATEST 기반 UPSERT native query가 실제 PostgreSQL에서
@@ -41,15 +39,9 @@ import cloud.bamsongi.albammate.room.repository.RoomRepository;
  */
 @Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class)
-class ChatRoomReadStatePostgresTest {
+class ChatRoomReadStatePostgresTest extends SharedPostgresIntegrationSupport {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final Instant NOW = Instant.parse("2026-08-19T00:00:00Z");
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_chat_read_state_test");
 
 	@Autowired
 	private ChatRoomReadService chatRoomReadService;

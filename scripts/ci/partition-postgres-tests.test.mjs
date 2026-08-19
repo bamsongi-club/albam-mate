@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import {
@@ -49,5 +52,49 @@ test("유효하지 않은 shard 수를 거부한다", () => {
   assert.throws(
     () => partitionPostgresTests([{ className: "example.OnlyPostgresTest", weight: 1 }], 2),
     /테스트 수보다 shard 수가 많습니다/,
+  );
+});
+
+test("JUnit 중앙값을 우선하고 새 테스트만 소스 크기 fallback을 사용한다", (context) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "postgres-partition-"));
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  fs.writeFileSync(
+    path.join(directory, "AlphaPostgresTest.java"),
+    "package example; class AlphaPostgresTest {}\n",
+  );
+  fs.writeFileSync(
+    path.join(directory, "BravoPostgresTest.java"),
+    "package example; class BravoPostgresTest {}\n",
+  );
+  const manifestPath = path.join(directory, "durations.json");
+  fs.writeFileSync(
+    manifestPath,
+    JSON.stringify({ schemaVersion: 1, durationsMs: { "example.AlphaPostgresTest": 4_200 } }),
+  );
+
+  const discovered = discoverPostgresTests(directory, manifestPath);
+
+  assert.equal(discovered.find((entry) => entry.className.endsWith("AlphaPostgresTest")).weight, 4_200);
+  assert.equal(
+    discovered.find((entry) => entry.className.endsWith("BravoPostgresTest")).weightSource,
+    "source-size-fallback",
+  );
+});
+
+test("class 수준 measurement 테스트는 기본 shard에서 제외한다", (context) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "postgres-measurement-"));
+  context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  fs.writeFileSync(
+    path.join(directory, "MeasuredPostgresTest.java"),
+    'package example; @Tag("measurement") class MeasuredPostgresTest {}\n',
+  );
+  fs.writeFileSync(
+    path.join(directory, "RegressionPostgresTest.java"),
+    "package example; class RegressionPostgresTest {}\n",
+  );
+
+  assert.deepEqual(
+    discoverPostgresTests(directory, path.join(directory, "missing.json")).map((entry) => entry.className),
+    ["example.RegressionPostgresTest"],
   );
 });

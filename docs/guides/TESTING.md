@@ -6,14 +6,15 @@
 
 - 모든 백엔드 검증에는 Java 21과 저장소의 Gradle Wrapper가 필요하다.
 - `test`와 `build`는 H2를 사용하므로 Docker가 필요하지 않다.
-- `postgresTest`와 통합 커버리지 게이트에는 실행 가능한 Docker 환경이 필요하다.
+- `postgresTest`, `postgresMeasurementTest`와 통합 커버리지 게이트에는 실행 가능한 Docker 환경이 필요하다.
 - 테스트 배치와 작성 규칙은 [일반 테스트 작업 안내](../../src/test/AGENTS.md)를 따른다.
 
 | 검증 범위 | Gradle 태스크 | 담당 계약 |
 | --- | --- | --- |
 | 빠른 반복 | `test`, `build` | 단위 테스트, Spring context, MVC, 표준 JPA와 H2로 검증 가능한 서비스 흐름 |
 | PostgreSQL | `postgresTest` | Flyway, PostgreSQL 전용 SQL·타입·제약·잠금·격리·동시성 |
-| 외부 fixture PostgreSQL 성능 | `postgresTest` exact selector | 저장소 밖 17만 행 fixture의 대표 검색 조합·실행 계획·page·count 시간 |
+| PostgreSQL 측정 | `postgresMeasurementTest` | wall-clock, 반복 baseline/candidate와 측정 보고서 생성 |
+| 고위험 mutation | `highRiskMutationTest` | 인증 rate-limit, 알림 복구 정책, 방 상태 선택·보정 순수 로직 |
 | 빠른 커버리지 | `jacocoTestCoverageVerification` | H2 `test` 결과만 사용하는 로컬 회귀 게이트 |
 | 정본 커버리지 | `jacocoAllTestCoverageVerification` | `test`와 `postgresTest` 결과를 합산하는 CI 판정 게이트 |
 | CI shard 커버리지 | `jacocoMergedTestCoverageVerification` | 독립 runner가 만든 H2·PostgreSQL execution data를 합산하는 CI 판정 게이트 |
@@ -40,7 +41,7 @@ macOS·Linux:
 
 ## PostgreSQL 검증 실행
 
-`postgresTest`는 Testcontainers가 관리하는 임시 PostgreSQL 18.4 컨테이너를 사용한다. 빈 데이터베이스에 Flyway 마이그레이션을 적용하고 Hibernate `ddl-auto=validate`와 PostgreSQL 전용 계약을 검증한다.
+`postgresTest`는 Testcontainers가 관리하는 PostgreSQL 18.4를 사용한다. 표준 테스트는 shard JVM당 컨테이너 하나를 공유하고 클래스 시작 전에 `public` 사용자 테이블을 `TRUNCATE ... RESTART IDENTITY CASCADE`로 초기화한다. `flyway_schema_history`는 보존한다. Flyway/schema lifecycle, `pg_stat_statements`, Redis, 다중 인스턴스, production OTLP와 별도 옵션이 필요한 테스트는 전용 컨테이너 또는 전용 런타임을 유지한다.
 
 Windows PowerShell:
 
@@ -54,7 +55,13 @@ macOS·Linux:
 ./gradlew postgresTest --no-daemon --stacktrace
 ```
 
-`GameMetadataSearchPerformancePostgresTest`는 저장소 밖 fixture와 순위 CSV를 요구한다. `issue420.fixture`가 없으면 JUnit 조건으로 건너뛰므로 기본 `postgresTest`는 실패하지 않는다. 네 입력 경로를 준비한 뒤에는 [게임 카탈로그 적재 가이드](GAME_CATALOG_IMPORT.md#17만-행-게임-기본-정보성능-fixture-계약)의 `postgresTest` exact selector 명령으로 실행한다.
+표준/전용 분류 정본은 `scripts/ci/postgres-test-topology.json`이다. 새 PostgreSQL 테스트는 정확히 한 분류에 등록해야 한다. 다음 검사는 누락·중복, 공유 지원 클래스 상속과 공유군의 전용 컨테이너 선언을 함께 거부한다.
+
+```sh
+node scripts/ci/validate-postgres-test-topology.mjs
+```
+
+`GameMetadataSearchPerformancePostgresTest`는 저장소 밖 fixture와 순위 CSV를 요구한다. `issue420.fixture`가 없으면 JUnit 조건으로 건너뛴다. 네 입력 경로를 준비한 뒤에는 [게임 카탈로그 적재 가이드](GAME_CATALOG_IMPORT.md#17만-행-게임-기본-정보성능-fixture-계약)의 exact selector 명령으로 실행한다.
 
 [ADR-0023](../adr/platform/0023-p0-flyway-baseline-reset-player-count-stages.md)의 일회성 기준선 재생성 뒤에는 다음 규칙을 지킨다.
 
@@ -62,6 +69,44 @@ macOS·Linux:
 - 로컬 데이터는 정확한 Compose 프로젝트를 확인하고 명시적으로 승인한 경우에만 `down --volumes`로 초기화한다.
 - 공유·RDS 환경은 정확한 대상을 확인한 뒤 별도로 재생성한다.
 - 기존 테이블을 남기고 `flyway_schema_history`만 삭제하지 않는다.
+
+## PostgreSQL 측정과 shard 시간 갱신
+
+`@Tag("measurement")`가 붙은 wall-clock·반복 측정은 기본 회귀와 커버리지 입력에서 제외하고 별도 실행한다.
+
+```powershell
+.\gradlew.bat postgresMeasurementTest --no-daemon --stacktrace
+```
+
+```sh
+./gradlew postgresMeasurementTest --no-daemon --stacktrace
+```
+
+CI shard는 `scripts/ci/postgres-test-durations.json`의 최근 세 성공 실행 JUnit 클래스 시간 중앙값을 가중치로 사용하는 deterministic LPT 방식으로 나눈다. manifest에 없는 새 클래스만 기존 클래스의 시간/소스 크기 중앙 비율로 추정한다. 세 실행의 `test-results/postgresTest` 디렉터리를 준비한 뒤 다음처럼 갱신한다.
+
+```sh
+node scripts/ci/update-postgres-test-durations.mjs \
+  --results build/durations/run-1/test-results/postgresTest \
+  --results build/durations/run-2/test-results/postgresTest \
+  --results build/durations/run-3/test-results/postgresTest \
+  --output scripts/ci/postgres-test-durations.json
+```
+
+갱신 뒤 `node --test scripts/ci/partition-postgres-tests.test.mjs scripts/ci/update-postgres-test-durations.test.mjs`로 median, fallback, 측정 제외와 결정성을 확인한다.
+
+## 고위험 mutation 검증
+
+PIT는 기본 CI 필수 job이 아닌 opt-in 검증이다. Gradle plugin `1.19.0`, PIT `1.22.1`, JUnit 5 plugin `1.2.3`을 고정하며 JUnit Platform 버전을 내리는 우회는 허용하지 않는다.
+
+```powershell
+.\gradlew.bat highRiskMutationTest --no-daemon
+```
+
+```sh
+./gradlew highRiskMutationTest --no-daemon
+```
+
+결과는 `build/reports/pitest/`에서 확인한다. 테스트 구조를 바꿀 때는 같은 대상과 버전으로 전후 `killed`, `survived`, `no coverage`, mutation score를 비교한다.
 
 ## PostgreSQL 필요 변경 분류
 
@@ -167,7 +212,7 @@ CI는 `Changes`에서 변경 경로를 먼저 나눈 뒤 PostgreSQL 필요 여�
 
 - 모든 백엔드 변경의 `Backend Fast`: 애플리케이션 조립, H2 `test`, Spotless와 모든 Java source set의 Checkstyle. `not-required`에는 전체 및 변경 패키지 H2 커버리지 게이트도 적용
 - `required`·`needs-review`의 `Local Multi Runtime`: 프록시, Spring 두 대, PostgreSQL과 Redis를 사용하는 교차 인스턴스 세션
-- `required`·`needs-review`의 `PostgreSQL 1/3`, `PostgreSQL 2/3`, `PostgreSQL 3/3`: source set의 테스트 클래스를 소스 크기 기준으로 균등 분할한 PostgreSQL 검증
+- `required`·`needs-review`의 `PostgreSQL 1/3`, `PostgreSQL 2/3`, `PostgreSQL 3/3`: 최근 세 JUnit 클래스 시간 중앙값을 deterministic LPT로 분할한 PostgreSQL 검증. 새 클래스만 소스 크기 기반 추정값 사용
 - `required`·`needs-review`의 `Coverage Gate`: H2와 세 PostgreSQL shard의 execution data를 합산하는 정본 커버리지 게이트
 
 확실한 `not-required`에서는 `Local Multi Runtime`, PostgreSQL shard와 합산 `Coverage Gate`를 생략한다. 이 경로는 PostgreSQL 의미를 바꾸지 않는 것으로 확정된 변경에만 허용하고, H2 전체 테스트·컨벤션·전체 및 변경 패키지 커버리지 최소선은 그대로 적용한다. `Backend Fast`와 실행된 PostgreSQL shard는 execution data를 이름이 겹치지 않는 artifact로 전달한다. `Coverage Gate`는 필요한 네 입력 중 하나라도 없거나 비어 있으면 실패하고, 테스트를 다시 실행하지 않은 채 합산 리포트와 패키지 규칙 대상을 판정한다. shard별 JUnit XML과 HTML은 실행시간 재조정과 실패 분석을 위해 14일간 보관한다.

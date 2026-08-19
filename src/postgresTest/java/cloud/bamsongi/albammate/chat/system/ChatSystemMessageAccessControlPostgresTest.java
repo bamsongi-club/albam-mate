@@ -12,14 +12,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.chat.entity.ChatRoom;
@@ -33,25 +29,19 @@ import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationCancelService;
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 /**
  * #870 T4 — SYSTEM 안내가 섞인 방에서도 참가 취소자·비참가자와 CANCELED·FINISHED 방의 접근이 기존 계약대로
  * 거절됨을 실제 PostgreSQL로 재현한다. 접근 판정은 room.contract.ChatAccessGuard를 그대로 재사용하며 이
  * 이슈에서 새 판정 로직을 추가하지 않는다.
  */
-@Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class)
 @Import(ChatSystemMessageAccessControlPostgresTest.FixedClockConfiguration.class)
-class ChatSystemMessageAccessControlPostgresTest {
+class ChatSystemMessageAccessControlPostgresTest extends SharedPostgresIntegrationSupport {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final String GATE_NAME = "chat-system-message";
 	private static final Instant NOW = Instant.parse("2026-07-28T00:00:00Z");
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_chat_system_access_test");
 
 	@Autowired
 	private RoomParticipationService roomParticipationService;

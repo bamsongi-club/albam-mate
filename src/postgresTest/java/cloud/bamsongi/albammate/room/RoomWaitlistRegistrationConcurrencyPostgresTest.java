@@ -32,15 +32,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.room.dto.MyRoomWaitlistResponse;
 import cloud.bamsongi.albammate.room.entity.Room;
@@ -51,21 +48,17 @@ import cloud.bamsongi.albammate.room.enums.RoomWaitlistStatus;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
 import cloud.bamsongi.albammate.room.service.command.RoomWaitlistCommandService;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 @Testcontainers
 @SpringBootTest
 @Import(RoomWaitlistRegistrationConcurrencyPostgresTest.WaitlistRegistrationConcurrencyConfiguration.class)
-class RoomWaitlistRegistrationConcurrencyPostgresTest {
+class RoomWaitlistRegistrationConcurrencyPostgresTest extends SharedPostgresIntegrationSupport {
 
 	private static final String POSTGRES_IMAGE = "postgres:15.15";
 	private static final Instant REQUEST_TIME = Instant.parse("2026-08-10T00:00:00Z");
 	private static final long WAIT_SECONDS = 10;
 	private static final String WAITING_QUEUE_ORDER_CONSTRAINT = "uq_room_waitlists_waiting_room_queue_order";
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_waitlist_registration_concurrency_test");
 
 	@Autowired
 	private RoomParticipationService roomParticipationService;

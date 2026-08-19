@@ -5,6 +5,7 @@ plugins {
     id 'com.diffplug.spotless' version '8.8.0'
     id 'checkstyle'
     id 'jacoco'
+    id 'info.solidsoft.pitest' version '1.19.0'
 }
 
 group = 'cloud.bamsongi'
@@ -95,6 +96,52 @@ tasks.register('postgresTest', Test) {
     classpath = sourceSets.postgresTest.runtimeClasspath
     dependsOn tasks.named('postgresTestClasses')
     shouldRunAfter tasks.named('test')
+    useJUnitPlatform {
+        excludeTags 'measurement'
+    }
+}
+
+tasks.register('postgresMeasurementTest', Test) {
+    description = 'Runs opt-in PostgreSQL wall-clock and baseline/candidate measurements.'
+    group = 'verification'
+    testClassesDirs = sourceSets.postgresTest.output.classesDirs
+    classpath = sourceSets.postgresTest.runtimeClasspath
+    dependsOn tasks.named('postgresTestClasses')
+    shouldRunAfter tasks.named('postgresTest')
+    useJUnitPlatform {
+        includeTags 'measurement'
+    }
+}
+
+pitest {
+    pitestVersion = '1.22.1'
+    junit5PluginVersion = '1.2.3'
+    targetClasses = [
+        'cloud.bamsongi.albammate.global.security.ratelimit.InMemoryAuthenticationRequestLimiter',
+        'cloud.bamsongi.albammate.notification.recovery.NotificationOutboxRecoveryPolicy',
+        'cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionCandidateSelector',
+        'cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionCoordinator',
+        'cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionExecutor'
+    ]
+    targetTests = [
+        'cloud.bamsongi.albammate.global.security.ratelimit.InMemoryAuthenticationRequestLimiterTest',
+        'cloud.bamsongi.albammate.notification.recovery.NotificationOutboxRecoveryPolicyTest',
+        'cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionCandidateSelectorTest',
+        'cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionCoordinatorTest',
+        'cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionBoundedCoordinatorTest',
+        'cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionExecutorTest'
+    ]
+    outputFormats = ['XML', 'HTML']
+    timestampedReports = false
+    threads = Math.max(1, Runtime.runtime.availableProcessors().intdiv(2))
+    useClasspathFile = true
+    failWhenNoMutations = true
+}
+
+tasks.register('highRiskMutationTest') {
+    description = 'Runs opt-in PIT mutation tests for high-risk deterministic policies.'
+    group = 'verification'
+    dependsOn tasks.named('pitest')
 }
 
 // 커버리지 태스크는 담당 Test 태스크의 execution data만 명시적으로 사용한다.

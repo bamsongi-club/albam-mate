@@ -14,15 +14,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.chat.entity.ChatMessage;
@@ -39,6 +36,7 @@ import cloud.bamsongi.albammate.room.enums.RoomType;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationCancelService;
 import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 /**
  * #869 T2·T5 — 참가·재참가·취소 lifecycle과 gate off 상태의 기존 계약 유지를 실제 PostgreSQL로 재현한다.
@@ -50,16 +48,10 @@ import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
 @Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class)
 @Import(ChatSystemMessageWriterLifecyclePostgresTest.FixedClockConfiguration.class)
-class ChatSystemMessageWriterLifecyclePostgresTest {
+class ChatSystemMessageWriterLifecyclePostgresTest extends SharedPostgresIntegrationSupport {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final String GATE_NAME = "chat-system-message";
 	private static final Instant NOW = Instant.parse("2026-07-28T00:00:00Z");
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_chat_system_message_lifecycle_test");
 
 	@Autowired
 	private RoomParticipationService roomParticipationService;

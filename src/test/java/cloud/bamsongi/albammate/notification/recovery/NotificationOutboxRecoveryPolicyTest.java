@@ -32,8 +32,12 @@ class NotificationOutboxRecoveryPolicyTest {
 			java.util.stream.LongStream.rangeClosed(1, 51).boxed().toList(), true, validMetadata(null)),
 			NotificationOutboxRecoveryPolicy.ExecutionMode.PREVIEW);
 
-		assertEquals(List.of(2L, 7L), policy.validateAndNormalize(
-			request(NotificationRecoveryAction.REPROCESS, List.of(7L, 2L), true, validMetadata(null)),
+		List<Long> maximumIds = java.util.stream.LongStream.rangeClosed(1, 50).boxed().toList();
+		assertEquals(maximumIds, policy.validateAndNormalize(
+			request(NotificationRecoveryAction.REPROCESS, maximumIds, true, validMetadata(null)),
+			NotificationOutboxRecoveryPolicy.ExecutionMode.PREVIEW));
+		assertEquals(List.of(1L, 17L), policy.validateAndNormalize(
+			request(NotificationRecoveryAction.REPROCESS, List.of(17L, 1L), true, validMetadata(null)),
 			NotificationOutboxRecoveryPolicy.ExecutionMode.PREVIEW));
 	}
 

@@ -17,6 +17,7 @@ import java.util.Map;
 
 import javax.sql.DataSource;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +32,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @Testcontainers
+@Tag("measurement")
 @SpringBootTest
 @EnabledIfSystemProperty(named = "issue420.fixture", matches = ".+")
 class GameMetadataSearchPerformancePostgresTest {

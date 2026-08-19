@@ -8,19 +8,17 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.chat.match.adapter.MatchChatProvisionAdapter;
 import cloud.bamsongi.albammate.chat.match.adapter.MatchChatSystemMessageAdapter;
 import cloud.bamsongi.albammate.chat.match.repository.MatchChatMessageRepository;
 import cloud.bamsongi.albammate.chat.match.repository.MatchChatRoomRepository;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 
 /**
  * CHAT-T1 — provision·system-message adapter를 실제 PostgreSQL 트랜잭션 경계에서 검증한다.
@@ -30,14 +28,7 @@ import cloud.bamsongi.albammate.chat.match.repository.MatchChatRoomRepository;
  */
 @Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class)
-class MatchChatAdapterTransactionPostgresTest {
-
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_match_chat_adapter_transaction_test");
+class MatchChatAdapterTransactionPostgresTest extends SharedPostgresIntegrationSupport {
 
 	@Autowired
 	private MatchChatProvisionAdapter matchChatProvisionAdapter;

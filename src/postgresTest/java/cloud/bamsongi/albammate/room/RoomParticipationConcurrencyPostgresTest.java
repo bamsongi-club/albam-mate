@@ -31,16 +31,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.event.EventListener;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.chat.entity.ChatRoom;
 import cloud.bamsongi.albammate.chat.repository.ChatRoomRepository;
@@ -65,6 +62,7 @@ import cloud.bamsongi.albammate.room.service.command.RoomParticipationService;
 import cloud.bamsongi.albammate.room.service.command.RoomStatusChangeService;
 import cloud.bamsongi.albammate.room.service.command.RoomUpdateService;
 import cloud.bamsongi.albammate.room.service.command.RoomWaitlistCommandService;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.persistence.OptimisticLockException;
@@ -72,16 +70,10 @@ import jakarta.persistence.OptimisticLockException;
 @Testcontainers
 @SpringBootTest
 @Import(RoomParticipationConcurrencyPostgresTest.ConcurrencyTestConfiguration.class)
-class RoomParticipationConcurrencyPostgresTest {
+class RoomParticipationConcurrencyPostgresTest extends SharedPostgresIntegrationSupport {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final Instant NOW = Instant.parse("2026-07-28T00:00:00Z");
 	private static final long WAIT_SECONDS = 10;
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_concurrency_test");
 
 	@Autowired
 	private RoomParticipationService roomParticipationService;

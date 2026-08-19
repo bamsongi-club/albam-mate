@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -202,6 +203,7 @@ class RoomStartBoundaryConcurrencyBaselinePostgresTest {
 	}
 
 	@Test
+	@Tag("measurement")
 	void 시작_경계_경합_측정_round는_공통_RAW_형식으로_결과와_비용을_기록한다() throws Exception {
 		baselineSupport.clearCollectedRounds();
 		for (StartBoundaryScenario scenario : StartBoundaryScenario.values()) {
@@ -224,6 +226,7 @@ class RoomStartBoundaryConcurrencyBaselinePostgresTest {
 	}
 
 	@Test
+	@Tag("measurement")
 	void 보존된_ROOM_10a와_ROOM_10b_원자료는_수준별_통합_비교_입력으로_읽힌다() throws Exception {
 		JsonNode room10a = readMeasurementInput("room-10a", 9);
 		JsonNode room10b = readMeasurementInput("room-10b", 21);

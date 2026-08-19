@@ -18,14 +18,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 import cloud.bamsongi.albammate.user.service.ProfileImageStorage;
@@ -34,15 +32,9 @@ import cloud.bamsongi.albammate.user.service.UserProfileService;
 @Testcontainers
 @SpringBootTest
 @Import(UserProfileImagePostgresTest.ProfileImageStorageConfiguration.class)
-class UserProfileImagePostgresTest {
+class UserProfileImagePostgresTest extends SharedPostgresIntegrationSupport {
 
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
 	private static final long WAIT_SECONDS = 10;
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_user_profile_image_test");
 
 	@Autowired
 	private UserProfileService userProfileService;

@@ -8,12 +8,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import cloud.bamsongi.albammate.AlbamMateApplication;
 import cloud.bamsongi.albammate.assistant.contract.AssistantConsentGate;
@@ -21,10 +17,10 @@ import cloud.bamsongi.albammate.assistant.dto.AssistantConsentDecision;
 import cloud.bamsongi.albammate.assistant.dto.AssistantConsentRequest;
 import cloud.bamsongi.albammate.assistant.dto.AssistantConsentStatus;
 import cloud.bamsongi.albammate.assistant.service.AssistantConsentService;
+import cloud.bamsongi.albammate.testsupport.SharedPostgresIntegrationSupport;
 import cloud.bamsongi.albammate.user.entity.User;
 import cloud.bamsongi.albammate.user.repository.UserRepository;
 
-@Testcontainers
 @SpringBootTest(classes = AlbamMateApplication.class, properties = {
 	"app.assistant.enabled=true",
 	"app.assistant.no-retention-verified=true",
@@ -33,14 +29,7 @@ import cloud.bamsongi.albammate.user.repository.UserRepository;
 	"app.assistant.policy-url=https://openai.com/policies/api-data-usage-policies",
 	"app.assistant.store=false"
 })
-class AssistantConsentPostgresTest {
-
-	private static final String POSTGRES_IMAGE = "postgres:18.4";
-
-	@Container
-	@ServiceConnection
-	static final PostgreSQLContainer postgres = new PostgreSQLContainer(POSTGRES_IMAGE)
-		.withDatabaseName("albam_mate_assistant_consent_test");
+class AssistantConsentPostgresTest extends SharedPostgresIntegrationSupport {
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;

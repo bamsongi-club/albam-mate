@@ -99,7 +99,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 7
     env:
       TZ: UTC
 
@@ -526,11 +526,16 @@ jobs:
           scripts/ci/classify-ci-paths.test.mjs
           scripts/ci/classify-postgres-requirement.test.mjs
           scripts/ci/partition-postgres-tests.test.mjs
+          scripts/ci/update-postgres-test-durations.test.mjs
+          scripts/ci/validate-postgres-test-topology.test.mjs
           scripts/verify-changed-h2-coverage.test.mjs
           scripts/validate-packet.test.mjs
           scripts/validate-backend-test-manifest.test.mjs
           scripts/validate-coverage-ratchet.test.mjs
           scripts/measurements/room09-measurement-report.test.mjs
+
+      - name: Check PostgreSQL test topology
+        run: node scripts/ci/validate-postgres-test-topology.mjs
 
       # 대형 측정 한 조합이 수십 분이라 파생물이 어긋나도 다시 측정해 맞출 수 없다.
       # 재현 명령·대비 표·SHA-256이 보존 원자료와 어긋나면 측정 없이 여기서 잡는다.
