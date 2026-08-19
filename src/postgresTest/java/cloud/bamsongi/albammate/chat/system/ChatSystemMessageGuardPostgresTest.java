@@ -67,10 +67,7 @@ import tools.jackson.databind.ObjectMapper;
  * 재현한다.
  */
 @Testcontainers
-@SpringBootTest(
-	classes = cloud.bamsongi.albammate.AlbamMateApplication.class,
-	webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-	properties = "app.security.cookie.secure=false")
+@SpringBootTest(classes = cloud.bamsongi.albammate.AlbamMateApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "app.security.cookie.secure=false")
 @Import(ChatSystemMessageGuardPostgresTest.FixedClockConfiguration.class)
 class ChatSystemMessageGuardPostgresTest {
 
@@ -155,7 +152,8 @@ class ChatSystemMessageGuardPostgresTest {
 
 		HttpClient client = login(hostEmail);
 		String forgedBody = "{\"clientMessageId\":\"guard-forge-http-1\",\"content\":\"일반 메시지\","
-			+ "\"messageType\":\"SYSTEM\",\"systemEvent\":\"PARTICIPANT_ENTERED\",\"subjectUserId\":" + hostUserId + "}";
+			+ "\"messageType\":\"SYSTEM\",\"systemEvent\":\"PARTICIPANT_ENTERED\",\"subjectUserId\":" + hostUserId
+			+ "}";
 		HttpResponse<String> response = post(client, "/api/rooms/" + room.getId() + "/chat/messages", forgedBody);
 
 		if (response.statusCode() >= 200 && response.statusCode() < 300) {

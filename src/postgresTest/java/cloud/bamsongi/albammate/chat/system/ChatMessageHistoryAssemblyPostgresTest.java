@@ -124,7 +124,8 @@ class ChatMessageHistoryAssemblyPostgresTest {
 	 */
 	private long insertPhantomSystemMessageWithMissingSubject(long roomId) {
 		Long chatRoomId = chatRoomRepository.findByRoomId(roomId).orElseThrow().getId();
-		long phantomSubjectUserId = jdbcTemplate.queryForObject("select coalesce(max(id), 0) + 1000 from users", Long.class);
+		long phantomSubjectUserId = jdbcTemplate.queryForObject("select coalesce(max(id), 0) + 1000 from users",
+			Long.class);
 		jdbcTemplate.execute("set session_replication_role = 'replica'");
 		try {
 			jdbcTemplate.update(
