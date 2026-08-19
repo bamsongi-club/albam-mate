@@ -12,6 +12,13 @@ const runnerPath = fileURLToPath(new URL("./game-list-baseline.mjs", import.meta
 const serverCommit = "abcdef1234567";
 const datasetSha256 = "d".repeat(64);
 
+function gameItems(count) {
+  return Array.from(
+    { length: count },
+    () => ({ name: "Catan", englishName: "Catan" }),
+  );
+}
+
 function startServer({
   failMeasuredRequest = false,
   invalidMeasuredResponse = false,
@@ -19,6 +26,7 @@ function startServer({
   hangDiscoveryPath = null,
   datasetSize = 170005,
   responseSize = 24,
+  measuredPageOverride = null,
 } = {}) {
   let gameRequests = 0;
   const server = createServer((request, response) => {
@@ -57,19 +65,20 @@ function startServer({
       }
       const effectiveResponseSize = gameRequests >= 7 ? responseSize : 24;
       const totalPages = Math.ceil(datasetSize / effectiveResponseSize);
+      const page = {
+        content: gameItems(Math.min(datasetSize, effectiveResponseSize)),
+        page: 0,
+        size: effectiveResponseSize,
+        totalElements: datasetSize,
+        totalPages,
+        hasNext: totalPages > 1,
+      };
+      if (gameRequests >= 7 && measuredPageOverride) {
+        Object.assign(page, measuredPageOverride);
+      }
       response.end(JSON.stringify({
         status: 200,
-        data: {
-          content: Array.from(
-            { length: Math.min(datasetSize, effectiveResponseSize) },
-            () => ({ name: "Catan", englishName: "Catan" }),
-          ),
-          page: 0,
-          size: effectiveResponseSize,
-          totalElements: datasetSize,
-          totalPages,
-          hasNext: totalPages > 1,
-        },
+        data: page,
       }));
       return;
     }
@@ -221,6 +230,42 @@ test("요청한 page/size와 다른 200 응답은 실패 sample을 보존한다"
   } finally {
     await server.close();
     fs.rmSync(outputDirectory, { recursive: true, force: true });
+  }
+});
+
+test("page metadata 의미가 요청과 다르면 실패 sample을 보존한다", async () => {
+  const cases = [
+    {
+      name: "content length",
+      measuredPageOverride: { content: gameItems(23) },
+      error: /content 길이가 요청 page\/size와 일치하지 않습니다/u,
+    },
+    {
+      name: "totalPages",
+      measuredPageOverride: { totalPages: 1 },
+      error: /totalPages가 totalElements\/size와 일치하지 않습니다/u,
+    },
+    {
+      name: "hasNext",
+      measuredPageOverride: { hasNext: false },
+      error: /hasNext가 page\/totalPages와 일치하지 않습니다/u,
+    },
+  ];
+
+  for (const testCase of cases) {
+    const server = await startServer(testCase);
+    const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "game-list-740-page-metadata-mismatch-"));
+    try {
+      const result = await runRunner(server.baseUrl, outputDirectory);
+
+      assert.notEqual(result.status, 0, testCase.name);
+      const report = readSingleReport(outputDirectory);
+      assert.equal(report.status, "failed", testCase.name);
+      assert.match(report.results[0].samples.at(-1).error, testCase.error, testCase.name);
+    } finally {
+      await server.close();
+      fs.rmSync(outputDirectory, { recursive: true, force: true });
+    }
   }
 });
 
