@@ -4,7 +4,7 @@
 
 | Campaign ID | 상태 | 보고서 | 판단서·근거 | 대체 관계 |
 | --- | --- | --- | --- | --- |
-| OPS-05 실측 준비 | AWS 배포·실측 없음 | [통합 manifest 계약](ops05-manifest-contract.md) | `scripts/measurements/ops05-manifest-validator.mjs` · H2 계약 테스트 | 이후 고정 release 통제 Run의 비식별 evidence가 이 행을 보완 |
+| `ops05-20260819` | `completed` | [통합 manifest 계약·실측 결과](ops05-manifest-contract.md) | 고정 release 정상·통제 실패/복구 5-stage manifest `PASS` · dashboard 5식 확인 · 임시 AWS 철거 완료 | 첫 채택 OPS-05 통합 Run; 원자료와 비식별 artifact는 Git 비추적 보존 |
 | `ops02-20260819-044303` | `completed-with-limitations` | [OPS-02 지연·포화 실측](ops02-latency-saturation-2026-08-19.md) | [비식별 evidence](evidence/ops02-latency-saturation-2026-08-19.json) · App PR #799 · Infra PR #23~#33 | 첫 유효 OPS-02 baseline·주입·복구 Run, post-run alarm 보정은 재배포하지 않음 |
 | `auth-noti-662-20260813h-auth` / `a662-h-notify-v4` | `completed-with-limitations` | [인증·알림 병목 진단 캠페인](auth-notification-bottleneck-campaign-2026-08-13.md) | App #662·PR #663, Infra PR #11 | 2026-08-11 결과를 대체하지 않는 내부 병목 진단 |
 | `auth-notification-20260811T021040KST` | `completed-with-limitations` | [인증·알림 AWS 용량 측정](auth-notification-capacity-2026-08-11.md) | [알림 broker 판단](notification-broker-decision-2026-08-11.md) · [manifest](evidence/auth-notification-capacity-2026-08-11.json) | 후속 측정이 기존 결론을 대체하지 않음 |
