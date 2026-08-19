@@ -253,6 +253,17 @@ test("quality corpus version·snapshot·selection 규칙이 서로 다르면 거
     assert.throws(() => validateEvaluationManifest(changedSnapshot), /snapshot/u);
 });
 
+test("dedupe로 rank에 구멍이 생겨 마지막 member의 boardlifeRank가 rankCutoff를 넘어도 거절하지 않는다", () => {
+    const manifest = buildManifest();
+    const lastIndex = manifest.qualityCorpus.members.length - 1;
+    manifest.qualityCorpus.members[lastIndex] = {
+        ...manifest.qualityCorpus.members[lastIndex],
+        boardlifeRank: manifest.qualityCorpus.rankCutoff + 23,
+    };
+
+    assert.doesNotThrow(() => validateEvaluationManifest(manifest));
+});
+
 test("ADR-0072 selection·index 불변식은 각각 회귀를 거절한다", () => {
     const cutoffBeforeMapping = buildManifest();
     cutoffBeforeMapping.qualityCorpus.selection.cutoffAppliedAfterMapping = false;

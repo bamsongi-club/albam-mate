@@ -442,10 +442,8 @@ function validateQualityCorpusDescriptor(corpus) {
             fail(`manifest.qualityCorpus member ID가 없거나 중복되었습니다: ${id ?? "<empty>"}`);
         }
         memberIds.add(String(id));
-        if (!Number.isInteger(member.boardlifeRank)
-            || member.boardlifeRank < 1
-            || member.boardlifeRank > corpus.rankCutoff) {
-            fail(`manifest.qualityCorpus member ${id}의 BoardLife rank가 cutoff 밖입니다.`);
+        if (!Number.isInteger(member.boardlifeRank) || member.boardlifeRank < 1) {
+            fail(`manifest.qualityCorpus member ${id}의 BoardLife rank가 유효하지 않습니다.`);
         }
         if (previousMember
             && (member.boardlifeRank < previousMember.boardlifeRank
