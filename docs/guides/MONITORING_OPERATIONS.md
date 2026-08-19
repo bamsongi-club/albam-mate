@@ -1,22 +1,39 @@
 # P2 운영 관측 런북
 
-> **문서 상태: active · 계약 정본 · 구현·배포 전 기준 · 최종 검증일: 2026-08-14**
+> **문서 상태: active · 계약 정본 · OPS-01 구현·AWS 실측 완료 · 최종 검증일: 2026-08-18**
 >
-> 이 문서는 `OPS-01`~`OPS-05`의 metric·log 허용 목록, 경고 대응과 전체 스택 계획 종료·재기동 계약을 소유한다. 현재 `albam-mate-infra` 운영 CLI에는 이 절차가 아직 구현되지 않았으므로 아래 흐름을 실행 가능한 명령으로 해석하지 않는다.
+> 이 문서는 `OPS-01`~`OPS-05`의 metric·log 허용 목록, 경고 대응과 전체 스택 계획 종료·재기동 계약을 소유한다. `OPS-01-AC1`~`AC3`은 [#730](https://github.com/bamsongi-club/albam-mate/issues/730), `OPS-01-AC4`~`AC7`은 [#731](https://github.com/bamsongi-club/albam-mate/issues/731)의 앱·운영 CLI·인프라와 AWS 수용 실행에서 검증됐다.
 
-[P2 운영 관측 명세](../p2/monitoring.md)는 기능 규칙과 완료 기준, [운영 대시보드 정책](../p2/dashboard.md)은 화면·등급·비용 정책, [ADR-0058](../adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md)과 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)는 전송 기술을 소유한다. 이 런북은 사용자 결정을 마친 [#713](https://github.com/bamsongi-club/albam-mate/issues/713)을 정본에 반영해 실제 구현·배포·장애 대응에 연결하며, 문서나 정적 설정만으로 구현·배포·실측 완료를 선언하지 않는다.
+[P2 운영 관측 명세](../p2/monitoring.md)는 기능 규칙과 완료 기준, [운영 대시보드 정책](../p2/dashboard.md)은 화면·등급·비용 정책, [ADR-0071](../adr/platform/0071-p2-application-metrics-otlp-host-cloudwatch-agent.md)과 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)는 전송 기술을 소유한다. 이 런북은 사용자 결정을 마친 [#713](https://github.com/bamsongi-club/albam-mate/issues/713)을 정본에 반영해 실제 구현·배포·장애 대응에 연결하며, 문서나 정적 설정만으로 구현·배포·실측 완료를 선언하지 않는다.
 
 ## 현재 상태와 적용 경계
 
 | 구분 | 현재 판정 | 완료 증거 |
 | --- | --- | --- |
 | 이 문서의 metric·log·alarm·상태 전이 계약 | 확정 | 이 문서와 연결 정본의 링크·회귀 검사 |
-| 애플리케이션 OTLP·JSON logging | 미구현 | 생산 설정·자동 검증·release SHA |
-| 인프라 상태 정본·경고 제어·Scheduler | 미구현 | `albam-mate-infra` 구현·plan·자동 검증 |
-| AWS 배포와 실제 수집 | 미배포·미측정 | 같은 release의 metric·log 도착과 수집 공백 검사 |
-| 경고·복구 | 미측정 | `OK → ALARM → OK`, SNS 실제 수신과 receipt |
+| 애플리케이션 OTLP·JSON logging | `OPS-01-AC1`~`AC3` 구현·자동 검증 완료, OPS-02 HTTP·JVM·Tomcat·Hikari·Nginx timing 원천 범위 부분 구현·자동 검증 | OPS-01 앱 [#764](https://github.com/bamsongi-club/albam-mate/pull/764), merge `0fa8285a019fafbb1d7caa65baa30cc8446e2c89`; OPS-02 production 설정·자동 검증 |
+| 인프라 수집·상태 정본·경고 제어·Scheduler | `OPS-01-AC1`~`AC7` 구현·자동 검증 완료, OPS-02 infra 미구현 | `albam-mate-infra` [#14](https://github.com/bamsongi-club/albam-mate-infra/pull/14)·[#16](https://github.com/bamsongi-club/albam-mate-infra/pull/16)·[#17](https://github.com/bamsongi-club/albam-mate-infra/pull/17)·[#18](https://github.com/bamsongi-club/albam-mate-infra/pull/18)·[#19](https://github.com/bamsongi-club/albam-mate-infra/pull/19)·[#20](https://github.com/bamsongi-club/albam-mate-infra/pull/20)·[#22](https://github.com/bamsongi-club/albam-mate-infra/pull/22), main `ce8913c01937b7db71264008bd24a851a1c6d4d4` |
+| AWS 배포와 실제 수집 | `OPS-01-AC1`~`AC7` 임시 배포·실측·철거 완료, OPS-02 미배포·미측정 | OPS-01 #730 앱 release `8e25bbc6ee2c1b68aa28247b9c2fdbf7b8e88784`, 아래 #730·#731 T1~T3와 Terraform teardown; OPS-02는 같은 release의 metric·log 도착과 수집 공백 검사 필요 |
+| 경고·복구 | #731 OPS-01 범위 실측 완료, OPS-02 미측정 | OPS-01 대표 alarm `OK → ALARM → OK`, SNS 경고·복구 실제 수신, 최종 receipt `79bc6489-994a-4ba5-80ae-b43b075d8020`; OPS-02 실측 필요 |
 
 이 계약은 App1·App2·PostgreSQL·Redis로 구성한 하나의 `stackId` 전체에만 적용한다. 애플리케이션 배포, 한 컨테이너 재시작, rolling restart와 부분 유지보수는 `PLANNED_STOP`이 아니며 `ACTIVE` 상태와 배포 grace 안에서 관측한다.
+
+### #731 AWS 수용 결과
+
+- T1은 `ACTIVE → PLANNED_STOP → ACTIVE`, 16개 alarm action 억제·복구와 초과 schedule 생성·삭제를 AWS API와 receipt에서 재확인했다.
+- T2는 App2 종료 뒤 App1 권한 거부를 주입해 부분 실패를 만들고 `PLANNED_STOP`·실제 resource·alarm 억제·schedule을 보존한 뒤 `recover`로 정상 복구했다.
+- T3는 PostgreSQL → Redis → App2 → App1 순으로 동일 release를 재기동하고 health·metric·log 도착 뒤에만 `ACTIVE`를 선언했으며, 대표 alarm과 SNS 경고·복구 수신을 확인했다.
+- 검증 뒤 Terraform P1 리소스 83개를 삭제했고 EC2·EBS·EIP·alarm·SNS 잔존 0개, 원격 P1 state 0개를 확인했다. receipt bucket과 bootstrap lock·state·ECR 자원은 감사·재실행 경계로 보존했다.
+
+### #730 AWS 수용 결과
+
+- T1은 management `9090`을 container loopback으로 유지하고 OTLP `4318`을 역할별 동일-host Docker bridge에만 열어 다른 EC2에서 접근할 수 없음을 확인했다. App1 Agent를 중단한 동안에도 제품 요청은 `200`이었고 Agent 복구 뒤 수집이 재개됐다.
+- T2는 같은 release에서 PostgreSQL과 Redis를 각각 중단해 App1·App2의 dependency 신호가 `1 → 0 → 1`로 독립 전이하고, Spring·다른 dependency는 정상으로 분리되는 것을 CloudWatch와 container-local health에서 확인했다.
+- T3는 App2 Java process 종료와 cgroup OOM을 주입해 restart count `0 → 1 → 2`, OOM `0 → 1`, Spring running 복구를 확인했다. host memory는 `InstanceId`·`Role`·`StackId` 차원으로 분리돼 container restart·OOM과 별도 신호로 유지됐다.
+- 같은 release에서 앱 metric 401개 시계열·137개 metric 이름·43개 dimension 이름을 검사해 금지 dimension 0개를 확인했다. App1·App2 log 각 100건은 모두 JSON이었고 금지 key 0개였으며 원문 log와 사용자 식별자는 Git에 저장하지 않았다.
+- 검증 뒤 Terraform P1 리소스 83개와 스택 전용 SecureString 9개를 삭제했다. Terraform state·EC2·EBS·EIP·alarm·log group·SNS·SSM 임시값은 모두 0개이며 bootstrap state·receipt·lock·ECR만 감사·재실행 경계로 보존했다.
+
+[#730](https://github.com/bamsongi-club/albam-mate/issues/730)의 `OPS-01-AC1`~`AC3`과 [#731](https://github.com/bamsongi-club/albam-mate/issues/731)의 `OPS-01-AC4`~`AC7`을 합쳐 `OPS-01` 구현·자동 검증·임시 AWS 실측 완료로 판정한다. 이는 상시 운영 배포나 `OPS-02`~`OPS-05` 완료를 뜻하지 않는다.
 
 ## 운영 상태 정본
 
@@ -89,29 +106,27 @@ object key는 `receipts/v1/{environment}/{stackId}/{receiptId}/{sequence}-{stage
 | `CWAgent mem_used_percent` | gauge·host Agent | `InstanceId`, `StackId`, `Role` | 10초 `Maximum > 85`, 6회 | 현재 인프라 alarm |
 | `CWAgent disk_used_percent` | gauge·host Agent | 위 값과 `fstype=xfs`, `path=/` | 10초 `Maximum > 85`, 6회 | 현재 인프라 alarm |
 | `AWS/EC2 NetworkIn`, `NetworkOut` | counter·EC2 | `InstanceId`, 배포 `role` mapping | 1분 `Sum`·원인 분석 | 현재 dashboard |
-| `http.server.requests` | timer·Spring MVC observation | `method`, 정규화 `uri`, `status`, `outcome` | 5분 count·p50·p95·p99·5xx 비율 | meter 기반 있음·histogram/export 설정 필요 |
-| `jvm.memory.used`, `jvm.memory.max` | gauge·Micrometer JVM binder | `area`, 제한된 `id` | 1분 `Maximum`·used/max | meter 기반 있음·export 필요 |
-| `jvm.gc.pause` | timer·Micrometer JVM binder | `action`, `cause`의 라이브러리 유한값 | 5분 count·p95 | meter 기반 있음·export 필요 |
-| `jvm.threads.live` | gauge·Micrometer JVM binder | 없음 | 1분 `Maximum` | meter 기반 있음·export 필요 |
-| `tomcat.threads.busy`, `tomcat.threads.current`, `tomcat.threads.config.max` | gauge·Tomcat binder | connector `name`의 배포 고정값 | 1분 `Maximum`, busy/max | meter 기반 있음·export 필요 |
-| `hikaricp.connections.active`, `idle`, `pending`, `max`, `timeout` | gauge·counter·HikariCP binder | 고정 pool 이름 | 1분 `Maximum`·timeout `Sum` | meter 기반 있음·export 필요 |
+| `http.server.requests` | timer·Spring MVC observation | `method`, 정규화 `uri`, `status`, `outcome` | 5분 count·p50·p95·p99·5xx 비율 | production histogram 설정·OTLP export 자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `jvm.memory.used`, `jvm.memory.max` | gauge·Micrometer JVM binder | `area`, 제한된 `id` | 1분 `Maximum`·used/max | production 설정·OTLP export 자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `jvm.gc.pause` | timer·Micrometer JVM binder | `action`, `cause`의 라이브러리 유한값 | 5분 count·p95 | meter 기반 있음·OTLP export 검증 필요, CloudWatch 배포·실측 필요 |
+| `jvm.threads.live` | gauge·Micrometer JVM binder | 없음 | 1분 `Maximum` | production 설정·OTLP export 자동 검증 완료, CloudWatch 배포·실측 필요 |
+| `tomcat.threads.busy`, `tomcat.threads.current`, `tomcat.threads.config.max` | gauge·Tomcat binder | connector `name`의 배포 고정값 | 1분 `Maximum`, busy/max | Spring Boot 4 connector binder·OTLP export 자동 검증, CloudWatch 실측 필요 |
+| `hikaricp.connections.active`, `idle`, `pending`, `max`, `timeout` | gauge·counter·HikariCP binder | 고정 pool 이름 | 1분 `Maximum`·timeout `Sum` | production 설정·OTLP export 자동 검증 완료, CloudWatch 배포·실측 필요 |
 | `albam.dependency.health` | gauge·추가 구현 | `dependency=postgresql|redis`; 값 `1=up`, `0=down` | 마지막 값과 2회 연속 down | 추가 구현 필요 |
 | `albam.telemetry.last_success_age` | gauge·Agent/infra 추가 구현 | `signal=metric|log`, 배포 dimension | 5분 `Maximum`; ACTIVE에서 임계 초과 | 추가 구현 필요 |
+
+`frontend/nginx.production.conf`는 proxy 구간에 한해 raw URI·query·client 식별자 없이 `request_time`, `upstream_response_time`, `upstream_addr`를 구조화된 timing 원천으로 남긴다. 외부 응답의 `X-Albam-Mate-Upstream`은 backend가 검증한 `app1` 또는 `app2` 역할만 전달하고 raw 주소를 합성하지 않는다. 내부 `upstream_addr`는 CloudWatch dimension으로 직접 사용하지 않고, private infra가 배포 manifest와 대조해 유한한 App1·App2 `role`로 변환해야 한다. Agent 변환·CloudWatch 배포·실측은 아직 완료 증거가 아니다.
 
 `meter 기반 있음`은 Actuator·Micrometer binder를 사용할 수 있다는 뜻이며 CloudWatch 도착이나 percentile 존재를 뜻하지 않는다. 실제 OTLP 이름 변환이 생기면 CloudWatch의 최종 이름을 구현 PR에서 이 표와 alarm query에 함께 고정한다.
 
 ### 현재 생산 코드의 domain meter
 
-source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, 다음 네 meter가 `AuthNotificationMeasurementRecorder`, WebSocket 네 meter가 `ChatWebSocketMetrics`, message delivery 두 meter가 `ChatMessageCommittedListener`, retention 여덟 meter가 `ChatMessageRetentionMetrics`다. `추가 구현 필요` meter는 각각 notification relay, ROOM status correction과 waitlist module이 생산하고 도메인 코드가 CloudWatch SDK에 의존하지 않도록 `MeterRegistry`까지만 소유한다.
+source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, WebSocket 네 meter가 `ChatWebSocketMetrics`, message delivery 두 meter가 `ChatMessageCommittedListener`, retention 여덟 meter가 `ChatMessageRetentionMetrics`다. `추가 구현 필요` meter는 각각 notification relay, ROOM status correction과 waitlist module이 생산하고 도메인 코드가 CloudWatch SDK에 의존하지 않도록 `MeterRegistry`까지만 소유한다.
 
 | 이름 | type | 허용 tag 값 | 사용 query·용도 | 상태 |
 | --- | --- | --- | --- | --- |
 | `auth.request.limiter.rejections` | counter | `family=ip|failure`, `reason=capacity_saturated|redis_unavailable` | 5분 `Sum`·인증 거절 원인 | 현재 코드·export 필요 |
 | `auth.request.limiter.capacity.utilization` | gauge | `family=ip|failure` | 5분 `Maximum`·용량 warning 후보 | 현재 코드·export 필요 |
-| `auth.login.stage.duration` | timer | `stage=request-limit|verification-gate|failure-limit|user-lookup|bcrypt-permit|bcrypt-verify|bcrypt-upgrade-check|bcrypt-upgrade-encode|password-hash-update|failure-record|failure-reset|session-context-save|session-repository-save` | stage별 count·p95 | 현재 코드·production 기본 비활성 |
-| `auth.login.rejections` | counter | `source=ip-limit|verification-gate|failure-limit|bcrypt-slot|redis-unavailable` | source별 5분 `Sum` | 현재 코드·production 기본 비활성 |
-| `notification.query.stage.duration` | timer | `stage=content|total-count|unread-count` | stage별 count·p95 | 현재 코드·production 기본 비활성 |
-| `notification.relay.stage.duration` | timer | `stage=claim|event-fetch|recipient-lookup|recipient-insert-loop|event-flush`일 때 `result=success`; `stage=tx-commit|tx-total|afterCompletion`일 때 `result=committed|rolled-back` | stage별 count·p95 | 현재 코드·production 기본 비활성 |
 | `chat.websocket.connections.active` | gauge | 없음 | App별 `Maximum` | 현재 코드·export 필요 |
 | `chat.websocket.delivery.latency` | timer | 없음 | 5분 count·p95 | 현재 코드·export 필요 |
 | `chat.websocket.delivery.failures` | counter | 없음 | 5분 `Sum` | 현재 코드·export 필요 |
@@ -144,7 +159,8 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, 다음 네 met
 - 수치: 고정 event가 정의한 `*Ms`, `*Millis`, `*Count`, `*Limit`, `attempt`, `batchNumber`
 - 유한 enum: `failureCode`, `reasonCode`, event별 `exceptionClass` 또는 `exceptionType`, `eventType`, `targetType`, `action`, `outcome`, `roomStatus`, `useCase`, `section`, `lockName`
 - UTC 시각: `measurementTime`, `occurredAt`, `outboxRecordedAt`, `notificationRecordedAt`, `nextAvailableAt`
-- 접근 제한 상관 키: 단일 `roomId`, `messageId`, `sourceEventId`; metric dimension·dashboard group·alarm dimension에는 사용하지 않는다.
+- 접근 제한 상관 키: 단일 `roomId`, `messageId`, `sourceEventId`, `gameId`; metric dimension·dashboard group·alarm dimension에는 사용하지 않는다.
+- event별 boolean은 `notification_outbox_relay_event_failed` 전용 boolean `deterministicFailure`만 허용한다. `true`는 이번 실패가 결정적 또는 보존 기간 만료로 자동 재시도 대상이 아니며 최종 실패로 격리됐음을, `false`는 그렇지 않음을 뜻한다. 다른 event나 metric dimension에는 넣지 않는다.
 
 이메일·IP·사용자 ID·`actorUserId`, session·cookie·token·secret, request/response body, prompt/response 원문, Tool 인자·결과, 채팅 내용, 알림 payload, 원본 SQL, 예외 message·stack trace 전문은 중앙 전송을 금지한다. `sourceEventIds` 같은 ID 배열과 자유 입력 `requestedBy`·`reasonReference`도 제외한다. 정상 2xx·4xx access log 전체는 전송하지 않는다.
 
@@ -154,7 +170,8 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, 다음 네 met
 | --- | --- | --- |
 | `notification_outbox_relay_batch_completed` | INFO; 처리·retry·failure count, `durationMs`, `oldestProcessableAgeMs` | 허용 |
 | `notification_outbox_relay_event_processed` | INFO; 단일 `sourceEventId`, `eventType`, count·시각·지연 | 허용·상관 키 비집계 |
-| `notification_outbox_relay_retry_scheduled`, `notification_outbox_relay_event_failed` | WARN; 단일 `sourceEventId`, 고정 failure 값·count·다음 시각 | 허용·상관 키 비집계 |
+| `notification_outbox_relay_retry_scheduled` | WARN; 단일 `sourceEventId`, 고정 failure 값·count·다음 시각 | 허용·상관 키 비집계 |
+| `notification_outbox_relay_event_failed` | WARN; 단일 `sourceEventId`, 고정 failure 값·count, 전용 boolean `deterministicFailure` | 허용·상관 키 비집계 |
 | `notification_outbox_relay_scheduler_failed`, `notification_outbox_operation_failed` | ERROR; `failureCode`, `exceptionClass`, `occurredAt` | 허용 |
 | `notification_cleanup_completed`, `notification_cleanup_failed` | INFO/WARN; `targetType`, batch·delete count, duration, 고정 failure 값 | 허용 |
 | `chat_message_retention_completed`, `chat_message_retention_lease_guard_aborted`, `chat_message_retention_backlog_remaining`, `chat_message_retention_failed` | INFO/WARN/ERROR; count·duration·threshold·`exceptionClass` | 허용 |
@@ -167,6 +184,10 @@ source는 첫 두 meter가 `AuthenticationRequestLimiterMetrics`, 다음 네 met
 | `room_update_retry`, `room_cancel_retry`, `room_finish_retry`, `room_participation_retry`, `room_participation_cancel_retry`, `room_waitlist_cancel_retry`, `room_state_reconciliation_retry` | DEBUG/WARN; 단일 `roomId`, `attempt`, `useCase`, `reasonCode` | exhausted WARN만 허용·상관 키 비집계 |
 | `room_created`, `room_updated`, `room_canceled`, `room_finished`, `room_participation_created`, `room_participation_canceled` | 현재 `actorUserId` 포함 | 필드 제거·회귀 검사 전 중앙 전송 금지 |
 | `notification_outbox_operation_previewed`, `notification_outbox_operation_completed` | 현재 ID 배열·자유 입력 operator 필드 포함 | 전용 감사 경로를 설계하기 전 중앙 전송 금지 |
+| `game_search_completed` | INFO; `outcome=success`, `resultCount`, `durationMs` | 허용 |
+| `game_detail_completed` | INFO; 단일 `gameId`, `outcome=success`, `durationMs` | 허용·상관 키 비집계 |
+| `game_played_state_changed` | INFO; 단일 `gameId`, `action=mark|unmark`, `outcome=played|not_played` | 허용·상관 키 비집계 |
+| `game_search_failed`, `game_detail_failed`, `game_played_state_change_failed` | 예상 사용자 거절은 INFO·`outcome=rejected`·`failureCode`; 기술 실패는 WARN/ERROR·`outcome=failed`·`failureCode`·`exceptionClass`; 상세·상태 변경만 단일 `gameId`, 상태 변경은 `action=mark|unmark` | 허용·상관 키 비집계 |
 
 CloudWatch Logs subscription 또는 Agent 전처리는 `event` 허용 목록과 최소 level을 함께 적용한다. production에서 JSON parsing 실패, 허용 목록 밖 event, 금지 key 또는 한 실행에서 새로운 event·field가 발견되면 배포 검증을 실패시킨다. 운영 log group 보존기간은 14일이다.
 
@@ -256,6 +277,6 @@ health가 성공했더라도 alarm action 활성화, schedule 삭제 또는 `ACT
 
 ## 구현 이후 명령 소유권
 
-상태 조회·계획 종료·연장·재기동·복구 명령은 `albam-mate-infra`의 단일 운영 CLI가 소유한다. 구현 PR에서 실제 subcommand, 필수 인자, dry-run·exit code와 receipt 위치를 확정한 뒤에만 [COMMANDS](../COMMANDS.md)에 반복 명령을 추가한다. 이 문서는 구현 전 임의 shell 예시를 제공하지 않는다.
+상태 조회·계획 종료·연장·재기동·복구 명령은 [`albam-mate-infra`](https://github.com/bamsongi-club/albam-mate-infra/tree/ce8913c01937b7db71264008bd24a851a1c6d4d4)의 단일 운영 CLI가 소유한다. 반복 subcommand와 필수 인자는 [COMMANDS](../COMMANDS.md#운영-compose)에 등록하며, 세부 bootstrap·배포·receipt 절차는 인프라 저장소 README를 따른다.
 
-> 문서 관리: 소유자 `밤송이클럽 개발·운영 팀` · 최종 검증일 `2026-08-14` · 폐기 조건 `상태 전이·경고 대응 계약을 검증된 단일 운영 CLI의 생성형 문서가 완전히 대체할 때`
+> 문서 관리: 소유자 `밤송이클럽 개발·운영 팀` · 최종 검증일 `2026-08-18` · 폐기 조건 `상태 전이·경고 대응 계약을 검증된 단일 운영 CLI의 생성형 문서가 완전히 대체할 때`

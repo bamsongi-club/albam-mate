@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.chat.service;
 
+import static cloud.bamsongi.albammate.fixture.StructuredLogAssertions.assertFields;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -64,7 +65,7 @@ class ChatMessageHistoryQueryServiceTest {
 		when(chatMessage.getSenderUserId()).thenReturn(77L);
 		when(chatMessageRepository.findByChatRoomIdOrderByIdDesc(eq(99L), any()))
 			.thenReturn(List.of(chatMessage));
-		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of());
+		when(userQuery.findUserSummariesByIds(any())).thenReturn(Map.of());
 
 		BusinessException exception = assertThrows(
 			BusinessException.class,
@@ -82,7 +83,7 @@ class ChatMessageHistoryQueryServiceTest {
 		when(chatMessage.getSenderUserId()).thenReturn(77L);
 		when(chatMessageRepository.findByChatRoomIdOrderByIdDesc(eq(99L), any()))
 			.thenReturn(List.of(chatMessage));
-		when(userQuery.findNicknamesByIds(any())).thenReturn(Map.of());
+		when(userQuery.findUserSummariesByIds(any())).thenReturn(Map.of());
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 
 		try {
@@ -93,7 +94,7 @@ class ChatMessageHistoryQueryServiceTest {
 			assertEquals(1, appender.list.size());
 			ILoggingEvent event = appender.list.getFirst();
 			assertEquals(Level.ERROR, event.getLevel());
-			assertEquals("event=chat_message_sender_nickname_missing roomId=7", event.getFormattedMessage());
+			assertFields(event, Map.of("event", "chat_message_sender_nickname_missing", "roomId", 7L));
 			assertFalse(event.getFormattedMessage().contains("42"));
 			assertFalse(event.getFormattedMessage().contains("77"));
 		} finally {

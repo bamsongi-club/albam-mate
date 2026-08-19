@@ -11,7 +11,7 @@
 | Jiho | 인증·알림, Redis 세션 진단 | [Jiho k6 README](k6/jiho/README.md) | [Jiho 측정 문서](../docs/measurements/k6/jiho/README.md) |
 | Eungi | 채팅·WebSocket | [Eungi k6 README](k6/eungi/README.md) | [Eungi 측정 문서](../docs/measurements/k6/eungi/README.md) |
 | Yejin | 게임 키워드 검색·혼합 조회 | [Yejin k6 README](k6/yejin/README.md) | [Yejin 측정 문서](../docs/measurements/k6/yejin/README.md) |
-| Jiwon | ROOM 핵심 HTTP 동시성·상세 조회 | [Jiwon k6 README](k6/jiwon/README.md) | 아직 결과 문서 없음 |
+| Jiwon | ROOM 핵심 HTTP 동시성·상세 조회 | [Jiwon k6 README](k6/jiwon/README.md) | [Jiwon 측정 문서](../docs/measurements/k6/jiwon/README.md) |
 
 ## 디렉터리 배치
 
@@ -48,7 +48,7 @@ fixture 생성기와 그 테스트는 재현 가능한 부하테스트를 위한
 
 생성 결과의 기본 경로는 `build/k6/<test-content>/`이다. 저장소의 `.gitignore`가 `build/`를 제외하므로, 생성기와 실행기는 이 경로 안에서 실행 목적별 결과를 관리한다. 이 경로의 분류는 Git에 추적하는 소스의 소유자 폴더와 독립적이다.
 
-비밀값과 실제 환경의 리소스 식별자를 제거해 정본으로 보존할 측정 증거는 `build/`의 원시 결과를 그대로 커밋하지 않는다. 별도로 승인된 측정 문서의 형식과 검증 절차를 마친 뒤, [k6 부하테스트 결과 문서](../docs/measurements/k6/README.md) 아래의 소유자 폴더에 Markdown 문서로 보존한다. 필요한 경우 같은 검증을 마친 JSON 증거는 `docs/measurements/k6/<owner>/evidence/<test-content>-<YYYY-MM-DD>.json`으로 함께 보존할 수 있다. 모든 실행 결과를 문서로 승격하지 않으며, 탐색·반복 실행의 원시 산출물은 `build/`에 남긴다.
+측정 결과의 승격·보존·증거 규칙은 [k6 부하테스트 결과 문서](../docs/measurements/k6/README.md)를 정본으로 따른다.
 
 가짜 예시 파일은 형식 설명에 필요할 때만 추가한다. 실제 서비스 계정, 접근 가능한 연락처, 재사용 가능한 비밀번호·토큰 또는 실제 환경의 리소스 식별자를 넣지 않는다.
 

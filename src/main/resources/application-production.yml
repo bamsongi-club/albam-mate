@@ -32,7 +32,89 @@ server:
   forward-headers-strategy: framework
   shutdown: graceful
 
+management:
+  server:
+    port: ${MANAGEMENT_SERVER_PORT:9090}
+    address: 127.0.0.1
+  metrics:
+    enable:
+      jvm: true
+      tomcat: true
+      hikaricp: true
+    tags:
+      environment: ${ALBAM_MATE_ENVIRONMENT}
+      stackId: ${ALBAM_MATE_STACK_ID}
+      service: albam-mate
+      role: ${ALBAM_MATE_ROLE}
+      instanceId: ${ALBAM_MATE_INSTANCE_ID}
+      release: ${ALBAM_MATE_RELEASE}
+    distribution:
+      percentiles:
+        http.server.requests: [0.5, 0.95, 0.99]
+      percentiles-histogram:
+        http.server.requests: true
+  opentelemetry:
+    resource-attributes:
+      environment: ${ALBAM_MATE_ENVIRONMENT}
+      stackId: ${ALBAM_MATE_STACK_ID}
+      service: albam-mate
+      role: ${ALBAM_MATE_ROLE}
+      instanceId: ${ALBAM_MATE_INSTANCE_ID}
+      release: ${ALBAM_MATE_RELEASE}
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  otlp:
+    metrics:
+      export:
+        enabled: true
+        url: ${ALBAM_MATE_OTLP_METRICS_URL:http://host.docker.internal:4318/v1/metrics}
+        step: 1m
+        batch-size: 1000
+        connect-timeout: 1s
+        read-timeout: 2s
+        resource-attributes:
+          environment: ${ALBAM_MATE_ENVIRONMENT}
+          stackId: ${ALBAM_MATE_STACK_ID}
+          service: albam-mate
+          role: ${ALBAM_MATE_ROLE}
+          instanceId: ${ALBAM_MATE_INSTANCE_ID}
+          release: ${ALBAM_MATE_RELEASE}
+
+logging:
+  structured:
+    format:
+      console: logstash
+      file: logstash
+    json:
+      exclude: email,ip,session,cookie,token,authorization,requestBody,responseBody,queryString,prompt,response,toolArgs,toolResult,chatContent,notificationPayload,rawSql,userId,actorUserId
+      customizer: cloud.bamsongi.albammate.monitoring.MonitoringStructuredLoggingCustomizer
+      add:
+        environment: ${ALBAM_MATE_ENVIRONMENT}
+        stackId: ${ALBAM_MATE_STACK_ID}
+        service: albam-mate
+        role: ${ALBAM_MATE_ROLE}
+        instanceId: ${ALBAM_MATE_INSTANCE_ID}
+        release: ${ALBAM_MATE_RELEASE}
+  file:
+    name: /var/log/albam-mate/events.json
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 4
+      total-size-cap: 40MB
+
 app:
+  monitoring:
+    upstream-role: ${ALBAM_MATE_ROLE}
+    dependency-health:
+      enabled: true
+      poll-interval: 10s
   security:
     cookie:
       secure: true

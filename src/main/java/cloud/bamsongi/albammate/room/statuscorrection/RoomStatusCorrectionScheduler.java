@@ -64,7 +64,8 @@ public class RoomStatusCorrectionScheduler implements Trigger {
 				correctDueRooms(requestTime);
 			});
 		if (!lockExecution.acquired()) {
-			log.debug("event=room_state_reconciliation_lock_skipped lockName={}", properties.getLockName());
+			log.atDebug().addKeyValue("event", "room_state_reconciliation_lock_skipped")
+				.addKeyValue("lockName", properties.getLockName()).log("room state reconciliation lock skipped");
 		}
 	}
 
@@ -73,7 +74,8 @@ public class RoomStatusCorrectionScheduler implements Trigger {
 		try {
 			Integer candidateLimit = properties.getCandidateLimit();
 			if (candidateLimit == null) {
-				log.warn("event=room_status_correction_skipped reason=candidate_limit_missing");
+				log.atWarn().addKeyValue("event", "room_status_correction_skipped")
+					.addKeyValue("reasonCode", "CANDIDATE_LIMIT_MISSING").log("room status correction skipped");
 				return;
 			}
 			Integer maxBatchesPerRun = properties.getMaxBatchesPerRun();
@@ -81,21 +83,26 @@ public class RoomStatusCorrectionScheduler implements Trigger {
 			RoomStatusCorrectionCoordinator.BoundedCorrectionResult result = coordinator.correctBoundedDueRooms(
 				requestTime, progress, candidateLimit, maxBatchesPerRun, this::waitBeforeRetry);
 			if (result.changedCount() > 0) {
-				log.info("event=room_state_reconciliation_completed changedCount={}", result.changedCount());
+				log.atInfo().addKeyValue("event", "room_state_reconciliation_completed")
+					.addKeyValue("changedCount", result.changedCount()).log("room state reconciliation completed");
 			} else {
-				log.debug("event=room_state_reconciliation_completed changedCount={}", result.changedCount());
+				log.atDebug().addKeyValue("event", "room_state_reconciliation_completed")
+					.addKeyValue("changedCount", result.changedCount()).log("room state reconciliation completed");
 			}
 			if (result.hasRemainingCandidates()) {
-				log.warn("event=room_status_correction_batch_limit_reached candidateLimit={} maxBatchesPerRun={}",
-					candidateLimit, maxBatchesPerRun);
+				log.atWarn().addKeyValue("event", "room_status_correction_batch_limit_reached")
+					.addKeyValue("candidateLimit", candidateLimit).addKeyValue("maxBatchesPerRun", maxBatchesPerRun)
+					.log("room status correction batch limit reached");
 			}
 		} catch (BusinessException exception) {
 			if (exception.getErrorCode() != ErrorCode.ROOM_CONCURRENT_MODIFICATION) {
-				log.warn("event=room_state_reconciliation_failed");
+				log.atWarn().addKeyValue("event", "room_state_reconciliation_failed")
+					.log("room state reconciliation failed");
 			}
 			throw exception;
 		} catch (RuntimeException exception) {
-			log.warn("event=room_state_reconciliation_failed");
+			log.atWarn().addKeyValue("event", "room_state_reconciliation_failed")
+				.log("room state reconciliation failed");
 			throw exception;
 		} finally {
 			warnIfExecutionSlow(elapsedNanos() - startedAtNanos);
@@ -105,8 +112,10 @@ public class RoomStatusCorrectionScheduler implements Trigger {
 	private void warnIfExecutionSlow(long durationNanos) {
 		Duration duration = Duration.ofNanos(durationNanos);
 		if (duration.compareTo(properties.getExecutionWarningThreshold()) > 0) {
-			log.warn("event=room_status_correction_execution_slow durationMs={} thresholdMs={}",
-				duration.toMillis(), properties.getExecutionWarningThreshold().toMillis());
+			log.atWarn().addKeyValue("event", "room_status_correction_execution_slow")
+				.addKeyValue("durationMs", duration.toMillis())
+				.addKeyValue("thresholdMs", properties.getExecutionWarningThreshold().toMillis())
+				.log("room status correction execution slow");
 		}
 	}
 

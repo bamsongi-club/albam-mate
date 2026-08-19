@@ -23,6 +23,8 @@ spring:
           time_zone: UTC
 
 app:
+  monitoring:
+    upstream-role: ${ALBAM_MATE_ROLE:app1}
   security:
     cookie:
       secure: false

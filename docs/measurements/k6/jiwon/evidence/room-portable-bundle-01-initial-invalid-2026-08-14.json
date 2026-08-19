@@ -1,0 +1,368 @@
+{
+  "schema": "k6-campaign-manifest-v3",
+  "kind": "room-portable-bundle",
+  "campaignId": "room-k6-matrix-2026-08-14",
+  "campaignStatus": "completed-with-limitations",
+  "documentStatus": "superseded",
+  "reportStatus": "INVALID",
+  "purpose": "공식 ROOM 25개 조합의 portable bundle 실행 가능 여부를 확인한다. 이 campaign은 fixture prepare 단계 결함으로 성능 기준선에는 사용하지 않는다.",
+  "documents": {
+    "ownerIndex": "../README.md",
+    "report": "../room-portable-bundle-01-initial-invalid-2026-08-14.md"
+  },
+  "lineage": {
+    "campaignSequence": 1,
+    "successorCampaign": "room-k6-snapshot-rerun-2026-08-14"
+  },
+  "executionPath": {
+    "included": "ROOM portable bundle -> infra run.sh room-k6",
+    "excluded": "generic loadtest"
+  },
+  "window": {
+    "startedAtUtc": "2026-08-14T12:21:08Z",
+    "endedAtUtc": "2026-08-14T12:42:27Z",
+    "startedAtKst": "2026-08-14T21:21:08+09:00",
+    "endedAtKst": "2026-08-14T21:42:27+09:00",
+    "durationSeconds": 1279
+  },
+  "artifactBoundary": {
+    "rawArtifacts": "local-only",
+    "directoryPattern": "build/k6/room/<run-id>/<fixture-id>",
+    "rawArtifactsVersioned": false,
+    "notRetained": [
+      "password and credential-derived hash",
+      "token, session, and CSRF material",
+      "target URL and actual fixture or resource identifiers",
+      "raw SQL, console log, and raw k6 summary content"
+    ],
+    "digestScope": "per-run portable manifest and final-result artifact SHA-256"
+  },
+  "sources": [
+    {
+      "sequenceRange": "1-25",
+      "sourceRevision": "3c21c1e69a214d6033e341c04cc111ef81e90c06",
+      "applicationRevision": "3c21c1e69a214d6033e341c04cc111ef81e90c06",
+      "sourceToApplicationAlignment": "MATCH"
+    }
+  ],
+  "integrityChecks": {
+    "historicalBundleValidation": {
+      "method": "embedded historical portable-bundle validator",
+      "checkedRunCount": 25,
+      "passedRunCount": 25,
+      "failedRunCount": 0,
+      "rawBundleTampering": "NOT_DETECTED"
+    },
+    "currentSourceRevalidation": {
+      "method": "current checkout validator against the historical local-only bundles",
+      "checkedRunCount": 25,
+      "passedRunCount": 0,
+      "failedRunCount": 25,
+      "outcome": "HISTORICAL_SOURCE_DRIFT",
+      "reason": "현재 source의 prepare SQL은 기록 후 수정된 결함을 반영하므로 당시 fixture plan과 일치하지 않는다. 이 실패는 raw bundle 변조 판정이 아니다."
+    }
+  },
+  "selection": {
+    "plannedOfficialRunCount": 25,
+    "remoteArtifactRunCount": 25,
+    "includedRunCount": 0,
+    "excludedRunCount": 25,
+    "method": "공식 T1 6개, T2 7개, T3 3개, T4 3개, T5 6개를 시간순으로 각각 한 번 실행",
+    "reasonAllExcluded": "모든 Run이 k6 시작 전 prepare phase에서 INVALID가 되었으므로 성능 경계 계산에 사용할 수 없다."
+  },
+  "t5Comparison": {
+    "status": "FAIL",
+    "reportDisposition": "excluded",
+    "fixtureCount": 0,
+    "failureCount": 6,
+    "artifactSha256": "d7935dfb5ee705a4693c3bbcc449dc7581aece46329891cb89faa8c6abafaaaa",
+    "reason": "유효한 T5 fixture가 없어 comparison은 성능 실패가 아닌 prepare 단계 결함의 후속 결과다."
+  },
+  "runs": [
+    {
+      "sequence": 1,
+      "scenario": "t1",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "hot", "concurrency": 2 },
+      "window": { "startedAtUtc": "2026-08-14T12:21:08Z", "endedAtUtc": "2026-08-14T12:21:42Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "900eff2f082ba218a6f9f96c85562778d215286ceab5cf7acb523d94da9efe39", "finalResultSha256": "4c9e96f051f246847c8a5aee05bb8b3b78f77a49c0c2913a326fe55372883200" }
+    },
+    {
+      "sequence": 2,
+      "scenario": "t1",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "hot", "concurrency": 4 },
+      "window": { "startedAtUtc": "2026-08-14T12:26:06Z", "endedAtUtc": "2026-08-14T12:26:33Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "9d318288e9089933182c5caeba8b1ddad794002587b161ed9f41199972132a05", "finalResultSha256": "4a6a9fe61ab547326febabeec8b14d8c0f40fb261b9d7a2f902f2a84e49e8628" }
+    },
+    {
+      "sequence": 3,
+      "scenario": "t1",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "hot", "concurrency": 8 },
+      "window": { "startedAtUtc": "2026-08-14T12:26:39Z", "endedAtUtc": "2026-08-14T12:27:04Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "7784d311a13e3f1459f35045e77f64c8349a97aa29a05704ee69d2c89764b0b2", "finalResultSha256": "c4fcb440ef3dd3b78f907580ff2409857ec7b7d3956c285e8d0f2ada1867de18" }
+    },
+    {
+      "sequence": 4,
+      "scenario": "t1",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "spread", "concurrency": 2 },
+      "window": { "startedAtUtc": "2026-08-14T12:27:10Z", "endedAtUtc": "2026-08-14T12:27:36Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "d68626053512b3e5b6c7ea19126c882b0ad463f027b1a132fcb3e417d38ebdb6", "finalResultSha256": "16c40365dad94c30ca126a54f97b6d4159679976f4fbf3d56700715221c0c628" }
+    },
+    {
+      "sequence": 5,
+      "scenario": "t1",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "spread", "concurrency": 4 },
+      "window": { "startedAtUtc": "2026-08-14T12:27:41Z", "endedAtUtc": "2026-08-14T12:28:07Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "a0e75ea68833f8d425b23caadefe9aa896d69b584a4ab020c75eb901b6f3ca82", "finalResultSha256": "0e220f029007c48313cb28c97e3cdc475791b72c968cd82eed19e38196df0c13" }
+    },
+    {
+      "sequence": 6,
+      "scenario": "t1",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "spread", "concurrency": 8 },
+      "window": { "startedAtUtc": "2026-08-14T12:28:12Z", "endedAtUtc": "2026-08-14T12:28:37Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "8929d2f8c6be39499a4fabd460a809ec94d643629f4f021fa7b99debcb014f09", "finalResultSha256": "47e45c9e2309952d2a997e952a55d6d092cb18af76b038f965d4e5dbbeb400bb" }
+    },
+    {
+      "sequence": 7,
+      "scenario": "t2",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "hot", "concurrency": 2, "subcase": "distinct" },
+      "window": { "startedAtUtc": "2026-08-14T12:28:43Z", "endedAtUtc": "2026-08-14T12:29:09Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "7e7298d6fc9c7ebe4e5cd93543c478d2993501222a72336ac6e93d744da89d91", "finalResultSha256": "9db906451ca710c38165eb32d8d01eed04b80398a89aac8921838266ac79ce4d" }
+    },
+    {
+      "sequence": 8,
+      "scenario": "t2",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "hot", "concurrency": 4, "subcase": "distinct" },
+      "window": { "startedAtUtc": "2026-08-14T12:29:16Z", "endedAtUtc": "2026-08-14T12:29:47Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "73ecd57c0cda8ed3511b995699b35805c79820eae9a5b80fae9231ca58c5bd49", "finalResultSha256": "3476a770cf4515b26b0ed67cecfe985a6ff389be7fb13326f27d0344c84ea69f" }
+    },
+    {
+      "sequence": 9,
+      "scenario": "t2",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "hot", "concurrency": 8, "subcase": "distinct" },
+      "window": { "startedAtUtc": "2026-08-14T12:29:58Z", "endedAtUtc": "2026-08-14T12:30:31Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "c9ab130dfb94b42bd196e8ef5bfe664ea44f172439d5d27df1499bf5a42b6833", "finalResultSha256": "b4ed0d8c91e12d0a514d3b205a1185e8288952af0c3cc4823dfa97081d3a940a" }
+    },
+    {
+      "sequence": 10,
+      "scenario": "t2",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "spread", "concurrency": 2, "subcase": "distinct" },
+      "window": { "startedAtUtc": "2026-08-14T12:30:42Z", "endedAtUtc": "2026-08-14T12:31:15Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "d45fb7e61fc8e18c477d2b2342cf0148c71ef0ed705596049040351a5bc02fe1", "finalResultSha256": "a7d6b30875529821c9e2d7271041737ef049d344af6cd072cd2197df90d2dedf" }
+    },
+    {
+      "sequence": 11,
+      "scenario": "t2",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "spread", "concurrency": 4, "subcase": "distinct" },
+      "window": { "startedAtUtc": "2026-08-14T12:31:27Z", "endedAtUtc": "2026-08-14T12:32:03Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "bf38b3275960f0dbf8921e018f78f88857324795460ac2c556050812d352a165", "finalResultSha256": "bec8751432d6acb1439f4d4974bfd65f9e814db4866bcb338a061b486e3f0a64" }
+    },
+    {
+      "sequence": 12,
+      "scenario": "t2",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "spread", "concurrency": 8, "subcase": "distinct" },
+      "window": { "startedAtUtc": "2026-08-14T12:32:15Z", "endedAtUtc": "2026-08-14T12:32:48Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "684b355e7415fb0d6bddd6614a9551d4e05a9e55e69b50053854151f34000a6a", "finalResultSha256": "09509488800147d8cf8a18903f3162ae6b3107ba3d4ea38fddc9d493d3c28cc9" }
+    },
+    {
+      "sequence": 13,
+      "scenario": "t2",
+      "condition": { "profile": "spike", "rounds": 1, "mode": "hot", "concurrency": 2, "subcase": "duplicate" },
+      "window": { "startedAtUtc": "2026-08-14T12:33:00Z", "endedAtUtc": "2026-08-14T12:33:33Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "df84009b46a2c6c83c04e1838490e17eea4526627ae6bce8fa0f327d4394bdb2", "finalResultSha256": "6422fbab4867ed3c784ff55758ddad6d9352ede803d4900642691c15605a1d37" }
+    },
+    {
+      "sequence": 14,
+      "scenario": "t3",
+      "condition": { "profile": "stress", "rounds": 5, "mode": "race" },
+      "window": { "startedAtUtc": "2026-08-14T12:33:45Z", "endedAtUtc": "2026-08-14T12:34:18Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "608c4f82ff60baad72350b975f2c1b52b84837f1723c4e799e1e68b6e10972a7", "finalResultSha256": "2da115a1a03b91a3c8c00658373c7d37ded196631071b68e727afe317e5f4fc1" }
+    },
+    {
+      "sequence": 15,
+      "scenario": "t3",
+      "condition": { "profile": "spike", "rounds": 1, "mode": "wait-first" },
+      "window": { "startedAtUtc": "2026-08-14T12:34:30Z", "endedAtUtc": "2026-08-14T12:35:04Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "536afa3ad09293eabb43b303eeb1ea0cf1d449f0dc66a2c30d53fb20f07aeb8c", "finalResultSha256": "d902570131beac1634d29f5a773dad1403662106c8f0ec112e7c62caafd6f914" }
+    },
+    {
+      "sequence": 16,
+      "scenario": "t3",
+      "condition": { "profile": "spike", "rounds": 1, "mode": "cancel-first" },
+      "window": { "startedAtUtc": "2026-08-14T12:35:16Z", "endedAtUtc": "2026-08-14T12:35:49Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "b467045fa592fbc9754ea6b373d1645ea8bc2797c1469f49b6b0b389b7c4a2ea", "finalResultSha256": "2170221287cac8c2bf480c596cd1084bff4f903a9666c2861dfab63a05a66946" }
+    },
+    {
+      "sequence": 17,
+      "scenario": "t4",
+      "condition": { "profile": "stress", "rounds": 5, "concurrency": 2 },
+      "window": { "startedAtUtc": "2026-08-14T12:36:01Z", "endedAtUtc": "2026-08-14T12:36:34Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "ac2ff3616a13a909e1e3cc34dac45ef50617e8dadf9259dce939d9c526503d8f", "finalResultSha256": "2c92407e19cb549d0913e6dad9cc52ea732c09e054a97bec2b42535a3bcdd5ab" }
+    },
+    {
+      "sequence": 18,
+      "scenario": "t4",
+      "condition": { "profile": "stress", "rounds": 5, "concurrency": 4 },
+      "window": { "startedAtUtc": "2026-08-14T12:36:46Z", "endedAtUtc": "2026-08-14T12:37:19Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "69f0c506f6f16694ba2dd8cf7ac850bb54a4adf28e2cd46528300611a0e97e97", "finalResultSha256": "36c70ca8b6428929a80037f652a4e14a74566ec0cdad6652230302409c06b5be" }
+    },
+    {
+      "sequence": 19,
+      "scenario": "t4",
+      "condition": { "profile": "stress", "rounds": 5, "concurrency": 8 },
+      "window": { "startedAtUtc": "2026-08-14T12:37:30Z", "endedAtUtc": "2026-08-14T12:38:04Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "8862766edcf2a72813a2cc4b92d629157356c2a57326d9d8696c78e0379a7c4a", "finalResultSha256": "da549cd66de723decfe45804e33633fe88c1cff76afebbd6977107c13e223355" }
+    },
+    {
+      "sequence": 20,
+      "scenario": "t5",
+      "condition": { "profile": "stress", "rounds": 5, "role": "public", "scale": 1 },
+      "window": { "startedAtUtc": "2026-08-14T12:38:15Z", "endedAtUtc": "2026-08-14T12:38:49Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "3735a43e9b0756521375a847a1e2a7a3620a99ea4daa9da7aa080d51a6913186", "finalResultSha256": "87fb1786e64cbebc94a18c27a40cd1490fa88086020dfa7ca524753feeb23649" }
+    },
+    {
+      "sequence": 21,
+      "scenario": "t5",
+      "condition": { "profile": "stress", "rounds": 5, "role": "host", "scale": 1 },
+      "window": { "startedAtUtc": "2026-08-14T12:39:00Z", "endedAtUtc": "2026-08-14T12:39:33Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "e5849281f96aed6b4b6e867bbbc6de013648ea94d8016cca80f9398260f95492", "finalResultSha256": "3761d79addac945cbcd80121378c1de76ca71fd11b8c4717ea9eba48dc938dbd" }
+    },
+    {
+      "sequence": 22,
+      "scenario": "t5",
+      "condition": { "profile": "stress", "rounds": 5, "role": "participant", "scale": 1 },
+      "window": { "startedAtUtc": "2026-08-14T12:39:45Z", "endedAtUtc": "2026-08-14T12:40:17Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "70399d0c0d3af023d1a6c3a1b8eeaebc2a395840c2dd86b8cc48285ed6511a37", "finalResultSha256": "371f05444796517d0eacab00d1b95fef95b801b54b9a0aff04fa63c50d5634c9" }
+    },
+    {
+      "sequence": 23,
+      "scenario": "t5",
+      "condition": { "profile": "stress", "rounds": 5, "role": "public", "scale": 10 },
+      "window": { "startedAtUtc": "2026-08-14T12:40:28Z", "endedAtUtc": "2026-08-14T12:41:00Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "b90c4aa92be1d5a877c900e950cb285b7e30a3282b317ac100b410ff382ff282", "finalResultSha256": "23788c696055c2005226f144868d314a894073144e9df4d4a268a0504e22c347" }
+    },
+    {
+      "sequence": 24,
+      "scenario": "t5",
+      "condition": { "profile": "stress", "rounds": 5, "role": "host", "scale": 10 },
+      "window": { "startedAtUtc": "2026-08-14T12:41:10Z", "endedAtUtc": "2026-08-14T12:41:42Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "5823cf6b46ae5e77a069e1644957f8ad96873af771648a05c8a848b02e0323cf", "finalResultSha256": "b289221b6ca58800533cc55555f236c1d1a7cb9a8d1d737ea2ecc8e6d7820419" }
+    },
+    {
+      "sequence": 25,
+      "scenario": "t5",
+      "condition": { "profile": "stress", "rounds": 5, "role": "participant", "scale": 10 },
+      "window": { "startedAtUtc": "2026-08-14T12:41:54Z", "endedAtUtc": "2026-08-14T12:42:27Z" },
+      "status": "INVALID",
+      "reportDisposition": "excluded",
+      "phaseExitCodes": { "prepare": 3, "resourceQuery": null, "beforeSnapshot": null, "k6": null, "afterSnapshot": null },
+      "metrics": { "available": false, "reason": "prepare failed before k6" },
+      "artifactDigests": { "portableBundleManifestSha256": "36b7d1162582743b216d933fbe9c4bcb2fb3406db89aa422d2de9650dc1c9940", "finalResultSha256": "6ad7487801aeab7eba89513b923bdc4c552dd81cd311d0dc8039c598bac409e6" }
+    }
+  ],
+  "knownLimitations": [
+    "k6, HTTP latency, RPS, HTTP error rate, and after diagnosis were not collected because every Run stopped in prepare.",
+    "T5 comparison FAIL is a consequence of zero valid fixtures, not a performance comparison result.",
+    "local-only artifact digests prove later local modification only; this Git repository cannot independently reconstruct the raw bundle."
+  ],
+  "teardown": {
+    "status": "completed",
+    "completedAtUtc": "2026-08-14T12:56:30Z",
+    "scope": "test-owned P1 resources and release image tags; account-wide zero cost is not asserted"
+  }
+}

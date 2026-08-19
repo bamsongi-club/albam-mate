@@ -8,6 +8,7 @@ import static org.mockito.Mockito.doAnswer;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -27,6 +28,9 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.game.dto.GameListRequest;
 import cloud.bamsongi.albammate.game.dto.PlayedFilter;
 import cloud.bamsongi.albammate.game.dto.PlayedGameStateResponse;
@@ -138,6 +142,40 @@ class UserPlayedGamePostgresTest {
 	}
 
 	@Test
+	void PostgreSQL_반복_목표상태는_저장결과와_동일한_업무결과로그로_기록한다() {
+		User user = user("logged-idempotency");
+		Game game = game("LoggedIdempotency");
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(UserPlayedGameService.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+
+		try {
+			userPlayedGameService.markPlayed(user.getId(), game.getId());
+			userPlayedGameService.markPlayed(user.getId(), game.getId());
+			assertEquals(1, userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).size());
+			userPlayedGameService.unmarkPlayed(user.getId(), game.getId());
+			userPlayedGameService.unmarkPlayed(user.getId(), game.getId());
+			assertTrue(userPlayedGameRepository.findByUserIdAndGameId(user.getId(), game.getId()).isEmpty());
+
+			List<Map<String, Object>> events = appender.list.stream()
+				.map(this::fields)
+				.filter(fields -> "game_played_state_changed".equals(fields.get("event")))
+				.toList();
+			assertEquals(4, events.size());
+			assertEquals(2, events.stream().filter(fields -> fields.equals(Map.of(
+				"event", "game_played_state_changed", "gameId", game.getId(), "action", "mark", "outcome", "played")))
+				.count());
+			assertEquals(2, events.stream().filter(fields -> fields.equals(Map.of(
+				"event", "game_played_state_changed", "gameId", game.getId(), "action", "unmark", "outcome",
+				"not_played"))).count());
+		} finally {
+			logger.detachAppender(appender);
+			appender.stop();
+		}
+	}
+
+	@Test
 	void PostgreSQL_PLAYED_ONLY_페이지조회뒤_동시취소가_커밋돼도_playedByMe는_true로_일치한다() {
 		User user = user("played-only-snapshot");
 		Game game = game("PlayedOnlySnapshot");
@@ -189,6 +227,11 @@ class UserPlayedGamePostgresTest {
 			assertTrue(start.await(10, TimeUnit.SECONDS));
 			return userPlayedGameService.markPlayed(userId, gameId);
 		};
+	}
+
+	private Map<String, Object> fields(ILoggingEvent event) {
+		return event.getKeyValuePairs().stream()
+			.collect(java.util.stream.Collectors.toMap(pair -> pair.key, pair -> pair.value));
 	}
 
 	private User user(String suffix) {

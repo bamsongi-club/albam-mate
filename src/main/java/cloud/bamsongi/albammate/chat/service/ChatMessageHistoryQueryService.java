@@ -53,26 +53,32 @@ public class ChatMessageHistoryQueryService {
 
 		boolean hasNext = fetched.size() > size;
 		List<ChatMessage> page = hasNext ? fetched.subList(0, size) : fetched;
-		Map<Long, String> nicknamesById = userQuery.findNicknamesByIds(
+		Map<Long, UserQuery.UserSummary> summariesById = userQuery.findUserSummariesByIds(
 			page.stream().map(ChatMessage::getSenderUserId).collect(Collectors.toSet()));
 		List<ChatMessageResponse> messages = page.stream()
-			.map(message -> ChatMessageResponse.from(
-				message,
-				roomId,
-				nicknameOf(nicknamesById, message, roomId),
-				message.getSenderUserId() == currentUserId))
+			.map(message -> {
+				UserQuery.UserSummary sender = senderSummaryOf(summariesById, message, roomId);
+				return ChatMessageResponse.from(
+					message,
+					roomId,
+					sender.nickname(),
+					sender.profileImageUrl(),
+					message.getSenderUserId() == currentUserId);
+			})
 			.toList();
 		Long nextBeforeMessageId = hasNext ? page.get(page.size() - 1).getId() : null;
 		return new ChatMessagePageResponse(messages, nextBeforeMessageId, hasNext);
 	}
 
-	/** 닉네임을 찾지 못하는 예기치 않은 상태만 roomId로 기록하고, 발신자 내부 사용자 ID는 남기지 않는다. */
-	private String nicknameOf(Map<Long, String> nicknamesById, ChatMessage message, long roomId) {
-		String nickname = nicknamesById.get(message.getSenderUserId());
-		if (nickname == null) {
-			log.error("event=chat_message_sender_nickname_missing roomId={}", roomId);
+	/** 발신자 요약을 찾지 못하는 예기치 않은 상태만 roomId로 기록하고, 발신자 내부 사용자 ID는 남기지 않는다. */
+	private UserQuery.UserSummary senderSummaryOf(
+		Map<Long, UserQuery.UserSummary> summariesById, ChatMessage message, long roomId) {
+		UserQuery.UserSummary sender = summariesById.get(message.getSenderUserId());
+		if (sender == null) {
+			log.atError().addKeyValue("event", "chat_message_sender_nickname_missing")
+				.addKeyValue("roomId", roomId).log("chat message sender nickname missing");
 			throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
 		}
-		return nickname;
+		return sender;
 	}
 }

@@ -1,6 +1,6 @@
 # ROOM k6 부하테스트
 
-이 디렉터리는 Jiwon이 소유하며, [#649](https://github.com/bamsongi-club/albam-mate/issues/649)의 ROOM 핵심 HTTP k6 시나리오 5종, fixture 생성기와 사전·사후 DB 검증을 관리한다. 소스와 결과의 공통 배치 규칙은 [Load Tests](../../README.md)를 따른다.
+이 디렉터리는 Jiwon이 소유하며, [#649](https://github.com/bamsongi-club/albam-mate/issues/649)의 ROOM 핵심 HTTP k6 시나리오 5종, fixture 생성기와 사전·사후 DB 검증을 관리한다. [#709](https://github.com/bamsongi-club/albam-mate/issues/709)은 이 자산을 전용 Terraform 스택의 원격 발생기로 전달하는 portable bundle 계약을 추가한다. 소스와 결과의 공통 배치 규칙은 [Load Tests](../../README.md)를 따른다.
 
 실제 fixture, 비밀번호·세션·CSRF, 원시 summary와 실행 bundle은 Git에 추적하지 않는 `build/k6/room/<run-id>/` 아래에 둔다.
 
@@ -39,6 +39,11 @@
 | `k6-summary.json` | 동일 경로 | `run`이 같은 manifest와 함께 생성한 k6 summary |
 | `t5-comparison-verification.json` | `build/k6/room/<run-id>/` | T5 role×scale 6개 실행의 공통 read profile 검증 결과 |
 | `cleanup.sql` | 동일 경로 | 정확한 생성 ID만 정리하는 SQL |
+| `manifest.json` | 동일 경로 | portable bundle의 clean source revision, immutable artifact hash와 실행 경계 |
+| `fixture-plan.json`, `private/prepare-provenance.json` | 동일 경로 | 결정적 fixture 계획과 실행별 ownership·password hash provenance |
+| `resource-query.sql`, `resource-output.json` | 동일 경로 | 원격 DB가 반환한 fixture identity 원시 결과 |
+| `execution-options.json` | 동일 경로 | 정규화한 k6 환경 값과 T5 read profile |
+| `before/after-snapshot.json`, `before/after-diagnosis.json`, `infra-execution.json`, `final-result.json` | 동일 경로 | 원격 실행의 raw DB/k6 결과, 앱 진단과 최종 판정 |
 
 cleanup은 broad prefix 삭제나 `TRUNCATE`를 쓰지 않는다. SQL 실행 전 fixture 경로·결정적 plan·실행별 ownership marker·사용자/ROOM 식별자를 다시 대조하고, fixture ROOM에 비-fixture 사용자의 파생 행이나 아직 남아 있는 다른 ROOM outbox event를 source로 한 notification이 섞였으면 삭제하지 않고 중단한다.
 
@@ -47,6 +52,8 @@ cleanup은 broad prefix 삭제나 `TRUNCATE`를 쓰지 않는다. SQL 실행 전
 - k6와 PostgreSQL `psql`이 실행 환경 PATH에 있어야 한다.
 - 공식 실행은 고객 데이터가 없는 Terraform 부하 환경 또는 동등한 전용 환경에서만 한다.
 - fixture의 `start_at`은 미래로 고정한다. ROOM 상세 조회의 상태 보정이 측정 중 데이터를 바꾸지 않게 하기 위해서다.
+
+직접 실행(`prepare → run → verify`)은 위의 로컬 `psql`·k6 조건을 사용한다. portable bundle 원격 실행은 controller에서 Node만 사용하며, `psql`과 k6는 Terraform 스택의 PostgreSQL host·load generator에서만 실행한다.
 
 | 변수 | 기본값 | 용도 |
 | --- | --- | --- |
@@ -92,6 +99,44 @@ node load-tests/k6/jiwon/tools/fixture.mjs verify `
 
 `run`은 k6 시작 전에 fixture의 결정적 plan과 현재 DB resource identity를 다시 대조한 뒤, fixture의 SHA-256을 같은 `run-manifest.json`에 기록하고 fixture가 가리키는 scenario 스크립트만 실행한다. `after` 검증은 현재 fixture SHA-256과 manifest를 다시 대조한 뒤 같은 경로의 `k6-summary.json`만 사용하므로, 실행 뒤 손상된 fixture나 수동으로 섞은 다른 실행 summary를 성능 근거로 쓰지 않는다. T5 manifest에는 실제 적용한 `t5ReadOptions`(VU·duration·think time)를 남기고, 같은 정규화 값으로 k6 child process를 실행한다. `ALBAM_MATE_SOURCE_SHA`에는 로컬 스크립트 checkout이 아니라 **대상 환경에 배포된** SHA를 넣는다. T1~T5는 `room_start_skew_ms`의 최댓값이 `1,000ms` 미만이어야 한다. 이는 응답 성능 SLO가 아니라 같은 barrier에 둔 VU가 실제로 함께 시작했는지 판정하는 실행 유효성 gate다.
 
+## Terraform 원격 실행 bundle
+
+각 팀원은 서로 다른 `stack_id`의 전용 Terraform 스택만 사용한다. 앱은 fixture 의미·SQL·diagnosis를, infra는 bundle의 정적 검증·원격 PostgreSQL/k6 실행·원시 artifact 회수만 소유한다. 기존 generic `loadtest` 명령은 ROOM bundle 실행에 사용하지 않는다.
+
+먼저 **변경 없는 앱 checkout**에서, 배포할 commit과 같은 SHA를 `ALBAM_MATE_SOURCE_SHA`에 넣어 bundle을 만든다. `render-bundle`은 local `psql`·k6를 실행하지 않으며, source SHA가 현재 clean Git HEAD와 다르면 생성하지 않는다.
+
+```powershell
+$runId = 'room-t1-hot-8-01'
+$env:ALBAM_MATE_SOURCE_SHA = '<40-character-deployed-git-sha>'
+$env:ROOM_K6_FIXTURE_PASSWORD_HASH = '<private-bcrypt-hash>'
+
+$bundle = node load-tests/k6/jiwon/tools/fixture.mjs render-bundle `
+  --scenario t1 --run-id $runId --profile stress --mode hot --concurrency 8 |
+  ConvertFrom-Json
+```
+
+`manifest.json`에는 source revision과 source/runtime/SQL/execution options의 SHA-256을 기록한다. `validate --for-execution`은 누락·변조·symbolic link·이미 생성된 실행 artifact를 원격 DB 작업 전에 거절한다. `execution-options.json`은 T1~T4의 warm-up·round interval과 T5의 VU·duration·think time을 고정한다.
+
+기본 실행은 PATH의 `k6`와 `psql`을 `shell: false`로 호출한다. Windows 등에서 wrapper가 아닌 Node 기반 도구를 명시해야 할 때만 `ROOM_K6_EXECUTABLE`·`ROOM_K6_ARGUMENT_PREFIX`(string 배열 JSON), `ROOM_K6_PSQL_EXECUTABLE`·`ROOM_K6_PSQL_ARGUMENT_PREFIX`를 사용해 executable과 선행 인수를 분리한다. 이 설정은 shell을 켜거나 manifest/payload의 외부 신뢰 기준을 제공하지 않는다.
+
+그 다음 `albam-mate-infra`의 같은 stack 설정에서 배포와 실행을 수행한다. `room-k6`은 이미 생성된 bundle을 받으며, bundle을 새로 만들거나 앱 SQL 의미를 해석하지 않는다.
+
+`perf.env`의 `APP_REPO`는 bundle을 만든 **동일한 clean checkout**을 가리켜야 한다. infra의 첫 번째 정적 gate는 `APP_REPO/build/k6/room/...` 밖의 bundle과 `RELEASE_SHA`가 다른 source revision을 모두 거절한다.
+
+```bash
+./run.sh up
+./run.sh deploy
+ROOM_K6_FIXTURE_PASSWORD='<private-password>' ./run.sh room-k6 \
+  ../albam-mate/build/k6/room/<run-id>/<fixture-id>
+./run.sh down
+```
+
+원격 단계는 `validate → execution options → prepare SQL → resource query → hydrate → before snapshot/diagnosis → k6 → after snapshot/diagnosis → aggregate` 순서다. prepare/resource query/snapshot은 PostgreSQL host에서, k6는 load generator에서 실행한다. hydrate·diagnosis·aggregate는 bundle 안의 Node 도구가 controller에서 raw artifact만 읽어 수행한다.
+
+T5의 `before-diagnosis.json`은 실행 전 snapshot과 판정을 하나의 create-only artifact에 함께 고정한다. `after` diagnosis는 이 고정 snapshot을 baseline으로 사용하며 `fixture.json`을 다시 쓰지 않는다. `aggregate`는 diagnosis의 identity·stage·status·failures 일관성을 다시 검증하고, `PASS`와 failures가 함께 있거나 failures가 누락된 artifact는 `INVALID`로 처리한다.
+
+정상 흐름은 테스트 직후 `down`으로 전용 DB와 stack을 함께 폐기하므로 fixture cleanup transport를 자동 실행하지 않는다. 실행이 중단돼 stack을 유지해야 한다면 이 최초 원격 흐름을 재사용하지 말고, 후속 명시 cleanup 계약을 먼저 추가한다.
+
 시나리오별 fixture 입력은 아래처럼 바꾼다.
 
 | 대상 | `prepare` 옵션 |
@@ -116,9 +161,22 @@ node load-tests/k6/jiwon/tools/fixture.mjs compare-t5 --run-id $runId
 
 사후 검증은 HTTP 응답 분류와 DB snapshot을 함께 판정한다.
 
-실행 결과를 비교하거나 정본으로 승격할 때는 `run-manifest.json`의 `sourceSha`, `targetEnvironment`, `fixtureId`, `startedAtUtc`, `finishedAtUtc`, `k6Version`, `runState`, `completed`를 함께 보존한다. T5는 `t5ReadOptions`와 `t5-comparison-verification.json`도 함께 보존한다.
+직접 `run` 경로의 실행 결과를 비교할 때는 `run-manifest.json`의 source SHA, 대상 환경, fixture 식별자, 시작·종료 UTC, k6 버전, `runState`, `completed`를 함께 대조한다. T5는 `t5ReadOptions`와 `t5-comparison-verification.json`도 함께 대조한다.
 
-`room_success`, `room_created`, `room_business_failures`, `room_concurrent_failures`, `room_unexpected_4xx`, `room_server_failures`, `room_contract_failures`, `room_request_duration`, `room_start_skew_ms`를 k6 summary에서 확인한다.
+여러 Run을 campaign으로 승격할 때의 보존·증거·포함/제외 규칙은 [k6 결과 문서 공통 규칙](../../../docs/measurements/k6/README.md)을 정본으로 따른다.
+
+portable bundle의 `manifest.json`은 실행 입력 계약이고, `infra-execution.json`·before/after diagnosis·`final-result.json`·`k6-summary.json`은 실행 결과다.
+
+`room_success`, `room_created`, `room_business_failures`, `room_concurrent_failures`, `room_unexpected_4xx`, `room_server_failures`, `room_contract_failures`, `room_start_skew_ms`와 아래 outcome별 duration metric을 k6 summary에서 확인한다.
+
+`k6-summary.json`은 `room_request_duration{outcome:success}`, `room_request_duration{outcome:business}`, `room_request_duration{outcome:concurrency}`, `room_request_duration{outcome:unexpected}`를 항상 포함한다. 각 metric의 `values`는 다음 구조로 정규화한다.
+
+| 필드 | 표본이 있을 때 | 표본이 없을 때 |
+| --- | --- | --- |
+| `count` | 발생 건수 | `0` |
+| `p50`, `p95`, `p99`, `max` | 관측 지연시간 통계 | JSON `null` |
+
+표본이 없는 outcome의 지연시간을 `0`으로 기록하지 않는다. 사람이 보는 표와 문서에서 JSON `null`은 `N/A`로 표시한다. 네 outcome의 `count` 합은 `room_requests`와 같아야 하며, 검증과 portable bundle 진단이 이 조건을 확인한다.
 
 ## 결과 판정
 
@@ -147,7 +205,7 @@ node load-tests/k6/jiwon/tools/fixture.mjs recover-cleanup `
 
 ## 측정 결과 위치
 
-현재 승인해 보존한 ROOM k6 측정 문서는 없다. 실행 결과를 정본으로 승격할 때만 `docs/measurements/k6/jiwon/` 아래에 추가한다. 탐색·반복 실행의 원시 fixture, summary와 bundle은 `build/k6/room/<run-id>/`에만 둔다.
+ROOM k6 campaign 목록과 current/superseded·기준선 제외 상태는 [Jiwon k6 측정 문서](../../../docs/measurements/k6/jiwon/README.md)에서만 관리한다.
 
 ## 검증
 
@@ -164,7 +222,13 @@ Get-ChildItem load-tests/k6/jiwon -Recurse -File |
 node scripts/docs/check-doc-links.mjs
 ```
 
-k6가 설치된 실행 환경에서는 아래도 추가한다.
+Docker가 있는 실행 환경에서는 고정된 k6 1.3.0 이미지의 raw `summary-export` 회귀 테스트도 추가한다.
+
+```powershell
+node --test load-tests/k6/jiwon/tests/k6-summary-outcome-smoke.test.mjs
+```
+
+k6가 직접 설치된 실행 환경에서는 아래도 추가한다.
 
 ```powershell
 k6 inspect load-tests/k6/jiwon/t1-cancel-promotion.js

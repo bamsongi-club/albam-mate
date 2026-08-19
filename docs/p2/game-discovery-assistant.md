@@ -14,6 +14,14 @@
 
 도우미가 사용할 수 있는 BGG 기반 catalog 입력의 정책 범위는 [승인 데이터셋의 AI·embedding 사용 범위](../game-catalog/2026-08-14-bgg-ai-embedding-approval.md)와 [ADR-0060](../adr/game/0060-approved-catalog-ai-embedding-scope.md)의 release·필드·가공 allowlist를 따른다. 구체 승인 manifest를 runner gate로 검증하기 전에는 BGG 기반 입력을 전달하지 않는다. 승인 범위는 catalog 데이터에 한정하며, 사용자 query·개인정보·대화 보존과 provider/model 선택을 자동 승인하지 않는다.
 
+## `AI-01`과의 경계
+
+`DISCOVERY-01`과 [`AI-01` AI 모임 도우미](assistant.md#ai-01-ai-모임-도우미)는 같은 자연어 경험으로 합치지 않는다. 이 문서는 `SEARCH-04`를 호출하는 **읽기 전용 게임 탐색**을 소유하고, `AI-01`은 별도 도우미 화면에서 서버 추천과 사용자의 명시적 확인 뒤 기존 Room 생성 유스케이스로 이어지는 **확인형 쓰기 흐름**을 소유한다.
+
+- `DISCOVERY-01`: 검색 후보·조건·fallback을 반환하며 ROOM 생성·참가·매칭·채팅 등 상태 변경 tool을 호출하지 않는다.
+- `AI-01`: 확인 전 Room·ChatRoom을 만들지 않고, `AI-02`가 소유하는 `game.contract` 후보 조회와 `AI-03`이 소유하는 승인된 `room.contract` 확인형 command를 통해서만 Room 생성 흐름을 시작한다. `SEARCH-04`를 우회 호출하거나 `game` repository·catalog를 직접 읽지 않는다. 기능 동작·구현 순서·검증 항목은 [AI-01 기능 명세](assistant.md#확정된-사항과-소유-정본)가 정리하고, 기술 결정은 [ADR-0074](../adr/platform/0074-p2-ai-provider-consent-and-operation-boundary.md)·[ADR-0075](../adr/room/0075-p2-ai-draft-confirmation-and-idempotent-room-command.md)·[ADR-0076](../adr/room/0076-p2-room-region-closed-set-and-compatibility.md)가 소유한다.
+- 두 기능의 공통 자연어 입력·게임 후보 조회·운영 관측은 소유 정본과 공개 계약을 먼저 정한 뒤 연결하며, 한 기능의 provider·저장·권한 결정을 다른 기능의 계약으로 복사하지 않는다.
+
 ## 구현 컨텍스트
 
 ### 해결할 사용자 문제

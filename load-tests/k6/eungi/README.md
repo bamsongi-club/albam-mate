@@ -136,7 +136,7 @@ docker compose --env-file .env -f compose.local.yml exec -T postgres \
 | 대상 | 로컬 실행 조건 |
 | --- | --- |
 | 계약 3종 (`send-contract.js` 두 case, `history-contract.js`) | 그대로 실행한다. `K6_CHAT_VUS`를 계정 수보다 작게 고정한다 |
-| `rate-limit-contract.js` | 제한을 일부러 건드리므로 Run 사이에 쿨다운을 기다리거나 Redis를 비운다 |
+| `rate-limit-contract.js` | 제한을 일부러 건드리므로 `rooms.sql`의 하나의 `run_id`로 만든 전용 fixture와 단독 트래픽을 사용하고, Run 사이에 10초를 초과하는 쿨다운을 기다리거나 Redis를 비운다. user 51건·room 101건은 한 HTTP batch로 보내고, 초기 전송 후 9초에는 계속 제한되며 11초에 회복 요청을 보내고 12초 이내 응답 완료되어야 같은 fixed window 계약으로 판정한다 |
 | 부하 6종 | `K6_LOAD_STEP_DURATION=20s`로 줄여 계단이 도는지만 본다. 이 값의 결과는 용량 근거가 아니다 |
 
 `websocket-contract.js`의 `idle` case 는 유휴 연결을 10분 유지하므로 로컬 예행에서 제외한다.

@@ -1,5 +1,6 @@
 package cloud.bamsongi.albammate.chat.service;
 
+import static cloud.bamsongi.albammate.fixture.StructuredLogAssertions.assertFields;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -57,10 +58,9 @@ class ChatMessageCommittedListenerTest {
 			assertEquals(1, appender.list.size());
 			ILoggingEvent event = appender.list.getFirst();
 			assertEquals(Level.WARN, event.getLevel());
-			assertEquals(
-				"event=chat_realtime_publish_failed eventType=MESSAGE_CREATED roomId=5 messageId=77 "
-					+ "exceptionType=java.lang.IllegalStateException",
-				event.getFormattedMessage());
+			assertFields(event, java.util.Map.of(
+				"event", "chat_realtime_publish_failed", "eventType", "MESSAGE_CREATED", "roomId", ROOM_ID,
+				"messageId", MESSAGE_ID, "exceptionType", IllegalStateException.class.getName()));
 			assertFalse(event.getFormattedMessage().contains("boom"));
 		} finally {
 			detachLogAppender(appender);

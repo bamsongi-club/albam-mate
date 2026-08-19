@@ -71,7 +71,7 @@ class RoomActionAvailabilityContractTest {
 		GameSummary game = new GameSummary(3L, 1003L, "카탄");
 		assertEquals(true, PublicRoomResponse.from(room, game, availability).waitlistable());
 		assertEquals(true, ParticipantRoomResponse.from(room, game, availability, MyRole.HOST,
-			new NicknameSummary("방장"), List.of(new NicknameSummary("방장"))).waitlistable());
+			new NicknameSummary("방장", null), List.of(new NicknameSummary("방장", null))).waitlistable());
 		assertEquals(true, MyRoomListItem.from(room, game, availability, MyRole.JOINED,
 			ParticipationStatus.ACTIVE).waitlistable());
 		RoomParticipationResponse participation = RoomParticipationResponse.from(room, ParticipationStatus.ACTIVE);

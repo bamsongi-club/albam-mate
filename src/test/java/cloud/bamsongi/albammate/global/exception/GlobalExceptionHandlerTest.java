@@ -293,6 +293,47 @@ class GlobalExceptionHandlerTest {
 	}
 
 	@Test
+	void 게임_API_기술실패만_안전한_ERROR_업무결과_이벤트로_기록하고_다른_API_로그동작은_유지한다() throws Exception {
+		Logger logger = (Logger)org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+
+		try {
+			webAppMockMvc.perform(get("/api/games/777"))
+				.andExpect(status().isInternalServerError());
+			webAppMockMvc.perform(get("/unexpected"))
+				.andExpect(status().isInternalServerError());
+
+			ILoggingEvent gameFailure = appender.list.stream()
+				.filter(event -> hasKeyValue(event, "event", "game_detail_failed"))
+				.findFirst()
+				.orElseThrow();
+			assertEquals(Level.ERROR, gameFailure.getLevel());
+			assertEquals("failed", keyValues(gameFailure).get("outcome"));
+			assertEquals("INTERNAL_SERVER_ERROR", keyValues(gameFailure).get("failureCode"));
+			assertEquals("java.lang.IllegalStateException", keyValues(gameFailure).get("exceptionClass"));
+			assertEquals(777L, keyValues(gameFailure).get("gameId"));
+			assertFalse(gameFailure.getFormattedMessage().contains("password=secret"));
+			assertFalse(gameFailure.getFormattedMessage().contains("database-token"));
+			assertEquals(
+				1,
+				appender.list.stream()
+					.filter(event -> event.getKeyValuePairs() != null && event.getKeyValuePairs().stream()
+						.anyMatch(pair -> pair.key.equals("event")
+							&& String.valueOf(pair.value).startsWith("game_")))
+					.count());
+			assertTrue(
+				appender.list.stream()
+					.anyMatch(
+						event -> event.getFormattedMessage().contains("처리하지 않은 예외를 INTERNAL_SERVER_ERROR로 변환합니다")));
+		} finally {
+			logger.detachAppender(appender);
+			appender.stop();
+		}
+	}
+
+	@Test
 	void 로그용_예외는_원본_스택과_클래스명만_보존한다() {
 		IllegalStateException source = new IllegalStateException(
 			"password=secret", new IllegalArgumentException("userId=42"));
@@ -327,6 +368,15 @@ class GlobalExceptionHandlerTest {
 		assertTrue(body.data() == null);
 	}
 
+	private boolean hasKeyValue(ILoggingEvent event, String key, Object value) {
+		return event.getKeyValuePairs().stream().anyMatch(pair -> pair.key.equals(key) && pair.value.equals(value));
+	}
+
+	private Map<String, Object> keyValues(ILoggingEvent event) {
+		return event.getKeyValuePairs().stream()
+			.collect(Collectors.toMap(pair -> pair.key, pair -> pair.value));
+	}
+
 	private void assertErrorJson(MvcResult result, ErrorCode expected) throws Exception {
 		String contentType = result.getResponse().getContentType();
 		assertNotNull(contentType);
@@ -357,6 +407,11 @@ class GlobalExceptionHandlerTest {
 		@GetMapping(path = "/unexpected", produces = MediaType.APPLICATION_JSON_VALUE)
 		Map<String, String> unexpected() {
 			throw new IllegalStateException("password=secret, userId=42, database-token=hidden");
+		}
+
+		@GetMapping(path = "/api/games/777", produces = MediaType.APPLICATION_JSON_VALUE)
+		Map<String, String> gameTechnicalFailure() {
+			throw new IllegalStateException("password=secret, database-token=hidden");
 		}
 
 		@GetMapping(path = "/redis-failure", produces = MediaType.APPLICATION_JSON_VALUE)

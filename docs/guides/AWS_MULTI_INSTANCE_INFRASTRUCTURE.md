@@ -29,7 +29,7 @@
 | 승인된 ADR-0051 | Nginx 진입점, 자체 운영 데이터 서비스, EC2 수와 트레이드오프 |
 | 이 가이드 | 생성·배포·측정·확장·철거 순서, 검증 체크리스트와 P1 최소 배포 목표 상태 |
 | `docs/archive/p1/P1-spec.md`, `docs/ARCHITECTURE.md` | P1 애플리케이션 실행 계약과 다중 인스턴스 동작 |
-| `docs/p2/monitoring.md`, ADR-0058·ADR-0059 | P2 운영 질문·완료 기준과 애플리케이션 metric·구조화 log 전송 경계. 이 P1 실행안은 해당 구현·검증 상태를 소유하지 않는다. |
+| `docs/p2/monitoring.md`, ADR-0071·ADR-0059 | P2 운영 질문·완료 기준과 애플리케이션 metric·구조화 log 전송 경계. 이 P1 실행안은 해당 구현·검증 상태를 소유하지 않는다. |
 | 애플리케이션 실행 파일 | Docker 이미지, Compose, Nginx upstream, Flyway와 환경변수 계약 |
 | 별도 인프라 저장소 | 실제 Terraform, cloud-init, Ansible과 AWS 리소스 경계 |
 
@@ -180,7 +180,7 @@ web의 Nginx는 `ssl_certificate`와 `ssl_certificate_key` 파일이 없으면 �
    wss://<direct-host>/api/rooms/<roomId>/chat/ws
    ```
 
-   App1 Nginx access log에 해당 요청과 WebSocket `101`이 남고, `/api/` HTTP 응답의 `X-Albam-Mate-Upstream` 또는 upstream 로그로 App1·App2 분산을 확인한 뒤에만 부하를 시작한다. 이 접속 확인과 부하 모두 SSM 포워딩이 아닌 동일한 직접 경로에서 수행한다.
+   App1 Nginx access log에 해당 요청과 WebSocket `101`이 남고, `/api/` HTTP 응답의 `X-Albam-Mate-Upstream=app1|app2` 또는 upstream 로그로 App1·App2 분산을 확인한 뒤에만 부하를 시작한다. 응답 header는 raw upstream 주소를 내보내지 않으며, 내부 `upstream_addr`는 private infra가 manifest와 대조해 역할로 변환한다. 이 접속 확인과 부하 모두 SSM 포워딩이 아닌 동일한 직접 경로에서 수행한다.
 7. 측정 시작 시각, release SHA·이미지 digest, Terraform commit, 허용 CIDR, `DIRECT_HOST`, 두 Origin 값과 전환·원복 시각을 함께 기록한다.
 
 #### 측정 후 원복
@@ -253,14 +253,18 @@ web의 Nginx는 `ssl_certificate`와 `ssl_certificate_key` 파일이 없으면 �
 - 배포 노드에서는 태그뿐 아니라 실제 pull된 digest와 컨테이너의 release SHA를 함께 확인한다.
 - 게시가 실패하면 같은 SHA를 재게시하지 않고 새 커밋 SHA로 다시 만든다.
 
+Spring 컨테이너가 구조화 로그 파일을 쓸 수 있도록 App1·App2 호스트에서 Compose 기동 전에
+`install -d -o 10001 -g 10001 -m 0750 /var/log/albam-mate`를 실행하고, 각 노드 환경 파일의
+`ALBAM_MATE_OBSERVABILITY_LOG_PATH`에 그 경로를 지정한다.
+
 ### 6. 노드별 필수 환경변수
 
 각 노드에는 그 역할에 필요한 값만 전달한다. RDS를 쓰지 않으므로 RDS CA 경로는 어느 노드에도 필요하지 않다.
 
 | 노드 | 필수 환경변수 | 비고 |
 | --- | --- | --- |
-| App1 | `ALBAM_MATE_IMAGE_NAMESPACE`, `ALBAM_MATE_RELEASE`, `ALBAM_MATE_DB_HOST`·`ALBAM_MATE_DB_NAME`·`ALBAM_MATE_DB_USER`·`ALBAM_MATE_DB_PASSWORD`, `ALBAM_MATE_REDIS_HOST`, `JDK_JAVA_OPTIONS=-Xmx256m`, `ALBAM_MATE_APP2_HOST`, `ALBAM_MATE_HTTPS_BIND_ADDRESS`, `ALBAM_MATE_TLS_PATH` | App1에만 App2 주소·HTTPS bind 주소·TLS 경로가 필요하다. |
-| App2 | `ALBAM_MATE_IMAGE_NAMESPACE`, `ALBAM_MATE_RELEASE`, `ALBAM_MATE_DB_HOST`·`ALBAM_MATE_DB_NAME`·`ALBAM_MATE_DB_USER`·`ALBAM_MATE_DB_PASSWORD`, `ALBAM_MATE_REDIS_HOST`, `JDK_JAVA_OPTIONS=-Xmx256m` | web을 실행하지 않으므로 TLS 경로와 HTTPS bind 주소를 두지 않는다. |
+| App1 | `ALBAM_MATE_IMAGE_NAMESPACE`, `ALBAM_MATE_RELEASE`, `ALBAM_MATE_DB_HOST`·`ALBAM_MATE_DB_NAME`·`ALBAM_MATE_DB_USER`·`ALBAM_MATE_DB_PASSWORD`, `ALBAM_MATE_REDIS_HOST`, `ALBAM_MATE_ENVIRONMENT`, `ALBAM_MATE_STACK_ID`, `ALBAM_MATE_INSTANCE_ID`, `ALBAM_MATE_OBSERVABILITY_LOG_PATH`, `JDK_JAVA_OPTIONS=-Xmx256m`, `ALBAM_MATE_APP2_HOST`, `ALBAM_MATE_HTTPS_BIND_ADDRESS`, `ALBAM_MATE_TLS_PATH` | App1에만 App2 주소·HTTPS bind 주소·TLS 경로가 필요하다. |
+| App2 | `ALBAM_MATE_IMAGE_NAMESPACE`, `ALBAM_MATE_RELEASE`, `ALBAM_MATE_DB_HOST`·`ALBAM_MATE_DB_NAME`·`ALBAM_MATE_DB_USER`·`ALBAM_MATE_DB_PASSWORD`, `ALBAM_MATE_REDIS_HOST`, `ALBAM_MATE_ENVIRONMENT`, `ALBAM_MATE_STACK_ID`, `ALBAM_MATE_INSTANCE_ID`, `ALBAM_MATE_OBSERVABILITY_LOG_PATH`, `JDK_JAVA_OPTIONS=-Xmx256m` | web을 실행하지 않으므로 TLS 경로와 HTTPS bind 주소를 두지 않는다. |
 | PostgreSQL | `ALBAM_MATE_DB_NAME`, `ALBAM_MATE_DB_USER`, `ALBAM_MATE_DB_PASSWORD` | 애플리케이션·Redis 접속값을 두지 않는다. |
 | Redis | 없음 | 현재 Compose 기준으로 필수값도 비밀값도 없다. DB 비밀값을 전달하지 않는다. |
 

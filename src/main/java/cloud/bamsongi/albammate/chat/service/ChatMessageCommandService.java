@@ -60,20 +60,21 @@ public class ChatMessageCommandService {
 			.orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
 		String clientMessageId = validateClientMessageId(request.clientMessageId());
 		String content = normalizeContent(request.content());
-		String nickname = requireSenderNickname(roomId, currentUserId);
+		UserQuery.UserSummary sender = requireSenderSummary(roomId, currentUserId);
 
 		return chatMessageRepository
 			.findByChatRoomIdAndSenderUserIdAndClientMessageId(chatRoom.getId(), currentUserId, clientMessageId)
-			.map(existing -> existingMessage(existing, roomId, content, nickname))
-			.orElseGet(() -> saveNewMessage(chatRoom, currentUserId, roomId, clientMessageId, content, nickname));
+			.map(existing -> existingMessage(existing, roomId, content, sender))
+			.orElseGet(() -> saveNewMessage(chatRoom, currentUserId, roomId, clientMessageId, content, sender));
 	}
 
 	private ChatMessageSendResult existingMessage(
-		ChatMessage existing, long roomId, String content, String nickname) {
+		ChatMessage existing, long roomId, String content, UserQuery.UserSummary sender) {
 		if (!existing.getContent().equals(content)) {
 			throw new BusinessException(ErrorCode.VALIDATION_ERROR);
 		}
-		return new ChatMessageSendResult(ChatMessageResponse.from(existing, roomId, nickname, true), false);
+		return new ChatMessageSendResult(
+			ChatMessageResponse.from(existing, roomId, sender.nickname(), sender.profileImageUrl(), true), false);
 	}
 
 	private ChatMessageSendResult saveNewMessage(
@@ -82,7 +83,7 @@ public class ChatMessageCommandService {
 		long roomId,
 		String clientMessageId,
 		String content,
-		String nickname) {
+		UserQuery.UserSummary sender) {
 		ChatMessageRateLimiter.RateLimitReservation reservation = chatMessageRateLimiter.reserve(currentUserId, roomId);
 		Runnable releaseOnce = releaseOnce(reservation);
 		try {
@@ -90,7 +91,8 @@ public class ChatMessageCommandService {
 				ChatMessage.create(chatRoom.getId(), currentUserId, clientMessageId, content, Instant.now(clock)));
 			registerReservationReleaseOnRollback(releaseOnce);
 			eventPublisher.publishEvent(MessageCommitted.messageCreated(roomId, saved.getId()));
-			return new ChatMessageSendResult(ChatMessageResponse.from(saved, roomId, nickname, true), true);
+			return new ChatMessageSendResult(
+				ChatMessageResponse.from(saved, roomId, sender.nickname(), sender.profileImageUrl(), true), true);
 		} catch (RuntimeException exception) {
 			releaseOnce.run();
 			throw exception;
@@ -143,12 +145,13 @@ public class ChatMessageCommandService {
 		return normalized;
 	}
 
-	/** 발신자 표시명을 조회하며, 접근 검증을 통과했는데도 닉네임이 없는 예기치 않은 상태만 roomId로 기록한다. */
-	private String requireSenderNickname(long roomId, long currentUserId) {
+	/** 발신자 표시 요약을 조회하며, 접근 검증을 통과했는데도 사용자가 없는 예기치 않은 상태만 roomId로 기록한다. */
+	private UserQuery.UserSummary requireSenderSummary(long roomId, long currentUserId) {
 		return userQuery
-			.findNicknameById(currentUserId)
+			.findUserSummaryById(currentUserId)
 			.orElseThrow(() -> {
-				log.error("event=chat_message_sender_nickname_missing roomId={}", roomId);
+				log.atError().addKeyValue("event", "chat_message_sender_nickname_missing")
+					.addKeyValue("roomId", roomId).log("chat message sender nickname missing");
 				return new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
 			});
 	}

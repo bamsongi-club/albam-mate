@@ -3,6 +3,12 @@ import { createHash } from 'node:crypto';
 export const RUN_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,79}$/;
 export const CONCURRENCY_LEVELS = new Set([2, 4, 8]);
 export const PREPARE_OWNERSHIP_PATTERN = /^[0-9a-f]{32}$/;
+export const ROOM_OUTCOME_CATEGORIES = Object.freeze([
+  'success',
+  'business',
+  'concurrency',
+  'unexpected',
+]);
 
 const SCENARIOS = new Set(['t1', 't2', 't3', 't4', 't5']);
 const PROFILES = new Set(['stress', 'spike']);
@@ -16,6 +22,89 @@ const SCENARIO_OPTION_KEYS = {
   t4: ['concurrency'],
   t5: ['t5Role', 't5Scale'],
 };
+
+export function roomRequestDurationMetricName(category) {
+  if (!ROOM_OUTCOME_CATEGORIES.includes(category)) {
+    fail(`지원하지 않는 ROOM outcome: ${category}`);
+  }
+  return `room_request_duration{outcome:${category}}`;
+}
+
+function outcomeMetricValues(metric) {
+  if (!metric || typeof metric !== 'object' || Array.isArray(metric)) {
+    return null;
+  }
+  if (metric.values && typeof metric.values === 'object' && !Array.isArray(metric.values)) {
+    return metric.values;
+  }
+  return metric;
+}
+
+function outcomeCount(metric) {
+  const values = outcomeMetricValues(metric);
+  if (!values) {
+    return metric === undefined ? 0 : null;
+  }
+  const count = values.count;
+  if (count === undefined) {
+    return null;
+  }
+  return Number.isSafeInteger(count) && count >= 0 ? count : null;
+}
+
+function outcomeStatistic(values, ...names) {
+  for (const name of names) {
+    if (values && values[name] !== undefined) {
+      return values[name];
+    }
+  }
+  return null;
+}
+
+function normalizedOutcomeMetric(metric) {
+  const values = outcomeMetricValues(metric);
+  const count = outcomeCount(metric);
+  const normalizedValues = {
+    p50: null,
+    p95: null,
+    p99: null,
+    max: null,
+    count,
+  };
+  if (count === 0 || count === null) {
+    return {
+      ...(metric && typeof metric === 'object' && !Array.isArray(metric) ? metric : {}),
+      type: metric?.type || 'trend',
+      contains: metric?.contains || 'time',
+      values: normalizedValues,
+    };
+  }
+
+  normalizedValues.p50 = outcomeStatistic(values, 'p50', 'med');
+  normalizedValues.p95 = outcomeStatistic(values, 'p95', 'p(95)');
+  normalizedValues.p99 = outcomeStatistic(values, 'p99', 'p(99)');
+  normalizedValues.max = outcomeStatistic(values, 'max');
+  return {
+    ...(metric && typeof metric === 'object' && !Array.isArray(metric) ? metric : {}),
+    type: metric?.type || 'trend',
+    contains: metric?.contains || 'time',
+    values: normalizedValues,
+  };
+}
+
+export function normalizeRoomSummary(summary) {
+  if (!summary || typeof summary !== 'object' || Array.isArray(summary)
+    || !summary.metrics || typeof summary.metrics !== 'object' || Array.isArray(summary.metrics)) {
+    return summary;
+  }
+
+  const metrics = { ...summary.metrics };
+  for (const category of ROOM_OUTCOME_CATEGORIES) {
+    const metricName = roomRequestDurationMetricName(category);
+    metrics[metricName] = normalizedOutcomeMetric(summary.metrics[metricName]);
+  }
+  return { ...summary, metrics };
+}
 
 function fail(message) {
   throw new Error(message);
@@ -59,10 +148,6 @@ function digest(value, length = 12) {
 
 function sqlLiteral(value) {
   return `'${String(value).replaceAll("'", "''")}'`;
-}
-
-function sqlValues(rows) {
-  return rows.map((row) => `(${row.map(sqlLiteral).join(', ')})`).join(',\n    ');
 }
 
 function sqlIds(values) {
@@ -411,7 +496,13 @@ export function buildPrepareSql(plan, passwordHash, prepareOwnership) {
   const ownershipDescription = prepareOwnershipDescription(prepareOwnership);
   const usersByKey = new Map(plan.users.map((user) => [user.key, user]));
   const roomsByKey = new Map(plan.rooms.map((room) => [room.key, room]));
-  const userRows = plan.users.map((user) => [user.email, passwordHash, user.nickname]);
+  const userRows = plan.users.map((user) => `(
+        ${sqlLiteral(user.email)},
+        ${sqlLiteral(passwordHash)},
+        ${sqlLiteral(user.nickname)},
+        clock_timestamp(),
+        clock_timestamp()
+    )`);
   const roomRows = plan.rooms.map((room) => {
     const host = usersByKey.get(room.hostKey);
     return [
@@ -466,7 +557,7 @@ SELECT pg_advisory_xact_lock(hashtext(${sqlLiteral(plan.fixtureId)}));
 
 INSERT INTO users (email, password_hash, nickname, created_at, updated_at)
 VALUES
-    ${sqlValues(userRows)};
+    ${userRows.join(',\n    ')};
 
 INSERT INTO rooms (
     game_id, host_user_id, room_type, title, description, experience_level,
@@ -575,7 +666,7 @@ export function buildSnapshotQuery(fixture) {
     ) AS room_row
   ), '[]'::jsonb),
   'participations', COALESCE((
-    SELECT jsonb_agg(row_to_json(participation_row) ORDER BY participation_row.room_id, participation_row.user_id)
+    SELECT jsonb_agg(row_to_json(participation_row) ORDER BY participation_row."roomId", participation_row."userId")
     FROM (
       SELECT room_id AS "roomId", user_id AS "userId", status,
              joined_at AS "joinedAt", canceled_at AS "canceledAt"
@@ -584,7 +675,7 @@ export function buildSnapshotQuery(fixture) {
     ) AS participation_row
   ), '[]'::jsonb),
   'waitlists', COALESCE((
-    SELECT jsonb_agg(row_to_json(waitlist_row) ORDER BY waitlist_row.room_id, waitlist_row.queue_order, waitlist_row.user_id)
+    SELECT jsonb_agg(row_to_json(waitlist_row) ORDER BY waitlist_row."roomId", waitlist_row."queueOrder", waitlist_row."userId")
     FROM (
       SELECT room_id AS "roomId", user_id AS "userId", status,
              queue_order AS "queueOrder", queued_at AS "queuedAt"
@@ -813,8 +904,24 @@ function waitlistStatus(snapshot, roomId, userId) {
 }
 
 function metricCount(summary, name) {
-  const value = summary?.metrics?.[name]?.values?.count;
-  return typeof value === 'number' ? value : null;
+  const metric = summary?.metrics?.[name];
+  const nestedCount = metric?.values?.count;
+  if (nestedCount !== undefined) {
+    return Number.isSafeInteger(nestedCount) && nestedCount >= 0 ? nestedCount : null;
+  }
+  const directCount = metric?.count;
+  return Number.isSafeInteger(directCount) && directCount >= 0 ? directCount : null;
+}
+
+function metricValues(summary, name) {
+  const metric = summary?.metrics?.[name];
+  if (metric?.values && typeof metric.values === 'object' && !Array.isArray(metric.values)) {
+    return metric.values;
+  }
+  if (metric && typeof metric === 'object' && !Array.isArray(metric)) {
+    return metric;
+  }
+  return null;
 }
 
 function addFailure(failures, condition, message) {
@@ -1058,22 +1165,54 @@ function evaluateMeasuredRequests(fixture, failures, summary) {
   const successCount = metricCount(summary, 'room_success');
   const businessFailureCount = metricCount(summary, 'room_business_failures');
   const concurrentFailureCount = metricCount(summary, 'room_concurrent_failures');
-  const counts = [requestCount, successCount, businessFailureCount, concurrentFailureCount];
+  const outcomeCounts = ROOM_OUTCOME_CATEGORIES.map((category) => (
+    metricCount(summary, roomRequestDurationMetricName(category))
+  ));
+  const counts = [requestCount, successCount, businessFailureCount, concurrentFailureCount, ...outcomeCounts];
   addFailure(
     failures,
     counts.every((count) => count !== null),
-    'k6 요청·성공·업무 실패·동시성 실패 metric이 부족합니다.',
+    'k6 요청·기존 outcome·outcome별 duration metric이 부족합니다.',
   );
   if (counts.some((count) => count === null)) {
     return;
   }
 
-  const classifiedCount = successCount + businessFailureCount + concurrentFailureCount;
+  const classifiedCount = outcomeCounts.reduce((total, count) => total + count, 0);
   addFailure(
     failures,
     classifiedCount === requestCount,
-    'k6 응답 분류 수와 실제 ROOM 요청 수가 다릅니다.',
+    'k6 outcome별 count 합과 실제 ROOM 요청 수가 다릅니다.',
   );
+
+  const expectedOutcomeCounts = [successCount, businessFailureCount, concurrentFailureCount];
+  for (const [index, category] of ['success', 'business', 'concurrency'].entries()) {
+    addFailure(
+      failures,
+      outcomeCounts[index] === expectedOutcomeCounts[index],
+      `${category} outcome count와 기존 counter가 다릅니다.`,
+    );
+  }
+
+  for (const [index, category] of ROOM_OUTCOME_CATEGORIES.entries()) {
+    const count = outcomeCounts[index];
+    const values = metricValues(summary, roomRequestDurationMetricName(category));
+    const statistics = ['p50', 'p95', 'p99', 'max'];
+    const hasFiniteStatistics = statistics.every((name) => Number.isFinite(values?.[name]));
+    if (count === 0) {
+      addFailure(
+        failures,
+        statistics.every((name) => values?.[name] === null),
+        `${category} outcome 무표본 통계는 null이어야 합니다.`,
+      );
+    } else {
+      addFailure(
+        failures,
+        hasFiniteStatistics,
+        `${category} outcome 표본의 p50·p95·p99·max가 부족합니다.`,
+      );
+    }
+  }
 
   if (fixture.options.scenario === 't5') {
     addFailure(failures, requestCount > 0, 'T5 측정 요청이 한 건도 없습니다.');
@@ -1102,28 +1241,29 @@ export function evaluateFixture(fixture, snapshot, stage, summary = null) {
     return { status: failures.length === 0 ? 'PASS' : 'INVALID', failures };
   }
 
-  const contractFailures = metricCount(summary, 'room_contract_failures');
-  const unexpected4xx = metricCount(summary, 'room_unexpected_4xx');
-  const serverFailures = metricCount(summary, 'room_server_failures');
-  if (summary) {
+  const normalizedSummary = summary ? normalizeRoomSummary(summary) : null;
+  const contractFailures = metricCount(normalizedSummary, 'room_contract_failures');
+  const unexpected4xx = metricCount(normalizedSummary, 'room_unexpected_4xx');
+  const serverFailures = metricCount(normalizedSummary, 'room_server_failures');
+  if (normalizedSummary) {
     addFailure(failures, contractFailures === 0, 'k6 response contract failure가 있습니다.');
     addFailure(failures, unexpected4xx === 0, '예상 밖 4xx가 있습니다.');
     addFailure(failures, serverFailures === 0, '5xx가 있습니다.');
-    evaluateMeasuredRequests(fixture, failures, summary);
+    evaluateMeasuredRequests(fixture, failures, normalizedSummary);
   }
 
   switch (fixture.options.scenario) {
     case 't1':
-      evaluateT1(fixture, snapshot, failures, summary);
+      evaluateT1(fixture, snapshot, failures, normalizedSummary);
       break;
     case 't2':
-      evaluateT2(fixture, snapshot, failures, summary);
+      evaluateT2(fixture, snapshot, failures, normalizedSummary);
       break;
     case 't3':
       evaluateT3(fixture, snapshot, failures);
       break;
     case 't4':
-      evaluateT4(fixture, snapshot, failures, summary);
+      evaluateT4(fixture, snapshot, failures, normalizedSummary);
       break;
     case 't5':
       evaluateT5(fixture, snapshot, fixture.baselineSnapshot, failures);

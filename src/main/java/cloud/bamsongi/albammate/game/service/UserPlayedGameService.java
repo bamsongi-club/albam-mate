@@ -8,10 +8,12 @@ import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /** 본인 해 본 게임 관계를 목표 상태로 수렴시키는 공개 유스케이스다. */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UserPlayedGameService {
 
 	@NonNull private final UserPlayedGameCommandExecutor commandExecutor;
@@ -31,11 +33,25 @@ public class UserPlayedGameService {
 				throw exception;
 			}
 		}
-		return new PlayedGameStateResponse(gameId, true);
+		PlayedGameStateResponse response = new PlayedGameStateResponse(gameId, true);
+		log.atInfo()
+			.addKeyValue("event", "game_played_state_changed")
+			.addKeyValue("gameId", gameId)
+			.addKeyValue("action", "mark")
+			.addKeyValue("outcome", "played")
+			.log("game played state changed");
+		return response;
 	}
 
 	public PlayedGameStateResponse unmarkPlayed(long userId, long gameId) {
 		commandExecutor.unmarkPlayed(userId, gameId);
-		return new PlayedGameStateResponse(gameId, false);
+		PlayedGameStateResponse response = new PlayedGameStateResponse(gameId, false);
+		log.atInfo()
+			.addKeyValue("event", "game_played_state_changed")
+			.addKeyValue("gameId", gameId)
+			.addKeyValue("action", "unmark")
+			.addKeyValue("outcome", "not_played")
+			.log("game played state changed");
+		return response;
 	}
 }

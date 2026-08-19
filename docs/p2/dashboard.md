@@ -42,7 +42,7 @@ P2는 같은 지표·로그를 재사용하는 CloudWatch dashboard 두 개를 �
 
 두 화면 때문에 metric·log를 중복 수집하지 않는다. 요약 panel은 상세 panel 또는 정해진 Logs Insights query와 런북으로 이동할 수 있어야 한다.
 
-지표 전송은 AI 코딩 에이전트가 아니라 EC2에 설치되는 Amazon CloudWatch Agent가 담당한다. 애플리케이션은 CloudWatch API를 직접 호출하지 않고 [ADR-0058](../adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md)에 따라 Spring Micrometer metric을 동일 호스트 전용 Docker bridge의 OTLP HTTP로 Agent에 전달한다.
+지표 전송은 AI 코딩 에이전트가 아니라 EC2에 설치되는 Amazon CloudWatch Agent가 담당한다. 애플리케이션은 CloudWatch API를 직접 호출하지 않고 [ADR-0071](../adr/platform/0071-p2-application-metrics-otlp-host-cloudwatch-agent.md)에 따라 Spring Micrometer metric을 동일 호스트 전용 Docker bridge의 OTLP HTTP로 Agent에 전달한다.
 
 운영 로그는 [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md)에 따라 Spring Boot Logstash 한 줄 JSON을 stdout과 Agent 전용 rolling file에 함께 기록한다. Docker `json-file`과 전용 file은 각각 10MB × 5개로 sink별 최대 50MB, 두 sink 합계는 Spring container별 최대 100MB 이내로 회전한다. host 전체 용량은 Spring container 수에 따른 이 합계와 다른 container·host log를 별도로 더해 산정한다. host Agent는 bind-mounted 전용 file의 허용 event만 CloudWatch Logs로 전송한다. Agent 장애는 사용자 기능을 실패시키지 않으며 회전으로 유실된 구간은 관측 공백으로 표시한다.
 
@@ -163,7 +163,7 @@ P2 정책에 필요한 선택은 모두 사용자 확인을 마쳤다. 아래 �
 | 요약·상세 대시보드 구성 | 사용자 확인 완료 | [화면 구성](#화면-구성) |
 | AI 예상 비용·가격표 갱신·관측 비용 상한 | 사용자 확인 완료 | [사용량과 추정 비용](#4-사용량과-추정-비용), [완료 증거](#완료-증거) |
 | 중앙 로그 범위·14일 보존 | 사용자 확인·정본 반영 완료 | [완료 증거](#완료-증거), [중앙 log 허용 목록](../guides/MONITORING_OPERATIONS.md#중앙-log-허용-목록) |
-| 메트릭·로그 전송 경계 | Platform ADR 승인·계약 반영·미검증 | [ADR-0058](../adr/platform/0058-p2-application-metrics-otlp-host-cloudwatch-agent.md), [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md), [결정 위치와 구현 경계](monitoring.md#결정-위치와-구현-경계) |
+| 메트릭·로그 전송 경계 | Platform ADR 승인·계약 반영·미검증 | [ADR-0071](../adr/platform/0071-p2-application-metrics-otlp-host-cloudwatch-agent.md), [ADR-0059](../adr/platform/0059-p2-structured-stdout-cloudwatch-logs.md), [결정 위치와 구현 경계](monitoring.md#결정-위치와-구현-경계) |
 | 실제 이메일 주소·AI provider·model | 이 문서의 결정 대상 아님 | SNS 구독과 AI 기능 명세·배포 설정에서 관리 |
 
 현재 계약·구현·검증·배포 상태는 [P2 기능 상태 정본](README.md#기능별-현재-상태)만 갱신한다.

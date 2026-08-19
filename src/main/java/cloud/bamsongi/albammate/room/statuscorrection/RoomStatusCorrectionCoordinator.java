@@ -99,8 +99,9 @@ public class RoomStatusCorrectionCoordinator {
 				} catch (BusinessException exception) {
 					// 계약된 업무 거절과 낙관 락 소진은 호출자 오류 계약으로만 전달한다.
 				} catch (RuntimeException exception) {
-					log.warn("event=room_status_reconciliation_room_failed roomId={} useCase={} reasonCode={}",
-						candidate.roomId(), "ROOM_STATUS_CORRECTION", "UNEXPECTED_FAILURE");
+					log.atWarn().addKeyValue("event", "room_status_reconciliation_room_failed")
+						.addKeyValue("roomId", candidate.roomId()).addKeyValue("useCase", "ROOM_STATUS_CORRECTION")
+						.addKeyValue("reasonCode", "UNEXPECTED_FAILURE").log("room status reconciliation room failed");
 				}
 
 				Optional<RoomStatusCorrectionProgressStore.ProgressSnapshot> advanced = progressStore.advanceCursor(
