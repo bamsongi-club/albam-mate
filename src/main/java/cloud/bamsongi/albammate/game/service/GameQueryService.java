@@ -11,9 +11,9 @@ import java.util.function.Function;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -111,7 +111,7 @@ public class GameQueryService {
 		if (criteria.isUpcomingOnly()) {
 			upcomingRoomCounts = upcomingRoomCountQuery.findUpcomingRoomCounts(referenceTime);
 			if (upcomingRoomCounts.isEmpty()) {
-			return new SliceImpl<>(List.of(), pageable, false);
+				return new SliceImpl<>(List.of(), pageable, false);
 			}
 			criteria = criteria.withUpcomingGameIds(upcomingRoomCounts.keySet());
 		}
