@@ -1240,8 +1240,11 @@ function formatChatTime(createdAt) {
 }
 
 // 같은 사람이 3분 안에 이어 보낸 메시지는 한 덩어리로 본다. 이름은 덩어리 첫 줄, 시각은 마지막 줄에만 붙는다.
+// 입장·퇴장 시스템 메시지는 발신자 개념이 없으므로 사용자 메시지와도, 시스템 메시지끼리도 말풍선으로 묶지 않는다.
 function groupChatMessages(messages) {
+  const isSystemMessage = (message) => message?.messageType === 'SYSTEM';
   const sameGroup = (left, right) => Boolean(left) && Boolean(right)
+    && !isSystemMessage(left) && !isSystemMessage(right)
     && isoDateInSeoul(left.createdAt) === isoDateInSeoul(right.createdAt)
     && Boolean(left.isMine) === Boolean(right.isMine)
     && (left.sender?.nickname || '') === (right.sender?.nickname || '')
@@ -1650,6 +1653,9 @@ export function ChatRoomView({ roomId, dataVersion, onBack }) {
           <React.Fragment key={day.day}>
             <p className="chat-daymark">{formatChatDay(day.day)}</p>
             {day.rows.map(({ message, isGroupStart, isGroupEnd }) => {
+              if (message.messageType === 'SYSTEM') {
+                return <p className="chat-system" key={message.messageId}>{message.content}</p>;
+              }
               const isMine = Boolean(message.isMine);
               const nickname = message.sender?.nickname || '';
               const tone = senderColor(nickname);
