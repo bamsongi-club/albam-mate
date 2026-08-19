@@ -82,6 +82,7 @@
     "cloud.bamsongi.albammate.notification.NotificationSchemaPostgresTest": "isolated Flyway schema",
     "cloud.bamsongi.albammate.notification.cleanup.NotificationCleanupPostgresTest": "separate application runtime",
     "cloud.bamsongi.albammate.notification.relay.NotificationRelayPostgresTest": "separate application runtime",
+    "cloud.bamsongi.albammate.room.measurement.RoomLockStrategyComparisonPostgresTest": "pg_stat_statements measurement",
     "cloud.bamsongi.albammate.room.measurement.RoomParticipationConcurrencyBaselinePostgresTest": "pg_stat_statements option",
     "cloud.bamsongi.albammate.room.measurement.RoomStartBoundaryConcurrencyBaselinePostgresTest": "pg_stat_statements option",
     "cloud.bamsongi.albammate.room.measurement.RoomStatusCorrectionBaselineMeasurementPostgresTest": "pg_stat_statements measurement",

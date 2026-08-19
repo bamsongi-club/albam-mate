@@ -1,12 +1,12 @@
 {
   "reportName": "room-785-a",
-  "artifactSha256": "4D63FA71CDDC8C8DF894ED518BE957183F56008BD54A79D83B5BF40CC604502D",
+  "artifactSha256": "83FA5600C39FA7A140CAEF84A7D9E533EC8BA453C2496F687D3CFFB32894FD57",
   "candidate": "A",
   "lockBaseSha": "49b960a1f7537574b39d67ff22df8890a3891ef6",
   "candidateImplementationSourceSha": "d33bb5654cc29427c97f034a30b68eb0f50ff36c",
-  "measurementExecutionGitHead": "a575dc8a95621d7c8c5a313157d975912d7fb510",
-  "worktreeState": "measurement captured at clean HEAD a575dc8a95621d7c8c5a313157d975912d7fb510; artifact finalized afterward",
-  "capturedAt": "2026-08-19T14:56:02.701Z",
+  "measurementExecutionGitHead": "87cafe4173dfe128dbedd27dbcc0a97e51ca37b0",
+  "worktreeState": "measurement captured at clean HEAD 87cafe4173dfe128dbedd27dbcc0a97e51ca37b0; artifact finalized afterward",
+  "capturedAt": "2026-08-19T17:09:37.842Z",
   "postgresImage": "postgres:18.4",
   "javaVersion": "21.0.11",
   "operatingSystem": "Windows 11 10.0",
@@ -65,17 +65,17 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          30205299,
-          42767902,
-          40879100,
-          12005200
+          45124400,
+          55401600,
+          53485100,
+          43497800
         ],
-        "calls": 32,
-        "totalExecMs": 1.852309,
+        "calls": 34,
+        "totalExecMs": 3.7053140000000004,
         "rows": 16,
-        "sharedBlksHit": 196,
+        "sharedBlksHit": 249,
         "sharedBlksRead": 4,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T1 requestCount=4 success=2 businessFailure=2 concurrencyFailure=0 technicalFailure=0 conflictCount=2 retry0=2 retry1=2 retry2=0 exhausted=0 responseNanos=[30205299,42767902,40879100,12005200] calls=32 totalExecMs=1.852309 rows=16 sharedBlksHit=196 sharedBlksRead=4"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T1 requestCount=4 success=2 businessFailure=2 concurrencyFailure=0 technicalFailure=0 conflictCount=2 retry0=2 retry1=2 retry2=0 exhausted=0 responseNanos=[45124400,55401600,53485100,43497800] calls=34 totalExecMs=3.7053140000000004 rows=16 sharedBlksHit=249 sharedBlksRead=4"
       }
     ],
     "T2": [
@@ -93,15 +93,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          49244699,
-          91079400
+          25081500,
+          101101400
         ],
         "calls": 17,
-        "totalExecMs": 0.960974,
-        "rows": 13,
-        "sharedBlksHit": 93,
+        "totalExecMs": 1.6844199999999998,
+        "rows": 12,
+        "sharedBlksHit": 325,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-new-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[49244699,91079400] calls=17 totalExecMs=0.960974 rows=13 sharedBlksHit=93 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-new-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[25081500,101101400] calls=17 totalExecMs=1.6844199999999998 rows=12 sharedBlksHit=325 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -117,15 +117,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          65660000,
-          58036700
+          69057300,
+          61697800
         ],
-        "calls": 18,
-        "totalExecMs": 0.9231420000000001,
-        "rows": 13,
-        "sharedBlksHit": 79,
+        "calls": 21,
+        "totalExecMs": 1.4362469999999996,
+        "rows": 15,
+        "sharedBlksHit": 106,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-new-cancel-first-promotion requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[65660000,58036700] calls=18 totalExecMs=0.9231420000000001 rows=13 sharedBlksHit=79 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-new-cancel-first-promotion requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[69057300,61697800] calls=21 totalExecMs=1.4362469999999996 rows=15 sharedBlksHit=106 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -141,15 +141,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          36861099,
-          62030901
+          38554500,
+          65929800
         ],
         "calls": 21,
-        "totalExecMs": 0.7815869999999999,
+        "totalExecMs": 0.848779,
         "rows": 12,
-        "sharedBlksHit": 171,
+        "sharedBlksHit": 75,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-reactivation-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[36861099,62030901] calls=21 totalExecMs=0.7815869999999999 rows=12 sharedBlksHit=171 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-reactivation-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[38554500,65929800] calls=21 totalExecMs=0.848779 rows=12 sharedBlksHit=75 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -165,15 +165,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          64404801,
-          18009400
+          33255200,
+          14742000
         ],
-        "calls": 22,
-        "totalExecMs": 0.695764,
+        "calls": 21,
+        "totalExecMs": 0.441337,
         "rows": 13,
         "sharedBlksHit": 57,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-reactivation-cancel-first-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[64404801,18009400] calls=22 totalExecMs=0.695764 rows=13 sharedBlksHit=57 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-reactivation-cancel-first-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[33255200,14742000] calls=21 totalExecMs=0.441337 rows=13 sharedBlksHit=57 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -189,15 +189,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          32093298,
-          35589801
+          15073500,
+          18315900
         ],
-        "calls": 7,
-        "totalExecMs": 0.29747999999999997,
+        "calls": 8,
+        "totalExecMs": 0.21523599999999998,
         "rows": 3,
         "sharedBlksHit": 15,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-direct-participation-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[32093298,35589801] calls=7 totalExecMs=0.29747999999999997 rows=3 sharedBlksHit=15 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-direct-participation-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[15073500,18315900] calls=8 totalExecMs=0.21523599999999998 rows=3 sharedBlksHit=15 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -213,15 +213,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          10969001,
-          5498401
+          13515500,
+          6733800
         ],
         "calls": 7,
-        "totalExecMs": 0.13587500000000002,
+        "totalExecMs": 0.16337200000000002,
         "rows": 3,
         "sharedBlksHit": 15,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[10969001,5498401] calls=7 totalExecMs=0.13587500000000002 rows=3 sharedBlksHit=15 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[13515500,6733800] calls=7 totalExecMs=0.16337200000000002 rows=3 sharedBlksHit=15 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -237,15 +237,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          19841400,
-          26283200
+          6107700,
+          10515600
         ],
         "calls": 7,
-        "totalExecMs": 0.276353,
+        "totalExecMs": 0.145405,
         "rows": 3,
         "sharedBlksHit": 14,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-new-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[19841400,26283200] calls=7 totalExecMs=0.276353 rows=3 sharedBlksHit=14 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-new-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[6107700,10515600] calls=7 totalExecMs=0.145405 rows=3 sharedBlksHit=14 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -261,15 +261,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          22121300,
-          18217700
+          32859700,
+          11918000
         ],
         "calls": 7,
-        "totalExecMs": 0.18463800000000002,
+        "totalExecMs": 0.200378,
         "rows": 3,
         "sharedBlksHit": 14,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-new-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[22121300,18217700] calls=7 totalExecMs=0.18463800000000002 rows=3 sharedBlksHit=14 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-new-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[32859700,11918000] calls=7 totalExecMs=0.200378 rows=3 sharedBlksHit=14 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -285,15 +285,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          7478500,
-          11926000
+          27625300,
+          35431300
         ],
         "calls": 7,
-        "totalExecMs": 0.156647,
+        "totalExecMs": 0.316506,
         "rows": 4,
         "sharedBlksHit": 17,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-reactivation-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[7478500,11926000] calls=7 totalExecMs=0.156647 rows=4 sharedBlksHit=17 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-reactivation-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[27625300,35431300] calls=7 totalExecMs=0.316506 rows=4 sharedBlksHit=17 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -309,15 +309,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          11387901,
-          7988502
+          10361200,
+          6842100
         ],
         "calls": 7,
-        "totalExecMs": 0.142456,
+        "totalExecMs": 0.124446,
         "rows": 4,
-        "sharedBlksHit": 17,
+        "sharedBlksHit": 16,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-reactivation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[11387901,7988502] calls=7 totalExecMs=0.142456 rows=4 sharedBlksHit=17 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-reactivation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[10361200,6842100] calls=7 totalExecMs=0.124446 rows=4 sharedBlksHit=16 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -333,15 +333,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          4648400,
-          7018499
+          6382200,
+          9392200
         ],
         "calls": 6,
-        "totalExecMs": 0.093392,
+        "totalExecMs": 0.12113499999999999,
         "rows": 5,
-        "sharedBlksHit": 20,
+        "sharedBlksHit": 21,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[4648400,7018499] calls=6 totalExecMs=0.093392 rows=5 sharedBlksHit=20 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[6382200,9392200] calls=6 totalExecMs=0.12113499999999999 rows=5 sharedBlksHit=21 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -357,15 +357,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          22065201,
-          12629800
+          9031100,
+          6271400
         ],
         "calls": 7,
-        "totalExecMs": 0.309964,
+        "totalExecMs": 0.136692,
         "rows": 5,
         "sharedBlksHit": 23,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-correction-first requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[22065201,12629800] calls=7 totalExecMs=0.309964 rows=5 sharedBlksHit=23 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-correction-first requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[9031100,6271400] calls=7 totalExecMs=0.136692 rows=5 sharedBlksHit=23 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -381,15 +381,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          17678300,
-          22798500
+          23979200,
+          29160900
         ],
         "calls": 6,
-        "totalExecMs": 0.295304,
+        "totalExecMs": 0.310389,
         "rows": 5,
         "sharedBlksHit": 19,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-participation-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[17678300,22798500] calls=6 totalExecMs=0.295304 rows=5 sharedBlksHit=19 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-participation-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[23979200,29160900] calls=6 totalExecMs=0.310389 rows=5 sharedBlksHit=19 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -405,15 +405,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          9358001,
-          5775101
+          7530200,
+          4144700
         ],
         "calls": 6,
-        "totalExecMs": 0.25614800000000004,
+        "totalExecMs": 0.121125,
         "rows": 5,
-        "sharedBlksHit": 20,
+        "sharedBlksHit": 19,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-participation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[9358001,5775101] calls=6 totalExecMs=0.25614800000000004 rows=5 sharedBlksHit=20 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-participation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[7530200,4144700] calls=6 totalExecMs=0.121125 rows=5 sharedBlksHit=19 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -429,15 +429,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          11751898,
-          31877599
+          30490200,
+          54986000
         ],
-        "calls": 14,
-        "totalExecMs": 0.6452869999999999,
+        "calls": 15,
+        "totalExecMs": 0.8193770000000002,
         "rows": 10,
-        "sharedBlksHit": 51,
+        "sharedBlksHit": 55,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-new-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[11751898,31877599] calls=14 totalExecMs=0.6452869999999999 rows=10 sharedBlksHit=51 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-new-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[30490200,54986000] calls=15 totalExecMs=0.8193770000000002 rows=10 sharedBlksHit=55 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -453,15 +453,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          32055901,
-          29599401
+          42206100,
+          20830800
         ],
         "calls": 18,
-        "totalExecMs": 1.238148,
-        "rows": 14,
-        "sharedBlksHit": 247,
+        "totalExecMs": 0.6994669999999998,
+        "rows": 13,
+        "sharedBlksHit": 91,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-new-cancel-first-promotion requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[32055901,29599401] calls=18 totalExecMs=1.238148 rows=14 sharedBlksHit=247 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-new-cancel-first-promotion requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[42206100,20830800] calls=18 totalExecMs=0.6994669999999998 rows=13 sharedBlksHit=91 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -477,15 +477,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          20391299,
-          60319700
+          20436000,
+          37818300
         ],
         "calls": 21,
-        "totalExecMs": 0.6982910000000001,
+        "totalExecMs": 0.5562010000000001,
         "rows": 12,
         "sharedBlksHit": 56,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-reactivation-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[20391299,60319700] calls=21 totalExecMs=0.6982910000000001 rows=12 sharedBlksHit=56 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-reactivation-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[20436000,37818300] calls=21 totalExecMs=0.5562010000000001 rows=12 sharedBlksHit=56 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -501,15 +501,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          54104399,
-          16505901
+          31249900,
+          11164700
         ],
         "calls": 21,
-        "totalExecMs": 0.7670290000000001,
+        "totalExecMs": 0.486778,
         "rows": 13,
         "sharedBlksHit": 57,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-reactivation-cancel-first-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[54104399,16505901] calls=21 totalExecMs=0.7670290000000001 rows=13 sharedBlksHit=57 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-reactivation-cancel-first-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[31249900,11164700] calls=21 totalExecMs=0.486778 rows=13 sharedBlksHit=57 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -525,15 +525,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          6478701,
-          12815700
+          34012000,
+          37150600
         ],
         "calls": 7,
-        "totalExecMs": 0.11605299999999998,
+        "totalExecMs": 0.540751,
         "rows": 3,
-        "sharedBlksHit": 15,
+        "sharedBlksHit": 16,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-direct-participation-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[6478701,12815700] calls=7 totalExecMs=0.11605299999999998 rows=3 sharedBlksHit=15 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-direct-participation-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[34012000,37150600] calls=7 totalExecMs=0.540751 rows=3 sharedBlksHit=16 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -549,15 +549,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          9628300,
-          4302498
+          13575700,
+          5366000
         ],
         "calls": 7,
-        "totalExecMs": 0.125272,
+        "totalExecMs": 0.292016,
         "rows": 3,
-        "sharedBlksHit": 15,
+        "sharedBlksHit": 16,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[9628300,4302498] calls=7 totalExecMs=0.125272 rows=3 sharedBlksHit=15 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[13575700,5366000] calls=7 totalExecMs=0.292016 rows=3 sharedBlksHit=16 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -573,15 +573,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          6452800,
-          13908900
+          4102300,
+          6966200
         ],
         "calls": 7,
-        "totalExecMs": 0.132,
+        "totalExecMs": 0.08271300000000001,
         "rows": 3,
         "sharedBlksHit": 14,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-new-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[6452800,13908900] calls=7 totalExecMs=0.132 rows=3 sharedBlksHit=14 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-new-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[4102300,6966200] calls=7 totalExecMs=0.08271300000000001 rows=3 sharedBlksHit=14 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -597,15 +597,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          23867800,
-          19671101
+          28152300,
+          22143700
         ],
         "calls": 7,
-        "totalExecMs": 0.168906,
+        "totalExecMs": 0.212425,
         "rows": 3,
         "sharedBlksHit": 15,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-new-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[23867800,19671101] calls=7 totalExecMs=0.168906 rows=3 sharedBlksHit=15 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-new-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[28152300,22143700] calls=7 totalExecMs=0.212425 rows=3 sharedBlksHit=15 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -621,15 +621,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          10912201,
-          31951699
+          3748200,
+          6587900
         ],
         "calls": 7,
-        "totalExecMs": 0.387941,
+        "totalExecMs": 0.081279,
         "rows": 4,
         "sharedBlksHit": 17,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-reactivation-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[10912201,31951699] calls=7 totalExecMs=0.387941 rows=4 sharedBlksHit=17 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-reactivation-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[3748200,6587900] calls=7 totalExecMs=0.081279 rows=4 sharedBlksHit=17 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -645,15 +645,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          8083099,
-          4733599
+          7570400,
+          5173800
         ],
         "calls": 7,
-        "totalExecMs": 0.11771599999999999,
+        "totalExecMs": 0.148316,
         "rows": 4,
-        "sharedBlksHit": 17,
+        "sharedBlksHit": 18,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-reactivation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8083099,4733599] calls=7 totalExecMs=0.11771599999999999 rows=4 sharedBlksHit=17 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-reactivation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[7570400,5173800] calls=7 totalExecMs=0.148316 rows=4 sharedBlksHit=18 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -669,15 +669,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          4407500,
-          6190599
+          7867600,
+          10681500
         ],
         "calls": 6,
-        "totalExecMs": 0.098354,
+        "totalExecMs": 0.168223,
         "rows": 5,
-        "sharedBlksHit": 20,
+        "sharedBlksHit": 21,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[4407500,6190599] calls=6 totalExecMs=0.098354 rows=5 sharedBlksHit=20 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[7867600,10681500] calls=6 totalExecMs=0.168223 rows=5 sharedBlksHit=21 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -693,351 +693,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          8710600,
-          6351800
+          10031500,
+          7124300
         ],
         "calls": 7,
-        "totalExecMs": 0.15485500000000002,
-        "rows": 5,
-        "sharedBlksHit": 23,
-        "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-correction-first requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8710600,6351800] calls=7 totalExecMs=0.15485500000000002 rows=5 sharedBlksHit=23 sharedBlksRead=0"
-      },
-      {
-        "candidate": "A",
-        "scenario": "T2-start-participation-cancel-first",
-        "requestCount": 2,
-        "success": 1,
-        "businessFailure": 1,
-        "concurrencyFailure": 0,
-        "technicalFailure": 0,
-        "conflictCount": 0,
-        "retry0": 2,
-        "retry1": 0,
-        "retry2": 0,
-        "exhausted": 0,
-        "responseNanos": [
-          8777901,
-          13530001
-        ],
-        "calls": 6,
-        "totalExecMs": 0.118169,
-        "rows": 5,
-        "sharedBlksHit": 20,
-        "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-participation-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[8777901,13530001] calls=6 totalExecMs=0.118169 rows=5 sharedBlksHit=20 sharedBlksRead=0"
-      },
-      {
-        "candidate": "A",
-        "scenario": "T2-start-participation-correction-first",
-        "requestCount": 2,
-        "success": 1,
-        "businessFailure": 1,
-        "concurrencyFailure": 0,
-        "technicalFailure": 0,
-        "conflictCount": 0,
-        "retry0": 2,
-        "retry1": 0,
-        "retry2": 0,
-        "exhausted": 0,
-        "responseNanos": [
-          11781299,
-          7613399
-        ],
-        "calls": 6,
-        "totalExecMs": 0.22614499999999998,
-        "rows": 5,
-        "sharedBlksHit": 20,
-        "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-participation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[11781299,7613399] calls=6 totalExecMs=0.22614499999999998 rows=5 sharedBlksHit=20 sharedBlksRead=0"
-      },
-      {
-        "candidate": "A",
-        "scenario": "T2-waitlist-new-promotion",
-        "requestCount": 2,
-        "success": 2,
-        "businessFailure": 0,
-        "concurrencyFailure": 0,
-        "technicalFailure": 0,
-        "conflictCount": 0,
-        "retry0": 2,
-        "retry1": 0,
-        "retry2": 0,
-        "exhausted": 0,
-        "responseNanos": [
-          6086301,
-          40012801
-        ],
-        "calls": 14,
-        "totalExecMs": 0.682398,
-        "rows": 10,
-        "sharedBlksHit": 53,
-        "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-new-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[6086301,40012801] calls=14 totalExecMs=0.682398 rows=10 sharedBlksHit=53 sharedBlksRead=0"
-      },
-      {
-        "candidate": "A",
-        "scenario": "T2-waitlist-new-cancel-first-promotion",
-        "requestCount": 2,
-        "success": 1,
-        "businessFailure": 1,
-        "concurrencyFailure": 0,
-        "technicalFailure": 0,
-        "conflictCount": 0,
-        "retry0": 2,
-        "retry1": 0,
-        "retry2": 0,
-        "exhausted": 0,
-        "responseNanos": [
-          56205300,
-          53506000
-        ],
-        "calls": 17,
-        "totalExecMs": 1.0214839999999998,
-        "rows": 13,
-        "sharedBlksHit": 77,
-        "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-new-cancel-first-promotion requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[56205300,53506000] calls=17 totalExecMs=1.0214839999999998 rows=13 sharedBlksHit=77 sharedBlksRead=0"
-      },
-      {
-        "candidate": "A",
-        "scenario": "T2-waitlist-reactivation-promotion",
-        "requestCount": 2,
-        "success": 2,
-        "businessFailure": 0,
-        "concurrencyFailure": 0,
-        "technicalFailure": 0,
-        "conflictCount": 0,
-        "retry0": 2,
-        "retry1": 0,
-        "retry2": 0,
-        "exhausted": 0,
-        "responseNanos": [
-          33688600,
-          53862099
-        ],
-        "calls": 21,
-        "totalExecMs": 0.6908070000000001,
-        "rows": 12,
-        "sharedBlksHit": 56,
-        "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-reactivation-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[33688600,53862099] calls=21 totalExecMs=0.6908070000000001 rows=12 sharedBlksHit=56 sharedBlksRead=0"
-      },
-      {
-        "candidate": "A",
-        "scenario": "T2-waitlist-reactivation-cancel-first-promotion",
-        "requestCount": 2,
-        "success": 2,
-        "businessFailure": 0,
-        "concurrencyFailure": 0,
-        "technicalFailure": 0,
-        "conflictCount": 0,
-        "retry0": 2,
-        "retry1": 0,
-        "retry2": 0,
-        "exhausted": 0,
-        "responseNanos": [
-          47471399,
-          17894299
-        ],
-        "calls": 21,
-        "totalExecMs": 0.7128750000000001,
-        "rows": 13,
-        "sharedBlksHit": 57,
-        "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-reactivation-cancel-first-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[47471399,17894299] calls=21 totalExecMs=0.7128750000000001 rows=13 sharedBlksHit=57 sharedBlksRead=0"
-      },
-      {
-        "candidate": "A",
-        "scenario": "T2-start-direct-participation-first",
-        "requestCount": 2,
-        "success": 1,
-        "businessFailure": 1,
-        "concurrencyFailure": 0,
-        "technicalFailure": 0,
-        "conflictCount": 0,
-        "retry0": 2,
-        "retry1": 0,
-        "retry2": 0,
-        "exhausted": 0,
-        "responseNanos": [
-          10694102,
-          12986102
-        ],
-        "calls": 7,
-        "totalExecMs": 0.21068,
-        "rows": 3,
-        "sharedBlksHit": 15,
-        "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-direct-participation-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[10694102,12986102] calls=7 totalExecMs=0.21068 rows=3 sharedBlksHit=15 sharedBlksRead=0"
-      },
-      {
-        "candidate": "A",
-        "scenario": "T2-start-correction-first",
-        "requestCount": 2,
-        "success": 1,
-        "businessFailure": 1,
-        "concurrencyFailure": 0,
-        "technicalFailure": 0,
-        "conflictCount": 0,
-        "retry0": 2,
-        "retry1": 0,
-        "retry2": 0,
-        "exhausted": 0,
-        "responseNanos": [
-          29091000,
-          4508701
-        ],
-        "calls": 7,
-        "totalExecMs": 0.251989,
-        "rows": 3,
-        "sharedBlksHit": 15,
-        "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[29091000,4508701] calls=7 totalExecMs=0.251989 rows=3 sharedBlksHit=15 sharedBlksRead=0"
-      },
-      {
-        "candidate": "A",
-        "scenario": "T2-start-waitlist-new-registration-first",
-        "requestCount": 2,
-        "success": 1,
-        "businessFailure": 1,
-        "concurrencyFailure": 0,
-        "technicalFailure": 0,
-        "conflictCount": 0,
-        "retry0": 2,
-        "retry1": 0,
-        "retry2": 0,
-        "exhausted": 0,
-        "responseNanos": [
-          4576600,
-          8586800
-        ],
-        "calls": 7,
-        "totalExecMs": 0.119208,
-        "rows": 3,
-        "sharedBlksHit": 15,
-        "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-new-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[4576600,8586800] calls=7 totalExecMs=0.119208 rows=3 sharedBlksHit=15 sharedBlksRead=0"
-      },
-      {
-        "candidate": "A",
-        "scenario": "T2-start-waitlist-new-correction-first",
-        "requestCount": 2,
-        "success": 1,
-        "businessFailure": 1,
-        "concurrencyFailure": 0,
-        "technicalFailure": 0,
-        "conflictCount": 0,
-        "retry0": 2,
-        "retry1": 0,
-        "retry2": 0,
-        "exhausted": 0,
-        "responseNanos": [
-          10157700,
-          5072900
-        ],
-        "calls": 7,
-        "totalExecMs": 0.212805,
-        "rows": 3,
-        "sharedBlksHit": 14,
-        "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-new-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[10157700,5072900] calls=7 totalExecMs=0.212805 rows=3 sharedBlksHit=14 sharedBlksRead=0"
-      },
-      {
-        "candidate": "A",
-        "scenario": "T2-start-waitlist-reactivation-registration-first",
-        "requestCount": 2,
-        "success": 1,
-        "businessFailure": 1,
-        "concurrencyFailure": 0,
-        "technicalFailure": 0,
-        "conflictCount": 0,
-        "retry0": 2,
-        "retry1": 0,
-        "retry2": 0,
-        "exhausted": 0,
-        "responseNanos": [
-          20641800,
-          25007900
-        ],
-        "calls": 7,
-        "totalExecMs": 0.205875,
-        "rows": 4,
-        "sharedBlksHit": 18,
-        "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-reactivation-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[20641800,25007900] calls=7 totalExecMs=0.205875 rows=4 sharedBlksHit=18 sharedBlksRead=0"
-      },
-      {
-        "candidate": "A",
-        "scenario": "T2-start-waitlist-reactivation-correction-first",
-        "requestCount": 2,
-        "success": 1,
-        "businessFailure": 1,
-        "concurrencyFailure": 0,
-        "technicalFailure": 0,
-        "conflictCount": 0,
-        "retry0": 2,
-        "retry1": 0,
-        "retry2": 0,
-        "exhausted": 0,
-        "responseNanos": [
-          9561300,
-          6517299
-        ],
-        "calls": 7,
-        "totalExecMs": 0.205057,
-        "rows": 4,
-        "sharedBlksHit": 18,
-        "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-reactivation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[9561300,6517299] calls=7 totalExecMs=0.205057 rows=4 sharedBlksHit=18 sharedBlksRead=0"
-      },
-      {
-        "candidate": "A",
-        "scenario": "T2-start-waitlist-cancel-first",
-        "requestCount": 2,
-        "success": 1,
-        "businessFailure": 1,
-        "concurrencyFailure": 0,
-        "technicalFailure": 0,
-        "conflictCount": 0,
-        "retry0": 2,
-        "retry1": 0,
-        "retry2": 0,
-        "exhausted": 0,
-        "responseNanos": [
-          4275100,
-          6105500
-        ],
-        "calls": 6,
-        "totalExecMs": 0.107679,
-        "rows": 5,
-        "sharedBlksHit": 20,
-        "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[4275100,6105500] calls=6 totalExecMs=0.107679 rows=5 sharedBlksHit=20 sharedBlksRead=0"
-      },
-      {
-        "candidate": "A",
-        "scenario": "T2-start-waitlist-correction-first",
-        "requestCount": 2,
-        "success": 2,
-        "businessFailure": 0,
-        "concurrencyFailure": 0,
-        "technicalFailure": 0,
-        "conflictCount": 0,
-        "retry0": 2,
-        "retry1": 0,
-        "retry2": 0,
-        "exhausted": 0,
-        "responseNanos": [
-          9211300,
-          6870799
-        ],
-        "calls": 7,
-        "totalExecMs": 0.19588499999999998,
+        "totalExecMs": 0.182244,
         "rows": 5,
         "sharedBlksHit": 24,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-correction-first requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[9211300,6870799] calls=7 totalExecMs=0.19588499999999998 rows=5 sharedBlksHit=24 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-correction-first requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[10031500,7124300] calls=7 totalExecMs=0.182244 rows=5 sharedBlksHit=24 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -1053,15 +717,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          9504200,
-          13150099
+          7150100,
+          10475600
         ],
         "calls": 6,
-        "totalExecMs": 0.222734,
+        "totalExecMs": 0.23410599999999998,
         "rows": 5,
         "sharedBlksHit": 20,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-participation-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[9504200,13150099] calls=6 totalExecMs=0.222734 rows=5 sharedBlksHit=20 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-participation-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[7150100,10475600] calls=6 totalExecMs=0.23410599999999998 rows=5 sharedBlksHit=20 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -1077,15 +741,351 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          5656501,
-          3516500
+          28096000,
+          4062100
         ],
         "calls": 6,
-        "totalExecMs": 0.115842,
+        "totalExecMs": 0.438711,
+        "rows": 5,
+        "sharedBlksHit": 19,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-participation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[28096000,4062100] calls=6 totalExecMs=0.438711 rows=5 sharedBlksHit=19 sharedBlksRead=0"
+      },
+      {
+        "candidate": "A",
+        "scenario": "T2-waitlist-new-promotion",
+        "requestCount": 2,
+        "success": 2,
+        "businessFailure": 0,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          9328800,
+          49325500
+        ],
+        "calls": 15,
+        "totalExecMs": 0.7473180000000001,
+        "rows": 10,
+        "sharedBlksHit": 55,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-new-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[9328800,49325500] calls=15 totalExecMs=0.7473180000000001 rows=10 sharedBlksHit=55 sharedBlksRead=0"
+      },
+      {
+        "candidate": "A",
+        "scenario": "T2-waitlist-new-cancel-first-promotion",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          20410400,
+          18481300
+        ],
+        "calls": 18,
+        "totalExecMs": 0.47765300000000005,
+        "rows": 13,
+        "sharedBlksHit": 79,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-new-cancel-first-promotion requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[20410400,18481300] calls=18 totalExecMs=0.47765300000000005 rows=13 sharedBlksHit=79 sharedBlksRead=0"
+      },
+      {
+        "candidate": "A",
+        "scenario": "T2-waitlist-reactivation-promotion",
+        "requestCount": 2,
+        "success": 2,
+        "businessFailure": 0,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          36929000,
+          73774800
+        ],
+        "calls": 21,
+        "totalExecMs": 0.9027149999999999,
+        "rows": 12,
+        "sharedBlksHit": 56,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-reactivation-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[36929000,73774800] calls=21 totalExecMs=0.9027149999999999 rows=12 sharedBlksHit=56 sharedBlksRead=0"
+      },
+      {
+        "candidate": "A",
+        "scenario": "T2-waitlist-reactivation-cancel-first-promotion",
+        "requestCount": 2,
+        "success": 2,
+        "businessFailure": 0,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          53543100,
+          32780300
+        ],
+        "calls": 21,
+        "totalExecMs": 0.8749690000000001,
+        "rows": 13,
+        "sharedBlksHit": 57,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-waitlist-reactivation-cancel-first-promotion requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[53543100,32780300] calls=21 totalExecMs=0.8749690000000001 rows=13 sharedBlksHit=57 sharedBlksRead=0"
+      },
+      {
+        "candidate": "A",
+        "scenario": "T2-start-direct-participation-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          9531700,
+          14374500
+        ],
+        "calls": 7,
+        "totalExecMs": 0.164651,
+        "rows": 3,
+        "sharedBlksHit": 15,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-direct-participation-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[9531700,14374500] calls=7 totalExecMs=0.164651 rows=3 sharedBlksHit=15 sharedBlksRead=0"
+      },
+      {
+        "candidate": "A",
+        "scenario": "T2-start-correction-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          30248600,
+          4601500
+        ],
+        "calls": 7,
+        "totalExecMs": 0.275906,
+        "rows": 3,
+        "sharedBlksHit": 16,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[30248600,4601500] calls=7 totalExecMs=0.275906 rows=3 sharedBlksHit=16 sharedBlksRead=0"
+      },
+      {
+        "candidate": "A",
+        "scenario": "T2-start-waitlist-new-registration-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          7420100,
+          30878900
+        ],
+        "calls": 7,
+        "totalExecMs": 0.18348199999999998,
+        "rows": 3,
+        "sharedBlksHit": 14,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-new-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[7420100,30878900] calls=7 totalExecMs=0.18348199999999998 rows=3 sharedBlksHit=14 sharedBlksRead=0"
+      },
+      {
+        "candidate": "A",
+        "scenario": "T2-start-waitlist-new-correction-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          33411100,
+          27440900
+        ],
+        "calls": 7,
+        "totalExecMs": 0.237037,
+        "rows": 3,
+        "sharedBlksHit": 14,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-new-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[33411100,27440900] calls=7 totalExecMs=0.237037 rows=3 sharedBlksHit=14 sharedBlksRead=0"
+      },
+      {
+        "candidate": "A",
+        "scenario": "T2-start-waitlist-reactivation-registration-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          4823100,
+          10958100
+        ],
+        "calls": 7,
+        "totalExecMs": 0.137731,
+        "rows": 4,
+        "sharedBlksHit": 18,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-reactivation-registration-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[4823100,10958100] calls=7 totalExecMs=0.137731 rows=4 sharedBlksHit=18 sharedBlksRead=0"
+      },
+      {
+        "candidate": "A",
+        "scenario": "T2-start-waitlist-reactivation-correction-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          9255000,
+          6641900
+        ],
+        "calls": 7,
+        "totalExecMs": 0.174325,
+        "rows": 4,
+        "sharedBlksHit": 18,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-reactivation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[9255000,6641900] calls=7 totalExecMs=0.174325 rows=4 sharedBlksHit=18 sharedBlksRead=0"
+      },
+      {
+        "candidate": "A",
+        "scenario": "T2-start-waitlist-cancel-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          4597800,
+          6912200
+        ],
+        "calls": 6,
+        "totalExecMs": 0.11766199999999999,
+        "rows": 5,
+        "sharedBlksHit": 21,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[4597800,6912200] calls=6 totalExecMs=0.11766199999999999 rows=5 sharedBlksHit=21 sharedBlksRead=0"
+      },
+      {
+        "candidate": "A",
+        "scenario": "T2-start-waitlist-correction-first",
+        "requestCount": 2,
+        "success": 2,
+        "businessFailure": 0,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          7640900,
+          5787600
+        ],
+        "calls": 7,
+        "totalExecMs": 0.17022199999999998,
+        "rows": 5,
+        "sharedBlksHit": 24,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-waitlist-correction-first requestCount=2 success=2 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[7640900,5787600] calls=7 totalExecMs=0.17022199999999998 rows=5 sharedBlksHit=24 sharedBlksRead=0"
+      },
+      {
+        "candidate": "A",
+        "scenario": "T2-start-participation-cancel-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          4895200,
+          7173600
+        ],
+        "calls": 6,
+        "totalExecMs": 0.137395,
+        "rows": 5,
+        "sharedBlksHit": 19,
+        "sharedBlksRead": 0,
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-participation-cancel-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[4895200,7173600] calls=6 totalExecMs=0.137395 rows=5 sharedBlksHit=19 sharedBlksRead=0"
+      },
+      {
+        "candidate": "A",
+        "scenario": "T2-start-participation-correction-first",
+        "requestCount": 2,
+        "success": 1,
+        "businessFailure": 1,
+        "concurrencyFailure": 0,
+        "technicalFailure": 0,
+        "conflictCount": 0,
+        "retry0": 2,
+        "retry1": 0,
+        "retry2": 0,
+        "exhausted": 0,
+        "responseNanos": [
+          11317600,
+          4003900
+        ],
+        "calls": 6,
+        "totalExecMs": 0.12146000000000001,
         "rows": 5,
         "sharedBlksHit": 20,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-participation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[5656501,3516500] calls=6 totalExecMs=0.115842 rows=5 sharedBlksHit=20 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-start-participation-correction-first requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[11317600,4003900] calls=6 totalExecMs=0.12146000000000001 rows=5 sharedBlksHit=20 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -1102,11 +1102,11 @@
         "exhausted": 0,
         "responseNanos": [],
         "calls": 1,
-        "totalExecMs": 0.017936,
+        "totalExecMs": 0.02548,
         "rows": 2,
         "sharedBlksHit": 2,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-due-room-order requestCount=0 success=0 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=0 retry1=0 retry2=0 exhausted=0 responseNanos=[] calls=1 totalExecMs=0.017936 rows=2 sharedBlksHit=2 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-due-room-order requestCount=0 success=0 businessFailure=0 concurrencyFailure=0 technicalFailure=0 conflictCount=0 retry0=0 retry1=0 retry2=0 exhausted=0 responseNanos=[] calls=1 totalExecMs=0.02548 rows=2 sharedBlksHit=2 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -1122,15 +1122,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          22209899,
-          15130100
+          21687100,
+          45191300
         ],
-        "calls": 16,
-        "totalExecMs": 10.881242,
+        "calls": 17,
+        "totalExecMs": 15.615142999999998,
         "rows": 8,
-        "sharedBlksHit": 150,
+        "sharedBlksHit": 111,
         "sharedBlksRead": 4,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-lock requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=1 retry0=1 retry1=1 retry2=0 exhausted=0 responseNanos=[22209899,15130100] calls=16 totalExecMs=10.881242 rows=8 sharedBlksHit=150 sharedBlksRead=4"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-lock requestCount=2 success=1 businessFailure=1 concurrencyFailure=0 technicalFailure=0 conflictCount=1 retry0=1 retry1=1 retry2=0 exhausted=0 responseNanos=[21687100,45191300] calls=17 totalExecMs=15.615142999999998 rows=8 sharedBlksHit=111 sharedBlksRead=4"
       },
       {
         "candidate": "A",
@@ -1146,14 +1146,14 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          22362900
+          31246600
         ],
         "calls": 4,
-        "totalExecMs": 0.186272,
+        "totalExecMs": 0.348548,
         "rows": 2,
         "sharedBlksHit": 11,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-rollback requestCount=1 success=0 businessFailure=0 concurrencyFailure=0 technicalFailure=1 conflictCount=0 retry0=1 retry1=0 retry2=0 exhausted=0 responseNanos=[22362900] calls=4 totalExecMs=0.186272 rows=2 sharedBlksHit=11 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T2-rollback requestCount=1 success=0 businessFailure=0 concurrencyFailure=0 technicalFailure=1 conflictCount=0 retry0=1 retry1=0 retry2=0 exhausted=0 responseNanos=[31246600] calls=4 totalExecMs=0.348548 rows=2 sharedBlksHit=11 sharedBlksRead=0"
       }
     ],
     "T3": [
@@ -1171,14 +1171,14 @@
         "retry2": 1,
         "exhausted": 1,
         "responseNanos": [
-          18753101
+          16216000
         ],
         "calls": 12,
-        "totalExecMs": 0.28706,
+        "totalExecMs": 0.251696,
         "rows": 6,
         "sharedBlksHit": 38,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T3-optimistic-exhausted requestCount=1 success=0 businessFailure=0 concurrencyFailure=1 technicalFailure=0 conflictCount=3 retry0=0 retry1=0 retry2=1 exhausted=1 responseNanos=[18753101] calls=12 totalExecMs=0.28706 rows=6 sharedBlksHit=38 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T3-optimistic-exhausted requestCount=1 success=0 businessFailure=0 concurrencyFailure=1 technicalFailure=0 conflictCount=3 retry0=0 retry1=0 retry2=1 exhausted=1 responseNanos=[16216000] calls=12 totalExecMs=0.251696 rows=6 sharedBlksHit=38 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -1194,14 +1194,14 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          6452901
+          5425900
         ],
         "calls": 4,
-        "totalExecMs": 0.116742,
+        "totalExecMs": 0.095917,
         "rows": 2,
         "sharedBlksHit": 11,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T3-unexpected-technical requestCount=1 success=0 businessFailure=0 concurrencyFailure=0 technicalFailure=1 conflictCount=0 retry0=1 retry1=0 retry2=0 exhausted=0 responseNanos=[6452901] calls=4 totalExecMs=0.116742 rows=2 sharedBlksHit=11 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T3-unexpected-technical requestCount=1 success=0 businessFailure=0 concurrencyFailure=0 technicalFailure=1 conflictCount=0 retry0=1 retry1=0 retry2=0 exhausted=0 responseNanos=[5425900] calls=4 totalExecMs=0.095917 rows=2 sharedBlksHit=11 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -1217,14 +1217,14 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          118257800
+          145459300
         ],
         "calls": 4,
-        "totalExecMs": 0.039174,
+        "totalExecMs": 0.099875,
         "rows": 1,
         "sharedBlksHit": 3,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T3-lock-timeout requestCount=1 success=0 businessFailure=0 concurrencyFailure=0 technicalFailure=1 conflictCount=0 retry0=1 retry1=0 retry2=0 exhausted=0 responseNanos=[118257800] calls=4 totalExecMs=0.039174 rows=1 sharedBlksHit=3 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T3-lock-timeout requestCount=1 success=0 businessFailure=0 concurrencyFailure=0 technicalFailure=1 conflictCount=0 retry0=1 retry1=0 retry2=0 exhausted=0 responseNanos=[145459300] calls=4 totalExecMs=0.099875 rows=1 sharedBlksHit=3 sharedBlksRead=0"
       },
       {
         "candidate": "A",
@@ -1240,15 +1240,15 @@
         "retry2": 0,
         "exhausted": 0,
         "responseNanos": [
-          1010853299,
-          1041648700
+          1014655900,
+          1045894900
         ],
-        "calls": 14,
-        "totalExecMs": 1003.677047,
+        "calls": 15,
+        "totalExecMs": 1001.7605419999999,
         "rows": 10,
-        "sharedBlksHit": 102,
+        "sharedBlksHit": 104,
         "sharedBlksRead": 0,
-        "rawRecord": "ROOM785_RAW candidate=A scenario=T3-deadlock requestCount=2 success=1 businessFailure=0 concurrencyFailure=0 technicalFailure=1 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[1010853299,1041648700] calls=14 totalExecMs=1003.677047 rows=10 sharedBlksHit=102 sharedBlksRead=0"
+        "rawRecord": "ROOM785_RAW candidate=A scenario=T3-deadlock requestCount=2 success=1 businessFailure=0 concurrencyFailure=0 technicalFailure=1 conflictCount=0 retry0=2 retry1=0 retry2=0 exhausted=0 responseNanos=[1014655900,1045894900] calls=15 totalExecMs=1001.7605419999999 rows=10 sharedBlksHit=104 sharedBlksRead=0"
       }
     ]
   },

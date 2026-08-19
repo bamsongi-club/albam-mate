@@ -38,7 +38,7 @@
 - artifact에는 `LOCK_BASE`, 후보/source SHA, 측정 실행 SHA, canonical LF 기준 digest, Java/PostgreSQL/image/OS/CPU/config, fixture/time/concurrency/retry budget, 정확한 command를 함께 보존한다.
 - artifact의 `artifactSha256`는 해당 필드 한 줄을 제외한 canonical UTF-8 LF bytes 기준이며, 선언값·테스트 상수·현재 파일 계산값이 모두 일치해야 한다.
 - 결과 경로: `docs/measurements/results/room-785-a/room-785-a.json`
-- 현재 artifact는 공통 T1 1개·T2 45개(단일 3개와 14개 시나리오의 3회 반복)·T3 4개 하네스에서 clean HEAD `a575dc8a95621d7c8c5a313157d975912d7fb510`로 재측정한 결과다. `artifactSha256`는 `4D63FA71CDDC8C8DF894ED518BE957183F56008BD54A79D83B5BF40CC604502D`이며, 공통 `scenarioSetDigest`는 `ECD025F2CC7B4A565AF32FBF851190D0FE744C4DF743E571EFF6AA71E8B5D992`다.
+- 현재 artifact는 공통 T1 1개·T2 45개(단일 3개와 14개 시나리오의 3회 반복)·T3 4개 하네스에서 clean HEAD `87cafe4173dfe128dbedd27dbcc0a97e51ca37b0`로 재측정한 결과다. `artifactSha256`는 `83FA5600C39FA7A140CAEF84A7D9E533EC8BA453C2496F687D3CFFB32894FD57`이며, 공통 `scenarioSetDigest`는 `ECD025F2CC7B4A565AF32FBF851190D0FE744C4DF743E571EFF6AA71E8B5D992`다.
 
 ## 범위 제외
 

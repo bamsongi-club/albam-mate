@@ -103,7 +103,7 @@ class RoomLockStrategyComparisonPostgresTest {
 	private static final String FIXTURE_SEED = RoomLockComparisonMeasurementContract.FIXTURE_SEED;
 	private static final long WAIT_SECONDS = 10;
 	private static final List<String> METRIC_FIELDS = RoomLockComparisonMeasurementContract.METRIC_FIELDS;
-	private static final String EXPECTED_ARTIFACT_SHA256 = "4D63FA71CDDC8C8DF894ED518BE957183F56008BD54A79D83B5BF40CC604502D";
+	private static final String EXPECTED_ARTIFACT_SHA256 = "83FA5600C39FA7A140CAEF84A7D9E533EC8BA453C2496F687D3CFFB32894FD57";
 	private static final Path RAW_ARTIFACT = Path.of(
 		"docs", "measurements", "results", "room-785-a", "room-785-a.json");
 	private int t2Repetition;
