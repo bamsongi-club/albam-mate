@@ -4,6 +4,7 @@ import static cloud.bamsongi.albammate.fixture.StructuredLogAssertions.fieldText
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -13,14 +14,45 @@ import static org.mockito.Mockito.when;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.notification.repository.NotificationOutboxEventRepository;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 class NotificationRelayCoordinatorTest {
+
+	@Test
+	void T1_적체_gauge는_batch_뒤_밀리초를_초로_기록하고_없으면_0이다() {
+		SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+		Metrics.addRegistry(meterRegistry);
+		NotificationRelayExecutor executor = mock(NotificationRelayExecutor.class);
+		NotificationRelayFailureRecorder failureRecorder = mock(NotificationRelayFailureRecorder.class);
+		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
+		NotificationRelayProperties properties = new NotificationRelayProperties();
+		when(executor.processOne()).thenReturn(Optional.empty());
+		when(eventRepository.findOldestProcessableAgeMillis()).thenReturn(65_500L, (Long)null);
+		NotificationRelayCoordinator coordinator = new NotificationRelayCoordinator(executor, failureRecorder,
+			eventRepository, properties);
+
+		try {
+			coordinator.processBatch();
+			assertEquals(65.5, meterRegistry.get("notification.relay.oldest.processable.age").gauge().value());
+			InOrder batchOrder = inOrder(executor, eventRepository);
+			batchOrder.verify(executor).processOne();
+			batchOrder.verify(eventRepository).findOldestProcessableAgeMillis();
+
+			coordinator.processBatch();
+			assertEquals(0.0, meterRegistry.get("notification.relay.oldest.processable.age").gauge().value());
+		} finally {
+			Metrics.removeRegistry(meterRegistry);
+			meterRegistry.close();
+		}
+	}
 
 	@Test
 	void 한_실행은_설정한_상한까지만_독립_이벤트_처리를_호출한다() {

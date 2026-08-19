@@ -28,6 +28,8 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import cloud.bamsongi.albammate.notification.entity.Notification;
 import cloud.bamsongi.albammate.notification.repository.NotificationOutboxEventRepository;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 class NotificationRelayFailureRecorderTest {
 
@@ -59,6 +61,53 @@ class NotificationRelayFailureRecorderTest {
 				eq(classifier.expiredClassification().sanitizedMessage()));
 		} finally {
 			TransactionSynchronizationManager.clearSynchronization();
+		}
+	}
+
+	@Test
+	void T1_재시도와_최종_실패는_커밋된_결과만_유한_outcome_metric으로_기록한다() {
+		SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+		Metrics.addRegistry(meterRegistry);
+		NotificationOutboxEventRepository eventRepository = mock(NotificationOutboxEventRepository.class);
+		NotificationOutboxEventRepository.RelayFailureRecord retryRecord = failureRecord(true, false);
+		NotificationOutboxEventRepository.RelayFailureRecord failedRecord = failureRecord(false, true);
+		when(
+			eventRepository.recordRelayFailure(anyLong(), anyString(), anyString(), anyString(), anyBoolean(), anyInt(),
+				anyLong(), anyLong(), anyLong(), anyLong(), anyLong(), anyString(), anyString(), anyString()))
+			.thenReturn(Optional.of(retryRecord), Optional.of(failedRecord));
+		NotificationRelayFailureRecorder recorder = new NotificationRelayFailureRecorder(
+			eventRepository, new NotificationRelayFailureClassifier());
+
+		try {
+			RecordedFailureResult retry = recordWithActiveSynchronization(
+				recorder, NotificationRelayProcessingException.failed(10L, new IllegalStateException("retry")));
+			assertEquals(0.0, meterRegistry.get("notification.relay.events").tag("outcome", "retry_scheduled")
+				.counter().count());
+			invokeAfterCommit(retry.synchronizations());
+			TransactionSynchronizationManager.clearSynchronization();
+			RecordedFailureResult failed = recordWithActiveSynchronization(
+				recorder, NotificationRelayProcessingException.failed(11L, new IllegalArgumentException("failed")));
+			assertEquals(0.0, meterRegistry.get("notification.relay.events").tag("outcome", "failed").counter()
+				.count());
+			failed.synchronizations().forEach(
+				synchronization -> synchronization.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK));
+			assertEquals(0.0, meterRegistry.get("notification.relay.events").tag("outcome", "failed").counter()
+				.count());
+			invokeAfterCommit(failed.synchronizations());
+
+			assertEquals(1.0, meterRegistry.get("notification.relay.events").tag("outcome", "retry_scheduled")
+				.counter().count());
+			assertEquals(1.0, meterRegistry.get("notification.relay.events").tag("outcome", "failed").counter()
+				.count());
+			assertTrue(meterRegistry.find("notification.relay.events").meters().stream()
+				.allMatch(meter -> meter.getId().getTags().stream()
+					.allMatch(tag -> "outcome".equals(tag.getKey()))));
+		} finally {
+			if (TransactionSynchronizationManager.isSynchronizationActive()) {
+				TransactionSynchronizationManager.clearSynchronization();
+			}
+			Metrics.removeRegistry(meterRegistry);
+			meterRegistry.close();
 		}
 	}
 

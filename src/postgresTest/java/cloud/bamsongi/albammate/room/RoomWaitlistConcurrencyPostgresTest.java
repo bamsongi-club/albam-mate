@@ -47,9 +47,12 @@ import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.entity.RoomWaitlist;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
+import cloud.bamsongi.albammate.room.service.command.RoomParticipationCancelService;
 import cloud.bamsongi.albammate.room.service.command.RoomStatusChangeService;
 import cloud.bamsongi.albammate.room.service.command.RoomWaitlistCommandService;
 import cloud.bamsongi.albammate.room.statuscorrection.RoomStatusCorrectionCoordinator;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 
 @Testcontainers
 @SpringBootTest
@@ -81,6 +84,10 @@ class RoomWaitlistConcurrencyPostgresTest {
 	private RoomStatusCorrectionCoordinator roomStatusCorrectionCoordinator;
 	@Autowired
 	private RoomStatusChangeService roomStatusChangeService;
+	@Autowired
+	private RoomParticipationCancelService roomParticipationCancelService;
+	@Autowired
+	private MeterRegistry meterRegistry;
 	@Autowired
 	private QueueOrderConflictGate queueOrderConflictGate;
 	@Autowired
@@ -131,6 +138,46 @@ class RoomWaitlistConcurrencyPostgresTest {
 				"select count(*) from room_waitlists where room_id = ? and status = 'WAITING'",
 				Integer.class,
 				roomId));
+	}
+
+	@Test
+	void T3_대기열_진입_취소_FIFO_승격은_PostgreSQL_커밋_뒤_유한_metric과_불변식으로_수렴한다() {
+		jdbcTemplate.update("update rooms set active_participant_count = capacity where id = ?", roomId);
+		double joinsBefore = operationCount("join", "accepted");
+		double cancelsBefore = operationCount("cancel", "accepted");
+		double promotionsBefore = operationCount("promote", "accepted");
+
+		roomWaitlistCommandService.register(secondUserId, roomId);
+		roomWaitlistCommandService.cancel(secondUserId, roomId);
+		roomWaitlistCommandService.register(thirdUserId, roomId);
+		new TransactionTemplate(transactionManager).executeWithoutResult(status -> jdbcTemplate.update(
+			"insert into participations (room_id, user_id, status, joined_at, created_at, updated_at) values (?, ?, "
+				+ "'ACTIVE', ?, ?, ?)",
+			roomId,
+			firstUserId,
+			Timestamp.from(REQUEST_TIME),
+			Timestamp.from(REQUEST_TIME),
+			Timestamp.from(REQUEST_TIME)));
+
+		roomParticipationCancelService.cancelParticipation(firstUserId, roomId);
+
+		assertEquals(joinsBefore + 2.0, operationCount("join", "accepted"));
+		assertEquals(cancelsBefore + 1.0, operationCount("cancel", "accepted"));
+		assertEquals(promotionsBefore + 1.0, operationCount("promote", "accepted"));
+		assertEquals("PROMOTED", waitlistStatus(thirdUserId));
+		assertEquals(1, jdbcTemplate.queryForObject(
+			"select count(*) from participations where room_id = ? and user_id = ? and status = 'ACTIVE'",
+			Integer.class,
+			roomId,
+			thirdUserId));
+		assertEquals(0, jdbcTemplate.queryForObject(
+			"select count(*) from participations where room_id = ? and user_id = ? and status = 'ACTIVE'",
+			Integer.class,
+			roomId,
+			firstUserId));
+		assertTrue(meterRegistry.find("room.waitlist.operations").meters().stream()
+			.allMatch(meter -> meter.getId().getTags().stream()
+				.allMatch(tag -> "operation".equals(tag.getKey()) || "outcome".equals(tag.getKey()))));
 	}
 
 	@Test
@@ -380,6 +427,13 @@ class RoomWaitlistConcurrencyPostgresTest {
 	private long waitlistQueueOrder(long userId) {
 		return jdbcTemplate.queryForObject(
 			"select queue_order from room_waitlists where room_id = ? and user_id = ?", Long.class, roomId, userId);
+	}
+
+	private double operationCount(String operation, String outcome) {
+		Counter counter = meterRegistry.find("room.waitlist.operations")
+			.tags("operation", operation, "outcome", outcome)
+			.counter();
+		return counter == null ? 0.0 : counter.count();
 	}
 
 	private void assertWaitlistActivationAndPromotionRejected(long targetRoomId, long userId, long queueOrder) {

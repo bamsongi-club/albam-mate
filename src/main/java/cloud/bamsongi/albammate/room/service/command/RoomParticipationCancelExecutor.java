@@ -22,6 +22,7 @@ import cloud.bamsongi.albammate.room.enums.RoomStatus;
 import cloud.bamsongi.albammate.room.repository.ParticipationRepository;
 import cloud.bamsongi.albammate.room.repository.RoomRepository;
 import cloud.bamsongi.albammate.room.repository.RoomWaitlistRepository;
+import io.micrometer.core.instrument.Metrics;
 
 /** 참가 취소 한 번을 최신 상태 기준의 독립된 쓰기 트랜잭션에서 처리한다. */
 @Service
@@ -31,16 +32,21 @@ class RoomParticipationCancelExecutor {
 	private final ParticipationRepository participationRepository;
 	private final RoomWaitlistRepository roomWaitlistRepository;
 	private final RoomChangeEventRecorder roomChangeEventRecorder;
+	private final RoomWaitlistMetrics metrics;
 
 	RoomParticipationCancelExecutor(
 		RoomRepository roomRepository,
 		ParticipationRepository participationRepository,
 		RoomWaitlistRepository roomWaitlistRepository,
-		RoomChangeEventRecorder roomChangeEventRecorder) {
+		RoomChangeEventRecorder roomChangeEventRecorder,
+		RoomWaitlistMetrics... metrics) {
 		this.roomRepository = Objects.requireNonNull(roomRepository, "roomRepository");
 		this.participationRepository = Objects.requireNonNull(participationRepository, "participationRepository");
 		this.roomWaitlistRepository = Objects.requireNonNull(roomWaitlistRepository, "roomWaitlistRepository");
 		this.roomChangeEventRecorder = Objects.requireNonNull(roomChangeEventRecorder, "roomChangeEventRecorder");
+		this.metrics = metrics.length == 0
+			? new RoomWaitlistMetrics(Metrics.globalRegistry)
+			: Objects.requireNonNull(metrics[0], "metrics");
 	}
 
 	/** 요청 시각의 방 상태를 보정한 뒤 활성 참가 관계를 취소하고 점유 인원을 갱신한다. */
@@ -75,6 +81,23 @@ class RoomParticipationCancelExecutor {
 		return RoomParticipationResponse.from(room, ParticipationStatus.CANCELED);
 	}
 
+	private void registerPromotionOutcomeAfterCompletion() {
+		if (!org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+			return;
+		}
+		org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+			new org.springframework.transaction.support.TransactionSynchronization() {
+				@Override
+				public void afterCompletion(int status) {
+					if (status == STATUS_COMMITTED) {
+						metrics.recordPromoteAccepted();
+					} else {
+						metrics.recordPromoteFailed();
+					}
+				}
+			});
+	}
+
 	/** 현재 ROOM의 빈자리 하나에는 조건부 전이에 성공한 첫 대기자만 활성 참가로 만든다. */
 	private Optional<Long> promoteFirstWaiting(Room room, Instant requestTime) {
 		if (room.getStatus() != RoomStatus.RECRUITING) {
@@ -91,6 +114,7 @@ class RoomParticipationCancelExecutor {
 				room.getId(), waiting.getUserId(), waiting.getQueueOrder(), requestTime) == 0) {
 				continue;
 			}
+			registerPromotionOutcomeAfterCompletion();
 
 			room.addActiveParticipant();
 			roomRepository.save(room);

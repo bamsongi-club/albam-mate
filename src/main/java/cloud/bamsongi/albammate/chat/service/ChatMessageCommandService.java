@@ -24,13 +24,12 @@ import cloud.bamsongi.albammate.global.exception.BusinessException;
 import cloud.bamsongi.albammate.global.exception.ErrorCode;
 import cloud.bamsongi.albammate.room.contract.ChatAccessGuard;
 import cloud.bamsongi.albammate.user.contract.UserQuery;
-import lombok.RequiredArgsConstructor;
+import io.micrometer.core.instrument.Metrics;
 import lombok.extern.slf4j.Slf4j;
 
 /** ROOM 접근 잠금 안에서 메시지를 저장하고, 신규 저장만 커밋 뒤 전달 이벤트로 등록한다. */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ChatMessageCommandService {
 
 	/** LF만 줄바꿈으로 허용하고, 나머지 제어문자는 공백 제거 전에 거절한다. */
@@ -44,14 +43,70 @@ public class ChatMessageCommandService {
 	private final ApplicationEventPublisher eventPublisher;
 	private final Clock clock;
 	private final ChatMessageLimitProperties chatMessageLimitProperties;
+	private final ChatMessageMetrics metrics;
+
+	public ChatMessageCommandService(
+		ChatAccessGuard chatAccessGuard,
+		ChatRoomRepository chatRoomRepository,
+		ChatMessageRepository chatMessageRepository,
+		UserQuery userQuery,
+		ChatMessageRateLimiter chatMessageRateLimiter,
+		ApplicationEventPublisher eventPublisher,
+		Clock clock,
+		ChatMessageLimitProperties chatMessageLimitProperties,
+		ChatMessageMetrics... metrics) {
+		this.chatAccessGuard = Objects.requireNonNull(chatAccessGuard, "chatAccessGuard");
+		this.chatRoomRepository = Objects.requireNonNull(chatRoomRepository, "chatRoomRepository");
+		this.chatMessageRepository = Objects.requireNonNull(chatMessageRepository, "chatMessageRepository");
+		this.userQuery = Objects.requireNonNull(userQuery, "userQuery");
+		this.chatMessageRateLimiter = Objects.requireNonNull(chatMessageRateLimiter, "chatMessageRateLimiter");
+		this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher");
+		this.clock = Objects.requireNonNull(clock, "clock");
+		this.chatMessageLimitProperties = Objects.requireNonNull(chatMessageLimitProperties,
+			"chatMessageLimitProperties");
+		this.metrics = metrics.length == 0
+			? new ChatMessageMetrics(Metrics.globalRegistry)
+			: Objects.requireNonNull(metrics[0], "metrics");
+	}
 
 	@Transactional
 	public ChatMessageSendResult send(long currentUserId, long roomId, ChatMessageSendRequest request) {
 		Objects.requireNonNull(request, "request");
-		return chatAccessGuard.executeWithAccess(
-			currentUserId,
-			roomId,
-			() -> appendMessage(currentUserId, roomId, request));
+		try {
+			ChatMessageSendResult result = chatAccessGuard.executeWithAccess(
+				currentUserId,
+				roomId,
+				() -> appendMessage(currentUserId, roomId, request));
+			registerAcceptedAfterCommit();
+			return result;
+		} catch (BusinessException exception) {
+			recordBusinessException(exception);
+			throw exception;
+		} catch (RuntimeException exception) {
+			metrics.recordFailed();
+			throw exception;
+		}
+	}
+
+	private void recordBusinessException(BusinessException exception) {
+		if (exception.getErrorCode().getStatus() >= 500) {
+			metrics.recordFailed();
+			return;
+		}
+		metrics.recordRejected();
+	}
+
+	/** 새 저장과 같은 멱등 결과 모두 실제 커밋 뒤에만 업무 성공으로 기록한다. */
+	private void registerAcceptedAfterCommit() {
+		if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+			return;
+		}
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void afterCommit() {
+				metrics.recordAccepted();
+			}
+		});
 	}
 
 	private ChatMessageSendResult appendMessage(long currentUserId, long roomId, ChatMessageSendRequest request) {
